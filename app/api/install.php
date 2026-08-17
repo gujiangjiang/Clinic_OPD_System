@@ -29,12 +29,12 @@ $hospital = post('hospital_name');
 $hospital2 = post('hospital_name2');
 $timezone = post('timezone', 'Asia/Shanghai');
 
-// ===== 基础校验 =====
+// ===== 基础校验（报错信息带实际输入长度，便于排查输入法/自动填充导致密码不完整的问题） =====
 if ($password === '' || strlen($password) < 6) {
-    json_fail('管理员密码不能少于6位');
+    json_fail('管理员密码不能少于6位（当前输入 ' . strlen($password) . ' 位，请确认输入法为英文状态后重新输入）');
 }
 if ($password !== $password2) {
-    json_fail('两次输入的密码不一致');
+    json_fail('两次输入的密码不一致，请重新输入');
 }
 if ($hospital === '') {
     json_fail('请填写医院名称');
