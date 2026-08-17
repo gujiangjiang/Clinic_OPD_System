@@ -115,7 +115,8 @@ class Layout {
         $logo = setting('logo', '');
         $favicon = $logo !== '' ? '<link rel="icon" href="' . e($logo) . '">' : '';
         $brandImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
-        $footer = setting('footer', '门诊一体化信息系统 © ' . date('Y'));
+        // 页脚版权：固定格式自动生成【© 年份 医院名称 版权所有】，无需手动配置
+        $footer = '© ' . date('Y') . ' ' . ($hosp !== '' ? $hosp : '门诊一体化信息系统') . ' 版权所有';
         $theme = $u['theme'] ? $u['theme'] : 'auto';
         $pageTitle = $title !== '' ? $hosp . ' - ' . $title : $hosp;
         $avatar = !empty($u['photo']) ? '<img src="' . e($u['photo']) . '" alt="头像">' : '👤';

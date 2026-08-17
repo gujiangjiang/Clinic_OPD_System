@@ -34,8 +34,7 @@ foreach ($commonTz as $t) {
             <input class="input" id="s_hosp2" value="<?php echo e(setting('hospital_name2')); ?>"></div>
         <div class="form-group"><label class="form-label">网站时区</label>
             <select class="select" id="s_tz"><?php echo $tzOpts; ?></select></div>
-        <div class="form-group"><label class="form-label">页脚版权信息</label>
-            <input class="input" id="s_footer" value="<?php echo e(setting('footer')); ?>" placeholder="如：© 2026 XX市人民医院 版权所有"></div>
+        <div class="fs-12 text-muted mb-12">页脚版权信息为固定格式，自动显示为【© <?php echo date('Y'); ?> <?php echo e(setting('hospital_name')); ?> 版权所有】，无需手动设置。</div>
         <div class="form-group"><label class="form-label">HIS 预留接口密钥（用于未来住院HIS等系统对接，留空则关闭外部接口）</label>
             <div class="flex gap-8">
                 <input class="input" id="s_his_key" value="<?php echo e(setting('his_api_key')); ?>" placeholder="留空 = 关闭 HIS 外部接口" style="font-family:monospace">
@@ -81,7 +80,6 @@ function saveSettings() {
         hospital_name: hosp,
         hospital_name2: document.getElementById('s_hosp2').value.trim(),
         timezone: document.getElementById('s_tz').value,
-        footer: document.getElementById('s_footer').value.trim(),
         his_api_key: document.getElementById('s_his_key').value.trim(),
     }, {
         onSuccess: function (json) {

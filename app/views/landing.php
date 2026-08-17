@@ -13,7 +13,8 @@
 $hosp  = setting('hospital_name', '门诊一体化系统');
 $hosp2 = setting('hospital_name2', '');
 $logo  = setting('logo', '');
-$footer= setting('footer', '门诊一体化信息系统 © ' . date('Y'));
+// 页脚版权：固定格式自动生成【© 年份 医院名称 版权所有】
+$footer = '© ' . date('Y') . ' ' . ($hosp !== '' ? $hosp : '门诊一体化信息系统') . ' 版权所有';
 $favicon = $logo !== '' ? '<link rel="icon" href="' . e($logo) . '">' : '';
 $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
 ?>
@@ -40,7 +41,6 @@ $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
     </div>
     <div class="nav-actions">
         <a href="/login">登录系统</a>
-        <a href="/install">首次安装</a>
     </div>
 </nav>
 
@@ -58,7 +58,6 @@ $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
             </p>
             <div class="hero-ctas">
                 <a class="btn-hero primary" href="/login">进入系统 →</a>
-                <a class="btn-hero ghost" href="/install">首次安装配置</a>
             </div>
             <div class="hero-stats">
                 <div class="stat"><div class="num">6+</div><div class="lbl">科室工作站</div></div>
@@ -128,7 +127,7 @@ $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
 </main>
 
 <!-- ===== 页脚 ===== -->
-<footer class="landing-footer"><?php echo e($footer); ?> ｜ Powered by 门诊一体化信息系统</footer>
+<footer class="landing-footer"><?php echo e($footer); ?></footer>
 
 <script src="/assets/js/components/theme.js"></script>
 <script>document.addEventListener('DOMContentLoaded', function () { Clinic.theme.init(); });</script>

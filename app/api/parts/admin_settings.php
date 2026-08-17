@@ -44,7 +44,7 @@ function admin_part_settings($action) {
         if (!in_array($tz, $tzList, true)) $tz = 'Asia/Shanghai';
         set_setting('hospital_name', $hospital);
         set_setting('hospital_name2', post('hospital_name2'));
-        set_setting('footer', post('footer'));
+        // 页脚版权：固定格式自动生成【© 年份 医院名称 版权所有】，不再手动保存
         set_setting('timezone', $tz);
         // HIS 预留接口密钥（可为空=关闭外部接口）
         $hisKey = post('his_api_key', '');

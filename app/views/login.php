@@ -24,7 +24,6 @@ if ($next === '' || $next[0] !== '/') {
     </div>
     <input type="hidden" id="next" value="<?php echo e($next); ?>">
     <button type="button" class="btn btn-primary btn-lg btn-block" id="loginBtn">登 录</button>
-    <div class="auth-footer">首次使用请先完成 <a href="/install">系统安装</a></div>
 </div>
 
 <script>

@@ -5,7 +5,7 @@
  * ============================================================
  * 说明：系统未创建管理员前调用本接口完成初始化：
  * 1. 创建管理员（用户名固定 admin，密码由用户设置）
- * 2. 设置医院名称/第二名称/页脚/站点时区（默认取浏览器时区）
+ * 2. 设置医院名称/第二名称/站点时区（默认取浏览器时区）
  * 3. 上传医院 LOGO（可选，同时用作网站 favicon）
  * ============================================================ */
 
@@ -28,7 +28,6 @@ $password2 = post_raw('password2');
 $hospital = post('hospital_name');
 $hospital2 = post('hospital_name2');
 $timezone = post('timezone', 'Asia/Shanghai');
-$footer = post('footer', '');
 
 // ===== 基础校验 =====
 if ($password === '' || strlen($password) < 6) {
@@ -62,11 +61,10 @@ $adminId = DB::insert('user', 'INSERT INTO users(emp_no, username, password, nam
     '0001', 'admin', password_hash($password, PASSWORD_DEFAULT), '系统管理员', 'admin', 'auto', 1, now_str(),
 ));
 
-// ===== 保存系统设置 =====
+// ===== 保存系统设置（页脚版权不保存：统一自动生成【© 年份 医院名称 版权所有】） =====
 set_setting('hospital_name', $hospital);
 set_setting('hospital_name2', $hospital2);
 set_setting('timezone', $timezone);
-set_setting('footer', $footer);
 set_setting('logo', $logo);
 set_setting('install_time', now_str());
 
