@@ -47,7 +47,8 @@ function admin_part_item($action) {
                         '<td>—</td><td>—</td>' .
                         '<td>' . ($g['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
                         '<td><div class="flex gap-4">' .
-                        '<button class="btn btn-outline btn-sm" onclick="loadModal(\'/api/admin\',{action:\'lab_group_form\',id:' . (int)$g['id'] . '},\'编辑检验组合\')">编辑</button>' .
+                        // 编辑按钮与「新增」共用 openGroupForm(id)
+                        '<button class="btn btn-outline btn-sm" onclick="openGroupForm(' . (int)$g['id'] . ')">编辑</button>' .
                         '<button class="btn btn-outline btn-sm" onclick="delLabGroup(' . (int)$g['id'] . ')">删除</button></div></td></tr>';
                     // 成员行（缩进显示，成员仍可单独编辑/删除）
                     $ms = isset($memberMap[(int)$g['id']]) ? $memberMap[(int)$g['id']] : array();
@@ -58,7 +59,7 @@ function admin_part_item($action) {
                         ($ms ? '<span class="flex gap-4" style="margin-left:12px;display:inline-flex">' .
                             implode('', array_map(function ($m) {
                                 return '<button class="btn btn-outline btn-sm" style="padding:0 8px" ' .
-                                    'onclick="loadModal(\'/api/admin\',{action:\'item_form\',type:\'lab\',id:' . (int)$m['id'] . '},\'编辑成员项目\')">编辑' . e($m['name']) . '</button>';
+                                    'onclick="openItemForm(' . (int)$m['id'] . ')">编辑' . e($m['name']) . '</button>';
                             }, $ms)) . '</span>' : '') .
                         '</td></tr>';
                 }
@@ -71,7 +72,8 @@ function admin_part_item($action) {
                         '<td>' . e($r['unit']) . '</td><td class="fs-12">' . e($r['normal_range']) . '</td>' .
                         '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
                         '<td><div class="flex gap-4">' .
-                        '<button class="btn btn-outline btn-sm" onclick="loadModal(\'/api/admin\',{action:\'item_form\',type:\'lab\',id:' . (int)$r['id'] . '},\'编辑项目\')">编辑</button>' .
+                        // 编辑按钮与「新增」共用 openItemForm(id)
+                        '<button class="btn btn-outline btn-sm" onclick="openItemForm(' . (int)$r['id'] . ')">编辑</button>' .
                         '<button class="btn btn-outline btn-sm" onclick="delItem(\'lab\',' . (int)$r['id'] . ')">删除</button></div></td></tr>';
                 }
                 $html .= '</tbody></table></div>';
@@ -92,7 +94,8 @@ function admin_part_item($action) {
                         '<td class="fs-12 text-muted">' . e(mb_substr($r['description'], 0, 20)) . '</td>' .
                         '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
                         '<td><div class="flex gap-4">' .
-                        '<button class="btn btn-outline btn-sm" onclick="loadModal(\'/api/admin\',{action:\'item_form\',type:\'exam\',id:' . (int)$r['id'] . '},\'编辑项目\')">编辑</button>' .
+                        // 编辑按钮与「新增」共用 openItemForm(id)
+                        '<button class="btn btn-outline btn-sm" onclick="openItemForm(' . (int)$r['id'] . ')">编辑</button>' .
                         '<button class="btn btn-outline btn-sm" onclick="delItem(\'exam\',' . (int)$r['id'] . ')">删除</button></div></td></tr>';
                 }
                 $html .= '</tbody></table></div>';

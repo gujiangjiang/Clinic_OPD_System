@@ -45,7 +45,9 @@ function admin_part_user($action) {
                     '<td class="fs-12">' . e($deptNames) . '</td>' .
                     '<td>' . ($r['status'] == 1 ? '<span class="badge badge-success">启用</span>' : '<span class="badge badge-gray">停用</span>') . '</td>' .
                     '<td><div class="flex gap-4">' .
-                    '<button class="btn btn-outline btn-sm" onclick="loadModal(\'/api/admin\',{action:\'user_form\',id:' . (int)$r['id'] . '},\'编辑用户\')">编辑</button>' .
+                    // 编辑按钮与「新增」共用 openUserForm(id)：会执行 onRoleChange() 初始化职称/科室显示，
+                    // 保证医生编辑时能看到并勾选所属科室（loadModal 通用逻辑不会初始化页面控件）
+                    '<button class="btn btn-outline btn-sm" onclick="openUserForm(' . (int)$r['id'] . ')">编辑</button>' .
                     ($r['role'] !== 'admin' ? '<button class="btn btn-outline btn-sm" onclick="delUser(' . (int)$r['id'] . ')">删除</button>' : '') .
                     '</div></td></tr>';
             }

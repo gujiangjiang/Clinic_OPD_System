@@ -13,7 +13,7 @@ Router::title('检验项目管理');
     <div><div class="page-title">🧪 检验项目管理</div><div class="page-desc">检验项目与组合管理（组合按组价整体收费，新项目需审核通过后可用）</div></div>
     <div class="flex gap-8">
         <button class="btn btn-outline btn-sm" onclick="openCatMgr()">🗂️ 分类管理</button>
-        <button class="btn btn-outline btn-sm" onclick="loadModal('/api/admin',{action:'lab_group_form',id:0},'新增检验组合')">🧩 新增检验组合</button>
+        <button class="btn btn-outline btn-sm" onclick="openGroupForm(0)">🧩 新增检验组合</button>
         <button class="btn btn-primary btn-sm" onclick="openItemForm(0)">＋ 新增检验项目</button>
     </div>
 </div>
@@ -48,6 +48,34 @@ function openItemForm(id) {
                 critical_low: document.getElementById('f_clow') ? document.getElementById('f_clow').value : '',
                 critical_high: document.getElementById('f_chigh') ? document.getElementById('f_chigh').value : '',
                 description: document.getElementById('f_desc').value,
+            }, {
+                onSuccess: function (json) {
+                    Clinic.toast.success(json.msg);
+                    Clinic.modal.close();
+                    loadItemList();
+                },
+            });
+        });
+    });
+}
+
+/* 新增/编辑检验组合（新增与编辑完全复用同一表单与初始化逻辑） */
+function openGroupForm(id) {
+    var mask = Clinic.modal.load('/api/admin', { action: 'lab_group_form', id: id || 0 }, { title: id ? '编辑检验组合' : '新增检验组合' });
+    mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
+        mask.querySelector('.modal-foot').innerHTML =
+            '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+            '<button type="button" class="btn btn-primary" id="grpSave">保存</button>';
+        document.getElementById('grpSave').addEventListener('click', function () {
+            var memberIds = [];
+            document.querySelectorAll('.grpMem:checked').forEach(function (c) { memberIds.push(c.value); });
+            Clinic.ajax('/api/admin', {
+                action: 'lab_group_save',
+                id: id || 0,
+                name: document.getElementById('f_name').value.trim(),
+                category: document.getElementById('f_category').value,
+                price: document.getElementById('f_price').value,
+                member_ids: memberIds.join(','),
             }, {
                 onSuccess: function (json) {
                     Clinic.toast.success(json.msg);

@@ -32,7 +32,8 @@ function admin_part_disp($action) {
                     '<td class="fs-12 text-muted">' . e($r['description']) . '</td>' .
                     '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
                     '<td><div class="flex gap-4">' .
-                    '<button class="btn btn-outline btn-sm" onclick="loadModal(\'/api/admin\',{action:\'disposal_form\',id:' . (int)$r['id'] . '},\'编辑处置\')">编辑</button>' .
+                    // 编辑按钮与「新增」共用 openDisposalForm(id)
+                    '<button class="btn btn-outline btn-sm" onclick="openDisposalForm(' . (int)$r['id'] . ')">编辑</button>' .
                     '<button class="btn btn-outline btn-sm" onclick="delDisposal(' . (int)$r['id'] . ')">删除</button></div></td></tr>';
             }
             $html .= '</tbody></table></div>';

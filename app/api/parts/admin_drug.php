@@ -80,7 +80,8 @@ function admin_part_drug($action) {
                     '<td>¥' . money($r['price']) . '</td>' .
                     '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
                     '<td><div class="flex gap-4">' .
-                    '<button class="btn btn-outline btn-sm" onclick="loadModal(\'/api/admin\',{action:\'drug_form\',id:' . (int)$r['id'] . '},\'编辑药品\')">编辑</button>' .
+                    // 编辑按钮与「新增」共用 openDrugForm(id)
+                    '<button class="btn btn-outline btn-sm" onclick="openDrugForm(' . (int)$r['id'] . ')">编辑</button>' .
                     '<button class="btn btn-outline btn-sm" onclick="delDrug(' . (int)$r['id'] . ')">删除</button></div></td></tr>';
             }
             $html .= '</tbody></table></div>';
