@@ -121,8 +121,9 @@ switch ($action) {
         $waiting = (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE current_dept_id=? AND status='paid'", array($deptId));
 
         // 该科室出诊医生（按用户-科室关联过滤）
+        // 注意：必须 SELECT dept_ids，否则下面 explode() 拿不到关联科室，doctors 恒为空
         $doctors = array();
-        $docs = DB::q('user', "SELECT name, emp_no, title, photo, intro FROM users WHERE role='doctor' AND status=1 ORDER BY id");
+        $docs = DB::q('user', "SELECT name, emp_no, title, photo, intro, dept_ids FROM users WHERE role='doctor' AND status=1 ORDER BY id");
         foreach ($docs as $doc) {
             $ids = array();
             foreach (explode(',', isset($doc['dept_ids']) ? $doc['dept_ids'] : '') as $x) {
