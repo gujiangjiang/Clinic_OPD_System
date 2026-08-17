@@ -22,11 +22,26 @@ switch ($action) {
         $type = get('type', 'lab');
         $list = array();
         if ($type === 'lab') {
-            $rows = DB::q('lab', "SELECT * FROM lab_items WHERE status='approved' ORDER BY category, id");
+            // 检验：独立项目（含组内成员，可单独开）+ 检验组合（按组价整体收费，可整体开组）
+            $rows = DB::q('lab', "SELECT * FROM lab_items WHERE is_group=0 AND status='approved' ORDER BY category, id");
             foreach ($rows as $r) {
                 $list[] = array(
                     'id' => (int)$r['id'], 'name' => $r['name'], 'price' => (float)$r['price'],
                     'unit_name' => $r['unit'], 'category_name' => $r['category'], 'spec' => '', 'stock' => 0,
+                    'is_group' => 0, 'members' => '',
+                );
+            }
+            $groups = DB::q('lab', "SELECT * FROM lab_items WHERE is_group=1 AND status='approved' ORDER BY category, id");
+            foreach ($groups as $g) {
+                $mNames = array();
+                foreach (DB::q('lab', 'SELECT name FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array($g['id'])) as $m) {
+                    $mNames[] = $m['name'];
+                }
+                $list[] = array(
+                    'id' => (int)$g['id'], 'name' => $g['name'], 'price' => (float)$g['price'],
+                    'unit_name' => '', 'category_name' => $g['category'],
+                    'spec' => implode('、', $mNames), 'stock' => 0,
+                    'is_group' => 1, 'members' => implode('、', $mNames),
                 );
             }
         } elseif ($type === 'imaging') {

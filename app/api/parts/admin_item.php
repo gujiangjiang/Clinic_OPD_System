@@ -22,36 +22,177 @@ function admin_part_item($action) {
         $type = get('type', 'lab');
         $table = $type === 'lab' ? 'lab_items' : 'exam_items';
         $rows = DB::q('lab', "SELECT * FROM $table ORDER BY category, id");
-        $html = '<div class="fs-13 text-muted mb-8">' . ($type === 'lab' ? '检验项目' : '检查项目') . '共 ' . count($rows) . ' 项</div>';
-        if (!$rows) {
-            $html .= '<div class="empty">暂无项目，请先添加</div>';
-        } else {
-            $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
-                '<th>名称</th><th>分类</th><th>价格</th>' .
-                ($type === 'lab' ? '<th>单位</th><th>正常范围</th><th>危急值</th>' : '') .
-                '<th>描述</th><th>状态</th><th>操作</th></tr></thead><tbody>';
-            foreach ($rows as $r) {
-                $html .= '<tr>' .
-                    '<td class="fw-600">' . e($r['name']) . '</td>' .
-                    '<td>' . e($r['category']) . '</td>' .
-                    '<td>¥' . money($r['price']) . '</td>' .
-                    ($type === 'lab' ? '<td>' . e($r['unit']) . '</td><td class="fs-12">' . e($r['normal_range']) . '</td>' .
-                        '<td class="fs-12">' . e(($r['critical_low'] !== '' ? '低' . $r['critical_low'] . ' ' : '') . ($r['critical_high'] !== '' ? '高' . $r['critical_high'] : '')) . '</td>' : '') .
-                    '<td class="fs-12 text-muted">' . e(mb_substr($r['description'], 0, 20)) . '</td>' .
-                    '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
-                    '<td><div class="flex gap-4">' .
-                    '<button class="btn btn-outline btn-sm" onclick="loadModal(\'/api/admin\',{action:\'item_form\',type:\'' . $type . '\',id:' . (int)$r['id'] . '},\'编辑项目\')">编辑</button>' .
-                    '<button class="btn btn-outline btn-sm" onclick="delItem(\'' . $type . '\',' . (int)$r['id'] . ')">删除</button></div></td></tr>';
+        if ($type === 'lab') {
+            // ===== 检验项目管理：独立项目 + 组合检验（组价）分开展示 =====
+            $groups = DB::q('lab', "SELECT * FROM lab_items WHERE is_group=1 ORDER BY category, id");
+            $members = DB::q('lab', "SELECT * FROM lab_items WHERE is_group=0 AND parent_id>0 ORDER BY parent_id, id");
+            $singles = DB::q('lab', "SELECT * FROM lab_items WHERE is_group=0 AND parent_id=0 ORDER BY category, id");
+            $memberMap = array();
+            foreach ($members as $m) {
+                $memberMap[(int)$m['parent_id']][] = $m;
             }
-            $html .= '</tbody></table></div>';
+            $count = count($groups) + count($singles);
+            $html = '<div class="fs-13 text-muted mb-8">检验项目共 ' . $count . ' 项（含组合 ' . count($groups) . ' 个）｜ 组合按组价收费，可单独开单或整体开组</div>';
+            if (!$rows) {
+                $html .= '<div class="empty">暂无检验项目，请先添加</div>';
+            } else {
+                $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
+                    '<th>名称</th><th>分类</th><th>价格</th><th>单位</th><th>正常范围</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+                // 组合行
+                foreach ($groups as $g) {
+                    $html .= '<tr style="background:var(--bg-soft)">' .
+                        '<td class="fw-600">🧩 ' . e($g['name']) . ' <span class="badge badge-primary">组合</span></td>' .
+                        '<td>' . e($g['category']) . '</td>' .
+                        '<td><span class="fw-600" style="color:var(--primary)">¥' . money($g['price']) . '</span> <span class="fs-12 text-muted">（组价）</span></td>' .
+                        '<td>—</td><td>—</td>' .
+                        '<td>' . ($g['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
+                        '<td><div class="flex gap-4">' .
+                        '<button class="btn btn-outline btn-sm" onclick="loadModal(\'/api/admin\',{action:\'lab_group_form\',id:' . (int)$g['id'] . '},\'编辑检验组合\')">编辑</button>' .
+                        '<button class="btn btn-outline btn-sm" onclick="delLabGroup(' . (int)$g['id'] . ')">删除</button></div></td></tr>';
+                    // 成员行（缩进显示，成员仍可单独编辑/删除）
+                    $ms = isset($memberMap[(int)$g['id']]) ? $memberMap[(int)$g['id']] : array();
+                    $html .= '<tr><td colspan="7" style="padding:4px 12px 8px 30px;font-size:12px;color:var(--text-muted)">' .
+                        '└ 组内项目：' . ($ms ? implode('、', array_map(function ($m) {
+                            return e($m['name']) . '（¥' . money($m['price']) . '）';
+                        }, $ms)) : '<span style="color:var(--danger)">未设置组内项目</span>') .
+                        ($ms ? '<span class="flex gap-4" style="margin-left:12px;display:inline-flex">' .
+                            implode('', array_map(function ($m) {
+                                return '<button class="btn btn-outline btn-sm" style="padding:0 8px" ' .
+                                    'onclick="loadModal(\'/api/admin\',{action:\'item_form\',type:\'lab\',id:' . (int)$m['id'] . '},\'编辑成员项目\')">编辑' . e($m['name']) . '</button>';
+                            }, $ms)) . '</span>' : '') .
+                        '</td></tr>';
+                }
+                // 独立项目行
+                foreach ($singles as $r) {
+                    $html .= '<tr>' .
+                        '<td class="fw-600">' . e($r['name']) . '</td>' .
+                        '<td>' . e($r['category']) . '</td>' .
+                        '<td>¥' . money($r['price']) . '</td>' .
+                        '<td>' . e($r['unit']) . '</td><td class="fs-12">' . e($r['normal_range']) . '</td>' .
+                        '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
+                        '<td><div class="flex gap-4">' .
+                        '<button class="btn btn-outline btn-sm" onclick="loadModal(\'/api/admin\',{action:\'item_form\',type:\'lab\',id:' . (int)$r['id'] . '},\'编辑项目\')">编辑</button>' .
+                        '<button class="btn btn-outline btn-sm" onclick="delItem(\'lab\',' . (int)$r['id'] . ')">删除</button></div></td></tr>';
+                }
+                $html .= '</tbody></table></div>';
+            }
+        } else {
+            // ===== 检查项目管理：无成组逻辑，保持简单 =====
+            $html = '<div class="fs-13 text-muted mb-8">检查项目共 ' . count($rows) . ' 项</div>';
+            if (!$rows) {
+                $html .= '<div class="empty">暂无检查项目，请先添加</div>';
+            } else {
+                $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
+                    '<th>名称</th><th>分类</th><th>价格</th><th>描述</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+                foreach ($rows as $r) {
+                    $html .= '<tr>' .
+                        '<td class="fw-600">' . e($r['name']) . '</td>' .
+                        '<td>' . e($r['category']) . '</td>' .
+                        '<td>¥' . money($r['price']) . '</td>' .
+                        '<td class="fs-12 text-muted">' . e(mb_substr($r['description'], 0, 20)) . '</td>' .
+                        '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
+                        '<td><div class="flex gap-4">' .
+                        '<button class="btn btn-outline btn-sm" onclick="loadModal(\'/api/admin\',{action:\'item_form\',type:\'exam\',id:' . (int)$r['id'] . '},\'编辑项目\')">编辑</button>' .
+                        '<button class="btn btn-outline btn-sm" onclick="delItem(\'exam\',' . (int)$r['id'] . ')">删除</button></div></td></tr>';
+                }
+                $html .= '</tbody></table></div>';
+            }
         }
         json_ok(array('html' => $html));
     }
 
+    /* ==================== 检验组合表单（组名/分类/组价 + 成员多选） ==================== */
+    if ($action === 'lab_group_form') {
+        $id = (int)req('id', 0);
+        $r = $id ? DB::one('lab', 'SELECT * FROM lab_items WHERE id=? AND is_group=1', array($id)) : array('category' => '', 'name' => '', 'price' => '0');
+        if (!$r) {
+            $r = array('category' => '', 'name' => '', 'price' => '0');
+        }
+        $cats = DB::q('lab', "SELECT name FROM item_categories WHERE ctype='lab' ORDER BY sort, id");
+        $catOpts = '<option value="">请选择/输入分类</option>';
+        foreach ($cats as $c) {
+            $catOpts .= '<option value="' . e($c['name']) . '"' . ($r['category'] === $c['name'] ? ' selected' : '') . '>' . e($c['name']) . '</option>';
+        }
+        // 可选成员：独立检验项目（未被其他组占用）+ 本组当前成员
+        $cands = DB::q('lab', 'SELECT * FROM lab_items WHERE is_group=0 AND (parent_id=0 OR parent_id=?) ORDER BY category, id', array($id));
+        $sel = array();
+        if ($id) {
+            foreach (DB::q('lab', 'SELECT id FROM lab_items WHERE parent_id=?', array($id)) as $m) $sel[] = (int)$m['id'];
+        }
+        $memberBox = '';
+        foreach ($cands as $c) {
+            $checked = in_array((int)$c['id'], $sel, true) ? ' checked' : '';
+            $memberBox .= '<label class="flex gap-4" style="font-size:13px;margin:0 14px 6px 0;cursor:pointer">' .
+                '<input type="checkbox" class="grpMem" value="' . (int)$c['id'] . '"' . $checked . '> ' .
+                e($c['name']) . ' <span class="text-muted">（¥' . money($c['price']) . '）</span></label>';
+        }
+        $html = '<input type="hidden" id="f_id" value="' . (int)$id . '">
+        <div class="form-group"><label class="form-label">检验组合名称 <span class="req">*</span></label>
+            <input class="input" id="f_name" value="' . e($r['name']) . '" placeholder="如：血细胞分析"></div>
+        <div class="form-row">
+            <div class="form-group"><label class="form-label">所属分类</label>
+                <select class="select" id="f_category">' . $catOpts . '</select></div>
+            <div class="form-group"><label class="form-label">组合价格（元）<span class="req">*</span></label>
+                <input class="input" type="number" step="0.01" min="0" id="f_price" value="' . e($r['price']) . '"
+                placeholder="整体收费价格，如：5"></div>
+        </div>
+        <div class="form-group"><label class="form-label">组内检验项目（多选）<span class="req">*</span></label>
+            <div class="flex" style="flex-wrap:wrap">' . ($memberBox !== '' ? $memberBox : '<span class="fs-12 text-muted">暂无可选检验项目，请先添加单个检验项目</span>') . '</div></div>
+        <div class="fs-12 text-muted">组合项目按「组合价格」整体收费；医生开单时可单独开组内项目，也可直接开整个组合。</div>';
+        json_ok(array('html' => $html));
+    }
+
+    /* ==================== 保存检验组合 ==================== */
+    if ($action === 'lab_group_save') {
+        $id = (int)post('id');
+        $name = post('name');
+        $category = post('category');
+        $price = (float)post('price', 0);
+        $memberIds = array();
+        foreach (explode(',', post('member_ids')) as $m) {
+            if ((int)$m > 0) $memberIds[] = (int)$m;
+        }
+        if ($name === '') json_fail('请填写检验组合名称');
+        if (!$memberIds) json_fail('请选择至少一个组内检验项目');
+        if ($id > 0) {
+            DB::exec('lab', 'UPDATE lab_items SET category=?, name=?, price=? WHERE id=? AND is_group=1', array($category, $name, $price, $id));
+            // 原成员全部还原为独立项目，再重新挂接新成员
+            DB::exec('lab', 'UPDATE lab_items SET parent_id=0 WHERE parent_id=?', array($id));
+            foreach ($memberIds as $mid) {
+                DB::exec('lab', 'UPDATE lab_items SET parent_id=? WHERE id=?', array($id, $mid));
+            }
+            json_ok(array(), '检验组合已保存');
+        } else {
+            $newId = DB::insert('lab', "INSERT INTO lab_items(category, name, price, description, status, created_at, is_group) VALUES(?,?,?,?,?,?,1)", array(
+                $category, $name, $price, '检验组合', 'pending', now_str(),
+            ));
+            foreach ($memberIds as $mid) {
+                DB::exec('lab', 'UPDATE lab_items SET parent_id=? WHERE id=?', array($newId, $mid));
+            }
+            DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
+                'item_lab', $newId, '检验组合添加：' . $name,
+                '新增检验组合「' . $name . '」（分类：' . $category . '，组合价：¥' . money($price) . '），请审核',
+                'pending', $u['name'], $u['id'], now_str(),
+            ));
+            json_ok(array(), '检验组合已添加，请到【审核中心】审核后即可开单使用');
+        }
+    }
+
+    /* ==================== 删除检验组合（成员还原为独立项目） ==================== */
+    if ($action === 'lab_group_delete') {
+        $id = (int)post('id');
+        $used = (int)DB::val('order', "SELECT COUNT(*) FROM order_items WHERE item_type='lab' AND item_id=?", array($id));
+        if ($used > 0) json_fail('该检验组合已有开单记录，不能删除（可将其成员停用）');
+        DB::exec('lab', 'UPDATE lab_items SET parent_id=0 WHERE parent_id=?', array($id));
+        DB::exec('lab', 'DELETE FROM lab_items WHERE id=? AND is_group=1', array($id));
+        json_ok(array(), '检验组合已删除，组内项目已还原为独立项目');
+    }
+
     /* ==================== 项目表单（共享模块渲染） ==================== */
     if ($action === 'item_form') {
-        $type = get('type', 'lab');
-        $id = (int)get('id', 0);
+        // 表单弹窗通过 POST 提交 type/id，必须用 req() 兼容读取（否则编辑弹窗拿不到 id/type）
+        $type = req('type', 'lab');
+        $id = (int)req('id', 0);
         json_ok(array('html' => form_item($type, $id)));
     }
 

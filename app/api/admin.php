@@ -61,6 +61,10 @@ switch ($action) {
     case 'cat_list':
     case 'cat_add':
     case 'cat_delete':
+    // 检验组合（组合项目：按组价整体收费，医生可单独开或整体开组）
+    case 'lab_group_form':
+    case 'lab_group_save':
+    case 'lab_group_delete':
         admin_part_item($action);
         break;
 

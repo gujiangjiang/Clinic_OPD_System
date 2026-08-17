@@ -45,7 +45,8 @@ function admin_part_dept($action) {
 
     /* ==================== 科室表单 ==================== */
     if ($action === 'dept_form') {
-        $id = (int)get('id', 0);
+        // 表单弹窗通过 POST 提交 id，必须用 req() 兼容读取（get() 读不到导致编辑弹窗空白）
+        $id = (int)req('id', 0);
         $r = $id ? DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($id)) : array(
             'name' => '', 'type' => 'clinic', 'fee' => '10', 'am_quota' => '30', 'pm_quota' => '30', 'status' => 1,
         );

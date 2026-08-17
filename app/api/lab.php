@@ -89,26 +89,48 @@ switch ($action) {
         json_ok(array(), '登记成功，请采样检验');
         break;
 
-    /* ==================== 检验录入表单（HTML，含正常范围与危急值提示） ==================== */
+    /* ==================== 检验录入表单（HTML，含正常范围与危急值提示；检验组显示成员明细） ==================== */
     case 'result_form':
-        $itemId = (int)get('item_id');
+        // 表单弹窗通过 POST 提交 item_id，用 req() 兼容读取
+        $itemId = (int)req('item_id');
         $it = DB::one('order', 'SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['item_type'] !== 'lab') json_fail('项目不存在');
         $item = DB::one('lab', 'SELECT * FROM lab_items WHERE id=?', array($it['item_id']));
-        $hint = '';
-        if ($item && ($item['critical_low'] !== '' || $item['critical_high'] !== '')) {
-            $hint = '<div class="fs-12 text-warning mt-4">危急值：低 ' . e($item['critical_low']) . ' / 高 ' . e($item['critical_high']) .
-                '，超出时请立即复核并通知医生</div>';
-        }
+        $itemName = $item ? $item['name'] : $it['item_name'];
         $html = '<div class="form-group">
             <label class="form-label">检验项目</label>
-            <input class="input" value="' . e($item ? $item['name'] : $it['item_name']) . '" readonly>
-        </div>
-        <div class="form-group">
-            <label class="form-label">化验数值（单位：' . e($item ? $item['unit'] : '') . '）</label>
-            <input type="text" class="input" id="resValue" placeholder="请输入检验结果数值">
-            <div class="fs-12 text-muted mt-4">正常范围：' . e($item ? $item['normal_range'] : '') . '</div>' . $hint . '
+            <input class="input" value="' . e($itemName) . '" readonly>
         </div>';
+        // 检验组：显示组内每个成员一行输入框（组价开单，成员结果分别录入）
+        if ($item && (int)$item['is_group'] === 1) {
+            $members = DB::q('lab', "SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id", array($item['id']));
+            if (!$members) {
+                $members = array();
+            }
+            foreach ($members as $i => $m) {
+                $hint = '';
+                if ($m['critical_low'] !== '' || $m['critical_high'] !== '') {
+                    $hint = '<div class="fs-12 text-warning mt-4">危急值：低 ' . e($m['critical_low']) . ' / 高 ' . e($m['critical_high']) . '，超出时请立即复核并通知医生</div>';
+                }
+                $html .= '<div class="form-group" style="background:var(--bg-soft);border-radius:8px;padding:10px 12px;margin-bottom:10px">' .
+                    '<label class="form-label">' . e($m['name']) . '（单位：' . e($m['unit']) . '）</label>' .
+                    '<input type="text" class="input" id="resValue_' . (int)$m['id'] . '" placeholder="请输入检验结果数值">' .
+                    '<div class="fs-12 text-muted mt-4">正常范围：' . e($m['normal_range']) . '</div>' . $hint . '</div>';
+            }
+            $html .= '<input type="hidden" id="resGroup" value="1">';
+            $html .= '<div class="fs-12 text-muted">该检验为组合项目（' . e($itemName) . '），请逐一填写组内各项检验结果。</div>';
+        } else {
+            $hint = '';
+            if ($item && ($item['critical_low'] !== '' || $item['critical_high'] !== '')) {
+                $hint = '<div class="fs-12 text-warning mt-4">危急值：低 ' . e($item['critical_low']) . ' / 高 ' . e($item['critical_high']) .
+                    '，超出时请立即复核并通知医生</div>';
+            }
+            $html .= '<div class="form-group">
+                <label class="form-label">化验数值（单位：' . e($item ? $item['unit'] : '') . '）</label>
+                <input type="text" class="input" id="resValue" placeholder="请输入检验结果数值">
+                <div class="fs-12 text-muted mt-4">正常范围：' . e($item ? $item['normal_range'] : '') . '</div>' . $hint . '
+            </div>';
+        }
         json_ok(array('html' => $html, 'item' => $it));
         break;
 
@@ -116,25 +138,49 @@ switch ($action) {
     case 'save_result':
         $itemId = (int)post('item_id');
         $value = post('value');
-        if ($value === '') json_fail('请输入检验结果数值');
+        $isGroup = (int)post('is_group', 0);
         $it = DB::one('order', 'SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['item_type'] !== 'lab' || !in_array($it['status'], array('registered', 'done'), true)) {
             json_fail('项目不存在或状态异常');
         }
         $item = DB::one('lab', 'SELECT * FROM lab_items WHERE id=?', array($it['item_id']));
+        // 检验组：value 为 JSON（成员 id => 数值），校验组内每项均已填写
+        if ($isGroup) {
+            $vals = json_decode($value, true);
+            if (!is_array($vals) || !$vals) json_fail('请输入组内各项检验结果');
+            $members = DB::q('lab', "SELECT id FROM lab_items WHERE parent_id=? AND is_group=0", array($it['item_id']));
+            $need = array();
+            foreach ($members as $m) $need[(int)$m['id']] = true;
+            $filled = array();
+            foreach ($vals as $mid => $mv) {
+                $filled[(int)$mid] = trim((string)$mv);
+            }
+            $missing = array();
+            foreach ($need as $mid => $b) {
+                if (!isset($filled[$mid]) || $filled[$mid] === '') {
+                    $mName = DB::val('lab', 'SELECT name FROM lab_items WHERE id=?', array($mid));
+                    $missing[] = $mName ? $mName : ('#' . $mid);
+                }
+            }
+            if ($missing) json_fail('请填写检验结果：' . implode('、', $missing));
+            $valuesJson = json_encode(array('group' => 1, 'values' => $filled), JSON_UNESCAPED_UNICODE);
+        } else {
+            if ($value === '') json_fail('请输入检验结果数值');
+            $valuesJson = json_encode(array('value' => $value), JSON_UNESCAPED_UNICODE);
+        }
         $row = get_visit_row($it['visit_id']);
 
         // 写入结果（撤回后重填时更新原结果）
         $result = DB::one('lab', 'SELECT * FROM results WHERE order_item_id=?', array($itemId));
         if ($result) {
             DB::exec('lab', "UPDATE results SET values_json=?, status='done', executor=?, updated_at=? WHERE id=?", array(
-                json_encode(array('value' => $value), JSON_UNESCAPED_UNICODE), $u['name'], now_str(), $result['id'],
+                $valuesJson, $u['name'], now_str(), $result['id'],
             ));
             $resultId = $result['id'];
         } else {
             $resultId = DB::insert('lab', "INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, values_json, executor, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)", array(
                 $it['item_id'], $itemId, $it['visit_id'], $it['patient_no'], $it['flow_no'], 'lab',
-                json_encode(array('value' => $value), JSON_UNESCAPED_UNICODE), $u['name'], 'done', now_str(), now_str(),
+                $valuesJson, $u['name'], 'done', now_str(), now_str(),
             ));
         }
         // 回写 order_items.result_id：检验/影像「已完成」队列据此关联报告，支持查看/申请撤回

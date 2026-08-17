@@ -89,7 +89,8 @@ switch ($action) {
 
     /* ==================== 报告录入表单（HTML） ==================== */
     case 'result_form':
-        $itemId = (int)get('item_id');
+        // 表单弹窗通过 POST 提交 item_id，用 req() 兼容读取
+        $itemId = (int)req('item_id');
         $it = DB::one('order', 'SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['item_type'] !== 'imaging') json_fail('项目不存在');
         $item = DB::one('lab', 'SELECT * FROM exam_items WHERE id=?', array($it['item_id']));

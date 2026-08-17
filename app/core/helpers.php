@@ -95,6 +95,16 @@ function get($key, $default = '') {
     return isset($_GET[$key]) ? trim((string)$_GET[$key]) : $default;
 }
 
+/**
+ * 读取 GET 或 POST 参数（兼容两种请求方式，自动去首尾空格）
+ * 说明：表单弹窗（loadModal / Clinic.modal.load）统一通过 POST 提交，
+ * 而部分老接口用 get() 读参数导致编辑弹窗永远拿到 id=0（空白表单）。
+ * form 类接口一律改用本函数读取，GET / POST 均兼容。
+ */
+function req($key, $default = '') {
+    return isset($_REQUEST[$key]) ? trim((string)$_REQUEST[$key]) : $default;
+}
+
 /** 当前时间字符串（站点时区） */
 function now_str($fmt = 'Y-m-d H:i:s') {
     return date($fmt);

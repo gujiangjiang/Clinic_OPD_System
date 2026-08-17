@@ -77,6 +77,10 @@ Clinic.order = (function () {
                 if (it.frequency_name) parts.push('频次 ' + it.frequency_name);
                 if (it.route_name) parts.push('途径 ' + it.route_name);
                 info = parts.length ? '<div class="fs-12 text-muted">' + parts.join(' ｜ ') + '</div>' : '';
+            } else if (it.is_group) {
+                // 检验组合：显示组内成员，按组价整体收费
+                info = '<div class="fs-12 text-muted">🧩 组合项目 ｜ 含：' + (it.members || it.spec || '') +
+                    '（按组价整体收费）</div>';
             }
             return '<div class="dd-item" data-id="' + it.id + '" ' +
                 'data-price="' + (it.price || 0) + '" data-name="' + (it.name || '').replace(/"/g, '&quot;') + '"' +
@@ -91,6 +95,7 @@ Clinic.order = (function () {
                 '>' +
                 '<div class="flex-between">' +
                 '  <div><span class="fw-600">' + (it.name || '') + '</span>' +
+                (it.is_group ? ' <span class="badge badge-primary fs-12">组合</span>' : '') +
                 (isDrug && it.company_short ? ' <span class="fs-12 text-muted">' + it.company_short + '</span>' : '') +
                 (it.category_name ? ' <span class="badge badge-gray fs-12">' + it.category_name + '</span>' : '') +
                 '</div>' +

@@ -55,9 +55,23 @@ function labResultForm(itemId) {
             '<button type="button" class="btn btn-primary" id="resSave">提交并打印报告</button>';
         var saveBtn = mask.querySelector('#resSave');
         saveBtn.addEventListener('click', function () {
-            var value = document.getElementById('resValue').value.trim();
+            var isGroup = !!mask.querySelector('#resGroup');
+            var value;
+            if (isGroup) {
+                // 检验组：收集组内每项检验结果（resValue_<成员id>）
+                var vals = {};
+                mask.querySelectorAll('[id^="resValue_"]').forEach(function (el) {
+                    vals[el.id.replace('resValue_', '')] = el.value.trim();
+                });
+                value = JSON.stringify(vals);
+            } else {
+                value = document.getElementById('resValue').value.trim();
+            }
             if (!value) { Clinic.toast.warning('请输入检验结果数值'); return; }
-            Clinic.ajax('/api/lab', { action: 'save_result', item_id: itemId, value: value }, {
+            Clinic.ajax('/api/lab', {
+                action: 'save_result', item_id: itemId, value: value,
+                is_group: isGroup ? 1 : 0,
+            }, {
                 loading: true,
                 onSuccess: function (json) {
                     Clinic.toast.success(json.msg);

@@ -56,7 +56,8 @@ function admin_part_user($action) {
 
     /* ==================== 用户表单 ==================== */
     if ($action === 'user_form') {
-        $id = (int)get('id', 0);
+        // 表单弹窗通过 POST 提交 id，必须用 req() 兼容读取（get() 读不到导致编辑弹窗空白）
+        $id = (int)req('id', 0);
         $r = $id ? DB::one('user', 'SELECT * FROM users WHERE id=?', array($id)) : array(
             'emp_no' => '', 'username' => '', 'name' => '', 'role' => 'doctor', 'dept_ids' => '',
             'education' => '', 'degree' => '', 'title' => '', 'position' => '', 'intro' => '', 'photo' => '', 'status' => 1,

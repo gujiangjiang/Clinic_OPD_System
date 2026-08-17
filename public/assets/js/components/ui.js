@@ -33,6 +33,7 @@ function loadModal(url, data, title) {
         dept_form: 'loadDeptList',
         user_form: 'loadUserList',
         item_form: 'loadItemList',
+        lab_group_form: 'loadItemList',
         drug_form: 'loadDrugList',
         disposal_form: 'loadDispList',
     }[action] || '';
@@ -84,6 +85,10 @@ function loadModal(url, data, title) {
             var deptIds = [];
             body.querySelectorAll('.deptChk:checked').forEach(function (c) { deptIds.push(c.value); });
             fd.append('dept_ids', deptIds.join(','));
+            // 检验组合成员多选框（检验组合表单）
+            var memberIds = [];
+            body.querySelectorAll('.grpMem:checked').forEach(function (c) { memberIds.push(c.value); });
+            if (memberIds.length) fd.append('member_ids', memberIds.join(','));
 
             fetch(url, { method: 'POST', body: fd })
                 .then(function (r) { return r.json(); })

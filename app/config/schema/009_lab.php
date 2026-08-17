@@ -8,7 +8,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 1,
+    'version' => 2,
     'tables' => array(
         'item_categories' => "CREATE TABLE IF NOT EXISTS item_categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,7 +27,9 @@ return array(
             critical_high TEXT,
             description TEXT,
             status TEXT DEFAULT 'pending',
-            created_at TEXT
+            created_at TEXT,
+            is_group INTEGER DEFAULT 0,
+            parent_id INTEGER DEFAULT 0
         )",
         'exam_items' => "CREATE TABLE IF NOT EXISTS exam_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,7 +73,15 @@ return array(
             created_at TEXT
         )",
     ),
-    'migrations' => array(),
+    'migrations' => array(
+        // v2：检验项目支持「组合检验」——is_group=1 表示检验组（如血细胞分析），
+        // parent_id 记录该检验项目所属的组 ID（0 为独立项目）。
+        // 说明：新库建表已含新列，DatabaseManager 迁移器会自动检测列已存在并跳过。
+        2 => array(
+            "ALTER TABLE lab_items ADD COLUMN is_group INTEGER DEFAULT 0",
+            "ALTER TABLE lab_items ADD COLUMN parent_id INTEGER DEFAULT 0",
+        ),
+    ),
     'seed' => array(
         // 项目分类种子（检验 / 检查）
         "INSERT OR IGNORE INTO item_categories(id,ctype,name,sort) VALUES

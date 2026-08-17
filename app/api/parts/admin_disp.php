@@ -42,7 +42,8 @@ function admin_part_disp($action) {
 
     /* ==================== 处置表单 ==================== */
     if ($action === 'disposal_form') {
-        $id = (int)get('id', 0);
+        // 表单弹窗通过 POST 提交 id，必须用 req() 兼容读取（否则编辑弹窗空白）
+        $id = (int)req('id', 0);
         $r = $id ? DB::one('disp', 'SELECT * FROM disposal_items WHERE id=?', array($id)) : array('name' => '', 'fee' => '0', 'description' => '');
         $html = '<input type="hidden" id="f_id" value="' . (int)$id . '">
         <div class="form-group"><label class="form-label">处置名称 <span class="req">*</span></label>

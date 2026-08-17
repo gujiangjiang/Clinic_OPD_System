@@ -90,7 +90,8 @@ function admin_part_drug($action) {
 
     /* ==================== 药品表单（共享模块渲染） ==================== */
     if ($action === 'drug_form') {
-        $id = (int)get('id', 0);
+        // 表单弹窗通过 POST 提交 id，必须用 req() 兼容读取（否则编辑弹窗空白）
+        $id = (int)req('id', 0);
         json_ok(form_drug($id));
     }
 
