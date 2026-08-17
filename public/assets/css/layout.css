@@ -14,7 +14,10 @@
 .sidebar {
     width: var(--sidebar-w);
     background: var(--bg-sidebar);
-    color: var(--text-invert);
+    /* 侧边栏背景在明亮/夜间模式下均为深色，文字必须固定为浅色，
+       不能使用 var(--text-invert)（夜间模式下该变量为深色，
+       会导致左上角医院名称等文字变成黑色、与背景无法区分） */
+    color: #e2e8f0;
     position: fixed;
     top: 0; left: 0; bottom: 0;
     z-index: 100;

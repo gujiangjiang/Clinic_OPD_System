@@ -142,6 +142,26 @@ class Layout {
         </head>
         <body data-csrf="' . e(CSRF::token()) . '" data-theme-pref="' . e($theme) . '" data-theme="light"
             data-hosp="' . e($hosp) . '" data-hosp2="' . e($hosp2) . '">
+            <!-- 关键：公共 JS 库必须在视图内容之前加载！
+                 视图内联脚本（如 loadDeptList() / loadUserList()）在页面解析时立即执行，
+                 若 Clinic 库尚未加载，Clinic.get() 会抛 TypeError，
+                 导致列表区域永远停留在加载转圈状态（历史 bug）。
+                 因此脚本放在内容区之前，保证内联脚本执行时 Clinic 已就绪。 -->
+            <script src="/assets/js/components/ajax.js"></script>
+            <script src="/assets/js/components/modal.js"></script>
+            <script src="/assets/js/components/toast.js"></script>
+            <script src="/assets/js/components/print.js"></script>
+            <script src="/assets/js/components/theme.js"></script>
+            <script src="/assets/js/components/notify.js"></script>
+            <script src="/assets/js/components/selector.js"></script>
+            <script src="/assets/js/components/validation.js"></script>
+            <script src="/assets/js/components/datetime.js"></script>
+            <script src="/assets/js/components/order.js"></script>
+            <script src="/assets/js/components/editor.js"></script>
+            <script src="/assets/js/components/emr.js"></script>
+            <script src="/assets/js/components/patient.js"></script>
+            <script src="/assets/js/components/ui.js"></script>
+            <script src="/assets/js/components/app.js"></script>
             <div class="app">
                 <!-- ===== 侧边栏 ===== -->
                 <aside class="sidebar">
@@ -183,22 +203,6 @@ class Layout {
                     </main>
                 </div>
             </div>
-
-            <script src="/assets/js/components/ajax.js"></script>
-            <script src="/assets/js/components/modal.js"></script>
-            <script src="/assets/js/components/toast.js"></script>
-            <script src="/assets/js/components/print.js"></script>
-            <script src="/assets/js/components/theme.js"></script>
-            <script src="/assets/js/components/notify.js"></script>
-            <script src="/assets/js/components/selector.js"></script>
-            <script src="/assets/js/components/validation.js"></script>
-            <script src="/assets/js/components/datetime.js"></script>
-            <script src="/assets/js/components/order.js"></script>
-            <script src="/assets/js/components/editor.js"></script>
-            <script src="/assets/js/components/emr.js"></script>
-            <script src="/assets/js/components/patient.js"></script>
-            <script src="/assets/js/components/ui.js"></script>
-            <script src="/assets/js/components/app.js"></script>
         </body></html>';
     }
 }

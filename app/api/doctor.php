@@ -20,7 +20,9 @@ switch ($action) {
     /* ==================== 医生关联科室 ==================== */
     case 'depts':
         $ids = array();
-        foreach (explode(',', $u['dept_ids']) as $id) {
+        // 会话快照中的 dept_ids 可能为 NULL（如管理员登录医生端接口时），
+        // 先判空再拆分，避免 PHP 8 的 Undefined key / Deprecated 告警污染 JSON
+        foreach (explode(',', isset($u['dept_ids']) ? (string)$u['dept_ids'] : '') as $id) {
             if ((int)$id > 0) $ids[] = (int)$id;
         }
         if ($ids) {

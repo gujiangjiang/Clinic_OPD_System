@@ -29,7 +29,8 @@ function admin_part_user($action) {
             foreach ($rows as $r) {
                 $deptNames = '';
                 $ids = array();
-                foreach (explode(',', $r['dept_ids']) as $d) if ((int)$d > 0) $ids[] = (int)$d;
+                // dept_ids 可能为 NULL（如管理员等无科室用户），先转字符串再拆分，避免 PHP 8 告警
+                foreach (explode(',', (string)$r['dept_ids']) as $d) if ((int)$d > 0) $ids[] = (int)$d;
                 if ($ids) {
                     $ph = implode(',', array_fill(0, count($ids), '?'));
                     $ds = DB::q('dept', "SELECT name FROM departments WHERE id IN ($ph)", $ids);
@@ -68,7 +69,8 @@ function admin_part_user($action) {
         }
         $depts = DB::q('dept', 'SELECT * FROM departments WHERE status=1 ORDER BY sort, id');
         $selDept = array();
-        foreach (explode(',', $r['dept_ids']) as $d) if ((int)$d > 0) $selDept[] = (int)$d;
+        // dept_ids 可能为 NULL，先转字符串再拆分，避免 PHP 8 告警污染 JSON 响应
+        foreach (explode(',', (string)$r['dept_ids']) as $d) if ((int)$d > 0) $selDept[] = (int)$d;
         $deptBox = '';
         foreach ($depts as $d) {
             $checked = in_array((int)$d['id'], $selDept, true) ? ' checked' : '';

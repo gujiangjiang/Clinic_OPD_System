@@ -18,7 +18,8 @@ $u = Auth::user();
 function nurse_dept_ids() {
     global $u;
     $ids = array();
-    foreach (explode(',', $u['dept_ids']) as $id) {
+    // 会话快照中的 dept_ids 可能为 NULL，先判空再拆分，避免 PHP 8 告警污染 JSON
+    foreach (explode(',', isset($u['dept_ids']) ? (string)$u['dept_ids'] : '') as $id) {
         if ((int)$id > 0) $ids[] = (int)$id;
     }
     return $ids;

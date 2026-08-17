@@ -49,6 +49,24 @@ if (DEBUG) {
     ini_set('log_errors', '1');
 }
 
+/* ============================================================
+ * AJAX 接口错误输出控制（防止污染 JSON 响应）
+ * ------------------------------------------------------------
+ * 说明：PHP 8.x 下，warning/deprecated/notice 等提示默认会以
+ * HTML 形式直接输出到响应体，若出现在 JSON 之前（如
+ * "<br /><b>Deprecated</b>: explode(): Passing null..."），
+ * 前端 res.json() 会解析失败，导致列表一直转圈并弹出
+ * 「网络请求失败」。因此所有 AJAX/API 请求一律关闭错误显示
+ * （错误仍会写入日志，便于排查），保证接口始终返回纯净 JSON。
+ * 判断依据：请求头 X-Requested-With 或请求路径以 /api/ 开头。
+ * ============================================================ */
+$__isAjax = (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest')
+    || (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], '/api/') === 0);
+if ($__isAjax) {
+    ini_set('display_errors', '0');
+    ini_set('log_errors', '1');
+}
+
 /* 兜底时区：仅当管理员未设置站点时区时生效 */
 date_default_timezone_set('Asia/Shanghai');
 
