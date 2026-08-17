@@ -1,0 +1,59 @@
+# ============================================================
+# 简易门诊一体化系统 — Nginx 配置示例（PHP 7.x）
+# ============================================================
+# 使用方法：
+#   1. 将本文件复制为 /etc/nginx/conf.d/clinic.conf（或站点配置）
+#   2. 修改 server_name、root 为实际域名与项目路径
+#   3. root 指向项目的 public 目录（唯一 Web 入口）
+#   4. 重启 Nginx：nginx -s reload
+# ============================================================
+
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    # Web 根目录指向 public（app/、data/ 均位于其外，天然不可访问）
+    root /path/to/project/public;
+    index index.php;
+
+    # 站点字符集
+    charset utf-8;
+
+    # 上传大小限制（医院 LOGO / 用户照片）
+    client_max_body_size 10m;
+
+    # ---------- 静态资源缓存 ----------
+    location ~* \.(css|js|png|jpg|jpeg|gif|webp|svg|ico)$ {
+        expires 7d;
+        add_header Cache-Control "public";
+    }
+
+    # ---------- 主路由：所有动态请求转发单入口 index.php ----------
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # ---------- PHP-FPM（PHP 7.x） ----------
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass 127.0.0.1:9000;      # 按实际 PHP-FPM 监听地址修改
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param SCRIPT_NAME $fastcgi_script_name;
+        fastcgi_index index.php;
+        fastcgi_read_timeout 120;
+    }
+
+    # ---------- 双保险：禁止直接访问敏感目录（即使误放于 public 内） ----------
+    location ~ ^/(app|data|\.git|\.env) {
+        deny all;
+    }
+
+    # ---------- 隐藏文件 ----------
+    location ~ /\. {
+        deny all;
+    }
+
+    # 访问日志 / 错误日志（按需开启）
+    # access_log /var/log/nginx/clinic.access.log;
+    # error_log  /var/log/nginx/clinic.error.log;
+}

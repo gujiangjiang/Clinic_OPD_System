@@ -1,0 +1,39 @@
+/* ============================================================
+ * dark.css v1.0.0 — 夜间模式主题变量
+ * 说明：当 body 设置 data-theme="dark" 时启用，
+ * 覆盖 base.css 中的明亮变量，实现全局夜间模式。
+ * ============================================================ */
+
+[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0b1220;
+    --bg-card: #131c2c;
+    --bg-soft: #1b2740;
+    --bg-sidebar: #090f1a;
+    --bg-sidebar-hover: #15233a;
+    --bg-topbar: rgba(11,18,32,.92);
+    --text: #e2e8f0;
+    --text-muted: #8ea0b8;
+    --text-invert: #0b1220;
+    --border: #263449;
+    --primary: #22b8cf;
+    --primary-hover: #67e8f9;
+    --primary-soft: #164e63;
+    --accent: #38bdf8;
+    --success: #4ade80;
+    --success-soft: #14532d;
+    --warning: #fbbf24;
+    --warning-soft: #78350f;
+    --danger: #f87171;
+    --danger-soft: #7f1d1d;
+    --shadow: 0 1px 3px rgba(0,0,0,.4);
+    --shadow-lg: 0 12px 32px rgba(0,0,0,.5);
+}
+
+/* 夜间模式下的细微校正 */
+[data-theme="dark"] .card { border-color: var(--border); }
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+    color-scheme: dark;   /* 让日期/时间选择器在 Safari/Chrome 显示正常 */
+}

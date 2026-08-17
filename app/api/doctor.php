@@ -1,0 +1,126 @@
+<?php
+/**
+ * ============================================================
+ * doctor.php — 医生工作站接口
+ * ============================================================
+ * 说明：
+ * 1. 医生关联多个科室时先选科室；单科室直接进入患者列表
+ * 2. 患者列表：待就诊 / 就诊中 / 就诊完毕 三个状态
+ *    就诊序号显示首次挂号科室（XX门诊XXX号，不随转科改变）
+ * 3. 接诊：进入就诊中，若该就诊有转科记录则返回原病历ID
+ *    （新科室医生可一键引用）
+ * 4. 加号：号源满时医生可为指定患者加号（仅该患者可用）
+ * ============================================================ */
+require __DIR__ . '/_init.php';
+
+$u = Auth::user();
+
+switch ($action) {
+
+    /* ==================== 医生关联科室 ==================== */
+    case 'depts':
+        $ids = array();
+        foreach (explode(',', $u['dept_ids']) as $id) {
+            if ((int)$id > 0) $ids[] = (int)$id;
+        }
+        if ($ids) {
+            $ph = implode(',', array_fill(0, count($ids), '?'));
+            $list = DB::q('dept', "SELECT * FROM departments WHERE status=1 AND id IN ($ph) ORDER BY sort, id", $ids);
+        } else {
+            $list = array();
+        }
+        json_ok(array('list' => array_map(function ($d) {
+            return array('id' => (int)$d['id'], 'name' => $d['name'], 'type' => $d['type']);
+        }, $list)));
+        break;
+
+    /* ==================== 患者列表（HTML 片段） ==================== */
+    case 'list':
+        $status = get('status', 'waiting');
+        $deptId = (int)get('dept_id', 0);
+        if ($status === 'waiting') {
+            $where = "r.status='paid'";
+        } elseif ($status === 'visiting') {
+            $where = "r.status='visiting'";
+        } else {
+            $where = "r.status='finished' AND date(r.register_time)=?";
+        }
+        $where .= ' AND r.current_dept_id=' . $deptId;
+        $params = array();
+        if ($status === 'done') $params[] = today_str();
+        $rows = DB::q('patient', "SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
+            FROM registrations r LEFT JOIN patients p ON p.patient_no = r.patient_no
+            WHERE $where ORDER BY r.visit_seq", $params);
+
+        $html = '';
+        if (!$rows) {
+            $html = '<div class="empty"><div class="empty-ico">📭</div>' . ($status === 'waiting' ? '暂无候诊患者' : ($status === 'visiting' ? '暂无就诊中患者' : '今日暂无就诊完毕患者')) . '</div>';
+        }
+        foreach ($rows as $r) {
+            $html .= '<div class="card" style="margin-bottom:10px;padding:14px 16px">';
+            $html .= '<div class="flex-between">';
+            $html .= '<div class="flex gap-12" style="align-items:center;min-width:0">' .
+                '<div style="width:42px;height:42px;border-radius:50%;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0">' .
+                str_pad((string)$r['visit_seq'], 3, '0', STR_PAD_LEFT) . '</div>';
+            $html .= '<div style="min-width:0">' .
+                '<div class="fs-16 fw-700">' . e($r['pname']) .
+                ' <span class="fs-13 text-muted fw-400">' . e($r['pgender']) . ' / ' . (int)$r['page'] . '岁</span>' .
+                ($r['is_extra'] ? ' <span class="badge badge-warning" style="font-size:11px">加号</span>' : '') .
+                '</div>' .
+                '<div class="fs-12 text-muted">' . e($r['first_dept_name']) . ' 第' . str_pad((string)$r['visit_seq'], 3, '0', STR_PAD_LEFT) . '号 ｜ 患者ID ' . e($r['patient_no']) . ' ｜ 流水号 ' . e($r['flow_no']) . '</div>' .
+                '<div class="fs-12 text-muted">挂号 ' . e(substr($r['register_time'], 5, 11)) . ' ｜ 费用类别 ' . e($r['fee_type']) . '</div>' .
+                '</div></div>';
+            // 操作按钮
+            $html .= '<div class="flex gap-8" style="flex-shrink:0">';
+            if ($status === 'waiting') {
+                $html .= '<button class="btn btn-primary btn-sm" onclick="takePatient(' . (int)$r['id'] . ')">接诊</button>';
+                $html .= '<button class="btn btn-outline btn-sm" onclick="showPatientHistory(' . e($r['patient_no']) . ')">历史</button>';
+            } elseif ($status === 'visiting') {
+                $html .= '<button class="btn btn-primary btn-sm" onclick="location.href=\'/doctor/emr?visit_id=' . (int)$r['id'] . '\'">继续就诊</button>';
+                $html .= '<button class="btn btn-outline btn-sm" onclick="showPatientHistory(\'' . e($r['patient_no']) . '\')">历史</button>';
+            } else {
+                $html .= '<button class="btn btn-outline btn-sm" onclick="location.href=\'/doctor/emr?visit_id=' . (int)$r['id'] . '\'">查看病历</button>';
+                $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' . (int)$r['id'] . '\',null)">打印病历</button>';
+            }
+            $html .= '</div></div></div>';
+        }
+        json_ok(array('html' => $html));
+        break;
+
+    /* ==================== 接诊 ==================== */
+    case 'take':
+        $visitId = (int)post('visit_id');
+        $row = get_visit_row($visitId);
+        if (!$row) json_fail('就诊记录不存在');
+        $visit = $row['visit'];
+        if ($visit['status'] !== 'paid') {
+            json_fail('该患者当前状态不可接诊');
+        }
+        DB::exec('patient', 'UPDATE registrations SET status=? WHERE id=?', array('visiting', $visitId));
+        // 转科引用：返回最近一次转科的原始病历ID（新科室医生一键引用）
+        $ref = DB::one('medical', 'SELECT ref_record_id FROM referrals WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        json_ok(array('ref_record_id' => $ref ? (int)$ref['ref_record_id'] : 0), '接诊成功');
+        break;
+
+    /* ==================== 医生加号（号源满时，加号仅限该患者使用） ==================== */
+    case 'add_slot':
+        $deptId = (int)post('dept_id');
+        $idCard = strtoupper(post('id_card'));
+        $name = post('name');
+        if ($deptId <= 0) json_fail('请选择科室');
+        if ($idCard === '' || !idcard_valid($idCard)) json_fail('请输入正确的18位身份证号码');
+        if ($name === '') json_fail('请填写患者姓名');
+        $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=? AND status=1', array($deptId));
+        if (!$dept) json_fail('科室不存在');
+        // 同一患者当日同科室已有加号未使用时，不重复添加
+        $exists = DB::one('dept', "SELECT id FROM extra_slots WHERE dept_id=? AND reg_date=? AND id_card=? AND used=0", array($deptId, today_str(), $idCard));
+        if ($exists) json_fail('该患者今日已存在未使用的加号');
+        DB::insert('dept', 'INSERT INTO extra_slots(dept_id, reg_date, id_card, name, doctor_id, doctor_name, used, created_at) VALUES(?,?,?,?,?,?,0,?)', array(
+            $deptId, today_str(), $idCard, $name, $u['id'], $u['name'], now_str(),
+        ));
+        json_ok(array(), '加号成功：患者凭本人身份证至挂号处挂号即可');
+        break;
+
+    default:
+        json_fail('未知操作');
+}

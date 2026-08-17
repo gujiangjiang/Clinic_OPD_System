@@ -1,0 +1,276 @@
+/* ============================================================
+ * landing.css v1.0.0 — 官网/落地页样式
+ * 说明：系统首页（未登录时展示）：深色医疗科技风 Hero +
+ * 功能矩阵 + 就诊流程 + 页脚。基于 base.css 变量，自动适配
+ * 明亮 / 夜间模式。
+ * ============================================================ */
+
+/* ---------- 页面骨架 ---------- */
+.landing-body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+}
+.landing-main { flex: 1; }
+
+/* ---------- 顶栏 ---------- */
+.landing-nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 5vw;
+    background: rgba(15, 30, 45, .92);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    color: #e2e8f0;
+}
+.landing-nav .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 17px;
+    font-weight: 700;
+}
+.landing-nav .brand img {
+    height: 40px;
+    width: 40px;
+    object-fit: contain;
+    border-radius: 10px;
+    background: rgba(255,255,255,.12);
+    padding: 4px;
+}
+.landing-nav .nav-actions { display: flex; align-items: center; gap: 10px; }
+.landing-nav .nav-actions a { color: #e2e8f0; font-size: 13.5px; opacity: .9; }
+.landing-nav .nav-actions a:hover { opacity: 1; color: #67e8f9; }
+
+/* ---------- Hero 区 ---------- */
+.landing-hero {
+    position: relative;
+    overflow: hidden;
+    color: #f8fafc;
+    background:
+        radial-gradient(900px 420px at 85% -10%, rgba(34,211,238,.35), transparent 55%),
+        radial-gradient(700px 380px at -10% 20%, rgba(45,212,191,.22), transparent 55%),
+        linear-gradient(160deg, #0b1b2b 0%, #0f2a3f 55%, #123a4d 100%);
+    padding: 84px 5vw 72px;
+}
+.landing-hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size: 44px 44px;
+}
+.landing-hero .hero-inner {
+    position: relative;
+    z-index: 1;
+    max-width: 1080px;
+    margin: 0 auto;
+    text-align: center;
+}
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    border-radius: 999px;
+    background: rgba(103,232,249,.12);
+    border: 1px solid rgba(103,232,249,.35);
+    color: #a5f3fc;
+    font-size: 13px;
+    margin-bottom: 22px;
+}
+.hero-badge .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #2dd4bf;
+    box-shadow: 0 0 10px #2dd4bf;
+}
+.landing-hero h1 {
+    font-size: clamp(30px, 5.2vw, 52px);
+    line-height: 1.18;
+    font-weight: 800;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+}
+.landing-hero h1 .grad {
+    background: linear-gradient(90deg, #67e8f9, #2dd4bf);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+}
+.landing-hero .sub {
+    max-width: 640px;
+    margin: 0 auto 30px;
+    font-size: 15.5px;
+    line-height: 1.9;
+    color: rgba(226,232,240,.82);
+}
+.hero-ctas { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+.btn-hero {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 13px 30px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+.btn-hero:hover { transform: translateY(-2px); }
+.btn-hero.primary {
+    background: linear-gradient(90deg, #0ea5e9, #14b8a6);
+    color: #fff;
+    box-shadow: 0 10px 26px rgba(14,165,233,.35);
+}
+.btn-hero.ghost {
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.25);
+    color: #e2e8f0;
+}
+.hero-stats {
+    display: flex;
+    justify-content: center;
+    gap: 44px;
+    flex-wrap: wrap;
+    margin-top: 52px;
+}
+.hero-stats .stat { text-align: center; }
+.hero-stats .num { font-size: 26px; font-weight: 800; color: #67e8f9; }
+.hero-stats .lbl { font-size: 12.5px; color: rgba(226,232,240,.65); margin-top: 2px; }
+
+/* ---------- 区块通用 ---------- */
+.landing-section { padding: 64px 5vw; max-width: 1120px; margin: 0 auto; }
+.section-head { text-align: center; margin-bottom: 40px; }
+.section-head h2 { font-size: 26px; font-weight: 800; margin-bottom: 8px; }
+.section-head p { color: var(--text-muted); font-size: 14px; }
+
+/* ---------- 功能矩阵 ---------- */
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+}
+.feature-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px;
+    box-shadow: var(--shadow);
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary);
+}
+.feature-card .ico {
+    width: 46px; height: 46px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    background: var(--primary-soft);
+    margin-bottom: 14px;
+}
+.feature-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+.feature-card p { font-size: 13px; color: var(--text-muted); line-height: 1.75; }
+
+/* ---------- 就诊流程 ---------- */
+.flow-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+}
+.flow-step {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 14px;
+    text-align: center;
+}
+.flow-step .n {
+    width: 30px; height: 30px;
+    margin: 0 auto 10px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.flow-step .t { font-size: 14px; font-weight: 600; }
+.flow-step .d { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+/* ---------- 特点条 ---------- */
+.tick-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 10px 22px;
+}
+.tick-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    color: var(--text-muted);
+    padding: 6px 0;
+}
+.tick-list li::before {
+    content: '✓';
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--success-soft);
+    color: var(--success);
+    font-size: 12px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* ---------- CTA 横幅 ---------- */
+.landing-cta {
+    max-width: 1120px;
+    margin: 0 auto 64px;
+    padding: 44px 5vw;
+    text-align: center;
+    color: #f8fafc;
+    border-radius: 20px;
+    background:
+        radial-gradient(600px 260px at 20% 0%, rgba(103,232,249,.3), transparent 60%),
+        linear-gradient(135deg, #0e7490, #0f766e);
+}
+.landing-cta h2 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+.landing-cta p { font-size: 14px; color: rgba(248,250,252,.85); margin-bottom: 22px; }
+
+/* ---------- 页脚 ---------- */
+.landing-footer {
+    padding: 26px 5vw;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 720px) {
+    .landing-hero { padding: 56px 5vw 52px; }
+    .hero-stats { gap: 22px; }
+}

@@ -1,0 +1,259 @@
+<?php
+/**
+ * ============================================================
+ * helpers.php v1.0.0 — 全局辅助函数
+ * ============================================================
+ * 说明：输出转义、JSON 统一响应、参数获取、身份证校验、
+ * 年龄计算、拼音首字母（诊断检索）、系统设置读写等。
+ * ============================================================ */
+
+/** HTML 输出转义（防止 XSS，所有动态内容输出前必须经过 e()） */
+function e($s) {
+    return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * 统一 JSON 响应格式：{ ok, msg, data }
+ * @param bool   $ok   是否成功
+ * @param string $msg  提示信息
+ * @param mixed  $data 业务数据
+ */
+function json_response($ok, $msg = '', $data = null) {
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(array(
+        'ok'   => (bool)$ok,
+        'msg'  => (string)$msg,
+        'data' => $data,
+    ), JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+/** 成功响应快捷方式 */
+function json_ok($data = array(), $msg = '操作成功') {
+    json_response(true, $msg, $data);
+}
+
+/** 失败响应快捷方式 */
+function json_fail($msg) {
+    json_response(false, $msg);
+}
+
+/** 读取 POST 参数（自动去首尾空格） */
+function post($key, $default = '') {
+    return isset($_POST[$key]) ? trim((string)$_POST[$key]) : $default;
+}
+
+/** 读取 GET 参数（自动去首尾空格） */
+function get($key, $default = '') {
+    return isset($_GET[$key]) ? trim((string)$_GET[$key]) : $default;
+}
+
+/** 当前时间字符串（站点时区） */
+function now_str($fmt = 'Y-m-d H:i:s') {
+    return date($fmt);
+}
+
+/** 当前日期字符串 */
+function today_str() {
+    return date('Y-m-d');
+}
+
+/** 金额格式化：保留两位小数 */
+function money($n) {
+    return number_format((float)$n, 2, '.', '');
+}
+
+/* ============================================================
+ * 身份证号码校验
+ * 说明：18 位身份证 + 校验码算法 + 出生日期合法性检查。
+ * 挂号时必须通过本校验才允许以身份证方式挂号。
+ * ============================================================ */
+function idcard_valid($id) {
+    $id = strtoupper(trim((string)$id));
+    if (!preg_match('/^\d{17}[\dX]$/', $id)) {
+        return false;
+    }
+    // 出生日期合法性
+    $y = (int)substr($id, 6, 4);
+    $m = (int)substr($id, 10, 2);
+    $d = (int)substr($id, 12, 2);
+    if ($y < 1900 || $y > (int)date('Y')) return false;
+    if (!checkdate($m, $d, $y)) return false;
+    if (substr($id, 6, 8) > date('Ymd')) return false; // 不能是未来日期
+    // 校验码
+    $w  = array(7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2);
+    $chk = '10X98765432';
+    $sum = 0;
+    for ($i = 0; $i < 17; $i++) {
+        $sum += (int)$id[$i] * $w[$i];
+    }
+    return $chk[$sum % 11] === $id[17];
+}
+
+/**
+ * 从身份证提取 出生日期/年龄/性别（挂号时自动计算并锁定）
+ * @return array ['birth'=>'Y-m-d','age'=>int,'gender'=>'男'|'女']
+ */
+function idcard_info($id) {
+    $id = strtoupper(trim((string)$id));
+    $birth = substr($id, 6, 4) . '-' . substr($id, 10, 2) . '-' . substr($id, 12, 2);
+    $gender = ((int)substr($id, 16, 1)) % 2 === 1 ? '男' : '女';
+    return array('birth' => $birth, 'age' => calc_age($birth), 'gender' => $gender);
+}
+
+/** 根据出生日期计算周岁年龄 */
+function calc_age($birth) {
+    if (!$birth) return 0;
+    $b = explode('-', $birth);
+    if (count($b) < 3) return 0;
+    $by = (int)$b[0]; $bm = (int)$b[1]; $bd = (int)$b[2];
+    $age = (int)date('Y') - $by;
+    if ((int)date('m') < $bm || ((int)date('m') === $bm && (int)date('d') < $bd)) {
+        $age--;
+    }
+    return $age < 0 ? 0 : $age;
+}
+
+/* ============================================================
+ * 拼音首字母（用于 ICD 诊断拼音检索）
+ * 说明：内置常见医学/常用字映射；命中率之外的字符忽略。
+ * 种子 ICD 数据自带 pinyin 字段，新建诊断可调用本函数生成。
+ * ============================================================ */
+function pinyin_initial($str) {
+    static $map = null;
+    if ($map === null) {
+        $map = array(
+            '上'=>'S','呼'=>'H','吸'=>'X','道'=>'D','感'=>'G','染'=>'R','肺'=>'F','炎'=>'Y','支'=>'Z','气'=>'Q','管'=>'G',
+            '高'=>'G','血'=>'X','压'=>'Y','糖'=>'N','尿'=>'U','病'=>'B','心'=>'X','脏'=>'Z','梗'=>'G','死'=>'S','痛'=>'T',
+            '冠'=>'G','状'=>'Z','动'=>'D','脉'=>'M','粥'=>'Z','样'=>'Y','硬'=>'Y','化'=>'H','衰'=>'S','竭'=>'J','律'=>'L',
+            '失'=>'S','常'=>'C','早'=>'Z','搏'=>'B','房'=>'F','颤'=>'C','室'=>'S','速'=>'Q','过'=>'G','缓'=>'H','停'=>'T',
+            '脑'=>'N','中'=>'Z','风'=>'F','出'=>'C','血'=>'X','栓'=>'S','塞'=>'S','偏'=>'P','瘫'=>'T','瘤'=>'L','癌'=>'A',
+            '肝'=>'G','肾'=>'S','胃'=>'W','肠'=>'C','结'=>'J','直'=>'Z','十'=>'S','二'=>'E','指'=>'Z','溃'=>'K','疡'=>'Y',
+            '胆'=>'D','囊'=>'N','结'=>'J','石'=>'S','胰'=>'Y','腺'=>'X','甲'=>'J','状'=>'Z','亢'=>'K','减'=>'J','退'=>'T',
+            '贫'=>'P','白'=>'B','细'=>'X','胞'=>'B','减'=>'J','少'=>'S','多'=>'D','紫'=>'Z','癜'=>'D','过'=>'G','敏'=>'M',
+            '哮'=>'X','喘'=>'C','鼻'=>'B','窦'=>'D','咽'=>'Y','喉'=>'H','扁'=>'B','桃'=>'T','体'=>'T','中'=>'Z','耳'=>'E',
+            '骨'=>'G','折'=>'Z','关'=>'G','节'=>'J','椎'=>'Z','间'=>'J','盘'=>'P','突'=>'T','出'=>'C','腰'=>'Y','颈'=>'J',
+            '椎'=>'Z','膝'=>'X','肩'=>'J','踝'=>'H','腕'=>'W','骨'=>'G','质'=>'Z','疏'=>'S','松'=>'S','风'=>'F','湿'=>'S',
+            '类'=>'L','关'=>'G','节'=>'J','炎'=>'Y','痛'=>'T','风'=>'F','尿'=>'N','酸'=>'S','结'=>'J','晶'=>'J','体'=>'T',
+            '白'=>'B','内'=>'N','障'=>'Z','青'=>'Q','光'=>'G','视'=>'S','网'=>'W','膜'=>'M','脱'=>'T','离'=>'L','皮'=>'P',
+            '肤'=>'F','湿'=>'S','疹'=>'Z','荨'=>'Q','麻'=>'M','癣'=>'X','疱'=>'P','疮'=>'C','溃'=>'K','疡'=>'Y','疖'=>'J',
+            '肿'=>'Z','瘤'=>'L','结'=>'J','核'=>'H','艾'=>'A','滋'=>'Z','病'=>'B','狂'=>'K','犬'=>'Q','伤'=>'S','破'=>'P',
+            '伤'=>'S','风'=>'F','流'=>'L','行'=>'X','性'=>'X','感'=>'G','冒'=>'M','发'=>'F','热'=>'R','咳'=>'K','嗽'=>'S',
+            '痰'=>'T','呕'=>'O','吐'=>'T','腹'=>'F','泻'=>'X','便'=>'B','秘'=>'M','尿'=>'N','频'=>'P','急'=>'J','淋'=>'L',
+            '巴'=>'B','炎'=>'Y','贫'=>'P','缺'=>'Q','铁'=>'T','维'=>'W','生'=>'S','素'=>'S','缺'=>'Q','乏'=>'F','钙'=>'G',
+            '锌'=>'X','碘'=>'D','肥'=>'F','胖'=>'P','营'=>'Y','养'=>'Y','不'=>'B','良'=>'L','食'=>'S','欲'=>'Y','不'=>'B',
+            '振'=>'Z','失'=>'S','眠'=>'M','焦'=>'J','虑'=>'L','抑'=>'Y','郁'=>'Y','精'=>'J','神'=>'S','分'=>'F','裂'=>'L',
+            '痴'=>'C','呆'=>'D','帕'=>'P','金'=>'J','森'=>'S','癫'=>'D','痫'=>'X','头'=>'T','晕'=>'Y','眩'=>'X','耳'=>'E',
+            '鸣'=>'M','聋'=>'L','鼻'=>'B','塞'=>'S','流'=>'L','涕'=>'T','打'=>'D','喷'=>'P','嚏'=>'T','牙'=>'Y','龋'=>'Q',
+            '齿'=>'C','龈'=>'Y','口'=>'K','腔'=>'Q','溃'=>'K','疡'=>'Y','舌'=>'S','扁'=>'B','咽'=>'Y','喉'=>'H','声'=>'S',
+            '音'=>'Y','嘶'=>'S','哑'=>'Y','眼'=>'Y','睛'=>'J','角'=>'J','膜'=>'M','结'=>'J','膜'=>'M','巩'=>'G','瞳'=>'T',
+            '孔'=>'K','视'=>'S','力'=>'L','模'=>'M','糊'=>'H','斜'=>'X','视'=>'S','弱'=>'R','视'=>'S','近'=>'J','视'=>'S',
+            '远'=>'Y','视'=>'S','散'=>'S','光'=>'G','妇'=>'F','科'=>'K','孕'=>'Y','产'=>'C','宫'=>'G','颈'=>'J','卵'=>'L',
+            '巢'=>'C','囊'=>'N','肿'=>'Z','月'=>'Y','经'=>'J','不'=>'B','调'=>'T','痛'=>'T','经'=>'J','盆'=>'P','腔'=>'Q',
+            '炎'=>'Y','阴'=>'Y','道'=>'D','感'=>'G','染'=>'R','乳'=>'R','腺'=>'X','增'=>'Z','生'=>'S','前'=>'Q','列'=>'L',
+            '腺'=>'X','增'=>'Z','生'=>'S','睾'=>'G','丸'=>'W','附'=>'F','睾'=>'G','炎'=>'Y','急'=>'J','性'=>'X','慢'=>'M',
+            '性'=>'X','传'=>'C','染'=>'R','病'=>'B','菌'=>'J','毒'=>'D','寄'=>'J','生'=>'S','虫'=>'C','原'=>'Y','虫'=>'C',
+            '感'=>'G','染'=>'R','败'=>'B','症'=>'Z','脓'=>'N','毒'=>'D','症'=>'Z','休'=>'X','克'=>'K','昏'=>'H','迷'=>'M',
+            '窒'=>'Z','息'=>'X','心'=>'X','搏'=>'B','骤'=>'Z','停'=>'T','电'=>'D','击'=>'J','溺'=>'N','水'=>'S','烧'=>'S',
+            '伤'=>'S','烫'=>'T','伤'=>'S','刀'=>'D','割'=>'G','伤'=>'S','骨'=>'G','盆'=>'P','骨'=>'G','折'=>'Z','肋'=>'L',
+            '骨'=>'G','骨'=>'G','折'=>'Z','锁'=>'S','骨'=>'G','骨'=>'G','折'=>'Z','股'=>'G','骨'=>'G','颈'=>'J','骨'=>'G','折'=>'Z',
+            '急'=>'J','诊'=>'Z','门'=>'M','诊'=>'Z','住'=>'Z','院'=>'Y','复'=>'F','诊'=>'Z','初'=>'C','诊'=>'Z','随'=>'S','访'=>'F',
+        );
+    }
+    $out = '';
+    $len = mb_strlen($str, 'UTF-8');
+    for ($i = 0; $i < $len; $i++) {
+        $ch = mb_substr($str, $i, 1, 'UTF-8');
+        if (isset($map[$ch])) {
+            $out .= $map[$ch];
+        }
+    }
+    return $out;
+}
+
+/* ============================================================
+ * 系统设置读写（core 库 settings 表）
+ * ============================================================ */
+function setting($key, $default = '') {
+    $v = DB::val('core', 'SELECT svalue FROM settings WHERE skey=?', array($key));
+    return $v === null ? $default : $v;
+}
+
+function set_setting($key, $value) {
+    DB::exec('core', 'INSERT OR REPLACE INTO settings(skey, svalue) VALUES(?, ?)', array($key, (string)$value));
+}
+
+/* ============================================================
+ * 业务辅助：就诊记录/患者档案联查、状态中文名
+ * ============================================================ */
+
+/** 按就诊ID联查 挂号记录 + 患者档案 */
+function get_visit_row($visitId) {
+    $v = DB::one('patient', 'SELECT * FROM registrations WHERE id=?', array((int)$visitId));
+    if (!$v) {
+        return null;
+    }
+    $p = DB::one('patient', 'SELECT * FROM patients WHERE patient_no=?', array($v['patient_no']));
+    return array('visit' => $v, 'patient' => $p);
+}
+
+/** 挂号状态中文名 */
+function visit_status_name($s) {
+    $map = array(
+        'pending'   => '待缴费',
+        'paid'      => '待就诊',
+        'visiting'  => '就诊中',
+        'finished'  => '就诊完毕',
+        'refunded'  => '已退费',
+        'cancelled' => '已取消',
+    );
+    return isset($map[$s]) ? $map[$s] : $s;
+}
+
+/** 开单明细流程状态中文名 */
+function item_status_name($s) {
+    $map = array(
+        'open'       => '待缴费',
+        'paid'       => '已缴费',
+        'registered' => '已登记',
+        'executing'  => '执行中',
+        'done'       => '已完成',
+        'dispensing' => '发药中',
+        'dispensed'  => '已发药',
+        'refunded'   => '已退费',
+        'cancelled'  => '已取消',
+    );
+    return isset($map[$s]) ? $map[$s] : $s;
+}
+
+/** 计算订单聚合状态（open/paid/registered/in_progress/done/dispensed/refunded/cancelled） */
+function order_agg_status($orderType, $items) {
+    $sts = array();
+    foreach ($items as $it) $sts[] = $it['status'];
+    if (!$sts) return 'open';
+    if (count(array_unique($sts)) === 1) {
+        $only = $sts[0];
+        if ($only === 'refunded') return 'refunded';
+        if ($only === 'cancelled') return 'cancelled';
+        if ($only === 'dispensed') return 'dispensed';
+        if ($only === 'done') return 'done';
+    }
+    if (in_array('open', $sts, true)) return 'open';
+    if (in_array('paid', $sts, true)) return 'paid';
+    if ($orderType === 'prescription') {
+        if (in_array('dispensed', $sts, true)) return 'dispensed';
+        return 'paid';
+    }
+    if (in_array('executing', $sts, true)) return 'in_progress';
+    if (in_array('registered', $sts, true)) return 'registered';
+    if (in_array('done', $sts, true)) return 'done';
+    return 'open';
+}
+
+/** 生成站内消息（通知方式：纯站内消息 + 打印提醒） */
+function send_msg($toRole, $toUserId, $title, $content = '', $printType = '', $printUrl = '') {
+    DB::insert('core', 'INSERT INTO messages(from_name, to_role, to_user_id, title, content, print_type, print_url, is_read, created_at) VALUES(?,?,?,?,?,?,?,0,?)', array(
+        isset($_SESSION['auth_user']['name']) ? $_SESSION['auth_user']['name'] : '系统',
+        $toRole, (int)$toUserId, $title, $content, $printType, $printUrl, now_str(),
+    ));
+}

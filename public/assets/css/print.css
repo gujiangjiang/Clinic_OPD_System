@@ -1,0 +1,123 @@
+/* ============================================================
+ * print.css v1.0.0 — 统一打印样式
+ * 说明：所有打印单据（挂号凭条/病历/处方/申请单/报告等）
+ * 共用此样式。打印时隐藏网页元素，仅显示 #print-area 内容。
+ * ============================================================ */
+
+/* ---------- 屏幕预览模式（打印前弹出层） ---------- */
+.print-preview {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 2000;
+    overflow: auto;
+    padding: 24px;
+}
+.print-preview .print-toolbar {
+    max-width: 760px;
+    margin: 0 auto 14px;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+.print-area {
+    max-width: 760px;
+    margin: 0 auto;
+    background: #fff;
+    color: #111;
+    padding: 28px 32px;
+    box-shadow: var(--shadow-lg);
+    min-height: 80vh;
+    font-size: 13px;
+}
+
+/* ---------- 单据通用排版 ---------- */
+.print-area h1 {
+    text-align: center;
+    font-size: 22px;
+    letter-spacing: 2px;
+    margin-bottom: 2px;
+}
+.print-area .print-sub {
+    text-align: center;
+    font-size: 13px;
+    color: #444;
+    margin-bottom: 10px;
+}
+.print-area .print-hosp {
+    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+.print-area .print-title-line {
+    text-align: center;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: 6px;
+    border-top: 2px solid #111;
+    border-bottom: 2px solid #111;
+    padding: 4px 0;
+    margin: 6px 0 12px;
+}
+.print-area .print-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 18px;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+.print-area .print-info span { white-space: nowrap; }
+.print-area table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    margin: 8px 0;
+}
+.print-area table th, .print-area table td {
+    border: 1px solid #444;
+    padding: 6px 8px;
+    text-align: left;
+}
+.print-area table th { background: #f0f0f0; font-weight: 600; }
+.print-area .print-note { margin-top: 10px; font-size: 12px; color: #333; }
+.print-area .print-footer {
+    margin-top: 24px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12.5px;
+}
+.print-area .print-line { border-bottom: 1px solid #111; padding-bottom: 6px; margin-bottom: 10px; }
+
+/* 病历打印：正文段落 */
+.print-area .record-section { margin-bottom: 10px; }
+.print-area .record-section .sec-label { font-weight: 700; font-size: 13px; }
+.print-area .record-section .sec-body {
+    font-size: 13px;
+    white-space: pre-wrap;
+    line-height: 1.7;
+    min-height: 20px;
+}
+
+/* 处方大括号子项 */
+.print-area .sub-order { padding-left: 18px; border-left: 2px solid #888; margin-left: 6px; }
+
+/* ---------- 打印时：仅显示打印区域 ---------- */
+@media print {
+    body * { visibility: hidden; }
+    #print-area, #print-area * { visibility: visible; }
+    #print-area {
+        position: absolute;
+        left: 0; top: 0;
+        width: 100%;
+        box-shadow: none;
+        margin: 0;
+        padding: 0;
+        max-width: none;
+        min-height: 0;
+        background: #fff;
+        color: #111;
+    }
+    .print-toolbar { display: none !important; }
+    @page { margin: 10mm; }
+}

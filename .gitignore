@@ -1,0 +1,64 @@
+# ============================================================
+# 简易门诊一体化系统 — .gitignore
+# 说明：仅忽略运行时生成的数据、测试数据与临时文件，源代码全部保留。
+# ============================================================
+
+# ---------- 运行时数据库（首次访问自动创建，含演示/测试数据勿提交） ----------
+data/db/*.db
+data/db/*.db-journal
+data/db/*.db-wal
+data/db/*.db-shm
+
+# ---------- 测试 / 演示数据库（任意位置，禁止提交测试数据） ----------
+**/*_test.db
+**/*.test.db
+**/test_*.db
+**/*_test.db-journal
+**/*.test.db-journal
+tests/**/*.db
+demo/**/*.db
+tmp/**/*.db
+
+# ---------- 会话文件（运行时临时文件） ----------
+data/session/*
+!data/session/.gitkeep
+
+# ---------- 上传文件（医院 LOGO / 用户照片，运行时上传） ----------
+public/uploads/logo/*
+public/uploads/user/*
+!public/uploads/**/.gitkeep
+
+# ---------- 日志文件 ----------
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ---------- 构建 / 编译缓存 ----------
+*.tsbuildinfo
+node_modules/
+dist/
+build/
+
+# ---------- 临时文件（编辑器 / 系统 / 下载残留） ----------
+*.tmp
+*.temp
+*.part
+*.bak
+*.orig
+*.rej
+*.swp
+*.swo
+*~
+.~lock.*
+~$*
+*.old
+*.new
+
+# ---------- 系统 / 编辑器配置 ----------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.project
+.settings/
