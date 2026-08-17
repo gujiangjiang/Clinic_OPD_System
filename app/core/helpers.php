@@ -79,6 +79,17 @@ function post($key, $default = '') {
     return isset($_POST[$key]) ? trim((string)$_POST[$key]) : $default;
 }
 
+/**
+ * 读取 POST 原始值（不去除首尾空格）
+ * 说明：密码等敏感输入必须原样读取，禁止 trim：
+ * 用户输入的密码可能含前导/尾随空格（复制粘贴或误输入），
+ * 一旦 trim 会导致长度校验误判（如实际输入9位被判定少于6位），
+ * 且入库/校验的密码与用户实际输入不一致，造成无法登录。
+ */
+function post_raw($key, $default = '') {
+    return isset($_POST[$key]) ? (string)$_POST[$key] : $default;
+}
+
 /** 读取 GET 参数（自动去首尾空格） */
 function get($key, $default = '') {
     return isset($_GET[$key]) ? trim((string)$_GET[$key]) : $default;

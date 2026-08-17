@@ -21,7 +21,8 @@ if ($__act === 'login' || $__act === 'logout_page') {
     /* ---------------- 登录 ---------------- */
     if ($__act === 'login') {
         $username = post('username');
-        $password = post('password');
+        // 密码必须原样读取（不 trim），保证与入库密码逐字一致
+        $password = post_raw('password');
         $next = post('next', '');
         $res = Auth::login($username, $password);
         if ($res !== true) {
@@ -70,7 +71,7 @@ switch ($action) {
 
     /* ---------------- 重置密码（管理员审核通过后调用，无需验证原密码） ---------------- */
     case 'reset_password':
-        $new = post('new_password');
+        $new = post_raw('new_password');
         if (strlen($new) < 6) json_fail('新密码长度不能少于6位');
         // 必须有管理员已批准且未使用的密码重置申请
         $appr = DB::one('core', "SELECT id FROM audits WHERE type='pwd_reset' AND ref_id=? AND status='approved' ORDER BY id DESC", array(Auth::id()));
@@ -93,8 +94,8 @@ switch ($action) {
 
     /* ---------------- 修改密码 ---------------- */
     case 'password':
-        $old = post('old_password');
-        $new = post('new_password');
+        $old = post_raw('old_password');
+        $new = post_raw('new_password');
         if (strlen($new) < 6) {
             json_fail('新密码长度不能少于6位');
         }

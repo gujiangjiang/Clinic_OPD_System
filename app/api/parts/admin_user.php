@@ -112,7 +112,8 @@ function admin_part_user($action) {
         $name = post('name');
         $role = post('role', 'doctor');
         $empNo = post('emp_no');
-        $password = post('password');
+        // 默认密码原样读取（不 trim），避免含空格的密码被误删
+        $password = post_raw('password');
         $title = post('title');
         $position = post('position');
         $education = post('education');

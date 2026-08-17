@@ -22,8 +22,9 @@ if ($action !== 'save') {
     json_fail('未知操作');
 }
 
-$password = post('password');
-$password2 = post('password2');
+// 密码必须原样读取（不 trim），否则含首尾空格的密码会被误删导致长度校验失败
+$password = post_raw('password');
+$password2 = post_raw('password2');
 $hospital = post('hospital_name');
 $hospital2 = post('hospital_name2');
 $timezone = post('timezone', 'Asia/Shanghai');
