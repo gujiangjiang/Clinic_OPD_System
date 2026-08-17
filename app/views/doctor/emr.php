@@ -23,20 +23,20 @@ $patient = $row['patient'];
 <input type="hidden" id="visitId" value="<?php echo (int)$visitId; ?>">
 <input type="hidden" id="refRecordId" value="<?php echo (int)$refId; ?>">
 
-<!-- 工具栏 -->
+<!-- 工具栏（.emr-write 为写操作按钮：患者诊毕后自动隐藏，病历只读） -->
 <div class="card" style="padding:12px 16px;margin-bottom:12px">
     <div class="flex gap-8" style="flex-wrap:wrap;align-items:center">
         <span class="fw-700 fs-15">看诊操作：</span>
-        <button class="btn btn-outline btn-sm" onclick="Clinic.order.open('lab')">🧪 开检验</button>
-        <button class="btn btn-outline btn-sm" onclick="Clinic.order.open('imaging')">🩻 开检查</button>
-        <button class="btn btn-outline btn-sm" onclick="Clinic.order.open('procedure')">🩹 开处置</button>
-        <button class="btn btn-outline btn-sm" onclick="Clinic.order.open('prescription')">💊 开处方</button>
+        <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.order.open('lab')">🧪 开检验</button>
+        <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.order.open('imaging')">🩻 开检查</button>
+        <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.order.open('procedure')">🩹 开处置</button>
+        <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.order.open('prescription')">💊 开处方</button>
         <span style="width:1px;height:22px;background:var(--border)"></span>
-        <button class="btn btn-primary btn-sm" onclick="Clinic.emr.save(false)">保存病历</button>
-        <button class="btn btn-success btn-sm" onclick="Clinic.emr.save(true)">保存并诊毕</button>
+        <button class="btn btn-primary btn-sm emr-write" onclick="Clinic.emr.save(false)">保存病历</button>
+        <button class="btn btn-success btn-sm emr-write" onclick="Clinic.emr.save(true)">保存并诊毕</button>
         <span style="width:1px;height:22px;background:var(--border)"></span>
-        <button class="btn btn-outline btn-sm" onclick="openTransfer()">↔️ 转科</button>
-        <button class="btn btn-outline btn-sm" onclick="Clinic.emr.openCertificate()">📄 诊断证明</button>
+        <button class="btn btn-outline btn-sm emr-write" onclick="openTransfer()">↔️ 转科</button>
+        <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.emr.openCertificate()">📄 诊断证明</button>
         <button class="btn btn-outline btn-sm" onclick="Clinic.emr.printRecord()">🖨️ 打印病历</button>
         <button class="btn btn-outline btn-sm" onclick="showPatientHistory('<?php echo e($patient['patient_no']); ?>')">📚 就诊历史</button>
         <button class="btn btn-outline btn-sm" onclick="Clinic.patient.editModal('<?php echo e($patient['patient_no']); ?>')">✏️ 修改患者信息</button>

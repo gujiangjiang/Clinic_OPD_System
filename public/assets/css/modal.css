@@ -96,8 +96,11 @@
 .toast-warning { background: var(--warning); }
 
 /* ---------- 搜索下拉面板 ---------- */
+/* 注意：必须用 fixed 定位！selector.js 使用 getBoundingClientRect()
+   获取的是【视口坐标】，若用 absolute 定位，页面滚动后下拉面板
+   会相对文档坐标错位（如诊断预览窗跑到主诉下方） */
 .dropdown-panel {
-    position: absolute;
+    position: fixed;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);

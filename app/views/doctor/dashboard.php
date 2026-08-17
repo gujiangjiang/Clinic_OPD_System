@@ -25,8 +25,12 @@ $docTitle = $docInfo ? $docInfo['title'] : '';
     </div>
 </div>
 
-<!-- 科室选择（多科室医生） -->
-<div id="deptPicker" class="mb-12"></div>
+<!-- 当前科室栏：单科室直接进入；多科室登录后先弹窗选择，可随时切换 -->
+<div class="flex gap-8 mb-12" style="align-items:center;flex-wrap:wrap">
+    <span id="curDeptBadge"></span>
+    <button type="button" class="btn btn-outline btn-sm" id="switchDeptBtn" onclick="openDeptPicker()" style="display:none">🔄 切换科室</button>
+    <span class="fs-12 text-muted" id="deptDesc">加载科室中…</span>
+</div>
 
 <!-- 状态页签 -->
 <div class="flex gap-8 mb-12" id="statusTabs">
@@ -40,39 +44,73 @@ $docTitle = $docInfo ? $docInfo['title'] : '';
 <script>
 var CUR_DEPT = 0;
 var CUR_TAB = 'waiting';
+var DEPT_LIST = [];   // 医生关联科室列表
 
-/* ---------- 加载医生科室 ---------- */
-Clinic.get('/api/doctor?action=depts', null, {
-    onSuccess: function (json) {
-        var list = json.data.list || [];
-        if (!list.length) {
-            document.getElementById('deptDesc').textContent = '您尚未关联科室，请联系管理员在【用户管理】中为您设置';
-            return;
-        }
-        document.getElementById('deptDesc').textContent = '共关联 ' + list.length + ' 个科室';
-        var box = document.getElementById('deptPicker');
-        if (list.length === 1) {
-            // 单科室直接进入患者列表
-            CUR_DEPT = list[0].id;
-            box.innerHTML = '<span class="badge badge-primary" style="font-size:14px;padding:6px 14px">当前科室：' + list[0].name + '</span>';
-            loadList();
-        } else {
-            // 多科室：显示科室选项
-            box.innerHTML = '<div class="flex gap-8" style="flex-wrap:wrap">' +
-                list.map(function (d) {
-                    return '<button class="btn btn-sm dept-btn" data-id="' + d.id + '" onclick="pickDept(' + d.id + ')">' + d.name + '</button>';
-                }).join('') + '</div>';
-            pickDept(list[0].id);
-        }
-    },
-});
+/* ---------- 加载医生科室（登录后首先进入：单科室直接进入，多科室弹窗选择） ---------- */
+function loadDepts() {
+    Clinic.get('/api/doctor?action=depts', null, {
+        onSuccess: function (json) {
+            DEPT_LIST = json.data.list || [];
+            if (!DEPT_LIST.length) {
+                document.getElementById('deptDesc').textContent = '您尚未关联科室，请联系管理员在【用户管理】中为您设置';
+                return;
+            }
+            document.getElementById('deptDesc').textContent = '';
+            if (DEPT_LIST.length === 1) {
+                // 只有一个科室权限：直接进入该科室患者列表
+                pickDept(DEPT_LIST[0].id);
+            } else {
+                // 多科室权限：优先恢复本次会话已选科室，否则弹出科室选择弹窗
+                var saved = parseInt(sessionStorage.getItem('clinic_doc_dept') || '0', 10);
+                var hasSaved = false;
+                DEPT_LIST.forEach(function (d) { if (d.id === saved) hasSaved = true; });
+                if (hasSaved) pickDept(saved);
+                else openDeptPicker();
+            }
+        },
+    });
+}
 
+/* ---------- 科室选择弹窗（首次进入 / 点击切换科室） ---------- */
+function openDeptPicker() {
+    var opts = DEPT_LIST.map(function (d) {
+        return '<option value="' + d.id + '"' + (d.id === CUR_DEPT ? ' selected' : '') + '>' + d.name + '</option>';
+    }).join('');
+    Clinic.modal.open(
+        '<div class="form-group"><label class="form-label">请选择本次登录看诊的科室</label>' +
+        '<select class="select" id="pkDept">' + opts + '</select></div>' +
+        '<div class="fs-12 text-muted">选择后可通过页面上方【切换科室】按钮随时更换。</div>',
+        {
+            title: '选择科室',
+            size: 'modal-sm',
+            buttons: [
+                { text: '取消', cls: 'btn-outline' },
+                {
+                    text: '确定', cls: 'btn-primary', autoClose: false,
+                    onClick: function () {
+                        var id = parseInt(document.getElementById('pkDept').value, 10) || 0;
+                        if (!id) { Clinic.toast.warning('请选择科室'); return; }
+                        Clinic.modal.close();
+                        pickDept(id);
+                    },
+                },
+            ],
+        }
+    );
+}
+
+/* ---------- 选定科室 ---------- */
 function pickDept(id) {
     CUR_DEPT = id;
-    document.querySelectorAll('.dept-btn').forEach(function (b) {
-        b.className = 'btn btn-sm dept-btn ' + (parseInt(b.getAttribute('data-id'), 10) === id ? 'btn-primary' : 'btn-outline');
-    });
-    document.getElementById('deptDesc').textContent = '当前科室：' + (document.querySelector('.dept-btn.btn-primary') || {}).textContent;
+    // 记住本次会话选择的科室（刷新页面后自动恢复）
+    sessionStorage.setItem('clinic_doc_dept', String(id));
+    var cur = null;
+    DEPT_LIST.forEach(function (d) { if (d.id === id) cur = d; });
+    document.getElementById('curDeptBadge').innerHTML =
+        '<span class="badge badge-primary" style="font-size:14px;padding:6px 14px">当前科室：' + (cur ? cur.name : '') + '</span>';
+    // 仅多科室权限显示切换按钮
+    document.getElementById('switchDeptBtn').style.display = DEPT_LIST.length > 1 ? '' : 'none';
+    document.getElementById('deptDesc').textContent = cur ? '' : '科室信息异常，请联系管理员';
     loadList();
 }
 
@@ -116,7 +154,9 @@ function showPatientHistory(patientNo) {
 
 /* ---------- 加号（号源满时，仅限该患者本人使用） ---------- */
 function openAddSlot() {
-    var depts = [{ id: CUR_DEPT, name: (document.querySelector('.dept-btn.btn-primary') || {}).textContent || '当前科室' }];
+    var cur = null;
+    DEPT_LIST.forEach(function (d) { if (d.id === CUR_DEPT) cur = d; });
+    var depts = [{ id: CUR_DEPT, name: (cur && cur.name) || '当前科室' }];
     var opts = '<option value="' + (CUR_DEPT || '') + '">' + (depts[0].name || '请选择') + '</option>';
     Clinic.modal.open(
         '<div class="form-group"><label class="form-label">科室</label><select class="select" id="asDept">' + opts + '</select></div>' +
@@ -240,4 +280,7 @@ function delTemplate(id) {
         });
     });
 }
+
+/* 页面加载：首先加载科室（单科室直接进入，多科室弹窗选择） */
+loadDepts();
 </script>

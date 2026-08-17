@@ -23,6 +23,18 @@
             onSuccess: function (json) {
                 deptList = json.data.list || [];
                 var box = document.getElementById('callDeptOpts');
+                // 医生未关联科室时给出明确提示，避免一直停留在「正在加载科室…」
+                if (!deptList.length) {
+                    document.getElementById('callDept').textContent = '当前医生未关联科室';
+                    return;
+                }
+                // 未指定科室（dept_id=0）或指定科室不在列表中时，自动默认第一个科室
+                var valid = false;
+                for (var i = 0; i < deptList.length; i++) {
+                    if (deptList[i].id === deptId) { valid = true; break; }
+                }
+                if (!valid) deptId = deptList[0].id;
+                // 多科室：显示科室切换按钮
                 if (deptList.length > 1) {
                     box.innerHTML = deptList.map(function (d) {
                         return '<button type="button" class="call-dept-btn' + (d.id === deptId ? ' on' : '') + '" ' +
@@ -77,6 +89,10 @@
     /* ---------- 轮询刷新 ---------- */
     function refresh() {
         if (!deptId) return;
+        // 请求前先展示当前科室名，避免数据返回前一直显示「正在加载科室…」
+        var cur = null;
+        deptList.forEach(function (d) { if (d.id === deptId) cur = d; });
+        document.getElementById('callDept').textContent = '· ' + (cur ? cur.name : '') + ' ·';
         Clinic.get('/api/doctor?action=call_queue&dept_id=' + deptId, null, {
             onSuccess: function (json) { render(json.data); },
         });

@@ -99,6 +99,7 @@ switch ($action) {
                 'current_dept_id' => (int)$visit['current_dept_id'],
                 'visit_no' => $visit['flow_no'],
                 'visit_seq' => (int)$visit['visit_seq'],
+                'status' => $visit['status'],   // 就诊状态：finished 表示已诊毕（前端据此将病历置为只读）
                 'created_at' => $visit['register_time'],
             ),
             'record' => $recordData,

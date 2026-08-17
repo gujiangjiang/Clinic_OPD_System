@@ -169,6 +169,39 @@ Clinic.emr = (function () {
 
         // 初始化诊断联动
         initDiagnosis(r.initial_diagnosis, r.diagnosis_code);
+
+        // 诊毕：整份病历置为只读（所有输入框禁用 + 编辑器不可编辑 + 写操作按钮隐藏）
+        if (d.visit && d.visit.status === 'finished') {
+            setReadonlyUI();
+        }
+    }
+
+    /**
+     * 诊毕只读：禁用病历所有输入控件，避免误解为可继续编辑
+     */
+    function setReadonlyUI() {
+        var card = document.getElementById('emrCard');
+        if (card) {
+            card.querySelectorAll('input, select, textarea').forEach(function (el) {
+                el.disabled = true;
+            });
+            card.querySelectorAll('.rich-editor').forEach(function (el) {
+                el.contentEditable = 'false';
+                el.classList.add('readonly');
+            });
+            // 关闭诊断搜索下拉
+            if (window.__diagSelector) window.__diagSelector.close();
+            // 隐藏病历模板按钮（写操作）
+            var tpl = document.getElementById('tplBtn');
+            if (tpl) tpl.style.display = 'none';
+        }
+        // 隐藏工具栏写操作按钮（开单/保存/诊毕/转科/诊断证明），保留查看类（打印/历史/患者信息）
+        document.querySelectorAll('.emr-write').forEach(function (b) { b.style.display = 'none'; });
+        var status = document.getElementById('saveStatus');
+        if (status) {
+            status.textContent = '该患者已诊毕，病历为只读状态';
+            status.style.color = 'var(--text-muted)';
+        }
     }
 
     /**
@@ -528,6 +561,7 @@ Clinic.emr = (function () {
         save: save,
         openTemplates: openTemplates,
         applyTemplateById: applyTemplateById,
+        openTransfer: openTransfer,
         openCertificate: openCertificate,
         printRecord: printRecord,
         loadOrders: loadOrders,
