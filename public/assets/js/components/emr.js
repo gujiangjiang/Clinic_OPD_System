@@ -71,7 +71,9 @@ Clinic.emr = (function () {
             '    </div>' +
             '  </div>' +
             '  <div class="text-right fs-13 text-muted">' +
-            '    <div>就诊医生：' + (DATA.record.doctor_name || '') + '</div>' +
+            '    <div>就诊医生：' + (DATA.record.doctor_name || '') +
+            '      ' + (DATA.record.doctor_emp ? '（工号 ' + DATA.record.doctor_emp + '）' : '') +
+            '      ' + (DATA.record.doctor_title ? ' ｜ ' + DATA.record.doctor_title : '') + '</div>' +
             '    <div>记录时间：<span id="recTime">' + (DATA.record.created_at || '') + '</span></div>' +
             '  </div>' +
             '</div></div>';
@@ -245,7 +247,9 @@ Clinic.emr = (function () {
                         return '<div class="fs-13" style="padding:2px 0">· ' + it.item_name +
                             (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>';
                     }).join('');
-                    var delBtn = o.status === 'open'
+                    // 未缴费或已退费的处方/开单可删除（退费后可删除并恢复库存）
+                    var canDel = (o.status === 'open' || o.status === 'refunded');
+                    var delBtn = canDel
                         ? ' <button class="btn btn-outline btn-sm" style="padding:1px 8px" onclick="delOrder(' + o.id + ')">✕</button>'
                         : '';
                     return '<div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer" ' +

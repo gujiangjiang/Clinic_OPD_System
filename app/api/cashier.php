@@ -126,8 +126,11 @@ switch ($action) {
             $patientNo = $patient['patient_no'];
         } else {
             $patientNo = next_patient_no();
+            // 注意：无身份证时 id_card 存 NULL（SQLite 唯一约束允许多个 NULL，
+            // 若存空字符串则第二位无身份证患者会触发唯一约束冲突）
+            $dbCard = ($idCard !== '') ? $idCard : null;
             DB::insert('patient', 'INSERT INTO patients(patient_no, id_card, name, gender, birth_date, age, ethnicity, marital, occupation, work_unit, address, phone, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
-                $patientNo, $idCard, $name, $gender, $birth, $age, post('ethnicity'), post('marital'), post('occupation'), post('work_unit'), post('address'), post('phone'), now_str(),
+                $patientNo, $dbCard, $name, $gender, $birth, $age, post('ethnicity'), post('marital'), post('occupation'), post('work_unit'), post('address'), post('phone'), now_str(),
             ));
         }
 

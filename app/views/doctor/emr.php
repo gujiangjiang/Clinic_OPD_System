@@ -39,7 +39,7 @@ $patient = $row['patient'];
         <button class="btn btn-outline btn-sm" onclick="Clinic.emr.openCertificate()">📄 诊断证明</button>
         <button class="btn btn-outline btn-sm" onclick="Clinic.emr.printRecord()">🖨️ 打印病历</button>
         <button class="btn btn-outline btn-sm" onclick="showPatientHistory('<?php echo e($patient['patient_no']); ?>')">📚 就诊历史</button>
-        <button class="btn btn-outline btn-sm" onclick="Clinic.patient.editModal('<?php echo e($patient['id_card']); ?>')">✏️ 修改患者信息</button>
+        <button class="btn btn-outline btn-sm" onclick="Clinic.patient.editModal('<?php echo e($patient['patient_no']); ?>')">✏️ 修改患者信息</button>
         <span class="fs-12 text-muted" id="saveStatus"></span>
     </div>
 </div>

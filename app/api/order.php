@@ -198,21 +198,22 @@ switch ($action) {
         json_ok(array('list' => $out));
         break;
 
-    /* ==================== 删除未缴费开单（恢复库存） ==================== */
+    /* ==================== 删除开单（未缴费或已退费，恢复库存） ==================== */
     case 'delete':
         $orderId = (int)post('order_id');
         $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array($orderId));
         if (!$order) json_fail('开单记录不存在');
         $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=?', array($orderId));
         foreach ($items as $it) {
-            if ($it['status'] !== 'open') {
-                json_fail('该开单已缴费，不能删除（如需删除请先在收费处退费）');
+            // 允许删除：未缴费（open）或已退费（refunded）
+            if (!in_array($it['status'], array('open', 'refunded'), true)) {
+                json_fail('该开单已进入执行流程，不能删除（如需删除请先在收费处退费）');
             }
         }
-        // 恢复药品库存
+        // 恢复药品库存：仅未缴费的处方需要恢复（已退费的处方在退费时已恢复库存）
         if ($order['order_type'] === 'prescription') {
             foreach ($items as $it) {
-                if ($it['item_id'] > 0 && (int)$it['sub_of'] === 0) {
+                if ($it['item_id'] > 0 && (int)$it['sub_of'] === 0 && $it['status'] === 'open') {
                     DB::exec('drug', 'UPDATE drugs SET qty = qty + ? WHERE id=?', array((int)$it['quantity'], $it['item_id']));
                     DB::insert('order', 'INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
                         $it['item_id'], (int)$it['quantity'], 'order_restore', $order['order_no'], $u['name'], now_str(),

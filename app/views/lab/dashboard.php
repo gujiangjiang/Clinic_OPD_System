@@ -9,6 +9,7 @@ Router::title('检验科工作台');
 ?>
 <div class="page-head">
     <div><div class="page-title">🧪 检验科工作台</div><div class="page-desc">检验登记、结果录入与报告管理</div></div>
+    <button class="btn btn-outline btn-sm" onclick="openLabItemForm()">＋ 新增检验项目</button>
 </div>
 
 <div class="flex gap-8 mb-12">
@@ -81,6 +82,34 @@ function withdrawReport(reportId) {
                 Clinic.toast.success(json.msg);
                 loadQueue('done');
             },
+        });
+    });
+}
+
+/* 新增检验项目（提交后需管理员审核，需求19） */
+function openLabItemForm() {
+    var mask = Clinic.modal.load('/api/lab', { action: 'item_form' }, { title: '新增检验项目' });
+    mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
+        mask.querySelector('.modal-foot').innerHTML =
+            '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+            '<button type="button" class="btn btn-primary" id="labItemSave">提交审核</button>';
+        document.getElementById('labItemSave').addEventListener('click', function () {
+            Clinic.ajax('/api/lab', {
+                action: 'item_save',
+                name: document.getElementById('f_name').value.trim(),
+                category: document.getElementById('f_category').value,
+                price: document.getElementById('f_price').value,
+                unit: document.getElementById('f_unit').value,
+                normal_range: document.getElementById('f_normal').value,
+                critical_low: document.getElementById('f_clow').value,
+                critical_high: document.getElementById('f_chigh').value,
+                description: document.getElementById('f_desc').value,
+            }, {
+                onSuccess: function (json) {
+                    Clinic.toast.success(json.msg);
+                    Clinic.modal.close();
+                },
+            });
         });
     });
 }

@@ -45,6 +45,41 @@ require __DIR__ . '/_init.php';
 
 switch ($action) {
 
+    /* ---------------- 忘记密码：提交重置申请（通知管理员审核，需求25） ---------------- */
+    case 'forgot':
+        $me = Auth::user();
+        $row = DB::one('user', 'SELECT id, username, name, emp_no, role FROM users WHERE id=?', array($me['id']));
+        if (!$row) json_fail('用户不存在');
+        // 防重复申请：已有待审核的密码重置申请时不再重复提交
+        $pending = DB::one('core', "SELECT id FROM audits WHERE type='pwd_reset' AND ref_id=? AND status='pending'", array($row['id']));
+        if ($pending) json_fail('您已提交过密码重置申请，请耐心等待管理员审核');
+        // 已通过审核但尚未设置新密码时，引导直接设置
+        $approved = DB::one('core', "SELECT id FROM audits WHERE type='pwd_reset' AND ref_id=? AND status='approved'", array($row['id']));
+        if ($approved) json_fail('您的密码重置申请已通过审核，请直接在站内消息中点击【设置新密码】完成重置');
+        DB::insert('core', "INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)", array(
+            'pwd_reset', (int)$row['id'],
+            '密码重置申请：' . $row['name'],
+            '用户「' . $row['name'] . '」（工号 ' . $row['emp_no'] . '，角色 ' . Auth::roleName($row['role']) . '）忘记登录密码，申请重置为初始密码，请审核',
+            'pending', $row['name'], (int)$row['id'], now_str(),
+        ));
+        // 通知管理员
+        send_msg('admin', 0, '密码重置申请',
+            '用户「' . $row['name'] . '」忘记密码，已提交重置申请，请在【审核中心】处理', '', '');
+        json_ok(array(), '已通知管理员，审核通过后将为您重置密码为初始密码');
+        break;
+
+    /* ---------------- 重置密码（管理员审核通过后调用，无需验证原密码） ---------------- */
+    case 'reset_password':
+        $new = post('new_password');
+        if (strlen($new) < 6) json_fail('新密码长度不能少于6位');
+        // 必须有管理员已批准且未使用的密码重置申请
+        $appr = DB::one('core', "SELECT id FROM audits WHERE type='pwd_reset' AND ref_id=? AND status='approved' ORDER BY id DESC", array(Auth::id()));
+        if (!$appr) json_fail('没有已通过审核的密码重置申请，请先在【修改密码】页提交申请');
+        DB::exec('user', 'UPDATE users SET password=?, pwd_changed=1 WHERE id=?', array(password_hash($new, PASSWORD_DEFAULT), Auth::id()));
+        DB::exec('core', "UPDATE audits SET status='used', note=? WHERE id=?", array('用户已设置新密码', $appr['id']));
+        json_ok(array(), '密码修改成功');
+        break;
+
     /* ---------------- 主题偏好（明亮/夜间/自动，跟随用户保存） ---------------- */
     case 'theme':
         $theme = post('theme', 'auto');

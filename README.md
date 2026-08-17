@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v1.0.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2F预留MySQL-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v1.1.1-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2F预留MySQL-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房** 等多角色业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕。
@@ -17,12 +17,12 @@
 | 模块 | 功能 |
 | --- | --- |
 | 🎫 挂号收费处 | 身份证 18 位校验、自动计算并锁定出生日期/年龄/性别、既往登记自动填充、号源实时展示、挂号缴费、凭条打印、挂号管理（按天查询/补打/患者信息修改）、缴费退费管理 |
-| 🩺 医生工作站 | 多科室切换、WYSIWYG 电子病历、ICD-10 诊断联动、病历模板、开检验/检查/处置/处方、静脉输液子处方、转科一键引用、诊断证明、医生加号、就诊历史 |
-| 💉 护士站 | 护士站处置执行、生命体征录入（与医生站双向同步）、护理记录 |
-| 🧪 检验科 | 检验登记、结果录入（正常范围 + 危急值提示）、报告生成与打印、申请撤回 |
-| 🩻 影像科 | 检查登记、影像所见 + 结论、报告打印、申请撤回 |
-| 💊 药房 | 发药队列、库存管理（入库/出库 + 库存流水 + 低库存预警） |
-| ⚙️ 管理员 | 首次安装、医院信息/LOGO/favicon/时区/页脚、科室管理、用户管理、检验检查项目、药品信息与药品设置、处置项目、审核中心、统一打印中心 |
+| 🩺 医生工作站 | 多科室切换、WYSIWYG 电子病历、ICD-10 诊断联动、病历模板、开检验/检查/处置/处方、静脉输液子处方、转科一键引用、诊断证明、医生加号、就诊历史、诊室叫号屏幕 |
+| 💉 护士站 | 患者搜索（ID/身份证/流水号）、护士站处置执行、生命体征录入（与医生站双向同步）、护理记录、当日医嘱查看、待执行医嘱（护士站执行处方） |
+| 🧪 检验科 | 检验登记、结果录入（正常范围 + 危急值提示）、报告生成与打印、申请撤回、提交新增检验项目（需审核） |
+| 🩻 影像科 | 检查登记、影像所见 + 结论、报告打印、申请撤回、提交新增检查项目（需审核） |
+| 💊 药房 | 发药队列（待发药/发药完成）、库存管理（入库/出库 + 库存流水 + 低库存预警）、新增药品/分类（需审核） |
+| ⚙️ 管理员 | 首次安装、医院信息/LOGO/favicon/时区/页脚、科室管理、用户管理、检验检查项目、药品信息与药品设置、处置项目、诊断管理（ICD10）、审核中心（含密码重置）、统一打印中心、HIS 预留接口 |
 
 ## 👥 系统角色
 
@@ -68,13 +68,15 @@
 │   │       Auth.php  Session.php  CSRF.php  Upload.php  Router.php  helpers.php
 │   ├── api/                   # AJAX 接口（按功能拆分，含角色权限校验）
 │   │   ├── _init.php          # 接口公共入口（CSRF + 登录 + 角色校验）
-│   │   ├── auth.php  install.php  message.php  icd10.php  patient.php  print.php
+│   │   ├── parts/             # 管理端接口按功能拆分（settings/dept/user/item/drug/disp/audit）
+│   │   ├── auth.php  install.php  message.php  icd10.php  patient.php  print.php  his.php
 │   │   ├── admin.php  cashier.php  doctor.php  record.php  order.php
 │   │   ├── template.php  transfer.php  nurse.php  lab.php  imaging.php  pharmacy.php
 │   ├── includes/              # 公共模块
 │   │   ├── layout.php         # 统一布局（侧边栏/顶栏/主题/消息铃铛/CSRF/favicon）
+│   │   ├── forms.php          # 共享表单（检验/检查项目、药品，管理端与各科室复用）
 │   │   └── print_templates.php# 统一打印模板（凭条/缴费/申请单/处方/报告/病历/证明）
-│   └── views/                 # 页面视图（按角色/模块分子目录）
+│   └── views/                 # 页面视图（按角色/模块分子目录，含医生叫号屏 doctor/call.php、诊断管理 admin/diagnosis.php）
 ├── data/                      # 运行时数据目录（Web 无法访问，首次访问自动创建）
 │   ├── db/                    # 分散式 SQLite 数据库（core/user/dept/patient/order/drug/medical/nurse/lab/disp/icd10）
 │   └── session/               # Session 文件
@@ -144,6 +146,30 @@ server {
    （其余 SQL 与查询代码保持兼容；迁移机制在 MySQL 下使用 `ALTER TABLE` 增量执行）。
 4. 业务查询代码（`DB::q/one/val/exec/insert`）无需改动。
 
+## 🔌 HIS 预留接口（需求23）
+
+系统内置只读 HIS 对接接口（`/api/his`），为未来扩展住院 HIS、医保、BI 等系统提供数据支持：
+
+1. 在【系统设置】中配置「HIS 预留接口密钥」（留空则接口关闭）。
+2. 外部系统携带密钥调用（二选一）：
+
+```bash
+# GET 参数方式
+curl "http://your-domain/api/his?api_key=你的密钥&action=patient_get&id_card=110101199001011234"
+
+# 请求头方式
+curl -H "X-HIS-Key: 你的密钥" "http://your-domain/api/his?action=visit_status&flow_no=2503110001"
+```
+
+| action | 参数 | 说明 |
+| --- | --- | --- |
+| `patient_get` | `id_card` 或 `patient_no` | 查询患者档案 |
+| `visit_list` | `patient_no` | 该患者全部就诊记录 |
+| `visit_status` | `flow_no` | 查询某次就诊状态（含当前科室/序号/状态） |
+| `order_list` | `visit_id` | 某次就诊的开单明细（检验/检查/处置/处方） |
+
+> 接口均为只读、统一 JSON 返回格式 `{ ok, msg, data }`，不依赖登录会话。
+
 ## 🔒 安全说明
 
 - CSRF 令牌校验所有 POST 请求；PDO 预处理语句防 SQL 注入；`password_hash/verify` 密码哈希。
@@ -155,6 +181,7 @@ server {
 ## 🧩 开发约定（维护指南）
 
 - **单文件小、职责单一**：PHP / JS / CSS 文件按功能拆分，能拆则拆，方便单独更新某个文件而不影响整体。
+  （v1.1.0 起管理端接口已拆分到 `app/api/parts/`，项目/药品表单统一收敛到 `app/includes/forms.php` 供各科室复用）
 - **公共数据统一存放**：性别、民族、职业、职称、频次、途径等字典统一维护在 `app/config/options_data.php`，
   页面按需调用，避免重复代码；ICD10 数据量巨大，独立存放于 `icd10` 数据库。
 - **样式按主题拆分**：明亮 / 夜间 / 自动模式分别维护（`base.css` / `dark.css` 等），不混在一个文件里。

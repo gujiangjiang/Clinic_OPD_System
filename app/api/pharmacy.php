@@ -9,24 +9,34 @@
  * 3. 库存管理：入库/出库记录库存流水（inventory_trans）
  * ============================================================ */
 require __DIR__ . '/_init.php';
+require_once APP_ROOT . '/app/includes/forms.php';
 
 $u = Auth::user();
 
 switch ($action) {
 
-    /* ==================== 待发药队列（HTML） ==================== */
+    /* ==================== 发药队列（待发药 / 发药完成，需求20） ==================== */
     case 'queue':
         // 说明：orders 与 order_items 同库可 JOIN；患者信息跨库按 patient_no 逐条补充
+        // 勾选【护士站执行】的处方由护士站执行（need_nurse=1），药房不显示
+        $status = get('status', 'paid');
+        if ($status === 'dispensed') {
+            $where = "oi.item_type='prescription' AND oi.sub_of=0 AND oi.need_nurse=0 AND oi.status='dispensed'";
+        } else {
+            $where = "oi.item_type='prescription' AND oi.sub_of=0 AND oi.need_nurse=0 AND oi.status='paid'";
+        }
         $rows = DB::q('order', "SELECT oi.*, o.order_no FROM order_items oi
             JOIN orders o ON o.id = oi.order_id
-            WHERE oi.item_type='prescription' AND oi.sub_of=0 AND oi.status='paid'
-            ORDER BY oi.id DESC LIMIT 200");
-        $html = '<div class="fs-13 text-muted mb-8">待发药：' . count($rows) . ' 项</div>';
+            WHERE $where ORDER BY oi.id DESC LIMIT 200");
+        $title = $status === 'dispensed' ? '发药完成' : '待发药';
+        $html = '<div class="fs-13 text-muted mb-8">' . $title . '：' . count($rows) . ' 项</div>';
         if (!$rows) {
-            $html .= '<div class="empty"><div class="empty-ico">💊</div>暂无待发药处方</div>';
+            $html .= '<div class="empty"><div class="empty-ico">💊</div>暂无' . $title . '处方</div>';
         } else {
             $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
-                '<th>患者</th><th>药品</th><th>处方单号</th><th>流水号</th><th>数量</th><th>开单医生</th><th>操作</th></tr></thead><tbody>';
+                '<th>患者</th><th>药品</th><th>处方单号</th><th>流水号</th><th>数量</th><th>开单医生</th>' .
+                ($status === 'dispensed' ? '<th>发药药师</th><th>发药时间</th>' : '') .
+                '<th>操作</th></tr></thead><tbody>';
             foreach ($rows as $r) {
                 $p = DB::one('patient', 'SELECT name, gender, age FROM patients WHERE patient_no=?', array($r['patient_no']));
                 $html .= '<tr>' .
@@ -36,7 +46,10 @@ switch ($action) {
                     '<td>' . e($r['flow_no']) . '</td>' .
                     '<td>' . (int)$r['quantity'] . ' ' . e($r['unit_name']) . '</td>' .
                     '<td>' . e($r['doctor_name']) . '</td>' .
-                    '<td><button class="btn btn-success btn-sm" onclick="dispenseDrug(' . (int)$r['id'] . ')">发药</button></td></tr>';
+                    ($status === 'dispensed' ? '<td>' . e($r['executed_by']) . '</td><td class="fs-12">' . e(substr($r['executed_at'], 5, 11)) . '</td>' : '') .
+                    '<td>' . ($status === 'paid'
+                        ? '<button class="btn btn-success btn-sm" onclick="dispenseDrug(' . (int)$r['id'] . ')">发药</button>'
+                        : '<span class="badge badge-success">已发放</span>') . '</td></tr>';
             }
             $html .= '</tbody></table></div>';
         }
@@ -85,6 +98,54 @@ switch ($action) {
             $html .= '</tbody></table></div>';
         }
         json_ok(array('html' => $html));
+        break;
+
+    /* ==================== 新增药品（需求20：提交后需管理员审核） ==================== */
+    case 'drug_form':
+        json_ok(form_drug(0));
+        break;
+
+    case 'drug_save':
+        $name = post('name');
+        if ($name === '') json_fail('请填写药品名称');
+        $data = array(
+            'generic_name' => post('generic_name'), 'category' => post('category'),
+            'vendor' => post('vendor'), 'vendor_short' => post('vendor_short'),
+            'package_unit' => post('package_unit'), 'spec' => post('spec'), 'form' => post('form'),
+            'single_dose' => post('single_dose'), 'frequency_name' => post('frequency_name'),
+            'route_name' => post('route_name'), 'price' => (float)post('price', 0), 'qty' => (int)post('qty', 0),
+            'is_rx' => (int)post('is_rx', 0), 'is_limited' => (int)post('is_limited', 0),
+            'note' => post('note'), 'need_nurse' => (int)post('need_nurse', 0),
+        );
+        $params = array_values($data);
+        $params[] = 'pending';
+        $params[] = now_str();
+        $newId = DB::insert('drug', 'INSERT INTO drugs(generic_name, category, vendor, vendor_short, package_unit, spec, form, single_dose, frequency_name, route_name, price, qty, is_rx, is_limited, note, need_nurse, name, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array_merge(
+            array_slice($params, 0, 16), array($name), array_slice($params, 16)
+        ));
+        DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
+            'item_drug', $newId, '药品添加：' . $name,
+            '药房 ' . $u['name'] . ' 提交新增药品「' . $name . '」（分类：' . $data['category'] . '，价格：¥' . money($data['price']) . '），请审核',
+            'pending', $u['name'], $u['id'], now_str(),
+        ));
+        json_ok(array(), '药品已提交，待管理员审核通过后即可开方使用');
+        break;
+
+    /* ==================== 新增药品分类（需求20：药房可添加分类） ==================== */
+    case 'category_form':
+        $html = '<div class="form-group"><label class="form-label">药品分类名称 <span class="req">*</span></label>' .
+            '<input class="input" id="f_cat_name" placeholder="如：生物制品"></div>' .
+            '<div class="fs-12 text-muted">新增分类后可在新增药品时选择该分类。</div>';
+        json_ok(array('html' => $html));
+        break;
+
+    case 'category_save':
+        $name = post('name');
+        if ($name === '') json_fail('请输入分类名称');
+        $dup = DB::one('drug', "SELECT id FROM drug_settings WHERE stype='category' AND name=?", array($name));
+        if ($dup) json_fail('该分类已存在');
+        DB::insert('drug', "INSERT INTO drug_settings(stype, name, need_nurse, sort) VALUES('category',?,0,0)", array($name));
+        json_ok(array(), '药品分类已添加');
         break;
 
     /* ==================== 库存变动（入库/出库） ==================== */

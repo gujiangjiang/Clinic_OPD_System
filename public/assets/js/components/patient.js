@@ -33,7 +33,7 @@ Clinic.patient = {
                             onClick: function () {
                                 Clinic.ajax('/api/patient', {
                                     action: 'update',
-                                    id_card: document.getElementById('pmCard').value,
+                                    patient_no: document.getElementById('pmNo').value,
                                     phone: document.getElementById('pmPhone').value.trim(),
                                     ethnicity: document.getElementById('pmEth').value,
                                     marital: document.getElementById('pmMarital').value,

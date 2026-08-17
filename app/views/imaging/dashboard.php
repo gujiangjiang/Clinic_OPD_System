@@ -8,6 +8,7 @@ Router::title('影像科工作台');
 ?>
 <div class="page-head">
     <div><div class="page-title">🩻 影像科工作台</div><div class="page-desc">检查登记、报告录入与报告管理</div></div>
+    <button class="btn btn-outline btn-sm" onclick="openImgItemForm()">＋ 新增检查项目</button>
 </div>
 
 <div class="flex gap-8 mb-12">
@@ -80,6 +81,30 @@ function withdrawReport(reportId) {
                 Clinic.toast.success(json.msg);
                 loadQueue('done');
             },
+        });
+    });
+}
+
+/* 新增检查项目（提交后需管理员审核，需求19） */
+function openImgItemForm() {
+    var mask = Clinic.modal.load('/api/imaging', { action: 'item_form' }, { title: '新增检查项目' });
+    mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
+        mask.querySelector('.modal-foot').innerHTML =
+            '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+            '<button type="button" class="btn btn-primary" id="imgItemSave">提交审核</button>';
+        document.getElementById('imgItemSave').addEventListener('click', function () {
+            Clinic.ajax('/api/imaging', {
+                action: 'item_save',
+                name: document.getElementById('f_name').value.trim(),
+                category: document.getElementById('f_category').value,
+                price: document.getElementById('f_price').value,
+                description: document.getElementById('f_desc').value,
+            }, {
+                onSuccess: function (json) {
+                    Clinic.toast.success(json.msg);
+                    Clinic.modal.close();
+                },
+            });
         });
     });
 }

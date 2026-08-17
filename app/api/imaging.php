@@ -8,6 +8,7 @@
  * 填写影像所见与结论 → 提交自动生成报告并打印 → 移入【已完成】
  * ============================================================ */
 require __DIR__ . '/_init.php';
+require_once APP_ROOT . '/app/includes/forms.php';
 
 $u = Auth::user();
 
@@ -52,6 +53,27 @@ switch ($action) {
             $html .= '</tbody></table></div>';
         }
         json_ok(array('html' => $html));
+        break;
+
+    /* ==================== 新增检查项目（需求19：提交后需管理员审核） ==================== */
+    case 'item_form':
+        json_ok(array('html' => form_item('imaging', 0)));
+        break;
+
+    case 'item_save':
+        $name = post('name');
+        $category = post('category');
+        $price = (float)post('price', 0);
+        if ($name === '') json_fail('请填写项目名称');
+        $newId = DB::insert('lab', 'INSERT INTO exam_items(category, name, price, description, status, created_at) VALUES(?,?,?,?,?,?)', array(
+            $category, $name, $price, post('description'), 'pending', now_str(),
+        ));
+        DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
+            'item_exam', $newId, '检查项目添加：' . $name,
+            '影像科 ' . $u['name'] . ' 提交新增检查项目「' . $name . '」（分类：' . $category . '，价格：¥' . money($price) . '），请审核',
+            'pending', $u['name'], $u['id'], now_str(),
+        ));
+        json_ok(array(), '检查项目已提交，待管理员审核通过后即可开单使用');
         break;
 
     /* ==================== 登记 ==================== */

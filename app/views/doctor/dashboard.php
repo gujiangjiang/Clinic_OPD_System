@@ -9,11 +9,14 @@
  */
 Router::title('医生工作站');
 $u = Auth::user();
+$docInfo = DB::one('user', 'SELECT emp_no, title FROM users WHERE id=?', array($u['id']));
+$docEmp = $docInfo ? $docInfo['emp_no'] : '';
+$docTitle = $docInfo ? $docInfo['title'] : '';
 ?>
 <div class="page-head">
     <div>
         <div class="page-title">🩺 医生工作站</div>
-        <div class="page-desc" id="deptDesc">加载科室中…</div>
+        <div class="page-desc">医生：<?php echo e($u['name']); ?><?php echo $docEmp !== '' ? '（工号 ' . e($docEmp) . '）' : ''; ?><?php echo $docTitle !== '' ? ' ｜ 职称：' . e($docTitle) : ''; ?> <span id="deptDesc">加载科室中…</span></div>
     </div>
     <div class="flex gap-8">
         <button class="btn btn-outline btn-sm" onclick="openAddSlot()">＋ 加号</button>

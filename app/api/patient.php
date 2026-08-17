@@ -39,7 +39,8 @@ switch ($action) {
         if (!$p) {
             json_ok(array('html' => ''));
         }
-        $html = '<input type="hidden" id="pmCard" value="' . e($p['id_card']) . '">' .
+        $html = '<input type="hidden" id="pmNo" value="' . e($p['patient_no']) . '">' .
+            '<input type="hidden" id="pmCard" value="' . e($p['id_card']) . '">' .
             '<div class="fs-13 text-muted mb-12">患者：<strong>' . e($p['name']) . '</strong>（' . e($p['patient_no']) . '）—— 姓名、性别、身份证、出生年月不可修改</div>' .
             '<div class="form-row">' .
             '  <div class="form-group"><label class="form-label">联系电话</label><input class="input" id="pmPhone" value="' . e($p['phone']) . '"></div>' .
@@ -58,8 +59,9 @@ switch ($action) {
 
     /* ---------------- 患者信息修改（除姓名/性别/身份证/出生年月外） ---------------- */
     case 'update':
-        $idCard = post('id_card');
-        if ($idCard === '') {
+        // 以患者唯一ID（patient_no）为主键更新，兼容无身份证（急诊）患者
+        $patientNo = post('patient_no');
+        if ($patientNo === '') {
             json_fail('缺少患者标识');
         }
         $fields = array('phone', 'ethnicity', 'marital', 'occupation', 'work_unit', 'address');
@@ -69,8 +71,8 @@ switch ($action) {
             $set[] = $f . '=?';
             $params[] = post($f);
         }
-        $params[] = $idCard;
-        DB::exec('patient', 'UPDATE patients SET ' . implode(',', $set) . ' WHERE id_card=?', $params);
+        $params[] = $patientNo;
+        DB::exec('patient', 'UPDATE patients SET ' . implode(',', $set) . ' WHERE patient_no=?', $params);
         json_ok(array(), '患者信息已更新');
         break;
 

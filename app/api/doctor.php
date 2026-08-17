@@ -102,6 +102,55 @@ switch ($action) {
         json_ok(array('ref_record_id' => $ref ? (int)$ref['ref_record_id'] : 0), '接诊成功');
         break;
 
+    /* ==================== 叫号屏队列（需求22：诊室门口叫号屏幕） ==================== */
+    case 'call_queue':
+        $deptId = (int)get('dept_id', 0);
+        $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=? AND status=1', array($deptId));
+        if (!$dept) json_fail('科室不存在或已停用');
+
+        // 该科室当前就诊中患者（最新的）
+        $current = DB::one('patient', "SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
+            FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
+            WHERE r.current_dept_id=? AND r.status='visiting' ORDER BY r.id DESC LIMIT 1", array($deptId));
+        // 下一位候诊患者（按就诊序号取最早的一位）
+        $next = DB::one('patient', "SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
+            FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
+            WHERE r.current_dept_id=? AND r.status='paid' ORDER BY r.visit_seq, r.register_time LIMIT 1", array($deptId));
+        $waiting = (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE current_dept_id=? AND status='paid'", array($deptId));
+
+        // 该科室出诊医生（按用户-科室关联过滤）
+        $doctors = array();
+        $docs = DB::q('user', "SELECT name, emp_no, title, photo, intro FROM users WHERE role='doctor' AND status=1 ORDER BY id");
+        foreach ($docs as $doc) {
+            $ids = array();
+            foreach (explode(',', isset($doc['dept_ids']) ? $doc['dept_ids'] : '') as $x) {
+                if ((int)$x > 0) $ids[] = (int)$x;
+            }
+            if (in_array($deptId, $ids, true)) {
+                $doctors[] = array(
+                    'name' => $doc['name'], 'emp_no' => $doc['emp_no'],
+                    'title' => $doc['title'], 'photo' => $doc['photo'], 'intro' => $doc['intro'],
+                );
+            }
+        }
+
+        $fmt = function ($r) {
+            if (!$r) return null;
+            return array(
+                'name' => $r['pname'], 'gender' => $r['pgender'], 'age' => (int)$r['page'],
+                'visit_seq' => (int)$r['visit_seq'], 'flow_no' => $r['flow_no'],
+                'patient_no' => $r['patient_no'], 'register_time' => $r['register_time'],
+            );
+        };
+        json_ok(array(
+            'dept' => array('id' => (int)$dept['id'], 'name' => $dept['name'], 'type' => $dept['type']),
+            'current' => $fmt($current),
+            'next' => $fmt($next),
+            'waiting' => $waiting,
+            'doctors' => $doctors,
+        ));
+        break;
+
     /* ==================== 医生加号（号源满时，加号仅限该患者使用） ==================== */
     case 'add_slot':
         $deptId = (int)post('dept_id');

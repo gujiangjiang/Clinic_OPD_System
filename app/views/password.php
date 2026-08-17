@@ -23,6 +23,8 @@ $u = Auth::user();
         <input type="password" class="input" id="new_password2" autocomplete="new-password">
     </div>
     <button type="button" class="btn btn-primary" onclick="savePwd()">确认修改</button>
+    <button type="button" class="btn btn-outline" style="margin-left:10px" onclick="forgotPwd()">忘记密码？</button>
+    <div class="fs-12 text-muted mt-8">忘记密码时点击【忘记密码？】，系统将通知管理员审核，审核通过后您的密码将重置为初始密码，并可在站内消息中直接设置新密码。</div>
 </div>
 
 <script>
@@ -41,5 +43,16 @@ function savePwd() {
             document.getElementById('new_password2').value = '';
         },
     });
+}
+
+/* 忘记密码：提交重置申请（通知管理员审核） */
+function forgotPwd() {
+    Clinic.modal.confirm('确定忘记密码？提交后将通知管理员审核，审核通过后密码重置为初始密码。', function () {
+        Clinic.ajax('/api/auth', { action: 'forgot' }, {
+            onSuccess: function (json) {
+                Clinic.toast.success(json.msg);
+            },
+        });
+    }, { title: '忘记密码', okText: '提交申请' });
 }
 </script>

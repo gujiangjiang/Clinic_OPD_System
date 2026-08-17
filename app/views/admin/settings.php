@@ -36,6 +36,12 @@ foreach ($commonTz as $t) {
             <select class="select" id="s_tz"><?php echo $tzOpts; ?></select></div>
         <div class="form-group"><label class="form-label">页脚版权信息</label>
             <input class="input" id="s_footer" value="<?php echo e(setting('footer')); ?>" placeholder="如：© 2026 XX市人民医院 版权所有"></div>
+        <div class="form-group"><label class="form-label">HIS 预留接口密钥（用于未来住院HIS等系统对接，留空则关闭外部接口）</label>
+            <div class="flex gap-8">
+                <input class="input" id="s_his_key" value="<?php echo e(setting('his_api_key')); ?>" placeholder="留空 = 关闭 HIS 外部接口" style="font-family:monospace">
+                <button class="btn btn-outline btn-sm" onclick="genHisKey()">生成密钥</button>
+            </div>
+            <div class="fs-12 text-muted mt-4">接口地址：/api/his（GET，携带 api_key 参数或 X-HIS-Key 请求头），仅提供只读查询。</div></div>
         <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
     </div>
 
@@ -56,6 +62,17 @@ foreach ($commonTz as $t) {
 </div>
 
 <script>
+/* 生成随机 HIS 接口密钥 */
+function genHisKey() {
+    var arr = new Uint8Array(16);
+    (window.crypto || window.msCrypto).getRandomValues(arr);
+    var key = Array.prototype.map.call(arr, function (b) {
+        return ('0' + b.toString(16)).slice(-2);
+    }).join('');
+    document.getElementById('s_his_key').value = key;
+    Clinic.toast.success('已生成密钥，请点击【保存设置】生效');
+}
+
 function saveSettings() {
     var hosp = document.getElementById('s_hosp').value.trim();
     if (!hosp) { Clinic.toast.warning('请填写医院名称'); return; }
@@ -65,6 +82,7 @@ function saveSettings() {
         hospital_name2: document.getElementById('s_hosp2').value.trim(),
         timezone: document.getElementById('s_tz').value,
         footer: document.getElementById('s_footer').value.trim(),
+        his_api_key: document.getElementById('s_his_key').value.trim(),
     }, {
         onSuccess: function (json) {
             Clinic.toast.success(json.msg);

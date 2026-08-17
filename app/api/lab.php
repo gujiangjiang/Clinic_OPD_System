@@ -10,6 +10,7 @@
  * 2. 已完成报告可查看/申请撤回（管理员批准后可重新编辑）
  * ============================================================ */
 require __DIR__ . '/_init.php';
+require_once APP_ROOT . '/app/includes/forms.php';
 
 $u = Auth::user();
 
@@ -54,6 +55,27 @@ switch ($action) {
             $html .= '</tbody></table></div>';
         }
         json_ok(array('html' => $html));
+        break;
+
+    /* ==================== 新增检验项目（需求19：提交后需管理员审核） ==================== */
+    case 'item_form':
+        json_ok(array('html' => form_item('lab', 0)));
+        break;
+
+    case 'item_save':
+        $name = post('name');
+        $category = post('category');
+        $price = (float)post('price', 0);
+        if ($name === '') json_fail('请填写项目名称');
+        $newId = DB::insert('lab', 'INSERT INTO lab_items(category, name, unit, price, normal_range, critical_low, critical_high, description, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
+            $category, $name, post('unit'), $price, post('normal_range'), post('critical_low'), post('critical_high'), post('description'), 'pending', now_str(),
+        ));
+        DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
+            'item_lab', $newId, '检验项目添加：' . $name,
+            '检验科 ' . $u['name'] . ' 提交新增检验项目「' . $name . '」（分类：' . $category . '，价格：¥' . money($price) . '），请审核',
+            'pending', $u['name'], $u['id'], now_str(),
+        ));
+        json_ok(array(), '检验项目已提交，待管理员审核通过后即可开单使用');
         break;
 
     /* ==================== 登记（采样） ==================== */

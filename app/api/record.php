@@ -30,6 +30,8 @@ switch ($action) {
         $deptName = $dept ? $dept['name'] : $visit['first_dept_name'];
         $deptType = $dept ? $dept['type'] : 'clinic';
 
+        // 医生信息（工号/职称，需求18.2：工作站显示医生姓名工号职称）
+        $doc = DB::one('user', 'SELECT emp_no, title FROM users WHERE id=?', array($u['id']));
         // 病历（当前医生在本就诊下的记录，无则新建草稿）
         $record = DB::one('medical', 'SELECT * FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visitId, $u['id']));
         if (!$record) {
@@ -37,6 +39,8 @@ switch ($action) {
         }
         $recordData = array(
             'doctor_name' => $u['name'],
+            'doctor_emp' => $doc ? $doc['emp_no'] : '',
+            'doctor_title' => $doc ? $doc['title'] : '',
             'created_at' => $record ? $record['created_at'] : '',
             'updated_at' => $record ? $record['updated_at'] : '',
             'chief_complaint' => $record ? $record['chief_complaint'] : '',

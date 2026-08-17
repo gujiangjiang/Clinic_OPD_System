@@ -41,6 +41,7 @@ class Router {
         '/admin/drugs'       => array('admin/drugs.php',        array('admin')),
         '/admin/drugsettings'=> array('admin/drugsettings.php', array('admin')),
         '/admin/disposal'    => array('admin/disposal.php',     array('admin')),
+        '/admin/diagnosis'   => array('admin/diagnosis.php',    array('admin')),
         '/admin/review'      => array('admin/review.php',       array('admin')),
         '/admin/printcenter' => array('admin/printcenter.php',  array('admin')),
         // ===== 挂号收费处 =====
@@ -50,6 +51,7 @@ class Router {
         // ===== 医生工作站 =====
         '/doctor/dashboard'  => array('doctor/dashboard.php',   array('doctor')),
         '/doctor/emr'        => array('doctor/emr.php',         array('doctor')),
+        '/doctor/call'       => array('doctor/call.php',        array('doctor')),
         // ===== 护士站 =====
         '/nurse/dashboard'   => array('nurse/dashboard.php',    array('nurse')),
         // ===== 检验科 =====
@@ -156,9 +158,9 @@ class Router {
         ob_start();
         require $viewFile;
         $content = ob_get_clean();
-        $standalone = ($view === 'login.php' || $view === 'install.php' || $view === 'landing.php');
-        if ($view === 'landing.php') {
-            // 落地页自带完整 HTML（含 landing.css），直接输出捕获内容即可
+        $standalone = ($view === 'login.php' || $view === 'install.php' || $view === 'landing.php' || $view === 'doctor/call.php');
+        if ($view === 'landing.php' || $view === 'doctor/call.php') {
+            // 落地页 / 叫号屏自带完整 HTML，直接输出捕获内容即可
             echo $content;
             return;
         }

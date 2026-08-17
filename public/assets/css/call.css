@@ -1,0 +1,199 @@
+/* ============================================================
+ * call.css v1.1.0 — 诊室门口叫号屏幕样式
+ * 说明：独立全屏显示，深色底 + 大字体 + 高对比，保证远距离可读。
+ * ============================================================ */
+
+.call-body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(160deg, #0b2a43 0%, #0e3a5f 55%, #0b2440 100%);
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    overflow: hidden;
+}
+
+/* ---------- 顶部：LOGO + 医院名称 + 时钟 ---------- */
+.call-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 36px;
+    background: rgba(255, 255, 255, .06);
+    border-bottom: 2px solid rgba(255, 255, 255, .14);
+    flex-shrink: 0;
+}
+.call-brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.call-brand img {
+    height: 64px;
+    width: 64px;
+    object-fit: contain;
+    border-radius: 12px;
+    background: #fff;
+    padding: 4px;
+    flex-shrink: 0;
+}
+.call-hosp .hosp-main {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    line-height: 1.2;
+}
+.call-hosp .hosp-sub {
+    font-size: 18px;
+    color: #a8c8e8;
+    letter-spacing: 1px;
+}
+.call-clock {
+    font-size: 34px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #ffd54f;
+    letter-spacing: 1px;
+}
+
+/* ---------- 中上方：科室名称 ---------- */
+.call-deptbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 10px 20px;
+    flex-shrink: 0;
+}
+.call-dept {
+    font-size: 26px;
+    font-weight: 700;
+    color: #ffd54f;
+    letter-spacing: 4px;
+    padding: 6px 24px;
+    border: 2px solid #ffd54f;
+    border-radius: 40px;
+    background: rgba(255, 213, 79, .12);
+}
+.call-dept-opts .call-dept-btn {
+    margin-left: 10px;
+    font-size: 16px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, .5);
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+}
+.call-dept-opts .call-dept-btn.on {
+    background: #ffd54f;
+    color: #0b2a43;
+    border-color: #ffd54f;
+    font-weight: 700;
+}
+
+/* ---------- 主区：就诊中 / 下一位 ---------- */
+.call-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    min-height: 0;
+}
+.call-now, .call-next { text-align: center; }
+.call-label {
+    font-size: 30px;
+    letter-spacing: 10px;
+    color: #ffd54f;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+.call-label-next { color: #8fd3ff; }
+.call-name {
+    font-size: 120px;
+    font-weight: 800;
+    line-height: 1.15;
+    text-shadow: 0 6px 30px rgba(0, 0, 0, .45);
+}
+.call-now .call-name { color: #7CFC98; }
+.call-next .call-name { color: #8fd3ff; }
+.call-sub {
+    font-size: 34px;
+    color: #d8e6f5;
+    margin-top: 6px;
+    letter-spacing: 1px;
+}
+.call-arrow {
+    font-size: 40px;
+    color: #ffd54f;
+    margin: 14px 0;
+    animation: call-bounce 1.4s infinite;
+}
+@keyframes call-bounce {
+    0%, 100% { transform: translateY(0); opacity: 1; }
+    50%      { transform: translateY(10px); opacity: .6; }
+}
+
+/* ---------- 医生介绍 ---------- */
+.call-doctor {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    background: rgba(255, 255, 255, .08);
+    border: 1px solid rgba(255, 255, 255, .18);
+    border-radius: 18px;
+    margin: 0 36px 18px;
+    padding: 18px 28px;
+    flex-shrink: 0;
+    max-width: 900px;
+    width: calc(100% - 72px);
+    margin-left: auto;
+    margin-right: auto;
+}
+.doc-photo {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: #ffd54f;
+    color: #0b2a43;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 52px;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+.doc-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.doc-name { font-size: 34px; font-weight: 800; }
+.doc-title { font-size: 22px; color: #ffd54f; margin-top: 2px; }
+.doc-intro { font-size: 18px; color: #bcd6ee; margin-top: 4px; max-width: 560px; }
+
+/* ---------- 最下方：温馨提示 ---------- */
+.call-tips {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    padding: 14px 20px;
+    background: rgba(0, 0, 0, .28);
+    border-top: 2px solid rgba(255, 255, 255, .12);
+    font-size: 20px;
+    color: #ffe9b3;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+}
+
+/* 窄屏适配 */
+@media (max-width: 900px) {
+    .call-name { font-size: 64px; }
+    .call-clock { font-size: 22px; }
+    .call-hosp .hosp-main { font-size: 20px; }
+    .call-tips { flex-wrap: wrap; gap: 10px 26px; font-size: 16px; }
+    .call-doctor { flex-wrap: wrap; }
+}

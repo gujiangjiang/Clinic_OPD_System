@@ -27,7 +27,10 @@ function loadMsgs() {
                 '<button class="btn btn-outline btn-sm" onclick="markAll()">全部已读</button></div>' +
                 list.map(function (m) {
                     var btn = '';
-                    if (m.print_url) {
+                    if (m.print_type === 'pwd_reset') {
+                        // 密码重置：管理员审核通过后，无需原密码直接设置新密码
+                        btn = '<button class="btn btn-warning btn-sm" onclick="event.stopPropagation();openResetPwd()">🔑 设置新密码</button>';
+                    } else if (m.print_url) {
                         btn = '<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();Clinic.print.load(\'' + m.print_url + '\',null)">🖨️ 打印</button>';
                     }
                     return '<div class="msg-item ' + (m.is_read ? '' : 'unread') + '" style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--border);cursor:pointer" data-id="' + m.id + '">' +
@@ -46,6 +49,40 @@ function loadMsgs() {
         },
     });
 }
+/* 密码重置：无需验证原密码，直接设置新密码 */
+function openResetPwd() {
+    Clinic.modal.open(
+        '<div class="form-group"><label class="form-label">新密码（至少6位）<span class="req">*</span></label>' +
+        '<input type="password" class="input" id="rpNew" autocomplete="new-password"></div>' +
+        '<div class="form-group"><label class="form-label">确认新密码 <span class="req">*</span></label>' +
+        '<input type="password" class="input" id="rpNew2" autocomplete="new-password"></div>' +
+        '<div class="fs-12 text-muted">管理员已审核通过您的密码重置申请，无需验证原密码。</div>',
+        {
+            title: '设置新密码',
+            size: 'modal-sm',
+            buttons: [
+                { text: '取消', cls: 'btn-outline' },
+                {
+                    text: '确认重置', cls: 'btn-primary', autoClose: false,
+                    onClick: function () {
+                        var n1 = document.getElementById('rpNew').value;
+                        var n2 = document.getElementById('rpNew2').value;
+                        if (n1.length < 6) { Clinic.toast.warning('新密码不能少于6位'); return; }
+                        if (n1 !== n2) { Clinic.toast.warning('两次输入的新密码不一致'); return; }
+                        Clinic.ajax('/api/auth', { action: 'reset_password', new_password: n1 }, {
+                            onSuccess: function (json) {
+                                Clinic.toast.success(json.msg);
+                                Clinic.modal.close();
+                                loadMsgs();
+                            },
+                        });
+                    },
+                },
+            ],
+        }
+    );
+}
+
 function markAll() {
     document.querySelectorAll('.msg-item.unread').forEach(function (el) {
         Clinic.ajax('/api/message', { action: 'read', id: el.getAttribute('data-id') }, { loading: false });

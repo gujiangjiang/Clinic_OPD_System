@@ -7,6 +7,42 @@
  * 年龄计算、拼音首字母（诊断检索）、系统设置读写等。
  * ============================================================ */
 
+/* ============================================================
+ * mbstring 扩展缺失时的兼容函数（仅在未加载时生效）
+ * 说明：部分 PHP 7.x 环境（如精简镜像）未启用 mbstring 扩展，
+ * 会导致 mb_strlen / mb_substr 报致命错误。这里提供基于
+ * preg 的 UTF-8 兼容实现，保证系统在无 mbstring 时也能运行。
+ * ============================================================ */
+if (!function_exists('mb_strlen')) {
+    /** UTF-8 安全的字符串长度（mbstring 缺失时使用） */
+    function mb_strlen($str, $encoding = null) {
+        if (preg_match_all('/./us', (string)$str, $m) > 0) {
+            return count($m[0]);
+        }
+        return 0;
+    }
+}
+
+if (!function_exists('mb_substr')) {
+    /** UTF-8 安全的子串截取（mbstring 缺失时使用） */
+    function mb_substr($str, $start, $length = null, $encoding = null) {
+        $str = (string)$str;
+        if (!preg_match_all('/./us', $str, $m)) {
+            return '';
+        }
+        $chars = $m[0];
+        $total = count($chars);
+        // 负数 start 从末尾计算
+        if ($start < 0) {
+            $start = max(0, $total + $start);
+        }
+        if ($length === null || $length < 0) {
+            return implode('', array_slice($chars, $start));
+        }
+        return implode('', array_slice($chars, $start, $length));
+    }
+}
+
 /** HTML 输出转义（防止 XSS，所有动态内容输出前必须经过 e()） */
 function e($s) {
     return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');

@@ -77,12 +77,12 @@ function onCardChange() {
     var msg = document.getElementById('cardMsg');
     var feeType = document.getElementById('fee_type');
     if (card === '') {
-        // 未填身份证：仅急诊 + 自费锁定
+        // 未填身份证：仅急诊 + 自费锁定；性别/出生日期/年龄可手动填写
         REG.id_card = '';
         msg.innerHTML = '';
         feeType.value = '自费';
         feeType.disabled = true;
-        clearDerived();
+        setDerivedLocked(false);
         loadDepts('');
         document.getElementById('regNotice').innerHTML = '';
         return;
@@ -91,6 +91,7 @@ function onCardChange() {
         REG.id_card = '';
         msg.innerHTML = '<span class="text-danger">身份证号码不正确，请输入正确的18位身份证号码</span>';
         feeType.disabled = false;
+        setDerivedLocked(false);
         clearDerived();
         loadDepts('');
         return;
@@ -98,7 +99,8 @@ function onCardChange() {
     REG.id_card = card;
     msg.innerHTML = '<span class="text-success">✔ 身份证校验通过</span>';
     feeType.disabled = false;
-    // 自动计算并锁定
+    // 自动计算并锁定（身份证计算出的出生日期/年龄/性别确保正确）
+    setDerivedLocked(true);
     document.getElementById('gender').value = Clinic.validate.genderFromId(card);
     document.getElementById('birth').value = Clinic.validate.birthFromId(card);
     document.getElementById('age').value = Clinic.validate.ageFromId(card) + '岁';
@@ -127,6 +129,13 @@ function clearDerived() {
     document.getElementById('gender').value = '男';
     document.getElementById('birth').value = '';
     document.getElementById('age').value = '';
+}
+
+/* 锁定/解锁 出生日期、年龄、性别（有身份证时锁定，无身份证时可手动填） */
+function setDerivedLocked(locked) {
+    ['gender', 'birth', 'age'].forEach(function (id) {
+        document.getElementById(id).disabled = locked;
+    });
 }
 
 /* ---------- 加载可挂科室及号源 ---------- */

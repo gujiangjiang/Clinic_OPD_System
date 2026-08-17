@@ -25,6 +25,7 @@ class Layout {
                 array('药品信息', '💊', '/admin/drugs'),
                 array('药品设置', '📦', '/admin/drugsettings'),
                 array('处置项目', '🩹', '/admin/disposal'),
+                array('诊断管理', '📖', '/admin/diagnosis'),
                 array('审核中心', '✅', '/admin/review'),
                 array('打印中心', '🖨️', '/admin/printcenter'),
             );
@@ -37,6 +38,7 @@ class Layout {
         } elseif ($role === 'doctor') {
             $items['医生工作站'] = array(
                 array('医生工作站', '🩺', '/doctor/dashboard'),
+                array('叫号屏幕', '📺', '/doctor/call'),
             );
         } elseif ($role === 'nurse') {
             $items['护士站'] = array(
