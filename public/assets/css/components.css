@@ -230,6 +230,8 @@
 
 /* ---------- 患者信息头：点击头像或姓名弹出「修改患者信息」弹窗 ---------- */
 .emr-patient-avatar {
+    font-size: 30px;   /* 头像字号：与病历页患者信息头原样式一致，避免变小 */
+    line-height: 1;
     cursor: pointer;
     border-radius: 8px;
     transition: transform .15s ease;
