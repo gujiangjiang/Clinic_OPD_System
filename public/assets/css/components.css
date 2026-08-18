@@ -138,6 +138,40 @@
 .badge-danger { background: var(--danger-soft); color: var(--danger); }
 .badge-gray { background: var(--bg-soft); color: var(--text-muted); }
 
+/* ---------- 科室选择卡片（医生站切换科室弹窗） ---------- */
+.dept-pick-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+}
+.dept-pick-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 12px 12px;
+    cursor: pointer;
+    text-align: center;
+    background: var(--bg-card);
+    transition: border-color .15s ease, background .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+.dept-pick-card:hover {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+.dept-pick-card.active {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+    box-shadow: inset 0 0 0 1px var(--primary);
+}
+.dept-pick-name { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+.dept-pick-tags {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
 /* ---------- 统计块 ---------- */
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 16px; }
 .stat-card {
