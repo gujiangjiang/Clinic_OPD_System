@@ -90,6 +90,7 @@ switch ($action) {
     /* ---------------- 审核中心 ---------------- */
     case 'audit_list':
     case 'audit':
+    case 'audit_all':
         admin_part_audit($action);
         break;
 

@@ -30,6 +30,9 @@ function loadAudits(status) {
     Clinic.get('/api/admin?action=audit_list&status=' + status, null, {
         onSuccess: function (json) {
             document.getElementById('auditList').innerHTML = json.data.html;
+            // 一键全部通过按钮：仅【待审核】页签且有可一键通过的常规事项时显示
+            var cnt = json.data && json.data.pending_count ? json.data.pending_count : 0;
+            document.getElementById('auditAllBtn').style.display = (status === 'pending' && cnt > 0) ? '' : 'none';
         },
     });
 }

@@ -28,6 +28,8 @@ function admin_part_audit($action) {
             $status = 'pending';
             $rows = DB::q('core', 'SELECT * FROM audits WHERE status=? ORDER BY id DESC', array($status));
         }
+        // 可一键通过的常规待审核事项数（密码重置 / 报告撤回不纳入一键通过）
+        $pendingCount = (int)DB::val('core', "SELECT COUNT(*) FROM audits WHERE status='pending' AND type NOT IN ('pwd_reset','report_withdraw')", array());
         $html = '<div class="fs-13 text-muted mb-8">' . ($status === 'pending' ? '待审核' : '已处理') . '：' . count($rows) . ' 条</div>';
         if (!$rows) {
             $html .= '<div class="empty"><div class="empty-ico">📋</div>暂无待审核事项</div>';
@@ -59,7 +61,7 @@ function admin_part_audit($action) {
             }
             $html .= '</tbody></table></div>';
         }
-        json_ok(array('html' => $html));
+        json_ok(array('html' => $html, 'pending_count' => $pendingCount));
     }
 
     /**
