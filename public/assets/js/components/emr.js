@@ -423,13 +423,13 @@ Clinic.emr = (function () {
                 } else if (o.order_type === 'procedure') {
                     proc.push(chip(oid, it.item_name + '×' + it.quantity));
                 } else if (o.order_type === 'prescription') {
+                    // 处方直显：名称　剂量　用法　途径　×数量（不加提示词，简洁直观）
                     var parts = [];
-                    if (it.single_dose) parts.push('剂量：' + it.single_dose);
-                    if (it.frequency_name) parts.push('用法：' + it.frequency_name);
-                    if (it.route_name) parts.push('途径：' + it.route_name);
-                    parts.push('数量：' + it.quantity);
+                    if (it.single_dose) parts.push(it.single_dose);
+                    if (it.frequency_name) parts.push(it.frequency_name);
+                    if (it.route_name) parts.push(it.route_name);
                     rxs.push('<div class="doc-rx-line" onclick="viewOrderFlow(' + oid + ')" title="点击查看流程">' +
-                        it.item_name + (parts.length ? '　' + parts.join('　') : '') + '</div>');
+                        it.item_name + (parts.length ? '　' + parts.join('　') : '') + '　×' + it.quantity + '</div>');
                 }
             });
         });
@@ -855,6 +855,21 @@ function printHistoryCertificate(visitId) {
     Clinic.print.load('/api/record?action=certificate_print&visit_id=' + visitId, null);
 }
 
+/* 全局：开单详情弹窗内 删除 / 毁方（处方） */
+function delOrderFlow(orderId, label) {
+    var isRx = label === '毁方';
+    Clinic.modal.confirm(isRx
+        ? '确定毁方该处方？（仅未缴费或已退费的处方可毁方，未缴费毁方后药品库存自动恢复）'
+        : '确定删除该开单？（仅未缴费或已退费可删除，处方删除后库存恢复）', function () {
+        Clinic.ajax('/api/order', { action: 'delete', order_id: orderId }, {
+            onSuccess: function (j) {
+                Clinic.toast.success(j.msg);
+                Clinic.emr.loadOrders(document.getElementById('visitId').value);
+            },
+        });
+    });
+}
+
 /* 全局：删除开单 */
 function delOrder(orderId) {
     Clinic.modal.confirm('删除该开单？（仅未缴费可删，处方删除后库存恢复）', function () {
@@ -915,6 +930,15 @@ function viewOrderFlow(orderId) {
                 'onclick="Clinic.print.load(\'/api/print?action=order&order_id=' + o.id + '\',null,\'a5\')">🖨️ 打印' +
                 (typeNames[o.order_type] || '') + '单</button>';
 
+            // 删除 / 毁方按钮：处方称「毁方」，其余称「删除」；
+            // 仅未缴费（open）或已退费（refunded）可删，其余点击提示到收费处退费
+            var delLabel = o.order_type === 'prescription' ? '毁方' : '删除';
+            var delBtn = (o.status === 'open' || o.status === 'refunded')
+                ? '<button class="btn btn-outline btn-sm" style="margin-top:8px;margin-left:8px" ' +
+                  'onclick="delOrderFlow(' + o.id + ',\'' + delLabel + '\')">🗑️ ' + delLabel + '</button>'
+                : '<button class="btn btn-outline btn-sm" style="margin-top:8px;margin-left:8px" ' +
+                  'onclick="Clinic.toast.warning(\'' + delLabel + '仅限未缴费或已退费的开单，已进入执行流程的项目如需撤销请到收费处办理退费\')">🗑️ ' + delLabel + '</button>';
+
             Clinic.modal.open(
                 '<div class="flex gap-16">' +
                 '  <div style="flex:1">' +
@@ -923,7 +947,7 @@ function viewOrderFlow(orderId) {
                 '    <div class="fs-13 text-muted mt-8">金额：¥' + parseFloat(o.total_amount).toFixed(2) + '</div>' +
                 '    <div class="fs-13 text-muted">开单医生：' + (o.doctor_name || '—') + ' ｜ ' + o.created_at + '</div>' +
                 (o.done_by ? '<div class="fs-13 text-success mt-4">执行人：' + o.done_by + '</div>' : '') +
-                printBtn +
+                printBtn + delBtn +
                 '  </div>' +
                 '  <div style="width:160px;border-left:1px solid var(--border);padding-left:16px">' +
                 '    <div class="fw-600 mb-8 fs-13">流程进度</div>' + flow + '</div>' +
