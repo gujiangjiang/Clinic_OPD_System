@@ -225,16 +225,16 @@ function pt_order($order, $items, $title) {
             $html .= '</td></tr>';
         }
     }
-    if (!$isDrug) {
-        $html .= '<tr><td colspan="5" style="text-align:right;font-weight:700">合计</td><td style="font-weight:700">¥' . money($mainTotal) . '</td></tr>';
-    }
     $html .= '</table>';
     if ($isDrug) {
+        // 处方完毕居中分隔（紧跟药品表格，属于处方内容结尾）
+        $html .= '<div class="print-rx-end">—————— 处方完毕 ——————</div>';
+        // 取药提示（处方内容之外）
         $html .= '<div class="print-note">请凭本处方单至药房取药' .
             ($order['need_nurse_any'] ? '；标注“护士站执行”的项目请前往护士站执行。' : '。') . '</div>';
-        // 处方完毕居中分隔
-        $html .= '<div class="print-rx-end">—————— 处方完毕 ——————</div>';
     } else {
+        // 合计：不用表格行，直接显示在表格右下方（避免超出表格空间）
+        $html .= '<div class="print-order-total">合计：¥' . money($mainTotal) . '</div>';
         $html .= '<div class="print-note">请凭本申请单至相应科室登记执行。</div>';
         // 检验/检查申请单底部专项提醒（空腹、防护等注意事项）
         if ($order['order_type'] === 'lab') {
