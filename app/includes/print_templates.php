@@ -9,6 +9,102 @@
  * 打印样式见 print.css（@media print 只显示打印区域）。
  * ============================================================ */
 
+/**
+ * 纯 PHP 生成 Code 128 条形码（SVG 格式，无任何第三方依赖）
+ * 说明：使用 Code 128 字符集 B（ASCII 32-126：数字/大小写字母/常用符号），
+ * 计算模 103 校验位，条空按 1-4 模块宽度交替绘制，含左右静区；
+ * 不可编码字符自动跳过，全部不可编码时返回空字符串。
+ * @param string $text   编码内容（门诊流水号 / 患者ID 等）
+ * @param int    $height 条码高度（px）
+ * @param int    $scale  模块宽度（px），默认 1
+ * @return string SVG HTML
+ */
+function barcode128_svg($text, $height = 44, $scale = 1) {
+    // Code 128 符号模式表：值 → 条/空宽度序列（首元素为条，每符号 6 元素合计 11 模块）
+    static $patterns = array(
+        0 => '212222', 1 => '222122', 2 => '222221', 3 => '121223', 4 => '121322',
+        5 => '131222', 6 => '122213', 7 => '122312', 8 => '132212', 9 => '221213',
+        10 => '221312', 11 => '231212', 12 => '112232', 13 => '122132', 14 => '122231',
+        15 => '113222', 16 => '123122', 17 => '123221', 18 => '223211', 19 => '221132',
+        20 => '221231', 21 => '213212', 22 => '223112', 23 => '312131', 24 => '311222',
+        25 => '321122', 26 => '321221', 27 => '312212', 28 => '322112', 29 => '322211',
+        30 => '212123', 31 => '212321', 32 => '232121', 33 => '111323', 34 => '131123',
+        35 => '131321', 36 => '112313', 37 => '132113', 38 => '132311', 39 => '211313',
+        40 => '231113', 41 => '231311', 42 => '112133', 43 => '112331', 44 => '132131',
+        45 => '113123', 46 => '113321', 47 => '133121', 48 => '313121', 49 => '211331',
+        50 => '231131', 51 => '213113', 52 => '213311', 53 => '213131', 54 => '311123',
+        55 => '311321', 56 => '331121', 57 => '312113', 58 => '312311', 59 => '332111',
+        60 => '314111', 61 => '221411', 62 => '431111', 63 => '111224', 64 => '111422',
+        65 => '121124', 66 => '121421', 67 => '141122', 68 => '141221', 69 => '112214',
+        70 => '112412', 71 => '122114', 72 => '122411', 73 => '142112', 74 => '142211',
+        75 => '241211', 76 => '221114', 77 => '413111', 78 => '241112', 79 => '134111',
+        80 => '111242', 81 => '121142', 82 => '121241', 83 => '114212', 84 => '124112',
+        85 => '124211', 86 => '411212', 87 => '421112', 88 => '421211', 89 => '212141',
+        90 => '214121', 91 => '412121', 92 => '111143', 93 => '111341', 94 => '131141',
+        95 => '114113', 96 => '114311', 97 => '411113', 98 => '411311', 99 => '113141',
+        100 => '114131', 101 => '311141', 102 => '411131',
+        103 => '211412', // Start A
+        104 => '211214', // Start B
+        105 => '211232', // Start C
+    );
+    $text = (string)$text;
+    if ($text === '') return '';
+    $seq = array(104); // Start B
+    $check = 104;
+    $len = strlen($text);
+    $n = 0;
+    for ($i = 0; $i < $len; $i++) {
+        $v = ord($text[$i]) - 32;
+        if ($v < 0 || $v > 94) continue; // 仅支持 ASCII 32-126
+        $seq[] = $v;
+        $check += $v * (++$n);
+    }
+    if ($n === 0) return '';
+    $seq[] = $check % 103;
+    $stop = '2331112'; // Stop（7 元素，合计 13 模块）
+    // 总宽 = 静区(10+10) + 符号(每符号11) + Stop(13)
+    $total = 20 + count($seq) * 11 + 13;
+    $w = $total * $scale;
+    $x = 10 * $scale;
+    $isBar = true;
+    $rects = '';
+    foreach ($seq as $v) {
+        $p = isset($patterns[$v]) ? $patterns[$v] : '212222';
+        for ($k = 0; $k < strlen($p); $k++) {
+            $mw = (int)$p[$k] * $scale;
+            if ($isBar) $rects .= '<rect x="' . $x . '" y="0" width="' . $mw . '" height="' . $height . '"/>';
+            $x += $mw;
+            $isBar = !$isBar;
+        }
+    }
+    for ($k = 0; $k < strlen($stop); $k++) {
+        $mw = (int)$stop[$k] * $scale;
+        if ($isBar) $rects .= '<rect x="' . $x . '" y="0" width="' . $mw . '" height="' . $height . '"/>';
+        $x += $mw;
+        $isBar = !$isBar;
+    }
+    return '<svg class="barcode-svg" viewBox="0 0 ' . $w . ' ' . $height . '" xmlns="http://www.w3.org/2000/svg"' .
+        ' preserveAspectRatio="xMidYMid meet" role="img" aria-label="' . e($text) . '">' .
+        '<rect width="' . $w . '" height="' . $height . '" fill="#ffffff"/>' . $rects . '</svg>';
+}
+
+/** 竖向小票页头（医院名称/第二名称/单据标题，居中） */
+function pt_ticket_header($title) {
+    $hosp = setting('hospital_name', '');
+    $hosp2 = setting('hospital_name2', '');
+    $h = '<div class="ticket-hosp">' . e($hosp) . '</div>';
+    if ($hosp2 !== '') {
+        $h .= '<div class="ticket-hosp2">' . e($hosp2) . '</div>';
+    }
+    $h .= '<div class="ticket-title">' . e($title) . '</div>';
+    return $h;
+}
+
+/** 竖向小票键值行（label 左、值右） */
+function pt_ticket_row($label, $value) {
+    return '<div class="ticket-row"><span>' . e($label) . '</span><span class="ticket-val">' . e($value) . '</span></div>';
+}
+
 /** 打印页头（医院名称/第二名称/单据标题） */
 function pt_header($title) {
     $hosp = setting('hospital_name', '');
@@ -49,54 +145,73 @@ function pt_patient_info($visit, $patient) {
 }
 
 /**
- * 挂号凭条
+ * 挂号凭条（竖向小票格式）
  * @param array $visit   挂号记录
  * @param array $patient 患者档案
  */
 function pt_receipt($visit, $patient) {
-    $html = pt_header('挂号凭条');
-    $html .= pt_patient_info($visit, $patient);
-    $html .= '<table>
-        <tr><th>挂号科室</th><td>' . e($visit['first_dept_name']) . '</td>
-            <th>科别</th><td>' . (isset($visit['dept_type']) && $visit['dept_type'] === 'emergency' ? '急诊' : '门诊') . '</td></tr>
-        <tr><th>门诊就诊序号</th><td>' . str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) . '</td>
-            <th>挂号费</th><td>¥' . money(isset($visit['fee']) ? $visit['fee'] : 0) . '</td></tr>
-        <tr><th>就诊状态</th><td>' . e(isset($visit['status_name']) ? $visit['status_name'] : '') . '</td>
-            <th>收费员</th><td>' . e(isset($visit['cashier_name']) ? $visit['cashier_name'] : '') . '</td></tr>
-    </table>';
-    $html .= '<div class="print-note">请凭本条码至相应科室候诊，请注意保持安静、有序就诊。</div>';
-    $html .= '<div class="print-footer"><span>打印时间：' . now_str() . '</span><span>『门诊一体化信息系统』</span></div>';
+    $code = isset($visit['flow_no']) && $visit['flow_no'] !== '' ? $visit['flow_no'] : (isset($patient['patient_no']) ? $patient['patient_no'] : '');
+    $paid = in_array(isset($visit['status']) ? $visit['status'] : '', array('paid', 'visiting', 'finished'), true);
+    $html = '<div class="print-ticket">';
+    $html .= pt_ticket_header('挂号凭条');
+    $html .= '<div class="ticket-divider"></div>';
+    $html .= pt_ticket_row('患者姓名', isset($visit['name']) ? $visit['name'] : '');
+    $html .= pt_ticket_row('患者ID', isset($patient['patient_no']) ? $patient['patient_no'] : '');
+    $html .= pt_ticket_row('门诊号', $code);
+    $html .= pt_ticket_row('性别', isset($visit['gender']) ? $visit['gender'] : '');
+    $html .= pt_ticket_row('出生日期', isset($patient['birth_date']) ? $patient['birth_date'] : '');
+    $html .= pt_ticket_row('年龄', isset($patient['age']) ? (int)$patient['age'] . ' 岁' : '');
+    $html .= pt_ticket_row('挂号科室', isset($visit['first_dept_name']) ? $visit['first_dept_name'] .
+        (isset($visit['dept_type']) && $visit['dept_type'] === 'emergency' ? ' (急诊)' : '') : '');
+    $html .= pt_ticket_row('就诊序号', isset($visit['visit_seq']) ? str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) : '');
+    $html .= pt_ticket_row('就诊日期', isset($visit['register_time']) ? substr($visit['register_time'], 0, 10) : '');
+    $html .= pt_ticket_row('挂号时间', isset($visit['register_time']) ? substr($visit['register_time'], 0, 16) : '');
+    $html .= pt_ticket_row('费用类别', isset($visit['fee_type']) ? $visit['fee_type'] : '');
+    $html .= '<div class="ticket-divider"></div>';
+    $html .= '<div class="ticket-row"><span>挂号费</span><span class="ticket-val">' . money(isset($visit['fee']) ? $visit['fee'] : 0) . ' 元</span></div>';
+    $html .= '<div class="ticket-row"><span>支付状态</span><span class="ticket-val">' . ($paid ? '已支付' : e(isset($visit['status_name']) ? $visit['status_name'] : '')) . '</span></div>';
+    $html .= '<div class="ticket-divider"></div>';
+    $html .= '<div class="ticket-barcode">' . barcode128_svg($code, 44, 2) .
+        '<div class="ticket-barcode-text">门诊号: ' . e($code) . '</div></div>';
+    $html .= '<div class="ticket-note">请妥善保管，按时就诊。</div>';
+    $html .= '<div class="ticket-print-time">打印时间: ' . now_str() . '</div>';
+    $html .= '</div>';
     return $html;
 }
 
 /**
- * 缴费凭条
+ * 缴费凭条（竖向小票格式）
  * @param array $pay    缴费记录
  * @param array $items  项目明细 [{name, quantity, price}]
  */
 function pt_payment($pay, $items) {
-    $html = pt_header('缴费凭条');
-    $html .= '<div class="print-info">
-        <span><strong>患者ID</strong>：' . e(isset($pay['patient_no']) ? $pay['patient_no'] : '') . '</span>
-        <span><strong>流水号</strong>：' . e(isset($pay['flow_no']) ? $pay['flow_no'] : '') . '</span>
-        <span><strong>缴费时间</strong>：' . e(isset($pay['created_at']) ? $pay['created_at'] : '') . '</span>
-        <span><strong>收费员</strong>：' . e(isset($pay['cashier_name']) ? $pay['cashier_name'] : '') . '</span>
-    </div><div class="print-line"></div>';
-    $html .= '<table>
-        <tr><th style="width:60%">收费项目</th><th style="width:12%">数量</th><th style="width:14%">单价</th><th style="width:14%">金额</th></tr>';
+    $pName = isset($pay['patient_no']) ? DB::val('patient', 'SELECT name FROM patients WHERE patient_no=?', array($pay['patient_no'])) : '';
+    $code = isset($pay['flow_no']) && $pay['flow_no'] !== '' ? $pay['flow_no'] : (isset($pay['patient_no']) ? $pay['patient_no'] : '');
+    $html = '<div class="print-ticket">';
+    $html .= pt_ticket_header('缴费凭条');
+    $html .= '<div class="ticket-divider"></div>';
+    $html .= pt_ticket_row('患者姓名', $pName);
+    $html .= pt_ticket_row('患者ID', isset($pay['patient_no']) ? $pay['patient_no'] : '');
+    $html .= pt_ticket_row('门诊号', $code);
+    $html .= pt_ticket_row('缴费时间', isset($pay['created_at']) ? substr($pay['created_at'], 0, 16) : '');
+    $html .= pt_ticket_row('收费员', isset($pay['cashier_name']) ? $pay['cashier_name'] : '');
+    $html .= '<div class="ticket-divider"></div>';
+    $html .= '<div class="ticket-section-title">收费项目</div>';
     $total = 0;
     foreach ($items as $it) {
         $sub = (float)$it['price'] * (int)$it['quantity'];
         $total += $sub;
-        $html .= '<tr><td>' . e(isset($it['name']) ? $it['name'] : '') . '</td>
-            <td>' . (int)$it['quantity'] . '</td>
-            <td>¥' . money(isset($it['price']) ? $it['price'] : 0) . '</td>
-            <td>¥' . money($sub) . '</td></tr>';
+        $html .= '<div class="ticket-row ticket-item"><span>' . e(isset($it['name']) ? $it['name'] : '') .
+            ((int)$it['quantity'] > 1 ? ' ×' . (int)$it['quantity'] : '') . '</span>' .
+            '<span class="ticket-val">¥' . money($sub) . '</span></div>';
     }
-    $html .= '<tr><td colspan="3" style="text-align:right;font-weight:700">合计</td><td style="font-weight:700">¥' . money($total) . '</td></tr>';
-    $html .= '</table>';
-    $html .= '<div class="print-note">缴费成功，请凭本凭条前往相应科室执行检查/检验/取药。</div>';
-    $html .= '<div class="print-footer"><span>打印时间：' . now_str() . '</span><span>『门诊一体化信息系统』</span></div>';
+    $html .= '<div class="ticket-row ticket-total"><span>合计</span><span class="ticket-val">¥' . money($total) . '</span></div>';
+    $html .= '<div class="ticket-divider"></div>';
+    $html .= '<div class="ticket-barcode">' . barcode128_svg($code, 44, 2) .
+        '<div class="ticket-barcode-text">门诊号: ' . e($code) . '</div></div>';
+    $html .= '<div class="ticket-note">缴费成功，请妥善保管本凭条，凭此前往相应科室执行检查/检验/取药。</div>';
+    $html .= '<div class="ticket-print-time">打印时间: ' . now_str() . '</div>';
+    $html .= '</div>';
     return $html;
 }
 

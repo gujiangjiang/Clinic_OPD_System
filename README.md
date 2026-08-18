@@ -2,11 +2,11 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v1.3.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2F预留MySQL-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v1.4.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2F预留MySQL-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房** 等多角色业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕。
-支持 **明亮 / 夜间 / 自动** 三种主题（跟随用户保存）、**站内消息 + 打印提醒**（区分患者 / 系统消息，患者消息显示姓名并可点击直达对应病历）、**统一打印中心**。
+支持 **明亮 / 夜间 / 自动** 三种主题（跟随用户保存）、**站内消息 + 打印提醒**（区分患者 / 系统消息，患者消息显示姓名并可点击直达对应病历）、**统一打印中心**（挂号 / 缴费凭条为竖向小票格式，条形码由纯 PHP 生成 Code 128 SVG，零第三方依赖）。
 
 > 技术要点：严格 PHP 7.x 兼容（未使用任何 PHP 8 新特性）；Nginx 单入口部署；SQLite 分散式数据库（预留 MySQL 切换接口）；全中文注释，按模块拆分的目录结构，便于维护与二次开发。
 
