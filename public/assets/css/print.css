@@ -242,6 +242,9 @@
 }
 .print-area .print-flow .pf-sec { display: block; margin-bottom: 4px; }
 .print-area .print-flow .pf-sec .pf-body { white-space: pre-wrap; }
+/* 病历打印：辅助检查/门诊处置（已开项目所见即所得） */
+.print-area .print-flow .pf-rx-line { display: block; }
+.print-area .print-flow .pf-treat-proc { margin-right: 8px; }
 
 /* 处方 ℞ 起始标志（处方内容左上角） */
 .print-area .print-rx-mark {
