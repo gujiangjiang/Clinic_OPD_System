@@ -180,12 +180,14 @@ function openVitals(visitId) {
             var val = function (x) { return x || ''; };
             Clinic.modal.open(
                 '<div class="form-row">' +
-                '<div class="form-group"><label class="form-label">血压（收缩压/舒张压）</label><input class="input" id="vBP" placeholder="120/80" value="' + (v.bp_systolic ? v.bp_systolic + '/' + v.bp_diastolic : '') + '"></div>' +
-                '<div class="form-group"><label class="form-label">心率（次/分）</label><input class="input" id="vHR" value="' + val(v.heart_rate) + '"></div></div>' +
+                '<div class="form-group"><label class="form-label">收缩压（mmHg）</label><input class="input" id="vSys" type="number" min="0" value="' + val(v.bp_systolic) + '"></div>' +
+                '<div class="form-group"><label class="form-label">舒张压（mmHg）</label><input class="input" id="vDia" type="number" min="0" value="' + val(v.bp_diastolic) + '"></div></div>' +
                 '<div class="form-row">' +
-                '<div class="form-group"><label class="form-label">脉搏（次/分）</label><input class="input" id="vPulse" value="' + val(v.pulse) + '"></div>' +
-                '<div class="form-group"><label class="form-label">血氧饱和度（%）</label><input class="input" id="vSpO2" value="' + val(v.spo2) + '"></div></div>' +
-                '<div class="form-group"><label class="form-label">呼吸（次/分）</label><input class="input" id="vRR" value="' + val(v.respiration) + '"></div>' +
+                '<div class="form-group"><label class="form-label">心率（次/分）</label><input class="input" id="vHR" value="' + val(v.heart_rate) + '"></div>' +
+                '<div class="form-group"><label class="form-label">脉搏（次/分）</label><input class="input" id="vPulse" value="' + val(v.pulse) + '"></div></div>' +
+                '<div class="form-row">' +
+                '<div class="form-group"><label class="form-label">血氧饱和度（%）</label><input class="input" id="vSpO2" value="' + val(v.spo2) + '"></div>' +
+                '<div class="form-group"><label class="form-label">呼吸（次/分）</label><input class="input" id="vRR" value="' + val(v.respiration) + '"></div></div>' +
                 '<div class="fs-12 text-muted">保存后医生工作站病历将自动同步显示。</div>',
                 {
                     title: '生命体征录入',
@@ -195,12 +197,11 @@ function openVitals(visitId) {
                         {
                             text: '保存', cls: 'btn-primary', autoClose: false,
                             onClick: function () {
-                                var bp = (document.getElementById('vBP').value || '').split('/');
                                 Clinic.ajax('/api/nurse', {
                                     action: 'save_vitals',
                                     visit_id: visitId,
-                                    bp_systolic: parseInt(bp[0], 10) || 0,
-                                    bp_diastolic: parseInt(bp[1], 10) || 0,
+                                    bp_systolic: parseInt(document.getElementById('vSys').value, 10) || 0,
+                                    bp_diastolic: parseInt(document.getElementById('vDia').value, 10) || 0,
                                     heart_rate: document.getElementById('vHR').value,
                                     pulse: document.getElementById('vPulse').value,
                                     spo2: document.getElementById('vSpO2').value,

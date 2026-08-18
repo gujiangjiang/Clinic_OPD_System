@@ -54,6 +54,15 @@ Clinic.emr = (function () {
      */
     function renderPatientCard(d) {
         var p = d.patient, v = d.visit;
+        // 诊断证明入口：已诊毕患者 - 已开具可点击查看/打印，未开具可补开
+        var certHtml = '';
+        if (d.visit && d.visit.status === 'finished') {
+            certHtml = d.has_certificate
+                ? ' ｜ <a href="javascript:void(0)" onclick="Clinic.emr.viewCertificate()" class="text-success fw-600">已开诊断证明（点击查看/打印）</a>'
+                : ' ｜ <a href="javascript:void(0)" onclick="Clinic.emr.openCertificate()" class="fw-600">补开诊断证明</a>';
+        } else if (d.has_certificate) {
+            certHtml = ' ｜ <span class="text-success">已开诊断证明</span>';
+        }
         document.getElementById('emrHeader').innerHTML =
             '<div class="card" style="background:var(--bg-card)">' +
             '<div class="flex-between">' +
@@ -67,7 +76,7 @@ Clinic.emr = (function () {
             '      </div>' +
             '      <div class="text-muted fs-13">患者ID：' + p.patient_id + ' ｜ 流水号：' + v.visit_no +
             ' ｜ ' + v.dept_name + ' 第' + String(v.visit_seq).padStart(3, '0') + '号' +
-            (d.has_certificate ? ' ｜ <span class="text-success">已开诊断证明</span>' : '') + '</div>' +
+            certHtml + '</div>' +
             '    </div>' +
             '  </div>' +
             '  <div class="text-right fs-13 text-muted">' +
@@ -112,17 +121,14 @@ Clinic.emr = (function () {
             '  <span>' + tplBtn + '</span>' +
             '</div>' +
 
-            // 生命体征（5参数，与护士站共用接口）
-            '<div class="form-group" style="background:var(--bg-soft);padding:12px;border-radius:8px">' +
-            '  <div class="fs-13 fw-600 mb-8">生命体征（护士站填写后自动同步）</div>' +
-            '  <div class="flex gap-8" style="flex-wrap:wrap">' +
-            vitalInput('血压', 'vitalBP', (v.bp_systolic || '') + (v.bp_systolic ? '/' + (v.bp_diastolic || '') : ''), 'mmHg') +
-            vitalInput('心率', 'vitalHR', v.heart_rate || '', '次/分') +
-            vitalInput('脉搏', 'vitalPulse', v.pulse || '', '次/分') +
-            vitalInput('血氧饱和度', 'vitalSpO2', v.spo2 || '', '%') +
-            vitalInput('呼吸', 'vitalResp', v.respiration || '', '次/分') +
+            // 生命体征（紧凑显示：全部为空显示 -，有数据则逐项展示；点击弹出编辑，与护士站双向同步）
+            '<div class="form-group" style="background:var(--bg-soft);padding:12px;border-radius:8px;cursor:pointer" ' +
+            'onclick="Clinic.emr.openVitals()" title="点击编辑生命体征">' +
+            '  <div class="flex-between">' +
+            '    <div class="fs-13 fw-600">生命体征 <span class="fs-12 text-muted">（点击编辑，与护士站同步）</span></div>' +
+            '    <button type="button" class="btn btn-outline btn-sm" style="padding:2px 12px">✏️ 编辑</button>' +
             '  </div>' +
-            '  <button type="button" class="btn btn-outline btn-sm mt-8" onclick="saveVitals()">保存生命体征</button>' +
+            '  <div class="fs-16 mt-4" id="vitalDisplay" style="letter-spacing:1px">' + vitalDisplayText(v) + '</div>' +
             '</div>' +
 
             '<div class="form-group">' +
@@ -205,13 +211,93 @@ Clinic.emr = (function () {
     }
 
     /**
-     * 生命体征输入框 HTML
+     * 生命体征紧凑显示文本：全部为空显示 -，有数据则只展示已有项
      */
-    function vitalInput(label, id, val, unit) {
-        return '<div style="min-width:110px">' +
-            '<div class="fs-12 text-muted">' + label + '</div>' +
-            '<input type="text" class="input" id="' + id + '" value="' + (val || '') +
-            '" placeholder="' + unit + '" style="padding:6px 8px;min-height:32px"></div>';
+    function vitalDisplayText(v) {
+        v = v || {};
+        var parts = [];
+        if (v.bp_systolic) parts.push('血压 ' + v.bp_systolic + '/' + (v.bp_diastolic || '—') + 'mmHg');
+        if (v.heart_rate) parts.push('心率 ' + v.heart_rate + '次/分');
+        if (v.pulse) parts.push('脉搏 ' + v.pulse + '次/分');
+        if (v.spo2) parts.push('血氧 ' + v.spo2 + '%');
+        if (v.respiration) parts.push('呼吸 ' + v.respiration + '次/分');
+        return parts.length ? parts.join(' ｜ ') : '—';
+    }
+
+    /**
+     * 打开生命体征编辑弹窗（6 个输入框：收缩压/舒张压/心率/脉搏/血氧/呼吸，与护士站共用接口）
+     */
+    function openVitals() {
+        var visitId = document.getElementById('visitId').value;
+        Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
+            onSuccess: function (j) {
+                var v = j.data.vitals || {};
+                var val = function (x) { return x || ''; };
+                Clinic.modal.open(
+                    '<div class="form-row">' +
+                    '<div class="form-group"><label class="form-label">收缩压（mmHg）</label>' +
+                    '<input class="input" id="vSys" type="number" min="0" value="' + val(v.bp_systolic) + '"></div>' +
+                    '<div class="form-group"><label class="form-label">舒张压（mmHg）</label>' +
+                    '<input class="input" id="vDia" type="number" min="0" value="' + val(v.bp_diastolic) + '"></div></div>' +
+                    '<div class="form-row">' +
+                    '<div class="form-group"><label class="form-label">心率（次/分）</label>' +
+                    '<input class="input" id="vHR" value="' + val(v.heart_rate) + '"></div>' +
+                    '<div class="form-group"><label class="form-label">脉搏（次/分）</label>' +
+                    '<input class="input" id="vPulse" value="' + val(v.pulse) + '"></div></div>' +
+                    '<div class="form-row">' +
+                    '<div class="form-group"><label class="form-label">血氧饱和度（%）</label>' +
+                    '<input class="input" id="vSpO2" value="' + val(v.spo2) + '"></div>' +
+                    '<div class="form-group"><label class="form-label">呼吸（次/分）</label>' +
+                    '<input class="input" id="vResp" value="' + val(v.respiration) + '"></div></div>' +
+                    '<div class="fs-12 text-muted">保存后护士站将同步显示。</div>',
+                    {
+                        title: '生命体征编辑',
+                        size: 'modal-sm',
+                        buttons: [
+                            { text: '取消', cls: 'btn-outline' },
+                            {
+                                text: '保存', cls: 'btn-primary', autoClose: false,
+                                onClick: function () {
+                                    var data = {
+                                        action: 'save_vitals',
+                                        visit_id: visitId,
+                                        bp_systolic: parseInt(document.getElementById('vSys').value, 10) || 0,
+                                        bp_diastolic: parseInt(document.getElementById('vDia').value, 10) || 0,
+                                        heart_rate: document.getElementById('vHR').value.trim(),
+                                        pulse: document.getElementById('vPulse').value.trim(),
+                                        spo2: document.getElementById('vSpO2').value.trim(),
+                                        respiration: document.getElementById('vResp').value.trim(),
+                                    };
+                                    Clinic.ajax('/api/record', data, {
+                                        onSuccess: function (json) {
+                                            Clinic.toast.success(json.msg);
+                                            Clinic.modal.close();
+                                            refreshVitalDisplay();
+                                        },
+                                    });
+                                },
+                            },
+                        ],
+                    }
+                );
+            },
+        });
+    }
+
+    /**
+     * 刷新生命体征紧凑显示（保存后 / 护士站同步后调用）
+     */
+    function refreshVitalDisplay() {
+        var el = document.getElementById('vitalDisplay');
+        if (!el) return;
+        var visitId = document.getElementById('visitId').value;
+        Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
+            onSuccess: function (j) {
+                var v = j.data.vitals || {};
+                if (DATA) DATA.vitals = v;
+                el.textContent = vitalDisplayText(v);
+            },
+        });
     }
 
     /**
@@ -444,6 +530,14 @@ Clinic.emr = (function () {
     }
 
     /**
+     * 查看已开具的诊断证明（弹出打印预览，可再次打印）
+     */
+    function viewCertificate() {
+        var visitId = document.getElementById('visitId').value;
+        Clinic.print.load('/api/print?action=certificate&visit_id=' + visitId, null);
+    }
+
+    /**
      * 开具诊断证明（单次就诊仅一次）
      */
     function openCertificate() {
@@ -563,6 +657,8 @@ Clinic.emr = (function () {
         applyTemplateById: applyTemplateById,
         openTransfer: openTransfer,
         openCertificate: openCertificate,
+        viewCertificate: viewCertificate,
+        openVitals: openVitals,
         printRecord: printRecord,
         loadOrders: loadOrders,
     };
@@ -578,6 +674,76 @@ document.addEventListener('DOMContentLoaded', function () {
 /* 全局：转科 */
 function openTransfer() {
     Clinic.emr.openTransfer();
+}
+
+/* ============================================================
+ * 就诊历史入口（patient.php history 弹窗内按钮调用）
+ * openHistoryCertificate：未开具时补开（校验病历完整性 + 弹窗填写医生建议）
+ * printHistoryCertificate：已开具时查看/再次打印
+ * ============================================================ */
+function openHistoryCertificate(visitId) {
+    Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
+        onSuccess: function (j) {
+            if (j.data.has_certificate) {
+                Clinic.toast.warning('该次就诊已开具过诊断证明，可直接查看打印');
+                return;
+            }
+            var r = j.data.record || {};
+            var text = function (html) {
+                var t = document.createElement('div');
+                t.innerHTML = html || '';
+                return t.textContent.trim();
+            };
+            var cc = text(r.chief_complaint);
+            var pi = text(r.present_illness);
+            var diag = (r.initial_diagnosis || '').trim();
+            if (!cc || !pi || !diag) {
+                Clinic.toast.warning('该次就诊病历不完整（缺少主诉/现病史/初步诊断），无法补开诊断证明');
+                return;
+            }
+            var esc = function (s) {
+                return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            };
+            Clinic.modal.open(
+                '<div class="fs-13 text-muted mb-8">将自动引用该次就诊病历，医生建议请手动填写：</div>' +
+                '<div class="fs-13 mb-8" style="border:1px solid var(--border);border-radius:8px;padding:10px">' +
+                '  <div><strong>主诉：</strong>' + esc(cc) + '</div>' +
+                '  <div class="mt-4"><strong>现病史：</strong>' + esc(pi) + '</div>' +
+                '  <div class="mt-4"><strong>初步诊断：</strong>' + esc(diag) + '</div></div>' +
+                '<div class="form-group"><label class="form-label">医生建议</label>' +
+                '<textarea class="textarea" id="certContent" rows="3" placeholder="如：建议休息3天，清淡饮食，不适随诊"></textarea></div>',
+                {
+                    title: '补开诊断证明',
+                    size: 'modal-sm',
+                    buttons: [
+                        { text: '取消', cls: 'btn-outline' },
+                        {
+                            text: '开具并打印', cls: 'btn-success', autoClose: false,
+                            onClick: function () {
+                                var content = document.getElementById('certContent').value.trim();
+                                if (!content) { Clinic.toast.warning('请填写医生建议'); return; }
+                                Clinic.ajax('/api/record', {
+                                    action: 'certificate', visit_id: visitId, content: content,
+                                }, {
+                                    onSuccess: function () {
+                                        Clinic.toast.success('诊断证明已开具');
+                                        Clinic.modal.close();
+                                        Clinic.print.load('/api/record?action=certificate_print&visit_id=' + visitId, null);
+                                    },
+                                });
+                            },
+                        },
+                    ],
+                }
+            );
+        },
+    });
+}
+
+/* 查看已开具的诊断证明（弹窗打印预览，可再次打印） */
+function printHistoryCertificate(visitId) {
+    Clinic.print.load('/api/record?action=certificate_print&visit_id=' + visitId, null);
 }
 
 /* 全局：删除开单 */
@@ -654,23 +820,4 @@ function viewOrderFlow(orderId) {
     });
 }
 
-/* 全局：保存生命体征 */
-function saveVitals() {
-    var parseBP = function (s) {
-        var parts = (s || '').split('/');
-        return { sys: parseInt(parts[0], 10) || 0, dia: parseInt(parts[1], 10) || 0 };
-    };
-    var bp = parseBP(document.getElementById('vitalBP').value);
-    Clinic.ajax('/api/record', {
-        action: 'save_vitals',
-        visit_id: document.getElementById('visitId').value,
-        bp_systolic: bp.sys,
-        bp_diastolic: bp.dia,
-        heart_rate: document.getElementById('vitalHR').value,
-        pulse: document.getElementById('vitalPulse').value,
-        spo2: document.getElementById('vitalSpO2').value,
-        respiration: document.getElementById('vitalResp').value,
-    }, {
-        onSuccess: function (j) { Clinic.toast.success(j.msg); },
-    });
-}
+
