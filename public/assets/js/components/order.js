@@ -36,6 +36,11 @@ Clinic.order = (function () {
      * 打开开单弹窗
      */
     function open(type) {
+        // 前置条件：病历已完善并保存（后端 order.php submit 亦有同样校验）
+        if (window.Clinic.emr && typeof Clinic.emr.isRecordComplete === 'function' && !Clinic.emr.isRecordComplete()) {
+            Clinic.toast.warning('请先在病历中完善主诉、现病史与初步诊断并保存，再开单');
+            return;
+        }
         CUR_TYPE = type;
         SELECTED = [];
         var names = { lab: '开检验', imaging: '开检查', procedure: '开处置', prescription: '开处方' };

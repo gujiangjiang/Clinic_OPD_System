@@ -73,7 +73,7 @@ switch ($action) {
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
         $record = DB::one('medical', 'SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
         $vitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
-        if (!$record) json_fail('该就诊暂无病历记录');
+        if (!$record) json_fail('该就诊暂无已保存的病历，请先在病历中完善主诉、现病史与初步诊断并保存后再打印');
         json_ok(array('html' => pt_record($visit, $row['patient'], $record, $vitals)));
         break;
 
