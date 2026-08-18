@@ -293,39 +293,48 @@ function pt_record($visit, $patient, $record, $vitals) {
             '<div>' . e($code) . '</div></div>';
     }
 
-    // 患者信息两栏：门诊/急诊字段集与病历编辑器完全一致，空值显示 —（所见即所得）
+    // 患者信息：门诊为两栏网格；急诊为两行流式排版（第一行 姓名/性别/出生日期/年龄，
+    // 第二行 患者ID/就诊科室/就诊时间），与病历编辑器完全一致，空值显示 —（所见即所得）
     $emergency = isset($visit['dept_type']) && $visit['dept_type'] === 'emergency';
     $name = isset($visit['name']) ? $visit['name'] : (isset($patient['name']) ? $patient['name'] : '');
     $gender = isset($visit['gender']) ? $visit['gender'] : '';
     $age = isset($visit['age']) ? $visit['age'] . '岁' : '';
-    $items = $emergency ? array(
-        '姓名' => $name,
-        '性别' => $gender,
-        '出生日期' => isset($patient['birth_date']) ? $patient['birth_date'] : '',
-        '年龄' => $age,
-        '患者ID' => isset($patient['patient_no']) ? $patient['patient_no'] : '',
-        '就诊科室' => isset($visit['current_dept_name']) ? $visit['current_dept_name'] : '',
-        '就诊时间' => isset($visit['register_time']) ? $visit['register_time'] : '',
-    ) : array(
-        '姓名' => $name,
-        '性别' => $gender,
-        '年龄' => $age,
-        '患者ID' => isset($patient['patient_no']) ? $patient['patient_no'] : '',
-        '证件号码' => isset($patient['id_card']) ? $patient['id_card'] : '',
-        '出生日期' => isset($patient['birth_date']) ? $patient['birth_date'] : '',
-        '民族' => isset($patient['ethnicity']) ? $patient['ethnicity'] : '',
-        '职业' => isset($patient['occupation']) ? $patient['occupation'] : '',
-        '婚姻' => isset($patient['marital']) ? $patient['marital'] : '',
-        '初复诊' => (isset($record['visit_type']) && $record['visit_type'] !== '') ? $record['visit_type'] : '初诊',
-        '科室' => isset($visit['current_dept_name']) ? $visit['current_dept_name'] : '',
-        '联系方式' => isset($patient['phone']) ? $patient['phone'] : '',
-    );
-    $info = '<div class="print-info-grid">';
-    foreach ($items as $k => $val) {
+    $cell = function ($k, $val) {
         $val = ($val !== '' && $val !== null) ? $val : '—';
-        $info .= '<div class="print-info-cell"><strong>' . e($k) . '</strong>：' . e($val) . '</div>';
+        return '<span class="print-info-cell"><strong>' . e($k) . '</strong>：' . e($val) . '</span>';
+    };
+    if ($emergency) {
+        $info = '<div class="print-info-lines">' .
+            '<div class="print-info-line">' .
+            $cell('姓名', $name) . $cell('性别', $gender) .
+            $cell('出生日期', isset($patient['birth_date']) ? $patient['birth_date'] : '') .
+            $cell('年龄', $age) . '</div>' .
+            '<div class="print-info-line">' .
+            $cell('患者ID', isset($patient['patient_no']) ? $patient['patient_no'] : '') .
+            $cell('就诊科室', isset($visit['current_dept_name']) ? $visit['current_dept_name'] : '') .
+            $cell('就诊时间', isset($visit['register_time']) ? $visit['register_time'] : '') .
+            '</div></div>';
+    } else {
+        $items = array(
+            '姓名' => $name,
+            '性别' => $gender,
+            '年龄' => $age,
+            '患者ID' => isset($patient['patient_no']) ? $patient['patient_no'] : '',
+            '证件号码' => isset($patient['id_card']) ? $patient['id_card'] : '',
+            '出生日期' => isset($patient['birth_date']) ? $patient['birth_date'] : '',
+            '民族' => isset($patient['ethnicity']) ? $patient['ethnicity'] : '',
+            '职业' => isset($patient['occupation']) ? $patient['occupation'] : '',
+            '婚姻' => isset($patient['marital']) ? $patient['marital'] : '',
+            '初复诊' => (isset($record['visit_type']) && $record['visit_type'] !== '') ? $record['visit_type'] : '初诊',
+            '科室' => isset($visit['current_dept_name']) ? $visit['current_dept_name'] : '',
+            '联系方式' => isset($patient['phone']) ? $patient['phone'] : '',
+        );
+        $info = '<div class="print-info-grid">';
+        foreach ($items as $k => $val) {
+            $info .= $cell($k, $val);
+        }
+        $info .= '</div>';
     }
-    $info .= '</div>';
     // 患者信息上方横线：患者信息区上下各一条分隔线，版式清晰
     $html .= '<div class="print-line"></div>';
     $html .= $info;
