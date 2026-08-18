@@ -70,8 +70,9 @@ if ($__isAjax) {
 /* 兜底时区：仅当管理员未设置站点时区时生效 */
 date_default_timezone_set('Asia/Shanghai');
 
-/* ---------- 引入辅助函数 ---------- */
+/* ---------- 引入辅助函数（helpers + 条形码生成，全站可用） ---------- */
 require_once __DIR__ . '/../core/helpers.php';
+require_once __DIR__ . '/../core/barcode.php';
 
 /* ---------- 启动会话（Session 文件保存到 data/session，避开 Web 访问） ---------- */
 require_once __DIR__ . '/../core/Session.php';
