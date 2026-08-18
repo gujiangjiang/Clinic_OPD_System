@@ -113,23 +113,22 @@ function admin_part_drug($action) {
         if ($id > 0) {
             $set = array(); $params = array();
             foreach ($data as $k => $v) { $set[] = $k . '=?'; $params[] = $v; }
+            // 管理员编辑保存即通过：被驳回的药品重新保存后直接恢复可用
+            $set[] = 'status=?'; $params[] = 'approved';
             $params[] = $id;
             DB::exec('drug', 'UPDATE drugs SET ' . implode(',', $set) . ' WHERE id=?', $params);
+            // 清理该药品的待审核记录（管理员保存即视为已通过）
+            DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_drug' AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
             json_ok(array(), '药品已保存');
         }
-        // 新增药品：待审核
+        // 管理员添加的药品免审核：直接可用，无需创建审核记录
         $params = array_values($data);
-        $params[] = 'pending';
+        $params[] = 'approved';
         $params[] = now_str();
         $newId = DB::insert('drug', 'INSERT INTO drugs(generic_name, category, vendor, vendor_short, package_unit, spec, form, single_dose, frequency_name, route_name, price, qty, is_rx, is_limited, note, need_nurse, name, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array_merge(
             array_slice($params, 0, 16), array($name), array_slice($params, 16)
         ));
-        DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
-            'item_drug', $newId, '药品添加：' . $name,
-            '新增药品「' . $name . '」（分类：' . $data['category'] . '，价格：¥' . money($data['price']) . '），请审核',
-            'pending', $u['name'], $u['id'], now_str(),
-        ));
-        json_ok(array(), '药品已添加，请到【审核中心】审核后即可开方');
+        json_ok(array(), '药品已添加，可直接开方使用');
     }
 
     /* ==================== 删除药品 ==================== */

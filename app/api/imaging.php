@@ -56,15 +56,30 @@ switch ($action) {
         break;
 
     /* ==================== 新增检查项目（需求19：提交后需管理员审核） ==================== */
+    // id > 0 时回填原提交内容（驳回后点击站内消息跳回，修改后重新提交）
     case 'item_form':
-        json_ok(array('html' => form_item('imaging', 0)));
+        json_ok(array('html' => form_item('imaging', (int)req('id', 0))));
         break;
 
     case 'item_save':
+        $id = (int)post('id', 0);
         $name = post('name');
         $category = post('category');
         $price = (float)post('price', 0);
         if ($name === '') json_fail('请填写项目名称');
+        if ($id > 0) {
+            // 重新提交：更新原记录内容，回到待审核状态，并重建一条审核记录
+            DB::exec('lab', 'UPDATE exam_items SET category=?, name=?, price=?, description=?, status=? WHERE id=?', array(
+                $category, $name, $price, post('description'), 'pending', $id,
+            ));
+            DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_exam' AND ref_id=? AND status IN ('pending','rejected')", array($u['name'], now_str(), $id));
+            DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
+                'item_exam', $id, '检查项目修改后重新提交：' . $name,
+                '影像科 ' . $u['name'] . ' 修改后重新提交检查项目「' . $name . '」（分类：' . $category . '，价格：¥' . money($price) . '），请审核',
+                'pending', $u['name'], $u['id'], now_str(),
+            ));
+            json_ok(array(), '检查项目已修改并重新提交，待管理员审核');
+        }
         $newId = DB::insert('lab', 'INSERT INTO exam_items(category, name, price, description, status, created_at) VALUES(?,?,?,?,?,?)', array(
             $category, $name, $price, post('description'), 'pending', now_str(),
         ));
@@ -141,10 +156,12 @@ switch ($action) {
         ));
         DB::exec('order', "UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
         if ($it['doctor_id'] > 0) {
+            $pName = DB::val('patient', 'SELECT name FROM patients WHERE patient_no=?', array($it['patient_no']));
             send_msg('doctor', $it['doctor_id'],
                 '检查报告已出：' . $it['item_name'],
-                '患者（' . $it['patient_no'] . '）的检查「' . $it['item_name'] . '」报告已出具，报告编号 ' . $reportNo,
-                'report', '/api/print?action=report&report_id=' . $reportId);
+                '患者「' . $pName . '」（' . $it['patient_no'] . '）的检查「' . $it['item_name'] . '」报告已出具，报告编号 ' . $reportNo,
+                'report', '/api/print?action=report&report_id=' . $reportId,
+                array('msg_type' => 'patient', 'patient_name' => $pName, 'visit_id' => (int)$it['visit_id']));
         }
         json_ok(array('report_id' => $reportId), '报告已生成并提交');
         break;

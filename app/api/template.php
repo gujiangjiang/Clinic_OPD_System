@@ -45,7 +45,8 @@ switch ($action) {
             $scope = 'personal';
         }
         // 个人模板即时生效；全科/全院进入审核流程
-        $status = ($scope === 'personal') ? 'approved' : 'pending';
+        // 个人模板直接生效；全科/全院模板需审核，但管理员创建的模板免审核直接生效
+        $status = ($scope === 'personal' || $u['role'] === 'admin') ? 'approved' : 'pending';
         $tplId = DB::insert('medical', 'INSERT INTO templates(doctor_id, name, scope, content, status, created_at) VALUES(?,?,?,?,?,?)', array(
             $u['id'], $name, $scope, $content, $status, now_str(),
         ));

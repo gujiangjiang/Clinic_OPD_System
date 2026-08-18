@@ -158,26 +158,24 @@ function admin_part_item($action) {
         if ($name === '') json_fail('请填写检验组合名称');
         if (!$memberIds) json_fail('请选择至少一个组内检验项目');
         if ($id > 0) {
-            DB::exec('lab', 'UPDATE lab_items SET category=?, name=?, price=? WHERE id=? AND is_group=1', array($category, $name, $price, $id));
+            DB::exec('lab', 'UPDATE lab_items SET category=?, name=?, price=?, status=? WHERE id=? AND is_group=1', array($category, $name, $price, 'approved', $id));
             // 原成员全部还原为独立项目，再重新挂接新成员
             DB::exec('lab', 'UPDATE lab_items SET parent_id=0 WHERE parent_id=?', array($id));
             foreach ($memberIds as $mid) {
                 DB::exec('lab', 'UPDATE lab_items SET parent_id=? WHERE id=?', array($id, $mid));
             }
-            json_ok(array(), '检验组合已保存');
+            // 管理员保存即通过：清理该项目的待审核记录
+            DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type IN ('item_lab','item_exam') AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
+            json_ok(array(), '检验组合已保存（管理员添加免审核，可直接使用）');
         } else {
+            // 管理员添加的项目免审核：直接可用，无需创建审核记录
             $newId = DB::insert('lab', "INSERT INTO lab_items(category, name, price, description, status, created_at, is_group) VALUES(?,?,?,?,?,?,1)", array(
-                $category, $name, $price, '检验组合', 'pending', now_str(),
+                $category, $name, $price, '检验组合', 'approved', now_str(),
             ));
             foreach ($memberIds as $mid) {
                 DB::exec('lab', 'UPDATE lab_items SET parent_id=? WHERE id=?', array($newId, $mid));
             }
-            DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
-                'item_lab', $newId, '检验组合添加：' . $name,
-                '新增检验组合「' . $name . '」（分类：' . $category . '，组合价：¥' . money($price) . '），请审核',
-                'pending', $u['name'], $u['id'], now_str(),
-            ));
-            json_ok(array(), '检验组合已添加，请到【审核中心】审核后即可开单使用');
+            json_ok(array(), '检验组合已添加，可直接开单使用');
         }
     }
 
@@ -209,31 +207,28 @@ function admin_part_item($action) {
         $price = (float)post('price', 0);
         if ($name === '') json_fail('请填写项目名称');
         if ($id > 0) {
+            // 管理员编辑保存即通过：被驳回的项目重新保存后直接恢复可用
             if ($type === 'lab') {
-                DB::exec('lab', 'UPDATE lab_items SET category=?, name=?, unit=?, price=?, normal_range=?, critical_low=?, critical_high=?, description=? WHERE id=?', array(
-                    $category, $name, post('unit'), $price, post('normal_range'), post('critical_low'), post('critical_high'), post('description'), $id,
+                DB::exec('lab', 'UPDATE lab_items SET category=?, name=?, unit=?, price=?, normal_range=?, critical_low=?, critical_high=?, description=?, status=? WHERE id=?', array(
+                    $category, $name, post('unit'), $price, post('normal_range'), post('critical_low'), post('critical_high'), post('description'), 'approved', $id,
                 ));
             } else {
-                DB::exec('lab', 'UPDATE exam_items SET category=?, name=?, price=?, description=? WHERE id=?', array($category, $name, $price, post('description'), $id));
+                DB::exec('lab', 'UPDATE exam_items SET category=?, name=?, price=?, description=?, status=? WHERE id=?', array($category, $name, $price, post('description'), 'approved', $id));
             }
+            // 清理该项目的待审核记录（管理员保存即视为已通过）
+            DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type IN ('item_lab','item_exam') AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
         } else {
-            // 新增项目默认待审核
+            // 管理员添加的项目免审核：直接可用，无需创建审核记录
             if ($type === 'lab') {
                 $newId = DB::insert('lab', 'INSERT INTO lab_items(category, name, unit, price, normal_range, critical_low, critical_high, description, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
-                    $category, $name, post('unit'), $price, post('normal_range'), post('critical_low'), post('critical_high'), post('description'), 'pending', now_str(),
+                    $category, $name, post('unit'), $price, post('normal_range'), post('critical_low'), post('critical_high'), post('description'), 'approved', now_str(),
                 ));
             } else {
                 $newId = DB::insert('lab', 'INSERT INTO exam_items(category, name, price, description, status, created_at) VALUES(?,?,?,?,?,?)', array(
-                    $category, $name, $price, post('description'), 'pending', now_str(),
+                    $category, $name, $price, post('description'), 'approved', now_str(),
                 ));
             }
-            DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
-                $type === 'lab' ? 'item_lab' : 'item_exam', $newId,
-                ($type === 'lab' ? '检验项目添加' : '检查项目添加') . '：' . $name,
-                '新增项目「' . $name . '」（分类：' . $category . '，价格：¥' . money($price) . '），请审核',
-                'pending', $u['name'], $u['id'], now_str(),
-            ));
-            json_ok(array(), '项目已添加，请到【审核中心】审核后即可使用');
+            json_ok(array(), '项目已添加，可直接开单使用');
         }
         json_ok(array(), '项目已保存');
     }

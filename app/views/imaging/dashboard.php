@@ -85,9 +85,9 @@ function withdrawReport(reportId) {
     });
 }
 
-/* 新增检查项目（提交后需管理员审核，需求19） */
-function openImgItemForm() {
-    var mask = Clinic.modal.load('/api/imaging', { action: 'item_form' }, { title: '新增检查项目' });
+/* 新增检查项目（提交后需管理员审核，需求19）；id>0 为驳回后回填原提交内容重新提交 */
+function openImgItemForm(id) {
+    var mask = Clinic.modal.load('/api/imaging', { action: 'item_form', id: id || 0 }, { title: id ? '修改并重新提交检查项目' : '新增检查项目' });
     mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
         mask.querySelector('.modal-foot').innerHTML =
             '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
@@ -108,6 +108,15 @@ function openImgItemForm() {
         });
     });
 }
+
+/* 驳回后点击站内消息跳回：自动打开编辑表单并回填原提交内容（?edit_item=ID） */
+(function () {
+    var m = (location.search.match(/[?&]edit_item=(\d+)/) || [])[1];
+    if (m) {
+        openImgItemForm(parseInt(m, 10));
+        history.replaceState({}, '', location.pathname);
+    }
+})();
 
 switchTab('paid');
 </script>

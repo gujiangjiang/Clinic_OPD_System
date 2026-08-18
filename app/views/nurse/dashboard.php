@@ -158,7 +158,7 @@ function loadPatients() {
                     return '<div class="card" style="padding:14px 16px;margin-bottom:10px">' +
                         '<div class="flex-between">' +
                         '<div>' +
-                        '  <a href="javascript:void(0)" class="fs-16 fw-700" onclick="Clinic.patient.editModal(\\'' + p.patient_no + '\\')">' + p.name + '</a>' +
+                        '  <a href="javascript:void(0)" class="fs-16 fw-700" onclick="Clinic.patient.editModal(\'' + p.patient_no + '\')">' + p.name + '</a>' +
                         '  <span class="fs-13 text-muted"> ' + p.gender + ' / ' + p.age + '岁</span>' +
                         '  <span class="badge badge-gray" style="margin-left:6px">' + p.dept_name + ' 第' + String(p.visit_seq).padStart(3, '0') + '号</span></div>' +
                         '<div class="fs-12 text-muted">' + p.flow_no + '</div></div>' +

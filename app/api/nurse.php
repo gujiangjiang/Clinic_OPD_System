@@ -90,10 +90,12 @@ switch ($action) {
         if (!$it || $it['status'] !== 'paid') json_fail('该处置不存在或状态异常');
         DB::exec('order', "UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
         if ($it['doctor_id'] > 0) {
+            $pName = DB::val('patient', 'SELECT name FROM patients WHERE patient_no=?', array($it['patient_no']));
             send_msg('doctor', $it['doctor_id'],
                 '处置已完成：' . $it['item_name'],
-                '护士 ' . $u['name'] . ' 已完成患者（' . $it['patient_no'] . '）的处置「' . $it['item_name'] . '」',
-                '', '');
+                '护士 ' . $u['name'] . ' 已完成患者「' . $pName . '」（' . $it['patient_no'] . '）的处置「' . $it['item_name'] . '」',
+                '', '',
+                array('msg_type' => 'patient', 'patient_name' => $pName, 'visit_id' => (int)$it['visit_id']));
         }
         json_ok(array(), '处置已完成（执行护士：' . $u['name'] . '）');
         break;
@@ -239,10 +241,12 @@ switch ($action) {
         }
         DB::exec('order', "UPDATE order_items SET status='dispensed', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
         if ($it['doctor_id'] > 0) {
+            $pName = DB::val('patient', 'SELECT name FROM patients WHERE patient_no=?', array($it['patient_no']));
             send_msg('doctor', $it['doctor_id'],
                 '医嘱已执行：' . $it['item_name'],
-                '护士 ' . $u['name'] . ' 已完成患者（' . $it['patient_no'] . '）的医嘱「' . $it['item_name'] . '」执行（' . $it['route_name'] . '）',
-                '', '');
+                '护士 ' . $u['name'] . ' 已完成患者「' . $pName . '」（' . $it['patient_no'] . '）的医嘱「' . $it['item_name'] . '」执行（' . $it['route_name'] . '）',
+                '', '',
+                array('msg_type' => 'patient', 'patient_name' => $pName, 'visit_id' => (int)$it['visit_id']));
         }
         json_ok(array(), '执行成功（执行护士：' . $u['name'] . '）');
         break;

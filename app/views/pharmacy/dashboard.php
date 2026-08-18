@@ -97,9 +97,9 @@ function stockModal(drugId, drugName) {
     );
 }
 
-/* 新增药品（页面与管理员新增药品一致，提交后需审核，需求20） */
-function openDrugForm() {
-    var mask = Clinic.modal.load('/api/pharmacy', { action: 'drug_form' }, { title: '新增药品' });
+/* 新增药品（页面与管理员新增药品一致，提交后需审核，需求20）；id>0 为驳回后回填原提交内容重新提交 */
+function openDrugForm(id) {
+    var mask = Clinic.modal.load('/api/pharmacy', { action: 'drug_form', id: id || 0 }, { title: id ? '修改并重新提交药品' : '新增药品' });
     mask.querySelector('.modal-body').addEventListener('modal:loaded', function (e) {
         var routeMap = (e.detail && e.detail.route_nurse) || {};
         var nurseChk = document.getElementById('f_nurse');
@@ -160,6 +160,15 @@ function openCategoryForm() {
         });
     });
 }
+
+/* 驳回后点击站内消息跳回：自动打开编辑表单并回填原提交内容（?edit_item=ID） */
+(function () {
+    var m = (location.search.match(/[?&]edit_item=(\d+)/) || [])[1];
+    if (m) {
+        openDrugForm(parseInt(m, 10));
+        history.replaceState({}, '', location.pathname);
+    }
+})();
 
 switchTab('queue');
 </script>
