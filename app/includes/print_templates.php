@@ -297,13 +297,15 @@ function pt_record($visit, $patient, $record, $vitals) {
         '记录时间' => isset($record['updated_at']) ? $record['updated_at'] : '',
         '联系方式' => isset($patient['phone']) ? $patient['phone'] : '',
     );
-    $info = '';
+    // 患者信息按门诊电子病历样式两栏排列（所见即所得，与屏幕病历版式一致）
+    $info = '<div class="print-info-grid">';
     foreach ($items as $k => $v) {
         if ($v !== '' && $v !== null) {
-            $info .= '<span><strong>' . e($k) . '</strong>：' . e($v) . '</span>';
+            $info .= '<div class="print-info-cell"><strong>' . e($k) . '</strong>：' . e($v) . '</div>';
         }
     }
-    $html .= '<div class="print-info">' . $info . '</div><div class="print-line"></div>';
+    $info .= '</div>';
+    $html .= $info . '<div class="print-line"></div>';
     $html .= pt_sec('主诉', isset($record['chief_complaint']) ? $record['chief_complaint'] : '');
     $html .= pt_sec('现病史', isset($record['present_illness']) ? $record['present_illness'] : '');
     $html .= pt_sec('既往史', isset($record['past_history']) ? $record['past_history'] : '');

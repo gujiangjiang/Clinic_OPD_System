@@ -63,45 +63,22 @@ Clinic.emr = (function () {
         } else if (d.has_certificate) {
             certHtml = ' ｜ <span class="text-success">已开诊断证明</span>';
         }
+        // 患者一栏只保留基本信息（就诊医生右上角已有展示，记录时间已移至病历文档标题栏，均不在此重复）
         document.getElementById('emrHeader').innerHTML =
             '<div class="card" style="background:var(--bg-card)">' +
-            '<div class="flex-between">' +
-            '  <div class="flex gap-12" style="align-items:center">' +
-            '    <div style="font-size:30px">👤</div>' +
-            '    <div>' +
-            '      <div class="fs-18 fw-700">' + v.name +
-            '        <span class="badge badge-gray" style="margin-left:8px">' + v.gender + ' / ' + v.age + '岁</span>' +
-            '        <span class="badge ' + (v.dept_type === 'emergency' ? 'badge-danger' : 'badge-primary') +
+            '<div class="flex gap-12" style="align-items:center">' +
+            '  <div style="font-size:30px">👤</div>' +
+            '  <div>' +
+            '    <div class="fs-18 fw-700">' + v.name +
+            '      <span class="badge badge-gray" style="margin-left:8px">' + v.gender + ' / ' + v.age + '岁</span>' +
+            '      <span class="badge ' + (v.dept_type === 'emergency' ? 'badge-danger' : 'badge-primary') +
             '" style="margin-left:4px">' + (v.dept_type === 'emergency' ? '急诊' : '门诊') + '</span>' +
-            '      </div>' +
-            '      <div class="text-muted fs-13">患者ID：' + p.patient_id + ' ｜ 流水号：' + v.visit_no +
+            '    </div>' +
+            '    <div class="text-muted fs-13">患者ID：' + p.patient_id + ' ｜ 流水号：' + v.visit_no +
             ' ｜ ' + v.dept_name + ' 第' + String(v.visit_seq).padStart(3, '0') + '号' +
             certHtml + '</div>' +
-            '    </div>' +
-            '  </div>' +
-            '  <div class="text-right fs-13 text-muted">' +
-            '    <div>就诊医生：' + (DATA.record.doctor_name || '') +
-            '      ' + (DATA.record.doctor_emp ? '（工号 ' + DATA.record.doctor_emp + '）' : '') +
-            '      ' + (DATA.record.doctor_title ? ' ｜ ' + DATA.record.doctor_title : '') + '</div>' +
-            '    <div>记录时间：<span id="recTime">' + (DATA.record.created_at || '') + '</span></div>' +
             '  </div>' +
             '</div></div>';
-
-        document.getElementById('patientCard').innerHTML =
-            '<div class="card-title">患者信息（不可修改）</div>' +
-            '<div class="flex gap-12" style="flex-wrap:wrap" id="patientInfo"></div>';
-        // 门诊/急诊不同抬头
-        var fields = v.dept_type === 'emergency'
-            ? [['姓名', v.name], ['性别', v.gender], ['出生日期', p.birth_date], ['年龄', v.age + '岁'],
-               ['患者ID', p.patient_id], ['就诊科室', v.dept_name], ['就诊时间', v.created_at]]
-            : [['姓名', v.name], ['性别', v.gender], ['年龄', v.age + '岁'], ['患者ID', p.patient_id],
-               ['证件号码', p.id_card], ['出生日期', p.birth_date], ['民族', p.nation || '—'],
-               ['职业', p.occupation || '—'], ['婚姻', p.marital || '—'], ['初复诊', '—'],
-               ['科室', v.dept_name], ['记录时间', v.created_at], ['联系方式', p.phone || '—']];
-        document.getElementById('patientInfo').innerHTML = fields.map(function (f) {
-            return '<div style="min-width:140px"><div class="fs-12 text-muted">' + f[0] + '</div>' +
-                '<div class="fw-600">' + f[1] + '</div></div>';
-        }).join('');
     }
 
     /**
@@ -110,16 +87,42 @@ Clinic.emr = (function () {
     function renderEmrCard(d) {
         var r = d.record;
         var v = d.vitals || {};
+        var p = d.patient || {};
         var tplBtn = '<button type="button" class="btn btn-outline btn-sm" id="tplBtn" onclick="Clinic.emr.openTemplates()">📋 病历模板</button>';
         var consciousness = ['清醒', '嗜睡', '意识模糊', '昏睡', '昏迷', '谵妄']
             .map(function (c) { return '<option value="' + c + '"' + (r.consciousness === c ? ' selected' : '') + '>' + c + '</option>'; })
             .join('');
 
+        // 医院抬头与标题（与打印版式一致，所见即所得）
+        var hosp = document.body.getAttribute('data-hosp') || '';
+        var hosp2 = document.body.getAttribute('data-hosp2') || '';
+        var docTitle = (d.visit && d.visit.dept_type === 'emergency') ? '急诊电子病历' : '门诊电子病历';
+
+        // 患者信息两栏（门诊电子病历样式；记录时间已移至标题栏，此处不重复）
+        var fields = (d.visit && d.visit.dept_type === 'emergency')
+            ? [['姓名', v.name], ['性别', v.gender], ['出生日期', p.birth_date], ['年龄', v.age + '岁'],
+               ['患者ID', p.patient_id], ['就诊科室', v.dept_name], ['就诊时间', v.created_at]]
+            : [['姓名', v.name], ['性别', v.gender], ['年龄', v.age + '岁'], ['患者ID', p.patient_id],
+               ['证件号码', p.id_card], ['出生日期', p.birth_date], ['民族', p.nation || '—'],
+               ['职业', p.occupation || '—'], ['婚姻', p.marital || '—'], ['初复诊', '—'],
+               ['科室', v.dept_name], ['联系方式', p.phone || '—']];
+        var grid = fields.map(function (f) {
+            return '<div class="doc-cell"><span class="doc-cell-label">' + f[0] + '：</span>' +
+                '<span class="doc-cell-value">' + f[1] + '</span></div>';
+        }).join('');
+
         document.getElementById('emrCard').innerHTML =
-            '<div class="card-title">' +
-            '  <span>电子病历</span>' +
+            '<div class="emr-doc">' +
+            (hosp ? '<div class="doc-hosp">' + hosp + '</div>' : '') +
+            (hosp2 ? '<div class="doc-sub">' + hosp2 + '</div>' : '') +
+            '<div class="doc-title-bar">' +
+            '  <span class="doc-title">' + docTitle + '</span>' +
+            '  <span class="doc-rec-time">记录时间：<span id="docRecTime">' + (r.updated_at || '') + '</span></span>' +
             '  <span>' + tplBtn + '</span>' +
             '</div>' +
+            '<div class="doc-patient-grid">' + grid + '</div>' +
+            '<div class="doc-line"></div>' +
+            '<div class="doc-body">' +
 
             // 生命体征（紧凑显示：全部为空显示 -，有数据则逐项展示；点击弹出编辑，与护士站双向同步）
             '<div class="form-group" style="background:var(--bg-soft);padding:12px;border-radius:8px;cursor:pointer" ' +
@@ -163,6 +166,11 @@ Clinic.emr = (function () {
             '    <input type="checkbox" id="isObs" ' + (r.is_observation == 1 ? 'checked' : '') + '> 留观</label></div>' +
             '  <div class="form-group"><label class="form-label">嘱托</label>' +
             '    <div class="rich-editor" id="advEditor" style="border:1px solid var(--border);border-radius:6px;padding:10px;min-height:44px"></div></div>' +
+            '</div>' +
+            '</div>' +
+            '<div class="doc-footer">医生：' + r.doctor_name +
+            (r.doctor_emp ? '（工号 ' + r.doctor_emp + '）' : '') +
+            (r.doctor_title ? ' ｜ ' + r.doctor_title : '') + '</div>' +
             '</div>';
 
         // 初始化编辑器
@@ -387,6 +395,16 @@ Clinic.emr = (function () {
     }
 
     /**
+     * 当前时间 YYYY-MM-DD HH:mm:ss（用于记录时间展示）
+     */
+    function fmtDateTime() {
+        var d = new Date();
+        var p = function (n) { return (n < 10 ? '0' : '') + n; };
+        return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+            ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    }
+
+    /**
      * 保存病历
      * @param {boolean} finish 是否诊毕
      */
@@ -417,6 +435,25 @@ Clinic.emr = (function () {
             loading: true,
             onSuccess: function (j) {
                 document.getElementById('saveStatus').textContent = '已保存 ' + new Date().toLocaleTimeString();
+                // 同步本地缓存：保存成功后无需刷新页面，开检验/检查/处置/处方与打印病历立即生效
+                if (DATA) {
+                    DATA.record.chief_complaint = data.chief_complaint;
+                    DATA.record.present_illness = data.present_illness;
+                    DATA.record.past_history = data.past_history;
+                    DATA.record.allergy_history = data.allergy_history;
+                    DATA.record.physical_exam = data.physical_exam;
+                    DATA.record.consciousness = data.consciousness;
+                    DATA.record.initial_diagnosis = diag;
+                    DATA.record.diagnosis_code = data.diagnosis_code;
+                    DATA.record.is_observation = data.is_observation;
+                    DATA.record.advice = data.advice;
+                    DATA.record.status = finish ? 'done' : 'draft';
+                    var now = fmtDateTime();
+                    DATA.record.updated_at = now;
+                    if (!DATA.record.created_at) DATA.record.created_at = now;
+                    var rt = document.getElementById('docRecTime');
+                    if (rt) rt.textContent = now;
+                }
                 Clinic.toast.success(j.msg);
                 if (finish) {
                     setTimeout(function () { window.location.href = '/doctor/dashboard'; }, 900);
@@ -610,65 +647,8 @@ Clinic.emr = (function () {
             return;
         }
         var visitId = document.getElementById('visitId').value;
-        Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
-            onSuccess: function (j) {
-                var v = j.data.visit, p = j.data.patient, r = j.data.record;
-                var hosp = document.body.getAttribute('data-hosp') || '';
-                var hosp2 = document.body.getAttribute('data-hosp2') || '';
-                var title = v.dept_type === 'emergency' ? '急诊电子病历' : '门诊电子病历';
-                var headFields = v.dept_type === 'emergency'
-                    ? [['姓名', v.name], ['性别', v.gender], ['出生日期', p.birth_date], ['年龄', v.age + '岁'],
-                       ['患者ID', p.patient_id], ['就诊科室', v.dept_name], ['就诊时间', v.created_at]]
-                    : [['姓名', v.name], ['性别', v.gender], ['年龄', v.age + '岁'], ['患者ID', p.patient_id],
-                       ['证件号码', p.id_card], ['出生日期', p.birth_date], ['民族', p.nation || '—'],
-                       ['职业', p.occupation || '—'], ['婚姻', p.marital || '—'], ['初复诊', '—'],
-                       ['科室', v.dept_name], ['记录时间', v.created_at], ['联系方式', p.phone || '—']];
-                var info = headFields.map(function (f) {
-                    return '<span><strong>' + f[0] + '</strong>：' + f[1] + '</span>';
-                }).join('');
-                var html =
-                    '<div class="print-hosp">' + hosp + '</div>' +
-                    (hosp2 ? '<div class="print-sub">' + hosp2 + '</div>' : '') +
-                    '<div class="print-title-line">' + title + '</div>' +
-                    '<div class="print-info">' + info + '</div>' +
-                    '<div class="print-line"></div>' +
-                    section('主诉', r.chief_complaint) +
-                    section('现病史', r.present_illness) +
-                    section('既往史', r.past_history) +
-                    section('过敏史', r.allergy_history) +
-                    section('生命体征', vitalsText(j.data.vitals)) +
-                    section('意识状态', r.consciousness) +
-                    section('体格检查', r.physical_exam) +
-                    section('初步诊断', r.initial_diagnosis + (r.diagnosis_code ? '（' + r.diagnosis_code + '）' : '')) +
-                    section('留观', r.is_observation == 1 ? '是' : '否') +
-                    section('嘱托', r.advice) +
-                    '<div class="print-footer"><span>医生：' + r.doctor_name + '</span>' +
-                    '<span>打印时间：' + new Date().toLocaleString() + '</span></div>';
-                Clinic.print.open(html, title);
-            },
-        });
-    }
-
-    /**
-     * 病历段落
-     */
-    function section(label, body) {
-        return '<div class="record-section"><div class="sec-label">' + label + '</div>' +
-            '<div class="sec-body">' + (body || '') + '</div></div>';
-    }
-
-    /**
-     * 生命体征文本
-     */
-    function vitalsText(v) {
-        if (!v) return '';
-        var parts = [];
-        if (v.bp_systolic) parts.push('血压 ' + v.bp_systolic + '/' + v.bp_diastolic + 'mmHg');
-        if (v.heart_rate) parts.push('心率 ' + v.heart_rate + '次/分');
-        if (v.pulse) parts.push('脉搏 ' + v.pulse + '次/分');
-        if (v.spo2) parts.push('血氧 ' + v.spo2 + '%');
-        if (v.respiration) parts.push('呼吸 ' + v.respiration + '次/分');
-        return parts.join('；');
+        // 直接使用统一打印模板（print.php?action=record），与屏幕所见即所得病历版式一致
+        Clinic.print.load('/api/print?action=record&visit_id=' + visitId, null);
     }
 
     return {
