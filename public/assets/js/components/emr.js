@@ -585,9 +585,30 @@ Clinic.emr = (function () {
     }
 
     /**
+     * 病历是否已完善并保存（主诉/现病史/初步诊断均为必填，任一缺失视为未完善）
+     * 开检验/检查/处置/处方与打印病历的前置条件（前端拦截，后端亦有同样校验）
+     * @returns {boolean}
+     */
+    function isRecordComplete() {
+        if (!DATA || !DATA.record) return false;
+        var r = DATA.record;
+        var text = function (html) {
+            var t = document.createElement('div');
+            t.innerHTML = html || '';
+            return t.textContent.trim();
+        };
+        return !!(text(r.chief_complaint) && text(r.present_illness) && (r.initial_diagnosis || '').trim());
+    }
+
+    /**
      * 打印电子病历
      */
     function printRecord() {
+        // 前置条件：病历已完善并保存
+        if (!isRecordComplete()) {
+            Clinic.toast.warning('请先在病历中完善主诉、现病史与初步诊断并保存，再打印病历');
+            return;
+        }
         var visitId = document.getElementById('visitId').value;
         Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
             onSuccess: function (j) {
@@ -660,6 +681,7 @@ Clinic.emr = (function () {
         viewCertificate: viewCertificate,
         openVitals: openVitals,
         printRecord: printRecord,
+        isRecordComplete: isRecordComplete,
         loadOrders: loadOrders,
     };
 })();
