@@ -248,22 +248,25 @@
     margin-top: 2px;
 }
 .emr-doc .doc-title-bar {
+    position: relative;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    flex-wrap: wrap;
+    justify-content: center;
     margin: 14px 0 12px;
     padding-bottom: 10px;
     border-bottom: 2px solid var(--text);
 }
 .emr-doc .doc-title {
-    font-size: 17px;
+    font-size: 18px;
     font-weight: 800;
+    letter-spacing: 4px;
+    padding-left: 4px; /* 抵消 letter-spacing 造成的视觉右偏 */
 }
-.emr-doc .doc-rec-time {
-    font-size: 12px;
-    color: var(--text-muted);
+.emr-doc .doc-title-bar .doc-tpl {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
 }
 .emr-doc .doc-patient-grid {
     display: grid;
@@ -303,8 +306,35 @@
     padding-top: 12px;
     border-top: 1px solid var(--border);
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
     font-size: 13px;
+}
+.emr-doc .doc-rec-time {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.emr-doc .doc-doctor {
+    font-weight: 600;
+}
+
+/* ---------- 病历页头右上角条形码（与挂号凭条一致） ---------- */
+.emr-barcode {
+    text-align: center;
+    flex-shrink: 0;
+}
+.emr-barcode svg {
+    width: 130px;
+    height: auto;
+    display: block;
+}
+.emr-barcode .emr-barcode-text {
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-top: 2px;
 }
 @media (max-width: 640px) {
     .emr-doc { padding: 18px 16px; }

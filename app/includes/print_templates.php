@@ -282,7 +282,16 @@ function pt_report($report, $result, $item, $visit) {
  */
 function pt_record($visit, $patient, $record, $vitals) {
     $title = (isset($visit['dept_type']) && $visit['dept_type'] === 'emergency') ? '急诊电子病历' : '门诊电子病历';
-    $html = pt_header($title);
+    // 文档容器（relative，供右上角条形码定位）
+    $html = '<div class="print-record-doc">';
+    $html .= pt_header($title);
+
+    // 右上角条形码（与挂号凭条一致：门诊号 flow_no，方便患者扫码缴费/打印报告）
+    $code = isset($visit['flow_no']) && $visit['flow_no'] !== '' ? $visit['flow_no'] : (isset($patient['patient_no']) ? $patient['patient_no'] : '');
+    if ($code !== '') {
+        $html .= '<div class="print-record-barcode">' . barcode128_svg($code) .
+            '<div>' . e($code) . '</div></div>';
+    }
 
     // 患者信息两栏：门诊/急诊字段集与病历编辑器完全一致，空值显示 —（所见即所得）
     $emergency = isset($visit['dept_type']) && $visit['dept_type'] === 'emergency';
@@ -353,6 +362,7 @@ function pt_record($visit, $patient, $record, $vitals) {
     $html .= '<div class="print-footer"><span>医生：' . e(isset($record['doctor_name']) ? $record['doctor_name'] : '') . '</span>' .
         '<span>记录时间：' . e(isset($record['updated_at']) ? $record['updated_at'] : '') . '</span>' .
         '<span>打印时间：' . now_str() . '</span></div>';
+    $html .= '</div>';
     return $html;
 }
 

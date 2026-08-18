@@ -24,6 +24,12 @@ $patient = $row['patient'];
 <input type="hidden" id="visitId" value="<?php echo (int)$visitId; ?>">
 <input type="hidden" id="refRecordId" value="<?php echo (int)$refId; ?>">
 
+<!-- 条形码源（与挂号凭条一致：门诊号 flow_no，Code 128 SVG，emr.js 放入页头右上角） -->
+<div id="emrBarcodeSrc" style="display:none"><?php
+    $bcCode = !empty($row['visit']['flow_no']) ? $row['visit']['flow_no'] : $row['patient']['patient_no'];
+    echo barcode128_svg($bcCode);
+?></div>
+
 <div class="emr-layout">
     <div class="emr-main">
         <!-- 患者信息头（不可编辑，emr.js 填充） -->

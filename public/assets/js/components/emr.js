@@ -63,21 +63,30 @@ Clinic.emr = (function () {
         } else if (d.has_certificate) {
             certHtml = ' ｜ <span class="text-success">已开诊断证明</span>';
         }
-        // 患者一栏只保留基本信息（就诊医生右上角已有展示，记录时间已移至病历文档标题栏，均不在此重复）
+        // 患者一栏只保留基本信息（就诊医生右上角已有展示，记录时间在病历文档左下角，均不在此重复）
+        // 右上角显示条形码（与挂号凭条一致，方便扫码缴费/打印报告等）
+        var bcSrc = document.getElementById('emrBarcodeSrc');
+        var bcHtml = (bcSrc && bcSrc.innerHTML)
+            ? '<div class="emr-barcode">' + bcSrc.innerHTML +
+              '<div class="emr-barcode-text">' + v.visit_no + '</div></div>'
+            : '';
         document.getElementById('emrHeader').innerHTML =
             '<div class="card" style="background:var(--bg-card)">' +
-            '<div class="flex gap-12" style="align-items:center">' +
-            '  <div style="font-size:30px">👤</div>' +
-            '  <div>' +
-            '    <div class="fs-18 fw-700">' + v.name +
-            '      <span class="badge badge-gray" style="margin-left:8px">' + v.gender + ' / ' + v.age + '岁</span>' +
-            '      <span class="badge ' + (v.dept_type === 'emergency' ? 'badge-danger' : 'badge-primary') +
+            '<div class="flex-between">' +
+            '  <div class="flex gap-12" style="align-items:center">' +
+            '    <div style="font-size:30px">👤</div>' +
+            '    <div>' +
+            '      <div class="fs-18 fw-700">' + v.name +
+            '        <span class="badge badge-gray" style="margin-left:8px">' + v.gender + ' / ' + v.age + '岁</span>' +
+            '        <span class="badge ' + (v.dept_type === 'emergency' ? 'badge-danger' : 'badge-primary') +
             '" style="margin-left:4px">' + (v.dept_type === 'emergency' ? '急诊' : '门诊') + '</span>' +
-            '    </div>' +
-            '    <div class="text-muted fs-13">患者ID：' + p.patient_id + ' ｜ 流水号：' + v.visit_no +
+            '      </div>' +
+            '      <div class="text-muted fs-13">患者ID：' + p.patient_id + ' ｜ 流水号：' + v.visit_no +
             ' ｜ ' + v.dept_name + ' 第' + String(v.visit_seq).padStart(3, '0') + '号' +
             certHtml + '</div>' +
+            '    </div>' +
             '  </div>' +
+            (bcHtml || '') +
             '</div></div>';
     }
 
@@ -118,8 +127,7 @@ Clinic.emr = (function () {
             (hosp2 ? '<div class="doc-sub">' + hosp2 + '</div>' : '') +
             '<div class="doc-title-bar">' +
             '  <span class="doc-title">' + docTitle + '</span>' +
-            '  <span class="doc-rec-time">记录时间：<span id="docRecTime">' + (r.updated_at || '') + '</span></span>' +
-            '  <span>' + tplBtn + '</span>' +
+            '  <span class="doc-tpl">' + tplBtn + '</span>' +
             '</div>' +
             '<div class="doc-patient-grid">' + grid + '</div>' +
             '<div class="doc-line"></div>' +
@@ -169,9 +177,13 @@ Clinic.emr = (function () {
             '    <div class="rich-editor" id="advEditor" style="border:1px solid var(--border);border-radius:6px;padding:10px;min-height:44px"></div></div>' +
             '</div>' +
             '</div>' +
-            '<div class="doc-footer">医生：' + r.doctor_name +
+            // 页脚：左下角记录时间（未保存时隐藏，保存成功后显示），右下角医生签名
+            '<div class="doc-footer">' +
+            '  <span class="doc-rec-time" id="docRecTime" style="' + (r.updated_at ? '' : 'display:none') + '">记录时间：' + (r.updated_at || '') + '</span>' +
+            '  <span class="doc-doctor">医生：' + r.doctor_name +
             (r.doctor_emp ? '（工号 ' + r.doctor_emp + '）' : '') +
-            (r.doctor_title ? ' ｜ ' + r.doctor_title : '') + '</div>' +
+            (r.doctor_title ? ' ｜ ' + r.doctor_title : '') + '</span>' +
+            '</div>' +
             '</div>';
 
         // 初始化编辑器
@@ -453,7 +465,10 @@ Clinic.emr = (function () {
                     DATA.record.updated_at = now;
                     if (!DATA.record.created_at) DATA.record.created_at = now;
                     var rt = document.getElementById('docRecTime');
-                    if (rt) rt.textContent = now;
+                    if (rt) {
+                        rt.textContent = '记录时间：' + now;
+                        rt.style.display = '';
+                    }
                 }
                 Clinic.toast.success(j.msg);
                 if (finish) {

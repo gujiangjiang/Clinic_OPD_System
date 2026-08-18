@@ -197,12 +197,31 @@
     min-height: 20px;
 }
 
-/* 病历打印：行内流式排版（主诉：xxx　现病史：xxx，紧凑省空间） */
+/* 病历打印：行内流式排版（主诉：xxx 一行，现病史：xxx 换行，紧凑省空间） */
+.print-area .print-record-doc { position: relative; }
+.print-area .print-record-barcode {
+    position: absolute;
+    top: 0;
+    right: 0;
+    text-align: center;
+}
+.print-area .print-record-barcode svg {
+    width: 110px;
+    height: auto;
+    display: block;
+    margin-left: auto;
+}
+.print-area .print-record-barcode div {
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: #111;
+    margin-top: 2px;
+}
 .print-area .print-flow {
     font-size: 13px;
     line-height: 1.9;
 }
-.print-area .print-flow .pf-sec { margin-right: 16px; }
+.print-area .print-flow .pf-sec { display: block; margin-bottom: 4px; }
 .print-area .print-flow .pf-sec .pf-body { white-space: pre-wrap; }
 
 /* 处方大括号子项 */
