@@ -419,8 +419,11 @@ Clinic.emr = (function () {
                     }).join('');
                     // 未缴费或已退费的处方/开单可删除（退费后可删除并恢复库存）
                     var canDel = (o.status === 'open' || o.status === 'refunded');
+                    // stopPropagation：阻止事件冒泡到卡片 onclick（viewOrderFlow），
+                    // 否则会同时弹出开单详情弹窗与删除确认弹窗，删除确认被覆盖
                     var delBtn = canDel
-                        ? ' <button class="btn btn-outline btn-sm" style="padding:1px 8px" onclick="delOrder(' + o.id + ')">✕</button>'
+                        ? ' <button class="btn btn-outline btn-sm" style="padding:1px 8px" ' +
+                          'onclick="event.stopPropagation();delOrder(' + o.id + ')">✕</button>'
                         : '';
                     return '<div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer" ' +
                         'onclick="viewOrderFlow(' + o.id + ')">' +
@@ -853,6 +856,10 @@ function viewOrderFlow(orderId) {
                     (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>';
             }).join('');
 
+            var printBtn = '<button class="btn btn-outline btn-sm" style="margin-top:8px" ' +
+                'onclick="Clinic.print.load(\'/api/print?action=order&order_id=' + o.id + '\',null,\'a5\')">🖨️ 打印' +
+                (typeNames[o.order_type] || '') + '单</button>';
+
             Clinic.modal.open(
                 '<div class="flex gap-16">' +
                 '  <div style="flex:1">' +
@@ -861,6 +868,7 @@ function viewOrderFlow(orderId) {
                 '    <div class="fs-13 text-muted mt-8">金额：¥' + parseFloat(o.total_amount).toFixed(2) + '</div>' +
                 '    <div class="fs-13 text-muted">开单医生：' + (o.doctor_name || '—') + ' ｜ ' + o.created_at + '</div>' +
                 (o.done_by ? '<div class="fs-13 text-success mt-4">执行人：' + o.done_by + '</div>' : '') +
+                printBtn +
                 '  </div>' +
                 '  <div style="width:160px;border-left:1px solid var(--border);padding-left:16px">' +
                 '    <div class="fw-600 mb-8 fs-13">流程进度</div>' + flow + '</div>' +

@@ -4,8 +4,9 @@
  * ============================================================
  * 说明：医生开单统一弹窗（三栏：左目录+搜索 / 中已选 / 右流程）：
  * 1. 搜索项目（检验/检查/处置/药品），多选或单选
- * 2. 互斥规则：检验/检查同单不允许重复；检验组合与所含单项互斥（双向）、
- *    不同组合共享成员仅提醒不算重复；处置重复选择自动累加数量；处方不受限制
+ * 2. 互斥规则：所有类型同一项目仅可添加一次（数量在已选列表手动修改）；
+ *    检验组合与所含单项互斥（双向）、不同组合共享成员仅提醒不算重复；
+ *    处置/处方数量可手动修改（如处置 ×2、药品 ×2）
  * 3. 检验既往已开具（含未缴费）二次确认后再加入（复查场景）
  * 4. 实时显示开单总费用
  * 5. 处方：数量不得超库存、剂量/频次/途径自动同步药品设置、
@@ -67,7 +68,7 @@ Clinic.order = (function () {
             if (!catalogReady || !prevReady) return;
             Clinic.modal.open(renderDialog(), {
                 title: names[type] || '开单',
-                size: 'modal-xl',
+                size: 'modal-lg',
                 buttons: [
                     { text: '取消', cls: 'btn-outline' },
                     { text: '提交开单', cls: 'btn-success', autoClose: false, onClick: submit },
@@ -184,14 +185,14 @@ Clinic.order = (function () {
         // 各开单类型的互斥规则提示
         var legend = {
             lab: '提示：组合与所含单项互斥；不同组合共享成员将提醒；既往已开具会二次确认',
-            imaging: '提示：同一检查项目不可重复开具',
-            procedure: '提示：重复选择自动累加数量（如：大清创 ×2）',
-            prescription: '提示：处方不受互斥限制，可重复添加',
+            imaging: '提示：同一检查项目仅可添加一次，数量不可重复',
+            procedure: '提示：同一处置项目仅可添加一次，数量可在已选列表中手动修改',
+            prescription: '提示：同一药品仅可添加一次，数量可在已选列表中手动修改',
         }[CUR_TYPE] || '';
 
         return '<div class="flex gap-16" style="align-items:stretch">' +
             // 左：项目显示与搜索（较窄）
-            '  <div style="width:250px;flex-shrink:0;display:flex;flex-direction:column">' +
+            '  <div style="width:240px;flex-shrink:0;display:flex;flex-direction:column">' +
             '    <input type="text" class="input" id="orderKw" placeholder="搜索' +
             (isDrug ? '药品名称/厂家简称' : '项目名称') + '" autocomplete="off">' +
             '    <div class="order-catalog" style="flex:1;max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-top:8px">' +
@@ -205,7 +206,7 @@ Clinic.order = (function () {
             '    <div id="selList" style="max-height:400px;overflow-y:auto;padding-right:4px"></div>' +
             '  </div>' +
             // 右：流程闭环追踪（保留）
-            '  <div style="width:150px;border-left:1px solid var(--border);padding-left:16px;flex-shrink:0">' +
+            '  <div style="width:140px;border-left:1px solid var(--border);padding-left:16px;flex-shrink:0">' +
             '    <div class="fw-600 fs-13 mb-8">流程</div>' + flow +
             '    <div class="mt-16" style="background:var(--bg-soft);border-radius:8px;padding:10px">' +
             '      <div class="fs-12 text-muted">开单总费用</div>' +
@@ -260,19 +261,11 @@ Clinic.order = (function () {
      * 处方：不受互斥限制；检验：既往已开具的进行二次确认（复查场景）
      */
     function handleAdd(it, el) {
-        if (CUR_TYPE === 'prescription') {
-            // 处方不受互斥限制，可重复添加
-            pushItem(it, el);
-            return;
-        }
-        if (CUR_TYPE === 'procedure') {
-            // 处置：重复选择自动累加数量（如：大清创 ×2）
-            for (var i = 0; i < SELECTED.length; i++) {
-                if (SELECTED[i].id === it.id) {
-                    SELECTED[i].quantity = Math.min(99, (SELECTED[i].quantity || 1) + 1);
-                    renderSelected();
-                    return;
-                }
+        // 处置 / 处方：同一项目仅可添加一次，数量在已选列表中手动修改
+        if (CUR_TYPE === 'procedure' || CUR_TYPE === 'prescription') {
+            if (isSelected(it.id)) {
+                Clinic.toast.warning('【' + it.name + '】已选择，数量可在已选列表中手动修改');
+                return;
             }
             pushItem(it, el);
             return;
@@ -554,7 +547,8 @@ Clinic.order = (function () {
             onSuccess: function (j) {
                 Clinic.toast.success('开单成功，总费用 ¥' + parseFloat(j.data.total).toFixed(2));
                 Clinic.modal.close();
-                Clinic.print.load('/api/order?action=print&order_id=' + j.data.order_id, null);
+                // 申请单/处置单/处方单统一 A5 病历纸样式
+                Clinic.print.load('/api/order?action=print&order_id=' + j.data.order_id, null, 'a5');
                 Clinic.emr.loadOrders(VISIT_ID);
             },
         });

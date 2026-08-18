@@ -58,7 +58,11 @@ Clinic.notify = (function () {
         refresh();
         if (m.link_url) { location.href = m.link_url; return; }
         if (m.visit_id > 0) { location.href = '/doctor/emr?visit_id=' + m.visit_id; return; }
-        if (m.print_url) { Clinic.print.load(m.print_url, null); return; }
+        if (m.print_url) {
+            // 申请单/处置单/处方单统一 A5 病历纸样式
+            Clinic.print.load(m.print_url, null, m.print_url.indexOf('action=order') !== -1 ? 'a5' : '');
+            return;
+        }
     }
 
     /**

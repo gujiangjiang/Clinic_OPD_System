@@ -52,7 +52,7 @@ switch ($action) {
         $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array($orderId));
         if (!$order) json_fail('开单记录不存在');
         $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($orderId));
-        $titles = array('lab' => '检验申请单', 'imaging' => '检查申请单', 'procedure' => '处置单', 'prescription' => '处方单');
+        $titles = array('lab' => '检验申请单', 'imaging' => '检查申请单', 'procedure' => '处置申请单', 'prescription' => '门诊处方笺');
         $title = isset($titles[$order['order_type']]) ? $titles[$order['order_type']] : '申请单';
         $order['need_nurse_any'] = 0;
         foreach ($items as $it) {

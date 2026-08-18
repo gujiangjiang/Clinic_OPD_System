@@ -82,7 +82,7 @@ function admin_part_settings($action) {
         if ($orders) {
             $html .= '<div class="fs-13 fw-600 mt-12 mb-4">开单单据</div><div class="flex gap-8" style="flex-wrap:wrap">';
             foreach ($orders as $o) {
-                $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=order&order_id=' . (int)$o['id'] . '\',null)">' .
+                $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=order&order_id=' . (int)$o['id'] . '\',null,\'a5\')">' .
                     e(isset($typeNames[$o['order_type']]) ? $typeNames[$o['order_type']] : $o['order_type']) . '（' . e($o['order_no']) . '）</button>';
             }
             $html .= '</div>';
