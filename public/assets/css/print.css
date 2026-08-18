@@ -70,6 +70,15 @@
     line-height: 1.8;
     word-break: break-all;
 }
+/* 急诊病历患者信息：两行流式排版（第一行 姓名/性别/出生日期/年龄，第二行 患者ID/就诊科室/就诊时间），
+   每行两端对齐：左侧文字贴左边缘、右侧文字贴右边缘 */
+.print-area .print-info-lines { margin-bottom: 12px; }
+.print-area .print-info-line {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    line-height: 1.8;
+}
 .print-area .print-info {
     display: flex;
     flex-wrap: wrap;
@@ -275,6 +284,10 @@
 }
 .print-preview.sheet-a5 .print-record-doc .print-info-cell {
     line-height: 1.55;
+}
+.print-preview.sheet-a5 .print-record-doc .print-info-line {
+    line-height: 1.55;
+    margin-bottom: 2px;
 }
 .print-preview.sheet-a5 .print-record-doc .print-line {
     padding-bottom: 3px;

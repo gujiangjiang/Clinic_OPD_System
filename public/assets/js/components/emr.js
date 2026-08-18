@@ -65,13 +65,15 @@ Clinic.emr = (function () {
         }
         // 患者一栏只保留基本信息（就诊医生右上角已有展示，记录时间在病历文档左下角，均不在此重复）
         // 条形码位于病历文档页头右上角（与打印预览一致），不在此处显示
+        // 修改入口：点击上方头像或患者姓名弹出「修改患者信息」弹窗（病历文档内的患者信息区保持纯净）
+        var editModal = "Clinic.patient.editModal('" + p.patient_id + "')";
         document.getElementById('emrHeader').innerHTML =
             '<div class="card" style="background:var(--bg-card)">' +
             '<div class="flex-between">' +
             '  <div class="flex gap-12" style="align-items:center">' +
-            '    <div style="font-size:30px">👤</div>' +
+            '    <div class="emr-patient-avatar" onclick="' + editModal + '" title="点击修改患者信息（除姓名/性别/身份证外均可修改）">👤</div>' +
             '    <div>' +
-            '      <div class="fs-18 fw-700">' + v.name +
+            '      <div class="fs-18 fw-700 emr-patient-name" onclick="' + editModal + '" title="点击修改患者信息">' + v.name +
             '        <span class="badge badge-gray" style="margin-left:8px">' + v.gender + ' / ' + v.age + '岁</span>' +
             '        <span class="badge ' + (v.dept_type === 'emergency' ? 'badge-danger' : 'badge-primary') +
             '" style="margin-left:4px">' + (v.dept_type === 'emergency' ? '急诊' : '门诊') + '</span>' +
@@ -102,21 +104,15 @@ Clinic.emr = (function () {
         var hosp2 = document.body.getAttribute('data-hosp2') || '';
         var docTitle = (d.visit && d.visit.dept_type === 'emergency') ? '急诊电子病历' : '门诊电子病历';
 
-        // 初复诊下拉（默认初诊；点击下拉不触发患者信息编辑弹窗）
+        // 初复诊下拉（默认初诊）
         var vt = r.visit_type || '初诊';
-        var vtSelect = '<select class="doc-cell-select" id="visitType" onclick="event.stopPropagation()">' +
+        var vtSelect = '<select class="doc-cell-select" id="visitType">' +
             '<option value="初诊"' + (vt === '初诊' ? ' selected' : '') + '>初诊</option>' +
             '<option value="复诊"' + (vt === '复诊' ? ' selected' : '') + '>复诊</option></select>';
 
-        // 患者信息两栏（门诊电子病历样式；记录时间已移至标题栏，此处不重复）
-        var fields = (vv.dept_type === 'emergency')
-            ? [['姓名', vv.name], ['性别', vv.gender], ['出生日期', p.birth_date], ['年龄', vv.age + '岁'],
-               ['患者ID', p.patient_id], ['就诊科室', vv.dept_name], ['就诊时间', vv.created_at]]
-            : [['姓名', vv.name], ['性别', vv.gender], ['年龄', vv.age + '岁'], ['患者ID', p.patient_id],
-               ['证件号码', p.id_card], ['出生日期', p.birth_date], ['民族', p.nation || '—'],
-               ['职业', p.occupation || '—'], ['婚姻', p.marital || '—'], ['初复诊', vtSelect],
-               ['科室', vv.dept_name], ['联系方式', p.phone || '—']];
-        var grid = fields.map(function (f) {
+        // 患者信息：门诊为两栏网格；急诊为两行流式排版（第一行 姓名/性别/出生日期/年龄，
+        // 第二行 患者ID/就诊科室/就诊时间），编辑页与打印页完全一致（所见即所得）
+        var cellHtml = function (f) {
             // 初复诊为下拉框（可编辑），其余为纯文本展示
             var isSelect = (typeof f[1] === 'string' && f[1].indexOf('<select') === 0);
             if (isSelect) {
@@ -124,11 +120,25 @@ Clinic.emr = (function () {
             }
             return '<div class="doc-cell"><span class="doc-cell-label">' + f[0] + '：</span>' +
                 '<span class="doc-cell-value">' + f[1] + '</span></div>';
-        }).join('');
-
-        // 患者信息区：点击弹出患者信息编辑弹窗（复用挂号/医生站已有的修改弹窗）
-        var gridWrap = '<div class="doc-patient-grid" onclick="Clinic.patient.editModal(\'' + p.patient_id + '\')" ' +
-            'title="点击修改患者信息（除姓名/性别/身份证外均可修改）">' + grid + '</div>';
+        };
+        // 患者信息区：仅展示（不再整块可点击；修改入口已移到上方患者姓名/头像）
+        var gridWrap;
+        if (vv.dept_type === 'emergency') {
+            var lines = [
+                [['姓名', vv.name], ['性别', vv.gender], ['出生日期', p.birth_date], ['年龄', vv.age + '岁']],
+                [['患者ID', p.patient_id], ['就诊科室', vv.dept_name], ['就诊时间', vv.created_at]],
+            ];
+            var lineHtml = lines.map(function (row) {
+                return '<div class="doc-line-row">' + row.map(cellHtml).join('') + '</div>';
+            }).join('');
+            gridWrap = '<div class="doc-patient-lines">' + lineHtml + '</div>';
+        } else {
+            var fields = [['姓名', vv.name], ['性别', vv.gender], ['年龄', vv.age + '岁'], ['患者ID', p.patient_id],
+               ['证件号码', p.id_card], ['出生日期', p.birth_date], ['民族', p.nation || '—'],
+               ['职业', p.occupation || '—'], ['婚姻', p.marital || '—'], ['初复诊', vtSelect],
+               ['科室', vv.dept_name], ['联系方式', p.phone || '—']];
+            gridWrap = '<div class="doc-patient-grid">' + fields.map(cellHtml).join('') + '</div>';
+        }
 
         // 留观下拉（是/否，与意识状态下拉样式一致）
         var obsOpts = '<option value="0"' + (r.is_observation == 1 ? '' : ' selected') + '>否</option>' +
