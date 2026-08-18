@@ -245,7 +245,16 @@ switch ($action) {
                 'total_amount' => (float)$o['total_amount'], 'doctor_name' => $o['doctor_name'],
                 'created_at' => $o['created_at'], 'done_by' => $doneBy,
                 'items' => array_map(function ($it) {
-                    return array('item_name' => $it['item_name'], 'quantity' => (int)$it['quantity']);
+                    // 扩展字段：处方在病历正文/打印中的所见即所得展示需要剂量/用法/途径等
+                    return array(
+                        'item_name'     => $it['item_name'],
+                        'quantity'      => (int)$it['quantity'],
+                        'spec'          => $it['spec'],
+                        'single_dose'   => $it['single_dose'],
+                        'frequency_name'=> $it['frequency_name'],
+                        'route_name'    => $it['route_name'],
+                        'price'         => (float)$it['price'],
+                    );
                 }, $items),
             );
         }

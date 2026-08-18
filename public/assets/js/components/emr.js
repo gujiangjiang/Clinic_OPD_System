@@ -16,6 +16,8 @@ window.Clinic = window.Clinic || {};
 Clinic.emr = (function () {
     /** 当前就诊数据缓存 */
     var DATA = null;
+    /** 已开项目缓存（病历正文 辅助检查/门诊处置 所见即所得展示用） */
+    var ORDERS = [];
 
     /**
      * 初始化页面
@@ -190,6 +192,13 @@ Clinic.emr = (function () {
             '    <input type="text" class="input" id="diagInput" style="flex:1" placeholder="点击输入，支持疾病名称/ICD编码/拼音检索" autocomplete="off">' +
             '    <input type="text" class="input" id="diagCode" style="width:130px" placeholder="ICD10编码" readonly>' +
             '  </div></div>' +
+
+            // 已开项目所见即所得：辅助检查（检验/检查）+ 门诊处置（处置/处方），与打印版式一致，
+            // 点击项目弹出流程弹窗；内容由 loadOrders 拉取后填充
+            '<div class="doc-sec"><span class="doc-sec-label">辅助检查</span>' +
+            '  <div class="doc-sec-body" id="docAuxExam">—</div></div>' +
+            '<div class="doc-sec"><span class="doc-sec-label">门诊处置</span>' +
+            '  <div class="doc-sec-body" id="docClinicTreat">—</div></div>' +
 
             '<div class="doc-sec"><span class="doc-sec-label">留观</span>' +
             '  <select class="select" id="isObs">' + obsOpts + '</select></div>' +
@@ -390,11 +399,57 @@ Clinic.emr = (function () {
     }
 
     /**
-     * 加载患者已开项目（病历处置区）
+     * 渲染病历正文 辅助检查 / 门诊处置（所见即所得，与打印版式一致）
+     * 辅助检查：检验+检查项目，仅显示名称，点击弹出流程弹窗
+     * 门诊处置：处置项目不换行显示名称+数量；处方每行一个药品（名称/剂量/用法/途径/数量）
+     */
+    function renderDocOrders(list) {
+        var auxExam = document.getElementById('docAuxExam');
+        var clinicTreat = document.getElementById('docClinicTreat');
+        if (!auxExam && !clinicTreat) return;
+        var chip = function (orderId, text) {
+            return '<span class="doc-order-chip" onclick="viewOrderFlow(' + orderId + ')" title="点击查看流程">' + text + '</span>';
+        };
+        var aux = [];
+        var proc = [];
+        var rxs = [];
+        list.forEach(function (o) {
+            // 已退费/已取消的开单不再计入病历内容
+            if (o.status === 'refunded' || o.status === 'cancelled') return;
+            var oid = o.id;
+            o.items.forEach(function (it) {
+                if (o.order_type === 'lab' || o.order_type === 'imaging') {
+                    aux.push(chip(oid, it.item_name));
+                } else if (o.order_type === 'procedure') {
+                    proc.push(chip(oid, it.item_name + '×' + it.quantity));
+                } else if (o.order_type === 'prescription') {
+                    var parts = [];
+                    if (it.single_dose) parts.push('剂量：' + it.single_dose);
+                    if (it.frequency_name) parts.push('用法：' + it.frequency_name);
+                    if (it.route_name) parts.push('途径：' + it.route_name);
+                    parts.push('数量：' + it.quantity);
+                    rxs.push('<div class="doc-rx-line" onclick="viewOrderFlow(' + oid + ')" title="点击查看流程">' +
+                        it.item_name + (parts.length ? '　' + parts.join('　') : '') + '</div>');
+                }
+            });
+        });
+        if (auxExam) auxExam.innerHTML = aux.length ? aux.join(' ') : '—';
+        if (clinicTreat) {
+            var inner = '';
+            if (proc.length) inner += '<div class="doc-treat-proc">' + proc.join(' ') + '</div>';
+            if (rxs.length) inner += rxs.join('');
+            clinicTreat.innerHTML = inner || '—';
+        }
+    }
+
+    /**
+     * 加载患者已开项目（病历处置区 + 病历正文所见即所得区）
      */
     function loadOrders(visitId) {
         Clinic.get('/api/order?action=visit_orders&visit_id=' + visitId, null, {
             onSuccess: function (j) {
+                ORDERS = j.data.list || [];
+                renderDocOrders(ORDERS);
                 var typeNames = { lab: '检验', imaging: '检查', procedure: '处置', prescription: '处方' };
                 var statusMap = {
                     open: '<span class="badge badge-warning">待缴费</span>',

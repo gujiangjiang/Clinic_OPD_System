@@ -397,6 +397,36 @@ function pt_record($visit, $patient, $record, $vitals) {
         $diag .= '（' . $record['diagnosis_code'] . '）';
     }
     $secs[] = array('初步诊断', $diag);
+
+    // 已开项目所见即所得：辅助检查（检验/检查）+ 门诊处置（处置/处方），与病历编辑页一致
+    // 辅助检查：仅显示项目名称；处置：不换行显示名称×数量；处方：每行一个药品（名称/剂量/用法/途径/数量）
+    $aux = array();
+    $procs = array();
+    $rxs = array();
+    $orders = DB::q('order', "SELECT * FROM orders WHERE visit_id=? AND status NOT IN ('refunded','cancelled') ORDER BY id DESC", array($visit['id']));
+    foreach ($orders as $o) {
+        $its = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
+        foreach ($its as $it) {
+            if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
+                $aux[] = e($it['item_name']);
+            } elseif ($o['order_type'] === 'procedure') {
+                $procs[] = e($it['item_name']) . '×' . (int)$it['quantity'];
+            } elseif ($o['order_type'] === 'prescription') {
+                $parts = array();
+                if (!empty($it['single_dose'])) $parts[] = '剂量：' . e($it['single_dose']);
+                if (!empty($it['frequency_name'])) $parts[] = '用法：' . e($it['frequency_name']);
+                if (!empty($it['route_name'])) $parts[] = '途径：' . e($it['route_name']);
+                $parts[] = '数量：' . (int)$it['quantity'];
+                $rxs[] = e($it['item_name']) . ($parts ? '　' . implode('　', $parts) : '');
+            }
+        }
+    }
+    if ($aux) $secs[] = array('辅助检查', implode('、', $aux));
+    $treat = '';
+    if ($procs) $treat .= '<span class="pf-treat-proc">' . implode('　', $procs) . '</span>';
+    foreach ($rxs as $rx) $treat .= '<div class="pf-rx-line">' . $rx . '</div>';
+    if ($treat !== '') $secs[] = array('门诊处置', $treat);
+
     $secs[] = array('留观', !empty($record['is_observation']) ? '是' : '否');
     $secs[] = array('嘱托', isset($record['advice']) ? $record['advice'] : '');
 
