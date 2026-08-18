@@ -110,14 +110,20 @@ Clinic.modal = (function () {
 
     /**
      * 关闭当前模态框
+     * 说明：必须先把 mask 置空并只移除「本次要关闭的弹窗」，
+     * 否则在弹窗基础上再开新弹窗（如就诊历史 → 新增诊断证明）时，
+     * 旧弹窗的延时移除回调会误删新弹窗（弹窗闪现后消失），
+     * 且旧遮罩残留在页面上挡住所有点击（页面像死掉一样）。
      */
     function close() {
         if (mask) {
-            mask.classList.remove('show');
-            setTimeout(function () {
-                if (mask) { mask.remove(); mask = null; }
-            }, 180);
+            var el = mask;
+            mask = null;
+            el.classList.remove('show');
             document.removeEventListener('keydown', escHandler);
+            setTimeout(function () {
+                el.remove();
+            }, 180);
         }
     }
 

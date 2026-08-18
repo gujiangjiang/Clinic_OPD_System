@@ -115,8 +115,8 @@ switch ($action) {
             $hasCert = (int)DB::val('medical', 'SELECT COUNT(*) FROM certificates WHERE visit_id=?', array($v['id'])) > 0;
             $html .= '<div class="flex gap-8 mt-8">';
             if ($records) {
-                // 病历已保存：直接打开病历打印预览页（pt_record），可再次打印
-                $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' . (int)$v['id'] . '\',null)">📋 查看病历（预览/打印）</button>';
+                // 病历已保存：直接打开病历打印预览页（pt_record，A5 病历纸），可再次打印
+                $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' . (int)$v['id'] . '\',null,\'a5\')">📋 查看病历（预览/打印）</button>';
             } else {
                 // 病历未保存：提示，不跳转编辑页
                 $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.toast.warning(\'该次就诊病历尚未保存，无法查看\')">📋 查看病历</button>';

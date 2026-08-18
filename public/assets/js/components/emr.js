@@ -64,12 +64,7 @@ Clinic.emr = (function () {
             certHtml = ' ｜ <span class="text-success">已开诊断证明</span>';
         }
         // 患者一栏只保留基本信息（就诊医生右上角已有展示，记录时间在病历文档左下角，均不在此重复）
-        // 右上角显示条形码（与挂号凭条一致，方便扫码缴费/打印报告等）
-        var bcSrc = document.getElementById('emrBarcodeSrc');
-        var bcHtml = (bcSrc && bcSrc.innerHTML)
-            ? '<div class="emr-barcode">' + bcSrc.innerHTML +
-              '<div class="emr-barcode-text">' + v.visit_no + '</div></div>'
-            : '';
+        // 条形码位于病历文档页头右上角（与打印预览一致），不在此处显示
         document.getElementById('emrHeader').innerHTML =
             '<div class="card" style="background:var(--bg-card)">' +
             '<div class="flex-between">' +
@@ -86,7 +81,6 @@ Clinic.emr = (function () {
             certHtml + '</div>' +
             '    </div>' +
             '  </div>' +
-            (bcHtml || '') +
             '</div></div>';
     }
 
@@ -121,8 +115,16 @@ Clinic.emr = (function () {
                 '<span class="doc-cell-value">' + f[1] + '</span></div>';
         }).join('');
 
+        // 病历文档页头右上角条形码（与挂号凭条/打印预览一致：门诊号 flow_no，Code 128）
+        var bcSrc = document.getElementById('emrBarcodeSrc');
+        var bcHtml = (bcSrc && bcSrc.innerHTML)
+            ? '<div class="doc-barcode">' + bcSrc.innerHTML +
+              '<div class="doc-barcode-text">' + vv.visit_no + '</div></div>'
+            : '';
+
         document.getElementById('emrCard').innerHTML =
             '<div class="emr-doc">' +
+            bcHtml +
             (hosp ? '<div class="doc-hosp">' + hosp + '</div>' : '') +
             (hosp2 ? '<div class="doc-sub">' + hosp2 + '</div>' : '') +
             '<div class="doc-title-bar">' +
@@ -336,22 +338,30 @@ Clinic.emr = (function () {
             codeInput.value = opt.value;
         }, { placeholder: '搜索诊断' });
 
-        // 输入时动态搜索 ICD10（码/名称/拼音）
+        // 输入时动态搜索 ICD10（码/名称/拼音，模糊搜索）
+        // 请求序号：只采纳最后一次请求的结果，丢弃过期响应，
+        // 避免快速输入时旧关键字（如「健」）的响应后到覆盖新关键字（如「健康」）的结果。
         var timer = null;
+        var seq = 0;
         input.addEventListener('input', function () {
             var kw = input.value.trim();
             if (kw === '') {
                 codeInput.value = '';   // 删空则编码清空
+                seq++;                  // 使在途请求全部失效
+                if (window.__diagSelector) window.__diagSelector.close();
                 return;
             }
             clearTimeout(timer);
+            var mySeq = ++seq;
             timer = setTimeout(function () {
                 Clinic.get('/api/icd10?action=search&kw=' + encodeURIComponent(kw), null, {
                     onSuccess: function (j) {
+                        if (mySeq !== seq) return;   // 过期响应，丢弃
                         var opts = j.data.list.map(function (x) {
                             return { label: x.diagnosis_name, value: x.diagnosis_code,
                                      sub: x.diagnosis_code + ' ' + x.pinyin };
                         });
+                        // setOptions 会在面板打开时立即重绘，搜索结果即时显示
                         window.__diagSelector.setOptions(opts);
                     },
                 });
@@ -663,8 +673,9 @@ Clinic.emr = (function () {
             return;
         }
         var visitId = document.getElementById('visitId').value;
-        // 直接使用统一打印模板（print.php?action=record），与屏幕所见即所得病历版式一致
-        Clinic.print.load('/api/print?action=record&visit_id=' + visitId, null);
+        // 直接使用统一打印模板（print.php?action=record），与屏幕所见即所得病历版式一致；
+        // A5 病历纸（竖版窄条，宽度受限、可向下延伸）
+        Clinic.print.load('/api/print?action=record&visit_id=' + visitId, null, 'a5');
     }
 
     return {

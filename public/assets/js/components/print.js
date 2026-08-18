@@ -19,13 +19,14 @@ Clinic.print = (function () {
      * 打印指定 HTML 内容
      * @param {string} html      单据 HTML（含 print-area 内部结构）
      * @param {string} title     预览标题（可空）
+     * @param {string} sheet     纸张类型：'a5' = 病历纸 A5 竖版（窄长条），其他不传
      */
-    function open(html, title) {
+    function open(html, title, sheet) {
         // 关闭已有预览
         close();
 
         preview = document.createElement('div');
-        preview.className = 'print-preview';
+        preview.className = 'print-preview' + (sheet ? ' sheet-' + sheet : '');
         preview.innerHTML =
             '<div class="print-toolbar">' +
             '  <button type="button" class="btn btn-outline" data-act="close">关闭</button>' +
@@ -33,6 +34,9 @@ Clinic.print = (function () {
             '</div>' +
             '<div id="print-area" class="print-area">' + html + '</div>';
         document.body.appendChild(preview);
+
+        // 按纸张类型注入打印页面尺寸（A5 病历纸：148×210mm 竖版）
+        applyPageSize(sheet);
 
         // 绑定工具栏
         preview.querySelector('[data-act="close"]').addEventListener('click', close);
@@ -47,20 +51,36 @@ Clinic.print = (function () {
 
     /**
      * 从接口加载单据内容并打印
-     * @param {string} url  接口地址
-     * @param {object} data 参数
+     * @param {string} url   接口地址
+     * @param {object} data  参数
+     * @param {string} sheet 纸张类型：'a5' = 病历纸 A5 竖版，其他不传
      */
-    function load(url, data) {
+    function load(url, data, sheet) {
         Clinic.ajax(url, data, {
             loading: true,
             onSuccess: function (json) {
                 if (json.data && json.data.html) {
-                    open(json.data.html, json.data.title || '');
+                    open(json.data.html, json.data.title || '', sheet);
                 } else {
                     Clinic.toast.error('打印内容获取失败');
                 }
             },
         });
+    }
+
+    /**
+     * 按纸张类型注入 / 移除打印页面尺寸规则
+     * @param {string} sheet 'a5' 时使用 A5 竖版纸张，其他情况用默认纸张
+     */
+    function applyPageSize(sheet) {
+        var st = document.getElementById('printPageSize');
+        if (st) st.remove();
+        if (sheet === 'a5') {
+            st = document.createElement('style');
+            st.id = 'printPageSize';
+            st.textContent = '@page { size: A5 portrait; margin: 12mm 10mm; }';
+            document.head.appendChild(st);
+        }
     }
 
     /**
@@ -71,6 +91,8 @@ Clinic.print = (function () {
             preview.remove();
             preview = null;
             document.removeEventListener('keydown', escHandler);
+            var st = document.getElementById('printPageSize');
+            if (st) st.remove();
         }
     }
 
