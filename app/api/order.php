@@ -34,14 +34,17 @@ switch ($action) {
             $groups = DB::q('lab', "SELECT * FROM lab_items WHERE is_group=1 AND status='approved' ORDER BY category, id");
             foreach ($groups as $g) {
                 $mNames = array();
-                foreach (DB::q('lab', 'SELECT name FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array($g['id'])) as $m) {
+                $mIds = array();
+                foreach (DB::q('lab', 'SELECT id, name FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array($g['id'])) as $m) {
                     $mNames[] = $m['name'];
+                    $mIds[] = (int)$m['id'];
                 }
                 $list[] = array(
                     'id' => (int)$g['id'], 'name' => $g['name'], 'price' => (float)$g['price'],
                     'unit_name' => '', 'category_name' => $g['category'],
                     'spec' => implode('、', $mNames), 'stock' => 0,
                     'is_group' => 1, 'members' => implode('、', $mNames),
+                    'member_ids' => implode(',', $mIds),   // 组合包含的单项 ID，供前端互斥判断
                 );
             }
         } elseif ($type === 'imaging') {
@@ -180,6 +183,35 @@ switch ($action) {
         }
 
         json_ok(array('order_id' => $orderId, 'total' => $total, 'order_no' => $orderNo), '开单成功');
+        break;
+
+    /* ==================== 既往开具记录（互斥/复查二次确认） ==================== */
+    // 说明：返回该患者历史上开具过的项目（同一项目只保留最近一次，含未缴费），
+    //      前端在重复开具时提示「何时开具过，是否再次开具」（如复查场景）。
+    case 'prev_items':
+        $visitId = (int)get('visit_id');
+        $row = get_visit_row($visitId);
+        if (!$row) json_fail('就诊记录不存在');
+        $patientNo = $row['visit']['patient_no'];
+        $type = get('type', 'lab');
+        $rows = DB::q('order', "SELECT oi.item_id, oi.item_name, o.created_at, o.order_no FROM order_items oi
+            JOIN orders o ON o.id = oi.order_id
+            WHERE oi.patient_no=? AND oi.item_type=? AND oi.sub_of=0
+            ORDER BY o.id DESC LIMIT 200", array($patientNo, $type));
+        $seen = array();
+        $out = array();
+        foreach ($rows as $r) {
+            $key = (int)$r['item_id'];
+            if (isset($seen[$key])) continue;   // 同一项目只保留最近一次
+            $seen[$key] = 1;
+            $out[] = array(
+                'item_id' => $key,
+                'item_name' => $r['item_name'],
+                'time' => $r['created_at'],
+                'order_no' => $r['order_no'],
+            );
+        }
+        json_ok(array('list' => $out));
         break;
 
     /* ==================== 申请单/处方单打印 ==================== */
