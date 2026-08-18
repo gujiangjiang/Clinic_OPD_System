@@ -64,16 +64,14 @@ function admin_part_disp($action) {
         $desc = post('description');
         if ($name === '') json_fail('请填写处置名称');
         if ($id > 0) {
-            DB::exec('disp', 'UPDATE disposal_items SET name=?, fee=?, description=? WHERE id=?', array($name, $fee, $desc, $id));
+            DB::exec('disp', 'UPDATE disposal_items SET name=?, fee=?, description=?, status=? WHERE id=?', array($name, $fee, $desc, 'approved', $id));
+            // 清理该处置的待审核记录（管理员保存即视为已通过）
+            DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_disp' AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
             json_ok(array(), '处置项目已保存');
         }
-        $newId = DB::insert('disp', 'INSERT INTO disposal_items(name, fee, description, status, created_at) VALUES(?,?,?,?,?)', array($name, $fee, $desc, 'pending', now_str()));
-        DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
-            'item_disp', $newId, '处置项目添加：' . $name,
-            '新增处置项目「' . $name . '」（费用：¥' . money($fee) . '），请审核',
-            'pending', $u['name'], $u['id'], now_str(),
-        ));
-        json_ok(array(), '处置项目已添加，请到【审核中心】审核后即可开单');
+        // 管理员添加的处置免审核：直接可用，无需创建审核记录
+        $newId = DB::insert('disp', 'INSERT INTO disposal_items(name, fee, description, status, created_at) VALUES(?,?,?,?,?)', array($name, $fee, $desc, 'approved', now_str()));
+        json_ok(array(), '处置项目已添加，可直接开单使用');
     }
 
     /* ==================== 删除处置 ==================== */

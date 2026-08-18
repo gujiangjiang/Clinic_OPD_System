@@ -166,10 +166,12 @@ switch ($action) {
         $titles = array('lab' => '新的检验申请单', 'imaging' => '新的检查申请单', 'procedure' => '新的处置单', 'prescription' => '新的处方单');
         $targets = array('lab' => 'lab', 'imaging' => 'imaging', 'procedure' => 'nurse', 'prescription' => 'pharmacy');
         if (isset($targets[$orderType])) {
+            // 患者消息：标记患者姓名与就诊ID，收件人可在消息中心点击直达该次病历
             send_msg($targets[$orderType], 0,
                 $titles[$orderType],
                 '患者：' . $row['patient']['name'] . '（' . $visit['patient_no'] . '），流水号 ' . $visit['flow_no'] . '，请及时处理',
-                'order', $printUrl);
+                'order', $printUrl,
+                array('msg_type' => 'patient', 'patient_name' => $row['patient']['name'], 'visit_id' => $visitId));
         }
 
         json_ok(array('order_id' => $orderId, 'total' => $total, 'order_no' => $orderNo), '开单成功');

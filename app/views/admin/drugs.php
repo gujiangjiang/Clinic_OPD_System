@@ -86,4 +86,10 @@ function delDrug(id) {
 }
 
 loadDrugList();
+
+/* 驳回后点击站内消息跳回：自动打开编辑表单并回填原提交内容（?edit=ID） */
+(function () {
+    var m = (location.search.match(/[?&]edit=(\d+)/) || [])[1];
+    if (m) openDrugForm(parseInt(m, 10));
+})();
 </script>

@@ -65,10 +65,12 @@ switch ($action) {
         }
         DB::exec('order', "UPDATE order_items SET status='dispensed', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
         if ($it['doctor_id'] > 0) {
+            $pName = DB::val('patient', 'SELECT name FROM patients WHERE patient_no=?', array($it['patient_no']));
             send_msg('doctor', $it['doctor_id'],
                 '药品已发：' . $it['item_name'],
-                '药剂师 ' . $u['name'] . ' 已发放患者（' . $it['patient_no'] . '）的药品「' . $it['item_name'] . '」×' . (int)$it['quantity'],
-                '', '');
+                '药剂师 ' . $u['name'] . ' 已发放患者「' . $pName . '」（' . $it['patient_no'] . '）的药品「' . $it['item_name'] . '」×' . (int)$it['quantity'],
+                '', '',
+                array('msg_type' => 'patient', 'patient_name' => $pName, 'visit_id' => (int)$it['visit_id']));
         }
         json_ok(array(), '发药成功');
         break;
@@ -101,11 +103,13 @@ switch ($action) {
         break;
 
     /* ==================== 新增药品（需求20：提交后需管理员审核） ==================== */
+    // id > 0 时回填原提交内容（驳回后点击站内消息跳回，修改后重新提交）
     case 'drug_form':
-        json_ok(form_drug(0));
+        json_ok(form_drug((int)req('id', 0)));
         break;
 
     case 'drug_save':
+        $id = (int)post('id', 0);
         $name = post('name');
         if ($name === '') json_fail('请填写药品名称');
         $data = array(
@@ -117,6 +121,22 @@ switch ($action) {
             'is_rx' => (int)post('is_rx', 0), 'is_limited' => (int)post('is_limited', 0),
             'note' => post('note'), 'need_nurse' => (int)post('need_nurse', 0),
         );
+        if ($id > 0) {
+            // 重新提交：更新原记录内容，回到待审核状态，并重建一条审核记录
+            $set = array();
+            $params = array();
+            foreach ($data as $k => $v) { $set[] = $k . '=?'; $params[] = $v; }
+            $set[] = 'status=?'; $params[] = 'pending';
+            $params[] = $id;
+            DB::exec('drug', 'UPDATE drugs SET ' . implode(',', $set) . ' WHERE id=?', $params);
+            DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_drug' AND ref_id=? AND status IN ('pending','rejected')", array($u['name'], now_str(), $id));
+            DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
+                'item_drug', $id, '药品修改后重新提交：' . $name,
+                '药房 ' . $u['name'] . ' 修改后重新提交药品「' . $name . '」（分类：' . $data['category'] . '，价格：¥' . money($data['price']) . '），请审核',
+                'pending', $u['name'], $u['id'], now_str(),
+            ));
+            json_ok(array(), '药品已修改并重新提交，待管理员审核');
+        }
         $params = array_values($data);
         $params[] = 'pending';
         $params[] = now_str();

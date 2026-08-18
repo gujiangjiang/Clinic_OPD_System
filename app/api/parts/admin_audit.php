@@ -1,11 +1,14 @@
 <?php
 /**
  * ============================================================
- * parts/admin_audit.php v1.1.0 — 管理端：审核中心
+ * parts/admin_audit.php v1.2.0 — 管理端：审核中心
  * ============================================================
  * 说明：admin.php 按功能拆分的一部分：
  *   1. audit_list  审核列表（待审核/已处理）
- *   2. audit       执行审核：模板/检验检查项目/药品/处置/报告撤回/密码重置
+ *   2. audit       单条审核（通过 / 驳回，驳回可填写理由并通知提交者）
+ *   3. audit_all   一键全部通过（待审核列表顶部按钮）
+ * 审核结果通过站内消息通知提交者：驳回时附带理由，并携带跳转链接，
+ * 提交者点击消息可回到添加页面回填之前提交的内容，修改后再次提交。
  * ============================================================ */
 
 /**
@@ -39,7 +42,8 @@ function admin_part_audit($action) {
             foreach ($rows as $r) {
                 $html .= '<tr>' .
                     '<td><span class="badge badge-primary">' . e(isset($typeNames[$r['type']]) ? $typeNames[$r['type']] : $r['type']) . '</span></td>' .
-                    '<td><div class="fw-600 fs-13">' . e($r['title']) . '</div><div class="fs-12 text-muted">' . e($r['content']) . '</div></td>' .
+                    '<td><div class="fw-600 fs-13">' . e($r['title']) . '</div><div class="fs-12 text-muted">' . e($r['content']) . '</div>' .
+                    ($r['note'] ? '<div class="fs-12 mt-4" style="color:var(--danger)">驳回理由：' . e($r['note']) . '</div>' : '') . '</td>' .
                     '<td>' . e($r['proposer']) . '</td>' .
                     '<td class="fs-12">' . e(substr($r['created_at'], 0, 16)) . '</td>' .
                     '<td>' . ($r['status'] === 'pending' ? '<span class="badge badge-warning">待审核</span>' : ($r['status'] === 'approved' ? '<span class="badge badge-success">已通过</span>' : ($r['status'] === 'used' ? '<span class="badge badge-gray">已使用</span>' : '<span class="badge badge-gray">已驳回</span>'))) . '</td>' .
@@ -58,35 +62,79 @@ function admin_part_audit($action) {
         json_ok(array('html' => $html));
     }
 
-    /* ==================== 执行审核 ==================== */
-    if ($action === 'audit') {
-        $id = (int)post('id');
-        $approve = (int)post('approve', 0);
-        $audit = DB::one('core', 'SELECT * FROM audits WHERE id=? AND status=?', array($id, 'pending'));
-        if (!$audit) json_fail('审核事项不存在或已处理');
+    /**
+     * 执行单条审核（通过/驳回）
+     * @param array  $audit   审核记录
+     * @param int    $approve 1 通过 / 0 驳回
+     * @param string $note    驳回理由
+     */
+    function audit_apply($audit, $approve, $note = '') {
+        $u = Auth::user();
         $newStatus = $approve ? 'approved' : 'rejected';
-        DB::exec('core', "UPDATE audits SET status=?, handled_by=?, handled_at=?, note=? WHERE id=?", array($newStatus, $u['name'], now_str(), post('note'), $id));
+        DB::exec('core', 'UPDATE audits SET status=?, handled_by=?, handled_at=?, note=? WHERE id=?', array($newStatus, $u['name'], now_str(), $note, (int)$audit['id']));
         $refId = (int)$audit['ref_id'];
         $proposerId = (int)$audit['proposer_id'];
+        // 提交者角色（决定消息跳转链接指向哪个页面）
+        $proposerRole = '';
+        if ($proposerId > 0) {
+            $pr = DB::one('user', 'SELECT role FROM users WHERE id=?', array($proposerId));
+            $proposerRole = $pr ? $pr['role'] : '';
+        }
+        // 被驳回项目的回填页面链接（管理员在后台，检验/影像/药房在自己工作站）
+        $backUrl = '';
+        switch ($audit['type']) {
+            case 'item_lab':
+                $backUrl = ($proposerRole === 'lab') ? '/lab/dashboard?edit_item=' . $refId : '/admin/labitems?edit=' . $refId;
+                break;
+            case 'item_exam':
+                $backUrl = ($proposerRole === 'imaging') ? '/imaging/dashboard?edit_item=' . $refId : '/admin/examitems?edit=' . $refId;
+                break;
+            case 'item_drug':
+                $backUrl = ($proposerRole === 'pharmacy') ? '/pharmacy/dashboard?edit_item=' . $refId : '/admin/drugs?edit=' . $refId;
+                break;
+            case 'item_disp':
+                $backUrl = '/admin/disposal?edit=' . $refId;
+                break;
+        }
         switch ($audit['type']) {
             case 'template':
-                DB::exec('medical', "UPDATE templates SET status=? WHERE id=?", array($newStatus, $refId));
+                DB::exec('medical', 'UPDATE templates SET status=? WHERE id=?', array($newStatus, $refId));
                 if ($proposerId > 0) {
                     send_msg('doctor', $proposerId, '病历模板审核结果',
-                        '您的病历模板审核' . ($approve ? '已通过' : '未通过') . ($approve ? '，现在可以使用' : '：' . post('note')), '', '');
+                        '您的病历模板「' . $audit['title'] . '」审核' . ($approve ? '已通过，现在可以使用' : '未通过：' . $note), '', '');
                 }
                 break;
             case 'item_lab':
-                DB::exec('lab', "UPDATE lab_items SET status=? WHERE id=?", array($newStatus, $refId));
+                DB::exec('lab', 'UPDATE lab_items SET status=? WHERE id=?', array($newStatus, $refId));
+                if ($proposerId > 0) {
+                    send_msg($proposerRole !== '' ? $proposerRole : 'doctor', $proposerId, '检验项目审核结果',
+                        '您提交的检验项目「' . $audit['title'] . '」' . ($approve ? '已通过审核，可以开单使用' : '未通过审核，理由：' . $note . '（点击本消息回到添加页修改后重新提交）'),
+                        '', '', array('msg_type' => 'system', 'link_url' => $backUrl));
+                }
                 break;
             case 'item_exam':
-                DB::exec('lab', "UPDATE exam_items SET status=? WHERE id=?", array($newStatus, $refId));
+                DB::exec('lab', 'UPDATE exam_items SET status=? WHERE id=?', array($newStatus, $refId));
+                if ($proposerId > 0) {
+                    send_msg($proposerRole !== '' ? $proposerRole : 'doctor', $proposerId, '检查项目审核结果',
+                        '您提交的检查项目「' . $audit['title'] . '」' . ($approve ? '已通过审核，可以开单使用' : '未通过审核，理由：' . $note . '（点击本消息回到添加页修改后重新提交）'),
+                        '', '', array('msg_type' => 'system', 'link_url' => $backUrl));
+                }
                 break;
             case 'item_drug':
-                DB::exec('drug', "UPDATE drugs SET status=? WHERE id=?", array($newStatus, $refId));
+                DB::exec('drug', 'UPDATE drugs SET status=? WHERE id=?', array($newStatus, $refId));
+                if ($proposerId > 0) {
+                    send_msg($proposerRole !== '' ? $proposerRole : 'doctor', $proposerId, '药品审核结果',
+                        '您提交的药品「' . $audit['title'] . '」' . ($approve ? '已通过审核，可以开方使用' : '未通过审核，理由：' . $note . '（点击本消息回到添加页修改后重新提交）'),
+                        '', '', array('msg_type' => 'system', 'link_url' => $backUrl));
+                }
                 break;
             case 'item_disp':
-                DB::exec('disp', "UPDATE disposal_items SET status=? WHERE id=?", array($newStatus, $refId));
+                DB::exec('disp', 'UPDATE disposal_items SET status=? WHERE id=?', array($newStatus, $refId));
+                if ($proposerId > 0) {
+                    send_msg($proposerRole !== '' ? $proposerRole : 'doctor', $proposerId, '处置项目审核结果',
+                        '您提交的处置项目「' . $audit['title'] . '」' . ($approve ? '已通过审核，可以开单使用' : '未通过审核，理由：' . $note . '（点击本消息回到添加页修改后重新提交）'),
+                        '', '', array('msg_type' => 'system', 'link_url' => $backUrl));
+                }
                 break;
             case 'report_withdraw':
                 if ($approve) {
@@ -118,12 +166,36 @@ function admin_part_audit($action) {
                     $target = DB::one('user', 'SELECT name FROM users WHERE id=?', array($refId));
                     if ($target) {
                         send_msg($target['role'], $refId, '密码重置申请未通过',
-                            '您申请的密码重置未通过管理员审核，如有疑问请联系管理员。', '', '');
+                            '您申请的密码重置未通过管理员审核，理由：' . ($note !== '' ? $note : '未说明') . '，如有疑问请联系管理员。', '', '');
                     }
                 }
                 break;
         }
-        json_ok(array(), $approve ? '已通过审核' : '已驳回');
+    }
+
+    /* ==================== 执行单条审核 ==================== */
+    if ($action === 'audit') {
+        $id = (int)post('id');
+        $approve = (int)post('approve', 0);
+        $note = post('note', '');
+        // 驳回必须填写理由
+        if (!$approve && trim($note) === '') json_fail('请填写驳回理由，便于提交者修改后重新提交');
+        $audit = DB::one('core', 'SELECT * FROM audits WHERE id=? AND status=?', array($id, 'pending'));
+        if (!$audit) json_fail('审核事项不存在或已处理');
+        audit_apply($audit, $approve, trim($note));
+        json_ok(array(), $approve ? '已通过审核' : '已驳回（已通知提交者）');
+    }
+
+    /* ==================== 一键全部通过（待审核常规事项） ==================== */
+    // 说明：逐条复用单条通过逻辑；密码重置（pwd_reset）与报告撤回（report_withdraw）
+    // 涉及账号安全/报告作废，不纳入一键通过，需逐条人工审核。
+    if ($action === 'audit_all') {
+        $rows = DB::q('core', "SELECT * FROM audits WHERE status='pending' AND type NOT IN ('pwd_reset','report_withdraw') ORDER BY id DESC", array());
+        if (!$rows) json_fail('当前没有可一键通过的事项');
+        foreach ($rows as $a) {
+            audit_apply($a, 1, '');
+        }
+        json_ok(array('count' => count($rows)), '已一键通过 ' . count($rows) . ' 条事项');
     }
 
     json_fail('未知操作');

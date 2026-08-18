@@ -121,6 +121,75 @@
 .dropdown-panel .dd-item:hover { background: var(--primary-soft); }
 .dropdown-panel .dd-empty { padding: 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
 
+/* ---------- 消息中心面板（右上角铃铛下拉） ---------- */
+.msg-panel {
+    width: 360px;
+    max-width: calc(100vw - 24px);
+    max-height: 480px;
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+}
+.msg-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--bg-card);
+}
+.msg-panel-title { font-size: 14px; font-weight: 700; }
+.msg-panel-body { overflow-y: auto; flex: 1; }
+.msg-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background .12s ease;
+}
+.msg-item:last-child { border-bottom: none; }
+.msg-item:hover { background: var(--bg-soft); }
+.msg-item.unread { background: var(--primary-soft); }
+.msg-item.unread:hover { background: #bae6fd; }
+.msg-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+.msg-title-row .msg-title { font-size: 13.5px; font-weight: 600; flex: 1; min-width: 0; }
+.msg-type {
+    font-size: 11px;
+    line-height: 1;
+    padding: 3px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+.msg-type-patient { background: var(--success-soft); color: var(--success); }
+.msg-type-system { background: var(--bg-soft); color: var(--text-muted); }
+.msg-who {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--primary);
+    background: var(--primary-soft);
+    padding: 2px 7px;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+.msg-content {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin-top: 3px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.msg-time { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; }
+
 /* ---------- 加载遮罩 ---------- */
 .loading-mask {
     position: fixed;

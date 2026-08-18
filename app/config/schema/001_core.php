@@ -6,7 +6,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 1,
+    'version' => 2,
     'tables' => array(
         'settings' => "CREATE TABLE IF NOT EXISTS settings (
             skey TEXT PRIMARY KEY,
@@ -22,6 +22,10 @@ return array(
             print_type TEXT,
             print_url TEXT,
             is_read INTEGER DEFAULT 0,
+            msg_type TEXT DEFAULT 'system',
+            patient_name TEXT DEFAULT '',
+            visit_id INTEGER DEFAULT 0,
+            link_url TEXT DEFAULT '',
             created_at TEXT
         )",
         'audits' => "CREATE TABLE IF NOT EXISTS audits (
@@ -40,6 +44,15 @@ return array(
             note TEXT
         )",
     ),
-    'migrations' => array(),
+    'migrations' => array(
+        // v2：旧库升级 —— 消息增加类型（患者/系统）、患者姓名、就诊ID、跳转链接。
+        // 说明：新库建表已包含这些列，DatabaseManager 迁移器会自动检测列已存在并跳过。
+        2 => array(
+            "ALTER TABLE messages ADD COLUMN msg_type TEXT DEFAULT 'system'",
+            "ALTER TABLE messages ADD COLUMN patient_name TEXT DEFAULT ''",
+            "ALTER TABLE messages ADD COLUMN visit_id INTEGER DEFAULT 0",
+            "ALTER TABLE messages ADD COLUMN link_url TEXT DEFAULT ''",
+        ),
+    ),
     'seed' => array(),
 );

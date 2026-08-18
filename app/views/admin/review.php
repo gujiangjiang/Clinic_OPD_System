@@ -13,6 +13,7 @@ Router::title('审核中心');
 <div class="flex gap-8 mb-12">
     <button class="btn btn-primary btn-sm" data-tab="pending" onclick="switchTab('pending')">待审核</button>
     <button class="btn btn-outline btn-sm" data-tab="handled" onclick="switchTab('handled')">已处理</button>
+    <button class="btn btn-success btn-sm" id="auditAllBtn" onclick="doAuditAll()">✅ 一键全部通过</button>
 </div>
 
 <div class="card" id="auditList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
@@ -34,16 +35,59 @@ function loadAudits(status) {
 }
 
 function doAudit(id, approve) {
-    var tip = approve ? '确认通过该申请？' : '确认驳回该申请？';
-    Clinic.modal.confirm(tip, function () {
-        Clinic.ajax('/api/admin', { action: 'audit', id: id, approve: approve }, {
+    if (approve) {
+        Clinic.modal.confirm('确认通过该申请？', function () {
+            Clinic.ajax('/api/admin', { action: 'audit', id: id, approve: 1 }, {
+                onSuccess: function (json) {
+                    Clinic.toast.success(json.msg);
+                    loadAudits('pending');
+                    loadAudits('handled');
+                },
+            });
+        }, { title: '审核通过' });
+    } else {
+        // 驳回：必须填写驳回理由（将通知提交者，便于其修改后重新提交）
+        Clinic.modal.open(
+            '<div class="form-group"><label class="form-label">驳回理由 <span class="req">*</span></label>' +
+            '<textarea class="textarea" id="rejectNote" rows="3" placeholder="请填写驳回理由，提交者将在站内消息中收到，并点击回到添加页面修改后重新提交"></textarea></div>' +
+            '<div class="fs-12 text-muted">提交者将收到驳回理由，并可通过消息跳回添加页面回填本次提交内容。</div>',
+            {
+                title: '驳回申请',
+                size: 'modal-sm',
+                buttons: [
+                    { text: '取消', cls: 'btn-outline' },
+                    {
+                        text: '确认驳回', cls: 'btn-danger', autoClose: false,
+                        onClick: function () {
+                            var note = document.getElementById('rejectNote').value.trim();
+                            if (!note) { Clinic.toast.warning('请填写驳回理由'); return; }
+                            Clinic.ajax('/api/admin', { action: 'audit', id: id, approve: 0, note: note }, {
+                                onSuccess: function (json) {
+                                    Clinic.toast.success(json.msg);
+                                    Clinic.modal.close();
+                                    loadAudits('pending');
+                                    loadAudits('handled');
+                                },
+                            });
+                        },
+                    },
+                ],
+            }
+        );
+    }
+}
+
+/* 一键全部通过（常规事项；密码重置与报告撤回不纳入） */
+function doAuditAll() {
+    Clinic.modal.confirm('确认一键通过全部待审核事项？（密码重置与报告撤回不包含在内）', function () {
+        Clinic.ajax('/api/admin', { action: 'audit_all' }, {
             onSuccess: function (json) {
                 Clinic.toast.success(json.msg);
                 loadAudits('pending');
                 loadAudits('handled');
             },
         });
-    }, { title: approve ? '审核通过' : '审核驳回' });
+    }, { title: '一键全部通过', okText: '全部通过' });
 }
 
 switchTab('pending');

@@ -286,11 +286,13 @@ Clinic.order = (function () {
             Clinic.toast.warning('请至少选择一个项目');
             return;
         }
-        // 处方库存上限校验
-        for (var i = 0; i < SELECTED.length; i++) {
-            if (SELECTED[i].quantity > SELECTED[i].stock) {
-                Clinic.toast.warning('【' + SELECTED[i].name + '】数量超过库存');
-                return;
+        // 处方库存上限校验（仅药品有库存概念；检验/检查/处置项目无库存，不做校验）
+        if (CUR_TYPE === 'prescription') {
+            for (var i = 0; i < SELECTED.length; i++) {
+                if (SELECTED[i].quantity > (SELECTED[i].stock || 0)) {
+                    Clinic.toast.warning('【' + SELECTED[i].name + '】数量超过库存');
+                    return;
+                }
             }
         }
         var nc = document.getElementById('nurseReq');

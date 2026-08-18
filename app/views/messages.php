@@ -33,9 +33,19 @@ function loadMsgs() {
                     } else if (m.print_url) {
                         btn = '<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();Clinic.print.load(\'' + m.print_url + '\',null)">🖨️ 打印</button>';
                     }
-                    return '<div class="msg-item ' + (m.is_read ? '' : 'unread') + '" style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--border);cursor:pointer" data-id="' + m.id + '">' +
+                    var isPatient = m.msg_type === 'patient';
+                    var typeBadge = isPatient
+                        ? '<span class="msg-type msg-type-patient">患者</span>'
+                        : '<span class="msg-type msg-type-system">系统</span>';
+                    var who = isPatient && m.patient_name
+                        ? '<span class="msg-who">👤 ' + m.patient_name + '</span>' : '';
+                    var jump = '';
+                    if (m.link_url) jump = m.link_url;
+                    else if (m.visit_id > 0) jump = '/doctor/emr?visit_id=' + m.visit_id;
+                    return '<div class="msg-item ' + (m.is_read ? '' : 'unread') + '" style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--border);cursor:pointer" data-id="' + m.id + '" data-jump="' + jump + '">' +
                         '<div style="flex:1;min-width:0">' +
-                        '  <div class="fw-600 fs-14">' + m.title + '</div>' +
+                        '  <div class="msg-title-row">' + typeBadge + who +
+                        '    <div class="fw-600 fs-14 ellipsis">' + m.title + '</div></div>' +
                         '  <div class="fs-13 text-muted">' + m.content + '</div>' +
                         '  <div class="fs-12 text-muted mt-4">' + m.created_at + ' ｜ 来自 ' + m.from_name + '</div>' +
                         '</div>' + btn + '</div>';
@@ -44,6 +54,9 @@ function loadMsgs() {
                 el.addEventListener('click', function () {
                     Clinic.ajax('/api/message', { action: 'read', id: el.getAttribute('data-id') }, { loading: false });
                     el.classList.remove('unread');
+                    Clinic.notify.refresh();
+                    var jump = el.getAttribute('data-jump');
+                    if (jump) location.href = jump;
                 });
             });
         },
