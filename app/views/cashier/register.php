@@ -139,10 +139,19 @@ function setDerivedLocked(locked) {
 }
 
 /* ---------- 加载可挂科室及号源 ---------- */
+/* 竞态防护：身份证 input 事件会多次触发 loadDepts（输入过程/校验失败/校验通过），
+   若较早发出的「仅急诊」请求后返回，会覆盖较晚的「含门诊」响应（表现为门诊号源
+   短暂出现又消失）。这里用请求序号丢弃过期响应，并用防抖合并连续输入。 */
+var deptReqSeq = 0;
+var deptTimer = null;
 function loadDepts(card) {
-    Clinic.get('/api/cashier?action=depts&id_card=' + encodeURIComponent(card), null, {
-        onSuccess: function (json) {
-            var list = json.data.list || [];
+    if (deptTimer) clearTimeout(deptTimer);
+    deptTimer = setTimeout(function () {
+        var seq = ++deptReqSeq;
+        Clinic.get('/api/cashier?action=depts&id_card=' + encodeURIComponent(card), null, {
+            onSuccess: function (json) {
+                if (seq !== deptReqSeq) return; // 过期响应（已有更新的请求）直接丢弃
+                var list = json.data.list || [];
             var sel = document.getElementById('dept');
             var opts = '<option value="">请选择科室</option>';
             list.forEach(function (d) {
@@ -164,8 +173,9 @@ function loadDepts(card) {
                 }).join('');
             }
             updateDeptInfo();
-        },
-    });
+            },
+        });
+    }, 120);
 }
 
 function updateDeptInfo() {
