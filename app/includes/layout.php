@@ -122,6 +122,23 @@ class Layout {
         $pageTitle = $title !== '' ? $hosp . ' - ' . $title : $hosp;
         $avatar = !empty($u['photo']) ? '<img src="' . e($u['photo']) . '" alt="头像">' : '👤';
 
+        // 右上角悬浮窗数据：工号 + 职称（session 不包含，需查库；医务人员才有职称）
+        $uFull = DB::one('user', 'SELECT emp_no, name, role, title FROM users WHERE id=?', array((int)$u['id']));
+        $uEmpNo = $uFull && $uFull['emp_no'] !== '' ? $uFull['emp_no'] : '—';
+        $uTitle = $uFull && $uFull['title'] !== '' ? $uFull['title'] : '';
+        $uHasTitle = in_array($u['role'], array('doctor', 'nurse', 'lab', 'imaging', 'pharmacy'), true);
+        $uRoleName = Auth::roleName($u['role']);
+        $uPop = '<div class="user-pop">' .
+            '<div class="user-pop-head">' .
+            '<span class="avatar" style="width:38px;height:38px;font-size:15px">' . $avatar . '</span>' .
+            '<div class="user-pop-id"><div class="user-pop-name">' . e($u['name']) . '</div>' .
+            '<div class="user-pop-role">' . e($uRoleName) . ($uHasTitle && $uTitle !== '' ? ' · ' . e($uTitle) : '') . '</div></div></div>' .
+            '<div class="user-pop-row"><span>工号</span><span>' . e($uEmpNo) . '</span></div>' .
+            '<div class="user-pop-row"><span>姓名</span><span>' . e($u['name']) . '</span></div>' .
+            '<div class="user-pop-row"><span>角色</span><span>' . e($uRoleName) . '</span></div>' .
+            ($uHasTitle ? '<div class="user-pop-row"><span>职称</span><span>' . e($uTitle !== '' ? $uTitle : '未设置') . '</span></div>' : '') .
+            '<div class="user-pop-foot"><a href="/profile">个人中心 ›</a></div></div>';
+
         // 管理员首次进入提醒修改密码
         $pwdTip = '';
         if ($u['role'] === 'admin' && (int)DB::val('user', 'SELECT pwd_changed FROM users WHERE id=?', array($u['id'])) === 0) {
@@ -190,11 +207,14 @@ class Layout {
                                     <span class="badge badge-danger" data-msg-badge style="display:none;margin-left:2px;padding:0 6px"></span>
                                 </button>
                             </div>
-                            <a class="flex gap-8" style="align-items:center;color:var(--text)" href="/profile">
-                                <span class="avatar" style="width:34px;height:34px;font-size:14px">' . $avatar . '</span>
-                                <span class="fs-13 fw-600">' . e($u['name']) . '</span>
-                                <span class="fs-12 text-muted">' . e(Auth::roleName($u['role'])) . '</span>
-                            </a>
+                            <div class="user-wrap">
+                                <a class="flex gap-8" style="align-items:center;color:var(--text)" href="/profile">
+                                    <span class="avatar" style="width:34px;height:34px;font-size:14px">' . $avatar . '</span>
+                                    <span class="fs-13 fw-600">' . e($u['name']) . '</span>
+                                    <span class="fs-12 text-muted">' . e($uRoleName) . '</span>
+                                </a>
+                                ' . $uPop . '
+                            </div>
                             <button type="button" class="btn btn-outline btn-sm" data-logout title="退出登录">退出</button>
                         </div>
                     </header>
