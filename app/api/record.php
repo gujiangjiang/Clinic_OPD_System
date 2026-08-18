@@ -52,6 +52,7 @@ switch ($action) {
             'initial_diagnosis' => $record ? $record['initial_diagnosis'] : '',
             'diagnosis_code' => $record ? $record['diagnosis_code'] : '',
             'is_observation' => $record ? (int)$record['is_observation'] : 0,
+            'visit_type' => ($record && !empty($record['visit_type'])) ? $record['visit_type'] : '初诊',
             'advice' => $record ? $record['advice'] : '',
         );
 
@@ -125,6 +126,10 @@ switch ($action) {
         if (trim(strip_tags($present)) === '') json_fail('现病史为必填项，请填写后再保存');
         if (trim($diag) === '') json_fail('初步诊断为必填项，请填写后再保存');
 
+        // 初复诊白名单校验（默认初诊）
+        $visitType = post('visit_type', '初诊');
+        if (!in_array($visitType, array('初诊', '复诊'), true)) $visitType = '初诊';
+
         $data = array(
             'chief_complaint' => $chief,
             'present_illness' => $present,
@@ -135,6 +140,7 @@ switch ($action) {
             'initial_diagnosis' => $diag,
             'diagnosis_code' => post('diagnosis_code'),
             'is_observation' => (int)post('is_observation', 0),
+            'visit_type' => $visitType,
             'advice' => post('advice'),
             'status' => $finish ? 'done' : 'draft',
             'updated_at' => now_str(),
@@ -154,7 +160,7 @@ switch ($action) {
             $params = array($visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name']);
             foreach ($data as $v) $params[] = $v;
             $params[] = now_str(); // created_at
-            DB::insert('medical', 'INSERT INTO records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, chief_complaint, present_illness, past_history, allergy_history, physical_exam, consciousness, initial_diagnosis, diagnosis_code, is_observation, advice, status, updated_at, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', $params);
+            DB::insert('medical', 'INSERT INTO records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, chief_complaint, present_illness, past_history, allergy_history, physical_exam, consciousness, initial_diagnosis, diagnosis_code, is_observation, visit_type, advice, status, updated_at, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', $params);
         }
 
         // 诊毕：更新就诊状态
