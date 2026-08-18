@@ -23,44 +23,49 @@ $patient = $row['patient'];
 <input type="hidden" id="visitId" value="<?php echo (int)$visitId; ?>">
 <input type="hidden" id="refRecordId" value="<?php echo (int)$refId; ?>">
 
-<!-- 工具栏（.emr-write 为写操作按钮：患者诊毕后自动隐藏，病历只读） -->
-<div class="card" style="padding:12px 16px;margin-bottom:12px">
-    <div class="flex gap-8" style="flex-wrap:wrap;align-items:center">
-        <span class="fw-700 fs-15">看诊操作：</span>
+<div class="emr-layout">
+    <div class="emr-main">
+        <!-- 患者信息头（不可编辑，emr.js 填充） -->
+        <div id="emrHeader"></div>
+
+        <!-- 患者信息卡（不可编辑，emr.js 填充） -->
+        <div id="patientCard"></div>
+
+        <!-- 病历编辑区（emr.js 整体渲染：生命体征/主诉/现病史/诊断联动等） -->
+        <div class="card" id="emrCard" style="padding:0;overflow:hidden">
+            <div style="padding:18px 20px">
+                <div class="text-muted fs-13 mb-8">病历编辑器加载中…（医院名称与患者信息区域不可编辑）</div>
+            </div>
+        </div>
+
+        <!-- 已开项目（病历处置区） -->
+        <div class="card">
+            <div class="card-title"><span>已开项目与流程（点击查看流程进度）</span></div>
+            <div id="orderList"><div class="text-muted fs-13">加载中…</div></div>
+        </div>
+    </div>
+
+    <!-- 右侧看诊操作工具栏（.emr-write 为写操作按钮：患者诊毕后自动隐藏，病历只读）
+         固定在右侧、不随页面滚动，与左侧导航栏一致 -->
+    <aside class="card emr-toolbar">
+        <div class="emr-toolbar-title">看诊操作</div>
         <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.order.open('lab')">🧪 开检验</button>
         <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.order.open('imaging')">🩻 开检查</button>
         <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.order.open('procedure')">🩹 开处置</button>
         <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.order.open('prescription')">💊 开处方</button>
-        <span style="width:1px;height:22px;background:var(--border)"></span>
-        <button class="btn btn-primary btn-sm emr-write" onclick="Clinic.emr.save(false)">保存病历</button>
-        <button class="btn btn-success btn-sm emr-write" onclick="Clinic.emr.save(true)">保存并诊毕</button>
-        <span style="width:1px;height:22px;background:var(--border)"></span>
+        <div class="emr-toolbar-divider"></div>
+        <button class="btn btn-primary btn-sm emr-write" onclick="Clinic.emr.save(false)">💾 保存病历</button>
+        <button class="btn btn-success btn-sm emr-write" onclick="Clinic.emr.save(true)">✅ 保存并诊毕</button>
+        <div class="emr-toolbar-divider"></div>
         <button class="btn btn-outline btn-sm emr-write" onclick="openTransfer()">↔️ 转科</button>
         <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.emr.openCertificate()">📄 诊断证明</button>
+        <div class="emr-toolbar-divider"></div>
         <button class="btn btn-outline btn-sm" onclick="Clinic.emr.printRecord()">🖨️ 打印病历</button>
         <button class="btn btn-outline btn-sm" onclick="showPatientHistory('<?php echo e($patient['patient_no']); ?>')">📚 就诊历史</button>
         <button class="btn btn-outline btn-sm" onclick="Clinic.patient.editModal('<?php echo e($patient['patient_no']); ?>')">✏️ 修改患者信息</button>
+        <div class="emr-toolbar-divider"></div>
         <span class="fs-12 text-muted" id="saveStatus"></span>
-    </div>
-</div>
-
-<!-- 患者信息头（不可编辑，emr.js 填充） -->
-<div id="emrHeader"></div>
-
-<!-- 患者信息卡（不可编辑，emr.js 填充） -->
-<div id="patientCard"></div>
-
-<!-- 病历编辑区（emr.js 整体渲染：生命体征/主诉/现病史/诊断联动等） -->
-<div class="card" id="emrCard" style="padding:0;overflow:hidden">
-    <div style="padding:18px 20px">
-        <div class="text-muted fs-13 mb-8">病历编辑器加载中…（医院名称与患者信息区域不可编辑）</div>
-    </div>
-</div>
-
-<!-- 已开项目（病历处置区） -->
-<div class="card">
-    <div class="card-title"><span>已开项目与流程（点击查看流程进度）</span></div>
-    <div id="orderList"><div class="text-muted fs-13">加载中…</div></div>
+    </aside>
 </div>
 
 <script>

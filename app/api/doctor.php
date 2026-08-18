@@ -15,25 +15,58 @@ require __DIR__ . '/_init.php';
 
 $u = Auth::user();
 
+/** 当前医生关联科室ID列表（用于权限校验与科室回退） */
+function doctor_dept_ids($u) {
+    $ids = array();
+    // 会话快照中的 dept_ids 可能为 NULL（如管理员登录医生端接口时），
+    // 先判空再拆分，避免 PHP 8 的 Undefined key / Deprecated 告警污染 JSON
+    foreach (explode(',', isset($u['dept_ids']) ? (string)$u['dept_ids'] : '') as $id) {
+        if ((int)$id > 0) $ids[] = (int)$id;
+    }
+    return $ids;
+}
+
+/** 科室是否为限号（门诊且上/下午号源数量 > 0；急诊与 0 号源为不限号） */
+function dept_is_limited($d) {
+    return $d['type'] === 'clinic' && ((int)$d['am_quota'] > 0 || (int)$d['pm_quota'] > 0);
+}
+
 switch ($action) {
 
     /* ==================== 医生关联科室 ==================== */
     case 'depts':
-        $ids = array();
-        // 会话快照中的 dept_ids 可能为 NULL（如管理员登录医生端接口时），
-        // 先判空再拆分，避免 PHP 8 的 Undefined key / Deprecated 告警污染 JSON
-        foreach (explode(',', isset($u['dept_ids']) ? (string)$u['dept_ids'] : '') as $id) {
-            if ((int)$id > 0) $ids[] = (int)$id;
-        }
+        $ids = doctor_dept_ids($u);
+        $curRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+        $curDeptId = $curRow ? (int)$curRow['current_dept_id'] : 0;
         if ($ids) {
             $ph = implode(',', array_fill(0, count($ids), '?'));
             $list = DB::q('dept', "SELECT * FROM departments WHERE status=1 AND id IN ($ph) ORDER BY sort, id", $ids);
         } else {
             $list = array();
         }
-        json_ok(array('list' => array_map(function ($d) {
-            return array('id' => (int)$d['id'], 'name' => $d['name'], 'type' => $d['type']);
-        }, $list)));
+        json_ok(array(
+            'list' => array_map(function ($d) {
+                return array(
+                    'id' => (int)$d['id'],
+                    'name' => $d['name'],
+                    'type' => $d['type'],
+                    'limited' => dept_is_limited($d) ? 1 : 0,
+                );
+            }, $list),
+            'current' => $curDeptId,
+        ));
+        break;
+
+    /* ==================== 医生切换当前科室（叫号屏跟随该选择动态显示） ==================== */
+    case 'set_dept':
+        $deptId = (int)post('dept_id');
+        $ids = doctor_dept_ids($u);
+        if (!in_array($deptId, $ids, true)) json_fail('无权选择该科室');
+        $dept = DB::one('dept', 'SELECT id FROM departments WHERE id=? AND status=1', array($deptId));
+        if (!$dept) json_fail('科室不存在或已停用');
+        DB::exec('user', 'UPDATE users SET current_dept_id=? WHERE id=?', array($deptId, $u['id']));
+        Auth::updateSession('current_dept_id', $deptId);
+        json_ok(array('dept_id' => $deptId), '科室已切换');
         break;
 
     /* ==================== 患者列表（HTML 片段） ==================== */
@@ -105,10 +138,25 @@ switch ($action) {
         break;
 
     /* ==================== 叫号屏队列（需求22：诊室门口叫号屏幕） ==================== */
+    // 科室完全跟随医生端选择：不传 dept_id（或为 0）时取用户记录中的
+    // current_dept_id；医生尚未选择时回退到其关联的第一个可用科室。
     case 'call_queue':
         $deptId = (int)get('dept_id', 0);
+        if ($deptId <= 0) {
+            $curRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+            $deptId = $curRow ? (int)$curRow['current_dept_id'] : 0;
+        }
         $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=? AND status=1', array($deptId));
-        if (!$dept) json_fail('科室不存在或已停用');
+        if (!$dept) {
+            $ids = doctor_dept_ids($u);
+            if ($ids) {
+                $ph = implode(',', array_fill(0, count($ids), '?'));
+                $first = DB::one('dept', "SELECT * FROM departments WHERE status=1 AND id IN ($ph) ORDER BY sort, id LIMIT 1", $ids);
+                if ($first) $dept = $first;
+            }
+        }
+        if (!$dept) json_fail('当前医生未关联可用科室');
+        $deptId = (int)$dept['id'];
 
         // 该科室当前就诊中患者（最新的）
         $current = DB::one('patient', "SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
@@ -137,12 +185,21 @@ switch ($action) {
             }
         }
 
-        $fmt = function ($r) {
+        $fmt = function ($r) use ($deptId) {
             if (!$r) return null;
+            // 复诊标记（预留）：同一患者当日在本科室已有其他就诊记录（已缴费/就诊中/已诊毕）
+            $follow = 0;
+            if (!empty($r['patient_no'])) {
+                $follow = (int)DB::val('patient', "SELECT COUNT(*) FROM registrations
+                    WHERE patient_no=? AND current_dept_id=? AND date(register_time)=?
+                    AND status IN ('paid','visiting','finished') AND id<>?",
+                    array($r['patient_no'], $deptId, today_str(), $r['id']));
+            }
             return array(
                 'name' => $r['pname'], 'gender' => $r['pgender'], 'age' => (int)$r['page'],
                 'visit_seq' => (int)$r['visit_seq'], 'flow_no' => $r['flow_no'],
                 'patient_no' => $r['patient_no'], 'register_time' => $r['register_time'],
+                'is_followup' => $follow > 0 ? 1 : 0,
             );
         };
         json_ok(array(
@@ -164,6 +221,8 @@ switch ($action) {
         if ($name === '') json_fail('请填写患者姓名');
         $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=? AND status=1', array($deptId));
         if (!$dept) json_fail('科室不存在');
+        // 不限号科室无需加号（仅限号科室提供医生加号功能）
+        if (!dept_is_limited($dept)) json_fail('该科室为不限号科室，无需加号');
         // 同一患者当日同科室已有加号未使用时，不重复添加
         $exists = DB::one('dept', "SELECT id FROM extra_slots WHERE dept_id=? AND reg_date=? AND id_card=? AND used=0", array($deptId, today_str(), $idCard));
         if ($exists) json_fail('该患者今日已存在未使用的加号');

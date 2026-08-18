@@ -24,14 +24,34 @@ Clinic.init = function () {
 };
 
 /**
- * 侧边栏切换（窄屏）
+ * 侧边栏切换：
+ * - 窄屏（<=900px）：抽屉式开关（.sidebar.open 滑入/滑出）
+ * - 宽屏（>900px）：折叠/展开侧边栏（.app.sidebar-collapsed），
+ *   并将折叠偏好记忆在 localStorage，刷新后保持
  */
 function bindSidebarToggle() {
     const toggle = document.querySelector('[data-sidebar-toggle]');
     const sidebar = document.querySelector('.sidebar');
-    if (!toggle || !sidebar) return;
+    const app = document.querySelector('.app');
+    if (!toggle || !sidebar || !app) return;
+
+    // 宽屏：恢复记忆的折叠状态
+    if (window.innerWidth > 900) {
+        let saved = '0';
+        try { saved = localStorage.getItem('clinic_sidebar_collapsed') || '0'; } catch (e) { saved = '0'; }
+        if (saved === '1') app.classList.add('sidebar-collapsed');
+    }
+
     toggle.addEventListener('click', function () {
-        sidebar.classList.toggle('open');
+        if (window.innerWidth <= 900) {
+            // 窄屏：抽屉式开关
+            sidebar.classList.toggle('open');
+        } else {
+            // 宽屏：折叠/展开
+            const collapsed = !app.classList.contains('sidebar-collapsed');
+            app.classList.toggle('sidebar-collapsed', collapsed);
+            try { localStorage.setItem('clinic_sidebar_collapsed', collapsed ? '1' : '0'); } catch (e) {}
+        }
     });
 }
 

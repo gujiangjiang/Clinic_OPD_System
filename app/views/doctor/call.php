@@ -18,9 +18,9 @@ $hosp2 = setting('hospital_name2', '');
 $logo  = setting('logo', '');
 $favicon = $logo !== '' ? '<link rel="icon" href="' . e($logo) . '">' : '';
 $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
-$deptId = (int)get('dept_id', 0);
 ?>
 <!DOCTYPE html>
+<!-- 说明：叫号屏不再自带科室切换，显示科室完全跟随医生端在【医生工作站】的选择（服务端 current_dept_id） -->
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -30,7 +30,6 @@ $deptId = (int)get('dept_id', 0);
     <link rel="stylesheet" href="/assets/css/call.css">
 </head>
 <body class="call-body" data-csrf="<?php echo e(CSRF::token()); ?>" data-hosp="<?php echo e($hosp); ?>" data-hosp2="<?php echo e($hosp2); ?>">
-<input type="hidden" id="callDeptId" value="<?php echo (int)$deptId; ?>">
 
 <!-- ===== 顶部：LOGO + 医院名称 + 时钟 ===== -->
 <header class="call-top">
@@ -44,10 +43,9 @@ $deptId = (int)get('dept_id', 0);
     <div class="call-clock" id="callClock"></div>
 </header>
 
-<!-- ===== 中上方：科室名称 + 科室选择 ===== -->
+<!-- ===== 中上方：当前科室名称（跟随医生端选择动态变化） ===== -->
 <div class="call-deptbar">
     <div class="call-dept" id="callDept">正在加载科室…</div>
-    <div class="call-dept-opts" id="callDeptOpts"></div>
 </div>
 
 <!-- ===== 主区：就诊中 / 下一位 ===== -->

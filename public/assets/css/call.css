@@ -1,6 +1,8 @@
 /* ============================================================
- * call.css v1.1.0 — 诊室门口叫号屏幕样式
+ * call.css v1.2.0 — 诊室门口叫号屏幕样式
  * 说明：独立全屏显示，深色底 + 大字体 + 高对比，保证远距离可读。
+ * 科室跟随医生端选择，大屏端不提供切换按钮；
+ * 就诊区只显示姓名与号次，预留复诊标记。
  * ============================================================ */
 
 .call-body {
@@ -76,21 +78,19 @@
     border-radius: 40px;
     background: rgba(255, 213, 79, .12);
 }
-.call-dept-opts .call-dept-btn {
-    margin-left: 10px;
-    font-size: 16px;
-    padding: 6px 14px;
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, .5);
-    background: transparent;
-    color: #fff;
-    cursor: pointer;
-}
-.call-dept-opts .call-dept-btn.on {
-    background: #ffd54f;
-    color: #0b2a43;
-    border-color: #ffd54f;
+/* ---------- 复诊标记（预留：医生端标记复诊后自动显示） ---------- */
+.call-followup {
+    display: inline-block;
+    font-size: 20px;
     font-weight: 700;
+    letter-spacing: 2px;
+    color: #ffd54f;
+    border: 2px solid #ffd54f;
+    border-radius: 24px;
+    padding: 2px 14px;
+    margin-left: 14px;
+    vertical-align: middle;
+    background: rgba(255, 213, 79, .12);
 }
 
 /* ---------- 主区：就诊中 / 下一位 ---------- */
