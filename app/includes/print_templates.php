@@ -283,33 +283,48 @@ function pt_report($report, $result, $item, $visit) {
 function pt_record($visit, $patient, $record, $vitals) {
     $title = (isset($visit['dept_type']) && $visit['dept_type'] === 'emergency') ? '急诊电子病历' : '门诊电子病历';
     $html = pt_header($title);
-    $items = array(
-        '姓名' => isset($visit['name']) ? $visit['name'] : '',
-        '性别' => isset($visit['gender']) ? $visit['gender'] : '',
-        '年龄' => isset($visit['age']) ? $visit['age'] . '岁' : '',
+
+    // 患者信息两栏：门诊/急诊字段集与病历编辑器完全一致，空值显示 —（所见即所得）
+    $emergency = isset($visit['dept_type']) && $visit['dept_type'] === 'emergency';
+    $name = isset($visit['name']) ? $visit['name'] : (isset($patient['name']) ? $patient['name'] : '');
+    $gender = isset($visit['gender']) ? $visit['gender'] : '';
+    $age = isset($visit['age']) ? $visit['age'] . '岁' : '';
+    $items = $emergency ? array(
+        '姓名' => $name,
+        '性别' => $gender,
+        '出生日期' => isset($patient['birth_date']) ? $patient['birth_date'] : '',
+        '年龄' => $age,
+        '患者ID' => isset($patient['patient_no']) ? $patient['patient_no'] : '',
+        '就诊科室' => isset($visit['current_dept_name']) ? $visit['current_dept_name'] : '',
+        '就诊时间' => isset($visit['register_time']) ? $visit['register_time'] : '',
+    ) : array(
+        '姓名' => $name,
+        '性别' => $gender,
+        '年龄' => $age,
         '患者ID' => isset($patient['patient_no']) ? $patient['patient_no'] : '',
         '证件号码' => isset($patient['id_card']) ? $patient['id_card'] : '',
         '出生日期' => isset($patient['birth_date']) ? $patient['birth_date'] : '',
         '民族' => isset($patient['ethnicity']) ? $patient['ethnicity'] : '',
         '职业' => isset($patient['occupation']) ? $patient['occupation'] : '',
         '婚姻' => isset($patient['marital']) ? $patient['marital'] : '',
+        '初复诊' => '—',
         '科室' => isset($visit['current_dept_name']) ? $visit['current_dept_name'] : '',
-        '记录时间' => isset($record['updated_at']) ? $record['updated_at'] : '',
         '联系方式' => isset($patient['phone']) ? $patient['phone'] : '',
     );
-    // 患者信息按门诊电子病历样式两栏排列（所见即所得，与屏幕病历版式一致）
     $info = '<div class="print-info-grid">';
-    foreach ($items as $k => $v) {
-        if ($v !== '' && $v !== null) {
-            $info .= '<div class="print-info-cell"><strong>' . e($k) . '</strong>：' . e($v) . '</div>';
-        }
+    foreach ($items as $k => $val) {
+        $val = ($val !== '' && $val !== null) ? $val : '—';
+        $info .= '<div class="print-info-cell"><strong>' . e($k) . '</strong>：' . e($val) . '</div>';
     }
     $info .= '</div>';
-    $html .= $info . '<div class="print-line"></div>';
-    $html .= pt_sec('主诉', isset($record['chief_complaint']) ? $record['chief_complaint'] : '');
-    $html .= pt_sec('现病史', isset($record['present_illness']) ? $record['present_illness'] : '');
-    $html .= pt_sec('既往史', isset($record['past_history']) ? $record['past_history'] : '');
-    $html .= pt_sec('过敏史', isset($record['allergy_history']) ? $record['allergy_history'] : '');
+    $html .= $info;
+
+    // 病历内容行内流式排版：主诉：xxx　现病史：xxx（紧凑省空间）
+    $secs = array();
+    $secs[] = array('主诉', isset($record['chief_complaint']) ? $record['chief_complaint'] : '');
+    $secs[] = array('现病史', isset($record['present_illness']) ? $record['present_illness'] : '');
+    $secs[] = array('既往史', isset($record['past_history']) ? $record['past_history'] : '');
+    $secs[] = array('过敏史', isset($record['allergy_history']) ? $record['allergy_history'] : '');
     if ($vitals) {
         $vp = array();
         if (!empty($vitals['bp_systolic'])) $vp[] = '血压 ' . $vitals['bp_systolic'] . '/' . $vitals['bp_diastolic'] . 'mmHg';
@@ -317,18 +332,26 @@ function pt_record($visit, $patient, $record, $vitals) {
         if (!empty($vitals['pulse'])) $vp[] = '脉搏 ' . $vitals['pulse'] . '次/分';
         if (!empty($vitals['spo2'])) $vp[] = '血氧 ' . $vitals['spo2'] . '%';
         if (!empty($vitals['respiration'])) $vp[] = '呼吸 ' . $vitals['respiration'] . '次/分';
-        $html .= pt_sec('生命体征', implode('；', $vp));
+        if ($vp) $secs[] = array('生命体征', implode('；', $vp));
     }
-    $html .= pt_sec('意识状态', isset($record['consciousness']) ? $record['consciousness'] : '');
-    $html .= pt_sec('体格检查', isset($record['physical_exam']) ? $record['physical_exam'] : '');
+    $secs[] = array('意识状态', isset($record['consciousness']) ? $record['consciousness'] : '');
+    $secs[] = array('体格检查', isset($record['physical_exam']) ? $record['physical_exam'] : '');
     $diag = isset($record['initial_diagnosis']) ? $record['initial_diagnosis'] : '';
     if (isset($record['diagnosis_code']) && $record['diagnosis_code']) {
         $diag .= '（' . $record['diagnosis_code'] . '）';
     }
-    $html .= pt_sec('初步诊断', $diag);
-    $html .= pt_sec('留观', !empty($record['is_observation']) ? '是' : '否');
-    $html .= pt_sec('嘱托', isset($record['advice']) ? $record['advice'] : '');
+    $secs[] = array('初步诊断', $diag);
+    $secs[] = array('留观', !empty($record['is_observation']) ? '是' : '否');
+    $secs[] = array('嘱托', isset($record['advice']) ? $record['advice'] : '');
+
+    $flow = '';
+    foreach ($secs as $s) {
+        $flow .= '<span class="pf-sec"><strong>' . e($s[0]) . '：</strong><span class="pf-body">' . $s[1] . '</span></span>';
+    }
+    $html .= '<div class="print-flow">' . $flow . '</div>';
+
     $html .= '<div class="print-footer"><span>医生：' . e(isset($record['doctor_name']) ? $record['doctor_name'] : '') . '</span>' .
+        '<span>记录时间：' . e(isset($record['updated_at']) ? $record['updated_at'] : '') . '</span>' .
         '<span>打印时间：' . now_str() . '</span></div>';
     return $html;
 }

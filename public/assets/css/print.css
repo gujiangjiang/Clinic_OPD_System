@@ -46,30 +46,29 @@
 }
 .print-area .print-hosp {
     text-align: center;
-    font-size: 15px;
-    font-weight: 700;
-    margin-bottom: 2px;
+    font-size: 25px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
 }
 .print-area .print-title-line {
     text-align: center;
-    font-size: 19px;
+    font-size: 20px;
     font-weight: 700;
     letter-spacing: 6px;
-    border-top: 2px solid #111;
-    border-bottom: 2px solid #111;
-    padding: 4px 0;
-    margin: 6px 0 12px;
+    padding-left: 6px; /* 抵消 letter-spacing 造成的视觉右偏 */
+    margin: 4px 0 14px;
 }
 .print-area .print-info-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 2px 18px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
 }
 .print-area .print-info-cell {
     font-size: 13px;
-    white-space: nowrap;
     line-height: 1.8;
+    word-break: break-all;
 }
 .print-area .print-info {
     display: flex;
@@ -197,6 +196,14 @@
     line-height: 1.7;
     min-height: 20px;
 }
+
+/* 病历打印：行内流式排版（主诉：xxx　现病史：xxx，紧凑省空间） */
+.print-area .print-flow {
+    font-size: 13px;
+    line-height: 1.9;
+}
+.print-area .print-flow .pf-sec { margin-right: 16px; }
+.print-area .print-flow .pf-sec .pf-body { white-space: pre-wrap; }
 
 /* 处方大括号子项 */
 .print-area .sub-order { padding-left: 18px; border-left: 2px solid #888; margin-left: 6px; }
