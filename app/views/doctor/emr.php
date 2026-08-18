@@ -6,8 +6,9 @@
  * 门诊与急诊病历抬头不同（由 dept_type 决定）。
  * DOM 约定（emr.js 依赖）：
  *   #visitId / #refRecordId（隐藏输入）
- *   #emrHeader（患者信息头）、#patientCard（患者信息卡）、
- *   #emrCard（病历编辑区）、#orderList（已开项目）、#saveStatus
+ *   #emrHeader（患者信息头）、#emrCard（所见即所得病历文档，
+ *   内含医院抬头/标题栏/患者信息两栏/病历内容/签名）、
+ *   #orderList（已开项目）、#saveStatus
  */
 Router::title('电子病历');
 
@@ -28,10 +29,7 @@ $patient = $row['patient'];
         <!-- 患者信息头（不可编辑，emr.js 填充） -->
         <div id="emrHeader"></div>
 
-        <!-- 患者信息卡（不可编辑，emr.js 填充） -->
-        <div id="patientCard"></div>
-
-        <!-- 病历编辑区（emr.js 整体渲染：生命体征/主诉/现病史/诊断联动等） -->
+        <!-- 所见即所得病历文档（emr.js 整体渲染：医院抬头/标题栏/患者信息两栏/病历内容/签名） -->
         <div class="card" id="emrCard" style="padding:0;overflow:hidden">
             <div style="padding:18px 20px">
                 <div class="text-muted fs-13 mb-8">病历编辑器加载中…（医院名称与患者信息区域不可编辑）</div>

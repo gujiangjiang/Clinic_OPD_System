@@ -60,6 +60,17 @@
     padding: 4px 0;
     margin: 6px 0 12px;
 }
+.print-area .print-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 18px;
+    margin-bottom: 10px;
+}
+.print-area .print-info-cell {
+    font-size: 13px;
+    white-space: nowrap;
+    line-height: 1.8;
+}
 .print-area .print-info {
     display: flex;
     flex-wrap: wrap;

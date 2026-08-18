@@ -223,3 +223,90 @@
     opacity: .85;
 }
 #emrCard .rich-editor.readonly:focus { outline: none; }
+
+/* ---------- 病历文档（所见即所得，模拟纸质病历版式） ---------- */
+.emr-doc {
+    max-width: 860px;
+    margin: 0 auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    padding: 26px 30px;
+}
+.emr-doc .doc-hosp {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: var(--text);
+}
+.emr-doc .doc-sub {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+.emr-doc .doc-title-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 14px 0 12px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--text);
+}
+.emr-doc .doc-title {
+    font-size: 17px;
+    font-weight: 800;
+}
+.emr-doc .doc-rec-time {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.emr-doc .doc-patient-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px 24px;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+.emr-doc .doc-cell {
+    display: flex;
+    gap: 4px;
+    line-height: 1.7;
+}
+.emr-doc .doc-cell-label {
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.emr-doc .doc-cell-value {
+    font-weight: 600;
+    word-break: break-all;
+}
+.emr-doc .doc-line {
+    border-bottom: 1px solid var(--border);
+    margin: 12px 0 16px;
+}
+.emr-doc .doc-body .form-group {
+    margin-bottom: 14px;
+}
+.emr-doc .doc-body .form-label {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text);
+}
+.emr-doc .doc-footer {
+    margin-top: 18px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    font-size: 13px;
+}
+@media (max-width: 640px) {
+    .emr-doc { padding: 18px 16px; }
+    .emr-doc .doc-patient-grid { grid-template-columns: 1fr; }
+}
