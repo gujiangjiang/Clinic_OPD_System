@@ -46,12 +46,16 @@ var CUR_DEPT = 0;
 var CUR_TAB = 'waiting';
 var DEPT_LIST = [];   // 医生关联科室列表
 
-/* 同步更新页头与科室栏两处科室提示（旧版两处共用一个 id 导致第二处永远停留在「加载科室中…」） */
+/* 科室信息两处展示，避免重复：
+   1. 页头 deptDescHead —— 完整信息「当前科室：XX（限号/不限号科室）」（唯一显示科室名）；
+   2. 科室栏 deptDescBar —— 仅显示科室性质徽章（限号科室 · 号源满时可加号 / 不限号科室），不重复科室名。 */
 function setDeptDesc(text) {
     var head = document.getElementById('deptDescHead');
-    var bar = document.getElementById('deptDescBar');
     if (head) head.textContent = text;
-    if (bar) bar.textContent = text;
+}
+function setDeptBar(html) {
+    var bar = document.getElementById('deptDescBar');
+    if (bar) bar.innerHTML = html;
 }
 
 /* ---------- 加载医生科室（登录后首先进入：单科室直接进入，多科室弹窗选择） ---------- */
@@ -61,10 +65,12 @@ function loadDepts() {
             DEPT_LIST = json.data.list || [];
             if (!DEPT_LIST.length) {
                 setDeptDesc('您尚未关联科室，请联系管理员在【用户管理】中为您设置');
+                setDeptBar('');
                 document.getElementById('addSlotBtn').style.display = 'none';
                 return;
             }
             setDeptDesc('');
+            setDeptBar('');
             if (DEPT_LIST.length === 1) {
                 // 只有一个科室权限：直接进入该科室患者列表
                 pickDept(DEPT_LIST[0].id);
@@ -81,32 +87,33 @@ function loadDepts() {
     });
 }
 
-/* ---------- 科室选择弹窗（首次进入 / 点击切换科室） ---------- */
+/* ---------- 科室选择弹窗（首次进入 / 点击切换科室） ----------
+   大按钮卡片式：每个科室一张卡片，点击直接切换，无需下拉 + 确认。 */
 function openDeptPicker() {
-    var opts = DEPT_LIST.map(function (d) {
-        return '<option value="' + d.id + '"' + (d.id === CUR_DEPT ? ' selected' : '') + '>' + d.name + '</option>';
+    var cards = DEPT_LIST.map(function (d) {
+        var isCur = d.id === CUR_DEPT;
+        var badge = d.type === 'emergency'
+            ? '<span class="badge badge-danger">急诊</span>'
+            : '<span class="badge badge-primary">门诊</span>';
+        var limited = d.limited
+            ? '<span class="badge badge-warning">限号</span>'
+            : '<span class="badge badge-gray">不限号</span>';
+        return '<div class="dept-pick-card' + (isCur ? ' active' : '') + '" onclick="pickDeptFromPicker(' + d.id + ')">' +
+            '<div class="dept-pick-name">' + d.name + (isCur ? ' <span class="badge badge-success">当前</span>' : '') + '</div>' +
+            '<div class="dept-pick-tags">' + badge + limited + '</div>' +
+            '</div>';
     }).join('');
     Clinic.modal.open(
-        '<div class="form-group"><label class="form-label">请选择本次登录看诊的科室</label>' +
-        '<select class="select" id="pkDept">' + opts + '</select></div>' +
-        '<div class="fs-12 text-muted">选择后可通过页面上方【切换科室】按钮随时更换。</div>',
-        {
-            title: '选择科室',
-            size: 'modal-sm',
-            buttons: [
-                { text: '取消', cls: 'btn-outline' },
-                {
-                    text: '确定', cls: 'btn-primary', autoClose: false,
-                    onClick: function () {
-                        var id = parseInt(document.getElementById('pkDept').value, 10) || 0;
-                        if (!id) { Clinic.toast.warning('请选择科室'); return; }
-                        Clinic.modal.close();
-                        pickDept(id);
-                    },
-                },
-            ],
-        }
+        '<div class="dept-pick-grid">' + cards + '</div>' +
+        '<div class="fs-12 text-muted mt-8">点击科室卡片即可切换（当前科室已标记「当前」）。</div>',
+        { title: '选择科室' }
     );
+}
+
+/* 点击科室卡片：直接切换并关闭弹窗 */
+function pickDeptFromPicker(id) {
+    Clinic.modal.close();
+    pickDept(id);
 }
 
 /* ---------- 选定科室 ---------- */
@@ -123,11 +130,15 @@ function pickDept(id) {
     // 仅多科室权限显示切换按钮
     document.getElementById('switchDeptBtn').style.display = DEPT_LIST.length > 1 ? '' : 'none';
     if (cur) {
-        setDeptDesc(cur.limited
-            ? '当前科室：' + cur.name + '（限号科室，号源满时可加号）'
-            : '当前科室：' + cur.name + '（不限号科室）');
+        // 页头显示完整科室信息（唯一显示科室名的位置）
+        setDeptDesc('当前科室：' + cur.name + (cur.limited ? '（限号科室，号源满时可加号）' : '（不限号科室）'));
+        // 科室栏仅显示科室性质徽章，避免与页头重复
+        setDeptBar(cur.limited
+            ? '<span class="badge badge-warning">限号科室 · 号源满时可加号</span>'
+            : '<span class="badge badge-gray">不限号科室</span>');
     } else {
         setDeptDesc('科室信息异常，请联系管理员');
+        setDeptBar('');
     }
     // 加号功能：仅限号科室显示（急诊/不限号科室隐藏）
     document.getElementById('addSlotBtn').style.display = (cur && cur.limited) ? '' : 'none';
