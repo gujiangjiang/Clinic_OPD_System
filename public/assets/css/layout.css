@@ -110,11 +110,69 @@
     overflow-y: auto;
 }
 
-/* ---------- 响应式：窄屏收起侧边栏 ---------- */
+/* ---------- 侧边栏折叠（顶栏 ☰ 按钮，宽屏可用） ---------- */
+.app.sidebar-collapsed .sidebar { transform: translateX(-100%); }
+.app.sidebar-collapsed .main { margin-left: 0; }
+
+/* ---------- 响应式：窄屏收起侧边栏（抽屉式） ---------- */
 @media (max-width: 900px) {
     .sidebar { transform: translateX(-100%); }
     .sidebar.open { transform: translateX(0); }
+    /* 宽屏曾折叠过（.app.sidebar-collapsed）时，抽屉展开仍需优先 */
+    .app.sidebar-collapsed .sidebar.open { transform: translateX(0); }
     .main { margin-left: 0; }
+}
+
+/* ---------- 电子病历：右侧看诊操作工具栏（类似左侧栏，不随页面滚动） ---------- */
+/* 说明：.content 带 overflow-y:auto，sticky 会失效，因此宽屏用 fixed 固定在视口右侧；
+         .emr-main 预留右侧内边距给工具栏让位，避免遮挡病历内容。 */
+.emr-layout {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+.emr-main {
+    flex: 1;
+    min-width: 0;
+    padding-right: 212px;   /* 右侧固定工具栏（184px）+ 间距，防止病历卡片被遮挡 */
+}
+.emr-toolbar {
+    width: 184px;
+    position: fixed;
+    top: calc(var(--topbar-h) + 16px);
+    right: 20px;
+    z-index: 80;            /* 低于顶栏(90)/侧边栏(100)/弹窗(1000)，高于普通内容 */
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px;
+}
+.emr-toolbar .btn { width: 100%; }
+.emr-toolbar-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+}
+.emr-toolbar-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 2px 0;
+}
+@media (max-width: 1100px) {
+    /* 窄屏：固定栏改为普通横向工具条 */
+    .emr-layout { flex-direction: column; }
+    .emr-toolbar {
+        position: static;
+        width: 100%;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    .emr-main { padding-right: 0; }
+    .emr-toolbar .btn { width: auto; }
+    .emr-toolbar-title { display: none; }
+    .emr-toolbar-divider { width: 1px; height: 22px; margin: 0 4px; align-self: center; }
 }
 
 /* ---------- 页头工具条 ---------- */

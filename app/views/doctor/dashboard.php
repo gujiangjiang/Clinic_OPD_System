@@ -16,10 +16,10 @@ $docTitle = $docInfo ? $docInfo['title'] : '';
 <div class="page-head">
     <div>
         <div class="page-title">🩺 医生工作站</div>
-        <div class="page-desc">医生：<?php echo e($u['name']); ?><?php echo $docEmp !== '' ? '（工号 ' . e($docEmp) . '）' : ''; ?><?php echo $docTitle !== '' ? ' ｜ 职称：' . e($docTitle) : ''; ?> <span id="deptDesc">加载科室中…</span></div>
+        <div class="page-desc">医生：<?php echo e($u['name']); ?><?php echo $docEmp !== '' ? '（工号 ' . e($docEmp) . '）' : ''; ?><?php echo $docTitle !== '' ? ' ｜ 职称：' . e($docTitle) : ''; ?> <span id="deptDescHead">加载科室中…</span></div>
     </div>
     <div class="flex gap-8">
-        <button class="btn btn-outline btn-sm" onclick="openAddSlot()">＋ 加号</button>
+        <button class="btn btn-outline btn-sm" id="addSlotBtn" onclick="openAddSlot()">＋ 加号</button>
         <button class="btn btn-outline btn-sm" onclick="openPatientSearch()">🔍 患者查询</button>
         <button class="btn btn-outline btn-sm" onclick="openTemplateMgr()">📋 病历模板</button>
     </div>
@@ -29,7 +29,7 @@ $docTitle = $docInfo ? $docInfo['title'] : '';
 <div class="flex gap-8 mb-12" style="align-items:center;flex-wrap:wrap">
     <span id="curDeptBadge"></span>
     <button type="button" class="btn btn-outline btn-sm" id="switchDeptBtn" onclick="openDeptPicker()" style="display:none">🔄 切换科室</button>
-    <span class="fs-12 text-muted" id="deptDesc">加载科室中…</span>
+    <span class="fs-12 text-muted" id="deptDescBar">加载科室中…</span>
 </div>
 
 <!-- 状态页签 -->
@@ -46,22 +46,32 @@ var CUR_DEPT = 0;
 var CUR_TAB = 'waiting';
 var DEPT_LIST = [];   // 医生关联科室列表
 
+/* 同步更新页头与科室栏两处科室提示（旧版两处共用一个 id 导致第二处永远停留在「加载科室中…」） */
+function setDeptDesc(text) {
+    var head = document.getElementById('deptDescHead');
+    var bar = document.getElementById('deptDescBar');
+    if (head) head.textContent = text;
+    if (bar) bar.textContent = text;
+}
+
 /* ---------- 加载医生科室（登录后首先进入：单科室直接进入，多科室弹窗选择） ---------- */
 function loadDepts() {
     Clinic.get('/api/doctor?action=depts', null, {
         onSuccess: function (json) {
             DEPT_LIST = json.data.list || [];
             if (!DEPT_LIST.length) {
-                document.getElementById('deptDesc').textContent = '您尚未关联科室，请联系管理员在【用户管理】中为您设置';
+                setDeptDesc('您尚未关联科室，请联系管理员在【用户管理】中为您设置');
+                document.getElementById('addSlotBtn').style.display = 'none';
                 return;
             }
-            document.getElementById('deptDesc').textContent = '';
+            setDeptDesc('');
             if (DEPT_LIST.length === 1) {
                 // 只有一个科室权限：直接进入该科室患者列表
                 pickDept(DEPT_LIST[0].id);
             } else {
-                // 多科室权限：优先恢复本次会话已选科室，否则弹出科室选择弹窗
+                // 多科室权限：优先恢复服务端/本次会话已选科室，否则弹出科室选择弹窗
                 var saved = parseInt(sessionStorage.getItem('clinic_doc_dept') || '0', 10);
+                if (!saved && json.data.current) saved = parseInt(json.data.current, 10);
                 var hasSaved = false;
                 DEPT_LIST.forEach(function (d) { if (d.id === saved) hasSaved = true; });
                 if (hasSaved) pickDept(saved);
@@ -104,13 +114,23 @@ function pickDept(id) {
     CUR_DEPT = id;
     // 记住本次会话选择的科室（刷新页面后自动恢复）
     sessionStorage.setItem('clinic_doc_dept', String(id));
+    // 通知服务端记录当前科室：叫号大屏完全跟随医生端选择动态显示
+    Clinic.ajax('/api/doctor', { action: 'set_dept', dept_id: id }, {});
     var cur = null;
     DEPT_LIST.forEach(function (d) { if (d.id === id) cur = d; });
     document.getElementById('curDeptBadge').innerHTML =
         '<span class="badge badge-primary" style="font-size:14px;padding:6px 14px">当前科室：' + (cur ? cur.name : '') + '</span>';
     // 仅多科室权限显示切换按钮
     document.getElementById('switchDeptBtn').style.display = DEPT_LIST.length > 1 ? '' : 'none';
-    document.getElementById('deptDesc').textContent = cur ? '' : '科室信息异常，请联系管理员';
+    if (cur) {
+        setDeptDesc(cur.limited
+            ? '当前科室：' + cur.name + '（限号科室，号源满时可加号）'
+            : '当前科室：' + cur.name + '（不限号科室）');
+    } else {
+        setDeptDesc('科室信息异常，请联系管理员');
+    }
+    // 加号功能：仅限号科室显示（急诊/不限号科室隐藏）
+    document.getElementById('addSlotBtn').style.display = (cur && cur.limited) ? '' : 'none';
     loadList();
 }
 
@@ -152,11 +172,12 @@ function showPatientHistory(patientNo) {
     });
 }
 
-/* ---------- 加号（号源满时，仅限该患者本人使用） ---------- */
+/* ---------- 加号（号源满时，仅限该患者本人使用；仅限号科室可用） ---------- */
 function openAddSlot() {
     var cur = null;
     DEPT_LIST.forEach(function (d) { if (d.id === CUR_DEPT) cur = d; });
-    var depts = [{ id: CUR_DEPT, name: (cur && cur.name) || '当前科室' }];
+    if (!cur || !cur.limited) { Clinic.toast.warning('该科室为不限号科室，无需加号'); return; }
+    var depts = [{ id: CUR_DEPT, name: cur.name }];
     var opts = '<option value="' + (CUR_DEPT || '') + '">' + (depts[0].name || '请选择') + '</option>';
     Clinic.modal.open(
         '<div class="form-group"><label class="form-label">科室</label><select class="select" id="asDept">' + opts + '</select></div>' +
@@ -195,21 +216,43 @@ function openAddSlot() {
     );
 }
 
-/* ---------- 患者查询（ID/身份证/姓名） ---------- */
+/* ---------- 患者查询（ID/身份证/姓名，弹窗内输入，不阻断操作） ---------- */
 function openPatientSearch() {
-    var kw = prompt('请输入患者ID / 身份证号 / 姓名：');
-    if (!kw) return;
-    Clinic.get('/api/patient?action=search&kw=' + encodeURIComponent(kw.trim()), null, {
+    Clinic.modal.open(
+        '<div class="form-group"><label class="form-label">患者ID / 身份证号 / 姓名</label>' +
+        '<input class="input" id="psKw" placeholder="请输入患者ID / 身份证号 / 姓名" ' +
+        'onkeydown="if(event.key===\'Enter\')doPatientSearch()"></div>' +
+        '<div id="psResult" class="fs-13"></div>',
+        {
+            title: '患者查询',
+            size: 'modal-sm',
+            buttons: [
+                { text: '关闭', cls: 'btn-outline' },
+                { text: '查 询', cls: 'btn-primary', autoClose: false, onClick: doPatientSearch },
+            ],
+        }
+    );
+    setTimeout(function () {
+        var el = document.getElementById('psKw');
+        if (el) el.focus();
+    }, 80);
+}
+
+function doPatientSearch() {
+    var kw = document.getElementById('psKw').value.trim();
+    if (!kw) { Clinic.toast.warning('请输入患者ID / 身份证号 / 姓名'); return; }
+    var box = document.getElementById('psResult');
+    box.innerHTML = '<div class="spinner" style="border-top-color:var(--primary);width:24px;height:24px;margin:10px auto"></div>';
+    Clinic.get('/api/patient?action=search&kw=' + encodeURIComponent(kw), null, {
         onSuccess: function (json) {
             var list = json.data.list || [];
-            if (!list.length) { Clinic.toast.info('未检索到该患者'); return; }
-            var html = '<div class="fs-13 text-muted mb-8">检索到 ' + list.length + ' 位患者，点击查看全部就诊历史</div>' +
+            if (!list.length) { box.innerHTML = '<div class="text-muted">未检索到该患者</div>'; return; }
+            box.innerHTML = '<div class="fs-13 text-muted mb-8">检索到 ' + list.length + ' 位患者，点击查看全部就诊历史</div>' +
                 list.map(function (p) {
-                    return '<div class="dd-item" onclick="showPatientHistory(\'' + p.patient_no + '\')">' +
+                    return '<div class="dd-item" style="cursor:pointer" onclick="showPatientHistory(\'' + p.patient_no + '\')">' +
                         '<div class="flex-between"><span class="fw-600">' + p.name + '</span>' +
                         '<span class="text-muted fs-12">' + p.patient_no + ' ｜ ' + p.gender + '/' + p.age + '岁</span></div></div>';
                 }).join('');
-            Clinic.modal.open(html, { title: '患者查询', size: 'modal-sm' });
         },
     });
 }
