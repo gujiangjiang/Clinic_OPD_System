@@ -326,7 +326,11 @@ function pt_record($visit, $patient, $record, $vitals) {
         $info .= '<div class="print-info-cell"><strong>' . e($k) . '</strong>：' . e($val) . '</div>';
     }
     $info .= '</div>';
+    // 患者信息上方横线：患者信息区上下各一条分隔线，版式清晰
+    $html .= '<div class="print-line"></div>';
     $html .= $info;
+    // 患者信息下方横线（与病历正文隔开）
+    $html .= '<div class="print-line"></div>';
 
     // 病历内容行内流式排版：主诉：xxx　现病史：xxx（紧凑省空间）
     $secs = array();
@@ -359,7 +363,12 @@ function pt_record($visit, $patient, $record, $vitals) {
     }
     $html .= '<div class="print-flow">' . $flow . '</div>';
 
-    $html .= '<div class="print-footer"><span>医生：' . e(isset($record['doctor_name']) ? $record['doctor_name'] : '') . '</span>' .
+    // 医生签名：位于病历末尾横线上方、病历内容部分右下角
+    $html .= '<div class="print-record-sign">医生：' . e(isset($record['doctor_name']) ? $record['doctor_name'] : '') . '</div>';
+
+    // 病历末尾横线：下方为页脚（左下角记录时间、右下角打印时间）
+    $html .= '<div class="print-line"></div>';
+    $html .= '<div class="print-record-foot">' .
         '<span>记录时间：' . e(isset($record['updated_at']) ? $record['updated_at'] : '') . '</span>' .
         '<span>打印时间：' . now_str() . '</span></div>';
     $html .= '</div>';

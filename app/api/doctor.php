@@ -115,7 +115,7 @@ switch ($action) {
                 $html .= '<button class="btn btn-outline btn-sm" onclick="showPatientHistory(\'' . e($r['patient_no']) . '\')">历史</button>';
             } else {
                 $html .= '<button class="btn btn-outline btn-sm" onclick="location.href=\'/doctor/emr?visit_id=' . (int)$r['id'] . '\'">查看病历</button>';
-                $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' . (int)$r['id'] . '\',null)">打印病历</button>';
+                $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' . (int)$r['id'] . '\',null,\'a5\')">打印病历</button>';
             }
             $html .= '</div></div></div>';
         }

@@ -171,7 +171,18 @@ Clinic.selector = (function () {
 
         // 返回更新选项的方法（供外部动态刷新）
         return {
-            setOptions: function (newOpts) { all = newOpts || []; },
+            /**
+             * 更新选项列表；若下拉面板当前已打开，立即按输入框当前值
+             * 重新过滤渲染，保证 AJAX 搜索返回后结果立刻显示
+             * （此前仅更新数据不重绘，快速输入多字时面板一直停留在
+             * 「无匹配选项」，表现为 ICD 搜索越精确越搜不到）。
+             */
+            setOptions: function (newOpts) {
+                all = newOpts || [];
+                if (panel && document.activeElement === input) {
+                    render(filter(input.value));
+                }
+            },
             close: closePanel,
         };
     }

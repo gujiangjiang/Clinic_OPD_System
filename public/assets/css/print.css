@@ -144,7 +144,12 @@
     font-size: 13px;
     gap: 10px;
 }
-.print-ticket .ticket-row .ticket-val { text-align: right; }
+.print-ticket .ticket-row > span { min-width: 0; }
+.print-ticket .ticket-row .ticket-val {
+    text-align: right;
+    flex: 1;
+    word-break: break-all;   /* 长内容自动折行，不超出小票宽度 */
+}
 .print-ticket .ticket-section-title {
     font-weight: 700;
     font-size: 12.5px;
@@ -199,6 +204,8 @@
 
 /* 病历打印：行内流式排版（主诉：xxx 一行，现病史：xxx 换行，紧凑省空间） */
 .print-area .print-record-doc { position: relative; }
+/* 病历打印条形码：绝对定位于病历文档（.print-record-doc）的右上角，
+   .print-record-doc 即内容区本身——上方与医院名称顶部齐平、右侧与右侧页边距齐平 */
 .print-area .print-record-barcode {
     position: absolute;
     top: 0;
@@ -206,8 +213,8 @@
     text-align: center;
 }
 .print-area .print-record-barcode svg {
-    width: 110px;
-    height: auto;
+    height: 26px;      /* 高度与医院名称（22px 字号）齐平，比例不变 */
+    width: auto;
     display: block;
     margin-left: auto;
 }
@@ -218,11 +225,73 @@
     margin-top: 2px;
 }
 .print-area .print-flow {
-    font-size: 13px;
+    font-size: 14px;   /* 病历正文比患者信息区字体加大一号，便于阅读与区分 */
     line-height: 1.9;
 }
 .print-area .print-flow .pf-sec { display: block; margin-bottom: 4px; }
 .print-area .print-flow .pf-sec .pf-body { white-space: pre-wrap; }
+
+/* 病历医生签名：病历内容部分右下角（末尾横线上方） */
+.print-record-doc .print-record-sign {
+    text-align: right;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 14px;
+}
+/* 病历页脚：末尾横线下方，左下角记录时间、右下角打印时间 */
+.print-record-doc .print-record-foot {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12.5px;
+    margin-top: 6px;
+    color: #333;
+}
+
+/* ---------- A5 病历纸（竖版窄条：宽度受限、可向下延伸，严格按 A5 纸张显示） ---------- */
+.print-preview.sheet-a5 .print-area {
+    width: 148mm;
+    max-width: none;
+    min-height: 210mm;
+    padding: 14mm 12mm;
+}
+.print-preview.sheet-a5 .print-toolbar {
+    max-width: 148mm;
+}
+
+/* ---------- A5 病历纸排版紧凑化：压缩医院名称 / 第二名称 / 患者信息区行距，把主要空间留给病历正文 ---------- */
+.print-preview.sheet-a5 .print-record-doc .print-hosp {
+    margin-bottom: 1px;
+    line-height: 1.25;
+}
+.print-preview.sheet-a5 .print-record-doc .print-sub {
+    margin-bottom: 4px;
+}
+.print-preview.sheet-a5 .print-record-doc .print-title-line {
+    margin: 2px 0 8px;
+}
+.print-preview.sheet-a5 .print-record-doc .print-info-grid {
+    gap: 0 16px;
+    margin-bottom: 6px;
+}
+.print-preview.sheet-a5 .print-record-doc .print-info-cell {
+    line-height: 1.55;
+}
+.print-preview.sheet-a5 .print-record-doc .print-line {
+    padding-bottom: 3px;
+    margin-bottom: 6px;
+}
+.print-preview.sheet-a5 .print-record-doc .print-flow {
+    line-height: 1.75;
+}
+.print-preview.sheet-a5 .print-record-doc .print-flow .pf-sec {
+    margin-bottom: 2px;
+}
+.print-preview.sheet-a5 .print-record-doc .print-record-sign {
+    margin-top: 10px;
+}
+.print-preview.sheet-a5 .print-record-doc .print-record-foot {
+    margin-top: 4px;
+}
 
 /* 处方大括号子项 */
 .print-area .sub-order { padding-left: 18px; border-left: 2px solid #888; margin-left: 6px; }
@@ -244,5 +313,10 @@
         color: #111;
     }
     .print-toolbar { display: none !important; }
+    /* A5 病历纸打印：宽度严格限制为 148mm，内容可向下延伸到多页 */
+    .print-preview.sheet-a5 #print-area {
+        width: 148mm;
+        min-height: 0;
+    }
     @page { margin: 10mm; }
 }

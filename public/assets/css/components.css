@@ -226,6 +226,7 @@
 
 /* ---------- 病历文档（所见即所得，模拟纸质病历版式） ---------- */
 .emr-doc {
+    position: relative;   /* 供右上角条形码绝对定位 */
     max-width: 860px;
     margin: 0 auto;
     background: var(--bg-card);
@@ -264,7 +265,7 @@
 }
 .emr-doc .doc-title-bar .doc-tpl {
     position: absolute;
-    right: 0;
+    right: 152px;   /* 左移避开右上角条形码列（条形码占右侧 30~150px），防止重叠 */
     top: 50%;
     transform: translateY(-50%);
 }
@@ -320,17 +321,21 @@
     font-weight: 600;
 }
 
-/* ---------- 病历页头右上角条形码（与挂号凭条一致） ---------- */
-.emr-barcode {
+/* ---------- 病历文档页头右上角条形码（与挂号凭条 / 打印预览一致，位于病历文档页头） ---------- */
+/* 定位逻辑：上方与医院名称顶部齐平（top = 内容区顶部），右侧与右侧页边距齐平（right = 内容区右缘），不贴文档边缘 */
+.emr-doc .doc-barcode {
+    position: absolute;
+    top: 26px;      /* 与 .emr-doc 的 padding-top 一致，即与医院名称顶部齐平 */
+    right: 30px;    /* 与 .emr-doc 的 padding-right 一致，即与右侧页边距齐平 */
     text-align: center;
-    flex-shrink: 0;
+    z-index: 1;
 }
-.emr-barcode svg {
-    width: 130px;
-    height: auto;
+.emr-doc .doc-barcode svg {
+    height: 26px;      /* 高度与医院名称（22px 字号）齐平，比例不变（width 由 viewBox 等比推算） */
+    width: auto;
     display: block;
 }
-.emr-barcode .emr-barcode-text {
+.emr-doc .doc-barcode .doc-barcode-text {
     font-size: 12px;
     letter-spacing: 1px;
     color: var(--text-muted);
@@ -339,4 +344,7 @@
 @media (max-width: 640px) {
     .emr-doc { padding: 18px 16px; }
     .emr-doc .doc-patient-grid { grid-template-columns: 1fr; }
+    .emr-doc .doc-barcode { top: 18px; right: 16px; }
+    .emr-doc .doc-barcode svg { height: 22px; width: auto; }
+    .emr-doc .doc-title-bar .doc-tpl { right: 116px; }
 }
