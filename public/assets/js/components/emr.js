@@ -87,6 +87,7 @@ Clinic.emr = (function () {
     function renderEmrCard(d) {
         var r = d.record;
         var v = d.vitals || {};
+        var vv = d.visit || {};   // 就诊信息（注意：v 为生命体征，患者信息网格必须用 vv）
         var p = d.patient || {};
         var tplBtn = '<button type="button" class="btn btn-outline btn-sm" id="tplBtn" onclick="Clinic.emr.openTemplates()">📋 病历模板</button>';
         var consciousness = ['清醒', '嗜睡', '意识模糊', '昏睡', '昏迷', '谵妄']
@@ -99,13 +100,13 @@ Clinic.emr = (function () {
         var docTitle = (d.visit && d.visit.dept_type === 'emergency') ? '急诊电子病历' : '门诊电子病历';
 
         // 患者信息两栏（门诊电子病历样式；记录时间已移至标题栏，此处不重复）
-        var fields = (d.visit && d.visit.dept_type === 'emergency')
-            ? [['姓名', v.name], ['性别', v.gender], ['出生日期', p.birth_date], ['年龄', v.age + '岁'],
-               ['患者ID', p.patient_id], ['就诊科室', v.dept_name], ['就诊时间', v.created_at]]
-            : [['姓名', v.name], ['性别', v.gender], ['年龄', v.age + '岁'], ['患者ID', p.patient_id],
+        var fields = (vv.dept_type === 'emergency')
+            ? [['姓名', vv.name], ['性别', vv.gender], ['出生日期', p.birth_date], ['年龄', vv.age + '岁'],
+               ['患者ID', p.patient_id], ['就诊科室', vv.dept_name], ['就诊时间', vv.created_at]]
+            : [['姓名', vv.name], ['性别', vv.gender], ['年龄', vv.age + '岁'], ['患者ID', p.patient_id],
                ['证件号码', p.id_card], ['出生日期', p.birth_date], ['民族', p.nation || '—'],
                ['职业', p.occupation || '—'], ['婚姻', p.marital || '—'], ['初复诊', '—'],
-               ['科室', v.dept_name], ['联系方式', p.phone || '—']];
+               ['科室', vv.dept_name], ['联系方式', p.phone || '—']];
         var grid = fields.map(function (f) {
             return '<div class="doc-cell"><span class="doc-cell-label">' + f[0] + '：</span>' +
                 '<span class="doc-cell-value">' + f[1] + '</span></div>';
