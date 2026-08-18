@@ -236,6 +236,12 @@ function pt_order($order, $items, $title) {
         $html .= '<div class="print-rx-end">—————— 处方完毕 ——————</div>';
     } else {
         $html .= '<div class="print-note">请凭本申请单至相应科室登记执行。</div>';
+        // 检验/检查申请单底部专项提醒（空腹、防护等注意事项）
+        if ($order['order_type'] === 'lab') {
+            $html .= '<div class="print-note print-note-tip">温馨提示：肝功能等抽血检验项目需空腹采血，请按检验科指引提前做好准备。</div>';
+        } elseif ($order['order_type'] === 'imaging') {
+            $html .= '<div class="print-note print-note-tip">温馨提示：X 线、CT 等检查请注意辐射防护；腹部超声等部分检查需空腹进行，请遵医嘱提前准备。</div>';
+        }
     }
     // 医生签名：开单项目正文右下方（类似病历签名位置）
     $html .= '<div class="print-record-sign">' .
