@@ -148,14 +148,29 @@ function pt_payment($pay, $items) {
  * @param string $title 单据标题（检验申请单/检查申请单/处置单/处方单）
  */
 function pt_order($order, $items, $title) {
-    $html = pt_header($title);
-    $html .= '<div class="print-info">
-        <span><strong>患者ID</strong>：' . e($order['patient_no']) . '</span>
-        <span><strong>流水号</strong>：' . e($order['flow_no']) . '</span>
-        <span><strong>单号</strong>：' . e($order['order_no']) . '</span>
-        <span><strong>开单医生</strong>：' . e($order['doctor_name']) . '</span>
-        <span><strong>开单时间</strong>：' . e($order['created_at']) . '</span>
-    </div><div class="print-line"></div>';
+    // 复用病历文档容器：A5 版式、医院名称/第二名称与电子病历完全一致
+    $html = '<div class="print-record-doc">';
+    $html .= pt_header($title);
+
+    // 患者信息：参考急诊病历两行流式排版、两端对齐（无论门诊/急诊开单统一此样式）
+    $patient = DB::one('patient', 'SELECT * FROM patients WHERE patient_no=?', array($order['patient_no']));
+    $cell = function ($k, $val) {
+        $val = ($val !== '' && $val !== null) ? $val : '—';
+        return '<span class="print-info-cell"><strong>' . e($k) . '</strong>：' . e($val) . '</span>';
+    };
+    $html .= '<div class="print-info-lines">' .
+        '<div class="print-info-line">' .
+        $cell('姓名', $patient ? $patient['name'] : '') .
+        $cell('性别', $patient ? $patient['gender'] : '') .
+        $cell('出生日期', $patient ? $patient['birth_date'] : '') .
+        $cell('年龄', $patient ? $patient['age'] . '岁' : '') . '</div>' .
+        '<div class="print-info-line">' .
+        $cell('患者ID', $order['patient_no']) .
+        $cell('流水号', $order['flow_no']) .
+        $cell('单号', $order['order_no']) .
+        $cell('开单医生', $order['doctor_name']) .
+        $cell('开单时间', $order['created_at']) . '</div>' .
+        '</div><div class="print-line"></div>';
 
     $isDrug = ($order['order_type'] === 'prescription');
     $html .= '<table>
@@ -218,6 +233,7 @@ function pt_order($order, $items, $title) {
         $html .= '<div class="print-note">请凭本申请单至相应科室登记执行。</div>';
     }
     $html .= '<div class="print-footer"><span>医生签名：</span><span>打印时间：' . now_str() . '</span></div>';
+    $html .= '</div>';
     return $html;
 }
 
