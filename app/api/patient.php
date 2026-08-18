@@ -111,6 +111,14 @@ switch ($action) {
                     return e(isset($typeNames[$o['order_type']]) ? $typeNames[$o['order_type']] : $o['order_type']) . e($o['order_no']) . '(' . e(item_status_name($o['status'])) . ')';
                 }, $orders)) . '</div>';
             }
+            // 操作：查看病历 / 查看或新增诊断证明（已开具显示查看，未开具显示新增）
+            $hasCert = (int)DB::val('medical', 'SELECT COUNT(*) FROM certificates WHERE visit_id=?', array($v['id'])) > 0;
+            $html .= '<div class="flex gap-8 mt-8">' .
+                '<button class="btn btn-outline btn-sm" onclick="location.href=\'/doctor/emr?visit_id=' . (int)$v['id'] . '\'">📋 查看病历</button>' .
+                ($hasCert
+                    ? '<button class="btn btn-outline btn-sm" onclick="printHistoryCertificate(' . (int)$v['id'] . ')">📄 查看诊断证明</button>'
+                    : '<button class="btn btn-outline btn-sm" onclick="openHistoryCertificate(' . (int)$v['id'] . ')">📄 新增诊断证明</button>') .
+                '</div>';
             $html .= '</div>';
         }
         json_ok(array('html' => $html));
