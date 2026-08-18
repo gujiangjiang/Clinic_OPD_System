@@ -412,12 +412,12 @@ function pt_record($visit, $patient, $record, $vitals) {
             } elseif ($o['order_type'] === 'procedure') {
                 $procs[] = e($it['item_name']) . '×' . (int)$it['quantity'];
             } elseif ($o['order_type'] === 'prescription') {
+                // 处方直显：名称　剂量　用法　途径　×数量（不加提示词，与病历编辑页一致）
                 $parts = array();
-                if (!empty($it['single_dose'])) $parts[] = '剂量：' . e($it['single_dose']);
-                if (!empty($it['frequency_name'])) $parts[] = '用法：' . e($it['frequency_name']);
-                if (!empty($it['route_name'])) $parts[] = '途径：' . e($it['route_name']);
-                $parts[] = '数量：' . (int)$it['quantity'];
-                $rxs[] = e($it['item_name']) . ($parts ? '　' . implode('　', $parts) : '');
+                if (!empty($it['single_dose'])) $parts[] = e($it['single_dose']);
+                if (!empty($it['frequency_name'])) $parts[] = e($it['frequency_name']);
+                if (!empty($it['route_name'])) $parts[] = e($it['route_name']);
+                $rxs[] = e($it['item_name']) . ($parts ? '　' . implode('　', $parts) : '') . '　×' . (int)$it['quantity'];
             }
         }
     }
