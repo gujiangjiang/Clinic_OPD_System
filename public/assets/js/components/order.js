@@ -2,14 +2,16 @@
  * ============================================================
  * order.js v1.0.0 — 开单组件（检验/检查/处置/处方）
  * ============================================================
- * 说明：医生开单统一弹窗：
+ * 说明：医生开单统一弹窗（三栏：左目录+搜索 / 中已选 / 右流程）：
  * 1. 搜索项目（检验/检查/处置/药品），多选或单选
- * 2. 同一项目在同一次开单中仅可选择一次
- * 3. 实时显示开单总费用
- * 4. 处方：数量不得超库存、剂量/频次/途径自动同步药品设置、
+ * 2. 互斥规则：检验/检查同单不允许重复；检验组合与所含单项互斥（双向）、
+ *    不同组合共享成员仅提醒不算重复；处置重复选择自动累加数量；处方不受限制
+ * 3. 检验既往已开具（含未缴费）二次确认后再加入（复查场景）
+ * 4. 实时显示开单总费用
+ * 5. 处方：数量不得超库存、剂量/频次/途径自动同步药品设置、
  *    支持子处方（静脉输液）、护士站执行选项自动勾选
- * 5. 右侧纵向流程图（开单-缴费-登记-执行-完成）
- * 6. 提交后自动弹出申请单/处方打印
+ * 6. 右侧纵向流程图（开单-缴费-登记-执行-完成）
+ * 7. 提交后自动弹出申请单/处方打印
  * 依赖：ajax.js、modal.js、toast.js、print.js、emr.js
  * ============================================================ */
 
@@ -24,6 +26,16 @@ Clinic.order = (function () {
     var SELECTED = [];
     /** 项目目录缓存 */
     var CATALOG = [];
+    /** 既往开具记录：item_id -> {name, time, order_no}（检验复查二次确认用） */
+    var PREV_ITEMS = {};
+    /** 组合包含成员关系：groupId -> [memberId] */
+    var GROUP_MEMBERS = {};
+    /** 成员所属组合：memberId -> [groupId] */
+    var MEMBER_GROUPS = {};
+    /** 目录 id -> 名称（共享成员提醒显示用） */
+    var ID_NAMES = {};
+    /** 待二次确认的既往项目 */
+    var PENDING = null;
 
     /**
      * 初始化（页面加载时调用）
@@ -43,20 +55,64 @@ Clinic.order = (function () {
         }
         CUR_TYPE = type;
         SELECTED = [];
+        PREV_ITEMS = {};
+        GROUP_MEMBERS = {};
+        MEMBER_GROUPS = {};
+        ID_NAMES = {};
+        PENDING = null;
         var names = { lab: '开检验', imaging: '开检查', procedure: '开处置', prescription: '开处方' };
+        var catalogReady = false;
+        var prevReady = (type !== 'lab');   // 仅检验需要既往开具记录
+        function tryOpen() {
+            if (!catalogReady || !prevReady) return;
+            Clinic.modal.open(renderDialog(), {
+                title: names[type] || '开单',
+                size: 'modal-xl',
+                buttons: [
+                    { text: '取消', cls: 'btn-outline' },
+                    { text: '提交开单', cls: 'btn-success', autoClose: false, onClick: submit },
+                ],
+            });
+            bindEvents();
+        }
         Clinic.get('/api/order?action=catalog&type=' + type, null, {
             onSuccess: function (j) {
                 CATALOG = j.data.list;
-                Clinic.modal.open(renderDialog(), {
-                    title: names[type] || '开单',
-                    size: 'modal-lg',
-                    buttons: [
-                        { text: '取消', cls: 'btn-outline' },
-                        { text: '提交开单', cls: 'btn-success', autoClose: false, onClick: submit },
-                    ],
-                });
-                bindEvents();
+                buildMaps();
+                catalogReady = true;
+                tryOpen();
             },
+        });
+        if (type === 'lab') {
+            Clinic.get('/api/order?action=prev_items&visit_id=' + VISIT_ID + '&type=lab', null, {
+                onSuccess: function (j) {
+                    (j.data.list || []).forEach(function (p) {
+                        PREV_ITEMS[p.item_id] = p;
+                    });
+                    prevReady = true;
+                    tryOpen();
+                },
+                onError: function () {
+                    prevReady = true;
+                    tryOpen();
+                },
+            });
+        }
+    }
+
+    /**
+     * 构建组合/成员关系映射（互斥判断用）
+     */
+    function buildMaps() {
+        CATALOG.forEach(function (it) {
+            ID_NAMES[it.id] = it.name;
+            if (it.is_group && it.member_ids) {
+                var ids = String(it.member_ids).split(',').map(Number).filter(function (n) { return n > 0; });
+                GROUP_MEMBERS[it.id] = ids;
+                ids.forEach(function (mid) {
+                    (MEMBER_GROUPS[mid] = MEMBER_GROUPS[mid] || []).push(it.id);
+                });
+            }
         });
     }
 
@@ -97,6 +153,8 @@ Clinic.order = (function () {
                 ' data-route-nurse="' + (it.route_nurse_required || 0) + '"' +
                 ' data-stock="' + (it.stock || 0) + '"' +
                 ' data-nurse-req="' + (it.nurse_required || 0) + '"' +
+                ' data-is-group="' + (it.is_group ? 1 : 0) + '"' +
+                ' data-members="' + (it.member_ids || '') + '"' +
                 '>' +
                 '<div class="flex-between">' +
                 '  <div><span class="fw-600">' + (it.name || '') + '</span>' +
@@ -123,17 +181,30 @@ Clinic.order = (function () {
                   : '勾选后缴费完显示待执行，护士执行完才显示已执行') + '</div></div>'
             : '';
 
-        return '<div class="flex gap-16">' +
-            '  <div style="flex:1;min-width:0">' +
-            '    <div class="flex gap-8 mb-8">' +
-            '      <input type="text" class="input" id="orderKw" placeholder="搜索' +
-            (isDrug ? '药品名称/厂家简称' : '项目名称') + '" style="flex:1" autocomplete="off">' +
-            '    </div>' +
-            '    <div class="order-catalog" style="max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">' +
+        // 各开单类型的互斥规则提示
+        var legend = {
+            lab: '提示：组合与所含单项互斥；不同组合共享成员将提醒；既往已开具会二次确认',
+            imaging: '提示：同一检查项目不可重复开具',
+            procedure: '提示：重复选择自动累加数量（如：大清创 ×2）',
+            prescription: '提示：处方不受互斥限制，可重复添加',
+        }[CUR_TYPE] || '';
+
+        return '<div class="flex gap-16" style="align-items:stretch">' +
+            // 左：项目显示与搜索（较窄）
+            '  <div style="width:250px;flex-shrink:0;display:flex;flex-direction:column">' +
+            '    <input type="text" class="input" id="orderKw" placeholder="搜索' +
+            (isDrug ? '药品名称/厂家简称' : '项目名称') + '" autocomplete="off">' +
+            '    <div class="order-catalog" style="flex:1;max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-top:8px">' +
             rows + '</div>' +
-            '    <div class="fs-13 text-muted mt-8">已选 <strong id="selCount">0</strong> 项（同一项目仅可选一次）</div>' +
-            '    <div id="selList" class="mt-8"></div>' +
+            '    <div class="fs-12 text-muted mt-8" style="line-height:1.6">' + legend + '</div>' +
             '  </div>' +
+            // 中：已选项目（大块）
+            '  <div style="flex:1;min-width:0">' +
+            '    <div id="prevConfirm" style="display:none;background:var(--warning-soft);border:1px solid var(--warning);border-radius:8px;padding:10px;font-size:13px;margin-bottom:8px"></div>' +
+            '    <div class="fs-13 text-muted mb-8">已选 <strong id="selCount">0</strong> 项</div>' +
+            '    <div id="selList" style="max-height:400px;overflow-y:auto;padding-right:4px"></div>' +
+            '  </div>' +
+            // 右：流程闭环追踪（保留）
             '  <div style="width:150px;border-left:1px solid var(--border);padding-left:16px;flex-shrink:0">' +
             '    <div class="fw-600 fs-13 mb-8">流程</div>' + flow +
             '    <div class="mt-16" style="background:var(--bg-soft);border-radius:8px;padding:10px">' +
@@ -157,36 +228,184 @@ Clinic.order = (function () {
         });
         document.querySelectorAll('.order-catalog .dd-item').forEach(function (el) {
             el.addEventListener('click', function () {
-                var id = parseInt(el.getAttribute('data-id'), 10);
-                if (isSelected(id)) {
-                    Clinic.toast.warning('该项目已选择，同一项目仅可选一次');
-                    return;
-                }
-                SELECTED.push({
-                    id: id,
-                    name: el.getAttribute('data-name'),
-                    price: parseFloat(el.getAttribute('data-price')) || 0,
-                    spec: el.getAttribute('data-spec'),
-                    unit_name: el.getAttribute('data-unit'),
-                    company_short: el.getAttribute('data-company'),
-                    dose: el.getAttribute('data-dose'),
-                    frequency: el.getAttribute('data-freq'),
-                    route: el.getAttribute('data-route'),
-                    route_nurse: parseInt(el.getAttribute('data-route-nurse')) || 0,
-                    stock: parseInt(el.getAttribute('data-stock')) || 0,
-                    nurse_required: parseInt(el.getAttribute('data-nurse-req')) || 0,
-                    quantity: 1,
-                    sub_items: [],
-                });
-                var nc = document.getElementById('nurseReq');
-                if (nc && CUR_TYPE === 'prescription') {
-                    var last = SELECTED[SELECTED.length - 1];
-                    if (last.route_nurse === 1) nc.checked = true;
-                }
-                el.style.opacity = '.5';
-                renderSelected();
+                handleAdd(itemFromEl(el), el);
             });
         });
+    }
+
+    /**
+     * 从目录元素读取项目信息
+     */
+    function itemFromEl(el) {
+        return {
+            id: parseInt(el.getAttribute('data-id'), 10),
+            name: el.getAttribute('data-name'),
+            price: parseFloat(el.getAttribute('data-price')) || 0,
+            spec: el.getAttribute('data-spec'),
+            unit_name: el.getAttribute('data-unit'),
+            company_short: el.getAttribute('data-company'),
+            dose: el.getAttribute('data-dose'),
+            freq: el.getAttribute('data-freq'),
+            route: el.getAttribute('data-route'),
+            route_nurse: parseInt(el.getAttribute('data-route-nurse')) || 0,
+            stock: parseInt(el.getAttribute('data-stock')) || 0,
+            nurse_req: parseInt(el.getAttribute('data-nurse-req')) || 0,
+            is_group: parseInt(el.getAttribute('data-is-group')) === 1,
+        };
+    }
+
+    /**
+     * 选择项目（按类型执行互斥规则）
+     * 检验/检查：同单不允许重复（组合与所含单项互斥）；处置：重复自动累加数量；
+     * 处方：不受互斥限制；检验：既往已开具的进行二次确认（复查场景）
+     */
+    function handleAdd(it, el) {
+        if (CUR_TYPE === 'prescription') {
+            // 处方不受互斥限制，可重复添加
+            pushItem(it, el);
+            return;
+        }
+        if (CUR_TYPE === 'procedure') {
+            // 处置：重复选择自动累加数量（如：大清创 ×2）
+            for (var i = 0; i < SELECTED.length; i++) {
+                if (SELECTED[i].id === it.id) {
+                    SELECTED[i].quantity = Math.min(99, (SELECTED[i].quantity || 1) + 1);
+                    renderSelected();
+                    return;
+                }
+            }
+            pushItem(it, el);
+            return;
+        }
+        // 检验 / 检查：同一项目不允许重复
+        if (isSelected(it.id)) {
+            Clinic.toast.warning('【' + it.name + '】已选择，同一开单内不允许重复开具');
+            return;
+        }
+        if (CUR_TYPE === 'lab') {
+            // 组合与所含单项互斥（双向）
+            var conflict = findLabConflict(it);
+            if (conflict) {
+                Clinic.toast.warning(conflict);
+                return;
+            }
+            // 不同组合共享成员：不算重复，但给出提醒
+            var shared = findSharedMembers(it);
+            if (shared.length) {
+                Clinic.toast.info('提醒：组合【' + it.name + '】与已选组合共享检验项目：' +
+                    shared.join('、') + '（不算重复，请确认是否需要）');
+            }
+            // 既往已开具：二次确认后再加入（复查场景）
+            maybeConfirmPrev(it, el);
+            return;
+        }
+        pushItem(it, el);
+    }
+
+    /**
+     * 检验互斥检查：组合与所含单项（双向）
+     * @returns {string} 冲突提示；无冲突返回空串
+     */
+    function findLabConflict(it) {
+        if (it.is_group) {
+            // 已选单项中是否有本组合包含的成员
+            var members = GROUP_MEMBERS[it.id] || [];
+            for (var i = 0; i < SELECTED.length; i++) {
+                var s = SELECTED[i];
+                if (s.is_group || members.indexOf(s.id) === -1) continue;
+                return '单项【' + s.name + '】已包含在组合【' + it.name + '】中，请勿重复开具';
+            }
+            return '';
+        }
+        // 单项是否已包含在已选组合中
+        var groups = MEMBER_GROUPS[it.id] || [];
+        for (var j = 0; j < SELECTED.length; j++) {
+            var g = SELECTED[j];
+            if (!g.is_group || groups.indexOf(g.id) === -1) continue;
+            return '单项【' + it.name + '】已包含在已选组合【' + g.name + '】中，请勿重复开具';
+        }
+        return '';
+    }
+
+    /**
+     * 不同组合共享的成员（不算重复，仅提醒）
+     * @returns {string[]} 共享成员名称列表
+     */
+    function findSharedMembers(it) {
+        if (!it.is_group) return [];
+        var members = GROUP_MEMBERS[it.id] || [];
+        var shared = [];
+        SELECTED.forEach(function (s) {
+            if (!s.is_group) return;
+            (GROUP_MEMBERS[s.id] || []).forEach(function (mid) {
+                if (members.indexOf(mid) !== -1 && shared.indexOf(mid) === -1) shared.push(mid);
+            });
+        });
+        return shared.map(function (mid) { return ID_NAMES[mid] || ('检验项目#' + mid); });
+    }
+
+    /**
+     * 加入已选列表
+     */
+    function pushItem(it, el) {
+        SELECTED.push({
+            id: it.id,
+            name: it.name,
+            price: it.price,
+            spec: it.spec,
+            unit_name: it.unit_name,
+            company_short: it.company_short,
+            dose: it.dose,
+            frequency: it.freq,
+            route: it.route,
+            route_nurse: it.route_nurse,
+            stock: it.stock,
+            nurse_required: it.nurse_req,
+            is_group: !!it.is_group,
+            quantity: 1,
+            sub_items: [],
+        });
+        var nc = document.getElementById('nurseReq');
+        if (nc && CUR_TYPE === 'prescription') {
+            var last = SELECTED[SELECTED.length - 1];
+            if (last.route_nurse === 1) nc.checked = true;
+        }
+        if (el) el.style.opacity = '.5';
+        renderSelected();
+    }
+
+    /**
+     * 检验既往开具二次确认（含未缴费）：在开单弹窗内展示确认条
+     */
+    function maybeConfirmPrev(it, el) {
+        var prev = PREV_ITEMS[it.id];
+        if (!prev) {
+            pushItem(it, el);
+            return;
+        }
+        PENDING = { it: it, el: el };
+        var bar = document.getElementById('prevConfirm');
+        bar.style.display = 'block';
+        bar.innerHTML =
+            '⚠️ 该患者曾在 <strong>' + prev.time + '</strong> 开具过「' + it.name +
+            '」（单号 ' + prev.order_no + '，含未缴费记录），是否再次开具？（如为复查可再次开具）' +
+            '<div class="flex gap-8 mt-4">' +
+            '  <button type="button" class="btn btn-primary btn-sm" onclick="Clinic.order.confirmPrev(1)">再次开具</button>' +
+            '  <button type="button" class="btn btn-outline btn-sm" onclick="Clinic.order.confirmPrev(0)">取消</button>' +
+            '</div>';
+        if (el) el.style.outline = '2px solid var(--warning)';
+    }
+
+    /**
+     * 既往二次确认结果
+     * @param {number} ok 1 再次开具 / 0 取消
+     */
+    function confirmPrev(ok) {
+        var bar = document.getElementById('prevConfirm');
+        if (bar) { bar.style.display = 'none'; bar.innerHTML = ''; }
+        if (PENDING && PENDING.el) PENDING.el.style.outline = '';
+        if (ok === 1 && PENDING) pushItem(PENDING.it, PENDING.el);
+        PENDING = null;
     }
 
     /**
@@ -207,22 +426,26 @@ Clinic.order = (function () {
         updateTotal();
 
         box.innerHTML = SELECTED.map(function (s, i) {
+            // 组合项目补充显示所含成员
+            var groupInfo = (s.is_group && s.spec)
+                ? '<div class="fs-12 text-muted mt-2">🧩 组合项目，含：' + s.spec + '</div>' : '';
             var head =
                 '<div class="flex-between">' +
                 '  <div class="flex gap-8" style="align-items:center;min-width:0">' +
                 '    <span class="fw-600 fs-13 ellipsis">' + s.name + '</span>' +
                 (s.company_short ? '<span class="fs-12 text-muted">' + s.company_short + '</span>' : '') +
-                '    <span class="fs-12 text-muted">¥' + s.price.toFixed(2) + '</span>' +
+                (s.quantity > 1 ? '<span class="badge badge-primary fs-12">×' + s.quantity + '</span>' : '') +
+                '    <span class="fs-12 text-muted">¥' + (s.price * s.quantity).toFixed(2) + '</span>' +
                 '  </div>' +
                 '  <div class="flex gap-8" style="align-items:center;flex-shrink:0">' +
-                (isDrug ? qtyControls(s, i) : '') +
+                (isDrug || CUR_TYPE === 'procedure' ? qtyControls(s, i) : '') +
                 '    <button type="button" class="btn btn-outline btn-sm" style="padding:1px 8px" ' +
                 'onclick="Clinic.order.removeItem(' + i + ')">✕</button>' +
                 '  </div>' +
                 '</div>';
             var extra = isDrug ? drugControls(s, i) : '';
             return '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px">' +
-                head + extra + '</div>';
+                head + groupInfo + extra + '</div>';
         }).join('') || '<div class="text-muted fs-13 text-center">尚未选择项目</div>';
     }
 
@@ -240,15 +463,16 @@ Clinic.order = (function () {
      * 数量控制
      */
     function qtyControls(s, i) {
+        var isDrug = CUR_TYPE === 'prescription';
         return '<div class="flex gap-4" style="align-items:center">' +
             '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px" ' +
             'onclick="Clinic.order.changeQty(' + i + ',-1)">−</button>' +
             '<input type="number" class="input" style="width:52px;padding:3px 6px;min-height:28px;text-align:center" ' +
-            'value="' + s.quantity + '" min="1" max="' + (s.stock || 99) + '" ' +
+            'value="' + s.quantity + '" min="1" max="' + (isDrug ? (s.stock || 99) : 99) + '" ' +
             'onchange="Clinic.order.setQty(' + i + ',this.value)">' +
             '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px" ' +
             'onclick="Clinic.order.changeQty(' + i + ',1)">＋</button>' +
-            '<span class="fs-12 text-muted">库存' + (s.stock || 0) + '</span></div>';
+            (isDrug ? '<span class="fs-12 text-muted">库存' + (s.stock || 0) + '</span>' : '') + '</div>';
     }
 
     /**
@@ -349,8 +573,9 @@ Clinic.order = (function () {
     /** 修改数量 */
     function changeQty(i, delta) {
         var s = SELECTED[i];
-        s.quantity = Math.min(s.stock || 99, Math.max(1, s.quantity + delta));
-        if (s.quantity >= (s.stock || 99)) {
+        var max = CUR_TYPE === 'prescription' ? (s.stock || 99) : 99;
+        s.quantity = Math.min(max, Math.max(1, s.quantity + delta));
+        if (CUR_TYPE === 'prescription' && s.quantity >= (s.stock || 99)) {
             Clinic.toast.warning('数量不能超过库存');
         }
         renderSelected();
@@ -359,8 +584,9 @@ Clinic.order = (function () {
     /** 设置数量 */
     function setQty(i, val) {
         var s = SELECTED[i];
-        var v = Math.min(s.stock || 99, Math.max(1, parseInt(val, 10) || 1));
-        if (parseInt(val, 10) > (s.stock || 99)) Clinic.toast.warning('数量不能超过库存');
+        var max = CUR_TYPE === 'prescription' ? (s.stock || 99) : 99;
+        var v = Math.min(max, Math.max(1, parseInt(val, 10) || 1));
+        if (CUR_TYPE === 'prescription' && parseInt(val, 10) > (s.stock || 99)) Clinic.toast.warning('数量不能超过库存');
         s.quantity = v;
         renderSelected();
     }
@@ -431,5 +657,6 @@ Clinic.order = (function () {
         init: init, open: open, renderSelected: renderSelected,
         removeItem: removeItem, changeQty: changeQty, setQty: setQty,
         setField: setField, setRoute: setRoute, addSub: addSub, removeSub: removeSub,
+        confirmPrev: confirmPrev,
     };
 })();
