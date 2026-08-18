@@ -158,6 +158,7 @@ function pt_order($order, $items, $title) {
         $val = ($val !== '' && $val !== null) ? $val : '—';
         return '<span class="print-info-cell"><strong>' . e($k) . '</strong>：' . e($val) . '</span>';
     };
+    // 患者信息仅两行：第一行 姓名/性别/出生日期/年龄，第二行 患者ID/流水号/单号
     $html .= '<div class="print-info-lines">' .
         '<div class="print-info-line">' .
         $cell('姓名', $patient ? $patient['name'] : '') .
@@ -167,12 +168,14 @@ function pt_order($order, $items, $title) {
         '<div class="print-info-line">' .
         $cell('患者ID', $order['patient_no']) .
         $cell('流水号', $order['flow_no']) .
-        $cell('单号', $order['order_no']) .
-        $cell('开单医生', $order['doctor_name']) .
-        $cell('开单时间', $order['created_at']) . '</div>' .
+        $cell('单号', $order['order_no']) . '</div>' .
         '</div><div class="print-line"></div>';
 
     $isDrug = ($order['order_type'] === 'prescription');
+    if ($isDrug) {
+        // 处方起始 ℞ 标志（处方内容左上角）
+        $html .= '<div class="print-rx-mark">℞</div>';
+    }
     $html .= '<table>
         <tr><th style="width:6%">序号</th><th style="width:34%">项目名称</th>' .
         ($isDrug ? '<th style="width:16%">规格/含量</th><th style="width:14%">剂量</th><th style="width:12%">频次</th><th style="width:14%">途径</th>' : '<th style="width:20%">数量</th><th style="width:20%">单价</th><th style="width:20%">金额</th>') .
@@ -229,10 +232,19 @@ function pt_order($order, $items, $title) {
     if ($isDrug) {
         $html .= '<div class="print-note">请凭本处方单至药房取药' .
             ($order['need_nurse_any'] ? '；标注“护士站执行”的项目请前往护士站执行。' : '。') . '</div>';
+        // 处方完毕居中分隔
+        $html .= '<div class="print-rx-end">—————— 处方完毕 ——————</div>';
     } else {
         $html .= '<div class="print-note">请凭本申请单至相应科室登记执行。</div>';
     }
-    $html .= '<div class="print-footer"><span>医生签名：</span><span>打印时间：' . now_str() . '</span></div>';
+    // 医生签名：开单项目正文右下方（类似病历签名位置）
+    $html .= '<div class="print-record-sign">' .
+        ($isDrug ? '医师签名：' : '开单医生：') . e(isset($order['doctor_name']) ? $order['doctor_name'] : '') . '</div>';
+    // 末尾横线 + 页脚：左下角开单时间、右下角打印时间
+    $html .= '<div class="print-line"></div>';
+    $html .= '<div class="print-record-foot">' .
+        '<span>开单时间：' . e(isset($order['created_at']) ? $order['created_at'] : '') . '</span>' .
+        '<span>打印时间：' . now_str() . '</span></div>';
     $html .= '</div>';
     return $html;
 }

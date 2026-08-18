@@ -240,6 +240,23 @@
 .print-area .print-flow .pf-sec { display: block; margin-bottom: 4px; }
 .print-area .print-flow .pf-sec .pf-body { white-space: pre-wrap; }
 
+/* 处方 ℞ 起始标志（处方内容左上角） */
+.print-area .print-rx-mark {
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1;
+    margin: 2px 0 8px;
+    color: #111;
+}
+/* 处方完毕居中分隔 */
+.print-area .print-rx-end {
+    text-align: center;
+    letter-spacing: 2px;
+    color: #333;
+    margin: 10px 0 4px;
+    font-size: 13px;
+}
+
 /* 病历医生签名：病历内容部分右下角（末尾横线上方） */
 .print-record-doc .print-record-sign {
     text-align: right;
