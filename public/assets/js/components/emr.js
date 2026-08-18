@@ -102,18 +102,37 @@ Clinic.emr = (function () {
         var hosp2 = document.body.getAttribute('data-hosp2') || '';
         var docTitle = (d.visit && d.visit.dept_type === 'emergency') ? '急诊电子病历' : '门诊电子病历';
 
+        // 初复诊下拉（默认初诊；点击下拉不触发患者信息编辑弹窗）
+        var vt = r.visit_type || '初诊';
+        var vtSelect = '<select class="doc-cell-select" id="visitType" onclick="event.stopPropagation()">' +
+            '<option value="初诊"' + (vt === '初诊' ? ' selected' : '') + '>初诊</option>' +
+            '<option value="复诊"' + (vt === '复诊' ? ' selected' : '') + '>复诊</option></select>';
+
         // 患者信息两栏（门诊电子病历样式；记录时间已移至标题栏，此处不重复）
         var fields = (vv.dept_type === 'emergency')
             ? [['姓名', vv.name], ['性别', vv.gender], ['出生日期', p.birth_date], ['年龄', vv.age + '岁'],
                ['患者ID', p.patient_id], ['就诊科室', vv.dept_name], ['就诊时间', vv.created_at]]
             : [['姓名', vv.name], ['性别', vv.gender], ['年龄', vv.age + '岁'], ['患者ID', p.patient_id],
                ['证件号码', p.id_card], ['出生日期', p.birth_date], ['民族', p.nation || '—'],
-               ['职业', p.occupation || '—'], ['婚姻', p.marital || '—'], ['初复诊', '—'],
+               ['职业', p.occupation || '—'], ['婚姻', p.marital || '—'], ['初复诊', vtSelect],
                ['科室', vv.dept_name], ['联系方式', p.phone || '—']];
         var grid = fields.map(function (f) {
+            // 初复诊为下拉框（可编辑），其余为纯文本展示
+            var isSelect = (typeof f[1] === 'string' && f[1].indexOf('<select') === 0);
+            if (isSelect) {
+                return '<div class="doc-cell"><span class="doc-cell-label">' + f[0] + '：</span>' + f[1] + '</div>';
+            }
             return '<div class="doc-cell"><span class="doc-cell-label">' + f[0] + '：</span>' +
                 '<span class="doc-cell-value">' + f[1] + '</span></div>';
         }).join('');
+
+        // 患者信息区：点击弹出患者信息编辑弹窗（复用挂号/医生站已有的修改弹窗）
+        var gridWrap = '<div class="doc-patient-grid" onclick="Clinic.patient.editModal(\'' + p.patient_id + '\')" ' +
+            'title="点击修改患者信息（除姓名/性别/身份证外均可修改）">' + grid + '</div>';
+
+        // 留观下拉（是/否，与意识状态下拉样式一致）
+        var obsOpts = '<option value="0"' + (r.is_observation == 1 ? '' : ' selected') + '>否</option>' +
+                      '<option value="1"' + (r.is_observation == 1 ? ' selected' : '') + '>是</option>';
 
         // 病历文档页头右上角条形码（与挂号凭条/打印预览一致：门诊号 flow_no，Code 128）
         var bcSrc = document.getElementById('emrBarcodeSrc');
@@ -127,57 +146,48 @@ Clinic.emr = (function () {
             bcHtml +
             (hosp ? '<div class="doc-hosp">' + hosp + '</div>' : '') +
             (hosp2 ? '<div class="doc-sub">' + hosp2 + '</div>' : '') +
+            // 病历模板按钮：文档页头左上角（顶部与医院名称齐平、左侧与左边距齐平）
+            '<span class="doc-tpl">' + tplBtn + '</span>' +
             '<div class="doc-title-bar">' +
             '  <span class="doc-title">' + docTitle + '</span>' +
-            '  <span class="doc-tpl">' + tplBtn + '</span>' +
             '</div>' +
-            '<div class="doc-patient-grid">' + grid + '</div>' +
+            gridWrap +
             '<div class="doc-line"></div>' +
             '<div class="doc-body">' +
 
-            // 生命体征（紧凑显示：全部为空显示 -，有数据则逐项展示；点击弹出编辑，与护士站双向同步）
-            '<div class="form-group" style="background:var(--bg-soft);padding:12px;border-radius:8px;cursor:pointer" ' +
-            'onclick="Clinic.emr.openVitals()" title="点击编辑生命体征">' +
-            '  <div class="flex-between">' +
-            '    <div class="fs-13 fw-600">生命体征 <span class="fs-12 text-muted">（点击编辑，与护士站同步）</span></div>' +
-            '    <button type="button" class="btn btn-outline btn-sm" style="padding:2px 12px">✏️ 编辑</button>' +
-            '  </div>' +
-            '  <div class="fs-16 mt-4" id="vitalDisplay" style="letter-spacing:1px">' + vitalDisplayText(v) + '</div>' +
-            '</div>' +
+            // 病历正文：所有小节纵向排列（每节一行），输入框接在标题后方：主诉：XXXX（所见即所得，与打印版式一致）
+            '<div class="doc-sec"><span class="doc-sec-label">主诉<span class="req">*</span></span>' +
+            '  <div class="rich-editor" id="ccEditor"></div></div>' +
+            '<div class="doc-sec"><span class="doc-sec-label">现病史<span class="req">*</span></span>' +
+            '  <div class="rich-editor" id="piEditor"></div></div>' +
+            '<div class="doc-sec"><span class="doc-sec-label">既往史</span>' +
+            '  <div class="rich-editor" id="phEditor"></div></div>' +
+            '<div class="doc-sec"><span class="doc-sec-label">过敏史</span>' +
+            '  <div class="rich-editor" id="ahEditor"></div></div>' +
 
-            '<div class="form-group">' +
-            '  <label class="form-label">主诉 <span class="req">*</span></label>' +
-            '  <div class="rich-editor" id="ccEditor" style="border:1px solid var(--border);border-radius:6px;padding:10px;min-height:44px"></div>' +
-            '</div>' +
-            '<div class="form-group">' +
-            '  <label class="form-label">现病史 <span class="req">*</span></label>' +
-            '  <div class="rich-editor" id="piEditor" style="border:1px solid var(--border);border-radius:6px;padding:10px;min-height:66px"></div>' +
-            '</div>' +
-            '<div class="form-row">' +
-            '  <div class="form-group"><label class="form-label">既往史</label>' +
-            '    <div class="rich-editor" id="phEditor" style="border:1px solid var(--border);border-radius:6px;padding:10px;min-height:44px"></div></div>' +
-            '  <div class="form-group"><label class="form-label">过敏史</label>' +
-            '    <div class="rich-editor" id="ahEditor" style="border:1px solid var(--border);border-radius:6px;padding:10px;min-height:44px"></div></div>' +
-            '</div>' +
-            '<div class="form-row">' +
-            '  <div class="form-group"><label class="form-label">意识状态</label>' +
-            '    <select class="select" id="consciousness"><option value="">请选择</option>' + consciousness + '</select></div>' +
-            '  <div class="form-group"><label class="form-label">体格检查</label>' +
-            '    <div class="rich-editor" id="peEditor" style="border:1px solid var(--border);border-radius:6px;padding:10px;min-height:44px"></div></div>' +
-            '</div>' +
-            '<div class="form-group">' +
-            '  <label class="form-label">初步诊断（含 ICD10 编码） <span class="req">*</span></label>' +
-            '  <div class="flex gap-8">' +
+            // 生命体征：位于过敏史下方、意识状态上方；点击弹出编辑（与护士站双向同步），无多余提示/按钮
+            '<div class="doc-sec doc-sec-vital" onclick="Clinic.emr.openVitals()" title="点击编辑生命体征">' +
+            '  <span class="doc-sec-label">生命体征</span>' +
+            '  <span class="doc-sec-body" id="vitalDisplay">' + vitalDisplayText(v) + '</span></div>' +
+
+            '<div class="doc-sec"><span class="doc-sec-label">意识状态</span>' +
+            '  <select class="select" id="consciousness"><option value="">请选择</option>' + consciousness + '</select></div>' +
+            '<div class="doc-sec"><span class="doc-sec-label">体格检查</span>' +
+            '  <div class="rich-editor" id="peEditor"></div></div>' +
+
+            '<div class="doc-sec"><span class="doc-sec-label">初步诊断<span class="req">*</span></span>' +
+            '  <div class="flex gap-8" style="flex:1;min-width:0">' +
             '    <input type="text" class="input" id="diagInput" style="flex:1" placeholder="点击输入，支持疾病名称/ICD编码/拼音检索" autocomplete="off">' +
-            '    <input type="text" class="input" id="diagCode" style="width:150px" placeholder="ICD10编码" readonly>' +
-            '  </div>' +
-            '</div>' +
-            '<div class="form-row">' +
-            '  <div class="form-group"><label style="display:flex;align-items:center;gap:6px">' +
-            '    <input type="checkbox" id="isObs" ' + (r.is_observation == 1 ? 'checked' : '') + '> 留观</label></div>' +
-            '  <div class="form-group"><label class="form-label">嘱托</label>' +
-            '    <div class="rich-editor" id="advEditor" style="border:1px solid var(--border);border-radius:6px;padding:10px;min-height:44px"></div></div>' +
-            '</div>' +
+            '    <input type="text" class="input" id="diagCode" style="width:130px" placeholder="ICD10编码" readonly>' +
+            '  </div></div>' +
+
+            '<div class="doc-sec"><span class="doc-sec-label">留观</span>' +
+            '  <select class="select" id="isObs">' + obsOpts + '</select></div>' +
+            '<div class="doc-sec"><span class="doc-sec-label">嘱托</span>' +
+            '  <div class="rich-editor" id="advEditor"></div></div>' +
+
+            // 病历正文右下角医生签名（页脚仍保留 医生：医生（工号 0003）｜职称，互不影响）
+            '<div class="doc-body-sign">医生：' + r.doctor_name + '</div>' +
             '</div>' +
             // 页脚：左下角记录时间（未保存时隐藏，保存成功后显示），右下角医生签名
             '<div class="doc-footer">' +
@@ -450,7 +460,8 @@ Clinic.emr = (function () {
             consciousness: document.getElementById('consciousness').value,
             initial_diagnosis: diag,
             diagnosis_code: document.getElementById('diagCode').value,
-            is_observation: document.getElementById('isObs').checked ? 1 : 0,
+            is_observation: document.getElementById('isObs').value === '1' ? 1 : 0,
+            visit_type: document.getElementById('visitType') ? document.getElementById('visitType').value : '初诊',
             advice: document.getElementById('advEditor').innerHTML,
         };
         if (finish) data.finish = 1;
@@ -469,6 +480,7 @@ Clinic.emr = (function () {
                     DATA.record.initial_diagnosis = diag;
                     DATA.record.diagnosis_code = data.diagnosis_code;
                     DATA.record.is_observation = data.is_observation;
+                    DATA.record.visit_type = data.visit_type;
                     DATA.record.advice = data.advice;
                     DATA.record.status = finish ? 'done' : 'draft';
                     var now = fmtDateTime();

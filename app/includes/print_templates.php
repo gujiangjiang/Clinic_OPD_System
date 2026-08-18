@@ -316,7 +316,7 @@ function pt_record($visit, $patient, $record, $vitals) {
         '民族' => isset($patient['ethnicity']) ? $patient['ethnicity'] : '',
         '职业' => isset($patient['occupation']) ? $patient['occupation'] : '',
         '婚姻' => isset($patient['marital']) ? $patient['marital'] : '',
-        '初复诊' => '—',
+        '初复诊' => (isset($record['visit_type']) && $record['visit_type'] !== '') ? $record['visit_type'] : '初诊',
         '科室' => isset($visit['current_dept_name']) ? $visit['current_dept_name'] : '',
         '联系方式' => isset($patient['phone']) ? $patient['phone'] : '',
     );

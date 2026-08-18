@@ -7,7 +7,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 1,
+    'version' => 2,
     'tables' => array(
         'records' => "CREATE TABLE IF NOT EXISTS records (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,6 +26,7 @@ return array(
             initial_diagnosis TEXT,
             diagnosis_code TEXT,
             is_observation INTEGER DEFAULT 0,
+            visit_type TEXT DEFAULT '初诊',
             advice TEXT,
             status TEXT DEFAULT 'draft',
             created_at TEXT,
@@ -66,6 +67,12 @@ return array(
             created_at TEXT
         )",
     ),
-    'migrations' => array(),
+    'migrations' => array(
+        // v2：旧库升级 —— records 增加初复诊字段（visit_type），默认初诊。
+        // 说明：新库建表已包含该列，DatabaseManager 迁移器会自动检测列已存在并跳过。
+        2 => array(
+            "ALTER TABLE records ADD COLUMN visit_type TEXT DEFAULT '初诊'",
+        ),
+    ),
     'seed' => array(),
 );
