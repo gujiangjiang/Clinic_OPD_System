@@ -73,7 +73,14 @@ switch ($action) {
         $visit['birth_date'] = $row['patient']['birth_date'];
         $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
+        // 结构化病历优先（patient_records），无则回退旧 records 扁平数据
+        $pr = DB::one('medical', 'SELECT * FROM patient_records WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
         $record = DB::one('medical', 'SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
+        if ($pr) {
+            $record = $record ? array_merge($record, array('emr_data' => $pr['emr_data'])) : array(
+                'visit_type' => '初诊', 'emr_data' => $pr['emr_data'],
+            );
+        }
         $vitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
         if (!$record) json_fail('该就诊暂无已保存的病历，请先在病历中完善主诉、现病史与初步诊断并保存后再打印');
         json_ok(array('html' => pt_record($visit, $row['patient'], $record, $vitals)));

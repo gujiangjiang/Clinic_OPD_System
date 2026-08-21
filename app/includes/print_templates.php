@@ -392,12 +392,30 @@ function pt_record($visit, $patient, $record, $vitals) {
     // 患者信息下方横线（与病历正文隔开）
     $html .= '<div class="print-line"></div>';
 
+    // ===== 结构化病历（patient_records.emr_data 存在时按结构化规则渲染）=====
+    $emrStructured = false;
+    $emr = array();
+    if (!empty($record['emr_data'])) {
+        $emr = json_decode($record['emr_data'], true);
+        if (is_array($emr)) $emrStructured = true;
+    }
+
     // 病历内容行内流式排版：主诉：xxx　现病史：xxx（紧凑省空间）
     $secs = array();
-    $secs[] = array('主诉', isset($record['chief_complaint']) ? $record['chief_complaint'] : '');
-    $secs[] = array('现病史', isset($record['present_illness']) ? $record['present_illness'] : '');
-    $secs[] = array('既往史', isset($record['past_history']) ? $record['past_history'] : '');
-    $secs[] = array('过敏史', isset($record['allergy_history']) ? $record['allergy_history'] : '');
+    if ($emrStructured) {
+        // 结构化：占位符剔除/空节隐藏/'-'回退等规则统一走 emr_formatter
+        $secs[] = array('主诉', emr_cc_text(isset($emr['chief_complaint']) ? $emr['chief_complaint'] : array()));
+        $secs[] = array('现病史', emr_pi_text(isset($emr['history_present']) ? $emr['history_present'] : array()));
+        $secs[] = array('既往史', emr_ph_text(isset($emr['past_history']) ? $emr['past_history'] : array()));
+        $secs[] = array('过敏史', isset($emr['allergies']) ? $emr['allergies'] : '');
+        $msText = emr_ms_text(isset($emr['main_symptoms']) ? $emr['main_symptoms'] : array());
+        if ($msText !== '') $secs[] = array('主要症状', e($msText));
+    } else {
+        $secs[] = array('主诉', isset($record['chief_complaint']) ? $record['chief_complaint'] : '');
+        $secs[] = array('现病史', isset($record['present_illness']) ? $record['present_illness'] : '');
+        $secs[] = array('既往史', isset($record['past_history']) ? $record['past_history'] : '');
+        $secs[] = array('过敏史', isset($record['allergy_history']) ? $record['allergy_history'] : '');
+    }
     if ($vitals) {
         $vp = array();
         if (!empty($vitals['bp_systolic'])) $vp[] = '血压 ' . $vitals['bp_systolic'] . '/' . $vitals['bp_diastolic'] . 'mmHg';
@@ -408,12 +426,17 @@ function pt_record($visit, $patient, $record, $vitals) {
         if ($vp) $secs[] = array('生命体征', implode('；', $vp));
     }
     $secs[] = array('意识状态', isset($record['consciousness']) ? $record['consciousness'] : '');
-    $secs[] = array('体格检查', isset($record['physical_exam']) ? $record['physical_exam'] : '');
-    $diag = isset($record['initial_diagnosis']) ? $record['initial_diagnosis'] : '';
-    if (isset($record['diagnosis_code']) && $record['diagnosis_code']) {
-        $diag .= '（' . $record['diagnosis_code'] . '）';
+    if ($emrStructured) {
+        $secs[] = array('体格检查', emr_pe_text(isset($emr['physical_exam']) ? $emr['physical_exam'] : array()));
+        $secs[] = array('初步诊断', emr_diag_text(isset($emr['diagnoses']) ? $emr['diagnoses'] : array()));
+    } else {
+        $secs[] = array('体格检查', isset($record['physical_exam']) ? $record['physical_exam'] : '');
+        $diag = isset($record['initial_diagnosis']) ? $record['initial_diagnosis'] : '';
+        if (isset($record['diagnosis_code']) && $record['diagnosis_code']) {
+            $diag .= '（' . $record['diagnosis_code'] . '）';
+        }
+        $secs[] = array('初步诊断', $diag);
     }
-    $secs[] = array('初步诊断', $diag);
 
     // 已开项目所见即所得：辅助检查（检验/检查）+ 门诊处置（处置/处方），与病历编辑页一致
     // 辅助检查：仅显示项目名称；处置：不换行显示名称×数量；处方：每行一个药品（名称/剂量/用法/途径/数量）
@@ -438,14 +461,29 @@ function pt_record($visit, $patient, $record, $vitals) {
             }
         }
     }
-    if ($aux) $secs[] = array('辅助检查', implode('、', $aux));
-    $treat = '';
-    if ($procs) $treat .= '<span class="pf-treat-proc">' . implode('　', $procs) . '</span>';
-    foreach ($rxs as $rx) $treat .= '<div class="pf-rx-line">' . $rx . '</div>';
-    if ($treat !== '') $secs[] = array('门诊处置', $treat);
+    if ($emrStructured) {
+        // 结构化：辅助检查 = 已开项目 + 手工结果 + 外院结果；门诊处置 = 处方行 + 处置(含数量) + 自定义
+        $manualAux = array();
+        foreach (array('aux_result', 'aux_external') as $k) {
+            if (isset($emr[$k]) && $emr[$k] !== '') $manualAux[] = e($emr[$k]);
+        }
+        $auxAll = array_merge($aux, $manualAux);
+        $secs[] = array('辅助检查', $auxAll ? implode('，', $auxAll) : '-');
+        $treat = '';
+        if ($rxs) foreach ($rxs as $rx) $treat .= '<div class="pf-rx-line">' . $rx . '</div>';
+        $dispParts = array_merge($procs, isset($emr['disposition_custom']) && $emr['disposition_custom'] !== '' ? array(e($emr['disposition_custom'])) : array());
+        if ($dispParts) $treat .= ($treat ? '' : '') . '<span class="pf-treat-proc">' . implode('，', $dispParts) . '</span>';
+        $secs[] = array('门诊处置', $treat !== '' ? $treat : '-');
+    } else {
+        if ($aux) $secs[] = array('辅助检查', implode('、', $aux));
+        $treat = '';
+        if ($procs) $treat .= '<span class="pf-treat-proc">' . implode('　', $procs) . '</span>';
+        foreach ($rxs as $rx) $treat .= '<div class="pf-rx-line">' . $rx . '</div>';
+        if ($treat !== '') $secs[] = array('门诊处置', $treat);
+    }
 
-    $secs[] = array('留观', !empty($record['is_observation']) ? '是' : '否');
-    $secs[] = array('嘱托', isset($record['advice']) ? $record['advice'] : '');
+    $secs[] = array('留观', $emrStructured ? emr_obs_text($emr) : (!empty($record['is_observation']) ? '是' : '否'));
+    $secs[] = array('嘱托', $emrStructured ? (isset($emr['advice']) ? $emr['advice'] : '') : (isset($record['advice']) ? $record['advice'] : ''));
 
     $flow = '';
     foreach ($secs as $s) {
