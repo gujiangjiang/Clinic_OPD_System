@@ -26,8 +26,8 @@ Router::title('工作台');
         <div class="flex gap-8" style="flex-wrap:wrap">
             <a class="btn btn-outline btn-sm" href="/admin/departments">🏥 科室管理</a>
             <a class="btn btn-outline btn-sm" href="/admin/users">👥 用户管理</a>
-            <a class="btn btn-outline btn-sm" href="/admin/labitems">🧪 检验项目管理</a>
-            <a class="btn btn-outline btn-sm" href="/admin/examitems">🩻 检查项目管理</a>
+            <a class="btn btn-outline btn-sm" href="/admin/labitems">🧪 检验管理</a>
+            <a class="btn btn-outline btn-sm" href="/admin/examitems">🩻 检查管理</a>
             <a class="btn btn-outline btn-sm" href="/admin/drugs">💊 药品信息</a>
             <a class="btn btn-outline btn-sm" href="/admin/review">✅ 审核中心</a>
             <a class="btn btn-outline btn-sm" href="/admin/printcenter">🖨️ 打印中心</a>

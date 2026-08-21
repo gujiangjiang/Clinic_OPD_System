@@ -50,7 +50,8 @@ ul, ol { list-style: none; }
     --shadow: 0 1px 3px rgba(15,23,42,.08);
     --shadow-lg: 0 12px 32px rgba(15,23,42,.14);
     --topbar-h: 60px;
-    --sidebar-w: 232px;
+    --topbar-h: 60px;
+    --sidebar-w: 208px;
     --sidebar-w-mini: 64px;
 }
 

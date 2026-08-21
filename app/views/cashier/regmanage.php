@@ -14,7 +14,7 @@ Router::title('挂号管理');
 <div class="page-head">
     <div><div class="page-title">📋 挂号管理</div><div class="page-desc">查询任意一天的挂号记录，支持补打凭条、退费/取消</div></div>
     <div class="flex gap-8">
-        <input type="date" class="input" id="regDate" value="<?php echo date('Y-m-d'); ?>" style="width:180px">
+        <input type="text" class="input" id="regDate" value="<?php echo date('Y-m-d'); ?>" readonly placeholder="点击选择日期" style="width:180px;cursor:pointer" onclick="Clinic.datePicker.open(this, { maxToday: false })">
         <button class="btn btn-primary btn-sm" onclick="loadList()">查询</button>
     </div>
 </div>

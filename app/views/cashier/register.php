@@ -36,7 +36,7 @@ Router::title('挂号收费');
             <div class="form-group"><label class="form-label">出生日期（点击选择） <span class="req">*</span></label>
                 <input class="input" id="birth" readonly placeholder="点击选择日期" style="cursor:pointer;background:var(--bg-soft)">
                 <div class="fs-12 text-muted mt-4" id="birthMsg">填写身份证后自动计算锁定</div></div>
-            <div class="form-group"><label class="form-label">年龄（按出生日期自动计算）</label><input class="input" id="age" readonly placeholder="—" style="background:var(--bg-soft)"></div>
+            <div class="form-group"><label class="form-label">年龄（按出生日期自动计算）</label><input class="input" id="age" disabled placeholder="—"></div>
         </div>
         <div class="form-row">
             <div class="form-group"><label class="form-label">民族</label><select class="select" id="ethnicity"><?php echo opt_options('ethnicity', '汉族'); ?></select></div>
