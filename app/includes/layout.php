@@ -190,6 +190,7 @@ class Layout {
             <script src="/assets/js/components/selector.js"></script>
             <script src="/assets/js/components/validation.js"></script>
             <script src="/assets/js/components/datetime.js"></script>
+            <script src="/assets/js/components/datepicker.js"></script>
             <script src="/assets/js/components/order.js"></script>
             <script src="/assets/js/components/editor.js"></script>
             <script src="/assets/js/components/emr.js"></script>

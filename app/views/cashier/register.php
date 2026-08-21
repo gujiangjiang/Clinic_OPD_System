@@ -4,9 +4,10 @@
  * 说明：
  * 1. 输入身份证 → 自动校验（18位含校验码）→ 自动计算并锁定
  *    出生日期/年龄/性别；有既往登记自动填充可修改信息
- * 2. 未填写身份证：仅显示急诊科室、费用类别锁定自费
- * 3. 显示今日剩余号源，号源满提示联系医生工作站加号
- * 4. 点击【挂号】弹出通用科室选择弹窗（急诊/门诊 Tab + 余号/费用）
+ * 2. 未填写身份证：仅可挂急诊科室、费用类别锁定自费
+ * 3. 右侧「今日号源」为纯展示总览（全部科室余号，不随身份证变化）
+ * 4. 姓名/性别/出生日期必填；出生日期点击弹出日历选择，年龄自动计算
+ * 5. 点击【挂号】弹出通用科室选择弹窗（急诊/门诊 Tab + 余号/费用）
  *    → 选定科室挂号成功 → 确认框核对信息 → 缴费（模拟）→ 自动打印凭条
  */
 Router::title('挂号收费');
@@ -28,12 +29,14 @@ Router::title('挂号收费');
 
         <div class="form-row">
             <div class="form-group"><label class="form-label">姓名 <span class="req">*</span></label><input class="input" id="name"></div>
-            <div class="form-group"><label class="form-label">性别（自动锁定）</label>
-                <select class="select" id="gender" disabled><option value="男">男</option><option value="女">女</option></select></div>
+            <div class="form-group"><label class="form-label">性别 <span class="req">*</span></label>
+                <select class="select" id="gender"><option value="男">男</option><option value="女">女</option></select></div>
         </div>
         <div class="form-row">
-            <div class="form-group"><label class="form-label">出生日期（自动锁定）</label><input class="input" id="birth" disabled></div>
-            <div class="form-group"><label class="form-label">年龄（自动锁定）</label><input class="input" id="age" disabled></div>
+            <div class="form-group"><label class="form-label">出生日期（点击选择） <span class="req">*</span></label>
+                <input class="input" id="birth" readonly placeholder="点击选择日期" style="cursor:pointer;background:var(--bg-soft)">
+                <div class="fs-12 text-muted mt-4" id="birthMsg">填写身份证后自动计算锁定</div></div>
+            <div class="form-group"><label class="form-label">年龄（按出生日期自动计算）</label><input class="input" id="age" readonly placeholder="—" style="background:var(--bg-soft)"></div>
         </div>
         <div class="form-row">
             <div class="form-group"><label class="form-label">民族</label><select class="select" id="ethnicity"><?php echo opt_options('ethnicity', '汉族'); ?></select></div>
@@ -49,28 +52,39 @@ Router::title('挂号收费');
             <div class="form-group"><label class="form-label">联系地址</label><input class="input" id="address"></div>
         </div>
 
-        <div class="form-group">
-            <label class="form-label">挂号科室 <span class="req">*</span></label>
-            <div class="flex gap-8">
-                <input class="input" id="deptName" readonly placeholder="点击【挂号】后在弹窗中选择科室" style="flex:1;background:var(--bg-soft);cursor:pointer" onclick="doRegister()">
-            </div>
-            <div class="fs-12 text-muted mt-4" id="deptInfo">点击下方【挂号】按钮，在弹窗中按 急诊/门诊 分类选择科室</div>
-        </div>
-
         <div class="flex gap-8">
             <button class="btn btn-primary btn-lg" style="flex:1" onclick="doRegister()">🎫 挂号（选择科室）</button>
         </div>
     </div>
 
-    <!-- 今日号源概览 -->
+    <!-- 今日号源概览（纯展示：全部科室余号一目了然，与身份证填写无关） -->
     <div class="card" style="width:320px;flex-shrink:0">
         <div class="card-title"><span>今日号源</span><span class="badge badge-primary" id="todayBadge"></span></div>
-        <div id="slotBox" class="fs-13">输入身份证后显示门诊号源</div>
+        <div id="slotBox" class="fs-13">加载中…</div>
     </div>
 </div>
 
 <script>
 var REG = { id_card: '', patient_no: '', visit_id: 0, dept: null };
+
+/* ---------- 年龄：按出生日期自动计算（只读，不可手动输入） ---------- */
+function calcAge(birth) {
+    var m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(birth || '');
+    if (!m) return '';
+    var b = new Date(+m[1], +m[2] - 1, +m[3]);
+    var t = new Date();
+    var age = t.getFullYear() - b.getFullYear();
+    if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) age--;
+    return age < 0 ? '' : String(age);
+}
+function recalcAge() {
+    document.getElementById('age').value = calcAge(document.getElementById('birth').value);
+}
+
+/* 出生日期：只读，点击弹出日历选择（拒绝手动输入避免格式错误；不可选未来日期） */
+document.getElementById('birth').addEventListener('click', function () {
+    Clinic.datePicker.open(this, { maxToday: true, onChange: recalcAge });
+});
 
 /* ---------- 身份证输入：校验 + 自动计算 + 既往登记检索 ---------- */
 document.getElementById('idCard').addEventListener('input', function () { onCardChange(); });
@@ -80,13 +94,12 @@ function onCardChange() {
     var msg = document.getElementById('cardMsg');
     var feeType = document.getElementById('fee_type');
     if (card === '') {
-        // 未填身份证：仅急诊 + 自费锁定；性别/出生日期/年龄可手动填写
+        // 未填身份证：仅急诊 + 自费锁定；性别/出生日期可手动填写（年龄自动计算）
         REG.id_card = '';
         msg.innerHTML = '';
         feeType.value = '自费';
         feeType.disabled = true;
         setDerivedLocked(false);
-        loadDepts('');
         document.getElementById('regNotice').innerHTML = '';
         return;
     }
@@ -96,17 +109,16 @@ function onCardChange() {
         feeType.disabled = false;
         setDerivedLocked(false);
         clearDerived();
-        loadDepts('');
         return;
     }
     REG.id_card = card;
     msg.innerHTML = '<span class="text-success">✔ 身份证校验通过</span>';
     feeType.disabled = false;
-    // 自动计算并锁定（身份证计算出的出生日期/年龄/性别确保正确）
+    // 自动计算并锁定（身份证计算出的出生日期/性别确保正确，年龄随出生日期联动）
     setDerivedLocked(true);
     document.getElementById('gender').value = Clinic.validate.genderFromId(card);
     document.getElementById('birth').value = Clinic.validate.birthFromId(card);
-    document.getElementById('age').value = Clinic.validate.ageFromId(card) + '岁';
+    recalcAge();
     // 既往登记自动获取
     Clinic.get('/api/patient?action=by_card&id_card=' + encodeURIComponent(card), null, {
         onSuccess: function (json) {
@@ -125,71 +137,54 @@ function onCardChange() {
             }
         },
     });
-    loadDepts(card);
 }
 
 function clearDerived() {
     document.getElementById('gender').value = '男';
     document.getElementById('birth').value = '';
-    document.getElementById('age').value = '';
+    recalcAge();
 }
 
-/* 锁定/解锁 出生日期、年龄、性别（有身份证时锁定，无身份证时可手动填） */
+/* 锁定/解锁 性别与出生日期（有身份证时锁定；年龄恒为只读） */
 function setDerivedLocked(locked) {
-    ['gender', 'birth', 'age'].forEach(function (id) {
+    ['gender', 'birth'].forEach(function (id) {
         document.getElementById(id).disabled = locked;
     });
 }
 
-/* ---------- 加载可挂科室及号源 ---------- */
-/* 竞态防护：身份证 input 事件会多次触发 loadDepts（输入过程/校验失败/校验通过），
-   若较早发出的「仅急诊」请求后返回，会覆盖较晚的「含门诊」响应（表现为门诊号源
-   短暂出现又消失）。这里用请求序号丢弃过期响应，并用防抖合并连续输入。 */
-var deptReqSeq = 0;
-var deptTimer = null;
-function loadDepts(card) {
-    if (deptTimer) clearTimeout(deptTimer);
-    deptTimer = setTimeout(function () {
-        var seq = ++deptReqSeq;
-        Clinic.get('/api/cashier?action=depts&id_card=' + encodeURIComponent(card), null, {
-            onSuccess: function (json) {
-                if (seq !== deptReqSeq) return; // 过期响应（已有更新的请求）直接丢弃
-                var list = json.data.list || [];
-            var sel = document.getElementById('dept');
-            var opts = '<option value="">请选择科室</option>';
-            list.forEach(function (d) {
-                var label = d.name + '（' + (d.type === 'emergency' ? '急诊' : (d.remaining >= 0 ? '余号' + d.remaining : '')) + '，挂号费¥' + d.fee.toFixed(2) + '）';
-                opts += '<option value="' + d.id + '" data-fee="' + d.fee + '" data-full="' + (d.full ? 1 : 0) + '">' + label + '</option>';
-            });
-            sel.innerHTML = opts;
+/* ---------- 今日号源总览（右侧纯展示：全部科室余号一目了然，
+   不随身份证填写动态变化——动态过滤仅在挂号弹窗内） ---------- */
+function loadOverview() {
+    Clinic.get('/api/cashier?action=depts&all=1&id_card=', null, {
+        onSuccess: function (json) {
+            var list = json.data.list || [];
             document.getElementById('todayBadge').textContent = (json.data.session === 'am' ? '上午' : '下午');
-            // 号源概览
             var box = document.getElementById('slotBox');
             if (!list.length) {
-                box.innerHTML = '<div class="text-muted">暂无可用科室</div>';
-            } else {
-                box.innerHTML = list.map(function (d) {
-                    var info = d.type === 'emergency' ? '<span class="badge badge-danger">急诊·不限号</span>' :
-                        (d.full ? '<span class="badge badge-danger">已满号</span>' : '<span class="badge badge-success">余' + d.remaining + '号</span>');
-                    return '<div class="flex-between" style="padding:6px 0;border-bottom:1px solid var(--border)">' +
-                        '<span>' + d.name + '</span>' + info + '</div>';
-                }).join('');
+                box.innerHTML = '<div class="text-muted">暂无科室数据</div>';
+                return;
             }
-            updateDeptInfo();
-            },
-        });
-    }, 120);
+            box.innerHTML = list.map(function (d) {
+                var info = d.type === 'emergency'
+                    ? '<span class="badge badge-danger">急诊 · 不限号</span>'
+                    : (d.full ? '<span class="badge badge-danger">已满号</span>' : '<span class="badge badge-success">余' + d.remaining + '号</span>');
+                return '<div class="flex-between" style="padding:6px 0;border-bottom:1px solid var(--border)">' +
+                    '<span>' + d.name + '</span>' + info + '</div>';
+            }).join('');
+        },
+    });
 }
 
-function updateDeptInfo() {
-    // 科室改为弹窗选择后此处仅保留号源概览刷新占位（保留函数避免旧引用报错）
-}
-
-/* ---------- 提交挂号：弹出通用科室选择框（急诊/门诊 Tab + 余号/费用） ---------- */
+/* ---------- 提交挂号：校验必填 → 弹出通用科室选择框 ---------- */
 function doRegister() {
     var card = document.getElementById('idCard').value.trim().toUpperCase();
     var name = document.getElementById('name').value.trim();
+    var gender = document.getElementById('gender').value;
+    var birth = document.getElementById('birth').value.trim();
+    // 姓名、性别、出生日期三项必填（有身份证时由证件自动带出，同样满足）
     if (!name) { Clinic.toast.warning('请填写患者姓名'); return; }
+    if (!gender) { Clinic.toast.warning('请选择患者性别'); return; }
+    if (!birth) { Clinic.toast.warning('请选择患者出生日期'); return; }
     if (!card && document.getElementById('fee_type').value !== '自费') {
         document.getElementById('fee_type').value = '自费';
     }
@@ -227,10 +222,6 @@ function submitRegister(d) {
             REG.patient_no = v.patient_no;
             REG.visit_id = v.visit_id;
             REG.dept = d;
-            // 回显已选科室
-            document.getElementById('deptName').value = d.name;
-            document.getElementById('deptInfo').innerHTML =
-                '<span class="text-success">已选择：' + d.name + ' · 挂号费 ¥' + d.fee.toFixed(2) + '</span>';
             // 确认框：姓名/性别/费用类别/ID号(身份证)/就诊序号/费用等基本信息
             Clinic.modal.open(
                 '<div class="fs-13 text-muted mb-12">挂号成功！请核对以下信息后点击【缴费】完成挂号：</div>' +
@@ -265,18 +256,17 @@ function payAndPrint() {
             Clinic.toast.success('缴费成功，挂号完成');
             // 自动弹出挂号凭条打印模块
             Clinic.print.load('/api/print?action=receipt&visit_id=' + REG.visit_id, null);
-            // 重置表单
+            // 重置表单并刷新号源总览
             document.getElementById('idCard').value = '';
             document.getElementById('name').value = '';
-            document.getElementById('deptName').value = '';
-            document.getElementById('deptInfo').innerHTML = '点击下方【挂号】按钮，在弹窗中按 急诊/门诊 分类选择科室';
             REG.dept = null;
             clearDerived();
             onCardChange();
+            loadOverview();
         },
     });
 }
 
-/* 初始加载（未填身份证状态） */
-onCardChange();
+/* 初始加载：号源总览（纯展示，不随身份证输入变化） */
+loadOverview();
 </script>

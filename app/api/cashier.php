@@ -49,15 +49,18 @@ function dept_used_count($deptId, $session) {
 
 switch ($action) {
 
-    /* ==================== 可挂科室及号源 ==================== */
+    /* ==================== 可挂科室及号源 ====================
+     * all=1：返回全部科室（挂号页右侧「今日号源」纯展示用，
+     *        不随身份证有无动态过滤——动态过滤仅用于挂号弹窗） */
     case 'depts':
         $idCard = get('id_card', '');
+        $showAll = get('all') === '1';
         $session = (int)date('H') < 12 ? 'am' : 'pm';
         $depts = DB::q('dept', "SELECT * FROM departments WHERE status=1 ORDER BY type DESC, sort, id");
         $list = array();
         foreach ($depts as $d) {
-            // 无身份证仅显示急诊科室
-            if ($idCard === '' && $d['type'] !== 'emergency') continue;
+            // 无身份证仅显示急诊科室（all=1 时不过滤，供号源总览展示）
+            if (!$showAll && $idCard === '' && $d['type'] !== 'emergency') continue;
             $used = ($d['type'] === 'clinic') ? dept_used_count($d['id'], $session) : 0;
             $quota = ($d['type'] === 'clinic') ? ($session === 'am' ? (int)$d['am_quota'] : (int)$d['pm_quota']) : 0;
             $extra = 0;
