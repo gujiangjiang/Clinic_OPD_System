@@ -87,6 +87,9 @@ document.getElementById('birth').addEventListener('click', function () {
 document.getElementById('idCard').addEventListener('input', function () { onCardChange(); });
 document.getElementById('idCard').addEventListener('input', refreshRegState);
 document.getElementById('name').addEventListener('input', refreshRegState);
+/* 性别/出生日期变化（含日历选择派发的 change 事件）同步按钮状态 */
+document.getElementById('gender').addEventListener('change', refreshRegState);
+document.getElementById('birth').addEventListener('change', refreshRegState);
 
 function onCardChange() {
     var card = document.getElementById('idCard').value.trim().toUpperCase();
@@ -118,6 +121,7 @@ function onCardChange() {
     document.getElementById('gender').value = Clinic.validate.genderFromId(card);
     document.getElementById('birth').value = Clinic.validate.birthFromId(card);
     recalcAge();
+    refreshRegState(); // 程序赋值不触发事件，手动同步按钮状态
     // 既往登记自动获取
     Clinic.get('/api/patient?action=by_card&id_card=' + encodeURIComponent(card), null, {
         onSuccess: function (json) {
@@ -144,6 +148,7 @@ function clearDerived() {
     document.getElementById('gender').value = '男';
     document.getElementById('birth').value = '';
     recalcAge();
+    refreshRegState(); // 清空出生日期后按钮应回到不可点击
 }
 
 /* 锁定/解锁 性别与出生日期（有身份证时锁定；年龄恒为只读） */
@@ -178,18 +183,23 @@ function loadOverview() {
 
 /* ---------- 挂号按钮双状态（严格按需求） ----------
  * 无任何输入（身份证、姓名均空）→ 绿色【快速挂号（无名氏）】可点击
- * 一旦检测到任意输入 → 切换为【挂号】按钮且置灰不可点击，
- * 姓名填写完成后才变为可点击 */
+ * 一旦检测到任意输入 → 切换为【挂号】按钮；
+ * 姓名、性别、出生日期三个必填项全部有值才可点击
+ * （输入身份证后性别/出生日期自动生成，视为已填写） */
 function refreshRegState() {
     var card = document.getElementById('idCard').value.trim().toUpperCase();
     var name = document.getElementById('name').value.trim();
+    var gender = document.getElementById('gender').value;
+    var birth = document.getElementById('birth').value.trim();
     var hasInput = card !== '' || name !== '';
+    var ready = name !== '' && gender !== '' && birth !== '';
     document.getElementById('btnQuick').style.display = hasInput ? 'none' : '';
     document.getElementById('btnNormal').style.display = hasInput ? '' : 'none';
-    document.getElementById('btnNormal').disabled = (name === '');
+    document.getElementById('btnNormal').disabled = !ready;
     document.getElementById('regBtnTip').textContent = !hasInput
         ? '未填写身份证或姓名时无法实名挂号，可使用【快速挂号】：自动生成无名氏姓名，仅限 0 元挂号费科室'
-        : (name === '' ? '已开始录入：请完善患者姓名后即可挂号' : '信息完整，点击【挂号】在弹窗中选择科室');
+        : (ready ? '信息完整，点击【挂号】在弹窗中选择科室'
+                 : '请完善' + (name === '' ? '姓名' : '') + (name === '' && (gender === '' || birth === '') ? '、' : '') + (gender === '' ? '性别' : '') + (gender === '' && birth === '' ? '、' : '') + (birth === '' ? '出生日期' : '') + '后即可挂号');
 }
 
 /* ---------- 提交挂号：校验必填 → 弹出通用科室选择框 ---------- */

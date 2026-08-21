@@ -202,7 +202,10 @@ class Layout {
                 <aside class="sidebar">
                     <div class="sidebar-brand">
                         ' . $brandImg . '
-                        <div class="brand-name">' . e($hosp) . '</div>
+                        <div class="brand-names">
+                            <div class="brand-name">' . e($hosp) . '</div>' .
+                            ($hosp2 !== '' ? '<div class="brand-name2">' . e($hosp2) . '</div>' : '') . '
+                        </div>
                     </div>
                     <nav class="sidebar-nav">' . self::menu($u['role']) . '</nav>
                     <div class="sidebar-footer">' . e($footer) . '</div>

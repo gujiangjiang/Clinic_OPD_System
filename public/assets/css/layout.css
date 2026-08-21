@@ -39,10 +39,29 @@
     object-fit: contain;
     border-radius: 8px;
 }
+.sidebar-brand .brand-names {
+    flex: 1;
+    min-width: 0;
+}
 .sidebar-brand .brand-name {
     font-size: 15px; font-weight: 700;
     line-height: 1.3;
     overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap;
+    /* 两行名称左右两端对齐（字数不同也撑满同一宽度，徽标式排版） */
+    text-align: justify;
+    text-align-last: justify;
+}
+/* 第二名称：小字，与第一名称两行左右两端对齐（中文两端对齐排版） */
+.sidebar-brand .brand-name2 {
+    font-size: 11px;
+    font-weight: 400;
+    color: rgba(255,255,255,.72);
+    line-height: 1.4;
+    overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: justify;
+    text-align-last: justify;
 }
 .sidebar-nav { flex: 1; overflow-y: auto; padding: 12px 0; }
 .nav-group-title {
@@ -184,7 +203,8 @@
 .app.sidebar-mini .main { margin-left: var(--sidebar-w-mini); }
 /* 品牌：只留 LOGO 居中 */
 .app.sidebar-mini .sidebar-brand { padding: 0; justify-content: center; }
-.app.sidebar-mini .sidebar-brand .brand-name { display: none; }
+.app.sidebar-mini .sidebar-brand .brand-name,
+.app.sidebar-mini .sidebar-brand .brand-name2 { display: none; }
 /* 分组标题隐藏，用细分隔线代替 */
 .app.sidebar-mini .nav-group-title {
     padding: 0;
@@ -207,7 +227,8 @@
     /* 窄屏抽屉始终完整展开（覆盖缩小模式的窄条样式），文字/页脚恢复显示 */
     .app.sidebar-mini .sidebar { width: var(--sidebar-w); }
     .app.sidebar-mini .sidebar-brand { padding: 0 18px; justify-content: flex-start; }
-    .app.sidebar-mini .sidebar-brand .brand-name { display: block; }
+    .app.sidebar-mini .sidebar-brand .brand-name,
+    .app.sidebar-mini .sidebar-brand .brand-name2 { display: block; }
     .app.sidebar-mini .nav-group-title {
         padding: 12px 20px 6px;
         margin: 0;
