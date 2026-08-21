@@ -169,16 +169,53 @@
     overflow-y: auto;
 }
 
-/* ---------- 侧边栏折叠（顶栏 ☰ 按钮，宽屏可用） ---------- */
-.app.sidebar-collapsed .sidebar { transform: translateX(-100%); }
-.app.sidebar-collapsed .main { margin-left: 0; }
+/* ---------- 侧边栏缩小模式（顶栏 ☰ 按钮，宽屏可用） ----------
+ * 展开：默认状态，图标 + 文字（宽 --sidebar-w）
+ * 缩小：.app.sidebar-mini，仅保留图标窄条（宽 --sidebar-w-mini），
+ *       隐藏文字/分组标题/页脚，偏好跟随用户保存
+ * 病历书写页由服务端强制输出 mini，保证书写区空间 */
+.sidebar,
+.main {
+    transition: transform .25s ease, width .25s ease, margin-left .25s ease;
+}
+.app.sidebar-mini .sidebar { width: var(--sidebar-w-mini); }
+.app.sidebar-mini .main { margin-left: var(--sidebar-w-mini); }
+/* 品牌：只留 LOGO 居中 */
+.app.sidebar-mini .sidebar-brand { padding: 0; justify-content: center; }
+.app.sidebar-mini .sidebar-brand .brand-name { display: none; }
+/* 分组标题隐藏，用细分隔线代替 */
+.app.sidebar-mini .nav-group-title {
+    padding: 0;
+    margin: 10px 14px 6px;
+    height: 1px;
+    overflow: hidden;
+    color: transparent;
+    background: rgba(255,255,255,.12);
+}
+/* 菜单项：仅图标居中，悬停通过 title 原生提示显示名称 */
+.app.sidebar-mini .nav-item { justify-content: center; padding: 10px 0; gap: 0; }
+.app.sidebar-mini .nav-item > span:not(.nav-ico) { display: none; }
+/* 页脚版权收起 */
+.app.sidebar-mini .sidebar-footer { display: none; }
 
 /* ---------- 响应式：窄屏收起侧边栏（抽屉式） ---------- */
 @media (max-width: 900px) {
     .sidebar { transform: translateX(-100%); }
     .sidebar.open { transform: translateX(0); }
-    /* 宽屏曾折叠过（.app.sidebar-collapsed）时，抽屉展开仍需优先 */
-    .app.sidebar-collapsed .sidebar.open { transform: translateX(0); }
+    /* 窄屏抽屉始终完整展开（覆盖缩小模式的窄条样式），文字/页脚恢复显示 */
+    .app.sidebar-mini .sidebar { width: var(--sidebar-w); }
+    .app.sidebar-mini .sidebar-brand { padding: 0 18px; justify-content: flex-start; }
+    .app.sidebar-mini .sidebar-brand .brand-name { display: block; }
+    .app.sidebar-mini .nav-group-title {
+        padding: 12px 20px 6px;
+        margin: 0;
+        height: auto;
+        color: rgba(255,255,255,.45);
+        background: none;
+    }
+    .app.sidebar-mini .nav-item { justify-content: flex-start; padding: 10px 20px; gap: 10px; }
+    .app.sidebar-mini .nav-item > span:not(.nav-ico) { display: inline; }
+    .app.sidebar-mini .sidebar-footer { display: block; }
     .main { margin-left: 0; }
 }
 

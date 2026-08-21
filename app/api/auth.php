@@ -7,6 +7,7 @@
  * action=login        登录（POST）
  * action=logout_page  退出并跳转登录页（GET）
  * action=theme        保存主题偏好 auto/light/dark（POST）
+ * action=sidebar      保存侧边栏偏好 expand 展开 / mini 缩小（POST）
  * action=password     修改密码（POST）
  * action=profile      更新个人信息/头像（POST）
  * action=me           获取当前用户信息（GET）
@@ -90,6 +91,17 @@ switch ($action) {
         DB::exec('user', 'UPDATE users SET theme=? WHERE id=?', array($theme, Auth::id()));
         Auth::updateSession('theme', $theme);
         json_ok(array('theme' => $theme), '主题设置已保存');
+        break;
+
+    /* ---------------- 侧边栏偏好（展开/缩小仅图标，跟随用户保存） ---------------- */
+    case 'sidebar':
+        $sidebar = post('sidebar', 'expand');
+        if (!in_array($sidebar, array('expand', 'mini'), true)) {
+            $sidebar = 'expand';
+        }
+        DB::exec('user', 'UPDATE users SET sidebar=? WHERE id=?', array($sidebar, Auth::id()));
+        Auth::updateSession('sidebar', $sidebar);
+        json_ok(array('sidebar' => $sidebar), '侧边栏设置已保存');
         break;
 
     /* ---------------- 修改密码 ---------------- */

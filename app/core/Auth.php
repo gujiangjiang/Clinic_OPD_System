@@ -50,6 +50,7 @@ class Auth {
             'dept_ids' => $u['dept_ids'],
             'photo'    => $u['photo'],
             'theme'    => $u['theme'] ? $u['theme'] : 'auto',
+            'sidebar'  => isset($u['sidebar']) && $u['sidebar'] ? $u['sidebar'] : 'expand',
         );
         DB::exec('user', 'UPDATE users SET last_login=? WHERE id=?', array(now_str(), (int)$u['id']));
         return true;
@@ -71,6 +72,12 @@ class Auth {
     public static function theme() {
         $u = self::user();
         return $u ? ($u['theme'] ? $u['theme'] : 'auto') : 'auto';
+    }
+
+    /** 当前用户侧边栏偏好（expand 展开 / mini 缩小仅图标），旧会话无此字段时回退 expand */
+    public static function sidebar() {
+        $u = self::user();
+        return ($u && isset($u['sidebar']) && $u['sidebar'] === 'mini') ? 'mini' : 'expand';
     }
 
     /** 更新会话快照中的字段（如修改主题/姓名后即时生效） */

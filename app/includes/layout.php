@@ -67,7 +67,8 @@ class Layout {
         foreach ($items as $group => $list) {
             $html .= '<div class="nav-group-title">' . e($group) . '</div>';
             foreach ($list as $it) {
-                $html .= '<a class="nav-item" data-href="' . e($it[2]) . '" href="' . e($it[2]) . '">' .
+                // title：侧边栏缩小（仅图标）模式下的悬停名称提示
+                $html .= '<a class="nav-item" data-href="' . e($it[2]) . '" href="' . e($it[2]) . '" title="' . e($it[0]) . '">' .
                     '<span class="nav-ico">' . $it[1] . '</span><span>' . e($it[0]) . '</span></a>';
             }
         }
@@ -104,8 +105,13 @@ class Layout {
         return $html;
     }
 
-    /** 系统框架页 */
-    public static function appPage($content, $title) {
+    /**
+     * 系统框架页
+     * @param string $content   视图内容
+     * @param string $title     页面标题
+     * @param bool   $forceMini 强制缩小侧边栏（病历书写页为书写区让出空间，忽略用户偏好）
+     */
+    public static function appPage($content, $title, $forceMini = false) {
         $u = Auth::user();
         if (!$u) {
             header('Location: /login');
@@ -119,6 +125,10 @@ class Layout {
         // 页脚版权：固定格式自动生成【© 年份 医院名称 版权所有】，无需手动配置
         $footer = '© ' . date('Y') . ' ' . ($hosp !== '' ? $hosp : '门诊一体化信息系统') . ' 版权所有';
         $theme = $u['theme'] ? $u['theme'] : 'auto';
+        // 侧边栏偏好：expand 展开 / mini 缩小（仅图标），跟随用户保存；
+        // 病历书写页强制 mini（$forceMini），不持久化用户选择
+        $sidebar = $forceMini ? 'mini' : Auth::sidebar();
+        $appClass = $sidebar === 'mini' ? 'app sidebar-mini' : 'app';
         $pageTitle = $title !== '' ? $hosp . ' - ' . $title : $hosp;
         $avatar = !empty($u['photo']) ? '<img src="' . e($u['photo']) . '" alt="头像">' : '👤';
 
@@ -159,6 +169,7 @@ class Layout {
             <link rel="stylesheet" href="/assets/css/print.css">
         </head>
         <body data-csrf="' . e(CSRF::token()) . '" data-theme-pref="' . e($theme) . '" data-theme="light"
+            data-sidebar-pref="' . e($sidebar) . '"' . ($forceMini ? ' data-sidebar-force="1"' : '') . '
             data-hosp="' . e($hosp) . '" data-hosp2="' . e($hosp2) . '">
             <!-- 关键：公共 JS 库必须在视图内容之前加载！
                  视图内联脚本（如 loadDeptList() / loadUserList()）在页面解析时立即执行，
@@ -180,7 +191,7 @@ class Layout {
             <script src="/assets/js/components/patient.js"></script>
             <script src="/assets/js/components/ui.js"></script>
             <script src="/assets/js/components/app.js"></script>
-            <div class="app">
+            <div class="' . $appClass . '">
                 <!-- ===== 侧边栏 ===== -->
                 <aside class="sidebar">
                     <div class="sidebar-brand">

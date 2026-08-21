@@ -3,7 +3,7 @@
  * app.js v1.0.0 — 应用入口初始化
  * ============================================================
  * 说明：所有页面共用：
- * 1. 侧边栏折叠（窄屏）
+ * 1. 侧边栏展开/缩小切换（偏好跟随用户保存）
  * 2. 消息铃铛绑定
  * 3. 登出确认
  * 4. 公共数据属性（CSRF 注入见各页面）
@@ -24,10 +24,12 @@ Clinic.init = function () {
 };
 
 /**
- * 侧边栏切换：
+ * 侧边栏切换（展开 ⇄ 缩小）：
  * - 窄屏（<=900px）：抽屉式开关（.sidebar.open 滑入/滑出）
- * - 宽屏（>900px）：折叠/展开侧边栏（.app.sidebar-collapsed），
- *   并将折叠偏好记忆在 localStorage，刷新后保持
+ * - 宽屏（>900px）：展开/缩小切换（.app.sidebar-mini，缩小仅保留图标），
+ *   偏好保存到服务器（users.sidebar），下次登录任意设备均保持
+ * - 病历书写页（body[data-sidebar-force]）强制缩小初始显示，
+ *   可临时展开但不保存偏好
  */
 function bindSidebarToggle() {
     const toggle = document.querySelector('[data-sidebar-toggle]');
@@ -35,11 +37,11 @@ function bindSidebarToggle() {
     const app = document.querySelector('.app');
     if (!toggle || !sidebar || !app) return;
 
-    // 宽屏：恢复记忆的折叠状态
-    if (window.innerWidth > 900) {
-        let saved = '0';
-        try { saved = localStorage.getItem('clinic_sidebar_collapsed') || '0'; } catch (e) { saved = '0'; }
-        if (saved === '1') app.classList.add('sidebar-collapsed');
+    // 宽屏：按服务端注入的用户偏好恢复初始状态（无闪烁）
+    const forced = document.body.getAttribute('data-sidebar-force') === '1';
+    const pref = document.body.getAttribute('data-sidebar-pref') || 'expand';
+    if (window.innerWidth > 900 && pref === 'mini') {
+        app.classList.add('sidebar-mini');
     }
 
     toggle.addEventListener('click', function () {
@@ -47,10 +49,13 @@ function bindSidebarToggle() {
             // 窄屏：抽屉式开关
             sidebar.classList.toggle('open');
         } else {
-            // 宽屏：折叠/展开
-            const collapsed = !app.classList.contains('sidebar-collapsed');
-            app.classList.toggle('sidebar-collapsed', collapsed);
-            try { localStorage.setItem('clinic_sidebar_collapsed', collapsed ? '1' : '0'); } catch (e) {}
+            // 宽屏：展开 ⇄ 缩小（仅图标）
+            const mini = !app.classList.contains('sidebar-mini');
+            app.classList.toggle('sidebar-mini', mini);
+            // 病历书写页仅临时切换，不覆盖用户偏好
+            if (!forced) {
+                Clinic.ajax('/api/auth', { action: 'sidebar', sidebar: mini ? 'mini' : 'expand' }, { loading: false });
+            }
         }
     });
 }

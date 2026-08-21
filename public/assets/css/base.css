@@ -51,6 +51,7 @@ ul, ol { list-style: none; }
     --shadow-lg: 0 12px 32px rgba(15,23,42,.14);
     --topbar-h: 60px;
     --sidebar-w: 232px;
+    --sidebar-w-mini: 64px;
 }
 
 /* 自动模式：跟随系统暗色偏好 */
