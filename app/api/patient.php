@@ -87,7 +87,7 @@ switch ($action) {
         $html = '<div class="card" style="margin-bottom:12px">' .
             '<div class="flex-between"><div class="fs-16 fw-700">患者 ' . e($p['name']) . '</div>' .
             '<span class="badge badge-primary">' . e($p['patient_no']) . '</span></div>' .
-            '<div class="fs-13 text-muted mt-4">性别：' . e($p['gender']) . ' ｜ 年龄：' . (int)$p['age'] . '岁 ｜ 身份证：' . e($p['id_card']) . '</div></div>';
+            '<div class="fs-13 text-muted mt-4">性别：' . e($p['gender']) . ' ｜ 年龄：' . age_format($p['birth_date']) . ' ｜ 身份证：' . e($p['id_card']) . '</div></div>';
         if (!$visits) {
             $html .= '<div class="empty">暂无就诊记录</div>';
         }

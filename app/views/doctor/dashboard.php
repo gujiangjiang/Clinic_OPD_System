@@ -245,7 +245,7 @@ function doPatientSearch() {
                 list.map(function (p) {
                     return '<div class="dd-item" style="cursor:pointer" onclick="showPatientHistory(\'' + p.patient_no + '\')">' +
                         '<div class="flex-between"><span class="fw-600">' + p.name + '</span>' +
-                        '<span class="text-muted fs-12">' + p.patient_no + ' ｜ ' + p.gender + '/' + p.age + '岁</span></div></div>';
+                        '<span class="text-muted fs-12">' + p.patient_no + ' ｜ ' + p.gender + '/' + (p.age_fmt || Clinic.validate.formatAge(p.birth_date)) + '</span></div></div>';
                 }).join('');
         },
     });

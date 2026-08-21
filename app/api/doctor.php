@@ -83,7 +83,7 @@ switch ($action) {
         $where .= ' AND r.current_dept_id=' . $deptId;
         $params = array();
         if ($status === 'done') $params[] = today_str();
-        $rows = DB::q('patient', "SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
+        $rows = DB::q('patient', "SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page, p.birth_date AS pbirth
             FROM registrations r LEFT JOIN patients p ON p.patient_no = r.patient_no
             WHERE $where ORDER BY r.visit_seq", $params);
 
@@ -99,7 +99,7 @@ switch ($action) {
                 str_pad((string)$r['visit_seq'], 3, '0', STR_PAD_LEFT) . '</div>';
             $html .= '<div style="min-width:0">' .
                 '<div class="fs-16 fw-700">' . e($r['pname']) .
-                ' <span class="fs-13 text-muted fw-400">' . e($r['pgender']) . ' / ' . (int)$r['page'] . '岁</span>' .
+                ' <span class="fs-13 text-muted fw-400">' . e($r['pgender']) . ' / ' . age_format($r['pbirth'], $r['register_time']) . '</span>' .
                 ($r['is_extra'] ? ' <span class="badge badge-warning" style="font-size:11px">加号</span>' : '') .
                 '</div>' .
                 '<div class="fs-12 text-muted">' . e($r['first_dept_name']) . ' 第' . str_pad((string)$r['visit_seq'], 3, '0', STR_PAD_LEFT) . '号 ｜ 患者ID ' . e($r['patient_no']) . ' ｜ 流水号 ' . e($r['flow_no']) . '</div>' .
@@ -196,7 +196,8 @@ switch ($action) {
                     array($r['patient_no'], $deptId, today_str(), $r['id']));
             }
             return array(
-                'name' => $r['pname'], 'gender' => $r['pgender'], 'age' => (int)$r['page'],
+                'name' => $r['pname'], 'gender' => $r['pgender'],
+                'age_fmt' => age_format($r['pbirth'], $r['register_time']),
                 'visit_seq' => (int)$r['visit_seq'], 'flow_no' => $r['flow_no'],
                 'patient_no' => $r['patient_no'], 'register_time' => $r['register_time'],
                 'is_followup' => $follow > 0 ? 1 : 0,

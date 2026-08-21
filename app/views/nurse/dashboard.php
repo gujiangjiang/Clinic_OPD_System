@@ -61,7 +61,7 @@ function searchPatients() {
                 list.map(function (g) {
                     var v = g.visit, p = g.patient;
                     var name = p ? p.name : '';
-                    var info = p ? (p.gender + ' / ' + p.age + '岁') : '';
+                    var info = p ? (p.gender + ' / ' + (p.age_fmt || Clinic.validate.formatAge(p.birth_date))) : '';
                     return '<div class="card" style="padding:12px 16px;margin-bottom:8px;cursor:pointer" onclick="openVisitDetail(' + v.id + ')">' +
                         '<div class="flex-between">' +
                         '  <span class="fw-600 fs-15">' + name + ' <span class="fs-12 text-muted fw-400">' + info + '</span></span>' +
@@ -159,7 +159,7 @@ function loadPatients() {
                         '<div class="flex-between">' +
                         '<div>' +
                         '  <a href="javascript:void(0)" class="fs-16 fw-700" onclick="Clinic.patient.editModal(\'' + p.patient_no + '\')">' + p.name + '</a>' +
-                        '  <span class="fs-13 text-muted"> ' + p.gender + ' / ' + p.age + '岁</span>' +
+                        '  <span class="fs-13 text-muted"> ' + p.gender + ' / ' + p.age_fmt + '</span>' +
                         '  <span class="badge badge-gray" style="margin-left:6px">' + p.dept_name + ' 第' + String(p.visit_seq).padStart(3, '0') + '号</span></div>' +
                         '<div class="fs-12 text-muted">' + p.flow_no + '</div></div>' +
                         '<div class="flex gap-8 mt-8">' +

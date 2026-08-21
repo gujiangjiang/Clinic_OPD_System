@@ -76,7 +76,7 @@ Clinic.emr = (function () {
             '    <div class="emr-patient-avatar" onclick="' + editModal + '" title="点击修改患者信息（除姓名/性别/身份证外均可修改）">👤</div>' +
             '    <div>' +
             '      <div class="fs-18 fw-700 emr-patient-name" onclick="' + editModal + '" title="点击修改患者信息">' + v.name +
-            '        <span class="badge badge-gray" style="margin-left:8px">' + v.gender + ' / ' + v.age + '岁</span>' +
+            '        <span class="badge badge-gray" style="margin-left:8px">' + v.gender + ' / ' + (v.age_fmt || '') + '</span>' +
             '        <span class="badge ' + (v.dept_type === 'emergency' ? 'badge-danger' : 'badge-primary') +
             '" style="margin-left:4px">' + (v.dept_type === 'emergency' ? '急诊' : '门诊') + '</span>' +
             '      </div>' +
@@ -127,7 +127,7 @@ Clinic.emr = (function () {
         var gridWrap;
         if (vv.dept_type === 'emergency') {
             var lines = [
-                [['姓名', vv.name], ['性别', vv.gender], ['出生日期', p.birth_date], ['年龄', vv.age + '岁']],
+                [['姓名', vv.name], ['性别', vv.gender], ['出生日期', p.birth_date], ['年龄', vv.age_fmt]],
                 [['患者ID', p.patient_id], ['就诊科室', vv.dept_name], ['就诊时间', vv.created_at]],
             ];
             var lineHtml = lines.map(function (row) {
@@ -135,7 +135,7 @@ Clinic.emr = (function () {
             }).join('');
             gridWrap = '<div class="doc-patient-lines">' + lineHtml + '</div>';
         } else {
-            var fields = [['姓名', vv.name], ['性别', vv.gender], ['年龄', vv.age + '岁'], ['患者ID', p.patient_id],
+            var fields = [['姓名', vv.name], ['性别', vv.gender], ['年龄', vv.age_fmt], ['患者ID', p.patient_id],
                ['证件号码', p.id_card], ['出生日期', p.birth_date], ['民族', p.nation || '—'],
                ['职业', p.occupation || '—'], ['婚姻', p.marital || '—'], ['初复诊', vtSelect],
                ['科室', vv.dept_name], ['联系方式', p.phone || '—']];

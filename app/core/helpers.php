@@ -215,6 +215,47 @@ function calc_age($birth) {
     return $age < 0 ? 0 : $age;
 }
 
+/**
+ * 全年龄段医疗格式化年龄（EMR 规范），系统内所有年龄展示统一使用本函数：
+ *   出生 < 24小时   → X小时 / X小时Y分（不足1小时显示 Y分）
+ *   1 ~ 28 天       → X天（新生儿期，不按周换算）
+ *   29天 ~ <12个月  → X月 / X月Y天（天数为0只显示X月；未满1月按天显示）
+ *   1 ~ 5 岁        → X岁Y月（月数为0只显示X岁）
+ *   ≥ 6 岁          → X岁
+ * 约束：不使用周/星期；严禁浮点数；日历精确计算（自动处理大小月/平闰年）；
+ *       目标时间早于出生时间或无法解析时返回 ''（异常防御）。
+ * @param string|int $birth   出生日期/时间（'Y-m-d'、'Y-m-d H:i:s' 或 Unix 时间戳）
+ * @param string|int $target  计算目标时间（默认当前；可传就诊时间如 register_time）
+ * @return string
+ */
+function age_format($birth, $target = null) {
+    if ($birth === '' || $birth === null) return '';
+    $b = date_create(is_numeric($birth) ? '@' . $birth : (string)$birth);
+    $t = $target === null || $target === ''
+        ? date_create()
+        : date_create(is_numeric($target) ? '@' . $target : (string)$target);
+    if (!$b || !$t || $t < $b) return '';
+    $secs = $t->getTimestamp() - $b->getTimestamp();
+    if ($secs < 86400) {
+        $h = intdiv($secs, 3600);
+        $m = intdiv($secs % 3600, 60);
+        if ($h > 0) return $m > 0 ? $h . '小时' . $m . '分' : $h . '小时';
+        return $m . '分';
+    }
+    $iv = date_diff($b, $t);
+    $days = (int)$iv->format('%a'); // 总天数
+    $monthsTotal = (int)$iv->y * 12 + (int)$iv->m;
+    if ($days <= 28) return $days . '天';
+    if ($monthsTotal < 12) {
+        if ($monthsTotal < 1) return $days . '天';
+        return (int)$iv->d > 0 ? $monthsTotal . '月' . $iv->d . '天' : $monthsTotal . '月';
+    }
+    if ((int)$iv->y < 6) {
+        return (int)$iv->m > 0 ? $iv->y . '岁' . $iv->m . '月' : $iv->y . '岁';
+    }
+    return $iv->y . '岁';
+}
+
 /* ============================================================
  * 拼音首字母（用于 ICD 诊断拼音检索）
  * 说明：内置常见医学/常用字映射；命中率之外的字符忽略。

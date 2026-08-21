@@ -95,6 +95,7 @@ switch ($action) {
                 'name' => $patient['name'],
                 'gender' => $patient['gender'],
                 'age' => (int)$patient['age'],
+                'age_fmt' => age_format($patient['birth_date'], $visit['register_time']),
                 'dept_type' => $deptType,
                 'dept_name' => $deptName,
                 'current_dept_id' => (int)$visit['current_dept_id'],

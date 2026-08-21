@@ -38,9 +38,9 @@ switch ($action) {
                 ($status === 'dispensed' ? '<th>发药药师</th><th>发药时间</th>' : '') .
                 '<th>操作</th></tr></thead><tbody>';
             foreach ($rows as $r) {
-                $p = DB::one('patient', 'SELECT name, gender, age FROM patients WHERE patient_no=?', array($r['patient_no']));
+                $p = DB::one('patient', 'SELECT name, gender, birth_date FROM patients WHERE patient_no=?', array($r['patient_no']));
                 $html .= '<tr>' .
-                    '<td class="fw-600">' . e($p ? $p['name'] : '') . ' <span class="fs-12 text-muted fw-400">' . e($p ? $p['gender'] : '') . '/' . (int)($p ? $p['age'] : 0) . '岁</span></td>' .
+                    '<td class="fw-600">' . e($p ? $p['name'] : '') . ' <span class="fs-12 text-muted fw-400">' . e($p ? $p['gender'] : '') . '/' . ($p ? age_format($p['birth_date']) : '—') . '</span></td>' .
                     '<td>' . e($r['item_name']) . (!empty($r['company_short']) ? '（' . e($r['company_short']) . '）' : '') . '</td>' .
                     '<td>' . e($r['order_no']) . '</td>' .
                     '<td>' . e($r['flow_no']) . '</td>' .

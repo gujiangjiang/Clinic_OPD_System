@@ -20,6 +20,7 @@ switch ($action) {
         $visit['name'] = $row['patient']['name'];
         $visit['gender'] = $row['patient']['gender'];
         $visit['age'] = $row['patient']['age'];
+        $visit['birth_date'] = $row['patient']['birth_date'];
         $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($visit['first_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
         $visit['status_name'] = visit_status_name($visit['status']);
@@ -69,6 +70,7 @@ switch ($action) {
         $visit['name'] = $row['patient']['name'];
         $visit['gender'] = $row['patient']['gender'];
         $visit['age'] = $row['patient']['age'];
+        $visit['birth_date'] = $row['patient']['birth_date'];
         $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
         $record = DB::one('medical', 'SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
@@ -89,6 +91,7 @@ switch ($action) {
         $visit['name'] = $row['patient']['name'];
         $visit['gender'] = $row['patient']['gender'];
         $visit['age'] = $row['patient']['age'];
+        $visit['birth_date'] = $row['patient']['birth_date'];
         $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
         json_ok(array('html' => pt_certificate($visit, $row['patient'], $record, $cert, $cert['doctor_name'])));
@@ -109,6 +112,7 @@ switch ($action) {
         $visit['name'] = $row && $row['patient'] ? $row['patient']['name'] : '';
         $visit['gender'] = $row && $row['patient'] ? $row['patient']['gender'] : '';
         $visit['age'] = $row && $row['patient'] ? $row['patient']['age'] : '';
+        $visit['birth_date'] = $row && $row['patient'] ? $row['patient']['birth_date'] : '';
         json_ok(array('html' => pt_report($report, $result, $item, $visit)));
         break;
 

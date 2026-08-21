@@ -29,9 +29,9 @@ switch ($action) {
             $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
                 '<th>患者</th><th>检验项目</th><th>流水号</th><th>开单医生</th><th>开单时间</th><th>操作</th></tr></thead><tbody>';
             foreach ($rows as $r) {
-                $p = DB::one('patient', 'SELECT name, gender, age FROM patients WHERE patient_no=?', array($r['patient_no']));
+                $p = DB::one('patient', 'SELECT name, gender, birth_date FROM patients WHERE patient_no=?', array($r['patient_no']));
                 $html .= '<tr>' .
-                    '<td class="fw-600">' . e($p ? $p['name'] : '') . ' <span class="fs-12 text-muted fw-400">' . e($p ? $p['gender'] : '') . '/' . (int)($p ? $p['age'] : 0) . '岁</span></td>' .
+                    '<td class="fw-600">' . e($p ? $p['name'] : '') . ' <span class="fs-12 text-muted fw-400">' . e($p ? $p['gender'] : '') . '/' . ($p ? age_format($p['birth_date']) : '—') . '</span></td>' .
                     '<td>' . e($r['item_name']) . '</td>' .
                     '<td>' . e($r['flow_no']) . '</td>' .
                     '<td>' . e($r['doctor_name']) . '</td>' .

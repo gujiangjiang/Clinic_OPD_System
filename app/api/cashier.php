@@ -288,7 +288,7 @@ switch ($action) {
         $visit = $row['visit'];
         $html = '<div class="card" style="padding:14px;margin-bottom:12px" data-vid="' . (int)$visitId . '">' .
             '<div class="flex-between"><div><span class="fw-700 fs-16">' . e($row['patient']['name']) . '</span> ' .
-            '<span class="text-muted fs-13">' . e($row['patient']['gender']) . ' / ' . (int)$row['patient']['age'] . '岁</span></div>' .
+            '<span class="text-muted fs-13">' . e($row['patient']['gender']) . ' / ' . age_format($row['patient']['birth_date'], $visit['register_time']) . '</span></div>' .
             '<span class="badge badge-primary">' . e($visit['flow_no']) . '</span></div>' .
             '<div class="fs-13 text-muted mt-4">患者ID ' . e($visit['patient_no']) . ' ｜ 首次科室 ' . e($visit['first_dept_name']) .
             ' 第' . str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) . '号 ｜ 挂号 ' . e(substr($visit['register_time'], 0, 16)) . '</div></div>';

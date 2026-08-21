@@ -65,20 +65,15 @@ Router::title('挂号收费');
 </div>
 
 <script>
-var REG = { id_card: '', patient_no: '', visit_id: 0, dept: null };
+var REG = { id_card: '', patient_no: '', visit_id: 0, dept: null, age_years: 0 };
 
-/* ---------- 年龄：按出生日期自动计算（只读，不可手动输入） ---------- */
-function calcAge(birth) {
-    var m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(birth || '');
-    if (!m) return '';
-    var b = new Date(+m[1], +m[2] - 1, +m[3]);
-    var t = new Date();
-    var age = t.getFullYear() - b.getFullYear();
-    if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) age--;
-    return age < 0 ? '' : String(age);
-}
+/* ---------- 年龄：按出生日期自动计算（只读，不可手动输入） ----------
+ * 展示用 EMR 全年龄段格式（Clinic.validate.formatAge），
+ * 入库快照另存周岁数字（REG.age_years，由 ageFromBirth 计算） */
 function recalcAge() {
-    document.getElementById('age').value = calcAge(document.getElementById('birth').value);
+    var b = document.getElementById('birth').value;
+    document.getElementById('age').value = Clinic.validate.formatAge(b);
+    REG.age_years = Clinic.validate.ageFromBirth(b);
 }
 
 /* 出生日期：只读，点击弹出日历选择（拒绝手动输入避免格式错误；不可选未来日期） */
@@ -206,7 +201,7 @@ function submitRegister(d) {
         name: document.getElementById('name').value.trim(),
         gender: document.getElementById('gender').value,
         birth_date: document.getElementById('birth').value,
-        age: document.getElementById('age').value.replace('岁', ''),
+        age: REG.age_years || 0,
         ethnicity: document.getElementById('ethnicity').value,
         marital: document.getElementById('marital').value,
         occupation: document.getElementById('occupation').value,

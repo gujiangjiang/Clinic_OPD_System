@@ -36,7 +36,7 @@ switch ($action) {
             $where .= ' AND r.current_dept_id IN (' . implode(',', array_fill(0, count($deptIds), '?')) . ')';
             $params = array_merge($params, $deptIds);
         }
-        $rows = DB::q('patient', "SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page, p.id_card AS pid_card
+        $rows = DB::q('patient', "SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page, p.id_card AS pid_card, p.birth_date AS pbirth
             FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
             WHERE $where ORDER BY r.visit_seq", $params);
         json_ok(array('list' => array_map(function ($r) {
@@ -44,7 +44,7 @@ switch ($action) {
                 'visit_id' => (int)$r['id'],
                 'name' => $r['pname'],
                 'gender' => $r['pgender'],
-                'age' => (int)$r['page'],
+                'age_fmt' => age_format($r['pbirth'], $r['register_time']),
                 'id_card' => $r['pid_card'],
                 'patient_no' => $r['patient_no'],
                 'flow_no' => $r['flow_no'],
@@ -68,9 +68,9 @@ switch ($action) {
                 '<th>患者</th><th>处置项目</th><th>流水号</th><th>科室</th><th>开单医生</th><th>开单时间</th><th>操作</th></tr></thead><tbody>';
             foreach ($rows as $r) {
                 $v = DB::one('patient', 'SELECT current_dept_name FROM registrations WHERE id=?', array($r['visit_id']));
-                $p = DB::one('patient', 'SELECT name, gender, age FROM patients WHERE patient_no=?', array($r['patient_no']));
+                $p = DB::one('patient', 'SELECT name, gender, birth_date FROM patients WHERE patient_no=?', array($r['patient_no']));
                 $html .= '<tr>' .
-                    '<td class="fw-600">' . e($p ? $p['name'] : '') . ' <span class="fs-12 text-muted fw-400">' . e($p ? $p['gender'] : '') . '/' . (int)($p ? $p['age'] : 0) . '岁</span></td>' .
+                    '<td class="fw-600">' . e($p ? $p['name'] : '') . ' <span class="fs-12 text-muted fw-400">' . e($p ? $p['gender'] : '') . '/' . ($p ? age_format($p['birth_date']) : '—') . '</span></td>' .
                     '<td>' . e($r['item_name']) . ' ×' . (int)$r['quantity'] . '</td>' .
                     '<td>' . e($r['flow_no']) . '</td>' .
                     '<td>' . e($v ? $v['current_dept_name'] : '') . '</td>' .
@@ -131,7 +131,7 @@ switch ($action) {
         $html = '<div class="card" style="padding:14px;margin-bottom:12px">' .
             '<div class="flex-between">' .
             '  <div><a href="javascript:void(0)" class="fw-700 fs-16" onclick="Clinic.patient.editModal(\'' . e($p['patient_no']) . '\')">' . e($p['name']) . '</a>' .
-            '  <span class="text-muted fs-13"> ' . e($p['gender']) . ' / ' . (int)$p['age'] . '岁</span>' .
+            '  <span class="text-muted fs-13"> ' . e($p['gender']) . ' / ' . age_format($p['birth_date'], $visit['register_time']) . '</span>' .
             '  <span class="badge badge-gray" style="margin-left:6px">' . e($visit['current_dept_name']) . ' 第' . str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) . '号</span></div>' .
             '  <span class="badge badge-primary">' . e($visit['flow_no']) . '</span></div>' .
             '<div class="fs-12 text-muted mt-4">患者ID ' . e($visit['patient_no']) . ' ｜ 首次科室 ' . e($visit['first_dept_name']) . ' ｜ 挂号 ' . e(substr($visit['register_time'], 0, 16)) . ' ｜ 状态 ' . e(visit_status_name($visit['status'])) . '</div>' .
@@ -174,10 +174,10 @@ switch ($action) {
             $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
                 '<th>患者</th><th>医嘱</th><th>流水号</th><th>开单医生</th><th>开单时间</th><th>状态</th><th>操作</th></tr></thead><tbody>';
             foreach ($rows as $r) {
-                $p = DB::one('patient', 'SELECT name, gender, age FROM patients WHERE patient_no=?', array($r['patient_no']));
+                $p = DB::one('patient', 'SELECT name, gender, birth_date FROM patients WHERE patient_no=?', array($r['patient_no']));
                 $v = DB::one('patient', 'SELECT current_dept_name, visit_seq FROM registrations WHERE id=?', array($r['visit_id']));
                 $html .= '<tr>' .
-                    '<td class="fw-600">' . e($p ? $p['name'] : '') . ' <span class="fs-12 text-muted fw-400">' . e($p ? $p['gender'] : '') . '/' . (int)($p ? $p['age'] : 0) . '岁</span><br>' .
+                    '<td class="fw-600">' . e($p ? $p['name'] : '') . ' <span class="fs-12 text-muted fw-400">' . e($p ? $p['gender'] : '') . '/' . ($p ? age_format($p['birth_date']) : '—') . '</span><br>' .
                     '<span class="fs-12 text-muted">' . e($v ? $v['current_dept_name'] : '') . ' 第' . str_pad((string)($v ? $v['visit_seq'] : 0), 3, '0', STR_PAD_LEFT) . '号</span></td>' .
                     '<td>' . e($r['item_name']) . ' ×' . (int)$r['quantity'] . ' <span class="fs-12 text-muted">' . e($r['route_name']) . '</span></td>' .
                     '<td>' . e($r['flow_no']) . '</td>' .

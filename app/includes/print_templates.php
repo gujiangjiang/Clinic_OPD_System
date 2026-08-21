@@ -43,11 +43,28 @@ function pt_header($title) {
     return $h;
 }
 
+/**
+ * 打印文档年龄文本（EMR 全年龄段格式）：
+ * 优先 出生日期 + 就诊时间 精确格式化；缺失/异常时回退快照整数年龄
+ */
+function pt_age_text($patient, $visit) {
+    $birth = isset($patient['birth_date']) && $patient['birth_date'] !== '' ? $patient['birth_date']
+        : (isset($visit['birth_date']) && $visit['birth_date'] !== '' ? $visit['birth_date'] : '');
+    if ($birth !== '') {
+        $target = isset($visit['register_time']) && $visit['register_time'] !== '' ? $visit['register_time'] : null;
+        $s = age_format($birth, $target);
+        if ($s !== '') return $s;
+    }
+    if (isset($visit['age']) && $visit['age'] !== '' && $visit['age'] !== null) return (int)$visit['age'] . '岁';
+    if (isset($patient['age']) && $patient['age'] !== '' && $patient['age'] !== null) return (int)$patient['age'] . '岁';
+    return '';
+}
+
 /** 患者信息行（姓名/性别/年龄/患者ID/流水号/科室等） */
 function pt_patient_info($visit, $patient) {
     $name = isset($visit['name']) ? $visit['name'] : (isset($patient['name']) ? $patient['name'] : '');
     $gender = isset($visit['gender']) ? $visit['gender'] : '';
-    $age = isset($visit['age']) ? $visit['age'] . '岁' : '';
+    $age = pt_age_text($patient, $visit);
     $items = array(
         '姓名' => $name,
         '性别' => $gender,
@@ -86,7 +103,7 @@ function pt_receipt($visit, $patient) {
     $html .= pt_ticket_row('门诊号', $code);
     $html .= pt_ticket_row('性别', isset($visit['gender']) ? $visit['gender'] : '');
     $html .= pt_ticket_row('出生日期', isset($patient['birth_date']) ? $patient['birth_date'] : '');
-    $html .= pt_ticket_row('年龄', isset($patient['age']) ? (int)$patient['age'] . ' 岁' : '');
+    $html .= pt_ticket_row('年龄', pt_age_text($patient, $visit));
     $html .= pt_ticket_row('挂号科室', isset($visit['first_dept_name']) ? $visit['first_dept_name'] .
         (isset($visit['dept_type']) && $visit['dept_type'] === 'emergency' ? ' (急诊)' : '') : '');
     $html .= pt_ticket_row('就诊序号', isset($visit['visit_seq']) ? str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) : '');
@@ -164,7 +181,7 @@ function pt_order($order, $items, $title) {
         $cell('姓名', $patient ? $patient['name'] : '') .
         $cell('性别', $patient ? $patient['gender'] : '') .
         $cell('出生日期', $patient ? $patient['birth_date'] : '') .
-        $cell('年龄', $patient ? $patient['age'] . '岁' : '') . '</div>' .
+        $cell('年龄', $patient ? pt_age_text($patient, null) : '') . '</div>' .
         '<div class="print-info-line">' .
         $cell('患者ID', $order['patient_no']) .
         $cell('流水号', $order['flow_no']) .
@@ -332,7 +349,7 @@ function pt_record($visit, $patient, $record, $vitals) {
     $emergency = isset($visit['dept_type']) && $visit['dept_type'] === 'emergency';
     $name = isset($visit['name']) ? $visit['name'] : (isset($patient['name']) ? $patient['name'] : '');
     $gender = isset($visit['gender']) ? $visit['gender'] : '';
-    $age = isset($visit['age']) ? $visit['age'] . '岁' : '';
+    $age = pt_age_text($patient, $visit);
     $cell = function ($k, $val) {
         $val = ($val !== '' && $val !== null) ? $val : '—';
         return '<span class="print-info-cell"><strong>' . e($k) . '</strong>：' . e($val) . '</span>';
