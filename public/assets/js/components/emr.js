@@ -97,9 +97,6 @@ Clinic.emr = (function () {
         var vv = d.visit || {};   // 就诊信息（注意：v 为生命体征，患者信息网格必须用 vv）
         var p = d.patient || {};
         var tplBtn = '<button type="button" class="btn btn-outline btn-sm" id="tplBtn" onclick="Clinic.emr.openTemplates()">📋 病历模板</button>';
-        var consciousness = ['清醒', '嗜睡', '意识模糊', '昏睡', '昏迷', '谵妄']
-            .map(function (c) { return '<option value="' + c + '"' + (r.consciousness === c ? ' selected' : '') + '>' + c + '</option>'; })
-            .join('');
 
         // 医院抬头与标题（与打印版式一致，所见即所得）
         var hosp = document.body.getAttribute('data-hosp') || '';
@@ -142,16 +139,30 @@ Clinic.emr = (function () {
             gridWrap = '<div class="doc-patient-grid">' + fields.map(cellHtml).join('') + '</div>';
         }
 
-        // 留观下拉（是/否，与意识状态下拉样式一致）
-        var obsOpts = '<option value="0"' + (r.is_observation == 1 ? '' : ' selected') + '>否</option>' +
-                      '<option value="1"' + (r.is_observation == 1 ? ' selected' : '') + '>是</option>';
-
         // 病历文档页头右上角条形码（与挂号凭条/打印预览一致：门诊号 flow_no，Code 128）
         var bcSrc = document.getElementById('emrBarcodeSrc');
         var bcHtml = (bcSrc && bcSrc.innerHTML)
             ? '<div class="doc-barcode">' + bcSrc.innerHTML +
               '<div class="doc-barcode-text">' + vv.visit_no + '</div></div>'
             : '';
+
+        // 病历正文：结构化字段编辑器（[] 占位字段引擎，静态标签不可编辑，
+        // 保存时仅收集字段内部文字；生命体征/意识状态两节由本函数外部构建注入）
+        var vitalSec = document.createElement('div');
+        vitalSec.className = 'doc-sec doc-sec-vital';
+        vitalSec.setAttribute('onclick', 'Clinic.emr.openVitals()');
+        vitalSec.setAttribute('title', '点击编辑生命体征');
+        vitalSec.innerHTML = '<span class="doc-sec-label">生命体征</span>' +
+            '<span class="doc-sec-body" id="vitalDisplay">' + vitalDisplayText(v) + '</span>';
+
+        var consciousness = ['清醒', '嗜睡', '意识模糊', '昏睡', '昏迷', '谵妄'];
+        var midNode = document.createElement('div');
+        midNode.className = 'doc-sec';
+        midNode.innerHTML = '<span class="doc-sec-label">意识状态</span>' +
+            '<select class="select" id="consciousness"><option value="">请选择</option>' +
+            consciousness.map(function (c) {
+                return '<option value="' + c + '"' + (r.consciousness === c ? ' selected' : '') + '>' + c + '</option>';
+            }).join('') + '</select>';
 
         document.getElementById('emrCard').innerHTML =
             '<div class="emr-doc">' +
@@ -165,46 +176,7 @@ Clinic.emr = (function () {
             '</div>' +
             gridWrap +
             '<div class="doc-line"></div>' +
-            '<div class="doc-body">' +
-
-            // 病历正文：所有小节纵向排列（每节一行），输入框接在标题后方：主诉：XXXX（所见即所得，与打印版式一致）
-            '<div class="doc-sec"><span class="doc-sec-label">主诉<span class="req">*</span></span>' +
-            '  <div class="rich-editor" id="ccEditor"></div></div>' +
-            '<div class="doc-sec"><span class="doc-sec-label">现病史<span class="req">*</span></span>' +
-            '  <div class="rich-editor" id="piEditor"></div></div>' +
-            '<div class="doc-sec"><span class="doc-sec-label">既往史</span>' +
-            '  <div class="rich-editor" id="phEditor"></div></div>' +
-            '<div class="doc-sec"><span class="doc-sec-label">过敏史</span>' +
-            '  <div class="rich-editor" id="ahEditor"></div></div>' +
-
-            // 生命体征：位于过敏史下方、意识状态上方；点击弹出编辑（与护士站双向同步），无多余提示/按钮
-            '<div class="doc-sec doc-sec-vital" onclick="Clinic.emr.openVitals()" title="点击编辑生命体征">' +
-            '  <span class="doc-sec-label">生命体征</span>' +
-            '  <span class="doc-sec-body" id="vitalDisplay">' + vitalDisplayText(v) + '</span></div>' +
-
-            '<div class="doc-sec"><span class="doc-sec-label">意识状态</span>' +
-            '  <select class="select" id="consciousness"><option value="">请选择</option>' + consciousness + '</select></div>' +
-            '<div class="doc-sec"><span class="doc-sec-label">体格检查</span>' +
-            '  <div class="rich-editor" id="peEditor"></div></div>' +
-
-            '<div class="doc-sec"><span class="doc-sec-label">初步诊断<span class="req">*</span></span>' +
-            '  <div class="flex gap-8" style="flex:1;min-width:0">' +
-            '    <input type="text" class="input" id="diagInput" style="flex:1" placeholder="点击输入，支持疾病名称/ICD编码/拼音检索" autocomplete="off">' +
-            '    <input type="text" class="input" id="diagCode" style="width:130px" placeholder="ICD10编码" readonly>' +
-            '  </div></div>' +
-
-            // 已开项目所见即所得：辅助检查（检验/检查）+ 门诊处置（处置/处方），与打印版式一致，
-            // 点击项目弹出流程弹窗；内容由 loadOrders 拉取后填充
-            '<div class="doc-sec"><span class="doc-sec-label">辅助检查</span>' +
-            '  <div class="doc-sec-body" id="docAuxExam">—</div></div>' +
-            '<div class="doc-sec"><span class="doc-sec-label">门诊处置</span>' +
-            '  <div class="doc-sec-body" id="docClinicTreat">—</div></div>' +
-
-            '<div class="doc-sec"><span class="doc-sec-label">留观</span>' +
-            '  <select class="select" id="isObs">' + obsOpts + '</select></div>' +
-            '<div class="doc-sec"><span class="doc-sec-label">嘱托</span>' +
-            '  <div class="rich-editor" id="advEditor"></div></div>' +
-
+            '<div class="doc-body" id="docBody"></div>' +
             // 病历正文右下角医生签名（页脚仍保留 医生：医生（工号 0003）｜职称，互不影响）
             '<div class="doc-body-sign">医生：' + r.doctor_name + '</div>' +
             '</div>' +
@@ -217,16 +189,12 @@ Clinic.emr = (function () {
             '</div>' +
             '</div>';
 
-        // 初始化编辑器
-        Clinic.editor.create('#ccEditor', '请输入主诉…').set(r.chief_complaint);
-        Clinic.editor.create('#piEditor', '请输入现病史…').set(r.present_illness);
-        Clinic.editor.create('#phEditor', '请输入既往史…').set(r.past_history);
-        Clinic.editor.create('#ahEditor', '请输入过敏史…').set(r.allergy_history);
-        Clinic.editor.create('#peEditor', '请输入体格检查…').set(r.physical_exam);
-        Clinic.editor.create('#advEditor', '请输入嘱托…').set(r.advice);
-
-        // 初始化诊断联动
-        initDiagnosis(r.initial_diagnosis, r.diagnosis_code);
+        // 结构化字段编辑器渲染（[] 占位字段引擎）
+        Clinic.emrEditor.render(document.getElementById('docBody'), r.emr || {}, {
+            readonly: d.visit && d.visit.status === 'finished',
+            beforeVitals: vitalSec,
+            midNode: midNode,
+        });
 
         // 诊毕：整份病历置为只读（所有输入框禁用 + 编辑器不可编辑 + 写操作按钮隐藏）
         if (d.visit && d.visit.status === 'finished') {
@@ -243,12 +211,8 @@ Clinic.emr = (function () {
             card.querySelectorAll('input, select, textarea').forEach(function (el) {
                 el.disabled = true;
             });
-            card.querySelectorAll('.rich-editor').forEach(function (el) {
-                el.contentEditable = 'false';
-                el.classList.add('readonly');
-            });
-            // 关闭诊断搜索下拉
-            if (window.__diagSelector) window.__diagSelector.close();
+            // 结构化字段编辑器只读（[] 字段不可再编辑）
+            Clinic.emrEditor.setReadonly(true);
             // 隐藏病历模板按钮（写操作）
             var tpl = document.getElementById('tplBtn');
             if (tpl) tpl.style.display = 'none';
@@ -353,93 +317,36 @@ Clinic.emr = (function () {
     }
 
     /**
-     * 初始化诊断与 ICD10 联动
-     */
-    function initDiagnosis(diagName, diagCode) {
-        var input = document.getElementById('diagInput');
-        var codeInput = document.getElementById('diagCode');
-        input.value = diagName || '';
-        codeInput.value = diagCode || '';
-
-        // 搜索下拉：选中后编码固定，删空文字则编码清空并重新显示下拉
-        window.__diagSelector = Clinic.selector.bind(input, [], function (value, opt) {
-            input.value = opt.label;
-            codeInput.value = opt.value;
-        }, { placeholder: '搜索诊断' });
-
-        // 输入时动态搜索 ICD10（码/名称/拼音，模糊搜索）
-        // 请求序号：只采纳最后一次请求的结果，丢弃过期响应，
-        // 避免快速输入时旧关键字（如「健」）的响应后到覆盖新关键字（如「健康」）的结果。
-        var timer = null;
-        var seq = 0;
-        input.addEventListener('input', function () {
-            var kw = input.value.trim();
-            if (kw === '') {
-                codeInput.value = '';   // 删空则编码清空
-                seq++;                  // 使在途请求全部失效
-                if (window.__diagSelector) window.__diagSelector.close();
-                return;
-            }
-            clearTimeout(timer);
-            var mySeq = ++seq;
-            timer = setTimeout(function () {
-                Clinic.get('/api/icd10?action=search&kw=' + encodeURIComponent(kw), null, {
-                    onSuccess: function (j) {
-                        if (mySeq !== seq) return;   // 过期响应，丢弃
-                        var opts = j.data.list.map(function (x) {
-                            return { label: x.diagnosis_name, value: x.diagnosis_code,
-                                     sub: x.diagnosis_code + ' ' + x.pinyin };
-                        });
-                        // setOptions 会在面板打开时立即重绘，搜索结果即时显示
-                        window.__diagSelector.setOptions(opts);
-                    },
-                });
-            }, 250);
-        });
-    }
-
-    /**
      * 渲染病历正文 辅助检查 / 门诊处置（所见即所得，与打印版式一致）
      * 辅助检查：检验+检查项目，仅显示名称，点击弹出流程弹窗
      * 门诊处置：处置项目不换行显示名称+数量；处方每行一个药品（名称/剂量/用法/途径/数量）
      */
     function renderDocOrders(list) {
-        var auxExam = document.getElementById('docAuxExam');
-        var clinicTreat = document.getElementById('docClinicTreat');
-        if (!auxExam && !clinicTreat) return;
-        var chip = function (orderId, text) {
-            return '<span class="doc-order-chip" onclick="viewOrderFlow(' + orderId + ')" title="点击查看流程">' + text + '</span>';
-        };
         var aux = [];
         var proc = [];
         var rxs = [];
         list.forEach(function (o) {
             // 已退费/已取消的开单不再计入病历内容
             if (o.status === 'refunded' || o.status === 'cancelled') return;
-            var oid = o.id;
             o.items.forEach(function (it) {
                 if (o.order_type === 'lab' || o.order_type === 'imaging') {
-                    aux.push(chip(oid, it.item_name));
+                    aux.push(it.item_name);
                 } else if (o.order_type === 'procedure') {
-                    proc.push(chip(oid, it.item_name + '×' + it.quantity));
+                    proc.push(it.item_name + '×' + it.quantity);
                 } else if (o.order_type === 'prescription') {
                     // 处方直显：名称　剂量　用法　途径　×数量（不加提示词，简洁直观）
                     var parts = [];
                     if (it.single_dose) parts.push(it.single_dose);
                     if (it.frequency_name) parts.push(it.frequency_name);
                     if (it.route_name) parts.push(it.route_name);
-                    rxs.push('<div class="doc-rx-line" onclick="viewOrderFlow(' + oid + ')" title="点击查看流程">' +
-                        it.item_name + (parts.length ? '　' + parts.join('　') : '') + '　×' + it.quantity + '</div>');
+                    rxs.push(it.item_name + (parts.length ? '　' + parts.join('　') : '') + '　×' + it.quantity);
                 }
             });
         });
-        if (auxExam) auxExam.innerHTML = aux.length ? aux.join(' ') : '—';
-        if (clinicTreat) {
-            var inner = '';
-            if (proc.length) inner += '<div class="doc-treat-proc">' + proc.join(' ') + '</div>';
-            if (rxs.length) inner += rxs.join('');
-            clinicTreat.innerHTML = inner || '—';
-        }
+        // 结构化编辑器自动段：已开检验/检查名（逗号分隔）、处方行（一行一个）、处置项（含数量）
+        Clinic.emrEditor.setAuto('aux_orders', aux.join('，'), aux.length > 0);
+        Clinic.emrEditor.setAuto('rx_lines', rxs.map(function (l) { return '<div class="ef-rx-line">' + l + '</div>'; }).join(''), rxs.length > 0);
+        Clinic.emrEditor.setAuto('disp_items', proc.join('，'), proc.length > 0);
     }
 
     /**
@@ -506,31 +413,23 @@ Clinic.emr = (function () {
     }
 
     /**
-     * 保存病历
+     * 保存病历（结构化：仅提交完整 emr_data JSON 对象）
      * @param {boolean} finish 是否诊毕
      */
     function save(finish) {
-        var chief = document.getElementById('ccEditor').innerText.trim();
-        var present = document.getElementById('piEditor').innerText.trim();
-        var diag = document.getElementById('diagInput').value.trim();
-        if (!chief) { Clinic.toast.warning('请填写主诉（必填）'); return; }
-        if (!present) { Clinic.toast.warning('请填写现病史（必填）'); return; }
-        if (!diag) { Clinic.toast.warning('请填写初步诊断（必填）'); return; }
+        var emr = Clinic.emrEditor.collect();
+        var cc = emr.chief_complaint || {};
+        var pi = emr.history_present || {};
+        if (!(cc.symptom || '').trim()) { Clinic.toast.warning('请填写主诉（必填）'); return; }
+        if (!(pi.content || '').trim()) { Clinic.toast.warning('请填写现病史（必填）'); return; }
+        if (!emr.diagnoses || !emr.diagnoses.length) { Clinic.toast.warning('请添加初步诊断（必填）'); return; }
 
         var data = {
             action: 'save',
             visit_id: document.getElementById('visitId').value,
-            chief_complaint: document.getElementById('ccEditor').innerHTML,
-            present_illness: document.getElementById('piEditor').innerHTML,
-            past_history: document.getElementById('phEditor').innerHTML,
-            allergy_history: document.getElementById('ahEditor').innerHTML,
-            physical_exam: document.getElementById('peEditor').innerHTML,
-            consciousness: document.getElementById('consciousness').value,
-            initial_diagnosis: diag,
-            diagnosis_code: document.getElementById('diagCode').value,
-            is_observation: document.getElementById('isObs').value === '1' ? 1 : 0,
+            emr_data: JSON.stringify(emr),
+            consciousness: document.getElementById('consciousness') ? document.getElementById('consciousness').value : '',
             visit_type: document.getElementById('visitType') ? document.getElementById('visitType').value : '初诊',
-            advice: document.getElementById('advEditor').innerHTML,
         };
         if (finish) data.finish = 1;
         Clinic.ajax('/api/record', data, {
@@ -539,17 +438,9 @@ Clinic.emr = (function () {
                 document.getElementById('saveStatus').textContent = '已保存 ' + new Date().toLocaleTimeString();
                 // 同步本地缓存：保存成功后无需刷新页面，开检验/检查/处置/处方与打印病历立即生效
                 if (DATA) {
-                    DATA.record.chief_complaint = data.chief_complaint;
-                    DATA.record.present_illness = data.present_illness;
-                    DATA.record.past_history = data.past_history;
-                    DATA.record.allergy_history = data.allergy_history;
-                    DATA.record.physical_exam = data.physical_exam;
+                    DATA.record.emr = emr;
                     DATA.record.consciousness = data.consciousness;
-                    DATA.record.initial_diagnosis = diag;
-                    DATA.record.diagnosis_code = data.diagnosis_code;
-                    DATA.record.is_observation = data.is_observation;
                     DATA.record.visit_type = data.visit_type;
-                    DATA.record.advice = data.advice;
                     DATA.record.status = finish ? 'done' : 'draft';
                     var now = fmtDateTime();
                     DATA.record.updated_at = now;
@@ -609,15 +500,36 @@ Clinic.emr = (function () {
     }
 
     /**
-     * 应用模板内容到编辑器
+     * 应用模板内容到编辑器（旧模板为扁平 HTML 文本，剥离标签后
+     * 填入对应结构化字段：主诉症状/现病史内容/既往史细节/过敏史）
      */
     function applyTemplate(t) {
         var c = {};
         try { c = JSON.parse(t.content || '{}'); } catch (e) { c = {}; }
-        if (c.chief_complaint) document.getElementById('ccEditor').innerHTML = c.chief_complaint;
-        if (c.present_illness) document.getElementById('piEditor').innerHTML = c.present_illness;
-        if (c.past_history) document.getElementById('phEditor').innerHTML = c.past_history;
-        if (c.allergy_history) document.getElementById('ahEditor').innerHTML = c.allergy_history;
+        var strip = function (s) {
+            var d = document.createElement('div');
+            d.innerHTML = s || '';
+            return d.innerText.trim();
+        };
+        var patch = {};
+        var ccText = strip(c.chief_complaint);
+        if (ccText) patch.chief_complaint = { symptom: ccText };
+        var piText = strip(c.present_illness);
+        if (piText) patch.history_present = { content: piText };
+        var phText = strip(c.past_history);
+        if (phText) patch.past_history = { type: '承认', detail: phText };
+        var ahText = strip(c.allergy_history);
+        if (ahText) patch.allergies = ahText;
+        // 合并进当前数据并重渲染字段值
+        var cur = Clinic.emrEditor.collect();
+        Object.keys(patch).forEach(function (k) {
+            if (typeof patch[k] === 'object') {
+                cur[k] = Object.assign(cur[k] || {}, patch[k]);
+            } else {
+                cur[k] = patch[k];
+            }
+        });
+        Clinic.emrEditor.set(cur);
     }
 
     /**
@@ -677,9 +589,10 @@ Clinic.emr = (function () {
             Clinic.toast.warning('本次就诊已开具过诊断证明，不可重复开具');
             return;
         }
-        var cc = document.getElementById('ccEditor').innerText.trim();
-        var pi = document.getElementById('piEditor').innerText.trim();
-        var diag = document.getElementById('diagInput').value.trim();
+        var emr = Clinic.emrEditor.collect();
+        var cc = (emr.chief_complaint && emr.chief_complaint.symptom || '').trim();
+        var pi = (emr.history_present && emr.history_present.content || '').trim();
+        var diag = (emr.diagnoses || []).length;
         if (!cc || !pi || !diag) {
             Clinic.toast.warning('请先完善病历（主诉、现病史、诊断）');
             return;
