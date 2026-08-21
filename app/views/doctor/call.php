@@ -15,9 +15,10 @@
 Router::title('叫号屏幕');
 $hosp  = setting('hospital_name', '门诊一体化系统');
 $hosp2 = setting('hospital_name2', '');
-$logo  = setting('logo', '');
-$favicon = $logo !== '' ? '<link rel="icon" href="' . e($logo) . '">' : '';
-$logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
+// LOGO 以 base64 Data URI 内联显示：不暴露文件 URL，且不受页面层级影响
+$logoData = img_data(setting('logo', ''));
+$favicon = $logoData !== '' ? '<link rel="icon" href="' . e($logoData) . '">' : '';
+$logoImg = $logoData !== '' ? '<img src="' . e($logoData) . '" alt="LOGO">' : '';
 ?>
 <!DOCTYPE html>
 <!-- 说明：叫号屏不再自带科室切换，显示科室完全跟随医生端在【医生工作站】的选择（服务端 current_dept_id） -->

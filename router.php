@@ -17,6 +17,14 @@
 /* ---------- 静态资源：内置服务器 docroot 不在 public，需自行读取返回 ---------- */
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
+// 安全：医院 LOGO 页面内以 base64 Data URI 内联显示（不引用 URL），
+// 因此禁止直接访问 /uploads/logo/，防止通过 URL 探测/抓取 LOGO 文件
+if (strpos($path, '/uploads/logo/') === 0) {
+    http_response_code(404);
+    echo 'Not Found';
+    return true;
+}
+
 $isStatic = strpos($path, '/assets/') === 0 || strpos($path, '/uploads/') === 0;
 if ($isStatic) {
     // 依次在 public 目录与根目录查找真实文件

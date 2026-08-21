@@ -10,6 +10,7 @@
 Router::title('系统设置');
 
 $logo = setting('logo', '');
+$logoData = img_data($logo);
 $tz = setting('timezone', 'Asia/Shanghai');
 $commonTz = array('Asia/Shanghai', 'Asia/Hong_Kong', 'Asia/Macau', 'Asia/Taipei', 'Asia/Tokyo', 'Asia/Singapore',
     'Asia/Seoul', 'Australia/Sydney', 'Europe/London', 'Europe/Paris', 'America/New_York', 'America/Los_Angeles', 'UTC');
@@ -46,8 +47,8 @@ foreach ($commonTz as $t) {
 
     <div class="card" style="flex:1;max-width:520px">
         <div class="card-title">医院 LOGO（同时作为 favicon）</div>
-        <?php if ($logo !== ''): ?>
-            <div class="mb-12"><img src="<?php echo e($logo); ?>" style="height:72px;border-radius:10px;background:var(--bg-soft);padding:6px" alt="LOGO"></div>
+        <?php if ($logoData !== ''): ?>
+            <div class="mb-12"><img src="<?php echo e($logoData); ?>" style="height:72px;border-radius:10px;background:var(--bg-soft);padding:6px" alt="LOGO"></div>
         <?php else: ?>
             <div class="fs-13 text-muted mb-12">尚未上传 LOGO，网站将不显示 LOGO 与 favicon。</div>
         <?php endif; ?>

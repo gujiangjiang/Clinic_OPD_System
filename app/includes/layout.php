@@ -78,9 +78,10 @@ class Layout {
     /** 独立页面（登录/安装/403/404） */
     public static function authPage($content) {
         $hosp = setting('hospital_name', '');
-        $logo = setting('logo', '');
-        $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO" class="auth-logo">' : '';
-        $favicon = $logo !== '' ? '<link rel="icon" href="' . e($logo) . '">' : '';
+        // LOGO 以 base64 Data URI 内联显示：不暴露文件 URL，且不受页面层级影响
+        $logoData = img_data(setting('logo', ''));
+        $logoImg = $logoData !== '' ? '<img src="' . e($logoData) . '" alt="LOGO" class="auth-logo">' : '';
+        $favicon = $logoData !== '' ? '<link rel="icon" href="' . e($logoData) . '">' : '';
         $theme = Auth::theme();
         $html = '<!DOCTYPE html><html lang="zh-CN"><head>
             <meta charset="UTF-8">
@@ -119,9 +120,11 @@ class Layout {
         }
         $hosp = setting('hospital_name', '门诊一体化系统');
         $hosp2 = setting('hospital_name2', '');
-        $logo = setting('logo', '');
-        $favicon = $logo !== '' ? '<link rel="icon" href="' . e($logo) . '">' : '';
-        $brandImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
+        // LOGO 以 base64 Data URI 内联显示：不暴露文件 URL，且不受页面层级影响
+        // （修复：原相对路径在 /admin/* 等二级路径页被解析为 /admin/uploads/... 导致 404）
+        $logoData = img_data(setting('logo', ''));
+        $favicon = $logoData !== '' ? '<link rel="icon" href="' . e($logoData) . '">' : '';
+        $brandImg = $logoData !== '' ? '<img src="' . e($logoData) . '" alt="LOGO">' : '';
         // 页脚版权：固定格式自动生成【© 年份 医院名称 版权所有】，无需手动配置
         $footer = '© ' . date('Y') . ' ' . ($hosp !== '' ? $hosp : '门诊一体化信息系统') . ' 版权所有';
         $theme = $u['theme'] ? $u['theme'] : 'auto';
@@ -130,7 +133,8 @@ class Layout {
         $sidebar = $forceMini ? 'mini' : Auth::sidebar();
         $appClass = $sidebar === 'mini' ? 'app sidebar-mini' : 'app';
         $pageTitle = $title !== '' ? $hosp . ' - ' . $title : $hosp;
-        $avatar = !empty($u['photo']) ? '<img src="' . e($u['photo']) . '" alt="头像">' : '👤';
+        // 头像转绝对路径（upload_url）：避免二级路径页解析成 /admin/uploads/... 404
+        $avatar = !empty($u['photo']) ? '<img src="' . e(upload_url($u['photo'])) . '" alt="头像">' : '👤';
 
         // 右上角悬浮窗数据：工号 + 职称（session 不包含，需查库；医务人员才有职称）
         $uFull = DB::one('user', 'SELECT emp_no, name, role, title FROM users WHERE id=?', array((int)$u['id']));

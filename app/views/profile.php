@@ -13,7 +13,7 @@ $user = DB::one('user', 'SELECT * FROM users WHERE id=?', array($u['id']));
 </div>
 <div class="card" style="max-width:640px">
     <div class="flex gap-16" style="align-items:center;margin-bottom:16px">
-        <span class="avatar" style="width:64px;height:64px;font-size:26px"><?php echo !empty($user['photo']) ? '<img src="' . e($user['photo']) . '" style="width:100%;height:100%;object-fit:cover">' : '👤'; ?></span>
+        <span class="avatar" style="width:64px;height:64px;font-size:26px"><?php echo !empty($user['photo']) ? '<img src="' . e(upload_url($user['photo'])) . '" style="width:100%;height:100%;object-fit:cover">' : '👤'; ?></span>
         <div>
             <div class="fs-18 fw-700"><?php echo e($user['name']); ?></div>
             <div class="fs-13 text-muted">工号 <?php echo e($user['emp_no']); ?> ｜ 用户名 <?php echo e($user['username']); ?> ｜ <?php echo e(Auth::roleName($user['role'])); ?></div>

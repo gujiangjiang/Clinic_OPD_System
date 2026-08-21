@@ -48,6 +48,13 @@ server {
         deny all;
     }
 
+    # ---------- 禁止直接访问医院 LOGO 文件 ----------
+    # 页面内 LOGO 以 base64 Data URI 内联显示（不引用 URL），
+    # 此处同步封禁直链，防止通过 URL 探测/抓取 LOGO 文件
+    location ~ ^/uploads/logo/ {
+        deny all;
+    }
+
     # ---------- 隐藏文件 ----------
     location ~ /\. {
         deny all;
