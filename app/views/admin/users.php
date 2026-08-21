@@ -59,6 +59,11 @@ function openUserForm(id) {
             '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
             '<button type="button" class="btn btn-primary" id="userSave">保存</button>';
         document.getElementById('userSave').addEventListener('click', function () {
+            var uname = document.getElementById('f_username').value.trim();
+            if (uname && !/^[A-Za-z]/.test(uname)) {
+                Clinic.toast.warning('登录用户名必须以英文字母开头，不允许纯数字或数字开头');
+                return;
+            }
             var fd = new FormData();
             fd.append('csrf_token', document.body.getAttribute('data-csrf'));
             fd.append('action', 'user_save');

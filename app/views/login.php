@@ -1,7 +1,7 @@
 <?php
 /**
  * login.php — 登录页
- * 说明：用户名 + 密码登录；支持 ?next= 回跳原页面。
+ * 说明：用户名/工号 + 密码登录；支持 ?next= 回跳原页面。
  */
 $next = isset($_GET['next']) ? $_GET['next'] : '';
 if ($next === '' || $next[0] !== '/') {
@@ -13,9 +13,9 @@ if ($next === '' || $next[0] !== '/') {
     <div class="auth-sub">门诊一体化信息系统 · 多角色工作站</div>
 
     <div class="form-group">
-        <label class="form-label">用户名</label>
+        <label class="form-label">用户名 / 工号</label>
         <div class="input-wrap"><span class="input-icon">👤</span>
-            <input type="text" class="input" id="username" placeholder="请输入用户名" autocomplete="username"></div>
+            <input type="text" class="input" id="username" placeholder="请输入用户名或工号" autocomplete="username"></div>
     </div>
     <div class="form-group">
         <label class="form-label">密码</label>

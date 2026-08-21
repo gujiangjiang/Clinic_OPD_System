@@ -83,7 +83,7 @@ function admin_part_user($action) {
         $html = '<input type="hidden" id="f_id" value="' . (int)$id . '">
         <div class="form-row">
             <div class="form-group"><label class="form-label">职工工号</label><input class="input" id="f_emp_no" value="' . e($r['emp_no']) . '"></div>
-            <div class="form-group"><label class="form-label">登录用户名 <span class="req">*</span></label><input class="input" id="f_username" value="' . e($r['username']) . '"></div>
+            <div class="form-group"><label class="form-label">登录用户名 <span class="req">*</span></label><input class="input" id="f_username" value="' . e($r['username']) . '" placeholder="英文字母开头，可含数字/下划线"><div class="fs-12 text-muted mt-4">须以英文字母开头（不允许纯数字或数字开头）；工号同样可用于登录</div></div>
         </div>
         <div class="form-row">
             <div class="form-group"><label class="form-label">姓名 <span class="req">*</span></label><input class="input" id="f_name" value="' . e($r['name']) . '"></div>
@@ -127,6 +127,11 @@ function admin_part_user($action) {
         $status = (int)post('status', 1);
         $deptIds = post('dept_ids');
         if ($username === '') json_fail('请填写登录用户名');
+        // 用户名必须英文字母开头：与工号登录并存时避免纯数字/数字开头用户名
+        // 与他人工号混淆（工号可用于登录，见 Auth::login）
+        if (!preg_match('/^[A-Za-z]/', $username)) {
+            json_fail('登录用户名必须以英文字母开头，不允许纯数字或数字开头');
+        }
         if ($name === '') json_fail('请填写姓名');
         if (!in_array($role, array('admin', 'cashier', 'doctor', 'nurse', 'lab', 'imaging', 'pharmacy'), true)) $role = 'doctor';
         // 用户名唯一

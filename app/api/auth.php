@@ -4,7 +4,7 @@
  * auth.php — 认证接口
  * ============================================================
  * 接口：/api/auth
- * action=login        登录（POST）
+ * action=login        登录（POST，支持用户名或工号）
  * action=logout_page  退出并跳转登录页（GET）
  * action=theme        保存主题偏好 auto/light/dark（POST）
  * action=sidebar      保存侧边栏偏好 expand 展开 / mini 缩小（POST）

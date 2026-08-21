@@ -32,13 +32,19 @@ class Auth {
      * 登录校验
      * @return bool|string true 成功；字符串为错误提示
      */
-    public static function login($username, $password) {
-        if ($username === '' || $password === '') {
+    public static function login($account, $password) {
+        if ($account === '' || $password === '') {
             return '请输入用户名和密码';
         }
-        $u = DB::one('user', 'SELECT * FROM users WHERE username=? AND status=1', array($username));
+        // 支持用户名或工号登录：用户名优先精确匹配；
+        // 用户名强制英文字母开头（见用户管理保存校验），与纯数字工号天然不冲突，
+        // 即使工号含字母也因用户名优先而保持确定性。
+        $u = DB::one('user', 'SELECT * FROM users WHERE username=? AND status=1', array($account));
+        if (!$u) {
+            $u = DB::one('user', 'SELECT * FROM users WHERE emp_no=? AND status=1', array($account));
+        }
         if (!$u || !password_verify($password, $u['password'])) {
-            return '用户名或密码错误';
+            return '用户名/工号或密码错误';
         }
         // 防会话固定：登录后重置会话 ID
         session_regenerate_id(true);
