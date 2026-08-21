@@ -1,4 +1,5 @@
 <?php
+require_once APP_ROOT . '/app/includes/emr_formatter.php';
 /**
  * ============================================================
  * print_templates.php v1.0.0 — 统一打印模板
