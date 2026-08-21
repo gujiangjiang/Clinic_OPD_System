@@ -88,32 +88,15 @@ function loadDepts() {
 }
 
 /* ---------- 科室选择弹窗（首次进入 / 点击切换科室） ----------
-   大按钮卡片式：每个科室一张卡片，点击直接切换，无需下拉 + 确认。 */
+   复用通用科室选择组件（Clinic.deptPicker，select 模式）：
+   卡片式选择、不显示挂号相关信息、当前科室标记「当前」。 */
 function openDeptPicker() {
-    var cards = DEPT_LIST.map(function (d) {
-        var isCur = d.id === CUR_DEPT;
-        var badge = d.type === 'emergency'
-            ? '<span class="badge badge-danger">急诊</span>'
-            : '<span class="badge badge-primary">门诊</span>';
-        var limited = d.limited
-            ? '<span class="badge badge-warning">限号</span>'
-            : '<span class="badge badge-gray">不限号</span>';
-        return '<div class="dept-pick-card' + (isCur ? ' active' : '') + '" onclick="pickDeptFromPicker(' + d.id + ')">' +
-            '<div class="dept-pick-name">' + d.name + (isCur ? ' <span class="badge badge-success">当前</span>' : '') + '</div>' +
-            '<div class="dept-pick-tags">' + badge + limited + '</div>' +
-            '</div>';
-    }).join('');
-    Clinic.modal.open(
-        '<div class="dept-pick-grid">' + cards + '</div>' +
-        '<div class="fs-12 text-muted mt-8">点击科室卡片即可切换（当前科室已标记「当前」）。</div>',
-        { title: '选择科室' }
-    );
-}
-
-/* 点击科室卡片：直接切换并关闭弹窗 */
-function pickDeptFromPicker(id) {
-    Clinic.modal.close();
-    pickDept(id);
+    Clinic.deptPicker.open({
+        mode: 'select',
+        depts: DEPT_LIST,
+        currentId: CUR_DEPT,
+        onSelect: function (d) { pickDept(d.id); },
+    });
 }
 
 /* ---------- 选定科室 ---------- */

@@ -36,6 +36,10 @@ switch ($action) {
         }
         $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=? AND status=1', array($targetDept));
         if (!$dept) json_fail('目标科室不存在或已停用');
+        // 防自转：目标科室不能与患者当前科室相同（前端已隐藏当前科室，此处双保险）
+        if ((int)$visit['current_dept_id'] === $targetDept) {
+            json_fail('目标科室与患者当前科室相同，无需转科');
+        }
 
         // 记录转科（附带原病历ID，供一键引用）
         $lastRecord = DB::one('medical', 'SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));

@@ -631,42 +631,30 @@ Clinic.emr = (function () {
     }
 
     /**
-     * 打开转科弹窗
+     * 打开转科弹窗（复用通用科室选择组件 transfer 模式：
+     * 服务端已排除当前科室，弹窗内不显示挂号相关信息）
      */
     function openTransfer() {
         var visitId = document.getElementById('visitId').value;
         var curDept = DATA ? DATA.visit.current_dept_id : 0;
-        Clinic.get('/api/transfer?action=targets&dept_id=' + curDept, null, {
-            onSuccess: function (j) {
-                var opts = j.data.list.map(function (d) {
-                    return '<option value="' + d.id + '">' + d.name + '</option>';
-                }).join('');
-                Clinic.modal.open(
-                    '<div class="form-group"><label class="form-label">转往科室</label>' +
-                    '<select class="select" id="trgDept">' + opts + '</select></div>' +
-                    '<div class="fs-13 text-muted">转科后患者就诊序号、首次挂号科室等信息均保持不变。</div>',
-                    {
-                        title: '转科',
-                        size: 'modal-sm',
-                        buttons: [
-                            { text: '取消', cls: 'btn-outline' },
-                            {
-                                text: '确认转科', cls: 'btn-primary', autoClose: false,
-                                onClick: function () {
-                                    Clinic.ajax('/api/transfer', {
-                                        action: 'do', visit_id: visitId,
-                                        target_dept: document.getElementById('trgDept').value,
-                                    }, {
-                                        onSuccess: function (j) {
-                                            Clinic.toast.success(j.msg);
-                                            Clinic.modal.close();
-                                            setTimeout(function () { location.href = '/doctor/dashboard'; }, 900);
-                                        },
-                                    });
-                                },
+        Clinic.deptPicker.open({
+            mode: 'transfer',
+            fetchUrl: '/api/transfer?action=targets&dept_id=' + curDept,
+            currentId: curDept,
+            onSelect: function (d) {
+                Clinic.modal.confirm(
+                    '确定将患者转往【' + d.name + '】吗？转科后就诊序号、首次挂号科室等信息均保持不变。',
+                    function () {
+                        Clinic.ajax('/api/transfer', {
+                            action: 'do', visit_id: visitId, target_dept: d.id,
+                        }, {
+                            onSuccess: function (j) {
+                                Clinic.toast.success(j.msg);
+                                setTimeout(function () { location.href = '/doctor/dashboard'; }, 900);
                             },
-                        ],
-                    }
+                        });
+                    },
+                    { title: '确认转科', okText: '确认转科' }
                 );
             },
         });

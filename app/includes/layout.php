@@ -182,6 +182,7 @@ class Layout {
                  因此脚本放在内容区之前，保证内联脚本执行时 Clinic 已就绪。 -->
             <script src="/assets/js/components/ajax.js"></script>
             <script src="/assets/js/components/modal.js"></script>
+            <script src="/assets/js/components/deptpicker.js"></script>
             <script src="/assets/js/components/toast.js"></script>
             <script src="/assets/js/components/print.js"></script>
             <script src="/assets/js/components/theme.js"></script>

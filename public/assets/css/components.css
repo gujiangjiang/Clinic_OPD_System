@@ -142,7 +142,7 @@
 .badge-danger { background: var(--danger-soft); color: var(--danger); }
 .badge-gray { background: var(--bg-soft); color: var(--text-muted); }
 
-/* ---------- 科室选择卡片（医生站切换科室弹窗） ---------- */
+/* ---------- 科室选择卡片（通用科室选择弹窗：挂号/医生选科/转科） ---------- */
 .dept-pick-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -168,6 +168,18 @@
     background: var(--primary-soft);
     box-shadow: inset 0 0 0 1px var(--primary);
 }
+/* 满号科室（挂号模式）：置灰不可选 */
+.dept-pick-card.disabled {
+    opacity: .55;
+    cursor: not-allowed;
+    background: var(--bg-soft);
+}
+.dept-pick-card.disabled:hover {
+    border-color: var(--border);
+    background: var(--bg-soft);
+    transform: none;
+    box-shadow: none;
+}
 .dept-pick-name { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
 .dept-pick-tags {
     display: flex;
@@ -175,6 +187,48 @@
     justify-content: center;
     flex-wrap: wrap;
 }
+/* 挂号信息行（剩余号源/挂号金额），仅挂号模式显示 */
+.dept-pick-sub {
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+/* ---------- 科室选择弹窗子 Tab（急诊 / 门诊） ---------- */
+.dept-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.dept-tab {
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    border-radius: 999px;
+    padding: 7px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s ease;
+}
+.dept-tab:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.dept-tab.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+.dept-tab:disabled { opacity: .45; cursor: not-allowed; }
+.dept-tab-count {
+    display: inline-block;
+    min-width: 20px;
+    text-align: center;
+    border-radius: 999px;
+    padding: 0 5px;
+    font-size: 12px;
+    background: rgba(0,0,0,.08);
+}
+.dept-tab.active .dept-tab-count { background: rgba(255,255,255,.25); }
 
 /* ---------- 统计块 ---------- */
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 16px; }
