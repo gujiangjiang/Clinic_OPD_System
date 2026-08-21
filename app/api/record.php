@@ -1,19 +1,99 @@
 <?php
 /**
  * ============================================================
- * record.php — 电子病历接口
+ * record.php — 电子病历接口（结构化 EMR）
  * ============================================================
  * 说明：
- * 1. 加载病历：患者信息（不可编辑区）+ 病历内容 + 生命体征
- *    （与护士站共用接口双向同步）+ 该患者既往病历（转科一键引用）
- * 2. 保存病历：主诉/现病史/初步诊断为必填（缺失禁止保存与诊毕）
- * 3. 诊断与 ICD10 编码联动
- * 4. 诊断证明：单次就诊仅可开具一次
+ * 1. 数据模型：patient_records 表为唯一真理来源——
+ *    emr_data 存完整结构化 JSON；投影字段（主症状/时间单位/供史者/
+ *    来院途径/既往史标记/过敏史/留观/主诊断）由后端从 JSON 提取，
+ *    供统计检索；emr_print_text 为剔除占位符的打印纯净文书快照。
+ * 2. 保存流程：校验清洗 → 投影提取 → 生成打印文本 → 事务写入
+ *    patient_records + 旧 records 扁平镜像（兼容就诊历史/转科引用）→
+ *    同步患者主表全局既往史/过敏史（跨就诊自动调用，以最新为准）。
+ * 3. 业务防御：既往史选「否认」时后端强制清空详细内容。
+ * 4. 生命体征/诊断证明逻辑保持不变。
  * ============================================================ */
 require __DIR__ . '/_init.php';
 require_once APP_ROOT . '/app/includes/print_templates.php';
+require_once APP_ROOT . '/app/includes/emr_formatter.php';
 
 $u = Auth::user();
+
+/** 结构化病历默认骨架（新病历/字段缺失回退） */
+function emr_default_data($patient = null) {
+    $phType = '否认';
+    $phDetail = '';
+    $allergies = '';
+    if ($patient) {
+        // 跨就诊自动调用：患者主表存有历史既往史/过敏史时预填（以最新一次保存为准）
+        if (!empty($patient['past_history_type'])) $phType = $patient['past_history_type'];
+        if (!empty($patient['past_history_detail'])) $phDetail = $patient['past_history_detail'];
+        if (!empty($patient['allergies'])) $allergies = $patient['allergies'];
+    }
+    return array(
+        'chief_complaint' => array('symptom' => '', 'duration' => '', 'unit' => '', 'second_symptom' => '', 'second_duration' => '', 'second_unit' => ''),
+        'history_present' => array('informant' => '', 'duration' => '', 'unit' => '', 'content' => '', 'arrival_way' => ''),
+        'past_history' => array('type' => $phType, 'detail' => $phDetail),
+        'allergies' => $allergies,
+        'main_symptoms' => array(
+            '全身症状' => '', '呼吸道症状' => '', '消化道症状' => '',
+            '皮疹症状' => '', '出血症状' => '', '神经系统症状' => '',
+        ),
+        'physical_exam' => array(
+            '皮肤黏膜' => '', '头部' => '', '胸部' => '', '肺脏及胸膜' => '', '心脏' => '',
+            '腹部' => '', '神经反射' => '', '肌力及肌张力' => '', '其它体格检查' => '',
+        ),
+        'diagnoses' => array(),
+        'aux_result' => '',
+        'aux_external' => '',
+        'disposition_custom' => '',
+        'is_leave_hospital' => '否',
+        'advice' => '',
+    );
+
+}
+
+/** 递归合并：保证 emr_data 具备全部结构键（旧草稿/缺键回退默认值） */
+function emr_merge_defaults($data, $defaults) {
+    foreach ($defaults as $k => $v) {
+        if (!isset($data[$k]) || $data[$k] === null) {
+            $data[$k] = $v;
+        } elseif (is_array($v) && !isset($v[0])) {
+            // 关联数组（子结构）递归合并；索引数组（诊断列表等）保留原值
+            $data[$k] = emr_merge_defaults($data[$k], $v);
+        }
+    }
+    return $data;
+}
+
+/** 已开项目快照（与 /api/order visit_orders 同口径，排除已退费/已取消）：
+    返回 [检验检查名列表, 处方行列表, 处置项列表] */
+function emr_order_snapshot($visitId) {
+    $orders = DB::q('order', 'SELECT * FROM orders WHERE visit_id=? ORDER BY id DESC', array($visitId));
+    $orderNames = array();
+    $rxLines = array();
+    $dispItems = array();
+    foreach ($orders as $o) {
+        $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
+        $agg = order_agg_status($o['order_type'], $items);
+        if ($agg === 'refunded' || $agg === 'cancelled') continue;
+        foreach ($items as $it) {
+            if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
+                $orderNames[] = $it['item_name'];
+            } elseif ($o['order_type'] === 'procedure') {
+                $dispItems[] = array('name' => $it['item_name'], 'qty' => (int)$it['quantity']);
+            } elseif ($o['order_type'] === 'prescription') {
+                $parts = array();
+                if (!empty($it['single_dose'])) $parts[] = $it['single_dose'];
+                if (!empty($it['frequency_name'])) $parts[] = $it['frequency_name'];
+                if (!empty($it['route_name'])) $parts[] = $it['route_name'];
+                $rxLines[] = $it['item_name'] . ($parts ? '　' . implode('　', $parts) : '') . '　×' . (int)$it['quantity'];
+            }
+        }
+    }
+    return array($orderNames, $rxLines, $dispItems);
+}
 
 switch ($action) {
 
@@ -32,28 +112,23 @@ switch ($action) {
 
         // 医生信息（工号/职称，需求18.2：工作站显示医生姓名工号职称）
         $doc = DB::one('user', 'SELECT emp_no, title FROM users WHERE id=?', array($u['id']));
-        // 病历（当前医生在本就诊下的记录，无则新建草稿）
-        $record = DB::one('medical', 'SELECT * FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visitId, $u['id']));
-        if (!$record) {
-            $record = DB::one('medical', 'SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        // 结构化病历（当前医生在本就诊下的记录，无则取本就诊最新一条，再无则新建骨架）
+        $pr = DB::one('medical', 'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visitId, $u['id']));
+        if (!$pr) {
+            $pr = DB::one('medical', 'SELECT * FROM patient_records WHERE visit_id=? ORDER BY id DESC', array($visitId));
         }
+        $emr = emr_merge_defaults(
+            $pr ? json_decode($pr['emr_data'], true) : array(),
+            emr_default_data($pr ? null : $patient)
+        );
         $recordData = array(
             'doctor_name' => $u['name'],
             'doctor_emp' => $doc ? $doc['emp_no'] : '',
             'doctor_title' => $doc ? $doc['title'] : '',
-            'created_at' => $record ? $record['created_at'] : '',
-            'updated_at' => $record ? $record['updated_at'] : '',
-            'chief_complaint' => $record ? $record['chief_complaint'] : '',
-            'present_illness' => $record ? $record['present_illness'] : '',
-            'past_history' => $record ? $record['past_history'] : '',
-            'allergy_history' => $record ? $record['allergy_history'] : '',
-            'physical_exam' => $record ? $record['physical_exam'] : '',
-            'consciousness' => $record ? $record['consciousness'] : '',
-            'initial_diagnosis' => $record ? $record['initial_diagnosis'] : '',
-            'diagnosis_code' => $record ? $record['diagnosis_code'] : '',
-            'is_observation' => $record ? (int)$record['is_observation'] : 0,
-            'visit_type' => ($record && !empty($record['visit_type'])) ? $record['visit_type'] : '初诊',
-            'advice' => $record ? $record['advice'] : '',
+            'created_at' => $pr ? $pr['created_at'] : '',
+            'updated_at' => $pr ? $pr['updated_at'] : '',
+            'emr' => $emr,
+            'status' => $pr ? $pr['status'] : 'draft',
         );
 
         // 生命体征（最新一条，护士站与医生站共用）
@@ -64,18 +139,19 @@ switch ($action) {
         );
 
         // 该患者全部既往病历（跨就诊，供转科一键引用；附带 content 供前端模板方式填充）
-        $prevRows = DB::q('medical', 'SELECT * FROM records WHERE patient_no=? ORDER BY id DESC LIMIT 20', array($patient['patient_no']));
+        $prevRows = DB::q('medical', 'SELECT * FROM patient_records WHERE patient_no=? ORDER BY id DESC LIMIT 20', array($patient['patient_no']));
         $prevRecords = array();
-        foreach ($prevRows as $pr) {
+        foreach ($prevRows as $pr2) {
+            $prevEmr = json_decode($pr2['emr_data'], true);
             $prevRecords[] = array(
-                'id' => (int)$pr['id'],
-                'doctor_name' => $pr['doctor_name'],
-                'created_at' => $pr['created_at'],
+                'id' => (int)$pr2['id'],
+                'doctor_name' => $pr2['doctor_name'],
+                'created_at' => $pr2['created_at'],
                 'content' => json_encode(array(
-                    'chief_complaint' => $pr['chief_complaint'],
-                    'present_illness' => $pr['present_illness'],
-                    'past_history' => $pr['past_history'],
-                    'allergy_history' => $pr['allergy_history'],
+                    'chief_complaint' => emr_cc_text(isset($prevEmr['chief_complaint']) ? $prevEmr['chief_complaint'] : array()),
+                    'present_illness' => emr_pi_text(isset($prevEmr['history_present']) ? $prevEmr['history_present'] : array()),
+                    'past_history' => emr_ph_text(isset($prevEmr['past_history']) ? $prevEmr['past_history'] : array()),
+                    'allergy_history' => isset($prevEmr['allergies']) ? $prevEmr['allergies'] : '',
                 ), JSON_UNESCAPED_UNICODE),
             );
         }
@@ -111,7 +187,12 @@ switch ($action) {
         ));
         break;
 
-    /* ==================== 保存病历 ==================== */
+    /* ==================== 保存病历（结构化） ====================
+     * 前端仅提交完整 emr_data JSON 对象；后端：
+     * 1) 校验必填（主诉症状/现病史内容/初步诊断）
+     * 2) 业务防御清洗（否认既往史强制清空细节）
+     * 3) 投影字段提取 → 打印文本生成
+     * 4) 事务写 patient_records + records 镜像；同步 patients 全局既往史/过敏史 */
     case 'save':
         $visitId = (int)post('visit_id');
         $finish = (int)post('finish', 0);
@@ -119,57 +200,138 @@ switch ($action) {
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
 
-        $chief = post('chief_complaint');
-        $present = post('present_illness');
-        $diag = post('initial_diagnosis');
-        // 必填校验：主诉/现病史/诊断为必填，缺失禁止保存与诊毕
-        if (trim(strip_tags($chief)) === '') json_fail('主诉为必填项，请填写后再保存');
-        if (trim(strip_tags($present)) === '') json_fail('现病史为必填项，请填写后再保存');
-        if (trim($diag) === '') json_fail('初步诊断为必填项，请填写后再保存');
+        // ===== 1. 解析与校验 =====
+        $raw = post_raw('emr_data');
+        $emr = json_decode($raw, true);
+        if (!is_array($emr)) json_fail('病历数据格式非法');
+        $cc = isset($emr['chief_complaint']) && is_array($emr['chief_complaint']) ? $emr['chief_complaint'] : array();
+        $pi = isset($emr['history_present']) && is_array($emr['history_present']) ? $emr['history_present'] : array();
+        $diagnoses = isset($emr['diagnoses']) && is_array($emr['diagnoses']) ? $emr['diagnoses'] : array();
+        if (!isset($cc['symptom']) || trim((string)$cc['symptom']) === '') json_fail('主诉为必填项，请填写主要症状');
+        if (!isset($pi['content']) || trim((string)$pi['content']) === '') json_fail('现病史为必填项，请填写具体内容');
+        if (!count(array_filter($diagnoses, function ($d) { return is_array($d) && !empty($d['name']); }))) {
+            json_fail('初步诊断为必填项，请至少添加一个诊断');
+        }
+
+        // ===== 2. 合并默认结构 + 业务防御清洗 =====
+        $emr = emr_merge_defaults($emr, emr_default_data(null));
+        if ($emr['past_history']['type'] !== '承认') {
+            $emr['past_history']['type'] = '否认';
+            $emr['past_history']['detail'] = ''; // 否认既往史：即使前端强行提交细节也强制清空
+        }
+        // 字符串字段统一裁剪
+        foreach (array('aux_result', 'aux_external', 'disposition_custom', 'advice', 'allergies') as $k) {
+            $emr[$k] = trim((string)$emr[$k]);
+        }
+
+        // ===== 3. 投影字段提取（单一事实转换） =====
+        $mainSymptom = (string)$cc['symptom'];
+        $symptomDuration = isset($cc['duration']) ? (string)$cc['duration'] : '';
+        $symptomUnit = isset($cc['unit']) ? (string)$cc['unit'] : '';
+        $informant = isset($pi['informant']) ? (string)$pi['informant'] : '';
+        $arrivalWay = isset($pi['arrival_way']) ? (string)$pi['arrival_way'] : '';
+        $hasPastHistory = $emr['past_history']['type'] === '承认' ? '是' : '否';
+        $allergies = $emr['allergies'];
+        $isLeaveHospital = emr_obs_text($emr);
+        $primaryIcd10 = '';
+        $primaryDiagnosis = '';
+        foreach ($diagnoses as $dg) {
+            if (is_array($dg) && !empty($dg['name'])) {
+                $primaryIcd10 = isset($dg['code']) ? $dg['code'] : '';
+                $primaryDiagnosis = $dg['name'];
+                break; // 主诊断永远取第 1 个
+            }
+        }
+
+        // ===== 4. 打印文本（含当前已开项目快照） =====
+        list($orderNames, $rxLines, $dispItems) = emr_order_snapshot($visitId);
+        $vitalsRow = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        $vp = array();
+        if ($vitalsRow) {
+            if (!empty($vitalsRow['bp_systolic'])) $vp[] = '血压 ' . $vitalsRow['bp_systolic'] . '/' . $vitalsRow['bp_diastolic'] . 'mmHg';
+            if (!empty($vitalsRow['heart_rate'])) $vp[] = '心率 ' . $vitalsRow['heart_rate'] . '次/分';
+            if (!empty($vitalsRow['pulse'])) $vp[] = '脉搏 ' . $vitalsRow['pulse'] . '次/分';
+            if (!empty($vitalsRow['spo2'])) $vp[] = '血氧 ' . $vitalsRow['spo2'] . '%';
+            if (!empty($vitalsRow['respiration'])) $vp[] = '呼吸 ' . $vitalsRow['respiration'] . '次/分';
+        }
+        $vitalsText = implode('；', $vp);
+        $consciousness = post('consciousness');
+        $printText = emr_print_text($emr, $vitalsText, $consciousness, $orderNames, $rxLines, $dispItems);
+        $cleanJson = json_encode($emr, JSON_UNESCAPED_UNICODE);
 
         // 初复诊白名单校验（默认初诊）
         $visitType = post('visit_type', '初诊');
         if (!in_array($visitType, array('初诊', '复诊'), true)) $visitType = '初诊';
 
-        $data = array(
-            'chief_complaint' => $chief,
-            'present_illness' => $present,
-            'past_history' => post('past_history'),
-            'allergy_history' => post('allergy_history'),
-            'physical_exam' => post('physical_exam'),
-            'consciousness' => post('consciousness'),
-            'initial_diagnosis' => $diag,
-            'diagnosis_code' => post('diagnosis_code'),
-            'is_observation' => (int)post('is_observation', 0),
-            'visit_type' => $visitType,
-            'advice' => post('advice'),
-            'status' => $finish ? 'done' : 'draft',
-            'updated_at' => now_str(),
-        );
+        // ===== 5. 事务写入（medical 库：patient_records + records 镜像同库） =====
+        $now = now_str();
+        $pdo = DatabaseManager::pdo('medical');
+        try {
+            $pdo->beginTransaction();
 
-        $exists = DB::one('medical', 'SELECT id FROM records WHERE visit_id=? AND doctor_id=?', array($visitId, $u['id']));
-        if ($exists) {
-            $set = array();
-            $params = array();
-            foreach ($data as $k => $v) {
-                $set[] = $k . '=?';
-                $params[] = $v;
+            // A. patient_records 写入/更新
+            $pr = DB::one('medical', 'SELECT id FROM patient_records WHERE visit_id=? AND doctor_id=?', array($visitId, $u['id']));
+            if ($pr) {
+                $pdo->prepare('UPDATE patient_records SET main_symptom=?, symptom_duration=?, symptom_unit=?, informant=?, arrival_way=?, has_past_history=?, allergies=?, is_leave_hospital=?, primary_icd10=?, primary_diagnosis=?, emr_data=?, emr_print_text=?, status=?, updated_at=? WHERE id=?')
+                    ->execute(array($mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $pr['id']));
+                $recordId = (int)$pr['id'];
+            } else {
+                $pdo->prepare('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, main_symptom, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergies, is_leave_hospital, primary_icd10, primary_diagnosis, emr_data, emr_print_text, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+                    ->execute(array($visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name'], $mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $now));
+                $recordId = (int)$pdo->lastInsertId();
             }
-            $params[] = $exists['id'];
-            DB::exec('medical', 'UPDATE records SET ' . implode(',', $set) . ' WHERE id=?', $params);
-        } else {
-            $params = array($visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name']);
-            foreach ($data as $v) $params[] = $v;
-            $params[] = now_str(); // created_at
-            DB::insert('medical', 'INSERT INTO records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, chief_complaint, present_illness, past_history, allergy_history, physical_exam, consciousness, initial_diagnosis, diagnosis_code, is_observation, visit_type, advice, status, updated_at, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', $params);
+
+            // B. 旧 records 表扁平镜像（兼容就诊历史列表/转科引用/诊断证明等既有消费方）
+            $mirror = array(
+                'chief_complaint' => emr_cc_text($emr['chief_complaint']),
+                'present_illness' => emr_pi_text($emr['history_present']),
+                'past_history' => emr_ph_text($emr['past_history']),
+                'allergy_history' => $allergies,
+                'physical_exam' => emr_pe_text($emr['physical_exam']),
+                'consciousness' => $consciousness,
+                'initial_diagnosis' => emr_diag_text($diagnoses),
+                'diagnosis_code' => $primaryIcd10,
+                'is_observation' => $isLeaveHospital === '是' ? 1 : 0,
+                'visit_type' => $visitType,
+                'advice' => $emr['advice'],
+                'status' => $finish ? 'done' : 'draft',
+                'updated_at' => $now,
+            );
+            $old = DB::one('medical', 'SELECT id FROM records WHERE visit_id=? AND doctor_id=?', array($visitId, $u['id']));
+            if ($old) {
+                $set = array();
+                $params = array();
+                foreach ($mirror as $k => $v) { $set[] = $k . '=?'; $params[] = $v; }
+                $params[] = $old['id'];
+                $pdo->prepare('UPDATE records SET ' . implode(',', $set) . ' WHERE id=?')->execute($params);
+                $oldRecordId = (int)$old['id'];
+            } else {
+                $cols = 'visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, ' . implode(',', array_keys($mirror)) . ', created_at';
+                $marks = '?,?,?,?,?,?, ' . implode(',', array_fill(0, count($mirror), '?')) . ',?';
+                $params = array($visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name']);
+                foreach ($mirror as $v) $params[] = $v;
+                $params[] = $now;
+                $pdo->prepare("INSERT INTO records($cols) VALUES($marks)")->execute($params);
+                $oldRecordId = (int)$pdo->lastInsertId();
+            }
+
+            $pdo->commit();
+        } catch (Exception $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            json_fail('病历保存失败：' . $ex->getMessage());
         }
 
-        // 诊毕：更新就诊状态
+        // C. 同步患者主表全局既往史/过敏史（跨就诊自动调用；以最新修改为准）
+        DB::exec('patient', 'UPDATE patients SET past_history_type=?, past_history_detail=?, allergies=? WHERE patient_no=?', array(
+            $emr['past_history']['type'], $emr['past_history']['detail'], $allergies, $visit['patient_no'],
+        ));
+
+        // D. 诊毕：更新就诊状态
         if ($finish) {
             DB::exec('patient', 'UPDATE registrations SET status=?, payment_time=COALESCE(payment_time,?) WHERE id=?', array('finished', now_str(), $visitId));
-            json_ok(array('finished' => 1), '病历已保存并诊毕');
+            json_ok(array('finished' => 1, 'record_id' => $recordId), '病历已保存并诊毕');
         }
-        json_ok(array('finished' => 0), '病历已保存');
+        json_ok(array('finished' => 0, 'record_id' => $recordId), '病历已保存');
         break;
 
     /* ==================== 保存生命体征（医生站/护士站共用） ==================== */
