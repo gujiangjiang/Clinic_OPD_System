@@ -40,16 +40,31 @@
     padding: 4px;
     flex-shrink: 0;
 }
+/* 名称区撑满 LOGO 与时钟之间，两行名称左右两端对齐（徽标式排版） */
+.call-hosp {
+    flex: 1;
+    min-width: 0;
+}
 .call-hosp .hosp-main {
     font-size: 32px;
     font-weight: 800;
     letter-spacing: 2px;
     line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: justify;
+    text-align-last: justify;
 }
 .call-hosp .hosp-sub {
     font-size: 18px;
     color: #a8c8e8;
     letter-spacing: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: justify;
+    text-align-last: justify;
 }
 .call-clock {
     font-size: 34px;

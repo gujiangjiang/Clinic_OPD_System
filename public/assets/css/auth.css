@@ -31,6 +31,49 @@
     to   { opacity: 1; transform: translateY(0); }
 }
 
+/* 品牌区：LOGO + 医院名称（第一名称大字/第二名称小字，两行左右两端对齐） */
+.auth-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+.auth-brand .auth-logo {
+    width: 56px; height: 56px;
+    border-radius: 14px;
+    object-fit: contain;
+    margin: 0;
+    display: block;
+    background: var(--bg-soft);
+    padding: 5px;
+    flex-shrink: 0;
+}
+.auth-brand .brand-names {
+    flex: 1;
+    min-width: 0;
+}
+.auth-brand .brand-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: justify;
+    text-align-last: justify;
+}
+.auth-brand .brand-name2 {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-muted);
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: justify;
+    text-align-last: justify;
+}
 .auth-logo {
     width: 64px; height: 64px;
     border-radius: 16px;

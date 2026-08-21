@@ -78,9 +78,17 @@ class Layout {
     /** 独立页面（登录/安装/403/404） */
     public static function authPage($content) {
         $hosp = setting('hospital_name', '');
+        $hosp2 = setting('hospital_name2', '');
         // LOGO 以 base64 Data URI 内联显示：不暴露文件 URL，且不受页面层级影响
         $logoData = img_data(setting('logo', ''));
         $logoImg = $logoData !== '' ? '<img src="' . e($logoData) . '" alt="LOGO" class="auth-logo">' : '';
+        // 品牌区：LOGO + 医院名称（第一名称大字/第二名称小字，两行左右两端对齐）
+        $brandNames = '';
+        if ($hosp !== '') $brandNames .= '<div class="brand-name">' . e($hosp) . '</div>';
+        if ($hosp2 !== '') $brandNames .= '<div class="brand-name2">' . e($hosp2) . '</div>';
+        $brandHtml = ($logoImg !== '' || $brandNames !== '')
+            ? '<div class="auth-brand">' . $logoImg . '<div class="brand-names">' . $brandNames . '</div></div>'
+            : '';
         $favicon = $logoData !== '' ? '<link rel="icon" href="' . e($logoData) . '">' : '';
         $theme = Auth::theme();
         $html = '<!DOCTYPE html><html lang="zh-CN"><head>
@@ -96,7 +104,7 @@ class Layout {
         </head>
         <body class="auth-body" data-csrf="' . e(CSRF::token()) . '" data-theme-pref="' . e($theme) . '" data-theme="light"
             data-hosp="' . e($hosp) . '" data-hosp2="' . e(setting('hospital_name2', '')) . '">
-            ' . $logoImg . '
+            ' . $brandHtml . '
             ' . $content . '
             <script src="/assets/js/components/ajax.js"></script>
             <script src="/assets/js/components/toast.js"></script>
