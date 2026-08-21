@@ -164,16 +164,27 @@ function loadOverview() {
     Clinic.get('/api/cashier?action=depts&all=1&id_card=', null, {
         onSuccess: function (json) {
             var list = json.data.list || [];
-            document.getElementById('todayBadge').textContent = (json.data.session === 'am' ? '上午' : '下午');
+            var sch = json.data.schedule || {};
+            var stateText = { before: '未上班', am: '上午放号中', noon: '午休', pm: '下午放号中', after: '已下班' };
+            document.getElementById('todayBadge').textContent = stateText[sch.state] || '';
             var box = document.getElementById('slotBox');
+            // 作息提示条（非放号时段展示原因）
+            var banner = sch.msg
+                ? '<div class="mb-8" style="background:var(--warning-soft);color:var(--warning);border-radius:8px;padding:8px 12px;font-size:12px;line-height:1.6">⏰ ' + sch.msg + '</div>'
+                : '';
             if (!list.length) {
-                box.innerHTML = '<div class="text-muted">暂无科室数据</div>';
+                box.innerHTML = banner + '<div class="text-muted">暂无科室数据</div>';
                 return;
             }
-            box.innerHTML = list.map(function (d) {
-                var info = d.type === 'emergency'
-                    ? '<span class="badge badge-danger">急诊 · 不限号</span>'
-                    : (d.full ? '<span class="badge badge-danger">已满号</span>' : '<span class="badge badge-success">余' + d.remaining + '号</span>');
+            box.innerHTML = banner + list.map(function (d) {
+                var info;
+                if (d.type === 'emergency') {
+                    info = '<span class="badge badge-danger">急诊 · 24小时</span>';
+                } else if (d.bookable === false) {
+                    info = '<span class="badge badge-gray">' + (stateText[sch.state] || '停挂') + '</span>';
+                } else {
+                    info = d.full ? '<span class="badge badge-danger">已满号</span>' : '<span class="badge badge-success">余' + d.remaining + '号</span>';
+                }
                 return '<div class="flex-between" style="padding:6px 0;border-bottom:1px solid var(--border)">' +
                     '<span>' + d.name + '</span>' + info + '</div>';
             }).join('');

@@ -45,6 +45,23 @@ foreach ($commonTz as $t) {
         <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
     </div>
 
+    <div class="card" style="width:320px;flex-shrink:0">
+        <div class="card-title">作息时间（门诊号源开放时段）</div>
+        <?php
+        $ws = work_schedule();
+        $wsState = work_session_now();
+        $stateText = array('before' => '未上班', 'am' => '上午可挂号', 'noon' => '午休', 'pm' => '下午可挂号', 'after' => '已下班');
+        ?>
+        <div class="fs-13" style="line-height:2">
+            上午：<b><?php echo e($ws['am_start'] . ' ~ ' . $ws['am_end']); ?></b><br>
+            下午：<b><?php echo e($ws['pm_start'] . ' ~ ' . $ws['pm_end']); ?></b><br>
+            夏令时：<b><?php echo $ws['dst_enabled'] === '1' ? '已开启（' . e($ws['dst_start']) . ' ~ ' . e($ws['dst_end']) . '）' : '关闭'; ?></b><?php echo $ws['is_dst'] === '1' ? ' <span class="badge badge-warning">当前生效中</span>' : ''; ?><br>
+            当前状态：<span class="badge badge-<?php echo in_array($wsState, array('am', 'pm'), true) ? 'success' : 'gray'; ?>"><?php echo $stateText[$wsState]; ?></span>
+        </div>
+        <div class="fs-12 text-muted mt-8 mb-12">门诊号源仅在作息时段内开放；急诊 24 小时可挂，不受作息限制。</div>
+        <button class="btn btn-primary btn-sm" onclick="openWorkModal()">⏰ 设置作息时间</button>
+    </div>
+
     <div class="card" style="flex:1;max-width:520px">
         <div class="card-title">医院 LOGO（同时作为 favicon）</div>
         <?php if ($logoData !== ''): ?>
@@ -62,6 +79,68 @@ foreach ($commonTz as $t) {
 </div>
 
 <script>
+/* ---------- 作息时间设置模态框（含夏令时作息） ---------- */
+var WS = <?php echo json_encode($ws); ?>;
+
+function timeInput(id, label, val) {
+    return '<div class="form-group"><label class="form-label">' + label + '</label>' +
+        '<input type="time" class="input" id="' + id + '" value="' + (val || '') + '"></div>';
+}
+
+function openWorkModal() {
+    var html =
+        '<div class="form-row">' + timeInput('w_am_start', '上午上班', WS.am_start) + timeInput('w_am_end', '上午下班', WS.am_end) + '</div>' +
+        '<div class="form-row">' + timeInput('w_pm_start', '下午上班', WS.pm_start) + timeInput('w_pm_end', '下午下班', WS.pm_end) + '</div>' +
+        '<div class="fs-12 text-muted mb-12">门诊号源仅在上述时段内开放；急诊 24 小时可挂，不受作息限制。</div>' +
+        '<div class="form-group"><label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">' +
+        '<input type="checkbox" id="w_dst_enabled"' + (WS.dst_enabled === '1' ? ' checked' : '') + ' style="width:auto"> 开启夏令时作息（按日期范围自动切换）</label></div>' +
+        '<div id="w_dst_box" style="display:none;background:var(--bg-soft);border-radius:10px;padding:12px">' +
+        '<div class="form-row">' +
+        '<div class="form-group"><label class="form-label">夏令时开始日期</label><input class="input" id="w_dst_start" value="' + (WS.dst_start || '') + '" placeholder="MM-DD，如 06-01"></div>' +
+        '<div class="form-group"><label class="form-label">夏令时结束日期</label><input class="input" id="w_dst_end" value="' + (WS.dst_end || '') + '" placeholder="MM-DD，如 09-30"></div></div>' +
+        '<div class="fs-12 text-muted mb-8">每年循环生效，支持跨年区间（如 11-01 ~ 03-31）。夏令时作息留空的时间项沿用上方常规作息。</div>' +
+        '<div class="form-row">' + timeInput('w_dst_am_start', '夏令时上午上班', WS.dst_am_start) + timeInput('w_dst_am_end', '夏令时上午下班', WS.dst_am_end) + '</div>' +
+        '<div class="form-row">' + timeInput('w_dst_pm_start', '夏令时下午上班', WS.dst_pm_start) + timeInput('w_dst_pm_end', '夏令时下午下班', WS.dst_pm_end) + '</div></div>';
+    Clinic.modal.open(html, {
+        title: '⏰ 作息时间设置',
+        buttons: [
+            { text: '取消', cls: 'btn-outline' },
+            { text: '保存', cls: 'btn-primary', autoClose: false, onClick: saveWork },
+        ],
+    });
+    syncDstBox();
+    document.getElementById('w_dst_enabled').addEventListener('change', syncDstBox);
+}
+
+function syncDstBox() {
+    document.getElementById('w_dst_box').style.display =
+        document.getElementById('w_dst_enabled').checked ? '' : 'none';
+}
+
+function saveWork() {
+    var data = {
+        action: 'work_save',
+        work_am_start: document.getElementById('w_am_start').value,
+        work_am_end: document.getElementById('w_am_end').value,
+        work_pm_start: document.getElementById('w_pm_start').value,
+        work_pm_end: document.getElementById('w_pm_end').value,
+        dst_enabled: document.getElementById('w_dst_enabled').checked ? '1' : '0',
+        dst_start: document.getElementById('w_dst_start').value.trim(),
+        dst_end: document.getElementById('w_dst_end').value.trim(),
+        dst_am_start: document.getElementById('w_dst_am_start').value,
+        dst_am_end: document.getElementById('w_dst_am_end').value,
+        dst_pm_start: document.getElementById('w_dst_pm_start').value,
+        dst_pm_end: document.getElementById('w_dst_pm_end').value,
+    };
+    Clinic.ajax('/api/admin', data, {
+        onSuccess: function (json) {
+            Clinic.toast.success(json.msg);
+            Clinic.modal.close();
+            setTimeout(function () { location.reload(); }, 700);
+        },
+    });
+}
+
 /* 生成随机 HIS 接口密钥 */
 function genHisKey() {
     var arr = new Uint8Array(16);

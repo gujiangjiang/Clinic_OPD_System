@@ -51,11 +51,15 @@ switch ($action) {
 
     /* ==================== 可挂科室及号源 ====================
      * all=1：返回全部科室（挂号页右侧「今日号源」纯展示用，
-     *        不随身份证有无动态过滤——动态过滤仅用于挂号弹窗） */
+     *        不随身份证有无动态过滤——动态过滤仅用于挂号弹窗）
+     * 作息时间：门诊科室仅在当前时段（上午/下午）可挂；
+     * 未上班/午休/已下班时门诊科室标记不可挂并附提示，急诊 24 小时可挂 */
     case 'depts':
         $idCard = get('id_card', '');
         $showAll = get('all') === '1';
-        $session = (int)date('H') < 12 ? 'am' : 'pm';
+        $ws = work_session_now();
+        $bookable = in_array($ws, array('am', 'pm'), true);
+        $session = $ws === 'pm' ? 'pm' : 'am'; // 非可挂时段展示上午号量供参考
         $depts = DB::q('dept', "SELECT * FROM departments WHERE status=1 ORDER BY type DESC, sort, id");
         $list = array();
         foreach ($depts as $d) {
@@ -67,6 +71,7 @@ switch ($action) {
             if ($idCard !== '' && $used >= $quota && $quota > 0) {
                 $extra = (int)DB::val('dept', 'SELECT COUNT(*) FROM extra_slots WHERE dept_id=? AND reg_date=? AND id_card=? AND used=0', array($d['id'], today_str(), $idCard));
             }
+            $isClinic = $d['type'] === 'clinic';
             $list[] = array(
                 'id' => (int)$d['id'],
                 'name' => $d['name'],
@@ -74,11 +79,24 @@ switch ($action) {
                 'fee' => (float)$d['fee'],
                 'quota' => $quota,
                 'used' => $used,
-                'remaining' => ($d['type'] === 'clinic') ? max(0, $quota - $used) + $extra : -1,
-                'full' => ($d['type'] === 'clinic') ? ($used >= $quota && $extra === 0) : false,
+                'remaining' => $isClinic ? max(0, $quota - $used) + $extra : -1,
+                'full' => $isClinic ? ($used >= $quota && $extra === 0) : false,
+                'bookable' => $isClinic ? $bookable : true, // 急诊 24 小时
             );
         }
-        json_ok(array('list' => $list, 'session' => $session));
+        json_ok(array(
+            'list' => $list,
+            'session' => $session,
+            'schedule' => array(
+                'state' => $ws,
+                'bookable' => $bookable,
+                'msg' => work_status_msg($ws),
+                'am_start' => work_schedule()['am_start'],
+                'pm_start' => work_schedule()['pm_start'],
+                'pm_end' => work_schedule()['pm_end'],
+                'is_dst' => work_schedule()['is_dst'],
+            ),
+        ));
         break;
 
     /* ==================== 快速挂号：预览无名氏姓名 ====================
@@ -180,9 +198,13 @@ switch ($action) {
             json_fail('该患者今日已在【' . $dept['name'] . '】挂号，不能重复挂号（退费后可以重新挂号）');
         }
 
-        // ===== 号源控制（门诊科室：上午/下午号源） =====
+        // ===== 号源控制（门诊科室：按作息时间开放，急诊 24 小时不受限） =====
         $isExtra = 0;
-        $session = (int)date('H') < 12 ? 'am' : 'pm';
+        $wsState = work_session_now();
+        if ($dept['type'] === 'clinic' && !in_array($wsState, array('am', 'pm'), true)) {
+            json_fail(work_status_msg($wsState));
+        }
+        $session = $wsState === 'pm' ? 'pm' : 'am';
         if ($dept['type'] === 'clinic') {
             $quota = $session === 'am' ? (int)$dept['am_quota'] : (int)$dept['pm_quota'];
             $used = dept_used_count($deptId, $session);

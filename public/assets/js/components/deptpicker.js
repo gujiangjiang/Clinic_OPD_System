@@ -41,8 +41,12 @@ Clinic.deptPicker = (function () {
         var extra = '';
 
         if (mode === 'register') {
-            // 快速挂号（onlyFree）：非 0 元挂号费科室置灰不可选
-            if (opts.onlyFree && d.fee > 0) {
+            // 作息时间：门诊科室非放号时段（未上班/午休/已下班）置灰不可选，急诊 24 小时
+            if (d.type === 'clinic' && d.bookable === false) {
+                cls += ' disabled';
+                extra = '<div class="dept-pick-tags"><span class="badge badge-gray">' + (window.__deptPickStateText || '停挂') + '</span></div>' +
+                    '<div class="dept-pick-sub"><span class="text-muted">当前非放号时段</span></div>';
+            } else if (opts.onlyFree && d.fee > 0) {
                 cls += ' disabled';
                 extra = '<div class="dept-pick-tags"><span class="badge badge-gray">需实名挂号</span></div>' +
                     '<div class="dept-pick-sub"><span class="text-muted">挂号费 ¥' + d.fee.toFixed(2) + '</span></div>';
@@ -89,7 +93,16 @@ Clinic.deptPicker = (function () {
         );
 
         /* 数据就绪后渲染（select 模式同步，其余走接口） */
-        function render(list) {
+        function render(list, schedule) {
+            // 作息提示：非放号时段在弹窗顶部展示原因
+            window.__deptPickStateText = '停挂';
+            var notice = '';
+            if (opts.mode === 'register' && schedule && schedule.msg) {
+                notice = '<div class="mb-8" style="background:var(--warning-soft);color:var(--warning);border-radius:8px;padding:8px 12px;font-size:12px">⏰ ' + schedule.msg + '</div>';
+                if (schedule.state === 'noon') window.__deptPickStateText = '午休';
+                else if (schedule.state === 'after') window.__deptPickStateText = '已下班';
+                else if (schedule.state === 'before') window.__deptPickStateText = '未开放';
+            }
             var byType = { emergency: [], clinic: [] };
             (list || []).forEach(function (d) {
                 var t = d.type === 'emergency' ? 'emergency' : 'clinic';
@@ -123,7 +136,7 @@ Clinic.deptPicker = (function () {
                     '<div class="dept-pick-grid">' + cards + '</div></div>';
             }).join('');
 
-            m.querySelector('.modal-body').innerHTML = tabs + grids +
+            m.querySelector('.modal-body').innerHTML = notice + tabs + grids +
                 '<div class="fs-12 text-muted mt-8">' +
                 (opts.mode === 'register'
                     ? (opts.onlyFree
@@ -163,6 +176,10 @@ Clinic.deptPicker = (function () {
                     var d = null;
                     (list || []).forEach(function (x) { if (x.id === id) d = x; });
                     if (!d) return;
+                    if (opts.mode === 'register' && d.type === 'clinic' && d.bookable === false) {
+                        Clinic.toast.warning('【' + d.name + '】当前非放号时段：' + (window.__deptPickMsg || '请在作息时间内挂号'));
+                        return;
+                    }
                     if (opts.mode === 'register' && opts.onlyFree && d.fee > 0) {
                         Clinic.toast.warning('快速挂号（无名氏）仅可挂挂号费为 0 元的科室');
                         return;
@@ -185,7 +202,12 @@ Clinic.deptPicker = (function () {
             render(opts.depts || []);
         } else {
             Clinic.get(opts.fetchUrl, null, {
-                onSuccess: function (json) { render(json.data.list || []); },
+                onSuccess: function (json) {
+                    if (json.data.schedule && json.data.schedule.msg) {
+                        window.__deptPickMsg = json.data.schedule.msg;
+                    }
+                    render(json.data.list || [], json.data.schedule);
+                },
             });
         }
         return m;

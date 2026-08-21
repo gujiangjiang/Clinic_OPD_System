@@ -53,6 +53,48 @@ function admin_part_settings($action) {
         json_ok(array(), '系统设置已保存');
     }
 
+    /* ==================== 作息时间设置保存（含夏令时作息） ==================== */
+    if ($action === 'work_save') {
+        // 时间格式校验（HH:MM）与先后关系
+        $keys = array('work_am_start', 'work_am_end', 'work_pm_start', 'work_pm_end');
+        $v = array();
+        foreach ($keys as $k) {
+            $t = post($k);
+            if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $t)) json_fail('作息时间格式不正确（应为 HH:MM）');
+            $v[$k] = $t;
+        }
+        if ($v['work_am_start'] >= $v['work_am_end']) json_fail('上午上班时间需早于上午下班时间');
+        if ($v['work_pm_start'] >= $v['work_pm_end']) json_fail('下午上班时间需早于下午下班时间');
+        // 夏令时（夏/冬季作息切换）
+        $dstEnabled = post('dst_enabled') === '1' ? '1' : '0';
+        $dstStart = post('dst_start', '');
+        $dstEnd = post('dst_end', '');
+        $mmdd = '/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/';
+        if ($dstEnabled === '1') {
+            if (!preg_match($mmdd, $dstStart) || !preg_match($mmdd, $dstEnd)) {
+                json_fail('夏令时日期范围格式不正确（应为 MM-DD，如 06-01）');
+            }
+        }
+        // 夏令时作息四要素（可留空=沿用常规作息对应项）
+        $dstTimes = array();
+        foreach (array('dst_am_start', 'dst_am_end', 'dst_pm_start', 'dst_pm_end') as $k) {
+            $t = post($k, '');
+            if ($t !== '' && !preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $t)) json_fail('夏令时作息时间格式不正确（应为 HH:MM）');
+            $dstTimes[$k] = $t;
+        }
+        foreach ($v as $k => $t) set_setting($k, $t);
+        set_setting('dst_enabled', $dstEnabled);
+        set_setting('dst_start', $dstEnabled === '1' ? $dstStart : '');
+        set_setting('dst_end', $dstEnabled === '1' ? $dstEnd : '');
+        foreach ($dstTimes as $k => $t) set_setting($k, $dstEnabled === '1' ? $t : '');
+        $eff = work_schedule();
+        json_ok(array('effective' => array(
+            'am' => $eff['am_start'] . ' ~ ' . $eff['am_end'],
+            'pm' => $eff['pm_start'] . ' ~ ' . $eff['pm_end'],
+            'is_dst' => $eff['is_dst'],
+        )), '作息时间已保存' . ($eff['is_dst'] === '1' ? '（当前处于夏令时区间，已按夏令时作息执行）' : ''));
+    }
+
     /* ==================== 上传医院 LOGO（同时作为 favicon） ==================== */
     if ($action === 'upload_logo') {
         $res = Upload::save('logo', 'logo', array('jpg', 'jpeg', 'png', 'gif', 'webp'), 2097152);
