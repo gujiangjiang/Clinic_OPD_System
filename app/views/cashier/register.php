@@ -53,8 +53,10 @@ Router::title('挂号收费');
         </div>
 
         <div class="flex gap-8">
-            <button class="btn btn-primary btn-lg" style="flex:1" onclick="doRegister()">🎫 挂号（选择科室）</button>
+            <button class="btn btn-primary btn-lg" id="btnNormal" style="flex:1;display:none" onclick="doRegister()" disabled>🎫 挂号（选择科室）</button>
+            <button class="btn btn-success btn-lg" id="btnQuick" style="flex:1" onclick="openQuickReg()">🚑 快速挂号（无名氏）</button>
         </div>
+        <div class="fs-12 text-muted mt-4" id="regBtnTip">未填写身份证或姓名时无法实名挂号，可使用【快速挂号】：自动生成无名氏姓名，仅限 0 元挂号费科室</div>
     </div>
 
     <!-- 今日号源概览（纯展示：全部科室余号一目了然，与身份证填写无关） -->
@@ -83,6 +85,8 @@ document.getElementById('birth').addEventListener('click', function () {
 
 /* ---------- 身份证输入：校验 + 自动计算 + 既往登记检索 ---------- */
 document.getElementById('idCard').addEventListener('input', function () { onCardChange(); });
+document.getElementById('idCard').addEventListener('input', refreshRegState);
+document.getElementById('name').addEventListener('input', refreshRegState);
 
 function onCardChange() {
     var card = document.getElementById('idCard').value.trim().toUpperCase();
@@ -130,6 +134,8 @@ function onCardChange() {
             } else {
                 document.getElementById('regNotice').innerHTML = '<span class="badge badge-warning">未检索到该患者信息，请完善信息后完成挂号</span>';
             }
+            // 程序赋值（姓名自动填充）不触发 input 事件，需手动刷新按钮状态
+            refreshRegState();
         },
     });
 }
@@ -170,6 +176,22 @@ function loadOverview() {
     });
 }
 
+/* ---------- 挂号按钮双状态（严格按需求） ----------
+ * 无任何输入（身份证、姓名均空）→ 绿色【快速挂号（无名氏）】可点击
+ * 一旦检测到任意输入 → 切换为【挂号】按钮且置灰不可点击，
+ * 姓名填写完成后才变为可点击 */
+function refreshRegState() {
+    var card = document.getElementById('idCard').value.trim().toUpperCase();
+    var name = document.getElementById('name').value.trim();
+    var hasInput = card !== '' || name !== '';
+    document.getElementById('btnQuick').style.display = hasInput ? 'none' : '';
+    document.getElementById('btnNormal').style.display = hasInput ? '' : 'none';
+    document.getElementById('btnNormal').disabled = (name === '');
+    document.getElementById('regBtnTip').textContent = !hasInput
+        ? '未填写身份证或姓名时无法实名挂号，可使用【快速挂号】：自动生成无名氏姓名，仅限 0 元挂号费科室'
+        : (name === '' ? '已开始录入：请完善患者姓名后即可挂号' : '信息完整，点击【挂号】在弹窗中选择科室');
+}
+
 /* ---------- 提交挂号：校验必填 → 弹出通用科室选择框 ---------- */
 function doRegister() {
     var card = document.getElementById('idCard').value.trim().toUpperCase();
@@ -192,24 +214,107 @@ function doRegister() {
     });
 }
 
-/* 选定科室 → 调用挂号接口 → 弹出确认框（患者基本信息 + 就诊序号 + 费用） */
-function submitRegister(d) {
-    var card = document.getElementById('idCard').value.trim().toUpperCase();
+/* ---------- 快速挂号（无名氏）----------
+ * 场景：危重症无家属/昏迷患者，无法提供身份信息。
+ * 姓名：系统按患者编号自动生成（无名氏+编号，只读不可改）；
+ * 年龄必填（目测估算），出生日期选填——两者双向联动：
+ * 改年龄 → 自动推算出生日期（今天 − 年龄）；手选出生日期 → 自动反算年龄。
+ * 仅可挂 0 元挂号费科室。 */
+var QUICK = { name: '', gender: '男', birth: '', age: 0 };
+
+function yearsAgoStr(n) {
+    var d = new Date();
+    d.setFullYear(d.getFullYear() - n);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function openQuickReg() {
+    Clinic.get('/api/cashier?action=quick_name', null, {
+        onSuccess: function (json) {
+            var html = '<div class="form-group">' +
+                '<label class="form-label">姓名（系统自动生成，不可修改）</label>' +
+                '<input class="input" id="q_name" value="' + json.data.name + '" readonly style="background:var(--bg-soft);color:var(--text-muted);cursor:default">' +
+                '<div class="fs-12 text-muted mt-4">以挂号患者编号动态生成：全局唯一、不与实名患者冲突，「无名氏」前缀便于识别区分</div></div>' +
+                '<div class="form-row">' +
+                '<div class="form-group"><label class="form-label">性别</label>' +
+                '<select class="select" id="q_gender"><option value="男">男</option><option value="女">女</option></select></div>' +
+                '<div class="form-group"><label class="form-label">估算年龄 <span class="req">*</span></label>' +
+                '<input class="input" id="q_age" type="number" min="1" max="130" placeholder="目测估算，如 40"></div></div>' +
+                '<div class="form-group"><label class="form-label">出生日期（选填）</label>' +
+                '<input class="input" id="q_birth" readonly placeholder="填写年龄后自动推算；也可点击手动选择" style="cursor:pointer;background:var(--bg-soft)">' +
+                '<div class="fs-12 text-muted mt-4">年龄与出生日期互相关联：修改年龄自动推算出生日期；手动选择出生日期则自动反算年龄</div></div>';
+            Clinic.modal.open(html, {
+                title: '🚑 快速挂号（无名氏）',
+                buttons: [
+                    { text: '取消', cls: 'btn-outline' },
+                    { text: '继续 → 选择科室', cls: 'btn-success', autoClose: false, onClick: quickNext },
+                ],
+            });
+            /* 年龄 → 出生日期 */
+            document.getElementById('q_age').addEventListener('input', function () {
+                var a = parseInt(this.value, 10);
+                if (a >= 1 && a <= 130) document.getElementById('q_birth').value = yearsAgoStr(a);
+            });
+            /* 出生日期 → 年龄 */
+            document.getElementById('q_birth').addEventListener('click', function () {
+                var el = this;
+                Clinic.datePicker.open(el, { maxToday: true, onChange: function (v) {
+                    if (v) document.getElementById('q_age').value = Clinic.validate.ageFromBirth(v);
+                }});
+            });
+        },
+    });
+}
+
+/* 快速挂号第二步：校验后进入科室选择（仅 0 元挂号费科室可选） */
+function quickNext() {
+    var age = parseInt(document.getElementById('q_age').value, 10);
+    if (!age || age < 1 || age > 130) { Clinic.toast.warning('请填写估算年龄（1-130 岁）'); return; }
+    QUICK.name = document.getElementById('q_name').value;
+    QUICK.gender = document.getElementById('q_gender').value;
+    QUICK.birth = document.getElementById('q_birth').value.trim();
+    QUICK.age = age;
+    Clinic.modal.close();
+    Clinic.deptPicker.open({
+        mode: 'register',
+        fetchUrl: '/api/cashier?action=depts&all=1&id_card=',
+        onlyFree: true,
+        defaultTab: 'emergency', // 无名氏默认跳转急诊 Tab（门诊 Tab 仍可选 0 元科室）
+        onSelect: function (d) { submitRegister(d, true); },
+    });
+}
+
+/* 选定科室 → 调用挂号接口 → 弹出确认框（患者基本信息 + 就诊序号 + 费用）
+ * quick=true 时使用快速挂号数据（无名氏），否则读取页面表单 */
+function submitRegister(d, quick) {
+    var card, name, gender, birth, age, feeType;
+    if (quick) {
+        card = ''; name = QUICK.name; gender = QUICK.gender;
+        birth = QUICK.birth; age = QUICK.age; feeType = '自费';
+    } else {
+        card = document.getElementById('idCard').value.trim().toUpperCase();
+        name = document.getElementById('name').value.trim();
+        gender = document.getElementById('gender').value;
+        birth = document.getElementById('birth').value.trim();
+        age = REG.age_years || 0;
+        feeType = document.getElementById('fee_type').value;
+    }
     Clinic.ajax('/api/cashier', {
         action: 'register',
         id_card: card,
-        name: document.getElementById('name').value.trim(),
-        gender: document.getElementById('gender').value,
-        birth_date: document.getElementById('birth').value,
-        age: REG.age_years || 0,
-        ethnicity: document.getElementById('ethnicity').value,
-        marital: document.getElementById('marital').value,
-        occupation: document.getElementById('occupation').value,
-        fee_type: document.getElementById('fee_type').value,
-        phone: document.getElementById('phone').value.trim(),
-        work_unit: document.getElementById('work_unit').value.trim(),
-        address: document.getElementById('address').value.trim(),
+        name: name,
+        gender: gender,
+        birth_date: birth,
+        age: age,
+        ethnicity: quick ? '汉族' : document.getElementById('ethnicity').value,
+        marital: quick ? '' : document.getElementById('marital').value,
+        occupation: quick ? '' : document.getElementById('occupation').value,
+        fee_type: feeType,
+        phone: quick ? '' : document.getElementById('phone').value.trim(),
+        work_unit: quick ? '' : document.getElementById('work_unit').value.trim(),
+        address: quick ? '' : document.getElementById('address').value.trim(),
         dept_id: d.id,
+        quick: quick ? '1' : '',
     }, {
         loading: true,
         onSuccess: function (json) {
@@ -221,9 +326,9 @@ function submitRegister(d) {
             Clinic.modal.open(
                 '<div class="fs-13 text-muted mb-12">挂号成功！请核对以下信息后点击【缴费】完成挂号：</div>' +
                 '<div class="table-wrap"><table class="table">' +
-                '<tr><th>姓名</th><td class="fw-700">' + document.getElementById('name').value.trim() + '</td></tr>' +
-                '<tr><th>性别</th><td>' + document.getElementById('gender').value + '</td></tr>' +
-                '<tr><th>费用类别</th><td>' + document.getElementById('fee_type').value + '</td></tr>' +
+                '<tr><th>姓名</th><td class="fw-700">' + (v.name || name) + '</td></tr>' +
+                '<tr><th>性别</th><td>' + gender + '</td></tr>' +
+                '<tr><th>费用类别</th><td>' + feeType + '</td></tr>' +
                 '<tr><th>ID号（身份证）</th><td>' + (v.id_card || '—') + '</td></tr>' +
                 '<tr><th>患者唯一ID</th><td class="fw-700">' + v.patient_no + '</td></tr>' +
                 '<tr><th>门诊流水号</th><td class="fw-700">' + v.flow_no + '</td></tr>' +
@@ -258,10 +363,12 @@ function payAndPrint() {
             clearDerived();
             onCardChange();
             loadOverview();
+            refreshRegState();
         },
     });
 }
 
-/* 初始加载：号源总览（纯展示，不随身份证输入变化） */
+/* 初始加载：号源总览（纯展示）+ 挂号按钮状态 */
 loadOverview();
+refreshRegState();
 </script>

@@ -41,7 +41,12 @@ Clinic.deptPicker = (function () {
         var extra = '';
 
         if (mode === 'register') {
-            if (d.type === 'emergency') {
+            // 快速挂号（onlyFree）：非 0 元挂号费科室置灰不可选
+            if (opts.onlyFree && d.fee > 0) {
+                cls += ' disabled';
+                extra = '<div class="dept-pick-tags"><span class="badge badge-gray">需实名挂号</span></div>' +
+                    '<div class="dept-pick-sub"><span class="text-muted">挂号费 ¥' + d.fee.toFixed(2) + '</span></div>';
+            } else if (d.type === 'emergency') {
                 extra = '<div class="dept-pick-tags"><span class="badge badge-danger">急诊 · 不限号</span></div>' +
                     '<div class="dept-pick-sub">挂号费 ¥' + d.fee.toFixed(2) + '</div>';
             } else if (d.full) {
@@ -121,7 +126,9 @@ Clinic.deptPicker = (function () {
             m.querySelector('.modal-body').innerHTML = tabs + grids +
                 '<div class="fs-12 text-muted mt-8">' +
                 (opts.mode === 'register'
-                    ? '点击科室卡片完成选择；门诊号源实时显示，满号科室可联系医生工作站加号。'
+                    ? (opts.onlyFree
+                        ? '快速挂号（无名氏）仅可挂挂号费为 0 元的科室，其余科室需实名挂号。'
+                        : '点击科室卡片完成选择；门诊号源实时显示，满号科室可联系医生工作站加号。')
                     : (opts.mode === 'transfer'
                         ? '点击科室卡片选择转往科室（当前科室已排除）。'
                         : '点击科室卡片即可选择。')) +
@@ -143,8 +150,10 @@ Clinic.deptPicker = (function () {
                 });
             });
 
-            /* 默认 Tab：门诊可选（且挂号时已填身份证）则默认门诊，否则急诊 */
-            var def = (byType.clinic.length && !lockClinic) ? 'clinic' : 'emergency';
+            /* 默认 Tab：可指定（快速挂号默认急诊）；否则门诊可选且非锁定时默认门诊 */
+            var def = opts.defaultTab === 'emergency'
+                ? 'emergency'
+                : ((byType.clinic.length && !lockClinic) ? 'clinic' : 'emergency');
             activate(def);
 
             /* 卡片点击 */
@@ -154,6 +163,10 @@ Clinic.deptPicker = (function () {
                     var d = null;
                     (list || []).forEach(function (x) { if (x.id === id) d = x; });
                     if (!d) return;
+                    if (opts.mode === 'register' && opts.onlyFree && d.fee > 0) {
+                        Clinic.toast.warning('快速挂号（无名氏）仅可挂挂号费为 0 元的科室');
+                        return;
+                    }
                     if (opts.mode === 'register' && d.type !== 'emergency' && d.full) {
                         Clinic.toast.warning('【' + d.name + '】今日号源已满，请联系医生工作站加号');
                         return;

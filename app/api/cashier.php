@@ -81,6 +81,14 @@ switch ($action) {
         json_ok(array('list' => $list, 'session' => $session));
         break;
 
+    /* ==================== 快速挂号：预览无名氏姓名 ====================
+     * 姓名规则：无名氏 + 患者编号（8位：年月日+当日序号），
+     * 与正式患者编号同源生成——全局唯一、天然不冲突，
+     * 且「无名氏」前缀与实名患者命名天然区分 */
+    case 'quick_name':
+        json_ok(array('name' => '无名氏' . next_patient_no()));
+        break;
+
     /* ==================== 挂号 ==================== */
     case 'register':
         $idCard = strtoupper(post('id_card'));
@@ -88,9 +96,14 @@ switch ($action) {
         $deptId = (int)post('dept_id');
         $feeType = post('fee_type', '自费');
         $hasId = ($idCard !== '');
+        $isQuick = post('quick') === '1'; // 快速挂号（无名氏，危重症无身份信息场景）
 
         // ===== 基础校验 =====
-        if ($name === '') json_fail('请填写患者姓名');
+        if (!$isQuick) {
+            if ($name === '') json_fail('请填写患者姓名');
+            // 实名挂号不允许使用「无名氏」前缀，避免与快速挂号患者混淆
+            if (strpos($name, '无名氏') === 0) json_fail('请填写患者真实姓名');
+        }
         if ($deptId <= 0) json_fail('请选择挂号科室');
         $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=? AND status=1', array($deptId));
         if (!$dept) json_fail('科室不存在或已停用');
@@ -108,6 +121,24 @@ switch ($action) {
             $gender = $info['gender'];
             $birth = $info['birth'];
             $age = $info['age'];
+        } elseif ($isQuick) {
+            // 快速挂号（无名氏）：年龄必填（目测估算）；出生日期选填，
+            // 缺省按「今天 − 年龄」推算；仅限挂号费为 0 元的科室
+            if ((float)$dept['fee'] != 0) {
+                json_fail('快速挂号（无名氏）仅可挂挂号费为 0 元的科室');
+            }
+            $age = (int)post('age', 0);
+            if ($age < 1 || $age > 130) json_fail('请填写估算年龄（1-130 岁）');
+            $gender = post('gender', '男') === '女' ? '女' : '男';
+            $birth = post('birth_date', '');
+            if ($birth !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $birth)) $birth = '';
+            if ($birth === '') {
+                $dt = new DateTime();
+                $dt->modify('-' . $age . ' years');
+                $birth = $dt->format('Y-m-d');
+            }
+            $feeType = '自费';
+            $name = ''; // 姓名忽略前端传值，以系统生成的「无名氏+患者编号」为准
         } else {
             // 无身份证：仅急诊 + 默认自费（不可修改）
             if ($dept['type'] !== 'emergency') {
@@ -129,6 +160,10 @@ switch ($action) {
             $patientNo = $patient['patient_no'];
         } else {
             $patientNo = next_patient_no();
+            // 快速挂号：姓名 = 无名氏 + 患者编号（全局唯一，与实名患者天然区分）
+            if ($isQuick) {
+                $name = '无名氏' . $patientNo;
+            }
             // 注意：无身份证时 id_card 存 NULL（SQLite 唯一约束允许多个 NULL，
             // 若存空字符串则第二位无身份证患者会触发唯一约束冲突）
             $dbCard = ($idCard !== '') ? $idCard : null;
@@ -175,6 +210,7 @@ switch ($action) {
         json_ok(array(
             'visit_id' => $visitId,
             'patient_no' => $patientNo,
+            'name' => $name, // 快速挂号时为系统最终生成的「无名氏+编号」（可能与预览号不同，以本值为准）
             'flow_no' => $flowNo,
             'visit_seq' => $visitSeq,
             'dept_name' => $dept['name'],
