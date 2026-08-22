@@ -91,7 +91,8 @@ function payOrder(orderId) {
 
 function batchPay() {
     var ids = [];
-    document.querySelectorAll('.batchPay:checked').forEach(function (c) { ids.push(parseInt(c.value, 10)); });
+    // 混淆 ID 为不透明字符串（不可 parseInt），原样透传由后端解码
+    document.querySelectorAll('.batchPay:checked').forEach(function (c) { ids.push(c.value); });
     if (!ids.length) { Clinic.toast.warning('请先勾选要缴费的项目'); return; }
     doPay(ids);
 }

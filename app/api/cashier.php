@@ -230,7 +230,7 @@ switch ($action) {
         ));
 
         json_ok(array(
-            'visit_id' => $visitId,
+            'visit_id' => oid($visitId),
             'patient_no' => $patientNo,
             'name' => $name, // 快速挂号时为系统最终生成的「无名氏+编号」（可能与预览号不同，以本值为准）
             'flow_no' => $flowNo,
@@ -244,7 +244,7 @@ switch ($action) {
 
     /* ==================== 挂号费缴费（模拟） ==================== */
     case 'pay_visit':
-        $visitId = (int)post('visit_id');
+        $visitId = did(post('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
@@ -285,12 +285,12 @@ switch ($action) {
                     '<td><div class="flex gap-4">' .
                     // 凭条是缴费凭证：仅已实际缴费的状态提供补打（待缴费/取消/退费不显示）
                     (in_array($r['status'], array('paid', 'visiting', 'finished'), true) ?
-                        '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=receipt&visit_id=' . (int)$r['id'] . '\',null,\'ticket\')">补打凭条</button>' : '') .
+                        '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=receipt&visit_id=' . e(oid($r['id'])) . '\',null,\'ticket\')">补打凭条</button>' : '') .
                     // 待缴费：支持继续缴费（完成后自动打印凭条）
                     ($r['status'] === 'pending' ?
-                        '<button class="btn btn-primary btn-sm" onclick="payVisit(' . (int)$r['id'] . ')">继续缴费</button>' : '') .
+                        '<button class="btn btn-primary btn-sm" onclick="payVisit(' . e(oid($r['id'])) . ')">继续缴费</button>' : '') .
                     (in_array($r['status'], array('pending', 'paid'), true) ?
-                        '<button class="btn btn-outline btn-sm" onclick="cancelVisit(' . (int)$r['id'] . ',\'' . e($r['status']) . '\')">' . ($r['status'] === 'paid' ? '退费' : '取消') . '</button>' : '') .
+                        '<button class="btn btn-outline btn-sm" onclick="cancelVisit(' . e(oid($r['id'])) . ',\'' . e($r['status']) . '\')">' . ($r['status'] === 'paid' ? '退费' : '取消') . '</button>' : '') .
                     '</div></td></tr>';
             }
             $html .= '</tbody></table></div>';
@@ -300,7 +300,7 @@ switch ($action) {
 
     /* ==================== 退费/取消挂号 ==================== */
     case 'cancel_visit':
-        $visitId = (int)post('visit_id');
+        $visitId = did(post('visit_id'));
         $reason = post('reason', '');
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
@@ -345,11 +345,11 @@ switch ($action) {
 
     /* ==================== 就诊缴费详情（HTML，分组显示已缴/待缴） ==================== */
     case 'visit_detail':
-        $visitId = (int)get('visit_id');
+        $visitId = did(get('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
-        $html = '<div class="card" style="padding:14px;margin-bottom:12px" data-vid="' . (int)$visitId . '">' .
+        $html = '<div class="card" style="padding:14px;margin-bottom:12px" data-vid="' . e(oid($visitId)) . '">' .
             '<div class="flex-between"><div><span class="fw-700 fs-16">' . e($row['patient']['name']) . '</span> ' .
             '<span class="text-muted fs-13">' . e($row['patient']['gender']) . ' / ' . age_format($row['patient']['birth_date'], $visit['register_time']) . '</span></div>' .
             '<span class="badge badge-primary">' . e($visit['flow_no']) . '</span></div>' .
@@ -396,10 +396,10 @@ switch ($action) {
             // 操作：待缴费 → 缴费按钮；已缴费 → 退费按钮（仅未使用项目）
             if ($agg === 'open') {
                 $html .= '<div class="mt-8 flex gap-8">' .
-                    '<label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" class="batchPay" value="' . (int)$o['id'] . '" onchange="updateBatchCount()"> 选择</label>' .
-                    '<button class="btn btn-success btn-sm" onclick="payOrder(' . (int)$o['id'] . ')">缴费</button></div>';
+                    '<label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" class="batchPay" value="' . e(oid($o['id'])) . '" onchange="updateBatchCount()"> 选择</label>' .
+                    '<button class="btn btn-success btn-sm" onclick="payOrder(' . e(oid($o['id'])) . ')">缴费</button></div>';
             } elseif ($agg === 'paid') {
-                $html .= '<div class="mt-8"><button class="btn btn-outline btn-sm" onclick="refundOrder(' . (int)$o['id'] . ')">申请退费</button></div>';
+                $html .= '<div class="mt-8"><button class="btn btn-outline btn-sm" onclick="refundOrder(' . e(oid($o['id'])) . ')">申请退费</button></div>';
             } elseif ($agg === 'refunded') {
                 $html .= '<div class="mt-8"><span class="badge badge-gray">已退费</span></div>';
             } else {
@@ -416,8 +416,10 @@ switch ($action) {
         if (!is_array($ids) || !$ids) json_fail('请选择要缴费的项目');
         $payId = 0;
         $total = 0;
-        foreach ($ids as $oid) {
-            $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array((int)$oid));
+        foreach ($ids as $oidStr) {
+            $oidNum = did($oidStr);
+            if ($oidNum <= 0) json_fail('存在无效的开单标识，请刷新后重试');
+            $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array($oidNum));
             if (!$order) json_fail('开单不存在');
             $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=?', array($order['id']));
             foreach ($items as $it) {
@@ -445,7 +447,8 @@ switch ($action) {
 
     /* ==================== 订单退费（仅限未使用的项目） ==================== */
     case 'refund_order':
-        $orderId = (int)post('order_id');
+        $orderId = did(post('order_id'));
+        if ($orderId <= 0) json_fail('参数无效');
         $reason = post('reason', '');
         $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array($orderId));
         if (!$order) json_fail('开单不存在');

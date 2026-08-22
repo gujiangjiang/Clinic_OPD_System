@@ -81,7 +81,7 @@ switch ($action) {
 
     /* ==================== 提交开单 ==================== */
     case 'submit':
-        $visitId = (int)post('visit_id');
+        $visitId = did(post('visit_id'));
         $orderType = post('order_type', 'lab');
         $nurseReq = (int)post('nurse_required', 0);
         $rawItems = post('items', '[]');
@@ -274,8 +274,8 @@ switch ($action) {
         }
 
         json_ok(array(
-            'order_id' => $createdIds[0],
-            'order_ids' => $createdIds,
+            'order_id' => oid($createdIds[0]),
+            'order_ids' => array_map('oid', $createdIds),
             'order_no' => $createdNos[0],
             'order_nos' => $createdNos,
             'total' => $totalAll,
@@ -286,7 +286,7 @@ switch ($action) {
     // 说明：返回该患者历史上开具过的项目（同一项目只保留最近一次，含未缴费），
     //      前端在重复开具时提示「何时开具过，是否再次开具」（如复查场景）。
     case 'prev_items':
-        $visitId = (int)get('visit_id');
+        $visitId = did(get('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $patientNo = $row['visit']['patient_no'];
@@ -313,7 +313,9 @@ switch ($action) {
 
     /* ==================== 申请单/处方单打印 ==================== */
     case 'print':
-        $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array((int)get('order_id')));
+        $orderIdP = did(get('order_id'));
+        if ($orderIdP <= 0) json_fail('链接无效或已过期');
+        $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array($orderIdP));
         if (!$order) json_fail('开单记录不存在');
         $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($order['id']));
         $titles = array('lab' => '检验申请单', 'imaging' => '检查申请单', 'procedure' => '处置申请单', 'prescription' => '门诊处方笺');
@@ -327,7 +329,7 @@ switch ($action) {
 
     /* ==================== 就诊开单列表（病历处置区） ==================== */
     case 'visit_orders':
-        $visitId = (int)get('visit_id');
+        $visitId = did(get('visit_id'));
         $orders = DB::q('order', 'SELECT * FROM orders WHERE visit_id=? ORDER BY id DESC', array($visitId));
         $out = array();
         foreach ($orders as $o) {
@@ -337,7 +339,8 @@ switch ($action) {
                 if ($it['executed_by']) $doneBy = $it['executed_by'];
             }
             $out[] = array(
-                'id' => (int)$o['id'], 'order_no' => $o['order_no'], 'order_type' => $o['order_type'],
+                // 混淆串：前端删除/打印外链回传时后端统一 did 解码
+                'id' => oid($o['id']), 'order_no' => $o['order_no'], 'order_type' => $o['order_type'],
                 // 检查分类名称快照：检查申请单按分类拆分后，前端动态显示「XX申请单」
                 'cat_name' => isset($o['cat_name']) ? (string)$o['cat_name'] : '',
                 'status' => order_agg_status($o['order_type'], $items),
@@ -367,7 +370,8 @@ switch ($action) {
      * 权限硬拦截：仅开单医生本人可删除/毁方自己的处方或申请单——
      * 多医生接诊下其他医生（含强制提交）一律拒绝，谁开单谁负责。 */
     case 'delete':
-        $orderId = (int)post('order_id');
+        $orderId = did(post('order_id'));
+        if ($orderId <= 0) json_fail('参数无效');
         $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array($orderId));
         if (!$order) json_fail('开单记录不存在');
         if ((int)$order['doctor_id'] !== (int)$u['id']) {
