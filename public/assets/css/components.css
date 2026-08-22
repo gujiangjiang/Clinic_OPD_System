@@ -671,3 +671,13 @@
 }
 .emr-doc .doc-body .ef-select-wrap { flex-shrink: 0; }
 .emr-doc .doc-body .ef-cond { display: inline-block; }
+
+/* 病历页 sticky 患者头：负边距铺满内容区宽度 + 实体底色，
+   避免滚动时下方病历文字从缝隙透出（遮盖问题） */
+#emrHeader {
+    margin: -20px -20px 16px;
+    padding: 14px 20px 10px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+}
+#emrHeader .card { margin-bottom: 0; }

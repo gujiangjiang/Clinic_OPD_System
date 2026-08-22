@@ -158,11 +158,12 @@ Clinic.emr = (function () {
         var consciousness = ['清醒', '嗜睡', '意识模糊', '昏睡', '昏迷', '谵妄'];
         var midNode = document.createElement('div');
         midNode.className = 'doc-sec';
+        // 与病历字段一致的 Word 式内联下拉样式（ef-select）
         midNode.innerHTML = '<span class="doc-sec-label">意识状态</span>' +
-            '<select class="select" id="consciousness"><option value="">请选择</option>' +
+            '<span class="ef-select-wrap"><select class="ef-select" id="consciousness"><option value="">请选择</option>' +
             consciousness.map(function (c) {
                 return '<option value="' + c + '"' + (r.consciousness === c ? ' selected' : '') + '>' + c + '</option>';
-            }).join('') + '</select>';
+            }).join('') + '</select></span>';
 
         document.getElementById('emrCard').innerHTML =
             '<div class="emr-doc">' +
@@ -635,13 +636,12 @@ Clinic.emr = (function () {
      */
     function isRecordComplete() {
         if (!DATA || !DATA.record) return false;
-        var r = DATA.record;
-        var text = function (html) {
-            var t = document.createElement('div');
-            t.innerHTML = html || '';
-            return t.textContent.trim();
-        };
-        return !!(text(r.chief_complaint) && text(r.present_illness) && (r.initial_diagnosis || '').trim());
+        // 结构化病历：校验 emr_data 投影（主诉症状/现病史内容/诊断列表）
+        var e = DATA.record.emr;
+        if (!e) return false;
+        var cc = ((e.chief_complaint || {}).symptom || '').trim();
+        var pi = ((e.history_present || {}).content || '').trim();
+        return !!(cc && pi && (e.diagnoses || []).length);
     }
 
     /**

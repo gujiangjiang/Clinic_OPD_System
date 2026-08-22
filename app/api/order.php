@@ -96,7 +96,11 @@ switch ($action) {
             json_fail('请先接诊该患者后再开单');
         }
         // ===== 病历完整性校验：开检验/检查/处置/处方前，病历必须已完善并保存（主诉/现病史/初步诊断为必填） =====
-        $savedRecord = DB::one('medical', 'SELECT id FROM records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($visitId));
+        // 结构化病历优先（patient_records），兼容旧 records 扁平数据
+        $savedRecord = DB::one('medical', 'SELECT id FROM patient_records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($visitId));
+        if (!$savedRecord) {
+            $savedRecord = DB::one('medical', 'SELECT id FROM records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($visitId));
+        }
         if (!$savedRecord) {
             json_fail('请先在病历中完善主诉、现病史与初步诊断并保存，再开单');
         }
