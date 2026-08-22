@@ -139,12 +139,17 @@ function emr_obs_text($emr) {
  * @return string
  */
 function emr_print_text($emr, $vitalsText = '', $consciousness = '', $orderNames = array(), $rxLines = array(), $dispItems = array()) {
-    $secs = array(
-        array('主诉', emr_cc_text(isset($emr['chief_complaint']) ? $emr['chief_complaint'] : array())),
-        array('现病史', emr_pi_text(isset($emr['history_present']) ? $emr['history_present'] : array())),
-        array('既往史', emr_ph_text(isset($emr['past_history']) ? $emr['past_history'] : array())),
-        array('过敏史', isset($emr['allergies']) ? $emr['allergies'] : ''),
-    );
+    $emr = is_array($emr) ? $emr : array();
+    $secs = array();
+    // 病历续写（progress 续写文书专用，置顶输出；首诊文书恒为空自动跳过）
+    $progContent = isset($emr['progress']['content']) ? trim((string)$emr['progress']['content']) : '';
+    if ($progContent !== '') $secs[] = array('病历续写', $progContent);
+    $secs[] = array('主诉', emr_cc_text(isset($emr['chief_complaint']) ? $emr['chief_complaint'] : array()));
+    $secs[] = array('现病史', emr_pi_text(isset($emr['history_present']) ? $emr['history_present'] : array()));
+    $secs[] = array('既往史', emr_ph_text(isset($emr['past_history']) ? $emr['past_history'] : array()));
+    // 兼容旧数据：allergies 曾为纯文本字符串
+    $alRaw = isset($emr['allergies']) ? $emr['allergies'] : '';
+    $secs[] = array('过敏史', is_array($alRaw) ? emr_al_text($alRaw) : (string)$alRaw);
     $ms = emr_ms_text(isset($emr['main_symptoms']) ? $emr['main_symptoms'] : array());
     if ($ms !== '') $secs[] = array('主要症状', $ms);
     if ($vitalsText !== '') $secs[] = array('生命体征', $vitalsText);
