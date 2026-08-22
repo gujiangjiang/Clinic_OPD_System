@@ -570,6 +570,46 @@ switch ($action) {
         json_ok(array('html' => pt_certificate($visit, $row['patient'], $record, $cert, $cert['doctor_name'])));
         break;
 
+    /* ==================== 前序诊断查重（跨医生引用） ====================
+     * 检索该挂号流水下前序【其他医生】已添加过的诊断，供前端在
+     * 诊断模态框中弹出引用确认（引用后仍可修改部位/备注/疑似标记）。
+     * 入参：visit_id（兼容 reg_id 别名）+ keyword（诊断名称或 ICD-10 编码，
+     * 留空返回前序全部诊断）。匹配规则：名称或编码包含关键词（不区分大小写）。 */
+    case 'check_previous_diagnoses':
+        $visitId = (int)(get('visit_id') !== '' ? get('visit_id') : get('reg_id'));
+        $kw = trim((string)get('keyword'));
+        if (!$visitId) json_fail('缺少挂号流水参数');
+        // 大小写归一化（服务器可能未启用 mbstring，见 helpers.php polyfill 说明；
+        // 中文无大小写差异，ASCII 编码字母统一小写比较）
+        $lc = function ($s) { return function_exists('mb_strtolower') ? mb_strtolower((string)$s, 'UTF-8') : strtolower((string)$s); };
+        $lkw = $lc($kw);
+        $rows = DB::q('medical', 'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id<>? ORDER BY id ASC', array($visitId, $u['id']));
+        $list = array();
+        foreach ($rows as $pr2) {
+            $emr2 = json_decode($pr2['emr_data'], true);
+            $dgs = (is_array($emr2) && isset($emr2['diagnoses']) && is_array($emr2['diagnoses'])) ? $emr2['diagnoses'] : array();
+            foreach ($dgs as $dg) {
+                if (!is_array($dg) || empty($dg['name'])) continue;
+                $name = (string)$dg['name'];
+                $code = isset($dg['code']) ? (string)$dg['code'] : '';
+                if ($lkw !== '' && strpos($lc($name), $lkw) === false && strpos($lc($code), $lkw) === false) continue;
+                $list[] = array(
+                    'doctor_id' => (int)$pr2['doctor_id'],
+                    'doctor_name' => (string)$pr2['doctor_name'],
+                    'record_id' => (int)$pr2['id'],
+                    'record_type' => ($pr2['record_type'] === 'progress') ? 'progress' : 'initial',
+                    'created_at' => (string)$pr2['created_at'],
+                    'name' => $name,
+                    'code' => $code,
+                    'part' => isset($dg['part']) ? (string)$dg['part'] : '',
+                    'note' => isset($dg['note']) ? (string)$dg['note'] : '',
+                    'suspected' => isset($dg['suspected']) ? (string)$dg['suspected'] : '',
+                );
+            }
+        }
+        json_ok(array('list' => $list, 'count' => count($list)));
+        break;
+
     default:
         json_fail('未知操作');
 }
