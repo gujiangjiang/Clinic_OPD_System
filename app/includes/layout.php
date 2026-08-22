@@ -132,7 +132,10 @@ class Layout {
         // （修复：原相对路径在 /admin/* 等二级路径页被解析为 /admin/uploads/... 导致 404）
         $logoData = img_data(setting('logo', ''));
         $favicon = $logoData !== '' ? '<link rel="icon" href="' . e($logoData) . '">' : '';
-        $brandImg = $logoData !== '' ? '<img src="' . e($logoData) . '" alt="LOGO">' : '';
+        // 未设置 LOGO 时显示默认简易 LOGO（🏥），避免侧边栏 mini 模式下顶部空白
+        $brandImg = $logoData !== ''
+            ? '<img src="' . e($logoData) . '" alt="LOGO">'
+            : '<span class="brand-default-logo">🏥</span>';
         // 页脚版权：固定格式自动生成【© 年份 医院名称 版权所有】，无需手动配置
         $footer = '© ' . date('Y') . ' ' . ($hosp !== '' ? $hosp : '门诊一体化信息系统') . ' 版权所有';
         $theme = $u['theme'] ? $u['theme'] : 'auto';

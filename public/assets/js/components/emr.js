@@ -245,33 +245,46 @@ Clinic.emr = (function () {
         // 不随任何文书进入只读——任何接诊医生都可以继续更新患者资料、
         // 修改初复诊等；仅【病历主体】按文书归属区分：他人文书只读展示，
         // 本人文书可编辑（前序在上、后序在下，严格按时间正序接续）。
-        var docHtml =
-            '<div class="emr-doc">' +
+        // 诊毕只读：全部文书以只读段展示，不渲染编辑器 / 本人签名 / 页脚
+        // （只读段内已有各自医生签名，绝不出现查看者本人签名的"幽灵行"）。
+        // 公共页眉（抬头/标题/患者信息/条形码）
+        var headHtml =
             bcHtml +
             (hosp ? '<div class="doc-hosp">' + hosp + '</div>' : '') +
             (hosp2 ? '<div class="doc-sub">' + hosp2 + '</div>' : '') +
-            // 病历模板按钮：文档页头左上角（首诊/续写文书均可套用模板）
-            '<span class="doc-tpl">' + tplBtn + '</span>' +
+            '<span class="doc-tpl">' + (readOnly ? '' : tplBtn) + '</span>' +
             '<div class="doc-title-bar">' +
             '  <span class="doc-title">' + docTitle + '</span>' +
             '</div>' +
             gridWrap +
-            '<div class="doc-line"></div>' +
-            // 病历主体：前序医生文书（只读）→ 本人文书（编辑器）→ 后序医生文书（只读）
-            '<div id="roBefore"></div>' +
-            '<div class="doc-body" id="docBody"></div>' +
-            // 病历正文右下角医生签名（页脚仍保留 医生：医生（工号 0003）｜职称，互不影响）
-            '<div class="doc-body-sign">医生：' + r.doctor_name + '</div>' +
-            '<div id="roAfter"></div>' +
-            '</div>' +
-            // 页脚：左下角记录时间（首次保存，不变）、右侧医生签名与最近保存时间
-            '<div class="doc-footer">' +
-            '  <span class="doc-rec-time" id="docRecTime" style="' + ((r.created_at || r.updated_at) ? '' : 'display:none') + '">记录时间：' + (r.created_at || r.updated_at || '') + '</span>' +
-            '  <span class="doc-doctor">医生：' + r.doctor_name +
-            (r.doctor_emp ? '（工号 ' + r.doctor_emp + '）' : '') +
-            (r.doctor_title ? ' ｜ ' + r.doctor_title : '') + '</span>' +
-            '  <span class="doc-saved-at" id="docSavedAt" style="' + (r.updated_at ? '' : 'display:none') + '">最近保存：' + (r.updated_at || '') + '</span>' +
-            '</div>';
+            '<div class="doc-line"></div>';
+        var docHtml;
+        if (readOnly) {
+            // 只读骨架：无编辑器签名、无页脚（各只读段自带医生签名与记录时间）
+            docHtml =
+                '<div class="emr-doc">' +
+                headHtml +
+                '<div class="doc-body" id="docBody" data-ro="1"></div>' +
+                '</div>';
+        } else {
+            // 编辑态骨架：续写定位锚点 + 本人文书右下角签名 + 页脚（记录时间 | 医生 | 最近保存）
+            docHtml =
+                '<div class="emr-doc">' +
+                headHtml +
+                '<div id="myRecordAnchor"></div>' +
+                '<div id="roBefore"></div>' +
+                '<div class="doc-body" id="docBody"></div>' +
+                '<div class="doc-body-sign">医生：' + r.doctor_name + '</div>' +
+                '<div id="roAfter"></div>' +
+                '</div>' +
+                '<div class="doc-footer">' +
+                '  <span class="doc-rec-time" id="docRecTime" style="' + ((r.created_at || r.updated_at) ? '' : 'display:none') + '">记录时间：' + (r.created_at || r.updated_at || '') + '</span>' +
+                '  <span class="doc-doctor">医生：' + r.doctor_name +
+                (r.doctor_emp ? '（工号 ' + r.doctor_emp + '）' : '') +
+                (r.doctor_title ? ' ｜ ' + r.doctor_title : '') + '</span>' +
+                '  <span class="doc-saved-at" id="docSavedAt" style="' + (r.updated_at ? '' : 'display:none') + '">最近保存：' + (r.updated_at || '') + '</span>' +
+                '</div>';
+        }
         document.getElementById('emrCard').innerHTML = docHtml;
 
         if (readOnly) {
@@ -281,9 +294,6 @@ Clinic.emr = (function () {
             if (docBody && hist.length) {
                 docBody.innerHTML = '<div class="prev-record-wrap">' + hist.map(roSegmentHtml).join('') + '</div>';
             }
-            // 隐藏编辑器签名与页脚（只读段内已有各自签名）
-            var sign = document.querySelector('.doc-body-sign');
-            if (sign) sign.style.display = 'none';
             setReadonlyUI();
         } else {
             // 非诊毕：结构化字段编辑器渲染（mode 决定首诊全量/续写精简模块）
@@ -296,6 +306,17 @@ Clinic.emr = (function () {
 
             // 他人文书只读段渲染（此刻已开项目列表未必就绪，loadOrders 成功后会再刷新一次）
             refreshReadOnlyBodies(d);
+        }
+
+        // 问题2：续写定位——非诊毕且本人已有文书时，页面平滑滚动到本人病历区
+        // （#myRecordAnchor 锚点标记在 #docBody 前）；诊毕（含无本人病历）不滚动
+        if (!readOnly && (r.record_id || 0) > 0) {
+            var anchor = document.getElementById('myRecordAnchor');
+            if (anchor) {
+                setTimeout(function () {
+                    anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 200);
+            }
         }
     }
 
@@ -1057,29 +1078,15 @@ Clinic.emr = (function () {
      * 开具诊断证明（本次就诊，单次就诊仅一次）
      * 与「补开诊断证明」共用 certificateModal，仅标题不同；
      * visitId 固定取当前编辑页的就诊 ID——引用的是本次就诊病历。
+     * 完整性判断与打印病历按钮完全一致（isRecordComplete）：
+     * 已诊毕直接放行；未诊毕须本人文书已完善并保存，否则提示先完善病历。
      */
     function openCertificate() {
         var visitId = document.getElementById('visitId').value;
-        var emr = Clinic.emrEditor.collect();
-        // 本地预校验未保存的编辑器内容；若已开具则直接进入只读预览
-        // （certificateModal 内部会识别已开具状态并切换为「打印」形态，
-        //   打印内容始终以服务器存档数据为准）
-        if (!(DATA && DATA.has_certificate)) {
-            var cc, pi, diag;
-            if (DATA && DATA.record && DATA.record.record_type === 'progress') {
-                // 续写文书：主诉/现病史归首诊医生所有，本地不拦截——
-                // 交由 certificateModal 以服务端投影（含前序文书回退）判定
-                cc = 'x'; pi = 'x';
-                diag = (emr.diagnoses || []).length;
-            } else {
-                cc = (emr.chief_complaint && emr.chief_complaint.symptom || '').trim();
-                pi = (emr.history_present && emr.history_present.content || '').trim();
-                diag = (emr.diagnoses || []).length;
-            }
-            if (!cc || !pi || !diag) {
-                Clinic.toast.warning('请先完善病历（主诉、现病史、诊断）');
-                return;
-            }
+        // 与打印病历按钮同一套判断逻辑与提示语（仅场景词不同）
+        if (!isRecordComplete()) {
+            Clinic.toast.warning('请先在病历中完善主诉、现病史与初步诊断并保存，再开具诊断证明');
+            return;
         }
         certificateModal(visitId, '开具诊断证明');
     }

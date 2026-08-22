@@ -736,6 +736,10 @@
 }
 .prev-sec { font-size: 14px; line-height: 2.1; }
 .prev-sec .doc-sec-label { margin-right: 2px; }
+/* 只读段标签冒号由 HTML 直接拼接（prev-sec 可能渲染在 .doc-body 之外，
+   不能依赖 .doc-body .doc-sec-label::after 的 CSS 冒号，否则诊毕只读
+   整段移入 #docBody 后会出现「主诉：：」双冒号） */
+.prev-sec .doc-sec-label::after { content: none; }
 
 /* 续写编辑器「病史同上」快捷按钮（行内小按钮，随文字基线对齐） */
 .ef-prog-btn {
@@ -746,10 +750,12 @@
 }
 
 /* 页脚「最近保存」：仅编辑页展示的最近一次保存时间（不参与打印），
-   与医生签名同组靠右排列 */
+   margin-left:auto 强制靠右对齐（无论左侧元素数量 / 显隐状态） */
 .emr-doc .doc-saved-at {
     font-size: 12px;
     color: var(--text-muted);
+    margin-left: auto;
+    text-align: right;
 }
 
 /* 他人文书只读段的医生签名：使用只读文字样式（灰色弱化），

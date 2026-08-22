@@ -39,6 +39,19 @@
     object-fit: contain;
     border-radius: 8px;
 }
+/* 默认简易 LOGO（未上传医院 LOGO 时显示，避免侧边栏 mini 模式下顶部空白）：
+   与 img 同尺寸的居中 emoji 占位 */
+.sidebar-brand .brand-default-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px; width: 36px;
+    font-size: 24px;
+    line-height: 1;
+    border-radius: 8px;
+    background: rgba(255,255,255,.10);
+    flex-shrink: 0;
+}
 .sidebar-brand .brand-names {
     flex: 1;
     min-width: 0;
