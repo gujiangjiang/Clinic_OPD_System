@@ -159,6 +159,25 @@ switch ($action) {
         }
         $recordData['consciousness'] = $mirror ? (string)$mirror['consciousness'] : '';
         $recordData['visit_type'] = ($mirror && $mirror['visit_type'] !== '') ? $mirror['visit_type'] : '初诊';
+        // 扁平投影字段（主诉/现病史/初步诊断）：供诊断证明补开等旧字段消费方使用。
+        // 结构化病历升级后 get 曾不再返回这些字段，导致「就诊历史→补开诊断证明」
+        // 误判病历不完整（结构化升级残留缺陷）。优先由结构化 emr 投影生成，
+        // 为空时回退 records 镜像表（兼容未结构化的历史病历）。
+        $mirrorFlat = DB::one('medical', 'SELECT chief_complaint, present_illness, initial_diagnosis, diagnosis_code FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        $ccText = emr_cc_text(isset($emr['chief_complaint']) ? $emr['chief_complaint'] : array());
+        $piText = emr_pi_text(isset($emr['history_present']) ? $emr['history_present'] : array());
+        $diagText = emr_diag_text(isset($emr['diagnoses']) ? $emr['diagnoses'] : array());
+        if ($ccText === '' && $mirrorFlat) $ccText = (string)$mirrorFlat['chief_complaint'];
+        if ($piText === '' && $mirrorFlat) $piText = (string)$mirrorFlat['present_illness'];
+        if ($diagText === '' && $mirrorFlat) {
+            $diagText = trim((string)$mirrorFlat['initial_diagnosis'] .
+                ((string)$mirrorFlat['diagnosis_code'] !== '' ? '（' . $mirrorFlat['diagnosis_code'] . '）' : ''));
+        } elseif ($diagText !== '' && $pr && (string)$pr['primary_icd10'] !== '') {
+            $diagText .= '（' . $pr['primary_icd10'] . '）';
+        }
+        $recordData['chief_complaint'] = $ccText;
+        $recordData['present_illness'] = $piText;
+        $recordData['initial_diagnosis'] = $diagText;
 
         // 生命体征（最新一条，护士站与医生站共用）
         $vitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visitId));

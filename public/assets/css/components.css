@@ -684,7 +684,7 @@
    上边距保持 0：sticky 吸附基准只由 top 决定，滚动吸附位置精确可控 */
 #emrHeader {
     margin: 0 -20px 16px;
-    padding: 14px 20px 10px;
+    padding: 0 20px 10px;
     background: var(--bg);
     border-bottom: 1px solid var(--border);
 }
