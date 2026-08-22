@@ -281,10 +281,16 @@
 
 /* ---------- A5 病历纸（竖版窄条：宽度受限、可向下延伸，严格按 A5 纸张显示） ---------- */
 .print-preview.sheet-a5 .print-area {
-    width: 148mm;
+    width: auto;
     max-width: none;
-    min-height: 210mm;
-    padding: 14mm 12mm;
+    min-height: 0;
+    padding: 10mm;
+    background: var(--bg);
+}
+/* 分页完成（存在 .a5-sheet）后：容器退化为透明画布，纸张观感由每张 sheet 呈现 */
+.print-preview.sheet-a5 .print-area.paginated {
+    padding: 20px;
+    background: transparent;
 }
 .print-preview.sheet-a5 .print-toolbar {
     max-width: 148mm;
@@ -395,18 +401,62 @@
         max-width: 100% !important;
         box-sizing: border-box;
     }
-    /* 版心撑满整页：内容少时底部保持空白，纸张不因内容缩短 */
-    .print-preview.sheet-a5 #print-area {
-        width: 128mm !important;   /* 148mm − 左右页边距 20mm */
-        min-height: 188mm !important; /* 190mm 版心留 2mm 余量防舍入溢出空尾页 */
-        padding: 0;
+    /* 分页由 JS 分页器完成：每张 .a5-sheet 即一个物理页 */
+    .print-preview.sheet-a5 #print-area { min-height: 0 !important; }
+}
+
+/* ---------- A5 纸张页（.a5-sheet）：屏幕预览与打印同构 ----------
+ * 每页固定三段：a5-head 页眉（顶部）/ a5-body 正文（弹性，空白留白）/
+ * a5-foot 页脚（底部）+ 页码。内容多少不改变页眉页脚位置。 */
+@media screen {
+    .print-preview.sheet-a5 .a5-sheet {
+        width: 148mm;
+        height: 210mm;
+        padding: 10mm;
+        background: #fff;
+        margin: 0 auto 16px;
+        box-shadow: 0 2px 10px rgba(0,0,0,.2);
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
     }
-    .print-preview.sheet-a5 #print-area .print-record-doc {
-        width: 100%;
-        min-height: inherit;
+}
+.print-preview.sheet-a5 .a5-head { flex-shrink: 0; }
+.print-preview.sheet-a5 .a5-body { flex: 1 1 auto; overflow: hidden; }
+.print-preview.sheet-a5 .a5-foot {
+    flex-shrink: 0;
+    margin-top: 8px;
+    padding-top: 4px;
+}
+.a5-page-no {
+    text-align: center;
+    font-size: 11px;
+    color: #444;
+    margin-top: 6px;
+}
+/* 打印：每张 sheet 精确占满一页物理纸张，页间强制分页 */
+@media print {
+    .print-preview.sheet-a5 .a5-sheet {
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        height: 187mm;
+        max-height: 187mm;   /* A5 可打印高 190mm，留 3mm 防舍入溢出 */
+        min-height: 187mm;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: #fff !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        page-break-after: always;
+        break-after: page;
     }
-    /* 分页卫生：表格行与处方行不跨页截断 */
-    .print-area tr,
-    .print-area .pf-rx-line,
-    .print-area .ef-rx-line { break-inside: avoid; page-break-inside: avoid; }
+    .print-preview.sheet-a5 .a5-sheet:last-child {
+        page-break-after: auto;
+        break-after: auto;
+    }
 }
