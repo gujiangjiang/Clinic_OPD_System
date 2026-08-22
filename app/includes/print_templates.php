@@ -546,11 +546,15 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
     // 签名紧贴各自正文，页脚仅最后一段输出。
     $html .= '<div class="print-rec-sign">医生：' . e(isset($record['doctor_name']) ? $record['doctor_name'] : '') . '</div>';
 
-    // 页脚（末尾横线 + 左下角记录时间/右下角打印时间）：整份连续文档仅输出一次
+    // 页脚（末尾横线 + 左下角记录时间/右下角打印时间）：整份连续文档仅输出一次。
+    // 记录时间 = 该文书【首次保存】时间（created_at），后期多次保存不变；
+    // 旧数据无 created_at 时回退 updated_at。
     if ($isLast) {
+        $recTime = isset($record['created_at']) && $record['created_at'] !== '' ? $record['created_at']
+            : (isset($record['updated_at']) ? $record['updated_at'] : '');
         $html .= '<div class="print-line"></div>';
         $html .= '<div class="print-record-foot">' .
-            '<span>记录时间：' . e(isset($record['updated_at']) ? $record['updated_at'] : '') . '</span>' .
+            '<span>记录时间：' . e($recTime) . '</span>' .
             '<span>打印时间：' . now_str() . '</span></div>';
     }
     return $html;

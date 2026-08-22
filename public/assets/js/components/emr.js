@@ -252,7 +252,7 @@ Clinic.emr = (function () {
                 '</div>' +
                 // 页脚：左下角记录时间（未保存时隐藏），右下角医生签名
                 '<div class="doc-footer">' +
-                '  <span class="doc-rec-time" id="docRecTime" style="' + (r.updated_at ? '' : 'display:none') + '">记录时间：' + (r.updated_at || '') + '</span>' +
+                '  <span class="doc-rec-time" id="docRecTime" style="' + ((r.created_at || r.updated_at) ? '' : 'display:none') + '">记录时间：' + (r.created_at || r.updated_at || '') + '</span>' +
                 '  <span class="doc-doctor">医生：' + r.doctor_name +
                 (r.doctor_emp ? '（工号 ' + r.doctor_emp + '）' : '') +
                 (r.doctor_title ? ' ｜ ' + r.doctor_title : '') + '</span>' +
@@ -276,7 +276,7 @@ Clinic.emr = (function () {
                 '</div>' +
                 // 页脚：左下角记录时间（未保存时隐藏，保存成功后显示），右下角医生签名
                 '<div class="doc-footer">' +
-                '  <span class="doc-rec-time" id="docRecTime" style="' + (r.updated_at ? '' : 'display:none') + '">记录时间：' + (r.updated_at || '') + '</span>' +
+                '  <span class="doc-rec-time" id="docRecTime" style="' + ((r.created_at || r.updated_at) ? '' : 'display:none') + '">记录时间：' + (r.created_at || r.updated_at || '') + '</span>' +
                 '  <span class="doc-doctor">医生：' + r.doctor_name +
                 (r.doctor_emp ? '（工号 ' + r.doctor_emp + '）' : '') +
                 (r.doctor_title ? ' ｜ ' + r.doctor_title : '') + '</span>' +
@@ -830,9 +830,10 @@ Clinic.emr = (function () {
                     var now = fmtDateTime();
                     DATA.record.updated_at = now;
                     if (!DATA.record.created_at) DATA.record.created_at = now;
+                    // 记录时间 = 首次保存时间（created_at），后续多次保存不变
                     var rt = document.getElementById('docRecTime');
                     if (rt) {
-                        rt.textContent = '记录时间：' + now;
+                        rt.textContent = '记录时间：' + DATA.record.created_at;
                         rt.style.display = '';
                     }
                 }
