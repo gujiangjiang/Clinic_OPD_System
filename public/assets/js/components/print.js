@@ -15,11 +15,22 @@ Clinic.print = (function () {
     /** 预览层元素 */
     let preview = null;
 
+    /** 自动打印偏好存储键（跟随用户：绑定登录账号 ID） */
+    function autoKey() {
+        var uid = document.body.getAttribute('data-uid') || '0';
+        return 'clinic_auto_print_' + uid;
+    }
+
+    /** 读取当前用户的自动打印偏好 */
+    function readAutoPref() {
+        try { return localStorage.getItem(autoKey()) === '1'; } catch (e) { return false; }
+    }
+
     /**
      * 打印指定 HTML 内容
      * @param {string} html      单据 HTML（含 print-area 内部结构）
      * @param {string} title     预览标题（可空）
-     * @param {string} sheet     纸张类型：'a5' = 病历纸 A5 竖版（窄长条），其他不传
+     * @param {string} sheet     纸张类型：'a5'=病历纸 A5 竖版，'ticket'=窄条凭条纸，其他不传
      */
     function open(html, title, sheet) {
         // 关闭已有预览
@@ -29,13 +40,17 @@ Clinic.print = (function () {
         preview.className = 'print-preview' + (sheet ? ' sheet-' + sheet : '');
         preview.innerHTML =
             '<div class="print-toolbar">' +
+            '  <label class="print-auto" title="勾选后每次弹出预览会自动调起系统打印，打印后自动关闭本预览（偏好按账号记忆）">' +
+            '    <input type="checkbox" data-act="auto"> 自动打印</label>' +
             '  <button type="button" class="btn btn-outline" data-act="close">关闭</button>' +
             '  <button type="button" class="btn btn-primary" data-act="do">🖨️ 打印</button>' +
             '</div>' +
             '<div id="print-area" class="print-area">' + html + '</div>';
         document.body.appendChild(preview);
+        // 预览层禁用右键菜单，避免误操作打断打印流程
+        preview.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
-        // 按纸张类型注入打印页面尺寸（A5 病历纸：148×210mm 竖版）
+        // 按纸张类型注入打印页面尺寸（A5 病历纸 / 凭条按实测尺寸动态生成）
         applyPageSize(sheet);
 
         // A5 固定纸张：手动分页——每页固定「页眉+正文+页脚」，预览即所得
@@ -49,6 +64,21 @@ Clinic.print = (function () {
             window.print();
         });
 
+        // 自动打印偏好（localStorage 跟随用户保存）
+        var autoChk = preview.querySelector('[data-act="auto"]');
+        autoChk.checked = readAutoPref();
+        autoChk.addEventListener('change', function () {
+            try { localStorage.setItem(autoKey(), autoChk.checked ? '1' : '0'); } catch (e) { /* 隐私模式等场景静默忽略 */ }
+        });
+        // 勾选了自动打印：预览渲染完成后自动调起系统打印。
+        // window.print() 在主流浏览器为同步阻塞调用——打印对话框关闭
+        // （无论完成或取消）后自动收起预览层。
+        if (autoChk.checked) {
+            setTimeout(function () {
+                try { window.print(); } finally { close(); }
+            }, 100);
+        }
+
         // 允许 ESC 关闭
         document.addEventListener('keydown', escHandler);
         return preview;
@@ -58,7 +88,7 @@ Clinic.print = (function () {
      * 从接口加载单据内容并打印
      * @param {string} url   接口地址
      * @param {object} data  参数
-     * @param {string} sheet 纸张类型：'a5' = 病历纸 A5 竖版，其他不传
+     * @param {string} sheet 纸张类型：'a5'=病历纸 A5 竖版，'ticket'=窄条凭条纸，其他不传
      */
     function load(url, data, sheet) {
         Clinic.ajax(url, data, {
@@ -75,7 +105,7 @@ Clinic.print = (function () {
 
     /**
      * 按纸张类型注入 / 移除打印页面尺寸规则
-     * @param {string} sheet 'a5' 时使用 A5 竖版纸张，其他情况用默认纸张
+     * @param {string} sheet 'a5'=A5 竖版；'ticket'=按凭条实测尺寸动态生成纸张
      */
     function applyPageSize(sheet) {
         var st = document.getElementById('printPageSize');
@@ -85,6 +115,20 @@ Clinic.print = (function () {
             st.id = 'printPageSize';
             st.textContent = '@page { size: A5 portrait; margin: 10mm; }';
             document.head.appendChild(st);
+        } else if (sheet === 'ticket') {
+            // 凭条：按凭条实际渲染尺寸动态生成纸张（宽=凭条宽、长=凭条长，
+            // 各加 1~2mm 防舍入裁边），消除默认 A4 纸上大片空白的
+            // 「没有合适纸张」问题——打印页即凭条本身。
+            var t = document.querySelector('#print-area .print-ticket');
+            if (t) {
+                var px2mm = function (px) { return Math.round(px / 96 * 254) / 10; };
+                var w = px2mm(t.offsetWidth) + 1;
+                var h = px2mm(t.offsetHeight) + 2;
+                st = document.createElement('style');
+                st.id = 'printPageSize';
+                st.textContent = '@page { size: ' + w + 'mm ' + h + 'mm; margin: 0; }';
+                document.head.appendChild(st);
+            }
         }
     }
 

@@ -13,12 +13,32 @@
     overflow: auto;
     padding: 24px;
 }
+/* 工具栏：固定悬浮在预览层右上角，不随单据内容滚动；
+   含 关闭 / 自动打印 / 打印 三个控件 */
 .print-preview .print-toolbar {
-    max-width: 760px;
-    margin: 0 auto 14px;
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 2100;              /* 高于预览层(2000) */
     display: flex;
+    align-items: center;
     gap: 10px;
-    justify-content: flex-end;
+    margin: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-lg);
+    padding: 8px 12px;
+}
+/* 自动打印选项（偏好按账号持久化） */
+.print-toolbar .print-auto {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
 }
 .print-area {
     max-width: 760px;
@@ -301,9 +321,6 @@
     padding: 20px;
     background: transparent;
 }
-.print-preview.sheet-a5 .print-toolbar {
-    max-width: 148mm;
-}
 
 /* ---------- 窄条凭条纸（挂号凭条/缴费凭条） ----------
  * 预览即纸张：宽度收缩为凭条实际宽度（以四周黑边框为准），
@@ -319,9 +336,6 @@
     background: transparent;
     box-shadow: none;
     border-radius: 0;
-}
-.print-preview.sheet-ticket .print-toolbar {
-    max-width: 360px;
 }
 
 /* ---------- A5 病历纸排版紧凑化：压缩医院名称 / 第二名称 / 标题 / 患者信息区行距，把主要空间留给病历正文 ----------
