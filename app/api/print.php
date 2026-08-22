@@ -105,7 +105,8 @@ switch ($action) {
                 $mirror = DB::one('medical', 'SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visit['id'], $pr['doctor_id']));
                 $pr['consciousness'] = $mirror ? (string)$mirror['consciousness'] : '';
                 $pr['visit_type'] = ($mirror && $mirror['visit_type'] !== '') ? (string)$mirror['visit_type'] : '初诊';
-                $body .= pt_record($visit, $row['patient'], $pr, $i === 0 ? $vitals : null, $i === 0 ? 'full' : 'continue', $i === $last, $firstCreatedAt);
+                // 生命体征：首诊与续写段均展示该就诊最新体征（续写文书同样记录/展示当前体征）
+                $body .= pt_record($visit, $row['patient'], $pr, $vitals, $i === 0 ? 'full' : 'continue', $i === $last, $firstCreatedAt);
             }
             json_ok(array('html' => '<div class="print-record-doc">' . $body . '</div>'));
         }

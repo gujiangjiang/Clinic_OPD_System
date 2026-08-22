@@ -210,24 +210,29 @@ Clinic.emr = (function () {
 
         // 病历正文：结构化字段编辑器（[] 占位字段引擎，静态标签不可编辑，
         // 保存时仅收集字段内部文字；生命体征/意识状态两节由本函数外部构建注入。
-        // 续写文书不重复录入生命体征/意识状态/主诉/现病史——归首诊文书所有）
+        // 首诊与续写文书均支持生命体征/意识状态书写；只读（诊毕）时仅展示不可编辑）
+        var readOnly = !!(d.visit && d.visit.status === 'finished');
         var vitalSec = null;
         var midNode = null;
-        if (!isProgress) {
-            vitalSec = document.createElement('div');
-            vitalSec.className = 'doc-sec doc-sec-vital';
+        // 生命体征节（首诊/续写通用；只读时去掉点击编辑入口）
+        vitalSec = document.createElement('div');
+        vitalSec.className = 'doc-sec doc-sec-vital';
+        if (!readOnly) {
             vitalSec.setAttribute('onclick', 'Clinic.emr.openVitals()');
             vitalSec.setAttribute('title', '点击编辑生命体征');
-            vitalSec.innerHTML = '<span class="doc-sec-label">生命体征</span>' +
-                '<span class="doc-sec-body" id="vitalDisplay">' + vitalDisplayText(v) + '</span>';
+        }
+        vitalSec.innerHTML = '<span class="doc-sec-label">生命体征</span>' +
+            '<span class="doc-sec-body" id="vitalDisplay">' + vitalDisplayText(v) + '</span>';
 
-            var consciousness = ['清醒', '嗜睡', '意识模糊', '昏睡', '昏迷', '谵妄'];
-            midNode = document.createElement('div');
-            midNode.className = 'doc-sec';
-            // 意识状态：去掉「请选择」空选项，默认清醒（临床绝大多数场景）；
-            // 已保存值由服务端 records 镜像表回读回显
-            var curCon = r.consciousness || '清醒';
-            // 与病历字段一致的 Word 式内联下拉样式（ef-select）
+        // 意识状态节（首诊/续写通用；只读时以纯文本展示当前值）
+        var consciousness = ['清醒', '嗜睡', '意识模糊', '昏睡', '昏迷', '谵妄'];
+        var curCon = r.consciousness || '清醒';
+        midNode = document.createElement('div');
+        midNode.className = 'doc-sec';
+        if (readOnly) {
+            midNode.innerHTML = '<span class="doc-sec-label">意识状态</span>' +
+                '<span class="doc-sec-body">' + escHtml(curCon) + '</span>';
+        } else {
             midNode.innerHTML = '<span class="doc-sec-label">意识状态</span>' +
                 '<span class="ef-select-wrap"><select class="ef-select" id="consciousness">' +
                 consciousness.map(function (c) {
@@ -512,6 +517,11 @@ Clinic.emr = (function () {
      * 打开生命体征编辑弹窗（6 个输入框：收缩压/舒张压/心率/脉搏/血氧/呼吸，与护士站共用接口）
      */
     function openVitals() {
+        // 诊毕只读：不允许修改生命体征（仅展示）
+        if (DATA && DATA.visit && DATA.visit.status === 'finished') {
+            Clinic.toast.warning('该患者已诊毕，生命体征为只读状态');
+            return;
+        }
         var visitId = document.getElementById('visitId').value;
         Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
             onSuccess: function (j) {

@@ -403,11 +403,14 @@ Clinic.emrEditor = (function () {
 
         ROOT.innerHTML = '';
         if (MODE === 'progress') {
-            // 续写文书：病历续写（必填）→ 既往史/过敏史（全局同步预填）→ 体格检查
-            // （主诉/现病史/主要症状/生命体征/意识状态归首诊医生文书，不再重复）
+            // 续写文书：病历续写（必填）→ 既往史/过敏史（全局同步预填）→
+            // 生命体征/意识状态（续写时记录当前体征）→ 体格检查
+            // （主诉/现病史/主要症状归首诊医生文书，不再重复）
             ROOT.appendChild(buildProg());
             ROOT.appendChild(buildPH());
             ROOT.appendChild(buildAllergy());
+            if (opts.beforeVitals) ROOT.appendChild(opts.beforeVitals); // 生命体征节（外部构建）
+            if (opts.midNode) ROOT.appendChild(opts.midNode);           // 意识状态节（外部构建）
             ROOT.appendChild(buildPE());
         } else {
             ROOT.appendChild(buildCC());
