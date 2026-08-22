@@ -123,6 +123,16 @@ switch ($action) {
         $cert = DB::one('medical', 'SELECT * FROM certificates WHERE visit_id=?', array($visitId));
         if (!$cert) json_fail('该就诊未开具诊断证明');
         $record = DB::one('medical', 'SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        // 固化快照：证书存有开具时的病历摘要则原样使用（与 certificate_print
+        // 同规则）——补打内容与开具时完全一致，不随后续续写漂移
+        if ((isset($cert['chief_complaint']) && $cert['chief_complaint'] !== '') ||
+            (isset($cert['present_illness']) && $cert['present_illness'] !== '') ||
+            (isset($cert['initial_diagnosis']) && $cert['initial_diagnosis'] !== '')) {
+            $record = is_array($record) ? $record : array();
+            $record['chief_complaint'] = $cert['chief_complaint'];
+            $record['present_illness'] = $cert['present_illness'];
+            $record['initial_diagnosis'] = $cert['initial_diagnosis'];
+        }
         $visit = $row['visit'];
         $visit['name'] = $row['patient']['name'];
         $visit['gender'] = $row['patient']['gender'];

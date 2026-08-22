@@ -7,7 +7,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 5,
+    'version' => 6,
     'tables' => array(
         'records' => "CREATE TABLE IF NOT EXISTS records (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -127,6 +127,13 @@ return array(
             "CREATE INDEX IF NOT EXISTS idx_patient_records_visit_doctor ON patient_records(visit_id, doctor_id)",
             // 存量数据回填：升级前的病历均视为首诊记录
             "UPDATE patient_records SET record_type='initial' WHERE record_type IS NULL OR record_type=''",
+        ),
+        // v6：诊断证明病历摘要快照 —— 开具时固化主诉/现病史/初步诊断，
+        // 证书一经出具内容永不随后续续写/修改漂移（法律文书不可变性）
+        6 => array(
+            "ALTER TABLE certificates ADD COLUMN chief_complaint TEXT DEFAULT ''",
+            "ALTER TABLE certificates ADD COLUMN present_illness TEXT DEFAULT ''",
+            "ALTER TABLE certificates ADD COLUMN initial_diagnosis TEXT DEFAULT ''",
         ),
     ),
     'seed' => array(),

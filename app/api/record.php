@@ -88,6 +88,32 @@ function emr_normalize($emr) {
     return $emr;
 }
 
+/**
+ * 诊断证明病历摘要快照（固化锚点）：以该挂号流水的【首诊文书】为
+ * 唯一事实来源投影主诉/现病史/初步诊断——证书一经出具即冻结该内容，
+ * 无论谁开具、谁补打、后续有多少次续写，展示与打印完全一致。
+ * 无结构化病历时回退旧 records 镜像（兼容历史就诊）。
+ */
+function cert_snapshot_summary($visitId) {
+    $pr = DB::one('medical', "SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC LIMIT 1", array($visitId));
+    if ($pr) {
+        $emr = json_decode($pr['emr_data'], true);
+        if (is_array($emr)) {
+            return array(
+                'chief_complaint' => emr_cc_text(isset($emr['chief_complaint']) ? $emr['chief_complaint'] : array()),
+                'present_illness' => emr_pi_text(isset($emr['history_present']) ? $emr['history_present'] : array()),
+                'initial_diagnosis' => emr_diag_text(isset($emr['diagnoses']) ? $emr['diagnoses'] : array()),
+            );
+        }
+    }
+    $rec = DB::one('medical', 'SELECT chief_complaint, present_illness, initial_diagnosis FROM records WHERE visit_id=? ORDER BY id ASC LIMIT 1', array($visitId));
+    return array(
+        'chief_complaint' => $rec ? (string)$rec['chief_complaint'] : '',
+        'present_illness' => $rec ? (string)$rec['present_illness'] : '',
+        'initial_diagnosis' => $rec ? (string)$rec['initial_diagnosis'] : '',
+    );
+}
+
 /** 已开项目快照（与 /api/order visit_orders 同口径，排除已退费/已取消；
  * 多医生接诊：$doctorId>0 时仅取该医生本人开具的项目——谁开单归属谁的病历）
     返回 [检验检查名列表, 处方行列表, 处置项列表] */
@@ -327,13 +353,20 @@ switch ($action) {
             'vitals' => $vitalsData,
             'prev_records' => $prevRecords,
             'has_certificate' => $certRow ? 1 : 0,
-            // 已开具时附带证书数据（证明号/医生建议/开具时间等），仅用于只读预览展示
+            // 已开具时附带证书数据（证明号/医生建议/开具时间 + 病历摘要快照），
+            // 仅用于只读预览展示——有快照时预览与打印均以快照为准
             'certificate' => $certRow ? array(
                 'cert_no' => (string)$certRow['cert_no'],
                 'content' => (string)$certRow['content'],
                 'doctor_name' => (string)$certRow['doctor_name'],
                 'created_at' => (string)$certRow['created_at'],
+                'chief_complaint' => (string)(isset($certRow['chief_complaint']) ? $certRow['chief_complaint'] : ''),
+                'present_illness' => (string)(isset($certRow['present_illness']) ? $certRow['present_illness'] : ''),
+                'initial_diagnosis' => (string)(isset($certRow['initial_diagnosis']) ? $certRow['initial_diagnosis'] : ''),
             ) : null,
+            // 未开具时的「将固化内容」预览：与开具时写入证书的摘要同源
+            // （首诊文书锚点），所见即所冻
+            'cert_summary' => cert_snapshot_summary($visitId),
         ));
         break;
 
@@ -554,8 +587,12 @@ switch ($action) {
         do {
             $certNo = 'ZM' . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
         } while ((int)DB::val('medical', 'SELECT COUNT(*) FROM certificates WHERE cert_no=?', array($certNo)) > 0);
-        DB::insert('medical', 'INSERT INTO certificates(visit_id, patient_no, flow_no, doctor_id, doctor_name, content, created_at, cert_no) VALUES(?,?,?,?,?,?,?,?)', array(
+        // 病历摘要快照：开具瞬间以首诊文书为锚点固化主诉/现病史/初步诊断，
+        // 证书内容从此不再随续写或后续修改变化（法律文书不可变性）
+        $snap = cert_snapshot_summary($visitId);
+        DB::insert('medical', 'INSERT INTO certificates(visit_id, patient_no, flow_no, doctor_id, doctor_name, content, created_at, cert_no, chief_complaint, present_illness, initial_diagnosis) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
             $visitId, $row['visit']['patient_no'], $row['visit']['flow_no'], $u['id'], $u['name'], $content, now_str(), $certNo,
+            $snap['chief_complaint'], $snap['present_illness'], $snap['initial_diagnosis'],
         ));
         json_ok(array('cert_no' => $certNo), '诊断证明已开具');
         break;
@@ -568,6 +605,17 @@ switch ($action) {
         $cert = DB::one('medical', 'SELECT * FROM certificates WHERE visit_id=?', array($visitId));
         if (!$cert) json_fail('未开具诊断证明');
         $record = DB::one('medical', 'SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        // 固化快照：证书存有开具时的病历摘要则原样使用——无论谁开具、
+        // 谁补打、后续有多少次续写，打印内容与开具时完全一致；
+        // 历史证明（无快照列）回退原实时取数行为。
+        if ((isset($cert['chief_complaint']) && $cert['chief_complaint'] !== '') ||
+            (isset($cert['present_illness']) && $cert['present_illness'] !== '') ||
+            (isset($cert['initial_diagnosis']) && $cert['initial_diagnosis'] !== '')) {
+            $record = is_array($record) ? $record : array();
+            $record['chief_complaint'] = $cert['chief_complaint'];
+            $record['present_illness'] = $cert['present_illness'];
+            $record['initial_diagnosis'] = $cert['initial_diagnosis'];
+        }
         $visit = $row['visit'];
         $visit['name'] = $row['patient']['name'];
         $visit['gender'] = $row['patient']['gender'];

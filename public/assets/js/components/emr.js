@@ -387,8 +387,7 @@ Clinic.emr = (function () {
                 escHtml(val || '-') + '</div>');
         };
         if (isProgress) push('病历续写', (e.progress || {}).content);
-        push('主诉', fmtCC(e.chief_complaint));
-        push('现病史', fmtPI(e.history_present));
+        push('主诉', fmtCC(e.chief_complaint));        push('现病史', fmtPI(e.history_present));
         push('既往史', fmtPH(e.past_history));
         push('过敏史', fmtAL(e.allergies));
         push('主要症状', fmtMS(e.main_symptoms));
@@ -922,9 +921,17 @@ Clinic.emr = (function () {
                     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
                         .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
                 };
-                var cc = text(r.chief_complaint);
-                var pi = text(r.present_illness);
-                var diag = (r.initial_diagnosis || '').trim();
+                var cc, pi, diag;
+                // 病历摘要取值优先级：证书快照（已开具，固化不变）→
+                // cert_summary（未开具，与开具时写入的快照同源，所见即所冻）
+                // → 实时投影回退（历史证明兼容）。诊断证明为法律文书，
+                // 一经出具内容永不随后续续写漂移。
+                var cs = j.data.certificate || {};
+                var cs2 = j.data.cert_summary || {};
+                var pick = function (a, b, c) { return (a && String(a).trim()) || (b && String(b).trim()) || c || ''; };
+                cc = text(pick(cs.chief_complaint, cs2.chief_complaint, r.chief_complaint));
+                pi = text(pick(cs.present_illness, cs2.present_illness, r.present_illness));
+                diag = pick(cs.initial_diagnosis, cs2.initial_diagnosis, r.initial_diagnosis);
 
                 // 病历概要区（两种形态共用；已开具时附证明号与开具时间）。
                 // 行间距统一规则：首行无边距，其余每行 mt-4——
