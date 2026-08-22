@@ -335,24 +335,43 @@ function pt_report($report, $result, $item, $visit) {
 
 /**
  * 电子病历打印（服务端版，用于打印中心/补打）
+ * 多医生接诊：同一挂号流水的全部文书输出为【一份连续文档】——
+ * 首段（$mode='full'）带完整页眉（医院抬头/标题/条形码/患者信息）；
+ * 续写段（$mode='continue'）以分割线 + 「病历续写 / 续写时间」承接头开始，
+ * 承接首诊接着书写，不再重复无意义页眉，避免空间浪费。
+ * 医生签名使用 .print-rec-sign（不进分页器页脚集合），始终紧跟各段
+ * 正文末尾右下角；页脚（记录时间/打印时间）仅最后一段输出（$isLast）。
+ * 注意：本函数只输出【片段】，外层 .print-record-doc 容器由调用方
+ * （print.php）统一包裹——A5 分页器按该容器识别整份文档的头/尾。
  */
-function pt_record($visit, $patient, $record, $vitals) {
-    // 续写文书标题追加后缀标识（与编辑页所见即所得一致）
-    $title = ((isset($visit['dept_type']) && $visit['dept_type'] === 'emergency') ? '急诊电子病历' : '门诊电子病历') .
-        ((isset($record['record_type']) && $record['record_type'] === 'progress') ? '（病历续写）' : '');
-    // 文档容器（relative，供右上角条形码定位）
-    $html = '<div class="print-record-doc">';
-    $html .= pt_header($title);
+function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast = true) {
+    $title = (isset($visit['dept_type']) && $visit['dept_type'] === 'emergency') ? '急诊电子病历' : '门诊电子病历';
+    $html = '';
 
-    // 右上角条形码（与挂号凭条一致：门诊号 flow_no，方便患者扫码缴费/打印报告）
-    $code = isset($visit['flow_no']) && $visit['flow_no'] !== '' ? $visit['flow_no'] : (isset($patient['patient_no']) ? $patient['patient_no'] : '');
-    if ($code !== '') {
-        $html .= '<div class="print-record-barcode">' . barcode128_svg($code) .
-            '<div>' . e($code) . '</div></div>';
+    if ($mode === 'continue') {
+        // 续写段承接头：上一份病历完成后，分割线下显示「病历续写 / 续写时间」，
+        // 直接从续写正文接着写起（页眉归首诊文书）
+        $html .= '<div class="print-line"></div>';
+        $html .= '<div class="print-record-cont">' .
+            '<span class="prc-title">病历续写</span>' .
+            '<span class="prc-time">续写时间：' . e(isset($record['created_at']) ? $record['created_at'] : '') . '</span>' .
+            (!empty($record['doctor_name']) ? '<span class="prc-doctor">续写医生：' . e($record['doctor_name']) . '</span>' : '') .
+            '</div>';
+    } else {
+        $html .= pt_header($title);
+
+        // 右上角条形码（与挂号凭条一致：门诊号 flow_no，方便患者扫码缴费/打印报告）
+        $code = isset($visit['flow_no']) && $visit['flow_no'] !== '' ? $visit['flow_no'] : (isset($patient['patient_no']) ? $patient['patient_no'] : '');
+        if ($code !== '') {
+            $html .= '<div class="print-record-barcode">' . barcode128_svg($code) .
+                '<div>' . e($code) . '</div></div>';
+        }
     }
 
     // 患者信息：门诊为两栏网格；急诊为两行流式排版（第一行 姓名/性别/出生日期/年龄，
     // 第二行 患者ID/就诊科室/就诊时间），与病历编辑器完全一致，空值显示 —（所见即所得）
+    // 仅首段（full）渲染——页眉与患者信息归首诊文书
+    if ($mode === 'full') {
     $emergency = isset($visit['dept_type']) && $visit['dept_type'] === 'emergency';
     $name = isset($visit['name']) ? $visit['name'] : (isset($patient['name']) ? $patient['name'] : '');
     $gender = isset($visit['gender']) ? $visit['gender'] : '';
@@ -398,6 +417,7 @@ function pt_record($visit, $patient, $record, $vitals) {
     $html .= $info;
     // 患者信息下方横线（与病历正文隔开）
     $html .= '<div class="print-line"></div>';
+    }
 
     // ===== 结构化病历（patient_records.emr_data 存在时按结构化规则渲染）=====
     $emrStructured = false;
@@ -459,10 +479,18 @@ function pt_record($visit, $patient, $record, $vitals) {
 
     // 已开项目所见即所得：辅助检查（检验/检查）+ 门诊处置（处置/处方），与病历编辑页一致
     // 辅助检查：仅显示项目名称；处置：不换行显示名称×数量；处方：每行一个药品（名称/剂量/用法/途径/数量）
+    // 多医生接诊：已开项目按该文书医生本人过滤（谁开单归属谁的病历）
     $aux = array();
     $procs = array();
     $rxs = array();
-    $orders = DB::q('order', "SELECT * FROM orders WHERE visit_id=? AND status NOT IN ('refunded','cancelled') ORDER BY id DESC", array($visit['id']));
+    $orderSql = "SELECT * FROM orders WHERE visit_id=? AND status NOT IN ('refunded','cancelled')";
+    $orderParams = array($visit['id']);
+    if (!empty($record['doctor_id'])) {
+        $orderSql .= ' AND doctor_id=?';
+        $orderParams[] = (int)$record['doctor_id'];
+    }
+    $orderSql .= ' ORDER BY id DESC';
+    $orders = DB::q('order', $orderSql, $orderParams);
     foreach ($orders as $o) {
         $its = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
         foreach ($its as $it) {
@@ -512,15 +540,18 @@ function pt_record($visit, $patient, $record, $vitals) {
         $html .= '<div class="print-flow"><span class="pf-sec"><strong>' . e($s[0]) . '：</strong><span class="pf-body">' . $s[1] . '</span></span></div>';
     }
 
-    // 医生签名：位于病历末尾横线上方、病历内容部分右下角
-    $html .= '<div class="print-record-sign">医生：' . e(isset($record['doctor_name']) ? $record['doctor_name'] : '') . '</div>';
+    // 医生签名：紧跟本段病历正文末尾、右下角。类名用 .print-rec-sign
+    // （不进 A5 分页器页脚集合）——签名随段不沉整页底；多文书时各段
+    // 签名紧贴各自正文，页脚仅最后一段输出。
+    $html .= '<div class="print-rec-sign">医生：' . e(isset($record['doctor_name']) ? $record['doctor_name'] : '') . '</div>';
 
-    // 病历末尾横线：下方为页脚（左下角记录时间、右下角打印时间）
-    $html .= '<div class="print-line"></div>';
-    $html .= '<div class="print-record-foot">' .
-        '<span>记录时间：' . e(isset($record['updated_at']) ? $record['updated_at'] : '') . '</span>' .
-        '<span>打印时间：' . now_str() . '</span></div>';
-    $html .= '</div>';
+    // 页脚（末尾横线 + 左下角记录时间/右下角打印时间）：整份连续文档仅输出一次
+    if ($isLast) {
+        $html .= '<div class="print-line"></div>';
+        $html .= '<div class="print-record-foot">' .
+            '<span>记录时间：' . e(isset($record['updated_at']) ? $record['updated_at'] : '') . '</span>' .
+            '<span>打印时间：' . now_str() . '</span></div>';
+    }
     return $html;
 }
 

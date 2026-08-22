@@ -582,3 +582,36 @@
         max-height: none;
     }
 }
+
+/* ---------- 多医生接诊：病历连续文档版式 ----------
+   签名类 .print-rec-sign 刻意不叫 .print-record-sign：
+   A5 分页器把后缀连续命中的 [签名/横线/时间行] 识别为「页脚沉底」，
+   签名改用独立类名即可留在正文流——紧跟各段病历正文末尾右下角，
+   续写段签名随段出现，不再沉到整页底部。 */
+.print-area .print-rec-sign {
+    text-align: right;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 14px;
+}
+.print-preview.sheet-a5 .print-area .print-rec-sign { margin-top: 10px; }
+
+/* 续写段承接头：分割线之下，一行展示「病历续写 / 续写时间 / 续写医生」，
+   随后直接接续写正文（页眉与患者信息归首诊文书，不再重复） */
+.print-area .print-record-cont {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin: 8px 0 6px;
+}
+.print-area .print-record-cont .prc-title {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 2px;
+}
+.print-area .print-record-cont .prc-time,
+.print-area .print-record-cont .prc-doctor {
+    font-size: 12.5px;
+    color: #333;
+}

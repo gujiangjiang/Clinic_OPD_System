@@ -88,10 +88,15 @@ function emr_normalize($emr) {
     return $emr;
 }
 
-/** 已开项目快照（与 /api/order visit_orders 同口径，排除已退费/已取消）：
+/** 已开项目快照（与 /api/order visit_orders 同口径，排除已退费/已取消；
+ * 多医生接诊：$doctorId>0 时仅取该医生本人开具的项目——谁开单归属谁的病历）
     返回 [检验检查名列表, 处方行列表, 处置项列表] */
-function emr_order_snapshot($visitId) {
-    $orders = DB::q('order', 'SELECT * FROM orders WHERE visit_id=? ORDER BY id DESC', array($visitId));
+function emr_order_snapshot($visitId, $doctorId = 0) {
+    $sql = 'SELECT * FROM orders WHERE visit_id=?';
+    $params = array($visitId);
+    if ((int)$doctorId > 0) { $sql .= ' AND doctor_id=?'; $params[] = (int)$doctorId; }
+    $sql .= ' ORDER BY id DESC';
+    $orders = DB::q('order', $sql, $params);
     $orderNames = array();
     $rxLines = array();
     $dispItems = array();
@@ -423,8 +428,8 @@ switch ($action) {
             }
         }
 
-        // ===== 5. 打印文本（含当前已开项目快照） =====
-        list($orderNames, $rxLines, $dispItems) = emr_order_snapshot($visitId);
+        // ===== 5. 打印文本（含当前医生本人已开项目快照） =====
+        list($orderNames, $rxLines, $dispItems) = emr_order_snapshot($visitId, $u['id']);
         $vitalsRow = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visitId));
         $vp = array();
         if ($vitalsRow) {

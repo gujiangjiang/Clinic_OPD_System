@@ -90,25 +90,27 @@ switch ($action) {
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
         $vitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
 
-        // ===== 多医生接诊（1:N）：该流水下全部文书按创建时间升序逐份渲染 =====
-        // 每位医生一份独立文档（谁书写谁签名）；生命体征属就诊级数据，
-        // 仅在首份文书上展示，续写文书不再重复。
+        // ===== 多医生接诊（1:N）：该流水下全部文书输出为【一份连续文档】 =====
+        // 首段带完整页眉（页眉归首诊文书），续写段以分割线 + 「病历续写 /
+        // 续写时间」承接头开始，各段签名紧跟正文右下角，页脚仅最后一段；
+        // 生命体征属就诊级数据，仅在首段展示。
         $prs = DB::q('medical', 'SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC', array($visit['id']));
         if ($prs) {
-            $html = '';
+            $last = count($prs) - 1;
+            $body = '';
             foreach ($prs as $i => $pr) {
                 // 意识状态/初复诊存于旧 records 镜像表，按各文书医生本人回读
                 $mirror = DB::one('medical', 'SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visit['id'], $pr['doctor_id']));
                 $pr['consciousness'] = $mirror ? (string)$mirror['consciousness'] : '';
                 $pr['visit_type'] = ($mirror && $mirror['visit_type'] !== '') ? (string)$mirror['visit_type'] : '初诊';
-                $html .= pt_record($visit, $row['patient'], $pr, $i === 0 ? $vitals : null);
+                $body .= pt_record($visit, $row['patient'], $pr, $i === 0 ? $vitals : null, $i === 0 ? 'full' : 'continue', $i === $last);
             }
-            json_ok(array('html' => $html));
+            json_ok(array('html' => '<div class="print-record-doc">' . $body . '</div>'));
         }
         // 回退：无结构化病历时按旧 records 扁平数据渲染单文档（兼容历史就诊）
         $record = DB::one('medical', 'SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
         if (!$record) json_fail('该就诊暂无已保存的病历，请先在病历中完善主诉、现病史与初步诊断并保存后再打印');
-        json_ok(array('html' => pt_record($visit, $row['patient'], $record, $vitals)));
+        json_ok(array('html' => '<div class="print-record-doc">' . pt_record($visit, $row['patient'], $record, $vitals) . '</div>'));
         break;
 
     /* ---------------- 诊断证明（补打） ---------------- */
