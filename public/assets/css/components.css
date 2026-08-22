@@ -376,6 +376,9 @@
 .emr-doc .doc-hosp {
     text-align: center;
     font-size: 22px;
+    /* 固定行高：一是压缩页头高度，二是给右上角条形码提供
+       确定的对齐基准（条形码顶 = 行盒顶 + 半行距 + 字形上留白） */
+    line-height: 28px;
     font-weight: 800;
     letter-spacing: 3px;
     color: var(--text);
@@ -401,10 +404,10 @@
     letter-spacing: 4px;
     padding-left: 4px; /* 抵消 letter-spacing 造成的视觉右偏 */
 }
-/* 病历模板按钮：文档页头左上角——顶部与医院名称齐平（top 对齐内容区顶部）、左侧与左边距齐平（left 对齐内容区左缘） */
+/* 病历模板按钮：文档页头左上角——与医院名称行视觉对齐、左侧与左边距齐平 */
 .emr-doc .doc-tpl {
     position: absolute;
-    top: 26px;    /* 与 .emr-doc 的 padding-top 一致 */
+    top: 27px;    /* 与医院名称（行高28px）光学居中对齐 */
     left: 30px;   /* 与 .emr-doc 的 padding-left 一致 */
     z-index: 1;
 }
@@ -540,10 +543,11 @@
 }
 
 /* ---------- 病历文档页头右上角条形码（与挂号凭条 / 打印预览一致，位于病历文档页头） ---------- */
-/* 定位逻辑：上方与医院名称顶部齐平（top = 内容区顶部），右侧与右侧页边距齐平（right = 内容区右缘），不贴文档边缘 */
+/* 定位逻辑：与医院名称文字顶部齐平——top = padding-top + 半行距(3px) + 字形上留白(~1px)，
+   修正原先直接贴内容区顶部导致条形码略高于医院名称的问题 */
 .emr-doc .doc-barcode {
     position: absolute;
-    top: 26px;      /* 与 .emr-doc 的 padding-top 一致，即与医院名称顶部齐平 */
+    top: 30px;      /* padding-top 26px + 医院名称字形顶部偏移 ~4px */
     right: 30px;    /* 与 .emr-doc 的 padding-right 一致，即与右侧页边距齐平 */
     text-align: center;
     z-index: 1;
@@ -551,6 +555,7 @@
 .emr-doc .doc-barcode svg {
     height: 26px;      /* 高度与医院名称（22px 字号）齐平，比例不变（width 由 viewBox 等比推算） */
     width: auto;
+    max-width: 38mm;   /* 单号过长时整体等比缩小，防止压到医院名称 */
     display: block;
 }
 .emr-doc .doc-barcode .doc-barcode-text {
@@ -562,9 +567,9 @@
 @media (max-width: 640px) {
     .emr-doc { padding: 18px 16px; }
     .emr-doc .doc-patient-grid { grid-template-columns: 1fr; }
-    .emr-doc .doc-barcode { top: 18px; right: 16px; }
-    .emr-doc .doc-barcode svg { height: 22px; width: auto; }
-    .emr-doc .doc-tpl { top: 18px; left: 16px; }
+    .emr-doc .doc-barcode { top: 22px; right: 16px; }  /* 18px 内边距 + 字形顶部偏移 ~4px */
+    .emr-doc .doc-barcode svg { height: 22px; width: auto; max-width: 38mm; }
+    .emr-doc .doc-tpl { top: 21px; left: 16px; }
     .emr-doc .doc-tpl .btn { padding: 2px 10px; font-size: 12px; }
 }
 
@@ -659,7 +664,10 @@
 /* 病历页患者信息头常驻（不随内容滚动，吸附在顶栏下方） */
 #emrHeader {
     position: sticky;
-    top: 0; /* 相对内容区滚动容器：0 即紧贴顶栏下方（勿叠加 topbar 高度导致偏下） */
+    /* 吸附后与右侧「看诊操作」工具栏顶部齐平：
+       工具栏固定于视口 topbar高度+16px 处，内容滚动容器顶即 topbar 底，
+       故 sticky 偏移取 16px 即两边顶部对齐 */
+    top: 16px;
     z-index: 70;
 }
 
@@ -673,9 +681,11 @@
 .emr-doc .doc-body .ef-cond { display: inline-block; }
 
 /* 病历页 sticky 患者头：负边距铺满内容区宽度 + 实体底色，
-   避免滚动时下方病历文字从缝隙透出（遮盖问题） */
+   避免滚动时下方病历文字从缝隙透出（遮盖问题）。
+   上边距保持 0：sticky 吸附基准只由 top 决定，滚动吸附位置精确可控
+   （原先负上边距会把吸附基准一起上提，导致吸住后顶部残留空隙） */
 #emrHeader {
-    margin: -20px -20px 16px;
+    margin: 0 -20px 16px;
     padding: 14px 20px 10px;
     background: var(--bg);
     border-bottom: 1px solid var(--border);

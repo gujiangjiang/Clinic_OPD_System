@@ -150,6 +150,44 @@ Clinic.print = (function () {
             var headNodes = kids.slice(0, hi);
             var contentNodes = kids.slice(hi, validFoot ? fi : kids.length);
 
+            // ---- 后续页精简页眉（仅门诊病历含 .print-info-grid 时生成）----
+            // 首页保留完整患者信息网格；第 2 页起参考急诊病历样式：
+            // 医院抬头/标题（仍为「门诊电子病历」）与条形码不变，
+            // 患者信息压缩为两行，缩短重复页眉占用的版心高度。
+            var compactHeadNodes = null;
+            var gridIdx = -1;
+            headNodes.forEach(function (n, i) {
+                if (gridIdx === -1 && ((' ' + (n.className || '') + ' ').indexOf(' print-info-grid ') !== -1)) gridIdx = i;
+            });
+            if (gridIdx !== -1) {
+                var cells = {};
+                headNodes[gridIdx].querySelectorAll('.print-info-cell').forEach(function (c) {
+                    var strong = c.querySelector('strong');
+                    if (!strong) return;
+                    var label = strong.textContent.replace(/：\s*$/, '');
+                    var full = (c.textContent || '').trim();
+                    cells[label] = full.charAt(label.length) === '：' ? full.slice(label.length + 1).trim() : '';
+                });
+                var esc = function (s) {
+                    return String(s).replace(/[&<>"]/g, function (ch) {
+                        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch];
+                    });
+                };
+                var pick = function (labels) {
+                    return labels.filter(function (l) { return cells[l]; }).map(function (l) {
+                        return '<span class="print-info-cell"><strong>' + esc(l) + '</strong>：' + esc(cells[l]) + '</span>';
+                    }).join('');
+                };
+                var linesDiv = document.createElement('div');
+                linesDiv.className = 'print-info-lines';
+                linesDiv.innerHTML =
+                    '<div class="print-info-line">' + pick(['姓名', '性别', '出生日期', '年龄']) + '</div>' +
+                    '<div class="print-info-line">' + pick(['患者ID', '初复诊', '科室', '联系方式']) + '</div>';
+                compactHeadNodes = headNodes.map(function (n, i) {
+                    return i === gridIdx ? linesDiv : n.cloneNode(true);
+                });
+            }
+
             // ---- 测量：宽度取打印可打印区 128mm ----
             var MM = 3.779527559;
             var meas = document.createElement('div');
@@ -221,9 +259,12 @@ Clinic.print = (function () {
                 sheet.className = 'a5-sheet';
                 if (overFlags[i]) sheet.classList.add('a5-overflow');
 
+                // 首页完整页眉；后续页有精简版则用精简版（缩短重复患者信息区）
+                var pageHead = (i === 0 || !compactHeadNodes) ? headNodes : compactHeadNodes;
+
                 var hd = document.createElement('div');
                 hd.className = 'a5-head';
-                headNodes.forEach(function (n) { hd.appendChild(n.cloneNode(true)); });
+                pageHead.forEach(function (n) { hd.appendChild(n.cloneNode(true)); });
 
                 var bd = document.createElement('div');
                 bd.className = 'a5-body';

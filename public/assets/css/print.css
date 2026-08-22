@@ -41,15 +41,18 @@
 .print-area .print-sub {
     text-align: center;
     font-size: 13px;
+    line-height: 1.35;
     color: #444;
-    margin-bottom: 10px;
+    margin-bottom: 4px;
 }
 .print-area .print-hosp {
     text-align: center;
     font-size: 25px;
+    /* 固定行高：压缩页头高度，同时作为右上角条形码的对齐基准 */
+    line-height: 30px;
     font-weight: 800;
     letter-spacing: 2px;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 .print-area .print-title-line {
     text-align: center;
@@ -57,7 +60,7 @@
     font-weight: 700;
     letter-spacing: 6px;
     padding-left: 6px; /* 抵消 letter-spacing 造成的视觉右偏 */
-    margin: 4px 0 14px;
+    margin: 3px 0 9px;
 }
 .print-area .print-info-grid {
     display: grid;
@@ -217,16 +220,19 @@
 /* 病历打印：行内流式排版（主诉：xxx 一行，现病史：xxx 换行，紧凑省空间） */
 .print-area .print-record-doc { position: relative; }
 /* 病历打印条形码：绝对定位于病历文档（.print-record-doc）的右上角，
-   .print-record-doc 即内容区本身——上方与医院名称顶部齐平、右侧与右侧页边距齐平 */
+   .print-record-doc 即内容区本身。top 取 4px = 医院名称行高 30px 的
+   半行距(2.5px) + 字形上留白(~1.5px)，使条形码与医院名称文字顶部齐平
+   （原先贴 0 导致条形码略微偏高于医院名称） */
 .print-area .print-record-barcode {
     position: absolute;
-    top: 0;
+    top: 4px;
     right: 0;
     text-align: center;
 }
 .print-area .print-record-barcode svg {
     height: 26px;      /* 高度与医院名称（22px 字号）齐平，比例不变 */
     width: auto;
+    max-width: 38mm;   /* 单号过长（如申请单号）时整体等比缩小，避免压到医院名称 */
     display: block;
     margin-left: auto;
 }
@@ -299,36 +305,41 @@
     max-width: 148mm;
 }
 
-/* ---------- A5 病历纸排版紧凑化：压缩医院名称 / 第二名称 / 患者信息区行距，把主要空间留给病历正文 ---------- */
-.print-preview.sheet-a5 .print-record-doc .print-hosp {
+/* ---------- A5 病历纸排版紧凑化：压缩医院名称 / 第二名称 / 标题 / 患者信息区行距，把主要空间留给病历正文 ----------
+ * 作用域用 .print-area 而非 .print-record-doc：分页器会把节点重组进
+ * .a5-sheet/.a5-head/...，原包裹层不再存在——绑定 .print-record-doc 的
+ * 紧凑规则在分页后会整体失效，导致每页页头行距回弹变大、顶部留白过多。 */
+.print-preview.sheet-a5 .print-area .print-hosp {
     margin-bottom: 1px;
-    line-height: 1.25;
 }
-.print-preview.sheet-a5 .print-record-doc .print-sub {
+.print-preview.sheet-a5 .print-area .print-sub {
+    margin-bottom: 3px;
+}
+.print-preview.sheet-a5 .print-area .print-title-line {
+    margin: 2px 0 6px;
+}
+.print-preview.sheet-a5 .print-area .print-info-grid {
+    gap: 0 16px;
     margin-bottom: 4px;
 }
-.print-preview.sheet-a5 .print-record-doc .print-title-line {
-    margin: 2px 0 8px;
+.print-preview.sheet-a5 .print-area .print-info-cell {
+    line-height: 1.5;
 }
-.print-preview.sheet-a5 .print-record-doc .print-info-grid {
-    gap: 0 16px;
-    margin-bottom: 6px;
-}
-.print-preview.sheet-a5 .print-record-doc .print-info-cell {
-    line-height: 1.55;
-}
-.print-preview.sheet-a5 .print-record-doc .print-info-line {
-    line-height: 1.55;
+.print-preview.sheet-a5 .print-area .print-info-line {
+    line-height: 1.5;
     margin-bottom: 2px;
 }
-.print-preview.sheet-a5 .print-record-doc .print-line {
-    padding-bottom: 3px;
+.print-preview.sheet-a5 .print-area .print-info-lines {
     margin-bottom: 6px;
 }
-.print-preview.sheet-a5 .print-record-doc .print-flow {
-    line-height: 1.75;
+.print-preview.sheet-a5 .print-area .print-line {
+    padding-bottom: 2px;
+    margin-bottom: 4px;
 }
-.print-preview.sheet-a5 .print-record-doc .print-flow .pf-sec {
+.print-preview.sheet-a5 .print-area .print-flow {
+    line-height: 1.7;
+}
+.print-preview.sheet-a5 .print-area .print-flow .pf-sec {
     margin-bottom: 2px;
 }
 .print-preview.sheet-a5 .print-area .print-record-sign {
