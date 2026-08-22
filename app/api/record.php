@@ -65,11 +65,24 @@ function emr_merge_defaults($data, $defaults) {
         if (!isset($data[$k]) || $data[$k] === null) {
             $data[$k] = $v;
         } elseif (is_array($v) && !isset($v[0])) {
-            // 关联数组（子结构）递归合并；索引数组（诊断列表等）保留原值
-            $data[$k] = emr_merge_defaults($data[$k], $v);
+            // 关联数组（子结构）且数据侧同为数组时才递归合并；
+            // 数据侧为字符串等标量（如旧版 allergies 纯文本）时保留原值，
+            // 由 emr_normalize 统一归一化，避免对字符串取数组偏移导致致命错误
+            if (is_array($data[$k])) {
+                $data[$k] = emr_merge_defaults($data[$k], $v);
+            }
         }
     }
     return $data;
+}
+
+/** 旧格式归一化：allergies 曾为纯文本字符串 → 结构化（非空视为承认） */
+function emr_normalize($emr) {
+    if (isset($emr['allergies']) && !is_array($emr['allergies'])) {
+        $old = trim((string)$emr['allergies']);
+        $emr['allergies'] = array('type' => $old !== '' ? '承认' : '否认', 'detail' => $old);
+    }
+    return $emr;
 }
 
 /** 已开项目快照（与 /api/order visit_orders 同口径，排除已退费/已取消）：
@@ -124,9 +137,11 @@ switch ($action) {
             $pr = DB::one('medical', 'SELECT * FROM patient_records WHERE visit_id=? ORDER BY id DESC', array($visitId));
         }
         $emr = emr_merge_defaults(
-            $pr ? json_decode($pr['emr_data'], true) : array(),
+            emr_normalize($pr ? json_decode($pr['emr_data'], true) : array()),
             emr_default_data($pr ? null : $patient)
         );
+        // 归一化后补齐缺失键（旧数据 allergies 为空串时上面已转结构，其余键照常回退）
+        $emr = emr_merge_defaults($emr, emr_default_data(null));
         $recordData = array(
             'doctor_name' => $u['name'],
             'doctor_emp' => $doc ? $doc['emp_no'] : '',
@@ -221,11 +236,8 @@ switch ($action) {
 
         // ===== 2. 合并默认结构 + 业务防御清洗 =====
         $emr = emr_merge_defaults($emr, emr_default_data(null));
-        // 旧格式兼容：allergies 曾为纯文本字符串 → 归一化为结构（非空视为承认）
-        if (isset($emr['allergies']) && !is_array($emr['allergies'])) {
-            $old = trim((string)$emr['allergies']);
-            $emr['allergies'] = array('type' => $old !== '' ? '承认' : '否认', 'detail' => $old);
-        }
+        // 旧格式兼容：allergies 纯文本字符串归一化（见 emr_normalize）
+        $emr = emr_normalize($emr);
         if ($emr['past_history']['type'] !== '承认') {
             $emr['past_history']['type'] = '否认';
             $emr['past_history']['detail'] = ''; // 否认既往史：即使前端强行提交细节也强制清空
