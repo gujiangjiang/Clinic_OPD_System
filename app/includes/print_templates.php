@@ -349,14 +349,15 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
     $html = '';
 
     if ($mode === 'continue') {
-        // 续写段承接头：一条虚线分割上下文书，下一行左右两端对齐——
-        // 左端为该次续写的「日期 时间」，右端为「续写病历 科室」，
-        // 随后直接接「病历续写：……」等续写正文（页眉归首诊文书）
+        // 续写段承接头：一条虚线分割上下文书，下一行整行加粗、三段定位——
+        // 左端「日期 时间」（该次续写首次保存时间）、居中「续写病历」、
+        // 右端「科室」，随后直接接「病历续写：……」等续写正文
         $contDept = isset($visit['current_dept_name']) ? (string)$visit['current_dept_name'] : '';
         $contTime = isset($record['created_at']) ? substr((string)$record['created_at'], 0, 16) : '';
         $html .= '<div class="print-record-cont">' .
             '<span class="prc-time">' . e($contTime) . '</span>' .
-            '<span class="prc-right">续写病历' . ($contDept !== '' ? '　' . e($contDept) : '') . '</span>' .
+            '<span class="prc-title">续写病历</span>' .
+            '<span class="prc-dept">' . e($contDept) . '</span>' .
             '</div>';
     } else {
         $html .= pt_header($title);
