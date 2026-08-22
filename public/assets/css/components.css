@@ -629,10 +629,8 @@
 }
 .emr-doc .doc-body .ef-select:disabled { color: var(--text); cursor: default; }
 .emr-doc .doc-body .ef-auto { color: var(--text); }
-.emr-doc .doc-body .ef-auto.empty::before {
-    content: '—';
-    color: var(--text-muted);
-}
+/* 空的自动段（未开单/无处方）直接隐藏，避免出现多余占位符或重复「—」 */
+.emr-doc .doc-body .ef-auto.empty { display: none; }
 .emr-doc .doc-body .ef-rx-lines { display: block; }
 .emr-doc .doc-body .ef-rx-line { display: block; line-height: 1.8; }
 .emr-doc .doc-body .ef-disp-box { display: block; flex: 1; min-width: 0; }
