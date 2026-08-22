@@ -31,6 +31,39 @@ Router::title('药品设置');
 var CUR_STYPE = 'category';
 var DS_NAMES = { category: '药品分类', package: '包装单位', form: '药品剂型', freq: '用药频次', route: '给药途径' };
 
+/** 途径绑定处置：只读展示 + 通用检索/快捷创建按钮 */
+function routeBindBox(name, id) {
+    setTimeout(function () {
+        var b = document.getElementById('dsBindPick');
+        if (b) b.addEventListener('click', pickRouteDisposal);
+        var c = document.getElementById('dsBindClear');
+        if (c) c.addEventListener('click', clearRouteDisposal);
+    }, 50);
+    return '<input type="hidden" id="dsBind" value="' + (id || 0) + '">' +
+        '<div class="form-group"><label class="form-label">绑定计费处置（开方时按数量自动联动）</label>' +
+        '<div class="flex gap-8"><input class="input" id="dsBindName" value="' + (name || '') + '" readonly placeholder="点击右侧选择或新建">' +
+        '<button type="button" class="btn btn-outline btn-sm" id="dsBindPick">🔍 选择/新建</button>' +
+        '<button type="button" class="btn btn-outline btn-sm" id="dsBindClear">清除</button></div>' +
+        '<div class="fs-12 text-muted mt-4">如：静脉输液 → 静脉输液费。开方时按数量自动生成处置。</div></div>';
+}
+function pickRouteDisposal() {
+    Clinic.universalSelector.open({
+        title: '选择绑定的计费处置项目',
+        searchAction: 'disposal_search',
+        allowCreate: true,
+        createAction: 'disposal_quick_create',
+        createContext: '在配置给药途径时快捷创建处置',
+        onSelect: function (item) {
+            document.getElementById('dsBind').value = item.id;
+            document.getElementById('dsBindName').value = item.name;
+        },
+    });
+}
+function clearRouteDisposal() {
+    document.getElementById('dsBind').value = '0';
+    document.getElementById('dsBindName').value = '';
+}
+
 function switchDs(stype) {
     CUR_STYPE = stype;
     document.querySelectorAll('#dsTabs .btn').forEach(function (b) {
@@ -57,7 +90,8 @@ function openDsForm(id) {
     }
     var nurseBox = CUR_STYPE === 'route'
         ? '<div class="form-group"><label class="flex gap-4" style="font-size:13px;cursor:pointer">' +
-          '<input type="checkbox" id="dsNurse" value="1"> 该途径【需护士站处理】（如：静脉输液）</label></div>'
+          '<input type="checkbox" id="dsNurse" value="1"> 该途径【需护士站处理】（如：静脉输液）</label></div>' +
+          routeBindBox('', 0)
         : '';
     Clinic.modal.open(
         '<input type="hidden" id="dsId" value="0">' +
@@ -94,10 +128,12 @@ function openDsForm(id) {
 }
 
 /* 编辑（行内按钮调用） */
-function editDrugSetting(stype, id, name, needNurse) {
+function editDrugSetting(stype, id, name, needNurse, bindId, bindName) {
+        bindId = bindId || 0; bindName = bindName || '';
     var nurseBox = stype === 'route'
         ? '<div class="form-group"><label class="flex gap-4" style="font-size:13px;cursor:pointer">' +
-          '<input type="checkbox" id="dsNurse" value="1"' + (needNurse ? ' checked' : '') + '> 该途径【需护士站处理】（如：静脉输液）</label></div>'
+          '<input type="checkbox" id="dsNurse" value="1"' + (needNurse ? ' checked' : '') + '> 该途径【需护士站处理】（如：静脉输液）</label></div>' +
+          routeBindBox(bindName, bindId)
         : '';
     Clinic.modal.open(
         '<input type="hidden" id="dsId" value="' + id + '">' +
@@ -119,6 +155,7 @@ function editDrugSetting(stype, id, name, needNurse) {
                             stype: stype,
                             name: nm,
                             need_nurse: document.getElementById('dsNurse') && document.getElementById('dsNurse').checked ? 1 : 0,
+                            bind_disposal_item_id: parseInt(document.getElementById('dsBind') ? document.getElementById('dsBind').value : '0', 10) || 0,
                         }, {
                             onSuccess: function (json) {
                                 Clinic.toast.success(json.msg);

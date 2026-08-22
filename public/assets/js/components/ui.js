@@ -43,6 +43,7 @@ function loadModal(url, data, title) {
         f_generic: 'generic_name', f_pkg: 'package_unit', f_dose: 'single_dose',
         f_freq: 'frequency_name', f_route: 'route_name',
         f_rx: 'is_rx', f_limited: 'is_limited', f_nurse: 'need_nurse',
+        f_skin_test: 'need_skin_test', f_skin_item: 'skin_test_item_id',
         f_normal: 'normal_range', f_clow: 'critical_low', f_chigh: 'critical_high',
     };
 
@@ -61,6 +62,43 @@ function loadModal(url, data, title) {
                 var route = body.querySelector('#f_route').value;
                 if (routeMap[route] === 1) nurseChk.checked = true;
             };
+        }
+
+        // 药品编辑：皮试联动（显示/隐藏关联处置选择 + 通用选择器接入）
+        var skinChk = body.querySelector('#f_skin_test');
+        if (skinChk && body.querySelector('#skin_box')) {
+            window.syncSkinBox = function () {
+                body.querySelector('#skin_box').style.display = skinChk.checked ? '' : 'none';
+                if (!skinChk.checked) {
+                    body.querySelector('#f_skin_item').value = '0';
+                    body.querySelector('#f_skin_item_name').value = '';
+                }
+            };
+            // 通用检索 + 快捷创建模态框（数据源：已审核处置项目；非管理员快建自动入审核池）
+            window.pickSkinDisposal = function () {
+                Clinic.universalSelector.open({
+                    title: '选择关联皮试处置项目',
+                    searchAction: 'disposal_search',
+                    allowCreate: true,
+                    createAction: 'disposal_quick_create',
+                    createContext: (body.querySelector('#f_name') && body.querySelector('#f_name').value
+                        ? '在维护药品[' + body.querySelector('#f_name').value + ']时快捷创建皮试处置'
+                        : '快捷创建皮试处置'),
+                    onSelect: function (item) {
+                        body.querySelector('#f_skin_item').value = item.id;
+                        body.querySelector('#f_skin_item_name').value = item.name;
+                    },
+                });
+            };
+            window.clearSkinDisposal = function () {
+                body.querySelector('#f_skin_item').value = '0';
+                body.querySelector('#f_skin_item_name').value = '';
+            };
+            // 每次弹窗加载均为新 DOM（旧元素已销毁），直接绑定无需防重
+            skinChk.addEventListener('change', function () { if (window.syncSkinBox) window.syncSkinBox(); });
+            if (skinChk.checked && !(parseInt(body.querySelector('#f_skin_item').value, 10) > 0)) {
+                Clinic.toast.warning('该药品标记了需皮试，请关联皮试处置项目');
+            }
         }
 
         document.getElementById('fSave').addEventListener('click', function () {

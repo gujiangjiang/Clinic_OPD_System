@@ -113,6 +113,17 @@ function form_drug($id) {
         <label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="f_rx"' . ($r['is_rx'] ? ' checked' : '') . '> 处方药</label>
         <label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="f_limited"' . ($r['is_limited'] ? ' checked' : '') . '> 限制类药品</label>
         <label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="f_nurse"' . ($r['need_nurse'] ? ' checked' : '') . '> 需护士站执行</label>
+        <label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="f_skin_test"' . ((int)$r['need_skin_test'] ? ' checked' : '') . ' onchange="syncSkinBox()"> 需皮试药品</label>
+    </div>
+    <div class="form-group" id="skin_box" style="' . ((int)$r['need_skin_test'] ? '' : 'display:none') . 'background:var(--bg-soft);border-radius:10px;padding:12px">
+        <label class="form-label">关联皮试处置项目 <span class="req">*</span>（开方时自动联动）</label>
+        <input type="hidden" id="f_skin_item" value="' . (int)$r['skin_test_item_id'] . '">
+        <div class="flex gap-8">
+            <input class="input" id="f_skin_item_name" value="' . e($skinName) . '" readonly placeholder="点击右侧按钮选择或新建">
+            <button type="button" class="btn btn-outline btn-sm" onclick="pickSkinDisposal()">🔍 选择/新建</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="clearSkinDisposal()">清除</button>
+        </div>
+        <div class="fs-12 text-muted mt-4">如：青霉素皮试、头孢菌素类皮试。可在弹窗中检索已有处置，或就地快捷创建（非管理员提交需审核）。</div>
     </div>
     <div class="form-group"><label class="form-label">备注</label><textarea class="textarea" id="f_note" rows="2">' . e($r['note']) . '</textarea></div>';
     // 给药途径 → 是否需护士站处理 映射（供前端自动勾选）

@@ -22,12 +22,21 @@ function admin_part_drug($action) {
         $stype = get('stype', 'category');
         $rows = DB::q('drug', 'SELECT * FROM drug_settings WHERE stype=? ORDER BY sort, id', array($stype));
         $html = '<div class="table-wrap"><table class="table"><thead><tr><th>名称</th>' .
-            ($stype === 'route' ? '<th>需护士站处理</th>' : '') . '操作</th></tr></thead><tbody>';
+            ($stype === 'route' ? '<th>需护士站处理</th><th>绑定计费处置</th>' : '') . '操作</th></tr></thead><tbody>';
         foreach ($rows as $r) {
+            // 绑定处置名称回显
+            $bindName = '';
+            if (!empty($r['bind_disposal_item_id'])) {
+                $bn = DB::val('disp', 'SELECT name FROM disposal_items WHERE id=?', array((int)$r['bind_disposal_item_id']));
+                $bindName = (string)$bn;
+            }
             $html .= '<tr><td class="fw-600">' . e($r['name']) . '</td>' .
-                ($stype === 'route' ? '<td>' . ($r['need_nurse'] ? '<span class="badge badge-warning">是（护士站执行）</span>' : '<span class="badge badge-gray">否</span>') . '</td>' : '') .
+                ($stype === 'route'
+                    ? '<td>' . ($r['need_nurse'] ? '<span class="badge badge-warning">是（护士站执行）</span>' : '<span class="badge badge-gray">否</span>') . '</td>'
+                      . '<td>' . ($bindName !== '' ? '<span class="badge badge-primary">' . e($bindName) . '</span>' : '<span class="badge badge-gray">未绑定</span>') . '</td>'
+                    : '') .
                 '<td><div class="flex gap-4">' .
-                '<button class="btn btn-outline btn-sm" onclick="editDrugSetting(\'' . $stype . '\',' . (int)$r['id'] . ',\'' . e($r['name']) . '\',' . (int)$r['need_nurse'] . ')">编辑</button>' .
+                '<button class="btn btn-outline btn-sm" onclick="editDrugSetting(\'' . $stype . '\',' . (int)$r['id'] . ',\'' . e($r['name']) . '\',' . (int)$r['need_nurse'] . ',' . (int)(isset($r['bind_disposal_item_id']) ? $r['bind_disposal_item_id'] : 0) . ',\'' . e($bindName) . '\')">编辑</button>' .
                 '<button class="btn btn-outline btn-sm" onclick="delDrugSetting(' . (int)$r['id'] . ')">删除</button></div></td></tr>';
         }
         $html .= '</tbody></table></div>';
