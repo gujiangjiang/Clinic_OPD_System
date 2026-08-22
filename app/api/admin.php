@@ -87,6 +87,9 @@ switch ($action) {
     case 'disposal_form':
     case 'disposal_save':
     case 'disposal_delete':
+    // 通用检索 / 关联快建（皮试·途径联动配套）
+    case 'disposal_search':
+    case 'disposal_quick_create':
         admin_part_disp($action);
         break;
 

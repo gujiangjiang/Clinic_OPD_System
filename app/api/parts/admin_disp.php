@@ -81,5 +81,50 @@ function admin_part_disp($action) {
         json_ok(array(), '处置项目已删除');
     }
 
+
+
+    /* ==================== 通用检索：处置项目（供通用选择器组件调用） ==================== */
+    if ($action === 'disposal_search') {
+        $kw = trim(get('kw', ''));
+        $rows = DB::q('disp', "SELECT id, name, fee FROM disposal_items WHERE status='approved'" .
+            ($kw !== '' ? ' AND name LIKE ?' : '') . ' ORDER BY id DESC LIMIT 20',
+            $kw !== '' ? array('%' . $kw . '%') : array());
+        json_ok(array('list' => $rows));
+    }
+
+    /* ==================== 快捷创建处置项目（关联创建 + 来源审计） ====================
+     * 管理员：直接生效入库（approved）；非管理员：入审核池（pending）。
+     * creation_source 强制记录创建场景，审核中心据此高亮展示。 */
+    if ($action === 'disposal_quick_create') {
+        $name = trim(post('name'));
+        $fee = (float)post('fee', 0);
+        $source = trim(post('creation_source', ''));
+        if ($name === '') json_fail('请填写处置名称');
+        if (mb_strlen($name) > 50) json_fail('处置名称过长');
+        // 同名去重：已存在直接复用（幂等），避免重复建项
+        $exId = (int)DB::val('disp', 'SELECT id FROM disposal_items WHERE name=? ORDER BY id DESC LIMIT 1', array($name));
+        if ($exId > 0) {
+            $exStatus = (string)DB::val('disp', 'SELECT status FROM disposal_items WHERE id=?', array($exId));
+            json_ok(array('id' => $exId, 'name' => $name,
+                'fee' => (float)DB::val('disp', 'SELECT fee FROM disposal_items WHERE id=?', array($exId)),
+                'status' => $exStatus, 'existed' => true), '已存在同名处置，已直接关联');
+        }
+        $isAdmin = $u['role'] === 'admin';
+        $newId = DB::insert('disp', 'INSERT INTO disposal_items(name, fee, description, status, created_at) VALUES(?,?,?,?,?)',
+            array($name, $fee, '【关联创建】' . ($source !== '' ? $source : '快捷创建'), $isAdmin ? 'approved' : 'pending', now_str()));
+        if (!$isAdmin) {
+            DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, creation_source, created_at) VALUES(?,?,?,?,?,?,?,?,?)',
+                array('item_disp', $newId, '快捷创建处置：' . $name,
+                    ($source !== '' ? $source . '；' : '') . '费用 ' . money($fee) . ' 元',
+                    'pending', $u['name'], $u['id'], $source, now_str()));
+        }
+        json_ok(array(
+            'id' => $newId, 'name' => $name, 'fee' => $fee,
+            'status' => $isAdmin ? 'approved' : 'pending',
+            'pending' => !$isAdmin,
+            'creation_source' => $source,
+        ), $isAdmin ? '处置已创建并生效' : '已提交审核，通过后自动关联生效');
+    }
+
     json_fail('未知操作');
 }

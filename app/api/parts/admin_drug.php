@@ -40,11 +40,17 @@ function admin_part_drug($action) {
         $stype = post('stype');
         $name = post('name');
         $needNurse = (int)post('need_nurse', 0);
+        $bindDisp = (int)post('bind_disposal_item_id', 0);
+        // 绑定处置校验：必须为已审核通过的处置项目（0=不绑定）
+        if ($bindDisp > 0) {
+            $ex = DB::val('disp', 'SELECT COUNT(*) FROM disposal_items WHERE id=? AND status='approved'', array($bindDisp));
+            if (!$ex) json_fail('绑定的处置项目不存在或未通过审核');
+        }
         if ($name === '') json_fail('请输入名称');
         if ($id > 0) {
-            DB::exec('drug', 'UPDATE drug_settings SET name=?, need_nurse=? WHERE id=?', array($name, $needNurse, $id));
+            DB::exec('drug', 'UPDATE drug_settings SET name=?, need_nurse=?, bind_disposal_item_id=? WHERE id=?', array($name, $needNurse, $bindDisp, $id));
         } else {
-            DB::insert('drug', 'INSERT INTO drug_settings(stype, name, need_nurse, sort) VALUES(?,?,?,0)', array($stype, $name, $needNurse));
+            DB::insert('drug', 'INSERT INTO drug_settings(stype, name, need_nurse, bind_disposal_item_id, sort) VALUES(?,?,?,?,0)', array($stype, $name, $needNurse, $bindDisp));
         }
         json_ok(array(), '已保存');
     }
@@ -109,7 +115,16 @@ function admin_part_drug($action) {
             'route_name' => post('route_name'), 'price' => (float)post('price', 0), 'qty' => (int)post('qty', 0),
             'is_rx' => (int)post('is_rx', 0), 'is_limited' => (int)post('is_limited', 0),
             'note' => post('note'), 'need_nurse' => (int)post('need_nurse', 0),
+            // 皮试联动：标记需皮试时必须关联已审核的皮试处置项目
+            'need_skin_test' => (int)post('need_skin_test', 0),
+            'skin_test_item_id' => (int)post('skin_test_item_id', 0),
         );
+        if ((int)$data['need_skin_test'] === 1) {
+            $stOk = DB::val('disp', 'SELECT COUNT(*) FROM disposal_items WHERE id=? AND status='approved'', array($data['skin_test_item_id']));
+            if (!$stOk) json_fail('请关联有效的皮试处置项目（需已通过审核）');
+        } else {
+            $data['skin_test_item_id'] = 0;
+        }
         if ($id > 0) {
             $set = array(); $params = array();
             foreach ($data as $k => $v) { $set[] = $k . '=?'; $params[] = $v; }

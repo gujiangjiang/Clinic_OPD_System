@@ -120,5 +120,14 @@ function form_drug($id) {
     foreach (DB::q('drug', "SELECT name, need_nurse FROM drug_settings WHERE stype='route'") as $rt) {
         $routeMap[$rt['name']] = (int)$rt['need_nurse'];
     }
-    return array('html' => $html, 'route_nurse' => $routeMap, 'need_nurse' => (int)$r['need_nurse']);
+    // 皮试关联处置名称（表单回显）
+    $skinName = '';
+    if (!empty($r['skin_test_item_id'])) {
+        $sn = DB::val('disp', 'SELECT name FROM disposal_items WHERE id=?', array((int)$r['skin_test_item_id']));
+        $skinName = (string)$sn;
+    }
+    return array('html' => $html, 'route_nurse' => $routeMap, 'need_nurse' => (int)$r['need_nurse'],
+        'need_skin_test' => (int)(isset($r['need_skin_test']) ? $r['need_skin_test'] : 0),
+        'skin_test_item_id' => (int)(isset($r['skin_test_item_id']) ? $r['skin_test_item_id'] : 0),
+        'skin_test_item_name' => $skinName);
 }

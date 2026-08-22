@@ -45,6 +45,7 @@ function admin_part_audit($action) {
                 $html .= '<tr>' .
                     '<td><span class="badge badge-primary">' . e(isset($typeNames[$r['type']]) ? $typeNames[$r['type']] : $r['type']) . '</span></td>' .
                     '<td><div class="fw-600 fs-13">' . e($r['title']) . '</div><div class="fs-12 text-muted">' . e($r['content']) . '</div>' .
+                    (!empty($r['creation_source']) ? '<div class="fs-12 mt-4"><span class="badge badge-warning">来源：' . e($r['creation_source']) . '</span></div>' : '') .
                     ($r['note'] ? '<div class="fs-12 mt-4" style="color:var(--danger)">驳回理由：' . e($r['note']) . '</div>' : '') . '</td>' .
                     '<td>' . e($r['proposer']) . '</td>' .
                     '<td class="fs-12">' . e(substr($r['created_at'], 0, 16)) . '</td>' .
