@@ -37,14 +37,22 @@ Clinic.print = (function () {
 
         preview = document.createElement('div');
         preview.className = 'print-preview' + (sheet ? ' sheet-' + sheet : '');
+        // 结构说明：遮罩（含 backdrop-filter 虚化）与滚动内容分层、工具栏为兄弟节点。
+        // 关键：backdrop-filter 会把后代 position:fixed 的定位基准降级为该祖先，
+        // 若工具栏放在带虚化的元素内部就会跟着内容一起滚动——
+        // 因此虚化只放在兄弟层 .pp-backdrop 上，工具栏祖先链无任何 filter，
+        // 其 fixed 定位始终相对视口，实现真正固定悬浮。
         preview.innerHTML =
+            '<div class="pp-backdrop"></div>' +
+            '<div class="pp-scroll">' +
+            '<div id="print-area" class="print-area">' + html + '</div>' +
+            '</div>' +
             '<div class="print-toolbar">' +
             '  <label class="print-auto" title="勾选后每次弹出预览会自动调起系统打印，打印后自动关闭本预览（偏好按账号记忆；如需关闭可在【个人信息】页的打印偏好中取消勾选）">' +
             '    <input type="checkbox" data-act="auto"> 自动打印</label>' +
             '  <button type="button" class="btn btn-outline" data-act="close">关闭</button>' +
             '  <button type="button" class="btn btn-primary" data-act="do">🖨️ 打印</button>' +
-            '</div>' +
-            '<div id="print-area" class="print-area">' + html + '</div>';
+            '</div>';
         document.body.appendChild(preview);
         // 预览层禁用右键菜单，避免误操作打断打印流程
         preview.addEventListener('contextmenu', function (e) { e.preventDefault(); });

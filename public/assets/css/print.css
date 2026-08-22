@@ -4,16 +4,28 @@
  * 共用此样式。打印时隐藏网页元素，仅显示 #print-area 内容。
  * ============================================================ */
 
-/* ---------- 屏幕预览模式：模态框样式（背景遮罩虚化，突出单据内容） ---------- */
+/* ---------- 屏幕预览模式：模态框样式（背景遮罩虚化，突出单据内容） ----------
+ * 三层结构：.print-preview 仅作视口容器（无 filter/overflow），
+ * .pp-backdrop 负责半透明遮罩+背景虚化，.pp-scroll 负责内容滚动。
+ * 关键：backdrop-filter 会把后代 position:fixed 的定位基准降级为该祖先，
+ * 因此虚化必须放在与工具栏平级的兄弟层上——工具栏的 fixed 才能真正
+ * 相对视口固定悬浮（否则会跟随内容滚动）。 */
 .print-preview {
     position: fixed;
+    inset: 0;
+    z-index: 2000;
+}
+.pp-backdrop {
+    position: absolute;
     inset: 0;
     background: rgba(15, 23, 42, .45);   /* 半透明遮罩压暗背景 */
     backdrop-filter: blur(5px);          /* 背景虚化，避免干扰预览 */
     -webkit-backdrop-filter: blur(5px);
-    z-index: 2000;
+}
+.pp-scroll {
+    position: absolute;
+    inset: 0;
     overflow: auto;
-    padding: 0;
 }
 /* 工具栏：纵向排列，固定悬浮在预览层右侧——顶部与预览卡片顶边齐平
    （卡片 margin-top 64px），不随单据内容滚动；
