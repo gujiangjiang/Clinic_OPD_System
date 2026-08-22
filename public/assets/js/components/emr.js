@@ -520,7 +520,7 @@ Clinic.emr = (function () {
         var phText = strip(c.past_history);
         if (phText) patch.past_history = { type: '承认', detail: phText };
         var ahText = strip(c.allergy_history);
-        if (ahText) patch.allergies = ahText;
+        if (ahText) patch.allergies = { type: '承认', detail: ahText };
         // 合并进当前数据并重渲染字段值
         var cur = Clinic.emrEditor.collect();
         Object.keys(patch).forEach(function (k) {

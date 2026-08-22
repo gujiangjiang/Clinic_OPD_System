@@ -408,7 +408,7 @@ function pt_record($visit, $patient, $record, $vitals) {
         $secs[] = array('主诉', emr_cc_text(isset($emr['chief_complaint']) ? $emr['chief_complaint'] : array()));
         $secs[] = array('现病史', emr_pi_text(isset($emr['history_present']) ? $emr['history_present'] : array()));
         $secs[] = array('既往史', emr_ph_text(isset($emr['past_history']) ? $emr['past_history'] : array()));
-        $secs[] = array('过敏史', isset($emr['allergies']) ? $emr['allergies'] : '');
+        $secs[] = array('过敏史', emr_al_text(isset($emr['allergies']) ? $emr['allergies'] : array()));
         $msText = emr_ms_text(isset($emr['main_symptoms']) ? $emr['main_symptoms'] : array());
         if ($msText !== '') $secs[] = array('主要症状', e($msText));
     } else {

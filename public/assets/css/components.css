@@ -659,7 +659,7 @@
 /* 病历页患者信息头常驻（不随内容滚动，吸附在顶栏下方） */
 #emrHeader {
     position: sticky;
-    top: var(--topbar-h);
+    top: 0; /* 相对内容区滚动容器：0 即紧贴顶栏下方（勿叠加 topbar 高度导致偏下） */
     z-index: 70;
 }
 

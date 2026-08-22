@@ -78,7 +78,7 @@ Clinic.print = (function () {
         if (sheet === 'a5') {
             st = document.createElement('style');
             st.id = 'printPageSize';
-            st.textContent = '@page { size: A5 portrait; margin: 12mm 10mm; }';
+            st.textContent = '@page { size: A5 portrait; margin: 10mm; }';
             document.head.appendChild(st);
         }
     }

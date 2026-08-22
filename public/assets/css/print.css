@@ -351,8 +351,17 @@
     .print-toolbar { display: none !important; }
     /* A5 病历纸打印：宽度严格限制为 148mm，内容可向下延伸到多页 */
     .print-preview.sheet-a5 #print-area {
-        width: 148mm;
+        width: auto;
+        max-width: 100%;
         min-height: 0;
+        box-sizing: border-box;
     }
+    /* 文档本体同样收敛到可打印宽度内 */
+    .print-preview.sheet-a5 #print-area .print-record-doc {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    .print-preview.sheet-a5 #print-area * { box-sizing: border-box; }
     @page { margin: 10mm; }
 }

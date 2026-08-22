@@ -228,10 +228,22 @@ Clinic.emrEditor = (function () {
         return d;
     }
 
-    /** 过敏史 */
+    /** 过敏史：否认/承认下拉（默认否认），承认后显示填写框 */
     function buildAllergy() {
         var d = secWrap('过敏史', false);
-        d.appendChild(textField('allergies', '请填写过敏史', 200));
+        var sel = simpleSelect('allergies.type', ['否认', '承认'], '否认');
+        d.appendChild(sel);
+        var detailWrap = document.createElement('span');
+        detailWrap.className = 'ef-cond';
+        detailWrap.appendChild(textField('allergies.detail', '请填写过敏史', 200));
+        d.appendChild(detailWrap);
+        var sync = function () {
+            var v = sel.value;
+            detailWrap.style.display = (v === '承认') ? '' : 'none';
+            if (v !== '承认') detailWrap.querySelector('.ef-field').innerText = '';
+        };
+        sel.addEventListener('change', sync);
+        d.__sync = sync;
         return d;
     }
 
@@ -367,12 +379,11 @@ Clinic.emrEditor = (function () {
                 renderDiagText();
             }
         });
-        // 既往史条件显隐同步
-        var phSec = FIELDS.filter(function (f) { return f.path === 'past_history.detail'; })[0];
-        if (phSec) {
-            var sel = phSec.el.closest('.doc-sec').querySelector('select');
-            if (sel) sel.dispatchEvent(new Event('change'));
-        }
+        // 既往史/过敏史条件显隐同步（选「承认」才显示填写框）
+        ['past_history', 'allergies'].forEach(function (prefix) {
+            var typeSel = ROOT.querySelector('select[data-k="' + prefix + '.type"]');
+            if (typeSel) typeSel.dispatchEvent(new Event('change'));
+        });
     }
 
     /** 收集为结构化 JSON（空字段存空串；[] 括号不保存，仅内部文字） */

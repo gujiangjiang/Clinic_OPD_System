@@ -42,6 +42,15 @@ function emr_ph_text($ph) {
     return $detail !== '' ? '承认，' . $detail : '承认';
 }
 
+/** 过敏史：否认 | 承认，细节内容 */
+function emr_al_text($al) {
+    $al = is_array($al) ? $al : array();
+    $type = isset($al['type']) && $al['type'] !== '' ? $al['type'] : '否认';
+    if ($type !== '承认') return '否认';
+    $detail = isset($al['detail']) ? $al['detail'] : '';
+    return $detail !== '' ? $detail : '承认';
+}
+
 /** 主要症状：仅输出已选类别（全身症状：发热，呼吸道症状：咳嗽）；全空返回 '' */
 function emr_ms_text($ms) {
     $ms = is_array($ms) ? $ms : array();

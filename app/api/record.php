@@ -24,18 +24,23 @@ $u = Auth::user();
 function emr_default_data($patient = null) {
     $phType = '否认';
     $phDetail = '';
-    $allergies = '';
+    $alType = '否认';
+    $alDetail = '';
     if ($patient) {
         // 跨就诊自动调用：患者主表存有历史既往史/过敏史时预填（以最新一次保存为准）
         if (!empty($patient['past_history_type'])) $phType = $patient['past_history_type'];
         if (!empty($patient['past_history_detail'])) $phDetail = $patient['past_history_detail'];
-        if (!empty($patient['allergies'])) $allergies = $patient['allergies'];
+        // 患者主表 allergies 存纯文本摘要：非空即视为「承认」并回填细节
+        if (!empty($patient['allergies'])) {
+            $alType = '承认';
+            $alDetail = $patient['allergies'];
+        }
     }
     return array(
         'chief_complaint' => array('symptom' => '', 'duration' => '', 'unit' => '', 'second_symptom' => '', 'second_duration' => '', 'second_unit' => ''),
         'history_present' => array('informant' => '', 'duration' => '', 'unit' => '', 'content' => '', 'arrival_way' => ''),
         'past_history' => array('type' => $phType, 'detail' => $phDetail),
-        'allergies' => $allergies,
+        'allergies' => array('type' => $alType, 'detail' => $alDetail),
         'main_symptoms' => array(
             '全身症状' => '', '呼吸道症状' => '', '消化道症状' => '',
             '皮疹症状' => '', '出血症状' => '', '神经系统症状' => '',
@@ -152,7 +157,7 @@ switch ($action) {
                     'chief_complaint' => emr_cc_text(isset($prevEmr['chief_complaint']) ? $prevEmr['chief_complaint'] : array()),
                     'present_illness' => emr_pi_text(isset($prevEmr['history_present']) ? $prevEmr['history_present'] : array()),
                     'past_history' => emr_ph_text(isset($prevEmr['past_history']) ? $prevEmr['past_history'] : array()),
-                    'allergy_history' => isset($prevEmr['allergies']) ? $prevEmr['allergies'] : '',
+                    'allergy_history' => emr_al_text(isset($prevEmr['allergies']) ? $prevEmr['allergies'] : array()),
                 ), JSON_UNESCAPED_UNICODE),
             );
         }
@@ -216,14 +221,24 @@ switch ($action) {
 
         // ===== 2. 合并默认结构 + 业务防御清洗 =====
         $emr = emr_merge_defaults($emr, emr_default_data(null));
+        // 旧格式兼容：allergies 曾为纯文本字符串 → 归一化为结构（非空视为承认）
+        if (isset($emr['allergies']) && !is_array($emr['allergies'])) {
+            $old = trim((string)$emr['allergies']);
+            $emr['allergies'] = array('type' => $old !== '' ? '承认' : '否认', 'detail' => $old);
+        }
         if ($emr['past_history']['type'] !== '承认') {
             $emr['past_history']['type'] = '否认';
             $emr['past_history']['detail'] = ''; // 否认既往史：即使前端强行提交细节也强制清空
         }
+        if ($emr['allergies']['type'] !== '承认') {
+            $emr['allergies']['type'] = '否认';
+            $emr['allergies']['detail'] = ''; // 否认过敏史：同样强制清空
+        }
         // 字符串字段统一裁剪
-        foreach (array('aux_result', 'aux_external', 'disposition_custom', 'advice', 'allergies') as $k) {
+        foreach (array('aux_result', 'aux_external', 'disposition_custom', 'advice') as $k) {
             $emr[$k] = trim((string)$emr[$k]);
         }
+        $emr['allergies']['detail'] = trim((string)$emr['allergies']['detail']);
 
         // ===== 3. 投影字段提取（单一事实转换） =====
         $mainSymptom = (string)$cc['symptom'];
@@ -232,7 +247,8 @@ switch ($action) {
         $informant = isset($pi['informant']) ? (string)$pi['informant'] : '';
         $arrivalWay = isset($pi['arrival_way']) ? (string)$pi['arrival_way'] : '';
         $hasPastHistory = $emr['past_history']['type'] === '承认' ? '是' : '否';
-        $allergies = $emr['allergies'];
+        // 过敏史投影：承认时存细节文本（患者主表同步/统计用），否认存空
+        $allergies = $emr['allergies']['type'] === '承认' ? $emr['allergies']['detail'] : '';
         $isLeaveHospital = emr_obs_text($emr);
         $primaryIcd10 = '';
         $primaryDiagnosis = '';
@@ -287,7 +303,7 @@ switch ($action) {
                 'chief_complaint' => emr_cc_text($emr['chief_complaint']),
                 'present_illness' => emr_pi_text($emr['history_present']),
                 'past_history' => emr_ph_text($emr['past_history']),
-                'allergy_history' => $allergies,
+                'allergy_history' => emr_al_text($emr['allergies']),
                 'physical_exam' => emr_pe_text($emr['physical_exam']),
                 'consciousness' => $consciousness,
                 'initial_diagnosis' => emr_diag_text($diagnoses),
