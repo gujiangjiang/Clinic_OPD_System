@@ -489,20 +489,51 @@ Clinic.emr = (function () {
     }
 
     /**
-     * 渲染前序病历只读查看区（插入在当前医生编辑卡片之上）。
-     * 仅展示【其他医生】的文书；当前医生本人的草稿/病历在下方编辑器回显。
+     * 按创建顺序拆分【他人】文书：排在本人文书之前的归上侧只读区、
+     * 之后的归下侧只读区——多医生接诊的病历严格按时间正序依次往下
+     * 接续呈现（A 首诊 → B 续写 → C 续写……），后接医生绝不倒排到
+     * 首诊上方。本人尚无文书时，全部他人文书都在上侧。
      */
-    function renderPrevRecords(d) {
+    function splitOthers(d) {
         var mineId = d.record && d.record.doctor_id;
-        var others = (d.records_history || []).filter(function (r) { return r.doctor_id !== mineId; });
-        var host = document.getElementById('prevRecords');
+        var hist = d.records_history || [];
+        var myIdx = -1;
+        hist.forEach(function (r, i) {
+            if (myIdx === -1 && r.doctor_id === mineId) myIdx = i;
+        });
+        var isOther = function (r) { return r.doctor_id !== mineId; };
+        if (myIdx === -1) return { before: hist.filter(isOther), after: [] };
+        return {
+            before: hist.slice(0, myIdx).filter(isOther),
+            after: hist.slice(myIdx + 1).filter(isOther),
+        };
+    }
+
+    /** 只读区容器：before 插在编辑卡片之上，after 插在编辑卡片与已开项目卡之间 */
+    function sideHost(id, afterCard) {
+        var host = document.getElementById(id);
         if (!host) {
             host = document.createElement('div');
-            host.id = 'prevRecords';
+            host.id = id;
             var card = document.getElementById('emrCard');
-            if (card && card.parentNode) card.parentNode.insertBefore(host, card);
+            if (card && card.parentNode) {
+                if (afterCard && card.nextSibling) card.parentNode.insertBefore(host, card.nextSibling);
+                else card.parentNode.insertBefore(host, card);
+            }
         }
-        host.innerHTML = others.length ? others.map(prevRecordHtml).join('') : '';
+        return host;
+    }
+
+    /**
+     * 渲染上/下两个只读区。注意：已开项目文本依赖 ORDERS 缓存，
+     * loadOrders 成功后会再次调用本函数补全辅助检查/门诊处置内容。
+     */
+    function renderPrevRecords(d) {
+        if (!d) d = DATA;
+        if (!d) return;
+        var parts = splitOthers(d);
+        sideHost('prevRecords', false).innerHTML = parts.before.length ? parts.before.map(prevRecordHtml).join('') : '';
+        sideHost('nextRecords', true).innerHTML = parts.after.length ? parts.after.map(prevRecordHtml).join('') : '';
     }
 
     /**
@@ -625,6 +656,14 @@ Clinic.emr = (function () {
     }
 
     /**
+     * 该开单是否为本人生成（供全局函数 viewOrderFlow 使用——
+     * 全局作用域访问不到模块内部函数，必须经由公开 API 进入）
+     */
+    function isMyOrder(o) {
+        return !!o && (o.doctor_id || 0) === myDoctorId();
+    }
+
+    /**
      * 按开单医生过滤已开项目并生成病历正文文本（辅助检查/处方行/处置项）。
      * 多医生接诊下各医生文书只呈现本人开具的项目——谁开单归属谁的病历。
      */
@@ -674,6 +713,9 @@ Clinic.emr = (function () {
             onSuccess: function (j) {
                 ORDERS = j.data.list || [];
                 renderDocOrders();
+                // 已开项目就绪后重渲上/下只读区：前序/后序病历中的
+                // 辅助检查、门诊处置（按各文书医生本人开单归属）此时才有数据
+                if (DATA) renderPrevRecords(DATA);
                 var typeNames = { lab: '检验', imaging: '检查', procedure: '处置', prescription: '处方' };
                 var statusMap = {
                     open: '<span class="badge badge-warning">待缴费</span>',
@@ -1108,6 +1150,7 @@ Clinic.emr = (function () {
         printRecord: printRecord,
         isRecordComplete: isRecordComplete,
         loadOrders: loadOrders,
+        isMyOrder: isMyOrder,
     };
 })();
 
@@ -1219,7 +1262,10 @@ function viewOrderFlow(orderId) {
             // 仅开单医生本人可见可用（多医生接诊权责隔离，后端亦有硬拦截）；
             // 仅未缴费（open）或已退费（refunded）可删，其余点击提示到收费处退费
             var delLabel = o.order_type === 'prescription' ? '毁方' : '删除';
-            var mine = (o.doctor_id || 0) === myDoctorId();
+            // 注意：本函数为全局函数，不可直接调用模块私有的 myDoctorId()，
+            // 必须经由公开 API Clinic.emr.isMyOrder 判断（否则运行时
+            // ReferenceError 会被 ajax catch 吞掉并误报「网络请求失败」）
+            var mine = Clinic.emr.isMyOrder(o);
             var delBtn;
             if (!mine) {
                 delBtn = '<button class="btn btn-outline btn-sm" style="margin-top:8px;margin-left:8px" ' +
