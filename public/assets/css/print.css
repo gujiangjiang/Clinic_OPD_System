@@ -382,9 +382,12 @@
     @page { margin: 10mm; }
 }
 
-/* ---------- A5 单据打印宽度：纸张148mm − 页边距2×10mm ----------
- * 打印时内容收敛到可打印区内（128mm），超出高度自动纵向分页；
- * 屏幕预览保持 148mm 纸张观感。 */
+/* ---------- A5 固定版式（病历/处方笺/申请单/处置单） ----------
+ * 纸张语义固定：A5 148×210mm，@page 四边 10mm 页边距；
+ * 可打印区宽 128mm × 高 190mm。
+ * - 内容不足一页：剩余区域保持空白（min-height 撑满整页版心）
+ * - 内容超过一页：自动纵向拆分为多页（表格行/处方行禁止跨页截断）
+ * 与付款凭条（窄条、随内容无限拉长）明确区分。 */
 @media print {
     .print-preview.sheet-a5 .print-area,
     .print-preview.sheet-a5 .print-area .print-record-doc,
@@ -392,4 +395,18 @@
         max-width: 100% !important;
         box-sizing: border-box;
     }
+    /* 版心撑满整页：内容少时底部保持空白，纸张不因内容缩短 */
+    .print-preview.sheet-a5 #print-area {
+        width: 128mm !important;   /* 148mm − 左右页边距 20mm */
+        min-height: 188mm !important; /* 190mm 版心留 2mm 余量防舍入溢出空尾页 */
+        padding: 0;
+    }
+    .print-preview.sheet-a5 #print-area .print-record-doc {
+        width: 100%;
+        min-height: inherit;
+    }
+    /* 分页卫生：表格行与处方行不跨页截断 */
+    .print-area tr,
+    .print-area .pf-rx-line,
+    .print-area .ef-rx-line { break-inside: avoid; page-break-inside: avoid; }
 }
