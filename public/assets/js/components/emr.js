@@ -24,6 +24,9 @@ Clinic.emr = (function () {
      */
     function init() {
         var visitId = document.getElementById('visitId').value;
+        // 患者资料保存后自动局部刷新本页头部（订阅 patient.js 的更新广播；
+        // 只重建患者卡与文档内患者信息区，绝不触碰下方未保存的病历正文）
+        Clinic.patient.onInfoUpdated(refreshPatientHead);
         loadData(visitId);
     }
 
@@ -89,6 +92,73 @@ Clinic.emr = (function () {
     }
 
     /**
+     * 构建病历文档内的患者信息区 HTML（门诊两栏网格 / 急诊两行流式）。
+     * 独立成函数供两处复用：整卡渲染 & 患者资料保存后的局部刷新
+     * （所见即所得，与打印页版式一致）。
+     * @param {Object} d          /api/record get 返回数据（record/visit/patient）
+     * @param {string} vtOverride 初复诊当前值：局部刷新时保留用户已选项，传空取档案值
+     */
+    function patientGridHtml(d, vtOverride) {
+        var r = d.record || {};
+        var vv = d.visit || {};
+        var p = d.patient || {};
+        var vt = vtOverride || r.visit_type || '初诊';
+        // 初复诊下拉（局部刷新时保留当前选择，避免打断医生操作）
+        var vtSelect = '<select class="doc-cell-select" id="visitType">' +
+            '<option value="初诊"' + (vt === '初诊' ? ' selected' : '') + '>初诊</option>' +
+            '<option value="复诊"' + (vt === '复诊' ? ' selected' : '') + '>复诊</option></select>';
+        var cellHtml = function (f) {
+            // 初复诊为下拉框（可编辑），其余为纯文本展示
+            var isSelect = (typeof f[1] === 'string' && f[1].indexOf('<select') === 0);
+            if (isSelect) {
+                return '<div class="doc-cell"><span class="doc-cell-label">' + f[0] + '：</span>' + f[1] + '</div>';
+            }
+            return '<div class="doc-cell"><span class="doc-cell-label">' + f[0] + '：</span>' +
+                '<span class="doc-cell-value">' + f[1] + '</span></div>';
+        };
+        if (vv.dept_type === 'emergency') {
+            var lines = [
+                [['姓名', vv.name], ['性别', vv.gender], ['出生日期', p.birth_date], ['年龄', vv.age_fmt]],
+                [['患者ID', p.patient_id], ['就诊科室', vv.dept_name], ['就诊时间', vv.created_at]],
+            ];
+            return '<div class="doc-patient-lines">' + lines.map(function (row) {
+                return '<div class="doc-line-row">' + row.map(cellHtml).join('') + '</div>';
+            }).join('') + '</div>';
+        }
+        var fields = [['姓名', vv.name], ['性别', vv.gender], ['年龄', vv.age_fmt], ['患者ID', p.patient_id],
+           ['证件号码', p.id_card], ['出生日期', p.birth_date], ['民族', p.nation || '—'],
+           ['职业', p.occupation || '—'], ['婚姻', p.marital || '—'], ['初复诊', vtSelect],
+           ['科室', vv.dept_name], ['联系方式', p.phone || '—']];
+        return '<div class="doc-patient-grid">' + fields.map(cellHtml).join('') + '</div>';
+    }
+
+    /**
+     * 患者资料保存成功后的局部刷新：
+     * 重新拉取就诊数据后仅重建两处——
+     * 1) 顶部患者信息卡 #emrHeader；
+     * 2) 病历文档内的患者信息区（初复诊下拉保留医生当前选择）。
+     * 病历正文编辑器、签名、页脚、已开项目一律不动，
+     * 未保存内容零丢失（不做 location.reload 整页刷新）。
+     */
+    function refreshPatientHead() {
+        var visitId = document.getElementById('visitId').value;
+        Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
+            onSuccess: function (j) {
+                DATA = j.data;
+                renderPatientCard(j.data);
+                var card = document.getElementById('emrCard');
+                if (!card) return;
+                var old = card.querySelector('.doc-patient-grid, .doc-patient-lines');
+                if (!old) return;
+                var sel = document.getElementById('visitType');
+                var wrap = document.createElement('div');
+                wrap.innerHTML = patientGridHtml(j.data, sel ? sel.value : '');
+                if (wrap.firstElementChild) old.parentNode.replaceChild(wrap.firstElementChild, old);
+            },
+        });
+    }
+
+    /**
      * 渲染病历编辑区（WYSIWYG）
      */
     function renderEmrCard(d) {
@@ -103,41 +173,9 @@ Clinic.emr = (function () {
         var hosp2 = document.body.getAttribute('data-hosp2') || '';
         var docTitle = (d.visit && d.visit.dept_type === 'emergency') ? '急诊电子病历' : '门诊电子病历';
 
-        // 初复诊下拉（默认初诊）
-        var vt = r.visit_type || '初诊';
-        var vtSelect = '<select class="doc-cell-select" id="visitType">' +
-            '<option value="初诊"' + (vt === '初诊' ? ' selected' : '') + '>初诊</option>' +
-            '<option value="复诊"' + (vt === '复诊' ? ' selected' : '') + '>复诊</option></select>';
-
-        // 患者信息：门诊为两栏网格；急诊为两行流式排版（第一行 姓名/性别/出生日期/年龄，
-        // 第二行 患者ID/就诊科室/就诊时间），编辑页与打印页完全一致（所见即所得）
-        var cellHtml = function (f) {
-            // 初复诊为下拉框（可编辑），其余为纯文本展示
-            var isSelect = (typeof f[1] === 'string' && f[1].indexOf('<select') === 0);
-            if (isSelect) {
-                return '<div class="doc-cell"><span class="doc-cell-label">' + f[0] + '：</span>' + f[1] + '</div>';
-            }
-            return '<div class="doc-cell"><span class="doc-cell-label">' + f[0] + '：</span>' +
-                '<span class="doc-cell-value">' + f[1] + '</span></div>';
-        };
-        // 患者信息区：仅展示（不再整块可点击；修改入口已移到上方患者姓名/头像）
-        var gridWrap;
-        if (vv.dept_type === 'emergency') {
-            var lines = [
-                [['姓名', vv.name], ['性别', vv.gender], ['出生日期', p.birth_date], ['年龄', vv.age_fmt]],
-                [['患者ID', p.patient_id], ['就诊科室', vv.dept_name], ['就诊时间', vv.created_at]],
-            ];
-            var lineHtml = lines.map(function (row) {
-                return '<div class="doc-line-row">' + row.map(cellHtml).join('') + '</div>';
-            }).join('');
-            gridWrap = '<div class="doc-patient-lines">' + lineHtml + '</div>';
-        } else {
-            var fields = [['姓名', vv.name], ['性别', vv.gender], ['年龄', vv.age_fmt], ['患者ID', p.patient_id],
-               ['证件号码', p.id_card], ['出生日期', p.birth_date], ['民族', p.nation || '—'],
-               ['职业', p.occupation || '—'], ['婚姻', p.marital || '—'], ['初复诊', vtSelect],
-               ['科室', vv.dept_name], ['联系方式', p.phone || '—']];
-            gridWrap = '<div class="doc-patient-grid">' + fields.map(cellHtml).join('') + '</div>';
-        }
+        // 患者信息区：门诊两栏网格 / 急诊两行流式（构建逻辑抽至
+        // patientGridHtml，供患者资料保存后的局部刷新复用）
+        var gridWrap = patientGridHtml(d, '');
 
         // 病历文档页头右上角条形码（与挂号凭条/打印预览一致：门诊号 flow_no，Code 128）
         var bcSrc = document.getElementById('emrBarcodeSrc');

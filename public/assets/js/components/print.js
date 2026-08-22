@@ -212,8 +212,12 @@ Clinic.print = (function () {
             var footH = mFoot.offsetHeight;
             meas.innerHTML = '';
 
-            // 正文可用高度：187mm 页面（留 3mm 安全余量）− 页眉 − 页脚
-            var availH = Math.floor(187 * MM) - headH - footH - 6;
+            // 正文可用高度：屏幕预览纸张内容区约 190mm，而打印纸张锁定
+            // 187mm——按 190mm 分页会导致「预览完整、正式打印末行被裁半」。
+            // 这里统一以 184mm 为基准（再留 3mm 防字体度量微差），
+            // 并叠加 14px 安全余量，保证预览与打印分页结果完全一致：
+            // 宁可每页底部多留一点空白，也绝不让任何一行在纸上被截断。
+            var availH = Math.floor(184 * MM) - headH - footH - 14;
 
             // 逐节点测高：offsetHeight 不含外边距，而各小节有 margin-bottom、
             // 表格有上下 margin，逐项漏加会让整页累计低估、末页底部被裁切。

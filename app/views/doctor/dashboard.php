@@ -27,7 +27,7 @@ $docTitle = $docInfo ? $docInfo['title'] : '';
 
 <!-- 当前科室栏：单科室直接进入；多科室登录后先弹窗选择，可随时切换 -->
 <div class="flex gap-8 mb-12" style="align-items:center;flex-wrap:wrap">
-    <span id="curDeptBadge"></span>
+    <span id="curDeptBadge" data-uid="<?php echo (int)$u['id']; ?>"></span>
     <button type="button" class="btn btn-outline btn-sm" id="switchDeptBtn" onclick="openDeptPicker()" style="display:none">🔄 切换科室</button>
     <span class="fs-12 text-muted" id="deptDescBar">加载科室中…</span>
 </div>
@@ -75,9 +75,11 @@ function loadDepts() {
                 // 只有一个科室权限：直接进入该科室患者列表
                 pickDept(DEPT_LIST[0].id);
             } else {
-                // 多科室权限：优先恢复服务端/本次会话已选科室，否则弹出科室选择弹窗
-                var saved = parseInt(sessionStorage.getItem('clinic_doc_dept') || '0', 10);
-                if (!saved && json.data.current) saved = parseInt(json.data.current, 10);
+                // 多科室权限：仅恢复「本账号 + 本标签页会话」已选科室，
+                // 其余情况（首次登录/换账号/新开标签页）一律弹出科室选择弹窗。
+                // 不再读取服务端 current_dept_id 自动恢复——否则首次登录
+                // 会因上次的历史选择而跳过弹窗，不满足「登录先选科室」的要求。
+                var saved = readSavedDept();
                 var hasSaved = false;
                 DEPT_LIST.forEach(function (d) { if (d.id === saved) hasSaved = true; });
                 if (hasSaved) pickDept(saved);
@@ -85,6 +87,18 @@ function loadDepts() {
             }
         },
     });
+}
+
+/* 读取本标签页会话内保存的科室选择（绑定当前账号，换账号自动失效） */
+function savedDeptUid() {
+    var badge = document.getElementById('curDeptBadge');
+    return badge ? String(badge.getAttribute('data-uid') || '') : '';
+}
+function readSavedDept() {
+    try {
+        var sv = JSON.parse(sessionStorage.getItem('clinic_doc_dept') || '""');
+        return (sv && String(sv.u) === savedDeptUid()) ? (parseInt(sv.d, 10) || 0) : 0;
+    } catch (e) { return 0; }
 }
 
 /* ---------- 科室选择弹窗（首次进入 / 点击切换科室） ----------
@@ -102,8 +116,9 @@ function openDeptPicker() {
 /* ---------- 选定科室 ---------- */
 function pickDept(id) {
     CUR_DEPT = id;
-    // 记住本次会话选择的科室（刷新页面后自动恢复）
-    sessionStorage.setItem('clinic_doc_dept', String(id));
+    // 记住本次会话选择的科室（绑定账号：同标签页换账号登录后自动失效，
+    // 保证每位医生首次进入工作站时都会重新弹出科室选择）
+    sessionStorage.setItem('clinic_doc_dept', JSON.stringify({ u: savedDeptUid(), d: id }));
     // 通知服务端记录当前科室：叫号大屏完全跟随医生端选择动态显示
     Clinic.ajax('/api/doctor', { action: 'set_dept', dept_id: id }, {});
     var cur = null;
