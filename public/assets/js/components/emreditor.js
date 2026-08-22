@@ -101,6 +101,19 @@ Clinic.emrEditor = (function () {
         return wrap;
     }
 
+    /** 无空值下拉（首项即有效值并默认选中，用于否认/承认、是/否等） */
+    function simpleSelect(path, options, defaultVal) {
+        var sel = document.createElement('select');
+        sel.className = 'ef-select';
+        sel.setAttribute('data-k', path);
+        sel.innerHTML = options.map(function (o) {
+            return '<option value="' + o + '"' + (o === defaultVal ? ' selected' : '') + '>' + o + '</option>';
+        }).join('');
+        sel.addEventListener('change', markDirty);
+        FIELDS.push({ path: path, type: 'select', el: sel });
+        return sel;
+    }
+
     /** 静态文字标签（不可选中/不可编辑） */
     function staticText(t) {
         var s = document.createElement('span');
@@ -175,7 +188,6 @@ Clinic.emrEditor = (function () {
     /** 主诉 */
     function buildCC() {
         var d = secWrap('主诉', true);
-        d.appendChild(staticText('主诉：'));
         d.appendChild(textField('chief_complaint.symptom', '主要症状', 90));
         d.appendChild(textField('chief_complaint.duration', '时间', 36));
         d.appendChild(selectField('chief_complaint.unit', '单位', UNITS));
@@ -188,7 +200,6 @@ Clinic.emrEditor = (function () {
     /** 现病史 */
     function buildPI() {
         var d = secWrap('现病史', true);
-        d.appendChild(staticText('现病史：'));
         d.appendChild(selectField('history_present.informant', '供史者', INFORMANTS));
         d.appendChild(textField('history_present.duration', '时间', 36));
         d.appendChild(selectField('history_present.unit', '单位', UNITS));
@@ -201,20 +212,18 @@ Clinic.emrEditor = (function () {
     /** 既往史：否认/承认下拉；承认时显示详细内容字段 */
     function buildPH() {
         var d = secWrap('既往史', false);
-        d.appendChild(staticText('既往史：'));
-        var sel = selectField('past_history.type', '', ['否认', '承认']);
-        sel.querySelector('select').removeAttribute('data-k'); // 占位选项禁用（必选其一）
+        var sel = simpleSelect('past_history.type', ['否认', '承认'], '否认');
         d.appendChild(sel);
         var detailWrap = document.createElement('span');
         detailWrap.className = 'ef-cond';
         detailWrap.appendChild(textField('past_history.detail', '请填写详细既往史', 220));
         d.appendChild(detailWrap);
         var sync = function () {
-            var v = sel.querySelector('select').value;
+            var v = sel.value;
             detailWrap.style.display = (v === '承认') ? '' : 'none';
             if (v !== '承认') detailWrap.querySelector('.ef-field').innerText = '';
         };
-        sel.querySelector('select').addEventListener('change', sync);
+        sel.addEventListener('change', sync);
         d.__sync = sync; // set 值后调用
         return d;
     }
@@ -222,7 +231,6 @@ Clinic.emrEditor = (function () {
     /** 过敏史 */
     function buildAllergy() {
         var d = secWrap('过敏史', false);
-        d.appendChild(staticText('过敏史：'));
         d.appendChild(textField('allergies', '请填写过敏史', 200));
         return d;
     }
@@ -230,7 +238,6 @@ Clinic.emrEditor = (function () {
     /** 主要症状：六类下拉，默认占位不打印；全空整节不打印 */
     function buildMainSymptoms() {
         var d = secWrap('主要症状', false);
-        d.appendChild(staticText('主要症状：'));
         Object.keys(MAIN_SYMPTOM_CATS).forEach(function (cat, i) {
             if (i > 0) d.appendChild(staticText('　'));
             d.appendChild(staticText(cat + '：'));
@@ -242,7 +249,6 @@ Clinic.emrEditor = (function () {
     /** 体格检查：九项文本字段 */
     function buildPE() {
         var d = secWrap('体格检查', false);
-        d.appendChild(staticText('体格检查：'));
         PE_CATS.forEach(function (cat, i) {
             if (i > 0) d.appendChild(staticText('　'));
             d.appendChild(staticText(cat + '：'));
@@ -254,7 +260,6 @@ Clinic.emrEditor = (function () {
     /** 初步诊断：点击弹出诊断选择模态框 */
     function buildDiag() {
         var d = secWrap('初步诊断', true);
-        d.appendChild(staticText('初步诊断：'));
         var f = document.createElement('span');
         f.className = 'ef-field ef-diag';
         f.setAttribute('data-ph', '请添加初步诊断');
@@ -270,7 +275,6 @@ Clinic.emrEditor = (function () {
     /** 辅助检查：已开项目(auto) + 手工结果 + 外院结果 */
     function buildAux() {
         var d = secWrap('辅助检查', false);
-        d.appendChild(staticText('辅助检查：'));
         var auto = document.createElement('span');
         auto.className = 'ef-auto';
         auto.setAttribute('data-auto', 'aux_orders');
@@ -285,7 +289,6 @@ Clinic.emrEditor = (function () {
     function buildDisp() {
         var d = secWrap('门诊处置', false);
         d.style.alignItems = 'flex-start';
-        d.appendChild(staticText('门诊处置：'));
         var box = document.createElement('span');
         box.className = 'ef-disp-box';
         var rxBox = document.createElement('span');
@@ -304,18 +307,13 @@ Clinic.emrEditor = (function () {
     /** 是否留观 */
     function buildObs() {
         var d = secWrap('是否留观', false);
-        d.appendChild(staticText('是否留观：'));
-        d.appendChild(selectField('is_leave_hospital', '', ['否', '是']));
-        var sel = d.querySelector('select');
-        sel.removeAttribute('data-k');
-        sel.options[0].textContent = '否'; // 首项即有效值（无占位）
+        d.appendChild(simpleSelect('is_leave_hospital', ['否', '是'], '否'));
         return d;
     }
 
     /** 嘱托 */
     function buildAdvice() {
         var d = secWrap('嘱托', false);
-        d.appendChild(staticText('嘱托：'));
         d.appendChild(textField('advice', '请输入嘱托', 320));
         return d;
     }

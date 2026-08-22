@@ -203,6 +203,7 @@
 .app.sidebar-mini .main { margin-left: var(--sidebar-w-mini); }
 /* 品牌：只留 LOGO 居中 */
 .app.sidebar-mini .sidebar-brand { padding: 0; justify-content: center; }
+.app.sidebar-mini .sidebar-brand .brand-names,
 .app.sidebar-mini .sidebar-brand .brand-name,
 .app.sidebar-mini .sidebar-brand .brand-name2 { display: none; }
 /* 分组标题隐藏，用细分隔线代替 */
@@ -227,6 +228,7 @@
     /* 窄屏抽屉始终完整展开（覆盖缩小模式的窄条样式），文字/页脚恢复显示 */
     .app.sidebar-mini .sidebar { width: var(--sidebar-w); }
     .app.sidebar-mini .sidebar-brand { padding: 0 18px; justify-content: flex-start; }
+    .app.sidebar-mini .sidebar-brand .brand-names,
     .app.sidebar-mini .sidebar-brand .brand-name,
     .app.sidebar-mini .sidebar-brand .brand-name2 { display: block; }
     .app.sidebar-mini .nav-group-title {

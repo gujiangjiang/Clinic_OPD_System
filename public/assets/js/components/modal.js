@@ -12,15 +12,15 @@
 window.Clinic = window.Clinic || {};
 
 Clinic.modal = (function () {
-    /** 当前打开的遮罩元素 */
-    let mask = null;
+    /** 模态框栈：支持层叠（如诊断选择 → 二级编辑弹窗），close 只关闭栈顶 */
+    let masks = [];
 
     /**
      * 创建遮罩结构
      */
     function createMask(html, opts) {
         opts = opts || {};
-        mask = document.createElement('div');
+        const mask = document.createElement('div');
         mask.className = 'modal-mask';
         mask.innerHTML =
             '<div class="modal ' + (opts.size || '') + '">' +
@@ -32,6 +32,7 @@ Clinic.modal = (function () {
             '  <div class="modal-foot"></div>' +
             '</div>';
         document.body.appendChild(mask);
+        masks.push(mask);
 
         // 标题与内容
         mask.querySelector('.modal-title').textContent = opts.title || '提示';
@@ -68,7 +69,7 @@ Clinic.modal = (function () {
     }
 
     /**
-     * Esc 键关闭
+     * Esc 键关闭（栈顶）
      */
     function escHandler(e) {
         if (e.key === 'Escape') close();
@@ -80,7 +81,6 @@ Clinic.modal = (function () {
      * @param {object} opts { title, size, buttons }
      */
     function open(html, opts) {
-        close();
         return createMask(html, opts);
     }
 
@@ -109,22 +109,18 @@ Clinic.modal = (function () {
     }
 
     /**
-     * 关闭当前模态框
-     * 说明：必须先把 mask 置空并只移除「本次要关闭的弹窗」，
-     * 否则在弹窗基础上再开新弹窗（如就诊历史 → 新增诊断证明）时，
-     * 旧弹窗的延时移除回调会误删新弹窗（弹窗闪现后消失），
-     * 且旧遮罩残留在页面上挡住所有点击（页面像死掉一样）。
+     * 关闭栈顶模态框
+     * 说明：模态框支持层叠（如 诊断选择弹窗 → 二级编辑弹窗），
+     * close 只弹出栈顶；下层弹窗保持可见可交互。
      */
     function close() {
-        if (mask) {
-            var el = mask;
-            mask = null;
-            el.classList.remove('show');
-            document.removeEventListener('keydown', escHandler);
-            setTimeout(function () {
-                el.remove();
-            }, 180);
-        }
+        if (!masks.length) return;
+        const el = masks.pop();
+        el.classList.remove('show');
+        if (!masks.length) document.removeEventListener('keydown', escHandler);
+        setTimeout(function () {
+            el.remove();
+        }, 180);
     }
 
     /**

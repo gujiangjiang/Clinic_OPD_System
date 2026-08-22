@@ -460,8 +460,9 @@
 /* 病历正文：每节一行、纵向排列，输入框接在标题后方（主诉：XXXX），不同小节之间换行 */
 .emr-doc .doc-body .doc-sec {
     display: flex;
-    align-items: flex-start;
-    gap: 10px;
+    flex-wrap: wrap;        /* 横向排列，到右侧边缘自动换行 */
+    align-items: center;
+    gap: 6px 8px;
     margin-bottom: 12px;
 }
 .emr-doc .doc-body .doc-sec-label {
@@ -471,7 +472,10 @@
     font-size: 13px;
     color: var(--text);
     line-height: 1.6;
-    padding-top: 7px;   /* 与输入框第一行垂直居中对齐 */
+}
+/* 节名自带冒号（与文档正文「主诉：」样式一致） */
+.emr-doc .doc-body .doc-sec-label::after {
+    content: '：';
 }
 .emr-doc .doc-body .doc-sec-body {
     line-height: 1.6;
@@ -653,3 +657,19 @@
 .diag-sel-row:hover { border-color: var(--primary); }
 .diag-sel-ops { display: flex; gap: 4px; flex-shrink: 0; }
 .diag-sel-ops .btn { padding: 1px 8px; }
+
+/* 病历页患者信息头常驻（不随内容滚动，吸附在顶栏下方） */
+#emrHeader {
+    position: sticky;
+    top: var(--topbar-h);
+    z-index: 70;
+}
+
+/* 结构化病历节内控件：横向流式排列，允许换行 */
+.emr-doc .doc-body .doc-sec > .select { width: auto; min-width: 140px; }
+.emr-doc .doc-body .ef-field {
+    max-width: 100%;
+    flex-shrink: 1;
+}
+.emr-doc .doc-body .ef-select-wrap { flex-shrink: 0; }
+.emr-doc .doc-body .ef-cond { display: inline-block; }
