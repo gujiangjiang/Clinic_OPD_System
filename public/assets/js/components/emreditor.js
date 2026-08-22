@@ -348,9 +348,9 @@ Clinic.emrEditor = (function () {
         return d;
     }
 
-    /** 是否留观 */
+    /** 留观 */
     function buildObs() {
-        var d = secWrap('是否留观', false);
+        var d = secWrap('留观', false);
         d.appendChild(simpleSelect('is_leave_hospital', ['否', '是'], '否'));
         return d;
     }

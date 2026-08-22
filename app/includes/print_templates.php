@@ -532,7 +532,7 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
         if ($treat !== '') $secs[] = array('门诊处置', $treat);
     }
 
-    $secs[] = array('留观', $emrStructured ? emr_obs_text($emr) : (!empty($record['is_observation']) ? '是' : '否'));
+    $secs[] = array('是否留观', $emrStructured ? emr_obs_text($emr) : (!empty($record['is_observation']) ? '是' : '否'));
     $secs[] = array('嘱托', $emrStructured ? (isset($emr['advice']) ? $emr['advice'] : '') : (isset($record['advice']) ? $record['advice'] : ''));
 
     // 每个小节独立一个 .print-flow 块级节点：A5 分页器按「整节点」分配页面，

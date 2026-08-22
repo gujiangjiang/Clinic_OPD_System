@@ -521,7 +521,9 @@ Clinic.emr = (function () {
     }
 
     /**
-     * 生命体征紧凑显示文本：全部为空显示 -，有数据则只展示已有项
+     * 生命体征紧凑显示文本（与打印病历格式一致，以「；」分隔）：
+     * 血压 125/75mmHg；心率 80次/分；脉搏 80次/分；血氧 98%；呼吸 18次/分
+     * 全部为空显示 -，有数据则只展示已有项
      */
     function vitalDisplayText(v) {
         v = v || {};
@@ -531,7 +533,7 @@ Clinic.emr = (function () {
         if (v.pulse) parts.push('脉搏 ' + v.pulse + '次/分');
         if (v.spo2) parts.push('血氧 ' + v.spo2 + '%');
         if (v.respiration) parts.push('呼吸 ' + v.respiration + '次/分');
-        return parts.length ? parts.join(' ｜ ') : '—';
+        return parts.length ? parts.join('；') : '—';
     }
 
     /**
@@ -1083,37 +1085,32 @@ Clinic.emr = (function () {
     }
 
     /**
-     * 病历是否已完善并保存（主诉/现病史/初步诊断均为必填，任一缺失视为未完善）
-     * 开检验/检查/处置/处方与打印病历的前置条件（前端拦截，后端亦有同样校验）
-     * @returns {boolean}
+     * 病历是否可打印（明确规则）：
+     * 1. 已诊毕（visit.status === 'finished'）→ 直接可打印。
+     *    诊毕必然经过保存，不存在"未保存就打印"的问题；且诊毕病历为只读展示，
+     *    打印渲染的是该就诊全部已保存文书。
+     * 2. 未诊毕 + 当前医生尚无本人文书（record_id=0，新接诊未写）→ 不可打印，
+     *    提示先完善主诉/现病史/初步诊断并保存（续写医生需完善自己的续写文书）。
+     *    不回退判定他人文书——他人病历与本医生的续写文书互相独立。
+     * 3. 未诊毕 + 本人有文书 → 按本人文书完整性判定：
+     *    首诊 = 主诉 + 现病史 + 初步诊断；续写 = 病历续写内容 + 初步诊断。
+     * 就诊历史 / 患者列表入口的打印不经本函数（走后端 print.php 校验：
+     * 该就诊存在已保存病历即可渲染），与上述编辑页规则互不影响。
      */
     function isRecordComplete() {
         if (!DATA || !DATA.record) return false;
+        // 已诊毕：病历必然已保存过，直接可打印
+        if (DATA.visit && DATA.visit.status === 'finished') return true;
         var e = DATA.record.emr;
         if (!e) return false;
-        // 本人尚无文书（record_id=0，如 admin 查看他人病历 / 新接诊未写）时，
-        // 以该就诊流水下已存在的完整文书为准——打印病历渲染的是该就诊全部文书。
-        if (!(DATA.record.record_id || 0)) {
-            var hist = DATA.records_history || [];
-            for (var i = 0; i < hist.length; i++) {
-                var he = hist[i].emr;
-                if (!he) continue;
-                if (hist[i].record_type === 'progress') {
-                    if (((he.progress || {}).content || '').trim() && (he.diagnoses || []).length) return true;
-                } else if ((((he.chief_complaint || {}).symptom || '').trim())
-                    && ((he.history_present || {}).content || '').trim()
-                    && (he.diagnoses || []).length) {
-                    return true;
-                }
-            }
-            return false;
-        }
-        // 本人有文书：结构化病历校验 emr_data 投影（主诉症状/现病史内容/诊断列表）
+        // 未诊毕：本人尚无文书（新接诊未保存）→ 需先完善并保存
+        if (!(DATA.record.record_id || 0)) return false;
         // 续写文书：病历续写内容 + 诊断（主诉/现病史归首诊文书，不参与判定）
         if (DATA.record.record_type === 'progress') {
             var pc = ((e.progress || {}).content || '').trim();
             return !!(pc && (e.diagnoses || []).length);
         }
+        // 首诊文书：主诉症状 + 现病史内容 + 初步诊断
         var cc = ((e.chief_complaint || {}).symptom || '').trim();
         var pi = ((e.history_present || {}).content || '').trim();
         return !!(cc && pi && (e.diagnoses || []).length);
