@@ -35,6 +35,19 @@ function patientEdit(patientNo) {
     Clinic.patient.editModal(patientNo);
 }
 
+/* 继续缴费（待缴费的挂号）：完成缴费后自动打印凭条并刷新列表 */
+function payVisit(visitId) {
+    Clinic.modal.confirm('确定为该挂号完成缴费？', function () {
+        Clinic.ajax('/api/cashier', { action: 'pay_visit', visit_id: visitId }, {
+            onSuccess: function (json) {
+                Clinic.toast.success('缴费成功，挂号完成');
+                Clinic.print.load('/api/print?action=receipt&visit_id=' + visitId, null);
+                loadList();
+            },
+        });
+    }, { title: '缴费确认' });
+}
+
 /* 退费 / 取消挂号 */
 function cancelVisit(visitId, status) {
     var tip = status === 'paid' ? '确定为该挂号退费？退费后该患者可在同一首次科室重新挂号。' : '确定取消该挂号？';

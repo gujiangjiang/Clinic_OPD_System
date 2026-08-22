@@ -283,7 +283,12 @@ switch ($action) {
                     '<td>' . $statusBadge . '</td>' .
                     '<td class="fs-12">' . e(substr($r['register_time'], 5, 11)) . '</td>' .
                     '<td><div class="flex gap-4">' .
-                    '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=receipt&visit_id=' . (int)$r['id'] . '\',null)">补打凭条</button>' .
+                    // 凭条是缴费凭证：仅已实际缴费的状态提供补打（待缴费/取消/退费不显示）
+                    (in_array($r['status'], array('paid', 'visiting', 'finished'), true) ?
+                        '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=receipt&visit_id=' . (int)$r['id'] . '\',null)">补打凭条</button>' : '') .
+                    // 待缴费：支持继续缴费（完成后自动打印凭条）
+                    ($r['status'] === 'pending' ?
+                        '<button class="btn btn-primary btn-sm" onclick="payVisit(' . (int)$r['id'] . ')">继续缴费</button>' : '') .
                     (in_array($r['status'], array('pending', 'paid'), true) ?
                         '<button class="btn btn-outline btn-sm" onclick="cancelVisit(' . (int)$r['id'] . ',\'' . e($r['status']) . '\')">' . ($r['status'] === 'paid' ? '退费' : '取消') . '</button>' : '') .
                     '</div></td></tr>';

@@ -260,7 +260,7 @@
 .emr-toolbar {
     width: 184px;
     position: fixed;
-    top: calc(var(--topbar-h) + 16px);
+    top: calc(var(--topbar-h) + 20px);  /* 与病历患者头吸附位（内容区顶部）实测对齐 */
     right: 20px;
     z-index: 80;            /* 低于顶栏(90)/侧边栏(100)/弹窗(1000)，高于普通内容 */
     display: flex;

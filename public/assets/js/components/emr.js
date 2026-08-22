@@ -196,11 +196,14 @@ Clinic.emr = (function () {
         var consciousness = ['清醒', '嗜睡', '意识模糊', '昏睡', '昏迷', '谵妄'];
         var midNode = document.createElement('div');
         midNode.className = 'doc-sec';
+        // 意识状态：去掉「请选择」空选项，默认清醒（临床绝大多数场景）；
+        // 已保存值由服务端 records 镜像表回读回显
+        var curCon = r.consciousness || '清醒';
         // 与病历字段一致的 Word 式内联下拉样式（ef-select）
         midNode.innerHTML = '<span class="doc-sec-label">意识状态</span>' +
-            '<span class="ef-select-wrap"><select class="ef-select" id="consciousness"><option value="">请选择</option>' +
+            '<span class="ef-select-wrap"><select class="ef-select" id="consciousness">' +
             consciousness.map(function (c) {
-                return '<option value="' + c + '"' + (r.consciousness === c ? ' selected' : '') + '>' + c + '</option>';
+                return '<option value="' + c + '"' + (curCon === c ? ' selected' : '') + '>' + c + '</option>';
             }).join('') + '</select></span>';
 
         document.getElementById('emrCard').innerHTML =

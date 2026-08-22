@@ -151,6 +151,14 @@ switch ($action) {
             'emr' => $emr,
             'status' => $pr ? $pr['status'] : 'draft',
         );
+        // 意识状态/初复诊保存在旧 records 镜像表（结构化表不含这两项），
+        // 必须回读，否则保存后刷新页面意识状态会丢失回「未选择」、初复诊回「初诊」
+        $mirror = DB::one('medical', 'SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visitId, $u['id']));
+        if (!$mirror) {
+            $mirror = DB::one('medical', 'SELECT consciousness, visit_type FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        }
+        $recordData['consciousness'] = $mirror ? (string)$mirror['consciousness'] : '';
+        $recordData['visit_type'] = ($mirror && $mirror['visit_type'] !== '') ? $mirror['visit_type'] : '初诊';
 
         // 生命体征（最新一条，护士站与医生站共用）
         $vitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visitId));
