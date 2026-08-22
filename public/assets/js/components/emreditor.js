@@ -180,7 +180,8 @@ Clinic.emrEditor = (function () {
     function secWrap(label, required, innerAttr) {
         var d = document.createElement('div');
         d.className = 'doc-sec' + (innerAttr ? ' ' + innerAttr : '');
-        var lb = '<span class="doc-sec-label">' + label + (required ? '<span class="req">*</span>' : '') + '</span>';
+        // 必填节（主诉/现病史/初步诊断）以红色文字标识，替代原 * 星号——更直观、更整洁
+        var lb = '<span class="doc-sec-label' + (required ? ' doc-sec-label-required' : '') + '">' + label + '</span>';
         d.innerHTML = lb;
         return d;
     }

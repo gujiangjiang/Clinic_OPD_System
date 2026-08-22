@@ -472,10 +472,13 @@
     flex-shrink: 0;
     white-space: nowrap;
     font-weight: 700;
-    font-size: 13px;
+    /* 固定词（主诉/现病史/既往史等）加大加粗，与正文区分更明显 */
+    font-size: 14px;
     color: var(--text);
     line-height: 1.6;
 }
+/* 必填小节：主诉/现病史/初步诊断 标签红色标识（替代原 * 星号） */
+.emr-doc .doc-body .doc-sec-label.doc-sec-label-required { color: var(--danger); }
 /* 节名自带冒号（与文档正文「主诉：」样式一致） */
 .emr-doc .doc-body .doc-sec-label::after {
     content: '：';

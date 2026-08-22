@@ -70,14 +70,15 @@ Clinic.emr = (function () {
      */
     function renderPatientCard(d) {
         var p = d.patient, v = d.visit;
-        // 诊断证明入口：已诊毕患者 - 已开具可点击查看/打印，未开具可补开
+        // 诊断证明入口：已开具 → 点击打开只读预览模态框（打印取服务器存档数据）；
+        // 未开具 → 补开。两种就诊状态下的「已开具」文案均可点击。
         var certHtml = '';
         if (d.visit && d.visit.status === 'finished') {
             certHtml = d.has_certificate
-                ? ' ｜ <a href="javascript:void(0)" onclick="Clinic.emr.viewCertificate()" class="text-success fw-600">已开诊断证明（点击查看/打印）</a>'
+                ? ' ｜ <a href="javascript:void(0)" onclick="Clinic.emr.certificateModal(\'' + d.visit.id + '\',\'诊断证明\')" class="text-success fw-600">已开具诊断证明（点击查看）</a>'
                 : ' ｜ <a href="javascript:void(0)" onclick="Clinic.emr.openCertificate()" class="fw-600">补开诊断证明</a>';
         } else if (d.has_certificate) {
-            certHtml = ' ｜ <span class="text-success">已开诊断证明</span>';
+            certHtml = ' ｜ <a href="javascript:void(0)" onclick="Clinic.emr.certificateModal(\'' + d.visit.id + '\',\'诊断证明\')" class="text-success fw-600" style="cursor:pointer">已开具诊断证明（点击查看）</a>';
         }
         // 患者一栏只保留基本信息（就诊医生右上角已有展示，记录时间在病历文档左下角，均不在此重复）
         // 条形码位于病历文档页头右上角（与打印预览一致），不在此处显示
@@ -663,24 +664,25 @@ Clinic.emr = (function () {
                 var pi = text(r.present_illness);
                 var diag = (r.initial_diagnosis || '').trim();
 
-                // 病历概要区（两种形态共用；已开具时附证明号与开具时间）
+                // 病历概要区（两种形态共用；已开具时附证明号与开具时间，分行显示）
                 var summary =
                     '<div class="fs-13 mb-8" style="border:1px solid var(--border);border-radius:8px;padding:10px">' +
-                    (issued ? '  <div><strong>证明号：</strong>' + esc(cert.cert_no || '') +
-                        '　<strong>开具时间：</strong>' + esc(cert.created_at || '') + '</div>' : '') +
+                    (issued
+                        ? '  <div><strong>证明号：</strong>' + esc(cert.cert_no || '') + '</div>' +
+                          '  <div class="mt-4"><strong>开具时间：</strong>' + esc(cert.created_at || '') + '</div>'
+                        : '') +
                     '  <div><strong>主诉：</strong>' + esc(cc) + '</div>' +
                     '  <div class="mt-4"><strong>现病史：</strong>' + esc(pi) + '</div>' +
                     '  <div class="mt-4"><strong>初步诊断：</strong>' + esc(diag) + '</div></div>';
 
-                /* ---- 已开具：只读预览 + 打印（打印取服务器存档数据） ---- */
+                /* ---- 已开具：查看 + 打印（打印取服务器存档数据） ---- */
                 if (issued) {
                     Clinic.toast.warning('该次就诊已开具过诊断证明');
                     Clinic.modal.open(
-                        '<div class="fs-13 text-muted mb-8">以下为服务器存档内容（只读）：</div>' +
                         summary +
                         '<div class="form-group"><label class="form-label">医生建议</label>' +
-                        '<div style="border:1px solid var(--border);border-radius:8px;padding:10px;min-height:52px;background:var(--bg);white-space:pre-wrap">' +
-                        esc(cert.content || '') + '</div></div>',
+                        // disabled 样式：不可编辑，视觉上与可编辑开具弹窗一致
+                        '<textarea class="textarea" rows="3" disabled>' + esc(cert.content || '') + '</textarea></div>',
                         {
                             title: title,
                             size: 'modal-sm',
