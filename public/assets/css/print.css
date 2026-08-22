@@ -372,6 +372,7 @@
         max-width: none !important;
         min-height: 0 !important;
         margin: 0 !important;
+        padding: 0 !important; /* 页边距由 @page 提供，避免双重内边距压缩正文 */
         box-shadow: none !important;
         border-radius: 0 !important;
         overflow: visible !important;
