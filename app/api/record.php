@@ -204,6 +204,11 @@ switch ($action) {
             );
         }
 
+        // 诊断证明信息：供前端「已开具」只读预览展示。
+        // 注意——前端只读区域仅是预览，真正打印走 certificate_print
+        // 从服务器重新渲染，内容以服务器保存数据为准，不可被前端篡改。
+        $certRow = DB::one('medical', 'SELECT cert_no, content, doctor_name, created_at FROM certificates WHERE visit_id=? ORDER BY id DESC', array($visitId));
+
         json_ok(array(
             'patient' => array(
                 'patient_id' => $patient['patient_no'],
@@ -231,7 +236,14 @@ switch ($action) {
             'record' => $recordData,
             'vitals' => $vitalsData,
             'prev_records' => $prevRecords,
-            'has_certificate' => (int)DB::val('medical', 'SELECT COUNT(*) FROM certificates WHERE visit_id=?', array($visitId)) > 0,
+            'has_certificate' => $certRow ? 1 : 0,
+            // 已开具时附带证书数据（证明号/医生建议/开具时间等），仅用于只读预览展示
+            'certificate' => $certRow ? array(
+                'cert_no' => (string)$certRow['cert_no'],
+                'content' => (string)$certRow['content'],
+                'doctor_name' => (string)$certRow['doctor_name'],
+                'created_at' => (string)$certRow['created_at'],
+            ) : null,
         ));
         break;
 
@@ -414,10 +426,15 @@ switch ($action) {
         }
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
-        DB::insert('medical', 'INSERT INTO certificates(visit_id, patient_no, flow_no, doctor_id, doctor_name, content, created_at) VALUES(?,?,?,?,?,?,?)', array(
-            $visitId, $row['visit']['patient_no'], $row['visit']['flow_no'], $u['id'], $u['name'], $content, now_str(),
+        // 证明号：ZM 前缀 + 时间戳 + 2 位随机——与申请单号（JY/JC/CZ/CF/DD）同源
+        // 规则但前缀互不冲突；循环校验保证唯一。
+        do {
+            $certNo = 'ZM' . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
+        } while ((int)DB::val('medical', 'SELECT COUNT(*) FROM certificates WHERE cert_no=?', array($certNo)) > 0);
+        DB::insert('medical', 'INSERT INTO certificates(visit_id, patient_no, flow_no, doctor_id, doctor_name, content, created_at, cert_no) VALUES(?,?,?,?,?,?,?,?)', array(
+            $visitId, $row['visit']['patient_no'], $row['visit']['flow_no'], $u['id'], $u['name'], $content, now_str(), $certNo,
         ));
-        json_ok(array(), '诊断证明已开具');
+        json_ok(array('cert_no' => $certNo), '诊断证明已开具');
         break;
 
     /* ==================== 诊断证明打印 ==================== */

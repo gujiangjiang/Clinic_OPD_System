@@ -7,7 +7,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 3,
+    'version' => 4,
     'tables' => array(
         'records' => "CREATE TABLE IF NOT EXISTS records (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,7 +77,8 @@ return array(
             doctor_id INTEGER,
             doctor_name TEXT,
             content TEXT,
-            created_at TEXT
+            created_at TEXT,
+            cert_no TEXT DEFAULT ''
         )",
         'referrals' => "CREATE TABLE IF NOT EXISTS referrals (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,6 +105,12 @@ return array(
         // v3：结构化电子病历表 patient_records + 统计索引
         3 => array(
             "CREATE INDEX IF NOT EXISTS idx_patient_records_stat ON patient_records(primary_icd10, is_leave_hospital, main_symptom)",
+        ),
+        // v4：诊断证明号（ZM 前缀，与申请单号 JY/JC/CZ/CF 同源规则、前缀互不冲突）。
+        // 存量证明回填：ZM + 开具日期(YYYYMMDD) + 4 位 ID 序号，保证唯一且可读。
+        4 => array(
+            "ALTER TABLE certificates ADD COLUMN cert_no TEXT DEFAULT ''",
+            "UPDATE certificates SET cert_no = 'ZM' || replace(substr(created_at,1,10),'-','') || substr('0000' || id, -4, 4) WHERE cert_no IS NULL OR cert_no = ''",
         ),
     ),
     'seed' => array(),

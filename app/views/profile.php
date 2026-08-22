@@ -63,6 +63,7 @@ $user = DB::one('user', 'SELECT * FROM users WHERE id=?', array($u['id']));
 (function () {
     var chk = document.getElementById('autoPrintChk');
     chk.addEventListener('change', function () {
+        document.body.setAttribute('data-print-auto', chk.checked ? '1' : '0');
         Clinic.ajax('/api/auth', { action: 'print_auto', value: chk.checked ? 1 : 0 }, {
             loading: false,
             onSuccess: function (json) { Clinic.toast.success(json.msg); },

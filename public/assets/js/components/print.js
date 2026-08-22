@@ -15,14 +15,25 @@ Clinic.print = (function () {
     /** 预览层元素 */
     let preview = null;
 
-    /** 读取当前用户的自动打印偏好（服务端初始态由 body data-print-auto 注入） */
+    /** 当前自动打印偏好：内存态实时读写；
+     *  初始值来自服务端注入的 body[data-print-auto]，
+     *  勾选变更时立即同步内存与该属性——同一页面后续预览无需刷新即生效 */
+    var autoPref = document.body.getAttribute('data-print-auto') === '1';
+
     function readAutoPref() {
-        return document.body.getAttribute('data-print-auto') === '1';
+        return autoPref;
     }
 
     /** 保存自动打印偏好到服务器（users.print_auto，跟随用户跨设备生效） */
     function saveAutoPref(checked) {
-        Clinic.ajax('/api/auth', { action: 'print_auto', value: checked ? 1 : 0 }, { loading: false });
+        autoPref = checked;   // 先行生效，再异步持久化
+        try { document.body.setAttribute('data-print-auto', checked ? '1' : '0'); } catch (e) { /* 忽略 */ }
+        Clinic.ajax('/api/auth', { action: 'print_auto', value: checked ? 1 : 0 }, {
+            loading: false,
+            onSuccess: function (json) {
+                if (window.Clinic && Clinic.toast) Clinic.toast.success(json.msg || (checked ? '已开启自动打印' : '已关闭自动打印'));
+            },
+        });
     }
 
     /**

@@ -119,7 +119,7 @@ function admin_part_settings($action) {
         $html .= '<div class="flex gap-8" style="flex-wrap:wrap">' .
             '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=receipt&visit_id=' . (int)$visitId . '\',null,\'ticket\')">挂号凭条</button>' .
             ($hasRecord ? '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' . (int)$visitId . '\',null,\'a5\')">电子病历</button>' : '') .
-            ($hasCert ? '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=certificate&visit_id=' . (int)$visitId . '\',null)">诊断证明</button>' : '') .
+            ($hasCert ? '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=certificate&visit_id=' . (int)$visitId . '\',null,\'a5\')">诊断证明</button>' : '') .
             '</div>';
         if ($orders) {
             $html .= '<div class="fs-13 fw-600 mt-12 mb-4">开单单据</div><div class="flex gap-8" style="flex-wrap:wrap">';

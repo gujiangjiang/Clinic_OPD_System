@@ -24,6 +24,17 @@ Clinic.emr = (function () {
      */
     function init() {
         var visitId = document.getElementById('visitId').value;
+        // 病历编辑区域禁止右键菜单：仅放行输入类控件（输入框/文本域/下拉/
+        // 富文本可编辑区，粘贴等操作不受影响），其余区域一律屏蔽。
+        // 作用范围限定在电子病历文档卡片（#emrCard），页面其他区域不受影响。
+        var cardEl = document.getElementById('emrCard');
+        if (cardEl) {
+            cardEl.addEventListener('contextmenu', function (ev) {
+                var t = ev.target;
+                if (t && t.closest && t.closest('input, textarea, select, [contenteditable="true"]')) return;
+                ev.preventDefault();
+            });
+        }
         // 患者资料保存后自动局部刷新本页头部（订阅 patient.js 的更新广播；
         // 只重建患者卡与文档内患者信息区，绝不触碰下方未保存的病历正文）
         Clinic.patient.onInfoUpdated(refreshPatientHead);
@@ -623,47 +634,79 @@ Clinic.emr = (function () {
     }
 
     /**
-     * 诊断证明弹窗（开具/补开共用同一套代码，方便维护）
-     * ——唯一区别是模态框标题与入参就诊 ID：
+     * 诊断证明弹窗（开具/补开/查看共用同一套代码，方便维护）
+     * ——区别仅是模态框标题与入参就诊 ID：
      * · 开具：visitId = 当前编辑页就诊（本次就诊的病历）
      * · 补开：visitId = 就诊历史中的目标就诊（那一次的病历）
-     * 流程：拉取该就诊已保存病历 → 展示概要（主诉/现病史/初步诊断）
-     * → 填写医生建议 → 开具并打印。
-     * @param {string}   visitId 目标就诊 ID（开具=当前就诊；补开=历史那次就诊）
-     * @param {string}   title   模态框标题（开具诊断证明 / 补开诊断证明）
-     * @param {Function} [onIssued] 开具成功后的附加回调（开具流程刷新本页状态用）
-     * 注意两个 visitId 千万不可混用：各自引用各自就诊的病历内容。
+     * 三种形态：
+     * · 未开具 → 可编辑：病历概要 + 医生建议输入 +「开具并打印」
+     * · 已开具 → 只读：概要含证明号/开具时间，医生建议只读，
+     *   按钮显示为「打印」——打印内容始终由服务器 certificate_print
+     *   从数据库重新渲染（前端只读区域仅作展示，改不了真实数据）。
      */
     function certificateModal(visitId, title, onIssued) {
         Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
             onSuccess: function (j) {
-                if (j.data.has_certificate) {
-                    Clinic.toast.warning('该次就诊已开具过诊断证明，可直接查看打印');
-                    return;
-                }
                 var r = j.data.record || {};
+                var issued = !!j.data.has_certificate;
+                var cert = j.data.certificate || {};
                 var text = function (html) {
                     var t = document.createElement('div');
                     t.innerHTML = html || '';
                     return t.textContent.trim();
                 };
-                var cc = text(r.chief_complaint);
-                var pi = text(r.present_illness);
-                var diag = (r.initial_diagnosis || '').trim();
-                if (!cc || !pi || !diag) {
-                    Clinic.toast.warning('该次就诊病历不完整（缺少主诉/现病史/初步诊断），无法开具诊断证明');
-                    return;
-                }
                 var esc = function (s) {
                     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
                         .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
                 };
-                Clinic.modal.open(
-                    '<div class="fs-13 text-muted mb-8">将自动引用该次就诊病历，医生建议请手动填写：</div>' +
+                var cc = text(r.chief_complaint);
+                var pi = text(r.present_illness);
+                var diag = (r.initial_diagnosis || '').trim();
+
+                // 病历概要区（两种形态共用；已开具时附证明号与开具时间）
+                var summary =
                     '<div class="fs-13 mb-8" style="border:1px solid var(--border);border-radius:8px;padding:10px">' +
+                    (issued ? '  <div><strong>证明号：</strong>' + esc(cert.cert_no || '') +
+                        '　<strong>开具时间：</strong>' + esc(cert.created_at || '') + '</div>' : '') +
                     '  <div><strong>主诉：</strong>' + esc(cc) + '</div>' +
                     '  <div class="mt-4"><strong>现病史：</strong>' + esc(pi) + '</div>' +
-                    '  <div class="mt-4"><strong>初步诊断：</strong>' + esc(diag) + '</div></div>' +
+                    '  <div class="mt-4"><strong>初步诊断：</strong>' + esc(diag) + '</div></div>';
+
+                /* ---- 已开具：只读预览 + 打印（打印取服务器存档数据） ---- */
+                if (issued) {
+                    Clinic.toast.warning('该次就诊已开具过诊断证明');
+                    Clinic.modal.open(
+                        '<div class="fs-13 text-muted mb-8">以下为服务器存档内容（只读）：</div>' +
+                        summary +
+                        '<div class="form-group"><label class="form-label">医生建议</label>' +
+                        '<div style="border:1px solid var(--border);border-radius:8px;padding:10px;min-height:52px;background:var(--bg);white-space:pre-wrap">' +
+                        esc(cert.content || '') + '</div></div>',
+                        {
+                            title: title,
+                            size: 'modal-sm',
+                            buttons: [
+                                { text: '关闭', cls: 'btn-outline' },
+                                {
+                                    // 打印走 certificate_print：由服务器重新渲染存档数据
+                                    text: '🖨️ 打印', cls: 'btn-success',
+                                    onClick: function () {
+                                        Clinic.print.load('/api/record?action=certificate_print&visit_id=' + visitId, null, 'a5');
+                                    },
+                                },
+                            ],
+                        }
+                    );
+                    return;
+                }
+
+                /* ---- 未开具：可编辑开具 ---- */
+                if (!cc || !pi || !diag) {
+                    Clinic.toast.warning('该次就诊病历不完整（缺少主诉/现病史/初步诊断），无法开具诊断证明');
+                    return;
+                }
+                Clinic.modal.open(
+                    '<div class="fs-13 text-muted mb-8">将自动引用该次就诊病历，医生建议请手动填写：</div>' +
+                    summary +
                     '<div class="form-group"><label class="form-label">医生建议</label>' +
                     '<textarea class="textarea" id="certContent" rows="3" placeholder="如：建议休息3天，清淡饮食，不适随诊"></textarea></div>',
                     {
@@ -682,7 +725,7 @@ Clinic.emr = (function () {
                                         onSuccess: function () {
                                             Clinic.toast.success('诊断证明已开具');
                                             Clinic.modal.close();
-                                            Clinic.print.load('/api/record?action=certificate_print&visit_id=' + visitId, null);
+                                            Clinic.print.load('/api/record?action=certificate_print&visit_id=' + visitId, null, 'a5');
                                             if (typeof onIssued === 'function') onIssued();
                                         },
                                     });
@@ -702,18 +745,18 @@ Clinic.emr = (function () {
      */
     function openCertificate() {
         var visitId = document.getElementById('visitId').value;
-        if (DATA && DATA.has_certificate) {
-            Clinic.toast.warning('本次就诊已开具过诊断证明，不可重复开具');
-            return;
-        }
-        // 本地预校验未保存的编辑器内容（补开无此步：其数据以服务端保存为准）
         var emr = Clinic.emrEditor.collect();
-        var cc = (emr.chief_complaint && emr.chief_complaint.symptom || '').trim();
-        var pi = (emr.history_present && emr.history_present.content || '').trim();
-        var diag = (emr.diagnoses || []).length;
-        if (!cc || !pi || !diag) {
-            Clinic.toast.warning('请先完善病历（主诉、现病史、诊断）');
-            return;
+        // 本地预校验未保存的编辑器内容；若已开具则直接进入只读预览
+        // （certificateModal 内部会识别已开具状态并切换为「打印」形态，
+        //   打印内容始终以服务器存档数据为准）
+        if (!(DATA && DATA.has_certificate)) {
+            var cc = (emr.chief_complaint && emr.chief_complaint.symptom || '').trim();
+            var pi = (emr.history_present && emr.history_present.content || '').trim();
+            var diag = (emr.diagnoses || []).length;
+            if (!cc || !pi || !diag) {
+                Clinic.toast.warning('请先完善病历（主诉、现病史、诊断）');
+                return;
+            }
         }
         certificateModal(visitId, '开具诊断证明');
     }
@@ -789,7 +832,7 @@ function openHistoryCertificate(visitId) {
 
 /* 查看已开具的诊断证明（弹窗打印预览，可再次打印） */
 function printHistoryCertificate(visitId) {
-    Clinic.print.load('/api/record?action=certificate_print&visit_id=' + visitId, null);
+    Clinic.print.load('/api/record?action=certificate_print&visit_id=' + visitId, null, 'a5');
 }
 
 /* 全局：开单详情弹窗内 删除 / 毁方（处方） */
