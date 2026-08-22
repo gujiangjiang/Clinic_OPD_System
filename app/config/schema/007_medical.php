@@ -7,7 +7,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 4,
+    'version' => 5,
     'tables' => array(
         'records' => "CREATE TABLE IF NOT EXISTS records (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,6 +36,8 @@ return array(
         // emr_data 存完整结构化 JSON；投影字段由后端从 JSON 提取供统计检索；
         // emr_print_text 为剔除占位符后的打印纯净文书。
         // 旧 records 表保留并双写扁平文本镜像，兼容就诊历史/转科引用等既有消费方。
+        // v5 多医生接诊：同一次挂号流水（visit_id）1:N——首诊医生 initial，
+        // 后续接诊医生 progress（续写）；parent_record_id 关联前序病历 id。
         'patient_records' => "CREATE TABLE IF NOT EXISTS patient_records (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             visit_id INTEGER,
@@ -44,6 +46,8 @@ return array(
             dept_id INTEGER,
             doctor_id INTEGER,
             doctor_name TEXT,
+            record_type TEXT DEFAULT 'initial',
+            parent_record_id INTEGER DEFAULT 0,
             main_symptom TEXT,
             symptom_duration TEXT,
             symptom_unit TEXT,
@@ -111,6 +115,18 @@ return array(
         4 => array(
             "ALTER TABLE certificates ADD COLUMN cert_no TEXT DEFAULT ''",
             "UPDATE certificates SET cert_no = 'ZM' || replace(substr(created_at,1,10),'-','') || substr('0000' || id, -4, 4) WHERE cert_no IS NULL OR cert_no = ''",
+        ),
+        // v5：多医生接诊/续写 —— patient_records 增加 record_type（initial 首诊 /
+        // progress 续写）与 parent_record_id（关联前序病历 id），
+        // 并为 (visit_id)、(patient_no)、(visit_id, doctor_id) 建立索引。
+        5 => array(
+            "ALTER TABLE patient_records ADD COLUMN record_type TEXT DEFAULT 'initial'",
+            "ALTER TABLE patient_records ADD COLUMN parent_record_id INTEGER DEFAULT 0",
+            "CREATE INDEX IF NOT EXISTS idx_patient_records_visit ON patient_records(visit_id)",
+            "CREATE INDEX IF NOT EXISTS idx_patient_records_patient ON patient_records(patient_no)",
+            "CREATE INDEX IF NOT EXISTS idx_patient_records_visit_doctor ON patient_records(visit_id, doctor_id)",
+            // 存量数据回填：升级前的病历均视为首诊记录
+            "UPDATE patient_records SET record_type='initial' WHERE record_type IS NULL OR record_type=''",
         ),
     ),
     'seed' => array(),

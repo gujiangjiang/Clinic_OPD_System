@@ -131,11 +131,57 @@ switch ($action) {
 
         // 医生信息（工号/职称，需求18.2：工作站显示医生姓名工号职称）
         $doc = DB::one('user', 'SELECT emp_no, title FROM users WHERE id=?', array($u['id']));
-        // 结构化病历（当前医生在本就诊下的记录，无则取本就诊最新一条，再无则新建骨架）
-        $pr = DB::one('medical', 'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visitId, $u['id']));
-        if (!$pr) {
-            $pr = DB::one('medical', 'SELECT * FROM patient_records WHERE visit_id=? ORDER BY id DESC', array($visitId));
+
+        // ===== 多医生接诊（1:N）：该挂号流水下全部病历（按创建时间升序） =====
+        // 每位医生各自拥有独立文书：谁书写谁签名；前序病历对后序医生只读展示。
+        $allRows = DB::q('medical', 'SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC', array($visitId));
+        // 补齐各文书医生的工号/职称（users 与 medical 分库，不能 JOIN，按 id 批量查询）
+        $docIds = array();
+        foreach ($allRows as $pr2) { $docIds[(int)$pr2['doctor_id']] = true; }
+        $docMeta = array();
+        if ($docIds) {
+            $ph = implode(',', array_fill(0, count($docIds), '?'));
+            foreach (DB::q('user', "SELECT id, emp_no, title FROM users WHERE id IN ($ph)", array_keys($docIds)) as $dm) {
+                $docMeta[(int)$dm['id']] = $dm;
+            }
         }
+        /** 单条 patient_records → 前端历史/编辑两用结构 */
+        $mapRecord = function ($pr2) use ($docMeta) {
+            $emr2 = emr_merge_defaults(
+                emr_normalize(json_decode($pr2['emr_data'], true)),
+                emr_default_data(null)
+            );
+            $meta = isset($docMeta[(int)$pr2['doctor_id']]) ? $docMeta[(int)$pr2['doctor_id']] : null;
+            return array(
+                'id' => (int)$pr2['id'],
+                'record_id' => (int)$pr2['id'],
+                'doctor_id' => (int)$pr2['doctor_id'],
+                'doctor_name' => (string)$pr2['doctor_name'],
+                'doctor_emp' => $meta ? (string)$meta['emp_no'] : '',
+                'doctor_title' => $meta ? (string)$meta['title'] : '',
+                'record_type' => ($pr2['record_type'] === 'progress') ? 'progress' : 'initial',
+                'parent_record_id' => (int)$pr2['parent_record_id'],
+                'primary_icd10' => (string)$pr2['primary_icd10'],
+                'primary_diagnosis' => (string)$pr2['primary_diagnosis'],
+                'status' => (string)$pr2['status'],
+                'created_at' => (string)$pr2['created_at'],
+                'updated_at' => (string)$pr2['updated_at'],
+                'emr' => $emr2,
+            );
+        };
+        $recordsHistory = array();
+        $mine = null;
+        foreach ($allRows as $pr2) {
+            $item = $mapRecord($pr2);
+            $recordsHistory[] = $item;
+            if ((int)$pr2['doctor_id'] === (int)$u['id']) {
+                $mine = $item; // 当前医生在该流水下自己的文书（草稿或已保存）
+            }
+        }
+
+        // 结构化病历：严格取当前医生本人的记录（无则新建骨架，
+        // 绝不回退他人病历——他人病历仅作上方只读展示，互不篡改）
+        $pr = $mine ? DB::one('medical', 'SELECT * FROM patient_records WHERE id=?', array($mine['id'])) : null;
         $emr = emr_merge_defaults(
             emr_normalize($pr ? json_decode($pr['emr_data'], true) : array()),
             emr_default_data($pr ? null : $patient)
@@ -143,30 +189,50 @@ switch ($action) {
         // 归一化后补齐缺失键（旧数据 allergies 为空串时上面已转结构，其余键照常回退）
         $emr = emr_merge_defaults($emr, emr_default_data(null));
         $recordData = array(
+            'record_id' => $mine ? $mine['id'] : 0,
+            'doctor_id' => (int)$u['id'],
             'doctor_name' => $u['name'],
             'doctor_emp' => $doc ? $doc['emp_no'] : '',
             'doctor_title' => $doc ? $doc['title'] : '',
+            // 文书类型：本次流水下已有他人病历时，当前医生的新文书为续写（progress）
+            'record_type' => $pr ? (string)$pr['record_type'] : ($recordsHistory ? 'progress' : 'initial'),
             'created_at' => $pr ? $pr['created_at'] : '',
             'updated_at' => $pr ? $pr['updated_at'] : '',
             'emr' => $emr,
             'status' => $pr ? $pr['status'] : 'draft',
         );
         // 意识状态/初复诊保存在旧 records 镜像表（结构化表不含这两项），
-        // 必须回读，否则保存后刷新页面意识状态会丢失回「未选择」、初复诊回「初诊」
+        // 必须回读，否则保存后刷新页面意识状态会丢失回「未选择」、初复诊回「初诊」。
+        // 仅取当前医生本人的镜像行——多医生文书互不串写。
         $mirror = DB::one('medical', 'SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visitId, $u['id']));
-        if (!$mirror) {
-            $mirror = DB::one('medical', 'SELECT consciousness, visit_type FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
-        }
         $recordData['consciousness'] = $mirror ? (string)$mirror['consciousness'] : '';
         $recordData['visit_type'] = ($mirror && $mirror['visit_type'] !== '') ? $mirror['visit_type'] : '初诊';
         // 扁平投影字段（主诉/现病史/初步诊断）：供诊断证明补开等旧字段消费方使用。
         // 结构化病历升级后 get 曾不再返回这些字段，导致「就诊历史→补开诊断证明」
-        // 误判病历不完整（结构化升级残留缺陷）。优先由结构化 emr 投影生成，
-        // 为空时回退 records 镜像表（兼容未结构化的历史病历）。
-        $mirrorFlat = DB::one('medical', 'SELECT chief_complaint, present_illness, initial_diagnosis FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        // 误判病历不完整（结构化升级残留缺陷）。优先由结构化 emr 投影生成；
+        // 多医生场景下当前医生未填的节按时间倒序取流水内最新非空值（仅展示用），
+        // 再无则回退 records 镜像表（兼容未结构化的历史病历）。
         $ccText = emr_cc_text(isset($emr['chief_complaint']) ? $emr['chief_complaint'] : array());
         $piText = emr_pi_text(isset($emr['history_present']) ? $emr['history_present'] : array());
         $diagText = emr_diag_text(isset($emr['diagnoses']) ? $emr['diagnoses'] : array());
+        if ($ccText === '' || $piText === '' || $diagText === '') {
+            foreach (array_reverse($recordsHistory) as $rh) {
+                if ($ccText === '') {
+                    $t = emr_cc_text(isset($rh['emr']['chief_complaint']) ? $rh['emr']['chief_complaint'] : array());
+                    if ($t !== '') $ccText = $t;
+                }
+                if ($piText === '') {
+                    $t = emr_pi_text(isset($rh['emr']['history_present']) ? $rh['emr']['history_present'] : array());
+                    if ($t !== '') $piText = $t;
+                }
+                if ($diagText === '') {
+                    $t = emr_diag_text(isset($rh['emr']['diagnoses']) ? $rh['emr']['diagnoses'] : array());
+                    if ($t !== '') $diagText = $t;
+                }
+                if ($ccText !== '' && $piText !== '' && $diagText !== '') break;
+            }
+        }
+        $mirrorFlat = DB::one('medical', 'SELECT chief_complaint, present_illness, initial_diagnosis FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
         if ($ccText === '' && $mirrorFlat) $ccText = (string)$mirrorFlat['chief_complaint'];
         if ($piText === '' && $mirrorFlat) $piText = (string)$mirrorFlat['present_illness'];
         // 初步诊断直接使用投影文本——诊断名称本身已含 ICD-10 编码前缀
