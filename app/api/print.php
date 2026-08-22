@@ -97,13 +97,15 @@ switch ($action) {
         $prs = DB::q('medical', 'SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC', array($visit['id']));
         if ($prs) {
             $last = count($prs) - 1;
+            // 打印页脚「记录时间」统一为首诊医师首次保存病历的时间（不随续写改变）
+            $firstCreatedAt = isset($prs[0]['created_at']) ? $prs[0]['created_at'] : null;
             $body = '';
             foreach ($prs as $i => $pr) {
                 // 意识状态/初复诊存于旧 records 镜像表，按各文书医生本人回读
                 $mirror = DB::one('medical', 'SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visit['id'], $pr['doctor_id']));
                 $pr['consciousness'] = $mirror ? (string)$mirror['consciousness'] : '';
                 $pr['visit_type'] = ($mirror && $mirror['visit_type'] !== '') ? (string)$mirror['visit_type'] : '初诊';
-                $body .= pt_record($visit, $row['patient'], $pr, $i === 0 ? $vitals : null, $i === 0 ? 'full' : 'continue', $i === $last);
+                $body .= pt_record($visit, $row['patient'], $pr, $i === 0 ? $vitals : null, $i === 0 ? 'full' : 'continue', $i === $last, $firstCreatedAt);
             }
             json_ok(array('html' => '<div class="print-record-doc">' . $body . '</div>'));
         }

@@ -344,7 +344,7 @@ function pt_report($report, $result, $item, $visit) {
  * 注意：本函数只输出【片段】，外层 .print-record-doc 容器由调用方
  * （print.php）统一包裹——A5 分页器按该容器识别整份文档的头/尾。
  */
-function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast = true) {
+function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast = true, $footRecordTime = null) {
     $title = (isset($visit['dept_type']) && $visit['dept_type'] === 'emergency') ? '急诊电子病历' : '门诊电子病历';
     $html = '';
 
@@ -548,11 +548,14 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
     $html .= '<div class="print-rec-sign">医生：' . e(isset($record['doctor_name']) ? $record['doctor_name'] : '') . '</div>';
 
     // 页脚（末尾横线 + 左下角记录时间/右下角打印时间）：整份连续文档仅输出一次。
-    // 记录时间 = 该文书【首次保存】时间（created_at），后期多次保存不变；
-    // 旧数据无 created_at 时回退 updated_at。
+    // 记录时间统一为【首诊医师首次保存】时间（由调用方传入 $footRecordTime，
+    // 多文书时取首段文书 created_at，不随续写改变）；
+    // 单文书/旧数据回退本文书 created_at，再回退 updated_at。
     if ($isLast) {
-        $recTime = isset($record['created_at']) && $record['created_at'] !== '' ? $record['created_at']
-            : (isset($record['updated_at']) ? $record['updated_at'] : '');
+        $recTime = $footRecordTime !== null && $footRecordTime !== ''
+            ? $footRecordTime
+            : (isset($record['created_at']) && $record['created_at'] !== '' ? $record['created_at']
+                : (isset($record['updated_at']) ? $record['updated_at'] : ''));
         $html .= '<div class="print-line"></div>';
         $html .= '<div class="print-record-foot">' .
             '<span>记录时间：' . e($recTime) . '</span>' .
