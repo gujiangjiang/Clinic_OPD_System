@@ -1058,9 +1058,26 @@ Clinic.emr = (function () {
      */
     function isRecordComplete() {
         if (!DATA || !DATA.record) return false;
-        // 结构化病历：校验 emr_data 投影（主诉症状/现病史内容/诊断列表）
         var e = DATA.record.emr;
         if (!e) return false;
+        // 本人尚无文书（record_id=0，如 admin 查看他人病历 / 新接诊未写）时，
+        // 以该就诊流水下已存在的完整文书为准——打印病历渲染的是该就诊全部文书。
+        if (!(DATA.record.record_id || 0)) {
+            var hist = DATA.records_history || [];
+            for (var i = 0; i < hist.length; i++) {
+                var he = hist[i].emr;
+                if (!he) continue;
+                if (hist[i].record_type === 'progress') {
+                    if (((he.progress || {}).content || '').trim() && (he.diagnoses || []).length) return true;
+                } else if ((((he.chief_complaint || {}).symptom || '').trim())
+                    && ((he.history_present || {}).content || '').trim()
+                    && (he.diagnoses || []).length) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        // 本人有文书：结构化病历校验 emr_data 投影（主诉症状/现病史内容/诊断列表）
         // 续写文书：病历续写内容 + 诊断（主诉/现病史归首诊文书，不参与判定）
         if (DATA.record.record_type === 'progress') {
             var pc = ((e.progress || {}).content || '').trim();
