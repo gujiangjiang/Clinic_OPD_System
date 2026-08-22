@@ -342,6 +342,9 @@ switch ($action) {
                 'cat_name' => isset($o['cat_name']) ? (string)$o['cat_name'] : '',
                 'status' => order_agg_status($o['order_type'], $items),
                 'total_amount' => (float)$o['total_amount'], 'doctor_name' => $o['doctor_name'],
+                // 开单医生 id：多医生接诊下病历正文按医生归属展示已开项目、
+                // 删除/毁方按钮仅对开单医生本人可见（后端 delete 亦有硬拦截）
+                'doctor_id' => (int)$o['doctor_id'],
                 'created_at' => $o['created_at'], 'done_by' => $doneBy,
                 'items' => array_map(function ($it) {
                     // 扩展字段：处方在病历正文/打印中的所见即所得展示需要剂量/用法/途径等
@@ -360,11 +363,16 @@ switch ($action) {
         json_ok(array('list' => $out));
         break;
 
-    /* ==================== 删除开单（未缴费或已退费，恢复库存） ==================== */
+    /* ==================== 删除开单（未缴费或已退费，恢复库存） ====================
+     * 权限硬拦截：仅开单医生本人可删除/毁方自己的处方或申请单——
+     * 多医生接诊下其他医生（含强制提交）一律拒绝，谁开单谁负责。 */
     case 'delete':
         $orderId = (int)post('order_id');
         $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array($orderId));
         if (!$order) json_fail('开单记录不存在');
+        if ((int)$order['doctor_id'] !== (int)$u['id']) {
+            json_fail('仅开单医生本人可删除该' . ($order['order_type'] === 'prescription' ? '处方' : '申请单') . '（开单医生：' . $order['doctor_name'] . '）');
+        }
         $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=?', array($orderId));
         foreach ($items as $it) {
             // 允许删除：未缴费（open）或已退费（refunded）
