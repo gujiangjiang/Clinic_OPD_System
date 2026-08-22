@@ -738,7 +738,10 @@
 .prev-sec .doc-sec-label { margin-right: 2px; }
 /* 只读段标签冒号由 HTML 直接拼接（prev-sec 可能渲染在 .doc-body 之外，
    不能依赖 .doc-body .doc-sec-label::after 的 CSS 冒号，否则诊毕只读
-   整段移入 #docBody 后会出现「主诉：：」双冒号） */
+   整段移入 #docBody 后会出现「主诉：：」双冒号）。
+   注意：必须用不低于原规则的选择器优先级（.emr-doc .doc-body .prev-sec ...，
+   4 个类 > 原 3 个类），否则 content:none 覆盖不生效 */
+.emr-doc .doc-body .prev-sec .doc-sec-label::after,
 .prev-sec .doc-sec-label::after { content: none; }
 
 /* 续写编辑器「病史同上」快捷按钮（行内小按钮，随文字基线对齐） */
