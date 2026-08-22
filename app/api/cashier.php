@@ -330,12 +330,14 @@ switch ($action) {
         if ($patient) {
             $visits = DB::q('patient', 'SELECT * FROM registrations WHERE patient_no=? ORDER BY id DESC', array($patient['patient_no']));
             foreach ($visits as $v) {
+                $v['id'] = oid($v['id']);   // 混淆串：前端透传，后端解码
                 $list[] = array('visit' => $v, 'patient' => $patient);
             }
         } else {
             // 按患者ID / 流水号直接查
             $v = DB::one('patient', 'SELECT * FROM registrations WHERE patient_no=? OR flow_no=? ORDER BY id DESC LIMIT 1', array($kw, $kw));
             if ($v) {
+                $v['id'] = oid($v['id']);   // 混淆串
                 $p = DB::one('patient', 'SELECT * FROM patients WHERE patient_no=?', array($v['patient_no']));
                 $list[] = array('visit' => $v, 'patient' => $p);
             }

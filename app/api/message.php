@@ -24,6 +24,7 @@ switch ($action) {
     case 'list':
         $list = DB::q('core', 'SELECT * FROM messages WHERE to_role=? OR to_user_id=? ORDER BY id DESC LIMIT 50',
             array($u['role'], $u['id']));
+        self::obfList($list);
         json_ok(array('list' => $list));
         break;
 
@@ -38,9 +39,17 @@ switch ($action) {
     case 'all':
         $list = DB::q('core', 'SELECT * FROM messages WHERE to_role=? OR to_user_id=? ORDER BY id DESC LIMIT 200',
             array($u['role'], $u['id']));
+        self::obfList($list);
         json_ok(array('list' => $list));
         break;
 
     default:
         json_fail('未知操作');
+}
+
+/** 消息行内的 visit_id 输出为混淆串（前端跳转病历页原样透传，后端 did 解码） */
+function obfList(&$list) {
+    foreach ($list as &$m) {
+        if (!empty($m['visit_id'])) $m['visit_id'] = oid((int)$m['visit_id']);
+    }
 }

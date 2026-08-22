@@ -14,7 +14,9 @@ switch ($action) {
 
     /* ---------------- 挂号凭条 ---------------- */
     case 'receipt':
-        $row = get_visit_row(get('visit_id'));
+        $vid = did(get('visit_id'));
+        if ($vid <= 0) json_fail('链接无效或已过期，请重新获取打印凭据');
+        $row = get_visit_row($vid);
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
         $visit['name'] = $row['patient']['name'];
@@ -29,7 +31,7 @@ switch ($action) {
 
     /* ---------------- 缴费凭条 ---------------- */
     case 'payment':
-        $payId = (int)get('payment_id');
+        $payId = did(get('payment_id'));
         $pay = DB::one('order', 'SELECT * FROM payments WHERE id=?', array($payId));
         if (!$pay) json_fail('缴费记录不存在');
         $items = array();
@@ -52,9 +54,9 @@ switch ($action) {
         // 支持批量：检查申请单按分类拆分后，一次性打印多张（order_ids=1,2,3）
         $idsRaw = trim((string)get('order_ids', ''));
         if ($idsRaw !== '') {
-            $orderIds = array_values(array_unique(array_filter(array_map('intval', explode(',', $idsRaw)), function ($v) { return $v > 0; })));
+            $orderIds = array_values(array_unique(array_filter(did_list($idsRaw), function ($v) { return $v > 0; })));
         } else {
-            $orderIds = array_filter(array((int)get('order_id')), function ($v) { return $v > 0; });
+            $orderIds = array_filter(array(did(get('order_id'))), function ($v) { return $v > 0; });
         }
         if (!$orderIds) json_fail('开单记录不存在');
         $titles = array('lab' => '检验申请单', 'imaging' => '检查申请单', 'procedure' => '处置申请单', 'prescription' => '门诊处方笺');
@@ -79,7 +81,7 @@ switch ($action) {
 
     /* ---------------- 电子病历（补打） ---------------- */
     case 'record':
-        $row = get_visit_row(get('visit_id'));
+        $row = get_visit_row(did(get('visit_id')));
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
         $visit['name'] = $row['patient']['name'];
@@ -120,7 +122,7 @@ switch ($action) {
 
     /* ---------------- 诊断证明（补打） ---------------- */
     case 'certificate':
-        $visitId = (int)get('visit_id');
+        $visitId = did(get('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $cert = DB::one('medical', 'SELECT * FROM certificates WHERE visit_id=?', array($visitId));
@@ -148,7 +150,7 @@ switch ($action) {
 
     /* ---------------- 检验/检查报告 ---------------- */
     case 'report':
-        $reportId = (int)get('report_id');
+        $reportId = did(get('report_id'));
         $report = DB::one('lab', 'SELECT * FROM reports WHERE id=?', array($reportId));
         if (!$report) json_fail('报告不存在');
         $result = DB::one('lab', 'SELECT * FROM results WHERE id=?', array($report['result_id']));

@@ -116,15 +116,15 @@ switch ($action) {
             $html .= '<div class="flex gap-8 mt-8">';
             if ($records) {
                 // 病历已保存：直接打开病历打印预览页（pt_record，A5 病历纸），可再次打印
-                $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' . (int)$v['id'] . '\',null,\'a5\')">📋 查看病历（预览/打印）</button>';
+                $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' . e(oid($v['id'])) . '\',null,\'a5\')">📋 查看病历（预览/打印）</button>';
             } else {
                 // 病历未保存：提示，不跳转编辑页
                 $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.toast.warning(\'该次就诊病历尚未保存，无法查看\')">📋 查看病历</button>';
             }
             $html .=
                 ($hasCert
-                    ? '<button class="btn btn-outline btn-sm" onclick="printHistoryCertificate(' . (int)$v['id'] . ')">📄 查看诊断证明</button>'
-                    : '<button class="btn btn-outline btn-sm" onclick="openHistoryCertificate(' . (int)$v['id'] . ')">📄 新增诊断证明</button>') .
+                    ? '<button class="btn btn-outline btn-sm" onclick="printHistoryCertificate(' . e(oid($v['id'])) . ')">📄 查看诊断证明</button>'
+                    : '<button class="btn btn-outline btn-sm" onclick="openHistoryCertificate(' . e(oid($v['id'])) . ')">📄 新增诊断证明</button>') .
                 '</div>';
             $html .= '</div>';
         }

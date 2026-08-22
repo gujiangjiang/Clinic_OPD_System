@@ -62,7 +62,7 @@ function searchPatients() {
                     var v = g.visit, p = g.patient;
                     var name = p ? p.name : '';
                     var info = p ? (p.gender + ' / ' + (p.age_fmt || Clinic.validate.formatAge(p.birth_date))) : '';
-                    return '<div class="card" style="padding:12px 16px;margin-bottom:8px;cursor:pointer" onclick="openVisitDetail(' + v.id + ')">' +
+                    return '<div class="card" style="padding:12px 16px;margin-bottom:8px;cursor:pointer" onclick="openVisitDetail('" + v.id + "')">' +
                         '<div class="flex-between">' +
                         '  <span class="fw-600 fs-15">' + name + ' <span class="fs-12 text-muted fw-400">' + info + '</span></span>' +
                         '  <span class="badge badge-primary">' + v.flow_no + '</span></div>' +
@@ -163,9 +163,9 @@ function loadPatients() {
                         '  <span class="badge badge-gray" style="margin-left:6px">' + p.dept_name + ' 第' + String(p.visit_seq).padStart(3, '0') + '号</span></div>' +
                         '<div class="fs-12 text-muted">' + p.flow_no + '</div></div>' +
                         '<div class="flex gap-8 mt-8">' +
-                        '<button class="btn btn-outline btn-sm" onclick="openVitals(' + p.visit_id + ')">🌡️ 生命体征</button>' +
-                        '<button class="btn btn-outline btn-sm" onclick="openNursing(' + p.visit_id + ')">📝 护理记录</button>' +
-                        '<button class="btn btn-outline btn-sm" onclick="openVisitDetail(' + p.visit_id + ')">📋 医嘱</button>' +
+                        '<button class="btn btn-outline btn-sm" onclick="openVitals('" + p.visit_id + "')">🌡️ 生命体征</button>' +
+                        '<button class="btn btn-outline btn-sm" onclick="openNursing('" + p.visit_id + "')">📝 护理记录</button>' +
+                        '<button class="btn btn-outline btn-sm" onclick="openVisitDetail('" + p.visit_id + "')">📋 医嘱</button>' +
                         '</div></div>';
                 }).join('');
         },

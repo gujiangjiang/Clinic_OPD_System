@@ -41,7 +41,8 @@ switch ($action) {
             WHERE $where ORDER BY r.visit_seq", $params);
         json_ok(array('list' => array_map(function ($r) {
             return array(
-                'visit_id' => (int)$r['id'],
+                // 混淆串：前端 openVitals 等回传时后端 did 解码
+                'visit_id' => oid($r['id']),
                 'name' => $r['pname'],
                 'gender' => $r['pgender'],
                 'age_fmt' => age_format($r['pbirth'], $r['register_time']),
@@ -76,7 +77,7 @@ switch ($action) {
                     '<td>' . e($v ? $v['current_dept_name'] : '') . '</td>' .
                     '<td>' . e($r['doctor_name']) . '</td>' .
                     '<td class="fs-12">' . e(substr($r['created_at'], 5, 11)) . '</td>' .
-                    '<td><button class="btn btn-success btn-sm" onclick="completeTreatment(' . (int)$r['id'] . ')">完成处置</button></td></tr>';
+                    '<td><button class="btn btn-success btn-sm" onclick="completeTreatment(\'' . e(oid($r['id'])) . '\')">完成处置</button></td></tr>';
             }
             $html .= '</tbody></table></div>';
         }
@@ -109,11 +110,13 @@ switch ($action) {
         if ($p) {
             $visits = DB::q('patient', 'SELECT * FROM registrations WHERE patient_no=? ORDER BY id DESC', array($p['patient_no']));
             foreach ($visits as $v) {
+                $v['id'] = oid($v['id']);   // 混淆串：前端仅透传，后端解码
                 $list[] = array('visit' => $v, 'patient' => $p);
             }
         } else {
             $v = DB::one('patient', 'SELECT * FROM registrations WHERE flow_no=? ORDER BY id DESC LIMIT 1', array($kw));
             if ($v) {
+                $v['id'] = oid($v['id']);   // 混淆串
                 $pp = DB::one('patient', 'SELECT * FROM patients WHERE patient_no=?', array($v['patient_no']));
                 $list[] = array('visit' => $v, 'patient' => $pp);
             }
@@ -136,8 +139,8 @@ switch ($action) {
             '  <span class="badge badge-primary">' . e($visit['flow_no']) . '</span></div>' .
             '<div class="fs-12 text-muted mt-4">患者ID ' . e($visit['patient_no']) . ' ｜ 首次科室 ' . e($visit['first_dept_name']) . ' ｜ 挂号 ' . e(substr($visit['register_time'], 0, 16)) . ' ｜ 状态 ' . e(visit_status_name($visit['status'])) . '</div>' .
             '<div class="flex gap-8 mt-8">' .
-            '<button class="btn btn-outline btn-sm" onclick="openVitals(' . (int)$visitId . ')">🌡️ 生命体征</button>' .
-            '<button class="btn btn-outline btn-sm" onclick="openNursing(' . (int)$visitId . ')">📝 护理记录</button></div></div>';
+            '<button class="btn btn-outline btn-sm" onclick="openVitals(\'' . e(oid($visitId)) . '\')">🌡️ 生命体征</button>' .
+            '<button class="btn btn-outline btn-sm" onclick="openNursing(\'' . e(oid($visitId)) . '\')">📝 护理记录</button></div></div>';
 
         // 当日医生开具的检验/检查/处置/处方
         $orders = DB::q('order', "SELECT * FROM orders WHERE visit_id=? ORDER BY id DESC", array($visitId));
@@ -185,10 +188,10 @@ switch ($action) {
                     '<td class="fs-12">' . e(substr($r['created_at'], 5, 11)) . '</td>' .
                     '<td>' . ($r['status'] === 'paid' ? '<span class="badge badge-warning">待执行</span>' : '<span class="badge badge-primary">执行中</span>') . '</td>' .
                     '<td><div class="flex gap-4">' .
-                    '<button class="btn btn-outline btn-sm" onclick="medDetail(' . (int)$r['order_id'] . ')">详情</button>' .
+                    '<button class="btn btn-outline btn-sm" onclick="medDetail(\'' . e(oid($r['order_id'])) . '\')">详情</button>' .
                     ($r['status'] === 'paid'
-                        ? '<button class="btn btn-primary btn-sm" onclick="medStart(' . (int)$r['id'] . ')">等待执行</button>'
-                        : '<button class="btn btn-success btn-sm" onclick="medDone(' . (int)$r['id'] . ')">执行完成</button>') .
+                        ? '<button class="btn btn-primary btn-sm" onclick="medStart(\'' . e(oid($r['id'])) . '\')">等待执行</button>'
+                        : '<button class="btn btn-success btn-sm" onclick="medDone(\'' . e(oid($r['id'])) . '\')">执行完成</button>') .
                     '</div></td></tr>';
             }
             $html .= '</tbody></table></div>';

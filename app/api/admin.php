@@ -34,6 +34,9 @@ switch ($action) {
     case 'settings':
     case 'upload_logo':
     case 'print_items':
+    // URL 混淆密钥管理（状态/重置）
+    case 'obf_status':
+    case 'obf_reset':
         admin_part_settings($action);
         break;
 

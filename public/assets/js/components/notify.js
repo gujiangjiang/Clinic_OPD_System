@@ -57,7 +57,8 @@ Clinic.notify = (function () {
         if (el) el.classList.remove('unread');
         refresh();
         if (m.link_url) { location.href = m.link_url; return; }
-        if (m.visit_id > 0) { location.href = '/doctor/emr?visit_id=' + m.visit_id; return; }
+        // visit_id 为后端混淆串（不可 >0 数值比较），非空即跳转病历页
+        if (m.visit_id) { location.href = '/doctor/emr?visit_id=' + encodeURIComponent(m.visit_id); return; }
         if (m.print_url) {
             // 纸张路由：申请单/处置单/处方单=A5 病历纸；挂号/缴费凭条=窄条凭条纸
             var u = m.print_url;

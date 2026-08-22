@@ -13,6 +13,48 @@
 
 ---
 
+## [1.7.0] - 2026-08-23
+
+> 大型安全架构升级：业务实体 ID 全链路混淆加密（次版本号提升）
+
+### 新增
+
+- **URL 混淆密钥（防撞库遍历）**：新增 `core/IdObfuscator.php`——以管理员可重置的
+  混淆密钥（settings 表 `obf_token`，首次使用自动生成）派生 AES-128-CBC 密钥与 IV，
+  将就诊、申请单、报告、缴费等患者级实体 ID 加密为 22 字符 base64url 不透明串。
+  链接形如 `/doctor/emr?visit_id=CSDUJCYGhFyM_LGRzEu3LA`，不再暴露可遍历的自增数字。
+- **系统设置·URL 安全混淆密钥管理**：查看当前密钥 / 一键重置 / 复制；
+  重置后所有旧链接即刻失效，系统功能不受影响（新链接按新密钥即时生成）。
+
+### 变更
+
+- **全站输入侧接入 `did()` 解码**（明文数字一律拒绝，杜绝降级绕过）：
+  - 页面入口：`/doctor/emr?visit_id=` 与 `ref`（无效时提示「链接无效或已过期」）；
+  - 病历：record 的 get/save/save_vitals/certificate/certificate_print/check_previous_diagnoses；
+  - 开单：order 的 submit/prev_items/visit_orders/delete/print（含批量 order_ids）；
+  - 收费：cashier 的 register 响应/pay_visit/cancel_visit/visit_detail/
+    visit_search（就诊行 id）/pay_orders（批量 JSON）/refund_order；
+  - 医生站：doctor 的 take（响应 ref_record_id 同步编码）/list 按钮 URL；
+  - 护士站：nurse 的 complete/med_start/med_done/med_detail/visit_detail/
+    vitals/save_vitals/nursing_list/nursing_add/patients/search；
+  - 医技：lab 与 imaging 的登记/录结果/撤回 + 报告打印外链；pharmacy 发药；
+  - 打印：print 的 receipt/payment/order(批量)/record/certificate/report；
+  - 消息：message 列表与通知跳转的 visit_id 输出混淆串。
+- **输出侧统一 `oid()` 编码**：医生列表、收费挂号管理/缴费详情、护士站患者列表
+  与队列按钮、检验/影像/药房队列、就诊历史打印入口、打印中心、站内消息等
+  所有 HTML onclick / 跳转 URL / JSON 回传字段。
+- **前端透传改造**：混淆 ID 为不透明字符串——修复 paymanage `parseInt`、
+  notify `>0` 数值判断、护士站/打印中心内联 JS 引号包裹等兼容点。
+- **范围说明**：科室 dept_id 与管理端字典 id 属非患者敏感面且已有角色校验，
+  保持原样；HIS 外部接口（api_key 认证）继续使用原始 ID 以保证外部兼容。
+
+### 安全
+
+- 明文数字 ID 访问一律返回「记录不存在 / 链接无效」，不再泄露数据存在性；
+- 密钥重置后旧链接解密失败，等效整体吊销历史分享链接的能力。
+
+---
+
 ## [1.6.73] - 2026-08-23
 
 ### 修复

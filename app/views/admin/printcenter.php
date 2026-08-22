@@ -36,7 +36,7 @@ function searchVisit() {
             box.innerHTML = '<div class="fs-13 text-muted mb-8">共 ' + list.length + ' 次就诊，点击选择：</div>' +
                 list.map(function (g) {
                     var v = g.visit, p = g.patient;
-                    return '<div class="dd-item" style="border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;cursor:pointer" onclick="showPrintItems(' + v.id + ')">' +
+                    return '<div class="dd-item" style="border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;cursor:pointer" onclick="showPrintItems('" + v.id + "')">' +
                         '<div class="flex-between"><span class="fw-600">' + (p ? p.name : '') + '</span>' +
                         '<span class="fs-12 text-muted">' + v.flow_no + ' ｜ ' + v.first_dept_name + ' ｜ ' + v.register_time + '</span></div></div>';
                 }).join('');

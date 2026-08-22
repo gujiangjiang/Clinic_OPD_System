@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v1.6.67-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2F预留MySQL-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v1.7.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2F预留MySQL-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房** 等多角色业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕。
@@ -185,9 +185,23 @@ curl -H "X-HIS-Key: 你的密钥" "http://your-domain/api/his?action=visit_statu
 
 > 接口均为只读、统一 JSON 返回格式 `{ ok, msg, data }`，不依赖登录会话。
 
+## 🔗 URL 混淆密钥（防链接撞库）
+
+系统对就诊、申请单、报告、缴费等患者级实体 ID 做全链路混淆加密，
+链接中不再出现可遍历的自增数字，例如：
+`/doctor/emr?visit_id=CSDUJCYGhFyM_LGRzEu3LA`
+
+- 密钥由系统首次使用时自动生成，管理员可在【系统设置 → URL 安全混淆密钥】
+  中查看、复制或**一键重置**；
+- **重置后所有旧链接立即失效**（含打印凭据、分享的病历入口），
+  系统功能不受影响，新链接按新密钥即时生成；
+- 输入侧统一 `did()` 解码，明文数字 ID 一律按「记录不存在」拒绝，不可降级绕过；
+- 科室/字典类管理参数与 HIS 外部接口（api_key 认证）不在此范围内。
+
 ## 🔒 安全说明
 
 - CSRF 令牌校验所有 POST 请求；PDO 预处理语句防 SQL 注入；`password_hash/verify` 密码哈希。
+- **业务实体 ID 全链路混淆加密**（见上方「URL 混淆密钥」），防 URL 撞库遍历他人医疗数据。
 - 输出统一 `e()` 转义防 XSS；Session Cookie HttpOnly + SameSite；登录重置会话 ID。
 - 角色级页面/接口权限（无关角色无法直接访问其他科室功能）；上传类型/大小校验 + 随机文件名。
 - 医院 LOGO 以 base64 Data URI 内联显示（不暴露文件 URL），并封禁 `/uploads/logo/` 直链访问；
