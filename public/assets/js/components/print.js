@@ -123,7 +123,16 @@ Clinic.print = (function () {
 
             var kids = Array.prototype.slice.call(doc.children);
             var headRe = /^(print-hosp|print-sub|print-title-line|print-header|print-record-barcode|print-line|print-info-grid|print-info-lines)$/;
-            var footRe = /^(print-record-sign|print-record-foot|print-line)$/;
+            // 页脚组类名集合：签名 / 末尾横线 / 时间行，以及提示词
+            // （请凭本单据至…执行/取药 等）。提示词要求固定在页面底部、
+            // 医生签名上一行靠左显示，因此归入页脚组随签名一起沉底，
+            // 而不是紧跟在表格/列表后面。匹配按 class 逐个判断，
+            // 兼容多类名节点（如 "print-note print-note-tip"）。
+            var footSet = ['print-record-sign', 'print-record-foot', 'print-line', 'print-note', 'print-note-tip'];
+            function inFootSet(n) {
+                var toks = ((n.className || '') + '').trim().split(/\s+/).filter(Boolean);
+                return toks.length > 0 && toks.every(function (t) { return footSet.indexOf(t) !== -1; });
+            }
 
             // ---- 头部：前缀连续命中头部类名 ----
             var hi = 0;
@@ -131,14 +140,15 @@ Clinic.print = (function () {
 
             // ---- 尾部：后缀连续命中页脚类名（必须含签名或时间行才算有效）----
             var fi = kids.length;
-            while (fi > 0 && footRe.test((kids[fi - 1].className || '').trim())) fi--;
+            while (fi > 0 && inFootSet(kids[fi - 1])) fi--;
             var footNodes = kids.slice(fi);
             var validFoot = footNodes.some(function (n) {
-                return /^(print-record-sign|print-record-foot)$/.test((n.className || '').trim());
+                var toks = ((n.className || '') + '').trim().split(/\s+/);
+                return toks.indexOf('print-record-sign') !== -1 || toks.indexOf('print-record-foot') !== -1;
             });
             if (!validFoot) { footNodes = []; }
             var headNodes = kids.slice(0, hi);
-            var contentNodes = kids.slice(validFoot ? hi : hi, validFoot ? fi : kids.length);
+            var contentNodes = kids.slice(hi, validFoot ? fi : kids.length);
 
             // ---- 测量：宽度取打印可打印区 128mm ----
             var MM = 3.779527559;
@@ -167,24 +177,39 @@ Clinic.print = (function () {
             // 正文可用高度：187mm 页面（留 3mm 安全余量）− 页眉 − 页脚
             var availH = Math.floor(187 * MM) - headH - footH - 6;
 
+            // 逐节点测高：offsetHeight 不含外边距，而各小节有 margin-bottom、
+            // 表格有上下 margin，逐项漏加会让整页累计低估、末页底部被裁切。
+            // 单独放入量杯测量并叠加自身上下外边距（此环境下不与兄弟折叠，
+            // 结果只会略偏保守，分页更安全）。
             var heights = [];
             contentNodes.forEach(function (n) {
                 meas.appendChild(n);
-                heights.push(n.offsetHeight);
+                var cs = window.getComputedStyle(n);
+                var h = n.offsetHeight +
+                    (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+                heights.push(h);
                 meas.removeChild(n);
             });
             meas.remove();
 
             // ---- 分配：整节点原子分页，不拆行 ----
+            // 单节点高度超过整页版心（如超长现病史段落）时无法再拆，
+            // 标记所在页为 a5-overflow：放开该页固定高度与裁剪，
+            // 由浏览器自然续页，宁可版式略松也不丢内容。
             var pages = [[]];
+            var overFlags = [false];
             var used = 0;
             contentNodes.forEach(function (n, i) {
                 var h = heights[i] || 0;
-                if (used + h > availH && pages[pages.length - 1].length) {
+                var cur = pages.length - 1;
+                if (used + h > availH && pages[cur].length) {
                     pages.push([]);
+                    overFlags.push(false);
                     used = 0;
+                    cur++;
                 }
-                pages[pages.length - 1].push(n);
+                if (h > availH) overFlags[cur] = true;
+                pages[cur].push(n);
                 used += h;
             });
 
@@ -194,6 +219,7 @@ Clinic.print = (function () {
             pages.forEach(function (pageNodes, i) {
                 var sheet = document.createElement('div');
                 sheet.className = 'a5-sheet';
+                if (overFlags[i]) sheet.classList.add('a5-overflow');
 
                 var hd = document.createElement('div');
                 hd.className = 'a5-head';

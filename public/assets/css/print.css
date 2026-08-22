@@ -263,15 +263,18 @@
     font-size: 13px;
 }
 
-/* 病历医生签名：病历内容部分右下角（末尾横线上方） */
-.print-record-doc .print-record-sign {
+/* 病历医生签名：病历内容部分右下角（末尾横线上方）。
+   作用域用 .print-area 而非 .print-record-doc：A5 分页器会把节点
+   重组进 .a5-sheet/.a5-head/.a5-body/.a5-foot，原包裹层不再存在，
+   祖先选择器若绑定 .print-record-doc 分页后即失效（签名跑到左下角）。 */
+.print-area .print-record-sign {
     text-align: right;
     font-size: 13px;
     font-weight: 600;
     margin-top: 14px;
 }
-/* 病历页脚：末尾横线下方，左下角记录时间、右下角打印时间 */
-.print-record-doc .print-record-foot {
+/* 单据页脚：末尾横线下方，左下角开单/记录时间、右下角打印时间 */
+.print-area .print-record-foot {
     display: flex;
     justify-content: space-between;
     font-size: 12.5px;
@@ -328,10 +331,10 @@
 .print-preview.sheet-a5 .print-record-doc .print-flow .pf-sec {
     margin-bottom: 2px;
 }
-.print-preview.sheet-a5 .print-record-doc .print-record-sign {
+.print-preview.sheet-a5 .print-area .print-record-sign {
     margin-top: 10px;
 }
-.print-preview.sheet-a5 .print-record-doc .print-record-foot {
+.print-preview.sheet-a5 .print-area .print-record-foot {
     margin-top: 4px;
 }
 
@@ -422,7 +425,11 @@
         overflow: hidden;
     }
 }
-.print-preview.sheet-a5 .a5-head { flex-shrink: 0; }
+/* 页眉作为条形码的定位容器：分页后 .print-record-doc 包裹层被移除，
+   若无定位祖先，绝对定位的条形码会一路冒泡到 position:fixed 的
+   .print-preview（整个预览层/网页右上角）。锚定页眉后每页页头右上角
+   各一枚，顶部与医院名称齐平、右侧与内容区右缘齐平。 */
+.print-preview.sheet-a5 .a5-head { flex-shrink: 0; position: relative; }
 .print-preview.sheet-a5 .a5-body { flex: 1 1 auto; overflow: hidden; }
 .print-preview.sheet-a5 .a5-foot {
     flex-shrink: 0;
@@ -458,5 +465,26 @@
     .print-preview.sheet-a5 .a5-sheet:last-child {
         page-break-after: auto;
         break-after: auto;
+    }
+}
+
+/* ---------- 超高单节点兜底（.a5-overflow） ----------
+ * 个别小节（如超长现病史段落）整体高度超过一页版心且无法再拆分时，
+ * 分页器给该页加 .a5-overflow：放开固定高度与 overflow 裁剪，
+ * 交由浏览器自然续页，宁可版式略松也不丢内容。 */
+.print-preview.sheet-a5 .a5-sheet.a5-overflow {
+    height: auto;
+    min-height: 210mm;
+    overflow: visible;
+}
+.print-preview.sheet-a5 .a5-sheet.a5-overflow .a5-body {
+    flex: 0 0 auto;
+    overflow: visible;
+}
+@media print {
+    .print-preview.sheet-a5 .a5-sheet.a5-overflow {
+        height: auto;
+        min-height: 187mm;
+        max-height: none;
     }
 }

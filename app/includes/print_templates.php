@@ -170,6 +170,10 @@ function pt_order($order, $items, $title) {
     $html = '<div class="print-record-doc">';
     $html .= pt_header($title);
 
+    // 右上角条形码：处方单号/申请单号（与电子病历右上角门诊号条码同款式样）
+    $html .= '<div class="print-record-barcode">' . barcode128_svg(isset($order['order_no']) ? $order['order_no'] : '') .
+        '<div>' . e(isset($order['order_no']) ? $order['order_no'] : '') . '</div></div>';
+
     // 患者信息：参考急诊病历两行流式排版、两端对齐（无论门诊/急诊开单统一此样式）
     $patient = DB::one('patient', 'SELECT * FROM patients WHERE patient_no=?', array($order['patient_no']));
     $cell = function ($k, $val) {
@@ -487,11 +491,12 @@ function pt_record($visit, $patient, $record, $vitals) {
     $secs[] = array('留观', $emrStructured ? emr_obs_text($emr) : (!empty($record['is_observation']) ? '是' : '否'));
     $secs[] = array('嘱托', $emrStructured ? (isset($emr['advice']) ? $emr['advice'] : '') : (isset($record['advice']) ? $record['advice'] : ''));
 
-    $flow = '';
+    // 每个小节独立一个 .print-flow 块级节点：A5 分页器按「整节点」分配页面，
+    // 若所有小节包在同一个节点里，内容再长也永远不会跨页拆分，
+    // 只会在单页内溢出被裁掉。拆成逐节节点后可在小节边界自然翻页。
     foreach ($secs as $s) {
-        $flow .= '<span class="pf-sec"><strong>' . e($s[0]) . '：</strong><span class="pf-body">' . $s[1] . '</span></span>';
+        $html .= '<div class="print-flow"><span class="pf-sec"><strong>' . e($s[0]) . '：</strong><span class="pf-body">' . $s[1] . '</span></span></div>';
     }
-    $html .= '<div class="print-flow">' . $flow . '</div>';
 
     // 医生签名：位于病历末尾横线上方、病历内容部分右下角
     $html .= '<div class="print-record-sign">医生：' . e(isset($record['doctor_name']) ? $record['doctor_name'] : '') . '</div>';
