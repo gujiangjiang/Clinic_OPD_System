@@ -274,20 +274,28 @@ Clinic.emr = (function () {
             '</div>';
         document.getElementById('emrCard').innerHTML = docHtml;
 
-        // 结构化字段编辑器渲染（[] 占位字段引擎；mode 决定首诊全量/续写精简模块）
-        Clinic.emrEditor.render(document.getElementById('docBody'), r.emr || {}, {
-            readonly: d.visit && d.visit.status === 'finished',
-            beforeVitals: vitalSec,
-            midNode: midNode,
-            mode: isProgress ? 'progress' : 'initial',
-        });
-
-        // 他人文书只读段渲染（此刻已开项目列表未必就绪，loadOrders 成功后会再刷新一次）
-        refreshReadOnlyBodies(d);
-
-        // 诊毕：整份病历置为只读（所有输入框禁用 + 编辑器不可编辑 + 写操作按钮隐藏）
-        if (d.visit && d.visit.status === 'finished') {
+        if (readOnly) {
+            // 诊毕只读：全部文书以只读段展示（打印版式），不渲染编辑器
+            var hist = d.records_history || [];
+            var docBody = document.getElementById('docBody');
+            if (docBody && hist.length) {
+                docBody.innerHTML = '<div class="prev-record-wrap">' + hist.map(roSegmentHtml).join('') + '</div>';
+            }
+            // 隐藏编辑器签名与页脚（只读段内已有各自签名）
+            var sign = document.querySelector('.doc-body-sign');
+            if (sign) sign.style.display = 'none';
             setReadonlyUI();
+        } else {
+            // 非诊毕：结构化字段编辑器渲染（mode 决定首诊全量/续写精简模块）
+            Clinic.emrEditor.render(document.getElementById('docBody'), r.emr || {}, {
+                readonly: false,
+                beforeVitals: vitalSec,
+                midNode: midNode,
+                mode: isProgress ? 'progress' : 'initial',
+            });
+
+            // 他人文书只读段渲染（此刻已开项目列表未必就绪，loadOrders 成功后会再刷新一次）
+            refreshReadOnlyBodies(d);
         }
     }
 
@@ -399,6 +407,10 @@ Clinic.emr = (function () {
         push('既往史', fmtPH(e.past_history));
         push('过敏史', fmtAL(e.allergies));
         push('主要症状', fmtMS(e.main_symptoms));
+        // 生命体征归属：本段医生本人录入的体征（rec.vitals），未录入显示 -
+        push('生命体征', vitalDisplayText(rec.vitals || {}), true);
+        // 意识状态：本段医生本人镜像回读，未记录显示 -
+        push('意识状态', rec.consciousness || '', true);
         push('体格检查', fmtPE(e.physical_exam), true);
         push('初步诊断', fmtDiags(e.diagnoses));
         // 辅助检查/门诊处置按该文书医生本人的开单归属渲染（多医生接诊，
@@ -415,7 +427,8 @@ Clinic.emr = (function () {
         if (e.disposition_custom && String(e.disposition_custom).trim()) dispParts.push(escHtml(e.disposition_custom));
         if (dispParts.length) dispHtml += '<span>' + dispParts.join('，') + '</span>';
         secs.push('<div class="prev-sec"><span class="doc-sec-label">门诊处置：</span>' + (dispHtml || '-') + '</div>');
-        push('是否留观', e.is_leave_hospital === '是' ? '是' : '');
+        // 是否留观：始终显示（否 / 是），与打印病历格式一致
+        push('是否留观', e.is_leave_hospital === '是' ? '是' : '否', true);
         push('嘱托', e.advice);
 
         var typeBadge = isProgress
@@ -468,6 +481,14 @@ Clinic.emr = (function () {
     function refreshReadOnlyBodies(d) {
         if (!d) d = DATA;
         if (!d) return;
+        // 诊毕只读：全部文书渲染在 #docBody（无编辑器），直接整段刷新
+        if (d.visit && d.visit.status === 'finished') {
+            var docBody = document.getElementById('docBody');
+            if (docBody && (d.records_history || []).length) {
+                docBody.innerHTML = '<div class="prev-record-wrap">' + d.records_history.map(roSegmentHtml).join('') + '</div>';
+            }
+            return;
+        }
         var parts = splitOthers(d);
         var beforeEl = document.getElementById('roBefore');
         var afterEl = document.getElementById('roAfter');

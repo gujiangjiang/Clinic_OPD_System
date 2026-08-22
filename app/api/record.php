@@ -186,6 +186,13 @@ switch ($action) {
                 emr_default_data(null)
             );
             $meta = isset($docMeta[(int)$pr2['doctor_id']]) ? $docMeta[(int)$pr2['doctor_id']] : null;
+            // 生命体征归属：按录入护士/医生（operator）匹配本医生录入的体征，取最新一条。
+            // 多医生接诊下谁的体征归属谁的文书——未录入则返回空（前端显示 -）。
+            $ownVitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1',
+                array((int)$pr2['visit_id'], (string)$pr2['doctor_name']));
+            // 意识状态/初复诊按文书医生本人从旧 records 镜像表回读
+            $mirror = DB::one('medical', 'SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC',
+                array((int)$pr2['visit_id'], (int)$pr2['doctor_id']));
             return array(
                 'id' => (int)$pr2['id'],
                 'record_id' => (int)$pr2['id'],
@@ -201,6 +208,8 @@ switch ($action) {
                 'created_at' => (string)$pr2['created_at'],
                 'updated_at' => (string)$pr2['updated_at'],
                 'emr' => $emr2,
+                'vitals' => $ownVitals ? $ownVitals : array(),
+                'consciousness' => $mirror ? (string)$mirror['consciousness'] : '',
             );
         };
         $recordsHistory = array();
@@ -241,6 +250,10 @@ switch ($action) {
         $mirror = DB::one('medical', 'SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visitId, $u['id']));
         $recordData['consciousness'] = $mirror ? (string)$mirror['consciousness'] : '';
         $recordData['visit_type'] = ($mirror && $mirror['visit_type'] !== '') ? $mirror['visit_type'] : '初诊';
+        // 生命体征归属：仅取当前登录医生本人录入的最新体征（operator=本人姓名），
+        // 未录入则为空（前端显示 -）。多医生接诊下谁的体征归属谁的文书。
+        $myVitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1', array($visitId, $u['name']));
+        $recordData['vitals'] = $myVitals ? $myVitals : array();
         // 扁平投影字段（主诉/现病史/初步诊断）：供诊断证明补开等旧字段消费方使用。
         // 结构化病历升级后 get 曾不再返回这些字段，导致「就诊历史→补开诊断证明」
         // 误判病历不完整（结构化升级残留缺陷）。优先由结构化 emr 投影生成；
@@ -278,9 +291,9 @@ switch ($action) {
         $recordData['present_illness'] = $piText;
         $recordData['initial_diagnosis'] = $diagText;
 
-        // 生命体征（最新一条，护士站与医生站共用）
-        $vitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visitId));
-        $vitalsData = $vitals ? $vitals : array(
+        // 生命体征归属：当前登录医生本人录入的最新体征（operator=本人姓名），
+        // 未录入则为空（前端显示 -）。多医生接诊下谁的体征归属谁的文书。
+        $vitalsData = $recordData['vitals'] ? $recordData['vitals'] : array(
             'bp_systolic' => '', 'bp_diastolic' => '', 'heart_rate' => '',
             'pulse' => '', 'spo2' => '', 'respiration' => '',
         );
@@ -463,7 +476,9 @@ switch ($action) {
 
         // ===== 5. 打印文本（含当前医生本人已开项目快照） =====
         list($orderNames, $rxLines, $dispItems) = emr_order_snapshot($visitId, $u['id']);
-        $vitalsRow = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        // 生命体征归属：打印文本快照仅含当前医生本人录入的体征（operator=本人姓名），
+        // 谁的体征归属谁的文书；未录入则不含生命体征节
+        $vitalsRow = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1', array($visitId, $u['name']));
         $vp = array();
         if ($vitalsRow) {
             if (!empty($vitalsRow['bp_systolic'])) $vp[] = '血压 ' . $vitalsRow['bp_systolic'] . '/' . $vitalsRow['bp_diastolic'] . 'mmHg';

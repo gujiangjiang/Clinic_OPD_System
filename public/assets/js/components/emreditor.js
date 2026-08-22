@@ -480,9 +480,12 @@ Clinic.emrEditor = (function () {
             if (f.type === 'text') f.el.setAttribute('contenteditable', ro ? 'false' : 'true');
             else f.el.disabled = ro;
         });
-        ROOT.querySelectorAll('.ef-field').forEach(function (el) {
-            el.classList.toggle('readonly', ro);
-        });
+        // 只读态下编辑器可能未渲染（ROOT 为空），加空指针防护
+        if (ROOT) {
+            ROOT.querySelectorAll('.ef-field').forEach(function (el) {
+                el.classList.toggle('readonly', ro);
+            });
+        }
     }
 
     /* ==================== 初步诊断选择模态框 ==================== */

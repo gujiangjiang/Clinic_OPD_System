@@ -105,8 +105,10 @@ switch ($action) {
                 $mirror = DB::one('medical', 'SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visit['id'], $pr['doctor_id']));
                 $pr['consciousness'] = $mirror ? (string)$mirror['consciousness'] : '';
                 $pr['visit_type'] = ($mirror && $mirror['visit_type'] !== '') ? (string)$mirror['visit_type'] : '初诊';
-                // 生命体征：首诊与续写段均展示该就诊最新体征（续写文书同样记录/展示当前体征）
-                $body .= pt_record($visit, $row['patient'], $pr, $vitals, $i === 0 ? 'full' : 'continue', $i === $last, $firstCreatedAt);
+                // 生命体征归属：仅取该文书医生本人录入的体征（operator=医生姓名），
+                // 未录入则空（打印显示 -）——谁的体征归属谁的文书
+                $segVitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1', array($visit['id'], $pr['doctor_name']));
+                $body .= pt_record($visit, $row['patient'], $pr, $segVitals, $i === 0 ? 'full' : 'continue', $i === $last, $firstCreatedAt);
             }
             json_ok(array('html' => '<div class="print-record-doc">' . $body . '</div>'));
         }
