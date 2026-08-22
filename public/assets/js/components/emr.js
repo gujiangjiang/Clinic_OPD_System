@@ -468,12 +468,19 @@ Clinic.emr = (function () {
         var bodyHtml = '<div class="prev-record-body">' +
             (secs.length ? secs.join('') : '<div class="text-muted fs-13">（该文书暂无内容）</div>') + '</div>';
 
-        // 首诊文书：完整文档版式（页眉归首诊）；续写文书：无页眉直接续写
+        // 首诊文书：完整文档版式（页眉归首诊，含右上角条形码——
+        // 与编辑页/打印一致）；续写文书：无页眉直接续写
         if (!isProgress) {
             var hosp = document.body.getAttribute('data-hosp') || '';
             var hosp2 = document.body.getAttribute('data-hosp2') || '';
             var docTitle = (DATA && DATA.visit && DATA.visit.dept_type === 'emergency') ? '急诊电子病历' : '门诊电子病历';
+            var bcSrc = document.getElementById('emrBarcodeSrc');
+            var bcHtml = (bcSrc && bcSrc.innerHTML && DATA && DATA.visit)
+                ? '<div class="doc-barcode">' + bcSrc.innerHTML +
+                  '<div class="doc-barcode-text">' + escHtml(DATA.visit.visit_no || '') + '</div></div>'
+                : '';
             return '<div class="emr-doc prev-doc-full">' +
+                bcHtml +
                 (hosp ? '<div class="doc-hosp">' + escHtml(hosp) + '</div>' : '') +
                 (hosp2 ? '<div class="doc-sub">' + escHtml(hosp2) + '</div>' : '') +
                 '<div class="doc-title-bar"><span class="doc-title">' + docTitle + '</span></div>' +
