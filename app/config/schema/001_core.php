@@ -6,7 +6,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 2,
+    'version' => 3,
     'tables' => array(
         'settings' => "CREATE TABLE IF NOT EXISTS settings (
             skey TEXT PRIMARY KEY,
@@ -41,7 +41,8 @@ return array(
             created_at TEXT,
             handled_by TEXT,
             handled_at TEXT,
-            note TEXT
+            note TEXT,
+            creation_source TEXT DEFAULT ''
         )",
     ),
     'migrations' => array(
@@ -52,6 +53,11 @@ return array(
             "ALTER TABLE messages ADD COLUMN patient_name TEXT DEFAULT ''",
             "ALTER TABLE messages ADD COLUMN visit_id INTEGER DEFAULT 0",
             "ALTER TABLE messages ADD COLUMN link_url TEXT DEFAULT ''",
+        ),
+        // v3：审核记录增加「创建来源」上下文（关联创建追溯，
+        // 如：在维护药品[青霉素]时快捷创建皮试处置）
+        3 => array(
+            "ALTER TABLE audits ADD COLUMN creation_source TEXT DEFAULT ''",
         ),
     ),
     'seed' => array(),

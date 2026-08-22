@@ -7,13 +7,14 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 1,
+    'version' => 2,
     'tables' => array(
         'drug_settings' => "CREATE TABLE IF NOT EXISTS drug_settings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             stype TEXT,
             name TEXT,
             need_nurse INTEGER DEFAULT 0,
+            bind_disposal_item_id INTEGER DEFAULT 0,
             sort INTEGER DEFAULT 0
         )",
         'drugs' => "CREATE TABLE IF NOT EXISTS drugs (
@@ -35,11 +36,21 @@ return array(
             is_limited INTEGER DEFAULT 0,
             note TEXT,
             need_nurse INTEGER DEFAULT 0,
+            need_skin_test INTEGER DEFAULT 0,
+            skin_test_item_id INTEGER DEFAULT 0,
             status TEXT DEFAULT 'pending',
             created_at TEXT
         )",
     ),
-    'migrations' => array(),
+    'migrations' => array(
+        // v2：皮试联动 —— 药品标记需皮试并关联皮试处置项目；
+        // 给药途径绑定计费处置（如静脉输液 → 静脉输液费），开方自动联动
+        2 => array(
+            "ALTER TABLE drugs ADD COLUMN need_skin_test INTEGER DEFAULT 0",
+            "ALTER TABLE drugs ADD COLUMN skin_test_item_id INTEGER DEFAULT 0",
+            "ALTER TABLE drug_settings ADD COLUMN bind_disposal_item_id INTEGER DEFAULT 0",
+        ),
+    ),
     'seed' => array(
         // 药品基础设置种子（分类/包装单位/剂型/频次/途径）
         "INSERT OR IGNORE INTO drug_settings(stype,name,need_nurse,sort) VALUES
