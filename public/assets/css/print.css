@@ -334,34 +334,61 @@
 
 /* ---------- 打印时：仅显示打印区域 ---------- */
 @media print {
-    body * { visibility: hidden; }
-    #print-area, #print-area * { visibility: visible; }
-    #print-area {
-        position: absolute;
-        left: 0; top: 0;
-        width: 100%;
-        box-shadow: none;
-        margin: 0;
-        padding: 0;
-        max-width: none;
-        min-height: 0;
-        background: #fff;
-        color: #111;
+    /* ============================================================
+     * 打印规则（v2 重写）：
+     * 1. 旧方案 body *{visibility:hidden} 保留隐藏内容布局空间，
+     *    且 .print-preview 为 position:fixed——Chrome 打印时 fixed
+     *    元素在每一页重复渲染 → 出现「N 张一模一样的单据」。
+     * 2. 新方案：应用内其余部分 display:none 彻底移出布局，
+     *    预览容器改为静态流式，页数 = 真实内容分页数。
+     * ============================================================ */
+    html, body {
+        height: auto !important;
+        overflow: visible !important;
+        background: #fff !important;
+    }
+    /* 预览层以外的应用内容全部移出布局 */
+    body > *:not(.print-preview) { display: none !important; }
+
+    /* 预览容器：fixed 改 static，解除每页重复与视口高度限制 */
+    .print-preview {
+        position: static !important;
+        inset: auto !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: #fff !important;
     }
     .print-toolbar { display: none !important; }
-    /* A5 病历纸打印：宽度严格限制为 148mm，内容可向下延伸到多页 */
-    .print-preview.sheet-a5 #print-area {
-        width: auto;
-        max-width: 100%;
-        min-height: 0;
-        box-sizing: border-box;
+
+    #print-area {
+        position: static !important;
+        left: auto !important;
+        top: auto !important;
+        width: auto !important;
+        max-width: none !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        overflow: visible !important;
+        background: #fff !important;
+        color: #111 !important;
     }
-    /* 文档本体同样收敛到可打印宽度内 */
-    .print-preview.sheet-a5 #print-area .print-record-doc {
-        width: 100%;
-        max-width: 100%;
-        box-sizing: border-box;
-    }
-    .print-preview.sheet-a5 #print-area * { box-sizing: border-box; }
     @page { margin: 10mm; }
+}
+
+/* ---------- A5 单据打印宽度：纸张148mm − 页边距2×10mm ----------
+ * 打印时内容收敛到可打印区内（128mm），超出高度自动纵向分页；
+ * 屏幕预览保持 148mm 纸张观感。 */
+@media print {
+    .print-preview.sheet-a5 .print-area,
+    .print-preview.sheet-a5 .print-area .print-record-doc,
+    .print-preview.sheet-a5 .print-area table {
+        max-width: 100% !important;
+        box-sizing: border-box;
+    }
 }
