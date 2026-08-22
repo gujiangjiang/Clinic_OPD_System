@@ -186,7 +186,10 @@ Clinic.emr = (function () {
         var vv = d.visit || {};   // 就诊信息（注意：v 为生命体征，患者信息网格必须用 vv）
         var p = d.patient || {};
         var isProgress = r.record_type === 'progress';
-        var tplBtn = '<button type="button" class="btn btn-outline btn-sm" id="tplBtn" onclick="Clinic.emr.openTemplates()">📋 病历模板</button>';
+        // 病历模板仅首诊文书支持；续写文书为承接性记录，不提供模板套用
+        // （页眉左上角隐藏入口）
+        var tplBtn = isProgress ? '' :
+            '<button type="button" class="btn btn-outline btn-sm" id="tplBtn" onclick="Clinic.emr.openTemplates()">📋 病历模板</button>';
 
         // 医院抬头与标题（与打印版式一致，所见即所得）；页眉归首诊文书所有，
         // 续写文书不带抬头/标题/患者信息/条形码，直接从「病历续写」开始
@@ -426,7 +429,8 @@ Clinic.emr = (function () {
             '</div>' +
             '<div class="prev-record-body">' +
             (secs.length ? secs.join('') : '<div class="text-muted fs-13">（该文书暂无内容）</div>') + '</div>' +
-            '<div class="doc-body-sign">医生：' + escHtml(rec.doctor_name) + '</div>';
+            // 只读段签名使用只读文字样式（灰色），与整段只读基调统一
+            '<div class="doc-body-sign ro-sign">医生：' + escHtml(rec.doctor_name) + '</div>';
     }
 
     /**

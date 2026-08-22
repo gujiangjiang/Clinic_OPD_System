@@ -751,3 +751,21 @@
     font-size: 12px;
     color: var(--text-muted);
 }
+
+/* 他人文书只读段的医生签名：使用只读文字样式（灰色弱化），
+   与该段灰色只读正文基调统一（区别于本人可编辑文书的黑色签名） */
+.emr-doc .doc-body-sign.ro-sign {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+/* 病历主体区虚线分隔：续写（本人）部分与原病历（他人只读段）之间
+   以虚线隔开，边界清晰；容器为空时不渲染分隔线 */
+.emr-doc #roBefore:not(:empty) {
+    border-bottom: 1px dashed var(--border);
+    margin-bottom: 10px;
+}
+.emr-doc #roAfter:not(:empty) {
+    border-top: 1px dashed var(--border);
+    margin-top: 10px;
+}
