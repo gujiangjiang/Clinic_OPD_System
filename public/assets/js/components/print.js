@@ -172,176 +172,194 @@ Clinic.print = (function () {
 
     /**
      * A5 固定纸张分页器：
-     * 把单据文档拆为 页眉区（医院抬头/标题/患者信息）+ 正文内容 + 页脚区（签名/时间），
-     * 按可打印版心高度逐节点分配到固定大小的 A5 页；
-     * 每一页都带完整页眉与页脚，末尾追加「第 X 页 / 共 Y 页」。
-     * 屏幕预览与打印输出使用同一套分页结果（所见即所得）。
+     * 支持一次打印多份单据（如按检查分类拆分出的多张申请单）——
+     * 每份 .print-record-doc 独立分页（新文档必从新页开始），
+     * 页码跨文档连续累计（第 X 页 / 共 Y 页）。
+     * 每一页都带完整页眉与页脚；屏幕预览与打印输出同构（所见即所得）。
+     */
+    /**
+     * A5 固定纸张分页器：
+     * 支持一次打印多份单据（如按检查分类拆分出的多张检查申请单）——
+     * 每份 .print-record-doc 独立分页，新文档必从新页开始；
+     * 页码跨文档连续累计（第 X 页 / 共 Y 页）。
+     * 多页病历自第 2 页起使用精简页眉（患者信息压缩为两行，标题不变）。
+     * 屏幕预览与打印输出同构（所见即所得）。
      */
     function paginateSheetA5() {
         try {
             var area = document.getElementById('print-area');
-            var doc = area.querySelector('.print-record-doc') || area.firstElementChild;
-            if (!doc || !doc.children.length) return;
+            // 收集待分页的单据文档：多份时逐份处理
+            var docs = Array.prototype.slice.call(area.querySelectorAll('.print-record-doc'));
+            if (!docs.length && area.firstElementChild) docs = [area.firstElementChild];
+            if (!docs.length) return;
 
-            var kids = Array.prototype.slice.call(doc.children);
+            var MM = 3.779527559;
+
             var headRe = /^(print-hosp|print-sub|print-title-line|print-header|print-record-barcode|print-line|print-info-grid|print-info-lines)$/;
-            // 页脚组类名集合：签名 / 末尾横线 / 时间行，以及提示词
-            // （请凭本单据至…执行/取药 等）。提示词要求固定在页面底部、
-            // 医生签名上一行靠左显示，因此归入页脚组随签名一起沉底，
-            // 而不是紧跟在表格/列表后面。匹配按 class 逐个判断，
-            // 兼容多类名节点（如 "print-note print-note-tip"）。
+            // 页脚组类名集合：签名/末尾横线/时间行 + 提示词（沉底到医生签名上方，
+            // 不紧跟表格/列表）。匹配按 class 逐个判断，兼容多类名节点。
             var footSet = ['print-record-sign', 'print-record-foot', 'print-line', 'print-note', 'print-note-tip'];
             function inFootSet(n) {
                 var toks = ((n.className || '') + '').trim().split(/\s+/).filter(Boolean);
                 return toks.length > 0 && toks.every(function (t) { return footSet.indexOf(t) !== -1; });
             }
 
-            // ---- 头部：前缀连续命中头部类名 ----
-            var hi = 0;
-            while (hi < kids.length && headRe.test((kids[hi].className || '').trim())) hi++;
-
-            // ---- 尾部：后缀连续命中页脚类名（必须含签名或时间行才算有效）----
-            var fi = kids.length;
-            while (fi > 0 && inFootSet(kids[fi - 1])) fi--;
-            var footNodes = kids.slice(fi);
-            var validFoot = footNodes.some(function (n) {
-                var toks = ((n.className || '') + '').trim().split(/\s+/);
-                return toks.indexOf('print-record-sign') !== -1 || toks.indexOf('print-record-foot') !== -1;
-            });
-            if (!validFoot) { footNodes = []; }
-            var headNodes = kids.slice(0, hi);
-            var contentNodes = kids.slice(hi, validFoot ? fi : kids.length);
-
-            // ---- 后续页精简页眉（仅门诊病历含 .print-info-grid 时生成）----
-            // 首页保留完整患者信息网格；第 2 页起参考急诊病历样式：
-            // 医院抬头/标题（仍为「门诊电子病历」）与条形码不变，
-            // 患者信息压缩为两行，缩短重复页眉占用的版心高度。
-            var compactHeadNodes = null;
-            var gridIdx = -1;
-            headNodes.forEach(function (n, i) {
-                if (gridIdx === -1 && ((' ' + (n.className || '') + ' ').indexOf(' print-info-grid ') !== -1)) gridIdx = i;
-            });
-            if (gridIdx !== -1) {
-                var cells = {};
-                headNodes[gridIdx].querySelectorAll('.print-info-cell').forEach(function (c) {
-                    var strong = c.querySelector('strong');
-                    if (!strong) return;
-                    var label = strong.textContent.replace(/：\s*$/, '');
-                    var full = (c.textContent || '').trim();
-                    cells[label] = full.charAt(label.length) === '：' ? full.slice(label.length + 1).trim() : '';
-                });
-                var esc = function (s) {
-                    return String(s).replace(/[&<>"]/g, function (ch) {
-                        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch];
-                    });
-                };
-                var pick = function (labels) {
-                    return labels.filter(function (l) { return cells[l]; }).map(function (l) {
-                        return '<span class="print-info-cell"><strong>' + esc(l) + '</strong>：' + esc(cells[l]) + '</span>';
-                    }).join('');
-                };
-                var linesDiv = document.createElement('div');
-                linesDiv.className = 'print-info-lines';
-                linesDiv.innerHTML =
-                    '<div class="print-info-line">' + pick(['姓名', '性别', '出生日期', '年龄']) + '</div>' +
-                    '<div class="print-info-line">' + pick(['患者ID', '初复诊', '科室', '联系方式']) + '</div>';
-                compactHeadNodes = headNodes.map(function (n, i) {
-                    return i === gridIdx ? linesDiv : n.cloneNode(true);
-                });
-            }
-
-            // ---- 测量：宽度取打印可打印区 128mm ----
-            var MM = 3.779527559;
+            // 测量容器：宽度取打印可打印区 128mm（整个分页过程复用）
             var meas = document.createElement('div');
             meas.style.cssText = 'position:absolute;left:-99999px;top:0;width:128mm;visibility:hidden';
             area.appendChild(meas);
 
-            var mHead = document.createElement('div');
-            mHead.className = 'a5-head';
-            headNodes.forEach(function (n) { mHead.appendChild(n.cloneNode(true)); });
-            meas.appendChild(mHead);
-            var headH = mHead.offsetHeight;
-            meas.innerHTML = '';
+            /**
+             * 对单个单据文档执行「头/尾识别 → 精简页眉构建 → 测高 → 整节点分配」。
+             * 返回该文档的页面数组 [{head:[节点], body:[节点], foot:[节点], over:bool}]
+             * 首页用完整页眉；后续页有精简版则用精简版。
+             */
+            function paginateDoc(doc) {
+                var kids = Array.prototype.slice.call(doc.children);
 
-            var mFoot = document.createElement('div');
-            mFoot.className = 'a5-foot';
-            footNodes.forEach(function (n) { mFoot.appendChild(n.cloneNode(true)); });
-            var mPg = document.createElement('div');
-            mPg.className = 'a5-page-no';
-            mPg.textContent = '第 1 页 / 共 1 页';
-            mFoot.appendChild(mPg);
-            meas.appendChild(mFoot);
-            var footH = mFoot.offsetHeight;
-            meas.innerHTML = '';
+                // ---- 头部：前缀连续命中头部类名 ----
+                var hi = 0;
+                while (hi < kids.length && headRe.test((kids[hi].className || '').trim())) hi++;
 
-            // 正文可用高度：屏幕预览纸张内容区约 190mm，而打印纸张锁定
-            // 187mm——按 190mm 分页会导致「预览完整、正式打印末行被裁半」。
-            // 这里统一以 184mm 为基准（再留 3mm 防字体度量微差），
-            // 并叠加 14px 安全余量，保证预览与打印分页结果完全一致：
-            // 宁可每页底部多留一点空白，也绝不让任何一行在纸上被截断。
-            var availH = Math.floor(184 * MM) - headH - footH - 14;
+                // ---- 尾部：后缀连续命中页脚类名（必须含签名或时间行才算有效）----
+                var fi = kids.length;
+                while (fi > 0 && inFootSet(kids[fi - 1])) fi--;
+                var footNodes = kids.slice(fi);
+                var validFoot = footNodes.some(function (n) {
+                    var toks = ((n.className || '') + '').trim().split(/\s+/);
+                    return toks.indexOf('print-record-sign') !== -1 || toks.indexOf('print-record-foot') !== -1;
+                });
+                if (!validFoot) { footNodes = []; }
+                var headNodes = kids.slice(0, hi);
+                var contentNodes = kids.slice(hi, validFoot ? fi : kids.length);
 
-            // 逐节点测高：offsetHeight 不含外边距，而各小节有 margin-bottom、
-            // 表格有上下 margin，逐项漏加会让整页累计低估、末页底部被裁切。
-            // 单独放入量杯测量并叠加自身上下外边距（此环境下不与兄弟折叠，
-            // 结果只会略偏保守，分页更安全）。
-            var heights = [];
-            contentNodes.forEach(function (n) {
-                meas.appendChild(n);
-                var cs = window.getComputedStyle(n);
-                var h = n.offsetHeight +
-                    (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
-                heights.push(h);
-                meas.removeChild(n);
+                // ---- 后续页精简页眉（仅门诊病历含 .print-info-grid 时生成）----
+                // 首页保留完整患者信息网格；第 2 页起参考急诊病历样式：
+                // 医院抬头/标题（仍为「门诊电子病历」）与条形码不变，
+                // 患者信息压缩为两行，缩短重复页眉占用的版心高度。
+                var compactHeadNodes = null;
+                var gridIdx = -1;
+                headNodes.forEach(function (n, i) {
+                    if (gridIdx === -1 && ((' ' + (n.className || '') + ' ').indexOf(' print-info-grid ') !== -1)) gridIdx = i;
+                });
+                if (gridIdx !== -1) {
+                    var cells = {};
+                    headNodes[gridIdx].querySelectorAll('.print-info-cell').forEach(function (c) {
+                        var strong = c.querySelector('strong');
+                        if (!strong) return;
+                        var label = strong.textContent.replace(/：\s*$/, '');
+                        var full = (c.textContent || '').trim();
+                        cells[label] = full.charAt(label.length) === '：' ? full.slice(label.length + 1).trim() : '';
+                    });
+                    var esc = function (s) {
+                        return String(s).replace(/[&<>"]/g, function (ch) {
+                            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch];
+                        });
+                    };
+                    var pick = function (labels) {
+                        return labels.filter(function (l) { return cells[l]; }).map(function (l) {
+                            return '<span class="print-info-cell"><strong>' + esc(l) + '</strong>：' + esc(cells[l]) + '</span>';
+                        }).join('');
+                    };
+                    var linesDiv = document.createElement('div');
+                    linesDiv.className = 'print-info-lines';
+                    linesDiv.innerHTML =
+                        '<div class="print-info-line">' + pick(['姓名', '性别', '出生日期', '年龄']) + '</div>' +
+                        '<div class="print-info-line">' + pick(['患者ID', '初复诊', '科室', '联系方式']) + '</div>';
+                    compactHeadNodes = headNodes.map(function (n, i) {
+                        return i === gridIdx ? linesDiv : n.cloneNode(true);
+                    });
+                }
+
+                // ---- 测量页眉高度（按完整页眉计；后续页精简只会更矮，保守安全）----
+                var mHead = document.createElement('div');
+                mHead.className = 'a5-head';
+                headNodes.forEach(function (n) { mHead.appendChild(n.cloneNode(true)); });
+                meas.appendChild(mHead);
+                var headH = mHead.offsetHeight;
+                meas.innerHTML = '';
+
+                // ---- 测量页脚高度（含页码行占位）----
+                var mFoot = document.createElement('div');
+                mFoot.className = 'a5-foot';
+                footNodes.forEach(function (n) { mFoot.appendChild(n.cloneNode(true)); });
+                var mPg = document.createElement('div');
+                mPg.className = 'a5-page-no';
+                mPg.textContent = '第 1 页 / 共 1 页';
+                mFoot.appendChild(mPg);
+                meas.appendChild(mFoot);
+                var footH = mFoot.offsetHeight;
+                meas.innerHTML = '';
+
+                // 正文可用高度：以 184mm 为基准（打印纸张锁定 187mm，再留 3mm 防
+                // 字体度量微差），叠加 14px 安全余量——预览与打印完全一致
+                var availH = Math.floor(184 * MM) - headH - footH - 14;
+
+                // 逐节点测高：offsetHeight 叠加上下外边距（略偏保守更安全）
+                var heights = [];
+                contentNodes.forEach(function (n) {
+                    meas.appendChild(n);
+                    var cs = window.getComputedStyle(n);
+                    var h = n.offsetHeight +
+                        (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+                    heights.push(h);
+                    meas.removeChild(n);
+                });
+
+                // ---- 分配：整节点原子分页，不拆行 ----
+                // 单节点超整页版心时标记 a5-overflow 兜底，不丢内容；
+                // 首页用完整页眉，后续页有精简版则用精简版。
+                var pages = [];
+                var used = 0;
+                contentNodes.forEach(function (n, i) {
+                    var h = heights[i] || 0;
+                    if (!pages.length || (used + h > availH && pages[pages.length - 1].body.length)) {
+                        pages.push({
+                            head: (pages.length && compactHeadNodes) ? compactHeadNodes : headNodes,
+                            body: [], foot: footNodes, over: false
+                        });
+                        used = 0;
+                    }
+                    var cur = pages[pages.length - 1];
+                    if (h > availH) cur.over = true;
+                    cur.body.push(n);
+                    used += h;
+                });
+                if (!pages.length) {
+                    pages.push({ head: headNodes, body: [], foot: footNodes, over: false });
+                }
+                return pages;
+            }
+
+            // ---- 逐文档分页，汇总全部页面 ----
+            var allPages = [];
+            docs.forEach(function (doc) {
+                paginateDoc(doc).forEach(function (p) { allPages.push(p); });
             });
             meas.remove();
 
-            // ---- 分配：整节点原子分页，不拆行 ----
-            // 单节点高度超过整页版心（如超长现病史段落）时无法再拆，
-            // 标记所在页为 a5-overflow：放开该页固定高度与裁剪，
-            // 由浏览器自然续页，宁可版式略松也不丢内容。
-            var pages = [[]];
-            var overFlags = [false];
-            var used = 0;
-            contentNodes.forEach(function (n, i) {
-                var h = heights[i] || 0;
-                var cur = pages.length - 1;
-                if (used + h > availH && pages[cur].length) {
-                    pages.push([]);
-                    overFlags.push(false);
-                    used = 0;
-                    cur++;
-                }
-                if (h > availH) overFlags[cur] = true;
-                pages[cur].push(n);
-                used += h;
-            });
-
-            // ---- 组装页面：每页 = 页眉 + 正文 + 页脚 + 页码 ----
+            // ---- 组装页面：每页 = 页眉 + 正文 + 页脚 + 全局连续页码 ----
             area.innerHTML = '';
             area.classList.add('paginated');
-            pages.forEach(function (pageNodes, i) {
+            allPages.forEach(function (page, i) {
                 var sheet = document.createElement('div');
                 sheet.className = 'a5-sheet';
-                if (overFlags[i]) sheet.classList.add('a5-overflow');
-
-                // 首页完整页眉；后续页有精简版则用精简版（缩短重复患者信息区）
-                var pageHead = (i === 0 || !compactHeadNodes) ? headNodes : compactHeadNodes;
+                if (page.over) sheet.classList.add('a5-overflow');
 
                 var hd = document.createElement('div');
                 hd.className = 'a5-head';
-                pageHead.forEach(function (n) { hd.appendChild(n.cloneNode(true)); });
+                page.head.forEach(function (n) { hd.appendChild(n.cloneNode(true)); });
 
                 var bd = document.createElement('div');
                 bd.className = 'a5-body';
-                pageNodes.forEach(function (n) { bd.appendChild(n.cloneNode(true)); });
+                page.body.forEach(function (n) { bd.appendChild(n.cloneNode(true)); });
 
                 var ft = document.createElement('div');
                 ft.className = 'a5-foot';
-                footNodes.forEach(function (n) { ft.appendChild(n.cloneNode(true)); });
+                page.foot.forEach(function (n) { ft.appendChild(n.cloneNode(true)); });
                 var pg = document.createElement('div');
                 pg.className = 'a5-page-no';
-                pg.textContent = '第 ' + (i + 1) + ' 页 / 共 ' + pages.length + ' 页';
+                pg.textContent = '第 ' + (i + 1) + ' 页 / 共 ' + allPages.length + ' 页';
                 ft.appendChild(pg);
 
                 sheet.appendChild(hd);
@@ -353,6 +371,5 @@ Clinic.print = (function () {
             // 分页失败时保持原始单页渲染，不影响打印
         }
     }
-
     return { open: open, load: load, close: close };
 })();

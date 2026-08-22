@@ -10,7 +10,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 2,
+    'version' => 3,
     'tables' => array(
         'orders' => "CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,7 +26,8 @@ return array(
             created_at TEXT,
             paid_at TEXT,
             refunded_at TEXT,
-            done_by TEXT
+            done_by TEXT,
+            cat_name TEXT DEFAULT ''
         )",
         'order_items' => "CREATE TABLE IF NOT EXISTS order_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -96,6 +97,11 @@ return array(
         //       MySQL 下该语句同样会被跳过（列已存在），如需增量升级可手动执行。
         2 => array(
             "ALTER TABLE order_items ADD COLUMN result_id INTEGER DEFAULT 0",
+        ),
+        // v3：检查申请单按「检查分类」拆分——orders 记录所属分类名称快照，
+        //     用于打印标题动态显示（如 CT申请单 / DR（数字化X线）申请单）
+        3 => array(
+            "ALTER TABLE orders ADD COLUMN cat_name TEXT DEFAULT ''",
         ),
     ),
     'seed' => array(),

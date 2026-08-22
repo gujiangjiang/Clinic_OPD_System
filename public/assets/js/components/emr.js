@@ -433,6 +433,9 @@ Clinic.emr = (function () {
                         return '<div class="fs-13" style="padding:2px 0">· ' + it.item_name +
                             (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>';
                     }).join('');
+                    // 检查申请单标题动态化：优先使用分类名称快照（如 CT / MR / DR（数字化X线））
+                    var title = (o.order_type === 'imaging' && o.cat_name && o.cat_name !== '检查')
+                        ? o.cat_name : (typeNames[o.order_type] || o.order_type);
                     // 未缴费或已退费的处方/开单可删除（退费后可删除并恢复库存）
                     var canDel = (o.status === 'open' || o.status === 'refunded');
                     // stopPropagation：阻止事件冒泡到卡片 onclick（viewOrderFlow），
@@ -444,7 +447,7 @@ Clinic.emr = (function () {
                     return '<div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer" ' +
                         'onclick="viewOrderFlow(' + o.id + ')">' +
                         '<div class="flex-between">' +
-                        '  <span class="fw-600 fs-13">' + (typeNames[o.order_type] || o.order_type) + ' ' + o.order_no + '</span>' +
+                        '  <span class="fw-600 fs-13">' + title + ' ' + o.order_no + '</span>' +
                         delBtn +
                         '</div>' +
                         items +
@@ -915,9 +918,10 @@ function viewOrderFlow(orderId) {
                     (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>';
             }).join('');
 
+            var catTitle = (o.order_type === 'imaging' && o.cat_name && o.cat_name !== '检查') ? o.cat_name : (typeNames[o.order_type] || '');
             var printBtn = '<button class="btn btn-outline btn-sm" style="margin-top:8px" ' +
                 'onclick="Clinic.print.load(\'/api/print?action=order&order_id=' + o.id + '\',null,\'a5\')">🖨️ 打印' +
-                (typeNames[o.order_type] || '') + '单</button>';
+                catTitle + '单</button>';
 
             // 删除 / 毁方按钮：处方称「毁方」，其余称「删除」；
             // 仅未缴费（open）或已退费（refunded）可删，其余点击提示到收费处退费
@@ -931,7 +935,7 @@ function viewOrderFlow(orderId) {
             Clinic.modal.open(
                 '<div class="flex gap-16">' +
                 '  <div style="flex:1">' +
-                '    <div class="fw-600 mb-8">' + (typeNames[o.order_type] || '') + '：' + o.order_no + '</div>' +
+                '    <div class="fw-600 mb-8">' + catTitle + '：' + o.order_no + '</div>' +
                 '    ' + items +
                 '    <div class="fs-13 text-muted mt-8">金额：¥' + parseFloat(o.total_amount).toFixed(2) + '</div>' +
                 '    <div class="fs-13 text-muted">开单医生：' + (o.doctor_name || '—') + ' ｜ ' + o.created_at + '</div>' +

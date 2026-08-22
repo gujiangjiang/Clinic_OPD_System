@@ -154,49 +154,132 @@ switch ($action) {
             }
         }
 
-        // ===== 生成单号并写入订单 =====
-        $typeCode = array('lab' => 'JY', 'imaging' => 'JC', 'procedure' => 'CZ', 'prescription' => 'CF');
-        $orderNo = (isset($typeCode[$orderType]) ? $typeCode[$orderType] : 'DD') . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
-
-        $orderId = DB::insert('order', 'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, doctor_id, doctor_name, total_amount, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
-            $visitId, $visit['patient_no'], $visit['flow_no'], $orderType, $orderNo,
-            $u['id'], $u['name'], $total, 'open', now_str(),
-        ));
-        foreach ($orderItems as $it) {
-            DB::insert('order', 'INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, spec, unit_name, company_short, price, quantity, single_dose, frequency_name, route_name, need_nurse, sub_of, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
-                $orderId, $visitId, $visit['patient_no'], $visit['flow_no'], $it['item_type'], $it['item_id'],
-                $it['item_name'], $it['spec'], $it['unit_name'], $it['company_short'], $it['price'], $it['quantity'],
-                $it['single_dose'], $it['frequency_name'], $it['route_name'], $it['need_nurse'], $it['sub_of'],
-                'open', $u['id'], $u['name'], now_str(),
-            ));
+        // ===== 分组组装：检查申请单按「检查分类」自动拆分 =====
+        // 检查需前往不同地点分散执行，不同分类（如 CT / MR / DR）拆分为
+        // 不同申请单（各自独立单号），同分类合并为一张；
+        // 检验/处置/处方保持单张。分组后每组独立走建单流程。
+        $itemSeq = array();          // $orderItems 下标 => 全局主项目序号(1基)
+        $mainSeq = 0;
+        foreach ($orderItems as $i => $it) {
+            if ((int)$it['sub_of'] === 0) { $mainSeq++; $itemSeq[$i] = $mainSeq; }
         }
-
-        // ===== 处方开单即减库存 =====
-        if ($orderType === 'prescription') {
-            foreach ($orderItems as $it) {
-                if ($it['item_id'] > 0 && $it['sub_of'] === 0) {
-                    DB::exec('drug', 'UPDATE drugs SET qty = qty - ? WHERE id=?', array($it['quantity'], $it['item_id']));
-                    DB::insert('order', 'INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
-                        $it['item_id'], -$it['quantity'], 'order_out', $orderNo, $u['name'], now_str(),
-                    ));
+        if ($orderType === 'imaging') {
+            // 主项目 → exam_items.category（管理员自定义分类名称，如 CT / DR（数字化X线））
+            $examIds = array();
+            foreach ($itemSeq as $i => $seq) {
+                if ((int)$orderItems[$i]['item_id'] > 0) $examIds[(int)$orderItems[$i]['item_id']] = 1;
+            }
+            $catMap = array();
+            if ($examIds) {
+                $ph = implode(',', array_fill(0, count($examIds), '?'));
+                foreach (DB::q('lab', "SELECT id, category FROM exam_items WHERE id IN ($ph)", array_keys($examIds)) as $r) {
+                    $catMap[(int)$r['id']] = trim((string)$r['category']);
                 }
             }
+            $groups = array();
+            $seqGroup = array();
+            foreach ($itemSeq as $i => $seq) {
+                $cat = (isset($catMap[(int)$orderItems[$i]['item_id']]) && $catMap[(int)$orderItems[$i]['item_id']] !== '')
+                    ? $catMap[(int)$orderItems[$i]['item_id']] : '检查';
+                if (!isset($groups[$cat])) $groups[$cat] = array('cat' => $cat, 'idx' => array());
+                $groups[$cat]['idx'][] = $i;
+                $seqGroup[$seq] = $cat;
+            }
+            // 子项目跟随其主项目所在分组（sub_of 为全局主项目 1 基序号）
+            foreach ($orderItems as $i => $it) {
+                $ps = (int)$it['sub_of'];
+                if ($ps > 0) {
+                    $gk = isset($seqGroup[$ps]) ? $seqGroup[$ps] : '检查';
+                    $groups[$gk]['idx'][] = $i;
+                } elseif ($ps < 0) {
+                    json_fail('开单明细参数错误');
+                }
+            }
+            $groupList = array_values($groups);
+        } else {
+            $groupList = array(array('cat' => '', 'idx' => array_keys($orderItems)));
         }
 
-        // ===== 站内消息 + 打印提醒（通知方式：纯站内消息+打印提醒） =====
-        $printUrl = '/api/print?action=order&order_id=' . $orderId;
-        $titles = array('lab' => '新的检验申请单', 'imaging' => '新的检查申请单', 'procedure' => '新的处置单', 'prescription' => '新的处方单');
+        // ===== 逐组生成申请单（单号遵循原规则；循环查重保证多张同时创建不撞号） =====
+        $typeCode = array('lab' => 'JY', 'imaging' => 'JC', 'procedure' => 'CZ', 'prescription' => 'CF');
+        $typeTitle = array('lab' => '检验申请单', 'imaging' => '检查申请单', 'procedure' => '处置单', 'prescription' => '处方单');
         $targets = array('lab' => 'lab', 'imaging' => 'imaging', 'procedure' => 'nurse', 'prescription' => 'pharmacy');
-        if (isset($targets[$orderType])) {
-            // 患者消息：标记患者姓名与就诊ID，收件人可在消息中心点击直达该次病历
-            send_msg($targets[$orderType], 0,
-                $titles[$orderType],
-                '患者：' . $row['patient']['name'] . '（' . $visit['patient_no'] . '），流水号 ' . $visit['flow_no'] . '，请及时处理',
-                'order', $printUrl,
-                array('msg_type' => 'patient', 'patient_name' => $row['patient']['name'], 'visit_id' => $visitId));
+        $createdIds = array();
+        $createdNos = array();
+        $totalAll = 0;
+        foreach ($groupList as $g) {
+            // 组内主项目重新编号（子项 sub_of 引用同步改写为本组新序号）
+            $localNo = 0;
+            $mapSeq = array();   // 全局主项目序号 => 本组新序号
+            $groupTotal = 0;
+            foreach ($g['idx'] as $i) {
+                if ((int)$orderItems[$i]['sub_of'] === 0) {
+                    $localNo++;
+                    $mapSeq[$itemSeq[$i]] = $localNo;
+                    $groupTotal += (float)$orderItems[$i]['price'] * max(1, (int)$orderItems[$i]['quantity']);
+                }
+            }
+
+            do {
+                $orderNo = (isset($typeCode[$orderType]) ? $typeCode[$orderType] : 'DD') . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
+            } while ((int)DB::val('order', 'SELECT COUNT(*) FROM orders WHERE order_no=?', array($orderNo)) > 0);
+
+            $orderId = DB::insert('order', 'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, cat_name, doctor_id, doctor_name, total_amount, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
+                $visitId, $visit['patient_no'], $visit['flow_no'], $orderType, $orderNo, $g['cat'],
+                $u['id'], $u['name'], $groupTotal, 'open', now_str(),
+            ));
+            foreach ($g['idx'] as $i) {
+                $it = $orderItems[$i];
+                $sub = (int)$it['sub_of'];
+                $newSub = ($sub > 0 && isset($mapSeq[$sub])) ? $mapSeq[$sub] : 0;
+                DB::insert('order', 'INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, spec, unit_name, company_short, price, quantity, single_dose, frequency_name, route_name, need_nurse, sub_of, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                    $orderId, $visitId, $visit['patient_no'], $visit['flow_no'], $it['item_type'], $it['item_id'],
+                    $it['item_name'], $it['spec'], $it['unit_name'], $it['company_short'], $it['price'], $it['quantity'],
+                    $it['single_dose'], $it['frequency_name'], $it['route_name'], $it['need_nurse'], $newSub,
+                    'open', $u['id'], $u['name'], now_str(),
+                ));
+            }
+
+            // ===== 处方开单即减库存（按组处理） =====
+            if ($orderType === 'prescription') {
+                foreach ($g['idx'] as $i) {
+                    $it = $orderItems[$i];
+                    if ((int)$it['item_id'] > 0 && (int)$it['sub_of'] === 0) {
+                        DB::exec('drug', 'UPDATE drugs SET qty = qty - ? WHERE id=?', array($it['quantity'], $it['item_id']));
+                        DB::insert('order', 'INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
+                            $it['item_id'], -$it['quantity'], 'order_out', $orderNo, $u['name'], now_str(),
+                        ));
+                    }
+                }
+            }
+
+            // ===== 站内消息 + 打印提醒（每张申请单一条，可独立处理/打印） =====
+            $printUrl = '/api/print?action=order&order_id=' . $orderId;
+            if ($orderType === 'imaging') {
+                $msgTitle = ($g['cat'] !== '' && $g['cat'] !== '检查') ? '新的' . $g['cat'] . '申请单' : $typeTitle[$orderType];
+            } else {
+                $msgTitle = isset($typeTitle[$orderType]) ? '新的' . $typeTitle[$orderType] : '新的申请单';
+            }
+            if (isset($targets[$orderType])) {
+                send_msg($targets[$orderType], 0,
+                    $msgTitle,
+                    '患者：' . $row['patient']['name'] . '（' . $visit['patient_no'] . '），流水号 ' . $visit['flow_no'] . '，请及时处理',
+                    'order', $printUrl,
+                    array('msg_type' => 'patient', 'patient_name' => $row['patient']['name'], 'visit_id' => $visitId));
+            }
+
+            $createdIds[] = $orderId;
+            $createdNos[] = $orderNo;
+            $totalAll += $groupTotal;
         }
 
-        json_ok(array('order_id' => $orderId, 'total' => $total, 'order_no' => $orderNo), '开单成功');
+        json_ok(array(
+            'order_id' => $createdIds[0],
+            'order_ids' => $createdIds,
+            'order_no' => $createdNos[0],
+            'order_nos' => $createdNos,
+            'total' => $totalAll,
+        ), count($createdIds) > 1 ? '已按检查分类拆分为 ' . count($createdIds) . ' 张申请单' : '开单成功');
         break;
 
     /* ==================== 既往开具记录（互斥/复查二次确认） ==================== */
@@ -255,6 +338,8 @@ switch ($action) {
             }
             $out[] = array(
                 'id' => (int)$o['id'], 'order_no' => $o['order_no'], 'order_type' => $o['order_type'],
+                // 检查分类名称快照：检查申请单按分类拆分后，前端动态显示「XX申请单」
+                'cat_name' => isset($o['cat_name']) ? (string)$o['cat_name'] : '',
                 'status' => order_agg_status($o['order_type'], $items),
                 'total_amount' => (float)$o['total_amount'], 'doctor_name' => $o['doctor_name'],
                 'created_at' => $o['created_at'], 'done_by' => $doneBy,

@@ -49,17 +49,32 @@ switch ($action) {
 
     /* ---------------- 申请单 / 处方单 / 处置单 ---------------- */
     case 'order':
-        $orderId = (int)get('order_id');
-        $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array($orderId));
-        if (!$order) json_fail('开单记录不存在');
-        $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($orderId));
-        $titles = array('lab' => '检验申请单', 'imaging' => '检查申请单', 'procedure' => '处置申请单', 'prescription' => '门诊处方笺');
-        $title = isset($titles[$order['order_type']]) ? $titles[$order['order_type']] : '申请单';
-        $order['need_nurse_any'] = 0;
-        foreach ($items as $it) {
-            if (!empty($it['need_nurse'])) $order['need_nurse_any'] = 1;
+        // 支持批量：检查申请单按分类拆分后，一次性打印多张（order_ids=1,2,3）
+        $idsRaw = trim((string)get('order_ids', ''));
+        if ($idsRaw !== '') {
+            $orderIds = array_values(array_unique(array_filter(array_map('intval', explode(',', $idsRaw)), function ($v) { return $v > 0; })));
+        } else {
+            $orderIds = array_filter(array((int)get('order_id')), function ($v) { return $v > 0; });
         }
-        json_ok(array('html' => pt_order($order, $items, $title)));
+        if (!$orderIds) json_fail('开单记录不存在');
+        $titles = array('lab' => '检验申请单', 'imaging' => '检查申请单', 'procedure' => '处置申请单', 'prescription' => '门诊处方笺');
+        $html = '';
+        foreach ($orderIds as $orderId) {
+            $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array($orderId));
+            if (!$order) json_fail('开单记录不存在');
+            $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($orderId));
+            // 检查申请单标题动态化：显示「{检查分类}申请单」（如 CT申请单 / DR（数字化X线）申请单）
+            $title = isset($titles[$order['order_type']]) ? $titles[$order['order_type']] : '申请单';
+            if ($order['order_type'] === 'imaging' && isset($order['cat_name']) && trim((string)$order['cat_name']) !== '' && trim((string)$order['cat_name']) !== '检查') {
+                $title = trim((string)$order['cat_name']) . '申请单';
+            }
+            $order['need_nurse_any'] = 0;
+            foreach ($items as $it) {
+                if (!empty($it['need_nurse'])) $order['need_nurse_any'] = 1;
+            }
+            $html .= pt_order($order, $items, $title);
+        }
+        json_ok(array('html' => $html));
         break;
 
     /* ---------------- 电子病历（补打） ---------------- */

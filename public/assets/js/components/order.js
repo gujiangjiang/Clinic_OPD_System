@@ -185,7 +185,7 @@ Clinic.order = (function () {
         // 各开单类型的互斥规则提示
         var legend = {
             lab: '提示：组合与所含单项互斥；不同组合共享成员将提醒；既往已开具会二次确认',
-            imaging: '提示：同一检查项目仅可添加一次，数量不可重复',
+            imaging: '提示：同一检查项目仅可添加一次；不同检查分类（如 CT/MR）将自动拆分为多张申请单',
             procedure: '提示：同一处置项目仅可添加一次，数量可在已选列表中手动修改',
             prescription: '提示：同一药品仅可添加一次，数量可在已选列表中手动修改',
         }[CUR_TYPE] || '';
@@ -545,10 +545,13 @@ Clinic.order = (function () {
         }, {
             loading: true,
             onSuccess: function (j) {
-                Clinic.toast.success('开单成功，总费用 ¥' + parseFloat(j.data.total).toFixed(2));
+                var msg = j.msg || '开单成功';
+                Clinic.toast.success(msg + '，总费用 ¥' + parseFloat(j.data.total).toFixed(2));
                 Clinic.modal.close();
-                // 申请单/处置单/处方单统一 A5 病历纸样式
-                Clinic.print.load('/api/order?action=print&order_id=' + j.data.order_id, null, 'a5');
+                // 申请单/处置单/处方单统一 A5 病历纸样式；检查按分类拆分后一次打印多张
+                var ids = j.data.order_ids && j.data.order_ids.length ? j.data.order_ids : [j.data.order_id];
+                var q = ids.length > 1 ? 'order_ids=' + ids.join(',') : 'order_id=' + ids[0];
+                Clinic.print.load('/api/print?action=order&' + q, null, 'a5');
                 Clinic.emr.loadOrders(VISIT_ID);
             },
         });
