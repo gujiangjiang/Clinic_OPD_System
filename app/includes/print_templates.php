@@ -349,13 +349,14 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
     $html = '';
 
     if ($mode === 'continue') {
-        // 续写段承接头：上一份病历完成后，分割线下显示「病历续写 / 续写时间」，
-        // 直接从续写正文接着写起（页眉归首诊文书）
-        $html .= '<div class="print-line"></div>';
+        // 续写段承接头：一条虚线分割上下文书，下一行左右两端对齐——
+        // 左端为该次续写的「日期 时间」，右端为「续写病历 科室」，
+        // 随后直接接「病历续写：……」等续写正文（页眉归首诊文书）
+        $contDept = isset($visit['current_dept_name']) ? (string)$visit['current_dept_name'] : '';
+        $contTime = isset($record['created_at']) ? substr((string)$record['created_at'], 0, 16) : '';
         $html .= '<div class="print-record-cont">' .
-            '<span class="prc-title">病历续写</span>' .
-            '<span class="prc-time">续写时间：' . e(isset($record['created_at']) ? $record['created_at'] : '') . '</span>' .
-            (!empty($record['doctor_name']) ? '<span class="prc-doctor">续写医生：' . e($record['doctor_name']) . '</span>' : '') .
+            '<span class="prc-time">' . e($contTime) . '</span>' .
+            '<span class="prc-right">续写病历' . ($contDept !== '' ? '　' . e($contDept) : '') . '</span>' .
             '</div>';
     } else {
         $html .= pt_header($title);
