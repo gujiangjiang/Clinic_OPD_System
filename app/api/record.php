@@ -74,12 +74,13 @@ function emr_order_snapshot($visitId) {
     $orderNames = array();
     $rxLines = array();
     $dispItems = array();
-    foreach ($orders as $o) {
-        $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
-        $agg = order_agg_status($o['order_type'], $items);
-        if ($agg === 'refunded' || $agg === 'cancelled') continue;
-        foreach ($items as $it) {
-            if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
+        foreach ($orders as $o) {
+            $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
+            $agg = order_agg_status($o['order_type'], $items);
+            if ($agg === 'refunded' || $agg === 'cancelled') continue;
+            foreach ($items as $it) {
+                if (empty($it['item_name'])) continue; // 防空名明细混入病历文本
+                if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
                 $orderNames[] = $it['item_name'];
             } elseif ($o['order_type'] === 'procedure') {
                 $dispItems[] = array('name' => $it['item_name'], 'qty' => (int)$it['quantity']);

@@ -84,7 +84,11 @@ function emr_diag_text($diagnoses) {
 function emr_aux_text($emr, $orderNames) {
     $g = function ($k) use ($emr) { return isset($emr[$k]) ? $emr[$k] : ''; };
     $parts = array();
-    if (is_array($orderNames) && count($orderNames)) $parts[] = implode('，', $orderNames);
+    if (is_array($orderNames)) {
+        foreach ($orderNames as $n) {
+            if ($n !== '' && $n !== null) $parts[] = $n;
+        }
+    }
     foreach (array('aux_result', 'aux_external') as $k) {
         if ($g($k) !== '') $parts[] = $g($k);
     }

@@ -127,6 +127,16 @@ switch ($action) {
             } elseif ($orderType === 'procedure') {
                 $needNurse = $nurseReq;
             }
+            // ===== 项目存在性校验（非处方类）：防止空名明细混入病历/打印 =====
+            if ($orderType !== 'prescription' && $subOf === 0 && $itemId > 0) {
+                $catTable = array('lab' => array('lab', 'lab_items'), 'imaging' => array('lab', 'exam_items'), 'procedure' => array('disp', 'disposal_items'));
+                if (isset($catTable[$orderType])) {
+                    $itemRow = DB::one($catTable[$orderType][0], 'SELECT name, status FROM ' . $catTable[$orderType][1] . ' WHERE id=?', array($itemId));
+                    if (!$itemRow || $itemRow['status'] !== 'approved') {
+                        json_fail('开单项目不存在或未通过审核，请刷新后重试');
+                    }
+                }
+            }
             $orderItems[] = array(
                 'item_type' => $orderType, 'item_id' => $itemId,
                 'item_name' => isset($it['item_name']) ? $it['item_name'] : '',

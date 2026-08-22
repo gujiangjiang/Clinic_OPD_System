@@ -448,6 +448,7 @@ function pt_record($visit, $patient, $record, $vitals) {
     foreach ($orders as $o) {
         $its = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
         foreach ($its as $it) {
+            if ($it['item_name'] === '' || $it['item_name'] === null) continue; // 防空名明细
             if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
                 $aux[] = e($it['item_name']);
             } elseif ($o['order_type'] === 'procedure') {
