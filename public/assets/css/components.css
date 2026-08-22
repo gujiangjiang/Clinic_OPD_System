@@ -754,3 +754,38 @@
     font-size: 12px;
     vertical-align: middle;
 }
+
+/* 续写编辑器顶部「病历续写」标识带：无页眉文书的承接起点 */
+.emr-doc .doc-cont-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 14px 0 10px;
+}
+.doc-cont-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+/* 前序只读【首诊】文书：复用 emr-doc 完整文档版式（页眉归首诊），
+   灰色只读基调、整体不可选中 */
+.emr-doc.prev-doc-full {
+    margin-bottom: 12px;
+    cursor: default;
+    color: var(--text-muted);
+}
+.emr-doc.prev-doc-full .prev-record-head {
+    margin: 4px 0 6px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+}
+.emr-doc.prev-doc-full .prev-record-body { padding: 8px 0 0; }

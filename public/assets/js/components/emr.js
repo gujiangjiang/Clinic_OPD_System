@@ -188,11 +188,11 @@ Clinic.emr = (function () {
         var isProgress = r.record_type === 'progress';
         var tplBtn = '<button type="button" class="btn btn-outline btn-sm" id="tplBtn" onclick="Clinic.emr.openTemplates()">📋 病历模板</button>';
 
-        // 医院抬头与标题（与打印版式一致，所见即所得）；续写文书标题带后缀标识
+        // 医院抬头与标题（与打印版式一致，所见即所得）；页眉归首诊文书所有，
+        // 续写文书不带抬头/标题/患者信息/条形码，直接从「病历续写」开始
         var hosp = document.body.getAttribute('data-hosp') || '';
         var hosp2 = document.body.getAttribute('data-hosp2') || '';
-        var docTitle = (d.visit && d.visit.dept_type === 'emergency' ? '急诊电子病历' : '门诊电子病历') +
-            (isProgress ? '（病历续写）' : '');
+        var docTitle = (d.visit && d.visit.dept_type === 'emergency' ? '急诊电子病历' : '门诊电子病历');
 
         // 患者信息区：门诊两栏网格 / 急诊两行流式（构建逻辑抽至
         // patientGridHtml，供患者资料保存后的局部刷新复用）
@@ -232,30 +232,57 @@ Clinic.emr = (function () {
                 }).join('') + '</select></span>';
         }
 
-        document.getElementById('emrCard').innerHTML =
-            '<div class="emr-doc">' +
-            bcHtml +
-            (hosp ? '<div class="doc-hosp">' + hosp + '</div>' : '') +
-            (hosp2 ? '<div class="doc-sub">' + hosp2 + '</div>' : '') +
-            // 病历模板按钮：文档页头左上角（顶部与医院名称齐平、左侧与左边距齐平）
-            '<span class="doc-tpl">' + tplBtn + '</span>' +
-            '<div class="doc-title-bar">' +
-            '  <span class="doc-title">' + docTitle + '</span>' +
-            '</div>' +
-            gridWrap +
-            '<div class="doc-line"></div>' +
-            '<div class="doc-body" id="docBody"></div>' +
-            // 病历正文右下角医生签名（页脚仍保留 医生：医生（工号 0003）｜职称，互不影响）
-            '<div class="doc-body-sign">医生：' + r.doctor_name + '</div>' +
-            '</div>' +
-            // 页脚：左下角记录时间（未保存时隐藏，保存成功后显示），右下角医生签名
-            '<div class="doc-footer">' +
-            '  <span class="doc-rec-time" id="docRecTime" style="' + (r.updated_at ? '' : 'display:none') + '">记录时间：' + (r.updated_at || '') + '</span>' +
-            '  <span class="doc-doctor">医生：' + r.doctor_name +
-            (r.doctor_emp ? '（工号 ' + r.doctor_emp + '）' : '') +
-            (r.doctor_title ? ' ｜ ' + r.doctor_title : '') + '</span>' +
-            '</div>' +
-            '</div>';
+        // 文档骨架：首诊文书带完整页眉（医院抬头/标题/患者信息/条形码）；
+        // 续写文书无页眉，顶部仅一条「病历续写」标识带（承接上文直接续写）
+        var docHtml;
+        if (isProgress) {
+            docHtml =
+                '<div class="emr-doc">' +
+                '<div class="doc-cont-head">' +
+                '  <span class="doc-cont-badge">病历续写</span>' +
+                '  <span class="fs-13 text-muted">续写医生：' + r.doctor_name +
+                (r.doctor_emp ? '（工号 ' + r.doctor_emp + '）' : '') +
+                (r.doctor_title ? ' ｜ ' + r.doctor_title : '') +
+                (r.created_at ? ' ｜ 续写开始：' + r.created_at : '') + '</span>' +
+                '</div>' +
+                '<div class="doc-line"></div>' +
+                '<div class="doc-body" id="docBody"></div>' +
+                // 病历正文右下角医生签名
+                '<div class="doc-body-sign">医生：' + r.doctor_name + '</div>' +
+                '</div>' +
+                // 页脚：左下角记录时间（未保存时隐藏），右下角医生签名
+                '<div class="doc-footer">' +
+                '  <span class="doc-rec-time" id="docRecTime" style="' + (r.updated_at ? '' : 'display:none') + '">记录时间：' + (r.updated_at || '') + '</span>' +
+                '  <span class="doc-doctor">医生：' + r.doctor_name +
+                (r.doctor_emp ? '（工号 ' + r.doctor_emp + '）' : '') +
+                (r.doctor_title ? ' ｜ ' + r.doctor_title : '') + '</span>' +
+                '</div>';
+        } else {
+            docHtml =
+                '<div class="emr-doc">' +
+                bcHtml +
+                (hosp ? '<div class="doc-hosp">' + hosp + '</div>' : '') +
+                (hosp2 ? '<div class="doc-sub">' + hosp2 + '</div>' : '') +
+                // 病历模板按钮：文档页头左上角（顶部与医院名称齐平、左侧与左边距齐平）
+                '<span class="doc-tpl">' + tplBtn + '</span>' +
+                '<div class="doc-title-bar">' +
+                '  <span class="doc-title">' + docTitle + '</span>' +
+                '</div>' +
+                gridWrap +
+                '<div class="doc-line"></div>' +
+                '<div class="doc-body" id="docBody"></div>' +
+                // 病历正文右下角医生签名（页脚仍保留 医生：医生（工号 0003）｜职称，互不影响）
+                '<div class="doc-body-sign">医生：' + r.doctor_name + '</div>' +
+                '</div>' +
+                // 页脚：左下角记录时间（未保存时隐藏，保存成功后显示），右下角医生签名
+                '<div class="doc-footer">' +
+                '  <span class="doc-rec-time" id="docRecTime" style="' + (r.updated_at ? '' : 'display:none') + '">记录时间：' + (r.updated_at || '') + '</span>' +
+                '  <span class="doc-doctor">医生：' + r.doctor_name +
+                (r.doctor_emp ? '（工号 ' + r.doctor_emp + '）' : '') +
+                (r.doctor_title ? ' ｜ ' + r.doctor_title : '') + '</span>' +
+                '</div>';
+        }
+        document.getElementById('emrCard').innerHTML = docHtml;
 
         // 结构化字段编辑器渲染（[] 占位字段引擎；mode 决定首诊全量/续写精简模块）
         Clinic.emrEditor.render(document.getElementById('docBody'), r.emr || {}, {
@@ -359,11 +386,38 @@ Clinic.emr = (function () {
     }
 
     /**
-     * 单条前序病历 → 只读文书卡片 HTML
+     * 只读患者信息网格（纯文本，与编辑页 patientGridHtml 同字段同版式，
+     * 初复诊为纯文本不可交互——供前序首诊文书的只读页眉复用）
+     */
+    function patientGridReadonly(vtText) {
+        var vv = DATA ? (DATA.visit || {}) : {};
+        var p = DATA ? (DATA.patient || {}) : {};
+        var cell = function (k, v) {
+            return '<div class="doc-cell"><span class="doc-cell-label">' + k + '：</span>' +
+                '<span class="doc-cell-value">' + escHtml(v == null || v === '' ? '—' : v) + '</span></div>';
+        };
+        if (vv.dept_type === 'emergency') {
+            return '<div class="doc-patient-lines">' +
+                '<div class="doc-line-row">' + cell('姓名', vv.name) + cell('性别', vv.gender) +
+                cell('出生日期', p.birth_date) + cell('年龄', vv.age_fmt) + '</div>' +
+                '<div class="doc-line-row">' + cell('患者ID', p.patient_id) + cell('就诊科室', vv.dept_name) +
+                cell('就诊时间', vv.created_at) + '</div></div>';
+        }
+        var fields = [['姓名', vv.name], ['性别', vv.gender], ['年龄', vv.age_fmt], ['患者ID', p.patient_id],
+           ['证件号码', p.id_card], ['出生日期', p.birth_date], ['民族', p.nation], ['职业', p.occupation],
+           ['婚姻', p.marital], ['初复诊', vtText || ''], ['科室', vv.dept_name], ['联系方式', p.phone]];
+        return '<div class="doc-patient-grid">' + fields.map(function (f) { return cell(f[0], f[1]); }).join('') + '</div>';
+    }
+
+    /**
+     * 单条前序病历 → 只读文书 HTML。
+     * 页眉归首诊文书：initial 渲染完整文档版式（医院抬头/标题/患者信息网格）；
+     * progress 不带页眉，以「病历续写」标注条承接上文直接开始，避免空间浪费。
      * @param {Object} rec records_history 条目（含 doctor_name/emr/primary_diagnosis 等）
      */
     function prevRecordHtml(rec) {
         var e = rec.emr || {};
+        var isProgress = rec.record_type === 'progress';
         var secs = [];
         var push = function (label, val, dashWhenEmpty) {
             val = val == null ? '' : String(val).trim();
@@ -371,7 +425,7 @@ Clinic.emr = (function () {
             secs.push('<div class="prev-sec"><span class="doc-sec-label">' + label + '：</span>' +
                 escHtml(val || '-') + '</div>');
         };
-        if (rec.record_type === 'progress') push('病历续写', (e.progress || {}).content);
+        if (isProgress) push('病历续写', (e.progress || {}).content);
         push('主诉', fmtCC(e.chief_complaint));
         push('现病史', fmtPI(e.history_present));
         push('既往史', fmtPH(e.past_history));
@@ -395,23 +449,41 @@ Clinic.emr = (function () {
         secs.push('<div class="prev-sec"><span class="doc-sec-label">门诊处置：</span>' + (dispHtml || '-') + '</div>');
         push('是否留观', e.is_leave_hospital === '是' ? '是' : '');
         push('嘱托', e.advice);
-        var typeBadge = rec.record_type === 'progress'
+
+        var typeBadge = isProgress
             ? '<span class="badge badge-primary">病历续写</span>'
             : '<span class="badge badge-gray">首诊</span>';
         var primary = rec.primary_diagnosis
             ? '<span class="fs-12 text-muted">主诊断：' + escHtml((rec.primary_icd10 || '') + ' ' + rec.primary_diagnosis) + '</span>'
             : '';
-        return '<div class="prev-record">' +
+        var who = isProgress ? '✍️ 病历续写 · 接诊自：' : '📋 接诊自：';
+        var headBar =
             '<div class="prev-record-head">' +
-            '  <span class="fw-600">📋 接诊自：' + escHtml(rec.doctor_name) +
+            '  <span class="fw-600">' + who + escHtml(rec.doctor_name) +
             (rec.doctor_emp ? '（工号 ' + escHtml(rec.doctor_emp) + '）' : '') +
             (rec.doctor_title ? ' ' + escHtml(rec.doctor_title) : '') + '</span>' +
             '  <span>就诊时间：' + escHtml(rec.created_at) + '</span>' +
             typeBadge + primary +
-            '</div>' +
-            '<div class="prev-record-body">' +
-            (secs.length ? secs.join('') : '<div class="text-muted fs-13">（该文书暂无内容）</div>') +
-            '</div>' +
+            '</div>';
+        var bodyHtml = '<div class="prev-record-body">' +
+            (secs.length ? secs.join('') : '<div class="text-muted fs-13">（该文书暂无内容）</div>') + '</div>';
+
+        // 首诊文书：完整文档版式（页眉归首诊）；续写文书：无页眉直接续写
+        if (!isProgress) {
+            var hosp = document.body.getAttribute('data-hosp') || '';
+            var hosp2 = document.body.getAttribute('data-hosp2') || '';
+            var docTitle = (DATA && DATA.visit && DATA.visit.dept_type === 'emergency') ? '急诊电子病历' : '门诊电子病历';
+            return '<div class="emr-doc prev-doc-full">' +
+                (hosp ? '<div class="doc-hosp">' + escHtml(hosp) + '</div>' : '') +
+                (hosp2 ? '<div class="doc-sub">' + escHtml(hosp2) + '</div>' : '') +
+                '<div class="doc-title-bar"><span class="doc-title">' + docTitle + '</span></div>' +
+                patientGridReadonly('') +
+                '<div class="doc-line"></div>' +
+                headBar + bodyHtml +
+                '<div class="doc-body-sign">医生：' + escHtml(rec.doctor_name) + '</div>' +
+                '</div>';
+        }
+        return '<div class="prev-record">' + headBar + bodyHtml +
             '<div class="prev-record-sign">医生：' + escHtml(rec.doctor_name) + '</div>' +
             '</div>';
     }
