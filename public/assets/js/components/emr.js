@@ -379,8 +379,20 @@ Clinic.emr = (function () {
         push('主要症状', fmtMS(e.main_symptoms));
         push('体格检查', fmtPE(e.physical_exam), true);
         push('初步诊断', fmtDiags(e.diagnoses));
-        push('辅助检查', [e.aux_result, e.aux_external].filter(function (x) { return x && String(x).trim(); }).join('，'), true);
-        push('门诊处置', e.disposition_custom, true);
+        // 辅助检查/门诊处置按该文书医生本人的开单归属渲染（多医生接诊，
+        // 项目跟随医生归档；已开项目文本与编辑器自动段同源同规则）
+        var t = orderTextsFor(rec.doctor_id || 0);
+        var auxParts = [];
+        [e.aux_result, e.aux_external].forEach(function (x) {
+            if (x && String(x).trim()) auxParts.push(escHtml(x));
+        });
+        t.aux.forEach(function (n) { auxParts.push(escHtml(n)); });
+        push('辅助检查', auxParts.join('，'), true);
+        var dispHtml = t.rxs.map(function (l) { return '<div>' + escHtml(l) + '</div>'; }).join('');
+        var dispParts = t.proc.map(function (p) { return escHtml(p); });
+        if (e.disposition_custom && String(e.disposition_custom).trim()) dispParts.push(escHtml(e.disposition_custom));
+        if (dispParts.length) dispHtml += '<span>' + dispParts.join('，') + '</span>';
+        secs.push('<div class="prev-sec"><span class="doc-sec-label">门诊处置：</span>' + (dispHtml || '-') + '</div>');
         push('是否留观', e.is_leave_hospital === '是' ? '是' : '');
         push('嘱托', e.advice);
         var typeBadge = rec.record_type === 'progress'
@@ -535,16 +547,21 @@ Clinic.emr = (function () {
         });
     }
 
+    /** 当前登录医生 id（DATA.record 由后端按会话返回） */
+    function myDoctorId() {
+        return DATA && DATA.record ? DATA.record.doctor_id : 0;
+    }
+
     /**
-     * 渲染病历正文 辅助检查 / 门诊处置（所见即所得，与打印版式一致）
-     * 辅助检查：检验+检查项目，仅显示名称，点击弹出流程弹窗
-     * 门诊处置：处置项目不换行显示名称+数量；处方每行一个药品（名称/剂量/用法/途径/数量）
+     * 按开单医生过滤已开项目并生成病历正文文本（辅助检查/处方行/处置项）。
+     * 多医生接诊下各医生文书只呈现本人开具的项目——谁开单归属谁的病历。
      */
-    function renderDocOrders(list) {
+    function orderTextsFor(doctorId) {
         var aux = [];
         var proc = [];
         var rxs = [];
-        list.forEach(function (o) {
+        (ORDERS || []).forEach(function (o) {
+            if ((o.doctor_id || 0) !== doctorId) return;
             // 已退费/已取消的开单不再计入病历内容
             if (o.status === 'refunded' || o.status === 'cancelled') return;
             o.items.forEach(function (it) {
@@ -562,10 +579,19 @@ Clinic.emr = (function () {
                 }
             });
         });
+        return { aux: aux, proc: proc, rxs: rxs };
+    }
+
+    /**
+     * 渲染病历正文 辅助检查 / 门诊处置（所见即所得，与打印版式一致）
+     * 仅渲染当前登录医生本人开具的项目（多医生接诊，项目跟随医生归档）
+     */
+    function renderDocOrders() {
+        var t = orderTextsFor(myDoctorId());
         // 结构化编辑器自动段：已开检验/检查名（逗号分隔）、处方行（一行一个）、处置项（含数量）
-        Clinic.emrEditor.setAuto('aux_orders', aux.join('，'), aux.length > 0);
-        Clinic.emrEditor.setAuto('rx_lines', rxs.map(function (l) { return '<div class="ef-rx-line">' + l + '</div>'; }).join(''), rxs.length > 0);
-        Clinic.emrEditor.setAuto('disp_items', proc.join('，'), proc.length > 0);
+        Clinic.emrEditor.setAuto('aux_orders', t.aux.join('，'), t.aux.length > 0);
+        Clinic.emrEditor.setAuto('rx_lines', t.rxs.map(function (l) { return '<div class="ef-rx-line">' + l + '</div>'; }).join(''), t.rxs.length > 0);
+        Clinic.emrEditor.setAuto('disp_items', t.proc.join('，'), t.proc.length > 0);
     }
 
     /**
@@ -575,7 +601,7 @@ Clinic.emr = (function () {
         Clinic.get('/api/order?action=visit_orders&visit_id=' + visitId, null, {
             onSuccess: function (j) {
                 ORDERS = j.data.list || [];
-                renderDocOrders(ORDERS);
+                renderDocOrders();
                 var typeNames = { lab: '检验', imaging: '检查', procedure: '处置', prescription: '处方' };
                 var statusMap = {
                     open: '<span class="badge badge-warning">待缴费</span>',
@@ -593,6 +619,8 @@ Clinic.emr = (function () {
                     box.innerHTML = '<div class="text-muted fs-13">暂无开单</div>';
                     return;
                 }
+                var myId = myDoctorId();
+                var multi = DATA && DATA.records_history && DATA.records_history.length > 1;
                 box.innerHTML = j.data.list.map(function (o) {
                     var items = o.items.map(function (it) {
                         return '<div class="fs-13" style="padding:2px 0">· ' + it.item_name +
@@ -601,13 +629,18 @@ Clinic.emr = (function () {
                     // 检查申请单标题动态化：优先使用分类名称快照（如 CT / MR / DR（数字化X线））
                     var title = (o.order_type === 'imaging' && o.cat_name && o.cat_name !== '检查')
                         ? o.cat_name : (typeNames[o.order_type] || o.order_type);
-                    // 未缴费或已退费的处方/开单可删除（退费后可删除并恢复库存）
-                    var canDel = (o.status === 'open' || o.status === 'refunded');
+                    // 删除仅限：未缴费或已退费，且为当前医生本人开具（后端硬拦截兜底）
+                    var canDel = (o.status === 'open' || o.status === 'refunded') && (o.doctor_id || 0) === myId;
                     // stopPropagation：阻止事件冒泡到卡片 onclick（viewOrderFlow），
                     // 否则会同时弹出开单详情弹窗与删除确认弹窗，删除确认被覆盖
                     var delBtn = canDel
                         ? ' <button class="btn btn-outline btn-sm" style="padding:1px 8px" ' +
                           'onclick="event.stopPropagation();delOrder(' + o.id + ')">✕</button>'
+                        : '';
+                    // 多医生接诊：卡片标注开单医生（非本人时高亮提示归属）
+                    var docLabel = multi
+                        ? '<span class="fs-12 ' + ((o.doctor_id || 0) === myId ? 'text-muted' : 'text-primary') +
+                          '">开单医生：' + (o.doctor_name || '—') + ((o.doctor_id || 0) === myId ? '（本人）' : '') + '</span>'
                         : '';
                     return '<div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer" ' +
                         'onclick="viewOrderFlow(' + o.id + ')">' +
@@ -616,8 +649,9 @@ Clinic.emr = (function () {
                         delBtn +
                         '</div>' +
                         items +
-                        '<div class="mt-4">' + (statusMap[o.status] || o.status) + ' ' +
-                        '  <span class="fs-12 text-muted">¥' + parseFloat(o.total_amount).toFixed(2) + '</span></div>' +
+                        '<div class="mt-4 flex-between">' + docLabel +
+                        '  <span>' + (statusMap[o.status] || o.status) + ' ' +
+                        '  <span class="fs-12 text-muted">¥' + parseFloat(o.total_amount).toFixed(2) + '</span></span></div>' +
                         '</div>';
                 }).join('');
             },
@@ -1110,13 +1144,21 @@ function viewOrderFlow(orderId) {
                 catTitle + '单</button>';
 
             // 删除 / 毁方按钮：处方称「毁方」，其余称「删除」；
+            // 仅开单医生本人可见可用（多医生接诊权责隔离，后端亦有硬拦截）；
             // 仅未缴费（open）或已退费（refunded）可删，其余点击提示到收费处退费
             var delLabel = o.order_type === 'prescription' ? '毁方' : '删除';
-            var delBtn = (o.status === 'open' || o.status === 'refunded')
-                ? '<button class="btn btn-outline btn-sm" style="margin-top:8px;margin-left:8px" ' +
-                  'onclick="delOrderFlow(' + o.id + ',\'' + delLabel + '\')">🗑️ ' + delLabel + '</button>'
-                : '<button class="btn btn-outline btn-sm" style="margin-top:8px;margin-left:8px" ' +
-                  'onclick="Clinic.toast.warning(\'' + delLabel + '仅限未缴费或已退费的开单，已进入执行流程的项目如需撤销请到收费处办理退费\')">🗑️ ' + delLabel + '</button>';
+            var mine = (o.doctor_id || 0) === myDoctorId();
+            var delBtn;
+            if (!mine) {
+                delBtn = '<button class="btn btn-outline btn-sm" style="margin-top:8px;margin-left:8px" ' +
+                    'onclick="Clinic.toast.warning(\'仅开单医生本人可' + delLabel + '（开单医生：' + (o.doctor_name || '—') + '）\')">🗑️ ' + delLabel + '</button>';
+            } else if (o.status === 'open' || o.status === 'refunded') {
+                delBtn = '<button class="btn btn-outline btn-sm" style="margin-top:8px;margin-left:8px" ' +
+                    'onclick="delOrderFlow(' + o.id + ',\'' + delLabel + '\')">🗑️ ' + delLabel + '</button>';
+            } else {
+                delBtn = '<button class="btn btn-outline btn-sm" style="margin-top:8px;margin-left:8px" ' +
+                    'onclick="Clinic.toast.warning(\'' + delLabel + '仅限未缴费或已退费的开单，已进入执行流程的项目如需撤销请到收费处办理退费\')">🗑️ ' + delLabel + '</button>';
+            }
 
             Clinic.modal.open(
                 '<div class="flex gap-16">' +
