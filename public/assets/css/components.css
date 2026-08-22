@@ -789,3 +789,10 @@
     border-radius: 8px;
 }
 .emr-doc.prev-doc-full .prev-record-body { padding: 8px 0 0; }
+
+/* 页脚「最近保存」：仅编辑页展示的最近一次保存时间（不参与打印），
+   与医生签名同组靠右排列 */
+.emr-doc .doc-saved-at {
+    font-size: 12px;
+    color: var(--text-muted);
+}
