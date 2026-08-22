@@ -299,6 +299,23 @@ switch ($action) {
                 'created_at' => $visit['register_time'],
             ),
             'record' => $recordData,
+            // ===== 多医生接诊（1:N）三件套 =====
+            // records_history：该挂号流水下全部病历（按创建时间升序，含医生姓名/
+            // 工号职称/文书类型/主诊断/完整结构化数据）——前端据此渲染前序病历
+            // 只读查看区（谁书写谁签名，互不篡改）。
+            'records_history' => $recordsHistory,
+            // current_doctor_record：当前登录医生本人此前已保存的草稿/病历，
+            // 无则 null——有则回显编辑，绝不回退他人病历。
+            'current_doctor_record' => $mine,
+            // global_patient_info：患者主表最新既往史/过敏史（任何医生保存后
+            // 全局同步），供续写/首诊编辑器实时回显。
+            'global_patient_info' => array(
+                // 1=否认 0=承认（patients.past_history_type「否认/承认」的数值映射；
+                // 空视为否认，与病历骨架默认一致）
+                'past_history_denied' => (!isset($patient['past_history_type']) || $patient['past_history_type'] !== '承认') ? 1 : 0,
+                'past_history_detail' => (string)(isset($patient['past_history_detail']) ? $patient['past_history_detail'] : ''),
+                'allergies' => (string)(isset($patient['allergies']) ? $patient['allergies'] : ''),
+            ),
             'vitals' => $vitalsData,
             'prev_records' => $prevRecords,
             'has_certificate' => $certRow ? 1 : 0,
