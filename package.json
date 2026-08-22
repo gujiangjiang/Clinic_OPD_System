@@ -4,8 +4,8 @@
   "private": true,
   "description": "简易门诊一体化系统（PHP 7.x + SQLite + 原生 JS/CSS，无 Composer）",
   "scripts": {
-    "dev": "php -S 0.0.0.0:${PORT:-8000} router.php",
-    "start": "php -S 0.0.0.0:${PORT:-8000} router.php",
-    "lint": "bash -c 'for f in $(find app public -name \"*.php\" -o -name \"router.php\" -o -name \"public/index.php\"); do php -l \"$f\" > /dev/null || exit 1; done'"
+    "dev": "frankenphp php-server --root public/ --listen 0.0.0.0:${PORT:-8000}",
+    "start": "frankenphp php-server --root public/ --listen 0.0.0.0:${PORT:-8000}",
+    "lint": "frankenphp php-cli tools/php-lint.php"
   }
 }

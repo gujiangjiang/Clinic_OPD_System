@@ -13,6 +13,21 @@
 
 ---
 
+## 文档（未开版本号） - 2026-08-23
+
+### 文档
+
+- **本地无系统 PHP 环境的启动方案**：本机（macOS arm64）未安装 php，
+  新增单文件无依赖的静态 PHP 运行时（FrankenPHP）启动方式。
+  `npm run dev` / `npm run start` 改为使用 `frankenphp php-server --root public/`
+  （public 为 Web 根目录，等同生产 Nginx 配置）。
+- **新增 `tools/php-lint.php` 语法检查脚本**：依赖系统 php 的 `npm run lint`
+  改为借助 FrankenPHP 内置 tokenizer 校验全部 PHP 文件，无需系统 php。
+- **新增 `AGENTS.md`**：记录本地运行环境与「每次修改同步 CHANGELOG/README 并
+  自动 commit + push 到远程」的自动化约定，供后续协作维护遵循。
+
+---
+
 ## [1.6.67] - 2026-08-22
 
 ### 变更

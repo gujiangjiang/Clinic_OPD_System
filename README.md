@@ -91,18 +91,29 @@
 
 ### 环境要求
 
-- PHP ≥ 7.0（建议 7.2 ~ 7.4，未使用 PHP 8 新特性）
+- PHP ≥ 7.0（建议 7.2 ~ 7.4，未使用 PHP 8 新特性）；本机未安装系统 PHP 时，
+  可使用单文件静态 PHP 运行时（FrankenPHP，内置 PHP 8.5 + SQLite，见下方「本地开发预览」）。
 - SQLite 扩展（PHP 默认内置）
 - 可选：Nginx + PHP-FPM（生产环境）
 
 ### 本地开发预览
 
 ```bash
-# 项目根目录执行（public 为唯一 Web 根目录，router.php 负责静态资源与路由）
+# 方式一：本机已安装系统 php，使用内置服务器（public 为唯一 Web 根目录，router.php 负责静态资源与路由）
 php -S 0.0.0.0:8080 router.php
+
+# 方式二：本机无系统 php，使用单文件静态 PHP 运行时（FrankenPHP，macOS arm64）
+# 1) 下载单文件二进制并放到 PATH（示例：~/.local/bin/frankenphp）
+#    https://github.com/php/frankenphp/releases 选择 frankenphp-mac-arm64
+# 2) 启动（public 为 Web 根目录，等同生产 Nginx 配置，首次访问自动建库）
+~/.local/bin/frankenphp php-server --root public/ --listen 0.0.0.0:8080
 ```
 
 浏览器访问 `http://localhost:8080`，首次访问自动进入安装页。
+
+> 借助 FrankenPHP 时，语法检查可运行 `npm run lint`（内部用 `tools/php-lint.php`
+> 通过 tokenizer 校验全部 PHP 文件，无需系统 php）；`npm run dev` / `npm run start`
+> 默认端口 8000，可用 `PORT` 环境变量覆盖。
 
 ### 生产部署（Nginx）
 
