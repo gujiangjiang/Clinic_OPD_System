@@ -52,6 +52,8 @@ Clinic.emr = (function () {
                 renderPrevRecords(j.data);
                 renderPatientCard(j.data);
                 renderEmrCard(j.data);
+                // 前序医生诊断上下文注入（诊断模态框跨医生引用查重用）
+                injectPrevDiagContext();
                 loadOrders(visitId);
                 Clinic.order.init(visitId, j.data);
                 // 一键引用前序病历
@@ -417,6 +419,30 @@ Clinic.emr = (function () {
             if (card && card.parentNode) card.parentNode.insertBefore(host, card);
         }
         host.innerHTML = others.length ? others.map(prevRecordHtml).join('') : '';
+    }
+
+    /**
+     * 收集前序【其他医生】已添加的诊断（含医生姓名），注入编辑器供
+     * 诊断模态框跨医生引用查重；本人已选列表不参与提示。
+     */
+    function injectPrevDiagContext() {
+        if (!DATA || !DATA.records_history) return;
+        var mineId = DATA.record && DATA.record.doctor_id;
+        var flat = [];
+        DATA.records_history.forEach(function (r) {
+            if (r.doctor_id === mineId) return;
+            ((r.emr && r.emr.diagnoses) || []).forEach(function (dg) {
+                if (dg && dg.name) {
+                    flat.push({
+                        code: dg.code || '', name: dg.name,
+                        part: dg.part || '', note: dg.note || '',
+                        suspected: dg.suspected || '',
+                        doctor_name: r.doctor_name || '前序医生',
+                    });
+                }
+            });
+        });
+        Clinic.emrEditor.setPrevDiagnoses(flat);
     }
 
     /**

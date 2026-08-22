@@ -15,10 +15,11 @@
  *    （emr_data），后端提取投影字段并生成打印纯净文本。
  *
  * Clinic.emrEditor：
- *   .render(container, data, opts)   渲染整份病历文档正文
+ *   .render(container, data, opts)   渲染整份病历文档正文（opts.mode 区分首诊/续写）
  *   .collect()                       收集为结构化 JSON
  *   .setAuto(key, html)              更新自动段（辅助检查已开项/处方/处置）
  *   .setReadonly(ro)                 只读切换（诊毕）
+ *   .setPrevDiagnoses(list)          注入前序医生诊断（跨医生引用查重上下文）
  * ============================================================ */
 
 window.Clinic = window.Clinic || {};
@@ -45,7 +46,36 @@ Clinic.emrEditor = (function () {
     var READONLY = false;
     var MODE = 'initial'; // 文书模式：initial 首诊全量模块 / progress 续写精简模块
     var DIAGS = [];       // 初步诊断列表 [{code,name,part,note,suspected}]
+    var PREV_DIAGS = [];  // 前序医生诊断上下文（跨医生引用查重用，emr.js 注入）
     var onChange = null;  // 数据变化回调（脏标记用）
+
+    /** HTML 转义（诊断名称/医生姓名等来自数据库的文本进模态框前转义） */
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /**
+     * 注入前序医生诊断上下文（每次加载病历后由 emr.js 调用）。
+     * 列表元素：{code,name,part,note,suspected,doctor_name}
+     */
+    function setPrevDiagnoses(list) {
+        PREV_DIAGS = Array.isArray(list) ? list : [];
+    }
+
+    /** 查找前序医生是否已下过该诊断：编码精确匹配优先，其次名称完全相同；取最近一条 */
+    function findPrevDiag(code, name) {
+        var hit = null;
+        PREV_DIAGS.forEach(function (d) {
+            if ((code && d.code === code) || (!code && name && d.name === name)) hit = d;
+        });
+        return hit;
+    }
+
+    /** 当前已选列表是否已含同编码诊断（已选过则不再弹引用确认） */
+    function hasDiagCode(code) {
+        return DIAGS.some(function (d) { return code && d.code === code; });
+    }
 
     function markDirty() { if (onChange) onChange(); }
 
@@ -527,11 +557,30 @@ Clinic.emrEditor = (function () {
         document.getElementById('dpResults').addEventListener('click', function (e) {
             var item = e.target.closest('.diag-pick-item');
             if (!item) return;
-            openDiagEdit({
-                code: item.getAttribute('data-code'),
-                name: item.getAttribute('data-name'),
-                part: '', note: '', suspected: '',
-            }, null);
+            var code = item.getAttribute('data-code') || '';
+            var name = item.getAttribute('data-name') || '';
+            // 跨医生引用查重：前序医生已下过该诊断且本人尚未选 → 弹引用确认框
+            var prev = findPrevDiag(code, name);
+            if (prev && !hasDiagCode(code)) {
+                confirmQuotePrev(prev, function () {
+                    // 引用：拷贝追加到已选列表（保留原部位/备注/疑似），
+                    // 并自动弹出二级模态框供当前医生修改
+                    DIAGS.push({
+                        code: prev.code, name: prev.name,
+                        part: prev.part || '', note: prev.note || '',
+                        suspected: prev.suspected === '是' ? '是' : '',
+                    });
+                    renderSelected();
+                    renderDiagText();
+                    markDirty();
+                    openDiagEdit(DIAGS[DIAGS.length - 1], DIAGS.length - 1);
+                }, function () {
+                    // 取消：仍作为普通新诊断添加（走常规二级编辑模态框）
+                    openDiagEdit({ code: code, name: name, part: '', note: '', suspected: '' }, null);
+                });
+                return;
+            }
+            openDiagEdit({ code: code, name: name, part: '', note: '', suspected: '' }, null);
         });
 
         document.getElementById('dpSelected').addEventListener('click', function (e) {
@@ -571,6 +620,32 @@ Clinic.emrEditor = (function () {
                     '</span></div>';
             }).join('')
             : '<div class="text-muted fs-13">尚未选择诊断，请在左侧检索后点击添加</div>';
+    }
+
+    /**
+     * 跨医生引用确认框：XX医生此前已添加过该诊断【诊断名称】，是否直接引用？
+     * 【引用】→ onQuote（拷贝追加 + 二级模态框修改）；【取消】→ onCancel（普通新增）
+     */
+    function confirmQuotePrev(prev, onQuote, onCancel) {
+        var detail = [];
+        if (prev.part) detail.push('部位：' + esc(prev.part));
+        if (prev.note) detail.push('备注：' + esc(prev.note));
+        if (prev.suspected === '是') detail.push('疑似标记：是');
+        Clinic.modal.open(
+            '<div class="fs-13">【' + esc(prev.doctor_name) + '】医生此前已添加过该诊断' +
+            '<b>【' + esc(prev.name) + '】</b>' + (prev.code ? '（' + esc(prev.code) + '）' : '') +
+            '，是否直接引用？</div>' +
+            (detail.length ? '<div class="fs-12 text-muted mt-8">' + detail.join(' ｜ ') + '</div>' : '') +
+            '<div class="fs-12 text-muted mt-4">引用后可修改部位、备注与疑似标记；取消则作为新诊断添加。</div>',
+            {
+                title: '引用前序诊断',
+                size: 'modal-sm',
+                buttons: [
+                    { text: '取消', cls: 'btn-outline', onClick: function () { Clinic.modal.close(); if (onCancel) onCancel(); } },
+                    { text: '引用', cls: 'btn-primary', onClick: function () { Clinic.modal.close(); if (onQuote) onQuote(); } },
+                ],
+            }
+        );
     }
 
     /** 二级模态框：部位/备注/是否疑似（三项均选填，不填不显示） */
@@ -617,5 +692,6 @@ Clinic.emrEditor = (function () {
         setAuto: setAuto,
         setReadonly: setReadonly,
         diagText: diagText,
+        setPrevDiagnoses: setPrevDiagnoses,
     };
 })();
