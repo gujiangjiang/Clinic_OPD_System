@@ -31,7 +31,9 @@ function loadMsgs() {
                         // 密码重置：管理员审核通过后，无需原密码直接设置新密码
                         btn = '<button class="btn btn-warning btn-sm" onclick="event.stopPropagation();openResetPwd()">🔑 设置新密码</button>';
                     } else if (m.print_url) {
-                        btn = '<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();Clinic.print.load(\'' + m.print_url + '\',null)">🖨️ 打印</button>';
+                        // 纸张路由：凭条类=窄条凭条纸，其余默认
+                        var psheet = m.print_url.indexOf('action=receipt') !== -1 || m.print_url.indexOf('action=payment') !== -1 ? 'ticket' : '';
+                        btn = '<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();Clinic.print.load(\'' + m.print_url + '\',null,\'' + psheet + '\')">🖨️ 打印</button>';
                     }
                     var isPatient = m.msg_type === 'patient';
                     var typeBadge = isPatient

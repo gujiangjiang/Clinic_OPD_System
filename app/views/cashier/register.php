@@ -376,7 +376,7 @@ function payAndPrint() {
             Clinic.modal.close();
             Clinic.toast.success('缴费成功，挂号完成');
             // 自动弹出挂号凭条打印模块
-            Clinic.print.load('/api/print?action=receipt&visit_id=' + REG.visit_id, null);
+            Clinic.print.load('/api/print?action=receipt&visit_id=' + REG.visit_id, null, 'ticket');
             // 重置表单并刷新号源总览
             document.getElementById('idCard').value = '';
             document.getElementById('name').value = '';

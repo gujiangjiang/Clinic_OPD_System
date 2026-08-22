@@ -102,7 +102,7 @@ function doPay(ids) {
         onSuccess: function (json) {
             Clinic.toast.success(json.msg + '，合计 ¥' + parseFloat(json.data.total).toFixed(2));
             // 缴费成功后弹出缴费凭条（收费项目列表、数量、金额、收费员）
-            Clinic.print.load('/api/print?action=payment&payment_id=' + json.data.payment_id, null);
+            Clinic.print.load('/api/print?action=payment&payment_id=' + json.data.payment_id, null, 'ticket');
             // 刷新明细
             var detail = document.getElementById('visitDetail');
             var vid = detail.querySelector('[data-vid]');

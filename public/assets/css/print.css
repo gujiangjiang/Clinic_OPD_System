@@ -305,6 +305,25 @@
     max-width: 148mm;
 }
 
+/* ---------- 窄条凭条纸（挂号凭条/缴费凭条） ----------
+ * 预览即纸张：宽度收缩为凭条实际宽度（以四周黑边框为准），
+ * 长度随凭条内容自然延伸，不再是一张留白巨大的大纸；
+ * 打印输出按原尺寸居中，不缩放不拉伸。 */
+.print-preview.sheet-ticket .print-area {
+    display: table;          /* 收缩包裹内容：宽度=凭条宽 */
+    max-width: none;
+    min-height: 0;
+    width: auto;
+    margin: 0 auto;
+    padding: 24px 20px;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+}
+.print-preview.sheet-ticket .print-toolbar {
+    max-width: 360px;
+}
+
 /* ---------- A5 病历纸排版紧凑化：压缩医院名称 / 第二名称 / 标题 / 患者信息区行距，把主要空间留给病历正文 ----------
  * 作用域用 .print-area 而非 .print-record-doc：分页器会把节点重组进
  * .a5-sheet/.a5-head/...，原包裹层不再存在——绑定 .print-record-doc 的

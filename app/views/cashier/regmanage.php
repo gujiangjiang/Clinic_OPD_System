@@ -41,7 +41,7 @@ function payVisit(visitId) {
         Clinic.ajax('/api/cashier', { action: 'pay_visit', visit_id: visitId }, {
             onSuccess: function (json) {
                 Clinic.toast.success('缴费成功，挂号完成');
-                Clinic.print.load('/api/print?action=receipt&visit_id=' + visitId, null);
+                Clinic.print.load('/api/print?action=receipt&visit_id=' + visitId, null, 'ticket');
                 loadList();
             },
         });

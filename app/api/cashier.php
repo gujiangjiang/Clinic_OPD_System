@@ -285,7 +285,7 @@ switch ($action) {
                     '<td><div class="flex gap-4">' .
                     // 凭条是缴费凭证：仅已实际缴费的状态提供补打（待缴费/取消/退费不显示）
                     (in_array($r['status'], array('paid', 'visiting', 'finished'), true) ?
-                        '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=receipt&visit_id=' . (int)$r['id'] . '\',null)">补打凭条</button>' : '') .
+                        '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=receipt&visit_id=' . (int)$r['id'] . '\',null,\'ticket\')">补打凭条</button>' : '') .
                     // 待缴费：支持继续缴费（完成后自动打印凭条）
                     ($r['status'] === 'pending' ?
                         '<button class="btn btn-primary btn-sm" onclick="payVisit(' . (int)$r['id'] . ')">继续缴费</button>' : '') .

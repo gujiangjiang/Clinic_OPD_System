@@ -117,7 +117,7 @@ function admin_part_settings($action) {
             '<div class="fw-700 fs-15">' . e($row['patient']['name']) . '（' . e($visit['flow_no']) . '）</div>' .
             '<div class="fs-13 text-muted mt-4 mb-12">' . e($visit['first_dept_name']) . ' 第' . str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) . '号 ｜ ' . e(substr($visit['register_time'], 0, 16)) . '</div>';
         $html .= '<div class="flex gap-8" style="flex-wrap:wrap">' .
-            '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=receipt&visit_id=' . (int)$visitId . '\',null)">挂号凭条</button>' .
+            '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=receipt&visit_id=' . (int)$visitId . '\',null,\'ticket\')">挂号凭条</button>' .
             ($hasRecord ? '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' . (int)$visitId . '\',null,\'a5\')">电子病历</button>' : '') .
             ($hasCert ? '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=certificate&visit_id=' . (int)$visitId . '\',null)">诊断证明</button>' : '') .
             '</div>';
