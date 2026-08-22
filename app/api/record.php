@@ -152,7 +152,7 @@ switch ($action) {
 
     /* ==================== 加载病历 ==================== */
     case 'get':
-        $visitId = (int)get('visit_id');
+        $visitId = did(get('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
@@ -332,7 +332,7 @@ switch ($action) {
                 'phone' => $patient['phone'],
             ),
             'visit' => array(
-                'id' => (int)$visit['id'],
+                'id' => oid($visit['id']),   // 混淆串：前端 certificateModal 等回传时后端 did 解码
                 'name' => $patient['name'],
                 'gender' => $patient['gender'],
                 'age' => (int)$patient['age'],
@@ -392,7 +392,7 @@ switch ($action) {
      * 5) 事务写 patient_records（含 record_type/parent_record_id）+ records 镜像；
      *    同步 patients 全局既往史/过敏史（跨就诊自动调用，以最新为准） */
     case 'save':
-        $visitId = (int)post('visit_id');
+        $visitId = did(post('visit_id'));
         $finish = (int)post('finish', 0);
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
@@ -575,7 +575,7 @@ switch ($action) {
 
     /* ==================== 保存生命体征（医生站/护士站共用） ==================== */
     case 'save_vitals':
-        $visitId = (int)post('visit_id');
+        $visitId = did(post('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         DB::insert('nurse', 'INSERT INTO vitals(visit_id, patient_no, flow_no, bp_systolic, bp_diastolic, heart_rate, pulse, spo2, respiration, operator, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
@@ -589,7 +589,7 @@ switch ($action) {
 
     /* ==================== 开具诊断证明（单次就诊一次） ==================== */
     case 'certificate':
-        $visitId = (int)post('visit_id');
+        $visitId = did(post('visit_id'));
         $content = post('content');
         if ($content === '') json_fail('请填写医生建议');
         if ((int)DB::val('medical', 'SELECT COUNT(*) FROM certificates WHERE visit_id=?', array($visitId)) > 0) {
@@ -614,7 +614,7 @@ switch ($action) {
 
     /* ==================== 诊断证明打印 ==================== */
     case 'certificate_print':
-        $visitId = (int)get('visit_id');
+        $visitId = did(get('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $cert = DB::one('medical', 'SELECT * FROM certificates WHERE visit_id=?', array($visitId));
@@ -644,7 +644,7 @@ switch ($action) {
      * 入参：visit_id（兼容 reg_id 别名）+ keyword（诊断名称或 ICD-10 编码，
      * 留空返回前序全部诊断）。匹配规则：名称或编码包含关键词（不区分大小写）。 */
     case 'check_previous_diagnoses':
-        $visitId = (int)(get('visit_id') !== '' ? get('visit_id') : get('reg_id'));
+        $visitId = did(get('visit_id') !== '' ? get('visit_id') : get('reg_id'));
         $kw = trim((string)get('keyword'));
         if (!$visitId) json_fail('缺少挂号流水参数');
         // 大小写归一化（服务器可能未启用 mbstring，见 helpers.php polyfill 说明；

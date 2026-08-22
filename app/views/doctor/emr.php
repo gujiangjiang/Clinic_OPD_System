@@ -9,11 +9,20 @@
  *   #emrHeader（患者信息头）、#emrCard（所见即所得病历文档，
  *   内含医院抬头/标题栏/患者信息两栏/病历内容/签名）、
  *   #orderList（已开项目）、#saveStatus
+ * 安全：URL 中的 visit_id 为混淆串（防撞库遍历），此处一次性解码；
+ *   #visitId 隐藏域保存混淆原串供前端全程透传（后端各接口统一 did 解码）。
  */
 Router::title('电子病历');
 
-$visitId = (int)get('visit_id', 0);
-$refId = (int)get('ref', 0);
+$visitCode = trim((string)get('visit_id', ''));
+$visitId = did($visitCode);
+$refId = (int)did(get('ref', 0));   // 转诊引用仅前端回显比对用，不回传服务端
+if ($visitId <= 0) {
+    echo '<div class="card"><div class="empty"><div class="empty-ico">🔗</div>链接无效或已过期<br>' .
+        '<span class="fs-12 text-muted">请从医生工作站的患者列表重新进入</span><br>' .
+        '<a href="/doctor/dashboard">返回医生工作站</a></div></div>';
+    return;
+}
 $row = $visitId ? get_visit_row($visitId) : null;
 if (!$row) {
     echo '<div class="card"><div class="empty"><div class="empty-ico">⚠️</div>就诊记录不存在<br><a href="/doctor/dashboard">返回医生工作站</a></div></div>';
@@ -21,7 +30,7 @@ if (!$row) {
 }
 $patient = $row['patient'];
 ?>
-<input type="hidden" id="visitId" value="<?php echo (int)$visitId; ?>">
+<input type="hidden" id="visitId" value="<?php echo e($visitCode); ?>">
 <input type="hidden" id="refRecordId" value="<?php echo (int)$refId; ?>">
 
 <!-- 条形码源（与挂号凭条一致：门诊号 flow_no，Code 128 SVG，emr.js 放入页头右上角） -->
