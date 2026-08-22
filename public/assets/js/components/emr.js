@@ -664,16 +664,21 @@ Clinic.emr = (function () {
                 var pi = text(r.present_illness);
                 var diag = (r.initial_diagnosis || '').trim();
 
-                // 病历概要区（两种形态共用；已开具时附证明号与开具时间，分行显示）
+                // 病历概要区（两种形态共用；已开具时附证明号与开具时间）。
+                // 行间距统一规则：首行无边距，其余每行 mt-4——
+                // 修复「开具时间与主诉贴在一起」的缺失行距问题。
+                var rows = [];
+                if (issued) {
+                    rows.push('<div><strong>证明号：</strong>' + esc(cert.cert_no || '') + '</div>');
+                    rows.push('<div class="mt-4"><strong>开具时间：</strong>' + esc(cert.created_at || '') + '</div>');
+                }
+                rows.push('<div' + (rows.length ? ' class="mt-4"' : '') + '><strong>主诉：</strong>' + esc(cc) + '</div>');
+                rows.push('<div class="mt-4"><strong>现病史：</strong>' + esc(pi) + '</div>');
+                rows.push('<div class="mt-4"><strong>初步诊断：</strong>' + esc(diag) + '</div>');
                 var summary =
                     '<div class="fs-13 mb-8" style="border:1px solid var(--border);border-radius:8px;padding:10px">' +
-                    (issued
-                        ? '  <div><strong>证明号：</strong>' + esc(cert.cert_no || '') + '</div>' +
-                          '  <div class="mt-4"><strong>开具时间：</strong>' + esc(cert.created_at || '') + '</div>'
-                        : '') +
-                    '  <div><strong>主诉：</strong>' + esc(cc) + '</div>' +
-                    '  <div class="mt-4"><strong>现病史：</strong>' + esc(pi) + '</div>' +
-                    '  <div class="mt-4"><strong>初步诊断：</strong>' + esc(diag) + '</div></div>';
+                    rows.join('') +
+                    '</div>';
 
                 /* ---- 已开具：查看 + 打印（打印取服务器存档数据） ---- */
                 if (issued) {
@@ -681,8 +686,10 @@ Clinic.emr = (function () {
                     Clinic.modal.open(
                         summary +
                         '<div class="form-group"><label class="form-label">医生建议</label>' +
-                        // disabled 样式：不可编辑，视觉上与可编辑开具弹窗一致
-                        '<textarea class="textarea" rows="3" disabled>' + esc(cert.content || '') + '</textarea></div>',
+                        // 纯展示只读框：灰底、禁用、去掉右下角拖拽手柄、不显示文本光标
+                        '<textarea class="textarea" rows="3" disabled ' +
+                        'style="background:var(--bg);cursor:default;resize:none;">' +
+                        esc(cert.content || '') + '</textarea></div>',
                         {
                             title: title,
                             size: 'modal-sm',
