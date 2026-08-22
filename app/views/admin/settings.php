@@ -72,6 +72,15 @@ foreach ($commonTz as $t) {
         <div class="form-group"><input type="file" class="input" id="s_logo" accept="image/*"></div>
         <button class="btn btn-outline" onclick="uploadLogo()">上传 / 更新 LOGO</button>
 
+        <div class="card-title mt-24">URL 安全混淆密钥（防链接撞库）</div>
+        <div class="fs-13 text-muted mb-8">用于加密就诊、申请单、报告等链接中的实体 ID，防止通过改数字遍历他人医疗数据。</div>
+        <div class="fs-12 mb-8" style="font-family:monospace;word-break:break-all;background:var(--bg-soft);border-radius:8px;padding:10px" id="obf_secret">加载中…</div>
+        <div class="flex gap-8">
+            <button class="btn btn-outline btn-sm" onclick="resetObfToken()">🔄 重置密钥</button>
+            <button class="btn btn-outline btn-sm" onclick="copyObfSecret()">复制</button>
+        </div>
+        <div class="fs-12 text-warning mt-8">⚠️ 重置后：此前生成/分享/收藏的所有带 ID 链接立即失效；系统功能不受影响（新链接按新密钥即时生成）。建议在怀疑链接泄露时重置。</div>
+
         <div class="card-title mt-24">管理员密码</div>
         <div class="fs-13 text-muted mb-8">首次进入系统建议立即修改管理员密码。</div>
         <a class="btn btn-warning btn-sm" href="/password">前往修改密码</a>
@@ -151,6 +160,51 @@ function genHisKey() {
     document.getElementById('s_his_key').value = key;
     Clinic.toast.success('已生成密钥，请点击【保存设置】生效');
 }
+
+/* ---------- URL 安全混淆密钥管理 ---------- */
+var OBF_SECRET = '';
+function loadObfStatus() {
+    Clinic.get('/api/admin?action=obf_status', null, {
+        onSuccess: function (json) {
+            OBF_SECRET = json.data.secret || '';
+            document.getElementById('obf_secret').textContent = OBF_SECRET || '（未生成）';
+        },
+    });
+}
+function resetObfToken() {
+    Clinic.modal.open(
+        '<div class="fs-14" style="line-height:1.9">确定要<b>重置 URL 混淆密钥</b>吗？<br>' +
+        '<span class="text-warning fs-13">⚠️ 此前所有带 ID 的链接（打印链接、病历入口等）将立即失效；<br>系统功能不受影响，新链接会按新密钥即时生成。</span></div>',
+        {
+            title: '重置 URL 混淆密钥',
+            size: 'modal-sm',
+            buttons: [
+                { text: '取消', cls: 'btn-outline' },
+                { text: '确认重置', cls: 'btn-danger', autoClose: false, onClick: function () {
+                    Clinic.ajax('/api/admin', { action: 'obf_reset' }, {
+                        onSuccess: function (json) {
+                            Clinic.modal.close();
+                            Clinic.toast.success(json.msg);
+                            loadObfStatus();
+                        },
+                    });
+                } },
+            ],
+        }
+    );
+}
+function copyObfSecret() {
+    if (!OBF_SECRET) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(OBF_SECRET).then(function () { Clinic.toast.success('密钥已复制'); });
+    } else {
+        var ta = document.createElement('textarea');
+        ta.value = OBF_SECRET; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+        Clinic.toast.success('密钥已复制');
+    }
+}
+loadObfStatus();
 
 function saveSettings() {
     var hosp = document.getElementById('s_hosp').value.trim();
