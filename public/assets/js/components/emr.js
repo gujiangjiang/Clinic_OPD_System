@@ -48,9 +48,9 @@ Clinic.emr = (function () {
         Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
             onSuccess: function (j) {
                 DATA = j.data;
-                // 场景 B：前序医生病历只读查看区（1:N 多医生接诊，谁书写谁签名）
-                renderPrevRecords(j.data);
                 renderPatientCard(j.data);
+                // 页眉/主体分离：页眉公共可交互；他人文书只读段在
+                // renderEmrCard 内部渲染（前序在上、后序在下）
                 renderEmrCard(j.data);
                 // 前序医生诊断上下文注入（诊断模态框跨医生引用查重用）
                 injectPrevDiagContext();
@@ -232,58 +232,38 @@ Clinic.emr = (function () {
                 }).join('') + '</select></span>';
         }
 
-        // 文档骨架：首诊文书带完整页眉（医院抬头/标题/患者信息/条形码）；
-        // 续写文书无页眉，顶部仅一条「病历续写」标识带（承接上文直接续写）
-        var docHtml;
-        if (isProgress) {
-            docHtml =
-                '<div class="emr-doc">' +
-                '<div class="doc-cont-head">' +
-                '  <span class="doc-cont-badge">病历续写</span>' +
-                '  <span class="fs-13 text-muted">续写医生：' + r.doctor_name +
-                (r.doctor_emp ? '（工号 ' + r.doctor_emp + '）' : '') +
-                (r.doctor_title ? ' ｜ ' + r.doctor_title : '') +
-                (r.created_at ? ' ｜ 续写开始：' + r.created_at : '') + '</span>' +
-                '</div>' +
-                '<div class="doc-line"></div>' +
-                '<div class="doc-body" id="docBody"></div>' +
-                // 病历正文右下角医生签名
-                '<div class="doc-body-sign">医生：' + r.doctor_name + '</div>' +
-                '</div>' +
-                // 页脚：左下角记录时间（未保存时隐藏），右下角医生签名
-                '<div class="doc-footer">' +
-                '  <span class="doc-rec-time" id="docRecTime" style="' + ((r.created_at || r.updated_at) ? '' : 'display:none') + '">记录时间：' + (r.created_at || r.updated_at || '') + '</span>' +
-                '  <span class="doc-doctor">医生：' + r.doctor_name +
-                (r.doctor_emp ? '（工号 ' + r.doctor_emp + '）' : '') +
-                (r.doctor_title ? ' ｜ ' + r.doctor_title : '') + '</span>' +
-                '  <span class="doc-saved-at" id="docSavedAt" style="' + (r.updated_at ? '' : 'display:none') + '">最近保存：' + (r.updated_at || '') + '</span>' +
-                '</div>';
-        } else {
-            docHtml =
-                '<div class="emr-doc">' +
-                bcHtml +
-                (hosp ? '<div class="doc-hosp">' + hosp + '</div>' : '') +
-                (hosp2 ? '<div class="doc-sub">' + hosp2 + '</div>' : '') +
-                // 病历模板按钮：文档页头左上角（顶部与医院名称齐平、左侧与左边距齐平）
-                '<span class="doc-tpl">' + tplBtn + '</span>' +
-                '<div class="doc-title-bar">' +
-                '  <span class="doc-title">' + docTitle + '</span>' +
-                '</div>' +
-                gridWrap +
-                '<div class="doc-line"></div>' +
-                '<div class="doc-body" id="docBody"></div>' +
-                // 病历正文右下角医生签名（页脚仍保留 医生：医生（工号 0003）｜职称，互不影响）
-                '<div class="doc-body-sign">医生：' + r.doctor_name + '</div>' +
-                '</div>' +
-                // 页脚：左下角记录时间（未保存时隐藏，保存成功后显示），右下角医生签名
-                '<div class="doc-footer">' +
-                '  <span class="doc-rec-time" id="docRecTime" style="' + ((r.created_at || r.updated_at) ? '' : 'display:none') + '">记录时间：' + (r.created_at || r.updated_at || '') + '</span>' +
-                '  <span class="doc-doctor">医生：' + r.doctor_name +
-                (r.doctor_emp ? '（工号 ' + r.doctor_emp + '）' : '') +
-                (r.doctor_title ? ' ｜ ' + r.doctor_title : '') + '</span>' +
-                '  <span class="doc-saved-at" id="docSavedAt" style="' + (r.updated_at ? '' : 'display:none') + '">最近保存：' + (r.updated_at || '') + '</span>' +
-                '</div>';
-        }
+        // ===== 文档骨架：页眉区与病历主体区【分离】 =====
+        // 页眉（医院抬头/标题/患者信息网格/条形码）属于整次就诊的公共区域，
+        // 不随任何文书进入只读——任何接诊医生都可以继续更新患者资料、
+        // 修改初复诊等；仅【病历主体】按文书归属区分：他人文书只读展示，
+        // 本人文书可编辑（前序在上、后序在下，严格按时间正序接续）。
+        var docHtml =
+            '<div class="emr-doc">' +
+            bcHtml +
+            (hosp ? '<div class="doc-hosp">' + hosp + '</div>' : '') +
+            (hosp2 ? '<div class="doc-sub">' + hosp2 + '</div>' : '') +
+            // 病历模板按钮：文档页头左上角（首诊/续写文书均可套用模板）
+            '<span class="doc-tpl">' + tplBtn + '</span>' +
+            '<div class="doc-title-bar">' +
+            '  <span class="doc-title">' + docTitle + '</span>' +
+            '</div>' +
+            gridWrap +
+            '<div class="doc-line"></div>' +
+            // 病历主体：前序医生文书（只读）→ 本人文书（编辑器）→ 后序医生文书（只读）
+            '<div id="roBefore"></div>' +
+            '<div class="doc-body" id="docBody"></div>' +
+            // 病历正文右下角医生签名（页脚仍保留 医生：医生（工号 0003）｜职称，互不影响）
+            '<div class="doc-body-sign">医生：' + r.doctor_name + '</div>' +
+            '<div id="roAfter"></div>' +
+            '</div>' +
+            // 页脚：左下角记录时间（首次保存，不变）、右侧医生签名与最近保存时间
+            '<div class="doc-footer">' +
+            '  <span class="doc-rec-time" id="docRecTime" style="' + ((r.created_at || r.updated_at) ? '' : 'display:none') + '">记录时间：' + (r.created_at || r.updated_at || '') + '</span>' +
+            '  <span class="doc-doctor">医生：' + r.doctor_name +
+            (r.doctor_emp ? '（工号 ' + r.doctor_emp + '）' : '') +
+            (r.doctor_title ? ' ｜ ' + r.doctor_title : '') + '</span>' +
+            '  <span class="doc-saved-at" id="docSavedAt" style="' + (r.updated_at ? '' : 'display:none') + '">最近保存：' + (r.updated_at || '') + '</span>' +
+            '</div>';
         document.getElementById('emrCard').innerHTML = docHtml;
 
         // 结构化字段编辑器渲染（[] 占位字段引擎；mode 决定首诊全量/续写精简模块）
@@ -293,6 +273,9 @@ Clinic.emr = (function () {
             midNode: midNode,
             mode: isProgress ? 'progress' : 'initial',
         });
+
+        // 他人文书只读段渲染（此刻已开项目列表未必就绪，loadOrders 成功后会再刷新一次）
+        refreshReadOnlyBodies(d);
 
         // 诊毕：整份病历置为只读（所有输入框禁用 + 编辑器不可编辑 + 写操作按钮隐藏）
         if (d.visit && d.visit.status === 'finished') {
@@ -388,36 +371,12 @@ Clinic.emr = (function () {
     }
 
     /**
-     * 只读患者信息网格（纯文本，与编辑页 patientGridHtml 同字段同版式，
-     * 初复诊为纯文本不可交互——供前序首诊文书的只读页眉复用）
-     */
-    function patientGridReadonly(vtText) {
-        var vv = DATA ? (DATA.visit || {}) : {};
-        var p = DATA ? (DATA.patient || {}) : {};
-        var cell = function (k, v) {
-            return '<div class="doc-cell"><span class="doc-cell-label">' + k + '：</span>' +
-                '<span class="doc-cell-value">' + escHtml(v == null || v === '' ? '—' : v) + '</span></div>';
-        };
-        if (vv.dept_type === 'emergency') {
-            return '<div class="doc-patient-lines">' +
-                '<div class="doc-line-row">' + cell('姓名', vv.name) + cell('性别', vv.gender) +
-                cell('出生日期', p.birth_date) + cell('年龄', vv.age_fmt) + '</div>' +
-                '<div class="doc-line-row">' + cell('患者ID', p.patient_id) + cell('就诊科室', vv.dept_name) +
-                cell('就诊时间', vv.created_at) + '</div></div>';
-        }
-        var fields = [['姓名', vv.name], ['性别', vv.gender], ['年龄', vv.age_fmt], ['患者ID', p.patient_id],
-           ['证件号码', p.id_card], ['出生日期', p.birth_date], ['民族', p.nation], ['职业', p.occupation],
-           ['婚姻', p.marital], ['初复诊', vtText || ''], ['科室', vv.dept_name], ['联系方式', p.phone]];
-        return '<div class="doc-patient-grid">' + fields.map(function (f) { return cell(f[0], f[1]); }).join('') + '</div>';
-    }
-
-    /**
-     * 单条前序病历 → 只读文书 HTML。
-     * 页眉归首诊文书：initial 渲染完整文档版式（医院抬头/标题/患者信息网格）；
-     * progress 不带页眉，以「病历续写」标注条承接上文直接开始，避免空间浪费。
+     * 单条【他人】文书 → 只读段 HTML（标注带 + 正文节 + 医生签名）。
+     * 页眉已独立为文档顶部公共区域，本段不再携带任何抬头/患者信息——
+     * 仅病历主体呈现只读，谁书写谁签名。
      * @param {Object} rec records_history 条目（含 doctor_name/emr/primary_diagnosis 等）
      */
-    function prevRecordHtml(rec) {
+    function roSegmentHtml(rec) {
         var e = rec.emr || {};
         var isProgress = rec.record_type === 'progress';
         var secs = [];
@@ -459,42 +418,16 @@ Clinic.emr = (function () {
             ? '<span class="fs-12 text-muted">主诊断：' + escHtml((rec.primary_icd10 || '') + ' ' + rec.primary_diagnosis) + '</span>'
             : '';
         var who = isProgress ? '✍️ 病历续写 · 接诊自：' : '📋 接诊自：';
-        var headBar =
-            '<div class="prev-record-head">' +
-            '  <span class="fw-600">' + who + escHtml(rec.doctor_name) +
+        return '<div class="prev-record-head">' +
+            '<span class="fw-600">' + who + escHtml(rec.doctor_name) +
             (rec.doctor_emp ? '（工号 ' + escHtml(rec.doctor_emp) + '）' : '') +
             (rec.doctor_title ? ' ' + escHtml(rec.doctor_title) : '') + '</span>' +
-            '  <span>就诊时间：' + escHtml(rec.created_at) + '</span>' +
+            '<span>记录时间：' + escHtml(rec.created_at) + '</span>' +
             typeBadge + primary +
-            '</div>';
-        var bodyHtml = '<div class="prev-record-body">' +
-            (secs.length ? secs.join('') : '<div class="text-muted fs-13">（该文书暂无内容）</div>') + '</div>';
-
-        // 首诊文书：完整文档版式（页眉归首诊，含右上角条形码——
-        // 与编辑页/打印一致）；续写文书：无页眉直接续写
-        if (!isProgress) {
-            var hosp = document.body.getAttribute('data-hosp') || '';
-            var hosp2 = document.body.getAttribute('data-hosp2') || '';
-            var docTitle = (DATA && DATA.visit && DATA.visit.dept_type === 'emergency') ? '急诊电子病历' : '门诊电子病历';
-            var bcSrc = document.getElementById('emrBarcodeSrc');
-            var bcHtml = (bcSrc && bcSrc.innerHTML && DATA && DATA.visit)
-                ? '<div class="doc-barcode">' + bcSrc.innerHTML +
-                  '<div class="doc-barcode-text">' + escHtml(DATA.visit.visit_no || '') + '</div></div>'
-                : '';
-            return '<div class="emr-doc prev-doc-full">' +
-                bcHtml +
-                (hosp ? '<div class="doc-hosp">' + escHtml(hosp) + '</div>' : '') +
-                (hosp2 ? '<div class="doc-sub">' + escHtml(hosp2) + '</div>' : '') +
-                '<div class="doc-title-bar"><span class="doc-title">' + docTitle + '</span></div>' +
-                patientGridReadonly('') +
-                '<div class="doc-line"></div>' +
-                headBar + bodyHtml +
-                '<div class="doc-body-sign">医生：' + escHtml(rec.doctor_name) + '</div>' +
-                '</div>';
-        }
-        return '<div class="prev-record">' + headBar + bodyHtml +
-            '<div class="prev-record-sign">医生：' + escHtml(rec.doctor_name) + '</div>' +
-            '</div>';
+            '</div>' +
+            '<div class="prev-record-body">' +
+            (secs.length ? secs.join('') : '<div class="text-muted fs-13">（该文书暂无内容）</div>') + '</div>' +
+            '<div class="doc-body-sign">医生：' + escHtml(rec.doctor_name) + '</div>';
     }
 
     /**
@@ -518,31 +451,20 @@ Clinic.emr = (function () {
         };
     }
 
-    /** 只读区容器：before 插在编辑卡片之上，after 插在编辑卡片与已开项目卡之间 */
-    function sideHost(id, afterCard) {
-        var host = document.getElementById(id);
-        if (!host) {
-            host = document.createElement('div');
-            host.id = id;
-            var card = document.getElementById('emrCard');
-            if (card && card.parentNode) {
-                if (afterCard && card.nextSibling) card.parentNode.insertBefore(host, card.nextSibling);
-                else card.parentNode.insertBefore(host, card);
-            }
-        }
-        return host;
-    }
-
     /**
-     * 渲染上/下两个只读区。注意：已开项目文本依赖 ORDERS 缓存，
-     * loadOrders 成功后会再次调用本函数补全辅助检查/门诊处置内容。
+     * 渲染/刷新文档内他人文书只读段（#roBefore / #roAfter）。
+     * 注意：辅助检查/门诊处置文本依赖 ORDERS 缓存，loadOrders
+     * 成功后会再次调用本函数补全内容；仅替换两个容器内部 HTML，
+     * 绝不触碰编辑器（#docBody），未保存内容零丢失。
      */
-    function renderPrevRecords(d) {
+    function refreshReadOnlyBodies(d) {
         if (!d) d = DATA;
         if (!d) return;
         var parts = splitOthers(d);
-        sideHost('prevRecords', false).innerHTML = parts.before.length ? parts.before.map(prevRecordHtml).join('') : '';
-        sideHost('nextRecords', true).innerHTML = parts.after.length ? parts.after.map(prevRecordHtml).join('') : '';
+        var beforeEl = document.getElementById('roBefore');
+        var afterEl = document.getElementById('roAfter');
+        if (beforeEl) beforeEl.innerHTML = parts.before.length ? parts.before.map(roSegmentHtml).join('') : '';
+        if (afterEl) afterEl.innerHTML = parts.after.length ? parts.after.map(roSegmentHtml).join('') : '';
     }
 
     /**
@@ -722,9 +644,9 @@ Clinic.emr = (function () {
             onSuccess: function (j) {
                 ORDERS = j.data.list || [];
                 renderDocOrders();
-                // 已开项目就绪后重渲上/下只读区：前序/后序病历中的
-                // 辅助检查、门诊处置（按各文书医生本人开单归属）此时才有数据
-                if (DATA) renderPrevRecords(DATA);
+                // 已开项目就绪后刷新他人文书只读段：辅助检查、门诊处置
+                // （按各文书医生本人开单归属）此时才有数据
+                if (DATA) refreshReadOnlyBodies(DATA);
                 var typeNames = { lab: '检验', imaging: '检查', procedure: '处置', prescription: '处方' };
                 var statusMap = {
                     open: '<span class="badge badge-warning">待缴费</span>',

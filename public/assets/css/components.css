@@ -710,42 +710,32 @@
 
 /* ============================================================
    多医生接诊/续写（1:N 文书隔离）
-   前序病历只读查看区：灰色只读基调、不可编辑、顶部标注接诊医生
+   页眉（医院抬头/患者信息网格）为整次就诊的公共可交互区域；
+   病历主体按文书归属只读——他人文书段内嵌于文档主体，
+   虚线标注带 + 灰色只读正文 + 医生签名
    ============================================================ */
-.prev-record {
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--bg);
-    margin-bottom: 12px;
-    overflow: hidden;
-}
 .prev-record-head {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
-    padding: 8px 14px;
-    background: var(--bg-card);
-    border-bottom: 1px dashed var(--border);
+    margin: 10px 0 2px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
     font-size: 13px;
     color: var(--text-muted);
     user-select: none;
 }
 .prev-record-body {
-    padding: 12px 18px 4px;
+    padding: 8px 0 0;
     color: var(--text-muted);
     cursor: default;
     user-select: none;
 }
 .prev-sec { font-size: 14px; line-height: 2.1; }
 .prev-sec .doc-sec-label { margin-right: 2px; }
-.prev-record-sign {
-    text-align: right;
-    padding: 0 18px 10px;
-    font-size: 13px;
-    color: var(--text-muted);
-    user-select: none;
-}
 
 /* 续写编辑器「病史同上」快捷按钮（行内小按钮，随文字基线对齐） */
 .ef-prog-btn {
@@ -754,41 +744,6 @@
     font-size: 12px;
     vertical-align: middle;
 }
-
-/* 续写编辑器顶部「病历续写」标识带：无页眉文书的承接起点 */
-.emr-doc .doc-cont-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    padding: 14px 0 10px;
-}
-.doc-cont-badge {
-    display: inline-block;
-    padding: 2px 10px;
-    border-radius: 999px;
-    background: var(--primary);
-    color: #fff;
-    font-size: 12px;
-    font-weight: 700;
-    flex-shrink: 0;
-}
-
-/* 前序只读【首诊】文书：复用 emr-doc 完整文档版式（页眉归首诊），
-   灰色只读基调、整体不可选中 */
-.emr-doc.prev-doc-full {
-    margin-bottom: 12px;
-    cursor: default;
-    color: var(--text-muted);
-}
-.emr-doc.prev-doc-full .prev-record-head {
-    margin: 4px 0 6px;
-    padding: 8px 12px;
-    background: var(--bg);
-    border: 1px dashed var(--border);
-    border-radius: 8px;
-}
-.emr-doc.prev-doc-full .prev-record-body { padding: 8px 0 0; }
 
 /* 页脚「最近保存」：仅编辑页展示的最近一次保存时间（不参与打印），
    与医生签名同组靠右排列 */
