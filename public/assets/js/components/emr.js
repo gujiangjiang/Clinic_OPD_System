@@ -48,6 +48,8 @@ Clinic.emr = (function () {
         Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
             onSuccess: function (j) {
                 DATA = j.data;
+                // 场景 B：前序医生病历只读查看区（1:N 多医生接诊，谁书写谁签名）
+                renderPrevRecords(j.data);
                 renderPatientCard(j.data);
                 renderEmrCard(j.data);
                 loadOrders(visitId);
@@ -172,18 +174,23 @@ Clinic.emr = (function () {
 
     /**
      * 渲染病历编辑区（WYSIWYG）
+     * 场景 A：本次挂号无任何病历 → 标准首诊编辑器（record_type=initial）
+     * 场景 B：前序已有其他医生病历 → 本卡为当前医生的续写编辑器
+     *         （record_type=progress，顶部必填病历续写；前序病历在上方只读区展示）
      */
     function renderEmrCard(d) {
         var r = d.record;
         var v = d.vitals || {};
         var vv = d.visit || {};   // 就诊信息（注意：v 为生命体征，患者信息网格必须用 vv）
         var p = d.patient || {};
+        var isProgress = r.record_type === 'progress';
         var tplBtn = '<button type="button" class="btn btn-outline btn-sm" id="tplBtn" onclick="Clinic.emr.openTemplates()">📋 病历模板</button>';
 
-        // 医院抬头与标题（与打印版式一致，所见即所得）
+        // 医院抬头与标题（与打印版式一致，所见即所得）；续写文书标题带后缀标识
         var hosp = document.body.getAttribute('data-hosp') || '';
         var hosp2 = document.body.getAttribute('data-hosp2') || '';
-        var docTitle = (d.visit && d.visit.dept_type === 'emergency') ? '急诊电子病历' : '门诊电子病历';
+        var docTitle = (d.visit && d.visit.dept_type === 'emergency' ? '急诊电子病历' : '门诊电子病历') +
+            (isProgress ? '（病历续写）' : '');
 
         // 患者信息区：门诊两栏网格 / 急诊两行流式（构建逻辑抽至
         // patientGridHtml，供患者资料保存后的局部刷新复用）
@@ -197,26 +204,31 @@ Clinic.emr = (function () {
             : '';
 
         // 病历正文：结构化字段编辑器（[] 占位字段引擎，静态标签不可编辑，
-        // 保存时仅收集字段内部文字；生命体征/意识状态两节由本函数外部构建注入）
-        var vitalSec = document.createElement('div');
-        vitalSec.className = 'doc-sec doc-sec-vital';
-        vitalSec.setAttribute('onclick', 'Clinic.emr.openVitals()');
-        vitalSec.setAttribute('title', '点击编辑生命体征');
-        vitalSec.innerHTML = '<span class="doc-sec-label">生命体征</span>' +
-            '<span class="doc-sec-body" id="vitalDisplay">' + vitalDisplayText(v) + '</span>';
+        // 保存时仅收集字段内部文字；生命体征/意识状态两节由本函数外部构建注入。
+        // 续写文书不重复录入生命体征/意识状态/主诉/现病史——归首诊文书所有）
+        var vitalSec = null;
+        var midNode = null;
+        if (!isProgress) {
+            vitalSec = document.createElement('div');
+            vitalSec.className = 'doc-sec doc-sec-vital';
+            vitalSec.setAttribute('onclick', 'Clinic.emr.openVitals()');
+            vitalSec.setAttribute('title', '点击编辑生命体征');
+            vitalSec.innerHTML = '<span class="doc-sec-label">生命体征</span>' +
+                '<span class="doc-sec-body" id="vitalDisplay">' + vitalDisplayText(v) + '</span>';
 
-        var consciousness = ['清醒', '嗜睡', '意识模糊', '昏睡', '昏迷', '谵妄'];
-        var midNode = document.createElement('div');
-        midNode.className = 'doc-sec';
-        // 意识状态：去掉「请选择」空选项，默认清醒（临床绝大多数场景）；
-        // 已保存值由服务端 records 镜像表回读回显
-        var curCon = r.consciousness || '清醒';
-        // 与病历字段一致的 Word 式内联下拉样式（ef-select）
-        midNode.innerHTML = '<span class="doc-sec-label">意识状态</span>' +
-            '<span class="ef-select-wrap"><select class="ef-select" id="consciousness">' +
-            consciousness.map(function (c) {
-                return '<option value="' + c + '"' + (curCon === c ? ' selected' : '') + '>' + c + '</option>';
-            }).join('') + '</select></span>';
+            var consciousness = ['清醒', '嗜睡', '意识模糊', '昏睡', '昏迷', '谵妄'];
+            midNode = document.createElement('div');
+            midNode.className = 'doc-sec';
+            // 意识状态：去掉「请选择」空选项，默认清醒（临床绝大多数场景）；
+            // 已保存值由服务端 records 镜像表回读回显
+            var curCon = r.consciousness || '清醒';
+            // 与病历字段一致的 Word 式内联下拉样式（ef-select）
+            midNode.innerHTML = '<span class="doc-sec-label">意识状态</span>' +
+                '<span class="ef-select-wrap"><select class="ef-select" id="consciousness">' +
+                consciousness.map(function (c) {
+                    return '<option value="' + c + '"' + (curCon === c ? ' selected' : '') + '>' + c + '</option>';
+                }).join('') + '</select></span>';
+        }
 
         document.getElementById('emrCard').innerHTML =
             '<div class="emr-doc">' +
@@ -243,11 +255,12 @@ Clinic.emr = (function () {
             '</div>' +
             '</div>';
 
-        // 结构化字段编辑器渲染（[] 占位字段引擎）
+        // 结构化字段编辑器渲染（[] 占位字段引擎；mode 决定首诊全量/续写精简模块）
         Clinic.emrEditor.render(document.getElementById('docBody'), r.emr || {}, {
             readonly: d.visit && d.visit.status === 'finished',
             beforeVitals: vitalSec,
             midNode: midNode,
+            mode: isProgress ? 'progress' : 'initial',
         });
 
         // 诊毕：整份病历置为只读（所有输入框禁用 + 编辑器不可编辑 + 写操作按钮隐藏）
@@ -278,6 +291,132 @@ Clinic.emr = (function () {
             status.textContent = '该患者已诊毕，病历为只读状态';
             status.style.color = 'var(--text-muted)';
         }
+    }
+
+    /* ==================== 多医生接诊：前序病历只读查看区 ====================
+     * 前序医生的病历全只读展示（灰色只读背景、不可编辑），顶部标注
+     * 「接诊自：XX医生，就诊时间」；当前医生只能在下方新建续写文书。
+     * 展示文本格式与后端 emr_formatter.php 同规则（所见即所得）。 */
+
+    /** HTML 转义（防 XSS：病历内容含医生手输文本） */
+    function escHtml(s) {
+        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /** 主诉文本：主要症状+时间+单位 [次要症状+时间+单位]（同 emr_cc_text） */
+    function fmtCC(cc) {
+        cc = cc || {};
+        var seg = function (s, d, u) { return (s || '') + (d || '') + (u || ''); };
+        return seg(cc.symptom, cc.duration, cc.unit) + seg(cc.second_symptom, cc.second_duration, cc.second_unit);
+    }
+
+    /** 现病史文本：供史者+时间+单位+内容[，来院途径]（同 emr_pi_text） */
+    function fmtPI(pi) {
+        pi = pi || {};
+        var head = (pi.informant || '') + (pi.duration || '') + (pi.unit || '') + (pi.content || '');
+        var way = pi.arrival_way || '';
+        if (!head && !way) return '';
+        return way ? (head ? head + '，' : '') + way : head;
+    }
+
+    /** 既往史文本（同 emr_ph_text） */
+    function fmtPH(ph) {
+        ph = ph || {};
+        if ((ph.type || '否认') !== '承认') return '否认';
+        return ph.detail ? '承认，' + ph.detail : '承认';
+    }
+
+    /** 过敏史文本（同 emr_al_text；兼容旧纯文本格式） */
+    function fmtAL(al) {
+        if (typeof al === 'string') return al;
+        al = al || {};
+        if ((al.type || '否认') !== '承认') return '否认';
+        return al.detail || '承认';
+    }
+
+    /** 主要症状文本：仅输出已选项（同 emr_ms_text） */
+    function fmtMS(ms) {
+        ms = ms || {};
+        return Object.keys(ms).filter(function (k) { return ms[k]; })
+            .map(function (k) { return k + '：' + ms[k]; }).join('，');
+    }
+
+    /** 体格检查文本：已填项「名称：值」（同 emr_pe_text，全空返回 '-'） */
+    function fmtPE(pe) {
+        pe = pe || {};
+        return Object.keys(pe).filter(function (k) { return String(pe[k] || '').trim(); })
+            .map(function (k) { return k + '：' + pe[k]; }).join('，');
+    }
+
+    /** 诊断列表文本（复用编辑器同款格式：编码 部位名称（备注）疑似?） */
+    function fmtDiags(list) {
+        return (list || []).map(function (dg) {
+            return dg && dg.name ? Clinic.emrEditor.diagText(dg) : '';
+        }).filter(Boolean).join('，');
+    }
+
+    /**
+     * 单条前序病历 → 只读文书卡片 HTML
+     * @param {Object} rec records_history 条目（含 doctor_name/emr/primary_diagnosis 等）
+     */
+    function prevRecordHtml(rec) {
+        var e = rec.emr || {};
+        var secs = [];
+        var push = function (label, val, dashWhenEmpty) {
+            val = val == null ? '' : String(val).trim();
+            if (!val && !dashWhenEmpty) return;
+            secs.push('<div class="prev-sec"><span class="doc-sec-label">' + label + '：</span>' +
+                escHtml(val || '-') + '</div>');
+        };
+        if (rec.record_type === 'progress') push('病历续写', (e.progress || {}).content);
+        push('主诉', fmtCC(e.chief_complaint));
+        push('现病史', fmtPI(e.history_present));
+        push('既往史', fmtPH(e.past_history));
+        push('过敏史', fmtAL(e.allergies));
+        push('主要症状', fmtMS(e.main_symptoms));
+        push('体格检查', fmtPE(e.physical_exam), true);
+        push('初步诊断', fmtDiags(e.diagnoses));
+        push('辅助检查', [e.aux_result, e.aux_external].filter(function (x) { return x && String(x).trim(); }).join('，'), true);
+        push('门诊处置', e.disposition_custom, true);
+        push('是否留观', e.is_leave_hospital === '是' ? '是' : '');
+        push('嘱托', e.advice);
+        var typeBadge = rec.record_type === 'progress'
+            ? '<span class="badge badge-primary">病历续写</span>'
+            : '<span class="badge badge-gray">首诊</span>';
+        var primary = rec.primary_diagnosis
+            ? '<span class="fs-12 text-muted">主诊断：' + escHtml((rec.primary_icd10 || '') + ' ' + rec.primary_diagnosis) + '</span>'
+            : '';
+        return '<div class="prev-record">' +
+            '<div class="prev-record-head">' +
+            '  <span class="fw-600">📋 接诊自：' + escHtml(rec.doctor_name) +
+            (rec.doctor_emp ? '（工号 ' + escHtml(rec.doctor_emp) + '）' : '') +
+            (rec.doctor_title ? ' ' + escHtml(rec.doctor_title) : '') + '</span>' +
+            '  <span>就诊时间：' + escHtml(rec.created_at) + '</span>' +
+            typeBadge + primary +
+            '</div>' +
+            '<div class="prev-record-body">' +
+            (secs.length ? secs.join('') : '<div class="text-muted fs-13">（该文书暂无内容）</div>') +
+            '</div>' +
+            '<div class="prev-record-sign">医生：' + escHtml(rec.doctor_name) + '</div>' +
+            '</div>';
+    }
+
+    /**
+     * 渲染前序病历只读查看区（插入在当前医生编辑卡片之上）。
+     * 仅展示【其他医生】的文书；当前医生本人的草稿/病历在下方编辑器回显。
+     */
+    function renderPrevRecords(d) {
+        var mineId = d.record && d.record.doctor_id;
+        var others = (d.records_history || []).filter(function (r) { return r.doctor_id !== mineId; });
+        var host = document.getElementById('prevRecords');
+        if (!host) {
+            host = document.createElement('div');
+            host.id = 'prevRecords';
+            var card = document.getElementById('emrCard');
+            if (card && card.parentNode) card.parentNode.insertBefore(host, card);
+        }
+        host.innerHTML = others.length ? others.map(prevRecordHtml).join('') : '';
     }
 
     /**
@@ -477,9 +616,17 @@ Clinic.emr = (function () {
         var emr = Clinic.emrEditor.collect();
         var cc = emr.chief_complaint || {};
         var pi = emr.history_present || {};
-        if (!(cc.symptom || '').trim()) { Clinic.toast.warning('请填写主诉（必填）'); return; }
-        if (!(pi.content || '').trim()) { Clinic.toast.warning('请填写现病史（必填）'); return; }
-        if (!emr.diagnoses || !emr.diagnoses.length) { Clinic.toast.warning('请添加初步诊断（必填）'); return; }
+        // 按文书类型分支校验（与后端 save 同规则）：
+        // 首诊=主诉/现病史/诊断；续写=病历续写内容/诊断
+        var isProgress = DATA && DATA.record && DATA.record.record_type === 'progress';
+        if (isProgress) {
+            if (!((emr.progress || {}).content || '').trim()) { Clinic.toast.warning('请填写病历续写内容（必填，可快捷填入「病史同上」）'); return; }
+            if (!emr.diagnoses || !emr.diagnoses.length) { Clinic.toast.warning('请添加初步诊断（必填）'); return; }
+        } else {
+            if (!(cc.symptom || '').trim()) { Clinic.toast.warning('请填写主诉（必填）'); return; }
+            if (!(pi.content || '').trim()) { Clinic.toast.warning('请填写现病史（必填）'); return; }
+            if (!emr.diagnoses || !emr.diagnoses.length) { Clinic.toast.warning('请添加初步诊断（必填）'); return; }
+        }
 
         var data = {
             action: 'save',
@@ -762,9 +909,17 @@ Clinic.emr = (function () {
         // （certificateModal 内部会识别已开具状态并切换为「打印」形态，
         //   打印内容始终以服务器存档数据为准）
         if (!(DATA && DATA.has_certificate)) {
-            var cc = (emr.chief_complaint && emr.chief_complaint.symptom || '').trim();
-            var pi = (emr.history_present && emr.history_present.content || '').trim();
-            var diag = (emr.diagnoses || []).length;
+            var cc, pi, diag;
+            if (DATA && DATA.record && DATA.record.record_type === 'progress') {
+                // 续写文书：主诉/现病史归首诊医生所有，本地不拦截——
+                // 交由 certificateModal 以服务端投影（含前序文书回退）判定
+                cc = 'x'; pi = 'x';
+                diag = (emr.diagnoses || []).length;
+            } else {
+                cc = (emr.chief_complaint && emr.chief_complaint.symptom || '').trim();
+                pi = (emr.history_present && emr.history_present.content || '').trim();
+                diag = (emr.diagnoses || []).length;
+            }
             if (!cc || !pi || !diag) {
                 Clinic.toast.warning('请先完善病历（主诉、现病史、诊断）');
                 return;
@@ -783,6 +938,11 @@ Clinic.emr = (function () {
         // 结构化病历：校验 emr_data 投影（主诉症状/现病史内容/诊断列表）
         var e = DATA.record.emr;
         if (!e) return false;
+        // 续写文书：病历续写内容 + 诊断（主诉/现病史归首诊文书，不参与判定）
+        if (DATA.record.record_type === 'progress') {
+            var pc = ((e.progress || {}).content || '').trim();
+            return !!(pc && (e.diagnoses || []).length);
+        }
         var cc = ((e.chief_complaint || {}).symptom || '').trim();
         var pi = ((e.history_present || {}).content || '').trim();
         return !!(cc && pi && (e.diagnoses || []).length);

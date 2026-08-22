@@ -43,6 +43,7 @@ Clinic.emrEditor = (function () {
     var FIELDS = [];      // 字段注册表（按 DOM 顺序）：{path, type, el}
     var ROOT = null;      // 文档容器
     var READONLY = false;
+    var MODE = 'initial'; // 文书模式：initial 首诊全量模块 / progress 续写精简模块
     var DIAGS = [];       // 初步诊断列表 [{code,name,part,note,suspected}]
     var onChange = null;  // 数据变化回调（脏标记用）
 
@@ -331,31 +332,63 @@ Clinic.emrEditor = (function () {
         return d;
     }
 
+    /** 病历续写（progress 文书顶部必填项）：续写内容 + 「病史同上」快捷按钮 */
+    function buildProg() {
+        var d = secWrap('病历续写', true);
+        d.appendChild(textField('progress.content', '请输入病历续写内容', 300));
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-outline btn-sm ef-prog-btn';
+        btn.textContent = '病史同上';
+        btn.title = '快捷填入「病史同上」（表示病史与前序医生文书一致）';
+        btn.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            if (READONLY) return;
+            var f = d.querySelector('[data-k="progress.content"]');
+            if (f) { f.innerText = '病史同上'; markDirty(); }
+        });
+        d.appendChild(btn);
+        return d;
+    }
+
     /* ==================== 渲染入口 ==================== */
 
     /**
      * 渲染病历正文各节
      * @param {HTMLElement} container 文档正文容器（.doc-body）
      * @param {object} data     结构化病历数据（emr_data）
-     * @param {object} opts     { readonly, onChange, beforeVitals, afterAdvice }
+     * @param {object} opts     { readonly, onChange, beforeVitals, afterAdvice, mode }
      *                          beforeVitals/afterAdvice：插入自定义节（生命体征/意识状态由外部渲染）
+     *                          mode：initial 首诊全量模块（默认）/ progress 续写精简模块
+     *                          ——续写文书顶部必填「病历续写」，自动载入全局既往史/过敏史，
+     *                            下方为当前医生专属的体格检查/初步诊断/辅助检查/门诊处置。
      */
     function render(container, data, opts) {
         ROOT = container;
         FIELDS = [];
         DIAGS = [];
         READONLY = !!opts.readonly;
+        MODE = opts.mode === 'progress' ? 'progress' : 'initial';
         onChange = opts.onChange || null;
 
         ROOT.innerHTML = '';
-        ROOT.appendChild(buildCC());
-        ROOT.appendChild(buildPI());
-        ROOT.appendChild(buildPH());
-        ROOT.appendChild(buildAllergy());
-        ROOT.appendChild(buildMainSymptoms());
-        if (opts.beforeVitals) ROOT.appendChild(opts.beforeVitals); // 生命体征节（外部构建）
-        if (opts.midNode) ROOT.appendChild(opts.midNode);           // 意识状态节（外部构建）
-        ROOT.appendChild(buildPE());
+        if (MODE === 'progress') {
+            // 续写文书：病历续写（必填）→ 既往史/过敏史（全局同步预填）→ 体格检查
+            // （主诉/现病史/主要症状/生命体征/意识状态归首诊医生文书，不再重复）
+            ROOT.appendChild(buildProg());
+            ROOT.appendChild(buildPH());
+            ROOT.appendChild(buildAllergy());
+            ROOT.appendChild(buildPE());
+        } else {
+            ROOT.appendChild(buildCC());
+            ROOT.appendChild(buildPI());
+            ROOT.appendChild(buildPH());
+            ROOT.appendChild(buildAllergy());
+            ROOT.appendChild(buildMainSymptoms());
+            if (opts.beforeVitals) ROOT.appendChild(opts.beforeVitals); // 生命体征节（外部构建）
+            if (opts.midNode) ROOT.appendChild(opts.midNode);           // 意识状态节（外部构建）
+            ROOT.appendChild(buildPE());
+        }
         ROOT.appendChild(buildDiag());
         ROOT.appendChild(buildAux());
         ROOT.appendChild(buildDisp());

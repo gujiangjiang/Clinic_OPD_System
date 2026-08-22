@@ -707,3 +707,50 @@
     pointer-events: none;
 }
 #emrHeader .card { margin-bottom: 0; }
+
+/* ============================================================
+   多医生接诊/续写（1:N 文书隔离）
+   前序病历只读查看区：灰色只读基调、不可编辑、顶部标注接诊医生
+   ============================================================ */
+.prev-record {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+.prev-record-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 8px 14px;
+    background: var(--bg-card);
+    border-bottom: 1px dashed var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+    user-select: none;
+}
+.prev-record-body {
+    padding: 12px 18px 4px;
+    color: var(--text-muted);
+    cursor: default;
+    user-select: none;
+}
+.prev-sec { font-size: 14px; line-height: 2.1; }
+.prev-sec .doc-sec-label { margin-right: 2px; }
+.prev-record-sign {
+    text-align: right;
+    padding: 0 18px 10px;
+    font-size: 13px;
+    color: var(--text-muted);
+    user-select: none;
+}
+
+/* 续写编辑器「病史同上」快捷按钮（行内小按钮，随文字基线对齐） */
+.ef-prog-btn {
+    margin-left: 8px;
+    padding: 1px 10px !important;
+    font-size: 12px;
+    vertical-align: middle;
+}
