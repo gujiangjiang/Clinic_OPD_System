@@ -60,8 +60,8 @@ Clinic.modal = (function () {
             if (e.target === mask && opts.maskClose !== false) close();
         });
 
-        // 键盘 Esc 关闭
-        document.addEventListener('keydown', escHandler);
+        // 键盘 Esc 关闭（全局单监听，按栈深启停）
+        syncEsc();
 
         // 显示动画
         requestAnimationFrame(function () { mask.classList.add('show'); });
@@ -73,6 +73,12 @@ Clinic.modal = (function () {
      */
     function escHandler(e) {
         if (e.key === 'Escape') close();
+    }
+
+    /** 按栈深启停唯一的全局 Esc 监听（避免多层时一次 Esc 全部关闭） */
+    function syncEsc() {
+        if (masks.length) document.addEventListener('keydown', escHandler);
+        else document.removeEventListener('keydown', escHandler);
     }
 
     /**
@@ -117,7 +123,7 @@ Clinic.modal = (function () {
         if (!masks.length) return;
         const el = masks.pop();
         el.classList.remove('show');
-        if (!masks.length) document.removeEventListener('keydown', escHandler);
+        syncEsc();
         setTimeout(function () {
             el.remove();
         }, 180);
