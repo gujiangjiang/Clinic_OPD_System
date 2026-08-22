@@ -68,6 +68,25 @@
   - `global_patient_info`：患者主表最新的既往史（承认 / 否认 + 详情）与
     过敏史，任何医生保存后全局同步，供本次及后续就诊实时调用。
 
+### 变更
+
+- **多医生接诊数据基座核对就绪**（此前迭代已完成、本次接入确认，
+  规格对应关系如下）：
+  - **`patient_records` 表结构（medical 库 schema v5）已具备全部所需字段与索引**：
+    `record_type`（`initial` 首诊 / `progress` 续写，默认 `initial`）、
+    `parent_record_id`（续写关联前序病历 id，默认 0）、`primary_icd10` /
+    `primary_diagnosis`（各文书独立主诊断）、`emr_data`（完整结构化 JSON）；
+    并已建立 `(visit_id)`（即规格中的 reg_id 挂号流水）、`(patient_no)`
+    与 `(visit_id, doctor_id)` 三个索引；存量病历已回填为 `initial` 首诊；
+  - **患者长期档案字段以既有列实现规格语义**：`patients` 主表已有
+    `past_history_type`（「承认 / 否认」，其中「否认」等价于规格中
+    `past_history_denied = 1`）、`past_history_detail`（详细既往史）、
+    `allergies`（最新过敏史）三列——不再重复建列，保持单一事实来源；
+  - **保存接口已按 `(visit_id, doctor_id)` 区分新增 / 修改**：同一医生
+    在同一挂号流水中重复保存为更新本人文书，不同医生各自插入独立
+    文书（谁书写谁签名）；保存后同一事务内同步患者主表全局既往史 /
+    过敏史，跨就诊自动调用、以最新修改为准。
+
 ---
 
 ## [1.6.46] - 2026-08-22
