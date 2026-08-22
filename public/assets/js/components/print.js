@@ -40,7 +40,7 @@ Clinic.print = (function () {
         preview.className = 'print-preview' + (sheet ? ' sheet-' + sheet : '');
         preview.innerHTML =
             '<div class="print-toolbar">' +
-            '  <label class="print-auto" title="勾选后每次弹出预览会自动调起系统打印，打印后自动关闭本预览（偏好按账号记忆）">' +
+            '  <label class="print-auto" title="勾选后每次弹出预览会自动调起系统打印，打印后自动关闭本预览（偏好按账号记忆；如需关闭可在【个人信息】页的打印偏好中取消勾选）">' +
             '    <input type="checkbox" data-act="auto"> 自动打印</label>' +
             '  <button type="button" class="btn btn-outline" data-act="close">关闭</button>' +
             '  <button type="button" class="btn btn-primary" data-act="do">🖨️ 打印</button>' +
@@ -116,14 +116,14 @@ Clinic.print = (function () {
             st.textContent = '@page { size: A5 portrait; margin: 10mm; }';
             document.head.appendChild(st);
         } else if (sheet === 'ticket') {
-            // 凭条：按凭条实际渲染尺寸动态生成纸张（宽=凭条宽、长=凭条长，
-            // 各加 1~2mm 防舍入裁边），消除默认 A4 纸上大片空白的
-            // 「没有合适纸张」问题——打印页即凭条本身。
-            var t = document.querySelector('#print-area .print-ticket');
+            // 凭条：按「白边缓冲 + 黑边凭条」整体实测尺寸动态生成纸张，
+            // 消除默认 A4 纸上大片空白的「没有合适纸张」问题——
+            // 打印页即凭条本身（含四周等宽白边）。
+            var t = document.getElementById('print-area');
             if (t) {
-                var px2mm = function (px) { return Math.round(px / 96 * 254) / 10; };
-                var w = px2mm(t.offsetWidth) + 1;
-                var h = px2mm(t.offsetHeight) + 2;
+                var px2mmUp = function (px) { return Math.ceil(px / 96 * 25.4 * 2) / 2; };
+                var w = px2mmUp(t.offsetWidth);
+                var h = px2mmUp(t.offsetHeight);
                 st = document.createElement('style');
                 st.id = 'printPageSize';
                 st.textContent = '@page { size: ' + w + 'mm ' + h + 'mm; margin: 0; }';

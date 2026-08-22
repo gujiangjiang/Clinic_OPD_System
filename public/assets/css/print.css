@@ -4,14 +4,16 @@
  * 共用此样式。打印时隐藏网页元素，仅显示 #print-area 内容。
  * ============================================================ */
 
-/* ---------- 屏幕预览模式（打印前弹出层） ---------- */
+/* ---------- 屏幕预览模式：模态框样式（背景遮罩虚化，突出单据内容） ---------- */
 .print-preview {
     position: fixed;
     inset: 0;
-    background: var(--bg);
+    background: rgba(15, 23, 42, .45);   /* 半透明遮罩压暗背景 */
+    backdrop-filter: blur(5px);          /* 背景虚化，避免干扰预览 */
+    -webkit-backdrop-filter: blur(5px);
     z-index: 2000;
     overflow: auto;
-    padding: 24px;
+    padding: 0;
 }
 /* 工具栏：固定悬浮在预览层右上角，不随单据内容滚动；
    含 关闭 / 自动打印 / 打印 三个控件 */
@@ -42,12 +44,13 @@
 }
 .print-area {
     max-width: 760px;
-    margin: 0 auto;
+    min-height: 0;
+    margin: 64px auto 32px;   /* 顶部让出固定工具栏空间，底部留呼吸 */
     background: #fff;
     color: #111;
     padding: 28px 32px;
     box-shadow: var(--shadow-lg);
-    min-height: 80vh;
+    border-radius: 12px;      /* 模态框卡片观感 */
     font-size: 13px;
 }
 
@@ -308,34 +311,32 @@
     color: #333;
 }
 
-/* ---------- A5 病历纸（竖版窄条：宽度受限、可向下延伸，严格按 A5 纸张显示） ---------- */
-.print-preview.sheet-a5 .print-area {
-    width: auto;
-    max-width: none;
-    min-height: 0;
-    padding: 10mm;
-    background: var(--bg);
-}
-/* 分页完成（存在 .a5-sheet）后：容器退化为透明画布，纸张观感由每张 sheet 呈现 */
+/* ---------- A5 病历纸（竖版窄条）：模态框内透明画布，纸张观感由每张白色 sheet 呈现 ---------- */
+.print-preview.sheet-a5 .print-area,
 .print-preview.sheet-a5 .print-area.paginated {
-    padding: 20px;
-    background: transparent;
-}
-
-/* ---------- 窄条凭条纸（挂号凭条/缴费凭条） ----------
- * 预览即纸张：宽度收缩为凭条实际宽度（以四周黑边框为准），
- * 长度随凭条内容自然延伸，不再是一张留白巨大的大纸；
- * 打印输出按原尺寸居中，不缩放不拉伸。 */
-.print-preview.sheet-ticket .print-area {
-    display: table;          /* 收缩包裹内容：宽度=凭条宽 */
+    width: auto;
     max-width: none;
     min-height: 0;
-    width: auto;
-    margin: 0 auto;
-    padding: 24px 20px;
+    padding: 24px;
     background: transparent;
     box-shadow: none;
     border-radius: 0;
+}
+
+/* ---------- 窄条凭条纸（挂号凭条/缴费凭条） ----------
+ * 白色小卡片即凭条纸张：凭条黑边框四周留一圈等宽白边做缓冲
+ * （预览与打印一致），不再让黑边直接充当边界；
+ * 宽度收缩为「白边+黑边」整体宽，长度随内容自然延伸。 */
+.print-preview.sheet-ticket .print-area {
+    display: table;          /* 收缩包裹内容 */
+    max-width: none;
+    min-height: 0;
+    width: auto;
+    margin: 64px auto 32px;
+    padding: 4mm;            /* 黑边四周等宽白边缓冲 */
+    background: #fff;        /* 白边即纸张底色 */
+    box-shadow: var(--shadow-lg);
+    border-radius: 2px;
 }
 
 /* ---------- A5 病历纸排版紧凑化：压缩医院名称 / 第二名称 / 标题 / 患者信息区行距，把主要空间留给病历正文 ----------
@@ -433,6 +434,23 @@
         color: #111 !important;
     }
     @page { margin: 10mm; }
+}
+
+/* ---------- 打印输出：窄条凭条保留四周等宽白边缓冲 ----------
+ * 基础打印规则会把 #print-area 内边距归零，此处以更高优先级
+ * 恢复 4mm 白边，使纸质凭条与预览完全一致（黑边四周等宽白边）。
+ * 纸张尺寸由 print.js 按实测（含白边）注入 @page 动态生成。 */
+@media print {
+    .print-preview.sheet-ticket #print-area {
+        display: table !important;
+        width: auto !important;
+        max-width: none !important;
+        margin: 0 auto !important;
+        padding: 4mm !important;
+        background: #fff !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+    }
 }
 
 /* ---------- A5 固定版式（病历/处方笺/申请单/处置单） ----------
