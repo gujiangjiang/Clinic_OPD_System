@@ -145,7 +145,8 @@ class Layout {
         $avatar = !empty($u['photo']) ? '<img src="' . e(upload_url($u['photo'])) . '" alt="头像">' : '👤';
 
         // 右上角悬浮窗数据：工号 + 职称（session 不包含，需查库；医务人员才有职称）
-        $uFull = DB::one('user', 'SELECT emp_no, name, role, title FROM users WHERE id=?', array((int)$u['id']));
+        // print_auto 一并查库取实时值：打印预览「自动打印」偏好的服务端初始态
+        $uFull = DB::one('user', 'SELECT emp_no, name, role, title, print_auto FROM users WHERE id=?', array((int)$u['id']));
         $uEmpNo = $uFull && $uFull['emp_no'] !== '' ? $uFull['emp_no'] : '—';
         $uTitle = $uFull && $uFull['title'] !== '' ? $uFull['title'] : '';
         $uHasTitle = in_array($u['role'], array('doctor', 'nurse', 'lab', 'imaging', 'pharmacy'), true);
@@ -182,7 +183,7 @@ class Layout {
         </head>
         <body data-csrf="' . e(CSRF::token()) . '" data-theme-pref="' . e($theme) . '" data-theme="light"
             data-sidebar-pref="' . e($sidebar) . '"' . ($forceMini ? ' data-sidebar-force="1"' : '') . '
-            data-uid="' . (int)$u['id'] . '"
+            data-uid="' . (int)$u['id'] . '" data-print-auto="' . (!empty($uFull['print_auto']) ? '1' : '0') . '"
             data-hosp="' . e($hosp) . '" data-hosp2="' . e($hosp2) . '">
             <!-- 关键：公共 JS 库必须在视图内容之前加载！
                  视图内联脚本（如 loadDeptList() / loadUserList()）在页面解析时立即执行，

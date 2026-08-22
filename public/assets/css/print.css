@@ -15,27 +15,31 @@
     overflow: auto;
     padding: 0;
 }
-/* 工具栏：固定悬浮在预览层右上角，不随单据内容滚动；
-   含 关闭 / 自动打印 / 打印 三个控件 */
+/* 工具栏：纵向排列，固定悬浮在预览层右侧——顶部与预览卡片顶边齐平
+   （卡片 margin-top 64px），不随单据内容滚动；
+   含 自动打印 / 关闭 / 打印 三个控件（自上而下） */
 .print-preview .print-toolbar {
     position: fixed;
-    top: 12px;
-    right: 12px;
+    top: 64px;
+    right: 20px;
     z-index: 2100;              /* 高于预览层(2000) */
     display: flex;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;     /* 纵向排列 */
+    align-items: stretch;
+    gap: 8px;
     margin: 0;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 10px;
     box-shadow: var(--shadow-lg);
-    padding: 8px 12px;
+    padding: 10px;
 }
-/* 自动打印选项（偏好按账号持久化） */
+.print-preview .print-toolbar .btn { width: 100%; white-space: nowrap; }
+/* 自动打印选项（偏好保存到服务器，跟随用户跨设备生效） */
 .print-toolbar .print-auto {
-    display: inline-flex;
+    display: flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
     font-size: 13px;
     cursor: pointer;

@@ -6,7 +6,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 3,
+    'version' => 4,
     'tables' => array(
         'users' => "CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,17 +28,22 @@ return array(
             status INTEGER DEFAULT 1,
             created_at TEXT,
             last_login TEXT,
-            current_dept_id INTEGER DEFAULT 0
+            current_dept_id INTEGER DEFAULT 0,
+            print_auto INTEGER DEFAULT 0
         )",
     ),
     // v2：医生当前看诊科室（叫号屏跟随医生端选择动态显示，由 /api/doctor set_dept 更新）
     // v3：侧边栏显示偏好 expand 展开 / mini 缩小（仅图标），跟随用户保存，登录后保持
+    // v4：打印偏好——自动打印（弹出预览后自动调起系统打印并收起预览），跟随用户保存
     'migrations' => array(
         2 => array(
             'ALTER TABLE users ADD COLUMN current_dept_id INTEGER DEFAULT 0',
         ),
         3 => array(
             "ALTER TABLE users ADD COLUMN sidebar TEXT DEFAULT 'expand'",
+        ),
+        4 => array(
+            'ALTER TABLE users ADD COLUMN print_auto INTEGER DEFAULT 0',
         ),
     ),
     'seed' => array(),

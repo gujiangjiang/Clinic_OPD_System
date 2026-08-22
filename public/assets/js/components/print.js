@@ -15,15 +15,14 @@ Clinic.print = (function () {
     /** 预览层元素 */
     let preview = null;
 
-    /** 自动打印偏好存储键（跟随用户：绑定登录账号 ID） */
-    function autoKey() {
-        var uid = document.body.getAttribute('data-uid') || '0';
-        return 'clinic_auto_print_' + uid;
+    /** 读取当前用户的自动打印偏好（服务端初始态由 body data-print-auto 注入） */
+    function readAutoPref() {
+        return document.body.getAttribute('data-print-auto') === '1';
     }
 
-    /** 读取当前用户的自动打印偏好 */
-    function readAutoPref() {
-        try { return localStorage.getItem(autoKey()) === '1'; } catch (e) { return false; }
+    /** 保存自动打印偏好到服务器（users.print_auto，跟随用户跨设备生效） */
+    function saveAutoPref(checked) {
+        Clinic.ajax('/api/auth', { action: 'print_auto', value: checked ? 1 : 0 }, { loading: false });
     }
 
     /**
@@ -64,11 +63,11 @@ Clinic.print = (function () {
             window.print();
         });
 
-        // 自动打印偏好（localStorage 跟随用户保存）
+        // 自动打印偏好（服务端 users.print_auto，跟随用户跨设备生效）
         var autoChk = preview.querySelector('[data-act="auto"]');
         autoChk.checked = readAutoPref();
         autoChk.addEventListener('change', function () {
-            try { localStorage.setItem(autoKey(), autoChk.checked ? '1' : '0'); } catch (e) { /* 隐私模式等场景静默忽略 */ }
+            saveAutoPref(autoChk.checked);
         });
         // 勾选了自动打印：预览渲染完成后自动调起系统打印。
         // window.print() 在主流浏览器为同步阻塞调用——打印对话框关闭

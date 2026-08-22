@@ -46,27 +46,27 @@ $user = DB::one('user', 'SELECT * FROM users WHERE id=?', array($u['id']));
     <button type="button" class="btn btn-primary" onclick="saveProfile()">保存资料</button>
 </div>
 
-<!-- 打印偏好：自动打印的永久开关。
+<!-- 打印偏好：自动打印的总开关（保存到服务器，跟随用户跨设备生效）。
      打印预览工具栏里也有同名选项，但开启后预览会打印完自动关闭，
-     可能来不及取消勾选——此处提供始终可达的总开关（同一存储键）。 -->
+     可能来不及取消勾选——此处提供始终可达的总开关。 -->
 <div class="card" style="max-width:640px;margin-top:16px">
     <div class="card-title"><span>🖨️ 打印偏好</span></div>
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;user-select:none">
-        <input type="checkbox" id="autoPrintChk">
+        <input type="checkbox" id="autoPrintChk"<?php echo !empty($user['print_auto']) ? ' checked' : ''; ?>>
         <span>自动打印（弹出打印预览后自动调起系统打印，打印完成后自动收起预览）</span>
     </label>
-    <div class="fs-12 text-muted mt-8">偏好跟随当前账号保存在本浏览器中；关闭本开关后，打印时需在预览页手动点击「打印」按钮。</div>
+    <div class="fs-12 text-muted mt-8">偏好保存在服务器上、跟随账号在所有设备生效；关闭本开关后，打印时需在预览页手动点击「打印」按钮。</div>
 </div>
 
 <script>
-/* 自动打印偏好读写（与 print.js 使用同一存储键：clinic_auto_print_<uid>） */
+/* 自动打印偏好保存到服务器（users.print_auto，与 print.js 预览工具栏同一开关） */
 (function () {
-    var key = 'clinic_auto_print_' + (document.body.getAttribute('data-uid') || '0');
     var chk = document.getElementById('autoPrintChk');
-    try { chk.checked = localStorage.getItem(key) === '1'; } catch (e) { chk.checked = false; }
     chk.addEventListener('change', function () {
-        try { localStorage.setItem(key, chk.checked ? '1' : '0'); } catch (e) {}
-        Clinic.toast.success(chk.checked ? '已开启自动打印' : '已关闭自动打印');
+        Clinic.ajax('/api/auth', { action: 'print_auto', value: chk.checked ? 1 : 0 }, {
+            loading: false,
+            onSuccess: function (json) { Clinic.toast.success(json.msg); },
+        });
     });
 })();
 </script>

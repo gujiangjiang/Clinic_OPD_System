@@ -104,6 +104,14 @@ switch ($action) {
         json_ok(array('sidebar' => $sidebar), '侧边栏设置已保存');
         break;
 
+    /* ---------------- 打印偏好：自动打印（跟随用户保存，服务端持久化） ---------------- */
+    case 'print_auto':
+        $value = (int)post('value', 0) === 1 ? 1 : 0;
+        DB::exec('user', 'UPDATE users SET print_auto=? WHERE id=?', array($value, Auth::id()));
+        Auth::updateSession('print_auto', $value);
+        json_ok(array('print_auto' => $value), $value ? '已开启自动打印' : '已关闭自动打印');
+        break;
+
     /* ---------------- 修改密码 ---------------- */
     case 'password':
         $old = post_raw('old_password');
