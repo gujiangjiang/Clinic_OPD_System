@@ -108,14 +108,14 @@ switch ($action) {
             // 操作按钮
             $html .= '<div class="flex gap-8" style="flex-shrink:0">';
             if ($status === 'waiting') {
-                $html .= '<button class="btn btn-primary btn-sm" onclick="takePatient(' . (int)$r['id'] . ')">接诊</button>';
+                $html .= '<button class="btn btn-primary btn-sm" onclick="takePatient(' . e(oid($r['id'])) . ')">接诊</button>';
                 $html .= '<button class="btn btn-outline btn-sm" onclick="showPatientHistory(' . e($r['patient_no']) . ')">历史</button>';
             } elseif ($status === 'visiting') {
-                $html .= '<button class="btn btn-primary btn-sm" onclick="location.href=\'/doctor/emr?visit_id=' . (int)$r['id'] . '\'">继续就诊</button>';
+                $html .= '<button class="btn btn-primary btn-sm" onclick="location.href=\'/doctor/emr?visit_id=' . e(oid($r['id'])) . '\'">继续就诊</button>';
                 $html .= '<button class="btn btn-outline btn-sm" onclick="showPatientHistory(\'' . e($r['patient_no']) . '\')">历史</button>';
             } else {
-                $html .= '<button class="btn btn-outline btn-sm" onclick="location.href=\'/doctor/emr?visit_id=' . (int)$r['id'] . '\'">查看病历</button>';
-                $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' . (int)$r['id'] . '\',null,\'a5\')">打印病历</button>';
+                $html .= '<button class="btn btn-outline btn-sm" onclick="location.href=\'/doctor/emr?visit_id=' . e(oid($r['id'])) . '\'">查看病历</button>';
+                $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' . e(oid($r['id'])) . '\',null,\'a5\')">打印病历</button>';
             }
             $html .= '</div></div></div>';
         }
@@ -124,7 +124,7 @@ switch ($action) {
 
     /* ==================== 接诊 ==================== */
     case 'take':
-        $visitId = (int)post('visit_id');
+        $visitId = did(post('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
@@ -134,7 +134,7 @@ switch ($action) {
         DB::exec('patient', 'UPDATE registrations SET status=? WHERE id=?', array('visiting', $visitId));
         // 转科引用：返回最近一次转科的原始病历ID（新科室医生一键引用）
         $ref = DB::one('medical', 'SELECT ref_record_id FROM referrals WHERE visit_id=? ORDER BY id DESC', array($visitId));
-        json_ok(array('ref_record_id' => $ref ? (int)$ref['ref_record_id'] : 0), '接诊成功');
+        json_ok(array('ref_record_id' => $ref ? oid($ref['ref_record_id']) : 0), '接诊成功');
         break;
 
     /* ==================== 叫号屏队列（需求22：诊室门口叫号屏幕） ==================== */

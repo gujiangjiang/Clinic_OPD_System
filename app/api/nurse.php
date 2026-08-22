@@ -85,7 +85,7 @@ switch ($action) {
 
     /* ==================== 完成处置（显示执行护士姓名并通知医生） ==================== */
     case 'complete':
-        $itemId = (int)post('item_id');
+        $itemId = did(post('item_id'));
         $it = DB::one('order', 'SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['status'] !== 'paid') json_fail('该处置不存在或状态异常');
         DB::exec('order', "UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
@@ -123,7 +123,7 @@ switch ($action) {
 
     /* ==================== 就诊详情（患者信息 + 当日医嘱 + 生命体征 + 护理，需求21.2） ==================== */
     case 'visit_detail':
-        $visitId = (int)get('visit_id', 0);
+        $visitId = did(get('visit_id', ''));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
@@ -198,7 +198,7 @@ switch ($action) {
 
     /* ==================== 医嘱详情（含子处方，整单查看） ==================== */
     case 'med_detail':
-        $orderId = (int)get('order_id', 0);
+        $orderId = did(get('order_id'));
         $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array($orderId));
         if (!$order) json_fail('处方不存在');
         $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY sub_of, id', array($orderId));
@@ -223,7 +223,7 @@ switch ($action) {
 
     /* ==================== 等待执行（待执行医嘱：待执行 → 执行中） ==================== */
     case 'med_start':
-        $itemId = (int)post('item_id', 0);
+        $itemId = did(post('item_id'));
         $it = DB::one('order', 'SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['item_type'] !== 'prescription' || $it['status'] !== 'paid') {
             json_fail('医嘱不存在或状态异常');
@@ -234,7 +234,7 @@ switch ($action) {
 
     /* ==================== 执行完成（反馈医生工作站） ==================== */
     case 'med_done':
-        $itemId = (int)post('item_id', 0);
+        $itemId = did(post('item_id'));
         $it = DB::one('order', 'SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['item_type'] !== 'prescription' || $it['status'] !== 'dispensing') {
             json_fail('医嘱不存在或状态异常');
@@ -253,14 +253,14 @@ switch ($action) {
 
     /* ==================== 生命体征：读取（最新一条） ==================== */
     case 'vitals':
-        $visitId = (int)get('visit_id');
+        $visitId = did(get('visit_id'));
         $v = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visitId));
         json_ok(array('vitals' => $v ? $v : null));
         break;
 
     /* ==================== 生命体征：保存（与医生站同接口双向同步） ==================== */
     case 'save_vitals':
-        $visitId = (int)post('visit_id');
+        $visitId = did(post('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         DB::insert('nurse', 'INSERT INTO vitals(visit_id, patient_no, flow_no, bp_systolic, bp_diastolic, heart_rate, pulse, spo2, respiration, operator, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
@@ -274,7 +274,7 @@ switch ($action) {
 
     /* ==================== 护理记录列表 ==================== */
     case 'nursing_list':
-        $visitId = (int)get('visit_id');
+        $visitId = did(get('visit_id'));
         $rows = DB::q('nurse', 'SELECT * FROM nursing_records WHERE visit_id=? ORDER BY id DESC LIMIT 50', array($visitId));
         $html = '';
         if (!$rows) {
@@ -290,7 +290,7 @@ switch ($action) {
 
     /* ==================== 新增护理记录 ==================== */
     case 'nursing_add':
-        $visitId = (int)post('visit_id');
+        $visitId = did(post('visit_id'));
         $content = post('content');
         if ($content === '') json_fail('请输入护理记录内容');
         $row = get_visit_row($visitId);

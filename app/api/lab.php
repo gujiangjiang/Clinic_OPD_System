@@ -38,14 +38,14 @@ switch ($action) {
                     '<td class="fs-12">' . e(substr($r['created_at'], 5, 11)) . '</td>' .
                     '<td>';
                 if ($status === 'paid') {
-                    $html .= '<button class="btn btn-primary btn-sm" onclick="labRegister(' . (int)$r['id'] . ')">登记</button>';
+                    $html .= '<button class="btn btn-primary btn-sm" onclick="labRegister(' . e(oid($r['id'])) . ')">登记</button>';
                 } elseif ($status === 'registered') {
-                    $html .= '<button class="btn btn-success btn-sm" onclick="labResultForm(' . (int)$r['id'] . ')">录入结果</button>';
+                    $html .= '<button class="btn btn-success btn-sm" onclick="labResultForm(' . e(oid($r['id'])) . ')">录入结果</button>';
                 } else {
                     $report = DB::one('lab', 'SELECT * FROM reports WHERE result_id=? AND status<>? ORDER BY id DESC', array((int)$r['result_id'], 'withdrawn'));
                     if ($report) {
-                        $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' . (int)$report['id'] . '\',null)">查看报告</button> ' .
-                            '<button class="btn btn-outline btn-sm" onclick="withdrawReport(' . (int)$report['id'] . ')">申请撤回</button>';
+                        $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' . e(oid($report['id'])) . '\',null)">查看报告</button> ' .
+                            '<button class="btn btn-outline btn-sm" onclick="withdrawReport(' . e(oid($report['id'])) . ')">申请撤回</button>';
                     } else {
                         $html .= '<span class="badge badge-gray">撤回审核中</span>';
                     }
@@ -95,7 +95,7 @@ switch ($action) {
 
     /* ==================== 登记（采样） ==================== */
     case 'register':
-        $itemId = (int)post('item_id');
+        $itemId = did(post('item_id'));
         $it = DB::one('order', 'SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['item_type'] !== 'lab' || $it['status'] !== 'paid') {
             json_fail('项目不存在或状态异常');
@@ -107,7 +107,7 @@ switch ($action) {
     /* ==================== 检验录入表单（HTML，含正常范围与危急值提示；检验组显示成员明细） ==================== */
     case 'result_form':
         // 表单弹窗通过 POST 提交 item_id，用 req() 兼容读取
-        $itemId = (int)req('item_id');
+        $itemId = did(req('item_id'));
         $it = DB::one('order', 'SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['item_type'] !== 'lab') json_fail('项目不存在');
         $item = DB::one('lab', 'SELECT * FROM lab_items WHERE id=?', array($it['item_id']));
@@ -151,7 +151,7 @@ switch ($action) {
 
     /* ==================== 保存检验结果 → 自动生成报告并打印 ==================== */
     case 'save_result':
-        $itemId = (int)post('item_id');
+        $itemId = did(post('item_id'));
         $value = post('value');
         $isGroup = (int)post('is_group', 0);
         $it = DB::one('order', 'SELECT * FROM order_items WHERE id=?', array($itemId));
@@ -213,7 +213,7 @@ switch ($action) {
             send_msg('doctor', $it['doctor_id'],
                 '检验报告已出：' . $it['item_name'],
                 '患者「' . $pName . '」（' . $it['patient_no'] . '）的检验「' . $it['item_name'] . '」结果已出具，报告编号 ' . $reportNo,
-                'report', '/api/print?action=report&report_id=' . $reportId,
+                'report', '/api/print?action=report&report_id=' . oid($reportId),
                 array('msg_type' => 'patient', 'patient_name' => $pName, 'visit_id' => (int)$it['visit_id']));
         }
         json_ok(array('report_id' => $reportId), '结果已提交，报告已生成');
@@ -221,7 +221,7 @@ switch ($action) {
 
     /* ==================== 申请撤回报告（管理员审核） ==================== */
     case 'withdraw':
-        $reportId = (int)post('report_id');
+        $reportId = did(post('report_id'));
         $reason = post('reason', '');
         if ($reason === '') json_fail('请填写撤回原因');
         $report = DB::one('lab', 'SELECT * FROM reports WHERE id=?', array($reportId));

@@ -48,7 +48,7 @@ switch ($action) {
                     '<td>' . e($r['doctor_name']) . '</td>' .
                     ($status === 'dispensed' ? '<td>' . e($r['executed_by']) . '</td><td class="fs-12">' . e(substr($r['executed_at'], 5, 11)) . '</td>' : '') .
                     '<td>' . ($status === 'paid'
-                        ? '<button class="btn btn-success btn-sm" onclick="dispenseDrug(' . (int)$r['id'] . ')">发药</button>'
+                        ? '<button class="btn btn-success btn-sm" onclick="dispenseDrug(' . e(oid($r['id'])) . ')">发药</button>'
                         : '<span class="badge badge-success">已发放</span>') . '</td></tr>';
             }
             $html .= '</tbody></table></div>';
@@ -58,7 +58,7 @@ switch ($action) {
 
     /* ==================== 发药 ==================== */
     case 'dispense':
-        $itemId = (int)post('item_id');
+        $itemId = did(post('item_id'));
         $it = DB::one('order', 'SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['item_type'] !== 'prescription' || $it['status'] !== 'paid') {
             json_fail('处方不存在或状态异常');

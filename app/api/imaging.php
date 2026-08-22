@@ -36,14 +36,14 @@ switch ($action) {
                     '<td class="fs-12">' . e(substr($r['created_at'], 5, 11)) . '</td>' .
                     '<td>';
                 if ($status === 'paid') {
-                    $html .= '<button class="btn btn-primary btn-sm" onclick="imgRegister(' . (int)$r['id'] . ')">登记</button>';
+                    $html .= '<button class="btn btn-primary btn-sm" onclick="imgRegister(' . e(oid($r['id'])) . ')">登记</button>';
                 } elseif ($status === 'registered') {
-                    $html .= '<button class="btn btn-success btn-sm" onclick="imgResultForm(' . (int)$r['id'] . ')">录入报告</button>';
+                    $html .= '<button class="btn btn-success btn-sm" onclick="imgResultForm(' . e(oid($r['id'])) . ')">录入报告</button>';
                 } else {
                     $report = DB::one('lab', 'SELECT * FROM reports WHERE result_id=? AND status<>? ORDER BY id DESC', array((int)$r['result_id'], 'withdrawn'));
                     if ($report) {
-                        $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' . (int)$report['id'] . '\',null)">查看报告</button> ' .
-                            '<button class="btn btn-outline btn-sm" onclick="withdrawReport(' . (int)$report['id'] . ')">申请撤回</button>';
+                        $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' . e(oid($report['id'])) . '\',null)">查看报告</button> ' .
+                            '<button class="btn btn-outline btn-sm" onclick="withdrawReport(' . e(oid($report['id'])) . ')">申请撤回</button>';
                     } else {
                         $html .= '<span class="badge badge-gray">撤回审核中</span>';
                     }
@@ -93,7 +93,7 @@ switch ($action) {
 
     /* ==================== 登记 ==================== */
     case 'register':
-        $itemId = (int)post('item_id');
+        $itemId = did(post('item_id'));
         $it = DB::one('order', 'SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['item_type'] !== 'imaging' || $it['status'] !== 'paid') {
             json_fail('项目不存在或状态异常');
@@ -105,7 +105,7 @@ switch ($action) {
     /* ==================== 报告录入表单（HTML） ==================== */
     case 'result_form':
         // 表单弹窗通过 POST 提交 item_id，用 req() 兼容读取
-        $itemId = (int)req('item_id');
+        $itemId = did(req('item_id'));
         $it = DB::one('order', 'SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['item_type'] !== 'imaging') json_fail('项目不存在');
         $item = DB::one('lab', 'SELECT * FROM exam_items WHERE id=?', array($it['item_id']));
@@ -126,7 +126,7 @@ switch ($action) {
 
     /* ==================== 保存报告 → 自动生成报告并打印 ==================== */
     case 'save_result':
-        $itemId = (int)post('item_id');
+        $itemId = did(post('item_id'));
         $findings = post('findings');
         $conclusion = post('conclusion');
         if ($findings === '') json_fail('请填写影像所见');
@@ -160,7 +160,7 @@ switch ($action) {
             send_msg('doctor', $it['doctor_id'],
                 '检查报告已出：' . $it['item_name'],
                 '患者「' . $pName . '」（' . $it['patient_no'] . '）的检查「' . $it['item_name'] . '」报告已出具，报告编号 ' . $reportNo,
-                'report', '/api/print?action=report&report_id=' . $reportId,
+                'report', '/api/print?action=report&report_id=' . oid($reportId),
                 array('msg_type' => 'patient', 'patient_name' => $pName, 'visit_id' => (int)$it['visit_id']));
         }
         json_ok(array('report_id' => $reportId), '报告已生成并提交');
@@ -168,7 +168,7 @@ switch ($action) {
 
     /* ==================== 申请撤回报告 ==================== */
     case 'withdraw':
-        $reportId = (int)post('report_id');
+        $reportId = did(post('report_id'));
         $reason = post('reason', '');
         if ($reason === '') json_fail('请填写撤回原因');
         $report = DB::one('lab', 'SELECT * FROM reports WHERE id=?', array($reportId));

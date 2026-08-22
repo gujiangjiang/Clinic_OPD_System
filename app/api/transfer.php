@@ -27,7 +27,7 @@ switch ($action) {
 
     /* ==================== 执行转科 ==================== */
     case 'do':
-        $visitId = (int)post('visit_id');
+        $visitId = did(post('visit_id'));
         $targetDept = (int)post('target_dept');
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
