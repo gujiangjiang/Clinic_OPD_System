@@ -337,7 +337,9 @@ function pt_report($report, $result, $item, $visit) {
  * 电子病历打印（服务端版，用于打印中心/补打）
  */
 function pt_record($visit, $patient, $record, $vitals) {
-    $title = (isset($visit['dept_type']) && $visit['dept_type'] === 'emergency') ? '急诊电子病历' : '门诊电子病历';
+    // 续写文书标题追加后缀标识（与编辑页所见即所得一致）
+    $title = ((isset($visit['dept_type']) && $visit['dept_type'] === 'emergency') ? '急诊电子病历' : '门诊电子病历') .
+        ((isset($record['record_type']) && $record['record_type'] === 'progress') ? '（病历续写）' : '');
     // 文档容器（relative，供右上角条形码定位）
     $html = '<div class="print-record-doc">';
     $html .= pt_header($title);
@@ -404,10 +406,18 @@ function pt_record($visit, $patient, $record, $vitals) {
         $emr = json_decode($record['emr_data'], true);
         if (is_array($emr)) $emrStructured = true;
     }
+    // 续写文书标识：续写内容置顶输出；主诉/现病史/主要症状/意识状态归首诊文书
+    $isProgress = $emrStructured && isset($record['record_type']) && $record['record_type'] === 'progress';
 
     // 病历内容行内流式排版：主诉：xxx　现病史：xxx（紧凑省空间）
     $secs = array();
     if ($emrStructured) {
+        if ($isProgress) {
+            $progContent = isset($emr['progress']['content']) ? trim((string)$emr['progress']['content']) : '';
+            if ($progContent !== '') $secs[] = array('病历续写', e($progContent));
+            $secs[] = array('既往史', emr_ph_text(isset($emr['past_history']) ? $emr['past_history'] : array()));
+            $secs[] = array('过敏史', emr_al_text(isset($emr['allergies']) ? $emr['allergies'] : array()));
+        } else {
         // 结构化：占位符剔除/空节隐藏/'-'回退等规则统一走 emr_formatter
         $secs[] = array('主诉', emr_cc_text(isset($emr['chief_complaint']) ? $emr['chief_complaint'] : array()));
         $secs[] = array('现病史', emr_pi_text(isset($emr['history_present']) ? $emr['history_present'] : array()));
@@ -415,6 +425,7 @@ function pt_record($visit, $patient, $record, $vitals) {
         $secs[] = array('过敏史', emr_al_text(isset($emr['allergies']) ? $emr['allergies'] : array()));
         $msText = emr_ms_text(isset($emr['main_symptoms']) ? $emr['main_symptoms'] : array());
         if ($msText !== '') $secs[] = array('主要症状', e($msText));
+        }
     } else {
         $secs[] = array('主诉', isset($record['chief_complaint']) ? $record['chief_complaint'] : '');
         $secs[] = array('现病史', isset($record['present_illness']) ? $record['present_illness'] : '');
@@ -430,7 +441,10 @@ function pt_record($visit, $patient, $record, $vitals) {
         if (!empty($vitals['respiration'])) $vp[] = '呼吸 ' . $vitals['respiration'] . '次/分';
         if ($vp) $secs[] = array('生命体征', implode('；', $vp));
     }
-    $secs[] = array('意识状态', isset($record['consciousness']) ? $record['consciousness'] : '');
+    // 意识状态：续写文书仅在本人镜像有值时输出（该节归首诊文书）
+    if (!$isProgress || (isset($record['consciousness']) && $record['consciousness'] !== '')) {
+        $secs[] = array('意识状态', isset($record['consciousness']) ? $record['consciousness'] : '');
+    }
     if ($emrStructured) {
         $secs[] = array('体格检查', emr_pe_text(isset($emr['physical_exam']) ? $emr['physical_exam'] : array()));
         $secs[] = array('初步诊断', emr_diag_text(isset($emr['diagnoses']) ? $emr['diagnoses'] : array()));

@@ -88,15 +88,25 @@ switch ($action) {
         $visit['birth_date'] = $row['patient']['birth_date'];
         $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
-        // 结构化病历优先（patient_records），无则回退旧 records 扁平数据
-        $pr = DB::one('medical', 'SELECT * FROM patient_records WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
-        $record = DB::one('medical', 'SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
-        if ($pr) {
-            $record = $record ? array_merge($record, array('emr_data' => $pr['emr_data'])) : array(
-                'visit_type' => '初诊', 'emr_data' => $pr['emr_data'],
-            );
-        }
         $vitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
+
+        // ===== 多医生接诊（1:N）：该流水下全部文书按创建时间升序逐份渲染 =====
+        // 每位医生一份独立文档（谁书写谁签名）；生命体征属就诊级数据，
+        // 仅在首份文书上展示，续写文书不再重复。
+        $prs = DB::q('medical', 'SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC', array($visit['id']));
+        if ($prs) {
+            $html = '';
+            foreach ($prs as $i => $pr) {
+                // 意识状态/初复诊存于旧 records 镜像表，按各文书医生本人回读
+                $mirror = DB::one('medical', 'SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visit['id'], $pr['doctor_id']));
+                $pr['consciousness'] = $mirror ? (string)$mirror['consciousness'] : '';
+                $pr['visit_type'] = ($mirror && $mirror['visit_type'] !== '') ? (string)$mirror['visit_type'] : '初诊';
+                $html .= pt_record($visit, $row['patient'], $pr, $i === 0 ? $vitals : null);
+            }
+            json_ok(array('html' => $html));
+        }
+        // 回退：无结构化病历时按旧 records 扁平数据渲染单文档（兼容历史就诊）
+        $record = DB::one('medical', 'SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
         if (!$record) json_fail('该就诊暂无已保存的病历，请先在病历中完善主诉、现病史与初步诊断并保存后再打印');
         json_ok(array('html' => pt_record($visit, $row['patient'], $record, $vitals)));
         break;
