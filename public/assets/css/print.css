@@ -434,6 +434,22 @@
     }
     .print-toolbar { display: none !important; }
 
+    /* 分层结构（模态框化）打印还原：
+       - .pp-backdrop 遮罩+虚化仅用于屏幕预览，打印直接移除；
+       - .pp-scroll 是「绝对定位+固定高+内部滚动」容器——浏览器不会在
+         滚动容器内分页，若不还原会导致多张 A5 纸内容重叠/被裁切。
+         还原为普通文档流后，分页器生成的每张 sheet 才能各自独占一页。 */
+    .pp-backdrop { display: none !important; }
+    .pp-scroll {
+        position: static !important;
+        inset: auto !important;
+        overflow: visible !important;
+        width: auto !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
     #print-area {
         position: static !important;
         left: auto !important;
