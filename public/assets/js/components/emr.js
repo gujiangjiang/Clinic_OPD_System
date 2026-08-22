@@ -1267,17 +1267,16 @@ function viewOrderFlow(orderId) {
                 catTitle + '单</button>';
 
             // 删除 / 毁方按钮：处方称「毁方」，其余称「删除」；
-            // 仅开单医生本人可见可用（多医生接诊权责隔离，后端亦有硬拦截）；
-            // 仅未缴费（open）或已退费（refunded）可删，其余点击提示到收费处退费
-            var delLabel = o.order_type === 'prescription' ? '毁方' : '删除';
+            // 非开单医生本人【直接隐藏】（避免误解，后端 delete 亦有硬拦截）；
+            // 本人单子仅未缴费（open）或已退费（refunded）显示，
+            // 已进入执行流程的点击提示到收费处退费。
             // 注意：本函数为全局函数，不可直接调用模块私有的 myDoctorId()，
             // 必须经由公开 API Clinic.emr.isMyOrder 判断（否则运行时
             // ReferenceError 会被 ajax catch 吞掉并误报「网络请求失败」）
-            var mine = Clinic.emr.isMyOrder(o);
+            var delLabel = o.order_type === 'prescription' ? '毁方' : '删除';
             var delBtn;
-            if (!mine) {
-                delBtn = '<button class="btn btn-outline btn-sm" style="margin-top:8px;margin-left:8px" ' +
-                    'onclick="Clinic.toast.warning(\'仅开单医生本人可' + delLabel + '（开单医生：' + (o.doctor_name || '—') + '）\')">🗑️ ' + delLabel + '</button>';
+            if (!Clinic.emr.isMyOrder(o)) {
+                delBtn = '';
             } else if (o.status === 'open' || o.status === 'refunded') {
                 delBtn = '<button class="btn btn-outline btn-sm" style="margin-top:8px;margin-left:8px" ' +
                     'onclick="delOrderFlow(' + o.id + ',\'' + delLabel + '\')">🗑️ ' + delLabel + '</button>';
