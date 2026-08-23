@@ -11,11 +11,16 @@ Router::title('药品信息');
 ?>
 <div class="page-head">
     <div><div class="page-title">💊 药品信息</div><div class="page-desc">药品档案管理（新增药品需审核通过后可用）</div></div>
-    <button class="btn btn-primary btn-sm" onclick="openDrugForm(0)">＋ 新增药品</button>
+    <div class="flex gap-8">
+        <span id="drugImportBtns" class="flex gap-8"></span>
+        <button class="btn btn-primary btn-sm" onclick="openDrugForm(0)">＋ 新增药品</button>
+    </div>
 </div>
 <div class="card" id="drugList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
+Clinic.importer._reloads['drug'] = loadDrugList;
+Clinic.importer.attach('drug', 'drugImportBtns', '药品');
 function loadDrugList() {
     Clinic.get('/api/admin?action=drug_list', null, {
         onSuccess: function (json) {

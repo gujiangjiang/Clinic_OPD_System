@@ -27,6 +27,7 @@ require __DIR__ . '/parts/admin_drug.php';
 require __DIR__ . '/parts/admin_disp.php';
 require __DIR__ . '/parts/admin_audit.php';
 require __DIR__ . '/parts/admin_call.php';
+require __DIR__ . '/parts/admin_import.php';
 
 switch ($action) {
 
@@ -110,6 +111,14 @@ switch ($action) {
     case 'room_delete':
     case 'room_token':
         admin_part_call($action);
+        break;
+
+    /* ---------------- 通用数据导入导出（7 大模块） ---------------- */
+    case 'download_template':
+    case 'export_data':
+    case 'import_preview':
+    case 'import_confirm':
+        admin_part_import($action);
         break;
 
     default:

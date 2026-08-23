@@ -200,8 +200,9 @@ class Layout {
             <script src="/assets/js/components/toast.js"></script>
             <script src="/assets/js/components/print.js"></script>
             <script src="/assets/js/components/theme.js"></script>
-            <script src="/assets/js/components/notify.js"></script>
-            <script src="/assets/js/components/selector.js"></script>
+<script src="/assets/js/components/notify.js"></script>
+<script src="/assets/js/components/import.js"></script>
+<script src="/assets/js/components/selector.js"></script>
             <script src="/assets/js/components/validation.js"></script>
             <script src="/assets/js/components/datetime.js"></script>
             <script src="/assets/js/components/datepicker.js"></script>
