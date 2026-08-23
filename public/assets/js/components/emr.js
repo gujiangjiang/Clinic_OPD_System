@@ -319,7 +319,13 @@ Clinic.emr = (function () {
             var anchor = document.getElementById('myRecordAnchor');
             if (anchor) {
                 setTimeout(function () {
-                    anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    // 计算式滚动：锚点（患者信息栏下方边界）精确定位到吸顶栏正下方，
+                    // 避免 scrollIntoView 受文档高度限制停不到位的偏差
+                    var topbar = document.querySelector('.topbar');
+                    var topbarH = topbar ? topbar.offsetHeight : 0;
+                    var y = anchor.getBoundingClientRect().top +
+                        (window.pageYOffset || document.documentElement.scrollTop) - topbarH - 8;
+                    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
                 }, 200);
             }
         }
@@ -657,6 +663,17 @@ Clinic.emr = (function () {
     }
 
     /**
+     * 处方主药行全要素文本：名称　剂量　频次　途径　×数量
+     */
+    function rxFullLine(it) {
+        var parts = [];
+        if (it.single_dose) parts.push(it.single_dose);
+        if (it.frequency_name) parts.push(it.frequency_name);
+        if (it.route_name) parts.push(it.route_name);
+        return it.item_name + (parts.length ? '\u3000' + parts.join('\u3000') : '') + '\u3000\u00D7' + it.quantity;
+    }
+
+    /**
      * 按开单医生过滤已开项目并生成病历正文文本（辅助检查/处方行/处置项）。
      * 多医生接诊下各医生文书只呈现本人开具的项目——谁开单归属谁的病历。
      */
@@ -668,20 +685,29 @@ Clinic.emr = (function () {
             if ((o.doctor_id || 0) !== doctorId) return;
             // 已退费/已取消的开单不再计入病历内容
             if (o.status === 'refunded' || o.status === 'cancelled') return;
-            o.items.forEach(function (it) {
-                if (o.order_type === 'lab' || o.order_type === 'imaging') {
-                    aux.push(it.item_name);
-                } else if (o.order_type === 'procedure') {
-                    proc.push(it.item_name + '×' + it.quantity);
-                } else if (o.order_type === 'prescription') {
-                    // 处方直显：名称　剂量　用法　途径　×数量（不加提示词，简洁直观）
-                    var parts = [];
-                    if (it.single_dose) parts.push(it.single_dose);
-                    if (it.frequency_name) parts.push(it.frequency_name);
-                    if (it.route_name) parts.push(it.route_name);
-                    rxs.push(it.item_name + (parts.length ? '　' + parts.join('　') : '') + '　×' + it.quantity);
+            if (o.order_type === 'prescription') {
+                // 成组医嘱：主药行带全部要素（剂量/频次/途径/数量），
+                // 子药以树形连接符缩进列出——组内频次/途径/数量一致仅显示一次；
+                // 非成组药品（group_no=0）各自独立一行、全要素显示
+                var i2 = 0;
+                while (i2 < o.items.length) {
+                    var it0 = o.items[i2];
+                    var g = it0.group_no || 0;
+                    if (!g) {
+                        rxs.push(rxFullLine(it0));
+                        i2++;
+                        continue;
+                    }
+                    var arr = [it0];
+                    var j = i2 + 1;
+                    while (j < o.items.length && (o.items[j].group_no || 0) === g) { arr.push(o.items[j]); j++; }
+                    arr.forEach(function (it, idx) {
+                        rxs.push(idx === 0 ? rxFullLine(it)
+                            : (idx === arr.length - 1 ? '\u2514\u2500 ' : '\u251C\u2500 ') + it.item_name);
+                    });
+                    i2 = j;
                 }
-            });
+            }
         });
         return { aux: aux, proc: proc, rxs: rxs };
     }

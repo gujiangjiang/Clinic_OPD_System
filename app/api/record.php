@@ -126,26 +126,55 @@ function emr_order_snapshot($visitId, $doctorId = 0) {
     $orderNames = array();
     $rxLines = array();
     $dispItems = array();
-        foreach ($orders as $o) {
-            $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
-            $agg = order_agg_status($o['order_type'], $items);
-            if ($agg === 'refunded' || $agg === 'cancelled') continue;
-            foreach ($items as $it) {
-                if (empty($it['item_name'])) continue; // 防空名明细混入病历文本
-                if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
+    foreach ($orders as $o) {
+        $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
+        $agg = order_agg_status($o['order_type'], $items);
+        if ($agg === 'refunded' || $agg === 'cancelled') continue;
+        foreach ($items as $it) {
+            if (empty($it['item_name'])) continue; // 防空名明细混入病历文本
+            if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
                 $orderNames[] = $it['item_name'];
             } elseif ($o['order_type'] === 'procedure') {
                 $dispItems[] = array('name' => $it['item_name'], 'qty' => (int)$it['quantity']);
-            } elseif ($o['order_type'] === 'prescription') {
-                $parts = array();
-                if (!empty($it['single_dose'])) $parts[] = $it['single_dose'];
-                if (!empty($it['frequency_name'])) $parts[] = $it['frequency_name'];
-                if (!empty($it['route_name'])) $parts[] = $it['route_name'];
-                $rxLines[] = $it['item_name'] . ($parts ? '　' . implode('　', $parts) : '') . '　×' . (int)$it['quantity'];
             }
         }
     }
+    // 处方：成组医嘱主药行带全部要素，子药树形连接符缩进（组内频次/途径/数量一致仅显示一次）；
+    // 非成组药品各自独立一行全要素显示
+    foreach ($orders as $o) {
+        if ($o['order_type'] !== 'prescription') continue;
+        $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
+        $i2 = 0;
+        while ($i2 < count($items)) {
+            $it0 = $items[$i2];
+            if (empty($it0['item_name'])) { $i2++; continue; } // 防空名明细混入病历文本
+            $g = (int)$it0['group_no'];
+            if (!$g) {
+                $rxLines[] = rx_full_line($it0);
+                $i2++;
+                continue;
+            }
+            $arr = array($it0);
+            $j = $i2 + 1;
+            while ($j < count($items) && (int)$items[$j]['group_no'] === $g) { $arr[] = $items[$j]; $j++; }
+            foreach ($arr as $idx => $it) {
+                if (empty($it['item_name'])) continue;
+                $rxLines[] = $idx === 0 ? rx_full_line($it)
+                    : ($idx === count($arr) - 1 ? '└─ ' : '├─ ') . $it['item_name'];
+            }
+            $i2 = $j;
+        }
+    }
     return array($orderNames, $rxLines, $dispItems);
+}
+
+/** 处方主药行全要素文本：名称　剂量　频次　途径　×数量 */
+function rx_full_line($it) {
+    $parts = array();
+    if (!empty($it['single_dose'])) $parts[] = $it['single_dose'];
+    if (!empty($it['frequency_name'])) $parts[] = $it['frequency_name'];
+    if (!empty($it['route_name'])) $parts[] = $it['route_name'];
+    return $it['item_name'] . ($parts ? '　' . implode('　', $parts) : '') . '　×' . (int)$it['quantity'];
 }
 
 switch ($action) {

@@ -490,7 +490,8 @@ switch ($action) {
                 'doctor_id' => (int)$o['doctor_id'],
                 'created_at' => $o['created_at'], 'done_by' => $doneBy,
                 'items' => array_map(function ($it) {
-                    // 扩展字段：处方在病历正文/打印中的所见即所得展示需要剂量/用法/途径等
+                    // 扩展字段：处方在病历正文/打印中的所见即所得展示需要剂量/用法/途径等；
+                    // group_no/is_parent 供成组医嘱树形展示（子药缩进、组内要素仅主药行一次）
                     return array(
                         'item_name'     => $it['item_name'],
                         'quantity'      => (int)$it['quantity'],
@@ -499,6 +500,8 @@ switch ($action) {
                         'frequency_name'=> $it['frequency_name'],
                         'route_name'    => $it['route_name'],
                         'price'         => (float)$it['price'],
+                        'group_no'      => (int)$it['group_no'],
+                        'is_parent'     => (int)$it['is_parent'],
                     );
                 }, $items),
             );

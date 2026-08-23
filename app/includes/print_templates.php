@@ -347,6 +347,15 @@ function pt_report($report, $result, $item, $visit) {
  * 注意：本函数只输出【片段】，外层 .print-record-doc 容器由调用方
  * （print.php）统一包裹——A5 分页器按该容器识别整份文档的头/尾。
  */
+/** 处方主药行全要素文本（HTML 转义）：名称　剂量　频次　途径　×数量 */
+function pt_rx_full_line($it) {
+    $parts = array();
+    if (!empty($it['single_dose'])) $parts[] = e($it['single_dose']);
+    if (!empty($it['frequency_name'])) $parts[] = e($it['frequency_name']);
+    if (!empty($it['route_name'])) $parts[] = e($it['route_name']);
+    return e($it['item_name']) . ($parts ? '　' . implode('　', $parts) : '') . '　×' . (int)$it['quantity'];
+}
+
 function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast = true, $footRecordTime = null) {
     $title = (isset($visit['dept_type']) && $visit['dept_type'] === 'emergency') ? '急诊电子病历' : '门诊电子病历';
     $html = '';
@@ -504,14 +513,31 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
                 $aux[] = e($it['item_name']);
             } elseif ($o['order_type'] === 'procedure') {
                 $procs[] = e($it['item_name']) . '×' . (int)$it['quantity'];
-            } elseif ($o['order_type'] === 'prescription') {
-                // 处方直显：名称　剂量　用法　途径　×数量（不加提示词，与病历编辑页一致）
-                $parts = array();
-                if (!empty($it['single_dose'])) $parts[] = e($it['single_dose']);
-                if (!empty($it['frequency_name'])) $parts[] = e($it['frequency_name']);
-                if (!empty($it['route_name'])) $parts[] = e($it['route_name']);
-                $rxs[] = e($it['item_name']) . ($parts ? '　' . implode('　', $parts) : '') . '　×' . (int)$it['quantity'];
             }
+        }
+        // 处方直显：名称　剂量　用法　途径　×数量（不加提示词，与病历编辑页一致）；
+        // 成组医嘱：主药行带全部要素，子药树形连接符缩进，组内频次/途径/数量仅主药行显示一次；
+        // 非成组药品各自独立一行全要素显示
+        if ($o['order_type'] !== 'prescription') continue;
+        $i2 = 0;
+        while ($i2 < count($its)) {
+            $it0 = $its[$i2];
+            if ($it0['item_name'] === '' || $it0['item_name'] === null) { $i2++; continue; }
+            $g = (int)$it0['group_no'];
+            if (!$g) {
+                $rxs[] = pt_rx_full_line($it0);
+                $i2++;
+                continue;
+            }
+            $arr = array($it0);
+            $j = $i2 + 1;
+            while ($j < count($its) && (int)$its[$j]['group_no'] === $g) { $arr[] = $its[$j]; $j++; }
+            foreach ($arr as $idx => $it) {
+                if ($it['item_name'] === '' || $it['item_name'] === null) continue;
+                $rxs[] = $idx === 0 ? pt_rx_full_line($it)
+                    : ($idx === count($arr) - 1 ? '└─ ' : '├─ ') . e($it['item_name']);
+            }
+            $i2 = $j;
         }
     }
     if ($emrStructured) {
