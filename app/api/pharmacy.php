@@ -39,9 +39,23 @@ switch ($action) {
                 '<th>操作</th></tr></thead><tbody>';
             foreach ($rows as $r) {
                 $p = DB::one('patient', 'SELECT name, gender, birth_date FROM patients WHERE patient_no=?', array($r['patient_no']));
+                // 成组医嘱：按组号聚类展示子药（同组子药跟随主药显示，便于核对配伍）
+                $groupHtml = '';
+                if ((int)$r['group_no'] > 0) {
+                    $subs = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? AND group_no=? AND is_parent=0 ORDER BY id',
+                        array((int)$r['order_id'], (int)$r['group_no']));
+                    if ($subs) {
+                        $groupHtml = '<div class="fs-12 text-muted" style="margin-top:2px">' .
+                            $subs[0] === end($subs) ? '' : '' .
+                            implode('', array_map(function ($s, $i) use ($subs) {
+                                $branch = $i === 0 ? '┌' : ($i === count($subs) - 1 ? '└' : '├');
+                                return $branch . ' ' . e($s['item_name']) . '（' . e($s['single_dose']) . '）<br>';
+                            }, $subs, array_keys($subs))) . '</div>';
+                    }
+                }
                 $html .= '<tr>' .
                     '<td class="fw-600">' . e($p ? $p['name'] : '') . ' <span class="fs-12 text-muted fw-400">' . e($p ? $p['gender'] : '') . '/' . ($p ? age_format($p['birth_date']) : '—') . '</span></td>' .
-                    '<td>' . e($r['item_name']) . (!empty($r['company_short']) ? '（' . e($r['company_short']) . '）' : '') . '</td>' .
+                    '<td>' . e($r['item_name']) . (!empty($r['company_short']) ? '（' . e($r['company_short']) . '）' : '') . $groupHtml . '</td>' .
                     '<td>' . e($r['order_no']) . '</td>' .
                     '<td>' . e($r['flow_no']) . '</td>' .
                     '<td>' . (int)$r['quantity'] . ' ' . e($r['unit_name']) . '</td>' .
