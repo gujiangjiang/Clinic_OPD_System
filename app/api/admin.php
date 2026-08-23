@@ -34,6 +34,7 @@ switch ($action) {
     /* ---------------- 系统设置 / 统计 / 打印中心 ---------------- */
     case 'stats':
     case 'settings':
+    case 'work_save':
     case 'upload_logo':
     case 'print_items':
     // URL 混淆密钥管理（状态/重置）
