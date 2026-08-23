@@ -219,6 +219,7 @@ class Layout {
             <script src="/assets/js/components/emr.js"></script>
             <script src="/assets/js/components/patient.js"></script>
             <script src="/assets/js/components/ui.js"></script>
+            <script src="/assets/js/components/chart.js"></script>
             <script src="/assets/js/components/app.js"></script>
             <div class="' . $appClass . '">
                 <!-- ===== 侧边栏 ===== -->
