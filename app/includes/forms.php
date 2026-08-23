@@ -83,6 +83,12 @@ function form_drug($id) {
         }
         return $html;
     };
+    // 皮试关联处置名称（表单回显：必须在拼接 HTML 之前计算）
+    $skinName = '';
+    if (!empty($r['skin_test_item_id'])) {
+        $sn = DB::val('disp', 'SELECT name FROM disposal_items WHERE id=?', array((int)$r['skin_test_item_id']));
+        $skinName = (string)$sn;
+    }
     $html = '<input type="hidden" id="f_id" value="' . (int)$id . '">
     <div class="form-row">
         <div class="form-group"><label class="form-label">药品名称 <span class="req">*</span></label><input class="input" id="f_name" value="' . e($r['name']) . '"></div>
@@ -130,12 +136,6 @@ function form_drug($id) {
     $routeMap = array();
     foreach (DB::q('drug', "SELECT name, need_nurse FROM drug_settings WHERE stype='route'") as $rt) {
         $routeMap[$rt['name']] = (int)$rt['need_nurse'];
-    }
-    // 皮试关联处置名称（表单回显）
-    $skinName = '';
-    if (!empty($r['skin_test_item_id'])) {
-        $sn = DB::val('disp', 'SELECT name FROM disposal_items WHERE id=?', array((int)$r['skin_test_item_id']));
-        $skinName = (string)$sn;
     }
     return array('html' => $html, 'route_nurse' => $routeMap, 'need_nurse' => (int)$r['need_nurse'],
         'need_skin_test' => (int)(isset($r['need_skin_test']) ? $r['need_skin_test'] : 0),
