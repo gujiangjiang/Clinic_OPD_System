@@ -13,6 +13,11 @@ Router::title('审核中心');
 <div class="flex gap-8 mb-12">
     <button class="btn btn-primary btn-sm" data-tab="pending" onclick="switchTab('pending')">待审核</button>
     <button class="btn btn-outline btn-sm" data-tab="handled" onclick="switchTab('handled')">已处理</button>
+    <select class="select" id="groupSelect" onchange="loadAudits(getCurrentTab())" style="width:auto;margin-left:8px">
+        <option value="">平铺列表</option>
+        <option value="user">按申请人分组</option>
+        <option value="type">按类型分组</option>
+    </select>
     <button class="btn btn-success btn-sm" id="auditAllBtn" onclick="doAuditAll()">✅ 一键全部通过</button>
 </div>
 
@@ -26,13 +31,19 @@ function switchTab(status) {
     loadAudits(status);
 }
 
+function getCurrentTab() {
+    var b = document.querySelector('[data-tab].btn-primary');
+    return b ? b.getAttribute('data-tab') : 'pending';
+}
+
 function loadAudits(status) {
-    Clinic.get('/api/admin?action=audit_list&status=' + status, null, {
+    var group = document.getElementById('groupSelect').value;
+    Clinic.get('/api/admin?action=audit_list&status=' + status + '&group=' + group, null, {
         onSuccess: function (json) {
             document.getElementById('auditList').innerHTML = json.data.html;
-            // 一键全部通过按钮：仅【待审核】页签且有可一键通过的常规事项时显示
+            // 一键全部通过按钮：仅【待审核】页签、平铺/按类型分组、且有可一键通过的常规事项时显示
             var cnt = json.data && json.data.pending_count ? json.data.pending_count : 0;
-            document.getElementById('auditAllBtn').style.display = (status === 'pending' && cnt > 0) ? '' : 'none';
+            document.getElementById('auditAllBtn').style.display = (status === 'pending' && group !== 'user' && cnt > 0) ? '' : 'none';
         },
     });
 }

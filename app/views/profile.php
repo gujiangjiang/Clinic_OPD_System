@@ -1,12 +1,20 @@
 <?php
 /**
  * profile.php — 个人信息
- * 说明：用户可维护自己的姓名/头像/学历/学位/职称/职务/介绍，
- * 以及主题偏好（明亮/夜间/自动，跟随用户保存）。
+ * 说明：
+ * 1. 姓名/职称/职务：只读，需联系管理员修改（不提供编辑）
+ * 2. 头像/界面主题：即时保存（保存资料按钮）
+ * 3. 学历/学位/个人介绍：需提交审核，审核通过才生效；
+ *    提交后显示灰色只读「等待审核中，暂未生效」；审核结果站内消息提醒。
  */
 Router::title('个人信息');
 $u = Auth::user();
 $user = DB::one('user', 'SELECT * FROM users WHERE id=?', array($u['id']));
+// 是否有待审核的个人资料申请
+$pendingAudit = DB::one('core', "SELECT * FROM audits WHERE type='profile_update' AND ref_id=? AND status='pending' ORDER BY id DESC LIMIT 1", array($u['id']));
+$pending = $pendingAudit ? true : false;
+// 待审核的新值（若有，用于展示申请中内容）
+$pendingData = $pendingAudit ? json_decode($pendingAudit['data'], true) : null;
 ?>
 <div class="page-head">
     <div><div class="page-title">👤 个人信息</div><div class="page-desc">维护个人资料与界面偏好</div></div>
@@ -20,21 +28,46 @@ $user = DB::one('user', 'SELECT * FROM users WHERE id=?', array($u['id']));
         </div>
     </div>
 
-    <div class="form-row">
-        <div class="form-group"><label class="form-label">姓名</label><input class="input" id="f_name" value="<?php echo e($user['name']); ?>"></div>
-        <div class="form-group"><label class="form-label">头像（可选）</label><input type="file" class="input" id="f_photo" accept="image/*"></div>
+    <?php if ($pending): ?>
+    <div class="mb-12" style="background:var(--warning-soft);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--warning)">
+        ⏳ 您已提交个人资料修改申请，<b>等待审核中，暂未生效</b>。审核通过后自动生效；结果将通过站内消息通知您。
     </div>
+    <?php endif; ?>
+
+    <!-- 基本信息（只读，需联系管理员修改） -->
+    <div class="card-title mt-8"><span>基本信息（只读，需联系管理员修改）</span></div>
     <div class="form-row">
-        <div class="form-group"><label class="form-label">学历</label><select class="select" id="f_education"><?php echo opt_options('education', $user['education']); ?></select></div>
-        <div class="form-group"><label class="form-label">学位</label><select class="select" id="f_degree"><?php echo opt_options('degree', $user['degree']); ?></select></div>
+        <div class="form-group"><label class="form-label">姓名</label><input class="input" value="<?php echo e($user['name']); ?>" disabled></div>
+        <div class="form-group"><label class="form-label">工号 / 用户名</label><input class="input" value="<?php echo e($user['emp_no'] . ' / ' . $user['username']); ?>" disabled></div>
     </div>
     <div class="form-row">
         <?php if (in_array($user['role'], array('doctor', 'nurse', 'lab', 'imaging'), true)): ?>
-        <div class="form-group"><label class="form-label">职称</label><select class="select" id="f_title"><?php echo opt_options('title_' . ($user['role'] === 'doctor' ? 'doctor' : ($user['role'] === 'nurse' ? 'nurse' : ($user['role'] === 'lab' ? 'lab' : 'imaging'))), $user['title']); ?></select></div>
+        <div class="form-group"><label class="form-label">职称</label><input class="input" value="<?php echo e($user['title'] ?: '未设置'); ?>" disabled></div>
         <?php endif; ?>
-        <div class="form-group"><label class="form-label">职务</label><select class="select" id="f_position"><?php echo opt_options('position', $user['position']); ?></select></div>
+        <div class="form-group"><label class="form-label">职务</label><input class="input" value="<?php echo e($user['position'] ?: '未设置'); ?>" disabled></div>
     </div>
-    <div class="form-group"><label class="form-label">个人介绍</label><textarea class="textarea" id="f_intro" rows="3"><?php echo e($user['intro']); ?></textarea></div>
+    <div class="fs-12 text-muted mb-12">如需修改姓名、职称、职务，请联系管理员在【用户管理】中调整。</div>
+
+    <!-- 需审核字段（学历/学位/个人介绍） -->
+    <div class="card-title mt-8"><span>📋 需审核修改（学历 / 学位 / 个人介绍）</span></div>
+    <div class="form-row">
+        <div class="form-group"><label class="form-label">学历</label><select class="select" id="f_education"<?php echo $pending ? ' disabled' : ''; ?>><?php echo opt_options('education', $pending && isset($pendingData['education']) ? $pendingData['education'] : $user['education']); ?></select></div>
+        <div class="form-group"><label class="form-label">学位</label><select class="select" id="f_degree"<?php echo $pending ? ' disabled' : ''; ?>><?php echo opt_options('degree', $pending && isset($pendingData['degree']) ? $pendingData['degree'] : $user['degree']); ?></select></div>
+    </div>
+    <div class="form-group"><label class="form-label">个人介绍</label><textarea class="textarea" id="f_intro" rows="3"<?php echo $pending ? ' disabled' : ''; ?>><?php echo e($pending && isset($pendingData['intro']) ? $pendingData['intro'] : $user['intro']); ?></textarea></div>
+    <?php if ($pending): ?>
+    <div class="fs-12 text-muted mb-8" style="color:var(--text-muted)">申请中（等待审核），审核通过后生效。</div>
+    <button type="button" class="btn btn-outline" disabled>⏳ 提交审核（待审核）</button>
+    <?php else: ?>
+    <div class="fs-12 text-muted mb-8">学历、学位、个人介绍修改需提交管理员审核，审核通过后才生效。</div>
+    <button type="button" class="btn btn-primary" onclick="submitProfileAudit()">📨 提交审核</button>
+    <?php endif; ?>
+
+    <!-- 即时生效字段（头像/主题） -->
+    <div class="card-title mt-24"><span>⚙️ 即时生效（头像 / 界面主题）</span></div>
+    <div class="form-row">
+        <div class="form-group"><label class="form-label">头像（可选）</label><input type="file" class="input" id="f_photo" accept="image/*"></div>
+    </div>
     <div class="form-group">
         <label class="form-label">界面主题（跟随用户保存）</label>
         <select class="select" id="f_theme">
@@ -43,7 +76,7 @@ $user = DB::one('user', 'SELECT * FROM users WHERE id=?', array($u['id']));
             <option value="dark"<?php echo $user['theme'] === 'dark' ? ' selected' : ''; ?>>夜间模式</option>
         </select>
     </div>
-    <button type="button" class="btn btn-primary" onclick="saveProfile()">保存资料</button>
+    <button type="button" class="btn btn-primary" onclick="saveProfile()">💾 保存资料</button>
 </div>
 
 <!-- 打印偏好：自动打印的总开关（保存到服务器，跟随用户跨设备生效）。
@@ -70,24 +103,35 @@ $user = DB::one('user', 'SELECT * FROM users WHERE id=?', array($u['id']));
         });
     });
 })();
-</script>
 
-<script>
+/* 提交需审核字段（学历/学位/介绍） */
+function submitProfileAudit() {
+    Clinic.modal.confirm('确定提交学历、学位、个人介绍修改申请吗？审核通过后才生效。', function () {
+        Clinic.ajax('/api/auth', {
+            action: 'profile_submit',
+            education: document.getElementById('f_education').value,
+            degree: document.getElementById('f_degree').value,
+            intro: document.getElementById('f_intro').value,
+        }, {
+            onSuccess: function (json) {
+                Clinic.toast.success(json.msg);
+                setTimeout(function () { location.reload(); }, 700);
+            },
+        });
+    }, { title: '提交审核确认', okText: '确认提交' });
+}
+
+/* 保存即时生效字段（头像/主题） */
 function saveProfile() {
     var fd = new FormData();
     fd.append('csrf_token', document.body.getAttribute('data-csrf'));
-    fd.append('action', 'profile');
-    fd.append('name', document.getElementById('f_name').value.trim());
-    fd.append('education', document.getElementById('f_education').value);
-    fd.append('degree', document.getElementById('f_degree').value);
-    var t = document.getElementById('f_title');
-    if (t) fd.append('title', t.value);
-    fd.append('position', document.getElementById('f_position').value);
-    fd.append('intro', document.getElementById('f_intro').value);
+    fd.append('action', 'profile_save');
     var photo = document.getElementById('f_photo').files[0];
     if (photo) fd.append('photo', photo);
-
     var theme = document.getElementById('f_theme').value;
+    fd.append('theme', theme);
+
+    // 主题立即应用（不刷新页面也能看到效果）
     if (theme !== document.body.getAttribute('data-theme-pref')) {
         Clinic.theme.save(theme);
     }

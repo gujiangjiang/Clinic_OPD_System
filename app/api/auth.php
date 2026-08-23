@@ -138,24 +138,24 @@ switch ($action) {
         json_ok(array(), '密码修改成功');
         break;
 
-    /* ---------------- 个人信息（姓名/头像/学历/学位/职称/职务/介绍） ---------------- */
-    case 'profile':
-        $name = post('name');
-        if ($name === '') {
-            json_fail('姓名不能为空');
-        }
-        $fields = array('education', 'degree', 'title', 'position', 'intro');
-        $updates = array('name' => $name);
-        foreach ($fields as $f) {
-            $updates[$f] = post($f);
-        }
-        // 头像上传（可选）
+    /* ---------------- 个人资料：即时保存（仅头像/主题，无需审核） ---------------- */
+    case 'profile_save':
+        $updates = array();
+        // 头像上传（即时生效）
         $photo = isset($_FILES['photo']) ? Upload::save('photo', 'user/' . Auth::user()['role']) : null;
         if ($photo && isset($photo['error'])) {
             json_fail($photo['error']);
         }
         if ($photo && $photo['ok']) {
             $updates['photo'] = $photo['path'];
+        }
+        // 主题（即时生效，可单独保存）
+        $theme = post('theme', '');
+        if (in_array($theme, array('auto', 'light', 'dark'), true)) {
+            $updates['theme'] = $theme;
+        }
+        if (!$updates) {
+            json_fail('没有需要保存的变更');
         }
         $set = array();
         $params = array();
@@ -165,11 +165,82 @@ switch ($action) {
         }
         $params[] = Auth::id();
         DB::exec('user', 'UPDATE users SET ' . implode(',', $set) . ' WHERE id=?', $params);
-        Auth::updateSession('name', $name);
-        if ($photo && $photo['ok']) {
-            Auth::updateSession('photo', $photo['path']);
+        if ($photo && $photo['ok']) Auth::updateSession('photo', $photo['path']);
+        if ($theme !== '') Auth::updateSession('theme', $theme);
+        json_ok(array(), '资料已保存');
+        break;
+
+    /* ---------------- 个人资料：提交审核（学历/学位/个人介绍） ----------------
+     * 说明：学历/学位/个人介绍属于需管理员审核的字段，提交后写入审核池
+     * （type=profile_update），审核通过才生效；已有待审核申请时禁止重复提交。 */
+    case 'profile_submit':
+        $me = Auth::user();
+        // 防重复：已有待审核的个人资料申请
+        $pending = DB::one('core', "SELECT id FROM audits WHERE type='profile_update' AND ref_id=? AND status='pending'", array($me['id']));
+        if ($pending) {
+            json_fail('您已提交过个人资料审核申请，请等待管理员审核');
         }
-        json_ok(array(), '个人信息已更新');
+        // 收集需审核字段的新值
+        $updates = array();
+        $edu = post('education', '');
+        $deg = post('degree', '');
+        $intro = post('intro', '');
+        // 至少有变化才提交（与当前值对比）
+        $cur = DB::one('user', 'SELECT education, degree, intro FROM users WHERE id=?', array($me['id']));
+        if (($cur && $cur['education'] !== $edu) || $edu !== '') $updates['education'] = $edu;
+        if (($cur && $cur['degree'] !== $deg) || $deg !== '') $updates['degree'] = $deg;
+        if (($cur && $cur['intro'] !== $intro) || $intro !== '') $updates['intro'] = $intro;
+        if (!$updates) {
+            json_fail('没有需要提交审核的变更');
+        }
+        // 写入审核池：data 存新值 JSON，ref_id=用户ID
+        $dataJson = json_encode($updates, JSON_UNESCAPED_UNICODE);
+        $titleParts = array();
+        if (isset($updates['education'])) $titleParts[] = '学历→' . ($edu !== '' ? $edu : '（清除）');
+        if (isset($updates['degree'])) $titleParts[] = '学位→' . ($deg !== '' ? $deg : '（清除）');
+        if (isset($updates['intro'])) $titleParts[] = '个人介绍更新';
+        DB::insert('core', "INSERT INTO audits(type, ref_id, title, content, data, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?,?)", array(
+            'profile_update', (int)$me['id'],
+            '个人资料修改申请：' . $me['name'],
+            implode('；', $titleParts),
+            $dataJson, 'pending', $me['name'], (int)$me['id'], now_str(),
+        ));
+        // 通知管理员（会话快照不含 emp_no，从库取）
+        $meRow = DB::one('user', 'SELECT emp_no FROM users WHERE id=?', array($me['id']));
+        send_msg('admin', 0, '个人资料审核申请',
+            '用户「' . $me['name'] . '」（工号 ' . ($meRow ? $meRow['emp_no'] : '') . '）申请修改个人资料：' . implode('；', $titleParts) .
+            '，请在【审核中心】处理', '', '');
+        json_ok(array(), '已提交审核，审核通过后生效');
+        break;
+
+    /* ---------------- 个人信息（兼容旧接口，改为即时+审核混合提示） ---------------- */
+    case 'profile':
+        // 旧逻辑保留：仅保存即时字段（头像/主题），学历/学位/介绍需走 profile_submit 审核
+        $updates = array();
+        $photo = isset($_FILES['photo']) ? Upload::save('photo', 'user/' . Auth::user()['role']) : null;
+        if ($photo && isset($photo['error'])) {
+            json_fail($photo['error']);
+        }
+        if ($photo && $photo['ok']) {
+            $updates['photo'] = $photo['path'];
+        }
+        $theme = post('theme', '');
+        if (in_array($theme, array('auto', 'light', 'dark'), true)) {
+            $updates['theme'] = $theme;
+        }
+        if ($updates) {
+            $set = array();
+            $params = array();
+            foreach ($updates as $k => $v) {
+                $set[] = $k . '=?';
+                $params[] = $v;
+            }
+            $params[] = Auth::id();
+            DB::exec('user', 'UPDATE users SET ' . implode(',', $set) . ' WHERE id=?', $params);
+            if ($photo && $photo['ok']) Auth::updateSession('photo', $photo['path']);
+            if ($theme !== '') Auth::updateSession('theme', $theme);
+        }
+        json_ok(array(), '资料已保存');
         break;
 
     /* ---------------- 当前用户信息 ---------------- */

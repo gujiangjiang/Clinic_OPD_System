@@ -20,7 +20,7 @@ function admin_part_audit($action) {
 
     /* ==================== 审核列表 ==================== */
     if ($action === 'audit_list') {
-        $status = get('status', 'pending');
+        $status = req('status', 'pending');
         if ($status === 'handled') {
             // 已处理页签：已通过 / 已驳回 / 已使用
             $rows = DB::q('core', "SELECT * FROM audits WHERE status IN ('approved','rejected','used') ORDER BY id DESC", array());
@@ -28,39 +28,92 @@ function admin_part_audit($action) {
             $status = 'pending';
             $rows = DB::q('core', 'SELECT * FROM audits WHERE status=? ORDER BY id DESC', array($status));
         }
+        // 分组维度：'' 平铺 / user 按申请人 / type 按事项类型
+        $group = req('group', '');
+        $group = ($group === 'user' || $group === 'type') ? $group : '';
         // 可一键通过的常规待审核事项数（密码重置 / 报告撤回不纳入一键通过）
         $pendingCount = (int)DB::val('core', "SELECT COUNT(*) FROM audits WHERE status='pending' AND type NOT IN ('pwd_reset','report_withdraw')", array());
-        $html = '<div class="fs-13 text-muted mb-8">' . ($status === 'pending' ? '待审核' : '已处理') . '：' . count($rows) . ' 条</div>';
+        $html = '<div class="fs-13 text-muted mb-8">' . ($status === 'pending' ? '待审核' : '已处理') . '：' . count($rows) . ' 条' .
+            ($group ? '（按' . ($group === 'user' ? '申请人' : '类型') . '分组）' : '') . '</div>';
         if (!$rows) {
             $html .= '<div class="empty"><div class="empty-ico">📋</div>暂无待审核事项</div>';
         } else {
-            $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
-                '<th>类型</th><th>事项</th><th>申请人</th><th>申请时间</th><th>状态</th><th>操作</th></tr></thead><tbody>';
             $typeNames = array(
                 'template' => '病历模板', 'item_lab' => '检验项目添加', 'item_exam' => '检查项目添加',
                 'item_drug' => '药品添加', 'item_disp' => '处置项目添加', 'report_withdraw' => '报告撤回',
-                'pwd_reset' => '密码重置申请',
+                'pwd_reset' => '密码重置申请', 'profile_update' => '个人资料修改',
             );
-            foreach ($rows as $r) {
-                $html .= '<tr>' .
-                    '<td><span class="badge badge-primary">' . e(isset($typeNames[$r['type']]) ? $typeNames[$r['type']] : $r['type']) . '</span></td>' .
-                    '<td><div class="fw-600 fs-13">' . e($r['title']) . '</div><div class="fs-12 text-muted">' . e($r['content']) . '</div>' .
+            // 单条记录渲染（平铺与分组共用；分组视图可隐藏冗余列）
+            $rowHtml = function ($r, $showType = true, $showProposer = true) use ($typeNames) {
+                $h = '<tr>';
+                if ($showType) {
+                    $h .= '<td><span class="badge badge-primary">' . e(isset($typeNames[$r['type']]) ? $typeNames[$r['type']] : $r['type']) . '</span></td>';
+                }
+                $h .= '<td><div class="fw-600 fs-13">' . e($r['title']) . '</div><div class="fs-12 text-muted">' . e($r['content']) . '</div>' .
                     (!empty($r['creation_source']) ? '<div class="fs-12 mt-4"><span class="badge badge-warning">来源：' . e($r['creation_source']) . '</span></div>' : '') .
-                    ($r['note'] ? '<div class="fs-12 mt-4" style="color:var(--danger)">驳回理由：' . e($r['note']) . '</div>' : '') . '</td>' .
-                    '<td>' . e($r['proposer']) . '</td>' .
-                    '<td class="fs-12">' . e(substr($r['created_at'], 0, 16)) . '</td>' .
+                    ($r['note'] ? '<div class="fs-12 mt-4" style="color:var(--danger)">驳回理由：' . e($r['note']) . '</div>' : '') . '</td>';
+                if ($showProposer) {
+                    $h .= '<td>' . e($r['proposer']) . '</td>';
+                }
+                $h .= '<td class="fs-12">' . e(substr($r['created_at'], 0, 16)) . '</td>' .
                     '<td>' . ($r['status'] === 'pending' ? '<span class="badge badge-warning">待审核</span>' : ($r['status'] === 'approved' ? '<span class="badge badge-success">已通过</span>' : ($r['status'] === 'used' ? '<span class="badge badge-gray">已使用</span>' : '<span class="badge badge-gray">已驳回</span>'))) . '</td>' .
                     '<td>';
                 if ($r['status'] === 'pending') {
-                    $html .= '<div class="flex gap-4">' .
+                    $h .= '<div class="flex gap-4">' .
                         '<button class="btn btn-success btn-sm" onclick="doAudit(' . (int)$r['id'] . ',1)">通过</button>' .
                         '<button class="btn btn-outline btn-sm" onclick="doAudit(' . (int)$r['id'] . ',0)">驳回</button></div>';
                 } else {
-                    $html .= '<span class="fs-12 text-muted">' . e($r['handled_by']) . ' ' . e(substr($r['handled_at'], 5, 11)) . '</span>';
+                    $h .= '<span class="fs-12 text-muted">' . e($r['handled_by']) . ' ' . e(substr($r['handled_at'], 5, 11)) . '</span>';
                 }
-                $html .= '</td></tr>';
+                $h .= '</td></tr>';
+                return $h;
+            };
+            if ($group === '') {
+                // —— 平铺列表 ——
+                $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
+                    '<th>类型</th><th>事项</th><th>申请人</th><th>申请时间</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+                foreach ($rows as $r) {
+                    $html .= $rowHtml($r);
+                }
+                $html .= '</tbody></table></div>';
+            } elseif ($group === 'user') {
+                // —— 按申请人分组 ——
+                $groups = array();
+                foreach ($rows as $r) {
+                    $groups[$r['proposer']][] = $r;
+                }
+                $html .= '<div class="flex-col gap-8">';
+                foreach ($groups as $proposer => $list) {
+                    $html .= '<div class="card"><div class="card-title" style="padding:10px 14px;border-bottom:1px solid var(--border)">' .
+                        '👤 ' . e($proposer) . '<span class="fs-12 text-muted ml-8">' . count($list) . ' 条</span></div>' .
+                        '<div class="table-wrap" style="border:none"><table class="table"><thead><tr>' .
+                        '<th>类型</th><th>事项</th><th>申请时间</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+                    foreach ($list as $r) {
+                        $html .= $rowHtml($r, true, false);
+                    }
+                    $html .= '</tbody></table></div></div>';
+                }
+                $html .= '</div>';
+            } else {
+                // —— 按类型分组 ——
+                $groups = array();
+                foreach ($rows as $r) {
+                    $key = isset($typeNames[$r['type']]) ? $typeNames[$r['type']] : $r['type'];
+                    $groups[$key][] = $r;
+                }
+                $html .= '<div class="flex-col gap-8">';
+                foreach ($groups as $typeName => $list) {
+                    $html .= '<div class="card"><div class="card-title" style="padding:10px 14px;border-bottom:1px solid var(--border)">' .
+                        '📂 ' . e($typeName) . '<span class="fs-12 text-muted ml-8">' . count($list) . ' 条</span></div>' .
+                        '<div class="table-wrap" style="border:none"><table class="table"><thead><tr>' .
+                        '<th>事项</th><th>申请人</th><th>申请时间</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+                    foreach ($list as $r) {
+                        $html .= $rowHtml($r, false, true);
+                    }
+                    $html .= '</tbody></table></div></div>';
+                }
+                $html .= '</div>';
             }
-            $html .= '</tbody></table></div>';
         }
         json_ok(array('html' => $html, 'pending_count' => $pendingCount));
     }
@@ -171,6 +224,35 @@ function admin_part_audit($action) {
                         send_msg($target['role'], $refId, '密码重置申请未通过',
                             '您申请的密码重置未通过管理员审核，理由：' . ($note !== '' ? $note : '未说明') . '，如有疑问请联系管理员。', '', '');
                     }
+                }
+                break;
+
+            case 'profile_update':
+                // 个人资料修改（学历/学位/介绍）：通过则应用新值，拒绝/通过均站内消息通知
+                $target = DB::one('user', 'SELECT * FROM users WHERE id=?', array($refId));
+                if ($approve && $target) {
+                    $upd = json_decode($audit['data'], true);
+                    if (is_array($upd)) {
+                        $set = array();
+                        $params = array();
+                        foreach ($upd as $k => $v) {
+                            if (in_array($k, array('education', 'degree', 'intro'), true)) {
+                                $set[] = $k . '=?';
+                                $params[] = $v;
+                            }
+                        }
+                        if ($set) {
+                            $params[] = $refId;
+                            DB::exec('user', 'UPDATE users SET ' . implode(',', $set) . ' WHERE id=?', $params);
+                        }
+                    }
+                    if ($proposerId > 0) {
+                        send_msg($target['role'], $proposerId, '个人资料修改审核结果',
+                            '您提交的个人资料修改申请已通过审核，学历/学位/个人介绍已生效。', '', '');
+                    }
+                } elseif ($proposerId > 0) {
+                    send_msg($target ? $target['role'] : 'user', $proposerId, '个人资料修改审核结果',
+                        '您提交的个人资料修改申请未通过审核，理由：' . ($note !== '' ? $note : '未说明') . '。', '', '');
                 }
                 break;
         }
