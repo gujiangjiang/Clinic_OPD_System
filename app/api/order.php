@@ -362,7 +362,7 @@ switch ($action) {
             // 通知护士站执行 + 打印提醒
             $firstAuto = reset($autoDisp);
             send_msg('nurse', 0,
-                '新的联动处置单（' . count($autoDisp) . 项 . '）',
+                '新的联动处置单（' . count($autoDisp) . '项）',
                 '患者：' . $row['patient']['name'] . '（' . $visit['patient_no'] . '），流水号 ' . $visit['flow_no'] .
                     '，含皮试/注射类处置，请及时处理',
                 'order', '/api/print?action=order&order_id=' . oid($autoOrderId),

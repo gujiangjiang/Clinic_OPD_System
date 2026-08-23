@@ -52,7 +52,7 @@ function admin_part_drug($action) {
         $bindDisp = (int)post('bind_disposal_item_id', 0);
         // 绑定处置校验：必须为已审核通过的处置项目（0=不绑定）
         if ($bindDisp > 0) {
-            $ex = DB::val('disp', 'SELECT COUNT(*) FROM disposal_items WHERE id=? AND status='approved'', array($bindDisp));
+            $ex = DB::val('disp', "SELECT COUNT(*) FROM disposal_items WHERE id=? AND status='approved'", array($bindDisp));
             if (!$ex) json_fail('绑定的处置项目不存在或未通过审核');
         }
         if ($name === '') json_fail('请输入名称');
@@ -129,7 +129,7 @@ function admin_part_drug($action) {
             'skin_test_item_id' => (int)post('skin_test_item_id', 0),
         );
         if ((int)$data['need_skin_test'] === 1) {
-            $stOk = DB::val('disp', 'SELECT COUNT(*) FROM disposal_items WHERE id=? AND status='approved'', array($data['skin_test_item_id']));
+            $stOk = DB::val('disp', "SELECT COUNT(*) FROM disposal_items WHERE id=? AND status='approved'", array($data['skin_test_item_id']));
             if (!$stOk) json_fail('请关联有效的皮试处置项目（需已通过审核）');
         } else {
             $data['skin_test_item_id'] = 0;
