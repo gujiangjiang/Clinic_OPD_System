@@ -10,7 +10,7 @@
  * 3. 检验既往已开具（含未缴费）二次确认后再加入（复查场景）
  * 4. 实时显示开单总费用
  * 5. 处方：数量不得超库存、剂量/频次/途径自动同步药品设置、
- *    支持子处方（静脉输液）、护士站执行选项自动勾选
+ *    支持子医嘱成组（所有药品均可，不限给药途径）、护士站执行选项自动勾选
  * 6. 右侧纵向流程图（开单-缴费-登记-执行-完成）
  * 7. 提交后自动弹出申请单/处方打印
  * 依赖：ajax.js、modal.js、toast.js、print.js、emr.js
@@ -576,9 +576,9 @@ Clinic.order = (function () {
 
     /**
      * 药品剂量/频次/途径（自动同步，可修改）
+     * 成组医嘱：所有药品均可添加子医嘱（不限给药途径）
      */
     function drugControls(s, i) {
-        var isIV = s.route && s.route.indexOf('静脉') !== -1;
         return '<div class="flex gap-8 mt-4" style="flex-wrap:wrap">' +
             '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" ' +
             'value="' + (s.dose || '') + '" placeholder="剂量" onchange="Clinic.order.setField(' + i + ',\'dose\',this.value)">' +
@@ -586,19 +586,19 @@ Clinic.order = (function () {
             'value="' + (s.frequency || '') + '" placeholder="频次" onchange="Clinic.order.setField(' + i + ',\'frequency\',this.value)">' +
             '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" ' +
             'value="' + (s.route || '') + '" placeholder="途径" onchange="Clinic.order.setRoute(' + i + ',this.value)">' +
-            (isIV ? '<button type="button" class="btn btn-outline btn-sm" ' +
-                'onclick="Clinic.order.addSub(' + i + ')">＋ 子处方</button>' : '') +
+            '<button type="button" class="btn btn-outline btn-sm" ' +
+            'onclick="Clinic.order.addSub(' + i + ')">＋ 子医嘱</button>' +
             '</div>' +
             (s.sub_items.length ? subList(s, i) : '');
     }
 
     /**
-     * 子处方列表（成组医嘱树状连线：┌ 首个 / ├ 中间 / └ 末尾）
+     * 子医嘱列表（成组医嘱树状连线：┌ 首个 / ├ 中间 / └ 末尾）
      */
     function subList(s, i) {
         var n = s.sub_items.length;
         return '<div style="margin:6px 0 0 20px;border-left:2px solid var(--warning);padding-left:10px">' +
-            '<div class="fs-12 text-muted mb-4">成组医嘱（并入上方输液/注射，剂量单独显示，途径频次随主药）</div>' +
+            '<div class="fs-12 text-muted mb-4">成组医嘱（并入上方主药，剂量单独显示，途径频次随主药）</div>' +
             s.sub_items.map(function (sub, si) {
                 var branch = si === 0 ? '┌' : (si === n - 1 ? '└' : '├');
                 return '<div class="flex-between fs-13" style="padding:2px 0;font-family:Menlo,Consolas,monospace">' +
@@ -635,7 +635,7 @@ Clinic.order = (function () {
                 dose: s.dose, frequency: s.frequency, route: s.route,
                 notes: '', sub_of: 0, sort: idx,
             });
-            // 皮试判定结果（主药行；子处方下标为 null 表示非皮试主药）
+            // 皮试判定结果（主药行；子药下标为 null 表示非皮试主药）
             skinChoices.push(s.skin_test || '');
             (s.sub_items || []).forEach(function (sub, si) {
                 flat.push({
@@ -677,7 +677,7 @@ Clinic.order = (function () {
         var s = SELECTED[i];
         if (s.sub_items && s.sub_items.length) {
             Clinic.modal.confirm(
-                '删除主药【' + s.name + '】将同时移除所有关联子处方（' + s.sub_items.length + '项），是否确认？',
+                '删除主药【' + s.name + '】将同时移除所有关联子医嘱（' + s.sub_items.length + '项），是否确认？',
                 function () { doRemove(i); },
                 { title: '确认删除成组医嘱', okText: '确认删除' }
             );
@@ -723,7 +723,7 @@ Clinic.order = (function () {
         renderSelected();
     }
 
-    /** 添加子处方 */
+    /** 添加子医嘱 */
     function addSub(idx) {
         Clinic.get('/api/order?action=catalog&type=prescription', null, {
             onSuccess: function (j) {
@@ -734,14 +734,14 @@ Clinic.order = (function () {
                 }).join('');
                 Clinic.modal.open(
                     '<div class="form-row">' +
-                    '  <div class="form-group"><label class="form-label">子处方药品</label>' +
+                    '  <div class="form-group"><label class="form-label">子医嘱药品</label>' +
                     '    <select class="select" id="subDrug">' + opts + '</select></div>' +
                     '  <div class="form-group"><label class="form-label">剂量</label>' +
                     '    <input type="text" class="input" id="subDose" placeholder="如：2g"></div>' +
                     '</div>' +
-                    '<div class="fs-12 text-muted">子处方并入上方输液关联显示，剂量单独计算，频次途径合并显示。</div>',
+                    '<div class="fs-12 text-muted">子医嘱并入上方主药组关联显示，剂量单独计算，频次途径合并显示。</div>',
                     {
-                        title: '添加子处方',
+                        title: '添加子医嘱',
                         size: 'modal-sm',
                         buttons: [
                             { text: '取消', cls: 'btn-outline' },
@@ -767,7 +767,7 @@ Clinic.order = (function () {
         });
     }
 
-    /** 移除子处方 */
+    /** 移除子医嘱 */
     function removeSub(i, si) {
         SELECTED[i].sub_items.splice(si, 1);
         renderSelected();
