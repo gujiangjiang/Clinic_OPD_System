@@ -65,7 +65,9 @@ function admin_part_call($action) {
             }
             $html .= '</tbody></table></div>';
         }
-        json_ok(array('html' => $html, 'dept_name' => $dept['name']));
+        json_ok(array('html' => $html, 'dept_name' => $dept['name'],
+            'total_count' => count($rows),
+            'online_count' => (int)DB::val('clinic_rooms', "SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat IS NOT NULL AND (strftime('%s','now','localtime') - strftime('%s',screen_last_heartbeat)) <= 30", array($deptId))));
     }
 
     /* ==================== 新建诊室 ==================== */

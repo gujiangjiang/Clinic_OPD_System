@@ -22,7 +22,7 @@ Router::title('诊断管理');
 <div class="card" id="diagList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
-Clinic.importer._reloads['icd10'] = loadDiagList;
+Clinic.importer._reloads['icd10'] = loadDiag;
 Clinic.importer.attach('icd10', 'impBtns', 'ICD10诊断');
 function loadDiag() {
     var kw = document.getElementById('diagKw').value.trim();

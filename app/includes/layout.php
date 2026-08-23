@@ -165,12 +165,8 @@ class Layout {
             ($uHasTitle ? '<div class="user-pop-row"><span>职称</span><span>' . e($uTitle !== '' ? $uTitle : '未设置') . '</span></div>' : '') .
             '<div class="user-pop-foot"><a href="/profile">个人中心 ›</a></div></div>';
 
-        // 管理员首次进入提醒修改密码
-        $pwdTip = '';
-        if ($u['role'] === 'admin' && (int)DB::val('user', 'SELECT pwd_changed FROM users WHERE id=?', array($u['id'])) === 0) {
-            $pwdTip = '<div class="mb-12" style="background:var(--warning-soft);border-radius:8px;padding:10px 14px;font-size:13px">
-                🔒 为保障系统安全，建议您尽快 <a href="/password" style="color:var(--warning);font-weight:600">修改管理员密码</a>（可忽略）</div>';
-        }
+        // 管理员首次登录改密码提醒：改由站内消息通知（登录时写入，点击跳转 /password），
+        // 不再于页面顶部弹出横幅
 
         return '<!DOCTYPE html><html lang="zh-CN"><head>
             <meta charset="UTF-8">
@@ -254,7 +250,6 @@ class Layout {
                         </div>
                     </header>
                     <main class="content">
-                        ' . $pwdTip . '
                         ' . $content . '
                     </main>
                 </div>

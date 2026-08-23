@@ -34,6 +34,17 @@ if ($__act === 'login' || $__act === 'logout_page') {
             $next = Auth::home();
         }
         $u = Auth::user();
+        // 管理员首次登录（未修改过默认密码）：站内消息提醒修改密码，点击跳转 /password
+        if ($u['role'] === 'admin' && (int)DB::val('user', 'SELECT pwd_changed FROM users WHERE id=?', array($u['id'])) === 0) {
+            $exist = DB::one('core', "SELECT id FROM messages WHERE to_user_id=? AND title=? AND is_read=0 LIMIT 1",
+                array((int)$u['id'], '修改管理员密码提醒'));
+            if (!$exist) {
+                DB::insert('core', "INSERT INTO messages(from_name, to_role, to_user_id, title, content, is_read, msg_type, link_url, created_at) VALUES(?,?,?,?,?,0,'system',?,?)",
+                    array('系统', 'admin', (int)$u['id'], '修改管理员密码提醒',
+                        '为保障系统安全，建议您尽快修改管理员默认密码。点击此消息前往修改。',
+                        '/password', now_str()));
+            }
+        }
         json_ok(array('next' => $next, 'name' => $u['name'], 'role' => $u['role']), '登录成功');
     }
 

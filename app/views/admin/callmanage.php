@@ -21,35 +21,69 @@ foreach ($depts as $d) {
 
 <div class="card" style="margin-bottom:16px">
     <div class="flex-between" style="flex-wrap:wrap;gap:12px">
-        <div class="flex gap-8">
-            <select class="select" id="cmDept" style="min-width:200px"><?php echo $deptOpts; ?></select>
-            <button class="btn btn-primary" onclick="loadRooms()">查询</button>
+        <div class="flex gap-8" style="align-items:center">
+            <button class="btn btn-primary" id="cmDeptBtn" onclick="openDeptPicker()">🏥 选择科室</button>
+            <span class="fs-14 fw-600" id="cmDeptLabel">未选择科室</span>
+            <span class="fs-13 text-muted" id="cmDeptStats"></span>
         </div>
         <button class="btn btn-outline" onclick="createRoom()">＋ 新建诊室 / 大屏</button>
     </div>
-    <div class="fs-12 text-muted mt-8">大屏在线状态以心跳为准（最近 30 秒内有心跳视为在线）；重置 Token 后旧链接立即失效。</div>
+    <div class="fs-12 text-muted mt-8">大屏在线状态以心跳为准（最近 30 秒内有心跳视为在线），页面每 10 秒自动刷新状态；重置 Token 后旧链接立即失效。</div>
 </div>
 
 <div id="cmList"><div class="card"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div></div>
 
 <script>
 var CM_DEPT = 0;
+var CM_DEPS = <?php echo json_encode(array_values(array_map(function ($d) { return array('id' => (int)$d['id'], 'name' => $d['name']); }, $depts))); ?>;
+var CM_TIMER = null;
+
+/* 科室选择模态框（复用通用组件） */
+function openDeptPicker() {
+    Clinic.deptPicker.open({
+        mode: 'select',
+        depts: CM_DEPS,
+        currentId: CM_DEPT,
+        onSelect: function (d) { pickDept(d.id); },
+    });
+}
+
+function pickDept(id) {
+    CM_DEPT = id;
+    var cur = null;
+    CM_DEPS.forEach(function (d) { if (d.id === id) cur = d; });
+    document.getElementById('cmDeptLabel').textContent = '「' + (cur ? cur.name : '') + '」';
+    loadRooms();
+    startAutoRefresh();
+}
 
 function loadRooms() {
-    CM_DEPT = parseInt(document.getElementById('cmDept').value, 10) || 0;
-    if (!CM_DEPT) { Clinic.toast.warning('请先选择科室'); return; }
+    if (!CM_DEPT) return;
     Clinic.get('/api/admin?action=room_list&dept_id=' + CM_DEPT, null, {
         onSuccess: function (json) {
             document.getElementById('cmList').innerHTML = json.data.html;
+            document.getElementById('cmDeptStats').textContent =
+                '共 ' + json.data.total_count + ' 块大屏，' + json.data.online_count + ' 块在线';
         },
     });
 }
 
+/* 每 10 秒自动刷新大屏在线状态 */
+function startAutoRefresh() {
+    if (CM_TIMER) clearInterval(CM_TIMER);
+    CM_TIMER = setInterval(function () {
+        if (CM_DEPT) loadRooms();
+    }, 10000);
+}
+
 /* 新建诊室：名称 + 类型（自动生成 Token） */
 function createRoom() {
+    var deptOpts = CM_DEPS.map(function (d) {
+        return '<option value="' + d.id + '"' + (d.id === CM_DEPT ? ' selected' : '') + '>' + d.name + '</option>';
+    }).join('');
     Clinic.modal.open(
         '<div class="form-group"><label class="form-label">科室 <span class="req">*</span></label>' +
-        '<select class="select" id="crDept">' + document.getElementById('cmDept').innerHTML + '</select></div>' +
+        '<select class="select" id="crDept">' + deptOpts + '</select></div>' +
         '<div class="form-group"><label class="form-label">诊室 / 窗口名称 <span class="req">*</span></label>' +
         '<input class="input" id="crName" placeholder="如：骨科1诊室 / 抽血室2 / 西药房1号窗口"></div>' +
         '<div class="form-group"><label class="form-label">类型</label>' +
@@ -74,8 +108,8 @@ function createRoom() {
                         onSuccess: function (json) {
                             Clinic.toast.success(json.msg);
                             Clinic.modal.close();
-                            document.getElementById('cmDept').value = dept;
-                            loadRooms();
+                            if (CM_DEPT !== dept) pickDept(dept);
+                            else loadRooms();
                         },
                     });
                 } },
