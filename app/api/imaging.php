@@ -36,14 +36,14 @@ switch ($action) {
                     '<td class="fs-12">' . e(substr($r['created_at'], 5, 11)) . '</td>' .
                     '<td>';
                 if ($status === 'paid') {
-                    $html .= '<button class="btn btn-primary btn-sm" onclick="imgRegister(' . e(oid($r['id'])) . ')">登记</button>';
+                    $html .= '<button class="btn btn-primary btn-sm" onclick="imgRegister(\'' . e(oid($r['id'])) . ')">登记</button>';
                 } elseif ($status === 'registered') {
-                    $html .= '<button class="btn btn-success btn-sm" onclick="imgResultForm(' . e(oid($r['id'])) . ')">录入报告</button>';
+                    $html .= '<button class="btn btn-success btn-sm" onclick="imgResultForm(\'' . e(oid($r['id'])) . ')">录入报告</button>';
                 } else {
                     $report = DB::one('lab', 'SELECT * FROM reports WHERE result_id=? AND status<>? ORDER BY id DESC', array((int)$r['result_id'], 'withdrawn'));
                     if ($report) {
                         $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' . e(oid($report['id'])) . '\',null)">查看报告</button> ' .
-                            '<button class="btn btn-outline btn-sm" onclick="withdrawReport(' . e(oid($report['id'])) . ')">申请撤回</button>';
+                            '<button class="btn btn-outline btn-sm" onclick="withdrawReport(\'' . e(oid($report['id'])) . ')">申请撤回</button>';
                     } else {
                         $html .= '<span class="badge badge-gray">撤回审核中</span>';
                     }
