@@ -737,7 +737,7 @@ Clinic.emr = (function () {
                     // 否则会同时弹出开单详情弹窗与删除确认弹窗，删除确认被覆盖
                     var delBtn = canDel
                         ? ' <button class="btn btn-outline btn-sm" style="padding:1px 8px" ' +
-                          'onclick="event.stopPropagation();delOrder(' + o.id + ')">✕</button>'
+                          'onclick="event.stopPropagation();delOrder(\'' + o.id + '\')">✕</button>'
                         : '';
                     // 多医生接诊：卡片标注开单医生（非本人时高亮提示归属）
                     var docLabel = multi
@@ -745,7 +745,7 @@ Clinic.emr = (function () {
                           '">开单医生：' + (o.doctor_name || '—') + ((o.doctor_id || 0) === myId ? '（本人）' : '') + '</span>'
                         : '';
                     return '<div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer" ' +
-                        'onclick="viewOrderFlow(' + o.id + ')">' +
+                        'onclick="viewOrderFlow(\'' + o.id + '\')">' +
                         '<div class="flex-between">' +
                         '  <span class="fw-600 fs-13">' + title + ' ' + o.order_no + '</span>' +
                         delBtn +
@@ -1272,7 +1272,7 @@ function viewOrderFlow(orderId) {
                 delBtn = '';
             } else if (o.status === 'open' || o.status === 'refunded') {
                 delBtn = '<button class="btn btn-outline btn-sm" style="margin-top:8px;margin-left:8px" ' +
-                    'onclick="delOrderFlow(' + o.id + ',\'' + delLabel + '\')">🗑️ ' + delLabel + '</button>';
+                    'onclick="delOrderFlow(\'' + o.id + '\',\'' + delLabel + '\')">🗑️ ' + delLabel + '</button>';
             } else {
                 delBtn = '<button class="btn btn-outline btn-sm" style="margin-top:8px;margin-left:8px" ' +
                     'onclick="Clinic.toast.warning(\'' + delLabel + '仅限未缴费或已退费的开单，已进入执行流程的项目如需撤销请到收费处办理退费\')">🗑️ ' + delLabel + '</button>';

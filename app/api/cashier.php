@@ -288,7 +288,7 @@ switch ($action) {
                         '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=receipt&visit_id=' . e(oid($r['id'])) . '\',null,\'ticket\')">补打凭条</button>' : '') .
                     // 待缴费：支持继续缴费（完成后自动打印凭条）
                     ($r['status'] === 'pending' ?
-                        '<button class="btn btn-primary btn-sm" onclick="payVisit(\'' . e(oid($r['id'])) . ')">继续缴费</button>' : '') .
+                        '<button class="btn btn-primary btn-sm" onclick="payVisit(\'' . e(oid($r['id'])) . '\')">继续缴费</button>' : '') .
                     (in_array($r['status'], array('pending', 'paid'), true) ?
                         '<button class="btn btn-outline btn-sm" onclick="cancelVisit(\'' . e(oid($r['id'])) . '\',\'' . e($r['status']) . '\')">' . ($r['status'] === 'paid' ? '退费' : '取消') . '</button>' : '') .
                     '</div></td></tr>';
@@ -399,9 +399,9 @@ switch ($action) {
             if ($agg === 'open') {
                 $html .= '<div class="mt-8 flex gap-8">' .
                     '<label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" class="batchPay" value="' . e(oid($o['id'])) . '" onchange="updateBatchCount()"> 选择</label>' .
-                    '<button class="btn btn-success btn-sm" onclick="payOrder(\'' . e(oid($o['id'])) . ')">缴费</button></div>';
+                    '<button class="btn btn-success btn-sm" onclick="payOrder(\'' . e(oid($o['id'])) . '\')">缴费</button></div>';
             } elseif ($agg === 'paid') {
-                $html .= '<div class="mt-8"><button class="btn btn-outline btn-sm" onclick="refundOrder(\'' . e(oid($o['id'])) . ')">申请退费</button></div>';
+                $html .= '<div class="mt-8"><button class="btn btn-outline btn-sm" onclick="refundOrder(\'' . e(oid($o['id'])) . '\')">申请退费</button></div>';
             } elseif ($agg === 'refunded') {
                 $html .= '<div class="mt-8"><span class="badge badge-gray">已退费</span></div>';
             } else {

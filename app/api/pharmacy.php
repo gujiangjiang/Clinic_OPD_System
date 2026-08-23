@@ -62,7 +62,7 @@ switch ($action) {
                     '<td>' . e($r['doctor_name']) . '</td>' .
                     ($status === 'dispensed' ? '<td>' . e($r['executed_by']) . '</td><td class="fs-12">' . e(substr($r['executed_at'], 5, 11)) . '</td>' : '') .
                     '<td>' . ($status === 'paid'
-                        ? '<button class="btn btn-success btn-sm" onclick="dispenseDrug(\'' . e(oid($r['id'])) . ')">发药</button>'
+                        ? '<button class="btn btn-success btn-sm" onclick="dispenseDrug(\'' . e(oid($r['id'])) . '\')">发药</button>'
                         : '<span class="badge badge-success">已发放</span>') . '</td></tr>';
             }
             $html .= '</tbody></table></div>';

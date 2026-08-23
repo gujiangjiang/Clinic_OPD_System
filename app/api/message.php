@@ -24,7 +24,7 @@ switch ($action) {
     case 'list':
         $list = DB::q('core', 'SELECT * FROM messages WHERE to_role=? OR to_user_id=? ORDER BY id DESC LIMIT 50',
             array($u['role'], $u['id']));
-        self::obfList($list);
+        obfList($list);
         json_ok(array('list' => $list));
         break;
 
@@ -39,7 +39,7 @@ switch ($action) {
     case 'all':
         $list = DB::q('core', 'SELECT * FROM messages WHERE to_role=? OR to_user_id=? ORDER BY id DESC LIMIT 200',
             array($u['role'], $u['id']));
-        self::obfList($list);
+        obfList($list);
         json_ok(array('list' => $list));
         break;
 

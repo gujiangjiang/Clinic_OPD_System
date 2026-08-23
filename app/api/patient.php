@@ -123,8 +123,8 @@ switch ($action) {
             }
             $html .=
                 ($hasCert
-                    ? '<button class="btn btn-outline btn-sm" onclick="printHistoryCertificate(\'' . e(oid($v['id'])) . ')">📄 查看诊断证明</button>'
-                    : '<button class="btn btn-outline btn-sm" onclick="openHistoryCertificate(\'' . e(oid($v['id'])) . ')">📄 新增诊断证明</button>') .
+                    ? '<button class="btn btn-outline btn-sm" onclick="printHistoryCertificate(\'' . e(oid($v['id'])) . '\')">📄 查看诊断证明</button>'
+                    : '<button class="btn btn-outline btn-sm" onclick="openHistoryCertificate(\'' . e(oid($v['id'])) . '\')">📄 新增诊断证明</button>') .
                 '</div>';
             $html .= '</div>';
         }

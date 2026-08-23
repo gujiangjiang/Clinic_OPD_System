@@ -108,7 +108,7 @@ switch ($action) {
             // 操作按钮
             $html .= '<div class="flex gap-8" style="flex-shrink:0">';
             if ($status === 'waiting') {
-                $html .= '<button class="btn btn-primary btn-sm" onclick="takePatient(\'' . e(oid($r['id'])) . ')">接诊</button>';
+                $html .= '<button class="btn btn-primary btn-sm" onclick="takePatient(\'' . e(oid($r['id'])) . '\')">接诊</button>';
                 $html .= '<button class="btn btn-outline btn-sm" onclick="showPatientHistory(' . e($r['patient_no']) . ')">历史</button>';
             } elseif ($status === 'visiting') {
                 $html .= '<button class="btn btn-primary btn-sm" onclick="location.href=\'/doctor/emr?visit_id=' . e(oid($r['id'])) . '\'">继续就诊</button>';
