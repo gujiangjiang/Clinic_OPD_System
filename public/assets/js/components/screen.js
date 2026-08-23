@@ -183,22 +183,21 @@
             }).join('')
             : '<div class="screen-empty">暂无</div>';
 
-        // 医生信息卡（占上方约一半区域：左侧头像，右侧姓名/工号/职称 + 大块介绍区）
+        // 医生信息卡（占上方约一半区域：左侧圆角矩形头像，右侧上下分行信息）
         var docCard = doc.name
             ? '<div class="screen-doctor-card">' +
               '<div class="screen-doc-photo">' + (doc.photo ? '<img src="' + doc.photo + '">' : '👨‍⚕️') + '</div>' +
               '<div class="screen-doc-info">' +
               '<div class="screen-doc-head">' +
               '<div class="screen-doc-name">' + doc.name + '</div>' +
-              '<div class="screen-doc-meta">' +
-              (doc.emp_no ? '<span class="screen-doc-meta-item">工号 ' + doc.emp_no + '</span>' : '') +
-              (doc.title ? '<span class="screen-doc-meta-item">' + doc.title + '</span>' : '') +
-              '</div></div>' +
-              '<div class="screen-doc-intro">' + (doc.intro || '暂无医生介绍') + '</div>' +
+              (doc.emp_no ? '<div class="screen-doc-emp">工号 ' + doc.emp_no + '</div>' : '') +
+              (doc.title ? '<div class="screen-doc-title">' + doc.title + '</div>' : '') +
+              '</div>' +
+              '<div class="screen-doc-intro' + (doc.intro ? '' : ' screen-doc-intro-empty') + '">' + (doc.intro || '暂无医生介绍') + '</div>' +
               '</div></div>'
             : '<div class="screen-doctor-card screen-doctor-card-empty"><div class="screen-doc-photo">👨‍⚕️</div>' +
               '<div class="screen-doc-info"><div class="screen-doc-name">医生出诊中</div>' +
-              '<div class="screen-doc-intro">暂无医生信息</div></div></div>';
+              '<div class="screen-doc-intro screen-doc-intro-empty">暂无医生信息</div></div></div>';
 
         return '<div class="screen-doctor-grid">' +
             docCard +
