@@ -196,7 +196,7 @@ function admin_part_analytics($action) {
     /* ==================== 医生维度统计 ==================== */
     if ($action === 'ana_doctor') {
         list($start, $end) = ana_range();
-        $deptId = (int)post('dept_id', 0); // 可选：仅看某科室医生
+        $deptId = (int)req('dept_id', 0); // 可选：仅看某科室医生
 
         // 接诊人次：本人病历创建数（每次接诊一条文书）
         $visits = array();
