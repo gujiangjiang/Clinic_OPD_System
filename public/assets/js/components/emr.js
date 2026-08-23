@@ -1255,12 +1255,24 @@ function viewOrderFlow(orderId) {
             var o = j.data.list.find(function (x) { return x.id === orderId; });
             if (!o) return;
             var typeNames = { lab: '检验', imaging: '检查', procedure: '处置', prescription: '处方' };
-            var steps = [
-                { k: 'open', label: '开单' },
-                { k: 'paid', label: '缴费' },
-                { k: 'registered', label: '登记' },
-                { k: 'done', label: o.order_type === 'prescription' ? '药房发药' : (o.order_type === 'procedure' ? '处置执行' : '检查/检验') },
-            ];
+            var isLabImg = o.order_type === 'lab' || o.order_type === 'imaging';
+            var steps;
+            if (isLabImg) {
+                // 检验/检查流程：登记 → 报告完成（报告情况单独成步）
+                steps = [
+                    { k: 'open', label: '开单' },
+                    { k: 'paid', label: '缴费' },
+                    { k: 'registered', label: '登记' },
+                    { k: 'done', label: '报告完成' },
+                ];
+            } else {
+                steps = [
+                    { k: 'open', label: '开单' },
+                    { k: 'paid', label: '缴费' },
+                    { k: 'registered', label: '登记' },
+                    { k: 'done', label: o.order_type === 'prescription' ? '药房发药' : '处置执行' },
+                ];
+            }
             // 处方流程：paid→dispensing→dispensed
             if (o.order_type === 'prescription') {
                 steps = [
@@ -1287,11 +1299,29 @@ function viewOrderFlow(orderId) {
                     s.label + '</div></div>';
             }).join('<div style="width:2px;height:18px;background:var(--border);margin-left:12px"></div>');
 
-            // 处方单走组医嘱树形公共格式，其余类型保持「· 名称 ×数量」
+            // 处方单走组医嘱树形公共格式；检验/检查明细带执行状态与「查看报告」；
+            // 其余类型保持「· 名称 ×数量」
             var items;
             if (o.order_type === 'prescription') {
                 items = Clinic.orderRxLines(o.items).map(function (l) {
                     return '<div class="fs-13" style="padding:3px 0;white-space:pre-wrap">' + l + '</div>';
+                }).join('');
+            } else if (isLabImg) {
+                // 检验/检查：逐项显示登记/报告状态，已出报告可直接查看报告单
+                var stMap = {
+                    open: '<span class="badge badge-warning">待登记</span>',
+                    registered: '<span class="badge badge-primary">已登记</span>',
+                    done: '<span class="badge badge-success">已出报告</span>',
+                };
+                items = o.items.map(function (it) {
+                    var st = stMap[it.status] || ('<span class="badge badge-gray">' + (it.status || '—') + '</span>');
+                    var rpt = it.report_id
+                        ? ' <button type="button" class="btn btn-outline btn-sm" style="padding:0 8px;margin-left:8px" ' +
+                          'onclick="Clinic.print.load(\'/api/print?action=report&report_id=' + it.report_id + '\')">📄 查看报告</button>'
+                        : '';
+                    return '<div class="flex-between fs-13" style="padding:3px 0">' +
+                        '<span>· ' + it.item_name + (it.quantity > 1 ? ' ×' + it.quantity : '') + '</span>' +
+                        '<span>' + st + rpt + '</span></div>';
                 }).join('');
             } else {
                 items = o.items.map(function (it) {

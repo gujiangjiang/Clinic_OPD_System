@@ -478,6 +478,27 @@ switch ($action) {
             foreach ($items as $it) {
                 if ($it['executed_by']) $doneBy = $it['executed_by'];
             }
+            // 检验/检查：批量取各明细的报告链（results.order_item_id → reports.result_id），
+            // 供开单详情展示登记/报告状态与「查看报告」入口
+            $reportMap = array();
+            if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
+                $itemIds = array();
+                foreach ($items as $it) $itemIds[] = (int)$it['id'];
+                if ($itemIds) {
+                    $ph = implode(',', array_fill(0, count($itemIds), '?'));
+                    $resRows = DB::q('lab', "SELECT id, order_item_id FROM results WHERE order_item_id IN ($ph)", $itemIds);
+                    $resIds = array(); $resToItem = array();
+                    foreach ($resRows as $rr) { $resIds[] = (int)$rr['id']; $resToItem[(int)$rr['id']] = (int)$rr['order_item_id']; }
+                    if ($resIds) {
+                        $ph2 = implode(',', array_fill(0, count($resIds), '?'));
+                        // 每个结果取最新一份有效报告
+                        foreach (DB::q('lab', "SELECT result_id, MAX(id) AS rid FROM reports WHERE result_id IN ($ph2) AND status<>'withdrawn' GROUP BY result_id", $resIds) as $rp) {
+                            $itemId = isset($resToItem[(int)$rp['result_id']]) ? $resToItem[(int)$rp['result_id']] : 0;
+                            if ($itemId > 0) $reportMap[$itemId] = (int)$rp['rid'];
+                        }
+                    }
+                }
+            }
             $out[] = array(
                 // 混淆串：前端删除/打印外链回传时后端统一 did 解码
                 'id' => oid($o['id']), 'order_no' => $o['order_no'], 'order_type' => $o['order_type'],
@@ -489,19 +510,23 @@ switch ($action) {
                 // 删除/毁方按钮仅对开单医生本人可见（后端 delete 亦有硬拦截）
                 'doctor_id' => (int)$o['doctor_id'],
                 'created_at' => $o['created_at'], 'done_by' => $doneBy,
-                'items' => array_map(function ($it) {
+                'items' => array_map(function ($it) use ($reportMap) {
                     // 扩展字段：处方在病历正文/打印中的所见即所得展示需要剂量/用法/途径等；
-                    // group_no/is_parent 供成组医嘱树形展示（子药缩进、组内要素仅主药行一次）
+                    // group_no/is_parent 供成组医嘱树形展示（子药缩进、组内要素仅主药行一次）；
+                    // item_status/report_id 供检验/检查开单详情展示登记/报告状态与查看报告入口
                     return array(
-                        'item_name'     => $it['item_name'],
-                        'quantity'      => (int)$it['quantity'],
-                        'spec'          => $it['spec'],
-                        'single_dose'   => $it['single_dose'],
-                        'frequency_name'=> $it['frequency_name'],
-                        'route_name'    => $it['route_name'],
-                        'price'         => (float)$it['price'],
-                        'group_no'      => (int)$it['group_no'],
-                        'is_parent'     => (int)$it['is_parent'],
+                        'id'             => oid($it['id']),
+                        'item_name'      => $it['item_name'],
+                        'quantity'       => (int)$it['quantity'],
+                        'spec'           => $it['spec'],
+                        'single_dose'    => $it['single_dose'],
+                        'frequency_name' => $it['frequency_name'],
+                        'route_name'     => $it['route_name'],
+                        'price'          => (float)$it['price'],
+                        'group_no'       => (int)$it['group_no'],
+                        'is_parent'      => (int)$it['is_parent'],
+                        'status'         => (string)$it['status'],
+                        'report_id'      => isset($reportMap[(int)$it['id']]) ? oid($reportMap[(int)$it['id']]) : '',
                     );
                 }, $items),
             );
