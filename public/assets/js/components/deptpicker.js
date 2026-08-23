@@ -62,23 +62,31 @@ Clinic.deptPicker = (function () {
                     '<div class="dept-pick-sub">挂号费 ¥' + d.fee.toFixed(2) + '</div>';
             }
         } else if (mode === 'select') {
-            // 类型徽章 + 当前标记；若有 room_count 则显示大屏统计
-            var roomTxt = '';
-            if (typeof d.room_count === 'number' && d.room_count > 0) {
-                roomTxt = '<span class="badge badge-' + (d.online_count > 0 ? 'success' : 'gray') + '">' +
-                    '🖥️ ' + d.online_count + '/' + d.room_count + ' 在线</span>';
-            }
-            if (d.id === opts.currentId) {
-                cls += ' active';
-                extra = '<div class="dept-pick-tags">' +
-                    '<span class="badge badge-' + (d.type === 'emergency' ? 'danger' : 'primary') + '">' + typeName(d.type) + '</span>' +
-                    roomTxt +
-                    '<span class="badge badge-success">当前</span></div>';
+            // 大屏统计模式（叫号大屏选择科室用）：只显示 🖥️ 在线/总数，不显示 门诊/急诊 徽章
+            if (opts.showRoomStats) {
+                if (typeof d.room_count === 'number' && d.room_count > 0) {
+                    extra = '<div class="dept-pick-tags">' +
+                        '<span class="badge badge-' + (d.online_count > 0 ? 'success' : 'gray') + '">' +
+                        '🖥️ ' + d.online_count + '/' + d.room_count + ' 在线</span>' +
+                        (d.id === opts.currentId ? '<span class="badge badge-success">当前</span>' : '') + '</div>';
+                } else {
+                    extra = '<div class="dept-pick-tags">' +
+                        '<span class="badge badge-gray">无大屏</span>' +
+                        (d.id === opts.currentId ? '<span class="badge badge-success">当前</span>' : '') + '</div>';
+                }
+                if (d.id === opts.currentId) cls += ' active';
             } else {
-                extra = '<div class="dept-pick-tags">' +
-                    '<span class="badge badge-' + (d.type === 'emergency' ? 'danger' : 'primary') + '">' + typeName(d.type) + '</span>' +
-                    roomTxt +
-                    (d.limited ? '<span class="badge badge-warning">限号</span>' : '') + '</div>';
+                // 常规 select（医生站切换/转科）：显示 门诊/急诊 徽章
+                if (d.id === opts.currentId) {
+                    cls += ' active';
+                    extra = '<div class="dept-pick-tags">' +
+                        '<span class="badge badge-' + (d.type === 'emergency' ? 'danger' : 'primary') + '">' + typeName(d.type) + '</span>' +
+                        '<span class="badge badge-success">当前</span></div>';
+                } else {
+                    extra = '<div class="dept-pick-tags">' +
+                        '<span class="badge badge-' + (d.type === 'emergency' ? 'danger' : 'primary') + '">' + typeName(d.type) + '</span>' +
+                        (d.limited ? '<span class="badge badge-warning">限号</span>' : '') + '</div>';
+                }
             }
         } else { // transfer：目标科室列表（服务端已排除当前科室）
             extra = '<div class="dept-pick-tags">' +

@@ -56,6 +56,8 @@ function openDeptPicker() {
         mode: 'select',
         depts: CM_DEPS,
         currentId: CM_DEPT,
+        // 叫号大屏场景：只显示大屏统计（🖥️ 在线/总数），不显示 门诊/急诊 徽章
+        showRoomStats: true,
         onSelect: function (d) { pickDept(d.id); },
     });
 }
