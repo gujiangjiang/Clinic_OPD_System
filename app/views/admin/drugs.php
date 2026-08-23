@@ -48,6 +48,13 @@ function openDrugForm(id) {
             '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
             '<button type="button" class="btn btn-primary" id="drugSave">保存</button>';
         document.getElementById('drugSave').addEventListener('click', function () {
+            // 皮试必填校验：勾选"需要皮试"必须关联皮试处置项目
+            var skinTestChk = document.getElementById('f_skin_test');
+            var skinItemVal = parseInt(document.getElementById('f_skin_item') ? document.getElementById('f_skin_item').value : '0', 10) || 0;
+            if (skinTestChk && skinTestChk.checked && !skinItemVal) {
+                Clinic.toast.warning('勾选了【需要皮试药品】，请先选择关联的皮试处置项目（点击"选择/新建"）');
+                return;
+            }
             Clinic.ajax('/api/admin', {
                 action: 'drug_save',
                 id: id || 0,

@@ -110,7 +110,8 @@ function bindNavActive() {
     const path = window.location.pathname;
     document.querySelectorAll('.nav-item').forEach(function (el) {
         const href = el.getAttribute('data-href');
-        if (href && path.indexOf(href) === 0) {
+        // 精确匹配或按路径段前缀匹配（避免 /admin/drugs 误匹配 /admin/drugsettings）
+        if (href && (path === href || path.indexOf(href + '/') === 0)) {
             el.classList.add('active');
         }
     });
