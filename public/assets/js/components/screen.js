@@ -45,6 +45,27 @@
             for (var i = 0; i < repeat; i++) this.queue.push(text);
             this.pump();
         },
+        /** 前奏提示音（Web Audio 生成轻量"叮咚"，非音频文件） */
+        chime: function () {
+            if (muted || !voiceEnabled) return;
+            try {
+                var AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return;
+                var ctx = TTS._actx || (TTS._actx = new AC());
+                if (ctx.state === 'suspended') ctx.resume();
+                var now = ctx.currentTime;
+                [880, 1174.66].forEach(function (f, i) {
+                    var o = ctx.createOscillator();
+                    var g = ctx.createGain();
+                    o.type = 'sine'; o.frequency.value = f;
+                    g.gain.setValueAtTime(0.0001, now + i * 0.12);
+                    g.gain.exponentialRampToValueAtTime(0.2, now + i * 0.12 + 0.02);
+                    g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.12 + 0.35);
+                    o.connect(g); g.connect(ctx.destination);
+                    o.start(now + i * 0.12); o.stop(now + i * 0.12 + 0.4);
+                });
+            } catch (e) { /* 音频不可用则静默 */ }
+        },
         pump: function () {
             var self = this;
             if (this.speaking || !this.queue.length) return;
@@ -155,7 +176,8 @@
         lastCallKey = key;
         var roomName = (d.room && d.room.name) || '';
         var text = '请 ' + String(next.visit_seq).padStart(3, '0') + ' 号 ' + (next.name || '') + ' 到 ' + roomName + ' 就诊';
-        TTS.speak(text, 2);
+        TTS.chime();          // 前奏提示音
+        TTS.speak(text, 2);   // 语音播报 2 遍
         TTS.resume();
     }
 
