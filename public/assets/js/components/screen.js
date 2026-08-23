@@ -175,7 +175,7 @@
         if (key === lastCallKey) return;
         lastCallKey = key;
         var roomName = (d.room && d.room.name) || '';
-        var text = '请 ' + String(next.visit_seq).padStart(3, '0') + ' 号 ' + (next.name || '') + ' 到 ' + roomName + ' 就诊';
+        var text = '请 ' + String(next.visit_seq).padStart(3, '0') + ' 号 ' + (next.raw_name || next.name || '') + ' 到 ' + roomName + ' 就诊';
         TTS.chime();          // 前奏提示音
         TTS.speak(text, 2);   // 语音播报 2 遍
         TTS.resume();

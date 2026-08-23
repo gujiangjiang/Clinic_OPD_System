@@ -47,12 +47,28 @@ function screen_payload($room) {
     }
     $fmt = function ($r) use ($mask) {
         if (!$r) return null;
-        $nm = $r['pname'];
+        $rawName = $r['pname'];
+        $nm = $rawName;
         if ($mask && mb_strlen($nm) > 1) {
-            $nm = mb_substr($nm, 0, 1) . str_repeat('*', mb_strlen($nm) - 1);
+            $len = mb_strlen($nm);
+            if (mb_substr($nm, 0, 3) === '无名氏') {
+                // 无名氏（匿名患者）：无真实姓名，脱敏无意义，保留原样
+                $nm = $rawName;
+            } elseif ($len === 2) {
+                // 2个字：保留首字，其余*（如"张三"→"张*"）
+                $nm = mb_substr($nm, 0, 1) . '*';
+            } elseif ($len === 3) {
+                // 3个字：保留首尾，中间*（如"张小三"→"张*三"）
+                $nm = mb_substr($nm, 0, 1) . '*' . mb_substr($nm, -1);
+            } else {
+                // 4个字及以上：保留首尾各1字，中间*（如"王小明三"→"王**三"、"买买提·肉孜"→"买****孜"）
+                $nm = mb_substr($nm, 0, 1) . str_repeat('*', $len - 2) . mb_substr($nm, -1);
+            }
         }
         return array(
-            'name' => $nm, 'gender' => $r['pgender'],
+            'name' => $nm,
+            'raw_name' => $rawName,   // 原始姓名（语音播报用，不受脱敏影响）
+            'gender' => $r['pgender'],
             'age_fmt' => age_format($r['pbirth'], $r['register_time']),
             'visit_seq' => (int)$r['visit_seq'], 'flow_no' => $r['flow_no'],
             'patient_no' => $r['patient_no'],
