@@ -26,6 +26,7 @@ require __DIR__ . '/parts/admin_item.php';
 require __DIR__ . '/parts/admin_drug.php';
 require __DIR__ . '/parts/admin_disp.php';
 require __DIR__ . '/parts/admin_audit.php';
+require __DIR__ . '/parts/admin_call.php';
 
 switch ($action) {
 
@@ -98,6 +99,17 @@ switch ($action) {
     case 'audit':
     case 'audit_all':
         admin_part_audit($action);
+        break;
+
+    /* ---------------- 叫号大屏/诊室管理 ---------------- */
+    case 'room_list':
+    case 'room_create':
+    case 'room_save':
+    case 'room_reset_token':
+    case 'room_release':
+    case 'room_delete':
+    case 'room_token':
+        admin_part_call($action);
         break;
 
     default:
