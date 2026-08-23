@@ -64,55 +64,9 @@ function loadModal(url, data, title) {
             };
         }
 
-        // 药品编辑：皮试联动（显示/隐藏关联处置选择 + 通用选择器接入）
-        // 说明：函数在 modal:loaded 时无条件定义（即使表单无皮试字段也不报错），
-        // 页面按钮 onclick 引用这些全局函数，缺省时做空操作兜底。
-        var skinChk = body.querySelector('#f_skin_test');
-        var skinBox = body.querySelector('#skin_box');
-        window.syncSkinBox = function () {
-            if (!skinBox) return;
-            skinBox.style.display = (skinChk && skinChk.checked) ? '' : 'none';
-            if (skinChk && !skinChk.checked) {
-                var it = body.querySelector('#f_skin_item');
-                var nm = body.querySelector('#f_skin_item_name');
-                if (it) it.value = '0';
-                if (nm) nm.value = '';
-            }
-        };
-        // 通用检索 + 快捷创建模态框（数据源：已审核处置项目；非管理员快建自动入审核池）
-        window.pickSkinDisposal = function () {
-            if (!skinBox) { Clinic.toast.warning('当前表单不支持皮试关联'); return; }
-            Clinic.universalSelector.open({
-                title: '选择关联皮试处置项目',
-                searchAction: 'disposal_search',
-                allowCreate: true,
-                createAction: 'disposal_quick_create',
-                createContext: (body.querySelector('#f_name') && body.querySelector('#f_name').value
-                    ? '在维护药品[' + body.querySelector('#f_name').value + ']时快捷创建皮试处置'
-                    : '快捷创建皮试处置'),
-                onSelect: function (item) {
-                    var it = body.querySelector('#f_skin_item');
-                    var nm = body.querySelector('#f_skin_item_name');
-                    if (it) it.value = item.id;
-                    if (nm) nm.value = item.name;
-                },
-            });
-        };
-        window.clearSkinDisposal = function () {
-            var it = body.querySelector('#f_skin_item');
-            var nm = body.querySelector('#f_skin_item_name');
-            if (it) it.value = '0';
-            if (nm) nm.value = '';
-        };
-        if (skinChk) {
-            // 每次弹窗加载均为新 DOM（旧元素已销毁），直接绑定无需防重
-            skinChk.addEventListener('change', function () { if (window.syncSkinBox) window.syncSkinBox(); });
-            if (skinChk.checked && !(parseInt(body.querySelector('#f_skin_item').value, 10) > 0)) {
-                Clinic.toast.warning('该药品标记了需皮试，请关联皮试处置项目');
-            }
-        }
-        // 初始同步皮试框显隐
-        if (window.syncSkinBox) window.syncSkinBox();
+        // 药品编辑：皮试联动（syncSkinBox/pickSkinDisposal/clearSkinDisposal）
+        // 已由文件末尾的全局 modal:loaded 监听器统一绑定（覆盖所有弹窗路径），
+        // 此处不再重复定义，避免同一弹窗双份绑定。
 
         document.getElementById('fSave').addEventListener('click', function () {
             var fd = new FormData();
@@ -185,3 +139,60 @@ Clinic.ui = {
         });
     },
 };
+
+/* ============================================================
+ * 全局弹窗钩子：绑定药品编辑皮试联动（syncSkinBox /
+ * pickSkinDisposal / clearSkinDisposal）
+ * 说明：openDrugForm 直接走 Clinic.modal.load（不经 loadModal），
+ * 因此必须用事件捕获在 document 级监听 modal:loaded，
+ * 对所有弹窗生效；无皮试字段时定义空函数兜底，避免按钮报错。
+ * ============================================================ */
+document.addEventListener('modal:loaded', function (e) {
+    var body = e.target;
+    if (!body || typeof body.querySelector !== 'function') return;
+    var skinChk = body.querySelector('#f_skin_test');
+    var skinBox = body.querySelector('#skin_box');
+
+    window.syncSkinBox = function () {
+        if (!skinBox) return;
+        skinBox.style.display = (skinChk && skinChk.checked) ? '' : 'none';
+        if (skinChk && !skinChk.checked) {
+            var it = body.querySelector('#f_skin_item');
+            var nm = body.querySelector('#f_skin_item_name');
+            if (it) it.value = '0';
+            if (nm) nm.value = '';
+        }
+    };
+    window.pickSkinDisposal = function () {
+        if (!skinBox) { Clinic.toast.warning('当前表单不支持皮试关联'); return; }
+        Clinic.universalSelector.open({
+            title: '选择关联皮试处置项目',
+            searchAction: 'disposal_search',
+            allowCreate: true,
+            createAction: 'disposal_quick_create',
+            createContext: (body.querySelector('#f_name') && body.querySelector('#f_name').value
+                ? '在维护药品[' + body.querySelector('#f_name').value + ']时快捷创建皮试处置'
+                : '快捷创建皮试处置'),
+            onSelect: function (item) {
+                var it = body.querySelector('#f_skin_item');
+                var nm = body.querySelector('#f_skin_item_name');
+                if (it) it.value = item.id;
+                if (nm) nm.value = item.name;
+            },
+        });
+    };
+    window.clearSkinDisposal = function () {
+        var it = body.querySelector('#f_skin_item');
+        var nm = body.querySelector('#f_skin_item_name');
+        if (it) it.value = '0';
+        if (nm) nm.value = '';
+    };
+
+    if (skinChk) {
+        skinChk.addEventListener('change', function () { if (window.syncSkinBox) window.syncSkinBox(); });
+        if (skinChk.checked && !(parseInt(body.querySelector('#f_skin_item').value, 10) > 0)) {
+            Clinic.toast.warning('该药品标记了需皮试，请关联皮试处置项目');
+        }
+    }
+    if (window.syncSkinBox) window.syncSkinBox();
+}, true);
