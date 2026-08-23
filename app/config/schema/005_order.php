@@ -10,7 +10,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 3,
+    'version' => 4,
     'tables' => array(
         'orders' => "CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,6 +48,9 @@ return array(
             route_name TEXT,
             need_nurse INTEGER DEFAULT 0,
             sub_of INTEGER DEFAULT 0,
+            group_no INTEGER DEFAULT 0,
+            is_parent INTEGER DEFAULT 1,
+            parent_item_id INTEGER DEFAULT 0,
             status TEXT DEFAULT 'open',
             doctor_id INTEGER,
             doctor_name TEXT,
@@ -102,6 +105,14 @@ return array(
         //     用于打印标题动态显示（如 CT申请单 / DR（数字化X线）申请单）
         3 => array(
             "ALTER TABLE orders ADD COLUMN cat_name TEXT DEFAULT ''",
+        ),
+        // v4：成组医嘱（子医嘱/输液组方）——组号、主/子药标记、关联主药条目。
+        // group_no：同一组的药品共享组号；is_parent：1=主药 0=子药；
+        // parent_item_id：子药关联的主药条目 ID（本单内，0=主药自身）
+        4 => array(
+            "ALTER TABLE order_items ADD COLUMN group_no INTEGER DEFAULT 0",
+            "ALTER TABLE order_items ADD COLUMN is_parent INTEGER DEFAULT 1",
+            "ALTER TABLE order_items ADD COLUMN parent_item_id INTEGER DEFAULT 0",
         ),
     ),
     'seed' => array(),
