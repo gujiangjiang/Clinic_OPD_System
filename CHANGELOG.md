@@ -13,6 +13,23 @@
 
 ---
 
+## [2.3.1] - 2026-08-23
+
+### 修复
+
+- **ID 混淆导致接诊/已开项目详情/Del 按钮无响应**：混淆串（如 `-kSEdP2swuR7rCvuxu_4Qg`）
+  在 HTML onclick 属性中未用引号包裹，浏览器将其当作未定义标识符抛出 ReferenceError，
+  导致接诊按钮、开单详情查看、检验/影像/药房队列按钮完全失效。
+  - 修复 PHP 后端 13 处函数参数型 onclick 闭引号转义（`doctor.php` `cashier.php`
+    `lab.php` `imaging.php` `patient.php` `pharmacy.php`），使混淆串以
+    `takePatient('CODE')` 形式渲染；
+  - 修复 `emr.js` 前端动态渲染的 `viewOrderFlow`、`delOrder`、`delOrderFlow`
+    三处拼接遗漏（`o.id` 未加引号包裹）；
+  - 全量扫描确认零遗漏（0 处后端 `visit_id/order_id/report_id/payment_id` 未 did 解码、
+    0 处函数参数型 onclick 混淆串缺引号）。
+
+---
+
 ## [2.3.0] - 2026-08-23
 
 ### 新增
