@@ -183,25 +183,32 @@
             }).join('')
             : '<div class="screen-empty">暂无</div>';
 
-        // 医生信息卡
+        // 医生信息卡（占上方约一半区域：左侧头像，右侧姓名/工号/职称 + 大块介绍区）
         var docCard = doc.name
             ? '<div class="screen-doctor-card">' +
               '<div class="screen-doc-photo">' + (doc.photo ? '<img src="' + doc.photo + '">' : '👨‍⚕️') + '</div>' +
               '<div class="screen-doc-info">' +
+              '<div class="screen-doc-head">' +
               '<div class="screen-doc-name">' + doc.name + '</div>' +
-              '<div class="screen-doc-meta">' + (doc.emp_no ? '工号 ' + doc.emp_no : '') + (doc.title ? ' · ' + doc.title : '') + '</div>' +
+              '<div class="screen-doc-meta">' +
+              (doc.emp_no ? '<span class="screen-doc-meta-item">工号 ' + doc.emp_no + '</span>' : '') +
+              (doc.title ? '<span class="screen-doc-meta-item">' + doc.title + '</span>' : '') +
+              '</div></div>' +
               '<div class="screen-doc-intro">' + (doc.intro || '暂无医生介绍') + '</div>' +
               '</div></div>'
-            : '';
+            : '<div class="screen-doctor-card screen-doctor-card-empty"><div class="screen-doc-photo">👨‍⚕️</div>' +
+              '<div class="screen-doc-info"><div class="screen-doc-name">医生出诊中</div>' +
+              '<div class="screen-doc-intro">暂无医生信息</div></div></div>';
 
         return '<div class="screen-doctor-grid">' +
             docCard +
             '<div class="screen-main-area">' +
-            '<div class="screen-panel screen-cur-panel"><div class="screen-panel-title">正在就诊</div>' + curCard + '</div>' +
-            '<div class="screen-right">' +
-            '  <div class="screen-panel screen-next-panel"><div class="screen-panel-title">请就诊</div>' + nextCard + '</div>' +
-            '  <div class="screen-panel screen-wait-panel"><div class="screen-panel-title">等待就诊（' + wait.length + '）</div>' + waitList + '</div>' +
-            '</div></div></div>';
+            '<div class="screen-left-col">' +
+            '  <div class="screen-panel screen-cur-panel"><div class="screen-panel-title">正在就诊</div>' + curCard + '</div>' +
+            '  <div class="screen-panel screen-next-panel"><div class="screen-panel-title">下一位</div>' + nextCard + '</div>' +
+            '</div>' +
+            '<div class="screen-wait-panel"><div class="screen-panel-title">等待就诊（' + wait.length + '）</div>' + waitList + '</div>' +
+            '</div></div>';
     }
 
     function renderDeptMode(d) {

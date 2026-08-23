@@ -250,104 +250,134 @@
 .screen-empty { color: #a8c8e8; font-size: 20px; }
 .screen-empty-big { color: #a8c8e8; font-size: 28px; text-align: center; padding: 30px; }
 
-/* ---------- 医生信息卡（医生大屏顶部） ---------- */
+/* ---------- 医生信息卡（占上方约 1/2 区域） ---------- */
 .screen-doctor-card {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 24px;
     background: rgba(255, 255, 255, .08);
     border: 1px solid rgba(255, 255, 255, .18);
-    border-radius: 16px;
-    padding: 12px 20px;
-    flex-shrink: 0;
+    border-radius: 20px;
+    padding: 20px 28px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+.screen-doctor-card-empty {
+    justify-content: center;
+    text-align: center;
 }
 .screen-doc-photo {
-    width: 64px;
-    height: 64px;
+    width: 96px;
+    height: 96px;
     border-radius: 50%;
     background: #ffd54f;
     color: #0b2a43;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 32px;
+    font-size: 48px;
     flex-shrink: 0;
     overflow: hidden;
 }
 .screen-doc-photo img { width: 100%; height: 100%; object-fit: cover; }
-.screen-doc-name { font-size: 24px; font-weight: 800; }
-.screen-doc-meta { font-size: 14px; color: #ffd54f; margin-top: 2px; }
-.screen-doc-intro { font-size: 13px; color: #bcd6ee; margin-top: 2px; max-width: 520px; }
+.screen-doc-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+.screen-doc-head {
+    flex-shrink: 0;
+}
+.screen-doc-name { font-size: 34px; font-weight: 800; }
+.screen-doc-meta { font-size: 18px; color: #ffd54f; margin-top: 4px; }
+.screen-doc-meta-item { margin-right: 16px; }
+.screen-doc-intro {
+    font-size: 16px;
+    color: #bcd6ee;
+    margin-top: 8px;
+    flex: 1;
+    overflow-y: auto;
+    line-height: 1.5;
+    padding: 4px 0;
+    min-height: 0;
+}
 
 /* ---------- 模式A：医生诊室大卡片 ---------- */
 .screen-doctor-grid {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
     flex: 1;
     min-height: 0;
 }
 .screen-main-area {
     display: flex;
-    gap: 20px;
+    gap: 18px;
     flex: 1;
     min-height: 0;
     align-items: stretch;
 }
-.screen-cur-panel {
-    flex: 1.3;
+.screen-left-col {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex: 1.2;
+    min-height: 0;
+}
+.screen-left-col .screen-panel {
+    flex: 1;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     text-align: center;
+    padding: 14px 20px;
+}
+.screen-cur-panel {
     background: rgba(124, 252, 152, .10);
     border-color: rgba(124, 252, 152, .35);
 }
+.screen-next-panel {
+    background: rgba(143, 211, 255, .10);
+    border-color: rgba(143, 211, 255, .30);
+}
 .screen-cur-name {
-    font-size: 96px;
+    font-size: 88px;
     font-weight: 800;
     color: #7CFC98;
     line-height: 1.15;
     text-shadow: 0 6px 30px rgba(0, 0, 0, .45);
 }
 .screen-cur-seq {
-    font-size: 34px;
+    font-size: 32px;
     color: #ffd54f;
     font-weight: 700;
-    margin-top: 8px;
+    margin-top: 6px;
     letter-spacing: 2px;
 }
-.screen-right {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    min-height: 0;
-}
-.screen-next-panel {
-    flex: 0 0 auto;
-    text-align: center;
-    background: rgba(143, 211, 255, .10);
-    border-color: rgba(143, 211, 255, .30);
-}
 .screen-next-name {
-    font-size: 60px;
+    font-size: 52px;
     font-weight: 800;
     color: #8fd3ff;
     line-height: 1.15;
 }
 .screen-next-seq {
-    font-size: 26px;
+    font-size: 24px;
     color: #ffd54f;
     font-weight: 700;
     margin-top: 4px;
     letter-spacing: 2px;
 }
 .screen-wait-panel {
-    flex: 1;
+    flex: 0.8;
+    display: flex;
+    flex-direction: column;
     min-height: 0;
     overflow: hidden;
+    padding: 18px 24px;
 }
 .screen-wait-item {
     display: flex;
@@ -426,20 +456,23 @@
 .call-body.screen-portrait .call-dept { font-size: 17px; padding: 3px 14px; letter-spacing: 2px; }
 .call-body.screen-portrait .screen-main { padding: 8px 12px; }
 .call-body.screen-portrait .screen-doctor-grid { gap: 8px; }
-.call-body.screen-portrait .screen-main-area { flex-direction: column; gap: 10px; }
-.call-body.screen-portrait .screen-cur-panel { flex: 0 0 34%; }
-.call-body.screen-portrait .screen-right { flex-direction: row; gap: 10px; flex: 1; }
+.call-body.screen-portrait .screen-doctor-card { padding: 10px 14px; gap: 12px; }
+.call-body.screen-portrait .screen-doc-photo { width: 52px; height: 52px; font-size: 26px; }
+.call-body.screen-portrait .screen-doc-name { font-size: 20px; }
+.call-body.screen-portrait .screen-doc-meta { font-size: 12px; }
+.call-body.screen-portrait .screen-doc-intro { font-size: 12px; }
+.call-body.screen-portrait .screen-main-area { flex-direction: column; gap: 8px; }
+.call-body.screen-portrait .screen-left-col { flex-direction: row; gap: 8px; flex: 0 0 46%; }
+.call-body.screen-portrait .screen-left-col .screen-panel { flex: 1; padding: 10px 12px; }
+.call-body.screen-portrait .screen-cur-panel { flex: 1; }
 .call-body.screen-portrait .screen-next-panel { flex: 1; }
-.call-body.screen-portrait .screen-wait-panel { flex: 1.4; }
-.call-body.screen-portrait .screen-cur-name { font-size: 56px; }
-.call-body.screen-portrait .screen-next-name { font-size: 40px; }
-.call-body.screen-portrait .screen-panel-title { font-size: 17px; letter-spacing: 2px; margin-bottom: 6px; }
-.call-body.screen-portrait .screen-wait-item { font-size: 17px; padding: 4px 4px; }
-.call-body.screen-portrait .screen-doctor-card { padding: 8px 12px; gap: 10px; }
-.call-body.screen-portrait .screen-doc-photo { width: 44px; height: 44px; font-size: 22px; }
-.call-body.screen-portrait .screen-doc-name { font-size: 17px; }
-.call-body.screen-portrait .screen-doc-meta { font-size: 11px; }
-.call-body.screen-portrait .screen-doc-intro { font-size: 11px; }
+.call-body.screen-portrait .screen-wait-panel { flex: 1; }
+.call-body.screen-portrait .screen-cur-name { font-size: 44px; }
+.call-body.screen-portrait .screen-next-name { font-size: 34px; }
+.call-body.screen-portrait .screen-cur-seq { font-size: 18px; }
+.call-body.screen-portrait .screen-next-seq { font-size: 15px; }
+.call-body.screen-portrait .screen-panel-title { font-size: 15px; letter-spacing: 2px; margin-bottom: 4px; }
+.call-body.screen-portrait .screen-wait-item { font-size: 16px; padding: 3px 4px; gap: 8px; }
 .call-body.screen-portrait .call-tips { font-size: 13px; padding: 6px 12px; min-height: 32px; }
 
 /* ============================================================

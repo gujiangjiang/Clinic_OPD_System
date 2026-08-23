@@ -53,7 +53,7 @@ function screen_payload($room) {
             );
         }
     }
-    $fmt = function ($r) use ($mask) {
+    $fmt = function ($r) use ($mask, $deptId) {
         if (!$r) return null;
         $rawName = $r['pname'];
         $nm = $rawName;
