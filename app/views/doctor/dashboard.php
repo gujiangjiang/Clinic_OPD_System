@@ -18,10 +18,12 @@ $docTitle = $docInfo ? $docInfo['title'] : '';
         <div class="page-title">🩺 医生工作站</div>
         <div class="page-desc">医生：<?php echo e($u['name']); ?><?php echo $docEmp !== '' ? '（工号 ' . e($docEmp) . '）' : ''; ?><?php echo $docTitle !== '' ? ' ｜ 职称：' . e($docTitle) : ''; ?> <span id="deptDescHead">加载科室中…</span></div>
     </div>
-    <div class="flex gap-8">
+    <div class="flex gap-8" style="position:relative">
         <button class="btn btn-outline btn-sm" id="addSlotBtn" onclick="openAddSlot()">＋ 加号</button>
         <button class="btn btn-outline btn-sm" onclick="openPatientSearch()">🔍 患者查询</button>
         <button class="btn btn-outline btn-sm" onclick="openTemplateMgr()">📋 病历模板</button>
+        <button class="btn btn-outline btn-sm" id="roomBtn" onclick="toggleRoomList()" style="border-color:var(--primary);color:var(--primary)">🖥️ <span id="roomName">叫号大屏：未绑定</span></button>
+        <div id="roomList" style="display:none;position:absolute;top:100%;right:0;min-width:300px;max-height:340px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:8px;z-index:100;box-shadow:0 8px 24px var(--shadow)"></div>
     </div>
 </div>
 
@@ -340,4 +342,84 @@ function delTemplate(id) {
 
 /* 页面加载：首先加载科室（单科室直接进入，多科室弹窗选择） */
 loadDepts();
+
+/* ==================== 叫号大屏绑定 ==================== */
+var ROOM_BOUND = null;   // 当前绑定诊室 {id, name}
+var ROOM_TIMER = null;
+
+/* 刷新大屏下拉列表（含在线状态/占用） */
+function loadRoomList() {
+    if (!CUR_DEPT) { renderRoomList([]); return; }
+    Clinic.get('/api/doctor?action=get_available_rooms&dept_id=' + CUR_DEPT, null, {
+        onSuccess: function (json) {
+            ROOM_BOUND = json.data.bound;
+            renderRoomList(json.data.list || []);
+        },
+        onError: function () { renderRoomList([]); },
+    });
+}
+
+function renderRoomList(list) {
+    var box = document.getElementById('roomList');
+    var btn = document.getElementById('roomName');
+    // 更新右上角按钮文案
+    btn.textContent = ROOM_BOUND ? '叫号大屏：' + ROOM_BOUND.name + '（已绑定）' : '叫号大屏：未绑定';
+    if (!list.length) {
+        box.innerHTML = '<div class="fs-13 text-muted text-center" style="padding:16px">该科室暂无大屏配置，请联系管理员在【叫号管理】中新建</div>';
+        return;
+    }
+    var rows = list.map(function (r) {
+        var icon = r.status === 'available' ? '🟢' : (r.status === 'bound' ? '🔵' : (r.status === 'occupied' ? '🟡' : '🔴'));
+        var disabled = !r.selectable;
+        var onclick = disabled ? '' : 'onclick="bindRoom(' + r.id + ')"';
+        var cls = r.status === 'bound' ? 'style="background:var(--primary-soft);border-radius:6px"' : '';
+        return '<div class="fs-13 flex-between" style="padding:8px 10px;cursor:' + (disabled ? 'not-allowed' : 'pointer') + ';opacity:' + (disabled ? '.55' : '1') + ';border-radius:6px"' + cls + ' ' + onclick + '>' +
+            '<span>' + icon + ' ' + r.name + '</span>' +
+            '<span class="fs-12" style="color:' + (r.status === 'offline' ? 'var(--danger)' : 'var(--text-muted)') + '">' + r.status_text + '</span></div>';
+    }).join('');
+    rows += '<div class="fs-12 text-muted mt-8" style="border-top:1px dashed var(--border);padding-top:8px">点击绑定；再点当前诊室可解除绑定。</div>';
+    box.innerHTML = rows;
+}
+
+function toggleRoomList() {
+    var box = document.getElementById('roomList');
+    if (box.style.display === 'none') {
+        loadRoomList();
+        box.style.display = 'block';
+    } else {
+        box.style.display = 'none';
+    }
+}
+
+/* 绑定大屏 */
+function bindRoom(roomId) {
+    Clinic.ajax('/api/doctor', { action: 'bind_room', room_id: roomId }, {
+        onSuccess: function (json) {
+            Clinic.toast.success(json.msg);
+            loadRoomList();
+            startRoomHeartbeat(roomId);
+        },
+        onError: function (json) {
+            Clinic.toast.error((json && json.msg) || '绑定失败');
+        },
+    });
+}
+
+/* 心跳保活（每 30 秒） */
+function startRoomHeartbeat(roomId) {
+    if (ROOM_TIMER) clearInterval(ROOM_TIMER);
+    ROOM_TIMER = setInterval(function () {
+        Clinic.ajax('/api/doctor', { action: 'room_heartbeat', room_id: roomId }, {
+            onError: function () { /* 静默 */ },
+        });
+    }, 30000);
+}
+
+/* 点击下拉框外关闭 */
+document.addEventListener('click', function (e) {
+    var box = document.getElementById('roomList');
+    if (box && box.style.display !== 'none' && !e.target.closest('#roomBtn') && !e.target.closest('#roomList')) {
+        box.style.display = 'none';
+    }
+});
 </script>
