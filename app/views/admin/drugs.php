@@ -67,6 +67,8 @@ function openDrugForm(id) {
                 is_rx: document.getElementById('f_rx').checked ? 1 : 0,
                 is_limited: document.getElementById('f_limited').checked ? 1 : 0,
                 need_nurse: document.getElementById('f_nurse').checked ? 1 : 0,
+                need_skin_test: document.getElementById('f_skin_test') ? (document.getElementById('f_skin_test').checked ? 1 : 0) : 0,
+                skin_test_item_id: parseInt(document.getElementById('f_skin_item') ? document.getElementById('f_skin_item').value : '0', 10) || 0,
                 note: document.getElementById('f_note').value.trim(),
             }, {
                 onSuccess: function (json) {
