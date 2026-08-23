@@ -64,6 +64,12 @@ class Auth {
 
     /** 退出登录 */
     public static function logout() {
+        // 退出前释放绑定的诊室大屏：医生退出登录后，叫号大屏自动取消关联
+        $u = self::user();
+        if ($u) {
+            DB::exec('clinic_rooms', 'UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL, updated_at=? WHERE current_doctor_id=?',
+                array(now_str(), (int)$u['id']));
+        }
         unset($_SESSION['auth_user']);
         session_regenerate_id(true);
     }

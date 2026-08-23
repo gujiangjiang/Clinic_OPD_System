@@ -128,6 +128,18 @@ function default_screen_tips($type) {
 
 /* ==================== 心跳 + 数据 ==================== */
 if ($action === 'heartbeat' || $action === 'data') {
+    // 绑定医生保活检查：医生心跳超过 90 秒未更新（异常退出浏览器 / 会话过期等
+    // 未走正常登出流程的场景）时，大屏自动取消与该医生的关联
+    if ((int)$room['current_doctor_id'] > 0) {
+        $stale = (int)DB::val('clinic_rooms',
+            "SELECT COUNT(*) FROM clinic_rooms WHERE id=? AND (doctor_heartbeat IS NULL OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat)) > 90)",
+            array((int)$room['id']));
+        if ($stale) {
+            DB::exec('clinic_rooms', 'UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL, updated_at=? WHERE id=?',
+                array(now_str(), (int)$room['id']));
+            $room = DB::one('clinic_rooms', 'SELECT * FROM clinic_rooms WHERE id=?', array((int)$room['id']));
+        }
+    }
     if ($action === 'heartbeat') {
         DB::exec('clinic_rooms', 'UPDATE clinic_rooms SET screen_last_heartbeat=?, is_screen_online=1, updated_at=? WHERE id=?',
             array(now_str(), now_str(), (int)$room['id']));
