@@ -240,9 +240,12 @@ function pt_order($order, $items, $title) {
         }
         if ($subs) {
             $html .= '<tr><td colspan="6" class="sub-order">';
+            $scount = count($subs);
             foreach ($subs as $si => $subIt) {
-                $html .= '└ ' . e($subIt['item_name']) . '　剂量：' . e($subIt['single_dose']) .
-                    ($si < count($subs) - 1 ? '<br>' : '');
+                // 成组医嘱树状连线符：┌ 首个 / ├ 中间 / └ 末尾
+                $branch = $si === 0 ? '┌' : ($si === $scount - 1 ? '└' : '├');
+                $html .= $branch . ' ' . e($subIt['item_name']) . '　剂量：' . e($subIt['single_dose']) .
+                    ($si < $scount - 1 ? '<br>' : '');
             }
             $html .= '</td></tr>';
         }

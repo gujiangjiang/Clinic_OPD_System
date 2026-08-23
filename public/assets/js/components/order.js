@@ -555,14 +555,16 @@ Clinic.order = (function () {
     }
 
     /**
-     * 子处方列表
+     * 子处方列表（成组医嘱树状连线：┌ 首个 / ├ 中间 / └ 末尾）
      */
     function subList(s, i) {
-        return '<div style="margin:6px 0 0 20px;border-left:3px solid var(--warning);padding-left:12px">' +
-            '<div class="fs-12 text-muted mb-4">子处方（并入上方静脉输液，剂量单独显示，频次途径合并）</div>' +
+        var n = s.sub_items.length;
+        return '<div style="margin:6px 0 0 20px;border-left:2px solid var(--warning);padding-left:10px">' +
+            '<div class="fs-12 text-muted mb-4">成组医嘱（并入上方输液/注射，剂量单独显示，途径频次随主药）</div>' +
             s.sub_items.map(function (sub, si) {
-                return '<div class="flex-between fs-13" style="padding:2px 0">' +
-                    '<span>' + sub.name + ' ｜ 剂量：' + (sub.dose || '—') + '</span>' +
+                var branch = si === 0 ? '┌' : (si === n - 1 ? '└' : '├');
+                return '<div class="flex-between fs-13" style="padding:2px 0;font-family:Menlo,Consolas,monospace">' +
+                    '<span>' + branch + ' ' + sub.name + ' ｜ 剂量：' + (sub.dose || '—') + '</span>' +
                     '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px" ' +
                     'onclick="Clinic.order.removeSub(' + i + ',' + si + ')">✕</button></div>';
             }).join('') + '</div>';
@@ -632,11 +634,21 @@ Clinic.order = (function () {
 
     /* ============ 对外操作接口 ============ */
 
-    /** 移除已选项目 */
+    /** 移除已选项目（主药含子药时级联确认） */
     function removeItem(i) {
+        var s = SELECTED[i];
+        if (s.sub_items && s.sub_items.length) {
+            Clinic.modal.confirm(
+                '删除主药【' + s.name + '】将同时移除所有关联子处方（' + s.sub_items.length + '项），是否确认？',
+                function () { doRemove(i); },
+                { title: '确认删除成组医嘱', okText: '确认删除' }
+            );
+        } else {
+            doRemove(i);
+        }
+    }
+    function doRemove(i) {
         SELECTED.splice(i, 1);
-        // 恢复目录项样式
-        var id = SELECTED.length ? null : null;
         renderSelected();
     }
 
