@@ -308,9 +308,14 @@ Clinic.emr = (function () {
             refreshReadOnlyBodies(d);
         }
 
-        // 问题2：续写定位——非诊毕且本人已有文书时，页面平滑滚动到本人病历区
-        // （#myRecordAnchor 锚点标记在 #docBody 前）；诊毕（含无本人病历）不滚动
-        if (!readOnly && (r.record_id || 0) > 0) {
+        // 问题2：续写定位——仅在「存在他人文书」的续写场景下，页面平滑滚动到
+        // 本人病历区（#myRecordAnchor 锚点标记在 #docBody 前，即【病历续写】处）：
+        // · 单人文书（整份病历只有本人一份，含未保存首诊）→ 不滚动；
+        // · 首次续写进入（本人尚无文书）→ 同样立即定位到病历续写处。
+        var hasOthers = (d.records_history || []).some(function (h) {
+            return (h.doctor_id || 0) !== (r.doctor_id || 0);
+        });
+        if (!readOnly && hasOthers) {
             var anchor = document.getElementById('myRecordAnchor');
             if (anchor) {
                 setTimeout(function () {
@@ -805,6 +810,13 @@ Clinic.emr = (function () {
                 // 同步本地缓存：保存成功后无需刷新页面，开检验/检查/处置/处方与打印病历立即生效
                 if (DATA) {
                     DATA.record.emr = emr;
+                    // 关键：同步服务端返回的文书 ID。首次保存前 record_id=0，
+                    // isRecordComplete() 会因「本人尚无文书」判定不完整，
+                    // 导致开单/诊断证明/打印提示需完善病历；回写后即时生效免刷新。
+                    if (j.data && (j.data.record_id || 0) > 0) {
+                        DATA.record.record_id = j.data.record_id;
+                        DATA.record.id = j.data.record_id;
+                    }
                     DATA.record.consciousness = data.consciousness;
                     DATA.record.visit_type = data.visit_type;
                     DATA.record.status = finish ? 'done' : 'draft';
