@@ -233,6 +233,74 @@ switch ($action) {
         json_ok(array(), '加号成功：患者凭本人身份证至挂号处挂号即可');
         break;
 
+    /* ==================== 获取可用大屏列表（诊室绑定选择器） ==================== */
+    // 状态判定（心跳阈值 30 秒）：
+    //   offline 大屏离线（未开启/断网） → 禁用，提示联系管理员
+    //   occupied 已被其他医生绑定 → 禁用，显示占用医生
+    //   available 在线空闲 → 可选
+    //   bound 当前医生已绑定 → 显示为当前绑定
+    case 'get_available_rooms':
+        $deptId = (int)get('dept_id');
+        if ($deptId <= 0) json_fail('请先选择科室');
+        $rows = DB::q('clinic_rooms', "SELECT * FROM clinic_rooms WHERE dept_id=? AND room_type='doctor' ORDER BY id", array($deptId));
+        $list = array();
+        foreach ($rows as $room) {
+            $isOnline = (!empty($room['screen_last_heartbeat']) && (time() - strtotime($room['screen_last_heartbeat'])) <= 30);
+            if (!$isOnline) {
+                $status = 'offline'; $text = '大屏离线，请联系管理员'; $sel = false;
+            } elseif ($room['current_doctor_id'] > 0 && (int)$room['current_doctor_id'] !== (int)$u['id']) {
+                $status = 'occupied'; $text = $room['current_doctor_name'] . ' 正在坐诊'; $sel = false;
+            } else {
+                $status = ($room['current_doctor_id'] == $u['id']) ? 'bound' : 'available';
+                $text = $status === 'bound' ? '已绑定' : '在线空闲'; $sel = true;
+            }
+            $list[] = array(
+                'id' => (int)$room['id'], 'name' => $room['room_name'],
+                'status' => $status, 'status_text' => $text, 'selectable' => $sel,
+            );
+        }
+        // 当前医生已绑定的诊室（跨科室，供右上角显示）
+        $myBound = DB::one('clinic_rooms', "SELECT * FROM clinic_rooms WHERE current_doctor_id=? ORDER BY id DESC LIMIT 1", array($u['id']));
+        json_ok(array('list' => $list, 'bound' => $myBound ? array('id' => (int)$myBound['id'], 'name' => $myBound['room_name']) : null));
+        break;
+
+    /* ==================== 绑定大屏（防冲突强拦截） ==================== */
+    case 'bind_room':
+        $roomId = (int)post('room_id');
+        $room = DB::one('clinic_rooms', 'SELECT * FROM clinic_rooms WHERE id=?', array($roomId));
+        if (!$room) json_fail('诊室不存在');
+        // 后端强拦截：大屏必须在线
+        if (empty($room['screen_last_heartbeat']) || (time() - strtotime($room['screen_last_heartbeat'])) > 30) {
+            json_fail('该大屏当前处于离线状态，无法绑定，请确保大屏已开启并在运行！');
+        }
+        // 已被其他医生占用 → 拒绝
+        if ($room['current_doctor_id'] > 0 && (int)$room['current_doctor_id'] !== (int)$u['id']) {
+            json_fail('该大屏已被 ' . $room['current_doctor_name'] . ' 占用，无法绑定');
+        }
+        // 释放该医生此前绑定的其他诊室（一人一块屏）
+        DB::exec('clinic_rooms', 'UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL WHERE current_doctor_id=?', array($u['id']));
+        // 绑定当前诊室
+        DB::exec('clinic_rooms', 'UPDATE clinic_rooms SET current_doctor_id=?, current_doctor_name=?, doctor_heartbeat=?, updated_at=? WHERE id=?',
+            array($u['id'], $u['name'], now_str(), now_str(), $roomId));
+        json_ok(array('room_id' => $roomId, 'room_name' => $room['room_name']), '已绑定大屏「' . $room['room_name'] . '」');
+        break;
+
+    /* ==================== 解除绑定 / 释放诊室 ==================== */
+    case 'unbind_room':
+        $roomId = (int)post('room_id');
+        DB::exec('clinic_rooms', 'UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL, updated_at=? WHERE id=? AND current_doctor_id=?',
+            array(now_str(), $roomId, $u['id']));
+        json_ok(array(), '已释放诊室');
+        break;
+
+    /* ==================== 医生端心跳保活（每 30 秒） ==================== */
+    case 'room_heartbeat':
+        $roomId = (int)post('room_id');
+        DB::exec('clinic_rooms', 'UPDATE clinic_rooms SET doctor_heartbeat=?, updated_at=? WHERE id=? AND current_doctor_id=?',
+            array(now_str(), now_str(), $roomId, $u['id']));
+        json_ok(array());
+        break;
+
     default:
         json_fail('未知操作');
 }
