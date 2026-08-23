@@ -813,3 +813,25 @@
     border-top: 1px dashed var(--border);
     margin-top: 10px;
 }
+
+/* ---------- 运营分析 KPI 卡片 ---------- */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+}
+.kpi-card { padding: 14px 16px; }
+.kpi-card .kpi-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+}
+.kpi-card .kpi-value {
+    font-size: 20px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    word-break: break-all;
+}
+.kpi-card .kpi-primary { color: var(--primary); font-size: 22px; }

@@ -263,16 +263,13 @@ function admin_part_analytics($action) {
         // 时间分组表达式
         $fmtMap = array('day' => '%Y-%m-%d', 'month' => '%Y-%m', 'year' => '%Y');
         $timeExpr = function ($col) use ($fmtMap, $groupBy) {
-            if ($groupBy === 'day') return "strftime('%Y-%m-%d', $col)";
-            if ($groupBy === 'month') return "strftime('%Y-%m', $col)";
-            if ($groupBy === 'year') return "strftime('%Y', $col)";
-            return null;
+            $fmt = $fmtMap[$groupBy];
+            return "strftime('$fmt', $col)";
         };
         if ($groupBy === 'day' || $groupBy === 'month' || $groupBy === 'year') {
-            $te = $timeExpr('');
-            $tePaid = str_replace('$col', 'paid_at', $te);
-            $tePay = str_replace('$col', 'created_at', $te);
-            $teReg = str_replace('$col', 'payment_time', $te);
+            $tePaid = $timeExpr('paid_at');
+            $tePay = $timeExpr('created_at');
+            $teReg = $timeExpr('payment_time');
             // 收集所有分组标签
             $labelSet = array();
             foreach (DB::q('order', "SELECT DISTINCT $tePaid AS g FROM orders WHERE paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ?", array($start, $end)) as $r) $labelSet[$r['g']] = true;
@@ -290,7 +287,7 @@ function admin_part_analytics($action) {
             };
             $needOrder = array_intersect($metrics, array('drug', 'lab', 'imaging', 'procedure', 'total'));
             if ($needOrder) {
-                $ge = str_replace('$col', 'paid_at', $te);
+                $ge = $timeExpr('paid_at');
                 foreach (DB::q('order', "SELECT order_type AS t, $ge AS g, COALESCE(SUM(total_amount),0) AS s FROM orders
                     WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ? GROUP BY t, g",
                     array($start, $end)) as $r) {

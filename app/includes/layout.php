@@ -28,6 +28,7 @@ class Layout {
                 array('处置项目', '🩹', '/admin/disposal'),
                 array('诊断管理', '📖', '/admin/diagnosis'),
                 array('审核中心', '✅', '/admin/review'),
+                array('运营分析', '📊', '/admin/analytics'),
                 array('打印中心', '🖨️', '/admin/printcenter'),
                 array('叫号管理', '🖥️', '/admin/callmanage'),
             );
