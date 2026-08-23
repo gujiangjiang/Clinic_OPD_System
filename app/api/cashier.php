@@ -253,7 +253,7 @@ switch ($action) {
         $payId = DB::insert('order', 'INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total, item_count, cashier_id, cashier_name, created_at) VALUES(?,0,?,?,?,?,1,?,?,?)', array(
             $visitId, $visit['patient_no'], $visit['flow_no'], 'visit', (float)$visit['fee'], $u['id'], $u['name'], now_str(),
         ));
-        json_ok(array('payment_id' => $payId), '缴费成功');
+        json_ok(array('payment_id' => oid($payId)), '缴费成功');
         break;
 
     /* ==================== 挂号管理（按天查询，含退费/取消） ==================== */
@@ -444,7 +444,7 @@ switch ($action) {
                 (float)$order['total_amount'], count($items), $u['id'], $u['name'], now_str(),
             ));
         }
-        json_ok(array('payment_id' => $payId, 'total' => $total), '缴费成功');
+        json_ok(array('payment_id' => oid($payId), 'total' => $total), '缴费成功');
         break;
 
     /* ==================== 订单退费（仅限未使用的项目） ==================== */

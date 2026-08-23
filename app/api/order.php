@@ -357,7 +357,7 @@ switch ($action) {
             }
 
             // ===== 站内消息 + 打印提醒（每张申请单一条，可独立处理/打印） =====
-            $printUrl = '/api/print?action=order&order_id=' . $orderId;
+            $printUrl = '/api/print?action=order&order_id=' . oid($orderId);
             if ($orderType === 'imaging') {
                 $msgTitle = ($g['cat'] !== '' && $g['cat'] !== '检查') ? '新的' . $g['cat'] . '申请单' : $typeTitle[$orderType];
             } else {

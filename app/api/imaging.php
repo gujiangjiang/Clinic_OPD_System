@@ -163,7 +163,7 @@ switch ($action) {
                 'report', '/api/print?action=report&report_id=' . oid($reportId),
                 array('msg_type' => 'patient', 'patient_name' => $pName, 'visit_id' => (int)$it['visit_id']));
         }
-        json_ok(array('report_id' => $reportId), '报告已生成并提交');
+        json_ok(array('report_id' => oid($reportId)), '报告已生成并提交');
         break;
 
     /* ==================== 申请撤回报告 ==================== */

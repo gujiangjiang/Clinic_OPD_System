@@ -43,7 +43,7 @@ function loadMsgs() {
                         ? '<span class="msg-who">👤 ' + m.patient_name + '</span>' : '';
                     var jump = '';
                     if (m.link_url) jump = m.link_url;
-                    else if (m.visit_id > 0) jump = '/doctor/emr?visit_id=' + m.visit_id;
+                    else if (m.visit_id) jump = '/doctor/emr?visit_id=' + encodeURIComponent(m.visit_id);
                     return '<div class="msg-item ' + (m.is_read ? '' : 'unread') + '" style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--border);cursor:pointer" data-id="' + m.id + '" data-jump="' + jump + '">' +
                         '<div style="flex:1;min-width:0">' +
                         '  <div class="msg-title-row">' + typeBadge + who +
