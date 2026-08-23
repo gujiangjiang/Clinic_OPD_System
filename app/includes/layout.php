@@ -29,6 +29,7 @@ class Layout {
                 array('诊断管理', '📖', '/admin/diagnosis'),
                 array('审核中心', '✅', '/admin/review'),
                 array('打印中心', '🖨️', '/admin/printcenter'),
+                array('叫号管理', '🖥️', '/admin/callmanage'),
             );
         } elseif ($role === 'cashier') {
             $items['挂号收费'] = array(
