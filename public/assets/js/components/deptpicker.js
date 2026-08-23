@@ -62,14 +62,22 @@ Clinic.deptPicker = (function () {
                     '<div class="dept-pick-sub">挂号费 ¥' + d.fee.toFixed(2) + '</div>';
             }
         } else if (mode === 'select') {
+            // 类型徽章 + 当前标记；若有 room_count 则显示大屏统计
+            var roomTxt = '';
+            if (typeof d.room_count === 'number' && d.room_count > 0) {
+                roomTxt = '<span class="badge badge-' + (d.online_count > 0 ? 'success' : 'gray') + '">' +
+                    '🖥️ ' + d.online_count + '/' + d.room_count + ' 在线</span>';
+            }
             if (d.id === opts.currentId) {
                 cls += ' active';
                 extra = '<div class="dept-pick-tags">' +
                     '<span class="badge badge-' + (d.type === 'emergency' ? 'danger' : 'primary') + '">' + typeName(d.type) + '</span>' +
+                    roomTxt +
                     '<span class="badge badge-success">当前</span></div>';
             } else {
                 extra = '<div class="dept-pick-tags">' +
                     '<span class="badge badge-' + (d.type === 'emergency' ? 'danger' : 'primary') + '">' + typeName(d.type) + '</span>' +
+                    roomTxt +
                     (d.limited ? '<span class="badge badge-warning">限号</span>' : '') + '</div>';
             }
         } else { // transfer：目标科室列表（服务端已排除当前科室）

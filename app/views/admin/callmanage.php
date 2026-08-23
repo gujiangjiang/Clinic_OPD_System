@@ -8,11 +8,23 @@
  */
 Router::title('叫号管理');
 
-// 科室下拉（仅门诊/急诊科室）
+// 科室数据（含大屏统计：total 总数 / online 在线数，在线按心跳 30 秒判定）
 $depts = DB::q('dept', 'SELECT * FROM departments WHERE status=1 ORDER BY sort, id');
 $deptOpts = '<option value="">请选择科室</option>';
 foreach ($depts as $d) {
     $deptOpts .= '<option value="' . (int)$d['id'] . '">' . e($d['name']) . '</option>';
+}
+$deptPickerData = array();
+foreach ($depts as $d) {
+    $total = (int)DB::val('clinic_rooms', 'SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=?', array((int)$d['id']));
+    $online = (int)DB::val('clinic_rooms', "SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat IS NOT NULL AND (strftime('%s','now','localtime') - strftime('%s',screen_last_heartbeat)) <= 30", array((int)$d['id']));
+    $deptPickerData[] = array(
+        'id' => (int)$d['id'],
+        'name' => $d['name'],
+        'type' => $d['type'],
+        'room_count' => $total,
+        'online_count' => $online,
+    );
 }
 ?>
 <div class="page-head">
@@ -35,7 +47,7 @@ foreach ($depts as $d) {
 
 <script>
 var CM_DEPT = 0;
-var CM_DEPS = <?php echo json_encode(array_values(array_map(function ($d) { return array('id' => (int)$d['id'], 'name' => $d['name'], 'type' => $d['type']); }, $depts))); ?>;
+var CM_DEPS = <?php echo json_encode($deptPickerData); ?>;
 var CM_TIMER = null;
 
 /* 科室选择模态框（复用通用组件） */
