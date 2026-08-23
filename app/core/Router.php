@@ -47,6 +47,7 @@ class Router {
         '/admin/diagnosis'   => array('admin/diagnosis.php',    array('admin')),
         '/admin/review'      => array('admin/review.php',       array('admin')),
         '/admin/printcenter' => array('admin/printcenter.php',  array('admin')),
+        '/admin/callmanage'  => array('admin/callmanage.php',   array('admin')),
         // ===== 挂号收费处 =====
         '/cashier/register'  => array('cashier/register.php',   array('cashier')),
         '/cashier/regmanage' => array('cashier/regmanage.php',  array('cashier')),

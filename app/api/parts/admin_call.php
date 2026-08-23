@@ -46,7 +46,7 @@ function admin_part_call($action) {
                 $bind = $r['current_doctor_id'] > 0
                     ? '<span class="badge badge-warning">' . e($r['current_doctor_name']) . ' 正在坐诊</span>'
                     : '<span class="badge badge-gray">空闲</span>';
-                $html .= '<tr>' .
+                $html .= '<tr data-id="' . (int)$r['id'] . '" data-token="' . e($r['screen_token']) . '">' .
                     '<td class="fw-600">' . e($r['room_name']) . '</td>' .
                     '<td>' . e(isset($typeNames[$r['room_type']]) ? $typeNames[$r['room_type']] : $r['room_type']) . '</td>' .
                     '<td>' . $st . '</td>' .
