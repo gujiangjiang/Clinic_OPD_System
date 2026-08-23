@@ -6,7 +6,7 @@
  * 医生/护士工作台选择坐诊诊室后建立「人员 - 诊室 - 大屏」绑定映射。
  * ============================================================ */
 return array(
-    'version' => 1,
+    'version' => 2,
     'tables' => array(
         'clinic_rooms' => "CREATE TABLE IF NOT EXISTS clinic_rooms (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,10 +22,18 @@ return array(
             doctor_heartbeat DATETIME,
             enable_voice TINYINT DEFAULT 1,
             enable_mask TINYINT DEFAULT 1,
+            screen_tips TEXT DEFAULT '',
+            tip_interval INTEGER DEFAULT 5,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
     ),
-    'migrations' => array(),
+    'migrations' => array(
+        // v2：大屏底部温馨提示（JSON 数组）与多条目滚动间隔（秒）
+        2 => array(
+            "ALTER TABLE clinic_rooms ADD COLUMN screen_tips TEXT DEFAULT ''",
+            "ALTER TABLE clinic_rooms ADD COLUMN tip_interval INTEGER DEFAULT 5",
+        ),
+    ),
     'seed' => array(),
 );

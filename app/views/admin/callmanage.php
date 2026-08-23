@@ -134,6 +134,15 @@ function createRoom() {
 
 /* 编辑诊室 */
 function editRoom(id, name, type, voice, mask) {
+    // 获取当前温馨提示（从列表行获取）
+    var tips = '';
+    var tipInterval = 5;
+    document.querySelectorAll('#cmList tr[data-tips]').forEach(function (tr) {
+        if (parseInt(tr.getAttribute('data-id'), 10) === id) {
+            tips = tr.getAttribute('data-tips') || '';
+            tipInterval = parseInt(tr.getAttribute('data-interval'), 10) || 5;
+        }
+    });
     Clinic.modal.open(
         '<div class="form-group"><label class="form-label">诊室 / 窗口名称 <span class="req">*</span></label>' +
         '<input class="input" id="erName" value="' + name + '"></div>' +
@@ -145,8 +154,13 @@ function editRoom(id, name, type, voice, mask) {
         '<option value="pharmacy"' + (type === 'pharmacy' ? ' selected' : '') + '>药房</option>' +
         '<option value="nurse"' + (type === 'nurse' ? ' selected' : '') + '>护士站</option>' +
         '</select></div>' +
-        '<label class="flex gap-4 mb-8" style="font-size:13px;cursor:pointer"><input type="checkbox" id="erVoice"' + (voice ? ' checked' : '') + '> 语音播报</label>' +
-        '<label class="flex gap-4 mb-8" style="font-size:13px;cursor:pointer"><input type="checkbox" id="erMask"' + (mask ? ' checked' : '') + '> 患者姓名脱敏（张*三）</label>',
+        '<label class="flex gap-4 mb-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="erVoice"' + (voice ? ' checked' : '') + '> 语音播报</label>' +
+        '<label class="flex gap-4 mb-8" style="font-size:13px;cursor:pointer"><input type="checkbox" id="erMask"' + (mask ? ' checked' : '') + '> 患者姓名脱敏（张*三）</label>' +
+        '<div class="card-title mt-8"><span>💡 温馨提示</span></div>' +
+        '<div class="fs-12 text-muted mb-4">每行一条，留空则使用默认提示；多条提示自动轮播切换。</div>' +
+        '<textarea class="textarea" id="erTips" rows="4" placeholder="请输入温馨提示，每行一条">' + tips.split('","').join('\n').replace(/^\["?|"?\]$/g, '').replace(/\\"/g, '"') + '</textarea>' +
+        '<div class="form-row mt-4"><div class="form-group"><label class="form-label">轮播间隔（秒）</label>' +
+        '<input class="input" id="erInterval" type="number" min="2" max="60" value="' + tipInterval + '"></div></div>',
         {
             title: '编辑诊室',
             size: 'modal-sm',
@@ -155,11 +169,16 @@ function editRoom(id, name, type, voice, mask) {
                 { text: '保存', cls: 'btn-primary', autoClose: false, onClick: function () {
                     var nm = document.getElementById('erName').value.trim();
                     if (!nm) { Clinic.toast.warning('请填写名称'); return; }
+                    // 将多行文本转为 JSON 数组
+                    var tipsLines = document.getElementById('erTips').value.trim().split('\n').map(function (s) { return s.trim(); }).filter(function (s) { return s; });
+                    var tipsJson = tipsLines.length ? JSON.stringify(tipsLines) : '';
                     Clinic.ajax('/api/admin', {
                         action: 'room_save', id: id, room_name: nm,
                         room_type: document.getElementById('erType').value,
                         enable_voice: document.getElementById('erVoice').checked ? 1 : 0,
                         enable_mask: document.getElementById('erMask').checked ? 1 : 0,
+                        screen_tips: tipsJson,
+                        tip_interval: parseInt(document.getElementById('erInterval').value, 10) || 5,
                     }, {
                         onSuccess: function (json) { Clinic.toast.success(json.msg); Clinic.modal.close(); loadRooms(); },
                     });

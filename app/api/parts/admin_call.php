@@ -46,7 +46,8 @@ function admin_part_call($action) {
                 $bind = $r['current_doctor_id'] > 0
                     ? '<span class="badge badge-warning">' . e($r['current_doctor_name']) . ' 正在坐诊</span>'
                     : '<span class="badge badge-gray">空闲</span>';
-                $html .= '<tr data-id="' . (int)$r['id'] . '" data-token="' . e($r['screen_token']) . '">' .
+                $html .= '<tr data-id="' . (int)$r['id'] . '" data-token="' . e($r['screen_token']) . '"' .
+                    ' data-tips="' . e($r['screen_tips']) . '" data-interval="' . (int)$r['tip_interval'] . '">' .
                     '<td class="fw-600">' . e($r['room_name']) . '</td>' .
                     '<td>' . e(isset($typeNames[$r['room_type']]) ? $typeNames[$r['room_type']] : $r['room_type']) . '</td>' .
                     '<td>' . $st . '</td>' .
@@ -85,17 +86,20 @@ function admin_part_call($action) {
         json_ok(array('token' => $token), '诊室已创建');
     }
 
-    /* ==================== 编辑诊室（名称/类型/语音/脱敏） ==================== */
+    /* ==================== 编辑诊室（名称/类型/语音/脱敏/温馨提示） ==================== */
     if ($action === 'room_save') {
         $id = (int)post('id');
         $roomName = trim(post('room_name'));
         $roomType = post('room_type', 'doctor');
         $voice = (int)post('enable_voice', 1);
         $mask = (int)post('enable_mask', 1);
+        // 温馨提示：JSON 数组字符串（前端提交），空字符串则清空
+        $tips = trim(post('screen_tips', ''));
+        $tipInterval = max(2, (int)post('tip_interval', 5));
         if ($id <= 0) json_fail('参数错误');
         if ($roomName === '') json_fail('请填写诊室名称');
-        DB::exec('clinic_rooms', 'UPDATE clinic_rooms SET room_name=?, room_type=?, enable_voice=?, enable_mask=?, updated_at=? WHERE id=?',
-            array($roomName, $roomType, $voice, $mask, now_str(), $id));
+        DB::exec('clinic_rooms', 'UPDATE clinic_rooms SET room_name=?, room_type=?, enable_voice=?, enable_mask=?, screen_tips=?, tip_interval=?, updated_at=? WHERE id=?',
+            array($roomName, $roomType, $voice, $mask, $tips, $tipInterval, now_str(), $id));
         json_ok(array(), '诊室已更新');
     }
 

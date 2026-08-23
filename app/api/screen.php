@@ -39,11 +39,19 @@ function screen_payload($room) {
     $waiting = DB::q('patient', "SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
         FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
         WHERE r.current_dept_id=? AND r.status='paid' ORDER BY r.visit_seq, r.register_time LIMIT 8", array($deptId));
-    // 当前医生
-    $doctor = '';
+    // 当前医生（完整信息：姓名/工号/职称/介绍/照片，供医生大屏展示）
+    $doctor = null;
     if ((int)$room['current_doctor_id'] > 0) {
-        $doc = DB::one('user', 'SELECT name, title FROM users WHERE id=?', array($room['current_doctor_id']));
-        $doctor = $doc ? $doc['name'] : '';
+        $doc = DB::one('user', 'SELECT name, emp_no, title, intro, photo FROM users WHERE id=?', array($room['current_doctor_id']));
+        if ($doc) {
+            $doctor = array(
+                'name' => $doc['name'],
+                'emp_no' => $doc['emp_no'],
+                'title' => $doc['title'],
+                'intro' => $doc['intro'],
+                'photo' => $doc['photo'] ? img_data($doc['photo']) : '',
+            );
+        }
     }
     $fmt = function ($r) use ($mask) {
         if (!$r) return null;
@@ -65,6 +73,8 @@ function screen_payload($room) {
                 $nm = mb_substr($nm, 0, 1) . str_repeat('*', $len - 2) . mb_substr($nm, -1);
             }
         }
+        // 转诊标记：挂号科室与当前就诊科室不一致 => 转诊患者（序号需显示完整 + 转标记）
+        $isTransfer = !empty($r['first_dept_id']) && (int)$r['first_dept_id'] !== $deptId;
         return array(
             'name' => $nm,
             'raw_name' => $rawName,   // 原始姓名（语音播报用，不受脱敏影响）
@@ -72,8 +82,24 @@ function screen_payload($room) {
             'age_fmt' => age_format($r['pbirth'], $r['register_time']),
             'visit_seq' => (int)$r['visit_seq'], 'flow_no' => $r['flow_no'],
             'patient_no' => $r['patient_no'],
+            'is_transfer' => $isTransfer ? 1 : 0,          // 是否转诊患者
+            'first_dept_name' => $r['first_dept_name'],     // 挂号（原）科室名
         );
     };
+    // 温馨提示：优先取诊室自定义（JSON 数组），为空则按类型返回默认提示
+    $tips = array();
+    if (!empty($room['screen_tips'])) {
+        $decoded = json_decode($room['screen_tips'], true);
+        if (is_array($decoded)) {
+            foreach ($decoded as $t) {
+                $t = trim((string)$t);
+                if ($t !== '') $tips[] = $t;
+            }
+        }
+    }
+    if (!$tips) {
+        $tips = default_screen_tips($room['room_type']);
+    }
     return array(
         'room' => array('id' => (int)$room['id'], 'name' => $roomName, 'type' => $room['room_type'], 'dept' => $dept ? $dept['name'] : ''),
         'enable_voice' => (int)$room['enable_voice'],
@@ -82,8 +108,22 @@ function screen_payload($room) {
         'next' => $fmt($next),
         'waiting' => array_map($fmt, $waiting),
         'doctor' => $doctor,
+        'tips' => $tips,
+        'tip_interval' => max(2, (int)$room['tip_interval']),
         'servertime' => now_str(),
     );
+}
+
+/** 按大屏类型返回默认温馨提示 */
+function default_screen_tips($type) {
+    $map = array(
+        'doctor'   => array('请按序排队候诊，保持安静', '请主动拒绝医托，谨防上当受骗', '复诊患者请携带既往病历资料', '请如实告知医生病史与用药情况'),
+        'lab'      => array('请空腹检验项目提前禁食 8 小时', '采血后请按压针眼 3-5 分钟', '请按取单时间到自助机或窗口领取报告'),
+        'imaging'  => array('检查前请去除金属饰品与衣物', '孕妇及备孕者请提前告知技师', '请按叫号顺序进入检查室'),
+        'pharmacy' => array('请按医嘱服用药品，勿自行增减剂量', '服药期间如有不适请及时就诊', '用药疑问请咨询药师'),
+        'nurse'    => array('请按序排队，保持安静', '治疗前请告知过敏史', '请妥善保管个人物品'),
+    );
+    return isset($map[$type]) ? $map[$type] : array('请保持安静，有序排队');
 }
 
 /* ==================== 心跳 + 数据 ==================== */

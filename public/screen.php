@@ -38,13 +38,12 @@ $isDoctor = $room['room_type'] === 'doctor';
     <link rel="stylesheet" href="/assets/css/call.css">
     <style>
         body { background: linear-gradient(135deg,#0f2027,#203a43,#2c5364); color:#fff; }
-        .screen-mute { cursor:pointer; user-select:none; }
     </style>
 </head>
 <body class="call-body" data-token="<?php echo e($token); ?>" data-roomtype="<?php echo e($room['room_type']); ?>"
       data-csrf="<?php echo e(CSRF::token()); ?>" data-hosp="<?php echo e($hosp); ?>" data-hosp2="<?php echo e($hosp2); ?>">
 
-<!-- 顶部统一抬头：LOGO + 医院名 + 时钟 + 静音开关 -->
+<!-- 顶部抬头：LOGO + 医院名 + 时钟（紧凑单行，不做大字号，语音开关由管理员在设置页控制） -->
 <header class="call-top">
     <div class="call-brand">
         <?php echo $logoImg; ?>
@@ -53,14 +52,22 @@ $isDoctor = $room['room_type'] === 'doctor';
             <?php if ($hosp2 !== ''): ?><div class="hosp-sub"><?php echo e($hosp2); ?></div><?php endif; ?>
         </div>
     </div>
-    <div class="call-now" id="roomTitle"><?php echo e($room['room_name']); ?></div>
     <div class="call-clock" id="clock">--:--:--</div>
-    <div class="call-mute screen-mute" id="muteBtn" title="点击静音/取消静音">🔊</div>
 </header>
+
+<!-- 科室 + 诊室名称条（位于标题栏下方，标题栏保持紧凑） -->
+<div class="call-deptbar" id="deptBar">
+    <div class="call-dept" id="roomTitle"><?php echo e($room['room_name']); ?></div>
+</div>
 
 <div class="screen-main" id="screenMain">
     <div class="empty" style="color:#fff"><div class="spinner" style="border-top-color:#fff;margin:0 auto"></div>正在加载大屏数据…</div>
 </div>
+
+<!-- 底部温馨提示（多条目自动轮播/跑马灯） -->
+<footer class="call-tips" id="tipsBar">
+    <div class="call-tips-inner" id="tipsInner"></div>
+</footer>
 
 <!-- 自动播放解锁遮罩 -->
 <div id="autoplayMask" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:28px;gap:20px;cursor:pointer">
