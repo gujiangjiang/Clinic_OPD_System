@@ -3,12 +3,11 @@
  * ============================================================
  * screen.php — 叫号大屏免登数据接口
  * ============================================================
- * 说明：大屏页面通过 screen_token 访问本接口轮询数据（每 3 秒），
- * 不依赖登录会话；本文件在 _init.php 之前直接按 token 鉴权。
+ * 说明：通过 URL /api/screen?token=xxx 访问（index.php 自动加载 bootstrap），
+ * 不依赖登录会话；大屏前端每 3 秒轮询获取心跳 + 叫号数据。
  * 1. heartbeat  大屏心跳上报 + 返回该诊室当前叫号数据
  * 2. data       获取当前叫号数据（不更新心跳，供预览/调试）
  * ============================================================ */
-require __DIR__ . '/../config/bootstrap.php';
 
 $action = isset($_GET['action']) ? trim($_GET['action']) : 'data';
 $token = isset($_GET['token']) ? trim($_GET['token']) : (isset($_POST['token']) ? trim($_POST['token']) : '');

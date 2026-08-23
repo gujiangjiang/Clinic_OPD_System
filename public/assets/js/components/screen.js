@@ -161,7 +161,7 @@
 
     /* ============ 轮询心跳 + 数据 ============ */
     function poll() {
-        fetch('/api/screen.php?action=heartbeat&token=' + encodeURIComponent(TOKEN))
+        fetch('/api/screen?action=heartbeat&token=' + encodeURIComponent(TOKEN))
             .then(function (r) { return r.json(); })
             .then(function (j) {
                 if (!j.ok) { renderErr(j.msg); return; }
