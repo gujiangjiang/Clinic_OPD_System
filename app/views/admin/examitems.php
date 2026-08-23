@@ -11,13 +11,15 @@ Router::title('检查项目管理');
     <div><div class="page-title">🩻 检查项目管理</div><div class="page-desc">检查项目与分类管理（CT、MR、DR、超声等，新项目需审核通过后可用）</div></div>
     <div class="flex gap-8">
         <button class="btn btn-outline btn-sm" onclick="openCatMgr()">🗂️ 分类管理</button>
-        <button class="btn btn-primary btn-sm" onclick="openItemForm(0)">＋ 新增检查项目</button>
+        <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openItemForm(0)">＋ 新增检查项目</button></div>
     </div>
 </div>
 
 <div class="card" id="itemList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
+Clinic.importer._reloads['exam'] = loadItemList;
+Clinic.importer.attach('exam', 'impBtns', '检查项目');
 function loadItemList() {
     Clinic.get('/api/admin?action=item_list&type=exam', null, {
         onSuccess: function (json) {

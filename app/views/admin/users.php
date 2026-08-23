@@ -10,11 +10,13 @@ Router::title('用户管理');
 ?>
 <div class="page-head">
     <div><div class="page-title">👥 用户管理</div><div class="page-desc">创建各科室账号，医生可关联多个科室</div></div>
-    <button class="btn btn-primary btn-sm" onclick="openUserForm(0)">＋ 新增用户</button>
+    <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openUserForm(0)">＋ 新增用户</button></div>
 </div>
 <div class="card" id="userList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
+Clinic.importer._reloads['user'] = loadUserList;
+Clinic.importer.attach('user', 'impBtns', '人员');
 function loadUserList() {
     Clinic.get('/api/admin?action=user_list', null, {
         onSuccess: function (json) {

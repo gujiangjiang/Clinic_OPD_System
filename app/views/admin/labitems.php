@@ -14,13 +14,15 @@ Router::title('检验项目管理');
     <div class="flex gap-8">
         <button class="btn btn-outline btn-sm" onclick="openCatMgr()">🗂️ 分类管理</button>
         <button class="btn btn-outline btn-sm" onclick="openGroupForm(0)">🧩 新增检验组合</button>
-        <button class="btn btn-primary btn-sm" onclick="openItemForm(0)">＋ 新增检验项目</button>
+        <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openItemForm(0)">＋ 新增检验项目</button></div>
     </div>
 </div>
 
 <div class="card" id="itemList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
+Clinic.importer._reloads['lab'] = loadItemList;
+Clinic.importer.attach('lab', 'impBtns', '检验项目');
 function loadItemList() {
     Clinic.get('/api/admin?action=item_list&type=lab', null, {
         onSuccess: function (json) {

@@ -16,12 +16,14 @@ Router::title('诊断管理');
     <div class="flex gap-8">
         <input class="input" id="diagKw" placeholder="输入诊断码 / 名称 / 拼音首字母" style="width:240px" autocomplete="off">
         <button class="btn btn-primary btn-sm" onclick="loadDiag()">查询</button>
-        <button class="btn btn-primary btn-sm" onclick="openDiagForm(0)">＋ 新增诊断</button>
+        <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openDiagForm(0)">＋ 新增诊断</button></div>
     </div>
 </div>
 <div class="card" id="diagList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
+Clinic.importer._reloads['icd10'] = loadDiagList;
+Clinic.importer.attach('icd10', 'impBtns', 'ICD10诊断');
 function loadDiag() {
     var kw = document.getElementById('diagKw').value.trim();
     Clinic.get('/api/icd10?action=list&kw=' + encodeURIComponent(kw), null, {

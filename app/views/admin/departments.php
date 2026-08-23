@@ -8,11 +8,13 @@ Router::title('科室管理');
 ?>
 <div class="page-head">
     <div><div class="page-title">🏥 科室管理</div><div class="page-desc">门诊科室需设置上午/下午号源数量，急诊科室无需号源</div></div>
-    <button class="btn btn-primary btn-sm" onclick="openDeptForm(0)">＋ 新增科室</button>
+    <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openDeptForm(0)">＋ 新增科室</button></div>
 </div>
 <div class="card" id="deptList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
+Clinic.importer._reloads['dept'] = loadDeptList;
+Clinic.importer.attach('dept', 'impBtns', '科室');
 function loadDeptList() {
     Clinic.get('/api/admin?action=dept_list', null, {
         onSuccess: function (json) {
