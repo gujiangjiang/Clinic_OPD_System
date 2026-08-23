@@ -35,7 +35,7 @@ foreach ($depts as $d) {
 
 <script>
 var CM_DEPT = 0;
-var CM_DEPS = <?php echo json_encode(array_values(array_map(function ($d) { return array('id' => (int)$d['id'], 'name' => $d['name']); }, $depts))); ?>;
+var CM_DEPS = <?php echo json_encode(array_values(array_map(function ($d) { return array('id' => (int)$d['id'], 'name' => $d['name'], 'type' => $d['type']); }, $depts))); ?>;
 var CM_TIMER = null;
 
 /* 科室选择模态框（复用通用组件） */
