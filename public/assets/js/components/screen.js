@@ -147,7 +147,47 @@
         }
     }
 
-    /* ============ 双模式渲染 ============ */
+    /* ============ 医生信息字号动态适配 ============
+       姓名以所在合并单元格（前 2/7 高度、右列全宽）能容纳的最大字号显示；
+       职称/工号/介绍按姓名字号比例联动（0.62 / 0.5 / 0.5）。 */
+    function fitDoctorCard() {
+        var card = document.querySelector('.screen-doctor-card');
+        if (!card) return;
+        var info = card.querySelector('.screen-doc-info');
+        var nameEl = card.querySelector('.screen-doc-name');
+        var titleEl = card.querySelector('.screen-doc-title');
+        var empEl = card.querySelector('.screen-doc-emp');
+        var introEl = card.querySelector('.screen-doc-intro');
+        if (!info || !nameEl || !nameEl.textContent) return;
+
+        var cs = getComputedStyle(info);
+        var rowGap = parseFloat(cs.rowGap) || 0;
+        var availH = info.clientHeight - (parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom));
+        var availW = info.clientWidth - (parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)) -
+                     (parseFloat(cs.borderLeftWidth) || 0);
+
+        // 7 行网格：姓名占前 2 行（含 1 个行距）
+        var rowH = (availH - rowGap * 6) / 7;
+        var nameCellH = rowH * 2 + rowGap;
+
+        // 从高度上限开始逐步缩小，直到文字宽高都放入单元格
+        var fs = Math.max(12, nameCellH * 0.85);
+        nameEl.style.fontSize = fs + 'px';
+        var guard = 60;
+        while (guard-- > 0 && (nameEl.scrollWidth > availW || nameEl.scrollHeight > nameCellH)) {
+            fs = fs * 0.93;
+            nameEl.style.fontSize = fs + 'px';
+        }
+        // 姓名在最大可容纳字号基础上减 10 号（约四成），保持舒展排版
+        fs = fs * 0.6;
+        nameEl.style.fontSize = fs + 'px';
+
+        // 其余项随姓名字号比例联动（职称 0.62、工号 0.5、介绍比工号再小 1 号）
+        if (titleEl) titleEl.style.fontSize = (fs * 0.62) + 'px';
+        if (empEl) empEl.style.fontSize = (fs * 0.5) + 'px';
+        if (introEl) introEl.style.fontSize = (fs * 0.46) + 'px';
+    }
+
     function maskName(n) { return n || ''; }
 
     function renderDoctorMode(d) {
@@ -181,17 +221,17 @@
                     '<span class="screen-wait-name">' + maskName(w.name) + '</span>' +
                     '<span class="screen-wait-extra">' + (w.gender || '') + ' ' + (w.age_fmt || '') + '</span></div>';
             }).join('')
-            : '<div class="screen-empty">暂无</div>';
+            : '<div class="screen-empty">暂无候诊患者</div>';
 
-        // 医生信息卡（占上方约一半区域：左侧圆角矩形头像，右侧上下分行信息）
+        // 医生信息卡：左列照片（单元格内等比最大化），右列 7 行网格
         var docCard = doc.name
             ? '<div class="screen-doctor-card">' +
-              '<div class="screen-doc-photo">' + (doc.photo ? '<img src="' + doc.photo + '">' : '👨‍⚕️') + '</div>' +
+              '<div class="screen-doc-photo' + (doc.photo ? ' has-img' : '') + '">' + (doc.photo ? '<img src="' + doc.photo + '">' : '👨‍⚕️') + '</div>' +
               '<div class="screen-doc-info">' +
               '<div class="screen-doc-head">' +
               '<div class="screen-doc-name">' + doc.name + '</div>' +
-              (doc.emp_no ? '<div class="screen-doc-emp">工号 ' + doc.emp_no + '</div>' : '') +
               (doc.title ? '<div class="screen-doc-title">' + doc.title + '</div>' : '') +
+              (doc.emp_no ? '<div class="screen-doc-emp">工号 ' + doc.emp_no + '</div>' : '') +
               '</div>' +
               '<div class="screen-doc-intro' + (doc.intro ? '' : ' screen-doc-intro-empty') + '">' + (doc.intro || '暂无医生介绍') + '</div>' +
               '</div></div>'
@@ -203,10 +243,13 @@
             docCard +
             '<div class="screen-main-area">' +
             '<div class="screen-left-col">' +
-            '  <div class="screen-panel screen-cur-panel"><div class="screen-panel-title">正在就诊</div>' + curCard + '</div>' +
-            '  <div class="screen-panel screen-next-panel"><div class="screen-panel-title">下一位</div>' + nextCard + '</div>' +
+            '  <div class="screen-panel screen-cur-panel"><div class="screen-panel-title">正在就诊</div>' +
+            '    <div class="screen-panel-body"><div class="screen-panel-inner">' + curCard + '</div></div></div>' +
+            '  <div class="screen-panel screen-next-panel"><div class="screen-panel-title">下一位</div>' +
+            '    <div class="screen-panel-body"><div class="screen-panel-inner">' + nextCard + '</div></div></div>' +
             '</div>' +
-            '<div class="screen-wait-panel"><div class="screen-panel-title">等待就诊（' + wait.length + '）</div>' + waitList + '</div>' +
+            '<div class="screen-wait-panel"><div class="screen-panel-title">等待就诊（' + wait.length + '）</div>' +
+            '  <div class="screen-panel-body"><div class="screen-panel-inner">' + waitList + '</div></div></div>' +
             '</div></div>';
     }
 
@@ -240,6 +283,9 @@
         }
         voiceEnabled = !!d.enable_voice;
         main.innerHTML = ROOM_TYPE === 'doctor' ? renderDoctorMode(d) : renderDeptMode(d);
+
+        // 医生信息字号动态适配（渲染后测量单元格尺寸）
+        if (ROOM_TYPE === 'doctor') fitDoctorCard();
 
         // 温馨提示
         if (d.tips) {
