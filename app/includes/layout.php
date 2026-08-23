@@ -40,7 +40,6 @@ class Layout {
         } elseif ($role === 'doctor') {
             $items['医生工作站'] = array(
                 array('医生工作站', '🩺', '/doctor/dashboard'),
-                array('叫号屏幕', '📺', '/doctor/call'),
             );
         } elseif ($role === 'nurse') {
             $items['护士站'] = array(

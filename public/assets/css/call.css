@@ -212,3 +212,190 @@
     .call-tips { flex-wrap: wrap; gap: 10px 26px; font-size: 16px; }
     .call-doctor { flex-wrap: wrap; }
 }
+
+/* ============================================================
+ * 新增：叫号大屏 screen-* 样式（screen.php / screen.js）
+ * 说明：深色底大字体，双模式：
+ *   模式A doctor —— 大卡片排版（正在就诊 / 请就诊 / 候诊列表）
+ *   模式B 医技 —— 列表看板（队列 + 当前呼叫高亮）
+ * ============================================================ */
+
+/* 大屏内容主区（屏幕顶部标题栏下方撑满） */
+.screen-main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    padding: 24px 36px;
+    overflow: hidden;
+}
+
+/* ---------- 通用面板 ---------- */
+.screen-panel {
+    background: rgba(255, 255, 255, .07);
+    border: 1px solid rgba(255, 255, 255, .16);
+    border-radius: 20px;
+    padding: 22px 28px;
+}
+.screen-panel-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #ffd54f;
+    letter-spacing: 6px;
+    margin-bottom: 14px;
+}
+.screen-empty { color: #a8c8e8; font-size: 22px; }
+.screen-empty-big { color: #a8c8e8; font-size: 30px; text-align: center; padding: 40px; }
+
+/* ---------- 模式A：医生诊室大卡片 ---------- */
+.screen-doctor-grid {
+    display: flex;
+    gap: 26px;
+    flex: 1;
+    min-height: 0;
+    align-items: stretch;
+}
+.screen-cur-panel {
+    flex: 1.3;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: rgba(124, 252, 152, .10);
+    border-color: rgba(124, 252, 152, .35);
+}
+.screen-cur-name {
+    font-size: 110px;
+    font-weight: 800;
+    color: #7CFC98;
+    line-height: 1.15;
+    text-shadow: 0 6px 30px rgba(0, 0, 0, .45);
+}
+.screen-cur-seq {
+    font-size: 44px;
+    color: #ffd54f;
+    font-weight: 700;
+    margin-top: 8px;
+    letter-spacing: 4px;
+}
+.screen-cur-doctor {
+    font-size: 24px;
+    color: #d8e6f5;
+    margin-top: 12px;
+}
+.screen-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    min-height: 0;
+}
+.screen-next-panel {
+    flex: 0 0 auto;
+    text-align: center;
+    background: rgba(143, 211, 255, .10);
+    border-color: rgba(143, 211, 255, .30);
+}
+.screen-next-name {
+    font-size: 72px;
+    font-weight: 800;
+    color: #8fd3ff;
+    line-height: 1.15;
+}
+.screen-next-seq {
+    font-size: 34px;
+    color: #ffd54f;
+    font-weight: 700;
+    margin-top: 6px;
+    letter-spacing: 3px;
+}
+.screen-wait-panel {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+.screen-wait-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 26px;
+    color: #e6f2ff;
+    padding: 8px 6px;
+    border-bottom: 1px dashed rgba(255, 255, 255, .12);
+}
+.screen-wait-seq {
+    width: 64px;
+    font-weight: 800;
+    color: #ffd54f;
+    font-variant-numeric: tabular-nums;
+}
+.screen-wait-extra { margin-left: auto; color: #a8c8e8; font-size: 20px; }
+
+/* ---------- 模式B：医技列表看板 ---------- */
+.screen-dept-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 6px;
+    margin-bottom: 14px;
+}
+.screen-dept-calling {
+    font-size: 34px;
+    font-weight: 800;
+    color: #7CFC98;
+    letter-spacing: 2px;
+    animation: call-bounce 1.4s infinite;
+}
+.screen-dept-list {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+.screen-dept-item {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 30px;
+    color: #e6f2ff;
+    padding: 14px 18px;
+    border-radius: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, .10);
+}
+.screen-dept-current {
+    background: rgba(124, 252, 152, .14);
+    border: 2px solid #7CFC98;
+    font-size: 42px;
+    font-weight: 800;
+    color: #7CFC98;
+    transform: scale(1.03);
+    box-shadow: 0 0 30px rgba(124, 252, 152, .25);
+    animation: screen-blink 1.6s infinite;
+}
+@keyframes screen-blink {
+    0%, 100% { box-shadow: 0 0 20px rgba(124, 252, 152, .18); }
+    50%      { box-shadow: 0 0 46px rgba(124, 252, 152, .42); }
+}
+.screen-dept-seq { width: 70px; font-weight: 800; color: #ffd54f; font-variant-numeric: tabular-nums; }
+.screen-dept-name { font-weight: 700; }
+.screen-dept-extra { margin-left: auto; color: #a8c8e8; font-size: 24px; }
+.screen-dept-flow { color: #8fd3ff; font-size: 24px; }
+
+/* ---------- 静音按钮 ---------- */
+.call-mute {
+    font-size: 30px;
+    cursor: pointer;
+    user-select: none;
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .08);
+}
+
+/* 窄屏适配 */
+@media (max-width: 900px) {
+    .screen-main { padding: 12px 16px; }
+    .screen-cur-name { font-size: 60px; }
+    .screen-next-name { font-size: 44px; }
+    .screen-doctor-grid { flex-direction: column; }
+    .screen-dept-item { font-size: 20px; }
+    .screen-dept-current { font-size: 26px; }
+}

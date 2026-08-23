@@ -148,6 +148,8 @@ function pickDept(id) {
     // 加号功能：仅限号科室显示（急诊/不限号科室隐藏）
     document.getElementById('addSlotBtn').style.display = (cur && cur.limited) ? '' : 'none';
     loadList();
+    // 切换科室后刷新大屏绑定状态
+    if (typeof loadRoomList === 'function') loadRoomList();
 }
 
 function switchTab(tab) {
@@ -347,7 +349,7 @@ loadDepts();
 var ROOM_BOUND = null;   // 当前绑定诊室 {id, name}
 var ROOM_TIMER = null;
 
-/* 刷新大屏下拉列表（含在线状态/占用） */
+/* 刷新大屏下拉列表（含在线状态/占用/绑定） */
 function loadRoomList() {
     if (!CUR_DEPT) { renderRoomList([]); return; }
     Clinic.get('/api/doctor?action=get_available_rooms&dept_id=' + CUR_DEPT, null, {
@@ -362,7 +364,7 @@ function loadRoomList() {
 function renderRoomList(list) {
     var box = document.getElementById('roomList');
     var btn = document.getElementById('roomName');
-    // 更新右上角按钮文案
+    // 更新右上角按钮文案（含绑定状态）
     btn.textContent = ROOM_BOUND ? '叫号大屏：' + ROOM_BOUND.name + '（已绑定）' : '叫号大屏：未绑定';
     if (!list.length) {
         box.innerHTML = '<div class="fs-13 text-muted text-center" style="padding:16px">该科室暂无大屏配置，请联系管理员在【叫号管理】中新建</div>';
@@ -371,13 +373,19 @@ function renderRoomList(list) {
     var rows = list.map(function (r) {
         var icon = r.status === 'available' ? '🟢' : (r.status === 'bound' ? '🔵' : (r.status === 'occupied' ? '🟡' : '🔴'));
         var disabled = !r.selectable;
-        var onclick = disabled ? '' : 'onclick="bindRoom(' + r.id + ')"';
+        // 已绑定（bound）：点击 = 解绑；空闲（available）：点击 = 绑定
+        var action = '';
+        if (r.status === 'bound') {
+            action = 'onclick="unbindRoom(\'' + r.id + '\')"';
+        } else if (r.status === 'available') {
+            action = 'onclick="bindRoom(\'' + r.id + '\')"';
+        }
         var cls = r.status === 'bound' ? 'style="background:var(--primary-soft);border-radius:6px"' : '';
-        return '<div class="fs-13 flex-between" style="padding:8px 10px;cursor:' + (disabled ? 'not-allowed' : 'pointer') + ';opacity:' + (disabled ? '.55' : '1') + ';border-radius:6px"' + cls + ' ' + onclick + '>' +
+        var hint = r.status === 'bound' ? '<span class="fs-12 text-primary">（点击解绑）</span>' : '';
+        return '<div class="fs-13 flex-between" style="padding:8px 10px;cursor:' + (disabled ? 'not-allowed' : 'pointer') + ';opacity:' + (disabled ? '.55' : '1') + ';border-radius:6px"' + cls + ' ' + action + '>' +
             '<span>' + icon + ' ' + r.name + '</span>' +
-            '<span class="fs-12" style="color:' + (r.status === 'offline' ? 'var(--danger)' : 'var(--text-muted)') + '">' + r.status_text + '</span></div>';
+            '<span class="fs-12" style="color:' + (r.status === 'offline' ? 'var(--danger)' : 'var(--text-muted)') + '">' + r.status_text + ' ' + hint + '</span></div>';
     }).join('');
-    rows += '<div class="fs-12 text-muted mt-8" style="border-top:1px dashed var(--border);padding-top:8px">点击绑定；再点当前诊室可解除绑定。</div>';
     box.innerHTML = rows;
 }
 
@@ -403,6 +411,20 @@ function bindRoom(roomId) {
             Clinic.toast.error((json && json.msg) || '绑定失败');
         },
     });
+}
+
+/* 解绑大屏 */
+function unbindRoom(roomId) {
+    Clinic.modal.confirm('确认解除与当前大屏的绑定？', function () {
+        Clinic.ajax('/api/doctor', { action: 'unbind_room', room_id: roomId }, {
+            onSuccess: function (json) {
+                Clinic.toast.success(json.msg);
+                if (ROOM_TIMER) { clearInterval(ROOM_TIMER); ROOM_TIMER = null; }
+                ROOM_BOUND = null;
+                loadRoomList();
+            },
+        });
+    }, { title: '解绑确认', okText: '确认解绑' });
 }
 
 /* 心跳保活（每 30 秒） */
