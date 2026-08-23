@@ -378,7 +378,7 @@ function renderRoomList(list) {
         if (r.status === 'bound') {
             action = 'onclick="unbindRoom(\'' + r.id + '\')"';
         } else if (r.status === 'available') {
-            action = 'onclick="bindRoom(\'' + r.id + '\')"';
+            action = 'onclick="bindRoom(\'' + r.id + '\',\'' + r.name.replace(/'/g, "\\'") + '\')"';
         }
         var cls = r.status === 'bound' ? 'style="background:var(--primary-soft);border-radius:6px"' : '';
         var hint = r.status === 'bound' ? '<span class="fs-12 text-primary">（点击解绑）</span>' : '';
@@ -399,11 +399,30 @@ function toggleRoomList() {
     }
 }
 
-/* 绑定大屏 */
-function bindRoom(roomId) {
+/* 绑定大屏（已绑定其他诊室时弹切换确认） */
+function bindRoom(roomId, roomName) {
+    // 已绑定其他诊室 → 先确认是否切换
+    if (ROOM_BOUND && String(ROOM_BOUND.id) !== String(roomId)) {
+        Clinic.modal.confirm(
+            '当前已绑定「<strong>' + ROOM_BOUND.name + '</strong>」诊室大屏。<br>' +
+            '是否将叫号大屏<strong>从「' + ROOM_BOUND.name + '」切换到「' + (roomName || '新诊室') + '」</strong>？<br>' +
+            '<span class="fs-13 text-muted">切换后，该医生的叫号信息将显示在「' + (roomName || '新诊室') + '」大屏上。</span>',
+            function () { doBind(roomId, roomName); },
+            { title: '切换诊室大屏', okText: '确认切换', cls: 'btn-primary' }
+        );
+        return;
+    }
+    doBind(roomId, roomName);
+}
+
+function doBind(roomId, roomName) {
     Clinic.ajax('/api/doctor', { action: 'bind_room', room_id: roomId }, {
         onSuccess: function (json) {
             Clinic.toast.success(json.msg);
+            // 更新本地绑定状态（后端返回 room_id/room_name）
+            var rid = json.data && json.data.room_id;
+            var rname = (json.data && json.data.room_name) || roomName || '';
+            ROOM_BOUND = rid ? { id: rid, name: rname } : null;
             loadRoomList();
             startRoomHeartbeat(roomId);
         },
