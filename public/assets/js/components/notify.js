@@ -17,6 +17,10 @@ Clinic.notify = (function () {
     let badge = null;
     /** 消息面板元素 */
     let panel = null;
+    /** 上一次轮询时的最新未读消息 ID（用于检测新消息，避免重复提示） */
+    let lastLatestId = 0;
+    /** 面板当前是否打开 */
+    let panelOpen = false;
 
     /**
      * 初始化消息中心
@@ -25,13 +29,13 @@ Clinic.notify = (function () {
     function init(badgeSel) {
         badge = document.querySelector(badgeSel || '[data-msg-badge]');
         if (!badge) return;
-        // 立即查询一次，然后每 30 秒轮询
+        // 立即查询一次，然后每 15 秒轮询（兼顾实时性与服务器压力）
         refresh();
-        timer = setInterval(refresh, 30000);
+        timer = setInterval(refresh, 15000);
     }
 
     /**
-     * 查询未读消息数
+     * 查询未读消息数（同时检测新消息并给出提示）
      */
     function refresh() {
         Clinic.get('/api/message?action=unread_count', null, {
@@ -41,6 +45,17 @@ Clinic.notify = (function () {
                     badge.textContent = n > 99 ? '99+' : n;
                     badge.style.display = n > 0 ? 'inline-flex' : 'none';
                 }
+                // 新消息检测：latest_id 比上次增大 => 有新消息到达
+                const latestId = json.data && json.data.latest_id ? parseInt(json.data.latest_id, 10) : 0;
+                if (lastLatestId > 0 && latestId > lastLatestId) {
+                    // 面板已打开则自动刷新列表；否则弹出轻提示（可点击跳转消息中心）
+                    if (panelOpen) {
+                        openPanel();
+                    } else {
+                        Clinic.toast.info('💬 收到 ' + n + ' 条新消息', 3200);
+                    }
+                }
+                lastLatestId = Math.max(lastLatestId, latestId);
             },
         });
     }
@@ -92,9 +107,21 @@ Clinic.notify = (function () {
     }
 
     /**
-     * 打开消息列表面板
+     * 打开消息列表面板（若已打开则刷新内容）
      */
     function openPanel() {
+        // 已打开：仅刷新面板内列表，不重复创建浮层
+        if (panel) {
+            Clinic.get('/api/message?action=list', null, {
+                onSuccess: function (json) {
+                    const list = (json.data && json.data.list) || [];
+                    const body = panel.querySelector('.msg-panel-body');
+                    if (body) body.innerHTML = list.map(itemHtml).join('') || '<div class="dd-empty">暂无消息</div>';
+                    bindPanelItems(panel);
+                },
+            });
+            return;
+        }
         Clinic.get('/api/message?action=list', null, {
             onSuccess: function (json) {
                 const list = (json.data && json.data.list) || [];
@@ -109,6 +136,8 @@ Clinic.notify = (function () {
                     '</div>' +
                     '<div class="msg-panel-body">' + bodyHtml + '</div>';
                 document.body.appendChild(pop);
+                panel = pop;
+                panelOpen = true;
 
                 // 定位到铃铛下方
                 const bell = document.querySelector('[data-msg-bell]');
@@ -121,25 +150,33 @@ Clinic.notify = (function () {
                     pop.style.right = '20px';
                 }
 
-                // 点击消息：标记已读 + 跳转
-                pop.querySelectorAll('.msg-item').forEach(function (el) {
-                    el.addEventListener('click', function () {
-                        let m = { id: el.getAttribute('data-id') };
-                        try { m = JSON.parse(el.getAttribute('data-msg')); } catch (e) { /* ignore */ }
-                        onMsgClick(m, el);
-                    });
-                });
+                bindPanelItems(pop);
 
                 // 点击外部关闭
                 setTimeout(function () {
                     document.addEventListener('click', function closeHandler(e) {
                         if (!pop.contains(e.target) && (!bell || !bell.contains(e.target))) {
                             pop.remove();
+                            panel = null;
+                            panelOpen = false;
                             document.removeEventListener('click', closeHandler);
                         }
                     });
                 }, 50);
             },
+        });
+    }
+
+    /**
+     * 绑定面板内消息行点击（标记已读 + 跳转）
+     */
+    function bindPanelItems(scope) {
+        scope.querySelectorAll('.msg-item').forEach(function (el) {
+            el.addEventListener('click', function () {
+                let m = { id: el.getAttribute('data-id') };
+                try { m = JSON.parse(el.getAttribute('data-msg')); } catch (e) { /* ignore */ }
+                onMsgClick(m, el);
+            });
         });
     }
 

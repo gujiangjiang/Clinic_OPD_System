@@ -13,11 +13,16 @@ $u = Auth::user();
 
 switch ($action) {
 
-    /* ---------------- 未读消息数（铃铛角标） ---------------- */
+    /* ---------------- 未读消息数（铃铛角标）+ 最新未读消息ID（用于前端检测新消息） ---------------- */
     case 'unread_count':
         $count = (int)DB::val('core', 'SELECT COUNT(*) FROM messages WHERE is_read=0 AND (to_role=? OR to_user_id=?)',
             array($u['role'], $u['id']));
-        json_ok(array('count' => $count));
+        // latest_id：当前用户未读消息中的最大 ID（0 表示无未读）。
+        // 前端轮询时比较该值是否增大，从而判断「是否有新消息到达」，
+        // 比单纯比较数量更准确（避免多端已读导致的计数波动误判）。
+        $latestId = (int)DB::val('core', 'SELECT MAX(id) FROM messages WHERE is_read=0 AND (to_role=? OR to_user_id=?)',
+            array($u['role'], $u['id']));
+        json_ok(array('count' => $count, 'latest_id' => $latestId));
         break;
 
     /* ---------------- 消息列表（最近50条，面板用） ---------------- */
@@ -54,6 +59,13 @@ switch ($action) {
     case 'clear_all':
         DB::exec('core', 'DELETE FROM messages WHERE to_role=? OR to_user_id=?', array($u['role'], $u['id']));
         json_ok(array(), '已清空所有消息');
+        break;
+
+    /* ---------------- 标记全部已读（一次性，避免前端逐个异步请求的竞态问题） ---------------- */
+    case 'read_all':
+        DB::exec('core', 'UPDATE messages SET is_read=1 WHERE is_read=0 AND (to_role=? OR to_user_id=?)',
+            array($u['role'], $u['id']));
+        json_ok(array(), '已全部标记为已读');
         break;
 
     default:

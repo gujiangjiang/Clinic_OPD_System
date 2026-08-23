@@ -105,12 +105,16 @@ function openResetPwd() {
 }
 
 function markAll() {
-    document.querySelectorAll('.msg-item.unread').forEach(function (el) {
-        Clinic.ajax('/api/message', { action: 'read', id: el.getAttribute('data-id') }, { loading: false });
-        el.classList.remove('unread');
+    // 一次性标记全部已读（后端原子操作），避免逐个异步请求导致角标计数竞态
+    Clinic.ajax('/api/message', { action: 'read_all' }, {
+        onSuccess: function (json) {
+            document.querySelectorAll('.msg-item.unread').forEach(function (el) {
+                el.classList.remove('unread');
+            });
+            Clinic.toast.success(json.msg);
+            Clinic.notify.refresh();
+        },
     });
-    Clinic.toast.success('已全部标记为已读');
-    Clinic.notify.refresh();
 }
 
 /* 删除单条消息 */
