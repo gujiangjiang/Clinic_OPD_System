@@ -13,6 +13,21 @@
 
 ---
 
+## [2.3.8] - 2026-08-23
+
+### 修复
+
+- **药品新增/编辑保存丢失皮试处置项目（根因）**：`drug_save` 的 INSERT 分支（新增药品）
+  SQL 列数与参数不匹配。`$data` 数组在 1.8.0 新增 `need_skin_test`/`skin_test_item_id` 后
+  变为 18 项，但 INSERT SQL 的列、占位符与 `array_merge` 参数组合未同步更新，导致
+  `need_skin_test` 和 `skin_test_item_id` 值错位到 `status`/`created_at` 列，
+  皮试数据实际未写入。修复：INSERT SQL 补充 `need_skin_test, skin_test_item_id` 两列，
+  参数严格按 `$data` 键顺序拼接。
+  - 端到端验证：新增药品 `skin=1, item=9` → 保存后重新打开表单回显 `青霉素皮试` ✓
+  - 编辑药品（UPDATE 分支）不受影响，但同步确认正确。
+
+---
+
 ## [2.3.7] - 2026-08-23
 
 ### 修复

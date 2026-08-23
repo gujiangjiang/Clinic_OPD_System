@@ -146,12 +146,17 @@ function admin_part_drug($action) {
             json_ok(array(), '药品已保存');
         }
         // 管理员添加的药品免审核：直接可用，无需创建审核记录
-        $params = array_values($data);
+        $params = array_values($data);   // 18 值（含 need_skin_test/skin_test_item_id）
         $params[] = 'approved';
         $params[] = now_str();
-        $newId = DB::insert('drug', 'INSERT INTO drugs(generic_name, category, vendor, vendor_short, package_unit, spec, form, single_dose, frequency_name, route_name, price, qty, is_rx, is_limited, note, need_nurse, name, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array_merge(
-            array_slice($params, 0, 16), array($name), array_slice($params, 16)
-        ));
+        // INSERT 列与 $data 键顺序严格对应：16 业务列 + name + need_skin_test + skin_test_item_id + status + created_at
+        $newId = DB::insert('drug', 'INSERT INTO drugs(generic_name, category, vendor, vendor_short, package_unit, spec, form, single_dose, frequency_name, route_name, price, qty, is_rx, is_limited, note, need_nurse, name, need_skin_test, skin_test_item_id, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            array_merge(
+                array_slice($params, 0, 16), array($name),
+                array($params[16], $params[17]), // need_skin_test, skin_test_item_id
+                array_slice($params, 18)         // approved, now_str
+            )
+        );
         json_ok(array(), '药品已添加，可直接开方使用');
     }
 
