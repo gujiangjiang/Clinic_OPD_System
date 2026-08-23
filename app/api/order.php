@@ -180,7 +180,9 @@ switch ($action) {
                         if (!$rbInfo) json_fail('途径绑定处置不存在：#' . $routeBindId);
                         $autoDisp[$routeBindId] = array('name' => $rbInfo['name'], 'fee' => (float)$rbInfo['fee'], 'qty' => 0);
                     }
-                    $autoDisp[$routeBindId]['qty'] += $qty;
+                    // 按组数核算（1.9.0）：一个主药 = 一个组，同组内子药不叠加——
+                    // 同一瓶液体加入多种药只产生 1 次注射/输液处置费
+                    $autoDisp[$routeBindId]['qty'] += 1;
                 }
             } elseif ($orderType === 'procedure') {
                 $needNurse = $nurseReq;
@@ -216,6 +218,43 @@ switch ($action) {
                 $total += $price * $qty;
             }
         }
+
+        // ===== 成组医嘱：分配组号 / 主药 / 父条目关联 =====
+        // 主项目（sub_of=0）各自成组（group_no 递增）；子项目（sub_of>0）继承其
+        // 主药的组号、给药途径与频次，并记录 parent_item_id 指向本单内主药序号。
+        // 说明：sub_of 沿用来自主药在该次提交中的 1 基位置（前端 idx+1 标记）。
+        $groupCounter = 0;
+        $parentMap = array();   // 前端 sub_of 值 => 该主药分配到的 group_no
+        foreach ($orderItems as $i => &$it) {
+            $parentSeq = (int)$it['sub_of'];
+            if ($parentSeq === 0) {
+                $groupCounter++;
+                $it['group_no'] = $groupCounter;
+                $it['is_parent'] = 1;
+                $it['parent_item_id'] = 0;
+                $parentMap[$i + 1] = $groupCounter;   // 主药在本次提交中的 1 基序号
+            } else {
+                $it['group_no'] = $groupCounter + 1;  // 暂记，下方统一回填
+            }
+        }
+        unset($it);
+        // 回填子项目组号与父条目（子项目 sub_of 即其主药的前端序号，等于主药下标+1）
+        foreach ($orderItems as $i => &$it) {
+            if ((int)$it['sub_of'] > 0) {
+                $pidx = (int)$it['sub_of'] - 1;
+                if (isset($orderItems[$pidx])) {
+                    $it['group_no'] = (int)$orderItems[$pidx]['group_no'];
+                    $it['is_parent'] = 0;
+                    $it['parent_item_id'] = $pidx + 1;   // 主药在本次提交中的 1 基序号
+                    // 子药强制继承主药途径与频次（成组医嘱约束）
+                    $it['route_name'] = $orderItems[$pidx]['route_name'];
+                    if ($it['frequency_name'] === '') $it['frequency_name'] = $orderItems[$pidx]['frequency_name'];
+                } else {
+                    $it['group_no'] = 0; $it['is_parent'] = 0; $it['parent_item_id'] = 0;
+                }
+            }
+        }
+        unset($it);
 
         // ===== 分组组装：检查申请单按「检查分类」自动拆分 =====
         // 检查需前往不同地点分散执行，不同分类（如 CT / MR / DR）拆分为
@@ -295,10 +334,11 @@ switch ($action) {
                 $it = $orderItems[$i];
                 $sub = (int)$it['sub_of'];
                 $newSub = ($sub > 0 && isset($mapSeq[$sub])) ? $mapSeq[$sub] : 0;
-                DB::insert('order', 'INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, spec, unit_name, company_short, price, quantity, single_dose, frequency_name, route_name, need_nurse, sub_of, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                DB::insert('order', 'INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, spec, unit_name, company_short, price, quantity, single_dose, frequency_name, route_name, need_nurse, sub_of, group_no, is_parent, parent_item_id, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                     $orderId, $visitId, $visit['patient_no'], $visit['flow_no'], $it['item_type'], $it['item_id'],
                     $it['item_name'], $it['spec'], $it['unit_name'], $it['company_short'], $it['price'], $it['quantity'],
                     $it['single_dose'], $it['frequency_name'], $it['route_name'], $it['need_nurse'], $newSub,
+                    (int)$it['group_no'], (int)$it['is_parent'], (int)$it['parent_item_id'],
                     'open', $u['id'], $u['name'], now_str(),
                 ));
             }
