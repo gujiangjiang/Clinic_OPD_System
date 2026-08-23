@@ -123,6 +123,46 @@ function emr_disp_text($emr, $rxLines, $dispItems) {
     return $lines ? implode("\n", $lines) : '-';
 }
 
+/**
+ * 处方条目 → 展示行（成组医嘱树形格式，病历打印快照/实时渲染统一调用）：
+ * · 组内主药行（首条）：名称　剂量　频次　途径　×数量；
+ * · 子药行：├─ / └─（树形连接符）+ 名称 + 剂量（临床必填）；
+ *   频次/途径/数量组内一致仅主药行显示一次；
+ * · 非成组药品（group_no=0）各自独立一行全要素显示。
+ * @param array $items 处方 order_items（含 group_no）
+ * @return array 展示行数组
+ */
+function emr_rx_display_lines($items) {
+    $lines = array();
+    $fullLine = function ($it) {
+        $p = array();
+        if (!empty($it['single_dose'])) $p[] = $it['single_dose'];
+        if (!empty($it['frequency_name'])) $p[] = $it['frequency_name'];
+        if (!empty($it['route_name'])) $p[] = $it['route_name'];
+        return $it['item_name'] . ($p ? '　' . implode('　', $p) : '') . '　×' . (int)$it['quantity'];
+    };
+    $n = count($items);
+    $i = 0;
+    while ($i < $n) {
+        $it0 = $items[$i];
+        if (empty($it0['item_name'])) { $i++; continue; } // 防空名明细混入病历文本
+        $g = isset($it0['group_no']) ? (int)$it0['group_no'] : 0;
+        if (!$g) { $lines[] = $fullLine($it0); $i++; continue; }
+        $arr = array($it0);
+        $j = $i + 1;
+        while ($j < $n && isset($items[$j]) && (int)$items[$j]['group_no'] === $g) { $arr[] = $items[$j]; $j++; }
+        foreach ($arr as $idx => $x) {
+            if (empty($x['item_name'])) continue; // 防空名明细混入病历文本
+            if ($idx === 0) { $lines[] = $fullLine($x); continue; }
+            $head = ($idx === count($arr) - 1 ? '└─ ' : '├─ ') . $x['item_name'];
+            if (!empty($x['single_dose'])) $head .= '　' . $x['single_dose'];
+            $lines[] = $head;
+        }
+        $i = $j;
+    }
+    return $lines;
+}
+
 /** 是否留观文本 */
 function emr_obs_text($emr) {
     return (isset($emr['is_leave_hospital']) && $emr['is_leave_hospital'] === '是') ? '是' : '否';

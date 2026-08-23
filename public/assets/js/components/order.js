@@ -18,6 +18,44 @@
 
 window.Clinic = window.Clinic || {};
 
+/**
+ * 处方条目 → 通用展示行（成组医嘱树形格式，病历正文/已开项目卡片/
+ * 开单详情弹窗统一调用本方法，保证全系统同一套组医嘱展示规则）：
+ * · 组内主药行（首条）：名称　剂量　频次　途径　×数量；
+ * · 子药行：├─ / └─（树形连接符）+ 名称 + 剂量（临床必填）；
+ *   频次/途径/数量组内一致仅主药行显示一次；
+ * · 非成组药品（group_no=0）各自独立一行全要素显示。
+ * @param {Array} items 处方 order_items（含 group_no/is_parent）
+ * @returns {string[]} 展示行数组
+ */
+Clinic.orderRxLines = function (items) {
+    var lines = [];
+    var fullLine = function (it) {
+        var p = [];
+        if (it.single_dose) p.push(it.single_dose);
+        if (it.frequency_name) p.push(it.frequency_name);
+        if (it.route_name) p.push(it.route_name);
+        return it.item_name + (p.length ? '\u3000' + p.join('\u3000') : '') + '\u3000\u00D7' + it.quantity;
+    };
+    var i = 0;
+    while (i < items.length) {
+        var it = items[i];
+        var g = it.group_no || 0;
+        if (!g) { lines.push(fullLine(it)); i++; continue; }
+        var arr = [it];
+        var j = i + 1;
+        while (j < items.length && (items[j].group_no || 0) === g) { arr.push(items[j]); j++; }
+        arr.forEach(function (x, idx) {
+            if (idx === 0) { lines.push(fullLine(x)); return; }
+            var head = (idx === arr.length - 1 ? '\u2514\u2500 ' : '\u251C\u2500 ') + x.item_name;
+            if (x.single_dose) head += '\u3000' + x.single_dose;
+            lines.push(head);
+        });
+        i = j;
+    }
+    return lines;
+};
+
 Clinic.order = (function () {
     /** 当前就诊ID */
     var VISIT_ID = 0;

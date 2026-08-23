@@ -319,13 +319,27 @@ Clinic.emr = (function () {
             var anchor = document.getElementById('myRecordAnchor');
             if (anchor) {
                 setTimeout(function () {
-                    // 计算式滚动：锚点（患者信息栏下方边界）精确定位到吸顶栏正下方，
-                    // 避免 scrollIntoView 受文档高度限制停不到位的偏差
+                    // 计算式滚动：锚点（患者信息栏下方边界）定位到吸顶栏正下方。
+                    // 注意：页面滚动发生在 .content（overflow-y:auto）而非 window，
+                    // 必须找到实际可滚动祖先容器来滚动，否则完全不生效；
+                    // 兜底回退 window（顶栏为 fixed 场景需再减去其高度）。
                     var topbar = document.querySelector('.topbar');
                     var topbarH = topbar ? topbar.offsetHeight : 0;
-                    var y = anchor.getBoundingClientRect().top +
-                        (window.pageYOffset || document.documentElement.scrollTop) - topbarH - 8;
-                    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+                    var el = anchor.parentElement, scroller = null;
+                    while (el && el !== document.body) {
+                        var st = getComputedStyle(el);
+                        if ((/(auto|scroll)/i.test(st.overflowY) || /(auto|scroll)/i.test(st.overflow)) &&
+                            el.scrollHeight > el.clientHeight + 1) { scroller = el; break; }
+                        el = el.parentElement;
+                    }
+                    var rect = anchor.getBoundingClientRect();
+                    if (scroller) {
+                        var y = rect.top - scroller.getBoundingClientRect().top + scroller.scrollTop - 8;
+                        scroller.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+                    } else {
+                        var yw = rect.top + (window.pageYOffset || document.documentElement.scrollTop) - topbarH - 8;
+                        window.scrollTo({ top: Math.max(0, yw), behavior: 'smooth' });
+                    }
                 }, 200);
             }
         }
@@ -663,19 +677,9 @@ Clinic.emr = (function () {
     }
 
     /**
-     * 处方主药行全要素文本：名称　剂量　频次　途径　×数量
-     */
-    function rxFullLine(it) {
-        var parts = [];
-        if (it.single_dose) parts.push(it.single_dose);
-        if (it.frequency_name) parts.push(it.frequency_name);
-        if (it.route_name) parts.push(it.route_name);
-        return it.item_name + (parts.length ? '\u3000' + parts.join('\u3000') : '') + '\u3000\u00D7' + it.quantity;
-    }
-
-    /**
      * 按开单医生过滤已开项目并生成病历正文文本（辅助检查/处方行/处置项）。
      * 多医生接诊下各医生文书只呈现本人开具的项目——谁开单归属谁的病历。
+     * 处方行统一走 Clinic.orderRxLines 公共方法（成组医嘱树形格式，全系统一致）。
      */
     function orderTextsFor(doctorId) {
         var aux = [];
@@ -685,28 +689,15 @@ Clinic.emr = (function () {
             if ((o.doctor_id || 0) !== doctorId) return;
             // 已退费/已取消的开单不再计入病历内容
             if (o.status === 'refunded' || o.status === 'cancelled') return;
-            if (o.order_type === 'prescription') {
-                // 成组医嘱：主药行带全部要素（剂量/频次/途径/数量），
-                // 子药以树形连接符缩进列出——组内频次/途径/数量一致仅显示一次；
-                // 非成组药品（group_no=0）各自独立一行、全要素显示
-                var i2 = 0;
-                while (i2 < o.items.length) {
-                    var it0 = o.items[i2];
-                    var g = it0.group_no || 0;
-                    if (!g) {
-                        rxs.push(rxFullLine(it0));
-                        i2++;
-                        continue;
-                    }
-                    var arr = [it0];
-                    var j = i2 + 1;
-                    while (j < o.items.length && (o.items[j].group_no || 0) === g) { arr.push(o.items[j]); j++; }
-                    arr.forEach(function (it, idx) {
-                        rxs.push(idx === 0 ? rxFullLine(it)
-                            : (idx === arr.length - 1 ? '\u2514\u2500 ' : '\u251C\u2500 ') + it.item_name);
-                    });
-                    i2 = j;
+            o.items.forEach(function (it) {
+                if (o.order_type === 'lab' || o.order_type === 'imaging') {
+                    aux.push(it.item_name);
+                } else if (o.order_type === 'procedure') {
+                    proc.push(it.item_name + '×' + it.quantity);
                 }
+            });
+            if (o.order_type === 'prescription') {
+                Clinic.orderRxLines(o.items).forEach(function (l) { rxs.push(l); });
             }
         });
         return { aux: aux, proc: proc, rxs: rxs };
@@ -755,10 +746,19 @@ Clinic.emr = (function () {
                 var myId = myDoctorId();
                 var multi = DATA && DATA.records_history && DATA.records_history.length > 1;
                 box.innerHTML = j.data.list.map(function (o) {
-                    var items = o.items.map(function (it) {
-                        return '<div class="fs-13" style="padding:2px 0">· ' + it.item_name +
-                            (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>';
-                    }).join('');
+                    // 处方单走组医嘱树形公共格式（主药全要素、子药 ├─/└─ 缩进含剂量），
+                    // 其余类型保持「· 名称 ×数量」
+                    var items;
+                    if (o.order_type === 'prescription') {
+                        items = Clinic.orderRxLines(o.items).map(function (l) {
+                            return '<div class="fs-13" style="padding:2px 0;white-space:pre-wrap">' + l + '</div>';
+                        }).join('');
+                    } else {
+                        items = o.items.map(function (it) {
+                            return '<div class="fs-13" style="padding:2px 0">· ' + it.item_name +
+                                (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>';
+                        }).join('');
+                    }
                     // 检查申请单标题动态化：优先使用分类名称快照（如 CT / MR / DR（数字化X线））
                     var title = (o.order_type === 'imaging' && o.cat_name && o.cat_name !== '检查')
                         ? o.cat_name : (typeNames[o.order_type] || o.order_type);
@@ -1287,10 +1287,18 @@ function viewOrderFlow(orderId) {
                     s.label + '</div></div>';
             }).join('<div style="width:2px;height:18px;background:var(--border);margin-left:12px"></div>');
 
-            var items = o.items.map(function (it) {
-                return '<div class="fs-13" style="padding:3px 0">· ' + it.item_name +
-                    (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>';
-            }).join('');
+            // 处方单走组医嘱树形公共格式，其余类型保持「· 名称 ×数量」
+            var items;
+            if (o.order_type === 'prescription') {
+                items = Clinic.orderRxLines(o.items).map(function (l) {
+                    return '<div class="fs-13" style="padding:3px 0;white-space:pre-wrap">' + l + '</div>';
+                }).join('');
+            } else {
+                items = o.items.map(function (it) {
+                    return '<div class="fs-13" style="padding:3px 0">· ' + it.item_name +
+                        (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>';
+                }).join('');
+            }
 
             var catTitle = (o.order_type === 'imaging' && o.cat_name && o.cat_name !== '检查') ? o.cat_name : (typeNames[o.order_type] || '');
             var printBtn = '<button class="btn btn-outline btn-sm" style="margin-top:8px" ' +
