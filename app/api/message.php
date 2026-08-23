@@ -43,6 +43,19 @@ switch ($action) {
         json_ok(array('list' => $list));
         break;
 
+    /* ---------------- 删除单条消息 ---------------- */
+    case 'delete':
+        $id = (int)post('id');
+        DB::exec('core', 'DELETE FROM messages WHERE id=? AND (to_role=? OR to_user_id=?)', array($id, $u['role'], $u['id']));
+        json_ok(array(), '消息已删除');
+        break;
+
+    /* ---------------- 一键清空所有消息 ---------------- */
+    case 'clear_all':
+        DB::exec('core', 'DELETE FROM messages WHERE to_role=? OR to_user_id=?', array($u['role'], $u['id']));
+        json_ok(array(), '已清空所有消息');
+        break;
+
     default:
         json_fail('未知操作');
 }

@@ -24,7 +24,10 @@ function loadMsgs() {
                 return;
             }
             box.innerHTML = '<div class="flex-between mb-12"><span class="fs-13 text-muted">共 ' + list.length + ' 条消息</span>' +
-                '<button class="btn btn-outline btn-sm" onclick="markAll()">全部已读</button></div>' +
+                '<div class="flex gap-4">' +
+                '<button class="btn btn-outline btn-sm" onclick="markAll()">全部已读</button>' +
+                '<button class="btn btn-outline btn-sm" onclick="clearAll()">🗑 一键清空</button>' +
+                '</div></div>' +
                 list.map(function (m) {
                     var btn = '';
                     if (m.print_type === 'pwd_reset') {
@@ -50,7 +53,10 @@ function loadMsgs() {
                         '    <div class="fw-600 fs-14 ellipsis">' + m.title + '</div></div>' +
                         '  <div class="fs-13 text-muted">' + m.content + '</div>' +
                         '  <div class="fs-12 text-muted mt-4">' + m.created_at + ' ｜ 来自 ' + m.from_name + '</div>' +
-                        '</div>' + btn + '</div>';
+                        '</div>' +
+                        '<div class="flex gap-4">' + btn +
+                        '<button class="btn btn-outline btn-sm" title="删除" onclick="event.stopPropagation();delMsg(' + m.id + ')">🗑</button>' +
+                        '</div></div>';
                 }).join('');
             box.querySelectorAll('.msg-item').forEach(function (el) {
                 el.addEventListener('click', function () {
@@ -105,6 +111,32 @@ function markAll() {
     });
     Clinic.toast.success('已全部标记为已读');
     Clinic.notify.refresh();
+}
+
+/* 删除单条消息 */
+function delMsg(id) {
+    Clinic.modal.confirm('确定删除这条消息？', function () {
+        Clinic.ajax('/api/message', { action: 'delete', id: id }, {
+            onSuccess: function (json) {
+                Clinic.toast.success(json.msg);
+                loadMsgs();
+                Clinic.notify.refresh();
+            },
+        });
+    }, { title: '删除消息' });
+}
+
+/* 一键清空所有消息 */
+function clearAll() {
+    Clinic.modal.confirm('确定清空所有消息？删除后不可恢复。', function () {
+        Clinic.ajax('/api/message', { action: 'clear_all' }, {
+            onSuccess: function (json) {
+                Clinic.toast.success(json.msg);
+                loadMsgs();
+                Clinic.notify.refresh();
+            },
+        });
+    }, { title: '一键清空', okText: '全部清空' });
 }
 loadMsgs();
 </script>
