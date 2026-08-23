@@ -57,6 +57,21 @@ function openUserForm(id) {
         var titleSel = document.getElementById('f_title');
         titleSel.setAttribute('data-cur', (e.detail && e.detail.title) || '');
         onRoleChange();
+        // 头像点击上传预览
+        var photoInp = document.getElementById('f_photo');
+        if (photoInp) {
+            photoInp.addEventListener('change', function () {
+                var f = this.files[0];
+                if (!f) return;
+                var img = document.getElementById('avatarPreview').querySelector('img');
+                var preview = document.getElementById('avatarPreview');
+                if (img) {
+                    img.src = URL.createObjectURL(f);
+                } else {
+                    preview.innerHTML = '<img src="' + URL.createObjectURL(f) + '"><span class="avatar-badge">📷</span>';
+                }
+            });
+        }
         mask.querySelector('.modal-foot').innerHTML =
             '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
             '<button type="button" class="btn btn-primary" id="userSave">保存</button>';

@@ -170,9 +170,10 @@ switch ($action) {
         json_ok(array(), '资料已保存');
         break;
 
-    /* ---------------- 个人资料：提交审核（学历/学位/个人介绍） ----------------
-     * 说明：学历/学位/个人介绍属于需管理员审核的字段，提交后写入审核池
-     * （type=profile_update），审核通过才生效；已有待审核申请时禁止重复提交。 */
+    /* ---------------- 个人资料：提交审核（学历/学位/个人介绍/头像） ----------------
+     * 说明：学历/学位/个人介绍/头像属于需管理员审核的字段，提交后写入审核池
+     * （type=profile_update），审核通过才生效；已有待审核申请时禁止重复提交。
+     * 头像上传后暂不写入 users.photo，审核通过才生效；拒绝时自动删除已上传文件。 */
     case 'profile_submit':
         $me = Auth::user();
         // 防重复：已有待审核的个人资料申请
@@ -180,25 +181,43 @@ switch ($action) {
         if ($pending) {
             json_fail('您已提交过个人资料审核申请，请等待管理员审核');
         }
-        // 收集需审核字段的新值
+        // 收集需审核字段的新值（仅在提交了对应字段时才纳入，避免仅换头像时误清空其他字段）
         $updates = array();
-        $edu = post('education', '');
-        $deg = post('degree', '');
-        $intro = post('intro', '');
-        // 至少有变化才提交（与当前值对比）
+        $titleParts = array();
         $cur = DB::one('user', 'SELECT education, degree, intro FROM users WHERE id=?', array($me['id']));
-        if (($cur && $cur['education'] !== $edu) || $edu !== '') $updates['education'] = $edu;
-        if (($cur && $cur['degree'] !== $deg) || $deg !== '') $updates['degree'] = $deg;
-        if (($cur && $cur['intro'] !== $intro) || $intro !== '') $updates['intro'] = $intro;
+        if (isset($_POST['education'])) {
+            $edu = post('education', '');
+            if (($cur && $cur['education'] !== $edu) || $edu !== '') {
+                $updates['education'] = $edu;
+                $titleParts[] = '学历→' . ($edu !== '' ? $edu : '（清除）');
+            }
+        }
+        if (isset($_POST['degree'])) {
+            $deg = post('degree', '');
+            if (($cur && $cur['degree'] !== $deg) || $deg !== '') {
+                $updates['degree'] = $deg;
+                $titleParts[] = '学位→' . ($deg !== '' ? $deg : '（清除）');
+            }
+        }
+        if (isset($_POST['intro'])) {
+            $intro = post('intro', '');
+            if (($cur && $cur['intro'] !== $intro) || $intro !== '') {
+                $updates['intro'] = $intro;
+                $titleParts[] = '个人介绍更新';
+            }
+        }
+        // 头像（可选）：上传后暂不入库，审核通过才写入 users.photo
+        if (!empty($_FILES['photo']) && $_FILES['photo']['error'] !== UPLOAD_ERR_NO_FILE) {
+            $res = Upload::save('photo', 'user/' . $me['role']);
+            if (isset($res['error'])) json_fail($res['error']);
+            $updates['photo'] = $res['path'];
+            $titleParts[] = '头像更新';
+        }
         if (!$updates) {
             json_fail('没有需要提交审核的变更');
         }
         // 写入审核池：data 存新值 JSON，ref_id=用户ID
         $dataJson = json_encode($updates, JSON_UNESCAPED_UNICODE);
-        $titleParts = array();
-        if (isset($updates['education'])) $titleParts[] = '学历→' . ($edu !== '' ? $edu : '（清除）');
-        if (isset($updates['degree'])) $titleParts[] = '学位→' . ($deg !== '' ? $deg : '（清除）');
-        if (isset($updates['intro'])) $titleParts[] = '个人介绍更新';
         DB::insert('core', "INSERT INTO audits(type, ref_id, title, content, data, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?,?)", array(
             'profile_update', (int)$me['id'],
             '个人资料修改申请：' . $me['name'],

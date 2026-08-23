@@ -80,10 +80,20 @@ function admin_part_user($action) {
             $deptBox .= '<label class="flex gap-4" style="font-size:13px;margin-right:12px;cursor:pointer">' .
                 '<input type="checkbox" class="deptChk" value="' . (int)$d['id'] . '"' . $checked . '> ' . e($d['name']) . '</label>';
         }
-        $html = '<input type="hidden" id="f_id" value="' . (int)$id . '">
+        $html = '<div class="flex" style="justify-content:center;margin-bottom:12px">
+            <div class="avatar-picker" onclick="document.getElementById(\'f_photo\').click()">
+                <span class="avatar" id="avatarPreview">' .
+                ($r['photo'] ? '<img src="' . e(upload_url($r['photo'])) . '">' : '👤') . '
+                <span class="avatar-badge">📷</span>
+                </span>
+                <span class="avatar-picker-tip">点击头像上传照片</span>
+            </div>
+        </div>
+        <input type="file" id="f_photo" accept="image/*" style="display:none">
+        <input type="hidden" id="f_id" value="' . (int)$id . '">
         <div class="form-row">
             <div class="form-group"><label class="form-label">职工工号</label><input class="input" id="f_emp_no" value="' . e($r['emp_no']) . '"></div>
-            <div class="form-group"><label class="form-label">登录用户名 <span class="req">*</span></label><input class="input" id="f_username" value="' . e($r['username']) . '" placeholder="英文字母开头，可含数字/下划线"><div class="fs-12 text-muted mt-4">须以英文字母开头（不允许纯数字或数字开头）；工号同样可用于登录</div></div>
+            <div class="form-group"><label class="form-label">登录用户名 <span class="req">*</span></label><input class="input" id="f_username" value="' . e($r['username']) . '" placeholder="英文字母开头，可含数字/下划线"></div>
         </div>
         <div class="form-row">
             <div class="form-group"><label class="form-label">姓名 <span class="req">*</span></label><input class="input" id="f_name" value="' . e($r['name']) . '"></div>
@@ -102,8 +112,6 @@ function admin_part_user($action) {
         <div class="form-group" id="deptWrap" style="display:none"><label class="form-label">所属科室（医生可选多个）</label>
             <div class="flex" style="flex-wrap:wrap">' . $deptBox . '</div></div>
         <div class="form-group"><label class="form-label">个人介绍</label><textarea class="textarea" id="f_intro" rows="2">' . e($r['intro']) . '</textarea></div>
-        <div class="form-group"><label class="form-label">照片（可选）</label>
-            <input type="file" class="input" id="f_photo" accept="image/*"></div>
         <div class="form-group"><label class="form-label">状态</label>
             <select class="select" id="f_status"><option value="1"' . ($r['status'] == 1 ? ' selected' : '') . '>启用</option>
             <option value="0"' . ($r['status'] == 0 ? ' selected' : '') . '>停用</option></select></div>';

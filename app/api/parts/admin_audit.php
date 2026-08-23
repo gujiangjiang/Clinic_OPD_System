@@ -228,7 +228,7 @@ function admin_part_audit($action) {
                 break;
 
             case 'profile_update':
-                // 个人资料修改（学历/学位/介绍）：通过则应用新值，拒绝/通过均站内消息通知
+                // 个人资料修改（学历/学位/介绍/头像）：通过则应用新值，拒绝/通过均站内消息通知
                 $target = DB::one('user', 'SELECT * FROM users WHERE id=?', array($refId));
                 if ($approve && $target) {
                     $upd = json_decode($audit['data'], true);
@@ -236,7 +236,7 @@ function admin_part_audit($action) {
                         $set = array();
                         $params = array();
                         foreach ($upd as $k => $v) {
-                            if (in_array($k, array('education', 'degree', 'intro'), true)) {
+                            if (in_array($k, array('education', 'degree', 'intro', 'photo'), true)) {
                                 $set[] = $k . '=?';
                                 $params[] = $v;
                             }
@@ -248,9 +248,17 @@ function admin_part_audit($action) {
                     }
                     if ($proposerId > 0) {
                         send_msg($target['role'], $proposerId, '个人资料修改审核结果',
-                            '您提交的个人资料修改申请已通过审核，学历/学位/个人介绍已生效。', '', '');
+                            '您提交的个人资料修改申请已通过审核，学历/学位/个人介绍/头像已生效。', '', '');
                     }
                 } elseif ($proposerId > 0) {
+                    // 拒绝：若本次含新头像，删除已上传的待审文件（头像保持原样，自动还原）
+                    $upd = json_decode($audit['data'], true);
+                    if (is_array($upd) && !empty($upd['photo'])) {
+                        $f = APP_ROOT . '/public/' . ltrim((string)$upd['photo'], '/');
+                        if (strpos($f, APP_ROOT . '/public/uploads/') === 0 && is_file($f)) {
+                            @unlink($f);
+                        }
+                    }
                     send_msg($target ? $target['role'] : 'user', $proposerId, '个人资料修改审核结果',
                         '您提交的个人资料修改申请未通过审核，理由：' . ($note !== '' ? $note : '未说明') . '。', '', '');
                 }

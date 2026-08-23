@@ -3,7 +3,8 @@
  * profile.php — 个人信息
  * 说明：
  * 1. 姓名/职称/职务：只读，需联系管理员修改（不提供编辑）
- * 2. 头像/界面主题：即时保存（保存资料按钮）
+ * 2. 头像：点击头像直接上传照片，需提交审核；审核中头像半透明显示「审核中」，
+ *    审核通过后自动生效，被拒绝则自动还原原头像（删除待审文件）。
  * 3. 学历/学位/个人介绍：需提交审核，审核通过才生效；
  *    提交后显示灰色只读「等待审核中，暂未生效」；审核结果站内消息提醒。
  */
@@ -15,13 +16,23 @@ $pendingAudit = DB::one('core', "SELECT * FROM audits WHERE type='profile_update
 $pending = $pendingAudit ? true : false;
 // 待审核的新值（若有，用于展示申请中内容）
 $pendingData = $pendingAudit ? json_decode($pendingAudit['data'], true) : null;
+$pendingPhoto = $pending && is_array($pendingData) && !empty($pendingData['photo']);
+// 展示头像：有待审头像时展示新头像（叠加半透明「审核中」），否则展示当前头像
+$showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
 ?>
 <div class="page-head">
     <div><div class="page-title">👤 个人信息</div><div class="page-desc">维护个人资料与界面偏好</div></div>
 </div>
 <div class="card" style="max-width:640px">
     <div class="flex gap-16" style="align-items:center;margin-bottom:16px">
-        <span class="avatar" style="width:64px;height:64px;font-size:26px"><?php echo !empty($user['photo']) ? '<img src="' . e(upload_url($user['photo'])) . '" style="width:100%;height:100%;object-fit:cover">' : '👤'; ?></span>
+        <div class="avatar-picker" id="avatarPicker" onclick="pickAvatar()">
+            <span class="avatar" id="avatarEl">
+                <?php echo $showPhoto ? '<img src="' . e(upload_url($showPhoto)) . '">' : '👤'; ?>
+                <?php if ($pendingPhoto): ?><span class="avatar-review">审核中</span><?php endif; ?>
+            </span>
+            <span class="avatar-picker-tip"><?php echo $pendingPhoto ? '头像审核中，通过后生效' : '点击头像上传照片'; ?></span>
+        </div>
+        <input type="file" id="f_photo" accept="image/*" style="display:none">
         <div>
             <div class="fs-18 fw-700"><?php echo e($user['name']); ?></div>
             <div class="fs-13 text-muted">工号 <?php echo e($user['emp_no']); ?> ｜ 用户名 <?php echo e($user['username']); ?> ｜ <?php echo e(Auth::roleName($user['role'])); ?></div>
@@ -63,20 +74,16 @@ $pendingData = $pendingAudit ? json_decode($pendingAudit['data'], true) : null;
     <button type="button" class="btn btn-primary" onclick="submitProfileAudit()">📨 提交审核</button>
     <?php endif; ?>
 
-    <!-- 即时生效字段（头像/主题） -->
-    <div class="card-title mt-24"><span>⚙️ 即时生效（头像 / 界面主题）</span></div>
-    <div class="form-row">
-        <div class="form-group"><label class="form-label">头像（可选）</label><input type="file" class="input" id="f_photo" accept="image/*"></div>
-    </div>
+    <!-- 界面主题（即时生效，无需审核） -->
+    <div class="card-title mt-24"><span>🎨 界面主题</span></div>
     <div class="form-group">
         <label class="form-label">界面主题（跟随用户保存）</label>
-        <select class="select" id="f_theme">
+        <select class="select" id="f_theme" onchange="saveTheme()">
             <option value="auto"<?php echo $user['theme'] === 'auto' ? ' selected' : ''; ?>>自动模式（跟随系统）</option>
             <option value="light"<?php echo $user['theme'] === 'light' ? ' selected' : ''; ?>>明亮模式</option>
             <option value="dark"<?php echo $user['theme'] === 'dark' ? ' selected' : ''; ?>>夜间模式</option>
         </select>
     </div>
-    <button type="button" class="btn btn-primary" onclick="saveProfile()">💾 保存资料</button>
 </div>
 
 <!-- 打印偏好：自动打印的总开关（保存到服务器，跟随用户跨设备生效）。
@@ -104,6 +111,50 @@ $pendingData = $pendingAudit ? json_decode($pendingAudit['data'], true) : null;
     });
 })();
 
+/* 点击头像 → 触发文件选择 */
+function pickAvatar() {
+    var pending = document.querySelector('#avatarEl .avatar-review');
+    if (pending) {
+        Clinic.toast.warning('头像审核中，请等待管理员审核');
+        return;
+    }
+    document.getElementById('f_photo').click();
+}
+
+/* 选择本地照片后立即提交审核（头像半透明+「审核中」提示，通过后自动刷新显示） */
+document.getElementById('f_photo').addEventListener('change', function () {
+    var f = this.files[0];
+    if (!f) return;
+    Clinic.modal.confirm('提交头像修改申请？审核通过后生效，未通过将自动还原。', function () {
+        var fd = new FormData();
+        fd.append('csrf_token', document.body.getAttribute('data-csrf'));
+        fd.append('action', 'profile_submit');
+        fd.append('photo', f);
+        // 预览新头像 + 立即显示审核中状态（半透明叠加）
+        var el = document.getElementById('avatarEl');
+        el.innerHTML = '<img src="' + URL.createObjectURL(f) + '"><span class="avatar-review">审核中</span>';
+        document.querySelector('#avatarPicker .avatar-picker-tip').textContent = '头像审核中，通过后生效';
+        fetch('/api/auth', { method: 'POST', body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (json) {
+                if (json.ok) {
+                    Clinic.toast.success(json.msg);
+                    setTimeout(function () { location.reload(); }, 800);
+                } else {
+                    Clinic.toast.error(json.msg || '提交失败');
+                    location.reload();
+                }
+            })
+            .catch(function () { Clinic.toast.error('网络请求失败'); location.reload(); });
+    }, { title: '头像审核确认', okText: '确认提交' });
+});
+
+/* 主题即时生效（无需审核，保存后应用） */
+function saveTheme() {
+    var theme = document.getElementById('f_theme').value;
+    Clinic.theme.save(theme);
+}
+
 /* 提交需审核字段（学历/学位/介绍） */
 function submitProfileAudit() {
     Clinic.modal.confirm('确定提交学历、学位、个人介绍修改申请吗？审核通过后才生效。', function () {
@@ -119,28 +170,5 @@ function submitProfileAudit() {
             },
         });
     }, { title: '提交审核确认', okText: '确认提交' });
-}
-
-/* 保存即时生效字段（头像/主题） */
-function saveProfile() {
-    var fd = new FormData();
-    fd.append('csrf_token', document.body.getAttribute('data-csrf'));
-    fd.append('action', 'profile_save');
-    var photo = document.getElementById('f_photo').files[0];
-    if (photo) fd.append('photo', photo);
-    var theme = document.getElementById('f_theme').value;
-    fd.append('theme', theme);
-
-    // 主题立即应用（不刷新页面也能看到效果）
-    if (theme !== document.body.getAttribute('data-theme-pref')) {
-        Clinic.theme.save(theme);
-    }
-    fetch('/api/auth', { method: 'POST', body: fd })
-        .then(function (r) { return r.json(); })
-        .then(function (json) {
-            if (json.ok) { Clinic.toast.success(json.msg); setTimeout(function () { location.reload(); }, 700); }
-            else Clinic.toast.error(json.msg || '保存失败');
-        })
-        .catch(function () { Clinic.toast.error('网络请求失败'); });
 }
 </script>
