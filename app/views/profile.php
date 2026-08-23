@@ -27,7 +27,7 @@ $showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
     <div class="flex gap-16" style="align-items:center;margin-bottom:16px">
         <div class="avatar-picker" id="avatarPicker" onclick="pickAvatar()">
             <span class="avatar" id="avatarEl">
-                <?php echo $showPhoto ? '<img src="' . e(upload_url($showPhoto)) . '">' : '👤'; ?>
+                <?php if ($showPhoto && ($__ava = img_data($showPhoto)) !== ''): ?><img src="<?php echo e($__ava); ?>"><?php else: ?>👤<?php endif; ?>
                 <?php if ($pendingPhoto): ?><span class="avatar-review">审核中</span><?php endif; ?>
             </span>
             <span class="avatar-picker-tip"><?php echo $pendingPhoto ? '头像审核中，通过后生效' : '点击头像上传照片'; ?></span>
@@ -45,8 +45,7 @@ $showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
     </div>
     <?php endif; ?>
 
-    <!-- 基本信息（只读，需联系管理员修改） -->
-    <div class="card-title mt-8"><span>基本信息（只读，需联系管理员修改）</span></div>
+    <!-- 基本信息 -->
     <div class="form-row">
         <div class="form-group"><label class="form-label">姓名</label><input class="input" value="<?php echo e($user['name']); ?>" disabled></div>
         <div class="form-group"><label class="form-label">工号 / 用户名</label><input class="input" value="<?php echo e($user['emp_no'] . ' / ' . $user['username']); ?>" disabled></div>
@@ -59,8 +58,7 @@ $showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
     </div>
     <div class="fs-12 text-muted mb-12">如需修改姓名、职称、职务，请联系管理员在【用户管理】中调整。</div>
 
-    <!-- 需审核字段（学历/学位/个人介绍） -->
-    <div class="card-title mt-8"><span>📋 需审核修改（学历 / 学位 / 个人介绍）</span></div>
+    <!-- 学历/学位/个人介绍 -->
     <div class="form-row">
         <div class="form-group"><label class="form-label">学历</label><select class="select" id="f_education"<?php echo $pending ? ' disabled' : ''; ?>><?php echo opt_options('education', $pending && isset($pendingData['education']) ? $pendingData['education'] : $user['education']); ?></select></div>
         <div class="form-group"><label class="form-label">学位</label><select class="select" id="f_degree"<?php echo $pending ? ' disabled' : ''; ?>><?php echo opt_options('degree', $pending && isset($pendingData['degree']) ? $pendingData['degree'] : $user['degree']); ?></select></div>

@@ -83,7 +83,7 @@ function admin_part_user($action) {
         $html = '<div class="flex" style="justify-content:center;margin-bottom:12px">
             <div class="avatar-picker" onclick="document.getElementById(\'f_photo\').click()">
                 <span class="avatar" id="avatarPreview">' .
-                ($r['photo'] ? '<img src="' . e(upload_url($r['photo'])) . '">' : '👤') . '
+                ($r['photo'] && ($__ava = img_data($r['photo'])) !== '' ? '<img src="' . e($__ava) . '">' : '👤') . '
                 <span class="avatar-badge">📷</span>
                 </span>
                 <span class="avatar-picker-tip">点击头像上传照片</span>

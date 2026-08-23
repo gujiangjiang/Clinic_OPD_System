@@ -180,7 +180,9 @@ switch ($action) {
             if (in_array($deptId, $ids, true)) {
                 $doctors[] = array(
                     'name' => $doc['name'], 'emp_no' => $doc['emp_no'],
-                    'title' => $doc['title'], 'photo' => $doc['photo'], 'intro' => $doc['intro'],
+                    'title' => $doc['title'],
+                    'photo' => $doc['photo'] ? img_data($doc['photo']) : '',
+                    'intro' => $doc['intro'],
                 );
             }
         }

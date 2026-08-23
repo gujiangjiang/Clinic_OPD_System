@@ -42,10 +42,8 @@
         var doc = (d.doctors && d.doctors.length) ? d.doctors[0] : null;
         var photo = document.getElementById('docPhoto');
         if (doc && doc.photo) {
-            // 路径规范化为根绝对路径：接口返回相对 public 的 uploads/...，
-            // 直接拼接会被浏览器按当前页面层级解析（/doctor/call 下变成 /doctor/uploads/... 404）
-            var src = doc.photo.charAt(0) === '/' ? doc.photo : '/' + doc.photo;
-            photo.innerHTML = '<img src="' + src + '" alt="医生照片">';
+            // 接口返回 base64 Data URI（data:image/...），不暴露文件 URL，直接使用
+            photo.innerHTML = '<img src="' + doc.photo + '" alt="医生照片">';
         } else {
             photo.textContent = '👨‍⚕️';
         }

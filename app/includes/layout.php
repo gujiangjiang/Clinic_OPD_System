@@ -144,12 +144,24 @@ class Layout {
         $sidebar = $forceMini ? 'mini' : Auth::sidebar();
         $appClass = $sidebar === 'mini' ? 'app sidebar-mini' : 'app';
         $pageTitle = $title !== '' ? $hosp . ' - ' . $title : $hosp;
-        // 头像转绝对路径（upload_url）：避免二级路径页解析成 /admin/uploads/... 404
-        $avatar = !empty($u['photo']) ? '<img src="' . e(upload_url($u['photo'])) . '" alt="头像">' : '👤';
+        // 头像以 base64 Data URI 内联显示：不暴露上传文件真实 URL（防服务器路径泄露）；
+        // 且不受页面层级影响（二级路径页不会解析成 /admin/uploads/... 404）。
+        $avatar = !empty($u['photo']) && ($__ava = img_data($u['photo'])) !== ''
+            ? '<img src="' . e($__ava) . '" alt="头像">'
+            : '👤';
 
         // 右上角悬浮窗数据：工号 + 职称（session 不包含，需查库；医务人员才有职称）
         // print_auto 一并查库取实时值：打印预览「自动打印」偏好的服务端初始态
-        $uFull = DB::one('user', 'SELECT emp_no, name, role, title, print_auto FROM users WHERE id=?', array((int)$u['id']));
+        // photo 也查库并同步会话：头像审核通过后 users.photo 已更新，
+        // 但登录会话快照仍是旧值，须在此校准，保证页面右上角头像即时显示新头像。
+        $uFull = DB::one('user', 'SELECT emp_no, name, role, title, print_auto, photo FROM users WHERE id=?', array((int)$u['id']));
+        if ($uFull && $uFull['photo'] !== $u['photo']) {
+            Auth::updateSession('photo', $uFull['photo']);
+            $u['photo'] = $uFull['photo'];
+            $avatar = !empty($u['photo']) && ($__ava = img_data($u['photo'])) !== ''
+                ? '<img src="' . e($__ava) . '" alt="头像">'
+                : '👤';
+        }
         $uEmpNo = $uFull && $uFull['emp_no'] !== '' ? $uFull['emp_no'] : '—';
         $uTitle = $uFull && $uFull['title'] !== '' ? $uFull['title'] : '';
         $uHasTitle = in_array($u['role'], array('doctor', 'nurse', 'lab', 'imaging', 'pharmacy'), true);
