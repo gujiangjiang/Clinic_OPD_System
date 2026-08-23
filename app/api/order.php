@@ -73,10 +73,29 @@ switch ($action) {
                     'single_dose' => $r['single_dose'], 'frequency_name' => $r['frequency_name'],
                     'route_name' => $r['route_name'], 'route_nurse_required' => (int)$r['need_nurse'],
                     'stock' => (int)$r['qty'], 'nurse_required' => (int)$r['need_nurse'],
+                    // 皮试联动：开方时前端据此弹确认框并标注
+                    'need_skin_test' => (int)(isset($r['need_skin_test']) ? $r['need_skin_test'] : 0),
+                    'skin_test_item_id' => (int)(isset($r['skin_test_item_id']) ? $r['skin_test_item_id'] : 0),
                 );
             }
         }
-        json_ok(array('list' => $list));
+        // 联动字典：皮试处置详情（id→名称/费用）+ 给药途径绑定计费处置（途径名→处置）
+        $dicts = array('skin_tests' => array(), 'route_bindings' => array());
+        $stIds = array();
+        foreach ($list as $it) {
+            if (!empty($it['skin_test_item_id'])) $stIds[(int)$it['skin_test_item_id']] = true;
+        }
+        if ($stIds) {
+            $ph = implode(',', array_fill(0, count($stIds), '?'));
+            foreach (DB::q('disp', "SELECT id, name, fee FROM disposal_items WHERE id IN ($ph)", array_keys($stIds)) as $d) {
+                $dicts['skin_tests'][(int)$d['id']] = array('name' => $d['name'], 'fee' => (float)$d['fee']);
+            }
+        }
+        foreach (DB::q('drug', "SELECT name, bind_disposal_item_id FROM drug_settings WHERE stype='route' AND bind_disposal_item_id > 0") as $rb) {
+            $dd = DB::one('disp', 'SELECT id, name, fee FROM disposal_items WHERE id=?', array((int)$rb['bind_disposal_item_id']));
+            if ($dd) $dicts['route_bindings'][$rb['name']] = array('id' => (int)$dd['id'], 'name' => $dd['name'], 'fee' => (float)$dd['fee']);
+        }
+        json_ok(array('list' => $list, 'link_dicts' => $dicts));
         break;
 
     /* ==================== 提交开单 ==================== */
@@ -84,6 +103,11 @@ switch ($action) {
         $visitId = did(post('visit_id'));
         $orderType = post('order_type', 'lab');
         $nurseReq = (int)post('nurse_required', 0);
+        // 皮试判定结果（与 items 下标对齐）：yes=需要皮试 / no=免试 / 空=非皮试药品
+        $skinChoices = json_decode(post('skin_choices', '[]'), true);
+        if (!is_array($skinChoices)) $skinChoices = array();
+        // 联动处置聚合容器：disposal_id => [name, fee, qty]
+        $autoDisp = array();
         $rawItems = post('items', '[]');
         $items = json_decode($rawItems, true);
         if (!is_array($items) || !$items) {
@@ -124,6 +148,40 @@ switch ($action) {
                 }
                 // 【护士站执行】按给药途径设置自动默认勾选，可手动取消
                 $needNurse = ((int)$drug['need_nurse'] === 1 && $nurseReq === 1) ? 1 : 0;
+
+                // ===== 皮试判定（阻断式）：需皮试药品必须由医生明确选择方案 =====
+                $skinChoice = '';
+                if ((int)$drug['need_skin_test'] === 1) {
+                    $choice = isset($skinChoices[$i]) ? strtolower(trim((string)$skinChoices[$i])) : '';
+                    if ($choice !== 'yes' && $choice !== 'no') {
+                        json_fail('【' . $drug['name'] . '】为需皮试药品，请先选择本次处置方案（需要皮试 / 免试）');
+                    }
+                    $skinChoice = $choice;
+                }
+                // ===== 给药途径 → 绑定计费处置（如 静脉输液 → 静脉输液费）=====
+                $routeBindId = 0;
+                $routeBind = DB::one('drug', "SELECT bind_disposal_item_id FROM drug_settings WHERE stype='route' AND name=? LIMIT 1", array($drug['route_name']));
+                if ($routeBind && (int)$routeBind['bind_disposal_item_id'] > 0) {
+                    $routeBindId = (int)$routeBind['bind_disposal_item_id'];
+                }
+                // 聚合联动处置（按处置项目累加数量，稍后统一生成一张处置单）
+                if ($skinChoice === 'yes' && (int)$drug['skin_test_item_id'] > 0) {
+                    $stId = (int)$drug['skin_test_item_id'];
+                    if (!isset($autoDisp[$stId])) {
+                        $stInfo = DB::one('disp', 'SELECT name, fee FROM disposal_items WHERE id=?', array($stId));
+                        if (!$stInfo) json_fail('皮试处置项目不存在：#' . $stId);
+                        $autoDisp[$stId] = array('name' => $stInfo['name'], 'fee' => (float)$stInfo['fee'], 'qty' => 0);
+                    }
+                    $autoDisp[$stId]['qty'] += 1;
+                }
+                if ($routeBindId > 0) {
+                    if (!isset($autoDisp[$routeBindId])) {
+                        $rbInfo = DB::one('disp', 'SELECT name, fee FROM disposal_items WHERE id=?', array($routeBindId));
+                        if (!$rbInfo) json_fail('途径绑定处置不存在：#' . $routeBindId);
+                        $autoDisp[$routeBindId] = array('name' => $rbInfo['name'], 'fee' => (float)$rbInfo['fee'], 'qty' => 0);
+                    }
+                    $autoDisp[$routeBindId]['qty'] += $qty;
+                }
             } elseif ($orderType === 'procedure') {
                 $needNurse = $nurseReq;
             }
@@ -137,9 +195,14 @@ switch ($action) {
                     }
                 }
             }
+            // 皮试标注写入药名（随明细持久化：病历/打印/药房队列全链路可见）
+            $rxName = isset($it['item_name']) ? $it['item_name'] : '';
+            if ($orderType === 'prescription' && isset($skinChoice) && $skinChoice !== '') {
+                $rxName .= $skinChoice === 'yes' ? '(需要皮试)' : '(无需皮试)';
+            }
             $orderItems[] = array(
                 'item_type' => $orderType, 'item_id' => $itemId,
-                'item_name' => isset($it['item_name']) ? $it['item_name'] : '',
+                'item_name' => $rxName,
                 'spec' => isset($it['spec']) ? $it['spec'] : '',
                 'unit_name' => isset($it['unit_name']) ? $it['unit_name'] : '',
                 'company_short' => isset($it['company_short']) ? $it['company_short'] : '',
@@ -271,6 +334,43 @@ switch ($action) {
             $createdIds[] = $orderId;
             $createdNos[] = $orderNo;
             $totalAll += $groupTotal;
+        }
+
+        // ===== 皮试/途径联动处置单（仅处方开单且存在联动项时生成） =====
+        // 与处方同一请求内完成写入；任一步失败即终止（此前处方已入库，
+        // 由调用方收到错误后整体重开，避免半张联动单）。
+        if ($orderType === 'prescription' && $autoDisp) {
+            $autoTotal = 0;
+            foreach ($autoDisp as $d) { $autoTotal += (float)$d['fee'] * (int)$d['qty']; }
+            do {
+                $autoOrderNo = 'CZ' . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
+            } while ((int)DB::val('order', 'SELECT COUNT(*) FROM orders WHERE order_no=?', array($autoOrderNo)) > 0);
+
+            $autoOrderId = DB::insert('order',
+                'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, cat_name, doctor_id, doctor_name, total_amount, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+                array($visitId, $visit['patient_no'], $visit['flow_no'], 'procedure', $autoOrderNo, '',
+                      $u['id'], $u['name'], $autoTotal, 'open', now_str()));
+
+            foreach ($autoDisp as $dispId => $d) {
+                DB::insert('order',
+                    'INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, price, quantity, unit_name, need_nurse, sub_of, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                    array($autoOrderId, $visitId, $visit['patient_no'], $visit['flow_no'],
+                          'procedure', $dispId, $d['name'], (float)$d['fee'], (int)$d['qty'],
+                          '次', 1, 0, 'open', $u['id'], $u['name'], now_str()));
+            }
+
+            // 通知护士站执行 + 打印提醒
+            $firstAuto = reset($autoDisp);
+            send_msg('nurse', 0,
+                '新的联动处置单（' . count($autoDisp) . 项 . '）',
+                '患者：' . $row['patient']['name'] . '（' . $visit['patient_no'] . '），流水号 ' . $visit['flow_no'] .
+                    '，含皮试/注射类处置，请及时处理',
+                'order', '/api/print?action=order&order_id=' . oid($autoOrderId),
+                array('msg_type' => 'patient', 'patient_name' => $row['patient']['name'], 'visit_id' => $visitId));
+
+            $createdIds[] = $autoOrderId;
+            $createdNos[] = $autoOrderNo;
+            $totalAll += $autoTotal;
         }
 
         json_ok(array(

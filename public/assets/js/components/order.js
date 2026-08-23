@@ -341,6 +341,43 @@ Clinic.order = (function () {
      * 加入已选列表
      */
     function pushItem(it, el) {
+        // 皮试药品阻断式确认（仅处方）：需皮试在开方时强制医生选择处置方案
+        if (CUR_TYPE === 'prescription' && it.need_skin_test === 1) {
+            var curName = it.name;
+            var skinEl = el;
+            mustConfirmSkinTest(curName, function (choice) {
+                if (choice === 'cancel') {
+                    if (skinEl) skinEl.style.opacity = '';
+                    return;
+                }
+                SELECTED.push({
+                    id: it.id,
+                    name: it.name,
+                    price: it.price,
+                    spec: it.spec,
+                    unit_name: it.unit_name,
+                    company_short: it.company_short,
+                    dose: it.dose,
+                    frequency: it.freq,
+                    route: it.route,
+                    route_nurse: it.route_nurse,
+                    stock: it.stock,
+                    nurse_required: it.nurse_req,
+                    is_group: !!it.is_group,
+                    quantity: 1,
+                    sub_items: [],
+                    skin_test: choice,   // 'yes' 或 'no'
+                });
+                var nc = document.getElementById('nurseReq');
+                if (nc && CUR_TYPE === 'prescription') {
+                    var last = SELECTED[SELECTED.length - 1];
+                    if (last.route_nurse === 1) nc.checked = true;
+                }
+                if (skinEl) skinEl.style.opacity = '.5';
+                renderSelected();
+            });
+            return;
+        }
         SELECTED.push({
             id: it.id,
             name: it.name,
@@ -365,6 +402,35 @@ Clinic.order = (function () {
         }
         if (el) el.style.opacity = '.5';
         renderSelected();
+    }
+
+    /**
+     * 皮试药品阻断式确认弹窗（与后端 submit 硬校验一致）
+     * @param {string} drugName 药品名
+     * @param {Function} cb 回调：'yes' 需要皮试 / 'no' 免试 / 'cancel' 取消
+     */
+    function mustConfirmSkinTest(drugName, cb) {
+        Clinic.modal.open(
+            '<div class="fs-14" style="line-height:1.9">「<strong>' + drugName + '</strong>」属于<b>需皮试药品</b>，请选择本次处置方案：</div>' +
+            '<div class="mt-12 flex flex-col gap-8">' +
+            '<button type="button" class="btn btn-danger btn-block" id="skinYes">需要皮试</button>' +
+            '<button type="button" class="btn btn-outline btn-block" id="skinNo">无需皮试 / 免试</button>' +
+            '</div>',
+            {
+                title: '⚠️ 皮试确认',
+                size: 'modal-sm',
+                buttons: [{ text: '取消添加', cls: 'btn-outline' }],
+                onClose: function () { if (typeof cb === 'function') cb('cancel'); },
+            }
+        );
+        document.getElementById('skinYes').addEventListener('click', function () {
+            Clinic.modal.close();
+            if (typeof cb === 'function') cb('yes');
+        });
+        document.getElementById('skinNo').addEventListener('click', function () {
+            Clinic.modal.close();
+            if (typeof cb === 'function') cb('no');
+        });
     }
 
     /**
@@ -426,6 +492,8 @@ Clinic.order = (function () {
                 '<div class="flex-between">' +
                 '  <div class="flex gap-8" style="align-items:center;min-width:0">' +
                 '    <span class="fw-600 fs-13 ellipsis">' + s.name + '</span>' +
+                (s.skin_test ? '<span class="badge ' + (s.skin_test === 'yes' ? 'badge-danger' : 'badge-gray') + ' fs-12">' +
+                    (s.skin_test === 'yes' ? '需要皮试' : '免试') + '</span>' : '') +
                 (s.company_short ? '<span class="fs-12 text-muted">' + s.company_short + '</span>' : '') +
                 (s.quantity > 1 ? '<span class="badge badge-primary fs-12">×' + s.quantity + '</span>' : '') +
                 '    <span class="fs-12 text-muted">¥' + (s.price * s.quantity).toFixed(2) + '</span>' +
@@ -519,6 +587,7 @@ Clinic.order = (function () {
         }
         var nc = document.getElementById('nurseReq');
         var flat = [];
+        var skinChoices = [];
         SELECTED.forEach(function (s, idx) {
             flat.push({
                 item_id: s.id, item_name: s.name, price: s.price, quantity: s.quantity,
@@ -526,6 +595,8 @@ Clinic.order = (function () {
                 dose: s.dose, frequency: s.frequency, route: s.route,
                 notes: '', sub_of: 0, sort: idx,
             });
+            // 皮试判定结果（主药行；子处方下标为 null 表示非皮试主药）
+            skinChoices.push(s.skin_test || '');
             (s.sub_items || []).forEach(function (sub, si) {
                 flat.push({
                     item_id: 0, item_name: sub.name, price: 0, quantity: 1,
@@ -533,6 +604,7 @@ Clinic.order = (function () {
                     spec: '', unit_name: '', company_short: '', notes: '',
                     sub_of: idx + 1, sort: si,
                 });
+                skinChoices.push('');
             });
         });
 
@@ -542,6 +614,7 @@ Clinic.order = (function () {
             order_type: CUR_TYPE,
             nurse_required: nc && nc.checked ? 1 : 0,
             items: JSON.stringify(flat),
+            skin_choices: JSON.stringify(skinChoices),
         }, {
             loading: true,
             onSuccess: function (j) {
