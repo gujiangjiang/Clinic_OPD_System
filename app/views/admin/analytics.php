@@ -19,9 +19,9 @@ $depts = DB::q('dept', 'SELECT id, name FROM departments WHERE status=1 ORDER BY
 <!-- 日期范围工具条 -->
 <div class="card" style="margin-bottom:16px">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input type="date" class="input" id="anaStart" style="width:150px">
+        <input type="text" class="input" id="anaStart" readonly placeholder="开始日期" style="width:150px;cursor:pointer;background:var(--bg)" onclick="Clinic.datePicker.open(this, { maxToday: false, onChange: function () { anaLoad(); } })">
         <span class="text-muted">至</span>
-        <input type="date" class="input" id="anaEnd" style="width:150px">
+        <input type="text" class="input" id="anaEnd" readonly placeholder="结束日期" style="width:150px;cursor:pointer;background:var(--bg)" onclick="Clinic.datePicker.open(this, { maxToday: true, onChange: function () { anaLoad(); } })">
         <button class="btn btn-primary btn-sm" onclick="anaLoad()">查询</button>
         <span class="flex gap-4" style="flex-wrap:wrap">
             <button class="btn btn-outline btn-sm" onclick="anaQuick('today')">今日</button>
