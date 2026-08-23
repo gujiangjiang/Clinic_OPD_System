@@ -13,6 +13,19 @@
 
 ---
 
+## [2.3.5] - 2026-08-23
+
+### 修复
+
+- **药品编辑弹窗皮试函数仍未生效（ReferenceError）**：上一版把函数绑定放在 `loadModal`
+  内部，但药品编辑走 `openDrugForm`（直接调 `Clinic.modal.load`），未经过 `loadModal`，
+  监听器从未附加。现改为在 ui.js 末尾注册**全局 `modal:loaded` 捕获监听器**
+  （`document.addEventListener(..., true)`），对所有弹窗路径生效：
+  `syncSkinBox` / `pickSkinDisposal` / `clearSkinDisposal` 一律无条件定义
+  （无皮试字段时做空操作兜底），按钮点击不再报错；同时移除 loadModal 内重复定义。
+
+---
+
 ## [2.3.4] - 2026-08-23
 
 ### 修复
