@@ -1501,10 +1501,10 @@ Clinic.emr = (function () {
     window.emrNavAdd = function (type, ev) {
         if (!window.Clinic) return;
         switch (type) {
-            case 'imaging': Clinic.order.open('imaging'); return;
-            case 'lab': Clinic.order.open('lab'); return;
-            case 'procedure': Clinic.order.open('procedure'); return;
-            case 'prescription': Clinic.order.open('prescription'); return;
+            case 'imaging': if (requireSaved('开单')) Clinic.order.open('imaging'); return;
+            case 'lab': if (requireSaved('开单')) Clinic.order.open('lab'); return;
+            case 'procedure': if (requireSaved('开单')) Clinic.order.open('procedure'); return;
+            case 'prescription': if (requireSaved('开单')) Clinic.order.open('prescription'); return;
             case 'cert':
                 // 归档病历：先确认再补开（区分是否接诊过该患者）；
                 // 未归档：直接进入开具表单
@@ -2126,6 +2126,8 @@ Clinic.emr = (function () {
      * 已诊毕直接放行；未诊毕须本人文书已完善并保存，否则提示先完善病历。
      */
     function openCertificate() {
+        // 病历有修改未保存：先保存再开具（证明快照取自已保存内容）
+        if (!requireSaved('开具诊断证明')) return;
         var visitId = document.getElementById('visitId').value;
         // 与打印病历按钮同一套判断逻辑与提示语（仅场景词不同）
         if (!isRecordComplete()) {
@@ -2172,8 +2174,18 @@ Clinic.emr = (function () {
     /**
      * 打印电子病历
      */
+    /** 病历有未保存修改时拦截并提示（开单 / 打印 / 开诊断证明前调用） */
+    function requireSaved(label) {
+        if (EMR_DIRTY) {
+            Clinic.toast.warning('病历有修改未保存，请先点击「💾 保存」后再' + label);
+            return false;
+        }
+        return true;
+    }
+
     function printRecord() {
-        // 前置条件：病历已完善并保存
+        // 前置条件：病历已完善并保存（有未保存修改先拦截）
+        if (!requireSaved('打印病历')) return;
         if (!isRecordComplete()) {
             Clinic.toast.warning('请先在病历中完善主诉、现病史与初步诊断并保存，再打印病历');
             return;

@@ -827,22 +827,19 @@
    【病历正文交互穿透：项目行内标签（活跃编辑态）】
    ==================================================== */
 .emr-item-link {
-    display: inline-block;
-    color: #2563eb;
-    background-color: #eff6ff;
-    padding: 1px 6px;
-    margin: 0 2px;
+    display: inline;
+    color: var(--primary);
+    background: transparent;
+    padding: 0;
+    margin: 0 1px;
     border-radius: 4px;
     cursor: pointer;
-    text-decoration: underline;
-    text-decoration-style: dotted;
-    text-underline-offset: 3px;
-    transition: all 0.15s ease-in-out;
+    text-decoration: none;
+    font-weight: 600;
+    transition: background 0.15s ease-in-out;
 }
 .emr-item-link:hover {
-    color: #1d4ed8;
-    background-color: #dbeafe;
-    text-decoration-style: solid;
+    background: var(--primary-soft);
 }
 /* 组医嘱子药缩进行 */
 .ef-rx-sub { padding-left: 1.25em; }
