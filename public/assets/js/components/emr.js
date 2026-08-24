@@ -1128,9 +1128,9 @@ Clinic.emr = (function () {
 
     /**
      * 诊断操作悬浮窗（跟随鼠标）：⭐ 设为主诊断 / ↑ 上移 / ↓ 下移。
-     * 操作只作用于本人诊断列表——调整顺序 / 设主诊断不会自动引用他人诊断：
-     * 本人诊断行：设主诊断（移至本人列表首位）/ 上移 / 下移（按位置显隐）；
-     * 他人诊断行：仅「设为主诊断」——单独引用该一条到本人列表首位。
+     * 操作基于聚合列表（不区分开单医生，支持跨医生交错排序）：
+     * 调整结果整表持久化到本人文书——他人诊断按其位置以引用副本并入，
+     * 仅作为排序载体，他人原始病历不受影响；主诊断点击不弹窗。
      */
     var DIAG_ROWS = [];   // 侧边栏诊断行缓存（含聚合顺序与原始诊断对象）
     function openDiagOpsPop(ev, idx) {
@@ -1141,48 +1141,35 @@ Clinic.emr = (function () {
         if (!diagEditable()) return;
         closeDiagPop();
         if (ev && ev.stopPropagation) ev.stopPropagation();
-        var myList = myDiags();
-        var pos = -1;
-        myList.forEach(function (d, i) {
-            if ((d.code || '') === row.code && d.name === row.name) pos = i;
-        });
-        var isMine = row.mine && pos >= 0;
+        var isLast = idx === DIAG_ROWS.length - 1;
         var pop = document.createElement('div');
         pop.id = 'diagPop';
         pop.className = 'finish-pop diag-pop';
         pop.style.width = '150px';
-        var btns =
-            '<button type="button" class="btn btn-outline btn-sm btn-block" id="dopPrimary">⭐ 设为主诊断</button>';
-        if (isMine && pos > 0) {
-            btns += '<button type="button" class="btn btn-outline btn-sm btn-block mt-8" id="dopUp">↑ 上移</button>';
-        }
-        if (isMine && pos < myList.length - 1) {
-            btns += '<button type="button" class="btn btn-outline btn-sm btn-block mt-8" id="dopDown">↓ 下移</button>';
-        }
         pop.innerHTML =
-            '<div class="fs-13 mb-8" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b>' + escHtml(row.name) + '</b></div>' + btns;
+            '<div class="fs-13 mb-8" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b>' + escHtml(row.name) + '</b></div>' +
+            '<button type="button" class="btn btn-outline btn-sm btn-block" id="dopPrimary">⭐ 设为主诊断</button>' +
+            '<button type="button" class="btn btn-outline btn-sm btn-block mt-8" id="dopUp">↑ 上移</button>' +
+            (isLast ? '' : '<button type="button" class="btn btn-outline btn-sm btn-block mt-8" id="dopDown">↓ 下移</button>');
         placeDiagPop(pop, ev);
+        var agg = DIAG_ROWS.map(function (x) { return x.dg; });
         pop.querySelector('#dopPrimary').addEventListener('click', function () {
-            var arr = myList.slice();
-            if (isMine) arr.splice(pos, 1);   // 已在本人列表则先移出再置顶
-            arr.unshift({
-                code: row.code, name: row.name,
-                part: row.dg.part || '', note: row.dg.note || '', suspected: row.dg.suspected || '',
-            });
+            var arr = agg.slice();
+            var hit = arr.splice(idx, 1)[0];
+            arr.unshift(hit);
             closeDiagPop();
             saveDiags(arr, '已设为主诊断：' + row.name);
         });
-        var upBtn = pop.querySelector('#dopUp');
-        if (upBtn) upBtn.addEventListener('click', function () {
-            var arr = myList.slice();
-            var t = arr[pos - 1]; arr[pos - 1] = arr[pos]; arr[pos] = t;
+        pop.querySelector('#dopUp').addEventListener('click', function () {
+            var arr = agg.slice();
+            var t = arr[idx - 1]; arr[idx - 1] = arr[idx]; arr[idx] = t;
             closeDiagPop();
             saveDiags(arr, '已上移：' + row.name);
         });
         var downBtn = pop.querySelector('#dopDown');
         if (downBtn) downBtn.addEventListener('click', function () {
-            var arr = myList.slice();
-            var t = arr[pos + 1]; arr[pos + 1] = arr[pos]; arr[pos] = t;
+            var arr = agg.slice();
+            var t = arr[idx + 1]; arr[idx + 1] = arr[idx]; arr[idx] = t;
             closeDiagPop();
             saveDiags(arr, '已下移：' + row.name);
         });

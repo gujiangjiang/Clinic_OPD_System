@@ -63,15 +63,6 @@ Clinic.emrEditor = (function () {
         PREV_DIAGS = Array.isArray(list) ? list : [];
     }
 
-    /** 查找前序医生是否已下过该诊断：编码精确匹配优先，其次名称完全相同；取最近一条 */
-    function findPrevDiag(code, name) {
-        var hit = null;
-        PREV_DIAGS.forEach(function (d) {
-            if ((code && d.code === code) || (!code && name && d.name === name)) hit = d;
-        });
-        return hit;
-    }
-
     /** 当前已选列表是否已含同编码诊断（已选过则不再弹引用确认） */
     function hasDiagCode(code) {
         return DIAGS.some(function (d) { return code && d.code === code; });
@@ -307,9 +298,9 @@ Clinic.emrEditor = (function () {
         var f = document.createElement('span');
         f.className = 'ef-field ef-diag';
         f.setAttribute('data-ph', '请添加初步诊断');
-        f.setAttribute('title', '点击选择诊断（支持名称/ICD10编码/拼音检索）');
-        f.addEventListener('click', function () {
-            if (!READONLY) openDiagModal();
+        f.setAttribute('title', '点击添加诊断（支持名称/ICD10编码/拼音检索）');
+        f.addEventListener('click', function (ev) {
+            if (!READONLY) Clinic.emr.openDiagPop(ev);
         });
         d.appendChild(f);
         FIELDS.push({ path: 'diagnoses', type: 'diag', el: f });
@@ -525,189 +516,6 @@ Clinic.emrEditor = (function () {
         }
     }
 
-    /** 诊断选择模态框：左侧搜索（名称/ICD10/拼音），右侧已选列表（排序/删除/编辑） */
-    function openDiagModal() {
-        var html =
-            '<div class="diag-pick">' +
-            '  <div class="diag-pick-left">' +
-            '    <input class="input" id="dpSearch" placeholder="搜索疾病名称 / ICD10编码 / 拼音" autocomplete="off">' +
-            '    <div class="diag-pick-results" id="dpResults"><div class="text-muted fs-13" style="padding:10px">输入关键词检索 ICD10 诊断</div></div>' +
-            '  </div>' +
-            '  <div class="diag-pick-right">' +
-            '    <div class="fs-13 fw-700 mb-8">已选诊断（可调整顺序）</div>' +
-            '    <div class="diag-pick-selected" id="dpSelected"></div>' +
-            '  </div>' +
-            '</div>';
-        Clinic.modal.open(html, {
-            title: '选择初步诊断',
-            size: 'modal-lg',
-            buttons: [
-                { text: '取消', cls: 'btn-outline' },
-                {
-                    text: '完成', cls: 'btn-primary', autoClose: false,
-                    onClick: function () {
-                        Clinic.modal.close();
-                        renderDiagText();
-                        markDirty();
-                    },
-                },
-            ],
-        });
-        renderSelected();
-
-        var timer = null;
-        document.getElementById('dpSearch').addEventListener('input', function () {
-            var kw = this.value.trim();
-            if (timer) clearTimeout(timer);
-            if (!kw) {
-                document.getElementById('dpResults').innerHTML = '<div class="text-muted fs-13" style="padding:10px">输入关键词检索 ICD10 诊断</div>';
-                return;
-            }
-            timer = setTimeout(function () {
-                Clinic.get('/api/icd10?action=search&kw=' + encodeURIComponent(kw), null, {
-                    onSuccess: function (j) {
-                        var list = j.data.list || [];
-                        document.getElementById('dpResults').innerHTML = list.length
-                            ? list.map(function (x) {
-                                return '<div class="diag-pick-item" data-code="' + x.diagnosis_code + '" data-name="' + x.diagnosis_name + '">' +
-                                    '<b>' + x.diagnosis_name + '</b><span class="fs-12 text-muted"> ' + x.diagnosis_code + '</span></div>';
-                            }).join('')
-                            : '<div class="text-muted fs-13" style="padding:10px">未检索到匹配诊断</div>';
-                    },
-                });
-            }, 200);
-        });
-
-        document.getElementById('dpResults').addEventListener('click', function (e) {
-            var item = e.target.closest('.diag-pick-item');
-            if (!item) return;
-            var code = item.getAttribute('data-code') || '';
-            var name = item.getAttribute('data-name') || '';
-            // 跨医生引用查重：前序医生已下过该诊断且本人尚未选 → 弹引用确认框
-            var prev = findPrevDiag(code, name);
-            if (prev && !hasDiagCode(code)) {
-                confirmQuotePrev(prev, function () {
-                    // 引用：拷贝追加到已选列表（保留原部位/备注/疑似），
-                    // 并自动弹出二级模态框供当前医生修改
-                    DIAGS.push({
-                        code: prev.code, name: prev.name,
-                        part: prev.part || '', note: prev.note || '',
-                        suspected: prev.suspected === '是' ? '是' : '',
-                    });
-                    renderSelected();
-                    renderDiagText();
-                    markDirty();
-                    openDiagEdit(DIAGS[DIAGS.length - 1], DIAGS.length - 1);
-                }, function () {
-                    // 取消：仍作为普通新诊断添加（走常规二级编辑模态框）
-                    openDiagEdit({ code: code, name: name, part: '', note: '', suspected: '' }, null);
-                });
-                return;
-            }
-            openDiagEdit({ code: code, name: name, part: '', note: '', suspected: '' }, null);
-        });
-
-        document.getElementById('dpSelected').addEventListener('click', function (e) {
-            var act = e.target.closest('[data-act]');
-            var row = e.target.closest('.diag-sel-row');
-            if (!row) return;
-            var idx = parseInt(row.getAttribute('data-idx'), 10);
-            if (act) {
-                if (act.getAttribute('data-act') === 'up' && idx > 0) {
-                    var t = DIAGS[idx - 1]; DIAGS[idx - 1] = DIAGS[idx]; DIAGS[idx] = t;
-                    renderSelected(); markDirty();
-                } else if (act.getAttribute('data-act') === 'down' && idx < DIAGS.length - 1) {
-                    var t2 = DIAGS[idx + 1]; DIAGS[idx + 1] = DIAGS[idx]; DIAGS[idx] = t2;
-                    renderSelected(); markDirty();
-                } else if (act.getAttribute('data-act') === 'del') {
-                    DIAGS.splice(idx, 1);
-                    renderSelected(); markDirty();
-                }
-                return;
-            }
-            // 点击已选诊断 → 二级模态框编辑
-            if (DIAGS[idx]) openDiagEdit(DIAGS[idx], idx);
-        });
-    }
-
-    function renderSelected() {
-        var box = document.getElementById('dpSelected');
-        if (!box) return;
-        box.innerHTML = DIAGS.length
-            ? DIAGS.map(function (d, i) {
-                return '<div class="diag-sel-row" data-idx="' + i + '">' +
-                    '<span class="fw-600 fs-13">' + diagText(d) + '</span>' +
-                    '<span class="diag-sel-ops">' +
-                    '<button class="btn btn-outline btn-sm" data-act="up"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
-                    '<button class="btn btn-outline btn-sm" data-act="down"' + (i === DIAGS.length - 1 ? ' disabled' : '') + '>↓</button>' +
-                    '<button class="btn btn-outline btn-sm" data-act="del">删除</button>' +
-                    '</span></div>';
-            }).join('')
-            : '<div class="text-muted fs-13">尚未选择诊断，请在左侧检索后点击添加</div>';
-    }
-
-    /**
-     * 跨医生引用确认框：XX医生此前已添加过该诊断【诊断名称】，是否直接引用？
-     * 【引用】→ onQuote（拷贝追加 + 二级模态框修改）；【取消】→ onCancel（普通新增）
-     */
-    function confirmQuotePrev(prev, onQuote, onCancel) {
-        var detail = [];
-        if (prev.part) detail.push('部位：' + esc(prev.part));
-        if (prev.note) detail.push('备注：' + esc(prev.note));
-        if (prev.suspected === '是') detail.push('疑似标记：是');
-        Clinic.modal.open(
-            '<div class="fs-13">【' + esc(prev.doctor_name) + '】医生此前已添加过该诊断' +
-            '<b>【' + esc(prev.name) + '】</b>' + (prev.code ? '（' + esc(prev.code) + '）' : '') +
-            '，是否直接引用？</div>' +
-            (detail.length ? '<div class="fs-12 text-muted mt-8">' + detail.join(' ｜ ') + '</div>' : '') +
-            '<div class="fs-12 text-muted mt-4">引用后可修改部位、备注与疑似标记；取消则作为新诊断添加。</div>',
-            {
-                title: '引用前序诊断',
-                size: 'modal-sm',
-                buttons: [
-                    { text: '取消', cls: 'btn-outline', onClick: function () { Clinic.modal.close(); if (onCancel) onCancel(); } },
-                    { text: '引用', cls: 'btn-primary', onClick: function () { Clinic.modal.close(); if (onQuote) onQuote(); } },
-                ],
-            }
-        );
-    }
-
-    /** 二级模态框：部位/备注/是否疑似（三项均选填，不填不显示） */
-    function openDiagEdit(diag, editIdx) {
-        var html =
-            '<div class="fs-13 mb-12">诊断：<b>' + diag.code + ' ' + diag.name + '</b></div>' +
-            '<div class="form-group"><label class="form-label">部位（选填）</label><input class="input" id="de_part" value="' + (diag.part || '') + '" placeholder="如：左侧、右上肢"></div>' +
-            '<div class="form-group"><label class="form-label">备注（选填）</label><input class="input" id="de_note" value="' + (diag.note || '') + '" placeholder="如：中指挫擦伤"></div>' +
-            '<div class="form-group"><label class="form-label">是否疑似（选填）</label><select class="select" id="de_sus">' +
-            '<option value=""' + (diag.suspected !== '是' ? ' selected' : '') + '>否</option>' +
-            '<option value="是"' + (diag.suspected === '是' ? ' selected' : '') + '>是</option></select>' +
-            '<div class="fs-12 text-muted mt-4">选「是」时诊断末尾追加 ? 标记</div></div>';
-        Clinic.modal.open(html, {
-            title: (editIdx === null ? '添加诊断信息' : '修改诊断信息'),
-            size: 'modal-sm',
-            buttons: [
-                { text: '取消', cls: 'btn-outline' },
-                {
-                    text: editIdx === null ? '确认添加' : '确认修改', cls: 'btn-primary', autoClose: false,
-                    onClick: function () {
-                        var part = document.getElementById('de_part').value.trim();
-                        var note = document.getElementById('de_note').value.trim();
-                        var sus = document.getElementById('de_sus').value;
-                        var obj = {
-                            code: diag.code, name: diag.name,
-                            part: part, note: note,
-                            suspected: sus === '是' ? '是' : '',
-                        };
-                        if (editIdx === null) DIAGS.push(obj); else DIAGS[editIdx] = obj;
-                        Clinic.modal.close();
-                        renderSelected();
-                        renderDiagText();
-                        markDirty();
-                    },
-                },
-            ],
-        });
-    }
 
     return {
         render: render,
@@ -722,11 +530,6 @@ Clinic.emrEditor = (function () {
         setDiags: function (list) {
             DIAGS = Array.isArray(list) ? list : [];
             renderDiagText();
-        },
-        /** 外部快捷入口（左栏「＋」）：打开诊断选择弹窗，只读状态拦截并提示 */
-        openDiagPicker: function () {
-            if (READONLY) { Clinic.toast.info('当前病历为只读状态，无法添加诊断'); return; }
-            openDiagModal();
         },
     };
 })();
