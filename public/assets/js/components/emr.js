@@ -118,9 +118,9 @@ Clinic.emr = (function () {
         pop.id = 'feePop';
         pop.className = 'fee-pop';
         pop.innerHTML = d.rows.map(function (r) {
-            var cls = r.st === 'open' ? 'gray' : 'green';   // 灰=未缴费，绿=已缴费
+            var cls = navDotCls(r.st);   // 灰=未缴费，黄=已缴费未完成，绿=已完成
             return '<div class="fee-pop-row">' +
-                '<span class="status-indicator ' + cls + '" title="' + (cls === 'gray' ? '未缴费' : '已缴费') + '"></span>' +
+                '<span class="status-indicator ' + cls + '" title="' + navDotText(r.st) + '"></span>' +
                 '<span class="fee-pop-name" title="' + escHtml(r.name) + '">' + escHtml(r.name) + '</span>' +
                 '<span class="fee-pop-amt">¥' + r.amt.toFixed(2) + '</span></div>';
         }).join('') +
@@ -977,11 +977,11 @@ Clinic.emr = (function () {
 
     /* ==================== 左侧全景大纲栏 ==================== */
 
-    /** 缴费/报告状态 → 指示灯颜色：灰=未缴费，红=已缴费未出报告，绿=报告已出 */
+    /** 缴费/报告状态 → 指示灯颜色：灰=未缴费，红=已缴费未完成（醒目），绿=已完成 */
     function navDotCls(st) {
         if (st === 'open') return 'gray';
         if (st === 'done' || st === 'dispensed') return 'green';
-        return 'red';   // paid / registered / in_progress / dispensing
+        return 'red';   // paid / registered / in_progress / dispensing：已缴费未完成
     }
     /** 指示灯悬浮提示（title） */
     function navDotText(st) {

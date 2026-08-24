@@ -801,8 +801,8 @@
     flex-shrink: 0;
 }
 .status-indicator.gray { background-color: #94a3b8; }   /* 未缴费 */
-.status-indicator.red { background-color: #ef4444; }    /* 已缴费未出报告 */
-.status-indicator.green { background-color: #10b981; }  /* 报告已出 */
+.status-indicator.red { background-color: #ef4444; }    /* 已缴费未完成（醒目：报告未出/药品未发/处置未执行） */
+.status-indicator.green { background-color: #10b981; }  /* 已完成（报告已出/已发药） */
 
 /* ====================================================
    【病历正文交互穿透：项目行内标签（活跃编辑态）】
