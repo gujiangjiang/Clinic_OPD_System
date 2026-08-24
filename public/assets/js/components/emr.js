@@ -377,6 +377,74 @@ Clinic.emr = (function () {
     }
 
     /**
+     * 诊毕确认悬浮面板：选择离院方式（自主离院/住院/转院/死亡/其他），
+     * 非「自主离院」需填写对应补充信息（住院病区/接收医院/死亡原因/其他转归），
+     * 确认后携带转归数据执行 save(true)。面板锚定在诊毕按钮下方，点外部关闭。
+     */
+    var finishPopHandler = null;
+    function closeFinishPop() {
+        var pop = document.getElementById('finishPop');
+        if (pop) pop.remove();
+        if (finishPopHandler) {
+            document.removeEventListener('mousedown', finishPopHandler);
+            finishPopHandler = null;
+        }
+    }
+    function confirmFinish(btn) {
+        // 已打开则收起（再次点击按钮 = 关闭）
+        if (document.getElementById('finishPop')) { closeFinishPop(); return; }
+        var opts = ['自主离院', '住院', '转院', '死亡', '其他'];
+        var phMap = { '住院': '请填写住院病区', '转院': '请填写接收医院名称', '死亡': '请填写死亡原因', '其他': '请填写其他转归情况' };
+        var pop = document.createElement('div');
+        pop.id = 'finishPop';
+        pop.className = 'finish-pop';
+        pop.innerHTML =
+            '<div class="fs-13 fw-700 mb-8">选择离院方式（转归）</div>' +
+            opts.map(function (t, i) {
+                return '<label class="finish-opt"><input type="radio" name="dispOpt" value="' + t + '"' + (i === 0 ? ' checked' : '') + '>' + t + '</label>';
+            }).join('') +
+            '<input class="input" id="dispDetail" style="display:none;margin-top:8px">' +
+            '<div class="flex gap-8 mt-12">' +
+            '  <button type="button" class="btn btn-outline btn-sm" style="flex:1" id="finishCancel">取消</button>' +
+            '  <button type="button" class="btn btn-success btn-sm" style="flex:1" id="finishOk">确认诊毕</button>' +
+            '</div>';
+        document.body.appendChild(pop);
+        var rect = btn.getBoundingClientRect();
+        pop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+        pop.style.left = Math.max(8, rect.right + window.scrollX - 230) + 'px';
+
+        var detailInput = pop.querySelector('#dispDetail');
+        pop.querySelectorAll('input[name="dispOpt"]').forEach(function (r) {
+            r.addEventListener('change', function () {
+                if (this.value === '自主离院') {
+                    detailInput.style.display = 'none';
+                    detailInput.value = '';
+                } else {
+                    detailInput.style.display = '';
+                    detailInput.placeholder = phMap[this.value] || '';
+                }
+            });
+        });
+        pop.querySelector('#finishCancel').addEventListener('click', closeFinishPop);
+        pop.querySelector('#finishOk').addEventListener('click', function () {
+            var checked = pop.querySelector('input[name="dispOpt"]:checked');
+            var disp = checked ? checked.value : '';
+            var detail = detailInput.value.trim();
+            if (disp !== '自主离院' && !detail) {
+                Clinic.toast.warning(phMap[disp] + '不能为空');
+                return;
+            }
+            closeFinishPop();
+            save(true, { disposition: disp, disposition_detail: disp === '自主离院' ? '' : detail });
+        });
+        // 点击面板/按钮以外区域关闭
+        finishPopHandler = function (e) {
+            if (!pop.contains(e.target) && e.target !== btn && !btn.contains(e.target)) closeFinishPop();
+        };
+        setTimeout(function () { document.addEventListener('mousedown', finishPopHandler); }, 0);
+    }
+
+    /**
      * 诊毕只读：禁用病历所有输入控件，避免误解为可继续编辑
      */
     function setReadonlyUI() {
@@ -1278,7 +1346,7 @@ Clinic.emr = (function () {
      * 保存病历（结构化：仅提交完整 emr_data JSON 对象）
      * @param {boolean} finish 是否诊毕
      */
-    function save(finish) {
+    function save(finish, extra) {
         var emr = Clinic.emrEditor.collect();
         var cc = emr.chief_complaint || {};
         var pi = emr.history_present || {};
@@ -1302,6 +1370,11 @@ Clinic.emr = (function () {
             visit_type: document.getElementById('visitType') ? document.getElementById('visitType').value : '初诊',
         };
         if (finish) data.finish = 1;
+        // 诊毕转归（confirmFinish 面板传入）：离院方式 + 补充信息
+        if (finish && extra) {
+            data.disposition = extra.disposition || '';
+            data.disposition_detail = extra.disposition_detail || '';
+        }
         Clinic.ajax('/api/record', data, {
             loading: true,
             onSuccess: function (j) {
@@ -1677,6 +1750,7 @@ Clinic.emr = (function () {
     return {
         init: init,
         save: save,
+        confirmFinish: confirmFinish,
         openTemplates: openTemplates,
         applyTemplateById: applyTemplateById,
         openTransfer: openTransfer,

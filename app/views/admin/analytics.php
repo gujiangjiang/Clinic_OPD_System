@@ -40,6 +40,23 @@ $depts = DB::q('dept', 'SELECT id, name FROM departments WHERE status=1 ORDER BY
     <button class="btn btn-outline btn-sm" data-ana-tab="dept" onclick="anaTab('dept')">🏥 科室统计</button>
     <button class="btn btn-outline btn-sm" data-ana-tab="doctor" onclick="anaTab('doctor')">👨‍⚕️ 医生统计</button>
     <button class="btn btn-outline btn-sm" data-ana-tab="custom" onclick="anaTab('custom')">🧮 自定义统计</button>
+    <button class="btn btn-outline btn-sm" data-ana-tab="disposition" onclick="anaTab('disposition')">🧭 转归查询</button>
+</div>
+
+<!-- ============ 转归查询 ============ -->
+<div id="ana-pane-disposition" style="display:none">
+    <div class="flex gap-8 mb-12" id="dispFilters">
+        <button class="btn btn-primary btn-sm" data-disp="全部" onclick="dispFilter('全部')">全部</button>
+        <button class="btn btn-outline btn-sm" data-disp="自主离院" onclick="dispFilter('自主离院')">自主离院</button>
+        <button class="btn btn-outline btn-sm" data-disp="住院" onclick="dispFilter('住院')">住院</button>
+        <button class="btn btn-outline btn-sm" data-disp="转院" onclick="dispFilter('转院')">转院</button>
+        <button class="btn btn-outline btn-sm" data-disp="死亡" onclick="dispFilter('死亡')">死亡</button>
+        <button class="btn btn-outline btn-sm" data-disp="其他" onclick="dispFilter('其他')">其他</button>
+    </div>
+    <div class="card">
+        <div class="card-title"><span>患者转归情况（最近 200 条诊毕记录）</span></div>
+        <div id="dispTable"></div>
+    </div>
 </div>
 
 <!-- ============ 运营总览 ============ -->
@@ -143,7 +160,7 @@ function anaTab(t) {
     document.querySelectorAll('[data-ana-tab]').forEach(function (b) {
         b.className = 'btn btn-sm ' + (b.getAttribute('data-ana-tab') === t ? 'btn-primary' : 'btn-outline');
     });
-    ['overview', 'dept', 'doctor', 'custom'].forEach(function (p) {
+    ['overview', 'dept', 'doctor', 'custom', 'disposition'].forEach(function (p) {
         var el = document.getElementById('ana-pane-' + p);
         if (el) el.style.display = p === t ? '' : 'none';
     });
@@ -161,7 +178,49 @@ function anaLoad() {
     if (ANA_TAB === 'overview') loadOverview(r);
     else if (ANA_TAB === 'dept') loadDept(r);
     else if (ANA_TAB === 'doctor') loadDoctor(r);
+    else if (ANA_TAB === 'disposition') loadDisposition();
     else loadCustom();
+}
+
+/* ==================== 转归查询 ==================== */
+var DISP_FILTER = '全部';
+function dispFilter(t) {
+    DISP_FILTER = t;
+    document.querySelectorAll('#dispFilters [data-disp]').forEach(function (b) {
+        b.className = 'btn btn-sm ' + (b.getAttribute('data-disp') === t ? 'btn-primary' : 'btn-outline');
+    });
+    loadDisposition();
+}
+function loadDisposition() {
+    var needDetail = DISP_FILTER !== '全部' && DISP_FILTER !== '自主离院';
+    var detailHead = needDetail
+        ? ({ '住院': '住院病区', '转院': '接收医院', '死亡': '死亡原因', '其他': '其他转归情况' }[DISP_FILTER] || '补充信息')
+        : '';
+    Clinic.get('/api/admin?action=ana_disposition&type=' + encodeURIComponent(DISP_FILTER), null, {
+        onSuccess: function (j) {
+            var list = j.data.list || [];
+            var head =
+                '<div class="table-wrap"><table class="table"><thead><tr>' +
+                '<th>就诊时间</th><th>患者</th><th>门诊号</th><th>科室</th><th>医生</th>' +
+                '<th>离院方式</th>' +
+                (needDetail ? '<th>' + detailHead + '</th>' : '') +
+                '</tr></thead><tbody>';
+            var rows = list.map(function (r) {
+                return '<tr>' +
+                    '<td>' + (r.register_time || '') + '</td>' +
+                    '<td class="fw-600">' + (r.pname || '') + ' <span class="fs-12 text-muted">' + (r.gender || '') + '/' + (r.age_fmt || '') + '</span></td>' +
+                    '<td class="fs-12">' + (r.flow_no || '') + '</td>' +
+                    '<td>' + (r.dept_name || '') + '</td>' +
+                    '<td>' + (r.doctor_name || '') + '</td>' +
+                    '<td><span class="badge badge-primary">' + (r.disposition || '') + '</span></td>' +
+                    (needDetail ? '<td>' + (r.disposition_detail || '') + '</td>' : '') +
+                    '</tr>';
+            }).join('');
+            document.getElementById('dispTable').innerHTML =
+                head + rows + '</tbody></table></div>' +
+                (list.length ? '' : '<div class="empty"><div class="empty-ico">🧭</div>暂无符合条件的转归记录</div>');
+        },
+    });
 }
 
 /* ==================== 运营总览 ==================== */

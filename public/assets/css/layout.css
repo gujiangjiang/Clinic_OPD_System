@@ -358,8 +358,7 @@
 .ena-sec-title .ena-arrow { margin-left: auto; font-size: 10px; color: var(--text-muted); transition: transform .15s; }
 .ena-sec-title .ena-sum + .ena-arrow { margin-left: 2px; }
 
-/* 分区标题项目数徽章：文字后小胶囊数字（如 3 = 3 个项目），0 项时隐藏 */
-.ena-sec-title .ena-count {
+/* 分区标题项目数徽章：文字后小胶囊数字（如 3 = 3 个项目），0 项时隐藏 */.ena-sec-title .ena-count {
     flex-shrink: 0;
     min-width: 16px;
     padding: 0 5px;
@@ -372,6 +371,29 @@
     text-align: center;
     font-variant-numeric: tabular-nums;
 }
+
+/* 诊毕确认悬浮面板：锚定诊毕按钮下方，选择离院方式（转归） */
+.finish-pop {
+    position: absolute;
+    z-index: 300;
+    width: 230px;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-lg, 0 12px 32px rgba(15,23,42,.14));
+    padding: 12px;
+}
+.finish-opt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+}
+.finish-opt:hover { background: rgba(0,0,0,.04); }
 
 /* 分区标题右侧「＋」快捷添加入口（开单/诊断/诊断证明等，替代原右栏开单按钮） */
 .ena-sec-title .ena-add {

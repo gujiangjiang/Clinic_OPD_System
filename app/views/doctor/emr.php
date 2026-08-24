@@ -53,7 +53,7 @@ $patient = $row['patient'];
         <span class="fs-12 text-muted emr-top-status" id="saveStatus"></span>
         <div class="emr-top-actions">
             <button class="btn btn-primary btn-sm emr-write" onclick="Clinic.emr.save(false)">💾 保存</button>
-            <button class="btn btn-success btn-sm emr-write" onclick="Clinic.emr.save(true)">✅ 诊毕</button>
+            <button class="btn btn-success btn-sm emr-write" onclick="Clinic.emr.confirmFinish(this)">✅ 诊毕</button>
             <button class="btn btn-outline btn-sm emr-write" onclick="openTransfer()">↔️ 转科</button>
             <button class="btn btn-outline btn-sm" onclick="Clinic.emr.printRecord()">🖨️ 打印</button>
         </div>

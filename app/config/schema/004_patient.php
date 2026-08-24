@@ -9,7 +9,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 2,
+    'version' => 3,
     'tables' => array(
         'patients' => "CREATE TABLE IF NOT EXISTS patients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,7 +48,9 @@ return array(
             cashier_name TEXT,
             register_time TEXT,
             cancel_reason TEXT,
-            is_extra INTEGER DEFAULT 0
+            is_extra INTEGER DEFAULT 0,
+            disposition TEXT DEFAULT '',
+            disposition_detail TEXT DEFAULT ''
         )",
     ),
     'migrations' => array(
@@ -57,6 +59,11 @@ return array(
             "ALTER TABLE patients ADD COLUMN past_history_type TEXT DEFAULT ''",
             "ALTER TABLE patients ADD COLUMN past_history_detail TEXT DEFAULT ''",
             "ALTER TABLE patients ADD COLUMN allergies TEXT DEFAULT ''",
+        ),
+        // v3：诊毕转归（离院方式 + 补充信息：住院病区/接收医院/死亡原因/其他转归）
+        3 => array(
+            "ALTER TABLE registrations ADD COLUMN disposition TEXT DEFAULT ''",
+            "ALTER TABLE registrations ADD COLUMN disposition_detail TEXT DEFAULT ''",
         ),
     ),
     'seed' => array(),

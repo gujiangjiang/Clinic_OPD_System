@@ -383,5 +383,35 @@ function admin_part_analytics($action) {
         json_ok(array('range' => array('start' => $start, 'end' => $end), 'group_by' => $groupBy, 'metrics' => $metrics, 'rows' => $out));
     }
 
+    /* ==================== 转归查询（诊毕离院方式统计） ==================== */
+    if ($action === 'ana_disposition') {
+        $type = trim((string)get('type', '全部'));
+        $sql = 'SELECT r.register_time, r.flow_no, r.dept_name, r.doctor_name, r.disposition, r.disposition_detail, ' .
+            'p.name AS pname, p.gender, p.birth_date ' .
+            'FROM registrations r JOIN patients p ON p.patient_no=r.patient_no ' .
+            "WHERE r.status='finished' AND r.disposition<>''";
+        $params = array();
+        if ($type !== '' && $type !== '全部') {
+            $sql .= ' AND r.disposition=?';
+            $params[] = $type;
+        }
+        $sql .= ' ORDER BY r.id DESC LIMIT 200';
+        $rows = array();
+        foreach (DB::q('patient', $sql, $params) as $r) {
+            $rows[] = array(
+                'register_time' => (string)$r['register_time'],
+                'flow_no' => (string)$r['flow_no'],
+                'dept_name' => (string)$r['dept_name'],
+                'doctor_name' => (string)$r['doctor_name'],
+                'disposition' => (string)$r['disposition'],
+                'disposition_detail' => (string)$r['disposition_detail'],
+                'pname' => (string)$r['pname'],
+                'gender' => (string)$r['gender'],
+                'age_fmt' => age_format($r['birth_date'], $r['register_time']),
+            );
+        }
+        json_ok(array('list' => $rows));
+    }
+
     json_fail('未知操作');
 }

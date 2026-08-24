@@ -578,7 +578,21 @@ switch ($action) {
 
         // D. 诊毕：更新就诊状态
         if ($finish) {
-            DB::exec('patient', 'UPDATE registrations SET status=?, payment_time=COALESCE(payment_time,?) WHERE id=?', array('finished', now_str(), $visitId));
+            // 诊毕转归：离院方式必选；非「自主离院」必须填写对应补充信息
+            $disposition = trim((string)post('disposition', ''));
+            $dispDetail = trim((string)post('disposition_detail', ''));
+            $dispAllow = array('自主离院', '住院', '转院', '死亡', '其他');
+            if (!in_array($disposition, $dispAllow, true)) {
+                json_fail('请选择离院方式（自主离院/住院/转院/死亡/其他）');
+            }
+            $dispNeed = array('住院' => '住院病区', '转院' => '接收医院名称', '死亡' => '死亡原因', '其他' => '其他转归情况');
+            if ($disposition === '自主离院') {
+                $dispDetail = '';
+            } elseif ($dispDetail === '') {
+                json_fail('请填写' . $dispNeed[$disposition]);
+            }
+            DB::exec('patient', 'UPDATE registrations SET status=?, disposition=?, disposition_detail=?, payment_time=COALESCE(payment_time,?) WHERE id=?',
+                array('finished', $disposition, $dispDetail, now_str(), $visitId));
             json_ok(array('finished' => 1, 'record_id' => $recordId), '病历已保存并诊毕');
         }
         json_ok(array('finished' => 0, 'record_id' => $recordId), '病历已保存');

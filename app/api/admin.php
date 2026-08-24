@@ -121,6 +121,7 @@ switch ($action) {
     case 'ana_dept':
     case 'ana_doctor':
     case 'ana_custom':
+    case 'ana_disposition':
         admin_part_analytics($action);
         break;
 
