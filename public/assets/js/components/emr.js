@@ -86,19 +86,20 @@ Clinic.emr = (function () {
 
     /* ==================== 总费用悬浮明细（横条徽章 hover） ==================== */
 
-    /** 汇总费用行：挂号费 + 全部有效开单（退费/取消不计）；圆点灰=未缴费、绿=已缴费 */
+    /** 汇总费用行：挂号费 + 全部有效开单「逐项」列出（退费/取消整单不计）；
+     *  圆点灰=未缴费、绿=已缴费 */
     function buildFeeRows() {
-        var typeNames = { lab: '检验', imaging: '检查', procedure: '处置', prescription: '处方' };
         var rows = [];
         var total = 0;
         var regFee = (DATA && DATA.visit ? parseFloat(DATA.visit.fee) : 0) || 0;
         if (regFee > 0) rows.push({ st: 'paid', name: '挂号费', amt: regFee });
         (ORDERS || []).forEach(function (o) {
             if (o.status === 'refunded' || o.status === 'cancelled') return;
-            var names = (o.items || []).map(function (i2) { return i2.item_name; }).join('、');
-            var amt = parseFloat(o.total_amount) || 0;
-            total += amt;
-            rows.push({ st: o.status, name: (typeNames[o.order_type] || '开单') + '：' + names, amt: amt });
+            (o.items || []).forEach(function (i2) {
+                var amt = (parseFloat(i2.price) || 0) * (parseFloat(i2.quantity) || 1);
+                total += amt;
+                rows.push({ st: i2.status || o.status, name: i2.item_name, amt: amt });
+            });
         });
         total += regFee;
         return { rows: rows, total: total };
