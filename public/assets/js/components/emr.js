@@ -294,11 +294,7 @@ Clinic.emr = (function () {
                 '<div class="doc-body-sign">医生：' + r.doctor_name + '</div>' +
                 '<div id="roAfter"></div>' +
                 '</div>' +
-                '<div class="doc-footer">' +
-                '  <span class="doc-rec-time" id="docRecTime" style="' + ((r.created_at || r.updated_at) ? '' : 'display:none') + '">记录时间：' + (r.created_at || r.updated_at || '') + '</span>' +
-                '  <span class="doc-doctor">医生：' + r.doctor_name +
-                (r.doctor_emp ? '（工号 ' + r.doctor_emp + '）' : '') +
-                (r.doctor_title ? ' ｜ ' + r.doctor_title : '') + '</span>' +
+                '<div class="doc-footer" style="justify-content:flex-end">' +
                 '  <span class="doc-saved-at" id="docSavedAt" style="' + (r.updated_at ? '' : 'display:none') + '">最近保存：' + (r.updated_at || '') + '</span>' +
                 '</div>';
         }
@@ -1244,11 +1240,6 @@ Clinic.emr = (function () {
                     renderLeftNav();
                     // 记录时间 = 首次保存时间（created_at），后续多次保存不变；
                     // 最近保存 = 最近一次保存时间（updated_at），每次保存刷新，仅供医师参考
-                    var rt = document.getElementById('docRecTime');
-                    if (rt) {
-                        rt.textContent = '记录时间：' + DATA.record.created_at;
-                        rt.style.display = '';
-                    }
                     var st = document.getElementById('docSavedAt');
                     if (st) {
                         st.textContent = '最近保存：' + now;
