@@ -6,7 +6,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 3,
+    'version' => 4,
     'tables' => array(
         'settings' => "CREATE TABLE IF NOT EXISTS settings (
             skey TEXT PRIMARY KEY,
@@ -15,6 +15,7 @@ return array(
         'messages' => "CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             from_name TEXT,
+            from_user_id INTEGER DEFAULT 0,
             to_role TEXT,
             to_user_id INTEGER,
             title TEXT,
@@ -58,6 +59,10 @@ return array(
         // 如：在维护药品[青霉素]时快捷创建皮试处置）
         3 => array(
             "ALTER TABLE audits ADD COLUMN creation_source TEXT DEFAULT ''",
+        ),
+        // v4：站内消息增加发送者 id（用户互发消息限流与追溯）
+        4 => array(
+            "ALTER TABLE messages ADD COLUMN from_user_id INTEGER DEFAULT 0",
         ),
     ),
     'seed' => array(),

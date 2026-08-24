@@ -9,7 +9,10 @@ Router::title('站内消息');
 ?>
 <div class="page-head">
     <div><div class="page-title">💬 站内消息</div><div class="page-desc">系统内所有业务提醒与打印提醒</div></div>
-    <button class="btn btn-outline btn-sm" onclick="loadMsgs()">刷新</button>
+    <div class="flex gap-8">
+        <button class="btn btn-primary btn-sm" onclick="openSendMsg()">✉️ 发送消息</button>
+        <button class="btn btn-outline btn-sm" onclick="loadMsgs()">刷新</button>
+    </div>
 </div>
 <div class="card" id="msgBox"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
@@ -41,7 +44,9 @@ function loadMsgs() {
                     var isPatient = m.msg_type === 'patient';
                     var typeBadge = isPatient
                         ? '<span class="msg-type msg-type-patient">患者</span>'
-                        : '<span class="msg-type msg-type-system">系统</span>';
+                        : (m.msg_type === 'user'
+                            ? '<span class="msg-type msg-type-user">用户</span>'
+                            : '<span class="msg-type msg-type-system">系统</span>');
                     var who = isPatient && m.patient_name
                         ? '<span class="msg-who">👤 ' + m.patient_name + '</span>' : '';
                     var jump = '';
@@ -141,6 +146,105 @@ function clearAll() {
             },
         });
     }, { title: '一键清空', okText: '全部清空' });
+}
+
+/* ==================== 发送消息 ====================
+ * 管理员：三级分类多选（全院 → 角色组 → 个人），全院/角色勾选自动联动全选
+ * 普通用户：同结构单选（仅可选一位用户），后端 30 秒限流 */
+var SEND_GROUPS = [];
+var SEND_ADMIN = false;
+function openSendMsg() {
+    Clinic.get('/api/message?action=contacts', null, {
+        onSuccess: function (json) {
+            SEND_GROUPS = json.data.groups || [];
+            SEND_ADMIN = !!json.data.is_admin;
+            var pickType = SEND_ADMIN ? 'checkbox' : 'radio';
+            var tree = SEND_ADMIN
+                ? '<label class="send-grp-head"><input type="checkbox" id="smAll" onchange="smToggleAll(this.checked)"> <b>全院（全部用户）</b></label>' +
+                  SEND_GROUPS.map(function (g) {
+                      return '<div class="send-grp">' +
+                          '<label class="send-grp-head"><input type="checkbox" class="sm-role" data-role="' + g.role + '" onchange="smToggleRole(\'' + g.role + '\', this.checked)"> <b>' + g.role_name + '</b>（' + g.users.length + ' 人）</label>' +
+                          '<div class="send-users">' + g.users.map(function (u2) {
+                              return '<label class="send-user"><input type="' + pickType + '" name="smUser" class="sm-user" data-role="' + g.role + '" value="' + u2.id + '" onchange="smUserChange(this)">' + u2.name +
+                                  ' <span class="fs-12 text-muted">' + (u2.emp_no || '') + '</span></label>';
+                          }).join('') + '</div></div>';
+                  }).join('')
+                : SEND_GROUPS.map(function (g) {
+                      return '<div class="send-grp">' +
+                          '<div class="send-grp-head"><b>' + g.role_name + '</b>（' + g.users.length + ' 人）</div>' +
+                          '<div class="send-users">' + g.users.map(function (u2) {
+                              return '<label class="send-user"><input type="radio" name="smUser" value="' + u2.id + '">' + u2.name +
+                                  ' <span class="fs-12 text-muted">' + (u2.emp_no || '') + '</span></label>';
+                          }).join('') + '</div></div>';
+                  }).join('');
+            var html =
+                '<div class="send-msg-box">' +
+                '  <div class="fs-13 text-muted mb-8">' + (SEND_ADMIN ? '可多选群发（全院 / 按角色 / 指定用户）' : '仅可发送给一位用户，两次发送间隔 30 秒') + '</div>' +
+                '  <div class="send-tree">' + tree + '</div>' +
+                '  <div class="form-group mt-12"><label class="form-label">标题</label>' +
+                '    <input class="input" id="smTitle" maxlength="50" placeholder="请输入标题（50 字以内）"></div>' +
+                '  <div class="form-group"><label class="form-label">内容</label>' +
+                '    <textarea class="textarea" id="smContent" rows="4" maxlength="500" placeholder="请输入内容（500 字以内）"></textarea></div>' +
+                '</div>';
+            Clinic.modal.open(html, {
+                title: '✉️ 发送消息',
+                size: 'modal-lg',
+                buttons: [
+                    { text: '取消', cls: 'btn-outline' },
+                    { text: '发送', cls: 'btn-primary', autoClose: false, onClick: doSendMsg },
+                ],
+            });
+        },
+    });
+}
+function smToggleAll(checked) {
+    document.querySelectorAll('.send-msg-box .sm-role, .send-msg-box .sm-user').forEach(function (c) { c.checked = checked; });
+    document.querySelectorAll('.send-msg-box .sm-role').forEach(function (c) { c.indeterminate = false; });
+}
+function smToggleRole(role, checked) {
+    document.querySelectorAll('.send-msg-box .sm-user[data-role="' + role + '"]').forEach(function (c) { c.checked = checked; });
+}
+function smUserChange() {
+    // 角色组复选框联动：全选=勾选 / 部分选=半选态 / 全不选=空
+    document.querySelectorAll('.send-msg-box .sm-role').forEach(function (rc) {
+        var role = rc.getAttribute('data-role');
+        var users = document.querySelectorAll('.send-msg-box .sm-user[data-role="' + role + '"]');
+        var n = 0; users.forEach(function (u2) { if (u2.checked) n++; });
+        rc.checked = n === users.length;
+        rc.indeterminate = n > 0 && n < users.length;
+    });
+    // 任一个人勾选 → 取消全院主勾选（避免语义冲突）
+    var anyUser = document.querySelector('.send-msg-box .sm-user:checked');
+    var all = document.getElementById('smAll');
+    if (all && anyUser) { all.checked = false; all.indeterminate = false; }
+}
+function doSendMsg() {
+    var title = document.getElementById('smTitle').value.trim();
+    var content = document.getElementById('smContent').value.trim();
+    if (!title) { Clinic.toast.warning('请填写标题'); return; }
+    if (!content) { Clinic.toast.warning('请填写内容'); return; }
+    var ids = [];
+    if (SEND_ADMIN) {
+        document.querySelectorAll('.send-msg-box .sm-user:checked').forEach(function (c) { ids.push(parseInt(c.value, 10)); });
+        if (!ids.length) { Clinic.toast.warning('请勾选接收者（全院 / 角色组 / 个人）'); return; }
+    } else {
+        var r = document.querySelector('.send-msg-box input[name="smUser"]:checked');
+        if (!r) { Clinic.toast.warning('请选择一位接收用户'); return; }
+        ids.push(parseInt(r.value, 10));
+    }
+    Clinic.ajax('/api/message', {
+        action: 'send',
+        title: title,
+        content: content,
+        recipients: JSON.stringify(ids),
+    }, {
+        onSuccess: function (json) {
+            Clinic.modal.close();
+            Clinic.toast.success(json.msg);
+            loadMsgs();
+            Clinic.notify.refresh();
+        },
+    });
 }
 loadMsgs();
 </script>

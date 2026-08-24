@@ -73,6 +73,55 @@ switch ($action) {
         json_ok(array(), '已全部标记为已读');
         break;
 
+    /* ---------------- 发送消息：通讯录（按角色分组，排除自己，仅启用账号） ---------------- */
+    case 'contacts':
+        $rows = DB::q('user', 'SELECT id, name, emp_no, role FROM users WHERE status=1 AND id<>? ORDER BY role, name', array($u['id']));
+        $groups = array();
+        foreach ($rows as $r) {
+            if (!isset($groups[$r['role']])) {
+                $groups[$r['role']] = array('role' => $r['role'], 'role_name' => Auth::roleName($r['role']), 'users' => array());
+            }
+            $groups[$r['role']]['users'][] = array('id' => (int)$r['id'], 'name' => $r['name'], 'emp_no' => (string)$r['emp_no']);
+        }
+        json_ok(array('groups' => array_values($groups), 'is_admin' => $u['role'] === 'admin'));
+        break;
+
+    /* ---------------- 发送消息（管理员可多选群发；普通用户单选 + 30 秒限流） ---------------- */
+    case 'send':
+        $title = trim((string)post('title', ''));
+        $content = trim((string)post('content', ''));
+        $recipients = json_decode((string)post('recipients', '[]'), true);
+        if ($title === '' || mb_strlen($title) > 50) json_fail('请填写标题（50 字以内）');
+        if ($content === '' || mb_strlen($content) > 500) json_fail('请填写内容（500 字以内）');
+        if (!is_array($recipients) || !count($recipients)) json_fail('请选择接收者');
+
+        $recipients = array_values(array_unique(array_map('intval', $recipients)));
+        // 普通用户：仅允许单选 + 30 秒限流（后端强制，防技术手段批量发送）
+        if ($u['role'] !== 'admin') {
+            if (count($recipients) > 1) json_fail('每次只能发送给一位用户');
+            $last = DB::val('core', "SELECT created_at FROM messages WHERE from_user_id=? AND msg_type='user' ORDER BY id DESC LIMIT 1", array($u['id']));
+            if ($last !== '' && $last !== null) {
+                $elapsed = time() - strtotime($last);
+                if ($elapsed < 30) {
+                    json_fail('发送太频繁，请 ' . (30 - $elapsed) . ' 秒后再试');
+                }
+            }
+        }
+        // 校验收件人（启用账号且非本人）
+        $ph = implode(',', array_fill(0, count($recipients), '?'));
+        $params = $recipients;
+        $params[] = $u['id'];
+        $valid = array();
+        foreach (DB::q('user', "SELECT id, role FROM users WHERE status=1 AND id<>? AND id IN ($ph)", $params) as $r) {
+            $valid[(int)$r['id']] = $r['role'];
+        }
+        if (!count($valid)) json_fail('接收者不存在或不可用');
+        foreach ($valid as $uid => $role) {
+            send_msg($role, $uid, $title, $content, '', '', array('msg_type' => 'user'));
+        }
+        json_ok(array('count' => count($valid)), '消息已发送给 ' . count($valid) . ' 位用户');
+        break;
+
     default:
         json_fail('未知操作');
 }
