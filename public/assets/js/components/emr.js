@@ -372,7 +372,7 @@ Clinic.emr = (function () {
 
     /* ==================== 多医生接诊：前序病历只读查看区 ====================
      * 前序医生的病历全只读展示（灰色只读背景、不可编辑），顶部标注
-     * 「接诊自：XX医生，就诊时间」；当前医生只能在下方新建续写文书。
+     * 「记录医生：XX医生，就诊时间」；当前医生只能在下方新建续写文书。
      * 展示文本格式与后端 emr_formatter.php 同规则（所见即所得）。 */
 
     /** HTML 转义（防 XSS：病历内容含医生手输文本） */
@@ -484,7 +484,9 @@ Clinic.emr = (function () {
         var primary = rec.primary_diagnosis
             ? '<span class="fs-12 text-muted">主诊断：' + escHtml((rec.primary_icd10 || '') + ' ' + rec.primary_diagnosis) + '</span>'
             : '';
-        var who = isProgress ? '✍️ 病历续写 · 接诊自：' : '📋 接诊自：';
+        // 只读归档表述：徽标已标明首诊/续写，这里仅中性标注记录医生，
+        // 不再使用「接诊自」这类仅适用于活跃续写场景的承接性措辞
+        var who = '记录医生：';
         return '<div class="prev-record-wrap-sec emr-record-readonly" id="recSeg' + rec.id + '">' +
             '<div class="prev-record-head">' +
             '<span class="fw-600">' + who + escHtml(rec.doctor_name) +
