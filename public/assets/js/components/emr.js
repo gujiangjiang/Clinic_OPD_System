@@ -339,21 +339,18 @@ Clinic.emr = (function () {
                 '</div>';
         } else {
             // 编辑态骨架：续写定位锚点 + 本人文书右下角签名 + 页脚（记录时间 | 医生 | 最近保存）
-            // 续写文书：在前序只读段与本人编辑器之间显示承接头
-            // （虚线分隔 + 记录医生 ｜ 记录时间 ｜ 病历续写徽标），明示当前处于续写场景
-            // 与上方只读段头同款式：记录医生 ｜ 记录时间 ｜ 类型徽标
+            // 灰色署名条幅：编辑模式统一显示（首诊/续写一致，与只读段头同款式）——
+            // 记录医生 ｜ 记录时间 ｜ 类型徽标（首诊=灰徽 / 续写=蓝徽+虚线分隔）
             var contHead = '';
-            if (isProgress) {
-                contHead =
-                    '<div class="emr-cont-divider"></div>' +
-                    '<div class="prev-record-head">' +
-                    '<span class="fw-600">记录医生：' + escHtml(r.doctor_name) +
-                    (r.doctor_title ? ' ' + escHtml(r.doctor_title) : '') +
-                    (r.doctor_emp ? ' （工号 ' + escHtml(r.doctor_emp) + '）' : '') + '</span>' +
-                    ((r.created_at || r.updated_at) ? '<span>记录时间：' + escHtml(r.created_at || r.updated_at) + '</span>' : '') +
-                    '<span class="badge badge-primary">病历续写</span>' +
-                    '</div>';
-            }
+            if (isProgress) contHead += '<div class="emr-cont-divider"></div>';
+            contHead +=
+                '<div class="prev-record-head">' +
+                '<span class="fw-600">记录医生：' + escHtml(r.doctor_name) +
+                (r.doctor_title ? ' ' + escHtml(r.doctor_title) : '') +
+                (r.doctor_emp ? ' （工号 ' + escHtml(r.doctor_emp) + '）' : '') + '</span>' +
+                ((r.created_at || r.updated_at) ? '<span>记录时间：' + escHtml(r.created_at || r.updated_at) + '</span>' : '') +
+                (isProgress ? '<span class="badge badge-primary">病历续写</span>' : '<span class="badge badge-gray">首诊</span>') +
+                '</div>';
             docHtml =
                 '<div class="emr-doc">' +
                 headHtml +
