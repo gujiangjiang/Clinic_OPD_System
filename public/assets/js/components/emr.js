@@ -16,6 +16,10 @@ window.Clinic = window.Clinic || {};
 Clinic.emr = (function () {
     /** 当前就诊数据缓存 */
     var DATA = null;
+
+    // 病历脏标记：编辑器 onChange 置位，保存成功/诊毕清除；
+    // beforeunload 据此拦截未保存关闭/跳转，防止数据丢失
+    var EMR_DIRTY = false;
     /** 已开项目缓存（病历正文 辅助检查/门诊处置 所见即所得展示用） */
     var ORDERS = [];
 
@@ -96,6 +100,7 @@ Clinic.emr = (function () {
             '        ' + (v.fee_type ? '<span class="badge badge-warning" style="margin-left:4px" title="费用类别">' + escHtml(v.fee_type) + '</span>' : '') +
             '        <span class="badge ' + (v.dept_type === 'emergency' ? 'badge-danger' : 'badge-primary') +
             '" style="margin-left:4px">' + (v.dept_type === 'emergency' ? '急诊' : '门诊') + '</span>' +
+            '        <span class="badge badge-warning" id="hdrTotal" style="display:none" title="总费用（挂号费 + 全部开单合计）"></span>' +
             '      </div>' +
             '      <div class="text-muted fs-13">患者ID：' + p.patient_id + ' ｜ 流水号：' + v.visit_no +
             ' ｜ ' + v.dept_name + ' 第' + String(v.visit_seq).padStart(3, 0) + '号</div>' +
@@ -333,6 +338,8 @@ Clinic.emr = (function () {
                 beforeVitals: vitalSec,
                 midNode: midNode,
                 mode: isProgress ? 'progress' : 'initial',
+                // 脏标记：任何编辑置位，保存成功/诊毕后清除（beforeunload 拦截用）
+                onChange: function () { EMR_DIRTY = true; },
             });
 
             // 他人文书只读段渲染（此刻已开项目列表未必就绪，loadOrders 成功后会再刷新一次）
@@ -974,6 +981,19 @@ Clinic.emr = (function () {
         setNavCount('cntProc', buckets.procedure.length);
         setNavCount('cntRx', rxOrders.length);
 
+        // 横条总费用徽章：挂号费 + 全部有效开单合计（退费/取消不计）
+        var totalFee = (DATA && DATA.visit ? parseFloat(DATA.visit.fee) : 0) || 0;
+        totalFee += sum.imaging + sum.lab + sum.procedure + sum.prescription;
+        var hdrTotal = document.getElementById('hdrTotal');
+        if (hdrTotal) {
+            if (totalFee > 0) {
+                hdrTotal.textContent = '总费用 ¥' + totalFee.toFixed(2);
+                hdrTotal.style.display = '';
+            } else {
+                hdrTotal.style.display = 'none';
+            }
+        }
+
         fillTypeNav('navImaging', buckets.imaging, '检查');
         fillTypeNav('navLab', buckets.lab, '检验');
         fillTypeNav('navProc', buckets.procedure, '处置');
@@ -1378,6 +1398,7 @@ Clinic.emr = (function () {
         Clinic.ajax('/api/record', data, {
             loading: true,
             onSuccess: function (j) {
+                EMR_DIRTY = false;   // 保存成功清除脏标记（诊毕跳转不再触发离开提醒）
                 document.getElementById('saveStatus').textContent = '已保存 ' + new Date().toLocaleTimeString();
                 // 同步本地缓存：保存成功后无需刷新页面，开检验/检查/处置/处方与打印病历立即生效
                 if (DATA) {
@@ -1769,6 +1790,15 @@ Clinic.emr = (function () {
 document.addEventListener('DOMContentLoaded', function () {
     if (document.getElementById('visitId')) {
         Clinic.emr.init();
+    }
+});
+
+/* 未保存离开拦截：病历有编辑未保存时，关闭/刷新/跳转给出浏览器确认 */
+window.addEventListener('beforeunload', function (e) {
+    if (EMR_DIRTY && DATA && DATA.visit && DATA.visit.status !== 'finished') {
+        e.preventDefault();
+        e.returnValue = '';   // Chrome/Edge/IE 必需；Firefox 读取返回值
+        return '';
     }
 });
 

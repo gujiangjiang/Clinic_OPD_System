@@ -353,6 +353,7 @@ switch ($action) {
                 'visit_no' => $visit['flow_no'],
                 'visit_seq' => (int)$visit['visit_seq'],
                 'fee_type' => (string)(isset($visit['fee_type']) ? $visit['fee_type'] : ''),   // 费用类别（自费/居民医保/职工医保/其他），横条徽章展示
+                'fee' => (float)(isset($visit['fee']) ? $visit['fee'] : 0),   // 挂号费（横条总费用徽章 = 挂号费 + 开单合计）
                 'status' => $visit['status'],   // 就诊状态：finished 表示已诊毕（前端据此将病历置为只读）
                 'created_at' => $visit['register_time'],
             ),
