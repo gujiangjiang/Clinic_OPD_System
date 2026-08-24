@@ -75,15 +75,12 @@ Clinic.emr = (function () {
      */
     function renderPatientCard(d) {
         var p = d.patient, v = d.visit;
-        // 诊断证明入口：已开具 → 点击打开只读预览模态框（打印取服务器存档数据）；
-        // 未开具 → 补开。两种就诊状态下的「已开具」文案均可点击。
+        // 诊断证明入口精简：已开具的状态展示统一由右侧大纲栏「诊断证明」分区承载，
+        // 横条不再重复显示「已开具诊断证明（点击查看）」字样；
+        // 仅保留「诊毕未开具」时的补开链接（只读态下左栏「＋」已被移除，此为唯一入口）
         var certHtml = '';
-        if (d.visit && d.visit.status === 'finished') {
-            certHtml = d.has_certificate
-                ? ' ｜ <a href="javascript:void(0)" onclick="Clinic.emr.certificateModal(\'' + d.visit.id + '\',\'诊断证明\')" class="text-success fw-600">已开具诊断证明（点击查看）</a>'
-                : ' ｜ <a href="javascript:void(0)" onclick="Clinic.emr.openCertificate()" class="fw-600">补开诊断证明</a>';
-        } else if (d.has_certificate) {
-            certHtml = ' ｜ <a href="javascript:void(0)" onclick="Clinic.emr.certificateModal(\'' + d.visit.id + '\',\'诊断证明\')" class="text-success fw-600" style="cursor:pointer">已开具诊断证明（点击查看）</a>';
+        if (d.visit && d.visit.status === 'finished' && !d.has_certificate) {
+            certHtml = ' ｜ <a href="javascript:void(0)" onclick="Clinic.emr.openCertificate()" class="fw-600">补开诊断证明</a>';
         }
         // 患者一栏只保留基本信息（就诊医生右上角已有展示，记录时间在病历文档左下角，均不在此重复）
         // 条形码位于病历文档页头右上角（与打印预览一致），不在此处显示
