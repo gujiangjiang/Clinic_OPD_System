@@ -1054,6 +1054,47 @@ Clinic.emr = (function () {
     }
 
     /**
+     * 诊断编辑悬浮窗（跟随鼠标）：点击病历中已添加的诊断弹出，
+     * 预填部位/备注/是否疑似，保存后即时持久化到本人文书
+     */
+    function openDiagEditPop(ev, idx) {
+        if (!diagEditable()) return;
+        var list = myDiags();
+        var d = list[idx];
+        if (!d) return;
+        closeDiagPop();
+        if (ev && ev.stopPropagation) ev.stopPropagation();
+        var pop = document.createElement('div');
+        pop.id = 'diagPop';
+        pop.className = 'finish-pop diag-pop';
+        pop.innerHTML =
+            '<div class="fs-13 mb-8">编辑：<b>' + escHtml(d.name) + '</b> <span class="fs-12 text-muted">' + escHtml(d.code || '') + '</span></div>' +
+            '<div class="form-group"><label class="form-label">部位（选填）</label><input class="input" id="dpPart" value="' + escHtml(d.part || '') + '" placeholder="如：左侧、右上肢"></div>' +
+            '<div class="form-group"><label class="form-label">备注（选填）</label><input class="input" id="dpNote" value="' + escHtml(d.note || '') + '" placeholder="如：中指挫擦伤"></div>' +
+            '<div class="form-group"><label class="form-label">是否疑似（选填）</label><select class="select" id="dpSus">' +
+            '<option value=""' + (d.suspected !== '是' ? ' selected' : '') + '>否</option>' +
+            '<option value="是"' + (d.suspected === '是' ? ' selected' : '') + '>是</option></select></div>' +
+            '<div class="flex gap-8">' +
+            '  <button type="button" class="btn btn-outline btn-sm" style="flex:1" id="dpeCancel">取消</button>' +
+            '  <button type="button" class="btn btn-primary btn-sm" style="flex:1" id="dpeSave">保存</button>' +
+            '</div>';
+        placeDiagPop(pop, ev);
+        pop.querySelector('#dpeCancel').addEventListener('click', closeDiagPop);
+        pop.querySelector('#dpeSave').addEventListener('click', function () {
+            var arr = myDiags().slice();
+            if (!arr[idx]) { closeDiagPop(); return; }
+            arr[idx] = {
+                code: arr[idx].code, name: arr[idx].name,
+                part: pop.querySelector('#dpPart').value.trim(),
+                note: pop.querySelector('#dpNote').value.trim(),
+                suspected: pop.querySelector('#dpSus').value,
+            };
+            closeDiagPop();
+            saveDiags(arr, '诊断已更新：' + arr[idx].name);
+        });
+    }
+
+    /**
      * 诊断添加悬浮窗（跟随鼠标）：搜索（名称/ICD10/拼音首字母）→ 选中后
      * 填写部位/备注/是否疑似 → 保存（写入本人诊断列表并即时持久化）
      */
@@ -1128,16 +1169,16 @@ Clinic.emr = (function () {
 
     /**
      * 诊断操作悬浮窗（跟随鼠标）：⭐ 设为主诊断 / ↑ 上移 / ↓ 下移。
-     * 操作基于聚合列表（不区分开单医生，支持跨医生交错排序）：
-     * 调整结果整表持久化到本人文书——他人诊断按其位置以引用副本并入，
-     * 仅作为排序载体，他人原始病历不受影响；主诊断点击不弹窗。
+     * 排序写入独立的 diag_order 存储（visit+医生维度）——实现跨医生全局
+     * 交错排序且**不引用、不改动任何人的诊断数据**；
+     * 全局首行即主诊断（点击主诊断行不弹窗）。
      */
-    var DIAG_ROWS = [];   // 侧边栏诊断行缓存（含聚合顺序与原始诊断对象）
+    var DIAG_ROWS = [];   // 侧边栏诊断行缓存（含显示顺序与原始诊断对象）
     function openDiagOpsPop(ev, idx) {
         var row = DIAG_ROWS[idx];
         if (!row) return;
-        // 主诊断点击不弹操作浮窗（已居首，无上移/主诊断诉求）
-        if (row.primary) return;
+        // 主诊断（全局首行）点击不弹操作浮窗
+        if (idx === 0) return;
         if (!diagEditable()) return;
         closeDiagPop();
         if (ev && ev.stopPropagation) ev.stopPropagation();
@@ -1152,26 +1193,41 @@ Clinic.emr = (function () {
             '<button type="button" class="btn btn-outline btn-sm btn-block mt-8" id="dopUp">↑ 上移</button>' +
             (isLast ? '' : '<button type="button" class="btn btn-outline btn-sm btn-block mt-8" id="dopDown">↓ 下移</button>');
         placeDiagPop(pop, ev);
-        var agg = DIAG_ROWS.map(function (x) { return x.dg; });
+        var keys = DIAG_ROWS.map(function (x) { return x.key; });
         pop.querySelector('#dopPrimary').addEventListener('click', function () {
-            var arr = agg.slice();
+            var arr = keys.slice();
             var hit = arr.splice(idx, 1)[0];
             arr.unshift(hit);
             closeDiagPop();
-            saveDiags(arr, '已设为主诊断：' + row.name);
+            saveDiagOrder(arr, '已设为主诊断：' + row.name);
         });
         pop.querySelector('#dopUp').addEventListener('click', function () {
-            var arr = agg.slice();
+            var arr = keys.slice();
             var t = arr[idx - 1]; arr[idx - 1] = arr[idx]; arr[idx] = t;
             closeDiagPop();
-            saveDiags(arr, '已上移：' + row.name);
+            saveDiagOrder(arr, '已上移：' + row.name);
         });
         var downBtn = pop.querySelector('#dopDown');
         if (downBtn) downBtn.addEventListener('click', function () {
-            var arr = agg.slice();
+            var arr = keys.slice();
             var t = arr[idx + 1]; arr[idx + 1] = arr[idx]; arr[idx] = t;
             closeDiagPop();
-            saveDiags(arr, '已下移：' + row.name);
+            saveDiagOrder(arr, '已下移：' + row.name);
+        });
+    }
+
+    /** 诊断全局排序持久化（独立存储，不触碰任何诊断数据） */
+    function saveDiagOrder(newKeys, okMsg) {
+        Clinic.ajax('/api/record', {
+            action: 'save_diag_order',
+            visit_id: document.getElementById('visitId').value,
+            ord_keys: JSON.stringify(newKeys),
+        }, {
+            onSuccess: function (j) {
+                if (DATA) DATA.diag_order = j.data.diag_order || newKeys;
+                renderLeftNav();
+                Clinic.toast.success(okMsg || j.msg);
+            },
         });
     }
 
@@ -1258,34 +1314,43 @@ Clinic.emr = (function () {
         }).join('') : '<div class="ena-empty">暂无病历文书</div>';
 
         // ---------- 3. 初步诊断（聚合：本人诊断顺序优先，其后他人诊断） ----------
-        // 全部行可点击弹排序操作浮窗（不区分开单医生——调整结果整表持久化到
-        // 本人文书，他人诊断自动以引用副本并入）；行内删除仅本人诊断
+        // 显示顺序 = 本人保存的全局排序（diag_order 独立存储，跨医生交错排序
+        // 且不引用任何诊断）；全部行可点击弹操作浮窗；行内删除仅本人诊断；
+        // 全局首行为主诊断（徽标 + 不弹浮窗 + 无删除按钮）
         var diagEl = document.getElementById('navDiags');
         var mineId3 = myDoctorId();
         var myList3 = (DATA && DATA.record && DATA.record.emr && DATA.record.emr.diagnoses) || [];
         var diagMap = {};
         var diagOrder = [];
-        var pushDiag = function (dg, mine, others, primary) {
+        var pushDiag = function (dg, mine, others) {
             if (!dg || !dg.name) return;
             var key = (dg.code || '') + '|' + dg.name;
             if (!diagMap[key]) {
-                diagMap[key] = { key: key, idx: diagOrder.length, code: dg.code || '', name: dg.name, dg: dg, mine: false, others: false, primary: false };
+                diagMap[key] = { key: key, idx: 0, code: dg.code || '', name: dg.name, dg: dg, mine: false, others: false };
                 diagOrder.push(diagMap[key]);
             }
             if (mine) diagMap[key].mine = true;
             if (others) diagMap[key].others = true;
-            if (primary) diagMap[key].primary = true;
         };
-        myList3.forEach(function (dg, di) { pushDiag(dg, true, false, di === 0); });
+        myList3.forEach(function (dg) { pushDiag(dg, true, false); });
         (DATA && DATA.records_history ? DATA.records_history : []).forEach(function (h) {
             if ((h.doctor_id || 0) === mineId3) return;
             ((h.emr && h.emr.diagnoses) || []).forEach(function (dg) { pushDiag(dg, false, true); });
         });
+        // 按本人保存的全局排序重排（未在排序中的键保持默认相对顺序追加在后）
+        var ordRank = {};
+        ((DATA && DATA.diag_order) || []).forEach(function (k, i) { ordRank[k] = i; });
+        diagOrder.sort(function (a, b) {
+            var ra = ordRank[a.key] === undefined ? 9999 : ordRank[a.key];
+            var rb = ordRank[b.key] === undefined ? 9999 : ordRank[b.key];
+            return ra - rb;
+        });
+        diagOrder.forEach(function (x, i) { x.idx = i; });
         DIAG_ROWS = diagOrder;
         diagEl.innerHTML = diagOrder.length ? diagOrder.map(function (x) {
             var quoted = x.mine && x.others;
-            // 主诊断行：显示「主诊断」徽标（不可删除，前后端双重拦截）
-            var tail = x.primary
+            // 全局首行 = 主诊断：徽标提醒、不弹操作浮窗、无删除按钮
+            var tail = x.idx === 0
                 ? '<span class="badge badge-primary" style="flex-shrink:0">主诊断</span>'
                 : (x.mine
                     ? '<span class="ena-del" title="删除该诊断" onclick="Clinic.emr.delDiag(event,' + x.idx + ')">🗑️</span>'
@@ -2124,6 +2189,7 @@ Clinic.emr = (function () {
         save: save,
         confirmFinish: confirmFinish,
         openDiagPop: openDiagPop,
+        openDiagEditPop: openDiagEditPop,
         openDiagOpsPop: openDiagOpsPop,
         delDiag: delDiag,
         openTemplates: openTemplates,

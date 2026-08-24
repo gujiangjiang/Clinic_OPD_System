@@ -332,6 +332,7 @@ switch ($action) {
         $certRow = DB::one('medical', 'SELECT cert_no, content, doctor_name, created_at FROM certificates WHERE visit_id=? ORDER BY id DESC', array($visitId));
 
         json_ok(array(
+            'diag_order' => diag_order_keys($visitId, $u['id']),   // 本人诊断聚合显示顺序（跨医生排序载体，独立存储）
             'patient' => array(
                 'patient_id' => $patient['patient_no'],
                 'birth_date' => $patient['birth_date'],
@@ -629,6 +630,30 @@ switch ($action) {
             $u['name'], now_str(),
         ));
         json_ok(array(), '生命体征已保存');
+        break;
+
+    /* ==================== 诊断排序保存（跨医生全局显示顺序，独立存储不引用） ==================== */
+    case 'save_diag_order':
+        $visitId = did(post('visit_id'));
+        if (!get_visit_row($visitId)) json_fail('就诊记录不存在');
+        $keys = json_decode((string)post('ord_keys', '[]'), true);
+        if (!is_array($keys)) json_fail('排序数据无效');
+        $clean = array();
+        foreach ($keys as $k) {
+            $k = trim((string)$k);
+            if ($k !== '' && count($clean) < 100 && !in_array($k, $clean, true)) $clean[] = $k;
+        }
+        $exist = (int)DB::val('medical', 'SELECT id FROM diag_orders WHERE visit_id=? AND doctor_id=?', array($visitId, $u['id']));
+        if ($exist > 0) {
+            $pdo2 = DatabaseManager::pdo('medical');
+            $pdo2->prepare('UPDATE diag_orders SET ord_keys=?, updated_at=? WHERE id=?')
+                ->execute(array(implode("\n", $clean), now_str(), $exist));
+        } else {
+            DB::insert('medical', 'INSERT INTO diag_orders(visit_id, doctor_id, ord_keys, updated_at) VALUES(?,?,?,?)', array(
+                $visitId, $u['id'], implode("\n", $clean), now_str(),
+            ));
+        }
+        json_ok(array('diag_order' => $clean), '诊断顺序已保存');
         break;
 
     /* ==================== 诊断列表即时保存（侧边栏调整：增删/排序/主诊断） ==================== */

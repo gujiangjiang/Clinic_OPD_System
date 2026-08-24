@@ -7,7 +7,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 6,
+    'version' => 7,
     'tables' => array(
         'records' => "CREATE TABLE IF NOT EXISTS records (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -99,6 +99,15 @@ return array(
             doctor_name TEXT,
             created_at TEXT
         )",
+        // 诊断排序（就诊+医生维度）：仅存聚合显示顺序键，不改动任何诊断数据
+        'diag_orders' => "CREATE TABLE IF NOT EXISTS diag_orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            visit_id INTEGER,
+            doctor_id INTEGER,
+            ord_keys TEXT DEFAULT '',
+            updated_at TEXT,
+            UNIQUE(visit_id, doctor_id)
+        )",
     ),
     'migrations' => array(
         // v2：旧库升级 —— records 增加初复诊字段（visit_type），默认初诊。
@@ -134,6 +143,17 @@ return array(
             "ALTER TABLE certificates ADD COLUMN chief_complaint TEXT DEFAULT ''",
             "ALTER TABLE certificates ADD COLUMN present_illness TEXT DEFAULT ''",
             "ALTER TABLE certificates ADD COLUMN initial_diagnosis TEXT DEFAULT ''",
+        ),
+        // v7：诊断排序表（跨医生全局显示顺序，独立存储不引用诊断）
+        7 => array(
+            "CREATE TABLE IF NOT EXISTS diag_orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                visit_id INTEGER,
+                doctor_id INTEGER,
+                ord_keys TEXT DEFAULT '',
+                updated_at TEXT,
+                UNIQUE(visit_id, doctor_id)
+            )",
         ),
     ),
     'seed' => array(),

@@ -168,6 +168,19 @@ function emr_obs_text($emr) {
     return (isset($emr['is_leave_hospital']) && $emr['is_leave_hospital'] === '是') ? '是' : '否';
 }
 
+/** 诊断聚合显示顺序键（visit+医生维度，跨医生排序载体；无记录返回空数组） */
+function diag_order_keys($visitId, $doctorId) {
+    $row = DB::one('medical', 'SELECT ord_keys FROM diag_orders WHERE visit_id=? AND doctor_id=?', array($visitId, $doctorId));
+    if (!$row || trim((string)$row['ord_keys']) === '') return array();
+    $keys = explode("\n", (string)$row['ord_keys']);
+    $out = array();
+    foreach ($keys as $k) {
+        $k = trim($k);
+        if ($k !== '') $out[] = $k;
+    }
+    return $out;
+}
+
 /**
  * 完整打印文本（按病历文书节顺序；供入库快照与打印预览复用）
  * @param array  $emr         结构化病历数据

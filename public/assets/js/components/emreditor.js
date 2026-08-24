@@ -499,7 +499,8 @@ Clinic.emrEditor = (function () {
         if (!f) return;
         f.innerHTML = DIAGS.length
             ? DIAGS.map(function (d, i) {
-                return '<span class="ef-diag-item" data-i="' + i + '">' + diagText(d) + '</span>';
+                // 点击已添加的诊断 → 弹出编辑悬浮窗（预填部位/备注/疑似）
+                return '<span class="ef-diag-item" data-i="' + i + '" onclick="Clinic.emr.openDiagEditPop(event,' + i + ');event.stopPropagation()">' + diagText(d) + '</span>';
             }).join('<span class="ef-diag-sep">，</span>')
             : '';
         // 「＋」显示在字段框（横线框）后侧、最后一个诊断之后（有诊断且可编辑时），
