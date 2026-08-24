@@ -153,10 +153,10 @@ Clinic.emrEditor = (function () {
         return s;
     }
 
-    /** 绑定字段交互事件（全选/退格保护/回车跳格/纯文本粘贴） */
+    /** 绑定字段交互事件（双击全选/退格保护/回车跳格/纯文本粘贴） */
     function bindFieldEvents(el) {
-        // 点击任意区域 → 全选该字段文字
-        el.addEventListener('click', function () {
+        // 双击 → 全选该字段文字（单击仅正常定位光标，符合常规输入习惯）
+        el.addEventListener('dblclick', function () {
             var range = document.createRange();
             range.selectNodeContents(el);
             var sel = window.getSelection();
