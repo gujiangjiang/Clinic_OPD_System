@@ -1132,17 +1132,21 @@ Clinic.emr = (function () {
     function openDiagOpsPop(ev, idx) {
         var row = DIAG_ROWS[idx];
         if (!row) return;
+        // 主诊断点击不弹操作浮窗（已居首，无上移/主诊断诉求）
+        if (row.primary) return;
         if (!diagEditable()) return;
         closeDiagPop();
         if (ev && ev.stopPropagation) ev.stopPropagation();
+        var isLast = idx === DIAG_ROWS.length - 1;
         var pop = document.createElement('div');
         pop.id = 'diagPop';
         pop.className = 'finish-pop diag-pop';
+        pop.style.width = '150px';
         pop.innerHTML =
-            '<div class="fs-13 mb-8"><b>' + escHtml(row.name) + '</b> <span class="fs-12 text-muted">' + escHtml(row.code) + '</span></div>' +
+            '<div class="fs-13 mb-8" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b>' + escHtml(row.name) + '</b></div>' +
             '<button type="button" class="btn btn-outline btn-sm btn-block" id="dopPrimary">⭐ 设为主诊断</button>' +
             '<button type="button" class="btn btn-outline btn-sm btn-block mt-8" id="dopUp">↑ 上移</button>' +
-            '<button type="button" class="btn btn-outline btn-sm btn-block mt-8" id="dopDown">↓ 下移</button>';
+            (isLast ? '' : '<button type="button" class="btn btn-outline btn-sm btn-block mt-8" id="dopDown">↓ 下移</button>');
         placeDiagPop(pop, ev);
         var agg = DIAG_ROWS.map(function (x) { return x.dg; });
         pop.querySelector('#dopPrimary').addEventListener('click', function () {
@@ -1160,8 +1164,8 @@ Clinic.emr = (function () {
             closeDiagPop();
             saveDiags(arr, '已上移：' + row.name);
         });
-        pop.querySelector('#dopDown').addEventListener('click', function () {
-            if (idx === DIAG_ROWS.length - 1) { Clinic.toast.info('已经是最后一个诊断'); return; }
+        var downBtn = pop.querySelector('#dopDown');
+        if (downBtn) downBtn.addEventListener('click', function () {
             var arr = agg.slice();
             var t = arr[idx + 1]; arr[idx + 1] = arr[idx]; arr[idx] = t;
             closeDiagPop();

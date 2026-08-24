@@ -518,6 +518,7 @@ Clinic.emrEditor = (function () {
         if (DIAGS.length && !READONLY) {
             var add = document.createElement('span');
             add.className = 'ef-diag-add';
+            add.textContent = '＋';
             add.title = '添加诊断';
             add.onclick = function (ev) { Clinic.emr.openDiagPop(ev); };
             f.insertAdjacentElement('afterend', add);
