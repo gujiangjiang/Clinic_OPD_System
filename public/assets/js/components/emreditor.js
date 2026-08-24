@@ -699,5 +699,10 @@ Clinic.emrEditor = (function () {
         setReadonly: setReadonly,
         diagText: diagText,
         setPrevDiagnoses: setPrevDiagnoses,
+        /** 外部快捷入口（左栏「＋」）：打开诊断选择弹窗，只读状态拦截并提示 */
+        openDiagPicker: function () {
+            if (READONLY) { Clinic.toast.info('当前病历为只读状态，无法添加诊断'); return; }
+            openDiagModal();
+        },
     };
 })();

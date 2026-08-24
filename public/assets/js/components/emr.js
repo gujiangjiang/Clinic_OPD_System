@@ -891,7 +891,8 @@ Clinic.emr = (function () {
             certEl.innerHTML = '<div class="ena-item" onclick=\"Clinic.emr.certificateModal(visitId.value, \'诊断证明\')\">' +
                 '<span>✅ 已开具（点击查看）</span></div>';
         } else {
-            certEl.innerHTML = '<div class="ena-item emr-write" onclick="Clinic.emr.openCertificate()">＋ 开具诊断证明</div>';
+            // 未开具时不再放正文入口，统一走分区标题右侧「＋」（emrNavAdd('cert')）
+            certEl.innerHTML = '<div class="ena-empty">暂未开具（点标题右侧＋开具）</div>';
         }
     }
 
@@ -921,6 +922,26 @@ Clinic.emr = (function () {
         if (!scroller) return;
         var y = target.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - 8;
         scroller.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    };
+
+    /** 左栏分区标题「＋」快捷添加入口：
+     *  检查/检验/处置/处方/诊断/诊断证明 → 复用原右栏开单与表单能力；
+     *  病历/知情同意书 → 暂为占位提示（后期完善）。
+     *  只读状态由各能力自行拦截（emr-write 隐藏 / 编辑器 READONLY 校验）。 */
+    window.emrNavAdd = function (type) {
+        if (!window.Clinic) return;
+        switch (type) {
+            case 'imaging': Clinic.order.open('imaging'); return;
+            case 'lab': Clinic.order.open('lab'); return;
+            case 'procedure': Clinic.order.open('procedure'); return;
+            case 'prescription': Clinic.order.open('prescription'); return;
+            case 'cert': Clinic.emr.openCertificate(); return;
+            case 'diags':
+                if (Clinic.emrEditor && Clinic.emrEditor.openDiagPicker) Clinic.emrEditor.openDiagPicker();
+                return;
+            default:
+                Clinic.toast.info(type === 'records' ? '添加病历功能建设中，敬请期待' : '添加知情同意书功能建设中，敬请期待');
+        }
     };
 
     /**

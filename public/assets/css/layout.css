@@ -336,6 +336,28 @@
 .ena-sec-title .ena-arrow { margin-left: auto; font-size: 10px; color: var(--text-muted); transition: transform .15s; }
 .ena-sec-title .ena-sum + .ena-arrow { margin-left: 2px; }
 
+/* 分区标题右侧「＋」快捷添加入口（开单/诊断/诊断证明等，替代原右栏开单按钮） */
+.ena-sec-title .ena-add {
+    margin-left: auto;
+    width: 17px;
+    height: 17px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--primary);
+    background: rgba(14,116,144,.12);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background .15s, transform .15s;
+}
+.ena-sec-title .ena-sum + .ena-add { margin-left: 2px; }
+.ena-sec-title .ena-add:hover { background: rgba(14,116,144,.28); transform: scale(1.12); }
+.ena-sec-title .ena-add + .ena-arrow { margin-left: 3px; }
+
 .ena-sec.collapsed .ena-arrow { transform: rotate(-90deg); }
 .ena-sec-body {
     padding: 0 4px 4px;

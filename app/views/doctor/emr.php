@@ -3,7 +3,8 @@
  * doctor/emr.php — 电子病历（医生看诊页）三栏式工作台
  * 说明：经典三栏视口布局（100vh 锁定）：
  *   左栏：固定全景大纲栏（病历节点/知情同意书/全部诊断/检查/检验/门诊处置/处方/诊断证明，
- *         分类金额汇总 + 缴费报告状态指示灯，点击弹出详情或定位），不随页面滚动；
+ *         分区标题右侧「＋」快捷添加入口（emrNavAdd）+ 分类金额汇总 + 缴费报告状态指示灯，
+ *         点击条目弹出详情或定位），不随页面滚动；
  *   中栏：Word 风格所见即所得病历编辑器（唯一独立滚动区）；
  *   右栏：固定看诊操作工具栏。
  * 原底部「已开具项目」模块已移除——其数据聚合进左侧大纲栏。
@@ -44,40 +45,40 @@ $patient = $row['patient'];
 <!-- ===== 三栏式工作区（左右锁定、中间独立滚动） ===== -->
 <div class="emr-workspace-layout">
 
-    <!-- ===== 左侧：全景大纲栏 ===== -->
+    <!-- ===== 左侧：全景大纲栏（分区标题右侧「＋」为快捷添加入口，见 emrNavAdd） ===== -->
     <aside class="emr-sidebar-left">
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">📋 病历节点<span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">📋 病历节点<span class="ena-add emr-write" title="添加病历" onclick="emrNavAdd('records');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navRecords"></div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">📝 知情同意书<span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">📝 知情同意书<span class="ena-add emr-write" title="添加知情同意书" onclick="emrNavAdd('consent');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navConsent">
-                <div class="ena-item" onclick="Clinic.toast.info('知情同意书功能建设中')">＋ 添加知情同意书</div>
+                <div class="ena-empty">暂无知情同意书（点标题右侧＋添加）</div>
             </div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">🔎 全部诊断<span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">🔎 全部诊断<span class="ena-add emr-write" title="添加诊断" onclick="emrNavAdd('diags');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navDiags"></div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">🩻 检查<span class="ena-sum" id="sumImaging"></span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">🩻 检查<span class="ena-sum" id="sumImaging"></span><span class="ena-add emr-write" title="开具检查" onclick="emrNavAdd('imaging');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navImaging"></div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">🧪 检验<span class="ena-sum" id="sumLab"></span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">🧪 检验<span class="ena-sum" id="sumLab"></span><span class="ena-add emr-write" title="开具检验" onclick="emrNavAdd('lab');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navLab"></div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">🩹 门诊处置<span class="ena-sum" id="sumProc"></span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">🩹 门诊处置<span class="ena-sum" id="sumProc"></span><span class="ena-add emr-write" title="开具处置" onclick="emrNavAdd('procedure');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navProc"></div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">💊 处方<span class="ena-sum" id="sumRx"></span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">💊 处方<span class="ena-sum" id="sumRx"></span><span class="ena-add emr-write" title="开具处方" onclick="emrNavAdd('prescription');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navRx"></div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">📄 诊断证明<span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">📄 诊断证明<span class="ena-add emr-write" title="开具诊断证明" onclick="emrNavAdd('cert');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navCert"></div>
         </div>
     </aside>
@@ -95,19 +96,14 @@ $patient = $row['patient'];
         </div>
     </div>
 
-    <!-- ===== 右侧：常用工具栏（固定不滚动） ===== -->
+    <!-- ===== 右侧：常用工具栏（固定不滚动） =====
+         说明：开检验/检查/处置/处方与诊断证明已迁移至左栏各分区标题「＋」快捷入口 -->
     <aside class="emr-sidebar-right">
         <div class="emr-toolbar-title">看诊操作</div>
-        <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.order.open('lab')">🧪 开检验</button>
-        <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.order.open('imaging')">🩻 开检查</button>
-        <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.order.open('procedure')">🩹 开处置</button>
-        <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.order.open('prescription')">💊 开处方</button>
-        <div class="emr-toolbar-divider"></div>
         <button class="btn btn-primary btn-sm emr-write" onclick="Clinic.emr.save(false)">💾 保存病历</button>
         <button class="btn btn-success btn-sm emr-write" onclick="Clinic.emr.save(true)">✅ 保存并诊毕</button>
         <div class="emr-toolbar-divider"></div>
         <button class="btn btn-outline btn-sm emr-write" onclick="openTransfer()">↔️ 转科</button>
-        <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.emr.openCertificate()">📄 诊断证明</button>
         <div class="emr-toolbar-divider"></div>
         <button class="btn btn-outline btn-sm" onclick="Clinic.emr.printRecord()">🖨️ 打印病历</button>
         <button class="btn btn-outline btn-sm" onclick="showPatientHistory('<?php echo e($patient['patient_no']); ?>')">📚 就诊历史</button>
