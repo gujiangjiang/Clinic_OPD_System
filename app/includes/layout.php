@@ -80,9 +80,12 @@ class Layout {
     public static function authPage($content) {
         $hosp = setting('hospital_name', '');
         $hosp2 = setting('hospital_name2', '');
-        // LOGO 以 base64 Data URI 内联显示：不暴露文件 URL，且不受页面层级影响
+        // LOGO 以 base64 Data URI 内联显示：不暴露文件 URL，且不受页面层级影响；
+        // 未设置时显示默认 LOGO（与系统主布局一致的 🏥 占位）
         $logoData = img_data(setting('logo', ''));
-        $logoImg = $logoData !== '' ? '<img src="' . e($logoData) . '" alt="LOGO" class="auth-logo">' : '';
+        $logoImg = $logoData !== ''
+            ? '<img src="' . e($logoData) . '" alt="LOGO" class="auth-logo">'
+            : '<span class="brand-default-logo">🏥</span>';
         // 品牌区：LOGO + 医院名称（第一名称大字/第二名称小字，两行左右两端对齐）
         $brandNames = '';
         if ($hosp !== '') $brandNames .= '<div class="brand-name">' . e($hosp) . '</div>';

@@ -8,11 +8,26 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 32px;   /* 品牌区与登录卡片间距，避免紧贴 */
     background:
         radial-gradient(1000px 500px at 80% -10%, var(--primary-soft), transparent 60%),
         radial-gradient(800px 400px at -10% 110%, var(--success-soft), transparent 60%),
         var(--bg);
     padding: 24px;
+}
+
+/* 默认 LOGO 占位（未设置医院 LOGO 时） */
+.auth-brand .brand-default-logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 34px;
+    line-height: 1;
+    background: var(--bg-soft);
+    flex-shrink: 0;
 }
 
 /* 登录卡片 */
