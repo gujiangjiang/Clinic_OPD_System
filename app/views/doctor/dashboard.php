@@ -85,7 +85,12 @@ function loadDepts() {
                 var hasSaved = false;
                 DEPT_LIST.forEach(function (d) { if (d.id === saved) hasSaved = true; });
                 if (hasSaved) pickDept(saved);
-                else openDeptPicker();
+                else {
+                    // 未选科室前列表区给出引导提示，避免加载圈圈一直转
+                    var pl0 = document.getElementById('patientList');
+                    if (pl0) pl0.innerHTML = '<div class="empty"><div class="empty-ico">🩺</div>请先选择科室后开始接诊</div>';
+                    openDeptPicker();
+                }
             }
         },
     });
