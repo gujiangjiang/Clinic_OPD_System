@@ -99,6 +99,8 @@ Clinic.emr = (function () {
             '    <div>' +
             '      <div class="fs-18 fw-700 emr-patient-name" onclick="' + editModal + '" title="点击修改患者信息">' + v.name +
             '        <span class="badge badge-gray" style="margin-left:8px">' + v.gender + ' / ' + (v.age_fmt || '') + '</span>' +
+            // 费用类别徽章（自费/居民医保/职工医保/其他），历史数据为空则不渲染
+            '        ' + (v.fee_type ? '<span class="badge badge-warning" style="margin-left:4px" title="费用类别">' + escHtml(v.fee_type) + '</span>' : '') +
             '        <span class="badge ' + (v.dept_type === 'emergency' ? 'badge-danger' : 'badge-primary') +
             '" style="margin-left:4px">' + (v.dept_type === 'emergency' ? '急诊' : '门诊') + '</span>' +
             '      </div>' +
