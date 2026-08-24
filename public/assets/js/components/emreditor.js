@@ -435,6 +435,11 @@ Clinic.emrEditor = (function () {
 
     /** 用数据填充全部字段 */
     function set(data) {
+        // 程序化填充不视为用户编辑：临时屏蔽 onChange——
+        // 末尾对既往史/过敏史下拉的合成 change（显隐同步）不应触发脏标记，
+        // 否则页面一加载 EMR_DIRTY 即为 true，闲置后刷新误弹离开提醒
+        var cb = onChange;
+        onChange = null;
         FIELDS.forEach(function (f) {
             var v = dig(data, f.path);
             if (f.type === 'text') {
@@ -451,6 +456,7 @@ Clinic.emrEditor = (function () {
             var typeSel = ROOT.querySelector('select[data-k="' + prefix + '.type"]');
             if (typeSel) typeSel.dispatchEvent(new Event('change'));
         });
+        onChange = cb;
     }
 
     /** 收集为结构化 JSON（空字段存空串；[] 括号不保存，仅内部文字） */
@@ -699,6 +705,7 @@ Clinic.emrEditor = (function () {
         setReadonly: setReadonly,
         diagText: diagText,
         setPrevDiagnoses: setPrevDiagnoses,
+        markDirty: markDirty,
         /** 外部快捷入口（左栏「＋」）：打开诊断选择弹窗，只读状态拦截并提示 */
         openDiagPicker: function () {
             if (READONLY) { Clinic.toast.info('当前病历为只读状态，无法添加诊断'); return; }

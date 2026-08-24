@@ -1601,6 +1601,9 @@ Clinic.emr = (function () {
             }
         });
         Clinic.emrEditor.set(cur);
+        // 模板/引用套用属于实质性内容变更：set() 已不再触发脏标记（程序化
+        // 填充豁免），此处显式置位，离开页面仍需提醒未保存
+        Clinic.emrEditor.markDirty();
     }
 
     /**
