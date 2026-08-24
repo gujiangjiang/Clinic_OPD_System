@@ -297,12 +297,27 @@ Clinic.emr = (function () {
                 '<div class="doc-body" id="docBody"></div>' +
                 '<div class="doc-body-sign">医生：' + r.doctor_name + '</div>' +
                 '<div id="roAfter"></div>' +
-                '</div>' +
-                '<div class="doc-footer" style="justify-content:flex-end">' +
-                '  <span class="doc-saved-at" id="docSavedAt" style="' + (r.updated_at ? '' : 'display:none') + '">最近保存：' + (r.updated_at || '') + '</span>' +
                 '</div>';
         }
         document.getElementById('emrCard').innerHTML = docHtml;
+
+        // 最近保存时间：纸张外独立胶囊徽章（不再贴在病历纸内部）。
+        // 自愈式创建：无论静态节点是否就绪（缓存/时序缺页），渲染时缺失即补建，
+        // 杜绝「节点不存在→静默不显示」；无保存记录时不展示。
+        var savedBadge = document.getElementById('docSavedBadge');
+        if (!savedBadge) {
+            var scroller = document.querySelector('.emr-main-editor-scroll');
+            if (scroller) {
+                savedBadge = document.createElement('div');
+                savedBadge.id = 'docSavedBadge';
+                savedBadge.className = 'doc-saved-badge';
+                scroller.appendChild(savedBadge);
+            }
+        }
+        if (savedBadge) {
+            savedBadge.textContent = r.updated_at ? '最近保存：' + r.updated_at : '';
+            savedBadge.style.display = r.updated_at ? '' : 'none';
+        }
 
         if (readOnly) {
             // 诊毕只读：全部文书以只读段展示（打印版式），不渲染编辑器
@@ -1272,7 +1287,7 @@ Clinic.emr = (function () {
                     renderLeftNav();
                     // 记录时间 = 首次保存时间（created_at），后续多次保存不变；
                     // 最近保存 = 最近一次保存时间（updated_at），每次保存刷新，仅供医师参考
-                    var st = document.getElementById('docSavedAt');
+                    var st = document.getElementById('docSavedBadge');
                     if (st) {
                         st.textContent = '最近保存：' + now;
                         st.style.display = '';

@@ -70,6 +70,8 @@ $patient = $row['patient'];
                     <div class="text-muted fs-13 mb-8">病历编辑器加载中…（医院名称与患者信息区域不可编辑）</div>
                 </div>
             </div>
+            <!-- 纸张外独立页脚徽章：最近保存时间（不参与打印，emr.js 更新显隐与文案） -->
+            <div id="docSavedBadge" class="doc-saved-badge" style="display:none"></div>
         </div>
 
         <!-- ===== 右侧：全景大纲栏（分区标题右侧「＋」为快捷添加入口，见 emrNavAdd） ===== -->

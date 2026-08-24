@@ -561,21 +561,6 @@
     font-size: 13px;
     margin-top: 10px;
 }
-.emr-doc .doc-footer {
-    margin-top: 18px;
-    padding-top: 12px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-    font-size: 13px;
-}
-.emr-doc .doc-rec-time {
-    font-size: 12px;
-    color: var(--text-muted);
-}
 .emr-doc .doc-doctor {
     font-weight: 600;
 }
@@ -752,13 +737,18 @@
     vertical-align: middle;
 }
 
-/* 页脚「最近保存」：仅编辑页展示的最近一次保存时间（不参与打印），
-   margin-left:auto 强制靠右对齐（无论左侧元素数量 / 显隐状态） */
-.emr-doc .doc-saved-at {
-    font-size: 12px;
+/* 病历纸张外独立页脚徽章「最近保存」：与病历纸分离，居中显示于
+   病历结尾下方（不参与打印）；仅编辑页展示最近一次保存时间 */
+.doc-saved-badge {
+    width: fit-content;
+    margin: 12px auto 0;
+    padding: 3px 14px;
+    border-radius: 999px;
+    background: var(--bg-soft, #f8fafc);
+    border: 1px solid var(--border);
     color: var(--text-muted);
-    margin-left: auto;
-    text-align: right;
+    font-size: 12px;
+    line-height: 1.6;
 }
 
 /* 他人文书只读段的医生签名：使用只读文字样式（灰色弱化），
