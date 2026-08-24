@@ -157,7 +157,9 @@ Clinic.emr = (function () {
             '  <div class="flex gap-12" style="align-items:center">' +
             '    <div class="emr-patient-avatar" onclick="' + historyModal + '" title="点击查看就诊历史">👤</div>' +
             '    <div>' +
-            '      <div class="fs-18 fw-700 emr-patient-name" onclick="' + editModal + '" title="点击修改患者信息">' + v.name +
+            '      <div class="fs-18 fw-700">' +
+            // 修改患者信息点击范围仅限姓名文字本身——避免误触费用类别/门诊/总费用徽章
+            '        <span class="emr-patient-name" onclick="' + editModal + '" title="点击修改患者信息">' + v.name + '</span>' +
             '        <span class="badge badge-gray" style="margin-left:8px">' + v.gender + ' / ' + (v.age_fmt || '') + '</span>' +
             // 费用类别徽章（自费/居民医保/职工医保/其他），历史数据为空则不渲染
             '        ' + (v.fee_type ? '<span class="badge badge-warning" style="margin-left:4px" title="费用类别">' + escHtml(v.fee_type) + '</span>' : '') +
