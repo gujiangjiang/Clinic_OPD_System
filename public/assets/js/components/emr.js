@@ -928,11 +928,14 @@ Clinic.emr = (function () {
         var certAdd = document.getElementById('certAddBtn');
         if (certAdd && certIssued) certAdd.remove();
         if (certIssued) {
-            // 条目格式：日期 时间 + 医生姓名靠右（与其他开单条目同款式）
+            // 条目格式与病历节点一致：日期 时间 科室 + 医生姓名靠右
+            // （无首/续标记；科室取就诊当前科室，证明随就诊归属）
             var cert = (DATA && DATA.certificate) || {};
-            var certTime = (cert.created_at || '').substring(0, 16);   // YYYY-MM-DD HH:MM
+            var certTime = (cert.created_at || '').substring(5, 16);   // MM-DD HH:MM
+            var certDept = (DATA.visit && DATA.visit.dept_name) || '';
             certEl.innerHTML = '<div class="ena-item" onclick=\"Clinic.emr.certificateModal(visitId.value, \'诊断证明\')\">' +
-                '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(certTime) + '</span>' +
+                '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+                escHtml(certTime) + ' ' + escHtml(certDept) + '</span>' +
                 '<span class="ena-sub">' + escHtml(cert.doctor_name || '') + '</span></div>';
         } else {
             // 未开具时不再放正文入口，统一走分区标题右侧「＋」（emrNavAdd('cert')）
@@ -1455,8 +1458,10 @@ Clinic.emr = (function () {
      * · 已开具 → 只读：概要含证明号/开具时间，医生建议只读，
      *   按钮显示为「打印」——打印内容始终由服务器 certificate_print
      *   从数据库重新渲染（前端只读区域仅作展示，改不了真实数据）。
+     * @param bool warnOnIssued 已开具时是否弹「已开具过」提醒——仅用于
+     *        「仍触发开具 / 补开动作」的场景；单纯点击查看不提示。
      */
-    function certificateModal(visitId, title, onIssued) {
+    function certificateModal(visitId, title, onIssued, warnOnIssued) {
         Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
             onSuccess: function (j) {
                 var r = j.data.record || {};
@@ -1501,7 +1506,9 @@ Clinic.emr = (function () {
 
                 /* ---- 已开具：查看 + 打印（打印取服务器存档数据） ---- */
                 if (issued) {
-                    Clinic.toast.warning('该次就诊已开具过诊断证明');
+                    // 仅「已开具仍触发开具 / 补开动作」时提醒重复；
+                    // 单纯查看已开具证明（右栏条目点击）不打扰
+                    if (warnOnIssued) Clinic.toast.warning('该次就诊已开具过诊断证明');
                     Clinic.modal.open(
                         summary +
                         '<div class="form-group"><label class="form-label">医生建议</label>' +
@@ -1580,7 +1587,9 @@ Clinic.emr = (function () {
             Clinic.toast.warning('请先在病历中完善主诉、现病史与初步诊断并保存，再开具诊断证明');
             return;
         }
-        certificateModal(visitId, '开具诊断证明');
+        // warnOnIssued=true：已开具仍触发开具动作（正常已被「＋」隐藏拦截，
+        // 此处为特殊手段强制打开的兜底提醒）
+        certificateModal(visitId, '开具诊断证明', null, true);
     }
 
     /**
@@ -1667,7 +1676,8 @@ function openTransfer() {
  * printHistoryCertificate：已开具时查看/再次打印
  * ============================================================ */
 function openHistoryCertificate(visitId) {
-    Clinic.emr.certificateModal(visitId, '补开诊断证明');
+    // warnOnIssued=true：补开动作遇到已开具的历史就诊 → 提醒重复
+    Clinic.emr.certificateModal(visitId, '补开诊断证明', null, true);
 }
 
 /* 查看已开具的诊断证明（弹窗打印预览，可再次打印） */
