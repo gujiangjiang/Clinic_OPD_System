@@ -939,12 +939,45 @@ Clinic.emr = (function () {
         }
         html += '<div class="fs-13 text-muted">申请单号：' + o.order_no + ' ｜ 开单医生：' + escHtml(o.doctor_name || '') + '</div>';
         if (it.report_id) {
+            // 已出报告：打印预览按钮 + 报告文字结果内联展示（异步填充）
             html += '<button type="button" class="btn btn-primary btn-sm mt-12" ' +
-                'onclick="Clinic.print.load(\'/api/print?action=report&report_id=' + it.report_id + '\')">📄 查看报告</button>';
+                'onclick="Clinic.print.load(\'/api/print?action=report&report_id=' + it.report_id + '\')">📄 查看报告（打印预览）</button>' +
+                '<div id="anaReportBox" class="mt-12 fs-13 text-muted">📄 报告结果加载中…</div>';
         } else if (o.order_type !== 'procedure') {
             html += '<div class="fs-12 text-muted mt-8">报告尚未出具，出具后可在此直接查看</div>';
         }
         html += '</div>';
+        if (it.report_id) {
+            Clinic.get('/api/doctor?action=report_detail&report_id=' + it.report_id, null, {
+                onSuccess: function (rj) {
+                    if (!rj.ok) return;
+                    var box = document.getElementById('anaReportBox');
+                    if (!box || !rj.data) return;
+                    var d2 = rj.data, h2 = '';
+                    if (d2.type === 'lab') {
+                        h2 = '<div class="fw-600 mb-4">🧾 检验指标明细</div>' +
+                            '<div class="table-wrap"><table class="table"><thead><tr>' +
+                            '<th>项目</th><th>结果</th><th>单位</th><th>参考范围</th><th>危急值</th></tr></thead><tbody>' +
+                            (d2.rows || []).map(function (r3) {
+                                return '<tr><td>' + escHtml(r3.name) + '</td>' +
+                                    '<td class="fw-600">' + escHtml(r3.value) + '</td>' +
+                                    '<td>' + escHtml(r3.unit || '-') + '</td>' +
+                                    '<td>' + escHtml(r3.range || '-') + '</td>' +
+                                    '<td>' + (r3.critical ? '<span class="text-danger">' + escHtml(r3.critical) + '</span>' : '-') + '</td></tr>';
+                            }).join('') +
+                            '</tbody></table></div>';
+                    } else {
+                        h2 = '<div class="fw-600 mb-4">🩻 影像报告</div>' +
+                            '<div class="mb-4"><b>影像所见：</b>' + escHtml(d2.findings || '-') + '</div>' +
+                            '<div><b>诊断结论：</b>' + escHtml(d2.conclusion || '-') + '</div>';
+                    }
+                    h2 += '<div class="fs-12 text-muted mt-4">执行/报告人：' + escHtml(d2.executor || '-') +
+                        ' ｜ ' + escHtml(d2.time || '') + '</div>';
+                    box.innerHTML = h2;
+                    box.className = 'mt-12 fs-13';
+                },
+            });
+        }
         // 右侧闭环追踪：与开单弹窗右侧流程完全一致（开单→缴费→登记→完成/药房发药）
         var steps;
         if (o.order_type === 'procedure') {
