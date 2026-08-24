@@ -1068,7 +1068,7 @@ Clinic.emr = (function () {
         pop.id = 'diagPop';
         pop.className = 'finish-pop diag-pop';
         pop.innerHTML =
-            '<div class="fs-13 mb-8">编辑：<b>' + escHtml(d.name) + '</b> <span class="fs-12 text-muted">' + escHtml(d.code || '') + '</span></div>' +
+            '<div class="fs-13 mb-8">编辑：<span class="text-muted">' + escHtml(d.code || '') + '</span> <b>' + escHtml(d.name) + '</b></div>' +
             '<div class="form-group"><label class="form-label">部位（选填）</label><input class="input" id="dpPart" value="' + escHtml(d.part || '') + '" placeholder="如：左侧、右上肢"></div>' +
             '<div class="form-group"><label class="form-label">备注（选填）</label><input class="input" id="dpNote" value="' + escHtml(d.note || '') + '" placeholder="如：中指挫擦伤"></div>' +
             '<div class="form-group"><label class="form-label">是否疑似（选填）</label><select class="select" id="dpSus">' +
@@ -1124,7 +1124,7 @@ Clinic.emr = (function () {
                         pop.querySelector('#dpRes').innerHTML = list.length
                             ? list.map(function (x) {
                                 return '<div class="diag-pop-item" data-code="' + escHtml(x.diagnosis_code) + '" data-name="' + escHtml(x.diagnosis_name) + '">' +
-                                    '<b>' + escHtml(x.diagnosis_name) + '</b><span class="fs-12 text-muted"> ' + escHtml(x.diagnosis_code) + '</span></div>';
+                                    '<span class="text-muted">' + escHtml(x.diagnosis_code) + '</span> <b>' + escHtml(x.diagnosis_name) + '</b></div>';
                             }).join('')
                             : '<div class="fs-12 text-muted" style="padding:8px 2px">未检索到匹配诊断</div>';
                     },
@@ -1357,7 +1357,8 @@ Clinic.emr = (function () {
                     : '');
             return '<div class="ena-item" onclick="Clinic.emr.openDiagOpsPop(event,' + x.idx + ')" style="cursor:pointer">' +
                 '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escHtml(x.name) + '">' +
-                escHtml(x.name) + (x.code ? ' <span class="text-muted">[' + escHtml(x.code) + ']</span>' : '') +
+                (x.code ? '<span class="text-muted">' + escHtml(x.code) + '</span> ' : '') +
+                escHtml(x.name) +
                 (quoted ? ' <span class="fs-11 text-muted">引用</span>' : '') +
                 '</span>' + tail + '</div>';
         }).join('') : '<div class="ena-empty">暂未开立诊断</div>';
