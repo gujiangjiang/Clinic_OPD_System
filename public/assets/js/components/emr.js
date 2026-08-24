@@ -1124,12 +1124,14 @@ Clinic.emr = (function () {
     }
 
     /**
-     * 诊断操作悬浮窗（右栏点击本人诊断）：设为主诊断 / 上移 / 下移
+     * 诊断操作悬浮窗（右栏点击诊断行，不区分开单医生）：
+     * ⭐ 设为主诊断 / ↑ 上移 / ↓ 下移——操作基于聚合列表，调整结果
+     * 整表持久化到本人文书（他人诊断自动以引用副本并入本人诊断列表）
      */
-    var DIAG_ROWS = [];   // 侧边栏诊断行缓存（openDiagOpsPop 按下标取行）
+    var DIAG_ROWS = [];   // 侧边栏诊断行缓存（含聚合顺序与原始诊断对象）
     function openDiagOpsPop(ev, idx) {
         var row = DIAG_ROWS[idx];
-        if (!row || !row.mine) return;
+        if (!row) return;
         if (!diagEditable()) return;
         closeDiagPop();
         if (ev && ev.stopPropagation) ev.stopPropagation();
@@ -1142,31 +1144,26 @@ Clinic.emr = (function () {
             '<button type="button" class="btn btn-outline btn-sm btn-block mt-8" id="dopUp">↑ 上移</button>' +
             '<button type="button" class="btn btn-outline btn-sm btn-block mt-8" id="dopDown">↓ 下移</button>';
         placeDiagPop(pop, ev);
-        var list = myDiags();
-        var pos = -1;
-        list.forEach(function (d, i) {
-            if ((d.code || '') === row.code && d.name === row.name) pos = i;
-        });
-        if (pos < 0) { closeDiagPop(); return; }
+        var agg = DIAG_ROWS.map(function (x) { return x.dg; });
         pop.querySelector('#dopPrimary').addEventListener('click', function () {
-            if (pos === 0) { Clinic.toast.info('该诊断已是主诊断'); return; }
-            var arr = list.slice();
-            var hit = arr.splice(pos, 1)[0];
+            if (idx === 0) { Clinic.toast.info('该诊断已是主诊断'); return; }
+            var arr = agg.slice();
+            var hit = arr.splice(idx, 1)[0];
             arr.unshift(hit);
             closeDiagPop();
             saveDiags(arr, '已设为主诊断：' + row.name);
         });
         pop.querySelector('#dopUp').addEventListener('click', function () {
-            if (pos === 0) { Clinic.toast.info('已经是第一个诊断'); return; }
-            var arr = list.slice();
-            var t = arr[pos - 1]; arr[pos - 1] = arr[pos]; arr[pos] = t;
+            if (idx === 0) { Clinic.toast.info('已经是第一个诊断'); return; }
+            var arr = agg.slice();
+            var t = arr[idx - 1]; arr[idx - 1] = arr[idx]; arr[idx] = t;
             closeDiagPop();
             saveDiags(arr, '已上移：' + row.name);
         });
         pop.querySelector('#dopDown').addEventListener('click', function () {
-            if (pos === list.length - 1) { Clinic.toast.info('已经是最后一个诊断'); return; }
-            var arr = list.slice();
-            var t = arr[pos + 1]; arr[pos + 1] = arr[pos]; arr[pos] = t;
+            if (idx === DIAG_ROWS.length - 1) { Clinic.toast.info('已经是最后一个诊断'); return; }
+            var arr = agg.slice();
+            var t = arr[idx + 1]; arr[idx + 1] = arr[idx]; arr[idx] = t;
             closeDiagPop();
             saveDiags(arr, '已下移：' + row.name);
         });
@@ -1254,36 +1251,37 @@ Clinic.emr = (function () {
                 '<span class="ena-sub">' + escHtml(r2.doctor_name) + '</span></div>';
         }).join('') : '<div class="ena-empty">暂无病历文书</div>';
 
-        // ---------- 3. 初步诊断（跨医生聚合去重） ----------
-        // 行规则：本人诊断可点击（弹排序操作窗）+ 行内删除；引用诊断（本人与他
-        // 人均有）显示单行并可删（仅删本人副本）；他人诊断只读展示
+        // ---------- 3. 初步诊断（聚合：本人诊断顺序优先，其后他人诊断） ----------
+        // 全部行可点击弹排序操作浮窗（不区分开单医生——调整结果整表持久化到
+        // 本人文书，他人诊断自动以引用副本并入）；行内删除仅本人诊断
         var diagEl = document.getElementById('navDiags');
         var mineId3 = myDoctorId();
+        var myList3 = (DATA && DATA.record && DATA.record.emr && DATA.record.emr.diagnoses) || [];
         var diagMap = {};
         var diagOrder = [];
+        var pushDiag = function (dg, mine, others) {
+            if (!dg || !dg.name) return;
+            var key = (dg.code || '') + '|' + dg.name;
+            if (!diagMap[key]) {
+                diagMap[key] = { key: key, idx: diagOrder.length, code: dg.code || '', name: dg.name, dg: dg, mine: false, others: false };
+                diagOrder.push(diagMap[key]);
+            }
+            if (mine) diagMap[key].mine = true;
+            if (others) diagMap[key].others = true;
+        };
+        myList3.forEach(function (dg) { pushDiag(dg, true, false); });
         (DATA && DATA.records_history ? DATA.records_history : []).forEach(function (h) {
-            ((h.emr && h.emr.diagnoses) || []).forEach(function (dg) {
-                if (!dg || !dg.name) return;
-                var key = (dg.code || '') + '|' + dg.name;
-                if (!diagMap[key]) {
-                    diagMap[key] = { key: key, idx: diagOrder.length, code: dg.code || '', name: dg.name, mine: false, others: false };
-                    diagOrder.push(diagMap[key]);
-                }
-                if ((h.doctor_id || 0) === mineId3) diagMap[key].mine = true;
-                else diagMap[key].others = true;
-            });
+            if ((h.doctor_id || 0) === mineId3) return;
+            ((h.emr && h.emr.diagnoses) || []).forEach(function (dg) { pushDiag(dg, false, true); });
         });
         DIAG_ROWS = diagOrder;
         diagEl.innerHTML = diagOrder.length ? diagOrder.map(function (x) {
             var quoted = x.mine && x.others;
-            var clickable = x.mine
-                ? ' onclick="Clinic.emr.openDiagOpsPop(event,' + x.idx + ')" style="cursor:pointer"'
-                : '';
             var delBtn = x.mine
                 ? '<span class="ena-del" title="删除该诊断" onclick="Clinic.emr.delDiag(event,' + x.idx + ')">🗑️</span>'
                 : '';
-            return '<div class="ena-item"' + clickable + '>' +
-                '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escHtml(x.name) + '">' +
+            return '<div class="ena-item" onclick="Clinic.emr.openDiagOpsPop(event,' + x.idx + ')" style="cursor:pointer">' +
+                '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escHtml(x.name) + '">' +
                 escHtml(x.name) + (x.code ? ' <span class="text-muted">[' + escHtml(x.code) + ']</span>' : '') +
                 (quoted ? ' <span class="fs-11 text-muted">引用</span>' : '') +
                 '</span>' + delBtn + '</div>';

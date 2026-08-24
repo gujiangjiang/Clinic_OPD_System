@@ -658,6 +658,7 @@ switch ($action) {
         $emr['diagnoses'] = $clean;
         $diagText = emr_diag_text($clean);
         $firstCode = (string)$clean[0]['code'];
+        $pdo = DatabaseManager::pdo('medical');
         // 结构化文书更新（诊断 + 主诊断投影）
         $pdo->prepare('UPDATE patient_records SET emr_data=?, primary_icd10=?, primary_diagnosis=? WHERE id=?')
             ->execute(array(json_encode($emr, JSON_UNESCAPED_UNICODE), $firstCode, $diagText, $pr['id']));
