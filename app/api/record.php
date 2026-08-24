@@ -662,9 +662,13 @@ switch ($action) {
         // 结构化文书更新（诊断 + 主诊断投影）
         $pdo->prepare('UPDATE patient_records SET emr_data=?, primary_icd10=?, primary_diagnosis=? WHERE id=?')
             ->execute(array(json_encode($emr, JSON_UNESCAPED_UNICODE), $firstCode, $diagText, $pr['id']));
-        // 旧镜像表同步（最新一行），保持历史兼容视图一致
-        $pdo->prepare('UPDATE records SET initial_diagnosis=?, primary_icd10=? WHERE id=(SELECT id FROM (SELECT id FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1) t)')
-            ->execute(array($diagText, $firstCode, $visitId, $u['id']));
+        // 旧镜像表同步（最新一行）：注意镜像表 ICD 列名为 diagnosis_code；
+        // 先查 id 再按 id 更新（避免 UPDATE 内子查询的兼容性问题）
+        $mirrorId = (int)DB::val('medical', 'SELECT id FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+        if ($mirrorId > 0) {
+            $pdo->prepare('UPDATE records SET initial_diagnosis=?, diagnosis_code=? WHERE id=?')
+                ->execute(array($diagText, $firstCode, $mirrorId));
+        }
         json_ok(array('diagnoses' => $clean), '诊断已更新');
         break;
 
