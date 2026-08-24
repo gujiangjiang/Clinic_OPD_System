@@ -395,6 +395,49 @@
 }
 .finish-opt:hover { background: rgba(0,0,0,.04); }
 
+/* 总费用悬浮明细面板（横条徽章 hover）：圆点区分缴费状态 + 项目名 + 金额 */
+.fee-pop {
+    position: absolute;
+    z-index: 300;
+    width: 270px;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-lg, 0 12px 32px rgba(15,23,42,.14));
+    padding: 10px 12px;
+}
+.fee-pop-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    padding: 4px 0;
+}
+.fee-pop-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.fee-pop-amt {
+    flex-shrink: 0;
+    color: var(--warning);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.fee-pop-total {
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid var(--border);
+    margin-top: 6px;
+    padding-top: 6px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--danger);
+    font-variant-numeric: tabular-nums;
+}
+
 /* 分区标题右侧「＋」快捷添加入口（开单/诊断/诊断证明等，替代原右栏开单按钮） */
 .ena-sec-title .ena-add {
     margin-left: auto;

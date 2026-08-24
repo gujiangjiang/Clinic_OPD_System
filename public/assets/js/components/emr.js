@@ -74,6 +74,69 @@ Clinic.emr = (function () {
         });
     }
 
+    /* 未保存离开拦截：病历有编辑未保存时，关闭/刷新/跳转给出浏览器确认
+     *（置于 IIFE 内部以访问模块级 EMR_DIRTY / DATA）*/
+    window.addEventListener('beforeunload', function (e) {
+        if (EMR_DIRTY && DATA && DATA.visit && DATA.visit.status !== 'finished') {
+            e.preventDefault();
+            e.returnValue = '';   // Chrome/Edge/IE 必需；Firefox 读取返回值
+            return '';
+        }
+    });
+
+    /* ==================== 总费用悬浮明细（横条徽章 hover） ==================== */
+
+    /** 汇总费用行：挂号费 + 全部有效开单（退费/取消不计）；圆点灰=未缴费、绿=已缴费 */
+    function buildFeeRows() {
+        var typeNames = { lab: '检验', imaging: '检查', procedure: '处置', prescription: '处方' };
+        var rows = [];
+        var total = 0;
+        var regFee = (DATA && DATA.visit ? parseFloat(DATA.visit.fee) : 0) || 0;
+        if (regFee > 0) rows.push({ st: 'paid', name: '挂号费', amt: regFee });
+        (ORDERS || []).forEach(function (o) {
+            if (o.status === 'refunded' || o.status === 'cancelled') return;
+            var names = (o.items || []).map(function (i2) { return i2.item_name; }).join('、');
+            var amt = parseFloat(o.total_amount) || 0;
+            total += amt;
+            rows.push({ st: o.status, name: (typeNames[o.order_type] || '开单') + '：' + names, amt: amt });
+        });
+        total += regFee;
+        return { rows: rows, total: total };
+    }
+
+    var feePopTimer = null;
+    function showFeePop(anchor) {
+        if (feePopTimer) { clearTimeout(feePopTimer); feePopTimer = null; }
+        hideFeePop();
+        var d = buildFeeRows();
+        if (!d.rows.length) return;
+        var pop = document.createElement('div');
+        pop.id = 'feePop';
+        pop.className = 'fee-pop';
+        pop.innerHTML = d.rows.map(function (r) {
+            var cls = r.st === 'open' ? 'gray' : 'green';   // 灰=未缴费，绿=已缴费
+            return '<div class="fee-pop-row">' +
+                '<span class="status-indicator ' + cls + '"></span>' +
+                '<span class="fee-pop-name" title="' + escHtml(r.name) + '">' + escHtml(r.name) + '</span>' +
+                '<span class="fee-pop-amt">¥' + r.amt.toFixed(2) + '</span></div>';
+        }).join('') +
+            '<div class="fee-pop-total"><span>合计</span><span>¥' + d.total.toFixed(2) + '</span></div>';
+        document.body.appendChild(pop);
+        var rect = anchor.getBoundingClientRect();
+        pop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+        pop.style.left = Math.max(8, rect.right + window.scrollX - 270) + 'px';
+        pop.addEventListener('mouseenter', function () { if (feePopTimer) { clearTimeout(feePopTimer); feePopTimer = null; } });
+        pop.addEventListener('mouseleave', hideFeePop);
+    }
+    function hideFeePop() {
+        if (feePopTimer) clearTimeout(feePopTimer);
+        feePopTimer = setTimeout(function () {
+            var pop = document.getElementById('feePop');
+            if (pop) pop.remove();
+            feePopTimer = null;
+        }, 180);
+    }
+
     /**
      * 渲染患者信息卡（不可编辑区域）
      */
@@ -100,7 +163,7 @@ Clinic.emr = (function () {
             '        ' + (v.fee_type ? '<span class="badge badge-warning" style="margin-left:4px" title="费用类别">' + escHtml(v.fee_type) + '</span>' : '') +
             '        <span class="badge ' + (v.dept_type === 'emergency' ? 'badge-danger' : 'badge-primary') +
             '" style="margin-left:4px">' + (v.dept_type === 'emergency' ? '急诊' : '门诊') + '</span>' +
-            '        <span class="badge badge-warning" id="hdrTotal" style="display:none" title="总费用（挂号费 + 全部开单合计）"></span>' +
+            '        <span class="badge badge-warning" id="hdrTotal" style="display:none"></span>' +
             '      </div>' +
             '      <div class="text-muted fs-13">患者ID：' + p.patient_id + ' ｜ 流水号：' + v.visit_no +
             ' ｜ ' + v.dept_name + ' 第' + String(v.visit_seq).padStart(3, 0) + '号</div>' +
@@ -989,6 +1052,11 @@ Clinic.emr = (function () {
             if (totalFee > 0) {
                 hdrTotal.textContent = '总费用 ¥' + totalFee.toFixed(2);
                 hdrTotal.style.display = '';
+                if (!hdrTotal._feeHover) {
+                    hdrTotal._feeHover = true;
+                    hdrTotal.addEventListener('mouseenter', function () { showFeePop(hdrTotal); });
+                    hdrTotal.addEventListener('mouseleave', hideFeePop);
+                }
             } else {
                 hdrTotal.style.display = 'none';
             }
@@ -1790,15 +1858,6 @@ Clinic.emr = (function () {
 document.addEventListener('DOMContentLoaded', function () {
     if (document.getElementById('visitId')) {
         Clinic.emr.init();
-    }
-});
-
-/* 未保存离开拦截：病历有编辑未保存时，关闭/刷新/跳转给出浏览器确认 */
-window.addEventListener('beforeunload', function (e) {
-    if (EMR_DIRTY && DATA && DATA.visit && DATA.visit.status !== 'finished') {
-        e.preventDefault();
-        e.returnValue = '';   // Chrome/Edge/IE 必需；Firefox 读取返回值
-        return '';
     }
 });
 
