@@ -303,7 +303,9 @@ Clinic.emr = (function () {
 
         // 最近保存时间：纸张外独立胶囊徽章（不再贴在病历纸内部）。
         // 自愈式创建：无论静态节点是否就绪（缓存/时序缺页），渲染时缺失即补建，
-        // 杜绝「节点不存在→静默不显示」；无保存记录时不展示。
+        // 杜绝「节点不存在→静默不显示」。
+        // 取值优先本人文书的 updated_at；本人无文书（如查看他人归档病历）时
+        // 回退流水内最新一条文书的 updated_at/created_at——归档病历同样统一展示。
         var savedBadge = document.getElementById('docSavedBadge');
         if (!savedBadge) {
             var scroller = document.querySelector('.emr-main-editor-scroll');
@@ -315,8 +317,13 @@ Clinic.emr = (function () {
             }
         }
         if (savedBadge) {
-            savedBadge.textContent = r.updated_at ? '最近保存：' + r.updated_at : '';
-            savedBadge.style.display = r.updated_at ? '' : 'none';
+            var savedAt = r.updated_at || '';
+            if (!savedAt && d.records_history && d.records_history.length) {
+                var lastRec = d.records_history[d.records_history.length - 1];
+                savedAt = (lastRec.updated_at || lastRec.created_at || '');
+            }
+            savedBadge.textContent = savedAt ? '最近保存：' + savedAt : '';
+            savedBadge.style.display = savedAt ? '' : 'none';
         }
 
         if (readOnly) {
@@ -394,6 +401,10 @@ Clinic.emr = (function () {
         }
         // 隐藏工具栏写操作按钮（开单/保存/诊毕/转科/诊断证明），保留查看类（打印/历史/患者信息）
         document.querySelectorAll('.emr-write').forEach(function (b) { b.style.display = 'none'; });
+        // 大纲栏分区「＋」在只读态直接移除（而非 display:none）：
+        // 相邻选择器 .ena-add + .ena-arrow 不受 visibility 影响，若仅隐藏
+        // 会让无金额汇总分区的折叠箭头失去 margin-left:auto 而贴到文字后
+        document.querySelectorAll('.ena-sec-title .ena-add').forEach(function (b) { b.remove(); });
         var status = document.getElementById('saveStatus');
         if (status) {
             status.textContent = '该患者已诊毕，病历为只读状态';
@@ -907,8 +918,14 @@ Clinic.emr = (function () {
         }
 
         // ---------- 8. 诊断证明 ----------
+        // 注意：接口在根级返回 has_certificate（visit 载荷并无 cert_issued 字段，
+        // 勿回退旧字段名，否则已开具也永远显示「暂未开具」）
         var certEl = document.getElementById('navCert');
-        var certIssued = DATA && DATA.visit && DATA.visit.cert_issued;
+        var certIssued = !!(DATA && DATA.has_certificate);
+        // 一份病历（同一次就诊）只能开具一份诊断证明：已开具则移除标题「＋」，
+        // 后端 certificate 接口同时按 visit_id 强制去重拦截
+        var certAdd = document.getElementById('certAddBtn');
+        if (certAdd && certIssued) certAdd.remove();
         if (certIssued) {
             certEl.innerHTML = '<div class="ena-item" onclick=\"Clinic.emr.certificateModal(visitId.value, \'诊断证明\')\">' +
                 '<span>✅ 已开具（点击查看）</span></div>';
