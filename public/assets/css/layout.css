@@ -272,8 +272,8 @@
 }
 /* 左侧全景大纲栏（固定） */
 .emr-sidebar-left {
-    width: 240px;
-    min-width: 240px;
+    width: 175px;
+    min-width: 175px;
     height: 100%;
     background: var(--bg-soft, #f8fafc);
     border-right: 1px solid var(--border);
@@ -287,13 +287,19 @@
     min-width: 0;
     height: 100%;
     overflow-y: auto;
+    overflow-x: hidden;   /* 病历正文禁止横向平移：任何微小横向溢出直接裁切，
+                             避免触控板把正文"往左推走"遮住行首文字 */
     background: transparent;
     padding-right: 4px;
 }
+/* 患者信息头无文档卡片那层 overflow 保护，显式防横向撑开 */
+#emrHeader { min-width: 0; overflow-x: hidden; }
+/* 文档本体同样不允许被内容撑破 */
+.emr-main-editor-scroll .emr-doc { max-width: 100%; }
 /* 右侧常用工具栏（固定） */
 .emr-sidebar-right {
-    width: 176px;
-    min-width: 176px;
+    width: 175px;
+    min-width: 175px;
     height: 100%;
     background: var(--bg-card, #fff);
     border-left: 1px solid var(--border);

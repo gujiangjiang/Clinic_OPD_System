@@ -864,11 +864,10 @@ Clinic.emr = (function () {
             rxE1.innerHTML = '<div class="ena-empty">暂未开立处方</div>';
         } else {
             rxE1.innerHTML = rxOrders.map(function (o, oi) {
-                var nDrugs = (o.items || []).length;
                 return '<div class="ena-item" onclick="showRxDetail(\'' + o.id + '\')">' +
                     navDot(o.status) +
                     '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">处方' + (oi + 1) +
-                    ' (' + escHtml(o.doctor_name || '') + ' · ' + nDrugs + ' 味)</span>' +
+                    ' (' + escHtml(o.doctor_name || '') + ')</span>' +
                     '<span class="ena-sub">' + anaMoney2(o.total_amount) + '</span></div>';
             }).join('');
         }
