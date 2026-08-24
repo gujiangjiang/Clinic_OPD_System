@@ -279,8 +279,8 @@ Clinic.emr = (function () {
                     '<div class="emr-cont-divider"></div>' +
                     '<div class="prev-record-head">' +
                     '<span class="fw-600">记录医生：' + escHtml(r.doctor_name) +
-                    (r.doctor_emp ? '（工号 ' + escHtml(r.doctor_emp) + '）' : '') +
-                    (r.doctor_title ? ' ｜ ' + escHtml(r.doctor_title) : '') + '</span>' +
+                    (r.doctor_title ? ' ' + escHtml(r.doctor_title) : '') +
+                    (r.doctor_emp ? ' （工号 ' + escHtml(r.doctor_emp) + '）' : '') + '</span>' +
                     ((r.created_at || r.updated_at) ? '<span>记录时间：' + escHtml(r.created_at || r.updated_at) + '</span>' : '') +
                     '<span class="badge badge-primary">病历续写</span>' +
                     '</div>';
@@ -524,8 +524,8 @@ Clinic.emr = (function () {
         // 不再使用「接诊自」这类仅适用于活跃续写场景的承接性措辞
         // 只读归档表述：徽标已标明首诊/续写，此处标注本段记录医生
         var authorSpan = '<span class="fw-600">记录医生：' + escHtml(rec.doctor_name) +
-            (rec.doctor_emp ? '（工号 ' + escHtml(rec.doctor_emp) + '）' : '') +
-            (rec.doctor_title ? ' ｜ ' + escHtml(rec.doctor_title) : '') + '</span>';
+            (rec.doctor_title ? ' ' + escHtml(rec.doctor_title) : '') +
+            (rec.doctor_emp ? ' （工号 ' + escHtml(rec.doctor_emp) + '）' : '') + '</span>';
         return '<div class="prev-record-wrap-sec emr-record-readonly" id="recSeg' + rec.id + '">' +
             '<div class="prev-record-head">' +
             authorSpan +
