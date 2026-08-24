@@ -1739,6 +1739,8 @@ function delOrderFlow(orderId, label) {
         : '确定删除该开单？（仅未缴费或已退费可删除，处方删除后库存恢复）', function () {
         Clinic.ajax('/api/order', { action: 'delete', order_id: orderId }, {
             onSuccess: function (j) {
+                // 同步关闭所在详情弹窗（侧边栏行内调用时栈空，close 为安全空操作）
+                Clinic.modal.close();
                 Clinic.toast.success(j.msg);
                 Clinic.emr.loadOrders(document.getElementById('visitId').value);
             },
@@ -1751,6 +1753,7 @@ function delOrder(orderId) {
     Clinic.modal.confirm('删除该开单？（仅未缴费可删，处方删除后库存恢复）', function () {
         Clinic.ajax('/api/order', { action: 'delete', order_id: orderId }, {
             onSuccess: function (j) {
+                Clinic.modal.close();
                 Clinic.toast.success(j.msg);
                 Clinic.emr.loadOrders(document.getElementById('visitId').value);
             },
