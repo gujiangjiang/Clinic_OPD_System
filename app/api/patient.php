@@ -111,12 +111,21 @@ switch ($action) {
                     return e(isset($typeNames[$o['order_type']]) ? $typeNames[$o['order_type']] : $o['order_type']) . e($o['order_no']) . '(' . e(item_status_name($o['status'])) . ')';
                 }, $orders)) . '</div>';
             }
-            // 操作：查看病历（病历已保存 → 病历预览/打印页；未保存 → 提示）/ 查看或新增诊断证明
+            // 操作：查看病历 / 诊断证明三态按钮：
+            // 未归档未开具=新增（直接开）｜ 归档未开具=补开（先确认归档/接诊提醒）｜ 已开具=查看
             $hasCert = (int)DB::val('medical', 'SELECT COUNT(*) FROM certificates WHERE visit_id=?', array($v['id'])) > 0;
+            // 当前医生是否接诊过该次就诊（结构化病历表与旧镜像表任一有本人文书即算）
+            $treated = 0;
+            foreach ($records as $r) {
+                if ((int)$r['doctor_id'] === (int)$u['id']) { $treated = 1; break; }
+            }
+            if (!$treated) {
+                $treated = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array($v['id'], $u['id'])) > 0 ? 1 : 0;
+            }
             $html .= '<div class="flex gap-8 mt-8">';
             if ($records) {
                 // 病历已保存：直接打开病历打印预览页（pt_record，A5 病历纸），可再次打印
-                $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' . e(oid($v['id'])) . '\',null,\'a5\')">📋 查看病历（预览/打印）</button>';
+                $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' . e(oid($v['id'])) . '\',null,\'a5\')">📋 查看病历</button>';
             } else {
                 // 病历未保存：提示，不跳转编辑页
                 $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.toast.warning(\'该次就诊病历尚未保存，无法查看\')">📋 查看病历</button>';
@@ -124,7 +133,9 @@ switch ($action) {
             $html .=
                 ($hasCert
                     ? '<button class="btn btn-outline btn-sm" onclick="printHistoryCertificate(\'' . e(oid($v['id'])) . '\')">📄 查看诊断证明</button>'
-                    : '<button class="btn btn-outline btn-sm" onclick="openHistoryCertificate(\'' . e(oid($v['id'])) . '\')">📄 新增诊断证明</button>') .
+                    : ($v['status'] === 'finished'
+                        ? '<button class="btn btn-outline btn-sm" data-treated="' . $treated . '" onclick="archiveCertificateConfirm(this.getAttribute(\'data-treated\')===\'1\',\'' . e(oid($v['id'])) . '\')">📄 补开诊断证明</button>'
+                        : '<button class="btn btn-outline btn-sm" onclick="openHistoryCertificate(\'' . e(oid($v['id'])) . '\')">📄 新增诊断证明</button>')) .
                 '</div>';
             $html .= '</div>';
         }

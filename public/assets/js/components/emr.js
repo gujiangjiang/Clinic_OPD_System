@@ -75,13 +75,9 @@ Clinic.emr = (function () {
      */
     function renderPatientCard(d) {
         var p = d.patient, v = d.visit;
-        // 诊断证明入口精简：已开具的状态展示统一由右侧大纲栏「诊断证明」分区承载，
-        // 横条不再重复显示「已开具诊断证明（点击查看）」字样；
-        // 仅保留「诊毕未开具」时的补开链接（只读态下左栏「＋」已被移除，此为唯一入口）
-        var certHtml = '';
-        if (d.visit && d.visit.status === 'finished' && !d.has_certificate) {
-            certHtml = ' ｜ <a href="javascript:void(0)" onclick="Clinic.emr.openCertificate()" class="fw-600">补开诊断证明</a>';
-        }
+        // 诊断证明入口全部收口至右侧大纲栏「诊断证明」分区：
+        // 未归档 → 分区「＋」直接开具；归档未开具 → 分区「＋」确认后补开；
+        // 已开具 → 分区条目查看。横条不再显示任何诊断证明链接。
         // 患者一栏只保留基本信息（就诊医生右上角已有展示，记录时间在病历文档左下角，均不在此重复）
         // 条形码位于病历文档页头右上角（与打印预览一致），不在此处显示
         // 交互入口：点击头像 → 就诊历史；点击患者姓名 → 「修改患者信息」弹窗
@@ -102,8 +98,7 @@ Clinic.emr = (function () {
             '" style="margin-left:4px">' + (v.dept_type === 'emergency' ? '急诊' : '门诊') + '</span>' +
             '      </div>' +
             '      <div class="text-muted fs-13">患者ID：' + p.patient_id + ' ｜ 流水号：' + v.visit_no +
-            ' ｜ ' + v.dept_name + ' 第' + String(v.visit_seq).padStart(3, 0) + '号' +
-            certHtml + '</div>' +
+            ' ｜ ' + v.dept_name + ' 第' + String(v.visit_seq).padStart(3, 0) + '号</div>' +
             '    </div>' +
             '  </div>' +
             '</div>';
@@ -400,8 +395,12 @@ Clinic.emr = (function () {
         document.querySelectorAll('.emr-write').forEach(function (b) { b.style.display = 'none'; });
         // 大纲栏分区「＋」在只读态直接移除（而非 display:none）：
         // 相邻选择器 .ena-add + .ena-arrow 不受 visibility 影响，若仅隐藏
-        // 会让无金额汇总分区的折叠箭头失去 margin-left:auto 而贴到文字后
-        document.querySelectorAll('.ena-sec-title .ena-add').forEach(function (b) { b.remove(); });
+        // 会让无金额汇总分区的折叠箭头失去 margin-left:auto 而贴到文字后。
+        // 例外：诊断证明「＋」在归档未开具时保留——作为归档病历补开的唯一入口
+        document.querySelectorAll('.ena-sec-title .ena-add').forEach(function (b) {
+            if (b.id === 'certAddBtn' && !(DATA && DATA.has_certificate)) return;
+            b.remove();
+        });
         var status = document.getElementById('saveStatus');
         if (status) {
             status.textContent = '该患者已诊毕，病历为只读状态';
@@ -987,7 +986,25 @@ Clinic.emr = (function () {
             case 'lab': Clinic.order.open('lab'); return;
             case 'procedure': Clinic.order.open('procedure'); return;
             case 'prescription': Clinic.order.open('prescription'); return;
-            case 'cert': Clinic.emr.openCertificate(); return;
+            case 'cert':
+                // 归档病历：先确认再补开（区分是否接诊过该患者）；
+                // 未归档：直接进入开具表单
+                var dd = DATA || {};
+                if (dd.visit && dd.visit.status === 'finished') {
+                    var treatedNow = false;
+                    (dd.records_history || []).forEach(function (h) {
+                        if ((h.doctor_id || 0) === myDoctorId()) treatedNow = true;
+                    });
+                    var msg = '该病历已经归档' +
+                        (treatedNow ? '' : '，且您未接诊过该病人') +
+                        (treatedNow ? '，是否补开诊断证明？' : '，是否确认为该患者开具诊断证明？');
+                    Clinic.modal.confirm(msg, function () {
+                        certificateModal(document.getElementById('visitId').value, '补开诊断证明', null, true);
+                    });
+                } else {
+                    openCertificate();
+                }
+                return;
             case 'diags':
                 if (Clinic.emrEditor && Clinic.emrEditor.openDiagPicker) Clinic.emrEditor.openDiagPicker();
                 return;
@@ -1678,6 +1695,17 @@ function openTransfer() {
 function openHistoryCertificate(visitId) {
     // warnOnIssued=true：补开动作遇到已开具的历史就诊 → 提醒重复
     Clinic.emr.certificateModal(visitId, '补开诊断证明', null, true);
+}
+
+/* 全局：归档病历补开诊断证明确认（就诊历史「补开」按钮调用）
+ * 提示语区分是否接诊过该患者，确认后打开补开表单 */
+function archiveCertificateConfirm(treated, visitId) {
+    var msg = '该病历已经归档' +
+        (treated ? '' : '，且您未接诊过该病人') +
+        (treated ? '，是否补开诊断证明？' : '，是否确认为该患者开具诊断证明？');
+    Clinic.modal.confirm(msg, function () {
+        Clinic.emr.certificateModal(visitId, '补开诊断证明', null, true);
+    });
 }
 
 /* 查看已开具的诊断证明（弹窗打印预览，可再次打印） */
