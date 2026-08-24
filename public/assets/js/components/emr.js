@@ -870,17 +870,20 @@ Clinic.emr = (function () {
         fillTypeNav('navLab', buckets.lab, '检验');
         fillTypeNav('navProc', buckets.procedure, '处置');
 
-        // 处方模块：按处方单列出（处方N 医生 金额），点击展开药品明细与发药状态
+        // 处方模块：按处方单列出（处方N 医生），行内删除仅本人未缴费/已退费处方可见；
+        // 点击条目展开药品明细与发药状态
         var rxE1 = document.getElementById('navRx');
         if (!rxOrders.length) {
             rxE1.innerHTML = '<div class="ena-empty">暂未开立处方</div>';
         } else {
             rxE1.innerHTML = rxOrders.map(function (o, oi) {
+                var canDel = Clinic.emr.isMyOrder(o) && (o.status === 'open' || o.status === 'refunded');
                 return '<div class="ena-item" onclick="showRxDetail(\'' + o.id + '\')">' +
                     navDot(o.status) +
                     '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">处方' + (oi + 1) +
                     ' (' + escHtml(o.doctor_name || '') + ')</span>' +
-                    '<span class="ena-sub">' + anaMoney2(o.total_amount) + '</span></div>';
+                    (canDel ? '<span class="ena-del" title="毁方" onclick="delOrderFlow(\'' + o.id + '\',\'毁方\');event.stopPropagation()">🗑️</span>' : '') +
+                    '</div>';
             }).join('');
         }
 
@@ -899,15 +902,19 @@ Clinic.emr = (function () {
     /** 处方金额显示（¥xx.xx，空单返回空串由标题隐藏） */
     function anaMoney2(v) { return '¥' + Number(v || 0).toFixed(2); }
 
-    /** 检查/检验/处置三栏共用填充：状态灯 + 点击详情弹窗 */
+    /** 检查/检验/处置三栏共用填充：状态灯 + 点击详情弹窗；
+     *  行内删除按钮仅本人开具且未缴费/已退费的单子显示（复用 delOrderFlow） */
     function fillTypeNav(elId, arr, label) {
         var el = document.getElementById(elId);
         if (!arr.length) { el.innerHTML = '<div class="ena-empty">暂未开立' + label + '</div>'; return; }
         el.innerHTML = arr.map(function (x) {
             var st = x.it.status || 'open';
+            var canDel = Clinic.emr.isMyOrder(x.order) && (x.order.status === 'open' || x.order.status === 'refunded');
             return '<div class="ena-item" onclick="showItemDetail(\'' + x.order.id + '\',\'' + x.it.id + '\')">' +
                 navDot(st) + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
-                escHtml(x.it.item_name) + '</span></div>';
+                escHtml(x.it.item_name) + '</span>' +
+                (canDel ? '<span class="ena-del" title="删除该开单" onclick="delOrderFlow(\'' + x.order.id + '\',\'删除\');event.stopPropagation()">🗑️</span>' : '') +
+                '</div>';
         }).join('');
     }
 
