@@ -508,7 +508,11 @@ Clinic.emrEditor = (function () {
         if (!f) return;
         f.innerHTML = DIAGS.length
             ? DIAGS.map(function (d, i) {
-                return '<span class="ef-diag-item" data-i="' + i + '">' + diagText(d) + '</span>';
+                // 首个诊断后附「＋」快捷添加入口（跟随鼠标的悬浮添加窗）
+                var add = i === 0
+                    ? '<span class="ef-diag-add" title="添加诊断" onclick="Clinic.emr.openDiagPop(event);event.stopPropagation()">＋</span>'
+                    : '';
+                return '<span class="ef-diag-item" data-i="' + i + '">' + diagText(d) + add + '</span>';
             }).join('<span class="ef-diag-sep">，</span>')
             : '';
     }
@@ -706,6 +710,11 @@ Clinic.emrEditor = (function () {
         diagText: diagText,
         setPrevDiagnoses: setPrevDiagnoses,
         markDirty: markDirty,
+        /** 外部同步诊断列表（服务端已持久化，仅同步显示，不置脏标记） */
+        setDiags: function (list) {
+            DIAGS = Array.isArray(list) ? list : [];
+            renderDiagText();
+        },
         /** 外部快捷入口（左栏「＋」）：打开诊断选择弹窗，只读状态拦截并提示 */
         openDiagPicker: function () {
             if (READONLY) { Clinic.toast.info('当前病历为只读状态，无法添加诊断'); return; }

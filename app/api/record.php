@@ -631,6 +631,42 @@ switch ($action) {
         json_ok(array(), '生命体征已保存');
         break;
 
+    /* ==================== 诊断列表即时保存（侧边栏调整：增删/排序/主诊断） ==================== */
+    case 'save_diags':
+        $visitId = did(post('visit_id'));
+        $row = get_visit_row($visitId);
+        if (!$row) json_fail('就诊记录不存在');
+        // 仅本人文书可调整，且未诊毕
+        $pr = DB::one('medical', 'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visitId, $u['id']));
+        if (!$pr) json_fail('您在该就诊下暂无病历文书');
+        if ($pr['status'] === 'done') json_fail('病历已诊毕，无法调整诊断');
+        $diags = json_decode((string)post('diagnoses', '[]'), true);
+        if (!is_array($diags)) json_fail('诊断数据无效');
+        $clean = array();
+        foreach ($diags as $d) {
+            if (!is_array($d) || empty($d['name'])) continue;
+            $clean[] = array(
+                'code' => (string)(isset($d['code']) ? $d['code'] : ''),
+                'name' => (string)$d['name'],
+                'part' => (string)(isset($d['part']) ? $d['part'] : ''),
+                'note' => (string)(isset($d['note']) ? $d['note'] : ''),
+                'suspected' => (string)(isset($d['suspected']) ? $d['suspected'] : ''),
+            );
+        }
+        if (!count($clean)) json_fail('诊断列表不能为空');
+        $emr = emr_merge_defaults(emr_normalize(json_decode($pr['emr_data'], true)), emr_default_data(null));
+        $emr['diagnoses'] = $clean;
+        $diagText = emr_diag_text($clean);
+        $firstCode = (string)$clean[0]['code'];
+        // 结构化文书更新（诊断 + 主诊断投影）
+        $pdo->prepare('UPDATE patient_records SET emr_data=?, primary_icd10=?, primary_diagnosis=? WHERE id=?')
+            ->execute(array(json_encode($emr, JSON_UNESCAPED_UNICODE), $firstCode, $diagText, $pr['id']));
+        // 旧镜像表同步（最新一行），保持历史兼容视图一致
+        $pdo->prepare('UPDATE records SET initial_diagnosis=?, primary_icd10=? WHERE id=(SELECT id FROM (SELECT id FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1) t)')
+            ->execute(array($diagText, $firstCode, $visitId, $u['id']));
+        json_ok(array('diagnoses' => $clean), '诊断已更新');
+        break;
+
     /* ==================== 开具诊断证明（单次就诊一次） ==================== */
     case 'certificate':
         $visitId = did(post('visit_id'));

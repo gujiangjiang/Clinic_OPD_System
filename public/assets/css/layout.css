@@ -397,6 +397,24 @@
 
 /* 生命体征编辑悬浮面板：fixed 定位跟随鼠标点击处，两列紧凑表单 */
 .vitals-pop { position: fixed; width: 300px; }
+
+/* 诊断悬浮窗（添加/排序操作）：fixed 跟随鼠标，结果区限高滚动 */
+.diag-pop { position: fixed; width: 320px; }
+.diag-pop-res {
+    margin-top: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+.diag-pop-item {
+    padding: 7px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+}
+.diag-pop-item:last-child { border-bottom: none; }
+.diag-pop-item:hover { background: var(--primary-soft, #cffafe); }
 .vitals-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;

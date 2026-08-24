@@ -991,6 +991,212 @@ Clinic.emr = (function () {
         Clinic.emrEditor.setAuto('disp_items', dispT.join('，'), dispT.length > 0);
     }
 
+    /* ==================== 诊断悬浮窗（跟随鼠标：添加 / 排序操作） ==================== */
+
+    var diagPopHandler = null;
+    function closeDiagPop() {
+        var pop = document.getElementById('diagPop');
+        if (pop) pop.remove();
+        if (diagPopHandler) {
+            document.removeEventListener('mousedown', diagPopHandler);
+            diagPopHandler = null;
+        }
+    }
+    function placeDiagPop(pop, ev) {
+        document.body.appendChild(pop);
+        pop.style.left = Math.min(Math.max(8, ev.clientX + 10), window.innerWidth - 330) + 'px';
+        pop.style.top = Math.min(Math.max(8, ev.clientY + 10), window.innerHeight - 200) + 'px';
+        diagPopHandler = function (e) {
+            if (!pop.contains(e.target)) closeDiagPop();
+        };
+        setTimeout(function () { document.addEventListener('mousedown', diagPopHandler); }, 0);
+    }
+    /** 诊断可写校验：诊毕只读 / 本人无文书 均不可调整 */
+    function diagEditable() {
+        if (DATA && DATA.visit && DATA.visit.status === 'finished') {
+            Clinic.toast.warning('该患者已诊毕，诊断不可调整');
+            return false;
+        }
+        if (!DATA || !DATA.record || !(DATA.record.record_id > 0)) {
+            Clinic.toast.warning('请先保存病历后再调整诊断');
+            return false;
+        }
+        return true;
+    }
+    /** 本人当前诊断列表（DATA.record.emr.diagnoses） */
+    function myDiags() {
+        return (DATA && DATA.record && DATA.record.emr && DATA.record.emr.diagnoses) || [];
+    }
+    /** 诊断列表服务端即时持久化 + 编辑器/缓存/侧边栏同步 */
+    function saveDiags(newDiags, okMsg) {
+        Clinic.ajax('/api/record', {
+            action: 'save_diags',
+            visit_id: document.getElementById('visitId').value,
+            diagnoses: JSON.stringify(newDiags),
+        }, {
+            onSuccess: function (j) {
+                var saved = j.data.diagnoses || newDiags;
+                Clinic.emrEditor.setDiags(saved);
+                if (DATA) {
+                    if (!DATA.record.emr) DATA.record.emr = {};
+                    DATA.record.emr.diagnoses = saved;
+                    (DATA.records_history || []).forEach(function (h) {
+                        if ((h.doctor_id || 0) === myDoctorId() && h.emr) h.emr.diagnoses = saved;
+                    });
+                }
+                renderLeftNav();
+                Clinic.toast.success(okMsg || j.msg);
+            },
+        });
+    }
+
+    /**
+     * 诊断添加悬浮窗（跟随鼠标）：搜索（名称/ICD10/拼音首字母）→ 选中后
+     * 填写部位/备注/是否疑似 → 保存（写入本人诊断列表并即时持久化）
+     */
+    function openDiagPop(ev) {
+        if (!diagEditable()) return;
+        closeDiagPop();
+        if (ev && ev.stopPropagation) ev.stopPropagation();
+        var pop = document.createElement('div');
+        pop.id = 'diagPop';
+        pop.className = 'finish-pop diag-pop';
+        pop.innerHTML =
+            '<div class="fs-13 fw-700 mb-8">添加诊断</div>' +
+            '<input class="input" id="dpKw" placeholder="搜索诊断 / ICD10 / 拼音首字母" autocomplete="off">' +
+            '<div class="diag-pop-res" id="dpRes"><div class="fs-12 text-muted" style="padding:8px 2px">输入关键词检索 ICD10 诊断</div></div>';
+        placeDiagPop(pop, ev);
+        var kw = pop.querySelector('#dpKw');
+        setTimeout(function () { kw.focus(); }, 50);
+        var timer = null;
+        kw.addEventListener('input', function () {
+            var q = this.value.trim();
+            if (timer) clearTimeout(timer);
+            if (!q) { pop.querySelector('#dpRes').innerHTML = '<div class="fs-12 text-muted" style="padding:8px 2px">输入关键词检索 ICD10 诊断</div>'; return; }
+            timer = setTimeout(function () {
+                Clinic.get('/api/icd10?action=search&kw=' + encodeURIComponent(q), null, {
+                    onSuccess: function (j) {
+                        var list = j.data.list || [];
+                        pop.querySelector('#dpRes').innerHTML = list.length
+                            ? list.map(function (x) {
+                                return '<div class="diag-pop-item" data-code="' + escHtml(x.diagnosis_code) + '" data-name="' + escHtml(x.diagnosis_name) + '">' +
+                                    '<b>' + escHtml(x.diagnosis_name) + '</b><span class="fs-12 text-muted"> ' + escHtml(x.diagnosis_code) + '</span></div>';
+                            }).join('')
+                            : '<div class="fs-12 text-muted" style="padding:8px 2px">未检索到匹配诊断</div>';
+                    },
+                });
+            }, 200);
+        });
+        pop.querySelector('#dpRes').addEventListener('click', function (e) {
+            var item = e.target.closest('.diag-pop-item');
+            if (!item) return;
+            // 选中 → 展开部位/备注/是否疑似表单
+            var code = item.getAttribute('data-code');
+            var name = item.getAttribute('data-name');
+            pop.innerHTML =
+                '<div class="fs-13 mb-8">添加：<b>' + escHtml(name) + '</b> <span class="fs-12 text-muted">' + escHtml(code) + '</span></div>' +
+                '<div class="form-group"><label class="form-label">部位（选填）</label><input class="input" id="dpPart" placeholder="如：左侧、右上肢"></div>' +
+                '<div class="form-group"><label class="form-label">备注（选填）</label><input class="input" id="dpNote" placeholder="如：中指挫擦伤"></div>' +
+                '<div class="form-group"><label class="form-label">是否疑似（选填）</label><select class="select" id="dpSus">' +
+                '<option value="">否</option><option value="是">是</option></select></div>' +
+                '<div class="flex gap-8">' +
+                '  <button type="button" class="btn btn-outline btn-sm" style="flex:1" id="dpBack">返回</button>' +
+                '  <button type="button" class="btn btn-primary btn-sm" style="flex:1" id="dpSave">保存</button>' +
+                '</div>';
+            pop.querySelector('#dpBack').addEventListener('click', function () { closeDiagPop(); openDiagPop(ev); });
+            pop.querySelector('#dpSave').addEventListener('click', function () {
+                var dup = myDiags().some(function (d) {
+                    return (d.code && d.code === code) || (!code && d.name === name);
+                });
+                if (dup) { Clinic.toast.warning('该诊断已存在'); return; }
+                var nd = {
+                    code: code, name: name,
+                    part: pop.querySelector('#dpPart').value.trim(),
+                    note: pop.querySelector('#dpNote').value.trim(),
+                    suspected: pop.querySelector('#dpSus').value,
+                };
+                var list = myDiags().slice();
+                list.push(nd);
+                closeDiagPop();
+                saveDiags(list, '诊断已添加：' + name);
+            });
+        });
+    }
+
+    /**
+     * 诊断操作悬浮窗（右栏点击本人诊断）：设为主诊断 / 上移 / 下移
+     */
+    var DIAG_ROWS = [];   // 侧边栏诊断行缓存（openDiagOpsPop 按下标取行）
+    function openDiagOpsPop(ev, idx) {
+        var row = DIAG_ROWS[idx];
+        if (!row || !row.mine) return;
+        if (!diagEditable()) return;
+        closeDiagPop();
+        if (ev && ev.stopPropagation) ev.stopPropagation();
+        var pop = document.createElement('div');
+        pop.id = 'diagPop';
+        pop.className = 'finish-pop diag-pop';
+        pop.innerHTML =
+            '<div class="fs-13 mb-8"><b>' + escHtml(row.name) + '</b> <span class="fs-12 text-muted">' + escHtml(row.code) + '</span></div>' +
+            '<button type="button" class="btn btn-outline btn-sm btn-block" id="dopPrimary">⭐ 设为主诊断</button>' +
+            '<button type="button" class="btn btn-outline btn-sm btn-block mt-8" id="dopUp">↑ 上移</button>' +
+            '<button type="button" class="btn btn-outline btn-sm btn-block mt-8" id="dopDown">↓ 下移</button>';
+        placeDiagPop(pop, ev);
+        var list = myDiags();
+        var pos = -1;
+        list.forEach(function (d, i) {
+            if ((d.code || '') === row.code && d.name === row.name) pos = i;
+        });
+        if (pos < 0) { closeDiagPop(); return; }
+        pop.querySelector('#dopPrimary').addEventListener('click', function () {
+            if (pos === 0) { Clinic.toast.info('该诊断已是主诊断'); return; }
+            var arr = list.slice();
+            var hit = arr.splice(pos, 1)[0];
+            arr.unshift(hit);
+            closeDiagPop();
+            saveDiags(arr, '已设为主诊断：' + row.name);
+        });
+        pop.querySelector('#dopUp').addEventListener('click', function () {
+            if (pos === 0) { Clinic.toast.info('已经是第一个诊断'); return; }
+            var arr = list.slice();
+            var t = arr[pos - 1]; arr[pos - 1] = arr[pos]; arr[pos] = t;
+            closeDiagPop();
+            saveDiags(arr, '已上移：' + row.name);
+        });
+        pop.querySelector('#dopDown').addEventListener('click', function () {
+            if (pos === list.length - 1) { Clinic.toast.info('已经是最后一个诊断'); return; }
+            var arr = list.slice();
+            var t = arr[pos + 1]; arr[pos + 1] = arr[pos]; arr[pos] = t;
+            closeDiagPop();
+            saveDiags(arr, '已下移：' + row.name);
+        });
+    }
+
+    /**
+     * 删除本人诊断（右栏行内按钮）：引用诊断给出专项提醒——
+     * 仅从本人病历移除，他人病历与右侧聚合列表中的该诊断不受影响
+     */
+    function delDiag(ev, idx) {
+        var row = DIAG_ROWS[idx];
+        if (!row || !row.mine) return;
+        if (!diagEditable()) return;
+        if (ev && ev.stopPropagation) ev.stopPropagation();
+        var doDel = function () {
+            var list = myDiags().filter(function (d) {
+                return !((d.code || '') === row.code && d.name === row.name);
+            });
+            if (list.length === myDiags().length) { Clinic.toast.warning('诊断不存在或已删除'); return; }
+            if (!list.length) { Clinic.toast.warning('至少保留一个诊断，无法删除'); return; }
+            saveDiags(list, '诊断已删除：' + row.name);
+        };
+        if (row.quoted) {
+            Clinic.modal.confirm('该诊断为引用诊断，只删除自己病历中的诊断，无法删除他人已开具的诊断。确定删除？', doDel,
+                { title: '删除引用诊断', okText: '确认删除' });
+        } else {
+            Clinic.modal.confirm('确定删除该诊断？', doDel, { title: '删除诊断', okText: '确认删除' });
+        }
+    }
+
     /**
      * 加载患者已开项目（病历处置区 + 病历正文所见即所得区）
      */
@@ -1048,23 +1254,40 @@ Clinic.emr = (function () {
                 '<span class="ena-sub">' + escHtml(r2.doctor_name) + '</span></div>';
         }).join('') : '<div class="ena-empty">暂无病历文书</div>';
 
-        // ---------- 3. 全部诊断（跨医生聚合去重） ----------
+        // ---------- 3. 初步诊断（跨医生聚合去重） ----------
+        // 行规则：本人诊断可点击（弹排序操作窗）+ 行内删除；引用诊断（本人与他
+        // 人均有）显示单行并可删（仅删本人副本）；他人诊断只读展示
         var diagEl = document.getElementById('navDiags');
-        var seen = {};
-        var diags = [];
-        hist.forEach(function (r2) {
-            ((r2.emr && r2.emr.diagnoses) || []).forEach(function (dg) {
+        var mineId3 = myDoctorId();
+        var diagMap = {};
+        var diagOrder = [];
+        (DATA && DATA.records_history ? DATA.records_history : []).forEach(function (h) {
+            ((h.emr && h.emr.diagnoses) || []).forEach(function (dg) {
                 if (!dg || !dg.name) return;
                 var key = (dg.code || '') + '|' + dg.name;
-                if (seen[key]) return;
-                seen[key] = true;
-                diags.push('<div class="ena-item" title="' + escHtml(dg.name) + '">' +
-                    '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
-                    escHtml(dg.name) + (dg.code ? ' <span class="text-muted">[' + escHtml(dg.code) + ']</span>' : '') +
-                    '</span><span class="ena-sub">' + escHtml(r2.doctor_name) + '</span></div>');
+                if (!diagMap[key]) {
+                    diagMap[key] = { key: key, idx: diagOrder.length, code: dg.code || '', name: dg.name, mine: false, others: false };
+                    diagOrder.push(diagMap[key]);
+                }
+                if ((h.doctor_id || 0) === mineId3) diagMap[key].mine = true;
+                else diagMap[key].others = true;
             });
         });
-        diagEl.innerHTML = diags.length ? diags.join('') : '<div class="ena-empty">暂未开立诊断</div>';
+        DIAG_ROWS = diagOrder;
+        diagEl.innerHTML = diagOrder.length ? diagOrder.map(function (x) {
+            var quoted = x.mine && x.others;
+            var clickable = x.mine
+                ? ' onclick="Clinic.emr.openDiagOpsPop(event,' + x.idx + ')" style="cursor:pointer"'
+                : '';
+            var delBtn = x.mine
+                ? '<span class="ena-del" title="删除该诊断" onclick="Clinic.emr.delDiag(event,' + x.idx + ')">🗑️</span>'
+                : '';
+            return '<div class="ena-item"' + clickable + '>' +
+                '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escHtml(x.name) + '">' +
+                escHtml(x.name) + (x.code ? ' <span class="text-muted">[' + escHtml(x.code) + ']</span>' : '') +
+                (quoted ? ' <span class="fs-11 text-muted">引用</span>' : '') +
+                '</span>' + delBtn + '</div>';
+        }).join('') : '<div class="ena-empty">暂未开立诊断</div>';
 
         // ---------- 4-7. 检查/检验/处置/处方 ----------
         var sum = { imaging: 0, lab: 0, procedure: 0, prescription: 0 };
@@ -1202,7 +1425,7 @@ Clinic.emr = (function () {
      *  检查/检验/处置/处方/诊断/诊断证明 → 复用原右栏开单与表单能力；
      *  病历/知情同意书 → 暂为占位提示（后期完善）。
      *  只读状态由各能力自行拦截（emr-write 隐藏 / 编辑器 READONLY 校验）。 */
-    window.emrNavAdd = function (type) {
+    window.emrNavAdd = function (type, ev) {
         if (!window.Clinic) return;
         switch (type) {
             case 'imaging': Clinic.order.open('imaging'); return;
@@ -1229,7 +1452,7 @@ Clinic.emr = (function () {
                 }
                 return;
             case 'diags':
-                if (Clinic.emrEditor && Clinic.emrEditor.openDiagPicker) Clinic.emrEditor.openDiagPicker();
+                openDiagPop(ev);
                 return;
             default:
                 Clinic.toast.info(type === 'records' ? '添加病历功能建设中，敬请期待' : '添加知情同意书功能建设中，敬请期待');
@@ -1892,6 +2115,9 @@ Clinic.emr = (function () {
         init: init,
         save: save,
         confirmFinish: confirmFinish,
+        openDiagPop: openDiagPop,
+        openDiagOpsPop: openDiagOpsPop,
+        delDiag: delDiag,
         openTemplates: openTemplates,
         applyTemplateById: applyTemplateById,
         openTransfer: openTransfer,

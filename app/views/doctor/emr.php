@@ -87,7 +87,7 @@ $patient = $row['patient'];
             </div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">🔎 初步诊断<span class="ena-add emr-write" title="添加诊断" onclick="emrNavAdd('diags');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">🔎 初步诊断<span class="ena-add emr-write" title="添加诊断" onclick="emrNavAdd('diags',event);event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navDiags"></div>
         </div>
         <div class="ena-sec">

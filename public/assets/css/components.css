@@ -667,6 +667,25 @@
 .emr-doc .doc-body .ef-diag-item { border-bottom: none; }
 .emr-doc .doc-body .ef-diag-item:hover { background: var(--primary-soft); }
 .emr-doc .doc-body .ef-diag-sep { color: var(--text); margin: 0 2px; }
+/* 首个诊断后的「＋」快捷添加入口（点击弹出跟随鼠标的诊断添加悬浮窗） */
+.ef-diag-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 4px;
+    border-radius: 50%;
+    background: var(--primary-soft, #cffafe);
+    color: var(--primary);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    vertical-align: middle;
+    user-select: none;
+}
+.ef-diag-add:hover { transform: scale(1.15); }
 /* 诊断选择模态框（左搜索右已选） */
 .diag-pick { display: flex; gap: 12px; min-height: 320px; }
 .diag-pick-left { flex: 1.2; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
