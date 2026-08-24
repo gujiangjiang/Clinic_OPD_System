@@ -1358,7 +1358,7 @@ Clinic.emr = (function () {
             return '<div class="ena-item" onclick="Clinic.emr.openDiagOpsPop(event,' + x.idx + ')" style="cursor:pointer">' +
                 '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escHtml(x.name) + '">' +
                 (x.code ? '<span class="text-muted">' + escHtml(x.code) + '</span> ' : '') +
-                escHtml(x.name) +
+                escHtml(x.name) + (x.dg.suspected === '是' ? '?' : '') +
                 (quoted ? ' <span class="fs-11 text-muted">引用</span>' : '') +
                 '</span>' + tail + '</div>';
         }).join('') : '<div class="ena-empty">暂未开立诊断</div>';
