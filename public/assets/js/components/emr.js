@@ -120,7 +120,7 @@ Clinic.emr = (function () {
         pop.innerHTML = d.rows.map(function (r) {
             var cls = r.st === 'open' ? 'gray' : 'green';   // 灰=未缴费，绿=已缴费
             return '<div class="fee-pop-row">' +
-                '<span class="status-indicator ' + cls + '"></span>' +
+                '<span class="status-indicator ' + cls + '" title="' + (cls === 'gray' ? '未缴费' : '已缴费') + '"></span>' +
                 '<span class="fee-pop-name" title="' + escHtml(r.name) + '">' + escHtml(r.name) + '</span>' +
                 '<span class="fee-pop-amt">¥' + r.amt.toFixed(2) + '</span></div>';
         }).join('') +
@@ -983,8 +983,15 @@ Clinic.emr = (function () {
         if (st === 'done' || st === 'dispensed') return 'green';
         return 'red';   // paid / registered / in_progress / dispensing
     }
+    /** 指示灯悬浮提示（title） */
+    function navDotText(st) {
+        if (st === 'open') return '未缴费';
+        if (st === 'done') return '已完成（报告已出）';
+        if (st === 'dispensed') return '已完成（已发药）';
+        return '已缴费（报告 / 执行中）';
+    }
     function navDot(st) {
-        return '<span class="status-indicator ' + navDotCls(st) + '"></span>';
+        return '<span class="status-indicator ' + navDotCls(st) + '" title="' + navDotText(st) + '"></span>';
     }
 
     /**
