@@ -773,7 +773,10 @@ Clinic.emr = (function () {
      * 加载患者已开项目（病历处置区 + 病历正文所见即所得区）
      */
     function loadOrders(visitId) {
-        Clinic.get('/api/order?action=visit_orders&visit_id=' + visitId, null, {
+        // 未显式传参（如左栏 30 秒刷新总线）时回退页面隐藏域，
+        // 避免 visit_id=undefined 拉到空列表覆盖左栏数据
+        var vid = visitId || (document.getElementById('visitId') || {}).value || '';
+        Clinic.get('/api/order?action=visit_orders&visit_id=' + vid, null, {
             onSuccess: function (j) {
                 ORDERS = j.data.list || [];
                 renderDocOrders();
@@ -808,9 +811,9 @@ Clinic.emr = (function () {
         recEl.innerHTML = hist.length ? hist.map(function (r2) {
             var typeName = r2.record_type === 'progress' ? '续写' : '首诊';
             var t = (r2.created_at || '').substring(11, 16);
-            return '<div class="nav-item" onclick="scrollToRecord(' + r2.id + ',' + r2.doctor_id + ')">' +
+            return '<div class="ena-item" onclick="scrollToRecord(' + r2.id + ',' + r2.doctor_id + ')">' +
                 '<span>' + typeName + ' ' + t + ' ' + escHtml(r2.doctor_name) + '</span></div>';
-        }).join('') : '<div class="nav-empty">暂无病历文书</div>';
+        }).join('') : '<div class="ena-empty">暂无病历文书</div>';
 
         // ---------- 3. 全部诊断（跨医生聚合去重） ----------
         var diagEl = document.getElementById('navDiags');
@@ -822,13 +825,13 @@ Clinic.emr = (function () {
                 var key = (dg.code || '') + '|' + dg.name;
                 if (seen[key]) return;
                 seen[key] = true;
-                diags.push('<div class="nav-item" title="' + escHtml(dg.name) + '">' +
+                diags.push('<div class="ena-item" title="' + escHtml(dg.name) + '">' +
                     '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                     escHtml(dg.name) + (dg.code ? ' <span class="text-muted">[' + escHtml(dg.code) + ']</span>' : '') +
-                    '</span><span class="nav-sub">' + escHtml(r2.doctor_name) + '</span></div>');
+                    '</span><span class="ena-sub">' + escHtml(r2.doctor_name) + '</span></div>');
             });
         });
-        diagEl.innerHTML = diags.length ? diags.join('') : '<div class="nav-empty">暂未开立诊断</div>';
+        diagEl.innerHTML = diags.length ? diags.join('') : '<div class="ena-empty">暂未开立诊断</div>';
 
         // ---------- 4-7. 检查/检验/处置/处方 ----------
         var sum = { imaging: 0, lab: 0, procedure: 0, prescription: 0 };
@@ -858,17 +861,14 @@ Clinic.emr = (function () {
         // 处方模块：按处方单列出（处方N 医生 金额），点击展开药品明细与发药状态
         var rxE1 = document.getElementById('navRx');
         if (!rxOrders.length) {
-            rxE1.innerHTML = '<div class="nav-empty">暂未开立处方</div>';
+            rxE1.innerHTML = '<div class="ena-empty">暂未开立处方</div>';
         } else {
             rxE1.innerHTML = rxOrders.map(function (o, oi) {
                 var stMap2 = { open: '待缴费', paid: '待发药', dispensing: '发药中', dispensed: '已发药', refunded: '已退费', cancelled: '已取消' };
-                var lines = Clinic.orderRxLines(o.items).map(function (l) {
-                    return '<div style="padding:1px 0;color:var(--text-muted);font-size:12px;white-space:pre-wrap">' + l + '</div>';
-                }).join('');
-                return '<div class="nav-item" style="flex-wrap:wrap" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'\':\'none\'">' +
-                    '<span>处方' + (oi + 1) + ' (' + escHtml(o.doctor_name || '') + ')</span>' +
-                    '<span class="nav-sub">' + (stMap2[o.status] || o.status) + ' ' + anaMoney2(o.total_amount) + '</span></div>' +
-                    '<div style="display:none;padding:0 6px 6px 18px">' + lines + '</div>';
+                var nDrugs = (o.items || []).length;
+                return '<div class="ena-item" onclick="showRxDetail(\'' + o.id + '\')">' +
+                    '<span>处方' + (oi + 1) + ' (' + escHtml(o.doctor_name || '') + ' · ' + nDrugs + ' 味)</span>' +
+                    '<span class="ena-sub">' + (stMap2[o.status] || o.status) + ' ' + anaMoney2(o.total_amount) + '</span></div>';
             }).join('');
         }
 
@@ -876,10 +876,10 @@ Clinic.emr = (function () {
         var certEl = document.getElementById('navCert');
         var certIssued = DATA && DATA.visit && DATA.visit.cert_issued;
         if (certIssued) {
-            certEl.innerHTML = '<div class="nav-item" onclick=\"Clinic.emr.certificateModal(visitId.value, \'诊断证明\')\">' +
+            certEl.innerHTML = '<div class="ena-item" onclick=\"Clinic.emr.certificateModal(visitId.value, \'诊断证明\')\">' +
                 '<span>✅ 已开具（点击查看）</span></div>';
         } else {
-            certEl.innerHTML = '<div class="nav-item emr-write" onclick="Clinic.emr.openCertificate()">＋ 开具诊断证明</div>';
+            certEl.innerHTML = '<div class="ena-item emr-write" onclick="Clinic.emr.openCertificate()">＋ 开具诊断证明</div>';
         }
     }
 
@@ -889,10 +889,10 @@ Clinic.emr = (function () {
     /** 检查/检验/处置三栏共用填充：状态灯 + 点击详情弹窗 */
     function fillTypeNav(elId, arr, label) {
         var el = document.getElementById(elId);
-        if (!arr.length) { el.innerHTML = '<div class="nav-empty">暂未开立' + label + '</div>'; return; }
+        if (!arr.length) { el.innerHTML = '<div class="ena-empty">暂未开立' + label + '</div>'; return; }
         el.innerHTML = arr.map(function (x) {
             var st = x.it.status || 'open';
-            return '<div class="nav-item" onclick="showItemDetail(\'' + x.order.id + '\',\'' + x.it.id + '\')">' +
+            return '<div class="ena-item" onclick="showItemDetail(\'' + x.order.id + '\',\'' + x.it.id + '\')">' +
                 navDot(st) + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                 escHtml(x.it.item_name) + '</span></div>';
         }).join('');

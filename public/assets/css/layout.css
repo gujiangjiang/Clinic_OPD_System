@@ -306,8 +306,8 @@
 }
 
 /* ---------- 左栏折叠模块 ---------- */
-.nav-sec { margin-bottom: 8px; }
-.nav-sec-title {
+.ena-sec { margin-bottom: 8px; }
+.ena-sec-title {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -319,20 +319,20 @@
     user-select: none;
     border-radius: 6px;
 }
-.nav-sec-title:hover { background: rgba(0,0,0,.04); }
-.nav-sec-title .nav-sum {
+.ena-sec-title:hover { background: rgba(0,0,0,.04); }
+.ena-sec-title .ena-sum {
     margin-left: auto;
     font-size: 11px;
     font-weight: 600;
     color: var(--warning);
     font-variant-numeric: tabular-nums;
 }
-.nav-sec-title .nav-arrow { margin-left: auto; font-size: 10px; color: var(--text-muted); transition: transform .15s; }
-.nav-sec-title .nav-sum + .nav-arrow { margin-left: 2px; }
-.nav-sec.collapsed .nav-sec-body { display: none; }
-.nav-sec.collapsed .nav-arrow { transform: rotate(-90deg); }
-.nav-sec-body { padding: 0 4px 4px; }
-.nav-item {
+.ena-sec-title .ena-arrow { margin-left: auto; font-size: 10px; color: var(--text-muted); transition: transform .15s; }
+.ena-sec-title .ena-sum + .ena-arrow { margin-left: 2px; }
+.ena-sec.collapsed .ena-sec-body { display: none; }
+.ena-sec.collapsed .ena-arrow { transform: rotate(-90deg); }
+.ena-sec-body { padding: 0 4px 4px; }
+.ena-item {
     display: flex;
     align-items: center;
     font-size: 12.5px;
@@ -342,9 +342,9 @@
     cursor: pointer;
     line-height: 1.35;
 }
-.nav-item:hover { background: rgba(64,158,255,.08); }
-.nav-item .nav-sub { margin-left: auto; color: var(--text-muted); font-size: 11px; white-space: nowrap; }
-.nav-empty { font-size: 12px; color: var(--text-muted); padding: 3px 6px; }
+.ena-item:hover { background: rgba(64,158,255,.08); }
+.ena-item .ena-sub { margin-left: auto; color: var(--text-muted); font-size: 11px; white-space: nowrap; }
+.ena-empty { font-size: 12px; color: var(--text-muted); padding: 3px 6px; }
 
 @media (max-width: 1100px) {
     /* 窄屏：三栏退化为纵向堆叠（恢复页面滚动） */

@@ -46,39 +46,39 @@ $patient = $row['patient'];
 
     <!-- ===== 左侧：全景大纲栏 ===== -->
     <aside class="emr-sidebar-left">
-        <div class="nav-sec">
-            <div class="nav-sec-title" onclick="toggleNavSec(this)">📋 病历节点<span class="nav-arrow">▾</span></div>
-            <div class="nav-sec-body" id="navRecords"></div>
+        <div class="ena-sec">
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">📋 病历节点<span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-body" id="navRecords"></div>
         </div>
-        <div class="nav-sec">
-            <div class="nav-sec-title" onclick="toggleNavSec(this)">📝 知情同意书<span class="nav-arrow">▾</span></div>
-            <div class="nav-sec-body" id="navConsent">
-                <div class="nav-item" onclick="Clinic.toast.info('知情同意书功能建设中')">＋ 添加知情同意书</div>
+        <div class="ena-sec">
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">📝 知情同意书<span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-body" id="navConsent">
+                <div class="ena-item" onclick="Clinic.toast.info('知情同意书功能建设中')">＋ 添加知情同意书</div>
             </div>
         </div>
-        <div class="nav-sec">
-            <div class="nav-sec-title" onclick="toggleNavSec(this)">🔎 全部诊断<span class="nav-arrow">▾</span></div>
-            <div class="nav-sec-body" id="navDiags"></div>
+        <div class="ena-sec">
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">🔎 全部诊断<span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-body" id="navDiags"></div>
         </div>
-        <div class="nav-sec">
-            <div class="nav-sec-title" onclick="toggleNavSec(this)">🩻 检查<span class="nav-sum" id="sumImaging"></span><span class="nav-arrow">▾</span></div>
-            <div class="nav-sec-body" id="navImaging"></div>
+        <div class="ena-sec">
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">🩻 检查<span class="ena-sum" id="sumImaging"></span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-body" id="navImaging"></div>
         </div>
-        <div class="nav-sec">
-            <div class="nav-sec-title" onclick="toggleNavSec(this)">🧪 检验<span class="nav-sum" id="sumLab"></span><span class="nav-arrow">▾</span></div>
-            <div class="nav-sec-body" id="navLab"></div>
+        <div class="ena-sec">
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">🧪 检验<span class="ena-sum" id="sumLab"></span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-body" id="navLab"></div>
         </div>
-        <div class="nav-sec">
-            <div class="nav-sec-title" onclick="toggleNavSec(this)">🩹 门诊处置<span class="nav-sum" id="sumProc"></span><span class="nav-arrow">▾</span></div>
-            <div class="nav-sec-body" id="navProc"></div>
+        <div class="ena-sec">
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">🩹 门诊处置<span class="ena-sum" id="sumProc"></span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-body" id="navProc"></div>
         </div>
-        <div class="nav-sec">
-            <div class="nav-sec-title" onclick="toggleNavSec(this)">💊 处方<span class="nav-sum" id="sumRx"></span><span class="nav-arrow">▾</span></div>
-            <div class="nav-sec-body" id="navRx"></div>
+        <div class="ena-sec">
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">💊 处方<span class="ena-sum" id="sumRx"></span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-body" id="navRx"></div>
         </div>
-        <div class="nav-sec">
-            <div class="nav-sec-title" onclick="toggleNavSec(this)">📄 诊断证明<span class="nav-arrow">▾</span></div>
-            <div class="nav-sec-body" id="navCert"></div>
+        <div class="ena-sec">
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">📄 诊断证明<span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-body" id="navCert"></div>
         </div>
     </aside>
 
