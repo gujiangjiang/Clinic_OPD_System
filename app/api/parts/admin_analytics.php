@@ -386,7 +386,8 @@ function admin_part_analytics($action) {
     /* ==================== 转归查询（诊毕离院方式统计） ==================== */
     if ($action === 'ana_disposition') {
         $type = trim((string)get('type', '全部'));
-        $sql = 'SELECT r.register_time, r.flow_no, r.dept_name, r.doctor_name, r.disposition, r.disposition_detail, ' .
+        $sql = 'SELECT r.id AS visit_id, r.register_time, r.flow_no, r.disposition, r.disposition_detail, ' .
+            'COALESCE(NULLIF(r.current_dept_name, \'\'), r.first_dept_name) AS dept_name, ' .
             'p.name AS pname, p.gender, p.birth_date ' .
             'FROM registrations r JOIN patients p ON p.patient_no=r.patient_no ' .
             "WHERE r.status='finished' AND r.disposition<>''";
@@ -397,8 +398,34 @@ function admin_part_analytics($action) {
         }
         $sql .= ' ORDER BY r.id DESC LIMIT 200';
         $rows = array();
+        $vids = array();
         foreach (DB::q('patient', $sql, $params) as $r) {
-            $rows[] = array(
+            $r['doctor_name'] = '';   // 医生在 medical 库，第二段查询回填（首诊医生）
+            $vids[] = (int)$r['visit_id'];
+            $rows[] = $r;
+        }
+        // 回填首诊医生（medical 与 patient 分库不可 JOIN，按 visit_id 批量查）
+        if ($vids) {
+            $ph = implode(',', array_fill(0, count($vids), '?'));
+            $docMap = array();
+            foreach (DB::q('medical', "SELECT visit_id, doctor_name FROM patient_records WHERE visit_id IN ($ph) ORDER BY id ASC", $vids) as $pr) {
+                if (!isset($docMap[(int)$pr['visit_id']])) $docMap[(int)$pr['visit_id']] = (string)$pr['doctor_name'];
+            }
+            foreach ($rows as &$r) {
+                $vid = (int)$r['visit_id'];
+                if (!isset($docMap[$vid])) {
+                    // 结构化表无记录时回退旧镜像表
+                    foreach (DB::q('medical', "SELECT visit_id, doctor_name FROM records WHERE visit_id IN ($ph) ORDER BY id ASC", $vids) as $pr) {
+                        if ((int)$pr['visit_id'] === $vid) { $docMap[$vid] = (string)$pr['doctor_name']; break; }
+                    }
+                }
+                $r['doctor_name'] = isset($docMap[$vid]) ? $docMap[$vid] : '';
+            }
+            unset($r);
+        }
+        $rowsOut = array();
+        foreach ($rows as $r) {
+            $rowsOut[] = array(
                 'register_time' => (string)$r['register_time'],
                 'flow_no' => (string)$r['flow_no'],
                 'dept_name' => (string)$r['dept_name'],
@@ -410,7 +437,7 @@ function admin_part_analytics($action) {
                 'age_fmt' => age_format($r['birth_date'], $r['register_time']),
             );
         }
-        json_ok(array('list' => $rows));
+        json_ok(array('list' => $rowsOut));
     }
 
     json_fail('未知操作');

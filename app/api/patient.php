@@ -79,6 +79,7 @@ switch ($action) {
     /* ---------------- 患者全部就诊历史（病历 + 开单情况） ---------------- */
     case 'history':
         $patientNo = get('patient_no', '');
+        $u = Auth::user();   // 接诊判定需要当前医生 id
         $p = DB::one('patient', 'SELECT * FROM patients WHERE patient_no=?', array($patientNo));
         if (!$p) {
             json_ok(array('html' => '<div class="empty">未找到该患者</div>'));

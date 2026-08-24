@@ -13,6 +13,20 @@
 
 ---
 
+## [2.6.11] - 2026-08-25
+
+### 修复
+
+- **转归查询 500 错误**：SQL 误用 registrations 不存在的
+  dept_name / doctor_name 列——dept_name 改为
+  COALESCE(current_dept_name, first_dept_name)；医生在 medical 分库
+  不可 JOIN，改为按 visit_id 批量二段查询回填首诊医生（旧镜像表兜底）。
+- **就诊历史 $u 未定义警告**：history 案例补充 `$u = Auth::user()`，
+  接诊判定不再产生 Undefined variable 告警。
+
+---
+---
+
 ## [2.6.10] - 2026-08-25
 
 ### 修复
