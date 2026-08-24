@@ -470,7 +470,7 @@ switch ($action) {
     /* ==================== 就诊开单列表（病历处置区） ==================== */
     case 'visit_orders':
         $visitId = did(get('visit_id'));
-        $orders = DB::q('order', 'SELECT * FROM orders WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        $orders = DB::q('order', 'SELECT * FROM orders WHERE visit_id=? ORDER BY id ASC', array($visitId));
         $out = array();
         foreach ($orders as $o) {
             $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));

@@ -121,7 +121,7 @@ function emr_order_snapshot($visitId, $doctorId = 0) {
     $sql = 'SELECT * FROM orders WHERE visit_id=?';
     $params = array($visitId);
     if ((int)$doctorId > 0) { $sql .= ' AND doctor_id=?'; $params[] = (int)$doctorId; }
-    $sql .= ' ORDER BY id DESC';
+    $sql .= ' ORDER BY id ASC';   // 与 visit_orders 同口径：新开项目追加在列表末尾
     $orders = DB::q('order', $sql, $params);
     $orderNames = array();
     $rxLines = array();
