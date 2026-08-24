@@ -900,6 +900,14 @@ Clinic.emr = (function () {
         document.getElementById('sumProc').textContent = buckets.procedure.length ? anaMoney2(sum.procedure) : '';
         document.getElementById('sumRx').textContent = rxOrders.length ? anaMoney2(sum.prescription) : '';
 
+        // 分区标题项目数徽章：检查/检验/处置按明细项数；处方按药品项数合计（0 项隐藏）
+        var rxItemCount = 0;
+        rxOrders.forEach(function (o) { rxItemCount += (o.items ? o.items.length : 0); });
+        setNavCount('cntImaging', buckets.imaging.length);
+        setNavCount('cntLab', buckets.lab.length);
+        setNavCount('cntProc', buckets.procedure.length);
+        setNavCount('cntRx', rxItemCount);
+
         fillTypeNav('navImaging', buckets.imaging, '检查');
         fillTypeNav('navLab', buckets.lab, '检验');
         fillTypeNav('navProc', buckets.procedure, '处置');
@@ -948,6 +956,14 @@ Clinic.emr = (function () {
 
     /** 处方金额显示（¥xx.xx，空单返回空串由标题隐藏） */
     function anaMoney2(v) { return '¥' + Number(v || 0).toFixed(2); }
+
+    /** 分区标题项目数徽章：>0 显示数字，0 隐藏 */
+    function setNavCount(id, n) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = n > 0 ? String(n) : '';
+        el.style.display = n > 0 ? '' : 'none';
+    }
 
     /** 检查/检验/处置三栏共用填充：状态灯 + 点击详情弹窗 + 开单医生靠右；
      *  行内删除按钮仅本人开具且未缴费/已退费的单子显示（复用 delOrderFlow） */
