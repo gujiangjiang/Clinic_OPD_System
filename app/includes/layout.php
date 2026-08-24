@@ -97,20 +97,20 @@ class Layout {
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>' . e($hosp !== '' ? $hosp . ' - 门诊一体化系统' : '门诊一体化系统') . '</title>
             ' . $favicon . '
-            <link rel="stylesheet" href="/assets/css/base.css">
-            <link rel="stylesheet" href="/assets/css/components.css">
-            <link rel="stylesheet" href="/assets/css/modal.css">
-            <link rel="stylesheet" href="/assets/css/auth.css">
-            <link rel="stylesheet" href="/assets/css/dark.css">
+            <link rel="stylesheet" href="/assets/css/base.css?v=' . APP_VERSION . '">
+            <link rel="stylesheet" href="/assets/css/components.css?v=' . APP_VERSION . '">
+            <link rel="stylesheet" href="/assets/css/modal.css?v=' . APP_VERSION . '">
+            <link rel="stylesheet" href="/assets/css/auth.css?v=' . APP_VERSION . '">
+            <link rel="stylesheet" href="/assets/css/dark.css?v=' . APP_VERSION . '">
         </head>
         <body class="auth-body" data-csrf="' . e(CSRF::token()) . '" data-theme-pref="' . e($theme) . '" data-theme="light"
             data-hosp="' . e($hosp) . '" data-hosp2="' . e(setting('hospital_name2', '')) . '">
             ' . $brandHtml . '
             ' . $content . '
-            <script src="/assets/js/components/ajax.js"></script>
-            <script src="/assets/js/components/toast.js"></script>
-            <script src="/assets/js/components/theme.js"></script>
-            <script src="/assets/js/components/validation.js"></script>
+            <script src="/assets/js/components/ajax.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/toast.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/theme.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/validation.js?v=' . APP_VERSION . '"></script>
         </body></html>';
         return $html;
     }
@@ -186,12 +186,12 @@ class Layout {
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>' . e($pageTitle) . '</title>
             ' . $favicon . '
-            <link rel="stylesheet" href="/assets/css/base.css">
-            <link rel="stylesheet" href="/assets/css/components.css">
-            <link rel="stylesheet" href="/assets/css/modal.css">
-            <link rel="stylesheet" href="/assets/css/layout.css">
-            <link rel="stylesheet" href="/assets/css/dark.css">
-            <link rel="stylesheet" href="/assets/css/print.css">
+            <link rel="stylesheet" href="/assets/css/base.css?v=' . APP_VERSION . '">
+            <link rel="stylesheet" href="/assets/css/components.css?v=' . APP_VERSION . '">
+            <link rel="stylesheet" href="/assets/css/modal.css?v=' . APP_VERSION . '">
+            <link rel="stylesheet" href="/assets/css/layout.css?v=' . APP_VERSION . '">
+            <link rel="stylesheet" href="/assets/css/dark.css?v=' . APP_VERSION . '">
+            <link rel="stylesheet" href="/assets/css/print.css?v=' . APP_VERSION . '">
         </head>
         <body data-csrf="' . e(CSRF::token()) . '" data-theme-pref="' . e($theme) . '" data-theme="light"
             data-sidebar-pref="' . e($sidebar) . '"' . ($forceMini ? ' data-sidebar-force="1"' : '') . '
@@ -202,26 +202,26 @@ class Layout {
                  若 Clinic 库尚未加载，Clinic.get() 会抛 TypeError，
                  导致列表区域永远停留在加载转圈状态（历史 bug）。
                  因此脚本放在内容区之前，保证内联脚本执行时 Clinic 已就绪。 -->
-            <script src="/assets/js/components/ajax.js"></script>
-            <script src="/assets/js/components/modal.js"></script>
-            <script src="/assets/js/components/deptpicker.js"></script>
-            <script src="/assets/js/components/toast.js"></script>
-            <script src="/assets/js/components/print.js"></script>
-            <script src="/assets/js/components/theme.js"></script>
-<script src="/assets/js/components/notify.js"></script>
-<script src="/assets/js/components/import.js"></script>
-<script src="/assets/js/components/selector.js"></script>
-            <script src="/assets/js/components/validation.js"></script>
-            <script src="/assets/js/components/datetime.js"></script>
-            <script src="/assets/js/components/datepicker.js"></script>
-            <script src="/assets/js/components/order.js"></script>
-            <script src="/assets/js/components/editor.js"></script>
-            <script src="/assets/js/components/emreditor.js"></script>
-            <script src="/assets/js/components/emr.js"></script>
-            <script src="/assets/js/components/patient.js"></script>
-            <script src="/assets/js/components/ui.js"></script>
-            <script src="/assets/js/components/chart.js"></script>
-            <script src="/assets/js/components/app.js"></script>
+            <script src="/assets/js/components/ajax.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/modal.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/deptpicker.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/toast.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/print.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/theme.js?v=' . APP_VERSION . '"></script>
+<script src="/assets/js/components/notify.js?v=' . APP_VERSION . '"></script>
+<script src="/assets/js/components/import.js?v=' . APP_VERSION . '"></script>
+<script src="/assets/js/components/selector.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/validation.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/datetime.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/datepicker.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/order.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/editor.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/emreditor.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/emr.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/patient.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/ui.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/chart.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/app.js?v=' . APP_VERSION . '"></script>
             <div class="' . $appClass . '">
                 <!-- ===== 侧边栏 ===== -->
                 <aside class="sidebar">

@@ -23,7 +23,7 @@
     z-index: 100;
     display: flex;
     flex-direction: column;
-    transition: transform .25s ease;
+    transition: transform .25s ease, width .25s ease;
 }
 .sidebar-brand {
     height: var(--topbar-h);
@@ -384,3 +384,25 @@
 }
 .emr-sidebar-right .emr-toolbar-divider { height: 1px; background: var(--border); margin: 4px 0; }
 .emr-sidebar-right .btn { width: 100%; text-align: left; }
+
+/* ============================================================
+   侧边栏展开/收起动画优化：
+   宽度过渡期间菜单文字在中间宽度下折行，导致菜单项高度变化、
+   下方项被顶来顶去（视觉上"自下而上"出现）。三项约束根治：
+   ① 侧边栏本体裁切溢出；② 菜单区横向裁切；
+   ③ 菜单项固定高度 + 禁止换行——纵向位置全程恒定，
+      展开收起呈现为干净的横向展开/收拢。
+   ============================================================ */
+.sidebar { overflow: hidden; }
+.sidebar-nav { overflow-x: hidden; }
+.sidebar-nav .nav-item { white-space: nowrap; height: 42px; }
+/* 品牌名/分组标题/页脚版权同样禁止折行：宽度过渡期间若被挤成
+   一字一行竖排，展开完成才恢复横排，观感即"自下而上滑入" */
+.sidebar-brand,
+.brand-names,
+.brand-name,
+.brand-name2,
+.sidebar-nav .nav-group-title,
+.sidebar-footer {
+    white-space: nowrap;
+}
