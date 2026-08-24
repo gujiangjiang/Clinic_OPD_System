@@ -2262,8 +2262,8 @@ function printHistoryCertificate(visitId) {
 function delOrderFlow(orderId, label) {
     var isRx = label === '毁方';
     Clinic.modal.confirm(isRx
-        ? '确定毁方该处方？（仅未缴费或已退费的处方可毁方，未缴费毁方后药品库存自动恢复）'
-        : '确定删除该开单？（仅未缴费或已退费可删除，处方删除后库存恢复）', function () {
+        ? '确定毁方该处方？'
+        : '确定删除该开单？', function () {
         Clinic.ajax('/api/order', { action: 'delete', order_id: orderId }, {
             onSuccess: function (j) {
                 // 同步关闭所在详情弹窗（侧边栏行内调用时栈空，close 为安全空操作）
@@ -2277,7 +2277,7 @@ function delOrderFlow(orderId, label) {
 
 /* 全局：删除开单 */
 function delOrder(orderId) {
-    Clinic.modal.confirm('删除该开单？（仅未缴费可删，处方删除后库存恢复）', function () {
+    Clinic.modal.confirm('确定删除该开单？', function () {
         Clinic.ajax('/api/order', { action: 'delete', order_id: orderId }, {
             onSuccess: function (j) {
                 Clinic.modal.close();
