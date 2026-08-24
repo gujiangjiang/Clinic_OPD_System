@@ -54,6 +54,7 @@ Clinic.emr = (function () {
                 renderEmrCard(j.data);
                 // 前序医生诊断上下文注入（诊断模态框跨医生引用查重用）
                 injectPrevDiagContext();
+                bindItemTokenDelegate();
                 loadOrders(visitId);
                 Clinic.order.init(visitId, j.data);
                 // 一键引用前序病历
@@ -484,7 +485,7 @@ Clinic.emr = (function () {
             ? '<span class="fs-12 text-muted">主诊断：' + escHtml((rec.primary_icd10 || '') + ' ' + rec.primary_diagnosis) + '</span>'
             : '';
         var who = isProgress ? '✍️ 病历续写 · 接诊自：' : '📋 接诊自：';
-        return '<div class="prev-record-wrap-sec" id="recSeg' + rec.id + '">' +
+        return '<div class="prev-record-wrap-sec emr-record-readonly" id="recSeg' + rec.id + '">' +
             '<div class="prev-record-head">' +
             '<span class="fw-600">' + who + escHtml(rec.doctor_name) +
             (rec.doctor_emp ? '（工号 ' + escHtml(rec.doctor_emp) + '）' : '') +
@@ -709,12 +710,63 @@ Clinic.emr = (function () {
      * 渲染病历正文 辅助检查 / 门诊处置（所见即所得，与打印版式一致）
      * 仅渲染当前登录医生本人开具的项目（多医生接诊，项目跟随医生归档）
      */
+    /** 项目交互 token：活跃病历正文中的可点击行内标签（只读段不使用） */
+    function itemToken(o, it, extra) {
+        var suffix = '';
+        if ((o.order_type === 'lab' || o.order_type === 'imaging') && it.report_id) suffix = '（已出报告）';
+        return '<span class="emr-item-link" data-otype="' + o.order_type + '" data-oid="' + o.id + '" data-iid="' + it.id + '">' +
+            escHtml(it.item_name) + (extra || '') + suffix + '</span>';
+    }
+
+    /**
+     * 病历正文 辅助检查/门诊处置 渲染（活跃编辑器）：
+     * 项目渲染为交互式行内标签（点击弹出详情模态框，样式见 .emr-item-link）；
+     * 只读历史文书段（roSegmentHtml）仍走 orderTextsFor 纯文本，二者互不影响。
+     */
     function renderDocOrders() {
-        var t = orderTextsFor(myDoctorId());
-        // 结构化编辑器自动段：已开检验/检查名（逗号分隔）、处方行（一行一个）、处置项（含数量）
-        Clinic.emrEditor.setAuto('aux_orders', t.aux.join('，'), t.aux.length > 0);
-        Clinic.emrEditor.setAuto('rx_lines', t.rxs.map(function (l) { return '<div class="ef-rx-line">' + l + '</div>'; }).join(''), t.rxs.length > 0);
-        Clinic.emrEditor.setAuto('disp_items', t.proc.join('，'), t.proc.length > 0);
+        var myId = myDoctorId();
+        var auxT = [], rxLines = [], dispT = [];
+        (ORDERS || []).forEach(function (o) {
+            if ((o.doctor_id || 0) !== myId) return;
+            if (o.status === 'refunded' || o.status === 'cancelled') return;
+            if (o.order_type === 'lab' || o.order_type === 'imaging') {
+                o.items.forEach(function (it) { auxT.push(itemToken(o, it)); });
+            } else if (o.order_type === 'procedure') {
+                o.items.forEach(function (it) { dispT.push(itemToken(o, it) + (it.quantity > 1 ? '×' + it.quantity : '')); });
+            } else if (o.order_type === 'prescription') {
+                var i3 = 0;
+                while (i3 < o.items.length) {
+                    var it0 = o.items[i3];
+                    var g = it0.group_no || 0;
+                    if (!g) {
+                        rxLines.push('<div class="ef-rx-line">' + itemToken(o, it0) +
+                            '\u3000' + escHtml([it0.single_dose, it0.frequency_name, it0.route_name].filter(Boolean).join('\u3000')) +
+                            '\u3000\u00D7' + it0.quantity + '</div>');
+                        i3++;
+                        continue;
+                    }
+                    var arr = [it0];
+                    var j3 = i3 + 1;
+                    while (j3 < o.items.length && (o.items[j3].group_no || 0) === g) { arr.push(o.items[j3]); j3++; }
+                    arr.forEach(function (x, xi) {
+                        if (xi === 0) {
+                            rxLines.push('<div class="ef-rx-line">' + itemToken(o, x) +
+                                '\u3000' + escHtml([x.single_dose, x.frequency_name, x.route_name].filter(Boolean).join('\u3000')) +
+                                '\u3000\u00D7' + x.quantity + '</div>');
+                        } else {
+                            var head = (xi === arr.length - 1 ? '\u2514\u2500 ' : '\u251C\u2500 ') + itemToken(o, x) +
+                                (x.single_dose ? '\u3000' + escHtml(x.single_dose) : '');
+                            rxLines.push('<div class="ef-rx-line ef-rx-sub">' + head + '</div>');
+                        }
+                    });
+                    i3 = j3;
+                }
+            }
+        });
+        // 结构化编辑器自动段：辅助检查（token 逗号分隔）、处方行、处置项
+        Clinic.emrEditor.setAuto('aux_orders', auxT.join('，'), auxT.length > 0);
+        Clinic.emrEditor.setAuto('rx_lines', rxLines.join(''), rxLines.length > 0);
+        Clinic.emrEditor.setAuto('disp_items', dispT.join('，'), dispT.length > 0);
     }
 
     /**
@@ -892,12 +944,75 @@ Clinic.emr = (function () {
         Clinic.modal.open(html, { title: typeNames[o.order_type] || '项目详情', size: 'modal-md' });
     };
 
-    /** 左栏折叠/展开（挂 window：IIFE 执行期 Clinic.emr 尚未赋值，
-     *  直接写 Clinic.emr.toggleNavSec 会报 Cannot set properties of undefined） */
-    window.toggleNavSec = function (titleEl) {
-        titleEl.parentNode.classList.toggle('collapsed');
+    /**
+     * 处方组详情模态框：同组药品明细、规格、剂量频次途径、费用与药房发药状态
+     */
+    window.showRxDetail = function (orderId) {
+        var o = null;
+        (ORDERS || []).forEach(function (x) { if (x.id === orderId) o = x; });
+        if (!o) return;
+        var rxStatusMap = {
+            open: '<span class="badge badge-warning">待缴费</span>',
+            paid: '<span class="badge badge-primary">已缴费 · 待发药</span>',
+            dispensing: '<span class="badge badge-warning">发药中</span>',
+            dispensed: '<span class="badge badge-success">已发药</span>',
+            refunded: '<span class="badge badge-gray">已退费</span>',
+            cancelled: '<span class="badge badge-gray">已取消</span>',
+        };
+        var rows = '';
+        var n = o.items.length;
+        o.items.forEach(function (it, idx) {
+            var isSub = (it.group_no || 0) > 0 && idx > 0 && (o.items[idx - 1].group_no || 0) === it.group_no;
+            var tree = isSub ? ((idx === n - 1 || (o.items[idx + 1] || {}).group_no !== it.group_no) ? '\u2514\u2500 ' : '\u251C\u2500 ') : '';
+            var subtotal = (parseFloat(it.price || 0) * (it.quantity || 0)).toFixed(2);
+            rows += '<tr>' +
+                '<td class="fs-13">' + tree + escHtml(it.item_name) +
+                (it.spec ? '<div class="fs-12 text-muted">规格：' + escHtml(it.spec) + '</div>' : '') + '</td>' +
+                '<td class="fs-13">' + escHtml(it.single_dose || '—') + '</td>' +
+                '<td class="fs-13">' + escHtml(it.frequency_name || '—') + '</td>' +
+                '<td class="fs-13">' + escHtml(it.route_name || '—') + '</td>' +
+                '<td class="fs-13">' + (it.quantity || 0) + '</td>' +
+                '<td class="fs-13 text-muted">¥' + subtotal + '</td></tr>';
+        });
+        var html = '<div class="flex-between mb-8">' +
+            '<span class="fs-13 text-muted">处方号：' + escHtml(o.order_no || '') + ' ｜ 开单医生：' + escHtml(o.doctor_name || '') + ' ｜ ' + o.created_at + '</span>' +
+            '<span>' + (rxStatusMap[o.status] || o.status) + '</span></div>' +
+            '<div class="table-wrap"><table class="table"><thead><tr>' +
+            '<th>药品</th><th>剂量</th><th>频次</th><th>途径</th><th>数量</th><th>小计</th></tr></thead><tbody>' +
+            rows + '</tbody></table></div>' +
+            '<div class="flex-between mt-8"><span></span><span class="fw-600">合计：¥' + parseFloat(o.total_amount || 0).toFixed(2) + '</span></div>';
+        Clinic.modal.open(html, { title: '处方明细', size: 'modal-lg' });
     };
 
+    /**
+     * 病历正文交互穿透：事件代理统一分发 .emr-item-link 点击 →
+     * 检查/检验/处置走 showItemDetail，处方药品走 showRxDetail。
+     * 只读历史文书段（.emr-record-readonly）与诊毕只读态不响应。
+     */
+    function bindItemTokenDelegate() {
+        var scroller = document.querySelector('.emr-main-editor-scroll');
+        if (!scroller || scroller.dataset.tokenBound === '1') return;
+        scroller.dataset.tokenBound = '1';
+        scroller.addEventListener('click', function (e) {
+            var t = e.target.closest('.emr-item-link');
+            if (!t) return;
+            // 只读降级：诊毕只读文档或前序/后续他人只读文书段内不响应
+            var docBody = document.getElementById('docBody');
+            if (docBody && docBody.getAttribute('data-ro') === '1') return;
+            if (t.closest('.prev-record-wrap-sec, .emr-record-readonly')) return;
+            var oid2 = t.getAttribute('data-oid');
+            var iid2 = t.getAttribute('data-iid');
+            var o = null;
+            (ORDERS || []).forEach(function (x) { if (x.id === oid2) o = x; });
+            if (!o) return;
+            if (t.getAttribute('data-otype') === 'prescription') showRxDetail(oid2);
+            else showItemDetail(oid2, iid2);
+        });
+    }
+
+    /** 左栏折叠/展开（挂 window：IIFE 执行期 Clinic.emr 尚未赋值，
+     *  直接写 Clinic.emr.toggleNavSec 会报 Cannot set properties of undefined） */
+    window.toggleNavSec
     /**
      * 当前时间 YYYY-MM-DD HH:mm:ss（用于记录时间展示）
      */

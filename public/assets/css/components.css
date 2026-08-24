@@ -848,3 +848,58 @@
 .status-indicator.gray { background-color: #94a3b8; }   /* 未缴费 */
 .status-indicator.red { background-color: #ef4444; }    /* 已缴费未出报告 */
 .status-indicator.green { background-color: #10b981; }  /* 报告已出 */
+
+/* ====================================================
+   【病历正文交互穿透：项目行内标签（活跃编辑态）】
+   ==================================================== */
+.emr-item-link {
+    display: inline-block;
+    color: #2563eb;
+    background-color: #eff6ff;
+    padding: 1px 6px;
+    margin: 0 2px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+    transition: all 0.15s ease-in-out;
+}
+.emr-item-link:hover {
+    color: #1d4ed8;
+    background-color: #dbeafe;
+    text-decoration-style: solid;
+}
+/* 组医嘱子药缩进行 */
+.ef-rx-sub { padding-left: 1.25em; }
+
+/* ====================================================
+   【只读视图 / 打印模式纯文本降级】
+   前序医生只读文书段、诊毕只读文档、浏览器打印：
+   标签降级为纯正文，禁用底色/下划线/点击。
+   ==================================================== */
+body.emr-readonly .emr-item-link,
+.emr-record-readonly .emr-item-link {
+    display: inline !important;
+    color: inherit !important;
+    background-color: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    cursor: text !important;
+    text-decoration: none !important;
+    pointer-events: none !important;
+}
+@media print {
+    .emr-item-link {
+        display: inline !important;
+        color: inherit !important;
+        background-color: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        cursor: text !important;
+        text-decoration: none !important;
+        pointer-events: none !important;
+    }
+}
