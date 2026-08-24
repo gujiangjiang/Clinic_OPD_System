@@ -32,6 +32,8 @@
 - **提交信息规范化**：AGENTS.md 明确采用 Conventional Commits 前缀
   （feat / fix / docs / style / refactor / perf / chore）+ 中文简述，
   禁止无前缀的纯中文提交信息。
+- **提交正文细化**：每次提交在标题之外，必须空一行后附详细正文，
+  逐条记录本次更新细节（改动点、涉及模块、CHANGELOG 同步情况）。
 
 ---
 ---
