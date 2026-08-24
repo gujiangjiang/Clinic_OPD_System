@@ -335,9 +335,14 @@
 }
 .ena-sec-title .ena-arrow { margin-left: auto; font-size: 10px; color: var(--text-muted); transition: transform .15s; }
 .ena-sec-title .ena-sum + .ena-arrow { margin-left: 2px; }
-.ena-sec.collapsed .ena-sec-body { display: none; }
+
 .ena-sec.collapsed .ena-arrow { transform: rotate(-90deg); }
-.ena-sec-body { padding: 0 4px 4px; }
+.ena-sec-body {
+    padding: 0 4px 4px;
+    overflow: hidden;
+    transition: max-height .24s ease, opacity .18s ease;
+}
+.ena-sec.collapsed .ena-sec-body { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; }
 .ena-item {
     display: flex;
     align-items: center;

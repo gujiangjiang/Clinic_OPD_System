@@ -1115,7 +1115,33 @@ Clinic.emr = (function () {
     /** 左栏折叠/展开（挂 window：IIFE 执行期 Clinic.emr 尚未赋值，
      *  直接写 Clinic.emr.toggleNavSec 会报 Cannot set properties of undefined） */
     window.toggleNavSec = function (titleEl) {
-        titleEl.parentNode.classList.toggle('collapsed');
+        var sec = titleEl.parentNode;
+        var body = sec.querySelector('.ena-sec-body');
+        if (!body) { sec.classList.toggle('collapsed'); return; }
+        var willCollapse = !sec.classList.contains('collapsed');
+        if (willCollapse) {
+            // 收起：先钉住当前高度，再过渡到 0（两帧保证起始值生效）
+            body.style.maxHeight = body.scrollHeight + 'px';
+            body.style.opacity = '1';
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () {
+                    body.style.maxHeight = '0';
+                    body.style.opacity = '0';
+                    sec.classList.add('collapsed');
+                });
+            });
+        } else {
+            // 展开：从 0 过渡到实际内容高度，完成后解除限制（长列表不被裁切）
+            sec.classList.remove('collapsed');
+            body.style.maxHeight = body.scrollHeight + 'px';
+            body.style.opacity = '1';
+            var done = function (e) {
+                if (e.propertyName !== 'max-height') return;
+                if (!sec.classList.contains('collapsed')) body.style.maxHeight = 'none';
+                body.removeEventListener('transitionend', done);
+            };
+            body.addEventListener('transitionend', done);
+        }
     };
 
     /**
