@@ -29,6 +29,9 @@
 - **新增 CLAUDE.md 兼容引导文件**：内容指向 AGENTS.md 并附重点速记
   （本地运行 / 提交约定 / PHP 7.x 兼容约束），便于其他 AI 工具
   （Claude Code 等）自动遵循项目约定。
+- **提交信息规范化**：AGENTS.md 明确采用 Conventional Commits 前缀
+  （feat / fix / docs / style / refactor / perf / chore）+ 中文简述，
+  禁止无前缀的纯中文提交信息。
 
 ---
 ---
