@@ -771,64 +771,78 @@ Clinic.emr = (function () {
     /**
      * 打开生命体征编辑弹窗（6 个输入框：收缩压/舒张压/心率/脉搏/血氧/呼吸，与护士站共用接口）
      */
+    var vitalsPopHandler = null;
+    function closeVitalsPop() {
+        var pop = document.getElementById('vitalsPop');
+        if (pop) pop.remove();
+        if (vitalsPopHandler) {
+            document.removeEventListener('mousedown', vitalsPopHandler);
+            vitalsPopHandler = null;
+        }
+    }
     function openVitals() {
         // 诊毕只读：不允许修改生命体征（仅展示）
         if (DATA && DATA.visit && DATA.visit.status === 'finished') {
             Clinic.toast.warning('该患者已诊毕，生命体征为只读状态');
             return;
         }
+        // 已打开则先收起（再次点击 = 关闭）
+        if (document.getElementById('vitalsPop')) { closeVitalsPop(); return; }
+        var sec = document.querySelector('.doc-sec-vital');
+        if (!sec) { Clinic.toast.warning('生命体征区域不可见'); return; }
         var visitId = document.getElementById('visitId').value;
         Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
             onSuccess: function (j) {
+                closeVitalsPop();   // 防御：请求期间重复点击
                 var v = j.data.vitals || {};
                 var val = function (x) { return x || ''; };
-                Clinic.modal.open(
-                    '<div class="form-row">' +
-                    '<div class="form-group"><label class="form-label">收缩压（mmHg）</label>' +
-                    '<input class="input" id="vSys" type="number" min="0" value="' + val(v.bp_systolic) + '"></div>' +
-                    '<div class="form-group"><label class="form-label">舒张压（mmHg）</label>' +
-                    '<input class="input" id="vDia" type="number" min="0" value="' + val(v.bp_diastolic) + '"></div></div>' +
-                    '<div class="form-row">' +
-                    '<div class="form-group"><label class="form-label">心率（次/分）</label>' +
-                    '<input class="input" id="vHR" value="' + val(v.heart_rate) + '"></div>' +
-                    '<div class="form-group"><label class="form-label">脉搏（次/分）</label>' +
-                    '<input class="input" id="vPulse" value="' + val(v.pulse) + '"></div></div>' +
-                    '<div class="form-row">' +
-                    '<div class="form-group"><label class="form-label">血氧饱和度（%）</label>' +
-                    '<input class="input" id="vSpO2" value="' + val(v.spo2) + '"></div>' +
-                    '<div class="form-group"><label class="form-label">呼吸（次/分）</label>' +
-                    '<input class="input" id="vResp" value="' + val(v.respiration) + '"></div></div>' +
-                    '<div class="fs-12 text-muted">保存后护士站将同步显示。</div>',
-                    {
-                        title: '生命体征编辑',
-                        size: 'modal-sm',
-                        buttons: [
-                            { text: '取消', cls: 'btn-outline' },
-                            {
-                                text: '保存', cls: 'btn-primary', autoClose: false,
-                                onClick: function () {
-                                    var data = {
-                                        action: 'save_vitals',
-                                        visit_id: visitId,
-                                        bp_systolic: parseInt(document.getElementById('vSys').value, 10) || 0,
-                                        bp_diastolic: parseInt(document.getElementById('vDia').value, 10) || 0,
-                                        heart_rate: document.getElementById('vHR').value.trim(),
-                                        pulse: document.getElementById('vPulse').value.trim(),
-                                        spo2: document.getElementById('vSpO2').value.trim(),
-                                        respiration: document.getElementById('vResp').value.trim(),
-                                    };
-                                    Clinic.ajax('/api/record', data, {
-                                        onSuccess: function (json) {
-                                            Clinic.toast.success(json.msg);
-                                            Clinic.modal.close();
-                                            refreshVitalDisplay();
-                                        },
-                                    });
-                                },
-                            },
-                        ],
-                    }
-                );
+                var pop = document.createElement('div');
+                pop.id = 'vitalsPop';
+                pop.className = 'finish-pop vitals-pop';
+                pop.innerHTML =
+                    '<div class="fs-13 fw-700 mb-8">生命体征编辑</div>' +
+                    '<div class="vitals-grid">' +
+                    '  <div><label class="form-label">收缩压 mmHg</label><input class="input" id="vSys" type="number" min="0" value="' + val(v.bp_systolic) + '"></div>' +
+                    '  <div><label class="form-label">舒张压 mmHg</label><input class="input" id="vDia" type="number" min="0" value="' + val(v.bp_diastolic) + '"></div>' +
+                    '  <div><label class="form-label">心率 次/分</label><input class="input" id="vHR" value="' + val(v.heart_rate) + '"></div>' +
+                    '  <div><label class="form-label">脉搏 次/分</label><input class="input" id="vPulse" value="' + val(v.pulse) + '"></div>' +
+                    '  <div><label class="form-label">血氧饱和度 %</label><input class="input" id="vSpO2" value="' + val(v.spo2) + '"></div>' +
+                    '  <div><label class="form-label">呼吸 次/分</label><input class="input" id="vResp" value="' + val(v.respiration) + '"></div>' +
+                    '</div>' +
+                    '<div class="fs-12 text-muted mt-4">保存后护士站将同步显示。</div>' +
+                    '<div class="flex gap-8 mt-8">' +
+                    '  <button type="button" class="btn btn-outline btn-sm" style="flex:1" id="vitalsCancel">取消</button>' +
+                    '  <button type="button" class="btn btn-primary btn-sm" style="flex:1" id="vitalsSave">保存</button>' +
+                    '</div>';
+                document.body.appendChild(pop);
+                var rect = sec.getBoundingClientRect();
+                pop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+                pop.style.left = Math.max(8, rect.right + window.scrollX - 300) + 'px';
+                pop.querySelector('#vitalsCancel').addEventListener('click', closeVitalsPop);
+                pop.querySelector('#vitalsSave').addEventListener('click', function () {
+                    var data = {
+                        action: 'save_vitals',
+                        visit_id: visitId,
+                        bp_systolic: parseInt(document.getElementById('vSys').value, 10) || 0,
+                        bp_diastolic: parseInt(document.getElementById('vDia').value, 10) || 0,
+                        heart_rate: document.getElementById('vHR').value.trim(),
+                        pulse: document.getElementById('vPulse').value.trim(),
+                        spo2: document.getElementById('vSpO2').value.trim(),
+                        respiration: document.getElementById('vResp').value.trim(),
+                    };
+                    Clinic.ajax('/api/record', data, {
+                        onSuccess: function (json) {
+                            Clinic.toast.success(json.msg);
+                            closeVitalsPop();
+                            refreshVitalDisplay();
+                        },
+                    });
+                });
+                // 点击面板以外区域关闭
+                vitalsPopHandler = function (e) {
+                    if (!pop.contains(e.target) && !sec.contains(e.target)) closeVitalsPop();
+                };
+                setTimeout(function () { document.addEventListener('mousedown', vitalsPopHandler); }, 0);
             },
         });
     }

@@ -395,6 +395,16 @@
 }
 .finish-opt:hover { background: rgba(0,0,0,.04); }
 
+/* 生命体征编辑悬浮面板：锚定病历「生命体征」小节下方，两列紧凑表单 */
+.vitals-pop { width: 300px; }
+.vitals-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 10px;
+}
+.vitals-grid .form-label { font-size: 12px; margin-bottom: 2px; }
+.vitals-grid .input { padding: 5px 8px; font-size: 13px; }
+
 /* 总费用悬浮明细面板（横条徽章 hover）：圆点区分缴费状态 + 项目名 + 金额 */
 .fee-pop {
     position: absolute;
