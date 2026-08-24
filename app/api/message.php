@@ -108,18 +108,48 @@ switch ($action) {
             }
         }
         // 校验收件人（启用账号且非本人）
+        // 注意参数顺序：SQL 中 id<>? 在前、IN 在后，绑定须为 [本人id, ...收件人ids]
         $ph = implode(',', array_fill(0, count($recipients), '?'));
-        $params = $recipients;
-        $params[] = $u['id'];
+        $params = array_merge(array($u['id']), $recipients);
         $valid = array();
-        foreach (DB::q('user', "SELECT id, role FROM users WHERE status=1 AND id<>? AND id IN ($ph)", $params) as $r) {
-            $valid[(int)$r['id']] = $r['role'];
+        foreach (DB::q('user', "SELECT id, role, name FROM users WHERE status=1 AND id<>? AND id IN ($ph)", $params) as $r) {
+            $valid[(int)$r['id']] = $r;
         }
         if (!count($valid)) json_fail('接收者不存在或不可用');
-        foreach ($valid as $uid => $role) {
-            send_msg($role, $uid, $title, $content, '', '', array('msg_type' => 'user'));
+        $names = array();
+        foreach ($valid as $uid => $r) {
+            send_msg($r['role'], $uid, $title, $content, '', '', array('msg_type' => 'user'));
+            $names[] = $r['name'];
         }
+        // 发送日志（独立于收件消息行）：删除/清空已发送不影响接收者查看
+        DB::insert('core', 'INSERT INTO sent_messages(sender_id, sender_name, title, content, recipients, recipient_count, created_at) VALUES(?,?,?,?,?,?,?)', array(
+            $u['id'], $u['name'], $title, $content, implode('、', $names), count($valid), now_str(),
+        ));
         json_ok(array('count' => count($valid)), '消息已发送给 ' . count($valid) . ' 位用户');
+        break;
+
+    /* ---------------- 已发送列表（发送日志，仅本人） ---------------- */
+    case 'sent_list':
+        $list = DB::q('core', 'SELECT * FROM sent_messages WHERE sender_id=? ORDER BY id DESC LIMIT 200', array($u['id']));
+        json_ok(array('list' => $list));
+        break;
+
+    /* ---------------- 删除已发送记录（多选，仅本人日志，不影响接收者） ---------------- */
+    case 'sent_delete':
+        $ids = json_decode((string)post('ids', '[]'), true);
+        $ids = array_values(array_unique(array_filter(array_map('intval', is_array($ids) ? $ids : array()))));
+        if (!count($ids)) json_fail('请选择要删除的记录');
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $params = $ids;
+        $params[] = $u['id'];
+        DB::exec('core', "DELETE FROM sent_messages WHERE id IN ($ph) AND sender_id=?", $params);
+        json_ok(array(), '已删除 ' . count($ids) . ' 条发送记录');
+        break;
+
+    /* ---------------- 清空已发送记录（仅本人日志，不影响接收者） ---------------- */
+    case 'sent_clear':
+        DB::exec('core', 'DELETE FROM sent_messages WHERE sender_id=?', array($u['id']));
+        json_ok(array(), '已清空所有发送记录');
         break;
 
     default:

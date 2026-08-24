@@ -6,7 +6,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 4,
+    'version' => 5,
     'tables' => array(
         'settings' => "CREATE TABLE IF NOT EXISTS settings (
             skey TEXT PRIMARY KEY,
@@ -27,6 +27,16 @@ return array(
             patient_name TEXT DEFAULT '',
             visit_id INTEGER DEFAULT 0,
             link_url TEXT DEFAULT '',
+            created_at TEXT
+        )",
+        'sent_messages' => "CREATE TABLE IF NOT EXISTS sent_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender_id INTEGER,
+            sender_name TEXT,
+            title TEXT,
+            content TEXT,
+            recipients TEXT,
+            recipient_count INTEGER DEFAULT 0,
             created_at TEXT
         )",
         'audits' => "CREATE TABLE IF NOT EXISTS audits (
@@ -63,6 +73,19 @@ return array(
         // v4：站内消息增加发送者 id（用户互发消息限流与追溯）
         4 => array(
             "ALTER TABLE messages ADD COLUMN from_user_id INTEGER DEFAULT 0",
+        ),
+        // v5：发送日志表（已发送视图；删除/清空仅删日志行，不影响接收者消息）
+        5 => array(
+            "CREATE TABLE IF NOT EXISTS sent_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sender_id INTEGER,
+                sender_name TEXT,
+                title TEXT,
+                content TEXT,
+                recipients TEXT,
+                recipient_count INTEGER DEFAULT 0,
+                created_at TEXT
+            )",
         ),
     ),
     'seed' => array(),

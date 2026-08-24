@@ -35,8 +35,9 @@ if ($__act === 'login' || $__act === 'logout_page') {
         }
         $u = Auth::user();
         // 管理员首次登录（未修改过默认密码）：站内消息提醒修改密码，点击跳转 /password
+        // 去重不含 is_read 条件——只要发过一次就不再重发（已读/清空后登录不再重复打扰）
         if ($u['role'] === 'admin' && (int)DB::val('user', 'SELECT pwd_changed FROM users WHERE id=?', array($u['id'])) === 0) {
-            $exist = DB::one('core', "SELECT id FROM messages WHERE to_user_id=? AND title=? AND is_read=0 LIMIT 1",
+            $exist = DB::one('core', "SELECT id FROM messages WHERE to_user_id=? AND title=? LIMIT 1",
                 array((int)$u['id'], '修改管理员密码提醒'));
             if (!$exist) {
                 DB::insert('core', "INSERT INTO messages(from_name, to_role, to_user_id, title, content, is_read, msg_type, link_url, created_at) VALUES(?,?,?,?,?,0,'system',?,?)",

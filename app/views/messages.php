@@ -11,6 +11,7 @@ Router::title('站内消息');
     <div><div class="page-title">💬 站内消息</div><div class="page-desc">系统内所有业务提醒与打印提醒</div></div>
     <div class="flex gap-8">
         <button class="btn btn-primary btn-sm" onclick="openSendMsg()">✉️ 发送消息</button>
+        <button class="btn btn-outline btn-sm" onclick="openSent()">📤 已发送</button>
         <button class="btn btn-outline btn-sm" onclick="loadMsgs()">刷新</button>
     </div>
 </div>
@@ -245,6 +246,57 @@ function doSendMsg() {
             Clinic.notify.refresh();
         },
     });
+}
+/* ==================== 已发送（发送日志，删除不影响接收者） ==================== */
+function openSent() {
+    Clinic.get('/api/message?action=sent_list', null, {
+        onSuccess: function (json) {
+            var list = json.data.list || [];
+            var body = list.length
+                ? '<div class="flex-between mb-8"><span class="fs-13 text-muted">共 ' + list.length + ' 条发送记录</span>' +
+                  '<button class="btn btn-outline btn-sm" onclick="sentClear()">🗑 一键清空</button></div>' +
+                  list.map(function (m) {
+                      return '<div class="sent-item" style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--border)">' +
+                          '<input type="checkbox" class="sent-check" value="' + m.id + '">' +
+                          '<div style="flex:1;min-width:0">' +
+                          '  <div class="fw-600 fs-14 ellipsis">' + m.title + ' <span class="fs-12 text-muted fw-400">（' + (m.recipient_count || 1) + ' 人）</span></div>' +
+                          '  <div class="fs-13 text-muted ellipsis">接收者：' + m.recipients + '</div>' +
+                          '  <div class="fs-13 text-muted ellipsis">' + m.content + '</div>' +
+                          '  <div class="fs-12 text-muted mt-4">' + m.created_at + '</div>' +
+                          '</div></div>';
+                  }).join('')
+                : '<div class="empty"><div class="empty-ico">📤</div>暂无发送记录</div>';
+            var foot = list.length
+                ? '<div class="flex gap-8 mt-12"><button class="btn btn-danger btn-sm" onclick="sentDelChecked()">🗑 删除选中</button></div>'
+                : '';
+            Clinic.modal.open(
+                '<div class="sent-list-box">' + body + foot + '</div>',
+                { title: '📤 已发送的消息', size: 'modal-lg' }
+            );
+        },
+    });
+}
+function sentDelChecked() {
+    var ids = [];
+    document.querySelectorAll('.sent-list-box .sent-check:checked').forEach(function (c) { ids.push(parseInt(c.value, 10)); });
+    if (!ids.length) { Clinic.toast.warning('请先勾选要删除的记录'); return; }
+    Clinic.ajax('/api/message', { action: 'sent_delete', ids: JSON.stringify(ids) }, {
+        onSuccess: function (json) {
+            Clinic.toast.success(json.msg);
+            Clinic.modal.close();
+            openSent();
+        },
+    });
+}
+function sentClear() {
+    Clinic.modal.confirm('确定清空所有发送记录？接收者已收到的消息不受影响。', function () {
+        Clinic.ajax('/api/message', { action: 'sent_clear' }, {
+            onSuccess: function (json) {
+                Clinic.toast.success(json.msg);
+                Clinic.modal.close();
+            },
+        });
+    }, { title: '清空发送记录', okText: '全部清空' });
 }
 loadMsgs();
 </script>
