@@ -1259,17 +1259,18 @@ Clinic.emr = (function () {
         var myList3 = (DATA && DATA.record && DATA.record.emr && DATA.record.emr.diagnoses) || [];
         var diagMap = {};
         var diagOrder = [];
-        var pushDiag = function (dg, mine, others) {
+        var pushDiag = function (dg, mine, others, primary) {
             if (!dg || !dg.name) return;
             var key = (dg.code || '') + '|' + dg.name;
             if (!diagMap[key]) {
-                diagMap[key] = { key: key, idx: diagOrder.length, code: dg.code || '', name: dg.name, dg: dg, mine: false, others: false };
+                diagMap[key] = { key: key, idx: diagOrder.length, code: dg.code || '', name: dg.name, dg: dg, mine: false, others: false, primary: false };
                 diagOrder.push(diagMap[key]);
             }
             if (mine) diagMap[key].mine = true;
             if (others) diagMap[key].others = true;
+            if (primary) diagMap[key].primary = true;
         };
-        myList3.forEach(function (dg) { pushDiag(dg, true, false); });
+        myList3.forEach(function (dg, di) { pushDiag(dg, true, false, di === 0); });
         (DATA && DATA.records_history ? DATA.records_history : []).forEach(function (h) {
             if ((h.doctor_id || 0) === mineId3) return;
             ((h.emr && h.emr.diagnoses) || []).forEach(function (dg) { pushDiag(dg, false, true); });
@@ -1277,14 +1278,17 @@ Clinic.emr = (function () {
         DIAG_ROWS = diagOrder;
         diagEl.innerHTML = diagOrder.length ? diagOrder.map(function (x) {
             var quoted = x.mine && x.others;
-            var delBtn = x.mine
-                ? '<span class="ena-del" title="删除该诊断" onclick="Clinic.emr.delDiag(event,' + x.idx + ')">🗑️</span>'
-                : '';
+            // 主诊断行：显示「主诊断」徽标（不可删除，前后端双重拦截）
+            var tail = x.primary
+                ? '<span class="badge badge-primary" style="flex-shrink:0">主诊断</span>'
+                : (x.mine
+                    ? '<span class="ena-del" title="删除该诊断" onclick="Clinic.emr.delDiag(event,' + x.idx + ')">🗑️</span>'
+                    : '');
             return '<div class="ena-item" onclick="Clinic.emr.openDiagOpsPop(event,' + x.idx + ')" style="cursor:pointer">' +
                 '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escHtml(x.name) + '">' +
                 escHtml(x.name) + (x.code ? ' <span class="text-muted">[' + escHtml(x.code) + ']</span>' : '') +
                 (quoted ? ' <span class="fs-11 text-muted">引用</span>' : '') +
-                '</span>' + delBtn + '</div>';
+                '</span>' + tail + '</div>';
         }).join('') : '<div class="ena-empty">暂未开立诊断</div>';
 
         // ---------- 4-7. 检查/检验/处置/处方 ----------

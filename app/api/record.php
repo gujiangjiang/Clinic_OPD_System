@@ -655,6 +655,20 @@ switch ($action) {
         }
         if (!count($clean)) json_fail('诊断列表不能为空');
         $emr = emr_merge_defaults(emr_normalize(json_decode($pr['emr_data'], true)), emr_default_data(null));
+        // 主诊断保护：当前主诊断（列表首位）不可删除（调整顺序允许）——
+        // 若旧主诊断从提交列表中消失则拒绝
+        $oldFirst = (isset($emr['diagnoses']) && is_array($emr['diagnoses']) && count($emr['diagnoses'])) ? $emr['diagnoses'][0] : null;
+        if ($oldFirst && !empty($oldFirst['name'])) {
+            $stillThere = false;
+            foreach ($clean as $c) {
+                if ((string)$c['name'] === (string)$oldFirst['name'] &&
+                    (string)$c['code'] === (string)(isset($oldFirst['code']) ? $oldFirst['code'] : '')) {
+                    $stillThere = true;
+                    break;
+                }
+            }
+            if (!$stillThere) json_fail('主诊断不可删除（如需调整请先将其他诊断设为主诊断）');
+        }
         $emr['diagnoses'] = $clean;
         $diagText = emr_diag_text($clean);
         $firstCode = (string)$clean[0]['code'];

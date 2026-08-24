@@ -508,13 +508,20 @@ Clinic.emrEditor = (function () {
         if (!f) return;
         f.innerHTML = DIAGS.length
             ? DIAGS.map(function (d, i) {
-                // 首个诊断后附「＋」快捷添加入口（跟随鼠标的悬浮添加窗）
-                var add = i === 0
-                    ? '<span class="ef-diag-add" title="添加诊断" onclick="Clinic.emr.openDiagPop(event);event.stopPropagation()">＋</span>'
-                    : '';
-                return '<span class="ef-diag-item" data-i="' + i + '">' + diagText(d) + add + '</span>';
+                return '<span class="ef-diag-item" data-i="' + i + '">' + diagText(d) + '</span>';
             }).join('<span class="ef-diag-sep">，</span>')
             : '';
+        // 「＋」显示在字段框（横线框）后侧、最后一个诊断之后（有诊断且可编辑时），
+        // 点击弹出跟随鼠标的诊断添加悬浮窗
+        var old = f.parentNode ? f.parentNode.querySelector('.ef-diag-add') : null;
+        if (old) old.remove();
+        if (DIAGS.length && !READONLY) {
+            var add = document.createElement('span');
+            add.className = 'ef-diag-add';
+            add.title = '添加诊断';
+            add.onclick = function (ev) { Clinic.emr.openDiagPop(ev); };
+            f.insertAdjacentElement('afterend', add);
+        }
     }
 
     /** 诊断选择模态框：左侧搜索（名称/ICD10/拼音），右侧已选列表（排序/删除/编辑） */
