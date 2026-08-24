@@ -87,13 +87,15 @@ Clinic.emr = (function () {
         }
         // 患者一栏只保留基本信息（就诊医生右上角已有展示，记录时间在病历文档左下角，均不在此重复）
         // 条形码位于病历文档页头右上角（与打印预览一致），不在此处显示
-        // 修改入口：点击上方头像或患者姓名弹出「修改患者信息」弹窗（病历文档内的患者信息区保持纯净）
+        // 交互入口：点击头像 → 就诊历史；点击患者姓名 → 「修改患者信息」弹窗
+        // （p.patient_id 即患者档案号 patient_no，与就诊历史/资料编辑接口参数一致）
+        // 外层不再包 .card——顶部横条 .emr-top-bar 自带卡片底色与边框
         var editModal = "Clinic.patient.editModal('" + p.patient_id + "')";
+        var historyModal = "showPatientHistory('" + p.patient_id + "')";
         document.getElementById('emrHeader').innerHTML =
-            '<div class="card" style="background:var(--bg-card)">' +
             '<div class="flex-between">' +
             '  <div class="flex gap-12" style="align-items:center">' +
-            '    <div class="emr-patient-avatar" onclick="' + editModal + '" title="点击修改患者信息（除姓名/性别/身份证外均可修改）">👤</div>' +
+            '    <div class="emr-patient-avatar" onclick="' + historyModal + '" title="点击查看就诊历史">👤</div>' +
             '    <div>' +
             '      <div class="fs-18 fw-700 emr-patient-name" onclick="' + editModal + '" title="点击修改患者信息">' + v.name +
             '        <span class="badge badge-gray" style="margin-left:8px">' + v.gender + ' / ' + (v.age_fmt || '') + '</span>' +
@@ -101,11 +103,11 @@ Clinic.emr = (function () {
             '" style="margin-left:4px">' + (v.dept_type === 'emergency' ? '急诊' : '门诊') + '</span>' +
             '      </div>' +
             '      <div class="text-muted fs-13">患者ID：' + p.patient_id + ' ｜ 流水号：' + v.visit_no +
-            ' ｜ ' + v.dept_name + ' 第' + String(v.visit_seq).padStart(3, '0') + '号' +
+            ' ｜ ' + v.dept_name + ' 第' + String(v.visit_seq).padStart(3, 0) + '号' +
             certHtml + '</div>' +
             '    </div>' +
             '  </div>' +
-            '</div></div>';
+            '</div>';
     }
 
     /**

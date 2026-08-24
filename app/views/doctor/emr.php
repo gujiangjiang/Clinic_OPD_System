@@ -1,17 +1,18 @@
 <?php
 /**
- * doctor/emr.php — 电子病历（医生看诊页）三栏式工作台
- * 说明：经典三栏视口布局（100vh 锁定）：
- *   左栏：固定全景大纲栏（病历节点/知情同意书/全部诊断/检查/检验/门诊处置/处方/诊断证明，
- *         分区标题右侧「＋」快捷添加入口（emrNavAdd）+ 分类金额汇总 + 缴费报告状态指示灯，
- *         点击条目弹出详情或定位），不随页面滚动；
+ * doctor/emr.php — 电子病历（医生看诊页）工作台
+ * 说明：视口锁定布局（100vh），仅中栏编辑器独立滚动：
+ *   顶部：患者信息横条（通栏，头像点击=就诊历史，姓名点击=修改患者信息）
+ *         + 右侧看诊操作按钮组（保存/诊毕/转科/打印）；
  *   中栏：Word 风格所见即所得病历编辑器（唯一独立滚动区）；
- *   右栏：固定看诊操作工具栏。
- * 原底部「已开具项目」模块已移除——其数据聚合进左侧大纲栏。
+ *   右栏：固定全景大纲栏（病历节点/知情同意书/全部诊断/检查/检验/门诊处置/
+ *         处方/诊断证明，分区标题右侧「＋」快捷添加入口（emrNavAdd），
+ *         分类金额汇总 + 缴费报告状态指示灯 + 条目行内删除，不随页面滚动）。
+ * 原右栏工具栏已移除——功能拆分至顶部按钮组与患者头像/姓名点击入口。
  * DOM 约定（emr.js 依赖）：
  *   #visitId / #refRecordId（隐藏输入）、#emrBarcodeSrc、
- *   #emrHeader（患者信息头）、#emrCard（病历文档）、#saveStatus、
- *   左栏各容器：#navRecords / #navConsent / #navDiags / #navImaging /
+ *   #emrHeader（顶部患者信息条）、#emrCard（病历文档）、#saveStatus、
+ *   大纲栏各容器：#navRecords / #navConsent / #navDiags / #navImaging /
  *   #navLab / #navProc / #navRx / #navCert（emr.js 渲染）
  * 安全：URL 中 visit_id 为混淆串，此处一次性解码；前端全程透传混淆串。
  */
@@ -42,11 +43,37 @@ $patient = $row['patient'];
     echo barcode128_svg($bcCode);
 ?></div>
 
-<!-- ===== 三栏式工作区（左右锁定、中间独立滚动） ===== -->
+<!-- ===== 工作区（顶部通栏信息条 + 中编辑器 + 右大纲栏） ===== -->
 <div class="emr-workspace-layout">
 
-    <!-- ===== 左侧：全景大纲栏（分区标题右侧「＋」为快捷添加入口，见 emrNavAdd） ===== -->
-    <aside class="emr-sidebar-left">
+    <!-- ===== 顶部：患者信息横条（emr.js 填充） + 看诊操作按钮组 =====
+         就诊历史 = 点击患者头像；修改患者信息 = 点击患者姓名 -->
+    <header class="emr-top-bar">
+        <div id="emrHeader"></div>
+        <span class="fs-12 text-muted emr-top-status" id="saveStatus"></span>
+        <div class="emr-top-actions">
+            <button class="btn btn-primary btn-sm emr-write" onclick="Clinic.emr.save(false)">💾 保存</button>
+            <button class="btn btn-success btn-sm emr-write" onclick="Clinic.emr.save(true)">✅ 诊毕</button>
+            <button class="btn btn-outline btn-sm emr-write" onclick="openTransfer()">↔️ 转科</button>
+            <button class="btn btn-outline btn-sm" onclick="Clinic.emr.printRecord()">🖨️ 打印</button>
+        </div>
+    </header>
+
+    <!-- ===== 工作区两栏：编辑器（唯一独立滚动区） + 右侧全景大纲栏 ===== -->
+    <div class="emr-body-layout">
+
+        <!-- 中间：病历编辑器 -->
+        <div class="emr-main-editor-scroll">
+            <!-- 所见即所得病历文档（emr.js 整体渲染：医院抬头/标题栏/患者信息两栏/病历内容/签名） -->
+            <div class="card" id="emrCard" style="padding:0;overflow:hidden">
+                <div style="padding:18px 20px">
+                    <div class="text-muted fs-13 mb-8">病历编辑器加载中…（医院名称与患者信息区域不可编辑）</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 右侧：全景大纲栏（分区标题右侧「＋」为快捷添加入口，见 emrNavAdd） ===== -->
+        <aside class="emr-sidebar-left">
         <div class="ena-sec">
             <div class="ena-sec-title" onclick="toggleNavSec(this)">📋 病历节点<span class="ena-add emr-write" title="添加病历" onclick="emrNavAdd('records');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navRecords"></div>
@@ -83,34 +110,7 @@ $patient = $row['patient'];
         </div>
     </aside>
 
-    <!-- ===== 中间：病历编辑器（唯一独立滚动区） ===== -->
-    <div class="emr-main-editor-scroll">
-        <!-- 患者信息头（不可编辑，emr.js 填充） -->
-        <div id="emrHeader"></div>
-
-        <!-- 所见即所得病历文档（emr.js 整体渲染：医院抬头/标题栏/患者信息两栏/病历内容/签名） -->
-        <div class="card" id="emrCard" style="padding:0;overflow:hidden">
-            <div style="padding:18px 20px">
-                <div class="text-muted fs-13 mb-8">病历编辑器加载中…（医院名称与患者信息区域不可编辑）</div>
-            </div>
-        </div>
     </div>
-
-    <!-- ===== 右侧：常用工具栏（固定不滚动） =====
-         说明：开检验/检查/处置/处方与诊断证明已迁移至左栏各分区标题「＋」快捷入口 -->
-    <aside class="emr-sidebar-right">
-        <div class="emr-toolbar-title">看诊操作</div>
-        <button class="btn btn-primary btn-sm emr-write" onclick="Clinic.emr.save(false)">💾 保存病历</button>
-        <button class="btn btn-success btn-sm emr-write" onclick="Clinic.emr.save(true)">✅ 保存并诊毕</button>
-        <div class="emr-toolbar-divider"></div>
-        <button class="btn btn-outline btn-sm emr-write" onclick="openTransfer()">↔️ 转科</button>
-        <div class="emr-toolbar-divider"></div>
-        <button class="btn btn-outline btn-sm" onclick="Clinic.emr.printRecord()">🖨️ 打印病历</button>
-        <button class="btn btn-outline btn-sm" onclick="showPatientHistory('<?php echo e($patient['patient_no']); ?>')">📚 就诊历史</button>
-        <button class="btn btn-outline btn-sm" onclick="Clinic.patient.editModal('<?php echo e($patient['patient_no']); ?>')">✏️ 修改患者信息</button>
-        <div class="emr-toolbar-divider"></div>
-        <span class="fs-12 text-muted" id="saveStatus"></span>
-    </aside>
 </div>
 
 <script>

@@ -261,22 +261,58 @@
 /* 说明：.content 带 overflow-y:auto，sticky 会失效，因此宽屏用 fixed 固定在视口右侧；
          .emr-main 预留右侧内边距给工具栏让位，避免遮挡病历内容。 */
 /* ============================================================
- * 电子病历：三栏式工作台（左固定全景大纲栏 | 中独立滚动编辑器 | 右固定工具栏）
- * 视口高度锁定（100vh - 顶栏 - 内容区内边距），仅中栏滚动。
+ * 电子病历：工作台（顶部通栏患者信息条 | 中独立滚动编辑器 | 右固定全景大纲栏）
+ * 视口高度锁定（100vh - 顶栏 - 内容区内边距），仅中栏编辑器滚动。
  * ============================================================ */
 .emr-workspace-layout {
     display: flex;
+    flex-direction: column;
     height: calc(100vh - var(--topbar-h) - 40px);   /* 扣除顶栏与内容区上下内边距 */
     overflow: hidden;
     gap: 12px;
 }
-/* 左侧全景大纲栏（固定） */
+/* 顶部患者信息横条（通栏）：左侧信息（emr.js 填充 #emrHeader）+ 保存状态 + 看诊操作按钮组 */
+.emr-top-bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+}
+.emr-top-bar #emrHeader {
+    flex: 1;
+    min-width: 0;
+    overflow-x: hidden;
+    display: flex;            /* 信息内容在横条内垂直居中 */
+    align-items: center;
+}
+.emr-top-bar #emrHeader > .flex-between { width: 100%; }
+.emr-top-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.emr-top-actions .btn { white-space: nowrap; }
+.emr-top-status {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+/* 工作区两栏容器：编辑器 + 大纲栏 */
+.emr-body-layout {
+    display: flex;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+}
+/* 右侧全景大纲栏（固定） */
 .emr-sidebar-left {
-    width: 175px;
-    min-width: 175px;
+    width: 250px;
+    min-width: 250px;
     height: 100%;
     background: var(--bg-soft, #f8fafc);
-    border-right: 1px solid var(--border);
+    border-left: 1px solid var(--border);
     overflow-y: auto;
     padding: 10px;
     border-radius: 10px;
@@ -292,24 +328,10 @@
     background: transparent;
     padding-right: 4px;
 }
-/* 患者信息头无文档卡片那层 overflow 保护，显式防横向撑开 */
+/* 患者信息头无文档卡片那层 overflow 保护，显式防横向撑开（顶部横条内） */
 #emrHeader { min-width: 0; overflow-x: hidden; }
 /* 文档本体同样不允许被内容撑破 */
 .emr-main-editor-scroll .emr-doc { max-width: 100%; }
-/* 右侧常用工具栏（固定） */
-.emr-sidebar-right {
-    width: 175px;
-    min-width: 175px;
-    height: 100%;
-    background: var(--bg-card, #fff);
-    border-left: 1px solid var(--border);
-    overflow-y: auto;
-    padding: 14px 12px;
-    border-radius: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
 
 /* ---------- 左栏折叠模块 ---------- */
 .ena-sec { margin-bottom: 8px; }
@@ -393,13 +415,15 @@
 .ena-empty { font-size: 12px; color: var(--text-muted); padding: 3px 6px; }
 
 @media (max-width: 1100px) {
-    /* 窄屏：三栏退化为纵向堆叠（恢复页面滚动） */
+    /* 窄屏：工作台退化为纵向堆叠（恢复页面滚动） */
     .emr-workspace-layout {
-        flex-direction: column;
         height: auto;
         overflow: visible;
     }
-    .emr-sidebar-left, .emr-sidebar-right {
+    .emr-top-bar { flex-wrap: wrap; }
+    .emr-top-status { display: none; }
+    .emr-body-layout { flex-direction: column; }
+    .emr-sidebar-left {
         width: 100%;
         min-width: 0;
         height: auto;
@@ -419,17 +443,6 @@
 }
 .page-title { font-size: 20px; font-weight: 700; }
 .page-desc { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
-
-/* ---------- 电子病历右侧工具栏（三栏布局内静态定位） ---------- */
-.emr-sidebar-right .emr-toolbar-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text-muted);
-    letter-spacing: 2px;
-    margin-bottom: 2px;
-}
-.emr-sidebar-right .emr-toolbar-divider { height: 1px; background: var(--border); margin: 4px 0; }
-.emr-sidebar-right .btn { width: 100%; text-align: left; }
 
 /* ============================================================
    侧边栏展开/收起动画优化：

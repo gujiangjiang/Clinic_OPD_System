@@ -699,15 +699,6 @@
 .diag-sel-ops { display: flex; gap: 4px; flex-shrink: 0; }
 .diag-sel-ops .btn { padding: 1px 8px; }
 
-/* 病历页患者信息头常驻（不随内容滚动，吸附在顶栏下方） */
-#emrHeader {
-    position: sticky;
-    /* 吸附线取内容区滚动容器顶部（0）：实测与右侧工具栏
-       （top = topbar高度+20px）顶部对齐，且滚动时头顶无缝隙 */
-    top: 0;
-    z-index: 70;
-}
-
 /* 结构化病历节内控件：横向流式排列，允许换行 */
 .emr-doc .doc-body .doc-sec > .select { width: auto; min-width: 140px; }
 .emr-doc .doc-body .ef-field {
@@ -716,32 +707,6 @@
 }
 .emr-doc .doc-body .ef-select-wrap { flex-shrink: 0; }
 .emr-doc .doc-body .ef-cond { display: inline-block; }
-
-/* 病历页 sticky 患者头：负边距铺满内容区宽度 + 实体底色，
-   避免滚动时下方病历文字从缝隙透出（遮盖问题）。
-   上边距保持 0：sticky 吸附基准只由 top 决定，滚动吸附位置精确可控 */
-#emrHeader {
-    margin: 0 -20px 16px;
-    padding: 0 20px 10px;
-    background: var(--bg);
-    border-bottom: 1px solid var(--border);
-}
-/* 吸附线以上缝隙封堵带：患者头吸附在 top:16px 后，其上方的
-   [0,16px) 区域没有任何元素遮挡，正文从该缝「漏出」。此伪元素
-   与卡片同底色、向上延伸 20px（超出吸附线留余量），随卡片一起
-   吸附，把经过头顶的滚动内容全部盖住；高于滚动容器顶部的部分
-   被容器裁剪，无副作用。pointer-events 防止挡住下方点击。 */
-#emrHeader::before {
-    content: '';
-    position: absolute;
-    top: -20px;
-    left: -20px;
-    right: -20px;
-    height: 20px;
-    background: var(--bg);
-    pointer-events: none;
-}
-#emrHeader .card { margin-bottom: 0; }
 
 /* ============================================================
    多医生接诊/续写（1:N 文书隔离）
