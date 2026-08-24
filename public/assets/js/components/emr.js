@@ -1169,9 +1169,9 @@ Clinic.emr = (function () {
 
     /**
      * 诊断操作悬浮窗（跟随鼠标）：⭐ 设为主诊断 / ↑ 上移 / ↓ 下移。
-     * 排序写入独立的 diag_order 存储（visit+医生维度）——实现跨医生全局
-     * 交错排序且**不引用、不改动任何人的诊断数据**；
-     * 全局首行即主诊断（点击主诊断行不弹窗）。
+     * 排序写入独立的 diag_order 存储（visit+医生维度）——跨医生全局交错
+     * 排序；若被调整的是**他人诊断**，则自动引用该一条到本人病历
+     * （按新顺序插入），未调整的诊断不引用；编辑器初步诊断同步新顺序。
      */
     var DIAG_ROWS = [];   // 侧边栏诊断行缓存（含显示顺序与原始诊断对象）
     function openDiagOpsPop(ev, idx) {
@@ -1194,30 +1194,53 @@ Clinic.emr = (function () {
             (isLast ? '' : '<button type="button" class="btn btn-outline btn-sm btn-block mt-8" id="dopDown">↓ 下移</button>');
         placeDiagPop(pop, ev);
         var keys = DIAG_ROWS.map(function (x) { return x.key; });
+        // 按新全局顺序持久化：
+        // 1) 本人病历诊断列表 = 全局顺序 ∩（本人已有 ∪ 被调整的他人诊断）——
+        //    被调整的他人诊断自动引用，未调整的不引用；
+        // 2) 排序键写入 diag_order 独立存储；
+        // 3) 编辑器初步诊断经 saveDiags→setDiags 同步新顺序。
+        function persist(newKeys, okMsg) {
+            var cur = myDiags();
+            var keep = {};
+            var keyOf = function (d) { return (d.code || '') + '|' + d.name; };
+            cur.forEach(function (d) { keep[keyOf(d)] = d; });
+            var adjustedOthersOnly = !keep[row.key];
+            var newList = [];
+            newKeys.forEach(function (k) {
+                if (keep[k]) {
+                    newList.push(keep[k]);
+                } else if (adjustedOthersOnly && k === row.key) {
+                    newList.push({
+                        code: row.code, name: row.name,
+                        part: row.dg.part || '', note: row.dg.note || '', suspected: row.dg.suspected || '',
+                    });
+                }
+            });
+            if (DATA) DATA.diag_order = newKeys;   // 本地先行，渲染即时生效
+            saveDiags(newList, okMsg);             // 持久化本人列表 + 同步编辑器 + 刷新侧边栏
+            saveDiagOrder(newKeys);                // 持久化全局排序键（静默）
+        }
         pop.querySelector('#dopPrimary').addEventListener('click', function () {
             var arr = keys.slice();
             var hit = arr.splice(idx, 1)[0];
             arr.unshift(hit);
-            closeDiagPop();
-            saveDiagOrder(arr, '已设为主诊断：' + row.name);
+            persist(arr, '已设为主诊断：' + row.name);
         });
         pop.querySelector('#dopUp').addEventListener('click', function () {
             var arr = keys.slice();
             var t = arr[idx - 1]; arr[idx - 1] = arr[idx]; arr[idx] = t;
-            closeDiagPop();
-            saveDiagOrder(arr, '已上移：' + row.name);
+            persist(arr, '已上移：' + row.name);
         });
         var downBtn = pop.querySelector('#dopDown');
         if (downBtn) downBtn.addEventListener('click', function () {
             var arr = keys.slice();
             var t = arr[idx + 1]; arr[idx + 1] = arr[idx]; arr[idx] = t;
-            closeDiagPop();
-            saveDiagOrder(arr, '已下移：' + row.name);
+            persist(arr, '已下移：' + row.name);
         });
     }
 
-    /** 诊断全局排序持久化（独立存储，不触碰任何诊断数据） */
-    function saveDiagOrder(newKeys, okMsg) {
+    /** 诊断全局排序持久化（独立存储，静默——提示由调用方负责） */
+    function saveDiagOrder(newKeys) {
         Clinic.ajax('/api/record', {
             action: 'save_diag_order',
             visit_id: document.getElementById('visitId').value,
@@ -1226,7 +1249,6 @@ Clinic.emr = (function () {
             onSuccess: function (j) {
                 if (DATA) DATA.diag_order = j.data.diag_order || newKeys;
                 renderLeftNav();
-                Clinic.toast.success(okMsg || j.msg);
             },
         });
     }
