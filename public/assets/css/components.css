@@ -903,3 +903,7 @@ body.emr-readonly .emr-item-link,
         pointer-events: none !important;
     }
 }
+
+/* ---------- 续写承接头（活跃编辑器，虚线下方） ---------- */
+.emr-cont-divider { border-top: 1px dashed var(--border); margin: 14px 0 8px; }
+.emr-cont-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }

@@ -269,11 +269,27 @@ Clinic.emr = (function () {
                 '</div>';
         } else {
             // 编辑态骨架：续写定位锚点 + 本人文书右下角签名 + 页脚（记录时间 | 医生 | 最近保存）
+            // 续写文书：在前序只读段与本人编辑器之间显示承接头
+            // （虚线分隔 + 记录医生 ｜ 记录时间 ｜ 病历续写徽标），明示当前处于续写场景
+            // 与上方只读段头同款式：记录医生 ｜ 记录时间 ｜ 类型徽标
+            var contHead = '';
+            if (isProgress) {
+                contHead =
+                    '<div class="emr-cont-divider"></div>' +
+                    '<div class="prev-record-head">' +
+                    '<span class="fw-600">记录医生：' + escHtml(r.doctor_name) +
+                    (r.doctor_emp ? '（工号 ' + escHtml(r.doctor_emp) + '）' : '') +
+                    (r.doctor_title ? ' ｜ ' + escHtml(r.doctor_title) : '') + '</span>' +
+                    ((r.created_at || r.updated_at) ? '<span>记录时间：' + escHtml(r.created_at || r.updated_at) + '</span>' : '') +
+                    '<span class="badge badge-primary">病历续写</span>' +
+                    '</div>';
+            }
             docHtml =
                 '<div class="emr-doc">' +
                 headHtml +
                 '<div id="myRecordAnchor"></div>' +
                 '<div id="roBefore"></div>' +
+                contHead +
                 '<div class="doc-body" id="docBody"></div>' +
                 '<div class="doc-body-sign">医生：' + r.doctor_name + '</div>' +
                 '<div id="roAfter"></div>' +
@@ -481,19 +497,17 @@ Clinic.emr = (function () {
         var typeBadge = isProgress
             ? '<span class="badge badge-primary">病历续写</span>'
             : '<span class="badge badge-gray">首诊</span>';
-        var primary = rec.primary_diagnosis
-            ? '<span class="fs-12 text-muted">主诊断：' + escHtml((rec.primary_icd10 || '') + ' ' + rec.primary_diagnosis) + '</span>'
-            : '';
         // 只读归档表述：徽标已标明首诊/续写，这里仅中性标注记录医生，
         // 不再使用「接诊自」这类仅适用于活跃续写场景的承接性措辞
-        var who = '记录医生：';
+        // 只读归档表述：徽标已标明首诊/续写，此处标注本段记录医生
+        var authorSpan = '<span class="fw-600">记录医生：' + escHtml(rec.doctor_name) +
+            (rec.doctor_emp ? '（工号 ' + escHtml(rec.doctor_emp) + '）' : '') +
+            (rec.doctor_title ? ' ｜ ' + escHtml(rec.doctor_title) : '') + '</span>';
         return '<div class="prev-record-wrap-sec emr-record-readonly" id="recSeg' + rec.id + '">' +
             '<div class="prev-record-head">' +
-            '<span class="fw-600">' + who + escHtml(rec.doctor_name) +
-            (rec.doctor_emp ? '（工号 ' + escHtml(rec.doctor_emp) + '）' : '') +
-            (rec.doctor_title ? ' ' + escHtml(rec.doctor_title) : '') + '</span>' +
+            authorSpan +
             '<span>记录时间：' + escHtml(rec.created_at) + '</span>' +
-            typeBadge + primary +
+            typeBadge +
             '</div>' +
             '<div class="prev-record-body">' +
             (secs.length ? secs.join('') : '<div class="text-muted fs-13">（该文书暂无内容）</div>') + '</div>' +
