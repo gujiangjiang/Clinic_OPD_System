@@ -192,6 +192,7 @@ Clinic.order = (function () {
                 ' data-route-nurse="' + (it.route_nurse_required || 0) + '"' +
                 ' data-stock="' + (it.stock || 0) + '"' +
                 ' data-nurse-req="' + (it.nurse_required || 0) + '"' +
+                ' data-need-skin-test="' + (it.need_skin_test || 0) + '"' +
                 ' data-is-group="' + (it.is_group ? 1 : 0) + '"' +
                 ' data-members="' + (it.member_ids || '') + '"' +
                 '>' +
@@ -289,6 +290,7 @@ Clinic.order = (function () {
             route_nurse: parseInt(el.getAttribute('data-route-nurse')) || 0,
             stock: parseInt(el.getAttribute('data-stock')) || 0,
             nurse_req: parseInt(el.getAttribute('data-nurse-req')) || 0,
+            need_skin_test: parseInt(el.getAttribute('data-need-skin-test'), 10) || 0,
             is_group: parseInt(el.getAttribute('data-is-group')) === 1,
         };
     }

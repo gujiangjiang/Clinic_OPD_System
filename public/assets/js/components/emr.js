@@ -900,13 +900,11 @@ Clinic.emr = (function () {
         document.getElementById('sumProc').textContent = buckets.procedure.length ? anaMoney2(sum.procedure) : '';
         document.getElementById('sumRx').textContent = rxOrders.length ? anaMoney2(sum.prescription) : '';
 
-        // 分区标题项目数徽章：检查/检验/处置按明细项数；处方按药品项数合计（0 项隐藏）
-        var rxItemCount = 0;
-        rxOrders.forEach(function (o) { rxItemCount += (o.items ? o.items.length : 0); });
+        // 分区标题项目数徽章：检查/检验/处置按明细项数；处方按处方单数量（0 隐藏）
         setNavCount('cntImaging', buckets.imaging.length);
         setNavCount('cntLab', buckets.lab.length);
         setNavCount('cntProc', buckets.procedure.length);
-        setNavCount('cntRx', rxItemCount);
+        setNavCount('cntRx', rxOrders.length);
 
         fillTypeNav('navImaging', buckets.imaging, '检查');
         fillTypeNav('navLab', buckets.lab, '检验');
