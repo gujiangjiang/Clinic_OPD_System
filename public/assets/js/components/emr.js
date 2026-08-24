@@ -392,7 +392,11 @@ Clinic.emr = (function () {
             if (tpl) tpl.style.display = 'none';
         }
         // 隐藏工具栏写操作按钮（开单/保存/诊毕/转科/诊断证明），保留查看类（打印/历史/患者信息）
-        document.querySelectorAll('.emr-write').forEach(function (b) { b.style.display = 'none'; });
+        // 例外：诊断证明分区「＋」在归档未开具时保留显示——归档病历补开的唯一入口
+        document.querySelectorAll('.emr-write').forEach(function (b) {
+            if (b.id === 'certAddBtn' && !(DATA && DATA.has_certificate)) return;
+            b.style.display = 'none';
+        });
         // 大纲栏分区「＋」在只读态直接移除（而非 display:none）：
         // 相邻选择器 .ena-add + .ena-arrow 不受 visibility 影响，若仅隐藏
         // 会让无金额汇总分区的折叠箭头失去 margin-left:auto 而贴到文字后。
