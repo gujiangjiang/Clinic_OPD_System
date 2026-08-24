@@ -106,8 +106,11 @@ Clinic.emr = (function () {
 
     var feePopTimer = null;
     function showFeePop(anchor) {
+        // 清理旧面板与待执行的隐藏定时器（不可调 hideFeePop——
+        // 其会重新排 180ms 移除定时器，把刚创建的面板又删掉）
         if (feePopTimer) { clearTimeout(feePopTimer); feePopTimer = null; }
-        hideFeePop();
+        var stale = document.getElementById('feePop');
+        if (stale) stale.remove();
         var d = buildFeeRows();
         if (!d.rows.length) return;
         var pop = document.createElement('div');
