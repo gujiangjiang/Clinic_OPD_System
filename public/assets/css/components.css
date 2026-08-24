@@ -827,11 +827,12 @@
    【病历正文交互穿透：项目行内标签（活跃编辑态）】
    ==================================================== */
 .emr-item-link {
-    display: inline;
+    display: inline-block;     /* 与诊断字段一致：垂直 padding 正常撑开文字与虚线间距 */
     color: var(--primary);
     background: transparent;
-    padding: 0;
+    padding: 1px 4px;
     margin: 0 1px;
+    border-bottom: 1px dashed var(--border);
     border-radius: 4px;
     cursor: pointer;
     text-decoration: none;
@@ -840,6 +841,7 @@
 }
 .emr-item-link:hover {
     background: var(--primary-soft);
+    border-bottom-color: var(--primary);
 }
 /* 组医嘱子药缩进行 */
 .ef-rx-sub { padding-left: 1.25em; }
