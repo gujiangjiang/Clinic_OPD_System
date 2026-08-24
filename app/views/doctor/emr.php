@@ -54,7 +54,7 @@ $patient = $row['patient'];
         <div class="ena-sec">
             <div class="ena-sec-title" onclick="toggleNavSec(this)">📝 知情同意书<span class="ena-add emr-write" title="添加知情同意书" onclick="emrNavAdd('consent');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navConsent">
-                <div class="ena-empty">暂无知情同意书（点标题右侧＋添加）</div>
+                <div class="ena-empty">暂无知情同意书</div>
             </div>
         </div>
         <div class="ena-sec">

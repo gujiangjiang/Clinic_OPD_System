@@ -892,7 +892,7 @@ Clinic.emr = (function () {
                 '<span>✅ 已开具（点击查看）</span></div>';
         } else {
             // 未开具时不再放正文入口，统一走分区标题右侧「＋」（emrNavAdd('cert')）
-            certEl.innerHTML = '<div class="ena-empty">暂未开具（点标题右侧＋开具）</div>';
+            certEl.innerHTML = '<div class="ena-empty">暂未开具</div>';
         }
     }
 
