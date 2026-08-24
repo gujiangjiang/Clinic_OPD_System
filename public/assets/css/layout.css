@@ -260,53 +260,106 @@
 /* ---------- 电子病历：右侧看诊操作工具栏（类似左侧栏，不随页面滚动） ---------- */
 /* 说明：.content 带 overflow-y:auto，sticky 会失效，因此宽屏用 fixed 固定在视口右侧；
          .emr-main 预留右侧内边距给工具栏让位，避免遮挡病历内容。 */
-.emr-layout {
+/* ============================================================
+ * 电子病历：三栏式工作台（左固定全景大纲栏 | 中独立滚动编辑器 | 右固定工具栏）
+ * 视口高度锁定（100vh - 顶栏 - 内容区内边距），仅中栏滚动。
+ * ============================================================ */
+.emr-workspace-layout {
     display: flex;
-    gap: 16px;
-    align-items: flex-start;
+    height: calc(100vh - var(--topbar-h) - 40px);   /* 扣除顶栏与内容区上下内边距 */
+    overflow: hidden;
+    gap: 12px;
 }
-.emr-main {
+/* 左侧全景大纲栏（固定） */
+.emr-sidebar-left {
+    width: 240px;
+    min-width: 240px;
+    height: 100%;
+    background: var(--bg-soft, #f8fafc);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 10px;
+    border-radius: 10px;
+}
+/* 中间编辑区（唯一独立滚动区） */
+.emr-main-editor-scroll {
     flex: 1;
     min-width: 0;
-    padding-right: 212px;   /* 右侧固定工具栏（184px）+ 间距，防止病历卡片被遮挡 */
+    height: 100%;
+    overflow-y: auto;
+    background: transparent;
+    padding-right: 4px;
 }
-.emr-toolbar {
-    width: 184px;
-    position: fixed;
-    top: calc(var(--topbar-h) + 20px);  /* 与病历患者头吸附位（内容区顶部）实测对齐 */
-    right: 20px;
-    z-index: 80;            /* 低于顶栏(90)/侧边栏(100)/弹窗(1000)，高于普通内容 */
+/* 右侧常用工具栏（固定） */
+.emr-sidebar-right {
+    width: 176px;
+    min-width: 176px;
+    height: 100%;
+    background: var(--bg-card, #fff);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 14px 12px;
+    border-radius: 10px;
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 14px;
 }
-.emr-toolbar .btn { width: 100%; }
-.emr-toolbar-title {
+
+/* ---------- 左栏折叠模块 ---------- */
+.nav-sec { margin-bottom: 8px; }
+.nav-sec-title {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     font-size: 13px;
     font-weight: 700;
-    color: var(--text-muted);
-    letter-spacing: 1px;
+    color: var(--text);
+    padding: 6px 6px;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 6px;
 }
-.emr-toolbar-divider {
-    height: 1px;
-    background: var(--border);
-    margin: 2px 0;
+.nav-sec-title:hover { background: rgba(0,0,0,.04); }
+.nav-sec-title .nav-sum {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--warning);
+    font-variant-numeric: tabular-nums;
 }
+.nav-sec-title .nav-arrow { margin-left: auto; font-size: 10px; color: var(--text-muted); transition: transform .15s; }
+.nav-sec-title .nav-sum + .nav-arrow { margin-left: 2px; }
+.nav-sec.collapsed .nav-sec-body { display: none; }
+.nav-sec.collapsed .nav-arrow { transform: rotate(-90deg); }
+.nav-sec-body { padding: 0 4px 4px; }
+.nav-item {
+    display: flex;
+    align-items: center;
+    font-size: 12.5px;
+    color: var(--text);
+    padding: 5px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    line-height: 1.35;
+}
+.nav-item:hover { background: rgba(64,158,255,.08); }
+.nav-item .nav-sub { margin-left: auto; color: var(--text-muted); font-size: 11px; white-space: nowrap; }
+.nav-empty { font-size: 12px; color: var(--text-muted); padding: 3px 6px; }
+
 @media (max-width: 1100px) {
-    /* 窄屏：固定栏改为普通横向工具条 */
-    .emr-layout { flex-direction: column; }
-    .emr-toolbar {
-        position: static;
-        width: 100%;
-        flex-direction: row;
-        flex-wrap: wrap;
-        align-items: center;
+    /* 窄屏：三栏退化为纵向堆叠（恢复页面滚动） */
+    .emr-workspace-layout {
+        flex-direction: column;
+        height: auto;
+        overflow: visible;
     }
-    .emr-main { padding-right: 0; }
-    .emr-toolbar .btn { width: auto; }
-    .emr-toolbar-title { display: none; }
-    .emr-toolbar-divider { width: 1px; height: 22px; margin: 0 4px; align-self: center; }
+    .emr-sidebar-left, .emr-sidebar-right {
+        width: 100%;
+        min-width: 0;
+        height: auto;
+        max-height: 320px;
+    }
+    .emr-main-editor-scroll { height: auto; overflow: visible; }
 }
 
 /* ---------- 页头工具条 ---------- */
@@ -320,3 +373,14 @@
 }
 .page-title { font-size: 20px; font-weight: 700; }
 .page-desc { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+/* ---------- 电子病历右侧工具栏（三栏布局内静态定位） ---------- */
+.emr-sidebar-right .emr-toolbar-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    margin-bottom: 2px;
+}
+.emr-sidebar-right .emr-toolbar-divider { height: 1px; background: var(--border); margin: 4px 0; }
+.emr-sidebar-right .btn { width: 100%; text-align: left; }

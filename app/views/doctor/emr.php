@@ -1,16 +1,18 @@
 <?php
 /**
- * doctor/emr.php — 电子病历（医生看诊页）
- * 说明：页面框架由本视图渲染，病历编辑/开单/模板/转科/诊断证明
- * 等交互逻辑由 emr.js / order.js 驱动（WYSIWYG 编辑器 + ICD10 联动）。
- * 门诊与急诊病历抬头不同（由 dept_type 决定）。
+ * doctor/emr.php — 电子病历（医生看诊页）三栏式工作台
+ * 说明：经典三栏视口布局（100vh 锁定）：
+ *   左栏：固定全景大纲栏（病历节点/知情同意书/全部诊断/检查/检验/门诊处置/处方/诊断证明，
+ *         分类金额汇总 + 缴费报告状态指示灯，点击弹出详情或定位），不随页面滚动；
+ *   中栏：Word 风格所见即所得病历编辑器（唯一独立滚动区）；
+ *   右栏：固定看诊操作工具栏。
+ * 原底部「已开具项目」模块已移除——其数据聚合进左侧大纲栏。
  * DOM 约定（emr.js 依赖）：
- *   #visitId / #refRecordId（隐藏输入）
- *   #emrHeader（患者信息头）、#emrCard（所见即所得病历文档，
- *   内含医院抬头/标题栏/患者信息两栏/病历内容/签名）、
- *   #orderList（已开项目）、#saveStatus
- * 安全：URL 中的 visit_id 为混淆串（防撞库遍历），此处一次性解码；
- *   #visitId 隐藏域保存混淆原串供前端全程透传（后端各接口统一 did 解码）。
+ *   #visitId / #refRecordId（隐藏输入）、#emrBarcodeSrc、
+ *   #emrHeader（患者信息头）、#emrCard（病历文档）、#saveStatus、
+ *   左栏各容器：#navRecords / #navConsent / #navDiags / #navImaging /
+ *   #navLab / #navProc / #navRx / #navCert（emr.js 渲染）
+ * 安全：URL 中 visit_id 为混淆串，此处一次性解码；前端全程透传混淆串。
  */
 Router::title('电子病历');
 
@@ -39,8 +41,49 @@ $patient = $row['patient'];
     echo barcode128_svg($bcCode);
 ?></div>
 
-<div class="emr-layout">
-    <div class="emr-main">
+<!-- ===== 三栏式工作区（左右锁定、中间独立滚动） ===== -->
+<div class="emr-workspace-layout">
+
+    <!-- ===== 左侧：全景大纲栏 ===== -->
+    <aside class="emr-sidebar-left">
+        <div class="nav-sec">
+            <div class="nav-sec-title" onclick="toggleNavSec(this)">📋 病历节点<span class="nav-arrow">▾</span></div>
+            <div class="nav-sec-body" id="navRecords"></div>
+        </div>
+        <div class="nav-sec">
+            <div class="nav-sec-title" onclick="toggleNavSec(this)">📝 知情同意书<span class="nav-arrow">▾</span></div>
+            <div class="nav-sec-body" id="navConsent">
+                <div class="nav-item" onclick="Clinic.toast.info('知情同意书功能建设中')">＋ 添加知情同意书</div>
+            </div>
+        </div>
+        <div class="nav-sec">
+            <div class="nav-sec-title" onclick="toggleNavSec(this)">🔎 全部诊断<span class="nav-arrow">▾</span></div>
+            <div class="nav-sec-body" id="navDiags"></div>
+        </div>
+        <div class="nav-sec">
+            <div class="nav-sec-title" onclick="toggleNavSec(this)">🩻 检查<span class="nav-sum" id="sumImaging"></span><span class="nav-arrow">▾</span></div>
+            <div class="nav-sec-body" id="navImaging"></div>
+        </div>
+        <div class="nav-sec">
+            <div class="nav-sec-title" onclick="toggleNavSec(this)">🧪 检验<span class="nav-sum" id="sumLab"></span><span class="nav-arrow">▾</span></div>
+            <div class="nav-sec-body" id="navLab"></div>
+        </div>
+        <div class="nav-sec">
+            <div class="nav-sec-title" onclick="toggleNavSec(this)">🩹 门诊处置<span class="nav-sum" id="sumProc"></span><span class="nav-arrow">▾</span></div>
+            <div class="nav-sec-body" id="navProc"></div>
+        </div>
+        <div class="nav-sec">
+            <div class="nav-sec-title" onclick="toggleNavSec(this)">💊 处方<span class="nav-sum" id="sumRx"></span><span class="nav-arrow">▾</span></div>
+            <div class="nav-sec-body" id="navRx"></div>
+        </div>
+        <div class="nav-sec">
+            <div class="nav-sec-title" onclick="toggleNavSec(this)">📄 诊断证明<span class="nav-arrow">▾</span></div>
+            <div class="nav-sec-body" id="navCert"></div>
+        </div>
+    </aside>
+
+    <!-- ===== 中间：病历编辑器（唯一独立滚动区） ===== -->
+    <div class="emr-main-editor-scroll">
         <!-- 患者信息头（不可编辑，emr.js 填充） -->
         <div id="emrHeader"></div>
 
@@ -50,17 +93,10 @@ $patient = $row['patient'];
                 <div class="text-muted fs-13 mb-8">病历编辑器加载中…（医院名称与患者信息区域不可编辑）</div>
             </div>
         </div>
-
-        <!-- 已开项目（病历处置区） -->
-        <div class="card">
-            <div class="card-title"><span>已开项目与流程（点击查看流程进度）</span></div>
-            <div id="orderList"><div class="text-muted fs-13">加载中…</div></div>
-        </div>
     </div>
 
-    <!-- 右侧看诊操作工具栏（.emr-write 为写操作按钮：患者诊毕后自动隐藏，病历只读）
-         固定在右侧、不随页面滚动，与左侧导航栏一致 -->
-    <aside class="card emr-toolbar">
+    <!-- ===== 右侧：常用工具栏（固定不滚动） ===== -->
+    <aside class="emr-sidebar-right">
         <div class="emr-toolbar-title">看诊操作</div>
         <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.order.open('lab')">🧪 开检验</button>
         <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.order.open('imaging')">🩻 开检查</button>
@@ -73,7 +109,6 @@ $patient = $row['patient'];
         <button class="btn btn-outline btn-sm emr-write" onclick="openTransfer()">↔️ 转科</button>
         <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.emr.openCertificate()">📄 诊断证明</button>
         <div class="emr-toolbar-divider"></div>
-        <button class="btn btn-outline btn-sm" onclick="Clinic.emr.printRecord()">🖨️ 打印病历</button>
         <button class="btn btn-outline btn-sm" onclick="showPatientHistory('<?php echo e($patient['patient_no']); ?>')">📚 就诊历史</button>
         <button class="btn btn-outline btn-sm" onclick="Clinic.patient.editModal('<?php echo e($patient['patient_no']); ?>')">✏️ 修改患者信息</button>
         <div class="emr-toolbar-divider"></div>
@@ -90,4 +125,11 @@ function showPatientHistory(patientNo) {
         },
     });
 }
+
+/* 左侧大纲栏异步刷新总线：开单提交 / 缴费状态变化后调用，
+   局部刷新左栏金额与指示灯（30 秒轮询兜底覆盖收费处缴费场景） */
+function refreshLeftNavSummary() {
+    if (window.Clinic && Clinic.emr && Clinic.emr.loadOrders) Clinic.emr.loadOrders();
+}
+setInterval(refreshLeftNavSummary, 30000);
 </script>

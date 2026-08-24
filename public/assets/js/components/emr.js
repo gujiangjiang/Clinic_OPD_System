@@ -484,7 +484,8 @@ Clinic.emr = (function () {
             ? '<span class="fs-12 text-muted">主诊断：' + escHtml((rec.primary_icd10 || '') + ' ' + rec.primary_diagnosis) + '</span>'
             : '';
         var who = isProgress ? '✍️ 病历续写 · 接诊自：' : '📋 接诊自：';
-        return '<div class="prev-record-head">' +
+        return '<div class="prev-record-wrap-sec" id="recSeg' + rec.id + '">' +
+            '<div class="prev-record-head">' +
             '<span class="fw-600">' + who + escHtml(rec.doctor_name) +
             (rec.doctor_emp ? '（工号 ' + escHtml(rec.doctor_emp) + '）' : '') +
             (rec.doctor_title ? ' ' + escHtml(rec.doctor_title) : '') + '</span>' +
@@ -494,7 +495,8 @@ Clinic.emr = (function () {
             '<div class="prev-record-body">' +
             (secs.length ? secs.join('') : '<div class="text-muted fs-13">（该文书暂无内容）</div>') + '</div>' +
             // 只读段签名使用只读文字样式（灰色），与整段只读基调统一
-            '<div class="doc-body-sign ro-sign">医生：' + escHtml(rec.doctor_name) + '</div>';
+            '<div class="doc-body-sign ro-sign">医生：' + escHtml(rec.doctor_name) + '</div>' +
+            '</div>';
     }
 
     /**
@@ -726,70 +728,175 @@ Clinic.emr = (function () {
                 // 已开项目就绪后刷新他人文书只读段：辅助检查、门诊处置
                 // （按各文书医生本人开单归属）此时才有数据
                 if (DATA) refreshReadOnlyBodies(DATA);
-                var typeNames = { lab: '检验', imaging: '检查', procedure: '处置', prescription: '处方' };
-                var statusMap = {
-                    open: '<span class="badge badge-warning">待缴费</span>',
-                    paid: '<span class="badge badge-primary">已缴费</span>',
-                    registered: '<span class="badge badge-primary">已登记</span>',
-                    in_progress: '<span class="badge badge-primary">执行中</span>',
-                    done: '<span class="badge badge-success">已执行/已完成</span>',
-                    dispensing: '<span class="badge badge-warning">发药中</span>',
-                    dispensed: '<span class="badge badge-success">已发药</span>',
-                    refunded: '<span class="badge badge-gray">已退费</span>',
-                    cancelled: '<span class="badge badge-gray">已取消</span>',
-                };
-                var box = document.getElementById('orderList');
-                if (!j.data.list.length) {
-                    box.innerHTML = '<div class="text-muted fs-13">暂无开单</div>';
-                    return;
-                }
-                var myId = myDoctorId();
-                var multi = DATA && DATA.records_history && DATA.records_history.length > 1;
-                box.innerHTML = j.data.list.map(function (o) {
-                    // 处方单走组医嘱树形公共格式（主药全要素、子药 ├─/└─ 缩进含剂量），
-                    // 其余类型保持「· 名称 ×数量」
-                    var items;
-                    if (o.order_type === 'prescription') {
-                        items = Clinic.orderRxLines(o.items).map(function (l) {
-                            return '<div class="fs-13" style="padding:2px 0;white-space:pre-wrap">' + l + '</div>';
-                        }).join('');
-                    } else {
-                        items = o.items.map(function (it) {
-                            return '<div class="fs-13" style="padding:2px 0">· ' + it.item_name +
-                                (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>';
-                        }).join('');
-                    }
-                    // 检查申请单标题动态化：优先使用分类名称快照（如 CT / MR / DR（数字化X线））
-                    var title = (o.order_type === 'imaging' && o.cat_name && o.cat_name !== '检查')
-                        ? o.cat_name : (typeNames[o.order_type] || o.order_type);
-                    // 删除仅限：未缴费或已退费，且为当前医生本人开具（后端硬拦截兜底）
-                    var canDel = (o.status === 'open' || o.status === 'refunded') && (o.doctor_id || 0) === myId;
-                    // stopPropagation：阻止事件冒泡到卡片 onclick（viewOrderFlow），
-                    // 否则会同时弹出开单详情弹窗与删除确认弹窗，删除确认被覆盖
-                    var delBtn = canDel
-                        ? ' <button class="btn btn-outline btn-sm" style="padding:1px 8px" ' +
-                          'onclick="event.stopPropagation();delOrder(\'' + o.id + '\')">✕</button>'
-                        : '';
-                    // 多医生接诊：卡片标注开单医生（非本人时高亮提示归属）
-                    var docLabel = multi
-                        ? '<span class="fs-12 ' + ((o.doctor_id || 0) === myId ? 'text-muted' : 'text-primary') +
-                          '">开单医生：' + (o.doctor_name || '—') + ((o.doctor_id || 0) === myId ? '（本人）' : '') + '</span>'
-                        : '';
-                    return '<div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer" ' +
-                        'onclick="viewOrderFlow(\'' + o.id + '\')">' +
-                        '<div class="flex-between">' +
-                        '  <span class="fw-600 fs-13">' + title + ' ' + o.order_no + '</span>' +
-                        delBtn +
-                        '</div>' +
-                        items +
-                        '<div class="mt-4 flex-between">' + docLabel +
-                        '  <span>' + (statusMap[o.status] || o.status) + ' ' +
-                        '  <span class="fs-12 text-muted">¥' + parseFloat(o.total_amount).toFixed(2) + '</span></span></div>' +
-                        '</div>';
-                }).join('');
+                // 已开项目就绪后刷新左侧全景大纲栏（金额/状态灯/明细）
+                renderLeftNav();
             },
         });
     }
+
+    /* ==================== 左侧全景大纲栏 ==================== */
+
+    /** 缴费/报告状态 → 指示灯颜色：灰=未缴费，红=已缴费未出报告，绿=报告已出 */
+    function navDotCls(st) {
+        if (st === 'open') return 'gray';
+        if (st === 'done' || st === 'dispensed') return 'green';
+        return 'red';   // paid / registered / in_progress / dispensing
+    }
+    function navDot(st) {
+        return '<span class="status-indicator ' + navDotCls(st) + '"></span>';
+    }
+
+    /**
+     * 渲染左侧大纲栏 8 大模块（数据源：DATA.records_history + ORDERS + DATA.visit）
+     */
+    function renderLeftNav() {
+        // ---------- 1. 病历节点 ----------
+        var recEl = document.getElementById('navRecords');
+        var hist = (DATA && DATA.records_history) || [];
+        recEl.innerHTML = hist.length ? hist.map(function (r2) {
+            var typeName = r2.record_type === 'progress' ? '续写' : '首诊';
+            var t = (r2.created_at || '').substring(11, 16);
+            return '<div class="nav-item" onclick="scrollToRecord(' + r2.id + ',' + r2.doctor_id + ')">' +
+                '<span>' + typeName + ' ' + t + ' ' + escHtml(r2.doctor_name) + '</span></div>';
+        }).join('') : '<div class="nav-empty">暂无病历文书</div>';
+
+        // ---------- 3. 全部诊断（跨医生聚合去重） ----------
+        var diagEl = document.getElementById('navDiags');
+        var seen = {};
+        var diags = [];
+        hist.forEach(function (r2) {
+            ((r2.emr && r2.emr.diagnoses) || []).forEach(function (dg) {
+                if (!dg || !dg.name) return;
+                var key = (dg.code || '') + '|' + dg.name;
+                if (seen[key]) return;
+                seen[key] = true;
+                diags.push('<div class="nav-item" title="' + escHtml(dg.name) + '">' +
+                    '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+                    escHtml(dg.name) + (dg.code ? ' <span class="text-muted">[' + escHtml(dg.code) + ']</span>' : '') +
+                    '</span><span class="nav-sub">' + escHtml(r2.doctor_name) + '</span></div>');
+            });
+        });
+        diagEl.innerHTML = diags.length ? diags.join('') : '<div class="nav-empty">暂未开立诊断</div>';
+
+        // ---------- 4-7. 检查/检验/处置/处方 ----------
+        var sum = { imaging: 0, lab: 0, procedure: 0, prescription: 0 };
+        var buckets = { imaging: [], lab: [], procedure: [] };
+        var rxOrders = [];
+        (ORDERS || []).forEach(function (o) {
+            if (o.status === 'refunded' || o.status === 'cancelled') return; // 退费/取消不计入
+            if (buckets[o.order_type]) {
+                sum[o.order_type] += parseFloat(o.total_amount) || 0;
+                o.items.forEach(function (it) {
+                    buckets[o.order_type].push({ order: o, it: it });
+                });
+            } else if (o.order_type === 'prescription') {
+                sum.prescription += parseFloat(o.total_amount) || 0;
+                rxOrders.push(o);
+            }
+        });
+        document.getElementById('sumImaging').textContent = buckets.imaging.length ? anaMoney2(sum.imaging) : '';
+        document.getElementById('sumLab').textContent = buckets.lab.length ? anaMoney2(sum.lab) : '';
+        document.getElementById('sumProc').textContent = buckets.procedure.length ? anaMoney2(sum.procedure) : '';
+        document.getElementById('sumRx').textContent = rxOrders.length ? anaMoney2(sum.prescription) : '';
+
+        fillTypeNav('navImaging', buckets.imaging, '检查');
+        fillTypeNav('navLab', buckets.lab, '检验');
+        fillTypeNav('navProc', buckets.procedure, '处置');
+
+        // 处方模块：按处方单列出（处方N 医生 金额），点击展开药品明细与发药状态
+        var rxE1 = document.getElementById('navRx');
+        if (!rxOrders.length) {
+            rxE1.innerHTML = '<div class="nav-empty">暂未开立处方</div>';
+        } else {
+            rxE1.innerHTML = rxOrders.map(function (o, oi) {
+                var stMap2 = { open: '待缴费', paid: '待发药', dispensing: '发药中', dispensed: '已发药', refunded: '已退费', cancelled: '已取消' };
+                var lines = Clinic.orderRxLines(o.items).map(function (l) {
+                    return '<div style="padding:1px 0;color:var(--text-muted);font-size:12px;white-space:pre-wrap">' + l + '</div>';
+                }).join('');
+                return '<div class="nav-item" style="flex-wrap:wrap" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'\':\'none\'">' +
+                    '<span>处方' + (oi + 1) + ' (' + escHtml(o.doctor_name || '') + ')</span>' +
+                    '<span class="nav-sub">' + (stMap2[o.status] || o.status) + ' ' + anaMoney2(o.total_amount) + '</span></div>' +
+                    '<div style="display:none;padding:0 6px 6px 18px">' + lines + '</div>';
+            }).join('');
+        }
+
+        // ---------- 8. 诊断证明 ----------
+        var certEl = document.getElementById('navCert');
+        var certIssued = DATA && DATA.visit && DATA.visit.cert_issued;
+        if (certIssued) {
+            certEl.innerHTML = '<div class="nav-item" onclick=\"Clinic.emr.certificateModal(visitId.value, \'诊断证明\')\">' +
+                '<span>✅ 已开具（点击查看）</span></div>';
+        } else {
+            certEl.innerHTML = '<div class="nav-item emr-write" onclick="Clinic.emr.openCertificate()">＋ 开具诊断证明</div>';
+        }
+    }
+
+    /** 处方金额显示（¥xx.xx，空单返回空串由标题隐藏） */
+    function anaMoney2(v) { return '¥' + Number(v || 0).toFixed(2); }
+
+    /** 检查/检验/处置三栏共用填充：状态灯 + 点击详情弹窗 */
+    function fillTypeNav(elId, arr, label) {
+        var el = document.getElementById(elId);
+        if (!arr.length) { el.innerHTML = '<div class="nav-empty">暂未开立' + label + '</div>'; return; }
+        el.innerHTML = arr.map(function (x) {
+            var st = x.it.status || 'open';
+            return '<div class="nav-item" onclick="showItemDetail(\'' + x.order.id + '\',\'' + x.it.id + '\')">' +
+                navDot(st) + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+                escHtml(x.it.item_name) + '</span></div>';
+        }).join('');
+    }
+
+    /** 病历节点定位：平滑滚动中栏到对应文书位置 */
+    window.scrollToRecord = function (recId, doctorId) {
+        var mineId = DATA && DATA.record ? DATA.record.doctor_id : 0;
+        var target = doctorId === mineId
+            ? document.getElementById('myRecordAnchor')
+            : document.getElementById('recSeg' + recId);
+        if (!target) { Clinic.toast.info('该文书区域当前不可见'); return; }
+        var scroller = document.querySelector('.emr-main-editor-scroll');
+        if (!scroller) return;
+        var y = target.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - 8;
+        scroller.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    };
+
+    /**
+     * 检查/检验/处置 项目详情弹窗：
+     * 检查→影像报告查看；检验→化验指标明细；处置→执行记录与费用明细
+     */
+    window.showItemDetail = function (orderId, itemId) {
+        var o = null, it = null;
+        (ORDERS || []).forEach(function (x) {
+            if (x.id !== orderId) return;
+            o = x;
+            x.items.forEach(function (x2) { if (x2.id === itemId) it = x2; });
+        });
+        if (!o || !it) return;
+        var typeNames = { imaging: '检查详情与影像报告', lab: '化验报告与指标明细', procedure: '处置执行记录' };
+        var stMap = { open: '<span class="badge badge-warning">待缴费</span>', paid: '<span class="badge badge-primary">已缴费</span>',
+            registered: '<span class="badge badge-primary">已登记</span>', in_progress: '<span class="badge badge-primary">执行中</span>',
+            done: '<span class="badge badge-success">已完成</span>' };
+        var html = '<div class="fs-14 fw-600 mb-8">' + it.item_name + (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>' +
+            '<div class="fs-13 text-muted mb-8">单价：¥' + parseFloat(it.price || 0).toFixed(2) +
+            ' ｜ 费用小计：¥' + (parseFloat(it.price || 0) * it.quantity).toFixed(2) + '</div>' +
+            '<div class="fs-13 mb-4">执行状态：' + (stMap[it.status] || it.status) + '</div>';
+        if (o.order_type === 'procedure' && it.executed_by) {
+            html += '<div class="fs-13 text-success mb-4">执行人：' + escHtml(it.executed_by) + (it.executed_at ? ' ｜ ' + it.executed_at : '') + '</div>';
+        }
+        html += '<div class="fs-13 text-muted">申请单号：' + o.order_no + ' ｜ 开单医生：' + escHtml(o.doctor_name || '') + '</div>';
+        if (it.report_id) {
+            html += '<button type="button" class="btn btn-primary btn-sm mt-12" ' +
+                'onclick="Clinic.print.load(\'/api/print?action=report&report_id=' + it.report_id + '\')">📄 查看报告</button>';
+        } else if (o.order_type !== 'procedure') {
+            html += '<div class="fs-12 text-muted mt-8">报告尚未出具，出具后可在此直接查看</div>';
+        }
+        Clinic.modal.open(html, { title: typeNames[o.order_type] || '项目详情', size: 'modal-md' });
+    };
+
+    /** 左栏折叠/展开（挂 window：IIFE 执行期 Clinic.emr 尚未赋值，
+     *  直接写 Clinic.emr.toggleNavSec 会报 Cannot set properties of undefined） */
+    window.toggleNavSec = function (titleEl) {
+        titleEl.parentNode.classList.toggle('collapsed');
+    };
 
     /**
      * 当前时间 YYYY-MM-DD HH:mm:ss（用于记录时间展示）
@@ -849,6 +956,30 @@ Clinic.emr = (function () {
                     var now = fmtDateTime();
                     DATA.record.updated_at = now;
                     if (!DATA.record.created_at) DATA.record.created_at = now;
+                    // 同步左侧大纲栏数据源：本人文书并入 records_history
+                    // （首次保存新增节点，续存更新内容），诊断列表随之刷新
+                    if (!DATA.records_history) DATA.records_history = [];
+                    var mineId2 = DATA.record.doctor_id;
+                    var histEntry = null;
+                    DATA.records_history.forEach(function (h2) {
+                        if (h2.doctor_id === mineId2) histEntry = h2;
+                    });
+                    if (!histEntry) {
+                        histEntry = {
+                            id: DATA.record.record_id, record_id: DATA.record.record_id,
+                            doctor_id: mineId2, doctor_name: DATA.record.doctor_name,
+                            doctor_emp: DATA.record.doctor_emp, doctor_title: DATA.record.doctor_title,
+                            record_type: DATA.record.record_type,
+                            created_at: DATA.record.created_at, updated_at: now,
+                            emr: JSON.parse(JSON.stringify(emr)),
+                            consciousness: data.consciousness,
+                        };
+                        DATA.records_history.push(histEntry);
+                    } else {
+                        histEntry.emr = JSON.parse(JSON.stringify(emr));
+                        histEntry.updated_at = now;
+                    }
+                    renderLeftNav();
                     // 记录时间 = 首次保存时间（created_at），后续多次保存不变；
                     // 最近保存 = 最近一次保存时间（updated_at），每次保存刷新，仅供医师参考
                     var rt = document.getElementById('docRecTime');

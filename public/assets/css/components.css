@@ -835,3 +835,16 @@
     word-break: break-all;
 }
 .kpi-card .kpi-primary { color: var(--primary); font-size: 22px; }
+
+/* ---------- 运营/病历大纲状态指示灯 ---------- */
+.status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    flex-shrink: 0;
+}
+.status-indicator.gray { background-color: #94a3b8; }   /* 未缴费 */
+.status-indicator.red { background-color: #ef4444; }    /* 已缴费未出报告 */
+.status-indicator.green { background-color: #10b981; }  /* 报告已出 */
