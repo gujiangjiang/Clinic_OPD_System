@@ -192,7 +192,8 @@ function emr_print_text($emr, $vitalsText = '', $consciousness = '', $orderNames
     $secs[] = array('过敏史', is_array($alRaw) ? emr_al_text($alRaw) : (string)$alRaw);
     $ms = emr_ms_text(isset($emr['main_symptoms']) ? $emr['main_symptoms'] : array());
     if ($ms !== '') $secs[] = array('主要症状', $ms);
-    if ($vitalsText !== '') $secs[] = array('生命体征', $vitalsText);
+    // 生命体征恒显示（未录入显示 -，首诊/续写一致）
+    $secs[] = array('生命体征', $vitalsText !== '' ? $vitalsText : '-');
     if ($consciousness !== '') $secs[] = array('意识状态', $consciousness);
     $secs[] = array('体格检查', emr_pe_text(isset($emr['physical_exam']) ? $emr['physical_exam'] : array()));
     $diag = emr_diag_text(isset($emr['diagnoses']) ? $emr['diagnoses'] : array());

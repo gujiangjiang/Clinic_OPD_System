@@ -457,15 +457,14 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
         $secs[] = array('既往史', isset($record['past_history']) ? $record['past_history'] : '');
         $secs[] = array('过敏史', isset($record['allergy_history']) ? $record['allergy_history'] : '');
     }
-    if ($vitals) {
-        $vp = array();
-        if (!empty($vitals['bp_systolic'])) $vp[] = '血压 ' . $vitals['bp_systolic'] . '/' . $vitals['bp_diastolic'] . 'mmHg';
-        if (!empty($vitals['heart_rate'])) $vp[] = '心率 ' . $vitals['heart_rate'] . '次/分';
-        if (!empty($vitals['pulse'])) $vp[] = '脉搏 ' . $vitals['pulse'] . '次/分';
-        if (!empty($vitals['spo2'])) $vp[] = '血氧 ' . $vitals['spo2'] . '%';
-        if (!empty($vitals['respiration'])) $vp[] = '呼吸 ' . $vitals['respiration'] . '次/分';
-        if ($vp) $secs[] = array('生命体征', implode('；', $vp));
-    }
+    // 生命体征恒显示（未录入显示 -，首诊/续写一致）
+    $vp = array();
+    if (!empty($vitals['bp_systolic'])) $vp[] = '血压 ' . $vitals['bp_systolic'] . '/' . $vitals['bp_diastolic'] . 'mmHg';
+    if (!empty($vitals['heart_rate'])) $vp[] = '心率 ' . $vitals['heart_rate'] . '次/分';
+    if (!empty($vitals['pulse'])) $vp[] = '脉搏 ' . $vitals['pulse'] . '次/分';
+    if (!empty($vitals['spo2'])) $vp[] = '血氧 ' . $vitals['spo2'] . '%';
+    if (!empty($vitals['respiration'])) $vp[] = '呼吸 ' . $vitals['respiration'] . '次/分';
+    $secs[] = array('生命体征', $vp ? implode('；', $vp) : '-');
     // 意识状态：续写文书仅在本人镜像有值时输出（该节归首诊文书）
     if (!$isProgress || (isset($record['consciousness']) && $record['consciousness'] !== '')) {
         $secs[] = array('意识状态', isset($record['consciousness']) ? $record['consciousness'] : '');
