@@ -845,13 +845,17 @@ Clinic.emr = (function () {
      */
     function renderLeftNav() {
         // ---------- 1. 病历节点 ----------
+        // 条目格式：日期 时间 科室 （首/续） + 医生姓名靠右（与初步诊断条目同款式）
         var recEl = document.getElementById('navRecords');
         var hist = (DATA && DATA.records_history) || [];
         recEl.innerHTML = hist.length ? hist.map(function (r2) {
-            var typeName = r2.record_type === 'progress' ? '续写' : '首诊';
-            var t = (r2.created_at || '').substring(11, 16);
+            var typeName = r2.record_type === 'progress' ? '（续）' : '（首）';
+            var dt = (r2.created_at || '').substring(5, 16);   // MM-DD HH:MM
             return '<div class="ena-item" onclick="scrollToRecord(' + r2.id + ',' + r2.doctor_id + ')">' +
-                '<span>' + typeName + ' ' + t + ' ' + escHtml(r2.doctor_name) + '</span></div>';
+                '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+                escHtml(dt) + ' ' + escHtml(r2.dept_name || '') + '</span>' +
+                '<span class="text-muted" style="flex-shrink:0;font-size:11px">' + typeName + '</span>' +
+                '<span class="ena-sub">' + escHtml(r2.doctor_name) + '</span></div>';
         }).join('') : '<div class="ena-empty">暂无病历文书</div>';
 
         // ---------- 3. 全部诊断（跨医生聚合去重） ----------
@@ -897,8 +901,8 @@ Clinic.emr = (function () {
         fillTypeNav('navLab', buckets.lab, '检验');
         fillTypeNav('navProc', buckets.procedure, '处置');
 
-        // 处方模块：按处方单列出（处方N 医生），行内删除仅本人未缴费/已退费处方可见；
-        // 点击条目展开药品明细与发药状态
+        // 处方模块：按处方单列出（处方N + 开单医生靠右），行内删除仅本人
+        // 未缴费/已退费处方可见；点击条目展开药品明细与发药状态
         var rxE1 = document.getElementById('navRx');
         if (!rxOrders.length) {
             rxE1.innerHTML = '<div class="ena-empty">暂未开立处方</div>';
@@ -907,8 +911,8 @@ Clinic.emr = (function () {
                 var canDel = Clinic.emr.isMyOrder(o) && (o.status === 'open' || o.status === 'refunded');
                 return '<div class="ena-item" onclick="showRxDetail(\'' + o.id + '\')">' +
                     navDot(o.status) +
-                    '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">处方' + (oi + 1) +
-                    ' (' + escHtml(o.doctor_name || '') + ')</span>' +
+                    '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">处方' + (oi + 1) + '</span>' +
+                    '<span class="ena-sub">' + escHtml(o.doctor_name || '') + '</span>' +
                     (canDel ? '<span class="ena-del" title="毁方" onclick="delOrderFlow(\'' + o.id + '\',\'毁方\');event.stopPropagation()">🗑️</span>' : '') +
                     '</div>';
             }).join('');
@@ -924,8 +928,12 @@ Clinic.emr = (function () {
         var certAdd = document.getElementById('certAddBtn');
         if (certAdd && certIssued) certAdd.remove();
         if (certIssued) {
+            // 条目格式：日期 时间 + 医生姓名靠右（与其他开单条目同款式）
+            var cert = (DATA && DATA.certificate) || {};
+            var certTime = (cert.created_at || '').substring(0, 16);   // YYYY-MM-DD HH:MM
             certEl.innerHTML = '<div class="ena-item" onclick=\"Clinic.emr.certificateModal(visitId.value, \'诊断证明\')\">' +
-                '<span>✅ 已开具（点击查看）</span></div>';
+                '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(certTime) + '</span>' +
+                '<span class="ena-sub">' + escHtml(cert.doctor_name || '') + '</span></div>';
         } else {
             // 未开具时不再放正文入口，统一走分区标题右侧「＋」（emrNavAdd('cert')）
             certEl.innerHTML = '<div class="ena-empty">暂未开具</div>';
@@ -935,7 +943,7 @@ Clinic.emr = (function () {
     /** 处方金额显示（¥xx.xx，空单返回空串由标题隐藏） */
     function anaMoney2(v) { return '¥' + Number(v || 0).toFixed(2); }
 
-    /** 检查/检验/处置三栏共用填充：状态灯 + 点击详情弹窗；
+    /** 检查/检验/处置三栏共用填充：状态灯 + 点击详情弹窗 + 开单医生靠右；
      *  行内删除按钮仅本人开具且未缴费/已退费的单子显示（复用 delOrderFlow） */
     function fillTypeNav(elId, arr, label) {
         var el = document.getElementById(elId);
@@ -946,6 +954,7 @@ Clinic.emr = (function () {
             return '<div class="ena-item" onclick="showItemDetail(\'' + x.order.id + '\',\'' + x.it.id + '\')">' +
                 navDot(st) + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                 escHtml(x.it.item_name) + '</span>' +
+                '<span class="ena-sub">' + escHtml(x.order.doctor_name || '') + '</span>' +
                 (canDel ? '<span class="ena-del" title="删除该开单" onclick="delOrderFlow(\'' + x.order.id + '\',\'删除\');event.stopPropagation()">🗑️</span>' : '') +
                 '</div>';
         }).join('');

@@ -400,8 +400,9 @@
 .ena-item:hover { background: rgba(64,158,255,.08); }
 .ena-item .ena-sub { margin-left: auto; color: var(--text-muted); font-size: 11px; white-space: nowrap; }
 /* 条目行内删除按钮（仅本人开具且可删除的单子渲染） */
+/* 条目行内删除按钮（仅本人开具且可删除的单子渲染）：
+   不带 margin-left:auto——右侧推挤由开单医生 .ena-sub 承担，删除按钮紧随其后 */
 .ena-item .ena-del {
-    margin-left: auto;
     flex-shrink: 0;
     font-size: 11px;
     line-height: 1;

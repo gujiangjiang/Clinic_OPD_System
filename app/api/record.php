@@ -178,8 +178,18 @@ switch ($action) {
                 $docMeta[(int)$dm['id']] = $dm;
             }
         }
+        // 补齐各文书的书写科室名（转科后各文书科室可能不同，按文书自身 dept_id 归属）
+        $deptIds = array();
+        foreach ($allRows as $pr2) { if ((int)$pr2['dept_id'] > 0) $deptIds[(int)$pr2['dept_id']] = true; }
+        $deptNames = array();
+        if ($deptIds) {
+            $ph2 = implode(',', array_fill(0, count($deptIds), '?'));
+            foreach (DB::q('dept', "SELECT id, name FROM departments WHERE id IN ($ph2)", array_keys($deptIds)) as $dn) {
+                $deptNames[(int)$dn['id']] = (string)$dn['name'];
+            }
+        }
         /** 单条 patient_records → 前端历史/编辑两用结构 */
-        $mapRecord = function ($pr2) use ($docMeta) {
+        $mapRecord = function ($pr2) use ($docMeta, $deptNames) {
             $emr2 = emr_merge_defaults(
                 emr_normalize(json_decode($pr2['emr_data'], true)),
                 emr_default_data(null)
@@ -199,6 +209,7 @@ switch ($action) {
                 'doctor_name' => (string)$pr2['doctor_name'],
                 'doctor_emp' => $meta ? (string)$meta['emp_no'] : '',
                 'doctor_title' => $meta ? (string)$meta['title'] : '',
+                'dept_name' => isset($deptNames[(int)$pr2['dept_id']]) ? $deptNames[(int)$pr2['dept_id']] : '',
                 'record_type' => ($pr2['record_type'] === 'progress') ? 'progress' : 'initial',
                 'parent_record_id' => (int)$pr2['parent_record_id'],
                 'primary_icd10' => (string)$pr2['primary_icd10'],
