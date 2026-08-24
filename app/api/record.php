@@ -604,10 +604,28 @@ switch ($action) {
         $visitId = did(post('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
+        // 数值校验（与服务端同规则）：非负整数、生理合理区间；留空视为未测
+        $spec = array(
+            'bp_systolic'  => array(post('bp_systolic', 0), 1, 300, '收缩压'),
+            'bp_diastolic' => array(post('bp_diastolic', 0), 1, 250, '舒张压'),
+            'heart_rate'   => array(post('heart_rate', ''), 1, 300, '心率'),
+            'pulse'        => array(post('pulse', ''), 1, 300, '脉搏'),
+            'spo2'         => array(post('spo2', ''), 1, 100, '血氧饱和度'),
+            'respiration'  => array(post('respiration', ''), 1, 100, '呼吸'),
+        );
+        $clean = array();
+        foreach ($spec as $k => $c) {
+            $raw = trim((string)$c[0]);
+            if ($raw === '') { $clean[$k] = ($k === 'bp_systolic' || $k === 'bp_diastolic') ? 0 : ''; continue; }
+            if (!preg_match('/^\d+$/', $raw)) json_fail($c[3] . '须为非负整数（不留小数 / 负数 / 单位）');
+            $n = (int)$raw;
+            if ($n !== 0 && ($n < $c[1] || $n > $c[2])) json_fail($c[3] . '超出合理范围（' . $c[1] . '-' . $c[2] . '）');
+            $clean[$k] = ($k === 'bp_systolic' || $k === 'bp_diastolic') ? $n : (string)$n;
+        }
         DB::insert('nurse', 'INSERT INTO vitals(visit_id, patient_no, flow_no, bp_systolic, bp_diastolic, heart_rate, pulse, spo2, respiration, operator, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
             $visitId, $row['visit']['patient_no'], $row['visit']['flow_no'],
-            (int)post('bp_systolic', 0), (int)post('bp_diastolic', 0),
-            post('heart_rate'), post('pulse'), post('spo2'), post('respiration'),
+            $clean['bp_systolic'], $clean['bp_diastolic'],
+            $clean['heart_rate'], $clean['pulse'], $clean['spo2'], $clean['respiration'],
             $u['name'], now_str(),
         ));
         json_ok(array(), '生命体征已保存');

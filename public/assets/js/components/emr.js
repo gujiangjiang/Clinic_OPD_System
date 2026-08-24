@@ -289,7 +289,7 @@ Clinic.emr = (function () {
         vitalSec = document.createElement('div');
         vitalSec.className = 'doc-sec doc-sec-vital';
         if (!readOnly) {
-            vitalSec.setAttribute('onclick', 'Clinic.emr.openVitals()');
+            vitalSec.setAttribute('onclick', 'Clinic.emr.openVitals(event)');
             vitalSec.setAttribute('title', '点击编辑生命体征');
         }
         vitalSec.innerHTML = '<span class="doc-sec-label">生命体征</span>' +
@@ -780,7 +780,7 @@ Clinic.emr = (function () {
             vitalsPopHandler = null;
         }
     }
-    function openVitals() {
+    function openVitals(ev) {
         // 诊毕只读：不允许修改生命体征（仅展示）
         if (DATA && DATA.visit && DATA.visit.status === 'finished') {
             Clinic.toast.warning('该患者已诊毕，生命体征为只读状态');
@@ -790,6 +790,9 @@ Clinic.emr = (function () {
         if (document.getElementById('vitalsPop')) { closeVitalsPop(); return; }
         var sec = document.querySelector('.doc-sec-vital');
         if (!sec) { Clinic.toast.warning('生命体征区域不可见'); return; }
+        // 鼠标点击位置（视口坐标，面板 fixed 定位跟随点击处）
+        var cx = ev && typeof ev.clientX === 'number' ? ev.clientX : window.innerWidth / 2 - 150;
+        var cy = ev && typeof ev.clientY === 'number' ? ev.clientY : 120;
         var visitId = document.getElementById('visitId').value;
         Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
             onSuccess: function (j) {
@@ -815,20 +818,42 @@ Clinic.emr = (function () {
                     '  <button type="button" class="btn btn-primary btn-sm" style="flex:1" id="vitalsSave">保存</button>' +
                     '</div>';
                 document.body.appendChild(pop);
-                var rect = sec.getBoundingClientRect();
-                pop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
-                pop.style.left = Math.max(8, rect.right + window.scrollX - 300) + 'px';
+                // fixed 定位跟随鼠标点击处，并夹紧在视口内（宽300/高约330）
+                pop.style.left = Math.min(Math.max(8, cx + 12), window.innerWidth - 310) + 'px';
+                pop.style.top = Math.min(Math.max(8, cy + 12), window.innerHeight - 340) + 'px';
                 pop.querySelector('#vitalsCancel').addEventListener('click', closeVitalsPop);
                 pop.querySelector('#vitalsSave').addEventListener('click', function () {
+                    // 数值校验：整数、生理合理区间；留空视为未测
+                    var spec = [
+                        { id: 'vSys', label: '收缩压', min: 1, max: 300 },
+                        { id: 'vDia', label: '舒张压', min: 1, max: 250 },
+                        { id: 'vHR', label: '心率', min: 1, max: 300 },
+                        { id: 'vPulse', label: '脉搏', min: 1, max: 300 },
+                        { id: 'vSpO2', label: '血氧饱和度', min: 1, max: 100 },
+                        { id: 'vResp', label: '呼吸', min: 1, max: 100 },
+                    ];
+                    var vals = {};
+                    for (var i = 0; i < spec.length; i++) {
+                        var s = spec[i];
+                        var raw = document.getElementById(s.id).value.trim();
+                        if (raw === '') { vals[s.id] = ''; continue; }
+                        if (!/^\d+$/.test(raw)) { Clinic.toast.warning(s.label + '须为非负整数（不留小数 / 负数 / 单位）'); return; }
+                        var n = parseInt(raw, 10);
+                        if (n !== 0 && (n < s.min || n > s.max)) {
+                            Clinic.toast.warning(s.label + '超出合理范围（' + s.min + '-' + s.max + '）');
+                            return;
+                        }
+                        vals[s.id] = raw;
+                    }
                     var data = {
                         action: 'save_vitals',
                         visit_id: visitId,
-                        bp_systolic: parseInt(document.getElementById('vSys').value, 10) || 0,
-                        bp_diastolic: parseInt(document.getElementById('vDia').value, 10) || 0,
-                        heart_rate: document.getElementById('vHR').value.trim(),
-                        pulse: document.getElementById('vPulse').value.trim(),
-                        spo2: document.getElementById('vSpO2').value.trim(),
-                        respiration: document.getElementById('vResp').value.trim(),
+                        bp_systolic: vals.vSys === '' ? 0 : parseInt(vals.vSys, 10),
+                        bp_diastolic: vals.vDia === '' ? 0 : parseInt(vals.vDia, 10),
+                        heart_rate: vals.vHR,
+                        pulse: vals.vPulse,
+                        spo2: vals.vSpO2,
+                        respiration: vals.vResp,
                     };
                     Clinic.ajax('/api/record', data, {
                         onSuccess: function (json) {
