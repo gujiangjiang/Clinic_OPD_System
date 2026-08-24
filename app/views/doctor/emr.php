@@ -109,6 +109,7 @@ $patient = $row['patient'];
         <button class="btn btn-outline btn-sm emr-write" onclick="openTransfer()">↔️ 转科</button>
         <button class="btn btn-outline btn-sm emr-write" onclick="Clinic.emr.openCertificate()">📄 诊断证明</button>
         <div class="emr-toolbar-divider"></div>
+        <button class="btn btn-outline btn-sm" onclick="Clinic.emr.printRecord()">🖨️ 打印病历</button>
         <button class="btn btn-outline btn-sm" onclick="showPatientHistory('<?php echo e($patient['patient_no']); ?>')">📚 就诊历史</button>
         <button class="btn btn-outline btn-sm" onclick="Clinic.patient.editModal('<?php echo e($patient['patient_no']); ?>')">✏️ 修改患者信息</button>
         <div class="emr-toolbar-divider"></div>

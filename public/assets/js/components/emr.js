@@ -864,11 +864,12 @@ Clinic.emr = (function () {
             rxE1.innerHTML = '<div class="ena-empty">暂未开立处方</div>';
         } else {
             rxE1.innerHTML = rxOrders.map(function (o, oi) {
-                var stMap2 = { open: '待缴费', paid: '待发药', dispensing: '发药中', dispensed: '已发药', refunded: '已退费', cancelled: '已取消' };
                 var nDrugs = (o.items || []).length;
                 return '<div class="ena-item" onclick="showRxDetail(\'' + o.id + '\')">' +
-                    '<span>处方' + (oi + 1) + ' (' + escHtml(o.doctor_name || '') + ' · ' + nDrugs + ' 味)</span>' +
-                    '<span class="ena-sub">' + (stMap2[o.status] || o.status) + ' ' + anaMoney2(o.total_amount) + '</span></div>';
+                    navDot(o.status) +
+                    '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">处方' + (oi + 1) +
+                    ' (' + escHtml(o.doctor_name || '') + ' · ' + nDrugs + ' 味)</span>' +
+                    '<span class="ena-sub">' + anaMoney2(o.total_amount) + '</span></div>';
             }).join('');
         }
 
@@ -927,7 +928,9 @@ Clinic.emr = (function () {
         var stMap = { open: '<span class="badge badge-warning">待缴费</span>', paid: '<span class="badge badge-primary">已缴费</span>',
             registered: '<span class="badge badge-primary">已登记</span>', in_progress: '<span class="badge badge-primary">执行中</span>',
             done: '<span class="badge badge-success">已完成</span>' };
-        var html = '<div class="fs-14 fw-600 mb-8">' + it.item_name + (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>' +
+        var html = '<div style="display:grid;grid-template-columns:minmax(0,1fr) 170px;gap:16px;width:100%">' +
+            '<div style="min-width:0">' +
+            '<div class="fs-14 fw-600 mb-8">' + it.item_name + (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>' +
             '<div class="fs-13 text-muted mb-8">单价：¥' + parseFloat(it.price || 0).toFixed(2) +
             ' ｜ 费用小计：¥' + (parseFloat(it.price || 0) * it.quantity).toFixed(2) + '</div>' +
             '<div class="fs-13 mb-4">执行状态：' + (stMap[it.status] || it.status) + '</div>';
@@ -941,8 +944,53 @@ Clinic.emr = (function () {
         } else if (o.order_type !== 'procedure') {
             html += '<div class="fs-12 text-muted mt-8">报告尚未出具，出具后可在此直接查看</div>';
         }
-        Clinic.modal.open(html, { title: typeNames[o.order_type] || '项目详情', size: 'modal-md' });
+        html += '</div>';
+        // 右侧闭环追踪：与开单弹窗右侧流程完全一致（开单→缴费→登记→完成/药房发药）
+        var steps;
+        if (o.order_type === 'procedure') {
+            steps = [{ label: '开单' }, { label: '缴费' }, { label: '登记' }, { label: '执行完成' }];
+        } else {
+            steps = [{ label: '开单' }, { label: '缴费' }, { label: '登记' }, { label: '完成' }];
+        }
+        var curIdx = itemStepIdx(it.status, steps.length - 1);
+        html += flowColumnHtml(steps, curIdx);
+        html += '</div>';
+        // 操作区：打印申请单（本人或他人均可补打）；删除仅限未缴费/已退费的开单医生本人
+        var delLabel = o.order_type === 'prescription' ? '毁方' : '删除';
+        var delBtn2 = (!Clinic.emr.isMyOrder(o) || (o.status !== 'open' && o.status !== 'refunded')) ? ''
+            : '<button type="button" class="btn btn-danger btn-sm mt-8" onclick="delOrderFlow(\'' + o.id + '\',\'' + delLabel + '\')">🗑️ ' + delLabel + '</button>';
+        html += '<div style="margin-top:12px">' +
+            '<button type="button" class="btn btn-outline btn-sm" ' +
+            'onclick="Clinic.print.load(\'/api/print?action=order&order_id=' + o.id + '\',null,\'a5\')">🖨️ 打印申请单</button>' +
+            delBtn2 + '</div>';
+        Clinic.modal.open(html, { title: typeNames[o.order_type] || '项目详情', size: 'modal-lg' });
     };
+
+    /**
+     * 闭环追踪流程列（纵向步骤条）：steps=[{label}], curIdx=-1 表示已退费/取消
+     */
+    function flowColumnHtml(steps, curIdx) {
+        var flow = steps.map(function (st, i) {
+            var cls = (curIdx >= 0 && i <= curIdx) ? 'var(--success)' : 'var(--border)';
+            return '<div class="flex gap-8" style="align-items:center">' +
+                '<div style="width:26px;height:26px;border-radius:50%;background:' + cls + ';' +
+                'display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;flex-shrink:0">' +
+                (i + 1) + '</div>' +
+                '<div class="fs-13" style="color:' + (curIdx >= 0 && i <= curIdx ? 'var(--text)' : 'var(--text-muted)') + '">' +
+                st.label + '</div></div>';
+        }).join('<div style="width:2px;height:18px;background:var(--border);margin-left:12px"></div>');
+        return '<div style="border-left:1px solid var(--border);padding-left:16px">' +
+            '<div class="fw-600 mb-8 fs-13">流程进度</div>' + flow + '</div>';
+    }
+
+    /** 按条目状态换算流程步序（open=0 起；done=末步） */
+    function itemStepIdx(st, lastIdx) {
+        if (st === 'open') return 0;
+        if (st === 'paid') return 1;
+        if (st === 'registered' || st === 'in_progress') return Math.max(1, lastIdx - 1);
+        if (st === 'done' || st === 'dispensed') return lastIdx;
+        return -1; // refunded / cancelled 等异常态
+    }
 
     /**
      * 处方组详情模态框：同组药品明细、规格、剂量频次途径、费用与药房发药状态
@@ -974,14 +1022,36 @@ Clinic.emr = (function () {
                 '<td class="fs-13">' + (it.quantity || 0) + '</td>' +
                 '<td class="fs-13 text-muted">¥' + subtotal + '</td></tr>';
         });
-        var html = '<div class="flex-between mb-8">' +
-            '<span class="fs-13 text-muted">处方号：' + escHtml(o.order_no || '') + ' ｜ 开单医生：' + escHtml(o.doctor_name || '') + ' ｜ ' + o.created_at + '</span>' +
+        var leftHtml = '<div style="min-width:0">' +
+            '<div class="flex-between mb-8">' +
+            '<span class="fs-13 text-muted">处方号：' + escHtml(o.order_no || '') + '</span>' +
             '<span>' + (rxStatusMap[o.status] || o.status) + '</span></div>' +
+            '<div class="fs-12 text-muted mb-8">开单医生：' + escHtml(o.doctor_name || '') + ' ｜ ' + o.created_at + '</div>' +
             '<div class="table-wrap"><table class="table"><thead><tr>' +
             '<th>药品</th><th>剂量</th><th>频次</th><th>途径</th><th>数量</th><th>小计</th></tr></thead><tbody>' +
             rows + '</tbody></table></div>' +
-            '<div class="flex-between mt-8"><span></span><span class="fw-600">合计：¥' + parseFloat(o.total_amount || 0).toFixed(2) + '</span></div>';
-        Clinic.modal.open(html, { title: '处方明细', size: 'modal-lg' });
+            '<div class="flex-between mt-8"><span></span><span class="fw-600">合计：¥' + parseFloat(o.total_amount || 0).toFixed(2) + '</span></div>' +
+            '<div style="margin-top:10px">' +
+            '<button type="button" class="btn btn-outline btn-sm" ' +
+            'onclick="Clinic.print.load(\'/api/print?action=order&order_id=' + o.id + '\',null,\'a5\')">🖨️ 打印处方笺</button>';
+        var rxCanDel = Clinic.emr.isMyOrder(o) && (o.status === 'open' || o.status === 'refunded');
+        if (rxCanDel) {
+            leftHtml += ' <button type="button" class="btn btn-danger btn-sm" style="margin-left:8px" onclick="delOrderFlow(\'' + o.id + '\',\'毁方\')">🗑️ 毁方</button>';
+        }
+        leftHtml += '</div>' +   // 闭合「打印/毁方」按钮容器
+            '</div>';            // 闭合左列容器（此前漏闭导致流程列被解析为其子元素、渲染到下方）
+        // 右侧闭环追踪：与开单弹窗右侧流程完全一致（开单→缴费→登记→药房发药）
+        var steps = [
+            { label: '开单' }, { label: '缴费' },
+            { label: '登记' }, { label: '药房发药' },
+        ];
+        var curIdx = 0;
+        if (o.status === 'dispensed') curIdx = 3;
+        else if (o.status === 'dispensing' || o.status === 'registered') curIdx = 2;
+        else if (o.status === 'paid') curIdx = 1;
+        else if (o.status === 'refunded' || o.status === 'cancelled') curIdx = -1;
+        Clinic.modal.open('<div style="display:grid;grid-template-columns:minmax(0,1fr) 170px;gap:16px;width:100%">' + leftHtml + flowColumnHtml(steps, curIdx) + '</div>',
+            { title: '处方明细', size: 'modal-lg' });
     };
 
     /**
@@ -1012,7 +1082,10 @@ Clinic.emr = (function () {
 
     /** 左栏折叠/展开（挂 window：IIFE 执行期 Clinic.emr 尚未赋值，
      *  直接写 Clinic.emr.toggleNavSec 会报 Cannot set properties of undefined） */
-    window.toggleNavSec
+    window.toggleNavSec = function (titleEl) {
+        titleEl.parentNode.classList.toggle('collapsed');
+    };
+
     /**
      * 当前时间 YYYY-MM-DD HH:mm:ss（用于记录时间展示）
      */
