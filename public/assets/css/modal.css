@@ -213,6 +213,10 @@
     flex-direction: column;
     gap: 2px;
 }
+/* 三级树文字对齐缩进：L1→L2、L2→L3 各 28px 步进（L3 补 22px 补偿
+   L1/L2 行首 +/− 按钮宽度，使文字横向均匀对齐，忽略按钮） */
+.send-tree-level-2 { padding-left: 28px; }
+.send-tree-level-3 { padding-left: 50px; }
 .send-grp-head {
     display: flex;
     align-items: center;

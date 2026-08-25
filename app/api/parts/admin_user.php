@@ -88,15 +88,15 @@ function admin_part_user($action) {
             '<button type="button" class="tree-toggle" onclick="treeToggle(this)" data-toggle="deptL2">+</button>' .
             '<label class="send-grp-head"><input type="checkbox" id="deptAll" onchange="deptToggleAll(this.checked)"> <b>全院（全部科室）</b></label>' .
             '</div>' .
-            '<div class="send-grp-children" id="deptL2" style="display:none;margin-left:20px">';
+            '<div class="send-grp-children send-tree-level-2" id="deptL2" style="display:none">';
         foreach ($byType as $type => $g) {
             if (!count($g['items'])) continue;
-            $deptBox .= '<div class="send-grp" style="margin-left:20px">' .
+            $deptBox .= '<div class="send-grp">' .
                 '<div class="send-grp-head-row">' .
                 '<button type="button" class="tree-toggle" onclick="treeToggle(this)" data-toggle="deptT_' . $type . '">+</button>' .
                 '<label class="send-grp-head"><input type="checkbox" class="deptGrpChk" data-type="' . $type . '" onchange="deptToggleGroup(\'' . $type . '\', this.checked)"> <b>' . $g['label'] . '</b>（' . count($g['items']) . ' 个科室）</label>' .
                 '</div>' .
-                '<div class="send-grp-children" id="deptT_' . $type . '" style="display:none;margin-left:34px">';
+                '<div class="send-grp-children send-tree-level-3" id="deptT_' . $type . '" style="display:none">';
             foreach ($g['items'] as $d) {
                 $checked = in_array((int)$d['id'], $selDept, true) ? ' checked' : '';
                 $deptBox .= '<label class="send-user"><input type="checkbox" class="deptChk" data-type="' . $type . '" value="' . (int)$d['id'] . '"' . $checked . ' onchange="deptSyncGroups()"> ' . e($d['name']) . '</label>';

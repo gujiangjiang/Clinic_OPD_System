@@ -169,12 +169,12 @@ function openSendMsg() {
                         return '<label class="send-user"><input type="checkbox" name="smUser" class="sm-user" data-role="' + g.role + '" value="' + u2.id + '" onchange="smUserChange(this)">' + u2.name +
                             ' <span class="fs-12 text-muted">' + (u2.emp_no || '') + '</span></label>';
                     }).join('');
-                    return '<div class="send-grp" style="margin-left:20px">' +
+                    return '<div class="send-grp">' +
                         '<div class="send-grp-head-row">' +
                         '<button type="button" class="tree-toggle" onclick="treeToggle(this)" data-toggle="smG_' + g.role + '">+</button>' +
                         '<label class="send-grp-head"><input type="checkbox" class="sm-role" data-role="' + g.role + '" onchange="smToggleRole(\'' + g.role + '\', this.checked)"> <b>' + g.role_name + '</b>（' + g.users.length + ' 人）</label>' +
                         '</div>' +
-                        '<div class="send-grp-children" id="smG_' + g.role + '" style="display:none;margin-left:34px">' + users + '</div>' +
+                        '<div class="send-grp-children send-tree-level-3" id="smG_' + g.role + '" style="display:none">' + users + '</div>' +
                         '</div>';
                 }).join('');
                 tree =
@@ -183,7 +183,7 @@ function openSendMsg() {
                     '<button type="button" class="tree-toggle" onclick="treeToggle(this)" data-toggle="smL2">+</button>' +
                     '<label class="send-grp-head"><input type="checkbox" id="smAll" onchange="smToggleAll(this.checked)"> <b>全院（全部用户）</b></label>' +
                     '</div>' +
-                    '<div class="send-grp-children" id="smL2" style="display:none;margin-left:20px">' + roleBlocks + '</div>' +
+                    '<div class="send-grp-children send-tree-level-2" id="smL2" style="display:none">' + roleBlocks + '</div>' +
                     '</div>';
             } else {
                 tree = SEND_GROUPS.map(function (g) {
@@ -191,12 +191,12 @@ function openSendMsg() {
                         return '<label class="send-user"><input type="radio" name="smUser" value="' + u2.id + '">' + u2.name +
                             ' <span class="fs-12 text-muted">' + (u2.emp_no || '') + '</span></label>';
                     }).join('');
-                    return '<div class="send-grp" style="margin-left:20px">' +
+                    return '<div class="send-grp">' +
                         '<div class="send-grp-head-row">' +
                         '<button type="button" class="tree-toggle" onclick="treeToggle(this)" data-toggle="smG_' + g.role + '">+</button>' +
                         '<div class="send-grp-head"><b>' + g.role_name + '</b>（' + g.users.length + ' 人）</div>' +
                         '</div>' +
-                        '<div class="send-grp-children" id="smG_' + g.role + '" style="display:none;margin-left:34px">' + users + '</div>' +
+                        '<div class="send-grp-children send-tree-level-3" id="smG_' + g.role + '" style="display:none">' + users + '</div>' +
                         '</div>';
                 }).join('');
             }
