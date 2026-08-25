@@ -49,6 +49,7 @@ function admin_part_item($action) {
             return;
         } else {
             // ===== 检查项目管理：无成组逻辑，保持简单 =====
+            $rows = DB::q('lab', "SELECT * FROM $table ORDER BY category, id");
             $html = '<div class="fs-13 text-muted mb-8" id="examCountDiv">检查项目共 ' . count($rows) . ' 项</div>';
             if (!$rows) {
                 $html .= '<div class="empty">暂无检查项目，请先添加</div>';
