@@ -8,9 +8,10 @@
  * 新增药品需在审核中心通过后方可开方。
  */
 Router::title('药品信息');
+$__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
 ?>
 <div class="page-head">
-    <div><div class="page-title">💊 药品信息</div><div class="page-desc">药品档案管理（新增药品需审核通过后可用）</div></div>
+    <div><div class="page-title">💊 药品信息</div><div class="page-desc">药品档案管理<?php echo $__isAdmin ? '' : '（新增药品需审核通过后可用）'; ?></div></div>
     <div class="flex gap-8">
         <span id="drugImportBtns" class="flex gap-8"></span>
         <button class="btn btn-primary btn-sm" onclick="openDrugForm(0)">＋ 新增药品</button>

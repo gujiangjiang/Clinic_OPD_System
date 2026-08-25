@@ -71,7 +71,7 @@ function form_item($type, $id) {
     </div>' : '') .
     '<div class="form-group"><label class="form-label">项目描述</label>
         <textarea class="textarea" id="f_desc" rows="2">' . e($r['description']) . '</textarea></div>' .
-    '<div class="fs-12 text-muted">新增项目提交后需在【审核中心】审核通过方可开单使用。</div>';
+    (Auth::user() && Auth::user()['role'] === 'admin' ? '' : '<div class="fs-12 text-muted">新增项目提交后需在【审核中心】审核通过方可开单使用。</div>');
 }
 
 /**
@@ -142,7 +142,7 @@ function form_drug($id) {
             <button type="button" class="btn btn-outline btn-sm" onclick="pickSkinDisposal()">🔍 选择/新建</button>
             <button type="button" class="btn btn-outline btn-sm" onclick="clearSkinDisposal()">清除</button>
         </div>
-        <div class="fs-12 text-muted mt-4">如：青霉素皮试、头孢菌素类皮试。可在弹窗中检索已有处置，或就地快捷创建（非管理员提交需审核）。</div>
+        <div class="fs-12 text-muted mt-4">如：青霉素皮试、头孢菌素类皮试。可在弹窗中检索已有处置，或就地快捷创建' . (Auth::user() && Auth::user()['role'] === 'admin' ? '。' : '（非管理员提交需审核）。') . '</div>
     </div>
     <div class="form-group"><label class="form-label">备注</label><textarea class="textarea" id="f_note" rows="2">' . e($r['note']) . '</textarea></div>';
     // 给药途径 → 是否需护士站处理 映射（供前端自动勾选）

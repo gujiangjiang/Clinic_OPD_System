@@ -1,8 +1,9 @@
 <?php
 Router::title('检验项目管理');
+$__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
 ?>
 <div class="page-head">
-    <div><div class="page-title">🧪 检验项目管理</div><div class="page-desc">检验项目与组合管理（组合按组价整体收费，新项目需审核通过后可用）</div></div>
+    <div><div class="page-title">🧪 检验项目管理</div><div class="page-desc">检验项目与组合管理<?php echo $__isAdmin ? '' : '（新项目需审核通过后可用）'; ?></div></div>
     <div class="flex gap-8">
         <button class="btn btn-primary btn-sm" id="labComboBtn" onclick="openComboMgr()">🧩 检验组合管理</button>
         <span id="impBtns" class="flex gap-8"></span>

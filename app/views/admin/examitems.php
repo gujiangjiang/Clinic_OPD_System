@@ -6,9 +6,10 @@
  * 计数随筛选动态更新。
  */
 Router::title('检查项目管理');
+$__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
 ?>
 <div class="page-head">
-    <div><div class="page-title">🩻 检查项目管理</div><div class="page-desc">检查项目与分类管理（CT、MR、DR、超声等，新项目需审核通过后可用）</div></div>
+    <div><div class="page-title">🩻 检查项目管理</div><div class="page-desc">检查项目与分类管理<?php echo $__isAdmin ? '' : '（新项目需审核通过后可用）'; ?></div></div>
     <div class="flex gap-8">
         <button class="btn btn-outline btn-sm" id="examCatBtn" onclick="openCatMgr()">🗂️ 分类管理</button>
         <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openItemForm(0)">＋ 新增检查项目</button></div>
