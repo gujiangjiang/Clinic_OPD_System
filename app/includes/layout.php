@@ -16,21 +16,29 @@ class Layout {
     private static function menu($role) {
         $items = array();
         if ($role === 'admin') {
-            $items['管理'] = array(
-                array('工作台', '🏠', '/admin/dashboard'),
-                array('系统设置', '⚙️', '/admin/settings'),
+            $items['首页'] = array(
+                array('首页', '🏠', '/admin/dashboard'),
+            );
+            $items['医院管理'] = array(
                 array('科室管理', '🏥', '/admin/departments'),
                 array('用户管理', '👥', '/admin/users'),
+            );
+            $items['基础数据'] = array(
                 array('检验管理', '🧪', '/admin/labitems'),
                 array('检查管理', '🩻', '/admin/examitems'),
                 array('药品信息', '💊', '/admin/drugs'),
                 array('药品设置', '📦', '/admin/drugsettings'),
                 array('处置项目', '🩹', '/admin/disposal'),
                 array('诊断管理', '📖', '/admin/diagnosis'),
+            );
+            $items['运营管理'] = array(
                 array('审核中心', '✅', '/admin/review'),
                 array('运营分析', '📊', '/admin/analytics'),
                 array('打印中心', '🖨️', '/admin/printcenter'),
                 array('叫号管理', '🖥️', '/admin/callmanage'),
+            );
+            $items['系统'] = array(
+                array('系统设置', '⚙️', '/admin/settings'),
             );
         } elseif ($role === 'cashier') {
             $items['挂号收费'] = array(

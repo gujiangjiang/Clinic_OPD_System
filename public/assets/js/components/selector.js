@@ -277,6 +277,11 @@ Clinic.universalSelector = (function () {
 
     /** 快建表单视图 */
     function showCreateForm() {
+        const kw = document.getElementById('usKw');
+        const createBtn = document.getElementById('usCreate');
+        // 进入新建模式：隐藏搜索框与「新建项目」按钮，聚焦表单
+        if (kw) kw.style.display = 'none';
+        if (createBtn) createBtn.style.display = 'none';
         const formHtml =
             '<div id="usCreateBox" style="background:var(--bg-soft);border-radius:10px;padding:14px">' +
             '<div class="form-group"><label class="form-label">项目名称 <span class="req">*</span></label>' +
@@ -288,9 +293,11 @@ Clinic.universalSelector = (function () {
             '<button type="button" class="btn btn-outline btn-sm" id="usc_back">返回检索</button></div>' +
             '<div class="fs-12 text-warning mt-8">提交后将记录创建来源（' + String(CFG.createContext || '快捷创建') + '），非管理员需管理员审核。</div></div>';
         document.getElementById('usList').innerHTML = formHtml;
-        document.getElementById('us_back') && 0;
         document.getElementById('usc_back').addEventListener('click', function () {
-            doSearch(document.getElementById('usList'), document.getElementById('usKw').value.trim());
+            // 返回检索：恢复搜索框与新建按钮
+            if (kw) kw.style.display = '';
+            if (createBtn) createBtn.style.display = '';
+            doSearch(document.getElementById('usList'), kw ? kw.value.trim() : '');
         });
         document.getElementById('usc_submit').addEventListener('click', function () {
             const name = document.getElementById('usc_name').value.trim();

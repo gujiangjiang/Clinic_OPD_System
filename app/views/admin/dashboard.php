@@ -3,10 +3,10 @@
  * admin/dashboard.php — 管理员工作台
  * 说明：展示全站核心运营指标（今日挂号/缴费/待审核/库存预警等）。
  */
-Router::title('工作台');
+Router::title('首页');
 ?>
 <div class="page-head">
-    <div><div class="page-title">🏠 工作台</div><div class="page-desc">全站运营概览</div></div>
+    <div><div class="page-title">🏠 首页</div><div class="page-desc">全站运营概览</div></div>
 </div>
 
 <div class="stat-grid" id="statsBox">
