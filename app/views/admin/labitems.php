@@ -76,7 +76,7 @@ function renderComboMgr() {
     var html =
         '<div class="combo-mgr">' +
         '  <div class="combo-left">' +
-        '    <button class="btn btn-primary btn-sm btn-block" onclick="newComboPop()">＋ 新增检验组合</button>' +
+        '    <button class="btn btn-primary btn-sm btn-block" onclick="newComboPop(event)">＋ 新增检验组合</button>' +
         '    <input class="input mt-8" id="comboSearch" placeholder="🔍 搜索组合" autocomplete="off" oninput="filterCombos()">' +
         '    <div class="combo-list mt-8" id="comboList">' + leftList + '</div>' +
         '  </div>' +
@@ -138,7 +138,8 @@ function saveComboInfo() {
         },
     });
 }
-function newComboPop() {
+function newComboPop(ev) {
+    closeComboPop();
     var pop = document.createElement('div');
     pop.id = 'newComboPop'; pop.className = 'finish-pop'; pop.style.cssText = 'width:280px;position:fixed;z-index:3200';
     pop.innerHTML = '<div class="fs-13 fw-700 mb-8">新增检验组合</div>' +
@@ -148,13 +149,22 @@ function newComboPop() {
         '<div class="flex gap-8"><button class="btn btn-outline btn-sm" style="flex:1" onclick="closeComboPop()">取消</button>' +
         '<button class="btn btn-primary btn-sm" style="flex:1" onclick="doNewCombo()">创建</button></div>';
     document.body.appendChild(pop);
-    var btn = document.querySelector('[onclick*="openComboMgr"]');
-    var rect = btn.getBoundingClientRect();
-    pop.style.top = Math.min(rect.bottom + 8, window.innerHeight - 240) + 'px';
-    pop.style.left = Math.min(rect.left, window.innerWidth - 290) + 'px';
-    setTimeout(function () { try { document.getElementById('ncName').focus(); } catch (e) {} }, 50);
+    var cx = ev && typeof ev.clientX === 'number' ? ev.clientX : window.innerWidth / 2 - 140;
+    var cy = ev && typeof ev.clientY === 'number' ? ev.clientY : 120;
+    pop.style.top = Math.min(Math.max(8, cy + 12), window.innerHeight - 240) + 'px';
+    pop.style.left = Math.min(Math.max(8, cx + 12), window.innerWidth - 292) + 'px';
+    // 点击外部关闭
+    setTimeout(function () {
+        var handler = function (e) { if (!pop.contains(e.target)) closeComboPop(); };
+        pop._outside = handler;
+        document.addEventListener('mousedown', handler);
+        try { document.getElementById('ncName').focus(); } catch (e2) {}
+    }, 0);
 }
-function closeComboPop() { var p = document.getElementById('newComboPop'); if (p) p.remove(); }
+function closeComboPop() {
+    var p = document.getElementById('newComboPop');
+    if (p) { if (p._outside) { document.removeEventListener('mousedown', p._outside); } p.remove(); }
+}
 function doNewCombo() {
     var name = document.getElementById('ncName').value.trim(); var price = parseFloat(document.getElementById('ncPrice').value) || 0;
     var cat = document.getElementById('ncCat').value.trim();
