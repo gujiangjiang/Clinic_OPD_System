@@ -28,10 +28,19 @@ function admin_part_settings($action) {
         $deptCount = (int)DB::val('dept', 'SELECT COUNT(*) FROM departments WHERE status=1');
         $userCount = (int)DB::val('user', 'SELECT COUNT(*) FROM users WHERE status=1');
         $msgCount = (int)DB::val('core', 'SELECT COUNT(*) FROM messages WHERE is_read=0 AND (to_role=? OR to_user_id=?)', array($u['role'], $u['id']));
+        // 近7天趋势（挂号人次 + 缴费金额）
+        $labels = array(); $regSeries = array(); $revSeries = array();
+        for ($i = 6; $i >= 0; $i--) {
+            $day = date('Y-m-d', strtotime("-$i days"));
+            $labels[] = substr($day, 5);
+            $regSeries[] = (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE date(register_time)=? AND status IN ('paid','visiting','finished')", array($day));
+            $revSeries[] = round((float)DB::val('order', "SELECT COALESCE(SUM(total),0) FROM payments WHERE date(created_at)=?", array($day)), 2);
+        }
         json_ok(array(
             'reg_today' => $regToday, 'waiting' => $waiting, 'revenue' => money($revenue),
             'pending_audits' => $pendingAudits, 'low_stock' => $lowStock,
             'dept_count' => $deptCount, 'user_count' => $userCount, 'msg_count' => $msgCount,
+            'trend' => array('labels' => $labels, 'reg' => $regSeries, 'rev' => $revSeries),
         ));
     }
 

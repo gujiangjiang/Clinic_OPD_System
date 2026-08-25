@@ -12,10 +12,19 @@ Router::title('护士站首页');
     <div class="stat-card"><div class="stat-num">—</div><div class="stat-label">处置项目总数</div></div>
 </div>
 <div class="card"><div class="card-title">近 7 天处置执行趋势</div><div id="chartTrend"></div></div>
-<div class="card"><div class="card-title">快速入口</div><div class="flex gap-8" style="flex-wrap:wrap">
-    <a class="btn btn-outline btn-sm" href="/nurse/dashboard">💉 护士工作站</a>
-    <a class="btn btn-outline btn-sm" href="/messages">💬 站内消息</a>
-</div></div>
+<div class="flex gap-12">
+    <div class="card" style="flex:1"><div class="card-title">快速入口</div><div class="flex gap-8" style="flex-wrap:wrap">
+        <a class="btn btn-outline btn-sm" href="/nurse/dashboard">💉 护士工作站</a>
+        <a class="btn btn-outline btn-sm" href="/messages">💬 站内消息</a>
+    </div></div>
+    <div class="card" style="flex:1"><div class="card-title">使用提示</div>
+        <div class="fs-13 text-muted" style="line-height:1.9">
+            1. 缴费后的处置 / 医嘱在【护士工作站】中执行<br>
+            2. 生命体征录入后医生端实时同步<br>
+            3. 静脉输液等途径的处方会自动标记「护士站执行」
+        </div>
+    </div>
+</div>
 <script>
 Clinic.get('/api/nurse?action=home_stats', null, { onSuccess: function (json) {
     var d = json.data, kpi = d.kpi;

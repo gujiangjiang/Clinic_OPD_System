@@ -16,11 +16,21 @@ Router::title('检验科首页');
     <div class="stat-card"><div class="stat-num">—</div><div class="stat-label">待审核项目</div></div>
 </div>
 <div class="card"><div class="card-title">近 7 天检验量趋势</div><div id="chartTrend"></div></div>
-<div class="card"><div class="card-title">快速入口</div><div class="flex gap-8" style="flex-wrap:wrap">
-    <a class="btn btn-outline btn-sm" href="/lab/dashboard">🧪 检验科工作台</a>
-    <a class="btn btn-outline btn-sm" href="/admin/labitems">📋 检验管理</a>
-    <a class="btn btn-outline btn-sm" href="/messages">💬 站内消息</a>
-</div></div>
+<div class="flex gap-12">
+    <div class="card" style="flex:1"><div class="card-title">快速入口</div><div class="flex gap-8" style="flex-wrap:wrap">
+        <a class="btn btn-outline btn-sm" href="/lab/dashboard">🧪 检验科工作台</a>
+        <a class="btn btn-outline btn-sm" href="/admin/labitems">📋 检验管理</a>
+        <a class="btn btn-outline btn-sm" href="/messages">💬 站内消息</a>
+    </div></div>
+    <div class="card" style="flex:1"><div class="card-title">使用提示</div>
+        <div class="fs-13 text-muted" style="line-height:1.9">
+            1. 缴费后的检验项目在【检验科工作台】→「待登记」列表中<br>
+            2. 登记后进入「待出报告」，录入结果后自动生成报告<br>
+            3. 新增检验项目请到【检验管理】提交，需管理员审核后可用<br>
+            4. 检验组合管理请在【检验管理】→「检验组合管理」中维护
+        </div>
+    </div>
+</div>
 <script>
 Clinic.get('/api/lab?action=home_stats', null, { onSuccess: function (json) {
     var d = json.data, kpi = d.kpi;

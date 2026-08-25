@@ -105,12 +105,12 @@ class Auth {
         if (!$u) return '/login';
         $map = array(
             'admin'    => '/admin/dashboard',
-            'cashier'  => '/cashier/register',
-            'doctor'   => '/doctor/dashboard',
-            'nurse'    => '/nurse/dashboard',
-            'lab'      => '/lab/dashboard',
-            'imaging'  => '/imaging/dashboard',
-            'pharmacy' => '/pharmacy/dashboard',
+            'cashier'  => '/cashier/home',
+            'doctor'   => '/doctor/home',
+            'nurse'    => '/nurse/home',
+            'lab'      => '/lab/home',
+            'imaging'  => '/imaging/home',
+            'pharmacy' => '/pharmacy/home',
         );
         return isset($map[$u['role']]) ? $map[$u['role']] : '/login';
     }

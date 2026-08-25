@@ -20,6 +20,11 @@ Router::title('工作台');
     <div class="stat-card"><div class="stat-num">—</div><div class="stat-label">我的未读消息</div></div>
 </div>
 
+<div class="card" style="margin-bottom:16px">
+    <div class="card-title">近 7 天运营趋势</div>
+    <div id="chartTrend"></div>
+</div>
+
 <div class="flex gap-12">
     <div class="card" style="flex:1">
         <div class="card-title">快速入口</div>
@@ -59,6 +64,15 @@ Clinic.get('/api/admin?action=stats', null, {
             return '<div class="stat-card"><div class="stat-num" style="color:var(--primary)">' + (d[l[0]] === undefined ? '—' : d[l[0]]) + '</div>' +
                 '<div class="stat-label">' + l[1] + '</div></div>';
         }).join('');
+        if (d.trend) {
+            Clinic.chart.line('chartTrend', {
+                labels: d.trend.labels,
+                series: [
+                    { name: '挂号人次', data: d.trend.reg, color: '#409eff' },
+                    { name: '缴费金额（元）', data: d.trend.rev, color: '#67c23a' },
+                ],
+            });
+        }
     },
 });
 </script>

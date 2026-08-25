@@ -13,12 +13,22 @@ Router::title('收费处首页');
     <div class="stat-card"><div class="stat-num">—</div><div class="stat-label">今日待就诊</div></div>
 </div>
 <div class="card"><div class="card-title">近 7 天缴费收入趋势</div><div id="chartTrend"></div></div>
-<div class="card"><div class="card-title">快速入口</div><div class="flex gap-8" style="flex-wrap:wrap">
-    <a class="btn btn-outline btn-sm" href="/cashier/register">🎫 挂号收费</a>
-    <a class="btn btn-outline btn-sm" href="/cashier/regmanage">📋 挂号管理</a>
-    <a class="btn btn-outline btn-sm" href="/cashier/paymanage">💳 缴费与退费</a>
-    <a class="btn btn-outline btn-sm" href="/messages">💬 站内消息</a>
-</div></div>
+<div class="flex gap-12">
+    <div class="card" style="flex:1"><div class="card-title">快速入口</div><div class="flex gap-8" style="flex-wrap:wrap">
+        <a class="btn btn-outline btn-sm" href="/cashier/register">🎫 挂号收费</a>
+        <a class="btn btn-outline btn-sm" href="/cashier/regmanage">📋 挂号管理</a>
+        <a class="btn btn-outline btn-sm" href="/cashier/paymanage">💳 缴费与退费</a>
+        <a class="btn btn-outline btn-sm" href="/messages">💬 站内消息</a>
+    </div></div>
+    <div class="card" style="flex:1"><div class="card-title">使用提示</div>
+        <div class="fs-13 text-muted" style="line-height:1.9">
+            1. 【挂号收费】完成挂号并缴费，自动打印挂号凭条<br>
+            2. 有身份证可自助选择费用类别（自费 / 医保），无身份证仅可挂急诊且自费<br>
+            3. 【缴费与退费】处理开单缴费与退费，退费需选择原因<br>
+            4. 【挂号管理】按天查询挂号记录，支持补打凭条
+        </div>
+    </div>
+</div>
 <script>
 Clinic.get('/api/cashier?action=home_stats', null, { onSuccess: function (json) {
     var d = json.data, kpi = d.kpi;
