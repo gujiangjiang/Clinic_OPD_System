@@ -15,15 +15,53 @@ Router::title('检查项目管理');
     </div>
 </div>
 
+<div class="card" style="margin-bottom:12px">
+    <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
+        <input class="input" placeholder="🔍 快速搜索检查项目" style="width:220px" oninput="quickFilter(this.value,'itemList')">
+        <span class="flex gap-4" id="examCatTabs" style="flex-wrap:wrap"></span>
+    </div>
+</div>
+
 <div class="card" id="itemList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
+/* 分类子 tab（按数据动态生成） */
+var EXAM_CAT = '';
+function buildExamCats() {
+    var cats = [];
+    document.querySelectorAll('#itemList tbody tr').forEach(function (tr) {
+        var c = tr.getAttribute('data-cat') || '';
+        if (c && cats.indexOf(c) === -1) cats.push(c);
+    });
+    var bar = document.getElementById('examCatTabs');
+    bar.innerHTML = '<button class="btn btn-sm ' + (EXAM_CAT === '' ? 'btn-primary' : 'btn-outline') + '" onclick="examCatFilter(this,\'\')">全部</button>' +
+        cats.map(function (c) {
+            return '<button class="btn btn-sm ' + (EXAM_CAT === c ? 'btn-primary' : 'btn-outline') + '" onclick="examCatFilter(this,\'' + c + '\')">' + c + '</button>';
+        }).join('');
+}
+function examCatFilter(btn, c) {
+    EXAM_CAT = c;
+    document.querySelectorAll('#examCatTabs .btn').forEach(function (b) {
+        b.className = 'btn btn-sm ' + ((b.getAttribute('data-cat') || '') === c ? 'btn-primary' : 'btn-outline');
+    });
+    document.querySelectorAll('#itemList tbody tr').forEach(function (tr) {
+        tr.style.display = (c === '' || tr.getAttribute('data-cat') === c) ? '' : 'none';
+    });
+}
+/* 快速搜索：按行文本过滤 */
+function quickFilter(q, boxId) {
+    q = q.trim().toLowerCase();
+    document.querySelectorAll('#' + boxId + ' tbody tr').forEach(function (tr) {
+        tr.style.display = tr.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+    });
+}
 Clinic.importer._reloads['exam'] = loadItemList;
 Clinic.importer.attach('exam', 'impBtns', '检查项目');
 function loadItemList() {
     Clinic.get('/api/admin?action=item_list&type=exam', null, {
         onSuccess: function (json) {
             document.getElementById('itemList').innerHTML = json.data.html;
+            buildExamCats();
         },
     });
 }

@@ -22,11 +22,12 @@
  */
 function admin_part_analytics($action) {
 
-    /** 校验并规范化日期范围（缺省=今天；start>end 自动交换） */
+    /** 校验并规范化日期范围（缺省=今天；start>end 自动交换）；
+     *  用 req() 同时兼容 GET（前端 Clinic.get）与 POST 参数 */
     function ana_range() {
         $tz = new DateTimeZone(date_default_timezone_get());
-        $end = post('end', date('Y-m-d'));
-        $start = post('start', date('Y-m-d'));
+        $end = req('end', date('Y-m-d'));
+        $start = req('start', date('Y-m-d'));
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start)) $start = date('Y-m-d');
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $end)) $end = date('Y-m-d');
         if ($start > $end) { $t = $start; $start = $end; $end = $t; }

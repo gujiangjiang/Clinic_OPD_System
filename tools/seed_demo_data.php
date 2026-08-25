@@ -111,17 +111,65 @@ foreach ($labGroups as $G) {
 }
 $labDefs = array(
     array('免疫检验','C反应蛋白(CRP)',30), array('免疫检验','降钙素原(PCT)',120),
-    array('生化检验','肝功能十项',65), array('生化检验','肾功能三项',45),
-    array('生化检验','电解质五项',40), array('生化检验','空腹血糖',12),
-    array('血液检验','凝血功能四项',85), array('血液检验','血型鉴定(ABO+Rh)',35),
-    array('微生物检验','肺炎支原体抗体',60), array('免疫检验','甲状腺功能五项',150),
-    array('生化检验','心肌酶谱',70), array('血液检验','血沉(ESR)',15),
+    array('生化检验','空腹血糖',12), array('血液检验','血型鉴定(ABO+Rh)',35),
+    array('微生物检验','肺炎支原体抗体',60), array('血液检验','血沉(ESR)',15),
 );
 foreach ($labDefs as $L) {
+    // 已存在（含组合/组内/独立任意形态）则跳过，避免与组合成员重复
     if (DB::one('lab', 'SELECT id FROM lab_items WHERE name=?', array($L[1]))) continue;
     DB::insert('lab', 'INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,0,0)', array(
         $L[0], $L[1], '项', $L[2], '', '', '', '', 'approved', now_str(),
     ));
+}
+/* 组合项目（XXX五项/十项 = 组合，组内为单项；已存在的独立项目原位转为组合） */
+$labGroupDefs = array(
+    array('生化检验', '肝功能十项', 65, array(
+        array('谷丙转氨酶(ALT)', 'U/L', 8, '7-40'), array('谷草转氨酶(AST)', 'U/L', 8, '8-40'),
+        array('总胆红素(TBIL)', 'μmol/L', 6, '3.4-17.1'), array('直接胆红素(DBIL)', 'μmol/L', 4, '0-6.8'),
+        array('间接胆红素(IBIL)', 'μmol/L', 4, '0-17'), array('总蛋白(TP)', 'g/L', 6, '60-80'),
+        array('白蛋白(ALB)', 'g/L', 6, '35-55'), array('球蛋白(GLB)', 'g/L', 5, '20-30'),
+        array('谷氨酰转肽酶(GGT)', 'U/L', 8, '7-64'), array('碱性磷酸酶(ALP)', 'U/L', 8, '53-128'),
+    )),
+    array('生化检验', '肾功能三项', 45, array(
+        array('尿素氮(BUN)', 'mmol/L', 10, '2.9-8.2'), array('肌酐(CREA)', 'μmol/L', 12, '57-97'),
+        array('尿酸(UA)', 'μmol/L', 10, '208-428'),
+    )),
+    array('生化检验', '电解质五项', 40, array(
+        array('钾(K)', 'mmol/L', 6, '3.5-5.3'), array('钠(NA)', 'mmol/L', 6, '137-147'),
+        array('氯(CL)', 'mmol/L', 5, '99-110'), array('钙(CA)', 'mmol/L', 6, '2.08-2.6'),
+        array('磷(P)', 'mmol/L', 6, '0.96-1.62'),
+    )),
+    array('血液检验', '凝血功能四项', 85, array(
+        array('凝血酶原时间(PT)', 'sec', 20, '9.4-12.6'), array('活化部分凝血活酶时间(APTT)', 'sec', 22, '25.1-36.5'),
+        array('凝血酶时间(TT)', 'sec', 18, '14-21'), array('纤维蛋白原(FIB)', 'g/L', 25, '2-4'),
+    )),
+    array('免疫检验', '甲状腺功能五项', 150, array(
+        array('促甲状腺激素(TSH)', 'μIU/ml', 40, '0.55-4.78'), array('游离T3(FT3)', 'pmol/L', 35, '3.5-6.5'),
+        array('游离T4(FT4)', 'pmol/L', 30, '11.5-22.7'), array('总T3(T3)', 'nmol/L', 20, '1.34-2.73'),
+        array('总T4(T4)', 'nmol/L', 20, '78.38-165.3'),
+    )),
+    array('生化检验', '心肌酶谱', 70, array(
+        array('肌酸激酶(CK)', 'U/L', 22, '38-174'), array('肌酸激酶同工酶(CKMB)', 'U/L', 24, '0-24'),
+        array('乳酸脱氢酶(LDH)', 'U/L', 20, '109-245'), array('α-羟丁酸脱氢酶(HBDH)', 'U/L', 22, '76-195'),
+        array('谷草转氨酶(AST)', 'U/L', 8, '8-40'),
+    )),
+);
+foreach ($labGroupDefs as $G) {
+    $row = DB::one('lab', 'SELECT id, is_group FROM lab_items WHERE name=?', array($G[1]));
+    if ($row) {
+        $gid = (int)$row['id'];
+        if (!$row['is_group']) DB::exec('lab', 'UPDATE lab_items SET is_group=1 WHERE id=?', array($gid));   // 独立项目原位转为组合
+    } else {
+        $gid = (int)DB::insert('lab', 'INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,1,0)', array(
+            $G[0], $G[1], '项', $G[2], '', '', '', '含 ' . count($G[3]) . ' 项', 'approved', now_str(),
+        ));
+    }
+    foreach ($G[3] as $C) {
+        if (DB::one('lab', 'SELECT id FROM lab_items WHERE name=?', array($C[0]))) continue;   // 已存在（任意形态）不重复
+        DB::insert('lab', 'INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,0,?)', array(
+            $G[0], $C[0], $C[1], $C[2], $C[3], '', '', '', 'approved', now_str(), $gid,
+        ));
+    }
 }
 $examDefs = array(
     array('DR（数字化X线）','胸部正位X线(DR)',80), array('CT','头颅CT平扫',280), array('CT','胸部CT平扫',320),
@@ -181,6 +229,7 @@ foreach ($drugDefs as $D) {
         ));
     }
 }
+if (isset($argv[1]) && $argv[1] === 'catalog') { echo "目录引导完成（仅目录模式）\n"; exit; }
 $labSingles = array();
 foreach (DB::q('lab', "SELECT id, name, price FROM lab_items WHERE is_group=0 AND parent_id=0 AND status='approved'") as $r) $labSingles[] = $r;
 $exams = array();

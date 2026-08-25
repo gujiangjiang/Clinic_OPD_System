@@ -86,18 +86,18 @@ function admin_part_item($action) {
             } else {
                 $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
                     '<th>名称</th><th>分类</th><th>价格</th><th>描述</th><th>状态</th><th>操作</th></tr></thead><tbody>';
-                foreach ($rows as $r) {
-                    $html .= '<tr>' .
-                        '<td class="fw-600">' . e($r['name']) . '</td>' .
-                        '<td>' . e($r['category']) . '</td>' .
-                        '<td>¥' . money($r['price']) . '</td>' .
-                        '<td class="fs-12 text-muted">' . e(mb_substr($r['description'], 0, 20)) . '</td>' .
-                        '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
-                        '<td><div class="flex gap-4">' .
-                        // 编辑按钮与「新增」共用 openItemForm(id)
-                        '<button class="btn btn-outline btn-sm" onclick="openItemForm(' . (int)$r['id'] . ')">编辑</button>' .
-                        '<button class="btn btn-outline btn-sm" onclick="delItem(\'exam\',' . (int)$r['id'] . ')">删除</button></div></td></tr>';
-                }
+            foreach ($rows as $r) {
+                $html .= '<tr data-cat="' . e($r['category']) . '">' .
+                    '<td class="fw-600">' . e($r['name']) . '</td>' .
+                    '<td>' . e($r['category']) . '</td>' .
+                    '<td>¥' . money($r['price']) . '</td>' .
+                    '<td class="fs-12 text-muted">' . e(mb_substr($r['description'], 0, 20)) . '</td>' .
+                    '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
+                    '<td><div class="flex gap-4">' .
+                    // 编辑按钮与「新增」共用 openItemForm(id)
+                    '<button class="btn btn-outline btn-sm" onclick="openItemForm(' . (int)$r['id'] . ')">编辑</button>' .
+                    '<button class="btn btn-outline btn-sm" onclick="delItem(\'exam\',' . (int)$r['id'] . ')">删除</button></div></td></tr>';
+            }
                 $html .= '</tbody></table></div>';
             }
         }
