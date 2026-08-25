@@ -174,7 +174,7 @@ function openSendMsg() {
                         '<button type="button" class="tree-toggle" onclick="treeToggle(this)" data-toggle="smG_' + g.role + '">+</button>' +
                         '<label class="send-grp-head"><input type="checkbox" class="sm-role" data-role="' + g.role + '" onchange="smToggleRole(\'' + g.role + '\', this.checked)"> <b>' + g.role_name + '</b>（' + g.users.length + ' 人）</label>' +
                         '</div>' +
-                        '<div class="send-grp-children" id="smG_' + g.role + '" style="display:none;margin-left:20px">' + users + '</div>' +
+                        '<div class="send-grp-children" id="smG_' + g.role + '" style="display:none;margin-left:34px">' + users + '</div>' +
                         '</div>';
                 }).join('');
                 tree =
@@ -196,7 +196,7 @@ function openSendMsg() {
                         '<button type="button" class="tree-toggle" onclick="treeToggle(this)" data-toggle="smG_' + g.role + '">+</button>' +
                         '<div class="send-grp-head"><b>' + g.role_name + '</b>（' + g.users.length + ' 人）</div>' +
                         '</div>' +
-                        '<div class="send-grp-children" id="smG_' + g.role + '" style="display:none;margin-left:20px">' + users + '</div>' +
+                        '<div class="send-grp-children" id="smG_' + g.role + '" style="display:none;margin-left:34px">' + users + '</div>' +
                         '</div>';
                 }).join('');
             }

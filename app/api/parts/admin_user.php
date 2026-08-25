@@ -96,7 +96,7 @@ function admin_part_user($action) {
                 '<button type="button" class="tree-toggle" onclick="treeToggle(this)" data-toggle="deptT_' . $type . '">+</button>' .
                 '<label class="send-grp-head"><input type="checkbox" class="deptGrpChk" data-type="' . $type . '" onchange="deptToggleGroup(\'' . $type . '\', this.checked)"> <b>' . $g['label'] . '</b>（' . count($g['items']) . ' 个科室）</label>' .
                 '</div>' .
-                '<div class="send-grp-children" id="deptT_' . $type . '" style="display:none;margin-left:20px">';
+                '<div class="send-grp-children" id="deptT_' . $type . '" style="display:none;margin-left:34px">';
             foreach ($g['items'] as $d) {
                 $checked = in_array((int)$d['id'], $selDept, true) ? ' checked' : '';
                 $deptBox .= '<label class="send-user"><input type="checkbox" class="deptChk" data-type="' . $type . '" value="' . (int)$d['id'] . '"' . $checked . ' onchange="deptSyncGroups()"> ' . e($d['name']) . '</label>';

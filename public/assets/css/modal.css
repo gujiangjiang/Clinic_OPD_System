@@ -180,7 +180,7 @@
     border-radius: 8px;
     padding: 8px 10px;
 }
-.send-grp { margin-bottom: 8px; }
+.send-grp { margin-bottom: 4px; }
 /* 层级头行：折叠按钮 + 勾选标题 */
 .send-grp-head-row {
     display: flex;
