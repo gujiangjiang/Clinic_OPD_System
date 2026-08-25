@@ -20,7 +20,7 @@ function admin_part_dept($action) {
     /* ==================== 科室列表 ==================== */
     if ($action === 'dept_list') {
         $rows = DB::q('dept', 'SELECT * FROM departments ORDER BY type DESC, sort, id');
-        $html = '<div class="fs-13 text-muted mb-8">共 ' . count($rows) . ' 个科室</div>';
+        $html = '<div class="fs-13 text-muted mb-8" id="deptCountDiv">共 ' . count($rows) . ' 个科室</div>';
         if (!$rows) {
             $html .= '<div class="empty">暂无科室，请先添加</div>';
         } else {

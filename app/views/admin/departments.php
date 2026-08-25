@@ -16,12 +16,17 @@ Router::title('科室管理');
 <div class="card" id="deptList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
-/* 快速搜索：按行文本过滤 */
+/* 快速搜索：按行文本过滤 + 动态计数（搜索时去掉「共」） */
 function quickFilter(q, boxId) {
     q = q.trim().toLowerCase();
+    var n = 0;
     document.querySelectorAll('#' + boxId + ' tbody tr').forEach(function (tr) {
-        tr.style.display = tr.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+        var hit = tr.textContent.toLowerCase().indexOf(q) !== -1;
+        tr.style.display = hit ? '' : 'none';
+        if (hit) n++;
     });
+    var cnt = document.getElementById('deptCountDiv');
+    if (cnt) cnt.textContent = q !== '' ? '科室 ' + n + ' 个' : '共 ' + n + ' 个科室';
 }
 Clinic.importer._reloads['dept'] = loadDeptList;
 Clinic.importer.attach('dept', 'impBtns', '科室');

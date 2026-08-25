@@ -22,7 +22,7 @@ function admin_part_drug($action) {
         $stype = get('stype', 'category');
         $rows = DB::q('drug', 'SELECT * FROM drug_settings WHERE stype=? ORDER BY sort, id', array($stype));
         $html = '<div class="table-wrap"><table class="table"><thead><tr><th>名称</th>' .
-            ($stype === 'route' ? '<th>需护士站处理</th><th>绑定计费处置</th>' : '') . '操作</th></tr></thead><tbody>';
+            ($stype === 'route' ? '<th>需护士站处理</th><th>绑定计费处置</th>' : '') . '<th>操作</th></tr></thead><tbody>';
         foreach ($rows as $r) {
             // 绑定处置名称回显
             $bindName = '';
