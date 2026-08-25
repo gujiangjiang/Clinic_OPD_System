@@ -21,63 +21,30 @@ function admin_part_item($action) {
     if ($action === 'item_list') {
         $type = get('type', 'lab');
         $table = $type === 'lab' ? 'lab_items' : 'exam_items';
-        $rows = DB::q('lab', "SELECT * FROM $table ORDER BY category, id");
         if ($type === 'lab') {
-            // ===== 检验项目管理：独立项目 + 组合检验（组价）分开展示 =====
-            $groups = DB::q('lab', "SELECT * FROM lab_items WHERE is_group=1 ORDER BY category, id");
-            $members = DB::q('lab', "SELECT * FROM lab_items WHERE is_group=0 AND parent_id>0 ORDER BY parent_id, id");
+            // ===== 检验项目管理：主列表仅展示全部「独立单项」（不含组合、不含组内成员） =====
             $singles = DB::q('lab', "SELECT * FROM lab_items WHERE is_group=0 AND parent_id=0 ORDER BY category, id");
-            $memberMap = array();
-            foreach ($members as $m) {
-                $memberMap[(int)$m['parent_id']][] = $m;
-            }
-            $count = count($groups) + count($singles);
-            $html = '<div class="fs-13 text-muted mb-8" id="labCountDiv">检验项目共 ' . $count . ' 项（含组合 ' . count($groups) . ' 个）｜ 组合按组价收费，可单独开单或整体开组</div>';
-            if (!$rows) {
+            $html = '<div class="fs-13 text-muted mb-8" id="labCountDiv">检验项目共 ' . count($singles) . ' 项（组合项目请在「检验组合管理」中维护）</div>';
+            if (!$singles) {
                 $html .= '<div class="empty">暂无检验项目，请先添加</div>';
             } else {
                 $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
                     '<th>名称</th><th>分类</th><th>价格</th><th>单位</th><th>正常范围</th><th>状态</th><th>操作</th></tr></thead><tbody>';
-                // 组合行
-                foreach ($groups as $g) {
-                    $html .= '<tr data-kind="group" style="background:var(--bg-soft)">' .
-                        '<td class="fw-600">🧩 ' . e($g['name']) . ' <span class="badge badge-primary">组合</span></td>' .
-                        '<td>' . e($g['category']) . '</td>' .
-                        '<td><span class="fw-600" style="color:var(--primary)">¥' . money($g['price']) . '</span> <span class="fs-12 text-muted">（组价）</span></td>' .
-                        '<td>—</td><td>—</td>' .
-                        '<td>' . ($g['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
-                        '<td><div class="flex gap-4">' .
-                        // 编辑按钮与「新增」共用 openGroupForm(id)
-                        '<button class="btn btn-outline btn-sm" onclick="openGroupForm(' . (int)$g['id'] . ')">编辑</button>' .
-                        '<button class="btn btn-outline btn-sm" onclick="delLabGroup(' . (int)$g['id'] . ')">删除</button></div></td></tr>';
-                    // 成员行（缩进显示，成员仍可单独编辑/删除）
-                    $ms = isset($memberMap[(int)$g['id']]) ? $memberMap[(int)$g['id']] : array();
-                    $html .= '<tr data-kind="member"><td colspan="7" style="padding:4px 12px 8px 30px;font-size:12px;color:var(--text-muted)">' .
-                        '└ 组内项目：' . ($ms ? implode('、', array_map(function ($m) {
-                            return e($m['name']) . '（¥' . money($m['price']) . '）';
-                        }, $ms)) : '<span style="color:var(--danger)">未设置组内项目</span>') .
-                        ($ms ? '<span class="flex gap-4" style="margin-left:12px;display:inline-flex">' .
-                            implode('', array_map(function ($m) {
-                                return '<button class="btn btn-outline btn-sm" style="padding:0 8px" ' .
-                                    'onclick="openItemForm(' . (int)$m['id'] . ')">编辑' . e($m['name']) . '</button>';
-                            }, $ms)) . '</span>' : '') .
-                        '</td></tr>';
-                }
-                // 独立项目行
                 foreach ($singles as $r) {
-                    $html .= '<tr data-kind="single">' .
+                    $html .= '<tr data-kind="single" data-cat="' . e($r['category']) . '">' .
                         '<td class="fw-600">' . e($r['name']) . '</td>' .
                         '<td>' . e($r['category']) . '</td>' .
                         '<td>¥' . money($r['price']) . '</td>' .
                         '<td>' . e($r['unit']) . '</td><td class="fs-12">' . e($r['normal_range']) . '</td>' .
                         '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
                         '<td><div class="flex gap-4">' .
-                        // 编辑按钮与「新增」共用 openItemForm(id)
                         '<button class="btn btn-outline btn-sm" onclick="openItemForm(' . (int)$r['id'] . ')">编辑</button>' .
                         '<button class="btn btn-outline btn-sm" onclick="delItem(\'lab\',' . (int)$r['id'] . ')">删除</button></div></td></tr>';
                 }
                 $html .= '</tbody></table></div>';
             }
+            json_ok(array('html' => $html));
+            return;
         } else {
             // ===== 检查项目管理：无成组逻辑，保持简单 =====
             $html = '<div class="fs-13 text-muted mb-8" id="examCountDiv">检查项目共 ' . count($rows) . ' 项</div>';
@@ -105,6 +72,60 @@ function admin_part_item($action) {
     }
 
     /* ==================== 检验组合表单（组名/分类/组价 + 成员多选） ==================== */
+    /* ==================== 检验组合列表（组合管理左侧栏） ==================== */
+    if ($action === 'lab_groups') {
+        $groups = array();
+        foreach (DB::q('lab', 'SELECT g.id, g.name, g.category, g.price, COUNT(m.id) AS cnt FROM lab_items g ' .
+            'LEFT JOIN lab_items m ON m.parent_id=g.id AND m.is_group=0 WHERE g.is_group=1 GROUP BY g.id ORDER BY g.category, g.id') as $g) {
+            $groups[] = array(
+                'id' => (int)$g['id'], 'name' => $g['name'], 'category' => $g['category'],
+                'price' => (float)$g['price'], 'member_count' => (int)$g['cnt'],
+            );
+        }
+        json_ok(array('list' => $groups));
+    }
+
+    /* ==================== 检验组合详情（组合 + 成员列表） ==================== */
+    if ($action === 'lab_group_get') {
+        $id = (int)req('id', 0);
+        $g = DB::one('lab', 'SELECT * FROM lab_items WHERE id=? AND is_group=1', array($id));
+        if (!$g) json_fail('检验组合不存在');
+        $members = array();
+        foreach (DB::q('lab', 'SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array($id)) as $m) {
+            $members[] = array('id' => (int)$m['id'], 'name' => $m['name'], 'category' => $m['category'],
+                'price' => (float)$m['price'], 'unit' => $m['unit'], 'normal_range' => $m['normal_range']);
+        }
+        json_ok(array('group' => array('id' => (int)$g['id'], 'name' => $g['name'], 'category' => $g['category'], 'price' => (float)$g['price']), 'members' => $members));
+    }
+
+    /* ==================== 可加入组合的独立单项（添加项目面板候选） ==================== */
+    if ($action === 'lab_group_candidates') {
+        $list = array();
+        foreach (DB::q('lab', "SELECT id, name, category, price FROM lab_items WHERE is_group=0 AND parent_id=0 ORDER BY category, id") as $r) {
+            $list[] = array('id' => (int)$r['id'], 'name' => $r['name'], 'category' => $r['category'], 'price' => (float)$r['price']);
+        }
+        json_ok(array('list' => $list));
+    }
+
+    /* ==================== 组合添加/移除成员（实时保存） ==================== */
+    if ($action === 'lab_group_add_item') {
+        $gid = (int)post('group_id');
+        $iid = (int)post('item_id');
+        $g = DB::one('lab', 'SELECT id FROM lab_items WHERE id=? AND is_group=1', array($gid));
+        if (!$g) json_fail('检验组合不存在');
+        $it = DB::one('lab', 'SELECT id, name, parent_id FROM lab_items WHERE id=? AND is_group=0', array($iid));
+        if (!$it) json_fail('检验项目不存在');
+        if ((int)$it['parent_id'] > 0) json_fail('「' . $it['name'] . '」已属于其他组合');
+        DB::exec('lab', 'UPDATE lab_items SET parent_id=? WHERE id=?', array($gid, $iid));
+        json_ok(array(), '已加入组合');
+    }
+    if ($action === 'lab_group_remove_item') {
+        $gid = (int)post('group_id');
+        $iid = (int)post('item_id');
+        DB::exec('lab', 'UPDATE lab_items SET parent_id=0 WHERE id=? AND parent_id=?', array($iid, $gid));
+        json_ok(array(), '已从组合移除');
+    }
+
     if ($action === 'lab_group_form') {
         $id = (int)req('id', 0);
         $r = $id ? DB::one('lab', 'SELECT * FROM lab_items WHERE id=? AND is_group=1', array($id)) : array('category' => '', 'name' => '', 'price' => '0');
@@ -156,7 +177,9 @@ function admin_part_item($action) {
             if ((int)$m > 0) $memberIds[] = (int)$m;
         }
         if ($name === '') json_fail('请填写检验组合名称');
-        if (!$memberIds) json_fail('请选择至少一个组内检验项目');
+        if (trim((string)DB::val('lab', 'SELECT name FROM lab_items WHERE is_group=1 AND name=? AND id<>?', array($name, $id))) !== '') {
+            json_fail('组合名称「' . $name . '」已存在，请勿重复');
+        }
         if ($id > 0) {
             DB::exec('lab', 'UPDATE lab_items SET category=?, name=?, price=?, status=? WHERE id=? AND is_group=1', array($category, $name, $price, 'approved', $id));
             // 原成员全部还原为独立项目，再重新挂接新成员
@@ -166,16 +189,16 @@ function admin_part_item($action) {
             }
             // 管理员保存即通过：清理该项目的待审核记录
             DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type IN ('item_lab','item_exam') AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
-            json_ok(array(), '检验组合已保存（管理员添加免审核，可直接使用）');
+            json_ok(array('id' => $id), '检验组合已保存（管理员添加免审核，可直接使用）');
         } else {
-            // 管理员添加的项目免审核：直接可用，无需创建审核记录
+            // 管理员添加的项目免审核：直接可用，无需创建审核记录；允许先建空组合后补成员
             $newId = DB::insert('lab', "INSERT INTO lab_items(category, name, price, description, status, created_at, is_group) VALUES(?,?,?,?,?,?,1)", array(
                 $category, $name, $price, '检验组合', 'approved', now_str(),
             ));
             foreach ($memberIds as $mid) {
                 DB::exec('lab', 'UPDATE lab_items SET parent_id=? WHERE id=?', array($newId, $mid));
             }
-            json_ok(array(), '检验组合已添加，可直接开单使用');
+            json_ok(array('id' => $newId), '检验组合已添加，可直接开单使用');
         }
     }
 
