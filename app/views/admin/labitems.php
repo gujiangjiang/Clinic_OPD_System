@@ -76,12 +76,14 @@ function renderComboMgr() {
     var html =
         '<div class="combo-mgr">' +
         '  <div class="combo-left">' +
-        '    <button class="btn btn-primary btn-sm btn-block" onclick="newComboPop(event)">＋ 新增检验组合</button>' +
-        '    <input class="input mt-8" id="comboSearch" placeholder="🔍 搜索组合" autocomplete="off" oninput="filterCombos()">' +
-        '    <div class="combo-list mt-8" id="comboList">' + leftList + '</div>' +
+        '    <div class="combo-head-fixed">' +
+        '      <button class="btn btn-primary btn-sm btn-block" onclick="newComboPop(event)">＋ 新增检验组合</button>' +
+        '      <input class="input mt-8" id="comboSearch" placeholder="🔍 搜索组合" autocomplete="off" oninput="filterCombos()">' +
+        '    </div>' +
+        '    <div class="combo-list" id="comboList">' + leftList + '</div>' +
         '  </div>' +
         '  <div class="combo-right" id="comboRight">' +
-        '    <div class="text-muted" style="padding:20px;text-align:center">选择一个检验组合<br><span class="fs-12">左侧列表点击组合即可查看与编辑</span></div>' +
+        '    <div class="text-muted" style="padding:20px;text-align:center">选择一个检验组合查看或编辑，或新建一个组合<br><span class="fs-12">左侧列表点击组合即可查看与编辑</span></div>' +
         '  </div>' +
         '</div>';
     Clinic.modal.open(html, { title: '🧩 检验组合管理', size: 'modal-xl' });
@@ -99,12 +101,21 @@ function selectCombo(id) {
     Clinic.get('/api/admin?action=lab_group_get&id=' + id, null, { onSuccess: function (j) {
         CUR_COMBO = j.data.group;
         var members = j.data.members || [];
-        var memberRows = members.length ? members.map(function (m) {
-            return '<div class="combo-member-row">' +
-                '<span class="fs-13 fw-600">' + m.name + '</span>' +
-                ' <span class="text-muted">¥' + m.price + ' ｜' + (m.unit || '—') + '</span>' +
-                '<span class="combo-member-del" onclick="removeFromCombo(' + m.id + ')">✕</span></div>';
-        }).join('') : '<div class="text-muted fs-12" style="padding:8px">暂无成员，点击上方「＋ 添加项目」加入</div>';
+        var memberRows = members.length
+            ? '<div class="table-wrap"><table class="table combo-member-table"><thead><tr>' +
+            '<th>项目名称</th><th>分类</th><th>价格</th><th>单位</th><th>操作</th>' +
+            '</tr></thead><tbody>' + members.map(function (m) {
+                return '<tr>' +
+                    '<td class="fw-600">' + m.name + '</td>' +
+                    '<td class="fs-12">' + (m.category || '—') + '</td>' +
+                    '<td>¥' + parseFloat(m.price).toFixed(2) + '</td>' +
+                    '<td class="fs-12">' + (m.unit || '—') + '</td>' +
+                    '<td style="white-space:nowrap">' +
+                    '<button class="btn btn-outline btn-sm" onclick="openItemForm(' + m.id + ')">编辑</button> ' +
+                    '<button class="btn btn-outline btn-sm" onclick="removeFromCombo(' + m.id + ')">移除</button></td>' +
+                    '</tr>';
+            }).join('') + '</tbody></table></div>'
+            : '<div class="text-muted fs-12" style="padding:8px">暂无成员，点击上方「＋ 添加项目」加入</div>';
         document.getElementById('comboRight').innerHTML =
             '<div class="combo-right-head">' +
             '  <div class="form-row"><div class="form-group"><label>组合名称</label><input class="input" id="cgName" value="' + jsE(CUR_COMBO.name) + '"></div>' +
@@ -113,9 +124,9 @@ function selectCombo(id) {
             '  <div class="flex gap-4 mt-4"><button class="btn btn-primary btn-sm" onclick="saveComboInfo()">💾 保存组合</button>' +
             '  <button class="btn btn-danger btn-sm" onclick="delCombo(' + CUR_COMBO.id + ')">🗑 删除组合</button></div>' +
             '</div>' +
+            '<div class="combo-right-bar"><button class="btn btn-sm btn-outline" onclick="showAddItemPop()">＋ 添加项目</button></div>' +
             '<div class="combo-right-body">' +
-            '  <button class="btn btn-sm btn-outline" onclick="showAddItemPop()">＋ 添加项目</button>' +
-            '  <div class="combo-members mt-8">' + memberRows + '</div>' +
+            '  <div class="combo-members">' + memberRows + '</div>' +
             '</div>';
     } });
 }
@@ -205,15 +216,15 @@ function showAddItemPop() {
         return !used;
     });
     var pop = document.createElement('div');
-    pop.id = 'addItemPop'; pop.className = 'finish-pop'; pop.style.cssText = 'width:320px;position:fixed;z-index:3200;max-height:360px;overflow-y:auto';
+    pop.id = 'addItemPop'; pop.className = 'finish-pop'; pop.style.cssText = 'width:320px;position:fixed;z-index:3200;height:360px;display:flex;flex-direction:column';
     pop.innerHTML =
-        '<div class="fs-13 fw-700 mb-8">添加项目到组合</div>' +
-        '<input class="input" id="aiSearch" placeholder="🔍 搜索项目" autocomplete="off" oninput="filterAICands()">' +
-        '<div class="mt-8" id="aiList">' + (candidates.length ? candidates.map(function (c) {
+        '<div class="fs-13 fw-700 mb-8" style="flex-shrink:0">添加项目到组合</div>' +
+        '<input class="input" id="aiSearch" placeholder="🔍 搜索项目" autocomplete="off" oninput="filterAICands()" style="flex-shrink:0">' +
+        '<div class="mt-8" id="aiList" style="flex:1;min-height:0;overflow-y:auto">' + (candidates.length ? candidates.map(function (c) {
             return '<div class="combo-cand-item" onclick="addToCombo(' + c.id + ',\'' + jsE(c.name) + '\')">' + c.name + ' <span class="text-muted fs-12">¥' + parseFloat(c.price).toFixed(2) + ' ｜' + c.category + '</span></div>';
         }).join('') : '<div class="text-muted fs-12" style="padding:8px">无可用单独项目（所有项目已加入组合或不存在）</div>') + '</div>';
     document.body.appendChild(pop);
-    var btn = document.querySelector('.combo-right-body .btn-outline');
+    var btn = document.querySelector('.combo-right-bar .btn-outline') || document.querySelector('.combo-right .btn-outline');
     var rect = btn.getBoundingClientRect();
     pop.style.top = Math.min(rect.bottom + 8, window.innerHeight - 380) + 'px';
     pop.style.left = Math.max(8, rect.left) + 'px';
@@ -230,6 +241,7 @@ function addToCombo(itemId, name) {
         onSuccess: function (j) {
             Clinic.toast.success('已加入：' + name);
             closeAddItemPop();
+            refreshComboCounts();   // 左侧 (x项) 实时更新
             selectCombo(CUR_COMBO.id);  // refresh right panel
         },
     });
@@ -239,9 +251,26 @@ function removeFromCombo(itemId) {
         Clinic.ajax('/api/admin', { action: 'lab_group_remove_item', group_id: CUR_COMBO.id, item_id: itemId }, {
             onSuccess: function (j) {
                 Clinic.toast.success(j.msg);
+                refreshComboCounts();
                 selectCombo(CUR_COMBO.id);
             },
         });
+    });
+}
+/* 左侧组合列表计数实时同步（保留选中态） */
+function refreshComboCounts() {
+    Clinic.get('/api/admin?action=lab_groups', null, {
+        onSuccess: function (j) {
+            COMBOS = j.data.list || [];
+            COMBOS.forEach(function (c) {
+                var el = document.getElementById('comboRow_' + c.id);
+                if (el) {
+                    var active = el.classList.contains('active');
+                    el.innerHTML = c.name + ' <span class="text-muted fs-12">（' + (c.member_count || 0) + ' 项）</span>';
+                    if (active) el.classList.add('active');
+                }
+            });
+        },
     });
 }
 function jsE(s) { return String(s || '').replace(/&/g, '&amp;').replace(/'/g, '\\\'').replace(/"/g, '&quot;'); }

@@ -265,8 +265,9 @@
 
 /* ==================== 检验组合管理器（两列） ==================== */
 .combo-mgr { display: flex; gap: 12px; height: 520px; }
-.combo-left { width: 240px; flex-shrink: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); padding-right: 12px; }
-.combo-list { flex: 1; overflow-y: auto; }
+.combo-left { width: 240px; flex-shrink: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); padding-right: 12px; overflow: hidden; }
+.combo-head-fixed { flex-shrink: 0; }
+.combo-list { flex: 1; min-height: 0; overflow-y: auto; margin-top: 8px; }
 .combo-item {
     padding: 8px 10px;
     font-size: 13px;
@@ -276,10 +277,11 @@
 }
 .combo-item:hover { background: var(--bg-soft, #f1f5f9); }
 .combo-item.active { background: var(--primary-soft, #cffafe); border-color: var(--primary); color: var(--primary); }
-.combo-right { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.combo-right-head { border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+.combo-right { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.combo-right-head { flex-shrink: 0; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
 .combo-right-head .form-label { font-size: 12px; margin-bottom: 2px; }
-.combo-right-body { flex: 1; overflow-y: auto; padding-top: 10px; }
+.combo-right-bar { flex-shrink: 0; padding: 10px 0 6px; border-bottom: 1px solid var(--border); }
+.combo-right-body { flex: 1; min-height: 0; overflow-y: auto; padding-top: 8px; }
 .combo-member-row {
     display: flex;
     align-items: center;
@@ -288,8 +290,22 @@
     border-bottom: 1px solid var(--border);
     font-size: 13px;
 }
+/* 成员表格固定列宽：切换组合时各列空间保持稳定 */
+.combo-member-table { table-layout: fixed; }
+.combo-member-table th:nth-child(1), .combo-member-table td:nth-child(1) { width: 34%; }
+.combo-member-table th:nth-child(2), .combo-member-table td:nth-child(2) { width: 16%; }
+.combo-member-table th:nth-child(3), .combo-member-table td:nth-child(3) { width: 12%; }
+.combo-member-table th:nth-child(4), .combo-member-table td:nth-child(4) { width: 10%; }
+.combo-member-table th:nth-child(5), .combo-member-table td:nth-child(5) { width: 28%; }
+.combo-member-table td:nth-child(1),
+.combo-member-table td:nth-child(2),
+.combo-member-table td:nth-child(3),
+.combo-member-table td:nth-child(4) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combo-member-table td:nth-child(5) { overflow: visible; white-space: nowrap; }
 .combo-member-del { margin-left: auto; cursor: pointer; color: var(--text-muted); padding: 0 6px; border-radius: 4px; }
 .combo-member-del:hover { color: var(--danger); background: var(--danger-soft); }
+.combo-member-edit { cursor: pointer; color: var(--text-muted); padding: 0 6px; border-radius: 4px; }
+.combo-member-edit:hover { color: var(--primary); background: var(--primary-soft); }
 .combo-cand-item { padding: 7px 10px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); }
 .combo-cand-item:hover { background: var(--primary-soft, #cffafe); }
 .msg-who {
