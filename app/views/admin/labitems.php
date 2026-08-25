@@ -124,6 +124,8 @@ function selectCombo(id) {
                     '</tr>';
             }).join('') + '</tbody></table></div>'
             : '<div class="text-muted fs-12" style="padding:8px">暂无成员，点击上方「＋ 添加项目」加入</div>';
+        var memberFee = 0;
+        (members || []).forEach(function (mm) { memberFee += parseFloat(mm.price) || 0; });
         document.getElementById('comboRight').innerHTML =
             '<div class="combo-right-head">' +
             '  <div class="form-row"><div class="form-group"><label>组合名称</label><input class="input" id="cgName" value="' + jsE(CUR_COMBO.name) + '"></div>' +
@@ -134,7 +136,10 @@ function selectCombo(id) {
                   '<button class="btn btn-danger btn-sm" onclick="delCombo(' + CUR_COMBO.id + ')">🗑 删除组合</button>'
                 : '<span class="text-muted fs-12">只读模式（修改需管理员审核）</span>') + '</div>' +
             '</div>' +
-            '<div class="combo-right-bar">' + (IS_ADMIN ? '<button class="btn btn-sm btn-outline" onclick="showAddItemPop()">＋ 添加项目</button>' : '<span class="text-muted fs-12">只读</span>') + '</div>' +
+            '<div class="combo-right-bar">' + (IS_ADMIN
+                ? '<button class="btn btn-sm btn-outline" onclick="showAddItemPop()">＋ 添加项目</button>'
+                : '<span class="text-muted fs-12">只读</span>') +
+                '<span class="badge badge-warning" style="margin-left:8px;flex-shrink:0">项目合计 ¥' + memberFee.toFixed(2) + '</span></div>' +
             '<div class="combo-right-body">' +
             '  <div class="combo-members">' + memberRows + '</div>' +
             '</div>';
