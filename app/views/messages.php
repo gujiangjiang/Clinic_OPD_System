@@ -171,7 +171,7 @@ function openSendMsg() {
                     }).join('');
                     return '<div class="send-grp" style="margin-left:20px">' +
                         '<div class="send-grp-head-row">' +
-                        '<button type="button" class="tree-toggle" data-toggle="smG_' + g.role + '">+</button>' +
+                        '<button type="button" class="tree-toggle" onclick="treeToggle(this)" data-toggle="smG_' + g.role + '">+</button>' +
                         '<label class="send-grp-head"><input type="checkbox" class="sm-role" data-role="' + g.role + '" onchange="smToggleRole(\'' + g.role + '\', this.checked)"> <b>' + g.role_name + '</b>（' + g.users.length + ' 人）</label>' +
                         '</div>' +
                         '<div class="send-grp-children" id="smG_' + g.role + '" style="display:none;margin-left:20px">' + users + '</div>' +
@@ -180,7 +180,7 @@ function openSendMsg() {
                 tree =
                     '<div class="send-grp">' +
                     '<div class="send-grp-head-row">' +
-                    '<button type="button" class="tree-toggle" data-toggle="smL2">+</button>' +
+                    '<button type="button" class="tree-toggle" onclick="treeToggle(this)" data-toggle="smL2">+</button>' +
                     '<label class="send-grp-head"><input type="checkbox" id="smAll" onchange="smToggleAll(this.checked)"> <b>全院（全部用户）</b></label>' +
                     '</div>' +
                     '<div class="send-grp-children" id="smL2" style="display:none;margin-left:20px">' + roleBlocks + '</div>' +
@@ -193,7 +193,7 @@ function openSendMsg() {
                     }).join('');
                     return '<div class="send-grp" style="margin-left:20px">' +
                         '<div class="send-grp-head-row">' +
-                        '<button type="button" class="tree-toggle" data-toggle="smG_' + g.role + '">+</button>' +
+                        '<button type="button" class="tree-toggle" onclick="treeToggle(this)" data-toggle="smG_' + g.role + '">+</button>' +
                         '<div class="send-grp-head"><b>' + g.role_name + '</b>（' + g.users.length + ' 人）</div>' +
                         '</div>' +
                         '<div class="send-grp-children" id="smG_' + g.role + '" style="display:none;margin-left:20px">' + users + '</div>' +

@@ -206,6 +206,13 @@
     padding: 0;
 }
 .tree-toggle:hover { color: var(--primary); border-color: var(--primary); }
+/* 树子级容器：纵向排列（L2 内为分组块、L3 内为用户/科室行）；
+   展开时经 treeToggle 清空内联 display，回落到此 flex 纵向 */
+.send-grp-children {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
 .send-grp-head {
     display: flex;
     align-items: center;
