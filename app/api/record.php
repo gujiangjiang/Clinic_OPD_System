@@ -593,8 +593,8 @@ switch ($action) {
             } elseif ($dispDetail === '') {
                 json_fail('请填写' . $dispNeed[$disposition]);
             }
-            DB::exec('patient', 'UPDATE registrations SET status=?, disposition=?, disposition_detail=?, payment_time=COALESCE(payment_time,?) WHERE id=?',
-                array('finished', $disposition, $dispDetail, now_str(), $visitId));
+            DB::exec('patient', 'UPDATE registrations SET status=?, disposition=?, disposition_detail=?, finish_time=?, payment_time=COALESCE(payment_time,?) WHERE id=?',
+                array('finished', $disposition, $dispDetail, now_str(), now_str(), $visitId));
             json_ok(array('finished' => 1, 'record_id' => $recordId), '病历已保存并诊毕');
         }
         json_ok(array('finished' => 0, 'record_id' => $recordId), '病历已保存');

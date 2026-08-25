@@ -244,6 +244,58 @@ switch ($action) {
         ));
         break;
 
+    /* ==================== 病历页候诊队列（近3天，含过滤所需全量字段） ====================
+     * 供医生病历编辑页顶部「候诊」弹层使用：一次返回当前科室近3天
+     * （含今日）全部 未诊/就诊中/诊毕 患者，前端按 已诊/当日 多选组合
+     * 本地过滤排序（诊毕按诊毕时间倒序、未诊按挂号时间正序），
+     * 并返回候诊人数（今日该科 status='paid'）。 */
+    case 'queue_list':
+        $deptId = (int)get('dept_id', 0);
+        if ($deptId <= 0) {
+            $curRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+            $deptId = $curRow ? (int)$curRow['current_dept_id'] : 0;
+        }
+        if ($deptId <= 0) {
+            $ids = doctor_dept_ids($u);
+            if ($ids) {
+                $ph = implode(',', array_fill(0, count($ids), '?'));
+                $first = DB::one('dept', "SELECT id FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id LIMIT 1", $ids);
+                if ($first) $deptId = (int)$first['id'];
+            }
+        }
+        if ($deptId <= 0) json_fail('当前医生未关联可用科室');
+        $since = date('Y-m-d', strtotime('-2 days'));   // 近3天（含今日）
+        $rows = DB::q('patient', "SELECT r.id, r.patient_no, r.visit_seq, r.first_dept_name, r.session,
+                r.status, r.register_time, r.finish_time,
+                p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
+            FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
+            WHERE r.current_dept_id=? AND date(r.register_time)>=?
+            AND r.status IN ('paid','visiting','finished')
+            ORDER BY r.register_time DESC", array($deptId, $since));
+        // 急诊科室号源统一显示「昼夜」（不区分上下午）
+        $isEmergency = (int)DB::val('dept', "SELECT COUNT(*) FROM departments WHERE id=? AND type='emergency'", array($deptId)) > 0;
+        $list = array_map(function ($r) use ($isEmergency) {
+            return array(
+                'code' => oid($r['id']),
+                'name' => $r['pname'], 'gender' => $r['pgender'],
+                'age_fmt' => age_format($r['pbirth'], $r['register_time']),
+                'date' => substr($r['register_time'], 0, 10),
+                'time' => substr($r['register_time'], 11, 5),
+                'dept_name' => $r['first_dept_name'],
+                'visit_seq' => (int)$r['visit_seq'],
+                'session_text' => $isEmergency ? '昼夜' : ($r['session'] === 'pm' ? '下午' : '上午'),
+                'status' => $r['status'],
+                'finish_date' => !empty($r['finish_time']) ? substr($r['finish_time'], 0, 10) : '',
+                'finish_time' => !empty($r['finish_time']) ? substr($r['finish_time'], 11, 5) : '',
+            );
+        }, $rows);
+        json_ok(array(
+            'dept_id' => $deptId,
+            'waiting' => (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE current_dept_id=? AND status='paid'", array($deptId)),
+            'list' => $list,
+        ));
+        break;
+
     /* ==================== 报告文字结果（病历项目详情内联展示） ====================
      * 按 report_id 返回结构化报告：检验=指标行（名称/结果/单位/范围/危急值）；
      * 检查=影像所见与诊断结论。供医生站项目详情弹窗内联渲染（打印预览另有接口）。 */
