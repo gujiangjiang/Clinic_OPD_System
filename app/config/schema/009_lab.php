@@ -8,7 +8,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 2,
+    'version' => 3,
     'tables' => array(
         'item_categories' => "CREATE TABLE IF NOT EXISTS item_categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,6 +39,12 @@ return array(
             description TEXT,
             status TEXT DEFAULT 'pending',
             created_at TEXT
+        )",
+        // 检验组合成员关联（多对多：一个检验项目可加入多个组合）
+        'lab_group_members' => "CREATE TABLE IF NOT EXISTS lab_group_members (
+            group_id INTEGER NOT NULL,
+            item_id INTEGER NOT NULL,
+            PRIMARY KEY(group_id, item_id)
         )",
         'results' => "CREATE TABLE IF NOT EXISTS results (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,6 +86,16 @@ return array(
         2 => array(
             "ALTER TABLE lab_items ADD COLUMN is_group INTEGER DEFAULT 0",
             "ALTER TABLE lab_items ADD COLUMN parent_id INTEGER DEFAULT 0",
+        ),
+        // v3：组合成员改为多对多关联表（一个项目可加入多个组合）；
+        // 迁移时从旧 parent_id 回填关联，保留 parent_id 列兼容历史数据
+        3 => array(
+            "CREATE TABLE IF NOT EXISTS lab_group_members (
+                group_id INTEGER NOT NULL,
+                item_id INTEGER NOT NULL,
+                PRIMARY KEY(group_id, item_id)
+            )",
+            "INSERT OR IGNORE INTO lab_group_members(group_id, item_id) SELECT parent_id, id FROM lab_items WHERE is_group=0 AND parent_id>0",
         ),
     ),
     'seed' => array(

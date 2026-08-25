@@ -77,8 +77,8 @@ function admin_part_item($action) {
     /* ==================== 检验组合列表（组合管理左侧栏） ==================== */
     if ($action === 'lab_groups') {
         $groups = array();
-        foreach (DB::q('lab', 'SELECT g.id, g.name, g.category, g.price, COUNT(m.id) AS cnt FROM lab_items g ' .
-            'LEFT JOIN lab_items m ON m.parent_id=g.id AND m.is_group=0 WHERE g.is_group=1 GROUP BY g.id ORDER BY g.category, g.id') as $g) {
+        foreach (DB::q('lab', 'SELECT g.id, g.name, g.category, g.price, COUNT(m.item_id) AS cnt FROM lab_items g ' .
+            'LEFT JOIN lab_group_members m ON m.group_id=g.id WHERE g.is_group=1 GROUP BY g.id ORDER BY g.category, g.id') as $g) {
             $groups[] = array(
                 'id' => (int)$g['id'], 'name' => $g['name'], 'category' => $g['category'],
                 'price' => (float)$g['price'], 'member_count' => (int)$g['cnt'],
@@ -93,38 +93,40 @@ function admin_part_item($action) {
         $g = DB::one('lab', 'SELECT * FROM lab_items WHERE id=? AND is_group=1', array($id));
         if (!$g) json_fail('检验组合不存在');
         $members = array();
-        foreach (DB::q('lab', 'SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array($id)) as $m) {
+        foreach (DB::q('lab', 'SELECT * FROM lab_items WHERE id IN (SELECT item_id FROM lab_group_members WHERE group_id=?) ORDER BY id', array($id)) as $m) {
             $members[] = array('id' => (int)$m['id'], 'name' => $m['name'], 'category' => $m['category'],
                 'price' => (float)$m['price'], 'unit' => $m['unit'], 'normal_range' => $m['normal_range']);
         }
         json_ok(array('group' => array('id' => (int)$g['id'], 'name' => $g['name'], 'category' => $g['category'], 'price' => (float)$g['price']), 'members' => $members));
     }
 
-    /* ==================== 可加入组合的独立单项（添加项目面板候选） ==================== */
+    /* ==================== 可加入组合的独立单项（添加项目面板候选；一个项目可加入多个组合） ==================== */
     if ($action === 'lab_group_candidates') {
         $list = array();
-        foreach (DB::q('lab', "SELECT id, name, category, price FROM lab_items WHERE is_group=0 AND parent_id=0 ORDER BY category, id") as $r) {
+        foreach (DB::q('lab', "SELECT id, name, category, price FROM lab_items WHERE is_group=0 ORDER BY category, id") as $r) {
             $list[] = array('id' => (int)$r['id'], 'name' => $r['name'], 'category' => $r['category'], 'price' => (float)$r['price']);
         }
         json_ok(array('list' => $list));
     }
 
-    /* ==================== 组合添加/移除成员（实时保存） ==================== */
+    /* ==================== 组合添加/移除成员（实时保存，多对多） ==================== */
     if ($action === 'lab_group_add_item') {
         $gid = (int)post('group_id');
         $iid = (int)post('item_id');
         $g = DB::one('lab', 'SELECT id FROM lab_items WHERE id=? AND is_group=1', array($gid));
         if (!$g) json_fail('检验组合不存在');
-        $it = DB::one('lab', 'SELECT id, name, parent_id FROM lab_items WHERE id=? AND is_group=0', array($iid));
+        $it = DB::one('lab', 'SELECT id, name FROM lab_items WHERE id=? AND is_group=0', array($iid));
         if (!$it) json_fail('检验项目不存在');
-        if ((int)$it['parent_id'] > 0) json_fail('「' . $it['name'] . '」已属于其他组合');
-        DB::exec('lab', 'UPDATE lab_items SET parent_id=? WHERE id=?', array($gid, $iid));
+        if (DB::one('lab', 'SELECT 1 FROM lab_group_members WHERE group_id=? AND item_id=?', array($gid, $iid))) {
+            json_fail('「' . $it['name'] . '」已在本组合中');
+        }
+        DB::insert('lab', 'INSERT INTO lab_group_members(group_id, item_id) VALUES(?,?)', array($gid, $iid));
         json_ok(array(), '已加入组合');
     }
     if ($action === 'lab_group_remove_item') {
         $gid = (int)post('group_id');
         $iid = (int)post('item_id');
-        DB::exec('lab', 'UPDATE lab_items SET parent_id=0 WHERE id=? AND parent_id=?', array($iid, $gid));
+        DB::exec('lab', 'DELETE FROM lab_group_members WHERE group_id=? AND item_id=?', array($gid, $iid));
         json_ok(array(), '已从组合移除');
     }
 
@@ -175,7 +177,8 @@ function admin_part_item($action) {
         $category = post('category');
         $price = (float)post('price', 0);
         $memberIds = array();
-        foreach (explode(',', post('member_ids')) as $m) {
+        $memberParam = post('member_ids', null);
+        foreach (explode(',', (string)$memberParam) as $m) {
             if ((int)$m > 0) $memberIds[] = (int)$m;
         }
         if ($name === '') json_fail('请填写检验组合名称');
@@ -184,10 +187,13 @@ function admin_part_item($action) {
         }
         if ($id > 0) {
             DB::exec('lab', 'UPDATE lab_items SET category=?, name=?, price=?, status=? WHERE id=? AND is_group=1', array($category, $name, $price, 'approved', $id));
-            // 原成员全部还原为独立项目，再重新挂接新成员
-            DB::exec('lab', 'UPDATE lab_items SET parent_id=0 WHERE parent_id=?', array($id));
-            foreach ($memberIds as $mid) {
-                DB::exec('lab', 'UPDATE lab_items SET parent_id=? WHERE id=?', array($id, $mid));
+            // 仅当显式提交成员列表（member_ids 非空串）时才重建成员——
+            // 组合信息保存不应清空成员（修复保存后成员丢失）
+            if ($memberParam !== null && $memberParam !== '') {
+                DB::exec('lab', 'DELETE FROM lab_group_members WHERE group_id=?', array($id));
+                foreach ($memberIds as $mid) {
+                    DB::insert('lab', 'INSERT OR IGNORE INTO lab_group_members(group_id, item_id) VALUES(?,?)', array($id, $mid));
+                }
             }
             // 管理员保存即通过：清理该项目的待审核记录
             DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type IN ('item_lab','item_exam') AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
@@ -198,7 +204,7 @@ function admin_part_item($action) {
                 $category, $name, $price, '检验组合', 'approved', now_str(),
             ));
             foreach ($memberIds as $mid) {
-                DB::exec('lab', 'UPDATE lab_items SET parent_id=? WHERE id=?', array($newId, $mid));
+                DB::insert('lab', 'INSERT OR IGNORE INTO lab_group_members(group_id, item_id) VALUES(?,?)', array($newId, $mid));
             }
             json_ok(array('id' => $newId), '检验组合已添加，可直接开单使用');
         }
@@ -209,9 +215,9 @@ function admin_part_item($action) {
         $id = (int)post('id');
         $used = (int)DB::val('order', "SELECT COUNT(*) FROM order_items WHERE item_type='lab' AND item_id=?", array($id));
         if ($used > 0) json_fail('该检验组合已有开单记录，不能删除（可将其成员停用）');
-        DB::exec('lab', 'UPDATE lab_items SET parent_id=0 WHERE parent_id=?', array($id));
+        DB::exec('lab', 'DELETE FROM lab_group_members WHERE group_id=?', array($id));
         DB::exec('lab', 'DELETE FROM lab_items WHERE id=? AND is_group=1', array($id));
-        json_ok(array(), '检验组合已删除，组内项目已还原为独立项目');
+        json_ok(array(), '检验组合已删除');
     }
 
     /* ==================== 项目表单（共享模块渲染） ==================== */

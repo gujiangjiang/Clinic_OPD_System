@@ -35,7 +35,7 @@ switch ($action) {
             foreach ($groups as $g) {
                 $mNames = array();
                 $mIds = array();
-                foreach (DB::q('lab', 'SELECT id, name FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array($g['id'])) as $m) {
+                foreach (DB::q('lab', 'SELECT id, name FROM lab_items WHERE id IN (SELECT item_id FROM lab_group_members WHERE group_id=?) ORDER BY id', array($g['id'])) as $m) {
                     $mNames[] = $m['name'];
                     $mIds[] = (int)$m['id'];
                 }

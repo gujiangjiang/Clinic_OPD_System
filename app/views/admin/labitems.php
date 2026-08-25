@@ -85,7 +85,6 @@ function renderComboMgr() {
         '  </div>' +
         '</div>';
     Clinic.modal.open(html, { title: '🧩 检验组合管理', size: 'modal-xl' });
-    setTimeout(function () { if (COMBOS.length) selectCombo(COMBOS[0].id); }, 50);
 }
 function filterCombos() {
     var q = document.getElementById('comboSearch').value.trim().toLowerCase();
