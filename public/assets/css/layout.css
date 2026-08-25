@@ -574,3 +574,61 @@
 .sidebar-footer {
     white-space: nowrap;
 }
+
+/* ============================================================
+   病历页候诊队列面板（queuepanel.js）
+   顶部「候诊XX」按钮点击后弹出的轻量列表面板：
+   已诊/当日 子多选 chips + 单行患者条目。
+   ============================================================ */
+.queue-panel {
+    position: absolute;
+    z-index: 2600;
+    width: 460px;
+    max-width: calc(100vw - 16px);
+    background: var(--card, #fff);
+    border: 1px solid var(--bd, #e5e7eb);
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .18);
+    padding: 10px;
+}
+.queue-panel .qp-chips { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.qp-chip {
+    border: 1px solid var(--bd, #d1d5db);
+    background: transparent;
+    color: var(--text, #374151);
+    border-radius: 999px;
+    padding: 3px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    line-height: 1.6;
+}
+.qp-chip.active {
+    background: var(--primary, #2563eb);
+    border-color: var(--primary, #2563eb);
+    color: #fff;
+}
+.queue-panel .qp-list {
+    max-height: 46vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.qp-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    padding: 7px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.qp-row:hover { background: var(--primary-soft, rgba(37, 99, 235, .08)); }
+.qp-sess { flex-shrink: 0; }
+.queue-panel .qp-empty {
+    text-align: center;
+    color: var(--muted, #9ca3af);
+    font-size: 13px;
+    padding: 24px 0;
+}
