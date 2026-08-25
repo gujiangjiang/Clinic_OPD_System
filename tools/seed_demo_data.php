@@ -54,7 +54,7 @@ if ((int)DB::val('dept', 'SELECT COUNT(*) FROM departments') === 0) {
     }
     echo "引导：已创建 6 个科室\n";
 }
-$pwdHash = password_hash('admin123', PASSWORD_DEFAULT);
+$pwdHash = password_hash('123456', PASSWORD_DEFAULT);
 if ((int)DB::val('user', 'SELECT COUNT(*) FROM users') === 0) {
     $users = array(
         array('0001', 'admin', '系统管理员', 'admin', '', '主任技师'),
@@ -77,7 +77,7 @@ if ((int)DB::val('user', 'SELECT COUNT(*) FROM users') === 0) {
             $U[0], $U[1], $pwdHash, $U[2], $U[3], $U[4], $U[5], now_str(),
         ));
     }
-    echo "引导：已创建 " . count($users) . " 个账号（管理员 admin / 其余用户名见 emp_no，初始密码均为 admin123）\n";
+    echo "引导：已创建 " . count($users) . " 个账号（管理员 admin / 其余用户名见 emp_no，初始密码均为 123456）\n";
 }
 if (trim((string)DB::val('core', "SELECT svalue FROM settings WHERE skey='hospital_name'")) === '') {
     set_setting('hospital_name', '淮海省人民医院');

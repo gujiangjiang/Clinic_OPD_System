@@ -18,9 +18,19 @@ Router::title('检验项目管理');
     </div>
 </div>
 
+<div class="card" style="margin-bottom:12px">
+    <input class="input" placeholder="🔍 快速搜索项目 / 组合 / 分类" oninput="quickFilter(this.value,'itemList')">
+</div>
 <div class="card" id="itemList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
+/* 快速搜索：按行文本过滤 */
+function quickFilter(q, boxId) {
+    q = q.trim().toLowerCase();
+    document.querySelectorAll('#' + boxId + ' tbody tr').forEach(function (tr) {
+        tr.style.display = tr.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+    });
+}
 Clinic.importer._reloads['lab'] = loadItemList;
 Clinic.importer.attach('lab', 'impBtns', '检验项目');
 function loadItemList() {

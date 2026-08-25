@@ -12,9 +12,19 @@ Router::title('用户管理');
     <div><div class="page-title">👥 用户管理</div><div class="page-desc">创建各科室账号，医生可关联多个科室</div></div>
     <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openUserForm(0)">＋ 新增用户</button></div>
 </div>
+<div class="card" style="margin-bottom:12px">
+    <input class="input" placeholder="🔍 快速搜索用户 / 工号 / 角色" oninput="quickFilter(this.value,'userList')">
+</div>
 <div class="card" id="userList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
+/* 快速搜索：按行文本过滤 */
+function quickFilter(q, boxId) {
+    q = q.trim().toLowerCase();
+    document.querySelectorAll('#' + boxId + ' tbody tr').forEach(function (tr) {
+        tr.style.display = tr.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+    });
+}
 Clinic.importer._reloads['user'] = loadUserList;
 Clinic.importer.attach('user', 'impBtns', '人员');
 function loadUserList() {

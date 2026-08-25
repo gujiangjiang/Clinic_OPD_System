@@ -24,12 +24,12 @@ $depts = DB::q('dept', 'SELECT id, name FROM departments WHERE status=1 ORDER BY
         <input type="text" class="input" id="anaEnd" readonly placeholder="结束日期" style="width:150px;cursor:pointer;background:var(--bg)" onclick="Clinic.datePicker.open(this, { maxToday: true, onChange: function () { anaLoad(); } })">
         <button class="btn btn-primary btn-sm" onclick="anaLoad()">查询</button>
         <span class="flex gap-4" style="flex-wrap:wrap">
-            <button class="btn btn-outline btn-sm" onclick="anaQuick('today')">今日</button>
-            <button class="btn btn-outline btn-sm" onclick="anaQuick('yesterday')">昨日</button>
-            <button class="btn btn-outline btn-sm" onclick="anaQuick('7d')">近7天</button>
-            <button class="btn btn-outline btn-sm" onclick="anaQuick('30d')">近30天</button>
-            <button class="btn btn-outline btn-sm" onclick="anaQuick('month')">本月</button>
-            <button class="btn btn-outline btn-sm" onclick="anaQuick('year')">本年</button>
+            <button class="btn btn-primary btn-sm" data-ana-quick="today" onclick="anaQuick('today')">今日</button>
+            <button class="btn btn-outline btn-sm" data-ana-quick="yesterday" onclick="anaQuick('yesterday')">昨日</button>
+            <button class="btn btn-outline btn-sm" data-ana-quick="7d" onclick="anaQuick('7d')">近7天</button>
+            <button class="btn btn-outline btn-sm" data-ana-quick="30d" onclick="anaQuick('30d')">近30天</button>
+            <button class="btn btn-outline btn-sm" data-ana-quick="month" onclick="anaQuick('month')">本月</button>
+            <button class="btn btn-outline btn-sm" data-ana-quick="year" onclick="anaQuick('year')">本年</button>
         </span>
     </div>
 </div>
@@ -149,6 +149,10 @@ function anaQuick(k) {
     else if (k === 'year') { s = new Date(now.getFullYear(), 0, 1); }
     document.getElementById('anaStart').value = anaDate(s);
     document.getElementById('anaEnd').value = anaDate(e);
+    // 快捷按钮激活态
+    document.querySelectorAll('[data-ana-quick]').forEach(function (b) {
+        b.className = 'btn btn-sm ' + (b.getAttribute('data-ana-quick') === k ? 'btn-primary' : 'btn-outline');
+    });
     anaLoad();
 }
 

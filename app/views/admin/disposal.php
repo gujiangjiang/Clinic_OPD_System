@@ -9,9 +9,19 @@ Router::title('处置项目');
     <div><div class="page-title">🩹 处置项目</div><div class="page-desc">处置项目与费用管理（新增需审核通过后可用）</div></div>
     <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openDisposalForm(0)">＋ 新增处置项目</button></div>
 </div>
+<div class="card" style="margin-bottom:12px">
+    <input class="input" placeholder="🔍 快速搜索处置项目" oninput="quickFilter(this.value,'dispList')">
+</div>
 <div class="card" id="dispList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
+/* 快速搜索：按行文本过滤 */
+function quickFilter(q, boxId) {
+    q = q.trim().toLowerCase();
+    document.querySelectorAll('#' + boxId + ' tbody tr').forEach(function (tr) {
+        tr.style.display = tr.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+    });
+}
 Clinic.importer._reloads['disp'] = loadDispList;
 Clinic.importer.attach('disp', 'impBtns', '处置项目');
 function loadDispList() {

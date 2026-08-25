@@ -10,9 +10,19 @@ Router::title('科室管理');
     <div><div class="page-title">🏥 科室管理</div><div class="page-desc">门诊科室需设置上午/下午号源数量，急诊科室无需号源</div></div>
     <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openDeptForm(0)">＋ 新增科室</button></div>
 </div>
+<div class="card" style="margin-bottom:12px">
+    <input class="input" placeholder="🔍 快速搜索科室" oninput="quickFilter(this.value,'deptList')">
+</div>
 <div class="card" id="deptList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
+/* 快速搜索：按行文本过滤 */
+function quickFilter(q, boxId) {
+    q = q.trim().toLowerCase();
+    document.querySelectorAll('#' + boxId + ' tbody tr').forEach(function (tr) {
+        tr.style.display = tr.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+    });
+}
 Clinic.importer._reloads['dept'] = loadDeptList;
 Clinic.importer.attach('dept', 'impBtns', '科室');
 function loadDeptList() {

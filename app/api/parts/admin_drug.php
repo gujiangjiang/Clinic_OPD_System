@@ -82,7 +82,7 @@ function admin_part_drug($action) {
             $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
                 '<th>药品名称</th><th>通用名</th><th>厂家简称</th><th>分类</th><th>规格</th><th>剂型</th><th>频次</th><th>途径</th><th>库存</th><th>价格</th><th>状态</th><th>操作</th></tr></thead><tbody>';
             foreach ($rows as $r) {
-                $html .= '<tr>' .
+                $html .= '<tr data-cat="' . e($r['category']) . '">' .
                     '<td class="fw-600">' . e($r['name']) . '</td>' .
                     '<td class="fs-12">' . e($r['generic_name']) . '</td>' .
                     '<td>' . e($r['vendor_short']) . '</td>' .

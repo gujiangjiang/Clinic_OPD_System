@@ -16,15 +16,52 @@ Router::title('药品信息');
         <button class="btn btn-primary btn-sm" onclick="openDrugForm(0)">＋ 新增药品</button>
     </div>
 </div>
+<div class="card" style="margin-bottom:12px">
+    <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
+        <input class="input" placeholder="🔍 快速搜索药品 / 通用名 / 厂家" style="width:220px" oninput="quickFilter(this.value,'drugList')">
+        <span class="flex gap-4" id="drugCatTabs" style="flex-wrap:wrap"></span>
+    </div>
+</div>
 <div class="card" id="drugList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
+var DRUG_CAT = '';
+/* 分类子 tab（按数据动态生成） */
+function buildDrugCats() {
+    var cats = [];
+    document.querySelectorAll('#drugList tbody tr').forEach(function (tr) {
+        var c = tr.getAttribute('data-cat') || '';
+        if (c && cats.indexOf(c) === -1) cats.push(c);
+    });
+    var bar = document.getElementById('drugCatTabs');
+    bar.innerHTML = '<button class="btn btn-sm ' + (DRUG_CAT === '' ? 'btn-primary' : 'btn-outline') + '" onclick="drugCatFilter(this,\'\')">全部</button>' +
+        cats.map(function (c) {
+            return '<button class="btn btn-sm ' + (DRUG_CAT === c ? 'btn-primary' : 'btn-outline') + '" data-cat="' + c + '" onclick="drugCatFilter(this,\'' + c + '\')">' + c + '</button>';
+        }).join('');
+}
+function drugCatFilter(btn, c) {
+    DRUG_CAT = c;
+    document.querySelectorAll('#drugCatTabs .btn').forEach(function (b) {
+        b.className = 'btn btn-sm ' + ((b.getAttribute('data-cat') || '') === c ? 'btn-primary' : 'btn-outline');
+    });
+    document.querySelectorAll('#drugList tbody tr').forEach(function (tr) {
+        tr.style.display = (c === '' || tr.getAttribute('data-cat') === c) ? '' : 'none';
+    });
+}
+/* 快速搜索：按行文本过滤 */
+function quickFilter(q, boxId) {
+    q = q.trim().toLowerCase();
+    document.querySelectorAll('#' + boxId + ' tbody tr').forEach(function (tr) {
+        tr.style.display = tr.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+    });
+}
 Clinic.importer._reloads['drug'] = loadDrugList;
 Clinic.importer.attach('drug', 'drugImportBtns', '药品');
 function loadDrugList() {
     Clinic.get('/api/admin?action=drug_list', null, {
         onSuccess: function (json) {
             document.getElementById('drugList').innerHTML = json.data.html;
+            buildDrugCats();
         },
     });
 }
