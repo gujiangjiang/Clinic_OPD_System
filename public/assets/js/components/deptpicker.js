@@ -216,7 +216,7 @@ Clinic.deptPicker = (function () {
                         Clinic.toast.warning('【' + d.name + '】今日号源已满，请联系医生工作站加号');
                         return;
                     }
-                    if (opts.mode === 'select' && d.id === opts.currentId) {
+                    if ((opts.mode === 'select' || opts.mode === 'call') && d.id === opts.currentId) {
                         Clinic.toast.info('当前已在该科室');
                         return;
                     }
@@ -226,7 +226,7 @@ Clinic.deptPicker = (function () {
             });
         }
 
-        if (opts.mode === 'select') {
+        if (opts.mode === 'select' || opts.mode === 'call') {
             render(opts.depts || []);
         } else {
             Clinic.get(opts.fetchUrl, null, {
