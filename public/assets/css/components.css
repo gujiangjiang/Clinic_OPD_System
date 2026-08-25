@@ -356,6 +356,16 @@
     border-radius: 6px;
 }
 .tp-item:hover { background: var(--primary-soft, #cffafe); color: var(--primary); }
+
+/* 快捷日期选择器（夏令时开始/结束，MM-DD） */
+.dp-pop { width: 300px; display: block; }
+.dp-months { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.dp-month { padding: 3px 9px; font-size: 12px; border-radius: 6px; cursor: pointer; }
+.dp-month:hover { background: var(--bg-soft, #f1f5f9); }
+.dp-month.active { background: var(--primary-soft, #cffafe); color: var(--primary); font-weight: 700; }
+.dp-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; max-height: 160px; overflow-y: auto; }
+.dp-day { padding: 4px 2px; font-size: 12px; text-align: center; cursor: pointer; border-radius: 5px; }
+.dp-day:hover { background: var(--primary-soft, #cffafe); color: var(--primary); }
 .stat-card {
     background: var(--bg-card);
     border: 1px solid var(--border);

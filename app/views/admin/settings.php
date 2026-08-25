@@ -144,6 +144,53 @@ function toggleTimePick(btn, id) {
     }, 0);
 }
 
+/* 夏令时日期 + 时间 + 快捷选择器 */
+function dateInput(id, label, val) {
+    return '<div class="form-group"><label class="form-label">' + label + '</label>' +
+        '<div class="tp-wrap"><input class="input" id="' + id + '" value="' + (val || '') + '" placeholder="MM-DD，如 06-01">' +
+        '<button type="button" class="tp-btn" title="快捷选择日期" onclick="toggleDatePick(this,\'' + id + '\')">📅</button></div></div>';
+}
+function toggleDatePick(btn, id) {
+    var old = document.getElementById('dpPop');
+    if (old && old.getAttribute('data-target') === id) { old.remove(); return; }
+    if (old) old.remove();
+    var dp = { month: 0, day: 0 };
+    var months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+    var pop = document.createElement('div');
+    pop.id = 'dpPop';
+    pop.setAttribute('data-target', id);
+    pop.className = 'tp-pop dp-pop';
+    var mRow = months.map(function (m, i) { return '<div class="dp-month" data-i="' + i + '">' + m + '</div>'; }).join('');
+    pop.innerHTML = '<div class="dp-months">' + mRow + '</div><div class="dp-days" id="dpDays"></div>';
+    document.body.appendChild(pop);
+    var rect = btn.getBoundingClientRect();
+    pop.style.top = Math.min(rect.bottom + 6, window.innerHeight - 280) + 'px';
+    pop.style.left = Math.min(rect.left, window.innerWidth - 300) + 'px';
+    var renderDays = function () {
+        var dim = new Date(2000, dp.month + 1, 0).getDate();
+        var html = '';
+        for (var d = 1; d <= dim; d++) html += '<div class="dp-day" data-d="' + d + '">' + d + '</div>';
+        document.getElementById('dpDays').innerHTML = html;
+        document.getElementById('dpDays').querySelectorAll('.dp-day').forEach(function (el) {
+            el.addEventListener('click', function () {
+                document.getElementById(id).value =
+                    ('0' + (dp.month + 1)).slice(-2) + '-' + ('0' + parseInt(el.getAttribute('data-d'), 10)).slice(-2);
+                pop.remove();
+            });
+        });
+    };
+    pop.querySelectorAll('.dp-month').forEach(function (el) {
+        el.addEventListener('click', function () {
+            pop.querySelectorAll('.dp-month').forEach(function (m) { m.classList.remove('active'); });
+            el.classList.add('active');
+            dp.month = parseInt(el.getAttribute('data-i'), 10);
+            renderDays();
+        });
+    });
+    setTimeout(function () { document.addEventListener('mousedown', function h(e) { if (!pop.contains(e.target) && e.target !== btn) { pop.remove(); document.removeEventListener('mousedown', h); } }); }, 0);
+}
+
+/* 作息时间设置模态框 */
 function openWorkModal() {
     var html =
         '<div class="form-row">' + timeInput('w_am_start', '上午上班', WS.am_start) + timeInput('w_am_end', '上午下班', WS.am_end) + '</div>' +
@@ -153,8 +200,8 @@ function openWorkModal() {
         '<input type="checkbox" id="w_dst_enabled"' + (WS.dst_enabled === '1' ? ' checked' : '') + ' style="width:auto"> 开启夏令时作息（按日期范围自动切换）</label></div>' +
         '<div id="w_dst_box" style="display:none;background:var(--bg-soft);border-radius:10px;padding:12px">' +
         '<div class="form-row">' +
-        '<div class="form-group"><label class="form-label">夏令时开始日期</label><input class="input" id="w_dst_start" value="' + (WS.dst_start || '') + '" placeholder="MM-DD，如 06-01"></div>' +
-        '<div class="form-group"><label class="form-label">夏令时结束日期</label><input class="input" id="w_dst_end" value="' + (WS.dst_end || '') + '" placeholder="MM-DD，如 09-30"></div></div>' +
+        dateInput('w_dst_start', '夏令时开始日期', WS.dst_start) +
+        dateInput('w_dst_end', '夏令时结束日期', WS.dst_end) + '</div>' +
         '<div class="fs-12 text-muted mb-8">每年循环生效，支持跨年区间（如 11-01 ~ 03-31）。夏令时作息留空的时间项沿用上方常规作息。</div>' +
         '<div class="form-row">' + timeInput('w_dst_am_start', '夏令时上午上班', WS.dst_am_start) + timeInput('w_dst_am_end', '夏令时上午下班', WS.dst_am_end) + '</div>' +
         '<div class="form-row">' + timeInput('w_dst_pm_start', '夏令时下午上班', WS.dst_pm_start) + timeInput('w_dst_pm_end', '夏令时下午下班', WS.dst_pm_end) + '</div></div>';
