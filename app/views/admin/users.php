@@ -141,8 +141,11 @@ function openUserForm(id) {
         var titleSel = document.getElementById('f_title');
         titleSel.setAttribute('data-cur', (e.detail && e.detail.title) || '');
         onRoleChange();
-        // 科室三级树初始同步（全院/分组勾选态）
+        // 科室三级树初始同步（全院/分组勾选态）+ 搜索定位
         if (typeof deptSyncGroups === 'function') deptSyncGroups();
+        if (window.Clinic && Clinic.treeSearch) {
+            Clinic.treeSearch({ input: 'deptSearchQ', res: 'deptSearchRes', tree: '#deptTreeBox', itemSel: '.deptChk' });
+        }
         // 头像点击上传预览
         var photoInp = document.getElementById('f_photo');
         if (photoInp) {

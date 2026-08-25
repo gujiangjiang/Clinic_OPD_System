@@ -192,8 +192,8 @@
 }
 .send-users {
     display: flex;
-    flex-wrap: wrap;
-    gap: 2px 14px;
+    flex-direction: column;   /* 三级项纵向排列：项目多时更清晰 */
+    gap: 2px;
     padding: 2px 0 4px 22px;
 }
 .send-user {
@@ -201,10 +201,31 @@
     align-items: center;
     gap: 4px;
     font-size: 13px;
-    padding: 2px 0;
+    padding: 2px 4px;
+    border-radius: 6px;
     cursor: pointer;
     user-select: none;
 }
+/* 树搜索：短结果列表 + 定位高亮闪烁 */
+.tree-search-res {
+    max-height: 150px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-top: 6px;
+    background: var(--bg-card, #fff);
+}
+.tree-search-item {
+    padding: 6px 10px;
+    font-size: 13px;
+    cursor: pointer;
+}
+.tree-search-item:hover { background: var(--primary-soft, #cffafe); }
+@keyframes treeFlash {
+    0%, 40% { background: var(--warning-soft, #fef3c7); }
+    100% { background: transparent; }
+}
+.tree-flash { animation: treeFlash 1.6s ease; }
 .msg-who {
     font-size: 12px;
     font-weight: 600;

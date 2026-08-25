@@ -126,6 +126,49 @@ Clinic.refresh = function (root) {
     // 为局部刷新后的内容重新绑定侧边栏之外的事件（由各页面自行处理）
 };
 
+/* ==================== 三级树搜索定位 ====================
+ * 用法：Clinic.treeSearch({ input, res, tree, itemSel })
+ *   input/res/tree 均可为 id 或元素；itemSel 为三级项选择器（默认 .send-user）。
+ * 输入关键词 → 短列表展示匹配项 → 点击后滚动定位到树中对应项并高亮闪烁。
+ */
+Clinic.treeSearch = function (cfg) {
+    var input = typeof cfg.input === 'string' ? document.getElementById(cfg.input) : cfg.input;
+    var res = typeof cfg.res === 'string' ? document.getElementById(cfg.res) : cfg.res;
+    var tree = typeof cfg.tree === 'string' ? document.querySelector(cfg.tree) : cfg.tree;
+    if (!input || !res || !tree) return;
+    var timer = null;
+    input.addEventListener('input', function () {
+        var q = this.value.trim().toLowerCase();
+        if (timer) clearTimeout(timer);
+        if (q === '') { res.innerHTML = ''; res.style.display = 'none'; return; }
+        timer = setTimeout(function () {
+            var hits = [];
+            tree.querySelectorAll(cfg.itemSel || '.send-user').forEach(function (el) {
+                var lab = el.closest('label') || el;   // 定位/高亮/文案以整行为准（兼容 checkbox 选择器）
+                var txt = lab.textContent.trim();
+                if (txt.toLowerCase().indexOf(q) !== -1) hits.push({ label: lab, text: txt });
+            });
+            res.innerHTML = hits.length
+                ? hits.map(function (h, i) {
+                    return '<div class="tree-search-item" data-i="' + i + '">' +
+                        h.text.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</div>';
+                }).join('')
+                : '<div class="fs-12 text-muted" style="padding:6px 10px">无匹配项</div>';
+            res.style.display = '';
+            res.querySelectorAll('.tree-search-item').forEach(function (el, i) {
+                el.addEventListener('click', function () {
+                    res.style.display = 'none';
+                    input.value = '';
+                    var lab = hits[i].label;
+                    tree.querySelectorAll('.tree-flash').forEach(function (x) { x.classList.remove('tree-flash'); });
+                    lab.classList.add('tree-flash');
+                    lab.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+            });
+        }, 200);
+    });
+};
+
 /* 页面加载完成后初始化 */
 document.addEventListener('DOMContentLoaded', function () {
     Clinic.init();
