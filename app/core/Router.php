@@ -38,11 +38,11 @@ class Router {
         '/admin/departments' => array('admin/departments.php',  array('admin')),
         '/admin/users'       => array('admin/users.php',        array('admin')),
         // 检验 / 检查项目分开管理（检验支持组合检验；检查无成组逻辑）
-        '/admin/items'       => array('admin/labitems.php',     array('admin')),   // 旧链接兼容 → 检验项目管理
-        '/admin/labitems'    => array('admin/labitems.php',     array('admin')),
-        '/admin/examitems'   => array('admin/examitems.php',    array('admin')),
-        '/admin/drugs'       => array('admin/drugs.php',        array('admin')),
-        '/admin/drugsettings'=> array('admin/drugsettings.php', array('admin')),
+        '/admin/items'       => array('admin/labitems.php',     array('admin', 'lab')),   // 旧链接兼容 → 检验项目管理
+        '/admin/labitems'    => array('admin/labitems.php',     array('admin', 'lab')),
+        '/admin/examitems'   => array('admin/examitems.php',    array('admin', 'imaging')),
+        '/admin/drugs'       => array('admin/drugs.php',        array('admin', 'pharmacy')),
+        '/admin/drugsettings'=> array('admin/drugsettings.php', array('admin', 'pharmacy')),
         '/admin/disposal'    => array('admin/disposal.php',     array('admin')),
         '/admin/diagnosis'   => array('admin/diagnosis.php',    array('admin')),
         '/admin/review'      => array('admin/review.php',       array('admin')),
