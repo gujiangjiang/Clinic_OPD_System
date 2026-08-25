@@ -292,6 +292,16 @@
 }
 /* 成员表格固定列宽：切换组合时各列空间保持稳定 */
 .combo-member-table { table-layout: fixed; }
+.combo-member-table thead th { position: sticky; top: 0; background: var(--bg-card); z-index: 1; }
+.combo-right-body { overflow-y: auto; }
+.combo-right-body .table-wrap { max-height: none; }
+.combo-member-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--bg-card);
+    z-index: 1;
+    box-shadow: 0 1px 0 var(--border);
+}
 .combo-member-table th:nth-child(1), .combo-member-table td:nth-child(1) { width: 34%; }
 .combo-member-table th:nth-child(2), .combo-member-table td:nth-child(2) { width: 16%; }
 .combo-member-table th:nth-child(3), .combo-member-table td:nth-child(3) { width: 12%; }
