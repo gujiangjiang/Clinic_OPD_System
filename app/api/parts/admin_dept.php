@@ -27,7 +27,7 @@ function admin_part_dept($action) {
             $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
                 '<th>科室名称</th><th>类型</th><th>挂号费</th><th>上午号源</th><th>下午号源</th><th>状态</th><th>操作</th></tr></thead><tbody>';
             foreach ($rows as $r) {
-                $html .= '<tr>' .
+                $html .= '<tr data-type="' . e($r['type']) . '">' .
                     '<td class="fw-600">' . e($r['name']) . '</td>' .
                     '<td>' . ($r['type'] === 'emergency' ? '<span class="badge badge-danger">急诊</span>' : '<span class="badge badge-primary">门诊</span>') . '</td>' .
                     '<td>¥' . money($r['fee']) . '</td>' .

@@ -74,11 +74,26 @@ function admin_part_user($action) {
         $selDept = array();
         // dept_ids 可能为 NULL，先转字符串再拆分，避免 PHP 8 告警污染 JSON 响应
         foreach (explode(',', (string)$r['dept_ids']) as $d) if ((int)$d > 0) $selDept[] = (int)$d;
-        $deptBox = '';
+        // 三级分类树：全院 → 门诊/急诊（按类型分组）→ 各科室（多选）
+        $byType = array(
+            'clinic' => array('label' => '门诊', 'items' => array()),
+            'emergency' => array('label' => '急诊', 'items' => array()),
+        );
         foreach ($depts as $d) {
-            $checked = in_array((int)$d['id'], $selDept, true) ? ' checked' : '';
-            $deptBox .= '<label class="flex gap-4" style="font-size:13px;margin-right:12px;cursor:pointer">' .
-                '<input type="checkbox" class="deptChk" value="' . (int)$d['id'] . '"' . $checked . '> ' . e($d['name']) . '</label>';
+            $t = ($d['type'] === 'emergency') ? 'emergency' : 'clinic';
+            $byType[$t]['items'][] = $d;
+        }
+        $deptBox = '<label class="send-grp-head"><input type="checkbox" id="deptAll" onchange="deptToggleAll(this.checked)"> <b>全院（全部科室）</b></label>';
+        foreach ($byType as $type => $g) {
+            if (!count($g['items'])) continue;
+            $deptBox .= '<div class="send-grp">' .
+                '<label class="send-grp-head"><input type="checkbox" class="deptGrpChk" data-type="' . $type . '" onchange="deptToggleGroup(\'' . $type . '\', this.checked)"> <b>' . $g['label'] . '</b>（' . count($g['items']) . ' 个科室）</label>' .
+                '<div class="send-users">';
+            foreach ($g['items'] as $d) {
+                $checked = in_array((int)$d['id'], $selDept, true) ? ' checked' : '';
+                $deptBox .= '<label class="send-user"><input type="checkbox" class="deptChk" data-type="' . $type . '" value="' . (int)$d['id'] . '"' . $checked . ' onchange="deptSyncGroups()"> ' . e($d['name']) . '</label>';
+            }
+            $deptBox .= '</div></div>';
         }
         $html = '<div class="flex" style="justify-content:center;margin-bottom:12px">
             <div class="avatar-picker" onclick="document.getElementById(\'f_photo\').click()">
@@ -109,8 +124,8 @@ function admin_part_user($action) {
             <div class="form-group" id="titleWrap" style="display:none"><label class="form-label">职称</label><select class="select" id="f_title"></select></div>
             <div class="form-group"><label class="form-label">职务</label><select class="select" id="f_position">' . opt_options('position', $r['position']) . '</select></div>
         </div>
-        <div class="form-group" id="deptWrap" style="display:none"><label class="form-label">所属科室（医生可选多个）</label>
-            <div class="flex" style="flex-wrap:wrap">' . $deptBox . '</div></div>
+        <div class="form-group" id="deptWrap" style="display:none"><label class="form-label">所属科室（医生可选多个，支持按全院 / 门诊 / 急诊快速勾选）</label>
+            <div class="send-tree" style="max-height:220px">' . $deptBox . '</div></div>
         <div class="form-group"><label class="form-label">个人介绍</label><textarea class="textarea" id="f_intro" rows="2">' . e($r['intro']) . '</textarea></div>
         <div class="form-group"><label class="form-label">状态</label>
             <select class="select" id="f_status"><option value="1"' . ($r['status'] == 1 ? ' selected' : '') . '>启用</option>

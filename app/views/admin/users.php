@@ -67,6 +67,38 @@ function quickFilter(q, boxId) {
 }
 Clinic.importer._reloads['user'] = loadUserList;
 Clinic.importer.attach('user', 'impBtns', '人员');
+/* ==================== 用户表单：科室三级树（全院 → 门诊/急诊 → 各科室） ==================== */
+function deptToggleAll(checked) {
+    document.querySelectorAll('.deptChk, .deptGrpChk').forEach(function (c) { c.checked = checked; c.indeterminate = false; });
+}
+function deptToggleGroup(type, checked) {
+    document.querySelectorAll('.deptChk[data-type="' + type + '"]').forEach(function (c) { c.checked = checked; });
+    deptSyncGroups();
+}
+function deptSyncGroups() {
+    // 分组勾选态：全选=勾选，部分=半选，全无=空
+    var stats = {};
+    document.querySelectorAll('.deptChk').forEach(function (c) {
+        var t = c.getAttribute('data-type') || 'clinic';
+        stats[t] = stats[t] || { total: 0, on: 0 };
+        stats[t].total++;
+        if (c.checked) stats[t].on++;
+    });
+    document.querySelectorAll('.deptGrpChk').forEach(function (gc) {
+        var t = gc.getAttribute('data-type');
+        var s = stats[t] || { total: 0, on: 0 };
+        gc.checked = s.total > 0 && s.on === s.total;
+        gc.indeterminate = s.on > 0 && s.on < s.total;
+    });
+    var all = document.getElementById('deptAll');
+    var totalOn = document.querySelectorAll('.deptChk:checked').length;
+    var totalAll = document.querySelectorAll('.deptChk').length;
+    if (all) {
+        all.checked = totalAll > 0 && totalOn === totalAll;
+        all.indeterminate = totalOn > 0 && totalOn < totalAll;
+    }
+}
+
 function loadUserList() {
     Clinic.get('/api/admin?action=user_list', null, {
         onSuccess: function (json) {
@@ -109,6 +141,8 @@ function openUserForm(id) {
         var titleSel = document.getElementById('f_title');
         titleSel.setAttribute('data-cur', (e.detail && e.detail.title) || '');
         onRoleChange();
+        // 科室三级树初始同步（全院/分组勾选态）
+        if (typeof deptSyncGroups === 'function') deptSyncGroups();
         // 头像点击上传预览
         var photoInp = document.getElementById('f_photo');
         if (photoInp) {
