@@ -191,10 +191,22 @@ Clinic.deptPicker = (function () {
                 });
             });
 
-            /* 默认 Tab：可指定（快速挂号默认急诊）；否则门诊可选且非锁定时默认门诊 */
-            var def = opts.defaultTab === 'emergency'
-                ? 'emergency'
-                : ((byType.clinic.length && !lockClinic) ? 'clinic' : 'emergency');
+            /* 默认 Tab：
+               · 非挂号模式且已选择科室（currentId）→ 定位到该科室所在 Tab
+                 （如当前选药房 → 「其他」，选检验科 → 「医技」）
+               · 未选择科室 → 默认「门诊」（叫号大屏 / 医生站）
+               · 挂号：无身份证或指定 → 急诊，否则门诊 */
+            var def = 'clinic';
+            if (opts.mode !== 'register' && opts.currentId) {
+                var curDept = null;
+                (list || []).forEach(function (x) { if (x.id === opts.currentId) curDept = x; });
+                if (curDept && curDept.type && tabKeys.indexOf(curDept.type) !== -1) def = curDept.type;
+            } else if (opts.mode === 'register') {
+                def = (opts.defaultTab === 'emergency' || lockClinic) ? 'emergency' : 'clinic';
+            }
+            if (!byType[def] || !byType[def].length) {
+                def = (byType.clinic.length && !lockClinic) ? 'clinic' : 'emergency';
+            }
             activate(def);
 
             /* 卡片点击 */
