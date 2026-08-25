@@ -181,7 +181,7 @@ switch ($action) {
             $ids = doctor_dept_ids($u);
             if ($ids) {
                 $ph = implode(',', array_fill(0, count($ids), '?'));
-                $first = DB::one('dept', "SELECT * FROM departments WHERE status=1 AND id IN ($ph) ORDER BY sort, id LIMIT 1", $ids);
+                $first = DB::one('dept', "SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id LIMIT 1", $ids);
                 if ($first) $dept = $first;
             }
         }
