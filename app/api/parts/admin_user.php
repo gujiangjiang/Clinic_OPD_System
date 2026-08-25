@@ -74,7 +74,7 @@ function admin_part_user($action) {
         $selDept = array();
         // dept_ids 可能为 NULL，先转字符串再拆分，避免 PHP 8 告警污染 JSON 响应
         foreach (explode(',', (string)$r['dept_ids']) as $d) if ((int)$d > 0) $selDept[] = (int)$d;
-        // 三级分类树：全院 → 门诊/急诊（按类型分组）→ 各科室（多选）
+        // 三级分类树（可折叠，默认折叠）：全院 → 门诊/急诊（按类型分组）→ 各科室（多选）
         $byType = array(
             'clinic' => array('label' => '门诊', 'items' => array()),
             'emergency' => array('label' => '急诊', 'items' => array()),
@@ -83,18 +83,27 @@ function admin_part_user($action) {
             $t = ($d['type'] === 'emergency') ? 'emergency' : 'clinic';
             $byType[$t]['items'][] = $d;
         }
-        $deptBox = '<label class="send-grp-head"><input type="checkbox" id="deptAll" onchange="deptToggleAll(this.checked)"> <b>全院（全部科室）</b></label>';
+        $deptBox = '<div class="send-grp">' .
+            '<div class="send-grp-head-row">' .
+            '<button type="button" class="tree-toggle" data-toggle="deptL2">+</button>' .
+            '<label class="send-grp-head"><input type="checkbox" id="deptAll" onchange="deptToggleAll(this.checked)"> <b>全院（全部科室）</b></label>' .
+            '</div>' .
+            '<div class="send-grp-children" id="deptL2" style="display:none;margin-left:20px">';
         foreach ($byType as $type => $g) {
             if (!count($g['items'])) continue;
-            $deptBox .= '<div class="send-grp">' .
+            $deptBox .= '<div class="send-grp" style="margin-left:20px">' .
+                '<div class="send-grp-head-row">' .
+                '<button type="button" class="tree-toggle" data-toggle="deptT_' . $type . '">+</button>' .
                 '<label class="send-grp-head"><input type="checkbox" class="deptGrpChk" data-type="' . $type . '" onchange="deptToggleGroup(\'' . $type . '\', this.checked)"> <b>' . $g['label'] . '</b>（' . count($g['items']) . ' 个科室）</label>' .
-                '<div class="send-users">';
+                '</div>' .
+                '<div class="send-grp-children" id="deptT_' . $type . '" style="display:none;margin-left:20px">';
             foreach ($g['items'] as $d) {
                 $checked = in_array((int)$d['id'], $selDept, true) ? ' checked' : '';
                 $deptBox .= '<label class="send-user"><input type="checkbox" class="deptChk" data-type="' . $type . '" value="' . (int)$d['id'] . '"' . $checked . ' onchange="deptSyncGroups()"> ' . e($d['name']) . '</label>';
             }
             $deptBox .= '</div></div>';
         }
+        $deptBox .= '</div></div>';
         $html = '<div class="flex" style="justify-content:center;margin-bottom:12px">
             <div class="avatar-picker" onclick="document.getElementById(\'f_photo\').click()">
                 <span class="avatar" id="avatarPreview">' .

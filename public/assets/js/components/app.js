@@ -126,6 +126,18 @@ Clinic.refresh = function (root) {
     // 为局部刷新后的内容重新绑定侧边栏之外的事件（由各页面自行处理）
 };
 
+/* ==================== 三级树折叠/展开 ====================
+ * 折叠按钮：<button class="tree-toggle" data-toggle="容器id">−</button>
+ * 容器：id 对应的 .send-grp-children（默认可内联 display:none 折叠）
+ */
+window.treeToggle = function (btn) {
+    var target = document.getElementById(btn.getAttribute('data-toggle'));
+    if (!target) return;
+    var show = target.style.display === 'none';
+    target.style.display = show ? '' : 'none';
+    btn.textContent = show ? '−' : '+';
+};
+
 /* ==================== 三级树搜索定位 ====================
  * 用法：Clinic.treeSearch({ input, res, tree, itemSel })
  *   input/res/tree 均可为 id 或元素；itemSel 为三级项选择器（默认 .send-user）。
@@ -160,6 +172,16 @@ Clinic.treeSearch = function (cfg) {
                     res.style.display = 'none';
                     input.value = '';
                     var lab = hits[i].label;
+                    // 自动展开所有折叠的祖先容器（并同步其 −/+ 按钮）
+                    var anc = lab.parentElement;
+                    while (anc && anc !== tree) {
+                        if (anc.classList.contains('send-grp-children') && anc.style.display === 'none') {
+                            anc.style.display = '';
+                            var tbtn = tree.querySelector('.tree-toggle[data-toggle="' + anc.id + '"]');
+                            if (tbtn) tbtn.textContent = '−';
+                        }
+                        anc = anc.parentElement;
+                    }
                     tree.querySelectorAll('.tree-flash').forEach(function (x) { x.classList.remove('tree-flash'); });
                     lab.classList.add('tree-flash');
                     lab.scrollIntoView({ behavior: 'smooth', block: 'center' });

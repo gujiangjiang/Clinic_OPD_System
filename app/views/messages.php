@@ -160,24 +160,46 @@ function openSendMsg() {
             SEND_GROUPS = json.data.groups || [];
             SEND_ADMIN = !!json.data.is_admin;
             var pickType = SEND_ADMIN ? 'checkbox' : 'radio';
-            var tree = SEND_ADMIN
-                ? '<label class="send-grp-head"><input type="checkbox" id="smAll" onchange="smToggleAll(this.checked)"> <b>全院（全部用户）</b></label>' +
-                  SEND_GROUPS.map(function (g) {
-                      return '<div class="send-grp">' +
-                          '<label class="send-grp-head"><input type="checkbox" class="sm-role" data-role="' + g.role + '" onchange="smToggleRole(\'' + g.role + '\', this.checked)"> <b>' + g.role_name + '</b>（' + g.users.length + ' 人）</label>' +
-                          '<div class="send-users">' + g.users.map(function (u2) {
-                              return '<label class="send-user"><input type="' + pickType + '" name="smUser" class="sm-user" data-role="' + g.role + '" value="' + u2.id + '" onchange="smUserChange(this)">' + u2.name +
-                                  ' <span class="fs-12 text-muted">' + (u2.emp_no || '') + '</span></label>';
-                          }).join('') + '</div></div>';
-                  }).join('')
-                : SEND_GROUPS.map(function (g) {
-                      return '<div class="send-grp">' +
-                          '<div class="send-grp-head"><b>' + g.role_name + '</b>（' + g.users.length + ' 人）</div>' +
-                          '<div class="send-users">' + g.users.map(function (u2) {
-                              return '<label class="send-user"><input type="radio" name="smUser" value="' + u2.id + '">' + u2.name +
-                                  ' <span class="fs-12 text-muted">' + (u2.emp_no || '') + '</span></label>';
-                          }).join('') + '</div></div>';
-                  }).join('');
+            /* 可折叠三级树：L1 全院（仅管理员）→ L2 角色组 → L3 用户；
+               默认全部折叠，点击 +/− 按需展开 */
+            var tree = '';
+            if (SEND_ADMIN) {
+                var roleBlocks = SEND_GROUPS.map(function (g) {
+                    var users = g.users.map(function (u2) {
+                        return '<label class="send-user"><input type="checkbox" name="smUser" class="sm-user" data-role="' + g.role + '" value="' + u2.id + '" onchange="smUserChange(this)">' + u2.name +
+                            ' <span class="fs-12 text-muted">' + (u2.emp_no || '') + '</span></label>';
+                    }).join('');
+                    return '<div class="send-grp" style="margin-left:20px">' +
+                        '<div class="send-grp-head-row">' +
+                        '<button type="button" class="tree-toggle" data-toggle="smG_' + g.role + '">+</button>' +
+                        '<label class="send-grp-head"><input type="checkbox" class="sm-role" data-role="' + g.role + '" onchange="smToggleRole(\'' + g.role + '\', this.checked)"> <b>' + g.role_name + '</b>（' + g.users.length + ' 人）</label>' +
+                        '</div>' +
+                        '<div class="send-grp-children" id="smG_' + g.role + '" style="display:none;margin-left:20px">' + users + '</div>' +
+                        '</div>';
+                }).join('');
+                tree =
+                    '<div class="send-grp">' +
+                    '<div class="send-grp-head-row">' +
+                    '<button type="button" class="tree-toggle" data-toggle="smL2">+</button>' +
+                    '<label class="send-grp-head"><input type="checkbox" id="smAll" onchange="smToggleAll(this.checked)"> <b>全院（全部用户）</b></label>' +
+                    '</div>' +
+                    '<div class="send-grp-children" id="smL2" style="display:none;margin-left:20px">' + roleBlocks + '</div>' +
+                    '</div>';
+            } else {
+                tree = SEND_GROUPS.map(function (g) {
+                    var users = g.users.map(function (u2) {
+                        return '<label class="send-user"><input type="radio" name="smUser" value="' + u2.id + '">' + u2.name +
+                            ' <span class="fs-12 text-muted">' + (u2.emp_no || '') + '</span></label>';
+                    }).join('');
+                    return '<div class="send-grp" style="margin-left:20px">' +
+                        '<div class="send-grp-head-row">' +
+                        '<button type="button" class="tree-toggle" data-toggle="smG_' + g.role + '">+</button>' +
+                        '<div class="send-grp-head"><b>' + g.role_name + '</b>（' + g.users.length + ' 人）</div>' +
+                        '</div>' +
+                        '<div class="send-grp-children" id="smG_' + g.role + '" style="display:none;margin-left:20px">' + users + '</div>' +
+                        '</div>';
+                }).join('');
+            }
             var html =
                 '<div class="send-msg-box">' +
                 '  <div class="fs-13 text-muted mb-8">' + (SEND_ADMIN ? '可多选群发（全院 / 按角色 / 指定用户）' : '仅可发送给一位用户，两次发送间隔 30 秒') + '</div>' +
