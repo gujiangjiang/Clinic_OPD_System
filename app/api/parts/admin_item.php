@@ -264,6 +264,7 @@ function admin_part_item($action) {
                 DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
                     $auditType, $id, '修改' . ($type === 'lab' ? '检验' : '检查') . '项目：' . $name, $content, 'pending', $u['name'], $u['id'], now_str(),
                 ));
+                send_msg('admin', 0, '待审核提醒', '有新的' . ($type === 'lab' ? '检验' : '检查') . '项目修改待审核：' . $name . '，请前往审核中心处理', '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
             }
             json_ok(array(), $isAdmin ? '项目已保存' : '修改已提交，待管理员审核');
         } else {
@@ -281,6 +282,7 @@ function admin_part_item($action) {
                 DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
                     $auditType, $newId, '新增' . ($type === 'lab' ? '检验' : '检查') . '项目：' . $name, $content, 'pending', $u['name'], $u['id'], now_str(),
                 ));
+                send_msg('admin', 0, '待审核提醒', '有新的' . ($type === 'lab' ? '检验' : '检查') . '项目待审核：' . $name . '，请前往审核中心处理', '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
             }
             json_ok(array(), $isAdmin ? '项目已添加，可直接开单使用' : '项目已提交，待管理员审核');
         }

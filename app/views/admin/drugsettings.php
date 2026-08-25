@@ -97,7 +97,8 @@ function openDsForm(id) {
     Clinic.modal.open(
         '<input type="hidden" id="dsId" value="0">' +
         '<div class="form-group"><label class="form-label">' + DS_NAMES[CUR_STYPE] + '名称 <span class="req">*</span></label>' +
-        '<input class="input" id="dsName" placeholder="请输入名称"></div>' + nurseBox,
+        '<input class="input" id="dsName" placeholder="请输入名称"></div>' + nurseBox +
+        '<div class="fs-12 text-muted mt-4">新增设置项需管理员审核，提交后待审核通过方可使用。</div>',
         {
             title: '新增' + DS_NAMES[CUR_STYPE],
             size: 'modal-sm',

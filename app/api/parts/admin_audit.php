@@ -40,7 +40,8 @@ function admin_part_audit($action) {
         } else {
             $typeNames = array(
                 'template' => '病历模板', 'item_lab' => '检验项目添加', 'item_exam' => '检查项目添加',
-                'item_drug' => '药品添加', 'item_disp' => '处置项目添加', 'report_withdraw' => '报告撤回',
+                'item_drug' => '药品添加', 'item_disp' => '处置项目添加', 'drugsetting' => '药品设置',
+                'report_withdraw' => '报告撤回',
                 'pwd_reset' => '密码重置申请', 'profile_update' => '个人资料修改',
             );
             // 单条记录渲染（平铺与分组共用；分组视图可隐藏冗余列）

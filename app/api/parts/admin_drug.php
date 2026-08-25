@@ -70,6 +70,7 @@ function admin_part_drug($action) {
                 json_encode(array('id' => $id, 'stype' => $stype, 'name' => $name, 'need_nurse' => $needNurse, 'bind_disposal_item_id' => $bindDisp), JSON_UNESCAPED_UNICODE),
                 'pending', $u['name'], $u['id'], now_str(),
             ));
+            send_msg('admin', 0, '待审核提醒', '有新的药品设置项待审核：' . $name . '，请前往审核中心处理', '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
             json_ok(array(), '设置项已提交，待管理员审核');
         }
         if ($id > 0) {
@@ -168,6 +169,7 @@ function admin_part_drug($action) {
                 DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
                     'item_drug', $id, '修改药品：' . $name, '提交药品信息修改：' . $name, 'pending', $u['name'], $u['id'], now_str(),
                 ));
+                send_msg('admin', 0, '待审核提醒', '有新的药品修改待审核：' . $name . '，请前往审核中心处理', '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
             }
             json_ok(array(), $isAdmin ? '药品已保存' : '修改已提交，待管理员审核');
         }
@@ -186,6 +188,7 @@ function admin_part_drug($action) {
             DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
                 'item_drug', $newId, '新增药品：' . $name, '提交新增药品：' . $name, 'pending', $u['name'], $u['id'], now_str(),
             ));
+            send_msg('admin', 0, '待审核提醒', '有新的药品待审核：' . $name . '，请前往审核中心处理', '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
         }
         json_ok(array(), $isAdmin ? '药品已添加，可直接开方使用' : '药品已提交，待管理员审核');
     }
