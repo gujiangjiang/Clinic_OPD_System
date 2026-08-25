@@ -27,6 +27,25 @@ function nurse_dept_ids() {
 
 switch ($action) {
 
+    /* ==================== 护士站首页统计 ==================== */
+    case 'home_stats':
+        $today = date('Y-m-d');
+        $todayDone = (int)DB::val('order', "SELECT COUNT(*) FROM order_items WHERE item_type='procedure' AND status='done' AND date(executed_at)=?", array($today));
+        $pendingExec = (int)DB::val('order', "SELECT COUNT(*) FROM order_items WHERE item_type='procedure' AND status='paid'", array());
+        $todayFee = (float)DB::val('order', "SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type='procedure' AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($today));
+        $dispTotal = (int)DB::val('disp', "SELECT COUNT(*) FROM disposal_items WHERE status='approved'", array());
+        $labels = array(); $series = array();
+        for ($i = 6; $i >= 0; $i--) {
+            $day = date('Y-m-d', strtotime("-$i days"));
+            $labels[] = substr($day, 5);
+            $series[] = (int)DB::val('order', "SELECT COUNT(*) FROM order_items WHERE item_type='procedure' AND status='done' AND date(executed_at)=?", array($day));
+        }
+        json_ok(array(
+            'kpi' => array('today_done' => $todayDone, 'pending_exec' => $pendingExec, 'today_fee' => round($todayFee, 2), 'disp_total' => $dispTotal),
+            'trend' => array('labels' => $labels, 'data' => $series),
+        ));
+        break;
+
     /* ==================== 今日患者列表 ==================== */
     case 'patients':
         $deptIds = nurse_dept_ids();

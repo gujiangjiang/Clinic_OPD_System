@@ -33,6 +33,36 @@ function dept_is_limited($d) {
 
 switch ($action) {
 
+    /* ==================== 医生首页统计 ==================== */
+    case 'home_stats':
+        $uid = (int)$u['id'];
+        $today = date('Y-m-d');
+        // 今日接诊人次（本人）
+        $todayVisits = (int)DB::val('medical', "SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND date(created_at)=?", array($uid, $today));
+        // 今日开单金额（本人、已缴费、排除退费取消）
+        $sums = array('drug' => 0.0, 'lab' => 0.0, 'imaging' => 0.0, 'procedure' => 0.0);
+        foreach (DB::q('order', "SELECT order_type, COALESCE(SUM(total_amount),0) s FROM orders WHERE doctor_id=? AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=? GROUP BY order_type", array($uid, $today)) as $r) {
+            if (isset($sums[$r['order_type']])) $sums[$r['order_type']] = round((float)$r['s'], 2);
+        }
+        // 我的草稿病历（待完成接诊）
+        $drafts = (int)DB::val('medical', "SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND status='draft'", array($uid));
+        // 今日门诊人次（全部科室）
+        $todayReg = (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE date(register_time)=?", array($today));
+        // 近7天本人接诊趋势
+        $labels = array();
+        $series = array();
+        for ($i = 6; $i >= 0; $i--) {
+            $day = date('Y-m-d', strtotime("-$i days"));
+            $labels[] = substr($day, 5);
+            $series[] = (int)DB::val('medical', "SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND date(created_at)=?", array($uid, $day));
+        }
+        json_ok(array(
+            'kpi' => array('today_visits' => $todayVisits, 'today_reg' => $todayReg, 'total' => round(array_sum($sums), 2),
+                'drug' => $sums['drug'], 'lab' => $sums['lab'], 'imaging' => $sums['imaging'], 'procedure' => $sums['procedure'], 'drafts' => $drafts),
+            'trend' => array('labels' => $labels, 'data' => $series),
+        ));
+        break;
+
     /* ==================== 医生关联科室 ==================== */
     case 'depts':
         $ids = doctor_dept_ids($u);

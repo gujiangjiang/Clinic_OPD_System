@@ -51,20 +51,26 @@ class Router {
         '/admin/analytics'   => array('admin/analytics.php',    array('admin')),
         // ===== 挂号收费处 =====
         '/cashier/register'  => array('cashier/register.php',   array('cashier')),
+        '/cashier/home'      => array('cashier/home.php',       array('cashier')),
         '/cashier/regmanage' => array('cashier/regmanage.php',  array('cashier')),
         '/cashier/paymanage' => array('cashier/paymanage.php',  array('cashier')),
         // ===== 医生工作站 =====
         '/doctor/dashboard'  => array('doctor/dashboard.php',   array('doctor')),
+        '/doctor/home'       => array('doctor/home.php',        array('doctor')),
         '/doctor/emr'        => array('doctor/emr.php',         array('doctor')),
         '/doctor/call'       => array('doctor/call.php',        array('doctor')),
         // ===== 护士站 =====
         '/nurse/dashboard'   => array('nurse/dashboard.php',    array('nurse')),
+        '/nurse/home'        => array('nurse/home.php',         array('nurse')),
         // ===== 检验科 =====
         '/lab/dashboard'     => array('lab/dashboard.php',      array('lab')),
+        '/lab/home'          => array('lab/home.php',           array('lab')),
         // ===== 影像科 =====
         '/imaging/dashboard' => array('imaging/dashboard.php',  array('imaging')),
+        '/imaging/home'      => array('imaging/home.php',       array('imaging')),
         // ===== 药房 =====
         '/pharmacy/dashboard'=> array('pharmacy/dashboard.php', array('pharmacy')),
+        '/pharmacy/home'     => array('pharmacy/home.php',      array('pharmacy')),
     );
 
     /** 匹配路由（支持最长前缀） */

@@ -49,6 +49,27 @@ function dept_used_count($deptId, $session) {
 
 switch ($action) {
 
+    /* ==================== 收费处首页统计 ==================== */
+    case 'home_stats':
+        $today = date('Y-m-d');
+        $regToday = (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE date(register_time)=?", array($today));
+        $regFeeToday = (float)DB::val('order', "SELECT COALESCE(SUM(total),0) FROM payments WHERE kind='visit' AND date(created_at)=?", array($today));
+        $paidToday = (float)DB::val('order', "SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($today));
+        $refundToday = (float)DB::val('order', "SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status='refunded' AND date(refunded_at)=?", array($today));
+        $waiting = (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE status='paid' AND date(register_time)=?", array($today));
+        $labels = array(); $series = array();
+        for ($i = 6; $i >= 0; $i--) {
+            $day = date('Y-m-d', strtotime("-$i days"));
+            $labels[] = substr($day, 5);
+            $series[] = (float)DB::val('order', "SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($day));
+        }
+        json_ok(array(
+            'kpi' => array('reg_today' => $regToday, 'reg_fee' => round($regFeeToday, 2), 'paid_today' => round($paidToday, 2),
+                'refund_today' => round($refundToday, 2), 'waiting' => $waiting),
+            'trend' => array('labels' => $labels, 'data' => $series),
+        ));
+        break;
+
     /* ==================== 可挂科室及号源 ====================
      * all=1：返回全部科室（挂号页右侧「今日号源」纯展示用，
      *        不随身份证有无动态过滤——动态过滤仅用于挂号弹窗）

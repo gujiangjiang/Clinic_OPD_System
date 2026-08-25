@@ -34,20 +34,24 @@ class Layout {
             );
         } elseif ($role === 'cashier') {
             $items['挂号收费'] = array(
+                array('首页', '🏠', '/cashier/home'),
                 array('挂号收费', '🎫', '/cashier/register'),
                 array('挂号管理', '📋', '/cashier/regmanage'),
                 array('缴费与退费', '💳', '/cashier/paymanage'),
             );
         } elseif ($role === 'doctor') {
             $items['医生工作站'] = array(
+                array('首页', '🏠', '/doctor/home'),
                 array('医生工作站', '🩺', '/doctor/dashboard'),
             );
         } elseif ($role === 'nurse') {
             $items['护士站'] = array(
+                array('首页', '🏠', '/nurse/home'),
                 array('护士工作站', '💉', '/nurse/dashboard'),
             );
         } elseif ($role === 'lab') {
             $items['检验科'] = array(
+                array('首页', '🏠', '/lab/home'),
                 array('检验科工作台', '🧪', '/lab/dashboard'),
             );
             $items['管理'] = array(
@@ -55,6 +59,7 @@ class Layout {
             );
         } elseif ($role === 'imaging') {
             $items['影像科'] = array(
+                array('首页', '🏠', '/imaging/home'),
                 array('影像科工作台', '🩻', '/imaging/dashboard'),
             );
             $items['管理'] = array(
@@ -62,6 +67,7 @@ class Layout {
             );
         } elseif ($role === 'pharmacy') {
             $items['药房'] = array(
+                array('首页', '🏠', '/pharmacy/home'),
                 array('药房工作台', '💊', '/pharmacy/dashboard'),
             );
             $items['管理'] = array(

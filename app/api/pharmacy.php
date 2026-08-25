@@ -15,6 +15,28 @@ $u = Auth::user();
 
 switch ($action) {
 
+    /* ==================== 药房首页统计 ==================== */
+    case 'home_stats':
+        $today = date('Y-m-d');
+        $todayDisp = (int)DB::val('order', "SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='dispensed' AND date(executed_at)=?", array($today));
+        $todayFee = (float)DB::val('order', "SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type='prescription' AND status='dispensed' AND date(paid_at)=?", array($today));
+        $pendingRx = (int)DB::val('order', "SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='paid'", array());
+        $drugTotal = (int)DB::val('drug', "SELECT COUNT(*) FROM drugs WHERE status='approved'", array());
+        $lowStock = (int)DB::val('drug', "SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty<=50", array());
+        $pendingAudit = (int)DB::val('drug', "SELECT COUNT(*) FROM drugs WHERE status='pending'", array());
+        $labels = array(); $series = array();
+        for ($i = 6; $i >= 0; $i--) {
+            $day = date('Y-m-d', strtotime("-$i days"));
+            $labels[] = substr($day, 5);
+            $series[] = (int)DB::val('order', "SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='dispensed' AND date(executed_at)=?", array($day));
+        }
+        json_ok(array(
+            'kpi' => array('today_disp' => $todayDisp, 'today_fee' => round($todayFee, 2), 'pending_rx' => $pendingRx,
+                'drug_total' => $drugTotal, 'low_stock' => $lowStock, 'pending_audit' => $pendingAudit),
+            'trend' => array('labels' => $labels, 'data' => $series),
+        ));
+        break;
+
     /* ==================== 发药队列（待发药 / 发药完成，需求20） ==================== */
     case 'queue':
         // 说明：orders 与 order_items 同库可 JOIN；患者信息跨库按 patient_no 逐条补充

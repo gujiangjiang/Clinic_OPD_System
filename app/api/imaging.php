@@ -14,6 +14,28 @@ $u = Auth::user();
 
 switch ($action) {
 
+    /* ==================== 影像科首页统计 ==================== */
+    case 'home_stats':
+        $today = date('Y-m-d');
+        $todayItems = (int)DB::val('order', "SELECT COUNT(*) FROM order_items WHERE item_type='imaging' AND date(created_at)=?", array($today));
+        $todayFee = (float)DB::val('order', "SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type='imaging' AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($today));
+        $pendingReg = (int)DB::val('order', "SELECT COUNT(*) FROM order_items WHERE item_type='imaging' AND status='paid'", array());
+        $pendingRep = (int)DB::val('order', "SELECT COUNT(*) FROM order_items WHERE item_type='imaging' AND status='registered'", array());
+        $itemTotal = (int)DB::val('lab', "SELECT COUNT(*) FROM exam_items WHERE status='approved'", array());
+        $pendingAudit = (int)DB::val('lab', "SELECT COUNT(*) FROM exam_items WHERE status='pending'", array());
+        $labels = array(); $series = array();
+        for ($i = 6; $i >= 0; $i--) {
+            $day = date('Y-m-d', strtotime("-$i days"));
+            $labels[] = substr($day, 5);
+            $series[] = (int)DB::val('order', "SELECT COUNT(*) FROM order_items WHERE item_type='imaging' AND date(created_at)=?", array($day));
+        }
+        json_ok(array(
+            'kpi' => array('today_items' => $todayItems, 'today_fee' => round($todayFee, 2),
+                'pending_reg' => $pendingReg, 'pending_rep' => $pendingRep, 'item_total' => $itemTotal, 'pending_audit' => $pendingAudit),
+            'trend' => array('labels' => $labels, 'data' => $series),
+        ));
+        break;
+
     /* ==================== 队列列表（HTML） ==================== */
     case 'queue':
         $status = get('status', 'paid');
