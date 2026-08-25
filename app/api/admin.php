@@ -72,6 +72,11 @@ switch ($action) {
     case 'lab_group_form':
     case 'lab_group_save':
     case 'lab_group_delete':
+    case 'lab_groups':
+    case 'lab_group_get':
+    case 'lab_group_candidates':
+    case 'lab_group_add_item':
+    case 'lab_group_remove_item':
         admin_part_item($action);
         break;
 

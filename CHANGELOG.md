@@ -13,6 +13,19 @@
 
 ---
 
+## [2.10.1] - 2026-08-25
+
+### 修复
+
+- **检验组合管理报「未知操作」**：新增的组合 API（lab_groups / lab_group_get /
+  lab_group_candidates / lab_group_add_item / lab_group_remove_item）
+  未在 admin.php 注册路由，已补全。
+- **检验主列表只显示独立项**：改为展示全部检验项目（`is_group=0` 的所有单项，
+  含已加入组合的成员），是否成组与本列表无关。
+
+---
+---
+
 ## [2.10.0] - 2026-08-25
 
 ### 新增

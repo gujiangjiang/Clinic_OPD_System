@@ -22,9 +22,11 @@ function admin_part_item($action) {
         $type = get('type', 'lab');
         $table = $type === 'lab' ? 'lab_items' : 'exam_items';
         if ($type === 'lab') {
-            // ===== 检验项目管理：主列表仅展示全部「独立单项」（不含组合、不含组内成员） =====
-            $singles = DB::q('lab', "SELECT * FROM lab_items WHERE is_group=0 AND parent_id=0 ORDER BY category, id");
-            $html = '<div class="fs-13 text-muted mb-8" id="labCountDiv">检验项目共 ' . count($singles) . ' 项（组合项目请在「检验组合管理」中维护）</div>';
+            // ===== 检验项目管理：主列表展示「全部检验项目」——所有单项
+            // （含已加入组合的成员），是否成组与本列表无关；组合本体在
+            // 「检验组合管理」中维护 =====
+            $singles = DB::q('lab', "SELECT * FROM lab_items WHERE is_group=0 ORDER BY category, id");
+            $html = '<div class="fs-13 text-muted mb-8" id="labCountDiv">检验项目共 ' . count($singles) . ' 项（全部单项，含已加入组合的成员；组合本体请在「检验组合管理」中维护）</div>';
             if (!$singles) {
                 $html .= '<div class="empty">暂无检验项目，请先添加</div>';
             } else {
