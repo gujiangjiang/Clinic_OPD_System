@@ -40,6 +40,16 @@ function applyLabFilter() {
     });
     var cnt = document.getElementById('labCountDiv'); if (cnt) cnt.textContent = LAB_CAT === '' ? (q ? '检验项目 ' + n + ' 项' : '检验项目共 ' + n + ' 项') : '检验项目（' + LAB_CAT + '）' + (q ? n + ' 项' : '共 ' + n + ' 项');
 }
+function buildLabCats() {
+    var cats = [];
+    document.querySelectorAll('#itemList tbody tr').forEach(function (tr) {
+        var c = tr.getAttribute('data-cat') || '';
+        if (c && cats.indexOf(c) === -1) cats.push(c);
+    });
+    var bar = document.getElementById('labCatTabs');
+    bar.innerHTML = '<button class="btn btn-sm ' + (LAB_CAT === '' ? 'btn-primary' : 'btn-outline') + '" data-cat="" onclick="labCatFilter(this,\'\')">全部</button>' +
+        cats.map(function (c) { return '<button class="btn btn-sm ' + (LAB_CAT === c ? 'btn-primary' : 'btn-outline') + '" data-cat="' + c + '" onclick="labCatFilter(this,\'' + c + '\')">' + c + '</button>'; }).join('');
+}
 Clinic.importer._reloads['lab'] = loadItemList;
 Clinic.importer.attach('lab', 'impBtns', '检验项目');
 function loadItemList() { Clinic.get('/api/admin?action=item_list&type=lab', null, { onSuccess: function (j) { document.getElementById('itemList').innerHTML = j.data.html; buildLabCats(); applyLabFilter(); } }); }
@@ -102,7 +112,7 @@ function selectCombo(id) {
             '  <div class="form-group"><label>组合价格</label><input class="input" type="number" step="0.01" id="cgPrice" value="' + parseFloat(CUR_COMBO.price).toFixed(2) + '"></div>' +
             '  <div class="form-group"><label>分类</label><input class="input" id="cgCat" value="' + jsE(CUR_COMBO.category || '') + '"></div></div>' +
             '  <div class="flex gap-4 mt-4"><button class="btn btn-primary btn-sm" onclick="saveComboInfo()">💾 保存组合</button>' +
-            '  <button class="btn btn-outline btn-sm" onclick="delCombo(' + CUR_COMBO.id + ')">🗑 删除组合</button></div>' +
+            '  <button class="btn btn-danger btn-sm" onclick="delCombo(' + CUR_COMBO.id + ')">🗑 删除组合</button></div>' +
             '</div>' +
             '<div class="combo-right-body">' +
             '  <button class="btn btn-sm btn-outline" onclick="showAddItemPop()">＋ 添加项目</button>' +
@@ -130,7 +140,7 @@ function saveComboInfo() {
 }
 function newComboPop() {
     var pop = document.createElement('div');
-    pop.id = 'newComboPop'; pop.className = 'finish-pop'; pop.style.cssText = 'width:280px;position:fixed;z-index:310';
+    pop.id = 'newComboPop'; pop.className = 'finish-pop'; pop.style.cssText = 'width:280px;position:fixed;z-index:3200';
     pop.innerHTML = '<div class="fs-13 fw-700 mb-8">新增检验组合</div>' +
         '<div class="form-group"><label>组合名称</label><input class="input" id="ncName" placeholder="如：肝功能十项"></div>' +
         '<div class="form-row"><div class="form-group"><label>组合价格</label><input class="input" type="number" step="0.01" id="ncPrice"></div>' +
@@ -186,7 +196,7 @@ function showAddItemPop() {
         return !used;
     });
     var pop = document.createElement('div');
-    pop.id = 'addItemPop'; pop.className = 'finish-pop'; pop.style.cssText = 'width:320px;position:fixed;z-index:310;max-height:360px;overflow-y:auto';
+    pop.id = 'addItemPop'; pop.className = 'finish-pop'; pop.style.cssText = 'width:320px;position:fixed;z-index:3200;max-height:360px;overflow-y:auto';
     pop.innerHTML =
         '<div class="fs-13 fw-700 mb-8">添加项目到组合</div>' +
         '<input class="input" id="aiSearch" placeholder="🔍 搜索项目" autocomplete="off" oninput="filterAICands()">' +

@@ -34,9 +34,9 @@ function buildExamCats() {
         if (c && cats.indexOf(c) === -1) cats.push(c);
     });
     var bar = document.getElementById('examCatTabs');
-    bar.innerHTML = '<button class="btn btn-sm ' + (EXAM_CAT === '' ? 'btn-primary' : 'btn-outline') + '" onclick="examCatFilter(this,\'\')">全部</button>' +
+    bar.innerHTML = '<button class="btn btn-sm ' + (EXAM_CAT === '' ? 'btn-primary' : 'btn-outline') + '" data-cat="" onclick="examCatFilter(this,\'\')">全部</button>' +
         cats.map(function (c) {
-            return '<button class="btn btn-sm ' + (EXAM_CAT === c ? 'btn-primary' : 'btn-outline') + '" onclick="examCatFilter(this,\'' + c + '\')">' + c + '</button>';
+            return '<button class="btn btn-sm ' + (EXAM_CAT === c ? 'btn-primary' : 'btn-outline') + '" data-cat="' + c + '" onclick="examCatFilter(this,\'' + c + '\')">' + c + '</button>';
         }).join('');
 }
 function examCatFilter(btn, c) {
