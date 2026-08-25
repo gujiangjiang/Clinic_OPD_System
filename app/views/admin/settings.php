@@ -56,14 +56,21 @@ foreach ($commonTz as $t) {
     <!-- ===== 品牌外观 ===== -->
     <div class="card setting-card">
         <div class="card-title">🎨 品牌外观</div>
-        <div class="fs-13 text-muted mb-8">上传医院 LOGO，将作为登录页 / 系统侧边栏 / 浏览器图标（favicon）展示。</div>
-        <?php if ($logoData !== ''): ?>
-            <div class="mb-12"><img src="<?php echo e($logoData); ?>" style="height:72px;border-radius:10px;background:var(--bg-soft);padding:6px" alt="LOGO"></div>
-        <?php else: ?>
-            <div class="fs-13 text-muted mb-12">尚未上传 LOGO，网站将不显示 LOGO 与 favicon。</div>
-        <?php endif; ?>
-        <div class="form-group"><input type="file" class="input" id="s_logo" accept="image/*"></div>
-        <button class="btn btn-outline" onclick="uploadLogo()">上传 / 更新 LOGO</button>
+        <div class="flex gap-16" style="align-items:center">
+            <div class="fs-13 text-muted" style="flex:1;line-height:1.8">上传医院 LOGO，将作为登录页 / 系统侧边栏 / 浏览器图标（favicon）展示。<br>尚未上传 LOGO，网站将不显示 LOGO 与 favicon。</div>
+            <div style="flex-shrink:0;text-align:center">
+                <div class="logo-uploader" onclick="document.getElementById('s_logo').click()" title="点击更换 LOGO">
+                    <?php if ($logoData !== ''): ?>
+                        <img src="<?php echo e($logoData); ?>" alt="LOGO">
+                    <?php else: ?>
+                        <span class="logo-placeholder">🏥</span>
+                    <?php endif; ?>
+                    <span class="logo-upload-badge">📷</span>
+                </div>
+                <div class="fs-12 text-muted mt-4">点击更换</div>
+            </div>
+        </div>
+        <input type="file" id="s_logo" accept="image/*" style="display:none" onchange="uploadLogo()">
     </div>
 
     <!-- ===== 作息时间 ===== -->

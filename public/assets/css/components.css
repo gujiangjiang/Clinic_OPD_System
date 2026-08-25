@@ -366,6 +366,39 @@
 .dp-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; max-height: 160px; overflow-y: auto; }
 .dp-day { padding: 4px 2px; font-size: 12px; text-align: center; cursor: pointer; border-radius: 5px; }
 .dp-day:hover { background: var(--primary-soft, #cffafe); color: var(--primary); }
+
+/* 医院 LOGO 上传器（点击弹出文件选择，自动上传刷新） */
+.logo-uploader {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    border-radius: 14px;
+    border: 1px dashed var(--border);
+    background: var(--bg-soft, #f1f5f9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color .15s, transform .15s;
+}
+.logo-uploader:hover { border-color: var(--primary); transform: scale(1.03); }
+.logo-uploader img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+.logo-placeholder { font-size: 44px; line-height: 1; }
+.logo-upload-badge {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--primary, #0e7490);
+    font-size: 11px;
+    line-height: 1;
+}
 .stat-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
