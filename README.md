@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v2.12.17-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2F预留MySQL-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v2.13.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2F预留MySQL-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -78,7 +78,8 @@
 │   ├── assets/
 │   │   ├── css/               # 样式拆分：base / components / modal / layout / dark / print / auth / landing
 │   │   └── js/components/     # 组件拆分：ajax / modal / print / theme / notify / selector /
-│   │                          #           validation / datetime / order / editor / emr / patient / ui / toast / app
+│   │                          #           validation / datetime / order / editor / emr / queuepanel /
+│   │                          #           patient / ui / toast / app
 │   └── uploads/               # 上传文件：logo/、user/{角色}/——运行时生成，不提交
 ├── app/                       # 业务代码（Web 无法访问）
 │   ├── config/
