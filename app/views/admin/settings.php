@@ -103,9 +103,45 @@ foreach ($commonTz as $t) {
 /* ---------- 作息时间设置模态框（含夏令时作息） ---------- */
 var WS = <?php echo json_encode($ws); ?>;
 
+/* 快捷时间选择：输入框 + ▾ 弹层点选常用时段（可手动输入覆盖） */
 function timeInput(id, label, val) {
     return '<div class="form-group"><label class="form-label">' + label + '</label>' +
-        '<input type="time" class="input" id="' + id + '" value="' + (val || '') + '"></div>';
+        '<div class="tp-wrap"><input type="time" class="input" id="' + id + '" value="' + (val || '') + '">' +
+        '<button type="button" class="tp-btn" title="快捷选择时间" onclick="toggleTimePick(this,\'' + id + '\')">▾</button></div></div>';
+}
+function toggleTimePick(btn, id) {
+    var old = document.getElementById('tpPop');
+    if (old && old.getAttribute('data-target') === id) { old.remove(); return; }
+    if (old) old.remove();
+    var pop = document.createElement('div');
+    pop.id = 'tpPop';
+    pop.setAttribute('data-target', id);
+    pop.className = 'tp-pop';
+    var opts = [];
+    for (var h = 6; h <= 23; h++) {
+        opts.push(('0' + h).slice(-2) + ':00', ('0' + h).slice(-2) + ':30');
+    }
+    pop.innerHTML = opts.map(function (t) {
+        return '<div class="tp-item" data-t="' + t + '">' + t + '</div>';
+    }).join('');
+    document.body.appendChild(pop);
+    var rect = btn.getBoundingClientRect();
+    pop.style.top = Math.min(rect.bottom + 6, window.innerHeight - 260) + 'px';
+    pop.style.left = Math.min(rect.left, window.innerWidth - 150) + 'px';
+    pop.querySelectorAll('.tp-item').forEach(function (it) {
+        it.addEventListener('click', function () {
+            document.getElementById(id).value = it.getAttribute('data-t');
+            pop.remove();
+        });
+    });
+    setTimeout(function () {
+        document.addEventListener('mousedown', function h(e) {
+            if (!pop.contains(e.target) && e.target !== btn) {
+                pop.remove();
+                document.removeEventListener('mousedown', h);
+            }
+        });
+    }, 0);
 }
 
 function openWorkModal() {
