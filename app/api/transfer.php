@@ -18,7 +18,7 @@ switch ($action) {
     /* ==================== 可选目标科室 ==================== */
     case 'targets':
         $deptId = (int)get('dept_id', 0);
-        $list = DB::q('dept', "SELECT * FROM departments WHERE status=1 AND id<>? ORDER BY type DESC, sort, id", array($deptId));
+        $list = DB::q('dept', "SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id<>? ORDER BY type DESC, sort, id", array($deptId));
         json_ok(array('list' => array_map(function ($d) {
             // type：急诊/门诊 Tab 分类（与通用科室选择弹窗约定一致）
             return array('id' => (int)$d['id'], 'name' => $d['name'], 'type' => $d['type']);

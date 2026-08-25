@@ -70,7 +70,7 @@ switch ($action) {
         $curDeptId = $curRow ? (int)$curRow['current_dept_id'] : 0;
         if ($ids) {
             $ph = implode(',', array_fill(0, count($ids), '?'));
-            $list = DB::q('dept', "SELECT * FROM departments WHERE status=1 AND id IN ($ph) ORDER BY sort, id", $ids);
+            $list = DB::q('dept', "SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id", $ids);
         } else {
             $list = array();
         }

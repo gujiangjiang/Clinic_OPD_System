@@ -81,7 +81,7 @@ switch ($action) {
         $ws = work_session_now();
         $bookable = in_array($ws, array('am', 'pm'), true);
         $session = $ws === 'pm' ? 'pm' : 'am'; // 非可挂时段展示上午号量供参考
-        $depts = DB::q('dept', "SELECT * FROM departments WHERE status=1 ORDER BY type DESC, sort, id");
+        $depts = DB::q('dept', "SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') ORDER BY type DESC, sort, id");
         $list = array();
         foreach ($depts as $d) {
             // 无身份证仅显示急诊科室（all=1 时不过滤，供号源总览展示）

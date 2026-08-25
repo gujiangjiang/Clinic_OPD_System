@@ -61,7 +61,7 @@ Clinic.deptPicker = (function () {
                 extra = '<div class="dept-pick-tags"><span class="badge badge-success">余 ' + d.remaining + ' 号</span></div>' +
                     '<div class="dept-pick-sub">挂号费 ¥' + d.fee.toFixed(2) + '</div>';
             }
-        } else if (mode === 'select') {
+        } else if (mode === 'select' || mode === 'call') {
             // 大屏统计模式（叫号大屏选择科室用）：只显示 🖥️ 在线/总数，不显示 门诊/急诊 徽章
             if (opts.showRoomStats) {
                 if (typeof d.room_count === 'number' && d.room_count > 0) {
@@ -119,14 +119,19 @@ Clinic.deptPicker = (function () {
                 else if (schedule.state === 'after') window.__deptPickStateText = '已下班';
                 else if (schedule.state === 'before') window.__deptPickStateText = '未开放';
             }
-            var byType = { emergency: [], clinic: [] };
+            var byType = { emergency: [], clinic: [], tech: [], other: [] };
             (list || []).forEach(function (d) {
-                var t = d.type === 'emergency' ? 'emergency' : 'clinic';
-                byType[t].push(d);
+                var t = d.type;
+                if (t === 'emergency' || t === 'tech' || t === 'other') byType[t].push(d);
+                else byType.clinic.push(d);   // 未知类型归门诊
             });
 
             // 无身份证挂号：仅急诊可用，门诊 Tab 置灰提示
             var lockClinic = (opts.mode === 'register' && opts.noIdCard);
+
+            // 叫号大屏（call）显示 急诊/门诊/医技/其他 四个 Tab；
+            // 医生站/挂号/转科等仅急诊/门诊，医技/其他科室自动过滤不渲染
+            var tabKeys = (opts.mode === 'call') ? ['emergency', 'clinic', 'tech', 'other'] : ['emergency', 'clinic'];
 
             function tabHtml(key, label, count) {
                 var disabled = key === 'clinic' && lockClinic;
@@ -135,18 +140,25 @@ Clinic.deptPicker = (function () {
                     label + ' <span class="dept-tab-count">' + count + '</span></button>';
             }
 
+            var tabDefs = {
+                emergency: ['🚑 急诊', byType.emergency.length],
+                clinic: ['🏥 门诊', byType.clinic.length],
+                tech: ['🧪 医技', byType.tech.length],
+                other: ['📦 其他', byType.other.length],
+            };
+            var emptyText = { emergency: '暂无急诊科室', clinic: '暂无门诊科室', tech: '暂无医技科室', other: '暂无其他科室' };
+
             var tabs =
                 '<div class="dept-tabs">' +
-                tabHtml('emergency', '🚑 急诊', byType.emergency.length) +
-                tabHtml('clinic', '🏥 门诊', byType.clinic.length) +
+                tabKeys.map(function (k) { return tabHtml(k, tabDefs[k][0], tabDefs[k][1]); }).join('') +
                 '</div>' +
                 (lockClinic ? '<div class="fs-12 text-warning mb-8">⚠️ 未填写身份证号码时仅可挂急诊科室（自费）；填写身份证后可挂全部门诊科室</div>' : '');
 
-            var grids = ['emergency', 'clinic'].map(function (key) {
+            var grids = tabKeys.map(function (key) {
                 var cards = byType[key].map(function (d) { return cardHtml(d, opts, key); }).join('');
                 if (!cards) {
                     cards = '<div class="text-muted fs-13" style="grid-column:1/-1;padding:18px 0;text-align:center">' +
-                        (key === 'emergency' ? '暂无急诊科室' : '暂无门诊科室') + '</div>';
+                        (emptyText[key] || '暂无科室') + '</div>';
                 }
                 return '<div class="dept-tab-panel" data-panel="' + key + '" style="display:none">' +
                     '<div class="dept-pick-grid">' + cards + '</div></div>';

@@ -29,7 +29,10 @@ function admin_part_dept($action) {
             foreach ($rows as $r) {
                 $html .= '<tr data-type="' . e($r['type']) . '">' .
                     '<td class="fw-600">' . e($r['name']) . '</td>' .
-                    '<td>' . ($r['type'] === 'emergency' ? '<span class="badge badge-danger">急诊</span>' : '<span class="badge badge-primary">门诊</span>') . '</td>' .
+                    '<td>' . ($r['type'] === 'emergency' ? '<span class="badge badge-danger">急诊</span>'
+                        : ($r['type'] === 'tech' ? '<span class="badge badge-primary">医技</span>'
+                        : ($r['type'] === 'other' ? '<span class="badge badge-warning">其他</span>'
+                        : '<span class="badge badge-primary">门诊</span>'))) . '</td>' .
                     '<td>¥' . money($r['fee']) . '</td>' .
                     '<td>' . ($r['type'] === 'clinic' ? (int)$r['am_quota'] : '—') . '</td>' .
                     '<td>' . ($r['type'] === 'clinic' ? (int)$r['pm_quota'] : '—') . '</td>' .

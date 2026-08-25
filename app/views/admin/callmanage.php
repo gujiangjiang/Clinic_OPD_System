@@ -53,10 +53,11 @@ var CM_TIMER = null;
 /* 科室选择模态框（复用通用组件） */
 function openDeptPicker() {
     Clinic.deptPicker.open({
-        mode: 'select',
+        mode: 'call',
         depts: CM_DEPS,
         currentId: CM_DEPT,
-        // 叫号大屏场景：只显示大屏统计（🖥️ 在线/总数），不显示 门诊/急诊 徽章
+        // 叫号大屏场景：只显示大屏统计（🖥️ 在线/总数），不显示 门诊/急诊 徽章；
+        // 含 急诊/门诊/医技/其他 四个 Tab
         showRoomStats: true,
         onSelect: function (d) { pickDept(d.id); },
     });
