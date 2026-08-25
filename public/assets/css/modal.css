@@ -281,7 +281,7 @@
 .combo-right-head { flex-shrink: 0; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
 .combo-right-head .form-label { font-size: 12px; margin-bottom: 2px; }
 .combo-right-bar { flex-shrink: 0; padding: 10px 0 6px; border-bottom: 1px solid var(--border); }
-.combo-right-body { flex: 1; min-height: 0; overflow-y: auto; padding-top: 8px; }
+.combo-right-body { flex: 1; min-height: 0; overflow-y: auto; padding-top: 0; }
 .combo-member-row {
     display: flex;
     align-items: center;
@@ -292,9 +292,17 @@
 }
 /* 成员表格固定列宽：切换组合时各列空间保持稳定 */
 .combo-member-table { table-layout: fixed; }
-.combo-member-table thead th { position: sticky; top: 0; background: var(--bg-card); z-index: 1; }
-.combo-right-body { overflow-y: auto; }
-.combo-right-body .table-wrap { max-height: none; }
+.combo-member-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--bg-card);
+    z-index: 1;
+    box-shadow: inset 0 -1px 0 var(--border);
+}
+/* 关键：内层 table-wrap 必须非滚动容器（overflow:visible），
+   否则 sticky 表头会相对它（不滚动）定位而失效；
+   实际滚动由外层 .combo-right-body 承担 */
+.combo-right-body .table-wrap { overflow: visible; max-height: none; }
 .combo-member-table thead th {
     position: sticky;
     top: 0;
