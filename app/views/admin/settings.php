@@ -28,8 +28,8 @@ foreach ($commonTz as $t) {
 
 <div class="setting-grid">
 
-    <!-- ===== 医院信息 ===== -->
-    <div class="card setting-card">
+    <!-- ===== 医院信息（跨两列） ===== -->
+    <div class="card setting-card setting-colspan-2">
         <div class="card-title">🏥 医院信息</div>
         <div class="form-group"><label class="form-label">医院名称 <span class="req">*</span></label>
             <input class="input" id="s_hosp" value="<?php echo e(setting('hospital_name')); ?>"></div>
@@ -38,14 +38,19 @@ foreach ($commonTz as $t) {
         <div class="form-group"><label class="form-label">网站时区</label>
             <select class="select" id="s_tz"><?php echo $tzOpts; ?></select></div>
         <div class="fs-12 text-muted mb-12">页脚版权信息为固定格式，自动显示为【© <?php echo date('Y'); ?> <?php echo e(setting('hospital_name')); ?> 版权所有】。</div>
-        <div class="setting-sec-title">🔌 接口设置</div>
-        <div class="form-group"><label class="form-label">HIS 预留接口密钥（留空则关闭外部接口）</label>
+        <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+    </div>
+
+    <!-- ===== HIS 接口信息 ===== -->
+    <div class="card setting-card">
+        <div class="card-title">🔌 HIS 接口信息</div>
+        <div class="form-group"><label class="form-label">预留接口密钥（留空则关闭外部接口）</label>
             <div class="flex gap-8">
                 <input class="input" id="s_his_key" value="<?php echo e(setting('his_api_key')); ?>" placeholder="留空 = 关闭 HIS 外部接口" style="font-family:monospace">
                 <button class="btn btn-outline btn-sm" onclick="genHisKey()">生成密钥</button>
             </div>
             <div class="fs-12 text-muted mt-4">接口地址：/api/his（GET，携带 api_key 参数或 X-HIS-Key 请求头），仅提供只读查询。</div></div>
-        <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+        <button class="btn btn-primary btn-sm" onclick="saveSettings()">保存</button>
     </div>
 
     <!-- ===== 品牌外观 ===== -->
@@ -82,7 +87,7 @@ foreach ($commonTz as $t) {
     <!-- ===== 安全设置 ===== -->
     <div class="card setting-card">
         <div class="card-title">🔐 安全设置</div>
-        <div class="setting-sec-title">URL 安全混淆密钥（防链接撞库）</div>
+        <div class="setting-sec-title" style="margin-top:0;padding-top:0;border-top:none">URL 安全混淆密钥（防链接撞库）</div>
         <div class="fs-13 text-muted mb-8">用于加密就诊、申请单、报告等链接中的实体 ID，防止通过改数字遍历他人医疗数据。</div>
         <div class="fs-12 mb-8" style="font-family:monospace;word-break:break-all;background:var(--bg-soft);border-radius:8px;padding:10px" id="obf_secret">加载中…</div>
         <div class="flex gap-8">
@@ -90,13 +95,6 @@ foreach ($commonTz as $t) {
             <button class="btn btn-outline btn-sm" onclick="copyObfSecret()">复制</button>
         </div>
         <div class="fs-12 text-warning mt-8">⚠️ 重置后：此前生成/分享/收藏的所有带 ID 链接立即失效；系统功能不受影响（新链接按新密钥即时生成）。建议在怀疑链接泄露时重置。</div>
-    </div>
-
-    <!-- ===== 账号安全 ===== -->
-    <div class="card setting-card">
-        <div class="card-title">👤 账号安全</div>
-        <div class="fs-13 text-muted mb-8">修改当前登录管理员账号的登录密码。</div>
-        <a class="btn btn-warning btn-sm" href="/password">前往修改密码</a>
     </div>
 
 </div>

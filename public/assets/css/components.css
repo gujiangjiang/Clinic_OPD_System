@@ -305,8 +305,10 @@
     gap: 16px;
     align-items: start;
 }
+.setting-colspan-2 { grid-column: 1 / -1; }
 @media (max-width: 900px) {
     .setting-grid { grid-template-columns: 1fr; }
+    .setting-colspan-2 { grid-column: auto; }
 }
 .setting-card .card-title { margin-bottom: 10px; }
 .setting-sec-title {
