@@ -78,14 +78,14 @@
 }
 .input:disabled, .select:disabled { background: var(--bg-soft); color: var(--text-muted); }
 .textarea { min-height: 80px; resize: vertical; }
-/* 输入框 / 下拉框高度统一（36px），避免同行控件高度不一致；textarea 保持自动高度不受影响 */
+/* 输入框 / 下拉框高度统一（42px，更大气美观） */
 .input, .select {
-    height: 36px;
+    height: 42px;
 }
 /* 文件选择按钮统一样式（导入 CSV / 安装页 LOGO 等） */
 input[type="file"] {
     width: 100%;
-    padding: 6px 10px;
+    padding: 5px 5px;
     font-size: 13px;
     color: var(--text);
     background: var(--bg-card);
@@ -129,11 +129,22 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
 }
 
 /* ---------- 表格 ---------- */
-.table-wrap { overflow-x: auto; }
+.table-wrap {
+    overflow: auto;
+    max-height: 60vh;
+    border-radius: var(--radius-sm);
+}
 .table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: 13.5px;
+}
+.table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--bg-card);
+    z-index: 1;
 }
 .table th {
     text-align: left;

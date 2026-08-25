@@ -95,3 +95,10 @@ ul, ol { list-style: none; }
 .cursor-pointer { cursor: pointer; }
 .hidden { display: none !important; }
 .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 滚动条美化：细条 + 半透明，悬停加深；不额外占用空间（overlay 风格） */
+* { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,.22) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,.18); border-radius: 4px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,.36); }
