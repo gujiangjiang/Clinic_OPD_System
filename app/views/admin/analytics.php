@@ -55,7 +55,7 @@ $depts = DB::q('dept', 'SELECT id, name FROM departments WHERE status=1 ORDER BY
                 <button class="btn btn-outline btn-sm" data-disp="死亡" onclick="dispFilter('死亡')">死亡</button>
                 <button class="btn btn-outline btn-sm" data-disp="其他" onclick="dispFilter('其他')">其他</button>
             </div>
-            <input class="input" placeholder="🔍 搜索患者姓名 / 门诊号 / 身份证号" style="width:240px" oninput="renderDispTable()">
+            <input class="input" id="dispSearch" placeholder="🔍 搜索患者姓名 / 门诊号 / 身份证号" style="width:240px" oninput="renderDispTable()">
         </div>
     </div>
     <div class="card">
@@ -92,7 +92,14 @@ $depts = DB::q('dept', 'SELECT id, name FROM departments WHERE status=1 ORDER BY
         <div id="chartDept"></div>
     </div>
     <div class="card" style="margin-top:16px">
-        <div style="margin-bottom:10px"><input class="input" placeholder="🔍 搜索科室" style="width:220px" oninput="renderDeptTable()"></div>
+        <div class="flex gap-8" style="align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <input class="input" id="deptSearch" placeholder="🔍 搜索科室" style="width:220px" oninput="renderDeptTable()">
+            <span class="flex gap-4" id="deptTypeTabs" style="flex-wrap:wrap">
+                <button class="btn btn-sm btn-primary" data-dtype="" onclick="deptTypeFilter(this,'')">全部</button>
+                <button class="btn btn-sm btn-outline" data-dtype="clinic" onclick="deptTypeFilter(this,'clinic')">门诊</button>
+                <button class="btn btn-sm btn-outline" data-dtype="emergency" onclick="deptTypeFilter(this,'emergency')">急诊</button>
+            </span>
+        </div>
         <div id="deptTable"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
     </div>
 </div>
@@ -109,7 +116,7 @@ $depts = DB::q('dept', 'SELECT id, name FROM departments WHERE status=1 ORDER BY
         <div class="flex gap-8" style="align-items:center;flex-wrap:wrap;margin-bottom:10px">
             <span class="fs-13 text-muted">科室筛选：</span>
             <select class="select" id="docDeptSel" onchange="loadDoctor()" style="width:auto"><option value="0">全部科室</option></select>
-            <input class="input" placeholder="🔍 搜索工号 / 姓名 / 职称" style="width:200px" oninput="renderDoctorTable()">
+            <input class="input" id="docSearch" placeholder="🔍 搜索工号 / 姓名 / 职称" style="width:200px" oninput="renderDoctorTable()">
         </div>
         <div id="doctorTable"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
     </div>
@@ -303,10 +310,22 @@ function loadDept(r) {
     });
 }
 var DEPT_ROWS = [];
+var DEPT_TYPE = '';
+function deptTypeFilter(btn, t) {
+    DEPT_TYPE = t;
+    document.querySelectorAll('#deptTypeTabs .btn').forEach(function (b) {
+        b.className = 'btn btn-sm ' + ((b.getAttribute('data-dtype') || '') === t ? 'btn-primary' : 'btn-outline');
+    });
+    renderDeptTable();
+}
 function renderDeptTable() {
     var q = (document.getElementById('deptSearch').value || '').trim().toLowerCase();
-    var rows = DEPT_ROWS.filter(function (x) { return !q || (x.dept_name || '').toLowerCase().indexOf(q) !== -1; });
-    var html = '<div class="fs-13 text-muted mb-8">' + (q ? rows.length + ' 个科室' : '共 ' + DEPT_ROWS.length + ' 个科室有运营数据') + '</div>';
+    var rows = DEPT_ROWS.filter(function (x) {
+        if (DEPT_TYPE !== '' && (x.dept_type || 'clinic') !== DEPT_TYPE) return false;
+        return !q || (x.dept_name || '').toLowerCase().indexOf(q) !== -1;
+    });
+    var html = '<div class="fs-13 text-muted mb-8">' +
+        (q ? rows.length + ' 个科室' : (DEPT_TYPE === '' ? '共 ' + DEPT_ROWS.length + ' 个科室有运营数据' : (DEPT_TYPE === 'clinic' ? '门诊科室共 ' + rows.length + ' 个有运营数据' : '急诊科室共 ' + rows.length + ' 个有运营数据'))) + '</div>';
     if (!rows.length) {
         html += '<div class="empty">' + (q ? '未找到匹配科室' : '该时间段暂无科室运营数据') + '</div>';
     } else {

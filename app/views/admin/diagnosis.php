@@ -14,8 +14,7 @@ Router::title('诊断管理');
 <div class="page-head">
     <div><div class="page-title">📖 诊断管理</div><div class="page-desc">ICD10 诊断码 / 诊断名称 / 拼音首字母检索维护（病历诊断联动数据源）</div></div>
     <div class="flex gap-8">
-        <input class="input" id="diagKw" placeholder="输入诊断码 / 名称 / 拼音首字母" style="width:240px" autocomplete="off">
-        <button class="btn btn-primary btn-sm" onclick="loadDiag()">查询</button>
+        <input class="input" id="diagKw" placeholder="🔍 输入诊断码 / 名称 / 拼音首字母（实时检索）" style="flex:1;min-width:220px" autocomplete="off" oninput="diagSearchDebounced()">
         <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openDiagForm(0)">＋ 新增诊断</button></div>
     </div>
 </div>
@@ -24,6 +23,12 @@ Router::title('诊断管理');
 <script>
 Clinic.importer._reloads['icd10'] = loadDiag;
 Clinic.importer.attach('icd10', 'impBtns', 'ICD10诊断');
+/* 实时检索（300ms 防抖） */
+var diagDebounce = null;
+function diagSearchDebounced() {
+    if (diagDebounce) clearTimeout(diagDebounce);
+    diagDebounce = setTimeout(loadDiag, 300);
+}
 function loadDiag() {
     var kw = document.getElementById('diagKw').value.trim();
     Clinic.get('/api/icd10?action=list&kw=' + encodeURIComponent(kw), null, {

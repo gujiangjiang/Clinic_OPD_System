@@ -21,7 +21,7 @@ function admin_part_disp($action) {
     /* ==================== 处置项目列表 ==================== */
     if ($action === 'disposal_list') {
         $rows = DB::q('disp', 'SELECT * FROM disposal_items ORDER BY id');
-        $html = '<div class="fs-13 text-muted mb-8">共 ' . count($rows) . ' 个处置项目</div>';
+        $html = '<div class="fs-13 text-muted mb-8" id="dispCountDiv">共 ' . count($rows) . ' 个处置项目</div>';
         if (!$rows) {
             $html .= '<div class="empty">暂无处置项目</div>';
         } else {

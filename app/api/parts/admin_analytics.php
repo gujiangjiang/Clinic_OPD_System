@@ -162,9 +162,13 @@ function admin_part_analytics($action) {
                 }
             }
         }
-        // 科室名
+        // 科室名与类型
         $deptNames = array();
-        foreach (DB::q('dept', 'SELECT id, name FROM departments') as $dd) $deptNames[(int)$dd['id']] = $dd['name'];
+        $deptType = array();
+        foreach (DB::q('dept', 'SELECT id, name, type FROM departments') as $dd) {
+            $deptNames[(int)$dd['id']] = $dd['name'];
+            $deptType[(int)$dd['id']] = (string)$dd['type'];
+        }
 
         $stat = array();
         $initRow = function () { return array('patients' => 0, 'reg_fee' => 0.0, 'drug' => 0.0, 'lab' => 0.0, 'imaging' => 0.0, 'procedure' => 0.0); };
@@ -186,6 +190,7 @@ function admin_part_analytics($action) {
         foreach ($stat as $d => $v) {
             $v['dept_id'] = $d;
             $v['dept_name'] = isset($deptNames[$d]) ? $deptNames[$d] : '未知科室';
+            $v['dept_type'] = isset($deptType[$d]) ? $deptType[$d] : 'clinic';
             $v['total'] = round($v['reg_fee'] + $v['drug'] + $v['lab'] + $v['imaging'] + $v['procedure'], 2);
             foreach (array('reg_fee', 'drug', 'lab', 'imaging', 'procedure') as $kk) $v[$kk] = round($v[$kk], 2);
             $rows[] = $v;

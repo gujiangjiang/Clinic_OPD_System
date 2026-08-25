@@ -15,12 +15,17 @@ Router::title('处置项目');
 <div class="card" id="dispList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
-/* 快速搜索：按行文本过滤 */
+/* 快速搜索：按行文本过滤 + 动态计数（搜索时去掉「共」） */
 function quickFilter(q, boxId) {
     q = q.trim().toLowerCase();
+    var n = 0;
     document.querySelectorAll('#' + boxId + ' tbody tr').forEach(function (tr) {
-        tr.style.display = tr.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+        var hit = tr.textContent.toLowerCase().indexOf(q) !== -1;
+        tr.style.display = hit ? '' : 'none';
+        if (hit) n++;
     });
+    var cnt = document.getElementById('dispCountDiv');
+    if (cnt) cnt.textContent = q !== '' ? '处置项目 ' + n + ' 个' : '共 ' + n + ' 个处置项目';
 }
 Clinic.importer._reloads['disp'] = loadDispList;
 Clinic.importer.attach('disp', 'impBtns', '处置项目');
