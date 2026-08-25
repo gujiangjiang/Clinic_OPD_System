@@ -105,14 +105,36 @@ Clinic.importer = (function () {
         });
     }
 
-    /** 注入三个标准按钮到容器 */
+    /** 注入「数据管理」下拉按钮（下载模板 / 导出全部 / 批量导入） */
     function attach(moduleName, containerId, moduleTitle) {
         var box = document.getElementById(containerId);
         if (!box) return;
         box.innerHTML =
-            '<button class="btn btn-outline btn-sm" onclick="Clinic.importer.downloadTemplate(\'' + moduleName + '\')">📥 下载模板</button> ' +
-            '<button class="btn btn-outline btn-sm" onclick="Clinic.importer.exportData(\'' + moduleName + '\')">📤 导出全部</button> ' +
-            '<button class="btn btn-outline btn-sm" onclick="Clinic.importer.openImport(\'' + moduleName + '\',\'' + (moduleTitle || '') + '\')">📥 批量导入</button>';
+            '<div class="dd-wrap">' +
+            '<button type="button" class="btn btn-outline btn-sm" onclick="Clinic.importer.toggleMenu(this)">📊 数据管理 ▾</button>' +
+            '<div class="dd-menu">' +
+            '<div class="dd-item" onclick="Clinic.importer.downloadTemplate(\'' + moduleName + '\');Clinic.importer.toggleMenu(null)">📥 下载模板</div>' +
+            '<div class="dd-item" onclick="Clinic.importer.exportData(\'' + moduleName + '\');Clinic.importer.toggleMenu(null)">📤 导出全部</div>' +
+            '<div class="dd-item" onclick="Clinic.importer.openImport(\'' + moduleName + '\',\'' + (moduleTitle || '') + '\');Clinic.importer.toggleMenu(null)">📥 批量导入</div>' +
+            '</div></div>';
+    }
+
+    function toggleMenu(btn) {
+        document.querySelectorAll('.dd-wrap .dd-menu').forEach(function (m) { m.classList.remove('open'); });
+        if (!btn) return;
+        var wrap = btn.parentElement;
+        var menu = wrap.querySelector('.dd-menu');
+        if (menu) menu.classList.add('open');
+        // 点击其他区域关闭
+        setTimeout(function () {
+            var handler = function (e) {
+                if (!wrap.contains(e.target)) {
+                    menu.classList.remove('open');
+                    document.removeEventListener('mousedown', handler);
+                }
+            };
+            document.addEventListener('mousedown', handler);
+        }, 0);
     }
 
     function downloadTemplate(mod) { location.href = '/api/admin?action=download_template&module=' + mod; }
@@ -120,6 +142,7 @@ Clinic.importer = (function () {
 
     return {
         attach: attach,
+        toggleMenu: toggleMenu,
         openImport: openImport,
         confirmImport: confirmImport,
         downloadTemplate: downloadTemplate,

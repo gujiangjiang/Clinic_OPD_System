@@ -29,6 +29,7 @@ var EXAM_CAT = '';
 var IS_ADMIN = document.body.getAttribute('data-role') === 'admin';
 if (!IS_ADMIN) {
     var ct = document.getElementById('examCatBtn'); if (ct) ct.style.display = 'none';
+    var ib = document.getElementById('impBtns'); if (ib) ib.style.display = 'none';
 }
 /* 分类子 tab（按数据动态生成） */
 function buildExamCats() {

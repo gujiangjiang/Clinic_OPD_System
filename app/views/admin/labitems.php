@@ -5,6 +5,7 @@ Router::title('检验项目管理');
     <div><div class="page-title">🧪 检验项目管理</div><div class="page-desc">检验项目与组合管理（组合按组价整体收费，新项目需审核通过后可用）</div></div>
     <div class="flex gap-8">
         <button class="btn btn-primary btn-sm" id="labComboBtn" onclick="openComboMgr()">🧩 检验组合管理</button>
+        <span id="impBtns" class="flex gap-8"></span>
         <button class="btn btn-outline btn-sm" id="labCatBtn" onclick="openCatMgr()">🗂️ 分类管理</button>
         <button class="btn btn-outline btn-sm" onclick="openItemForm(0)">＋ 新增检验项目</button>
     </div>
@@ -25,6 +26,7 @@ var IS_ADMIN = document.body.getAttribute('data-role') === 'admin';
 if (!IS_ADMIN) {
     var cb = document.getElementById('labComboBtn'); if (cb) cb.style.display = 'none';
     var ct = document.getElementById('labCatBtn'); if (ct) ct.style.display = 'none';
+    var ib = document.getElementById('impBtns'); if (ib) ib.style.display = 'none';
 }
 function buildLabCats() {
     var cats = [];

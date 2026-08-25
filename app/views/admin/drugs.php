@@ -26,6 +26,10 @@ Router::title('药品信息');
 
 <script>
 var DRUG_CAT = '';
+var IS_ADMIN = document.body.getAttribute('data-role') === 'admin';
+if (!IS_ADMIN) {
+    var ib = document.getElementById('drugImportBtns'); if (ib) ib.style.display = 'none';
+}
 /* 分类子 tab（按数据动态生成） */
 function buildDrugCats() {
     var cats = [];
