@@ -2,8 +2,8 @@
 /**
  * admin/callmanage.php — 叫号大屏/诊室管理中心
  * 说明：按科室分类管理大屏（医生诊室/检验/影像/药房/护士站）：
- * 新建诊室（自动生成 Token）、预览、复制链接、重置 Token、
- * 强制释放占用、编辑（名称/类型/语音/脱敏）、删除。
+ * 选择科室后经鼠标悬浮窗快速新建（科室/类型自动推断，仅填名称，自动生成 Token）、
+ * 预览、复制链接、重置 Token、强制释放占用、编辑（名称/类型/语音/脱敏）、删除。
  * 大屏在线状态由 screen.php 心跳维护（阈值 30 秒）。
  */
 Router::title('叫号管理');
@@ -38,12 +38,12 @@ foreach ($depts as $d) {
             <span class="fs-14 fw-600" id="cmDeptLabel">未选择科室</span>
             <span class="fs-13 text-muted" id="cmDeptStats"></span>
         </div>
-        <button class="btn btn-outline" onclick="createRoom()">＋ 新建诊室 / 大屏</button>
+        <button class="btn btn-outline" id="cmCreateBtn" style="display:none" onclick="createRoom(event)">＋ 新建诊室 / 大屏</button>
     </div>
     <div class="fs-12 text-muted mt-8">大屏在线状态以心跳为准（最近 30 秒内有心跳视为在线），页面每 10 秒自动刷新状态；重置 Token 后旧链接立即失效。</div>
 </div>
 
-<div id="cmList"><div class="card"><div class="empty"><div class="empty-ico">🏥</div>请先选择科室，查看该科室下的大屏配置<br><span class="fs-13 text-muted">点击上方「🏥 选择科室」按钮，或直接新建诊室 / 大屏</span></div></div></div>
+<div id="cmList"><div class="card"><div class="empty"><div class="empty-ico">🏥</div>请先选择科室，查看该科室下的大屏配置<br><span class="fs-13 text-muted">点击上方「🏥 选择科室」按钮开始使用</span></div></div></div>
 
 <script>
 var CM_DEPT = 0;
@@ -68,6 +68,7 @@ function pickDept(id) {
     var cur = null;
     CM_DEPS.forEach(function (d) { if (d.id === id) cur = d; });
     document.getElementById('cmDeptLabel').textContent = '「' + (cur ? cur.name : '') + '」';
+    document.getElementById('cmCreateBtn').style.display = '';
     loadRooms();
     startAutoRefresh();
 }
@@ -91,46 +92,90 @@ function startAutoRefresh() {
     }, 10000);
 }
 
-/* 新建诊室：名称 + 类型（自动生成 Token） */
-function createRoom() {
-    var deptOpts = CM_DEPS.map(function (d) {
-        return '<option value="' + d.id + '"' + (d.id === CM_DEPT ? ' selected' : '') + '>' + d.name + '</option>';
-    }).join('');
-    Clinic.modal.open(
-        '<div class="form-group"><label class="form-label">科室 <span class="req">*</span></label>' +
-        '<select class="select" id="crDept">' + deptOpts + '</select></div>' +
-        '<div class="form-group"><label class="form-label">诊室 / 窗口名称 <span class="req">*</span></label>' +
-        '<input class="input" id="crName" placeholder="如：骨科1诊室 / 抽血室2 / 西药房1号窗口"></div>' +
-        '<div class="form-group"><label class="form-label">类型</label>' +
-        '<select class="select" id="crType">' +
-        '<option value="doctor">医生诊室</option><option value="lab">检验科</option>' +
-        '<option value="imaging">影像科</option><option value="pharmacy">药房</option><option value="nurse">护士站</option>' +
-        '</select></div>',
-        {
-            title: '＋ 新建诊室 / 大屏',
-            size: 'modal-sm',
-            buttons: [
-                { text: '取消', cls: 'btn-outline' },
-                { text: '创建', cls: 'btn-primary', autoClose: false, onClick: function () {
-                    var dept = parseInt(document.getElementById('crDept').value, 10) || 0;
-                    var name = document.getElementById('crName').value.trim();
-                    if (!dept) { Clinic.toast.warning('请选择科室'); return; }
-                    if (!name) { Clinic.toast.warning('请填写诊室名称'); return; }
-                    Clinic.ajax('/api/admin', {
-                        action: 'room_create', dept_id: dept, room_name: name,
-                        room_type: document.getElementById('crType').value,
-                    }, {
-                        onSuccess: function (json) {
-                            Clinic.toast.success(json.msg);
-                            Clinic.modal.close();
-                            if (CM_DEPT !== dept) pickDept(dept);
-                            else loadRooms();
-                        },
-                    });
-                } },
-            ],
-        }
-    );
+/* 大屏类型中文名（悬浮窗提示用） */
+var CM_TYPE_NAMES = { doctor: '医生诊室', lab: '检验科', imaging: '影像科', pharmacy: '药房', nurse: '护士站' };
+
+/* 由当前科室自动推断大屏类型（无需人工选择）：
+   名称含 检验/化验→检验科、影像/放射/超声等→影像科、药→药房、护士/输液→护士站；
+   否则按科室类型：医技→检验科、其他→护士站、门诊/急诊→医生诊室 */
+function guessRoomType() {
+    var cur = null;
+    CM_DEPS.forEach(function (d) { if (d.id === CM_DEPT) cur = d; });
+    var n = cur ? cur.name : '';
+    var t = cur ? cur.type : '';
+    if (/影像|放射|CT|MR|DR|超声|B超|心电/.test(n)) return 'imaging';
+    if (/检验|化验/.test(n)) return 'lab';
+    if (/药/.test(n)) return 'pharmacy';
+    if (/护士|输液|注射/.test(n)) return 'nurse';
+    if (t === 'tech') return 'lab';
+    if (t === 'other') return 'nurse';
+    return 'doctor';
+}
+
+/* 新建诊室：跟随鼠标位置弹出的轻量悬浮窗。
+   科室固定为当前科室、大屏类型按科室自动推断，仅需输入诊室/窗口名称 */
+function createRoom(ev) {
+    if (!CM_DEPT) { Clinic.toast.warning('请先选择科室'); return; }
+    closeQuickPop();
+    var cur = null;
+    CM_DEPS.forEach(function (d) { if (d.id === CM_DEPT) cur = d; });
+    var rt = guessRoomType();
+    var pop = document.createElement('div');
+    pop.id = 'cmQuickPop';
+    pop.style.cssText = 'position:fixed;z-index:3000;width:280px;background:#fff;border-radius:10px;' +
+        'border:1px solid var(--bd,#e5e7eb);box-shadow:0 10px 40px rgba(0,0,0,.18);padding:14px;';
+    pop.innerHTML =
+        '<div class="fs-14 fw-600 mb-4">＋ 新建诊室 / 大屏</div>' +
+        '<div class="fs-12 text-muted mb-8">科室「' + (cur ? cur.name : '') + '」 · 类型：' + CM_TYPE_NAMES[rt] + '（按科室自动）</div>' +
+        '<input class="input" id="cqName" placeholder="如：骨科1诊室 / 抽血室2 / 西药1号窗口">' +
+        '<div class="flex gap-8 mt-8"><button class="btn btn-primary btn-sm" id="cqOk" style="flex:1">创建</button>' +
+        '<button class="btn btn-outline btn-sm" id="cqCancel" style="flex:1">取消</button></div>';
+    document.body.appendChild(pop);
+    /* 定位到鼠标附近，并防止超出视口 */
+    var x = (ev && ev.clientX) ? ev.clientX : (window.innerWidth / 2 - 140);
+    var y = (ev && ev.clientY) ? ev.clientY : 120;
+    pop.style.left = Math.max(8, Math.min(x + 12, window.innerWidth - 292)) + 'px';
+    pop.style.top = Math.max(8, Math.min(y + 12, window.innerHeight - 200)) + 'px';
+    document.getElementById('cqName').focus();
+    function submit() {
+        var name = document.getElementById('cqName').value.trim();
+        if (!name) { Clinic.toast.warning('请填写诊室 / 窗口名称'); return; }
+        Clinic.ajax('/api/admin', {
+            action: 'room_create', dept_id: CM_DEPT, room_name: name, room_type: rt,
+        }, {
+            onSuccess: function (json) {
+                Clinic.toast.success(json.msg);
+                closeQuickPop();
+                loadRooms();
+            },
+        });
+    }
+    document.getElementById('cqOk').addEventListener('click', submit);
+    document.getElementById('cqCancel').addEventListener('click', closeQuickPop);
+    document.getElementById('cqName').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') submit();
+    });
+    /* 点击悬浮窗外部 / Esc 关闭（延迟绑定避免本次点击立即触发） */
+    setTimeout(function () {
+        document.addEventListener('mousedown', cmPopOutside, true);
+        document.addEventListener('keydown', cmPopEsc, true);
+    }, 0);
+}
+
+function cmPopOutside(e) {
+    var pop = document.getElementById('cmQuickPop');
+    if (pop && !pop.contains(e.target)) closeQuickPop();
+}
+
+function cmPopEsc(e) {
+    if (e.key === 'Escape') closeQuickPop();
+}
+
+function closeQuickPop() {
+    var pop = document.getElementById('cmQuickPop');
+    if (pop) pop.remove();
+    document.removeEventListener('mousedown', cmPopOutside, true);
+    document.removeEventListener('keydown', cmPopEsc, true);
 }
 
 /* 编辑诊室 */
