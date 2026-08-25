@@ -35,9 +35,11 @@ function admin_part_drug($action) {
                     ? '<td>' . ($r['need_nurse'] ? '<span class="badge badge-warning">是（护士站执行）</span>' : '<span class="badge badge-gray">否</span>') . '</td>'
                       . '<td>' . ($bindName !== '' ? '<span class="badge badge-primary">' . e($bindName) . '</span>' : '<span class="badge badge-gray">未绑定</span>') . '</td>'
                     : '') .
-                '<td><div class="flex gap-4">' .
+                '<td>' . ($u['role'] === 'admin'
+                    ? '<div class="flex gap-4">' .
                 '<button class="btn btn-outline btn-sm" onclick="editDrugSetting(\'' . $stype . '\',' . (int)$r['id'] . ',\'' . e($r['name']) . '\',' . (int)$r['need_nurse'] . ',' . (int)(isset($r['bind_disposal_item_id']) ? $r['bind_disposal_item_id'] : 0) . ',\'' . e($bindName) . '\')">编辑</button>' .
-                '<button class="btn btn-outline btn-sm" onclick="delDrugSetting(' . (int)$r['id'] . ')">删除</button></div></td></tr>';
+                '<button class="btn btn-outline btn-sm" onclick="delDrugSetting(' . (int)$r['id'] . ')">删除</button></div>'
+                    : '<span class="text-muted fs-12">只读</span>') . '</td></tr>';
         }
         $html .= '</tbody></table></div>';
         json_ok(array('html' => $html));
@@ -56,6 +58,20 @@ function admin_part_drug($action) {
             if (!$ex) json_fail('绑定的处置项目不存在或未通过审核');
         }
         if ($name === '') json_fail('请输入名称');
+        // 非管理员：新增 / 修改提交需管理员审核（药品设置项由管理员统一管理）
+        if ($u['role'] !== 'admin') {
+            if ($id > 0) {
+                DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='drugsetting' AND ref_id=? AND status IN ('pending','rejected')", array($u['name'], now_str(), $id));
+            }
+            $typeNames = array('category' => '药品分类', 'package' => '包装单位', 'form' => '药品剂型', 'freq' => '用药频次', 'route' => '给药途径');
+            DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, data, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
+                'drugsetting', $id, ($typeNames[$stype] ?? $stype) . '：' . $name,
+                '提交药品设置项（' . ($typeNames[$stype] ?? $stype) . '）：' . $name,
+                json_encode(array('id' => $id, 'stype' => $stype, 'name' => $name, 'need_nurse' => $needNurse, 'bind_disposal_item_id' => $bindDisp), JSON_UNESCAPED_UNICODE),
+                'pending', $u['name'], $u['id'], now_str(),
+            ));
+            json_ok(array(), '设置项已提交，待管理员审核');
+        }
         if ($id > 0) {
             DB::exec('drug', 'UPDATE drug_settings SET name=?, need_nurse=?, bind_disposal_item_id=? WHERE id=?', array($name, $needNurse, $bindDisp, $id));
         } else {

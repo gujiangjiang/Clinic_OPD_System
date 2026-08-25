@@ -29,8 +29,7 @@ Router::title('药品设置');
 
 <script>
 var CUR_STYPE = 'category';
-var DS_ADMIN = document.body.getAttribute('data-role') === 'admin';
-if (!DS_ADMIN) { var da = document.getElementById('dsAddBtn'); if (da) da.style.display = 'none'; }
+var DS_ADMIN = document.body.getAttribute('data-role') === 'admin';   // 非管理员新增走审核（按钮保留），删除仅管理员
 var DS_NAMES = { category: '药品分类', package: '包装单位', form: '药品剂型', freq: '用药频次', route: '给药途径' };
 
 /** 途径绑定处置：只读展示 + 通用检索/快捷创建按钮 */

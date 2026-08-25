@@ -36,7 +36,7 @@ if (in_array($u['role'], array('lab', 'imaging', 'pharmacy'), true)) {
     $roleOpenActions = array(
         'item_list', 'item_form', 'item_save', 'cat_list',           // 检验/检查项目查看与提交审核
         'lab_groups', 'lab_group_get', 'lab_group_candidates',        // 组合只读
-        'drug_list', 'drugsetting_list', 'drug_save',                  // 药品信息/设置只读 + 新增修改提交审核
+        'drug_list', 'drugsetting_list', 'drugsetting_save', 'drug_save',   // 药品信息/设置只读 + 新增修改提交审核
     );
     if (!in_array($action, $roleOpenActions, true)) {
         json_fail('无权限访问该功能（该操作需管理员处理）');

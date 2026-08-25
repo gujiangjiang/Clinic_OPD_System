@@ -151,6 +151,9 @@ function admin_part_audit($action) {
             case 'item_disp':
                 $backUrl = '/admin/disposal?edit=' . $refId;
                 break;
+            case 'drugsetting':
+                $backUrl = '/admin/drugsettings';
+                break;
         }
         switch ($audit['type']) {
             case 'template':
@@ -190,6 +193,27 @@ function admin_part_audit($action) {
                     send_msg($proposerRole !== '' ? $proposerRole : 'doctor', $proposerId, '处置项目审核结果',
                         '您提交的处置项目「' . $audit['title'] . '」' . ($approve ? '已通过审核，可以开单使用' : '未通过审核，理由：' . $note . '（点击本消息回到添加页修改后重新提交）'),
                         '', '', array('msg_type' => 'system', 'link_url' => $backUrl));
+                }
+                break;
+            case 'drugsetting':
+                if ($approve) {
+                    // 审核通过：解析提交数据并落库（新增/更新药品设置项）
+                    $d = json_decode((string)$audit['data'], true);
+                    if (is_array($d) && !empty($d['stype']) && !empty($d['name'])) {
+                        $sId = (int)$d['id'];
+                        $nn = (int)(isset($d['need_nurse']) ? $d['need_nurse'] : 0);
+                        $bd = (int)(isset($d['bind_disposal_item_id']) ? $d['bind_disposal_item_id'] : 0);
+                        if ($sId > 0) {
+                            DB::exec('drug', 'UPDATE drug_settings SET name=?, need_nurse=?, bind_disposal_item_id=? WHERE id=?', array($d['name'], $nn, $bd, $sId));
+                        } else {
+                            DB::insert('drug', 'INSERT INTO drug_settings(stype, name, need_nurse, bind_disposal_item_id, sort) VALUES(?,?,?,?,0)', array($d['stype'], $d['name'], $nn, $bd));
+                        }
+                    }
+                }
+                if ($proposerId > 0) {
+                    send_msg($proposerRole !== '' ? $proposerRole : 'pharmacy', $proposerId, '药品设置审核结果',
+                        '您提交的药品设置「' . $audit['title'] . '」' . ($approve ? '已通过审核' : '未通过审核，理由：' . $note),
+                        '', '', array('msg_type' => 'system'));
                 }
                 break;
             case 'report_withdraw':

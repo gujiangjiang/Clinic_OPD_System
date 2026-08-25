@@ -16,7 +16,7 @@ define('DATA_DIR', APP_ROOT . '/data');               // 数据目录（分散�
 define('UPLOAD_DIR', APP_ROOT . '/public/uploads');   // 上传目录（public 内，可被 Web 访问）
 define('API_PATH', APP_ROOT . '/app/api');            // AJAX 接口目录
 define('VIEW_PATH', APP_ROOT . '/app/views');         // 页面视图目录
-define('APP_VERSION', '2.11.2');
+define('APP_VERSION', '2.11.3');
 
 /* ============================================================
  * 数据库驱动配置
