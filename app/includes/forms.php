@@ -35,6 +35,20 @@ function form_item($type, $id) {
     foreach ($cats as $c) {
         $catOpts .= '<option value="' . e($c['name']) . '"' . ($r['category'] === $c['name'] ? ' selected' : '') . '>' . e($c['name']) . '</option>';
     }
+    // 计量单位：datalist 组合框（可输入可下拉）——选项取历史已用单位去重；
+    // 尚无任何检验项目时列表为空，退化为纯输入框（不显示下拉）
+    $unitField = '';
+    if ($type === 'lab') {
+        $unitDl = '';
+        $unitOpts = '';
+        foreach (DB::q('lab', "SELECT DISTINCT unit FROM lab_items WHERE unit IS NOT NULL AND unit<>'' ORDER BY unit") as $uu) {
+            $unitOpts .= '<option value="' . e($uu['unit']) . '">';
+        }
+        if ($unitOpts !== '') {
+            $unitDl = '<datalist id="f_unit_list">' . $unitOpts . '</datalist>';
+        }
+        $unitField = '<input class="input" id="f_unit"' . ($unitDl !== '' ? ' list="f_unit_list"' : '') . ' value="' . e($r['unit']) . '" placeholder="如：mmol/L">' . $unitDl;
+    }
     return '<input type="hidden" id="f_id" value="' . (int)$id . '">
     <div class="form-row">
         <div class="form-group"><label class="form-label">项目名称 <span class="req">*</span></label>
@@ -45,8 +59,7 @@ function form_item($type, $id) {
     <div class="form-row">
         <div class="form-group"><label class="form-label">价格（元）</label>
             <input class="input" type="number" step="0.01" min="0" id="f_price" value="' . e($r['price']) . '"></div>' .
-        ($type === 'lab' ? '<div class="form-group"><label class="form-label">计量单位</label>
-            <input class="input" id="f_unit" value="' . e($r['unit']) . '" placeholder="如：mmol/L"></div>' : '') .
+        ($type === 'lab' ? '<div class="form-group"><label class="form-label">计量单位</label>' . $unitField . '</div>' : '') .
     '</div>' .
     ($type === 'lab' ? '<div class="form-row">
         <div class="form-group"><label class="form-label">正常范围值</label>
