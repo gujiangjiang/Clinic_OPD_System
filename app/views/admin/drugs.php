@@ -48,12 +48,41 @@ function drugCatFilter(btn, c) {
         tr.style.display = (c === '' || tr.getAttribute('data-cat') === c) ? '' : 'none';
     });
 }
-/* 快速搜索：按行文本过滤 */
-function quickFilter(q, boxId) {
-    q = q.trim().toLowerCase();
-    document.querySelectorAll('#' + boxId + ' tbody tr').forEach(function (tr) {
-        tr.style.display = tr.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+/* 快速搜索：分类 + 关键词组合过滤 */
+function quickFilter() {
+    applyDrugFilter();
+}
+/* 分类子标签 + 关键词组合过滤，并动态更新计数 */
+function drugCatFilter(btn, c) {
+    DRUG_CAT = c;
+    document.querySelectorAll('#drugCatTabs .btn').forEach(function (b) {
+        b.className = 'btn btn-sm ' + ((b.getAttribute('data-cat') || '') === c ? 'btn-primary' : 'btn-outline');
     });
+    applyDrugFilter();
+}
+function applyDrugFilter() {
+    var inp = document.querySelector('input[oninput*="drugList"]');
+    var q = ((inp && inp.value) || '').trim().toLowerCase();
+    var n = 0;
+    document.querySelectorAll('#drugList tbody tr').forEach(function (tr) {
+        var hit = (DRUG_CAT === '' || tr.getAttribute('data-cat') === DRUG_CAT) &&
+                  tr.textContent.toLowerCase().indexOf(q) !== -1;
+        tr.style.display = hit ? '' : 'none';
+        if (hit) n++;
+    });
+    updateDrugCount(n);
+}
+/* 计数动态更新：默认「共 N 种」/ 分类「药品（西药）共 N 种」/ 搜索「药品 N 种」 */
+function updateDrugCount(n) {
+    var cnt = document.getElementById('drugCountDiv');
+    if (!cnt) return;
+    var inp = document.querySelector('input[oninput*="drugList"]');
+    var searched = ((inp && inp.value) || '').trim() !== '';
+    if (DRUG_CAT === '') {
+        cnt.textContent = searched ? '药品 ' + n + ' 种' : '共 ' + n + ' 种药品';
+    } else {
+        cnt.textContent = searched ? '药品（' + DRUG_CAT + '）' + n + ' 种' : '药品（' + DRUG_CAT + '）共 ' + n + ' 种';
+    }
 }
 Clinic.importer._reloads['drug'] = loadDrugList;
 Clinic.importer.attach('drug', 'drugImportBtns', '药品');

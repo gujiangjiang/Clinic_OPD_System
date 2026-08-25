@@ -228,14 +228,18 @@ function admin_part_analytics($action) {
         $uids = array_keys($stat);
         if ($uids) {
             $ph = implode(',', array_fill(0, count($uids), '?'));
-            foreach (DB::q('user', "SELECT id, name, dept_ids, title FROM users WHERE id IN ($ph)", $uids) as $u2) {
+            foreach (DB::q('user', "SELECT id, name, emp_no, dept_ids, title FROM users WHERE id IN ($ph)", $uids) as $u2) {
                 if (empty($names[(int)$u2['id']])) $names[(int)$u2['id']] = $u2['name'];
-                $docDept[(int)$u2['id']] = array('title' => $u2['title'], 'dept_ids' => (string)$u2['dept_ids']);
+                $docDept[(int)$u2['id']] = array('title' => $u2['title'], 'dept_ids' => (string)$u2['dept_ids'], 'emp_no' => (string)$u2['emp_no']);
             }
         }
         $rows = array();
         foreach ($stat as $did => $v2) {
-            $row = array_merge(array('doctor_id' => $did, 'doctor_name' => isset($names[$did]) ? $names[$did] : ('医生#' . $did)), $v2);
+            $row = array_merge(array(
+                'doctor_id' => $did,
+                'doctor_name' => isset($names[$did]) ? $names[$did] : ('医生#' . $did),
+                'emp_no' => isset($docDept[$did]) ? $docDept[$did]['emp_no'] : '',
+            ), $v2);
             $row['total'] = round($v2['drug'] + $v2['lab'] + $v2['imaging'] + $v2['procedure'], 2);
             foreach (array('drug', 'lab', 'imaging', 'procedure') as $kk) $row[$kk] = round($row[$kk], 2);
             // 科室过滤（按用户-科室多选关联）
@@ -389,7 +393,7 @@ function admin_part_analytics($action) {
         $type = trim((string)get('type', '全部'));
         $sql = 'SELECT r.id AS visit_id, r.register_time, r.flow_no, r.disposition, r.disposition_detail, ' .
             'COALESCE(NULLIF(r.current_dept_name, \'\'), r.first_dept_name) AS dept_name, ' .
-            'p.name AS pname, p.gender, p.birth_date ' .
+            'p.name AS pname, p.gender, p.birth_date, p.id_card ' .
             'FROM registrations r JOIN patients p ON p.patient_no=r.patient_no ' .
             "WHERE r.status='finished' AND r.disposition<>''";
         $params = array();
@@ -435,6 +439,7 @@ function admin_part_analytics($action) {
                 'disposition_detail' => (string)$r['disposition_detail'],
                 'pname' => (string)$r['pname'],
                 'gender' => (string)$r['gender'],
+                'id_card' => (string)(isset($r['id_card']) ? $r['id_card'] : ''),
                 'age_fmt' => age_format($r['birth_date'], $r['register_time']),
             );
         }

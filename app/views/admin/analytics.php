@@ -45,16 +45,21 @@ $depts = DB::q('dept', 'SELECT id, name FROM departments WHERE status=1 ORDER BY
 
 <!-- ============ 转归查询 ============ -->
 <div id="ana-pane-disposition" style="display:none">
-    <div class="flex gap-8 mb-12" id="dispFilters">
-        <button class="btn btn-primary btn-sm" data-disp="全部" onclick="dispFilter('全部')">全部</button>
-        <button class="btn btn-outline btn-sm" data-disp="自主离院" onclick="dispFilter('自主离院')">自主离院</button>
-        <button class="btn btn-outline btn-sm" data-disp="住院" onclick="dispFilter('住院')">住院</button>
-        <button class="btn btn-outline btn-sm" data-disp="转院" onclick="dispFilter('转院')">转院</button>
-        <button class="btn btn-outline btn-sm" data-disp="死亡" onclick="dispFilter('死亡')">死亡</button>
-        <button class="btn btn-outline btn-sm" data-disp="其他" onclick="dispFilter('其他')">其他</button>
+    <div class="card" style="margin-bottom:12px">
+        <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
+            <div class="flex gap-8" id="dispFilters">
+                <button class="btn btn-primary btn-sm" data-disp="全部" onclick="dispFilter('全部')">全部</button>
+                <button class="btn btn-outline btn-sm" data-disp="自主离院" onclick="dispFilter('自主离院')">自主离院</button>
+                <button class="btn btn-outline btn-sm" data-disp="住院" onclick="dispFilter('住院')">住院</button>
+                <button class="btn btn-outline btn-sm" data-disp="转院" onclick="dispFilter('转院')">转院</button>
+                <button class="btn btn-outline btn-sm" data-disp="死亡" onclick="dispFilter('死亡')">死亡</button>
+                <button class="btn btn-outline btn-sm" data-disp="其他" onclick="dispFilter('其他')">其他</button>
+            </div>
+            <input class="input" placeholder="🔍 搜索患者姓名 / 门诊号 / 身份证号" style="width:240px" oninput="renderDispTable()">
+        </div>
     </div>
     <div class="card">
-        <div class="card-title"><span>患者转归情况（最近 200 条诊毕记录）</span></div>
+        <div class="card-title"><span>患者转归情况</span></div>
         <div id="dispTable"></div>
     </div>
 </div>
@@ -86,7 +91,10 @@ $depts = DB::q('dept', 'SELECT id, name FROM departments WHERE status=1 ORDER BY
         <div class="card-title"><span>科室收入排行（含挂号费）</span></div>
         <div id="chartDept"></div>
     </div>
-    <div class="card" style="margin-top:16px"><div id="deptTable"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div></div>
+    <div class="card" style="margin-top:16px">
+        <div style="margin-bottom:10px"><input class="input" placeholder="🔍 搜索科室" style="width:220px" oninput="renderDeptTable()"></div>
+        <div id="deptTable"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+    </div>
 </div>
 
 <!-- ============ 医生统计 ============ -->
@@ -97,7 +105,14 @@ $depts = DB::q('dept', 'SELECT id, name FROM departments WHERE status=1 ORDER BY
             <select class="select" id="docDeptSel" onchange="loadDoctor()" style="width:auto"><option value="0">全部科室</option></select>
         </div>
     </div>
-    <div class="card"><div id="doctorTable"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div></div>
+    <div class="card">
+        <div class="flex gap-8" style="align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <span class="fs-13 text-muted">科室筛选：</span>
+            <select class="select" id="docDeptSel" onchange="loadDoctor()" style="width:auto"><option value="0">全部科室</option></select>
+            <input class="input" placeholder="🔍 搜索工号 / 姓名 / 职称" style="width:200px" oninput="renderDoctorTable()">
+        </div>
+        <div id="doctorTable"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+    </div>
 </div>
 
 <!-- ============ 自定义统计 ============ -->
@@ -188,6 +203,7 @@ function anaLoad() {
 
 /* ==================== 转归查询 ==================== */
 var DISP_FILTER = '全部';
+var DISP_ROWS = [];
 function dispFilter(t) {
     DISP_FILTER = t;
     document.querySelectorAll('#dispFilters [data-disp]').forEach(function (b) {
@@ -196,35 +212,44 @@ function dispFilter(t) {
     loadDisposition();
 }
 function loadDisposition() {
+    Clinic.get('/api/admin?action=ana_disposition&type=' + encodeURIComponent(DISP_FILTER), null, {
+        onSuccess: function (j) {
+            DISP_ROWS = j.data.list || [];
+            renderDispTable();
+        },
+    });
+}
+function renderDispTable() {
     var needDetail = DISP_FILTER !== '全部' && DISP_FILTER !== '自主离院';
     var detailHead = needDetail
         ? ({ '住院': '住院病区', '转院': '接收医院', '死亡': '死亡原因', '其他': '其他转归情况' }[DISP_FILTER] || '补充信息')
         : '';
-    Clinic.get('/api/admin?action=ana_disposition&type=' + encodeURIComponent(DISP_FILTER), null, {
-        onSuccess: function (j) {
-            var list = j.data.list || [];
-            var head =
-                '<div class="table-wrap"><table class="table"><thead><tr>' +
-                '<th>就诊时间</th><th>患者</th><th>门诊号</th><th>科室</th><th>医生</th>' +
-                '<th>离院方式</th>' +
-                (needDetail ? '<th>' + detailHead + '</th>' : '') +
-                '</tr></thead><tbody>';
-            var rows = list.map(function (r) {
-                return '<tr>' +
-                    '<td>' + (r.register_time || '') + '</td>' +
-                    '<td class="fw-600">' + (r.pname || '') + ' <span class="fs-12 text-muted">' + (r.gender || '') + '/' + (r.age_fmt || '') + '</span></td>' +
-                    '<td class="fs-12">' + (r.flow_no || '') + '</td>' +
-                    '<td>' + (r.dept_name || '') + '</td>' +
-                    '<td>' + (r.doctor_name || '') + '</td>' +
-                    '<td><span class="badge badge-primary">' + (r.disposition || '') + '</span></td>' +
-                    (needDetail ? '<td>' + (r.disposition_detail || '') + '</td>' : '') +
-                    '</tr>';
-            }).join('');
-            document.getElementById('dispTable').innerHTML =
-                head + rows + '</tbody></table></div>' +
-                (list.length ? '' : '<div class="empty"><div class="empty-ico">🧭</div>暂无符合条件的转归记录</div>');
-        },
+    var q = (document.getElementById('dispSearch').value || '').trim().toLowerCase();
+    var rows = DISP_ROWS.filter(function (r) {
+        if (!q) return true;
+        return ((r.pname || '') + (r.flow_no || '') + (r.id_card || '')).toLowerCase().indexOf(q) !== -1;
     });
+    var head = '<div class="fs-13 text-muted mb-8">' +
+        (q ? rows.length + ' 条记录' : '共 ' + DISP_ROWS.length + ' 条转归记录（最近 200 条诊毕记录）') + '</div>';
+    var table = '<div class="table-wrap"><table class="table"><thead><tr>' +
+        '<th>就诊时间</th><th>患者</th><th>门诊号</th><th>科室</th><th>医生</th>' +
+        '<th>离院方式</th>' +
+        (needDetail ? '<th>' + detailHead + '</th>' : '') +
+        '</tr></thead><tbody>';
+    var trs = rows.map(function (r) {
+        return '<tr>' +
+            '<td>' + (r.register_time || '') + '</td>' +
+            '<td class="fw-600">' + (r.pname || '') + ' <span class="fs-12 text-muted">' + (r.gender || '') + '/' + (r.age_fmt || '') + '</span></td>' +
+            '<td class="fs-12">' + (r.flow_no || '') + '</td>' +
+            '<td>' + (r.dept_name || '') + '</td>' +
+            '<td>' + (r.doctor_name || '') + '</td>' +
+            '<td><span class="badge badge-primary">' + (r.disposition || '') + '</span></td>' +
+            (needDetail ? '<td>' + (r.disposition_detail || '') + '</td>' : '') +
+            '</tr>';
+    }).join('');
+    document.getElementById('dispTable').innerHTML =
+        head + table + trs + '</tbody></table></div>' +
+        (rows.length ? '' : '<div class="empty"><div class="empty-ico">🧭</div>' + (q ? '未找到匹配患者' : '暂无符合条件的转归记录') + '</div>');
 }
 
 /* ==================== 运营总览 ==================== */
@@ -267,60 +292,76 @@ function loadOverview(r) {
 function loadDept(r) {
     Clinic.get('/api/admin?action=ana_dept&start=' + r.start + '&end=' + r.end, null, {
         onSuccess: function (j) {
-            var rows = j.data.rows || [];
+            DEPT_ROWS = j.data.rows || [];
+            renderDeptTable();
             Clinic.chart.bars('chartDept', {
-                labels: rows.map(function (x) { return x.dept_name; }),
-                data: rows.map(function (x) { return x.total; }),
+                labels: DEPT_ROWS.map(function (x) { return x.dept_name; }),
+                data: DEPT_ROWS.map(function (x) { return x.total; }),
                 color: '#409eff', money: true,
             });
-            var html = '<div class="fs-13 text-muted mb-8">共 ' + rows.length + ' 个科室有运营数据</div>';
-            if (!rows.length) {
-                html += '<div class="empty">该时间段暂无科室运营数据</div>';
-            } else {
-                html += '<div class="table-wrap"><table class="table"><thead><tr>' +
-                    '<th>科室</th><th>门诊人次</th><th>挂号费</th><th>药费</th><th>检验费</th><th>检查费</th><th>处置费</th><th>合计收入</th></tr></thead><tbody>';
-                rows.forEach(function (x) {
-                    html += '<tr><td class="fw-600">' + x.dept_name + '</td>' +
-                        '<td>' + anaNum(x.patients) + '</td>' +
-                        '<td>' + anaMoney(x.reg_fee) + '</td><td>' + anaMoney(x.drug) + '</td>' +
-                        '<td>' + anaMoney(x.lab) + '</td><td>' + anaMoney(x.imaging) + '</td>' +
-                        '<td>' + anaMoney(x.procedure) + '</td>' +
-                        '<td class="fw-600">' + anaMoney(x.total) + '</td></tr>';
-                });
-                html += '</tbody></table></div>';
-            }
-            document.getElementById('deptTable').innerHTML = html;
         },
     });
 }
+var DEPT_ROWS = [];
+function renderDeptTable() {
+    var q = (document.getElementById('deptSearch').value || '').trim().toLowerCase();
+    var rows = DEPT_ROWS.filter(function (x) { return !q || (x.dept_name || '').toLowerCase().indexOf(q) !== -1; });
+    var html = '<div class="fs-13 text-muted mb-8">' + (q ? rows.length + ' 个科室' : '共 ' + DEPT_ROWS.length + ' 个科室有运营数据') + '</div>';
+    if (!rows.length) {
+        html += '<div class="empty">' + (q ? '未找到匹配科室' : '该时间段暂无科室运营数据') + '</div>';
+    } else {
+        html += '<div class="table-wrap"><table class="table"><thead><tr>' +
+            '<th>科室</th><th>门诊人次</th><th>挂号费</th><th>药费</th><th>检验费</th><th>检查费</th><th>处置费</th><th>合计收入</th></tr></thead><tbody>';
+        rows.forEach(function (x) {
+            html += '<tr><td class="fw-600">' + x.dept_name + '</td>' +
+                '<td>' + anaNum(x.patients) + '</td>' +
+                '<td>' + anaMoney(x.reg_fee) + '</td><td>' + anaMoney(x.drug) + '</td>' +
+                '<td>' + anaMoney(x.lab) + '</td><td>' + anaMoney(x.imaging) + '</td>' +
+                '<td>' + anaMoney(x.procedure) + '</td>' +
+                '<td class="fw-600">' + anaMoney(x.total) + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+    }
+    document.getElementById('deptTable').innerHTML = html;
+}
 
 /* ==================== 医生统计 ==================== */
+var DOC_ROWS = [];
 function loadDoctor(r) {
     r = r || anaRange();
     var dept = document.getElementById('docDeptSel').value || 0;
     Clinic.get('/api/admin?action=ana_doctor&start=' + r.start + '&end=' + r.end + '&dept_id=' + dept, null, {
         onSuccess: function (j) {
-            var rows = j.data.rows || [];
-            var html;
-            if (!rows.length) {
-                html = '<div class="empty">该时间段暂无医生运营数据</div>';
-            } else {
-                html = '<div class="fs-13 text-muted mb-8">共 ' + rows.length + ' 名医生（按合计收入排序；收入口径=该医生开单且已缴费的项目）</div>';
-                html += '<div class="table-wrap"><table class="table"><thead><tr>' +
-                    '<th>医生</th><th>职称</th><th>接诊人次</th><th>药费（处方）</th><th>检验费</th><th>检查费</th><th>处置费</th><th>开单收入合计</th></tr></thead><tbody>';
-                rows.forEach(function (x) {
-                    html += '<tr><td class="fw-600">' + (x.doctor_name || '—') + '</td>' +
-                        '<td>' + (x.title || '—') + '</td>' +
-                        '<td>' + anaNum(x.visits) + '</td>' +
-                        '<td>' + anaMoney(x.drug) + '</td><td>' + anaMoney(x.lab) + '</td>' +
-                        '<td>' + anaMoney(x.imaging) + '</td><td>' + anaMoney(x.procedure) + '</td>' +
-                        '<td class="fw-600">' + anaMoney(x.total) + '</td></tr>';
-                });
-                html += '</tbody></table></div>';
-            }
-            document.getElementById('doctorTable').innerHTML = html;
+            DOC_ROWS = j.data.rows || [];
+            renderDoctorTable();
         },
     });
+}
+function renderDoctorTable() {
+    var q = (document.getElementById('docSearch').value || '').trim().toLowerCase();
+    var rows = DOC_ROWS.filter(function (x) {
+        if (!q) return true;
+        return ((x.doctor_name || '') + (x.emp_no || '') + (x.title || '')).toLowerCase().indexOf(q) !== -1;
+    });
+    var html = '<div class="fs-13 text-muted mb-8">' +
+        (q ? rows.length + ' 名医生' : '共 ' + DOC_ROWS.length + ' 名医生（按合计收入排序；收入口径=该医生开单且已缴费的项目）') + '</div>';
+    if (!rows.length) {
+        html += '<div class="empty">' + (q ? '未找到匹配医生' : '该时间段暂无医生运营数据') + '</div>';
+    } else {
+        html += '<div class="table-wrap"><table class="table"><thead><tr>' +
+            '<th>工号</th><th>医生</th><th>职称</th><th>接诊人次</th><th>药费（处方）</th><th>检验费</th><th>检查费</th><th>处置费</th><th>开单收入合计</th></tr></thead><tbody>';
+        rows.forEach(function (x) {
+            html += '<tr><td class="fs-12 text-muted">' + (x.emp_no || '—') + '</td>' +
+                '<td class="fw-600">' + (x.doctor_name || '—') + '</td>' +
+                '<td>' + (x.title || '—') + '</td>' +
+                '<td>' + anaNum(x.visits) + '</td>' +
+                '<td>' + anaMoney(x.drug) + '</td><td>' + anaMoney(x.lab) + '</td>' +
+                '<td>' + anaMoney(x.imaging) + '</td><td>' + anaMoney(x.procedure) + '</td>' +
+                '<td class="fw-600">' + anaMoney(x.total) + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+    }
+    document.getElementById('doctorTable').innerHTML = html;
 }
 
 /* ==================== 自定义统计 ==================== */

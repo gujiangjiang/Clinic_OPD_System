@@ -20,7 +20,7 @@ function admin_part_user($action) {
     /* ==================== 用户列表 ==================== */
     if ($action === 'user_list') {
         $rows = DB::q('user', 'SELECT * FROM users ORDER BY role, id');
-        $html = '<div class="fs-13 text-muted mb-8">共 ' . count($rows) . ' 个用户</div>';
+        $html = '<div class="fs-13 text-muted mb-8" id="userCountDiv">共 ' . count($rows) . ' 个用户</div>';
         if (!$rows) {
             $html .= '<div class="empty">暂无用户</div>';
         } else {
@@ -36,8 +36,8 @@ function admin_part_user($action) {
                     $ds = DB::q('dept', "SELECT name FROM departments WHERE id IN ($ph)", $ids);
                     $deptNames = implode('、', array_map(function ($d) { return $d['name']; }, $ds));
                 }
-                $html .= '<tr>' .
-                    '<td>' . e($r['emp_no']) . '</td>' .
+                $html .= '<tr data-role="' . e($r['role']) . '">' .
+                    '<td>' . e($r['emp_no']) . '</td>'.
                     '<td>' . e($r['username']) . '</td>' .
                     '<td class="fw-600">' . e($r['name']) . '</td>' .
                     '<td>' . e(Auth::roleName($r['role'])) . '</td>' .

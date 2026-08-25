@@ -13,11 +13,51 @@ Router::title('用户管理');
     <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openUserForm(0)">＋ 新增用户</button></div>
 </div>
 <div class="card" style="margin-bottom:12px">
-    <input class="input" placeholder="🔍 快速搜索用户 / 工号 / 角色" oninput="quickFilter(this.value,'userList')">
+    <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
+        <input class="input" id="userSearch" placeholder="🔍 快速搜索用户 / 工号 / 角色" style="width:220px" oninput="applyUserFilter()">
+        <span class="flex gap-4" id="userRoleTabs" style="flex-wrap:wrap"></span>
+    </div>
 </div>
 <div class="card" id="userList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
+var USER_ROLE = '';
+var ROLE_NAMES = { admin: '系统管理员', doctor: '医生', nurse: '护士', cashier: '挂号收费员', lab: '检验技师', imaging: '影像技师', pharmacy: '药剂师' };
+/* 角色子 tab（按数据动态生成） */
+function buildUserTabs() {
+    var roles = [];
+    document.querySelectorAll('#userList tbody tr').forEach(function (tr) {
+        var r = tr.getAttribute('data-role') || '';
+        if (r && roles.indexOf(r) === -1) roles.push(r);
+    });
+    var bar = document.getElementById('userRoleTabs');
+    bar.innerHTML = '<button class="btn btn-sm ' + (USER_ROLE === '' ? 'btn-primary' : 'btn-outline') + '" onclick="userRoleFilter(this,\'\')">全部</button>' +
+        roles.map(function (r) {
+            return '<button class="btn btn-sm ' + (USER_ROLE === r ? 'btn-primary' : 'btn-outline') + '" data-role="' + r + '" onclick="userRoleFilter(this,\'' + r + '\')">' + (ROLE_NAMES[r] || r) + '</button>';
+        }).join('');
+}
+function userRoleFilter(btn, r) {
+    USER_ROLE = r;
+    document.querySelectorAll('#userRoleTabs .btn').forEach(function (b) {
+        b.className = 'btn btn-sm ' + ((b.getAttribute('data-role') || '') === r ? 'btn-primary' : 'btn-outline');
+    });
+    applyUserFilter();
+}
+/* 快速搜索 + 动态计数（搜索去掉「共」，角色显示「（角色）」） */
+function applyUserFilter() {
+    var q = (document.getElementById('userSearch') ? document.getElementById('userSearch').value : '').trim().toLowerCase();
+    var n = 0;
+    document.querySelectorAll('#userList tbody tr').forEach(function (tr) {
+        var hit = (USER_ROLE === '' || tr.getAttribute('data-role') === USER_ROLE) &&
+                  tr.textContent.toLowerCase().indexOf(q) !== -1;
+        tr.style.display = hit ? '' : 'none';
+        if (hit) n++;
+    });
+    var cnt = document.getElementById('userCountDiv');
+    if (!cnt) return;
+    var roleLabel = USER_ROLE === '' ? '' : '（' + (ROLE_NAMES[USER_ROLE] || USER_ROLE) + '）';
+    cnt.textContent = q !== '' ? '用户' + roleLabel + ' ' + n + ' 人' : (USER_ROLE === '' ? '共 ' + n + ' 个用户' : '用户' + roleLabel + '共 ' + n + ' 人');
+}
 /* 快速搜索：按行文本过滤 */
 function quickFilter(q, boxId) {
     q = q.trim().toLowerCase();
@@ -31,6 +71,8 @@ function loadUserList() {
     Clinic.get('/api/admin?action=user_list', null, {
         onSuccess: function (json) {
             document.getElementById('userList').innerHTML = json.data.html;
+            buildUserTabs();
+            applyUserFilter();
         },
     });
 }

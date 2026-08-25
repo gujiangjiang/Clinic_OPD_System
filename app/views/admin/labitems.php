@@ -24,12 +24,22 @@ Router::title('检验项目管理');
 <div class="card" id="itemList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
-/* 快速搜索：按行文本过滤 */
+/* 快速搜索：按行文本过滤 + 动态计数（搜索时去掉「共」；组合/组内行不计入项数） */
 function quickFilter(q, boxId) {
     q = q.trim().toLowerCase();
+    var g = 0, s = 0;
     document.querySelectorAll('#' + boxId + ' tbody tr').forEach(function (tr) {
-        tr.style.display = tr.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+        var hit = tr.textContent.toLowerCase().indexOf(q) !== -1;
+        tr.style.display = hit ? '' : 'none';
+        if (!hit) return;
+        var kind = tr.getAttribute('data-kind');
+        if (kind === 'group') g++;
+        else if (kind === 'single') s++;
     });
+    var cnt = document.getElementById('labCountDiv');
+    if (cnt) cnt.textContent = q
+        ? '检验项目 ' + (g + s) + ' 项（含组合 ' + g + ' 个）'
+        : '检验项目共 ' + (g + s) + ' 项（含组合 ' + g + ' 个）｜ 组合按组价收费，可单独开单或整体开组';
 }
 Clinic.importer._reloads['lab'] = loadItemList;
 Clinic.importer.attach('lab', 'impBtns', '检验项目');

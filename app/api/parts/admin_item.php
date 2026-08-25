@@ -32,7 +32,7 @@ function admin_part_item($action) {
                 $memberMap[(int)$m['parent_id']][] = $m;
             }
             $count = count($groups) + count($singles);
-            $html = '<div class="fs-13 text-muted mb-8">检验项目共 ' . $count . ' 项（含组合 ' . count($groups) . ' 个）｜ 组合按组价收费，可单独开单或整体开组</div>';
+            $html = '<div class="fs-13 text-muted mb-8" id="labCountDiv">检验项目共 ' . $count . ' 项（含组合 ' . count($groups) . ' 个）｜ 组合按组价收费，可单独开单或整体开组</div>';
             if (!$rows) {
                 $html .= '<div class="empty">暂无检验项目，请先添加</div>';
             } else {
@@ -40,7 +40,7 @@ function admin_part_item($action) {
                     '<th>名称</th><th>分类</th><th>价格</th><th>单位</th><th>正常范围</th><th>状态</th><th>操作</th></tr></thead><tbody>';
                 // 组合行
                 foreach ($groups as $g) {
-                    $html .= '<tr style="background:var(--bg-soft)">' .
+                    $html .= '<tr data-kind="group" style="background:var(--bg-soft)">' .
                         '<td class="fw-600">🧩 ' . e($g['name']) . ' <span class="badge badge-primary">组合</span></td>' .
                         '<td>' . e($g['category']) . '</td>' .
                         '<td><span class="fw-600" style="color:var(--primary)">¥' . money($g['price']) . '</span> <span class="fs-12 text-muted">（组价）</span></td>' .
@@ -52,7 +52,7 @@ function admin_part_item($action) {
                         '<button class="btn btn-outline btn-sm" onclick="delLabGroup(' . (int)$g['id'] . ')">删除</button></div></td></tr>';
                     // 成员行（缩进显示，成员仍可单独编辑/删除）
                     $ms = isset($memberMap[(int)$g['id']]) ? $memberMap[(int)$g['id']] : array();
-                    $html .= '<tr><td colspan="7" style="padding:4px 12px 8px 30px;font-size:12px;color:var(--text-muted)">' .
+                    $html .= '<tr data-kind="member"><td colspan="7" style="padding:4px 12px 8px 30px;font-size:12px;color:var(--text-muted)">' .
                         '└ 组内项目：' . ($ms ? implode('、', array_map(function ($m) {
                             return e($m['name']) . '（¥' . money($m['price']) . '）';
                         }, $ms)) : '<span style="color:var(--danger)">未设置组内项目</span>') .
@@ -65,7 +65,7 @@ function admin_part_item($action) {
                 }
                 // 独立项目行
                 foreach ($singles as $r) {
-                    $html .= '<tr>' .
+                    $html .= '<tr data-kind="single">' .
                         '<td class="fw-600">' . e($r['name']) . '</td>' .
                         '<td>' . e($r['category']) . '</td>' .
                         '<td>¥' . money($r['price']) . '</td>' .
@@ -80,14 +80,14 @@ function admin_part_item($action) {
             }
         } else {
             // ===== 检查项目管理：无成组逻辑，保持简单 =====
-            $html = '<div class="fs-13 text-muted mb-8">检查项目共 ' . count($rows) . ' 项</div>';
+            $html = '<div class="fs-13 text-muted mb-8" id="examCountDiv">检查项目共 ' . count($rows) . ' 项</div>';
             if (!$rows) {
                 $html .= '<div class="empty">暂无检查项目，请先添加</div>';
             } else {
                 $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
                     '<th>名称</th><th>分类</th><th>价格</th><th>描述</th><th>状态</th><th>操作</th></tr></thead><tbody>';
-            foreach ($rows as $r) {
-                $html .= '<tr data-cat="' . e($r['category']) . '">' .
+                foreach ($rows as $r) {
+                    $html .= '<tr data-kind="single" data-cat="' . e($r['category']) . '">' .
                     '<td class="fw-600">' . e($r['name']) . '</td>' .
                     '<td>' . e($r['category']) . '</td>' .
                     '<td>¥' . money($r['price']) . '</td>' .

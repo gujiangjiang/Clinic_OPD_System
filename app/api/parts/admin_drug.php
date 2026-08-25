@@ -75,7 +75,7 @@ function admin_part_drug($action) {
     /* ==================== 药品信息列表 ==================== */
     if ($action === 'drug_list') {
         $rows = DB::q('drug', 'SELECT * FROM drugs ORDER BY category, id');
-        $html = '<div class="fs-13 text-muted mb-8">共 ' . count($rows) . ' 种药品</div>';
+        $html = '<div class="fs-13 text-muted mb-8" id="drugCountDiv">共 ' . count($rows) . ' 种药品</div>';
         if (!$rows) {
             $html .= '<div class="empty">暂无药品，请先添加</div>';
         } else {

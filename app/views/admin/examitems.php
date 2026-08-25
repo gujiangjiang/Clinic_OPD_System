@@ -1,9 +1,9 @@
 <?php
 /**
  * admin/examitems.php — 检查项目管理（独立页面）
- * 说明：与检验项目分开管理。检查项目仅需：名称、所属分类（CT/MR等）、
- * 价格、描述；无检验项目的单位/正常范围/危急值，也无组合逻辑。
- * 新增项目默认待审核，管理员在【审核中心】通过后即可开单。
+ * 说明：检查项目与分类管理（CT、MR、DR、超声等，新项目需审核通过后可用）。
+ * 支持快速搜索与分类子标签（全部 / CT / MR / DR / 超声…，按数据动态生成），
+ * 计数随筛选动态更新。
  */
 Router::title('检查项目管理');
 ?>
@@ -17,7 +17,7 @@ Router::title('检查项目管理');
 
 <div class="card" style="margin-bottom:12px">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" placeholder="🔍 快速搜索检查项目" style="width:220px" oninput="quickFilter(this.value,'itemList')">
+        <input class="input" id="examSearch" placeholder="🔍 快速搜索检查项目" style="width:220px" oninput="applyExamFilter()">
         <span class="flex gap-4" id="examCatTabs" style="flex-wrap:wrap"></span>
     </div>
 </div>
@@ -25,8 +25,8 @@ Router::title('检查项目管理');
 <div class="card" id="itemList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
-/* 分类子 tab（按数据动态生成） */
 var EXAM_CAT = '';
+/* 分类子 tab（按数据动态生成） */
 function buildExamCats() {
     var cats = [];
     document.querySelectorAll('#itemList tbody tr').forEach(function (tr) {
@@ -44,16 +44,22 @@ function examCatFilter(btn, c) {
     document.querySelectorAll('#examCatTabs .btn').forEach(function (b) {
         b.className = 'btn btn-sm ' + ((b.getAttribute('data-cat') || '') === c ? 'btn-primary' : 'btn-outline');
     });
-    document.querySelectorAll('#itemList tbody tr').forEach(function (tr) {
-        tr.style.display = (c === '' || tr.getAttribute('data-cat') === c) ? '' : 'none';
-    });
+    applyExamFilter();
 }
-/* 快速搜索：按行文本过滤 */
-function quickFilter(q, boxId) {
-    q = q.trim().toLowerCase();
-    document.querySelectorAll('#' + boxId + ' tbody tr').forEach(function (tr) {
-        tr.style.display = tr.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+/* 快速搜索 + 计数动态更新（搜索去掉「共」，分类显示「（分类）」） */
+function applyExamFilter() {
+    var q = (document.getElementById('examSearch').value || '').trim().toLowerCase();
+    var n = 0;
+    document.querySelectorAll('#itemList tbody tr').forEach(function (tr) {
+        var hit = (EXAM_CAT === '' || tr.getAttribute('data-cat') === EXAM_CAT) &&
+                  tr.textContent.toLowerCase().indexOf(q) !== -1;
+        tr.style.display = hit ? '' : 'none';
+        if (hit) n++;
     });
+    var cnt = document.getElementById('examCountDiv');
+    if (cnt) cnt.textContent = EXAM_CAT === ''
+        ? (q !== '' ? '检查项目 ' + n + ' 项' : '检查项目共 ' + n + ' 项')
+        : '检查项目（' + EXAM_CAT + '）' + (q !== '' ? n + ' 项' : '共 ' + n + ' 项');
 }
 Clinic.importer._reloads['exam'] = loadItemList;
 Clinic.importer.attach('exam', 'impBtns', '检查项目');
@@ -62,6 +68,7 @@ function loadItemList() {
         onSuccess: function (json) {
             document.getElementById('itemList').innerHTML = json.data.html;
             buildExamCats();
+            applyExamFilter();
         },
     });
 }
