@@ -4,8 +4,8 @@ Router::title('检验项目管理');
 <div class="page-head">
     <div><div class="page-title">🧪 检验项目管理</div><div class="page-desc">检验项目与组合管理（组合按组价整体收费，新项目需审核通过后可用）</div></div>
     <div class="flex gap-8">
-        <button class="btn btn-primary btn-sm" onclick="openComboMgr()">🧩 检验组合管理</button>
-        <button class="btn btn-outline btn-sm" onclick="openCatMgr()">🗂️ 分类管理</button>
+        <button class="btn btn-primary btn-sm" id="labComboBtn" onclick="openComboMgr()">🧩 检验组合管理</button>
+        <button class="btn btn-outline btn-sm" id="labCatBtn" onclick="openCatMgr()">🗂️ 分类管理</button>
         <button class="btn btn-outline btn-sm" onclick="openItemForm(0)">＋ 新增检验项目</button>
     </div>
 </div>
@@ -21,6 +21,11 @@ Router::title('检验项目管理');
 
 <script>
 var LAB_CAT = '';
+var IS_ADMIN = document.body.getAttribute('data-role') === 'admin';
+if (!IS_ADMIN) {
+    var cb = document.getElementById('labComboBtn'); if (cb) cb.style.display = 'none';
+    var ct = document.getElementById('labCatBtn'); if (ct) ct.style.display = 'none';
+}
 function buildLabCats() {
     var cats = [];
     document.querySelectorAll('#itemList tbody tr').forEach(function (tr) {
@@ -77,7 +82,7 @@ function renderComboMgr() {
         '<div class="combo-mgr">' +
         '  <div class="combo-left">' +
         '    <div class="combo-head-fixed">' +
-        '      <button class="btn btn-primary btn-sm btn-block" onclick="newComboPop(event)">＋ 新增检验组合</button>' +
+        (IS_ADMIN ? '      <button class="btn btn-primary btn-sm btn-block" onclick="newComboPop(event)">＋ 新增检验组合</button>' : '') +
         '      <input class="input mt-8" id="comboSearch" placeholder="🔍 搜索组合" autocomplete="off" oninput="filterCombos()">' +
         '    </div>' +
         '    <div class="combo-list" id="comboList">' + leftList + '</div>' +
@@ -110,9 +115,10 @@ function selectCombo(id) {
                     '<td class="fs-12">' + (m.category || '—') + '</td>' +
                     '<td>¥' + parseFloat(m.price).toFixed(2) + '</td>' +
                     '<td class="fs-12">' + (m.unit || '—') + '</td>' +
-                    '<td style="white-space:nowrap">' +
-                    '<button class="btn btn-outline btn-sm" onclick="openItemForm(' + m.id + ')">编辑</button> ' +
-                    '<button class="btn btn-outline btn-sm" onclick="removeFromCombo(' + m.id + ')">移除</button></td>' +
+                    '<td style="white-space:nowrap">' + (IS_ADMIN
+                    ? '<button class="btn btn-outline btn-sm" onclick="openItemForm(' + m.id + ')">编辑</button> ' +
+                      '<button class="btn btn-outline btn-sm" onclick="removeFromCombo(' + m.id + ')">移除</button>'
+                    : '<span class="text-muted fs-12">只读</span>') + '</td>' +
                     '</tr>';
             }).join('') + '</tbody></table></div>'
             : '<div class="text-muted fs-12" style="padding:8px">暂无成员，点击上方「＋ 添加项目」加入</div>';
@@ -121,10 +127,12 @@ function selectCombo(id) {
             '  <div class="form-row"><div class="form-group"><label>组合名称</label><input class="input" id="cgName" value="' + jsE(CUR_COMBO.name) + '"></div>' +
             '  <div class="form-group"><label>组合价格</label><input class="input" type="number" step="0.01" id="cgPrice" value="' + parseFloat(CUR_COMBO.price).toFixed(2) + '"></div>' +
             '  <div class="form-group"><label>分类</label><input class="input" id="cgCat" value="' + jsE(CUR_COMBO.category || '') + '"></div></div>' +
-            '  <div class="flex gap-4 mt-4"><button class="btn btn-primary btn-sm" onclick="saveComboInfo()">💾 保存组合</button>' +
-            '  <button class="btn btn-danger btn-sm" onclick="delCombo(' + CUR_COMBO.id + ')">🗑 删除组合</button></div>' +
+            '  <div class="flex gap-4 mt-4">' + (IS_ADMIN
+                ? '<button class="btn btn-primary btn-sm" onclick="saveComboInfo()">💾 保存组合</button>' +
+                  '<button class="btn btn-danger btn-sm" onclick="delCombo(' + CUR_COMBO.id + ')">🗑 删除组合</button>'
+                : '<span class="text-muted fs-12">只读模式（修改需管理员审核）</span>') + '</div>' +
             '</div>' +
-            '<div class="combo-right-bar"><button class="btn btn-sm btn-outline" onclick="showAddItemPop()">＋ 添加项目</button></div>' +
+            '<div class="combo-right-bar">' + (IS_ADMIN ? '<button class="btn btn-sm btn-outline" onclick="showAddItemPop()">＋ 添加项目</button>' : '<span class="text-muted fs-12">只读</span>') + '</div>' +
             '<div class="combo-right-body">' +
             '  <div class="combo-members">' + memberRows + '</div>' +
             '</div>';

@@ -21,6 +21,7 @@ function admin_part_item($action) {
     if ($action === 'item_list') {
         $type = get('type', 'lab');
         $table = $type === 'lab' ? 'lab_items' : 'exam_items';
+        $isAdmin = $u['role'] === 'admin';
         if ($type === 'lab') {
             // ===== 检验项目管理：主列表展示「全部检验项目」——所有单项
             // （含已加入组合的成员），是否成组与本列表无关；组合本体在
@@ -39,9 +40,11 @@ function admin_part_item($action) {
                         '<td>¥' . money($r['price']) . '</td>' .
                         '<td>' . e($r['unit']) . '</td><td class="fs-12">' . e($r['normal_range']) . '</td>' .
                         '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
-                        '<td><div class="flex gap-4">' .
-                        '<button class="btn btn-outline btn-sm" onclick="openItemForm(' . (int)$r['id'] . ')">编辑</button>' .
-                        '<button class="btn btn-outline btn-sm" onclick="delItem(\'lab\',' . (int)$r['id'] . ')">删除</button></div></td></tr>';
+                        '<td>' . ($isAdmin
+                            ? '<div class="flex gap-4">' .
+                            '<button class="btn btn-outline btn-sm" onclick="openItemForm(' . (int)$r['id'] . ')">编辑</button>' .
+                            '<button class="btn btn-outline btn-sm" onclick="delItem(\'lab\',' . (int)$r['id'] . ')">删除</button></div>'
+                            : '<span class="text-muted fs-12">只读</span>') . '</td></tr>';
                 }
                 $html .= '</tbody></table></div>';
             }
@@ -63,10 +66,11 @@ function admin_part_item($action) {
                     '<td>¥' . money($r['price']) . '</td>' .
                     '<td class="fs-12 text-muted">' . e(mb_substr($r['description'], 0, 20)) . '</td>' .
                     '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
-                    '<td><div class="flex gap-4">' .
-                    // 编辑按钮与「新增」共用 openItemForm(id)
-                    '<button class="btn btn-outline btn-sm" onclick="openItemForm(' . (int)$r['id'] . ')">编辑</button>' .
-                    '<button class="btn btn-outline btn-sm" onclick="delItem(\'exam\',' . (int)$r['id'] . ')">删除</button></div></td></tr>';
+                    '<td>' . ($isAdmin
+                        ? '<div class="flex gap-4">' .
+                        '<button class="btn btn-outline btn-sm" onclick="openItemForm(' . (int)$r['id'] . ')">编辑</button>' .
+                        '<button class="btn btn-outline btn-sm" onclick="delItem(\'exam\',' . (int)$r['id'] . ')">删除</button></div>'
+                        : '<span class="text-muted fs-12">只读</span>') . '</td></tr>';
             }
                 $html .= '</tbody></table></div>';
             }
@@ -238,29 +242,47 @@ function admin_part_item($action) {
         $category = post('category');
         $price = (float)post('price', 0);
         if ($name === '') json_fail('请填写项目名称');
+        $isAdmin = $u['role'] === 'admin';
+        $auditType = $type === 'lab' ? 'item_lab' : 'item_exam';
+        $finalStatus = $isAdmin ? 'approved' : 'pending';   // 非管理员提交需管理员审核
+        $content = '提交检验/检查项目：' . $name;
         if ($id > 0) {
-            // 管理员编辑保存即通过：被驳回的项目重新保存后直接恢复可用
+            // 管理员编辑保存即通过；非管理员保存置 pending 并提交审核
             if ($type === 'lab') {
                 DB::exec('lab', 'UPDATE lab_items SET category=?, name=?, unit=?, price=?, normal_range=?, critical_low=?, critical_high=?, description=?, status=? WHERE id=?', array(
-                    $category, $name, post('unit'), $price, post('normal_range'), post('critical_low'), post('critical_high'), post('description'), 'approved', $id,
+                    $category, $name, post('unit'), $price, post('normal_range'), post('critical_low'), post('critical_high'), post('description'), $finalStatus, $id,
                 ));
             } else {
-                DB::exec('lab', 'UPDATE exam_items SET category=?, name=?, price=?, description=?, status=? WHERE id=?', array($category, $name, $price, post('description'), 'approved', $id));
+                DB::exec('lab', 'UPDATE exam_items SET category=?, name=?, price=?, description=?, status=? WHERE id=?', array($category, $name, $price, post('description'), $finalStatus, $id));
             }
-            // 清理该项目的待审核记录（管理员保存即视为已通过）
-            DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type IN ('item_lab','item_exam') AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
+            if ($isAdmin) {
+                // 清理该项目的待审核记录（管理员保存即视为已通过）
+                DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type IN ('item_lab','item_exam') AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
+            } else {
+                // 关闭旧审核（pending/rejected），提交新审核
+                DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type=? AND ref_id=? AND status IN ('pending','rejected')", array($u['name'], now_str(), $auditType, $id));
+                DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
+                    $auditType, $id, '修改' . ($type === 'lab' ? '检验' : '检查') . '项目：' . $name, $content, 'pending', $u['name'], $u['id'], now_str(),
+                ));
+            }
+            json_ok(array(), $isAdmin ? '项目已保存' : '修改已提交，待管理员审核');
         } else {
-            // 管理员添加的项目免审核：直接可用，无需创建审核记录
+            // 管理员添加免审核；非管理员置 pending 并提交审核
             if ($type === 'lab') {
                 $newId = DB::insert('lab', 'INSERT INTO lab_items(category, name, unit, price, normal_range, critical_low, critical_high, description, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
-                    $category, $name, post('unit'), $price, post('normal_range'), post('critical_low'), post('critical_high'), post('description'), 'approved', now_str(),
+                    $category, $name, post('unit'), $price, post('normal_range'), post('critical_low'), post('critical_high'), post('description'), $finalStatus, now_str(),
                 ));
             } else {
                 $newId = DB::insert('lab', 'INSERT INTO exam_items(category, name, price, description, status, created_at) VALUES(?,?,?,?,?,?)', array(
-                    $category, $name, $price, post('description'), 'approved', now_str(),
+                    $category, $name, $price, post('description'), $finalStatus, now_str(),
                 ));
             }
-            json_ok(array(), '项目已添加，可直接开单使用');
+            if (!$isAdmin) {
+                DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
+                    $auditType, $newId, '新增' . ($type === 'lab' ? '检验' : '检查') . '项目：' . $name, $content, 'pending', $u['name'], $u['id'], now_str(),
+                ));
+            }
+            json_ok(array(), $isAdmin ? '项目已添加，可直接开单使用' : '项目已提交，待管理员审核');
         }
         json_ok(array(), '项目已保存');
     }

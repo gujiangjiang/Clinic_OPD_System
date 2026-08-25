@@ -7,8 +7,7 @@
 Router::title('影像科工作台');
 ?>
 <div class="page-head">
-    <div><div class="page-title">🩻 影像科工作台</div><div class="page-desc">检查登记、报告录入与报告管理</div></div>
-    <button class="btn btn-outline btn-sm" onclick="openImgItemForm()">＋ 新增检查项目</button>
+    <div><div class="page-title">🩻 影像科工作台</div><div class="page-desc">检查登记、报告录入与报告管理（检查项目请到「检查管理」维护）</div></div>
 </div>
 
 <div class="flex gap-8 mb-12">

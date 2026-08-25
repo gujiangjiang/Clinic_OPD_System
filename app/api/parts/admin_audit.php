@@ -140,13 +140,13 @@ function admin_part_audit($action) {
         $backUrl = '';
         switch ($audit['type']) {
             case 'item_lab':
-                $backUrl = ($proposerRole === 'lab') ? '/lab/dashboard?edit_item=' . $refId : '/admin/labitems?edit=' . $refId;
+                $backUrl = '/admin/labitems?edit=' . $refId;
                 break;
             case 'item_exam':
-                $backUrl = ($proposerRole === 'imaging') ? '/imaging/dashboard?edit_item=' . $refId : '/admin/examitems?edit=' . $refId;
+                $backUrl = '/admin/examitems?edit=' . $refId;
                 break;
             case 'item_drug':
-                $backUrl = ($proposerRole === 'pharmacy') ? '/pharmacy/dashboard?edit_item=' . $refId : '/admin/drugs?edit=' . $refId;
+                $backUrl = '/admin/drugs?edit=' . $refId;
                 break;
             case 'item_disp':
                 $backUrl = '/admin/disposal?edit=' . $refId;

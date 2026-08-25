@@ -9,11 +9,7 @@
 Router::title('药房工作台');
 ?>
 <div class="page-head">
-    <div><div class="page-title">💊 药房工作台</div><div class="page-desc">处方发药、药品库存与新增药品（新增需管理员审核）</div></div>
-    <div class="flex gap-8">
-        <button class="btn btn-outline btn-sm" onclick="openCategoryForm()">＋ 新增分类</button>
-        <button class="btn btn-primary btn-sm" onclick="openDrugForm()">＋ 新增药品</button>
-    </div>
+    <div><div class="page-title">💊 药房工作台</div><div class="page-desc">处方发药、药品出入库（药品信息请到「药品信息 / 药品设置」维护）</div></div>
 </div>
 
 <div class="flex gap-8 mb-12">

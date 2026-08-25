@@ -8,8 +8,7 @@
 Router::title('检验科工作台');
 ?>
 <div class="page-head">
-    <div><div class="page-title">🧪 检验科工作台</div><div class="page-desc">检验登记、结果录入与报告管理</div></div>
-    <button class="btn btn-outline btn-sm" onclick="openLabItemForm()">＋ 新增检验项目</button>
+    <div><div class="page-title">🧪 检验科工作台</div><div class="page-desc">检验登记、结果录入与报告管理（检验项目请到「检验管理」维护）</div></div>
 </div>
 
 <div class="flex gap-8 mb-12">

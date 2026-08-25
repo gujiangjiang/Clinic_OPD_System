@@ -94,10 +94,12 @@ function admin_part_drug($action) {
                     '<td>' . (int)$r['qty'] . '</td>' .
                     '<td>¥' . money($r['price']) . '</td>' .
                     '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
-                    '<td><div class="flex gap-4">' .
-                    // 编辑按钮与「新增」共用 openDrugForm(id)
-                    '<button class="btn btn-outline btn-sm" onclick="openDrugForm(' . (int)$r['id'] . ')">编辑</button>' .
-                    '<button class="btn btn-outline btn-sm" onclick="delDrug(' . (int)$r['id'] . ')">删除</button></div></td></tr>';
+                    '<td>' . ($u['role'] === 'admin'
+                        ? '<div class="flex gap-4">' .
+                        // 编辑按钮与「新增」共用 openDrugForm(id)
+                        '<button class="btn btn-outline btn-sm" onclick="openDrugForm(' . (int)$r['id'] . ')">编辑</button>' .
+                        '<button class="btn btn-outline btn-sm" onclick="delDrug(' . (int)$r['id'] . ')">删除</button></div>'
+                        : '<span class="text-muted fs-12">只读</span>') . '</td></tr>';
             }
             $html .= '</tbody></table></div>';
         }
@@ -116,6 +118,8 @@ function admin_part_drug($action) {
         $id = (int)post('id');
         $name = post('name');
         if ($name === '') json_fail('请填写药品名称');
+        $isAdmin = $u['role'] === 'admin';
+        $finalStatus = $isAdmin ? 'approved' : 'pending';   // 非管理员提交需管理员审核
         $data = array(
             'generic_name' => post('generic_name'), 'category' => post('category'),
             'vendor' => post('vendor'), 'vendor_short' => post('vendor_short'),
@@ -137,27 +141,37 @@ function admin_part_drug($action) {
         if ($id > 0) {
             $set = array(); $params = array();
             foreach ($data as $k => $v) { $set[] = $k . '=?'; $params[] = $v; }
-            // 管理员编辑保存即通过：被驳回的药品重新保存后直接恢复可用
-            $set[] = 'status=?'; $params[] = 'approved';
+            $set[] = 'status=?'; $params[] = $finalStatus;
             $params[] = $id;
             DB::exec('drug', 'UPDATE drugs SET ' . implode(',', $set) . ' WHERE id=?', $params);
-            // 清理该药品的待审核记录（管理员保存即视为已通过）
-            DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_drug' AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
-            json_ok(array(), '药品已保存');
+            if ($isAdmin) {
+                // 清理该药品的待审核记录（管理员保存即视为已通过）
+                DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_drug' AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
+            } else {
+                DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_drug' AND ref_id=? AND status IN ('pending','rejected')", array($u['name'], now_str(), $id));
+                DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
+                    'item_drug', $id, '修改药品：' . $name, '提交药品信息修改：' . $name, 'pending', $u['name'], $u['id'], now_str(),
+                ));
+            }
+            json_ok(array(), $isAdmin ? '药品已保存' : '修改已提交，待管理员审核');
         }
-        // 管理员添加的药品免审核：直接可用，无需创建审核记录
         $params = array_values($data);   // 18 值（含 need_skin_test/skin_test_item_id）
-        $params[] = 'approved';
+        $params[] = $finalStatus;
         $params[] = now_str();
         // INSERT 列与 $data 键顺序严格对应：16 业务列 + name + need_skin_test + skin_test_item_id + status + created_at
         $newId = DB::insert('drug', 'INSERT INTO drugs(generic_name, category, vendor, vendor_short, package_unit, spec, form, single_dose, frequency_name, route_name, price, qty, is_rx, is_limited, note, need_nurse, name, need_skin_test, skin_test_item_id, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             array_merge(
                 array_slice($params, 0, 16), array($name),
                 array($params[16], $params[17]), // need_skin_test, skin_test_item_id
-                array_slice($params, 18)         // approved, now_str
+                array_slice($params, 18)         // status, now_str
             )
         );
-        json_ok(array(), '药品已添加，可直接开方使用');
+        if (!$isAdmin) {
+            DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
+                'item_drug', $newId, '新增药品：' . $name, '提交新增药品：' . $name, 'pending', $u['name'], $u['id'], now_str(),
+            ));
+        }
+        json_ok(array(), $isAdmin ? '药品已添加，可直接开方使用' : '药品已提交，待管理员审核');
     }
 
     /* ==================== 删除药品 ==================== */

@@ -10,7 +10,7 @@ Router::title('检查项目管理');
 <div class="page-head">
     <div><div class="page-title">🩻 检查项目管理</div><div class="page-desc">检查项目与分类管理（CT、MR、DR、超声等，新项目需审核通过后可用）</div></div>
     <div class="flex gap-8">
-        <button class="btn btn-outline btn-sm" onclick="openCatMgr()">🗂️ 分类管理</button>
+        <button class="btn btn-outline btn-sm" id="examCatBtn" onclick="openCatMgr()">🗂️ 分类管理</button>
         <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openItemForm(0)">＋ 新增检查项目</button></div>
     </div>
 </div>
@@ -26,6 +26,10 @@ Router::title('检查项目管理');
 
 <script>
 var EXAM_CAT = '';
+var IS_ADMIN = document.body.getAttribute('data-role') === 'admin';
+if (!IS_ADMIN) {
+    var ct = document.getElementById('examCatBtn'); if (ct) ct.style.display = 'none';
+}
 /* 分类子 tab（按数据动态生成） */
 function buildExamCats() {
     var cats = [];

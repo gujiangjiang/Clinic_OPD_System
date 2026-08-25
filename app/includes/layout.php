@@ -50,13 +50,23 @@ class Layout {
             $items['检验科'] = array(
                 array('检验科工作台', '🧪', '/lab/dashboard'),
             );
+            $items['管理'] = array(
+                array('检验管理', '🧪', '/admin/labitems'),
+            );
         } elseif ($role === 'imaging') {
             $items['影像科'] = array(
                 array('影像科工作台', '🩻', '/imaging/dashboard'),
             );
+            $items['管理'] = array(
+                array('检查管理', '🩻', '/admin/examitems'),
+            );
         } elseif ($role === 'pharmacy') {
             $items['药房'] = array(
                 array('药房工作台', '💊', '/pharmacy/dashboard'),
+            );
+            $items['管理'] = array(
+                array('药品信息', '💊', '/admin/drugs'),
+                array('药品设置', '📦', '/admin/drugsettings'),
             );
         }
         $items['通用'] = array(
@@ -198,7 +208,7 @@ class Layout {
         </head>
         <body data-csrf="' . e(CSRF::token()) . '" data-theme-pref="' . e($theme) . '" data-theme="light"
             data-sidebar-pref="' . e($sidebar) . '"' . ($forceMini ? ' data-sidebar-force="1"' : '') . '
-            data-uid="' . (int)$u['id'] . '" data-print-auto="' . (!empty($uFull['print_auto']) ? '1' : '0') . '"
+            data-role="' . e($u['role']) . '" data-uid="' . (int)$u['id'] . '" data-print-auto="' . (!empty($uFull['print_auto']) ? '1' : '0') . '"
             data-hosp="' . e($hosp) . '" data-hosp2="' . e($hosp2) . '">
             <!-- 关键：公共 JS 库必须在视图内容之前加载！
                  视图内联脚本（如 loadDeptList() / loadUserList()）在页面解析时立即执行，

@@ -22,13 +22,15 @@ Router::title('药品设置');
 <div class="card">
     <div class="flex-between mb-12">
         <span class="fs-13 text-muted" id="dsHint"></span>
-        <button class="btn btn-primary btn-sm" onclick="openDsForm(0)">＋ 新增</button>
+        <button class="btn btn-primary btn-sm" id="dsAddBtn" onclick="openDsForm(0)">＋ 新增</button>
     </div>
     <div id="dsList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 </div>
 
 <script>
 var CUR_STYPE = 'category';
+var DS_ADMIN = document.body.getAttribute('data-role') === 'admin';
+if (!DS_ADMIN) { var da = document.getElementById('dsAddBtn'); if (da) da.style.display = 'none'; }
 var DS_NAMES = { category: '药品分类', package: '包装单位', form: '药品剂型', freq: '用药频次', route: '给药途径' };
 
 /** 途径绑定处置：只读展示 + 通用检索/快捷创建按钮 */

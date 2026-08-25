@@ -21,7 +21,8 @@ if (!$__u) {
 
 // 接口 → 允许角色 映射（不在映射中的接口任何登录用户均可调用）
 $__roleMap = array(
-    'admin'    => 'admin',
+    'admin'    => array('admin', 'lab', 'imaging', 'pharmacy'),   // 管理端部分功能对科室开放（只读+提交审核）
+    'order'    => 'doctor',
     'order'    => 'doctor',
     'record'   => 'doctor',
     'template' => 'doctor',
@@ -35,7 +36,11 @@ $__roleMap = array(
 );
 
 if (isset($__roleMap[CURRENT_API]) && $__u['role'] !== 'admin' && $__u['role'] !== $__roleMap[CURRENT_API]) {
-    json_fail('无权限访问该功能');
+    // 兼容数组角色映射（如 admin API 允许多个角色）
+    $__allowed = is_array($__roleMap[CURRENT_API]) ? $__roleMap[CURRENT_API] : array($__roleMap[CURRENT_API]);
+    if (!in_array($__u['role'], $__allowed, true)) {
+        json_fail('无权限访问该功能');
+    }
 }
 
 // 统一 action 参数
