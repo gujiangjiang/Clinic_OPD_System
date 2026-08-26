@@ -48,6 +48,12 @@ Clinic.print = (function () {
 
         preview = document.createElement('div');
         preview.className = 'print-preview' + (sheet ? ' sheet-' + sheet : '');
+        // 打印内容防复制：整个预览层（含单据正文与工具栏）禁右键/
+        // 选择/拖拽/复制——单据含患者隐私，预览层外不受影响
+        preview.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+        preview.addEventListener('selectstart', function (e) { e.preventDefault(); });
+        preview.addEventListener('dragstart', function (e) { e.preventDefault(); });
+        preview.addEventListener('copy', function (e) { e.preventDefault(); });
         // 结构说明：遮罩（含 backdrop-filter 虚化）与滚动内容分层、工具栏为兄弟节点。
         // 关键：backdrop-filter 会把后代 position:fixed 的定位基准降级为该祖先，
         // 若工具栏放在带虚化的元素内部就会跟着内容一起滚动——

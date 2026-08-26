@@ -14,6 +14,9 @@
     position: fixed;
     inset: 0;
     z-index: 2000;
+    /* 单据含患者隐私：预览层整体禁止选中文本（配合 JS 禁右键/复制） */
+    -webkit-user-select: none;
+    user-select: none;
 }
 .pp-backdrop {
     position: absolute;
