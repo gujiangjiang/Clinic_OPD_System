@@ -27,6 +27,12 @@ $isAdmin = $u['role'] === 'admin';
     <div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div>
 </div>
 
+<style>
+.tpl-form { display: flex; gap: 14px; }
+.tpl-form .tpl-left { width: 320px; flex-shrink: 0; }
+.tpl-form .tpl-right { flex: 1; min-width: 0; }
+</style>
+
 <script>
 var TPL_TYPE = 'medical_record';
 var TPL_DATA = [];
@@ -127,39 +133,30 @@ function openTplForm(id) {
 function buildTplForm(mask, tpl) {
     var isAdmin = <?php echo $isAdmin ? 'true' : 'false'; ?>;
     var html =
-        '<div class="form-row">' +
-        '  <div class="form-group" style="flex:2"><label class="form-label">模板名称 <span class="req">*</span></label>' +
-        '    <input class="input" id="tfTitle" value="' + escHtml(tpl ? tpl.title : '') + '" placeholder="如：骨科门诊病历模板"></div>' +
-        '  <div class="form-group" style="flex:1"><label class="form-label">适用范围</label>' +
-        '    <select class="select" id="tfScope" onchange="onTplScopeChange()">' +
-        '      <option value="personal"' + (tpl && tpl.scope === 'personal' ? ' selected' : '') + (isAdmin ? ' disabled' : '') + '>个人</option>' +
-        '      <option value="dept"' + (tpl && tpl.scope === 'dept' ? ' selected' : '') + '>科室</option>' +
-        '      <option value="hospital"' + (tpl && tpl.scope === 'hospital' ? ' selected' : '') + '>全院</option>' +
-        '    </select></div>' +
-        '</div>' +
-        '  <div class="form-group" id="tfDeptWrap" style="display:none"><label class="form-label">选择科室（多选）</label>' +
-        '    <div class="tree-box" style="max-height:140px;overflow-y:auto;padding:8px">' +
-        '      <div id="tfDeptList"></div></div></div>' +
-        '<div class="card-title mt-8"><span>📝 模板正文（仅保留主诉/现病史/主要症状/体格检查/处置/嘱托，不包含诊断/体征/既往史/过敏史/辅助检查）</span></div>' +
-        '<div class="emr-doc"><div class="doc-body" id="templateEditor" style="border:1px solid var(--border);border-radius:8px;padding:14px;min-height:180px"></div></div>';
+        '<div class="tpl-form">' +
+        '  <div class="tpl-left">' +
+        '    <div class="form-group"><label class="form-label">模板名称 <span class="req">*</span></label>' +
+        '      <input class="input" id="tfTitle" value="' + escHtml(tpl ? tpl.title : '') + '" placeholder="如：骨科门诊病历模板"></div>' +
+        '    <div class="form-group"><label class="form-label">适用范围</label>' +
+        '      <select class="select" id="tfScope" onchange="onTplScopeChange()">' +
+        '        <option value="personal"' + (tpl && tpl.scope === 'personal' ? ' selected' : '') + (isAdmin ? ' disabled' : '') + '>个人</option>' +
+        '        <option value="dept"' + (tpl && tpl.scope === 'dept' ? ' selected' : '') + '>科室</option>' +
+        '        <option value="hospital"' + (tpl && tpl.scope === 'hospital' ? ' selected' : '') + '>全院</option>' +
+        '      </select></div>' +
+        '    <div class="form-group" id="tfDeptWrap" style="display:none"><label class="form-label">选择科室（多选）</label>' +
+        '      <div id="tfDeptTree"></div></div>' +
+        '  </div>' +
+        '  <div class="tpl-right">' +
+        '    <div class="emr-doc"><div class="doc-body" id="templateEditor" style="border:1px solid var(--border);border-radius:8px;padding:14px;min-height:380px"></div></div>' +
+        '  </div>' +
+        '</div>';
     mask.querySelector('.modal-body').innerHTML = html;
-    // 加载科室列表（仅临床科室，医生可访问接口）
-    if (document.getElementById('tfDeptList')) {
-        Clinic.get('/api/template?action=depts', null, {
-            onSuccess: function (j) {
-                var box = document.getElementById('tfDeptList');
-                if (!box) return;
-                var rows = j.data.list || [];
-                var boxes = rows.map(function (d) {
-                    return '<label class="flex gap-4 mb-4" style="font-size:13px;cursor:pointer"><input type="checkbox" class="tplDeptChk" value="' + d.id + '"' +
-                        ((tpl && tpl.dept_ids && tpl.dept_ids.indexOf(parseInt(d.id)) !== -1) ? ' checked' : '') + '> ' + escHtml(d.name) + '</label>';
-                });
-                box.innerHTML = boxes.join('');
-                onTplScopeChange();
-            },
-        });
+    // 渲染科室三级树（复用 depttree 组件）
+    var treeBox = document.getElementById('tfDeptTree');
+    if (treeBox) {
+        Clinic.deptTree.build(treeBox, { selected: (tpl && tpl.dept_ids) || [] });
     }
-    // 渲染编辑器
+    // 渲染编辑器（模板模式：仅保留允许节）
     var container = document.getElementById('templateEditor');
     if (container) {
         try {
@@ -188,12 +185,17 @@ function saveTplForm(id, origStatus) {
     if (!title) { Clinic.toast.warning('请填写模板名称'); return; }
     var scope = document.getElementById('tfScope').value;
     if (scope === 'dept') {
-        var checked = document.querySelectorAll('.tplDeptChk:checked');
+        var checked = document.querySelectorAll('#tfDeptTree .deptChk:checked');
         if (!checked.length) { Clinic.toast.warning('请选择至少一个科室'); return; }
     }
     var content = {}; try { content = Clinic.emrEditor.collect(); } catch (e) { content = {}; }
+    // 主诉/现病史必填（模板正文底线：模板必须先填好主诉与现病史）
+    var ccSymptom = (content.chief_complaint && (content.chief_complaint.symptom || '').trim()) || '';
+    var piContent = (content.history_present && (content.history_present.content || '').trim()) || '';
+    if (!ccSymptom) { Clinic.toast.warning('主诉为必填项，请填写主要症状'); return; }
+    if (!piContent) { Clinic.toast.warning('现病史为必填项，请填写具体内容'); return; }
     var deptIds = [];
-    document.querySelectorAll('.tplDeptChk:checked').forEach(function (c) { deptIds.push(c.value); });
+    document.querySelectorAll('#tfDeptTree .deptChk:checked').forEach(function (c) { deptIds.push(c.value); });
     Clinic.ajax('/api/template', {
         action: 'save', id: id || 0, title: title, type: 'medical_record',
         scope: scope, content: JSON.stringify(content), dept_ids: deptIds.join(','),

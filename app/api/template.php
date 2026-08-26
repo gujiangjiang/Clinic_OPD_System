@@ -88,7 +88,8 @@ switch ($action) {
             $sql .= " AND title LIKE ?";
             $params[] = '%' . $kw . '%';
         }
-        $sql .= " ORDER BY is_system DESC, scope ASC, id DESC";
+        // 排序：系统模板置顶，其余按创建时间倒序（新创建的显示在上）
+        $sql .= " ORDER BY is_system DESC, id DESC";
         $rows = DB::q('emr_templates', $sql, $params);
         $out = array();
         foreach ($rows as $t) {

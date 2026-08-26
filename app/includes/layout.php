@@ -235,6 +235,7 @@ class Layout {
             <script src="/assets/js/components/ajax.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/modal.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/deptpicker.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/depttree.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/toast.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/print.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/theme.js?v=' . APP_VERSION . '"></script>
