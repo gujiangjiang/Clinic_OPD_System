@@ -839,22 +839,24 @@ Clinic.emr = (function () {
      * 首诊上方。本人尚无文书时，全部他人文书都在上侧。
      */
     function splitOthers(d) {
-        var mineId = d.record && d.record.doctor_id;
-        var mineRid = d.record && d.record.record_id;   // 当前编辑文书的 id（仅此文书不算「他人」）
+        var mineRid = d.record && d.record.record_id;   // 当前编辑文书的 id
         var hist = d.records_history || [];
         var myIdx = -1;
-        // 找最后一个（最新）当前医生文书——之前的同名医生文书视为只读段
-        for (var i = hist.length - 1; i >= 0; i--) {
-            if (myIdx === -1 && hist[i].doctor_id === mineId) {
+        // 按当前编辑文书 id 精确定位（切换回首诊/中间续写时，只读段/编辑器
+        // 按其真实顺序排列，而非总把最新本人文书当作当前项）
+        for (var i = 0; i < hist.length; i++) {
+            if (mineRid && ((hist[i].record_id || 0) === mineRid || (hist[i].id || 0) === mineRid)) {
                 myIdx = i;
                 break;
             }
         }
-        var isNotCurrent = function (r) { return r.id !== mineRid; };
-        if (myIdx === -1) return { before: hist.filter(isNotCurrent), after: [] };
+        if (myIdx === -1) {
+            // 未匹配（本人无文书 / 新建续写 record_id=0）：全部文书视为只读段
+            return { before: hist.slice(), after: [] };
+        }
         return {
-            before: hist.slice(0, myIdx).filter(isNotCurrent),
-            after: hist.slice(myIdx + 1).filter(isNotCurrent),
+            before: hist.slice(0, myIdx),
+            after: hist.slice(myIdx + 1),
         };
     }
 
