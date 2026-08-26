@@ -666,3 +666,14 @@
     background: var(--bg-soft, #f8fafc);
     margin: 12px 0;
 }
+
+/* ============================================================
+   医生工作站空白工作台（无患者时）
+   空白卡片填满编辑区高度，与右侧大纲栏等高对齐。
+   ============================================================ */
+.emr-main-editor-scroll .wb-empty {
+    height: 100%;
+    min-height: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}

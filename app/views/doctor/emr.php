@@ -16,7 +16,7 @@
  *   #navLab / #navProc / #navRx / #navCert（emr.js 渲染）
  * 安全：URL 中 visit_id 为混淆串，此处一次性解码；前端全程透传混淆串。
  */
-Router::title('电子病历');
+Router::title('医生工作站');
 
 $visitCode = trim((string)get('visit_id', ''));
 $visitId = did($visitCode);
@@ -32,7 +32,7 @@ if ($visitId <= 0) {
     </header>
     <div class="emr-body-layout">
         <div class="emr-main-editor-scroll">
-            <div class="card" style="padding:40px 20px;text-align:center;min-height:50vh;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <div class="card wb-empty" style="padding:40px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center">
                 <div style="font-size:72px;margin-bottom:16px">🩺</div>
                 <div class="fs-18 fw-600 text-muted">欢迎使用医生工作站</div>
                 <div class="fs-14 text-muted mt-4">请从左侧候诊列表选择患者开始就诊</div>
