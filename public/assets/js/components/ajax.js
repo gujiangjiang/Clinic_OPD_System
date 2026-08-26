@@ -85,9 +85,12 @@ Clinic.get = function (url, data, opts) {
             if (opts && opts.onSuccess) opts.onSuccess(json);
             return json;
         })
-        .catch(function () {
+        .catch(function (err) {
             Clinic.toast.error('网络请求失败');
             if (opts && opts.onError) opts.onError({ ok: false });
+            // 重抛使真实异常（如回调内 ReferenceError）可见于控制台，
+            // 避免被吞后仅剩无定位信息的「网络请求失败」提示
+            throw err;
         });
 };
 

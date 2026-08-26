@@ -17,6 +17,13 @@ Clinic.queuePanel = (function () {
     var seen = false;       // 多选项：已诊
     var todayOnly = false;  // 多选项：当日
 
+    /* HTML 转义（组件内私有：emr.js 的 escHtml 为 IIFE 私有不可复用） */
+    function escHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
     /* 拉取队列数据（force=true 强制刷新） */
     function load(force, cb) {
         if (DATA && !force) { if (cb) cb(); return; }
