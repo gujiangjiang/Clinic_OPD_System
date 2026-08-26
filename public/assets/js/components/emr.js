@@ -1509,6 +1509,60 @@ Clinic.emr = (function () {
     }
 
     /**
+     * 删除病历记录（生命周期约束：仅本人创建、首诊有续写则锁定、续写可独立删）。
+     * 前端预览拦截与后端权威校验双重保障。
+     */
+    function deleteRecord(recId) {
+        var node = null;
+        (DATA.records_history || []).forEach(function (h) { if ((h.id || h.record_id) === recId) node = h; });
+        if (!node) { Clinic.toast.warning('该病历记录不存在'); return; }
+        // 身份校验（预览拦截）
+        var myUid = (DATA.record && DATA.record.doctor_id) || 0;
+        if ((node.doctor_id || 0) !== myUid) {
+            Clinic.toast.warning('无权删除非本人创建的病历记录');
+            return;
+        }
+        // 首诊锁定（预览拦截）
+        if (node.record_type === 'initial') {
+            var hasProgress = (DATA.records_history || []).some(function (h) { return h.record_type === 'progress' && h.status !== 'draft'; });
+            if (hasProgress) {
+                Clinic.toast.warning('该病历已存在后续病程记录，不可删除首诊病历');
+                return;
+            }
+        }
+        var label = node.record_type === 'initial' ? '首诊病历' : '续写病历';
+        Clinic.modal.confirm('确定删除该' + label + '？删除后不可恢复。' +
+            (node.record_type === 'initial' ? '\n（删除后系统将自动引导重新选择模板开启首诊）' : ''),
+            function () {
+                Clinic.ajax('/api/record', {
+                    action: 'delete_record',
+                    visit_id: document.getElementById('visitId').value,
+                    record_id: recId,
+                }, {
+                    onSuccess: function (j) {
+                        Clinic.toast.success(j.msg);
+                        // 刷新病历树/正文，删除后联动
+                        handleRecordDeleted(j.data && j.data.record_type, recId);
+                    },
+                });
+            },
+            { title: '删除' + label, okText: '确认删除' }
+        );
+    }
+
+    /**
+     * 删除成功后联动：
+     * · 首诊删除 → 刷新页面（records_history 为空，loadData 自动触发模板选择引导）
+     * · 续写删除 → 刷新页面（病历树重建，初始定位回显上一有效可编辑文书）
+     */
+    function handleRecordDeleted(recordType, recId) {
+        // 重置脏标记与 edit 标志，避免残留
+        EMR_DIRTY = false;
+        DATA.__edit_record_id = 0;
+        setTimeout(function () { location.reload(); }, 600);
+    }
+
+    /**
      * 加载患者已开项目（病历处置区 + 病历正文所见即所得区）
      */
     function loadOrders(visitId) {
@@ -1555,13 +1609,20 @@ Clinic.emr = (function () {
         // 条目格式：日期 时间 科室 （首/续） + 医生姓名靠右（与初步诊断条目同款式）
         var recEl = document.getElementById('navRecords');
         var hist = (DATA && DATA.records_history) || [];
+        var myUid = (DATA && DATA.record && DATA.record.doctor_id) || 0;
+        // 本次就诊是否存在已保存的续写病程（首诊锁定判定）
+        var hasSavedProgress = hist.some(function (h) { return h.record_type === 'progress' && h.status !== 'draft'; });
         recEl.innerHTML = hist.length ? hist.map(function (r2) {
             var typeName = r2.record_type === 'progress' ? '（续）' : '（首）';
             var dt = (r2.created_at || '').substring(5, 16);   // MM-DD HH:MM
+            // 删除按钮：仅本人创建；本人首诊且已有续写病程则锁定不显示
+            var isMine = (r2.doctor_id || 0) === myUid;
+            var canDel = isMine && (r2.record_type !== 'initial' || !hasSavedProgress);
             return '<div class="ena-item" onclick="scrollToRecord(' + r2.id + ',' + r2.doctor_id + ')">' +
                 '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                 escHtml(dt) + ' ' + escHtml(r2.dept_name || '') + '</span>' +
                 '<span class="text-muted" style="flex-shrink:0;font-size:11px">' + typeName + '</span>' +
+                (canDel ? '<span class="ena-del" title="删除该病历记录" onclick="event.stopPropagation();Clinic.emr.deleteRecord(' + r2.id + ')">🗑️</span>' : '') +
                 '<span class="ena-sub">' + escHtml(r2.doctor_name) + '</span></div>';
         }).join('') : '<div class="ena-empty">暂无病历文书</div>';
 
@@ -2609,6 +2670,8 @@ Clinic.emr = (function () {
         isRecordComplete: isRecordComplete,
         /** 返回当前病历是否有未保存的修改（候诊切换患者时拦截跳转用） */
         isDirty: function () { return EMR_DIRTY; },
+        /** 删除病历记录（节点生命周期约束：仅本人/首诊锁定/续写独立删除） */
+        deleteRecord: deleteRecord,
         loadOrders: loadOrders,
         isMyOrder: isMyOrder,
     };

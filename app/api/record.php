@@ -806,6 +806,52 @@ switch ($action) {
         json_ok(array('diagnoses' => $clean), '诊断已更新');
         break;
 
+    /* ==================== 删除病历记录（节点删除 + 生命周期约束） ====================
+     * 业务规则：
+     * 1. 身份越权：仅记录创建者本人可删除（403 语义）；
+     * 2. 首诊锁定：若该就诊下已存在任何已保存的续写病程记录，则首诊不可删除
+     *    （400 语义）——病历必须保留可追溯的首诊锚点；
+     * 3. 续写节点：本人创建的续写可独立删除，不影响首诊及其余续写。
+     * 删除同时清理旧 records 镜像（按 patient_record_id 精确匹配）。 */
+    case 'delete_record':
+        $visitId = did(post('visit_id'));
+        $recordId = (int)post('record_id', 0);
+        $row = get_visit_row($visitId);
+        if (!$row) json_fail('就诊记录不存在');
+        if ($recordId <= 0) json_fail('参数错误');
+        $rec = DB::one('medical', 'SELECT * FROM patient_records WHERE id=?', array($recordId));
+        if (!$rec) json_fail('病历记录不存在');
+        if ((int)$rec['visit_id'] !== (int)$visitId) json_fail('病历记录不属于本次就诊');
+        // 1. 身份越权拦截
+        if ((int)$rec['doctor_id'] !== (int)$u['id']) {
+            json_fail('无权删除非本人创建的病历记录');
+        }
+        // 2. 首诊锁定校验：存在已保存的续写病程 → 禁止删除首诊
+        if ($rec['record_type'] === 'initial') {
+            $hasProgress = (int)DB::val('medical', "SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND record_type='progress' AND status<>'draft'", array($visitId));
+            if ($hasProgress > 0) {
+                json_fail('该病历已存在后续病程记录，不可删除首诊病历');
+            }
+        }
+        // 3. 删除（物理删除 + 镜像清理）
+        $pdo = DatabaseManager::pdo('medical');
+        try {
+            $pdo->beginTransaction();
+            $pdo->prepare('DELETE FROM patient_records WHERE id=?')->execute(array($recordId));
+            // 清理该文书对应的旧镜像（精确匹配 patient_record_id；旧数据无关联时按 visit+doctor 最新兜底）
+            $pdo->prepare('DELETE FROM records WHERE patient_record_id=?')->execute(array($recordId));
+            $mirrorOld = DB::one('medical', 'SELECT id FROM records WHERE visit_id=? AND doctor_id=? AND patient_record_id=0 ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+            if ($mirrorOld) {
+                $pdo->prepare('DELETE FROM records WHERE id=?')->execute(array($mirrorOld['id']));
+            }
+            $pdo->commit();
+        } catch (Exception $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            json_fail('病历删除失败：' . $ex->getMessage());
+        }
+        json_ok(array('record_type' => $rec['record_type']), '病历记录已删除');
+        break;
+
     /* ==================== 开具诊断证明（单次就诊一次） ==================== */
     case 'certificate':
         $visitId = did(post('visit_id'));
