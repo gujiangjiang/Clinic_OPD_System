@@ -653,4 +653,4 @@
     font-size: 13px;
     padding: 24px 0;
 }
-.queue-panel .qp-search { width: 180px; height: 28px; font-size: 13px; padding: 2px 8px; flex-shrink: 0; }
+.queue-panel .qp-search { width: 350px; height: 28px; font-size: 13px; padding: 2px 8px; flex-shrink: 0; }
