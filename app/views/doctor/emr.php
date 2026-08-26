@@ -49,18 +49,85 @@ if ($visitId <= 0) {
     </div>
 </div>
 <script>
-/* 自动弹出候诊列表 */
-document.addEventListener('DOMContentLoaded', function () {
+/* 工作台科室加载：单科室自动进入，多科室检查会话记忆，未选则弹选择 */
+var WB_DEPT_LIST = [];
+var WB_CUR_DEPT = 0;
+
+function wbDeptMemKey() {
+    var b = document.querySelector('[data-uid]');
+    return { u: b ? b.getAttribute('data-uid') : '', s: (b ? b.getAttribute('data-sid') : '') || '' };
+}
+function wbReadSavedDept() {
+    try {
+        var k = wbDeptMemKey();
+        var sv = JSON.parse(sessionStorage.getItem('clinic_doc_dept') || '""');
+        return (sv && String(sv.u) === k.u && String(sv.s) === k.s) ? (parseInt(sv.d, 10) || 0) : 0;
+    } catch (e) { return 0; }
+}
+
+function wbPickDept(id) {
+    WB_CUR_DEPT = id;
+    var k = wbDeptMemKey();
+    sessionStorage.setItem('clinic_doc_dept', JSON.stringify({ u: k.u, s: k.s, d: id }));
+    // 更新空状态提示
+    document.querySelector('.wb-empty .fs-18').textContent = '🏥 已选择科室';
+    document.querySelector('.wb-empty .fs-14').textContent = '候诊列表已打开，点击患者即可进入病历书写';
+    document.querySelector('.wb-empty .fs-12').innerHTML = '';
+    // 通知服务端记录当前科室（叫号大屏跟随），完成后弹出候诊列表
+    Clinic.ajax('/api/doctor', { action: 'set_dept', dept_id: id }, {
+        onSuccess: function () { wbOpenQueue(); },
+        onError: function () { wbOpenQueue(); },
+    });
+}
+
+function wbOpenQueue() {
     if (window.Clinic && Clinic.queuePanel) {
-        // 候诊按钮由 queuepanel.init 自动注入，待就绪后弹出
-        var check = setInterval(function () {
+        var iv = setInterval(function () {
             if (document.getElementById('queueBtn')) {
-                clearInterval(check);
+                clearInterval(iv);
                 setTimeout(function () { Clinic.queuePanel.open(); }, 300);
             }
         }, 100);
     }
-});
+}
+
+function wbLoadDepts() {
+    Clinic.get('/api/doctor?action=depts', null, {
+        onSuccess: function (json) {
+            WB_DEPT_LIST = json.data.list || [];
+            if (!WB_DEPT_LIST.length) {
+                document.querySelector('.wb-empty .fs-18').textContent = '⚠️ 尚未关联科室';
+                document.querySelector('.wb-empty .fs-14').textContent = '请联系管理员在【用户管理】中为您设置科室';
+                return;
+            }
+            if (WB_DEPT_LIST.length === 1) {
+                wbPickDept(WB_DEPT_LIST[0].id);
+            } else {
+                var saved = wbReadSavedDept();
+                var hasSaved = false;
+                WB_DEPT_LIST.forEach(function (d) { if (d.id === saved) hasSaved = true; });
+                if (hasSaved) {
+                    wbPickDept(saved);
+                } else {
+                    document.querySelector('.wb-empty .fs-18').textContent = '🩺 请先选择科室后开始接诊';
+                    document.querySelector('.wb-empty .fs-14').textContent = '点击下方按钮选择当前科室';
+                    document.querySelector('.wb-empty .fs-12').innerHTML = '<button class="btn btn-primary btn-sm mt-8" onclick="wbOpenDeptPicker()">🏥 选择科室</button>';
+                }
+            }
+        },
+    });
+}
+
+function wbOpenDeptPicker() {
+    Clinic.deptPicker.open({
+        mode: 'select',
+        depts: WB_DEPT_LIST,
+        currentId: WB_CUR_DEPT,
+        onSelect: function (d) { wbPickDept(d.id); },
+    });
+}
+
+document.addEventListener('DOMContentLoaded', wbLoadDepts);
 </script>
     <?php
     return;
