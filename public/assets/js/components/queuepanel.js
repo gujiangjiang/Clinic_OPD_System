@@ -193,7 +193,15 @@ Clinic.queuePanel = (function () {
                 if (c.getAttribute('data-k') === 'seen') seen = !seen; else todayOnly = !todayOnly;
                 savePref();
                 renderBtn();
-                renderPanel();
+            renderPanel();
+            /* 列表高度限制：不超过视口（46vh），且不溢出屏幕底部——
+               患者再多也只在面板内部滚动，不遮挡页面其他区域 */
+            var listEl = p.querySelector('.qp-list');
+            if (listEl) {
+                var chromeH = p.offsetHeight - listEl.offsetHeight;   // chips+搜索+内边距
+                var avail = window.innerHeight - p.getBoundingClientRect().top - chromeH - 12;
+                listEl.style.maxHeight = Math.max(140, Math.min(window.innerHeight * 0.46, avail)) + 'px';
+            }
             });
         });
         // 搜索即时过滤（重渲染列表区，保持输入框焦点与光标位置）
