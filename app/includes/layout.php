@@ -50,8 +50,9 @@ class Layout {
             );
         } elseif ($role === 'doctor') {
             $items['医生工作站'] = array(
+                array('首页', '🏠', '/doctor/home'),
                 array('医生工作站', '🩺', '/doctor/emr'),
-                array('旧工作站', '🏠', '/doctor/dashboard'),
+                array('旧工作站', '🖥️', '/doctor/dashboard'),
                 array('模板管理', '📋', '/doctor/templates'),
             );
         } elseif ($role === 'nurse') {
