@@ -172,8 +172,18 @@ Clinic.queuePanel = (function () {
     /* ==================== 弹层面板 ==================== */
     function panelEl() { return document.getElementById('queuePanel'); }
 
-    function renderPanel() {
-        var p = panelEl();
+    /* 点击患者条目跳转病历页：emr 页有未保存修改时拒绝跳转并以 toast 提示
+     * （避免系统 Alert 弹窗破坏使用一体性） */
+    function jumpToPatient(code) {
+        if (window.Clinic && Clinic.emr && Clinic.emr.isDirty && Clinic.emr.isDirty()) {
+            Clinic.toast.warning('当前病历有未保存的修改，请先点击「💾 保存」后再切换患者');
+            return;
+        }
+        closePanel();
+        location.href = '/doctor/emr?visit_id=' + code;
+    }
+
+    function renderPanel() {        var p = panelEl();
         if (!p) return;
         var list = scopedList();
         p.innerHTML =
@@ -212,11 +222,10 @@ Clinic.queuePanel = (function () {
             again.setSelectionRange(pos, pos);
         });
         search.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
-        // 点击条目 → 跳转该患者病历页（visit_id 为混淆串）
+        // 点击条目 → 跳转该患者病历页
         p.querySelectorAll('.qp-row:not(.qp-head)').forEach(function (row) {
             row.addEventListener('click', function () {
-                closePanel();
-                location.href = '/doctor/emr?visit_id=' + row.getAttribute('data-code');
+                jumpToPatient(row.getAttribute('data-code'));
             });
         });
     }

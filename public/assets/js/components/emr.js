@@ -327,7 +327,7 @@ Clinic.emr = (function () {
                 onChange: function () { EMR_DIRTY = true; },
             });
             refreshReadOnlyBodies(d);
-            scrollToEditor();
+            scrollToEditor(0);
         } catch (e) {
             console.error('续写编辑器渲染失败', e);
             Clinic.toast.error('续写编辑器渲染失败，请刷新页面重试');
@@ -399,7 +399,7 @@ Clinic.emr = (function () {
                 '<div class="ena-item" style="opacity:0.6;font-style:italic">' +
                 '<span>📝 续写编辑中…（未保存）</span></div>');
         }
-        scrollToEditor();
+        scrollToEditor(0);
     }
 
     /**
@@ -408,13 +408,16 @@ Clinic.emr = (function () {
      */
     /**
      * 滚动到本人续写/编辑区：优先滚动到续写条幅（#contHeadWrap，位于所有
-     * 只读段之后、编辑器之前），回退到 #myRecordAnchor——确保点「病历节点 +」
-     * 后续写时定位到当前续写条幅，而非首诊病历顶部。
+     * 只读段之后、编辑器之前），回退到 #myRecordAnchor。
+     * @param {number} delay 滚动延迟 ms，默认 200；0 表示下一宏任务立即执行
+     *                        （交互触发场景如点+续写、切换节点用 0，
+     *                         初始加载等异步场景保留 200）
      */
-    function scrollToEditor() {
+    function scrollToEditor(delay) {
         var anchor = document.getElementById('contHeadWrap') || document.getElementById('myRecordAnchor');
         if (!anchor) return;
-        setTimeout(function () {
+        if (delay == null) delay = 200;
+        var doScroll = function () {
             var topbar = document.querySelector('.topbar');
             var topbarH = topbar ? topbar.offsetHeight : 0;
             var el = anchor.parentElement, scroller = null;
@@ -433,7 +436,13 @@ Clinic.emr = (function () {
                 var yw = rect.top + (window.pageYOffset || document.documentElement.scrollTop) - topbarH - 8;
                 window.scrollTo({ top: Math.max(0, yw), behavior: 'smooth' });
             }
-        }, 200);
+        };
+        if (delay === 0) {
+            // 立即执行（下一宏任务，等当前同步栈结束 DOM 稳定）
+            setTimeout(doScroll, 0);
+        } else {
+            setTimeout(doScroll, delay);
+        }
     }
 
     /**
@@ -592,8 +601,9 @@ Clinic.emr = (function () {
 
         // 初始定位：默认滚动到当前本人可编辑文书（最后一个本人文书）的锚点；
         // · 只读（诊毕）或场景 C（本人无文书仅占位）→ 不自动滚动
-        if (!readOnly && !needProgress) {
-            scrollToEditor();
+        // · switchToRecord 切换时置 __noAutoScroll，由调用方立即滚动
+        if (!readOnly && !needProgress && !d.__noAutoScroll) {
+            scrollToEditor(200);
         }
     }
 
@@ -1739,9 +1749,13 @@ Clinic.emr = (function () {
             updated_at: target.updated_at || '',
         };
         DATA.__edit_record_id = recId;   // 保存时精确回写该文书
+        // 重渲染时抑制内部自动滚动（避免 200ms 延迟造成「先闪可编辑再滚动」），
+        // 渲染完成后立即滚动到对应文书锚点——滚动与变可编辑同步完成，干净利落
+        DATA.__noAutoScroll = true;
         renderEmrCard(DATA);
         renderLeftNav();
-        scrollToEditor();
+        DATA.__noAutoScroll = false;
+        scrollToEditor(0);
     }
 
     window.scrollToRecord = function (recId, doctorId) {
@@ -1749,7 +1763,7 @@ Clinic.emr = (function () {
         var mineId = r ? r.doctor_id : 0;
         // 1. 点击当前编辑文书 → 滚动到其编辑器锚点
         if (r && recId === r.record_id) {
-            scrollToEditor();
+            scrollToEditor(0);
             return;
         }
         // 2. 他人文书 → 只读段，直接滚动定位
@@ -1846,7 +1860,7 @@ Clinic.emr = (function () {
                     if (ph) {
                         createProgressEditor();
                     } else {
-                        scrollToEditor();
+                        scrollToEditor(0);
                     }
                 })();
                 return;
@@ -2573,6 +2587,8 @@ Clinic.emr = (function () {
         openVitals: openVitals,
         printRecord: printRecord,
         isRecordComplete: isRecordComplete,
+        /** 返回当前病历是否有未保存的修改（候诊切换患者时拦截跳转用） */
+        isDirty: function () { return EMR_DIRTY; },
         loadOrders: loadOrders,
         isMyOrder: isMyOrder,
     };
