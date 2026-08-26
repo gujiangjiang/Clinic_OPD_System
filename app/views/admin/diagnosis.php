@@ -59,15 +59,12 @@ function loadDiag() {
             }).join('');
             var showTotal = diagOffset + list.length;
             if (diagOffset === 0) {
-                // 首页：重建列表 + 已全部加载提示
-                var footer = (diagTotal > showTotal)
-                    ? '<div class="fs-12 text-muted" style="text-align:center;padding:10px 0" id="diagFoot">加载中…</div>'
-                    : '';
+                // 首页：重建列表
                 box.innerHTML = '<div class="fs-13 text-muted mb-8" id="diagCount">共 ' + diagTotal + ' 条诊断，已显示 ' + showTotal + ' 条</div>' +
                     '<div class="table-wrap"><table class="table"><thead><tr>' +
                     '<th style="width:160px">诊断码（ICD10）</th><th>诊断名称</th><th>拼音首字母</th><th style="width:140px">操作</th>' +
                     '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>' +
-                    footer;
+                    '<div class="fs-12 text-muted" style="text-align:center;padding:10px 0" id="diagFoot">加载中…</div>';
             } else {
                 // 追加
                 box.querySelector('tbody').insertAdjacentHTML('beforeend', rowsHtml);
@@ -76,34 +73,45 @@ function loadDiag() {
                 if (foot) foot.textContent = (diagOffset + list.length >= diagTotal) ? '已全部加载（' + diagTotal + ' 条）' : '加载中…';
             }
             diagOffset += list.length;
-            // 已全部加载后移除滚动监听占位
-            var foot2 = document.getElementById('diagFoot');
-            if (foot2 && diagOffset >= diagTotal) foot2.textContent = '已全部加载（' + diagTotal + ' 条）';
-            // 内容未满一屏时自动补齐
-            maybeAutoLoadMore();
+            // 更新底部状态：全部加载完 → 提示；内容不足一屏（无法滚动）→ 显示「加载更多」按钮兜底
+            updateDiagFooter();
         },
         onError: function () { diagLoading = false; },
     });
 }
-/* 滚动到底自动加载下一页（无限滚动） */
-function maybeAutoLoadMore() {
-    if (diagLoading || diagOffset >= diagTotal) return;
+/* 更新列表底部：全部加载完/下拉提示/按钮兜底 */
+function updateDiagFooter() {
     var box = document.getElementById('diagList');
     if (!box) return;
+    var foot = document.getElementById('diagFoot');
+    if (!foot) return;
+    if (diagOffset >= diagTotal) {
+        foot.textContent = '已全部加载（' + diagTotal + ' 条）';
+        return;
+    }
     var sc = document.querySelector('.content') || null;
-    var threshold = 250;
-    if (sc) {
-        // 主滚动容器 .content（overflow-y:auto）
-        if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - threshold) loadDiag();
+    var canScroll = sc ? (sc.scrollHeight > sc.clientHeight + 1) : true;
+    if (canScroll) {
+        // 可滚动：靠无限滚动加载，底部轻提示
+        foot.textContent = '已显示 ' + diagOffset + ' 条，继续下拉加载…';
     } else {
-        var rect = box.getBoundingClientRect();
-        if (rect.bottom - window.innerHeight < threshold) loadDiag();
+        // 内容不足一屏无法滚动：显示加载更多按钮
+        foot.innerHTML = '<button class="btn btn-outline btn-sm" onclick="loadDiag()">加载更多（' + (diagTotal - diagOffset) + ' 条）</button>';
+    }
+}
+/* 滚动接近底部时自动加载下一页（仅用户滚动触发，不自动补齐） */
+function maybeAutoLoadMore() {
+    if (diagLoading || diagOffset >= diagTotal) return;
+    var sc = document.querySelector('.content') || null;
+    if (sc) {
+        if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 250) loadDiag();
+    } else if (window.innerHeight + window.pageYOffset >= document.body.scrollHeight - 250) {
+        loadDiag();
     }
 }
 (function () {
     var sc = document.querySelector('.content') || window;
     sc.addEventListener('scroll', maybeAutoLoadMore, { passive: true });
-    window.addEventListener('resize', maybeAutoLoadMore);
 })();
 
 /* 新增/编辑诊断（拼音首字母为空时自动生成） */
