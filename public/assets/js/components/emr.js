@@ -327,6 +327,9 @@ Clinic.emr = (function () {
                 onChange: function () { EMR_DIRTY = true; },
             });
             refreshReadOnlyBodies(d);
+            // 右侧病历节点列表追加临时续写节点（renderLeftNav 内自动处理占位）
+            DATA.__pending_progress = true;
+            renderLeftNav();
             scrollToEditor(0);
         } catch (e) {
             console.error('续写编辑器渲染失败', e);
@@ -361,6 +364,7 @@ Clinic.emr = (function () {
         }
         // 2. 续写编辑态：保留默认结构（既往史/过敏史默认「否认」等），
         //    仅将 progress 内容清空；record_id 置 0 表示新建，保存时落库
+        DATA.__pending_progress = true;
         DATA.__progress_new = true;
         DATA.__edit_record_id = 0;   // 新建续写走 progress_new，不使用精确回写
         DATA.record.record_id = 0;
@@ -391,14 +395,8 @@ Clinic.emr = (function () {
         fillContHead(DATA.record);
         var signEl2 = document.getElementById('signWrap');
         if (signEl2) signEl2.textContent = '医生：' + r.doctor_name;
-        // 5. 更新左侧病历节点列表：已保存文书列表 + 追加临时续写节点（未保存）
+        // 5. 更新左侧病历节点列表（renderLeftNav 内自动追加「续写编辑中」占位）
         renderLeftNav();
-        var navRec = document.getElementById('navRecords');
-        if (navRec) {
-            navRec.insertAdjacentHTML('beforeend',
-                '<div class="ena-item" style="opacity:0.6;font-style:italic">' +
-                '<span>📝 续写编辑中…（未保存）</span></div>');
-        }
         scrollToEditor(0);
     }
 
@@ -1626,6 +1624,12 @@ Clinic.emr = (function () {
                 (canDel ? '<span class="ena-del" title="删除该病历记录" onclick="event.stopPropagation();Clinic.emr.deleteRecord(' + r2.id + ')">🗑️</span>' : '') +
                 '<span class="ena-sub">' + escHtml(r2.doctor_name) + '</span></div>';
         }).join('') : '<div class="ena-empty">暂无病历文书</div>';
+        // 续写编辑中占位（未保存，保存/reload 后自动清除）
+        if (DATA && DATA.__pending_progress && recEl) {
+            recEl.insertAdjacentHTML('beforeend',
+                '<div class="ena-item" style="opacity:0.6;font-style:italic">' +
+                '<span>📝 续写编辑中…（未保存）</span></div>');
+        }
 
         // ---------- 3. 初步诊断（聚合：本人诊断顺序优先，其后他人诊断） ----------
         // 显示顺序 = 本人保存的全局排序（diag_order 独立存储，跨医生交错排序
@@ -2315,6 +2319,7 @@ Clinic.emr = (function () {
                 // 避免前端 records_history 手工同步错乱
                 if (DATA && DATA.__progress_new) {
                     DATA.__progress_new = false;
+                    DATA.__pending_progress = false;
                     setTimeout(function () { location.reload(); }, 800);
                     return;
                 }
