@@ -362,6 +362,7 @@ Clinic.emr = (function () {
         // 2. 续写编辑态：保留默认结构（既往史/过敏史默认「否认」等），
         //    仅将 progress 内容清空；record_id 置 0 表示新建，保存时落库
         DATA.__progress_new = true;
+        DATA.__edit_record_id = 0;   // 新建续写走 progress_new，不使用精确回写
         DATA.record.record_id = 0;
         DATA.record.record_type = 'progress';
         var base = JSON.parse(JSON.stringify(r.emr || {}));
@@ -589,15 +590,9 @@ Clinic.emr = (function () {
             }
         }
 
-        // 续写定位：仅「存在他人文书」且已渲染本人编辑器的场景下，
-        // 页面平滑滚动到本人病历区（#myRecordAnchor）：
-        // · 单人文书（整份病历只有本人一份，含未保存首诊）→ 不滚动；
-        // · 已有本人文书且为续写 → 滚动到病历续写处；
-        // · 场景 C（本人尚无文书，仅占位）→ 不自动滚动，等显式点击「+」。
-        var hasOthers = (d.records_history || []).some(function (h) {
-            return (h.doctor_id || 0) !== (r.doctor_id || 0);
-        });
-        if (!readOnly && hasOthers && !needProgress) {
+        // 初始定位：默认滚动到当前本人可编辑文书（最后一个本人文书）的锚点；
+        // · 只读（诊毕）或场景 C（本人无文书仅占位）→ 不自动滚动
+        if (!readOnly && !needProgress) {
             scrollToEditor();
         }
     }
@@ -1719,18 +1714,66 @@ Clinic.emr = (function () {
     }
 
     /** 病历节点定位：平滑滚动中栏到对应文书位置 */
+    /**
+     * 将当前编辑文书切换为指定本人文书（恢复为可编辑状态）。
+     * 前置条件由调用方校验（当前文书必填已保存且无未保存修改）。
+     * 切换后重渲染整卡：目标文书为编辑器，其余（含原当前文书）全部只读段。
+     */
+    function switchToRecord(recId) {
+        var target = null;
+        (DATA.records_history || []).forEach(function (h) { if (h.record_id === recId) target = h; });
+        if (!target) { Clinic.toast.warning('未找到该病历文书'); return; }
+        DATA.record = {
+            record_id: target.record_id,
+            id: target.id,
+            doctor_id: target.doctor_id,
+            doctor_name: target.doctor_name,
+            doctor_emp: target.doctor_emp || '',
+            doctor_title: target.doctor_title || '',
+            record_type: target.record_type,
+            emr: target.emr || {},
+            consciousness: target.consciousness || '',
+            created_at: target.created_at || '',
+            updated_at: target.updated_at || '',
+        };
+        DATA.__edit_record_id = recId;   // 保存时精确回写该文书
+        renderEmrCard(DATA);
+        renderLeftNav();
+        scrollToEditor();
+    }
+
     window.scrollToRecord = function (recId, doctorId) {
         var r = DATA && DATA.record;
-        // 当前编辑文书（最新本人文书，编辑态）→ 滚动到其条幅/编辑器锚点；
-        // 其余文书（本人旧文书/他人文书，只读段）→ 滚动到对应 recSeg{id} 只读段
-        var target = (r && recId === r.record_id)
-            ? (document.getElementById('contHeadWrap') || document.getElementById('myRecordAnchor'))
-            : document.getElementById('recSeg' + recId);
-        if (!target) { Clinic.toast.info('该文书区域当前不可见'); return; }
-        var scroller = document.querySelector('.emr-main-editor-scroll');
-        if (!scroller) return;
-        var y = target.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - 8;
-        scroller.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+        var mineId = r ? r.doctor_id : 0;
+        // 1. 点击当前编辑文书 → 滚动到其编辑器锚点
+        if (r && recId === r.record_id) {
+            scrollToEditor();
+            return;
+        }
+        // 2. 他人文书 → 只读段，直接滚动定位
+        if (doctorId !== mineId) {
+            var seg = document.getElementById('recSeg' + recId);
+            if (seg) {
+                var sc = document.querySelector('.emr-main-editor-scroll');
+                if (!sc) return;
+                var y2 = seg.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 8;
+                sc.scrollTo({ top: Math.max(0, y2), behavior: 'smooth' });
+            } else {
+                Clinic.toast.info('该文书区域当前不可见');
+            }
+            return;
+        }
+        // 3. 本人旧文书 → 切换为可编辑状态（前置：必填已保存 + 无未保存修改）
+        if (EMR_DIRTY) {
+            Clinic.toast.warning('当前病历有未保存的修改，请先点击「💾 保存」后再切换病历节点');
+            return;
+        }
+        if (!isRecordComplete()) {
+            var need3 = r && r.record_type === 'progress' ? '病历续写内容与初步诊断' : '主诉、现病史与初步诊断';
+            Clinic.toast.warning('请先完善并保存当前病历的必填项（' + need3 + '），再切换病历节点');
+            return;
+        }
+        switchToRecord(recId);
     };
 
     /** 左栏分区标题「＋」快捷添加入口：
@@ -2084,6 +2127,8 @@ Clinic.emr = (function () {
         // 续写落库标志：本人已有文书后点击「病历节点 +」新建续写（record_id=0，
         // 保存时以 progress_new 强制新建独立续写文书，而非更新旧文书）
         if (DATA && DATA.__progress_new) data.progress_new = 1;
+        // 切换回本人旧文书编辑：保存时精确回写该文书
+        if (DATA && DATA.__edit_record_id) data.edit_record_id = DATA.__edit_record_id;
         // 诊毕转归（confirmFinish 面板传入）：离院方式 + 补充信息
         if (finish && extra) {
             data.disposition = extra.disposition || '';
@@ -2114,10 +2159,17 @@ Clinic.emr = (function () {
                     // （首次保存新增节点，续存更新内容），诊断列表随之刷新
                     if (!DATA.records_history) DATA.records_history = [];
                     var mineId2 = DATA.record.doctor_id;
+                    var curRid2 = DATA.record.record_id;
                     var histEntry = null;
+                    // 精确匹配当前编辑文书（切换回旧文书时避免误更新最新本人文书）
                     DATA.records_history.forEach(function (h2) {
-                        if (h2.doctor_id === mineId2) histEntry = h2;
+                        if (curRid2 && (h2.record_id || h2.id) === curRid2) histEntry = h2;
                     });
+                    if (!histEntry) {
+                        DATA.records_history.forEach(function (h2) {
+                            if (h2.doctor_id === mineId2) histEntry = h2;
+                        });
+                    }
                     if (!histEntry) {
                         histEntry = {
                             id: DATA.record.record_id, record_id: DATA.record.record_id,

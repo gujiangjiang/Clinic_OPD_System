@@ -7,7 +7,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 7,
+    'version' => 8,
     'tables' => array(
         'records' => "CREATE TABLE IF NOT EXISTS records (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -143,6 +143,12 @@ return array(
             "ALTER TABLE certificates ADD COLUMN chief_complaint TEXT DEFAULT ''",
             "ALTER TABLE certificates ADD COLUMN present_illness TEXT DEFAULT ''",
             "ALTER TABLE certificates ADD COLUMN initial_diagnosis TEXT DEFAULT ''",
+        ),
+        // v8：records 镜像表加 patient_record_id 关联列——同一医生多条文书
+        // （首诊+多段续写）时，镜像可精确归属对应 patient_records，
+        // 支持「病历节点切换回旧文书编辑」后的精确回写
+        8 => array(
+            "ALTER TABLE records ADD COLUMN patient_record_id INTEGER DEFAULT 0",
         ),
         // v7：诊断排序表（跨医生全局显示顺序，独立存储不引用诊断）
         7 => array(

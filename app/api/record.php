@@ -472,21 +472,28 @@ switch ($action) {
         $diagnoses = isset($emr['diagnoses']) && is_array($emr['diagnoses']) ? $emr['diagnoses'] : array();
 
         // 文书类型服务端权威判定（不信任前端提交）：
-        // · progress_new=1：本人已有点击「病历节点 +」新建续写 → 强制新建 progress
+        // · edit_record_id>0：切换回本人旧文书编辑 → 按指定记录定位与判定；
+        // · progress_new=1：本人已点击「病历节点 +」新建续写 → 强制新建 progress
         //   （不更新旧文书，支持多段续写）；
-        // · 本人已有文书 → 取【最新一条】维持其原有类型（草稿续存，
-        //   支持本人首诊 + 续写多文书并存，最新一条为当前编辑文书）；
-        // · 本人无文书 → 流水下已有他人病历时为续写（progress，关联前序病历），
-        //   否则为首诊（initial）。
+        // · 本人已有文书 → 取【最新一条】维持其原有类型；
+        // · 本人无文书 → 流水下已有他人病历时为续写（progress），否则为首诊。
+        $editRecordId = (int)post('edit_record_id', 0);
         $progressNew = (int)post('progress_new', 0);
-        $ownRow = DB::one('medical', 'SELECT id, record_type FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
         $otherCount = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id<>?', array($visitId, $u['id']));
-        if ($progressNew) {
-            $recordType = 'progress';
+        if ($editRecordId > 0) {
+            // 编辑本人指定文书（切换回旧首诊/旧续写）——校验归属
+            $ownRow = DB::one('medical', 'SELECT id, record_type FROM patient_records WHERE id=? AND doctor_id=?', array($editRecordId, $u['id']));
+            if (!$ownRow) json_fail('病历记录不存在或无权编辑');
+            $recordType = $ownRow['record_type'];
         } else {
-            $recordType = $ownRow
-                ? ($ownRow['record_type'] === 'progress' ? 'progress' : 'initial')
-                : ($otherCount > 0 ? 'progress' : 'initial');
+            $ownRow = DB::one('medical', 'SELECT id, record_type FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+            if ($progressNew) {
+                $recordType = 'progress';
+            } else {
+                $recordType = $ownRow
+                    ? ($ownRow['record_type'] === 'progress' ? 'progress' : 'initial')
+                    : ($otherCount > 0 ? 'progress' : 'initial');
+            }
         }
         // 续写文书的父记录：
         // · progress_new（本人续写）→ 父 = 本人最近一条文书；
@@ -587,7 +594,12 @@ switch ($action) {
             // A. patient_records 写入/更新
             // 更新：仅刷新内容投影，record_type/parent_record_id 维持原值
             // （不重写历史）；新增：写入服务端判定的文书类型与父记录 id。
-            $pr = DB::one('medical', 'SELECT id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+            $pr = null;
+            if ($editRecordId > 0) {
+                $pr = array('id' => $editRecordId);   // 切换回旧文书：精确更新指定记录
+            } else {
+                $pr = DB::one('medical', 'SELECT id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+            }
             if ($pr && !$progressNew) {
                 $pdo->prepare('UPDATE patient_records SET main_symptom=?, symptom_duration=?, symptom_unit=?, informant=?, arrival_way=?, has_past_history=?, allergies=?, is_leave_hospital=?, primary_icd10=?, primary_diagnosis=?, emr_data=?, emr_print_text=?, status=?, updated_at=? WHERE id=?')
                     ->execute(array($mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $pr['id']));
@@ -604,6 +616,7 @@ switch ($action) {
             $piMirror = emr_pi_text($emr['history_present']);
             if ($piMirror === '' && $recordType === 'progress') $piMirror = $emr['progress']['content'];
             $mirror = array(
+                'patient_record_id' => $recordId,
                 'chief_complaint' => emr_cc_text($emr['chief_complaint']),
                 'present_illness' => $piMirror,
                 'past_history' => emr_ph_text($emr['past_history']),
@@ -618,7 +631,15 @@ switch ($action) {
                 'status' => $finish ? 'done' : 'draft',
                 'updated_at' => $now,
             );
-            $old = DB::one('medical', 'SELECT id FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+            // 旧 records 表扁平镜像：patient_record_id 精确归属对应文书
+            // （同医生多文书：首诊+多段续写各有一条镜像，编辑旧文书精确回写）
+            $old = null;
+            if ($recordId > 0) {
+                $old = DB::one('medical', 'SELECT id FROM records WHERE patient_record_id=?', array($recordId));
+            }
+            if (!$old) {
+                $old = DB::one('medical', 'SELECT id FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+            }
             if ($old && !$progressNew) {
                 $set = array();
                 $params = array();
@@ -627,9 +648,9 @@ switch ($action) {
                 $pdo->prepare('UPDATE records SET ' . implode(',', $set) . ' WHERE id=?')->execute($params);
                 $oldRecordId = (int)$old['id'];
             } else {
-                $cols = 'visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, ' . implode(',', array_keys($mirror)) . ', created_at';
-                $marks = '?,?,?,?,?,?, ' . implode(',', array_fill(0, count($mirror), '?')) . ',?';
-                $params = array($visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name']);
+                $cols = 'visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, patient_record_id, ' . implode(',', array_keys($mirror)) . ', created_at';
+                $marks = '?,?,?,?,?,?,?, ' . implode(',', array_fill(0, count($mirror), '?')) . ',?';
+                $params = array($visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name'], $recordId);
                 foreach ($mirror as $v) $params[] = $v;
                 $params[] = $now;
                 $pdo->prepare("INSERT INTO records($cols) VALUES($marks)")->execute($params);
