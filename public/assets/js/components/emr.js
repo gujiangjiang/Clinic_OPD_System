@@ -1239,6 +1239,7 @@ Clinic.emr = (function () {
             action: 'save_diags',
             visit_id: document.getElementById('visitId').value,
             diagnoses: JSON.stringify(newDiags),
+            edit_record_id: (DATA && DATA.__edit_record_id) || 0,
         }, {
             onSuccess: function (j) {
                 var saved = j.data.diagnoses || newDiags;
@@ -1486,7 +1487,9 @@ Clinic.emr = (function () {
      */
     function delDiag(ev, idx) {
         var row = DIAG_ROWS[idx];
-        if (!row || !row.mine) return;
+        // 仅当前编辑病历中存在的诊断可删除；其他病历（首诊/续写/他人）的诊断
+        // 不显示删除按钮，强制触发时在此拦截（跟随病历走）
+        if (!row || !row.inCurrent) return;
         if (!diagEditable()) return;
         if (ev && ev.stopPropagation) ev.stopPropagation();
         var doDel = function () {
@@ -1571,11 +1574,11 @@ Clinic.emr = (function () {
         var diagMap = {};
         var diagOrder = [];
         var mineDoctorId = myDoctorId();
-        var pushDiag = function (dg, mine, others, srcId, ownOld) {
+        var pushDiag = function (dg, mine, others, srcId, ownOld, inCurrent) {
             if (!dg || !dg.name) return;
             var key = (dg.code || '') + '|' + dg.name;
             if (!diagMap[key]) {
-                diagMap[key] = { key: key, idx: 0, code: dg.code || '', name: dg.name, dg: dg, mine: false, others: false, ownOld: false, srcId: srcId || 0 };
+                diagMap[key] = { key: key, idx: 0, code: dg.code || '', name: dg.name, dg: dg, mine: false, others: false, ownOld: false, inCurrent: false, srcId: srcId || 0 };
                 diagOrder.push(diagMap[key]);
             }
             // 只要诊断出现在本人任何文书（当前或旧续写/首诊）→ 归属本人（srcId=本人），
@@ -1583,17 +1586,18 @@ Clinic.emr = (function () {
             if (mine) { diagMap[key].mine = true; diagMap[key].srcId = mineDoctorId; }
             if (others) diagMap[key].others = true;
             if (ownOld) diagMap[key].ownOld = true;
+            if (inCurrent) diagMap[key].inCurrent = true;   // 当前编辑文书中存在 → 可删除
         };
-        // 当前编辑文书诊断：归属本人（ownOld=false——不在旧文书、不算自引）
+        // 当前编辑文书诊断：归属本人 + inCurrent（当前文书中存在 → 显示删除按钮）
         var curRid = DATA.record && DATA.record.record_id;
-        myList3.forEach(function (dg) { pushDiag(dg, true, false, mineDoctorId, false); });
+        myList3.forEach(function (dg) { pushDiag(dg, true, false, mineDoctorId, false, true); });
         // 其余文书（跳过当前编辑文书）：按书写者判定——本人旧文书=本人，
         // 他人文书=他人；ownOld 标记「诊断存在于本人旧文书」（自引判定用）
         (DATA && DATA.records_history ? DATA.records_history : []).forEach(function (h) {
             if ((h.record_id || h.id) === curRid) return;
             var isMine = (h.doctor_id || 0) === mineDoctorId;
             ((h.emr && h.emr.diagnoses) || []).forEach(function (dg) {
-                pushDiag(dg, isMine, !isMine, h.doctor_id || 0, isMine);
+                pushDiag(dg, isMine, !isMine, h.doctor_id || 0, isMine, false);
             });
         });
         // 按本人保存的全局排序重排（未在排序中的键保持默认相对顺序追加在后）
@@ -1611,8 +1615,8 @@ Clinic.emr = (function () {
             // 全局首行 = 主诊断：徽标提醒、不弹操作浮窗、无删除按钮
             var tail = x.idx === 0
                 ? '<span class="badge badge-primary" style="flex-shrink:0">主诊断</span>'
-                : (x.mine
-                    ? '<span class="ena-del" title="删除该诊断" onclick="Clinic.emr.delDiag(event,' + x.idx + ')">🗑️</span>'
+                : (x.inCurrent
+                    ? '<span class="ena-del" title="删除本病历中的该诊断" onclick="Clinic.emr.delDiag(event,' + x.idx + ')">🗑️</span>'
                     : '');
             return '<div class="ena-item" onclick="Clinic.emr.openDiagOpsPop(event,' + x.idx + ')" style="cursor:pointer">' +
                 '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escHtml(x.name) + '">' +

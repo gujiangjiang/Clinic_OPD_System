@@ -751,8 +751,13 @@ switch ($action) {
         $visitId = did(post('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
-        // 仅本人文书可调整，且未诊毕
-        $pr = DB::one('medical', 'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visitId, $u['id']));
+        // 仅本人文书可调整，且未诊毕；切换回旧文书编辑时按 edit_record_id 精确定位
+        $editDiagRecordId = (int)post('edit_record_id', 0);
+        if ($editDiagRecordId > 0) {
+            $pr = DB::one('medical', 'SELECT * FROM patient_records WHERE id=? AND doctor_id=?', array($editDiagRecordId, $u['id']));
+        } else {
+            $pr = DB::one('medical', 'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+        }
         if (!$pr) json_fail('您在该就诊下暂无病历文书');
         if ($pr['status'] === 'done') json_fail('病历已诊毕，无法调整诊断');
         $diags = json_decode((string)post('diagnoses', '[]'), true);
