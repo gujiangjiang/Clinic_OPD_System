@@ -310,6 +310,15 @@ Clinic.queuePanel = (function () {
      *   页面默认不自动加载候诊（避免未选科室时拉到回退科室的患者），
      *   待选完科室后由工作台脚本调用 init(true) 强制注入并加载。
      */
+    /* 读取本次登录会话内记忆的科室（sessionStorage 绑定账号+PHP会话ID） */
+    function readMemDept() {
+        try {
+            var k = { u: document.body.getAttribute('data-uid') || '', s: document.body.getAttribute('data-sid') || '' };
+            var sv = JSON.parse(sessionStorage.getItem('clinic_doc_dept') || '""');
+            return (sv && String(sv.u) === k.u && String(sv.s) === k.s) ? (parseInt(sv.d, 10) || 0) : 0;
+        } catch (e) { return 0; }
+    }
+
     function init() {
         var bar = document.querySelector('.emr-top-bar');
         var header = document.getElementById('emrHeader');
@@ -324,7 +333,9 @@ Clinic.queuePanel = (function () {
             if (panelEl()) closePanel(); else openPanel();
         });
         bar.insertBefore(btn, header);
-        // 未选科室（工作台尚未 setDept）：仅显示占位，不拉取数据
+        // 恢复本次登录会话记忆的科室（病历页/工作台进入均自动恢复，
+        // 退出重登会话ID变化 → 记忆失效 → 显示「候诊 -」）
+        DEPT_ID = readMemDept();
         renderBtn();
         if (DEPT_ID <= 0) return;
         load(true);
