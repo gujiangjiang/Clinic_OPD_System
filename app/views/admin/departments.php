@@ -14,17 +14,22 @@ Router::title('科室管理');
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
         <input class="input" id="deptSearchKw" placeholder="🔍 快速搜索科室" style="width:220px" oninput="applyDeptFilter()">
         <span class="flex gap-4" id="deptTypeTabs" style="flex-wrap:wrap">
-            <button class="btn btn-sm btn-primary" data-dtype="" onclick="deptTypeFilter(this,'')">全部</button>
+            <button class="btn btn-sm btn-primary" data-dtype="clinic,emergency" onclick="deptTypeFilter(this,'clinic,emergency')">临床</button>
             <button class="btn btn-sm btn-outline" data-dtype="clinic" onclick="deptTypeFilter(this,'clinic')">门诊</button>
             <button class="btn btn-sm btn-outline" data-dtype="emergency" onclick="deptTypeFilter(this,'emergency')">急诊</button>
+            <button class="btn btn-sm btn-outline" data-dtype="tech" onclick="deptTypeFilter(this,'tech')">医技</button>
+            <button class="btn btn-sm btn-outline" data-dtype="other" onclick="deptTypeFilter(this,'other')">其他</button>
         </span>
     </div>
 </div>
 <div class="card" id="deptList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
-var DEPT_TYPE = '';
-/* 类型子标签 + 快速搜索组合过滤，计数动态联动 */
+/* 默认「临床」（门诊+急诊）：医技/其他为叫号大屏专用科室，
+   不混入默认列表，仅经「医技/其他」Tab 查看管理 */
+var DEPT_TYPE = 'clinic,emergency';
+var DEPT_TYPE_NAMES = { 'clinic,emergency': '临床科室', 'clinic': '门诊科室', 'emergency': '急诊科室', 'tech': '医技科室', 'other': '其他科室' };
+/* 类型子标签（支持逗号分隔多类型）+ 快速搜索组合过滤，计数动态联动 */
 function deptTypeFilter(btn, t) {
     DEPT_TYPE = t;
     document.querySelectorAll('#deptTypeTabs .btn').forEach(function (b) {
@@ -35,19 +40,19 @@ function deptTypeFilter(btn, t) {
 function applyDeptFilter() {
     var inp = document.getElementById('deptSearchKw');
     var q = ((inp && inp.value) || '').trim().toLowerCase();
+    var types = DEPT_TYPE.split(',');
     var n = 0;
     document.querySelectorAll('#deptList tbody tr').forEach(function (tr) {
-        var hit = (DEPT_TYPE === '' || tr.getAttribute('data-type') === DEPT_TYPE) &&
+        var hit = types.indexOf(tr.getAttribute('data-type')) !== -1 &&
                   tr.textContent.toLowerCase().indexOf(q) !== -1;
         tr.style.display = hit ? '' : 'none';
         if (hit) n++;
     });
     var cnt = document.getElementById('deptCountDiv');
     if (!cnt) return;
+    var label = DEPT_TYPE_NAMES[DEPT_TYPE] || '科室';
     var searched = q !== '';
-    if (DEPT_TYPE === 'clinic') cnt.textContent = searched ? '门诊科室 ' + n + ' 个' : '门诊科室共 ' + n + ' 个';
-    else if (DEPT_TYPE === 'emergency') cnt.textContent = searched ? '急诊科室 ' + n + ' 个' : '急诊科室共 ' + n + ' 个';
-    else cnt.textContent = searched ? '科室 ' + n + ' 个' : '共 ' + n + ' 个科室';
+    cnt.textContent = searched ? label + ' ' + n + ' 个' : label + '共 ' + n + ' 个';
 }
 Clinic.importer._reloads['dept'] = loadDeptList;
 Clinic.importer.attach('dept', 'impBtns', '科室');
@@ -87,10 +92,10 @@ function openDeptForm(id) {
     });
 }
 
-/* 门诊显示号源输入，急诊隐藏 */
+/* 门诊显示号源输入，急诊/医技/其他隐藏 */
 function toggleQuota() {
     var type = document.getElementById('f_type').value;
-    document.getElementById('quotaRow').style.display = type === 'emergency' ? 'none' : '';
+    document.getElementById('quotaRow').style.display = type === 'clinic' ? '' : 'none';
 }
 
 function delDept(id) {

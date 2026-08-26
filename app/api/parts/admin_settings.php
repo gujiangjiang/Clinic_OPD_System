@@ -25,7 +25,7 @@ function admin_part_settings($action) {
         $revenue = (float)DB::val('order', "SELECT COALESCE(SUM(total),0) FROM payments WHERE date(created_at)=?", array($today));
         $pendingAudits = (int)DB::val('core', "SELECT COUNT(*) FROM audits WHERE status='pending'");
         $lowStock = (int)DB::val('drug', "SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty<=10");
-        $deptCount = (int)DB::val('dept', 'SELECT COUNT(*) FROM departments WHERE status=1');
+        $deptCount = (int)DB::val('dept', "SELECT COUNT(*) FROM departments WHERE status=1 AND type IN ('clinic','emergency')");
         $userCount = (int)DB::val('user', 'SELECT COUNT(*) FROM users WHERE status=1');
         $msgCount = (int)DB::val('core', 'SELECT COUNT(*) FROM messages WHERE is_read=0 AND (to_role=? OR to_user_id=?)', array($u['role'], $u['id']));
         // 近7天趋势（挂号人次 + 缴费金额）

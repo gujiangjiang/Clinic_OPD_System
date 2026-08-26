@@ -62,11 +62,13 @@ function admin_part_dept($action) {
                 <select class="select" id="f_type" onchange="toggleQuota()">
                     <option value="clinic"' . ($r['type'] === 'clinic' ? ' selected' : '') . '>门诊（需设置号源）</option>
                     <option value="emergency"' . ($r['type'] === 'emergency' ? ' selected' : '') . '>急诊（无需号源）</option>
+                    <option value="tech"' . ($r['type'] === 'tech' ? ' selected' : '') . '>医技（叫号大屏专用）</option>
+                    <option value="other"' . ($r['type'] === 'other' ? ' selected' : '') . '>其他（叫号大屏专用）</option>
                 </select></div>
             <div class="form-group"><label class="form-label">挂号费（元）</label>
                 <input class="input" type="number" step="0.01" min="0" id="f_fee" value="' . e($r['fee']) . '"></div>
         </div>
-        <div class="form-row" id="quotaRow"' . ($r['type'] === 'emergency' ? ' style="display:none"' : '') . '>
+        <div class="form-row" id="quotaRow"' . ($r['type'] !== 'clinic' ? ' style="display:none"' : '') . '>
             <div class="form-group"><label class="form-label">上午号源数量</label>
                 <input class="input" type="number" min="0" id="f_am" value="' . (int)$r['am_quota'] . '"></div>
             <div class="form-group"><label class="form-label">下午号源数量</label>
@@ -90,7 +92,9 @@ function admin_part_dept($action) {
         $pm = (int)post('pm_quota', 30);
         $status = (int)post('status', 1);
         if ($name === '') json_fail('请填写科室名称');
-        if (!in_array($type, array('clinic', 'emergency'), true)) $type = 'clinic';
+        if (!in_array($type, array('clinic', 'emergency', 'tech', 'other'), true)) $type = 'clinic';
+        // 医技/其他为叫号大屏专用科室：无号源概念，强制清零
+        if ($type === 'tech' || $type === 'other') { $am = 0; $pm = 0; }
         if ($id > 0) {
             DB::exec('dept', 'UPDATE departments SET name=?, type=?, fee=?, am_quota=?, pm_quota=?, status=? WHERE id=?', array($name, $type, $fee, $am, $pm, $status, $id));
         } else {

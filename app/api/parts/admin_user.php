@@ -71,7 +71,8 @@ function admin_part_user($action) {
         foreach ($roles as $k => $v) {
             $roleOpts .= '<option value="' . $k . '"' . ($r['role'] === $k ? ' selected' : '') . '>' . $v . '</option>';
         }
-        $depts = DB::q('dept', 'SELECT * FROM departments WHERE status=1 ORDER BY sort, id');
+        // 科室树仅列临床科室（门诊/急诊）；医技/其他为叫号大屏专用，医生不可关联
+        $depts = DB::q('dept', "SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') ORDER BY sort, id");
         $selDept = array();
         // dept_ids 可能为 NULL，先转字符串再拆分，避免 PHP 8 告警污染 JSON 响应
         foreach (explode(',', (string)$r['dept_ids']) as $d) if ((int)$d > 0) $selDept[] = (int)$d;
@@ -165,6 +166,21 @@ function admin_part_user($action) {
         $intro = post('intro');
         $status = (int)post('status', 1);
         $deptIds = post('dept_ids');
+        // 科室关联仅允许临床科室（门诊/急诊）：医技/其他为叫号大屏专用，
+        // 前端树已过滤，此处后端兜底剔除（防伪造请求混入）
+        $idsArr = array();
+        foreach (explode(',', (string)$deptIds) as $di) {
+            $di = (int)$di;
+            if ($di > 0 && !in_array($di, $idsArr, true)) $idsArr[] = $di;
+        }
+        if ($idsArr) {
+            $ph = implode(',', array_fill(0, count($idsArr), '?'));
+            $valid = DB::q('dept', "SELECT id FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph)", $idsArr);
+            $okMap = array();
+            foreach ($valid as $v) $okMap[(int)$v['id']] = 1;
+            $idsArr = array_values(array_filter($idsArr, function ($x) use ($okMap) { return isset($okMap[$x]); }));
+        }
+        $deptIds = implode(',', $idsArr);
         // 候诊可显示天数：留空默认 3；填写则必须 2-7（前端已校验，后端兜底拦截）
         $queueDaysRaw = trim((string)post('queue_days', ''));
         if ($queueDaysRaw === '') {

@@ -9,8 +9,8 @@
  * 4. 自定义统计：时间粒度（日/月/年）× 维度（科室/医生）× 指标自选，表格 + 图表。
  */
 Router::title('运营分析');
-// 科室选项（医生统计筛选 / 自定义统计维度）
-$depts = DB::q('dept', 'SELECT id, name FROM departments WHERE status=1 ORDER BY sort, id');
+// 科室选项（医生统计筛选 / 自定义统计维度）——仅临床科室，医技/其他无就诊数据
+$depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type IN ('clinic','emergency') ORDER BY sort, id");
 ?>
 <div class="page-head">
     <div><div class="page-title">📊 医院运营分析</div><div class="page-desc">多维度运营数据统计与趋势分析（口径：已缴费）</div></div>
