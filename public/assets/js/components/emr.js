@@ -1221,8 +1221,11 @@ Clinic.emr = (function () {
             if (DATA) {
                 if (!DATA.record.emr) DATA.record.emr = {};
                 DATA.record.emr.diagnoses = saved;
+                // 仅更新当前编辑文书的 records_history 条目（精确匹配 record_id，
+                // 避免污染本人其他续写/首诊的诊断列表，导致自己引用自己）
+                var curRid = DATA.record && DATA.record.record_id;
                 (DATA.records_history || []).forEach(function (h) {
-                    if ((h.doctor_id || 0) === myId && h.emr) h.emr.diagnoses = saved;
+                    if ((h.record_id || h.id) === curRid && h.emr) h.emr.diagnoses = saved;
                 });
             }
             renderLeftNav();
@@ -1425,12 +1428,15 @@ Clinic.emr = (function () {
             var keep = {};
             var keyOf = function (d) { return (d.code || '') + '|' + d.name; };
             cur.forEach(function (d) { keep[keyOf(d)] = d; });
-            var adjustedOthersOnly = !keep[row.key];
+            // 仅他人诊断（srcId !== 本人）调整时自动引用到当前文书；
+            // 本人诊断（无论在本文书还是旧续写）调整时不复制——只更新排序键
+            var mineDoctorId = myDoctorId();
+            var isOtherDiag = row.srcId && row.srcId !== mineDoctorId;
             var newList = [];
             newKeys.forEach(function (k) {
                 if (keep[k]) {
                     newList.push(keep[k]);
-                } else if (adjustedOthersOnly && k === row.key) {
+                } else if (isOtherDiag && k === row.key) {
                     newList.push({
                         code: row.code, name: row.name,
                         part: row.dg.part || '', note: row.dg.note || '', suspected: row.dg.suspected || '',
@@ -1564,23 +1570,31 @@ Clinic.emr = (function () {
         var myList3 = (DATA && DATA.record && DATA.record.emr && DATA.record.emr.diagnoses) || [];
         var diagMap = {};
         var diagOrder = [];
-        var pushDiag = function (dg, mine, others) {
+        var mineDoctorId = myDoctorId();
+        var pushDiag = function (dg, mine, others, srcId, ownOld) {
             if (!dg || !dg.name) return;
             var key = (dg.code || '') + '|' + dg.name;
             if (!diagMap[key]) {
-                diagMap[key] = { key: key, idx: 0, code: dg.code || '', name: dg.name, dg: dg, mine: false, others: false };
+                diagMap[key] = { key: key, idx: 0, code: dg.code || '', name: dg.name, dg: dg, mine: false, others: false, ownOld: false, srcId: srcId || 0 };
                 diagOrder.push(diagMap[key]);
             }
-            if (mine) diagMap[key].mine = true;
+            // 只要诊断出现在本人任何文书（当前或旧续写/首诊）→ 归属本人（srcId=本人），
+            // 无论他人是否也有——自己引用自己绝不算「他人诊断」
+            if (mine) { diagMap[key].mine = true; diagMap[key].srcId = mineDoctorId; }
             if (others) diagMap[key].others = true;
+            if (ownOld) diagMap[key].ownOld = true;
         };
-        myList3.forEach(function (dg) { pushDiag(dg, true, false); });
-        // 聚合所有文书（含本人首诊/续写、他人文书）的诊断，除当前编辑文书外均标记为引用。
-        // 续写时本人旧续写的诊断与其他人一样参与聚合显示，该引用引用。
+        // 当前编辑文书诊断：归属本人（ownOld=false——不在旧文书、不算自引）
         var curRid = DATA.record && DATA.record.record_id;
+        myList3.forEach(function (dg) { pushDiag(dg, true, false, mineDoctorId, false); });
+        // 其余文书（跳过当前编辑文书）：按书写者判定——本人旧文书=本人，
+        // 他人文书=他人；ownOld 标记「诊断存在于本人旧文书」（自引判定用）
         (DATA && DATA.records_history ? DATA.records_history : []).forEach(function (h) {
-            if ((h.record_id || h.id) === curRid) return;  // 跳过当前编辑文书（已在上方 myList3 处理）
-            ((h.emr && h.emr.diagnoses) || []).forEach(function (dg) { pushDiag(dg, false, true); });
+            if ((h.record_id || h.id) === curRid) return;
+            var isMine = (h.doctor_id || 0) === mineDoctorId;
+            ((h.emr && h.emr.diagnoses) || []).forEach(function (dg) {
+                pushDiag(dg, isMine, !isMine, h.doctor_id || 0, isMine);
+            });
         });
         // 按本人保存的全局排序重排（未在排序中的键保持默认相对顺序追加在后）
         var ordRank = {};
@@ -1593,7 +1607,7 @@ Clinic.emr = (function () {
         diagOrder.forEach(function (x, i) { x.idx = i; });
         DIAG_ROWS = diagOrder;
         diagEl.innerHTML = diagOrder.length ? diagOrder.map(function (x) {
-            var quoted = x.mine && x.others;
+            var quoted = x.others && !x.ownOld;  // 仅他人诊断（不在本人任何旧文书中）显示引用标记
             // 全局首行 = 主诊断：徽标提醒、不弹操作浮窗、无删除按钮
             var tail = x.idx === 0
                 ? '<span class="badge badge-primary" style="flex-shrink:0">主诊断</span>'
