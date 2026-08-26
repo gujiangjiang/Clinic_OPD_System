@@ -49,7 +49,7 @@ switch ($action) {
         }
         // 总数（分页「加载更多」用）
         $total = (int)DB::val('icd10', 'SELECT COUNT(*) FROM icd10' . $where, $params);
-        $rows = DB::q('icd10', $sql . $where . ' ORDER BY id ASC LIMIT ' . $limit . ' OFFSET ' . $offset, $params);
+        $rows = DB::q('icd10', $sql . $where . ' ORDER BY code ASC LIMIT ' . $limit . ' OFFSET ' . $offset, $params);
         $out = array();
         foreach ($rows as $row) {
             $out[] = array(

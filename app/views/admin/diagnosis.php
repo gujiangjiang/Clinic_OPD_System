@@ -13,10 +13,10 @@ Router::title('诊断管理');
 ?>
 <div class="page-head">
     <div><div class="page-title">📖 诊断管理</div><div class="page-desc">ICD10 诊断码 / 诊断名称 / 拼音首字母检索维护（病历诊断联动数据源）</div></div>
-    <div class="flex gap-8">
-        <input class="input" id="diagKw" placeholder="🔍 输入诊断码 / 名称 / 拼音首字母（实时检索）" style="flex:1;min-width:220px" autocomplete="off" oninput="diagSearchDebounced()">
-        <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openDiagForm(0)">＋ 新增诊断</button></div>
-    </div>
+    <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openDiagForm(0)">＋ 新增诊断</button></div>
+</div>
+<div class="card" style="margin-bottom:12px">
+    <input class="input" id="diagKw" placeholder="🔍 输入诊断码 / 名称 / 拼音首字母（实时检索）" autocomplete="off" oninput="diagSearchDebounced()">
 </div>
 <div class="card" id="diagList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
@@ -25,7 +25,7 @@ Clinic.importer._reloads['icd10'] = loadDiag;
 Clinic.importer.attach('icd10', 'impBtns', 'ICD10诊断');
 /* 实时检索（300ms 防抖） */
 var diagDebounce = null;
-var diagOffset = 0;      // 当前已加载条数（分页「加载更多」用）
+var diagOffset = 0;      // 当前已加载条数（分页用）
 var diagTotal = 0;       // 匹配总数
 var diagLoading = false;
 function diagSearchDebounced() {
@@ -59,29 +59,52 @@ function loadDiag() {
             }).join('');
             var showTotal = diagOffset + list.length;
             if (diagOffset === 0) {
-                // 首页：重建列表 + 加载更多
+                // 首页：重建列表 + 已全部加载提示
+                var footer = (diagTotal > showTotal)
+                    ? '<div class="fs-12 text-muted" style="text-align:center;padding:10px 0" id="diagFoot">加载中…</div>'
+                    : '';
                 box.innerHTML = '<div class="fs-13 text-muted mb-8" id="diagCount">共 ' + diagTotal + ' 条诊断，已显示 ' + showTotal + ' 条</div>' +
                     '<div class="table-wrap"><table class="table"><thead><tr>' +
                     '<th style="width:160px">诊断码（ICD10）</th><th>诊断名称</th><th>拼音首字母</th><th style="width:140px">操作</th>' +
                     '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>' +
-                    '<div class="mt-8" id="diagMoreWrap" style="text-align:center"></div>';
+                    footer;
             } else {
                 // 追加
                 box.querySelector('tbody').insertAdjacentHTML('beforeend', rowsHtml);
                 document.getElementById('diagCount').textContent = '共 ' + diagTotal + ' 条诊断，已显示 ' + showTotal + ' 条';
+                var foot = document.getElementById('diagFoot');
+                if (foot) foot.textContent = (diagOffset + list.length >= diagTotal) ? '已全部加载（' + diagTotal + ' 条）' : '加载中…';
             }
             diagOffset += list.length;
-            // 加载更多按钮
-            var moreWrap = document.getElementById('diagMoreWrap');
-            if (moreWrap) {
-                moreWrap.innerHTML = (diagOffset < diagTotal)
-                    ? '<button class="btn btn-outline btn-sm" onclick="loadDiag()">加载更多（' + (diagTotal - diagOffset) + ' 条）</button>'
-                    : (diagTotal > 50 ? '<span class="fs-12 text-muted">已全部加载（' + diagTotal + ' 条）</span>' : '');
-            }
+            // 已全部加载后移除滚动监听占位
+            var foot2 = document.getElementById('diagFoot');
+            if (foot2 && diagOffset >= diagTotal) foot2.textContent = '已全部加载（' + diagTotal + ' 条）';
+            // 内容未满一屏时自动补齐
+            maybeAutoLoadMore();
         },
         onError: function () { diagLoading = false; },
     });
 }
+/* 滚动到底自动加载下一页（无限滚动） */
+function maybeAutoLoadMore() {
+    if (diagLoading || diagOffset >= diagTotal) return;
+    var box = document.getElementById('diagList');
+    if (!box) return;
+    var sc = document.querySelector('.content') || null;
+    var threshold = 250;
+    if (sc) {
+        // 主滚动容器 .content（overflow-y:auto）
+        if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - threshold) loadDiag();
+    } else {
+        var rect = box.getBoundingClientRect();
+        if (rect.bottom - window.innerHeight < threshold) loadDiag();
+    }
+}
+(function () {
+    var sc = document.querySelector('.content') || window;
+    sc.addEventListener('scroll', maybeAutoLoadMore, { passive: true });
+    window.addEventListener('resize', maybeAutoLoadMore);
+})();
 
 /* 新增/编辑诊断（拼音首字母为空时自动生成） */
 function openDiagForm(id, code, name, pinyin) {
