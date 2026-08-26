@@ -68,6 +68,16 @@ Clinic.emrEditor = (function () {
         return DIAGS.some(function (d) { return code && d.code === code; });
     }
 
+    /** 查找前序医生诊断（同编码，用于续写时"是否引用"确认）；
+     *  命中返回前序诊断对象（含 part/note/suspected/doctor_name），否则 null */
+    function findPrevDiag(code) {
+        if (!code) return null;
+        for (var i = 0; i < PREV_DIAGS.length; i++) {
+            if (PREV_DIAGS[i] && PREV_DIAGS[i].code === code) return PREV_DIAGS[i];
+        }
+        return null;
+    }
+
     function markDirty() { if (onChange) onChange(); }
 
     /** 按 path 取值（path 形如 chief_complaint.symptom / allergies） */
@@ -540,6 +550,7 @@ Clinic.emrEditor = (function () {
         setReadonly: setReadonly,
         diagText: diagText,
         setPrevDiagnoses: setPrevDiagnoses,
+        findPrevDiag: findPrevDiag,
         markDirty: markDirty,
         /** 外部同步诊断列表（服务端已持久化，仅同步显示，不置脏标记） */
         setDiags: function (list) {

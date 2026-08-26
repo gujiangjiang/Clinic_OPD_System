@@ -1320,9 +1320,36 @@ Clinic.emr = (function () {
         pop.querySelector('#dpRes').addEventListener('click', function (e) {
             var item = e.target.closest('.diag-pop-item');
             if (!item) return;
-            // 选中 → 展开部位/备注/是否疑似表单
             var code = item.getAttribute('data-code');
             var name = item.getAttribute('data-name');
+            // 当前已选同编码诊断 → 直接提示，不再展开表单
+            var dup = myDiags().some(function (d) {
+                return (d.code && d.code === code) || (!code && d.name === name);
+            });
+            if (dup) { Clinic.toast.warning('该诊断已存在'); return; }
+            // 续写场景：诊断已存在于前序医生病历 → 询问是否引用（不弹部位表单）
+            var prevDg = Clinic.emrEditor.findPrevDiag(code);
+            if (prevDg) {
+                var refName = prevDg.doctor_name || '前序医生';
+                Clinic.modal.confirm(
+                    '该诊断（' + escHtml(prevDg.code) + ' ' + escHtml(prevDg.name) + '）已由 ' +
+                    escHtml(refName) + ' 开具。<br>是否直接引用该诊断？（引用后仍可点击诊断编辑部位/备注）',
+                    function () {
+                        var nd = {
+                            code: prevDg.code || code, name: prevDg.name || name,
+                            part: prevDg.part || '', note: prevDg.note || '',
+                            suspected: prevDg.suspected || '',
+                        };
+                        var list = myDiags().slice();
+                        list.push(nd);
+                        closeDiagPop();
+                        saveDiags(list, '已引用诊断：' + nd.name);
+                    },
+                    { title: '引用前序诊断', okText: '引用' }
+                );
+                return;
+            }
+            // 新诊断：展开部位/备注/是否疑似表单
             pop.innerHTML =
                 '<div class="fs-13 mb-8">添加：<b>' + escHtml(name) + '</b> <span class="fs-12 text-muted">' + escHtml(code) + '</span></div>' +
                 '<div class="form-group"><label class="form-label">部位（选填）</label><input class="input" id="dpPart" placeholder="如：左侧、右上肢"></div>' +
@@ -1336,10 +1363,10 @@ Clinic.emr = (function () {
             pop.querySelector('#dpBack').addEventListener('click', function () { closeDiagPop(); openDiagPop(ev); });
             clampPop(pop);   // 确认表单比搜索态高，展开后重新夹紧视口（避免底部溢出看不到保存按钮）
             pop.querySelector('#dpSave').addEventListener('click', function () {
-                var dup = myDiags().some(function (d) {
+                var dup2 = myDiags().some(function (d) {
                     return (d.code && d.code === code) || (!code && d.name === name);
                 });
-                if (dup) { Clinic.toast.warning('该诊断已存在'); return; }
+                if (dup2) { Clinic.toast.warning('该诊断已存在'); return; }
                 var nd = {
                     code: code, name: name,
                     part: pop.querySelector('#dpPart').value.trim(),
