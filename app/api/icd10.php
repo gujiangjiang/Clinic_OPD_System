@@ -37,15 +37,19 @@ switch ($action) {
         $kw = get('kw', '');
         $limit = (int)get('limit', 50);
         if ($limit <= 0 || $limit > 200) $limit = 50;
+        $offset = (int)get('offset', 0);
+        if ($offset < 0) $offset = 0;
         $sql = 'SELECT id, code, name, pinyin FROM icd10';
         $params = array();
+        $where = '';
         if ($kw !== '') {
             $like = '%' . $kw . '%';
-            $sql .= ' WHERE code LIKE ? OR name LIKE ? OR pinyin LIKE ?';
+            $where = ' WHERE code LIKE ? OR name LIKE ? OR pinyin LIKE ?';
             $params = array($like, $like, strtoupper($like));
         }
-        $sql .= ' ORDER BY id DESC LIMIT ' . $limit;
-        $rows = DB::q('icd10', $sql, $params);
+        // 总数（分页「加载更多」用）
+        $total = (int)DB::val('icd10', 'SELECT COUNT(*) FROM icd10' . $where, $params);
+        $rows = DB::q('icd10', $sql . $where . ' ORDER BY id ASC LIMIT ' . $limit . ' OFFSET ' . $offset, $params);
         $out = array();
         foreach ($rows as $row) {
             $out[] = array(
@@ -53,7 +57,7 @@ switch ($action) {
                 'name' => $row['name'], 'pinyin' => $row['pinyin'],
             );
         }
-        json_ok(array('list' => $out));
+        json_ok(array('list' => $out, 'total' => $total, 'offset' => $offset, 'limit' => $limit));
         break;
 
     /* ---------------- 保存诊断（新增/编辑，拼音首字母自动生成） ---------------- */

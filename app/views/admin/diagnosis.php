@@ -25,35 +25,61 @@ Clinic.importer._reloads['icd10'] = loadDiag;
 Clinic.importer.attach('icd10', 'impBtns', 'ICD10诊断');
 /* 实时检索（300ms 防抖） */
 var diagDebounce = null;
+var diagOffset = 0;      // 当前已加载条数（分页「加载更多」用）
+var diagTotal = 0;       // 匹配总数
+var diagLoading = false;
 function diagSearchDebounced() {
     if (diagDebounce) clearTimeout(diagDebounce);
-    diagDebounce = setTimeout(loadDiag, 300);
+    diagDebounce = setTimeout(function () { diagOffset = 0; loadDiag(); }, 300);
 }
 function loadDiag() {
     var kw = document.getElementById('diagKw').value.trim();
-    Clinic.get('/api/icd10?action=list&kw=' + encodeURIComponent(kw), null, {
+    if (diagLoading) return;
+    diagLoading = true;
+    Clinic.get('/api/icd10?action=list&kw=' + encodeURIComponent(kw) + '&offset=' + diagOffset + '&limit=50', null, {
         onSuccess: function (json) {
+            diagLoading = false;
             var list = json.data.list || [];
+            diagTotal = json.data.total || 0;
             var box = document.getElementById('diagList');
-            if (!list.length) {
+            if (diagOffset === 0 && !list.length) {
                 box.innerHTML = '<div class="empty"><div class="empty-ico">📖</div>未检索到诊断（可新增诊断）</div>';
+                diagOffset = 0;
                 return;
             }
-            box.innerHTML = '<div class="fs-13 text-muted mb-8">共 ' + list.length + ' 条诊断</div>' +
-                '<div class="table-wrap"><table class="table"><thead><tr>' +
-                '<th style="width:160px">诊断码（ICD10）</th><th>诊断名称</th><th>拼音首字母</th><th style="width:140px">操作</th>' +
-                '</tr></thead><tbody>' +
-                list.map(function (d) {
-                    return '<tr>' +
-                        '<td class="fw-600" style="font-family:monospace">' + d.code + '</td>' +
-                        '<td>' + d.name + '</td>' +
-                        '<td class="fs-12 text-muted" style="font-family:monospace">' + (d.pinyin || '—') + '</td>' +
-                        '<td><div class="flex gap-4">' +
-                        '<button class="btn btn-outline btn-sm" onclick="openDiagForm(' + d.id + ',\'' + d.code + '\',\'' + (d.name || '').replace(/'/g, "\\'") + '\',\'' + (d.pinyin || '').replace(/'/g, "\\'") + '\')">编辑</button>' +
-                        '<button class="btn btn-outline btn-sm" onclick="delDiag(' + d.id + ',\'' + (d.name || '').replace(/'/g, "\\'") + '\')">删除</button>' +
-                        '</div></td></tr>';
-                }).join('') + '</tbody></table></div>';
+            var rowsHtml = list.map(function (d) {
+                return '<tr>' +
+                    '<td class="fw-600" style="font-family:monospace">' + d.code + '</td>' +
+                    '<td>' + d.name + '</td>' +
+                    '<td class="fs-12 text-muted" style="font-family:monospace">' + (d.pinyin || '—') + '</td>' +
+                    '<td><div class="flex gap-4">' +
+                    '<button class="btn btn-outline btn-sm" onclick="openDiagForm(' + d.id + ',\'' + d.code + '\',\'' + (d.name || '').replace(/'/g, "\\'") + '\',\'' + (d.pinyin || '').replace(/'/g, "\\'") + '\')">编辑</button>' +
+                    '<button class="btn btn-outline btn-sm" onclick="delDiag(' + d.id + ',\'' + (d.name || '').replace(/'/g, "\\'") + '\')">删除</button>' +
+                    '</div></td></tr>';
+            }).join('');
+            var showTotal = diagOffset + list.length;
+            if (diagOffset === 0) {
+                // 首页：重建列表 + 加载更多
+                box.innerHTML = '<div class="fs-13 text-muted mb-8" id="diagCount">共 ' + diagTotal + ' 条诊断，已显示 ' + showTotal + ' 条</div>' +
+                    '<div class="table-wrap"><table class="table"><thead><tr>' +
+                    '<th style="width:160px">诊断码（ICD10）</th><th>诊断名称</th><th>拼音首字母</th><th style="width:140px">操作</th>' +
+                    '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>' +
+                    '<div class="mt-8" id="diagMoreWrap" style="text-align:center"></div>';
+            } else {
+                // 追加
+                box.querySelector('tbody').insertAdjacentHTML('beforeend', rowsHtml);
+                document.getElementById('diagCount').textContent = '共 ' + diagTotal + ' 条诊断，已显示 ' + showTotal + ' 条';
+            }
+            diagOffset += list.length;
+            // 加载更多按钮
+            var moreWrap = document.getElementById('diagMoreWrap');
+            if (moreWrap) {
+                moreWrap.innerHTML = (diagOffset < diagTotal)
+                    ? '<button class="btn btn-outline btn-sm" onclick="loadDiag()">加载更多（' + (diagTotal - diagOffset) + ' 条）</button>'
+                    : (diagTotal > 50 ? '<span class="fs-12 text-muted">已全部加载（' + diagTotal + ' 条）</span>' : '');
+            }
         },
+        onError: function () { diagLoading = false; },
     });
 }
 
