@@ -203,9 +203,11 @@ function openSendMsg() {
             var html =
                 '<div class="send-msg-box">' +
                 '  <div class="fs-13 text-muted mb-8">' + (SEND_ADMIN ? '可多选群发（全院 / 按角色 / 指定用户）' : '仅可发送给一位用户，两次发送间隔 30 秒') + '</div>' +
-                '  <input class="input" id="smSearch" placeholder="🔍 搜索用户 / 工号，可定位到列表" autocomplete="off">' +
-                '  <div id="smSearchRes" class="tree-search-res" style="display:none"></div>' +
-                '  <div class="send-tree" id="sendMsgTree">' + tree + '</div>' +
+                '  <div class="tree-box">' +
+                '    <input class="input tree-box-search" id="smSearch" placeholder="🔍 搜索用户 / 工号，可定位到列表" autocomplete="off">' +
+                '    <div id="smSearchRes" class="tree-search-res" style="display:none"></div>' +
+                '    <div class="send-tree" id="sendMsgTree">' + tree + '</div>' +
+                '  </div>' +
                 '  <div class="form-group mt-12"><label class="form-label">标题</label>' +
                 '    <input class="input" id="smTitle" maxlength="50" placeholder="请输入标题（50 字以内）"></div>' +
                 '  <div class="form-group"><label class="form-label">内容</label>' +

@@ -140,9 +140,11 @@ function admin_part_user($action) {
             <div class="form-group"><label class="form-label">职务</label><select class="select" id="f_position">' . opt_options('position', $r['position']) . '</select></div>
         </div>
         <div class="form-group" id="deptWrap" style="display:none"><label class="form-label">所属科室（医生可选多个，支持按全院 / 门诊 / 急诊快速勾选）</label>
-            <input class="input" id="deptSearchQ" placeholder="🔍 搜索科室，可定位到列表" autocomplete="off">
-            <div id="deptSearchRes" class="tree-search-res" style="display:none"></div>
-            <div class="send-tree" id="deptTreeBox" style="max-height:220px">' . $deptBox . '</div></div>
+            <div class="tree-box">
+                <input class="input tree-box-search" id="deptSearchQ" placeholder="🔍 搜索科室，可定位到列表" autocomplete="off">
+                <div id="deptSearchRes" class="tree-search-res" style="display:none"></div>
+                <div class="send-tree" id="deptTreeBox" style="max-height:220px">' . $deptBox . '</div>
+            </div></div>
         <div class="form-group"><label class="form-label">个人介绍</label><textarea class="textarea" id="f_intro" rows="2">' . e($r['intro']) . '</textarea></div>
         <div class="form-group"><label class="form-label">状态</label>
             <select class="select" id="f_status"><option value="1"' . ($r['status'] == 1 ? ' selected' : '') . '>启用</option>
