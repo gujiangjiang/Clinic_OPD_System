@@ -50,7 +50,8 @@ return array(
             cancel_reason TEXT,
             is_extra INTEGER DEFAULT 0,
             disposition TEXT DEFAULT '',
-            disposition_detail TEXT DEFAULT ''
+            disposition_detail TEXT DEFAULT '',
+            finish_time TEXT DEFAULT ''
         )",
     ),
     'migrations' => array(

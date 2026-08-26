@@ -117,23 +117,28 @@ class DatabaseManager {
         if ($target <= 0) return;
         $current = (int)self::$pdo[$key]->query('PRAGMA user_version')->fetchColumn();
         while ($current < $target) {
-            $current++;
-            if (!empty($def['migrations'][$current])) {
-                foreach ($def['migrations'][$current] as $sql) {
-                    try {
-                        // ALTER TABLE ... ADD COLUMN 幂等守卫：
-                        // 新库建表已含新列时自动跳过，旧库正常增量升级（兼容旧库平滑迁移）
-                        if (preg_match('/^ALTER TABLE\s+(\S+)\s+ADD\s+COLUMN\s+(\S+)/i', trim($sql), $mm)) {
-                            if (self::columnExists($key, $mm[1], $mm[2])) {
-                                continue;
-                            }
+            $next = $current + 1;
+            $sqls = isset($def['migrations'][$next]) ? $def['migrations'][$next] : array();
+            $failed = false;
+            foreach ($sqls as $sql) {
+                try {
+                    // ALTER TABLE ... ADD COLUMN 幂等守卫：
+                    // 新库建表已含新列时自动跳过，旧库正常增量升级（兼容旧库平滑迁移）
+                    if (preg_match('/^ALTER TABLE\s+(\S+)\s+ADD\s+COLUMN\s+(\S+)/i', trim($sql), $mm)) {
+                        if (self::columnExists($key, $mm[1], $mm[2])) {
+                            continue;
                         }
-                        self::$pdo[$key]->exec($sql);
-                    } catch (Exception $ex) {
-                        if (DEBUG) error_log('[迁移失败] ' . $key . ' v' . $current . ': ' . $ex->getMessage());
                     }
+                    self::$pdo[$key]->exec($sql);
+                } catch (Exception $ex) {
+                    // 关键：步骤内任一 SQL 失败则不推进版本号，
+                    // 下次请求自动重试（否则版本被空跳，列永久缺失）
+                    $failed = true;
+                    if (DEBUG) error_log('[迁移失败] ' . $key . ' v' . $next . ': ' . $ex->getMessage());
                 }
             }
+            if ($failed) break;
+            $current = $next;
             self::$pdo[$key]->exec('PRAGMA user_version = ' . $current);
         }
     }
