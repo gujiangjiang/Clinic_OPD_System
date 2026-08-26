@@ -129,6 +129,7 @@ Clinic.emr = (function () {
         var rect = anchor.getBoundingClientRect();
         pop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
         pop.style.left = Math.max(8, rect.right + window.scrollX - 270) + 'px';
+        clampPop(pop);
         pop.addEventListener('mouseenter', function () { if (feePopTimer) { clearTimeout(feePopTimer); feePopTimer = null; } });
         pop.addEventListener('mouseleave', hideFeePop);
     }
@@ -485,6 +486,7 @@ Clinic.emr = (function () {
         var rect = btn.getBoundingClientRect();
         pop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
         pop.style.left = Math.max(8, rect.right + window.scrollX - 230) + 'px';
+        clampPop(pop);
 
         var detailInput = pop.querySelector('#dispDetail');
         pop.querySelectorAll('input[name="dispOpt"]').forEach(function (r) {
@@ -818,9 +820,10 @@ Clinic.emr = (function () {
                     '  <button type="button" class="btn btn-primary btn-sm" style="flex:1" id="vitalsSave">保存</button>' +
                     '</div>';
                 document.body.appendChild(pop);
-                // fixed 定位跟随鼠标点击处，并夹紧在视口内（宽300/高约330）
-                pop.style.left = Math.min(Math.max(8, cx + 12), window.innerWidth - 310) + 'px';
-                pop.style.top = Math.min(Math.max(8, cy + 12), window.innerHeight - 340) + 'px';
+                // fixed 定位跟随鼠标点击处，实际尺寸夹紧在视口内
+                pop.style.left = (cx + 12) + 'px';
+                pop.style.top = (cy + 12) + 'px';
+                clampPop(pop);
                 pop.querySelector('#vitalsCancel').addEventListener('click', closeVitalsPop);
                 pop.querySelector('#vitalsSave').addEventListener('click', function () {
                     // 数值校验：整数、生理合理区间；留空视为未测
@@ -994,6 +997,22 @@ Clinic.emr = (function () {
     /* ==================== 诊断悬浮窗（跟随鼠标：添加 / 排序操作） ==================== */
 
     var diagPopHandler = null;
+    /** 悬浮窗视口夹紧：内容变化（搜索结果渲染/表单展开）导致尺寸变化后调用，
+     *  将浮窗整体平移回可视范围内（右/下溢出时向内收，仍保证 8px 边距）。
+     *  兼容 absolute（文档坐标，需加 scrollX/Y）与 fixed（视口坐标）定位。 */
+    function clampPop(pop) {
+        var r = pop.getBoundingClientRect();
+        var m = 8;
+        var left = r.left, top = r.top;
+        if (r.right > window.innerWidth - m) left = Math.max(m, window.innerWidth - r.width - m);
+        if (r.bottom > window.innerHeight - m) top = Math.max(m, window.innerHeight - r.height - m);
+        if (r.left < m) left = m;
+        if (r.top < m) top = m;
+        var fixed = getComputedStyle(pop).position === 'fixed';
+        var sx = fixed ? 0 : window.scrollX, sy = fixed ? 0 : window.scrollY;
+        if (left !== r.left) pop.style.left = Math.round(left + sx) + 'px';
+        if (top !== r.top) pop.style.top = Math.round(top + sy) + 'px';
+    }
     function closeDiagPop() {
         var pop = document.getElementById('diagPop');
         if (pop) pop.remove();
@@ -1004,11 +1023,10 @@ Clinic.emr = (function () {
     }
     function placeDiagPop(pop, ev) {
         document.body.appendChild(pop);
-        // 按面板实际尺寸夹紧视口，紧贴鼠标点击处
-        var w = pop.offsetWidth || 320;
-        var h = pop.offsetHeight || 240;
-        pop.style.left = Math.min(Math.max(8, ev.clientX + 12), window.innerWidth - w - 8) + 'px';
-        pop.style.top = Math.min(Math.max(8, ev.clientY + 12), window.innerHeight - h - 8) + 'px';
+        // 紧贴鼠标点击处（absolute 需加滚动偏移），再夹紧视口
+        pop.style.left = (ev.clientX + window.scrollX + 12) + 'px';
+        pop.style.top = (ev.clientY + window.scrollY + 12) + 'px';
+        clampPop(pop);
         diagPopHandler = function (e) {
             if (!pop.contains(e.target)) closeDiagPop();
         };
@@ -1137,6 +1155,7 @@ Clinic.emr = (function () {
                                     '<span class="text-muted">' + escHtml(x.diagnosis_code) + '</span> <b>' + escHtml(x.diagnosis_name) + '</b></div>';
                             }).join('')
                             : '<div class="fs-12 text-muted" style="padding:8px 2px">未检索到匹配诊断</div>';
+                        clampPop(pop);   // 结果列表撑高浮窗后重新夹紧视口
                     },
                 });
             }, 200);
@@ -1158,6 +1177,7 @@ Clinic.emr = (function () {
                 '  <button type="button" class="btn btn-primary btn-sm" style="flex:1" id="dpSave">保存</button>' +
                 '</div>';
             pop.querySelector('#dpBack').addEventListener('click', function () { closeDiagPop(); openDiagPop(ev); });
+            clampPop(pop);   // 确认表单比搜索态高，展开后重新夹紧视口（避免底部溢出看不到保存按钮）
             pop.querySelector('#dpSave').addEventListener('click', function () {
                 var dup = myDiags().some(function (d) {
                     return (d.code && d.code === code) || (!code && d.name === name);
