@@ -1693,9 +1693,11 @@ Clinic.emr = (function () {
 
     /** 病历节点定位：平滑滚动中栏到对应文书位置 */
     window.scrollToRecord = function (recId, doctorId) {
-        var mineId = DATA && DATA.record ? DATA.record.doctor_id : 0;
-        var target = doctorId === mineId
-            ? document.getElementById('myRecordAnchor')
+        var r = DATA && DATA.record;
+        // 当前编辑文书（最新本人文书，编辑态）→ 滚动到其条幅/编辑器锚点；
+        // 其余文书（本人旧文书/他人文书，只读段）→ 滚动到对应 recSeg{id} 只读段
+        var target = (r && recId === r.record_id)
+            ? (document.getElementById('contHeadWrap') || document.getElementById('myRecordAnchor'))
             : document.getElementById('recSeg' + recId);
         if (!target) { Clinic.toast.info('该文书区域当前不可见'); return; }
         var scroller = document.querySelector('.emr-main-editor-scroll');
