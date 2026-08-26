@@ -295,7 +295,7 @@ Clinic.queuePanel = (function () {
         TIMER = setInterval(function () { load(true); }, 30000);
     }
 
-    return { init: init, refresh: function () { DATA = null; load(true); } };
+    return { init: init, refresh: function () { DATA = null; load(true); }, open: openPanel };
 })();
 
 /* 病历页存在患者信息横条时自动挂载 */

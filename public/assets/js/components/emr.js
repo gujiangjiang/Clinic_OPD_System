@@ -1617,7 +1617,8 @@ Clinic.emr = (function () {
             var dt = (r2.created_at || '').substring(5, 16);   // MM-DD HH:MM
             // 删除按钮：仅本人创建；本人首诊且已有续写病程则锁定不显示
             var isMine = (r2.doctor_id || 0) === myUid;
-            var canDel = isMine && (r2.record_type !== 'initial' || !hasSavedProgress);
+            var isFinished = DATA && DATA.visit && DATA.visit.status === 'finished';
+            var canDel = !isFinished && isMine && (r2.record_type !== 'initial' || !hasSavedProgress);
             return '<div class="ena-item" onclick="scrollToRecord(' + r2.id + ',' + r2.doctor_id + ')">' +
                 '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                 escHtml(dt) + ' ' + escHtml(r2.dept_name || '') + '</span>' +
@@ -1674,9 +1675,11 @@ Clinic.emr = (function () {
         diagEl.innerHTML = diagOrder.length ? diagOrder.map(function (x) {
             var quoted = x.others && !x.ownOld;  // 仅他人诊断（不在本人任何旧文书中）显示引用标记
             // 全局首行 = 主诊断：徽标提醒、不弹操作浮窗、无删除按钮
+                        // 诊毕只读：不显示任何诊断删除按钮（已归档，诊断不可删除）
+            var diagReadOnlyFin = DATA && DATA.visit && DATA.visit.status === 'finished';
             var tail = x.idx === 0
                 ? '<span class="badge badge-primary" style="flex-shrink:0">主诊断</span>'
-                : (x.inCurrent
+                : (x.inCurrent && !diagReadOnlyFin
                     ? '<span class="ena-del" title="删除本病历中的该诊断" onclick="Clinic.emr.delDiag(event,' + x.idx + ')">🗑️</span>'
                     : '');
             return '<div class="ena-item" onclick="Clinic.emr.openDiagOpsPop(event,' + x.idx + ')" style="cursor:pointer">' +
@@ -1841,6 +1844,19 @@ Clinic.emr = (function () {
 
     window.scrollToRecord = function (recId, doctorId) {
         var r = DATA && DATA.record;
+        // 诊毕只读：所有文书均为只读段，统一滚动到对应 recSeg{id}（无编辑器锚点）
+        if (DATA && DATA.visit && DATA.visit.status === 'finished') {
+            var segF = document.getElementById('recSeg' + recId);
+            if (segF) {
+                var scF = document.querySelector('.emr-main-editor-scroll');
+                if (!scF) return;
+                var yF = segF.getBoundingClientRect().top - scF.getBoundingClientRect().top + scF.scrollTop - 8;
+                scF.scrollTo({ top: Math.max(0, yF), behavior: 'smooth' });
+            } else {
+                Clinic.toast.info('该文书区域当前不可见');
+            }
+            return;
+        }
         var mineId = r ? r.doctor_id : 0;
         // 1. 点击当前编辑文书 → 滚动到其编辑器锚点
         if (r && recId === r.record_id) {
@@ -2303,7 +2319,14 @@ Clinic.emr = (function () {
                     return;
                 }
                 if (finish) {
-                    setTimeout(function () { window.location.href = '/doctor/dashboard'; }, 900);
+                    // 诊毕后不跳转医生工作站：自动弹出候诊列表，无缝接诊下一位患者
+                    setTimeout(function () {
+                        if (window.Clinic && Clinic.queuePanel && Clinic.queuePanel.open) {
+                            Clinic.queuePanel.open();
+                        } else {
+                            window.location.href = '/doctor/dashboard';
+                        }
+                    }, 700);
                 }
             },
         });

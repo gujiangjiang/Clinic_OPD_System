@@ -822,6 +822,10 @@ switch ($action) {
         $rec = DB::one('medical', 'SELECT * FROM patient_records WHERE id=?', array($recordId));
         if (!$rec) json_fail('病历记录不存在');
         if ((int)$rec['visit_id'] !== (int)$visitId) json_fail('病历记录不属于本次就诊');
+        // 0. 诊毕锁定：已诊毕的病历已归档，任何节点（含续写）一律不可删除（法律/合规底线）
+        if ((string)$row['visit']['status'] === 'finished') {
+            json_fail('该患者已诊毕，病历已归档，不可删除');
+        }
         // 1. 身份越权拦截
         if ((int)$rec['doctor_id'] !== (int)$u['id']) {
             json_fail('无权删除非本人创建的病历记录');
