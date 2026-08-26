@@ -65,6 +65,7 @@ function wbReadSavedDept() {
     } catch (e) { return 0; }
 }
 
+/* 选定科室 */
 function wbPickDept(id) {
     WB_CUR_DEPT = id;
     var k = wbDeptMemKey();
@@ -82,12 +83,9 @@ function wbPickDept(id) {
 
 function wbOpenQueue() {
     if (window.Clinic && Clinic.queuePanel) {
-        var iv = setInterval(function () {
-            if (document.getElementById('queueBtn')) {
-                clearInterval(iv);
-                setTimeout(function () { Clinic.queuePanel.open(); }, 300);
-            }
-        }, 100);
+        // 强制初始化候诊面板（工作台默认不自动加载）
+        Clinic.queuePanel.init(true);
+        Clinic.queuePanel.open();
     }
 }
 
@@ -110,8 +108,10 @@ function wbLoadDepts() {
                     wbPickDept(saved);
                 } else {
                     document.querySelector('.wb-empty .fs-18').textContent = '🩺 请先选择科室后开始接诊';
-                    document.querySelector('.wb-empty .fs-14').textContent = '点击下方按钮选择当前科室';
+                    document.querySelector('.wb-empty .fs-14').textContent = '正在为你弹出科室选择…';
                     document.querySelector('.wb-empty .fs-12').innerHTML = '<button class="btn btn-primary btn-sm mt-8" onclick="wbOpenDeptPicker()">🏥 选择科室</button>';
+                    // 主动弹出科室选择窗
+                    wbOpenDeptPicker();
                 }
             }
         },

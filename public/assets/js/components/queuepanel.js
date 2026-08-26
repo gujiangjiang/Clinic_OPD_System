@@ -277,10 +277,18 @@ Clinic.queuePanel = (function () {
         document.removeEventListener('keydown', escClose, true);
     }
 
-    function init() {
+    /**
+     * 初始化候诊面板
+     * @param {boolean} forceWb 工作台模式强制初始化：医生工作站（无 visit_id）
+     *   页面默认不自动加载候诊（避免未选科室时拉到回退科室的患者），
+     *   待选完科室后由工作台脚本调用 init(true) 强制注入并加载。
+     */
+    function init(forceWb) {
         var bar = document.querySelector('.emr-top-bar');
         var header = document.getElementById('emrHeader');
         if (!bar || !header || document.getElementById('queueBtn')) return;
+        // 医生工作站（无 visit_id）：未选科室前不注入候诊按钮、不加载数据
+        if (!document.getElementById('visitId') && !forceWb) return;
         var btn = document.createElement('button');
         btn.className = 'btn btn-outline btn-sm';
         btn.id = 'queueBtn';
