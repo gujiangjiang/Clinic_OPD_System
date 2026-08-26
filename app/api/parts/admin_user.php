@@ -124,8 +124,12 @@ function admin_part_user($action) {
             <div class="form-group"><label class="form-label">姓名 <span class="req">*</span></label><input class="input" id="f_name" value="' . e($r['name']) . '"></div>
             <div class="form-group"><label class="form-label">角色 <span class="req">*</span></label><select class="select" id="f_role" onchange="onRoleChange()">' . $roleOpts . '</select></div>
         </div>
-        <div class="form-group"><label class="form-label">默认密码' . ($id ? '（不修改请留空）' : '（默认 123456）') . '</label>
-            <input class="input" type="password" id="f_password" placeholder="' . ($id ? '留空表示不修改密码' : '默认密码 123456') . '"></div>
+        <div class="form-row">
+            <div class="form-group"><label class="form-label">默认密码</label>
+                <input class="input" type="password" id="f_password" placeholder="' . ($id ? '留空表示不修改密码' : '默认密码 123456') . '"></div>
+            <div class="form-group" id="queueDaysWrap"><label class="form-label">候诊列表可显示天数</label>
+                <input class="input" id="f_queue_days" type="number" min="2" max="7" value="' . (int)$r['queue_days'] . '" placeholder="2-7"></div>
+        </div>
         <div class="form-row">
             <div class="form-group"><label class="form-label">学历</label><select class="select" id="f_education">' . opt_options('education', $r['education']) . '</select></div>
             <div class="form-group"><label class="form-label">学位</label><select class="select" id="f_degree">' . opt_options('degree', $r['degree']) . '</select></div>
@@ -139,9 +143,6 @@ function admin_part_user($action) {
             <div id="deptSearchRes" class="tree-search-res" style="display:none"></div>
             <div class="send-tree" id="deptTreeBox" style="max-height:220px">' . $deptBox . '</div></div>
         <div class="form-group"><label class="form-label">个人介绍</label><textarea class="textarea" id="f_intro" rows="2">' . e($r['intro']) . '</textarea></div>
-        <div class="form-group" id="queueDaysWrap"><label class="form-label">候诊列表可显示天数（医生）</label>
-            <input class="input" id="f_queue_days" type="number" min="2" max="7" value="' . (int)$r['queue_days'] . '" placeholder="默认 3 天（2-7）">
-            <div class="fs-12 text-muted mt-4">医生病历页候诊列表可回看的天数，默认 3 天；最低 2 天（急诊 0 点后仍能看到前一天患者），最高 7 天。</div></div>
         <div class="form-group"><label class="form-label">状态</label>
             <select class="select" id="f_status"><option value="1"' . ($r['status'] == 1 ? ' selected' : '') . '>启用</option>
             <option value="0"' . ($r['status'] == 0 ? ' selected' : '') . '>停用</option></select></div>';
@@ -164,9 +165,14 @@ function admin_part_user($action) {
         $intro = post('intro');
         $status = (int)post('status', 1);
         $deptIds = post('dept_ids');
-        // 候诊可显示天数：2-7，缺省/非法回退 3（急诊 0 点后需看到前一天患者，故最低 2）
-        $queueDays = (int)post('queue_days', 3);
-        if ($queueDays < 2 || $queueDays > 7) $queueDays = 3;
+        // 候诊可显示天数：留空默认 3；填写则必须 2-7（前端已校验，后端兜底拦截）
+        $queueDaysRaw = trim((string)post('queue_days', ''));
+        if ($queueDaysRaw === '') {
+            $queueDays = 3;
+        } else {
+            $queueDays = (int)$queueDaysRaw;
+            if ($queueDays < 2 || $queueDays > 7) json_fail('候诊列表可显示天数需在 2-7 天之间');
+        }
         if ($username === '') json_fail('请填写登录用户名');
         // 用户名必须英文字母开头：与工号登录并存时避免纯数字/数字开头用户名
         // 与他人工号混淆（工号可用于登录，见 Auth::login）

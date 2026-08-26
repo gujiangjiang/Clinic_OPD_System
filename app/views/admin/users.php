@@ -189,6 +189,20 @@ function openUserForm(id) {
             document.querySelectorAll('.deptChk:checked').forEach(function (c) { deptIds.push(c.value); });
             fd.append('dept_ids', deptIds.join(','));
             fd.append('status', document.getElementById('f_status').value);
+            var qdEl = document.getElementById('f_queue_days');
+            if (qdEl) {
+                var qdRaw = qdEl.value.trim();
+                if (qdRaw === '') { qdRaw = '3'; }
+                else {
+                    var qd = parseInt(qdRaw, 10);
+                    if (!(qd >= 2 && qd <= 7)) {
+                        Clinic.toast.warning('候诊列表可显示天数需在 2-7 天之间');
+                        return;
+                    }
+                    qdRaw = String(qd);
+                }
+                fd.append('queue_days', qdRaw);
+            }
             var photo = document.getElementById('f_photo').files[0];
             if (photo) fd.append('photo', photo);
 
