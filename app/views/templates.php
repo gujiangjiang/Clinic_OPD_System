@@ -12,7 +12,7 @@ $isAdmin = $u['role'] === 'admin';
 <div class="page-head">
     <div><div class="page-title">📋 模板管理</div><div class="page-desc">病历模板 / 知情同意书 / 病历嘱托</div></div>
     <div class="flex gap-8">
-        <select class="select" id="tplTypeSel" style="width:170px" onchange="setTplTypeSel()">
+        <select class="select" id="tplTypeSel" style="width:170px;height:34px;font-size:13px" onchange="setTplTypeSel()">
             <option value="medical_record">病历模板</option>
             <option value="consent" disabled>知情同意书模板（预留）</option>
             <option value="order_note" disabled>病历嘱托模板（预留）</option>
