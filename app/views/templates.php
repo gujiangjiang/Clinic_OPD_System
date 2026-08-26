@@ -24,7 +24,7 @@ $isAdmin = $u['role'] === 'admin';
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
         <input class="input" id="tplSearchKw" placeholder="🔍 搜索模板名称" style="width:220px" oninput="applyTplFilter()">
         <span class="flex gap-4" id="tplScopeTabs" style="flex-wrap:wrap">
-            <button class="btn btn-sm btn-outline" data-tscope="" onclick="setTplScope(this,'')">全部</button>
+            <button class="btn btn-sm btn-primary" data-tscope="" onclick="setTplScope(this,'')">全部</button>
             <button class="btn btn-sm btn-outline" data-tscope="personal" onclick="setTplScope(this,'personal')">个人</button>
             <button class="btn btn-sm btn-outline" data-tscope="hospital" onclick="setTplScope(this,'hospital')">全院</button>
             <button class="btn btn-sm btn-outline" data-tscope="dept" onclick="setTplScope(this,'dept')">科室</button>
