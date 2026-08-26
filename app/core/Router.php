@@ -49,6 +49,9 @@ class Router {
         '/admin/printcenter' => array('admin/printcenter.php',  array('admin')),
         '/admin/callmanage'  => array('admin/callmanage.php',   array('admin')),
         '/admin/analytics'   => array('admin/analytics.php',    array('admin')),
+        // ===== 模板管理（管理员/医生共用视图，按角色渲染） =====
+        '/admin/templates'   => array('templates.php',          array('admin')),
+        '/doctor/templates'  => array('templates.php',          array('doctor')),
         // ===== 挂号收费处 =====
         '/cashier/register'  => array('cashier/register.php',   array('cashier')),
         '/cashier/home'      => array('cashier/home.php',       array('cashier')),

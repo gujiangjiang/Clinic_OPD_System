@@ -654,3 +654,15 @@
     padding: 24px 0;
 }
 .queue-panel .qp-search { width: 350px; height: 28px; font-size: 13px; padding: 2px 8px; flex-shrink: 0; }
+
+/* ============================================================
+   病历续写占位（场景 C：已有他人病历但本人尚无文书）
+   ============================================================ */
+.ro-placeholder {
+    border: 1px dashed var(--bd, #d1d5db);
+    border-radius: 8px;
+    padding: 22px 16px;
+    text-align: center;
+    background: var(--bg-soft, #f8fafc);
+    margin: 12px 0;
+}

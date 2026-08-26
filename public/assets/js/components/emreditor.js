@@ -378,11 +378,14 @@ Clinic.emrEditor = (function () {
      * 渲染病历正文各节
      * @param {HTMLElement} container 文档正文容器（.doc-body）
      * @param {object} data     结构化病历数据（emr_data）
-     * @param {object} opts     { readonly, onChange, beforeVitals, afterAdvice, mode }
+     * @param {object} opts     { readonly, onChange, beforeVitals, afterAdvice, mode, templateMode }
      *                          beforeVitals/afterAdvice：插入自定义节（生命体征/意识状态由外部渲染）
      *                          mode：initial 首诊全量模块（默认）/ progress 续写精简模块
      *                          ——续写文书顶部必填「病历续写」，自动载入全局既往史/过敏史，
      *                            下方为当前医生专属的体格检查/初步诊断/辅助检查/门诊处置。
+     *                          templateMode：模板编辑态——仅渲染模板允许节
+     *                            （主诉/现病史/主要症状/体格检查/门诊处置/嘱托），
+     *                            强制跳过 诊断/生命体征/意识状态/既往史/过敏史/辅助检查/留观。
      */
     function render(container, data, opts) {
         ROOT = container;
@@ -391,9 +394,18 @@ Clinic.emrEditor = (function () {
         READONLY = !!opts.readonly;
         MODE = opts.mode === 'progress' ? 'progress' : 'initial';
         onChange = opts.onChange || null;
+        var TPL = !!opts.templateMode;
 
         ROOT.innerHTML = '';
-        if (MODE === 'progress') {
+        if (TPL) {
+            // ===== 模板编辑态：仅保留主诉/现病史/主要症状/体格检查/门诊处置/嘱托 =====
+            ROOT.appendChild(buildCC());
+            ROOT.appendChild(buildPI());
+            ROOT.appendChild(buildMainSymptoms());
+            ROOT.appendChild(buildPE());
+            ROOT.appendChild(buildDisp());
+            ROOT.appendChild(buildAdvice());
+        } else if (MODE === 'progress') {
             // 续写文书：病历续写（必填）→ 既往史/过敏史（全局同步预填）→
             // 生命体征/意识状态（续写时记录当前体征）→ 体格检查
             // （主诉/现病史/主要症状归首诊医生文书，不再重复）
@@ -413,11 +425,13 @@ Clinic.emrEditor = (function () {
             if (opts.midNode) ROOT.appendChild(opts.midNode);           // 意识状态节（外部构建）
             ROOT.appendChild(buildPE());
         }
-        ROOT.appendChild(buildDiag());
-        ROOT.appendChild(buildAux());
-        ROOT.appendChild(buildDisp());
-        ROOT.appendChild(buildObs());
-        ROOT.appendChild(buildAdvice());
+        if (!TPL) {
+            ROOT.appendChild(buildDiag());
+            ROOT.appendChild(buildAux());
+            ROOT.appendChild(buildDisp());
+            ROOT.appendChild(buildObs());
+            ROOT.appendChild(buildAdvice());
+        }
 
         set(data || {});
 

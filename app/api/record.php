@@ -404,6 +404,58 @@ switch ($action) {
      * 4) 投影字段提取（主诊断=本医生诊断列表第 1 项）→ 打印文本生成
      * 5) 事务写 patient_records（含 record_type/parent_record_id）+ records 镜像；
      *    同步 patients 全局既往史/过敏史（跨就诊自动调用，以最新为准） */
+
+    /* ==================== 新建续写文书（本人病情变化自续写 / 接诊续写） ====================
+     * 本人已有文书后，点击「病历节点 +」→ 创建一条新的 progress 文书骨架
+     * （record_type=progress，parent_record_id=本人最近一条文书）。
+     * 续写次数不受限制（可多段续写），但创建前必须已完善并保存当前文书的必填项
+     * （首诊=主诉/现病史/初步诊断；续写=病历续写内容/初步诊断），防止空续写堆积。
+     * 鉴权：仅当前登录医生本人可创建。 */
+    case 'create_progress':
+        $visitId = did(post('visit_id'));
+        $row = get_visit_row($visitId);
+        if (!$row) json_fail('就诊记录不存在');
+        $visit = $row['visit'];
+        // 本人最近一条文书（首诊或上一次续写）——作为续写的父记录
+        $ownLatest = DB::one('medical', 'SELECT id, record_type, emr_data FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+        if (!$ownLatest) json_fail('本人尚无病历，请先书写首诊病历');
+        // 必填校验：当前文书必须已完善并保存，才能继续续写
+        $ownEmr = json_decode((string)$ownLatest['emr_data'], true);
+        if (!is_array($ownEmr)) $ownEmr = array();
+        $hasDiag = false;
+        if (!empty($ownEmr['diagnoses']) && is_array($ownEmr['diagnoses'])) {
+            foreach ($ownEmr['diagnoses'] as $dg) {
+                if (is_array($dg) && !empty($dg['name'])) { $hasDiag = true; break; }
+            }
+        }
+        if ($ownLatest['record_type'] === 'progress') {
+            $progC = isset($ownEmr['progress']['content']) ? trim((string)$ownEmr['progress']['content']) : '';
+            if ($progC === '' || !$hasDiag) json_fail('请先完善并保存当前续写病历的必填项（病历续写内容与初步诊断），再新建续写');
+        } else {
+            $ccS = isset($ownEmr['chief_complaint']['symptom']) ? trim((string)$ownEmr['chief_complaint']['symptom']) : '';
+            $piC = isset($ownEmr['history_present']['content']) ? trim((string)$ownEmr['history_present']['content']) : '';
+            if ($ccS === '' || $piC === '' || !$hasDiag) json_fail('请先完善并保存当前首诊病历的必填项（主诉、现病史与初步诊断），再新建续写');
+        }
+        $now = now_str();
+        $emr = emr_default_data(null);
+        $cleanJson = json_encode($emr, JSON_UNESCAPED_UNICODE);
+        $pdo = DatabaseManager::pdo('medical');
+        try {
+            $pdo->beginTransaction();
+            // patient_records：空骨架（status=draft，正文为空，保存时填充）
+            $pdo->prepare('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, emr_data, emr_print_text, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)')
+                ->execute(array($visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name'], 'progress', (int)$ownLatest['id'], $cleanJson, '', 'draft', $now, $now));
+            // records 旧镜像表同步占位（兼容既有消费方）
+            $pdo->prepare('INSERT INTO records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?)')
+                ->execute(array($visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name'], 'draft', $now, $now));
+            $pdo->commit();
+        } catch (Exception $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            json_fail('续写病历创建失败：' . $ex->getMessage());
+        }
+        json_ok(array(), '续写病历已创建');
+        break;
+
     case 'save':
         $visitId = did(post('visit_id'));
         $finish = (int)post('finish', 0);
@@ -420,18 +472,35 @@ switch ($action) {
         $diagnoses = isset($emr['diagnoses']) && is_array($emr['diagnoses']) ? $emr['diagnoses'] : array();
 
         // 文书类型服务端权威判定（不信任前端提交）：
-        // · 本人已有文书 → 维持其原有类型（草稿续存，不重写历史）；
+        // · progress_new=1：本人已有点击「病历节点 +」新建续写 → 强制新建 progress
+        //   （不更新旧文书，支持多段续写）；
+        // · 本人已有文书 → 取【最新一条】维持其原有类型（草稿续存，
+        //   支持本人首诊 + 续写多文书并存，最新一条为当前编辑文书）；
         // · 本人无文书 → 流水下已有他人病历时为续写（progress，关联前序病历），
         //   否则为首诊（initial）。
-        $ownRow = DB::one('medical', 'SELECT id, record_type FROM patient_records WHERE visit_id=? AND doctor_id=?', array($visitId, $u['id']));
+        $progressNew = (int)post('progress_new', 0);
+        $ownRow = DB::one('medical', 'SELECT id, record_type FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
         $otherCount = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id<>?', array($visitId, $u['id']));
-        $recordType = $ownRow
-            ? ($ownRow['record_type'] === 'progress' ? 'progress' : 'initial')
-            : ($otherCount > 0 ? 'progress' : 'initial');
-        // 续写文书的父记录：流水内最近一条他人病历（首诊或前一次续写）
-        $parentRow = $recordType === 'progress'
-            ? DB::one('medical', 'SELECT id FROM patient_records WHERE visit_id=? AND doctor_id<>? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']))
-            : null;
+        if ($progressNew) {
+            $recordType = 'progress';
+        } else {
+            $recordType = $ownRow
+                ? ($ownRow['record_type'] === 'progress' ? 'progress' : 'initial')
+                : ($otherCount > 0 ? 'progress' : 'initial');
+        }
+        // 续写文书的父记录：
+        // · progress_new（本人续写）→ 父 = 本人最近一条文书；
+        // · 本人自续写（本人已有更早文书）→ 父 = 本人更早文书；
+        // · 跨医生接诊续写 → 父 = 最近一条他人文书。
+        $parentRow = null;
+        if ($progressNew && $ownRow) {
+            $parentRow = $ownRow;
+        } elseif ($recordType === 'progress') {
+            $myEarlier = $ownRow ? DB::one('medical', 'SELECT id FROM patient_records WHERE visit_id=? AND doctor_id=? AND id<? ORDER BY id DESC LIMIT 1', array($visitId, $u['id'], $ownRow['id'])) : null;
+            $parentRow = $myEarlier
+                ? $myEarlier
+                : DB::one('medical', 'SELECT id FROM patient_records WHERE visit_id=? AND doctor_id<>? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+        }
         $parentRecordId = $parentRow ? (int)$parentRow['id'] : 0;
 
         // ===== 2. 必填校验（按文书类型分支） =====
@@ -518,8 +587,8 @@ switch ($action) {
             // A. patient_records 写入/更新
             // 更新：仅刷新内容投影，record_type/parent_record_id 维持原值
             // （不重写历史）；新增：写入服务端判定的文书类型与父记录 id。
-            $pr = DB::one('medical', 'SELECT id FROM patient_records WHERE visit_id=? AND doctor_id=?', array($visitId, $u['id']));
-            if ($pr) {
+            $pr = DB::one('medical', 'SELECT id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+            if ($pr && !$progressNew) {
                 $pdo->prepare('UPDATE patient_records SET main_symptom=?, symptom_duration=?, symptom_unit=?, informant=?, arrival_way=?, has_past_history=?, allergies=?, is_leave_hospital=?, primary_icd10=?, primary_diagnosis=?, emr_data=?, emr_print_text=?, status=?, updated_at=? WHERE id=?')
                     ->execute(array($mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $pr['id']));
                 $recordId = (int)$pr['id'];
@@ -549,8 +618,8 @@ switch ($action) {
                 'status' => $finish ? 'done' : 'draft',
                 'updated_at' => $now,
             );
-            $old = DB::one('medical', 'SELECT id FROM records WHERE visit_id=? AND doctor_id=?', array($visitId, $u['id']));
-            if ($old) {
+            $old = DB::one('medical', 'SELECT id FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+            if ($old && !$progressNew) {
                 $set = array();
                 $params = array();
                 foreach ($mirror as $k => $v) { $set[] = $k . '=?'; $params[] = $v; }

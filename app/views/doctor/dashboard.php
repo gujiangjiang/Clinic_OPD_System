@@ -21,7 +21,6 @@ $docTitle = $docInfo ? $docInfo['title'] : '';
     <div class="flex gap-8" style="position:relative">
         <button class="btn btn-outline btn-sm" id="addSlotBtn" onclick="openAddSlot()">＋ 加号</button>
         <button class="btn btn-outline btn-sm" onclick="openPatientSearch()">🔍 患者查询</button>
-        <button class="btn btn-outline btn-sm" onclick="openTemplateMgr()">📋 病历模板</button>
         <button class="btn btn-outline btn-sm" id="roomBtn" onclick="toggleRoomList()" style="border-color:var(--primary);color:var(--primary)">🖥️ <span id="roomName">叫号大屏：未绑定</span></button>
         <div id="roomList" style="display:none;position:absolute;top:100%;right:0;min-width:300px;max-height:340px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:8px;z-index:100;box-shadow:0 8px 24px var(--shadow)"></div>
     </div>
@@ -270,73 +269,6 @@ function doPatientSearch() {
                         '<span class="text-muted fs-12">' + p.patient_no + ' ｜ ' + p.gender + '/' + (p.age_fmt || Clinic.validate.formatAge(p.birth_date)) + '</span></div></div>';
                 }).join('');
         },
-    });
-}
-
-/* ---------- 病历模板管理（创建/我的模板） ---------- */
-function openTemplateMgr() {
-    Clinic.get('/api/template?action=list&dept_id=' + CUR_DEPT, null, {
-        onSuccess: function (json) {
-            var list = json.data.list || [];
-            var scopeNames = { personal: '个人', department: '全科', hospital: '全院' };
-            var myHtml = list.filter(function (t) { return t.scope === 'personal'; }).map(function (t) {
-                return '<div class="flex-between dd-item" style="padding:8px 12px;border-bottom:1px solid var(--border)">' +
-                    '<span>' + t.name + '</span>' +
-                    '<button class="btn btn-outline btn-sm" onclick="delTemplate(' + t.id + ')">删除</button></div>';
-            }).join('');
-            var shareHtml = list.filter(function (t) { return t.scope !== 'personal'; }).map(function (t) {
-                return '<div class="flex-between dd-item" style="padding:8px 12px;border-bottom:1px solid var(--border)">' +
-                    '<span>' + t.name + ' <span class="badge badge-gray">' + (scopeNames[t.scope] || '') + '</span></span></div>';
-            }).join('');
-            Clinic.modal.open(
-                '<div class="fs-13 fw-600 mb-8">我的模板（' + list.filter(function (t) { return t.scope === 'personal'; }).length + '）</div>' +
-                (myHtml || '<div class="fs-13 text-muted mb-12">暂无个人模板</div>') +
-                '<div class="fs-13 fw-600 mb-8">共享模板（全科/全院，审核后生效）</div>' +
-                (shareHtml || '<div class="fs-13 text-muted mb-12">暂无共享模板</div>') +
-                '<div class="form-row mt-8">' +
-                '<div class="form-group"><label class="form-label">模板名称</label><input class="input" id="tplName"></div>' +
-                '<div class="form-group"><label class="form-label">范围</label><select class="select" id="tplScope">' +
-                '<option value="personal">个人（即时生效）</option>' +
-                '<option value="department">全科（需审核）</option>' +
-                '<option value="hospital">全院（需审核）</option></select></div></div>' +
-                '<div class="form-group"><label class="form-label">模板内容</label><textarea class="textarea" id="tplContent" rows="4" placeholder="JSON：{\"chief_complaint\":\"主诉\",\"present_illness\":\"现病史\",\"past_history\":\"既往史\",\"allergy_history\":\"过敏史\"}"></textarea></div>' +
-                '<div class="fs-12 text-muted">提示：也可在病历编辑页应用现有模板后保存为模板。</div>',
-                {
-                    title: '病历模板管理',
-                    size: 'modal-lg',
-                    buttons: [
-                        { text: '关闭', cls: 'btn-outline' },
-                        {
-                            text: '保存模板', cls: 'btn-primary', autoClose: false,
-                            onClick: function () {
-                                var name = document.getElementById('tplName').value.trim();
-                                if (!name) { Clinic.toast.warning('请填写模板名称'); return; }
-                                var content = document.getElementById('tplContent').value.trim() || '{}';
-                                try { JSON.parse(content); } catch (e) { Clinic.toast.warning('模板内容需为合法 JSON'); return; }
-                                Clinic.ajax('/api/template', {
-                                    action: 'save', name: name,
-                                    scope: document.getElementById('tplScope').value,
-                                    content: content,
-                                }, {
-                                    onSuccess: function (json) {
-                                        Clinic.toast.success(json.msg);
-                                        Clinic.modal.close();
-                                    },
-                                });
-                            },
-                        },
-                    ],
-                }
-            );
-        },
-    });
-}
-
-function delTemplate(id) {
-    Clinic.modal.confirm('确定删除该模板？', function () {
-        Clinic.ajax('/api/template', { action: 'delete', id: id }, {
-            onSuccess: function (json) { Clinic.toast.success(json.msg); openTemplateMgr(); },
-        });
     });
 }
 

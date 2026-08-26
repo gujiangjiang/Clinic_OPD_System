@@ -30,6 +30,7 @@ class Layout {
                 array('药品设置', '📦', '/admin/drugsettings'),
                 array('处置项目', '🩹', '/admin/disposal'),
                 array('诊断管理', '📖', '/admin/diagnosis'),
+                array('模板管理', '📋', '/admin/templates'),
             );
             $items['运营管理'] = array(
                 array('审核中心', '✅', '/admin/review'),
@@ -51,6 +52,7 @@ class Layout {
             $items['医生工作站'] = array(
                 array('首页', '🏠', '/doctor/home'),
                 array('医生工作站', '🩺', '/doctor/dashboard'),
+                array('模板管理', '📋', '/doctor/templates'),
             );
         } elseif ($role === 'nurse') {
             $items['护士站'] = array(
