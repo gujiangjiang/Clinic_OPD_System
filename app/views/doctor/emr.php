@@ -53,9 +53,11 @@ if ($visitId <= 0) {
 var WB_DEPT_LIST = [];
 var WB_CUR_DEPT = 0;
 
+var WB_SID = '<?php echo session_id(); ?>';   // PHP 会话ID：登录/退出 regenerate，记忆自动失效
+
 function wbDeptMemKey() {
     var b = document.querySelector('[data-uid]');
-    return { u: b ? b.getAttribute('data-uid') : '', s: (b ? b.getAttribute('data-sid') : '') || '' };
+    return { u: b ? b.getAttribute('data-uid') : '', s: WB_SID };
 }
 function wbReadSavedDept() {
     try {
@@ -66,6 +68,8 @@ function wbReadSavedDept() {
 }
 
 /* 选定科室 */
+/* 选定科室：仅保存在本次登录会话（sessionStorage 绑定账号+会话ID，
+   退出重登自动失效），不持久化到服务器；候诊列表按所选科室显示 */
 function wbPickDept(id) {
     WB_CUR_DEPT = id;
     var k = wbDeptMemKey();
@@ -74,19 +78,12 @@ function wbPickDept(id) {
     document.querySelector('.wb-empty .fs-18').textContent = '🏥 已选择科室';
     document.querySelector('.wb-empty .fs-14').textContent = '候诊列表已打开，点击患者即可进入病历书写';
     document.querySelector('.wb-empty .fs-12').innerHTML = '';
-    // 通知服务端记录当前科室（叫号大屏跟随），完成后弹出候诊列表
-    Clinic.ajax('/api/doctor', { action: 'set_dept', dept_id: id }, {
-        onSuccess: function () { wbOpenQueue(); },
-        onError: function () { wbOpenQueue(); },
-    });
+    // 候诊面板按所选科室加载并弹出
+    if (window.Clinic && Clinic.queuePanel) Clinic.queuePanel.setDept(id);
 }
 
 function wbOpenQueue() {
-    if (window.Clinic && Clinic.queuePanel) {
-        // 强制初始化候诊面板（工作台默认不自动加载）
-        Clinic.queuePanel.init(true);
-        Clinic.queuePanel.open();
-    }
+    if (window.Clinic && Clinic.queuePanel) Clinic.queuePanel.open();
 }
 
 function wbLoadDepts() {

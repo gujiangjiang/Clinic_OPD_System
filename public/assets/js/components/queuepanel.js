@@ -23,6 +23,7 @@ Clinic.queuePanel = (function () {
     var seen = false;       // 多选项：已诊
     var todayOnly = false;  // 多选项：当日
     var KEYWORD = '';       // 搜索关键字（仅当前筛选结果范围内过滤；面板关闭时清空）
+    var DEPT_ID = 0;        // 当前科室（0=未选择；仅存本次登录会话，由工作台 setDept 设置）
 
     /* HTML 转义（组件内私有：emr.js 的 escHtml 为 IIFE 私有不可复用） */
     function escHtml(s) {
@@ -39,9 +40,10 @@ Clinic.queuePanel = (function () {
 
     /* 拉取队列数据（force=true 强制刷新；首次加载应用登录会话中的勾选偏好） */
     function load(force, cb) {
+        if (DEPT_ID <= 0) return;   // 未选科室时不拉取候诊数据
         var applyPref = !DATA;
         if (DATA && !force) { if (cb) cb(); return; }
-        Clinic.get('/api/doctor?action=queue_list', null, {
+        Clinic.get('/api/doctor?action=queue_list&dept_id=' + DEPT_ID, null, {
             onSuccess: function (json) {
                 DATA = json.data;
                 if (applyPref && DATA.pref) {
@@ -81,8 +83,15 @@ Clinic.queuePanel = (function () {
     /* 顶部按钮：候诊XX */
     function renderBtn() {
         var btn = document.getElementById('queueBtn');
-        if (!btn || !DATA) return;
+        if (!btn) return;
+        if (DEPT_ID <= 0) {
+            btn.innerHTML = '📋 候诊 -';
+            btn.title = '请先选择科室后开始接诊';
+            return;
+        }
+        if (!DATA) return;
         btn.innerHTML = '📋 候诊 <b>' + waitingCount() + '</b>';
+        btn.title = '候诊 / 近3天患者列表';
     }
 
     /* ==================== 过滤 + 排序（多选组合规则核心） ==================== */
@@ -246,6 +255,24 @@ Clinic.queuePanel = (function () {
 
     function openPanel() {
         closePanel();
+        var btn = document.getElementById('queueBtn');
+        if (!btn) return;
+        // 未选科室：面板显示提示，不加载数据
+        if (DEPT_ID <= 0) {
+            var p0 = document.createElement('div');
+            p0.id = 'queuePanel';
+            p0.className = 'queue-panel';
+            document.body.appendChild(p0);
+            p0.innerHTML = '<div class="qp-empty">🩺 请先选择科室后开始接诊<br><span class="fs-12">点击左上角「🏥 选择科室」按钮</span></div>';
+            var r0 = btn.getBoundingClientRect();
+            p0.style.top = (r0.bottom + window.scrollY + 6) + 'px';
+            p0.style.left = Math.max(8, r0.left + window.scrollX) + 'px';
+            setTimeout(function () {
+                document.addEventListener('mousedown', outsideClose, true);
+                document.addEventListener('keydown', escClose, true);
+            }, 0);
+            return;
+        }
         load(true, function () {
             var btn = document.getElementById('queueBtn');
             var p = document.createElement('div');
@@ -283,12 +310,10 @@ Clinic.queuePanel = (function () {
      *   页面默认不自动加载候诊（避免未选科室时拉到回退科室的患者），
      *   待选完科室后由工作台脚本调用 init(true) 强制注入并加载。
      */
-    function init(forceWb) {
+    function init() {
         var bar = document.querySelector('.emr-top-bar');
         var header = document.getElementById('emrHeader');
         if (!bar || !header || document.getElementById('queueBtn')) return;
-        // 医生工作站（无 visit_id）：未选科室前不注入候诊按钮、不加载数据
-        if (!document.getElementById('visitId') && !forceWb) return;
         var btn = document.createElement('button');
         btn.className = 'btn btn-outline btn-sm';
         btn.id = 'queueBtn';
@@ -299,11 +324,30 @@ Clinic.queuePanel = (function () {
             if (panelEl()) closePanel(); else openPanel();
         });
         bar.insertBefore(btn, header);
+        // 未选科室（工作台尚未 setDept）：仅显示占位，不拉取数据
+        renderBtn();
+        if (DEPT_ID <= 0) return;
         load(true);
         TIMER = setInterval(function () { load(true); }, 30000);
     }
 
-    return { init: init, refresh: function () { DATA = null; load(true); }, open: openPanel };
+    /**
+     * 设置当前科室（工作台选定科室后调用）。
+     * 科室仅保存在本次登录会话（调用方负责 sessionStorage 记忆），
+     * 不持久化到服务器；切换科室后强制重新加载候诊。
+     */
+    function setDept(id) {
+        id = parseInt(id, 10) || 0;
+        DEPT_ID = id;
+        DATA = null;
+        renderBtn();
+        if (id > 0) {
+            load(true);
+            if (!TIMER) TIMER = setInterval(function () { load(true); }, 30000);
+        }
+    }
+
+    return { init: init, refresh: function () { DATA = null; load(true); }, open: openPanel, setDept: setDept };
 })();
 
 /* 病历页存在患者信息横条时自动挂载 */
