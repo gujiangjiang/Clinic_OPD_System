@@ -1014,14 +1014,12 @@ Clinic.emr = (function () {
         };
         setTimeout(function () { document.addEventListener('mousedown', diagPopHandler); }, 0);
     }
-    /** 诊断可写校验：诊毕只读 / 本人无文书 均不可调整 */
+    /** 诊断可写校验：仅诊毕只读。
+     *  首次保存前（record_id=0）允许添加/调整——诊断暂存本地编辑器，
+     *  随首次 save() 一并持久化（否则与「保存必须有初步诊断」互相死锁）。 */
     function diagEditable() {
         if (DATA && DATA.visit && DATA.visit.status === 'finished') {
             Clinic.toast.warning('该患者已诊毕，诊断不可调整');
-            return false;
-        }
-        if (!DATA || !DATA.record || !(DATA.record.record_id > 0)) {
-            Clinic.toast.warning('请先保存病历后再调整诊断');
             return false;
         }
         return true;
@@ -1030,8 +1028,28 @@ Clinic.emr = (function () {
     function myDiags() {
         return (DATA && DATA.record && DATA.record.emr && DATA.record.emr.diagnoses) || [];
     }
-    /** 诊断列表服务端即时持久化 + 编辑器/缓存/侧边栏同步 */
+    /** 诊断列表持久化 + 编辑器/缓存/侧边栏同步。
+     *  首次保存前（record_id=0）仅本地暂存（编辑器+缓存），不调接口——
+     *  诊断随首次 save() 一并写入；已保存则服务端即时持久化。 */
     function saveDiags(newDiags, okMsg) {
+        var noRecord = !DATA || !DATA.record || !(DATA.record.record_id > 0);
+        var myId = myDoctorId();
+        function syncLocal(saved) {
+            Clinic.emrEditor.setDiags(saved);
+            if (DATA) {
+                if (!DATA.record.emr) DATA.record.emr = {};
+                DATA.record.emr.diagnoses = saved;
+                (DATA.records_history || []).forEach(function (h) {
+                    if ((h.doctor_id || 0) === myId && h.emr) h.emr.diagnoses = saved;
+                });
+            }
+            renderLeftNav();
+        }
+        if (noRecord) {
+            syncLocal(newDiags);
+            Clinic.toast.success(okMsg || '诊断已添加（随病历保存一并提交）');
+            return;
+        }
         Clinic.ajax('/api/record', {
             action: 'save_diags',
             visit_id: document.getElementById('visitId').value,
@@ -1039,15 +1057,7 @@ Clinic.emr = (function () {
         }, {
             onSuccess: function (j) {
                 var saved = j.data.diagnoses || newDiags;
-                Clinic.emrEditor.setDiags(saved);
-                if (DATA) {
-                    if (!DATA.record.emr) DATA.record.emr = {};
-                    DATA.record.emr.diagnoses = saved;
-                    (DATA.records_history || []).forEach(function (h) {
-                        if ((h.doctor_id || 0) === myDoctorId() && h.emr) h.emr.diagnoses = saved;
-                    });
-                }
-                renderLeftNav();
+                syncLocal(saved);
                 Clinic.toast.success(okMsg || j.msg);
             },
         });
