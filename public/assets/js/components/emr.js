@@ -485,6 +485,9 @@ Clinic.emr = (function () {
         // 场景 C：已有保存病历但当前医生本人尚无文书（record_id=0 且为续写）
         // → 默认只读展示他人病历 + 续写占位，不渲染空编辑器
         var needProgress = !readOnly && isProgress && !(r.record_id > 0) && (d.records_history || []).length > 0;
+        // 场景 D：首诊空病历（无任何保存病历，本人也尚未创建）→ 不渲染空白编辑器，
+        // 显示占位提示，等待自动弹出模板选择后创建首张电子病历
+        var emptyInitial = !readOnly && !isProgress && !(r.record_id > 0) && !(d.records_history || []).length;
 
         // ===== 文档骨架：页眉区与病历主体区【分离】 =====
         // 页眉（医院抬头/标题/患者信息网格/条形码）属于整次就诊的公共区域，
@@ -514,7 +517,7 @@ Clinic.emr = (function () {
         } else {
             // 编辑态骨架：续写定位锚点 + 本人文书右下角签名 + 页脚（记录时间 | 医生 | 最近保存）
             // 灰色署名条幅：仅在已有实际文书（非 needProgress 占位）时显示
-            var contHtml = needProgress ? '' :
+            var contHtml = (needProgress || emptyInitial) ? '' :
                 (isProgress ? '<div class="emr-cont-divider"></div>' : '') +
                 '<div class="prev-record-head">' +
                 '<span class="fw-600">记录医生：' + escHtml(r.doctor_name) +
@@ -579,6 +582,17 @@ Clinic.emr = (function () {
                         '<div class="fs-14">📝 病历续写</div>' +
                         '<div class="fs-12 text-muted mt-4">该患者已有保存的病历（上方只读展示）。' +
                         '点击左侧「病历节点 ＋」开始书写续写病历。</div></div>';
+                }
+                refreshReadOnlyBodies(d);
+            } else if (emptyInitial) {
+                // 场景 D：首诊空病历 → 不渲染空白编辑器，显示占位提示，
+                // 待自动弹出模板选择创建首张电子病历
+                var eiBody = document.getElementById('docBody');
+                if (eiBody) {
+                    eiBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
+                        '<div class="fs-14">📄 首张电子病历尚未创建</div>' +
+                        '<div class="fs-12 text-muted mt-4">该患者暂无病历，正在为你弹出模板选择…' +
+                        '选择模板后创建首张电子病历。</div></div>';
                 }
                 refreshReadOnlyBodies(d);
             } else {
@@ -2462,6 +2476,23 @@ Clinic.emr = (function () {
      */
     function applyTemplate(c) {
         if (!c || typeof c !== 'object') c = {};
+        // 空病历占位态（首张电子病历未创建）：先渲染首诊编辑器，再套用模板
+        var docBody = document.getElementById('docBody');
+        var placeholder = docBody ? docBody.querySelector('.ro-placeholder') : null;
+        if (placeholder) {
+            var d2 = DATA;
+            var r2 = d2.record;
+            docBody.innerHTML = '';
+            try {
+                Clinic.emrEditor.render(docBody, r2.emr || {}, {
+                    readonly: false,
+                    beforeVitals: buildVitalSec(false, d2.vitals || {}),
+                    midNode: buildConsciousNode(false, r2.consciousness || '清醒'),
+                    mode: 'initial',
+                    onChange: function () { EMR_DIRTY = true; },
+                });
+            } catch (e) { console.error('模板应用前编辑器渲染失败', e); }
+        }
         var cur = Clinic.emrEditor.collect();
         // 扁平转结构化（旧前序病历格式 → 编辑器字段路径）
         var flatKeyMap = {
