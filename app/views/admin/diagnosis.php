@@ -73,13 +73,13 @@ function loadDiag() {
                 if (foot) foot.textContent = (diagOffset + list.length >= diagTotal) ? '已全部加载（' + diagTotal + ' 条）' : '加载中…';
             }
             diagOffset += list.length;
-            // 更新底部状态：全部加载完 → 提示；内容不足一屏（无法滚动）→ 显示「加载更多」按钮兜底
+            // 更新底部状态：全部加载完 → 提示；否则显示「加载更多」按钮
             updateDiagFooter();
         },
         onError: function () { diagLoading = false; },
     });
 }
-/* 更新列表底部：全部加载完/下拉提示/按钮兜底 */
+/* 更新列表底部：全部加载完提示 / 加载更多按钮 */
 function updateDiagFooter() {
     var box = document.getElementById('diagList');
     if (!box) return;
@@ -89,30 +89,8 @@ function updateDiagFooter() {
         foot.textContent = '已全部加载（' + diagTotal + ' 条）';
         return;
     }
-    var sc = document.querySelector('.content') || null;
-    var canScroll = sc ? (sc.scrollHeight > sc.clientHeight + 1) : true;
-    if (canScroll) {
-        // 可滚动：靠无限滚动加载，底部轻提示
-        foot.textContent = '已显示 ' + diagOffset + ' 条，继续下拉加载…';
-    } else {
-        // 内容不足一屏无法滚动：显示加载更多按钮
-        foot.innerHTML = '<button class="btn btn-outline btn-sm" onclick="loadDiag()">加载更多（' + (diagTotal - diagOffset) + ' 条）</button>';
-    }
+    foot.innerHTML = '<button class="btn btn-outline btn-sm" onclick="loadDiag()">加载更多（' + (diagTotal - diagOffset) + ' 条）</button>';
 }
-/* 滚动接近底部时自动加载下一页（仅用户滚动触发，不自动补齐） */
-function maybeAutoLoadMore() {
-    if (diagLoading || diagOffset >= diagTotal) return;
-    var sc = document.querySelector('.content') || null;
-    if (sc) {
-        if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 250) loadDiag();
-    } else if (window.innerHeight + window.pageYOffset >= document.body.scrollHeight - 250) {
-        loadDiag();
-    }
-}
-(function () {
-    var sc = document.querySelector('.content') || window;
-    sc.addEventListener('scroll', maybeAutoLoadMore, { passive: true });
-})();
 
 /* 新增/编辑诊断（拼音首字母为空时自动生成） */
 function openDiagForm(id, code, name, pinyin) {
