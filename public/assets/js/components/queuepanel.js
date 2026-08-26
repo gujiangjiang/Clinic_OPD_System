@@ -103,12 +103,9 @@ Clinic.queuePanel = (function () {
                 .sort(function (a, b) { return (b.date + ' ' + b.time).localeCompare(a.date + ' ' + a.time); });
         }
         if (seen && todayOnly) {
-            // 双选：近3天诊毕（诊毕倒序）在上 + 今日未诊（挂号正序=候诊顺序）在下
-            var done = all.filter(function (r) { return r.status === 'finished'; })
+            // 双选（已诊∩当日）：今日已诊毕患者，最后诊毕在最上
+            return all.filter(function (r) { return r.status === 'finished' && r.date === t; })
                 .sort(function (a, b) { return finKey(b).localeCompare(finKey(a)); });
-            var todo = all.filter(function (r) { return r.status !== 'finished' && r.date === t; })
-                .sort(function (a, b) { return (a.date + ' ' + a.time).localeCompare(b.date + ' ' + b.time); });
-            return done.concat(todo);
         }
         // 都不选：近3天未诊，最早挂号在最上（候诊顺序）、最新挂号在最下
         return all.filter(function (r) { return r.status !== 'finished'; })
