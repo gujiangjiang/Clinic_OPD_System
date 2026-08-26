@@ -1944,6 +1944,12 @@ Clinic.emr = (function () {
                         return;
                     }
                     var r = DATA.record;
+                    // 正在新建续写（未保存的续写编辑态）→ 提示先完成并保存当前续写，
+                    // 避免再次点击「+」无反应
+                    if (DATA.__pending_progress || DATA.__progress_new) {
+                        Clinic.toast.warning('当前续写病历尚未保存，请先完善必填项并点击「💾 保存」后再续写');
+                        return;
+                    }
                     // 本人已有保存文书 → 续写（不限次数，先校验必填）
                     if (r && r.record_id > 0) {
                         if (!isRecordComplete()) {
