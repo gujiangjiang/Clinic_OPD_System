@@ -20,6 +20,12 @@ $isAdmin = $u['role'] === 'admin';
             <button class="btn btn-sm btn-outline" disabled style="opacity:0.5;cursor:not-allowed" title="功能预留中">知情同意书模板</button>
             <button class="btn btn-sm btn-outline" disabled style="opacity:0.5;cursor:not-allowed" title="功能预留中">病历嘱托模板</button>
         </span>
+        <span class="flex gap-4" id="tplScopeTabs" style="flex-wrap:wrap">
+            <button class="btn btn-sm btn-outline" data-tscope="" onclick="setTplScope(this,'')">全部</button>
+            <button class="btn btn-sm btn-outline" data-tscope="personal" onclick="setTplScope(this,'personal')">个人</button>
+            <button class="btn btn-sm btn-outline" data-tscope="hospital" onclick="setTplScope(this,'hospital')">全院</button>
+            <button class="btn btn-sm btn-outline" data-tscope="dept" onclick="setTplScope(this,'dept')">科室</button>
+        </span>
         <input class="input" id="tplSearchKw" placeholder="🔍 搜索模板名称" style="width:200px;margin-left:auto" oninput="applyTplFilter()">
     </div>
 </div>
@@ -36,6 +42,7 @@ $isAdmin = $u['role'] === 'admin';
 <script>
 var TPL_TYPE = 'medical_record';
 var TPL_DATA = [];
+var TPL_SCOPE = '';   // 范围筛选（空=全部）
 
 /* HTML 转义（内联视图用，全局供模板列表渲染等） */
 function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -46,6 +53,14 @@ function setTplType(btn, t) {
         b.className = 'btn btn-sm ' + (b.getAttribute('data-ttype') === t ? 'btn-primary' : 'btn-outline');
     });
     loadTplList();
+}
+
+function setTplScope(btn, s) {
+    TPL_SCOPE = s;
+    document.querySelectorAll('#tplScopeTabs .btn').forEach(function (b) {
+        b.className = 'btn btn-sm ' + ((b.getAttribute('data-tscope') || '') === s ? 'btn-primary' : 'btn-outline');
+    });
+    renderTplList();
 }
 
 function applyTplFilter() {
@@ -75,7 +90,8 @@ var STATUS_NAMES = { published: '已发布', pending_review: '待审核', reject
 var STATUS_CLS = { published: 'badge-success', pending_review: 'badge-warning', rejected: 'badge-gray' };
 
 function renderTplList() {
-    var rows = TPL_DATA.length ? TPL_DATA.map(function (t) {
+    var filtered = TPL_DATA.length ? TPL_DATA.filter(function (t) { return !TPL_SCOPE || t.scope === TPL_SCOPE; }) : [];
+    var rows = filtered.length ? filtered.map(function (t) {
         var scopeBadge = '<span class="badge badge-primary">' + (SCOPE_NAMES[t.scope] || t.scope) + '</span>';
         var statusBadge = '<span class="badge ' + (STATUS_CLS[t.status] || 'badge-gray') + '">' + (STATUS_NAMES[t.status] || t.status) + '</span>';
         var deptText = t.dept_names && t.dept_names.length ? '（' + t.dept_names.join('、') + '）' : '';
@@ -107,7 +123,7 @@ function renderTplList() {
         '<div class="table-wrap"><table class="table"><thead><tr>' +
         '<th>模板名称</th><th>适用范围</th><th>创建人</th><th>审核状态</th><th>操作</th></tr></thead><tbody>' +
         rows + '</tbody></table></div>' +
-        '<div class="fs-12 text-muted mt-8" id="tplCount">共 ' + TPL_DATA.length + ' 个模板</div>';
+        '<div class="fs-12 text-muted mt-8" id="tplCount">共 ' + filtered.length + ' 个模板</div>';
     applyTplFilter();
 }
 
@@ -147,6 +163,7 @@ function buildTplForm(mask, tpl) {
         '      <div id="tfDeptTree"></div></div>' +
         '  </div>' +
         '  <div class="tpl-right">' +
+        '    <div class="card-title"><span>📝 模板正文</span></div>' +
         '    <div class="emr-doc"><div class="doc-body" id="templateEditor" style="border:1px solid var(--border);border-radius:8px;padding:14px;min-height:380px"></div></div>' +
         '  </div>' +
         '</div>';
