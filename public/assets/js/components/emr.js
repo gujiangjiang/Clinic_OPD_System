@@ -2346,11 +2346,13 @@ Clinic.emr = (function () {
     }
 
     /**
-     * 病历模板选择悬浮弹窗（「病历节点 +」首诊场景 / 页眉「病历模板」按钮共用）
-     * 列表按 全院 > 科室 > 个人 排序（范围权重：hospital=0/dept=1/personal=2），
-     * 选中后拉取模板内容并套用到编辑器。
+     * 病历模板选择悬浮框（「病历节点 +」首诊场景 / 空白病历自动唤起）：
+     * 搜索栏 + 短列表，锚定在右侧「病历节点 +」按钮下方；
+     * 选中模板后按其内容创建首张电子病历（套用到编辑器）。
      */
+    var tplPickEl = null;
     function openTemplatePicker(ev) {
+        closeTemplatePicker();
         Clinic.get('/api/template?action=list&type=medical_record', null, {
             onSuccess: function (j) {
                 var list = j.data.list || [];
@@ -2365,32 +2367,88 @@ Clinic.emr = (function () {
                     if (wa !== wb) return wa - wb;
                     return (b.updated_at || '').localeCompare(a.updated_at || '');
                 });
+                var pop = document.createElement('div');
+                pop.id = 'tplPick';
+                pop.className = 'tree-box';
+                pop.style.cssText = 'position:fixed;z-index:2600;width:340px;max-width:calc(100vw-16px);';
+                pop.innerHTML =
+                    '<input class="input tree-box-search" id="tplPickKw" placeholder="🔍 搜索病历模板" autocomplete="off">' +
+                    '<div class="send-tree" id="tplPickList" style="max-height:320px"></div>';
+                document.body.appendChild(pop);
+                // 锚定到「病历节点 +」按钮
+                var anchor = document.querySelector('.ena-add[title="添加病历"]') ||
+                    document.querySelector('.ena-add') || document.getElementById('queueBtn');
+                if (anchor) {
+                    var r = anchor.getBoundingClientRect();
+                    var w = pop.offsetWidth || 340;
+                    pop.style.top = Math.max(8, r.bottom + window.scrollY + 6) + 'px';
+                    pop.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.innerWidth - w - 8)) + 'px';
+                } else {
+                    pop.style.top = '80px';
+                    pop.style.left = '8px';
+                }
                 var scopeNames = { hospital: '全院', dept: '科室', personal: '个人' };
-                var html = '<div class="fs-13 text-muted mb-8">选择病历模板（全院 > 科室 > 个人）</div>' +
-                    order.map(function (t) {
+                function renderItems(items) {
+                    var box = document.getElementById('tplPickList');
+                    box.innerHTML = items.length ? items.map(function (t) {
                         var deptTxt = t.dept_names && t.dept_names.length ? '（' + t.dept_names.join('、') + '）' : '';
-                        return '<div class="dd-item" style="display:flex;justify-content:space-between;align-items:center" ' +
-                            'onclick="Clinic.emr.applyTemplateById(' + t.id + ')">' +
+                        return '<div class="tree-search-item" style="display:flex;justify-content:space-between;align-items:center" data-id="' + t.id + '">' +
                             '<span>' + escHtml(t.title) + '</span>' +
-                            '<span class="badge ' + (t.scope === 'hospital' ? 'badge-primary' : (t.scope === 'dept' ? 'badge-warning' : 'badge-gray')) + '">' +
+                            '<span class="badge ' + (t.scope === 'hospital' ? 'badge-primary' : (t.scope === 'dept' ? 'badge-warning' : 'badge-gray')) + '" style="font-size:11px;flex-shrink:0">' +
                             (scopeNames[t.scope] || t.scope) + deptTxt + '</span></div>';
-                    }).join('') || '<div class="dd-empty">暂无模板</div>';
-                Clinic.modal.open(html, { title: '选择病历模板', size: 'modal-sm' });
+                    }).join('') : '<div class="fs-12 text-muted" style="padding:8px 10px">无匹配模板</div>';
+                    box.querySelectorAll('.tree-search-item').forEach(function (it) {
+                        it.addEventListener('click', function () {
+                            closeTemplatePicker();
+                            applyTemplateById(parseInt(it.getAttribute('data-id'), 10));
+                        });
+                    });
+                }
+                renderItems(order);
+                // 搜索过滤
+                var kw = document.getElementById('tplPickKw');
+                kw.addEventListener('input', function () {
+                    var q = this.value.trim().toLowerCase();
+                    renderItems(q ? order.filter(function (t) { return t.title.toLowerCase().indexOf(q) !== -1; }) : order);
+                });
+                kw.focus();
+                // 点击外部 / Esc 关闭
+                var outside = function (e) {
+                    var el = document.getElementById('tplPick');
+                    if (el && !el.contains(e.target)) closeTemplatePicker();
+                };
+                var esc = function (e) { if (e.key === 'Escape') closeTemplatePicker(); };
+                pop.__handlers = [outside, esc];
+                setTimeout(function () {
+                    document.addEventListener('mousedown', outside, true);
+                    document.addEventListener('keydown', esc, true);
+                }, 0);
             },
         });
     }
 
+    function closeTemplatePicker() {
+        var pop = document.getElementById('tplPick');
+        if (pop) {
+            if (pop.__handlers) {
+                document.removeEventListener('mousedown', pop.__handlers[0], true);
+                document.removeEventListener('keydown', pop.__handlers[1], true);
+            }
+            pop.remove();
+        }
+    }
+
     /**
-     * 按 ID 应用模板（拉取模板内容后套用）
+     * 按 ID 应用模板（拉取模板内容后套用，for_apply 允许读取系统通用模板）
      */
     function applyTemplateById(tplId) {
-        Clinic.get('/api/template?action=get&id=' + tplId, null, {
+        Clinic.get('/api/template?action=get&id=' + tplId + '&for_apply=1', null, {
             onSuccess: function (j) {
                 var t = j.data.template;
                 if (t && t.content) {
                     applyTemplate(t.content);
-                    Clinic.modal.close();
-                    Clinic.toast.success('已应用模板，可在模板基础上修改');
+                    closeTemplatePicker();
+                    Clinic.toast.success('已应用模板，可在此基础上修改并保存');
                 }
             },
         });

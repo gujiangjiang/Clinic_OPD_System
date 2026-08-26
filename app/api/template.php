@@ -126,10 +126,14 @@ switch ($action) {
         $id = (int)get('id');
         $t = DB::one('emr_templates', 'SELECT * FROM emr_templates WHERE id=?', array($id));
         if (!$t) json_fail('模板不存在');
-        // 越权防护：系统模板/他人模板不可编辑（管理员可查看）
-        if ($t['is_system'] == 1) json_fail('通用模板不可编辑');
-        if ((int)$t['creator_id'] !== (int)$u['id'] && $u['role'] !== 'admin') {
-            json_fail('无权编辑该模板');
+        // for_apply=1：应用模板/创建病历场景——允许读取任何可见模板（含系统模板）
+        // 供医生套用到病历；编辑模板（默认）才做系统/归属越权拦截。
+        $forApply = (int)get('for_apply', 0);
+        if ($forApply !== 1) {
+            if ($t['is_system'] == 1) json_fail('通用模板不可编辑');
+            if ((int)$t['creator_id'] !== (int)$u['id'] && $u['role'] !== 'admin') {
+                json_fail('无权编辑该模板');
+            }
         }
         $links = DB::q('emr_templates', 'SELECT dept_id FROM emr_template_depts WHERE template_id=?', array($id));
         $deptIds = array();
