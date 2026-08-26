@@ -495,10 +495,13 @@
     border-bottom: 1px solid var(--border);
     margin-bottom: 10px;
 }
+/* 只读病历文档区：禁止选中文本（配合 JS 禁右键，防复制） */
 .hp-doc {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    -webkit-user-select: none;
+    user-select: none;
 }
 /* 只读病历纸张（复用打印版式 .print-area，收窄外距适配弹窗） */
 .hp-doc-body .print-area {

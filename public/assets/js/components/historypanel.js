@@ -98,7 +98,8 @@ Clinic.history = (function () {
         Clinic.get('/api/print?action=record&visit_id=' + code, null, {
             onSuccess: function (j) {
                 var box = document.getElementById('hpDocBody');
-                if (box && CUR && CUR.code === code) box.innerHTML = j.data.html;
+                // 文档样式全部以 .print-area 为作用域（print.css），必须包裹才生效
+                if (box && CUR && CUR.code === code) box.innerHTML = '<div class="print-area">' + j.data.html + '</div>';
             },
             onError: function () { /* 无病历时后端 json_fail，忽略提示 */ },
         });
@@ -136,6 +137,13 @@ Clinic.history = (function () {
                 ? '<div class="hp-doc-body" id="hpDocBody"><div class="hp-loading"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto 8px"></div>病历加载中…</div></div>'
                 : '<div class="hp-empty">该次就诊病历尚未保存<br><span class="fs-12">无病历内容可显示</span></div>') +
             '</div>';
+        // 只读文档防复制：禁右键菜单与文本选择（操作条/左侧列表不受影响）
+        var doc = right.querySelector('.hp-doc');
+        if (doc) {
+            doc.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+            doc.addEventListener('selectstart', function (e) { e.preventDefault(); });
+            doc.addEventListener('dragstart', function (e) { e.preventDefault(); });
+        }
     }
 
     return { open: open, select: select, filter: filter };
