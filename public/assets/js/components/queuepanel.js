@@ -1,9 +1,15 @@
 /**
- * queuepanel.js v1.2.0 — 病历页候诊队列面板
+ * queuepanel.js v1.3.0 — 病历页候诊队列面板
  * 挂载于医生病历编辑页顶部患者信息横条左侧：
- *   「📋 候诊XX」按钮（XX=当前科室今日未就诊人数），
- *   点击弹出近3天患者列表面板：已诊/当日 子多选项（可任意组合），
- *   按组合本地过滤排序（零请求）：
+ *   「📋 候诊XX」按钮 + 点击弹出近3天患者列表面板。
+ * 交互规则：
+ *   1. 按钮人数跟随「当日」勾选：勾选 → 当日待就诊人数；
+ *      未勾选 → 已有待就诊人数（不限日期）。
+ *   2. 已诊/当日 勾选偏好存登录会话（queue_pref 接口）：
+ *      本次登录期间跨页面保持，退出登录自动还原不勾选。
+ *   3. 搜索关键字切换勾选时保留（跨列表找同一患者），
+ *      面板关闭时自动清空重置。
+ * 过滤排序（多选组合，本地零请求）：
  *     · 仅「已诊」    → 近3天（含今日）诊毕患者，最后诊毕在最上；
  *     · 仅「当日」    → 当日挂号患者（全部状态）；
  *     · 两者都选      → 近3天诊毕（诊毕倒序）在上 + 当日未诊（挂号正序）在下；
@@ -12,10 +18,11 @@
  */
 Clinic.queuePanel = (function () {
 
-    var DATA = null;        // queue_list 接口缓存 { waiting, list[] }
+    var DATA = null;        // queue_list 接口缓存 { waiting, list[], pref }
     var TIMER = null;       // 30 秒自动刷新
     var seen = false;       // 多选项：已诊
     var todayOnly = false;  // 多选项：当日
+    var KEYWORD = '';       // 搜索关键字（仅当前筛选结果范围内过滤；面板关闭时清空）
 
     /* HTML 转义（组件内私有：emr.js 的 escHtml 为 IIFE 私有不可复用） */
     function escHtml(s) {
@@ -24,31 +31,64 @@ Clinic.queuePanel = (function () {
         });
     }
 
-    /* 拉取队列数据（force=true 强制刷新） */
+    function todayStr() {
+        var d = new Date();
+        var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    }
+
+    /* 拉取队列数据（force=true 强制刷新；首次加载应用登录会话中的勾选偏好） */
     function load(force, cb) {
+        var applyPref = !DATA;
         if (DATA && !force) { if (cb) cb(); return; }
         Clinic.get('/api/doctor?action=queue_list', null, {
             onSuccess: function (json) {
                 DATA = json.data;
+                if (applyPref && DATA.pref) {
+                    seen = !!DATA.pref.seen;
+                    todayOnly = !!DATA.pref.today;
+                }
                 renderBtn();
                 if (cb) cb();
             },
         });
     }
 
-    /* 顶部按钮：候诊XX（未就诊=今日该科 status='paid' 人数） */
+    /* 勾选偏好写入登录会话（静默后台同步，不打扰医生操作） */
+    function savePref() {
+        try {
+            var fd = new FormData();
+            fd.append('csrf_token', document.body.getAttribute('data-csrf') || '');
+            fd.append('seen', seen ? 1 : 0);
+            fd.append('today', todayOnly ? 1 : 0);
+            fetch('/api/doctor?action=queue_pref', {
+                method: 'POST', body: fd,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            }).catch(function () { /* 偏好同步失败静默：不影响本次交互 */ });
+        } catch (e) { /* 忽略 */ }
+    }
+
+    /* 按钮候诊人数：勾选「当日」→ 当日待就诊（paid）人数；未勾选 → 已有待就诊人数 */
+    function waitingCount() {
+        if (!DATA) return 0;
+        if (!todayOnly) return DATA.waiting || 0;
+        var t = todayStr();
+        return DATA.list.filter(function (r) {
+            return r.date === t && r.status === 'paid';
+        }).length;
+    }
+
+    /* 顶部按钮：候诊XX */
     function renderBtn() {
         var btn = document.getElementById('queueBtn');
         if (!btn || !DATA) return;
-        btn.innerHTML = '📋 候诊 <b>' + (DATA.waiting || 0) + '</b>';
+        btn.innerHTML = '📋 候诊 <b>' + waitingCount() + '</b>';
     }
 
     /* ==================== 过滤 + 排序（多选组合规则核心） ==================== */
     function filteredList() {
         if (!DATA) return [];
-        var today = new Date();
-        var pad = function (n) { return (n < 10 ? '0' : '') + n; };
-        var todayStr = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
+        var t = todayStr();
         // 诊毕时间回退：旧数据无 finish_time 用挂号时间兜底
         var finKey = function (r) { return (r.finish_date && r.finish_time) ? (r.finish_date + ' ' + r.finish_time) : r.date + ' ' + r.time; };
         var all = DATA.list;
@@ -59,14 +99,14 @@ Clinic.queuePanel = (function () {
         }
         if (!seen && todayOnly) {
             // 仅当日：今日挂号患者（全部状态），按挂号时间倒序（最新在上）
-            return all.filter(function (r) { return r.date === todayStr; })
+            return all.filter(function (r) { return r.date === t; })
                 .sort(function (a, b) { return (b.date + ' ' + b.time).localeCompare(a.date + ' ' + a.time); });
         }
         if (seen && todayOnly) {
             // 双选：近3天诊毕（诊毕倒序）在上 + 今日未诊（挂号正序=候诊顺序）在下
             var done = all.filter(function (r) { return r.status === 'finished'; })
                 .sort(function (a, b) { return finKey(b).localeCompare(finKey(a)); });
-            var todo = all.filter(function (r) { return r.status !== 'finished' && r.date === todayStr; })
+            var todo = all.filter(function (r) { return r.status !== 'finished' && r.date === t; })
                 .sort(function (a, b) { return (a.date + ' ' + a.time).localeCompare(b.date + ' ' + b.time); });
             return done.concat(todo);
         }
@@ -95,21 +135,24 @@ Clinic.queuePanel = (function () {
             '</div>';
     }
 
-    /* ==================== 弹层面板 ==================== */
-    var KEYWORD = '';   // 搜索关键字（仅在当前筛选结果范围内过滤）
+    /* 范围内搜索过滤（先多选组合，后关键字匹配姓名/科室/序号/日期） */
+    function scopedList() {
+        var list = filteredList();
+        if (!KEYWORD) return list;
+        return list.filter(function (r) {
+            var seq = String(r.visit_seq).padStart(3, '0');
+            var hay = (r.name || '') + '|' + (r.dept_name || '') + '|' + seq + '|' + r.date;
+            return hay.toLowerCase().indexOf(KEYWORD.toLowerCase()) !== -1;
+        });
+    }
 
+    /* ==================== 弹层面板 ==================== */
     function panelEl() { return document.getElementById('queuePanel'); }
 
     function renderPanel() {
         var p = panelEl();
         if (!p) return;
-        // 先按多选组合筛选，再做范围内搜索（搜索不改变筛选范围）
-        var list = filteredList().filter(function (r) {
-            if (!KEYWORD) return true;
-            var seq = String(r.visit_seq).padStart(3, '0');
-            var hay = (r.name || '') + '|' + (r.dept_name || '') + '|' + seq + '|' + r.date;
-            return hay.toLowerCase().indexOf(KEYWORD.toLowerCase()) !== -1;
-        });
+        var list = scopedList();
         var body = list.length
             ? list.map(rowHtml).join('')
             : '<div class="qp-empty">' + (KEYWORD ? '未找到匹配的患者' : '当前筛选条件下暂无患者') + '</div>';
@@ -121,14 +164,16 @@ Clinic.queuePanel = (function () {
             '</div>' +
             '<input class="input qp-search" id="qpSearch" placeholder="搜索当前列表：姓名 / 科室 / 序号" value="' + escHtml(KEYWORD) + '">' +
             '<div class="qp-list">' + body + '</div>';
+        // 勾选切换：保留搜索关键字（跨列表找同一患者），同步偏好与会话
         p.querySelectorAll('.qp-chip').forEach(function (c) {
             c.addEventListener('click', function () {
                 if (c.getAttribute('data-k') === 'seen') seen = !seen; else todayOnly = !todayOnly;
-                KEYWORD = '';
+                savePref();
+                renderBtn();
                 renderPanel();
             });
         });
-        // 搜索即时过滤（保持焦点，避免重渲染打断输入）
+        // 搜索即时过滤（重渲染列表区，保持输入框焦点与光标位置）
         var search = p.querySelector('#qpSearch');
         search.addEventListener('input', function () {
             var pos = search.selectionStart;
@@ -150,12 +195,7 @@ Clinic.queuePanel = (function () {
 
     /* 仅刷新列表区与计数（搜索输入时保留输入框状态） */
     function renderListOnly(p) {
-        var list = filteredList().filter(function (r) {
-            if (!KEYWORD) return true;
-            var seq = String(r.visit_seq).padStart(3, '0');
-            var hay = (r.name || '') + '|' + (r.dept_name || '') + '|' + seq + '|' + r.date;
-            return hay.toLowerCase().indexOf(KEYWORD.toLowerCase()) !== -1;
-        });
+        var list = scopedList();
         var box = p.querySelector('.qp-list');
         box.innerHTML = list.length
             ? list.map(rowHtml).join('')
@@ -197,6 +237,7 @@ Clinic.queuePanel = (function () {
     function closePanel() {
         var p = panelEl();
         if (p) p.remove();
+        KEYWORD = '';   // 面板关闭即清空搜索，下次打开为全新搜索
         document.removeEventListener('mousedown', outsideClose, true);
         document.removeEventListener('keydown', escClose, true);
     }

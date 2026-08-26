@@ -248,7 +248,8 @@ switch ($action) {
      * 供医生病历编辑页顶部「候诊」弹层使用：一次返回当前科室近3天
      * （含今日）全部 未诊/就诊中/诊毕 患者，前端按 已诊/当日 多选组合
      * 本地过滤排序（诊毕按诊毕时间倒序、未诊按挂号时间正序），
-     * 并返回候诊人数（今日该科 status='paid'）。 */
+     * 并返回候诊人数（该科 status='paid'，不限日期）。
+     * pref：已诊/当日 勾选偏好（存于登录会话，退出登录自动还原默认）。 */
     case 'queue_list':
         $deptId = (int)get('dept_id', 0);
         if ($deptId <= 0) {
@@ -289,11 +290,23 @@ switch ($action) {
                 'finish_time' => !empty($r['finish_time']) ? substr($r['finish_time'], 11, 5) : '',
             );
         }, $rows);
+        $pref = (isset($_SESSION['queue_pref']) && is_array($_SESSION['queue_pref'])) ? $_SESSION['queue_pref'] : array();
         json_ok(array(
             'dept_id' => $deptId,
             'waiting' => (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE current_dept_id=? AND status='paid'", array($deptId)),
             'list' => $list,
+            'pref' => array('seen' => empty($pref['seen']) ? 0 : 1, 'today' => empty($pref['today']) ? 0 : 1),
         ));
+        break;
+
+    /* ==================== 候诊面板勾选偏好（跟随当次登录会话） ====================
+     * 存 $_SESSION：登录期间跨页面保持，退出登录即销毁还原默认不勾选。 */
+    case 'queue_pref':
+        $_SESSION['queue_pref'] = array(
+            'seen' => post('seen', 0) ? 1 : 0,
+            'today' => post('today', 0) ? 1 : 0,
+        );
+        json_ok();
         break;
 
     /* ==================== 报告文字结果（病历项目详情内联展示） ====================
