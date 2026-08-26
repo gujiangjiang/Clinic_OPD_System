@@ -141,6 +141,18 @@ function openUserForm(id) {
         var titleSel = document.getElementById('f_title');
         titleSel.setAttribute('data-cur', (e.detail && e.detail.title) || '');
         onRoleChange();
+        // 候诊天数强制校验：越界即时修正（<2 → 2，>7 → 7）并 toast 提示
+        var qdInp = document.getElementById('f_queue_days');
+        if (qdInp) {
+            qdInp.addEventListener('input', function () {
+                var v = this.value.trim();
+                if (v === '') return;
+                var n = parseInt(v, 10);
+                if (isNaN(n)) return;   // 输入中间态，交由保存时校验兜底
+                if (n < 2) { this.value = '2'; Clinic.toast.warning('候诊天数不能小于 2 天，已自动修正为 2'); }
+                else if (n > 7) { this.value = '7'; Clinic.toast.warning('候诊天数不能超过 7 天，已自动修正为 7'); }
+            });
+        }
         // 科室三级树初始同步（全院/分组勾选态）+ 搜索定位
         if (typeof deptSyncGroups === 'function') deptSyncGroups();
         if (window.Clinic && Clinic.treeSearch) {
