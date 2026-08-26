@@ -20,11 +20,49 @@ Router::title('电子病历');
 
 $visitCode = trim((string)get('visit_id', ''));
 $visitId = did($visitCode);
-$refId = (int)did(get('ref', 0));   // 转诊引用仅前端回显比对用，不回传服务端
+$refId = (int)did(get('ref', 0));
+// 无 visit_id（空白工作台）：渲染病历工作台骨架，首次进入自动弹出候诊列表
 if ($visitId <= 0) {
-    echo '<div class="card"><div class="empty"><div class="empty-ico">🔗</div>链接无效或已过期<br>' .
-        '<span class="fs-12 text-muted">请从医生工作站的患者列表重新进入</span><br>' .
-        '<a href="/doctor/dashboard">返回医生工作站</a></div></div>';
+    ?>
+<div class="emr-workspace-layout">
+    <header class="emr-top-bar">
+        <div id="emrHeader"></div>
+        <span class="fs-12 text-muted emr-top-status" id="saveStatus"></span>
+        <div class="emr-top-actions" style="visibility:hidden"></div>
+    </header>
+    <div class="emr-body-layout">
+        <div class="emr-main-editor-scroll">
+            <div class="card" style="padding:40px 20px;text-align:center;min-height:50vh;display:flex;flex-direction:column;align-items:center;justify-content:center">
+                <div style="font-size:72px;margin-bottom:16px">🩺</div>
+                <div class="fs-18 fw-600 text-muted">欢迎使用医生工作站</div>
+                <div class="fs-14 text-muted mt-4">请从左侧候诊列表选择患者开始就诊</div>
+                <div class="fs-12 text-muted mt-8">候诊列表已自动打开，点击患者即可进入病历书写</div>
+            </div>
+        </div>
+        <aside class="emr-sidebar-left">
+            <div class="ena-sec"><div class="ena-sec-title">📋 病历节点</div><div class="ena-sec-body"><div class="ena-empty">暂无病历</div></div></div>
+            <div class="ena-sec"><div class="ena-sec-title">📝 初步诊断</div><div class="ena-sec-body"><div class="ena-empty">暂无诊断</div></div></div>
+            <div class="ena-sec"><div class="ena-sec-title">🩻 检查</div><div class="ena-sec-body"><div class="ena-empty">暂无检查</div></div></div>
+            <div class="ena-sec"><div class="ena-sec-title">🧪 检验</div><div class="ena-sec-body"><div class="ena-empty">暂无检验</div></div></div>
+            <div class="ena-sec"><div class="ena-sec-title">💊 处方</div><div class="ena-sec-body"><div class="ena-empty">暂无处方</div></div></div>
+        </aside>
+    </div>
+</div>
+<script>
+/* 自动弹出候诊列表 */
+document.addEventListener('DOMContentLoaded', function () {
+    if (window.Clinic && Clinic.queuePanel) {
+        // 候诊按钮由 queuepanel.init 自动注入，待就绪后弹出
+        var check = setInterval(function () {
+            if (document.getElementById('queueBtn')) {
+                clearInterval(check);
+                setTimeout(function () { Clinic.queuePanel.open(); }, 300);
+            }
+        }, 100);
+    }
+});
+</script>
+    <?php
     return;
 }
 $row = $visitId ? get_visit_row($visitId) : null;

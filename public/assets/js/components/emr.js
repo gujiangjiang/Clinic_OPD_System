@@ -2319,14 +2319,9 @@ Clinic.emr = (function () {
                     return;
                 }
                 if (finish) {
-                    // 诊毕后不跳转医生工作站：自动弹出候诊列表，无缝接诊下一位患者
-                    setTimeout(function () {
-                        if (window.Clinic && Clinic.queuePanel && Clinic.queuePanel.open) {
-                            Clinic.queuePanel.open();
-                        } else {
-                            window.location.href = '/doctor/dashboard';
-                        }
-                    }, 700);
+                    // 诊毕后关闭已诊毕患者病历页，回到空白工作台（自动弹出候诊列表）
+                    // 无参 /doctor/emr 渲染空白工作台，自动弹候诊面板
+                    setTimeout(function () { window.location.href = '/doctor/emr'; }, 700);
                 }
             },
         });
