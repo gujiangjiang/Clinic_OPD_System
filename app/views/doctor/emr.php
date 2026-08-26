@@ -116,15 +116,6 @@ $patient = $row['patient'];
 </div>
 
 <script>
-/* 就诊历史（本页共用） */
-function showPatientHistory(patientNo) {
-    Clinic.get('/api/patient?action=history&patient_no=' + encodeURIComponent(patientNo), null, {
-        onSuccess: function (json) {
-            Clinic.modal.open(json.data.html, { title: '患者就诊历史', size: 'modal-lg' });
-        },
-    });
-}
-
 /* 左侧大纲栏异步刷新总线：开单提交 / 缴费状态变化后调用，
    局部刷新左栏金额与指示灯（30 秒轮询兜底覆盖收费处缴费场景） */
 function refreshLeftNavSummary() {

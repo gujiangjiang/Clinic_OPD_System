@@ -186,14 +186,7 @@ function takePatient(visitId) {
     });
 }
 
-/* ---------- 患者就诊历史 ---------- */
-function showPatientHistory(patientNo) {
-    Clinic.get('/api/patient?action=history&patient_no=' + encodeURIComponent(patientNo), null, {
-        onSuccess: function (json) {
-            Clinic.modal.open(json.data.html, { title: '患者就诊历史', size: 'modal-lg' });
-        },
-    });
-}
+/* ---------- 患者就诊历史（全局组件 historypanel.js 提供 showPatientHistory） ---------- */
 
 /* ---------- 加号（号源满时，仅限该患者本人使用；仅限号科室可用） ---------- */
 function openAddSlot() {

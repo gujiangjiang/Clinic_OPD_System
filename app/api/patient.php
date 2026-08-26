@@ -76,106 +76,51 @@ switch ($action) {
         json_ok(array(), '患者信息已更新');
         break;
 
-    /* ---------------- 患者全部就诊历史（病历 + 开单情况） ---------------- */
+    /* ---------------- 患者全部就诊历史（结构化数据：左右两栏弹窗） ----------------
+     * 返回 patient（顶部信息条）+ visits[]（左侧列表：时间/科室/状态/标志位）。
+     * 病历正文由前端按选中就诊另取 /api/print?action=record 只读渲染；
+     * 诊断证明三态（新增/补开/查看）由前端据 has_cert/finished 判定。 */
     case 'history':
         $patientNo = get('patient_no', '');
         $u = Auth::user();   // 接诊判定需要当前医生 id
         $p = DB::one('patient', 'SELECT * FROM patients WHERE patient_no=?', array($patientNo));
-        if (!$p) {
-            json_ok(array('html' => '<div class="empty">未找到该患者</div>'));
-        }
+        if (!$p) json_fail('未找到该患者');
         $visits = DB::q('patient', 'SELECT * FROM registrations WHERE patient_no=? ORDER BY id DESC', array($patientNo));
-        $html = '<div class="card" style="margin-bottom:12px">' .
-            '<div class="flex-between"><div class="fs-16 fw-700">患者 ' . e($p['name']) . '</div>' .
-            '<span class="badge badge-primary">' . e($p['patient_no']) . '</span></div>' .
-            '<div class="fs-13 text-muted mt-4">性别：' . e($p['gender']) . ' ｜ 年龄：' . age_format($p['birth_date']) . ' ｜ 身份证：' . e($p['id_card']) . '</div></div>';
-        if (!$visits) {
-            $html .= '<div class="empty">暂无就诊记录</div>';
-        }
+        $list = array();
         foreach ($visits as $v) {
-            $records = DB::q('medical', 'SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($v['id']));
-            $orders = DB::q('order', 'SELECT * FROM orders WHERE visit_id=? ORDER BY id DESC', array($v['id']));
-            // 病历行仅展示「首诊医生」与「第一诊断」（多医生续写全列显示不下）；
-            // 结构化病历表为主，旧镜像表兜底（其无 updated_at，勿再拼接时间括号）
-            $prAll = DB::q('medical', 'SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC', array($v['id']));
-            $recDoctor = '';
-            $recDiag = '';
-            if ($prAll) {
-                $fr = $prAll[0];
-                $recDoctor = (string)$fr['doctor_name'];
-                $recDiag = (string)$fr['primary_diagnosis'];
-            } elseif ($records) {
-                // records 按 id DESC 排列，最早一条（首诊）在末尾
-                $keys = array_keys($records);
-                $legacyFirst = $records[end($keys)];
-                $recDoctor = (string)$legacyFirst['doctor_name'];
-                $recDiag = (string)$legacyFirst['initial_diagnosis'];
-            }
-            $hasRecord = $prAll || $records;
-            // 卡片布局：标题行（含状态徽标）通栏置顶；下方左侧信息分行、
-            // 右侧按钮竖排贴右下角
-            $html .= '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">';
-            $html .= '<div class="flex-between">' .
-                '<span class="fw-600">' . e($v['register_time']) . ' ｜ ' . e($v['first_dept_name']) .
-                ' 第' . str_pad((string)$v['visit_seq'], 3, '0', STR_PAD_LEFT) . '号' .
-                (isset($v['current_dept_name']) && $v['current_dept_name'] !== $v['first_dept_name'] ? '（现' . e($v['current_dept_name']) . '）' : '') . '</span>' .
-                '<span class="badge ' . ($v['status'] === 'finished' ? 'badge-success' : ($v['status'] === 'refunded' ? 'badge-gray' : 'badge-warning')) . '">' . e(visit_status_name($v['status'])) . '</span></div>';
-            $html .= '<div style="display:flex;gap:12px;align-items:flex-start">';
-            $html .= '<div style="flex:1;min-width:0">';
-            if ($recDoctor !== '') {
-                $html .= '<div class="fs-13 mt-8"><strong>病历：</strong>' . e($recDoctor) . '</div>';
-            }
-            if ($recDiag !== '') {
-                $html .= '<div class="fs-13 mt-4"><strong>诊断：</strong>' . e($recDiag) . '</div>';
-            }
-            if ($orders) {
-                // 开单仅按类型徽章计数（检验x项/检查x项…），明细在病历页大纲栏查看
-                $cnt = array('lab' => 0, 'imaging' => 0, 'procedure' => 0, 'prescription' => 0);
-                foreach ($orders as $o) {
-                    if (isset($cnt[$o['order_type']])) $cnt[$o['order_type']]++;
-                }
-                $typeNames = array('lab' => '检验', 'imaging' => '检查', 'procedure' => '处置', 'prescription' => '处方');
-                $badges = '';
-                foreach ($typeNames as $k => $label) {
-                    if ($cnt[$k]) {
-                        $badges .= '<span class="badge badge-gray" style="margin-right:4px">' . $label . $cnt[$k] . '项</span>';
-                    }
-                }
-                if ($badges !== '') {
-                    $html .= '<div class="mt-4"><strong>开单：</strong>' . $badges . '</div>';
-                }
-            }
-            $html .= '</div>';
-            // 右侧按钮竖排；诊断证明三态：未归档未开具=新增（直接开）｜
-            // 归档未开具=补开（先确认归档/接诊提醒）｜ 已开具=查看
+            // 是否有已保存病历（结构化表为主，旧镜像表兜底）
+            $hasRecord = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=?', array($v['id'])) > 0
+                || (int)DB::val('medical', 'SELECT COUNT(*) FROM records WHERE visit_id=?', array($v['id'])) > 0;
             $hasCert = (int)DB::val('medical', 'SELECT COUNT(*) FROM certificates WHERE visit_id=?', array($v['id'])) > 0;
-            // 当前医生是否接诊过该次就诊（结构化病历表与旧镜像表任一有本人文书即算）
-            $treated = 0;
-            foreach ($records as $r) {
-                if ((int)$r['doctor_id'] === (int)$u['id']) { $treated = 1; break; }
-            }
-            if (!$treated) {
-                $treated = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array($v['id'], $u['id'])) > 0 ? 1 : 0;
-            }
-            $html .= '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;align-items:flex-end;align-self:flex-end">';
-            if ($hasRecord) {
-                // 病历已保存：直接打开病历打印预览页（pt_record，A5 病历纸），可再次打印
-                $html .= '<button class="btn btn-outline btn-sm" style="white-space:nowrap" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' . e(oid($v['id'])) . '\',null,\'a5\')">📋 查看电子病历</button>';
-            } else {
-                // 病历未保存：提示，不跳转编辑页
-                $html .= '<button class="btn btn-outline btn-sm" style="white-space:nowrap" onclick="Clinic.toast.warning(\'该次就诊病历尚未保存，无法查看\')">📋 查看电子病历</button>';
-            }
-            $html .=
-                ($hasCert
-                    ? '<button class="btn btn-outline btn-sm" style="white-space:nowrap" onclick="printHistoryCertificate(\'' . e(oid($v['id'])) . '\')">📄 查看诊断证明</button>'
-                    : ($v['status'] === 'finished'
-                        ? '<button class="btn btn-outline btn-sm" style="white-space:nowrap" data-treated="' . $treated . '" onclick="archiveCertificateConfirm(this.getAttribute(\'data-treated\')===\'1\',\'' . e(oid($v['id'])) . '\')">📄 补开诊断证明</button>'
-                        : '<button class="btn btn-outline btn-sm" style="white-space:nowrap" onclick="openHistoryCertificate(\'' . e(oid($v['id'])) . '\')">📄 新增诊断证明</button>')) .
-                '</div>';
-            $html .= '</div>';
-            $html .= '</div>';
+            // 当前医生是否接诊过该次就诊（结构化表与镜像表任一有本人文书即算）
+            $treated = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array($v['id'], $u['id'])) > 0
+                || (int)DB::val('medical', 'SELECT COUNT(*) FROM records WHERE visit_id=? AND doctor_id=?', array($v['id'], $u['id'])) > 0;
+            $list[] = array(
+                'code' => oid($v['id']),
+                'date' => substr($v['register_time'], 0, 10),
+                'time' => substr($v['register_time'], 11, 5),
+                'dept_name' => $v['first_dept_name'],
+                'current_dept_name' => $v['current_dept_name'],
+                'visit_seq' => (int)$v['visit_seq'],
+                'status' => $v['status'],
+                'status_name' => visit_status_name($v['status']),
+                'has_record' => $hasRecord ? 1 : 0,
+                'has_cert' => $hasCert ? 1 : 0,
+                'treated' => $treated ? 1 : 0,
+                'finished' => $v['status'] === 'finished' ? 1 : 0,
+            );
         }
-        json_ok(array('html' => $html));
+        json_ok(array(
+            'patient' => array(
+                'name' => $p['name'],
+                'patient_no' => $p['patient_no'],
+                'gender' => $p['gender'],
+                'age_fmt' => age_format($p['birth_date']),
+                'id_card' => $p['id_card'],
+                'phone' => $p['phone'],
+            ),
+            'visits' => $list,
+        ));
         break;
 
     default:

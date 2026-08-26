@@ -427,3 +427,92 @@
     border: 0;
     border-radius: 0 0 7px 7px;
 }
+
+/* ============================================================
+   患者就诊历史弹窗（historypanel.js）
+   布局参考检验组合管理器：顶部患者信息条 + 左列表（搜索）右详情。
+   ============================================================ */
+.hp-top {
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-card, #fff);
+    margin-bottom: 12px;
+}
+.hp-body {
+    display: flex;
+    gap: 12px;
+    height: 62vh;
+    min-height: 380px;
+}
+/* 左栏：搜索 + 就诊列表 */
+.hp-left {
+    width: 230px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    padding-right: 12px;
+    overflow: hidden;
+}
+.hp-left .input { height: 36px; font-size: 13px; }
+.hp-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.hp-visit {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+}
+.hp-visit:hover { background: var(--bg-soft, #f1f5f9); }
+.hp-visit.active {
+    background: var(--primary-soft, #cffafe);
+    border-color: var(--primary);
+}
+/* 右栏：操作条 + 只读病历文档 */
+.hp-right {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.hp-right-bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 10px;
+}
+.hp-doc {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+/* 只读病历纸张（复用打印版式 .print-area，收窄外距适配弹窗） */
+.hp-doc-body .print-area {
+    margin: 4px auto 16px;
+}
+.hp-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--text-muted, #94a3b8);
+    font-size: 14px;
+    line-height: 1.9;
+    padding: 20px 0;
+}
+.hp-loading { text-align: center; color: var(--text-muted); font-size: 13px; padding: 40px 0; }
