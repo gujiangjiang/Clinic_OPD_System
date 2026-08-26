@@ -180,9 +180,9 @@ Clinic.queuePanel = (function () {
             '<div class="qp-chips">' +
             '  <button type="button" class="qp-chip' + (seen ? ' active' : '') + '" data-k="seen">已诊</button>' +
             '  <button type="button" class="qp-chip' + (todayOnly ? ' active' : '') + '" data-k="today">当日</button>' +
-            '  <span class="fs-12 text-muted qp-count" style="margin-left:auto">' + list.length + ' 人</span>' +
+            '  <span class="fs-12 text-muted qp-count">' + list.length + ' 人</span>' +
+            '  <input class="input qp-search" id="qpSearch" placeholder="搜索：姓名/科室/序号" value="' + escHtml(KEYWORD) + '">' +
             '</div>' +
-            '<input class="input qp-search" id="qpSearch" placeholder="搜索当前列表：姓名 / 科室 / 序号" value="' + escHtml(KEYWORD) + '">' +
             '<div class="qp-list">' + listHtml(list) + '</div>';
         // 勾选切换：保留搜索关键字（跨列表找同一患者），同步偏好与会话
         p.querySelectorAll('.qp-chip').forEach(function (c) {

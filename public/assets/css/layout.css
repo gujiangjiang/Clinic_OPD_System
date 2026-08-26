@@ -592,6 +592,7 @@
     padding: 10px;
 }
 .queue-panel .qp-chips { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.queue-panel .qp-count { margin-left: auto; }
 .qp-chip {
     border: 1px solid var(--bd, #d1d5db);
     background: transparent;
@@ -652,4 +653,4 @@
     font-size: 13px;
     padding: 24px 0;
 }
-.queue-panel .qp-search { margin-bottom: 8px; height: 32px; font-size: 13px; }
+.queue-panel .qp-search { width: 180px; height: 28px; font-size: 13px; padding: 2px 8px; flex-shrink: 0; }
