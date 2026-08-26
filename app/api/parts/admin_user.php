@@ -63,6 +63,7 @@ function admin_part_user($action) {
         $r = $id ? DB::one('user', 'SELECT * FROM users WHERE id=?', array($id)) : array(
             'emp_no' => '', 'username' => '', 'name' => '', 'role' => 'doctor', 'dept_ids' => '',
             'education' => '', 'degree' => '', 'title' => '', 'position' => '', 'intro' => '', 'photo' => '', 'status' => 1,
+            'queue_days' => 3,
         );
         // 注意：包含 admin 选项，否则编辑管理员用户时角色会被错误替换
         $roles = array('admin' => '系统管理员', 'doctor' => '医生', 'nurse' => '护士', 'lab' => '检验技师', 'imaging' => '影像技师', 'pharmacy' => '药剂师', 'cashier' => '挂号收费员');
@@ -138,6 +139,9 @@ function admin_part_user($action) {
             <div id="deptSearchRes" class="tree-search-res" style="display:none"></div>
             <div class="send-tree" id="deptTreeBox" style="max-height:220px">' . $deptBox . '</div></div>
         <div class="form-group"><label class="form-label">个人介绍</label><textarea class="textarea" id="f_intro" rows="2">' . e($r['intro']) . '</textarea></div>
+        <div class="form-group" id="queueDaysWrap"><label class="form-label">候诊列表可显示天数（医生）</label>
+            <input class="input" id="f_queue_days" type="number" min="2" max="7" value="' . (int)$r['queue_days'] . '" placeholder="默认 3 天（2-7）">
+            <div class="fs-12 text-muted mt-4">医生病历页候诊列表可回看的天数，默认 3 天；最低 2 天（急诊 0 点后仍能看到前一天患者），最高 7 天。</div></div>
         <div class="form-group"><label class="form-label">状态</label>
             <select class="select" id="f_status"><option value="1"' . ($r['status'] == 1 ? ' selected' : '') . '>启用</option>
             <option value="0"' . ($r['status'] == 0 ? ' selected' : '') . '>停用</option></select></div>';
@@ -160,6 +164,9 @@ function admin_part_user($action) {
         $intro = post('intro');
         $status = (int)post('status', 1);
         $deptIds = post('dept_ids');
+        // 候诊可显示天数：2-7，缺省/非法回退 3（急诊 0 点后需看到前一天患者，故最低 2）
+        $queueDays = (int)post('queue_days', 3);
+        if ($queueDays < 2 || $queueDays > 7) $queueDays = 3;
         if ($username === '') json_fail('请填写登录用户名');
         // 用户名必须英文字母开头：与工号登录并存时避免纯数字/数字开头用户名
         // 与他人工号混淆（工号可用于登录，见 Auth::login）
@@ -179,8 +186,8 @@ function admin_part_user($action) {
             $photo = $res['path'];
         }
         if ($id > 0) {
-            $set = 'emp_no=?, username=?, name=?, role=?, dept_ids=?, education=?, degree=?, title=?, position=?, intro=?, status=?';
-            $params = array($empNo, $username, $name, $role, $deptIds, $education, $degree, $title, $position, $intro, $status);
+            $set = 'emp_no=?, username=?, name=?, role=?, dept_ids=?, education=?, degree=?, title=?, position=?, intro=?, queue_days=?, status=?';
+            $params = array($empNo, $username, $name, $role, $deptIds, $education, $degree, $title, $position, $intro, $queueDays, $status);
             if ($password !== '') {
                 $set .= ', password=?';
                 $params[] = password_hash($password, PASSWORD_DEFAULT);
@@ -192,9 +199,9 @@ function admin_part_user($action) {
             $params[] = $id;
             DB::exec('user', 'UPDATE users SET ' . $set . ' WHERE id=?', $params);
         } else {
-            DB::insert('user', 'INSERT INTO users(emp_no, username, password, name, role, dept_ids, education, degree, title, position, intro, photo, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+            DB::insert('user', 'INSERT INTO users(emp_no, username, password, name, role, dept_ids, education, degree, title, position, intro, queue_days, photo, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                 $empNo, $username, password_hash($password !== '' ? $password : '123456', PASSWORD_DEFAULT),
-                $name, $role, $deptIds, $education, $degree, $title, $position, $intro, $photo, $status, now_str(),
+                $name, $role, $deptIds, $education, $degree, $title, $position, $intro, $queueDays, $photo, $status, now_str(),
             ));
         }
         json_ok(array(), '用户已保存');

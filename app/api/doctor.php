@@ -265,7 +265,15 @@ switch ($action) {
             }
         }
         if ($deptId <= 0) json_fail('当前医生未关联可用科室');
-        $since = date('Y-m-d', strtotime('-2 days'));   // 近3天（含今日）
+        // 候诊列表可显示天数（管理员配置 2-7，缺省 3）；会话快照无此字段时回查数据库
+        $queueDays = 3;
+        if (isset($u['queue_days'])) {
+            $queueDays = (int)$u['queue_days'];
+        } else {
+            $ud = DB::one('user', 'SELECT queue_days FROM users WHERE id=?', array($u['id']));
+            if ($ud && (int)$ud['queue_days'] >= 2 && (int)$ud['queue_days'] <= 7) $queueDays = (int)$ud['queue_days'];
+        }
+        $since = date('Y-m-d', strtotime('-' . ($queueDays - 1) . ' days'));   // 近 N 天（含今日）
         $rows = DB::q('patient', "SELECT r.id, r.patient_no, r.visit_seq, r.first_dept_name, r.session,
                 r.status, r.register_time, r.finish_time,
                 p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth

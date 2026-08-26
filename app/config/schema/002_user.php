@@ -6,7 +6,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 4,
+    'version' => 5,
     'tables' => array(
         'users' => "CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,7 +29,8 @@ return array(
             created_at TEXT,
             last_login TEXT,
             current_dept_id INTEGER DEFAULT 0,
-            print_auto INTEGER DEFAULT 0
+            print_auto INTEGER DEFAULT 0,
+            queue_days INTEGER DEFAULT 3
         )",
     ),
     // v2：医生当前看诊科室（叫号屏跟随医生端选择动态显示，由 /api/doctor set_dept 更新）
@@ -44,6 +45,11 @@ return array(
         ),
         4 => array(
             'ALTER TABLE users ADD COLUMN print_auto INTEGER DEFAULT 0',
+        ),
+        // v5：候诊列表可显示天数（2-7，默认3；医生站候诊队列按此回看天数，
+        // 最低2天确保急诊0点后仍能看到前一天患者）
+        5 => array(
+            'ALTER TABLE users ADD COLUMN queue_days INTEGER DEFAULT 3',
         ),
     ),
     'seed' => array(),
