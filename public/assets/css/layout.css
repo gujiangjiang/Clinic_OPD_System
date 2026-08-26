@@ -583,7 +583,7 @@
 .queue-panel {
     position: absolute;
     z-index: 2600;
-    width: 460px;
+    width: 560px;
     max-width: calc(100vw - 16px);
     background: var(--card, #fff);
     border: 1px solid var(--bd, #e5e7eb);
@@ -614,10 +614,12 @@
     flex-direction: column;
     gap: 2px;
 }
+/* 行：九列网格纵向对齐（日期/时间/科室/号别/号源/姓名/性别/年龄/状态） */
 .qp-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 42px 38px minmax(76px, 1fr) 38px 46px 68px 30px 56px 56px;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     white-space: nowrap;
     overflow: hidden;
     padding: 7px 8px;
@@ -625,7 +627,20 @@
     cursor: pointer;
 }
 .qp-row:hover { background: var(--primary-soft, rgba(37, 99, 235, .08)); }
-.qp-sess { flex-shrink: 0; }
+/* 单元格：超长截断（悬停 title 提示完整内容） */
+.qp-cell { display: block; overflow: hidden; text-overflow: ellipsis; }
+/* 表头行：不可点击、小字置灰、底部细分隔线 */
+.qp-row.qp-head {
+    cursor: default;
+    font-size: 11px;
+    color: var(--muted, #9ca3af);
+    padding: 4px 8px 6px;
+    border-bottom: 1px solid var(--bd, #f3f4f6);
+    border-radius: 0;
+    margin-bottom: 2px;
+}
+.qp-row.qp-head:hover { background: transparent; }
+.qp-c-seq, .qp-c-time { font-variant-numeric: tabular-nums; }
 .queue-panel .qp-empty {
     text-align: center;
     color: var(--muted, #9ca3af);

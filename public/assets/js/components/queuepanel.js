@@ -122,17 +122,43 @@ Clinic.queuePanel = (function () {
         return '<span class="badge badge-primary" style="font-size:11px">候诊</span>';
     }
 
-    /* 单行患者条目：日期 时间 科室（序号） 号源 姓名 性别 年龄 */
+    /* 单行患者条目（九列网格纵向对齐）：
+       日期 时间 科室 号别 号源 姓名 性别 年龄 状态 */
     function rowHtml(r) {
         var seq = String(r.visit_seq).padStart(3, '0');
+        var cell = function (cls, text, title) {
+            return '<span class="qp-cell ' + cls + '"' + (title ? ' title="' + escHtml(title) + '"' : '') + '>' + text + '</span>';
+        };
         return '<div class="qp-row" data-code="' + r.code + '">' +
-            '<span class="fs-13 text-muted">' + r.date.substr(5) + ' ' + r.time + '</span>' +
-            '<span class="fs-13 fw-600">' + escHtml(r.dept_name) + '（' + seq + '）</span>' +
-            '<span class="badge badge-gray qp-sess">' + r.session_text + '</span>' +
-            '<span class="fs-13">' + escHtml(r.name) + '</span>' +
-            '<span class="fs-12 text-muted">' + escHtml(r.gender) + ' / ' + escHtml(r.age_fmt || '') + '</span>' +
-            statusBadge(r.status) +
+            cell('qp-c-date fs-13 text-muted', r.date.substr(5)) +
+            cell('qp-c-time fs-13 text-muted', r.time) +
+            cell('qp-c-dept fs-13 fw-600', escHtml(r.dept_name), r.dept_name) +
+            cell('qp-c-seq fs-13 fw-600', seq) +
+            cell('qp-c-sess', '<span class="badge badge-gray">' + r.session_text + '</span>') +
+            cell('qp-c-name fs-13', escHtml(r.name), r.name) +
+            cell('qp-c-gender fs-12 text-muted', escHtml(r.gender)) +
+            cell('qp-c-age fs-12 text-muted', escHtml(r.age_fmt || ''), r.age_fmt) +
+            cell('qp-c-st', statusBadge(r.status)) +
             '</div>';
+    }
+
+    /* 列表区（表头 + 行）：renderPanel / renderListOnly 共用 */
+    function listHtml(list) {
+        if (!list.length) {
+            return '<div class="qp-empty">' + (KEYWORD ? '未找到匹配的患者' : '当前筛选条件下暂无患者') + '</div>';
+        }
+        var head = '<div class="qp-row qp-head">' +
+            '<span class="qp-cell qp-c-date">日期</span>' +
+            '<span class="qp-cell qp-c-time">时间</span>' +
+            '<span class="qp-cell qp-c-dept">科室</span>' +
+            '<span class="qp-cell qp-c-seq">号别</span>' +
+            '<span class="qp-cell qp-c-sess">号源</span>' +
+            '<span class="qp-cell qp-c-name">姓名</span>' +
+            '<span class="qp-cell qp-c-gender">性别</span>' +
+            '<span class="qp-cell qp-c-age">年龄</span>' +
+            '<span class="qp-cell qp-c-st">状态</span>' +
+            '</div>';
+        return head + list.map(rowHtml).join('');
     }
 
     /* 范围内搜索过滤（先多选组合，后关键字匹配姓名/科室/序号/日期） */
@@ -153,9 +179,6 @@ Clinic.queuePanel = (function () {
         var p = panelEl();
         if (!p) return;
         var list = scopedList();
-        var body = list.length
-            ? list.map(rowHtml).join('')
-            : '<div class="qp-empty">' + (KEYWORD ? '未找到匹配的患者' : '当前筛选条件下暂无患者') + '</div>';
         p.innerHTML =
             '<div class="qp-chips">' +
             '  <button type="button" class="qp-chip' + (seen ? ' active' : '') + '" data-k="seen">已诊</button>' +
@@ -163,7 +186,7 @@ Clinic.queuePanel = (function () {
             '  <span class="fs-12 text-muted qp-count" style="margin-left:auto">' + list.length + ' 人</span>' +
             '</div>' +
             '<input class="input qp-search" id="qpSearch" placeholder="搜索当前列表：姓名 / 科室 / 序号" value="' + escHtml(KEYWORD) + '">' +
-            '<div class="qp-list">' + body + '</div>';
+            '<div class="qp-list">' + listHtml(list) + '</div>';
         // 勾选切换：保留搜索关键字（跨列表找同一患者），同步偏好与会话
         p.querySelectorAll('.qp-chip').forEach(function (c) {
             c.addEventListener('click', function () {
@@ -185,7 +208,7 @@ Clinic.queuePanel = (function () {
         });
         search.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
         // 点击条目 → 跳转该患者病历页（visit_id 为混淆串）
-        p.querySelectorAll('.qp-row').forEach(function (row) {
+        p.querySelectorAll('.qp-row:not(.qp-head)').forEach(function (row) {
             row.addEventListener('click', function () {
                 closePanel();
                 location.href = '/doctor/emr?visit_id=' + row.getAttribute('data-code');
@@ -197,11 +220,9 @@ Clinic.queuePanel = (function () {
     function renderListOnly(p) {
         var list = scopedList();
         var box = p.querySelector('.qp-list');
-        box.innerHTML = list.length
-            ? list.map(rowHtml).join('')
-            : '<div class="qp-empty">' + (KEYWORD ? '未找到匹配的患者' : '当前筛选条件下暂无患者') + '</div>';
+        box.innerHTML = listHtml(list);
         p.querySelector('.qp-count').textContent = list.length + ' 人';
-        p.querySelectorAll('.qp-row').forEach(function (row) {
+        p.querySelectorAll('.qp-row:not(.qp-head)').forEach(function (row) {
             row.addEventListener('click', function () {
                 closePanel();
                 location.href = '/doctor/emr?visit_id=' + row.getAttribute('data-code');
