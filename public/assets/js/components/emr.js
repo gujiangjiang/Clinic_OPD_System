@@ -1561,7 +1561,6 @@ Clinic.emr = (function () {
         // 且不引用任何诊断）；全部行可点击弹操作浮窗；行内删除仅本人诊断；
         // 全局首行为主诊断（徽标 + 不弹浮窗 + 无删除按钮）
         var diagEl = document.getElementById('navDiags');
-        var mineId3 = myDoctorId();
         var myList3 = (DATA && DATA.record && DATA.record.emr && DATA.record.emr.diagnoses) || [];
         var diagMap = {};
         var diagOrder = [];
@@ -1576,8 +1575,11 @@ Clinic.emr = (function () {
             if (others) diagMap[key].others = true;
         };
         myList3.forEach(function (dg) { pushDiag(dg, true, false); });
+        // 聚合所有文书（含本人首诊/续写、他人文书）的诊断，除当前编辑文书外均标记为引用。
+        // 续写时本人旧续写的诊断与其他人一样参与聚合显示，该引用引用。
+        var curRid = DATA.record && DATA.record.record_id;
         (DATA && DATA.records_history ? DATA.records_history : []).forEach(function (h) {
-            if ((h.doctor_id || 0) === mineId3) return;
+            if ((h.record_id || h.id) === curRid) return;  // 跳过当前编辑文书（已在上方 myList3 处理）
             ((h.emr && h.emr.diagnoses) || []).forEach(function (dg) { pushDiag(dg, false, true); });
         });
         // 按本人保存的全局排序重排（未在排序中的键保持默认相对顺序追加在后）

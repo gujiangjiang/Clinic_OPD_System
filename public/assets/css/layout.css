@@ -585,8 +585,8 @@
     z-index: 2600;
     width: 560px;
     max-width: calc(100vw - 16px);
-    background: var(--card, #fff);
-    border: 1px solid var(--bd, #e5e7eb);
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border, #e5e7eb);
     border-radius: 10px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, .18);
     padding: 10px;
@@ -594,7 +594,7 @@
 .queue-panel .qp-chips { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .queue-panel .qp-count { margin-left: auto; }
 .qp-chip {
-    border: 1px solid var(--bd, #d1d5db);
+    border: 1px solid var(--border, #d1d5db);
     background: transparent;
     color: var(--text, #374151);
     border-radius: 999px;
@@ -636,12 +636,12 @@
     position: sticky;
     top: 0;
     z-index: 2;
-    background: var(--card, #fff);
+    background: var(--bg-card, #fff);
     cursor: default;
     font-size: 11px;
     color: var(--muted, #9ca3af);
     padding: 4px 8px 6px;
-    border-bottom: 1px solid var(--bd, #f3f4f6);
+    border-bottom: 1px solid var(--border, #f3f4f6);
     border-radius: 0;
     margin-bottom: 2px;
 }
@@ -659,7 +659,7 @@
    病历续写占位（场景 C：已有他人病历但本人尚无文书）
    ============================================================ */
 .ro-placeholder {
-    border: 1px dashed var(--bd, #d1d5db);
+    border: 1px dashed var(--border, #d1d5db);
     border-radius: 8px;
     padding: 22px 16px;
     text-align: center;
