@@ -1644,6 +1644,12 @@ Clinic.emr = (function () {
                 '<div class="ena-item" style="opacity:0.6;font-style:italic">' +
                 '<span>📝 续写编辑中…（未保存）</span></div>');
         }
+        // 首诊编辑中占位（空病历选择模板后未保存）
+        if (DATA && DATA.__pending_initial && recEl) {
+            recEl.insertAdjacentHTML('beforeend',
+                '<div class="ena-item" style="opacity:0.6;font-style:italic">' +
+                '<span>📝 首诊编辑中…（未保存）</span></div>');
+        }
 
         // ---------- 3. 初步诊断（聚合：本人诊断顺序优先，其后他人诊断） ----------
         // 显示顺序 = 本人保存的全局排序（diag_order 独立存储，跨医生交错排序
@@ -2322,6 +2328,7 @@ Clinic.emr = (function () {
                         histEntry.emr = JSON.parse(JSON.stringify(emr));
                         histEntry.updated_at = now;
                     }
+                    DATA.__pending_initial = false;   // 首诊已保存，占位消失
                     renderLeftNav();
                     // 续写条幅时间实时刷新为首次保存时间（普通续写保存后不刷新页面）
                     if (DATA.record.record_type === 'progress') fillContHead(DATA.record);
@@ -2374,15 +2381,22 @@ Clinic.emr = (function () {
         pop.style.cssText = 'position:fixed;z-index:2600;width:340px;max-width:calc(100vw-16px);';
         pop.innerHTML = '<div class="fs-12 text-muted" style="padding:12px;text-align:center">加载模板…</div>';
         document.body.appendChild(pop);
-        var anchor = document.getElementById('queueBtn') ||
-            document.querySelector('.ena-add[title="添加病历"]') ||
-            document.querySelector('.ena-add');
-        if (anchor) {
-            var r = anchor.getBoundingClientRect();
-            pop.style.top = Math.max(8, r.bottom + window.scrollY + 6) + 'px';
-            pop.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.innerWidth - 340 - 8)) + 'px';
+        // 定位：手动点击「病历节点 +」（ev 有鼠标坐标）→ 跟随鼠标；
+        // 自动弹出（无 ev）→ 锚定右侧「病历节点 +」按钮下方，queueBtn 兜底
+        var W = 340, H = 380;
+        if (ev && ev.clientX != null) {
+            pop.style.left = Math.max(8, Math.min(ev.clientX + 12, window.innerWidth - W - 8)) + 'px';
+            pop.style.top = Math.max(8, Math.min(ev.clientY + 12, window.innerHeight - H - 8)) + 'px';
         } else {
-            pop.style.top = '80px'; pop.style.left = '8px';
+            var anchor = document.querySelector('.ena-add[title="添加病历"]') ||
+                document.querySelector('.ena-add') || document.getElementById('queueBtn');
+            if (anchor) {
+                var r = anchor.getBoundingClientRect();
+                pop.style.top = Math.max(8, r.bottom + window.scrollY + 6) + 'px';
+                pop.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.innerWidth - W - 8)) + 'px';
+            } else {
+                pop.style.top = '80px'; pop.style.left = '8px';
+            }
         }
         // 点击外部 / Esc 关闭
         var outside = function (e) { var el = document.getElementById('tplPick'); if (el && !el.contains(e.target)) closeTemplatePicker(); };
@@ -2492,6 +2506,9 @@ Clinic.emr = (function () {
                     onChange: function () { EMR_DIRTY = true; },
                 });
             } catch (e) { console.error('模板应用前编辑器渲染失败', e); }
+            // 右侧病历节点显示「首诊编辑中…（未保存）」占位
+            DATA.__pending_initial = true;
+            renderLeftNav();
         }
         var cur = Clinic.emrEditor.collect();
         // 扁平转结构化（旧前序病历格式 → 编辑器字段路径）
