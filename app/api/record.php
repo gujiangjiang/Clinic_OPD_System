@@ -842,6 +842,12 @@ switch ($action) {
                 json_fail('该病历已存在后续病程记录，不可删除首诊病历');
             }
         }
+        // 2.5 诊断锁定：当前病历节点存在诊断则不允许删除（避免产生无主诊断），
+        // 与未保存病历的拦截规则一致——需先删除该病历内的全部诊断
+        $recEmr = emr_merge_defaults(emr_normalize(json_decode($rec['emr_data'], true)), emr_default_data(null));
+        if (isset($recEmr['diagnoses']) && is_array($recEmr['diagnoses']) && count($recEmr['diagnoses'])) {
+            json_fail('该病历已添加诊断，不可删除；请先删除该病历内的全部诊断后再删除病历');
+        }
         // 3. 删除（物理删除 + 镜像清理）
         $pdo = DatabaseManager::pdo('medical');
         try {

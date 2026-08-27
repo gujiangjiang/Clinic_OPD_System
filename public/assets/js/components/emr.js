@@ -1297,6 +1297,9 @@ Clinic.emr = (function () {
             '<div class="flex gap-8">' +
             '  <button type="button" class="btn btn-outline btn-sm" style="flex:1" id="dpeCancel">取消</button>' +
             '  <button type="button" class="btn btn-primary btn-sm" style="flex:1" id="dpeSave">保存</button>' +
+            // 仅已添加的诊断（本悬浮窗即点击已添加诊断触发）显示删除按钮；
+            // diagEditable 已校验未诊毕可编辑 → 符合删除逻辑
+            '  <button type="button" class="btn btn-danger btn-sm" id="dpeDel" style="flex-shrink:0">🗑️ 删除</button>' +
             '</div>';
         placeDiagPop(pop, ev);
         pop.querySelector('#dpeCancel').addEventListener('click', closeDiagPop);
@@ -1312,6 +1315,29 @@ Clinic.emr = (function () {
             closeDiagPop();
             saveDiags(arr, '诊断已更新：' + arr[idx].name);
         });
+        // 删除：从当前病历移除该诊断，并同步右侧诊断列表（saveDiags → renderLeftNav）
+        var dpeDel = pop.querySelector('#dpeDel');
+        if (dpeDel) {
+            dpeDel.addEventListener('click', function () {
+                var cur = myDiags();
+                if (!cur[idx]) { closeDiagPop(); return; }
+                var tgt = cur[idx];
+                var isQuoted = Clinic.emrEditor.findPrevDiag(tgt.code);
+                var doDel = function () {
+                    var arr = myDiags().slice();
+                    if (!arr[idx]) { closeDiagPop(); return; }
+                    arr.splice(idx, 1);
+                    closeDiagPop();
+                    saveDiags(arr, '诊断已删除：' + (tgt.name || ''));
+                };
+                if (isQuoted) {
+                    Clinic.modal.confirm('该诊断为引用诊断，只删除自己病历中的诊断，无法删除他人已开具的诊断。确定删除？', doDel,
+                        { title: '删除引用诊断', okText: '确认删除' });
+                } else {
+                    Clinic.modal.confirm('确定删除该诊断？', doDel, { title: '删除诊断', okText: '确认删除' });
+                }
+            });
+        }
     }
 
     /**
@@ -1575,6 +1601,13 @@ Clinic.emr = (function () {
                 Clinic.toast.warning('该病历已存在后续病程记录，不可删除首诊病历');
                 return;
             }
+        }
+        // 诊断锁定（预览拦截）：当前病历节点存在诊断则不允许删除，
+        // 需先删除全部诊断（避免产生无主诊断）——与未保存病历的拦截规则一致
+        var nodeDiags = (node.emr && node.emr.diagnoses) || [];
+        if (nodeDiags.length) {
+            Clinic.toast.warning('该病历已添加诊断，不可删除；请先删除该病历内的全部诊断后再删除病历');
+            return;
         }
         var label = node.record_type === 'initial' ? '首诊病历' : '续写病历';
         Clinic.modal.confirm('确定删除该' + label + '？删除后不可恢复。' +
