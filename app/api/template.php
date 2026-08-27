@@ -72,8 +72,11 @@ switch ($action) {
             // 管理员：全部（含草稿/驳回）
         } else {
             $myDepts = tpl_dept_ids($u);
-            // 可见性：本人个人模板（任意状态）+ 已发布全院 + 已发布本人科室模板
+            // 可见性：本人个人模板（任意状态）+ 本人待审核模板（未通过前仅自己可见可用）+
+            // 已发布全院 + 已发布本人科室模板
             $conds = array("(scope='personal' AND creator_id=?)");
+            $params[] = $u['id'];
+            $conds[] = "(status='pending_review' AND creator_id=?)";
             $params[] = $u['id'];
             $conds[] = "(scope='hospital' AND status='published')";
             if ($myDepts) {
@@ -229,6 +232,10 @@ switch ($action) {
                     $auditData, 'pending', $u['name'], $u['id'], now_str(),
                 ));
             }
+            // 站内消息提醒管理员前往审核中心处理
+            send_msg('admin', 0, '待审核提醒',
+                '医生 ' . $u['name'] . ' 提交了' . $scopeName . '病历模板「' . $title . '」待审核，请前往审核中心处理',
+                '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
         } else {
             // 免审（个人/管理员）或已过审：清理该模板残留的待审核记录
             DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='template' AND ref_id=? AND status='pending'", array($u['name'], now_str(), $tplId));

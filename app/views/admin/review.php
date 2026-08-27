@@ -6,6 +6,12 @@
  */
 Router::title('审核中心');
 ?>
+<style>
+/* 模板预览与编辑保持同一版式：左右分栏（与 templates.php 一致） */
+.tpl-form { display: flex; gap: 14px; }
+.tpl-form .tpl-left { width: 320px; flex-shrink: 0; }
+.tpl-form .tpl-right { flex: 1; min-width: 0; }
+</style>
 <div class="page-head">
     <div><div class="page-title">✅ 审核中心</div><div class="page-desc">审核项目添加、模板与报告撤回申请</div></div>
 </div>
