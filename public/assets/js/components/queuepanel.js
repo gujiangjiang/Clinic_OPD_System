@@ -10,10 +10,10 @@
  *   3. 搜索关键字切换勾选时保留（跨列表找同一患者），
  *      面板关闭时自动清空重置。
  * 过滤排序（多选组合，本地零请求）：
+ *     · 都不选        → 近3天未诊患者（候诊队列），最早挂号在最上、最新挂号在最下；
  *     · 仅「已诊」    → 近3天（含今日）诊毕患者，最后诊毕在最上；
- *     · 仅「当日」    → 当日挂号患者（全部状态）；
- *     · 两者都选      → 近3天诊毕（诊毕倒序）在上 + 当日未诊（挂号正序）在下；
- *     · 都不选        → 近3天未诊患者，最早挂号在最上、最新挂号在最下。
+ *     · 仅「当日」    → 当日未诊毕患者（当日候诊），最新挂号在最上；
+ *     · 两者都选      → 当日诊毕患者，最后诊毕在最上。
  * 数据源：GET /api/doctor?action=queue_list（一次返回近3天全量+候诊数）。
  */
 Clinic.queuePanel = (function () {
@@ -107,8 +107,8 @@ Clinic.queuePanel = (function () {
                 .sort(function (a, b) { return finKey(b).localeCompare(finKey(a)); });
         }
         if (!seen && todayOnly) {
-            // 仅当日：今日挂号患者（全部状态），按挂号时间倒序（最新在上）
-            return all.filter(function (r) { return r.date === t; })
+            // 仅当日：当日未诊毕患者（当日候诊），按挂号时间倒序（最新在上）
+            return all.filter(function (r) { return r.date === t && r.status !== 'finished'; })
                 .sort(function (a, b) { return (b.date + ' ' + b.time).localeCompare(a.date + ' ' + a.time); });
         }
         if (seen && todayOnly) {
