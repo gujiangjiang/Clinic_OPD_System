@@ -13,6 +13,20 @@
 
 ---
 
+## [3.3.1] - 2026-08-27
+
+### 重构
+
+- **record.php 拆分**：971 行电子病历接口按功能拆分到
+  `app/api/parts/`（沿用 admin parts 模式）——`record_read`（get）、
+  `record_write`（create_progress/save/save_vitals/save_diag_order/
+  save_diags）、`record_delete`（delete_record）、`record_cert`
+  （certificate/certificate_print/check_previous_diagnoses）。
+  record.php 保留公共引导、`cert_snapshot_summary`/`emr_order_snapshot`
+  共享函数与动作分发。代码经 awk 原样提取，逻辑零改动。
+
+---
+
 ## [3.3.0] - 2026-08-27
 
 ### 变更
