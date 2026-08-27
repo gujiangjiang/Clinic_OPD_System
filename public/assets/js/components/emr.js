@@ -2349,6 +2349,7 @@ Clinic.emr = (function () {
                             id: DATA.record.record_id, record_id: DATA.record.record_id,
                             doctor_id: mineId2, doctor_name: DATA.record.doctor_name,
                             doctor_emp: DATA.record.doctor_emp, doctor_title: DATA.record.doctor_title,
+                            dept_name: (DATA.visit && DATA.visit.dept_name) || '',
                             record_type: DATA.record.record_type,
                             created_at: DATA.record.created_at, updated_at: now,
                             emr: JSON.parse(JSON.stringify(emr)),
