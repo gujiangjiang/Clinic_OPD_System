@@ -592,7 +592,7 @@ Clinic.emr = (function () {
                     eiBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
                         '<div class="fs-14">📄 首张电子病历尚未创建</div>' +
                         '<div class="fs-12 text-muted mt-4">正在为你弹出模板选择，也可点击下方按钮选择模板创建病历</div>' +
-                        '<button class="btn btn-primary btn-sm mt-8" onclick="Clinic.emr.openTemplates()">📋 选择病历模板</button></div>';
+                        '<button class="btn btn-primary btn-sm mt-8" onclick="Clinic.emr.openTemplates(event)">📋 选择病历模板</button></div>';
                 }
                 refreshReadOnlyBodies(d);
             } else {
@@ -2387,7 +2387,7 @@ Clinic.emr = (function () {
         pop.style.cssText = 'position:fixed;z-index:2600;width:340px;max-width:calc(100vw-16px);';
         pop.innerHTML = '<div class="fs-12 text-muted" style="padding:12px;text-align:center">加载模板…</div>';
         document.body.appendChild(pop);
-        // 定位：手动点击「病历节点 +」（ev 有鼠标坐标）→ 跟随鼠标；
+        // 定位：手动点击入口（「病历节点 +」或占位区「选择病历模板」按钮，ev 有鼠标坐标）→ 跟随鼠标；
         // 自动弹出（无 ev）→ 锚定右侧「病历节点 +」按钮下方，queueBtn 兜底
         var W = 340, H = 380;
         if (ev && ev.clientX != null) {
