@@ -2933,15 +2933,47 @@ Clinic.emr = (function () {
             DATA.__progress_new = false;
             DATA.__edit_record_id = 0;
             EMR_DIRTY = false;
-            // 重置为占位态：首诊→空病历占位；续写→只读占位
-            DATA.record = {
-                record_id: 0, id: 0,
-                doctor_id: docId, doctor_name: docName,
-                doctor_emp: docEmp, doctor_title: docTitle,
-                record_type: wasInitial ? 'initial' : 'progress',
-                emr: {}, consciousness: '', vitals: {},
-                created_at: '', updated_at: '',
-            };
+            if (wasInitial) {
+                // 首诊编辑中（从未保存，records_history 为空）→ 回到空病历占位
+                DATA.record = {
+                    record_id: 0, id: 0,
+                    doctor_id: docId, doctor_name: docName,
+                    doctor_emp: docEmp, doctor_title: docTitle,
+                    record_type: 'initial',
+                    emr: {}, consciousness: '', vitals: {},
+                    created_at: '', updated_at: '',
+                };
+            } else {
+                // 续写编辑中（从未保存）→ 回到最近一条已保存病历，
+                // 绝不留下「幽灵续写」状态（否则保存/切换节点都会误判）
+                var hist = DATA.records_history || [];
+                var last = hist[hist.length - 1];
+                if (last) {
+                    DATA.record = {
+                        record_id: last.record_id || last.id,
+                        id: last.id || last.record_id,
+                        doctor_id: last.doctor_id,
+                        doctor_name: last.doctor_name,
+                        doctor_emp: last.doctor_emp || '',
+                        doctor_title: last.doctor_title || '',
+                        record_type: last.record_type,
+                        emr: JSON.parse(JSON.stringify(last.emr || {})),
+                        consciousness: last.consciousness || '',
+                        created_at: last.created_at || '',
+                        updated_at: last.updated_at || '',
+                    };
+                } else {
+                    // 异常兜底：无任何已保存病历 → 空首诊占位
+                    DATA.record = {
+                        record_id: 0, id: 0,
+                        doctor_id: docId, doctor_name: docName,
+                        doctor_emp: docEmp, doctor_title: docTitle,
+                        record_type: 'initial',
+                        emr: {}, consciousness: '', vitals: {},
+                        created_at: '', updated_at: '',
+                    };
+                }
+            }
             renderEmrCard(DATA);
             renderLeftNav();
         }, { title: '删除未完成病历', okText: '确认删除' });
