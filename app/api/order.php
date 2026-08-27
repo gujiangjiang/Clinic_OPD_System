@@ -119,14 +119,26 @@ switch ($action) {
         if ($visit['status'] !== 'visiting') {
             json_fail('请先接诊该患者后再开单');
         }
-        // ===== 病历完整性校验：开检验/检查/处置/处方前，病历必须已完善并保存（主诉/现病史/初步诊断为必填） =====
-        // 结构化病历优先（patient_records），兼容旧 records 扁平数据
-        $savedRecord = DB::one('medical', 'SELECT id FROM patient_records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($visitId));
-        if (!$savedRecord) {
-            $savedRecord = DB::one('medical', 'SELECT id FROM records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($visitId));
+        // ===== 病历完整性校验：开检验/检查/处置/处方前，本人病历必须已完善并保存 =====
+        // （主诉/现病史/初步诊断为必填，与前端 isRecordComplete 一致）
+        $myRec = DB::one('medical', 'SELECT emr_data, record_type FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+        if (!$myRec) {
+            json_fail('请先保存本人病历后再开单');
         }
-        if (!$savedRecord) {
-            json_fail('请先在病历中完善主诉、现病史与初步诊断并保存，再开单');
+        $myEmr = emr_merge_defaults(emr_normalize(json_decode($myRec['emr_data'], true)), emr_default_data(null));
+        if ($myRec['record_type'] === 'progress') {
+            $progC = trim((string)(isset($myEmr['progress']['content']) ? $myEmr['progress']['content'] : ''));
+            $hasDiag = !empty($myEmr['diagnoses']);
+            if ($progC === '' || !$hasDiag) {
+                json_fail('请先完善并保存本人病历（病历续写内容与初步诊断）后再开单');
+            }
+        } else {
+            $cc = trim((string)(isset($myEmr['chief_complaint']['symptom']) ? $myEmr['chief_complaint']['symptom'] : ''));
+            $pi = trim((string)(isset($myEmr['history_present']['content']) ? $myEmr['history_present']['content'] : ''));
+            $hasDiag = !empty($myEmr['diagnoses']);
+            if ($cc === '' || $pi === '' || !$hasDiag) {
+                json_fail('请先完善并保存本人病历（主诉、现病史与初步诊断）后再开单');
+            }
         }
 
         // ===== 药品库存预检 + 组装明细 =====
