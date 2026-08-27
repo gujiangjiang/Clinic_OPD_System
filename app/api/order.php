@@ -210,8 +210,15 @@ switch ($action) {
                 }
             }
             // 皮试标注写入药名（随明细持久化：病历/打印/药房队列全链路可见）
+            // 安全：项目名以服务端权威值为准（防存储型 XSS / 名称篡改），
+            // 处方取 drugs.name、检验/检查/处置取对应表 name
             $rxName = isset($it['item_name']) ? $it['item_name'] : '';
-            if ($orderType === 'prescription' && isset($skinChoice) && $skinChoice !== '') {
+            if ($orderType === 'prescription' && $itemId > 0) {
+                $rxName = isset($drug) ? $drug['name'] : $rxName;
+            } elseif ($orderType !== 'prescription' && $subOf === 0 && $itemId > 0) {
+                $rxName = isset($itemRow) ? $itemRow['name'] : $rxName;
+            }
+            if ($orderType === 'prescription' && $skinChoice !== '') {
                 $rxName .= $skinChoice === 'yes' ? '(需要皮试)' : '(无需皮试)';
             }
             $orderItems[] = array(

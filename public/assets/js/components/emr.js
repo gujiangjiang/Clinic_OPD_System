@@ -2122,7 +2122,7 @@ Clinic.emr = (function () {
             done: '<span class="badge badge-success">已完成</span>' };
         var html = '<div style="display:grid;grid-template-columns:minmax(0,1fr) 170px;gap:16px;width:100%">' +
             '<div style="min-width:0">' +
-            '<div class="fs-14 fw-600 mb-8">' + it.item_name + (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>' +
+            '<div class="fs-14 fw-600 mb-8">' + escHtml(it.item_name) + (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>' +
             '<div class="fs-13 text-muted mb-8">单价：¥' + parseFloat(it.price || 0).toFixed(2) +
             ' ｜ 费用小计：¥' + (parseFloat(it.price || 0) * it.quantity).toFixed(2) + '</div>' +
             '<div class="fs-13 mb-4">执行状态：' + (stMap[it.status] || it.status) + '</div>';
@@ -3149,12 +3149,12 @@ function viewOrderFlow(orderId) {
                           'onclick="Clinic.print.load(\'/api/print?action=report&report_id=' + it.report_id + '\')">📄 查看报告</button>'
                         : '';
                     return '<div class="flex-between fs-13" style="padding:3px 0">' +
-                        '<span>· ' + it.item_name + (it.quantity > 1 ? ' ×' + it.quantity : '') + '</span>' +
+                        '<span>· ' + escHtml(it.item_name) + (it.quantity > 1 ? ' ×' + it.quantity : '') + '</span>' +
                         '<span>' + st + rpt + '</span></div>';
                 }).join('');
             } else {
                 items = o.items.map(function (it) {
-                    return '<div class="fs-13" style="padding:3px 0">· ' + it.item_name +
+                    return '<div class="fs-13" style="padding:3px 0">· ' + escHtml(it.item_name) +
                         (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>';
                 }).join('');
             }
