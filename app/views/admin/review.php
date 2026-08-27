@@ -188,10 +188,28 @@ function makeReadonly(mask) {
     // 捕获阶段拦截 click，防止 checkbox/label/div 等默认交互；
     // 不拦截 mousedown/wheel，保证滚动条与滚轮滚动不受影响
     body.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); }, true);
+    // 禁止复制/剪切/粘贴与右键（防数据外泄）：
+    // - contextmenu（右键菜单，含"复制"等项）
+    // - copy / cut / paste 事件
+    // - Ctrl/Cmd + C/X/V/A 快捷键（全选后复制）
+    // - user-select:none 禁止文本选中
+    body.style.userSelect = 'none';
+    body.style.webkitUserSelect = 'none';
+    body.addEventListener('contextmenu', function (e) { e.preventDefault(); return false; }, true);
+    body.addEventListener('copy', function (e) { e.preventDefault(); }, true);
+    body.addEventListener('cut', function (e) { e.preventDefault(); }, true);
+    body.addEventListener('paste', function (e) { e.preventDefault(); }, true);
+    body.addEventListener('keydown', function (e) {
+        var k = e.key || '';
+        if ((e.ctrlKey || e.metaKey) && /^[cxva]$/i.test(k)) {
+            e.preventDefault();
+            return false;
+        }
+    }, true);
     // 视觉提示：模态框脚部隐藏 "保存" 按钮，改为只读提示
     var foot = mask.querySelector('.modal-foot');
     if (foot) {
-        foot.innerHTML = '<span class="fs-12 text-muted">🔒 只读预览 — 所有项目不可编辑，可滚动查看</span>';
+        foot.innerHTML = '<span class="fs-12 text-muted">🔒 只读预览 — 内容不可编辑、复制，可滚动查看</span>';
     }
     // 遮罩点击也可关闭
     mask.addEventListener('click', function (e) {
