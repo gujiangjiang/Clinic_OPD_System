@@ -1669,16 +1669,18 @@ Clinic.emr = (function () {
         } else if (!hist.length && recEl) {
             recEl.innerHTML = '';
         }
-        // 续写编辑中占位（未保存，保存/reload 后自动清除）
+        // 续写编辑中占位（未保存，保存/reload 后自动清除）；点击跳转到续写编辑器锚点
         if (DATA && DATA.__pending_progress && recEl) {
             recEl.insertAdjacentHTML('beforeend',
-                '<div class="ena-item" style="opacity:0.6;font-style:italic">' +
+                '<div class="ena-item" style="opacity:0.6;font-style:italic;cursor:pointer" ' +
+                'title="定位到续写编辑区" onclick="Clinic.emr.scrollToPendingEditor(this)">' +
                 '<span>📝 续写编辑中…（未保存）</span></div>');
         }
-        // 首诊编辑中占位（空病历选择模板后未保存）
+        // 首诊编辑中占位（空病历选择模板后未保存）；点击跳转到首诊编辑器锚点
         if (DATA && DATA.__pending_initial && recEl) {
             recEl.insertAdjacentHTML('beforeend',
-                '<div class="ena-item" style="opacity:0.6;font-style:italic">' +
+                '<div class="ena-item" style="opacity:0.6;font-style:italic;cursor:pointer" ' +
+                'title="定位到首诊编辑区" onclick="Clinic.emr.scrollToPendingEditor(this)">' +
                 '<span>📝 首诊编辑中…（未保存）</span></div>');
         }
 
@@ -2866,6 +2868,17 @@ Clinic.emr = (function () {
         Clinic.print.load('/api/print?action=record&visit_id=' + visitId, null, 'a5');
     }
 
+    /** 编辑中占位点击时定位到编辑器（首诊/续写编辑中节点） */
+    function scrollToPendingEditor(el) {
+        scrollToEditor(0);
+        var anchor = document.getElementById('contHeadWrap') || document.getElementById('myRecordAnchor');
+        if (anchor) {
+            anchor.classList.remove('emr-seg-flash');
+            void anchor.offsetWidth;
+            anchor.classList.add('emr-seg-flash');
+        }
+    }
+
     return {
         init: init,
         save: save,
@@ -2889,6 +2902,7 @@ Clinic.emr = (function () {
         deleteRecord: deleteRecord,
         loadOrders: loadOrders,
         isMyOrder: isMyOrder,
+        scrollToPendingEditor: scrollToPendingEditor,
     };
 })();
 
