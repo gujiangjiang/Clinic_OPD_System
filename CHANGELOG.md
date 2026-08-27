@@ -13,6 +13,19 @@
 
 ---
 
+## [3.3.5] - 2026-08-27
+
+### 重构
+
+- **print_templates.php 拆分**：619 行统一打印模板按单据类型拆分到
+  `app/includes/print/` 子目录——`print_common`（公共 helper）、
+  `print_receipt`（挂号/缴费凭条）、`print_order`（申请单/处方/处置）、
+  `print_report`（检验/检查报告）、`print_record`（电子病历）、
+  `print_cert`（诊断证明）。print_templates.php 改为加载器，保持对所有
+  调用方兼容。awk 原样提取函数体，逻辑零改动。
+
+---
+
 ## [3.3.4] - 2026-08-27
 
 ### 重构
