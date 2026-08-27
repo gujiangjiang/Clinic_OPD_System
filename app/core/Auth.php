@@ -43,9 +43,29 @@ class Auth {
         if (!$u) {
             $u = DB::one('user', 'SELECT * FROM users WHERE emp_no=? AND status=1', array($account));
         }
-        if (!$u || !password_verify($password, $u['password'])) {
+        if (!$u) {
             return '用户名/工号或密码错误';
         }
+        // 登录锁定检查：连续失败 5 次锁定 15 分钟
+        $lockUntil = isset($u['login_locked_until']) ? $u['login_locked_until'] : '';
+        if ($lockUntil !== '' && strtotime($lockUntil) > time()) {
+            $remain = ceil((strtotime($lockUntil) - time()) / 60);
+            return '账号已被锁定，请 ' . $remain . ' 分钟后再试';
+        }
+        // 锁定时间已过则自动解锁
+        if ($lockUntil !== '' && strtotime($lockUntil) <= time()) {
+            DB::exec('user', 'UPDATE users SET login_fail_count=0, login_locked_until=NULL WHERE id=?', array((int)$u['id']));
+        }
+        if (!password_verify($password, $u['password'])) {
+            // 密码错误：递增失败计数，连续 5 次锁定 15 分钟
+            $newCount = (int)$u['login_fail_count'] + 1;
+            $lockedUntil = $newCount >= 5 ? date('Y-m-d H:i:s', time() + 900) : null;
+            DB::exec('user', 'UPDATE users SET login_fail_count=?, login_locked_until=? WHERE id=?',
+                array($newCount, $lockedUntil, (int)$u['id']));
+            return '用户名/工号或密码错误';
+        }
+        // 登录成功：重置失败计数
+        DB::exec('user', 'UPDATE users SET login_fail_count=0, login_locked_until=NULL, last_login=? WHERE id=?', array(now_str(), (int)$u['id']));
         // 防会话固定：登录后重置会话 ID
         session_regenerate_id(true);
         $_SESSION['auth_user'] = array(
@@ -58,7 +78,6 @@ class Auth {
             'theme'    => $u['theme'] ? $u['theme'] : 'auto',
             'sidebar'  => isset($u['sidebar']) && $u['sidebar'] ? $u['sidebar'] : 'expand',
         );
-        DB::exec('user', 'UPDATE users SET last_login=? WHERE id=?', array(now_str(), (int)$u['id']));
         return true;
     }
 
