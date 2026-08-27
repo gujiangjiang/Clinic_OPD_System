@@ -13,6 +13,17 @@
 
 ---
 
+## [3.2.3] - 2026-08-27
+
+### 重构
+
+- **JS HTML 转义统一**：`ajax.js` 新增全局 `Clinic.escHtml`（单实现），
+  `historypanel/queuepanel/emr/emreditor/chart/print` 六个组件的私有
+  转义函数统一改为 `Clinic.escHtml` 别名，消除重复实现（且统一转义
+  `'` 单引号，补齐个别旧实现缺失的字符）。
+
+---
+
 ## [3.2.2] - 2026-08-27
 
 ### 重构

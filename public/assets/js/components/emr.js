@@ -746,10 +746,7 @@ Clinic.emr = (function () {
      * 展示文本格式与后端 emr_formatter.php 同规则（所见即所得）。 */
 
     /** HTML 转义（防 XSS：病历内容含医生手输文本） */
-    function escHtml(s) {
-        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
+    function escHtml(s) { return Clinic.escHtml(s); }
 
     /** 主诉文本：主要症状+时间+单位 [次要症状+时间+单位]（同 emr_cc_text） */
     function fmtCC(cc) {

@@ -50,10 +50,7 @@ Clinic.emrEditor = (function () {
     var onChange = null;  // 数据变化回调（脏标记用）
 
     /** HTML 转义（诊断名称/医生姓名等来自数据库的文本进模态框前转义） */
-    function esc(s) {
-        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
+    function esc(s) { return Clinic.escHtml(s); }
 
     /**
      * 注入前序医生诊断上下文（每次加载病历后由 emr.js 调用）。

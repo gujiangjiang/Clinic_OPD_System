@@ -26,11 +26,7 @@ Clinic.queuePanel = (function () {
     var DEPT_ID = 0;        // 当前科室（0=未选择；仅存本次登录会话，由工作台 setDept 设置）
 
     /* HTML 转义（组件内私有：emr.js 的 escHtml 为 IIFE 私有不可复用） */
-    function escHtml(s) {
-        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-        });
-    }
+    function escHtml(s) { return Clinic.escHtml(s); }
 
     function todayStr() {
         var d = new Date();

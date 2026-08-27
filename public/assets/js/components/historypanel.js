@@ -13,11 +13,7 @@ Clinic.history = (function () {
     var VISITS = [];      // 就诊列表
     var CUR = null;       // 当前选中就诊（visits 元素）
 
-    function escHtml(s) {
-        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-        });
-    }
+    function escHtml(s) { return Clinic.escHtml(s); }
 
     function open(patientNo) {
         Clinic.get('/api/patient?action=history&patient_no=' + encodeURIComponent(patientNo), null, {

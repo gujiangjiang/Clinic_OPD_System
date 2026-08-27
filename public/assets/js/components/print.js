@@ -257,11 +257,7 @@ Clinic.print = (function () {
                         var full = (c.textContent || '').trim();
                         cells[label] = full.charAt(label.length) === '：' ? full.slice(label.length + 1).trim() : '';
                     });
-                    var esc = function (s) {
-                        return String(s).replace(/[&<>"]/g, function (ch) {
-                            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch];
-                        });
-                    };
+                    var esc = function (s) { return Clinic.escHtml(s); };
                     var pick = function (labels) {
                         return labels.filter(function (l) { return cells[l]; }).map(function (l) {
                             return '<span class="print-info-cell"><strong>' + esc(l) + '</strong>：' + esc(cells[l]) + '</span>';

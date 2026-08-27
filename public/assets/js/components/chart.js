@@ -34,11 +34,7 @@ Clinic.chart = (function () {
         return m * base;
     }
 
-    function esc(s) {
-        return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
-            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
-        });
-    }
+    function esc(s) { return Clinic.escHtml(s); }
 
     /** X 轴标签抽样（避免密集重叠） */
     function thinLabels(labels, maxShow) {

@@ -11,6 +11,17 @@
 window.Clinic = window.Clinic || {};
 
 /**
+ * 全局 HTML 转义（单实现，各组件统一复用，避免多处重复定义）
+ * @param {*} s 任意值，null/undefined 视为空串
+ * @returns {string} 转义后的字符串
+ */
+Clinic.escHtml = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+};
+
+/**
  * 发起 AJAX 请求
  * @param {string} url   接口地址（如 /api/register）
  * @param {object} data  参数（自动附加 csrf_token）
