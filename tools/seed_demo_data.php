@@ -13,31 +13,6 @@ require_once APP_ROOT . '/app/includes/emr_formatter.php';
 DatabaseManager::initAll();
 mt_srand(20260825);
 
-/** 本地版默认病历骨架（与 record.php emr_default_data 同构） */
-function emr_default_data($patient = null) {
-    return array(
-        'progress' => array('content' => ''),
-        'chief_complaint' => array('symptom' => '', 'duration' => '', 'unit' => '', 'second_symptom' => '', 'second_duration' => '', 'second_unit' => ''),
-        'history_present' => array('informant' => '', 'duration' => '', 'unit' => '', 'content' => '', 'arrival_way' => ''),
-        'past_history' => array('type' => '否认', 'detail' => ''),
-        'allergies' => array('type' => '否认', 'detail' => ''),
-        'main_symptoms' => array(
-            '全身症状' => '', '呼吸道症状' => '', '消化道症状' => '',
-            '皮疹症状' => '', '出血症状' => '', '神经系统症状' => '',
-        ),
-        'physical_exam' => array(
-            '皮肤黏膜' => '', '头部' => '', '胸部' => '', '肺脏及胸膜' => '', '心脏' => '',
-            '腹部' => '', '神经反射' => '', '肌力及肌张力' => '', '其它体格检查' => '',
-        ),
-        'diagnoses' => array(),
-        'aux_result' => '',
-        'aux_external' => '',
-        'disposition_custom' => '',
-        'is_leave_hospital' => '否',
-        'advice' => '',
-    );
-}
-
 echo "=== 开始生成演示数据 ===\n";
 
 /* ==================== 0. 基础引导（仅空表时执行） ==================== */

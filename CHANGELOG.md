@@ -13,6 +13,18 @@
 
 ---
 
+## [3.2.1] - 2026-08-27
+
+### 修复
+
+- **修复开单 500 报错**：`emr_merge_defaults`/`emr_normalize`/`emr_default_data`
+  原定义于 `record.php` 内部，`order.php` 开单完整性校验调用时函数不存在，
+  导致 500。现将其移入共享模块 `app/includes/emr_formatter.php`，供
+  `record.php`、`order.php`、`seed_demo_data.php` 共用（seed 的本地副本
+  已移除），消除重复定义。
+
+---
+
 ## [3.2.0] - 2026-08-27
 
 ### 变更

@@ -11,6 +11,73 @@
  * 3. $emr 为 emr_data 解码后的结构化数组（见 record.php save 注释）。
  * ============================================================ */
 
+/** 结构化病历默认骨架（新病历/字段缺失回退；$patient 传入时预填患者既往史/过敏史） */
+function emr_default_data($patient = null) {
+    $phType = '否认';
+    $phDetail = '';
+    $alType = '否认';
+    $alDetail = '';
+    if ($patient) {
+        // 跨就诊自动调用：患者主表存有历史既往史/过敏史时预填（以最新一次保存为准）
+        if (!empty($patient['past_history_type'])) $phType = $patient['past_history_type'];
+        if (!empty($patient['past_history_detail'])) $phDetail = $patient['past_history_detail'];
+        // 患者主表 allergies 存纯文本摘要：非空即视为「承认」并回填细节
+        if (!empty($patient['allergies'])) {
+            $alType = '承认';
+            $alDetail = $patient['allergies'];
+        }
+    }
+    return array(
+        // 病历续写（progress 文书专用）：续写内容为该文书顶部必填项；
+        // 首诊（initial）文书中恒为空、不参与校验与打印
+        'progress' => array('content' => ''),
+        'chief_complaint' => array('symptom' => '', 'duration' => '', 'unit' => '', 'second_symptom' => '', 'second_duration' => '', 'second_unit' => ''),
+        'history_present' => array('informant' => '', 'duration' => '', 'unit' => '', 'content' => '', 'arrival_way' => ''),
+        'past_history' => array('type' => $phType, 'detail' => $phDetail),
+        'allergies' => array('type' => $alType, 'detail' => $alDetail),
+        'main_symptoms' => array(
+            '全身症状' => '', '呼吸道症状' => '', '消化道症状' => '',
+            '皮疹症状' => '', '出血症状' => '', '神经系统症状' => '',
+        ),
+        'physical_exam' => array(
+            '皮肤黏膜' => '', '头部' => '', '胸部' => '', '肺脏及胸膜' => '', '心脏' => '',
+            '腹部' => '', '神经反射' => '', '肌力及肌张力' => '', '其它体格检查' => '',
+        ),
+        'diagnoses' => array(),
+        'aux_result' => '',
+        'aux_external' => '',
+        'disposition_custom' => '',
+        'is_leave_hospital' => '否',
+        'advice' => '',
+    );
+}
+
+/** 递归合并：保证 emr_data 具备全部结构键（旧草稿/缺键回退默认值） */
+function emr_merge_defaults($data, $defaults) {
+    foreach ($defaults as $k => $v) {
+        if (!isset($data[$k]) || $data[$k] === null) {
+            $data[$k] = $v;
+        } elseif (is_array($v) && !isset($v[0])) {
+            // 关联数组（子结构）且数据侧同为数组时才递归合并；
+            // 数据侧为字符串等标量（如旧版 allergies 纯文本）时保留原值，
+            // 由 emr_normalize 统一归一化，避免对字符串取数组偏移导致致命错误
+            if (is_array($data[$k])) {
+                $data[$k] = emr_merge_defaults($data[$k], $v);
+            }
+        }
+    }
+    return $data;
+}
+
+/** 旧格式归一化：allergies 曾为纯文本字符串 → 结构化（非空视为承认） */
+function emr_normalize($emr) {
+    if (isset($emr['allergies']) && !is_array($emr['allergies'])) {
+        $old = trim((string)$emr['allergies']);
+        $emr['allergies'] = array('type' => $old !== '' ? '承认' : '否认', 'detail' => $old);
+    }
+    return $emr;
+}
+
 /** 主诉：主要症状+时间+单位 [次要症状+时间+单位]，如 腰痛1天加重1小时 */
 function emr_cc_text($cc) {
     $cc = is_array($cc) ? $cc : array();
