@@ -760,6 +760,17 @@ switch ($action) {
         }
         if (!$pr) json_fail('您在该就诊下暂无病历文书');
         if ($pr['status'] === 'done') json_fail('病历已诊毕，无法调整诊断');
+        // 添加/调整诊断前置条件（与前端一致，防接口直调绕过）：
+        // 首诊=主诉/现病史已填写；续写=续写内容已填写
+        $gateEmr = emr_merge_defaults(emr_normalize(json_decode($pr['emr_data'], true)), emr_default_data(null));
+        if ((string)$pr['record_type'] === 'progress') {
+            $progGate = isset($gateEmr['progress']['content']) ? trim((string)$gateEmr['progress']['content']) : '';
+            if ($progGate === '') json_fail('请先填写病历续写内容后再添加诊断');
+        } else {
+            $ccGate = isset($gateEmr['chief_complaint']['symptom']) ? trim((string)$gateEmr['chief_complaint']['symptom']) : '';
+            $piGate = isset($gateEmr['history_present']['content']) ? trim((string)$gateEmr['history_present']['content']) : '';
+            if ($ccGate === '' || $piGate === '') json_fail('请先完善主诉与现病史后再添加诊断');
+        }
         $diags = json_decode((string)post('diagnoses', '[]'), true);
         if (!is_array($diags)) json_fail('诊断数据无效');
         $clean = array();

@@ -1311,6 +1311,28 @@ Clinic.emr = (function () {
      */
     function openDiagPop(ev) {
         if (!diagEditable()) return;
+        // 添加诊断前置条件（仅限添加行为，编辑/删除不受限）：
+        // 首诊需完善主诉与现病史；续写需完善续写内容
+        // （采集编辑器当前内容，无需等待保存）
+        var _allow = true;
+        try {
+            var _cur = Clinic.emrEditor.collect();
+            var _prog = DATA && DATA.record && DATA.record.record_type === 'progress';
+            if (_prog) {
+                if (!((_cur.progress || {}).content || '').trim()) {
+                    Clinic.toast.warning('请先填写病历续写内容后再添加诊断');
+                    _allow = false;
+                }
+            } else {
+                var _cc = ((_cur.chief_complaint || {}).symptom || '').trim();
+                var _pi = ((_cur.history_present || {}).content || '').trim();
+                if (!_cc || !_pi) {
+                    Clinic.toast.warning('请先填写主诉与现病史后再添加诊断');
+                    _allow = false;
+                }
+            }
+        } catch (e) { /* editor not rendered → block */ _allow = false; }
+        if (!_allow) return;
         closeDiagPop();
         if (ev && ev.stopPropagation) ev.stopPropagation();
         var pop = document.createElement('div');
