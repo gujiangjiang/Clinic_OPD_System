@@ -61,17 +61,6 @@ Clinic.emr = (function () {
                 bindItemTokenDelegate();
                 loadOrders(visitId);
                 Clinic.order.init(visitId, j.data);
-                // 接诊：从候诊/任意入口打开患者病历页时，若仍为待就诊(paid)
-                // 则自动标记为就诊中(visiting)，否则后端开单会拦截
-                // 「请先接诊该患者后再开单」（order.php submit 校验）
-                if (j.data.visit && j.data.visit.status === 'paid') {
-                    Clinic.ajax('/api/doctor', { action: 'take', visit_id: visitId }, {
-                        loading: false,
-                        onSuccess: function (j2) {
-                            if (DATA && DATA.visit) DATA.visit.status = 'visiting';
-                        },
-                    });
-                }
                 // 一键引用前序病历
                 // refId 取隐藏输入框字符串值：无 ref 参数时为 "0"（真值），
                 // 必须转整数，否则 !refId 为 false 会误判「有引用」而跳过自动弹模板
@@ -377,7 +366,8 @@ Clinic.emr = (function () {
             beforeEl.insertAdjacentHTML('beforeend', roSegmentHtml(rec));
         }
         // 2. 续写编辑态：保留默认结构（既往史/过敏史默认「否认」等），
-        //    仅将 progress 内容清空；record_id 置 0 表示新建，保存时落库
+        //    仅将 progress 内容清空；record_id 置 0 表示新建，保存时落库。
+        //    诊断不自动代入——续写是完全独立的文书，需要什么诊断医生手动添加
         DATA.__pending_progress = true;
         DATA.__progress_new = true;
         DATA.__edit_record_id = 0;   // 新建续写走 progress_new，不使用精确回写
@@ -385,6 +375,7 @@ Clinic.emr = (function () {
         DATA.record.record_type = 'progress';
         var base = JSON.parse(JSON.stringify(r.emr || {}));
         if (base.progress) base.progress.content = '';
+        base.diagnoses = [];   // 续写不自动带入前序诊断
         DATA.record.emr = base;
         DATA.record.created_at = '';
         DATA.record.updated_at = '';

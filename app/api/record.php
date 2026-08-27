@@ -668,6 +668,12 @@ switch ($action) {
             $emr['past_history']['type'], $emr['past_history']['detail'], $allergies, $visit['patient_no'],
         ));
 
+        // C2. 保存病历即视为接诊：若就诊状态仍为待就诊(paid)，标记为就诊中(visiting)
+        // （以「是否存在病历」判定是否就诊，而非打开页面即算）
+        if (!$finish && isset($visit['status']) && $visit['status'] === 'paid') {
+            DB::exec('patient', 'UPDATE registrations SET status=? WHERE id=?', array('visiting', $visitId));
+        }
+
         // D. 诊毕：更新就诊状态
         if ($finish) {
             // 诊毕转归：离院方式必选；非「自主离院」必须填写对应补充信息
@@ -868,6 +874,14 @@ switch ($action) {
         } catch (Exception $ex) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             json_fail('病历删除失败：' . $ex->getMessage());
+        }
+        // 4. 删除后：若该就诊已无任何病历 → 退回到未就诊状态（待就诊 paid）
+        //    （以「是否存在病历」判定是否就诊：病历删除后即视为未就诊）
+        if ($row['visit']['status'] === 'visiting') {
+            $remain = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=?', array($visitId));
+            if ($remain === 0) {
+                DB::exec('patient', 'UPDATE registrations SET status=? WHERE id=?', array('paid', $visitId));
+            }
         }
         json_ok(array('record_type' => $rec['record_type']), '病历记录已删除');
         break;
