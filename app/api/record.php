@@ -416,6 +416,10 @@ switch ($action) {
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
+        // 归档锁定：已诊毕(归档)不可创建续写
+        if ($visit['status'] === 'finished') {
+            json_fail('该患者已诊毕，病历已归档，不可创建续写');
+        }
         // 本人最近一条文书（首诊或上一次续写）——作为续写的父记录
         $ownLatest = DB::one('medical', 'SELECT id, record_type, emr_data FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
         if (!$ownLatest) json_fail('本人尚无病历，请先书写首诊病历');
@@ -462,6 +466,10 @@ switch ($action) {
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
+        // 归档锁定：已诊毕(归档)病历不可再修改（法律/合规底线，前后端双重拦截）
+        if ($visit['status'] === 'finished') {
+            json_fail('该患者已诊毕，病历已归档，不可修改');
+        }
 
         // ===== 1. 解析与文书类型判定 =====
         $raw = post_raw('emr_data');
@@ -701,6 +709,10 @@ switch ($action) {
         $visitId = did(post('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
+        // 归档锁定：已诊毕(归档)不可再录入生命体征
+        if ($row['visit']['status'] === 'finished') {
+            json_fail('该患者已诊毕，病历已归档，不可再录入生命体征');
+        }
         // 数值校验（与服务端同规则）：非负整数、生理合理区间；留空视为未测
         $spec = array(
             'bp_systolic'  => array(post('bp_systolic', 0), 1, 300, '收缩压'),
@@ -757,6 +769,10 @@ switch ($action) {
         $visitId = did(post('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
+        // 归档锁定：已诊毕(归档)不可调整诊断
+        if ($row['visit']['status'] === 'finished') {
+            json_fail('该患者已诊毕，病历已归档，不可调整诊断');
+        }
         // 仅本人文书可调整，且未诊毕；切换回旧文书编辑时按 edit_record_id 精确定位
         $editDiagRecordId = (int)post('edit_record_id', 0);
         if ($editDiagRecordId > 0) {
