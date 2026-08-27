@@ -1637,7 +1637,13 @@ Clinic.emr = (function () {
                 '<span class="text-muted" style="flex-shrink:0;font-size:11px">' + typeName + '</span>' +
                 (canDel ? '<span class="ena-del" title="删除该病历记录" onclick="event.stopPropagation();Clinic.emr.deleteRecord(' + r2.id + ')">🗑️</span>' : '') +
                 '<span class="ena-sub">' + escHtml(r2.doctor_name) + '</span></div>';
-        }).join('') : '<div class="ena-empty">暂无病历文书</div>';
+        }).join('') : '';
+        // 空时显示「暂无病历文书」，但若有未保存的编辑中占位则不显示
+        if (!hist.length && !(DATA && (DATA.__pending_initial || DATA.__pending_progress))) {
+            recEl.innerHTML = '<div class="ena-empty">暂无病历文书</div>';
+        } else if (!hist.length && recEl) {
+            recEl.innerHTML = '';
+        }
         // 续写编辑中占位（未保存，保存/reload 后自动清除）
         if (DATA && DATA.__pending_progress && recEl) {
             recEl.insertAdjacentHTML('beforeend',
@@ -2362,8 +2368,8 @@ Clinic.emr = (function () {
     /**
      * 打开病历模板选择（新模板库：结构化内容；列表仅元数据，选中后拉取内容）
      */
-    function openTemplates() {
-        openTemplatePicker(null);
+    function openTemplates(ev) {
+        openTemplatePicker(ev);
     }
 
     /**
