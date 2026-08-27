@@ -428,6 +428,29 @@ function get_visit_row($visitId) {
     return array('visit' => $v, 'patient' => $p);
 }
 
+/**
+ * 科室数据隔离：非挂号科室的医生不能查看/接诊当前就诊。
+ * 放行条件：管理员；已诊毕归档（历史查看）；当前就诊科室在医生科室范围内；
+ * 或医生已在本就诊写过病历（临床连续性）。患者历史就诊（既往病历）不受限。
+ */
+function visit_dept_authorized($visit, $u) {
+    if ($u['role'] === 'admin') return true;
+    if (isset($visit['status']) && $visit['status'] === 'finished') return true;
+    $curDept = (int)(isset($visit['current_dept_id']) ? $visit['current_dept_id'] : 0);
+    if ($curDept <= 0) return true;
+    $myDepts = array();
+    foreach (explode(',', isset($u['dept_ids']) ? (string)$u['dept_ids'] : '') as $dd) {
+        if ((int)$dd > 0) $myDepts[] = (int)$dd;
+    }
+    if (in_array($curDept, $myDepts, true)) return true;
+    $visitId = (int)(isset($visit['id']) ? $visit['id'] : 0);
+    if ($visitId > 0) {
+        $n = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array($visitId, (int)$u['id']));
+        if ($n > 0) return true;
+    }
+    return false;
+}
+
 /** 挂号状态中文名 */
 function visit_status_name($s) {
     $map = array(

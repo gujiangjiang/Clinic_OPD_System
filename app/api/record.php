@@ -156,6 +156,10 @@ switch ($action) {
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
         $patient = $row['patient'];
+        // 科室数据隔离：非挂号科室医生不能查看当前就诊（已诊毕归档可查看）
+        if (!visit_dept_authorized($visit, $u)) {
+            json_fail('您无权查看该患者的当前就诊（就诊科室不在您的权限范围内）');
+        }
 
         // 当前科室（可能已转科，显示当前就诊科室）
         $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
@@ -469,6 +473,10 @@ switch ($action) {
         // 归档锁定：已诊毕(归档)病历不可再修改（法律/合规底线，前后端双重拦截）
         if ($visit['status'] === 'finished') {
             json_fail('该患者已诊毕，病历已归档，不可修改');
+        }
+        // 科室数据隔离：非挂号科室医生不能接诊/书写当前就诊
+        if (!visit_dept_authorized($visit, $u)) {
+            json_fail('您无权接诊该患者（就诊科室不在您的权限范围内）');
         }
 
         // ===== 1. 解析与文书类型判定 =====

@@ -161,6 +161,10 @@ switch ($action) {
         if ($visit['status'] !== 'paid') {
             json_fail('该患者当前状态不可接诊');
         }
+        // 科室数据隔离：非挂号科室医生不能接诊（患者未转科到本医生科室）
+        if (!visit_dept_authorized($visit, $u)) {
+            json_fail('您无权接诊该患者（就诊科室不在您的权限范围内）');
+        }
         DB::exec('patient', 'UPDATE registrations SET status=? WHERE id=?', array('visiting', $visitId));
         // 转科引用：返回最近一次转科的原始病历ID（新科室医生一键引用）
         $ref = DB::one('medical', 'SELECT ref_record_id FROM referrals WHERE visit_id=? ORDER BY id DESC', array($visitId));
