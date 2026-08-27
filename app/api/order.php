@@ -130,71 +130,83 @@ switch ($action) {
         }
 
         // ===== 药品库存预检 + 组装明细 =====
+        // 安全：价格一律以服务端数据库权威值为准（不信任前端提交的 price），
+        // 防止医生篡改金额（0 元开单 / 高价开单）
         $orderItems = array();
         $total = 0;
         foreach ($items as $i => $it) {
             $itemId = (int)(isset($it['item_id']) ? $it['item_id'] : 0);
             $qty = max(1, (int)(isset($it['quantity']) ? $it['quantity'] : 1));
-            $price = (float)(isset($it['price']) ? $it['price'] : 0);
+            $price = 0;
             $subOf = (int)(isset($it['sub_of']) ? $it['sub_of'] : 0);
             $needNurse = 0;
-            if ($orderType === 'prescription' && $subOf === 0 && $itemId > 0) {
+            $skinChoice = '';
+            $routeBindId = 0;
+            if ($orderType === 'prescription' && $itemId > 0) {
                 $drug = DB::one('drug', 'SELECT * FROM drugs WHERE id=?', array($itemId));
                 if (!$drug || $drug['status'] !== 'approved') {
                     json_fail('药品不存在或未通过审核：' . (isset($it['item_name']) ? $it['item_name'] : ''));
                 }
-                if ((int)$drug['qty'] < $qty) {
-                    json_fail('药品【' . $drug['name'] . '】库存不足（当前库存 ' . (int)$drug['qty'] . '）');
-                }
-                // 【护士站执行】按给药途径设置自动默认勾选，可手动取消
-                $needNurse = ((int)$drug['need_nurse'] === 1 && $nurseReq === 1) ? 1 : 0;
+                $price = (float)$drug['price'];   // 权威价格
+                if ($subOf === 0) {
+                    if ((int)$drug['qty'] < $qty) {
+                        json_fail('药品【' . $drug['name'] . '】库存不足（当前库存 ' . (int)$drug['qty'] . '）');
+                    }
+                    // 【护士站执行】按给药途径设置自动默认勾选，可手动取消
+                    $needNurse = ((int)$drug['need_nurse'] === 1 && $nurseReq === 1) ? 1 : 0;
 
-                // ===== 皮试判定（阻断式）：需皮试药品必须由医生明确选择方案 =====
-                $skinChoice = '';
-                if ((int)$drug['need_skin_test'] === 1) {
-                    $choice = isset($skinChoices[$i]) ? strtolower(trim((string)$skinChoices[$i])) : '';
-                    if ($choice !== 'yes' && $choice !== 'no') {
-                        json_fail('【' . $drug['name'] . '】为需皮试药品，请先选择本次处置方案（需要皮试 / 免试）');
+                    // ===== 皮试判定（阻断式）：需皮试药品必须由医生明确选择方案 =====
+                    if ((int)$drug['need_skin_test'] === 1) {
+                        $choice = isset($skinChoices[$i]) ? strtolower(trim((string)$skinChoices[$i])) : '';
+                        if ($choice !== 'yes' && $choice !== 'no') {
+                            json_fail('【' . $drug['name'] . '】为需皮试药品，请先选择本次处置方案（需要皮试 / 免试）');
+                        }
+                        $skinChoice = $choice;
                     }
-                    $skinChoice = $choice;
-                }
-                // ===== 给药途径 → 绑定计费处置（如 静脉输液 → 静脉输液费）=====
-                $routeBindId = 0;
-                $routeBind = DB::one('drug', "SELECT bind_disposal_item_id FROM drug_settings WHERE stype='route' AND name=? LIMIT 1", array($drug['route_name']));
-                if ($routeBind && (int)$routeBind['bind_disposal_item_id'] > 0) {
-                    $routeBindId = (int)$routeBind['bind_disposal_item_id'];
-                }
-                // 聚合联动处置（按处置项目累加数量，稍后统一生成一张处置单）
-                if ($skinChoice === 'yes' && (int)$drug['skin_test_item_id'] > 0) {
-                    $stId = (int)$drug['skin_test_item_id'];
-                    if (!isset($autoDisp[$stId])) {
-                        $stInfo = DB::one('disp', 'SELECT name, fee FROM disposal_items WHERE id=?', array($stId));
-                        if (!$stInfo) json_fail('皮试处置项目不存在：#' . $stId);
-                        $autoDisp[$stId] = array('name' => $stInfo['name'], 'fee' => (float)$stInfo['fee'], 'qty' => 0);
+                    // ===== 给药途径 → 绑定计费处置（如 静脉输液 → 静脉输液费）=====
+                    $routeBind = DB::one('drug', "SELECT bind_disposal_item_id FROM drug_settings WHERE stype='route' AND name=? LIMIT 1", array($drug['route_name']));
+                    if ($routeBind && (int)$routeBind['bind_disposal_item_id'] > 0) {
+                        $routeBindId = (int)$routeBind['bind_disposal_item_id'];
                     }
-                    $autoDisp[$stId]['qty'] += 1;
-                }
-                if ($routeBindId > 0) {
-                    if (!isset($autoDisp[$routeBindId])) {
-                        $rbInfo = DB::one('disp', 'SELECT name, fee FROM disposal_items WHERE id=?', array($routeBindId));
-                        if (!$rbInfo) json_fail('途径绑定处置不存在：#' . $routeBindId);
-                        $autoDisp[$routeBindId] = array('name' => $rbInfo['name'], 'fee' => (float)$rbInfo['fee'], 'qty' => 0);
+                    // 聚合联动处置（按处置项目累加数量，稍后统一生成一张处置单）
+                    if ($skinChoice === 'yes' && (int)$drug['skin_test_item_id'] > 0) {
+                        $stId = (int)$drug['skin_test_item_id'];
+                        if (!isset($autoDisp[$stId])) {
+                            $stInfo = DB::one('disp', 'SELECT name, fee FROM disposal_items WHERE id=?', array($stId));
+                            if (!$stInfo) json_fail('皮试处置项目不存在：#' . $stId);
+                            $autoDisp[$stId] = array('name' => $stInfo['name'], 'fee' => (float)$stInfo['fee'], 'qty' => 0);
+                        }
+                        $autoDisp[$stId]['qty'] += 1;
                     }
-                    // 按组数核算（1.9.0）：一个主药 = 一个组，同组内子药不叠加——
-                    // 同一瓶液体加入多种药只产生 1 次注射/输液处置费
-                    $autoDisp[$routeBindId]['qty'] += 1;
+                    if ($routeBindId > 0) {
+                        if (!isset($autoDisp[$routeBindId])) {
+                            $rbInfo = DB::one('disp', 'SELECT name, fee FROM disposal_items WHERE id=?', array($routeBindId));
+                            if (!$rbInfo) json_fail('途径绑定处置不存在：#' . $routeBindId);
+                            $autoDisp[$routeBindId] = array('name' => $rbInfo['name'], 'fee' => (float)$rbInfo['fee'], 'qty' => 0);
+                        }
+                        // 按组数核算（1.9.0）：一个主药 = 一个组，同组内子药不叠加——
+                        // 同一瓶液体加入多种药只产生 1 次注射/输液处置费
+                        $autoDisp[$routeBindId]['qty'] += 1;
+                    }
                 }
             } elseif ($orderType === 'procedure') {
                 $needNurse = $nurseReq;
             }
-            // ===== 项目存在性校验（非处方类）：防止空名明细混入病历/打印 =====
+            // ===== 项目存在性校验 + 权威核价（非处方类）：防止空名明细混入病历/打印 =====
             if ($orderType !== 'prescription' && $subOf === 0 && $itemId > 0) {
-                $catTable = array('lab' => array('lab', 'lab_items'), 'imaging' => array('lab', 'exam_items'), 'procedure' => array('disp', 'disposal_items'));
+                $catTable = array(
+                    'lab' => array('lab', 'lab_items', 'price'),
+                    'imaging' => array('lab', 'exam_items', 'price'),
+                    'procedure' => array('disp', 'disposal_items', 'fee'),
+                );
                 if (isset($catTable[$orderType])) {
-                    $itemRow = DB::one($catTable[$orderType][0], 'SELECT name, status FROM ' . $catTable[$orderType][1] . ' WHERE id=?', array($itemId));
+                    $itemRow = DB::one($catTable[$orderType][0],
+                        'SELECT name, status, ' . $catTable[$orderType][2] . ' AS p FROM ' . $catTable[$orderType][1] . ' WHERE id=?',
+                        array($itemId));
                     if (!$itemRow || $itemRow['status'] !== 'approved') {
                         json_fail('开单项目不存在或未通过审核，请刷新后重试');
                     }
+                    $price = (float)$itemRow['p'];
                 }
             }
             // 皮试标注写入药名（随明细持久化：病历/打印/药房队列全链路可见）
