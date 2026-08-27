@@ -1288,7 +1288,10 @@ Clinic.emr = (function () {
         pop.id = 'diagPop';
         pop.className = 'finish-pop diag-pop';
         pop.innerHTML =
-            '<div class="fs-13 mb-8">编辑：<span class="text-muted">' + escHtml(d.code || '') + '</span> <b>' + escHtml(d.name) + '</b></div>' +
+            '<div class="fs-13 mb-8" style="display:flex;justify-content:space-between;align-items:center">' +
+            '<span>编辑：<span class="text-muted">' + escHtml(d.code || '') + '</span> <b>' + escHtml(d.name) + '</b></span>' +
+            '  <button type="button" class="btn btn-danger btn-sm" id="dpeDel" style="flex-shrink:0">🗑️ 删除</button>' +
+            '</div>' +
             '<div class="form-group"><label class="form-label">部位（选填）</label><input class="input" id="dpPart" value="' + escHtml(d.part || '') + '" placeholder="如：左侧、右上肢"></div>' +
             '<div class="form-group"><label class="form-label">备注（选填）</label><input class="input" id="dpNote" value="' + escHtml(d.note || '') + '" placeholder="如：中指挫擦伤"></div>' +
             '<div class="form-group"><label class="form-label">是否疑似（选填）</label><select class="select" id="dpSus">' +
@@ -1297,9 +1300,6 @@ Clinic.emr = (function () {
             '<div class="flex gap-8">' +
             '  <button type="button" class="btn btn-outline btn-sm" style="flex:1" id="dpeCancel">取消</button>' +
             '  <button type="button" class="btn btn-primary btn-sm" style="flex:1" id="dpeSave">保存</button>' +
-            // 仅已添加的诊断（本悬浮窗即点击已添加诊断触发）显示删除按钮；
-            // diagEditable 已校验未诊毕可编辑 → 符合删除逻辑
-            '  <button type="button" class="btn btn-danger btn-sm" id="dpeDel" style="flex-shrink:0">🗑️ 删除</button>' +
             '</div>';
         placeDiagPop(pop, ev);
         pop.querySelector('#dpeCancel').addEventListener('click', closeDiagPop);
