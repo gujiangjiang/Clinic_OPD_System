@@ -99,7 +99,9 @@ Clinic.emr = (function () {
         var rows = [];
         var total = 0;
         var regFee = (DATA && DATA.visit ? parseFloat(DATA.visit.fee) : 0) || 0;
-        if (regFee > 0) rows.push({ st: 'paid', name: '挂号费', amt: regFee });
+        // 挂号费状态：诊毕 → 已完成(done，绿点)；否则已缴费(paid)
+        var regSt = (DATA && DATA.visit && DATA.visit.status === 'finished') ? 'done' : 'paid';
+        if (regFee > 0) rows.push({ st: regSt, name: '挂号费', amt: regFee });
         (ORDERS || []).forEach(function (o) {
             if (o.status === 'refunded' || o.status === 'cancelled') return;
             (o.items || []).forEach(function (i2) {
@@ -126,8 +128,10 @@ Clinic.emr = (function () {
         pop.className = 'fee-pop';
         pop.innerHTML = d.rows.map(function (r) {
             var cls = navDotCls(r.st);   // 灰=未缴费，黄=已缴费未完成，绿=已完成
+            // 挂号费已完成时提示「已完成」（避免复用报告/发药文案）
+            var tip = (r.name === '挂号费' && r.st === 'done') ? '已完成' : navDotText(r.st);
             return '<div class="fee-pop-row">' +
-                '<span class="status-indicator ' + cls + '" title="' + navDotText(r.st) + '"></span>' +
+                '<span class="status-indicator ' + cls + '" title="' + tip + '"></span>' +
                 '<span class="fee-pop-name" title="' + escHtml(r.name) + '">' + escHtml(r.name) + '</span>' +
                 '<span class="fee-pop-amt">¥' + r.amt.toFixed(2) + '</span></div>';
         }).join('') +

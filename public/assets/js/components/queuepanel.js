@@ -70,14 +70,11 @@ Clinic.queuePanel = (function () {
         } catch (e) { /* 忽略 */ }
     }
 
-    /* 按钮候诊人数：勾选「当日」→ 当日待就诊（paid）人数；未勾选 → 已有待就诊人数 */
+    /* 按钮候诊人数：等于当前筛选组合下的列表条数（与展开的列表一致，
+     * 避免「列表显示5人、按钮显示0」的错位） */
     function waitingCount() {
         if (!DATA) return 0;
-        if (!todayOnly) return DATA.waiting || 0;
-        var t = todayStr();
-        return DATA.list.filter(function (r) {
-            return r.date === t && r.status === 'paid';
-        }).length;
+        return filteredList().length;
     }
 
     /* 顶部按钮：候诊XX */
@@ -90,8 +87,10 @@ Clinic.queuePanel = (function () {
             return;
         }
         if (!DATA) return;
-        btn.innerHTML = '📋 候诊 <b>' + waitingCount() + '</b>';
-        btn.title = '候诊 / 近3天患者列表';
+        // 标签跟随筛选组合：都不选=候诊；仅已诊/双选=已诊；含当日=当日
+        var label = seen && !todayOnly ? '已诊' : (todayOnly ? '当日' : '候诊');
+        btn.innerHTML = '📋 ' + label + ' <b>' + waitingCount() + '</b>';
+        btn.title = '候诊 / 近3天患者列表（已诊/当日可组合筛选）';
     }
 
     /* ==================== 过滤 + 排序（多选组合规则核心） ==================== */
