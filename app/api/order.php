@@ -374,12 +374,18 @@ switch ($action) {
                 ));
             }
 
-            // ===== 处方开单即减库存（按组处理） =====
+            // ===== 处方开单即减库存（按组处理，原子条件更新防并发竞态） =====
             if ($orderType === 'prescription') {
                 foreach ($g['idx'] as $i) {
                     $it = $orderItems[$i];
                     if ((int)$it['item_id'] > 0 && (int)$it['sub_of'] === 0) {
-                        DB::exec('drug', 'UPDATE drugs SET qty = qty - ? WHERE id=?', array($it['quantity'], $it['item_id']));
+                        // 原子条件更新：仅当库存充足时扣减，避免 TOCTOU 竞态
+                        // 预检（line 前段）仅作快速提示，此处才是最终校验
+                        $affected = DB::exec('drug', 'UPDATE drugs SET qty = qty - ? WHERE id=? AND qty >= ?',
+                            array($it['quantity'], $it['item_id'], $it['quantity']));
+                        if (!$affected) {
+                            json_fail('药品【' . $it['item_name'] . '】库存不足（并发扣减），请重试');
+                        }
                         DB::insert('order', 'INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
                             $it['item_id'], -$it['quantity'], 'order_out', $orderNo, $u['name'], now_str(),
                         ));
