@@ -13,6 +13,17 @@
 
 ---
 
+## [3.3.3] - 2026-08-27
+
+### 重构
+
+- **doctor.php 拆分**：469 行医生工作站接口拆分到
+  `parts/doctor_read.php`（读取类动作）与 `doctor_write.php`（写入类
+  动作），共享函数 `doctor_dept_ids`/`dept_is_limited` 保留在调度器。
+  awk 原样提取，逻辑零改动。
+
+---
+
 ## [3.3.2] - 2026-08-27
 
 ### 重构
