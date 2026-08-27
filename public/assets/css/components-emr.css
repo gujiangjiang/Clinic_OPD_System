@@ -1,0 +1,437 @@
+/* ============================================================
+ * components-emr.css — 病历/EMR 样式（自 components.css 拆出）
+ * 说明：病历只读/患者信息头/病历文档/条形码/续写承接头
+ * ============================================================ */
+/* ---------- 病历只读（诊毕） ---------- */
+/* 已诊毕病历：所有输入控件置灰且不可编辑，明确提示只读状态，避免误解 */
+#emrCard input:disabled,
+#emrCard select:disabled,
+#emrCard textarea:disabled {
+    background: var(--bg-soft);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    opacity: .85;
+}
+#emrCard .rich-editor.readonly {
+    background: var(--bg-soft);
+    cursor: not-allowed;
+    opacity: .85;
+}
+#emrCard .rich-editor.readonly:focus { outline: none; }
+
+/* ---------- 患者信息头：点击头像或姓名弹出「修改患者信息」弹窗 ---------- */
+.emr-patient-avatar {
+    font-size: 30px;   /* 头像字号：与病历页患者信息头原样式一致，避免变小 */
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: transform .15s ease;
+}
+.emr-patient-avatar:hover { transform: scale(1.1); }
+.emr-patient-name {
+    cursor: pointer;
+    transition: color .15s ease;
+}
+.emr-patient-name:hover { color: var(--primary); }
+
+/* ---------- 病历文档（所见即所得，模拟纸质病历版式） ---------- */
+/* 切换病历节点时内容渐显 + 轻微上移（先出现病历，再平滑滚动到锚点） */
+@keyframes emrEnter {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: none; }
+}
+.emr-card-enter { animation: emrEnter .32s ease-out; }
+.emr-doc {
+    position: relative;   /* 供右上角条形码绝对定位 */
+    max-width: 860px;
+    margin: 0 auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    padding: 26px 30px;
+}
+.emr-doc .doc-hosp {
+    text-align: center;
+    font-size: 22px;
+    /* 固定行高：一是压缩页头高度，二是给右上角条形码提供
+       确定的对齐基准（条形码顶 = 行盒顶 + 半行距 + 字形上留白） */
+    line-height: 28px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: var(--text);
+}
+.emr-doc .doc-sub {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+.emr-doc .doc-title-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 14px 0 12px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--text);
+}
+.emr-doc .doc-title {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 4px;
+    padding-left: 4px; /* 抵消 letter-spacing 造成的视觉右偏 */
+}
+/* 病历模板按钮：文档页头左上角——与医院名称行视觉对齐、左侧与左边距齐平 */
+.emr-doc .doc-tpl {
+    position: absolute;
+    top: 27px;    /* 与医院名称（行高28px）光学居中对齐 */
+    left: 30px;   /* 与 .emr-doc 的 padding-left 一致 */
+    z-index: 1;
+}
+.emr-doc .doc-patient-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px 24px;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+/* 急诊患者信息两行流式排版（第一行 姓名/性别/出生日期/年龄，第二行 患者ID/就诊科室/就诊时间），
+   每行两端对齐：左侧文字贴左边缘、右侧文字贴右边缘 */
+.emr-doc .doc-patient-lines {
+    display: block;
+    margin-bottom: 6px;
+}
+.emr-doc .doc-patient-lines .doc-line-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+.emr-doc .doc-cell {
+    display: flex;
+    gap: 4px;
+    line-height: 1.7;
+}
+.emr-doc .doc-cell-label {
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.emr-doc .doc-cell-value {
+    font-weight: 600;
+    word-break: break-all;
+}
+/* 患者信息区初复诊下拉框：无边框、轻量内联样式，与表格融为一体 */
+.emr-doc .doc-cell-select {
+    border: none;
+    background: transparent;
+    font: inherit;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    outline: none;
+    border-bottom: 1px dashed var(--border);
+    padding: 0 2px 0 0;
+    max-width: 90px;
+}
+.emr-doc .doc-line {
+    border-bottom: 1px solid var(--border);
+    margin: 12px 0 16px;
+}
+/* 病历正文：每节一行、纵向排列，输入框接在标题后方（主诉：XXXX），不同小节之间换行 */
+.emr-doc .doc-body .doc-sec {
+    display: flex;
+    flex-wrap: wrap;        /* 横向排列，到右侧边缘自动换行 */
+    align-items: center;
+    gap: 6px 8px;
+    margin-bottom: 12px;
+}
+.emr-doc .doc-body .doc-sec-label {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-weight: 700;
+    /* 固定词（主诉/现病史/既往史等）加大加粗，与正文区分更明显 */
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.6;
+}
+/* 必填小节：主诉/现病史/初步诊断 标签红色标识（替代原 * 星号） */
+.emr-doc .doc-body .doc-sec-label.doc-sec-label-required { color: var(--danger); }
+/* 节名自带冒号（与文档正文「主诉：」样式一致） */
+.emr-doc .doc-body .doc-sec-label::after {
+    content: '：';
+}
+.emr-doc .doc-body .doc-sec-body {
+    line-height: 1.6;
+    padding-top: 7px;
+}
+.emr-doc .doc-body .rich-editor {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    min-height: 36px;
+    line-height: 1.6;
+}
+.emr-doc .doc-sec-vital { cursor: pointer; }
+.emr-doc .doc-sec-vital .doc-sec-body { font-weight: 600; }
+
+/* 病历正文 已开项目所见即所得：辅助检查/门诊处置 */
+.emr-doc .doc-order-chip {
+    display: inline-block;
+    border: 1px solid var(--border);
+    background: var(--bg-soft);
+    border-radius: 6px;
+    padding: 1px 8px;
+    margin: 2px 4px 2px 0;
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color .2s ease, color .2s ease;
+}
+.emr-doc .doc-order-chip:hover { border-color: var(--primary); color: var(--primary); }
+.emr-doc .doc-treat-proc { margin-bottom: 4px; }
+.emr-doc .doc-rx-line {
+    line-height: 1.7;
+    cursor: pointer;
+    transition: color .2s ease;
+}
+.emr-doc .doc-rx-line:hover { color: var(--primary); }
+/* 病历正文右下角医生签名（页脚医生信息保留，互不影响） */
+.emr-doc .doc-body-sign {
+    text-align: right;
+    font-weight: 600;
+    font-size: 13px;
+    margin-top: 10px;
+}
+.emr-doc .doc-doctor {
+    font-weight: 600;
+}
+
+/* ---------- 病历文档页头右上角条形码（与挂号凭条 / 打印预览一致，位于病历文档页头） ---------- */
+/* 定位逻辑：与医院名称文字顶部齐平——top = padding-top + 半行距(3px) + 字形上留白(~1px)，
+   修正原先直接贴内容区顶部导致条形码略高于医院名称的问题 */
+.emr-doc .doc-barcode {
+    position: absolute;
+    top: 30px;      /* padding-top 26px + 医院名称字形顶部偏移 ~4px */
+    right: 30px;    /* 与 .emr-doc 的 padding-right 一致，即与右侧页边距齐平 */
+    text-align: center;
+    z-index: 1;
+}
+.emr-doc .doc-barcode svg {
+    height: 26px;      /* 高度与医院名称（22px 字号）齐平，比例不变（width 由 viewBox 等比推算） */
+    width: auto;
+    max-width: 38mm;   /* 单号过长时整体等比缩小，防止压到医院名称 */
+    display: block;
+}
+.emr-doc .doc-barcode .doc-barcode-text {
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+@media (max-width: 640px) {
+    .emr-doc { padding: 18px 16px; }
+    .emr-doc .doc-patient-grid { grid-template-columns: 1fr; }
+    .emr-doc .doc-barcode { top: 22px; right: 16px; }  /* 18px 内边距 + 字形顶部偏移 ~4px */
+    .emr-doc .doc-barcode svg { height: 22px; width: auto; max-width: 38mm; }
+    .emr-doc .doc-tpl { top: 21px; left: 16px; }
+    .emr-doc .doc-tpl .btn { padding: 2px 10px; font-size: 12px; }
+}
+
+/* ============================================================
+ * 结构化电子病历编辑器（[] 占位字段引擎）
+ * 规则：静态标签不可选中/不可编辑；可编辑字段为行内元素，
+ * 空字段显示占位提示；诊毕只读时字段变灰且不可聚焦编辑。
+ * ============================================================ */
+.emr-doc .doc-body .ef-label {
+    user-select: none;
+    -webkit-user-select: none;
+    font-weight: 600;
+    color: var(--text);
+}
+.emr-doc .doc-body .ef-field {
+    display: inline-block;
+    min-width: 60px;
+    padding: 1px 4px;
+    margin: 0 1px;
+    border-bottom: 1px dashed var(--border);
+    color: var(--primary);
+    font-weight: 600;
+    outline: none;
+    cursor: text;
+    line-height: 1.7;
+    vertical-align: bottom;
+}
+.emr-doc .doc-body .ef-field:empty::before {
+    content: attr(data-ph);
+    color: var(--text-muted);
+    font-weight: 400;
+}
+.emr-doc .doc-body .ef-field:focus {
+    background: var(--primary-soft);
+    border-bottom-color: var(--primary);
+}
+/* 只读（诊毕）：灰字、无光标、虚线弱化 */
+.emr-doc .doc-body .ef-field.readonly {
+    color: var(--text);
+    cursor: default;
+    border-bottom-color: transparent;
+}
+.emr-doc .doc-body .ef-field.readonly:empty::before { content: ''; }
+.emr-doc .doc-body .ef-select-wrap { display: inline-block; margin: 0 1px; }
+.emr-doc .doc-body .ef-select {
+    height: 26px;
+    padding: 0 22px 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    border: none;
+    border-bottom: 1px dashed var(--border);
+    border-radius: 0;
+    background-color: transparent;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 2px center;
+    appearance: none;
+    -webkit-appearance: none;
+    outline: none;
+    cursor: pointer;
+}
+.emr-doc .doc-body .ef-select:disabled { color: var(--text); cursor: default; }
+.emr-doc .doc-body .ef-auto { color: var(--text); }
+/* 空的自动段（未开单/无处方）直接隐藏，避免出现多余占位符或重复「—」 */
+.emr-doc .doc-body .ef-auto.empty { display: none; }
+.emr-doc .doc-body .ef-rx-lines { display: block; }
+.emr-doc .doc-body .ef-rx-line { display: block; line-height: 1.8; }
+.emr-doc .doc-body .ef-disp-box { display: block; flex: 1; min-width: 0; }
+/* 初步诊断触发字段与已选诊断项 */
+.emr-doc .doc-body .ef-diag { cursor: pointer; }
+.emr-doc .doc-body .ef-diag-item { border-bottom: none; }
+.emr-doc .doc-body .ef-diag-item:hover { background: var(--primary-soft); }
+.emr-doc .doc-body .ef-diag-sep { color: var(--text); margin: 0 2px; }
+/* 首个诊断后的「＋」快捷添加入口（点击弹出跟随鼠标的诊断添加悬浮窗） */
+.ef-diag-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 4px;
+    border-radius: 50%;
+    background: var(--primary-soft, #cffafe);
+    color: var(--primary);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    vertical-align: middle;
+    user-select: none;
+}
+.ef-diag-add:hover { transform: scale(1.15); }
+/* 诊断选择模态框（左搜索右已选） */
+.diag-pick { display: flex; gap: 12px; min-height: 320px; }
+.diag-pick-left { flex: 1.2; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.diag-pick-results { flex: 1; overflow-y: auto; max-height: 340px; border: 1px solid var(--border); border-radius: 8px; }
+.diag-pick-item { padding: 9px 12px; cursor: pointer; border-bottom: 1px solid var(--border); }
+.diag-pick-item:hover { background: var(--primary-soft); }
+.diag-pick-right { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.diag-pick-selected { flex: 1; overflow-y: auto; max-height: 380px; }
+.diag-sel-row {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; margin-bottom: 6px; cursor: pointer;
+}
+.diag-sel-row:hover { border-color: var(--primary); }
+.diag-sel-ops { display: flex; gap: 4px; flex-shrink: 0; }
+.diag-sel-ops .btn { padding: 1px 8px; }
+
+/* 结构化病历节内控件：横向流式排列，允许换行 */
+.emr-doc .doc-body .doc-sec > .select { width: auto; min-width: 140px; }
+.emr-doc .doc-body .ef-field {
+    max-width: 100%;
+    flex-shrink: 1;
+}
+.emr-doc .doc-body .ef-select-wrap { flex-shrink: 0; }
+.emr-doc .doc-body .ef-cond { display: inline-block; }
+
+/* ============================================================
+   多医生接诊/续写（1:N 文书隔离）
+   页眉（医院抬头/患者信息网格）为整次就诊的公共可交互区域；
+   病历主体按文书归属只读——他人文书段内嵌于文档主体，
+   虚线标注带 + 灰色只读正文 + 医生签名
+   ============================================================ */
+.prev-record-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 10px 0 2px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+    user-select: none;
+}
+.prev-record-body {
+    padding: 8px 0 0;
+    color: var(--text-muted);
+    cursor: default;
+    user-select: none;
+}
+.prev-sec { font-size: 14px; line-height: 2.1; }
+.prev-sec .doc-sec-label { margin-right: 2px; }
+/* 只读段标签冒号由 HTML 直接拼接（prev-sec 可能渲染在 .doc-body 之外，
+   不能依赖 .doc-body .doc-sec-label::after 的 CSS 冒号，否则诊毕只读
+   整段移入 #docBody 后会出现「主诉：：」双冒号）。
+   注意：必须用不低于原规则的选择器优先级（.emr-doc .doc-body .prev-sec ...，
+   4 个类 > 原 3 个类），否则 content:none 覆盖不生效 */
+.emr-doc .doc-body .prev-sec .doc-sec-label::after,
+.prev-sec .doc-sec-label::after { content: none; }
+
+/* 续写编辑器「病史同上」快捷按钮（行内小按钮，随文字基线对齐） */
+.ef-prog-btn {
+    margin-left: 8px;
+    padding: 1px 10px !important;
+    font-size: 12px;
+    vertical-align: middle;
+}
+
+/* 病历纸张外独立页脚徽章「最近保存」：与病历纸分离，居中显示于
+   病历结尾下方（不参与打印）；仅编辑页展示最近一次保存时间 */
+.doc-saved-badge {
+    width: fit-content;
+    margin: 12px auto 0;
+    padding: 3px 14px;
+    border-radius: 999px;
+    background: var(--bg-soft, #f8fafc);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+/* 他人文书只读段的医生签名：使用只读文字样式（灰色弱化），
+   与该段灰色只读正文基调统一（区别于本人可编辑文书的黑色签名） */
+.emr-doc .doc-body-sign.ro-sign {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+/* 病历主体区虚线分隔：续写（本人）部分与原病历（他人只读段）之间
+   以虚线隔开，边界清晰；容器为空时不渲染分隔线 */
+.emr-doc #roBefore:not(:empty) {
+    border-bottom: 1px dashed var(--border);
+    margin-bottom: 10px;
+}
+.emr-doc #roAfter:not(:empty) {
+    border-top: 1px dashed var(--border);
+    margin-top: 10px;
+}
+
+/* ---------- 运营分析 KPI 卡片 ---------- */
+/* ---------- 续写承接头（活跃编辑器，虚线下方） ---------- */
+.emr-cont-divider { border-top: 1px dashed var(--border); margin: 14px 0 8px; }
+.emr-cont-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }

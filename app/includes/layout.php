@@ -129,6 +129,7 @@ class Layout {
             ' . $favicon . '
             <link rel="stylesheet" href="/assets/css/base.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/components.css?v=' . APP_VERSION . '">
+            <link rel="stylesheet" href="/assets/css/components-emr.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/modal.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/auth.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/dark.css?v=' . APP_VERSION . '">
@@ -218,6 +219,7 @@ class Layout {
             ' . $favicon . '
             <link rel="stylesheet" href="/assets/css/base.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/components.css?v=' . APP_VERSION . '">
+            <link rel="stylesheet" href="/assets/css/components-emr.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/modal.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/layout.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/dark.css?v=' . APP_VERSION . '">
