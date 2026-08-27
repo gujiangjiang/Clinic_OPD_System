@@ -919,11 +919,18 @@ switch ($action) {
         $visitId = did(post('visit_id'));
         $content = post('content');
         if ($content === '') json_fail('请填写医生建议');
+        $row = get_visit_row($visitId);
+        if (!$row) json_fail('就诊记录不存在');
+        // 权限校验：仅接诊过该患者的医生（或管理员）可开具诊断证明
+        if ($u['role'] !== 'admin') {
+            $involved = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array($visitId, $u['id']));
+            if ($involved === 0) {
+                json_fail('您未接诊过该患者，无权开具诊断证明');
+            }
+        }
         if ((int)DB::val('medical', 'SELECT COUNT(*) FROM certificates WHERE visit_id=?', array($visitId)) > 0) {
             json_fail('本次就诊已开具过诊断证明，不可重复开具');
         }
-        $row = get_visit_row($visitId);
-        if (!$row) json_fail('就诊记录不存在');
         // 证明号：ZM 前缀 + 时间戳 + 2 位随机——与申请单号（JY/JC/CZ/CF/DD）同源
         // 规则但前缀互不冲突；循环校验保证唯一。
         do {
