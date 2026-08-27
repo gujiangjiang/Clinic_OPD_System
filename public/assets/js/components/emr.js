@@ -1889,12 +1889,35 @@ Clinic.emr = (function () {
         };
         DATA.__edit_record_id = recId;   // 保存时精确回写该文书
         // 重渲染时抑制内部自动滚动（避免 200ms 延迟造成「先闪可编辑再滚动」），
-        // 渲染完成后立即滚动到对应文书锚点——滚动与变可编辑同步完成，干净利落
+        // 渲染完成后先让病历内容渐显动画播放，再平滑滚动到对应文书锚点
         DATA.__noAutoScroll = true;
         renderEmrCard(DATA);
         renderLeftNav();
         DATA.__noAutoScroll = false;
-        scrollToEditor(0);
+        // 切换动画：先「出现」续写病历内容，再平滑滚动到其锚点
+        var cardEl2 = document.getElementById('emrCard');
+        if (cardEl2) {
+            cardEl2.classList.remove('emr-card-enter');
+            void cardEl2.offsetWidth;   // 强制 reflow 重启动画
+            cardEl2.classList.add('emr-card-enter');
+        }
+        scrollToEditor(350);
+        flashRecordSeg(recId);
+    }
+
+    /** 定位后高亮闪烁目标病历段/编辑器（提示「这里就是你要找的续写」） */
+    function flashRecordSeg(recId) {
+        var r = DATA && DATA.record;
+        var target = null;
+        if (r && recId === r.record_id) {
+            target = document.getElementById('contHeadWrap') || document.getElementById('myRecordAnchor');
+        } else {
+            target = document.getElementById('recSeg' + recId);
+        }
+        if (!target) return;
+        target.classList.remove('emr-seg-flash');
+        void target.offsetWidth;
+        target.classList.add('emr-seg-flash');
     }
 
     window.scrollToRecord = function (recId, doctorId) {
@@ -1907,6 +1930,7 @@ Clinic.emr = (function () {
                 if (!scF) return;
                 var yF = segF.getBoundingClientRect().top - scF.getBoundingClientRect().top + scF.scrollTop - 8;
                 scF.scrollTo({ top: Math.max(0, yF), behavior: 'smooth' });
+                flashRecordSeg(recId);
             } else {
                 Clinic.toast.info('该文书区域当前不可见');
             }
@@ -1916,6 +1940,7 @@ Clinic.emr = (function () {
         // 1. 点击当前编辑文书 → 滚动到其编辑器锚点
         if (r && recId === r.record_id) {
             scrollToEditor(0);
+            flashRecordSeg(recId);
             return;
         }
         // 2. 他人文书 → 只读段，直接滚动定位
@@ -1926,6 +1951,7 @@ Clinic.emr = (function () {
                 if (!sc) return;
                 var y2 = seg.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 8;
                 sc.scrollTo({ top: Math.max(0, y2), behavior: 'smooth' });
+                flashRecordSeg(recId);
             } else {
                 Clinic.toast.info('该文书区域当前不可见');
             }
