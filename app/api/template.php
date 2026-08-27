@@ -193,6 +193,7 @@ switch ($action) {
         }
 
         // 科室关联（仅 dept 范围）
+        $deptIds = array();
         DB::exec('emr_templates', 'DELETE FROM emr_template_depts WHERE template_id=?', array($tplId));
         if ($scope === 'dept') {
             $deptIds = array();
@@ -209,8 +210,32 @@ switch ($action) {
             }
         }
 
+        // 非管理员提交的 dept/hospital 模板进入审核中心（audits 表）：
+        // 创建/更新一条待审核记录，管理员在【审核中心】统一处理
+        if ($status === 'pending_review') {
+            $scopeName = $scope === 'hospital' ? '全院' : '科室';
+            $existing = DB::one('core', "SELECT id FROM audits WHERE type='template' AND ref_id=? AND status='pending'", array($tplId));
+            $auditData = json_encode(array(
+                'title' => $title, 'scope' => $scope, 'dept_ids' => $deptIds ? array_keys($deptIds) : array(),
+            ), JSON_UNESCAPED_UNICODE);
+            if ($existing) {
+                DB::exec('core', 'UPDATE audits SET title=?, content=?, data=?, proposer=?, proposer_id=?, created_at=? WHERE id=?', array(
+                    '病历模板待审核：' . $title, '提交' . $scopeName . '病历模板「' . $title . '」，请在审核中心查看详情并审核', $auditData, $u['name'], $u['id'], now_str(), (int)$existing['id'],
+                ));
+            } else {
+                DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, data, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
+                    'template', $tplId, '病历模板待审核：' . $title,
+                    '提交' . $scopeName . '病历模板「' . $title . '」，请在审核中心查看详情并审核',
+                    $auditData, 'pending', $u['name'], $u['id'], now_str(),
+                ));
+            }
+        } else {
+            // 免审（个人/管理员）或已过审：清理该模板残留的待审核记录
+            DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='template' AND ref_id=? AND status='pending'", array($u['name'], now_str(), $tplId));
+        }
+
         json_ok(array('id' => $tplId, 'status' => $status),
-            $status === 'pending_review' ? '模板已提交，科室/全院模板需管理员审核后生效' : '模板已保存');
+            $status === 'pending_review' ? '模板已提交，科室/全院模板需管理员在【审核中心】审核后生效' : '模板已保存');
         break;
 
     /* ==================== 审核（管理员专属） ==================== */

@@ -104,5 +104,97 @@ function doAuditAll() {
     }, { title: '一键全部通过', okText: '全部通过' });
 }
 
+/* ==================== 审核预览（只读展示提交内容，复用原模态框） ==================== */
+function previewAudit(btn) {
+    var type = btn.getAttribute('data-type');
+    var refId = parseInt(btn.getAttribute('data-ref'), 10) || 0;
+    var auditId = parseInt(btn.getAttribute('data-id'), 10) || 0;
+    var titleMap = {
+        template: '预览 · 病历模板', item_lab: '预览 · 检验项目', item_exam: '预览 · 检查项目',
+        item_drug: '预览 · 药品', item_disp: '预览 · 处置项目', drugsetting: '预览 · 药品设置',
+    };
+    var modalTitle = titleMap[type] || '预览';
+    if (type === 'template') {
+        // 模板预览：复用 emrEditor 渲染（只读）
+        Clinic.get('/api/template?action=get&id=' + refId, null, {
+            onSuccess: function (j) {
+                var t = j.data && j.data.template;
+                if (!t) { Clinic.toast.warning('模板数据不存在'); return; }
+                var scopeNames = { personal: '个人', dept: '科室', hospital: '全院' };
+                var html = '<div class="tpl-form">' +
+                    '<div class="tpl-left">' +
+                    '<div class="form-group"><label class="form-label">模板名称</label>' +
+                    '<input class="input" value="' + escHtml(t.title) + '" readonly></div>' +
+                    '<div class="form-group"><label class="form-label">适用范围</label>' +
+                    '<input class="input" value="' + (scopeNames[t.scope] || t.scope) + '" readonly></div>' +
+                    '</div>' +
+                    '<div class="tpl-right">' +
+                    '<div class="card-title"><span>📝 模板正文（只读）</span></div>' +
+                    '<div class="emr-doc"><div class="doc-body" id="previewTemplateEditor" style="border:1px solid var(--border);border-radius:8px;padding:14px;min-height:380px"></div></div>' +
+                    '</div></div>';
+                var mask = Clinic.modal.open(html, { title: modalTitle, size: 'modal-xl' });
+                var container = document.getElementById('previewTemplateEditor');
+                if (container && t.content) {
+                    Clinic.emrEditor.render(container, t.content, { templateMode: true, readonly: true });
+                }
+                makeReadonly(mask);
+            },
+        });
+    } else {
+        // 检验/检查/药品/处置/药品设置：复用原表单接口，加载完成后统一只读化
+        var url = '/api/admin';
+        var params = {};
+        if (type === 'item_lab') { params = { action: 'item_form', type: 'lab', id: refId }; }
+        else if (type === 'item_exam') { params = { action: 'item_form', type: 'exam', id: refId }; }
+        else if (type === 'item_drug') { params = { action: 'drug_form', id: refId }; }
+        else if (type === 'item_disp') { params = { action: 'disposal_form', id: refId }; }
+        else if (type === 'drugsetting') { params = { action: 'audit_preview', id: auditId }; }
+        var mask = Clinic.modal.load(url, params, { title: modalTitle });
+        mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
+            makeReadonly(mask);
+        });
+    }
+}
+
+/* 通用只读化：禁用模态框内全部交互元素，仅保留滚动能力 */
+function makeReadonly(mask) {
+    if (!mask) return;
+    var body = mask.querySelector('.modal-body');
+    if (!body) return;
+    // 禁用表单控件
+    body.querySelectorAll('input, select, textarea').forEach(function (el) {
+        el.disabled = true;
+        el.setAttribute('readonly', '');
+    });
+    // 禁用按钮
+    body.querySelectorAll('button, .btn').forEach(function (el) {
+        el.disabled = true;
+    });
+    // 内容可编辑 → 不可编辑
+    body.querySelectorAll('[contenteditable]').forEach(function (el) {
+        el.setAttribute('contenteditable', 'false');
+    });
+    // 移除所有 onclick / onmousedown 内联事件
+    body.querySelectorAll('[onclick], [onmousedown]').forEach(function (el) {
+        el.removeAttribute('onclick');
+        el.removeAttribute('onmousedown');
+    });
+    // 捕获阶段拦截 click，防止 checkbox/label/div 等默认交互；
+    // 不拦截 mousedown/wheel，保证滚动条与滚轮滚动不受影响
+    body.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); }, true);
+    // 视觉提示：模态框脚部隐藏 "保存" 按钮，改为只读提示
+    var foot = mask.querySelector('.modal-foot');
+    if (foot) {
+        foot.innerHTML = '<span class="fs-12 text-muted">🔒 只读预览 — 所有项目不可编辑，可滚动查看</span>';
+    }
+    // 遮罩点击也可关闭
+    mask.addEventListener('click', function (e) {
+        if (e.target === mask) Clinic.modal.close();
+    });
+}
+
+/* 内联 HTML 转义（预览模板名称用） */
+function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
 switchTab('pending');
 </script>

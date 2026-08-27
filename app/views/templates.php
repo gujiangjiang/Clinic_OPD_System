@@ -106,9 +106,9 @@ function renderTplList() {
             } else {
                 actions = '<span class="fs-12 text-muted">他人模板</span>';
             }
+            // 模板审核统一在【审核中心】处理（管理员），此处不再提供内联通过/驳回
             if (<?php echo $isAdmin ? 'true' : 'false'; ?> && t.status === 'pending_review') {
-                actions += '<button class="btn btn-success btn-sm" onclick="reviewTpl(' + t.id + ',\'approve\')">通过</button>' +
-                    '<button class="btn btn-outline btn-sm" onclick="reviewTpl(' + t.id + ',\'reject\')">驳回</button>';
+                actions += '<a class="btn btn-outline btn-sm" href="/admin/review">去审核中心审核</a>';
             }
         }
         return '<tr>' +
@@ -221,13 +221,6 @@ function saveTplForm(id, origStatus) {
             Clinic.modal.close();
             loadTplList();
         },
-    });
-}
-
-/* ==================== 审核 ==================== */
-function reviewTpl(id, verdict) {
-    Clinic.ajax('/api/template', { action: 'review', id: id, verdict: verdict }, {
-        onSuccess: function (j) { Clinic.toast.success(j.msg); loadTplList(); },
     });
 }
 

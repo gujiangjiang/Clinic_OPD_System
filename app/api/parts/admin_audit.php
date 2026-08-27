@@ -45,7 +45,9 @@ function admin_part_audit($action) {
                 'pwd_reset' => '密码重置申请', 'profile_update' => '个人资料修改',
             );
             // 单条记录渲染（平铺与分组共用；分组视图可隐藏冗余列）
-            $rowHtml = function ($r, $showType = true, $showProposer = true) use ($typeNames) {
+            // 可预览类型：凡经模态框表单提交的均提供「预览」按钮（复用原表单，只读展示）
+            $previewableTypes = array('template', 'item_lab', 'item_exam', 'item_drug', 'item_disp', 'drugsetting');
+            $rowHtml = function ($r, $showType = true, $showProposer = true) use ($typeNames, $previewableTypes) {
                 $h = '<tr>';
                 if ($showType) {
                     $h .= '<td><span class="badge badge-primary">' . e(isset($typeNames[$r['type']]) ? $typeNames[$r['type']] : $r['type']) . '</span></td>';
@@ -59,6 +61,14 @@ function admin_part_audit($action) {
                 $h .= '<td class="fs-12">' . e(substr($r['created_at'], 0, 16)) . '</td>' .
                     '<td>' . ($r['status'] === 'pending' ? '<span class="badge badge-warning">待审核</span>' : ($r['status'] === 'approved' ? '<span class="badge badge-success">已通过</span>' : ($r['status'] === 'used' ? '<span class="badge badge-gray">已使用</span>' : '<span class="badge badge-gray">已驳回</span>'))) . '</td>' .
                     '<td>';
+                // 预览按钮（仅模态框表单类型可预览；其余置灰保持按钮一致）
+                if (in_array($r['type'], $previewableTypes, true)) {
+                    $h .= '<button class="btn btn-outline btn-sm" title="预览提交内容（只读）" ' .
+                        'data-preview="1" data-type="' . e($r['type']) . '" data-id="' . (int)$r['id'] . '" data-ref="' . (int)$r['ref_id'] . '" ' .
+                        'onclick="previewAudit(this)">预览</button>';
+                } else {
+                    $h .= '<button class="btn btn-outline btn-sm" disabled title="该事项无表单预览">预览</button>';
+                }
                 if ($r['status'] === 'pending') {
                     $h .= '<div class="flex gap-4">' .
                         '<button class="btn btn-success btn-sm" onclick="doAudit(' . (int)$r['id'] . ',1)">通过</button>' .
@@ -155,13 +165,22 @@ function admin_part_audit($action) {
             case 'drugsetting':
                 $backUrl = '/admin/drugsettings';
                 break;
+            case 'template':
+                $backUrl = '/doctor/templates';
+                break;
         }
         switch ($audit['type']) {
             case 'template':
-                DB::exec('medical', 'UPDATE templates SET status=? WHERE id=?', array($newStatus, $refId));
+                $tplStatus = $approve ? 'published' : 'rejected';
+                DB::exec('emr_templates', 'UPDATE emr_templates SET status=?, updated_at=? WHERE id=?', array($tplStatus, now_str(), $refId));
+                // 驳回时降级为个人模板（仅自己可见可用）
+                if (!$approve) {
+                    DB::exec('emr_templates', 'UPDATE emr_templates SET scope=? WHERE id=?', array('personal', $refId));
+                }
                 if ($proposerId > 0) {
                     send_msg('doctor', $proposerId, '病历模板审核结果',
-                        '您的病历模板「' . $audit['title'] . '」审核' . ($approve ? '已通过，现在可以使用' : '未通过：' . $note), '', '');
+                        '您的病历模板「' . $audit['title'] . '」审核' . ($approve ? '已通过，现在可以使用' : '未通过：' . $note . '，已降级为个人模板'),
+                        '', '', array('msg_type' => 'system', 'link_url' => $backUrl));
                 }
                 break;
             case 'item_lab':
@@ -314,6 +333,38 @@ function admin_part_audit($action) {
             audit_apply($a, 1, '');
         }
         json_ok(array('count' => count($rows)), '已一键通过 ' . count($rows) . ' 条事项');
+    }
+
+    /* ==================== 审核预览（只读展示提交内容） ====================
+     * 返回：type + html（只读表单）；模板由前端 emrEditor 渲染。
+     * 前端在 modal 加载后统一调用 makeReadonly 兜底禁用全部输入。 */
+    if ($action === 'audit_preview') {
+        $id = (int)req('id');
+        $a = DB::one('core', 'SELECT * FROM audits WHERE id=?', array($id));
+        if (!$a) json_fail('审核事项不存在');
+        $type = (string)$a['type'];
+        $html = '';
+        if ($type === 'drugsetting') {
+            $d = json_decode((string)$a['data'], true);
+            $d = is_array($d) ? $d : array();
+            $stypeNames = array('category' => '药品分类', 'package' => '包装单位', 'form' => '药品剂型', 'freq' => '用药频次', 'route' => '给药途径');
+            $stype = isset($d['stype']) ? (string)$d['stype'] : '';
+            $bindName = '';
+            if (!empty($d['bind_disposal_item_id'])) {
+                $bindName = (string)DB::val('disp', 'SELECT name FROM disposal_items WHERE id=?', array((int)$d['bind_disposal_item_id']));
+            }
+            $html = '<div class="fs-13 text-muted mb-8">类型：' . e(isset($stypeNames[$stype]) ? $stypeNames[$stype] : $stype) . '（新增/修改药品设置项）</div>' .
+                '<div class="form-group"><label class="form-label">设置项名称</label>' .
+                '<input class="input" value="' . e(isset($d['name']) ? $d['name'] : '') . '" readonly></div>' .
+                '<div class="form-group"><label class="form-label">需护士站处理</label>' .
+                '<input class="input" value="' . (!empty($d['need_nurse']) ? '是' : '否') . '" readonly></div>' .
+                '<div class="form-group"><label class="form-label">绑定处置项目</label>' .
+                '<input class="input" value="' . e($bindName ? $bindName : '无') . '" readonly></div>';
+        } else {
+            // 其余模态框类型由前端复用原表单接口渲染（item_form/drug_form/disposal_form）
+            json_fail('该类型由前端复用原表单渲染');
+        }
+        json_ok(array('type' => $type, 'html' => $html));
     }
 
     json_fail('未知操作');

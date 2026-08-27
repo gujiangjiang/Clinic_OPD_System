@@ -119,6 +119,7 @@ switch ($action) {
     case 'audit_list':
     case 'audit':
     case 'audit_all':
+    case 'audit_preview':
         admin_part_audit($action);
         break;
 
