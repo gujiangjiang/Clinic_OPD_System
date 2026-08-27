@@ -87,10 +87,8 @@ Clinic.queuePanel = (function () {
             return;
         }
         if (!DATA) return;
-        // 标签跟随筛选组合：都不选=候诊；仅已诊/双选=已诊；含当日=当日
-        var label = seen && !todayOnly ? '已诊' : (todayOnly ? '当日' : '候诊');
-        btn.innerHTML = '📋 ' + label + ' <b>' + waitingCount() + '</b>';
-        btn.title = '候诊 / 近3天患者列表（已诊/当日可组合筛选）';
+        btn.innerHTML = '📋 候诊 <b>' + waitingCount() + '</b>';
+        btn.title = '候诊 / 近3天患者列表';
     }
 
     /* ==================== 过滤 + 排序（多选组合规则核心） ==================== */
