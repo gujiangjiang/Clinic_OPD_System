@@ -113,10 +113,9 @@ function admin_part_disp($action) {
         $newId = DB::insert('disp', 'INSERT INTO disposal_items(name, fee, description, status, created_at) VALUES(?,?,?,?,?)',
             array($name, $fee, '【关联创建】' . ($source !== '' ? $source : '快捷创建'), $isAdmin ? 'approved' : 'pending', now_str()));
         if (!$isAdmin) {
-            DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, creation_source, created_at) VALUES(?,?,?,?,?,?,?,?,?)',
-                array('item_disp', $newId, '快捷创建处置：' . $name,
-                    ($source !== '' ? $source . '；' : '') . '费用 ' . money($fee) . ' 元',
-                    'pending', $u['name'], $u['id'], $source, now_str()));
+            submit_audit('item_disp', $newId, '快捷创建处置：' . $name,
+                ($source !== '' ? $source . '；' : '') . '费用 ' . money($fee) . ' 元',
+                array('creation_source' => $source));
         }
         json_ok(array(
             'id' => $newId, 'name' => $name, 'fee' => $fee,

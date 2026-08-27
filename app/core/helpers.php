@@ -123,6 +123,30 @@ function badge_html($cls, $text) {
     return '<span class="badge badge-' . $cls . '">' . e($text) . '</span>';
 }
 
+/**
+ * 统一提交审核记录（audits 表）。消除各处重复的 INSERT 拼接（含可选
+ * data / creation_source 列）。proposer 默认取当前登录用户；auth.php
+ * 忘记密码等无登录场景可经 $extra['proposer']/'proposer_id' 覆盖。
+ * @param string $type     审核类型（item_lab/template/drugsetting/...）
+ * @param int    $refId    关联实体 ID
+ * @param string $title    列表标题
+ * @param string $content  详情描述
+ * @param array  $extra    { data?, creation_source?, proposer?, proposer_id? }
+ * @return int 新审核记录 ID
+ */
+function submit_audit($type, $refId, $title, $content, $extra = array()) {
+    $u = Auth::user();
+    $proposer = isset($extra['proposer']) ? $extra['proposer'] : ($u ? $u['name'] : '');
+    $proposerId = isset($extra['proposer_id']) ? (int)$extra['proposer_id'] : ($u ? (int)$u['id'] : 0);
+    $data = isset($extra['data']) ? $extra['data'] : null;
+    $source = isset($extra['creation_source']) ? $extra['creation_source'] : '';
+    $params = array($type, (int)$refId, $title, $content, 'pending', $proposer, $proposerId, now_str());
+    $cols = 'type, ref_id, title, content, status, proposer, proposer_id, created_at';
+    if ($data !== null) { $cols .= ', data'; $params[] = $data; }
+    if ($source !== '') { $cols .= ', creation_source'; $params[] = $source; }
+    return DB::insert('core', 'INSERT INTO audits(' . $cols . ') VALUES(' . implode(',', array_fill(0, count($params), '?')) . ')', $params);
+}
+
 /** 读取 POST 参数（自动去首尾空格） */
 function post($key, $default = '') {
     return isset($_POST[$key]) ? trim((string)$_POST[$key]) : $default;

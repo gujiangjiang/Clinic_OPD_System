@@ -166,11 +166,8 @@ switch ($action) {
             $params[] = $id;
             DB::exec('drug', 'UPDATE drugs SET ' . implode(',', $set) . ' WHERE id=?', $params);
             DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_drug' AND ref_id=? AND status IN ('pending','rejected')", array($u['name'], now_str(), $id));
-            DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
-                'item_drug', $id, '药品修改后重新提交：' . $name,
-                '药房 ' . $u['name'] . ' 修改后重新提交药品「' . $name . '」（分类：' . $data['category'] . '，价格：¥' . money($data['price']) . '），请审核',
-                'pending', $u['name'], $u['id'], now_str(),
-            ));
+            submit_audit('item_drug', $id, '药品修改后重新提交：' . $name,
+                '药房 ' . $u['name'] . ' 修改后重新提交药品「' . $name . '」（分类：' . $data['category'] . '，价格：¥' . money($data['price']) . '），请审核');
             json_ok(array(), '药品已修改并重新提交，待管理员审核');
         }
         $params = array_values($data);
@@ -179,11 +176,8 @@ switch ($action) {
         $newId = DB::insert('drug', 'INSERT INTO drugs(generic_name, category, vendor, vendor_short, package_unit, spec, form, single_dose, frequency_name, route_name, price, qty, is_rx, is_limited, note, need_nurse, name, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array_merge(
             array_slice($params, 0, 16), array($name), array_slice($params, 16)
         ));
-        DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
-            'item_drug', $newId, '药品添加：' . $name,
-            '药房 ' . $u['name'] . ' 提交新增药品「' . $name . '」（分类：' . $data['category'] . '，价格：¥' . money($data['price']) . '），请审核',
-            'pending', $u['name'], $u['id'], now_str(),
-        ));
+        submit_audit('item_drug', $newId, '药品添加：' . $name,
+            '药房 ' . $u['name'] . ' 提交新增药品「' . $name . '」（分类：' . $data['category'] . '，价格：¥' . money($data['price']) . '），请审核');
         json_ok(array(), '药品已提交，待管理员审核通过后即可开方使用');
         break;
 

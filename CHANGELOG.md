@@ -13,6 +13,17 @@
 
 ---
 
+## [3.2.5] - 2026-08-27
+
+### 重构
+
+- **审核提交统一**：`helpers.php` 新增 `submit_audit()` 统一审计记录 INSERT
+  （支持可选 `data`/`creation_source` 列），`admin_item/admin_drug/admin_disp/
+  template/pharmacy/lab/imaging` 共 14 处审核提交改为统一调用；`auth.php`
+  的密码重置/资料修改因 proposer 为目标用户（无登录场景）保留原样。
+
+---
+
 ## [3.2.4] - 2026-08-27
 
 ### 重构

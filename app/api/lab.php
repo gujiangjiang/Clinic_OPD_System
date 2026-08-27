@@ -97,21 +97,15 @@ switch ($action) {
                 $category, $name, post('unit'), $price, post('normal_range'), post('critical_low'), post('critical_high'), post('description'), 'pending', $id,
             ));
             DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_lab' AND ref_id=? AND status IN ('pending','rejected')", array($u['name'], now_str(), $id));
-            DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
-                'item_lab', $id, '检验项目修改后重新提交：' . $name,
-                '检验科 ' . $u['name'] . ' 修改后重新提交检验项目「' . $name . '」（分类：' . $category . '，价格：¥' . money($price) . '），请审核',
-                'pending', $u['name'], $u['id'], now_str(),
-            ));
+            submit_audit('item_lab', $id, '检验项目修改后重新提交：' . $name,
+                '检验科 ' . $u['name'] . ' 修改后重新提交检验项目「' . $name . '」（分类：' . $category . '，价格：¥' . money($price) . '），请审核');
             json_ok(array(), '检验项目已修改并重新提交，待管理员审核');
         }
         $newId = DB::insert('lab', 'INSERT INTO lab_items(category, name, unit, price, normal_range, critical_low, critical_high, description, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
             $category, $name, post('unit'), $price, post('normal_range'), post('critical_low'), post('critical_high'), post('description'), 'pending', now_str(),
         ));
-        DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
-            'item_lab', $newId, '检验项目添加：' . $name,
-            '检验科 ' . $u['name'] . ' 提交新增检验项目「' . $name . '」（分类：' . $category . '，价格：¥' . money($price) . '），请审核',
-            'pending', $u['name'], $u['id'], now_str(),
-        ));
+        submit_audit('item_lab', $newId, '检验项目添加：' . $name,
+            '检验科 ' . $u['name'] . ' 提交新增检验项目「' . $name . '」（分类：' . $category . '，价格：¥' . money($price) . '），请审核');
         json_ok(array(), '检验项目已提交，待管理员审核通过后即可开单使用');
         break;
 
@@ -248,13 +242,10 @@ switch ($action) {
         if ($reason === '') json_fail('请填写撤回原因');
         $report = DB::one('lab', 'SELECT * FROM reports WHERE id=?', array($reportId));
         if (!$report || $report['status'] !== 'done') json_fail('报告不存在或已撤回');
-        DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, data, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
-            'report_withdraw', $reportId,
+        submit_audit('report_withdraw', $reportId,
             '检验报告撤回申请：' . $report['report_no'],
             '检验科 ' . $u['name'] . ' 申请撤回报告 ' . $report['report_no'] . '，原因：' . $reason,
-            json_encode(array('report_no' => $report['report_no'], 'reason' => $reason), JSON_UNESCAPED_UNICODE),
-            'pending', $u['name'], $u['id'], now_str(),
-        ));
+            array('data' => json_encode(array('report_no' => $report['report_no'], 'reason' => $reason), JSON_UNESCAPED_UNICODE)));
         json_ok(array(), '撤回申请已提交，等待管理员审核');
         break;
 

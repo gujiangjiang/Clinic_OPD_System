@@ -228,11 +228,9 @@ switch ($action) {
                     '病历模板待审核：' . $title, '提交' . $scopeName . '病历模板「' . $title . '」，请在审核中心查看详情并审核', $auditData, $u['name'], $u['id'], now_str(), (int)$existing['id'],
                 ));
             } else {
-                DB::insert('core', 'INSERT INTO audits(type, ref_id, title, content, data, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
-                    'template', $tplId, '病历模板待审核：' . $title,
+                submit_audit('template', $tplId, '病历模板待审核：' . $title,
                     '提交' . $scopeName . '病历模板「' . $title . '」，请在审核中心查看详情并审核',
-                    $auditData, 'pending', $u['name'], $u['id'], now_str(),
-                ));
+                    array('data' => $auditData));
             }
             // 站内消息提醒管理员前往审核中心处理
             send_msg('admin', 0, '待审核提醒',
