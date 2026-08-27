@@ -20,39 +20,35 @@ function admin_part_user($action) {
     /* ==================== 用户列表 ==================== */
     if ($action === 'user_list') {
         $rows = DB::q('user', 'SELECT * FROM users ORDER BY role, id');
-        $html = '<div class="fs-13 text-muted mb-8" id="userCountDiv">共 ' . count($rows) . ' 个用户</div>';
-        if (!$rows) {
-            $html .= '<div class="empty">暂无用户</div>';
-        } else {
-            $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
-                '<th>工号</th><th>用户名</th><th>姓名</th><th>角色</th><th>职称</th><th>关联科室</th><th>状态</th><th>操作</th></tr></thead><tbody>';
-            foreach ($rows as $r) {
-                $deptNames = '';
-                $ids = array();
-                // dept_ids 可能为 NULL（如管理员等无科室用户），先转字符串再拆分，避免 PHP 8 告警
-                foreach (explode(',', (string)$r['dept_ids']) as $d) if ((int)$d > 0) $ids[] = (int)$d;
-                if ($ids) {
-                    $ph = implode(',', array_fill(0, count($ids), '?'));
-                    $ds = DB::q('dept', "SELECT name FROM departments WHERE id IN ($ph)", $ids);
-                    $deptNames = implode('、', array_map(function ($d) { return $d['name']; }, $ds));
-                }
-                $html .= '<tr data-role="' . e($r['role']) . '">' .
-                    '<td>' . e($r['emp_no']) . '</td>'.
-                    '<td>' . e($r['username']) . '</td>' .
-                    '<td class="fw-600">' . e($r['name']) . '</td>' .
-                    '<td>' . e(Auth::roleName($r['role'])) . '</td>' .
-                    '<td>' . e($r['title']) . '</td>' .
-                    '<td class="fs-12">' . e($deptNames) . '</td>' .
-                    '<td>' . ($r['status'] == 1 ? badge_html('success', '启用') : badge_html('gray', '停用')) . '</td>' .
-                    '<td><div class="flex gap-4">' .
-                    // 编辑按钮与「新增」共用 openUserForm(id)：会执行 onRoleChange() 初始化职称/科室显示，
-                    // 保证医生编辑时能看到并勾选所属科室（loadModal 通用逻辑不会初始化页面控件）
-                    '<button class="btn btn-outline btn-sm" onclick="openUserForm(' . (int)$r['id'] . ')">编辑</button>' .
-                    ($r['role'] !== 'admin' ? '<button class="btn btn-outline btn-sm" onclick="delUser(' . (int)$r['id'] . ')">删除</button>' : '') .
-                    '</div></td></tr>';
+        $rowsHtml = '<thead><tr>' .
+            '<th>工号</th><th>用户名</th><th>姓名</th><th>角色</th><th>职称</th><th>关联科室</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+        foreach ($rows as $r) {
+            $deptNames = '';
+            $ids = array();
+            // dept_ids 可能为 NULL（如管理员等无科室用户），先转字符串再拆分，避免 PHP 8 告警
+            foreach (explode(',', (string)$r['dept_ids']) as $d) if ((int)$d > 0) $ids[] = (int)$d;
+            if ($ids) {
+                $ph = implode(',', array_fill(0, count($ids), '?'));
+                $ds = DB::q('dept', "SELECT name FROM departments WHERE id IN ($ph)", $ids);
+                $deptNames = implode('、', array_map(function ($d) { return $d['name']; }, $ds));
             }
-            $html .= '</tbody></table></div>';
+            $rowsHtml .= '<tr data-role="' . e($r['role']) . '">' .
+                '<td>' . e($r['emp_no']) . '</td>'.
+                '<td>' . e($r['username']) . '</td>' .
+                '<td class="fw-600">' . e($r['name']) . '</td>' .
+                '<td>' . e(Auth::roleName($r['role'])) . '</td>' .
+                '<td>' . e($r['title']) . '</td>' .
+                '<td class="fs-12">' . e($deptNames) . '</td>' .
+                '<td>' . ($r['status'] == 1 ? badge_html('success', '启用') : badge_html('gray', '停用')) . '</td>' .
+                '<td><div class="flex gap-4">' .
+                // 编辑按钮与「新增」共用 openUserForm(id)：会执行 onRoleChange() 初始化职称/科室显示，
+                // 保证医生编辑时能看到并勾选所属科室（loadModal 通用逻辑不会初始化页面控件）
+                '<button class="btn btn-outline btn-sm" onclick="openUserForm(' . (int)$r['id'] . ')">编辑</button>' .
+                ($r['role'] !== 'admin' ? '<button class="btn btn-outline btn-sm" onclick="delUser(' . (int)$r['id'] . ')">删除</button>' : '') .
+                '</div></td></tr>';
         }
+        $rowsHtml .= '</tbody>';
+        $html = render_list_wrapper('共 ' . count($rows) . ' 个用户', '暂无用户', $rowsHtml, 'userCountDiv');
         json_ok(array('html' => $html));
     }
 

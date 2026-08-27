@@ -27,40 +27,33 @@ function admin_part_item($action) {
             // （含已加入组合的成员），是否成组与本列表无关；组合本体在
             // 「检验组合管理」中维护 =====
             $singles = DB::q('lab', "SELECT * FROM lab_items WHERE is_group=0 ORDER BY category, id");
-            $html = '<div class="fs-13 text-muted mb-8" id="labCountDiv">检验项目共 ' . count($singles) . ' 项（全部单项，含已加入组合的成员；组合本体请在「检验组合管理」中维护）</div>';
-            if (!$singles) {
-                $html .= '<div class="empty">暂无检验项目，请先添加</div>';
-            } else {
-                $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
-                    '<th>名称</th><th>分类</th><th>价格</th><th>单位</th><th>正常范围</th><th>状态</th><th>操作</th></tr></thead><tbody>';
-                foreach ($singles as $r) {
-                    $html .= '<tr data-kind="single" data-cat="' . e($r['category']) . '">' .
-                        '<td class="fw-600">' . e($r['name']) . '</td>' .
-                        '<td>' . e($r['category']) . '</td>' .
-                        '<td>¥' . money($r['price']) . '</td>' .
-                        '<td>' . e($r['unit']) . '</td><td class="fs-12">' . e($r['normal_range']) . '</td>' .
-                        '<td>' . ($r['status'] === 'approved' ? badge_html('success', '可用') : badge_html('warning', '待审核')) . '</td>' .
-                        '<td>' . ($isAdmin
-                            ? '<div class="flex gap-4">' .
-                            '<button class="btn btn-outline btn-sm" onclick="openItemForm(' . (int)$r['id'] . ')">编辑</button>' .
-                            '<button class="btn btn-outline btn-sm" onclick="delItem(\'lab\',' . (int)$r['id'] . ')">删除</button></div>'
-                            : '<span class="text-muted fs-12">只读</span>') . '</td></tr>';
-                }
-                $html .= '</tbody></table></div>';
+            $rowsHtml = '<thead><tr>' .
+                '<th>名称</th><th>分类</th><th>价格</th><th>单位</th><th>正常范围</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+            foreach ($singles as $r) {
+                $rowsHtml .= '<tr data-kind="single" data-cat="' . e($r['category']) . '">' .
+                    '<td class="fw-600">' . e($r['name']) . '</td>' .
+                    '<td>' . e($r['category']) . '</td>' .
+                    '<td>¥' . money($r['price']) . '</td>' .
+                    '<td>' . e($r['unit']) . '</td><td class="fs-12">' . e($r['normal_range']) . '</td>' .
+                    '<td>' . ($r['status'] === 'approved' ? badge_html('success', '可用') : badge_html('warning', '待审核')) . '</td>' .
+                    '<td>' . ($isAdmin
+                        ? '<div class="flex gap-4">' .
+                        '<button class="btn btn-outline btn-sm" onclick="openItemForm(' . (int)$r['id'] . ')">编辑</button>' .
+                        '<button class="btn btn-outline btn-sm" onclick="delItem(\'lab\',' . (int)$r['id'] . ')">删除</button></div>'
+                        : '<span class="text-muted fs-12">只读</span>') . '</td></tr>';
             }
+            $rowsHtml .= '</tbody>';
+            $html = render_list_wrapper('检验项目共 ' . count($singles) . ' 项（全部单项，含已加入组合的成员；组合本体请在「检验组合管理」中维护）',
+                '暂无检验项目，请先添加', $rowsHtml, 'labCountDiv');
             json_ok(array('html' => $html));
             return;
         } else {
             // ===== 检查项目管理：无成组逻辑，保持简单 =====
             $rows = DB::q('lab', "SELECT * FROM $table ORDER BY category, id");
-            $html = '<div class="fs-13 text-muted mb-8" id="examCountDiv">检查项目共 ' . count($rows) . ' 项</div>';
-            if (!$rows) {
-                $html .= '<div class="empty">暂无检查项目，请先添加</div>';
-            } else {
-                $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
-                    '<th>名称</th><th>分类</th><th>价格</th><th>描述</th><th>状态</th><th>操作</th></tr></thead><tbody>';
-                foreach ($rows as $r) {
-                    $html .= '<tr data-kind="single" data-cat="' . e($r['category']) . '">' .
+            $rowsHtml = '<thead><tr>' .
+                '<th>名称</th><th>分类</th><th>价格</th><th>描述</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+            foreach ($rows as $r) {
+                $rowsHtml .= '<tr data-kind="single" data-cat="' . e($r['category']) . '">' .
                     '<td class="fw-600">' . e($r['name']) . '</td>' .
                     '<td>' . e($r['category']) . '</td>' .
                     '<td>¥' . money($r['price']) . '</td>' .
@@ -72,8 +65,8 @@ function admin_part_item($action) {
                         '<button class="btn btn-outline btn-sm" onclick="delItem(\'exam\',' . (int)$r['id'] . ')">删除</button></div>'
                         : '<span class="text-muted fs-12">只读</span>') . '</td></tr>';
             }
-                $html .= '</tbody></table></div>';
-            }
+            $rowsHtml .= '</tbody>';
+            $html = render_list_wrapper('检查项目共 ' . count($rows) . ' 项', '暂无检查项目，请先添加', $rowsHtml, 'examCountDiv');
         }
         json_ok(array('html' => $html));
     }

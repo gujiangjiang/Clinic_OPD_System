@@ -124,6 +124,24 @@ function badge_html($cls, $text) {
 }
 
 /**
+ * 统一列表外壳：计数行 + 空态（或表格内容）。
+ * @param string $countText  计数行文案（如「共 5 个科室」）
+ * @param string $emptyText  空态文案
+ * @param string $tableHtml  表格内容（<thead>+<tbody>）；空串时显示空态
+ * @param string $countId    计数行 id（前端局部刷新计数用，可省略）
+ * @return string
+ */
+function render_list_wrapper($countText, $emptyText, $tableHtml = '', $countId = '') {
+    $html = '<div class="fs-13 text-muted mb-8"' . ($countId !== '' ? ' id="' . e($countId) . '"' : '') . '>' . e($countText) . '</div>';
+    if ($tableHtml === '') {
+        $html .= '<div class="empty">' . e($emptyText) . '</div>';
+    } else {
+        $html .= '<div class="table-wrap"><table class="table">' . $tableHtml . '</table></div>';
+    }
+    return $html;
+}
+
+/**
  * 统一提交审核记录（audits 表）。消除各处重复的 INSERT 拼接（含可选
  * data / creation_source 列）。proposer 默认取当前登录用户；auth.php
  * 忘记密码等无登录场景可经 $extra['proposer']/'proposer_id' 覆盖。

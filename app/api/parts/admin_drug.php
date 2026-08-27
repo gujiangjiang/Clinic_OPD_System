@@ -89,34 +89,30 @@ function admin_part_drug($action) {
     /* ==================== 药品信息列表 ==================== */
     if ($action === 'drug_list') {
         $rows = DB::q('drug', 'SELECT * FROM drugs ORDER BY category, id');
-        $html = '<div class="fs-13 text-muted mb-8" id="drugCountDiv">共 ' . count($rows) . ' 种药品</div>';
-        if (!$rows) {
-            $html .= '<div class="empty">暂无药品，请先添加</div>';
-        } else {
-            $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
-                '<th>药品名称</th><th>通用名</th><th>厂家简称</th><th>分类</th><th>规格</th><th>剂型</th><th>频次</th><th>途径</th><th>库存</th><th>价格</th><th>状态</th><th>操作</th></tr></thead><tbody>';
-            foreach ($rows as $r) {
-                $html .= '<tr data-cat="' . e($r['category']) . '">' .
-                    '<td class="fw-600">' . e($r['name']) . '</td>' .
-                    '<td class="fs-12">' . e($r['generic_name']) . '</td>' .
-                    '<td>' . e($r['vendor_short']) . '</td>' .
-                    '<td>' . e($r['category']) . '</td>' .
-                    '<td class="fs-12">' . e($r['spec']) . '</td>' .
-                    '<td>' . e($r['form']) . '</td>' .
-                    '<td class="fs-12">' . e($r['frequency_name']) . '</td>' .
-                    '<td class="fs-12">' . e($r['route_name']) . ($r['need_nurse'] ? '（护士站）' : '') . '</td>' .
-                    '<td>' . (int)$r['qty'] . '</td>' .
-                    '<td>¥' . money($r['price']) . '</td>' .
-                    '<td>' . ($r['status'] === 'approved' ? badge_html('success', '可用') : badge_html('warning', '待审核')) . '</td>' .
-                    '<td>' . ($u['role'] === 'admin'
-                        ? '<div class="flex gap-4">' .
-                        // 编辑按钮与「新增」共用 openDrugForm(id)
-                        '<button class="btn btn-outline btn-sm" onclick="openDrugForm(' . (int)$r['id'] . ')">编辑</button>' .
-                        '<button class="btn btn-outline btn-sm" onclick="delDrug(' . (int)$r['id'] . ')">删除</button></div>'
-                        : '<span class="text-muted fs-12">只读</span>') . '</td></tr>';
-            }
-            $html .= '</tbody></table></div>';
+        $rowsHtml = '<thead><tr>' .
+            '<th>药品名称</th><th>通用名</th><th>厂家简称</th><th>分类</th><th>规格</th><th>剂型</th><th>频次</th><th>途径</th><th>库存</th><th>价格</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+        foreach ($rows as $r) {
+            $rowsHtml .= '<tr data-cat="' . e($r['category']) . '">' .
+                '<td class="fw-600">' . e($r['name']) . '</td>' .
+                '<td class="fs-12">' . e($r['generic_name']) . '</td>' .
+                '<td>' . e($r['vendor_short']) . '</td>' .
+                '<td>' . e($r['category']) . '</td>' .
+                '<td class="fs-12">' . e($r['spec']) . '</td>' .
+                '<td>' . e($r['form']) . '</td>' .
+                '<td class="fs-12">' . e($r['frequency_name']) . '</td>' .
+                '<td class="fs-12">' . e($r['route_name']) . ($r['need_nurse'] ? '（护士站）' : '') . '</td>' .
+                '<td>' . (int)$r['qty'] . '</td>' .
+                '<td>¥' . money($r['price']) . '</td>' .
+                '<td>' . ($r['status'] === 'approved' ? badge_html('success', '可用') : badge_html('warning', '待审核')) . '</td>' .
+                '<td>' . ($u['role'] === 'admin'
+                    ? '<div class="flex gap-4">' .
+                    // 编辑按钮与「新增」共用 openDrugForm(id)
+                    '<button class="btn btn-outline btn-sm" onclick="openDrugForm(' . (int)$r['id'] . ')">编辑</button>' .
+                    '<button class="btn btn-outline btn-sm" onclick="delDrug(' . (int)$r['id'] . ')">删除</button></div>'
+                    : '<span class="text-muted fs-12">只读</span>') . '</td></tr>';
         }
+        $rowsHtml .= '</tbody>';
+        $html = render_list_wrapper('共 ' . count($rows) . ' 种药品', '暂无药品，请先添加', $rowsHtml, 'drugCountDiv');
         json_ok(array('html' => $html));
     }
 

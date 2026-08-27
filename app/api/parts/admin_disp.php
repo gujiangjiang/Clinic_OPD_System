@@ -21,23 +21,19 @@ function admin_part_disp($action) {
     /* ==================== 处置项目列表 ==================== */
     if ($action === 'disposal_list') {
         $rows = DB::q('disp', 'SELECT * FROM disposal_items ORDER BY id');
-        $html = '<div class="fs-13 text-muted mb-8" id="dispCountDiv">共 ' . count($rows) . ' 个处置项目</div>';
-        if (!$rows) {
-            $html .= '<div class="empty">暂无处置项目</div>';
-        } else {
-            $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
-                '<th>处置名称</th><th>费用</th><th>描述备注</th><th>状态</th><th>操作</th></tr></thead><tbody>';
-            foreach ($rows as $r) {
-                $html .= '<tr><td class="fw-600">' . e($r['name']) . '</td><td>¥' . money($r['fee']) . '</td>' .
-                    '<td class="fs-12 text-muted">' . e($r['description']) . '</td>' .
-                    '<td>' . ($r['status'] === 'approved' ? badge_html('success', '可用') : badge_html('warning', '待审核')) . '</td>' .
-                    '<td><div class="flex gap-4">' .
-                    // 编辑按钮与「新增」共用 openDisposalForm(id)
-                    '<button class="btn btn-outline btn-sm" onclick="openDisposalForm(' . (int)$r['id'] . ')">编辑</button>' .
-                    '<button class="btn btn-outline btn-sm" onclick="delDisposal(' . (int)$r['id'] . ')">删除</button></div></td></tr>';
-            }
-            $html .= '</tbody></table></div>';
+        $rowsHtml = '<thead><tr>' .
+            '<th>处置名称</th><th>费用</th><th>描述备注</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+        foreach ($rows as $r) {
+            $rowsHtml .= '<tr><td class="fw-600">' . e($r['name']) . '</td><td>¥' . money($r['fee']) . '</td>' .
+                '<td class="fs-12 text-muted">' . e($r['description']) . '</td>' .
+                '<td>' . ($r['status'] === 'approved' ? badge_html('success', '可用') : badge_html('warning', '待审核')) . '</td>' .
+                '<td><div class="flex gap-4">' .
+                // 编辑按钮与「新增」共用 openDisposalForm(id)
+                '<button class="btn btn-outline btn-sm" onclick="openDisposalForm(' . (int)$r['id'] . ')">编辑</button>' .
+                '<button class="btn btn-outline btn-sm" onclick="delDisposal(' . (int)$r['id'] . ')">删除</button></div></td></tr>';
         }
+        $rowsHtml .= '</tbody>';
+        $html = render_list_wrapper('共 ' . count($rows) . ' 个处置项目', '暂无处置项目', $rowsHtml, 'dispCountDiv');
         json_ok(array('html' => $html));
     }
 

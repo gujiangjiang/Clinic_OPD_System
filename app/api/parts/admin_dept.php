@@ -20,30 +20,26 @@ function admin_part_dept($action) {
     /* ==================== 科室列表 ==================== */
     if ($action === 'dept_list') {
         $rows = DB::q('dept', 'SELECT * FROM departments ORDER BY type DESC, sort, id');
-        $html = '<div class="fs-13 text-muted mb-8" id="deptCountDiv">共 ' . count($rows) . ' 个科室</div>';
-        if (!$rows) {
-            $html .= '<div class="empty">暂无科室，请先添加</div>';
-        } else {
-            $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
-                '<th>科室名称</th><th>类型</th><th>挂号费</th><th>上午号源</th><th>下午号源</th><th>状态</th><th>操作</th></tr></thead><tbody>';
-            foreach ($rows as $r) {
-                $html .= '<tr data-type="' . e($r['type']) . '">' .
-                    '<td class="fw-600">' . e($r['name']) . '</td>' .
-                    '<td>' . ($r['type'] === 'emergency' ? '<span class="badge badge-danger">急诊</span>'
-                        : ($r['type'] === 'tech' ? '<span class="badge badge-primary">医技</span>'
-                        : ($r['type'] === 'other' ? '<span class="badge badge-warning">其他</span>'
-                        : '<span class="badge badge-primary">门诊</span>'))) . '</td>' .
-                    '<td>¥' . money($r['fee']) . '</td>' .
-                    '<td>' . ($r['type'] === 'clinic' ? (int)$r['am_quota'] : '—') . '</td>' .
-                    '<td>' . ($r['type'] === 'clinic' ? (int)$r['pm_quota'] : '—') . '</td>' .
-                    '<td>' . ($r['status'] == 1 ? badge_html('success', '启用') : badge_html('gray', '停用')) . '</td>' .
-                    '<td><div class="flex gap-4">' .
-                    // 编辑按钮与「新增」共用 openDeptForm(id)（同一表单与初始化逻辑，保证编辑回填一致）
-                    '<button class="btn btn-outline btn-sm" onclick="openDeptForm(' . (int)$r['id'] . ')">编辑</button>' .
-                    '<button class="btn btn-outline btn-sm" onclick="delDept(' . (int)$r['id'] . ')">删除</button></div></td></tr>';
-            }
-            $html .= '</tbody></table></div>';
+        $rowsHtml = '<thead><tr>' .
+            '<th>科室名称</th><th>类型</th><th>挂号费</th><th>上午号源</th><th>下午号源</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+        foreach ($rows as $r) {
+            $rowsHtml .= '<tr data-type="' . e($r['type']) . '">' .
+                '<td class="fw-600">' . e($r['name']) . '</td>' .
+                '<td>' . ($r['type'] === 'emergency' ? '<span class="badge badge-danger">急诊</span>'
+                    : ($r['type'] === 'tech' ? '<span class="badge badge-primary">医技</span>'
+                    : ($r['type'] === 'other' ? '<span class="badge badge-warning">其他</span>'
+                    : '<span class="badge badge-primary">门诊</span>'))) . '</td>' .
+                '<td>¥' . money($r['fee']) . '</td>' .
+                '<td>' . ($r['type'] === 'clinic' ? (int)$r['am_quota'] : '—') . '</td>' .
+                '<td>' . ($r['type'] === 'clinic' ? (int)$r['pm_quota'] : '—') . '</td>' .
+                '<td>' . ($r['status'] == 1 ? badge_html('success', '启用') : badge_html('gray', '停用')) . '</td>' .
+                '<td><div class="flex gap-4">' .
+                // 编辑按钮与「新增」共用 openDeptForm(id)（同一表单与初始化逻辑，保证编辑回填一致）
+                '<button class="btn btn-outline btn-sm" onclick="openDeptForm(' . (int)$r['id'] . ')">编辑</button>' .
+                '<button class="btn btn-outline btn-sm" onclick="delDept(' . (int)$r['id'] . ')">删除</button></div></td></tr>';
         }
+        $rowsHtml .= '</tbody>';
+        $html = render_list_wrapper('共 ' . count($rows) . ' 个科室', '暂无科室，请先添加', $rowsHtml, 'deptCountDiv');
         json_ok(array('html' => $html));
     }
 

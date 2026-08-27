@@ -13,6 +13,17 @@
 
 ---
 
+## [3.2.6] - 2026-08-27
+
+### 重构
+
+- **列表外壳统一**：`helpers.php` 新增 `render_list_wrapper()`（计数行 + 空态
+  /表格外壳，支持可选计数 id），`admin_dept/admin_disp/admin_user/admin_item/
+  admin_drug/admin_call` 六处列表渲染改为统一调用；审核中心列表因含分组
+  视图保留原样。
+
+---
+
 ## [3.2.5] - 2026-08-27
 
 ### 重构
