@@ -102,6 +102,13 @@ function renderTplList() {
         var actions = '';
         if (t.is_system) {
             actions = '<span class="fs-12 text-muted">内置模板</span>';
+        } else if (t.status === 'pending_review') {
+            // 待审核锁定：不可编辑/删除（审核通过/驳回后恢复），管理员去审核中心处理
+            if (<?php echo $isAdmin ? 'true' : 'false'; ?>) {
+                actions = '<a class="btn btn-outline btn-sm" href="/admin/review">去审核中心审核</a>';
+            } else {
+                actions = '<span class="fs-12 text-muted">待审核·不可编辑</span>';
+            }
         } else {
             // 仅本人创建或管理员可编辑/删除
             var canManage = <?php echo $isAdmin ? 'true' : 'false'; ?> || t.creator_id === <?php echo (int)$u['id']; ?>;
@@ -110,10 +117,6 @@ function renderTplList() {
                 actions += '<button class="btn btn-outline btn-sm" onclick="delTpl(' + t.id + ')">删除</button>';
             } else {
                 actions = '<span class="fs-12 text-muted">他人模板</span>';
-            }
-            // 模板审核统一在【审核中心】处理（管理员），此处不再提供内联通过/驳回
-            if (<?php echo $isAdmin ? 'true' : 'false'; ?> && t.status === 'pending_review') {
-                actions += '<a class="btn btn-outline btn-sm" href="/admin/review">去审核中心审核</a>';
             }
         }
         return '<tr>' +

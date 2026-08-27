@@ -184,6 +184,8 @@ switch ($action) {
             if (!$old) json_fail('模板不存在');
             if ((int)$old['is_system'] === 1) json_fail('通用模板不可修改');
             if ((int)$old['creator_id'] !== (int)$u['id'] && !$isAdmin) json_fail('无权修改该模板');
+            // 待审核锁定：提交审核后的模板不允许编辑（审核通过/驳回后恢复），防止审核与修改竞态
+            if ($old['status'] === 'pending_review') json_fail('模板正在审核中，审核通过或驳回后方可修改');
             // 管理员编辑他人模板不改变归属；医生编辑保持原 scope/状态语义
             DB::exec('emr_templates', 'UPDATE emr_templates SET title=?, type=?, scope=?, content_json=?, updated_at=? WHERE id=?',
                 array($title, $type, $scope, json_encode($contentArr, JSON_UNESCAPED_UNICODE), now_str(), $id));
@@ -278,6 +280,8 @@ switch ($action) {
         if (!$t) json_fail('模板不存在');
         if ((int)$t['is_system'] === 1) json_fail('通用模板不可删除');
         if ((int)$t['creator_id'] !== (int)$u['id'] && $u['role'] !== 'admin') json_fail('无权删除该模板');
+        // 待审核锁定：提交审核后的模板不允许删除（审核通过/驳回后恢复）
+        if ($t['status'] === 'pending_review') json_fail('模板正在审核中，审核通过或驳回后方可删除');
         DB::exec('emr_templates', 'DELETE FROM emr_templates WHERE id=?', array($id));
         DB::exec('emr_templates', 'DELETE FROM emr_template_depts WHERE template_id=?', array($id));
         json_ok(array(), '模板已删除');

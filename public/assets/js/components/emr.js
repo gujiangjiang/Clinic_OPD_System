@@ -2471,14 +2471,13 @@ Clinic.emr = (function () {
                     var box = document.getElementById('tplPickList');
                     if (!box) return;
                     box.innerHTML = items.length ? items.map(function (t) {
-                        var deptTxt = t.dept_names && t.dept_names.length ? '（' + t.dept_names.join('、') + '）' : '';
                         // 待审核模板审核通过前仅创建者本人可用，范围显示为「个人」；
-                        // 审核通过后显示实际范围（全院/科室）
+                        // 审核通过后显示实际范围（全院/科室）；不展示适用科室明细
                         var effScope = t.status === 'pending_review' ? 'personal' : t.scope;
                         return '<div class="tree-search-item" style="display:flex;justify-content:space-between;align-items:center" data-id="' + t.id + '">' +
                             '<span>' + escHtml(t.title) + '</span>' +
                             '<span class="badge ' + (effScope === 'hospital' ? 'badge-primary' : (effScope === 'dept' ? 'badge-warning' : 'badge-gray')) + '" style="font-size:11px;flex-shrink:0">' +
-                            (scopeNames[effScope] || t.scope) + deptTxt + '</span></div>';
+                            (scopeNames[effScope] || t.scope) + '</span></div>';
                     }).join('') : '<div class="fs-12 text-muted" style="padding:8px 10px">暂无可用的病历模板，可前往「模板管理」创建</div>';
                     box.querySelectorAll('.tree-search-item').forEach(function (it) {
                         it.addEventListener('click', function () {
