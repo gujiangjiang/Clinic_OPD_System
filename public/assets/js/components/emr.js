@@ -72,9 +72,10 @@ Clinic.emr = (function () {
                     }
                 }
                 // 首诊自动引导：本次挂号无任何已保存病历 → 自动唤起模板选择，
-                // 引导医生秒级选模板开始书写（避免从空白起笔）
+                // 引导医生秒级选模板开始书写（避免从空白起笔）；300ms 偏慢、
+                // 0ms 偏快，采用 150ms 折中，兼顾页面渲染完成与响应感
                 if (!refId && !(j.data.records_history || []).length && !(j.data.visit && j.data.visit.status === 'finished')) {
-                    setTimeout(function () { openTemplatePicker(null); }, 300);
+                    setTimeout(function () { openTemplatePicker(null); }, 150);
                 }
             },
         });
