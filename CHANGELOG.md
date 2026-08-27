@@ -13,6 +13,17 @@
 
 ---
 
+## [3.3.4] - 2026-08-27
+
+### 重构
+
+- **cashier.php 拆分**：508 行挂号收费接口拆分到
+  `parts/cashier_read.php` 与 `cashier_write.php`，编号规则共享函数
+  （next_patient_no/next_flow_no/next_visit_seq/dept_used_count）保留在
+  调度器。awk 原样提取，逻辑零改动。
+
+---
+
 ## [3.3.3] - 2026-08-27
 
 ### 重构
