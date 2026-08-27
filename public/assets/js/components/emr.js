@@ -302,13 +302,17 @@ Clinic.emr = (function () {
         var wrap = document.getElementById('contHeadWrap');
         if (!wrap || !r) return;
         var t = r.created_at || r.updated_at || fmtDateTime();
-        wrap.innerHTML = '<div class="emr-cont-divider"></div>' +
+        var isProg = r.record_type === 'progress';
+        var badge = isProg
+            ? '<span class="badge badge-primary">病历续写</span>'
+            : '<span class="badge badge-gray">首诊</span>';
+        wrap.innerHTML = (isProg ? '<div class="emr-cont-divider"></div>' : '') +
             '<div class="prev-record-head">' +
             '<span class="fw-600">记录医生：' + escHtml(r.doctor_name) +
             (r.doctor_title ? ' ' + escHtml(r.doctor_title) : '') +
             (r.doctor_emp ? ' （工号 ' + escHtml(r.doctor_emp) + '）' : '') + '</span>' +
             '<span>记录时间：' + escHtml(t) + '</span>' +
-            '<span class="badge badge-primary">病历续写</span></div>';
+            badge + '</div>';
     }
 
     /**
@@ -2435,8 +2439,9 @@ Clinic.emr = (function () {
                     }
                     DATA.__pending_initial = false;   // 首诊已保存，占位消失
                     renderLeftNav();
-                    // 续写条幅时间实时刷新为首次保存时间（普通续写保存后不刷新页面）
-                    if (DATA.record.record_type === 'progress') fillContHead(DATA.record);
+                    // 锚点条幅时间实时刷新为首次保存时间（首诊/续写保存后不刷新页面，
+                    // 记录时间固定为首次保存的 created_at）
+                    fillContHead(DATA.record);
                     // 记录时间 = 首次保存时间（created_at），后续多次保存不变；
                     // 最近保存 = 最近一次保存时间（updated_at），每次保存刷新，仅供医师参考
                     var st = document.getElementById('docSavedBadge');
@@ -2616,6 +2621,10 @@ Clinic.emr = (function () {
                     onChange: function () { EMR_DIRTY = true; },
                 });
             } catch (e) { console.error('模板应用前编辑器渲染失败', e); }
+            // 首诊编辑中也补齐锚点条幅（记录医生/记录时间/首诊徽标）：
+            // 未保存时记录时间=创建时刻，保存后刷新为首次保存时间；
+            // 同时提供 contHeadWrap 锚点，供「首诊编辑中」点击滚动定位
+            fillContHead(r2);
             // 右侧病历节点显示「首诊编辑中…（未保存）」占位
             DATA.__pending_initial = true;
             renderLeftNav();
