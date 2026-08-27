@@ -91,7 +91,12 @@ var STATUS_CLS = { published: 'badge-success', pending_review: 'badge-warning', 
 function renderTplList() {
     var filtered = TPL_DATA.length ? TPL_DATA.filter(function (t) { return !TPL_SCOPE || t.scope === TPL_SCOPE; }) : [];
     var rows = filtered.length ? filtered.map(function (t) {
+        // 待审核模板：适用范围展示目标范围（全院/科室），但标注当前仅个人可用；
+        // 审核通过后自动发布为对应范围
         var scopeBadge = '<span class="badge badge-primary">' + (SCOPE_NAMES[t.scope] || t.scope) + '</span>';
+        if (t.status === 'pending_review') {
+            scopeBadge += ' <span class="fs-12 text-muted">（待审核·暂仅个人可用）</span>';
+        }
         var statusBadge = '<span class="badge ' + (STATUS_CLS[t.status] || 'badge-gray') + '">' + (STATUS_NAMES[t.status] || t.status) + '</span>';
         var deptText = t.dept_names && t.dept_names.length ? '（' + t.dept_names.join('、') + '）' : '';
         var actions = '';

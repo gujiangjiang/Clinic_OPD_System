@@ -60,7 +60,7 @@ function admin_part_audit($action) {
                 }
                 $h .= '<td class="fs-12">' . e(substr($r['created_at'], 0, 16)) . '</td>' .
                     '<td>' . ($r['status'] === 'pending' ? '<span class="badge badge-warning">待审核</span>' : ($r['status'] === 'approved' ? '<span class="badge badge-success">已通过</span>' : ($r['status'] === 'used' ? '<span class="badge badge-gray">已使用</span>' : '<span class="badge badge-gray">已驳回</span>'))) . '</td>' .
-                    '<td style="white-space:nowrap">';
+                    '<td style="white-space:nowrap"><div class="flex gap-4" style="align-items:center">';
                 // 预览按钮（仅模态框表单类型可预览；其余置灰保持按钮一致）
                 if (in_array($r['type'], $previewableTypes, true)) {
                     $h .= '<button class="btn btn-outline btn-sm" title="预览提交内容（只读）" ' .
@@ -70,19 +70,18 @@ function admin_part_audit($action) {
                     $h .= '<button class="btn btn-outline btn-sm" disabled title="该事项无表单预览">预览</button>';
                 }
                 if ($r['status'] === 'pending') {
-                    $h .= '<div class="flex gap-4">' .
-                        '<button class="btn btn-success btn-sm" onclick="doAudit(' . (int)$r['id'] . ',1)">通过</button>' .
-                        '<button class="btn btn-danger btn-sm" onclick="doAudit(' . (int)$r['id'] . ',0)">驳回</button></div>';
+                    $h .= '<button class="btn btn-success btn-sm" onclick="doAudit(' . (int)$r['id'] . ',1)">通过</button>' .
+                        '<button class="btn btn-danger btn-sm" onclick="doAudit(' . (int)$r['id'] . ',0)">驳回</button>';
                 } else {
                     $h .= '<span class="fs-12 text-muted">' . e($r['handled_by']) . ' ' . e(substr($r['handled_at'], 5, 11)) . '</span>';
                 }
-                $h .= '</td></tr>';
+                $h .= '</div></td></tr>';
                 return $h;
             };
             if ($group === '') {
                 // —— 平铺列表 ——
                 $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
-                    '<th>类型</th><th>事项</th><th>申请人</th><th>申请时间</th><th>状态</th><th style="min-width:200px">操作</th></tr></thead><tbody>';
+                    '<th>类型</th><th>事项</th><th>申请人</th><th>申请时间</th><th>状态</th><th>操作</th></tr></thead><tbody>';
                 foreach ($rows as $r) {
                     $html .= $rowHtml($r);
                 }
@@ -98,7 +97,7 @@ function admin_part_audit($action) {
                     $html .= '<div class="card"><div class="card-title" style="padding:10px 14px;border-bottom:1px solid var(--border)">' .
                         '👤 ' . e($proposer) . '<span class="fs-12 text-muted ml-8">' . count($list) . ' 条</span></div>' .
                         '<div class="table-wrap" style="border:none"><table class="table"><thead><tr>' .
-                        '<th>类型</th><th>事项</th><th>申请时间</th><th>状态</th><th style="min-width:200px">操作</th></tr></thead><tbody>';
+                        '<th>类型</th><th>事项</th><th>申请时间</th><th>状态</th><th>操作</th></tr></thead><tbody>';
                     foreach ($list as $r) {
                         $html .= $rowHtml($r, true, false);
                     }
@@ -117,7 +116,7 @@ function admin_part_audit($action) {
                     $html .= '<div class="card"><div class="card-title" style="padding:10px 14px;border-bottom:1px solid var(--border)">' .
                         '📂 ' . e($typeName) . '<span class="fs-12 text-muted ml-8">' . count($list) . ' 条</span></div>' .
                         '<div class="table-wrap" style="border:none"><table class="table"><thead><tr>' .
-                        '<th>事项</th><th>申请人</th><th>申请时间</th><th>状态</th><th style="min-width:200px">操作</th></tr></thead><tbody>';
+                        '<th>事项</th><th>申请人</th><th>申请时间</th><th>状态</th><th>操作</th></tr></thead><tbody>';
                     foreach ($list as $r) {
                         $html .= $rowHtml($r, false, true);
                     }

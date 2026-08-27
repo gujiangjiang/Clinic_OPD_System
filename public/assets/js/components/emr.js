@@ -2458,8 +2458,11 @@ Clinic.emr = (function () {
                 var list = j.data.list || [];
                 var scopeW = { hospital: 0, dept: 1, personal: 2 };
                 var order = list.slice().sort(function (a, b) {
-                    var wa = scopeW[a.scope] != null ? scopeW[a.scope] : 9;
-                    var wb = scopeW[b.scope] != null ? scopeW[b.scope] : 9;
+                    // 待审核模板按「个人」权重参与排序（审核通过前仅创建者本人可用）
+                    var sa = a.status === 'pending_review' ? 'personal' : a.scope;
+                    var sb = b.status === 'pending_review' ? 'personal' : b.scope;
+                    var wa = scopeW[sa] != null ? scopeW[sa] : 9;
+                    var wb = scopeW[sb] != null ? scopeW[sb] : 9;
                     if (wa !== wb) return wa - wb;
                     return (b.updated_at || '').localeCompare(a.updated_at || '');
                 });
@@ -2469,10 +2472,13 @@ Clinic.emr = (function () {
                     if (!box) return;
                     box.innerHTML = items.length ? items.map(function (t) {
                         var deptTxt = t.dept_names && t.dept_names.length ? '（' + t.dept_names.join('、') + '）' : '';
+                        // 待审核模板审核通过前仅创建者本人可用，范围显示为「个人」；
+                        // 审核通过后显示实际范围（全院/科室）
+                        var effScope = t.status === 'pending_review' ? 'personal' : t.scope;
                         return '<div class="tree-search-item" style="display:flex;justify-content:space-between;align-items:center" data-id="' + t.id + '">' +
                             '<span>' + escHtml(t.title) + '</span>' +
-                            '<span class="badge ' + (t.scope === 'hospital' ? 'badge-primary' : (t.scope === 'dept' ? 'badge-warning' : 'badge-gray')) + '" style="font-size:11px;flex-shrink:0">' +
-                            (scopeNames[t.scope] || t.scope) + deptTxt + '</span></div>';
+                            '<span class="badge ' + (effScope === 'hospital' ? 'badge-primary' : (effScope === 'dept' ? 'badge-warning' : 'badge-gray')) + '" style="font-size:11px;flex-shrink:0">' +
+                            (scopeNames[effScope] || t.scope) + deptTxt + '</span></div>';
                     }).join('') : '<div class="fs-12 text-muted" style="padding:8px 10px">暂无可用的病历模板，可前往「模板管理」创建</div>';
                     box.querySelectorAll('.tree-search-item').forEach(function (it) {
                         it.addEventListener('click', function () {
