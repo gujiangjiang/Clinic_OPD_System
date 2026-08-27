@@ -13,6 +13,16 @@
 
 ---
 
+## [3.3.2] - 2026-08-27
+
+### 重构
+
+- **order.php 拆分**：610 行开单接口拆分到
+  `app/api/parts/order_read.php`（catalog/prev_items/print/visit_orders）
+  与 `order_write.php`（submit/delete）。awk 原样提取，逻辑零改动。
+
+---
+
 ## [3.3.1] - 2026-08-27
 
 ### 重构
