@@ -13,6 +13,16 @@
 
 ---
 
+## [3.3.0] - 2026-08-27
+
+### 变更
+
+- **Phase 2 代码冗余整理完成**（3.2.2~3.2.6 并入）：treeToggle 去重、
+  JS HTML 转义统一 `Clinic.escHtml`、PHP 徽章统一 `badge_html`、审核提交
+  统一 `submit_audit`、列表外壳统一 `render_list_wrapper`。详见下方各补丁。
+
+---
+
 ## [3.2.6] - 2026-08-27
 
 ### 重构
