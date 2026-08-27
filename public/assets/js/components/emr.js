@@ -321,12 +321,15 @@ Clinic.emr = (function () {
         if (!docBody || !DATA) return;
         var r = DATA.record;
         var d = DATA;
+        // 续写 = 全新独立病历：防御性清空诊断，避免带入前序/骨架诊断
+        var cleanEmr = JSON.parse(JSON.stringify(r.emr || {}));
+        cleanEmr.diagnoses = [];
         try {
             fillContHead(r);
             var signEl = document.getElementById('signWrap');
             if (signEl) signEl.textContent = '医生：' + r.doctor_name;
             docBody.innerHTML = '';
-            Clinic.emrEditor.render(docBody, r.emr || {}, {
+            Clinic.emrEditor.render(docBody, cleanEmr, {
                 readonly: false,
                 beforeVitals: buildVitalSec(false, d.vitals || {}),
                 midNode: buildConsciousNode(false, r.consciousness || '清醒'),
@@ -2874,10 +2877,8 @@ Clinic.emr = (function () {
             Clinic.toast.warning('当前病历已添加诊断，不可删除；请先删除诊断后再取消编辑');
             return;
         }
-        if (ORDERS && ORDERS.length) {
-            Clinic.toast.warning('当前病历已开单，不可删除');
-            return;
-        }
+        // 注意：不校验全局 ORDERS——未保存的编辑中病历(record_id=0)不可能有开单，
+        // 且开单属于「就诊」层面、无法精确归属到某个病历节点；每个病历节点独立。
         Clinic.modal.confirm('确定删除该未完成的病历？未保存的内容将丢失。', function () {
             var wasInitial = !!DATA.__pending_initial;
             var docId = DATA.record ? (DATA.record.doctor_id || 0) : 0;

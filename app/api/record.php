@@ -831,11 +831,6 @@ switch ($action) {
         if ((string)$row['visit']['status'] === 'finished') {
             json_fail('该患者已诊毕，病历已归档，不可删除');
         }
-        // 0.5 开单锁定：该就诊已开单（未取消/未退费）→ 不可删除病历，否则开单失去病历归属
-        $hasOrders = (int)DB::val('order', "SELECT COUNT(*) FROM orders WHERE visit_id=? AND status NOT IN ('cancelled','refunded')", array($visitId));
-        if ($hasOrders > 0) {
-            json_fail('该就诊已开单，不可删除病历');
-        }
         // 1. 身份越权拦截
         if ((int)$rec['doctor_id'] !== (int)$u['id']) {
             json_fail('无权删除非本人创建的病历记录');
