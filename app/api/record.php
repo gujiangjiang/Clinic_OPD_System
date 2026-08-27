@@ -679,9 +679,24 @@ switch ($action) {
             json_fail('病历保存失败：' . $ex->getMessage());
         }
 
-        // C. 同步患者主表全局既往史/过敏史（跨就诊自动调用；以最新修改为准）
+        // C. 同步患者主表全局既往史/过敏史：阳性（承认）信息优先保留，
+        // 避免后续文书「否认」覆盖已确认的过敏/病史（多医生接诊场景数据安全）
+        $curGlobal = DB::one('patient', 'SELECT past_history_type, past_history_detail, allergies FROM patients WHERE patient_no=?', array($visit['patient_no']));
+        $phType = (string)$emr['past_history']['type'];
+        $phDetail = (string)$emr['past_history']['detail'];
+        $alType = isset($emr['allergies']['type']) ? (string)$emr['allergies']['type'] : '';
+        $alDetail = isset($emr['allergies']['detail']) ? (string)$emr['allergies']['detail'] : '';
+        // 过敏史：本次「承认」则同步详情；本次否认但全局已有过敏信息 → 保留全局
+        $newAllergy = ($alType === '承认') ? $alDetail : ($curGlobal && $curGlobal['allergies'] !== '' ? $curGlobal['allergies'] : '');
+        // 既往史：本次「承认」则同步；本次否认但全局为「承认」 → 保留全局
+        $newPhType = $phType;
+        $newPhDetail = $phDetail;
+        if ($phType !== '承认' && $curGlobal && $curGlobal['past_history_type'] === '承认') {
+            $newPhType = $curGlobal['past_history_type'];
+            $newPhDetail = $curGlobal['past_history_detail'];
+        }
         DB::exec('patient', 'UPDATE patients SET past_history_type=?, past_history_detail=?, allergies=? WHERE patient_no=?', array(
-            $emr['past_history']['type'], $emr['past_history']['detail'], $allergies, $visit['patient_no'],
+            $newPhType, $newPhDetail, $newAllergy, $visit['patient_no'],
         ));
 
         // C2. 保存病历即视为接诊：若就诊状态仍为待就诊(paid)，标记为就诊中(visiting)
