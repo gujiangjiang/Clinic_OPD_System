@@ -13,6 +13,22 @@
 
 ---
 
+## [3.4.0] - 2026-08-27
+
+### 变更
+
+- **Phase 3 大文件拆分完成**（3.3.1~3.3.6 并入）：
+  - `record.php`（971→parts/）、`order.php`（610→parts/）、
+    `doctor.php`（469→parts/）、`cashier.php`（508→parts/）；
+  - `print_templates.php`（619→print/ 按单据类型）；
+  - `components.css`（1051→拆出 components-emr.css 437 行）。
+  - 均沿用 admin parts 模式 + awk 原样提取，逻辑零改动，接口自测通过。
+- **emr.js（3205 行）本次暂缓拆分**：紧耦合单 IIFE、200+ 处交叉引用，
+  拆分需全量重写共享上下文，风险与收益不成正比，保留单文件确保核心
+  病历功能零风险。
+
+---
+
 ## [3.3.6] - 2026-08-27
 
 ### 重构
