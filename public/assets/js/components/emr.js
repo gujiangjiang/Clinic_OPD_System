@@ -1979,13 +1979,30 @@ Clinic.emr = (function () {
                 return;
             case 'records':
                 // 病历节点「+」：
-                // 首诊（无任何已保存病历）→ 弹模板选择；
+                // 首诊（无任何已保存病历且未编辑中）→ 弹模板选择；
+                // 首诊编辑中（模板已选，编辑器渲染中，未保存）→ 必须先完善必填、
+                //   保存、无脏数据后，才允许续写；
                 // 本人已有文书 → 续写：先校验当前文书必填已保存，再将当前文书
                 //   转为只读段、在下方新建续写编辑器（DOM 局部操作，不重渲染整页）；
                 // 他人有文书本人无文书 → 渲染续写编辑器
                 (function () {
                     if (DATA && DATA.visit && DATA.visit.status === 'finished') {
                         Clinic.toast.info('该患者已诊毕，病历为只读状态');
+                        return;
+                    }
+                    // 首诊编辑中（模板已选，未保存）→ 必须保存后才能续写
+                    if (DATA.__pending_initial) {
+                        if (EMR_DIRTY) {
+                            Clinic.toast.warning('当前首诊病历有修改未保存，请先点击「💾 保存」后再续写');
+                            return;
+                        }
+                        // isRecordComplete 在 record_id=0 时返回 false，
+                        // 此处必触发，提示完善+保存
+                        if (!isRecordComplete()) {
+                            Clinic.toast.warning('请先完善并保存当前首诊病历的必填项（主诉、现病史与初步诊断），再新建续写');
+                            return;
+                        }
+                        Clinic.toast.warning('请先保存当前首诊病历后再续写');
                         return;
                     }
                     var hist = (DATA && DATA.records_history) || [];
