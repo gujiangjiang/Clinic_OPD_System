@@ -72,7 +72,7 @@ Clinic.emr = (function () {
                 // 首诊自动引导：本次挂号无任何已保存病历 → 自动唤起模板选择，
                 // 引导医生秒级选模板开始书写（避免从空白起笔）
                 if (!refId && !(j.data.records_history || []).length && !(j.data.visit && j.data.visit.status === 'finished')) {
-                    setTimeout(function () { openTemplatePicker(null); }, 600);
+                    setTimeout(function () { openTemplatePicker(null); }, 300);
                 }
             },
         });
@@ -533,7 +533,7 @@ Clinic.emr = (function () {
                 '<div id="roBefore"></div>' +
                 '<div id="contHeadWrap">' + contHtml + '</div>' +
                 '<div class="doc-body" id="docBody"></div>' +
-                '<div class="doc-body-sign" id="signWrap">' + (needProgress ? '' : '医生：' + escHtml(r.doctor_name)) + '</div>' +
+                '<div class="doc-body-sign" id="signWrap">' + ((needProgress || emptyInitial) ? '' : '医生：' + escHtml(r.doctor_name)) + '</div>' +
                 '<div id="roAfter"></div>' +
                 '</div>';
         }
@@ -591,8 +591,8 @@ Clinic.emr = (function () {
                 if (eiBody) {
                     eiBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
                         '<div class="fs-14">📄 首张电子病历尚未创建</div>' +
-                        '<div class="fs-12 text-muted mt-4">该患者暂无病历，正在为你弹出模板选择…' +
-                        '选择模板后创建首张电子病历。</div></div>';
+                        '<div class="fs-12 text-muted mt-4">正在为你弹出模板选择，也可点击下方按钮选择模板创建病历</div>' +
+                        '<button class="btn btn-primary btn-sm mt-8" onclick="Clinic.emr.openTemplates()">📋 选择病历模板</button></div>';
                 }
                 refreshReadOnlyBodies(d);
             } else {
@@ -2367,13 +2367,32 @@ Clinic.emr = (function () {
     var tplPickEl = null;
     function openTemplatePicker(ev) {
         closeTemplatePicker();
+        // 先显示一个加载中的浮层（避免因请求延迟让用户感觉「没弹出」）
+        var pop = document.createElement('div');
+        pop.id = 'tplPick';
+        pop.className = 'tree-box';
+        pop.style.cssText = 'position:fixed;z-index:2600;width:340px;max-width:calc(100vw-16px);';
+        pop.innerHTML = '<div class="fs-12 text-muted" style="padding:12px;text-align:center">加载模板…</div>';
+        document.body.appendChild(pop);
+        var anchor = document.getElementById('queueBtn') ||
+            document.querySelector('.ena-add[title="添加病历"]') ||
+            document.querySelector('.ena-add');
+        if (anchor) {
+            var r = anchor.getBoundingClientRect();
+            pop.style.top = Math.max(8, r.bottom + window.scrollY + 6) + 'px';
+            pop.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.innerWidth - 340 - 8)) + 'px';
+        } else {
+            pop.style.top = '80px'; pop.style.left = '8px';
+        }
+        // 点击外部 / Esc 关闭
+        var outside = function (e) { var el = document.getElementById('tplPick'); if (el && !el.contains(e.target)) closeTemplatePicker(); };
+        var esc = function (e) { if (e.key === 'Escape') closeTemplatePicker(); };
+        pop.__handlers = [outside, esc];
+        setTimeout(function () { document.addEventListener('mousedown', outside, true); document.addEventListener('keydown', esc, true); }, 0);
+        // 拉取模板列表
         Clinic.get('/api/template?action=list&type=medical_record', null, {
             onSuccess: function (j) {
                 var list = j.data.list || [];
-                if (!list.length) {
-                    Clinic.toast.info('暂无可用的病历模板（可在「模板管理」中创建）');
-                    return;
-                }
                 var scopeW = { hospital: 0, dept: 1, personal: 2 };
                 var order = list.slice().sort(function (a, b) {
                     var wa = scopeW[a.scope] != null ? scopeW[a.scope] : 9;
@@ -2381,36 +2400,17 @@ Clinic.emr = (function () {
                     if (wa !== wb) return wa - wb;
                     return (b.updated_at || '').localeCompare(a.updated_at || '');
                 });
-                var pop = document.createElement('div');
-                pop.id = 'tplPick';
-                pop.className = 'tree-box';
-                pop.style.cssText = 'position:fixed;z-index:2600;width:340px;max-width:calc(100vw-16px);';
-                pop.innerHTML =
-                    '<input class="input tree-box-search" id="tplPickKw" placeholder="🔍 搜索病历模板" autocomplete="off">' +
-                    '<div class="send-tree" id="tplPickList" style="max-height:320px"></div>';
-                document.body.appendChild(pop);
-                // 锚定到「病历节点 +」按钮
-                var anchor = document.querySelector('.ena-add[title="添加病历"]') ||
-                    document.querySelector('.ena-add') || document.getElementById('queueBtn');
-                if (anchor) {
-                    var r = anchor.getBoundingClientRect();
-                    var w = pop.offsetWidth || 340;
-                    pop.style.top = Math.max(8, r.bottom + window.scrollY + 6) + 'px';
-                    pop.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.innerWidth - w - 8)) + 'px';
-                } else {
-                    pop.style.top = '80px';
-                    pop.style.left = '8px';
-                }
                 var scopeNames = { hospital: '全院', dept: '科室', personal: '个人' };
                 function renderItems(items) {
                     var box = document.getElementById('tplPickList');
+                    if (!box) return;
                     box.innerHTML = items.length ? items.map(function (t) {
                         var deptTxt = t.dept_names && t.dept_names.length ? '（' + t.dept_names.join('、') + '）' : '';
                         return '<div class="tree-search-item" style="display:flex;justify-content:space-between;align-items:center" data-id="' + t.id + '">' +
                             '<span>' + escHtml(t.title) + '</span>' +
                             '<span class="badge ' + (t.scope === 'hospital' ? 'badge-primary' : (t.scope === 'dept' ? 'badge-warning' : 'badge-gray')) + '" style="font-size:11px;flex-shrink:0">' +
                             (scopeNames[t.scope] || t.scope) + deptTxt + '</span></div>';
-                    }).join('') : '<div class="fs-12 text-muted" style="padding:8px 10px">无匹配模板</div>';
+                    }).join('') : '<div class="fs-12 text-muted" style="padding:8px 10px">暂无可用的病历模板，可前往「模板管理」创建</div>';
                     box.querySelectorAll('.tree-search-item').forEach(function (it) {
                         it.addEventListener('click', function () {
                             closeTemplatePicker();
@@ -2418,25 +2418,25 @@ Clinic.emr = (function () {
                         });
                     });
                 }
-                renderItems(order);
-                // 搜索过滤
-                var kw = document.getElementById('tplPickKw');
-                kw.addEventListener('input', function () {
-                    var q = this.value.trim().toLowerCase();
-                    renderItems(q ? order.filter(function (t) { return t.title.toLowerCase().indexOf(q) !== -1; }) : order);
-                });
-                kw.focus();
-                // 点击外部 / Esc 关闭
-                var outside = function (e) {
-                    var el = document.getElementById('tplPick');
-                    if (el && !el.contains(e.target)) closeTemplatePicker();
-                };
-                var esc = function (e) { if (e.key === 'Escape') closeTemplatePicker(); };
-                pop.__handlers = [outside, esc];
-                setTimeout(function () {
-                    document.addEventListener('mousedown', outside, true);
-                    document.addEventListener('keydown', esc, true);
-                }, 0);
+                var pop2 = document.getElementById('tplPick');
+                if (pop2) {
+                    pop2.innerHTML =
+                        '<input class="input tree-box-search" id="tplPickKw" placeholder="🔍 搜索病历模板" autocomplete="off">' +
+                        '<div class="send-tree" id="tplPickList" style="max-height:320px"></div>';
+                    renderItems(order);
+                    var kw = document.getElementById('tplPickKw');
+                    if (kw) {
+                        kw.addEventListener('input', function () {
+                            var q = this.value.trim().toLowerCase();
+                            renderItems(q ? order.filter(function (t) { return t.title.toLowerCase().indexOf(q) !== -1; }) : order);
+                        });
+                        kw.focus();
+                    }
+                }
+            },
+            onError: function () {
+                var pop3 = document.getElementById('tplPick');
+                if (pop3) pop3.innerHTML = '<div class="fs-12 text-muted" style="padding:12px;text-align:center">加载模板失败，请重试或前往「模板管理」创建</div>';
             },
         });
     }
