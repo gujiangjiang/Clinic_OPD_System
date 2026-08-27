@@ -790,25 +790,13 @@ switch ($action) {
                 'suspected' => (string)(isset($d['suspected']) ? $d['suspected'] : ''),
             );
         }
-        if (!count($clean)) json_fail('诊断列表不能为空');
+        // 允许清空诊断：删除主诊断后第二位自动递补，无则主诊断置空
+        // （原「主诊断不可删除」保护移除，消除首诊病历无法删除的悖论；
+        //   删除病历前置是清空诊断，若主诊断不可删则首诊病历永远删不掉）
         $emr = emr_merge_defaults(emr_normalize(json_decode($pr['emr_data'], true)), emr_default_data(null));
-        // 主诊断保护：当前主诊断（列表首位）不可删除（调整顺序允许）——
-        // 若旧主诊断从提交列表中消失则拒绝
-        $oldFirst = (isset($emr['diagnoses']) && is_array($emr['diagnoses']) && count($emr['diagnoses'])) ? $emr['diagnoses'][0] : null;
-        if ($oldFirst && !empty($oldFirst['name'])) {
-            $stillThere = false;
-            foreach ($clean as $c) {
-                if ((string)$c['name'] === (string)$oldFirst['name'] &&
-                    (string)$c['code'] === (string)(isset($oldFirst['code']) ? $oldFirst['code'] : '')) {
-                    $stillThere = true;
-                    break;
-                }
-            }
-            if (!$stillThere) json_fail('主诊断不可删除（如需调整请先将其他诊断设为主诊断）');
-        }
         $emr['diagnoses'] = $clean;
-        $diagText = emr_diag_text($clean);
-        $firstCode = (string)$clean[0]['code'];
+        $diagText = $clean ? emr_diag_text($clean) : '';
+        $firstCode = $clean ? (string)$clean[0]['code'] : '';
         $pdo = DatabaseManager::pdo('medical');
         // 结构化文书更新（诊断 + 主诊断投影）
         $pdo->prepare('UPDATE patient_records SET emr_data=?, primary_icd10=?, primary_diagnosis=? WHERE id=?')

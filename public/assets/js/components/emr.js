@@ -1540,7 +1540,7 @@ Clinic.emr = (function () {
                 return !((d.code || '') === row.code && d.name === row.name);
             });
             if (list.length === myDiags().length) { Clinic.toast.warning('诊断不存在或已删除'); return; }
-            if (!list.length) { Clinic.toast.warning('至少保留一个诊断，无法删除'); return; }
+            // 允许删空诊断（主诊断保护移除）：删除后主诊断置空，可进一步删除病历
             saveDiags(list, '诊断已删除：' + row.name);
         };
         if (row.quoted) {
@@ -1741,14 +1741,15 @@ Clinic.emr = (function () {
         DIAG_ROWS = diagOrder;
         diagEl.innerHTML = diagOrder.length ? diagOrder.map(function (x) {
             var quoted = x.others && !x.ownOld;  // 仅他人诊断（不在本人任何旧文书中）显示引用标记
-            // 全局首行 = 主诊断：徽标提醒、不弹操作浮窗、无删除按钮
-                        // 诊毕只读：不显示任何诊断删除按钮（已归档，诊断不可删除）
+            // 全局首行 = 主诊断：徽标提醒，但支持删除（主诊断保护移除——
+            // 删除主诊断后第二位自动递补，无则主诊断置空）
             var diagReadOnlyFin = DATA && DATA.visit && DATA.visit.status === 'finished';
+            var delBtn = (x.inCurrent && !diagReadOnlyFin)
+                ? '<span class="ena-del" title="删除本病历中的该诊断" onclick="Clinic.emr.delDiag(event,' + x.idx + ')">🗑️</span>'
+                : '';
             var tail = x.idx === 0
-                ? '<span class="badge badge-primary" style="flex-shrink:0">主诊断</span>'
-                : (x.inCurrent && !diagReadOnlyFin
-                    ? '<span class="ena-del" title="删除本病历中的该诊断" onclick="Clinic.emr.delDiag(event,' + x.idx + ')">🗑️</span>'
-                    : '');
+                ? '<span class="badge badge-primary" style="flex-shrink:0">主诊断</span>' + delBtn
+                : delBtn;
             return '<div class="ena-item" onclick="Clinic.emr.openDiagOpsPop(event,' + x.idx + ')" style="cursor:pointer">' +
                 '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escHtml(x.name) + '">' +
                 (x.code ? '<span class="text-muted">' + escHtml(x.code) + '</span> ' : '') +
