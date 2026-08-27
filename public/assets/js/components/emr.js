@@ -61,6 +61,17 @@ Clinic.emr = (function () {
                 bindItemTokenDelegate();
                 loadOrders(visitId);
                 Clinic.order.init(visitId, j.data);
+                // 接诊：从候诊/任意入口打开患者病历页时，若仍为待就诊(paid)
+                // 则自动标记为就诊中(visiting)，否则后端开单会拦截
+                // 「请先接诊该患者后再开单」（order.php submit 校验）
+                if (j.data.visit && j.data.visit.status === 'paid') {
+                    Clinic.ajax('/api/doctor', { action: 'take', visit_id: visitId }, {
+                        loading: false,
+                        onSuccess: function (j2) {
+                            if (DATA && DATA.visit) DATA.visit.status = 'visiting';
+                        },
+                    });
+                }
                 // 一键引用前序病历
                 // refId 取隐藏输入框字符串值：无 ref 参数时为 "0"（真值），
                 // 必须转整数，否则 !refId 为 false 会误判「有引用」而跳过自动弹模板
@@ -1670,18 +1681,22 @@ Clinic.emr = (function () {
             recEl.innerHTML = '';
         }
         // 续写编辑中占位（未保存，保存/reload 后自动清除）；点击跳转到续写编辑器锚点
+        var _pn = (DATA.record && DATA.record.doctor_name) || '';
+        var _del = '<span class="ena-del" title="删除未完成的病历" onclick="event.stopPropagation();Clinic.emr.cancelPendingRecord()">🗑️</span>';
         if (DATA && DATA.__pending_progress && recEl) {
             recEl.insertAdjacentHTML('beforeend',
                 '<div class="ena-item" style="opacity:0.6;font-style:italic;cursor:pointer" ' +
                 'title="定位到续写编辑区" onclick="Clinic.emr.scrollToPendingEditor(this)">' +
-                '<span>📝 续写编辑中…（未保存）</span></div>');
+                '<span>📝 续写编辑中…（未保存）</span>' + _del +
+                '<span class="ena-sub">' + escHtml(_pn) + '</span></div>');
         }
         // 首诊编辑中占位（空病历选择模板后未保存）；点击跳转到首诊编辑器锚点
         if (DATA && DATA.__pending_initial && recEl) {
             recEl.insertAdjacentHTML('beforeend',
                 '<div class="ena-item" style="opacity:0.6;font-style:italic;cursor:pointer" ' +
                 'title="定位到首诊编辑区" onclick="Clinic.emr.scrollToPendingEditor(this)">' +
-                '<span>📝 首诊编辑中…（未保存）</span></div>');
+                '<span>📝 首诊编辑中…（未保存）</span>' + _del +
+                '<span class="ena-sub">' + escHtml(_pn) + '</span></div>');
         }
 
         // ---------- 3. 初步诊断（聚合：本人诊断顺序优先，其后他人诊断） ----------
@@ -1904,22 +1919,6 @@ Clinic.emr = (function () {
             cardEl2.classList.add('emr-card-enter');
         }
         scrollToEditor(350);
-        flashRecordSeg(recId);
-    }
-
-    /** 定位后高亮闪烁目标病历段/编辑器（提示「这里就是你要找的续写」） */
-    function flashRecordSeg(recId) {
-        var r = DATA && DATA.record;
-        var target = null;
-        if (r && recId === r.record_id) {
-            target = document.getElementById('contHeadWrap') || document.getElementById('myRecordAnchor');
-        } else {
-            target = document.getElementById('recSeg' + recId);
-        }
-        if (!target) return;
-        target.classList.remove('emr-seg-flash');
-        void target.offsetWidth;
-        target.classList.add('emr-seg-flash');
     }
 
     window.scrollToRecord = function (recId, doctorId) {
@@ -1932,7 +1931,6 @@ Clinic.emr = (function () {
                 if (!scF) return;
                 var yF = segF.getBoundingClientRect().top - scF.getBoundingClientRect().top + scF.scrollTop - 8;
                 scF.scrollTo({ top: Math.max(0, yF), behavior: 'smooth' });
-                flashRecordSeg(recId);
             } else {
                 Clinic.toast.info('该文书区域当前不可见');
             }
@@ -1942,7 +1940,6 @@ Clinic.emr = (function () {
         // 1. 点击当前编辑文书 → 滚动到其编辑器锚点
         if (r && recId === r.record_id) {
             scrollToEditor(0);
-            flashRecordSeg(recId);
             return;
         }
         // 2. 他人文书 → 只读段，直接滚动定位
@@ -1953,7 +1950,6 @@ Clinic.emr = (function () {
                 if (!sc) return;
                 var y2 = seg.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 8;
                 sc.scrollTo({ top: Math.max(0, y2), behavior: 'smooth' });
-                flashRecordSeg(recId);
             } else {
                 Clinic.toast.info('该文书区域当前不可见');
             }
@@ -2871,12 +2867,45 @@ Clinic.emr = (function () {
     /** 编辑中占位点击时定位到编辑器（首诊/续写编辑中节点） */
     function scrollToPendingEditor(el) {
         scrollToEditor(0);
-        var anchor = document.getElementById('contHeadWrap') || document.getElementById('myRecordAnchor');
-        if (anchor) {
-            anchor.classList.remove('emr-seg-flash');
-            void anchor.offsetWidth;
-            anchor.classList.add('emr-seg-flash');
+    }
+
+    /** 删除未保存的编辑中病历（首诊/续写编辑中节点）：
+     *  无需校验脏数据/必填项；但已添加诊断（避免无主诊断）或已开单则禁止删除 */
+    function cancelPendingRecord() {
+        if (!DATA) return;
+        var curDiags = (DATA.record && DATA.record.emr && DATA.record.emr.diagnoses) || [];
+        if (curDiags.length) {
+            Clinic.toast.warning('当前病历已添加诊断，不可删除；请先删除诊断后再取消编辑');
+            return;
         }
+        if (ORDERS && ORDERS.length) {
+            Clinic.toast.warning('当前病历已开单，不可删除');
+            return;
+        }
+        Clinic.modal.confirm('确定删除该未完成的病历？未保存的内容将丢失。', function () {
+            var wasInitial = !!DATA.__pending_initial;
+            var docId = DATA.record ? (DATA.record.doctor_id || 0) : 0;
+            var docName = DATA.record ? (DATA.record.doctor_name || '') : '';
+            var docEmp = DATA.record ? (DATA.record.doctor_emp || '') : '';
+            var docTitle = DATA.record ? (DATA.record.doctor_title || '') : '';
+            // 清除编辑中标记
+            DATA.__pending_initial = false;
+            DATA.__pending_progress = false;
+            DATA.__progress_new = false;
+            DATA.__edit_record_id = 0;
+            EMR_DIRTY = false;
+            // 重置为占位态：首诊→空病历占位；续写→只读占位
+            DATA.record = {
+                record_id: 0, id: 0,
+                doctor_id: docId, doctor_name: docName,
+                doctor_emp: docEmp, doctor_title: docTitle,
+                record_type: wasInitial ? 'initial' : 'progress',
+                emr: {}, consciousness: '', vitals: {},
+                created_at: '', updated_at: '',
+            };
+            renderEmrCard(DATA);
+            renderLeftNav();
+        }, { title: '删除未完成病历', okText: '确认删除' });
     }
 
     return {
@@ -2903,6 +2932,7 @@ Clinic.emr = (function () {
         loadOrders: loadOrders,
         isMyOrder: isMyOrder,
         scrollToPendingEditor: scrollToPendingEditor,
+        cancelPendingRecord: cancelPendingRecord,
     };
 })();
 
