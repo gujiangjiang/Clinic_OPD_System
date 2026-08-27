@@ -13,14 +13,7 @@ Clinic.deptTree = (function () {
     var SELECTED = [];
     var CONTAINER = null;
 
-    /* 折叠/展开 */
-    function treeToggle(btn) {
-        var target = document.getElementById(btn.getAttribute('data-toggle'));
-        if (!target) return;
-        var expanded = target.style.display !== 'none';
-        target.style.display = expanded ? 'none' : '';
-        btn.textContent = expanded ? '+' : '−';
-    }
+    /* 折叠/展开：复用全局 window.treeToggle（app.js 定义，全站加载） */
 
     /* 全选/全不选 */
     function deptToggleAll(checked) {
@@ -163,7 +156,7 @@ Clinic.deptTree = (function () {
             initSearch('dtSearch', 'dtRes', treeId);
             // 折叠/展开
             el.querySelectorAll('.tree-toggle').forEach(function (btn) {
-                btn.addEventListener('click', function () { treeToggle(btn); });
+                btn.addEventListener('click', function () { window.treeToggle(btn); });
             });
             syncGroups();
         }
