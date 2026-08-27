@@ -62,7 +62,9 @@ Clinic.emr = (function () {
                 loadOrders(visitId);
                 Clinic.order.init(visitId, j.data);
                 // 一键引用前序病历
-                var refId = document.getElementById('refRecordId').value;
+                // refId 取隐藏输入框字符串值：无 ref 参数时为 "0"（真值），
+                // 必须转整数，否则 !refId 为 false 会误判「有引用」而跳过自动弹模板
+                var refId = parseInt(document.getElementById('refRecordId').value, 10) || 0;
                 if (refId) {
                     var prev = (j.data.prev_records || []).find(function (r) { return r.id == refId; });
                     if (prev) {
