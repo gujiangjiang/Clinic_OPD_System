@@ -43,7 +43,7 @@ function admin_part_user($action) {
                     '<td>' . e(Auth::roleName($r['role'])) . '</td>' .
                     '<td>' . e($r['title']) . '</td>' .
                     '<td class="fs-12">' . e($deptNames) . '</td>' .
-                    '<td>' . ($r['status'] == 1 ? '<span class="badge badge-success">启用</span>' : '<span class="badge badge-gray">停用</span>') . '</td>' .
+                    '<td>' . ($r['status'] == 1 ? badge_html('success', '启用') : badge_html('gray', '停用')) . '</td>' .
                     '<td><div class="flex gap-4">' .
                     // 编辑按钮与「新增」共用 openUserForm(id)：会执行 onRoleChange() 初始化职称/科室显示，
                     // 保证医生编辑时能看到并勾选所属科室（loadModal 通用逻辑不会初始化页面控件）

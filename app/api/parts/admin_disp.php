@@ -30,7 +30,7 @@ function admin_part_disp($action) {
             foreach ($rows as $r) {
                 $html .= '<tr><td class="fw-600">' . e($r['name']) . '</td><td>¥' . money($r['fee']) . '</td>' .
                     '<td class="fs-12 text-muted">' . e($r['description']) . '</td>' .
-                    '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
+                    '<td>' . ($r['status'] === 'approved' ? badge_html('success', '可用') : badge_html('warning', '待审核')) . '</td>' .
                     '<td><div class="flex gap-4">' .
                     // 编辑按钮与「新增」共用 openDisposalForm(id)
                     '<button class="btn btn-outline btn-sm" onclick="openDisposalForm(' . (int)$r['id'] . ')">编辑</button>' .

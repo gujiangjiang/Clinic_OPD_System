@@ -118,6 +118,11 @@ function json_fail($msg) {
     json_response(false, $msg);
 }
 
+/** 统一徽章 HTML（减少各处重复的 span + e() 模式） */
+function badge_html($cls, $text) {
+    return '<span class="badge badge-' . $cls . '">' . e($text) . '</span>';
+}
+
 /** 读取 POST 参数（自动去首尾空格） */
 function post($key, $default = '') {
     return isset($_POST[$key]) ? trim((string)$_POST[$key]) : $default;

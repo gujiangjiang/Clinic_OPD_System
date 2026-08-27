@@ -39,7 +39,7 @@ function admin_part_item($action) {
                         '<td>' . e($r['category']) . '</td>' .
                         '<td>¥' . money($r['price']) . '</td>' .
                         '<td>' . e($r['unit']) . '</td><td class="fs-12">' . e($r['normal_range']) . '</td>' .
-                        '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
+                        '<td>' . ($r['status'] === 'approved' ? badge_html('success', '可用') : badge_html('warning', '待审核')) . '</td>' .
                         '<td>' . ($isAdmin
                             ? '<div class="flex gap-4">' .
                             '<button class="btn btn-outline btn-sm" onclick="openItemForm(' . (int)$r['id'] . ')">编辑</button>' .
@@ -65,7 +65,7 @@ function admin_part_item($action) {
                     '<td>' . e($r['category']) . '</td>' .
                     '<td>¥' . money($r['price']) . '</td>' .
                     '<td class="fs-12 text-muted">' . e(mb_substr($r['description'], 0, 20)) . '</td>' .
-                    '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
+                    '<td>' . ($r['status'] === 'approved' ? badge_html('success', '可用') : badge_html('warning', '待审核')) . '</td>' .
                     '<td>' . ($isAdmin
                         ? '<div class="flex gap-4">' .
                         '<button class="btn btn-outline btn-sm" onclick="openItemForm(' . (int)$r['id'] . ')">编辑</button>' .

@@ -36,7 +36,7 @@ function admin_part_dept($action) {
                     '<td>¥' . money($r['fee']) . '</td>' .
                     '<td>' . ($r['type'] === 'clinic' ? (int)$r['am_quota'] : '—') . '</td>' .
                     '<td>' . ($r['type'] === 'clinic' ? (int)$r['pm_quota'] : '—') . '</td>' .
-                    '<td>' . ($r['status'] == 1 ? '<span class="badge badge-success">启用</span>' : '<span class="badge badge-gray">停用</span>') . '</td>' .
+                    '<td>' . ($r['status'] == 1 ? badge_html('success', '启用') : badge_html('gray', '停用')) . '</td>' .
                     '<td><div class="flex gap-4">' .
                     // 编辑按钮与「新增」共用 openDeptForm(id)（同一表单与初始化逻辑，保证编辑回填一致）
                     '<button class="btn btn-outline btn-sm" onclick="openDeptForm(' . (int)$r['id'] . ')">编辑</button>' .

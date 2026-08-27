@@ -13,6 +13,16 @@
 
 ---
 
+## [3.2.4] - 2026-08-27
+
+### 重构
+
+- **PHP 状态徽章统一**：`helpers.php` 新增 `badge_html($cls, $text)`，
+  `admin_item/admin_disp/admin_drug/admin_dept/admin_user/pharmacy`
+  六处重复的徽章 HTML（span + e()）改为统一调用。
+
+---
+
 ## [3.2.3] - 2026-08-27
 
 ### 重构
