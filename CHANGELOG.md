@@ -13,6 +13,16 @@
 
 ---
 
+## [4.0.5] - 2026-08-27
+
+### 重构
+
+- **emr.js 结构化拆分（步骤 3）**：`_ctx` 补充 navDotCls/navDotText/clampPop，
+  提取总费用悬浮明细模块到 `emr_fee.js`（`Clinic.emr.fee`，含自身
+  `feePopTimer` 定时器），emr.js 内改为本地别名，内部调用与公共 API 不变。
+
+---
+
 ## [4.0.4] - 2026-08-27
 
 ### 修复
