@@ -16,7 +16,6 @@ Clinic.emr.template = (function () {
     var buildVitalSec = ctx.buildVitalSec;
     var buildConsciousNode = ctx.buildConsciousNode;
     var fillContHead = ctx.fillContHead;
-    var renderLeftNav = ctx.renderLeftNav;
 
     function openTemplates(ev) {
         openTemplatePicker(ev);
@@ -150,7 +149,9 @@ Clinic.emr.template = (function () {
             } catch (e) { console.error('模板应用前编辑器渲染失败', e); }
             fillContHead(r2);
             ctx.DATA.__pending_initial = true;
-            renderLeftNav();
+            // 跨模块通知：数据已变更 → 由事件总线通知大纲/只读段刷新
+            // （模板模块无需知道 renderLeftNav 存在，解耦）
+            Clinic.eventBus.emit('emr:dataChanged');
         }
         var cur = Clinic.emrEditor.collect();
         var flatKeyMap = {

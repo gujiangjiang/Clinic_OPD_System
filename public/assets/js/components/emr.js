@@ -64,6 +64,12 @@ Clinic.emr = (function () {
         // 患者资料保存后自动局部刷新本页头部（订阅 patient.js 的更新广播；
         // 只重建患者卡与文档内患者信息区，绝不触碰下方未保存的病历正文）
         Clinic.patient.onInfoUpdated(refreshPatientHead);
+        // 订阅跨模块事件：数据变更 → 刷新左侧大纲 + 他人文书只读段
+        // （子模块如 emr_template 应用模板后只 emit 事件，无需知道大纲存在）
+        Clinic.eventBus.on('emr:dataChanged', function () {
+            renderLeftNav();
+            refreshReadOnlyBodies();
+        });
         loadData(visitId);
     }
 
