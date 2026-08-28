@@ -7,7 +7,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 2,
+    'version' => 4,
     'tables' => array(
         'drug_settings' => "CREATE TABLE IF NOT EXISTS drug_settings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,7 +39,12 @@ return array(
             need_skin_test INTEGER DEFAULT 0,
             skin_test_item_id INTEGER DEFAULT 0,
             status TEXT DEFAULT 'pending',
-            created_at TEXT
+            created_at TEXT,
+            spec_dose REAL DEFAULT 0,
+            spec_dose_unit TEXT,
+            spec_pack_qty INTEGER DEFAULT 1,
+            spec_pack_unit TEXT,
+            single_use_qty REAL DEFAULT 1
         )",
     ),
     'migrations' => array(
@@ -49,6 +54,23 @@ return array(
             "ALTER TABLE drugs ADD COLUMN need_skin_test INTEGER DEFAULT 0",
             "ALTER TABLE drugs ADD COLUMN skin_test_item_id INTEGER DEFAULT 0",
             "ALTER TABLE drug_settings ADD COLUMN bind_disposal_item_id INTEGER DEFAULT 0",
+        ),
+        // v3：规格结构化 —— 0.35g×24粒 拆为 剂量0.35/单位g/包装数量24/包装单位粒；
+        // 单次使用剂量改为数量（默认1，即单次1粒/1袋）
+        3 => array(
+            "ALTER TABLE drugs ADD COLUMN spec_dose REAL DEFAULT 0",
+            "ALTER TABLE drugs ADD COLUMN spec_dose_unit TEXT",
+            "ALTER TABLE drugs ADD COLUMN spec_pack_qty INTEGER DEFAULT 1",
+            "ALTER TABLE drugs ADD COLUMN spec_pack_unit TEXT",
+            "ALTER TABLE drugs ADD COLUMN single_use_qty REAL DEFAULT 1",
+        ),
+        // v4：幂等补列 —— 修复历史库 user_version=3 但列缺失的损坏状态
+        4 => array(
+            "ALTER TABLE drugs ADD COLUMN spec_dose REAL DEFAULT 0",
+            "ALTER TABLE drugs ADD COLUMN spec_dose_unit TEXT",
+            "ALTER TABLE drugs ADD COLUMN spec_pack_qty INTEGER DEFAULT 1",
+            "ALTER TABLE drugs ADD COLUMN spec_pack_unit TEXT",
+            "ALTER TABLE drugs ADD COLUMN single_use_qty REAL DEFAULT 1",
         ),
     ),
     'seed' => array(
