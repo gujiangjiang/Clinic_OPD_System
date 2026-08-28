@@ -301,8 +301,19 @@ Clinic.order = (function () {
 
     /* ============ 处方：搜索下拉（顶部主药 + 子医嘱共用） ============ */
 
-    /** 药品下拉条目：名称/金额 + 厂商/分类/规格/库存（不含频次/途径） */
-    function rxItemHtml(it) {
+    /** 药品下拉条目：第一行 名称+厂商+金额；第二行 频次/途径（仅主药）/分类/规格/库存 */
+    function rxItemHtml(it, showRx) {
+        var vendor = it.company_short
+            ? '<span class="fs-12 text-muted" style="margin-left:6px;flex-shrink:0">' + Clinic.escHtml(it.company_short) + '</span>'
+            : '';
+        var parts = [];
+        if (showRx) {
+            if (it.frequency_name) parts.push('频次 ' + it.frequency_name);
+            if (it.route_name) parts.push('途径 ' + it.route_name);
+        }
+        if (it.category_name) parts.push(it.category_name);
+        if (it.spec) parts.push('规格 ' + it.spec);
+        parts.push('库存 ' + (it.stock || 0));
         return '<div class="rx-drop-item" data-id="' + it.id + '" ' +
             'data-price="' + (it.price || 0) + '" data-name="' + (it.name || '').replace(/"/g, '&quot;') + '"' +
             ' data-spec="' + (it.spec || '') + '" data-unit="' + (it.unit_name || it.unit || '') + '"' +
@@ -316,13 +327,11 @@ Clinic.order = (function () {
             ' data-need-skin-test="' + (it.need_skin_test || 0) + '"' +
             ' data-is-group="0">' +
             '<div class="flex-between">' +
-            '  <div class="fw-600 fs-13 ellipsis">' + Clinic.escHtml(it.name || '') + '</div>' +
+            '  <div class="fw-600 fs-13 ellipsis" style="display:flex;align-items:baseline;min-width:0">' +
+            Clinic.escHtml(it.name || '') + vendor + '</div>' +
             '  <div class="fw-600 fs-13" style="color:var(--primary);flex-shrink:0">¥' + parseFloat(it.price || 0).toFixed(2) + '</div>' +
             '</div>' +
-            '<div class="fs-12 text-muted mt-2" style="line-height:1.5">' +
-            [it.company_short || '', it.category_name || '', it.spec ? '规格 ' + it.spec : '', '库存 ' + (it.stock || 0)]
-                .filter(function (x) { return x !== ''; }).join(' ｜ ') +
-            '</div>' +
+            '<div class="fs-12 text-muted mt-2" style="line-height:1.5">' + parts.join(' ｜ ') + '</div>' +
             '</div>';
     }
 
@@ -336,7 +345,7 @@ Clinic.order = (function () {
             return (it.name || '').toLowerCase().indexOf(k) !== -1 ||
                 (it.company_short || '').toLowerCase().indexOf(k) !== -1;
         });
-        box.innerHTML = list.length ? list.map(rxItemHtml).join('') : '<div class="rx-drop-empty">未找到相关药品</div>';
+        box.innerHTML = list.length ? list.map(function (it) { return rxItemHtml(it, true); }).join('') : '<div class="rx-drop-empty">未找到相关药品</div>';
         box.querySelectorAll('.rx-drop-item').forEach(function (el) {
             el.addEventListener('mousedown', function (e) {
                 e.preventDefault();   // 阻止输入框失焦，避免下拉先被关闭
@@ -409,7 +418,7 @@ Clinic.order = (function () {
             return (it.name || '').toLowerCase().indexOf(k) !== -1 ||
                 (it.company_short || '').toLowerCase().indexOf(k) !== -1;
         });
-        box.innerHTML = list.length ? list.map(rxItemHtml).join('') : '<div class="rx-drop-empty">未找到相关药品</div>';
+        box.innerHTML = list.length ? list.map(function (it) { return rxItemHtml(it, false); }).join('') : '<div class="rx-drop-empty">未找到相关药品</div>';
         box.querySelectorAll('.rx-drop-item').forEach(function (el) {
             el.addEventListener('mousedown', function (e) {
                 e.preventDefault();
