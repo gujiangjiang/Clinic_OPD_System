@@ -78,10 +78,6 @@
 }
 .input:disabled, .select:disabled { background: var(--bg-soft); color: var(--text-muted); }
 .textarea { min-height: 80px; resize: vertical; }
-/* 输入框 / 下拉框高度统一（42px，更大气美观） */
-.input, .select {
-    height: 42px;
-}
 /* 文件选择按钮统一样式（导入 CSV / 安装页 LOGO 等） */
 input[type="file"] {
     width: 100%;
