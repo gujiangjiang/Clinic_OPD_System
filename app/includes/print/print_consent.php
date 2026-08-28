@@ -58,7 +58,7 @@ function pt_consent($visit, $patient, $consent, $doctorName, $record) {
     }
     // 底部签名区：正文最底部，由分页器预留高度，保留在正文流的最后一页
     $html .= '<div class="print-foot-sec" style="page-break-inside:avoid;padding-top:14px">' .
-        '<div style="border-top:1px dashed #000;padding:8px 0 2px;line-height:1.9;font-size:13px">' .
+        '<div style="border-top:1px dashed #000;padding:8px 0 2px;line-height:1.9;font-size:13px;font-weight:700">' .
         '患者/委托人已知晓上述病情介绍与知情同意内容，医生已向我详细解释，' .
         '我已完全理解，愿意承担可能出现的手术/操作风险及并发症，并遵从医嘱，配合治疗。' .
         '</div>' .
