@@ -1,9 +1,10 @@
 <?php
 /**
  * templates.php — 病历模板管理（管理员 / 医生共用）
- * Tab：病历模板（当前实现）/ 知情同意书模板（预留禁用）/ 病历嘱托模板（预留禁用）
+ * Tab：病历模板 / 知情同意书模板 / 病历嘱托模板（预留）
  * 管理员：全部可见，新建仅 hospital/dept 免审，审核操作
  * 医生：个人+已发布全院/科室模板，新建 personal 免审，dept/hospital 进审核
+ * 知情同意书模板内容：{ name: XX, content: 正文 }
  */
 Router::title('模板管理');
 $u = Auth::user();
@@ -155,6 +156,16 @@ function openTplForm(id) {
 
 function buildTplForm(mask, tpl) {
     var isAdmin = <?php echo $isAdmin ? 'true' : 'false'; ?>;
+    var isConsent = TPL_TYPE === 'consent';
+    // 知情同意书模板：名称 + 适用范围 + 知情名称(XX) + 正文（textarea）
+    // 病历模板：名称 + 适用范围 + 结构化 EMR 编辑器
+    var contentField = isConsent
+        ? '<div class="form-group"><label class="form-label">知情同意书名称（XX） <span class="req">*</span></label>' +
+          '<input class="input" id="tfCName" value="' + escHtml((tpl && tpl.content && tpl.content.name) || '') + '" placeholder="如：手术、输血、有创操作"></div>' +
+          '<div class="form-group"><label class="form-label">知情同意内容 <span class="req">*</span></label>' +
+          '<textarea class="textarea" id="tfCContent" rows="14" style="min-height:380px" placeholder="请输入知情同意书正文内容…">' + escHtml((tpl && tpl.content && tpl.content.content) || '') + '</textarea></div>'
+        : '<div class="card-title"><span>📝 模板正文</span></div>' +
+          '<div class="emr-doc"><div class="doc-body" id="templateEditor" style="border:1px solid var(--border);border-radius:8px;padding:14px;min-height:380px"></div></div>';
     var html =
         '<div class="tpl-form">' +
         '  <div class="tpl-left">' +
@@ -169,10 +180,7 @@ function buildTplForm(mask, tpl) {
         '    <div class="form-group" id="tfDeptWrap" style="display:none"><label class="form-label">选择科室（多选）</label>' +
         '      <div id="tfDeptTree"></div></div>' +
         '  </div>' +
-        '  <div class="tpl-right">' +
-        '    <div class="card-title"><span>📝 模板正文</span></div>' +
-        '    <div class="emr-doc"><div class="doc-body" id="templateEditor" style="border:1px solid var(--border);border-radius:8px;padding:14px;min-height:380px"></div></div>' +
-        '  </div>' +
+        '  <div class="tpl-right">' + contentField + '</div>' +
         '</div>';
     mask.querySelector('.modal-body').innerHTML = html;
     // 渲染科室三级树（复用 depttree 组件）
@@ -180,15 +188,17 @@ function buildTplForm(mask, tpl) {
     if (treeBox) {
         Clinic.deptTree.build(treeBox, { selected: (tpl && tpl.dept_ids) || [] });
     }
-    // 渲染编辑器（模板模式：仅保留允许节）
-    var container = document.getElementById('templateEditor');
-    if (container) {
-        try {
-            Clinic.emrEditor.render(container, (tpl && tpl.content) || {}, {
-                templateMode: true,
-                onChange: function () { window.__tplDirty = true; },
-            });
-        } catch (e) { console.error('模板编辑器渲染失败', e); }
+    // 病历模板：渲染结构化编辑器（模板模式）
+    if (!isConsent) {
+        var container = document.getElementById('templateEditor');
+        if (container) {
+            try {
+                Clinic.emrEditor.render(container, (tpl && tpl.content) || {}, {
+                    templateMode: true,
+                    onChange: function () { window.__tplDirty = true; },
+                });
+            } catch (e) { console.error('模板编辑器渲染失败', e); }
+        }
     }
     window.__tplDirty = false;
     onTplScopeChange();
@@ -212,16 +222,26 @@ function saveTplForm(id, origStatus) {
         var checked = document.querySelectorAll('#tfDeptTree .deptChk:checked');
         if (!checked.length) { Clinic.toast.warning('请选择至少一个科室'); return; }
     }
-    var content = {}; try { content = Clinic.emrEditor.collect(); } catch (e) { content = {}; }
-    // 主诉/现病史必填（模板正文底线：模板必须先填好主诉与现病史）
-    var ccSymptom = (content.chief_complaint && (content.chief_complaint.symptom || '').trim()) || '';
-    var piContent = (content.history_present && (content.history_present.content || '').trim()) || '';
-    if (!ccSymptom) { Clinic.toast.warning('主诉为必填项，请填写主要症状'); return; }
-    if (!piContent) { Clinic.toast.warning('现病史为必填项，请填写具体内容'); return; }
+    var isConsent = TPL_TYPE === 'consent';
+    var content = {};
+    if (isConsent) {
+        var cName = (document.getElementById('tfCName') || {}).value || '';
+        var cContent = (document.getElementById('tfCContent') || {}).value || '';
+        if (!cName.trim()) { Clinic.toast.warning('请填写知情同意书名称（如：手术、输血）'); return; }
+        if (!cContent.trim()) { Clinic.toast.warning('请填写知情同意内容'); return; }
+        content = { name: cName.trim(), content: cContent.trim() };
+    } else {
+        try { content = Clinic.emrEditor.collect(); } catch (e) { content = {}; }
+        // 主诉/现病史必填（模板正文底线：模板必须先填好主诉与现病史）
+        var ccSymptom = (content.chief_complaint && (content.chief_complaint.symptom || '').trim()) || '';
+        var piContent = (content.history_present && (content.history_present.content || '').trim()) || '';
+        if (!ccSymptom) { Clinic.toast.warning('主诉为必填项，请填写主要症状'); return; }
+        if (!piContent) { Clinic.toast.warning('现病史为必填项，请填写具体内容'); return; }
+    }
     var deptIds = [];
     document.querySelectorAll('#tfDeptTree .deptChk:checked').forEach(function (c) { deptIds.push(c.value); });
     Clinic.ajax('/api/template', {
-        action: 'save', id: id || 0, title: title, type: 'medical_record',
+        action: 'save', id: id || 0, title: title, type: TPL_TYPE,
         scope: scope, content: JSON.stringify(content), dept_ids: deptIds.join(','),
     }, {
         onSuccess: function (j) {
