@@ -121,12 +121,21 @@ function previewAudit(btn) {
     };
     var modalTitle = titleMap[type] || '预览';
     if (type === 'template') {
-        // 模板预览：复用 emrEditor 渲染（只读）
+        // 模板预览：病历模板 → emrEditor 只读；知情同意书模板 → 名称+正文文本
         Clinic.get('/api/template?action=get&id=' + refId, null, {
             onSuccess: function (j) {
                 var t = j.data && j.data.template;
                 if (!t) { Clinic.toast.warning('模板数据不存在'); return; }
                 var scopeNames = { personal: '个人', dept: '科室', hospital: '全院' };
+                var isConsent = t.type === 'consent';
+                var rightHtml = isConsent
+                    ? '<div class="card-title"><span>📝 知情同意书模板（只读）</span></div>' +
+                      '<div class="form-group"><label class="form-label">知情同意书名称（XX）</label>' +
+                      '<input class="input" value="' + escHtml((t.content && t.content.name) || '') + '" readonly></div>' +
+                      '<div class="form-group"><label class="form-label">知情同意内容</label>' +
+                      '<textarea class="textarea" rows="14" readonly style="min-height:380px">' + escHtml((t.content && t.content.content) || '') + '</textarea></div>'
+                    : '<div class="card-title"><span>📝 模板正文（只读）</span></div>' +
+                      '<div class="emr-doc"><div class="doc-body" id="previewTemplateEditor" style="border:1px solid var(--border);border-radius:8px;padding:14px;min-height:380px"></div></div>';
                 var html = '<div class="tpl-form">' +
                     '<div class="tpl-left">' +
                     '<div class="form-group"><label class="form-label">模板名称</label>' +
@@ -134,14 +143,13 @@ function previewAudit(btn) {
                     '<div class="form-group"><label class="form-label">适用范围</label>' +
                     '<input class="input" value="' + (scopeNames[t.scope] || t.scope) + '" readonly></div>' +
                     '</div>' +
-                    '<div class="tpl-right">' +
-                    '<div class="card-title"><span>📝 模板正文（只读）</span></div>' +
-                    '<div class="emr-doc"><div class="doc-body" id="previewTemplateEditor" style="border:1px solid var(--border);border-radius:8px;padding:14px;min-height:380px"></div></div>' +
-                    '</div></div>';
+                    '<div class="tpl-right">' + rightHtml + '</div></div>';
                 var mask = Clinic.modal.open(html, { title: modalTitle, size: 'modal-xl' });
-                var container = document.getElementById('previewTemplateEditor');
-                if (container && t.content) {
-                    Clinic.emrEditor.render(container, t.content, { templateMode: true, readonly: true });
+                if (!isConsent) {
+                    var container = document.getElementById('previewTemplateEditor');
+                    if (container && t.content) {
+                        Clinic.emrEditor.render(container, t.content, { templateMode: true, readonly: true });
+                    }
                 }
                 makeReadonly(mask);
             },
