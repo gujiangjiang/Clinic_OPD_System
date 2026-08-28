@@ -61,6 +61,8 @@ Clinic.order = (function () {
     var VISIT_ID = 0;
     /** 当前开单类型 */
     var CUR_TYPE = 'lab';
+    /** 检验筛选：all=全部 / single=单个 / group=组合 */
+    var LAB_FILTER = 'all';
     /** 已选项目列表 */
     var SELECTED = [];
     /** 项目目录缓存 */
@@ -94,6 +96,7 @@ Clinic.order = (function () {
         }
         CUR_TYPE = type;
         SELECTED = [];
+        LAB_FILTER = 'all';
         PREV_ITEMS = {};
         GROUP_MEMBERS = {};
         MEMBER_GROUPS = {};
@@ -232,6 +235,7 @@ Clinic.order = (function () {
             '  <div style="width:240px;flex-shrink:0;display:flex;flex-direction:column">' +
             '    <input type="text" class="input" id="orderKw" placeholder="搜索' +
             (isDrug ? '药品名称/厂家简称' : '项目名称') + '" autocomplete="off">' +
+            (CUR_TYPE === 'lab' ? labFilterBar() : '') +
             '    <div class="order-catalog" style="flex:1;max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-top:8px">' +
             rows + '</div>' +
             '    <div class="fs-12 text-muted mt-8" style="line-height:1.6">' + legend + '</div>' +
@@ -254,19 +258,49 @@ Clinic.order = (function () {
     }
 
     /**
+     * 检验筛选徽章：全部 / 单个 / 组合
+     */
+    function labFilterBar() {
+        var opts = [['all', '全部'], ['single', '单个'], ['group', '组合']];
+        return '<div id="labFilterBar" class="flex gap-4" style="margin-top:8px">' +
+            opts.map(function (o) {
+                return '<span class="qp-chip' + (LAB_FILTER === o[0] ? ' active' : '') + '" data-f="' + o[0] + '" style="padding:2px 12px;font-size:12px">' + o[1] + '</span>';
+            }).join('') + '</div>';
+    }
+
+    /** 统一应用目录筛选：搜索关键字 + 检验筛选（单个/组合） */
+    function applyCatalogFilter() {
+        var kw = ((document.getElementById('orderKw') || {}).value || '').toLowerCase();
+        document.querySelectorAll('.order-catalog .dd-item').forEach(function (el) {
+            var matchKw = !kw || el.textContent.toLowerCase().indexOf(kw) !== -1;
+            var matchF = true;
+            if (CUR_TYPE === 'lab') {
+                var isGroup = el.getAttribute('data-is-group') === '1';
+                if (LAB_FILTER === 'single') matchF = !isGroup;
+                else if (LAB_FILTER === 'group') matchF = isGroup;
+            }
+            el.style.display = (matchKw && matchF) ? '' : 'none';
+        });
+    }
+
+    /**
      * 绑定弹窗事件（搜索、选择）
      */
     function bindEvents() {
         var kw = document.getElementById('orderKw');
-        kw.addEventListener('input', function () {
-            var v = kw.value.toLowerCase();
-            document.querySelectorAll('.order-catalog .dd-item').forEach(function (el) {
-                el.style.display = el.textContent.toLowerCase().indexOf(v) !== -1 ? '' : 'none';
-            });
-        });
+        kw.addEventListener('input', applyCatalogFilter);
         document.querySelectorAll('.order-catalog .dd-item').forEach(function (el) {
             el.addEventListener('click', function () {
                 handleAdd(itemFromEl(el), el);
+            });
+        });
+        document.querySelectorAll('#labFilterBar .qp-chip').forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                LAB_FILTER = chip.getAttribute('data-f');
+                document.querySelectorAll('#labFilterBar .qp-chip').forEach(function (c) {
+                    c.classList.toggle('active', c === chip);
+                });
+                applyCatalogFilter();
             });
         });
     }
