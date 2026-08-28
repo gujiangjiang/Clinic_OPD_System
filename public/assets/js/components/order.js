@@ -65,6 +65,8 @@ Clinic.order = (function () {
     var LAB_FILTER = 'single';
     /** 子医嘱面板外部点击监听是否已注册 */
     var SUB_OUTER_BOUND = false;
+    /** 剂量悬浮窗外部点击监听是否已注册 */
+    var DOSE_OUTER_BOUND = false;
     /** 已选项目列表 */
     var SELECTED = [];
     /** 项目目录缓存 */
@@ -334,6 +336,11 @@ Clinic.order = (function () {
             ' data-stock="' + (it.stock || 0) + '"' +
             ' data-nurse-req="' + (it.nurse_required || 0) + '"' +
             ' data-need-skin-test="' + (it.need_skin_test || 0) + '"' +
+            ' data-spec-dose="' + (it.spec_dose || 0) + '"' +
+            ' data-spec-dose-unit="' + (it.spec_dose_unit || '') + '"' +
+            ' data-spec-pack-qty="' + (it.spec_pack_qty || 1) + '"' +
+            ' data-spec-pack-unit="' + (it.spec_pack_unit || '') + '"' +
+            ' data-single-use-qty="' + (it.single_use_qty || 1) + '"' +
             ' data-is-group="0">' +
             '<div class="flex-between">' +
             '  <div class="fw-600 fs-13 ellipsis" style="display:flex;align-items:baseline;min-width:0">' +
@@ -441,6 +448,101 @@ Clinic.order = (function () {
         if (panel) panel.style.display = 'none';
     }
 
+    /* ============ 剂量迷你悬浮窗（结构化规格：固定单位 + 快速选择 + 自动数量） ============ */
+
+    /** 取目标对象：si 未传/为负 = 主药；否则为子医嘱 */
+    function doseTarget(idx, si) {
+        var s = SELECTED[idx];
+        if (!s) return null;
+        if (si === undefined || si === null || si < 0) return s;
+        return s.sub_items[si] || null;
+    }
+
+    function openDosePop(idx, btn, si) {
+        var o = doseTarget(idx, si);
+        if (!o) return;
+        var rect = btn.getBoundingClientRect();
+        var panel = document.getElementById('rxDosePop');
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.id = 'rxDosePop';
+            panel.style.cssText = 'position:fixed;z-index:3100;width:224px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);overflow:hidden';
+            document.body.appendChild(panel);
+            if (!DOSE_OUTER_BOUND) {
+                DOSE_OUTER_BOUND = true;
+                document.addEventListener('mousedown', function (e) {
+                    var p = document.getElementById('rxDosePop');
+                    if (p && p.style.display !== 'none' && !p.contains(e.target)) p.style.display = 'none';
+                }, true);
+            }
+        }
+        panel.innerHTML =
+            '<div style="padding:10px">' +
+            '  <div class="fs-13 fw-600 mb-6">单次剂量</div>' +
+            '  <div class="flex gap-4" style="align-items:center">' +
+            '    <input class="input" type="number" step="any" min="0" id="rxDoseVal" style="width:84px;padding:4px 8px;min-height:28px" value="' + (o.dose === '' || o.dose == null ? '' : o.dose) + '">' +
+            '    <span class="fs-13 fw-600" style="color:var(--primary)">' + Clinic.escHtml(o.dose_unit || '') + '</span>' +
+            '  </div>' +
+            '  <div class="fs-12 text-muted mt-4 mb-4">快速选择（单位：' + Clinic.escHtml(o.spec_pack_unit || '') + '）</div>' +
+            '  <div class="flex gap-4" style="flex-wrap:wrap">' +
+            [0.25, 0.5, 1, 1.5, 2, 3, 4, 5].map(function (c) {
+                return '<button type="button" class="btn btn-outline btn-sm" style="padding:2px 10px" ' +
+                    'onclick="Clinic.order.doseQuick(' + idx + ',' + c + ',' + (si === undefined ? 'null' : si) + ')">' + c + '</button>';
+            }).join('') +
+            '  </div>' +
+            '  <div class="fs-12 text-success mt-4" id="rxDoseHint"></div>' +
+            '  <div class="flex gap-8 mt-4">' +
+            '    <button type="button" class="btn btn-outline btn-sm" style="flex:1" onclick="Clinic.order.closeDosePop()">取消</button>' +
+            '    <button type="button" class="btn btn-primary btn-sm" style="flex:1" onclick="Clinic.order.applyDose(' + idx + ',' + (si === undefined ? 'null' : si) + ')">确定</button>' +
+            '  </div>' +
+            '</div>';
+        panel.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 232)) + 'px';
+        panel.style.top = (rect.bottom + 4) + 'px';
+        panel.style.display = 'block';
+        panel.__idx = idx;
+        panel.__si = (si === undefined ? null : si);
+        var val = document.getElementById('rxDoseVal');
+        val.addEventListener('input', function () {
+            var o2 = doseTarget(idx, panel.__si);
+            var hint = document.getElementById('rxDoseHint');
+            var v = parseFloat(val.value);
+            if (hint && o2 && v > 0 && o2.spec_dose > 0) {
+                hint.textContent = '需 ' + Math.max(1, Math.ceil(v / o2.spec_dose)) + ' ' + (o2.spec_pack_unit || '');
+            } else if (hint) { hint.textContent = ''; }
+        });
+        val.focus();
+        val.select();
+    }
+
+    /** 快速选择：剂量 = 数量×单剂量值，数量 = 该数量向上取整，立即应用 */
+    function doseQuick(idx, count, si) {
+        var o = doseTarget(idx, si);
+        if (!o || !(o.spec_dose > 0)) return;
+        o.dose = Math.round(count * o.spec_dose * 100) / 100;
+        o.quantity = Math.max(1, Math.ceil(count));
+        closeDosePop();
+        renderSelected();
+    }
+
+    /** 确定：读取输入值，数量 = 剂量/单剂量值 向上取整 */
+    function applyDose(idx, si) {
+        var o = doseTarget(idx, si);
+        if (!o) return;
+        var val = parseFloat((document.getElementById('rxDoseVal') || {}).value);
+        if (!(val > 0)) { Clinic.toast.warning('请填写剂量'); return; }
+        o.dose = Math.round(val * 100) / 100;
+        if (o.spec_dose > 0) {
+            o.quantity = Math.max(1, Math.ceil(val / o.spec_dose));
+        }
+        closeDosePop();
+        renderSelected();
+    }
+
+    function closeDosePop() {
+        var p = document.getElementById('rxDosePop');
+        if (p) p.style.display = 'none';
+    }
+
     /** 子医嘱下拉选中：追加到对应主药的 sub_items */
     function pickSub(idx, el) {
         var it = itemFromEl(el);
@@ -451,11 +553,12 @@ Clinic.order = (function () {
             closeSubDrop();
             return;
         }
-        s.sub_items.push({
+        var sub = initDoseFields(it, {
             id: it.id, name: it.name, price: it.price, quantity: 1,
             dose: it.dose, frequency: '', route: '',
             spec: it.spec, unit_name: it.unit_name, company_short: it.company_short,
         });
+        s.sub_items.push(sub);
         closeSubDrop();
         renderSelected();
     }
@@ -514,6 +617,11 @@ Clinic.order = (function () {
             nurse_req: parseInt(el.getAttribute('data-nurse-req')) || 0,
             need_skin_test: parseInt(el.getAttribute('data-need-skin-test'), 10) || 0,
             is_group: parseInt(el.getAttribute('data-is-group')) === 1,
+            spec_dose: parseFloat(el.getAttribute('data-spec-dose')) || 0,
+            spec_dose_unit: el.getAttribute('data-spec-dose-unit') || '',
+            spec_pack_qty: parseInt(el.getAttribute('data-spec-pack-qty')) || 1,
+            spec_pack_unit: el.getAttribute('data-spec-pack-unit') || '',
+            single_use_qty: parseFloat(el.getAttribute('data-single-use-qty')) || 1,
         };
     }
 
@@ -600,6 +708,32 @@ Clinic.order = (function () {
     }
 
     /**
+     * 结构化剂量初始化：dose=单次数量×单剂量值（显示如 1g/100ml），
+     * quantity=单次数量（向上取整，最小1）；无结构化规格则回退文本剂量。
+     */
+    function initDoseFields(it, item) {
+        var sd = parseFloat(it.spec_dose) || 0;
+        var uq = Math.max(1, parseFloat(it.single_use_qty) || 1);
+        item.dose_unit = it.spec_dose_unit || '';
+        item.spec_dose = sd;
+        item.spec_pack_unit = it.spec_pack_unit || '';
+        if (sd > 0) {
+            item.dose = Math.round(uq * sd * 100) / 100;
+            item.quantity = Math.max(1, Math.ceil(uq));
+        } else {
+            item.dose = it.dose || '';
+            item.quantity = 1;
+        }
+        return item;
+    }
+
+    /** 剂量展示串：1g / 110ml / 2（无单位时仅数值） */
+    function doseDisplay(o) {
+        var v = (o.dose === '' || o.dose == null) ? '' : String(o.dose);
+        return v + (o.dose_unit || '');
+    }
+
+    /**
      * 加入已选列表
      */
     function pushItem(it, el) {
@@ -612,7 +746,7 @@ Clinic.order = (function () {
                     if (skinEl) skinEl.style.opacity = '';
                     return;
                 }
-                SELECTED.push({
+                var item = initDoseFields(it, {
                     id: it.id,
                     name: it.name,
                     price: it.price,
@@ -630,12 +764,13 @@ Clinic.order = (function () {
                     sub_items: [],
                     skin_test: choice,   // 'yes' 或 'no'
                 });
+                SELECTED.push(item);
                 if (skinEl) skinEl.style.opacity = '.5';
                 renderSelected();
             });
             return;
         }
-        SELECTED.push({
+        SELECTED.push(initDoseFields(it, {
             id: it.id,
             name: it.name,
             price: it.price,
@@ -651,7 +786,7 @@ Clinic.order = (function () {
             is_group: !!it.is_group,
             quantity: 1,
             sub_items: [],
-        });
+        }));
         if (el) el.style.opacity = '.5';
         renderSelected();
     }
@@ -820,9 +955,14 @@ Clinic.order = (function () {
         if (s.route && routeOpts && RX_ROUTES.indexOf(s.route) === -1) {
             routeOpts = '<option value="' + s.route + '" selected>' + s.route + '</option>' + routeOpts;
         }
+        // 剂量：结构化规格 → 只读可点击按钮（弹迷你悬浮窗）；否则回退文本输入
+        var doseArea = (s.spec_dose > 0)
+            ? '<button type="button" class="btn btn-outline btn-sm" style="min-height:28px;font-weight:600" ' +
+              'onclick="Clinic.order.openDosePop(' + i + ',this)" title="点击设置剂量（自动计算数量）">' + Clinic.escHtml(doseDisplay(s)) + ' ▾</button>'
+            : '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" ' +
+              'value="' + (s.dose || '') + '" placeholder="剂量" onchange="Clinic.order.setField(' + i + ',\'dose\',this.value)">';
         return '<div class="flex gap-8 mt-4" style="flex-wrap:wrap">' +
-            '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" ' +
-            'value="' + (s.dose || '') + '" placeholder="剂量" onchange="Clinic.order.setField(' + i + ',\'dose\',this.value)">' +
+            doseArea +
             (freqOpts ? '<select class="select" style="width:112px;padding:4px 8px;min-height:28px;font-size:13px" ' +
                 'onchange="Clinic.order.setField(' + i + ',\'frequency\',this.value)">' + freqOpts + '</select>'
                 : '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" ' +
@@ -847,13 +987,17 @@ Clinic.order = (function () {
             s.sub_items.map(function (sub, si) {
                 // 单个子医嘱即末项 → └；多个：首 ┌ / 中 ├ / 末 └
                 var branch = si === n - 1 ? '└' : (si === 0 ? '┌' : '├');
+                // 剂量：结构化规格 → 只读可点击按钮；否则文本输入
+                var subDose = (sub.spec_dose > 0)
+                    ? '<button type="button" class="btn btn-outline btn-sm" style="padding:1px 8px;min-height:22px;font-weight:600" ' +
+                      'onclick="Clinic.order.openDosePop(' + i + ',this,' + si + ')" title="点击设置剂量（自动计算数量）">' + Clinic.escHtml(doseDisplay(sub)) + ' ▾</button>'
+                    : '<input type="text" class="input" style="width:70px;padding:2px 6px;min-height:22px;font-size:12px" ' +
+                      'value="' + (sub.dose || '') + '" placeholder="剂量" onchange="Clinic.order.setSubField(' + i + ',' + si + ',\'dose\',this.value)">';
                 return '<div class="flex-between fs-13" style="padding:2px 0;align-items:center">' +
                     '<span style="min-width:0;flex:1;font-family:Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                     branch + ' ' + sub.name +
                     (sub.spec ? ' <span class="text-muted">' + sub.spec + '</span>' : '') +
-                    ' ｜ 剂量：<input type="text" class="input" style="width:70px;padding:2px 6px;min-height:22px;font-size:12px" ' +
-                    'value="' + (sub.dose || '') + '" placeholder="剂量" ' +
-                    'onchange="Clinic.order.setSubField(' + i + ',' + si + ',\'dose\',this.value)">' +
+                    ' ｜ ' + subDose +
                     '</span>' +
                     '<span class="flex gap-4" style="align-items:center;flex-shrink:0;margin-left:8px">' +
                     '<span class="fs-12 text-muted">¥' + ((sub.price || 0) * (sub.quantity || 1)).toFixed(2) + '</span>' +
@@ -894,7 +1038,7 @@ Clinic.order = (function () {
             flat.push({
                 item_id: s.id, item_name: s.name, price: s.price, quantity: s.quantity,
                 spec: s.spec, unit_name: s.unit_name, company_short: s.company_short,
-                dose: s.dose, frequency: s.frequency, route: s.route,
+                dose: s.dose, dose_unit: s.dose_unit || '', frequency: s.frequency, route: s.route,
                 notes: '', sub_of: 0, sort: idx,
                 need_nurse: ((CUR_TYPE === 'procedure' || CUR_TYPE === 'prescription') && s.nurse_required) ? 1 : 0,
             });
@@ -904,7 +1048,7 @@ Clinic.order = (function () {
                 flat.push({
                     item_id: sub.id || 0, item_name: sub.name, price: sub.price || 0,
                     quantity: sub.quantity || 1,
-                    dose: sub.dose, frequency: '', route: '',
+                    dose: sub.dose, dose_unit: sub.dose_unit || '', frequency: '', route: '',
                     spec: sub.spec || '', unit_name: sub.unit_name || '',
                     company_short: sub.company_short || '', notes: '',
                     sub_of: idx + 1, sort: si,
@@ -1029,6 +1173,7 @@ Clinic.order = (function () {
         setField: setField, setRoute: setRoute, removeSub: removeSub,
         setSubField: setSubField, changeSubQty: changeSubQty, setSubQty: setSubQty,
         setNurse: setNurse, openSubDrop: openSubDrop, closeSubDrop: closeSubDrop,
+        openDosePop: openDosePop, doseQuick: doseQuick, applyDose: applyDose, closeDosePop: closeDosePop,
         confirmPrev: confirmPrev,
     };
 })();

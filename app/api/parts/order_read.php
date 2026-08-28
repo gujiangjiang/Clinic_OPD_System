@@ -66,6 +66,12 @@ function order_part_read($action) {
                     'single_dose' => $r['single_dose'], 'frequency_name' => $r['frequency_name'],
                     'route_name' => $r['route_name'], 'route_nurse_required' => (int)$r['need_nurse'],
                     'stock' => (int)$r['qty'], 'nurse_required' => (int)$r['need_nurse'],
+                    // 规格结构化：单剂量值/单位 + 包装数量/单位 + 单次使用数量
+                    'spec_dose' => (float)$r['spec_dose'],
+                    'spec_dose_unit' => $r['spec_dose_unit'],
+                    'spec_pack_qty' => (int)$r['spec_pack_qty'],
+                    'spec_pack_unit' => $r['spec_pack_unit'],
+                    'single_use_qty' => (float)$r['single_use_qty'],
                     // 皮试联动：开方时前端据此弹确认框并标注
                     'need_skin_test' => (int)(isset($r['need_skin_test']) ? $r['need_skin_test'] : 0),
                     'skin_test_item_id' => (int)(isset($r['skin_test_item_id']) ? $r['skin_test_item_id'] : 0),

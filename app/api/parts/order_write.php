@@ -144,6 +144,31 @@ function order_part_write($action) {
             if ($orderType === 'prescription' && $skinChoice !== '') {
                 $rxName .= $skinChoice === 'yes' ? '(需要皮试)' : '(无需皮试)';
             }
+            // ===== 结构化剂量：单次剂量展示串 + 数量不足校验（主药/子医嘱统一） =====
+            // 所需数量 = 剂量/单剂量值 向上取整；数量不足直接拦截（医生可手动改数量，
+            // 但不得低于该剂量所需），与前端自动计算逻辑一致（逻辑闭环）。
+            $singleDoseShow = '';
+            $needQty = 0;
+            if ($orderType === 'prescription' && $itemId > 0 && isset($drug)) {
+                $sdose = (float)$drug['spec_dose'];
+                if ($sdose > 0) {
+                    $doseVal = (float)(isset($it['dose']) ? $it['dose'] : 0);
+                    $doseUnit = trim((string)(isset($it['dose_unit']) ? $it['dose_unit'] : ''));
+                    $doseVal = round($doseVal, 4);
+                    if ($doseVal > 0) {
+                        $needQty = max(1, (int)ceil($doseVal / $sdose));
+                        if ((int)$qty < $needQty) {
+                            json_fail('【' . $drug['name'] . '】数量不足：该剂量需 ' . $needQty . ' ' .
+                                ($drug['spec_pack_unit'] !== '' && $drug['spec_pack_unit'] !== null ? $drug['spec_pack_unit'] : '个') . '，请修改数量');
+                        }
+                        // 单次剂量展示串：如 1g / 110ml / 0.7g
+                        $singleDoseShow = rtrim(rtrim(number_format($doseVal, 4, '.', ''), '0'), '.') . $doseUnit;
+                    }
+                }
+            }
+            if ($singleDoseShow === '') {
+                $singleDoseShow = isset($it['dose']) ? (string)$it['dose'] : '';
+            }
             $orderItems[] = array(
                 'item_type' => $orderType, 'item_id' => $itemId,
                 'item_name' => $rxName,
@@ -151,8 +176,7 @@ function order_part_write($action) {
                 'unit_name' => isset($it['unit_name']) ? $it['unit_name'] : '',
                 'company_short' => isset($it['company_short']) ? $it['company_short'] : '',
                 'price' => $price, 'quantity' => $qty,
-                'single_dose' => isset($it['dose']) ? $it['dose'] : '',
-                'frequency_name' => isset($it['frequency']) ? $it['frequency'] : '',
+                'single_dose' => $singleDoseShow, 'frequency_name' => isset($it['frequency']) ? $it['frequency'] : '',
                 'route_name' => isset($it['route']) ? $it['route'] : '',
                 'need_nurse' => $needNurse, 'sub_of' => $subOf,
             );
