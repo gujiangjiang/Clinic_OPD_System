@@ -18,7 +18,7 @@ function pt_order($order, $items, $title) {
     if ($pr && !empty($pr['emr_data'])) {
         $emr = json_decode($pr['emr_data'], true);
         if (is_array($emr) && !empty($emr['diagnoses'])) {
-            $diagText = emr_diag_text($emr['diagnoses']);
+            $diagText = emr_diag_text($emr['diagnoses'], false);   // 临床诊断不显示 ICD 编码
         }
     }
     if ($diagText === '') {

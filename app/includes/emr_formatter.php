@@ -138,8 +138,8 @@ function emr_pe_text($pe) {
     return $out ? implode('，', $out) : '-';
 }
 
-/** 初步诊断：编码 部位 名称（备注）疑似?，多诊断逗号分隔 */
-function emr_diag_text($diagnoses) {
+/** 初步诊断：编码 部位 名称（备注）疑似?，多诊断逗号分隔；$withCode=false 时不带 ICD 编码 */
+function emr_diag_text($diagnoses, $withCode = true) {
     if (!is_array($diagnoses)) return '';
     $out = array();
     foreach ($diagnoses as $dg) {
@@ -150,7 +150,7 @@ function emr_diag_text($diagnoses) {
         $note = isset($dg['note']) ? $dg['note'] : '';
         $sus = isset($dg['suspected']) && $dg['suspected'] === '是' ? '?' : '';
         $s = ($part !== '' ? $part : '') . $name . ($note !== '' ? '（' . $note . '）' : '') . $sus;
-        if (isset($dg['code']) && $dg['code'] !== '') $s = $dg['code'] . ' ' . $s;
+        if ($withCode && isset($dg['code']) && $dg['code'] !== '') $s = $dg['code'] . ' ' . $s;
         $out[] = $s;
     }
     return implode('，', $out);
