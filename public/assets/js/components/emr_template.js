@@ -107,13 +107,13 @@ Clinic.emr.template = (function () {
                 var pop2 = document.getElementById('tplPick');
                 if (pop2) {
                     pop2.innerHTML =
-                        '<div class="flex gap-4" style="margin-bottom:6px;flex-wrap:wrap">' +
+                        '<input class="input tree-box-search" id="tplPickKw" placeholder="🔍 搜索病历模板" autocomplete="off">' +
+                        '<div class="flex gap-4" style="margin:6px 0;flex-wrap:wrap">' +
                         '  <span class="qp-chip active" data-scope="">全部</span>' +
                         '  <span class="qp-chip" data-scope="hospital">全院</span>' +
                         '  <span class="qp-chip" data-scope="dept">科室</span>' +
                         '  <span class="qp-chip" data-scope="personal">个人</span>' +
                         '</div>' +
-                        '<input class="input tree-box-search" id="tplPickKw" placeholder="🔍 搜索病历模板" autocomplete="off">' +
                         '<div class="send-tree" id="tplPickList" style="max-height:320px"></div>';
                     renderItems();
                     // 绑定范围筛选徽章（互斥）
