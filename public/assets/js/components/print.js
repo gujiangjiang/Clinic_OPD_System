@@ -201,7 +201,7 @@ Clinic.print = (function () {
 
             var MM = 3.779527559;
 
-            var headRe = /^(print-hosp|print-sub|print-title-line|print-header|print-record-barcode|print-line|print-info-grid|print-info-lines)$/;
+            var headRe = /^(print-hosp|print-sub|print-title-line|print-header|print-record-barcode|print-line|print-info-grid|print-info-lines|print-head-sec)$/;
             // 页脚组类名集合：签名/末尾横线/时间行 + 提示词（沉底到医生签名上方，
             // 不紧跟表格/列表）。匹配按 class 逐个判断，兼容多类名节点。
             var footSet = ['print-record-sign', 'print-record-foot', 'print-line', 'print-note', 'print-note-tip'];

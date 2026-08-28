@@ -156,7 +156,29 @@ switch ($action) {
         $row = get_visit_row($c['visit_id']);
         if (!$row) json_fail('就诊记录不存在');
         $c['flow_no'] = $row['visit']['flow_no'];
-        json_ok(array('html' => pt_consent($row['visit'], $row['patient'], $c, $c['doctor_name'])));
+        $visit = $row['visit'];
+        $visit['name'] = $row['patient']['name'];
+        $visit['gender'] = $row['patient']['gender'];
+        $visit['age'] = $row['patient']['age'];
+        $visit['birth_date'] = $row['patient']['birth_date'];
+        $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
+        $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
+        // 病情介绍：取该就诊首诊文书（结构化 emr 投影），无则回退旧 records 镜像
+        $record = array();
+        $pr = DB::one('medical', "SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC LIMIT 1", array($c['visit_id']));
+        if ($pr) {
+            $emr = json_decode((string)$pr['emr_data'], true);
+            if (is_array($emr)) {
+                $record['chief_complaint'] = emr_cc_text(isset($emr['chief_complaint']) ? $emr['chief_complaint'] : array());
+                $record['present_illness'] = emr_pi_text(isset($emr['history_present']) ? $emr['history_present'] : array());
+                $record['initial_diagnosis'] = emr_diag_text(isset($emr['diagnoses']) ? $emr['diagnoses'] : array());
+            }
+        }
+        if (!$record) {
+            $mirror = DB::one('medical', 'SELECT chief_complaint, present_illness, initial_diagnosis FROM records WHERE visit_id=? ORDER BY id ASC LIMIT 1', array($c['visit_id']));
+            if ($mirror) $record = $mirror;
+        }
+        json_ok(array('html' => pt_consent($visit, $row['patient'], $c, $c['doctor_name'], $record)));
         break;
 
     /* ---------------- 检验/检查报告 ---------------- */
