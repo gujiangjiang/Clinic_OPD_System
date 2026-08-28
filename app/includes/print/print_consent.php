@@ -1,8 +1,8 @@
 <?php
 /** print/print_consent.php — 统一打印模板：知情同意书（A5）
  *  头部（每页重复）：医院抬头 + 第二名称 + XX知情同意书 + 患者信息 +
- *                   病情介绍（主诉/现病史/初步诊断）+ 「请仔细阅读以下内容：」
- *  中部：知情同意正文（唯一可变区，可跨页接续）
+ *                   病情介绍（主诉/初步诊断）+ 「请仔细阅读以下内容：」
+ *  中部：知情同意正文（唯一可变区，按行分节点，跨页接续）
  *  底部（每页重复）：虚线告知提示 + 双列签名（患者/委托人 + 医生） + 页脚 */
 
 function pt_consent($visit, $patient, $consent, $doctorName, $record) {
@@ -29,18 +29,25 @@ function pt_consent($visit, $patient, $consent, $doctorName, $record) {
         '</div></div>';
     $html .= '<div class="print-line"></div>';
 
-    // 病情介绍（主诉/现病史/初步诊断）
-    $html .= '<div class="print-head-sec">';
+    // 病情介绍（主诉 / 初步诊断）
     $record = is_array($record) ? $record : array();
+    $html .= '<div class="print-head-sec">';
     $html .= pt_sec('主诉', nl2br(e(isset($record['chief_complaint']) ? strip_tags($record['chief_complaint']) : '')));
-    $html .= pt_sec('现病史', nl2br(e(isset($record['present_illness']) ? strip_tags($record['present_illness']) : '')));
     $html .= pt_sec('初步诊断', e(isset($record['initial_diagnosis']) ? $record['initial_diagnosis'] : ''));
     $html .= '</div>';
-    // 请仔细阅读以下内容
-    $html .= '<div class="print-head-sec" style="font-weight:700;padding:6px 0">请仔细阅读以下内容：</div>';
+    // 初步诊断下方与「请仔细阅读以下内容」之间虚线分隔
+    $html .= '<div style="border-top:1px dashed #000;margin:8px 0"></div>';
+    $html .= '<div class="print-head-sec" style="font-weight:700;padding:4px 0">请仔细阅读以下内容：</div>';
 
-    // ===== 中部：知情同意正文（唯一可变区，可跨页接续） =====
-    $html .= '<div style="white-space:pre-wrap;line-height:1.8;font-size:14px;padding:8px 0">' . e($consent['content']) . '</div>';
+    // ===== 中部：知情同意正文（唯一可变区，按行分节点供跨页接续） =====
+    $lines = preg_split('/\r\n|\r|\n/', (string)$consent['content']);
+    foreach ($lines as $ln) {
+        if (trim((string)$ln) === '') {
+            $html .= '<div style="height:8px"></div>';
+        } else {
+            $html .= '<div style="line-height:1.9;font-size:14px">' . e($ln) . '</div>';
+        }
+    }
 
     // ===== 底部（每页重复） =====
     // 虚线告知提示（笼统通用，不限定内容）
@@ -48,14 +55,13 @@ function pt_consent($visit, $patient, $consent, $doctorName, $record) {
         '患者/委托人已知晓上述病情介绍与知情同意内容，医生已向我详细解释，' .
         '我已完全理解，愿意承担可能出现的手术/操作风险及并发症，并遵从医嘱，配合治疗。' .
         '</div>';
-    // 双列签名
-    $html .= '<div class="print-record-sign" style="display:flex;justify-content:space-between;padding:10px 0">' .
-        '<div style="flex:1">患者/委托人签名：<span style="display:inline-block;width:100px;border-bottom:1px solid #000">&nbsp;</span></div>' .
-        '<div style="flex:1;text-align:right">签名时间：<span style="display:inline-block;width:90px;border-bottom:1px solid #000">&nbsp;</span></div>' .
-        '</div>';
-    $html .= '<div class="print-record-sign" style="display:flex;justify-content:space-between;padding:2px 0 10px">' .
-        '<div style="flex:1">医生签名：' . e($doctorName) . '</div>' .
-        '<div style="flex:1;text-align:right">签名时间：' . now_str() . '</div>' .
+    // 双列签名（中间虚拟线分隔，左右各纵向排列）
+    $html .= '<div class="print-record-sign" style="display:flex;padding:14px 0 4px">' .
+        '<div style="flex:1">患者/委托人签名：<span style="display:inline-block;width:90px;border-bottom:1px solid #000">&nbsp;</span>' .
+        '<div style="margin-top:8px">签名时间：<span style="display:inline-block;width:110px;border-bottom:1px solid #000">&nbsp;</span></div></div>' .
+        '<div style="width:0;border-left:1px solid #000;margin:0 14px"></div>' .
+        '<div style="flex:1">医生签名：' . e($doctorName) .
+        '<div style="margin-top:8px">签名时间：' . now_str() . '</div></div>' .
         '</div>';
     // 页脚（左下记录时间、右下打印时间）
     $html .= '<div class="print-line"></div>';

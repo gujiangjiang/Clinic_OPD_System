@@ -66,18 +66,22 @@ Clinic.emr.consent = (function () {
 
     /** 进入编辑态：内容可编辑，脚部 取消/保存 */
     function _enterEditState() {
-        var ta = _mask.querySelector('#ctContent');
-        if (ta) { ta.readOnly = false; ta.removeAttribute('disabled'); }
+        ['#ctName', '#ctContent'].forEach(function (sel) {
+            var el = _mask.querySelector(sel);
+            if (el) { el.disabled = false; el.readOnly = false; }
+        });
         var foot = _mask.querySelector('.modal-foot');
         foot.innerHTML =
             '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
             '<button type="button" class="btn btn-primary" onclick="Clinic.emr.consent.save()">保存</button>';
     }
 
-    /** 进入查看态：内容只读，脚部 取消/编辑/打印 */
+    /** 进入查看态：内容只读（disabled 不可点击），脚部 取消/编辑/打印 */
     function _enterViewState() {
-        var ta = _mask.querySelector('#ctContent');
-        if (ta) { ta.readOnly = true; ta.setAttribute('disabled', ''); }
+        ['#ctName', '#ctContent'].forEach(function (sel) {
+            var el = _mask.querySelector(sel);
+            if (el) { el.disabled = true; el.readOnly = true; }
+        });
         var foot = _mask.querySelector('.modal-foot');
         foot.innerHTML =
             '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
@@ -129,11 +133,10 @@ Clinic.emr.consent = (function () {
                     var delBtn = (c.doctor_id && c.doctor_id === myUid)
                         ? '<span class="ena-del" title="删除" onclick="event.stopPropagation();Clinic.emr.consent.del(' + c.id + ')">🗑️</span>'
                         : '';
-                    return '<div class="ena-item" style="cursor:pointer" title="点击编辑" onclick="Clinic.emr.consent.edit(' + c.id + ')">' +
+                    return '<div class="ena-item" style="cursor:pointer" title="点击查看" onclick="Clinic.emr.consent.edit(' + c.id + ')">' +
                         '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                         escHtml(c.title) + '</span>' +
                         '<span class="text-muted" style="flex-shrink:0;font-size:11px">' + escHtml(c.doctor_name) + '</span>' +
-                        '<span class="ena-del" title="打印" onclick="event.stopPropagation();Clinic.emr.consent.print(' + c.id + ')">🖨️</span>' +
                         delBtn +
                         '</div>';
                 }).join('') : '<div class="ena-empty">暂无知情同意书</div>';
