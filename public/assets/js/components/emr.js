@@ -84,6 +84,8 @@ Clinic.emr = (function () {
                 // 页眉/主体分离：页眉公共可交互；他人文书只读段在
                 // renderEmrCard 内部渲染（前序在上、后序在下）
                 renderEmrCard(j.data);
+                // 知情同意书列表渲染（emr_consent.js）
+                if (Clinic.emr.consent) Clinic.emr.consent.renderList();
                 // 前序医生诊断上下文注入（诊断模态框跨医生引用查重用）
                 injectPrevDiagContext();
                 bindItemTokenDelegate();
@@ -1761,8 +1763,13 @@ Clinic.emr = (function () {
                     }
                 })();
                 return;
+            case 'consent':
+                // 知情同意书：打开模板选择框 → 编辑 → 保存/打印（emr_consent.js）
+                if (Clinic.emr.consent) { Clinic.emr.consent.openPicker(ev); }
+                else { Clinic.toast.info('知情同意书模块未加载'); }
+                return;
             default:
-                Clinic.toast.info('添加知情同意书功能建设中，敬请期待');
+                Clinic.toast.info('该功能建设中，敬请期待');
         }
     };
 

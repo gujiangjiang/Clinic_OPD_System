@@ -258,6 +258,7 @@ class Layout {
             <script src="/assets/js/components/emr_patient.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/emr_orders.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/emr_segments.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/emr_consent.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/historypanel.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/queuepanel.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/patient.js?v=' . APP_VERSION . '"></script>
