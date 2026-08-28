@@ -297,36 +297,117 @@ Clinic.print = (function () {
                 // 字体度量微差），叠加 14px 安全余量——预览与打印完全一致
                 var availH = Math.floor(184 * MM) - headH - footH - 14;
 
-                // 逐节点测高：offsetHeight 叠加上下外边距（略偏保守更安全）
-                var heights = [];
+                // ---- 分离「底部签名区」（print-foot-sec）与正文流 ----
+                // 签名区不参与正文流分页，随正文流保留在最后一页；
+                // 为其预留高度，保证不被挤到单独的下一页。
+                var bodyNodes = [];
+                var footSecNodes = [];
                 contentNodes.forEach(function (n) {
-                    meas.appendChild(n);
-                    var cs = window.getComputedStyle(n);
-                    var h = n.offsetHeight +
-                        (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
-                    heights.push(h);
-                    meas.removeChild(n);
+                    if ((' ' + ((n.className || '') + '').trim() + ' ').indexOf(' print-foot-sec ') !== -1) {
+                        footSecNodes.push(n);
+                    } else {
+                        bodyNodes.push(n);
+                    }
                 });
 
-                // ---- 分配：整节点原子分页，不拆行 ----
-                // 单节点超整页版心时标记 a5-overflow 兜底，不丢内容；
-                // 首页用完整页眉，后续页有精简版则用精简版。
+                function measureHeight(node) {
+                    meas.appendChild(node);
+                    var cs = window.getComputedStyle(node);
+                    var h = node.offsetHeight +
+                        (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+                    meas.removeChild(node);
+                    return h;
+                }
+
+                function isSplittable(n) {
+                    return (' ' + ((n.className || '') + '').trim() + ' ').indexOf(' print-split ') !== -1;
+                }
+
+                function splitTextNode(node, availLeft) {
+                    var full = node.textContent || '';
+                    if (!full) return null;
+                    var tpl = node.cloneNode(false);
+                    var measLen = function (len) {
+                        var c = tpl.cloneNode(false);
+                        c.textContent = full.slice(0, len);
+                        meas.appendChild(c);
+                        var cs = window.getComputedStyle(c);
+                        var h = c.offsetHeight +
+                            (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+                        meas.removeChild(c);
+                        return h;
+                    };
+                    var lo = 0, hi = full.length;
+                    while (lo < hi) {
+                        var mid = Math.ceil((lo + hi) / 2);
+                        if (measLen(mid) <= availLeft) { lo = mid; } else { hi = mid - 1; }
+                    }
+                    if (lo <= 0 || lo >= full.length) return null;
+                    var cut = lo;
+                    while (cut > 0 && !/\s/.test(full[cut - 1])) cut--;
+                    if (cut <= 0 || cut < lo * 0.5) cut = lo;
+                    var fit = node.cloneNode(false);
+                    fit.textContent = full.slice(0, cut);
+                    var rest = node.cloneNode(false);
+                    rest.textContent = full.slice(cut);
+                    if (!rest.textContent) return null;
+                    return { fit: fit, fitH: measLen(cut), rest: rest };
+                }
+
+                // ---- 底部签名区高度（供末页腾位判断） ----
+                var footSecH = 0;
+                footSecNodes.forEach(function (n) { footSecH += measureHeight(n); });
+
+                // ---- 正文流分配：可拆分文本自动续页，整页填满不预留 ----
                 var pages = [];
                 var used = 0;
-                contentNodes.forEach(function (n, i) {
-                    var h = heights[i] || 0;
-                    if (!pages.length || (used + h > availH && pages[pages.length - 1].body.length)) {
-                        pages.push({
-                            head: (pages.length && compactHeadNodes) ? compactHeadNodes : headNodes,
-                            body: [], foot: footNodes, over: false
-                        });
-                        used = 0;
-                    }
+                function ensurePage() {
+                    pages.push({
+                        head: (pages.length && compactHeadNodes) ? compactHeadNodes : headNodes,
+                        body: [], foot: footNodes, over: false
+                    });
+                    used = 0;
+                }
+                if (bodyNodes.length) ensurePage();
+                var bi = 0;
+                while (bi < bodyNodes.length) {
                     var cur = pages[pages.length - 1];
-                    if (h > availH) cur.over = true;
-                    cur.body.push(n);
-                    used += h;
-                });
+                    var n = bodyNodes[bi];
+                    var h = measureHeight(n);
+                    if (used + h <= availH) {
+                        cur.body.push(n); used += h; bi++;
+                        continue;
+                    }
+                    if (isSplittable(n)) {
+                        var availLeft = availH - used;
+                        if (availLeft > 24) {
+                            var res = splitTextNode(n, availLeft);
+                            if (res && res.fitH > 0) {
+                                cur.body.push(res.fit); used += res.fitH;
+                                bodyNodes[bi] = res.rest;
+                                ensurePage();
+                                continue;
+                            }
+                        }
+                    }
+                    if (h > availH) {
+                        cur.over = true;
+                        cur.body.push(n); used += h; bi++;
+                        continue;
+                    }
+                    ensurePage();
+                }
+
+                // ---- 底部签名区：追加到正文流的最后一页底部 ----
+                // 不预留、不重排——正文先整页填满，签名直接追加到末页底部。
+                // 若末页正文已满（签名放不下），该页标记 a5-overflow 自动扩展
+                // （不额外加页、不留空白、签名不落单）。
+                if (footSecNodes.length) {
+                    if (!pages.length) ensurePage();
+                    var lastPage = pages[pages.length - 1];
+                    if (used + footSecH > availH) lastPage.over = true;
+                    footSecNodes.forEach(function (n) { lastPage.body.push(n); });
+                }
                 if (!pages.length) {
                     pages.push({ head: headNodes, body: [], foot: footNodes, over: false });
                 }
