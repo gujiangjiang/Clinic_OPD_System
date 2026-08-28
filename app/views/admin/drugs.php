@@ -192,13 +192,13 @@ function openSpecEditor() {
     Clinic.modal.open(
         '<div class="form-row">' +
         '  <div class="form-group"><label class="form-label">单剂量值</label>' +
-        '    <div class="flex gap-4"><input class="input" type="number" step="any" min="0" id="se_dose" style="width:90px" value="' + dose + '">' +
-        '    <input class="input" id="se_dose_unit" list="se_dose_unit_list" style="width:110px" value="' + dunit + '" placeholder="如 g / mg / ml">' +
+        '    <div class="flex gap-4"><input class="input" type="number" step="any" min="0" id="se_dose" style="width:70px" value="' + dose + '">' +
+        '    <input class="input" id="se_dose_unit" list="se_dose_unit_list" style="width:80px" value="' + dunit + '" placeholder="如 g">' +
         dl('se_dose_unit_list', window.__doseUnits || [], dunit) + '</div>' +
         '  </div>' +
         '  <div class="form-group"><label class="form-label">包装数量 / 单位</label>' +
-        '    <div class="flex gap-4"><input class="input" type="number" min="1" id="se_pack_qty" style="width:90px" value="' + pkt + '">' +
-        '    <input class="input" id="se_pack_unit" list="se_pack_unit_list" style="width:110px" value="' + punit + '" placeholder="如 粒 / 片 / 袋">' +
+        '    <div class="flex gap-4"><input class="input" type="number" min="1" id="se_pack_qty" style="width:70px" value="' + pkt + '">' +
+        '    <input class="input" id="se_pack_unit" list="se_pack_unit_list" style="width:80px" value="' + punit + '" placeholder="如 粒">' +
         dl('se_pack_unit_list', window.__packUnits || [], punit) + '</div>' +
         '  </div>' +
         '</div>' +
