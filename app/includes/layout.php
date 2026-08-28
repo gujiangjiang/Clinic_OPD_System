@@ -250,6 +250,7 @@ class Layout {
             <script src="/assets/js/components/order.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/editor.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/emreditor.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/emr_format.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/emr.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/historypanel.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/queuepanel.js?v=' . APP_VERSION . '"></script>
