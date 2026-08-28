@@ -25,8 +25,8 @@ Clinic.emr = (function () {
 
     // ===== 共享上下文：供拆分的子模块（emr_format/emr_template 等）读写 =====
     // 通过 accessor 属性与模块级状态保持同步，不改变本文件既有引用；
-    // 子模块统一经 Clinic.emr._ctx 访问内部状态与函数。
-    Clinic.emr._ctx = {
+    // 子模块统一经 Clinic.emr._ctx 访问内部状态与函数（在 IIFE 末尾暴露）。
+    var _ctx = {
         get DATA() { return DATA; },
         set DATA(v) { DATA = v; },
         get EMR_DIRTY() { return EMR_DIRTY; },
@@ -2760,6 +2760,8 @@ Clinic.emr = (function () {
     }
 
     return {
+        /** 共享上下文（供拆分子模块访问内部状态与函数） */
+        _ctx: _ctx,
         init: init,
         save: save,
         confirmFinish: confirmFinish,

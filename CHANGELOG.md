@@ -13,6 +13,18 @@
 
 ---
 
+## [4.0.4] - 2026-08-27
+
+### 修复
+
+- **修复共享上下文 `_ctx` 未定义**：`Clinic.emr._ctx = {...}` 原写在
+  `Clinic.emr = (function(){...})()` IIFE 内部，此时 `Clinic.emr` 尚未
+  赋值（IIFE 返回值未落地），导致 TypeError。现改为 IIFE 局部变量
+  `var _ctx`，并在 return 对象中暴露 `_ctx: _ctx`，子模块经
+  `Clinic.emr._ctx` 正常访问。
+
+---
+
 ## [4.0.3] - 2026-08-27
 
 ### 重构
