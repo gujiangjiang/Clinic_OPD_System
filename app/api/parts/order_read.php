@@ -14,8 +14,8 @@ function order_part_read($action) {
         $type = get('type', 'lab');
         $list = array();
         if ($type === 'lab') {
-            // 检验：独立项目（含组内成员，可单独开）+ 检验组合（按组价整体收费，可整体开组）
-            $rows = DB::q('lab', "SELECT * FROM lab_items WHERE is_group=0 AND parent_id=0 AND status='approved' ORDER BY category, id");
+            // 检验：全部单项（含被组合包含的成员，均可单独开具）+ 检验组合（按组价整体收费，可整体开组）
+            $rows = DB::q('lab', "SELECT * FROM lab_items WHERE is_group=0 AND status='approved' ORDER BY category, id");
             foreach ($rows as $r) {
                 $list[] = array(
                     'id' => (int)$r['id'], 'name' => $r['name'], 'price' => (float)$r['price'],

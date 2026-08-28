@@ -56,6 +56,9 @@
 }
 .modal-close:hover { background: var(--bg-soft); color: var(--text); }
 .modal-body { padding: 18px 20px; overflow-y: auto; flex: 1; }
+/* 开单模态框固定高度：避免筛选（全部/单个/组合）或内容增减导致弹窗忽高忽低 */
+.modal.order-modal { height: 560px; }
+.modal.order-modal .modal-body { overflow-y: auto; }
 .modal-foot {
     padding: 12px 20px;
     border-top: 1px solid var(--border);

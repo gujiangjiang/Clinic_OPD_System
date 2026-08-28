@@ -109,7 +109,7 @@ Clinic.order = (function () {
             if (!catalogReady || !prevReady) return;
             Clinic.modal.open(renderDialog(), {
                 title: names[type] || '开单',
-                size: 'modal-lg',
+                size: 'modal-lg order-modal',
                 buttons: [
                     { text: '取消', cls: 'btn-outline' },
                     { text: '提交开单', cls: 'btn-success', autoClose: false, onClick: submit },
