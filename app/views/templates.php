@@ -14,7 +14,7 @@ $isAdmin = $u['role'] === 'admin';
     <div class="flex gap-8">
         <select class="select" id="tplTypeSel" style="width:170px;height:34px;font-size:13px" onchange="setTplTypeSel()">
             <option value="medical_record">病历模板</option>
-            <option value="consent" disabled>知情同意书模板（预留）</option>
+            <option value="consent">知情同意书模板</option>
             <option value="order_note" disabled>病历嘱托模板（预留）</option>
         </select>
         <button class="btn btn-primary btn-sm" onclick="openTplForm(0)">＋ 新建模板</button>

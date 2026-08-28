@@ -7,7 +7,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 8,
+    'version' => 9,
     'tables' => array(
         'records' => "CREATE TABLE IF NOT EXISTS records (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -108,6 +108,21 @@ return array(
             updated_at TEXT,
             UNIQUE(visit_id, doctor_id)
         )",
+        // 知情同意书（v9 新增）：每次就诊可开具多份，医生从模板选择后
+        // 编辑正文保存；title 如「手术知情同意书」，content 为知情内容，
+        // created_at 首次保存时间（打印页记录时间），updated_at 最近修改
+        'consents' => "CREATE TABLE IF NOT EXISTS consents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            visit_id INTEGER,
+            patient_no TEXT,
+            flow_no TEXT,
+            title TEXT,
+            content TEXT,
+            doctor_id INTEGER,
+            doctor_name TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )",
     ),
     'migrations' => array(
         // v2：旧库升级 —— records 增加初复诊字段（visit_type），默认初诊。
@@ -159,6 +174,21 @@ return array(
                 ord_keys TEXT DEFAULT '',
                 updated_at TEXT,
                 UNIQUE(visit_id, doctor_id)
+            )",
+        ),
+        // v9：知情同意书表（医生从模板选择后编辑正文保存，可多份）
+        9 => array(
+            "CREATE TABLE IF NOT EXISTS consents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                visit_id INTEGER,
+                patient_no TEXT,
+                flow_no TEXT,
+                title TEXT,
+                content TEXT,
+                doctor_id INTEGER,
+                doctor_name TEXT,
+                created_at TEXT,
+                updated_at TEXT
             )",
         ),
     ),
