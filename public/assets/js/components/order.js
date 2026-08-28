@@ -485,7 +485,7 @@ Clinic.order = (function () {
             '  </div>' +
             '  <div class="fs-12 text-muted mt-4 mb-4">快速选择（单位：' + Clinic.escHtml(o.spec_pack_unit || '') + '）</div>' +
             '  <div class="flex gap-4" style="flex-wrap:wrap">' +
-            [0.125, 0.25, 0.5, 1, 1.5, 2, 3, 4, 5, 10, 20].map(function (c) {
+            [0.125, 0.25, 0.5, 1, 1.5, 2, 3, 4, 5].map(function (c) {
                 return '<button type="button" class="btn btn-outline btn-sm" style="padding:2px 10px" ' +
                     'onclick="Clinic.order.doseQuick(' + idx + ',' + c + ',' + (si === undefined ? 'null' : si) + ')">' + c + '</button>';
             }).join('') +
