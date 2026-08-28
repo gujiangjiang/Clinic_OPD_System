@@ -13,6 +13,17 @@
 
 ---
 
+## [4.0.6] - 2026-08-27
+
+### 重构
+
+- **emr.js 结构化拆分（步骤 4）**：提取患者信息模块到 `emr_patient.js`
+  （`Clinic.emr.patient`）——顶部横条信息卡 `renderPatientCard`、
+  病历内患者信息网格 `patientGridHtml`、资料保存局部刷新
+  `refreshPatientHead`。emr.js 内改为本地别名，内部调用与公共 API 不变。
+
+---
+
 ## [4.0.5] - 2026-08-27
 
 ### 重构
