@@ -61,8 +61,8 @@ Clinic.order = (function () {
     var VISIT_ID = 0;
     /** 当前开单类型 */
     var CUR_TYPE = 'lab';
-    /** 检验筛选：all=全部 / single=单个 / group=组合 */
-    var LAB_FILTER = 'all';
+    /** 检验筛选：single=单个 / group=组合 */
+    var LAB_FILTER = 'single';
     /** 已选项目列表 */
     var SELECTED = [];
     /** 项目目录缓存 */
@@ -96,7 +96,7 @@ Clinic.order = (function () {
         }
         CUR_TYPE = type;
         SELECTED = [];
-        LAB_FILTER = 'all';
+        LAB_FILTER = 'single';
         PREV_ITEMS = {};
         GROUP_MEMBERS = {};
         MEMBER_GROUPS = {};
@@ -258,10 +258,10 @@ Clinic.order = (function () {
     }
 
     /**
-     * 检验筛选徽章：全部 / 单个 / 组合
+     * 检验筛选徽章：单个 / 组合
      */
     function labFilterBar() {
-        var opts = [['all', '全部'], ['single', '单个'], ['group', '组合']];
+        var opts = [['single', '单个'], ['group', '组合']];
         return '<div id="labFilterBar" class="flex gap-4" style="margin-top:8px">' +
             opts.map(function (o) {
                 return '<span class="qp-chip' + (LAB_FILTER === o[0] ? ' active' : '') + '" data-f="' + o[0] + '" style="padding:2px 12px;font-size:12px">' + o[1] + '</span>';
@@ -276,8 +276,7 @@ Clinic.order = (function () {
             var matchF = true;
             if (CUR_TYPE === 'lab') {
                 var isGroup = el.getAttribute('data-is-group') === '1';
-                if (LAB_FILTER === 'single') matchF = !isGroup;
-                else if (LAB_FILTER === 'group') matchF = isGroup;
+                matchF = LAB_FILTER === 'group' ? isGroup : !isGroup;
             }
             el.style.display = (matchKw && matchF) ? '' : 'none';
         });
