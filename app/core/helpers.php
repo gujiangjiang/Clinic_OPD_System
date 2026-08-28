@@ -498,6 +498,29 @@ function visit_dept_authorized($visit, $u) {
     return false;
 }
 
+/**
+ * 病历可访问天数校验（防越权访问超期历史病历）：
+ * 管理员放行；待就诊/就诊中（活跃就诊）始终放行（接诊/续诊不受历史
+ * 天数限制）；已诊毕（归档历史）须在医生 queue_days（2-7，默认3）
+ * 可查看天数内。历史只读面板（print.php）不受此限制。
+ */
+function visit_access_allowed($visit, $u) {
+    if ($u['role'] === 'admin') return true;
+    $status = isset($visit['status']) ? (string)$visit['status'] : '';
+    if ($status === 'paid' || $status === 'visiting') return true;
+    $queueDays = 3;
+    if (isset($u['queue_days']) && (int)$u['queue_days'] >= 2 && (int)$u['queue_days'] <= 7) {
+        $queueDays = (int)$u['queue_days'];
+    } else {
+        $ud = DB::one('user', 'SELECT queue_days FROM users WHERE id=?', array((int)$u['id']));
+        if ($ud && (int)$ud['queue_days'] >= 2 && (int)$ud['queue_days'] <= 7) $queueDays = (int)$ud['queue_days'];
+    }
+    $regTime = isset($visit['register_time']) ? (string)$visit['register_time'] : '';
+    if ($regTime === '') return true;
+    $since = date('Y-m-d', strtotime('-' . ($queueDays - 1) . ' days'));
+    return substr($regTime, 0, 10) >= $since;
+}
+
 /** 挂号状态中文名 */
 function visit_status_name($s) {
     $map = array(

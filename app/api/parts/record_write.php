@@ -20,6 +20,10 @@ function record_part_write($action) {
         if ($visit['status'] === 'finished') {
             json_fail('该患者已诊毕，病历已归档，不可创建续写');
         }
+        // 病历可访问天数校验
+        if (!visit_access_allowed($visit, $u)) {
+            json_fail('该病历超出您的可查看历史天数，无法修改');
+        }
         // 本人最近一条文书（首诊或上一次续写）——作为续写的父记录
         $ownLatest = DB::one('medical', 'SELECT id, record_type, emr_data FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
         if (!$ownLatest) json_fail('本人尚无病历，请先书写首诊病历');
@@ -74,6 +78,10 @@ function record_part_write($action) {
         // 科室数据隔离：非挂号科室医生不能接诊/书写当前就诊
         if (!visit_dept_authorized($visit, $u)) {
             json_fail('您无权接诊该患者（就诊科室不在您的权限范围内）');
+        }
+        // 病历可访问天数校验：已诊毕历史病历须在医生 queue_days 可查看天数内
+        if (!visit_access_allowed($visit, $u)) {
+            json_fail('该病历超出您的可查看历史天数，无法修改');
         }
 
         // ===== 1. 解析与文书类型判定 =====
@@ -333,6 +341,10 @@ function record_part_write($action) {
         if ($row['visit']['status'] === 'finished') {
             json_fail('该患者已诊毕，病历已归档，不可再录入生命体征');
         }
+        // 病历可访问天数校验
+        if (!visit_access_allowed($row['visit'], $u)) {
+            json_fail('该病历超出您的可查看历史天数，无法修改');
+        }
         // 数值校验（与服务端同规则）：非负整数、生理合理区间；留空视为未测
         $spec = array(
             'bp_systolic'  => array(post('bp_systolic', 0), 1, 300, '收缩压'),
@@ -363,7 +375,12 @@ function record_part_write($action) {
 
     if ($action === 'save_diag_order') {
         $visitId = did(post('visit_id'));
-        if (!get_visit_row($visitId)) json_fail('就诊记录不存在');
+        $rowOrder = get_visit_row($visitId);
+        if (!$rowOrder) json_fail('就诊记录不存在');
+        // 病历可访问天数校验
+        if (!visit_access_allowed($rowOrder['visit'], $u)) {
+            json_fail('该病历超出您的可查看历史天数，无法修改');
+        }
         $keys = json_decode((string)post('ord_keys', '[]'), true);
         if (!is_array($keys)) json_fail('排序数据无效');
         $clean = array();
@@ -392,6 +409,10 @@ function record_part_write($action) {
         // 归档锁定：已诊毕(归档)不可调整诊断
         if ($row['visit']['status'] === 'finished') {
             json_fail('该患者已诊毕，病历已归档，不可调整诊断');
+        }
+        // 病历可访问天数校验
+        if (!visit_access_allowed($row['visit'], $u)) {
+            json_fail('该病历超出您的可查看历史天数，无法修改');
         }
         // 仅本人文书可调整，且未诊毕；切换回旧文书编辑时按 edit_record_id 精确定位
         $editDiagRecordId = (int)post('edit_record_id', 0);

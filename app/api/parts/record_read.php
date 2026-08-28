@@ -19,6 +19,10 @@ function record_part_read($action) {
         if (!visit_dept_authorized($visit, $u)) {
             json_fail('您无权查看该患者的当前就诊（就诊科室不在您的权限范围内）');
         }
+        // 病历可访问天数校验：已诊毕历史病历须在医生 queue_days 可查看天数内
+        if (!visit_access_allowed($visit, $u)) {
+            json_fail('该病历超出您的可查看历史天数，请通过候诊列表或就诊历史查看');
+        }
 
         // 当前科室（可能已转科，显示当前就诊科室）
         $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
