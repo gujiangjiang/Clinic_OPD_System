@@ -42,6 +42,7 @@ Clinic.emr = (function () {
         navDotText: function (st) { return navDotText(st); },
         clampPop: function (pop) { return clampPop(pop); },
         myDoctorId: function () { return myDoctorId(); },
+        vitalDisplayText: function (v) { return vitalDisplayText(v); },
     };
 
     /**
@@ -629,142 +630,11 @@ Clinic.emr = (function () {
      * 仅病历主体呈现只读，谁书写谁签名。
      * @param {Object} rec records_history 条目（含 doctor_name/emr/primary_diagnosis 等）
      */
-    function roSegmentHtml(rec) {
-        var e = rec.emr || {};
-        var isProgress = rec.record_type === 'progress';
-        var secs = [];
-        var push = function (label, val, dashWhenEmpty) {
-            val = val == null ? '' : String(val).trim();
-            if (!val && !dashWhenEmpty) return;
-            secs.push('<div class="prev-sec"><span class="doc-sec-label">' + label + '：</span>' +
-                escHtml(val || '-') + '</div>');
-        };
-        if (isProgress) push('病历续写', (e.progress || {}).content);
-        push('主诉', fmtCC(e.chief_complaint));        push('现病史', fmtPI(e.history_present));
-        push('既往史', fmtPH(e.past_history));
-        push('过敏史', fmtAL(e.allergies));
-        push('主要症状', fmtMS(e.main_symptoms));
-        // 生命体征归属：本段医生本人录入的体征（rec.vitals），未录入显示 -
-        push('生命体征', vitalDisplayText(rec.vitals || {}), true);
-        // 意识状态：本段医生本人镜像回读，未记录显示 -
-        push('意识状态', rec.consciousness || '', true);
-        push('体格检查', fmtPE(e.physical_exam), true);
-        push('初步诊断', fmtDiags(e.diagnoses));
-        // 辅助检查/门诊处置按该文书医生本人的开单归属渲染（多医生接诊，
-        // 项目跟随医生归档；已开项目文本与编辑器自动段同源同规则）
-        var t = orderTextsFor(rec.doctor_id || 0);
-        var auxParts = [];
-        [e.aux_result, e.aux_external].forEach(function (x) {
-            if (x && String(x).trim()) auxParts.push(escHtml(x));
-        });
-        t.aux.forEach(function (n) { auxParts.push(escHtml(n)); });
-        push('辅助检查', auxParts.join('，'), true);
-        var dispHtml = t.rxs.map(function (l) { return '<div>' + escHtml(l) + '</div>'; }).join('');
-        var dispParts = t.proc.map(function (p) { return escHtml(p); });
-        if (e.disposition_custom && String(e.disposition_custom).trim()) dispParts.push(escHtml(e.disposition_custom));
-        if (dispParts.length) dispHtml += '<span>' + dispParts.join('，') + '</span>';
-        secs.push('<div class="prev-sec"><span class="doc-sec-label">门诊处置：</span>' + (dispHtml || '-') + '</div>');
-        // 是否留观：始终显示（否 / 是），与打印病历格式一致
-        push('是否留观', e.is_leave_hospital === '是' ? '是' : '否', true);
-        push('嘱托', e.advice);
-
-        var typeBadge = isProgress
-            ? '<span class="badge badge-primary">病历续写</span>'
-            : '<span class="badge badge-gray">首诊</span>';
-        // 只读归档表述：徽标已标明首诊/续写，这里仅中性标注记录医生，
-        // 不再使用「接诊自」这类仅适用于活跃续写场景的承接性措辞
-        // 只读归档表述：徽标已标明首诊/续写，此处标注本段记录医生
-        var authorSpan = '<span class="fw-600">记录医生：' + escHtml(rec.doctor_name) +
-            (rec.doctor_title ? ' ' + escHtml(rec.doctor_title) : '') +
-            (rec.doctor_emp ? ' （工号 ' + escHtml(rec.doctor_emp) + '）' : '') + '</span>';
-        return '<div class="prev-record-wrap-sec emr-record-readonly" id="recSeg' + rec.id + '">' +
-            '<div class="prev-record-head">' +
-            authorSpan +
-            '<span>记录时间：' + escHtml(rec.created_at) + '</span>' +
-            typeBadge +
-            '</div>' +
-            '<div class="prev-record-body">' +
-            (secs.length ? secs.join('') : '<div class="text-muted fs-13">（该文书暂无内容）</div>') + '</div>' +
-            // 只读段签名使用只读文字样式（灰色），与整段只读基调统一
-            '<div class="doc-body-sign ro-sign">医生：' + escHtml(rec.doctor_name) + '</div>' +
-            '</div>';
-    }
-
-    /**
-     * 按创建顺序拆分【他人】文书：排在本人文书之前的归上侧只读区、
-     * 之后的归下侧只读区——多医生接诊的病历严格按时间正序依次往下
-     * 接续呈现（A 首诊 → B 续写 → C 续写……），后接医生绝不倒排到
-     * 首诊上方。本人尚无文书时，全部他人文书都在上侧。
-     */
-    function splitOthers(d) {
-        var mineRid = d.record && d.record.record_id;   // 当前编辑文书的 id
-        var hist = d.records_history || [];
-        var myIdx = -1;
-        // 按当前编辑文书 id 精确定位（切换回首诊/中间续写时，只读段/编辑器
-        // 按其真实顺序排列，而非总把最新本人文书当作当前项）
-        for (var i = 0; i < hist.length; i++) {
-            if (mineRid && ((hist[i].record_id || 0) === mineRid || (hist[i].id || 0) === mineRid)) {
-                myIdx = i;
-                break;
-            }
-        }
-        if (myIdx === -1) {
-            // 未匹配（本人无文书 / 新建续写 record_id=0）：全部文书视为只读段
-            return { before: hist.slice(), after: [] };
-        }
-        return {
-            before: hist.slice(0, myIdx),
-            after: hist.slice(myIdx + 1),
-        };
-    }
-
-    /**
-     * 渲染/刷新文档内他人文书只读段（#roBefore / #roAfter）。
-     * 注意：辅助检查/门诊处置文本依赖 ORDERS 缓存，loadOrders
-     * 成功后会再次调用本函数补全内容；仅替换两个容器内部 HTML，
-     * 绝不触碰编辑器（#docBody），未保存内容零丢失。
-     */
-    function refreshReadOnlyBodies(d) {
-        if (!d) d = DATA;
-        if (!d) return;
-        // 诊毕只读：全部文书渲染在 #docBody（无编辑器），直接整段刷新
-        if (d.visit && d.visit.status === 'finished') {
-            var docBody = document.getElementById('docBody');
-            if (docBody && (d.records_history || []).length) {
-                docBody.innerHTML = '<div class="prev-record-wrap">' + d.records_history.map(roSegmentHtml).join('') + '</div>';
-            }
-            return;
-        }
-        var parts = splitOthers(d);
-        var beforeEl = document.getElementById('roBefore');
-        var afterEl = document.getElementById('roAfter');
-        if (beforeEl) beforeEl.innerHTML = parts.before.length ? parts.before.map(roSegmentHtml).join('') : '';
-        if (afterEl) afterEl.innerHTML = parts.after.length ? parts.after.map(roSegmentHtml).join('') : '';
-    }
-
-    /**
-     * 收集前序【其他医生】已添加的诊断（含医生姓名），注入编辑器供
-     * 诊断模态框跨医生引用查重；本人已选列表不参与提示。
-     */
-    function injectPrevDiagContext() {
-        if (!DATA || !DATA.records_history) return;
-        var mineId = DATA.record && DATA.record.doctor_id;
-        var flat = [];
-        DATA.records_history.forEach(function (r) {
-            if (r.doctor_id === mineId) return;
-            ((r.emr && r.emr.diagnoses) || []).forEach(function (dg) {
-                if (dg && dg.name) {
-                    flat.push({
-                        code: dg.code || '', name: dg.name,
-                        part: dg.part || '', note: dg.note || '',
-                        suspected: dg.suspected || '',
-                        doctor_name: r.doctor_name || '前序医生',
-                    });
-                }
-            });
-        });
-        Clinic.emrEditor.setPrevDiagnoses(flat);
-    }
+    /* ==================== 只读段渲染——已拆至 emr_segments.js ==================== */
+    function roSegmentHtml(rec) { return Clinic.emr.segments.roSegmentHtml(rec); }
+    function splitOthers(d) { return Clinic.emr.segments.splitOthers(d); }
+    function refreshReadOnlyBodies(d) { return Clinic.emr.segments.refreshReadOnlyBodies(d); }
+    function injectPrevDiagContext() { return Clinic.emr.segments.injectPrevDiagContext(); }
 
     /**
      * 生命体征紧凑显示文本（与打印病历格式一致，以「；」分隔）：

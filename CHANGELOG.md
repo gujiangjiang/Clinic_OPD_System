@@ -13,6 +13,18 @@
 
 ---
 
+## [4.0.8] - 2026-08-27
+
+### 重构
+
+- **emr.js 结构化拆分（步骤 6）**：`_ctx` 补充 vitalDisplayText，提取只读段
+  模块到 `emr_segments.js`（`Clinic.emr.segments`）——`roSegmentHtml`、
+  `splitOthers`、`refreshReadOnlyBodies`、`injectPrevDiagContext`。
+  emr.js 内改为本地别名，内部调用与公共 API 不变；emr.js 已由 3205 行
+  减至约 2626 行。
+
+---
+
 ## [4.0.7] - 2026-08-27
 
 ### 重构
