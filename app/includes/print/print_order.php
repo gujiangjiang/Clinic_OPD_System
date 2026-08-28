@@ -30,14 +30,23 @@ function pt_order($order, $items, $title) {
         '</div><div class="print-line"></div>';
 
     $isDrug = ($order['order_type'] === 'prescription');
+    $isProc = ($order['order_type'] === 'procedure');
+    $isLabImg = ($order['order_type'] === 'lab' || $order['order_type'] === 'imaging');
     if ($isDrug) {
         // 处方起始 ℞ 标志（处方内容左上角）
         $html .= '<div class="print-rx-mark">℞</div>';
     }
+    // 列头：处方=规格/剂量/频次/途径；处置=数量/单价/金额；检验/检查不涉及数量=仅单价
     $html .= '<table>
-        <tr><th style="width:6%">序号</th><th style="width:34%">项目名称</th>' .
-        ($isDrug ? '<th style="width:16%">规格/含量</th><th style="width:14%">剂量</th><th style="width:12%">频次</th><th style="width:14%">途径</th>' : '<th style="width:20%">数量</th><th style="width:20%">单价</th><th style="width:20%">金额</th>') .
-        '</tr>';
+        <tr><th style="width:6%">序号</th><th style="width:' . ($isDrug ? '34%' : ($isProc ? '34%' : '64%')) . '">项目名称</th>';
+    if ($isDrug) {
+        $html .= '<th style="width:16%">规格/含量</th><th style="width:14%">剂量</th><th style="width:12%">频次</th><th style="width:14%">途径</th>';
+    } elseif ($isProc) {
+        $html .= '<th style="width:20%">数量</th><th style="width:20%">单价</th><th style="width:20%">金额</th>';
+    } else {
+        $html .= '<th style="width:30%">单价</th>';
+    }
+    $html .= '</tr>';
 
     // 主项目
     $idx = 0;
@@ -59,8 +68,11 @@ function pt_order($order, $items, $title) {
                 <td>' . e($it['single_dose']) . '</td>
                 <td>' . e($it['frequency_name']) . '</td>
                 <td>' . e($it['route_name']) . (!empty($it['need_nurse']) ? '（护士站执行）' : '') . '</td></tr>';
-        } else {
+        } elseif ($isProc) {
             $html .= '<td>' . $qty . '</td><td>¥' . money($it['price']) . '</td><td>¥' . money($sub) . '</td></tr>';
+        } else {
+            // 检验/检查：不涉及数量，仅显示单价
+            $html .= '<td>¥' . money($it['price']) . '</td></tr>';
         }
         // 静脉输液子处方（大括号关联：剂量单独显示，频次途径合并）
         $subs = array();
