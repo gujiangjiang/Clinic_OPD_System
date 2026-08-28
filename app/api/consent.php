@@ -87,6 +87,7 @@ switch ($action) {
                 'visit_id' => (int)$r['visit_id'],
                 'title' => (string)$r['title'],
                 'content' => (string)$r['content'],
+                'doctor_id' => (int)$r['doctor_id'],
                 'doctor_name' => (string)$r['doctor_name'],
                 'created_at' => (string)$r['created_at'],
                 'updated_at' => (string)$r['updated_at'],

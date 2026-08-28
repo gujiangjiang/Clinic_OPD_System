@@ -32,17 +32,19 @@ Clinic.emr.consent = (function () {
     var _mask = null;        // 当前知情同意书模态框
     var _consentId = 0;      // 当前编辑的知情同意书 id（0=新建）
     var _templateId = 0;     // 新建时的模板 id（标题服务端推导）
+    var _docId = 0;          // 当前查看知情同意书的开具医生 id（用于删除权限）
 
     /**
      * 打开知情同意书模态框：
      * 新建（consentId=0）→ 编辑态（内容可编辑 + 保存）；
-     * 查看已保存（consentId>0）→ 查看态（内容只读 + 编辑/打印）。
+     * 查看已保存（consentId>0）→ 查看态（内容只读 + 编辑/打印/删除）。
      */
     function openEditor(data, consentId, templateId) {
         var name = data && data.name ? data.name : '';
         var content = data && data.content ? data.content : '';
         _consentId = consentId || 0;
         _templateId = templateId || 0;
+        _docId = data && data.doctor_id ? parseInt(data.doctor_id, 10) || 0 : 0;
         var html =
             '<div class="form-group"><label class="form-label">知情同意书名称 <span class="req">*</span></label>' +
             '<input class="input" id="ctName" value="' + escHtml(name) + '" readonly placeholder="由模板确定，不可更改"></div>' +
@@ -76,17 +78,36 @@ Clinic.emr.consent = (function () {
             '<button type="button" class="btn btn-primary" onclick="Clinic.emr.consent.save()">保存</button>';
     }
 
-    /** 进入查看态：内容只读（disabled 不可点击），脚部 取消/编辑/打印 */
+    /** 进入查看态：内容只读（disabled 不可点击），脚部 取消/编辑/打印/删除(仅本人) */
     function _enterViewState() {
         ['#ctName', '#ctContent'].forEach(function (sel) {
             var el = _mask.querySelector(sel);
             if (el) { el.disabled = true; el.readOnly = true; }
         });
+        var myUid = parseInt(document.body.getAttribute('data-uid') || '0', 10) || 0;
         var foot = _mask.querySelector('.modal-foot');
+        var delBtn = (_docId > 0 && _docId === myUid)
+            ? '<button type="button" class="btn btn-danger" onclick="Clinic.emr.consent.delFromView()">🗑️ 删除</button>'
+            : '';
         foot.innerHTML =
             '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+            delBtn +
             '<button type="button" class="btn btn-primary" onclick="Clinic.emr.consent.enterEdit()">✏️ 编辑</button>' +
             '<button type="button" class="btn btn-success" onclick="Clinic.emr.consent.printCurrent()">🖨️ 打印</button>';
+    }
+
+    /** 删除当前查看的知情同意书（本人创建），成功后关闭模态框并刷新列表 */
+    function delFromView() {
+        var id = _consentId;
+        Clinic.modal.confirm('确定删除该知情同意书？删除后不可恢复。', function () {
+            Clinic.ajax('/api/consent', { action: 'delete', id: id }, {
+                onSuccess: function (j) {
+                    Clinic.toast.success(j.msg);
+                    Clinic.modal.close();
+                    renderList();
+                },
+            });
+        }, { title: '删除知情同意书', okText: '确认删除' });
     }
 
     /** 查看态 → 编辑态 */
@@ -164,7 +185,7 @@ Clinic.emr.consent = (function () {
                 if (!c) return;
                 // title 形如「手术知情同意书」→ 反推名称「手术」
                 var name = c.title.replace(/知情同意书$/, '');
-                openEditor({ name: name, content: c.content }, c.id, 0);
+                openEditor({ name: name, content: c.content, doctor_id: c.doctor_id }, c.id, 0);
             },
         });
     }
@@ -185,6 +206,7 @@ Clinic.emr.consent = (function () {
         printCurrent: printCurrent,
         edit: edit,
         del: del,
+        delFromView: delFromView,
         renderList: renderList,
         print: print,
     };
