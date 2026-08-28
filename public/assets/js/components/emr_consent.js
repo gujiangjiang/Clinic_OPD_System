@@ -29,45 +29,90 @@ Clinic.emr.consent = (function () {
         });
     }
 
-    /** 打开知情同意书编辑模态框（新建/编辑，可输入） */
+    var _mask = null;        // 当前知情同意书模态框
+    var _consentId = 0;      // 当前编辑的知情同意书 id（0=新建）
+    var _templateId = 0;     // 新建时的模板 id（标题服务端推导）
+
+    /**
+     * 打开知情同意书模态框：
+     * 新建（consentId=0）→ 编辑态（内容可编辑 + 保存）；
+     * 查看已保存（consentId>0）→ 查看态（内容只读 + 编辑/打印）。
+     */
     function openEditor(data, consentId, templateId) {
-        var isEdit = consentId && consentId > 0;
         var name = data && data.name ? data.name : '';
         var content = data && data.content ? data.content : '';
-        // 标题：名称输入框只读不可更改（由模板决定）
+        _consentId = consentId || 0;
+        _templateId = templateId || 0;
         var html =
             '<div class="form-group"><label class="form-label">知情同意书名称 <span class="req">*</span></label>' +
             '<input class="input" id="ctName" value="' + escHtml(name) + '" readonly placeholder="由模板确定，不可更改"></div>' +
             '<div class="form-group"><label class="form-label">知情同意内容 <span class="req">*</span></label>' +
             '<textarea class="textarea" id="ctContent" rows="14" style="min-height:360px" placeholder="请输入知情同意内容…">' + escHtml(content) + '</textarea></div>' +
             '<div class="fs-12 text-muted">开具医生将自动记录（打印时显示）。</div>';
-        var mask = Clinic.modal.open(html, {
-            title: (isEdit ? '编辑' : '新建') + '知情同意书',
+        _mask = Clinic.modal.open(html, {
+            title: (_consentId > 0 ? '知情同意书' : '新建知情同意书'),
             size: 'modal-lg',
-            buttons: [
-                { text: '取消', cls: 'btn-outline' },
-                { text: '保存', cls: 'btn-primary', autoClose: false, onClick: function () { save(consentId, templateId); } },
-            ],
+            buttons: [],
         });
-        mask.querySelector('#ctName').focus();
+        if (_consentId > 0) {
+            // 查看已保存：默认查看态（内容只读）
+            _enterViewState();
+        } else {
+            // 新建：编辑态
+            _enterEditState();
+        }
+        _mask.querySelector('#ctName').focus();
     }
 
-    /** 保存知情同意书 */
-    function save(consentId, templateId) {
+    /** 进入编辑态：内容可编辑，脚部 取消/保存 */
+    function _enterEditState() {
+        var ta = _mask.querySelector('#ctContent');
+        if (ta) { ta.readOnly = false; ta.removeAttribute('disabled'); }
+        var foot = _mask.querySelector('.modal-foot');
+        foot.innerHTML =
+            '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+            '<button type="button" class="btn btn-primary" onclick="Clinic.emr.consent.save()">保存</button>';
+    }
+
+    /** 进入查看态：内容只读，脚部 取消/编辑/打印 */
+    function _enterViewState() {
+        var ta = _mask.querySelector('#ctContent');
+        if (ta) { ta.readOnly = true; ta.setAttribute('disabled', ''); }
+        var foot = _mask.querySelector('.modal-foot');
+        foot.innerHTML =
+            '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+            '<button type="button" class="btn btn-primary" onclick="Clinic.emr.consent.enterEdit()">✏️ 编辑</button>' +
+            '<button type="button" class="btn btn-success" onclick="Clinic.emr.consent.printCurrent()">🖨️ 打印</button>';
+    }
+
+    /** 查看态 → 编辑态 */
+    function enterEdit() {
+        _enterEditState();
+    }
+
+    /** 保存知情同意书（新建/编辑），成功后自动弹出打印预览 */
+    function save() {
         var content = (document.getElementById('ctContent') || {}).value || '';
         if (!content.trim()) { Clinic.toast.warning('请填写知情同意内容'); return; }
         var visitId = document.getElementById('visitId').value;
         var data = { action: 'save', visit_id: visitId, content: content.trim() };
-        if (consentId && consentId > 0) data.id = consentId;
-        // 新建时传递 template_id（服务端据此推导标题，防止篡改）
-        if (templateId && templateId > 0) data.template_id = templateId;
+        if (_consentId > 0) data.id = _consentId;
+        if (_templateId > 0) data.template_id = _templateId;
         Clinic.ajax('/api/consent', data, {
             onSuccess: function (j) {
                 Clinic.toast.success(j.msg);
+                var savedId = j.data && j.data.id ? j.data.id : _consentId;
                 Clinic.modal.close();
                 renderList();
+                // 保存后自动弹出打印预览
+                if (savedId) print(savedId);
             },
         });
+    }
+
+    /** 打印当前查看的知情同意书 */
+    function printCurrent() {
+        if (_consentId > 0) print(_consentId);
     }
 
     /** 渲染侧边栏「知情同意书」列表 */
@@ -132,7 +177,9 @@ Clinic.emr.consent = (function () {
     return {
         openPicker: openPicker,
         openEditor: openEditor,
+        enterEdit: enterEdit,
         save: save,
+        printCurrent: printCurrent,
         edit: edit,
         del: del,
         renderList: renderList,
