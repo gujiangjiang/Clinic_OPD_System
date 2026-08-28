@@ -79,16 +79,33 @@ Clinic.emr.consent = (function () {
         Clinic.get('/api/consent?action=list&visit_id=' + visitId, null, {
             onSuccess: function (j) {
                 var list = j.data.list || [];
+                var myUid = parseInt(document.body.getAttribute('data-uid') || '0', 10) || 0;
                 el.innerHTML = list.length ? list.map(function (c) {
+                    var delBtn = (c.doctor_id && c.doctor_id === myUid)
+                        ? '<span class="ena-del" title="删除" onclick="event.stopPropagation();Clinic.emr.consent.del(' + c.id + ')">🗑️</span>'
+                        : '';
                     return '<div class="ena-item" style="cursor:pointer" title="点击编辑" onclick="Clinic.emr.consent.edit(' + c.id + ')">' +
                         '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                         escHtml(c.title) + '</span>' +
                         '<span class="text-muted" style="flex-shrink:0;font-size:11px">' + escHtml(c.doctor_name) + '</span>' +
                         '<span class="ena-del" title="打印" onclick="event.stopPropagation();Clinic.emr.consent.print(' + c.id + ')">🖨️</span>' +
+                        delBtn +
                         '</div>';
                 }).join('') : '<div class="ena-empty">暂无知情同意书</div>';
             },
         });
+    }
+
+    /** 删除本人创建的知情同意书 */
+    function del(id) {
+        Clinic.modal.confirm('确定删除该知情同意书？删除后不可恢复。', function () {
+            Clinic.ajax('/api/consent', { action: 'delete', id: id }, {
+                onSuccess: function (j) {
+                    Clinic.toast.success(j.msg);
+                    renderList();
+                },
+            });
+        }, { title: '删除知情同意书', okText: '确认删除' });
     }
 
     /** 编辑已保存的知情同意书（加载内容后打开编辑模态框） */
@@ -117,6 +134,7 @@ Clinic.emr.consent = (function () {
         openEditor: openEditor,
         save: save,
         edit: edit,
+        del: del,
         renderList: renderList,
         print: print,
     };

@@ -68,6 +68,7 @@ switch ($action) {
             $list[] = array(
                 'id' => (int)$r['id'],
                 'title' => (string)$r['title'],
+                'doctor_id' => (int)$r['doctor_id'],
                 'doctor_name' => (string)$r['doctor_name'],
                 'created_at' => (string)$r['created_at'],
             );
@@ -91,6 +92,21 @@ switch ($action) {
                 'updated_at' => (string)$r['updated_at'],
             ),
         ));
+        break;
+
+    /* ==================== 删除知情同意书（仅本人创建） ==================== */
+    case 'delete':
+        $id = (int)post('id', 0);
+        $c = DB::one('medical', 'SELECT * FROM consents WHERE id=?', array($id));
+        if (!$c) json_fail('知情同意书不存在');
+        if ((int)$c['doctor_id'] !== (int)$u['id']) json_fail('仅可删除本人创建的知情同意书');
+        $row = get_visit_row($c['visit_id']);
+        // 归档锁定：已诊毕不可删除
+        if ($row && $row['visit']['status'] === 'finished') {
+            json_fail('该患者已诊毕，病历已归档，不可删除');
+        }
+        DB::exec('medical', 'DELETE FROM consents WHERE id=?', array($id));
+        json_ok(array(), '知情同意书已删除');
         break;
 
     default:
