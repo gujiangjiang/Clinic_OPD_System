@@ -127,13 +127,13 @@ switch ($action) {
         $list = array();
         $p = DB::one('patient', 'SELECT * FROM patients WHERE patient_no=? OR id_card=?', array($kw, $kw));
         if ($p) {
-            $visits = DB::q('patient', 'SELECT * FROM registrations WHERE patient_no=? ORDER BY id DESC', array($p['patient_no']));
+            $visits = DB::q('patient', 'SELECT * FROM registrations WHERE patient_no=? ORDER BY register_time DESC, id DESC', array($p['patient_no']));
             foreach ($visits as $v) {
                 $v['id'] = oid($v['id']);   // 混淆串：前端仅透传，后端解码
                 $list[] = array('visit' => $v, 'patient' => $p);
             }
         } else {
-            $v = DB::one('patient', 'SELECT * FROM registrations WHERE flow_no=? ORDER BY id DESC LIMIT 1', array($kw));
+            $v = DB::one('patient', 'SELECT * FROM registrations WHERE flow_no=? ORDER BY register_time DESC, id DESC LIMIT 1', array($kw));
             if ($v) {
                 $v['id'] = oid($v['id']);   // 混淆串
                 $pp = DB::one('patient', 'SELECT * FROM patients WHERE patient_no=?', array($v['patient_no']));

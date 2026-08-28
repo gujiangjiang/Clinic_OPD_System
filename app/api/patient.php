@@ -85,7 +85,7 @@ switch ($action) {
         $u = Auth::user();   // 接诊判定需要当前医生 id
         $p = DB::one('patient', 'SELECT * FROM patients WHERE patient_no=?', array($patientNo));
         if (!$p) json_fail('未找到该患者');
-        $visits = DB::q('patient', 'SELECT * FROM registrations WHERE patient_no=? ORDER BY id DESC', array($patientNo));
+        $visits = DB::q('patient', 'SELECT * FROM registrations WHERE patient_no=? ORDER BY register_time DESC, id DESC', array($patientNo));
         $list = array();
         foreach ($visits as $v) {
             // 是否有已保存病历（结构化表为主，旧镜像表兜底）
