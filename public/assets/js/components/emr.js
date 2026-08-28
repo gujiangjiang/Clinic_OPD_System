@@ -100,11 +100,24 @@ Clinic.emr = (function () {
                     }
                 }
                 // 首诊自动引导：本次挂号无任何已保存病历 → 自动唤起模板选择，
-                // 引导医生秒级选模板开始书写（避免从空白起笔）；300ms 偏慢、
-                // 0ms 偏快，采用 150ms 折中，兼顾页面渲染完成与响应感
+                // 引导医生秒级选模板开始书写（避免从空白起笔）
                 if (!refId && !(j.data.records_history || []).length && !(j.data.visit && j.data.visit.status === 'finished')) {
                     setTimeout(function () { openTemplatePicker(null); }, 150);
                 }
+            },
+            onError: function (j) {
+                // 病历加载失败（如超期历史病历拦截）→ 显示友好提示，替代「加载中…」
+                var card = document.getElementById('emrCard');
+                if (card) {
+                    card.innerHTML = '<div class="card wb-empty" style="padding:40px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px">' +
+                        '<div style="font-size:64px;margin-bottom:16px">🔒</div>' +
+                        '<div class="fs-18 fw-600 text-muted">' + escHtml(j.msg || '无法加载病历') + '</div>' +
+                        '<div class="fs-14 text-muted mt-4">该病历不在您的可查看时间范围内，请从候诊列表选择当前就诊患者</div>' +
+                        '<div class="fs-12 text-muted mt-8"><button class="btn btn-outline btn-sm mt-4" onclick="if(Clinic.queuePanel)Clinic.queuePanel.open()">📋 打开候诊列表</button></div>' +
+                        '</div>';
+                }
+                // 隐藏保存按钮（只读态）
+                document.querySelectorAll('.emr-write').forEach(function (b) { b.style.display = 'none'; });
             },
         });
     }
