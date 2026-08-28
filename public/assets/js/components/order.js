@@ -230,24 +230,24 @@ Clinic.order = (function () {
             prescription: '提示：同一药品仅可添加一次，数量可在已选列表中手动修改',
         }[CUR_TYPE] || '';
 
-        return '<div class="flex gap-16" style="align-items:stretch">' +
+        return '<div class="flex gap-16 order-flex" style="align-items:stretch">' +
             // 左：项目显示与搜索（较窄）
             '  <div style="width:240px;flex-shrink:0;display:flex;flex-direction:column">' +
             '    <input type="text" class="input" id="orderKw" placeholder="搜索' +
             (isDrug ? '药品名称/厂家简称' : '项目名称') + '" autocomplete="off">' +
             (CUR_TYPE === 'lab' ? labFilterBar() : '') +
-            '    <div class="order-catalog" style="flex:1;max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-top:8px">' +
+            '    <div class="order-catalog" style="flex:1;min-height:0;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-top:8px">' +
             rows + '</div>' +
             '    <div class="fs-12 text-muted mt-8" style="line-height:1.6">' + legend + '</div>' +
             '  </div>' +
             // 中：已选项目（大块）
-            '  <div style="flex:1;min-width:0">' +
+            '  <div style="flex:1;min-width:0;display:flex;flex-direction:column">' +
             '    <div id="prevConfirm" style="display:none;background:var(--warning-soft);border:1px solid var(--warning);border-radius:8px;padding:10px;font-size:13px;margin-bottom:8px"></div>' +
             '    <div class="fs-13 text-muted mb-8">已选 <strong id="selCount">0</strong> 项</div>' +
-            '    <div id="selList" style="max-height:400px;overflow-y:auto;padding-right:4px"></div>' +
+            '    <div id="selList" style="flex:1;min-height:0;overflow-y:auto;padding-right:4px"></div>' +
             '  </div>' +
             // 右：流程闭环追踪（保留）
-            '  <div style="width:140px;border-left:1px solid var(--border);padding-left:16px;flex-shrink:0">' +
+            '  <div style="width:140px;border-left:1px solid var(--border);padding-left:16px;flex-shrink:0;display:flex;flex-direction:column;overflow-y:auto">' +
             '    <div class="fw-600 fs-13 mb-8">流程</div>' + flow +
             '    <div class="mt-16" style="background:var(--bg-soft);border-radius:8px;padding:10px">' +
             '      <div class="fs-12 text-muted">开单总费用</div>' +

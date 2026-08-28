@@ -56,9 +56,12 @@
 }
 .modal-close:hover { background: var(--bg-soft); color: var(--text); }
 .modal-body { padding: 18px 20px; overflow-y: auto; flex: 1; }
-/* 开单模态框固定高度：避免筛选（全部/单个/组合）或内容增减导致弹窗忽高忽低 */
-.modal.order-modal { height: 560px; }
-.modal.order-modal .modal-body { overflow-y: auto; }
+/* 开单模态框固定高度：避免筛选（单个/组合）或内容增减导致弹窗忽高忽低。
+   内部三层布局填满 body（height:100%），各自内部滚动，body 本身不整体滚动 */
+.modal.order-modal { height: 640px; }
+.modal.order-modal .modal-body { overflow: hidden; }
+.modal.order-modal .order-flex { height: 100%; }
+.modal.order-modal .order-flex > div { min-height: 0; }
 .modal-foot {
     padding: 12px 20px;
     border-top: 1px solid var(--border);
