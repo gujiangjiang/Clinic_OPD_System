@@ -156,6 +156,20 @@ function emr_diag_text($diagnoses, $withCode = true) {
     return implode('，', $out);
 }
 
+/** 仅诊断名称（+疑似?）：申请单页眉等精简场景，不含编码/部位/备注 */
+function emr_diag_names($diagnoses) {
+    if (!is_array($diagnoses)) return '';
+    $out = array();
+    foreach ($diagnoses as $dg) {
+        if (!is_array($dg)) continue;
+        $name = isset($dg['name']) ? $dg['name'] : '';
+        if ($name === '') continue;
+        $sus = isset($dg['suspected']) && $dg['suspected'] === '是' ? '?' : '';
+        $out[] = $name . $sus;
+    }
+    return implode('，', $out);
+}
+
 /** 辅助检查：已开项目名 + 手工结果 + 外院结果；全空返回 '-' */
 function emr_aux_text($emr, $orderNames) {
     $g = function ($k) use ($emr) { return isset($emr[$k]) ? $emr[$k] : ''; };
