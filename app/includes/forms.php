@@ -134,8 +134,7 @@ function form_drug($id) {
             <input class="input" id="f_spec" value="' . e($specShow !== '' ? $specShow : '点击设置规格（如 0.5g×24粒）') . '" readonly onclick="openSpecEditor()" style="cursor:pointer;background:var(--bg-soft)" title="点击编辑规格">
         </div>
         <div class="form-group"><label class="form-label">单次使用数量</label>
-            <input class="input" type="number" min="1" step="1" id="f_dose" value="' . (int)max(1, $r['single_use_qty']) . '">
-            <div class="fs-12 text-muted mt-4">单次默认数量：规格为 0.35g×24粒 时填 2 即单次 2 粒</div>
+            <input class="input" type="number" min="1" step="1" id="f_dose" value="' . (int)max(1, $r['single_use_qty']) . '" placeholder="如：1（1粒/1袋）">
         </div>
     </div>
     <div class="form-row">
@@ -168,8 +167,18 @@ function form_drug($id) {
     foreach (DB::q('drug', "SELECT name, need_nurse FROM drug_settings WHERE stype='route'") as $rt) {
         $routeMap[$rt['name']] = (int)$rt['need_nurse'];
     }
+    // 规格结构化编辑用：已有单位列表（历史去重，供 datalist 组合框下拉选择/直接输入）
+    $doseUnits = array();
+    foreach (DB::q('drug', "SELECT DISTINCT spec_dose_unit FROM drugs WHERE spec_dose_unit IS NOT NULL AND spec_dose_unit<>'' ORDER BY spec_dose_unit") as $du) {
+        $doseUnits[] = $du['spec_dose_unit'];
+    }
+    $packUnits = array();
+    foreach (DB::q('drug', "SELECT DISTINCT spec_pack_unit FROM drugs WHERE spec_pack_unit IS NOT NULL AND spec_pack_unit<>'' ORDER BY spec_pack_unit") as $pu) {
+        $packUnits[] = $pu['spec_pack_unit'];
+    }
     return array('html' => $html, 'route_nurse' => $routeMap, 'need_nurse' => (int)$r['need_nurse'],
         'need_skin_test' => (int)(isset($r['need_skin_test']) ? $r['need_skin_test'] : 0),
         'skin_test_item_id' => (int)(isset($r['skin_test_item_id']) ? $r['skin_test_item_id'] : 0),
-        'skin_test_item_name' => $skinName);
+        'skin_test_item_name' => $skinName,
+        'dose_units' => $doseUnits, 'pack_units' => $packUnits);
 }

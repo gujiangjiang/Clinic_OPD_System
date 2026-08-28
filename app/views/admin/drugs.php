@@ -102,12 +102,15 @@ function loadDrugList() {
 
 function openDrugForm(id) {
     var mask = Clinic.modal.load('/api/admin', { action: 'drug_form', id: id || 0 }, { title: id ? '编辑药品' : '新增药品' });
-    mask.querySelector('.modal-body').addEventListener('modal:loaded', function (e) {
+        mask.querySelector('.modal-body').addEventListener('modal:loaded', function (e) {
         // 途径 → 需护士站处理 自动勾选
         var routeMap = (e.detail && e.detail.route_nurse) || {};
         var nurseChk = document.getElementById('f_nurse');
         nurseChk.setAttribute('data-cur', (e.detail && e.detail.need_nurse) || 0);
         window.__routeMap = routeMap;
+        // 规格编辑器单位候选（历史已用去重，datalist 下拉/可输入）
+        window.__doseUnits = (e.detail && e.detail.dose_units) || [];
+        window.__packUnits = (e.detail && e.detail.pack_units) || [];
         window.syncNurse = function () {
             var route = document.getElementById('f_route').value;
             if (routeMap[route] === 1) {
@@ -175,30 +178,28 @@ function openDrugForm(id) {
 }
 
 /* ===== 规格结构化编辑器（二级模态框，保留药品表单在下层） ===== */
-var SPEC_DOSE_UNITS = ['g', 'mg', 'μg', 'kg', 'ml', '万U', 'U', 'IU', '粒', '片', '支', '袋', '瓶'];
-var SPEC_PACK_UNITS = ['粒', '片', '袋', '支', '瓶', '盒', '板', '包', '罐', '贴'];
-
 function openSpecEditor() {
     var dose = document.getElementById('f_spec_dose').value || '';
     var dunit = document.getElementById('f_spec_dose_unit').value || '';
     var pkt = document.getElementById('f_spec_pack_qty').value || '1';
     var punit = document.getElementById('f_spec_pack_unit').value || '';
-    var selOpts = function (list, cur) {
-        return list.map(function (u) {
-            return '<option value="' + u + '"' + (cur === u ? ' selected' : '') + '>' + u + '</option>';
-        }).join('') + '<option value="__custom"' + (list.indexOf(cur) === -1 && cur !== '' ? ' selected' : '') + '>自定义…</option>';
+    // datalist 组合框：已有单位下拉可选 + 直接输入（同检验编辑「计量单位」）
+    var dl = function (id, list, cur) {
+        var all = list.slice();
+        if (cur && all.indexOf(cur) === -1) all.push(cur);
+        return '<datalist id="' + id + '">' + all.map(function (u) { return '<option value="' + u + '">'; }).join('') + '</datalist>';
     };
     Clinic.modal.open(
         '<div class="form-row">' +
         '  <div class="form-group"><label class="form-label">单剂量值</label>' +
         '    <div class="flex gap-4"><input class="input" type="number" step="any" min="0" id="se_dose" style="width:90px" value="' + dose + '">' +
-        '    <select class="select" id="se_dose_unit" style="width:110px" onchange="seUnitCustom(\'dose\')">' + selOpts(SPEC_DOSE_UNITS, dunit) + '</select></div>' +
-        '    <input class="input" id="se_dose_unit_custom" style="display:none;margin-top:4px" placeholder="自定义单位，如 万U">' +
+        '    <input class="input" id="se_dose_unit" list="se_dose_unit_list" style="width:110px" value="' + dunit + '" placeholder="如 g / mg / ml">' +
+        dl('se_dose_unit_list', window.__doseUnits || [], dunit) + '</div>' +
         '  </div>' +
         '  <div class="form-group"><label class="form-label">包装数量 / 单位</label>' +
         '    <div class="flex gap-4"><input class="input" type="number" min="1" id="se_pack_qty" style="width:90px" value="' + pkt + '">' +
-        '    <select class="select" id="se_pack_unit" style="width:110px" onchange="seUnitCustom(\'pack\')">' + selOpts(SPEC_PACK_UNITS, punit) + '</select></div>' +
-        '    <input class="input" id="se_pack_unit_custom" style="display:none;margin-top:4px" placeholder="自定义包装单位，如 支">' +
+        '    <input class="input" id="se_pack_unit" list="se_pack_unit_list" style="width:110px" value="' + punit + '" placeholder="如 粒 / 片 / 袋">' +
+        dl('se_pack_unit_list', window.__packUnits || [], punit) + '</div>' +
         '  </div>' +
         '</div>' +
         '<div class="fs-12 text-muted">示例：0.35g×24粒 → 单剂量 0.35、单位 g、包装数量 24、单位 粒。</div>',
@@ -211,26 +212,14 @@ function openSpecEditor() {
             ],
         }
     );
-    seUnitCustom('dose'); seUnitCustom('pack');
-}
-
-function seUnitCustom(which) {
-    var sel = document.getElementById('se_' + which + '_unit');
-    var cust = document.getElementById('se_' + which + '_unit_custom');
-    if (sel && cust) {
-        if (sel.value === '__custom') { cust.style.display = ''; if (!cust.value) cust.focus(); }
-        else cust.style.display = 'none';
-    }
 }
 
 function seSaveSpec() {
     var dose = parseFloat(document.getElementById('se_dose').value);
     if (!(dose > 0)) { Clinic.toast.warning('请填写单剂量值'); return; }
-    var dsel = document.getElementById('se_dose_unit');
-    var dunit = dsel.value === '__custom' ? document.getElementById('se_dose_unit_custom').value.trim() : dsel.value;
+    var dunit = document.getElementById('se_dose_unit').value.trim();
     var pkt = Math.max(1, parseInt(document.getElementById('se_pack_qty').value, 10) || 1);
-    var psel = document.getElementById('se_pack_unit');
-    var punit = psel.value === '__custom' ? document.getElementById('se_pack_unit_custom').value.trim() : psel.value;
+    var punit = document.getElementById('se_pack_unit').value.trim();
     document.getElementById('f_spec_dose').value = dose;
     document.getElementById('f_spec_dose_unit').value = dunit;
     document.getElementById('f_spec_pack_qty').value = pkt;
