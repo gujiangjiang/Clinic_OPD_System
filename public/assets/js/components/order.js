@@ -316,7 +316,7 @@ Clinic.order = (function () {
             ' data-need-skin-test="' + (it.need_skin_test || 0) + '"' +
             ' data-is-group="0">' +
             '<div class="flex-between">' +
-            '  <div class="fw-600 fs-13 ellipsis">' + escHtml(it.name || '') + '</div>' +
+            '  <div class="fw-600 fs-13 ellipsis">' + Clinic.escHtml(it.name || '') + '</div>' +
             '  <div class="fw-600 fs-13" style="color:var(--primary);flex-shrink:0">¥' + parseFloat(it.price || 0).toFixed(2) + '</div>' +
             '</div>' +
             '<div class="fs-12 text-muted mt-2" style="line-height:1.5">' +
