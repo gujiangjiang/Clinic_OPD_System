@@ -80,13 +80,26 @@ Clinic.emr.consent = (function () {
             onSuccess: function (j) {
                 var list = j.data.list || [];
                 el.innerHTML = list.length ? list.map(function (c) {
-                    return '<div class="ena-item" style="cursor:pointer">' +
+                    return '<div class="ena-item" style="cursor:pointer" title="点击编辑" onclick="Clinic.emr.consent.edit(' + c.id + ')">' +
                         '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                         escHtml(c.title) + '</span>' +
                         '<span class="text-muted" style="flex-shrink:0;font-size:11px">' + escHtml(c.doctor_name) + '</span>' +
                         '<span class="ena-del" title="打印" onclick="event.stopPropagation();Clinic.emr.consent.print(' + c.id + ')">🖨️</span>' +
                         '</div>';
                 }).join('') : '<div class="ena-empty">暂无知情同意书</div>';
+            },
+        });
+    }
+
+    /** 编辑已保存的知情同意书（加载内容后打开编辑模态框） */
+    function edit(id) {
+        Clinic.get('/api/consent?action=get&id=' + id, null, {
+            onSuccess: function (j) {
+                var c = j.data.consent;
+                if (!c) return;
+                // title 形如「手术知情同意书」→ 反推名称「手术」
+                var name = c.title.replace(/知情同意书$/, '');
+                openEditor({ name: name, content: c.content }, c.id);
             },
         });
     }
@@ -103,6 +116,7 @@ Clinic.emr.consent = (function () {
         openPicker: openPicker,
         openEditor: openEditor,
         save: save,
+        edit: edit,
         renderList: renderList,
         print: print,
     };
