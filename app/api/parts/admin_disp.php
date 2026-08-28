@@ -22,9 +22,10 @@ function admin_part_disp($action) {
     if ($action === 'disposal_list') {
         $rows = DB::q('disp', 'SELECT * FROM disposal_items ORDER BY id');
         $rowsHtml = '<thead><tr>' .
-            '<th>处置名称</th><th>费用</th><th>描述备注</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+            '<th>处置名称</th><th>费用</th><th>需护士站处置</th><th>描述备注</th><th>状态</th><th>操作</th></tr></thead><tbody>';
         foreach ($rows as $r) {
             $rowsHtml .= '<tr><td class="fw-600">' . e($r['name']) . '</td><td>¥' . money($r['fee']) . '</td>' .
+                '<td>' . ((int)$r['need_nurse'] === 1 ? badge_html('warning', '是') : badge_html('gray', '否')) . '</td>' .
                 '<td class="fs-12 text-muted">' . e($r['description']) . '</td>' .
                 '<td>' . ($r['status'] === 'approved' ? badge_html('success', '可用') : badge_html('warning', '待审核')) . '</td>' .
                 '<td><div class="flex gap-4">' .
@@ -41,12 +42,13 @@ function admin_part_disp($action) {
     if ($action === 'disposal_form') {
         // 表单弹窗通过 POST 提交 id，必须用 req() 兼容读取（否则编辑弹窗空白）
         $id = (int)req('id', 0);
-        $r = $id ? DB::one('disp', 'SELECT * FROM disposal_items WHERE id=?', array($id)) : array('name' => '', 'fee' => '0', 'description' => '');
+        $r = $id ? DB::one('disp', 'SELECT * FROM disposal_items WHERE id=?', array($id)) : array('name' => '', 'fee' => '0', 'description' => '', 'need_nurse' => 0);
         $html = '<input type="hidden" id="f_id" value="' . (int)$id . '">
         <div class="form-group"><label class="form-label">处置名称 <span class="req">*</span></label>
             <input class="input" id="f_name" value="' . e($r['name']) . '" placeholder="如：清创缝合、换药"></div>
         <div class="form-group"><label class="form-label">费用（元）</label>
             <input class="input" type="number" step="0.01" min="0" id="f_fee" value="' . e($r['fee']) . '"></div>
+        <div class="form-group"><label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="f_nurse"' . ((int)$r['need_nurse'] === 1 ? ' checked' : '') . '> 需护士站处置（开单时默认勾选，医生可逐项修改）</label></div>
         <div class="form-group"><label class="form-label">描述备注</label>
             <textarea class="textarea" id="f_desc" rows="3">' . e($r['description']) . '</textarea></div>';
         json_ok(array('html' => $html));
@@ -58,15 +60,16 @@ function admin_part_disp($action) {
         $name = post('name');
         $fee = (float)post('fee', 0);
         $desc = post('description');
+        $needNurse = (int)post('need_nurse', 0);
         if ($name === '') json_fail('请填写处置名称');
         if ($id > 0) {
-            DB::exec('disp', 'UPDATE disposal_items SET name=?, fee=?, description=?, status=? WHERE id=?', array($name, $fee, $desc, 'approved', $id));
+            DB::exec('disp', 'UPDATE disposal_items SET name=?, fee=?, description=?, need_nurse=?, status=? WHERE id=?', array($name, $fee, $desc, $needNurse, 'approved', $id));
             // 清理该处置的待审核记录（管理员保存即视为已通过）
             DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_disp' AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
             json_ok(array(), '处置项目已保存');
         }
         // 管理员添加的处置免审核：直接可用，无需创建审核记录
-        $newId = DB::insert('disp', 'INSERT INTO disposal_items(name, fee, description, status, created_at) VALUES(?,?,?,?,?)', array($name, $fee, $desc, 'approved', now_str()));
+        $newId = DB::insert('disp', 'INSERT INTO disposal_items(name, fee, description, need_nurse, status, created_at) VALUES(?,?,?,?,?,?)', array($name, $fee, $desc, $needNurse, 'approved', now_str()));
         json_ok(array(), '处置项目已添加，可直接开单使用');
     }
 

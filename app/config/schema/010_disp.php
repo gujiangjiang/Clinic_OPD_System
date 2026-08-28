@@ -7,7 +7,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 1,
+    'version' => 2,
     'tables' => array(
         'disposal_items' => "CREATE TABLE IF NOT EXISTS disposal_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -15,9 +15,15 @@ return array(
             fee REAL DEFAULT 0,
             description TEXT,
             status TEXT DEFAULT 'pending',
+            need_nurse INTEGER DEFAULT 0,
             created_at TEXT
         )",
     ),
-    'migrations' => array(),
+    'migrations' => array(
+        // v2：处置项目支持「是否需护士站处置」——开单时默认按此勾选，医生可逐项修改
+        2 => array(
+            "ALTER TABLE disposal_items ADD COLUMN need_nurse INTEGER DEFAULT 0",
+        ),
+    ),
     'seed' => array(),
 );

@@ -210,15 +210,13 @@ Clinic.order = (function () {
                 '</div>';
         }).join('') || '<div class="dd-empty">暂无可选项目，请先联系管理员添加</div>';
 
-        var nurseBox = (CUR_TYPE === 'procedure' || CUR_TYPE === 'prescription')
+        // 护士站执行全局勾选：仅处方使用（按给药途径自动勾选）；
+        // 处置改为在「已选列表」中逐项勾选（默认取管理员设置的需护士站处置）。
+        var nurseBox = (CUR_TYPE === 'prescription')
             ? '<div class="mt-12" style="background:var(--warning-soft);border-radius:8px;padding:10px">' +
               '<label style="display:flex;align-items:center;gap:6px;font-size:13px">' +
-              '<input type="checkbox" id="nurseReq"> ' +
-              (CUR_TYPE === 'prescription' ? '护士站执行' : '护士站处置') + '</label>' +
-              '<div class="fs-12 text-muted mt-4">' +
-              (CUR_TYPE === 'prescription'
-                  ? '静脉输液等途径将自动勾选，可手动取消（取消时需提醒患者注意）'
-                  : '勾选后缴费完显示待执行，护士执行完才显示已执行') + '</div></div>'
+              '<input type="checkbox" id="nurseReq"> 护士站执行</label>' +
+              '<div class="fs-12 text-muted mt-4">静脉输液等途径将自动勾选，可手动取消（取消时需提醒患者注意）</div></div>'
             : '';
 
         // 各开单类型的互斥规则提示
@@ -540,6 +538,7 @@ Clinic.order = (function () {
                 '  </div>' +
                 '  <div class="flex gap-8" style="align-items:center;flex-shrink:0">' +
                 (isDrug || CUR_TYPE === 'procedure' ? qtyControls(s, i) : '') +
+                (CUR_TYPE === 'procedure' ? nurseToggle(s, i) : '') +
                 '    <button type="button" class="btn btn-outline btn-sm" style="padding:1px 8px" ' +
                 'onclick="Clinic.order.removeItem(' + i + ')">✕</button>' +
                 '  </div>' +
@@ -574,6 +573,14 @@ Clinic.order = (function () {
             '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px" ' +
             'onclick="Clinic.order.changeQty(' + i + ',1)">＋</button>' +
             (isDrug ? '<span class="fs-12 text-muted">库存' + (s.stock || 0) + '</span>' : '') + '</div>';
+    }
+
+    /** 护士站处置逐项勾选（仅处置，默认取管理员设置） */
+    function nurseToggle(s, i) {
+        return '<label style="display:inline-flex;align-items:center;gap:3px;font-size:12px;cursor:pointer;color:var(--text-muted);user-select:none" title="缴费后护士站显示待执行；取消勾选则不显示">' +
+            '<input type="checkbox" style="width:14px;height:14px;accent-color:var(--primary)"' +
+            (s.nurse_required ? ' checked' : '') +
+            ' onchange="Clinic.order.setNurse(' + i + ',this.checked)"> 护士</label>';
     }
 
     /**
@@ -636,6 +643,7 @@ Clinic.order = (function () {
                 spec: s.spec, unit_name: s.unit_name, company_short: s.company_short,
                 dose: s.dose, frequency: s.frequency, route: s.route,
                 notes: '', sub_of: 0, sort: idx,
+                need_nurse: (CUR_TYPE === 'procedure' && s.nurse_required) ? 1 : 0,
             });
             // 皮试判定结果（主药行；子药下标为 null 表示非皮试主药）
             skinChoices.push(s.skin_test || '');
@@ -725,6 +733,12 @@ Clinic.order = (function () {
         renderSelected();
     }
 
+    /** 设置护士站处置（逐项，仅处置） */
+    function setNurse(i, checked) {
+        if (!SELECTED[i]) return;
+        SELECTED[i].nurse_required = checked ? 1 : 0;
+    }
+
     /** 添加子医嘱 */
     function addSub(idx) {
         Clinic.get('/api/order?action=catalog&type=prescription', null, {
@@ -779,6 +793,7 @@ Clinic.order = (function () {
         init: init, open: open, renderSelected: renderSelected,
         removeItem: removeItem, changeQty: changeQty, setQty: setQty,
         setField: setField, setRoute: setRoute, addSub: addSub, removeSub: removeSub,
+        setNurse: setNurse,
         confirmPrev: confirmPrev,
     };
 })();

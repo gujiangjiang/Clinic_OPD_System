@@ -51,6 +51,7 @@ function openDisposalForm(id) {
                 name: document.getElementById('f_name').value.trim(),
                 fee: document.getElementById('f_fee').value,
                 description: document.getElementById('f_desc').value.trim(),
+                need_nurse: document.getElementById('f_nurse').checked ? 1 : 0,
             }, {
                 onSuccess: function (json) {
                     Clinic.toast.success(json.msg);

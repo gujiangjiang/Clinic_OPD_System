@@ -112,7 +112,8 @@ function order_part_write($action) {
                     }
                 }
             } elseif ($orderType === 'procedure') {
-                $needNurse = $nurseReq;
+                // 处置：是否需护士站处置按「单项」独立设置（默认取管理员设置的 need_nurse，医生可逐项修改）
+                $needNurse = (isset($it['need_nurse']) && (int)$it['need_nurse'] === 1) ? 1 : 0;
             }
             // ===== 项目存在性校验 + 权威核价（非处方类）：防止空名明细混入病历/打印 =====
             if ($orderType !== 'prescription' && $subOf === 0 && $itemId > 0) {

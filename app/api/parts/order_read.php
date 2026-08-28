@@ -53,6 +53,7 @@ function order_part_read($action) {
                 $list[] = array(
                     'id' => (int)$r['id'], 'name' => $r['name'], 'price' => (float)$r['fee'],
                     'unit_name' => '次', 'category_name' => '', 'spec' => '', 'stock' => 0,
+                    'nurse_required' => (int)$r['need_nurse'],
                 );
             }
         } elseif ($type === 'prescription') {
