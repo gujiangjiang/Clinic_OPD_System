@@ -24,6 +24,7 @@ $__roleMap = array(
     'admin'    => array('admin', 'lab', 'imaging', 'pharmacy'),   // 管理端部分功能对科室开放（只读+提交审核）
     'order'    => 'doctor',
     'record'   => 'doctor',
+    'consent'  => 'doctor',
     'template' => 'doctor',
     'transfer' => 'doctor',
     'doctor'   => 'doctor',
