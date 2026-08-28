@@ -16,16 +16,27 @@ Clinic.emr.template = (function () {
     var buildVitalSec = ctx.buildVitalSec;
     var buildConsciousNode = ctx.buildConsciousNode;
     var fillContHead = ctx.fillContHead;
+    var _onApply = null;   // 当前选择框的选中回调（fetchAndApply 使用）
 
     function openTemplates(ev) {
         openTemplatePicker(ev);
     }
 
     /**
-     * 病历模板选择悬浮框：搜索栏 + 短列表，锚定在右侧「病历节点 +」按钮下方；
-     * 选中模板后按其内容创建首张电子病历（套用到编辑器）。
+     * 模板选择悬浮框（可复用：病历模板 / 知情同意书模板）：
+     * 搜索栏 + 范围筛选徽章 + 短列表，锚定在右侧「＋」按钮下方。
+     * @param {Event} ev 触发事件（鼠标坐标定位；自动弹出可不传）
+     * @param {object} opts { type, pickPlaceholder, emptyText, onApply }
+     *   - type        模板类型（medical_record / consent），默认 medical_record
+     *   - onApply(t)  选中模板后的回调（t 为模板内容对象）；不传则默认应用为病历模板
      */
-    function openTemplatePicker(ev) {
+    function openTemplatePicker(ev, opts) {
+        opts = opts || {};
+        var tplType = opts.type || 'medical_record';
+        var pickPh = opts.pickPlaceholder || '🔍 搜索病历模板';
+        var emptyTxt = opts.emptyText || '暂无可用的病历模板，可前往「模板管理」创建';
+        var onApply = opts.onApply || null;
+        _onApply = onApply;
         closeTemplatePicker();
         var pop = document.createElement('div');
         pop.id = 'tplPick';
@@ -53,7 +64,7 @@ Clinic.emr.template = (function () {
         var esc = function (e) { if (e.key === 'Escape') closeTemplatePicker(); };
         pop.__handlers = [outside, esc];
         setTimeout(function () { document.addEventListener('mousedown', outside, true); document.addEventListener('keydown', esc, true); }, 0);
-        Clinic.get('/api/template?action=list&type=medical_record', null, {
+        Clinic.get('/api/template?action=list&type=' + tplType, null, {
             onSuccess: function (j) {
                 var list = j.data.list || [];
                 var scopeW = { hospital: 0, dept: 1, personal: 2 };
@@ -95,11 +106,11 @@ Clinic.emr.template = (function () {
                             '<span>' + escHtml(t.title) + '</span>' +
                             '<span class="badge ' + (effScope === 'hospital' ? 'badge-primary' : (effScope === 'dept' ? 'badge-warning' : 'badge-gray')) + '" style="font-size:11px;flex-shrink:0">' +
                             (scopeNames[effScope] || t.scope) + '</span></div>';
-                    }).join('') : '<div class="fs-12 text-muted" style="padding:8px 10px">暂无可用的病历模板，可前往「模板管理」创建</div>';
+                    }).join('') : '<div class="fs-12 text-muted" style="padding:8px 10px">' + emptyTxt + '</div>';
                     box.querySelectorAll('.tree-search-item').forEach(function (it) {
                         it.addEventListener('click', function () {
                             closeTemplatePicker();
-                            applyTemplateById(parseInt(it.getAttribute('data-id'), 10));
+                            fetchAndApply(parseInt(it.getAttribute('data-id'), 10));
                         });
                     });
                 }
@@ -107,7 +118,7 @@ Clinic.emr.template = (function () {
                 var pop2 = document.getElementById('tplPick');
                 if (pop2) {
                     pop2.innerHTML =
-                        '<input class="input tree-box-search" id="tplPickKw" placeholder="🔍 搜索病历模板" autocomplete="off">' +
+                        '<input class="input tree-box-search" id="tplPickKw" placeholder="' + pickPh + '" autocomplete="off">' +
                         '<div class="flex gap-4" style="margin:6px 0;flex-wrap:wrap;justify-content:center">' +
                         '  <span class="qp-chip active" data-scope="">全部</span>' +
                         '  <span class="qp-chip" data-scope="hospital">全院</span>' +
@@ -150,17 +161,26 @@ Clinic.emr.template = (function () {
         }
     }
 
-    function applyTemplateById(tplId) {
+    /** 取模板内容并执行回调（_onApply 自定义 或 默认应用为病历） */
+    function fetchAndApply(tplId) {
         Clinic.get('/api/template?action=get&id=' + tplId + '&for_apply=1', null, {
             onSuccess: function (j) {
                 var t = j.data.template;
-                if (t && t.content) {
+                if (!t || !t.content) { Clinic.toast.warning('模板内容为空'); return; }
+                if (typeof _onApply === 'function') {
+                    var cb = _onApply;
+                    _onApply = null;
+                    cb(t);
+                } else {
                     applyTemplate(t.content);
-                    closeTemplatePicker();
                     Clinic.toast.success('已应用模板，可在此基础上修改并保存');
                 }
             },
         });
+    }
+
+    function applyTemplateById(tplId) {
+        fetchAndApply(tplId);
     }
 
     function applyTemplate(c) {

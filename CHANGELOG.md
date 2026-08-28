@@ -13,6 +13,16 @@
 
 ---
 
+## [4.0.21] - 2026-08-27
+
+### 重构
+
+- **模板选择框参数化（复用基础）**：`openTemplatePicker(ev, opts)` 支持
+  `type`（medical_record/consent）、`pickPlaceholder`、`emptyText`、
+  `onApply` 回调；默认保持病历模板行为，为知情同意书选择框复用做准备。
+
+---
+
 ## [4.0.20] - 2026-08-27
 
 ### 新增
