@@ -108,7 +108,7 @@ Clinic.emr.template = (function () {
                 if (pop2) {
                     pop2.innerHTML =
                         '<input class="input tree-box-search" id="tplPickKw" placeholder="🔍 搜索病历模板" autocomplete="off">' +
-                        '<div class="flex gap-4" style="margin:6px 0;flex-wrap:wrap">' +
+                        '<div class="flex gap-4" style="margin:6px 0;flex-wrap:wrap;justify-content:center">' +
                         '  <span class="qp-chip active" data-scope="">全部</span>' +
                         '  <span class="qp-chip" data-scope="hospital">全院</span>' +
                         '  <span class="qp-chip" data-scope="dept">科室</span>' +
