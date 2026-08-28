@@ -79,7 +79,7 @@ function pt_order($order, $items, $title) {
             $scount = count($subs);
             foreach ($subs as $si => $subIt) {
                 // 成组医嘱树状连线符：┌ 首个 / ├ 中间 / └ 末尾
-                $branch = $si === 0 ? '┌' : ($si === $scount - 1 ? '└' : '├');
+                $branch = $si === $scount - 1 ? '└' : ($si === 0 ? '┌' : '├');
                 $html .= $branch . ' ' . e($subIt['item_name']) . '　剂量：' . e($subIt['single_dose']) .
                     ($si < $scount - 1 ? '<br>' : '');
             }
