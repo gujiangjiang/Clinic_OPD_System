@@ -152,6 +152,20 @@
     text-align: left;
 }
 .print-area table th { background: #f0f0f0; font-weight: 600; }
+/* 处方单：标准医院处方样式——无表头/序号/边框 */
+.print-area table.rx-print {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+}
+.print-area table.rx-print td {
+    border: none;
+    padding: 4px 6px;
+    vertical-align: middle;
+    text-align: left;
+}
+.print-area table.rx-print td.rx-name { font-weight: 600; }
+.print-area table.rx-print td.rx-qty { text-align: right; white-space: nowrap; }
 .print-area .print-note { margin-top: 10px; font-size: 12px; color: #333; }
 /* 开单合计：表格右下方的普通文本行，不再占用表格单元格 */
 .print-order-total { margin-top: 8px; text-align: right; font-weight: 700; }

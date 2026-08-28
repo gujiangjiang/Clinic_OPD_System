@@ -52,69 +52,76 @@ function pt_order($order, $items, $title) {
         // 处方起始 ℞ 标志（处方内容左上角）
         $html .= '<div class="print-rx-mark">℞</div>';
     }
-    // 列头：处方=规格/剂量/频次/途径；处置=数量/单价/金额；检验/检查不涉及数量=仅单价
-    $html .= '<table>
-        <tr><th style="width:6%">序号</th><th style="width:' . ($isDrug ? '34%' : ($isProc ? '34%' : '64%')) . '">项目名称</th>';
+    // ===== 处方：标准医院处方样式——无表头/序号/边框 =====
+    // 列：名称(名称 规格 厂商) | 剂量 | 途径 | 频次 | 数量(×N)
+    // 组医嘱：主药 途径/频次/数量 纵向合并(rowspan)跨其子医嘱，垂直居中靠左
     if ($isDrug) {
-        $html .= '<th style="width:16%">规格/含量</th><th style="width:14%">剂量</th><th style="width:12%">频次</th><th style="width:14%">途径</th>';
-    } elseif ($isProc) {
-        $html .= '<th style="width:20%">数量</th><th style="width:20%">单价</th><th style="width:20%">金额</th>';
+        $nameTxt = function ($x) {
+            $s = e($x['item_name']);
+            if (!empty($x['spec'])) $s .= ' ' . e($x['spec']);
+            if (!empty($x['company_short'])) $s .= ' ' . e($x['company_short']);
+            return $s;
+        };
+        $html .= '<table class="rx-print">';
+        $mainSeq = 0;
+        foreach ($items as $it) {
+            if ((int)$it['sub_of'] > 0) continue;
+            $mainSeq++;
+            $subs = array();
+            foreach ($items as $subIt) {
+                if ((int)$subIt['sub_of'] === $mainSeq) $subs[] = $subIt;
+            }
+            $rowspan = 1 + count($subs);
+            $nurseTxt = !empty($it['need_nurse']) ? '（护士站执行）' : '';
+            $html .= '<tr>' .
+                '<td class="rx-name">' . $nameTxt($it) . '</td>' .
+                '<td class="rx-dose">' . e($it['single_dose']) . '</td>' .
+                '<td class="rx-route" rowspan="' . $rowspan . '">' . e($it['route_name']) . $nurseTxt . '</td>' .
+                '<td class="rx-freq" rowspan="' . $rowspan . '">' . e($it['frequency_name']) . '</td>' .
+                '<td class="rx-qty" rowspan="' . $rowspan . '">×' . (int)$it['quantity'] . '</td>' .
+                '</tr>';
+            foreach ($subs as $sub) {
+                $html .= '<tr>' .
+                    '<td class="rx-name">' . $nameTxt($sub) . '</td>' .
+                    '<td class="rx-dose">' . e($sub['single_dose']) . '</td>' .
+                    '</tr>';
+            }
+        }
+        $html .= '</table>';
     } else {
-        $html .= '<th style="width:30%">单价</th>';
-    }
-    $html .= '</tr>';
-
-    // 主项目
-    $idx = 0;
-    $mainTotal = 0;
-    foreach ($items as $it) {
-        if ((int)$it['sub_of'] > 0) continue;
-        $idx++;
-        $qty = (int)$it['quantity'];
-        $sub = (float)$it['price'] * $qty;
-        $mainTotal += $sub;
-        $html .= '<tr><td>' . $idx . '</td><td>' . e($it['item_name']) .
-            ($isDrug && !empty($it['company_short']) ? '（' . e($it['company_short']) . '）' : '') .
-            // 检验组合：申请单上显示组内成员明细（spec 为成员名列表）
-            (!$isDrug && $order['order_type'] === 'lab' && !empty($it['spec'])
-                ? '<div class="fs-12 text-muted">组合包含：' . e($it['spec']) . '</div>' : '') .
-            '</td>';
-        if ($isDrug) {
-            $html .= '<td>' . e($it['spec']) . '</td>
-                <td>' . e($it['single_dose']) . '</td>
-                <td>' . e($it['frequency_name']) . '</td>
-                <td>' . e($it['route_name']) . (!empty($it['need_nurse']) ? '（护士站执行）' : '') . '</td></tr>';
-        } elseif ($isProc) {
-            $html .= '<td>' . $qty . '</td><td>¥' . money($it['price']) . '</td><td>¥' . money($sub) . '</td></tr>';
+        // ===== 处置/检验/检查：带表头表格（检验/检查不显示数量） =====
+        $html .= '<table>
+        <tr><th style="width:6%">序号</th><th style="width:' . ($isProc ? '34%' : '64%') . '">项目名称</th>';
+        if ($isProc) {
+            $html .= '<th style="width:20%">数量</th><th style="width:20%">单价</th><th style="width:20%">金额</th>';
         } else {
-            // 检验/检查：不涉及数量，仅显示单价
-            $html .= '<td>¥' . money($it['price']) . '</td></tr>';
+            $html .= '<th style="width:30%">单价</th>';
         }
-        // 静脉输液子处方（大括号关联：剂量单独显示，频次途径合并）
-        $subs = array();
-        foreach ($items as $subIt) {
-            if ((int)$subIt['sub_of'] === (int)$it['sub_of'] || ((int)$it['sub_of'] === 0 && (int)$subIt['sub_of'] === $idx)) {
-                // 子处方挂在当前主项目后
+        $html .= '</tr>';
+
+        // 主项目
+        $idx = 0;
+        $mainTotal = 0;
+        foreach ($items as $it) {
+            if ((int)$it['sub_of'] > 0) continue;
+            $idx++;
+            $qty = (int)$it['quantity'];
+            $sub = (float)$it['price'] * $qty;
+            $mainTotal += $sub;
+            $html .= '<tr><td>' . $idx . '</td><td>' . e($it['item_name']) .
+                // 检验组合：申请单上显示组内成员明细（spec 为成员名列表）
+                ($order['order_type'] === 'lab' && !empty($it['spec'])
+                    ? '<div class="fs-12 text-muted">组合包含：' . e($it['spec']) . '</div>' : '') .
+                '</td>';
+            if ($isProc) {
+                $html .= '<td>' . $qty . '</td><td>¥' . money($it['price']) . '</td><td>¥' . money($sub) . '</td></tr>';
+            } else {
+                // 检验/检查：不涉及数量，仅显示单价
+                $html .= '<td>¥' . money($it['price']) . '</td></tr>';
             }
         }
-        foreach ($items as $subIt) {
-            if ((int)$subIt['sub_of'] === $idx) {
-                $subs[] = $subIt;
-            }
-        }
-        if ($subs) {
-            $html .= '<tr><td colspan="6" class="sub-order">';
-            $scount = count($subs);
-            foreach ($subs as $si => $subIt) {
-                // 成组医嘱树状连线符：┌ 首个 / ├ 中间 / └ 末尾
-                $branch = $si === $scount - 1 ? '└' : ($si === 0 ? '┌' : '├');
-                $html .= $branch . ' ' . e($subIt['item_name']) . '　剂量：' . e($subIt['single_dose']) .
-                    ($si < $scount - 1 ? '<br>' : '');
-            }
-            $html .= '</td></tr>';
-        }
+        $html .= '</table>';
     }
-    $html .= '</table>';
     if ($isDrug) {
         // 处方完毕居中分隔（紧跟药品表格，属于处方内容结尾）
         $html .= '<div class="print-rx-end">—————— 处方完毕 ——————</div>';
