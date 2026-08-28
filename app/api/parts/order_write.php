@@ -74,8 +74,8 @@ function order_part_write($action) {
                     if ((int)$drug['qty'] < $qty) {
                         json_fail('药品【' . $drug['name'] . '】库存不足（当前库存 ' . (int)$drug['qty'] . '）');
                     }
-                    // 【护士站执行】按给药途径设置自动默认勾选，可手动取消
-                    $needNurse = ((int)$drug['need_nurse'] === 1 && $nurseReq === 1) ? 1 : 0;
+                    // 【护士站执行】逐项独立设置（默认取管理员设置的 need_nurse，医生可自由修改）
+                    $needNurse = (isset($it['need_nurse']) && (int)$it['need_nurse'] === 1) ? 1 : 0;
 
                     // ===== 皮试判定（阻断式）：需皮试药品必须由医生明确选择方案 =====
                     if ((int)$drug['need_skin_test'] === 1) {

@@ -456,6 +456,14 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
     white-space: nowrap;
 }
 .dd-item:hover { background: var(--primary-soft, #cffafe); color: var(--primary); }
+/* 处方搜索下拉条目：名称/金额一行 + 厂商/分类/规格/库存一行 */
+.rx-drop-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+}
+.rx-drop-item:hover { background: var(--primary-soft, #cffafe); }
+.rx-drop-empty { padding: 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
 .stat-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
