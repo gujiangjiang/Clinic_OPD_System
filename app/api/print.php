@@ -148,6 +148,17 @@ switch ($action) {
         json_ok(array('html' => pt_certificate($visit, $row['patient'], $record, $cert, $cert['doctor_name'])));
         break;
 
+    /* ==================== 知情同意书打印 ==================== */
+    case 'consent':
+        $id = (int)get('id', 0);
+        $c = DB::one('medical', 'SELECT * FROM consents WHERE id=?', array($id));
+        if (!$c) json_fail('知情同意书不存在');
+        $row = get_visit_row($c['visit_id']);
+        if (!$row) json_fail('就诊记录不存在');
+        $c['flow_no'] = $row['visit']['flow_no'];
+        json_ok(array('html' => pt_consent($row['visit'], $row['patient'], $c, $c['doctor_name'])));
+        break;
+
     /* ---------------- 检验/检查报告 ---------------- */
     case 'report':
         $reportId = did(get('report_id'));
