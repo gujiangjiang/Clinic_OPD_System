@@ -35,12 +35,6 @@
 .emr-patient-name:hover { color: var(--primary); }
 
 /* ---------- 病历文档（所见即所得，模拟纸质病历版式） ---------- */
-/* 切换病历节点时内容渐显 + 轻微上移（先出现病历，再平滑滚动到锚点） */
-@keyframes emrEnter {
-    from { opacity: 0; transform: translateY(12px); }
-    to   { opacity: 1; transform: none; }
-}
-.emr-card-enter { animation: emrEnter .32s ease-out; }
 .emr-doc {
     position: relative;   /* 供右上角条形码绝对定位 */
     max-width: 860px;

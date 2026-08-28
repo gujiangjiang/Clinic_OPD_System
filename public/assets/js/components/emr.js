@@ -1939,19 +1939,13 @@ Clinic.emr = (function () {
         };
         DATA.__edit_record_id = recId;   // 保存时精确回写该文书
         // 重渲染时抑制内部自动滚动（避免 200ms 延迟造成「先闪可编辑再滚动」），
-        // 渲染完成后先让病历内容渐显动画播放，再平滑滚动到对应文书锚点
+        // 渲染完成后立即平滑滚动到对应文书锚点——不再给整卡加淡入动画，
+        // 避免重渲染时卡片内容先消失再淡入（视觉闪烁）
         DATA.__noAutoScroll = true;
         renderEmrCard(DATA);
         renderLeftNav();
         DATA.__noAutoScroll = false;
-        // 切换动画：先「出现」续写病历内容，再平滑滚动到其锚点
-        var cardEl2 = document.getElementById('emrCard');
-        if (cardEl2) {
-            cardEl2.classList.remove('emr-card-enter');
-            void cardEl2.offsetWidth;   // 强制 reflow 重启动画
-            cardEl2.classList.add('emr-card-enter');
-        }
-        scrollToEditor(350);
+        scrollToEditor(0);
     }
 
     window.scrollToRecord = function (recId, doctorId) {
