@@ -41,6 +41,7 @@ Clinic.emr = (function () {
         navDotCls: function (st) { return navDotCls(st); },
         navDotText: function (st) { return navDotText(st); },
         clampPop: function (pop) { return clampPop(pop); },
+        myDoctorId: function () { return myDoctorId(); },
     };
 
     /**
@@ -920,90 +921,10 @@ Clinic.emr = (function () {
      * 多医生接诊下各医生文书只呈现本人开具的项目——谁开单归属谁的病历。
      * 处方行统一走 Clinic.orderRxLines 公共方法（成组医嘱树形格式，全系统一致）。
      */
-    function orderTextsFor(doctorId) {
-        var aux = [];
-        var proc = [];
-        var rxs = [];
-        (ORDERS || []).forEach(function (o) {
-            if ((o.doctor_id || 0) !== doctorId) return;
-            // 已退费/已取消的开单不再计入病历内容
-            if (o.status === 'refunded' || o.status === 'cancelled') return;
-            o.items.forEach(function (it) {
-                if (o.order_type === 'lab' || o.order_type === 'imaging') {
-                    aux.push(it.item_name);
-                } else if (o.order_type === 'procedure') {
-                    proc.push(it.item_name + '×' + it.quantity);
-                }
-            });
-            if (o.order_type === 'prescription') {
-                Clinic.orderRxLines(o.items).forEach(function (l) { rxs.push(l); });
-            }
-        });
-        return { aux: aux, proc: proc, rxs: rxs };
-    }
-
-    /**
-     * 渲染病历正文 辅助检查 / 门诊处置（所见即所得，与打印版式一致）
-     * 仅渲染当前登录医生本人开具的项目（多医生接诊，项目跟随医生归档）
-     */
-    /** 项目交互 token：活跃病历正文中的可点击行内标签（只读段不使用） */
-    function itemToken(o, it, extra) {
-        var suffix = '';
-        if ((o.order_type === 'lab' || o.order_type === 'imaging') && it.report_id) suffix = '（已出报告）';
-        return '<span class="emr-item-link" data-otype="' + o.order_type + '" data-oid="' + o.id + '" data-iid="' + it.id + '">' +
-            escHtml(it.item_name) + (extra || '') + suffix + '</span>';
-    }
-
-    /**
-     * 病历正文 辅助检查/门诊处置 渲染（活跃编辑器）：
-     * 项目渲染为交互式行内标签（点击弹出详情模态框，样式见 .emr-item-link）；
-     * 只读历史文书段（roSegmentHtml）仍走 orderTextsFor 纯文本，二者互不影响。
-     */
-    function renderDocOrders() {
-        var myId = myDoctorId();
-        var auxT = [], rxLines = [], dispT = [];
-        (ORDERS || []).forEach(function (o) {
-            if ((o.doctor_id || 0) !== myId) return;
-            if (o.status === 'refunded' || o.status === 'cancelled') return;
-            if (o.order_type === 'lab' || o.order_type === 'imaging') {
-                o.items.forEach(function (it) { auxT.push(itemToken(o, it)); });
-            } else if (o.order_type === 'procedure') {
-                o.items.forEach(function (it) { dispT.push(itemToken(o, it) + (it.quantity > 1 ? '×' + it.quantity : '')); });
-            } else if (o.order_type === 'prescription') {
-                var i3 = 0;
-                while (i3 < o.items.length) {
-                    var it0 = o.items[i3];
-                    var g = it0.group_no || 0;
-                    if (!g) {
-                        rxLines.push('<div class="ef-rx-line">' + itemToken(o, it0) +
-                            '\u3000' + escHtml([it0.single_dose, it0.frequency_name, it0.route_name].filter(Boolean).join('\u3000')) +
-                            '\u3000\u00D7' + it0.quantity + '</div>');
-                        i3++;
-                        continue;
-                    }
-                    var arr = [it0];
-                    var j3 = i3 + 1;
-                    while (j3 < o.items.length && (o.items[j3].group_no || 0) === g) { arr.push(o.items[j3]); j3++; }
-                    arr.forEach(function (x, xi) {
-                        if (xi === 0) {
-                            rxLines.push('<div class="ef-rx-line">' + itemToken(o, x) +
-                                '\u3000' + escHtml([x.single_dose, x.frequency_name, x.route_name].filter(Boolean).join('\u3000')) +
-                                '\u3000\u00D7' + x.quantity + '</div>');
-                        } else {
-                            var head = (xi === arr.length - 1 ? '\u2514\u2500 ' : '\u251C\u2500 ') + itemToken(o, x) +
-                                (x.single_dose ? '\u3000' + escHtml(x.single_dose) : '');
-                            rxLines.push('<div class="ef-rx-line ef-rx-sub">' + head + '</div>');
-                        }
-                    });
-                    i3 = j3;
-                }
-            }
-        });
-        // 结构化编辑器自动段：辅助检查（token 逗号分隔）、处方行、处置项
-        Clinic.emrEditor.setAuto('aux_orders', auxT.join('，'), auxT.length > 0);
-        Clinic.emrEditor.setAuto('rx_lines', rxLines.join(''), rxLines.length > 0);
-        Clinic.emrEditor.setAuto('disp_items', dispT.join('，'), dispT.length > 0);
-    }
+/* ==================== 病历正文开单展示——已拆至 emr_orders.js ==================== */
+    function orderTextsFor(doctorId) { return Clinic.emr.orders.orderTextsFor(doctorId); }
+    function itemToken(o, it, extra) { return Clinic.emr.orders.itemToken(o, it, extra); }
+    function renderDocOrders() { return Clinic.emr.orders.renderDocOrders(); }
 
     /* ==================== 诊断悬浮窗（跟随鼠标：添加 / 排序操作） ==================== */
 

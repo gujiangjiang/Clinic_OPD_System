@@ -1,0 +1,104 @@
+/**
+ * ============================================================
+ * emr_orders.js — 病历正文开单展示
+ * ============================================================
+ * 说明：自 emr.js 拆出的开单展示模块——病历正文 辅助检查/门诊处置/
+ * 处方 的所见即所得渲染与只读段纯文本。经 Clinic.emr._ctx 读写共享
+ * 状态。依赖：Clinic.orderRxLines / Clinic.emrEditor。
+ * ============================================================ */
+window.Clinic = window.Clinic || {};
+Clinic.emr = Clinic.emr || {};
+
+Clinic.emr.orders = (function () {
+    var ctx = Clinic.emr._ctx;
+    var escHtml = ctx.escHtml;
+    var myDoctorId = ctx.myDoctorId;
+
+    /**
+     * 只读段纯文本（首诊/续写只读展示用）：
+     * 返回 [检验检查名列表, 处方行列表, 处置项列表]（已退费/已取消不计）。
+     */
+    function orderTextsFor(doctorId) {
+        var aux = [];
+        var proc = [];
+        var rxs = [];
+        (ctx.ORDERS || []).forEach(function (o) {
+            if ((o.doctor_id || 0) !== doctorId) return;
+            if (o.status === 'refunded' || o.status === 'cancelled') return;
+            o.items.forEach(function (it) {
+                if (o.order_type === 'lab' || o.order_type === 'imaging') {
+                    aux.push(it.item_name);
+                } else if (o.order_type === 'procedure') {
+                    proc.push(it.item_name + '×' + it.quantity);
+                }
+            });
+            if (o.order_type === 'prescription') {
+                Clinic.orderRxLines(o.items).forEach(function (l) { rxs.push(l); });
+            }
+        });
+        return { aux: aux, proc: proc, rxs: rxs };
+    }
+
+    /** 项目交互 token：活跃病历正文中的可点击行内标签（只读段不使用） */
+    function itemToken(o, it, extra) {
+        var suffix = '';
+        if ((o.order_type === 'lab' || o.order_type === 'imaging') && it.report_id) suffix = '（已出报告）';
+        return '<span class="emr-item-link" data-otype="' + o.order_type + '" data-oid="' + o.id + '" data-iid="' + it.id + '">' +
+            escHtml(it.item_name) + (extra || '') + suffix + '</span>';
+    }
+
+    /**
+     * 病历正文 辅助检查/门诊处置 渲染（活跃编辑器）：
+     * 项目渲染为交互式行内标签（点击弹出详情模态框）；只读段仍走 orderTextsFor 纯文本。
+     */
+    function renderDocOrders() {
+        var myId = myDoctorId();
+        var auxT = [], rxLines = [], dispT = [];
+        (ctx.ORDERS || []).forEach(function (o) {
+            if ((o.doctor_id || 0) !== myId) return;
+            if (o.status === 'refunded' || o.status === 'cancelled') return;
+            if (o.order_type === 'lab' || o.order_type === 'imaging') {
+                o.items.forEach(function (it) { auxT.push(itemToken(o, it)); });
+            } else if (o.order_type === 'procedure') {
+                o.items.forEach(function (it) { dispT.push(itemToken(o, it) + (it.quantity > 1 ? '×' + it.quantity : '')); });
+            } else if (o.order_type === 'prescription') {
+                var i3 = 0;
+                while (i3 < o.items.length) {
+                    var it0 = o.items[i3];
+                    var g = it0.group_no || 0;
+                    if (!g) {
+                        rxLines.push('<div class="ef-rx-line">' + itemToken(o, it0) +
+                            '\u3000' + escHtml([it0.single_dose, it0.frequency_name, it0.route_name].filter(Boolean).join('\u3000')) +
+                            '\u3000\u00D7' + it0.quantity + '</div>');
+                        i3++;
+                        continue;
+                    }
+                    var arr = [it0];
+                    var j3 = i3 + 1;
+                    while (j3 < o.items.length && (o.items[j3].group_no || 0) === g) { arr.push(o.items[j3]); j3++; }
+                    arr.forEach(function (x, xi) {
+                        if (xi === 0) {
+                            rxLines.push('<div class="ef-rx-line">' + itemToken(o, x) +
+                                '\u3000' + escHtml([x.single_dose, x.frequency_name, x.route_name].filter(Boolean).join('\u3000')) +
+                                '\u3000\u00D7' + x.quantity + '</div>');
+                        } else {
+                            var head = (xi === arr.length - 1 ? '\u2514\u2500 ' : '\u251C\u2500 ') + itemToken(o, x) +
+                                (x.single_dose ? '\u3000' + escHtml(x.single_dose) : '');
+                            rxLines.push('<div class="ef-rx-line ef-rx-sub">' + head + '</div>');
+                        }
+                    });
+                    i3 = j3;
+                }
+            }
+        });
+        Clinic.emrEditor.setAuto('aux_orders', auxT.join('，'), auxT.length > 0);
+        Clinic.emrEditor.setAuto('rx_lines', rxLines.join(''), rxLines.length > 0);
+        Clinic.emrEditor.setAuto('disp_items', dispT.join('，'), dispT.length > 0);
+    }
+
+    return {
+        orderTextsFor: orderTextsFor,
+        itemToken: itemToken,
+        renderDocOrders: renderDocOrders,
+    };
+})();

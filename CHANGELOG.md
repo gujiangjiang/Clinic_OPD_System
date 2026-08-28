@@ -13,6 +13,18 @@
 
 ---
 
+## [4.0.7] - 2026-08-27
+
+### 重构
+
+- **emr.js 结构化拆分（步骤 5）**：`_ctx` 补充 myDoctorId，提取病历正文
+  开单展示模块到 `emr_orders.js`（`Clinic.emr.orders`）——只读段纯文本
+  `orderTextsFor`、活跃编辑器交互标签 `itemToken`/`renderDocOrders`。
+  emr.js 内改为本地别名，内部调用与公共 API 不变。emr.js 已由 3205 行
+  减至约 2756 行。
+
+---
+
 ## [4.0.6] - 2026-08-27
 
 ### 重构
