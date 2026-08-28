@@ -66,9 +66,29 @@ Clinic.emr.template = (function () {
                     return (b.updated_at || '').localeCompare(a.updated_at || '');
                 });
                 var scopeNames = { hospital: '全院', dept: '科室', personal: '个人' };
-                function renderItems(items) {
+                var tplScope = '';   // 当前筛选范围：''=全部 / hospital / dept / personal
+
+                /** 获取当前筛选条件下的列表（scope + 搜索关键字） */
+                function getFilteredList() {
+                    var kw = (document.getElementById('tplPickKw') || {}).value || '';
+                    kw = kw.trim().toLowerCase();
+                    var out = order;
+                    if (tplScope) {
+                        out = out.filter(function (t) {
+                            var eff = t.status === 'pending_review' ? 'personal' : t.scope;
+                            return eff === tplScope;
+                        });
+                    }
+                    if (kw) {
+                        out = out.filter(function (t) { return t.title.toLowerCase().indexOf(kw) !== -1; });
+                    }
+                    return out;
+                }
+
+                function renderItems() {
                     var box = document.getElementById('tplPickList');
                     if (!box) return;
+                    var items = getFilteredList();
                     box.innerHTML = items.length ? items.map(function (t) {
                         var effScope = t.status === 'pending_review' ? 'personal' : t.scope;
                         return '<div class="tree-search-item" style="display:flex;justify-content:space-between;align-items:center" data-id="' + t.id + '">' +
@@ -83,18 +103,31 @@ Clinic.emr.template = (function () {
                         });
                     });
                 }
+
                 var pop2 = document.getElementById('tplPick');
                 if (pop2) {
                     pop2.innerHTML =
+                        '<div class="flex gap-4" style="margin-bottom:6px;flex-wrap:wrap">' +
+                        '  <span class="qp-chip active" data-scope="">全部</span>' +
+                        '  <span class="qp-chip" data-scope="hospital">全院</span>' +
+                        '  <span class="qp-chip" data-scope="dept">科室</span>' +
+                        '  <span class="qp-chip" data-scope="personal">个人</span>' +
+                        '</div>' +
                         '<input class="input tree-box-search" id="tplPickKw" placeholder="🔍 搜索病历模板" autocomplete="off">' +
                         '<div class="send-tree" id="tplPickList" style="max-height:320px"></div>';
-                    renderItems(order);
+                    renderItems();
+                    // 绑定范围筛选徽章（互斥）
+                    pop2.querySelectorAll('.qp-chip').forEach(function (el) {
+                        el.addEventListener('click', function () {
+                            pop2.querySelectorAll('.qp-chip').forEach(function (c) { c.classList.remove('active'); });
+                            this.classList.add('active');
+                            tplScope = this.getAttribute('data-scope') || '';
+                            renderItems();
+                        });
+                    });
                     var kw = document.getElementById('tplPickKw');
                     if (kw) {
-                        kw.addEventListener('input', function () {
-                            var q = this.value.trim().toLowerCase();
-                            renderItems(q ? order.filter(function (t) { return t.title.toLowerCase().indexOf(q) !== -1; }) : order);
-                        });
+                        kw.addEventListener('input', function () { renderItems(); });
                         kw.focus();
                     }
                 }
