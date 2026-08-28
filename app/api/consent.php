@@ -62,7 +62,7 @@ switch ($action) {
     case 'list':
         $visitId = did(get('visit_id'));
         if ($visitId <= 0) json_fail('参数错误');
-        $rows = DB::q('medical', 'SELECT * FROM consents WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        $rows = DB::q('medical', 'SELECT * FROM consents WHERE visit_id=? ORDER BY id ASC', array($visitId));
         $list = array();
         foreach ($rows as $r) {
             $list[] = array(

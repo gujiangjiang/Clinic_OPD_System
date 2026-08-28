@@ -147,7 +147,7 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
         $orderSql .= ' AND doctor_id=?';
         $orderParams[] = (int)$record['doctor_id'];
     }
-    $orderSql .= ' ORDER BY id DESC';
+    $orderSql .= ' ORDER BY id ASC';
     $orders = DB::q('order', $orderSql, $orderParams);
     foreach ($orders as $o) {
         $its = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
