@@ -124,6 +124,14 @@
     justify-content: space-between;
     line-height: 1.8;
 }
+/* 申请单页眉「临床诊断」行：过长自动换行，换行后从标签后悬挂缩进对齐 */
+.print-area .print-info-lines .print-diag {
+    font-size: 13px;
+    line-height: 1.8;
+    padding-left: 5.2em;
+    text-indent: -5.2em;
+    word-break: break-all;
+}
 .print-area .print-info {
     display: flex;
     flex-wrap: wrap;

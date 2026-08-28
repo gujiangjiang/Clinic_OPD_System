@@ -12,11 +12,26 @@ function pt_order($order, $items, $title) {
 
     // 患者信息：参考急诊病历两行流式排版、两端对齐（无论门诊/急诊开单统一此样式）
     $patient = DB::one('patient', 'SELECT * FROM patients WHERE patient_no=?', array($order['patient_no']));
+    // 临床诊断：取就诊结构化病历诊断（优先），旧镜像表 initial_diagnosis 兜底
+    $diagText = '';
+    $pr = DB::one('medical', 'SELECT emr_data FROM patient_records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($order['visit_id']));
+    if ($pr && !empty($pr['emr_data'])) {
+        $emr = json_decode($pr['emr_data'], true);
+        if (is_array($emr) && !empty($emr['diagnoses'])) {
+            $diagText = emr_diag_text($emr['diagnoses']);
+        }
+    }
+    if ($diagText === '') {
+        $oldRec = DB::one('medical', 'SELECT initial_diagnosis FROM records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($order['visit_id']));
+        if ($oldRec && trim((string)$oldRec['initial_diagnosis']) !== '') {
+            $diagText = trim((string)$oldRec['initial_diagnosis']);
+        }
+    }
     $cell = function ($k, $val) {
         $val = ($val !== '' && $val !== null) ? $val : '—';
         return '<span class="print-info-cell"><strong>' . e($k) . '</strong>：' . e($val) . '</span>';
     };
-    // 患者信息仅两行：第一行 姓名/性别/出生日期/年龄，第二行 患者ID/流水号/单号
+    // 患者信息：第一行 姓名/性别/出生日期/年龄，第二行 患者ID/流水号/单号，第三行 临床诊断
     $html .= '<div class="print-info-lines">' .
         '<div class="print-info-line">' .
         $cell('姓名', $patient ? $patient['name'] : '') .
@@ -27,6 +42,7 @@ function pt_order($order, $items, $title) {
         $cell('患者ID', $order['patient_no']) .
         $cell('流水号', $order['flow_no']) .
         $cell('单号', $order['order_no']) . '</div>' .
+        '<div class="print-diag"><strong>临床诊断</strong>：' . e($diagText !== '' ? $diagText : '—') . '</div>' .
         '</div><div class="print-line"></div>';
 
     $isDrug = ($order['order_type'] === 'prescription');
