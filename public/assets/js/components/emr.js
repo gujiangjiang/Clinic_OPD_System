@@ -120,8 +120,9 @@ Clinic.emr = (function () {
                         '<div class="fs-12 text-muted mt-8"><button class="btn btn-outline btn-sm mt-4" onclick="if(Clinic.queuePanel)Clinic.queuePanel.open()">📋 打开候诊列表</button></div>';
                     card.parentNode.replaceChild(wrap, card);
                 }
-                // 隐藏保存按钮（只读态）
+                // 隐藏保存按钮（只读态）+ 侧边栏空态（各节显示暂无、隐藏 +、箭头靠右）
                 document.querySelectorAll('.emr-write').forEach(function (b) { b.style.display = 'none'; });
+                renderLeftNavEmpty();
             },
         });
     }
@@ -1318,9 +1319,37 @@ Clinic.emr = (function () {
     }
 
     /**
+     * 无患者数据时渲染大纲栏空态：各节显示「暂无XXX」+ 隐藏所有 + 按钮。
+     * 场景：超期病历加载失败 / 加载异常（DATA 未就绪）。
+     */
+    function renderLeftNavEmpty() {
+        var map = {
+            navRecords: '暂无病历文书', navConsent: '暂无知情同意书', navDiags: '暂无诊断',
+            navImaging: '暂无检查', navLab: '暂无检验', navProc: '暂无门诊处置',
+            navRx: '暂无处方', navCert: '暂无诊断证明',
+        };
+        Object.keys(map).forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.innerHTML = '<div class="ena-empty">' + map[id] + '</div>';
+        });
+        // 无患者数据：隐藏所有 + 添加入口（含各区 ena-add）
+        document.querySelectorAll('.ena-add').forEach(function (b) { b.style.display = 'none'; });
+        // 展开箭头保持靠右对齐（加号隐藏后 margin-left:auto 生效）
+        document.querySelectorAll('.emr-sidebar-left .ena-sec-title').forEach(function (t) {
+            var arrow = t.querySelector('.ena-arrow');
+            if (arrow) arrow.style.marginLeft = 'auto';
+        });
+    }
+
+    /**
      * 渲染左侧大纲栏 8 大模块（数据源：DATA.records_history + ORDERS + DATA.visit）
      */
     function renderLeftNav() {
+        // 无患者数据（如超期病历加载失败）→ 各节显示「暂无」空态 + 隐藏 + 按钮
+        if (!DATA || !DATA.record) {
+            renderLeftNavEmpty();
+            return;
+        }
         // ---------- 1. 病历节点 ----------
         // 条目格式：日期 时间 科室 （首/续） + 医生姓名靠右（与初步诊断条目同款式）
         var recEl = document.getElementById('navRecords');
@@ -1637,6 +1666,11 @@ Clinic.emr = (function () {
      *  只读状态由各能力自行拦截（emr-write 隐藏 / 编辑器 READONLY 校验）。 */
     window.emrNavAdd = function (type, ev) {
         if (!window.Clinic) return;
+        // 无患者数据（如超期病历加载失败）→ 不执行任何添加入口
+        if (!DATA || !DATA.record) {
+            Clinic.toast.warning('未加载患者信息，无法执行该操作');
+            return;
+        }
         switch (type) {
             case 'imaging': if (requireSaved('开单')) Clinic.order.open('imaging'); return;
             case 'lab': if (requireSaved('开单')) Clinic.order.open('lab'); return;

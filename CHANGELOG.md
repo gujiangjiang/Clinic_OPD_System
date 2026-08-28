@@ -13,6 +13,20 @@
 
 ---
 
+## [4.0.15] - 2026-08-27
+
+### 修复
+
+- **超期病历（无患者数据）侧边栏空态完善**：
+  - `loadData` 加载失败时调用 `renderLeftNavEmpty()`——各分区显示
+    「暂无病历文书/暂无诊断/暂无检查…」，隐藏所有「＋」添加入口，
+    展开箭头 `margin-left:auto` 靠右对齐；
+  - `emrNavAdd` 增加 `DATA` 空守卫（未加载患者信息时提示并拦截，
+    不再抛 `__pending_initial` / `record` 空指针错误）；
+  - `renderLeftNav` 保留无数据守卫（转 `renderLeftNavEmpty`）。
+
+---
+
 ## [4.0.14] - 2026-08-27
 
 ### 修复
