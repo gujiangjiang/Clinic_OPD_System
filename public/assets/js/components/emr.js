@@ -23,6 +23,23 @@ Clinic.emr = (function () {
     /** 已开项目缓存（病历正文 辅助检查/门诊处置 所见即所得展示用） */
     var ORDERS = [];
 
+    // ===== 共享上下文：供拆分的子模块（emr_format/emr_template 等）读写 =====
+    // 通过 accessor 属性与模块级状态保持同步，不改变本文件既有引用；
+    // 子模块统一经 Clinic.emr._ctx 访问内部状态与函数。
+    Clinic.emr._ctx = {
+        get DATA() { return DATA; },
+        set DATA(v) { DATA = v; },
+        get EMR_DIRTY() { return EMR_DIRTY; },
+        set EMR_DIRTY(v) { EMR_DIRTY = v; },
+        get ORDERS() { return ORDERS; },
+        set ORDERS(v) { ORDERS = v; },
+        escHtml: function (s) { return escHtml(s); },
+        buildVitalSec: function (ro, v) { return buildVitalSec(ro, v); },
+        buildConsciousNode: function (ro, c) { return buildConsciousNode(ro, c); },
+        fillContHead: function (r) { return fillContHead(r); },
+        renderLeftNav: function () { return renderLeftNav(); },
+    };
+
     /**
      * 初始化页面
      */
@@ -2420,197 +2437,12 @@ Clinic.emr = (function () {
     /**
      * 打开病历模板选择（新模板库：结构化内容；列表仅元数据，选中后拉取内容）
      */
-    function openTemplates(ev) {
-        openTemplatePicker(ev);
-    }
-
-    /**
-     * 病历模板选择悬浮框（「病历节点 +」首诊场景 / 空白病历自动唤起）：
-     * 搜索栏 + 短列表，锚定在右侧「病历节点 +」按钮下方；
-     * 选中模板后按其内容创建首张电子病历（套用到编辑器）。
-     */
-    var tplPickEl = null;
-    function openTemplatePicker(ev) {
-        closeTemplatePicker();
-        // 先显示一个加载中的浮层（避免因请求延迟让用户感觉「没弹出」）
-        var pop = document.createElement('div');
-        pop.id = 'tplPick';
-        pop.className = 'tree-box';
-        pop.style.cssText = 'position:fixed;z-index:2600;width:340px;max-width:calc(100vw-16px);';
-        pop.innerHTML = '<div class="fs-12 text-muted" style="padding:12px;text-align:center">加载模板…</div>';
-        document.body.appendChild(pop);
-        // 定位：手动点击入口（「病历节点 +」或占位区「选择病历模板」按钮，ev 有鼠标坐标）→ 跟随鼠标；
-        // 自动弹出（无 ev）→ 锚定右侧「病历节点 +」按钮下方，queueBtn 兜底
-        var W = 340, H = 380;
-        if (ev && ev.clientX != null) {
-            pop.style.left = Math.max(8, Math.min(ev.clientX + 12, window.innerWidth - W - 8)) + 'px';
-            pop.style.top = Math.max(8, Math.min(ev.clientY + 12, window.innerHeight - H - 8)) + 'px';
-        } else {
-            var anchor = document.querySelector('.ena-add[title="添加病历"]') ||
-                document.querySelector('.ena-add') || document.getElementById('queueBtn');
-            if (anchor) {
-                var r = anchor.getBoundingClientRect();
-                pop.style.top = Math.max(8, r.bottom + window.scrollY + 6) + 'px';
-                pop.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.innerWidth - W - 8)) + 'px';
-            } else {
-                pop.style.top = '80px'; pop.style.left = '8px';
-            }
-        }
-        // 点击外部 / Esc 关闭
-        var outside = function (e) { var el = document.getElementById('tplPick'); if (el && !el.contains(e.target)) closeTemplatePicker(); };
-        var esc = function (e) { if (e.key === 'Escape') closeTemplatePicker(); };
-        pop.__handlers = [outside, esc];
-        setTimeout(function () { document.addEventListener('mousedown', outside, true); document.addEventListener('keydown', esc, true); }, 0);
-        // 拉取模板列表
-        Clinic.get('/api/template?action=list&type=medical_record', null, {
-            onSuccess: function (j) {
-                var list = j.data.list || [];
-                var scopeW = { hospital: 0, dept: 1, personal: 2 };
-                var order = list.slice().sort(function (a, b) {
-                    // 待审核模板按「个人」权重参与排序（审核通过前仅创建者本人可用）
-                    var sa = a.status === 'pending_review' ? 'personal' : a.scope;
-                    var sb = b.status === 'pending_review' ? 'personal' : b.scope;
-                    var wa = scopeW[sa] != null ? scopeW[sa] : 9;
-                    var wb = scopeW[sb] != null ? scopeW[sb] : 9;
-                    if (wa !== wb) return wa - wb;
-                    return (b.updated_at || '').localeCompare(a.updated_at || '');
-                });
-                var scopeNames = { hospital: '全院', dept: '科室', personal: '个人' };
-                function renderItems(items) {
-                    var box = document.getElementById('tplPickList');
-                    if (!box) return;
-                    box.innerHTML = items.length ? items.map(function (t) {
-                        // 待审核模板审核通过前仅创建者本人可用，范围显示为「个人」；
-                        // 审核通过后显示实际范围（全院/科室）；不展示适用科室明细
-                        var effScope = t.status === 'pending_review' ? 'personal' : t.scope;
-                        return '<div class="tree-search-item" style="display:flex;justify-content:space-between;align-items:center" data-id="' + t.id + '">' +
-                            '<span>' + escHtml(t.title) + '</span>' +
-                            '<span class="badge ' + (effScope === 'hospital' ? 'badge-primary' : (effScope === 'dept' ? 'badge-warning' : 'badge-gray')) + '" style="font-size:11px;flex-shrink:0">' +
-                            (scopeNames[effScope] || t.scope) + '</span></div>';
-                    }).join('') : '<div class="fs-12 text-muted" style="padding:8px 10px">暂无可用的病历模板，可前往「模板管理」创建</div>';
-                    box.querySelectorAll('.tree-search-item').forEach(function (it) {
-                        it.addEventListener('click', function () {
-                            closeTemplatePicker();
-                            applyTemplateById(parseInt(it.getAttribute('data-id'), 10));
-                        });
-                    });
-                }
-                var pop2 = document.getElementById('tplPick');
-                if (pop2) {
-                    pop2.innerHTML =
-                        '<input class="input tree-box-search" id="tplPickKw" placeholder="🔍 搜索病历模板" autocomplete="off">' +
-                        '<div class="send-tree" id="tplPickList" style="max-height:320px"></div>';
-                    renderItems(order);
-                    var kw = document.getElementById('tplPickKw');
-                    if (kw) {
-                        kw.addEventListener('input', function () {
-                            var q = this.value.trim().toLowerCase();
-                            renderItems(q ? order.filter(function (t) { return t.title.toLowerCase().indexOf(q) !== -1; }) : order);
-                        });
-                        kw.focus();
-                    }
-                }
-            },
-            onError: function () {
-                var pop3 = document.getElementById('tplPick');
-                if (pop3) pop3.innerHTML = '<div class="fs-12 text-muted" style="padding:12px;text-align:center">加载模板失败，请重试或前往「模板管理」创建</div>';
-            },
-        });
-    }
-
-    function closeTemplatePicker() {
-        var pop = document.getElementById('tplPick');
-        if (pop) {
-            if (pop.__handlers) {
-                document.removeEventListener('mousedown', pop.__handlers[0], true);
-                document.removeEventListener('keydown', pop.__handlers[1], true);
-            }
-            pop.remove();
-        }
-    }
-
-    /**
-     * 按 ID 应用模板（拉取模板内容后套用，for_apply 允许读取系统通用模板）
-     */
-    function applyTemplateById(tplId) {
-        Clinic.get('/api/template?action=get&id=' + tplId + '&for_apply=1', null, {
-            onSuccess: function (j) {
-                var t = j.data.template;
-                if (t && t.content) {
-                    applyTemplate(t.content);
-                    closeTemplatePicker();
-                    Clinic.toast.success('已应用模板，可在此基础上修改并保存');
-                }
-            },
-        });
-    }
-
-    /**
-     * 应用模板内容/前序病历到编辑器（兼容新旧两种格式）：
-     * - 新模板（emr_templates）：结构化 emr（chief_complaint: {symptom:...}）
-     * - 旧前序病历（prev_records）：扁平文本（chief_complaint: 'xxx'）
-     * 与病历数据深合并，套用视为实质性变更（置脏标记）。
-     */
-    function applyTemplate(c) {
-        if (!c || typeof c !== 'object') c = {};
-        // 空病历占位态（首张电子病历未创建）：先渲染首诊编辑器，再套用模板
-        var docBody = document.getElementById('docBody');
-        var placeholder = docBody ? docBody.querySelector('.ro-placeholder') : null;
-        if (placeholder) {
-            var d2 = DATA;
-            var r2 = d2.record;
-            docBody.innerHTML = '';
-            try {
-                Clinic.emrEditor.render(docBody, r2.emr || {}, {
-                    readonly: false,
-                    beforeVitals: buildVitalSec(false, d2.vitals || {}),
-                    midNode: buildConsciousNode(false, r2.consciousness || '清醒'),
-                    mode: 'initial',
-                    onChange: function () { EMR_DIRTY = true; },
-                });
-            } catch (e) { console.error('模板应用前编辑器渲染失败', e); }
-            // 首诊编辑中也补齐锚点条幅（记录医生/记录时间/首诊徽标）：
-            // 未保存时记录时间=创建时刻，保存后刷新为首次保存时间；
-            // 同时提供 contHeadWrap 锚点，供「首诊编辑中」点击滚动定位
-            fillContHead(r2);
-            // 右侧病历节点显示「首诊编辑中…（未保存）」占位
-            DATA.__pending_initial = true;
-            renderLeftNav();
-        }
-        var cur = Clinic.emrEditor.collect();
-        // 扁平转结构化（旧前序病历格式 → 编辑器字段路径）
-        var flatKeyMap = {
-            chief_complaint: 'chief_complaint.symptom',
-            present_illness: 'history_present.content',
-            past_history: 'past_history.detail',
-            allergy_history: 'allergies.detail',
-        };
-        Object.keys(c).forEach(function (k) {
-            var val = c[k];
-            if (typeof val === 'string' && flatKeyMap[k]) {
-                // 扁平文本 → 按映射路径写入
-                var path = flatKeyMap[k].split('.');
-                if (path.length === 2) {
-                    if (!cur[path[0]]) cur[path[0]] = {};
-                    cur[path[0]][path[1]] = val;
-                }
-                if (k === 'past_history' && val) {
-                    cur.past_history = cur.past_history || {};
-                    cur.past_history.type = '承认';
-                }
-                if (k === 'allergy_history' && val) {
-                    cur.allergies = cur.allergies || {};
-                    cur.allergies.type = '承认';
-                }
-            } else if (val && typeof val === 'object') {
-                cur[k] = Object.assign(cur[k] || {}, val);
-            } else {
-                cur[k] = val;
-            }
-        });
-        Clinic.emrEditor.set(cur);
-        Clinic.emrEditor.markDirty();
-    }
+    // ===== 病历模板选择与应用：已拆至 emr_template.js（Clinic.emr.template）=====
+    // 本地别名保持内部调用与公共 API 不变
+    function openTemplates(ev) { return Clinic.emr.template.openTemplates(ev); }
+    function openTemplatePicker(ev) { return Clinic.emr.template.openTemplatePicker(ev); }
+    function applyTemplateById(tplId) { return Clinic.emr.template.applyTemplateById(tplId); }
+    function applyTemplate(c) { return Clinic.emr.template.applyTemplate(c); }
 
     /**
      * 打开转科弹窗（复用通用科室选择组件 transfer 模式：

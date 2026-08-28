@@ -13,6 +13,19 @@
 
 ---
 
+## [4.0.3] - 2026-08-27
+
+### 重构
+
+- **emr.js 结构化拆分（步骤 2）**：建立共享上下文 `Clinic.emr._ctx`
+  （accessor 同步模块级状态 DATA/EMR_DIRTY/ORDERS + 暴露内部函数），
+  提取病历模板选择与应用模块到 `emr_template.js`
+  （`Clinic.emr.template`），emr.js 内改为本地别名，内部调用与公共 API
+  不变。加载顺序调整为 emr.js → emr_format.js → emr_template.js
+  （emr.js 整体赋值 Clinic.emr，须先加载保证 format/template 挂载）。
+
+---
+
 ## [4.0.2] - 2026-08-27
 
 ### 重构
