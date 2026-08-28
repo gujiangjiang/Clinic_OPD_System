@@ -156,9 +156,7 @@ function order_part_write($action) {
                 'route_name' => isset($it['route']) ? $it['route'] : '',
                 'need_nurse' => $needNurse, 'sub_of' => $subOf,
             );
-            if ($subOf === 0) {
-                $total += $price * $qty;
-            }
+            $total += $price * $qty;   // 主药与子医嘱均独立计费
         }
 
         // ===== 成组医嘱：分配组号 / 主药 / 父条目关联 =====
@@ -260,8 +258,8 @@ function order_part_write($action) {
                 if ((int)$orderItems[$i]['sub_of'] === 0) {
                     $localNo++;
                     $mapSeq[$itemSeq[$i]] = $localNo;
-                    $groupTotal += (float)$orderItems[$i]['price'] * max(1, (int)$orderItems[$i]['quantity']);
                 }
+                $groupTotal += (float)$orderItems[$i]['price'] * max(1, (int)$orderItems[$i]['quantity']);   // 主药与子医嘱均计费
             }
 
             do {
@@ -289,7 +287,7 @@ function order_part_write($action) {
             if ($orderType === 'prescription') {
                 foreach ($g['idx'] as $i) {
                     $it = $orderItems[$i];
-                    if ((int)$it['item_id'] > 0 && (int)$it['sub_of'] === 0) {
+                    if ((int)$it['item_id'] > 0) {
                         // 原子条件更新：仅当库存充足时扣减，避免 TOCTOU 竞态
                         // 预检（line 前段）仅作快速提示，此处才是最终校验
                         $affected = DB::exec('drug', 'UPDATE drugs SET qty = qty - ? WHERE id=? AND qty >= ?',

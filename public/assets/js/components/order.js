@@ -77,6 +77,9 @@ Clinic.order = (function () {
     var MEMBER_GROUPS = {};
     /** 目录 id -> 名称（共享成员提醒显示用） */
     var ID_NAMES = {};
+    /** 频次/途径选项（管理员设置，已选列表下拉用） */
+    var RX_FREQS = [];
+    var RX_ROUTES = [];
     /** 待二次确认的既往项目 */
     var PENDING = null;
 
@@ -99,6 +102,8 @@ Clinic.order = (function () {
         CUR_TYPE = type;
         SELECTED = [];
         LAB_FILTER = 'single';
+        RX_FREQS = [];
+        RX_ROUTES = [];
         PREV_ITEMS = {};
         GROUP_MEMBERS = {};
         MEMBER_GROUPS = {};
@@ -122,6 +127,10 @@ Clinic.order = (function () {
         Clinic.get('/api/order?action=catalog&type=' + type, null, {
             onSuccess: function (j) {
                 CATALOG = j.data.list;
+                if (j.data.link_dicts) {
+                    RX_FREQS = j.data.link_dicts.frequencies || [];
+                    RX_ROUTES = j.data.link_dicts.routes || [];
+                }
                 buildMaps();
                 catalogReady = true;
                 tryOpen();
@@ -735,6 +744,7 @@ Clinic.order = (function () {
                 '<div class="flex-between">' +
                 '  <div class="flex gap-8" style="align-items:center;min-width:0">' +
                 '    <span class="fw-600 fs-13 ellipsis">' + s.name + '</span>' +
+                (s.spec ? '<span class="fs-12 text-muted" style="flex-shrink:0">' + s.spec + '</span>' : '') +
                 (s.skin_test ? '<span class="badge ' + (s.skin_test === 'yes' ? 'badge-danger' : 'badge-gray') + ' fs-12">' +
                     (s.skin_test === 'yes' ? '需要皮试' : '免试') + '</span>' : '') +
                 (s.company_short ? '<span class="fs-12 text-muted">' + s.company_short + '</span>' : '') +
@@ -755,11 +765,15 @@ Clinic.order = (function () {
     }
 
     /**
-     * 更新总费用
+     * 更新总费用（主药 + 子医嘱均计费）
      */
     function updateTotal() {
         var total = SELECTED.reduce(function (sum, s) {
-            return sum + s.price * s.quantity;
+            var t = sum + s.price * s.quantity;
+            (s.sub_items || []).forEach(function (sub) {
+                t += (sub.price || 0) * (sub.quantity || 1);
+            });
+            return t;
         }, 0);
         document.getElementById('orderTotal').textContent = '¥' + total.toFixed(2);
     }
@@ -793,13 +807,30 @@ Clinic.order = (function () {
      * 成组医嘱：所有药品均可添加子医嘱（不限给药途径）
      */
     function drugControls(s, i) {
+        var freqOpts = RX_FREQS.map(function (f) {
+            return '<option value="' + f + '"' + (f === s.frequency ? ' selected' : '') + '>' + f + '</option>';
+        }).join('');
+        var routeOpts = RX_ROUTES.map(function (r) {
+            return '<option value="' + r + '"' + (r === s.route ? ' selected' : '') + '>' + r + '</option>';
+        }).join('');
+        // 当前值不在选项列表（管理员新增未刷新等）时，补一个选中项兜底
+        if (s.frequency && freqOpts && RX_FREQS.indexOf(s.frequency) === -1) {
+            freqOpts = '<option value="' + s.frequency + '" selected>' + s.frequency + '</option>' + freqOpts;
+        }
+        if (s.route && routeOpts && RX_ROUTES.indexOf(s.route) === -1) {
+            routeOpts = '<option value="' + s.route + '" selected>' + s.route + '</option>' + routeOpts;
+        }
         return '<div class="flex gap-8 mt-4" style="flex-wrap:wrap">' +
             '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" ' +
             'value="' + (s.dose || '') + '" placeholder="剂量" onchange="Clinic.order.setField(' + i + ',\'dose\',this.value)">' +
-            '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" ' +
-            'value="' + (s.frequency || '') + '" placeholder="频次" onchange="Clinic.order.setField(' + i + ',\'frequency\',this.value)">' +
-            '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" ' +
-            'value="' + (s.route || '') + '" placeholder="途径" onchange="Clinic.order.setRoute(' + i + ',this.value)">' +
+            (freqOpts ? '<select class="select" style="width:112px;padding:4px 8px;min-height:28px;font-size:13px" ' +
+                'onchange="Clinic.order.setField(' + i + ',\'frequency\',this.value)">' + freqOpts + '</select>'
+                : '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" ' +
+                'value="' + (s.frequency || '') + '" placeholder="频次" onchange="Clinic.order.setField(' + i + ',\'frequency\',this.value)">') +
+            (routeOpts ? '<select class="select" style="width:112px;padding:4px 8px;min-height:28px;font-size:13px" ' +
+                'onchange="Clinic.order.setRoute(' + i + ',this.value)">' + routeOpts + '</select>'
+                : '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" ' +
+                'value="' + (s.route || '') + '" placeholder="途径" onchange="Clinic.order.setRoute(' + i + ',this.value)">') +
             '<button type="button" class="btn btn-outline btn-sm" ' +
             'onclick="Clinic.order.openSubDrop(' + i + ',this)">＋ 子医嘱</button>' +
             '</div>' +
@@ -812,13 +843,31 @@ Clinic.order = (function () {
     function subList(s, i) {
         var n = s.sub_items.length;
         return '<div style="margin:6px 0 0 20px;border-left:2px solid var(--warning);padding-left:10px">' +
-            '<div class="fs-12 text-muted mb-4">成组医嘱（并入上方主药，剂量单独显示，途径频次随主药）</div>' +
+            '<div class="fs-12 text-muted mb-4">成组医嘱（并入上方主药，途径频次随主药；剂量/数量可独立调整并计费）</div>' +
             s.sub_items.map(function (sub, si) {
-                var branch = si === 0 ? '┌' : (si === n - 1 ? '└' : '├');
-                return '<div class="flex-between fs-13" style="padding:2px 0;font-family:Menlo,Consolas,monospace">' +
-                    '<span>' + branch + ' ' + sub.name + ' ｜ 剂量：' + (sub.dose || '—') + '</span>' +
+                // 单个子医嘱即末项 → └；多个：首 ┌ / 中 ├ / 末 └
+                var branch = si === n - 1 ? '└' : (si === 0 ? '┌' : '├');
+                return '<div class="flex-between fs-13" style="padding:2px 0;align-items:center">' +
+                    '<span style="min-width:0;flex:1;font-family:Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+                    branch + ' ' + sub.name +
+                    (sub.spec ? ' <span class="text-muted">' + sub.spec + '</span>' : '') +
+                    ' ｜ 剂量：<input type="text" class="input" style="width:70px;padding:2px 6px;min-height:22px;font-size:12px" ' +
+                    'value="' + (sub.dose || '') + '" placeholder="剂量" ' +
+                    'onchange="Clinic.order.setSubField(' + i + ',' + si + ',\'dose\',this.value)">' +
+                    '</span>' +
+                    '<span class="flex gap-4" style="align-items:center;flex-shrink:0;margin-left:8px">' +
+                    '<span class="fs-12 text-muted">¥' + ((sub.price || 0) * (sub.quantity || 1)).toFixed(2) + '</span>' +
+                    '<button type="button" class="btn btn-outline btn-sm" style="padding:0 7px" ' +
+                    'onclick="Clinic.order.changeSubQty(' + i + ',' + si + ',-1)">−</button>' +
+                    '<input type="number" class="input" style="width:46px;padding:2px 4px;min-height:22px;text-align:center;font-size:12px" ' +
+                    'value="' + (sub.quantity || 1) + '" min="1" max="99" ' +
+                    'onchange="Clinic.order.setSubQty(' + i + ',' + si + ',this.value)">' +
+                    '<button type="button" class="btn btn-outline btn-sm" style="padding:0 7px" ' +
+                    'onclick="Clinic.order.changeSubQty(' + i + ',' + si + ',1)">＋</button>' +
                     '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px" ' +
-                    'onclick="Clinic.order.removeSub(' + i + ',' + si + ')">✕</button></div>';
+                    'onclick="Clinic.order.removeSub(' + i + ',' + si + ')">✕</button>' +
+                    '</span>' +
+                    '</div>';
             }).join('') + '</div>';
     }
 
@@ -853,9 +902,11 @@ Clinic.order = (function () {
             skinChoices.push(s.skin_test || '');
             (s.sub_items || []).forEach(function (sub, si) {
                 flat.push({
-                    item_id: 0, item_name: sub.name, price: 0, quantity: 1,
+                    item_id: sub.id || 0, item_name: sub.name, price: sub.price || 0,
+                    quantity: sub.quantity || 1,
                     dose: sub.dose, frequency: '', route: '',
-                    spec: '', unit_name: '', company_short: '', notes: '',
+                    spec: sub.spec || '', unit_name: sub.unit_name || '',
+                    company_short: sub.company_short || '', notes: '',
                     sub_of: idx + 1, sort: si,
                 });
                 skinChoices.push('');
@@ -943,6 +994,29 @@ Clinic.order = (function () {
         SELECTED[i].nurse_required = checked ? 1 : 0;
     }
 
+    /** 设置子医嘱字段（剂量） */
+    function setSubField(i, si, field, val) {
+        var s = SELECTED[i];
+        if (s && s.sub_items[si]) s.sub_items[si][field] = val;
+    }
+
+    /** 子医嘱数量增减 */
+    function changeSubQty(i, si, delta) {
+        var s = SELECTED[i];
+        if (!s || !s.sub_items[si]) return;
+        var q = Math.min(99, Math.max(1, (s.sub_items[si].quantity || 1) + delta));
+        s.sub_items[si].quantity = q;
+        renderSelected();
+    }
+
+    /** 子医嘱数量设置 */
+    function setSubQty(i, si, val) {
+        var s = SELECTED[i];
+        if (!s || !s.sub_items[si]) return;
+        s.sub_items[si].quantity = Math.min(99, Math.max(1, parseInt(val, 10) || 1));
+        renderSelected();
+    }
+
     /** 移除子医嘱 */
     function removeSub(i, si) {
         SELECTED[i].sub_items.splice(si, 1);
@@ -953,6 +1027,7 @@ Clinic.order = (function () {
         init: init, open: open, renderSelected: renderSelected,
         removeItem: removeItem, changeQty: changeQty, setQty: setQty,
         setField: setField, setRoute: setRoute, removeSub: removeSub,
+        setSubField: setSubField, changeSubQty: changeSubQty, setSubQty: setSubQty,
         setNurse: setNurse, openSubDrop: openSubDrop, closeSubDrop: closeSubDrop,
         confirmPrev: confirmPrev,
     };

@@ -73,7 +73,14 @@ function order_part_read($action) {
             }
         }
         // 联动字典：皮试处置详情（id→名称/费用）+ 给药途径绑定计费处置（途径名→处置）
-        $dicts = array('skin_tests' => array(), 'route_bindings' => array());
+        //           + 频次/途径选项列表（供已选列表下拉选择）
+        $dicts = array('skin_tests' => array(), 'route_bindings' => array(), 'frequencies' => array(), 'routes' => array());
+        foreach (DB::q('drug', "SELECT name FROM drug_settings WHERE stype='freq' ORDER BY sort, id") as $fq) {
+            $dicts['frequencies'][] = $fq['name'];
+        }
+        foreach (DB::q('drug', "SELECT name FROM drug_settings WHERE stype='route' ORDER BY sort, id") as $rt) {
+            $dicts['routes'][] = $rt['name'];
+        }
         $stIds = array();
         foreach ($list as $it) {
             if (!empty($it['skin_test_item_id'])) $stIds[(int)$it['skin_test_item_id']] = true;
