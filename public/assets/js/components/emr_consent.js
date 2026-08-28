@@ -24,20 +24,20 @@ Clinic.emr.consent = (function () {
                     name: c.name || '通用',
                     content: c.content || '',
                     title: t.title || '',
-                }, 0);
+                }, 0, t.id);
             },
         });
     }
 
     /** 打开知情同意书编辑模态框（新建/编辑，可输入） */
-    function openEditor(data, consentId) {
+    function openEditor(data, consentId, templateId) {
         var isEdit = consentId && consentId > 0;
-        var title = (data && data.name ? data.name + '知情同意书' : '知情同意书');
         var name = data && data.name ? data.name : '';
         var content = data && data.content ? data.content : '';
+        // 标题：名称输入框只读不可更改（由模板决定）
         var html =
             '<div class="form-group"><label class="form-label">知情同意书名称 <span class="req">*</span></label>' +
-            '<input class="input" id="ctName" value="' + escHtml(name) + '" placeholder="如：手术、输血、有创操作"></div>' +
+            '<input class="input" id="ctName" value="' + escHtml(name) + '" readonly placeholder="由模板确定，不可更改"></div>' +
             '<div class="form-group"><label class="form-label">知情同意内容 <span class="req">*</span></label>' +
             '<textarea class="textarea" id="ctContent" rows="14" style="min-height:360px" placeholder="请输入知情同意内容…">' + escHtml(content) + '</textarea></div>' +
             '<div class="fs-12 text-muted">开具医生将自动记录（打印时显示）。</div>';
@@ -46,21 +46,21 @@ Clinic.emr.consent = (function () {
             size: 'modal-lg',
             buttons: [
                 { text: '取消', cls: 'btn-outline' },
-                { text: '保存', cls: 'btn-primary', autoClose: false, onClick: function () { save(consentId); } },
+                { text: '保存', cls: 'btn-primary', autoClose: false, onClick: function () { save(consentId, templateId); } },
             ],
         });
         mask.querySelector('#ctName').focus();
     }
 
     /** 保存知情同意书 */
-    function save(consentId) {
-        var name = (document.getElementById('ctName') || {}).value || '';
+    function save(consentId, templateId) {
         var content = (document.getElementById('ctContent') || {}).value || '';
-        if (!name.trim()) { Clinic.toast.warning('请填写知情同意书名称'); return; }
         if (!content.trim()) { Clinic.toast.warning('请填写知情同意内容'); return; }
         var visitId = document.getElementById('visitId').value;
-        var data = { action: 'save', visit_id: visitId, title: name.trim() + '知情同意书', content: content.trim() };
+        var data = { action: 'save', visit_id: visitId, content: content.trim() };
         if (consentId && consentId > 0) data.id = consentId;
+        // 新建时传递 template_id（服务端据此推导标题，防止篡改）
+        if (templateId && templateId > 0) data.template_id = templateId;
         Clinic.ajax('/api/consent', data, {
             onSuccess: function (j) {
                 Clinic.toast.success(j.msg);
@@ -99,7 +99,7 @@ Clinic.emr.consent = (function () {
                 if (!c) return;
                 // title 形如「手术知情同意书」→ 反推名称「手术」
                 var name = c.title.replace(/知情同意书$/, '');
-                openEditor({ name: name, content: c.content }, c.id);
+                openEditor({ name: name, content: c.content }, c.id, 0);
             },
         });
     }

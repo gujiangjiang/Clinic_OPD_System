@@ -21,9 +21,7 @@ switch ($action) {
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
         $patient = $row['patient'];
-        $title = trim((string)post('title', ''));
         $content = trim((string)post('content', ''));
-        if ($title === '') json_fail('请填写知情同意书名称');
         if ($content === '') json_fail('请填写知情同意内容');
         $id = (int)post('id', 0);
         $now = now_str();
@@ -36,10 +34,23 @@ switch ($action) {
             json_fail('该病历超出您的可查看历史天数，无法修改');
         }
         if ($id > 0) {
+            // 编辑：仅更新内容，标题保持原值（不可更改）
             $old = DB::one('medical', 'SELECT * FROM consents WHERE id=? AND doctor_id=?', array($id, $u['id']));
             if (!$old) json_fail('知情同意书不存在或无权修改');
-            DB::exec('medical', 'UPDATE consents SET title=?, content=?, updated_at=? WHERE id=?', array($title, $content, $now, $id));
+            DB::exec('medical', 'UPDATE consents SET content=?, updated_at=? WHERE id=?', array($content, $now, $id));
         } else {
+            // 新建：标题由服务端从模板推导（模板的 name + 知情同意书），前端不可指定/篡改
+            $tplId = (int)post('template_id', 0);
+            $title = '';
+            if ($tplId > 0) {
+                $tpl = DB::one('emr_templates', 'SELECT content_json FROM emr_templates WHERE id=?', array($tplId));
+                if ($tpl) {
+                    $tc = json_decode((string)$tpl['content_json'], true);
+                    $nm = is_array($tc) && !empty($tc['name']) ? trim((string)$tc['name']) : '';
+                    if ($nm !== '') $title = $nm . '知情同意书';
+                }
+            }
+            if ($title === '') json_fail('请从有效的知情同意书模板创建');
             $id = DB::insert('medical', 'INSERT INTO consents(visit_id, patient_no, flow_no, title, content, doctor_id, doctor_name, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
                 $visitId, $patient['patient_no'], $visit['flow_no'], $title, $content, $u['id'], $u['name'], $now, $now,
             ));
