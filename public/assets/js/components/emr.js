@@ -106,15 +106,19 @@ Clinic.emr = (function () {
                 }
             },
             onError: function (j) {
-                // 病历加载失败（如超期历史病历拦截）→ 显示友好提示，替代「加载中…」
+                // 病历加载失败（如超期历史病历拦截）→ 直接替换 #emrCard 为
+                // 与医生工作站欢迎页同款 .wb-empty 空态（同结构、同尺寸、复用同一 CSS）
                 var card = document.getElementById('emrCard');
-                if (card) {
-                    card.innerHTML = '<div class="card wb-empty" style="padding:40px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px">' +
+                if (card && card.parentNode) {
+                    var wrap = document.createElement('div');
+                    wrap.className = 'card wb-empty';
+                    wrap.style.cssText = 'padding:40px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center';
+                    wrap.innerHTML =
                         '<div style="font-size:64px;margin-bottom:16px">🔒</div>' +
                         '<div class="fs-18 fw-600 text-muted">' + escHtml(j.msg || '无法加载病历') + '</div>' +
                         '<div class="fs-14 text-muted mt-4">该病历不在您的可查看时间范围内，请从候诊列表选择当前就诊患者</div>' +
-                        '<div class="fs-12 text-muted mt-8"><button class="btn btn-outline btn-sm mt-4" onclick="if(Clinic.queuePanel)Clinic.queuePanel.open()">📋 打开候诊列表</button></div>' +
-                        '</div>';
+                        '<div class="fs-12 text-muted mt-8"><button class="btn btn-outline btn-sm mt-4" onclick="if(Clinic.queuePanel)Clinic.queuePanel.open()">📋 打开候诊列表</button></div>';
+                    card.parentNode.replaceChild(wrap, card);
                 }
                 // 隐藏保存按钮（只读态）
                 document.querySelectorAll('.emr-write').forEach(function (b) { b.style.display = 'none'; });
