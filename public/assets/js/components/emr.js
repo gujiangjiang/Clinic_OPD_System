@@ -120,7 +120,8 @@ Clinic.emr = (function () {
                         '<div class="fs-12 text-muted mt-8"><button class="btn btn-outline btn-sm mt-4" onclick="if(Clinic.queuePanel)Clinic.queuePanel.open()">📋 打开候诊列表</button></div>';
                     card.parentNode.replaceChild(wrap, card);
                 }
-                // 隐藏保存按钮（只读态）+ 侧边栏空态（各节显示暂无、隐藏 +、箭头靠右）
+                // 隐藏保存/诊毕/转科/打印按钮（打印无 emr-write 类，整体隐藏顶栏操作组）
+                document.querySelectorAll('.emr-top-actions .btn').forEach(function (b) { b.style.display = 'none'; });
                 document.querySelectorAll('.emr-write').forEach(function (b) { b.style.display = 'none'; });
                 renderLeftNavEmpty();
             },
