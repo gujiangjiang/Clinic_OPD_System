@@ -166,8 +166,17 @@ switch ($action) {
         if ($title === '') json_fail('请填写模板名称');
         $contentArr = json_decode((string)$content, true);
         if (!is_array($contentArr)) $contentArr = array();
-        // 后端强制剥离禁止字段（前端可能被篡改）
-        $contentArr = tpl_filter_content($contentArr);
+        // 内容按模板类型区分：
+        // · consent 知情同意书模板：{ name: XX（标题中的 XX）, content: 正文 }
+        // · medical_record 病历模板：结构化 EMR（后端剥离禁止字段）
+        $typeLabel = $type === 'consent' ? '知情同意书模板' : '病历模板';
+        if ($type === 'consent') {
+            if (empty($contentArr['name'])) $contentArr['name'] = '通用';
+            if (!isset($contentArr['content'])) $contentArr['content'] = '';
+            $contentArr['content'] = trim((string)$contentArr['content']);
+        } else {
+            $contentArr = tpl_filter_content($contentArr);
+        }
 
         $isAdmin = ($u['role'] === 'admin');
         // 管理员创建：仅限 hospital/dept
@@ -225,16 +234,16 @@ switch ($action) {
             ), JSON_UNESCAPED_UNICODE);
             if ($existing) {
                 DB::exec('core', 'UPDATE audits SET title=?, content=?, data=?, proposer=?, proposer_id=?, created_at=? WHERE id=?', array(
-                    '病历模板待审核：' . $title, '提交' . $scopeName . '病历模板「' . $title . '」，请在审核中心查看详情并审核', $auditData, $u['name'], $u['id'], now_str(), (int)$existing['id'],
+                    $typeLabel . '待审核：' . $title, '提交' . $scopeName . $typeLabel . '「' . $title . '」，请在审核中心查看详情并审核', $auditData, $u['name'], $u['id'], now_str(), (int)$existing['id'],
                 ));
             } else {
-                submit_audit('template', $tplId, '病历模板待审核：' . $title,
-                    '提交' . $scopeName . '病历模板「' . $title . '」，请在审核中心查看详情并审核',
+                submit_audit('template', $tplId, $typeLabel . '待审核：' . $title,
+                    '提交' . $scopeName . $typeLabel . '「' . $title . '」，请在审核中心查看详情并审核',
                     array('data' => $auditData));
             }
             // 站内消息提醒管理员前往审核中心处理
             send_msg('admin', 0, '待审核提醒',
-                '医生 ' . $u['name'] . ' 提交了' . $scopeName . '病历模板「' . $title . '」待审核，请前往审核中心处理',
+                '医生 ' . $u['name'] . ' 提交了' . $scopeName . $typeLabel . '「' . $title . '」待审核，请前往审核中心处理',
                 '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
         } else {
             // 免审（个人/管理员）或已过审：清理该模板残留的待审核记录
