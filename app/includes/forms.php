@@ -86,7 +86,16 @@ function form_drug($id) {
             'name' => '', 'generic_name' => '', 'category' => '', 'vendor' => '', 'vendor_short' => '',
             'package_unit' => '', 'spec' => '', 'form' => '', 'single_dose' => '', 'frequency_name' => '',
             'route_name' => '', 'price' => '0', 'qty' => '0', 'is_rx' => 0, 'is_limited' => 0, 'note' => '', 'need_nurse' => 0,
+            'spec_dose' => 0, 'spec_dose_unit' => '', 'spec_pack_qty' => 1, 'spec_pack_unit' => '', 'single_use_qty' => 1,
         );
+    }
+    // 规格结构化展示串：0.5g×24粒 / 100ml×1瓶 / 0.35g
+    $specShow = trim((string)$r['spec']);
+    if ($specShow === '') {
+        $specShow = trim((string)$r['spec_dose'] . $r['spec_dose_unit']);
+        if ($specShow !== '' && trim((string)$r['spec_pack_unit']) !== '') {
+            $specShow .= '×' . (int)$r['spec_pack_qty'] . $r['spec_pack_unit'];
+        }
     }
     $sel = function ($stype, $cur) {
         $rows = DB::q('drug', 'SELECT * FROM drug_settings WHERE stype=? ORDER BY sort, id', array($stype));
@@ -117,8 +126,17 @@ function form_drug($id) {
         <div class="form-group"><label class="form-label">企业名称缩写</label><input class="input" id="f_vendor_short" value="' . e($r['vendor_short']) . '" placeholder="处方打印显示"></div>
     </div>
     <div class="form-row">
-        <div class="form-group"><label class="form-label">药物规格/含量</label><input class="input" id="f_spec" value="' . e($r['spec']) . '" placeholder="如：0.25g×24片"></div>
-        <div class="form-group"><label class="form-label">单次使用剂量</label><input class="input" id="f_dose" value="' . e($r['single_dose']) . '" placeholder="如：2片 / 2g"></div>
+        <div class="form-group"><label class="form-label">药物规格 <span class="req">*</span></label>
+            <input type="hidden" id="f_spec_dose" value="' . e($r['spec_dose']) . '">
+            <input type="hidden" id="f_spec_dose_unit" value="' . e($r['spec_dose_unit']) . '">
+            <input type="hidden" id="f_spec_pack_qty" value="' . (int)$r['spec_pack_qty'] . '">
+            <input type="hidden" id="f_spec_pack_unit" value="' . e($r['spec_pack_unit']) . '">
+            <input class="input" id="f_spec" value="' . e($specShow !== '' ? $specShow : '点击设置规格（如 0.5g×24粒）') . '" readonly onclick="openSpecEditor()" style="cursor:pointer;background:var(--bg-soft)" title="点击编辑规格">
+        </div>
+        <div class="form-group"><label class="form-label">单次使用数量</label>
+            <input class="input" type="number" min="1" step="1" id="f_dose" value="' . (int)max(1, $r['single_use_qty']) . '">
+            <div class="fs-12 text-muted mt-4">单次默认数量：规格为 0.35g×24粒 时填 2 即单次 2 粒</div>
+        </div>
     </div>
     <div class="form-row">
         <div class="form-group"><label class="form-label">用药频次</label><select class="select" id="f_freq">' . $sel('freq', $r['frequency_name']) . '</select></div>

@@ -141,6 +141,12 @@ function admin_part_drug($action) {
             // 皮试联动：标记需皮试时必须关联已审核的皮试处置项目
             'need_skin_test' => (int)post('need_skin_test', 0),
             'skin_test_item_id' => (int)post('skin_test_item_id', 0),
+            // 规格结构化：单剂量值/单位 + 包装数量/单位 + 单次使用数量
+            'spec_dose' => (float)post('spec_dose', 0),
+            'spec_dose_unit' => post('spec_dose_unit'),
+            'spec_pack_qty' => (int)post('spec_pack_qty', 1),
+            'spec_pack_unit' => post('spec_pack_unit'),
+            'single_use_qty' => (float)post('single_use_qty', 1),
         );
         if ((int)$data['need_skin_test'] === 1) {
             $stOk = DB::val('disp', "SELECT COUNT(*) FROM disposal_items WHERE id=? AND status='approved'", array($data['skin_test_item_id']));
@@ -164,15 +170,17 @@ function admin_part_drug($action) {
             }
             json_ok(array(), $isAdmin ? '药品已保存' : '修改已提交，待管理员审核');
         }
-        $params = array_values($data);   // 18 值（含 need_skin_test/skin_test_item_id）
+        $params = array_values($data);   // 23 值（含规格结构化 5 列）
         $params[] = $finalStatus;
         $params[] = now_str();
-        // INSERT 列与 $data 键顺序严格对应：16 业务列 + name + need_skin_test + skin_test_item_id + status + created_at
-        $newId = DB::insert('drug', 'INSERT INTO drugs(generic_name, category, vendor, vendor_short, package_unit, spec, form, single_dose, frequency_name, route_name, price, qty, is_rx, is_limited, note, need_nurse, name, need_skin_test, skin_test_item_id, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        // INSERT 列与 $data 键顺序严格对应：
+        // 16 业务列 + name + need_skin_test + skin_test_item_id + 规格结构化5列 + status + created_at
+        $newId = DB::insert('drug', 'INSERT INTO drugs(generic_name, category, vendor, vendor_short, package_unit, spec, form, single_dose, frequency_name, route_name, price, qty, is_rx, is_limited, note, need_nurse, name, need_skin_test, skin_test_item_id, spec_dose, spec_dose_unit, spec_pack_qty, spec_pack_unit, single_use_qty, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             array_merge(
                 array_slice($params, 0, 16), array($name),
-                array($params[16], $params[17]), // need_skin_test, skin_test_item_id
-                array_slice($params, 18)         // status, now_str
+                array($params[16], $params[17]),
+                array_slice($params, 18, 5),   // spec_dose..single_use_qty
+                array_slice($params, 23)       // status, now_str
             )
         );
         if (!$isAdmin) {

@@ -126,6 +126,16 @@ function openDrugForm(id) {
                 Clinic.toast.warning('勾选了【需要皮试药品】，请先选择关联的皮试处置项目（点击"选择/新建"）');
                 return;
             }
+            // 规格结构化必填校验
+            var specDose = parseFloat(document.getElementById('f_spec_dose').value);
+            if (!(specDose > 0)) {
+                Clinic.toast.warning('请先点击【药物规格】设置规格（如 0.5g×24粒）');
+                return;
+            }
+            var specPackUnit = document.getElementById('f_spec_pack_unit').value.trim();
+            var useQty = Math.max(1, parseInt(document.getElementById('f_dose').value, 10) || 1);
+            // 单次使用剂量展示串（如 2粒）：随单次数量 + 包装单位推导
+            var singleDoseShow = useQty + (specPackUnit !== '' ? specPackUnit : '');
             Clinic.ajax('/api/admin', {
                 action: 'drug_save',
                 id: id || 0,
@@ -136,8 +146,13 @@ function openDrugForm(id) {
                 vendor_short: document.getElementById('f_vendor_short').value.trim(),
                 package_unit: document.getElementById('f_pkg').value,
                 spec: document.getElementById('f_spec').value.trim(),
+                spec_dose: specDose,
+                spec_dose_unit: document.getElementById('f_spec_dose_unit').value.trim(),
+                spec_pack_qty: Math.max(1, parseInt(document.getElementById('f_spec_pack_qty').value, 10) || 1),
+                spec_pack_unit: specPackUnit,
+                single_use_qty: useQty,
                 form: document.getElementById('f_form').value,
-                single_dose: document.getElementById('f_dose').value.trim(),
+                single_dose: singleDoseShow,
                 frequency_name: document.getElementById('f_freq').value,
                 route_name: document.getElementById('f_route').value,
                 price: document.getElementById('f_price').value,
@@ -157,6 +172,71 @@ function openDrugForm(id) {
             });
         });
     });
+}
+
+/* ===== 规格结构化编辑器（二级模态框，保留药品表单在下层） ===== */
+var SPEC_DOSE_UNITS = ['g', 'mg', 'μg', 'kg', 'ml', '万U', 'U', 'IU', '粒', '片', '支', '袋', '瓶'];
+var SPEC_PACK_UNITS = ['粒', '片', '袋', '支', '瓶', '盒', '板', '包', '罐', '贴'];
+
+function openSpecEditor() {
+    var dose = document.getElementById('f_spec_dose').value || '';
+    var dunit = document.getElementById('f_spec_dose_unit').value || '';
+    var pkt = document.getElementById('f_spec_pack_qty').value || '1';
+    var punit = document.getElementById('f_spec_pack_unit').value || '';
+    var selOpts = function (list, cur) {
+        return list.map(function (u) {
+            return '<option value="' + u + '"' + (cur === u ? ' selected' : '') + '>' + u + '</option>';
+        }).join('') + '<option value="__custom"' + (list.indexOf(cur) === -1 && cur !== '' ? ' selected' : '') + '>自定义…</option>';
+    };
+    Clinic.modal.open(
+        '<div class="form-row">' +
+        '  <div class="form-group"><label class="form-label">单剂量值</label>' +
+        '    <div class="flex gap-4"><input class="input" type="number" step="any" min="0" id="se_dose" style="width:90px" value="' + dose + '">' +
+        '    <select class="select" id="se_dose_unit" style="width:110px" onchange="seUnitCustom(\'dose\')">' + selOpts(SPEC_DOSE_UNITS, dunit) + '</select></div>' +
+        '    <input class="input" id="se_dose_unit_custom" style="display:none;margin-top:4px" placeholder="自定义单位，如 万U">' +
+        '  </div>' +
+        '  <div class="form-group"><label class="form-label">包装数量 / 单位</label>' +
+        '    <div class="flex gap-4"><input class="input" type="number" min="1" id="se_pack_qty" style="width:90px" value="' + pkt + '">' +
+        '    <select class="select" id="se_pack_unit" style="width:110px" onchange="seUnitCustom(\'pack\')">' + selOpts(SPEC_PACK_UNITS, punit) + '</select></div>' +
+        '    <input class="input" id="se_pack_unit_custom" style="display:none;margin-top:4px" placeholder="自定义包装单位，如 支">' +
+        '  </div>' +
+        '</div>' +
+        '<div class="fs-12 text-muted">示例：0.35g×24粒 → 单剂量 0.35、单位 g、包装数量 24、单位 粒。</div>',
+        {
+            title: '💊 规格编辑',
+            size: 'modal-sm',
+            buttons: [
+                { text: '取消', cls: 'btn-outline' },
+                { text: '保存规格', cls: 'btn-primary', autoClose: false, onClick: function () { seSaveSpec(); } },
+            ],
+        }
+    );
+    seUnitCustom('dose'); seUnitCustom('pack');
+}
+
+function seUnitCustom(which) {
+    var sel = document.getElementById('se_' + which + '_unit');
+    var cust = document.getElementById('se_' + which + '_unit_custom');
+    if (sel && cust) {
+        if (sel.value === '__custom') { cust.style.display = ''; if (!cust.value) cust.focus(); }
+        else cust.style.display = 'none';
+    }
+}
+
+function seSaveSpec() {
+    var dose = parseFloat(document.getElementById('se_dose').value);
+    if (!(dose > 0)) { Clinic.toast.warning('请填写单剂量值'); return; }
+    var dsel = document.getElementById('se_dose_unit');
+    var dunit = dsel.value === '__custom' ? document.getElementById('se_dose_unit_custom').value.trim() : dsel.value;
+    var pkt = Math.max(1, parseInt(document.getElementById('se_pack_qty').value, 10) || 1);
+    var psel = document.getElementById('se_pack_unit');
+    var punit = psel.value === '__custom' ? document.getElementById('se_pack_unit_custom').value.trim() : psel.value;
+    document.getElementById('f_spec_dose').value = dose;
+    document.getElementById('f_spec_dose_unit').value = dunit;
+    document.getElementById('f_spec_pack_qty').value = pkt;
+    document.getElementById('f_spec_pack_unit').value = punit;
+    document.getElementById('f_spec').value = dose + dunit + (punit !== '' ? '×' + pkt + punit : '');
+    Clinic.modal.close();
 }
 
 function delDrug(id) {
