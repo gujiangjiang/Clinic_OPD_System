@@ -64,6 +64,7 @@ function pt_order($order, $items, $title) {
         };
         $html .= '<table class="rx-print">';
         $mainSeq = 0;
+        $rxTotal = 0;
         foreach ($items as $it) {
             if ((int)$it['sub_of'] > 0) continue;
             $mainSeq++;
@@ -72,15 +73,16 @@ function pt_order($order, $items, $title) {
                 if ((int)$subIt['sub_of'] === $mainSeq) $subs[] = $subIt;
             }
             $rowspan = 1 + count($subs);
-            $nurseTxt = !empty($it['need_nurse']) ? '（护士站执行）' : '';
+            $rxTotal += (float)$it['price'] * (int)$it['quantity'];   // 主药计费
             $html .= '<tr>' .
                 '<td class="rx-name">' . $nameTxt($it) . '</td>' .
                 '<td class="rx-dose">' . e($it['single_dose']) . '</td>' .
-                '<td class="rx-route" rowspan="' . $rowspan . '">' . e($it['route_name']) . $nurseTxt . '</td>' .
+                '<td class="rx-route" rowspan="' . $rowspan . '">' . e($it['route_name']) . '</td>' .
                 '<td class="rx-freq" rowspan="' . $rowspan . '">' . e($it['frequency_name']) . '</td>' .
                 '<td class="rx-qty">×' . (int)$it['quantity'] . '</td>' .
                 '</tr>';
             foreach ($subs as $sub) {
+                $rxTotal += (float)$sub['price'] * (int)$sub['quantity'];   // 子医嘱计费
                 $html .= '<tr>' .
                     '<td class="rx-name">' . $nameTxt($sub) . '</td>' .
                     '<td class="rx-dose">' . e($sub['single_dose']) . '</td>' .
@@ -126,9 +128,25 @@ function pt_order($order, $items, $title) {
     if ($isDrug) {
         // 处方完毕居中分隔（紧跟药品表格，属于处方内容结尾）
         $html .= '<div class="print-rx-end">—————— 处方完毕 ——————</div>';
-        // 取药提示（处方内容之外）
-        $html .= '<div class="print-note">请凭本处方单至药房取药' .
-            ($order['need_nurse_any'] ? '；标注“护士站执行”的项目请前往护士站执行。' : '。') . '</div>';
+        // 以下从「取药提示」到「本处方当日内有效」连续进入 A5 页脚（foot 区块），
+        // 聚集在页面底部，依次为：
+        // 取药提示（print-note）→ 医师签名（print-record-sign）→ 实线（print-line）
+        // → 调配/复核发药（print-note）→ 实线（print-line）→ 开单/打印时间
+        // （print-record-foot）→ 本处方当日内有效（print-note），之后由分页器
+        // 追加页码。
+        $html .= '<div class="print-note">请凭本处方单至药房取药</div>';
+        // 金额（左）+ 医师签名（右）同一行：取药提示下方靠左显示金额
+        $html .= '<div class="print-note" style="display:flex;align-items:center;font-size:13px;font-weight:600;margin-top:10px">' .
+            '<span style="flex:1;text-align:left">金额：¥' . money($rxTotal) . '</span>' .
+            '<span>医师签名：' . e(isset($order['doctor_name']) ? $order['doctor_name'] : '') . '</span>' .
+            '</div>';
+        $html .= '<div class="print-line"></div>';
+        $html .= '<div class="print-note" style="display:flex;font-size:13px;line-height:1.8;margin-top:4px;margin-bottom:4px"><span style="flex:1;text-align:left">调配：</span><span style="flex:1;text-align:left">复核、发药：</span></div>';
+        $html .= '<div class="print-line"></div>';
+        $html .= '<div class="print-record-foot">' .
+            '<span>开单时间：' . e(isset($order['created_at']) ? $order['created_at'] : '') . '</span>' .
+            '<span>打印时间：' . now_str() . '</span></div>';
+        $html .= '<div class="print-note" style="text-align:center">（本处方当日内有效）</div>';
     } else {
         // 合计：不用表格行，直接显示在表格右下方（避免超出表格空间）
         $html .= '<div class="print-order-total">合计：¥' . money($mainTotal) . '</div>';
@@ -139,23 +157,15 @@ function pt_order($order, $items, $title) {
         } elseif ($order['order_type'] === 'imaging') {
             $html .= '<div class="print-note print-note-tip">温馨提示：X 线、CT 等检查请注意辐射防护；腹部超声等部分检查需空腹进行，请遵医嘱提前准备。</div>';
         }
+        // 医生签名：开单项目正文右下方（类似病历签名位置）
+        $html .= '<div class="print-record-sign">' .
+            '开单医生：' . e(isset($order['doctor_name']) ? $order['doctor_name'] : '') . '</div>';
+        // 末尾横线 + 页脚：左下角开单时间、右下角打印时间
+        $html .= '<div class="print-line"></div>';
+        $html .= '<div class="print-record-foot">' .
+            '<span>开单时间：' . e(isset($order['created_at']) ? $order['created_at'] : '') . '</span>' .
+            '<span>打印时间：' . now_str() . '</span></div>';
     }
-    // 医生签名：开单项目正文右下方（类似病历签名位置）
-    $html .= '<div class="print-record-sign">' .
-        ($isDrug ? '医师签名：' : '开单医生：') . e(isset($order['doctor_name']) ? $order['doctor_name'] : '') . '</div>';
-    // 处方：底部页脚上方新增「调配 / 复核、发药」左右两列（均靠左对齐）
-    if ($isDrug) {
-        $html .= '<div class="print-rx-pharm"><span>调配：</span><span>复核、发药：</span></div>';
-    }
-    // 处方：本处方当日内有效（页脚页码正上方）
-    if ($isDrug) {
-        $html .= '<div class="print-note print-rx-valid">（本处方当日内有效）</div>';
-    }
-    // 末尾横线 + 页脚：左下角开单时间、右下角打印时间
-    $html .= '<div class="print-line"></div>';
-    $html .= '<div class="print-record-foot">' .
-        '<span>开单时间：' . e(isset($order['created_at']) ? $order['created_at'] : '') . '</span>' .
-        '<span>打印时间：' . now_str() . '</span></div>';
     $html .= '</div>';
     return $html;
 }
