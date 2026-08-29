@@ -70,11 +70,31 @@ switch ($action) {
             if ($order['order_type'] === 'imaging' && isset($order['cat_name']) && trim((string)$order['cat_name']) !== '' && trim((string)$order['cat_name']) !== '检查') {
                 $title = trim((string)$order['cat_name']) . '申请单';
             }
-            $order['need_nurse_any'] = 0;
-            foreach ($items as $it) {
-                if (!empty($it['need_nurse'])) $order['need_nurse_any'] = 1;
+            // 处方：按 need_nurse 自动拆分为药房处方笺 + 门诊输液（注射）笺
+            if ($order['order_type'] === 'prescription') {
+                $pharmItems = array();
+                $nurseItems = array();
+                foreach ($items as $it) {
+                    if (!empty($it['need_nurse'])) {
+                        $nurseItems[] = $it;
+                    } else {
+                        $pharmItems[] = $it;
+                    }
+                }
+                if ($pharmItems) {
+                    $html .= pt_order($order, $pharmItems, '门诊处方笺', array('note_type' => 'pharm', 'display_no' => $order['order_no']));
+                }
+                if ($nurseItems) {
+                    $slipNo = $order['order_no'] . 'Z';   // 输液笺派生单号（原单号 + Z）
+                    $html .= pt_order($order, $nurseItems, '门诊输液（注射）笺', array('note_type' => 'nurse', 'display_no' => $slipNo));
+                }
+            } else {
+                $order['need_nurse_any'] = 0;
+                foreach ($items as $it) {
+                    if (!empty($it['need_nurse'])) $order['need_nurse_any'] = 1;
+                }
+                $html .= pt_order($order, $items, $title);
             }
-            $html .= pt_order($order, $items, $title);
         }
         json_ok(array('html' => $html));
         break;

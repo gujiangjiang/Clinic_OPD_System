@@ -1,14 +1,17 @@
 <?php
 /** print/print_order.php — 统一打印模板：申请单/处方单/处置单 */
 
-function pt_order($order, $items, $title) {
+function pt_order($order, $items, $title, $opts = array()) {
+    // $opts：display_no 单号（输液笺用派生单号）；note_type 'pharm'药房取药 / 'nurse'护士站输液注射
+    $displayNo = isset($opts['display_no']) && $opts['display_no'] !== '' ? $opts['display_no'] : (isset($order['order_no']) ? $order['order_no'] : '');
+    $noteType = isset($opts['note_type']) ? $opts['note_type'] : 'pharm';
     // 复用病历文档容器：A5 版式、医院名称/第二名称与电子病历完全一致
     $html = '<div class="print-record-doc">';
     $html .= pt_header($title);
 
-    // 右上角条形码：处方单号/申请单号（与电子病历右上角门诊号条码同款式样）
-    $html .= '<div class="print-record-barcode">' . barcode128_svg(isset($order['order_no']) ? $order['order_no'] : '') .
-        '<div>' . e(isset($order['order_no']) ? $order['order_no'] : '') . '</div></div>';
+    // 右上角条形码：处方单号/申请单号（输液笺用派生单号，与原处方单区分）
+    $html .= '<div class="print-record-barcode">' . barcode128_svg($displayNo) .
+        '<div>' . e($displayNo) . '</div></div>';
 
     // 患者信息：参考急诊病历两行流式排版、两端对齐（无论门诊/急诊开单统一此样式）
     $patient = DB::one('patient', 'SELECT * FROM patients WHERE patient_no=?', array($order['patient_no']));
@@ -151,7 +154,10 @@ function pt_order($order, $items, $title) {
         // → 调配/复核发药（print-note）→ 实线（print-line）→ 开单/打印时间
         // （print-record-foot）→ 本处方当日内有效（print-note），之后由分页器
         // 追加页码。
-        $html .= '<div class="print-note">请凭本处方单至药房取药</div>';
+        // 取药提示：药房取药（pharm）或 护士站输液/注射（nurse）
+        $html .= '<div class="print-note">' .
+            ($noteType === 'nurse' ? '请凭本单至护士站进行输液 / 注射治疗' : '请凭本处方单至药房取药') .
+            '</div>';
         // 金额（左）+ 医师签名（右）同一行：取药提示下方靠左显示金额
         $html .= '<div class="print-note" style="display:flex;align-items:center;font-size:13px;font-weight:600;margin-top:10px">' .
             '<span style="flex:1;text-align:left">金额：¥' . money($rxTotal) . '</span>' .
