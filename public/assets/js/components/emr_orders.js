@@ -42,6 +42,12 @@ Clinic.emr.orders = (function () {
                 proc.push('请' + (c.target_dept_name || '') + '会诊');
             }
         });
+        // 会诊：本人发起的会诊在门诊处置中显示「请X科会诊」
+        (ctx.CONSULTS || []).forEach(function (c) {
+            if ((c.from_doctor_id || 0) === doctorId) {
+                proc.push('请' + (c.target_dept_name || '') + '会诊');
+            }
+        });
         return { aux: aux, proc: proc, rxs: rxs };
     }
 
@@ -97,11 +103,11 @@ Clinic.emr.orders = (function () {
                 }
             }
         });
-        // 会诊：本人发起的会诊在门诊处置中显示「请X科会诊」（点击弹出会诊详情）
+        // 会诊：本人发起的会诊在门诊处置中显示「请X科会诊」（点击弹出会诊详情）；
+        // 样式由病历系统统一渲染（复用 .emr-item-link 项目标签同款样式）
         (ctx.CONSULTS || []).forEach(function (c) {
             if ((c.from_doctor_id || 0) === myId) {
-                dispT.push('<span class="emr-consult-link" data-cid="' + c.id + '" style="cursor:pointer;color:var(--primary);border-bottom:1px dashed var(--primary)" ' +
-                    'title="查看会诊详情" onclick="event.stopPropagation();Clinic.emr.openConsultDetail(' + c.id + ')">请' + escHtml(c.target_dept_name || '') + '会诊</span>');
+                dispT.push('<span class="emr-item-link emr-consult-link" data-cid="' + c.id + '" onclick="event.stopPropagation();Clinic.emr.openConsultDetail(\'' + c.code + '\')">请' + escHtml(c.target_dept_name || '') + '会诊</span>');
             }
         });
         Clinic.emrEditor.setAuto('aux_orders', auxT.join('，'), auxT.length > 0);

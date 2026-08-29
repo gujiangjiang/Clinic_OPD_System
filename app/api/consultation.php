@@ -27,10 +27,11 @@ function consultation_queue_days($u) {
     return 3;
 }
 
-/** 会诊行 → 前端结构 */
+/** 会诊行 → 前端结构（id 一律返回混淆串 code，前端传回后 did 解码） */
 function consultation_row($c) {
     return array(
         'id' => (int)$c['id'],
+        'code' => oid($c['id']),
         'visit_id' => (int)$c['visit_id'],
         'patient_no' => (string)$c['patient_no'],
         'flow_no' => (string)$c['flow_no'],

@@ -2401,7 +2401,7 @@ diagnoses: [],
         });
     }
 
-    /** 渲染右侧会诊列表（本人发起，本就诊）：日期 时间 请X科会诊 + 删除（仅本人） */
+    /** 渲染右侧会诊列表（本人发起，本就诊）：状态小圆点 + 日期 请X科会诊 + 删除（仅本人） */
     function renderConsultList() {
         var el = document.getElementById('navConsult');
         if (!el) return;
@@ -2411,25 +2411,30 @@ diagnoses: [],
             onSuccess: function (j) {
                 var list = j.data.list || [];
                 var myUid = parseInt(document.body.getAttribute('data-uid') || '0', 10) || 0;
+                // 状态小圆点（与费用状态指示灯同款样式）：黄=待处理 绿=进行中 灰=完毕
+                var dot = function (st) {
+                    var cls = st === 'done' ? 'green' : (st === 'doing' ? 'red' : 'gray');
+                    var txt = st === 'done' ? '会诊完毕' : (st === 'doing' ? '正在会诊' : '待处理');
+                    return '<span class="status-indicator ' + cls + '" title="' + txt + '"></span>';
+                };
                 el.innerHTML = list.length ? list.map(function (c) {
-                    var stText = c.status === 'done' ? '会诊完毕' : (c.status === 'doing' ? '正在会诊' : '待处理');
                     var delBtn = (c.from_doctor_id === myUid)
-                        ? '<span class="ena-del" title="删除会诊" onclick="event.stopPropagation();Clinic.emr.delConsult(' + c.id + ')">🗑️</span>'
+                        ? '<span class="ena-del" title="删除会诊" onclick="event.stopPropagation();Clinic.emr.delConsult(\'' + c.code + '\')">🗑️</span>'
                         : '';
-                    return '<div class="ena-item" style="cursor:pointer" title="点击查看会诊详情" onclick="Clinic.emr.openConsultDetail(' + c.id + ')">' +
+                    return '<div class="ena-item" style="cursor:pointer" title="点击查看会诊详情" onclick="Clinic.emr.openConsultDetail(\'' + c.code + '\')">' +
+                        dot(c.status) +
                         '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                         escHtml((c.created_at || '').substring(5, 16)) + ' 请' + escHtml(c.target_dept_name) + '会诊</span>' +
-                        delBtn + '</div>' +
-                        '<div class="fs-11 text-muted" style="margin-top:-2px">' + stText + '</div>';
+                        delBtn + '</div>';
                 }).join('') : '<div class="ena-empty">暂无会诊</div>';
             },
         });
     }
 
     /** 删除会诊（仅发起医生本人，后端硬校验） */
-    function delConsult(id) {
+    function delConsult(code) {
         Clinic.modal.confirm('确定删除该会诊？', function () {
-            Clinic.ajax('/api/consultation', { action: 'delete', id: id }, {
+            Clinic.ajax('/api/consultation', { action: 'delete', id: code }, {
                 onSuccess: function (j) {
                     Clinic.toast.success(j.msg);
                     renderConsultList();

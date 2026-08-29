@@ -240,6 +240,7 @@ function record_part_read($action) {
             'consults' => array_map(function ($cc) {
                 return array(
                     'id' => (int)$cc['id'],
+                    'code' => oid($cc['id']),
                     'from_doctor_id' => (int)$cc['from_doctor_id'],
                     'from_dept_name' => (string)$cc['from_dept_name'],
                     'target_dept_name' => (string)$cc['target_dept_name'],
