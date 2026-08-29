@@ -1226,6 +1226,11 @@ diagnoses: [],
         if (!row) return;
         // 主诊断（全局首行）点击不弹操作浮窗
         if (idx === 0) return;
+        // 会诊模式：不可调整诊断顺序/设为主诊断（后端 save_diag_order 同步拦截）
+        if (DATA && DATA.__consult_mode) {
+            Clinic.toast.warning('会诊病历不可调整诊断顺序');
+            return;
+        }
         if (!diagEditable()) return;
         closeDiagPop();
         if (ev && ev.stopPropagation) ev.stopPropagation();
