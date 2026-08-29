@@ -553,7 +553,7 @@ diagnoses: [],
                             '<div class="fs-14">🤝 ' + escHtml((myConsult.from_dept_name || '') + ' 会诊请求') +
                             ' <span class="badge badge-warning">' + cStatus + '</span></div>' +
                             '<div class="fs-12 text-muted mt-4">该患者已有保存的病历（上方只读展示）。</div>' +
-                            '<button class="btn btn-primary btn-sm mt-8" onclick="Clinic.emr.startConsult(' + myConsult.id + ')">🤝 开始会诊</button>' +
+                            '<button class="btn btn-primary btn-sm mt-8" onclick="Clinic.emr.startConsult(\'' + escHtml(myConsult.code) + '\')">🤝 开始会诊</button>' +
                             '<div class="fs-12 text-muted mt-8">开始后新建会诊病历（原病历只读）。点击右上「会诊完毕」结束本次会诊。</div></div>';
                     } else {
                         phBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
@@ -2473,18 +2473,19 @@ diagnoses: [],
                         escHtml(label) + '：</strong>' + (val && String(val).trim() ? escHtml(val) : '-') + '</div>';
                 };
                 var steps = [
-                    ['发起会诊', (c.from_doctor_name || '') + ' · ' + (c.created_at || '').substring(5, 16), c.status !== ''],
+                    ['发起会诊', (c.from_doctor_name || '') + (c.created_at ? ' · ' + c.created_at.substring(5, 16) : ''), c.status !== ''],
                     ['正在会诊', (c.accepted_by || '') + ((c.accepted_at || '') ? ' · ' + (c.accepted_at || '').substring(5, 16) : ''), c.status !== 'pending'],
                     ['会诊完毕', (c.finished_at || '') ? (c.finished_at || '').substring(5, 16) : '', c.status === 'done'],
                 ];
-                var stepHtml = steps.map(function (st, i) {
-                    var active = st[2];
-                    var dot = active ? '#16a34a' : '#cbd5e1';
-                    return '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px">' +
-                        '<span style="width:10px;height:10px;border-radius:50%;background:' + dot + ';margin-top:4px;flex-shrink:0"></span>' +
-                        '<div><div class="fs-13 ' + (active ? 'fw-600' : 'text-muted') + '">' + st[0] + '</div>' +
+                var stepHtml = steps.map(function (st) {
+                    var dot = st[2] ? 'var(--success)' : 'var(--border)';
+                    return '<div class="flex gap-8" style="align-items:center">' +
+                        '<div style="width:26px;height:26px;border-radius:50%;background:' + dot + ';' +
+                        'display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;flex-shrink:0">✓</div>' +
+                        '<div class="fs-13" style="color:' + (st[2] ? 'var(--text)' : 'var(--text-muted)') + '">' +
+                        '<div class="fw-600">' + st[0] + '</div>' +
                         (st[1] ? '<div class="fs-12 text-muted">' + escHtml(st[1]) + '</div>' : '') + '</div></div>';
-                }).join('');
+                }).join('<div style="width:2px;height:18px;background:var(--border);margin-left:12px"></div>');
                 Clinic.modal.open(
                     '<div class="flex gap-16" style="align-items:stretch">' +
                     '  <div style="flex:1.4;min-width:0;border-right:1px solid var(--border);padding-right:14px">' +
@@ -2929,55 +2930,26 @@ function delOrder(orderId) {
     });
 }
 
-/* 全局：查看开单流程（纵向流程图） */
+/* 全局：查看开单流程（纵向流程图，带操作人/时间，与会诊进度同款样式） */
 function viewOrderFlow(orderId) {
     Clinic.get('/api/order?action=visit_orders&visit_id=' + document.getElementById('visitId').value, null, {
         onSuccess: function (j) {
             var o = j.data.list.find(function (x) { return x.id === orderId; });
             if (!o) return;
-            var typeNames = { lab: '检验', imaging: '检查', procedure: '处置', prescription: '处方' };
             var isLabImg = o.order_type === 'lab' || o.order_type === 'imaging';
-            var steps;
-            if (isLabImg) {
-                // 检验/检查流程：登记 → 报告完成（报告情况单独成步）
-                steps = [
-                    { k: 'open', label: '开单' },
-                    { k: 'paid', label: '缴费' },
-                    { k: 'registered', label: '登记' },
-                    { k: 'done', label: '报告完成' },
-                ];
-            } else {
-                steps = [
-                    { k: 'open', label: '开单' },
-                    { k: 'paid', label: '缴费' },
-                    { k: 'registered', label: '登记' },
-                    { k: 'done', label: o.order_type === 'prescription' ? '药房发药' : '处置执行' },
-                ];
-            }
-            // 处方流程：paid→dispensing→dispensed
-            if (o.order_type === 'prescription') {
-                steps = [
-                    { k: 'open', label: '开单' },
-                    { k: 'paid', label: '缴费' },
-                    { k: 'dispensing', label: '药房处理' },
-                    { k: 'dispensed', label: '发药完成' },
-                ];
-            }
-            // 流程状态判定
-            var curIdx = 0;
-            if (o.status === 'done' || o.status === 'dispensed') curIdx = 3;
-            else if (o.status === 'registered' || o.status === 'dispensing' || o.status === 'in_progress') curIdx = 2;
-            else if (o.status === 'paid') curIdx = 1;
-            else if (o.status === 'refunded' || o.status === 'cancelled') curIdx = -1;
-
-            var flow = steps.map(function (s, i) {
-                var cls = (curIdx >= 0 && i <= curIdx) ? 'var(--success)' : 'var(--border)';
+            // 流程节点：后端 order_flow_steps 计算（label/操作人/时间/是否已完成）
+            var steps = o.flow || [];
+            var flow = steps.map(function (s) {
+                var done = s.done;
+                var cls = done ? 'var(--success)' : 'var(--border)';
+                var info = (s.operator ? escHtml(s.operator) : '') + (s.time ? ' · ' + escHtml(s.time.substring(5, 16)) : '');
                 return '<div class="flex gap-8" style="align-items:center">' +
                     '<div style="width:26px;height:26px;border-radius:50%;background:' + cls + ';' +
                     'display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;flex-shrink:0">' +
-                    (i + 1) + '</div>' +
-                    '<div class="fs-13" style="color:' + (curIdx >= 0 && i <= curIdx ? 'var(--text)' : 'var(--text-muted)') + '">' +
-                    s.label + '</div></div>';
+                    '✓</div>' +
+                    '<div class="fs-13" style="color:' + (done ? 'var(--text)' : 'var(--text-muted)') + '">' +
+                    '<div class="fw-600">' + escHtml(s.label) + '</div>' +
+                    (info ? '<div class="fs-12 text-muted">' + info + '</div>' : '') + '</div></div>';
             }).join('<div style="width:2px;height:18px;background:var(--border);margin-left:12px"></div>');
 
             // 处方单走组医嘱树形公共格式；检验/检查明细带执行状态与「查看报告」；

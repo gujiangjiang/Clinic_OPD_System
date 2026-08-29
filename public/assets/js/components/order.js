@@ -176,7 +176,8 @@ Clinic.order = (function () {
      */
     function renderDialog() {
         var isDrug = CUR_TYPE === 'prescription';
-        var flowSteps = ['开单', '缴费', '登记', CUR_TYPE === 'prescription' ? '药房发药' : '完成'];
+        // 流程步骤（统一样式：圆形步骤节点 + 连接竖线，操作人/时间待状态推进后回填）
+        var flowSteps = ['开单', '缴费', '登记', isDrug ? '药房发药' : '完成'];
         var flow = flowSteps.map(function (s, i) {
             return '<div class="flex gap-8" style="align-items:center">' +
                 '<div style="width:24px;height:24px;border-radius:50%;background:var(--border);' +

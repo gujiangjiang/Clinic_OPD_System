@@ -7,6 +7,58 @@
  * visit_orders
  * ============================================================ */
 
+/**
+ * 开单流程节点（操作人+时间）：供开单详情/病历流程展示。
+ * · 开单 = 开单医生 / 创建时间
+ * · 缴费 = 收费员 / 缴费时间（payments 表，无则未缴费）
+ * · 登记 = 首个执行操作人 / 时间（lab/imaging 登记环节；处方无此步）
+ * · 发药(完成) = 执行操作人 / 时间（发药或执行完成时写入）
+ * 返回 [{label, operator, time, done}]
+ */
+function order_flow_steps($o, $items) {
+    $flow = array();
+    $flow[] = array('label' => '开单', 'operator' => (string)$o['doctor_name'], 'time' => (string)$o['created_at']);
+    // 缴费：payments 表（order_id 关联，任取一条）
+    $pay = DB::one('order', 'SELECT cashier_name, created_at FROM payments WHERE order_id=? ORDER BY id DESC LIMIT 1', array($o['id']));
+    $payDone = !empty($o['paid_at']) || $pay;
+    $flow[] = array('label' => '缴费',
+        'operator' => $pay ? (string)$pay['cashier_name'] : '',
+        'time' => !empty($o['paid_at']) ? (string)$o['paid_at'] : ($pay ? (string)$pay['created_at'] : ''),
+        'done' => $payDone ? 1 : 0);
+    $reg = null; $disp = null;
+    foreach ($items as $it) {
+        if (!empty($it['executed_by'])) {
+            if (!$reg) $reg = array('operator' => (string)$it['executed_by'], 'time' => (string)$it['executed_at']);
+            $disp = array('operator' => (string)$it['executed_by'], 'time' => (string)$it['executed_at']);
+        }
+    }
+    if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
+        $flow[] = array('label' => '登记',
+            'operator' => $reg ? $reg['operator'] : '',
+            'time' => $reg ? $reg['time'] : '',
+            'done' => $reg ? 1 : 0);
+        $flow[] = array('label' => '报告完成',
+            'operator' => $disp ? $disp['operator'] : '',
+            'time' => $disp ? $disp['time'] : '',
+            'done' => ($disp || in_array($o['status'], array('done'), true)) ? 1 : 0);
+    } elseif ($o['order_type'] === 'prescription') {
+        $flow[] = array('label' => '药房处理',
+            'operator' => $reg ? $reg['operator'] : '',
+            'time' => $reg ? $reg['time'] : '',
+            'done' => $reg ? 1 : 0);
+        $flow[] = array('label' => '发药完成',
+            'operator' => $disp ? $disp['operator'] : '',
+            'time' => $disp ? $disp['time'] : '',
+            'done' => $disp ? 1 : 0);
+    } else {
+        $flow[] = array('label' => '执行完成',
+            'operator' => $disp ? $disp['operator'] : '',
+            'time' => $disp ? $disp['time'] : '',
+            'done' => $disp ? 1 : 0);
+    }
+    return $flow;
+}
+
 function order_part_read($action) {
     $u = Auth::user();
 
@@ -190,6 +242,8 @@ function order_part_read($action) {
                 // 删除/毁方按钮仅对开单医生本人可见（后端 delete 亦有硬拦截）
                 'doctor_id' => (int)$o['doctor_id'],
                 'created_at' => $o['created_at'], 'done_by' => $doneBy,
+                // 流程节点（操作人+时间）：开单/缴费/登记/发药(或执行完成)
+                'flow' => order_flow_steps($o, $items),
                 'items' => array_map(function ($it) use ($reportMap) {
                     // 扩展字段：处方在病历正文/打印中的所见即所得展示需要剂量/用法/途径等；
                     // group_no/is_parent 供成组医嘱树形展示（子药缩进、组内要素仅主药行一次）；
