@@ -110,7 +110,7 @@ function cashier_part_write($action) {
         if ($dept['type'] === 'clinic' && !in_array($wsState, array('am', 'pm'), true)) {
             json_fail(work_status_msg($wsState));
         }
-        $session = $wsState === 'pm' ? 'pm' : 'am';
+        $session = $dept['type'] === 'emergency' ? 'all' : ($wsState === 'pm' ? 'pm' : 'am');
         if ($dept['type'] === 'clinic') {
             $quota = $session === 'am' ? (int)$dept['am_quota'] : (int)$dept['pm_quota'];
             $used = dept_used_count($deptId, $session);

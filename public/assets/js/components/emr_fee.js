@@ -22,7 +22,8 @@ Clinic.emr.fee = (function () {
         var total = 0;
         var regFee = (ctx.DATA && ctx.DATA.visit ? parseFloat(ctx.DATA.visit.fee) : 0) || 0;
         var regSt = (ctx.DATA && ctx.DATA.visit && ctx.DATA.visit.status === 'finished') ? 'done' : 'paid';
-        if (regFee > 0) rows.push({ st: regSt, name: '挂号费', amt: regFee });
+        var regDept = (ctx.DATA && ctx.DATA.visit ? ctx.DATA.visit.first_dept_name : '') || '';
+        if (regFee > 0) rows.push({ st: regSt, name: regDept ? ('挂号费（' + regDept + '）') : '挂号费', amt: regFee });
         (ctx.ORDERS || []).forEach(function (o) {
             if (o.status === 'refunded' || o.status === 'cancelled') return;
             (o.items || []).forEach(function (i2) {
@@ -46,7 +47,7 @@ Clinic.emr.fee = (function () {
         pop.className = 'fee-pop';
         pop.innerHTML = d.rows.map(function (r) {
             var cls = navDotCls(r.st);
-            var tip = (r.name === '挂号费' && r.st === 'done') ? '已完成' : navDotText(r.st);
+            var tip = (r.name.indexOf('挂号费') === 0 && r.st === 'done') ? '已完成' : navDotText(r.st);
             return '<div class="fee-pop-row">' +
                 '<span class="status-indicator ' + cls + '" title="' + tip + '"></span>' +
                 '<span class="fee-pop-name" title="' + escHtml(r.name) + '">' + escHtml(r.name) + '</span>' +

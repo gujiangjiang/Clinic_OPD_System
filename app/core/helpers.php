@@ -439,6 +439,18 @@ function work_status_msg($state = null) {
     }
 }
 
+/**
+ * 号源显示文本：将存储的 session 值映射为前端显示文本
+ * 存储值：'am' 上午 / 'pm' 下午 / 'all' 昼夜
+ * 兼容旧数据中已存储的 '上午'/'下午'/'昼夜' 直接透传
+ */
+function session_display_text($session) {
+    if ($session === 'am') return '上午';
+    if ($session === 'pm') return '下午';
+    if ($session === 'all') return '昼夜';
+    return (string)$session;
+}
+
 /* ============================================================
  * 业务实体 ID 混淆快捷函数（全站统一入口，详见 core/IdObfuscator.php）
  * ------------------------------------------------------------

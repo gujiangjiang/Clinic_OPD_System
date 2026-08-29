@@ -92,30 +92,31 @@ Clinic.queuePanel = (function () {
     function filteredList() {
         if (!DATA) return [];
         var t = todayStr();
-        // 会诊筛选：会诊 Tab 下显示收到的会诊（组合同已诊=完毕/当日=今日创建）；
+        // 会诊筛选：会诊 Tab 下显示收到的会诊；
+        //  · 已诊 = 会诊状态已完毕（consult_status='done'）
+        //  · 当日 = 会诊发起于今日（created_at）
         // 排序一律按发起时间正序（新发起的排在下方）
         if (consult) {
             var cons = (DATA.consultations || []).slice();
-            if (seen) cons = cons.filter(function (c) { return c.status === 'done'; });
+            if (seen) cons = cons.filter(function (c) { return c.consult_status === 'done'; });
             if (todayOnly) cons = cons.filter(function (c) { return (c.created_at || '').substr(0, 10) === t; });
             return cons.sort(function (a, b) { return (a.created_at || '').localeCompare(b.created_at || ''); });
         }
         // 诊毕时间回退：旧数据无 finish_time 用挂号时间兜底
         var finKey = function (r) { return (r.finish_date && r.finish_time) ? (r.finish_date + ' ' + r.finish_time) : r.date + ' ' + r.time; };
         var all = DATA.list;
-        if (seen && !todayOnly) {
-            // 仅已诊：近3天诊毕，按诊毕时间倒序（最后诊毕在最上）
-            return all.filter(function (r) { return r.status === 'finished'; })
-                .sort(function (a, b) { return finKey(b).localeCompare(finKey(a)); });
+        if (seen) {
+            // 已诊（不论当日）：近 N 天诊毕患者
+            var finished = all.filter(function (r) { return r.status === 'finished'; });
+            if (todayOnly) finished = finished.filter(function (r) { return r.date === t; });
+            // 按诊毕时间倒序（最后诊毕在最上）
+            return finished.sort(function (a, b) { return finKey(b).localeCompare(finKey(a)); });
         }
-        if (seen && todayOnly) {
-            // 双选（已诊∩当日）：今日诊毕，按诊毕时间倒序（最后诊毕在最上）
-            return all.filter(function (r) { return r.status === 'finished' && r.date === t; })
-                .sort(function (a, b) { return finKey(b).localeCompare(finKey(a)); });
-        }
-        // 非诊毕（无论是否勾选当日）：一律按挂号时间正序，新的排在下方
-        return all.filter(function (r) { return r.status !== 'finished'; })
-            .sort(function (a, b) { return (a.date + ' ' + a.time).localeCompare(b.date + ' ' + b.time); });
+        // 未诊（候诊）：近 N 天未诊毕患者；仅当日时按挂号日期过滤
+        var waiting = all.filter(function (r) { return r.status !== 'finished'; });
+        if (todayOnly) waiting = waiting.filter(function (r) { return r.date === t; });
+        // 按挂号时间正序（新的排在下方）
+        return waiting.sort(function (a, b) { return (a.date + ' ' + a.time).localeCompare(b.date + ' ' + b.time); });
     }
 
     /* 状态徽章（consult 模式显示会诊状态，与候诊状态徽章同款配色） */
@@ -177,7 +178,9 @@ Clinic.queuePanel = (function () {
         return list.filter(function (r) {
             var hay;
             if (consult) {
-                hay = (r.patient_name || '') + '|' + (r.from_dept_name || '') + '|' + (r.patient_no || '');
+                // 会诊行字段与候诊行同构：name/dept_name/visit_seq/date
+                var seq2 = String(r.visit_seq).padStart(3, '0');
+                hay = (r.name || '') + '|' + (r.dept_name || '') + '|' + seq2 + '|' + r.date;
             } else {
                 var seq = String(r.visit_seq).padStart(3, '0');
                 hay = (r.name || '') + '|' + (r.dept_name || '') + '|' + seq + '|' + r.date;
