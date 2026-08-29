@@ -262,10 +262,12 @@ function record_part_read($action) {
                     'code' => oid($cc['id']),
                     'from_doctor_id' => (int)$cc['from_doctor_id'],
                     'from_dept_name' => (string)$cc['from_dept_name'],
+                    'target_dept_id' => (int)$cc['target_dept_id'],
                     'target_dept_name' => (string)$cc['target_dept_name'],
                     'status' => (string)$cc['status'],
+                    'accepted_by' => (string)$cc['accepted_by'],
                 );
-            }, DB::q('consultation', 'SELECT id, from_doctor_id, from_dept_name, target_dept_name, status FROM consultations WHERE visit_id=? ORDER BY id ASC', array($visitId))),
+            }, DB::q('consultation', 'SELECT id, from_doctor_id, from_dept_name, target_dept_id, target_dept_name, status, accepted_by FROM consultations WHERE visit_id=? ORDER BY id ASC', array($visitId))),
             // current_doctor_record：当前登录医生本人此前已保存的草稿/病历，
             // 无则 null——有则回显编辑，绝不回退他人病历。
             'current_doctor_record' => $mine,

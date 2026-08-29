@@ -213,7 +213,7 @@ $patient = $row['patient'];
             <div class="ena-sec-title" onclick="toggleNavSec(this)">🤝 会诊<span class="ena-add emr-write" title="发起会诊" onclick="Clinic.emr.openConsultCreate(event);event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navConsult"><div class="ena-empty">暂无会诊</div></div>
         </div>
-        <div class="ena-sec">
+        <div class="ena-sec" id="certSec">
             <div class="ena-sec-title" onclick="toggleNavSec(this)">📄 诊断证明<span class="ena-add emr-write" id="certAddBtn" title="开具诊断证明" onclick="emrNavAdd('cert');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navCert"></div>
         </div>

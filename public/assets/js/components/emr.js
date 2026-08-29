@@ -450,6 +450,21 @@ diagnoses: [],
         // 保存时仅收集字段内部文字；生命体征/意识状态两节由本函数外部构建注入。
         // 首诊与续写文书均支持生命体征/意识状态书写；只读（诊毕）时仅展示不可编辑）
         var readOnly = !!(d.visit && d.visit.status === 'finished');
+        // ===== 会诊锁：会诊期间病历只读 =====
+        // 1) 本记录是会诊病历且会诊已完毕 → 永久只读；
+        // 2) 就诊存在进行中会诊且本记录不是会诊病历 → 一律只读（无论是否本人书写）。
+        if (!readOnly && (d.consults || []).length) {
+            var recConsId = (r.consultation_id || 0);
+            var consList = d.consults;
+            if (recConsId > 0) {
+                var recCons = null;
+                consList.forEach(function (cc) { if ((cc.id || 0) === recConsId) recCons = cc; });
+                if (recCons && recCons.status === 'done') readOnly = true;
+            } else if (r.record_id > 0) {
+                var hasDoing = consList.some(function (cc) { return cc.status === 'doing'; });
+                if (hasDoing) readOnly = true;
+            }
+        }
         // 生命体征：首诊用就诊级体征，续写/会诊用本记录自身 emr.vitals（完全独立，绝不继承首诊）
         var vitalsForSec = (isProgress && r.emr && r.emr.vitals && Object.keys(r.emr.vitals).length) ? r.emr.vitals : v;
         var vitalSec = buildVitalSec(readOnly, vitalsForSec);
@@ -734,7 +749,12 @@ diagnoses: [],
         });
         var status = document.getElementById('saveStatus');
         if (status) {
-            status.textContent = '该患者已诊毕，病历为只读状态';
+            // 区分会诊完毕只读与诊毕只读
+            if (DATA && DATA.record && DATA.record.consultation_id > 0) {
+                status.textContent = '该会诊已完毕，会诊病历已永久锁定为只读状态';
+            } else {
+                status.textContent = '该患者已诊毕，病历为只读状态';
+            }
             status.style.color = 'var(--text-muted)';
         }
     }
@@ -1512,6 +1532,7 @@ diagnoses: [],
             renderLeftNavEmpty();
             return;
         }
+        var consultMode = !!(DATA && DATA.__consult_mode);
         // ---------- 1. 病历节点 ----------
         // 条目格式：日期 时间 科室 （首/续） + 医生姓名靠右（与初步诊断条目同款式）
         var recEl = document.getElementById('navRecords');
@@ -1682,7 +1703,8 @@ diagnoses: [],
             rxE1.innerHTML = '<div class="ena-empty">暂未开立处方</div>';
         } else {
             rxE1.innerHTML = rxOrders.map(function (o, oi) {
-                var canDel = Clinic.emr.isMyOrder(o) && (o.status === 'open' || o.status === 'refunded');
+                // 会诊期间（含会诊完毕后的会诊病历）：非本次会诊项目一律只读，不显示删除/毁方
+                var canDel = !consultMode && Clinic.emr.isMyOrder(o) && (o.status === 'open' || o.status === 'refunded');
                 return '<div class="ena-item" onclick="showRxDetail(\'' + o.id + '\')">' +
                     navDot(o.status) +
                     '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">处方' + (oi + 1) + '</span>' +
@@ -1733,9 +1755,11 @@ diagnoses: [],
     function fillTypeNav(elId, arr, label) {
         var el = document.getElementById(elId);
         if (!arr.length) { el.innerHTML = '<div class="ena-empty">暂未开立' + label + '</div>'; return; }
+        // 会诊期间（含会诊完毕后的会诊病历）：非本次会诊项目一律只读，不显示删除按钮
+        var consultLocked = !!(DATA && (DATA.__consult_mode || (DATA.record && DATA.record.consultation_id > 0)));
         el.innerHTML = arr.map(function (x) {
             var st = x.it.status || 'open';
-            var canDel = Clinic.emr.isMyOrder(x.order) && (x.order.status === 'open' || x.order.status === 'refunded');
+            var canDel = !consultLocked && Clinic.emr.isMyOrder(x.order) && (x.order.status === 'open' || x.order.status === 'refunded');
             return '<div class="ena-item" onclick="showItemDetail(\'' + x.order.id + '\',\'' + x.it.id + '\')">' +
                 navDot(st) + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                 escHtml(x.it.item_name) + '</span>' +
@@ -2026,8 +2050,10 @@ diagnoses: [],
             flowColumnHtml(steps, curIdx) + '</div>';
         html += '</div>';
         // 操作区：打印申请单（本人或他人均可补打）；删除仅限未缴费/已退费的开单医生本人
+        // 会诊期间（含会诊完毕后的会诊病历）：非本次会诊项目一律只读，隐藏删除按钮
+        var consultLocked = !!(DATA && (DATA.__consult_mode || (DATA.record && DATA.record.consultation_id > 0)));
         var delLabel = o.order_type === 'prescription' ? '毁方' : '删除';
-        var delBtn2 = (!Clinic.emr.isMyOrder(o) || (o.status !== 'open' && o.status !== 'refunded')) ? ''
+        var delBtn2 = (consultLocked || !Clinic.emr.isMyOrder(o) || (o.status !== 'open' && o.status !== 'refunded')) ? ''
             : '<button type="button" class="btn btn-danger btn-sm mt-8" onclick="delOrderFlow(\'' + o.id + '\',\'' + delLabel + '\')">🗑️ ' + delLabel + '</button>';
         html += '<div style="margin-top:12px">' +
             '<button type="button" class="btn btn-outline btn-sm" ' +
@@ -2111,7 +2137,8 @@ diagnoses: [],
             '<div style="margin-top:10px">' +
             '<button type="button" class="btn btn-outline btn-sm" ' +
             'onclick="Clinic.print.load(\'/api/print?action=order&order_id=' + o.id + '\',null,\'a5\')">🖨️ 打印处方笺</button>';
-        var rxCanDel = Clinic.emr.isMyOrder(o) && (o.status === 'open' || o.status === 'refunded');
+        var consultLocked = !!(DATA && (DATA.__consult_mode || (DATA.record && DATA.record.consultation_id > 0)));
+        var rxCanDel = !consultLocked && Clinic.emr.isMyOrder(o) && (o.status === 'open' || o.status === 'refunded');
         if (rxCanDel) {
             leftHtml += ' <button type="button" class="btn btn-danger btn-sm" style="margin-left:8px" onclick="delOrderFlow(\'' + o.id + '\',\'毁方\')">🗑️ 毁方</button>';
         }
@@ -2377,6 +2404,11 @@ diagnoses: [],
 
     /** 发起会诊：第一步选择会诊科室（隐藏当前科室） */
     function openConsultCreate(ev) {
+        // 会诊期间拦截：不可再发起新会诊
+        if (DATA && DATA.__consult_mode) {
+            Clinic.toast.warning('会诊期间不可再发起会诊');
+            return;
+        }
         if (window.Clinic && Clinic.emr.isDirty && Clinic.emr.isDirty()) {
             Clinic.toast.warning('当前病历有未保存的修改，请先点击「💾 保存」后再发起会诊');
             return;
@@ -2597,6 +2629,17 @@ diagnoses: [],
                 b.classList.add('btn-warning');
             }
         });
+        // 会诊期间：隐藏「发起会诊」+（不可再发起会诊）与「诊断证明」分区（会诊仅看病不开证明）
+        var consAdd2 = document.querySelector('.ena-sec-title .ena-add[title="发起会诊"]');
+        if (consAdd2) consAdd2.style.display = 'none';
+        var certSec2 = document.getElementById('certSec');
+        if (certSec2) certSec2.style.display = 'none';
+        // 会诊期间：非本次会诊项目一律只读——各分区「＋」隐藏（避免继续开单/新增项目）
+        document.querySelectorAll('.emr-sidebar-left .ena-sec-title .ena-add').forEach(function (b) {
+            if (b.getAttribute('title') === '发起会诊' || b.id === 'certAddBtn') return;
+            b.style.display = 'none';
+        });
+        renderLeftNav();
     }
 
     /**

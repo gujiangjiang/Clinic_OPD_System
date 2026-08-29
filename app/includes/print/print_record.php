@@ -152,39 +152,43 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
     // 已开项目所见即所得：辅助检查（检验/检查）+ 门诊处置（处置/处方），与病历编辑页一致
     // 辅助检查：仅显示项目名称；处置：不换行显示名称×数量；处方：每行一个药品（名称/剂量/用法/途径/数量）
     // 多医生接诊：已开项目按该文书医生本人过滤（谁开单归属谁的病历）
+    // 续写/会诊病历：完全独立个体，不拉取该医生历史开单（开单属首诊/就诊级），仅展示本记录手工字段
     $aux = array();
     $procs = array();
     $rxs = array();
-    $orderSql = "SELECT * FROM orders WHERE visit_id=? AND status NOT IN ('refunded','cancelled')";
-    $orderParams = array($visit['id']);
-    if (!empty($record['doctor_id'])) {
-        $orderSql .= ' AND doctor_id=?';
-        $orderParams[] = (int)$record['doctor_id'];
-    }
-    $orderSql .= ' ORDER BY id ASC';
-    $orders = DB::q('order', $orderSql, $orderParams);
-    foreach ($orders as $o) {
-        $its = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
-        foreach ($its as $it) {
-            if ($it['item_name'] === '' || $it['item_name'] === null) continue; // 防空名明细
-            if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
-                $aux[] = e($it['item_name']);
-            } elseif ($o['order_type'] === 'procedure') {
-                $procs[] = e($it['item_name']) . '×' . (int)$it['quantity'];
-            }
+    if (!$isProgress) {
+        $orderSql = "SELECT * FROM orders WHERE visit_id=? AND status NOT IN ('refunded','cancelled')";
+        $orderParams = array($visit['id']);
+        if (!empty($record['doctor_id'])) {
+            $orderSql .= ' AND doctor_id=?';
+            $orderParams[] = (int)$record['doctor_id'];
         }
-        // 处方行统一走公共方法：成组医嘱树形格式（主药全要素、子药 ├─/└─ 缩进含剂量，
-        // 组内频次/途径/数量仅主药行一次），与病历编辑页、打印快照全系统一致
-        if ($o['order_type'] !== 'prescription') continue;
-        foreach (emr_rx_display_lines($its) as $l) { $rxs[] = e($l); }
+        $orderSql .= ' ORDER BY id ASC';
+        $orders = DB::q('order', $orderSql, $orderParams);
+        foreach ($orders as $o) {
+            $its = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
+            foreach ($its as $it) {
+                if ($it['item_name'] === '' || $it['item_name'] === null) continue; // 防空名明细
+                if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
+                    $aux[] = e($it['item_name']);
+                } elseif ($o['order_type'] === 'procedure') {
+                    $procs[] = e($it['item_name']) . '×' . (int)$it['quantity'];
+                }
+            }
+            // 处方行统一走公共方法：成组医嘱树形格式（主药全要素、子药 ├─/└─ 缩进含剂量，
+            // 组内频次/途径/数量仅主药行一次），与病历编辑页、打印快照全系统一致
+            if ($o['order_type'] !== 'prescription') continue;
+            foreach (emr_rx_display_lines($its) as $l) { $rxs[] = e($l); }
+        }
     }
     if ($emrStructured) {
         // 结构化：辅助检查 = 已开项目 + 手工结果 + 外院结果；门诊处置 = 处方行 + 处置(含数量) + 自定义
+        // 续写/会诊记录：仅显示本记录自身手工字段（不拉取该医生历史开单）
         $manualAux = array();
         foreach (array('aux_result', 'aux_external') as $k) {
             if (isset($emr[$k]) && $emr[$k] !== '') $manualAux[] = e($emr[$k]);
         }
-        $auxAll = array_merge($aux, $manualAux);
+        $auxAll = $isProgress ? $manualAux : array_merge($aux, $manualAux);
         // 辅助检查：续写空节不显示
         if (!$isProgress || $auxAll) {
             $secs[] = array('辅助检查', $auxAll ? implode('，', $auxAll) : '-');

@@ -398,6 +398,11 @@ function order_part_write($action) {
         if ($orderId <= 0) json_fail('参数无效');
         $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array($orderId));
         if (!$order) json_fail('开单记录不存在');
+        // 会诊中拦截：就诊存在进行中会诊时，禁止删除任何开单（会诊期间本非次会诊全部只读）
+        $doingOrderCons = DB::one('consultation', "SELECT id FROM consultations WHERE visit_id=? AND status='doing' LIMIT 1", array((int)$order['visit_id']));
+        if ($doingOrderCons) {
+            json_fail('该就诊正在进行会诊，会诊期间不可删除开单');
+        }
         if ((int)$order['doctor_id'] !== (int)$u['id']) {
             json_fail('仅开单医生本人可删除该' . ($order['order_type'] === 'prescription' ? '处方' : '申请单') . '（开单医生：' . $order['doctor_name'] . '）');
         }

@@ -227,7 +227,7 @@ class Layout {
         </head>
         <body data-csrf="' . e(CSRF::token()) . '" data-theme-pref="' . e($theme) . '" data-theme="light"
             data-sidebar-pref="' . e($sidebar) . '"' . ($forceMini ? ' data-sidebar-force="1"' : '') . '
-            data-role="' . e($u['role']) . '" data-uid="' . (int)$u['id'] . '" data-sid="' . session_id() . '" data-print-auto="' . (!empty($uFull['print_auto']) ? '1' : '0') . '"
+            data-role="' . e($u['role']) . '" data-uid="' . (int)$u['id'] . '" data-name="' . e($u['name']) . '" data-sid="' . session_id() . '" data-print-auto="' . (!empty($uFull['print_auto']) ? '1' : '0') . '"
             data-hosp="' . e($hosp) . '" data-hosp2="' . e($hosp2) . '">
             <!-- 关键：公共 JS 库必须在视图内容之前加载！
                  视图内联脚本（如 loadDeptList() / loadUserList()）在页面解析时立即执行，

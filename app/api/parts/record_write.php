@@ -84,6 +84,21 @@ function record_part_write($action) {
             json_fail('该病历超出您的可查看历史天数，无法修改');
         }
 
+        // ===== 会诊锁校验（会诊期间病历只读） =====
+        // 1) 就诊存在「进行中」会诊时，非会诊病历一律只读（无论是否本人书写）；
+        // 2) 会诊病历在会诊「完毕」后永久只读。
+        $doingCons = DB::one('consultation', "SELECT * FROM consultations WHERE visit_id=? AND status='doing' ORDER BY id DESC LIMIT 1", array($visitId));
+        $consultationId = (int)post('consultation_id', 0);
+        if ($doingCons && $consultationId === 0) {
+            json_fail('该就诊正在进行会诊，会诊前的病历已锁定为只读，仅可编辑会诊病历');
+        }
+        if ($consultationId > 0) {
+            $consStatusRow = DB::one('consultation', 'SELECT status FROM consultations WHERE id=?', array($consultationId));
+            if ($consStatusRow && $consStatusRow['status'] === 'done') {
+                json_fail('该会诊已完毕，会诊病历已永久锁定为只读，不可修改');
+            }
+        }
+
         // ===== 1. 解析与文书类型判定 =====
         $raw = post_raw('emr_data');
         $emr = json_decode($raw, true);
@@ -469,6 +484,17 @@ function record_part_write($action) {
             $pr = DB::one('medical', 'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
         }
         if (!$pr) json_fail('您在该就诊下暂无病历文书');
+        // 会诊锁校验：会诊期间非会诊病历不可调整诊断；会诊完毕的会诊病历不可再调整诊断
+        $diagDoingCons = DB::one('consultation', "SELECT * FROM consultations WHERE visit_id=? AND status='doing' ORDER BY id DESC LIMIT 1", array($visitId));
+        if ($diagDoingCons && (int)$pr['consultation_id'] === 0) {
+            json_fail('该就诊正在进行会诊，会诊前的病历已锁定为只读，仅可编辑会诊病历');
+        }
+        if ((int)$pr['consultation_id'] > 0) {
+            $diagConsRow = DB::one('consultation', 'SELECT status FROM consultations WHERE id=?', array((int)$pr['consultation_id']));
+            if ($diagConsRow && $diagConsRow['status'] === 'done') {
+                json_fail('该会诊已完毕，会诊病历已永久锁定为只读，不可修改');
+            }
+        }
         // 转科校验：文书书写科室与就诊当前科室不一致 → 只读，不可调整诊断；
         // 会诊记录（consultation_id>0）书写科室=会诊目标科室，不受转科限制
         if ((int)$pr['dept_id'] !== (int)$row['visit']['current_dept_id'] && (int)$pr['consultation_id'] === 0) {

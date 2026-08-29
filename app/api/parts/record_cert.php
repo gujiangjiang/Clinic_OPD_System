@@ -17,6 +17,11 @@ function record_part_cert($action) {
         if ($content === '') json_fail('请填写医生建议');
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
+        // 会诊期间拦截：存在进行中会诊时不允许开具诊断证明（会诊仅看病不诊断）
+        $doingCertCons = DB::one('consultation', "SELECT id FROM consultations WHERE visit_id=? AND status='doing' LIMIT 1", array($visitId));
+        if ($doingCertCons) {
+            json_fail('该就诊正在进行会诊，会诊期间不可开具诊断证明');
+        }
         // 权限校验：仅接诊过该患者的医生（或管理员）可开具诊断证明
         if ($u['role'] !== 'admin') {
             $involved = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array($visitId, $u['id']));

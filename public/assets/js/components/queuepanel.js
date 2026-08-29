@@ -140,7 +140,8 @@ Clinic.queuePanel = (function () {
         };
         return '<div class="qp-row" data-code="' + r.code + '"' +
             (r.consult_code ? ' data-consult-code="' + escHtml(r.consult_code) + '"' : '') +
-            (r.consult_status ? ' data-consult-status="' + escHtml(r.consult_status) + '"' : '') + '>' +
+            (r.consult_status ? ' data-consult-status="' + escHtml(r.consult_status) + '"' : '') +
+            (r.accepted_by ? ' data-consult-accepted="' + escHtml(r.accepted_by) + '"' : '') + '>' +
             cell('qp-c-date fs-13 text-muted', r.date.substr(5)) +
             cell('qp-c-time fs-13 text-muted', r.time) +
             cell('qp-c-dept fs-13 fw-600', escHtml(r.dept_name), r.dept_name) +
@@ -281,10 +282,17 @@ Clinic.queuePanel = (function () {
             row.addEventListener('click', function () {
                 var consultCode = row.getAttribute('data-consult-code');
                 if (consult && consultCode) {
-                    // 已接受（doing）的会诊：直接进入病历页，不再弹会诊详情；
-                    // 待会诊（pending）或会诊完毕（done）仍弹详情
                     var consultStatus = row.getAttribute('data-consult-status');
+                    var acceptedBy = row.getAttribute('data-consult-accepted') || '';
+                    // 已接受（doing）的会诊：仅会诊医生本人可进入病历页；
+                    // 非会诊医生提示「xxx正在会诊该患者」
                     if (consultStatus === 'doing') {
+                        var myName = document.body.getAttribute('data-name') || '';
+                        if (myName !== acceptedBy) {
+                            closePanel();
+                            Clinic.toast.warning(acceptedBy ? (acceptedBy + ' 正在会诊该患者') : '该患者正在进行会诊');
+                            return;
+                        }
                         var vCode = row.getAttribute('data-code');
                         closePanel();
                         location.href = '/doctor/emr?visit_id=' + vCode;
