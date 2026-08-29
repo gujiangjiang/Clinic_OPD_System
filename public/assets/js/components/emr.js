@@ -1329,6 +1329,10 @@ diagnoses: [],
                 }, {
                     onSuccess: function (j) {
                         Clinic.toast.success(j.msg);
+                        // 同步就诊状态（删除后当前科室无文书 → 待就诊）
+                        if (DATA && DATA.visit && j.data && j.data.visit_status) {
+                            DATA.visit.status = j.data.visit_status;
+                        }
                         // 刷新病历树/正文，删除后联动
                         handleRecordDeleted(j.data && j.data.record_type, recId);
                     },
@@ -1347,7 +1351,36 @@ diagnoses: [],
         // 重置脏标记与 edit 标志，避免残留
         EMR_DIRTY = false;
         DATA.__edit_record_id = 0;
-        setTimeout(function () { location.reload(); }, 600);
+        // 局部刷新：从 records_history 移除该文书、移除对应只读段、
+        // 重置当前编辑状态，不整页刷新
+        if (DATA && DATA.records_history) {
+            DATA.records_history = DATA.records_history.filter(function (h) {
+                return ((h.record_id || h.id) !== recId);
+            });
+        }
+        var seg = document.getElementById('recSeg' + recId);
+        if (seg) seg.remove();
+        // 重置当前编辑状态：本人已无文书 → 续写占位态（与 needProgress 场景一致）
+        DATA.record.record_id = 0;
+        DATA.record.id = 0;
+        DATA.record.record_type = 'progress';
+        DATA.record.dept_match = 0;
+        DATA.record.emr = { diagnoses: [] };
+        DATA.record.created_at = '';
+        DATA.record.updated_at = '';
+        DATA.record.status = 'draft';
+        DATA.__progress_new = false;
+        DATA.__pending_progress = true;
+        var docBody = document.getElementById('docBody');
+        if (docBody) {
+            docBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
+                '<div class="fs-14">📝 病历续写</div>' +
+                '<div class="fs-12 text-muted mt-4">该患者已有保存的病历（上方只读展示）。' +
+                '点击左侧「病历节点 ＋」开始书写续写病历。</div></div>';
+        }
+        Clinic.emrEditor.setDiags([]);
+        refreshReadOnlyBodies(DATA);
+        renderLeftNav();
     }
 
     /**
@@ -2144,6 +2177,9 @@ diagnoses: [],
                     if (j.data && (j.data.record_id || 0) > 0) {
                         DATA.record.record_id = j.data.record_id;
                         DATA.record.id = j.data.record_id;
+                        // 新保存的文书归属当前科室：修正 dept_match（新建时为 0，
+                        // 不修正会导致右侧诊断删除按钮误判消失）
+                        DATA.record.dept_match = 1;
                     }
                     DATA.record.consciousness = data.consciousness;
                     DATA.record.visit_type = data.visit_type;

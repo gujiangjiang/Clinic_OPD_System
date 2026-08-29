@@ -70,7 +70,8 @@ function record_part_delete($action) {
                 DB::exec('patient', 'UPDATE registrations SET status=? WHERE id=?', array('paid', $visitId));
             }
         }
-        json_ok(array('record_type' => $rec['record_type']), '病历记录已删除');
+        $newStatus = (string)DB::val('patient', 'SELECT status FROM registrations WHERE id=?', array($visitId));
+        json_ok(array('record_type' => $rec['record_type'], 'visit_status' => $newStatus), '病历记录已删除');
         return;
     }
 }
