@@ -93,9 +93,8 @@ Clinic.emr = (function () {
                 CONSULTS = j.data.consults || [];
                 renderConsultList();
                 // 会诊模式：本人正在会诊处理中 → 隐藏会诊分区「＋」（不可再发起会诊）
-                var curDeptIdC = (j.data.visit && j.data.visit.current_dept_id) || 0;
                 var inConsult = (j.data.consults || []).some(function (c) {
-                    return (c.target_dept_id || 0) === curDeptIdC && (c.status === 'pending' || c.status === 'doing');
+                    return c.status === 'pending' || c.status === 'doing';
                 });
                 var consAdd = document.querySelector('.ena-sec-title .ena-add[title="发起会诊"]');
                 if (consAdd) consAdd.style.display = inConsult ? 'none' : '';
@@ -127,10 +126,10 @@ Clinic.emr = (function () {
                     enterConsultMode(decodeURIComponent(urlConsult));
                     history.replaceState(null, '', '/doctor/emr?visit_id=' + visitId);   // 清除参数防刷新重复触发
                 } else {
-                    // 自动识别：当前科室存在待处理/进行中的会诊 → 进入会诊模式
-                    var curDeptA = (j.data.visit && j.data.visit.current_dept_id) || 0;
+                    // 自动识别：就诊存在进行中的会诊（doing）→ 进入会诊模式
+                    // （仅会诊医生本人可进入，候诊列表已拦截非会诊医生）
                     var activeCons = (j.data.consults || []).find(function (cc) {
-                        return (cc.target_dept_id || 0) === curDeptA && (cc.status === 'pending' || cc.status === 'doing');
+                        return cc.status === 'doing';
                     });
                     if (activeCons) {
                         enterConsultMode(activeCons.code);
@@ -450,19 +449,16 @@ diagnoses: [],
         // 保存时仅收集字段内部文字；生命体征/意识状态两节由本函数外部构建注入。
         // 首诊与续写文书均支持生命体征/意识状态书写；只读（诊毕）时仅展示不可编辑）
         var readOnly = !!(d.visit && d.visit.status === 'finished');
-        // ===== 会诊锁：会诊期间病历只读 =====
-        // 1) 本记录是会诊病历且会诊已完毕 → 永久只读；
-        // 2) 就诊存在进行中会诊且本记录不是会诊病历 → 一律只读（无论是否本人书写）。
+        // ===== 会诊锁：会诊期间病历只读（不触发 setReadonlyUI 破坏性 UI） =====
+        // 1) 本记录是会诊病历且会诊已完毕 → 永久只读（同诊毕）；
+        // 2) 就诊存在进行中会诊且本记录不是会诊病历 → 只读展示（不破坏顶栏，可切回）。
+        var consultLock = false;
         if (!readOnly && (d.consults || []).length) {
             var recConsId = (r.consultation_id || 0);
-            var consList = d.consults;
             if (recConsId > 0) {
-                var recCons = null;
-                consList.forEach(function (cc) { if ((cc.id || 0) === recConsId) recCons = cc; });
-                if (recCons && recCons.status === 'done') readOnly = true;
+                d.consults.forEach(function (cc) { if ((cc.id || 0) === recConsId && cc.status === 'done') readOnly = true; });
             } else if (r.record_id > 0) {
-                var hasDoing = consList.some(function (cc) { return cc.status === 'doing'; });
-                if (hasDoing) readOnly = true;
+                d.consults.forEach(function (cc) { if (cc.status === 'doing') consultLock = true; });
             }
         }
         // 生命体征：首诊用就诊级体征，续写/会诊用本记录自身 emr.vitals（完全独立，绝不继承首诊）
@@ -563,6 +559,21 @@ diagnoses: [],
                 docBody.innerHTML = '<div class="prev-record-wrap">' + hist.map(roSegmentHtml).join('') + '</div>';
             }
             setReadonlyUI();
+        } else if (consultLock) {
+            // 会诊期间查看非会诊病历：只读展示当前记录（不破坏顶栏，可切回会诊病历）
+            var lcBody = document.getElementById('docBody');
+            if (lcBody && r.record_id > 0) {
+                var recSeg = { id: r.record_id, record_id: r.record_id, doctor_id: r.doctor_id,
+                    doctor_name: r.doctor_name, doctor_emp: r.doctor_emp||'', doctor_title: r.doctor_title||'',
+                    record_type: r.record_type, emr: r.emr||{}, created_at: r.created_at||'',
+                    consultation_id: r.consultation_id||0, consciousness: r.consciousness||'', vitals: {} };
+                lcBody.innerHTML = '<div class="fs-12 text-muted mb-8" style="color:var(--warning)">会诊期间，其他病历仅可查看（只读）。点击右侧「病历节点」切换回会诊病历。</div>' +
+                    '<div class="prev-record-wrap">' + roSegmentHtml(recSeg) + '</div>';
+            }
+            // 只隐藏顶栏写操作按钮（不破坏导航与加号）
+            document.querySelectorAll('.emr-top-actions .emr-write').forEach(function (b) { b.style.display = 'none'; });
+            var stLock = document.getElementById('saveStatus');
+            if (stLock) { stLock.textContent = '会诊期间，其他病历为只读状态'; stLock.style.color = 'var(--warning)'; }
         } else {
             // 场景 C：已有他人保存病历但本人尚无文书 → 默认只读展示他人病历 +
             // 续写占位，不渲染空编辑器；显式点击「病历节点 +」才渲染续写编辑器
@@ -630,6 +641,24 @@ diagnoses: [],
         // · switchToRecord 切换时置 __noAutoScroll，由调用方立即滚动
         if (!readOnly && !needProgress && !d.__noAutoScroll) {
             scrollToEditor(200);
+        }
+        // ===== 恢复顶栏写操作按钮（从只读/会诊锁切回可编辑记录时） =====
+        if (!readOnly && !consultLock) {
+            restoreWriteButtons();
+        }
+    }
+
+    /** 恢复顶栏写操作按钮与状态提示（从只读/会诊锁记录切回可编辑记录时） */
+    function restoreWriteButtons() {
+        document.querySelectorAll('.emr-top-actions .emr-write').forEach(function (b) { b.style.display = ''; });
+        var st = document.getElementById('saveStatus');
+        if (st) { st.textContent = ''; st.style.color = ''; }
+        // 会诊模式恢复专属按钮文案（诊毕→会诊完毕、隐藏转科）
+        if (DATA && DATA.__consult_mode && DATA.__consult_id) applyConsultMode(DATA.__consult_id);
+        else {
+            document.querySelectorAll('.emr-top-actions .emr-write').forEach(function (b) {
+                if (b.getAttribute('onclick') && b.getAttribute('onclick').indexOf('openTransfer') !== -1) b.style.display = '';
+            });
         }
     }
 
@@ -1605,18 +1634,19 @@ diagnoses: [],
             if (ownOld) diagMap[key].ownOld = true;
             if (inCurrent) diagMap[key].inCurrent = true;   // 当前编辑文书中存在 → 可删除
         };
-        // 先遍历其余文书（首诊/旧续写）的诊断——历史诊断在前，新添加的诊断默认在下方；
-        // 再遍历当前编辑文书诊断（归属本人 + inCurrent → 可删除）；
+        // 先遍历全部文书（首诊/续写/会诊，含当前记录）的诊断——按文书时间正序稳定聚合，
+        // 顺序不随当前浏览的记录节点变化；当前编辑文书的诊断标记 inCurrent → 可删除。
         // 转科后（dept_match=0）当前文书为只读，诊断不显示删除按钮
         var curRid = DATA.record && DATA.record.record_id;
         var curDeptMatch = !(DATA.record && DATA.record.dept_match === 0);
         (DATA && DATA.records_history ? DATA.records_history : []).forEach(function (h) {
-            if ((h.record_id || h.id) === curRid) return;
             var isMine = (h.doctor_id || 0) === mineDoctorId;
+            var inCur = ((h.record_id || h.id) === curRid) && curDeptMatch;
             ((h.emr && h.emr.diagnoses) || []).forEach(function (dg) {
-                pushDiag(dg, isMine, !isMine, h.doctor_id || 0, isMine, false);
+                pushDiag(dg, isMine, !isMine, h.doctor_id || 0, isMine, inCur);
             });
         });
+        // 当前编辑文书若在 records_history 中不存在（未保存的新建/编辑态），补充其诊断
         myList3.forEach(function (dg) { pushDiag(dg, true, false, mineDoctorId, false, curDeptMatch); });
         // 按本人保存的全局排序重排（未在排序中的键保持默认相对顺序追加在后）
         var ordRank = {};
