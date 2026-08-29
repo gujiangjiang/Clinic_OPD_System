@@ -219,9 +219,26 @@ Clinic.emr = (function () {
         if (!docBody || !DATA) return;
         var r = DATA.record;
         var d = DATA;
-        // 续写 = 全新独立病历：防御性清空诊断，避免带入前序/骨架诊断
+        // 续写 = 全新独立病历：只保留既往史和过敏史，其余清空
         var cleanEmr = JSON.parse(JSON.stringify(r.emr || {}));
-        cleanEmr.diagnoses = [];
+        // 保留既往史和过敏史
+        var ph = cleanEmr.past_history;
+        var al = cleanEmr.allergies;
+        // 重置为默认空结构（只保留既往史和过敏史）
+        var defaults = {
+            progress: { content: '' },
+            chief_complaint: { symptom: '', duration: '', unit: '', second_symptom: '', second_duration: '', second_unit: '' },
+            history_present: { informant: '', duration: '', unit: '', content: '', arrival_way: '' },
+            main_symptoms: { 全身症状: '', 呼吸道症状: '', 消化道症状: '', 皮疹症状: '', 出血症状: '', 神经系统症状: '' },
+            physical_exam: { 皮肤黏膜: '', 头部: '', 胸部: '', 肺脏及胸膜: '', 心脏: '', 腹部: '', 神经反射: '', 肌力及肌张力: '', 其它体格检查: '' },
+            diagnoses: [],
+            past_history: { type: '否认', detail: '' },
+            allergies: { type: '否认', detail: '' },
+            aux_result: '', aux_external: '', disposition_custom: '', advice: '',
+        };
+        if (ph) defaults.past_history = ph;
+        if (al) defaults.allergies = al;
+        cleanEmr = defaults;
         try {
             fillContHead(r);
             var signEl = document.getElementById('signWrap');
@@ -229,7 +246,7 @@ Clinic.emr = (function () {
             docBody.innerHTML = '';
             Clinic.emrEditor.render(docBody, cleanEmr, {
                 readonly: false,
-                beforeVitals: buildVitalSec(false, d.vitals || {}),
+                beforeVitals: buildVitalSec(false, {}),   // 续写不引用已有生命体征
                 midNode: buildConsciousNode(false, r.consciousness || '清醒'),
                 mode: 'progress',
                 onChange: function () { EMR_DIRTY = true; },
@@ -270,18 +287,26 @@ Clinic.emr = (function () {
             };
             beforeEl.insertAdjacentHTML('beforeend', roSegmentHtml(rec));
         }
-        // 2. 续写编辑态：保留默认结构（既往史/过敏史默认「否认」等），
-        //    仅将 progress 内容清空；record_id 置 0 表示新建，保存时落库。
-        //    诊断不自动代入——续写是完全独立的文书，需要什么诊断医生手动添加
+        // 2. 续写编辑态：全新独立文书，只保留既往史和过敏史，其余清空
         DATA.__pending_progress = true;
         DATA.__progress_new = true;
         DATA.__edit_record_id = 0;   // 新建续写走 progress_new，不使用精确回写
         DATA.record.record_id = 0;
         DATA.record.record_type = 'progress';
         var base = JSON.parse(JSON.stringify(r.emr || {}));
-        if (base.progress) base.progress.content = '';
-        base.diagnoses = [];   // 续写不自动带入前序诊断
-        DATA.record.emr = base;
+        var ph = base.past_history;
+        var al = base.allergies;
+        DATA.record.emr = {
+            progress: { content: '' },
+            chief_complaint: { symptom: '', duration: '', unit: '', second_symptom: '', second_duration: '', second_unit: '' },
+            history_present: { informant: '', duration: '', unit: '', content: '', arrival_way: '' },
+            main_symptoms: { 全身症状: '', 呼吸道症状: '', 消化道症状: '', 皮疹症状: '', 出血症状: '', 神经系统症状: '' },
+            physical_exam: { 皮肤黏膜: '', 头部: '', 胸部: '', 肺脏及胸膜: '', 心脏: '', 腹部: '', 神经反射: '', 肌力及肌张力: '', 其它体格检查: '' },
+            diagnoses: [],
+            past_history: ph || { type: '否认', detail: '' },
+            allergies: al || { type: '否认', detail: '' },
+            aux_result: '', aux_external: '', disposition_custom: '', advice: '',
+        };
         DATA.record.created_at = '';
         DATA.record.updated_at = '';
         // 3. 重建 docBody 为新续写编辑器
@@ -291,7 +316,7 @@ Clinic.emr = (function () {
             try {
                 Clinic.emrEditor.render(docBody, DATA.record.emr, {
                     readonly: false,
-                    beforeVitals: buildVitalSec(false, DATA.vitals || {}),
+                    beforeVitals: buildVitalSec(false, {}),   // 续写不引用已有生命体征
                     midNode: buildConsciousNode(false, '清醒'),
                     mode: 'progress',
                     onChange: function () { EMR_DIRTY = true; },
