@@ -1988,7 +1988,7 @@ diagnoses: [],
         // 流程节点带操作人/时间（后端 order_flow_steps 计算）
         var steps = o.flow || [];
         var curIdx = -1;   // done 状态已由 flow[].done 标记
-        html += '<div style="border-left:1px solid var(--border);padding-left:16px">' +
+        html += '<div style="border-left:1px solid var(--border);padding-left:14px">' +
             flowColumnHtml(steps, curIdx) + '</div>';
         html += '</div>';
         // 操作区：打印申请单（本人或他人均可补打）；删除仅限未缴费/已退费的开单医生本人
@@ -2022,7 +2022,7 @@ diagnoses: [],
                 '<div class="fw-600">' + escHtml(st.label) + '</div>' +
                 (info ? '<div class="fs-12 text-muted">' + info + '</div>' : '') + '</div></div>';
         }).join('<div style="width:2px;height:14px;background:var(--border);margin-left:12px"></div>');
-        return '<div style="padding-left:16px">' +
+        return '<div>' +
             '<div class="fw-600 mb-8 fs-13">' + escHtml(title || '流程进度') + '</div>' + flow + '</div>';
     }
 
@@ -2471,9 +2471,9 @@ diagnoses: [],
                         escHtml(label) + '：</strong>' + (val && String(val).trim() ? escHtml(val) : '-') + '</div>';
                 };
                 var steps = [
-                    { label: '发起会诊', operator: (c.from_doctor_name || ''), time: (c.created_at || '').substring(5, 16), done: true },
-                    { label: '正在会诊', operator: (c.accepted_by || ''), time: (c.accepted_at || '').substring(5, 16), done: c.status !== 'pending' },
-                    { label: '会诊完毕', operator: '', time: (c.finished_at || '').substring(5, 16), done: c.status === 'done' },
+                    { label: '发起会诊', operator: (c.from_doctor_name || ''), time: (c.created_at || ''), done: true },
+                    { label: '正在会诊', operator: (c.accepted_by || ''), time: (c.accepted_at || ''), done: c.status !== 'pending' },
+                    { label: '会诊完毕', operator: '', time: (c.finished_at || ''), done: c.status === 'done' },
                 ];
                 var stepHtml = flowColumnHtml(steps, -1, '会诊进度');
                 Clinic.modal.open(
@@ -2486,7 +2486,7 @@ diagnoses: [],
                     '    </div>' +
                     ro('会诊描述', c.description) + ro('会诊目的', c.purpose) +
                     '  </div>' +
-                    '  <div style="width:150px;flex-shrink:0;padding-left:14px">' +
+                    '  <div style="width:190px;flex-shrink:0;padding-left:14px">' +
                     '    ' + stepHtml +
                     '  </div>' +
                     '</div>',

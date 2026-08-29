@@ -17,7 +17,7 @@
  */
 function order_flow_steps($o, $items) {
     $flow = array();
-    $flow[] = array('label' => '开单', 'operator' => (string)$o['doctor_name'], 'time' => (string)$o['created_at']);
+    $flow[] = array('label' => '开单', 'operator' => (string)$o['doctor_name'], 'time' => (string)$o['created_at'], 'done' => 1);
     // 缴费：payments 表（order_id 关联，任取一条）
     $pay = DB::one('order', 'SELECT cashier_name, created_at FROM payments WHERE order_id=? ORDER BY id DESC LIMIT 1', array($o['id']));
     $payDone = !empty($o['paid_at']) || $pay;
