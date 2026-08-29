@@ -62,6 +62,10 @@ switch ($action) {
         $visit = $row['visit'];
         if ($visit['status'] === 'finished') json_fail('该患者已诊毕，病历已归档');
         if (!visit_access_allowed($visit, $u)) json_fail('该病历超出您的可查看历史天数，无法发起会诊');
+        // 病历前置校验：本人必须已保存病历（首诊或续写）才可发起会诊
+        // （开单/会诊等操作均需在病历中自动记录与展示，无病历则禁止）
+        $myRec = DB::one('medical', 'SELECT id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+        if (!$myRec) json_fail('请先书写并保存本人病历（首诊或续写）后再发起会诊');
         // 会诊拦截：本人已书写会诊病历（正在处理其他科室的会诊）→ 不可再发起会诊
         $ownConsult = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0', array($visitId, $u['id']));
         if ($ownConsult > 0) json_fail('您正在会诊处理中，不可再发起会诊');

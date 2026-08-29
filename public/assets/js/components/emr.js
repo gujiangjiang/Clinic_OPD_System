@@ -97,7 +97,14 @@ Clinic.emr = (function () {
                     return c.status === 'pending' || c.status === 'doing';
                 });
                 var consAdd = document.querySelector('.ena-sec-title .ena-add[title="发起会诊"]');
-                if (consAdd) consAdd.style.display = inConsult ? 'none' : '';
+                if (consAdd) {
+                    consAdd.style.display = inConsult ? 'none' : '';
+                    // + 隐藏后箭头靠右修复（.ena-add + .ena-arrow 的 margin-left:3px 会覆盖 auto）
+                    if (inConsult) {
+                        var arrow = consAdd.parentNode ? consAdd.parentNode.querySelector('.ena-arrow') : null;
+                        if (arrow) arrow.style.marginLeft = 'auto';
+                    }
+                }
                 // 前序医生诊断上下文注入（诊断模态框跨医生引用查重用）
                 injectPrevDiagContext();
                 bindItemTokenDelegate();
@@ -2443,6 +2450,11 @@ diagnoses: [],
             Clinic.toast.warning('当前病历有未保存的修改，请先点击「💾 保存」后再发起会诊');
             return;
         }
+        // 无本人已保存病历（首诊/续写）时禁止发起会诊
+        if (DATA && DATA.record && !(DATA.record.record_id > 0)) {
+            Clinic.toast.warning('请先书写并保存本人病历后再发起会诊');
+            return;
+        }
         var visitId = document.getElementById('visitId').value;
         var curDept = DATA ? DATA.visit.current_dept_id : 0;
         CONSULT_DEPT = 0;
@@ -2659,16 +2671,21 @@ diagnoses: [],
                 b.classList.add('btn-warning');
             }
         });
-        // 会诊期间：隐藏「发起会诊」+（不可再发起会诊）与「诊断证明」分区（会诊仅看病不开证明）
+        // 会诊期间：隐藏「发起会诊」+（不可再发起会诊）与「诊断证明」＋（不可开具，可查看）
         var consAdd2 = document.querySelector('.ena-sec-title .ena-add[title="发起会诊"]');
-        if (consAdd2) consAdd2.style.display = 'none';
-        var certSec2 = document.getElementById('certSec');
-        if (certSec2) certSec2.style.display = 'none';
-        // 会诊期间：非本次会诊项目一律只读——各分区「＋」隐藏（避免继续开单/新增项目）
-        document.querySelectorAll('.emr-sidebar-left .ena-sec-title .ena-add').forEach(function (b) {
-            if (b.getAttribute('title') === '发起会诊' || b.id === 'certAddBtn') return;
-            b.style.display = 'none';
-        });
+        if (consAdd2) {
+            consAdd2.style.display = 'none';
+            // + 隐藏后箭头靠右修复
+            var arrow = consAdd2.parentNode ? consAdd2.parentNode.querySelector('.ena-arrow') : null;
+            if (arrow) arrow.style.marginLeft = 'auto';
+        }
+        // 诊断证明：保留分区可查看，仅隐藏 + 号
+        var certAdd3 = document.getElementById('certAddBtn');
+        if (certAdd3) certAdd3.style.display = 'none';
+        // 恢复诊断证明分区显示（前次已隐藏则取消隐藏）
+        var certSec3 = document.getElementById('certSec');
+        if (certSec3) certSec3.style.display = '';
+        // 注意：其他分区（检查/检验/处置/处方/病历节点/知情同意书/初步诊断）的 + 号保持可见
         renderLeftNav();
     }
 
@@ -2865,6 +2882,12 @@ diagnoses: [],
     function requireSaved(label) {
         if (EMR_DIRTY) {
             Clinic.toast.warning('病历有修改未保存，请先点击「💾 保存」后再' + label);
+            return false;
+        }
+        // 无本人已保存病历（首诊/续写）时禁止开单/会诊/诊断证明——
+        // 所有开单项目包括会诊都需在病历中自动记录与展示
+        if (DATA && DATA.record && !(DATA.record.record_id > 0)) {
+            Clinic.toast.warning('请先书写并保存病历（首诊或续写）后再' + label);
             return false;
         }
         return true;

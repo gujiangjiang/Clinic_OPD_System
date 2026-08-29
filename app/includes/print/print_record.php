@@ -180,6 +180,11 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
             if ($o['order_type'] !== 'prescription') continue;
             foreach (emr_rx_display_lines($its) as $l) { $rxs[] = e($l); }
         }
+        // 会诊：首诊记录显示「请X科会诊」（与病历编辑页一致）
+        $consRows = DB::q('consultation', "SELECT target_dept_name FROM consultations WHERE visit_id=? AND from_doctor_id=? ORDER BY id ASC", array($visit['id'], (int)$record['doctor_id']));
+        foreach ($consRows as $cr) {
+            $procs[] = '请' . e($cr['target_dept_name']) . '会诊';
+        }
     }
     if ($emrStructured) {
         // 结构化：辅助检查 = 已开项目 + 手工结果 + 外院结果；门诊处置 = 处方行 + 处置(含数量) + 自定义

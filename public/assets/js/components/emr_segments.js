@@ -43,16 +43,25 @@ Clinic.emr.segments = (function () {
         push('意识状态', rec.consciousness || '', isProgress ? false : true);
         push('体格检查', Clinic.emr.format.fmtPE(e.physical_exam), isProgress ? false : true);
         push('初步诊断', Clinic.emr.format.fmtDiags(e.diagnoses));
-        // ===== 辅助检查 / 门诊处置：续写（含会诊）病历完全独立 =====
-        // 只展示本记录自身填写的手工字段，绝不拉取该医生其他记录的开单明细
+        // ===== 辅助检查 / 门诊处置 =====
+        // 首诊记录：拉取该医生开具的检查/检验/处置/处方 + 发起的会诊（开单自动入病历展示）；
+        // 续写/会诊记录：完全独立个体，只展示本记录自身手工字段，绝不拉取历史开单
         var auxParts = [];
+        var dispParts = [];
+        var rxHtml = '';
+        if (!isProgress) {
+            var t2 = Clinic.emr.orders.orderTextsFor(rec.doctor_id || 0);
+            t2.aux.forEach(function (n) { auxParts.push(escHtml(n)); });
+            t2.proc.forEach(function (p) { dispParts.push(escHtml(p)); });
+            rxHtml = t2.rxs.map(function (l) { return '<div>' + escHtml(l) + '</div>'; }).join('');
+        }
         [e.aux_result, e.aux_external].forEach(function (x) {
             if (x && String(x).trim()) auxParts.push(escHtml(x));
         });
         push('辅助检查', auxParts.join('，'), isProgress ? false : true);
-        var dispParts = [];
         if (e.disposition_custom && String(e.disposition_custom).trim()) dispParts.push(escHtml(e.disposition_custom));
         var dispHtml = dispParts.length ? '<span>' + dispParts.join('，') + '</span>' : '';
+        if (rxHtml) dispHtml += rxHtml;
         // 门诊处置：续写空时整段不显示（首诊显示 -）
         if (!isProgress || dispHtml) {
             secs.push('<div class="prev-sec"><span class="doc-sec-label">门诊处置：</span>' + (dispHtml || '-') + '</div>');
