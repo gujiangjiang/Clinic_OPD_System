@@ -91,9 +91,11 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
     // 病历内容行内流式排版：主诉：xxx　现病史：xxx（紧凑省空间）
     $secs = array();
     if ($emrStructured) {
+        // 会诊病历标识：consultation_id>0 的续写文书为会诊记录（打印显示「会诊记录」）
+        $isConsultRec = (int)(isset($record['consultation_id']) ? $record['consultation_id'] : 0) > 0;
         if ($isProgress) {
             $progContent = isset($emr['progress']['content']) ? trim((string)$emr['progress']['content']) : '';
-            if ($progContent !== '') $secs[] = array('病历续写', e($progContent));
+            if ($progContent !== '') $secs[] = array($isConsultRec ? '会诊记录' : '病历续写', e($progContent));
             // 续写：未填写（否认/空）的既往史/过敏史不显示，首诊维持原样
             $phT = emr_ph_text(isset($emr['past_history']) ? $emr['past_history'] : array());
             if ($phT !== '否认') $secs[] = array('既往史', $phT);

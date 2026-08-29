@@ -24,7 +24,7 @@ Clinic.emr.segments = (function () {
             secs.push('<div class="prev-sec"><span class="doc-sec-label">' + label + '：</span>' +
                 escHtml(val || '-') + '</div>');
         };
-        if (isProgress) push('病历续写', (e.progress || {}).content);
+        if (isProgress) push(rec.consultation_id > 0 ? '会诊记录' : '病历续写', (e.progress || {}).content);
         push('主诉', Clinic.emr.format.fmtCC(e.chief_complaint));
         push('现病史', Clinic.emr.format.fmtPI(e.history_present));
         push('既往史', Clinic.emr.format.fmtPH(e.past_history));
@@ -59,9 +59,11 @@ Clinic.emr.segments = (function () {
         }
         push('是否留观', e.is_leave_hospital === '是' ? '是' : '否', isProgress ? false : true);
         push('嘱托', e.advice);
-        var typeBadge = isProgress
-            ? '<span class="badge badge-primary">病历续写</span>'
-            : '<span class="badge badge-gray">首诊</span>';
+        var typeBadge = rec.consultation_id > 0
+            ? '<span class="badge badge-warning">会诊</span>'
+            : (isProgress
+                ? '<span class="badge badge-primary">病历续写</span>'
+                : '<span class="badge badge-gray">首诊</span>');
         var authorSpan = '<span class="fw-600">记录医生：' + escHtml(rec.doctor_name) +
             (rec.doctor_title ? ' ' + escHtml(rec.doctor_title) : '') +
             (rec.doctor_emp ? ' （工号 ' + escHtml(rec.doctor_emp) + '）' : '') + '</span>';

@@ -41,6 +41,11 @@ switch ($action) {
         if ((int)$visit['current_dept_id'] === $targetDept) {
             json_fail('目标科室与患者当前科室相同，无需转科');
         }
+        // 会诊拦截：书写了会诊病历的医生不可转科（会诊病历与当前科室绑定）
+        $hasConsult = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0', array($visitId, $u['id']));
+        if ($hasConsult > 0) {
+            json_fail('您已书写会诊病历，会诊期间不可转科');
+        }
 
         // 记录转科（附带原病历ID，供一键引用）
         $lastRecord = DB::one('medical', 'SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));

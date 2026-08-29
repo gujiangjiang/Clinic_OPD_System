@@ -78,6 +78,7 @@ function record_part_read($action) {
                 'doctor_title' => $meta ? (string)$meta['title'] : '',
                 'dept_id' => (int)$pr2['dept_id'],
                 'dept_name' => isset($deptNames[(int)$pr2['dept_id']]) ? $deptNames[(int)$pr2['dept_id']] : '',
+                'consultation_id' => (int)(isset($pr2['consultation_id']) ? $pr2['consultation_id'] : 0),
                 'record_type' => ($pr2['record_type'] === 'progress') ? 'progress' : 'initial',
                 'parent_record_id' => (int)$pr2['parent_record_id'],
                 'primary_icd10' => (string)$pr2['primary_icd10'],

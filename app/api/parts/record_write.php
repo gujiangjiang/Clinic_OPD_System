@@ -135,6 +135,15 @@ function record_part_write($action) {
         }
         $parentRecordId = $parentRow ? (int)$parentRow['id'] : 0;
 
+        // ===== 会诊病历关联：consultation_id>0 时校验会诊归属（目标科室=当前科室） =====
+        $consultationId = (int)post('consultation_id', 0);
+        if ($consultationId > 0) {
+            $cons = DB::one('consultation', 'SELECT * FROM consultations WHERE id=?', array($consultationId));
+            if (!$cons) json_fail('会诊记录不存在');
+            if ((int)$cons['visit_id'] !== (int)$visitId) json_fail('会诊记录不属于本次就诊');
+            if ((int)$cons['target_dept_id'] !== (int)$visit['current_dept_id']) json_fail('该会诊不属于当前科室，无法书写会诊病历');
+        }
+
         // ===== 2. 必填校验（按文书类型分支） =====
         // 首诊：主诉 / 现病史 / 初步诊断；续写：病历续写内容 / 初步诊断
         // （主诊断取该医生诊断列表第 1 项，各医生文书互相独立、物理隔离）
@@ -230,8 +239,8 @@ function record_part_write($action) {
                     ->execute(array($mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $pr['id']));
                 $recordId = (int)$pr['id'];
             } else {
-                $pdo->prepare('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, main_symptom, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergies, is_leave_hospital, primary_icd10, primary_diagnosis, emr_data, emr_print_text, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-                    ->execute(array($visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name'], $recordType, $parentRecordId, $mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $now));
+                $pdo->prepare('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, main_symptom, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergies, is_leave_hospital, primary_icd10, primary_diagnosis, emr_data, emr_print_text, status, created_at, updated_at, consultation_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+                    ->execute(array($visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name'], $recordType, $parentRecordId, $mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $now, $consultationId));
                 $recordId = (int)$pdo->lastInsertId();
                 // 体征记录回填：新病历保存前若以 record_id=0 录入过体征（未保存时的
                 // 录入），关联到本次新建病历，保证该病历内后续修改体征为更新而非新增。
@@ -406,6 +415,11 @@ function record_part_write($action) {
         // 病历可访问天数校验
         if (!visit_access_allowed($rowOrder['visit'], $u)) {
             json_fail('该病历超出您的可查看历史天数，无法修改');
+        }
+        // 会诊拦截：会诊病历（本人在会诊接收科室的文书）不可调整诊断顺序
+        $hasConsult = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0', array($visitId, $u['id']));
+        if ($hasConsult > 0) {
+            json_fail('会诊病历不可调整诊断顺序');
         }
         $keys = json_decode((string)post('ord_keys', '[]'), true);
         if (!is_array($keys)) json_fail('排序数据无效');

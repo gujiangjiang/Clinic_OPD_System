@@ -203,9 +203,12 @@ Clinic.emr = (function () {
         if (!wrap || !r) return;
         var t = r.created_at || r.updated_at || fmtDateTime();
         var isProg = r.record_type === 'progress';
-        var badge = isProg
-            ? '<span class="badge badge-primary">病历续写</span>'
-            : '<span class="badge badge-gray">首诊</span>';
+        var isConsult = r.consultation_id > 0;   // 会诊病历徽标
+        var badge = isConsult
+            ? '<span class="badge badge-warning">会诊</span>'
+            : (isProg
+                ? '<span class="badge badge-primary">病历续写</span>'
+                : '<span class="badge badge-gray">首诊</span>');
         wrap.innerHTML = (isProg ? '<div class="emr-cont-divider"></div>' : '') +
             '<div class="prev-record-head">' +
             '<span class="fw-600">记录医生：' + escHtml(r.doctor_name) +
@@ -524,12 +527,28 @@ diagnoses: [],
             // 场景 C：已有他人保存病历但本人尚无文书 → 默认只读展示他人病历 +
             // 续写占位，不渲染空编辑器；显式点击「病历节点 +」才渲染续写编辑器
             if (needProgress) {
+                // 会诊模式：当前科室存在待处理/进行中的会诊 → 占位显示「开始会诊」
+                var myConsult = null;
+                var curDeptId = (d.visit && d.visit.current_dept_id) || 0;
+                (d.consults || []).forEach(function (c) {
+                    if ((c.target_dept_id || 0) === curDeptId && (c.status === 'pending' || c.status === 'doing')) myConsult = c;
+                });
                 var phBody = document.getElementById('docBody');
                 if (phBody) {
-                    phBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
-                        '<div class="fs-14">📝 病历续写</div>' +
-                        '<div class="fs-12 text-muted mt-4">该患者已有保存的病历（上方只读展示）。' +
-                        '点击左侧「病历节点 ＋」开始书写续写病历。</div></div>';
+                    if (myConsult) {
+                        var cStatus = myConsult.status === 'doing' ? '会诊进行中' : '新会诊请求';
+                        phBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
+                            '<div class="fs-14">🤝 ' + escHtml((myConsult.from_dept_name || '') + ' 会诊请求') +
+                            ' <span class="badge badge-warning">' + cStatus + '</span></div>' +
+                            '<div class="fs-12 text-muted mt-4">该患者已有保存的病历（上方只读展示）。</div>' +
+                            '<button class="btn btn-primary btn-sm mt-8" onclick="Clinic.emr.startConsult(' + myConsult.id + ')">🤝 开始会诊</button>' +
+                            '<div class="fs-12 text-muted mt-8">开始后新建会诊病历（原病历只读）。点击右上「会诊完毕」结束本次会诊。</div></div>';
+                    } else {
+                        phBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
+                            '<div class="fs-14">📝 病历续写</div>' +
+                            '<div class="fs-12 text-muted mt-4">该患者已有保存的病历（上方只读展示）。' +
+                            '点击左侧「病历节点 ＋」开始书写续写病历。</div></div>';
+                    }
                 }
                 refreshReadOnlyBodies(d);
             } else if (emptyInitial) {
@@ -583,6 +602,22 @@ diagnoses: [],
         }
     }
     function confirmFinish(btn) {
+        // ===== 会诊模式：确认会诊完毕（不走诊毕/转归流程） =====
+        if (DATA && DATA.__consult_mode && DATA.__consult_id) {
+            Clinic.modal.confirm('确认会诊完毕？确认后本次会诊记录将关闭，不可再编辑。', function () {
+                var vid = document.getElementById('visitId').value;
+                // 保存当前会诊病历内容（会诊记录落库后关闭）
+                save(false, null);
+                Clinic.ajax('/api/consultation', { action: 'finish', id: DATA.__consult_id }, {
+                    onSuccess: function (j) {
+                        Clinic.toast.success('会诊已完毕');
+                        EMR_DIRTY = false;
+                        setTimeout(function () { window.location.href = '/doctor/emr'; }, 700);
+                    },
+                });
+            }, { title: '确认会诊完毕', okText: '确认完毕' });
+            return;
+        }
         // 已打开则收起（再次点击按钮 = 关闭）
         if (document.getElementById('finishPop')) { closeFinishPop(); return; }
         var opts = ['自主离院', '住院', '转院', '死亡', '其他'];
@@ -1445,7 +1480,8 @@ diagnoses: [],
         // 本次就诊是否存在已保存的续写病程（首诊锁定判定）
         var hasSavedProgress = hist.some(function (h) { return h.record_type === 'progress' && h.status !== 'draft'; });
         recEl.innerHTML = hist.length ? hist.map(function (r2) {
-            var typeName = r2.record_type === 'progress' ? '（续）' : '（首）';
+            var isConsult = (r2.consultation_id || 0) > 0;
+            var typeName = isConsult ? '（会）' : (r2.record_type === 'progress' ? '（续）' : '（首）');
             var dt = (r2.created_at || '').substring(5, 16);   // MM-DD HH:MM
             // 删除按钮：仅本人创建；本人首诊且已有续写病程则锁定不显示
             var isMine = (r2.doctor_id || 0) === myUid;
@@ -1453,7 +1489,7 @@ diagnoses: [],
             var canDel = !isFinished && isMine && (r2.record_type !== 'initial' || !hasSavedProgress);
             return '<div class="ena-item" onclick="scrollToRecord(' + r2.id + ',' + r2.doctor_id + ')">' +
                 '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
-                escHtml(dt) + ' ' + escHtml(r2.dept_name || '') + '</span>' +
+                escHtml(dt) + ' ' + escHtml(isConsult ? (r2.dept_name || '') + '（会）' : (r2.dept_name || '')) + '</span>' +
                 '<span class="text-muted" style="flex-shrink:0;font-size:11px">' + typeName + '</span>' +
                 (canDel ? '<span class="ena-del" title="删除该病历记录" onclick="event.stopPropagation();Clinic.emr.deleteRecord(' + r2.id + ')">🗑️</span>' : '') +
                 '<span class="ena-sub">' + escHtml(r2.doctor_name) + '</span></div>';
@@ -1464,14 +1500,16 @@ diagnoses: [],
         } else if (!hist.length && recEl) {
             recEl.innerHTML = '';
         }
-        // 续写编辑中占位（未保存，保存/reload 后自动清除）；点击跳转到续写编辑器锚点
+        // 续写编辑中占位（未保存，保存/reload 后自动清除）；点击跳转到续写编辑器锚点；
+        // 会诊模式下显示「会诊病历编辑中」
         var _pn = (DATA.record && DATA.record.doctor_name) || '';
         var _del = '<span class="ena-del" title="删除未完成的病历" onclick="event.stopPropagation();Clinic.emr.cancelPendingRecord()">🗑️</span>';
+        var _pendingText = (DATA && DATA.__consult_mode) ? '🤝 会诊病历编辑中…（未保存）' : '📝 续写编辑中…（未保存）';
         if (DATA && DATA.__pending_progress && recEl) {
             recEl.insertAdjacentHTML('beforeend',
                 '<div class="ena-item" style="opacity:0.6;font-style:italic;cursor:pointer" ' +
                 'title="定位到续写编辑区" onclick="Clinic.emr.scrollToPendingEditor(this)">' +
-                '<span>📝 续写编辑中…（未保存）</span>' + _del +
+                '<span>' + _pendingText + '</span>' + _del +
                 '<span class="ena-sub">' + escHtml(_pn) + '</span></div>');
         }
         // 首诊编辑中占位（空病历选择模板后未保存）；点击跳转到首诊编辑器锚点
@@ -2129,6 +2167,8 @@ diagnoses: [],
             visit_type: document.getElementById('visitType') ? document.getElementById('visitType').value : '初诊',
             // 过敏史是否通过模态框修改过：仅修改过才同步患者主表（唯一数据源）
             allergy_modified: (Clinic.emrEditor.isAllergyModified && Clinic.emrEditor.isAllergyModified()) ? 1 : 0,
+            // 会诊病历：关联会诊 id（B 科室医生「开始会诊」后书写）
+            consultation_id: (DATA && DATA.record && DATA.record.consultation_id) || 0,
         };
         if (finish) data.finish = 1;
         // 续写落库标志：本人已有文书后点击「病历节点 +」新建续写（record_id=0，
@@ -2196,6 +2236,7 @@ diagnoses: [],
                             record_type: DATA.record.record_type,
                             created_at: DATA.record.created_at, updated_at: now,
                             emr: JSON.parse(JSON.stringify(emr)),
+                            consultation_id: DATA.record.consultation_id || 0,
                             consciousness: data.consciousness,
                         };
                         DATA.records_history.push(histEntry);
@@ -2434,6 +2475,41 @@ diagnoses: [],
                     { title: '🤝 会诊详情', size: 'modal-lg', buttons: [{ text: '关闭', cls: 'btn-outline' }] }
                 );
             },
+        });
+    }
+
+    /** 开始会诊：接受会诊（pending→doing）并新建会诊病历编辑器 */
+    function startConsult(consultId) {
+        Clinic.ajax('/api/consultation', { action: 'accept', id: consultId }, {
+            onSuccess: function () {
+                Clinic.toast.success('会诊已开始，请书写会诊记录');
+                // 新建会诊病历编辑器（复用续写编辑器链路；consultation_id 随保存关联）
+                if (DATA.record.record_id > 0) addProgressEditor(); else createProgressEditor();
+                DATA.record.consultation_id = consultId;
+                applyConsultMode(consultId);
+                renderLeftNav();
+                scrollToEditor(200);
+            },
+        });
+    }
+
+    /** 会诊模式界面调整：隐藏转科、诊毕改为会诊完毕、侧边栏节点显示会诊编辑中 */
+    function applyConsultMode(consultId) {
+        DATA.__consult_id = consultId;
+        DATA.__consult_mode = true;
+        // 转科按钮隐藏（会诊病历与当前科室绑定）
+        document.querySelectorAll('.emr-top-actions .emr-write').forEach(function (b) {
+            if (b.getAttribute('onclick') && b.getAttribute('onclick').indexOf('openTransfer') !== -1) {
+                b.style.display = 'none';
+            }
+        });
+        // 诊毕按钮 → 会诊完毕
+        document.querySelectorAll('.emr-top-actions .emr-write').forEach(function (b) {
+            if (b.getAttribute('onclick') && b.getAttribute('onclick').indexOf('confirmFinish') !== -1) {
+                b.innerHTML = '🏁 会诊完毕';
+                b.classList.remove('btn-success');
+                b.classList.add('btn-warning');
+            }
         });
     }
 
