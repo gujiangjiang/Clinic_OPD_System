@@ -386,6 +386,7 @@ function record_part_write($action) {
                 $clean['heart_rate'], $clean['pulse'], $clean['spo2'], $clean['respiration'],
                 $u['name'], $now, $recordId,
         ));
+        }
         json_ok(array(), '生命体征已保存');
         return;
     }
