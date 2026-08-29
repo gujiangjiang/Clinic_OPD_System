@@ -880,9 +880,10 @@ diagnoses: [],
                     },
                 });
             });
-            // 点击面板以外区域关闭
+            // 点击面板以外区域关闭（豁免范围仅限内容链接，行内标签/空白不豁免）
             vitalsPopHandler = function (e) {
-                if (!pop.contains(e.target) && !sec.contains(e.target)) closeVitalsPop();
+                var link = document.getElementById('vitalLink');
+                if (!pop.contains(e.target) && !(link && link.contains(e.target))) closeVitalsPop();
             };
             setTimeout(function () { document.addEventListener('mousedown', vitalsPopHandler); }, 0);
         };
