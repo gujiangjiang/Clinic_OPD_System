@@ -653,7 +653,7 @@
     font-size: 13px;
     padding: 24px 0;
 }
-.queue-panel .qp-search { width: 350px; height: 28px; font-size: 13px; padding: 2px 8px; flex-shrink: 0; }
+.queue-panel .qp-search { flex: 1; min-width: 120px; max-width: 350px; width: auto; height: 28px; font-size: 13px; padding: 2px 8px; }
 
 /* ============================================================
    病历续写占位（场景 C：已有他人病历但本人尚无文书）

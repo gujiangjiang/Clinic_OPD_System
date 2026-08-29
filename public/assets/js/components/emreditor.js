@@ -278,10 +278,10 @@ Clinic.emrEditor = (function () {
         tf.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden';
         detailWrap.appendChild(tf);
         d.appendChild(detailWrap);
-        // 可点击文字（灰色下划线 + 主题色文字，同诊断点击样式）：显示「否认」或「承认：内容」
+        // 可点击文字（复用病历项目标签 .emr-item-link 样式，与诊断/开单统一）：
+        // 显示「否认」或过敏史内容
         var btn = document.createElement('span');
-        btn.className = 'allergy-btn';
-        btn.style.cssText = 'color:var(--primary);font-weight:600;cursor:pointer;border-bottom:1px dashed var(--border);font-size:13px;line-height:1.9';
+        btn.className = 'emr-item-link allergy-btn';
         btn.title = '点击编辑过敏史';
         btn.addEventListener('click', function (e) {
             if (READONLY) return;   // 诊毕只读：不弹编辑
