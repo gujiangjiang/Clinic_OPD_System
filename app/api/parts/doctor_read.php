@@ -240,11 +240,12 @@ function doctor_part_read($action) {
             );
         }, $rows);
         $pref = (isset($_SESSION['queue_pref']) && is_array($_SESSION['queue_pref'])) ? $_SESSION['queue_pref'] : array();
-        // 会诊请求（目标科室=当前科室，近 N 天，与候诊同受可见天数限制；带患者姓名）
+        // 会诊请求（目标科室=当前科室，近 N 天，与候诊同受可见天数限制；带患者姓名/会诊code）
         $consultations = array_map(function ($c) {
             $pn = DB::one('patient', 'SELECT name FROM patients WHERE patient_no=?', array($c['patient_no']));
             return array(
                 'id' => (int)$c['id'],
+                'code' => oid($c['id']),
                 'visit_code' => oid($c['visit_id']),
                 'patient_no' => (string)$c['patient_no'],
                 'patient_name' => $pn ? (string)$pn['name'] : '',

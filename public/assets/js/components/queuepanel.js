@@ -198,22 +198,21 @@ Clinic.queuePanel = (function () {
         location.href = '/doctor/emr?visit_id=' + code;
     }
 
-    /* 会诊状态徽章（三状态小圆点 + 文字） */
+    /* 会诊状态徽章（小圆点颜色与费用指示灯一致：灰=待处理 红=进行中 绿=完毕） */
     function consultStatusBadge(st) {
         var map = {
-            pending: ['badge-warning', '发起会诊', '#f59e0b'],
-            doing: ['badge-primary', '正在会诊', '#2563eb'],
-            done: ['badge-gray', '会诊完毕', '#6b7280'],
+            pending: ['gray', '发起会诊', '未处理'],
+            doing: ['red', '正在会诊', '会诊进行中'],
+            done: ['green', '会诊完毕', '会诊已完毕'],
         };
         var m = map[st] || map.pending;
-        return '<span class="badge ' + m[0] + '" style="font-size:11px;display:inline-flex;align-items:center;gap:4px">' +
-            '<span style="width:7px;height:7px;border-radius:50%;background:' + m[2] + ';display:inline-block"></span>' + m[1] + '</span>';
+        return '<span class="badge badge-gray" style="font-size:11px;display:inline-flex;align-items:center;gap:4px" title="' + m[3] + '">' +
+            '<span class="status-indicator ' + m[0] + '" style="margin-right:0"></span>' + m[1] + '</span>';
     }
 
     /* 会诊列表行：日期 时间 患者名 发起科室→本科室 状态（点击进入病历） */
     function consultRowHtml(c) {
-        var stText = c.status === 'done' ? '会诊完毕' : (c.status === 'doing' ? '正在会诊' : '发起会诊');
-        return '<div class="qp-row" data-code="' + escHtml(c.visit_code) + '">' +
+        return '<div class="qp-row" data-code="' + escHtml(c.code) + '">' +
             '<span class="qp-cell qp-c-date fs-13 text-muted">' + escHtml((c.created_at || '').substr(5)) + '</span>' +
             '<span class="qp-cell qp-c-time fs-13 text-muted">' + escHtml((c.created_at || '').substr(11, 5)) + '</span>' +
             '<span class="qp-cell qp-c-dept fs-13 fw-600" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(c.patient_name || '') + '</span>' +
@@ -243,6 +242,74 @@ Clinic.queuePanel = (function () {
             '<span class="qp-cell qp-c-st">状态</span>' +
             '</div>';
         return head + list.map(consultRowHtml).join('');
+    }
+
+        /* 候诊列表会诊行点击：弹出会诊详情模态框，底部「确认会诊」进入病历书写 */
+    function openConsultFromQueue(code) {
+        Clinic.get('/api/consultation?action=detail&id=' + encodeURIComponent(code), null, {
+            onSuccess: function (json) {
+                var c = json.data.consultation || {};
+                var s = c.snapshot || {};
+                var ro = function (label, val) {
+                    return '<div class="prev-sec" style="font-size:13px;line-height:1.9;margin-bottom:4px"><strong>' +
+                        escHtml(label) + '：</strong>' + (val && String(val).trim() ? escHtml(val) : '-') + '</div>';
+                };
+                var steps = [
+                    ['发起会诊', (c.from_doctor_name || '') + ' · ' + (c.created_at || '').substring(5, 16), c.status !== ''],
+                    ['正在会诊', (c.accepted_by || '') + ((c.accepted_at || '') ? ' · ' + (c.accepted_at || '').substring(5, 16) : ''), c.status !== 'pending'],
+                    ['会诊完毕', (c.finished_at || '') ? (c.finished_at || '').substring(5, 16) : '', c.status === 'done'],
+                ];
+                var stepHtml = steps.map(function (st) {
+                    var dot = st[2] ? '#10b981' : '#cbd5e1';
+                    return '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px">' +
+                        '<span style="width:10px;height:10px;border-radius:50%;background:' + dot + ';margin-top:4px;flex-shrink:0"></span>' +
+                        '<div><div class="fs-13 ' + (st[2] ? 'fw-600' : 'text-muted') + '">' + st[0] + '</div>' +
+                        (st[1] ? '<div class="fs-12 text-muted">' + escHtml(st[1]) + '</div>' : '') + '</div></div>';
+                }).join('');
+                var buttons = [{ text: '关闭', cls: 'btn-outline' }];
+                if (c.status === 'pending') {
+                    buttons.push({
+                        text: '✅ 确认会诊', cls: 'btn-primary', autoClose: false,
+                        onClick: function () {
+                            Clinic.ajax('/api/consultation', { action: 'accept', id: c.code }, {
+                                onSuccess: function (j2) {
+                                    Clinic.toast.success(j2.msg || '会诊已开始');
+                                    Clinic.modal.close();
+                                    closePanel();
+                                    // 进入病历书写页：URL 携带会诊 code，页面内进入会诊模式
+                                    location.href = '/doctor/emr?visit_id=' + consultCodeVisit(code) + '&consult=' + encodeURIComponent(c.code);
+                                },
+                            });
+                        },
+                    });
+                }
+                Clinic.modal.open(
+                    '<div class="flex gap-16" style="align-items:stretch">' +
+                    '  <div style="flex:1.4;min-width:0;border-right:1px solid var(--border);padding-right:14px">' +
+                    '    <div class="fs-13 fw-700 mb-8">' + escHtml(c.from_dept_name || '') + ' 请' + escHtml(c.target_dept_name || '') + '会诊</div>' +
+                    '    <div style="background:var(--bg-soft);border-radius:10px;padding:10px">' +
+                    ro('主诉', s.chief_complaint) + ro('现病史', s.present_illness) +
+                    ro('体格检查', s.physical_exam) + ro('初步诊断', s.diagnoses) +
+                    '    </div>' +
+                    ro('会诊描述', c.description) + ro('会诊目的', c.purpose) +
+                    '  </div>' +
+                    '  <div style="width:150px;flex-shrink:0;border-left:1px solid var(--border);padding-left:14px">' +
+                    '    <div class="fs-13 fw-700 mb-8">会诊进度</div>' + stepHtml +
+                    '  </div>' +
+                    '</div>',
+                    { title: '🤝 会诊详情', size: 'modal-lg', buttons: buttons }
+                );
+            },
+        });
+    }
+
+    /** 由会诊 code 反查就诊 code（页面跳转用）：从当前列表缓存中取 */
+    function consultCodeVisit(consultCode) {
+        var visitCode = '';
+        (DATA.consultations || []).forEach(function (c) {
+            if (String(c.code) === String(consultCode)) visitCode = c.visit_code;
+        });
+        return visitCode;
     }
 
     function renderPanel() {        var p = panelEl();
@@ -306,7 +373,8 @@ Clinic.queuePanel = (function () {
         p.querySelectorAll('.qp-row:not(.qp-head)').forEach(function (row) {
             row.addEventListener('click', function () {
                 var code = row.getAttribute('data-code');
-                if (consult) { jumpToPatient(code); return; }
+                // 会诊行：弹出会诊详情（确认会诊后才进入病历书写）
+                if (consult) { openConsultFromQueue(code); return; }
                 closePanel();
                 location.href = '/doctor/emr?visit_id=' + code;
             });

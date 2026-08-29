@@ -112,6 +112,13 @@ Clinic.emr = (function () {
                 if (!refId && !(j.data.records_history || []).length && !(j.data.visit && j.data.visit.status === 'finished')) {
                     setTimeout(function () { openTemplatePicker(null); }, 150);
                 }
+                // 会诊进入：URL 携带 consult=code（候诊会诊详情「确认会诊」跳转）
+                // → 自动开始会诊（pending→doing）并新建会诊病历编辑器
+                var urlConsult = new URLSearchParams(location.search).get('consult');
+                if (urlConsult) {
+                    startConsult(decodeURIComponent(urlConsult));
+                    history.replaceState(null, '', '/doctor/emr?visit_id=' + visitId);   // 清除参数防刷新重复触发
+                }
             },
             onError: function (j) {
                 // 病历加载失败（如超期历史病历拦截）→ 直接替换 #emrCard 为

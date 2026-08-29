@@ -565,6 +565,7 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
 .status-indicator.gray { background-color: #94a3b8; }   /* 未缴费 */
 .status-indicator.red { background-color: #ef4444; }    /* 已缴费未完成（醒目：报告未出/药品未发/处置未执行） */
 .status-indicator.green { background-color: #10b981; }  /* 已完成（报告已出/已发药） */
+.status-indicator.yellow { background-color: #f59e0b; } /* 进行中（会诊/执行中等） */
 
 /* ====================================================
    【病历正文交互穿透：项目行内标签（活跃编辑态）】
