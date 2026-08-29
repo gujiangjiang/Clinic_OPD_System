@@ -2198,22 +2198,12 @@ diagnoses: [],
                     }
                 }
                 Clinic.toast.success(j.msg);
-                // 新建续写文书已落库：不刷新页面、也不自动新建编辑器——
-                // 1) 标记当前文书已归档（splitOthers 将其归入只读段）；
-                // 2) refreshReadOnlyBodies 重渲染只读区（含刚保存的续写）；
-                // 3) 正文显示续写占位，点击右侧「病历节点＋」继续续写。
+                // 新建续写文书已落库：页面保持不变（编辑器与内容原样保留），
+                // 仅右侧「续写编辑中」占位转为正式病历节点（renderLeftNav）。
+                // 后续再次保存 → 后端按本人最新文书更新同一条记录。
                 if (DATA && DATA.__progress_new) {
                     DATA.__progress_new = false;
                     DATA.__pending_progress = false;
-                    DATA.record.__archived = true;
-                    refreshReadOnlyBodies(DATA);
-                    var pbBody = document.getElementById('docBody');
-                    if (pbBody) {
-                        pbBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
-                            '<div class="fs-14">📝 病历续写</div>' +
-                            '<div class="fs-12 text-muted mt-4">续写病历已保存（上方只读展示）。' +
-                            '点击左侧「病历节点 ＋」继续书写续写病历。</div></div>';
-                    }
                     renderLeftNav();
                     return;
                 }
