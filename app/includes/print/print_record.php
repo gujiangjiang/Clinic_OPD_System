@@ -130,9 +130,11 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
         $secs[] = array('意识状态', isset($record['consciousness']) ? $record['consciousness'] : '');
     }
     if ($emrStructured) {
-        // 体格检查：续写空节不显示
-        $peT = emr_pe_text(isset($emr['physical_exam']) ? $emr['physical_exam'] : array());
-        if (!$isProgress || $peT !== '') $secs[] = array('体格检查', $peT);
+        // 体格检查：续写空节不显示（emr_pe_text 空时返回 '-'，需按原始数据判断）
+        $peArr = isset($emr['physical_exam']) ? $emr['physical_exam'] : array();
+        $peHas = false;
+        foreach ((array)$peArr as $pv) { if ($pv !== '' && $pv !== null) { $peHas = true; break; } }
+        if (!$isProgress || $peHas) $secs[] = array('体格检查', emr_pe_text($peArr));
         $secs[] = array('初步诊断', emr_diag_text(isset($emr['diagnoses']) ? $emr['diagnoses'] : array()));
     } else {
         $peT2 = isset($record['physical_exam']) ? $record['physical_exam'] : '';

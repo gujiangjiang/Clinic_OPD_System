@@ -31,9 +31,14 @@ Clinic.emr.segments = (function () {
         push('过敏史', Clinic.emr.format.fmtAL(e.allergies));
         push('主要症状', Clinic.emr.format.fmtMS(e.main_symptoms));
         // 生命体征：续写记录用自身 emr.vitals（独立体征），否则用就诊 vitals；
+        // vitalDisplayText 空时返回 '—'（非空），需按原始数据判断是否有值；
         // 续写文书空段不显示（仅首诊显示 -）
         var recVitals = (e.vitals && Object.keys(e.vitals).length) ? e.vitals : (rec.vitals || {});
-        push('生命体征', vitalDisplayText(recVitals), isProgress ? false : true);
+        var hasVitals = false;
+        ['bp_systolic', 'bp_diastolic', 'heart_rate', 'pulse', 'spo2', 'respiration'].forEach(function (k) {
+            if (recVitals[k]) hasVitals = true;
+        });
+        push('生命体征', hasVitals ? vitalDisplayText(recVitals) : '', isProgress ? false : true);
         push('意识状态', rec.consciousness || '', isProgress ? false : true);
         push('体格检查', Clinic.emr.format.fmtPE(e.physical_exam), isProgress ? false : true);
         push('初步诊断', Clinic.emr.format.fmtDiags(e.diagnoses));
