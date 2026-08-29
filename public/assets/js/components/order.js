@@ -548,6 +548,16 @@ Clinic.order = (function () {
         var it = itemFromEl(el);
         var s = SELECTED[idx];
         if (!s) return;
+        if (s.id && it.id === s.id) {
+            Clinic.toast.warning('不能添加与主药相同的药品作为子医嘱');
+            closeSubDrop();
+            return;
+        }
+        if (SELECTED.some(function (m) { return m.id === it.id; })) {
+            Clinic.toast.warning('该药品已是主医嘱，不能重复添加为子医嘱');
+            closeSubDrop();
+            return;
+        }
         if (s.sub_items.some(function (sub) { return sub.id === it.id; })) {
             Clinic.toast.warning('该子医嘱已存在');
             closeSubDrop();
@@ -985,8 +995,8 @@ Clinic.order = (function () {
         return '<div style="margin:6px 0 0 20px;border-left:2px solid var(--warning);padding-left:10px">' +
             '<div class="fs-12 text-muted mb-4">成组医嘱（并入上方主药，途径频次随主药；剂量/数量可独立调整并计费）</div>' +
             s.sub_items.map(function (sub, si) {
-                // 单个子医嘱即末项 → └；多个：首 ┌ / 中 ├ / 末 └
-                var branch = si === n - 1 ? '└' : (si === 0 ? '┌' : '├');
+                // 子医嘱连接符：非末行 ├ / 末行 └（单个即 └）
+                var branch = si === n - 1 ? '└' : '├';
                 // 剂量：结构化规格 → 只读可点击按钮；否则文本输入
                 var subDose = (sub.spec_dose > 0)
                     ? '<button type="button" class="btn btn-outline btn-sm" style="padding:1px 8px;min-height:22px;font-weight:600" ' +

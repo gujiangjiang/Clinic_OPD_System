@@ -98,7 +98,7 @@ function pt_order($order, $items, $title) {
             $sc = count($subs);
             foreach ($subs as $si => $sub) {
                 $rxTotal += (float)$sub['price'] * (int)$sub['quantity'];   // 子医嘱计费
-                $branch = $si === $sc - 1 ? '┘' : '│';
+                $branch = $si === $sc - 1 ? '┘' : '┤';   // 中间子医嘱用朝左连接符 ┤
                 $html .= '<tr>' .
                     '<td class="rx-name">' . $nameTxt($sub) . '</td>' .
                     '<td class="rx-dose">' . e($sub['single_dose']) . '</td>' .
