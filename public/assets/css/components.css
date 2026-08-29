@@ -587,6 +587,12 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
     background: var(--primary-soft);
     border-bottom-color: var(--primary);
 }
+/* 空值占位（如未录入的生命体征「—」）：不带项目标签的可点击样式 */
+.emr-item-link.vital-empty {
+    color: var(--text-muted);
+    border-bottom-color: transparent;
+    font-weight: 400;
+}
 /* 组医嘱子药缩进行 */
 .ef-rx-sub { padding-left: 1.25em; }
 

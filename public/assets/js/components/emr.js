@@ -181,8 +181,11 @@ Clinic.emr = (function () {
             sec.setAttribute('onclick', 'Clinic.emr.openVitals(event)');
             sec.setAttribute('title', '点击编辑生命体征');
         }
+        // 体征内容复用病历项目标签样式（.emr-item-link）——只读时自动降级纯文本
+        var vitHas = vitals && Object.keys(vitals).some(function (k) { return vitals[k]; });
         sec.innerHTML = '<span class="doc-sec-label">生命体征</span>' +
-            '<span class="doc-sec-body" id="vitalDisplay">' + vitalDisplayText(vitals) + '</span>';
+            '<span class="doc-sec-body" id="vitalDisplay"><span class="emr-item-link' + (vitHas ? '' : ' vital-empty') + '">' +
+            escHtml(vitalDisplayText(vitals)) + '</span></span>';
         return sec;
     }
 
@@ -907,10 +910,17 @@ diagnoses: [],
     function refreshVitalDisplay() {
         var el = document.getElementById('vitalDisplay');
         if (!el) return;
+        var render = function (v) {
+            // 内容保持 .emr-item-link 标签包裹（样式统一）
+            v = v || {};
+            var has = Object.keys(v).some(function (k) { return v[k]; });
+            el.innerHTML = '<span class="emr-item-link' + (has ? '' : ' vital-empty') + '">' +
+                escHtml(vitalDisplayText(v)) + '</span>';
+        };
         // 续写病历：用记录自身 vitals（独立体征）；初始病历取就诊 vitals（护士站同步）
         if (DATA && DATA.record && DATA.record.record_type === 'progress') {
             var ownV = (DATA.record.emr && DATA.record.emr.vitals) ? DATA.record.emr.vitals : {};
-            el.textContent = vitalDisplayText(ownV);
+            render(ownV);
             return;
         }
         var visitId = document.getElementById('visitId').value;
@@ -918,7 +928,7 @@ diagnoses: [],
             onSuccess: function (j) {
                 var v = j.data.vitals || {};
                 if (DATA) DATA.vitals = v;
-                el.textContent = vitalDisplayText(v);
+                render(v);
             },
         });
     }
