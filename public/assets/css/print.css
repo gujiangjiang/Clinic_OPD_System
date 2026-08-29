@@ -166,6 +166,10 @@
 }
 .print-area table.rx-print td.rx-name { font-weight: 600; }
 .print-area table.rx-print td.rx-qty { text-align: right; white-space: nowrap; }
+.print-area table.rx-print td.rx-bracket {
+    text-align: center; font-family: Menlo, Consolas, monospace;
+    font-size: 12px; color: #888; padding: 4px 2px; width: 16px;
+}
 .print-area .print-note { margin-top: 10px; font-size: 12px; color: #333; }
 /* 开单合计：表格右下方的普通文本行，不再占用表格单元格 */
 .print-order-total { margin-top: 8px; text-align: right; font-weight: 700; }

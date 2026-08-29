@@ -85,18 +85,24 @@ function pt_order($order, $items, $title) {
             }
             $rowspan = 1 + count($subs);
             $rxTotal += (float)$it['price'] * (int)$it['quantity'];   // 主药计费
+            // 组合医嘱：剂量与途径之间用朝左大括号（┐│┘）把组包起来
+            $bracket = $rowspan > 1 ? '┐' : '';
             $html .= '<tr>' .
                 '<td class="rx-name">' . $nameTxt($it) . '</td>' .
                 '<td class="rx-dose">' . e($it['single_dose']) . '</td>' .
+                '<td class="rx-bracket">' . $bracket . '</td>' .
                 '<td class="rx-route" rowspan="' . $rowspan . '">' . e($it['route_name']) . '</td>' .
                 '<td class="rx-freq" rowspan="' . $rowspan . '">' . e($it['frequency_name']) . '</td>' .
                 '<td class="rx-qty">×' . (int)$it['quantity'] . '</td>' .
                 '</tr>';
-            foreach ($subs as $sub) {
+            $sc = count($subs);
+            foreach ($subs as $si => $sub) {
                 $rxTotal += (float)$sub['price'] * (int)$sub['quantity'];   // 子医嘱计费
+                $branch = $si === $sc - 1 ? '┘' : '│';
                 $html .= '<tr>' .
                     '<td class="rx-name">' . $nameTxt($sub) . '</td>' .
                     '<td class="rx-dose">' . e($sub['single_dose']) . '</td>' .
+                    '<td class="rx-bracket">' . $branch . '</td>' .
                     '<td class="rx-qty">×' . (int)$sub['quantity'] . '</td>' .
                     '</tr>';
             }
