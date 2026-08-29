@@ -240,10 +240,26 @@ function doctor_part_read($action) {
             );
         }, $rows);
         $pref = (isset($_SESSION['queue_pref']) && is_array($_SESSION['queue_pref'])) ? $_SESSION['queue_pref'] : array();
+        // 会诊请求（目标科室=当前科室，近 N 天，与候诊同受可见天数限制；带患者姓名）
+        $consultations = array_map(function ($c) {
+            $pn = DB::one('patient', 'SELECT name FROM patients WHERE patient_no=?', array($c['patient_no']));
+            return array(
+                'id' => (int)$c['id'],
+                'visit_code' => oid($c['visit_id']),
+                'patient_no' => (string)$c['patient_no'],
+                'patient_name' => $pn ? (string)$pn['name'] : '',
+                'flow_no' => (string)$c['flow_no'],
+                'from_dept_name' => (string)$c['from_dept_name'],
+                'from_doctor_name' => (string)$c['from_doctor_name'],
+                'status' => (string)$c['status'],
+                'created_at' => (string)$c['created_at'],
+            );
+        }, DB::q('consultation', "SELECT * FROM consultations WHERE target_dept_id=? AND date(created_at)>=? ORDER BY id DESC", array($deptId, $since)));
         json_ok(array(
             'dept_id' => $deptId,
             'waiting' => (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE current_dept_id=? AND status='paid'", array($deptId)),
             'list' => $list,
+            'consultations' => $consultations,
             'pref' => array('seen' => empty($pref['seen']) ? 0 : 1, 'today' => empty($pref['today']) ? 0 : 1),
         ));
         return;

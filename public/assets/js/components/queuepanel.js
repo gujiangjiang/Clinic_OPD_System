@@ -22,6 +22,7 @@ Clinic.queuePanel = (function () {
     var TIMER = null;       // 30 秒自动刷新
     var seen = false;       // 多选项：已诊
     var todayOnly = false;  // 多选项：当日
+    var consult = false;    // 多选项：会诊
     var KEYWORD = '';       // 搜索关键字（仅当前筛选结果范围内过滤；面板关闭时清空）
     var DEPT_ID = 0;        // 当前科室（0=未选择；仅存本次登录会话，由工作台 setDept 设置）
 
@@ -91,6 +92,13 @@ Clinic.queuePanel = (function () {
     function filteredList() {
         if (!DATA) return [];
         var t = todayStr();
+        // 会诊筛选：会诊 Tab 下显示收到的会诊（组合同已诊=完毕/当日=今日创建）
+        if (consult) {
+            var cons = (DATA.consultations || []).slice();
+            if (seen) cons = cons.filter(function (c) { return c.status === 'done'; });
+            if (todayOnly) cons = cons.filter(function (c) { return (c.created_at || '').substr(0, 10) === t; });
+            return cons.sort(function (a, b) { return (b.created_at || '').localeCompare(a.created_at || ''); });
+        }
         // 诊毕时间回退：旧数据无 finish_time 用挂号时间兜底
         var finKey = function (r) { return (r.finish_date && r.finish_time) ? (r.finish_date + ' ' + r.finish_time) : r.date + ' ' + r.time; };
         var all = DATA.list;
@@ -165,8 +173,13 @@ Clinic.queuePanel = (function () {
         var list = filteredList();
         if (!KEYWORD) return list;
         return list.filter(function (r) {
-            var seq = String(r.visit_seq).padStart(3, '0');
-            var hay = (r.name || '') + '|' + (r.dept_name || '') + '|' + seq + '|' + r.date;
+            var hay;
+            if (consult) {
+                hay = (r.patient_name || '') + '|' + (r.from_dept_name || '') + '|' + (r.patient_no || '');
+            } else {
+                var seq = String(r.visit_seq).padStart(3, '0');
+                hay = (r.name || '') + '|' + (r.dept_name || '') + '|' + seq + '|' + r.date;
+            }
             return hay.toLowerCase().indexOf(KEYWORD.toLowerCase()) !== -1;
         });
     }
@@ -185,6 +198,53 @@ Clinic.queuePanel = (function () {
         location.href = '/doctor/emr?visit_id=' + code;
     }
 
+    /* 会诊状态徽章（三状态小圆点 + 文字） */
+    function consultStatusBadge(st) {
+        var map = {
+            pending: ['badge-warning', '发起会诊', '#f59e0b'],
+            doing: ['badge-primary', '正在会诊', '#2563eb'],
+            done: ['badge-gray', '会诊完毕', '#6b7280'],
+        };
+        var m = map[st] || map.pending;
+        return '<span class="badge ' + m[0] + '" style="font-size:11px;display:inline-flex;align-items:center;gap:4px">' +
+            '<span style="width:7px;height:7px;border-radius:50%;background:' + m[2] + ';display:inline-block"></span>' + m[1] + '</span>';
+    }
+
+    /* 会诊列表行：日期 时间 患者名 发起科室→本科室 状态（点击进入病历） */
+    function consultRowHtml(c) {
+        var stText = c.status === 'done' ? '会诊完毕' : (c.status === 'doing' ? '正在会诊' : '发起会诊');
+        return '<div class="qp-row" data-code="' + escHtml(c.visit_code) + '">' +
+            '<span class="qp-cell qp-c-date fs-13 text-muted">' + escHtml((c.created_at || '').substr(5)) + '</span>' +
+            '<span class="qp-cell qp-c-time fs-13 text-muted">' + escHtml((c.created_at || '').substr(11, 5)) + '</span>' +
+            '<span class="qp-cell qp-c-dept fs-13 fw-600" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(c.patient_name || '') + '</span>' +
+            '<span class="qp-cell qp-c-seq fs-12 text-muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(c.from_dept_name || '') + '</span>' +
+            '<span class="qp-cell qp-c-sess fs-12 text-muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">→</span>' +
+            '<span class="qp-cell qp-c-name fs-12" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="请' + escHtml(c.from_dept_name) + '会诊">请' + escHtml(c.from_dept_name) + '会诊</span>' +
+            '<span class="qp-cell qp-c-gender fs-11 text-muted">' + escHtml(c.from_doctor_name || '') + '</span>' +
+            '<span class="qp-cell qp-c-age fs-12 text-muted"></span>' +
+            '<span class="qp-cell qp-c-st">' + consultStatusBadge(c.status) + '</span>' +
+            '</div>';
+    }
+
+    /* 会诊列表区（复用九列网格表头） */
+    function consultListHtml(list) {
+        if (!list.length) {
+            return '<div class="qp-empty">' + (KEYWORD ? '未找到匹配的患者' : '当前筛选条件下暂无会诊') + '</div>';
+        }
+        var head = '<div class="qp-row qp-head">' +
+            '<span class="qp-cell qp-c-date">日期</span>' +
+            '<span class="qp-cell qp-c-time">时间</span>' +
+            '<span class="qp-cell qp-c-dept">患者</span>' +
+            '<span class="qp-cell qp-c-seq">发起科室</span>' +
+            '<span class="qp-cell qp-c-sess"></span>' +
+            '<span class="qp-cell qp-c-name">会诊</span>' +
+            '<span class="qp-cell qp-c-gender">发起医生</span>' +
+            '<span class="qp-cell qp-c-age"></span>' +
+            '<span class="qp-cell qp-c-st">状态</span>' +
+            '</div>';
+        return head + list.map(consultRowHtml).join('');
+    }
+
     function renderPanel() {        var p = panelEl();
         if (!p) return;
         var list = scopedList();
@@ -192,14 +252,18 @@ Clinic.queuePanel = (function () {
             '<div class="qp-chips">' +
             '  <button type="button" class="qp-chip' + (seen ? ' active' : '') + '" data-k="seen">已诊</button>' +
             '  <button type="button" class="qp-chip' + (todayOnly ? ' active' : '') + '" data-k="today">当日</button>' +
+            '  <button type="button" class="qp-chip' + (consult ? ' active' : '') + '" data-k="consult">会诊</button>' +
             '  <span class="fs-12 text-muted qp-count">' + list.length + ' 人</span>' +
             '  <input class="input qp-search" id="qpSearch" placeholder="搜索：姓名/科室/序号" value="' + escHtml(KEYWORD) + '">' +
             '</div>' +
-            '<div class="qp-list">' + listHtml(list) + '</div>';
+            '<div class="qp-list">' + (consult ? consultListHtml(list) : listHtml(list)) + '</div>';
         // 勾选切换：保留搜索关键字（跨列表找同一患者），同步偏好与会话
         p.querySelectorAll('.qp-chip').forEach(function (c) {
             c.addEventListener('click', function () {
-                if (c.getAttribute('data-k') === 'seen') seen = !seen; else todayOnly = !todayOnly;
+                var k = c.getAttribute('data-k');
+                if (k === 'seen') seen = !seen;
+                else if (k === 'consult') consult = !consult;
+                else todayOnly = !todayOnly;
                 savePref();
                 renderBtn();
             renderPanel();
@@ -224,24 +288,27 @@ Clinic.queuePanel = (function () {
             again.setSelectionRange(pos, pos);
         });
         search.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
-        // 点击条目 → 跳转该患者病历页
-        p.querySelectorAll('.qp-row:not(.qp-head)').forEach(function (row) {
-            row.addEventListener('click', function () {
-                jumpToPatient(row.getAttribute('data-code'));
-            });
-        });
+        // 点击条目 → 跳转该患者病历页（会诊行同样进入患者病历）
+        bindRowClicks(p);
     }
 
     /* 仅刷新列表区与计数（搜索输入时保留输入框状态） */
     function renderListOnly(p) {
         var list = scopedList();
         var box = p.querySelector('.qp-list');
-        box.innerHTML = listHtml(list);
+        box.innerHTML = consult ? consultListHtml(list) : listHtml(list);
         p.querySelector('.qp-count').textContent = list.length + ' 人';
+        bindRowClicks(p);
+    }
+
+    /* 绑定患者条目点击（候诊行 data-code / 会诊行 data-code=患者号） */
+    function bindRowClicks(p) {
         p.querySelectorAll('.qp-row:not(.qp-head)').forEach(function (row) {
             row.addEventListener('click', function () {
+                var code = row.getAttribute('data-code');
+                if (consult) { jumpToPatient(code); return; }
                 closePanel();
-                location.href = '/doctor/emr?visit_id=' + row.getAttribute('data-code');
+                location.href = '/doctor/emr?visit_id=' + code;
             });
         });
     }
