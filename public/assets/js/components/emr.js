@@ -1934,7 +1934,7 @@ diagnoses: [],
         var stMap = { open: '<span class="badge badge-warning">待缴费</span>', paid: '<span class="badge badge-primary">已缴费</span>',
             registered: '<span class="badge badge-primary">已登记</span>', in_progress: '<span class="badge badge-primary">执行中</span>',
             done: '<span class="badge badge-success">已完成</span>' };
-        var html = '<div style="display:grid;grid-template-columns:minmax(0,1fr) 170px;gap:16px;width:100%">' +
+        var html = '<div style="display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:16px;width:100%">' +
             '<div style="min-width:0">' +
             '<div class="fs-14 fw-600 mb-8">' + escHtml(it.item_name) + (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>' +
             '<div class="fs-13 text-muted mb-8">单价：¥' + parseFloat(it.price || 0).toFixed(2) +
@@ -2004,10 +2004,11 @@ diagnoses: [],
 
     /**
      * 闭环追踪流程列（统一样式）：steps=[{label, operator, time, done}]。
-     * 圆形步骤节点 + 操作人/时间——开单详情与会诊进度共用。
-     * 注：外层容器自带 border-left 分隔线，这里不再额外画线。
+     * 圆形步骤节点（完成✓/未完成序号）+ 操作人/时间——开单详情与会诊进度共用。
+     * @param {number} curIdx -1 时以 steps[].done 判定完成状态
+     * @param {string} title   标题（默认「流程进度」，会诊传「会诊进度」）
      */
-    function flowColumnHtml(steps, curIdx) {
+    function flowColumnHtml(steps, curIdx, title) {
         var flow = steps.map(function (st, i) {
             var done = (curIdx >= 0 && i <= curIdx) || st.done;
             var cls = done ? 'var(--success)' : 'var(--border)';
@@ -2022,7 +2023,7 @@ diagnoses: [],
                 (info ? '<div class="fs-12 text-muted">' + info + '</div>' : '') + '</div></div>';
         }).join('<div style="width:2px;height:14px;background:var(--border);margin-left:12px"></div>');
         return '<div style="padding-left:16px">' +
-            '<div class="fw-600 mb-8 fs-13">流程进度</div>' + flow + '</div>';
+            '<div class="fw-600 mb-8 fs-13">' + escHtml(title || '流程进度') + '</div>' + flow + '</div>';
     }
 
     /** 按条目状态换算流程步序（open=0 起；done=末步） */
@@ -2083,16 +2084,10 @@ diagnoses: [],
         leftHtml += '</div>' +   // 闭合「打印/毁方」按钮容器
             '</div>';            // 闭合左列容器（此前漏闭导致流程列被解析为其子元素、渲染到下方）
         // 右侧闭环追踪：与开单弹窗右侧流程完全一致（开单→缴费→登记→药房发药）
-        var steps = [
-            { label: '开单' }, { label: '缴费' },
-            { label: '登记' }, { label: '药房发药' },
-        ];
-        var curIdx = 0;
-        if (o.status === 'dispensed') curIdx = 3;
-        else if (o.status === 'dispensing' || o.status === 'registered') curIdx = 2;
-        else if (o.status === 'paid') curIdx = 1;
-        else if (o.status === 'refunded' || o.status === 'cancelled') curIdx = -1;
-        Clinic.modal.open('<div style="display:grid;grid-template-columns:minmax(0,1fr) 170px;gap:16px;width:100%">' + leftHtml + flowColumnHtml(steps, curIdx) + '</div>',
+        // 流程节点带操作人/时间（后端 order_flow_steps 计算）
+        var steps = o.flow || [];
+        var curIdx = -1;   // done 状态已由 flow[].done 标记
+        Clinic.modal.open('<div style="display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:16px;width:100%">' + leftHtml + '<div style="border-left:1px solid var(--border);padding-left:16px">' + flowColumnHtml(steps, curIdx) + '</div>' + '</div>',
             { title: '处方明细', size: 'modal-lg' });
     };
 
@@ -2480,9 +2475,7 @@ diagnoses: [],
                     { label: '正在会诊', operator: (c.accepted_by || ''), time: (c.accepted_at || '').substring(5, 16), done: c.status !== 'pending' },
                     { label: '会诊完毕', operator: '', time: (c.finished_at || '').substring(5, 16), done: c.status === 'done' },
                 ];
-                var stepHtml = flowColumnHtml(steps, -1)
-                    .replace('流程进度', '会诊进度')
-                    .replace('border-left:1px solid var(--border);padding-left:16px', '');
+                var stepHtml = flowColumnHtml(steps, -1, '会诊进度');
                 Clinic.modal.open(
                     '<div class="flex gap-16" style="align-items:stretch">' +
                     '  <div style="flex:1.4;min-width:0;border-right:1px solid var(--border);padding-right:14px">' +
@@ -2493,8 +2486,8 @@ diagnoses: [],
                     '    </div>' +
                     ro('会诊描述', c.description) + ro('会诊目的', c.purpose) +
                     '  </div>' +
-                    '  <div style="width:150px;flex-shrink:0;border-left:1px solid var(--border);padding-left:14px">' +
-                    '    <div class="fs-13 fw-700 mb-8">会诊进度</div>' + stepHtml +
+                    '  <div style="width:150px;flex-shrink:0;padding-left:14px">' +
+                    '    ' + stepHtml +
                     '  </div>' +
                     '</div>',
                     { title: '🤝 会诊详情', size: 'modal-lg', buttons: [{ text: '关闭', cls: 'btn-outline' }] }
