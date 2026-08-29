@@ -70,15 +70,35 @@ switch ($action) {
             if ($order['order_type'] === 'imaging' && isset($order['cat_name']) && trim((string)$order['cat_name']) !== '' && trim((string)$order['cat_name']) !== '检查') {
                 $title = trim((string)$order['cat_name']) . '申请单';
             }
-            // 处方：按 need_nurse 自动拆分为药房处方笺 + 门诊输液（注射）笺
+            // 处方：按主医嘱 need_nurse 拆分（子医嘱跟随其主药，同组同笺）→
+            // 药房处方笺（非护士）+ 门诊输液（注射）笺（护士）
             if ($order['order_type'] === 'prescription') {
+                $mainSeq = 0;
+                $groups = array();
+                foreach ($items as $it) {
+                    if ((int)$it['sub_of'] > 0) continue;
+                    $mainSeq++;
+                    $subs = array();
+                    foreach ($items as $subIt) {
+                        if ((int)$subIt['sub_of'] === $mainSeq) $subs[] = $subIt;
+                    }
+                    $groups[] = array('main' => $it, 'subs' => $subs);
+                }
                 $pharmItems = array();
                 $nurseItems = array();
-                foreach ($items as $it) {
-                    if (!empty($it['need_nurse'])) {
-                        $nurseItems[] = $it;
+                $pharmSeq = 0;
+                $nurseSeq = 0;
+                foreach ($groups as $g) {
+                    if (!empty($g['main']['need_nurse'])) {
+                        $nurseSeq++;
+                        $g['main']['sub_of'] = 0;
+                        $nurseItems[] = $g['main'];
+                        foreach ($g['subs'] as $s) { $s['sub_of'] = $nurseSeq; $nurseItems[] = $s; }
                     } else {
-                        $pharmItems[] = $it;
+                        $pharmSeq++;
+                        $g['main']['sub_of'] = 0;
+                        $pharmItems[] = $g['main'];
+                        foreach ($g['subs'] as $s) { $s['sub_of'] = $pharmSeq; $pharmItems[] = $s; }
                     }
                 }
                 if ($pharmItems) {
