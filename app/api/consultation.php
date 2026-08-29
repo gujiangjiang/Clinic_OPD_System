@@ -13,6 +13,7 @@
  * 状态流转：pending 发起会诊 → doing 正在会诊 → done 会诊完毕。
  * ============================================================ */
 require __DIR__ . '/_init.php';
+require_once APP_ROOT . '/app/includes/emr_formatter.php';
 
 $u = Auth::user();
 
