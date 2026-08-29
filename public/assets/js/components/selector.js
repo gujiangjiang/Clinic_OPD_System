@@ -212,6 +212,9 @@ Clinic.universalSelector = (function () {
     /** 当前配置（快建提交时使用） */
     let CFG = null;
 
+    /** 当前用户是否管理员（快建文案用；open 时刷新，供 showCreateForm 使用） */
+    let IS_ADMIN = false;
+
     /** 渲染结果列表 */
     function renderList(box, rows) {
         if (!rows || !rows.length) {
@@ -246,7 +249,7 @@ Clinic.universalSelector = (function () {
      */
     function open(cfg) {
         CFG = cfg || {};
-        const isAdmin = document.body.getAttribute('data-role') === 'admin';
+        IS_ADMIN = document.body.getAttribute('data-role') === 'admin';
         const canCreate = !!CFG.allowCreate;
         const createBtn = canCreate
             ? '<button type="button" class="btn btn-outline btn-sm" id="usCreate">+ 新建项目</button>'
@@ -255,7 +258,7 @@ Clinic.universalSelector = (function () {
             '<div class="form-group"><input class="input" id="usKw" placeholder="输入名称检索…"></div>' +
             '<div id="usList" style="max-height:320px;overflow-y:auto"></div>' +
             '<div class="flex-between mt-8"><span class="fs-12 text-muted">' +
-            (canCreate ? '找不到？可直接就地新建' + (isAdmin ? '。' : '（非管理员提交需审核）。') : '') + '</span>' + createBtn + '</div>';
+            (canCreate ? '找不到？可直接就地新建' + (IS_ADMIN ? '。' : '（非管理员提交需审核）。') : '') + '</span>' + createBtn + '</div>';
 
         Clinic.modal.open(html, {
             title: CFG.title || '选择项目',
@@ -292,7 +295,7 @@ Clinic.universalSelector = (function () {
             '<div class="flex gap-8">' +
             '<button type="button" class="btn btn-primary btn-sm" id="usc_submit">提交</button>' +
             '<button type="button" class="btn btn-outline btn-sm" id="usc_back">返回检索</button></div>' +
-            '<div class="fs-12 text-warning mt-8">' + (isAdmin ? '提交后将记录创建来源（' + String(CFG.createContext || '快捷创建') + '）。' : '提交后将记录创建来源（' + String(CFG.createContext || '快捷创建') + '），非管理员需管理员审核。') + '</div></div>';
+            '<div class="fs-12 text-warning mt-8">' + (IS_ADMIN ? '提交后将记录创建来源（' + String(CFG.createContext || '快捷创建') + '）。' : '提交后将记录创建来源（' + String(CFG.createContext || '快捷创建') + '），非管理员需管理员审核。') + '</div></div>';
         document.getElementById('usList').innerHTML = formHtml;
         document.getElementById('usc_back').addEventListener('click', function () {
             // 返回检索：恢复搜索框与新建按钮
