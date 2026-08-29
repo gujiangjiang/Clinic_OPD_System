@@ -118,8 +118,14 @@ Clinic.queuePanel = (function () {
             .sort(function (a, b) { return (a.date + ' ' + a.time).localeCompare(b.date + ' ' + b.time); });
     }
 
-    /* 状态徽章 */
-    function statusBadge(st) {
+    /* 状态徽章（consult 模式显示会诊状态：待会诊/会诊中/会诊完毕） */
+    function statusBadge(st, consultStatus) {
+        if (consult) {
+            var dotCls = consultStatus === 'done' ? 'green' : (consultStatus === 'doing' ? 'red' : 'gray');
+            var consName = consultStatus === 'done' ? '会诊完毕' : (consultStatus === 'doing' ? '会诊中' : '待会诊');
+            return '<span class="badge badge-gray" style="font-size:11px;display:inline-flex;align-items:center;gap:4px" title="' + consName + '">' +
+                '<span class="status-indicator ' + dotCls + '" style="margin-right:0"></span>' + consName + '</span>';
+        }
         if (st === 'finished') return '<span class="badge badge-gray" style="font-size:11px">诊毕</span>';
         if (st === 'visiting') return '<span class="badge badge-warning" style="font-size:11px">就诊中</span>';
         return '<span class="badge badge-primary" style="font-size:11px">候诊</span>';
@@ -141,7 +147,7 @@ Clinic.queuePanel = (function () {
             cell('qp-c-name fs-13', escHtml(r.name), r.name) +
             cell('qp-c-gender fs-12 text-muted', escHtml(r.gender)) +
             cell('qp-c-age fs-12 text-muted', escHtml(r.age_fmt || ''), r.age_fmt) +
-            cell('qp-c-st', statusBadge(r.status)) +
+            cell('qp-c-st', statusBadge(r.status, r.consult_status)) +
             '</div>';
     }
 
@@ -219,7 +225,7 @@ Clinic.queuePanel = (function () {
             '  <span class="fs-12 text-muted qp-count">' + list.length + ' 人</span>' +
             '  <input class="input qp-search" id="qpSearch" placeholder="搜索：姓名/科室/序号" value="' + escHtml(KEYWORD) + '">' +
             '</div>' +
-            '<div class="qp-list">' + (consult ? consultListHtml(list) : listHtml(list)) + '</div>';
+            '<div class="qp-list">' + listHtml(list) + '</div>';
         // 勾选切换：保留搜索关键字（跨列表找同一患者），同步偏好与会话
         p.querySelectorAll('.qp-chip').forEach(function (c) {
             c.addEventListener('click', function () {
@@ -259,7 +265,7 @@ Clinic.queuePanel = (function () {
     function renderListOnly(p) {
         var list = scopedList();
         var box = p.querySelector('.qp-list');
-        box.innerHTML = consult ? consultListHtml(list) : listHtml(list);
+        box.innerHTML = listHtml(list);
         p.querySelector('.qp-count').textContent = list.length + ' 人';
         bindRowClicks(p);
     }

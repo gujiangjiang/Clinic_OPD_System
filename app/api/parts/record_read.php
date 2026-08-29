@@ -221,6 +221,7 @@ function record_part_read($action) {
                 'age_fmt' => age_format($patient['birth_date'], $visit['register_time']),
                 'dept_type' => $deptType,
                 'dept_name' => $deptName,
+                'first_dept_name' => (string)$visit['first_dept_name'],
                 'current_dept_id' => (int)$visit['current_dept_id'],
                 'visit_no' => $visit['flow_no'],
                 'visit_seq' => (int)$visit['visit_seq'],

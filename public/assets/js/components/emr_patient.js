@@ -31,7 +31,7 @@ Clinic.emr.patient = (function () {
             '        <span class="badge badge-warning" id="hdrTotal" style="display:none"></span>' +
             '      </div>' +
             '      <div class="text-muted fs-13">患者ID：' + p.patient_id + ' ｜ 流水号：' + v.visit_no +
-            ' ｜ ' + v.dept_name + ' 第' + String(v.visit_seq).padStart(3, 0) + '号</div>' +
+            ' ｜ ' + (v.first_dept_name || v.dept_name) + ' 第' + String(v.visit_seq).padStart(3, 0) + '号</div>' +
             '    </div>' +
             '  </div>' +
             '</div>';
