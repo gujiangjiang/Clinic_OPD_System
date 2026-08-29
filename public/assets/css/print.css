@@ -305,10 +305,13 @@
     margin-left: auto;
 }
 .print-area .print-record-barcode div {
-    font-size: 12px;
-    letter-spacing: 1px;
+    font-size: 11px;
+    letter-spacing: 0.5px;
     color: #111;
     margin-top: 2px;
+    max-width: 38mm;
+    overflow: hidden;
+    white-space: nowrap;
 }
 .print-area .print-flow {
     font-size: 14px;   /* 病历正文比患者信息区字体加大一号，便于阅读与区分 */
