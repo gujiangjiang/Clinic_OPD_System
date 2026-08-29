@@ -229,6 +229,9 @@ function record_part_write($action) {
                 $pdo->prepare('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, main_symptom, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergies, is_leave_hospital, primary_icd10, primary_diagnosis, emr_data, emr_print_text, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
                     ->execute(array($visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name'], $recordType, $parentRecordId, $mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $now));
                 $recordId = (int)$pdo->lastInsertId();
+                // 体征记录回填：新病历保存前若以 record_id=0 录入过体征（未保存时的
+                // 录入），关联到本次新建病历，保证该病历内后续修改体征为更新而非新增。
+                DB::exec('nurse', 'UPDATE vitals SET record_id=? WHERE visit_id=? AND operator=? AND record_id=0', array($recordId, $visitId, $u['name']));
             }
 
             // B. 旧 records 表扁平镜像（兼容就诊历史列表/转科引用/诊断证明等既有消费方）
@@ -363,11 +366,25 @@ function record_part_write($action) {
             if ($n !== 0 && ($n < $c[1] || $n > $c[2])) json_fail($c[3] . '超出合理范围（' . $c[1] . '-' . $c[2] . '）');
             $clean[$k] = ($k === 'bp_systolic' || $k === 'bp_diastolic') ? $n : (string)$n;
         }
-        DB::insert('nurse', 'INSERT INTO vitals(visit_id, patient_no, flow_no, bp_systolic, bp_diastolic, heart_rate, pulse, spo2, respiration, operator, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
-            $visitId, $row['visit']['patient_no'], $row['visit']['flow_no'],
-            $clean['bp_systolic'], $clean['bp_diastolic'],
-            $clean['heart_rate'], $clean['pulse'], $clean['spo2'], $clean['respiration'],
-            $u['name'], now_str(),
+        $recordId = (int)post('record_id', 0);
+        // 记录关联：同一病历已有体征条目 → 修改（纠错不产生新记录）；
+        // 无 → 新增一条（新病历首次录入 / 护士站录入）
+        $existV = ($recordId > 0)
+            ? DB::one('nurse', 'SELECT id FROM vitals WHERE visit_id=? AND record_id=? LIMIT 1', array($visitId, $recordId))
+            : null;
+        $now = now_str();
+        if ($existV) {
+            DB::exec('nurse', 'UPDATE vitals SET bp_systolic=?, bp_diastolic=?, heart_rate=?, pulse=?, spo2=?, respiration=?, operator=?, created_at=? WHERE id=?', array(
+                $clean['bp_systolic'], $clean['bp_diastolic'],
+                $clean['heart_rate'], $clean['pulse'], $clean['spo2'], $clean['respiration'],
+                $u['name'], $now, $existV['id'],
+            ));
+        } else {
+            DB::insert('nurse', 'INSERT INTO vitals(visit_id, patient_no, flow_no, bp_systolic, bp_diastolic, heart_rate, pulse, spo2, respiration, operator, created_at, record_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                $visitId, $row['visit']['patient_no'], $row['visit']['flow_no'],
+                $clean['bp_systolic'], $clean['bp_diastolic'],
+                $clean['heart_rate'], $clean['pulse'], $clean['spo2'], $clean['respiration'],
+                $u['name'], $now, $recordId,
         ));
         json_ok(array(), '生命体征已保存');
         return;

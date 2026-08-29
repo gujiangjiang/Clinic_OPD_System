@@ -789,6 +789,7 @@ Clinic.emr = (function () {
                 var data = {
                     action: 'save_vitals',
                     visit_id: visitId,
+                    record_id: (DATA && DATA.record && DATA.record.record_id) || 0,
                     bp_systolic: vals.vSys === '' ? 0 : parseInt(vals.vSys, 10),
                     bp_diastolic: vals.vDia === '' ? 0 : parseInt(vals.vDia, 10),
                     heart_rate: vals.vHR,

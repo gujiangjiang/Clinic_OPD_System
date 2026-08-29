@@ -286,11 +286,13 @@ switch ($action) {
         $visitId = did(post('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
-        DB::insert('nurse', 'INSERT INTO vitals(visit_id, patient_no, flow_no, bp_systolic, bp_diastolic, heart_rate, pulse, spo2, respiration, operator, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
+        $recordId = (int)post('record_id', 0);
+        // 护士站无记录关联（record_id=0）：每次录入新增一条（多次测量留档）
+        DB::insert('nurse', 'INSERT INTO vitals(visit_id, patient_no, flow_no, bp_systolic, bp_diastolic, heart_rate, pulse, spo2, respiration, operator, created_at, record_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', array(
             $visitId, $row['visit']['patient_no'], $row['visit']['flow_no'],
             (int)post('bp_systolic', 0), (int)post('bp_diastolic', 0),
             post('heart_rate'), post('pulse'), post('spo2'), post('respiration'),
-            $u['name'], now_str(),
+            $u['name'], now_str(), $recordId,
         ));
         json_ok(array(), '生命体征已保存（医生工作站将同步显示）');
         break;

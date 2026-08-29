@@ -7,7 +7,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 1,
+    'version' => 2,
     'tables' => array(
         'vitals' => "CREATE TABLE IF NOT EXISTS vitals (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,7 +21,8 @@ return array(
             spo2 TEXT,
             respiration TEXT,
             operator TEXT,
-            created_at TEXT
+            created_at TEXT,
+            record_id INTEGER DEFAULT 0
         )",
         'nursing_records' => "CREATE TABLE IF NOT EXISTS nursing_records (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,6 +34,12 @@ return array(
             created_at TEXT
         )",
     ),
-    'migrations' => array(),
+    'migrations' => array(
+        // v2：体征记录关联病历（record_id）——同一病历内修改体征为更新该记录
+        // 对应条目（纠错不产生新记录），新病历首次录入才新增条目。
+        2 => array(
+            "ALTER TABLE vitals ADD COLUMN record_id INTEGER DEFAULT 0",
+        ),
+    ),
     'seed' => array(),
 );
