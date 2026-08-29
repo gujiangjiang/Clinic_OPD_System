@@ -1351,36 +1351,13 @@ diagnoses: [],
         // 重置脏标记与 edit 标志，避免残留
         EMR_DIRTY = false;
         DATA.__edit_record_id = 0;
-        // 局部刷新：从 records_history 移除该文书、移除对应只读段、
-        // 重置当前编辑状态，不整页刷新
-        if (DATA && DATA.records_history) {
-            DATA.records_history = DATA.records_history.filter(function (h) {
-                return ((h.record_id || h.id) !== recId);
-            });
-        }
-        var seg = document.getElementById('recSeg' + recId);
-        if (seg) seg.remove();
-        // 重置当前编辑状态：本人已无文书 → 续写占位态（与 needProgress 场景一致）
-        DATA.record.record_id = 0;
-        DATA.record.id = 0;
-        DATA.record.record_type = 'progress';
-        DATA.record.dept_match = 0;
-        DATA.record.emr = { diagnoses: [] };
-        DATA.record.created_at = '';
-        DATA.record.updated_at = '';
-        DATA.record.status = 'draft';
         DATA.__progress_new = false;
-        DATA.__pending_progress = true;
-        var docBody = document.getElementById('docBody');
-        if (docBody) {
-            docBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
-                '<div class="fs-14">📝 病历续写</div>' +
-                '<div class="fs-12 text-muted mt-4">该患者已有保存的病历（上方只读展示）。' +
-                '点击左侧「病历节点 ＋」开始书写续写病历。</div></div>';
-        }
-        Clinic.emrEditor.setDiags([]);
-        refreshReadOnlyBodies(DATA);
-        renderLeftNav();
+        DATA.__pending_progress = false;
+        DATA.__pending_initial = false;
+        // 局部重载病历区（AJAX 拉取最新数据并完整重渲染）：
+        // 横条/签名/续写提示/编辑态判断（科室、书写者）/锚点滚动全部
+        // 套用 loadData 既有完善逻辑，不做任何特殊分支
+        loadData(document.getElementById('visitId').value);
     }
 
     /**
