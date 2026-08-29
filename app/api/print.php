@@ -70,43 +70,20 @@ switch ($action) {
             if ($order['order_type'] === 'imaging' && isset($order['cat_name']) && trim((string)$order['cat_name']) !== '' && trim((string)$order['cat_name']) !== '检查') {
                 $title = trim((string)$order['cat_name']) . '申请单';
             }
-            // 处方：按主医嘱 need_nurse 拆分（子医嘱跟随其主药，同组同笺）→
-            // 药房处方笺（非护士）+ 门诊输液（注射）笺（护士）
+            // 处方：药房处方笺 + 门诊输液（注射）笺（护士药品时额外生成）
+            // 两者内容完全一样（包含全部药品），区别仅抬头/左下提示/单号——
+            // 处方笺给药房取药，输液笺给护士执行。
             if ($order['order_type'] === 'prescription') {
-                $mainSeq = 0;
-                $groups = array();
+                $hasNurse = false;
                 foreach ($items as $it) {
-                    if ((int)$it['sub_of'] > 0) continue;
-                    $mainSeq++;
-                    $subs = array();
-                    foreach ($items as $subIt) {
-                        if ((int)$subIt['sub_of'] === $mainSeq) $subs[] = $subIt;
-                    }
-                    $groups[] = array('main' => $it, 'subs' => $subs);
+                    if (!empty($it['need_nurse'])) { $hasNurse = true; break; }
                 }
-                $pharmItems = array();
-                $nurseItems = array();
-                $pharmSeq = 0;
-                $nurseSeq = 0;
-                foreach ($groups as $g) {
-                    if (!empty($g['main']['need_nurse'])) {
-                        $nurseSeq++;
-                        $g['main']['sub_of'] = 0;
-                        $nurseItems[] = $g['main'];
-                        foreach ($g['subs'] as $s) { $s['sub_of'] = $nurseSeq; $nurseItems[] = $s; }
-                    } else {
-                        $pharmSeq++;
-                        $g['main']['sub_of'] = 0;
-                        $pharmItems[] = $g['main'];
-                        foreach ($g['subs'] as $s) { $s['sub_of'] = $pharmSeq; $pharmItems[] = $s; }
-                    }
-                }
-                if ($pharmItems) {
-                    $html .= pt_order($order, $pharmItems, '门诊处方笺', array('note_type' => 'pharm', 'display_no' => $order['order_no']));
-                }
-                if ($nurseItems) {
-                    $slipNo = $order['order_no'] . 'Z';   // 输液笺派生单号（原单号 + Z）
-                    $html .= pt_order($order, $nurseItems, '门诊输液（注射）笺', array('note_type' => 'nurse', 'display_no' => $slipNo));
+                // 处方笺：全部药品，单号不变，取药提示
+                $html .= pt_order($order, $items, '门诊处方笺', array('note_type' => 'pharm', 'display_no' => $order['order_no']));
+                // 有护士药品时额外生成输液笺：内容相同，抬头/提示/单号不同
+                if ($hasNurse) {
+                    $slipNo = $order['order_no'] . 'Z';
+                    $html .= pt_order($order, $items, '门诊输液（注射）笺', array('note_type' => 'nurse', 'display_no' => $slipNo));
                 }
             } else {
                 $order['need_nurse_any'] = 0;
