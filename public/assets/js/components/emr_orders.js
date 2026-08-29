@@ -17,14 +17,20 @@ Clinic.emr.orders = (function () {
     /**
      * 只读段纯文本（首诊/续写只读展示用）：
      * 返回 [检验检查名列表, 处方行列表, 处置项列表]（已退费/已取消不计）。
+     * 开单按【病历记录】强关联过滤：仅展示本记录（record_id）开具的项目，
+     * 杜绝会诊/续写病历与首诊之间互相串显示。兼容旧数据（record_id=0）按医生归属。
      */
-    function orderTextsFor(doctorId) {
+    function orderTextsFor(doctorId, recordId) {
         var aux = [];
         var proc = [];
         var rxs = [];
+        var recId = recordId || 0;
         (ctx.ORDERS || []).forEach(function (o) {
             if ((o.doctor_id || 0) !== doctorId) return;
             if (o.status === 'refunded' || o.status === 'cancelled') return;
+            // 新数据按 record_id 强关联；旧数据（record_id=0）回退按医生归属
+            var oRec = o.record_id || 0;
+            if (recId > 0 && oRec > 0 && oRec !== recId) return;
             o.items.forEach(function (it) {
                 if (o.order_type === 'lab' || o.order_type === 'imaging') {
                     aux.push(it.item_name);
@@ -37,12 +43,6 @@ Clinic.emr.orders = (function () {
             }
         });
         // 会诊：本人发起的会诊在门诊处置中显示「请X科会诊」（目标科室名）
-        (ctx.CONSULTS || []).forEach(function (c) {
-            if ((c.from_doctor_id || 0) === doctorId) {
-                proc.push('请' + (c.target_dept_name || '') + '会诊');
-            }
-        });
-        // 会诊：本人发起的会诊在门诊处置中显示「请X科会诊」
         (ctx.CONSULTS || []).forEach(function (c) {
             if ((c.from_doctor_id || 0) === doctorId) {
                 proc.push('请' + (c.target_dept_name || '') + '会诊');
@@ -62,20 +62,22 @@ Clinic.emr.orders = (function () {
     /**
      * 病历正文 辅助检查/门诊处置 渲染（活跃编辑器）：
      * 项目渲染为交互式行内标签（点击弹出详情模态框）；只读段仍走 orderTextsFor 纯文本。
+     * 开单按【病历记录】强关联：仅渲染当前记录（record_id）名下开单——
+     * 首诊显示首诊期间开单，续写/会诊显示各自记录期间开单，互不串显示。
      */
     function renderDocOrders() {
         var myId = myDoctorId();
-        // 续写/会诊病历完全独立：不自动填充该医生的历史开单入辅助检查/门诊处置节
-        // （该医生历史开单属于首诊或其他记录，不应在续写中重复展示）
-        if (ctx.DATA && ctx.DATA.record && ctx.DATA.record.record_type === 'progress') {
-            Clinic.emrEditor.setAuto('aux_orders', '', false);
-            Clinic.emrEditor.setAuto('rx_lines', '', false);
-            Clinic.emrEditor.setAuto('disp_items', '', false);
-            return;
-        }
+        var curRec = (ctx.DATA && ctx.DATA.record) || {};
+        var curRecId = curRec.record_id || 0;
+        // 过滤条件：开单属于当前记录（新数据 record_id 强关联；旧数据 record_id=0 回退按医生归属）
+        var matchRec = function (o) {
+            var oRec = o.record_id || 0;
+            if (oRec > 0 && curRecId > 0) return oRec === curRecId;
+            return (o.doctor_id || 0) === myId;
+        };
         var auxT = [], rxLines = [], dispT = [];
         (ctx.ORDERS || []).forEach(function (o) {
-            if ((o.doctor_id || 0) !== myId) return;
+            if (!matchRec(o)) return;
             if (o.status === 'refunded' || o.status === 'cancelled') return;
             if (o.order_type === 'lab' || o.order_type === 'imaging') {
                 o.items.forEach(function (it) { auxT.push(itemToken(o, it)); });

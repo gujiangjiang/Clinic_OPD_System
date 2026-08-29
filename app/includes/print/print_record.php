@@ -10,7 +10,13 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
         // 左端「日期 时间」（该次续写首次保存时间）、居中「续写病历 / 会诊记录」、
         // 右端「科室」，随后直接接「病历续写：……」等续写正文
         $isConsultRec = (int)(isset($record['consultation_id']) ? $record['consultation_id'] : 0) > 0;
-        $contDept = isset($visit['current_dept_name']) ? (string)$visit['current_dept_name'] : '';
+        // 科室：续写/会诊记录使用本记录自身的书写科室，而非就诊当前科室（转科/会诊后不同）
+        $contDept = '';
+        if (!empty($record['dept_id'])) {
+            $dn = DB::one('dept', 'SELECT name FROM departments WHERE id=?', array((int)$record['dept_id']));
+            if ($dn) $contDept = (string)$dn['name'];
+        }
+        if ($contDept === '') $contDept = $visit['current_dept_name'] ?? '';
         $contTime = isset($record['created_at']) ? substr((string)$record['created_at'], 0, 16) : '';
         $html .= '<div class="print-record-cont">' .
             '<span class="prc-time">' . e($contTime) . '</span>' .
@@ -163,6 +169,11 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
             $orderSql .= ' AND doctor_id=?';
             $orderParams[] = (int)$record['doctor_id'];
         }
+        // 开单按病历强关联：仅打印本记录（record_id）名下开单；
+        // 旧数据（record_id=0）回退按医生归属（该医生本就诊全部开单）
+        $recPrintId = (int)(isset($record['id']) ? $record['id'] : 0);
+        $orderSql .= ' AND (record_id=? OR record_id=0)';
+        $orderParams[] = $recPrintId;
         $orderSql .= ' ORDER BY id ASC';
         $orders = DB::q('order', $orderSql, $orderParams);
         foreach ($orders as $o) {

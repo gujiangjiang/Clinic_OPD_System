@@ -44,13 +44,14 @@ Clinic.emr.segments = (function () {
         push('体格检查', Clinic.emr.format.fmtPE(e.physical_exam), isProgress ? false : true);
         push('初步诊断', Clinic.emr.format.fmtDiags(e.diagnoses));
         // ===== 辅助检查 / 门诊处置 =====
-        // 首诊记录：拉取该医生开具的检查/检验/处置/处方 + 发起的会诊（开单自动入病历展示）；
-        // 续写/会诊记录：完全独立个体，只展示本记录自身手工字段，绝不拉取历史开单
+        // 首诊记录：拉取该医生在【本记录】名下开具的检查/检验/处置/处方 + 发起的会诊
+        // （开单自动入病历展示，按 record_id 强关联，杜绝跨病历串显示）；
+        // 续写/会诊记录：完全独立个体，只展示本记录自身手工字段，绝不拉取其他记录开单
         var auxParts = [];
         var dispParts = [];
         var rxHtml = '';
         if (!isProgress) {
-            var t2 = Clinic.emr.orders.orderTextsFor(rec.doctor_id || 0);
+            var t2 = Clinic.emr.orders.orderTextsFor(rec.doctor_id || 0, rec.record_id || rec.id || 0);
             t2.aux.forEach(function (n) { auxParts.push(escHtml(n)); });
             t2.proc.forEach(function (p) { dispParts.push(escHtml(p)); });
             rxHtml = t2.rxs.map(function (l) { return '<div>' + escHtml(l) + '</div>'; }).join('');

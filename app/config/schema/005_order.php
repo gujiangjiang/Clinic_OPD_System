@@ -10,7 +10,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 5,
+    'version' => 6,
     'tables' => array(
         'orders' => "CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,6 +21,9 @@ return array(
             order_no TEXT,
             doctor_id INTEGER,
             doctor_name TEXT,
+            record_id INTEGER DEFAULT 0,
+            dept_id INTEGER DEFAULT 0,
+            dept_name TEXT DEFAULT '',
             total_amount REAL DEFAULT 0,
             status TEXT DEFAULT 'open',
             created_at TEXT,
@@ -119,6 +122,13 @@ return array(
         // 自动生成的，删除处方时级联删除联动处置单（独立删除不反删处方）。
         5 => array(
             "ALTER TABLE orders ADD COLUMN source_order_id INTEGER DEFAULT 0",
+        ),
+        // v6：开单与病历文书强关联——record_id 记录开单时所在的病历（首诊/续写/会诊），
+        // dept_id/dept_name 固化开单科室（打印/展示不再随转科漂移）。
+        6 => array(
+            "ALTER TABLE orders ADD COLUMN record_id INTEGER DEFAULT 0",
+            "ALTER TABLE orders ADD COLUMN dept_id INTEGER DEFAULT 0",
+            "ALTER TABLE orders ADD COLUMN dept_name TEXT DEFAULT ''",
         ),
     ),
     'seed' => array(),

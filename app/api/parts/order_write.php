@@ -13,6 +13,23 @@ function order_part_write($action) {
         $visitId = did(post('visit_id'));
         $orderType = post('order_type', 'lab');
         $nurseReq = (int)post('nurse_required', 0);
+        // 开单所在病历文书（首诊/续写/会诊）——用于开单与病历强关联展示
+        $recId = (int)post('record_id', 0);
+        // 开单科室固化：优先取前端所在科室，否则回退医生当前科室（打印/展示不随转科漂移）
+        $deptId = (int)post('dept_id', 0);
+        $deptName = '';
+        if ($deptId > 0) {
+            $dn = DB::one('dept', 'SELECT name FROM departments WHERE id=?', array($deptId));
+            if ($dn) $deptName = (string)$dn['name'];
+        }
+        if ($deptName === '') {
+            $curRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+            $deptId = $curRow ? (int)$curRow['current_dept_id'] : 0;
+            if ($deptId > 0) {
+                $dn2 = DB::one('dept', 'SELECT name FROM departments WHERE id=?', array($deptId));
+                if ($dn2) $deptName = (string)$dn2['name'];
+            }
+        }
         // 皮试判定结果（与 items 下标对齐）：yes=需要皮试 / no=免试 / 空=非皮试药品
         $skinChoices = json_decode(post('skin_choices', '[]'), true);
         if (!is_array($skinChoices)) $skinChoices = array();
@@ -290,9 +307,9 @@ function order_part_write($action) {
                 $orderNo = (isset($typeCode[$orderType]) ? $typeCode[$orderType] : 'DD') . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
             } while ((int)DB::val('order', 'SELECT COUNT(*) FROM orders WHERE order_no=?', array($orderNo)) > 0);
 
-            $orderId = DB::insert('order', 'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, cat_name, doctor_id, doctor_name, total_amount, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
+            $orderId = DB::insert('order', 'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, cat_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                 $visitId, $visit['patient_no'], $visit['flow_no'], $orderType, $orderNo, $g['cat'],
-                $u['id'], $u['name'], $groupTotal, 'open', now_str(),
+                $u['id'], $u['name'], $recId, $deptId, $deptName, $groupTotal, 'open', now_str(),
             ));
             foreach ($g['idx'] as $i) {
                 $it = $orderItems[$i];
@@ -357,9 +374,9 @@ function order_part_write($action) {
             } while ((int)DB::val('order', 'SELECT COUNT(*) FROM orders WHERE order_no=?', array($autoOrderNo)) > 0);
 
             $autoOrderId = DB::insert('order',
-                'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, cat_name, doctor_id, doctor_name, total_amount, status, created_at, source_order_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+                'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, cat_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, source_order_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 array($visitId, $visit['patient_no'], $visit['flow_no'], 'procedure', $autoOrderNo, '',
-                      $u['id'], $u['name'], $autoTotal, 'open', now_str(), $orderId));
+                      $u['id'], $u['name'], $recId, $deptId, $deptName, $autoTotal, 'open', now_str(), $orderId));
 
             foreach ($autoDisp as $dispId => $d) {
                 DB::insert('order',
@@ -398,10 +415,15 @@ function order_part_write($action) {
         if ($orderId <= 0) json_fail('参数无效');
         $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array($orderId));
         if (!$order) json_fail('开单记录不存在');
-        // 会诊中拦截：就诊存在进行中会诊时，禁止删除任何开单（会诊期间本非次会诊全部只读）
+        // 会诊中拦截：进行中会诊期间，仅可删除【本会诊记录名下】开单（本会诊期间开具的），
+        // 其他病历名下的开单一律只读（无论是否本人开具）
         $doingOrderCons = DB::one('consultation', "SELECT id FROM consultations WHERE visit_id=? AND status='doing' LIMIT 1", array((int)$order['visit_id']));
         if ($doingOrderCons) {
-            json_fail('该就诊正在进行会诊，会诊期间不可删除开单');
+            $curRecordId = (int)post('record_id', 0);
+            $orderRecId = (int)(isset($order['record_id']) ? $order['record_id'] : 0);
+            if ($curRecordId <= 0 || $orderRecId <= 0 || $orderRecId !== $curRecordId) {
+                json_fail('该就诊正在进行会诊，会诊期间仅可删除本会诊记录开具的开单，其他开单已锁定');
+            }
         }
         if ((int)$order['doctor_id'] !== (int)$u['id']) {
             json_fail('仅开单医生本人可删除该' . ($order['order_type'] === 'prescription' ? '处方' : '申请单') . '（开单医生：' . $order['doctor_name'] . '）');
