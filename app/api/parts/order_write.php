@@ -357,9 +357,9 @@ function order_part_write($action) {
             } while ((int)DB::val('order', 'SELECT COUNT(*) FROM orders WHERE order_no=?', array($autoOrderNo)) > 0);
 
             $autoOrderId = DB::insert('order',
-                'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, cat_name, doctor_id, doctor_name, total_amount, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+                'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, cat_name, doctor_id, doctor_name, total_amount, status, created_at, source_order_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
                 array($visitId, $visit['patient_no'], $visit['flow_no'], 'procedure', $autoOrderNo, '',
-                      $u['id'], $u['name'], $autoTotal, 'open', now_str()));
+                      $u['id'], $u['name'], $autoTotal, 'open', now_str(), $orderId));
 
             foreach ($autoDisp as $dispId => $d) {
                 DB::insert('order',
@@ -419,9 +419,26 @@ function order_part_write($action) {
                 }
             }
         }
+        // 处方：级联删除自动生成的联动处置单（皮试/途径绑定，source_order_id 指向本处方）
+        $autoOrders = array();
+        if ($order['order_type'] === 'prescription') {
+            $autoOrders = DB::q('order', "SELECT * FROM orders WHERE source_order_id=? AND order_type='procedure'", array($orderId));
+            foreach ($autoOrders as $ao) {
+                $aoItems = DB::q('order', 'SELECT * FROM order_items WHERE order_id=?', array($ao['id']));
+                foreach ($aoItems as $aoIt) {
+                    if (!in_array($aoIt['status'], array('open', 'refunded'), true)) {
+                        json_fail('该处方的联动处置单已进入执行流程，不能自动删除（请先在收费处处理联动处置单）');
+                    }
+                }
+            }
+        }
         DB::exec('order', 'DELETE FROM order_items WHERE order_id=?', array($orderId));
         DB::exec('order', 'DELETE FROM orders WHERE id=?', array($orderId));
-        json_ok(array(), '开单已删除' . ($order['order_type'] === 'prescription' ? '，药品库存已恢复' : ''));
+        foreach ($autoOrders as $ao) {
+            DB::exec('order', 'DELETE FROM order_items WHERE order_id=?', array($ao['id']));
+            DB::exec('order', 'DELETE FROM orders WHERE id=?', array($ao['id']));
+        }
+        json_ok(array(), '开单已删除' . ($order['order_type'] === 'prescription' ? '，药品库存已恢复' : '') . ($autoOrders ? '，联动处置单已同步删除' : ''));
         return;
     }
 }

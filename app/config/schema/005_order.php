@@ -10,7 +10,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 4,
+    'version' => 5,
     'tables' => array(
         'orders' => "CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,7 +27,8 @@ return array(
             paid_at TEXT,
             refunded_at TEXT,
             done_by TEXT,
-            cat_name TEXT DEFAULT ''
+            cat_name TEXT DEFAULT '',
+            source_order_id INTEGER DEFAULT 0
         )",
         'order_items' => "CREATE TABLE IF NOT EXISTS order_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -113,6 +114,11 @@ return array(
             "ALTER TABLE order_items ADD COLUMN group_no INTEGER DEFAULT 0",
             "ALTER TABLE order_items ADD COLUMN is_parent INTEGER DEFAULT 1",
             "ALTER TABLE order_items ADD COLUMN parent_item_id INTEGER DEFAULT 0",
+        ),
+        // v5：联动处置来源处方——orders.source_order_id 记录该处置单是由哪个处方
+        // 自动生成的，删除处方时级联删除联动处置单（独立删除不反删处方）。
+        5 => array(
+            "ALTER TABLE orders ADD COLUMN source_order_id INTEGER DEFAULT 0",
         ),
     ),
     'seed' => array(),
