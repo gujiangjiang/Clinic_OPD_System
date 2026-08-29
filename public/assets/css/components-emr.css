@@ -168,7 +168,7 @@
     min-height: 36px;
     line-height: 1.6;
 }
-.emr-doc .doc-sec-vital { cursor: pointer; }
+/* 生命体征行：可点击样式仅在内容区（.emr-item-link），标签与空白为普通文字 */
 .emr-doc .doc-sec-vital .doc-sec-body { font-weight: 600; }
 
 /* 病历正文 已开项目所见即所得：辅助检查/门诊处置 */
