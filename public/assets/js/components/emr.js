@@ -2461,8 +2461,8 @@ diagnoses: [],
 
     /** 会诊查询模态框：左=会诊单只读（主诉/现病史/体格检查/诊断/描述/目的），
      *  右=会诊进度（发起会诊 → 正在会诊 → 会诊完毕，三状态圆点） */
-    function openConsultDetail(id) {
-        Clinic.get('/api/consultation?action=detail&id=' + id, null, {
+    function openConsultDetail(id, withAccept) {
+        Clinic.get('/api/consultation?action=detail&id=' + encodeURIComponent(id), null, {
             onSuccess: function (j) {
                 var c = j.data.consultation || {};
                 var s = c.snapshot || {};
@@ -2496,19 +2496,22 @@ diagnoses: [],
         });
     }
 
-    /** 开始会诊：接受会诊（pending→doing）并新建会诊病历编辑器 */
+    /** 开始会诊：接受会诊（pending→doing）并新建会诊病历编辑器。
+     *  若会诊已被接收（重复进入/确认后刷新），accept 失败但不阻断——直接进入编辑。 */
     function startConsult(consultId) {
         Clinic.ajax('/api/consultation', { action: 'accept', id: consultId }, {
-            onSuccess: function () {
-                Clinic.toast.success('会诊已开始，请书写会诊记录');
-                // 新建会诊病历编辑器（复用续写编辑器链路；consultation_id 随保存关联）
-                if (DATA.record.record_id > 0) addProgressEditor(); else createProgressEditor();
-                DATA.record.consultation_id = consultId;
-                applyConsultMode(consultId);
-                renderLeftNav();
-                scrollToEditor(200);
-            },
+            onSuccess: function () { enterConsultEditor(consultId); },
+            onError: function () { enterConsultEditor(consultId); },
         });
+    }
+
+    function enterConsultEditor(consultId) {
+        // 新建会诊病历编辑器（复用续写编辑器链路；consultation_id 随保存关联）
+        if (DATA.record.record_id > 0) addProgressEditor(); else createProgressEditor();
+        DATA.record.consultation_id = consultId;
+        applyConsultMode(consultId);
+        renderLeftNav();
+        scrollToEditor(200);
     }
 
     /** 会诊模式界面调整：隐藏转科、诊毕改为会诊完毕、侧边栏节点显示会诊编辑中 */
@@ -2600,7 +2603,25 @@ diagnoses: [],
                     // 仅「已开具仍触发开具 / 补开动作」时提醒重复；
                     // 单纯查看已开具证明（右栏条目点击）不打扰
                     if (warnOnIssued) Clinic.toast.warning('该次就诊已开具过诊断证明');
-                    Clinic.modal.open(
+var buttons = [{ text: '关闭', cls: 'btn-outline' }];
+                // 候诊入口（withAccept=true）且待会诊 → 底部「确认会诊」进入病历书写
+                if (withAccept && c.status === 'pending') {
+                    buttons.push({
+                        text: '✅ 确认会诊', cls: 'btn-primary', autoClose: false,
+                        onClick: function () {
+                            Clinic.ajax('/api/consultation', { action: 'accept', id: c.code }, {
+                                onSuccess: function (j2) {
+                                    Clinic.toast.success(j2.msg || '会诊已开始');
+                                    Clinic.modal.close();
+                                    closePanel();
+                                    // 进入病历书写页：URL 携带 consult=code，页面内进入会诊模式
+                                    location.href = '/doctor/emr?visit_id=' + c.visit_code + '&consult=' + encodeURIComponent(c.code);
+                                },
+                            });
+                        },
+                    });
+                }
+                Clinic.modal.open(
                         summary +
                         '<div class="form-group"><label class="form-label">医生建议</label>' +
                         // 纯展示只读框：灰底、禁用、去掉右下角拖拽手柄、不显示文本光标

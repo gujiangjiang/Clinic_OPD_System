@@ -33,6 +33,7 @@ function consultation_row($c) {
         'id' => (int)$c['id'],
         'code' => oid($c['id']),
         'visit_id' => (int)$c['visit_id'],
+        'visit_code' => oid($c['visit_id']),
         'patient_no' => (string)$c['patient_no'],
         'flow_no' => (string)$c['flow_no'],
         'from_dept_id' => (int)$c['from_dept_id'],

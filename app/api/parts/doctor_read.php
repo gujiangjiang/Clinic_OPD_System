@@ -240,22 +240,46 @@ function doctor_part_read($action) {
             );
         }, $rows);
         $pref = (isset($_SESSION['queue_pref']) && is_array($_SESSION['queue_pref'])) ? $_SESSION['queue_pref'] : array();
-        // 会诊请求（目标科室=当前科室，近 N 天，与候诊同受可见天数限制；带患者姓名/会诊code）
-        $consultations = array_map(function ($c) {
-            $pn = DB::one('patient', 'SELECT name FROM patients WHERE patient_no=?', array($c['patient_no']));
-            return array(
-                'id' => (int)$c['id'],
-                'code' => oid($c['id']),
-                'visit_code' => oid($c['visit_id']),
-                'patient_no' => (string)$c['patient_no'],
-                'patient_name' => $pn ? (string)$pn['name'] : '',
-                'flow_no' => (string)$c['flow_no'],
-                'from_dept_name' => (string)$c['from_dept_name'],
-                'from_doctor_name' => (string)$c['from_doctor_name'],
-                'status' => (string)$c['status'],
-                'created_at' => (string)$c['created_at'],
-            );
-        }, DB::q('consultation', "SELECT * FROM consultations WHERE target_dept_id=? AND date(created_at)>=? ORDER BY id DESC", array($deptId, $since)));
+        // 会诊请求（目标科室=当前科室，近 N 天，与候诊同受可见天数限制）。
+        // 直接返回完整候诊行结构（与 $list 同构 + consult_status/consult_code），
+        // 前端会诊 Tab 复用候诊列表样式渲染。
+        $consVisits = array();
+        $consStatus = array();
+        foreach (DB::q('consultation', "SELECT id, visit_id, status FROM consultations WHERE target_dept_id=? AND date(created_at)>=? ORDER BY id DESC", array($deptId, $since)) as $c) {
+            $vid = (int)$c['visit_id'];
+            if (!isset($consStatus[$vid])) {
+                $consVisits[] = $vid;
+                $consStatus[$vid] = array('id' => (int)$c['id'], 'code' => oid($c['id']), 'status' => (string)$c['status']);
+            }
+        }
+        $consultations = array();
+        if ($consVisits) {
+            $phC = implode(',', array_fill(0, count($consVisits), '?'));
+            $paramsC = array_merge(array($deptId), $consVisits);
+            $cRows = DB::q('patient', "SELECT r.id, r.patient_no, r.visit_seq, r.first_dept_name, r.session,
+                    r.status, r.register_time, r.finish_time,
+                    p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
+                FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
+                WHERE r.current_dept_id=? AND r.id IN ($phC)
+                ORDER BY r.register_time DESC", $paramsC);
+            $isEmergency = (int)DB::val('dept', "SELECT COUNT(*) FROM departments WHERE id=? AND type='emergency'", array($deptId)) > 0;
+            foreach ($cRows as $r) {
+                $cs = $consStatus[(int)$r['id']];
+                $consultations[] = array(
+                    'code' => oid($r['id']),
+                    'consult_code' => $cs['code'],
+                    'consult_status' => $cs['status'],
+                    'name' => $r['pname'], 'gender' => $r['pgender'],
+                    'age_fmt' => age_format($r['pbirth'], $r['register_time']),
+                    'date' => substr($r['register_time'], 0, 10),
+                    'time' => substr($r['register_time'], 11, 5),
+                    'dept_name' => $r['first_dept_name'],
+                    'visit_seq' => (int)$r['visit_seq'],
+                    'session_text' => $isEmergency ? '昼夜' : ($r['session'] === 'pm' ? '下午' : '上午'),
+                    'status' => $r['status'],
+                );
+            }
+        }
         json_ok(array(
             'dept_id' => $deptId,
             'waiting' => (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE current_dept_id=? AND status='paid'", array($deptId)),
