@@ -13,6 +13,19 @@
 
 ---
 
+## [4.11.0] - 2026-08-29
+
+### 新增
+
+- **会诊功能（分期实施）**：
+  - Step 1 · 数据库与后端 API：新建 consultations 表（013 schema，
+    发起/目标科室、描述/目的、pending→doing→done 状态线）；
+    patient_records 增加 consultation_id（007 v10）关联会诊病历；
+    新增 `/api/consultation`（create/list/detail/accept/finish/delete），
+    列表受医生候诊可见天数（queue_days 2-7）限制，后端强制拦截。
+
+---
+
 ## [4.10.4] - 2026-08-29
 
 ### 修复

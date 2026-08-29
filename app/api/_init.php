@@ -25,6 +25,7 @@ $__roleMap = array(
     'order'    => 'doctor',
     'record'   => 'doctor',
     'consent'  => 'doctor',
+    'consultation' => 'doctor',
     'template' => 'doctor',
     'transfer' => 'doctor',
     'doctor'   => 'doctor',

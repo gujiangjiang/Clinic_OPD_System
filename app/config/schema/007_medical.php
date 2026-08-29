@@ -7,7 +7,7 @@
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 9,
+    'version' => 10,
     'tables' => array(
         'records' => "CREATE TABLE IF NOT EXISTS records (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -190,6 +190,11 @@ return array(
                 created_at TEXT,
                 updated_at TEXT
             )",
+        ),
+        // v10：会诊病历关联——patient_records 增加 consultation_id，
+        // B 科室医生为会诊新开的病历（progress）关联到 consultations.id
+        10 => array(
+            "ALTER TABLE patient_records ADD COLUMN consultation_id INTEGER DEFAULT 0",
         ),
     ),
     'seed' => array(),
