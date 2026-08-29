@@ -151,10 +151,17 @@ switch ($action) {
                 $mirror = DB::one('medical', 'SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visit['id'], $pr['doctor_id']));
                 $pr['consciousness'] = $mirror ? (string)$mirror['consciousness'] : '';
                 $pr['visit_type'] = ($mirror && $mirror['visit_type'] !== '') ? (string)$mirror['visit_type'] : '初诊';
-                // 生命体征归属：仅取该文书医生本人录入的体征（operator=医生姓名），
-                // 未录入则空（打印显示 -）——谁的体征归属谁的文书
-                $segVitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1', array($visit['id'], $pr['doctor_name']));
-                $body .= pt_record($visit, $row['patient'], $pr, $segVitals, $i === 0 ? 'full' : 'continue', $i === $last, $firstCreatedAt);
+                // 生命体征归属：按文书记录精确关联（record_id 优先）。
+                // 续写/会诊病历各自独立体征——只取本记录关联的体征，绝不复用首诊体征；
+                // 首诊记录才按 operator 回退就诊体征（护士站录入共用）。
+                $segVitals = null;
+                if ((int)$pr['id'] > 0) {
+                    $segVitals = DB::one('nurse', 'SELECT * FROM vitals WHERE record_id=? ORDER BY id DESC LIMIT 1', array((int)$pr['id']));
+                }
+                if (!$segVitals && $pr['record_type'] !== 'progress') {
+                    $segVitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1', array($visit['id'], $pr['doctor_name']));
+                }
+                $body .= pt_record($visit, $row['patient'], $pr, $segVitals ? $segVitals : array(), $i === 0 ? 'full' : 'continue', $i === $last, $firstCreatedAt);
             }
             json_ok(array('html' => '<div class="print-record-doc">' . $body . '</div>'));
         }
