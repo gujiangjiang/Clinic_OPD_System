@@ -94,8 +94,11 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
         if ($isProgress) {
             $progContent = isset($emr['progress']['content']) ? trim((string)$emr['progress']['content']) : '';
             if ($progContent !== '') $secs[] = array('病历续写', e($progContent));
-            $secs[] = array('既往史', emr_ph_text(isset($emr['past_history']) ? $emr['past_history'] : array()));
-            $secs[] = array('过敏史', emr_al_text(isset($emr['allergies']) ? $emr['allergies'] : array()));
+            // 续写：未填写（否认/空）的既往史/过敏史不显示，首诊维持原样
+            $phT = emr_ph_text(isset($emr['past_history']) ? $emr['past_history'] : array());
+            if ($phT !== '否认') $secs[] = array('既往史', $phT);
+            $alT = emr_al_text(isset($emr['allergies']) ? $emr['allergies'] : array());
+            if ($alT !== '否认') $secs[] = array('过敏史', $alT);
         } else {
         // 结构化：占位符剔除/空节隐藏/'-'回退等规则统一走 emr_formatter
         $secs[] = array('主诉', emr_cc_text(isset($emr['chief_complaint']) ? $emr['chief_complaint'] : array()));
@@ -118,16 +121,22 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
     if (!empty($vitals['pulse'])) $vp[] = '脉搏 ' . $vitals['pulse'] . '次/分';
     if (!empty($vitals['spo2'])) $vp[] = '血氧 ' . $vitals['spo2'] . '%';
     if (!empty($vitals['respiration'])) $vp[] = '呼吸 ' . $vitals['respiration'] . '次/分';
-    $secs[] = array('生命体征', $vp ? implode('；', $vp) : '-');
+        // 生命体征：首诊恒显示（未录入 -）；续写空节不显示
+    if (!$isProgress || $vp) {
+        $secs[] = array('生命体征', $vp ? implode('；', $vp) : '-');
+    }
     // 意识状态：续写文书仅在本人镜像有值时输出（该节归首诊文书）
     if (!$isProgress || (isset($record['consciousness']) && $record['consciousness'] !== '')) {
         $secs[] = array('意识状态', isset($record['consciousness']) ? $record['consciousness'] : '');
     }
     if ($emrStructured) {
-        $secs[] = array('体格检查', emr_pe_text(isset($emr['physical_exam']) ? $emr['physical_exam'] : array()));
+        // 体格检查：续写空节不显示
+        $peT = emr_pe_text(isset($emr['physical_exam']) ? $emr['physical_exam'] : array());
+        if (!$isProgress || $peT !== '') $secs[] = array('体格检查', $peT);
         $secs[] = array('初步诊断', emr_diag_text(isset($emr['diagnoses']) ? $emr['diagnoses'] : array()));
     } else {
-        $secs[] = array('体格检查', isset($record['physical_exam']) ? $record['physical_exam'] : '');
+        $peT2 = isset($record['physical_exam']) ? $record['physical_exam'] : '';
+        if (!$isProgress || trim((string)$peT2) !== '') $secs[] = array('体格检查', $peT2);
         $diag = isset($record['initial_diagnosis']) ? $record['initial_diagnosis'] : '';
         if (isset($record['diagnosis_code']) && $record['diagnosis_code']) {
             $diag .= '（' . $record['diagnosis_code'] . '）';
@@ -171,12 +180,18 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
             if (isset($emr[$k]) && $emr[$k] !== '') $manualAux[] = e($emr[$k]);
         }
         $auxAll = array_merge($aux, $manualAux);
-        $secs[] = array('辅助检查', $auxAll ? implode('，', $auxAll) : '-');
+        // 辅助检查：续写空节不显示
+        if (!$isProgress || $auxAll) {
+            $secs[] = array('辅助检查', $auxAll ? implode('，', $auxAll) : '-');
+        }
         $treat = '';
         if ($rxs) foreach ($rxs as $rx) $treat .= '<div class="pf-rx-line">' . $rx . '</div>';
         $dispParts = array_merge($procs, isset($emr['disposition_custom']) && $emr['disposition_custom'] !== '' ? array(e($emr['disposition_custom'])) : array());
         if ($dispParts) $treat .= ($treat ? '' : '') . '<span class="pf-treat-proc">' . implode('，', $dispParts) . '</span>';
-        $secs[] = array('门诊处置', $treat !== '' ? $treat : '-');
+        // 门诊处置：续写空节不显示
+        if (!$isProgress || $treat !== '') {
+            $secs[] = array('门诊处置', $treat !== '' ? $treat : '-');
+        }
     } else {
         if ($aux) $secs[] = array('辅助检查', implode('、', $aux));
         $treat = '';
@@ -186,7 +201,9 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
     }
 
     $secs[] = array('是否留观', $emrStructured ? emr_obs_text($emr) : (!empty($record['is_observation']) ? '是' : '否'));
-    $secs[] = array('嘱托', $emrStructured ? (isset($emr['advice']) ? $emr['advice'] : '') : (isset($record['advice']) ? $record['advice'] : ''));
+    // 嘱托：续写空节不显示
+    $adviceT = $emrStructured ? (isset($emr['advice']) ? $emr['advice'] : '') : (isset($record['advice']) ? $record['advice'] : '');
+    if (!$isProgress || trim((string)$adviceT) !== '') $secs[] = array('嘱托', $adviceT);
 
     // 每个小节独立一个 .print-flow 块级节点：A5 分页器按「整节点」分配页面，
     // 若所有小节包在同一个节点里，内容再长也永远不会跨页拆分，

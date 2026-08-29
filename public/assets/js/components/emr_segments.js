@@ -30,11 +30,12 @@ Clinic.emr.segments = (function () {
         push('既往史', Clinic.emr.format.fmtPH(e.past_history));
         push('过敏史', Clinic.emr.format.fmtAL(e.allergies));
         push('主要症状', Clinic.emr.format.fmtMS(e.main_symptoms));
-        // 生命体征：续写记录用自身 emr.vitals（独立体征），否则用就诊 vitals
+        // 生命体征：续写记录用自身 emr.vitals（独立体征），否则用就诊 vitals；
+        // 续写文书空段不显示（仅首诊显示 -）
         var recVitals = (e.vitals && Object.keys(e.vitals).length) ? e.vitals : (rec.vitals || {});
-        push('生命体征', vitalDisplayText(recVitals), true);
-        push('意识状态', rec.consciousness || '', true);
-        push('体格检查', Clinic.emr.format.fmtPE(e.physical_exam), true);
+        push('生命体征', vitalDisplayText(recVitals), isProgress ? false : true);
+        push('意识状态', rec.consciousness || '', isProgress ? false : true);
+        push('体格检查', Clinic.emr.format.fmtPE(e.physical_exam), isProgress ? false : true);
         push('初步诊断', Clinic.emr.format.fmtDiags(e.diagnoses));
         var t = Clinic.emr.orders.orderTextsFor(rec.doctor_id || 0);
         var auxParts = [];
@@ -42,13 +43,16 @@ Clinic.emr.segments = (function () {
             if (x && String(x).trim()) auxParts.push(escHtml(x));
         });
         t.aux.forEach(function (n) { auxParts.push(escHtml(n)); });
-        push('辅助检查', auxParts.join('，'), true);
+        push('辅助检查', auxParts.join('，'), isProgress ? false : true);
         var dispHtml = t.rxs.map(function (l) { return '<div>' + escHtml(l) + '</div>'; }).join('');
         var dispParts = t.proc.map(function (p) { return escHtml(p); });
         if (e.disposition_custom && String(e.disposition_custom).trim()) dispParts.push(escHtml(e.disposition_custom));
         if (dispParts.length) dispHtml += '<span>' + dispParts.join('，') + '</span>';
-        secs.push('<div class="prev-sec"><span class="doc-sec-label">门诊处置：</span>' + (dispHtml || '-') + '</div>');
-        push('是否留观', e.is_leave_hospital === '是' ? '是' : '否', true);
+        // 门诊处置：续写空时整段不显示（首诊显示 -）
+        if (!isProgress || dispHtml) {
+            secs.push('<div class="prev-sec"><span class="doc-sec-label">门诊处置：</span>' + (dispHtml || '-') + '</div>');
+        }
+        push('是否留观', e.is_leave_hospital === '是' ? '是' : '否', isProgress ? false : true);
         push('嘱托', e.advice);
         var typeBadge = isProgress
             ? '<span class="badge badge-primary">病历续写</span>'
