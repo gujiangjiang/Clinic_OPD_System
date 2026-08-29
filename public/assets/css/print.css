@@ -166,6 +166,15 @@
 }
 .print-area table.rx-print td.rx-name { font-weight: 600; }
 .print-area table.rx-print td.rx-qty { text-align: right; white-space: nowrap; }
+/* 处方底部「调配 / 复核、发药」：左右两列均靠左对齐 */
+.print-area .print-rx-pharm {
+    display: flex;
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 1.8;
+}
+.print-area .print-rx-pharm span { flex: 1; text-align: left; }
+.print-area .print-rx-valid { color: #555; }
 .print-area .print-note { margin-top: 10px; font-size: 12px; color: #333; }
 /* 开单合计：表格右下方的普通文本行，不再占用表格单元格 */
 .print-order-total { margin-top: 8px; text-align: right; font-weight: 700; }

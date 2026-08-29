@@ -78,12 +78,13 @@ function pt_order($order, $items, $title) {
                 '<td class="rx-dose">' . e($it['single_dose']) . '</td>' .
                 '<td class="rx-route" rowspan="' . $rowspan . '">' . e($it['route_name']) . $nurseTxt . '</td>' .
                 '<td class="rx-freq" rowspan="' . $rowspan . '">' . e($it['frequency_name']) . '</td>' .
-                '<td class="rx-qty" rowspan="' . $rowspan . '">×' . (int)$it['quantity'] . '</td>' .
+                '<td class="rx-qty">×' . (int)$it['quantity'] . '</td>' .
                 '</tr>';
             foreach ($subs as $sub) {
                 $html .= '<tr>' .
                     '<td class="rx-name">' . $nameTxt($sub) . '</td>' .
                     '<td class="rx-dose">' . e($sub['single_dose']) . '</td>' .
+                    '<td class="rx-qty">×' . (int)$sub['quantity'] . '</td>' .
                     '</tr>';
             }
         }
@@ -142,6 +143,14 @@ function pt_order($order, $items, $title) {
     // 医生签名：开单项目正文右下方（类似病历签名位置）
     $html .= '<div class="print-record-sign">' .
         ($isDrug ? '医师签名：' : '开单医生：') . e(isset($order['doctor_name']) ? $order['doctor_name'] : '') . '</div>';
+    // 处方：底部页脚上方新增「调配 / 复核、发药」左右两列（均靠左对齐）
+    if ($isDrug) {
+        $html .= '<div class="print-rx-pharm"><span>调配：</span><span>复核、发药：</span></div>';
+    }
+    // 处方：本处方当日内有效（页脚页码正上方）
+    if ($isDrug) {
+        $html .= '<div class="print-note print-rx-valid">（本处方当日内有效）</div>';
+    }
     // 末尾横线 + 页脚：左下角开单时间、右下角打印时间
     $html .= '<div class="print-line"></div>';
     $html .= '<div class="print-record-foot">' .
