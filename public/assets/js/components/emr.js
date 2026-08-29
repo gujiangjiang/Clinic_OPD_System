@@ -245,11 +245,12 @@ Clinic.emr = (function () {
             var signEl = document.getElementById('signWrap');
             if (signEl) signEl.textContent = '医生：' + r.doctor_name;
             docBody.innerHTML = '';
-            Clinic.emrEditor.render(docBody, cleanEmr, {
+                Clinic.emrEditor.render(docBody, cleanEmr, {
                 readonly: false,
                 beforeVitals: buildVitalSec(false, cleanEmr.vitals || {}),   // 续写不引用已有生命体征
                 midNode: buildConsciousNode(false, r.consciousness || '清醒'),
                 mode: 'progress',
+                allergyHistory: (DATA && DATA.global_patient_info && DATA.global_patient_info.allergies) || '',
                 onChange: function () { EMR_DIRTY = true; },
             });
             refreshReadOnlyBodies(d);
@@ -322,6 +323,7 @@ Clinic.emr = (function () {
                     beforeVitals: buildVitalSec(false, DATA.record.emr.vitals || {}),   // 续写不引用已有生命体征
                     midNode: buildConsciousNode(false, '清醒'),
                     mode: 'progress',
+                    allergyHistory: (DATA && DATA.global_patient_info && DATA.global_patient_info.allergies) || '',
                     onChange: function () { EMR_DIRTY = true; },
                 });
             } catch (e) {
@@ -540,6 +542,7 @@ Clinic.emr = (function () {
                     beforeVitals: vitalSec,
                     midNode: midNode,
                     mode: isProgress ? 'progress' : 'initial',
+                    allergyHistory: (DATA && DATA.global_patient_info && DATA.global_patient_info.allergies) || '',
                     // 脏标记：任何编辑置位，保存成功/诊毕后清除（beforeunload 拦截用）
                     onChange: function () { EMR_DIRTY = true; },
                 });

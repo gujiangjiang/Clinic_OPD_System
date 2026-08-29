@@ -49,6 +49,9 @@ Clinic.emrEditor = (function () {
     var PREV_DIAGS = [];  // 前序医生诊断上下文（跨医生引用查重用，emr.js 注入）
     var onChange = null;  // 数据变化回调（脏标记用）
 
+    /** 过敏史全局历史（来自患者主表，供续写/新挂号时引用） */
+    var ALLERGY_HIST = '';
+
     /** HTML 转义（诊断名称/医生姓名等来自数据库的文本进模态框前转义） */
     function esc(s) { return Clinic.escHtml(s); }
 
@@ -258,23 +261,129 @@ Clinic.emrEditor = (function () {
         return d;
     }
 
-    /** 过敏史：否认/承认下拉（默认否认），承认后显示填写框 */
+    /** 过敏史：否认/承认按钮（默认否认）。点击弹出过敏史模态框——
+     *  输入多条目（+添加/删除），保存后自动变「承认」并显示内容。
+     *  续写/新挂号默认否认，但模态框内预载历史过敏史，保存即引用。 */
     function buildAllergy() {
         var d = secWrap('过敏史', false);
+        // 隐藏的原始字段（供 FIELDS 收集 / set 填充）
         var sel = simpleSelect('allergies.type', ['否认', '承认'], '否认');
+        sel.style.display = 'none';
         d.appendChild(sel);
         var detailWrap = document.createElement('span');
         detailWrap.className = 'ef-cond';
-        detailWrap.appendChild(textField('allergies.detail', '请填写过敏史', 200));
+        var tf = textField('allergies.detail', '请填写过敏史', 200);
+        tf.style.display = 'none';
+        detailWrap.appendChild(tf);
         d.appendChild(detailWrap);
-        var sync = function () {
-            var v = sel.value;
-            detailWrap.style.display = (v === '承认') ? '' : 'none';
-            if (v !== '承认') detailWrap.querySelector('.ef-field').innerText = '';
+        // 按钮：显示当前状态（否认 / 承认：内容），点击打开模态框
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-outline btn-sm allergy-btn';
+        btn.style.cssText = 'font-size:13px;padding:6px 14px;min-height:32px;margin-left:4px';
+        btn.addEventListener('click', function () {
+            if (READONLY) return;   // 诊毕只读：不弹编辑
+            openAllergyModal();
+        });
+        d.appendChild(btn);
+        var refresh = function () {
+            var type = sel.value || '否认';
+            var detail = tf ? String(tf.innerText || '').trim() : '';
+            btn.textContent = (type === '承认' && detail) ? '承认：' + detail : '否认';
         };
-        sel.addEventListener('change', sync);
-        d.__sync = sync;
+        // set(data) 末尾会对 allergies.type 派发 change 事件，据此刷新按钮
+        sel.addEventListener('change', refresh);
+        d.__sync = refresh;
         return d;
+    }
+
+    /** 读过敏史类型（DOM 字段，默认否认） */
+    function allergyType() {
+        var el = ROOT && ROOT.querySelector('select[data-k="allergies.type"]');
+        return el ? (el.value || '否认') : '否认';
+    }
+
+    /** 读过敏史内容 */
+    function allergyDetail() {
+        var el = ROOT && ROOT.querySelector('[data-k="allergies.detail"]');
+        return el ? String(el.innerText || '').trim() : '';
+    }
+
+    /** 设置过敏史（模态框保存后）：type + detail，并同步显示 */
+    function setAllergy(type, detail) {
+        var sel = ROOT && ROOT.querySelector('select[data-k="allergies.type"]');
+        var tf = ROOT && ROOT.querySelector('[data-k="allergies.detail"]');
+        if (sel) { sel.value = type || '否认'; sel.dispatchEvent(new Event('change')); }
+        if (tf) tf.innerText = detail || '';
+        var btn = ROOT && ROOT.querySelector('.allergy-btn');
+        if (btn) btn.textContent = ((type === '承认' && detail) ? '承认：' + detail : '否认');
+        markDirty();
+    }
+
+    /** 过敏史模态框：输入框 + 列表（历史过敏史预载，+添加/删除，保存引用） */
+    function openAllergyModal() {
+        var items = [];
+        // 预载：历史过敏史（患者主表）+ 当前病历已填，去重
+        var hist = ALLERGY_HIST || '';
+        var cur = allergyDetail();
+        [hist, cur].forEach(function (txt) {
+            if (!txt) return;
+            String(txt).split(/[、，,;；\n\/]/).map(function (s) { return s.trim(); }).filter(Boolean).forEach(function (s) {
+                if (items.indexOf(s) === -1) items.push(s);
+            });
+        });
+        var listBox = 'allergyList';
+        Clinic.modal.open(
+            '<div class="flex gap-4" style="align-items:center">' +
+            '  <input class="input" id="alInput" placeholder="输入过敏史，如：青霉素" style="flex:1" autocomplete="off">' +
+            '  <button type="button" class="btn btn-primary btn-sm" id="alAdd" style="flex-shrink:0">＋</button>' +
+            '</div>' +
+            '<div class="fs-12 text-muted mt-4 mb-4">历史过敏史已预载，可直接保存引用；也可增删后保存。</div>' +
+            '<div id="allergyList" style="max-height:220px;overflow-y:auto"></div>' +
+            '<div class="flex gap-8 mt-8">' +
+            '  <button type="button" class="btn btn-outline" style="flex:1" onclick="Clinic.modal.close()">取消</button>' +
+            '  <button type="button" class="btn btn-primary" style="flex:1" id="alSave">保存</button>' +
+            '</div>',
+            { title: '💊 过敏史', size: 'modal-sm', buttons: [] }
+        );
+        var render = function () {
+            var box = document.getElementById(listBox);
+            if (!box) return;
+            box.innerHTML = items.length ? items.map(function (s, i) {
+                return '<div class="flex-between" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;margin-bottom:4px">' +
+                    '<span style="font-size:13px">' + esc(s) + '</span>' +
+                    '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px" data-rm="' + i + '">✕</button></div>';
+            }).join('') : '<div class="text-muted fs-13 text-center" style="padding:10px">尚未添加过敏史</div>';
+            box.querySelectorAll('[data-rm]').forEach(function (el) {
+                el.addEventListener('click', function () {
+                    items.splice(parseInt(el.getAttribute('data-rm'), 10), 1);
+                    render();
+                });
+            });
+        };
+        render();
+        var add = function () {
+            var inp = document.getElementById('alInput');
+            var v = inp.value.trim();
+            if (!v) return;
+            if (items.indexOf(v) !== -1) { Clinic.toast.warning('该过敏史已存在'); return; }
+            items.push(v);
+            inp.value = '';
+            inp.focus();
+            render();
+        };
+        document.getElementById('alAdd').addEventListener('click', add);
+        document.getElementById('alInput').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); add(); }
+        });
+        document.getElementById('alSave').addEventListener('click', function () {
+            if (items.length) {
+                setAllergy('承认', items.join('、'));
+            } else {
+                setAllergy('否认', '');
+            }
+            Clinic.modal.close();
+        });
     }
 
     /** 主要症状：六类下拉，默认占位不打印；全空整节不打印 */
@@ -401,6 +510,7 @@ Clinic.emrEditor = (function () {
         READONLY = !!opts.readonly;
         MODE = opts.mode === 'progress' ? 'progress' : 'initial';
         onChange = opts.onChange || null;
+        ALLERGY_HIST = opts.allergyHistory || '';
         var TPL = !!opts.templateMode;
 
         ROOT.innerHTML = '';
