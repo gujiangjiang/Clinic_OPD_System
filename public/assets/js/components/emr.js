@@ -230,11 +230,12 @@ Clinic.emr = (function () {
             history_present: { informant: '', duration: '', unit: '', content: '', arrival_way: '' },
             main_symptoms: { 全身症状: '', 呼吸道症状: '', 消化道症状: '', 皮疹症状: '', 出血症状: '', 神经系统症状: '' },
             physical_exam: { 皮肤黏膜: '', 头部: '', 胸部: '', 肺脏及胸膜: '', 心脏: '', 腹部: '', 神经反射: '', 肌力及肌张力: '', 其它体格检查: '' },
-            diagnoses: [],
+diagnoses: [],
             past_history: { type: '否认', detail: '' },
             allergies: { type: '否认', detail: '' },   // 续写默认否认，不自动引用历史
             aux_result: '', aux_external: '', disposition_custom: '', advice: '',
-            vitals: {},
+            is_leave_hospital: '否',   // 留观默认否
+            vitals: {},   // 续写病历独立的生命体征（新建为空，不继承首诊）
         };
         if (ph) defaults.past_history = ph;
         cleanEmr = defaults;
@@ -243,7 +244,7 @@ Clinic.emr = (function () {
             var signEl = document.getElementById('signWrap');
             if (signEl) signEl.textContent = '医生：' + r.doctor_name;
             docBody.innerHTML = '';
-                Clinic.emrEditor.render(docBody, cleanEmr, {
+            Clinic.emrEditor.render(docBody, cleanEmr, {
                 readonly: false,
                 beforeVitals: buildVitalSec(false, cleanEmr.vitals || {}),   // 续写不引用已有生命体征
                 midNode: buildConsciousNode(false, r.consciousness || '清醒'),
@@ -302,11 +303,12 @@ var base = JSON.parse(JSON.stringify(r.emr || {}));
             history_present: { informant: '', duration: '', unit: '', content: '', arrival_way: '' },
             main_symptoms: { 全身症状: '', 呼吸道症状: '', 消化道症状: '', 皮疹症状: '', 出血症状: '', 神经系统症状: '' },
             physical_exam: { 皮肤黏膜: '', 头部: '', 胸部: '', 肺脏及胸膜: '', 心脏: '', 腹部: '', 神经反射: '', 肌力及肌张力: '', 其它体格检查: '' },
-            diagnoses: [],
+diagnoses: [],
             past_history: ph || { type: '否认', detail: '' },
             allergies: { type: '否认', detail: '' },   // 续写默认否认，不自动引用历史
             aux_result: '', aux_external: '', disposition_custom: '', advice: '',
-            vitals: {},
+            is_leave_hospital: '否',   // 留观默认否
+            vitals: {},   // 续写病历独立的生命体征（新建为空，不继承首诊）
         };
         DATA.record.created_at = '';
         DATA.record.updated_at = '';
@@ -1485,11 +1487,9 @@ var base = JSON.parse(JSON.stringify(r.emr || {}));
             if (ownOld) diagMap[key].ownOld = true;
             if (inCurrent) diagMap[key].inCurrent = true;   // 当前编辑文书中存在 → 可删除
         };
-        // 当前编辑文书诊断：归属本人 + inCurrent（当前文书中存在 → 显示删除按钮）
+        // 先遍历其余文书（首诊/旧续写）的诊断——历史诊断在前，新添加的诊断默认在下方；
+        // 再遍历当前编辑文书诊断（归属本人 + inCurrent → 可删除）
         var curRid = DATA.record && DATA.record.record_id;
-        myList3.forEach(function (dg) { pushDiag(dg, true, false, mineDoctorId, false, true); });
-        // 其余文书（跳过当前编辑文书）：按书写者判定——本人旧文书=本人，
-        // 他人文书=他人；ownOld 标记「诊断存在于本人旧文书」（自引判定用）
         (DATA && DATA.records_history ? DATA.records_history : []).forEach(function (h) {
             if ((h.record_id || h.id) === curRid) return;
             var isMine = (h.doctor_id || 0) === mineDoctorId;
@@ -1497,6 +1497,7 @@ var base = JSON.parse(JSON.stringify(r.emr || {}));
                 pushDiag(dg, isMine, !isMine, h.doctor_id || 0, isMine, false);
             });
         });
+        myList3.forEach(function (dg) { pushDiag(dg, true, false, mineDoctorId, false, true); });
         // 按本人保存的全局排序重排（未在排序中的键保持默认相对顺序追加在后）
         var ordRank = {};
         ((DATA && DATA.diag_order) || []).forEach(function (k, i) { ordRank[k] = i; });
@@ -2155,7 +2156,9 @@ var base = JSON.parse(JSON.stringify(r.emr || {}));
                     DATA.records_history.forEach(function (h2) {
                         if (curRid2 && (h2.record_id || h2.id) === curRid2) histEntry = h2;
                     });
-                    if (!histEntry) {
+                    if (!histEntry && !(DATA && DATA.__progress_new)) {
+                        // 仅非新建续写时才按医生回退匹配旧文书；新建续写（progress_new）
+                        // 应新建条目，避免误把首诊 emr 覆盖成续写内容导致侧边栏暂时错乱
                         DATA.records_history.forEach(function (h2) {
                             if (h2.doctor_id === mineId2) histEntry = h2;
                         });
