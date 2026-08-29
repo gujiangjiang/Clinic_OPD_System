@@ -248,7 +248,7 @@ Clinic.emr = (function () {
                 beforeVitals: buildVitalSec(false, cleanEmr.vitals || {}),   // 续写不引用已有生命体征
                 midNode: buildConsciousNode(false, r.consciousness || '清醒'),
                 mode: 'progress',
-                allergyHistory: (DATA && DATA.global_patient_info && DATA.global_patient_info.allergies) || '',
+                allergyHistory: allergyHistorySource(),
                 onChange: function () { EMR_DIRTY = true; },
             });
             refreshReadOnlyBodies(d);
@@ -320,7 +320,7 @@ var base = JSON.parse(JSON.stringify(r.emr || {}));
                     beforeVitals: buildVitalSec(false, DATA.record.emr.vitals || {}),   // 续写不引用已有生命体征
                     midNode: buildConsciousNode(false, '清醒'),
                     mode: 'progress',
-                    allergyHistory: (DATA && DATA.global_patient_info && DATA.global_patient_info.allergies) || '',
+                    allergyHistory: allergyHistorySource(),
                     onChange: function () { EMR_DIRTY = true; },
                 });
             } catch (e) {
@@ -539,7 +539,7 @@ var base = JSON.parse(JSON.stringify(r.emr || {}));
                     beforeVitals: vitalSec,
                     midNode: midNode,
                     mode: isProgress ? 'progress' : 'initial',
-                    allergyHistory: (DATA && DATA.global_patient_info && DATA.global_patient_info.allergies) || '',
+                    allergyHistory: allergyHistorySource(),
                     // 脏标记：任何编辑置位，保存成功/诊毕后清除（beforeunload 拦截用）
                     onChange: function () { EMR_DIRTY = true; },
                 });
@@ -696,6 +696,11 @@ var base = JSON.parse(JSON.stringify(r.emr || {}));
      * 血压 125/75mmHg；心率 80次/分；脉搏 80次/分；血氧 98%；呼吸 18次/分
      * 全部为空显示 -，有数据则只展示已有项
      */
+    /** 过敏史单一数据源：患者主表（patients.allergies）为唯一来源。
+     *  模态框始终从主表读取/写入，病历显示的快照与模态框无关。 */
+    function allergyHistorySource() {
+        return (DATA && DATA.global_patient_info && DATA.global_patient_info.allergies) || '';
+    }
     function vitalDisplayText(v) {
         v = v || {};
         var parts = [];
@@ -2100,6 +2105,8 @@ var base = JSON.parse(JSON.stringify(r.emr || {}));
             emr_data: JSON.stringify(emr),
             consciousness: document.getElementById('consciousness') ? document.getElementById('consciousness').value : '',
             visit_type: document.getElementById('visitType') ? document.getElementById('visitType').value : '初诊',
+            // 过敏史是否通过模态框修改过：仅修改过才同步患者主表（唯一数据源）
+            allergy_modified: (Clinic.emrEditor.isAllergyModified && Clinic.emrEditor.isAllergyModified()) ? 1 : 0,
         };
         if (finish) data.finish = 1;
         // 续写落库标志：本人已有文书后点击「病历节点 +」新建续写（record_id=0，
@@ -2120,6 +2127,11 @@ var base = JSON.parse(JSON.stringify(r.emr || {}));
                 // 同步本地缓存：保存成功后无需刷新页面，开检验/检查/处置/处方与打印病历立即生效
                 if (DATA) {
                     DATA.record.emr = emr;
+                    // 保存后同步全局过敏史：仅当通过模态框修改过（患者主表是唯一数据源）
+                    if (DATA.global_patient_info && Clinic.emrEditor.isAllergyModified && Clinic.emrEditor.isAllergyModified()) {
+                        var alx = emr.allergies || {};
+                        DATA.global_patient_info.allergies = (alx.type === '承认') ? (alx.detail || '') : '';
+                    }
                     // 关键：同步服务端返回的文书 ID。首次保存前 record_id=0，
                     // isRecordComplete() 会因「本人尚无文书」判定不完整，
                     // 导致开单/诊断证明/打印提示需完善病历；回写后即时生效免刷新。

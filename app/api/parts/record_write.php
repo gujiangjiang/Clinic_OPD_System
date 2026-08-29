@@ -287,15 +287,19 @@ function record_part_write($action) {
             json_fail('病历保存失败：' . $ex->getMessage());
         }
 
-        // C. 同步患者主表全局既往史/过敏史：阳性（承认）信息优先保留，
-        // 避免后续文书「否认」覆盖已确认的过敏/病史（多医生接诊场景数据安全）
+        // C. 同步患者主表全局既往史/过敏史
         $curGlobal = DB::one('patient', 'SELECT past_history_type, past_history_detail, allergies FROM patients WHERE patient_no=?', array($visit['patient_no']));
         $phType = (string)$emr['past_history']['type'];
         $phDetail = (string)$emr['past_history']['detail'];
         $alType = isset($emr['allergies']['type']) ? (string)$emr['allergies']['type'] : '';
         $alDetail = isset($emr['allergies']['detail']) ? (string)$emr['allergies']['detail'] : '';
-        // 过敏史：本次「承认」则同步详情；本次否认但全局已有过敏信息 → 保留全局
-        $newAllergy = ($alType === '承认') ? $alDetail : ($curGlobal && $curGlobal['allergies'] !== '' ? $curGlobal['allergies'] : '');
+        // 过敏史：仅当通过模态框修改过（allergy_modified=1）才同步患者主表——
+        // 患者主表是唯一数据源，模态框读写；未打开模态框保存病历不改变主表。
+        $allergyModified = (int)post('allergy_modified', 0);
+        $newAllergy = $curGlobal ? (string)$curGlobal['allergies'] : '';
+        if ($allergyModified === 1) {
+            $newAllergy = ($alType === '承认') ? $alDetail : '';
+        }
         // 既往史：本次「承认」则同步；本次否认但全局为「承认」 → 保留全局
         $newPhType = $phType;
         $newPhDetail = $phDetail;

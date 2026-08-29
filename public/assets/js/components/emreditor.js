@@ -51,6 +51,8 @@ Clinic.emrEditor = (function () {
 
     /** 过敏史全局历史（来自患者主表，供续写/新挂号时引用） */
     var ALLERGY_HIST = '';
+    /** 当前就诊中过敏史是否已被修改过（修改后不再自动预载历史，避免删除后重开又出现） */
+    var ALLERGY_MODIFIED = false;
 
     /** HTML 转义（诊断名称/医生姓名等来自数据库的文本进模态框前转义） */
     function esc(s) { return Clinic.escHtml(s); }
@@ -268,18 +270,18 @@ Clinic.emrEditor = (function () {
         var d = secWrap('过敏史', false);
         // 隐藏的原始字段（供 FIELDS 收集 / set 填充）
         var sel = simpleSelect('allergies.type', ['否认', '承认'], '否认');
-        sel.style.display = 'none';
+        sel.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden';
         d.appendChild(sel);
         var detailWrap = document.createElement('span');
         detailWrap.className = 'ef-cond';
         var tf = textField('allergies.detail', '请填写过敏史', 200);
-        tf.style.display = 'none';
+        tf.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden';
         detailWrap.appendChild(tf);
         d.appendChild(detailWrap);
-        // 可点击文字（下划线+蓝色，同诊断点击样式）：显示「否认」或「承认：内容」
+        // 可点击文字（灰色下划线 + 主题色文字，同诊断点击样式）：显示「否认」或「承认：内容」
         var btn = document.createElement('span');
         btn.className = 'allergy-btn';
-        btn.style.cssText = 'color:var(--primary);font-weight:600;cursor:pointer;border-bottom:1px dashed var(--primary);margin-left:4px;font-size:13px;line-height:1.8';
+        btn.style.cssText = 'color:var(--primary);font-weight:600;cursor:pointer;border-bottom:1px dashed var(--border);font-size:13px;line-height:1.9';
         btn.title = '点击编辑过敏史';
         btn.addEventListener('click', function (e) {
             if (READONLY) return;   // 诊毕只读：不弹编辑
@@ -290,7 +292,7 @@ Clinic.emrEditor = (function () {
         var refresh = function () {
             var type = sel.value || '否认';
             var detail = tf ? String(tf.innerText || '').trim() : '';
-            btn.textContent = (type === '承认' && detail) ? '承认：' + detail : '否认';
+            btn.textContent = (type === '承认' && detail) ? detail : '否认';
         };
         // set(data) 末尾会对 allergies.type 派发 change 事件，据此刷新按钮
         sel.addEventListener('change', refresh);
@@ -312,23 +314,23 @@ Clinic.emrEditor = (function () {
 
     /** 设置过敏史（模态框保存后）：type + detail，并同步显示 */
     function setAllergy(type, detail) {
+        ALLERGY_MODIFIED = true;   // 用户已修改过敏史：不再预载历史，避免删除后重开又出现
+        ALLERGY_HIST = detail || '';   // 模态框即历史数据：保存后同步内存历史，删除持久生效
         var sel = ROOT && ROOT.querySelector('select[data-k="allergies.type"]');
         var tf = ROOT && ROOT.querySelector('[data-k="allergies.detail"]');
         if (sel) { sel.value = type || '否认'; sel.dispatchEvent(new Event('change')); }
         if (tf) tf.innerText = detail || '';
         var btn = ROOT && ROOT.querySelector('.allergy-btn');
-        if (btn) btn.textContent = ((type === '承认' && detail) ? '承认：' + detail : '否认');
+        if (btn) btn.textContent = ((type === '承认' && detail) ? detail : '否认');
         markDirty();
     }
 
     /** 过敏史模态框：输入框 + 列表（+添加/删除，保存引用）
-     *  初始列表：当前已「承认」→ 用已保存列表（删掉的不会因历史重新出现）；
-     *  当前「否认」→ 预载患者历史过敏史（核对保存即引用）。 */
+     *  患者主表（ALLERGY_HIST）是唯一数据源。模态框始终从患者主表读取，
+     *  保存后写入患者主表。病历显示的过敏史是快照，与模态框无关。 */
     function openAllergyModal() {
         var items = [];
-        var curType = allergyType();
-        var curDetail = allergyDetail();
-        var seed = (curType === '承认') ? curDetail : (ALLERGY_HIST || '');
+        var seed = ALLERGY_HIST || '';
         if (seed) {
             String(seed).split(/[、，,;；\n\/]/).map(function (s) { return s.trim(); }).filter(Boolean).forEach(function (s) {
                 if (items.indexOf(s) === -1) items.push(s);
@@ -340,7 +342,7 @@ Clinic.emrEditor = (function () {
             '  <input class="input" id="alInput" placeholder="输入过敏史，如：青霉素" style="flex:1" autocomplete="off">' +
             '  <button type="button" class="btn btn-primary btn-sm" id="alAdd" style="flex-shrink:0">＋</button>' +
             '</div>' +
-            '<div class="fs-12 text-muted mt-4 mb-4">' + (curType === '否认' ? '患者历史过敏史已预载，核对无误可直接保存引用；也可增删后保存。' : '已保存的过敏史，可增删后保存。') + '</div>' +
+            '<div class="fs-12 text-muted mt-4 mb-4">' + (items.length ? '当前列表（可直接修改后保存）。' : '尚未添加过敏史，可直接输入添加；也可在病历中保存后引用。') + '</div>' +
             '<div id="allergyList" style="max-height:220px;overflow-y:auto"></div>' +
             '<div class="flex gap-8 mt-8">' +
             '  <button type="button" class="btn btn-outline" style="flex:1" onclick="Clinic.modal.close()">取消</button>' +
@@ -513,6 +515,7 @@ Clinic.emrEditor = (function () {
         MODE = opts.mode === 'progress' ? 'progress' : 'initial';
         onChange = opts.onChange || null;
         ALLERGY_HIST = opts.allergyHistory || '';
+        ALLERGY_MODIFIED = false;   // 新文档渲染：过敏史尚未修改，可预载历史
         var TPL = !!opts.templateMode;
 
         ROOT.innerHTML = '';
@@ -661,6 +664,8 @@ Clinic.emrEditor = (function () {
         setPrevDiagnoses: setPrevDiagnoses,
         findPrevDiag: findPrevDiag,
         markDirty: markDirty,
+        /** 过敏史是否被模态框修改过（保存病历时的 allergy_modified 标志） */
+        isAllergyModified: function () { return ALLERGY_MODIFIED; },
         /** 外部同步诊断列表（服务端已持久化，仅同步显示，不置脏标记） */
         setDiags: function (list) {
             DIAGS = Array.isArray(list) ? list : [];
