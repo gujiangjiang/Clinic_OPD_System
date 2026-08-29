@@ -31,7 +31,18 @@ function pt_order($order, $items, $title) {
         $val = ($val !== '' && $val !== null) ? $val : '—';
         return '<span class="print-info-cell"><strong>' . e($k) . '</strong>：' . e($val) . '</span>';
     };
-    // 患者信息：第一行 姓名/性别/出生日期/年龄，第二行 患者ID/流水号/单号，第三行 临床诊断
+    // 开单科室：取开单医生当前科室（单号已由右上角条形码展示，这里显示科室）
+    $deptName = '';
+    $docU = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array((int)$order['doctor_id']));
+    if ($docU && (int)$docU['current_dept_id'] > 0) {
+        $dp = DB::one('dept', 'SELECT name FROM departments WHERE id=?', array((int)$docU['current_dept_id']));
+        if ($dp) $deptName = $dp['name'];
+    }
+    if ($deptName === '') {
+        $ordVisit = DB::one('patient', 'SELECT current_dept_name FROM registrations WHERE id=?', array((int)$order['visit_id']));
+        if ($ordVisit) $deptName = $ordVisit['current_dept_name'];
+    }
+    // 患者信息：第一行 姓名/性别/出生日期/年龄，第二行 患者ID/流水号/开单科室，第三行 临床诊断
     $html .= '<div class="print-info-lines">' .
         '<div class="print-info-line">' .
         $cell('姓名', $patient ? $patient['name'] : '') .
@@ -41,7 +52,7 @@ function pt_order($order, $items, $title) {
         '<div class="print-info-line">' .
         $cell('患者ID', $order['patient_no']) .
         $cell('流水号', $order['flow_no']) .
-        $cell('单号', $order['order_no']) . '</div>' .
+        $cell('开单科室', $deptName) . '</div>' .
         '<div class="print-diag"><strong>临床诊断</strong>：' . e($diagText !== '' ? $diagText : '—') . '</div>' .
         '</div><div class="print-line"></div>';
 
