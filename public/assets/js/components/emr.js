@@ -92,6 +92,13 @@ Clinic.emr = (function () {
                 // 会诊列表渲染（门诊处置「请X科会诊」数据源：DATA.consults）
                 CONSULTS = j.data.consults || [];
                 renderConsultList();
+                // 会诊模式：本人正在会诊处理中 → 隐藏会诊分区「＋」（不可再发起会诊）
+                var curDeptIdC = (j.data.visit && j.data.visit.current_dept_id) || 0;
+                var inConsult = (j.data.consults || []).some(function (c) {
+                    return (c.target_dept_id || 0) === curDeptIdC && (c.status === 'pending' || c.status === 'doing');
+                });
+                var consAdd = document.querySelector('.ena-sec-title .ena-add[title="发起会诊"]');
+                if (consAdd) consAdd.style.display = inConsult ? 'none' : '';
                 // 前序医生诊断上下文注入（诊断模态框跨医生引用查重用）
                 injectPrevDiagContext();
                 bindItemTokenDelegate();

@@ -44,6 +44,14 @@ function record_part_delete($action) {
         if ((int)$rec['dept_id'] !== (int)$row['visit']['current_dept_id']) {
             json_fail('该病历书写于转科前科室，当前科室下为只读状态，不可删除');
         }
+        // 2.7 会诊病历回退：删除会诊病历 = 放弃本次会诊处理 → 会诊状态回退待会诊
+        $recConsultId = (int)$rec['consultation_id'];
+        if ($recConsultId > 0) {
+            $cons = DB::one('consultation', 'SELECT * FROM consultations WHERE id=?', array($recConsultId));
+            if ($cons && $cons['status'] === 'doing') {
+                DB::exec('consultation', "UPDATE consultations SET status='pending', accepted_by='', accepted_at='' WHERE id=?", array($recConsultId));
+            }
+        }
         // 3. 删除（物理删除 + 镜像清理）
         $pdo = DatabaseManager::pdo('medical');
         try {

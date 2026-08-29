@@ -61,6 +61,9 @@ switch ($action) {
         $visit = $row['visit'];
         if ($visit['status'] === 'finished') json_fail('该患者已诊毕，病历已归档');
         if (!visit_access_allowed($visit, $u)) json_fail('该病历超出您的可查看历史天数，无法发起会诊');
+        // 会诊拦截：本人已书写会诊病历（正在处理其他科室的会诊）→ 不可再发起会诊
+        $ownConsult = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0', array($visitId, $u['id']));
+        if ($ownConsult > 0) json_fail('您正在会诊处理中，不可再发起会诊');
         $targetDeptId = (int)post('target_dept_id', 0);
         if ($targetDeptId <= 0) json_fail('请选择会诊科室');
         // 目标科室必须合法且不能是当前科室
@@ -190,12 +193,14 @@ switch ($action) {
         json_ok(array(), '会诊已完毕');
         break;
 
-    /* ==================== 删除会诊（仅发起医生本人） ==================== */
+    /* ==================== 删除会诊（仅发起医生本人，且未被接收处理） ==================== */
     case 'delete':
         $cid = did(post('id'));
         $c = DB::one('consultation', 'SELECT * FROM consultations WHERE id=?', array($cid));
         if (!$c) json_fail('会诊记录不存在');
         if ((int)$c['from_doctor_id'] !== (int)$u['id']) json_fail('仅发起会诊本人可删除');
+        // 已被接收（doing/done）的会诊不可删除——B 科室已投入处理
+        if ($c['status'] !== 'pending') json_fail('该会诊已被接收科室处理，不可删除');
         DB::exec('consultation', 'DELETE FROM consultations WHERE id=?', array($cid));
         json_ok(array(), '会诊已删除');
         break;
