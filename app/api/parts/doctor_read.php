@@ -222,9 +222,9 @@ function doctor_part_read($action) {
             WHERE r.current_dept_id=? AND date(r.register_time)>=?
             AND r.status IN ('paid','visiting','finished')
             ORDER BY r.register_time DESC", array($deptId, $since));
-        // 急诊科室号源统一显示「昼夜」（不区分上下午）
-        $isEmergency = (int)DB::val('dept', "SELECT COUNT(*) FROM departments WHERE id=? AND type='emergency'", array($deptId)) > 0;
-        $list = array_map(function ($r) use ($isEmergency) {
+        // 急诊科室号源统一显示「昼夜」（不区分上下午）；号源按患者【挂号科室】判断
+        $list = array_map(function ($r) {
+            $regEmergency = (int)DB::val('dept', "SELECT COUNT(*) FROM departments WHERE id=? AND type='emergency'", array((int)$r['first_dept_id'])) > 0;
             return array(
                 'code' => oid($r['id']),
                 'name' => $r['pname'], 'gender' => $r['pgender'],
@@ -233,7 +233,7 @@ function doctor_part_read($action) {
                 'time' => substr($r['register_time'], 11, 5),
                 'dept_name' => $r['first_dept_name'],
                 'visit_seq' => (int)$r['visit_seq'],
-                'session_text' => $isEmergency ? '昼夜' : ($r['session'] === 'pm' ? '下午' : '上午'),
+                'session_text' => $regEmergency ? '昼夜' : ($r['session'] === 'pm' ? '下午' : '上午'),
                 'status' => $r['status'],
                 'finish_date' => !empty($r['finish_time']) ? substr($r['finish_time'], 0, 10) : '',
                 'finish_time' => !empty($r['finish_time']) ? substr($r['finish_time'], 11, 5) : '',
@@ -256,15 +256,16 @@ function doctor_part_read($action) {
         if ($consVisits) {
             $phC = implode(',', array_fill(0, count($consVisits), '?'));
             // 注意：不加 current_dept_id 过滤——患者转科不影响已发会诊的展示
-            $cRows = DB::q('patient', "SELECT r.id, r.patient_no, r.visit_seq, r.first_dept_name, r.session,
+            $cRows = DB::q('patient', "SELECT r.id, r.patient_no, r.visit_seq, r.first_dept_id, r.first_dept_name, r.session,
                     r.status, r.register_time, r.finish_time,
                     p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
                 FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
                 WHERE r.id IN ($phC)
                 ORDER BY r.register_time DESC", $consVisits);
-            $isEmergency = (int)DB::val('dept', "SELECT COUNT(*) FROM departments WHERE id=? AND type='emergency'", array($deptId)) > 0;
             foreach ($cRows as $r) {
                 $cs = $consStatus[(int)$r['id']];
+                // 号源按患者【挂号科室】判断（急诊科挂号显示昼夜，转科不改变）
+                $regEmergency = (int)DB::val('dept', "SELECT COUNT(*) FROM departments WHERE id=? AND type='emergency'", array((int)$r['first_dept_id'])) > 0;
                 $consultations[] = array(
                     'code' => oid($r['id']),
                     'consult_code' => $cs['code'],
@@ -275,7 +276,7 @@ function doctor_part_read($action) {
                     'time' => substr($r['register_time'], 11, 5),
                     'dept_name' => $r['first_dept_name'],
                     'visit_seq' => (int)$r['visit_seq'],
-                    'session_text' => $isEmergency ? '昼夜' : ($r['session'] === 'pm' ? '下午' : '上午'),
+                    'session_text' => $regEmergency ? '昼夜' : ($r['session'] === 'pm' ? '下午' : '上午'),
                     'status' => $r['status'],
                 );
             }

@@ -137,7 +137,8 @@ Clinic.queuePanel = (function () {
         var cell = function (cls, text, title) {
             return '<span class="qp-cell ' + cls + '"' + (title ? ' title="' + escHtml(title) + '"' : '') + '>' + text + '</span>';
         };
-        return '<div class="qp-row" data-code="' + r.code + '">' +
+        return '<div class="qp-row" data-code="' + r.code + '"' +
+            (r.consult_code ? ' data-consult-code="' + escHtml(r.consult_code) + '"' : '') + '>' +
             cell('qp-c-date fs-13 text-muted', r.date.substr(5)) +
             cell('qp-c-time fs-13 text-muted', r.time) +
             cell('qp-c-dept fs-13 fw-600', escHtml(r.dept_name), r.dept_name) +
@@ -206,9 +207,10 @@ Clinic.queuePanel = (function () {
         return '<span class="status-indicator ' + cls + '" title="' + txt + '"></span>';
     }
 
-    /* 候诊列表会诊行点击：弹出会诊详情（直接复用病历页 openConsultDetail，
-     * 详情底部待会诊时显示「确认会诊」进入病历书写） */
+    /* 候诊列表会诊行点击：关闭面板后弹出会诊详情（直接复用病历页
+     * openConsultDetail，详情底部待会诊时显示「确认会诊」进入病历书写） */
     function openConsultFromQueue(code) {
+        closePanel();
         Clinic.emr.openConsultDetail(code, true);
     }
 
@@ -269,13 +271,13 @@ Clinic.queuePanel = (function () {
         bindRowClicks(p);
     }
 
-    /* 绑定患者条目点击（候诊行 data-code / 会诊行 data-code=患者号） */
+    /* 绑定患者条目点击：会诊行（带 data-consult-code）弹会诊详情；其余跳病历 */
     function bindRowClicks(p) {
         p.querySelectorAll('.qp-row:not(.qp-head)').forEach(function (row) {
             row.addEventListener('click', function () {
+                var consultCode = row.getAttribute('data-consult-code');
+                if (consult && consultCode) { openConsultFromQueue(consultCode); return; }
                 var code = row.getAttribute('data-code');
-                // 会诊行：弹出会诊详情（确认会诊后才进入病历书写）
-                if (consult) { openConsultFromQueue(code); return; }
                 closePanel();
                 location.href = '/doctor/emr?visit_id=' + code;
             });
