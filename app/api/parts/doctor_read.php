@@ -255,13 +255,13 @@ function doctor_part_read($action) {
         $consultations = array();
         if ($consVisits) {
             $phC = implode(',', array_fill(0, count($consVisits), '?'));
-            $paramsC = array_merge(array($deptId), $consVisits);
+            // 注意：不加 current_dept_id 过滤——患者转科不影响已发会诊的展示
             $cRows = DB::q('patient', "SELECT r.id, r.patient_no, r.visit_seq, r.first_dept_name, r.session,
                     r.status, r.register_time, r.finish_time,
                     p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
                 FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-                WHERE r.current_dept_id=? AND r.id IN ($phC)
-                ORDER BY r.register_time DESC", $paramsC);
+                WHERE r.id IN ($phC)
+                ORDER BY r.register_time DESC", $consVisits);
             $isEmergency = (int)DB::val('dept', "SELECT COUNT(*) FROM departments WHERE id=? AND type='emergency'", array($deptId)) > 0;
             foreach ($cRows as $r) {
                 $cs = $consStatus[(int)$r['id']];

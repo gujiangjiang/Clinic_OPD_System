@@ -118,13 +118,12 @@ Clinic.queuePanel = (function () {
             .sort(function (a, b) { return (a.date + ' ' + a.time).localeCompare(b.date + ' ' + b.time); });
     }
 
-    /* 状态徽章（consult 模式显示会诊状态：待会诊/会诊中/会诊完毕） */
+    /* 状态徽章（consult 模式显示会诊状态，与候诊状态徽章同款配色） */
     function statusBadge(st, consultStatus) {
         if (consult) {
-            var dotCls = consultStatus === 'done' ? 'green' : (consultStatus === 'doing' ? 'red' : 'gray');
-            var consName = consultStatus === 'done' ? '会诊完毕' : (consultStatus === 'doing' ? '会诊中' : '待会诊');
-            return '<span class="badge badge-gray" style="font-size:11px;display:inline-flex;align-items:center;gap:4px" title="' + consName + '">' +
-                '<span class="status-indicator ' + dotCls + '" style="margin-right:0"></span>' + consName + '</span>';
+            if (consultStatus === 'done') return '<span class="badge badge-gray" style="font-size:11px">会诊完毕</span>';
+            if (consultStatus === 'doing') return '<span class="badge badge-danger" style="font-size:11px">会诊中</span>';
+            return '<span class="badge badge-warning" style="font-size:11px">待会诊</span>';
         }
         if (st === 'finished') return '<span class="badge badge-gray" style="font-size:11px">诊毕</span>';
         if (st === 'visiting') return '<span class="badge badge-warning" style="font-size:11px">就诊中</span>';
