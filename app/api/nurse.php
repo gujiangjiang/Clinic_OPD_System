@@ -273,11 +273,12 @@ switch ($action) {
         json_ok(array(), '执行成功（执行护士：' . $u['name'] . '）');
         break;
 
-    /* ==================== 生命体征：读取（最新一条） ==================== */
+    /* ==================== 生命体征：读取全部（按时间升序，供趋势分析） ==================== */
     case 'vitals':
         $visitId = did(get('visit_id'));
-        $v = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visitId));
-        json_ok(array('vitals' => $v ? $v : null));
+        $all = DB::q('nurse', 'SELECT * FROM vitals WHERE visit_id=? ORDER BY id ASC', array($visitId));
+        $latest = $all ? end($all) : null;
+        json_ok(array('vitals' => $latest ? $latest : null, 'vitals_history' => $all ? $all : array()));
         break;
 
     /* ==================== 生命体征：保存（与医生站同接口双向同步） ==================== */

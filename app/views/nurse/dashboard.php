@@ -172,13 +172,69 @@ function loadPatients() {
     });
 }
 
-/* ---------- 生命体征（与医生站共用接口双向同步） ---------- */
+/* ---------- 生命体征（与医生站共用接口双向同步，含趋势折线图） ---------- */
+/* 简易 SVG 折线图：values 数值数组 → 内联 SVG polyline */
+function vitalsTrendSvg(values, min, max) {
+    var n = values.length;
+    if (n < 1) return '';
+    var W = 180, H = 36, pad = 2;
+    var range = (max - min) || 1;
+    var pts = values.map(function (v, i) {
+        var x = pad + (n === 1 ? W / 2 : i * (W - pad * 2) / (n - 1));
+        var y = H - pad - ((Math.min(Math.max(v, min), max) - min) / range) * (H - pad * 2);
+        return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    return '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" style="vertical-align:middle">' +
+        '<polyline points="' + pts + '" fill="none" stroke="var(--primary,#2563eb)" stroke-width="1.5"/>' +
+        (n === 1 ? '<circle cx="' + (W / 2).toFixed(1) + '" cy="' + (H / 2).toFixed(1) + '" r="2.5" fill="var(--primary,#2563eb)"/>' : '') +
+        '</svg>';
+}
+
 function openVitals(visitId) {
     Clinic.get('/api/nurse?action=vitals&visit_id=' + visitId, null, {
         onSuccess: function (json) {
             var v = json.data.vitals || {};
+            var hist = json.data.vitals_history || [];
             var val = function (x) { return x || ''; };
+            // 各指标数值序列（按时间升序）
+            var series = {
+                '收缩压': { key: 'bp_systolic', unit: 'mmHg', min: 60, max: 200 },
+                '舒张压': { key: 'bp_diastolic', unit: 'mmHg', min: 40, max: 130 },
+                '心率': { key: 'heart_rate', unit: '次/分', min: 40, max: 150 },
+                '血氧': { key: 'spo2', unit: '%', min: 80, max: 100 },
+            };
+            var chartHtml = '';
+            Object.keys(series).forEach(function (label) {
+                var cfg = series[label];
+                var vals = hist.map(function (r) { return parseFloat(r[cfg.key]) || 0; }).filter(function (x) { return x > 0; });
+                if (!vals.length) return;
+                chartHtml += '<div style="display:flex;align-items:center;gap:10px;padding:2px 0">' +
+                    '<span style="width:44px;font-size:12px;color:var(--text-muted);flex-shrink:0">' + label + '</span>' +
+                    vitalsTrendSvg(vals, cfg.min, cfg.max) +
+                    '<span style="font-size:12px;flex-shrink:0">' + vals[vals.length - 1] + cfg.unit + '</span></div>';
+            });
+            // 历史记录表格
+            var histRows = hist.length ? hist.map(function (r) {
+                return '<tr><td>' + Clinic.escHtml(r.created_at || '').slice(5, 16) + '</td>' +
+                    '<td>' + Clinic.escHtml(r.bp_systolic || '-') + '/' + Clinic.escHtml(r.bp_diastolic || '-') + '</td>' +
+                    '<td>' + Clinic.escHtml(r.heart_rate || '-') + '</td>' +
+                    '<td>' + Clinic.escHtml(r.pulse || '-') + '</td>' +
+                    '<td>' + Clinic.escHtml(r.spo2 || '-') + '%</td>' +
+                    '<td>' + Clinic.escHtml(r.respiration || '-') + '</td>' +
+                    '<td>' + Clinic.escHtml(r.operator || '') + '</td></tr>';
+            }).join('') : '<tr><td colspan="7" class="text-muted text-center">暂无记录</td></tr>';
+            var trendHtml = chartHtml
+                ? '<div style="background:var(--bg-soft);border-radius:10px;padding:10px;margin-bottom:10px">' +
+                  '<div class="fs-13 fw-700 mb-4">📈 生命体征趋势</div>' + chartHtml + '</div>'
+                : '';
+            var histHtml = hist.length
+                ? '<div style="max-height:180px;overflow-y:auto;margin-bottom:10px"><table class="table table-sm" style="font-size:12px"><thead><tr>' +
+                  '<th>时间</th><th>血压</th><th>心率</th><th>脉搏</th><th>血氧</th><th>呼吸</th><th>录入人</th></tr></thead><tbody>' +
+                  histRows + '</tbody></table></div>'
+                : '';
             Clinic.modal.open(
+                trendHtml +
+                histHtml +
                 '<div class="form-row">' +
                 '<div class="form-group"><label class="form-label">收缩压（mmHg）</label><input class="input" id="vSys" type="number" min="0" value="' + val(v.bp_systolic) + '"></div>' +
                 '<div class="form-group"><label class="form-label">舒张压（mmHg）</label><input class="input" id="vDia" type="number" min="0" value="' + val(v.bp_diastolic) + '"></div></div>' +
@@ -188,10 +244,10 @@ function openVitals(visitId) {
                 '<div class="form-row">' +
                 '<div class="form-group"><label class="form-label">血氧饱和度（%）</label><input class="input" id="vSpO2" value="' + val(v.spo2) + '"></div>' +
                 '<div class="form-group"><label class="form-label">呼吸（次/分）</label><input class="input" id="vRR" value="' + val(v.respiration) + '"></div></div>' +
-                '<div class="fs-12 text-muted">保存后医生工作站病历将自动同步显示。</div>',
+                '<div class="fs-12 text-muted">每次保存将新增一条体征记录（含本次），保存后医生工作站病历将自动同步显示。</div>',
                 {
-                    title: '生命体征录入',
-                    size: 'modal-sm',
+                    title: '生命体征录入与趋势',
+                    size: 'modal-lg',
                     buttons: [
                         { text: '取消', cls: 'btn-outline' },
                         {
