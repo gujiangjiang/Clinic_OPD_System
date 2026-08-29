@@ -219,12 +219,11 @@ Clinic.emr = (function () {
         if (!docBody || !DATA) return;
         var r = DATA.record;
         var d = DATA;
-        // 续写 = 全新独立病历：只保留既往史和过敏史，其余清空
+// 续写 = 全新独立病历：只保留既往史，过敏史默认否认（不自动引用，手动确认后才引入）
         var cleanEmr = JSON.parse(JSON.stringify(r.emr || {}));
-        // 保留既往史和过敏史
+        // 保留既往史
         var ph = cleanEmr.past_history;
-        var al = cleanEmr.allergies;
-        // 重置为默认空结构（只保留既往史和过敏史）
+        // 重置为默认空结构（只保留既往史）
         var defaults = {
             progress: { content: '' },
             chief_complaint: { symptom: '', duration: '', unit: '', second_symptom: '', second_duration: '', second_unit: '' },
@@ -233,12 +232,11 @@ Clinic.emr = (function () {
             physical_exam: { 皮肤黏膜: '', 头部: '', 胸部: '', 肺脏及胸膜: '', 心脏: '', 腹部: '', 神经反射: '', 肌力及肌张力: '', 其它体格检查: '' },
             diagnoses: [],
             past_history: { type: '否认', detail: '' },
-            allergies: { type: '否认', detail: '' },
+            allergies: { type: '否认', detail: '' },   // 续写默认否认，不自动引用历史
             aux_result: '', aux_external: '', disposition_custom: '', advice: '',
-            vitals: {},   // 续写病历独立的生命体征（新建为空，不继承首诊）
+            vitals: {},
         };
         if (ph) defaults.past_history = ph;
-        if (al) defaults.allergies = al;
         cleanEmr = defaults;
         try {
             fillContHead(r);
@@ -296,9 +294,8 @@ Clinic.emr = (function () {
         DATA.__edit_record_id = 0;   // 新建续写走 progress_new，不使用精确回写
         DATA.record.record_id = 0;
         DATA.record.record_type = 'progress';
-        var base = JSON.parse(JSON.stringify(r.emr || {}));
+var base = JSON.parse(JSON.stringify(r.emr || {}));
         var ph = base.past_history;
-        var al = base.allergies;
         DATA.record.emr = {
             progress: { content: '' },
             chief_complaint: { symptom: '', duration: '', unit: '', second_symptom: '', second_duration: '', second_unit: '' },
@@ -307,9 +304,9 @@ Clinic.emr = (function () {
             physical_exam: { 皮肤黏膜: '', 头部: '', 胸部: '', 肺脏及胸膜: '', 心脏: '', 腹部: '', 神经反射: '', 肌力及肌张力: '', 其它体格检查: '' },
             diagnoses: [],
             past_history: ph || { type: '否认', detail: '' },
-            allergies: al || { type: '否认', detail: '' },
+            allergies: { type: '否认', detail: '' },   // 续写默认否认，不自动引用历史
             aux_result: '', aux_external: '', disposition_custom: '', advice: '',
-            vitals: {},   // 续写病历独立的生命体征（新建为空，不继承首诊）
+            vitals: {},
         };
         DATA.record.created_at = '';
         DATA.record.updated_at = '';

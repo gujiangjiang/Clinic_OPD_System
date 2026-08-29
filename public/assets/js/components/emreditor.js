@@ -276,13 +276,14 @@ Clinic.emrEditor = (function () {
         tf.style.display = 'none';
         detailWrap.appendChild(tf);
         d.appendChild(detailWrap);
-        // 按钮：显示当前状态（否认 / 承认：内容），点击打开模态框
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'btn btn-outline btn-sm allergy-btn';
-        btn.style.cssText = 'font-size:13px;padding:6px 14px;min-height:32px;margin-left:4px';
-        btn.addEventListener('click', function () {
+        // 可点击文字（下划线+蓝色，同诊断点击样式）：显示「否认」或「承认：内容」
+        var btn = document.createElement('span');
+        btn.className = 'allergy-btn';
+        btn.style.cssText = 'color:var(--primary);font-weight:600;cursor:pointer;border-bottom:1px dashed var(--primary);margin-left:4px;font-size:13px;line-height:1.8';
+        btn.title = '点击编辑过敏史';
+        btn.addEventListener('click', function (e) {
             if (READONLY) return;   // 诊毕只读：不弹编辑
+            e.stopPropagation();
             openAllergyModal();
         });
         d.appendChild(btn);
@@ -320,25 +321,26 @@ Clinic.emrEditor = (function () {
         markDirty();
     }
 
-    /** 过敏史模态框：输入框 + 列表（历史过敏史预载，+添加/删除，保存引用） */
+    /** 过敏史模态框：输入框 + 列表（+添加/删除，保存引用）
+     *  初始列表：当前已「承认」→ 用已保存列表（删掉的不会因历史重新出现）；
+     *  当前「否认」→ 预载患者历史过敏史（核对保存即引用）。 */
     function openAllergyModal() {
         var items = [];
-        // 预载：历史过敏史（患者主表）+ 当前病历已填，去重
-        var hist = ALLERGY_HIST || '';
-        var cur = allergyDetail();
-        [hist, cur].forEach(function (txt) {
-            if (!txt) return;
-            String(txt).split(/[、，,;；\n\/]/).map(function (s) { return s.trim(); }).filter(Boolean).forEach(function (s) {
+        var curType = allergyType();
+        var curDetail = allergyDetail();
+        var seed = (curType === '承认') ? curDetail : (ALLERGY_HIST || '');
+        if (seed) {
+            String(seed).split(/[、，,;；\n\/]/).map(function (s) { return s.trim(); }).filter(Boolean).forEach(function (s) {
                 if (items.indexOf(s) === -1) items.push(s);
             });
-        });
+        }
         var listBox = 'allergyList';
         Clinic.modal.open(
             '<div class="flex gap-4" style="align-items:center">' +
             '  <input class="input" id="alInput" placeholder="输入过敏史，如：青霉素" style="flex:1" autocomplete="off">' +
             '  <button type="button" class="btn btn-primary btn-sm" id="alAdd" style="flex-shrink:0">＋</button>' +
             '</div>' +
-            '<div class="fs-12 text-muted mt-4 mb-4">历史过敏史已预载，可直接保存引用；也可增删后保存。</div>' +
+            '<div class="fs-12 text-muted mt-4 mb-4">' + (curType === '否认' ? '患者历史过敏史已预载，核对无误可直接保存引用；也可增删后保存。' : '已保存的过敏史，可增删后保存。') + '</div>' +
             '<div id="allergyList" style="max-height:220px;overflow-y:auto"></div>' +
             '<div class="flex gap-8 mt-8">' +
             '  <button type="button" class="btn btn-outline" style="flex:1" onclick="Clinic.modal.close()">取消</button>' +
