@@ -158,44 +158,40 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
     // 已开项目所见即所得：辅助检查（检验/检查）+ 门诊处置（处置/处方），与病历编辑页一致
     // 辅助检查：仅显示项目名称；处置：不换行显示名称×数量；处方：每行一个药品（名称/剂量/用法/途径/数量）
     // 多医生接诊：已开项目按该文书医生本人过滤（谁开单归属谁的病历）
-    // 续写/会诊病历：完全独立个体，不拉取该医生历史开单（开单属首诊/就诊级），仅展示本记录手工字段
+    // 开单与病历强关联：仅打印本记录（record_id）名下开单；旧数据（record_id=0）回退按医生归属
     $aux = array();
     $procs = array();
     $rxs = array();
-    if (!$isProgress) {
-        $orderSql = "SELECT * FROM orders WHERE visit_id=? AND status NOT IN ('refunded','cancelled')";
-        $orderParams = array($visit['id']);
-        if (!empty($record['doctor_id'])) {
-            $orderSql .= ' AND doctor_id=?';
-            $orderParams[] = (int)$record['doctor_id'];
-        }
-        // 开单按病历强关联：仅打印本记录（record_id）名下开单；
-        // 旧数据（record_id=0）回退按医生归属（该医生本就诊全部开单）
-        $recPrintId = (int)(isset($record['id']) ? $record['id'] : 0);
-        $orderSql .= ' AND (record_id=? OR record_id=0)';
-        $orderParams[] = $recPrintId;
-        $orderSql .= ' ORDER BY id ASC';
-        $orders = DB::q('order', $orderSql, $orderParams);
-        foreach ($orders as $o) {
-            $its = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
-            foreach ($its as $it) {
-                if ($it['item_name'] === '' || $it['item_name'] === null) continue; // 防空名明细
-                if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
-                    $aux[] = e($it['item_name']);
-                } elseif ($o['order_type'] === 'procedure') {
-                    $procs[] = e($it['item_name']) . '×' . (int)$it['quantity'];
-                }
+    $recPrintId = (int)(isset($record['id']) ? $record['id'] : 0);
+    $orderSql = "SELECT * FROM orders WHERE visit_id=? AND status NOT IN ('refunded','cancelled')";
+    $orderParams = array($visit['id']);
+    if (!empty($record['doctor_id'])) {
+        $orderSql .= ' AND doctor_id=?';
+        $orderParams[] = (int)$record['doctor_id'];
+    }
+    $orderSql .= " AND (record_id=? OR record_id=0)";
+    $orderParams[] = $recPrintId;
+    $orderSql .= ' ORDER BY id ASC';
+    $orders = DB::q('order', $orderSql, $orderParams);
+    foreach ($orders as $o) {
+        $its = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
+        foreach ($its as $it) {
+            if ($it['item_name'] === '' || $it['item_name'] === null) continue; // 防空名明细
+            if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
+                $aux[] = e($it['item_name']);
+            } elseif ($o['order_type'] === 'procedure') {
+                $procs[] = e($it['item_name']) . '×' . (int)$it['quantity'];
             }
-            // 处方行统一走公共方法：成组医嘱树形格式（主药全要素、子药 ├─/└─ 缩进含剂量，
-            // 组内频次/途径/数量仅主药行一次），与病历编辑页、打印快照全系统一致
-            if ($o['order_type'] !== 'prescription') continue;
-            foreach (emr_rx_display_lines($its) as $l) { $rxs[] = e($l); }
         }
-        // 会诊：首诊记录显示「请X科会诊」（与病历编辑页一致）
-        $consRows = DB::q('consultation', "SELECT target_dept_name FROM consultations WHERE visit_id=? AND from_doctor_id=? ORDER BY id ASC", array($visit['id'], (int)$record['doctor_id']));
-        foreach ($consRows as $cr) {
-            $procs[] = '请' . e($cr['target_dept_name']) . '会诊';
-        }
+        // 处方行统一走公共方法：成组医嘱树形格式（主药全要素、子药 ├─/└─ 缩进含剂量，
+        // 组内频次/途径/数量仅主药行一次），与病历编辑页、打印快照全系统一致
+        if ($o['order_type'] !== 'prescription') continue;
+        foreach (emr_rx_display_lines($its) as $l) { $rxs[] = e($l); }
+    }
+    // 会诊：本人发起的会诊在门诊处置中显示「请X科会诊」（与病历编辑页一致）
+    $consRows = DB::q('consultation', "SELECT target_dept_name FROM consultations WHERE visit_id=? AND from_doctor_id=? ORDER BY id ASC", array($visit['id'], (int)$record['doctor_id']));
+    foreach ($consRows as $cr) {
+        $procs[] = '请' . e($cr['target_dept_name']) . '会诊';
     }
     if ($emrStructured) {
         // 结构化：辅助检查 = 已开项目 + 手工结果 + 外院结果；门诊处置 = 处方行 + 处置(含数量) + 自定义

@@ -48,24 +48,26 @@ Clinic.emr.segments = (function () {
         // （开单自动入病历展示，按 record_id 强关联，杜绝跨病历串显示）；
         // 续写/会诊记录：完全独立个体，只展示本记录自身手工字段，绝不拉取其他记录开单
         var auxParts = [];
-        var dispParts = [];
         var rxHtml = '';
+        var procParts = [];
         if (!isProgress) {
             var t2 = Clinic.emr.orders.orderTextsFor(rec.doctor_id || 0, rec.record_id || rec.id || 0);
             t2.aux.forEach(function (n) { auxParts.push(escHtml(n)); });
-            t2.proc.forEach(function (p) { dispParts.push(escHtml(p)); });
-            rxHtml = t2.rxs.map(function (l) { return '<div>' + escHtml(l) + '</div>'; }).join('');
+            // 门诊处置：与打印格式一致——处方每行一条，处置项汇总在后方
+            if (t2.rxs.length) {
+                rxHtml = t2.rxs.map(function (l) { return '<div>' + l + '</div>'; }).join('');
+            }
+            t2.proc.forEach(function (p) { procParts.push(escHtml(p)); });
         }
         [e.aux_result, e.aux_external].forEach(function (x) {
             if (x && String(x).trim()) auxParts.push(escHtml(x));
         });
         push('辅助检查', auxParts.join('，'), isProgress ? false : true);
-        if (e.disposition_custom && String(e.disposition_custom).trim()) dispParts.push(escHtml(e.disposition_custom));
-        var dispHtml = dispParts.length ? '<span>' + dispParts.join('，') + '</span>' : '';
-        if (rxHtml) dispHtml += rxHtml;
+        if (e.disposition_custom && String(e.disposition_custom).trim()) procParts.push(escHtml(e.disposition_custom));
+        var treatHtml = (rxHtml ? rxHtml : '') + (procParts.length ? '<span>' + procParts.join('，') + '</span>' : '');
         // 门诊处置：续写空时整段不显示（首诊显示 -）
-        if (!isProgress || dispHtml) {
-            secs.push('<div class="prev-sec"><span class="doc-sec-label">门诊处置：</span>' + (dispHtml || '-') + '</div>');
+        if (!isProgress || treatHtml) {
+            secs.push('<div class="prev-sec"><span class="doc-sec-label">门诊处置：</span>' + (treatHtml || '-') + '</div>');
         }
         push('是否留观', e.is_leave_hospital === '是' ? '是' : '否', isProgress ? false : true);
         push('嘱托', e.advice);
