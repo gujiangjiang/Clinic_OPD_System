@@ -13,6 +13,18 @@
 
 ---
 
+## [4.12.5] - 2026-08-29
+
+### 修复
+
+- **会诊进度双竖线**：根因是 flowColumnHtml 自带 border-left 与会诊详情
+  右列的 border-left 叠加。统一后 flowColumnHtml 不再自带分隔线，由调用
+  方处理（开单详情包 border-left，会诊详情去掉重复线）。
+- **开单详情流程操作人/时间渲染**：确认走 showItemDetail → flowColumnHtml
+  （统一渲染器：圆形节点+操作人/时间），数据来自后端 order_flow_steps。
+
+---
+
 ## [4.12.4] - 2026-08-29
 
 ### 变更

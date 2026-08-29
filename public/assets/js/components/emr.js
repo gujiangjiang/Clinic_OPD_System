@@ -1985,14 +1985,11 @@ diagnoses: [],
             });
         }
         // 右侧闭环追踪：与开单弹窗右侧流程完全一致（开单→缴费→登记→完成/药房发药）
-        var steps;
-        if (o.order_type === 'procedure') {
-            steps = [{ label: '开单' }, { label: '缴费' }, { label: '登记' }, { label: '执行完成' }];
-        } else {
-            steps = [{ label: '开单' }, { label: '缴费' }, { label: '登记' }, { label: '完成' }];
-        }
-        var curIdx = itemStepIdx(it.status, steps.length - 1);
-        html += flowColumnHtml(steps, curIdx);
+        // 流程节点带操作人/时间（后端 order_flow_steps 计算）
+        var steps = o.flow || [];
+        var curIdx = -1;   // done 状态已由 flow[].done 标记
+        html += '<div style="border-left:1px solid var(--border);padding-left:16px">' +
+            flowColumnHtml(steps, curIdx) + '</div>';
         html += '</div>';
         // 操作区：打印申请单（本人或他人均可补打）；删除仅限未缴费/已退费的开单医生本人
         var delLabel = o.order_type === 'prescription' ? '毁方' : '删除';
@@ -2006,19 +2003,25 @@ diagnoses: [],
     };
 
     /**
-     * 闭环追踪流程列（纵向步骤条）：steps=[{label}], curIdx=-1 表示已退费/取消
+     * 闭环追踪流程列（统一样式）：steps=[{label, operator, time, done}]。
+     * 圆形步骤节点 + 操作人/时间——开单详情与会诊进度共用。
+     * 注：外层容器自带 border-left 分隔线，这里不再额外画线。
      */
     function flowColumnHtml(steps, curIdx) {
         var flow = steps.map(function (st, i) {
-            var cls = (curIdx >= 0 && i <= curIdx) ? 'var(--success)' : 'var(--border)';
+            var done = (curIdx >= 0 && i <= curIdx) || st.done;
+            var cls = done ? 'var(--success)' : 'var(--border)';
+            var info = (st.operator ? escHtml(st.operator) : '') +
+                (st.time ? (st.operator ? ' · ' : '') + escHtml(String(st.time).substring(5, 16)) : '');
             return '<div class="flex gap-8" style="align-items:center">' +
                 '<div style="width:26px;height:26px;border-radius:50%;background:' + cls + ';' +
                 'display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;flex-shrink:0">' +
-                (i + 1) + '</div>' +
-                '<div class="fs-13" style="color:' + (curIdx >= 0 && i <= curIdx ? 'var(--text)' : 'var(--text-muted)') + '">' +
-                st.label + '</div></div>';
-        }).join('<div style="width:2px;height:18px;background:var(--border);margin-left:12px"></div>');
-        return '<div style="border-left:1px solid var(--border);padding-left:16px">' +
+                (done ? '✓' : (i + 1)) + '</div>' +
+                '<div class="fs-13" style="color:' + (done ? 'var(--text)' : 'var(--text-muted)') + '">' +
+                '<div class="fw-600">' + escHtml(st.label) + '</div>' +
+                (info ? '<div class="fs-12 text-muted">' + info + '</div>' : '') + '</div></div>';
+        }).join('<div style="width:2px;height:14px;background:var(--border);margin-left:12px"></div>');
+        return '<div style="padding-left:16px">' +
             '<div class="fw-600 mb-8 fs-13">流程进度</div>' + flow + '</div>';
     }
 
@@ -2473,19 +2476,13 @@ diagnoses: [],
                         escHtml(label) + '：</strong>' + (val && String(val).trim() ? escHtml(val) : '-') + '</div>';
                 };
                 var steps = [
-                    ['发起会诊', (c.from_doctor_name || '') + (c.created_at ? ' · ' + c.created_at.substring(5, 16) : ''), c.status !== ''],
-                    ['正在会诊', (c.accepted_by || '') + ((c.accepted_at || '') ? ' · ' + (c.accepted_at || '').substring(5, 16) : ''), c.status !== 'pending'],
-                    ['会诊完毕', (c.finished_at || '') ? (c.finished_at || '').substring(5, 16) : '', c.status === 'done'],
+                    { label: '发起会诊', operator: (c.from_doctor_name || ''), time: (c.created_at || '').substring(5, 16), done: true },
+                    { label: '正在会诊', operator: (c.accepted_by || ''), time: (c.accepted_at || '').substring(5, 16), done: c.status !== 'pending' },
+                    { label: '会诊完毕', operator: '', time: (c.finished_at || '').substring(5, 16), done: c.status === 'done' },
                 ];
-                var stepHtml = steps.map(function (st) {
-                    var dot = st[2] ? 'var(--success)' : 'var(--border)';
-                    return '<div class="flex gap-8" style="align-items:center">' +
-                        '<div style="width:26px;height:26px;border-radius:50%;background:' + dot + ';' +
-                        'display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;flex-shrink:0">✓</div>' +
-                        '<div class="fs-13" style="color:' + (st[2] ? 'var(--text)' : 'var(--text-muted)') + '">' +
-                        '<div class="fw-600">' + st[0] + '</div>' +
-                        (st[1] ? '<div class="fs-12 text-muted">' + escHtml(st[1]) + '</div>' : '') + '</div></div>';
-                }).join('<div style="width:2px;height:18px;background:var(--border);margin-left:12px"></div>');
+                var stepHtml = flowColumnHtml(steps, -1)
+                    .replace('流程进度', '会诊进度')
+                    .replace('border-left:1px solid var(--border);padding-left:16px', '');
                 Clinic.modal.open(
                     '<div class="flex gap-16" style="align-items:stretch">' +
                     '  <div style="flex:1.4;min-width:0;border-right:1px solid var(--border);padding-right:14px">' +
