@@ -30,7 +30,9 @@ Clinic.emr.segments = (function () {
         push('既往史', Clinic.emr.format.fmtPH(e.past_history));
         push('过敏史', Clinic.emr.format.fmtAL(e.allergies));
         push('主要症状', Clinic.emr.format.fmtMS(e.main_symptoms));
-        push('生命体征', vitalDisplayText(rec.vitals || {}), true);
+        // 生命体征：续写记录用自身 emr.vitals（独立体征），否则用就诊 vitals
+        var recVitals = (e.vitals && Object.keys(e.vitals).length) ? e.vitals : (rec.vitals || {});
+        push('生命体征', vitalDisplayText(recVitals), true);
         push('意识状态', rec.consciousness || '', true);
         push('体格检查', Clinic.emr.format.fmtPE(e.physical_exam), true);
         push('初步诊断', Clinic.emr.format.fmtDiags(e.diagnoses));
