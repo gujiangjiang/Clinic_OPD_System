@@ -234,6 +234,17 @@ function record_part_read($action) {
             // 工号职称/文书类型/主诊断/完整结构化数据）——前端据此渲染前序病历
             // 只读查看区（谁书写谁签名，互不篡改）。
             'records_history' => $recordsHistory,
+            // 会诊：本次就诊关联的会诊（id/发起医生/目标科室/状态），前端在
+            // 病历门诊处置中显示「请X科会诊」并驱动右侧会诊列表
+            'consults' => array_map(function ($cc) {
+                return array(
+                    'id' => (int)$cc['id'],
+                    'from_doctor_id' => (int)$cc['from_doctor_id'],
+                    'from_dept_name' => (string)$cc['from_dept_name'],
+                    'target_dept_name' => (string)$cc['target_dept_name'],
+                    'status' => (string)$cc['status'],
+                );
+            }, DB::q('consultation', 'SELECT id, from_doctor_id, from_dept_name, target_dept_name, status FROM consultations WHERE visit_id=? ORDER BY id ASC', array($visitId))),
             // current_doctor_record：当前登录医生本人此前已保存的草稿/病历，
             // 无则 null——有则回显编辑，绝不回退他人病历。
             'current_doctor_record' => $mine,

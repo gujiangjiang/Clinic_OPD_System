@@ -22,6 +22,7 @@ Clinic.emr = (function () {
     var EMR_DIRTY = false;
     /** 已开项目缓存（病历正文 辅助检查/门诊处置 所见即所得展示用） */
     var ORDERS = [];
+    var CONSULTS = [];   // 本次就诊关联的会诊（门诊处置「请X科会诊」驱动）
 
     // ===== 共享上下文：供拆分的子模块（emr_format/emr_template 等）读写 =====
     // 通过 accessor 属性与模块级状态保持同步，不改变本文件既有引用；
@@ -33,6 +34,8 @@ Clinic.emr = (function () {
         set EMR_DIRTY(v) { EMR_DIRTY = v; },
         get ORDERS() { return ORDERS; },
         set ORDERS(v) { ORDERS = v; },
+        get CONSULTS() { return CONSULTS; },
+        set CONSULTS(v) { CONSULTS = v; },
         escHtml: function (s) { return escHtml(s); },
         buildVitalSec: function (ro, v) { return buildVitalSec(ro, v); },
         buildConsciousNode: function (ro, c) { return buildConsciousNode(ro, c); },
@@ -86,6 +89,9 @@ Clinic.emr = (function () {
                 renderEmrCard(j.data);
                 // 知情同意书列表渲染（emr_consent.js）
                 if (Clinic.emr.consent) Clinic.emr.consent.renderList();
+                // 会诊列表渲染（门诊处置「请X科会诊」数据源：DATA.consults）
+                CONSULTS = j.data.consults || [];
+                renderConsultList();
                 // 前序医生诊断上下文注入（诊断模态框跨医生引用查重用）
                 injectPrevDiagContext();
                 bindItemTokenDelegate();
@@ -2270,6 +2276,167 @@ diagnoses: [],
         });
     }
 
+    /* ==================== 科室间会诊 ==================== */
+
+    var CONSULT_DEPT = 0;   // 已选择的会诊目标科室（deptPicker 回调写入）
+
+    /** 发起会诊：第一步选择会诊科室（隐藏当前科室） */
+    function openConsultCreate(ev) {
+        if (window.Clinic && Clinic.emr.isDirty && Clinic.emr.isDirty()) {
+            Clinic.toast.warning('当前病历有未保存的修改，请先点击「💾 保存」后再发起会诊');
+            return;
+        }
+        var visitId = document.getElementById('visitId').value;
+        var curDept = DATA ? DATA.visit.current_dept_id : 0;
+        CONSULT_DEPT = 0;
+        Clinic.deptPicker.open({
+            mode: 'transfer',
+            title: '发起会诊 · 选择会诊科室',
+            fetchUrl: '/api/transfer?action=targets&dept_id=' + curDept,
+            currentId: curDept,
+            onSelect: function (d) {
+                CONSULT_DEPT = d.id;
+                openConsultForm(d);
+            },
+        });
+    }
+
+    /** 发起会诊：第二步会诊单（只读显示 主诉/现病史/查体/诊断 + 会诊描述/目的） */
+    function openConsultForm(dept) {
+        var visitId = document.getElementById('visitId').value;
+        Clinic.get('/api/consultation?action=snapshot&visit_id=' + visitId, null, {
+            onSuccess: function (j) {
+                var s = j.data.snapshot || {};
+                var ro = function (label, val) {
+                    return '<div class="prev-sec" style="font-size:13px;line-height:1.9"><strong>' +
+                        escHtml(label) + '：</strong>' + (val && String(val).trim() ? escHtml(val) : '-') + '</div>';
+                };
+                Clinic.modal.open(
+                    '<div style="background:var(--bg-soft);border-radius:10px;padding:12px;margin-bottom:12px">' +
+                    '<div class="fs-12 text-muted mb-4">病历快照（只读）</div>' +
+                    ro('主诉', s.chief_complaint) +
+                    ro('现病史', s.present_illness) +
+                    ro('查体', s.physical_exam) +
+                    ro('初步诊断', s.diagnoses) +
+                    '</div>' +
+                    '<div class="fs-12 text-muted mb-4">会诊科室：<b style="color:var(--primary)">' + escHtml(dept.name) + '</b></div>' +
+                    '<div class="form-group"><label class="form-label">会诊描述</label>' +
+                    '<textarea class="textarea" id="consDesc" rows="3" placeholder="病情摘要 / 邀请会诊说明…"></textarea></div>' +
+                    '<div class="form-group"><label class="form-label">会诊目的</label>' +
+                    '<textarea class="textarea" id="consPurpose" rows="2" placeholder="如：协助明确诊断 / 指导下一步治疗方案…"></textarea></div>',
+                    {
+                        title: '🤝 发起会诊 → ' + dept.name,
+                        size: 'modal-md',
+                        buttons: [
+                            { text: '取消', cls: 'btn-outline' },
+                            {
+                                text: '发送', cls: 'btn-primary', autoClose: false,
+                                onClick: function () {
+                                    Clinic.ajax('/api/consultation', {
+                                        action: 'create',
+                                        visit_id: visitId,
+                                        target_dept_id: dept.id,
+                                        description: document.getElementById('consDesc').value.trim(),
+                                        purpose: document.getElementById('consPurpose').value.trim(),
+                                    }, {
+                                        onSuccess: function (json) {
+                                            Clinic.toast.success(json.msg);
+                                            Clinic.modal.close();
+                                            renderConsultList();
+                                            loadOrders(visitId);   // 病历门诊处置追加「请X科会诊」
+                                        },
+                                    });
+                                },
+                            },
+                        ],
+                    }
+                );
+            },
+        });
+    }
+
+    /** 渲染右侧会诊列表（本人发起，本就诊）：日期 时间 请X科会诊 + 删除（仅本人） */
+    function renderConsultList() {
+        var el = document.getElementById('navConsult');
+        if (!el) return;
+        var visitId = document.getElementById('visitId').value;
+        if (!visitId) return;
+        Clinic.get('/api/consultation?action=visit_consults&visit_id=' + visitId, null, {
+            onSuccess: function (j) {
+                var list = j.data.list || [];
+                var myUid = parseInt(document.body.getAttribute('data-uid') || '0', 10) || 0;
+                el.innerHTML = list.length ? list.map(function (c) {
+                    var stText = c.status === 'done' ? '会诊完毕' : (c.status === 'doing' ? '正在会诊' : '待处理');
+                    var delBtn = (c.from_doctor_id === myUid)
+                        ? '<span class="ena-del" title="删除会诊" onclick="event.stopPropagation();Clinic.emr.delConsult(' + c.id + ')">🗑️</span>'
+                        : '';
+                    return '<div class="ena-item" style="cursor:pointer" title="点击查看会诊详情" onclick="Clinic.emr.openConsultDetail(' + c.id + ')">' +
+                        '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+                        escHtml((c.created_at || '').substring(5, 16)) + ' 请' + escHtml(c.target_dept_name) + '会诊</span>' +
+                        delBtn + '</div>' +
+                        '<div class="fs-11 text-muted" style="margin-top:-2px">' + stText + '</div>';
+                }).join('') : '<div class="ena-empty">暂无会诊</div>';
+            },
+        });
+    }
+
+    /** 删除会诊（仅发起医生本人，后端硬校验） */
+    function delConsult(id) {
+        Clinic.modal.confirm('确定删除该会诊？', function () {
+            Clinic.ajax('/api/consultation', { action: 'delete', id: id }, {
+                onSuccess: function (j) {
+                    Clinic.toast.success(j.msg);
+                    renderConsultList();
+                    loadOrders(document.getElementById('visitId').value);
+                },
+            });
+        }, { title: '删除会诊', okText: '确认删除' });
+    }
+
+    /** 会诊查询模态框：左=会诊单只读（主诉/现病史/体格检查/诊断/描述/目的），
+     *  右=会诊进度（发起会诊 → 正在会诊 → 会诊完毕，三状态圆点） */
+    function openConsultDetail(id) {
+        Clinic.get('/api/consultation?action=detail&id=' + id, null, {
+            onSuccess: function (j) {
+                var c = j.data.consultation || {};
+                var s = c.snapshot || {};
+                var ro = function (label, val) {
+                    return '<div class="prev-sec" style="font-size:13px;line-height:1.9;margin-bottom:4px"><strong>' +
+                        escHtml(label) + '：</strong>' + (val && String(val).trim() ? escHtml(val) : '-') + '</div>';
+                };
+                var steps = [
+                    ['发起会诊', (c.from_doctor_name || '') + ' · ' + (c.created_at || '').substring(5, 16), c.status !== ''],
+                    ['正在会诊', (c.accepted_by || '') + ((c.accepted_at || '') ? ' · ' + (c.accepted_at || '').substring(5, 16) : ''), c.status !== 'pending'],
+                    ['会诊完毕', (c.finished_at || '') ? (c.finished_at || '').substring(5, 16) : '', c.status === 'done'],
+                ];
+                var stepHtml = steps.map(function (st, i) {
+                    var active = st[2];
+                    var dot = active ? '#16a34a' : '#cbd5e1';
+                    return '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px">' +
+                        '<span style="width:10px;height:10px;border-radius:50%;background:' + dot + ';margin-top:4px;flex-shrink:0"></span>' +
+                        '<div><div class="fs-13 ' + (active ? 'fw-600' : 'text-muted') + '">' + st[0] + '</div>' +
+                        (st[1] ? '<div class="fs-12 text-muted">' + escHtml(st[1]) + '</div>' : '') + '</div></div>';
+                }).join('');
+                Clinic.modal.open(
+                    '<div class="flex gap-16" style="align-items:stretch">' +
+                    '  <div style="flex:1.4;min-width:0;border-right:1px solid var(--border);padding-right:14px">' +
+                    '    <div class="fs-13 fw-700 mb-8">' + escHtml(c.from_dept_name || '') + ' 请' + escHtml(c.target_dept_name || '') + '会诊</div>' +
+                    '    <div style="background:var(--bg-soft);border-radius:10px;padding:10px">' +
+                    ro('主诉', s.chief_complaint) + ro('现病史', s.present_illness) +
+                    ro('体格检查', s.physical_exam) + ro('初步诊断', s.diagnoses) +
+                    '    </div>' +
+                    ro('会诊描述', c.description) + ro('会诊目的', c.purpose) +
+                    '  </div>' +
+                    '  <div style="width:150px;flex-shrink:0;border-left:1px solid var(--border);padding-left:14px">' +
+                    '    <div class="fs-13 fw-700 mb-8">会诊进度</div>' + stepHtml +
+                    '  </div>' +
+                    '</div>',
+                    { title: '🤝 会诊详情', size: 'modal-lg', buttons: [{ text: '关闭', cls: 'btn-outline' }] }
+                );
+            },
+        });
+    }
+
     /**
      * 查看已开具的诊断证明（弹出打印预览，可再次打印）
      */
@@ -2568,6 +2735,10 @@ diagnoses: [],
         openTemplates: openTemplates,
         applyTemplateById: applyTemplateById,
         openTransfer: openTransfer,
+        openConsultCreate: openConsultCreate,
+        openConsultDetail: openConsultDetail,
+        delConsult: delConsult,
+        renderConsultList: renderConsultList,
         openCertificate: openCertificate,
         certificateModal: certificateModal,
         viewCertificate: viewCertificate,

@@ -108,6 +108,34 @@ switch ($action) {
         json_ok(array('list' => $list, 'days' => $days));
         break;
 
+    /* ==================== 病历快照（发起会诊表单只读展示） ==================== */
+    case 'snapshot':
+        $visitId = did(get('visit_id'));
+        $row = get_visit_row($visitId);
+        if (!$row) json_fail('就诊记录不存在');
+        if (!visit_access_allowed($row['visit'], $u)) json_fail('该病历超出您的可查看历史天数');
+        // 取本人首诊文书的快照（无则空）
+        $pr = DB::one('medical', "SELECT emr_data FROM patient_records WHERE visit_id=? AND record_type='initial' ORDER BY id ASC LIMIT 1",
+            array($visitId));
+        $snap = array('chief_complaint' => '', 'present_illness' => '', 'physical_exam' => '', 'diagnoses' => '');
+        if ($pr) {
+            $emr = emr_merge_defaults(emr_normalize(json_decode($pr['emr_data'], true)), emr_default_data(null));
+            $snap['chief_complaint'] = emr_cc_text($emr['chief_complaint']);
+            $snap['present_illness'] = emr_pi_text($emr['history_present']);
+            $snap['physical_exam'] = emr_pe_text($emr['physical_exam']);
+            $snap['diagnoses'] = emr_diag_text($emr['diagnoses']);
+        }
+        json_ok(array('snapshot' => $snap));
+        break;
+
+    /* ==================== 本就诊会诊列表（右侧会诊分区） ==================== */
+    case 'visit_consults':
+        $visitId = did(get('visit_id'));
+        if ($visitId <= 0) json_fail('参数错误');
+        $rows = DB::q('consultation', 'SELECT * FROM consultations WHERE visit_id=? ORDER BY id ASC', array($visitId));
+        json_ok(array('list' => array_map('consultation_row', $rows)));
+        break;
+
     /* ==================== 会诊详情（含病历快照） ==================== */
     case 'detail':
         $cid = did(get('id'));
