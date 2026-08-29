@@ -83,6 +83,9 @@ Clinic.emr.segments = (function () {
             }
         }
         if (myIdx === -1) return { before: hist.slice(), after: [] };
+        // 转科后：本人当前文书书写科室与就诊当前科室不一致 → 该文书一并归入只读段
+        var deptMismatch = d.record && d.record.dept_match === 0;
+        if (deptMismatch) return { before: hist.slice(0, myIdx + 1), after: hist.slice(myIdx + 1) };
         return { before: hist.slice(0, myIdx), after: hist.slice(myIdx + 1) };
     }
 

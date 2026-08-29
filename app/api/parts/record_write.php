@@ -103,8 +103,12 @@ function record_part_write($action) {
         $otherCount = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id<>?', array($visitId, $u['id']));
         if ($editRecordId > 0) {
             // 编辑本人指定文书（切换回旧首诊/旧续写）——校验归属
-            $ownRow = DB::one('medical', 'SELECT id, record_type FROM patient_records WHERE id=? AND doctor_id=?', array($editRecordId, $u['id']));
+            $ownRow = DB::one('medical', 'SELECT id, record_type, dept_id FROM patient_records WHERE id=? AND doctor_id=?', array($editRecordId, $u['id']));
             if (!$ownRow) json_fail('病历记录不存在或无权编辑');
+            // 转科校验：旧文书书写科室与就诊当前科室不一致 → 只读，不可编辑（即使本人也不行）
+            if ((int)$ownRow['dept_id'] !== (int)$visit['current_dept_id']) {
+                json_fail('该病历书写于转科前科室，当前科室下为只读状态，不可编辑');
+            }
             $recordType = $ownRow['record_type'];
         } else {
             $ownRow = DB::one('medical', 'SELECT id, record_type FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
@@ -444,6 +448,10 @@ function record_part_write($action) {
             $pr = DB::one('medical', 'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
         }
         if (!$pr) json_fail('您在该就诊下暂无病历文书');
+        // 转科校验：文书书写科室与就诊当前科室不一致 → 只读，不可调整诊断
+        if ((int)$pr['dept_id'] !== (int)$row['visit']['current_dept_id']) {
+            json_fail('该病历书写于转科前科室，当前科室下为只读状态，不可调整诊断');
+        }
         if ($pr['status'] === 'done') json_fail('病历已诊毕，无法调整诊断');
         // 添加/调整诊断前置条件（与前端一致，防接口直调绕过）：
         // 首诊=主诉/现病史已填写；续写=续写内容已填写

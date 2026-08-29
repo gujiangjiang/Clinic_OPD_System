@@ -423,7 +423,10 @@ diagnoses: [],
         var midNode = buildConsciousNode(readOnly, r.consciousness || '清醒');
         // 场景 C：已有保存病历但当前医生本人尚无文书（record_id=0 且为续写）
         // → 默认只读展示他人病历 + 续写占位，不渲染空编辑器
-        var needProgress = !readOnly && isProgress && !(r.record_id > 0) && (d.records_history || []).length > 0;
+        // 场景 E（转科）：本人最新文书书写科室与就诊当前科室不一致 → 旧文书只读展示 +
+        // 续写占位（与场景 C 同款交互，点击右侧「病历节点 ＋」开始续写）
+        var deptMismatch = !readOnly && (r.record_id > 0) && d.record && d.record.dept_match === 0;
+        var needProgress = (!readOnly && isProgress && !(r.record_id > 0) && (d.records_history || []).length > 0) || deptMismatch;
         // 场景 D：首诊空病历（无任何保存病历，本人也尚未创建）→ 不渲染空白编辑器，
         // 显示占位提示，等待自动弹出模板选择后创建首张电子病历
         var emptyInitial = !readOnly && !isProgress && !(r.record_id > 0) && !(d.records_history || []).length;
@@ -1488,8 +1491,10 @@ diagnoses: [],
             if (inCurrent) diagMap[key].inCurrent = true;   // 当前编辑文书中存在 → 可删除
         };
         // 先遍历其余文书（首诊/旧续写）的诊断——历史诊断在前，新添加的诊断默认在下方；
-        // 再遍历当前编辑文书诊断（归属本人 + inCurrent → 可删除）
+        // 再遍历当前编辑文书诊断（归属本人 + inCurrent → 可删除）；
+        // 转科后（dept_match=0）当前文书为只读，诊断不显示删除按钮
         var curRid = DATA.record && DATA.record.record_id;
+        var curDeptMatch = !(DATA.record && DATA.record.dept_match === 0);
         (DATA && DATA.records_history ? DATA.records_history : []).forEach(function (h) {
             if ((h.record_id || h.id) === curRid) return;
             var isMine = (h.doctor_id || 0) === mineDoctorId;
@@ -1497,7 +1502,7 @@ diagnoses: [],
                 pushDiag(dg, isMine, !isMine, h.doctor_id || 0, isMine, false);
             });
         });
-        myList3.forEach(function (dg) { pushDiag(dg, true, false, mineDoctorId, false, true); });
+        myList3.forEach(function (dg) { pushDiag(dg, true, false, mineDoctorId, false, curDeptMatch); });
         // 按本人保存的全局排序重排（未在排序中的键保持默认相对顺序追加在后）
         var ordRank = {};
         ((DATA && DATA.diag_order) || []).forEach(function (k, i) { ordRank[k] = i; });
@@ -2193,13 +2198,14 @@ diagnoses: [],
                     }
                 }
                 Clinic.toast.success(j.msg);
-                // 新建续写文书已落库：刷新页面以重建多文书结构
-                // （本人旧文书转为只读段、新续写成为当前编辑文书），
-                // 避免前端 records_history 手工同步错乱
+                // 新建续写文书已落库：不刷新页面，客户端同步——
+                // 1) records_history 已由上方同步（新建条目 push）；
+                // 2) 调用 addProgressEditor 将刚保存的文书转为只读段、
+                //    重建全新续写编辑器，医生可无缝继续续写。
                 if (DATA && DATA.__progress_new) {
                     DATA.__progress_new = false;
                     DATA.__pending_progress = false;
-                    setTimeout(function () { location.reload(); }, 800);
+                    addProgressEditor();
                     return;
                 }
                 if (finish) {
@@ -2241,7 +2247,8 @@ diagnoses: [],
                         }, {
                             onSuccess: function (j) {
                                 Clinic.toast.success(j.msg);
-                                setTimeout(function () { location.href = '/doctor/dashboard'; }, 900);
+                                // 转科后回到空白工作台（候诊列表自动弹出），可点击新科室患者进入病历
+                                setTimeout(function () { window.location.href = '/doctor/emr'; }, 900);
                             },
                         });
                     },

@@ -39,6 +39,11 @@ function record_part_delete($action) {
         if (isset($recEmr['diagnoses']) && is_array($recEmr['diagnoses']) && count($recEmr['diagnoses'])) {
             json_fail('该病历已添加诊断，不可删除；请先删除该病历内的全部诊断后再删除病历');
         }
+        // 2.6 转科校验：文书书写科室与就诊当前科室不一致 → 只读，不可删除
+        //     （转科前旧病历在当前科室下为只读展示，即使本人也不可删）
+        if ((int)$rec['dept_id'] !== (int)$row['visit']['current_dept_id']) {
+            json_fail('该病历书写于转科前科室，当前科室下为只读状态，不可删除');
+        }
         // 3. 删除（物理删除 + 镜像清理）
         $pdo = DatabaseManager::pdo('medical');
         try {
@@ -55,11 +60,13 @@ function record_part_delete($action) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             json_fail('病历删除失败：' . $ex->getMessage());
         }
-        // 4. 删除后：若该就诊已无任何病历 → 退回到未就诊状态（待就诊 paid）
-        //    （以「是否存在病历」判定是否就诊：病历删除后即视为未就诊）
+        // 4. 删除后：若当前科室已无文书 → 该科室就诊状态退回待就诊（paid）
+        //    （就诊状态按科室划分：当前科室存在文书即就诊中，删除后无文书则待就诊；
+        //     其他科室的文书不受影响——转回原科室仍显示就诊中）
         if ($row['visit']['status'] === 'visiting') {
-            $remain = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=?', array($visitId));
-            if ($remain === 0) {
+            $remainCurDept = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND dept_id=?',
+                array($visitId, (int)$row['visit']['current_dept_id']));
+            if ($remainCurDept === 0) {
                 DB::exec('patient', 'UPDATE registrations SET status=? WHERE id=?', array('paid', $visitId));
             }
         }

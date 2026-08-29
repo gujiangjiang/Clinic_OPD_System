@@ -76,6 +76,7 @@ function record_part_read($action) {
                 'doctor_name' => (string)$pr2['doctor_name'],
                 'doctor_emp' => $meta ? (string)$meta['emp_no'] : '',
                 'doctor_title' => $meta ? (string)$meta['title'] : '',
+                'dept_id' => (int)$pr2['dept_id'],
                 'dept_name' => isset($deptNames[(int)$pr2['dept_id']]) ? $deptNames[(int)$pr2['dept_id']] : '',
                 'record_type' => ($pr2['record_type'] === 'progress') ? 'progress' : 'initial',
                 'parent_record_id' => (int)$pr2['parent_record_id'],
@@ -116,6 +117,8 @@ function record_part_read($action) {
             'doctor_title' => $doc ? $doc['title'] : '',
             // 文书类型：本次流水下已有他人病历时，当前医生的新文书为续写（progress）
             'record_type' => $pr ? (string)$pr['record_type'] : ($recordsHistory ? 'progress' : 'initial'),
+            // 科室匹配：本人当前文书书写科室 == 就诊当前科室（转科后旧文书不匹配 → 只读）
+            'dept_match' => ($pr && (int)$pr['dept_id'] === (int)$visit['current_dept_id']) ? 1 : 0,
             'created_at' => $pr ? $pr['created_at'] : '',
             'updated_at' => $pr ? $pr['updated_at'] : '',
             'emr' => $emr,
