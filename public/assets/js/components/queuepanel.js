@@ -139,7 +139,8 @@ Clinic.queuePanel = (function () {
             return '<span class="qp-cell ' + cls + '"' + (title ? ' title="' + escHtml(title) + '"' : '') + '>' + text + '</span>';
         };
         return '<div class="qp-row" data-code="' + r.code + '"' +
-            (r.consult_code ? ' data-consult-code="' + escHtml(r.consult_code) + '"' : '') + '>' +
+            (r.consult_code ? ' data-consult-code="' + escHtml(r.consult_code) + '"' : '') +
+            (r.consult_status ? ' data-consult-status="' + escHtml(r.consult_status) + '"' : '') + '>' +
             cell('qp-c-date fs-13 text-muted', r.date.substr(5)) +
             cell('qp-c-time fs-13 text-muted', r.time) +
             cell('qp-c-dept fs-13 fw-600', escHtml(r.dept_name), r.dept_name) +
@@ -279,7 +280,19 @@ Clinic.queuePanel = (function () {
         p.querySelectorAll('.qp-row:not(.qp-head)').forEach(function (row) {
             row.addEventListener('click', function () {
                 var consultCode = row.getAttribute('data-consult-code');
-                if (consult && consultCode) { openConsultFromQueue(consultCode); return; }
+                if (consult && consultCode) {
+                    // 已接受（doing）的会诊：直接进入病历页，不再弹会诊详情；
+                    // 待会诊（pending）或会诊完毕（done）仍弹详情
+                    var consultStatus = row.getAttribute('data-consult-status');
+                    if (consultStatus === 'doing') {
+                        var vCode = row.getAttribute('data-code');
+                        closePanel();
+                        location.href = '/doctor/emr?visit_id=' + vCode;
+                        return;
+                    }
+                    openConsultFromQueue(consultCode);
+                    return;
+                }
                 var code = row.getAttribute('data-code');
                 closePanel();
                 location.href = '/doctor/emr?visit_id=' + code;

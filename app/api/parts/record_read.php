@@ -62,10 +62,17 @@ function record_part_read($action) {
                 emr_default_data(null)
             );
             $meta = isset($docMeta[(int)$pr2['doctor_id']]) ? $docMeta[(int)$pr2['doctor_id']] : null;
-            // 生命体征归属：按录入护士/医生（operator）匹配本医生录入的体征，取最新一条。
-            // 多医生接诊下谁的体征归属谁的文书——未录入则返回空（前端显示 -）。
-            $ownVitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1',
-                array((int)$pr2['visit_id'], (string)$pr2['doctor_name']));
+            // 生命体征归属：按文书记录精确关联（record_id 优先，兼容旧数据按录入医生取最新）。
+            // 续写/会诊病历各自独立体征——只取本记录关联的体征；续写无自身体征则恒为空，
+            // 首诊记录才按 operator 回退就诊体征。
+            $ownVitals = null;
+            if ((int)$pr2['id'] > 0) {
+                $ownVitals = DB::one('nurse', 'SELECT * FROM vitals WHERE record_id=? ORDER BY id DESC LIMIT 1', array((int)$pr2['id']));
+            }
+            if (!$ownVitals && $pr2['record_type'] !== 'progress') {
+                $ownVitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1',
+                    array((int)$pr2['visit_id'], (string)$pr2['doctor_name']));
+            }
             // 意识状态/初复诊按文书医生本人从旧 records 镜像表回读
             $mirror = DB::one('medical', 'SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC',
                 array((int)$pr2['visit_id'], (int)$pr2['doctor_id']));
@@ -118,8 +125,10 @@ function record_part_read($action) {
             'doctor_title' => $doc ? $doc['title'] : '',
             // 文书类型：本次流水下已有他人病历时，当前医生的新文书为续写（progress）
             'record_type' => $pr ? (string)$pr['record_type'] : ($recordsHistory ? 'progress' : 'initial'),
+            // 会诊记录关联 id（>0 即会诊病历，前端据此显示「会诊记录」徽章）
+            'consultation_id' => $pr ? (int)(isset($pr['consultation_id']) ? $pr['consultation_id'] : 0) : 0,
             // 科室匹配：本人当前文书书写科室 == 就诊当前科室（转科后旧文书不匹配 → 只读）
-            'dept_match' => ($pr && (int)$pr['dept_id'] === (int)$visit['current_dept_id']) ? 1 : 0,
+            'dept_match' => ($pr && ((int)$pr['dept_id'] === (int)$visit['current_dept_id'] || (int)$pr['consultation_id'] > 0)) ? 1 : 0,
             'created_at' => $pr ? $pr['created_at'] : '',
             'updated_at' => $pr ? $pr['updated_at'] : '',
             'emr' => $emr,
@@ -131,9 +140,18 @@ function record_part_read($action) {
         $mirror = DB::one('medical', 'SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visitId, $u['id']));
         $recordData['consciousness'] = $mirror ? (string)$mirror['consciousness'] : '';
         $recordData['visit_type'] = ($mirror && $mirror['visit_type'] !== '') ? $mirror['visit_type'] : '初诊';
-        // 生命体征归属：仅取当前登录医生本人录入的最新体征（operator=本人姓名），
-        // 未录入则为空（前端显示 -）。多医生接诊下谁的体征归属谁的文书。
-        $myVitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1', array($visitId, $u['name']));
+        // 生命体征归属：按文书记录精确关联（record_id 优先，兼容旧数据）。
+        // 续写/会诊病历各自独立体征——只取本记录关联的体征，绝不复用首诊体征。
+        $myVitals = null;
+        if ($pr && (int)$pr['id'] > 0) {
+            $myVitals = DB::one('nurse', 'SELECT * FROM vitals WHERE record_id=? ORDER BY id DESC LIMIT 1', array((int)$pr['id']));
+        }
+        // 续写/会诊记录：无自身体征则恒为空（不回退就诊/首诊体征）；
+        // 首诊记录才按 operator 回退就诊体征（护士站录入共用）
+        $isPrgRec = $pr && $pr['record_type'] === 'progress';
+        if (!$myVitals && !$isPrgRec) {
+            $myVitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1', array($visitId, $u['name']));
+        }
         $recordData['vitals'] = $myVitals ? $myVitals : array();
         // 扁平投影字段（主诉/现病史/初步诊断）：供诊断证明补开等旧字段消费方使用。
         // 结构化病历升级后 get 曾不再返回这些字段，导致「就诊历史→补开诊断证明」

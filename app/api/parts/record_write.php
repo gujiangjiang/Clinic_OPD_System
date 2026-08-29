@@ -103,10 +103,11 @@ function record_part_write($action) {
         $otherCount = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id<>?', array($visitId, $u['id']));
         if ($editRecordId > 0) {
             // 编辑本人指定文书（切换回旧首诊/旧续写）——校验归属
-            $ownRow = DB::one('medical', 'SELECT id, record_type, dept_id FROM patient_records WHERE id=? AND doctor_id=?', array($editRecordId, $u['id']));
+            $ownRow = DB::one('medical', 'SELECT id, record_type, dept_id, consultation_id FROM patient_records WHERE id=? AND doctor_id=?', array($editRecordId, $u['id']));
             if (!$ownRow) json_fail('病历记录不存在或无权编辑');
-            // 转科校验：旧文书书写科室与就诊当前科室不一致 → 只读，不可编辑（即使本人也不行）
-            if ((int)$ownRow['dept_id'] !== (int)$visit['current_dept_id']) {
+            // 转科校验：旧文书书写科室与就诊当前科室不一致 → 只读，不可编辑（即使本人也不行）；
+            // 会诊记录（consultation_id>0）书写科室=会诊目标科室，不受转科限制
+            if ((int)$ownRow['dept_id'] !== (int)$visit['current_dept_id'] && (int)$ownRow['consultation_id'] === 0) {
                 json_fail('该病历书写于转科前科室，当前科室下为只读状态，不可编辑');
             }
             $recordType = $ownRow['record_type'];
@@ -135,13 +136,19 @@ function record_part_write($action) {
         }
         $parentRecordId = $parentRow ? (int)$parentRow['id'] : 0;
 
-        // ===== 会诊病历关联：consultation_id>0 时校验会诊归属（目标科室=当前科室） =====
+        // ===== 会诊病历关联：consultation_id>0 时校验会诊归属 =====
+        // 校验：会诊单属于本就诊 + 目标科室为当前登录医生所在科室（会诊由目标科室医生书写）
         $consultationId = (int)post('consultation_id', 0);
+        $recDeptId = (int)$visit['current_dept_id'];
         if ($consultationId > 0) {
             $cons = DB::one('consultation', 'SELECT * FROM consultations WHERE id=?', array($consultationId));
             if (!$cons) json_fail('会诊记录不存在');
             if ((int)$cons['visit_id'] !== (int)$visitId) json_fail('会诊记录不属于本次就诊');
-            if ((int)$cons['target_dept_id'] !== (int)$visit['current_dept_id']) json_fail('该会诊不属于当前科室，无法书写会诊病历');
+            $curDeptRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+            $curDeptId = $curDeptRow ? (int)$curDeptRow['current_dept_id'] : 0;
+            if ((int)$cons['target_dept_id'] !== $curDeptId) json_fail('该会诊不属于当前科室，无法书写会诊病历');
+            // 会诊记录书写科室 = 会诊目标科室（非患者当前就诊科室）
+            $recDeptId = (int)$cons['target_dept_id'];
         }
 
         // ===== 2. 必填校验（按文书类型分支） =====
@@ -240,7 +247,7 @@ function record_part_write($action) {
                 $recordId = (int)$pr['id'];
             } else {
                 $pdo->prepare('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, main_symptom, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergies, is_leave_hospital, primary_icd10, primary_diagnosis, emr_data, emr_print_text, status, created_at, updated_at, consultation_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-                    ->execute(array($visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name'], $recordType, $parentRecordId, $mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $now, $consultationId));
+                    ->execute(array($visitId, $visit['patient_no'], $visit['flow_no'], $recDeptId, $u['id'], $u['name'], $recordType, $parentRecordId, $mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $now, $consultationId));
                 $recordId = (int)$pdo->lastInsertId();
                 // 体征记录回填：新病历保存前若以 record_id=0 录入过体征（未保存时的
                 // 录入），关联到本次新建病历，保证该病历内后续修改体征为更新而非新增。
@@ -462,8 +469,9 @@ function record_part_write($action) {
             $pr = DB::one('medical', 'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
         }
         if (!$pr) json_fail('您在该就诊下暂无病历文书');
-        // 转科校验：文书书写科室与就诊当前科室不一致 → 只读，不可调整诊断
-        if ((int)$pr['dept_id'] !== (int)$row['visit']['current_dept_id']) {
+        // 转科校验：文书书写科室与就诊当前科室不一致 → 只读，不可调整诊断；
+        // 会诊记录（consultation_id>0）书写科室=会诊目标科室，不受转科限制
+        if ((int)$pr['dept_id'] !== (int)$row['visit']['current_dept_id'] && (int)$pr['consultation_id'] === 0) {
             json_fail('该病历书写于转科前科室，当前科室下为只读状态，不可调整诊断');
         }
         if ($pr['status'] === 'done') json_fail('病历已诊毕，无法调整诊断');

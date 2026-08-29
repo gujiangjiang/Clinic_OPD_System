@@ -17,6 +17,7 @@ Clinic.emr.segments = (function () {
     function roSegmentHtml(rec) {
         var e = rec.emr || {};
         var isProgress = rec.record_type === 'progress';
+        var isConsultRec = (rec.consultation_id || 0) > 0;
         var secs = [];
         var push = function (label, val, dashWhenEmpty) {
             val = val == null ? '' : String(val).trim();
@@ -24,16 +25,16 @@ Clinic.emr.segments = (function () {
             secs.push('<div class="prev-sec"><span class="doc-sec-label">' + label + '：</span>' +
                 escHtml(val || '-') + '</div>');
         };
-        if (isProgress) push(rec.consultation_id > 0 ? '会诊记录' : '病历续写', (e.progress || {}).content);
+        if (isProgress) push(isConsultRec ? '会诊记录' : '病历续写', (e.progress || {}).content);
         push('主诉', Clinic.emr.format.fmtCC(e.chief_complaint));
         push('现病史', Clinic.emr.format.fmtPI(e.history_present));
         push('既往史', Clinic.emr.format.fmtPH(e.past_history));
         push('过敏史', Clinic.emr.format.fmtAL(e.allergies));
         push('主要症状', Clinic.emr.format.fmtMS(e.main_symptoms));
-        // 生命体征：续写记录用自身 emr.vitals（独立体征），否则用就诊 vitals；
-        // vitalDisplayText 空时返回 '—'（非空），需按原始数据判断是否有值；
-        // 续写文书空段不显示（仅首诊显示 -）
-        var recVitals = (e.vitals && Object.keys(e.vitals).length) ? e.vitals : (rec.vitals || {});
+        // 生命体征：续写/会诊记录只用本记录自身 emr.vitals（完全独立，绝不回退就诊体征）；
+        // 首诊记录才回退就诊 vitals。vitalDisplayText 空时返回 '—'（非空），
+        // 需按原始数据判断是否有值；续写文书空段不显示（仅首诊显示 -）
+        var recVitals = (e.vitals && Object.keys(e.vitals).length) ? e.vitals : (isProgress ? {} : (rec.vitals || {}));
         var hasVitals = false;
         ['bp_systolic', 'bp_diastolic', 'heart_rate', 'pulse', 'spo2', 'respiration'].forEach(function (k) {
             if (recVitals[k]) hasVitals = true;
@@ -42,25 +43,24 @@ Clinic.emr.segments = (function () {
         push('意识状态', rec.consciousness || '', isProgress ? false : true);
         push('体格检查', Clinic.emr.format.fmtPE(e.physical_exam), isProgress ? false : true);
         push('初步诊断', Clinic.emr.format.fmtDiags(e.diagnoses));
-        var t = Clinic.emr.orders.orderTextsFor(rec.doctor_id || 0);
+        // ===== 辅助检查 / 门诊处置：续写（含会诊）病历完全独立 =====
+        // 只展示本记录自身填写的手工字段，绝不拉取该医生其他记录的开单明细
         var auxParts = [];
         [e.aux_result, e.aux_external].forEach(function (x) {
             if (x && String(x).trim()) auxParts.push(escHtml(x));
         });
-        t.aux.forEach(function (n) { auxParts.push(escHtml(n)); });
         push('辅助检查', auxParts.join('，'), isProgress ? false : true);
-        var dispHtml = t.rxs.map(function (l) { return '<div>' + escHtml(l) + '</div>'; }).join('');
-        var dispParts = t.proc.map(function (p) { return escHtml(p); });
+        var dispParts = [];
         if (e.disposition_custom && String(e.disposition_custom).trim()) dispParts.push(escHtml(e.disposition_custom));
-        if (dispParts.length) dispHtml += '<span>' + dispParts.join('，') + '</span>';
+        var dispHtml = dispParts.length ? '<span>' + dispParts.join('，') + '</span>' : '';
         // 门诊处置：续写空时整段不显示（首诊显示 -）
         if (!isProgress || dispHtml) {
             secs.push('<div class="prev-sec"><span class="doc-sec-label">门诊处置：</span>' + (dispHtml || '-') + '</div>');
         }
         push('是否留观', e.is_leave_hospital === '是' ? '是' : '否', isProgress ? false : true);
         push('嘱托', e.advice);
-        var typeBadge = rec.consultation_id > 0
-            ? '<span class="badge badge-warning">会诊</span>'
+        var typeBadge = isConsultRec
+            ? '<span class="badge badge-warning">会诊记录</span>'
             : (isProgress
                 ? '<span class="badge badge-primary">病历续写</span>'
                 : '<span class="badge badge-gray">首诊</span>');

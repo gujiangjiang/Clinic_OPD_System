@@ -65,6 +65,14 @@ Clinic.emr.orders = (function () {
      */
     function renderDocOrders() {
         var myId = myDoctorId();
+        // 续写/会诊病历完全独立：不自动填充该医生的历史开单入辅助检查/门诊处置节
+        // （该医生历史开单属于首诊或其他记录，不应在续写中重复展示）
+        if (ctx.DATA && ctx.DATA.record && ctx.DATA.record.record_type === 'progress') {
+            Clinic.emrEditor.setAuto('aux_orders', '', false);
+            Clinic.emrEditor.setAuto('rx_lines', '', false);
+            Clinic.emrEditor.setAuto('disp_items', '', false);
+            return;
+        }
         var auxT = [], rxLines = [], dispT = [];
         (ctx.ORDERS || []).forEach(function (o) {
             if ((o.doctor_id || 0) !== myId) return;

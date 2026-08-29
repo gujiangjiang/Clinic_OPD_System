@@ -40,8 +40,9 @@ function record_part_delete($action) {
             json_fail('该病历已添加诊断，不可删除；请先删除该病历内的全部诊断后再删除病历');
         }
         // 2.6 转科校验：文书书写科室与就诊当前科室不一致 → 只读，不可删除
-        //     （转科前旧病历在当前科室下为只读展示，即使本人也不可删）
-        if ((int)$rec['dept_id'] !== (int)$row['visit']['current_dept_id']) {
+        //     （转科前旧病历在当前科室下为只读展示，即使本人也不可删；
+        //       会诊记录 dept_id=会诊目标科室，不受转科限制）
+        if ((int)$rec['dept_id'] !== (int)$row['visit']['current_dept_id'] && (int)$rec['consultation_id'] === 0) {
             json_fail('该病历书写于转科前科室，当前科室下为只读状态，不可删除');
         }
         // 2.7 会诊病历回退：删除会诊病历 = 放弃本次会诊处理 → 会诊状态回退待会诊

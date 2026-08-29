@@ -65,6 +65,9 @@ switch ($action) {
         // 会诊拦截：本人已书写会诊病历（正在处理其他科室的会诊）→ 不可再发起会诊
         $ownConsult = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0', array($visitId, $u['id']));
         if ($ownConsult > 0) json_fail('您正在会诊处理中，不可再发起会诊');
+        // 会诊拦截：本就诊存在待处理/进行中的会诊（无论收发方向）→ 不可重复发起会诊
+        $activeCons = (int)DB::val('consultation', "SELECT COUNT(*) FROM consultations WHERE visit_id=? AND status IN ('pending','doing')", array($visitId));
+        if ($activeCons > 0) json_fail('该就诊已有进行中的会诊，不可重复发起');
         $targetDeptId = (int)post('target_dept_id', 0);
         if ($targetDeptId <= 0) json_fail('请选择会诊科室');
         // 目标科室必须合法且不能是当前科室
@@ -174,7 +177,9 @@ switch ($action) {
         $cid = did(post('id'));
         $c = DB::one('consultation', 'SELECT * FROM consultations WHERE id=?', array($cid));
         if (!$c) json_fail('会诊记录不存在');
-        if ((int)$c['target_dept_id'] !== (int)$u['current_dept_id']) json_fail('该会诊不属于当前科室');
+        $curDeptRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+        $curDeptId = $curDeptRow ? (int)$curDeptRow['current_dept_id'] : 0;
+        if ((int)$c['target_dept_id'] !== $curDeptId) json_fail('该会诊不属于当前科室');
         if ($c['status'] !== 'pending') json_fail('该会诊已开始处理');
         DB::exec('consultation', 'UPDATE consultations SET status=?, accepted_by=?, accepted_at=? WHERE id=?',
             array('doing', $u['name'], now_str(), $cid));
@@ -186,7 +191,9 @@ switch ($action) {
         $cid = did(post('id'));
         $c = DB::one('consultation', 'SELECT * FROM consultations WHERE id=?', array($cid));
         if (!$c) json_fail('会诊记录不存在');
-        if ((int)$c['target_dept_id'] !== (int)$u['current_dept_id']) json_fail('该会诊不属于当前科室');
+        $curDeptRow2 = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+        $curDeptId2 = $curDeptRow2 ? (int)$curDeptRow2['current_dept_id'] : 0;
+        if ((int)$c['target_dept_id'] !== $curDeptId2) json_fail('该会诊不属于当前科室');
         if ($c['status'] === 'pending') json_fail('会诊尚未开始');
         if ($c['status'] === 'done') json_fail('该会诊已完毕');
         DB::exec('consultation', 'UPDATE consultations SET status=?, finished_at=? WHERE id=?',
