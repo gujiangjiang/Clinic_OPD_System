@@ -2772,10 +2772,11 @@ diagnoses: [],
                 var buttons = [
                     { text: '关闭', cls: 'btn-outline' },
                 ];
-                // 会诊完毕（done）→ 始终提供「查看完整病历」入口：进入病历页全只读查看。
-                // 只读由后端状态驱动（跨科室绝对只读，不依赖 URL 参数）。
-                // 无论从候诊列表还是病历页内打开详情，按钮均恒定显示（消除时有时无）。
-                if (c.status === 'done') {
+                // 「查看完整病历」入口：仅当从候诊列表【会诊】tab 进入（withAccept=true）
+                // 且会诊已完毕（done）时显示——进入病历页全只读查看（后端跨科室状态驱动只读）。
+                // 病历页右侧会诊列表/正文链接（withAccept=false/undefined）打开详情时不显示，
+                // 避免已在完整病历内再出现入口。用 withAccept 区分两个点击来源（组件级区分）。
+                if (withAccept && c.status === 'done') {
                     buttons.push({
                         text: '📋 查看完整病历', cls: 'btn-primary', autoClose: false,
                         onClick: function () {
