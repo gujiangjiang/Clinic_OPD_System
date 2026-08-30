@@ -155,7 +155,7 @@ class Router {
     /** 是否已安装（是否存在管理员用户） */
     public static function installed() {
         try {
-            return (int)DB::val('user', 'SELECT COUNT(*) FROM users') > 0;
+            return (int)DB::val('SELECT COUNT(*) FROM users') > 0;
         } catch (Exception $ex) {
             return false;
         }

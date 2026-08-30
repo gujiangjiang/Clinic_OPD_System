@@ -162,7 +162,7 @@ function submit_audit($type, $refId, $title, $content, $extra = array()) {
     $cols = 'type, ref_id, title, content, status, proposer, proposer_id, created_at';
     if ($data !== null) { $cols .= ', data'; $params[] = $data; }
     if ($source !== '') { $cols .= ', creation_source'; $params[] = $source; }
-    return DB::insert('core', 'INSERT INTO audits(' . $cols . ') VALUES(' . implode(',', array_fill(0, count($params), '?')) . ')', $params);
+    return DB::insert('INSERT INTO audits(' . $cols . ') VALUES(' . implode(',', array_fill(0, count($params), '?')) . ')', $params);
 }
 
 /** 读取 POST 参数（自动去首尾空格） */
@@ -272,7 +272,7 @@ function calc_age($birth) {
  * 约束：不使用周/星期；严禁浮点数；日历精确计算（自动处理大小月/平闰年）；
  *       目标时间早于出生时间或无法解析时返回 ''（异常防御）。
  * @param string|int $birth   出生日期/时间（'Y-m-d'、'Y-m-d H:i:s' 或 Unix 时间戳）
- * @param string|int $target  计算目标时间（默认当前；可传就诊时间如 register_time）
+ * @param string|int $target  计算目标时间（默认当前；可传就诊时间如 registered_at）
  * @return string
  */
 function age_format($birth, $target = null) {
@@ -364,12 +364,12 @@ function pinyin_initial($str) {
  * 系统设置读写（core 库 settings 表）
  * ============================================================ */
 function setting($key, $default = '') {
-    $v = DB::val('core', 'SELECT svalue FROM settings WHERE skey=?', array($key));
+    $v = DB::val('SELECT svalue FROM settings WHERE skey=?', array($key));
     return $v === null ? $default : $v;
 }
 
 function set_setting($key, $value) {
-    DB::exec('core', 'INSERT OR REPLACE INTO settings(skey, svalue) VALUES(?, ?)', array($key, (string)$value));
+    DB::exec('INSERT OR REPLACE INTO settings(skey, svalue) VALUES(?, ?)', array($key, (string)$value));
 }
 
 /* ============================================================
@@ -479,11 +479,11 @@ function did_list($codes) {
 
 /** 按就诊ID联查 挂号记录 + 患者档案 */
 function get_visit_row($visitId) {
-    $v = DB::one('patient', 'SELECT * FROM registrations WHERE id=?', array((int)$visitId));
+    $v = DB::one('SELECT * FROM registrations WHERE id=?', array((int)$visitId));
     if (!$v) {
         return null;
     }
-    $p = DB::one('patient', 'SELECT * FROM patients WHERE patient_no=?', array($v['patient_no']));
+    $p = DB::one('SELECT * FROM patients WHERE patient_no=?', array($v['patient_no']));
     return array('visit' => $v, 'patient' => $p);
 }
 
@@ -498,8 +498,8 @@ function consult_ensure_no($c) {
     if ($no === '') {
         do {
             $no = consult_gen_no();
-        } while ((int)DB::val('consultation', 'SELECT COUNT(*) FROM consultations WHERE consult_no=?', array($no)) > 0);
-        DB::exec('consultation', 'UPDATE consultations SET consult_no=? WHERE id=?', array($no, (int)$c['id']));
+        } while ((int)DB::val('SELECT COUNT(*) FROM consultations WHERE consult_no=?', array($no)) > 0);
+        DB::exec('UPDATE consultations SET consult_no=? WHERE id=?', array($no, (int)$c['id']));
         $c['consult_no'] = $no;
     }
     return $c;
@@ -518,12 +518,11 @@ function get_consult_context($visit, $u) {
     // 医生当前所在科室（会话 auth_user 不含 current_dept_id，须从 user 库读取）
     $myDept = (int)(isset($u['current_dept_id']) ? $u['current_dept_id'] : 0);
     if ($myDept <= 0) {
-        $row = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array((int)$u['id']));
+        $row = DB::one('SELECT current_dept_id FROM users WHERE id=?', array((int)$u['id']));
         $myDept = $row ? (int)$row['current_dept_id'] : 0;
     }
     if ($myDept <= 0) return null;
-    return DB::one('consultation',
-        "SELECT * FROM consultations WHERE visit_id=? AND target_dept_id=? AND status IN ('pending','doing') ORDER BY id DESC LIMIT 1",
+    return DB::one(        "SELECT * FROM consultations WHERE visit_id=? AND target_dept_id=? AND status IN ('pending','doing') ORDER BY id DESC LIMIT 1",
         array($visitId, $myDept));
 }
 
@@ -543,8 +542,7 @@ function get_editable_record($visit, $u) {
     // 会诊处理中：只有会诊病历可编辑（未创建会诊病历 → 无可编辑病历）
     $cons = get_consult_context($visit, $u);
     if ($cons) {
-        return DB::one('medical',
-            'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id=? ORDER BY id DESC LIMIT 1',
+        return DB::one(            'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id=? ORDER BY id DESC LIMIT 1',
             array($visitId, $uid, (int)$cons['id']));
     }
     // 普通模式：书写科室 == 就诊当前科室，且医生当前科室 == 就诊当前科室
@@ -552,7 +550,7 @@ function get_editable_record($visit, $u) {
     //   会诊完毕或转科后同样受此规则约束，无需 URL 参数做只读屏障）
     $docDept = (int)(isset($u['current_dept_id']) ? $u['current_dept_id'] : 0);
     if ($docDept <= 0) {
-        $row = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($uid));
+        $row = DB::one('SELECT current_dept_id FROM users WHERE id=?', array($uid));
         $docDept = $row ? (int)$row['current_dept_id'] : 0;
     }
     if ($docDept <= 0) return null;
@@ -561,29 +559,25 @@ function get_editable_record($visit, $u) {
     if ($docDept !== $visitDept) return null;
     // 本就诊进行中的会诊（consultations 表在 consultation 库，不可嵌入 medical 库子查询）
     $activeConsIds = array();
-    $activeConsRows = DB::q('consultation',
-        "SELECT id FROM consultations WHERE visit_id=? AND status IN ('pending','doing')", array($visitId));
+    $activeConsRows = DB::q(        "SELECT id FROM consultations WHERE visit_id=? AND status IN ('pending','doing')", array($visitId));
     foreach ($activeConsRows as $acr) {
         $activeConsIds[] = (int)$acr['id'];
     }
     if ($visitDept > 0) {
         if ($activeConsIds) {
             $ph = implode(',', array_fill(0, count($activeConsIds), '?'));
-            return DB::one('medical',
-                "SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND (
+            return DB::one(                "SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND (
                     dept_id=?
                     OR (consultation_id>0 AND consultation_id IN ($ph))
                 ) ORDER BY id DESC LIMIT 1",
                 array_merge(array($visitId, $uid, $visitDept), $activeConsIds));
         }
-        return DB::one('medical',
-            'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND dept_id=? ORDER BY id DESC LIMIT 1',
+        return DB::one(            'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND dept_id=? ORDER BY id DESC LIMIT 1',
             array($visitId, $uid, $visitDept));
     }
     if ($activeConsIds) {
         $ph = implode(',', array_fill(0, count($activeConsIds), '?'));
-        return DB::one('medical',
-            "SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0
+        return DB::one(            "SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0
                 AND consultation_id IN ($ph) ORDER BY id DESC LIMIT 1",
             array_merge(array($visitId, $uid), $activeConsIds));
     }
@@ -607,7 +601,7 @@ function visit_dept_authorized($visit, $u) {
     if (in_array($curDept, $myDepts, true)) return true;
     $visitId = (int)(isset($visit['id']) ? $visit['id'] : 0);
     if ($visitId > 0) {
-        $n = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array($visitId, (int)$u['id']));
+        $n = (int)DB::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array($visitId, (int)$u['id']));
         if ($n > 0) return true;
     }
     return false;
@@ -625,10 +619,10 @@ function visit_access_allowed($visit, $u) {
     if (isset($u['queue_days']) && (int)$u['queue_days'] >= 2 && (int)$u['queue_days'] <= 7) {
         $queueDays = (int)$u['queue_days'];
     } else {
-        $ud = DB::one('user', 'SELECT queue_days FROM users WHERE id=?', array((int)$u['id']));
+        $ud = DB::one('SELECT queue_days FROM users WHERE id=?', array((int)$u['id']));
         if ($ud && (int)$ud['queue_days'] >= 2 && (int)$ud['queue_days'] <= 7) $queueDays = (int)$ud['queue_days'];
     }
-    $regTime = isset($visit['register_time']) ? (string)$visit['register_time'] : '';
+    $regTime = isset($visit['registered_at']) ? (string)$visit['registered_at'] : '';
     if ($regTime === '') return true;
     $since = date('Y-m-d', strtotime('-' . ($queueDays - 1) . ' days'));
     return substr($regTime, 0, 10) >= $since;
@@ -695,7 +689,7 @@ function send_msg($toRole, $toUserId, $title, $content = '', $printType = '', $p
     //   visit_id     关联就诊ID（点击可跳转到该次病历）
     //   link_url     自定义跳转链接（如审核驳回后跳回添加页回填重提）
     $extra = is_array($extra) ? $extra : array();
-    DB::insert('core', 'INSERT INTO messages(from_name, from_user_id, to_role, to_user_id, title, content, print_type, print_url, is_read, msg_type, patient_name, visit_id, link_url, created_at) VALUES(?,?,?,?,?,?,?,?,0,?,?,?,?,?)', array(
+    DB::insert('INSERT INTO messages(from_name, from_user_id, to_role, to_user_id, title, content, print_type, print_url, is_read, msg_type, patient_name, visit_id, link_url, created_at) VALUES(?,?,?,?,?,?,?,?,0,?,?,?,?,?)', array(
         isset($_SESSION['auth_user']['name']) ? $_SESSION['auth_user']['name'] : '系统',
         isset($_SESSION['auth_user']['id']) ? (int)$_SESSION['auth_user']['id'] : 0,
         $toRole, (int)$toUserId, $title, $content, $printType, $printUrl,

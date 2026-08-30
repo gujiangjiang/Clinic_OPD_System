@@ -19,12 +19,12 @@ function emr_default_data($patient = null) {
     $alDetail = '';
     if ($patient) {
         // 跨就诊自动调用：患者主表存有历史既往史/过敏史时预填（以最新一次保存为准）
-        if (!empty($patient['past_history_type'])) $phType = $patient['past_history_type'];
-        if (!empty($patient['past_history_detail'])) $phDetail = $patient['past_history_detail'];
+        if (!empty($patient['has_past_history'])) $phType = $patient['has_past_history'];
+        if (!empty($patient['past_history'])) $phDetail = $patient['past_history'];
         // 患者主表 allergies 存纯文本摘要：非空即视为「承认」并回填细节
-        if (!empty($patient['allergies'])) {
+        if (!empty($patient['allergy_history'])) {
             $alType = '承认';
-            $alDetail = $patient['allergies'];
+            $alDetail = $patient['allergy_history'];
         }
     }
     return array(
@@ -218,8 +218,8 @@ function emr_rx_display_lines($items) {
     $fullLine = function ($it) {
         $p = array();
         if (!empty($it['single_dose'])) $p[] = $it['single_dose'];
-        if (!empty($it['frequency_name'])) $p[] = $it['frequency_name'];
-        if (!empty($it['route_name'])) $p[] = $it['route_name'];
+        if (!empty($it['frequency'])) $p[] = $it['frequency'];
+        if (!empty($it['route'])) $p[] = $it['route'];
         return $it['item_name'] . ($p ? '　' . implode('　', $p) : '') . '　×' . (int)$it['quantity'];
     };
     $n = count($items);
@@ -251,7 +251,7 @@ function emr_obs_text($emr) {
 
 /** 诊断聚合显示顺序键（visit+医生维度，跨医生排序载体；无记录返回空数组） */
 function diag_order_keys($visitId, $doctorId) {
-    $row = DB::one('medical', 'SELECT ord_keys FROM diag_orders WHERE visit_id=? AND doctor_id=?', array($visitId, $doctorId));
+    $row = DB::one('SELECT ord_keys FROM diag_orders WHERE visit_id=? AND doctor_id=?', array($visitId, $doctorId));
     if (!$row || trim((string)$row['ord_keys']) === '') return array();
     $keys = explode("\n", (string)$row['ord_keys']);
     $out = array();

@@ -18,7 +18,7 @@ switch ($action) {
     /* ==================== 可选目标科室 ==================== */
     case 'targets':
         $deptId = (int)get('dept_id', 0);
-        $list = DB::q('dept', "SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id<>? ORDER BY type DESC, sort, id", array($deptId));
+        $list = DB::q("SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id<>? ORDER BY type DESC, sort, id", array($deptId));
         json_ok(array('list' => array_map(function ($d) {
             // type：急诊/门诊 Tab 分类（与通用科室选择弹窗约定一致）
             return array('id' => (int)$d['id'], 'name' => $d['name'], 'type' => $d['type']);
@@ -35,21 +35,21 @@ switch ($action) {
         if ($visit['status'] !== 'visiting') {
             json_fail('仅就诊中的患者可转科');
         }
-        $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=? AND status=1', array($targetDept));
+        $dept = DB::one('SELECT * FROM departments WHERE id=? AND status=1', array($targetDept));
         if (!$dept) json_fail('目标科室不存在或已停用');
         // 防自转：目标科室不能与患者当前科室相同（前端已隐藏当前科室，此处双保险）
         if ((int)$visit['current_dept_id'] === $targetDept) {
             json_fail('目标科室与患者当前科室相同，无需转科');
         }
         // 会诊拦截：书写了会诊病历的医生不可转科（会诊病历与当前科室绑定）
-        $hasConsult = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0', array($visitId, $u['id']));
+        $hasConsult = (int)DB::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0', array($visitId, $u['id']));
         if ($hasConsult > 0) {
             json_fail('您已书写会诊病历，会诊期间不可转科');
         }
 
         // 记录转科（附带原病历ID，供一键引用）
-        $lastRecord = DB::one('medical', 'SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
-        DB::insert('medical', 'INSERT INTO referrals(visit_id, patient_no, flow_no, from_dept_id, from_dept_name, to_dept_id, to_dept_name, reason, ref_record_id, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', array(
+        $lastRecord = DB::one('SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        DB::insert('INSERT INTO referrals(visit_id, patient_no, flow_no, from_dept_id, from_dept_name, to_dept_id, to_dept_name, reason, ref_record_id, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', array(
             $visitId, $visit['patient_no'], $visit['flow_no'],
             $visit['current_dept_id'], $visit['current_dept_name'],
             $targetDept, $dept['name'], post('reason', ''),
@@ -58,7 +58,7 @@ switch ($action) {
         ));
 
         // 更新当前科室；状态回到待就诊（新科室候诊）
-        DB::exec('patient', 'UPDATE registrations SET current_dept_id=?, current_dept_name=?, status=? WHERE id=?', array(
+        DB::exec('UPDATE registrations SET current_dept_id=?, current_dept_name=?, status=? WHERE id=?', array(
             $targetDept, $dept['name'], 'paid', $visitId,
         ));
         json_ok(array(), '已转往【' . $dept['name'] . '】，就诊序号与首次挂号科室保持不变');

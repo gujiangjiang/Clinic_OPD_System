@@ -23,7 +23,7 @@ class DataExportImport {
         return array(
             'dept' => array(
                 'title' => '科室',
-                'table' => array('dept', 'departments'),
+                'table' => array('main', 'departments'),
                 'key'   => 'name',
                 'fields' => array(
                     array('科室名称', 'name', true, '内科门诊'),
@@ -36,7 +36,7 @@ class DataExportImport {
             ),
             'drug' => array(
                 'title' => '药品',
-                'table' => array('drug', 'drugs'),
+                'table' => array('main', 'drugs'),
                 'key'   => 'name',
                 'fields' => array(
                     array('药品名称', 'name', true, '阿莫西林胶囊'),
@@ -48,15 +48,15 @@ class DataExportImport {
                     array('包装单位', 'package_unit', false, '盒'),
                     array('剂型', 'form', false, '胶囊'),
                     array('单次剂量', 'single_dose', false, '2粒'),
-                    array('用药频次', 'frequency_name', false, '每日三次'),
-                    array('给药途径', 'route_name', false, '口服'),
+                    array('用药频次', 'frequency', false, '每日三次'),
+                    array('给药途径', 'route', false, '口服'),
                     array('价格(元)', 'price', false, '12.5'),
                     array('库存量', 'qty', false, '500'),
                 ),
             ),
             'user' => array(
                 'title' => '人员',
-                'table' => array('user', 'users'),
+                'table' => array('main', 'users'),
                 'key'   => 'username',
                 'fields' => array(
                     array('工号', 'emp_no', true, '1001'),
@@ -69,7 +69,7 @@ class DataExportImport {
             ),
             'lab' => array(
                 'title' => '检验项目',
-                'table' => array('lab', 'lab_items'),
+                'table' => array('main', 'lab_items'),
                 'key'   => 'name',
                 'fields' => array(
                     array('项目名称', 'name', true, '白细胞计数(WBC)'),
@@ -83,7 +83,7 @@ class DataExportImport {
             ),
             'exam' => array(
                 'title' => '检查项目',
-                'table' => array('lab', 'exam_items'),
+                'table' => array('main', 'exam_items'),
                 'key'   => 'name',
                 'fields' => array(
                     array('项目名称', 'name', true, '胸部正位X线(DR)'),
@@ -93,22 +93,12 @@ class DataExportImport {
             ),
             'disp' => array(
                 'title' => '处置项目',
-                'table' => array('disp', 'disposal_items'),
+                'table' => array('main', 'disposal_items'),
                 'key'   => 'name',
                 'fields' => array(
                     array('处置名称', 'name', true, '青霉素皮试'),
                     array('费用(元)', 'fee', false, '8'),
                     array('描述', 'description', false, ''),
-                ),
-            ),
-            'icd10' => array(
-                'title' => 'ICD-10 诊断',
-                'table' => array('icd10', 'icd10'),
-                'key'   => 'code',
-                'fields' => array(
-                    array('编码', 'code', true, 'A09.0'),
-                    array('疾病名称', 'name', true, '急性肠炎'),
-                    array('拼音首字母', 'pinyin', false, 'JXCY'),
                 ),
             ),
         );

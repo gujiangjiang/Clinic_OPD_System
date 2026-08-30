@@ -20,21 +20,21 @@ function admin_part_settings($action) {
     /* ==================== 工作台统计 ==================== */
     if ($action === 'stats') {
         $today = today_str();
-        $regToday = (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE date(register_time)=? AND status IN ('paid','visiting','finished')", array($today));
-        $waiting = (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE date(register_time)=? AND status='paid'", array($today));
-        $revenue = (float)DB::val('order', "SELECT COALESCE(SUM(total),0) FROM payments WHERE date(created_at)=?", array($today));
-        $pendingAudits = (int)DB::val('core', "SELECT COUNT(*) FROM audits WHERE status='pending'");
-        $lowStock = (int)DB::val('drug', "SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty<=10");
-        $deptCount = (int)DB::val('dept', "SELECT COUNT(*) FROM departments WHERE status=1 AND type IN ('clinic','emergency')");
-        $userCount = (int)DB::val('user', 'SELECT COUNT(*) FROM users WHERE status=1');
-        $msgCount = (int)DB::val('core', 'SELECT COUNT(*) FROM messages WHERE is_read=0 AND (to_role=? OR to_user_id=?)', array($u['role'], $u['id']));
+        $regToday = (int)DB::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=? AND status IN ('paid','visiting','finished')", array($today));
+        $waiting = (int)DB::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=? AND status='paid'", array($today));
+        $revenue = (float)DB::val("SELECT COALESCE(SUM(total),0) FROM payments WHERE date(created_at)=?", array($today));
+        $pendingAudits = (int)DB::val("SELECT COUNT(*) FROM audits WHERE status='pending'");
+        $lowStock = (int)DB::val("SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty<=10");
+        $deptCount = (int)DB::val("SELECT COUNT(*) FROM departments WHERE status=1 AND type IN ('clinic','emergency')");
+        $userCount = (int)DB::val('SELECT COUNT(*) FROM users WHERE status=1');
+        $msgCount = (int)DB::val('SELECT COUNT(*) FROM messages WHERE is_read=0 AND (to_role=? OR to_user_id=?)', array($u['role'], $u['id']));
         // 近7天趋势（挂号人次 + 缴费金额）
         $labels = array(); $regSeries = array(); $revSeries = array();
         for ($i = 6; $i >= 0; $i--) {
             $day = date('Y-m-d', strtotime("-$i days"));
             $labels[] = substr($day, 5);
-            $regSeries[] = (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE date(register_time)=? AND status IN ('paid','visiting','finished')", array($day));
-            $revSeries[] = round((float)DB::val('order', "SELECT COALESCE(SUM(total),0) FROM payments WHERE date(created_at)=?", array($day)), 2);
+            $regSeries[] = (int)DB::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=? AND status IN ('paid','visiting','finished')", array($day));
+            $revSeries[] = round((float)DB::val("SELECT COALESCE(SUM(total),0) FROM payments WHERE date(created_at)=?", array($day)), 2);
         }
         json_ok(array(
             'reg_today' => $regToday, 'waiting' => $waiting, 'revenue' => money($revenue),
@@ -133,14 +133,14 @@ function admin_part_settings($action) {
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
-        $hasRecord = (int)DB::val('medical', 'SELECT COUNT(*) FROM records WHERE visit_id=?', array($visitId)) > 0;
-        $hasCert = (int)DB::val('medical', 'SELECT COUNT(*) FROM certificates WHERE visit_id=?', array($visitId)) > 0;
-        $orders = DB::q('order', 'SELECT * FROM orders WHERE visit_id=? ORDER BY id', array($visitId));
+        $hasRecord = (int)DB::val('SELECT COUNT(*) FROM records WHERE visit_id=?', array($visitId)) > 0;
+        $hasCert = (int)DB::val('SELECT COUNT(*) FROM certificates WHERE visit_id=?', array($visitId)) > 0;
+        $orders = DB::q('SELECT * FROM orders WHERE visit_id=? ORDER BY id', array($visitId));
         $typeNames = array('lab' => '检验申请单', 'imaging' => '检查申请单', 'procedure' => '处置单', 'prescription' => '处方单');
         $vOid = oid($visitId);
         $html = '<div class="card" style="padding:14px">' .
             '<div class="fw-700 fs-15">' . e($row['patient']['name']) . '（' . e($visit['flow_no']) . '）</div>' .
-            '<div class="fs-13 text-muted mt-4 mb-12">' . e($visit['first_dept_name']) . ' 第' . str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) . '号 ｜ ' . e(substr($visit['register_time'], 0, 16)) . '</div>';
+            '<div class="fs-13 text-muted mt-4 mb-12">' . e($visit['first_dept_name']) . ' 第' . str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) . '号 ｜ ' . e(substr($visit['registered_at'], 0, 16)) . '</div>';
         $html .= '<div class="flex gap-8" style="flex-wrap:wrap">' .
             '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=receipt&visit_id=' . e($vOid) . '\',null,\'ticket\')">挂号凭条</button>' .
             ($hasRecord ? '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' . e($vOid) . '\',null,\'a5\')">电子病历</button>' : '') .

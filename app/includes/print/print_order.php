@@ -14,10 +14,10 @@ function pt_order($order, $items, $title, $opts = array()) {
         '<div>' . e($displayNo) . '</div></div>';
 
     // 患者信息：参考急诊病历两行流式排版、两端对齐（无论门诊/急诊开单统一此样式）
-    $patient = DB::one('patient', 'SELECT * FROM patients WHERE patient_no=?', array($order['patient_no']));
-    // 临床诊断：取就诊结构化病历诊断（优先），旧镜像表 initial_diagnosis 兜底
+    $patient = DB::one('SELECT * FROM patients WHERE patient_no=?', array($order['patient_no']));
+    // 临床诊断：取就诊结构化病历诊断（优先），旧镜像表 preliminary_diagnosis 兜底
     $diagText = '';
-    $pr = DB::one('medical', 'SELECT emr_data FROM patient_records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($order['visit_id']));
+    $pr = DB::one('SELECT emr_data FROM patient_records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($order['visit_id']));
     if ($pr && !empty($pr['emr_data'])) {
         $emr = json_decode($pr['emr_data'], true);
         if (is_array($emr) && !empty($emr['diagnoses'])) {
@@ -25,9 +25,9 @@ function pt_order($order, $items, $title, $opts = array()) {
         }
     }
     if ($diagText === '') {
-        $oldRec = DB::one('medical', 'SELECT initial_diagnosis FROM records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($order['visit_id']));
-        if ($oldRec && trim((string)$oldRec['initial_diagnosis']) !== '') {
-            $diagText = trim((string)$oldRec['initial_diagnosis']);
+        $oldRec = DB::one('SELECT preliminary_diagnosis FROM records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($order['visit_id']));
+        if ($oldRec && trim((string)$oldRec['preliminary_diagnosis']) !== '') {
+            $diagText = trim((string)$oldRec['preliminary_diagnosis']);
         }
     }
     $cell = function ($k, $val) {
@@ -36,13 +36,13 @@ function pt_order($order, $items, $title, $opts = array()) {
     };
     // 开单科室：取开单医生当前科室（单号已由右上角条形码展示，这里显示科室）
     $deptName = '';
-    $docU = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array((int)$order['doctor_id']));
+    $docU = DB::one('SELECT current_dept_id FROM users WHERE id=?', array((int)$order['doctor_id']));
     if ($docU && (int)$docU['current_dept_id'] > 0) {
-        $dp = DB::one('dept', 'SELECT name FROM departments WHERE id=?', array((int)$docU['current_dept_id']));
+        $dp = DB::one('SELECT name FROM departments WHERE id=?', array((int)$docU['current_dept_id']));
         if ($dp) $deptName = $dp['name'];
     }
     if ($deptName === '') {
-        $ordVisit = DB::one('patient', 'SELECT current_dept_name FROM registrations WHERE id=?', array((int)$order['visit_id']));
+        $ordVisit = DB::one('SELECT current_dept_name FROM registrations WHERE id=?', array((int)$order['visit_id']));
         if ($ordVisit) $deptName = $ordVisit['current_dept_name'];
     }
     // 患者信息：第一行 姓名/性别/出生日期/年龄，第二行 患者ID/流水号/开单科室，第三行 临床诊断
@@ -94,8 +94,8 @@ function pt_order($order, $items, $title, $opts = array()) {
                 '<td class="rx-name">' . $nameTxt($it) . '</td>' .
                 '<td class="rx-dose">' . e($it['single_dose']) . '</td>' .
                 '<td class="rx-bracket">' . $bracket . '</td>' .
-                '<td class="rx-route" rowspan="' . $rowspan . '">' . e($it['route_name']) . '</td>' .
-                '<td class="rx-freq" rowspan="' . $rowspan . '">' . e($it['frequency_name']) . '</td>' .
+                '<td class="rx-route" rowspan="' . $rowspan . '">' . e($it['route']) . '</td>' .
+                '<td class="rx-freq" rowspan="' . $rowspan . '">' . e($it['frequency']) . '</td>' .
                 '<td class="rx-qty">×' . (int)$it['quantity'] . '</td>' .
                 '</tr>';
             $sc = count($subs);

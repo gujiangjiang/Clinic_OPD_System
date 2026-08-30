@@ -137,7 +137,7 @@ function admin_part_import($action) {
             if ($f[1] !== '_password') $colMap[$f[1]] = true;
         }
         $inserted = 0; $updated = 0;
-        $pdo = DatabaseManager::pdo($db);
+        $pdo = DatabaseManager::getMain();
         try {
             $pdo->beginTransaction();
             // 1. 冲突覆盖（overwrite 时）

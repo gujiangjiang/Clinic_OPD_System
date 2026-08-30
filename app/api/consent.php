@@ -40,15 +40,15 @@ switch ($action) {
         }
         if ($id > 0) {
             // 编辑：仅更新内容，标题保持原值（不可更改）
-            $old = DB::one('medical', 'SELECT * FROM consents WHERE id=? AND doctor_id=?', array($id, $u['id']));
+            $old = DB::one('SELECT * FROM consents WHERE id=? AND doctor_id=?', array($id, $u['id']));
             if (!$old) json_fail('知情同意书不存在或无权修改');
-            DB::exec('medical', 'UPDATE consents SET content=?, updated_at=? WHERE id=?', array($content, $now, $id));
+            DB::exec('UPDATE consents SET content=?, updated_at=? WHERE id=?', array($content, $now, $id));
         } else {
             // 新建：标题由服务端从模板推导（模板的 name + 知情同意书），前端不可指定/篡改
             $tplId = (int)post('template_id', 0);
             $title = '';
             if ($tplId > 0) {
-                $tpl = DB::one('emr_templates', 'SELECT content_json FROM emr_templates WHERE id=?', array($tplId));
+                $tpl = DB::one('SELECT content_json FROM emr_templates WHERE id=?', array($tplId));
                 if ($tpl) {
                     $tc = json_decode((string)$tpl['content_json'], true);
                     $nm = is_array($tc) && !empty($tc['name']) ? trim((string)$tc['name']) : '';
@@ -56,7 +56,7 @@ switch ($action) {
                 }
             }
             if ($title === '') json_fail('请从有效的知情同意书模板创建');
-            $id = DB::insert('medical', 'INSERT INTO consents(visit_id, patient_no, flow_no, title, content, doctor_id, doctor_name, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
+            $id = DB::insert('INSERT INTO consents(visit_id, patient_no, flow_no, title, content, doctor_id, doctor_name, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
                 $visitId, $patient['patient_no'], $visit['flow_no'], $title, $content, $u['id'], $u['name'], $now, $now,
             ));
         }
@@ -67,7 +67,7 @@ switch ($action) {
     case 'list':
         $visitId = did(get('visit_id'));
         if ($visitId <= 0) json_fail('参数错误');
-        $rows = DB::q('medical', 'SELECT * FROM consents WHERE visit_id=? ORDER BY id ASC', array($visitId));
+        $rows = DB::q('SELECT * FROM consents WHERE visit_id=? ORDER BY id ASC', array($visitId));
         $list = array();
         foreach ($rows as $r) {
             $list[] = array(
@@ -84,7 +84,7 @@ switch ($action) {
     /* ==================== 获取单条知情同意书 ==================== */
     case 'get':
         $id = (int)get('id', 0);
-        $r = DB::one('medical', 'SELECT * FROM consents WHERE id=?', array($id));
+        $r = DB::one('SELECT * FROM consents WHERE id=?', array($id));
         if (!$r) json_fail('知情同意书不存在');
         json_ok(array(
             'consent' => array(
@@ -103,7 +103,7 @@ switch ($action) {
     /* ==================== 删除知情同意书（仅本人创建） ==================== */
     case 'delete':
         $id = (int)post('id', 0);
-        $c = DB::one('medical', 'SELECT * FROM consents WHERE id=?', array($id));
+        $c = DB::one('SELECT * FROM consents WHERE id=?', array($id));
         if (!$c) json_fail('知情同意书不存在');
         if ((int)$c['doctor_id'] !== (int)$u['id']) json_fail('仅可删除本人创建的知情同意书');
         $row = get_visit_row($c['visit_id']);
@@ -116,7 +116,7 @@ switch ($action) {
         if ($row && !get_editable_record($row['visit'], $u)) {
             json_fail('跨科室病历仅只读，当前科室不可删除知情同意书');
         }
-        DB::exec('medical', 'DELETE FROM consents WHERE id=?', array($id));
+        DB::exec('DELETE FROM consents WHERE id=?', array($id));
         json_ok(array(), '知情同意书已删除');
         break;
 

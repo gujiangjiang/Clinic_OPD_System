@@ -186,7 +186,7 @@ class Layout {
         // print_auto 一并查库取实时值：打印预览「自动打印」偏好的服务端初始态
         // photo 也查库并同步会话：头像审核通过后 users.photo 已更新，
         // 但登录会话快照仍是旧值，须在此校准，保证页面右上角头像即时显示新头像。
-        $uFull = DB::one('user', 'SELECT emp_no, name, role, title, print_auto, photo, current_dept_id FROM users WHERE id=?', array((int)$u['id']));
+        $uFull = DB::one('SELECT emp_no, name, role, title, print_auto, photo, current_dept_id FROM users WHERE id=?', array((int)$u['id']));
         if ($uFull && $uFull['photo'] !== $u['photo']) {
             Auth::updateSession('photo', $uFull['photo']);
             $u['photo'] = $uFull['photo'];

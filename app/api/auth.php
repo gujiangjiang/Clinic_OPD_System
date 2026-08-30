@@ -36,11 +36,11 @@ if ($__act === 'login' || $__act === 'logout_page') {
         $u = Auth::user();
         // 管理员首次登录（未修改过默认密码）：站内消息提醒修改密码，点击跳转 /password
         // 去重不含 is_read 条件——只要发过一次就不再重发（已读/清空后登录不再重复打扰）
-        if ($u['role'] === 'admin' && (int)DB::val('user', 'SELECT pwd_changed FROM users WHERE id=?', array($u['id'])) === 0) {
-            $exist = DB::one('core', "SELECT id FROM messages WHERE to_user_id=? AND title=? LIMIT 1",
+        if ($u['role'] === 'admin' && (int)DB::val('SELECT pwd_changed FROM users WHERE id=?', array($u['id'])) === 0) {
+            $exist = DB::one("SELECT id FROM messages WHERE to_user_id=? AND title=? LIMIT 1",
                 array((int)$u['id'], '修改管理员密码提醒'));
             if (!$exist) {
-                DB::insert('core', "INSERT INTO messages(from_name, to_role, to_user_id, title, content, is_read, msg_type, link_url, created_at) VALUES(?,?,?,?,?,0,'system',?,?)",
+                DB::insert("INSERT INTO messages(from_name, to_role, to_user_id, title, content, is_read, msg_type, link_url, created_at) VALUES(?,?,?,?,?,0,'system',?,?)",
                     array('系统', 'admin', (int)$u['id'], '修改管理员密码提醒',
                         '为保障系统安全，建议您尽快修改管理员默认密码。点击此消息前往修改。',
                         '/password', now_str()));
@@ -62,15 +62,15 @@ switch ($action) {
     /* ---------------- 忘记密码：提交重置申请（通知管理员审核，需求25） ---------------- */
     case 'forgot':
         $me = Auth::user();
-        $row = DB::one('user', 'SELECT id, username, name, emp_no, role FROM users WHERE id=?', array($me['id']));
+        $row = DB::one('SELECT id, username, name, emp_no, role FROM users WHERE id=?', array($me['id']));
         if (!$row) json_fail('用户不存在');
         // 防重复申请：已有待审核的密码重置申请时不再重复提交
-        $pending = DB::one('core', "SELECT id FROM audits WHERE type='pwd_reset' AND ref_id=? AND status='pending'", array($row['id']));
+        $pending = DB::one("SELECT id FROM audits WHERE type='pwd_reset' AND ref_id=? AND status='pending'", array($row['id']));
         if ($pending) json_fail('您已提交过密码重置申请，请耐心等待管理员审核');
         // 已通过审核但尚未设置新密码时，引导直接设置
-        $approved = DB::one('core', "SELECT id FROM audits WHERE type='pwd_reset' AND ref_id=? AND status='approved'", array($row['id']));
+        $approved = DB::one("SELECT id FROM audits WHERE type='pwd_reset' AND ref_id=? AND status='approved'", array($row['id']));
         if ($approved) json_fail('您的密码重置申请已通过审核，请直接在站内消息中点击【设置新密码】完成重置');
-        DB::insert('core', "INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)", array(
+        DB::insert("INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?)", array(
             'pwd_reset', (int)$row['id'],
             '密码重置申请：' . $row['name'],
             '用户「' . $row['name'] . '」（工号 ' . $row['emp_no'] . '，角色 ' . Auth::roleName($row['role']) . '）忘记登录密码，申请重置为初始密码，请审核',
@@ -87,10 +87,10 @@ switch ($action) {
         $new = post_raw('new_password');
         if (strlen($new) < 6) json_fail('新密码长度不能少于6位');
         // 必须有管理员已批准且未使用的密码重置申请
-        $appr = DB::one('core', "SELECT id FROM audits WHERE type='pwd_reset' AND ref_id=? AND status='approved' ORDER BY id DESC", array(Auth::id()));
+        $appr = DB::one("SELECT id FROM audits WHERE type='pwd_reset' AND ref_id=? AND status='approved' ORDER BY id DESC", array(Auth::id()));
         if (!$appr) json_fail('没有已通过审核的密码重置申请，请先在【修改密码】页提交申请');
-        DB::exec('user', 'UPDATE users SET password=?, pwd_changed=1 WHERE id=?', array(password_hash($new, PASSWORD_DEFAULT), Auth::id()));
-        DB::exec('core', "UPDATE audits SET status='used', note=? WHERE id=?", array('用户已设置新密码', $appr['id']));
+        DB::exec('UPDATE users SET password=?, pwd_changed=1 WHERE id=?', array(password_hash($new, PASSWORD_DEFAULT), Auth::id()));
+        DB::exec("UPDATE audits SET status='used', note=? WHERE id=?", array('用户已设置新密码', $appr['id']));
         json_ok(array(), '密码修改成功');
         break;
 
@@ -100,7 +100,7 @@ switch ($action) {
         if (!in_array($theme, array('auto', 'light', 'dark'), true)) {
             $theme = 'auto';
         }
-        DB::exec('user', 'UPDATE users SET theme=? WHERE id=?', array($theme, Auth::id()));
+        DB::exec('UPDATE users SET theme=? WHERE id=?', array($theme, Auth::id()));
         Auth::updateSession('theme', $theme);
         json_ok(array('theme' => $theme), '主题设置已保存');
         break;
@@ -111,7 +111,7 @@ switch ($action) {
         if (!in_array($sidebar, array('expand', 'mini'), true)) {
             $sidebar = 'expand';
         }
-        DB::exec('user', 'UPDATE users SET sidebar=? WHERE id=?', array($sidebar, Auth::id()));
+        DB::exec('UPDATE users SET sidebar=? WHERE id=?', array($sidebar, Auth::id()));
         Auth::updateSession('sidebar', $sidebar);
         json_ok(array('sidebar' => $sidebar), '侧边栏设置已保存');
         break;
@@ -119,7 +119,7 @@ switch ($action) {
     /* ---------------- 打印偏好：自动打印（跟随用户保存，服务端持久化） ---------------- */
     case 'print_auto':
         $value = (int)post('value', 0) === 1 ? 1 : 0;
-        DB::exec('user', 'UPDATE users SET print_auto=? WHERE id=?', array($value, Auth::id()));
+        DB::exec('UPDATE users SET print_auto=? WHERE id=?', array($value, Auth::id()));
         Auth::updateSession('print_auto', $value);
         json_ok(array('print_auto' => $value), $value ? '已开启自动打印' : '已关闭自动打印');
         break;
@@ -131,11 +131,11 @@ switch ($action) {
         if (strlen($new) < 6) {
             json_fail('新密码长度不能少于6位');
         }
-        $u = DB::one('user', 'SELECT * FROM users WHERE id=?', array(Auth::id()));
+        $u = DB::one('SELECT * FROM users WHERE id=?', array(Auth::id()));
         if (!$u || !password_verify($old, $u['password'])) {
             json_fail('原密码不正确');
         }
-        DB::exec('user', 'UPDATE users SET password=?, pwd_changed=1 WHERE id=?', array(password_hash($new, PASSWORD_DEFAULT), Auth::id()));
+        DB::exec('UPDATE users SET password=?, pwd_changed=1 WHERE id=?', array(password_hash($new, PASSWORD_DEFAULT), Auth::id()));
         json_ok(array(), '密码修改成功');
         break;
 
@@ -165,7 +165,7 @@ switch ($action) {
             $params[] = $v;
         }
         $params[] = Auth::id();
-        DB::exec('user', 'UPDATE users SET ' . implode(',', $set) . ' WHERE id=?', $params);
+        DB::exec('UPDATE users SET ' . implode(',', $set) . ' WHERE id=?', $params);
         if ($photo && $photo['ok']) Auth::updateSession('photo', $photo['path']);
         if ($theme !== '') Auth::updateSession('theme', $theme);
         json_ok(array(), '资料已保存');
@@ -178,14 +178,14 @@ switch ($action) {
     case 'profile_submit':
         $me = Auth::user();
         // 防重复：已有待审核的个人资料申请
-        $pending = DB::one('core', "SELECT id FROM audits WHERE type='profile_update' AND ref_id=? AND status='pending'", array($me['id']));
+        $pending = DB::one("SELECT id FROM audits WHERE type='profile_update' AND ref_id=? AND status='pending'", array($me['id']));
         if ($pending) {
             json_fail('您已提交过个人资料审核申请，请等待管理员审核');
         }
         // 收集需审核字段的新值（仅在提交了对应字段时才纳入，避免仅换头像时误清空其他字段）
         $updates = array();
         $titleParts = array();
-        $cur = DB::one('user', 'SELECT education, degree, intro FROM users WHERE id=?', array($me['id']));
+        $cur = DB::one('SELECT education, degree, intro FROM users WHERE id=?', array($me['id']));
         if (isset($_POST['education'])) {
             $edu = post('education', '');
             if (($cur && $cur['education'] !== $edu) || $edu !== '') {
@@ -219,14 +219,14 @@ switch ($action) {
         }
         // 写入审核池：data 存新值 JSON，ref_id=用户ID
         $dataJson = json_encode($updates, JSON_UNESCAPED_UNICODE);
-        DB::insert('core', "INSERT INTO audits(type, ref_id, title, content, data, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?,?)", array(
+        DB::insert("INSERT INTO audits(type, ref_id, title, content, data, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?,?)", array(
             'profile_update', (int)$me['id'],
             '个人资料修改申请：' . $me['name'],
             implode('；', $titleParts),
             $dataJson, 'pending', $me['name'], (int)$me['id'], now_str(),
         ));
         // 通知管理员（会话快照不含 emp_no，从库取）
-        $meRow = DB::one('user', 'SELECT emp_no FROM users WHERE id=?', array($me['id']));
+        $meRow = DB::one('SELECT emp_no FROM users WHERE id=?', array($me['id']));
         send_msg('admin', 0, '个人资料审核申请',
             '用户「' . $me['name'] . '」（工号 ' . ($meRow ? $meRow['emp_no'] : '') . '）申请修改个人资料：' . implode('；', $titleParts) .
             '，请在【审核中心】处理', '', '');
@@ -256,7 +256,7 @@ switch ($action) {
                 $params[] = $v;
             }
             $params[] = Auth::id();
-            DB::exec('user', 'UPDATE users SET ' . implode(',', $set) . ' WHERE id=?', $params);
+            DB::exec('UPDATE users SET ' . implode(',', $set) . ' WHERE id=?', $params);
             if ($photo && $photo['ok']) Auth::updateSession('photo', $photo['path']);
             if ($theme !== '') Auth::updateSession('theme', $theme);
         }

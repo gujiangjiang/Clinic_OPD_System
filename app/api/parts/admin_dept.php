@@ -19,7 +19,7 @@ function admin_part_dept($action) {
 
     /* ==================== 科室列表 ==================== */
     if ($action === 'dept_list') {
-        $rows = DB::q('dept', 'SELECT * FROM departments ORDER BY type DESC, sort, id');
+        $rows = DB::q('SELECT * FROM departments ORDER BY type DESC, sort, id');
         $rowsHtml = '<thead><tr>' .
             '<th>科室名称</th><th>类型</th><th>挂号费</th><th>上午号源</th><th>下午号源</th><th>状态</th><th>操作</th></tr></thead><tbody>';
         foreach ($rows as $r) {
@@ -47,7 +47,7 @@ function admin_part_dept($action) {
     if ($action === 'dept_form') {
         // 表单弹窗通过 POST 提交 id，必须用 req() 兼容读取（get() 读不到导致编辑弹窗空白）
         $id = (int)req('id', 0);
-        $r = $id ? DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($id)) : array(
+        $r = $id ? DB::one('SELECT * FROM departments WHERE id=?', array($id)) : array(
             'name' => '', 'type' => 'clinic', 'fee' => '10', 'am_quota' => '30', 'pm_quota' => '30', 'status' => 1,
         );
         $html = '<input type="hidden" id="f_id" value="' . (int)$id . '">
@@ -92,9 +92,9 @@ function admin_part_dept($action) {
         // 医技/其他为叫号大屏专用科室：无号源概念，强制清零
         if ($type === 'tech' || $type === 'other') { $am = 0; $pm = 0; }
         if ($id > 0) {
-            DB::exec('dept', 'UPDATE departments SET name=?, type=?, fee=?, am_quota=?, pm_quota=?, status=? WHERE id=?', array($name, $type, $fee, $am, $pm, $status, $id));
+            DB::exec('UPDATE departments SET name=?, type=?, fee=?, am_quota=?, pm_quota=?, status=? WHERE id=?', array($name, $type, $fee, $am, $pm, $status, $id));
         } else {
-            DB::insert('dept', 'INSERT INTO departments(name, type, fee, am_quota, pm_quota, sort, status, created_at) VALUES(?,?,?,?,?,0,?,?)', array($name, $type, $fee, $am, $pm, $status, now_str()));
+            DB::insert('INSERT INTO departments(name, type, fee, am_quota, pm_quota, sort, status, created_at) VALUES(?,?,?,?,?,0,?,?)', array($name, $type, $fee, $am, $pm, $status, now_str()));
         }
         json_ok(array(), '科室已保存');
     }
@@ -102,9 +102,9 @@ function admin_part_dept($action) {
     /* ==================== 删除科室 ==================== */
     if ($action === 'dept_delete') {
         $id = (int)post('id');
-        $used = (int)DB::val('patient', 'SELECT COUNT(*) FROM registrations WHERE first_dept_id=?', array($id));
+        $used = (int)DB::val('SELECT COUNT(*) FROM registrations WHERE first_dept_id=?', array($id));
         if ($used > 0) json_fail('该科室已有挂号记录，不能删除（可改为停用）');
-        DB::exec('dept', 'DELETE FROM departments WHERE id=?', array($id));
+        DB::exec('DELETE FROM departments WHERE id=?', array($id));
         json_ok(array(), '科室已删除');
     }
 

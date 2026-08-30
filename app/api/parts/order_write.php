@@ -19,14 +19,14 @@ function order_part_write($action) {
         $deptId = (int)post('dept_id', 0);
         $deptName = '';
         if ($deptId > 0) {
-            $dn = DB::one('dept', 'SELECT name FROM departments WHERE id=?', array($deptId));
+            $dn = DB::one('SELECT name FROM departments WHERE id=?', array($deptId));
             if ($dn) $deptName = (string)$dn['name'];
         }
         if ($deptName === '') {
-            $curRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+            $curRow = DB::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
             $deptId = $curRow ? (int)$curRow['current_dept_id'] : 0;
             if ($deptId > 0) {
-                $dn2 = DB::one('dept', 'SELECT name FROM departments WHERE id=?', array($deptId));
+                $dn2 = DB::one('SELECT name FROM departments WHERE id=?', array($deptId));
                 if ($dn2) $deptName = (string)$dn2['name'];
             }
         }
@@ -57,7 +57,7 @@ function order_part_write($action) {
         // 支持切换到本人较早的续写文书开单），否则回退到最新可编辑文书 id——
         // 杜绝 record_id=0 的悬空开单。
         if ($recId > 0) {
-            $recRow = DB::one('medical', 'SELECT id, doctor_id, dept_id, consultation_id FROM patient_records WHERE id=?', array($recId));
+            $recRow = DB::one('SELECT id, doctor_id, dept_id, consultation_id FROM patient_records WHERE id=?', array($recId));
             $recOk = $recRow
                 && (int)$recRow['doctor_id'] === (int)$u['id']
                 && ((int)$recRow['dept_id'] === (int)$visit['current_dept_id'] || (int)$recRow['consultation_id'] > 0);
@@ -96,7 +96,7 @@ function order_part_write($action) {
             $skinChoice = '';
             $routeBindId = 0;
             if ($orderType === 'prescription' && $itemId > 0) {
-                $drug = DB::one('drug', 'SELECT * FROM drugs WHERE id=?', array($itemId));
+                $drug = DB::one('SELECT * FROM drugs WHERE id=?', array($itemId));
                 if (!$drug || $drug['status'] !== 'approved') {
                     json_fail('药品不存在或未通过审核：' . (isset($it['item_name']) ? $it['item_name'] : ''));
                 }
@@ -105,11 +105,11 @@ function order_part_write($action) {
                     if ((int)$drug['qty'] < $qty) {
                         json_fail('药品【' . $drug['name'] . '】库存不足（当前库存 ' . (int)$drug['qty'] . '）');
                     }
-                    // 【护士站执行】逐项独立设置（默认取管理员设置的 need_nurse，医生可自由修改）
-                    $needNurse = (isset($it['need_nurse']) && (int)$it['need_nurse'] === 1) ? 1 : 0;
+                    // 【护士站执行】逐项独立设置（默认取管理员设置的 is_nurse，医生可自由修改）
+                    $needNurse = (isset($it['is_nurse']) && (int)$it['is_nurse'] === 1) ? 1 : 0;
 
                     // ===== 皮试判定（阻断式）：需皮试药品必须由医生明确选择方案 =====
-                    if ((int)$drug['need_skin_test'] === 1) {
+                    if ((int)$drug['is_skin_test'] === 1) {
                         $choice = isset($skinChoices[$i]) ? strtolower(trim((string)$skinChoices[$i])) : '';
                         if ($choice !== 'yes' && $choice !== 'no') {
                             json_fail('【' . $drug['name'] . '】为需皮试药品，请先选择本次处置方案（需要皮试 / 免试）');
@@ -117,7 +117,7 @@ function order_part_write($action) {
                         $skinChoice = $choice;
                     }
                     // ===== 给药途径 → 绑定计费处置（如 静脉输液 → 静脉输液费）=====
-                    $routeBind = DB::one('drug', "SELECT bind_disposal_item_id FROM drug_settings WHERE stype='route' AND name=? LIMIT 1", array($drug['route_name']));
+                    $routeBind = DB::one("SELECT bind_disposal_item_id FROM drug_settings WHERE stype='route' AND name=? LIMIT 1", array($drug['route']));
                     if ($routeBind && (int)$routeBind['bind_disposal_item_id'] > 0) {
                         $routeBindId = (int)$routeBind['bind_disposal_item_id'];
                     }
@@ -125,7 +125,7 @@ function order_part_write($action) {
                     if ($skinChoice === 'yes' && (int)$drug['skin_test_item_id'] > 0) {
                         $stId = (int)$drug['skin_test_item_id'];
                         if (!isset($autoDisp[$stId])) {
-                            $stInfo = DB::one('disp', 'SELECT name, fee FROM disposal_items WHERE id=?', array($stId));
+                            $stInfo = DB::one('SELECT name, fee FROM disposal_items WHERE id=?', array($stId));
                             if (!$stInfo) json_fail('皮试处置项目不存在：#' . $stId);
                             $autoDisp[$stId] = array('name' => $stInfo['name'], 'fee' => (float)$stInfo['fee'], 'qty' => 0);
                         }
@@ -133,7 +133,7 @@ function order_part_write($action) {
                     }
                     if ($routeBindId > 0) {
                         if (!isset($autoDisp[$routeBindId])) {
-                            $rbInfo = DB::one('disp', 'SELECT name, fee FROM disposal_items WHERE id=?', array($routeBindId));
+                            $rbInfo = DB::one('SELECT name, fee FROM disposal_items WHERE id=?', array($routeBindId));
                             if (!$rbInfo) json_fail('途径绑定处置不存在：#' . $routeBindId);
                             $autoDisp[$routeBindId] = array('name' => $rbInfo['name'], 'fee' => (float)$rbInfo['fee'], 'qty' => 0);
                         }
@@ -143,8 +143,8 @@ function order_part_write($action) {
                     }
                 }
             } elseif ($orderType === 'procedure') {
-                // 处置：是否需护士站处置按「单项」独立设置（默认取管理员设置的 need_nurse，医生可逐项修改）
-                $needNurse = (isset($it['need_nurse']) && (int)$it['need_nurse'] === 1) ? 1 : 0;
+                // 处置：是否需护士站处置按「单项」独立设置（默认取管理员设置的 is_nurse，医生可逐项修改）
+                $needNurse = (isset($it['is_nurse']) && (int)$it['is_nurse'] === 1) ? 1 : 0;
             }
             // ===== 项目存在性校验 + 权威核价（非处方类）：防止空名明细混入病历/打印 =====
             if ($orderType !== 'prescription' && $subOf === 0 && $itemId > 0) {
@@ -204,12 +204,12 @@ function order_part_write($action) {
                 'item_type' => $orderType, 'item_id' => $itemId,
                 'item_name' => $rxName,
                 'spec' => isset($it['spec']) ? $it['spec'] : '',
-                'unit_name' => isset($it['unit_name']) ? $it['unit_name'] : '',
+                'unit' => isset($it['unit']) ? $it['unit'] : '',
                 'company_short' => isset($it['company_short']) ? $it['company_short'] : '',
                 'price' => $price, 'quantity' => $qty,
-                'single_dose' => $singleDoseShow, 'frequency_name' => isset($it['frequency']) ? $it['frequency'] : '',
-                'route_name' => isset($it['route']) ? $it['route'] : '',
-                'need_nurse' => $needNurse, 'sub_of' => $subOf,
+                'single_dose' => $singleDoseShow, 'frequency' => isset($it['frequency']) ? $it['frequency'] : '',
+                'route' => isset($it['route']) ? $it['route'] : '',
+                'is_nurse' => $needNurse, 'sub_of' => $subOf,
             );
             $total += $price * $qty;   // 主药与子医嘱均独立计费
         }
@@ -242,8 +242,8 @@ function order_part_write($action) {
                     $it['is_parent'] = 0;
                     $it['parent_item_id'] = $pidx + 1;   // 主药在本次提交中的 1 基序号
                     // 子药强制继承主药途径与频次（成组医嘱约束）
-                    $it['route_name'] = $orderItems[$pidx]['route_name'];
-                    if ($it['frequency_name'] === '') $it['frequency_name'] = $orderItems[$pidx]['frequency_name'];
+                    $it['route'] = $orderItems[$pidx]['route'];
+                    if ($it['frequency'] === '') $it['frequency'] = $orderItems[$pidx]['frequency'];
                 } else {
                     $it['group_no'] = 0; $it['is_parent'] = 0; $it['parent_item_id'] = 0;
                 }
@@ -269,7 +269,7 @@ function order_part_write($action) {
             $catMap = array();
             if ($examIds) {
                 $ph = implode(',', array_fill(0, count($examIds), '?'));
-                foreach (DB::q('lab', "SELECT id, category FROM exam_items WHERE id IN ($ph)", array_keys($examIds)) as $r) {
+                foreach (DB::q("SELECT id, category FROM exam_items WHERE id IN ($ph)", array_keys($examIds)) as $r) {
                     $catMap[(int)$r['id']] = trim((string)$r['category']);
                 }
             }
@@ -319,9 +319,9 @@ function order_part_write($action) {
 
             do {
                 $orderNo = (isset($typeCode[$orderType]) ? $typeCode[$orderType] : 'DD') . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
-            } while ((int)DB::val('order', 'SELECT COUNT(*) FROM orders WHERE order_no=?', array($orderNo)) > 0);
+            } while ((int)DB::val('SELECT COUNT(*) FROM orders WHERE order_no=?', array($orderNo)) > 0);
 
-            $orderId = DB::insert('order', 'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, cat_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+            $orderId = DB::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                 $visitId, $visit['patient_no'], $visit['flow_no'], $orderType, $orderNo, $g['cat'],
                 $u['id'], $u['name'], $recId, $deptId, $deptName, $groupTotal, 'open', now_str(),
             ));
@@ -329,10 +329,10 @@ function order_part_write($action) {
                 $it = $orderItems[$i];
                 $sub = (int)$it['sub_of'];
                 $newSub = ($sub > 0 && isset($mapSeq[$sub])) ? $mapSeq[$sub] : 0;
-                DB::insert('order', 'INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, spec, unit_name, company_short, price, quantity, single_dose, frequency_name, route_name, need_nurse, sub_of, group_no, is_parent, parent_item_id, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                DB::insert('INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, spec, unit, company_short, price, quantity, single_dose, frequency, route, is_nurse, sub_of, group_no, is_parent, parent_item_id, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                     $orderId, $visitId, $visit['patient_no'], $visit['flow_no'], $it['item_type'], $it['item_id'],
-                    $it['item_name'], $it['spec'], $it['unit_name'], $it['company_short'], $it['price'], $it['quantity'],
-                    $it['single_dose'], $it['frequency_name'], $it['route_name'], $it['need_nurse'], $newSub,
+                    $it['item_name'], $it['spec'], $it['unit'], $it['company_short'], $it['price'], $it['quantity'],
+                    $it['single_dose'], $it['frequency'], $it['route'], $it['is_nurse'], $newSub,
                     (int)$it['group_no'], (int)$it['is_parent'], (int)$it['parent_item_id'],
                     'open', $u['id'], $u['name'], now_str(),
                 ));
@@ -345,12 +345,12 @@ function order_part_write($action) {
                     if ((int)$it['item_id'] > 0) {
                         // 原子条件更新：仅当库存充足时扣减，避免 TOCTOU 竞态
                         // 预检（line 前段）仅作快速提示，此处才是最终校验
-                        $affected = DB::exec('drug', 'UPDATE drugs SET qty = qty - ? WHERE id=? AND qty >= ?',
+                        $affected = DB::exec('UPDATE drugs SET qty = qty - ? WHERE id=? AND qty >= ?',
                             array($it['quantity'], $it['item_id'], $it['quantity']));
                         if (!$affected) {
                             json_fail('药品【' . $it['item_name'] . '】库存不足（并发扣减），请重试');
                         }
-                        DB::insert('order', 'INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
+                        DB::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
                             $it['item_id'], -$it['quantity'], 'order_out', $orderNo, $u['name'], now_str(),
                         ));
                     }
@@ -385,16 +385,14 @@ function order_part_write($action) {
             foreach ($autoDisp as $d) { $autoTotal += (float)$d['fee'] * (int)$d['qty']; }
             do {
                 $autoOrderNo = 'CZ' . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
-            } while ((int)DB::val('order', 'SELECT COUNT(*) FROM orders WHERE order_no=?', array($autoOrderNo)) > 0);
+            } while ((int)DB::val('SELECT COUNT(*) FROM orders WHERE order_no=?', array($autoOrderNo)) > 0);
 
-            $autoOrderId = DB::insert('order',
-                'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, cat_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, source_order_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            $autoOrderId = DB::insert(                'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, source_order_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 array($visitId, $visit['patient_no'], $visit['flow_no'], 'procedure', $autoOrderNo, '',
                       $u['id'], $u['name'], $recId, $deptId, $deptName, $autoTotal, 'open', now_str(), $orderId));
 
             foreach ($autoDisp as $dispId => $d) {
-                DB::insert('order',
-                    'INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, price, quantity, unit_name, need_nurse, sub_of, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                DB::insert(                    'INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, price, quantity, unit, is_nurse, sub_of, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                     array($autoOrderId, $visitId, $visit['patient_no'], $visit['flow_no'],
                           'procedure', $dispId, $d['name'], (float)$d['fee'], (int)$d['qty'],
                           '次', 1, 0, 'open', $u['id'], $u['name'], now_str()));
@@ -427,7 +425,7 @@ function order_part_write($action) {
     if ($action === 'delete') {
         $orderId = did(post('order_id'));
         if ($orderId <= 0) json_fail('参数无效');
-        $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array($orderId));
+        $order = DB::one('SELECT * FROM orders WHERE id=?', array($orderId));
         if (!$order) json_fail('开单记录不存在');
         // 删除校验：开单人本人 + 开单所属病历（record_id）等于当前编辑病历——
         // 只有处于开单所在病历的可编辑状态下才可删除（前端 canDeleteOrder 同步拦截）
@@ -440,7 +438,7 @@ function order_part_write($action) {
         if ($orderRecId > 0 && ($curRecordId <= 0 || $orderRecId !== $curRecordId)) {
             json_fail('该开单不属于当前编辑的病历，不可删除（开单与病历强关联）');
         }
-        $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=?', array($orderId));
+        $items = DB::q('SELECT * FROM order_items WHERE order_id=?', array($orderId));
         foreach ($items as $it) {
             // 允许删除：未缴费（open）或已退费（refunded）
             if (!in_array($it['status'], array('open', 'refunded'), true)) {
@@ -451,8 +449,8 @@ function order_part_write($action) {
         if ($order['order_type'] === 'prescription') {
             foreach ($items as $it) {
                 if ($it['item_id'] > 0 && (int)$it['sub_of'] === 0 && $it['status'] === 'open') {
-                    DB::exec('drug', 'UPDATE drugs SET qty = qty + ? WHERE id=?', array((int)$it['quantity'], $it['item_id']));
-                    DB::insert('order', 'INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
+                    DB::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array((int)$it['quantity'], $it['item_id']));
+                    DB::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
                         $it['item_id'], (int)$it['quantity'], 'order_restore', $order['order_no'], $u['name'], now_str(),
                     ));
                 }
@@ -461,9 +459,9 @@ function order_part_write($action) {
         // 处方：级联删除自动生成的联动处置单（皮试/途径绑定，source_order_id 指向本处方）
         $autoOrders = array();
         if ($order['order_type'] === 'prescription') {
-            $autoOrders = DB::q('order', "SELECT * FROM orders WHERE source_order_id=? AND order_type='procedure'", array($orderId));
+            $autoOrders = DB::q("SELECT * FROM orders WHERE source_order_id=? AND order_type='procedure'", array($orderId));
             foreach ($autoOrders as $ao) {
-                $aoItems = DB::q('order', 'SELECT * FROM order_items WHERE order_id=?', array($ao['id']));
+                $aoItems = DB::q('SELECT * FROM order_items WHERE order_id=?', array($ao['id']));
                 foreach ($aoItems as $aoIt) {
                     if (!in_array($aoIt['status'], array('open', 'refunded'), true)) {
                         json_fail('该处方的联动处置单已进入执行流程，不能自动删除（请先在收费处处理联动处置单）');
@@ -471,11 +469,11 @@ function order_part_write($action) {
                 }
             }
         }
-        DB::exec('order', 'DELETE FROM order_items WHERE order_id=?', array($orderId));
-        DB::exec('order', 'DELETE FROM orders WHERE id=?', array($orderId));
+        DB::exec('DELETE FROM order_items WHERE order_id=?', array($orderId));
+        DB::exec('DELETE FROM orders WHERE id=?', array($orderId));
         foreach ($autoOrders as $ao) {
-            DB::exec('order', 'DELETE FROM order_items WHERE order_id=?', array($ao['id']));
-            DB::exec('order', 'DELETE FROM orders WHERE id=?', array($ao['id']));
+            DB::exec('DELETE FROM order_items WHERE order_id=?', array($ao['id']));
+            DB::exec('DELETE FROM orders WHERE id=?', array($ao['id']));
         }
         json_ok(array(), '开单已删除' . ($order['order_type'] === 'prescription' ? '，药品库存已恢复' : '') . ($autoOrders ? '，联动处置单已同步删除' : ''));
         return;

@@ -36,13 +36,13 @@ function parse_single_use($txt) {
     return 1;
 }
 
-$rows = DB::q('drug', 'SELECT id, name, spec, single_dose FROM drugs ORDER BY id');
+$rows = DB::q('SELECT id, name, spec, single_dose FROM drugs ORDER BY id');
 $updated = 0; $skipped = 0;
 foreach ($rows as $r) {
     $p = parse_drug_spec($r['spec']);
     if (!$p) { $skipped++; echo "跳过 #{$r['id']} {$r['name']}: spec=[{$r['spec']}] 无法解析\n"; continue; }
     $useQty = parse_single_use($r['single_dose']);
-    DB::exec('drug', 'UPDATE drugs SET spec_dose=?, spec_dose_unit=?, spec_pack_qty=?, spec_pack_unit=?, single_use_qty=? WHERE id=?',
+    DB::exec('UPDATE drugs SET spec_dose=?, spec_dose_unit=?, spec_pack_qty=?, spec_pack_unit=?, single_use_qty=? WHERE id=?',
         array($p['dose'], $p['unit'], $p['pack_qty'], $p['pack_unit'], $useQty, $r['id']));
     $updated++;
     echo "  #{$r['id']} {$r['name']}: [{$r['spec']}] → {$p['dose']}{$p['unit']}×{$p['pack_qty']}{$p['pack_unit']} 单次{$useQty}\n";

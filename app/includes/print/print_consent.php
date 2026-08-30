@@ -36,7 +36,7 @@ function pt_consent($visit, $patient, $consent, $doctorName, $record) {
         '<div class="print-info-line">' .
         $cell('就诊科室', isset($visit['current_dept_name']) ? $visit['current_dept_name'] : '') .
         $cell('患者ID', isset($patient['patient_no']) ? $patient['patient_no'] : '') .
-        $cell('就诊时间', isset($visit['register_time']) ? $visit['register_time'] : '') .
+        $cell('就诊时间', isset($visit['registered_at']) ? $visit['registered_at'] : '') .
         '</div></div>';
     $html .= '<div class="print-line"></div>';
 
@@ -45,7 +45,7 @@ function pt_consent($visit, $patient, $consent, $doctorName, $record) {
     // 病情介绍（仅首页）：主诉 + 初步诊断
     $html .= '<div class="consent-sec">';
     $html .= pt_sec('主诉', nl2br(e(isset($record['chief_complaint']) ? strip_tags($record['chief_complaint']) : '')));
-    $html .= pt_sec('初步诊断', e(isset($record['initial_diagnosis']) ? $record['initial_diagnosis'] : ''));
+    $html .= pt_sec('初步诊断', e(isset($record['preliminary_diagnosis']) ? $record['preliminary_diagnosis'] : ''));
     $html .= '<div style="border-top:1px dashed #000;margin:8px 0"></div>';
     $html .= '<div style="font-weight:700;padding:2px 0">请仔细阅读以下内容：</div>';
     $html .= '</div>';

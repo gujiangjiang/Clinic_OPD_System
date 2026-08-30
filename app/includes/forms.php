@@ -20,7 +20,7 @@
  */
 function form_item($type, $id) {
     $table = $type === 'lab' ? 'lab_items' : 'exam_items';
-    $r = $id > 0 ? DB::one('lab', "SELECT * FROM $table WHERE id=?", array((int)$id)) : array(
+    $r = $id > 0 ? DB::one("SELECT * FROM $table WHERE id=?", array((int)$id)) : array(
         'category' => '', 'name' => '', 'unit' => '', 'price' => '0', 'normal_range' => '',
         'critical_low' => '', 'critical_high' => '', 'description' => '',
     );
@@ -30,7 +30,7 @@ function form_item($type, $id) {
             'critical_low' => '', 'critical_high' => '', 'description' => '',
         );
     }
-    $cats = DB::q('lab', "SELECT name FROM item_categories WHERE ctype=? ORDER BY sort, id", array($type));
+    $cats = DB::q("SELECT name FROM item_categories WHERE ctype=? ORDER BY sort, id", array($type));
     $catOpts = '<option value="">请选择/输入分类</option>';
     foreach ($cats as $c) {
         $catOpts .= '<option value="' . e($c['name']) . '"' . ($r['category'] === $c['name'] ? ' selected' : '') . '>' . e($c['name']) . '</option>';
@@ -41,7 +41,7 @@ function form_item($type, $id) {
     if ($type === 'lab') {
         $unitDl = '';
         $unitOpts = '';
-        foreach (DB::q('lab', "SELECT DISTINCT unit FROM lab_items WHERE unit IS NOT NULL AND unit<>'' ORDER BY unit") as $uu) {
+        foreach (DB::q("SELECT DISTINCT unit FROM lab_items WHERE unit IS NOT NULL AND unit<>'' ORDER BY unit") as $uu) {
             $unitOpts .= '<option value="' . e($uu['unit']) . '">';
         }
         if ($unitOpts !== '') {
@@ -77,15 +77,15 @@ function form_item($type, $id) {
 /**
  * 药品表单
  * @param int $id 药品ID（0 为新增）
- * @return array ['html'=>表单HTML, 'route_nurse'=>途径→需护士站映射, 'need_nurse'=>当前值]
+ * @return array ['html'=>表单HTML, 'route_nurse'=>途径→需护士站映射, 'is_nurse'=>当前值]
  */
 function form_drug($id) {
-    $r = $id > 0 ? DB::one('drug', 'SELECT * FROM drugs WHERE id=?', array((int)$id)) : null;
+    $r = $id > 0 ? DB::one('SELECT * FROM drugs WHERE id=?', array((int)$id)) : null;
     if (!$r) {
         $r = array(
             'name' => '', 'generic_name' => '', 'category' => '', 'vendor' => '', 'vendor_short' => '',
-            'package_unit' => '', 'spec' => '', 'form' => '', 'single_dose' => '', 'frequency_name' => '',
-            'route_name' => '', 'price' => '0', 'qty' => '0', 'is_rx' => 0, 'is_limited' => 0, 'note' => '', 'need_nurse' => 0,
+            'package_unit' => '', 'spec' => '', 'form' => '', 'single_dose' => '', 'frequency' => '',
+            'route' => '', 'price' => '0', 'qty' => '0', 'is_rx' => 0, 'is_limited' => 0, 'note' => '', 'is_nurse' => 0,
             'spec_dose' => 0, 'spec_dose_unit' => '', 'spec_pack_qty' => 1, 'spec_pack_unit' => '', 'single_use_qty' => 1,
         );
     }
@@ -98,7 +98,7 @@ function form_drug($id) {
         }
     }
     $sel = function ($stype, $cur) {
-        $rows = DB::q('drug', 'SELECT * FROM drug_settings WHERE stype=? ORDER BY sort, id', array($stype));
+        $rows = DB::q('SELECT * FROM drug_settings WHERE stype=? ORDER BY sort, id', array($stype));
         $html = '<option value="">请选择</option>';
         foreach ($rows as $x) {
             $html .= '<option value="' . e($x['name']) . '"' . ($cur === $x['name'] ? ' selected' : '') . '>' . e($x['name']) . '</option>';
@@ -108,7 +108,7 @@ function form_drug($id) {
     // 皮试关联处置名称（表单回显：必须在拼接 HTML 之前计算）
     $skinName = '';
     if (!empty($r['skin_test_item_id'])) {
-        $sn = DB::val('disp', 'SELECT name FROM disposal_items WHERE id=?', array((int)$r['skin_test_item_id']));
+        $sn = DB::val('SELECT name FROM disposal_items WHERE id=?', array((int)$r['skin_test_item_id']));
         $skinName = (string)$sn;
     }
     $html = '<input type="hidden" id="f_id" value="' . (int)$id . '">
@@ -138,8 +138,8 @@ function form_drug($id) {
         </div>
     </div>
     <div class="form-row">
-        <div class="form-group"><label class="form-label">用药频次</label><select class="select" id="f_freq">' . $sel('freq', $r['frequency_name']) . '</select></div>
-        <div class="form-group"><label class="form-label">使用途径</label><select class="select" id="f_route" onchange="syncNurse()">' . $sel('route', $r['route_name']) . '</select></div>
+        <div class="form-group"><label class="form-label">用药频次</label><select class="select" id="f_freq">' . $sel('freq', $r['frequency']) . '</select></div>
+        <div class="form-group"><label class="form-label">使用途径</label><select class="select" id="f_route" onchange="syncNurse()">' . $sel('route', $r['route']) . '</select></div>
     </div>
     <div class="form-row">
         <div class="form-group"><label class="form-label">价格（元）</label><input class="input" type="number" step="0.01" min="0" id="f_price" value="' . e($r['price']) . '"></div>
@@ -148,10 +148,10 @@ function form_drug($id) {
     <div class="flex gap-16 mb-8">
         <label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="f_rx"' . ($r['is_rx'] ? ' checked' : '') . '> 处方药</label>
         <label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="f_limited"' . ($r['is_limited'] ? ' checked' : '') . '> 限制类药品</label>
-        <label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="f_nurse"' . ($r['need_nurse'] ? ' checked' : '') . '> 需护士站执行</label>
-        <label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="f_skin_test"' . ((int)$r['need_skin_test'] ? ' checked' : '') . ' onchange="syncSkinBox()"> 需皮试药品</label>
+        <label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="f_nurse"' . ($r['is_nurse'] ? ' checked' : '') . '> 需护士站执行</label>
+        <label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="f_skin_test"' . ((int)$r['is_skin_test'] ? ' checked' : '') . ' onchange="syncSkinBox()"> 需皮试药品</label>
     </div>
-    <div class="form-group" id="skin_box" style="' . ((int)$r['need_skin_test'] ? '' : 'display:none') . 'background:var(--bg-soft);border-radius:10px;padding:12px">
+    <div class="form-group" id="skin_box" style="' . ((int)$r['is_skin_test'] ? '' : 'display:none') . 'background:var(--bg-soft);border-radius:10px;padding:12px">
         <label class="form-label">关联皮试处置项目 <span class="req">*</span>（开方时自动联动）</label>
         <input type="hidden" id="f_skin_item" value="' . (int)$r['skin_test_item_id'] . '">
         <div class="flex gap-8">
@@ -164,20 +164,20 @@ function form_drug($id) {
     <div class="form-group"><label class="form-label">备注</label><textarea class="textarea" id="f_note" rows="2">' . e($r['note']) . '</textarea></div>';
     // 给药途径 → 是否需护士站处理 映射（供前端自动勾选）
     $routeMap = array();
-    foreach (DB::q('drug', "SELECT name, need_nurse FROM drug_settings WHERE stype='route'") as $rt) {
-        $routeMap[$rt['name']] = (int)$rt['need_nurse'];
+    foreach (DB::q("SELECT name, is_nurse FROM drug_settings WHERE stype='route'") as $rt) {
+        $routeMap[$rt['name']] = (int)$rt['is_nurse'];
     }
     // 规格结构化编辑用：已有单位列表（历史去重，供 datalist 组合框下拉选择/直接输入）
     $doseUnits = array();
-    foreach (DB::q('drug', "SELECT DISTINCT spec_dose_unit FROM drugs WHERE spec_dose_unit IS NOT NULL AND spec_dose_unit<>'' ORDER BY spec_dose_unit") as $du) {
+    foreach (DB::q("SELECT DISTINCT spec_dose_unit FROM drugs WHERE spec_dose_unit IS NOT NULL AND spec_dose_unit<>'' ORDER BY spec_dose_unit") as $du) {
         $doseUnits[] = $du['spec_dose_unit'];
     }
     $packUnits = array();
-    foreach (DB::q('drug', "SELECT DISTINCT spec_pack_unit FROM drugs WHERE spec_pack_unit IS NOT NULL AND spec_pack_unit<>'' ORDER BY spec_pack_unit") as $pu) {
+    foreach (DB::q("SELECT DISTINCT spec_pack_unit FROM drugs WHERE spec_pack_unit IS NOT NULL AND spec_pack_unit<>'' ORDER BY spec_pack_unit") as $pu) {
         $packUnits[] = $pu['spec_pack_unit'];
     }
-    return array('html' => $html, 'route_nurse' => $routeMap, 'need_nurse' => (int)$r['need_nurse'],
-        'need_skin_test' => (int)(isset($r['need_skin_test']) ? $r['need_skin_test'] : 0),
+    return array('html' => $html, 'route_nurse' => $routeMap, 'is_nurse' => (int)$r['is_nurse'],
+        'is_skin_test' => (int)(isset($r['is_skin_test']) ? $r['is_skin_test'] : 0),
         'skin_test_item_id' => (int)(isset($r['skin_test_item_id']) ? $r['skin_test_item_id'] : 0),
         'skin_test_item_name' => $skinName,
         'dose_units' => $doseUnits, 'pack_units' => $packUnits);

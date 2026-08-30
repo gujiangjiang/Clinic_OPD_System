@@ -25,7 +25,7 @@ function record_part_write($action) {
             json_fail('该病历超出您的可查看历史天数，无法修改');
         }
         // 本人最近一条文书（首诊或上一次续写）——作为续写的父记录
-        $ownLatest = DB::one('medical', 'SELECT id, record_type, emr_data FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+        $ownLatest = DB::one('SELECT id, record_type, emr_data FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
         if (!$ownLatest) json_fail('本人尚无病历，请先书写首诊病历');
         // 必填校验：当前文书必须已完善并保存，才能继续续写
         $ownEmr = json_decode((string)$ownLatest['emr_data'], true);
@@ -47,7 +47,7 @@ function record_part_write($action) {
         $now = now_str();
         $emr = emr_default_data(null);
         $cleanJson = json_encode($emr, JSON_UNESCAPED_UNICODE);
-        $pdo = DatabaseManager::pdo('medical');
+        $pdo = DatabaseManager::getMain();
         try {
             $pdo->beginTransaction();
             // patient_records：空骨架（status=draft，正文为空，保存时填充）
@@ -87,13 +87,13 @@ function record_part_write($action) {
         // ===== 会诊锁校验（会诊期间病历只读） =====
         // 1) 就诊存在「进行中」会诊时，非会诊病历一律只读（无论是否本人书写）；
         // 2) 会诊病历在会诊「完毕」后永久只读。
-        $doingCons = DB::one('consultation', "SELECT * FROM consultations WHERE visit_id=? AND status='doing' ORDER BY id DESC LIMIT 1", array($visitId));
+        $doingCons = DB::one("SELECT * FROM consultations WHERE visit_id=? AND status='doing' ORDER BY id DESC LIMIT 1", array($visitId));
         $consultationId = (int)post('consultation_id', 0);
         if ($doingCons && $consultationId === 0) {
             json_fail('该就诊正在进行会诊，会诊前的病历已锁定为只读，仅可编辑会诊病历');
         }
         if ($consultationId > 0) {
-            $consStatusRow = DB::one('consultation', 'SELECT status FROM consultations WHERE id=?', array($consultationId));
+            $consStatusRow = DB::one('SELECT status FROM consultations WHERE id=?', array($consultationId));
             if ($consStatusRow && $consStatusRow['status'] === 'done') {
                 json_fail('该会诊已完毕，会诊病历已永久锁定为只读，不可修改');
             }
@@ -115,15 +115,15 @@ function record_part_write($action) {
         // · 本人无文书 → 流水下已有他人病历时为续写（progress），否则为首诊。
         $editRecordId = (int)post('edit_record_id', 0);
         $progressNew = (int)post('progress_new', 0);
-        $otherCount = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id<>?', array($visitId, $u['id']));
+        $otherCount = (int)DB::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id<>?', array($visitId, $u['id']));
         if ($editRecordId > 0) {
             // 编辑本人指定文书（切换回旧首诊/旧续写）——校验归属
-            $ownRow = DB::one('medical', 'SELECT id, record_type, dept_id, consultation_id FROM patient_records WHERE id=? AND doctor_id=?', array($editRecordId, $u['id']));
+            $ownRow = DB::one('SELECT id, record_type, dept_id, consultation_id FROM patient_records WHERE id=? AND doctor_id=?', array($editRecordId, $u['id']));
             if (!$ownRow) json_fail('病历记录不存在或无权编辑');
             // 会诊完毕锁定：以记录自身的 consultation_id 为准（不信任前端传参——
             // 前端切换旧文书时可能丢失 consultation_id 导致 done 拦截被绕过）
             if ((int)$ownRow['consultation_id'] > 0) {
-                $ownConsStatus = DB::one('consultation', 'SELECT status FROM consultations WHERE id=?', array((int)$ownRow['consultation_id']));
+                $ownConsStatus = DB::one('SELECT status FROM consultations WHERE id=?', array((int)$ownRow['consultation_id']));
                 if ($ownConsStatus && $ownConsStatus['status'] === 'done') {
                     json_fail('该会诊已完毕，会诊病历已永久锁定为只读，不可修改');
                 }
@@ -135,12 +135,12 @@ function record_part_write($action) {
             }
             $recordType = $ownRow['record_type'];
         } else {
-            $ownRow = DB::one('medical', 'SELECT id, record_type, consultation_id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+            $ownRow = DB::one('SELECT id, record_type, consultation_id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
             // 会诊完毕锁定：仅当保存目标是「本人最新现有文书」时校验（无 edit_record_id
             // 且非新建续写 progress_new）；若本人最新文书是已完毕会诊病历则只读。
             // 新建续写（progress_new=1）保存目标是全新文书，与旧会诊记录无关，不可误拦。
             if (!$progressNew && $ownRow && (int)$ownRow['consultation_id'] > 0) {
-                $ownConsStatus2 = DB::one('consultation', 'SELECT status FROM consultations WHERE id=?', array((int)$ownRow['consultation_id']));
+                $ownConsStatus2 = DB::one('SELECT status FROM consultations WHERE id=?', array((int)$ownRow['consultation_id']));
                 if ($ownConsStatus2 && $ownConsStatus2['status'] === 'done') {
                     json_fail('该会诊已完毕，会诊病历已永久锁定为只读，不可修改');
                 }
@@ -161,10 +161,10 @@ function record_part_write($action) {
         if ($progressNew && $ownRow) {
             $parentRow = $ownRow;
         } elseif ($recordType === 'progress') {
-            $myEarlier = $ownRow ? DB::one('medical', 'SELECT id FROM patient_records WHERE visit_id=? AND doctor_id=? AND id<? ORDER BY id DESC LIMIT 1', array($visitId, $u['id'], $ownRow['id'])) : null;
+            $myEarlier = $ownRow ? DB::one('SELECT id FROM patient_records WHERE visit_id=? AND doctor_id=? AND id<? ORDER BY id DESC LIMIT 1', array($visitId, $u['id'], $ownRow['id'])) : null;
             $parentRow = $myEarlier
                 ? $myEarlier
-                : DB::one('medical', 'SELECT id FROM patient_records WHERE visit_id=? AND doctor_id<>? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+                : DB::one('SELECT id FROM patient_records WHERE visit_id=? AND doctor_id<>? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
         }
         $parentRecordId = $parentRow ? (int)$parentRow['id'] : 0;
 
@@ -173,10 +173,10 @@ function record_part_write($action) {
         $consultationId = (int)post('consultation_id', 0);
         $recDeptId = (int)$visit['current_dept_id'];
         if ($consultationId > 0) {
-            $cons = DB::one('consultation', 'SELECT * FROM consultations WHERE id=?', array($consultationId));
+            $cons = DB::one('SELECT * FROM consultations WHERE id=?', array($consultationId));
             if (!$cons) json_fail('会诊记录不存在');
             if ((int)$cons['visit_id'] !== (int)$visitId) json_fail('会诊记录不属于本次就诊');
-            $curDeptRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+            $curDeptRow = DB::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
             $curDeptId = $curDeptRow ? (int)$curDeptRow['current_dept_id'] : 0;
             if ((int)$cons['target_dept_id'] !== $curDeptId) json_fail('该会诊不属于当前科室，无法书写会诊病历');
             // 会诊记录书写科室 = 会诊目标科室（非患者当前就诊科室）
@@ -240,14 +240,14 @@ function record_part_write($action) {
         list($orderNames, $rxLines, $dispItems) = emr_order_snapshot($visitId, $u['id']);
         // 生命体征归属：打印文本快照仅含当前医生本人录入的体征（operator=本人姓名），
         // 谁的体征归属谁的文书；未录入则不含生命体征节
-        $vitalsRow = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1', array($visitId, $u['name']));
+        $vitalsRow = DB::one('SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1', array($visitId, $u['name']));
         $vp = array();
         if ($vitalsRow) {
-            if (!empty($vitalsRow['bp_systolic'])) $vp[] = '血压 ' . $vitalsRow['bp_systolic'] . '/' . $vitalsRow['bp_diastolic'] . 'mmHg';
-            if (!empty($vitalsRow['heart_rate'])) $vp[] = '心率 ' . $vitalsRow['heart_rate'] . '次/分';
-            if (!empty($vitalsRow['pulse'])) $vp[] = '脉搏 ' . $vitalsRow['pulse'] . '次/分';
-            if (!empty($vitalsRow['spo2'])) $vp[] = '血氧 ' . $vitalsRow['spo2'] . '%';
-            if (!empty($vitalsRow['respiration'])) $vp[] = '呼吸 ' . $vitalsRow['respiration'] . '次/分';
+            if (!empty($vitalsRow['vital_sbp'])) $vp[] = '血压 ' . $vitalsRow['vital_sbp'] . '/' . $vitalsRow['vital_dbp'] . 'mmHg';
+            if (!empty($vitalsRow['vital_heart_rate'])) $vp[] = '心率 ' . $vitalsRow['vital_heart_rate'] . '次/分';
+            if (!empty($vitalsRow['vital_pulse'])) $vp[] = '脉搏 ' . $vitalsRow['vital_pulse'] . '次/分';
+            if (!empty($vitalsRow['vital_spo2'])) $vp[] = '血氧 ' . $vitalsRow['vital_spo2'] . '%';
+            if (!empty($vitalsRow['vital_respiration'])) $vp[] = '呼吸 ' . $vitalsRow['vital_respiration'] . '次/分';
         }
         $vitalsText = implode('；', $vp);
         $consciousness = post('consciousness');
@@ -260,7 +260,7 @@ function record_part_write($action) {
 
         // ===== 6. 事务写入（medical 库：patient_records + records 镜像同库） =====
         $now = now_str();
-        $pdo = DatabaseManager::pdo('medical');
+        $pdo = DatabaseManager::getMain();
         try {
             $pdo->beginTransaction();
 
@@ -271,19 +271,19 @@ function record_part_write($action) {
             if ($editRecordId > 0) {
                 $pr = array('id' => $editRecordId);   // 切换回旧文书：精确更新指定记录
             } else {
-                $pr = DB::one('medical', 'SELECT id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+                $pr = DB::one('SELECT id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
             }
             if ($pr && !$progressNew) {
-                $pdo->prepare('UPDATE patient_records SET main_symptom=?, symptom_duration=?, symptom_unit=?, informant=?, arrival_way=?, has_past_history=?, allergies=?, is_leave_hospital=?, primary_icd10=?, primary_diagnosis=?, emr_data=?, emr_print_text=?, status=?, updated_at=? WHERE id=?')
+                $pdo->prepare('UPDATE patient_records SET chief_complaint=?, symptom_duration=?, symptom_unit=?, informant=?, arrival_way=?, has_past_history=?, allergy_history=?, is_leave_hospital=?, icd10_code=?, diagnosis_name=?, emr_data=?, emr_print_text=?, status=?, updated_at=? WHERE id=?')
                     ->execute(array($mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $pr['id']));
                 $recordId = (int)$pr['id'];
             } else {
-                $pdo->prepare('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, main_symptom, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergies, is_leave_hospital, primary_icd10, primary_diagnosis, emr_data, emr_print_text, status, created_at, updated_at, consultation_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+                $pdo->prepare('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, chief_complaint, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergy_history, is_leave_hospital, icd10_code, diagnosis_name, emr_data, emr_print_text, status, created_at, updated_at, consultation_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
                     ->execute(array($visitId, $visit['patient_no'], $visit['flow_no'], $recDeptId, $u['id'], $u['name'], $recordType, $parentRecordId, $mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $now, $consultationId));
                 $recordId = (int)$pdo->lastInsertId();
                 // 体征记录回填：新病历保存前若以 record_id=0 录入过体征（未保存时的
                 // 录入），关联到本次新建病历，保证该病历内后续修改体征为更新而非新增。
-                DB::exec('nurse', 'UPDATE vitals SET record_id=? WHERE visit_id=? AND operator=? AND record_id=0', array($recordId, $visitId, $u['name']));
+                DB::exec('UPDATE vitals SET record_id=? WHERE visit_id=? AND operator=? AND record_id=0', array($recordId, $visitId, $u['name']));
             }
 
             // B. 旧 records 表扁平镜像（兼容就诊历史列表/转科引用/诊断证明等既有消费方）
@@ -299,8 +299,8 @@ function record_part_write($action) {
                 'allergy_history' => emr_al_text($emr['allergies']),
                 'physical_exam' => emr_pe_text($emr['physical_exam']),
                 'consciousness' => $consciousness,
-                'initial_diagnosis' => emr_diag_text($diagnoses),
-                'diagnosis_code' => $primaryIcd10,
+                'preliminary_diagnosis' => emr_diag_text($diagnoses),
+                'icd10_code' => $primaryIcd10,
                 'is_observation' => $isLeaveHospital === '是' ? 1 : 0,
                 'visit_type' => $visitType,
                 'advice' => $emr['advice'],
@@ -311,10 +311,10 @@ function record_part_write($action) {
             // （同医生多文书：首诊+多段续写各有一条镜像，编辑旧文书精确回写）
             $old = null;
             if ($recordId > 0) {
-                $old = DB::one('medical', 'SELECT id FROM records WHERE patient_record_id=?', array($recordId));
+                $old = DB::one('SELECT id FROM records WHERE patient_record_id=?', array($recordId));
             }
             if (!$old) {
-                $old = DB::one('medical', 'SELECT id FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+                $old = DB::one('SELECT id FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
             }
             if ($old && !$progressNew) {
                 $set = array();
@@ -340,7 +340,7 @@ function record_part_write($action) {
         }
 
         // C. 同步患者主表全局既往史/过敏史
-        $curGlobal = DB::one('patient', 'SELECT past_history_type, past_history_detail, allergies FROM patients WHERE patient_no=?', array($visit['patient_no']));
+        $curGlobal = DB::one('SELECT has_past_history, past_history, allergy_history FROM patients WHERE patient_no=?', array($visit['patient_no']));
         $phType = (string)$emr['past_history']['type'];
         $phDetail = (string)$emr['past_history']['detail'];
         $alType = isset($emr['allergies']['type']) ? (string)$emr['allergies']['type'] : '';
@@ -348,38 +348,38 @@ function record_part_write($action) {
         // 过敏史：仅当通过模态框修改过（allergy_modified=1）才同步患者主表——
         // 患者主表是唯一数据源，模态框读写；未打开模态框保存病历不改变主表。
         $allergyModified = (int)post('allergy_modified', 0);
-        $newAllergy = $curGlobal ? (string)$curGlobal['allergies'] : '';
+        $newAllergy = $curGlobal ? (string)$curGlobal['allergy_history'] : '';
         if ($allergyModified === 1) {
             $newAllergy = ($alType === '承认') ? $alDetail : '';
         }
         // 既往史：本次「承认」则同步；本次否认但全局为「承认」 → 保留全局
         $newPhType = $phType;
         $newPhDetail = $phDetail;
-        if ($phType !== '承认' && $curGlobal && $curGlobal['past_history_type'] === '承认') {
-            $newPhType = $curGlobal['past_history_type'];
-            $newPhDetail = $curGlobal['past_history_detail'];
+        if ($phType !== '承认' && $curGlobal && $curGlobal['has_past_history'] === '承认') {
+            $newPhType = $curGlobal['has_past_history'];
+            $newPhDetail = $curGlobal['past_history'];
         }
-        DB::exec('patient', 'UPDATE patients SET past_history_type=?, past_history_detail=?, allergies=? WHERE patient_no=?', array(
+        DB::exec('UPDATE patients SET has_past_history=?, past_history=?, allergy_history=? WHERE patient_no=?', array(
             $newPhType, $newPhDetail, $newAllergy, $visit['patient_no'],
         ));
 
         // C2. 保存病历即视为接诊：若就诊状态仍为待就诊(paid)，标记为就诊中(visiting)
         // （以「是否存在病历」判定是否就诊，而非打开页面即算）
         if (!$finish && isset($visit['status']) && $visit['status'] === 'paid') {
-            DB::exec('patient', 'UPDATE registrations SET status=? WHERE id=?', array('visiting', $visitId));
+            DB::exec('UPDATE registrations SET status=? WHERE id=?', array('visiting', $visitId));
         }
 
         // ===== 会诊病历保存成功 → 会诊状态从 pending 置 doing =====
         // （进入会诊页面不代表会诊中，有会诊病历成功保存后才改为会诊中）
         if ($consultationId > 0) {
-            $cons2 = DB::one('consultation', 'SELECT status, accepted_by FROM consultations WHERE id=?', array($consultationId));
+            $cons2 = DB::one('SELECT status, accepted_by FROM consultations WHERE id=?', array($consultationId));
             if ($cons2) {
                 $updates = array();
                 if ($cons2['status'] === 'pending') $updates['status'] = 'doing';
                 if (empty($cons2['accepted_by'])) $updates['accepted_by'] = $u['name'];
                 $updates['accepted_at'] = now_str();
                 if (isset($updates['status'])) {
-                    DB::exec('consultation', 'UPDATE consultations SET status=?, accepted_by=?, accepted_at=? WHERE id=?',
+                    DB::exec('UPDATE consultations SET status=?, accepted_by=?, accepted_at=? WHERE id=?',
                         array($updates['status'], $updates['accepted_by'], $updates['accepted_at'], $consultationId));
                 }
             }
@@ -400,7 +400,7 @@ function record_part_write($action) {
             } elseif ($dispDetail === '') {
                 json_fail('请填写' . $dispNeed[$disposition]);
             }
-            DB::exec('patient', 'UPDATE registrations SET status=?, disposition=?, disposition_detail=?, finish_time=?, payment_time=COALESCE(payment_time,?) WHERE id=?',
+            DB::exec('UPDATE registrations SET status=?, disposition=?, disposition_detail=?, finished_at=?, paid_at=COALESCE(paid_at,?) WHERE id=?',
                 array('finished', $disposition, $dispDetail, now_str(), now_str(), $visitId));
             json_ok(array('finished' => 1, 'record_id' => $recordId), '病历已保存并诊毕');
         }
@@ -422,40 +422,40 @@ function record_part_write($action) {
         }
         // 数值校验（与服务端同规则）：非负整数、生理合理区间；留空视为未测
         $spec = array(
-            'bp_systolic'  => array(post('bp_systolic', 0), 1, 300, '收缩压'),
-            'bp_diastolic' => array(post('bp_diastolic', 0), 1, 250, '舒张压'),
-            'heart_rate'   => array(post('heart_rate', ''), 1, 300, '心率'),
-            'pulse'        => array(post('pulse', ''), 1, 300, '脉搏'),
-            'spo2'         => array(post('spo2', ''), 1, 100, '血氧饱和度'),
-            'respiration'  => array(post('respiration', ''), 1, 100, '呼吸'),
+            'vital_sbp'  => array(post('vital_sbp', 0), 1, 300, '收缩压'),
+            'vital_dbp' => array(post('vital_dbp', 0), 1, 250, '舒张压'),
+            'vital_heart_rate'   => array(post('vital_heart_rate', ''), 1, 300, '心率'),
+            'vital_pulse'        => array(post('vital_pulse', ''), 1, 300, '脉搏'),
+            'vital_spo2'         => array(post('vital_spo2', ''), 1, 100, '血氧饱和度'),
+            'vital_respiration'  => array(post('vital_respiration', ''), 1, 100, '呼吸'),
         );
         $clean = array();
         foreach ($spec as $k => $c) {
             $raw = trim((string)$c[0]);
-            if ($raw === '') { $clean[$k] = ($k === 'bp_systolic' || $k === 'bp_diastolic') ? 0 : ''; continue; }
+            if ($raw === '') { $clean[$k] = ($k === 'vital_sbp' || $k === 'vital_dbp') ? 0 : ''; continue; }
             if (!preg_match('/^\d+$/', $raw)) json_fail($c[3] . '须为非负整数（不留小数 / 负数 / 单位）');
             $n = (int)$raw;
             if ($n !== 0 && ($n < $c[1] || $n > $c[2])) json_fail($c[3] . '超出合理范围（' . $c[1] . '-' . $c[2] . '）');
-            $clean[$k] = ($k === 'bp_systolic' || $k === 'bp_diastolic') ? $n : (string)$n;
+            $clean[$k] = ($k === 'vital_sbp' || $k === 'vital_dbp') ? $n : (string)$n;
         }
         $recordId = (int)post('record_id', 0);
         // 记录关联：同一病历已有体征条目 → 修改（纠错不产生新记录）；
         // 无 → 新增一条（新病历首次录入 / 护士站录入）
         $existV = ($recordId > 0)
-            ? DB::one('nurse', 'SELECT id FROM vitals WHERE visit_id=? AND record_id=? LIMIT 1', array($visitId, $recordId))
+            ? DB::one('SELECT id FROM vitals WHERE visit_id=? AND record_id=? LIMIT 1', array($visitId, $recordId))
             : null;
         $now = now_str();
         if ($existV) {
-            DB::exec('nurse', 'UPDATE vitals SET bp_systolic=?, bp_diastolic=?, heart_rate=?, pulse=?, spo2=?, respiration=?, operator=?, created_at=? WHERE id=?', array(
-                $clean['bp_systolic'], $clean['bp_diastolic'],
-                $clean['heart_rate'], $clean['pulse'], $clean['spo2'], $clean['respiration'],
+            DB::exec('UPDATE vitals SET vital_sbp=?, vital_dbp=?, vital_heart_rate=?, vital_pulse=?, vital_spo2=?, vital_respiration=?, operator=?, created_at=? WHERE id=?', array(
+                $clean['vital_sbp'], $clean['vital_dbp'],
+                $clean['vital_heart_rate'], $clean['vital_pulse'], $clean['vital_spo2'], $clean['vital_respiration'],
                 $u['name'], $now, $existV['id'],
             ));
         } else {
-            DB::insert('nurse', 'INSERT INTO vitals(visit_id, patient_no, flow_no, bp_systolic, bp_diastolic, heart_rate, pulse, spo2, respiration, operator, created_at, record_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', array(
+            DB::insert('INSERT INTO vitals(visit_id, patient_no, flow_no, vital_sbp, vital_dbp, vital_heart_rate, vital_pulse, vital_spo2, vital_respiration, operator, created_at, record_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', array(
                 $visitId, $row['visit']['patient_no'], $row['visit']['flow_no'],
-                $clean['bp_systolic'], $clean['bp_diastolic'],
-                $clean['heart_rate'], $clean['pulse'], $clean['spo2'], $clean['respiration'],
+                $clean['vital_sbp'], $clean['vital_dbp'],
+                $clean['vital_heart_rate'], $clean['vital_pulse'], $clean['vital_spo2'], $clean['vital_respiration'],
                 $u['name'], $now, $recordId,
         ));
         }
@@ -472,7 +472,7 @@ function record_part_write($action) {
             json_fail('该病历超出您的可查看历史天数，无法修改');
         }
         // 会诊拦截：会诊病历（本人在会诊接收科室的文书）不可调整诊断顺序
-        $hasConsult = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0', array($visitId, $u['id']));
+        $hasConsult = (int)DB::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0', array($visitId, $u['id']));
         if ($hasConsult > 0) {
             json_fail('会诊病历不可调整诊断顺序');
         }
@@ -483,13 +483,13 @@ function record_part_write($action) {
             $k = trim((string)$k);
             if ($k !== '' && count($clean) < 100 && !in_array($k, $clean, true)) $clean[] = $k;
         }
-        $exist = (int)DB::val('medical', 'SELECT id FROM diag_orders WHERE visit_id=? AND doctor_id=?', array($visitId, $u['id']));
+        $exist = (int)DB::val('SELECT id FROM diag_orders WHERE visit_id=? AND doctor_id=?', array($visitId, $u['id']));
         if ($exist > 0) {
-            $pdo2 = DatabaseManager::pdo('medical');
+            $pdo2 = DatabaseManager::getMain();
             $pdo2->prepare('UPDATE diag_orders SET ord_keys=?, updated_at=? WHERE id=?')
                 ->execute(array(implode("\n", $clean), now_str(), $exist));
         } else {
-            DB::insert('medical', 'INSERT INTO diag_orders(visit_id, doctor_id, ord_keys, updated_at) VALUES(?,?,?,?)', array(
+            DB::insert('INSERT INTO diag_orders(visit_id, doctor_id, ord_keys, updated_at) VALUES(?,?,?,?)', array(
                 $visitId, $u['id'], implode("\n", $clean), now_str(),
             ));
         }
@@ -512,18 +512,18 @@ function record_part_write($action) {
         // 仅本人文书可调整，且未诊毕；切换回旧文书编辑时按 edit_record_id 精确定位
         $editDiagRecordId = (int)post('edit_record_id', 0);
         if ($editDiagRecordId > 0) {
-            $pr = DB::one('medical', 'SELECT * FROM patient_records WHERE id=? AND doctor_id=?', array($editDiagRecordId, $u['id']));
+            $pr = DB::one('SELECT * FROM patient_records WHERE id=? AND doctor_id=?', array($editDiagRecordId, $u['id']));
         } else {
-            $pr = DB::one('medical', 'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+            $pr = DB::one('SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
         }
         if (!$pr) json_fail('您在该就诊下暂无病历文书');
         // 会诊锁校验：会诊期间非会诊病历不可调整诊断；会诊完毕的会诊病历不可再调整诊断
-        $diagDoingCons = DB::one('consultation', "SELECT * FROM consultations WHERE visit_id=? AND status='doing' ORDER BY id DESC LIMIT 1", array($visitId));
+        $diagDoingCons = DB::one("SELECT * FROM consultations WHERE visit_id=? AND status='doing' ORDER BY id DESC LIMIT 1", array($visitId));
         if ($diagDoingCons && (int)$pr['consultation_id'] === 0) {
             json_fail('该就诊正在进行会诊，会诊前的病历已锁定为只读，仅可编辑会诊病历');
         }
         if ((int)$pr['consultation_id'] > 0) {
-            $diagConsRow = DB::one('consultation', 'SELECT status FROM consultations WHERE id=?', array((int)$pr['consultation_id']));
+            $diagConsRow = DB::one('SELECT status FROM consultations WHERE id=?', array((int)$pr['consultation_id']));
             if ($diagConsRow && $diagConsRow['status'] === 'done') {
                 json_fail('该会诊已完毕，会诊病历已永久锁定为只读，不可修改');
             }
@@ -565,15 +565,15 @@ function record_part_write($action) {
         $emr['diagnoses'] = $clean;
         $diagText = $clean ? emr_diag_text($clean) : '';
         $firstCode = $clean ? (string)$clean[0]['code'] : '';
-        $pdo = DatabaseManager::pdo('medical');
+        $pdo = DatabaseManager::getMain();
         // 结构化文书更新（诊断 + 主诊断投影）
-        $pdo->prepare('UPDATE patient_records SET emr_data=?, primary_icd10=?, primary_diagnosis=? WHERE id=?')
+        $pdo->prepare('UPDATE patient_records SET emr_data=?, icd10_code=?, diagnosis_name=? WHERE id=?')
             ->execute(array(json_encode($emr, JSON_UNESCAPED_UNICODE), $firstCode, $diagText, $pr['id']));
-        // 旧镜像表同步（最新一行）：注意镜像表 ICD 列名为 diagnosis_code；
+        // 旧镜像表同步（最新一行）：注意镜像表 ICD 列名为 icd10_code；
         // 先查 id 再按 id 更新（避免 UPDATE 内子查询的兼容性问题）
-        $mirrorId = (int)DB::val('medical', 'SELECT id FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+        $mirrorId = (int)DB::val('SELECT id FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
         if ($mirrorId > 0) {
-            $pdo->prepare('UPDATE records SET initial_diagnosis=?, diagnosis_code=? WHERE id=?')
+            $pdo->prepare('UPDATE records SET preliminary_diagnosis=?, icd10_code=? WHERE id=?')
                 ->execute(array($diagText, $firstCode, $mirrorId));
         }
         json_ok(array('diagnoses' => $clean), '诊断已更新');

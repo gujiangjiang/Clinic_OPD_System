@@ -22,7 +22,7 @@ function consultation_queue_days($u) {
     if (isset($u['queue_days']) && (int)$u['queue_days'] >= 2 && (int)$u['queue_days'] <= 7) {
         return (int)$u['queue_days'];
     }
-    $ud = DB::one('user', 'SELECT queue_days FROM users WHERE id=?', array($u['id']));
+    $ud = DB::one('SELECT queue_days FROM users WHERE id=?', array($u['id']));
     if ($ud && (int)$ud['queue_days'] >= 2 && (int)$ud['queue_days'] <= 7) return (int)$ud['queue_days'];
     return 3;
 }
@@ -76,26 +76,25 @@ switch ($action) {
         // 他科室发送会诊。注意：consultations 表在 consultation 库，medical 库查询
         // 不得内嵌跨库子查询，须先在 consultation 库取进行中会诊 id 列表再关联。
         $ownConsultIds = array();
-        foreach (DB::q('consultation', "SELECT id FROM consultations WHERE visit_id=? AND status IN ('pending','doing')", array($visitId)) as $ocr) {
+        foreach (DB::q("SELECT id FROM consultations WHERE visit_id=? AND status IN ('pending','doing')", array($visitId)) as $ocr) {
             $ownConsultIds[] = (int)$ocr['id'];
         }
         $ownConsult = 0;
         if ($ownConsultIds) {
             $ph = implode(',', array_fill(0, count($ownConsultIds), '?'));
-            $ownConsult = (int)DB::val('medical',
-                "SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id IN ($ph)",
+            $ownConsult = (int)DB::val(                "SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id IN ($ph)",
                 array_merge(array($visitId, $u['id']), $ownConsultIds));
         }
         if ($ownConsult > 0) json_fail('您正在会诊处理中，不可再发起会诊');
         $targetDeptId = (int)post('target_dept_id', 0);
         if ($targetDeptId <= 0) json_fail('请选择会诊科室');
         // 目标科室必须合法且不能是当前科室
-        $targetDept = DB::one('dept', "SELECT id, name FROM departments WHERE id=? AND status=1 AND type IN ('clinic','emergency')", array($targetDeptId));
+        $targetDept = DB::one("SELECT id, name FROM departments WHERE id=? AND status=1 AND type IN ('clinic','emergency')", array($targetDeptId));
         if (!$targetDept) json_fail('会诊科室不存在或不可用');
         if ((int)$targetDept['id'] === (int)$visit['current_dept_id']) json_fail('会诊科室不能是当前科室');
         // 会诊拦截：本就诊存在发往同一科室的待处理/进行中会诊 → 不可重复发起（同科室不同会诊矛盾）
         // 会诊已完毕（done）后可再次向该科室发起会诊。
-        $activeToSame = (int)DB::val('consultation', "SELECT COUNT(*) FROM consultations WHERE visit_id=? AND target_dept_id=? AND status IN ('pending','doing')",
+        $activeToSame = (int)DB::val("SELECT COUNT(*) FROM consultations WHERE visit_id=? AND target_dept_id=? AND status IN ('pending','doing')",
             array($visitId, $targetDeptId));
         if ($activeToSame > 0) json_fail('该就诊已有发往 ' . $targetDept['name'] . ' 的进行中会诊，请等待会诊处理完毕后再发起');
         $description = trim((string)post('description', ''));
@@ -106,8 +105,8 @@ switch ($action) {
         // 生成唯一会诊单号（HZ + 时间戳 + 随机，循环查重防撞号）
         do {
             $consultNo = consult_gen_no();
-        } while ((int)DB::val('consultation', 'SELECT COUNT(*) FROM consultations WHERE consult_no=?', array($consultNo)) > 0);
-        $cid = DB::insert('consultation', 'INSERT INTO consultations(visit_id, patient_no, flow_no, consult_no, from_dept_id, from_dept_name, from_doctor_id, from_doctor_name, target_dept_id, target_dept_name, description, purpose, status, record_id, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+        } while ((int)DB::val('SELECT COUNT(*) FROM consultations WHERE consult_no=?', array($consultNo)) > 0);
+        $cid = DB::insert('INSERT INTO consultations(visit_id, patient_no, flow_no, consult_no, from_dept_id, from_dept_name, from_doctor_id, from_doctor_name, target_dept_id, target_dept_name, description, purpose, status, record_id, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
             $visitId, $visit['patient_no'], $visit['flow_no'], $consultNo,
             (int)$visit['current_dept_id'], (string)$visit['current_dept_name'],
             $u['id'], $u['name'],
@@ -127,7 +126,7 @@ switch ($action) {
     case 'list':
         $deptId = (int)get('dept_id', 0);
         if ($deptId <= 0) {
-            $curRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+            $curRow = DB::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
             $deptId = $curRow ? (int)$curRow['current_dept_id'] : 0;
         }
         if ($deptId <= 0) json_fail('当前医生未关联可用科室');
@@ -136,10 +135,10 @@ switch ($action) {
         $type = get('type', 'received');
         if ($type === 'sent') {
             // 发出的会诊（本人发起，近 N 天）
-            $rows = DB::q('consultation', "SELECT * FROM consultations WHERE from_doctor_id=? AND date(created_at)>=? ORDER BY id DESC", array($u['id'], $since));
+            $rows = DB::q("SELECT * FROM consultations WHERE from_doctor_id=? AND date(created_at)>=? ORDER BY id DESC", array($u['id'], $since));
         } else {
             // 收到的会诊（目标科室 = 当前科室，近 N 天）
-            $rows = DB::q('consultation', "SELECT * FROM consultations WHERE target_dept_id=? AND date(created_at)>=? ORDER BY id DESC", array($deptId, $since));
+            $rows = DB::q("SELECT * FROM consultations WHERE target_dept_id=? AND date(created_at)>=? ORDER BY id DESC", array($deptId, $since));
         }
         $list = array_map('consultation_row', $rows);
         json_ok(array('list' => $list, 'days' => $days));
@@ -152,7 +151,7 @@ switch ($action) {
         if (!$row) json_fail('就诊记录不存在');
         if (!visit_access_allowed($row['visit'], $u)) json_fail('该病历超出您的可查看历史天数');
         // 取本人首诊文书的快照（无则空）
-        $pr = DB::one('medical', "SELECT emr_data FROM patient_records WHERE visit_id=? AND record_type='initial' ORDER BY id ASC LIMIT 1",
+        $pr = DB::one("SELECT emr_data FROM patient_records WHERE visit_id=? AND record_type='initial' ORDER BY id ASC LIMIT 1",
             array($visitId));
         $snap = array('chief_complaint' => '', 'present_illness' => '', 'physical_exam' => '', 'diagnoses' => '');
         if ($pr) {
@@ -169,18 +168,18 @@ switch ($action) {
     case 'visit_consults':
         $visitId = did(get('visit_id'));
         if ($visitId <= 0) json_fail('参数错误');
-        $rows = DB::q('consultation', 'SELECT * FROM consultations WHERE visit_id=? ORDER BY id ASC', array($visitId));
+        $rows = DB::q('SELECT * FROM consultations WHERE visit_id=? ORDER BY id ASC', array($visitId));
         json_ok(array('list' => array_map('consultation_row', $rows)));
         break;
 
     /* ==================== 会诊详情（含病历快照） ==================== */
     case 'detail':
         $cid = did(get('id'));
-        $c = DB::one('consultation', 'SELECT * FROM consultations WHERE id=?', array($cid));
+        $c = DB::one('SELECT * FROM consultations WHERE id=?', array($cid));
         if (!$c) json_fail('会诊记录不存在');
         $data = consultation_row($c);
         // 病历快照：取发起科室医生的首诊文书（主诉/现病史/体格检查/诊断）
-        $pr = DB::one('medical', "SELECT * FROM patient_records WHERE visit_id=? AND dept_id=? AND record_type='initial' ORDER BY id ASC LIMIT 1",
+        $pr = DB::one("SELECT * FROM patient_records WHERE visit_id=? AND dept_id=? AND record_type='initial' ORDER BY id ASC LIMIT 1",
             array((int)$c['visit_id'], (int)$c['from_dept_id']));
         $snap = array('chief_complaint' => '', 'present_illness' => '', 'physical_exam' => '', 'diagnoses' => array());
         if ($pr) {
@@ -192,7 +191,7 @@ switch ($action) {
         }
         $data['snapshot'] = $snap;
         // 会诊病历（B 科室医生开的关联病历，如已创建）
-        $consRec = DB::one('medical', 'SELECT id, doctor_name, status, created_at FROM patient_records WHERE consultation_id=?', array($cid));
+        $consRec = DB::one('SELECT id, doctor_name, status, created_at FROM patient_records WHERE consultation_id=?', array($cid));
         $data['record'] = $consRec ? array(
             'record_id' => (int)$consRec['id'], 'doctor_name' => (string)$consRec['doctor_name'],
             'status' => (string)$consRec['status'], 'created_at' => (string)$consRec['created_at'],
@@ -203,14 +202,14 @@ switch ($action) {
     /* ==================== 接受会诊（pending → 记录接收医生，不置 doing） ==================== */
     case 'accept':
         $cid = did(post('id'));
-        $c = DB::one('consultation', 'SELECT * FROM consultations WHERE id=?', array($cid));
+        $c = DB::one('SELECT * FROM consultations WHERE id=?', array($cid));
         if (!$c) json_fail('会诊记录不存在');
-        $curDeptRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+        $curDeptRow = DB::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
         $curDeptId = $curDeptRow ? (int)$curDeptRow['current_dept_id'] : 0;
         if ((int)$c['target_dept_id'] !== $curDeptId) json_fail('该会诊不属于当前科室');
         if ($c['status'] !== 'pending') json_fail('该会诊已开始处理');
         // 仅记录接收医生，状态保持 pending——等待会诊病历保存后才置 doing
-        DB::exec('consultation', 'UPDATE consultations SET accepted_by=?, accepted_at=? WHERE id=?',
+        DB::exec('UPDATE consultations SET accepted_by=?, accepted_at=? WHERE id=?',
             array($u['name'], now_str(), $cid));
         json_ok(array(), '已接受会诊，请书写会诊病历');
         break;
@@ -218,14 +217,14 @@ switch ($action) {
     /* ==================== 会诊完毕（doing → done） ==================== */
     case 'finish':
         $cid = did(post('id'));
-        $c = DB::one('consultation', 'SELECT * FROM consultations WHERE id=?', array($cid));
+        $c = DB::one('SELECT * FROM consultations WHERE id=?', array($cid));
         if (!$c) json_fail('会诊记录不存在');
-        $curDeptRow2 = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+        $curDeptRow2 = DB::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
         $curDeptId2 = $curDeptRow2 ? (int)$curDeptRow2['current_dept_id'] : 0;
         if ((int)$c['target_dept_id'] !== $curDeptId2) json_fail('该会诊不属于当前科室');
         if ($c['status'] === 'pending') json_fail('会诊尚未开始');
         if ($c['status'] === 'done') json_fail('该会诊已完毕');
-        DB::exec('consultation', 'UPDATE consultations SET status=?, finished_at=? WHERE id=?',
+        DB::exec('UPDATE consultations SET status=?, finished_at=? WHERE id=?',
             array('done', now_str(), $cid));
         json_ok(array(), '会诊已完毕');
         break;
@@ -233,12 +232,12 @@ switch ($action) {
     /* ==================== 删除会诊（仅发起医生本人，且未被接收处理） ==================== */
     case 'delete':
         $cid = did(post('id'));
-        $c = DB::one('consultation', 'SELECT * FROM consultations WHERE id=?', array($cid));
+        $c = DB::one('SELECT * FROM consultations WHERE id=?', array($cid));
         if (!$c) json_fail('会诊记录不存在');
         if ((int)$c['from_doctor_id'] !== (int)$u['id']) json_fail('仅发起会诊本人可删除');
         // 已被接收（doing/done）的会诊不可删除——B 科室已投入处理
         if ($c['status'] !== 'pending') json_fail('该会诊已被接收科室处理，不可删除');
-        DB::exec('consultation', 'DELETE FROM consultations WHERE id=?', array($cid));
+        DB::exec('DELETE FROM consultations WHERE id=?', array($cid));
         json_ok(array(), '会诊已删除');
         break;
 

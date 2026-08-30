@@ -13,23 +13,23 @@ function doctor_part_read($action) {
         $uid = (int)$u['id'];
         $today = date('Y-m-d');
         // 今日接诊人次（本人）
-        $todayVisits = (int)DB::val('medical', "SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND date(created_at)=?", array($uid, $today));
+        $todayVisits = (int)DB::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND date(created_at)=?", array($uid, $today));
         // 今日开单金额（本人、已缴费、排除退费取消）
         $sums = array('drug' => 0.0, 'lab' => 0.0, 'imaging' => 0.0, 'procedure' => 0.0);
-        foreach (DB::q('order', "SELECT order_type, COALESCE(SUM(total_amount),0) s FROM orders WHERE doctor_id=? AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=? GROUP BY order_type", array($uid, $today)) as $r) {
+        foreach (DB::q("SELECT order_type, COALESCE(SUM(total_amount),0) s FROM orders WHERE doctor_id=? AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=? GROUP BY order_type", array($uid, $today)) as $r) {
             if (isset($sums[$r['order_type']])) $sums[$r['order_type']] = round((float)$r['s'], 2);
         }
         // 我的草稿病历（待完成接诊）
-        $drafts = (int)DB::val('medical', "SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND status='draft'", array($uid));
+        $drafts = (int)DB::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND status='draft'", array($uid));
         // 今日门诊人次（全部科室）
-        $todayReg = (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE date(register_time)=?", array($today));
+        $todayReg = (int)DB::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=?", array($today));
         // 近7天本人接诊趋势
         $labels = array();
         $series = array();
         for ($i = 6; $i >= 0; $i--) {
             $day = date('Y-m-d', strtotime("-$i days"));
             $labels[] = substr($day, 5);
-            $series[] = (int)DB::val('medical', "SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND date(created_at)=?", array($uid, $day));
+            $series[] = (int)DB::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND date(created_at)=?", array($uid, $day));
         }
         json_ok(array(
             'kpi' => array('today_visits' => $todayVisits, 'today_reg' => $todayReg, 'total' => round(array_sum($sums), 2),
@@ -41,11 +41,11 @@ function doctor_part_read($action) {
 
     if ($action === 'depts') {
         $ids = doctor_dept_ids($u);
-        $curRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+        $curRow = DB::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
         $curDeptId = $curRow ? (int)$curRow['current_dept_id'] : 0;
         if ($ids) {
             $ph = implode(',', array_fill(0, count($ids), '?'));
-            $list = DB::q('dept', "SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id", $ids);
+            $list = DB::q("SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id", $ids);
         } else {
             $list = array();
         }
@@ -71,12 +71,12 @@ function doctor_part_read($action) {
         } elseif ($status === 'visiting') {
             $where = "r.status='visiting'";
         } else {
-            $where = "r.status='finished' AND date(r.register_time)=?";
+            $where = "r.status='finished' AND date(r.registered_at)=?";
         }
         $where .= ' AND r.current_dept_id=' . $deptId;
         $params = array();
         if ($status === 'done') $params[] = today_str();
-        $rows = DB::q('patient', "SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page, p.birth_date AS pbirth
+        $rows = DB::q("SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page, p.birth_date AS pbirth
             FROM registrations r LEFT JOIN patients p ON p.patient_no = r.patient_no
             WHERE $where ORDER BY r.visit_seq", $params);
 
@@ -92,11 +92,11 @@ function doctor_part_read($action) {
                 str_pad((string)$r['visit_seq'], 3, '0', STR_PAD_LEFT) . '</div>';
             $html .= '<div style="min-width:0">' .
                 '<div class="fs-16 fw-700">' . e($r['pname']) .
-                ' <span class="fs-13 text-muted fw-400">' . e($r['pgender']) . ' / ' . age_format($r['pbirth'], $r['register_time']) . '</span>' .
+                ' <span class="fs-13 text-muted fw-400">' . e($r['pgender']) . ' / ' . age_format($r['pbirth'], $r['registered_at']) . '</span>' .
                 ($r['is_extra'] ? ' <span class="badge badge-warning" style="font-size:11px">加号</span>' : '') .
                 '</div>' .
                 '<div class="fs-12 text-muted">' . e($r['first_dept_name']) . ' 第' . str_pad((string)$r['visit_seq'], 3, '0', STR_PAD_LEFT) . '号 ｜ 患者ID ' . e($r['patient_no']) . ' ｜ 流水号 ' . e($r['flow_no']) . '</div>' .
-                '<div class="fs-12 text-muted">挂号 ' . e(substr($r['register_time'], 5, 11)) . ' ｜ 费用类别 ' . e($r['fee_type']) . '</div>' .
+                '<div class="fs-12 text-muted">挂号 ' . e(substr($r['registered_at'], 5, 11)) . ' ｜ 费用类别 ' . e($r['fee_type']) . '</div>' .
                 '</div></div>';
             // 操作按钮
             $html .= '<div class="flex gap-8" style="flex-shrink:0">';
@@ -119,15 +119,15 @@ function doctor_part_read($action) {
     if ($action === 'call_queue') {
         $deptId = (int)get('dept_id', 0);
         if ($deptId <= 0) {
-            $curRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+            $curRow = DB::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
             $deptId = $curRow ? (int)$curRow['current_dept_id'] : 0;
         }
-        $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=? AND status=1', array($deptId));
+        $dept = DB::one('SELECT * FROM departments WHERE id=? AND status=1', array($deptId));
         if (!$dept) {
             $ids = doctor_dept_ids($u);
             if ($ids) {
                 $ph = implode(',', array_fill(0, count($ids), '?'));
-                $first = DB::one('dept', "SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id LIMIT 1", $ids);
+                $first = DB::one("SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id LIMIT 1", $ids);
                 if ($first) $dept = $first;
             }
         }
@@ -135,19 +135,19 @@ function doctor_part_read($action) {
         $deptId = (int)$dept['id'];
 
         // 该科室当前就诊中患者（最新的）
-        $current = DB::one('patient', "SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
+        $current = DB::one("SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
             FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
             WHERE r.current_dept_id=? AND r.status='visiting' ORDER BY r.id DESC LIMIT 1", array($deptId));
         // 下一位候诊患者（按就诊序号取最早的一位）
-        $next = DB::one('patient', "SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
+        $next = DB::one("SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
             FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-            WHERE r.current_dept_id=? AND r.status='paid' ORDER BY r.visit_seq, r.register_time LIMIT 1", array($deptId));
-        $waiting = (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE current_dept_id=? AND status='paid'", array($deptId));
+            WHERE r.current_dept_id=? AND r.status='paid' ORDER BY r.visit_seq, r.registered_at LIMIT 1", array($deptId));
+        $waiting = (int)DB::val("SELECT COUNT(*) FROM registrations WHERE current_dept_id=? AND status='paid'", array($deptId));
 
         // 该科室出诊医生（按用户-科室关联过滤）
         // 注意：必须 SELECT dept_ids，否则下面 explode() 拿不到关联科室，doctors 恒为空
         $doctors = array();
-        $docs = DB::q('user', "SELECT name, emp_no, title, photo, intro, dept_ids FROM users WHERE role='doctor' AND status=1 ORDER BY id");
+        $docs = DB::q("SELECT name, emp_no, title, photo, intro, dept_ids FROM users WHERE role='doctor' AND status=1 ORDER BY id");
         foreach ($docs as $doc) {
             $ids = array();
             foreach (explode(',', isset($doc['dept_ids']) ? $doc['dept_ids'] : '') as $x) {
@@ -168,16 +168,16 @@ function doctor_part_read($action) {
             // 复诊标记（预留）：同一患者当日在本科室已有其他就诊记录（已缴费/就诊中/已诊毕）
             $follow = 0;
             if (!empty($r['patient_no'])) {
-                $follow = (int)DB::val('patient', "SELECT COUNT(*) FROM registrations
-                    WHERE patient_no=? AND current_dept_id=? AND date(register_time)=?
+                $follow = (int)DB::val("SELECT COUNT(*) FROM registrations
+                    WHERE patient_no=? AND current_dept_id=? AND date(registered_at)=?
                     AND status IN ('paid','visiting','finished') AND id<>?",
                     array($r['patient_no'], $deptId, today_str(), $r['id']));
             }
             return array(
                 'name' => $r['pname'], 'gender' => $r['pgender'],
-                'age_fmt' => age_format($r['pbirth'], $r['register_time']),
+                'age_fmt' => age_format($r['pbirth'], $r['registered_at']),
                 'visit_seq' => (int)$r['visit_seq'], 'flow_no' => $r['flow_no'],
-                'patient_no' => $r['patient_no'], 'register_time' => $r['register_time'],
+                'patient_no' => $r['patient_no'], 'registered_at' => $r['registered_at'],
                 'is_followup' => $follow > 0 ? 1 : 0,
             );
         };
@@ -194,14 +194,14 @@ function doctor_part_read($action) {
     if ($action === 'queue_list') {
         $deptId = (int)get('dept_id', 0);
         if ($deptId <= 0) {
-            $curRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+            $curRow = DB::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
             $deptId = $curRow ? (int)$curRow['current_dept_id'] : 0;
         }
         if ($deptId <= 0) {
             $ids = doctor_dept_ids($u);
             if ($ids) {
                 $ph = implode(',', array_fill(0, count($ids), '?'));
-                $first = DB::one('dept', "SELECT id FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id LIMIT 1", $ids);
+                $first = DB::one("SELECT id FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id LIMIT 1", $ids);
                 if ($first) $deptId = (int)$first['id'];
             }
         }
@@ -211,31 +211,31 @@ function doctor_part_read($action) {
         if (isset($u['queue_days'])) {
             $queueDays = (int)$u['queue_days'];
         } else {
-            $ud = DB::one('user', 'SELECT queue_days FROM users WHERE id=?', array($u['id']));
+            $ud = DB::one('SELECT queue_days FROM users WHERE id=?', array($u['id']));
             if ($ud && (int)$ud['queue_days'] >= 2 && (int)$ud['queue_days'] <= 7) $queueDays = (int)$ud['queue_days'];
         }
         $since = date('Y-m-d', strtotime('-' . ($queueDays - 1) . ' days'));   // 近 N 天（含今日）
-        $rows = DB::q('patient', "SELECT r.id, r.patient_no, r.visit_seq, r.first_dept_name, r.session,
-                r.status, r.register_time, r.finish_time,
+        $rows = DB::q("SELECT r.id, r.patient_no, r.visit_seq, r.first_dept_name, r.session,
+                r.status, r.registered_at, r.finished_at,
                 p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
             FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-            WHERE r.current_dept_id=? AND date(r.register_time)>=?
+            WHERE r.current_dept_id=? AND date(r.registered_at)>=?
             AND r.status IN ('paid','visiting','finished')
-            ORDER BY r.register_time DESC", array($deptId, $since));
+            ORDER BY r.registered_at DESC", array($deptId, $since));
         // 号源直接显示挂号时确定的 session（急诊存 all=昼夜，转科/会诊不重新计算）
         $list = array_map(function ($r) {
             return array(
                 'code' => oid($r['id']),
                 'name' => $r['pname'], 'gender' => $r['pgender'],
-                'age_fmt' => age_format($r['pbirth'], $r['register_time']),
-                'date' => substr($r['register_time'], 0, 10),
-                'time' => substr($r['register_time'], 11, 5),
+                'age_fmt' => age_format($r['pbirth'], $r['registered_at']),
+                'date' => substr($r['registered_at'], 0, 10),
+                'time' => substr($r['registered_at'], 11, 5),
                 'dept_name' => $r['first_dept_name'],
                 'visit_seq' => (int)$r['visit_seq'],
                 'session_text' => session_display_text($r['session']),
                 'status' => $r['status'],
-                'finish_date' => !empty($r['finish_time']) ? substr($r['finish_time'], 0, 10) : '',
-                'finish_time' => !empty($r['finish_time']) ? substr($r['finish_time'], 11, 5) : '',
+                'finish_date' => !empty($r['finished_at']) ? substr($r['finished_at'], 0, 10) : '',
+                'finished_at' => !empty($r['finished_at']) ? substr($r['finished_at'], 11, 5) : '',
             );
         }, $rows);
         $pref = (isset($_SESSION['queue_pref']) && is_array($_SESSION['queue_pref'])) ? $_SESSION['queue_pref'] : array();
@@ -244,7 +244,7 @@ function doctor_part_read($action) {
         // 前端会诊 Tab 复用候诊列表样式渲染。
         $consVisits = array();
         $consStatus = array();
-        foreach (DB::q('consultation', "SELECT id, visit_id, status, created_at, accepted_by, record_id FROM consultations WHERE target_dept_id=? AND date(created_at)>=? ORDER BY id DESC", array($deptId, $since)) as $c) {
+        foreach (DB::q("SELECT id, visit_id, status, created_at, accepted_by, record_id FROM consultations WHERE target_dept_id=? AND date(created_at)>=? ORDER BY id DESC", array($deptId, $since)) as $c) {
             $vid = (int)$c['visit_id'];
             if (!isset($consStatus[$vid])) {
                 $consVisits[] = $vid;
@@ -255,12 +255,12 @@ function doctor_part_read($action) {
         if ($consVisits) {
             $phC = implode(',', array_fill(0, count($consVisits), '?'));
             // 注意：不加 current_dept_id 过滤——患者转科不影响已发会诊的展示
-            $cRows = DB::q('patient', "SELECT r.id, r.patient_no, r.visit_seq, r.first_dept_id, r.first_dept_name, r.session,
-                    r.status, r.register_time, r.finish_time,
+            $cRows = DB::q("SELECT r.id, r.patient_no, r.visit_seq, r.first_dept_id, r.first_dept_name, r.session,
+                    r.status, r.registered_at, r.finished_at,
                     p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
                 FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
                 WHERE r.id IN ($phC)
-                ORDER BY r.register_time DESC", $consVisits);
+                ORDER BY r.registered_at DESC", $consVisits);
             foreach ($cRows as $r) {
                 $cs = $consStatus[(int)$r['id']];
                 $consultations[] = array(
@@ -270,9 +270,9 @@ function doctor_part_read($action) {
                     'accepted_by' => $cs['accepted_by'],
                     'record_id' => $cs['record_id'],
                     'name' => $r['pname'], 'gender' => $r['pgender'],
-                    'age_fmt' => age_format($r['pbirth'], $r['register_time']),
-                    'date' => substr($r['register_time'], 0, 10),
-                    'time' => substr($r['register_time'], 11, 5),
+                    'age_fmt' => age_format($r['pbirth'], $r['registered_at']),
+                    'date' => substr($r['registered_at'], 0, 10),
+                    'time' => substr($r['registered_at'], 11, 5),
                     'dept_name' => $r['first_dept_name'],
                     'visit_seq' => (int)$r['visit_seq'],
                     'session_text' => session_display_text($r['session']),
@@ -283,7 +283,7 @@ function doctor_part_read($action) {
         }
         json_ok(array(
             'dept_id' => $deptId,
-            'waiting' => (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE current_dept_id=? AND status='paid'", array($deptId)),
+            'waiting' => (int)DB::val("SELECT COUNT(*) FROM registrations WHERE current_dept_id=? AND status='paid'", array($deptId)),
             'list' => $list,
             'consultations' => $consultations,
             'pref' => array('seen' => empty($pref['seen']) ? 0 : 1, 'today' => empty($pref['today']) ? 0 : 1, 'consult' => empty($pref['consult']) ? 0 : 1),
@@ -303,19 +303,19 @@ function doctor_part_read($action) {
 
     if ($action === 'report_detail') {
         $rid = did(get('report_id'));
-        $report = DB::one('lab', 'SELECT * FROM reports WHERE id=?', array($rid));
+        $report = DB::one('SELECT * FROM reports WHERE id=?', array($rid));
         if (!$report) json_fail('报告不存在');
-        $result = DB::one('lab', 'SELECT * FROM results WHERE id=?', array($report['result_id']));
+        $result = DB::one('SELECT * FROM results WHERE id=?', array($report['result_id']));
         $itemName = '';
         $rows = array();
         $findings = '';
         $conclusion = '';
         if ($result && $result['type'] === 'lab') {
-            $li = DB::one('lab', 'SELECT * FROM lab_items WHERE id=?', array($result['item_id']));
+            $li = DB::one('SELECT * FROM lab_items WHERE id=?', array($result['item_id']));
             $itemName = $li ? $li['name'] : '';
             $values = json_decode($result['values_json'], true);
             if (is_array($values) && !empty($values['group'])) {
-                $members = DB::q('lab', 'SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array((int)$result['item_id']));
+                $members = DB::q('SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array((int)$result['item_id']));
                 foreach ($members as $m) {
                     $v = isset($values['values'][(string)$m['id']]) ? $values['values'][(string)$m['id']] : '';
                     $rows[] = array(
@@ -336,7 +336,7 @@ function doctor_part_read($action) {
             }
         }
         if ($result && $result['type'] === 'imaging') {
-            $ei = DB::one('lab', 'SELECT * FROM exam_items WHERE id=?', array($result['item_id']));
+            $ei = DB::one('SELECT * FROM exam_items WHERE id=?', array($result['item_id']));
             $itemName = $ei ? $ei['name'] : '';
             $findings = (string)$result['findings'];
             $conclusion = (string)$result['conclusion'];
@@ -356,7 +356,7 @@ function doctor_part_read($action) {
     if ($action === 'get_available_rooms') {
         $deptId = (int)get('dept_id');
         if ($deptId <= 0) json_fail('请先选择科室');
-        $rows = DB::q('clinic_rooms', "SELECT * FROM clinic_rooms WHERE dept_id=? AND room_type='doctor' ORDER BY id", array($deptId));
+        $rows = DB::q("SELECT * FROM clinic_rooms WHERE dept_id=? AND room_type='doctor' ORDER BY id", array($deptId));
         $list = array();
         foreach ($rows as $room) {
             $isOnline = (!empty($room['screen_last_heartbeat']) && (time() - strtotime($room['screen_last_heartbeat'])) <= 30);
@@ -374,7 +374,7 @@ function doctor_part_read($action) {
             );
         }
         // 当前医生已绑定的诊室（跨科室，供右上角显示）
-        $myBound = DB::one('clinic_rooms', "SELECT * FROM clinic_rooms WHERE current_doctor_id=? ORDER BY id DESC LIMIT 1", array($u['id']));
+        $myBound = DB::one("SELECT * FROM clinic_rooms WHERE current_doctor_id=? ORDER BY id DESC LIMIT 1", array($u['id']));
         json_ok(array('list' => $list, 'bound' => $myBound ? array('id' => (int)$myBound['id'], 'name' => $myBound['room_name']) : null));
         return;
     }

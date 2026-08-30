@@ -16,21 +16,21 @@ mt_srand(20260825);
 echo "=== 开始生成演示数据 ===\n";
 
 /* ==================== 0. 基础引导（仅空表时执行） ==================== */
-if ((int)DB::val('dept', 'SELECT COUNT(*) FROM departments') === 0) {
+if ((int)DB::val('SELECT COUNT(*) FROM departments') === 0) {
     $depts = array(
         array('内科门诊', 'clinic', 20, 30, 30, 1), array('外科门诊', 'clinic', 20, 25, 25, 2),
         array('儿科门诊', 'clinic', 15, 25, 25, 3), array('妇产科门诊', 'clinic', 20, 20, 20, 4),
         array('急诊科', 'emergency', 50, 0, 0, 5), array('绿色通道', 'emergency', 0, 0, 0, 6),
     );
     foreach ($depts as $i => $D) {
-        DB::insert('dept', 'INSERT INTO departments(name, type, fee, am_quota, pm_quota, sort, status, created_at) VALUES(?,?,?,?,?,?,1,?)', array(
+        DB::insert('INSERT INTO departments(name, type, fee, am_quota, pm_quota, sort, status, created_at) VALUES(?,?,?,?,?,?,1,?)', array(
             $D[0], $D[1], $D[2], $D[3], $D[4], $D[5], now_str(),
         ));
     }
     echo "引导：已创建 6 个科室\n";
 }
 $pwdHash = password_hash('123456', PASSWORD_DEFAULT);
-if ((int)DB::val('user', 'SELECT COUNT(*) FROM users') === 0) {
+if ((int)DB::val('SELECT COUNT(*) FROM users') === 0) {
     $users = array(
         array('0001', 'admin', '系统管理员', 'admin', '', '主任技师'),
         array('1001', 'cashier1001', '收款员', 'cashier', '', ''),
@@ -48,13 +48,13 @@ if ((int)DB::val('user', 'SELECT COUNT(*) FROM users') === 0) {
         array('6001', 'pharmacy6001', '吴涛', 'pharmacy', '', '主管药师'),
     );
     foreach ($users as $U) {
-        DB::insert('user', 'INSERT INTO users(emp_no, username, password, name, role, dept_ids, title, theme, status, pwd_changed, created_at) VALUES(?,?,?,?,?,?,?,\'auto\',1,0,?)', array(
+        DB::insert('INSERT INTO users(emp_no, username, password, name, role, dept_ids, title, theme, status, pwd_changed, created_at) VALUES(?,?,?,?,?,?,?,\'auto\',1,0,?)', array(
             $U[0], $U[1], $pwdHash, $U[2], $U[3], $U[4], $U[5], now_str(),
         ));
     }
     echo "引导：已创建 " . count($users) . " 个账号（管理员 admin / 其余用户名见 emp_no，初始密码均为 123456）\n";
 }
-if (trim((string)DB::val('core', "SELECT svalue FROM settings WHERE skey='hospital_name'")) === '') {
+if (trim((string)DB::val("SELECT svalue FROM settings WHERE skey='hospital_name'")) === '') {
     set_setting('hospital_name', '淮海省人民医院');
     set_setting('hospital_name2', '门诊一体化信息系统');
     set_setting('timezone', 'Asia/Shanghai');
@@ -74,12 +74,12 @@ $labGroups = array(
     )),
 );
 foreach ($labGroups as $G) {
-    if (DB::one('lab', 'SELECT id FROM lab_items WHERE name=? AND is_group=1', array($G[1]))) continue;
-    $gid = (int)DB::insert('lab', 'INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,1,0)', array(
+    if (DB::one('SELECT id FROM lab_items WHERE name=? AND is_group=1', array($G[1]))) continue;
+    $gid = (int)DB::insert('INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,1,0)', array(
         $G[0], $G[1], '项', $G[2], '', '', '', '', 'approved', now_str(),
     ));
     foreach ($G[3] as $C) {
-        DB::insert('lab', 'INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,? ,0,?)', array(
+        DB::insert('INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,? ,0,?)', array(
             $G[0], $C[0], $C[1], $C[2], $C[3], '', '', '', 'approved', now_str(), $gid,
         ));
     }
@@ -91,8 +91,8 @@ $labDefs = array(
 );
 foreach ($labDefs as $L) {
     // 已存在（含组合/组内/独立任意形态）则跳过，避免与组合成员重复
-    if (DB::one('lab', 'SELECT id FROM lab_items WHERE name=?', array($L[1]))) continue;
-    DB::insert('lab', 'INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,0,0)', array(
+    if (DB::one('SELECT id FROM lab_items WHERE name=?', array($L[1]))) continue;
+    DB::insert('INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,0,0)', array(
         $L[0], $L[1], '项', $L[2], '', '', '', '', 'approved', now_str(),
     ));
 }
@@ -130,18 +130,18 @@ $labGroupDefs = array(
     )),
 );
 foreach ($labGroupDefs as $G) {
-    $row = DB::one('lab', 'SELECT id, is_group FROM lab_items WHERE name=?', array($G[1]));
+    $row = DB::one('SELECT id, is_group FROM lab_items WHERE name=?', array($G[1]));
     if ($row) {
         $gid = (int)$row['id'];
-        if (!$row['is_group']) DB::exec('lab', 'UPDATE lab_items SET is_group=1 WHERE id=?', array($gid));   // 独立项目原位转为组合
+        if (!$row['is_group']) DB::exec('UPDATE lab_items SET is_group=1 WHERE id=?', array($gid));   // 独立项目原位转为组合
     } else {
-        $gid = (int)DB::insert('lab', 'INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,1,0)', array(
+        $gid = (int)DB::insert('INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,1,0)', array(
             $G[0], $G[1], '项', $G[2], '', '', '', '含 ' . count($G[3]) . ' 项', 'approved', now_str(),
         ));
     }
     foreach ($G[3] as $C) {
-        if (DB::one('lab', 'SELECT id FROM lab_items WHERE name=?', array($C[0]))) continue;   // 已存在（任意形态）不重复
-        DB::insert('lab', 'INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,0,?)', array(
+        if (DB::one('SELECT id FROM lab_items WHERE name=?', array($C[0]))) continue;   // 已存在（任意形态）不重复
+        DB::insert('INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,0,?)', array(
             $G[0], $C[0], $C[1], $C[2], $C[3], '', '', '', 'approved', now_str(), $gid,
         ));
     }
@@ -153,8 +153,8 @@ $examDefs = array(
     array('超声','腹部彩超',120), array('超声','心脏彩超',180), array('超声','甲状腺彩超',100), array('超声','泌尿系彩超',110),
 );
 foreach ($examDefs as $E) {
-    if (DB::one('lab', 'SELECT id FROM exam_items WHERE name=?', array($E[1]))) continue;
-    DB::insert('lab', 'INSERT INTO exam_items(category,name,price,description,status,created_at) VALUES(?,?,?,?,?,?)', array(
+    if (DB::one('SELECT id FROM exam_items WHERE name=?', array($E[1]))) continue;
+    DB::insert('INSERT INTO exam_items(category,name,price,description,status,created_at) VALUES(?,?,?,?,?,?)', array(
         $E[0], $E[1], $E[2], '', 'approved', now_str(),
     ));
 }
@@ -164,13 +164,13 @@ $dispDefs = array(
     array('换药(大)',50), array('导尿术',60), array('青霉素皮试',6), array('头孢菌素类皮试',6),
 );
 foreach ($dispDefs as $D) {
-    if (DB::one('disp', 'SELECT id FROM disposal_items WHERE name=?', array($D[0]))) continue;
-    DB::insert('disp', 'INSERT INTO disposal_items(name,fee,description,status,created_at) VALUES(?,?,?,?,?)', array(
+    if (DB::one('SELECT id FROM disposal_items WHERE name=?', array($D[0]))) continue;
+    DB::insert('INSERT INTO disposal_items(name,fee,description,status,created_at) VALUES(?,?,?,?,?)', array(
         $D[0], $D[1], '', 'approved', now_str(),
     ));
 }
-$skinPenicillin = (int)DB::val('disp', "SELECT id FROM disposal_items WHERE name='青霉素皮试'");
-$skinCeph = (int)DB::val('disp', "SELECT id FROM disposal_items WHERE name='头孢菌素类皮试'");
+$skinPenicillin = (int)DB::val("SELECT id FROM disposal_items WHERE name='青霉素皮试'");
+$skinCeph = (int)DB::val("SELECT id FROM disposal_items WHERE name='头孢菌素类皮试'");
 $drugDefs = array(
     array('阿莫西林胶囊','华北制药','华北','口服','0.5g×24粒','2粒','每日三次',12.5,500,0,1,$skinPenicillin),
     array('布洛芬缓释胶囊','中美史克','中美史克','口服','0.3g×20粒','1粒','每日两次',18,400,0,0,0),
@@ -191,14 +191,14 @@ $drugDefs = array(
     array('板蓝根颗粒','中成药','口服','10g×20袋',13,0,0,0),
 );
 foreach ($drugDefs as $D) {
-    if (DB::one('drug', 'SELECT id FROM drugs WHERE name=?', array($D[0]))) continue;
+    if (DB::one('SELECT id FROM drugs WHERE name=?', array($D[0]))) continue;
     // 兼容两种列布局（含厂商 / 简化）
     if (count($D) === 12) {
-        DB::insert('drug', 'INSERT INTO drugs(name,category,vendor,vendor_short,package_unit,spec,form,single_dose,frequency_name,route_name,price,qty,is_rx,is_limited,note,need_nurse,status,created_at,need_skin_test,skin_test_item_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+        DB::insert('INSERT INTO drugs(name,category,vendor,vendor_short,package_unit,spec,form,single_dose,frequency,route,price,qty,is_rx,is_limited,note,is_nurse,status,created_at,is_skin_test,skin_test_item_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
             $D[0], '西药', $D[1], $D[2], '盒', $D[4], '', $D[5], $D[6], $D[3], $D[7], $D[8], 1, 0, '', $D[9], 'approved', now_str(), $D[10] > 0 ? 1 : 0, $D[11],
         ));
     } else {
-        DB::insert('drug', 'INSERT INTO drugs(name,category,route_name,price,qty,need_nurse,status,created_at,need_skin_test,skin_test_item_id,single_dose,frequency_name,package_unit,spec,is_rx,is_limited,note,vendor,vendor_short,form) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+        DB::insert('INSERT INTO drugs(name,category,route,price,qty,is_nurse,status,created_at,is_skin_test,skin_test_item_id,single_dose,frequency,package_unit,spec,is_rx,is_limited,note,vendor,vendor_short,form) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
             $D[0], $D[1], $D[2], $D[3], $D[4], $D[5], 'approved', now_str(), $D[6] > 0 ? 1 : 0, $D[7],
             '按说明书', '每日两次', '盒', $D[3], 1, 0, '', '', '', '',
         ));
@@ -206,20 +206,20 @@ foreach ($drugDefs as $D) {
 }
 if (isset($argv[1]) && $argv[1] === 'catalog') { echo "目录引导完成（仅目录模式）\n"; exit; }
 $labSingles = array();
-foreach (DB::q('lab', "SELECT id, name, price FROM lab_items WHERE is_group=0 AND parent_id=0 AND status='approved'") as $r) $labSingles[] = $r;
+foreach (DB::q("SELECT id, name, price FROM lab_items WHERE is_group=0 AND parent_id=0 AND status='approved'") as $r) $labSingles[] = $r;
 $exams = array();
-foreach (DB::q('lab', "SELECT id, name, price FROM exam_items WHERE status='approved'") as $r) $exams[] = $r;
+foreach (DB::q("SELECT id, name, price FROM exam_items WHERE status='approved'") as $r) $exams[] = $r;
 $disps = array();
-foreach (DB::q('disp', "SELECT id, name, fee FROM disposal_items WHERE status='approved'") as $r) $disps[] = $r;
+foreach (DB::q("SELECT id, name, fee FROM disposal_items WHERE status='approved'") as $r) $disps[] = $r;
 $drugs = array();
-foreach (DB::q('drug', "SELECT id, name, price, spec, package_unit, vendor_short AS company_short, single_dose, frequency_name, route_name, need_nurse FROM drugs WHERE status='approved'") as $r) $drugs[] = $r;
+foreach (DB::q("SELECT id, name, price, spec, package_unit, vendor_short AS company_short, single_dose, frequency, route, is_nurse FROM drugs WHERE status='approved'") as $r) $drugs[] = $r;
 $icdAll = array();
 foreach (DB::q('icd10', 'SELECT code, name FROM icd10') as $r) $icdAll[] = $r;
 echo "目录就绪：检验单项目 " . count($labSingles) . " / 检查 " . count($exams) . " / 处置 " . count($disps) . " / 药品 " . count($drugs) . " / ICD10 " . count($icdAll) . "\n";
 
 /* ---------- 2. 医生列表 ---------- */
 $doctors = array();
-foreach (DB::q('user', "SELECT id, name, title, dept_ids FROM users WHERE role='doctor' AND status=1") as $r) $doctors[] = $r;
+foreach (DB::q("SELECT id, name, title, dept_ids FROM users WHERE role='doctor' AND status=1") as $r) $doctors[] = $r;
 $staff = array('nurse' => '周梅', 'lab' => '陈静', 'imaging' => '黄浩', 'pharmacy' => '吴涛', 'cashier' => '收款员');
 
 /* ---------- 3. 工具与计数器 ---------- */
@@ -271,26 +271,26 @@ $otherPool = array('症状缓解后自动离院，随访丢失','转社区卫生
 $consciousPool = array('清醒','嗜睡','模糊');
 
 $patientSeq = 0;
-foreach (DB::q('patient', "SELECT MAX(patient_no) m FROM patients WHERE patient_no LIKE '" . date('ymd') . "%'") as $r) {
+foreach (DB::q("SELECT MAX(patient_no) m FROM patients WHERE patient_no LIKE '" . date('ymd') . "%'") as $r) {
     $patientSeq = (int)substr((string)$r['m'], -2);
 }
 $flowSeq = array();
-foreach (DB::q('patient', "SELECT substr(flow_no,1,6) d, MAX(CAST(substr(flow_no,7) AS INTEGER)) m FROM registrations GROUP BY d") as $r) {
+foreach (DB::q("SELECT substr(flow_no,1,6) d, MAX(CAST(substr(flow_no,7) AS INTEGER)) m FROM registrations GROUP BY d") as $r) {
     $flowSeq[$r['d']] = (int)$r['m'];
 }
 $seqSeq = array();
-foreach (DB::q('patient', "SELECT first_dept_id dp, substr(register_time,1,10) d, MAX(visit_seq) m FROM registrations GROUP BY dp, d") as $r) {
+foreach (DB::q("SELECT first_dept_id dp, substr(registered_at,1,10) d, MAX(visit_seq) m FROM registrations GROUP BY dp, d") as $r) {
     $seqSeq[$r['dp'] . '_' . $r['d']] = (int)$r['m'];
 }
 $reportSeq = array();
-foreach (DB::q('lab', "SELECT substr(report_no,3,8) d, MAX(CAST(substr(report_no,11) AS INTEGER)) m FROM reports GROUP BY d") as $r) {
+foreach (DB::q("SELECT substr(report_no,3,8) d, MAX(CAST(substr(report_no,11) AS INTEGER)) m FROM reports GROUP BY d") as $r) {
     $reportSeq[$r['d']] = (int)$r['m'];
 }
 
 /* ---------- 4. 患者 ---------- */
 $NEW_PATIENTS = 48;
 $patientIds = array();
-foreach (DB::q('patient', 'SELECT id FROM patients') as $r) $patientIds[] = (int)$r['id'];
+foreach (DB::q('SELECT id FROM patients') as $r) $patientIds[] = (int)$r['id'];
 $basePatient = count($patientIds);
 for ($i = 0; $i < $NEW_PATIENTS; $i++) {
     $patientSeq++;
@@ -298,7 +298,7 @@ for ($i = 0; $i < $NEW_PATIENTS; $i++) {
     $gender = pick(array('男', '女'));
     $age = rnd(3, 88);
     $birth = date((intval(date('Y')) - $age) . '-m-d', mt_rand(0, time()));
-    $pid = (int)DB::insert('patient', 'INSERT INTO patients(patient_no, id_card, name, gender, birth_date, age, ethnicity, marital, occupation, work_unit, address, phone, past_history_type, past_history_detail, allergies, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+    $pid = (int)DB::insert('INSERT INTO patients(patient_no, id_card, name, gender, birth_date, age, ethnicity, marital, occupation, work_unit, address, phone, has_past_history, past_history, allergy_history, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
         date('ymd') . sprintf('%02d', $patientSeq),
         date('ymd') . sprintf('%02d', $patientSeq) . sprintf('%04d', rnd(1000, 9999)) . sprintf('%04d', rnd(1000, 9999)),
         $name, $gender, $birth, $age, '汉族', $age > 25 ? '已婚' : '未婚',
@@ -320,7 +320,7 @@ for ($d = 30; $d >= 0; $d--) {
     $n = ($d === 0) ? 11 : rnd(2, 6);
     for ($j = 0; $j < $n; $j++) {
         $dept = pick(array(1, 1, 2, 2, 3, 4, 5, 6));
-        $deptRow = DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($dept));
+        $deptRow = DB::one('SELECT * FROM departments WHERE id=?', array($dept));
         if (!$deptRow) continue;
         $docPool = array();
         foreach ($doctors as $doc) {
@@ -353,9 +353,9 @@ for ($d = 30; $d >= 0; $d--) {
             else { $disp = '其他'; $dispDetail = pick($otherPool); }
         }
         $pid = pick($patientIds);
-        $prow = DB::one('patient', 'SELECT patient_no FROM patients WHERE id=?', array($pid));
+        $prow = DB::one('SELECT patient_no FROM patients WHERE id=?', array($pid));
         if (!$prow) continue;
-        $visitId = (int)DB::insert('patient', 'INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, payment_time, cashier_id, cashier_name, register_time, cancel_reason, is_extra, disposition, disposition_detail) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+        $visitId = (int)DB::insert('INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, paid_at, cashier_id, cashier_name, registered_at, cancel_reason, is_extra, disposition, disposition_detail) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
             $prow['patient_no'], $flowNo, $visitSeq, $dept, $deptRow['name'], $dept, $deptRow['name'],
             pick(array('上午','下午')), pick(array('自费','居民医保','职工医保','自费')), $fee,
             $status, $payTime, 2, $staff['cashier'], $regTime, '', 0, $disp, $dispDetail,
@@ -373,9 +373,9 @@ echo "就诊生成：{$visitCount} 条\n";
 /* ---------- 6. 缴费流水（kind=visit） ---------- */
 foreach ($visits as $v) {
     if ($v['pay_time'] !== '') {
-        DB::insert('order', 'INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
+        DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
             $v['id'], 0, $v['patient_no'], $v['flow_no'], 'visit',
-            DB::val('patient', 'SELECT fee FROM registrations WHERE id=?', array($v['id'])),
+            DB::val('SELECT fee FROM registrations WHERE id=?', array($v['id'])),
             1, 2, $staff['cashier'], $v['pay_time'],
         ));
     }
@@ -448,20 +448,20 @@ foreach ($visits as $v) {
                 $itemRows[] = array(
                     'item_id' => $it['id'], 'item_name' => $it['name'], 'price' => $it['price'], 'qty' => $qty,
                     'extra' => array(
-                        'spec' => $it['spec'], 'unit_name' => $it['package_unit'], 'company_short' => $it['company_short'],
-                        'single_dose' => $it['single_dose'], 'frequency_name' => $it['frequency_name'],
-                        'route_name' => $it['route_name'], 'need_nurse' => $it['need_nurse'],
+                        'spec' => $it['spec'], 'unit' => $it['package_unit'], 'company_short' => $it['company_short'],
+                        'single_dose' => $it['single_dose'], 'frequency' => $it['frequency'],
+                        'route' => $it['route'], 'is_nurse' => $it['is_nurse'],
                     ),
                 );
                 $total += (float)$it['price'] * $qty;
-                $rxLines[] = '<div class="ef-rx-line">' . $it['name'] . '　' . $it['single_dose'] . '　' . $it['frequency_name'] . '　' . $it['route_name'] . '　×' . $qty . '</div>';
+                $rxLines[] = '<div class="ef-rx-line">' . $it['name'] . '　' . $it['single_dose'] . '　' . $it['frequency'] . '　' . $it['route'] . '　×' . $qty . '</div>';
             }
         }
         if (!count($itemRows)) continue;
         do {
             $orderNo = $prefix[$otype] . date('YmdHis', $ts) . sprintf('%02d', rnd(0, 99));
-        } while (DB::one('order', 'SELECT id FROM orders WHERE order_no=?', array($orderNo)));
-        $orderId = (int)DB::insert('order', 'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, cat_name, doctor_id, doctor_name, total_amount, status, created_at, paid_at, refunded_at, done_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+        } while (DB::one('SELECT id FROM orders WHERE order_no=?', array($orderNo)));
+        $orderId = (int)DB::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, total_amount, status, created_at, paid_at, refunded_at, done_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
             $v['id'], $v['patient_no'], $v['flow_no'], $otype, $orderNo, '', $doc['id'], $doc['name'],
             $total, $ostatus, $created, $paidAt, '', $ostatus === 'done' ? $execBy : '',
         ));
@@ -469,12 +469,12 @@ foreach ($visits as $v) {
         $itemIds = array();
         foreach ($itemRows as $ir) {
             $ex = $ir['extra'];
-            $iid = (int)DB::insert('order', 'INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, spec, unit_name, company_short, price, quantity, single_dose, frequency_name, route_name, need_nurse, sub_of, group_no, is_parent, parent_item_id, status, doctor_id, doctor_name, executed_by, executed_at, result_id, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+            $iid = (int)DB::insert('INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, spec, unit, company_short, price, quantity, single_dose, frequency, route, is_nurse, sub_of, group_no, is_parent, parent_item_id, status, doctor_id, doctor_name, executed_by, executed_at, result_id, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                 $orderId, $v['id'], $v['patient_no'], $v['flow_no'], $otype, $ir['item_id'], $ir['item_name'],
-                isset($ex['spec']) ? $ex['spec'] : '', isset($ex['unit_name']) ? $ex['unit_name'] : '', isset($ex['company_short']) ? $ex['company_short'] : '',
+                isset($ex['spec']) ? $ex['spec'] : '', isset($ex['unit']) ? $ex['unit'] : '', isset($ex['company_short']) ? $ex['company_short'] : '',
                 $ir['price'], $ir['qty'],
-                isset($ex['single_dose']) ? $ex['single_dose'] : '', isset($ex['frequency_name']) ? $ex['frequency_name'] : '', isset($ex['route_name']) ? $ex['route_name'] : '',
-                isset($ex['need_nurse']) ? $ex['need_nurse'] : 0,
+                isset($ex['single_dose']) ? $ex['single_dose'] : '', isset($ex['frequency']) ? $ex['frequency'] : '', isset($ex['route']) ? $ex['route'] : '',
+                isset($ex['is_nurse']) ? $ex['is_nurse'] : 0,
                 0, 0, 1, 0, $ostatus, $doc['id'], $doc['name'],
                 ($ostatus === 'dispensed' || $ostatus === 'done') ? $execBy : '',
                 ($ostatus === 'dispensed' || $ostatus === 'done') ? $execAt : '',
@@ -487,7 +487,7 @@ foreach ($visits as $v) {
         if ($ostatus === 'done' && ($otype === 'lab' || $otype === 'imaging')) {
             foreach ($itemIds as $itemId => $iid) {
                 $vals = array();
-                foreach (DB::q('lab', 'SELECT id, normal_range FROM lab_items WHERE id=?', array($itemId)) as $li) {
+                foreach (DB::q('SELECT id, normal_range FROM lab_items WHERE id=?', array($itemId)) as $li) {
                     if ($li['normal_range'] !== '') {
                         $parts = explode('-', $li['normal_range']);
                         if (count($parts) === 2 && is_numeric($parts[0])) {
@@ -498,7 +498,7 @@ foreach ($visits as $v) {
                 }
                 $valuesJson = count($vals) ? json_encode(array('values' => $vals), JSON_UNESCAPED_UNICODE) : '{}';
                 $resTs = strtotime($paidAt) + rnd(1800, 7200);
-                $resultId = (int)DB::insert('lab', 'INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, values_json, findings, conclusion, executor, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                $resultId = (int)DB::insert('INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, values_json, findings, conclusion, executor, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                     $itemId, $iid, $v['id'], $v['patient_no'], $v['flow_no'], $otype, $valuesJson,
                     $otype === 'imaging' ? pick(array('未见明显异常','所见骨质结构完整','双肺纹理增粗')) : '',
                     $otype === 'imaging' ? pick(array('符合临床诊断','请结合临床','建议必要时复查')) : '',
@@ -506,12 +506,12 @@ foreach ($visits as $v) {
                 ));
                 $dayKey = date('Ymd', $resTs);
                 $reportSeq[$dayKey] = (isset($reportSeq[$dayKey]) ? $reportSeq[$dayKey] : 0) + 1;
-                DB::insert('lab', 'INSERT INTO reports(result_id, report_no, visit_id, patient_no, flow_no, type, content, doctor, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
+                DB::insert('INSERT INTO reports(result_id, report_no, visit_id, patient_no, flow_no, type, content, doctor, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
                     $resultId, 'BG' . $dayKey . sprintf('%04d', $reportSeq[$dayKey]),
                     $v['id'], $v['patient_no'], $v['flow_no'], $otype, '',
                     $execBy, 'done', date('Y-m-d H:i:s', $resTs),
                 ));
-                DB::exec('order', 'UPDATE order_items SET result_id=? WHERE id=?', array($resultId, $iid));
+                DB::exec('UPDATE order_items SET result_id=? WHERE id=?', array($resultId, $iid));
                 $resultCount++;
             }
         }
@@ -523,12 +523,12 @@ foreach ($visits as $v) {
     $vitalsText = '';
     $consciousness = pick($consciousPool);
     if (mt_rand(1, 100) <= 85) {
-        $sys = rnd(95, 165); $dia = rnd(60, 100); $hr = rnd(58, 108); $spo2 = rnd(93, 100); $resp = rnd(13, 21);
+        $sys = rnd(95, 165); $dia = rnd(60, 100); $hr = rnd(58, 108); $vital_spo2 = rnd(93, 100); $resp = rnd(13, 21);
         $vTime = date('Y-m-d H:i:s', $ts + rnd(300, 2400));
-        DB::insert('nurse', 'INSERT INTO vitals(visit_id, patient_no, flow_no, bp_systolic, bp_diastolic, heart_rate, pulse, spo2, respiration, operator, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
-            $v['id'], $v['patient_no'], $v['flow_no'], $sys, $dia, $hr, $hr, $spo2, $resp, $doc['name'], $vTime,
+        DB::insert('INSERT INTO vitals(visit_id, patient_no, flow_no, vital_sbp, vital_dbp, vital_heart_rate, vital_pulse, vital_spo2, vital_respiration, operator, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
+            $v['id'], $v['patient_no'], $v['flow_no'], $sys, $dia, $hr, $hr, $vital_spo2, $resp, $doc['name'], $vTime,
         ));
-        $vitalsText = '血压 ' . $sys . '/' . $dia . 'mmHg；心率 ' . $hr . '次/分；血氧 ' . $spo2 . '%；呼吸 ' . $resp . '次/分';
+        $vitalsText = '血压 ' . $sys . '/' . $dia . 'mmHg；心率 ' . $hr . '次/分；血氧 ' . $vital_spo2 . '%；呼吸 ' . $resp . '次/分';
         $vitalCount++;
     }
 
@@ -560,7 +560,7 @@ foreach ($visits as $v) {
     $recUpdated = $finished ? date('Y-m-d H:i:s', strtotime($recCreated) + rnd(600, 3600)) : $recCreated;
     $printText = emr_print_text($emr, $vitalsText, $consciousness, $auxNames, $rxLines, $dispItems);
     $diagText = emr_diag_text($diagPick);
-    $initialId = (int)DB::insert('medical', 'INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, main_symptom, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergies, is_leave_hospital, primary_icd10, primary_diagnosis, emr_data, emr_print_text, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+    $initialId = (int)DB::insert('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, chief_complaint, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergy_history, is_leave_hospital, icd10_code, diagnosis_name, emr_data, emr_print_text, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
         $v['id'], $v['patient_no'], $v['flow_no'], $v['dept'], $doc['id'], $doc['name'],
         'initial', 0, $cc[0], $cc[1], $cc[2], '患者自诉', '自行来院',
         $phType, '', '否', (string)$diagPick[0]['code'], (string)$diagPick[0]['name'],
@@ -568,7 +568,7 @@ foreach ($visits as $v) {
         $finished ? 'done' : 'draft', $recCreated, $recUpdated,
     ));
     $recordCount++;
-    DB::insert('medical', 'INSERT INTO records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, chief_complaint, present_illness, past_history, allergy_history, physical_exam, consciousness, initial_diagnosis, diagnosis_code, is_observation, visit_type, advice, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+    DB::insert('INSERT INTO records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, chief_complaint, present_illness, past_history, allergy_history, physical_exam, consciousness, preliminary_diagnosis, icd10_code, is_observation, visit_type, doctor_advice, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
         $v['id'], $v['patient_no'], $v['flow_no'], $v['dept'], $doc['id'], $doc['name'],
         $cc[0], $emr['history_present']['content'], $emr['past_history']['detail'], '',
         $emr['physical_exam']['content'], $consciousness, $diagText, (string)$diagPick[0]['code'],
@@ -595,11 +595,11 @@ foreach ($visits as $v) {
             $wTimeStr = date('Y-m-d H:i:s', $wTime);
             $wVitals = '';
             if (mt_rand(1, 100) <= 60) {
-                $sys = rnd(95, 160); $dia = rnd(60, 98); $hr = rnd(60, 105); $spo2 = rnd(93, 100); $resp = rnd(13, 21);
-                DB::insert('nurse', 'INSERT INTO vitals(visit_id, patient_no, flow_no, bp_systolic, bp_diastolic, heart_rate, pulse, spo2, respiration, operator, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
-                    $v['id'], $v['patient_no'], $v['flow_no'], $sys, $dia, $hr, $hr, $spo2, $resp, $w['name'], $wTimeStr,
+                $sys = rnd(95, 160); $dia = rnd(60, 98); $hr = rnd(60, 105); $vital_spo2 = rnd(93, 100); $resp = rnd(13, 21);
+                DB::insert('INSERT INTO vitals(visit_id, patient_no, flow_no, vital_sbp, vital_dbp, vital_heart_rate, vital_pulse, vital_spo2, vital_respiration, operator, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
+                    $v['id'], $v['patient_no'], $v['flow_no'], $sys, $dia, $hr, $hr, $vital_spo2, $resp, $w['name'], $wTimeStr,
                 ));
-                $wVitals = '血压 ' . $sys . '/' . $dia . 'mmHg；心率 ' . $hr . '次/分；血氧 ' . $spo2 . '%；呼吸 ' . $resp . '次/分';
+                $wVitals = '血压 ' . $sys . '/' . $dia . 'mmHg；心率 ' . $hr . '次/分；血氧 ' . $vital_spo2 . '%；呼吸 ' . $resp . '次/分';
                 $vitalCount++;
             }
             $wDiags = array();
@@ -616,7 +616,7 @@ foreach ($visits as $v) {
             $wEmr['advice'] = pick($advicePool);
             $wPrint = emr_print_text($wEmr, $wVitals, '', array(), array(), array());
             $wDiagText = count($wDiags) ? emr_diag_text($wDiags) : '';
-            DB::insert('medical', 'INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, main_symptom, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergies, is_leave_hospital, primary_icd10, primary_diagnosis, emr_data, emr_print_text, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+            DB::insert('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, chief_complaint, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergy_history, is_leave_hospital, icd10_code, diagnosis_name, emr_data, emr_print_text, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                 $v['id'], $v['patient_no'], $v['flow_no'], $v['dept'], $w['id'], $w['name'],
                 'progress', $parent, '', '', '', '患者自诉', '自行来院',
                 '', '', '否',
@@ -625,12 +625,12 @@ foreach ($visits as $v) {
                 json_encode($wEmr, JSON_UNESCAPED_UNICODE), $wPrint,
                 'done', $wTimeStr, $wTimeStr,
             ));
-            DB::insert('medical', 'INSERT INTO records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, chief_complaint, present_illness, consciousness, initial_diagnosis, diagnosis_code, visit_type, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+            DB::insert('INSERT INTO records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, chief_complaint, present_illness, consciousness, preliminary_diagnosis, icd10_code, visit_type, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                 $v['id'], $v['patient_no'], $v['flow_no'], $v['dept'], $w['id'], $w['name'],
                 '', '', '', $wDiagText, count($wDiags) ? (string)$wDiags[0]['code'] : '', '', 'done', $wTimeStr, $wTimeStr,
             ));
             $recordCount++;
-            $parent = (int)DB::val('medical', 'SELECT MAX(id) FROM patient_records WHERE visit_id=?', array($v['id']));
+            $parent = (int)DB::val('SELECT MAX(id) FROM patient_records WHERE visit_id=?', array($v['id']));
         }
     }
 
@@ -640,8 +640,8 @@ foreach ($visits as $v) {
         $cTs = strtotime($recUpdated) + rnd(600, 3000);
         do {
             $certNo = 'ZM' . date('YmdHis', $cTs) . sprintf('%02d', rnd(0, 99));
-        } while (DB::one('medical', 'SELECT id FROM certificates WHERE cert_no=?', array($certNo)));
-        DB::insert('medical', 'INSERT INTO certificates(visit_id, patient_no, flow_no, doctor_id, doctor_name, content, created_at, cert_no, chief_complaint, present_illness, initial_diagnosis) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
+        } while (DB::one('SELECT id FROM certificates WHERE cert_no=?', array($certNo)));
+        DB::insert('INSERT INTO certificates(visit_id, patient_no, flow_no, doctor_id, doctor_name, content, created_at, cert_no, chief_complaint, present_illness, preliminary_diagnosis) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
             $v['id'], $v['patient_no'], $v['flow_no'], $doc['id'], $doc['name'],
             pick(array('建议休息3天，清淡饮食，规律服药，门诊随访。','建议休息1周，避免剧烈运动，一周后复查。','建议多饮水休息，症状加重及时就诊。')),
             date('Y-m-d H:i:s', $cTs), $certNo, $cc[0], $emr['history_present']['content'], $diagText,

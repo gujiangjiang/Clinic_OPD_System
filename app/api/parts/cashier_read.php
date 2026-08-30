@@ -11,16 +11,16 @@ function cashier_part_read($action) {
 
     if ($action === 'home_stats') {
         $today = date('Y-m-d');
-        $regToday = (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE date(register_time)=?", array($today));
-        $regFeeToday = (float)DB::val('order', "SELECT COALESCE(SUM(total),0) FROM payments WHERE kind='visit' AND date(created_at)=?", array($today));
-        $paidToday = (float)DB::val('order', "SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($today));
-        $refundToday = (float)DB::val('order', "SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status='refunded' AND date(refunded_at)=?", array($today));
-        $waiting = (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE status='paid' AND date(register_time)=?", array($today));
+        $regToday = (int)DB::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=?", array($today));
+        $regFeeToday = (float)DB::val("SELECT COALESCE(SUM(total),0) FROM payments WHERE kind='visit' AND date(created_at)=?", array($today));
+        $paidToday = (float)DB::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($today));
+        $refundToday = (float)DB::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status='refunded' AND date(refunded_at)=?", array($today));
+        $waiting = (int)DB::val("SELECT COUNT(*) FROM registrations WHERE status='paid' AND date(registered_at)=?", array($today));
         $labels = array(); $series = array();
         for ($i = 6; $i >= 0; $i--) {
             $day = date('Y-m-d', strtotime("-$i days"));
             $labels[] = substr($day, 5);
-            $series[] = (float)DB::val('order', "SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($day));
+            $series[] = (float)DB::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($day));
         }
         json_ok(array(
             'kpi' => array('reg_today' => $regToday, 'reg_fee' => round($regFeeToday, 2), 'paid_today' => round($paidToday, 2),
@@ -36,7 +36,7 @@ function cashier_part_read($action) {
         $ws = work_session_now();
         $bookable = in_array($ws, array('am', 'pm'), true);
         $session = $ws === 'pm' ? 'pm' : 'am'; // 非可挂时段展示上午号量供参考
-        $depts = DB::q('dept', "SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') ORDER BY type DESC, sort, id");
+        $depts = DB::q("SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') ORDER BY type DESC, sort, id");
         $list = array();
         foreach ($depts as $d) {
             // 无身份证仅显示急诊科室（all=1 时不过滤，供号源总览展示）
@@ -45,7 +45,7 @@ function cashier_part_read($action) {
             $quota = ($d['type'] === 'clinic') ? ($session === 'am' ? (int)$d['am_quota'] : (int)$d['pm_quota']) : 0;
             $extra = 0;
             if ($idCard !== '' && $used >= $quota && $quota > 0) {
-                $extra = (int)DB::val('dept', 'SELECT COUNT(*) FROM extra_slots WHERE dept_id=? AND reg_date=? AND id_card=? AND used=0', array($d['id'], today_str(), $idCard));
+                $extra = (int)DB::val('SELECT COUNT(*) FROM extra_slots WHERE dept_id=? AND reg_date=? AND id_card=? AND used=0', array($d['id'], today_str(), $idCard));
             }
             $isClinic = $d['type'] === 'clinic';
             $list[] = array(
@@ -79,9 +79,9 @@ function cashier_part_read($action) {
     if ($action === 'reg_list') {
         $date = get('date', today_str());
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) $date = today_str();
-        $rows = DB::q('patient', "SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
+        $rows = DB::q("SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
             FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-            WHERE date(r.register_time)=? ORDER BY r.visit_seq", array($date));
+            WHERE date(r.registered_at)=? ORDER BY r.visit_seq", array($date));
         $html = '<div class="fs-13 text-muted mb-8">共 ' . count($rows) . ' 条挂号记录（含退费/取消）</div>';
         if (!$rows) {
             $html .= '<div class="empty"><div class="empty-ico">🗓️</div>当日暂无挂号记录</div>';
@@ -100,7 +100,7 @@ function cashier_part_read($action) {
                     '<td>' . e($r['current_dept_name']) . '</td>' .
                     '<td>¥' . money($r['fee']) . '</td>' .
                     '<td>' . $statusBadge . '</td>' .
-                    '<td class="fs-12">' . e(substr($r['register_time'], 5, 11)) . '</td>' .
+                    '<td class="fs-12">' . e(substr($r['registered_at'], 5, 11)) . '</td>' .
                     '<td><div class="flex gap-4">' .
                     // 凭条是缴费凭证：仅已实际缴费的状态提供补打（待缴费/取消/退费不显示）
                     (in_array($r['status'], array('paid', 'visiting', 'finished'), true) ?
@@ -123,19 +123,19 @@ function cashier_part_read($action) {
         if ($kw === '') json_ok(array('list' => array()));
         $list = array();
         // 按身份证查患者 → 该患者全部就诊
-        $patient = DB::one('patient', 'SELECT * FROM patients WHERE id_card=?', array($kw));
+        $patient = DB::one('SELECT * FROM patients WHERE id_card=?', array($kw));
         if ($patient) {
-            $visits = DB::q('patient', 'SELECT * FROM registrations WHERE patient_no=? ORDER BY register_time DESC, id DESC', array($patient['patient_no']));
+            $visits = DB::q('SELECT * FROM registrations WHERE patient_no=? ORDER BY registered_at DESC, id DESC', array($patient['patient_no']));
             foreach ($visits as $v) {
                 $v['id'] = oid($v['id']);   // 混淆串：前端透传，后端解码
                 $list[] = array('visit' => $v, 'patient' => $patient);
             }
         } else {
             // 按患者ID / 流水号直接查
-            $v = DB::one('patient', 'SELECT * FROM registrations WHERE patient_no=? OR flow_no=? ORDER BY register_time DESC, id DESC LIMIT 1', array($kw, $kw));
+            $v = DB::one('SELECT * FROM registrations WHERE patient_no=? OR flow_no=? ORDER BY registered_at DESC, id DESC LIMIT 1', array($kw, $kw));
             if ($v) {
                 $v['id'] = oid($v['id']);   // 混淆串
-                $p = DB::one('patient', 'SELECT * FROM patients WHERE patient_no=?', array($v['patient_no']));
+                $p = DB::one('SELECT * FROM patients WHERE patient_no=?', array($v['patient_no']));
                 $list[] = array('visit' => $v, 'patient' => $p);
             }
         }
@@ -150,13 +150,13 @@ function cashier_part_read($action) {
         $visit = $row['visit'];
         $html = '<div class="card" style="padding:14px;margin-bottom:12px" data-vid="' . e(oid($visitId)) . '">' .
             '<div class="flex-between"><div><span class="fw-700 fs-16">' . e($row['patient']['name']) . '</span> ' .
-            '<span class="text-muted fs-13">' . e($row['patient']['gender']) . ' / ' . age_format($row['patient']['birth_date'], $visit['register_time']) . '</span></div>' .
+            '<span class="text-muted fs-13">' . e($row['patient']['gender']) . ' / ' . age_format($row['patient']['birth_date'], $visit['registered_at']) . '</span></div>' .
             '<span class="badge badge-primary">' . e($visit['flow_no']) . '</span></div>' .
             '<div class="fs-13 text-muted mt-4">患者ID ' . e($visit['patient_no']) . ' ｜ 首次科室 ' . e($visit['first_dept_name']) .
-            ' 第' . str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) . '号 ｜ 挂号 ' . e(substr($visit['register_time'], 0, 16)) . '</div></div>';
+            ' 第' . str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) . '号 ｜ 挂号 ' . e(substr($visit['registered_at'], 0, 16)) . '</div></div>';
 
         // 已缴费（含挂号费与项目缴费）
-        $pays = DB::q('order', 'SELECT * FROM payments WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        $pays = DB::q('SELECT * FROM payments WHERE visit_id=? ORDER BY id DESC', array($visitId));
         $html .= '<div class="fs-14 fw-700 mb-8">已缴费</div>';
         if (!$pays) {
             $html .= '<div class="fs-13 text-muted mb-12">暂无缴费记录</div>';
@@ -168,7 +168,7 @@ function cashier_part_read($action) {
         }
 
         // 待缴费开单（分组显示开单医生、开单时间）
-        $orders = DB::q('order', "SELECT * FROM orders WHERE visit_id=? AND status<>'refunded' AND status<>'cancelled' ORDER BY id", array($visitId));
+        $orders = DB::q("SELECT * FROM orders WHERE visit_id=? AND status<>'refunded' AND status<>'cancelled' ORDER BY id", array($visitId));
         $html .= '<div class="fs-14 fw-700 mb-8 mt-16">待缴费 / 可退费项目</div>';
         $html .= '<div class="flex gap-8 mb-8" id="batchBar" style="align-items:center">' .
             '<label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="batchAll" onchange="toggleAll()"> 全选</label>' .
@@ -179,7 +179,7 @@ function cashier_part_read($action) {
         }
         $typeNames = array('lab' => '检验', 'imaging' => '检查', 'procedure' => '处置', 'prescription' => '处方');
         foreach ($orders as $o) {
-            $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
+            $items = DB::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
             $agg = order_agg_status($o['order_type'], $items);
             $html .= '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">';
             $html .= '<div class="flex-between">' .
@@ -218,25 +218,25 @@ function cashier_part_read($action) {
         foreach ($ids as $oidStr) {
             $oidNum = did($oidStr);
             if ($oidNum <= 0) json_fail('存在无效的开单标识，请刷新后重试');
-            $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array($oidNum));
+            $order = DB::one('SELECT * FROM orders WHERE id=?', array($oidNum));
             if (!$order) json_fail('开单不存在');
-            $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=?', array($order['id']));
+            $items = DB::q('SELECT * FROM order_items WHERE order_id=?', array($order['id']));
             foreach ($items as $it) {
                 if ($it['status'] !== 'open') json_fail('存在已缴费项目，请刷新后重试');
             }
             // 缴费
-            DB::exec('order', "UPDATE order_items SET status='paid' WHERE order_id=?", array($order['id']));
-            DB::exec('order', "UPDATE orders SET status='paid', paid_at=? WHERE id=?", array(now_str(), $order['id']));
+            DB::exec("UPDATE order_items SET status='paid' WHERE order_id=?", array($order['id']));
+            DB::exec("UPDATE orders SET status='paid', paid_at=? WHERE id=?", array(now_str(), $order['id']));
             // 处置（医生直接执行类）：缴费即视为已执行
             if ($order['order_type'] === 'procedure') {
                 foreach ($items as $it) {
-                    if (!(int)$it['need_nurse']) {
-                        DB::exec('order', "UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($order['doctor_name'], now_str(), $it['id']));
+                    if (!(int)$it['is_nurse']) {
+                        DB::exec("UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($order['doctor_name'], now_str(), $it['id']));
                     }
                 }
             }
             $total += (float)$order['total_amount'];
-            $payId = DB::insert('order', 'INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
+            $payId = DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
                 $order['visit_id'], $order['id'], $order['patient_no'], $order['flow_no'], 'order',
                 (float)$order['total_amount'], count($items), $u['id'], $u['name'], now_str(),
             ));

@@ -13,7 +13,7 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
         // 科室：续写/会诊记录使用本记录自身的书写科室，而非就诊当前科室（转科/会诊后不同）
         $contDept = '';
         if (!empty($record['dept_id'])) {
-            $dn = DB::one('dept', 'SELECT name FROM departments WHERE id=?', array((int)$record['dept_id']));
+            $dn = DB::one('SELECT name FROM departments WHERE id=?', array((int)$record['dept_id']));
             if ($dn) $contDept = (string)$dn['name'];
         }
         if ($contDept === '') $contDept = $visit['current_dept_name'] ?? '';
@@ -55,7 +55,7 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
             '<div class="print-info-line">' .
             $cell('患者ID', isset($patient['patient_no']) ? $patient['patient_no'] : '') .
             $cell('就诊科室', isset($visit['current_dept_name']) ? $visit['current_dept_name'] : '') .
-            $cell('就诊时间', isset($visit['register_time']) ? $visit['register_time'] : '') .
+            $cell('就诊时间', isset($visit['registered_at']) ? $visit['registered_at'] : '') .
             '</div></div>';
     } else {
         $items = array(
@@ -125,11 +125,11 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
     }
     // 生命体征恒显示（未录入显示 -，首诊/续写一致）
     $vp = array();
-    if (!empty($vitals['bp_systolic'])) $vp[] = '血压 ' . $vitals['bp_systolic'] . '/' . $vitals['bp_diastolic'] . 'mmHg';
-    if (!empty($vitals['heart_rate'])) $vp[] = '心率 ' . $vitals['heart_rate'] . '次/分';
-    if (!empty($vitals['pulse'])) $vp[] = '脉搏 ' . $vitals['pulse'] . '次/分';
-    if (!empty($vitals['spo2'])) $vp[] = '血氧 ' . $vitals['spo2'] . '%';
-    if (!empty($vitals['respiration'])) $vp[] = '呼吸 ' . $vitals['respiration'] . '次/分';
+    if (!empty($vitals['vital_sbp'])) $vp[] = '血压 ' . $vitals['vital_sbp'] . '/' . $vitals['vital_dbp'] . 'mmHg';
+    if (!empty($vitals['vital_heart_rate'])) $vp[] = '心率 ' . $vitals['vital_heart_rate'] . '次/分';
+    if (!empty($vitals['vital_pulse'])) $vp[] = '脉搏 ' . $vitals['vital_pulse'] . '次/分';
+    if (!empty($vitals['vital_spo2'])) $vp[] = '血氧 ' . $vitals['vital_spo2'] . '%';
+    if (!empty($vitals['vital_respiration'])) $vp[] = '呼吸 ' . $vitals['vital_respiration'] . '次/分';
         // 生命体征：首诊恒显示（未录入 -）；续写空节不显示
     if (!$isProgress || $vp) {
         $secs[] = array('生命体征', $vp ? implode('；', $vp) : '-');
@@ -148,9 +148,9 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
     } else {
         $peT2 = isset($record['physical_exam']) ? $record['physical_exam'] : '';
         if (!$isProgress || trim((string)$peT2) !== '') $secs[] = array('体格检查', $peT2);
-        $diag = isset($record['initial_diagnosis']) ? $record['initial_diagnosis'] : '';
-        if (isset($record['diagnosis_code']) && $record['diagnosis_code']) {
-            $diag .= '（' . $record['diagnosis_code'] . '）';
+        $diag = isset($record['preliminary_diagnosis']) ? $record['preliminary_diagnosis'] : '';
+        if (isset($record['icd10_code']) && $record['icd10_code']) {
+            $diag .= '（' . $record['icd10_code'] . '）';
         }
         $secs[] = array('初步诊断', $diag);
     }
@@ -172,9 +172,9 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
     $orderSql .= " AND (record_id=? OR record_id=0)";
     $orderParams[] = $recPrintId;
     $orderSql .= ' ORDER BY id ASC';
-    $orders = DB::q('order', $orderSql, $orderParams);
+    $orders = DB::q($orderSql, $orderParams);
     foreach ($orders as $o) {
-        $its = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
+        $its = DB::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
         foreach ($its as $it) {
             if ($it['item_name'] === '' || $it['item_name'] === null) continue; // 防空名明细
             if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
@@ -190,7 +190,7 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
     }
     // 会诊：本人发起的会诊在门诊处置中显示「请X科会诊」（与病历编辑页一致）
     // 会诊与病历强关联：仅打印本记录（record_id）发起的会诊；旧数据（record_id=0）回退按医生归属
-    $consRows = DB::q('consultation', "SELECT target_dept_name, record_id FROM consultations WHERE visit_id=? AND from_doctor_id=? ORDER BY id ASC", array($visit['id'], (int)$record['doctor_id']));
+    $consRows = DB::q("SELECT target_dept_name, record_id FROM consultations WHERE visit_id=? AND from_doctor_id=? ORDER BY id ASC", array($visit['id'], (int)$record['doctor_id']));
     foreach ($consRows as $cr) {
         $crRec = (int)(isset($cr['record_id']) ? $cr['record_id'] : 0);
         if ($recPrintId > 0 && $crRec > 0 && $crRec !== $recPrintId) continue;

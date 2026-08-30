@@ -16,8 +16,8 @@ function pt_receipt($visit, $patient) {
     $html .= pt_ticket_row('挂号科室', isset($visit['first_dept_name']) ? $visit['first_dept_name'] .
         (isset($visit['dept_type']) && $visit['dept_type'] === 'emergency' ? ' (急诊)' : '') : '');
     $html .= pt_ticket_row('就诊序号', isset($visit['visit_seq']) ? str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) : '');
-    $html .= pt_ticket_row('就诊日期', isset($visit['register_time']) ? substr($visit['register_time'], 0, 10) : '');
-    $html .= pt_ticket_row('挂号时间', isset($visit['register_time']) ? substr($visit['register_time'], 0, 16) : '');
+    $html .= pt_ticket_row('就诊日期', isset($visit['registered_at']) ? substr($visit['registered_at'], 0, 10) : '');
+    $html .= pt_ticket_row('挂号时间', isset($visit['registered_at']) ? substr($visit['registered_at'], 0, 16) : '');
     $html .= pt_ticket_row('费用类别', isset($visit['fee_type']) ? $visit['fee_type'] : '');
     $html .= '<div class="ticket-divider"></div>';
     $html .= '<div class="ticket-row"><span>挂号费</span><span class="ticket-val">' . money(isset($visit['fee']) ? $visit['fee'] : 0) . ' 元</span></div>';
@@ -32,7 +32,7 @@ function pt_receipt($visit, $patient) {
 }
 
 function pt_payment($pay, $items) {
-    $pName = isset($pay['patient_no']) ? DB::val('patient', 'SELECT name FROM patients WHERE patient_no=?', array($pay['patient_no'])) : '';
+    $pName = isset($pay['patient_no']) ? DB::val('SELECT name FROM patients WHERE patient_no=?', array($pay['patient_no'])) : '';
     $code = isset($pay['flow_no']) && $pay['flow_no'] !== '' ? $pay['flow_no'] : (isset($pay['patient_no']) ? $pay['patient_no'] : '');
     $html = '<div class="print-ticket">';
     $html .= pt_ticket_header('缴费凭条');

@@ -38,8 +38,8 @@ switch ($action) {
             json_fail('请提供 id_card 或 patient_no 参数');
         }
         $p = $idCard !== ''
-            ? DB::one('patient', 'SELECT * FROM patients WHERE id_card=?', array($idCard))
-            : DB::one('patient', 'SELECT * FROM patients WHERE patient_no=?', array($patientNo));
+            ? DB::one('SELECT * FROM patients WHERE id_card=?', array($idCard))
+            : DB::one('SELECT * FROM patients WHERE patient_no=?', array($patientNo));
         if (!$p) json_fail('未检索到患者');
         unset($p['id']);
         json_ok(array('patient' => $p));
@@ -49,7 +49,7 @@ switch ($action) {
     case 'visit_list':
         $patientNo = get('patient_no', '');
         if ($patientNo === '') json_fail('请提供 patient_no 参数');
-        $visits = DB::q('patient', 'SELECT * FROM registrations WHERE patient_no=? ORDER BY id DESC', array($patientNo));
+        $visits = DB::q('SELECT * FROM registrations WHERE patient_no=? ORDER BY id DESC', array($patientNo));
         $out = array();
         foreach ($visits as $v) {
             unset($v['id']);
@@ -62,9 +62,9 @@ switch ($action) {
     case 'visit_status':
         $flowNo = get('flow_no', '');
         if ($flowNo === '') json_fail('请提供 flow_no 参数');
-        $v = DB::one('patient', 'SELECT * FROM registrations WHERE flow_no=?', array($flowNo));
+        $v = DB::one('SELECT * FROM registrations WHERE flow_no=?', array($flowNo));
         if (!$v) json_fail('未检索到该就诊记录');
-        $p = DB::one('patient', 'SELECT name, gender, age FROM patients WHERE patient_no=?', array($v['patient_no']));
+        $p = DB::one('SELECT name, gender, age FROM patients WHERE patient_no=?', array($v['patient_no']));
         json_ok(array(
             'flow_no' => $v['flow_no'],
             'patient_no' => $v['patient_no'],
@@ -74,7 +74,7 @@ switch ($action) {
             'visit_seq' => (int)$v['visit_seq'],
             'status' => $v['status'],
             'status_name' => visit_status_name($v['status']),
-            'register_time' => $v['register_time'],
+            'registered_at' => $v['registered_at'],
         ));
         break;
 
@@ -82,11 +82,11 @@ switch ($action) {
     case 'order_list':
         $visitId = (int)get('visit_id', 0);
         if ($visitId <= 0) json_fail('请提供 visit_id 参数');
-        $orders = DB::q('order', 'SELECT * FROM orders WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        $orders = DB::q('SELECT * FROM orders WHERE visit_id=? ORDER BY id DESC', array($visitId));
         $typeNames = array('lab' => '检验', 'imaging' => '检查', 'procedure' => '处置', 'prescription' => '处方');
         $out = array();
         foreach ($orders as $o) {
-            $items = DB::q('order', 'SELECT item_name, price, quantity, single_dose, frequency_name, route_name, need_nurse, status FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
+            $items = DB::q('SELECT item_name, price, quantity, single_dose, frequency, route, is_nurse, status FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
             $out[] = array(
                 'order_no' => $o['order_no'],
                 'order_type' => $o['order_type'],

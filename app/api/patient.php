@@ -16,7 +16,7 @@ switch ($action) {
     /* ---------------- 按身份证检索患者 ---------------- */
     case 'by_card':
         $idCard = get('id_card', '');
-        $p = DB::one('patient', 'SELECT * FROM patients WHERE id_card=?', array($idCard));
+        $p = DB::one('SELECT * FROM patients WHERE id_card=?', array($idCard));
         json_ok(array('patient' => $p));
         break;
 
@@ -27,7 +27,7 @@ switch ($action) {
             json_ok(array('list' => array()));
         }
         $like = '%' . $kw . '%';
-        $list = DB::q('patient', "SELECT * FROM patients WHERE patient_no LIKE ? OR id_card LIKE ? OR name LIKE ? ORDER BY id DESC LIMIT 20",
+        $list = DB::q("SELECT * FROM patients WHERE patient_no LIKE ? OR id_card LIKE ? OR name LIKE ? ORDER BY id DESC LIMIT 20",
             array($like, $like, $like));
         json_ok(array('list' => $list));
         break;
@@ -35,7 +35,7 @@ switch ($action) {
     /* ---------------- 患者信息修改表单（服务端渲染，字典来自 options_data.php） ---------------- */
     case 'edit_form':
         $kw = get('kw', '');
-        $p = DB::one('patient', 'SELECT * FROM patients WHERE id_card=? OR patient_no=?', array($kw, $kw));
+        $p = DB::one('SELECT * FROM patients WHERE id_card=? OR patient_no=?', array($kw, $kw));
         if (!$p) {
             json_ok(array('html' => ''));
         }
@@ -72,7 +72,7 @@ switch ($action) {
             $params[] = post($f);
         }
         $params[] = $patientNo;
-        DB::exec('patient', 'UPDATE patients SET ' . implode(',', $set) . ' WHERE patient_no=?', $params);
+        DB::exec('UPDATE patients SET ' . implode(',', $set) . ' WHERE patient_no=?', $params);
         json_ok(array(), '患者信息已更新');
         break;
 
@@ -83,22 +83,22 @@ switch ($action) {
     case 'history':
         $patientNo = get('patient_no', '');
         $u = Auth::user();   // 接诊判定需要当前医生 id
-        $p = DB::one('patient', 'SELECT * FROM patients WHERE patient_no=?', array($patientNo));
+        $p = DB::one('SELECT * FROM patients WHERE patient_no=?', array($patientNo));
         if (!$p) json_fail('未找到该患者');
-        $visits = DB::q('patient', 'SELECT * FROM registrations WHERE patient_no=? ORDER BY register_time DESC, id DESC', array($patientNo));
+        $visits = DB::q('SELECT * FROM registrations WHERE patient_no=? ORDER BY registered_at DESC, id DESC', array($patientNo));
         $list = array();
         foreach ($visits as $v) {
             // 是否有已保存病历（结构化表为主，旧镜像表兜底）
-            $hasRecord = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=?', array($v['id'])) > 0
-                || (int)DB::val('medical', 'SELECT COUNT(*) FROM records WHERE visit_id=?', array($v['id'])) > 0;
-            $hasCert = (int)DB::val('medical', 'SELECT COUNT(*) FROM certificates WHERE visit_id=?', array($v['id'])) > 0;
+            $hasRecord = (int)DB::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=?', array($v['id'])) > 0
+                || (int)DB::val('SELECT COUNT(*) FROM records WHERE visit_id=?', array($v['id'])) > 0;
+            $hasCert = (int)DB::val('SELECT COUNT(*) FROM certificates WHERE visit_id=?', array($v['id'])) > 0;
             // 当前医生是否接诊过该次就诊（结构化表与镜像表任一有本人文书即算）
-            $treated = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array($v['id'], $u['id'])) > 0
-                || (int)DB::val('medical', 'SELECT COUNT(*) FROM records WHERE visit_id=? AND doctor_id=?', array($v['id'], $u['id'])) > 0;
+            $treated = (int)DB::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array($v['id'], $u['id'])) > 0
+                || (int)DB::val('SELECT COUNT(*) FROM records WHERE visit_id=? AND doctor_id=?', array($v['id'], $u['id'])) > 0;
             $list[] = array(
                 'code' => oid($v['id']),
-                'date' => substr($v['register_time'], 0, 10),
-                'time' => substr($v['register_time'], 11, 5),
+                'date' => substr($v['registered_at'], 0, 10),
+                'time' => substr($v['registered_at'], 11, 5),
                 'dept_name' => $v['first_dept_name'],
                 'current_dept_name' => $v['current_dept_name'],
                 'visit_seq' => (int)$v['visit_seq'],

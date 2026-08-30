@@ -28,9 +28,9 @@ function admin_part_call($action) {
     if ($action === 'room_list') {
         $deptId = (int)get('dept_id');
         if ($deptId <= 0) json_fail('请选择科室');
-        $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($deptId));
+        $dept = DB::one('SELECT * FROM departments WHERE id=?', array($deptId));
         if (!$dept) json_fail('科室不存在');
-        $rows = DB::q('clinic_rooms', 'SELECT * FROM clinic_rooms WHERE dept_id=? ORDER BY id', array($deptId));
+        $rows = DB::q('SELECT * FROM clinic_rooms WHERE dept_id=? ORDER BY id', array($deptId));
         $typeNames = array('doctor' => '医生诊室', 'lab' => '检验科', 'imaging' => '影像科', 'pharmacy' => '药房', 'nurse' => '护士站');
         $rowsHtml = '<thead><tr>' .
             '<th>诊室/窗口</th><th>类型</th><th>大屏状态</th><th>绑定</th><th>Token</th><th>设置</th><th>操作</th></tr></thead><tbody>';
@@ -64,7 +64,7 @@ function admin_part_call($action) {
         $html = render_list_wrapper('「' . e($dept['name']) . '」共 ' . count($rows) . ' 块大屏', '暂无大屏配置，请先新建', $rowsHtml);
         json_ok(array('html' => $html, 'dept_name' => $dept['name'],
             'total_count' => count($rows),
-            'online_count' => (int)DB::val('clinic_rooms', "SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat IS NOT NULL AND (strftime('%s','now','localtime') - strftime('%s',screen_last_heartbeat)) <= 30", array($deptId))));
+            'online_count' => (int)DB::val("SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat IS NOT NULL AND (strftime('%s','now','localtime') - strftime('%s',screen_last_heartbeat)) <= 30", array($deptId))));
     }
 
     /* ==================== 新建诊室 ==================== */
@@ -76,8 +76,7 @@ function admin_part_call($action) {
         if ($roomName === '') json_fail('请填写诊室/窗口名称');
         if (!in_array($roomType, array('doctor', 'lab', 'imaging', 'pharmacy', 'nurse'), true)) $roomType = 'doctor';
         $token = bin2hex(random_bytes(16));
-        DB::insert('clinic_rooms',
-            'INSERT INTO clinic_rooms(dept_id, room_name, room_type, screen_token, enable_voice, enable_mask, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?)',
+        DB::insert(            'INSERT INTO clinic_rooms(dept_id, room_name, room_type, screen_token, enable_voice, enable_mask, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?)',
             array($deptId, $roomName, $roomType, $token, 1, 1, now_str(), now_str()));
         json_ok(array('token' => $token), '诊室已创建');
     }
@@ -94,7 +93,7 @@ function admin_part_call($action) {
         $tipInterval = max(2, (int)post('tip_interval', 5));
         if ($id <= 0) json_fail('参数错误');
         if ($roomName === '') json_fail('请填写诊室名称');
-        DB::exec('clinic_rooms', 'UPDATE clinic_rooms SET room_name=?, room_type=?, enable_voice=?, enable_mask=?, screen_tips=?, tip_interval=?, updated_at=? WHERE id=?',
+        DB::exec('UPDATE clinic_rooms SET room_name=?, room_type=?, enable_voice=?, enable_mask=?, screen_tips=?, tip_interval=?, updated_at=? WHERE id=?',
             array($roomName, $roomType, $voice, $mask, $tips, $tipInterval, now_str(), $id));
         json_ok(array(), '诊室已更新');
     }
@@ -103,21 +102,21 @@ function admin_part_call($action) {
     if ($action === 'room_reset_token') {
         $id = (int)post('id');
         $newToken = bin2hex(random_bytes(16));
-        DB::exec('clinic_rooms', 'UPDATE clinic_rooms SET screen_token=?, updated_at=? WHERE id=?', array($newToken, now_str(), $id));
+        DB::exec('UPDATE clinic_rooms SET screen_token=?, updated_at=? WHERE id=?', array($newToken, now_str(), $id));
         json_ok(array('token' => $newToken), 'Token 已重置，旧大屏链接已失效');
     }
 
     /* ==================== 强制释放诊室绑定 ==================== */
     if ($action === 'room_release') {
         $id = (int)post('id');
-        DB::exec('clinic_rooms', 'UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL, updated_at=? WHERE id=?', array(now_str(), $id));
+        DB::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL, updated_at=? WHERE id=?', array(now_str(), $id));
         json_ok(array(), '诊室已强制释放');
     }
 
     /* ==================== 删除诊室 ==================== */
     if ($action === 'room_delete') {
         $id = (int)post('id');
-        DB::exec('clinic_rooms', 'DELETE FROM clinic_rooms WHERE id=?', array($id));
+        DB::exec('DELETE FROM clinic_rooms WHERE id=?', array($id));
         json_ok(array(), '诊室已删除');
     }
 

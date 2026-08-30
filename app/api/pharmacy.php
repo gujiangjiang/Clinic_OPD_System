@@ -18,17 +18,17 @@ switch ($action) {
     /* ==================== 药房首页统计 ==================== */
     case 'home_stats':
         $today = date('Y-m-d');
-        $todayDisp = (int)DB::val('order', "SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='dispensed' AND date(executed_at)=?", array($today));
-        $todayFee = (float)DB::val('order', "SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type='prescription' AND status='dispensed' AND date(paid_at)=?", array($today));
-        $pendingRx = (int)DB::val('order', "SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='paid'", array());
-        $drugTotal = (int)DB::val('drug', "SELECT COUNT(*) FROM drugs WHERE status='approved'", array());
-        $lowStock = (int)DB::val('drug', "SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty<=50", array());
-        $pendingAudit = (int)DB::val('drug', "SELECT COUNT(*) FROM drugs WHERE status='pending'", array());
+        $todayDisp = (int)DB::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='dispensed' AND date(executed_at)=?", array($today));
+        $todayFee = (float)DB::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type='prescription' AND status='dispensed' AND date(paid_at)=?", array($today));
+        $pendingRx = (int)DB::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='paid'", array());
+        $drugTotal = (int)DB::val("SELECT COUNT(*) FROM drugs WHERE status='approved'", array());
+        $lowStock = (int)DB::val("SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty<=50", array());
+        $pendingAudit = (int)DB::val("SELECT COUNT(*) FROM drugs WHERE status='pending'", array());
         $labels = array(); $series = array();
         for ($i = 6; $i >= 0; $i--) {
             $day = date('Y-m-d', strtotime("-$i days"));
             $labels[] = substr($day, 5);
-            $series[] = (int)DB::val('order', "SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='dispensed' AND date(executed_at)=?", array($day));
+            $series[] = (int)DB::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='dispensed' AND date(executed_at)=?", array($day));
         }
         json_ok(array(
             'kpi' => array('today_disp' => $todayDisp, 'today_fee' => round($todayFee, 2), 'pending_rx' => $pendingRx,
@@ -40,14 +40,14 @@ switch ($action) {
     /* ==================== 发药队列（待发药 / 发药完成，需求20） ==================== */
     case 'queue':
         // 说明：orders 与 order_items 同库可 JOIN；患者信息跨库按 patient_no 逐条补充
-        // 勾选【护士站执行】的处方由护士站执行（need_nurse=1），药房不显示
+        // 勾选【护士站执行】的处方由护士站执行（is_nurse=1），药房不显示
         $status = get('status', 'paid');
         if ($status === 'dispensed') {
-            $where = "oi.item_type='prescription' AND oi.sub_of=0 AND oi.need_nurse=0 AND oi.status='dispensed'";
+            $where = "oi.item_type='prescription' AND oi.sub_of=0 AND oi.is_nurse=0 AND oi.status='dispensed'";
         } else {
-            $where = "oi.item_type='prescription' AND oi.sub_of=0 AND oi.need_nurse=0 AND oi.status='paid'";
+            $where = "oi.item_type='prescription' AND oi.sub_of=0 AND oi.is_nurse=0 AND oi.status='paid'";
         }
-        $rows = DB::q('order', "SELECT oi.*, o.order_no FROM order_items oi
+        $rows = DB::q("SELECT oi.*, o.order_no FROM order_items oi
             JOIN orders o ON o.id = oi.order_id
             WHERE $where ORDER BY oi.id DESC LIMIT 200");
         $title = $status === 'dispensed' ? '发药完成' : '待发药';
@@ -60,11 +60,11 @@ switch ($action) {
                 ($status === 'dispensed' ? '<th>发药药师</th><th>发药时间</th>' : '') .
                 '<th>操作</th></tr></thead><tbody>';
             foreach ($rows as $r) {
-                $p = DB::one('patient', 'SELECT name, gender, birth_date FROM patients WHERE patient_no=?', array($r['patient_no']));
+                $p = DB::one('SELECT name, gender, birth_date FROM patients WHERE patient_no=?', array($r['patient_no']));
                 // 成组医嘱：按组号聚类展示子药（同组子药跟随主药显示，便于核对配伍）
                 $groupHtml = '';
                 if ((int)$r['group_no'] > 0) {
-                    $subs = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? AND group_no=? AND is_parent=0 ORDER BY id',
+                    $subs = DB::q('SELECT * FROM order_items WHERE order_id=? AND group_no=? AND is_parent=0 ORDER BY id',
                         array((int)$r['order_id'], (int)$r['group_no']));
                     if ($subs) {
                         $groupHtml = '<div class="fs-12 text-muted" style="margin-top:2px">' .
@@ -80,7 +80,7 @@ switch ($action) {
                     '<td>' . e($r['item_name']) . (!empty($r['company_short']) ? '（' . e($r['company_short']) . '）' : '') . $groupHtml . '</td>' .
                     '<td>' . e($r['order_no']) . '</td>' .
                     '<td>' . e($r['flow_no']) . '</td>' .
-                    '<td>' . (int)$r['quantity'] . ' ' . e($r['unit_name']) . '</td>' .
+                    '<td>' . (int)$r['quantity'] . ' ' . e($r['unit']) . '</td>' .
                     '<td>' . e($r['doctor_name']) . '</td>' .
                     ($status === 'dispensed' ? '<td>' . e($r['executed_by']) . '</td><td class="fs-12">' . e(substr($r['executed_at'], 5, 11)) . '</td>' : '') .
                     '<td>' . ($status === 'paid'
@@ -95,13 +95,13 @@ switch ($action) {
     /* ==================== 发药 ==================== */
     case 'dispense':
         $itemId = did(post('item_id'));
-        $it = DB::one('order', 'SELECT * FROM order_items WHERE id=?', array($itemId));
+        $it = DB::one('SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['item_type'] !== 'prescription' || $it['status'] !== 'paid') {
             json_fail('处方不存在或状态异常');
         }
-        DB::exec('order', "UPDATE order_items SET status='dispensed', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
+        DB::exec("UPDATE order_items SET status='dispensed', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
         if ($it['doctor_id'] > 0) {
-            $pName = DB::val('patient', 'SELECT name FROM patients WHERE patient_no=?', array($it['patient_no']));
+            $pName = DB::val('SELECT name FROM patients WHERE patient_no=?', array($it['patient_no']));
             send_msg('doctor', $it['doctor_id'],
                 '药品已发：' . $it['item_name'],
                 '药剂师 ' . $u['name'] . ' 已发放患者「' . $pName . '」（' . $it['patient_no'] . '）的药品「' . $it['item_name'] . '」×' . (int)$it['quantity'],
@@ -114,7 +114,7 @@ switch ($action) {
     /* ==================== 库存列表（HTML） ==================== */
     case 'inventory':
         // 说明：inventory_trans 位于 order 库（跨库不可 JOIN），库存直接读 drugs.qty
-        $rows = DB::q('drug', 'SELECT * FROM drugs ORDER BY category, id');
+        $rows = DB::q('SELECT * FROM drugs ORDER BY category, id');
         $html = '<div class="fs-13 text-muted mb-8">共 ' . count($rows) . ' 种药品</div>';
         if (!$rows) {
             $html .= '<div class="empty"><div class="empty-ico">📦</div>暂无药品，请管理员先在【药品信息】中添加</div>';
@@ -152,10 +152,10 @@ switch ($action) {
             'generic_name' => post('generic_name'), 'category' => post('category'),
             'vendor' => post('vendor'), 'vendor_short' => post('vendor_short'),
             'package_unit' => post('package_unit'), 'spec' => post('spec'), 'form' => post('form'),
-            'single_dose' => post('single_dose'), 'frequency_name' => post('frequency_name'),
-            'route_name' => post('route_name'), 'price' => (float)post('price', 0), 'qty' => (int)post('qty', 0),
+            'single_dose' => post('single_dose'), 'frequency' => post('frequency'),
+            'route' => post('route'), 'price' => (float)post('price', 0), 'qty' => (int)post('qty', 0),
             'is_rx' => (int)post('is_rx', 0), 'is_limited' => (int)post('is_limited', 0),
-            'note' => post('note'), 'need_nurse' => (int)post('need_nurse', 0),
+            'note' => post('note'), 'is_nurse' => (int)post('is_nurse', 0),
         );
         if ($id > 0) {
             // 重新提交：更新原记录内容，回到待审核状态，并重建一条审核记录
@@ -164,8 +164,8 @@ switch ($action) {
             foreach ($data as $k => $v) { $set[] = $k . '=?'; $params[] = $v; }
             $set[] = 'status=?'; $params[] = 'pending';
             $params[] = $id;
-            DB::exec('drug', 'UPDATE drugs SET ' . implode(',', $set) . ' WHERE id=?', $params);
-            DB::exec('core', "UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_drug' AND ref_id=? AND status IN ('pending','rejected')", array($u['name'], now_str(), $id));
+            DB::exec('UPDATE drugs SET ' . implode(',', $set) . ' WHERE id=?', $params);
+            DB::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_drug' AND ref_id=? AND status IN ('pending','rejected')", array($u['name'], now_str(), $id));
             submit_audit('item_drug', $id, '药品修改后重新提交：' . $name,
                 '药房 ' . $u['name'] . ' 修改后重新提交药品「' . $name . '」（分类：' . $data['category'] . '，价格：¥' . money($data['price']) . '），请审核');
             json_ok(array(), '药品已修改并重新提交，待管理员审核');
@@ -173,7 +173,7 @@ switch ($action) {
         $params = array_values($data);
         $params[] = 'pending';
         $params[] = now_str();
-        $newId = DB::insert('drug', 'INSERT INTO drugs(generic_name, category, vendor, vendor_short, package_unit, spec, form, single_dose, frequency_name, route_name, price, qty, is_rx, is_limited, note, need_nurse, name, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array_merge(
+        $newId = DB::insert('INSERT INTO drugs(generic_name, category, vendor, vendor_short, package_unit, spec, form, single_dose, frequency, route, price, qty, is_rx, is_limited, note, is_nurse, name, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array_merge(
             array_slice($params, 0, 16), array($name), array_slice($params, 16)
         ));
         submit_audit('item_drug', $newId, '药品添加：' . $name,
@@ -192,9 +192,9 @@ switch ($action) {
     case 'category_save':
         $name = post('name');
         if ($name === '') json_fail('请输入分类名称');
-        $dup = DB::one('drug', "SELECT id FROM drug_settings WHERE stype='category' AND name=?", array($name));
+        $dup = DB::one("SELECT id FROM drug_settings WHERE stype='category' AND name=?", array($name));
         if ($dup) json_fail('该分类已存在');
-        DB::insert('drug', "INSERT INTO drug_settings(stype, name, need_nurse, sort) VALUES('category',?,0,0)", array($name));
+        DB::insert("INSERT INTO drug_settings(stype, name, is_nurse, sort) VALUES('category',?,0,0)", array($name));
         json_ok(array(), '药品分类已添加');
         break;
 
@@ -204,14 +204,14 @@ switch ($action) {
         $qty = (int)post('qty');
         $type = post('type', 'in'); // in 入库 / out 出库
         if ($qty <= 0) json_fail('数量必须大于0');
-        $drug = DB::one('drug', 'SELECT * FROM drugs WHERE id=?', array($drugId));
+        $drug = DB::one('SELECT * FROM drugs WHERE id=?', array($drugId));
         if (!$drug) json_fail('药品不存在');
         $change = ($type === 'in') ? $qty : -$qty;
         if ($change < 0 && (int)$drug['qty'] + $change < 0) {
             json_fail('出库数量超过当前库存');
         }
-        DB::exec('drug', 'UPDATE drugs SET qty = qty + ? WHERE id=?', array($change, $drugId));
-        DB::insert('order', 'INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
+        DB::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array($change, $drugId));
+        DB::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
             $drugId, $change, $type === 'in' ? 'stock_in' : 'stock_out', post('note', ''), $u['name'], now_str(),
         ));
         json_ok(array('qty' => (int)$drug['qty'] + $change), '库存已更新');

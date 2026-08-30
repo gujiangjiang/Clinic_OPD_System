@@ -23,7 +23,7 @@ switch ($action) {
         $visit['gender'] = $row['patient']['gender'];
         $visit['age'] = $row['patient']['age'];
         $visit['birth_date'] = $row['patient']['birth_date'];
-        $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($visit['first_dept_id']));
+        $dept = DB::one('SELECT * FROM departments WHERE id=?', array($visit['first_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
         $visit['status_name'] = visit_status_name($visit['status']);
         json_ok(array('html' => pt_receipt($visit, $row['patient'])));
@@ -32,16 +32,16 @@ switch ($action) {
     /* ---------------- 缴费凭条 ---------------- */
     case 'payment':
         $payId = did(get('payment_id'));
-        $pay = DB::one('order', 'SELECT * FROM payments WHERE id=?', array($payId));
+        $pay = DB::one('SELECT * FROM payments WHERE id=?', array($payId));
         if (!$pay) json_fail('缴费记录不存在');
         $items = array();
         if ($pay['kind'] === 'visit') {
             // 挂号费缴费：项目为挂号费
-            $visit = DB::one('patient', 'SELECT * FROM registrations WHERE id=?', array($pay['visit_id']));
-            $dept = $visit ? DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($visit['first_dept_id'])) : null;
+            $visit = DB::one('SELECT * FROM registrations WHERE id=?', array($pay['visit_id']));
+            $dept = $visit ? DB::one('SELECT * FROM departments WHERE id=?', array($visit['first_dept_id'])) : null;
             $items[] = array('name' => '挂号费（' . ($visit ? $visit['first_dept_name'] : '') . '）', 'quantity' => 1, 'price' => $pay['total']);
         } else {
-            $rows = DB::q('order', 'SELECT * FROM order_items WHERE order_id=?', array($pay['order_id']));
+            $rows = DB::q('SELECT * FROM order_items WHERE order_id=?', array($pay['order_id']));
             foreach ($rows as $r) {
                 $items[] = array('name' => $r['item_name'], 'quantity' => (int)$r['quantity'], 'price' => $r['price']);
             }
@@ -62,15 +62,15 @@ switch ($action) {
         $titles = array('lab' => '检验申请单', 'imaging' => '检查申请单', 'procedure' => '处置申请单', 'prescription' => '门诊处方笺');
         $html = '';
         foreach ($orderIds as $orderId) {
-            $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array($orderId));
+            $order = DB::one('SELECT * FROM orders WHERE id=?', array($orderId));
             if (!$order) json_fail('开单记录不存在');
-            $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($orderId));
+            $items = DB::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($orderId));
             // 检查申请单标题动态化：显示「{检查分类}申请单」（如 CT申请单 / DR（数字化X线）申请单）
             $title = isset($titles[$order['order_type']]) ? $titles[$order['order_type']] : '申请单';
-            if ($order['order_type'] === 'imaging' && isset($order['cat_name']) && trim((string)$order['cat_name']) !== '' && trim((string)$order['cat_name']) !== '检查') {
-                $title = trim((string)$order['cat_name']) . '申请单';
+            if ($order['order_type'] === 'imaging' && isset($order['category_name']) && trim((string)$order['category_name']) !== '' && trim((string)$order['category_name']) !== '检查') {
+                $title = trim((string)$order['category_name']) . '申请单';
             }
-            // 处方：按主医嘱 need_nurse 分组（子医嘱跟随主药），生成三张单据：
+            // 处方：按主医嘱 is_nurse 分组（子医嘱跟随主药），生成三张单据：
             // ① 非护士药品 → 门诊处方笺（药房取药，原单号）
             // ② 护士药品   → 门诊处方笺（药房取药，单号+N）——给药房取药
             // ③ 护士药品   → 门诊输液（注射）笺副本（护士站，单号+Z）——给护士
@@ -91,7 +91,7 @@ switch ($action) {
                 $pharmSeq = 0;
                 $nurseSeq = 0;
                 foreach ($groups as $g) {
-                    if (!empty($g['main']['need_nurse'])) {
+                    if (!empty($g['main']['is_nurse'])) {
                         $nurseSeq++;
                         $g['main']['sub_of'] = 0;
                         $nurseItems[] = $g['main'];
@@ -115,7 +115,7 @@ switch ($action) {
             } else {
                 $order['need_nurse_any'] = 0;
                 foreach ($items as $it) {
-                    if (!empty($it['need_nurse'])) $order['need_nurse_any'] = 1;
+                    if (!empty($it['is_nurse'])) $order['need_nurse_any'] = 1;
                 }
                 $html .= pt_order($order, $items, $title);
             }
@@ -132,15 +132,15 @@ switch ($action) {
         $visit['gender'] = $row['patient']['gender'];
         $visit['age'] = $row['patient']['age'];
         $visit['birth_date'] = $row['patient']['birth_date'];
-        $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
+        $dept = DB::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
-        $vitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
+        $vitals = DB::one('SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
 
         // ===== 多医生接诊（1:N）：该流水下全部文书输出为【一份连续文档】 =====
         // 首段带完整页眉（页眉归首诊文书），续写段以分割线 + 「病历续写 /
         // 续写时间」承接头开始，各段签名紧跟正文右下角，页脚仅最后一段；
         // 生命体征属就诊级数据，仅在首段展示。
-        $prs = DB::q('medical', 'SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC', array($visit['id']));
+        $prs = DB::q('SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC', array($visit['id']));
         if ($prs) {
             $last = count($prs) - 1;
             // 打印页脚「记录时间」统一为首诊医师首次保存病历的时间（不随续写改变）
@@ -148,7 +148,7 @@ switch ($action) {
             $body = '';
             foreach ($prs as $i => $pr) {
                 // 意识状态/初复诊存于旧 records 镜像表，按各文书医生本人回读
-                $mirror = DB::one('medical', 'SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visit['id'], $pr['doctor_id']));
+                $mirror = DB::one('SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visit['id'], $pr['doctor_id']));
                 $pr['consciousness'] = $mirror ? (string)$mirror['consciousness'] : '';
                 $pr['visit_type'] = ($mirror && $mirror['visit_type'] !== '') ? (string)$mirror['visit_type'] : '初诊';
                 // 生命体征归属：按文书记录精确关联（record_id 优先）。
@@ -156,17 +156,17 @@ switch ($action) {
                 // 首诊记录才按 operator 回退就诊体征（护士站录入共用）。
                 $segVitals = null;
                 if ((int)$pr['id'] > 0) {
-                    $segVitals = DB::one('nurse', 'SELECT * FROM vitals WHERE record_id=? ORDER BY id DESC LIMIT 1', array((int)$pr['id']));
+                    $segVitals = DB::one('SELECT * FROM vitals WHERE record_id=? ORDER BY id DESC LIMIT 1', array((int)$pr['id']));
                 }
                 if (!$segVitals && $pr['record_type'] !== 'progress') {
-                    $segVitals = DB::one('nurse', 'SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1', array($visit['id'], $pr['doctor_name']));
+                    $segVitals = DB::one('SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1', array($visit['id'], $pr['doctor_name']));
                 }
                 $body .= pt_record($visit, $row['patient'], $pr, $segVitals ? $segVitals : array(), $i === 0 ? 'full' : 'continue', $i === $last, $firstCreatedAt);
             }
             json_ok(array('html' => '<div class="print-record-doc">' . $body . '</div>'));
         }
         // 回退：无结构化病历时按旧 records 扁平数据渲染单文档（兼容历史就诊）
-        $record = DB::one('medical', 'SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
+        $record = DB::one('SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
         if (!$record) json_fail('该就诊暂无已保存的病历，请先在病历中完善主诉、现病史与初步诊断并保存后再打印');
         json_ok(array('html' => '<div class="print-record-doc">' . pt_record($visit, $row['patient'], $record, $vitals) . '</div>'));
         break;
@@ -176,25 +176,25 @@ switch ($action) {
         $visitId = did(get('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
-        $cert = DB::one('medical', 'SELECT * FROM certificates WHERE visit_id=?', array($visitId));
+        $cert = DB::one('SELECT * FROM certificates WHERE visit_id=?', array($visitId));
         if (!$cert) json_fail('该就诊未开具诊断证明');
-        $record = DB::one('medical', 'SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        $record = DB::one('SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
         // 固化快照：证书存有开具时的病历摘要则原样使用（与 certificate_print
         // 同规则）——补打内容与开具时完全一致，不随后续续写漂移
         if ((isset($cert['chief_complaint']) && $cert['chief_complaint'] !== '') ||
             (isset($cert['present_illness']) && $cert['present_illness'] !== '') ||
-            (isset($cert['initial_diagnosis']) && $cert['initial_diagnosis'] !== '')) {
+            (isset($cert['preliminary_diagnosis']) && $cert['preliminary_diagnosis'] !== '')) {
             $record = is_array($record) ? $record : array();
             $record['chief_complaint'] = $cert['chief_complaint'];
             $record['present_illness'] = $cert['present_illness'];
-            $record['initial_diagnosis'] = $cert['initial_diagnosis'];
+            $record['preliminary_diagnosis'] = $cert['preliminary_diagnosis'];
         }
         $visit = $row['visit'];
         $visit['name'] = $row['patient']['name'];
         $visit['gender'] = $row['patient']['gender'];
         $visit['age'] = $row['patient']['age'];
         $visit['birth_date'] = $row['patient']['birth_date'];
-        $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
+        $dept = DB::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
         json_ok(array('html' => pt_certificate($visit, $row['patient'], $record, $cert, $cert['doctor_name'])));
         break;
@@ -202,7 +202,7 @@ switch ($action) {
     /* ==================== 知情同意书打印 ==================== */
     case 'consent':
         $id = (int)get('id', 0);
-        $c = DB::one('medical', 'SELECT * FROM consents WHERE id=?', array($id));
+        $c = DB::one('SELECT * FROM consents WHERE id=?', array($id));
         if (!$c) json_fail('知情同意书不存在');
         $row = get_visit_row($c['visit_id']);
         if (!$row) json_fail('就诊记录不存在');
@@ -212,21 +212,21 @@ switch ($action) {
         $visit['gender'] = $row['patient']['gender'];
         $visit['age'] = $row['patient']['age'];
         $visit['birth_date'] = $row['patient']['birth_date'];
-        $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
+        $dept = DB::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
         // 病情介绍：取该就诊首诊文书（结构化 emr 投影），无则回退旧 records 镜像
         $record = array();
-        $pr = DB::one('medical', "SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC LIMIT 1", array($c['visit_id']));
+        $pr = DB::one("SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC LIMIT 1", array($c['visit_id']));
         if ($pr) {
             $emr = json_decode((string)$pr['emr_data'], true);
             if (is_array($emr)) {
                 $record['chief_complaint'] = emr_cc_text(isset($emr['chief_complaint']) ? $emr['chief_complaint'] : array());
                 $record['present_illness'] = emr_pi_text(isset($emr['history_present']) ? $emr['history_present'] : array());
-                $record['initial_diagnosis'] = emr_diag_text(isset($emr['diagnoses']) ? $emr['diagnoses'] : array());
+                $record['preliminary_diagnosis'] = emr_diag_text(isset($emr['diagnoses']) ? $emr['diagnoses'] : array());
             }
         }
         if (!$record) {
-            $mirror = DB::one('medical', 'SELECT chief_complaint, present_illness, initial_diagnosis FROM records WHERE visit_id=? ORDER BY id ASC LIMIT 1', array($c['visit_id']));
+            $mirror = DB::one('SELECT chief_complaint, present_illness, preliminary_diagnosis FROM records WHERE visit_id=? ORDER BY id ASC LIMIT 1', array($c['visit_id']));
             if ($mirror) $record = $mirror;
         }
         json_ok(array('html' => pt_consent($visit, $row['patient'], $c, $c['doctor_name'], $record)));
@@ -238,13 +238,13 @@ switch ($action) {
         // 后端同样拦截：仅允许发起科室医生（或会诊已接受的接收科室医生）打印申请单。
         $u = Auth::user();
         $cid = did(get('id'));
-        $cons = DB::one('consultation', 'SELECT * FROM consultations WHERE id=?', array($cid));
+        $cons = DB::one('SELECT * FROM consultations WHERE id=?', array($cid));
         if (!$cons) json_fail('会诊记录不存在');
         $row = get_visit_row($cons['visit_id']);
         if (!$row) json_fail('就诊记录不存在');
         // 权限：发起医生本人 / 会诊目标科室医生（已接受处理的接收方）可打印；
         // 其他科室医生或确认会诊前的接收医生一律拒绝（后端硬拦截）。
-        $curDeptRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+        $curDeptRow = DB::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
         $curDeptId = $curDeptRow ? (int)$curDeptRow['current_dept_id'] : 0;
         $isFrom = (int)$cons['from_doctor_id'] === (int)$u['id'];
         $isTarget = (int)$cons['target_dept_id'] === $curDeptId;
@@ -257,11 +257,11 @@ switch ($action) {
         $visit['gender'] = $row['patient']['gender'];
         $visit['age'] = $row['patient']['age'];
         $visit['birth_date'] = $row['patient']['birth_date'];
-        $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
+        $dept = DB::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
         // 病历快照：取发起科室医生的首诊文书（主诉/现病史/体格检查）
         $snap = array('chief_complaint' => '', 'present_illness' => '', 'physical_exam' => '');
-        $pr = DB::one('medical', "SELECT * FROM patient_records WHERE visit_id=? AND dept_id=? AND record_type='initial' ORDER BY id ASC LIMIT 1",
+        $pr = DB::one("SELECT * FROM patient_records WHERE visit_id=? AND dept_id=? AND record_type='initial' ORDER BY id ASC LIMIT 1",
             array((int)$cons['visit_id'], (int)$cons['from_dept_id']));
         if ($pr) {
             $emr = emr_merge_defaults(emr_normalize(json_decode($pr['emr_data'], true)), emr_default_data(null));
@@ -276,12 +276,12 @@ switch ($action) {
     /* ---------------- 检验/检查报告 ---------------- */
     case 'report':
         $reportId = did(get('report_id'));
-        $report = DB::one('lab', 'SELECT * FROM reports WHERE id=?', array($reportId));
+        $report = DB::one('SELECT * FROM reports WHERE id=?', array($reportId));
         if (!$report) json_fail('报告不存在');
-        $result = DB::one('lab', 'SELECT * FROM results WHERE id=?', array($report['result_id']));
+        $result = DB::one('SELECT * FROM results WHERE id=?', array($report['result_id']));
         $item = null;
         if ($result) {
-            $item = DB::one('lab', 'SELECT * FROM ' . ($result['type'] === 'lab' ? 'lab_items' : 'exam_items') . ' WHERE id=?', array($result['item_id']));
+            $item = DB::one('SELECT * FROM ' . ($result['type'] === 'lab' ? 'lab_items' : 'exam_items') . ' WHERE id=?', array($result['item_id']));
         }
         $row = get_visit_row($report['visit_id']);
         $visit = $row ? $row['visit'] : array();

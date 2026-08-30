@@ -29,11 +29,11 @@ class DatabaseManager {
     /** 是否已执行过主库种子数据 */
     private static $seeded = false;
 
-    /** 旧分散库 key 白名单（兼容旧调用签名：DB::q('patient', ...)） */
+    /** 旧分散库 key 白名单（兼容旧调用签名：DB::q(...)） */
     private static $legacyKeys = array(
         'core', 'user', 'dept', 'patient', 'order', 'drug', 'medical',
         'nurse', 'lab', 'disp', 'emr_templates', 'clinic_rooms',
-        'consultation', 'icd10', 'admin',
+        'consultation', 'icd10', 'admin', 'main',
     );
 
     /**

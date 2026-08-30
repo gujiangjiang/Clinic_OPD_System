@@ -31,7 +31,7 @@ function pt_age_text($patient, $visit) {
     $birth = isset($patient['birth_date']) && $patient['birth_date'] !== '' ? $patient['birth_date']
         : (isset($visit['birth_date']) && $visit['birth_date'] !== '' ? $visit['birth_date'] : '');
     if ($birth !== '') {
-        $target = isset($visit['register_time']) && $visit['register_time'] !== '' ? $visit['register_time'] : null;
+        $target = isset($visit['registered_at']) && $visit['registered_at'] !== '' ? $visit['registered_at'] : null;
         $s = age_format($birth, $target);
         if ($s !== '') return $s;
     }
@@ -53,7 +53,7 @@ function pt_patient_info($visit, $patient) {
         '门诊流水号' => isset($visit['flow_no']) ? $visit['flow_no'] : '',
         '科室' => isset($visit['first_dept_name']) ? $visit['first_dept_name'] : (isset($visit['current_dept_name']) ? $visit['current_dept_name'] : ''),
         '就诊序号' => isset($visit['visit_seq']) ? str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) : '',
-        '挂号时间' => isset($visit['register_time']) ? $visit['register_time'] : '',
+        '挂号时间' => isset($visit['registered_at']) ? $visit['registered_at'] : '',
         '费用类别' => isset($visit['fee_type']) ? $visit['fee_type'] : '',
     );
     $html = '<div class="print-info">';

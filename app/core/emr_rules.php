@@ -63,7 +63,7 @@ function emr_record_state($visit, $u, $record = null) {
 
     // 4) 会诊文书：未完毕可编辑（他科遗留/非当前科室会诊），已完毕永久只读
     if ($consultId > 0) {
-        $cs = DB::one('consultation', 'SELECT status FROM consultations WHERE id=?', array($consultId));
+        $cs = DB::one('SELECT status FROM consultations WHERE id=?', array($consultId));
         $st = $cs ? (string)$cs['status'] : 'done';
         if ($st === 'done') {
             return array('state' => 'consult_done', 'can_write' => false, 'can_order' => false,
@@ -91,7 +91,7 @@ function emr_record_state($visit, $u, $record = null) {
     // 医生当前所在科室（会话 auth_user 不含 current_dept_id，须从 user 库读取）
     $docDept = (int)(isset($u['current_dept_id']) ? $u['current_dept_id'] : 0);
     if ($docDept <= 0) {
-        $docRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($uid));
+        $docRow = DB::one('SELECT current_dept_id FROM users WHERE id=?', array($uid));
         $docDept = $docRow ? (int)$docRow['current_dept_id'] : 0;
     }
     if ($docDept <= 0 || $docDept !== (int)$visit['current_dept_id']) {

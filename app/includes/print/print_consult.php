@@ -21,9 +21,9 @@ function pt_consult($visit, $patient, $cons, $snap) {
     };
     $applyDept = (string)$cons['from_dept_name'];
     if ($applyDept === '') {
-        $docU = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array((int)$cons['from_doctor_id']));
+        $docU = DB::one('SELECT current_dept_id FROM users WHERE id=?', array((int)$cons['from_doctor_id']));
         if ($docU && (int)$docU['current_dept_id'] > 0) {
-            $dp = DB::one('dept', 'SELECT name FROM departments WHERE id=?', array((int)$docU['current_dept_id']));
+            $dp = DB::one('SELECT name FROM departments WHERE id=?', array((int)$docU['current_dept_id']));
             if ($dp) $applyDept = (string)$dp['name'];
         }
     }

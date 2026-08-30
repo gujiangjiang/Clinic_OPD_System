@@ -13,7 +13,7 @@ $action = isset($_GET['action']) ? trim($_GET['action']) : 'data';
 $token = isset($_GET['token']) ? trim($_GET['token']) : (isset($_POST['token']) ? trim($_POST['token']) : '');
 
 /** 按 token 找大屏 */
-$room = $token !== '' ? DB::one('clinic_rooms', 'SELECT * FROM clinic_rooms WHERE screen_token=?', array($token)) : null;
+$room = $token !== '' ? DB::one('SELECT * FROM clinic_rooms WHERE screen_token=?', array($token)) : null;
 if (!$room) {
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode(array('ok' => false, 'msg' => '大屏链接无效或已失效，请联系管理员', 'data' => null), JSON_UNESCAPED_UNICODE);
@@ -23,26 +23,26 @@ if (!$room) {
 /* ---------- 通用：返回该诊室叫号数据 ---------- */
 function screen_payload($room) {
     $deptId = (int)$room['dept_id'];
-    $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($deptId));
+    $dept = DB::one('SELECT * FROM departments WHERE id=?', array($deptId));
     $roomName = $room['room_name'];
     $mask = (int)$room['enable_mask'] === 1;
 
     // 当前就诊中患者（该科室）
-    $current = DB::one('patient', "SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
+    $current = DB::one("SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
         FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
         WHERE r.current_dept_id=? AND r.status='visiting' ORDER BY r.id DESC LIMIT 1", array($deptId));
     // 下一位候诊
-    $next = DB::one('patient', "SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
+    $next = DB::one("SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
         FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-        WHERE r.current_dept_id=? AND r.status='paid' ORDER BY r.visit_seq, r.register_time LIMIT 1", array($deptId));
+        WHERE r.current_dept_id=? AND r.status='paid' ORDER BY r.visit_seq, r.registered_at LIMIT 1", array($deptId));
     // 候诊队列（前 8 位）
-    $waiting = DB::q('patient', "SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
+    $waiting = DB::q("SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
         FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-        WHERE r.current_dept_id=? AND r.status='paid' ORDER BY r.visit_seq, r.register_time LIMIT 8", array($deptId));
+        WHERE r.current_dept_id=? AND r.status='paid' ORDER BY r.visit_seq, r.registered_at LIMIT 8", array($deptId));
     // 当前医生（完整信息：姓名/工号/职称/介绍/照片，供医生大屏展示）
     $doctor = null;
     if ((int)$room['current_doctor_id'] > 0) {
-        $doc = DB::one('user', 'SELECT name, emp_no, title, intro, photo FROM users WHERE id=?', array($room['current_doctor_id']));
+        $doc = DB::one('SELECT name, emp_no, title, intro, photo FROM users WHERE id=?', array($room['current_doctor_id']));
         if ($doc) {
             $doctor = array(
                 'name' => $doc['name'],
@@ -79,7 +79,7 @@ function screen_payload($room) {
             'name' => $nm,
             'raw_name' => $rawName,   // 原始姓名（语音播报用，不受脱敏影响）
             'gender' => $r['pgender'],
-            'age_fmt' => age_format($r['pbirth'], $r['register_time']),
+            'age_fmt' => age_format($r['pbirth'], $r['registered_at']),
             'visit_seq' => (int)$r['visit_seq'], 'flow_no' => $r['flow_no'],
             'patient_no' => $r['patient_no'],
             'is_transfer' => $isTransfer ? 1 : 0,          // 是否转诊患者
@@ -131,17 +131,16 @@ if ($action === 'heartbeat' || $action === 'data') {
     // 绑定医生保活检查：医生心跳超过 90 秒未更新（异常退出浏览器 / 会话过期等
     // 未走正常登出流程的场景）时，大屏自动取消与该医生的关联
     if ((int)$room['current_doctor_id'] > 0) {
-        $stale = (int)DB::val('clinic_rooms',
-            "SELECT COUNT(*) FROM clinic_rooms WHERE id=? AND (doctor_heartbeat IS NULL OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat)) > 90)",
+        $stale = (int)DB::val(            "SELECT COUNT(*) FROM clinic_rooms WHERE id=? AND (doctor_heartbeat IS NULL OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat)) > 90)",
             array((int)$room['id']));
         if ($stale) {
-            DB::exec('clinic_rooms', 'UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL, updated_at=? WHERE id=?',
+            DB::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL, updated_at=? WHERE id=?',
                 array(now_str(), (int)$room['id']));
-            $room = DB::one('clinic_rooms', 'SELECT * FROM clinic_rooms WHERE id=?', array((int)$room['id']));
+            $room = DB::one('SELECT * FROM clinic_rooms WHERE id=?', array((int)$room['id']));
         }
     }
     if ($action === 'heartbeat') {
-        DB::exec('clinic_rooms', 'UPDATE clinic_rooms SET screen_last_heartbeat=?, is_screen_online=1, updated_at=? WHERE id=?',
+        DB::exec('UPDATE clinic_rooms SET screen_last_heartbeat=?, is_screen_online=1, updated_at=? WHERE id=?',
             array(now_str(), now_str(), (int)$room['id']));
     }
     json_response(true, 'ok', screen_payload($room));

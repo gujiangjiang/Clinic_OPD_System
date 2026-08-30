@@ -32,7 +32,7 @@ function pt_certificate($visit, $patient, $record, $cert, $doctorName) {
     $html .= pt_sec('主诉', nl2br(e(isset($record['chief_complaint']) ? strip_tags($record['chief_complaint']) : '')));
     $html .= pt_sec('现病史', nl2br(e(isset($record['present_illness']) ? strip_tags($record['present_illness']) : '')));
     // 初步诊断：名称本身已含 ICD-10 编码前缀，直接显示、不再追加括号编码
-    $html .= pt_sec('初步诊断', e(isset($record['initial_diagnosis']) ? $record['initial_diagnosis'] : ''));
+    $html .= pt_sec('初步诊断', e(isset($record['preliminary_diagnosis']) ? $record['preliminary_diagnosis'] : ''));
     $html .= pt_sec('医生建议', nl2br(e(isset($cert['content']) ? $cert['content'] : '')));
 
     // 医生签名右下角 + 末尾横线 + 页脚（左下角开具时间、右下角打印时间）
