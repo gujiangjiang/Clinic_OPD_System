@@ -13,6 +13,16 @@
 
 ---
 
+## [4.16.6] - 2026-08-30
+
+### 修复
+
+- **修复发送会诊500错误（跨库子查询bug）**：`consultation.php` 的 `$ownConsult` 查询此前
+  在 `medical` 库查询中内嵌 EXISTS 子查询引用 `consultations` 表，但该表位于独立的
+  `consultation` 数据库，导致 `no such table: consultations` 致命错误（500）。
+  现改为两段独立查询：先在 `consultation` 库取进行中会诊 id 列表，再在 `medical` 库
+  以参数占位符 `IN (...)` 关联，彻底消除跨库子查询。
+
 ## [4.16.5] - 2026-08-30
 
 ### 修复

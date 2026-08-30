@@ -73,11 +73,19 @@ switch ($action) {
         $consRecId = (int)$myRec['id'];
         // 会诊拦截：本人已书写会诊病历且该会诊尚未完毕（pending/doing）→ 不可再发起会诊
         // 已完毕（done）的会诊病历不再阻挡发起新会诊——用户可在会诊完毕后再次向同科室或
-        // 他科室发送会诊。注意：会诊完毕（done）后本人需回到原科室，不处于会诊处理中。
-        $ownConsult = (int)DB::val('medical',
-            "SELECT COUNT(*) FROM patient_records pr WHERE pr.visit_id=? AND pr.doctor_id=? AND pr.consultation_id>0"
-            . " AND EXISTS (SELECT 1 FROM consultations c WHERE c.id=pr.consultation_id AND c.status IN ('pending','doing'))",
-            array($visitId, $u['id']));
+        // 他科室发送会诊。注意：consultations 表在 consultation 库，medical 库查询
+        // 不得内嵌跨库子查询，须先在 consultation 库取进行中会诊 id 列表再关联。
+        $ownConsultIds = array();
+        foreach (DB::q('consultation', "SELECT id FROM consultations WHERE visit_id=? AND status IN ('pending','doing')", array($visitId)) as $ocr) {
+            $ownConsultIds[] = (int)$ocr['id'];
+        }
+        $ownConsult = 0;
+        if ($ownConsultIds) {
+            $ph = implode(',', array_fill(0, count($ownConsultIds), '?'));
+            $ownConsult = (int)DB::val('medical',
+                "SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id IN ($ph)",
+                array_merge(array($visitId, $u['id']), $ownConsultIds));
+        }
         if ($ownConsult > 0) json_fail('您正在会诊处理中，不可再发起会诊');
         $targetDeptId = (int)post('target_dept_id', 0);
         if ($targetDeptId <= 0) json_fail('请选择会诊科室');
