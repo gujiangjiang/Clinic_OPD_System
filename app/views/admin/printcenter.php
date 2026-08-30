@@ -38,7 +38,7 @@ function searchVisit() {
                     var v = g.visit, p = g.patient;
                     return '<div class="dd-item" style="border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;cursor:pointer" onclick="showPrintItems(\'' + v.id + '\')">' +
                         '<div class="flex-between"><span class="fw-600">' + (p ? p.name : '') + '</span>' +
-                        '<span class="fs-12 text-muted">' + v.flow_no + ' ｜ ' + v.first_dept_name + ' ｜ ' + v.register_time + '</span></div></div>';
+                        '<span class="fs-12 text-muted">' + v.flow_no + ' ｜ ' + v.first_dept_name + ' ｜ ' + v.registered_at + '</span></div></div>';
                 }).join('');
         },
     });

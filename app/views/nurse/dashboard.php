@@ -66,7 +66,7 @@ function searchPatients() {
                         '<div class="flex-between">' +
                         '  <span class="fw-600 fs-15">' + name + ' <span class="fs-12 text-muted fw-400">' + info + '</span></span>' +
                         '  <span class="badge badge-primary">' + v.flow_no + '</span></div>' +
-                        '<div class="fs-12 text-muted mt-4">' + v.first_dept_name + ' 第' + String(v.visit_seq).padStart(3, '0') + '号 ｜ ' + v.register_time +
+                        '<div class="fs-12 text-muted mt-4">' + v.first_dept_name + ' 第' + String(v.visit_seq).padStart(3, '0') + '号 ｜ ' + v.registered_at +
                         ' ｜ <span class="badge ' + (v.status === 'finished' ? 'badge-success' : 'badge-gray') + '">' + visitStatusName(v.status) + '</span></div></div>';
                 }).join('');
         },
@@ -198,10 +198,10 @@ function openVitals(visitId) {
             var val = function (x) { return x || ''; };
             // 各指标数值序列（按时间升序）
             var series = {
-                '收缩压': { key: 'bp_systolic', unit: 'mmHg', min: 60, max: 200 },
-                '舒张压': { key: 'bp_diastolic', unit: 'mmHg', min: 40, max: 130 },
-                '心率': { key: 'heart_rate', unit: '次/分', min: 40, max: 150 },
-                '血氧': { key: 'spo2', unit: '%', min: 80, max: 100 },
+                '收缩压': { key: 'vital_sbp', unit: 'mmHg', min: 60, max: 200 },
+                '舒张压': { key: 'vital_dbp', unit: 'mmHg', min: 40, max: 130 },
+                '心率': { key: 'vital_heart_rate', unit: '次/分', min: 40, max: 150 },
+                '血氧': { key: 'vital_spo2', unit: '%', min: 80, max: 100 },
             };
             var chartHtml = '';
             Object.keys(series).forEach(function (label) {
@@ -216,11 +216,11 @@ function openVitals(visitId) {
             // 历史记录表格
             var histRows = hist.length ? hist.map(function (r) {
                 return '<tr><td>' + Clinic.escHtml(r.created_at || '').slice(5, 16) + '</td>' +
-                    '<td>' + Clinic.escHtml(r.bp_systolic || '-') + '/' + Clinic.escHtml(r.bp_diastolic || '-') + '</td>' +
-                    '<td>' + Clinic.escHtml(r.heart_rate || '-') + '</td>' +
-                    '<td>' + Clinic.escHtml(r.pulse || '-') + '</td>' +
-                    '<td>' + Clinic.escHtml(r.spo2 || '-') + '%</td>' +
-                    '<td>' + Clinic.escHtml(r.respiration || '-') + '</td>' +
+                    '<td>' + Clinic.escHtml(r.vital_sbp || '-') + '/' + Clinic.escHtml(r.vital_dbp || '-') + '</td>' +
+                    '<td>' + Clinic.escHtml(r.vital_heart_rate || '-') + '</td>' +
+                    '<td>' + Clinic.escHtml(r.vital_pulse || '-') + '</td>' +
+                    '<td>' + Clinic.escHtml(r.vital_spo2 || '-') + '%</td>' +
+                    '<td>' + Clinic.escHtml(r.vital_respiration || '-') + '</td>' +
                     '<td>' + Clinic.escHtml(r.operator || '') + '</td></tr>';
             }).join('') : '<tr><td colspan="7" class="text-muted text-center">暂无记录</td></tr>';
             var trendHtml = chartHtml
@@ -236,14 +236,14 @@ function openVitals(visitId) {
                 trendHtml +
                 histHtml +
                 '<div class="form-row">' +
-                '<div class="form-group"><label class="form-label">收缩压（mmHg）</label><input class="input" id="vSys" type="number" min="0" value="' + val(v.bp_systolic) + '"></div>' +
-                '<div class="form-group"><label class="form-label">舒张压（mmHg）</label><input class="input" id="vDia" type="number" min="0" value="' + val(v.bp_diastolic) + '"></div></div>' +
+                '<div class="form-group"><label class="form-label">收缩压（mmHg）</label><input class="input" id="vSys" type="number" min="0" value="' + val(v.vital_sbp) + '"></div>' +
+                '<div class="form-group"><label class="form-label">舒张压（mmHg）</label><input class="input" id="vDia" type="number" min="0" value="' + val(v.vital_dbp) + '"></div></div>' +
                 '<div class="form-row">' +
-                '<div class="form-group"><label class="form-label">心率（次/分）</label><input class="input" id="vHR" value="' + val(v.heart_rate) + '"></div>' +
-                '<div class="form-group"><label class="form-label">脉搏（次/分）</label><input class="input" id="vPulse" value="' + val(v.pulse) + '"></div></div>' +
+                '<div class="form-group"><label class="form-label">心率（次/分）</label><input class="input" id="vHR" value="' + val(v.vital_heart_rate) + '"></div>' +
+                '<div class="form-group"><label class="form-label">脉搏（次/分）</label><input class="input" id="vPulse" value="' + val(v.vital_pulse) + '"></div></div>' +
                 '<div class="form-row">' +
-                '<div class="form-group"><label class="form-label">血氧饱和度（%）</label><input class="input" id="vSpO2" value="' + val(v.spo2) + '"></div>' +
-                '<div class="form-group"><label class="form-label">呼吸（次/分）</label><input class="input" id="vRR" value="' + val(v.respiration) + '"></div></div>' +
+                '<div class="form-group"><label class="form-label">血氧饱和度（%）</label><input class="input" id="vSpO2" value="' + val(v.vital_spo2) + '"></div>' +
+                '<div class="form-group"><label class="form-label">呼吸（次/分）</label><input class="input" id="vRR" value="' + val(v.vital_respiration) + '"></div></div>' +
                 '<div class="fs-12 text-muted">每次保存将新增一条体征记录（含本次），保存后医生工作站病历将自动同步显示。</div>',
                 {
                     title: '生命体征录入与趋势',
@@ -256,12 +256,12 @@ function openVitals(visitId) {
                                 Clinic.ajax('/api/nurse', {
                                     action: 'save_vitals',
                                     visit_id: visitId,
-                                    bp_systolic: parseInt(document.getElementById('vSys').value, 10) || 0,
-                                    bp_diastolic: parseInt(document.getElementById('vDia').value, 10) || 0,
-                                    heart_rate: document.getElementById('vHR').value,
-                                    pulse: document.getElementById('vPulse').value,
-                                    spo2: document.getElementById('vSpO2').value,
-                                    respiration: document.getElementById('vRR').value,
+                                    vital_sbp: parseInt(document.getElementById('vSys').value, 10) || 0,
+                                    vital_dbp: parseInt(document.getElementById('vDia').value, 10) || 0,
+                                    vital_heart_rate: document.getElementById('vHR').value,
+                                    vital_pulse: document.getElementById('vPulse').value,
+                                    vital_spo2: document.getElementById('vSpO2').value,
+                                    vital_respiration: document.getElementById('vRR').value,
                                 }, {
                                     onSuccess: function (json) {
                                         Clinic.toast.success(json.msg);

@@ -106,7 +106,7 @@ function openDrugForm(id) {
         // 途径 → 需护士站处理 自动勾选
         var routeMap = (e.detail && e.detail.route_nurse) || {};
         var nurseChk = document.getElementById('f_nurse');
-        nurseChk.setAttribute('data-cur', (e.detail && e.detail.need_nurse) || 0);
+        nurseChk.setAttribute('data-cur', (e.detail && e.detail.is_nurse) || 0);
         window.__routeMap = routeMap;
         // 规格编辑器单位候选（历史已用去重，datalist 下拉/可输入）
         window.__doseUnits = (e.detail && e.detail.dose_units) || [];
@@ -156,14 +156,14 @@ function openDrugForm(id) {
                 single_use_qty: useQty,
                 form: document.getElementById('f_form').value,
                 single_dose: singleDoseShow,
-                frequency_name: document.getElementById('f_freq').value,
-                route_name: document.getElementById('f_route').value,
+                frequency: document.getElementById('f_freq').value,
+                route: document.getElementById('f_route').value,
                 price: document.getElementById('f_price').value,
                 qty: document.getElementById('f_qty').value,
                 is_rx: document.getElementById('f_rx').checked ? 1 : 0,
                 is_limited: document.getElementById('f_limited').checked ? 1 : 0,
-                need_nurse: document.getElementById('f_nurse').checked ? 1 : 0,
-                need_skin_test: document.getElementById('f_skin_test') ? (document.getElementById('f_skin_test').checked ? 1 : 0) : 0,
+                is_nurse: document.getElementById('f_nurse').checked ? 1 : 0,
+                is_skin_test: document.getElementById('f_skin_test') ? (document.getElementById('f_skin_test').checked ? 1 : 0) : 0,
                 skin_test_item_id: parseInt(document.getElementById('f_skin_item') ? document.getElementById('f_skin_item').value : '0', 10) || 0,
                 note: document.getElementById('f_note').value.trim(),
             }, {

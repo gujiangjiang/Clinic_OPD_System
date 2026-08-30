@@ -245,7 +245,7 @@ function renderDispTable() {
         '</tr></thead><tbody>';
     var trs = rows.map(function (r) {
         return '<tr>' +
-            '<td>' + (r.register_time || '') + '</td>' +
+            '<td>' + (r.registered_at || '') + '</td>' +
             '<td class="fw-600">' + (r.pname || '') + ' <span class="fs-12 text-muted">' + (r.gender || '') + '/' + (r.age_fmt || '') + '</span></td>' +
             '<td class="fs-12">' + (r.flow_no || '') + '</td>' +
             '<td>' + (r.dept_name || '') + '</td>' +

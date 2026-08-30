@@ -192,9 +192,9 @@ function order_part_read($action) {
         $items = DB::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($order['id']));
         $titles = array('lab' => '检验申请单', 'imaging' => '检查申请单', 'procedure' => '处置申请单', 'prescription' => '门诊处方笺');
         $title = isset($titles[$order['order_type']]) ? $titles[$order['order_type']] : '申请单';
-        $order['need_nurse_any'] = 0;
+        $order['is_nurse_any'] = 0;
         foreach ($items as $it) {
-            if (!empty($it['is_nurse'])) $order['need_nurse_any'] = 1;
+            if (!empty($it['is_nurse'])) $order['is_nurse_any'] = 1;
         }
         json_ok(array('html' => pt_order($order, $items, $title)));
         return;

@@ -119,13 +119,13 @@ function openDrugForm(id) {
                 spec: document.getElementById('f_spec').value.trim(),
                 form: document.getElementById('f_form').value,
                 single_dose: document.getElementById('f_dose').value.trim(),
-                frequency_name: document.getElementById('f_freq').value,
-                route_name: document.getElementById('f_route').value,
+                frequency: document.getElementById('f_freq').value,
+                route: document.getElementById('f_route').value,
                 price: document.getElementById('f_price').value,
                 qty: document.getElementById('f_qty').value,
                 is_rx: document.getElementById('f_rx').checked ? 1 : 0,
                 is_limited: document.getElementById('f_limited').checked ? 1 : 0,
-                need_nurse: document.getElementById('f_nurse').checked ? 1 : 0,
+                is_nurse: document.getElementById('f_nurse').checked ? 1 : 0,
                 note: document.getElementById('f_note').value.trim(),
             }, {
                 onSuccess: function (json) {

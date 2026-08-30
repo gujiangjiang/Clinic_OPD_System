@@ -114,7 +114,7 @@ function openDsForm(id) {
                             id: 0,
                             stype: CUR_STYPE,
                             name: nm,
-                            need_nurse: document.getElementById('dsNurse') && document.getElementById('dsNurse').checked ? 1 : 0,
+                            is_nurse: document.getElementById('dsNurse') && document.getElementById('dsNurse').checked ? 1 : 0,
                         }, {
                             onSuccess: function (json) {
                                 Clinic.toast.success(json.msg);
@@ -156,7 +156,7 @@ function editDrugSetting(stype, id, name, needNurse, bindId, bindName) {
                             id: id,
                             stype: stype,
                             name: nm,
-                            need_nurse: document.getElementById('dsNurse') && document.getElementById('dsNurse').checked ? 1 : 0,
+                            is_nurse: document.getElementById('dsNurse') && document.getElementById('dsNurse').checked ? 1 : 0,
                             bind_disposal_item_id: parseInt(document.getElementById('dsBind') ? document.getElementById('dsBind').value : '0', 10) || 0,
                         }, {
                             onSuccess: function (json) {

@@ -113,9 +113,9 @@ switch ($action) {
                     $html .= pt_order($order, $nurseItems, '门诊输液（注射）笺', array('note_type' => 'nurse', 'display_no' => $order['order_no'] . 'Z'));
                 }
             } else {
-                $order['need_nurse_any'] = 0;
+                $order['is_nurse_any'] = 0;
                 foreach ($items as $it) {
-                    if (!empty($it['is_nurse'])) $order['need_nurse_any'] = 1;
+                    if (!empty($it['is_nurse'])) $order['is_nurse_any'] = 1;
                 }
                 $html .= pt_order($order, $items, $title);
             }

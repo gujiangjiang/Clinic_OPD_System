@@ -303,7 +303,7 @@ function record_part_write($action) {
                 'icd10_code' => $primaryIcd10,
                 'is_observation' => $isLeaveHospital === '是' ? 1 : 0,
                 'visit_type' => $visitType,
-                'advice' => $emr['advice'],
+                'doctor_advice' => $emr['advice'],
                 'status' => $finish ? 'done' : 'draft',
                 'updated_at' => $now,
             );

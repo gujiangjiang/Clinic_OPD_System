@@ -47,7 +47,7 @@ function searchVisits() {
                         '<div class="flex-between">' +
                         '<span class="fw-600">' + (p ? p.name : '') + ' <span class="fs-12 text-muted fw-400">' + (p ? p.gender + '/' + Clinic.validate.formatAge(p.birth_date) : '') + '</span></span>' +
                         '<span class="fs-12 text-muted">' + v.first_dept_name + ' 第' + String(v.visit_seq).padStart(3, '0') + '号</span></div>' +
-                        '<div class="fs-12 text-muted mt-4">患者ID ' + v.patient_no + ' ｜ 流水号 ' + v.flow_no + ' ｜ ' + v.register_time +
+                        '<div class="fs-12 text-muted mt-4">患者ID ' + v.patient_no + ' ｜ 流水号 ' + v.flow_no + ' ｜ ' + v.registered_at +
                         ' ｜ <span class="badge ' + (v.status === 'paid' ? 'badge-primary' : (v.status === 'finished' ? 'badge-success' : 'badge-gray')) + '">' + visitStatusName(v.status) + '</span></div></div>';
                 }).join('');
         },
