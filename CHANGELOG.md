@@ -13,6 +13,20 @@
 
 ---
 
+## [5.0.1] - 2026-08-31
+
+### 修复
+
+- **会诊 / 转科病历只读判定首次进入失效（刷新后正常）**：
+  医生在病历页通过科室选择切换科室时，此前仅存 sessionStorage、未调用 `set_dept` API，后端 `users.current_dept_id` 数据库值未同步（保持 0 或旧科室），导致 `readonly_view` / `crossDeptView` / `dept_match` 计算错误：
+  - 跨科室查看会诊完毕患者「查看完整病历」时首诊病历被误判为可编辑；
+  - 转科患者转科前（非本科室）首诊病历被误判为可编辑、续写打印提示不可编辑。
+  修复：`wbPickDept` 增加调用 `/api/doctor?action=set_dept` 同步后端；EMR 页 `init` 时读取 sessionStorage 记忆科室，若与页面渲染科室不同，先 `set_dept` 同步完成后再加载病历数据（`syncDeptThenLoad`），首次进入即用正确科室判定只读状态，无需刷新。
+
+- **只读段不显示已开具的检验/检查/处置/处方项目（点击病历节点后才显示）**：
+  跨科室绝对只读（`readonly_view`）模式下，全部文书渲染进 `docBody` 只读段，但 `refreshReadOnlyBodies` 此前仅刷新 `roBefore`/`roAfter` 不刷新 `docBody`；ORDERS 异步加载完成后只读段始终不显示开单项目，直到点击病历节点触发重渲染才出现。
+  修复：`refreshReadOnlyBodies` 增加 `__readonly_view` 分支，ORDERS 就绪后重新渲染 `docBody` 显示全部只读文书（含开单），与诊毕只读同逻辑。
+
 ## [5.0.0] - 2026-08-31
 
 ### 变更
