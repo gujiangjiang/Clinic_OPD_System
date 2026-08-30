@@ -108,6 +108,12 @@ function record_part_read($action) {
             }
         }
 
+        // 会诊上下文：当前医生是否处于该就诊的会诊处理中（基于就诊+目标科室，与 URL 参数无关）
+        // 用于：1) 前端刷新后仍能进入会诊模式；2) dept_match 精确判定
+        $consultCtx = get_consult_context($visit, $u);
+        $consultMode = $consultCtx ? 1 : 0;
+        $consultCode = $consultCtx ? oid($consultCtx['id']) : '';
+
         // 结构化病历：严格取当前医生本人的记录（无则新建骨架，
         // 绝不回退他人病历——他人病历仅作上方只读展示，互不篡改）
         $pr = $mine ? DB::one('medical', 'SELECT * FROM patient_records WHERE id=?', array($mine['id'])) : null;
@@ -127,8 +133,17 @@ function record_part_read($action) {
             'record_type' => $pr ? (string)$pr['record_type'] : ($recordsHistory ? 'progress' : 'initial'),
             // 会诊记录关联 id（>0 即会诊病历，前端据此显示「会诊记录」徽章）
             'consultation_id' => $pr ? (int)(isset($pr['consultation_id']) ? $pr['consultation_id'] : 0) : 0,
-            // 科室匹配：本人当前文书书写科室 == 就诊当前科室（转科后旧文书不匹配 → 只读）
-            'dept_match' => ($pr && ((int)$pr['dept_id'] === (int)$visit['current_dept_id'] || (int)$pr['consultation_id'] > 0)) ? 1 : 0,
+            // 科室匹配：本人当前文书是否可编辑——
+            // 会诊处理中：仅会诊病历（consultation_id=进行中会诊）可编辑；
+            // 普通模式：书写科室==就诊当前科室（转科后旧文书不匹配 → 只读）
+            'dept_match' => ($pr && (
+                ($consultMode
+                    ? (int)$pr['consultation_id'] === (int)$consultCtx['id']
+                    : ((int)$pr['dept_id'] === (int)$visit['current_dept_id']
+                        || ((int)$pr['consultation_id'] > 0 && DB::val('consultation', "SELECT COUNT(*) FROM consultations WHERE id=? AND visit_id=? AND status IN ('pending','doing')",
+                            array((int)$pr['consultation_id'], (int)$visit['id'])) > 0))
+                    )
+            )) ? 1 : 0,
             'created_at' => $pr ? $pr['created_at'] : '',
             'updated_at' => $pr ? $pr['updated_at'] : '',
             'emr' => $emr,
@@ -249,6 +264,10 @@ function record_part_read($action) {
                 'created_at' => $visit['register_time'],
             ),
             'record' => $recordData,
+            // 会诊模式锁定（后端权威）：当前医生对该就诊是否处于会诊处理中。
+            // 前端据此进入会诊模式——刷新后依然有效（不依赖 URL 参数）。
+            'consult_mode' => $consultMode,
+            'consult_code' => $consultCode,
             // ===== 多医生接诊（1:N）三件套 =====
             // records_history：该挂号流水下全部病历（按创建时间升序，含医生姓名/
             // 工号职称/文书类型/主诊断/完整结构化数据）——前端据此渲染前序病历

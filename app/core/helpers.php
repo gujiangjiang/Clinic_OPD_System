@@ -488,25 +488,62 @@ function get_visit_row($visitId) {
 }
 
 /**
+ * 当前医生在本就诊下的「会诊处理上下文」。
+ * 判定规则（后端权威，与前端 URL 参数无关，刷新不丢失）：
+ * 该就诊存在「发给当前医生所在科室」的进行中/待处理会诊（pending/doing），
+ * 则当前医生对该就诊处于会诊模式——非会诊文书一律只读，只有会诊病历可编辑。
+ * 无此会诊（普通接诊/续写/转科/会诊已完毕）返回 null。
+ */
+function get_consult_context($visit, $u) {
+    $visitId = (int)(isset($visit['id']) ? $visit['id'] : 0);
+    if ($visitId <= 0) return null;
+    // 医生当前所在科室（会话 auth_user 不含 current_dept_id，须从 user 库读取）
+    $myDept = (int)(isset($u['current_dept_id']) ? $u['current_dept_id'] : 0);
+    if ($myDept <= 0) {
+        $row = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array((int)$u['id']));
+        $myDept = $row ? (int)$row['current_dept_id'] : 0;
+    }
+    if ($myDept <= 0) return null;
+    return DB::one('consultation',
+        "SELECT * FROM consultations WHERE visit_id=? AND target_dept_id=? AND status IN ('pending','doing') ORDER BY id DESC LIMIT 1",
+        array($visitId, $myDept));
+}
+
+/**
  * 当前医生在本就诊下是否有「可编辑病历」。
- * 可编辑定义：本人已保存病历，且满足其一——
- *   a) 书写科室 == 就诊当前科室（转科后必须在本科室新写首诊/续写才可编辑）
- *   b) 是会诊病历（consultation_id>0，会诊记录在当前科室处理期间始终可编辑）
+ * 可编辑定义（统一判定，前后端同规则）：
+ * · 会诊处理中（get_consult_context 命中）→ 仅本人「会诊病历」可编辑
+ *   （consultation_id = 该进行中会诊），其余一律只读；
+ * · 普通接诊/续写/转科 → 本人已保存且书写科室 == 就诊当前科室。
  * 开单 / 发会诊 / 开诊断证明 / 加诊断等所有需病历支撑的操作统一以此为准。
  * 返回最新可编辑病历行（含 id），无则返回 null。
  */
 function get_editable_record($visit, $u) {
     $visitId = (int)(isset($visit['id']) ? $visit['id'] : 0);
     if ($visitId <= 0) return null;
+    $uid = (int)$u['id'];
+    // 会诊处理中：只有会诊病历可编辑（未创建会诊病历 → 无可编辑病历）
+    $cons = get_consult_context($visit, $u);
+    if ($cons) {
+        return DB::one('medical',
+            'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id=? ORDER BY id DESC LIMIT 1',
+            array($visitId, $uid, (int)$cons['id']));
+    }
+    // 普通模式：书写科室 == 就诊当前科室，或本人会诊文书且会诊未完毕
     $curDept = (int)(isset($visit['current_dept_id']) ? $visit['current_dept_id'] : 0);
     if ($curDept > 0) {
         return DB::one('medical',
-            'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND (dept_id=? OR consultation_id>0) ORDER BY id DESC LIMIT 1',
-            array($visitId, (int)$u['id'], $curDept));
+            "SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND (
+                dept_id=?
+                OR (consultation_id>0 AND consultation_id IN (SELECT id FROM consultations WHERE visit_id=? AND status IN ('pending','doing')))
+            ) ORDER BY id DESC LIMIT 1",
+            array($visitId, $uid, $curDept, $visitId));
     }
     return DB::one('medical',
-        'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0 ORDER BY id DESC LIMIT 1',
-        array($visitId, (int)$u['id']));
+        "SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0
+            AND consultation_id IN (SELECT id FROM consultations WHERE visit_id=? AND status IN ('pending','doing'))
+            ORDER BY id DESC LIMIT 1",
+        array($visitId, $uid, $visitId));
 }
 
 /**

@@ -125,11 +125,16 @@ Clinic.emr = (function () {
                 if (!refId && !(j.data.records_history || []).length && !(j.data.visit && j.data.visit.status === 'finished')) {
                     setTimeout(function () { openTemplatePicker(null); }, 150);
                 }
-                // 会诊进入：仅两种场景进入会诊模式（不做宽泛的科室/状态匹配）：
-                // 1) URL 携带 consult=code（从候诊「会诊」Tab 点进来 / 会诊详情确认）
-                // 2) 当前编辑记录本身就是会诊病历（consultation_id>0，刷新后保持会诊模式）
+                // 会诊进入（顺序判定，前端展示层兜底）：
+                // 1) 后端权威锁定：consult_mode=1（该就诊存在发给当前医生科室的
+                //    进行中会诊）→ 直接进入会诊模式。刷新后依然有效，不依赖 URL 参数。
+                // 2) URL 携带 consult=code（从候诊「会诊」Tab 点进来 / 会诊详情确认）
+                // 3) 当前编辑记录本身就是会诊病历（consultation_id>0）
                 var urlConsult = new URLSearchParams(location.search).get('consult');
-                if (urlConsult) {
+                if (j.data.consult_mode && j.data.consult_code) {
+                    enterConsultMode(j.data.consult_code);
+                    if (urlConsult) history.replaceState(null, '', '/doctor/emr?visit_id=' + visitId);
+                } else if (urlConsult) {
                     enterConsultMode(decodeURIComponent(urlConsult));
                     history.replaceState(null, '', '/doctor/emr?visit_id=' + visitId);
                 } else if (DATA.record && DATA.record.consultation_id > 0) {
@@ -688,8 +693,7 @@ diagnoses: [],
      * 与后端 get_editable_record / requireSaved 同规则（前端展示层兜底）。
      */
     function syncNavAdds() {
-        var editable = !!(DATA && DATA.record && DATA.record.record_id > 0 &&
-            (DATA.record.dept_match === 1 || (DATA.record.consultation_id || 0) > 0));
+        var editable = hasEditableRecord();
         var inConsult = !!(DATA && DATA.__consult_mode);
         var ids = ['diagsAddBtn', 'imgAddBtn', 'labAddBtn', 'procAddBtn', 'rxAddBtn', 'consAddBtn', 'certAddBtn'];
         ids.forEach(function (id) {
@@ -1134,9 +1138,9 @@ diagnoses: [],
             Clinic.toast.warning('该患者已诊毕，诊断不可调整');
             return false;
         }
-        // 转科后旧科室文书只读：无当前科室可编辑病历（非会诊记录）时禁止添加诊断
-        if (DATA && DATA.record && DATA.record.dept_match === 0 && !(DATA.record.consultation_id > 0)) {
-            Clinic.toast.warning('当前病历书写于转科前科室，为只读状态；请先在本科室新建续写病历并保存后再调整诊断');
+        // 统一可编辑病历判定：无可编辑病历（会诊处理中无会诊病历 / 转科前文书只读）→ 禁加诊断
+        if (!hasEditableRecord()) {
+            Clinic.toast.warning('当前无可编辑的病历（会诊需先创建并保存会诊病历，转科前文书只读），不可调整诊断');
             return false;
         }
         return true;
@@ -2541,14 +2545,10 @@ diagnoses: [],
             Clinic.toast.warning('当前病历有未保存的修改，请先点击「💾 保存」后再发起会诊');
             return;
         }
-        // 无本人已保存病历（首诊/续写）时禁止发起会诊
-        if (DATA && DATA.record && !(DATA.record.record_id > 0)) {
-            Clinic.toast.warning('请先书写并保存本人病历后再发起会诊');
-            return;
-        }
-        // 转科后旧科室文书只读：须先在本科室新建续写病历保存后方可发起会诊
-        if (DATA && DATA.record && DATA.record.dept_match === 0 && !(DATA.record.consultation_id > 0)) {
-            Clinic.toast.warning('当前病历书写于转科前科室，为只读状态；请先在本科室新建续写病历并保存后再发起会诊');
+        // 可编辑病历校验：无当前上下文可编辑病历（会诊处理中无会诊病历 /
+        // 转科前文书只读 / 未书写保存）→ 禁止发起会诊
+        if (!hasEditableRecord()) {
+            Clinic.toast.warning('当前无可编辑的病历（请先在本科室书写并保存首诊/续写病历，或创建保存会诊病历）后再发起会诊');
             return;
         }
         var visitId = document.getElementById('visitId').value;
@@ -2745,7 +2745,9 @@ diagnoses: [],
     function enterConsultEditor(consultId) {
         // 新建会诊病历编辑器（复用续写编辑器链路；consultation_id 随保存关联）
         if (DATA.record.record_id > 0) addProgressEditor(); else createProgressEditor();
-        DATA.record.consultation_id = consultId;
+        // consultId 是 oid 混淆串（URL/__consult_id 均为 code）→ 还原整数 id，
+        // record_write 以整数匹配会诊单（(int)post('consultation_id')），否则绑定恒为 0
+        DATA.record.consultation_id = consultRawId(consultId);
         applyConsultMode(consultId);
         // 恢复顶栏写操作按钮（保存 / 会诊完毕），仅隐藏转科
         document.querySelectorAll('.emr-top-actions .emr-write').forEach(function (b) {
@@ -2984,22 +2986,47 @@ diagnoses: [],
     /**
      * 打印电子病历
      */
+    /** 前端统一「可编辑病历」判定（与后端 get_editable_record / get_consult_context 同规则）：
+     *  · 会诊处理中（__consult_mode）→ 仅本人会诊病历（consultation_id>0）可编辑；
+     *  · 普通模式 → 本人已保存且 dept_match=1（书写科室==当前科室；后端已含
+     *    会诊文书须未完毕才可编辑的判定）。
+     *  开单 / 发会诊 / 开诊断证明 / 加诊断统一以此为准，动态判定，杜绝只读态开单。 */
+    function hasEditableRecord() {
+        if (!DATA || !DATA.record) return false;
+        if (!(DATA.record.record_id > 0)) return false;   // 无本人已保存文书
+        if (DATA.__consult_mode) {
+            // 会诊处理中：只有会诊病历可编辑（未创建会诊病历 → 不可开单）
+            return (DATA.record.consultation_id || 0) > 0;
+        }
+        // 普通模式：dept_match=1 即后端判定可编辑（含会诊未完毕的会诊文书）
+        return DATA.record.dept_match === 1;
+    }
+
+    /** 会诊标识（oid 混淆串 或 纯数字 id）→ 整数会诊 id。
+     *  用于 enterConsultEditor 绑定 consultation_id：DATA.consults 中有
+     *  code/id 映射，按 code 优先精确还原；纯数字直接采用。 */
+    function consultRawId(consultId) {
+        var v = String(consultId || '');
+        if (/^\d+$/.test(v)) return parseInt(v, 10);
+        var hit = (DATA.consults || []).find(function (cc) { return String(cc.code) === v; });
+        return hit ? (hit.id || 0) : 0;
+    }
+
     /** 病历有未保存修改时拦截并提示（开单 / 打印 / 开诊断证明前调用） */
     function requireSaved(label) {
         if (EMR_DIRTY) {
             Clinic.toast.warning('病历有修改未保存，请先点击「💾 保存」后再' + label);
             return false;
         }
-        // 无本人已保存病历（首诊/续写）时禁止开单/会诊/诊断证明——
-        // 所有开单项目包括会诊都需在病历中自动记录与展示
-        if (DATA && DATA.record && !(DATA.record.record_id > 0)) {
-            Clinic.toast.warning('请先书写并保存病历（首诊或续写）后再' + label);
-            return false;
-        }
-        // 转科后：当前记录若是旧科室只读文书（dept_match=0 且非会诊记录）→ 不可开单
-        // （必须在本科室新建续写病历保存后才能开单）
-        if (DATA && DATA.record && DATA.record.dept_match === 0 && !(DATA.record.consultation_id > 0)) {
-            Clinic.toast.warning('当前病历书写于转科前科室，为只读状态；请先在本科室新建续写病历并保存后再' + label);
+        // 统一可编辑病历判定：无当前上下文可编辑病历 → 禁止开单/会诊/诊断证明
+        if (!hasEditableRecord()) {
+            if (DATA && DATA.__consult_mode) {
+                Clinic.toast.warning('当前处于会诊处理中：请先点击右侧「病历节点 ＋」创建并保存会诊病历后再' + label);
+            } else if (DATA && DATA.record && !(DATA.record.record_id > 0)) {
+                Clinic.toast.warning('请先书写并保存病历（首诊或续写）后再' + label);
+            } else {
+                Clinic.toast.warning('当前无可编辑的病历（转科前文书已只读）：请先在本科室新建续写病历并保存后再' + label);
+            }
             return false;
         }
         return true;

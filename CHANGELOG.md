@@ -13,6 +13,31 @@
 
 ---
 
+## [4.15.4] - 2026-08-30
+
+### 修复
+
+- **会诊模式后端权威锁定（根治刷新后会诊状态丢失）**：新增 `get_consult_context()`
+  （`helpers.php`），基于「就诊 + 目标科室」判定——该就诊存在「发给当前医生所在科室」
+  的进行中/待处理会诊（pending/doing）即判定为会诊模式，与 URL 参数无关。
+  `record_read.php` 返回 `consult_mode`/`consult_code`，前端 `loadData` 优先后端
+  权威判定进入会诊模式：急诊科发会诊给外科门诊后，外科医生打开该患者无论怎么刷新
+  都保持会诊模式；流水号无会诊申请或会诊不发给当前科室（含转科）则显示普通就诊/续写。
+
+- **开单拦截二次加固（会诊模式下只读病历彻底禁开单）**：`get_editable_record()` 重构为
+  会诊处理中仅「会诊病历（consultation_id=进行中会诊）」可编辑，其余（含本科室转科前
+  文书）一律只读；前端新增统一 `hasEditableRecord()` 并与后端同规则，`requireSaved`/
+  `diagEditable`/`openConsultCreate`/`syncNavAdds` 全部改用它动态判定——存在可编辑
+  病历才允许开单/会诊/诊断/诊断证明，不存在即拒绝，杜绝会诊模式下将开单塞入只读续写
+  记录。
+
+- **修复会诊病历 consultation_id 绑定恒为 0**：`enterConsultEditor` 此前将 oid 混淆串
+  直接写入 `record.consultation_id`，后端以整数匹配导致绑定失败；新增 `consultRawId()`
+  将 code 还原为整数 id 再提交。
+
+- **dept_match 精确化**：会诊处理中仅会诊病历匹配；普通模式下会诊文书须会诊未完毕才匹配
+  （已完毕的会诊病历彻底只读）。
+
 ## [4.15.3] - 2026-08-30
 
 ### 修复
