@@ -2772,21 +2772,17 @@ diagnoses: [],
                 var buttons = [
                     { text: '关闭', cls: 'btn-outline' },
                 ];
-                // 会诊完毕（done）→ 提供「查看完整病历」入口：进入病历页全只读查看。
+                // 会诊完毕（done）→ 始终提供「查看完整病历」入口：进入病历页全只读查看。
                 // 只读由后端状态驱动（跨科室绝对只读，不依赖 URL 参数）。
-                // 病历页内（当前就诊 == 该会诊就诊）不再显示，避免反复套娃。
+                // 无论从候诊列表还是病历页内打开详情，按钮均恒定显示（消除时有时无）。
                 if (c.status === 'done') {
-                    var curVisit = document.getElementById('visitId') ? document.getElementById('visitId').value : '';
-                    var inSameVisit = curVisit && curVisit === c.visit_code;
-                    if (!inSameVisit) {
-                        buttons.push({
-                            text: '📋 查看完整病历', cls: 'btn-primary', autoClose: false,
-                            onClick: function () {
-                                Clinic.modal.close();
-                                location.href = '/doctor/emr?visit_id=' + c.visit_code;
-                            },
-                        });
-                    }
+                    buttons.push({
+                        text: '📋 查看完整病历', cls: 'btn-primary', autoClose: false,
+                        onClick: function () {
+                            Clinic.modal.close();
+                            location.href = '/doctor/emr?visit_id=' + c.visit_code;
+                        },
+                    });
                 }
                 // 非确认会诊页（withAccept=false）→ 添加打印会诊单按钮
                 // 会诊科室点击确认会诊（withAccept=true）时不显示打印功能

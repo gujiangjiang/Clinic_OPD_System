@@ -34,6 +34,11 @@ Clinic.emr.consent = (function () {
     var _templateId = 0;     // 新建时的模板 id（标题服务端推导）
     var _docId = 0;          // 当前查看知情同意书的开具医生 id（用于删除权限）
 
+    /** 跨科室只读查看模式（后端 readonly_view 状态驱动）：知情同意书仅可查看/打印，禁止增删改 */
+    function isReadonlyView() {
+        return !!(window.Clinic && Clinic.emr && Clinic.emr._ctx && Clinic.emr._ctx.DATA && Clinic.emr._ctx.DATA.__readonly_view);
+    }
+
     /**
      * 打开知情同意书模态框：
      * 新建（consentId=0）→ 编辑态（内容可编辑 + 保存）；
@@ -85,19 +90,24 @@ Clinic.emr.consent = (function () {
             if (el) { el.disabled = true; el.readOnly = true; }
         });
         var myUid = parseInt(document.body.getAttribute('data-uid') || '0', 10) || 0;
+        var readonlyView = !!(window.Clinic && Clinic.emr && Clinic.emr._ctx && Clinic.emr._ctx.DATA && Clinic.emr._ctx.DATA.__readonly_view);
         var foot = _mask.querySelector('.modal-foot');
-        var delBtn = (_docId > 0 && _docId === myUid)
+        var delBtn = (!readonlyView && _docId > 0 && _docId === myUid)
             ? '<button type="button" class="btn btn-danger" onclick="Clinic.emr.consent.delFromView()">🗑️ 删除</button>'
+            : '';
+        var editBtn = !readonlyView
+            ? '<button type="button" class="btn btn-primary" onclick="Clinic.emr.consent.enterEdit()">✏️ 编辑</button>'
             : '';
         foot.innerHTML =
             '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
             delBtn +
-            '<button type="button" class="btn btn-primary" onclick="Clinic.emr.consent.enterEdit()">✏️ 编辑</button>' +
+            editBtn +
             '<button type="button" class="btn btn-success" onclick="Clinic.emr.consent.printCurrent()">🖨️ 打印</button>';
     }
 
     /** 删除当前查看的知情同意书（本人创建），成功后关闭模态框并刷新列表 */
     function delFromView() {
+        if (isReadonlyView()) { Clinic.toast.warning('跨科室病历仅只读，当前科室不可删除知情同意书'); return; }
         var id = _consentId;
         Clinic.modal.confirm('确定删除该知情同意书？删除后不可恢复。', function () {
             Clinic.ajax('/api/consent', { action: 'delete', id: id }, {
@@ -112,11 +122,13 @@ Clinic.emr.consent = (function () {
 
     /** 查看态 → 编辑态 */
     function enterEdit() {
+        if (isReadonlyView()) { Clinic.toast.warning('跨科室病历仅只读，当前科室不可编辑知情同意书'); return; }
         _enterEditState();
     }
 
     /** 保存知情同意书（新建/编辑），成功后自动弹出打印预览 */
     function save() {
+        if (isReadonlyView()) { Clinic.toast.warning('跨科室病历仅只读，当前科室不可保存知情同意书'); return; }
         var content = (document.getElementById('ctContent') || {}).value || '';
         if (!content.trim()) { Clinic.toast.warning('请填写知情同意内容'); return; }
         var visitId = document.getElementById('visitId').value;
@@ -150,8 +162,9 @@ Clinic.emr.consent = (function () {
             onSuccess: function (j) {
                 var list = j.data.list || [];
                 var myUid = parseInt(document.body.getAttribute('data-uid') || '0', 10) || 0;
+                var readonlyView = !!(Clinic.emr._ctx && Clinic.emr._ctx.DATA && Clinic.emr._ctx.DATA.__readonly_view);
                 el.innerHTML = list.length ? list.map(function (c) {
-                    var delBtn = (c.doctor_id && c.doctor_id === myUid)
+                    var delBtn = (!readonlyView && c.doctor_id && c.doctor_id === myUid)
                         ? '<span class="ena-del" title="删除" onclick="event.stopPropagation();Clinic.emr.consent.del(' + c.id + ')">🗑️</span>'
                         : '';
                     return '<div class="ena-item" style="cursor:pointer" title="点击查看" onclick="Clinic.emr.consent.edit(' + c.id + ')">' +
@@ -167,6 +180,7 @@ Clinic.emr.consent = (function () {
 
     /** 删除本人创建的知情同意书 */
     function del(id) {
+        if (isReadonlyView()) { Clinic.toast.warning('跨科室病历仅只读，当前科室不可删除知情同意书'); return; }
         Clinic.modal.confirm('确定删除该知情同意书？删除后不可恢复。', function () {
             Clinic.ajax('/api/consent', { action: 'delete', id: id }, {
                 onSuccess: function (j) {

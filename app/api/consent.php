@@ -29,6 +29,11 @@ switch ($action) {
         if ($visit['status'] === 'finished') {
             json_fail('该患者已诊毕，病历已归档，不可修改');
         }
+        // 跨科室只读锁定：医生当前科室 != 就诊当前科室（非会诊处理中）→ 绝对只读，
+        // 不可保存/编辑知情同意书（与病历只读规则一致，杜绝跨科室修改）
+        if (!get_editable_record($visit, $u)) {
+            json_fail('跨科室病历仅只读，当前科室不可保存知情同意书');
+        }
         // 病历可访问天数校验
         if (!visit_access_allowed($visit, $u)) {
             json_fail('该病历超出您的可查看历史天数，无法修改');
@@ -105,6 +110,11 @@ switch ($action) {
         // 归档锁定：已诊毕不可删除
         if ($row && $row['visit']['status'] === 'finished') {
             json_fail('该患者已诊毕，病历已归档，不可删除');
+        }
+        // 跨科室只读锁定：医生当前科室 != 就诊当前科室（非会诊处理中）→ 绝对只读，
+        // 不可删除知情同意书（与病历只读规则一致，杜绝跨科室删除）
+        if ($row && !get_editable_record($row['visit'], $u)) {
+            json_fail('跨科室病历仅只读，当前科室不可删除知情同意书');
         }
         DB::exec('medical', 'DELETE FROM consents WHERE id=?', array($id));
         json_ok(array(), '知情同意书已删除');
