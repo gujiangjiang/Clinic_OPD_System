@@ -244,11 +244,11 @@ function doctor_part_read($action) {
         // 前端会诊 Tab 复用候诊列表样式渲染。
         $consVisits = array();
         $consStatus = array();
-        foreach (DB::q('consultation', "SELECT id, visit_id, status, created_at, accepted_by FROM consultations WHERE target_dept_id=? AND date(created_at)>=? ORDER BY id DESC", array($deptId, $since)) as $c) {
+        foreach (DB::q('consultation', "SELECT id, visit_id, status, created_at, accepted_by, record_id FROM consultations WHERE target_dept_id=? AND date(created_at)>=? ORDER BY id DESC", array($deptId, $since)) as $c) {
             $vid = (int)$c['visit_id'];
             if (!isset($consStatus[$vid])) {
                 $consVisits[] = $vid;
-                $consStatus[$vid] = array('id' => (int)$c['id'], 'code' => oid($c['id']), 'status' => (string)$c['status'], 'created_at' => (string)$c['created_at'], 'accepted_by' => (string)$c['accepted_by']);
+                $consStatus[$vid] = array('id' => (int)$c['id'], 'code' => oid($c['id']), 'status' => (string)$c['status'], 'created_at' => (string)$c['created_at'], 'accepted_by' => (string)$c['accepted_by'], 'record_id' => (int)(isset($c['record_id']) ? $c['record_id'] : 0));
             }
         }
         $consultations = array();
@@ -268,6 +268,7 @@ function doctor_part_read($action) {
                     'consult_code' => $cs['code'],
                     'consult_status' => $cs['status'],
                     'accepted_by' => $cs['accepted_by'],
+                    'record_id' => $cs['record_id'],
                     'name' => $r['pname'], 'gender' => $r['pgender'],
                     'age_fmt' => age_format($r['pbirth'], $r['register_time']),
                     'date' => substr($r['register_time'], 0, 10),

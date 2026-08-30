@@ -48,6 +48,7 @@ function consultation_row($c) {
         'accepted_by' => (string)$c['accepted_by'],
         'accepted_at' => (string)$c['accepted_at'],
         'finished_at' => (string)$c['finished_at'],
+        'record_id' => (int)(isset($c['record_id']) ? $c['record_id'] : 0),
         'created_at' => (string)$c['created_at'],
     );
 }
@@ -64,8 +65,10 @@ switch ($action) {
         if (!visit_access_allowed($visit, $u)) json_fail('该病历超出您的可查看历史天数，无法发起会诊');
         // 病历前置校验：本人必须已保存病历（首诊或续写）才可发起会诊
         // （开单/会诊等操作均需在病历中自动记录与展示，无病历则禁止）
-        $myRec = DB::one('medical', 'SELECT id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+        $myRec = DB::one('medical', 'SELECT id, consultation_id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
         if (!$myRec) json_fail('请先书写并保存本人病历（首诊或续写）后再发起会诊');
+        // 会诊与病历强关联：记录发起会诊时所在的病历记录 id（与开单一致，按 record_id 展示）
+        $consRecId = (int)$myRec['id'];
         // 会诊拦截：本人已书写会诊病历（正在处理其他科室的会诊）→ 不可再发起会诊
         $ownConsult = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0', array($visitId, $u['id']));
         if ($ownConsult > 0) json_fail('您正在会诊处理中，不可再发起会诊');
@@ -83,12 +86,12 @@ switch ($action) {
         if ($description === '') json_fail('请填写会诊描述');
         if ($purpose === '') json_fail('请填写会诊目的');
         $now = now_str();
-        $cid = DB::insert('consultation', 'INSERT INTO consultations(visit_id, patient_no, flow_no, from_dept_id, from_dept_name, from_doctor_id, from_doctor_name, target_dept_id, target_dept_name, description, purpose, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+        $cid = DB::insert('consultation', 'INSERT INTO consultations(visit_id, patient_no, flow_no, from_dept_id, from_dept_name, from_doctor_id, from_doctor_name, target_dept_id, target_dept_name, description, purpose, status, record_id, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
             $visitId, $visit['patient_no'], $visit['flow_no'],
             (int)$visit['current_dept_id'], (string)$visit['current_dept_name'],
             $u['id'], $u['name'],
             (int)$targetDept['id'], (string)$targetDept['name'],
-            $description, $purpose, 'pending', $now,
+            $description, $purpose, 'pending', $consRecId, $now,
         ));
         // 站内信通知目标科室（携带会诊详情链接）
         send_msg('doctor', 0, '新的会诊请求',
@@ -176,7 +179,7 @@ switch ($action) {
         json_ok(array('consultation' => $data));
         break;
 
-    /* ==================== 开始会诊（pending → doing） ==================== */
+    /* ==================== 接受会诊（pending → 记录接收医生，不置 doing） ==================== */
     case 'accept':
         $cid = did(post('id'));
         $c = DB::one('consultation', 'SELECT * FROM consultations WHERE id=?', array($cid));
@@ -185,9 +188,10 @@ switch ($action) {
         $curDeptId = $curDeptRow ? (int)$curDeptRow['current_dept_id'] : 0;
         if ((int)$c['target_dept_id'] !== $curDeptId) json_fail('该会诊不属于当前科室');
         if ($c['status'] !== 'pending') json_fail('该会诊已开始处理');
-        DB::exec('consultation', 'UPDATE consultations SET status=?, accepted_by=?, accepted_at=? WHERE id=?',
-            array('doing', $u['name'], now_str(), $cid));
-        json_ok(array(), '会诊已开始');
+        // 仅记录接收医生，状态保持 pending——等待会诊病历保存后才置 doing
+        DB::exec('consultation', 'UPDATE consultations SET accepted_by=?, accepted_at=? WHERE id=?',
+            array($u['name'], now_str(), $cid));
+        json_ok(array(), '已接受会诊，请书写会诊病历');
         break;
 
     /* ==================== 会诊完毕（doing → done） ==================== */

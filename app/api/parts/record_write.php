@@ -352,6 +352,22 @@ function record_part_write($action) {
             DB::exec('patient', 'UPDATE registrations SET status=? WHERE id=?', array('visiting', $visitId));
         }
 
+        // ===== 会诊病历保存成功 → 会诊状态从 pending 置 doing =====
+        // （进入会诊页面不代表会诊中，有会诊病历成功保存后才改为会诊中）
+        if ($consultationId > 0) {
+            $cons2 = DB::one('consultation', 'SELECT status, accepted_by FROM consultations WHERE id=?', array($consultationId));
+            if ($cons2) {
+                $updates = array();
+                if ($cons2['status'] === 'pending') $updates['status'] = 'doing';
+                if (empty($cons2['accepted_by'])) $updates['accepted_by'] = $u['name'];
+                $updates['accepted_at'] = now_str();
+                if (isset($updates['status'])) {
+                    DB::exec('consultation', 'UPDATE consultations SET status=?, accepted_by=?, accepted_at=? WHERE id=?',
+                        array($updates['status'], $updates['accepted_by'], $updates['accepted_at'], $consultationId));
+                }
+            }
+        }
+
         // D. 诊毕：更新就诊状态
         if ($finish) {
             // 诊毕转归：离院方式必选；非「自主离院」必须填写对应补充信息

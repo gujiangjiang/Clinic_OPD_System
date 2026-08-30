@@ -133,10 +133,11 @@ Clinic.emr = (function () {
                     enterConsultMode(decodeURIComponent(urlConsult));
                     history.replaceState(null, '', '/doctor/emr?visit_id=' + visitId);   // 清除参数防刷新重复触发
                 } else {
-                    // 自动识别：就诊存在进行中的会诊（doing）→ 进入会诊模式
-                    // （仅会诊医生本人可进入，候诊列表已拦截非会诊医生）
+                    // 自动识别：就诊存在进行中的会诊（doing）→ 进入会诊模式；
+                    // 或已接受（accepted_by=本人，status=pending）也进入（等待保存会诊病历后置doing）
+                    var myName = document.body.getAttribute('data-name') || '';
                     var activeCons = (j.data.consults || []).find(function (cc) {
-                        return cc.status === 'doing';
+                        return cc.status === 'doing' || (cc.status === 'pending' && cc.accepted_by === myName);
                     });
                     if (activeCons) {
                         enterConsultMode(activeCons.code);
@@ -371,6 +372,8 @@ diagnoses: [],
         fillContHead(DATA.record);
         var signEl2 = document.getElementById('signWrap');
         if (signEl2) signEl2.textContent = '医生：' + r.doctor_name;
+        // 4.5 刷新只读区（首诊/其他文书锚点），避免新建编辑时其他文书消失
+        refreshReadOnlyBodies(DATA);
         // 5. 更新左侧病历节点列表（renderLeftNav 内自动追加「续写编辑中」占位）
         renderLeftNav();
         scrollToEditor(0);
@@ -1018,6 +1021,31 @@ diagnoses: [],
      */
     function isMyOrder(o) {
         return !!o && (o.doctor_id || 0) === myDoctorId();
+    }
+
+    /**
+     * 开单是否可删除（删除按钮显示与后端删除的共同规则）：
+     * 必须同时满足【病历ID强关联 + 开单人本人 + 当前编辑状态】：
+     * 1) 开单所属病历（record_id）=== 当前编辑病历（record_id）；
+     * 2) 开单人 === 当前登录医生；
+     * 3) 当前病历处于可编辑状态（未诊毕 / 未会诊锁只读）；
+     * 4) 开单未缴费（open）或已退费（refunded）。
+     * 任一项不符一律不显示删除按钮（后端 delete 同步硬校验）。
+     */
+    function canDeleteOrder(o) {
+        if (!o) return false;
+        if (!Clinic.emr.isMyOrder(o)) return false;
+        if (o.status !== 'open' && o.status !== 'refunded') return false;
+        // 就诊已诊毕 → 只读不可删
+        if (DATA && DATA.visit && DATA.visit.status === 'finished') return false;
+        // 会诊锁/只读模式 → 不可删
+        if (DATA && DATA.__consult_mode) return false;
+        if (DATA && DATA.record && DATA.record.consultation_id > 0 && !(DATA.record.record_id > 0)) return false;
+        // 病历ID强关联：开单所属病历必须等于当前编辑病历
+        var oRec = (o.record_id || 0);
+        var curRec = (DATA && DATA.record && DATA.record.record_id) || 0;
+        if (oRec <= 0 || curRec <= 0 || oRec !== curRec) return false;
+        return true;
     }
 
     /**
@@ -1757,10 +1785,8 @@ diagnoses: [],
             rxE1.innerHTML = '<div class="ena-empty">暂未开立处方</div>';
         } else {
             rxE1.innerHTML = rxOrders.map(function (o, oi) {
-                // 会诊期间：仅可删除【本记录名下】开单（本会诊期间开具的可删，历史单不可删）
-                var oRec = o.record_id || 0;
-                var canDel = Clinic.emr.isMyOrder(o) && (o.status === 'open' || o.status === 'refunded') &&
-                    (!consultMode || (oRec > 0 && curRecId > 0 && oRec === curRecId));
+                // 删除按钮：病历ID + 开单人 + 可编辑状态 三项全符合才显示
+                var canDel = Clinic.emr.canDeleteOrder(o);
                 return '<div class="ena-item" onclick="showRxDetail(\'' + o.id + '\')">' +
                     navDot(o.status) +
                     '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">处方' + (oi + 1) + '</span>' +
@@ -1811,14 +1837,9 @@ diagnoses: [],
     function fillTypeNav(elId, arr, label) {
         var el = document.getElementById(elId);
         if (!arr.length) { el.innerHTML = '<div class="ena-empty">暂未开立' + label + '</div>'; return; }
-        // 会诊期间：仅可删除【本记录名下】开单（本会诊期间开具的可删，历史单不可删）
-        var consultLocked = !!(DATA && DATA.__consult_mode);
-        var curRecId2 = (DATA && DATA.record && DATA.record.record_id) || 0;
         el.innerHTML = arr.map(function (x) {
             var st = x.it.status || 'open';
-            var oRec = x.order.record_id || 0;
-            var canDel = !consultLocked || (oRec > 0 && curRecId2 > 0 && oRec === curRecId2);
-            canDel = canDel && Clinic.emr.isMyOrder(x.order) && (x.order.status === 'open' || x.order.status === 'refunded');
+            var canDel = Clinic.emr.canDeleteOrder(x.order);
             return '<div class="ena-item" onclick="showItemDetail(\'' + x.order.id + '\',\'' + x.it.id + '\')">' +
                 navDot(st) + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                 escHtml(x.it.item_name) + '</span>' +
@@ -2120,15 +2141,12 @@ diagnoses: [],
         html += '<div style="border-left:1px solid var(--border);padding-left:14px">' +
             flowColumnHtml(steps, curIdx) + '</div>';
         html += '</div>';
-        // 操作区：打印申请单（本人或他人均可补打）；删除仅限本人开单 + 未缴费/已退费
-        // 会诊期间：仅可删除【本记录名下】开单（本会诊期间开具的可删，历史单不可删）
-        var consultLocked = !!(DATA && DATA.__consult_mode);
-        var curRecId3 = (DATA && DATA.record && DATA.record.record_id) || 0;
-        var oRec3 = o.record_id || 0;
+        // 操作区：打印申请单（本人或他人均可补打）；删除仅限未缴费/已退费的开单医生本人
+        // 且病历ID强关联 + 当前可编辑（canDeleteOrder 统一校验）
         var delLabel = o.order_type === 'prescription' ? '毁方' : '删除';
-        var delBtn2 = (!Clinic.emr.isMyOrder(o) || (o.status !== 'open' && o.status !== 'refunded')) ? ''
-            : ((consultLocked && oRec3 > 0 && curRecId3 > 0 && oRec3 !== curRecId3) ? ''
-                : '<button type="button" class="btn btn-danger btn-sm mt-8" onclick="delOrderFlow(\'' + o.id + '\',\'' + delLabel + '\')">🗑️ ' + delLabel + '</button>');
+        var delBtn2 = Clinic.emr.canDeleteOrder(o)
+            ? '<button type="button" class="btn btn-danger btn-sm mt-8" onclick="delOrderFlow(\'' + o.id + '\',\'' + delLabel + '\')">🗑️ ' + delLabel + '</button>'
+            : '';
         html += '<div style="margin-top:12px">' +
             '<button type="button" class="btn btn-outline btn-sm" ' +
             'onclick="Clinic.print.load(\'/api/print?action=order&order_id=' + o.id + '\',null,\'a5\')">🖨️ 打印申请单</button>' +
@@ -2212,11 +2230,7 @@ diagnoses: [],
             '<button type="button" class="btn btn-outline btn-sm" ' +
             'onclick="Clinic.print.load(\'/api/print?action=order&order_id=' + o.id + '\',null,\'a5\')">🖨️ 打印处方笺</button>';
         // 会诊期间：仅可删除【本记录名下】开单（本会诊期间开具的可删，历史单不可删）
-        var consultLocked = !!(DATA && DATA.__consult_mode);
-        var curRecId4 = (DATA && DATA.record && DATA.record.record_id) || 0;
-        var oRec4 = o.record_id || 0;
-        var rxCanDel = Clinic.emr.isMyOrder(o) && (o.status === 'open' || o.status === 'refunded') &&
-            (!consultLocked || (oRec4 > 0 && curRecId4 > 0 && oRec4 === curRecId4));
+        var rxCanDel = Clinic.emr.canDeleteOrder(o);
         if (rxCanDel) {
             leftHtml += ' <button type="button" class="btn btn-danger btn-sm" style="margin-left:8px" onclick="delOrderFlow(\'' + o.id + '\',\'毁方\')">🗑️ 毁方</button>';
         }
@@ -2548,6 +2562,8 @@ diagnoses: [],
                                         target_dept_id: dept.id,
                                         description: document.getElementById('consDesc').value.trim(),
                                         purpose: document.getElementById('consPurpose').value.trim(),
+                                        // 会诊与病历强关联：记录发起时所在的病历（与开单一致）
+                                        record_id: (DATA && DATA.record) ? (DATA.record.record_id || 0) : 0,
                                     }, {
                                         onSuccess: function (json) {
                                             Clinic.toast.success(json.msg);
@@ -2690,6 +2706,14 @@ diagnoses: [],
         if (DATA.record.record_id > 0) addProgressEditor(); else createProgressEditor();
         DATA.record.consultation_id = consultId;
         applyConsultMode(consultId);
+        // 恢复顶栏写操作按钮（保存 / 会诊完毕），仅隐藏转科
+        document.querySelectorAll('.emr-top-actions .emr-write').forEach(function (b) {
+            if (b.getAttribute('onclick') && b.getAttribute('onclick').indexOf('openTransfer') !== -1) {
+                b.style.display = 'none';
+            } else {
+                b.style.display = '';
+            }
+        });
         renderLeftNav();
         scrollToEditor(200);
     }
@@ -3031,6 +3055,8 @@ diagnoses: [],
         openDiagEditPop: openDiagEditPop,
         openDiagOpsPop: openDiagOpsPop,
         delDiag: delDiag,
+        isMyOrder: isMyOrder,
+        canDeleteOrder: canDeleteOrder,
         openTemplates: openTemplates,
         applyTemplateById: applyTemplateById,
         openTransfer: openTransfer,
@@ -3101,7 +3127,9 @@ function delOrderFlow(orderId, label) {
     Clinic.modal.confirm(isRx
         ? '确定毁方该处方？'
         : '确定删除该开单？', function () {
-        Clinic.ajax('/api/order', { action: 'delete', order_id: orderId }, {
+        // 携带当前编辑病历 id：后端校验开单 record_id + 开单人 双重匹配
+        var curRec = (Clinic.emr && Clinic.emr._ctx && Clinic.emr._ctx.DATA && Clinic.emr._ctx.DATA.record) ? (Clinic.emr._ctx.DATA.record.record_id || 0) : 0;
+        Clinic.ajax('/api/order', { action: 'delete', order_id: orderId, record_id: curRec }, {
             onSuccess: function (j) {
                 // 同步关闭所在详情弹窗（侧边栏行内调用时栈空，close 为安全空操作）
                 Clinic.modal.close();

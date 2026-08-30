@@ -415,18 +415,16 @@ function order_part_write($action) {
         if ($orderId <= 0) json_fail('参数无效');
         $order = DB::one('order', 'SELECT * FROM orders WHERE id=?', array($orderId));
         if (!$order) json_fail('开单记录不存在');
-        // 会诊中拦截：进行中会诊期间，仅可删除【本会诊记录名下】开单（本会诊期间开具的），
-        // 其他病历名下的开单一律只读（无论是否本人开具）
-        $doingOrderCons = DB::one('consultation', "SELECT id FROM consultations WHERE visit_id=? AND status='doing' LIMIT 1", array((int)$order['visit_id']));
-        if ($doingOrderCons) {
-            $curRecordId = (int)post('record_id', 0);
-            $orderRecId = (int)(isset($order['record_id']) ? $order['record_id'] : 0);
-            if ($curRecordId <= 0 || $orderRecId <= 0 || $orderRecId !== $curRecordId) {
-                json_fail('该就诊正在进行会诊，会诊期间仅可删除本会诊记录开具的开单，其他开单已锁定');
-            }
-        }
+        // 删除校验：开单人本人 + 开单所属病历（record_id）等于当前编辑病历——
+        // 只有处于开单所在病历的可编辑状态下才可删除（前端 canDeleteOrder 同步拦截）
+        $curRecordId = (int)post('record_id', 0);
+        $orderRecId = (int)(isset($order['record_id']) ? $order['record_id'] : 0);
         if ((int)$order['doctor_id'] !== (int)$u['id']) {
             json_fail('仅开单医生本人可删除该' . ($order['order_type'] === 'prescription' ? '处方' : '申请单') . '（开单医生：' . $order['doctor_name'] . '）');
+        }
+        // 病历ID强关联：新数据（record_id>0）必须与当前编辑病历一致；旧数据（record_id=0）回退按医生归属
+        if ($orderRecId > 0 && ($curRecordId <= 0 || $orderRecId !== $curRecordId)) {
+            json_fail('该开单不属于当前编辑的病历，不可删除（开单与病历强关联）');
         }
         $items = DB::q('order', 'SELECT * FROM order_items WHERE order_id=?', array($orderId));
         foreach ($items as $it) {

@@ -284,10 +284,10 @@ Clinic.queuePanel = (function () {
                 if (consult && consultCode) {
                     var consultStatus = row.getAttribute('data-consult-status');
                     var acceptedBy = row.getAttribute('data-consult-accepted') || '';
+                    var myName = document.body.getAttribute('data-name') || '';
                     // 已接受（doing）的会诊：仅会诊医生本人可进入病历页；
                     // 非会诊医生提示「xxx正在会诊该患者」
                     if (consultStatus === 'doing') {
-                        var myName = document.body.getAttribute('data-name') || '';
                         if (myName !== acceptedBy) {
                             closePanel();
                             Clinic.toast.warning(acceptedBy ? (acceptedBy + ' 正在会诊该患者') : '该患者正在进行会诊');
@@ -296,6 +296,19 @@ Clinic.queuePanel = (function () {
                         var vCode = row.getAttribute('data-code');
                         closePanel();
                         location.href = '/doctor/emr?visit_id=' + vCode;
+                        return;
+                    }
+                    // 已接受但会诊病历未保存（status 仍 pending，accepted_by=本人）：
+                    // 会诊医生本人可直接进入继续书写；非本人提示正在处理
+                    if (consultStatus === 'pending' && acceptedBy) {
+                        if (myName !== acceptedBy) {
+                            closePanel();
+                            Clinic.toast.warning(acceptedBy + ' 正在处理该会诊');
+                            return;
+                        }
+                        var vCode2 = row.getAttribute('data-code');
+                        closePanel();
+                        location.href = '/doctor/emr?visit_id=' + vCode2;
                         return;
                     }
                     openConsultFromQueue(consultCode);

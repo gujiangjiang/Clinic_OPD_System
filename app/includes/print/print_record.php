@@ -189,8 +189,11 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
         foreach (emr_rx_display_lines($its) as $l) { $rxs[] = e($l); }
     }
     // 会诊：本人发起的会诊在门诊处置中显示「请X科会诊」（与病历编辑页一致）
-    $consRows = DB::q('consultation', "SELECT target_dept_name FROM consultations WHERE visit_id=? AND from_doctor_id=? ORDER BY id ASC", array($visit['id'], (int)$record['doctor_id']));
+    // 会诊与病历强关联：仅打印本记录（record_id）发起的会诊；旧数据（record_id=0）回退按医生归属
+    $consRows = DB::q('consultation', "SELECT target_dept_name, record_id FROM consultations WHERE visit_id=? AND from_doctor_id=? ORDER BY id ASC", array($visit['id'], (int)$record['doctor_id']));
     foreach ($consRows as $cr) {
+        $crRec = (int)(isset($cr['record_id']) ? $cr['record_id'] : 0);
+        if ($recPrintId > 0 && $crRec > 0 && $crRec !== $recPrintId) continue;
         $procs[] = '请' . e($cr['target_dept_name']) . '会诊';
     }
     if ($emrStructured) {
