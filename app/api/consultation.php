@@ -63,10 +63,10 @@ switch ($action) {
         $visit = $row['visit'];
         if ($visit['status'] === 'finished') json_fail('该患者已诊毕，病历已归档');
         if (!visit_access_allowed($visit, $u)) json_fail('该病历超出您的可查看历史天数，无法发起会诊');
-        // 病历前置校验：本人必须已保存病历（首诊或续写）才可发起会诊
-        // （开单/会诊等操作均需在病历中自动记录与展示，无病历则禁止）
-        $myRec = DB::one('medical', 'SELECT id, consultation_id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
-        if (!$myRec) json_fail('请先书写并保存本人病历（首诊或续写）后再发起会诊');
+        // 可编辑病历前置校验：本人必须有当前科室可编辑的病历（首诊/续写）才可发起会诊
+        // 转科后旧科室文书只读，必须在本科室新建续写病历并保存后才能发起会诊。
+        $myRec = get_editable_record($visit, $u);
+        if (!$myRec) json_fail('当前无可编辑的病历：转科后旧科室病历已只读，请先在本科室书写并保存续写病历后再发起会诊');
         // 会诊与病历强关联：记录发起会诊时所在的病历记录 id（与开单一致，按 record_id 展示）
         $consRecId = (int)$myRec['id'];
         // 会诊拦截：本人已书写会诊病历（正在处理其他科室的会诊）→ 不可再发起会诊

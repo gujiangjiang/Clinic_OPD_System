@@ -662,6 +662,8 @@ diagnoses: [],
         if (!readOnly && !consultLock) {
             restoreWriteButtons();
         }
+        // 大纲栏「＋」按可编辑病历状态显示/隐藏（与后端同规则）
+        syncNavAdds();
     }
 
     /** 恢复顶栏写操作按钮与状态提示（从只读/会诊锁记录切回可编辑记录时） */
@@ -676,6 +678,34 @@ diagnoses: [],
                 if (b.getAttribute('onclick') && b.getAttribute('onclick').indexOf('openTransfer') !== -1) b.style.display = '';
             });
         }
+    }
+
+    /**
+     * 大纲栏「＋」与病历支撑强关联：
+     * 仅当存在当前科室可编辑病历（record_id>0 且 dept_match=1 或会诊记录）时，
+     * 才显示 检查/检验/处置/处方/诊断/会诊/诊断证明 的「＋」；
+     * 转科后未续写（无可编辑病历）→ 这些「＋」一律隐藏，仅保留「病历节点/知情同意书」＋。
+     * 与后端 get_editable_record / requireSaved 同规则（前端展示层兜底）。
+     */
+    function syncNavAdds() {
+        var editable = !!(DATA && DATA.record && DATA.record.record_id > 0 &&
+            (DATA.record.dept_match === 1 || (DATA.record.consultation_id || 0) > 0));
+        var inConsult = !!(DATA && DATA.__consult_mode);
+        var ids = ['diagsAddBtn', 'imgAddBtn', 'labAddBtn', 'procAddBtn', 'rxAddBtn', 'consAddBtn', 'certAddBtn'];
+        ids.forEach(function (id) {
+            var b = document.getElementById(id);
+            if (!b) return;
+            // 诊断证明：归档补开保留入口（特殊豁免，与 setReadonlyUI 同规则）
+            if (id === 'certAddBtn' && DATA && DATA.visit && DATA.visit.status === 'finished' && !(DATA.has_certificate)) return;
+            // 会诊期间：不可再发起会诊、不可开具诊断证明（与 applyConsultMode 同规则）
+            if ((id === 'consAddBtn' || id === 'certAddBtn') && inConsult) { b.style.display = 'none'; return; }
+            b.style.display = editable ? '' : 'none';
+        });
+        // 「＋」隐藏后分区折叠箭头贴左修复
+        document.querySelectorAll('.ena-sec-title .ena-add').forEach(function (b) {
+            var arrow = b.parentNode ? b.parentNode.querySelector('.ena-arrow') : null;
+            if (arrow) arrow.style.marginLeft = (b.style.display === 'none') ? 'auto' : '';
+        });
     }
 
     /**
@@ -1102,6 +1132,11 @@ diagnoses: [],
     function diagEditable() {
         if (DATA && DATA.visit && DATA.visit.status === 'finished') {
             Clinic.toast.warning('该患者已诊毕，诊断不可调整');
+            return false;
+        }
+        // 转科后旧科室文书只读：无当前科室可编辑病历（非会诊记录）时禁止添加诊断
+        if (DATA && DATA.record && DATA.record.dept_match === 0 && !(DATA.record.consultation_id > 0)) {
+            Clinic.toast.warning('当前病历书写于转科前科室，为只读状态；请先在本科室新建续写病历并保存后再调整诊断');
             return false;
         }
         return true;
@@ -2419,6 +2454,7 @@ diagnoses: [],
                     }
                     DATA.__pending_initial = false;   // 首诊已保存，占位消失
                     renderLeftNav();
+                    syncNavAdds();
                     // 锚点条幅时间实时刷新为首次保存时间（首诊/续写保存后不刷新页面，
                     // 记录时间固定为首次保存的 created_at）
                     fillContHead(DATA.record);
@@ -2508,6 +2544,11 @@ diagnoses: [],
         // 无本人已保存病历（首诊/续写）时禁止发起会诊
         if (DATA && DATA.record && !(DATA.record.record_id > 0)) {
             Clinic.toast.warning('请先书写并保存本人病历后再发起会诊');
+            return;
+        }
+        // 转科后旧科室文书只读：须先在本科室新建续写病历保存后方可发起会诊
+        if (DATA && DATA.record && DATA.record.dept_match === 0 && !(DATA.record.consultation_id > 0)) {
+            Clinic.toast.warning('当前病历书写于转科前科室，为只读状态；请先在本科室新建续写病历并保存后再发起会诊');
             return;
         }
         var visitId = document.getElementById('visitId').value;

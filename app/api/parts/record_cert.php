@@ -22,11 +22,21 @@ function record_part_cert($action) {
         if ($doingCertCons) {
             json_fail('该就诊正在进行会诊，会诊期间不可开具诊断证明');
         }
-        // 权限校验：仅接诊过该患者的医生（或管理员）可开具诊断证明
+        // 权限校验：
+        // 已诊毕（归档）病历 → 补开证明走原逻辑：接诊过该患者的医生（或管理员）可开具；
+        // 未诊毕 → 必须持有当前科室可编辑病历（转科后旧文书只读，须先续写保存）。
         if ($u['role'] !== 'admin') {
-            $involved = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array($visitId, $u['id']));
-            if ($involved === 0) {
-                json_fail('您未接诊过该患者，无权开具诊断证明');
+            $archived = (string)$row['visit']['status'] === 'finished';
+            if ($archived) {
+                $involved = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array($visitId, $u['id']));
+                if ($involved === 0) {
+                    json_fail('您未接诊过该患者，无权开具诊断证明');
+                }
+            } else {
+                $editableRec = get_editable_record($row['visit'], $u);
+                if (!$editableRec) {
+                    json_fail('当前无可编辑的病历：转科后旧科室病历已只读，请先在本科室书写并保存续写病历后再开具诊断证明');
+                }
             }
         }
         if ((int)DB::val('medical', 'SELECT COUNT(*) FROM certificates WHERE visit_id=?', array($visitId)) > 0) {

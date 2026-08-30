@@ -190,27 +190,27 @@ $patient = $row['patient'];
             </div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">🔎 初步诊断<span class="ena-add emr-write" title="添加诊断" onclick="emrNavAdd('diags',event);event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">🔎 初步诊断<span class="ena-add emr-write" id="diagsAddBtn" title="添加诊断" onclick="emrNavAdd('diags',event);event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navDiags"></div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">🩻 检查<span class="ena-count" id="cntImaging" style="display:none"></span><span class="ena-sum" id="sumImaging"></span><span class="ena-add emr-write" title="开具检查" onclick="emrNavAdd('imaging');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">🩻 检查<span class="ena-count" id="cntImaging" style="display:none"></span><span class="ena-sum" id="sumImaging"></span><span class="ena-add emr-write" id="imgAddBtn" title="开具检查" onclick="emrNavAdd('imaging');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navImaging"></div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">🧪 检验<span class="ena-count" id="cntLab" style="display:none"></span><span class="ena-sum" id="sumLab"></span><span class="ena-add emr-write" title="开具检验" onclick="emrNavAdd('lab');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">🧪 检验<span class="ena-count" id="cntLab" style="display:none"></span><span class="ena-sum" id="sumLab"></span><span class="ena-add emr-write" id="labAddBtn" title="开具检验" onclick="emrNavAdd('lab');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navLab"></div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">🩹 门诊处置<span class="ena-count" id="cntProc" style="display:none"></span><span class="ena-sum" id="sumProc"></span><span class="ena-add emr-write" title="开具处置" onclick="emrNavAdd('procedure');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">🩹 门诊处置<span class="ena-count" id="cntProc" style="display:none"></span><span class="ena-sum" id="sumProc"></span><span class="ena-add emr-write" id="procAddBtn" title="开具处置" onclick="emrNavAdd('procedure');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navProc"></div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">💊 处方<span class="ena-count" id="cntRx" style="display:none"></span><span class="ena-sum" id="sumRx"></span><span class="ena-add emr-write" title="开具处方" onclick="emrNavAdd('prescription');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">💊 处方<span class="ena-count" id="cntRx" style="display:none"></span><span class="ena-sum" id="sumRx"></span><span class="ena-add emr-write" id="rxAddBtn" title="开具处方" onclick="emrNavAdd('prescription');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navRx"></div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">🤝 会诊<span class="ena-add emr-write" title="发起会诊" onclick="Clinic.emr.openConsultCreate(event);event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)">🤝 会诊<span class="ena-add emr-write" id="consAddBtn" title="发起会诊" onclick="Clinic.emr.openConsultCreate(event);event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navConsult"><div class="ena-empty">暂无会诊</div></div>
         </div>
         <div class="ena-sec" id="certSec">

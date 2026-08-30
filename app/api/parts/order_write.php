@@ -46,11 +46,25 @@ function order_part_write($action) {
         if ($visit['status'] !== 'visiting') {
             json_fail('请先接诊该患者后再开单');
         }
-        // ===== 病历完整性校验：开检验/检查/处置/处方前，本人病历必须已完善并保存 =====
-        // （主诉/现病史/初步诊断为必填，与前端 isRecordComplete 一致）
-        $myRec = DB::one('medical', 'SELECT emr_data, record_type FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+        // ===== 可编辑病历校验：开检验/检查/处置/处方前，本人必须有「当前科室可编辑」的病历 =====
+        // 转科后旧科室文书只读——必须先在本科室新建续写病历并保存；
+        // 会诊记录（consultation_id>0）在当前科室处理期间视为可编辑。
+        $myRec = get_editable_record($visit, $u);
         if (!$myRec) {
-            json_fail('请先保存本人病历后再开单');
+            json_fail('当前无可编辑的病历：转科后旧科室病历已只读，请先在本科室书写并保存续写病历后再开单');
+        }
+        // 开单必须绑定可编辑病历：优先采用前端提交的 record_id（须为本人可编辑文书，
+        // 支持切换到本人较早的续写文书开单），否则回退到最新可编辑文书 id——
+        // 杜绝 record_id=0 的悬空开单。
+        if ($recId > 0) {
+            $recRow = DB::one('medical', 'SELECT id, doctor_id, dept_id, consultation_id FROM patient_records WHERE id=?', array($recId));
+            $recOk = $recRow
+                && (int)$recRow['doctor_id'] === (int)$u['id']
+                && ((int)$recRow['dept_id'] === (int)$visit['current_dept_id'] || (int)$recRow['consultation_id'] > 0);
+            if (!$recOk) $recId = 0;
+        }
+        if ($recId <= 0) {
+            $recId = (int)$myRec['id'];
         }
         $myEmr = emr_merge_defaults(emr_normalize(json_decode($myRec['emr_data'], true)), emr_default_data(null));
         if ($myRec['record_type'] === 'progress') {

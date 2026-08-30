@@ -488,6 +488,28 @@ function get_visit_row($visitId) {
 }
 
 /**
+ * 当前医生在本就诊下是否有「可编辑病历」。
+ * 可编辑定义：本人已保存病历，且满足其一——
+ *   a) 书写科室 == 就诊当前科室（转科后必须在本科室新写首诊/续写才可编辑）
+ *   b) 是会诊病历（consultation_id>0，会诊记录在当前科室处理期间始终可编辑）
+ * 开单 / 发会诊 / 开诊断证明 / 加诊断等所有需病历支撑的操作统一以此为准。
+ * 返回最新可编辑病历行（含 id），无则返回 null。
+ */
+function get_editable_record($visit, $u) {
+    $visitId = (int)(isset($visit['id']) ? $visit['id'] : 0);
+    if ($visitId <= 0) return null;
+    $curDept = (int)(isset($visit['current_dept_id']) ? $visit['current_dept_id'] : 0);
+    if ($curDept > 0) {
+        return DB::one('medical',
+            'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND (dept_id=? OR consultation_id>0) ORDER BY id DESC LIMIT 1',
+            array($visitId, (int)$u['id'], $curDept));
+    }
+    return DB::one('medical',
+        'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0 ORDER BY id DESC LIMIT 1',
+        array($visitId, (int)$u['id']));
+}
+
+/**
  * 科室数据隔离：非挂号科室的医生不能查看/接诊当前就诊。
  * 放行条件：管理员；已诊毕归档（历史查看）；当前就诊科室在医生科室范围内；
  * 或医生已在本就诊写过病历（临床连续性）。患者历史就诊（既往病历）不受限。

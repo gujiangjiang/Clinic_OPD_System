@@ -13,6 +13,37 @@
 
 ---
 
+## [4.15.3] - 2026-08-30
+
+### 修复
+
+- **开单/会诊/诊断证明/诊断添加必须存在可编辑病历**：转科后未在本科室书写续写病历、
+  或进入会诊患者但尚未创建会诊病历时，所有需要病历支撑的操作（开检验/检查/处置/处方、
+  发起会诊、开具诊断证明、添加诊断）一律强制拦截——前后端均按「可编辑病历」规则校验。
+  后端：新增 `get_editable_record()` 辅助函数（`helpers.php`），`order_write.php`、
+  `consultation.php`（发起会诊）、`record_cert.php`（诊断证明）统一要求本人当前科室
+  可编辑病历（`dept_id === current_dept_id || consultation_id > 0`），杜绝 `record_id=0`
+  的悬空开单；前端：`requireSaved` 增加转科 only-read 拦截、`diagEditable` 增加
+  dept_match 校验、`openConsultCreate` 增加 dept_match 校验、新增 `syncNavAdds()`
+  按可编辑病历状态显示/隐藏右侧大纲栏「＋」按钮（病历节点/知情同意书除外）。
+
+- **诊断证明归档补开保全**：已诊毕归档病历保留接诊过即可补开证明的原有逻辑，
+  未归档病历才要求可编辑病历。
+
+## [4.15.2] - 2026-08-30
+
+### 修复
+
+- **移除宽泛的会诊检测根治误判**：仅 URL 带 `?consult=code` 参数或当前记录
+  `consultation_id>0` 才进入会诊模式，移除原有通过就诊状态宽泛推断会诊的逻辑，
+  避免非会诊患者被误判定为会诊模式导致只读锁死。
+
+- **只读段开单完整显示**：`refreshReadOnlyBodies` 增加 consultLock/finished 分支，
+  在 ORDERS 加载完成后重刷所有只读段，确保辅助检查/门诊处置完整展示。
+
+- **会诊绑定病历 ID**：会诊记录 `consultations.record_id` 记录发起时的病历 id，
+  会诊病历按 `record_id` 精确展示。
+
 ## [4.15.1] - 2026-08-30
 
 ### 修复
