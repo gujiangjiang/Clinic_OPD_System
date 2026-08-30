@@ -115,6 +115,7 @@ class DatabaseManager {
     public static function initAll() {
         self::getMain();
         self::getIcd10();
+        self::seedAll();
     }
 
     /** 旧签名兼容：pdo($key) —— 非 icd10 一律返回主库，icd10 返回只读字典库 */
@@ -339,7 +340,7 @@ class DatabaseManager {
         if (DB_DRIVER !== 'mysql') return $sql;
         $sql = str_replace('AUTOINCREMENT', 'AUTO_INCREMENT', $sql);
         $sql = preg_replace('/\bINSERT\s+OR\s+IGNORE\b/i', 'INSERT IGNORE', $sql);
-        $sql = preg_replace('/\bINSERT\s+OR\s+REPLACE\b/i', 'REPLACE INTO', $sql);
+        $sql = preg_replace('/\bINSERT\s+OR\s+REPLACE\b(?=\s)/i', 'REPLACE', $sql);
         $sql = str_replace("datetime('now','localtime')", 'NOW()', $sql);
         $sql = preg_replace('/\bIFNULL\(/i', 'IFNULL(', $sql);
         return $sql;
