@@ -125,23 +125,16 @@ Clinic.emr = (function () {
                 if (!refId && !(j.data.records_history || []).length && !(j.data.visit && j.data.visit.status === 'finished')) {
                     setTimeout(function () { openTemplatePicker(null); }, 150);
                 }
-                // 会诊进入：URL 携带 consult=code（候诊会诊详情「确认会诊」跳转）
-                // → 进入会诊模式（只读病历 + 引导提示，不自动新建续写），
-                //   医生点击右侧「病历节点 ＋」后创建会诊病历编辑器
+                // 会诊进入：仅两种场景进入会诊模式（不做宽泛的科室/状态匹配）：
+                // 1) URL 携带 consult=code（从候诊「会诊」Tab 点进来 / 会诊详情确认）
+                // 2) 当前编辑记录本身就是会诊病历（consultation_id>0，刷新后保持会诊模式）
                 var urlConsult = new URLSearchParams(location.search).get('consult');
                 if (urlConsult) {
                     enterConsultMode(decodeURIComponent(urlConsult));
                     history.replaceState(null, '', '/doctor/emr?visit_id=' + visitId);   // 清除参数防刷新重复触发
-                } else {
-                    // 自动识别：就诊存在进行中的会诊（doing）→ 进入会诊模式；
-                    // 或已接受（accepted_by=本人，status=pending）也进入（等待保存会诊病历后置doing）
-                    var myName = document.body.getAttribute('data-name') || '';
-                    var activeCons = (j.data.consults || []).find(function (cc) {
-                        return cc.status === 'doing' || (cc.status === 'pending' && cc.accepted_by === myName);
-                    });
-                    if (activeCons) {
-                        enterConsultMode(activeCons.code);
-                    }
+                } else if (DATA.record && DATA.record.consultation_id > 0) {
+                    // 当前正在编辑会诊病历 → 保持会诊模式（即使刷新/非会诊Tab进入）
+                    enterConsultMode(DATA.record.consultation_id);
                 }
             },
             onError: function (j) {
@@ -2953,6 +2946,12 @@ diagnoses: [],
         // 所有开单项目包括会诊都需在病历中自动记录与展示
         if (DATA && DATA.record && !(DATA.record.record_id > 0)) {
             Clinic.toast.warning('请先书写并保存病历（首诊或续写）后再' + label);
+            return false;
+        }
+        // 转科后：当前记录若是旧科室只读文书（dept_match=0 且非会诊记录）→ 不可开单
+        // （必须在本科室新建续写病历保存后才能开单）
+        if (DATA && DATA.record && DATA.record.dept_match === 0 && !(DATA.record.consultation_id > 0)) {
+            Clinic.toast.warning('当前病历书写于转科前科室，为只读状态；请先在本科室新建续写病历并保存后再' + label);
             return false;
         }
         return true;

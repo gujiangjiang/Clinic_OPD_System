@@ -112,10 +112,30 @@ Clinic.emr.segments = (function () {
     function refreshReadOnlyBodies(d) {
         if (!d) d = ctx.DATA;
         if (!d) return;
+        // 诊毕只读：全部文书以只读段展示（打印版式），重新渲染 docBody 显示开单
         if (d.visit && d.visit.status === 'finished') {
             var docBody = document.getElementById('docBody');
             if (docBody && (d.records_history || []).length) {
                 docBody.innerHTML = '<div class="prev-record-wrap">' + d.records_history.map(roSegmentHtml).join('') + '</div>';
+            }
+            return;
+        }
+        // 会诊锁/只读模式：同时重刷 roBefore/roAfter 和 docBody 中的当前记录只读段
+        // （ORDERS 异步加载后调用，确保只读段显示开单）
+        if (d.__consult_mode) {
+            var parts = splitOthers(d);
+            var beforeEl = document.getElementById('roBefore');
+            var afterEl = document.getElementById('roAfter');
+            if (beforeEl) beforeEl.innerHTML = parts.before.length ? parts.before.map(roSegmentHtml).join('') : '';
+            if (afterEl) afterEl.innerHTML = parts.after.length ? parts.after.map(roSegmentHtml).join('') : '';
+            var docBody2 = document.getElementById('docBody');
+            if (docBody2 && d.record && d.record.record_id > 0) {
+                var rec2 = d.record;
+                var seg2 = { id: rec2.record_id, record_id: rec2.record_id, doctor_id: rec2.doctor_id,
+                    doctor_name: rec2.doctor_name, doctor_emp: rec2.doctor_emp||'', doctor_title: rec2.doctor_title||'',
+                    record_type: rec2.record_type, emr: rec2.emr||{}, created_at: rec2.created_at||'',
+                    consultation_id: rec2.consultation_id||0, consciousness: rec2.consciousness||'', vitals: {} };
+                docBody2.innerHTML = '<div class="prev-record-wrap">' + roSegmentHtml(seg2) + '</div>';
             }
             return;
         }

@@ -186,7 +186,7 @@ class Layout {
         // print_auto 一并查库取实时值：打印预览「自动打印」偏好的服务端初始态
         // photo 也查库并同步会话：头像审核通过后 users.photo 已更新，
         // 但登录会话快照仍是旧值，须在此校准，保证页面右上角头像即时显示新头像。
-        $uFull = DB::one('user', 'SELECT emp_no, name, role, title, print_auto, photo FROM users WHERE id=?', array((int)$u['id']));
+        $uFull = DB::one('user', 'SELECT emp_no, name, role, title, print_auto, photo, current_dept_id FROM users WHERE id=?', array((int)$u['id']));
         if ($uFull && $uFull['photo'] !== $u['photo']) {
             Auth::updateSession('photo', $uFull['photo']);
             $u['photo'] = $uFull['photo'];
@@ -194,6 +194,7 @@ class Layout {
                 ? '<img src="' . e($__ava) . '" alt="头像">'
                 : '👤';
         }
+        $uDeptId = $uFull && isset($uFull['current_dept_id']) ? (int)$uFull['current_dept_id'] : (isset($u['current_dept_id']) ? (int)$u['current_dept_id'] : 0);
         $uEmpNo = $uFull && $uFull['emp_no'] !== '' ? $uFull['emp_no'] : '—';
         $uTitle = $uFull && $uFull['title'] !== '' ? $uFull['title'] : '';
         $uHasTitle = in_array($u['role'], array('doctor', 'nurse', 'lab', 'imaging', 'pharmacy'), true);
@@ -227,7 +228,7 @@ class Layout {
         </head>
         <body data-csrf="' . e(CSRF::token()) . '" data-theme-pref="' . e($theme) . '" data-theme="light"
             data-sidebar-pref="' . e($sidebar) . '"' . ($forceMini ? ' data-sidebar-force="1"' : '') . '
-            data-role="' . e($u['role']) . '" data-uid="' . (int)$u['id'] . '" data-name="' . e($u['name']) . '" data-sid="' . session_id() . '" data-print-auto="' . (!empty($uFull['print_auto']) ? '1' : '0') . '"
+            data-role="' . e($u['role']) . '" data-uid="' . (int)$u['id'] . '" data-name="' . e($u['name']) . '" data-dept="' . (int)$uDeptId . '" data-sid="' . session_id() . '" data-print-auto="' . (!empty($uFull['print_auto']) ? '1' : '0') . '"
             data-hosp="' . e($hosp) . '" data-hosp2="' . e($hosp2) . '">
             <!-- 关键：公共 JS 库必须在视图内容之前加载！
                  视图内联脚本（如 loadDeptList() / loadUserList()）在页面解析时立即执行，

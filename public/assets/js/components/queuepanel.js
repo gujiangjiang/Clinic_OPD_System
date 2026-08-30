@@ -295,7 +295,8 @@ Clinic.queuePanel = (function () {
                         }
                         var vCode = row.getAttribute('data-code');
                         closePanel();
-                        location.href = '/doctor/emr?visit_id=' + vCode;
+                        // 会诊tab进入 → 带 consult 参数（标记为会诊模式，非会诊tab不进入会诊模式）
+                        location.href = '/doctor/emr?visit_id=' + vCode + '&consult=' + encodeURIComponent(consultCode);
                         return;
                     }
                     // 已接受但会诊病历未保存（status 仍 pending，accepted_by=本人）：
@@ -308,7 +309,8 @@ Clinic.queuePanel = (function () {
                         }
                         var vCode2 = row.getAttribute('data-code');
                         closePanel();
-                        location.href = '/doctor/emr?visit_id=' + vCode2;
+                        // 会诊tab进入 → 带 consult 参数
+                        location.href = '/doctor/emr?visit_id=' + vCode2 + '&consult=' + encodeURIComponent(consultCode);
                         return;
                     }
                     openConsultFromQueue(consultCode);
