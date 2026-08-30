@@ -26,11 +26,19 @@ Clinic.emr.segments = (function () {
                 escHtml(val || '-') + '</div>');
         };
         if (isProgress) push(isConsultRec ? '会诊记录' : '病历续写', (e.progress || {}).content);
-        push('主诉', Clinic.emr.format.fmtCC(e.chief_complaint));
-        push('现病史', Clinic.emr.format.fmtPI(e.history_present));
-        push('既往史', Clinic.emr.format.fmtPH(e.past_history));
-        push('过敏史', Clinic.emr.format.fmtAL(e.allergies));
-        push('主要症状', Clinic.emr.format.fmtMS(e.main_symptoms));
+        // 续写/会诊：主诉/现病史/主要症状归首诊文书；既往史/过敏史仅「承认」时显示（与打印一致）
+        if (isProgress) {
+            var phT = Clinic.emr.format.fmtPH(e.past_history);
+            if (phT !== '否认') push('既往史', phT);
+            var alT = Clinic.emr.format.fmtAL(e.allergies);
+            if (alT !== '否认') push('过敏史', alT);
+        } else {
+            push('主诉', Clinic.emr.format.fmtCC(e.chief_complaint));
+            push('现病史', Clinic.emr.format.fmtPI(e.history_present));
+            push('既往史', Clinic.emr.format.fmtPH(e.past_history));
+            push('过敏史', Clinic.emr.format.fmtAL(e.allergies));
+            push('主要症状', Clinic.emr.format.fmtMS(e.main_symptoms));
+        }
         // 生命体征：续写/会诊记录只用本记录自身 emr.vitals（完全独立，绝不回退就诊体征）；
         // 首诊记录才回退就诊 vitals。vitalDisplayText 空时返回 '—'（非空），
         // 需按原始数据判断是否有值；续写文书空段不显示（仅首诊显示 -）
@@ -44,21 +52,18 @@ Clinic.emr.segments = (function () {
         push('体格检查', Clinic.emr.format.fmtPE(e.physical_exam), isProgress ? false : true);
         push('初步诊断', Clinic.emr.format.fmtDiags(e.diagnoses));
         // ===== 辅助检查 / 门诊处置 =====
-        // 首诊记录：拉取该医生在【本记录】名下开具的检查/检验/处置/处方 + 发起的会诊
-        // （开单自动入病历展示，按 record_id 强关联，杜绝跨病历串显示）；
-        // 续写/会诊记录：完全独立个体，只展示本记录自身手工字段，绝不拉取其他记录开单
+        // 按 record_id 强关联拉取本记录名下开单 + 会诊（续写/会诊病历也拉取自己名下开单），
+        // 杜绝跨病历串显示；兼容旧数据（record_id=0）回退按医生归属
         var auxParts = [];
         var rxHtml = '';
         var procParts = [];
-        if (!isProgress) {
-            var t2 = Clinic.emr.orders.orderTextsFor(rec.doctor_id || 0, rec.record_id || rec.id || 0);
-            t2.aux.forEach(function (n) { auxParts.push(escHtml(n)); });
-            // 门诊处置：与打印格式一致——处方每行一条，处置项汇总在后方
-            if (t2.rxs.length) {
-                rxHtml = t2.rxs.map(function (l) { return '<div>' + l + '</div>'; }).join('');
-            }
-            t2.proc.forEach(function (p) { procParts.push(escHtml(p)); });
+        // 所有记录类型（包括续写/会诊）均按 record_id 拉取本记录名下开单
+        var t2 = Clinic.emr.orders.orderTextsFor(rec.doctor_id || 0, rec.record_id || rec.id || 0);
+        t2.aux.forEach(function (n) { auxParts.push(escHtml(n)); });
+        if (t2.rxs.length) {
+            rxHtml = t2.rxs.map(function (l) { return '<div>' + l + '</div>'; }).join('');
         }
+        t2.proc.forEach(function (p) { procParts.push(escHtml(p)); });
         [e.aux_result, e.aux_external].forEach(function (x) {
             if (x && String(x).trim()) auxParts.push(escHtml(x));
         });
