@@ -33,8 +33,8 @@ Clinic.orderRxLines = function (items) {
     var fullLine = function (it) {
         var p = [];
         if (it.single_dose) p.push(it.single_dose);
-        if (it.frequency_name) p.push(it.frequency_name);
-        if (it.route_name) p.push(it.route_name);
+        if (it.frequency) p.push(it.frequency);
+        if (it.route) p.push(it.route);
         return it.item_name + (p.length ? '\u3000' + p.join('\u3000') : '') + '\u3000\u00D7' + it.quantity;
     };
     var i = 0;
@@ -191,8 +191,8 @@ Clinic.order = (function () {
             if (isDrug) {
                 var parts = [];
                 if (it.single_dose) parts.push('剂量 ' + it.single_dose);
-                if (it.frequency_name) parts.push('频次 ' + it.frequency_name);
-                if (it.route_name) parts.push('途径 ' + it.route_name);
+                if (it.frequency) parts.push('频次 ' + it.frequency);
+                if (it.route) parts.push('途径 ' + it.route);
                 info = parts.length ? '<div class="fs-12 text-muted">' + parts.join(' ｜ ') + '</div>' : '';
             } else if (it.is_group) {
                 // 检验组合：显示组内成员，按组价整体收费
@@ -201,15 +201,15 @@ Clinic.order = (function () {
             }
             return '<div class="dd-item" data-id="' + it.id + '" ' +
                 'data-price="' + (it.price || 0) + '" data-name="' + (it.name || '').replace(/"/g, '&quot;') + '"' +
-                ' data-spec="' + (it.spec || '') + '" data-unit="' + (it.unit_name || it.unit || '') + '"' +
+                ' data-spec="' + (it.spec || '') + '" data-unit="' + (it.unit || '') + '"' +
                 ' data-company="' + (it.company_short || '') + '"' +
                 ' data-dose="' + (it.single_dose || '') + '"' +
-                ' data-freq="' + (it.frequency_name || '') + '"' +
-                ' data-route="' + (it.route_name || '') + '"' +
+                ' data-freq="' + (it.frequency || '') + '"' +
+                ' data-route="' + (it.route || '') + '"' +
                 ' data-route-nurse="' + (it.route_nurse_required || 0) + '"' +
                 ' data-stock="' + (it.stock || 0) + '"' +
                 ' data-nurse-req="' + (it.nurse_required || 0) + '"' +
-                ' data-need-skin-test="' + (it.need_skin_test || 0) + '"' +
+                ' data-need-skin-test="' + (it.is_skin_test || 0) + '"' +
                 ' data-is-group="' + (it.is_group ? 1 : 0) + '"' +
                 ' data-members="' + (it.member_ids || '') + '"' +
                 '>' +
@@ -322,21 +322,21 @@ Clinic.order = (function () {
         if (it.category_name) parts.push(it.category_name);
         if (it.spec) parts.push('规格 ' + it.spec);
         if (showRx) {
-            if (it.frequency_name) parts.push('频次 ' + it.frequency_name);
-            if (it.route_name) parts.push('途径 ' + it.route_name);
+            if (it.frequency) parts.push('频次 ' + it.frequency);
+            if (it.route) parts.push('途径 ' + it.route);
         }
         parts.push('库存 ' + (it.stock || 0));
         return '<div class="rx-drop-item" data-id="' + it.id + '" ' +
             'data-price="' + (it.price || 0) + '" data-name="' + (it.name || '').replace(/"/g, '&quot;') + '"' +
-            ' data-spec="' + (it.spec || '') + '" data-unit="' + (it.unit_name || it.unit || '') + '"' +
+            ' data-spec="' + (it.spec || '') + '" data-unit="' + (it.unit || '') + '"' +
             ' data-company="' + (it.company_short || '') + '"' +
             ' data-dose="' + (it.single_dose || '') + '"' +
-            ' data-freq="' + (it.frequency_name || '') + '"' +
-            ' data-route="' + (it.route_name || '') + '"' +
+            ' data-freq="' + (it.frequency || '') + '"' +
+            ' data-route="' + (it.route || '') + '"' +
             ' data-route-nurse="' + (it.route_nurse_required || 0) + '"' +
             ' data-stock="' + (it.stock || 0) + '"' +
             ' data-nurse-req="' + (it.nurse_required || 0) + '"' +
-            ' data-need-skin-test="' + (it.need_skin_test || 0) + '"' +
+            ' data-need-skin-test="' + (it.is_skin_test || 0) + '"' +
             ' data-spec-dose="' + (it.spec_dose || 0) + '"' +
             ' data-spec-dose-unit="' + (it.spec_dose_unit || '') + '"' +
             ' data-spec-pack-qty="' + (it.spec_pack_qty || 1) + '"' +
@@ -567,7 +567,7 @@ Clinic.order = (function () {
         var sub = initDoseFields(it, {
             id: it.id, name: it.name, price: it.price, quantity: 1,
             dose: it.dose, frequency: '', route: '',
-            spec: it.spec, unit_name: it.unit_name, company_short: it.company_short,
+            spec: it.spec, unit: it.unit, company_short: it.company_short,
         });
         s.sub_items.push(sub);
         closeSubDrop();
@@ -618,7 +618,7 @@ Clinic.order = (function () {
             name: el.getAttribute('data-name'),
             price: parseFloat(el.getAttribute('data-price')) || 0,
             spec: el.getAttribute('data-spec'),
-            unit_name: el.getAttribute('data-unit'),
+            unit: el.getAttribute('data-unit'),
             company_short: el.getAttribute('data-company'),
             dose: el.getAttribute('data-dose'),
             freq: el.getAttribute('data-freq'),
@@ -626,7 +626,7 @@ Clinic.order = (function () {
             route_nurse: parseInt(el.getAttribute('data-route-nurse')) || 0,
             stock: parseInt(el.getAttribute('data-stock')) || 0,
             nurse_req: parseInt(el.getAttribute('data-nurse-req')) || 0,
-            need_skin_test: parseInt(el.getAttribute('data-need-skin-test'), 10) || 0,
+            is_skin_test: parseInt(el.getAttribute('data-need-skin-test'), 10) || 0,
             is_group: parseInt(el.getAttribute('data-is-group')) === 1,
             spec_dose: parseFloat(el.getAttribute('data-spec-dose')) || 0,
             spec_dose_unit: el.getAttribute('data-spec-dose-unit') || '',
@@ -749,7 +749,7 @@ Clinic.order = (function () {
      */
     function pushItem(it, el) {
         // 皮试药品阻断式确认（仅处方）：需皮试在开方时强制医生选择处置方案
-        if (CUR_TYPE === 'prescription' && it.need_skin_test === 1) {
+        if (CUR_TYPE === 'prescription' && it.is_skin_test === 1) {
             var curName = it.name;
             var skinEl = el;
             mustConfirmSkinTest(curName, function (choice) {
@@ -762,7 +762,7 @@ Clinic.order = (function () {
                     name: it.name,
                     price: it.price,
                     spec: it.spec,
-                    unit_name: it.unit_name,
+                    unit: it.unit,
                     company_short: it.company_short,
                     dose: it.dose,
                     frequency: it.freq,
@@ -786,7 +786,7 @@ Clinic.order = (function () {
             name: it.name,
             price: it.price,
             spec: it.spec,
-            unit_name: it.unit_name,
+            unit: it.unit,
             company_short: it.company_short,
             dose: it.dose,
             frequency: it.freq,
@@ -1048,10 +1048,10 @@ Clinic.order = (function () {
         SELECTED.forEach(function (s, idx) {
             flat.push({
                 item_id: s.id, item_name: s.name, price: s.price, quantity: s.quantity,
-                spec: s.spec, unit_name: s.unit_name, company_short: s.company_short,
+                spec: s.spec, unit: s.unit, company_short: s.company_short,
                 dose: s.dose, dose_unit: s.dose_unit || '', frequency: s.frequency, route: s.route,
                 notes: '', sub_of: 0, sort: idx,
-                need_nurse: ((CUR_TYPE === 'procedure' || CUR_TYPE === 'prescription') && s.nurse_required) ? 1 : 0,
+                is_nurse: ((CUR_TYPE === 'procedure' || CUR_TYPE === 'prescription') && s.nurse_required) ? 1 : 0,
             });
             // 皮试判定结果（主药行；子药下标为 null 表示非皮试主药）
             skinChoices.push(s.skin_test || '');
@@ -1060,7 +1060,7 @@ Clinic.order = (function () {
                     item_id: sub.id || 0, item_name: sub.name, price: sub.price || 0,
                     quantity: sub.quantity || 1,
                     dose: sub.dose, dose_unit: sub.dose_unit || '', frequency: '', route: '',
-                    spec: sub.spec || '', unit_name: sub.unit_name || '',
+                    spec: sub.spec || '', unit: sub.unit || '',
                     company_short: sub.company_short || '', notes: '',
                     sub_of: idx + 1, sort: si,
                 });

@@ -44,7 +44,7 @@ Clinic.emr.segments = (function () {
         // 需按原始数据判断是否有值；续写文书空段不显示（仅首诊显示 -）
         var recVitals = (e.vitals && Object.keys(e.vitals).length) ? e.vitals : (isProgress ? {} : (rec.vitals || {}));
         var hasVitals = false;
-        ['bp_systolic', 'bp_diastolic', 'heart_rate', 'pulse', 'spo2', 'respiration'].forEach(function (k) {
+        ['vital_sbp','vital_dbp','vital_heart_rate','vital_pulse','vital_spo2','vital_respiration'].forEach(function (k) {
             if (recVitals[k]) hasVitals = true;
         });
         push('生命体征', hasVitals ? vitalDisplayText(recVitals) : '', isProgress ? false : true);

@@ -104,8 +104,8 @@ Clinic.queuePanel = (function () {
             if (todayOnly) cons = cons.filter(function (c) { return (c.created_at || '').substr(0, 10) === t; });
             return cons.sort(function (a, b) { return (a.created_at || '').localeCompare(b.created_at || ''); });
         }
-        // 诊毕时间回退：旧数据无 finish_time 用挂号时间兜底
-        var finKey = function (r) { return (r.finish_date && r.finish_time) ? (r.finish_date + ' ' + r.finish_time) : r.date + ' ' + r.time; };
+        // 诊毕时间回退：旧数据无 finished_at 用挂号时间兜底
+        var finKey = function (r) { return (r.finish_date && r.finished_at) ? (r.finish_date + ' ' + r.finished_at) : r.date + ' ' + r.time; };
         var all = DATA.list;
         if (seen) {
             // 已诊（不论当日）：近 N 天诊毕患者

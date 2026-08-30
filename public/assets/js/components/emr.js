@@ -876,7 +876,7 @@ diagnoses: [],
      * 单条【他人】文书 → 只读段 HTML（标注带 + 正文节 + 医生签名）。
      * 页眉已独立为文档顶部公共区域，本段不再携带任何抬头/患者信息——
      * 仅病历主体呈现只读，谁书写谁签名。
-     * @param {Object} rec records_history 条目（含 doctor_name/emr/primary_diagnosis 等）
+     * @param {Object} rec records_history 条目（含 doctor_name/emr/diagnosis_name 等）
      */
     /* ==================== 只读段渲染——已拆至 emr_segments.js ==================== */
     function roSegmentHtml(rec) { return Clinic.emr.segments.roSegmentHtml(rec); }
@@ -889,19 +889,19 @@ diagnoses: [],
      * 血压 125/75mmHg；心率 80次/分；脉搏 80次/分；血氧 98%；呼吸 18次/分
      * 全部为空显示 -，有数据则只展示已有项
      */
-    /** 过敏史单一数据源：患者主表（patients.allergies）为唯一来源。
+    /** 过敏史单一数据源：患者主表（patients.allergy_history）为唯一来源。
      *  模态框始终从主表读取/写入，病历显示的快照与模态框无关。 */
     function allergyHistorySource() {
-        return (DATA && DATA.global_patient_info && DATA.global_patient_info.allergies) || '';
+        return (DATA && DATA.global_patient_info && DATA.global_patient_info.allergy_history) || '';
     }
     function vitalDisplayText(v) {
         v = v || {};
         var parts = [];
-        if (v.bp_systolic) parts.push('血压 ' + v.bp_systolic + '/' + (v.bp_diastolic || '—') + 'mmHg');
-        if (v.heart_rate) parts.push('心率 ' + v.heart_rate + '次/分');
-        if (v.pulse) parts.push('脉搏 ' + v.pulse + '次/分');
-        if (v.spo2) parts.push('血氧 ' + v.spo2 + '%');
-        if (v.respiration) parts.push('呼吸 ' + v.respiration + '次/分');
+        if (v.vital_sbp) parts.push('血压 ' + v.vital_sbp + '/' + (v.vital_dbp || '—') + 'mmHg');
+        if (v.vital_heart_rate) parts.push('心率 ' + v.vital_heart_rate + '次/分');
+        if (v.vital_pulse) parts.push('脉搏 ' + v.vital_pulse + '次/分');
+        if (v.vital_spo2) parts.push('血氧 ' + v.vital_spo2 + '%');
+        if (v.vital_respiration) parts.push('呼吸 ' + v.vital_respiration + '次/分');
         return parts.length ? parts.join('；') : '—';
     }
 
@@ -943,12 +943,12 @@ diagnoses: [],
             pop.innerHTML =
                 '<div class="fs-13 fw-700 mb-8">生命体征编辑</div>' +
                 '<div class="vitals-grid">' +
-                '  <div><label class="form-label">收缩压 mmHg</label><input class="input" id="vSys" type="number" min="0" value="' + val(v.bp_systolic) + '"></div>' +
-                '  <div><label class="form-label">舒张压 mmHg</label><input class="input" id="vDia" type="number" min="0" value="' + val(v.bp_diastolic) + '"></div>' +
-                '  <div><label class="form-label">心率 次/分</label><input class="input" id="vHR" value="' + val(v.heart_rate) + '"></div>' +
-                '  <div><label class="form-label">脉搏 次/分</label><input class="input" id="vPulse" value="' + val(v.pulse) + '"></div>' +
-                '  <div><label class="form-label">血氧饱和度 %</label><input class="input" id="vSpO2" value="' + val(v.spo2) + '"></div>' +
-                '  <div><label class="form-label">呼吸 次/分</label><input class="input" id="vResp" value="' + val(v.respiration) + '"></div>' +
+                '  <div><label class="form-label">收缩压 mmHg</label><input class="input" id="vSys" type="number" min="0" value="' + val(v.vital_sbp) + '"></div>' +
+                '  <div><label class="form-label">舒张压 mmHg</label><input class="input" id="vDia" type="number" min="0" value="' + val(v.vital_dbp) + '"></div>' +
+                '  <div><label class="form-label">心率 次/分</label><input class="input" id="vHR" value="' + val(v.vital_heart_rate) + '"></div>' +
+                '  <div><label class="form-label">脉搏 次/分</label><input class="input" id="vPulse" value="' + val(v.vital_pulse) + '"></div>' +
+                '  <div><label class="form-label">血氧饱和度 %</label><input class="input" id="vSpO2" value="' + val(v.vital_spo2) + '"></div>' +
+                '  <div><label class="form-label">呼吸 次/分</label><input class="input" id="vResp" value="' + val(v.vital_respiration) + '"></div>' +
                 '</div>' +
                 '<div class="fs-12 text-muted mt-4">保存后护士站将同步显示。</div>' +
                 '<div class="flex gap-8 mt-8">' +
@@ -988,12 +988,12 @@ diagnoses: [],
                     action: 'save_vitals',
                     visit_id: visitId,
                     record_id: (DATA && DATA.record && DATA.record.record_id) || 0,
-                    bp_systolic: vals.vSys === '' ? 0 : parseInt(vals.vSys, 10),
-                    bp_diastolic: vals.vDia === '' ? 0 : parseInt(vals.vDia, 10),
-                    heart_rate: vals.vHR,
-                    pulse: vals.vPulse,
-                    spo2: vals.vSpO2,
-                    respiration: vals.vResp,
+                    vital_sbp: vals.vSys === '' ? 0 : parseInt(vals.vSys, 10),
+                    vital_dbp: vals.vDia === '' ? 0 : parseInt(vals.vDia, 10),
+                    vital_heart_rate: vals.vHR,
+                    vital_pulse: vals.vPulse,
+                    vital_spo2: vals.vSpO2,
+                    vital_respiration: vals.vResp,
                 };
                 Clinic.ajax('/api/record', data, {
                     onSuccess: function (json) {
@@ -1001,12 +1001,12 @@ diagnoses: [],
                         if (DATA && DATA.record) {
                             if (!DATA.record.emr) DATA.record.emr = {};
                             DATA.record.emr.vitals = {
-                                bp_systolic: data.bp_systolic,
-                                bp_diastolic: data.bp_diastolic,
-                                heart_rate: data.heart_rate,
-                                pulse: data.pulse,
-                                spo2: data.spo2,
-                                respiration: data.respiration,
+                                vital_sbp: data.vital_sbp,
+                                vital_dbp: data.vital_dbp,
+                                vital_heart_rate: data.vital_heart_rate,
+                                vital_pulse: data.vital_pulse,
+                                vital_spo2: data.vital_spo2,
+                                vital_respiration: data.vital_respiration,
                             };
                         }
                         Clinic.toast.success(json.msg);
@@ -1325,8 +1325,8 @@ diagnoses: [],
                         var list = j.data.list || [];
                         pop.querySelector('#dpRes').innerHTML = list.length
                             ? list.map(function (x) {
-                                return '<div class="diag-pop-item" data-code="' + escHtml(x.diagnosis_code) + '" data-name="' + escHtml(x.diagnosis_name) + '">' +
-                                    '<span class="text-muted">' + escHtml(x.diagnosis_code) + '</span> <b>' + escHtml(x.diagnosis_name) + '</b></div>';
+                                return '<div class="diag-pop-item" data-code="' + escHtml(x.icd10_code) + '" data-name="' + escHtml(x.diagnosis_name) + '">' +
+                                    '<span class="text-muted">' + escHtml(x.icd10_code) + '</span> <b>' + escHtml(x.diagnosis_name) + '</b></div>';
                             }).join('')
                             : '<div class="fs-12 text-muted" style="padding:8px 2px">未检索到匹配诊断</div>';
                         clampPop(pop);   // 结果列表撑高浮窗后重新夹紧视口
@@ -2327,8 +2327,8 @@ diagnoses: [],
                 '<td class="fs-13">' + tree + escHtml(it.item_name) +
                 (it.spec ? '<div class="fs-12 text-muted">规格：' + escHtml(it.spec) + '</div>' : '') + '</td>' +
                 '<td class="fs-13">' + escHtml(it.single_dose || '—') + '</td>' +
-                '<td class="fs-13">' + escHtml(it.frequency_name || '—') + '</td>' +
-                '<td class="fs-13">' + escHtml(it.route_name || '—') + '</td>' +
+                '<td class="fs-13">' + escHtml(it.frequency || '—') + '</td>' +
+                '<td class="fs-13">' + escHtml(it.route || '—') + '</td>' +
                 '<td class="fs-13">' + (it.quantity || 0) + '</td>' +
                 '<td class="fs-13 text-muted">¥' + subtotal + '</td></tr>';
         });
@@ -2480,7 +2480,7 @@ diagnoses: [],
                     // 保存后同步全局过敏史：仅当通过模态框修改过（患者主表是唯一数据源）
                     if (DATA.global_patient_info && Clinic.emrEditor.isAllergyModified && Clinic.emrEditor.isAllergyModified()) {
                         var alx = emr.allergies || {};
-                        DATA.global_patient_info.allergies = (alx.type === '承认') ? (alx.detail || '') : '';
+                        DATA.global_patient_info.allergy_history = (alx.type === '承认') ? (alx.detail || '') : '';
                     }
                     // 关键：同步服务端返回的文书 ID。首次保存前 record_id=0，
                     // isRecordComplete() 会因「本人尚无文书」判定不完整，
@@ -2955,7 +2955,7 @@ diagnoses: [],
                 var pick = function (a, b, c) { return (a && String(a).trim()) || (b && String(b).trim()) || c || ''; };
                 cc = text(pick(cs.chief_complaint, cs2.chief_complaint, r.chief_complaint));
                 pi = text(pick(cs.present_illness, cs2.present_illness, r.present_illness));
-                diag = pick(cs.initial_diagnosis, cs2.initial_diagnosis, r.initial_diagnosis);
+                diag = pick(cs.preliminary_diagnosis, cs2.preliminary_diagnosis, r.preliminary_diagnosis);
 
                 // 病历概要区（两种形态共用；已开具时附证明号与开具时间）。
                 // 行间距统一规则：首行无边距，其余每行 mt-4——
@@ -3418,7 +3418,7 @@ function viewOrderFlow(orderId) {
                 }).join('');
             }
 
-            var catTitle = (o.order_type === 'imaging' && o.cat_name && o.cat_name !== '检查') ? o.cat_name : (typeNames[o.order_type] || '');
+            var catTitle = (o.order_type === 'imaging' && o.category_name && o.category_name !== '检查') ? o.category_name : (typeNames[o.order_type] || '');
             var printBtn = '<button class="btn btn-outline btn-sm" style="margin-top:8px" ' +
                 'onclick="Clinic.print.load(\'/api/print?action=order&order_id=' + o.id + '\',null,\'a5\')">🖨️ 打印' +
                 catTitle + '单</button>';

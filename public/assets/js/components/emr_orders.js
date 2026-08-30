@@ -112,7 +112,7 @@ Clinic.emr.orders = (function () {
                     var g = it0.group_no || 0;
                     if (!g) {
                         rxLines.push('<div class="ef-rx-line">' + itemToken(o, it0) +
-                            '\u3000' + escHtml([it0.single_dose, it0.frequency_name, it0.route_name].filter(Boolean).join('\u3000')) +
+                            '\u3000' + escHtml([it0.single_dose, it0.frequency, it0.route].filter(Boolean).join('\u3000')) +
                             '\u3000\u00D7' + it0.quantity + '</div>');
                         i3++;
                         continue;
@@ -123,7 +123,7 @@ Clinic.emr.orders = (function () {
                     arr.forEach(function (x, xi) {
                         if (xi === 0) {
                             rxLines.push('<div class="ef-rx-line">' + itemToken(o, x) +
-                                '\u3000' + escHtml([x.single_dose, x.frequency_name, x.route_name].filter(Boolean).join('\u3000')) +
+                                '\u3000' + escHtml([x.single_dose, x.frequency, x.route].filter(Boolean).join('\u3000')) +
                                 '\u3000\u00D7' + x.quantity + '</div>');
                         } else {
                             var head = (xi === arr.length - 1 ? '\u2514\u2500 ' : '\u251C\u2500 ') + itemToken(o, x) +

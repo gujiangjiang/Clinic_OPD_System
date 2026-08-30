@@ -41,9 +41,9 @@ function loadModal(url, data, title) {
     var FIELD_MAP = {
         f_am: 'am_quota', f_pm: 'pm_quota',
         f_generic: 'generic_name', f_pkg: 'package_unit', f_dose: 'single_dose',
-        f_freq: 'frequency_name', f_route: 'route_name',
-        f_rx: 'is_rx', f_limited: 'is_limited', f_nurse: 'need_nurse',
-        f_skin_test: 'need_skin_test', f_skin_item: 'skin_test_item_id',
+        f_freq: 'frequency', f_route: 'route',
+        f_rx: 'is_rx', f_limited: 'is_limited', f_nurse: 'is_nurse',
+        f_skin_test: 'is_skin_test', f_skin_item: 'skin_test_item_id',
         f_normal: 'normal_range', f_clow: 'critical_low', f_chigh: 'critical_high',
     };
 
