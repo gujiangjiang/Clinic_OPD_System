@@ -1,6 +1,6 @@
 {
   "name": "clinic-opd-system",
-  "version": "1.0.0",
+  "version": "5.0.0",
   "private": true,
   "description": "简易门诊一体化系统（PHP 7.x + SQLite + 原生 JS/CSS，无 Composer）",
   "scripts": {
