@@ -12,29 +12,28 @@
 
 /* ---------- 全局路径常量 ---------- */
 define('APP_ROOT', dirname(dirname(__DIR__)));        // 项目根目录（本文件位于 app/config/，上两级）
-define('DATA_DIR', APP_ROOT . '/data');               // 数据目录（分散式数据库、Session 文件）
+define('DATA_DIR', APP_ROOT . '/data');               // 数据目录（统一主库、Session 文件）
 define('UPLOAD_DIR', APP_ROOT . '/public/uploads');   // 上传目录（public 内，可被 Web 访问）
 define('API_PATH', APP_ROOT . '/app/api');            // AJAX 接口目录
 define('VIEW_PATH', APP_ROOT . '/app/views');         // 页面视图目录
 define('APP_VERSION', '4.16.10');
 
 /* ============================================================
- * 数据库驱动配置
+ * 数据库驱动配置（双驱动一键切换）
  * ------------------------------------------------------------
- * 当前使用 SQLite（分散式数据库：每个模块一个 .db 文件，
- * 由 DatabaseManager 统一创建与自动迁移）。
+ * 统一业务主库 clinic_main：
+ *   - SQLite：data/db/clinic_main.db（首次访问自动建库建表迁移种子）
+ *   - MySQL ：his_main 库（MYSQL_DB_NAME）
+ * ICD-10 独立只读字典库 data/db/icd10.db（SQLite，PRAGMA query_only）。
  *
- * 【预留 MySQL 接口】如需切换 MySQL：
- *   1. 将 DB_DRIVER 改为 'mysql'，并填写下方 MYSQL_* 常量；
- *   2. DatabaseManager 会根据驱动拼装不同的 DSN，
- *      各模块表结构在 app/config/schema/*.php 中集中定义；
- *   3. 切换时仅需把建表语句中的 AUTOINCREMENT 改为 AUTO_INCREMENT
- *      （见 schema 文件顶部说明），业务查询代码无需改动。
+ * 切换 MySQL 时仅需修改 DB_DRIVER='mysql' 并填写下方 MYSQL_* 常量，
+ * 全量建表 SQL 由 DatabaseManager 自动做方言转换（AUTOINCREMENT、
+ * INSERT OR IGNORE、NOW() 等），业务查询代码无需改动。
  * ============================================================ */
 define('DB_DRIVER', 'sqlite');          // 可选：sqlite / mysql
 define('MYSQL_HOST', '127.0.0.1');
 define('MYSQL_PORT', '3306');
-define('MYSQL_DB_PREFIX', 'his_');      // MySQL 下每个分散库对应一个数据库：his_core / his_user ...
+define('MYSQL_DB_NAME', 'his_main');    // MySQL 统一主库名（业务全表合并于此）
 define('MYSQL_USER', 'root');
 define('MYSQL_PASS', '');
 
