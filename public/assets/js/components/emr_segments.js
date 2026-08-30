@@ -117,11 +117,21 @@ Clinic.emr.segments = (function () {
     function refreshReadOnlyBodies(d) {
         if (!d) d = ctx.DATA;
         if (!d) return;
-        // 诊毕只读：全部文书以只读段展示（打印版式），重新渲染 docBody 显示开单
+        // 诊毕只读 / 跨科室绝对只读：全部文书以只读段展示（打印版式），
+        // 重新渲染 docBody 显示开单（ORDERS 异步加载后调用，确保只读段显示开单）
         if (d.visit && d.visit.status === 'finished') {
             var docBody = document.getElementById('docBody');
             if (docBody && (d.records_history || []).length) {
                 docBody.innerHTML = '<div class="prev-record-wrap">' + d.records_history.map(roSegmentHtml).join('') + '</div>';
+            }
+            return;
+        }
+        // 跨科室绝对只读（readonly_view）：docBody 已渲染全部只读段，但 ORDERS
+        // 异步加载后需刷新 docBody 以显示开单项目（与 finished 分支同逻辑）
+        if (d.__readonly_view) {
+            var docBody2 = document.getElementById('docBody');
+            if (docBody2 && (d.records_history || []).length) {
+                docBody2.innerHTML = '<div class="prev-record-wrap">' + d.records_history.map(roSegmentHtml).join('') + '</div>';
             }
             return;
         }

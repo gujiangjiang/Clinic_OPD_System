@@ -73,7 +73,31 @@ Clinic.emr = (function () {
             renderLeftNav();
             refreshReadOnlyBodies();
         });
-        loadData(visitId);
+        // 同步科室到后端，再加载病历数据（避免跨科室只读判定用旧值）
+        syncDeptThenLoad(visitId);
+    }
+
+    /** 同步当前科室到后端后加载病历数据 */
+    function syncDeptThenLoad(visitId) {
+        // 读取 sessionStorage 记忆的科室（与 wbPickDept 同源）
+        var deptId = 0;
+        try {
+            var uid = document.body.getAttribute('data-uid') || '';
+            var sid = document.body.getAttribute('data-sid') || '';
+            var sv = JSON.parse(sessionStorage.getItem('clinic_doc_dept') || '""');
+            if (sv && String(sv.u) === uid && String(sv.s) === sid && parseInt(sv.d, 10) > 0) deptId = parseInt(sv.d, 10);
+        } catch (e) {}
+        // 若有记忆的科室且与 body 渲染时的科室（data-dept）不同，先同步到后端
+        var bodyDept = parseInt(document.body.getAttribute('data-dept') || '0', 10);
+        if (deptId > 0 && deptId !== bodyDept) {
+            Clinic.ajax('/api/doctor', { action: 'set_dept', dept_id: deptId }, {
+                loading: false,
+                onSuccess: function () { loadData(visitId); },
+                onError: function () { loadData(visitId); },
+            });
+        } else {
+            loadData(visitId);
+        }
     }
 
     /**

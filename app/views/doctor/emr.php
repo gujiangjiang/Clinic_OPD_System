@@ -67,11 +67,16 @@ function wbReadSavedDept() {
 
 /* 选定科室 */
 /* 选定科室：仅保存在本次登录会话（sessionStorage 绑定账号+会话ID，
-   退出重登自动失效），不持久化到服务器；候诊列表按所选科室显示 */
+   退出重登自动失效），同时同步到后端 current_dept_id，
+   确保跨科室只读判定（readonly_view）正确。 */
 function wbPickDept(id) {
     WB_CUR_DEPT = id;
     var k = wbDeptMemKey();
     sessionStorage.setItem('clinic_doc_dept', JSON.stringify({ u: k.u, s: k.s, d: id }));
+    // 同步后端 current_dept_id（跨科室只读判定依赖此值）
+    if (window.Clinic) {
+        Clinic.ajax('/api/doctor', { action: 'set_dept', dept_id: id }, { loading: false });
+    }
     // 更新空状态提示
     document.querySelector('.wb-empty .fs-18').textContent = '🏥 已选择科室';
     document.querySelector('.wb-empty .fs-14').textContent = '候诊列表已打开，点击患者即可进入病历书写';
