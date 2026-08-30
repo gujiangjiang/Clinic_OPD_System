@@ -7,15 +7,15 @@
  * 1. 统一业务主库 clinic_main：全部业务表合并进单一主库，
  *    getMain() 返回主库 PDO（SQLite 文件 data/db/clinic_main.db
  *    或 MySQL 库 his_main，由 DB_DRIVER 切换）。
- * 2. ICD-10 独立只读字典库：getIcd10() 返回只读 SQLite PDO
- *    （data/db/icd10.db），以 PRAGMA query_only 强制只读，仅存储
+ * 2. ICD-10 独立字典库：getIcd10() 返回独立 SQLite PDO
+ *    （data/db/icd10.db），独立存储
  *    icd10 表，业务表仅冗余 icd10_code / diagnosis_name，不参与事务。
  * 3. 双驱动一键切换：DB_DRIVER='sqlite'|'mysql'，全量 SQL 遵循
  *    ANSI 标准，自增主键 / 布尔 / 时间 / 列存在检测由方言辅助处理。
  * 4. schema 定义：app/config/schema/main.php（主库）+ icd10.php（字典库）；
  *    旧分散式 schema 归档于 app/config/schema/legacy/（供数据迁移工具引用）。
  * 5. 兼容旧调用：DB::pdo($key)/DB::q($key,...) 等旧分散库签名仍可用，
- *    非 icd10 的 key 一律路由到主库，icd10 路由到只读字典库。
+ *    非 icd10 的 key 一律路由到主库，icd10 路由到字典库。
  * 6. 所有 SQL 一律使用 PDO 预处理语句，防止 SQL 注入。
  * ============================================================ */
 class DatabaseManager {
@@ -23,7 +23,7 @@ class DatabaseManager {
     /** 主库 PDO 连接 */
     private static $main = null;
 
-    /** ICD-10 只读 PDO 连接 */
+    /** ICD-10 独立 PDO 连接 */
     private static $icd10 = null;
 
     /** 是否已执行过主库种子数据 */
@@ -75,9 +75,9 @@ class DatabaseManager {
     }
 
     /**
-     * 获取 ICD-10 独立字典库 PDO 连接（只读）
+     * 获取 ICD-10 独立字典库 PDO 连接（独立库）
      * 说明：首次访问若文件不存在则先读写建库建表种子，再以
-     * PRAGMA query_only 强制只读重开；此后任何写操作都会被 SQLite 拒绝。
+     * 可读写，管理端可维护诊断
      */
     public static function getIcd10() {
         if (self::$icd10 !== null) {
@@ -100,12 +100,11 @@ class DatabaseManager {
             self::seedIcd10($rw, $def);
             unset($rw);
         }
-        // 以只读模式打开（SQLite PRAGMA query_only 阻止一切写操作）
+        // ICD-10 独立字典库：与管理库隔离，但允许管理端新增/编辑/删除诊断维护
         $pdo = new PDO('sqlite:' . $file, null, null, array(
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ));
-        $pdo->exec('PRAGMA query_only = ON');
         $pdo->exec('PRAGMA busy_timeout = 5000');
         self::$icd10 = $pdo;
         return self::$icd10;
@@ -118,7 +117,7 @@ class DatabaseManager {
         self::seedAll();
     }
 
-    /** 旧签名兼容：pdo($key) —— 非 icd10 一律返回主库，icd10 返回只读字典库 */
+    /** 旧签名兼容：pdo($key) —— 非 icd10 一律返回主库，icd10 返回字典库 */
     public static function pdo($key) {
         return $key === 'icd10' ? self::getIcd10() : self::getMain();
     }

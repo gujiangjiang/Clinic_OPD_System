@@ -13,6 +13,38 @@
 
 ---
 
+## [5.0.0] - 2026-08-31
+
+### 变更
+
+- **数据库架构原子化重构（分散式多库 → 统一单主库 clinic_main）**：
+  - 原 core / user / dept / patient / order / drug / medical / nurse / lab / disp / emr_templates / clinic_rooms / consultation 等 13 个分散 SQLite 库全部合并为统一业务主库 `clinic_main`，统一经 `DatabaseManager::getMain()` 访问，原生支持跨表 JOIN 与 ACID 事务。
+  - **ICD-10 独立字典库**：独立文件 `icd10.sqlite`，经 `DatabaseManager::getIcd10()` 访问，与业务主库隔离；业务表仅冗余 `icd10_code` / `diagnosis_name`，不参与事务；管理端支持新增/编辑/删除诊断（小规模维护），大范围导入可走管理端数据导入功能。
+  - **双驱动一键切换**：`DB_DRIVER = sqlite | mysql`，SQLite 为 `data/db/clinic_main.db`，MySQL 为 `his_main` 库；建表 / 种子 / 迁移 SQL 由方言层自动转换（`AUTOINCREMENT→AUTO_INCREMENT`、`INSERT OR IGNORE→INSERT IGNORE`、`datetime('now','localtime')→NOW()`）。
+  - **字段全盘规范化（snake_case & 语义化）**：
+    - 时间字段 `_time → _at`：`register_time→registered_at`、`payment_time→paid_at`、`finish_time→finished_at`
+    - 生命体征 `vital_*`：`bp_systolic→vital_sbp`、`bp_diastolic→vital_dbp`、`heart_rate→vital_heart_rate`、`pulse→vital_pulse`、`spo2→vital_spo2`、`respiration→vital_respiration`
+    - EMR 核心字段：`initial_diagnosis→preliminary_diagnosis`、`diagnosis_code→icd10_code`、`main_symptom→chief_complaint`、`allergies→allergy_history`、`primary_icd10→icd10_code`、`primary_diagnosis→diagnosis_name`、`advice→doctor_advice`（仅数据库列，emr_data JSON 键保留）
+    - 布尔字段：`need_nurse→is_nurse`、`need_skin_test→is_skin_test`
+    - 语义化：`cat_name→category_name`、`frequency_name→frequency`、`route_name→route`、`unit_name→unit`
+  - **数据平滑迁移工具**：`tools/migrate_split_to_unified.php` 按字段映射字典读取旧分散库、清洗补丁字段并写入统一主库，保留原主键 ID，事务性迁移 + 迁移后一致性校验报告。
+  - **核心工作流原生 ACID 事务**：挂号、批量缴费、开单（含联动处置与库存扣减）、退费、发药等复合操作统一 `beginTransaction()/commit()/rollBack()`。
+  - **N+1 查询优化**：收费处就诊详情等由逐订单循环查询改为批量 `IN` 查询分组。
+- **数据库连接 API 变更**：`DB::q/one/val/exec/insert` 门面统一走主库（兼容旧分散库 key 签名自动路由）；`icd10.php` 改用 `getIcd10()`。
+- 系统版本号由 `4.16.10` 升级为 `5.0.0`（大版本：架构级重构）。
+
+### 新增
+
+- `app/config/schema/main.php`：统一业务主库 Schema（36 张表，双驱动兼容）
+- `app/config/schema/icd10.php`：ICD-10 独立字典库 Schema
+- `app/config/schema/legacy/`：归档旧分散式 Schema（供迁移工具引用）
+- `tools/migrate_split_to_unified.php`：分散库→统一主库自动迁移与字段清洗工具
+- `docs/db-refactor-mapping.md`：《字段与表结构重构映射总表》
+
+### 文档
+
+- README：更新数据库徽章（SQLite/MySQL 双驱动）、目录结构与运行说明同步。
+
 ## [4.16.10] - 2026-08-30
 
 ### 修复

@@ -5,7 +5,7 @@
 本系统原采用**分散式 SQLite 存储**：每个业务模块一个独立 `.db` 文件，由 `DatabaseManager::pdo($key)` 按 key 连接。本次重构将：
 
 1. **合并所有业务库**为统一主库 `clinic_main`（SQLite 文件 `data/db/clinic_main.db` 或 MySQL 库 `his_main`）
-2. **ICD-10 保持独立**只读 SQLite 库 `icd10.sqlite`
+2. **ICD-10 保持独立**独立 SQLite 库 `icd10.sqlite`
 3. **双驱动**：`DB_DRIVER=sqlite|mysql` 一键切换
 4. **字段全盘规范化**：时间 `_at`/`_date`、布尔 `is_`/`has_`、EMR 核心字段、体征 `vital_*`
 
@@ -28,7 +28,7 @@
 | `emr_templates` | `emr_templates.db` | `clinic_main` | 病历模板 |
 | `clinic_rooms` | `clinic_rooms.db` | `clinic_main` | 诊室/叫号大屏 |
 | `consultation` | `consultation.db` | `clinic_main` | 会诊记录 |
-| `icd10` | `icd10.db` | **独立 icd10.sqlite** | ICD-10 诊断字典（只读） |
+| `icd10` | `icd10.db` | **独立 icd10.sqlite** | ICD-10 诊断字典（独立库） |
 
 ---
 
@@ -535,11 +535,11 @@
 |--------|--------|------|------|
 | 全部 | 保持不变 | — | 保留原字段名 |
 
-### 2.37 `icd10` ICD-10 诊断字典（独立只读库）
+### 2.37 `icd10` ICD-10 诊断字典（独立库）
 
 | 旧字段 | 新字段 | 类型 | 说明 |
 |--------|--------|------|------|
-| 全部 | 保持不变 | — | 独立 SQLite 只读库，不参与主库合并 |
+| 全部 | 保持不变 | — | 独立 SQLite 字典库，不参与主库合并 |
 
 ---
 
@@ -609,7 +609,7 @@
 |--------|--------|------|
 | `DB::pdo('core')` | `DatabaseManager::getMain()` | 主库连接 |
 | `DB::pdo('patient')` | `DatabaseManager::getMain()` | 主库连接 |
-| `DB::pdo('icd10')` | `DatabaseManager::getIcd10()` | ICD-10 只读库 |
+| `DB::pdo('icd10')` | `DatabaseManager::getIcd10()` | ICD-10 字典库 |
 | `DB::q('core', ...)` | `DB::q(...)` | 主库查询（默认 getMain） |
 | `DB::q('patient', ...)` | `DB::q(...)` | 主库查询（默认 getMain） |
 | `DB::one('medical', ...)` | `DB::one(...)` | 主库查询 |

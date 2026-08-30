@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v4.16.10-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2F预留MySQL-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v5.0.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -65,7 +65,7 @@
 | 类别 | 技术 |
 | --- | --- |
 | 后端 | PHP 7.x（PDO 预处理防注入、password_hash 密码哈希） |
-| 数据库 | SQLite（分散式：每模块独立 .db，统一 DatabaseManager 建库/迁移）· 预留 MySQL 接口 |
+| 数据库 | 统一主库 clinic_main（SQLite `data/db/clinic_main.db`）· **SQLite/MySQL 双驱动一键切换**（`DB_DRIVER`）· ICD-10 独立字典库 · 原生 ACID 事务 |
 | 前端 | 原生 HTML + CSS + JavaScript（AJAX 局部刷新 + 模态对话框 + 悬浮面板，无框架） |
 | 主题 | base.css（明亮）/ dark.css（夜间）/ 自动模式，按用户保存 |
 | 部署 | Nginx（单入口转发 `public/index.php`），`data/`、`app/` 位于 Web 根之外 |
@@ -83,11 +83,14 @@
 │   └── uploads/               # 上传文件：logo/、user/{角色}/——运行时生成，不提交
 ├── app/                       # 业务代码（Web 无法访问）
 │   ├── config/
-│   │   ├── bootstrap.php      # 启动引导（常量、Session、时区、类加载）
+│   │   ├── bootstrap.php      # 启动引导（常量、Session、时区、类加载、DB_DRIVER 驱动配置）
 │   │   ├── options_data.php   # 公共字典（统一数据源）
-│   │   └── schema/            # 分散式数据库表结构 + 自动迁移 + 种子数据（001~012）
+│   │   └── schema/            # 数据库表结构定义
+│   │       ├── main.php       # 统一业务主库 schema（36 张表，SQLite/MySQL 双驱动兼容）
+│   │       ├── icd10.php      # ICD-10 独立字典库 schema
+│   │       └── legacy/        # 旧分散式 schema 归档（供迁移工具引用）
 │   ├── core/                  # 核心类
-│   │   └── DatabaseManager.php Auth.php Session.php CSRF.php Upload.php Router.php helpers.php
+│   │   └── DatabaseManager.php（getMain/getIcd10 双连接 + 方言辅助）Auth.php Session.php CSRF.php Upload.php Router.php helpers.php
 │   ├── api/                   # AJAX 接口（按功能拆分，含角色权限校验）
 │   │   ├── _init.php          # 接口公共入口（CSRF + 登录 + 角色校验）
 │   │   ├── parts/             # 管理端接口按功能拆分（settings/dept/user/item/drug/disp/audit/call）

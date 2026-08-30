@@ -1,11 +1,12 @@
 <?php
 /**
  * ============================================================
- * icd10.php — ICD10 诊断检索接口（只读字典库）
+ * icd10.php — ICD10 诊断检索与维护接口
  * ============================================================
- * 说明：ICD-10 疾病编码独立只读库，由 DatabaseManager::getIcd10()
- * 以 PRAGMA query_only 打开。支持按编码 / 名称 / 拼音首字母检索。
- * 管理端维护 ICD-10 诊断需通过其他途径（如直接导入文件）。
+ * 说明：ICD-10 疾病编码独立字典库，由 DatabaseManager::getIcd10()
+ * 访问（独立文件，隔离于业务主库）。支持按编码 / 名称 / 拼音
+ * 首字母检索；管理端可新增、编辑、删除诊断（小规模维护），
+ * 大范围导入可走管理端数据导入功能。
  * ============================================================ */
 require __DIR__ . '/_init.php';
 
@@ -67,10 +68,34 @@ switch ($action) {
         json_ok(array('list' => $out, 'total' => $total, 'offset' => $offset, 'limit' => $limit));
         break;
 
-    /* ---------------- 保存/删除（只读库，拒绝写操作） ---------------- */
+    /* ---------------- 保存诊断（新增/编辑，拼音首字母自动生成） ---------------- */
     case 'save':
+        $id = (int)post('id', 0);
+        $code = strtoupper(post('code', ''));
+        $name = post('name', '');
+        $pinyin = strtoupper(post('pinyin', ''));
+        if ($code === '') json_fail('请填写诊断编码（ICD10）');
+        if ($name === '') json_fail('请填写诊断名称');
+        if ($pinyin === '') {
+            // 自动生成诊断名称拼音首字母，便于快速检索
+            $pinyin = pinyin_initial($name);
+        }
+        // 编码+名称 唯一性校验
+        $dup = DB::one('icd10', 'SELECT id FROM icd10 WHERE (code=? OR name=?) AND id<>?', array($code, $name, $id));
+        if ($dup) json_fail('该诊断编码或名称已存在');
+        if ($id > 0) {
+            $icd10->prepare('UPDATE icd10 SET code=?, name=?, pinyin=? WHERE id=?')->execute(array($code, $name, $pinyin, $id));
+        } else {
+            $icd10->prepare('INSERT INTO icd10(code, name, pinyin) VALUES(?,?,?)')->execute(array($code, $name, $pinyin));
+        }
+        json_ok(array(), '诊断已保存');
+        break;
+
+    /* ---------------- 删除诊断 ---------------- */
     case 'delete':
-        json_fail('ICD-10 字典库为只读，请通过管理端数据导入功能维护');
+        $id = (int)post('id', 0);
+        $icd10->prepare('DELETE FROM icd10 WHERE id=?')->execute(array($id));
+        json_ok(array(), '诊断已删除');
         break;
 
     default:
