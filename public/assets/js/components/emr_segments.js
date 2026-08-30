@@ -103,6 +103,11 @@ Clinic.emr.segments = (function () {
             }
         }
         if (myIdx === -1) return { before: hist.slice(), after: [] };
+        // 会诊锁/会诊处理中：当前记录单独渲染在 docBody（refreshReadOnlyBodies 会诊分支），
+        // 不得重复归入 before/after —— dept_match 此时恒为 0 会误判为转科归入 before
+        if (d.__consult_mode) {
+            return { before: hist.slice(0, myIdx), after: hist.slice(myIdx + 1) };
+        }
         // 转科后：本人当前文书书写科室与就诊当前科室不一致 → 该文书一并归入只读段
         var deptMismatch = d.record && d.record.dept_match === 0;
         if (deptMismatch) return { before: hist.slice(0, myIdx + 1), after: hist.slice(myIdx + 1) };

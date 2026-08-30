@@ -1138,9 +1138,11 @@ diagnoses: [],
             Clinic.toast.warning('该患者已诊毕，诊断不可调整');
             return false;
         }
-        // 统一可编辑病历判定：无可编辑病历（会诊处理中无会诊病历 / 转科前文书只读）→ 禁加诊断
-        if (!hasEditableRecord()) {
-            Clinic.toast.warning('当前无可编辑的病历（会诊需先创建并保存会诊病历，转科前文书只读），不可调整诊断');
+        // 当前编辑器可编辑判定（区别于开单的 hasEditableRecord）：
+        // 会诊处理中 → 当前文书须是会诊文书；普通模式 → 当前科室文书或首诊新建中。
+        // 解决「会诊病历编辑中 record_id=0 → 误判无可编辑病历」的自锁。
+        if (!currentRecordEditable()) {
+            Clinic.toast.warning('当前无可编辑的病历（会诊需先创建会诊病历，转科前文书只读），不可调整诊断');
             return false;
         }
         return true;
@@ -2743,11 +2745,12 @@ diagnoses: [],
 
     /** 开始创建会诊病历编辑器（点击右侧「病历节点 ＋」后调用） */
     function enterConsultEditor(consultId) {
+        // consultId 是 oid 混淆串（URL/__consult_id 均为 code）→ 先还原整数 id 并
+        // 标记当前文书为会诊病历（record_write 以整数匹配会诊单，否则绑定恒为 0；
+        // 须在编辑器渲染前设置，fillContHead 才能显示「会诊记录」徽标）
+        DATA.record.consultation_id = consultRawId(consultId);
         // 新建会诊病历编辑器（复用续写编辑器链路；consultation_id 随保存关联）
         if (DATA.record.record_id > 0) addProgressEditor(); else createProgressEditor();
-        // consultId 是 oid 混淆串（URL/__consult_id 均为 code）→ 还原整数 id，
-        // record_write 以整数匹配会诊单（(int)post('consultation_id')），否则绑定恒为 0
-        DATA.record.consultation_id = consultRawId(consultId);
         applyConsultMode(consultId);
         // 恢复顶栏写操作按钮（保存 / 会诊完毕），仅隐藏转科
         document.querySelectorAll('.emr-top-actions .emr-write').forEach(function (b) {
@@ -2990,16 +2993,31 @@ diagnoses: [],
      *  · 会诊处理中（__consult_mode）→ 仅本人会诊病历（consultation_id>0）可编辑；
      *  · 普通模式 → 本人已保存且 dept_match=1（书写科室==当前科室；后端已含
      *    会诊文书须未完毕才可编辑的判定）。
-     *  开单 / 发会诊 / 开诊断证明 / 加诊断统一以此为准，动态判定，杜绝只读态开单。 */
+     *  开单 / 发会诊 / 开诊断证明统一以此为准，动态判定，杜绝只读态开单。 */
     function hasEditableRecord() {
         if (!DATA || !DATA.record) return false;
         if (!(DATA.record.record_id > 0)) return false;   // 无本人已保存文书
         if (DATA.__consult_mode) {
-            // 会诊处理中：只有会诊病历可编辑（未创建会诊病历 → 不可开单）
             return (DATA.record.consultation_id || 0) > 0;
         }
-        // 普通模式：dept_match=1 即后端判定可编辑（含会诊未完毕的会诊文书）
         return DATA.record.dept_match === 1;
+    }
+
+    /** 当前编辑器是否可编辑（诊断添加/正文编辑用，与 hasEditableRecord 不同——
+     *  hasEditableRecord 要求已保存文书 record_id>0，用于开单等需绑定场景；
+     *  当前函数仅判定编辑上下文是否允许，新建中(record_id=0)也可编辑）。
+     *  · 会诊处理中 → 当前文书须是会诊文书（consultation_id>0）；
+     *  · 普通模式 → dept_match=1 或 本流水无任何病历（首诊新建中）。 */
+    function currentRecordEditable() {
+        if (!DATA || !DATA.record) return false;
+        if (DATA.visit && DATA.visit.status === 'finished') return false;
+        if (DATA.__consult_mode) {
+            return (DATA.record.consultation_id || 0) > 0;
+        }
+        if (DATA.record.dept_match === 1) return true;
+        // 本流水无任何病历 → 首诊新建中，编辑器已渲染，允许添加诊断
+        if (!(DATA.records_history || []).length) return true;
+        return false;
     }
 
     /** 会诊标识（oid 混淆串 或 纯数字 id）→ 整数会诊 id。
