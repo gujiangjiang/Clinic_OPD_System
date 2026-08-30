@@ -253,6 +253,7 @@ class Layout {
             <script src="/assets/js/components/emreditor.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/eventbus.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/emr.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/emr_rules.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/emr_format.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/emr_template.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/emr_fee.js?v=' . APP_VERSION . '"></script>

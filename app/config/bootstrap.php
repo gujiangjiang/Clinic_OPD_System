@@ -16,7 +16,7 @@ define('DATA_DIR', APP_ROOT . '/data');               // 数据目录（分散�
 define('UPLOAD_DIR', APP_ROOT . '/public/uploads');   // 上传目录（public 内，可被 Web 访问）
 define('API_PATH', APP_ROOT . '/app/api');            // AJAX 接口目录
 define('VIEW_PATH', APP_ROOT . '/app/views');         // 页面视图目录
-define('APP_VERSION', '4.16.3');
+define('APP_VERSION', '4.16.4');
 
 /* ============================================================
  * 数据库驱动配置
@@ -72,6 +72,7 @@ date_default_timezone_set('Asia/Shanghai');
 
 /* ---------- 引入辅助函数（helpers + 条形码生成，全站可用） ---------- */
 require_once __DIR__ . '/../core/helpers.php';
+require_once __DIR__ . '/../core/emr_rules.php';
 require_once __DIR__ . '/../core/barcode.php';
 
 /* ---------- 启动会话（Session 文件保存到 data/session，避开 Web 访问） ---------- */

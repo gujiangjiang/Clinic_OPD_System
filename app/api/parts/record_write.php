@@ -136,9 +136,10 @@ function record_part_write($action) {
             $recordType = $ownRow['record_type'];
         } else {
             $ownRow = DB::one('medical', 'SELECT id, record_type, consultation_id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
-            // 会诊完毕锁定：即使未显式传 edit_record_id，若保存目标（本人最新文书）
-            // 本身是已完毕会诊病历，同样永久只读（防止前端传 consultation_id=0 绕过）
-            if ($ownRow && (int)$ownRow['consultation_id'] > 0) {
+            // 会诊完毕锁定：仅当保存目标是「本人最新现有文书」时校验（无 edit_record_id
+            // 且非新建续写 progress_new）；若本人最新文书是已完毕会诊病历则只读。
+            // 新建续写（progress_new=1）保存目标是全新文书，与旧会诊记录无关，不可误拦。
+            if (!$progressNew && $ownRow && (int)$ownRow['consultation_id'] > 0) {
                 $ownConsStatus2 = DB::one('consultation', 'SELECT status FROM consultations WHERE id=?', array((int)$ownRow['consultation_id']));
                 if ($ownConsStatus2 && $ownConsStatus2['status'] === 'done') {
                     json_fail('该会诊已完毕，会诊病历已永久锁定为只读，不可修改');

@@ -13,6 +13,27 @@
 
 ---
 
+## [4.16.4] - 2026-08-30
+
+### 修复
+
+- **修复会诊完毕后新建续写保存误拦「该会诊已完毕」**：`record_write.php` save 的非
+  `edit_record_id` 分支，此前对「本人最新文书」校验会诊完毕状态——当本人最新文书是
+  已完毕会诊病历（C）时，即使本次是**新建续写**（`progress_new=1`，保存目标是全新
+  文书，与旧会诊无关）也被误拦。现仅当「非新建续写」（保存目标即本人最新现有文书）
+  时才校验会诊完毕，`progress_new` 一律放行。
+
+### 新增
+
+- **病历状态机与操作权限统一规则引擎**：新增 `app/core/emr_rules.php`（后端权威）
+  与 `public/assets/js/components/emr_rules.js`（前端镜像，同规则）——
+  集中判定当前文书状态（`visit_finished` 诊毕 / `consult_editing` 会诊处理中可写 /
+  `consult_lock` 会诊处理中其他只读 / `consult_done` 会诊完毕永久只读 /
+  `editable` 当前科室可写 / `dept_mismatch` 转科前只读 / `others` 他人只读 /
+  `new` 新建中）及操作权限（能否书写/保存/开单/发会诊/加诊断），
+  消除各处散落判断导致的状态区分不一致（如会诊完毕误拦续写）。
+  前端 `hasEditableRecord` / `currentRecordEditable` 已委托规则引擎。
+
 ## [4.16.3] - 2026-08-30
 
 ### 修复

@@ -3069,40 +3069,29 @@ diagnoses: [],
     /**
      * 打印电子病历
      */
-    /** 前端统一「可编辑病历」判定（与后端 get_editable_record / get_consult_context 同规则）：
+    /** 前端统一「可编辑病历」判定（委托 emr_rules.js 规则引擎，与后端同规则）：
      *  · 会诊处理中（__consult_mode）→ 仅本人会诊病历（consultation_id>0 且会诊未完毕）
      *    可编辑；会诊已完毕的会诊病历永久只读；
-     *  · 普通模式 → 本人已保存且 dept_match=1（书写科室==当前科室；后端已含
-     *    会诊文书须未完毕才可编辑的判定）。
+     *  · 普通模式 → 本人已保存且 dept_match=1（书写科室==当前科室）。
      *  开单 / 发会诊 / 开诊断证明统一以此为准，动态判定，杜绝只读态开单。 */
     function hasEditableRecord() {
         if (!DATA || !DATA.record) return false;
         if (!(DATA.record.record_id > 0)) return false;   // 无本人已保存文书
-        if (DATA.__consult_mode) {
-            var cid = (DATA.record.consultation_id || 0);
-            if (cid <= 0) return false;   // 会诊处理中但尚无会诊病历 → 不可编辑
-            // 会诊已完毕 → 会诊病历永久只读（与后端 status=done 锁定一致）
-            var consDone = (DATA.consults || []).some(function (cc) {
-                return (cc.id || 0) === cid && cc.status === 'done';
-            });
-            if (consDone) return false;
-            return true;
-        }
+        if (window.Clinic && Clinic.emr.rules) return Clinic.emr.rules.canOrder();
         return DATA.record.dept_match === 1;
     }
 
     /** 当前编辑器是否可编辑（诊断添加/正文编辑用，与 hasEditableRecord 不同——
      *  hasEditableRecord 要求已保存文书 record_id>0，用于开单等需绑定场景；
      *  当前函数仅判定编辑上下文是否允许，新建中(record_id=0)也可编辑）。
-     *  · 会诊处理中 → 当前文书须是会诊文书（consultation_id>0）；
-     *  · 普通模式 → dept_match=1 或 本流水无任何病历（首诊新建中）。 */
+     *  委托 emr_rules.js 规则引擎（canWrite），统一首诊/续写/会诊/诊毕判定。 */
     function currentRecordEditable() {
+        if (window.Clinic && Clinic.emr.rules) return Clinic.emr.rules.canWrite();
         if (!DATA || !DATA.record) return false;
         if (DATA.visit && DATA.visit.status === 'finished') return false;
         if (DATA.__consult_mode) {
             var cid2 = (DATA.record.consultation_id || 0);
             if (cid2 <= 0) return false;
-            // 会诊已完毕 → 会诊病历永久只读
             var consDone2 = (DATA.consults || []).some(function (cc) {
                 return (cc.id || 0) === cid2 && cc.status === 'done';
             });
@@ -3110,10 +3099,7 @@ diagnoses: [],
             return true;
         }
         if (DATA.record.dept_match === 1) return true;
-        // 本流水无任何病历 → 首诊新建中，编辑器已渲染，允许添加诊断
         if (!(DATA.records_history || []).length) return true;
-        // 新建续写/会诊病历编辑中（record_id=0，编辑器已渲染）→ 允许添加诊断
-        // 解决「续写中需先添加诊断才能保存、保存又要求先添加诊断」的自锁
         if (!(DATA.record.record_id > 0) && (DATA.__pending_progress || DATA.__progress_new)) return true;
         return false;
     }
