@@ -298,6 +298,10 @@ function order_part_write($action) {
         }
 
         // ===== 逐组生成申请单（单号遵循原规则；循环查重保证多张同时创建不撞号） =====
+        // 开单+联动处置+库存扣减为复合写操作：整体包裹原生事务保证原子性
+        $pdo = DatabaseManager::getMain();
+        $pdo->beginTransaction();
+        try {
         $typeCode = array('lab' => 'JY', 'imaging' => 'JC', 'procedure' => 'CZ', 'prescription' => 'CF');
         $typeTitle = array('lab' => '检验申请单', 'imaging' => '检查申请单', 'procedure' => '处置单', 'prescription' => '处方单');
         $targets = array('lab' => 'lab', 'imaging' => 'imaging', 'procedure' => 'nurse', 'prescription' => 'pharmacy');
@@ -378,8 +382,7 @@ function order_part_write($action) {
         }
 
         // ===== 皮试/途径联动处置单（仅处方开单且存在联动项时生成） =====
-        // 与处方同一请求内完成写入；任一步失败即终止（此前处方已入库，
-        // 由调用方收到错误后整体重开，避免半张联动单）。
+        // 与处方同一请求内完成写入；任一步失败即回滚（事务保证处方与联动单原子提交）
         if ($orderType === 'prescription' && $autoDisp) {
             $autoTotal = 0;
             foreach ($autoDisp as $d) { $autoTotal += (float)$d['fee'] * (int)$d['qty']; }
@@ -412,6 +415,7 @@ function order_part_write($action) {
             $totalAll += $autoTotal;
         }
 
+        $pdo->commit();
         json_ok(array(
             'order_id' => oid($createdIds[0]),
             'order_ids' => array_map('oid', $createdIds),
@@ -420,6 +424,10 @@ function order_part_write($action) {
             'total' => $totalAll,
         ), count($createdIds) > 1 ? '已按检查分类拆分为 ' . count($createdIds) . ' 张申请单' : '开单成功');
         return;
+        } catch (Exception $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            json_fail('开单失败：' . $ex->getMessage());
+        }
     }
 
     if ($action === 'delete') {

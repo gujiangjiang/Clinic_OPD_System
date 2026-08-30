@@ -99,7 +99,11 @@ switch ($action) {
         if (!$it || $it['item_type'] !== 'prescription' || $it['status'] !== 'paid') {
             json_fail('处方不存在或状态异常');
         }
+        $pdo = DatabaseManager::getMain();
+        $pdo->beginTransaction();
+        try {
         DB::exec("UPDATE order_items SET status='dispensed', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
+        $pdo->commit();
         if ($it['doctor_id'] > 0) {
             $pName = DB::val('SELECT name FROM patients WHERE patient_no=?', array($it['patient_no']));
             send_msg('doctor', $it['doctor_id'],
@@ -109,6 +113,10 @@ switch ($action) {
                 array('msg_type' => 'patient', 'patient_name' => $pName, 'visit_id' => (int)$it['visit_id']));
         }
         json_ok(array(), '发药成功');
+        } catch (Exception $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            json_fail('发药失败：' . $ex->getMessage());
+        }
         break;
 
     /* ==================== 库存列表（HTML） ==================== */

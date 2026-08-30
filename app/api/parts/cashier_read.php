@@ -177,9 +177,19 @@ function cashier_part_read($action) {
         if (!$orders) {
             $html .= '<div class="fs-13 text-muted">暂无待缴费项目</div>';
         }
+        // 批量查询明细（避免逐单 N+1）
+        $orderIds = array();
+        foreach ($orders as $o) $orderIds[] = (int)$o['id'];
+        $itemsByOrder = array();
+        if ($orderIds) {
+            $ph = implode(',', array_fill(0, count($orderIds), '?'));
+            foreach (DB::q("SELECT * FROM order_items WHERE order_id IN ($ph) ORDER BY id", $orderIds) as $it) {
+                $itemsByOrder[(int)$it['order_id']][] = $it;
+            }
+        }
         $typeNames = array('lab' => '检验', 'imaging' => '检查', 'procedure' => '处置', 'prescription' => '处方');
         foreach ($orders as $o) {
-            $items = DB::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
+            $items = isset($itemsByOrder[(int)$o['id']]) ? $itemsByOrder[(int)$o['id']] : array();
             $agg = order_agg_status($o['order_type'], $items);
             $html .= '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">';
             $html .= '<div class="flex-between">' .
@@ -213,6 +223,9 @@ function cashier_part_read($action) {
     if ($action === 'pay_orders') {
         $ids = json_decode(post('order_ids', '[]'), true);
         if (!is_array($ids) || !$ids) json_fail('请选择要缴费的项目');
+        $pdo = DatabaseManager::getMain();
+        $pdo->beginTransaction();
+        try {
         $payId = 0;
         $total = 0;
         foreach ($ids as $oidStr) {
@@ -241,7 +254,12 @@ function cashier_part_read($action) {
                 (float)$order['total_amount'], count($items), $u['id'], $u['name'], now_str(),
             ));
         }
+        $pdo->commit();
         json_ok(array('payment_id' => oid($payId), 'total' => $total), '缴费成功');
         return;
+        } catch (Exception $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            json_fail('缴费失败：' . $ex->getMessage());
+        }
     }
 }

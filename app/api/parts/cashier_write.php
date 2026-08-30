@@ -75,6 +75,9 @@ function cashier_part_write($action) {
         }
 
         // ===== 患者档案（既往登记自动获取，可修改；身份证信息绑定唯一ID） =====
+        $pdo = DatabaseManager::getMain();
+        $pdo->beginTransaction();
+        try {
         $patient = $hasId ? DB::one('SELECT * FROM patients WHERE id_card=?', array($idCard)) : null;
         if ($patient) {
             // 已就诊过：更新可修改信息，姓名/性别/出生日期保持锁定
@@ -135,6 +138,7 @@ function cashier_part_write($action) {
             $u['id'], $u['name'], now_str(), $isExtra,
         ));
 
+        $pdo->commit();
         json_ok(array(
             'visit_id' => oid($visitId),
             'patient_no' => $patientNo,
@@ -147,6 +151,10 @@ function cashier_part_write($action) {
             'is_extra' => $isExtra,
         ), '挂号成功，请完成缴费');
         return;
+        } catch (Exception $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            json_fail('挂号失败：' . $ex->getMessage());
+        }
     }
 
     if ($action === 'pay_visit') {
@@ -174,10 +182,18 @@ function cashier_part_write($action) {
             json_ok(array(), '挂号已取消');
         } elseif ($visit['status'] === 'paid') {
             // 已缴费：退费并登记退费记录；同首次科室当日可重新挂号（序号递增）
-            DB::exec("UPDATE registrations SET status='refunded', cancel_reason=? WHERE id=?", array($reason, $visitId));
-            DB::insert('INSERT INTO refunds(visit_id, order_id, patient_no, flow_no, total, reason, cashier_id, cashier_name, created_at) VALUES(?,0,?,?,?,?,?,?,?)', array(
-                $visitId, $visit['patient_no'], $visit['flow_no'], (float)$visit['fee'], $reason, $u['id'], $u['name'], now_str(),
-            ));
+            $pdo = DatabaseManager::getMain();
+            $pdo->beginTransaction();
+            try {
+                DB::exec("UPDATE registrations SET status='refunded', cancel_reason=? WHERE id=?", array($reason, $visitId));
+                DB::insert('INSERT INTO refunds(visit_id, order_id, patient_no, flow_no, total, reason, cashier_id, cashier_name, created_at) VALUES(?,0,?,?,?,?,?,?,?)', array(
+                    $visitId, $visit['patient_no'], $visit['flow_no'], (float)$visit['fee'], $reason, $u['id'], $u['name'], now_str(),
+                ));
+                $pdo->commit();
+            } catch (Exception $ex) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                json_fail('退费失败：' . $ex->getMessage());
+            }
             json_ok(array(), '退费成功：挂号费已退回，可重新挂号');
         } else {
             json_fail('当前状态不可退费（已就诊/已退费）');
@@ -199,6 +215,10 @@ function cashier_part_write($action) {
                 json_fail('存在已开始执行的项目（' . e($it['item_name']) . '），不可退费');
             }
         }
+        // 退费 + 恢复库存为复合写操作：原生事务保证原子性
+        $pdo = DatabaseManager::getMain();
+        $pdo->beginTransaction();
+        try {
         DB::exec("UPDATE order_items SET status='refunded' WHERE order_id=?", array($orderId));
         DB::exec("UPDATE orders SET status='refunded', refunded_at=? WHERE id=?", array(now_str(), $orderId));
         DB::insert('INSERT INTO refunds(visit_id, order_id, patient_no, flow_no, total, reason, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
@@ -216,7 +236,12 @@ function cashier_part_write($action) {
                 }
             }
         }
+        $pdo->commit();
         json_ok(array(), '退费成功，药品库存已恢复');
         return;
+        } catch (Exception $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            json_fail('退费失败：' . $ex->getMessage());
+        }
     }
 }
