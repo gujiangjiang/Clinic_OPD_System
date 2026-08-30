@@ -129,7 +129,10 @@ Clinic.emr = (function () {
                 // 1) 后端权威锁定：consult_mode=1（该就诊存在发给当前医生科室的
                 //    进行中会诊）→ 直接进入会诊模式。刷新后依然有效，不依赖 URL 参数。
                 // 2) URL 携带 consult=code（从候诊「会诊」Tab 点进来 / 会诊详情确认）
-                // 3) 当前编辑记录本身就是会诊病历（consultation_id>0）
+                // 3) 当前编辑记录是会诊病历且会诊未完毕（pending/doing）→ 会诊模式。
+                //    会诊已完毕（done）的会诊病历不再进入会诊模式——恢复普通就诊视图，
+                //    完整展示会诊前病历 + 会诊病历（否则急诊科医生会诊完毕后回科室点开
+                //    患者，会被本分支误判为会诊状态，且只显示会诊记录、缺失前序病历）。
                 var urlConsult = new URLSearchParams(location.search).get('consult');
                 if (j.data.consult_mode && j.data.consult_code) {
                     enterConsultMode(j.data.consult_code);
@@ -138,12 +141,16 @@ Clinic.emr = (function () {
                     enterConsultMode(decodeURIComponent(urlConsult));
                     history.replaceState(null, '', '/doctor/emr?visit_id=' + visitId);
                 } else if (DATA.record && DATA.record.consultation_id > 0) {
-                    // 当前正在编辑会诊病历 → 查找对应会诊的 code 后进入会诊模式
+                    // 当前正在编辑会诊病历 → 查找对应会诊的 code；仅会诊未完毕才进入会诊模式
                     var consCode = '';
+                    var consActive = false;
                     (j.data.consults || []).forEach(function (cc) {
-                        if ((cc.id || 0) === DATA.record.consultation_id) consCode = cc.code;
+                        if ((cc.id || 0) === DATA.record.consultation_id) {
+                            consCode = cc.code;
+                            if (cc.status === 'pending' || cc.status === 'doing') consActive = true;
+                        }
                     });
-                    if (consCode) enterConsultMode(consCode);
+                    if (consActive && consCode) enterConsultMode(consCode);
                 }
             },
             onError: function (j) {

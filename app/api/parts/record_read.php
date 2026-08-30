@@ -98,21 +98,34 @@ function record_part_read($action) {
                 'consciousness' => $mirror ? (string)$mirror['consciousness'] : '',
             );
         };
+        // 会诊上下文：当前医生是否处于该就诊的会诊处理中（基于就诊+目标科室，与 URL 参数无关）
+        // 用于：1) 前端刷新后仍能进入会诊模式；2) dept_match 精确判定；
+        //       3) $mine 选择——优先「当前上下文可编辑」的本人文书
+        $consultCtx = get_consult_context($visit, $u);
+        $consultMode = $consultCtx ? 1 : 0;
+        $consultCode = $consultCtx ? oid($consultCtx['id']) : '';
+
         $recordsHistory = array();
-        $mine = null;
+        $mine = null;       // 本人最新可编辑文书（首选项）
+        $mineLatest = null; // 本人最新文书（无可编辑时兜底，走 deptMismatch 只读展示）
         foreach ($allRows as $pr2) {
             $item = $mapRecord($pr2);
             $recordsHistory[] = $item;
             if ((int)$pr2['doctor_id'] === (int)$u['id']) {
-                $mine = $item; // 当前医生在该流水下自己的文书（草稿或已保存）
+                $mineLatest = $item;
+                // 当前上下文可编辑判定（与 dept_match 同规则）：
+                // 会诊处理中 → 仅会诊病历可编辑；普通模式 → 书写科室==当前科室
+                // 或 本人会诊文书且会诊未完毕（已完毕的会诊病历只读，不抢占编辑位）
+                $editable = $consultMode
+                    ? (int)$pr2['consultation_id'] === (int)$consultCtx['id']
+                    : ((int)$pr2['dept_id'] === (int)$visit['current_dept_id']
+                        || ((int)$pr2['consultation_id'] > 0 && DB::val('consultation',
+                            "SELECT COUNT(*) FROM consultations WHERE id=? AND visit_id=? AND status IN ('pending','doing')",
+                            array((int)$pr2['consultation_id'], (int)$visit['id'])) > 0));
+                if ($editable) $mine = $item;   // 最新可编辑者胜出
             }
         }
-
-        // 会诊上下文：当前医生是否处于该就诊的会诊处理中（基于就诊+目标科室，与 URL 参数无关）
-        // 用于：1) 前端刷新后仍能进入会诊模式；2) dept_match 精确判定
-        $consultCtx = get_consult_context($visit, $u);
-        $consultMode = $consultCtx ? 1 : 0;
-        $consultCode = $consultCtx ? oid($consultCtx['id']) : '';
+        if (!$mine) $mine = $mineLatest;   // 无当前科室可编辑文书 → 回退最新（只读展示+续写占位）
 
         // 结构化病历：严格取当前医生本人的记录（无则新建骨架，
         // 绝不回退他人病历——他人病历仅作上方只读展示，互不篡改）
