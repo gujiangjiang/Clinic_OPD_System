@@ -64,6 +64,7 @@ Clinic.emr.segments = (function () {
             rxHtml = t2.rxs.map(function (l) { return '<div>' + l + '</div>'; }).join('');
         }
         t2.proc.forEach(function (p) { procParts.push(escHtml(p)); });
+        // 续写/会诊记录的辅助检查/门诊处置：本记录手工字段 + 本记录名下开单（通过 orderTextsFor + record_id 精确匹配）
         [e.aux_result, e.aux_external].forEach(function (x) {
             if (x && String(x).trim()) auxParts.push(escHtml(x));
         });
