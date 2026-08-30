@@ -548,20 +548,36 @@ function get_editable_record($visit, $u) {
             array($visitId, $uid, (int)$cons['id']));
     }
     // 普通模式：书写科室 == 就诊当前科室，或本人会诊文书且会诊未完毕
+    // （consultations 表在 consultation 库，不可嵌入 medical 库子查询，需先查询）
+    $activeConsIds = array();
+    $activeConsRows = DB::q('consultation',
+        "SELECT id FROM consultations WHERE visit_id=? AND status IN ('pending','doing')", array($visitId));
+    foreach ($activeConsRows as $acr) {
+        $activeConsIds[] = (int)$acr['id'];
+    }
     $curDept = (int)(isset($visit['current_dept_id']) ? $visit['current_dept_id'] : 0);
     if ($curDept > 0) {
+        if ($activeConsIds) {
+            $ph = implode(',', array_fill(0, count($activeConsIds), '?'));
+            return DB::one('medical',
+                "SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND (
+                    dept_id=?
+                    OR (consultation_id>0 AND consultation_id IN ($ph))
+                ) ORDER BY id DESC LIMIT 1",
+                array_merge(array($visitId, $uid, $curDept), $activeConsIds));
+        }
         return DB::one('medical',
-            "SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND (
-                dept_id=?
-                OR (consultation_id>0 AND consultation_id IN (SELECT id FROM consultations WHERE visit_id=? AND status IN ('pending','doing')))
-            ) ORDER BY id DESC LIMIT 1",
-            array($visitId, $uid, $curDept, $visitId));
+            'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND dept_id=? ORDER BY id DESC LIMIT 1',
+            array($visitId, $uid, $curDept));
     }
-    return DB::one('medical',
-        "SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0
-            AND consultation_id IN (SELECT id FROM consultations WHERE visit_id=? AND status IN ('pending','doing'))
-            ORDER BY id DESC LIMIT 1",
-        array($visitId, $uid, $visitId));
+    if ($activeConsIds) {
+        $ph = implode(',', array_fill(0, count($activeConsIds), '?'));
+        return DB::one('medical',
+            "SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0
+                AND consultation_id IN ($ph) ORDER BY id DESC LIMIT 1",
+            array_merge(array($visitId, $uid), $activeConsIds));
+    }
+    return null;
 }
 
 /**

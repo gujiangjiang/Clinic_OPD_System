@@ -13,6 +13,18 @@
 
 ---
 
+## [4.16.2] - 2026-08-30
+
+### 修复
+
+- **修复开单 500 错误（跨库子查询 bug）**：`get_editable_record()` 普通模式分支此前在
+  `medical` 数据库查询中内嵌 `SELECT id FROM consultations ...` 子查询，但
+  `consultations` 表位于独立的 `consultation` 数据库——开单提交时触发
+  `no such table: consultations` 致命错误（500）。现改为先在 `consultation` 库查询
+  进行中会诊 id 列表，再在 `medical` 库以参数占位符 `IN (...)` 关联，彻底消除跨库
+  子查询。修复后同一医生 A 首诊 / B 续写 / C 会诊完毕 三份文书并存时，默认定位
+  可编辑续写病历（B），开单正常。
+
 ## [4.16.1] - 2026-08-30
 
 ### 修复
