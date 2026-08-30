@@ -13,6 +13,16 @@
 
 ---
 
+## [4.16.5] - 2026-08-30
+
+### 修复
+
+- **修复会诊完毕后再次发送会诊被误拦**：`consultation.php` create 的「您正在会诊处理中」
+  拦截此前只判断 `patient_records.consultation_id > 0`，不区分会诊是否已完毕——即便会诊
+  已 done，关联的会诊病历（`consultation_id` 仍存在）也会触发误拦。现改为仅统计
+  **进行中/待处理（pending/doing）** 的会诊病历，会诊完毕（done）后即可再次向同科室
+  或其他科室发送会诊（同科室重复拦截仍按 `target_dept_id + pending/doing` 精确判定）。
+
 ## [4.16.4] - 2026-08-30
 
 ### 修复
