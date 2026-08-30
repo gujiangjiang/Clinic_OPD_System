@@ -13,6 +13,22 @@
 
 ---
 
+## [4.16.7] - 2026-08-30
+
+### 新增
+
+- **会诊完毕「查看完整病历」只读模式**：会诊完毕后，从会诊科室的会诊列表点击患者
+  显示会诊详情，新增「📋 查看完整病历」按钮（`openConsultDetail` 会诊完毕时展示）。
+  点击后进入病历页，URL 携带 `view=1` 参数，后端权威返回 `readonly_view` 标志，
+  前端强制全只读展示（类似诊毕但区别：不可补开诊断证明）：
+  · 后端 `record_read.php` 识别 `view=1`，强制 `dept_match=0`、跳过可编辑文书选择、
+    返回 `readonly_view` 标志；
+  · 前端 `renderEmrCard` 中 `readOnly` 在 `view_only` 模式为 true（走诊毕式只读骨架）；
+  · `setReadonlyUI` 在 `view_only` 模式下不保留诊断证明补开入口（会诊完毕不可开具）；
+  · 规则引擎 `emr_rules.js` 新增 `view_only` 状态，`hasEditableRecord` /
+    `currentRecordEditable` 全部委托返回 false，开单/诊断/会诊/续写/删除全拦截；
+  · 删除按钮、`emrNavAdd` 各入口均增加 `__view_only` 守卫，杜绝误操作。
+
 ## [4.16.6] - 2026-08-30
 
 ### 修复
