@@ -13,6 +13,34 @@
 
 ---
 
+## [4.15.5] - 2026-08-30
+
+### 修复
+
+- **修复开单保存后会诊病历页面误转只读 + 双灰底横条双签名**：`refreshReadOnlyBodies`
+  在会诊模式（`__consult_mode`）下此前无条件把 `docBody` 替换为只读段——当会诊病历
+  正处于可编辑状态（已创建且会诊未完毕）时，这会摧毁编辑器、并把骨架自带的
+  `contHeadWrap`/`signWrap` 与只读段自带的横条/签名叠加，出现「两个灰底横条、
+  右下角两个签名」。现在仅在「当前记录不可编辑」（会诊锁查看非会诊病历 / 会诊已完毕）
+  时才替换 `docBody`，可编辑会诊病历保留编辑器，只刷新他人只读段。
+
+- **会诊已完毕的会诊病历彻底只读**：`hasEditableRecord()` / `currentRecordEditable()`
+  在会诊模式下新增 `consDone` 判定——会诊状态为 done 的会诊病历一律视为只读，
+  不再允许开单 / 加诊断，与后端 `status=done` 锁定一致。
+
+- **修复只读病历重复渲染**：`splitOthers` 在会诊模式下（`__consult_mode`）不再把
+  当前记录误归入 `roBefore`——此前 `dept_match` 恒为 0 被误判为转科场景，导致当前
+  续写记录在 `roBefore` 和 `docBody` 各渲染一次，显示两份。
+
+- **修复会诊病历编辑自锁**：
+  · `enterConsultEditor` 先设置 `record.consultation_id` 再创建编辑器（此前先
+    `addProgressEditor` 后设 consultation_id，`fillContHead` 横幅误显示「病历续写」
+    而非「会诊记录」）；
+  · 新增 `currentRecordEditable()`：诊断添加判定与开单解耦——会诊处理中只要当前文书
+    是会诊文书（consultation_id>0）即可添加诊断，不再要求 `record_id>0`；解决
+    「会诊病历编辑中提示无可编辑病历、保存又要求先加诊断」的自锁；
+  · `diagEditable` 改用 `currentRecordEditable()`。
+
 ## [4.15.4] - 2026-08-30
 
 ### 修复

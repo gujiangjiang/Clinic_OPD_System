@@ -127,20 +127,29 @@ Clinic.emr.segments = (function () {
         }
         // 会诊锁/只读模式：同时重刷 roBefore/roAfter 和 docBody 中的当前记录只读段
         // （ORDERS 异步加载后调用，确保只读段显示开单）
+        // 注意：当前记录可编辑（会诊病历已创建且会诊未完毕）→ docBody 保留编辑器，
+        // 只刷 roBefore/roAfter 中的他人只读段，不替换 docBody。
         if (d.__consult_mode) {
             var parts = splitOthers(d);
             var beforeEl = document.getElementById('roBefore');
             var afterEl = document.getElementById('roAfter');
             if (beforeEl) beforeEl.innerHTML = parts.before.length ? parts.before.map(roSegmentHtml).join('') : '';
             if (afterEl) afterEl.innerHTML = parts.after.length ? parts.after.map(roSegmentHtml).join('') : '';
-            var docBody2 = document.getElementById('docBody');
-            if (docBody2 && d.record && d.record.record_id > 0) {
-                var rec2 = d.record;
-                var seg2 = { id: rec2.record_id, record_id: rec2.record_id, doctor_id: rec2.doctor_id,
-                    doctor_name: rec2.doctor_name, doctor_emp: rec2.doctor_emp||'', doctor_title: rec2.doctor_title||'',
-                    record_type: rec2.record_type, emr: rec2.emr||{}, created_at: rec2.created_at||'',
-                    consultation_id: rec2.consultation_id||0, consciousness: rec2.consciousness||'', vitals: {} };
-                docBody2.innerHTML = '<div class="prev-record-wrap">' + roSegmentHtml(seg2) + '</div>';
+            // 当前记录是否可编辑：会诊病历已创建（consultation_id>0）且会诊未完毕
+            var cid = d.record && (d.record.consultation_id || 0);
+            var consDone = cid > 0 && (d.consults || []).some(function (cc) { return (cc.id || 0) === cid && cc.status === 'done'; });
+            var editable = cid > 0 && !consDone;
+            // 不可编辑（consultLock 查看非会诊记录 / 会诊已完毕）→ 替换 docBody 为只读段
+            if (!editable) {
+                var docBody2 = document.getElementById('docBody');
+                if (docBody2 && d.record && d.record.record_id > 0) {
+                    var rec2 = d.record;
+                    var seg2 = { id: rec2.record_id, record_id: rec2.record_id, doctor_id: rec2.doctor_id,
+                        doctor_name: rec2.doctor_name, doctor_emp: rec2.doctor_emp||'', doctor_title: rec2.doctor_title||'',
+                        record_type: rec2.record_type, emr: rec2.emr||{}, created_at: rec2.created_at||'',
+                        consultation_id: rec2.consultation_id||0, consciousness: rec2.consciousness||'', vitals: {} };
+                    docBody2.innerHTML = '<div class="prev-record-wrap">' + roSegmentHtml(seg2) + '</div>';
+                }
             }
             return;
         }

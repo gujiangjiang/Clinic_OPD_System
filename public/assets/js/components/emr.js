@@ -2990,7 +2990,8 @@ diagnoses: [],
      * 打印电子病历
      */
     /** 前端统一「可编辑病历」判定（与后端 get_editable_record / get_consult_context 同规则）：
-     *  · 会诊处理中（__consult_mode）→ 仅本人会诊病历（consultation_id>0）可编辑；
+     *  · 会诊处理中（__consult_mode）→ 仅本人会诊病历（consultation_id>0 且会诊未完毕）
+     *    可编辑；会诊已完毕的会诊病历永久只读；
      *  · 普通模式 → 本人已保存且 dept_match=1（书写科室==当前科室；后端已含
      *    会诊文书须未完毕才可编辑的判定）。
      *  开单 / 发会诊 / 开诊断证明统一以此为准，动态判定，杜绝只读态开单。 */
@@ -2998,7 +2999,14 @@ diagnoses: [],
         if (!DATA || !DATA.record) return false;
         if (!(DATA.record.record_id > 0)) return false;   // 无本人已保存文书
         if (DATA.__consult_mode) {
-            return (DATA.record.consultation_id || 0) > 0;
+            var cid = (DATA.record.consultation_id || 0);
+            if (cid <= 0) return false;   // 会诊处理中但尚无会诊病历 → 不可编辑
+            // 会诊已完毕 → 会诊病历永久只读（与后端 status=done 锁定一致）
+            var consDone = (DATA.consults || []).some(function (cc) {
+                return (cc.id || 0) === cid && cc.status === 'done';
+            });
+            if (consDone) return false;
+            return true;
         }
         return DATA.record.dept_match === 1;
     }
@@ -3012,7 +3020,14 @@ diagnoses: [],
         if (!DATA || !DATA.record) return false;
         if (DATA.visit && DATA.visit.status === 'finished') return false;
         if (DATA.__consult_mode) {
-            return (DATA.record.consultation_id || 0) > 0;
+            var cid2 = (DATA.record.consultation_id || 0);
+            if (cid2 <= 0) return false;
+            // 会诊已完毕 → 会诊病历永久只读
+            var consDone2 = (DATA.consults || []).some(function (cc) {
+                return (cc.id || 0) === cid2 && cc.status === 'done';
+            });
+            if (consDone2) return false;
+            return true;
         }
         if (DATA.record.dept_match === 1) return true;
         // 本流水无任何病历 → 首诊新建中，编辑器已渲染，允许添加诊断
