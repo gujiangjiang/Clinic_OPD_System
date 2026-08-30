@@ -3112,6 +3112,9 @@ diagnoses: [],
         if (DATA.record.dept_match === 1) return true;
         // 本流水无任何病历 → 首诊新建中，编辑器已渲染，允许添加诊断
         if (!(DATA.records_history || []).length) return true;
+        // 新建续写/会诊病历编辑中（record_id=0，编辑器已渲染）→ 允许添加诊断
+        // 解决「续写中需先添加诊断才能保存、保存又要求先添加诊断」的自锁
+        if (!(DATA.record.record_id > 0) && (DATA.__pending_progress || DATA.__progress_new)) return true;
         return false;
     }
 

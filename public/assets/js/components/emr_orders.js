@@ -30,7 +30,15 @@ Clinic.emr.orders = (function () {
             if (o.status === 'refunded' || o.status === 'cancelled') return;
             // 新数据按 record_id 强关联；旧数据（record_id=0）回退按医生归属
             var oRec = o.record_id || 0;
-            if (recId > 0 && oRec > 0 && oRec !== recId) return;
+            // 严格按病历绑定展示：
+            // · 当前记录已有 id（recId>0）→ 仅展示绑定到本记录的（或旧数据 oRec=0 按医生）；
+            // · 当前记录未保存（recId=0，新建续写/会诊编辑中）→ 仅展示旧数据（oRec=0），
+            //   绝不展示绑定在其他病历上的新开单（防止续写中带入上个续写/会诊的开单）
+            if (recId > 0) {
+                if (oRec > 0 && oRec !== recId) return;
+            } else {
+                if (oRec > 0) return;
+            }
             o.items.forEach(function (it) {
                 if (o.order_type === 'lab' || o.order_type === 'imaging') {
                     aux.push(it.item_name);
@@ -48,7 +56,11 @@ Clinic.emr.orders = (function () {
         (ctx.CONSULTS || []).forEach(function (c) {
             if ((c.from_doctor_id || 0) !== doctorId) return;
             var cRec = c.record_id || 0;
-            if (recId > 0 && cRec > 0 && cRec !== recId) return;
+            if (recId > 0) {
+                if (cRec > 0 && cRec !== recId) return;
+            } else {
+                if (cRec > 0) return;
+            }
             proc.push('请' + (c.target_dept_name || '') + '会诊');
         });
         return { aux: aux, proc: proc, rxs: rxs };
@@ -73,9 +85,16 @@ Clinic.emr.orders = (function () {
         var curRec = (ctx.DATA && ctx.DATA.record) || {};
         var curRecId = curRec.record_id || 0;
         // 过滤条件：开单属于当前记录（新数据 record_id 强关联；旧数据 record_id=0 回退按医生归属）
+        // · 当前记录已保存（curRecId>0）→ 仅展示绑定到本记录的（或旧数据 oRec=0 按医生）；
+        // · 当前记录未保存（curRecId=0，新建续写/会诊编辑中）→ 仅展示旧数据（oRec=0），
+        //   绝不展示绑定在其他病历上的新开单（防止续写中带入上个续写/会诊的开单）
         var matchRec = function (o) {
             var oRec = o.record_id || 0;
-            if (oRec > 0 && curRecId > 0) return oRec === curRecId;
+            if (curRecId > 0) {
+                if (oRec > 0) return oRec === curRecId;
+                return (o.doctor_id || 0) === myId;
+            }
+            if (oRec > 0) return false;
             return (o.doctor_id || 0) === myId;
         };
         var auxT = [], rxLines = [], dispT = [];
