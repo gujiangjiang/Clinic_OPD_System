@@ -131,10 +131,14 @@ Clinic.emr = (function () {
                 var urlConsult = new URLSearchParams(location.search).get('consult');
                 if (urlConsult) {
                     enterConsultMode(decodeURIComponent(urlConsult));
-                    history.replaceState(null, '', '/doctor/emr?visit_id=' + visitId);   // 清除参数防刷新重复触发
+                    history.replaceState(null, '', '/doctor/emr?visit_id=' + visitId);
                 } else if (DATA.record && DATA.record.consultation_id > 0) {
-                    // 当前正在编辑会诊病历 → 保持会诊模式（即使刷新/非会诊Tab进入）
-                    enterConsultMode(DATA.record.consultation_id);
+                    // 当前正在编辑会诊病历 → 查找对应会诊的 code 后进入会诊模式
+                    var consCode = '';
+                    (j.data.consults || []).forEach(function (cc) {
+                        if ((cc.id || 0) === DATA.record.consultation_id) consCode = cc.code;
+                    });
+                    if (consCode) enterConsultMode(consCode);
                 }
             },
             onError: function (j) {
@@ -452,16 +456,19 @@ diagnoses: [],
         // 保存时仅收集字段内部文字；生命体征/意识状态两节由本函数外部构建注入。
         // 首诊与续写文书均支持生命体征/意识状态书写；只读（诊毕）时仅展示不可编辑）
         var readOnly = !!(d.visit && d.visit.status === 'finished');
-        // ===== 会诊锁：会诊期间病历只读（不触发 setReadonlyUI 破坏性 UI） =====
+        // ===== 会诊锁：仅在【会诊模式】下生效 =====
+        // 会诊模式（__consult_mode，从会诊Tab/URL consult 进入 或 当前记录是会诊病历）：
         // 1) 本记录是会诊病历且会诊已完毕 → 永久只读（同诊毕）；
-        // 2) 就诊存在进行中会诊且本记录不是会诊病历 → 只读展示（不破坏顶栏，可切回）。
+        // 2) 会诊模式下查看非会诊病历 → 只读展示（可切回会诊病历）。
+        // 注意：普通医生正常接诊时，即使患者存在进行中的会诊（由他科发起），
+        // 也不会进入只读锁——只有会诊模式下的医生才受此约束。
         var consultLock = false;
-        if (!readOnly && (d.consults || []).length) {
+        if (!readOnly && DATA && DATA.__consult_mode) {
             var recConsId = (r.consultation_id || 0);
             if (recConsId > 0) {
                 d.consults.forEach(function (cc) { if ((cc.id || 0) === recConsId && cc.status === 'done') readOnly = true; });
             } else if (r.record_id > 0) {
-                d.consults.forEach(function (cc) { if (cc.status === 'doing') consultLock = true; });
+                consultLock = true;   // 会诊模式下查看非会诊病历 → 只读
             }
         }
         // 生命体征：首诊用就诊级体征，续写/会诊用本记录自身 emr.vitals（完全独立，绝不继承首诊）
