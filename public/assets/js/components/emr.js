@@ -1924,6 +1924,16 @@ diagnoses: [],
         var target = null;
         (DATA.records_history || []).forEach(function (h) { if (h.record_id === recId) target = h; });
         if (!target) { Clinic.toast.warning('未找到该病历文书'); return; }
+        // 会诊完毕锁定（防御式兜底）：已完毕的会诊病历永久只读，绝不切换为可编辑
+        if ((target.consultation_id || 0) > 0) {
+            var tgtDone = (DATA.consults || []).some(function (cc) {
+                return (cc.id || 0) === (target.consultation_id || 0) && cc.status === 'done';
+            });
+            if (tgtDone) {
+                Clinic.toast.warning('该会诊已完毕，会诊病历已永久锁定为只读');
+                return;
+            }
+        }
         DATA.record = {
             record_id: target.record_id,
             id: target.id,
@@ -1933,9 +1943,12 @@ diagnoses: [],
             doctor_title: target.doctor_title || '',
             record_type: target.record_type,
             emr: target.emr || {},
+            consultation_id: target.consultation_id || 0,
             consciousness: target.consciousness || '',
             created_at: target.created_at || '',
             updated_at: target.updated_at || '',
+            // 切换回本人旧文书：dept_match 由后端权威判定（前端按需重新拉取），
+            // 切换后 renderEmrCard 会按 dept_match/consultation 状态决定可编辑性
         };
         DATA.__edit_record_id = recId;   // 保存时精确回写该文书
         // 重渲染时抑制内部自动滚动（避免 200ms 延迟造成「先闪可编辑再滚动」），
@@ -1997,6 +2010,27 @@ diagnoses: [],
             return;
         }
         // 3. 本人旧文书 → 切换为可编辑状态（前置：必填已保存 + 无未保存修改）
+        //    例外：会诊已完毕（done）的会诊病历永久只读——即使本人也只滚动到只读段，
+        //    不切换为可编辑（与后端 save/save_diags/delete 的 done 锁定一致）
+        var tgtRec = null;
+        (DATA.records_history || []).forEach(function (h) { if ((h.record_id || h.id) === recId) tgtRec = h; });
+        if (tgtRec && (tgtRec.consultation_id || 0) > 0) {
+            var tgtConsDone = (DATA.consults || []).some(function (cc) {
+                return (cc.id || 0) === (tgtRec.consultation_id || 0) && cc.status === 'done';
+            });
+            if (tgtConsDone) {
+                var segD = document.getElementById('recSeg' + recId);
+                if (segD) {
+                    var scD = document.querySelector('.emr-main-editor-scroll');
+                    if (scD) {
+                        var yD = segD.getBoundingClientRect().top - scD.getBoundingClientRect().top + scD.scrollTop - 8;
+                        scD.scrollTo({ top: Math.max(0, yD), behavior: 'smooth' });
+                    }
+                }
+                Clinic.toast.info('该会诊已完毕，会诊病历已永久锁定为只读');
+                return;
+            }
+        }
         if (EMR_DIRTY) {
             Clinic.toast.warning('当前病历有未保存的修改，请先点击「💾 保存」后再切换病历节点');
             return;

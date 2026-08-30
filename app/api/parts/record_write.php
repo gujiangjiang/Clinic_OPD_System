@@ -120,6 +120,14 @@ function record_part_write($action) {
             // 编辑本人指定文书（切换回旧首诊/旧续写）——校验归属
             $ownRow = DB::one('medical', 'SELECT id, record_type, dept_id, consultation_id FROM patient_records WHERE id=? AND doctor_id=?', array($editRecordId, $u['id']));
             if (!$ownRow) json_fail('病历记录不存在或无权编辑');
+            // 会诊完毕锁定：以记录自身的 consultation_id 为准（不信任前端传参——
+            // 前端切换旧文书时可能丢失 consultation_id 导致 done 拦截被绕过）
+            if ((int)$ownRow['consultation_id'] > 0) {
+                $ownConsStatus = DB::one('consultation', 'SELECT status FROM consultations WHERE id=?', array((int)$ownRow['consultation_id']));
+                if ($ownConsStatus && $ownConsStatus['status'] === 'done') {
+                    json_fail('该会诊已完毕，会诊病历已永久锁定为只读，不可修改');
+                }
+            }
             // 转科校验：旧文书书写科室与就诊当前科室不一致 → 只读，不可编辑（即使本人也不行）；
             // 会诊记录（consultation_id>0）书写科室=会诊目标科室，不受转科限制
             if ((int)$ownRow['dept_id'] !== (int)$visit['current_dept_id'] && (int)$ownRow['consultation_id'] === 0) {
@@ -127,7 +135,15 @@ function record_part_write($action) {
             }
             $recordType = $ownRow['record_type'];
         } else {
-            $ownRow = DB::one('medical', 'SELECT id, record_type FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+            $ownRow = DB::one('medical', 'SELECT id, record_type, consultation_id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+            // 会诊完毕锁定：即使未显式传 edit_record_id，若保存目标（本人最新文书）
+            // 本身是已完毕会诊病历，同样永久只读（防止前端传 consultation_id=0 绕过）
+            if ($ownRow && (int)$ownRow['consultation_id'] > 0) {
+                $ownConsStatus2 = DB::one('consultation', 'SELECT status FROM consultations WHERE id=?', array((int)$ownRow['consultation_id']));
+                if ($ownConsStatus2 && $ownConsStatus2['status'] === 'done') {
+                    json_fail('该会诊已完毕，会诊病历已永久锁定为只读，不可修改');
+                }
+            }
             if ($progressNew) {
                 $recordType = 'progress';
             } else {
