@@ -81,6 +81,23 @@ function emr_record_state($visit, $u, $record = null) {
         return array('state' => 'others', 'can_write' => false, 'can_order' => false,
             'can_consult' => false, 'can_diag' => false, 'reason' => '他人文书，只读展示');
     }
+    // 5) 普通文书：本人 + 书写科室==就诊当前科室，且医生当前科室==就诊当前科室
+    //    → 可编辑。跨科室（医生不在就诊当前科室）绝对只读——跨科室书写须转科/续写/发会诊
+    $isMine = (int)$record['doctor_id'] === $uid;
+    if (!$isMine) {
+        return array('state' => 'others', 'can_write' => false, 'can_order' => false,
+            'can_consult' => false, 'can_diag' => false, 'reason' => '他人文书，只读展示');
+    }
+    // 医生当前所在科室（会话 auth_user 不含 current_dept_id，须从 user 库读取）
+    $docDept = (int)(isset($u['current_dept_id']) ? $u['current_dept_id'] : 0);
+    if ($docDept <= 0) {
+        $docRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($uid));
+        $docDept = $docRow ? (int)$docRow['current_dept_id'] : 0;
+    }
+    if ($docDept <= 0 || $docDept !== (int)$visit['current_dept_id']) {
+        return array('state' => 'others', 'can_write' => false, 'can_order' => false,
+            'can_consult' => false, 'can_diag' => false, 'reason' => '跨科室病历，当前科室只读');
+    }
     $deptMatch = (int)$record['dept_id'] === (int)$visit['current_dept_id'];
     if (!$deptMatch) {
         return array('state' => 'dept_mismatch', 'can_write' => false, 'can_order' => false,

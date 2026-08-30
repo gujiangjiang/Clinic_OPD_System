@@ -48,7 +48,7 @@ Clinic.emr.rules = (function () {
         var base = { state: 'others', canWrite: false, canOrder: false, canConsult: false, canDiag: false, reason: '' };
         if (!d || !d.record) return base;
         // 只读查看模式（会诊完毕「查看完整病历」）：全锁死，且不允许补开诊断证明
-        if (d.__view_only) {
+        if (d.__readonly_view) {
             return { state: 'view_only', canWrite: false, canOrder: false, canConsult: false, canDiag: false, reason: '会诊完毕 · 只读查看模式' };
         }
         if (d.visit && d.visit.status === 'finished') {

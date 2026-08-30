@@ -80,14 +80,10 @@ Clinic.emr = (function () {
      * 加载病历数据
      */
     function loadData(visitId) {
-        // 只读查看模式（会诊完毕「查看完整病历」入口，URL 携带 view=1）：
-        // 类似诊毕全锁死，仅可查看；与诊毕的区别——不允许补开诊断证明。
-        // 由后端 record_read 权威返回 readonly_view，前端据此强制只读展示。
-        var VIEW_ONLY = new URLSearchParams(location.search).get('view') === '1';
-        Clinic.get('/api/record?action=get&visit_id=' + visitId + (VIEW_ONLY ? '&view=1' : ''), null, {
+        Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
             onSuccess: function (j) {
                 DATA = j.data;
-                DATA.__view_only = !!(VIEW_ONLY || j.data.readonly_view);
+                DATA.__readonly_view = !!(j.data.readonly_view);
                 renderPatientCard(j.data);
                 // 页眉/主体分离：页眉公共可交互；他人文书只读段在
                 // renderEmrCard 内部渲染（前序在上、后序在下）
@@ -131,7 +127,7 @@ Clinic.emr = (function () {
                     setTimeout(function () { openTemplatePicker(null); }, 150);
                 }
                 // 会诊进入（顺序判定，前端展示层兜底）：
-                // 0) 只读查看模式（view=1）→ 不进入任何会诊模式
+                // 0) 只读查看模式（后端 readonly_view 状态驱动，跨科室绝对只读）→ 不进入任何会诊模式
                 // 1) 后端权威锁定：consult_mode=1（该就诊存在发给当前医生科室的
                 //    进行中会诊）→ 直接进入会诊模式。刷新后依然有效，不依赖 URL 参数。
                 // 2) URL 携带 consult=code（从候诊「会诊」Tab 点进来 / 会诊详情确认）
@@ -139,7 +135,7 @@ Clinic.emr = (function () {
                 //    会诊已完毕（done）的会诊病历不再进入会诊模式——恢复普通就诊视图，
                 //    完整展示会诊前病历 + 会诊病历（否则急诊科医生会诊完毕后回科室点开
                 //    患者，会被本分支误判为会诊状态，且只显示会诊记录、缺失前序病历）。
-                if (!DATA.__view_only) {
+                if (!DATA.__readonly_view) {
                     var urlConsult = new URLSearchParams(location.search).get('consult');
                     if (j.data.consult_mode && j.data.consult_code) {
                         enterConsultMode(j.data.consult_code);
@@ -475,7 +471,7 @@ diagnoses: [],
         // 病历正文：结构化字段编辑器（[] 占位字段引擎，静态标签不可编辑，
         // 保存时仅收集字段内部文字；生命体征/意识状态两节由本函数外部构建注入。
         // 首诊与续写文书均支持生命体征/意识状态书写；只读（诊毕）时仅展示不可编辑）
-        var viewOnly = !!(DATA && DATA.__view_only);
+        var viewOnly = !!(DATA && DATA.__readonly_view);
         var readOnly = viewOnly || !!(d.visit && d.visit.status === 'finished');
         // ===== 会诊锁：仅在【会诊模式】下生效 =====
         // 会诊模式（__consult_mode，从会诊Tab/URL consult 进入 或 当前记录是会诊病历）：
@@ -830,8 +826,8 @@ diagnoses: [],
         }
         // 隐藏工具栏写操作按钮（开单/保存/诊毕/转科/诊断证明），保留查看类（打印/历史/患者信息）
         // 例外：诊断证明分区「＋」在归档未开具时保留显示——归档病历补开的唯一入口。
-        // 只读查看模式（view=1，会诊完毕查看完整病历）不适用该例外——会诊完毕不允许补开诊断证明
-        var viewOnlyNow = !!(DATA && DATA.__view_only);
+        // 跨科室只读查看（后端 readonly_view 状态驱动）不适用该例外——跨科室查看不允许补开诊断证明
+        var viewOnlyNow = !!(DATA && DATA.__readonly_view);
         document.querySelectorAll('.emr-write').forEach(function (b) {
             if (!viewOnlyNow && b.id === 'certAddBtn' && !(DATA && DATA.has_certificate)) return;
             b.style.display = 'none';
@@ -1702,7 +1698,7 @@ diagnoses: [],
             var isMine = (r2.doctor_id || 0) === myUid;
             var isFinished = DATA && DATA.visit && DATA.visit.status === 'finished';
             // 只读查看模式（会诊完毕「查看完整病历」）→ 等同诊毕，禁止一切删除
-            if (DATA && DATA.__view_only) isFinished = true;
+            if (DATA && DATA.__readonly_view) isFinished = true;
             var canDel = !isFinished && isMine && (r2.record_type !== 'initial' || !hasSavedProgress);
             if (canDel && (r2.consultation_id || 0) > 0) {
                 var recConsDone = (DATA.consults || []).some(function (cc) {
@@ -2106,7 +2102,7 @@ diagnoses: [],
                 //   转为只读段、在下方新建续写编辑器（DOM 局部操作，不重渲染整页）；
                 // 他人有文书本人无文书 → 渲染续写编辑器
                 (function () {
-                    if (DATA && DATA.__view_only) {
+                    if (DATA && DATA.__readonly_view) {
                         Clinic.toast.info('会诊完毕 · 只读查看模式，不可编辑病历');
                         return;
                     }
@@ -2776,17 +2772,21 @@ diagnoses: [],
                 var buttons = [
                     { text: '关闭', cls: 'btn-outline' },
                 ];
-                // 会诊完毕（done）→ 提供「查看完整病历」入口：进入病历页但全只读
-                // （URL 带 view=1，后端强制 readonly_view，与诊毕同锁死；
-                //  区别：诊毕可补开诊断证明，会诊完毕查看不可开具诊断证明）
+                // 会诊完毕（done）→ 提供「查看完整病历」入口：进入病历页全只读查看。
+                // 只读由后端状态驱动（跨科室绝对只读，不依赖 URL 参数）。
+                // 病历页内（当前就诊 == 该会诊就诊）不再显示，避免反复套娃。
                 if (c.status === 'done') {
-                    buttons.push({
-                        text: '📋 查看完整病历', cls: 'btn-primary', autoClose: false,
-                        onClick: function () {
-                            Clinic.modal.close();
-                            location.href = '/doctor/emr?visit_id=' + c.visit_code + '&view=1';
-                        },
-                    });
+                    var curVisit = document.getElementById('visitId') ? document.getElementById('visitId').value : '';
+                    var inSameVisit = curVisit && curVisit === c.visit_code;
+                    if (!inSameVisit) {
+                        buttons.push({
+                            text: '📋 查看完整病历', cls: 'btn-primary', autoClose: false,
+                            onClick: function () {
+                                Clinic.modal.close();
+                                location.href = '/doctor/emr?visit_id=' + c.visit_code;
+                            },
+                        });
+                    }
                 }
                 // 非确认会诊页（withAccept=false）→ 添加打印会诊单按钮
                 // 会诊科室点击确认会诊（withAccept=true）时不显示打印功能
@@ -3167,6 +3167,13 @@ diagnoses: [],
     }
 
     function printRecord() {
+        // 只读查看模式（会诊完毕「查看完整病历」）或诊毕：打印是只读操作，直接放行
+        // （后端 print.php 渲染该就诊全部已保存文书，不依赖当前是否可编辑）
+        if (DATA && (DATA.__readonly_view || (DATA.visit && DATA.visit.status === 'finished'))) {
+            var visitId2 = document.getElementById('visitId').value;
+            Clinic.print.load('/api/print?action=record&visit_id=' + visitId2, null, 'a5');
+            return;
+        }
         // 前置条件：病历已完善并保存（有未保存修改先拦截）
         if (!requireSaved('打印病历')) return;
         if (!isRecordComplete()) {

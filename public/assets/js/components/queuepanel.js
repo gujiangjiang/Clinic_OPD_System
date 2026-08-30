@@ -46,6 +46,7 @@ Clinic.queuePanel = (function () {
                 if (applyPref && DATA.pref) {
                     seen = !!DATA.pref.seen;
                     todayOnly = !!DATA.pref.today;
+                    consult = !!DATA.pref.consult;
                 }
                 renderBtn();
                 if (cb) cb();
@@ -60,6 +61,7 @@ Clinic.queuePanel = (function () {
             fd.append('csrf_token', document.body.getAttribute('data-csrf') || '');
             fd.append('seen', seen ? 1 : 0);
             fd.append('today', todayOnly ? 1 : 0);
+            fd.append('consult', consult ? 1 : 0);
             fetch('/api/doctor?action=queue_pref', {
                 method: 'POST', body: fd,
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },

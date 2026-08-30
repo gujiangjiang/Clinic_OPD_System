@@ -286,7 +286,7 @@ function doctor_part_read($action) {
             'waiting' => (int)DB::val('patient', "SELECT COUNT(*) FROM registrations WHERE current_dept_id=? AND status='paid'", array($deptId)),
             'list' => $list,
             'consultations' => $consultations,
-            'pref' => array('seen' => empty($pref['seen']) ? 0 : 1, 'today' => empty($pref['today']) ? 0 : 1),
+            'pref' => array('seen' => empty($pref['seen']) ? 0 : 1, 'today' => empty($pref['today']) ? 0 : 1, 'consult' => empty($pref['consult']) ? 0 : 1),
         ));
         return;
     }
@@ -295,6 +295,7 @@ function doctor_part_read($action) {
         $_SESSION['queue_pref'] = array(
             'seen' => post('seen', 0) ? 1 : 0,
             'today' => post('today', 0) ? 1 : 0,
+            'consult' => post('consult', 0) ? 1 : 0,
         );
         json_ok();
         return;

@@ -105,10 +105,18 @@ function record_part_read($action) {
         $consultMode = $consultCtx ? 1 : 0;
         $consultCode = $consultCtx ? oid($consultCtx['id']) : '';
 
-        // 只读查看模式（会诊完毕「查看完整病历」入口，URL 携带 view=1）：
-        // 类似诊毕全锁死——所有文书只读展示、禁止编辑/删除/开单/会诊/诊断证明；
-        // 与诊毕的区别：诊毕可补开诊断证明，本模式一律不可开具。
-        $viewOnly = (string)get('view', '') === '1';
+        // 医生当前所在科室（会话 auth_user 不含 current_dept_id，须从 user 库读取）
+        $docDept = (int)(isset($u['current_dept_id']) ? $u['current_dept_id'] : 0);
+        if ($docDept <= 0) {
+            $docDeptRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array((int)$u['id']));
+            $docDept = $docDeptRow ? (int)$docDeptRow['current_dept_id'] : 0;
+        }
+        // 跨科室只读查看（纯状态驱动，不用 URL 参数）：
+        // 医生当前科室 != 就诊当前科室，且非会诊处理中 → 本就诊对当前医生绝对只读
+        // （不同科室病历隔离：跨科室仅可查看，要书写须转科/续写/发会诊）。
+        // 会诊处理中（consultMode）医生在目标科室，其会诊病历可编辑，不受此限制。
+        $crossDeptView = (!$consultMode && $docDept > 0
+            && $docDept !== (int)$visit['current_dept_id']) ? 1 : 0;
 
         $recordsHistory = array();
         $mine = null;       // 本人最新可编辑文书（首选项）
@@ -118,8 +126,8 @@ function record_part_read($action) {
             $recordsHistory[] = $item;
             if ((int)$pr2['doctor_id'] === (int)$u['id']) {
                 $mineLatest = $item;
-                // 只读查看模式：一律不设可编辑文书（dept_match=0，全只读展示）
-                if ($viewOnly) continue;
+                // 跨科室只读查看：一律不设可编辑文书（dept_match=0，全只读展示）
+                if ($crossDeptView) continue;
                 // 当前上下文可编辑判定（与 dept_match 同规则）：
                 // 会诊处理中 → 仅会诊病历可编辑；普通模式 → 书写科室==当前科室
                 // 或 本人会诊文书且会诊未完毕（已完毕的会诊病历只读，不抢占编辑位）
@@ -154,10 +162,10 @@ function record_part_read($action) {
             // 会诊记录关联 id（>0 即会诊病历，前端据此显示「会诊记录」徽章）
             'consultation_id' => $pr ? (int)(isset($pr['consultation_id']) ? $pr['consultation_id'] : 0) : 0,
             // 科室匹配：本人当前文书是否可编辑——
-            // 只读查看模式（view=1，会诊完毕查看完整病历）→ 一律只读（dept_match=0）；
+            // 跨科室只读查看（crossDeptView）→ 一律只读（dept_match=0）；
             // 会诊处理中：仅会诊病历（consultation_id=进行中会诊）可编辑；
             // 普通模式：书写科室==就诊当前科室（转科后旧文书不匹配 → 只读）
-            'dept_match' => (!$viewOnly && $pr && (
+            'dept_match' => (!$crossDeptView && $pr && (
                 ($consultMode
                     ? (int)$pr['consultation_id'] === (int)$consultCtx['id']
                     : ((int)$pr['dept_id'] === (int)$visit['current_dept_id']
@@ -258,9 +266,9 @@ function record_part_read($action) {
 
         json_ok(array(
             'diag_order' => diag_order_keys($visitId, $u['id']),   // 本人诊断聚合显示顺序（跨医生排序载体，独立存储）
-            // 只读查看模式（会诊完毕「查看完整病历」入口）：前端据此全锁死，
+            // 只读查看标志（跨科室绝对只读，纯状态驱动）：前端据此全锁死，
             // 且与诊毕不同——本模式不允许补开诊断证明
-            'readonly_view' => $viewOnly ? 1 : 0,
+            'readonly_view' => $crossDeptView ? 1 : 0,
             'patient' => array(
                 'patient_id' => $patient['patient_no'],
                 'birth_date' => $patient['birth_date'],

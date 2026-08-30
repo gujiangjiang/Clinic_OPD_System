@@ -547,16 +547,26 @@ function get_editable_record($visit, $u) {
             'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id=? ORDER BY id DESC LIMIT 1',
             array($visitId, $uid, (int)$cons['id']));
     }
-    // 普通模式：书写科室 == 就诊当前科室，或本人会诊文书且会诊未完毕
-    // （consultations 表在 consultation 库，不可嵌入 medical 库子查询，需先查询）
+    // 普通模式：书写科室 == 就诊当前科室，且医生当前科室 == 就诊当前科室
+    // （跨科室绝对只读——医生在外科不能编辑急诊科文书，反之亦然；
+    //   会诊完毕或转科后同样受此规则约束，无需 URL 参数做只读屏障）
+    $docDept = (int)(isset($u['current_dept_id']) ? $u['current_dept_id'] : 0);
+    if ($docDept <= 0) {
+        $row = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($uid));
+        $docDept = $row ? (int)$row['current_dept_id'] : 0;
+    }
+    if ($docDept <= 0) return null;
+    $visitDept = (int)(isset($visit['current_dept_id']) ? $visit['current_dept_id'] : 0);
+    // 医生当前科室 != 就诊当前科室 → 跨科室查看，一切只读
+    if ($docDept !== $visitDept) return null;
+    // 本就诊进行中的会诊（consultations 表在 consultation 库，不可嵌入 medical 库子查询）
     $activeConsIds = array();
     $activeConsRows = DB::q('consultation',
         "SELECT id FROM consultations WHERE visit_id=? AND status IN ('pending','doing')", array($visitId));
     foreach ($activeConsRows as $acr) {
         $activeConsIds[] = (int)$acr['id'];
     }
-    $curDept = (int)(isset($visit['current_dept_id']) ? $visit['current_dept_id'] : 0);
-    if ($curDept > 0) {
+    if ($visitDept > 0) {
         if ($activeConsIds) {
             $ph = implode(',', array_fill(0, count($activeConsIds), '?'));
             return DB::one('medical',
@@ -564,11 +574,11 @@ function get_editable_record($visit, $u) {
                     dept_id=?
                     OR (consultation_id>0 AND consultation_id IN ($ph))
                 ) ORDER BY id DESC LIMIT 1",
-                array_merge(array($visitId, $uid, $curDept), $activeConsIds));
+                array_merge(array($visitId, $uid, $visitDept), $activeConsIds));
         }
         return DB::one('medical',
             'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND dept_id=? ORDER BY id DESC LIMIT 1',
-            array($visitId, $uid, $curDept));
+            array($visitId, $uid, $visitDept));
     }
     if ($activeConsIds) {
         $ph = implode(',', array_fill(0, count($activeConsIds), '?'));
