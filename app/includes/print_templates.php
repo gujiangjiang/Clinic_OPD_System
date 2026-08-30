@@ -30,3 +30,4 @@ require_once __DIR__ . '/print/print_report.php';
 require_once __DIR__ . '/print/print_record.php';
 require_once __DIR__ . '/print/print_cert.php';
 require_once __DIR__ . '/print/print_consent.php';
+require_once __DIR__ . '/print/print_consult.php';

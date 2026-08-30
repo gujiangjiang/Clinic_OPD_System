@@ -232,6 +232,47 @@ switch ($action) {
         json_ok(array('html' => pt_consent($visit, $row['patient'], $c, $c['doctor_name'], $record)));
         break;
 
+    /* ---------------- 会诊申请单打印 ---------------- */
+    case 'consultation':
+        // 会诊科室「确认会诊」入口（withAccept）不提供打印，前端已隐藏按钮；
+        // 后端同样拦截：仅允许发起科室医生（或会诊已接受的接收科室医生）打印申请单。
+        $u = Auth::user();
+        $cid = did(get('id'));
+        $cons = DB::one('consultation', 'SELECT * FROM consultations WHERE id=?', array($cid));
+        if (!$cons) json_fail('会诊记录不存在');
+        $row = get_visit_row($cons['visit_id']);
+        if (!$row) json_fail('就诊记录不存在');
+        // 权限：发起医生本人 / 会诊目标科室医生（已接受处理的接收方）可打印；
+        // 其他科室医生或确认会诊前的接收医生一律拒绝（后端硬拦截）。
+        $curDeptRow = DB::one('user', 'SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+        $curDeptId = $curDeptRow ? (int)$curDeptRow['current_dept_id'] : 0;
+        $isFrom = (int)$cons['from_doctor_id'] === (int)$u['id'];
+        $isTarget = (int)$cons['target_dept_id'] === $curDeptId;
+        if (!$isFrom && !$isTarget) json_fail('无权打印该会诊申请单');
+        if ($isTarget && $cons['status'] === 'pending' && (string)$cons['accepted_by'] === '') {
+            json_fail('请先确认会诊后再打印该会诊申请单');
+        }
+        $visit = $row['visit'];
+        $visit['name'] = $row['patient']['name'];
+        $visit['gender'] = $row['patient']['gender'];
+        $visit['age'] = $row['patient']['age'];
+        $visit['birth_date'] = $row['patient']['birth_date'];
+        $dept = DB::one('dept', 'SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
+        $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
+        // 病历快照：取发起科室医生的首诊文书（主诉/现病史/体格检查）
+        $snap = array('chief_complaint' => '', 'present_illness' => '', 'physical_exam' => '');
+        $pr = DB::one('medical', "SELECT * FROM patient_records WHERE visit_id=? AND dept_id=? AND record_type='initial' ORDER BY id ASC LIMIT 1",
+            array((int)$cons['visit_id'], (int)$cons['from_dept_id']));
+        if ($pr) {
+            $emr = emr_merge_defaults(emr_normalize(json_decode($pr['emr_data'], true)), emr_default_data(null));
+            $snap['chief_complaint'] = emr_cc_text($emr['chief_complaint']);
+            $snap['present_illness'] = emr_pi_text($emr['history_present']);
+            $snap['physical_exam'] = emr_pe_text($emr['physical_exam']);
+        }
+        $cons = consult_ensure_no($cons);
+        json_ok(array('html' => pt_consult($visit, $row['patient'], $cons, $snap)));
+        break;
+
     /* ---------------- 检验/检查报告 ---------------- */
     case 'report':
         $reportId = did(get('report_id'));

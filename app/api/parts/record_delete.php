@@ -45,6 +45,13 @@ function record_part_delete($action) {
         if ((int)$rec['dept_id'] !== (int)$row['visit']['current_dept_id'] && (int)$rec['consultation_id'] === 0) {
             json_fail('该病历书写于转科前科室，当前科室下为只读状态，不可删除');
         }
+        // 2.65 会诊完毕锁定：会诊已完毕（done）的会诊病历永久只读，任何人不可删除
+        if ((int)$rec['consultation_id'] > 0) {
+            $delConsStatus = DB::one('consultation', 'SELECT status FROM consultations WHERE id=?', array((int)$rec['consultation_id']));
+            if ($delConsStatus && $delConsStatus['status'] === 'done') {
+                json_fail('该会诊已完毕，会诊病历已永久锁定为只读，不可删除');
+            }
+        }
         // 2.7 会诊病历回退：删除会诊病历 = 放弃本次会诊处理 → 会诊状态回退待会诊
         $recConsultId = (int)$rec['consultation_id'];
         if ($recConsultId > 0) {

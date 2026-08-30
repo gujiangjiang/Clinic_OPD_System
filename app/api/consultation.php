@@ -29,9 +29,11 @@ function consultation_queue_days($u) {
 
 /** 会诊行 → 前端结构（id 一律返回混淆串 code，前端传回后 did 解码） */
 function consultation_row($c) {
+    $c = consult_ensure_no($c);
     return array(
         'id' => (int)$c['id'],
         'code' => oid($c['id']),
+        'consult_no' => (string)$c['consult_no'],
         'visit_id' => (int)$c['visit_id'],
         'visit_code' => oid($c['visit_id']),
         'patient_no' => (string)$c['patient_no'],
@@ -72,22 +74,28 @@ switch ($action) {
         // 会诊拦截：本人已书写会诊病历（正在处理其他科室的会诊）→ 不可再发起会诊
         $ownConsult = (int)DB::val('medical', 'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0', array($visitId, $u['id']));
         if ($ownConsult > 0) json_fail('您正在会诊处理中，不可再发起会诊');
-        // 会诊拦截：本就诊存在待处理/进行中的会诊（无论收发方向）→ 不可重复发起会诊
-        $activeCons = (int)DB::val('consultation', "SELECT COUNT(*) FROM consultations WHERE visit_id=? AND status IN ('pending','doing')", array($visitId));
-        if ($activeCons > 0) json_fail('该就诊已有进行中的会诊，不可重复发起');
         $targetDeptId = (int)post('target_dept_id', 0);
         if ($targetDeptId <= 0) json_fail('请选择会诊科室');
         // 目标科室必须合法且不能是当前科室
         $targetDept = DB::one('dept', "SELECT id, name FROM departments WHERE id=? AND status=1 AND type IN ('clinic','emergency')", array($targetDeptId));
         if (!$targetDept) json_fail('会诊科室不存在或不可用');
         if ((int)$targetDept['id'] === (int)$visit['current_dept_id']) json_fail('会诊科室不能是当前科室');
+        // 会诊拦截：本就诊存在发往同一科室的待处理/进行中会诊 → 不可重复发起（同科室不同会诊矛盾）
+        // 会诊已完毕（done）后可再次向该科室发起会诊。
+        $activeToSame = (int)DB::val('consultation', "SELECT COUNT(*) FROM consultations WHERE visit_id=? AND target_dept_id=? AND status IN ('pending','doing')",
+            array($visitId, $targetDeptId));
+        if ($activeToSame > 0) json_fail('该就诊已有发往 ' . $targetDept['name'] . ' 的进行中会诊，请等待会诊处理完毕后再发起');
         $description = trim((string)post('description', ''));
         $purpose = trim((string)post('purpose', ''));
         if ($description === '') json_fail('请填写会诊描述');
         if ($purpose === '') json_fail('请填写会诊目的');
         $now = now_str();
-        $cid = DB::insert('consultation', 'INSERT INTO consultations(visit_id, patient_no, flow_no, from_dept_id, from_dept_name, from_doctor_id, from_doctor_name, target_dept_id, target_dept_name, description, purpose, status, record_id, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
-            $visitId, $visit['patient_no'], $visit['flow_no'],
+        // 生成唯一会诊单号（HZ + 时间戳 + 随机，循环查重防撞号）
+        do {
+            $consultNo = consult_gen_no();
+        } while ((int)DB::val('consultation', 'SELECT COUNT(*) FROM consultations WHERE consult_no=?', array($consultNo)) > 0);
+        $cid = DB::insert('consultation', 'INSERT INTO consultations(visit_id, patient_no, flow_no, consult_no, from_dept_id, from_dept_name, from_doctor_id, from_doctor_name, target_dept_id, target_dept_name, description, purpose, status, record_id, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+            $visitId, $visit['patient_no'], $visit['flow_no'], $consultNo,
             (int)$visit['current_dept_id'], (string)$visit['current_dept_name'],
             $u['id'], $u['name'],
             (int)$targetDept['id'], (string)$targetDept['name'],

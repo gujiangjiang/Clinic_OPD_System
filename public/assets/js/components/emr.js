@@ -1522,6 +1522,16 @@ diagnoses: [],
             Clinic.toast.warning('无权删除非本人创建的病历记录');
             return;
         }
+        // 会诊完毕锁定（预览拦截）：会诊已完毕的会诊病历永久只读，任何人不可删除
+        if ((node.consultation_id || 0) > 0) {
+            var nodeConsDone = (DATA.consults || []).some(function (cc) {
+                return (cc.id || 0) === (node.consultation_id || 0) && cc.status === 'done';
+            });
+            if (nodeConsDone) {
+                Clinic.toast.warning('该会诊已完毕，会诊病历已永久锁定为只读，不可删除');
+                return;
+            }
+        }
         // 首诊锁定（预览拦截）
         if (node.record_type === 'initial') {
             var hasProgress = (DATA.records_history || []).some(function (h) { return h.record_type === 'progress' && h.status !== 'draft'; });
@@ -1673,10 +1683,17 @@ diagnoses: [],
             var isConsult = (r2.consultation_id || 0) > 0;
             var typeName = isConsult ? '（会）' : (r2.record_type === 'progress' ? '（续）' : '（首）');
             var dt = (r2.created_at || '').substring(5, 16);   // MM-DD HH:MM
-            // 删除按钮：仅本人创建；本人首诊且已有续写病程则锁定不显示
+            // 删除按钮：仅本人创建；本人首诊且已有续写病程则锁定不显示；
+            // 会诊已完毕（done）的会诊病历永久只读，任何人不可删除
             var isMine = (r2.doctor_id || 0) === myUid;
             var isFinished = DATA && DATA.visit && DATA.visit.status === 'finished';
             var canDel = !isFinished && isMine && (r2.record_type !== 'initial' || !hasSavedProgress);
+            if (canDel && (r2.consultation_id || 0) > 0) {
+                var recConsDone = (DATA.consults || []).some(function (cc) {
+                    return (cc.id || 0) === (r2.consultation_id || 0) && cc.status === 'done';
+                });
+                if (recConsDone) canDel = false;
+            }
             return '<div class="ena-item" onclick="scrollToRecord(' + r2.id + ',' + r2.doctor_id + ')">' +
                 '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                 escHtml(dt) + ' ' + escHtml(r2.dept_name || '') + '</span>' +
@@ -2569,6 +2586,15 @@ diagnoses: [],
             fetchUrl: '/api/transfer?action=targets&dept_id=' + curDept,
             currentId: curDept,
             onSelect: function (d) {
+                // 重复会诊拦截（与后端 create 同规则）：本就诊已发往该科室且未完毕
+                // 的进行中会诊 → 点击科室即提醒并中止；会诊完毕（done）后可再次发起
+                var dup = (DATA.consults || []).some(function (cc) {
+                    return (cc.target_dept_id || 0) === d.id && (cc.status === 'pending' || cc.status === 'doing');
+                });
+                if (dup) {
+                    Clinic.toast.warning('该就诊已有发往【' + d.name + '】的进行中会诊，请等待会诊处理完毕后再发起');
+                    return;
+                }
                 CONSULT_DEPT = d.id;
                 openConsultForm(d);
             },
@@ -2693,7 +2719,19 @@ diagnoses: [],
                     { label: '会诊完毕', operator: '', time: (c.finished_at || ''), done: c.status === 'done' },
                 ];
                 var stepHtml = flowColumnHtml(steps, -1, '会诊进度');
-                var buttons = [{ text: '关闭', cls: 'btn-outline' }];
+                var buttons = [
+                    { text: '关闭', cls: 'btn-outline' },
+                ];
+                // 非确认会诊页（withAccept=false）→ 添加打印会诊单按钮
+                // 会诊科室点击确认会诊（withAccept=true）时不显示打印功能
+                if (!withAccept && c.consult_no) {
+                    buttons.push({
+                        text: '🖨️ 打印会诊单', cls: 'btn-outline', autoClose: false,
+                        onClick: function () {
+                            Clinic.print.load('/api/print?action=consultation&id=' + c.code, null, 'a5');
+                        },
+                    });
+                }
                 // 候诊入口（withAccept=true）且待会诊 → 底部「确认会诊」进入病历书写
                 if (withAccept && c.status === 'pending') {
                     buttons.push({
@@ -2714,6 +2752,7 @@ diagnoses: [],
                     '<div class="flex gap-16" style="align-items:stretch">' +
                     '  <div style="flex:1.4;min-width:0;border-right:1px solid var(--border);padding-right:14px">' +
                     '    <div class="fs-13 fw-700 mb-8">' + escHtml(c.from_dept_name || '') + ' 请' + escHtml(c.target_dept_name || '') + '会诊</div>' +
+                    '    <div class="fs-12 text-muted mb-8">会诊单号：' + escHtml(c.consult_no || '') + '</div>' +
                     '    <div style="background:var(--bg-soft);border-radius:10px;padding:10px">' +
                     ro('主诉', s.chief_complaint) + ro('现病史', s.present_illness) +
                     ro('体格检查', s.physical_exam) + ro('初步诊断', s.diagnoses) +
