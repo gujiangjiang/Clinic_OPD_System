@@ -226,7 +226,7 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
 
     $secs[] = array('是否留观', $emrStructured ? emr_obs_text($emr) : (!empty($record['is_observation']) ? '是' : '否'));
     // 嘱托：续写空节不显示
-    $adviceT = $emrStructured ? (isset($emr['advice']) ? $emr['advice'] : '') : (isset($record['advice']) ? $record['advice'] : '');
+    $adviceT = $emrStructured ? (isset($emr['advice']) ? $emr['advice'] : '') : (isset($record['doctor_advice']) ? $record['doctor_advice'] : '');
     if (!$isProgress || trim((string)$adviceT) !== '') $secs[] = array('嘱托', $adviceT);
 
     // 每个小节独立一个 .print-flow 块级节点：A5 分页器按「整节点」分配页面，
