@@ -45,6 +45,14 @@ class EmrContextResolver {
                     'can_diag' => true,
                 ), '会诊病历可编辑');
             }
+            // 会诊处理中但无会诊病历（尚未创建）：允许创建→可写（新建骨架状态）
+            if (!$record) {
+                return self::writable('consultation', null, array(
+                    'can_write' => true, 'can_order' => false, 'can_delete_order' => false,
+                    'can_consult' => false, 'can_append' => true, 'can_issue_cert' => false,
+                    'can_diag' => true,
+                ), '会诊病历编辑中（尚未保存）');
+            }
             // 会诊处理中查看非会诊病历 → 只读
             return self::frozen('consult_lock', '会诊处理中，其他病历仅可查看（只读）');
         }

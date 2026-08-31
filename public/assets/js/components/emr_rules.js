@@ -50,6 +50,27 @@ Clinic.emr.rules = (function () {
     }
 
     /**
+     * 判断后端 context 是否与「当前 DATA.record」一致（SSOT 一致性校验）。
+     * 关键：switchToRecord 切换病历节点后，DATA.active_context 仍是加载时的旧容器，
+     * 若直接采用会导致「已切到只读病历却仍可开单/删除」的错误。此时必须回退本地派生。
+     * 规则：
+     *  · 已保存文书（record_id>0）→ 后端 container_id 必须等于当前 record_id；
+     *  · 新建骨架（record_id=0）→ 后端返回 new/consultation 可写上下文时采用
+     *    （首诊新建 / 会诊病历新建），若后端 context 针对旧记录则不采用。
+     */
+    function contextConsistent() {
+        var d = ctx.DATA;
+        var ac = getActiveContext();
+        if (!ac || !d || !d.record) return false;
+        var curRid = d.record.record_id || 0;
+        if (curRid > 0) {
+            return (ac.active.container_id || 0) === curRid;
+        }
+        var t = ac.active.container_type;
+        return !!ac.active.writable && (t === 'new' || t === 'consultation' || t === 'initial');
+    }
+
+    /**
      * 本地回退规则（仅当后端未下发 active_context 时使用）：
      * 与后端 EmrContextResolver 语义一致的最小镜像。
      */
@@ -94,7 +115,7 @@ Clinic.emr.rules = (function () {
      */
     function recordState() {
         var ac = getActiveContext();
-        if (ac) {
+        if (ac && contextConsistent()) {
             var caps = ac.capabilities || {};
             return {
                 state: ac.active.container_type || 'none',

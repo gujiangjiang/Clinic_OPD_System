@@ -171,10 +171,13 @@ function record_part_write($action) {
         // ===== 统一上下文断言（SSOT 守卫）=====
         // 第一层根判定：当前是否存在可写容器。会诊处理中 → 仅会诊病历可写；
         // 新建续写（progress_new，record 尚未创建）→ 豁免容器存在性，由后续
-        // 必填与转科校验把关；其余情况 → 硬拦截不可写场景。
+        // 必填与转科校验把关；会诊处理中且目标为会诊病历（consultation_id>0，
+        // 会诊病历尚未创建，record 为 null）→ 豁免容器存在性（允许创建会诊病历）；
+        // 其余情况 → 硬拦截不可写场景。
         // 注意：不传 targetContainerId——医生可切换到本人旧文书编辑（switchToRecord），
         // 其可编辑性已由 resolve 的 dept_match/consult 判定覆盖。
-        if (!$progressNew) {
+        $isConsultCreate = $consultationId > 0 && !$ownRow;
+        if (!$progressNew && !$isConsultCreate) {
             $ctxRecord = $ownRow ? EmrRepository::one('SELECT * FROM patient_records WHERE id=?', array($ownRow['id'])) : null;
             EmrContextResolver::assertCanWrite($visit, $u, $ctxRecord);
         }

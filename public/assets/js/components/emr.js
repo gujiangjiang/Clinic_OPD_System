@@ -2050,8 +2050,9 @@ diagnoses: [],
 
     window.scrollToRecord = function (recId, doctorId) {
         var r = DATA && DATA.record;
-        // 诊毕只读：所有文书均为只读段，统一滚动到对应 recSeg{id}（无编辑器锚点）
-        if (DATA && DATA.visit && DATA.visit.status === 'finished') {
+        // 诊毕只读 / 跨科室绝对只读（readonly_view）：所有文书均为只读段，
+        // 统一滚动到对应 recSeg{id}（无编辑器锚点）
+        if (DATA && (DATA.visit && DATA.visit.status === 'finished' || DATA.__readonly_view)) {
             var segF = document.getElementById('recSeg' + recId);
             if (segF) {
                 var scF = document.querySelector('.emr-main-editor-scroll');
