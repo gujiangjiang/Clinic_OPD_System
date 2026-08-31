@@ -86,6 +86,7 @@ require_once __DIR__ . '/../core/CSRF.php';
 require_once __DIR__ . '/../core/Auth.php';
 require_once __DIR__ . '/../core/Upload.php';
 require_once __DIR__ . '/../core/Router.php';
+require_once __DIR__ . '/../core/EmrContextResolver.php';
 
 /* ---------- 引入数据访问层（Repository 自动加载：BaseRepository 先加载） ---------- */
 require_once __DIR__ . '/../repositories/BaseRepository.php';
