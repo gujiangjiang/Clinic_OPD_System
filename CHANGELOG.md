@@ -13,6 +13,23 @@
 
 ---
 
+## [6.0.2] - 2026-08-31
+
+### 修复
+
+- **会诊详情模态框「会诊完毕」不显示医生姓名**：前端 `会诊进度` 三步中「会诊完毕」步骤
+  `operator` 硬编码为空字符串，后端 `finish` 动作也未记录完成医生，导致该步骤仅显示时间、
+  无医生姓名。
+  - 后端新增 `consultations.finished_by` 字段（schema v3 + 迁移），`finish` 动作记录完成医生；
+    `consultation_row` 返回 `finished_by`。
+  - 前端「会诊完毕」operator 改为 `finished_by || accepted_by || record.doctor_name`（兼容旧数据）；
+    「正在会诊」operator 增加 `record.doctor_name` 兜底。
+  - 涉及：`app/api/consultation.php`、`app/config/schema/main.php`、
+    `app/config/schema/legacy/013_consultation.php`、`public/assets/js/components/emr.js`。
+- **排查结论：检验/检查/处方/处置开单页面进度医生姓名正常**——`order_flow_steps` 中「开单」
+  步骤 operator 恒为 `doctor_name`，后续步骤（缴费/登记/报告/发药/执行）operator 来自实际数据
+  （收费员/执行人），不存在硬编码空值，无需修改。
+
 ## [6.0.1] - 2026-08-31
 
 ### 修复

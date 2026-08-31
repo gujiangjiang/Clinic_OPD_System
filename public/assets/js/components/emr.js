@@ -2842,8 +2842,8 @@ diagnoses: [],
                 };
                 var steps = [
                     { label: '发起会诊', operator: (c.from_doctor_name || ''), time: (c.created_at || ''), done: true },
-                    { label: '正在会诊', operator: (c.accepted_by || ''), time: (c.accepted_at || ''), done: c.status !== 'pending' },
-                    { label: '会诊完毕', operator: '', time: (c.finished_at || ''), done: c.status === 'done' },
+                    { label: '正在会诊', operator: (c.accepted_by || (c.record && c.record.doctor_name) || ''), time: (c.accepted_at || ''), done: c.status !== 'pending' },
+                    { label: '会诊完毕', operator: (c.status === 'done' ? (c.finished_by || c.accepted_by || (c.record && c.record.doctor_name) || '') : ''), time: (c.finished_at || ''), done: c.status === 'done' },
                 ];
                 var stepHtml = flowColumnHtml(steps, -1, '会诊进度');
                 var buttons = [

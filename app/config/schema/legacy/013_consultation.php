@@ -7,10 +7,11 @@
  * 会诊记录本身不存病历内容——B 科室医生在患者就诊下新开的会诊病历
  * （patient_records，record_type='progress' + consultation_id 关联）。
  * v3 新增 consult_no：会诊单号（HZ + 时间戳 + 随机，条形码/打印用）。
+ * v4 新增 finished_by：会诊完毕时记录完成医生姓名。
  * 【MySQL 切换】把建表语句中 AUTOINCREMENT 改为 AUTO_INCREMENT 即可
  * ============================================================ */
 return array(
-    'version' => 3,
+    'version' => 4,
     'tables' => array(
         'consultations' => "CREATE TABLE IF NOT EXISTS consultations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,6 +30,7 @@ return array(
             status TEXT DEFAULT 'pending',
             accepted_by TEXT,
             accepted_at TEXT,
+            finished_by TEXT,
             finished_at TEXT,
             record_id INTEGER DEFAULT 0,
             created_at TEXT
@@ -40,6 +42,9 @@ return array(
         ),
         3 => array(
             "ALTER TABLE consultations ADD COLUMN consult_no TEXT",
+        ),
+        4 => array(
+            "ALTER TABLE consultations ADD COLUMN finished_by TEXT",
         ),
     ),
     'seed' => array(),

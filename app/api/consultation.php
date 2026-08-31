@@ -49,6 +49,7 @@ function consultation_row($c) {
         'status' => (string)$c['status'],
         'accepted_by' => (string)$c['accepted_by'],
         'accepted_at' => (string)$c['accepted_at'],
+        'finished_by' => (string)$c['finished_by'],
         'finished_at' => (string)$c['finished_at'],
         'record_id' => (int)(isset($c['record_id']) ? $c['record_id'] : 0),
         'created_at' => (string)$c['created_at'],
@@ -225,8 +226,8 @@ switch ($action) {
         if ((int)$c['target_dept_id'] !== $curDeptId2) json_fail('该会诊不属于当前科室');
         if ($c['status'] === 'pending') json_fail('会诊尚未开始');
         if ($c['status'] === 'done') json_fail('该会诊已完毕');
-        ConsultationRepository::exec('UPDATE consultations SET status=?, finished_at=? WHERE id=?',
-            array('done', now_str(), $cid));
+        ConsultationRepository::exec('UPDATE consultations SET status=?, finished_by=?, finished_at=? WHERE id=?',
+            array('done', $u['name'], now_str(), $cid));
         json_ok(array(), '会诊已完毕');
         break;
 

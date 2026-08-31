@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 1,
+    'version' => 2,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -605,12 +605,17 @@ return array(
             status TEXT DEFAULT 'pending',
             accepted_by TEXT,
             accepted_at TEXT,
+            finished_by TEXT,
             finished_at TEXT,
             record_id INTEGER DEFAULT 0,
             created_at TEXT
         )",
     ),
-    'migrations' => array(),
+    'migrations' => array(
+        2 => array(
+            "ALTER TABLE consultations ADD COLUMN finished_by TEXT",
+        ),
+    ),
     'seed' => array(
         // 医技/其他虚拟科室（叫号大屏使用）
         "INSERT OR IGNORE INTO departments(name, type, fee, am_quota, pm_quota, sort, status, created_at) VALUES
