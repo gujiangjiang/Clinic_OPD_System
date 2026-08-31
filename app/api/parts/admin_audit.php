@@ -147,26 +147,25 @@ function admin_part_audit($action) {
             $proposerRole = $pr ? $pr['role'] : '';
         }
         // 被驳回项目的回填页面链接（管理员在后台，检验/影像/药房在自己工作站）
+        // 项目类审核统一映射：检验/检查/药品/处置（仅表名与文案不同）
+        $itemAuditTypes = array(
+            'item_lab'  => array('table' => 'lab_items',      'name' => '检验项目', 'verb' => '开单', 'url' => '/admin/labitems'),
+            'item_exam' => array('table' => 'exam_items',     'name' => '检查项目', 'verb' => '开单', 'url' => '/admin/examitems'),
+            'item_drug' => array('table' => 'drugs',          'name' => '药品',     'verb' => '开方', 'url' => '/admin/drugs'),
+            'item_disp' => array('table' => 'disposal_items', 'name' => '处置项目', 'verb' => '开单', 'url' => '/admin/disposal'),
+        );
         $backUrl = '';
-        switch ($audit['type']) {
-            case 'item_lab':
-                $backUrl = '/admin/labitems?edit=' . $refId;
-                break;
-            case 'item_exam':
-                $backUrl = '/admin/examitems?edit=' . $refId;
-                break;
-            case 'item_drug':
-                $backUrl = '/admin/drugs?edit=' . $refId;
-                break;
-            case 'item_disp':
-                $backUrl = '/admin/disposal?edit=' . $refId;
-                break;
-            case 'drugsetting':
-                $backUrl = '/admin/drugsettings';
-                break;
-            case 'template':
-                $backUrl = '/doctor/templates';
-                break;
+        if (isset($itemAuditTypes[$audit['type']])) {
+            $backUrl = $itemAuditTypes[$audit['type']]['url'] . '?edit=' . $refId;
+        } else {
+            switch ($audit['type']) {
+                case 'drugsetting':
+                    $backUrl = '/admin/drugsettings';
+                    break;
+                case 'template':
+                    $backUrl = '/doctor/templates';
+                    break;
+            }
         }
         switch ($audit['type']) {
             case 'template':
@@ -183,34 +182,15 @@ function admin_part_audit($action) {
                 }
                 break;
             case 'item_lab':
-                CoreRepository::exec('UPDATE lab_items SET status=? WHERE id=?', array($newStatus, $refId));
-                if ($proposerId > 0) {
-                    send_msg($proposerRole !== '' ? $proposerRole : 'doctor', $proposerId, '检验项目审核结果',
-                        '您提交的检验项目「' . $audit['title'] . '」' . ($approve ? '已通过审核，可以开单使用' : '未通过审核，理由：' . $note . '（点击本消息回到添加页修改后重新提交）'),
-                        '', '', array('msg_type' => 'system', 'link_url' => $backUrl));
-                }
-                break;
             case 'item_exam':
-                CoreRepository::exec('UPDATE exam_items SET status=? WHERE id=?', array($newStatus, $refId));
-                if ($proposerId > 0) {
-                    send_msg($proposerRole !== '' ? $proposerRole : 'doctor', $proposerId, '检查项目审核结果',
-                        '您提交的检查项目「' . $audit['title'] . '」' . ($approve ? '已通过审核，可以开单使用' : '未通过审核，理由：' . $note . '（点击本消息回到添加页修改后重新提交）'),
-                        '', '', array('msg_type' => 'system', 'link_url' => $backUrl));
-                }
-                break;
             case 'item_drug':
-                CoreRepository::exec('UPDATE drugs SET status=? WHERE id=?', array($newStatus, $refId));
-                if ($proposerId > 0) {
-                    send_msg($proposerRole !== '' ? $proposerRole : 'doctor', $proposerId, '药品审核结果',
-                        '您提交的药品「' . $audit['title'] . '」' . ($approve ? '已通过审核，可以开方使用' : '未通过审核，理由：' . $note . '（点击本消息回到添加页修改后重新提交）'),
-                        '', '', array('msg_type' => 'system', 'link_url' => $backUrl));
-                }
-                break;
             case 'item_disp':
-                CoreRepository::exec('UPDATE disposal_items SET status=? WHERE id=?', array($newStatus, $refId));
+                // 项目类审核统一处理：状态流转 + 通知提交者（差异来自 $itemAuditTypes 映射）
+                $itCfg = $itemAuditTypes[$audit['type']];
+                CoreRepository::exec('UPDATE ' . $itCfg['table'] . ' SET status=? WHERE id=?', array($newStatus, $refId));
                 if ($proposerId > 0) {
-                    send_msg($proposerRole !== '' ? $proposerRole : 'doctor', $proposerId, '处置项目审核结果',
-                        '您提交的处置项目「' . $audit['title'] . '」' . ($approve ? '已通过审核，可以开单使用' : '未通过审核，理由：' . $note . '（点击本消息回到添加页修改后重新提交）'),
+                    send_msg($proposerRole !== '' ? $proposerRole : 'doctor', $proposerId, $itCfg['name'] . '审核结果',
+                        '您提交的' . $itCfg['name'] . '「' . $audit['title'] . '」' . ($approve ? '已通过审核，可以' . $itCfg['verb'] . '使用' : '未通过审核，理由：' . $note . '（点击本消息回到添加页修改后重新提交）'),
                         '', '', array('msg_type' => 'system', 'link_url' => $backUrl));
                 }
                 break;
