@@ -3,14 +3,11 @@
  * ============================================================
  * icd10.php — ICD10 诊断检索与维护接口
  * ============================================================
- * 说明：ICD-10 疾病编码独立字典库，由 DatabaseManager::getIcd10()
- * 访问（独立文件，隔离于业务主库）。支持按编码 / 名称 / 拼音
- * 首字母检索；管理端可新增、编辑、删除诊断（小规模维护），
- * 大范围导入可走管理端数据导入功能。
+ * 说明：ICD-10 疾病编码独立字典库，通过 Icd10Repository 访问
+ * （内部对接 DatabaseManager::getIcd10()，独立文件隔离于业务主库）。
+ * 本文件仅做入参解析、校验与 JSON 响应组装，不含任何原生 SQL。
  * ============================================================ */
 require __DIR__ . '/_init.php';
-
-$icd10 = DatabaseManager::getIcd10();
 
 switch ($action) {
 
@@ -20,13 +17,8 @@ switch ($action) {
         if ($kw === '') {
             json_ok(array('list' => array()));
         }
-        $like = '%' . $kw . '%';
-        $st = $icd10->prepare("SELECT id, code, name, pinyin FROM icd10
-            WHERE code LIKE ? OR name LIKE ? OR pinyin LIKE ? ORDER BY id LIMIT 20");
-        $st->execute(array($like, $like, strtoupper($like)));
-        $list = $st->fetchAll(PDO::FETCH_ASSOC);
         $out = array();
-        foreach ($list as $row) {
+        foreach (Icd10Repository::search($kw, 20) as $row) {
             $out[] = array(
                 'id'             => (int)$row['id'],
                 'icd10_code'     => $row['code'],
@@ -44,20 +36,7 @@ switch ($action) {
         if ($limit <= 0 || $limit > 200) $limit = 50;
         $offset = (int)get('offset', 0);
         if ($offset < 0) $offset = 0;
-        $sql = 'SELECT id, code, name, pinyin FROM icd10';
-        $params = array();
-        $where = '';
-        if ($kw !== '') {
-            $like = '%' . $kw . '%';
-            $where = ' WHERE code LIKE ? OR name LIKE ? OR pinyin LIKE ?';
-            $params = array($like, $like, strtoupper($like));
-        }
-        $st = $icd10->prepare('SELECT COUNT(*) FROM icd10' . $where);
-        $st->execute($params);
-        $total = (int)$st->fetchColumn();
-        $st = $icd10->prepare($sql . $where . ' ORDER BY code ASC LIMIT ' . $limit . ' OFFSET ' . $offset);
-        $st->execute($params);
-        $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+        list($rows, $total) = Icd10Repository::paginate($kw, $limit, $offset);
         $out = array();
         foreach ($rows as $row) {
             $out[] = array(
@@ -81,20 +60,18 @@ switch ($action) {
             $pinyin = pinyin_initial($name);
         }
         // 编码+名称 唯一性校验
-        $dup = DB::one('icd10', 'SELECT id FROM icd10 WHERE (code=? OR name=?) AND id<>?', array($code, $name, $id));
-        if ($dup) json_fail('该诊断编码或名称已存在');
+        if (Icd10Repository::findDuplicate($code, $name, $id)) json_fail('该诊断编码或名称已存在');
         if ($id > 0) {
-            $icd10->prepare('UPDATE icd10 SET code=?, name=?, pinyin=? WHERE id=?')->execute(array($code, $name, $pinyin, $id));
+            Icd10Repository::update($id, $code, $name, $pinyin);
         } else {
-            $icd10->prepare('INSERT INTO icd10(code, name, pinyin) VALUES(?,?,?)')->execute(array($code, $name, $pinyin));
+            Icd10Repository::create($code, $name, $pinyin);
         }
         json_ok(array(), '诊断已保存');
         break;
 
     /* ---------------- 删除诊断 ---------------- */
     case 'delete':
-        $id = (int)post('id', 0);
-        $icd10->prepare('DELETE FROM icd10 WHERE id=?')->execute(array($id));
+        Icd10Repository::remove((int)post('id', 0));
         json_ok(array(), '诊断已删除');
         break;
 
