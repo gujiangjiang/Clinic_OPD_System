@@ -101,7 +101,7 @@ function record_part_write($action) {
 
         // ===== 1. 解析与文书类型判定 =====
         $raw = post_raw('emr_data');
-        $emr = json_decode($raw, true);
+        $emr = json_decode($raw, true, 512);
         if (!is_array($emr)) json_fail('病历数据格式非法');
         $cc = isset($emr['chief_complaint']) && is_array($emr['chief_complaint']) ? $emr['chief_complaint'] : array();
         $pi = isset($emr['history_present']) && is_array($emr['history_present']) ? $emr['history_present'] : array();

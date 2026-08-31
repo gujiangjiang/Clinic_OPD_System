@@ -102,8 +102,25 @@ function admin_part_dept($action) {
     /* ==================== 删除科室 ==================== */
     if ($action === 'dept_delete') {
         $id = (int)post('id');
-        $used = (int)DeptRepository::val('SELECT COUNT(*) FROM registrations WHERE first_dept_id=?', array($id));
-        if ($used > 0) json_fail('该科室已有挂号记录，不能删除（可改为停用）');
+        // 引用检查：关联到挂号/病历/会诊/诊室/用户/加号时禁止物理删除
+        if ((int)DeptRepository::val('SELECT COUNT(*) FROM registrations WHERE first_dept_id=? OR current_dept_id=?', array($id, $id)) > 0) {
+            json_fail('该科室已有挂号记录，不能删除（可改为停用）');
+        }
+        if ((int)DeptRepository::val('SELECT COUNT(*) FROM patient_records WHERE dept_id=?', array($id)) > 0) {
+            json_fail('该科室已有病历记录，不能删除');
+        }
+        if ((int)DeptRepository::val('SELECT COUNT(*) FROM consultations WHERE from_dept_id=? OR target_dept_id=?', array($id, $id)) > 0) {
+            json_fail('该科室已有会诊记录，不能删除');
+        }
+        if ((int)DeptRepository::val('SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=?', array($id)) > 0) {
+            json_fail('该科室已有诊室配置，不能删除（请先删除诊室）');
+        }
+        if ((int)DeptRepository::val("SELECT COUNT(*) FROM users WHERE dept_ids LIKE '%," . (int)$id . ",%' OR dept_ids LIKE '" . (int)$id . ",%' OR dept_ids LIKE '%," . (int)$id . "' OR dept_ids='" . (int)$id . "'") > 0) {
+            json_fail('该科室已有用户关联，不能删除');
+        }
+        if ((int)DeptRepository::val('SELECT COUNT(*) FROM extra_slots WHERE dept_id=?', array($id)) > 0) {
+            json_fail('该科室已有加号记录，不能删除');
+        }
         DeptRepository::exec('DELETE FROM departments WHERE id=?', array($id));
         json_ok(array(), '科室已删除');
     }

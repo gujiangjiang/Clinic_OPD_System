@@ -283,6 +283,17 @@ function admin_part_item($action) {
         $type = post('type', 'lab');
         $id = (int)post('id');
         $table = $type === 'lab' ? 'lab_items' : 'exam_items';
+        $itemType = $type === 'lab' ? 'lab' : 'imaging';
+        // 引用检查：有关联开单/结果/组合时禁止物理删除
+        if ((int)OrderRepository::val('SELECT COUNT(*) FROM order_items WHERE item_type=? AND item_id=?', array($itemType, $id)) > 0) {
+            json_fail('该项目已有开单记录，不能删除');
+        }
+        if ((int)OrderRepository::val('SELECT COUNT(*) FROM results WHERE item_id=?', array($id)) > 0) {
+            json_fail('该项目已有结果记录，不能删除');
+        }
+        if ($type === 'lab' && (int)OrderRepository::val('SELECT COUNT(*) FROM lab_group_members WHERE item_id=?', array($id)) > 0) {
+            json_fail('该检验项目已加入检验组合，不能删除');
+        }
         OrderRepository::exec("DELETE FROM $table WHERE id=?", array($id));
         json_ok(array(), '项目已删除');
     }

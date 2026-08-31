@@ -76,6 +76,16 @@ function admin_part_disp($action) {
     /* ==================== 删除处置 ==================== */
     if ($action === 'disposal_delete') {
         $id = (int)post('id');
+        // 引用检查：有关联开单/药品皮试绑定/途径计费绑定时禁止物理删除
+        if ((int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='procedure' AND item_id=?", array($id)) > 0) {
+            json_fail('该处置项目已有开单记录，不能删除');
+        }
+        if ((int)OrderRepository::val('SELECT COUNT(*) FROM drugs WHERE skin_test_item_id=?', array($id)) > 0) {
+            json_fail('该处置项目已被药品绑定为皮试项目，不能删除');
+        }
+        if ((int)OrderRepository::val('SELECT COUNT(*) FROM drug_settings WHERE bind_disposal_item_id=?', array($id)) > 0) {
+            json_fail('该处置项目已被药品设置绑定计费，不能删除');
+        }
         OrderRepository::exec('DELETE FROM disposal_items WHERE id=?', array($id));
         json_ok(array(), '处置项目已删除');
     }

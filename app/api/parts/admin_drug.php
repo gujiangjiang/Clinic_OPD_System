@@ -193,6 +193,13 @@ function admin_part_drug($action) {
     /* ==================== 删除药品 ==================== */
     if ($action === 'drug_delete') {
         $id = (int)post('id');
+        // 引用检查：有关联处方/库存流水时禁止物理删除
+        if ((int)DrugRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND item_id=?", array($id)) > 0) {
+            json_fail('该药品已有处方记录，不能删除（可改为停用）');
+        }
+        if ((int)DrugRepository::val('SELECT COUNT(*) FROM inventory_trans WHERE drug_id=?', array($id)) > 0) {
+            json_fail('该药品已有库存流水记录，不能删除（可改为停用）');
+        }
         DrugRepository::exec('DELETE FROM drugs WHERE id=?', array($id));
         json_ok(array(), '药品已删除');
     }

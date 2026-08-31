@@ -355,7 +355,7 @@ function order_part_write($action) {
                         // 预检（line 前段）仅作快速提示，此处才是最终校验
                         $affected = OrderRepository::exec('UPDATE drugs SET qty = qty - ? WHERE id=? AND qty >= ?',
                             array($it['quantity'], $it['item_id'], $it['quantity']));
-                        if (!$affected) {
+                        if ($affected === 0) {
                             json_fail('药品【' . $it['item_name'] . '】库存不足（并发扣减），请重试');
                         }
                         OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(

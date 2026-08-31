@@ -59,8 +59,16 @@ function admin_part_import($action) {
         if (empty($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
             json_fail('请选择要导入的文件');
         }
-        $content = file_get_contents($_FILES['file']['tmp_name']);
+        // 文件类型校验：仅允许文本文件（CSV/TXT）；拒绝二进制/可执行文件
+        $impFile = $_FILES['file'];
+        $impExt = strtolower(pathinfo($impFile['name'], PATHINFO_EXTENSION));
+        if (!in_array($impExt, array('csv', 'txt'), true)) {
+            json_fail('仅支持导入 CSV 文本文件');
+        }
+        $content = file_get_contents($impFile['tmp_name']);
         if ($content === false) json_fail('文件读取失败');
+        // 检查内容是否包含二进制控制字符（排除换行符/制表符等常见文本字符）
+        if (preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', $content)) json_fail('文件内容包含非法字符，请重新导出 CSV 后导入');
         $rows = DataExportImport::parse($content);
         if (count($rows) < 2) json_fail('文件无有效数据（首行为表头）');
         // 表头映射
