@@ -13,6 +13,12 @@
 
 ---
 
+## [6.0.1] - 2026-08-31
+
+### 修复
+
+- **删除会诊病历节点 500 错误**：`record_delete.php` 调用 `EmrRepository::deleteMirrorByRecordId()` 但该方法不存在（命名错误，应为 `deleteMirrorByPatientRecord`），导致 PHP 致命错误引发 500 响应，前端解析空 JSON 报 Unexpected end of JSON input。修正方法名后删除会诊病历正常。（`app/api/parts/record_delete.php:69`）
+
 ## [6.0.0] - 2026-08-31
 
 ### 变更

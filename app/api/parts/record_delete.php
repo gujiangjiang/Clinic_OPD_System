@@ -66,7 +66,7 @@ function record_part_delete($action) {
             $pdo->beginTransaction();
             EmrRepository::deleteRecord($recordId);
             // 清理该文书对应的旧镜像（精确匹配 patient_record_id；旧数据无关联时按 visit+doctor 最新兜底）
-            EmrRepository::deleteMirrorByRecordId($recordId);
+            EmrRepository::deleteMirrorByPatientRecord($recordId);
             $mirrorOld = EmrRepository::one('SELECT id FROM records WHERE visit_id=? AND doctor_id=? AND patient_record_id=0 ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
             if ($mirrorOld) {
                 EmrRepository::deleteMirrorById($mirrorOld['id']);
