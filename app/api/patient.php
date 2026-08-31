@@ -8,6 +8,7 @@
  * 2. 患者查询（ID/身份证/姓名）
  * 3. 患者信息修改弹窗（姓名/性别/身份证/出生年月不可改）
  * 4. 患者全部就诊历史（病历+开单情况）
+ * 数据访问统一委托 PatientRepository，本文件不含原生 SQL。
  * ============================================================ */
 require __DIR__ . '/_init.php';
 
@@ -16,8 +17,7 @@ switch ($action) {
     /* ---------------- 按身份证检索患者 ---------------- */
     case 'by_card':
         $idCard = get('id_card', '');
-        $p = DB::one('SELECT * FROM patients WHERE id_card=?', array($idCard));
-        json_ok(array('patient' => $p));
+        json_ok(array('patient' => PatientRepository::byIdCard($idCard)));
         break;
 
     /* ---------------- 患者查询（ID/身份证/姓名） ---------------- */
@@ -26,16 +26,13 @@ switch ($action) {
         if ($kw === '') {
             json_ok(array('list' => array()));
         }
-        $like = '%' . $kw . '%';
-        $list = DB::q("SELECT * FROM patients WHERE patient_no LIKE ? OR id_card LIKE ? OR name LIKE ? ORDER BY id DESC LIMIT 20",
-            array($like, $like, $like));
-        json_ok(array('list' => $list));
+        json_ok(array('list' => PatientRepository::search($kw)));
         break;
 
     /* ---------------- 患者信息修改表单（服务端渲染，字典来自 options_data.php） ---------------- */
     case 'edit_form':
         $kw = get('kw', '');
-        $p = DB::one('SELECT * FROM patients WHERE id_card=? OR patient_no=?', array($kw, $kw));
+        $p = PatientRepository::byCardOrNo($kw);
         if (!$p) {
             json_ok(array('html' => ''));
         }
@@ -64,15 +61,11 @@ switch ($action) {
         if ($patientNo === '') {
             json_fail('缺少患者标识');
         }
-        $fields = array('phone', 'ethnicity', 'marital', 'occupation', 'work_unit', 'address');
-        $set = array();
-        $params = array();
-        foreach ($fields as $f) {
-            $set[] = $f . '=?';
-            $params[] = post($f);
-        }
-        $params[] = $patientNo;
-        DB::exec('UPDATE patients SET ' . implode(',', $set) . ' WHERE patient_no=?', $params);
+        PatientRepository::updateProfile($patientNo, array(
+            'phone' => post('phone'), 'ethnicity' => post('ethnicity'),
+            'marital' => post('marital'), 'occupation' => post('occupation'),
+            'work_unit' => post('work_unit'), 'address' => post('address'),
+        ));
         json_ok(array(), '患者信息已更新');
         break;
 
@@ -83,18 +76,11 @@ switch ($action) {
     case 'history':
         $patientNo = get('patient_no', '');
         $u = Auth::user();   // 接诊判定需要当前医生 id
-        $p = DB::one('SELECT * FROM patients WHERE patient_no=?', array($patientNo));
+        $p = PatientRepository::byPatientNo($patientNo);
         if (!$p) json_fail('未找到该患者');
-        $visits = DB::q('SELECT * FROM registrations WHERE patient_no=? ORDER BY registered_at DESC, id DESC', array($patientNo));
+        $visits = PatientRepository::visitsOf($patientNo);
         $list = array();
         foreach ($visits as $v) {
-            // 是否有已保存病历（结构化表为主，旧镜像表兜底）
-            $hasRecord = (int)DB::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=?', array($v['id'])) > 0
-                || (int)DB::val('SELECT COUNT(*) FROM records WHERE visit_id=?', array($v['id'])) > 0;
-            $hasCert = (int)DB::val('SELECT COUNT(*) FROM certificates WHERE visit_id=?', array($v['id'])) > 0;
-            // 当前医生是否接诊过该次就诊（结构化表与镜像表任一有本人文书即算）
-            $treated = (int)DB::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array($v['id'], $u['id'])) > 0
-                || (int)DB::val('SELECT COUNT(*) FROM records WHERE visit_id=? AND doctor_id=?', array($v['id'], $u['id'])) > 0;
             $list[] = array(
                 'code' => oid($v['id']),
                 'date' => substr($v['registered_at'], 0, 10),
@@ -104,9 +90,9 @@ switch ($action) {
                 'visit_seq' => (int)$v['visit_seq'],
                 'status' => $v['status'],
                 'status_name' => visit_status_name($v['status']),
-                'has_record' => $hasRecord ? 1 : 0,
-                'has_cert' => $hasCert ? 1 : 0,
-                'treated' => $treated ? 1 : 0,
+                'has_record' => PatientRepository::visitHasRecord($v['id']) ? 1 : 0,
+                'has_cert' => PatientRepository::visitHasCertificate($v['id']) ? 1 : 0,
+                'treated' => PatientRepository::visitTreatedBy($v['id'], $u['id']) ? 1 : 0,
                 'finished' => $v['status'] === 'finished' ? 1 : 0,
             );
         }

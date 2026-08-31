@@ -13,7 +13,7 @@ $action = isset($_GET['action']) ? trim($_GET['action']) : 'data';
 $token = isset($_GET['token']) ? trim($_GET['token']) : (isset($_POST['token']) ? trim($_POST['token']) : '');
 
 /** 按 token 找大屏 */
-$room = $token !== '' ? DB::one('SELECT * FROM clinic_rooms WHERE screen_token=?', array($token)) : null;
+$room = $token !== '' ? QueueRepository::roomByToken($token) : null;
 if (!$room) {
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode(array('ok' => false, 'msg' => '大屏链接无效或已失效，请联系管理员', 'data' => null), JSON_UNESCAPED_UNICODE);
@@ -28,21 +28,15 @@ function screen_payload($room) {
     $mask = (int)$room['enable_mask'] === 1;
 
     // 当前就诊中患者（该科室）
-    $current = DB::one("SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
-        FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-        WHERE r.current_dept_id=? AND r.status='visiting' ORDER BY r.id DESC LIMIT 1", array($deptId));
+    $current = QueueRepository::currentVisit($deptId);
     // 下一位候诊
-    $next = DB::one("SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
-        FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-        WHERE r.current_dept_id=? AND r.status='paid' ORDER BY r.visit_seq, r.registered_at LIMIT 1", array($deptId));
+    $next = QueueRepository::nextWaiting($deptId);
     // 候诊队列（前 8 位）
-    $waiting = DB::q("SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
-        FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-        WHERE r.current_dept_id=? AND r.status='paid' ORDER BY r.visit_seq, r.registered_at LIMIT 8", array($deptId));
+    $waiting = QueueRepository::waitingList($deptId, 8);
     // 当前医生（完整信息：姓名/工号/职称/介绍/照片，供医生大屏展示）
     $doctor = null;
     if ((int)$room['current_doctor_id'] > 0) {
-        $doc = DB::one('SELECT name, emp_no, title, intro, photo FROM users WHERE id=?', array($room['current_doctor_id']));
+        $doc = QueueRepository::doctorInfo($room['current_doctor_id']);
         if ($doc) {
             $doctor = array(
                 'name' => $doc['name'],
@@ -131,17 +125,13 @@ if ($action === 'heartbeat' || $action === 'data') {
     // 绑定医生保活检查：医生心跳超过 90 秒未更新（异常退出浏览器 / 会话过期等
     // 未走正常登出流程的场景）时，大屏自动取消与该医生的关联
     if ((int)$room['current_doctor_id'] > 0) {
-        $stale = (int)DB::val(            "SELECT COUNT(*) FROM clinic_rooms WHERE id=? AND (doctor_heartbeat IS NULL OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat)) > 90)",
-            array((int)$room['id']));
-        if ($stale) {
-            DB::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL, updated_at=? WHERE id=?',
-                array(now_str(), (int)$room['id']));
+        if (QueueRepository::doctorHeartbeatStale($room['id'])) {
+            QueueRepository::unbindDoctor($room['id']);
             $room = DB::one('SELECT * FROM clinic_rooms WHERE id=?', array((int)$room['id']));
         }
     }
     if ($action === 'heartbeat') {
-        DB::exec('UPDATE clinic_rooms SET screen_last_heartbeat=?, is_screen_online=1, updated_at=? WHERE id=?',
-            array(now_str(), now_str(), (int)$room['id']));
+        QueueRepository::updateHeartbeat($room['id']);
     }
     json_response(true, 'ok', screen_payload($room));
     exit;
