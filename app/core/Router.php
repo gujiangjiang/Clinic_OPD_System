@@ -173,6 +173,9 @@ class Router {
         require $viewFile;
         $content = ob_get_clean();
         $standalone = ($view === 'login.php' || $view === 'install.php' || $view === 'landing.php' || $view === 'doctor/call.php');
+        // 需要 EMR 栈（emr.js + emr_* + order + queuepanel 等）的页面：
+        // 医生工作站、模板管理、审核中心（模板预览）
+        $needEmr = ($view === 'doctor/emr.php' || $view === 'templates.php' || $view === 'admin/review.php');
         if ($view === 'landing.php' || $view === 'doctor/call.php') {
             // 落地页 / 叫号屏自带完整 HTML，直接输出捕获内容即可
             echo $content;
@@ -182,7 +185,7 @@ class Router {
             echo Layout::authPage($content);
         } else {
             // 病历书写页强制缩小侧边栏，为书写区提供足够空间（忽略用户偏好）
-            echo Layout::appPage($content, self::$title, $view === 'doctor/emr.php');
+            echo Layout::appPage($content, self::$title, $view === 'doctor/emr.php', $needEmr);
         }
     }
 

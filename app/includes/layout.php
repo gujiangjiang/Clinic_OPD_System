@@ -151,8 +151,9 @@ class Layout {
      * @param string $content   视图内容
      * @param string $title     页面标题
      * @param bool   $forceMini 强制缩小侧边栏（病历书写页为书写区让出空间，忽略用户偏好）
+     * @param bool   $needEmr   是否需要 EMR 栈组件（医生工作站/模板/审核预览）
      */
-    public static function appPage($content, $title, $forceMini = false) {
+    public static function appPage($content, $title, $forceMini = false, $needEmr = false) {
         $u = Auth::user();
         if (!$u) {
             header('Location: /login');
@@ -199,6 +200,16 @@ class Layout {
         $uTitle = $uFull && $uFull['title'] !== '' ? $uFull['title'] : '';
         $uHasTitle = in_array($u['role'], array('doctor', 'nurse', 'lab', 'imaging', 'pharmacy'), true);
         $uRoleName = Auth::roleName($u['role']);
+        // EMR 专用组件脚本（仅医生工作站/模板管理/审核预览需要，按页裁剪降低全站脚本体积）
+        $emrScripts = '';
+        if ($needEmr) {
+            $emrScripts = implode("\n", array_map(function ($f) {
+                return '<script src="/assets/js/components/' . $f . '.js?v=' . APP_VERSION . '"></script>';
+            }, array(
+                'order', 'editor', 'emreditor', 'eventbus', 'emr', 'emr_rules', 'emr_format',
+                'emr_template', 'emr_fee', 'emr_patient', 'emr_orders', 'emr_segments', 'emr_consent', 'queuepanel',
+            )));
+        }
         $uPop = '<div class="user-pop">' .
             '<div class="user-pop-head">' .
             '<span class="avatar" style="width:38px;height:38px;font-size:15px">' . $avatar . '</span>' .
@@ -234,7 +245,8 @@ class Layout {
                  视图内联脚本（如 loadDeptList() / loadUserList()）在页面解析时立即执行，
                  若 Clinic 库尚未加载，Clinic.get() 会抛 TypeError，
                  导致列表区域永远停留在加载转圈状态（历史 bug）。
-                 因此脚本放在内容区之前，保证内联脚本执行时 Clinic 已就绪。 -->
+因此脚本放在内容区之前，保证内联脚本执行时 Clinic 已就绪。 -->
+            <!-- 核心通用组件（所有页面加载） -->
             <script src="/assets/js/components/ajax.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/modal.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/deptpicker.js?v=' . APP_VERSION . '"></script>
@@ -242,31 +254,18 @@ class Layout {
             <script src="/assets/js/components/toast.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/print.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/theme.js?v=' . APP_VERSION . '"></script>
-<script src="/assets/js/components/notify.js?v=' . APP_VERSION . '"></script>
-<script src="/assets/js/components/import.js?v=' . APP_VERSION . '"></script>
-<script src="/assets/js/components/selector.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/notify.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/import.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/selector.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/validation.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/datetime.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/datepicker.js?v=' . APP_VERSION . '"></script>
-            <script src="/assets/js/components/order.js?v=' . APP_VERSION . '"></script>
-            <script src="/assets/js/components/editor.js?v=' . APP_VERSION . '"></script>
-            <script src="/assets/js/components/emreditor.js?v=' . APP_VERSION . '"></script>
-            <script src="/assets/js/components/eventbus.js?v=' . APP_VERSION . '"></script>
-            <script src="/assets/js/components/emr.js?v=' . APP_VERSION . '"></script>
-            <script src="/assets/js/components/emr_rules.js?v=' . APP_VERSION . '"></script>
-            <script src="/assets/js/components/emr_format.js?v=' . APP_VERSION . '"></script>
-            <script src="/assets/js/components/emr_template.js?v=' . APP_VERSION . '"></script>
-            <script src="/assets/js/components/emr_fee.js?v=' . APP_VERSION . '"></script>
-            <script src="/assets/js/components/emr_patient.js?v=' . APP_VERSION . '"></script>
-            <script src="/assets/js/components/emr_orders.js?v=' . APP_VERSION . '"></script>
-            <script src="/assets/js/components/emr_segments.js?v=' . APP_VERSION . '"></script>
-            <script src="/assets/js/components/emr_consent.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/historypanel.js?v=' . APP_VERSION . '"></script>
-            <script src="/assets/js/components/queuepanel.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/patient.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/ui.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/chart.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/app.js?v=' . APP_VERSION . '"></script>
+            ' . $emrScripts . '
             <div class="' . $appClass . '">
                 <!-- ===== 侧边栏 ===== -->
                 <aside class="sidebar">
