@@ -122,7 +122,7 @@ class EmrRepository extends BaseRepository {
 
     /** 会诊处理回退（删除会诊病历 = 放弃本次会诊处理） */
     public static function revertConsultation($consultId) {
-        self::exec("UPDATE consultations SET status='pending', accepted_by='', accepted_at='' WHERE id=?", array((int)$consultId));
+        self::exec("UPDATE consultations SET status='pending', accepted_by='', accepted_at='', finished_by='', finished_at='' WHERE id=?", array((int)$consultId));
     }
 
     /** 就诊状态退回待就诊（当前科室已无文书时） */

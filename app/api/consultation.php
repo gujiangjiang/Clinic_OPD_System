@@ -201,7 +201,7 @@ switch ($action) {
         json_ok(array('consultation' => $data));
         break;
 
-    /* ==================== 接受会诊（pending → 记录接收医生，不置 doing） ==================== */
+    /* ==================== 接受会诊（pending → doing） ==================== */
     case 'accept':
         $cid = did(post('id'));
         $c = ConsultationRepository::one('SELECT * FROM consultations WHERE id=?', array($cid));
@@ -210,9 +210,9 @@ switch ($action) {
         $curDeptId = $curDeptRow ? (int)$curDeptRow['current_dept_id'] : 0;
         if ((int)$c['target_dept_id'] !== $curDeptId) json_fail('该会诊不属于当前科室');
         if ($c['status'] !== 'pending') json_fail('该会诊已开始处理');
-        // 仅记录接收医生，状态保持 pending——等待会诊病历保存后才置 doing
-        ConsultationRepository::exec('UPDATE consultations SET accepted_by=?, accepted_at=? WHERE id=?',
-            array($u['name'], now_str(), $cid));
+        // 接受会诊：记录接收医生，状态立即置为会诊中（doing）
+        ConsultationRepository::exec('UPDATE consultations SET status=?, accepted_by=?, accepted_at=? WHERE id=?',
+            array('doing', $u['name'], now_str(), $cid));
         json_ok(array(), '已接受会诊，请书写会诊病历');
         break;
 

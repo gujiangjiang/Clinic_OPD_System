@@ -55,8 +55,8 @@ function record_part_delete($action) {
         // 2.7 会诊病历回退：删除会诊病历 = 放弃本次会诊处理 → 会诊状态回退待会诊
         $recConsultId = (int)$rec['consultation_id'];
         if ($recConsultId > 0) {
-            $cons = EmrRepository::one('SELECT * FROM consultations WHERE id=?', array($recConsultId));
-            if ($cons && $cons['status'] === 'doing') {
+            $cons = EmrRepository::one('SELECT id, status FROM consultations WHERE id=?', array($recConsultId));
+            if ($cons && $cons['status'] !== 'done') {
                 EmrRepository::revertConsultation($recConsultId);
             }
         }

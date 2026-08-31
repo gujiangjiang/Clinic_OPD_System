@@ -381,8 +381,8 @@ function record_part_write($action) {
             EmrRepository::exec('UPDATE registrations SET status=? WHERE id=?', array('visiting', $visitId));
         }
 
-        // ===== 会诊病历保存成功 → 会诊状态从 pending 置 doing =====
-        // （进入会诊页面不代表会诊中，有会诊病历成功保存后才改为会诊中）
+        // ===== 会诊病历保存成功 → 确保会诊状态为 doing =====
+        // （接受会诊时已置 doing，此处兜底；若尚未接受则同步置 doing + 记录接收医生）
         if ($consultationId > 0) {
             $cons2 = EmrRepository::one('SELECT status, accepted_by FROM consultations WHERE id=?', array($consultationId));
             if ($cons2) {

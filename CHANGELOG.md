@@ -13,6 +13,25 @@
 
 ---
 
+## [6.0.3] - 2026-08-31
+
+### 修复
+
+- **会诊进度状态与实际不符（待会诊/删除后仍显示医生姓名）**：
+  - 会诊详情模态框「正在会诊」步骤的医生姓名/时间仅在会诊已进入处理中（doing/done）时显示，
+    待会诊（pending）时不再提前显示（原逻辑无状态判定直接显示 accepted_by）。
+  - 删除会诊病历后回退会诊状态时，`revertConsultation` 同时清空 accepted_by/accepted_at/
+    finished_by/finished_at；且回退条件由「仅 doing」放宽为「非 done」，确保任何未完毕状态的
+    会诊病历删除后都正确回退待会诊，不再残留医生信息。
+  - 涉及：`app/repositories/EmrRepository.php`、`app/api/parts/record_delete.php`、
+    `public/assets/js/components/emr.js`。
+- **接受会诊后立即进入「会诊中」，消除删除按钮矛盾**：
+  - 会诊科室点击「确认会诊/开始会诊」时，状态由 pending 直接置 doing（原为仅记录接收医生、
+    待保存会诊病历后才置 doing）。因此接受后侧栏会诊列表不再显示删除按钮（删除按钮仅
+    pending 且发起人本人可见），后端 `delete` 动作的「非 pending 不可删除」硬校验随即生效，
+    与会诊科室进入会诊处理的状态语义一致，不再自相矛盾。
+  - 涉及：`app/api/consultation.php`、`app/api/parts/record_write.php`（注释同步）。
+
 ## [6.0.2] - 2026-08-31
 
 ### 修复
