@@ -87,6 +87,11 @@ require_once __DIR__ . '/../core/Auth.php';
 require_once __DIR__ . '/../core/Upload.php';
 require_once __DIR__ . '/../core/Router.php';
 
+/* ---------- 引入数据访问层（Repository 自动加载） ---------- */
+foreach (glob(__DIR__ . '/../repositories/*.php') ?: array() as $__repoFile) {
+    require_once $__repoFile;
+}
+
 /* ---------- 站点时区（管理员设置，默认取创建管理员时的浏览器时区） ---------- */
 $__tz = DB::val('core', "SELECT svalue FROM settings WHERE skey='timezone'");
 if ($__tz) {
