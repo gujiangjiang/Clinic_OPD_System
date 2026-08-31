@@ -53,6 +53,10 @@ function order_part_write($action) {
         if (!$myRec) {
             json_fail('当前无可编辑的病历：转科后旧科室病历已只读，请先在本科室书写并保存续写病历后再开单');
         }
+        // ===== 统一上下文断言（SSOT 守卫）=====
+        // 第一层根判定：是否存在当前医生的可写容器（get_editable_record 语义）；
+        // 开单必须绑定到该活跃容器（record_id=active.container_id），杜绝悬空开单。
+        EmrContextResolver::assertCanWrite($visit, $u, $myRec ? EmrRepository::one('SELECT * FROM patient_records WHERE id=?', array($myRec['id'])) : null);
         // 开单必须绑定可编辑病历：优先采用前端提交的 record_id（须为本人可编辑文书，
         // 支持切换到本人较早的续写文书开单），否则回退到最新可编辑文书 id——
         // 杜绝 record_id=0 的悬空开单。
@@ -442,8 +446,18 @@ function order_part_write($action) {
         if ((int)$order['doctor_id'] !== (int)$u['id']) {
             json_fail('仅开单医生本人可删除该' . ($order['order_type'] === 'prescription' ? '处方' : '申请单') . '（开单医生：' . $order['doctor_name'] . '）');
         }
+        // ===== 统一上下文断言（SSOT 守卫）=====
+        // 第一层根判定：当前是否有可写容器（无 → 熔断删除）；
+        // 第二层归属判定：目标订单绑定的 record_id 必须等于活跃容器 id。
+        $rowDel = get_visit_row($order['visit_id']);
+        if (!$rowDel) json_fail('就诊记录不存在');
+        $ctxDel = EmrContextResolver::assertCanWrite($rowDel['visit'], $u, EmrRepository::one('SELECT * FROM patient_records WHERE id=?', array($curRecordId > 0 ? $curRecordId : 0)) ?: null, $curRecordId > 0 ? $curRecordId : null);
         // 病历ID强关联：新数据（record_id>0）必须与当前编辑病历一致；旧数据（record_id=0）回退按医生归属
-        if ($orderRecId > 0 && ($curRecordId <= 0 || $orderRecId !== $curRecordId)) {
+        $activeDelId = $ctxDel['active']['container_id'];
+        if ($orderRecId > 0 && $curRecordId <= 0) {
+            json_fail('缺少当前病历标识，无法校验删除归属');
+        }
+        if ($orderRecId > 0 && $curRecordId > 0 && $orderRecId !== $curRecordId) {
             json_fail('该开单不属于当前编辑的病历，不可删除（开单与病历强关联）');
         }
         $items = OrderRepository::q('SELECT * FROM order_items WHERE order_id=?', array($orderId));

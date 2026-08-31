@@ -67,8 +67,9 @@ switch ($action) {
         if (!visit_access_allowed($visit, $u)) json_fail('该病历超出您的可查看历史天数，无法发起会诊');
         // 可编辑病历前置校验：本人必须有当前科室可编辑的病历（首诊/续写）才可发起会诊
         // 转科后旧科室文书只读，必须在本科室新建续写病历并保存后才能发起会诊。
+        // 统一上下文断言（SSOT 守卫）：会诊发起必须持有活跃可写容器。
         $myRec = get_editable_record($visit, $u);
-        if (!$myRec) json_fail('当前无可编辑的病历：转科后旧科室病历已只读，请先在本科室书写并保存续写病历后再发起会诊');
+        EmrContextResolver::assertCanWrite($visit, $u, $myRec ? EmrRepository::one('SELECT * FROM patient_records WHERE id=?', array($myRec['id'])) : null);
         // 会诊与病历强关联：记录发起会诊时所在的病历记录 id（与开单一致，按 record_id 展示）
         $consRecId = (int)$myRec['id'];
         // 会诊拦截：本人已书写会诊病历且该会诊尚未完毕（pending/doing）→ 不可再发起会诊

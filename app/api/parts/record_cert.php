@@ -34,10 +34,9 @@ function record_part_cert($action) {
                     json_fail('您未接诊过该患者，无权开具诊断证明');
                 }
             } else {
+                // 未诊毕 → 必须持有当前科室可写容器（统一上下文断言）
                 $editableRec = get_editable_record($row['visit'], $u);
-                if (!$editableRec) {
-                    json_fail('当前无可编辑的病历：转科后旧科室病历已只读，请先在本科室书写并保存续写病历后再开具诊断证明');
-                }
+                EmrContextResolver::assertCanWrite($row['visit'], $u, $editableRec ? EmrRepository::one('SELECT * FROM patient_records WHERE id=?', array($editableRec['id'])) : null);
             }
         }
         if (EmrRepository::countCertificatesByVisit($visitId) > 0) {

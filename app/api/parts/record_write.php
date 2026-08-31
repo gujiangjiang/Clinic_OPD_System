@@ -168,6 +168,17 @@ function record_part_write($action) {
         }
         $parentRecordId = $parentRow ? (int)$parentRow['id'] : 0;
 
+        // ===== 统一上下文断言（SSOT 守卫）=====
+        // 第一层根判定：当前是否存在可写容器。会诊处理中 → 仅会诊病历可写；
+        // 新建续写（progress_new，record 尚未创建）→ 豁免容器存在性，由后续
+        // 必填与转科校验把关；其余情况 → 硬拦截不可写场景。
+        // 注意：不传 targetContainerId——医生可切换到本人旧文书编辑（switchToRecord），
+        // 其可编辑性已由 resolve 的 dept_match/consult 判定覆盖。
+        if (!$progressNew) {
+            $ctxRecord = $ownRow ? EmrRepository::one('SELECT * FROM patient_records WHERE id=?', array($ownRow['id'])) : null;
+            EmrContextResolver::assertCanWrite($visit, $u, $ctxRecord);
+        }
+
         // ===== 会诊病历关联：consultation_id>0 时校验会诊归属 =====
         // 校验：会诊单属于本就诊 + 目标科室为当前登录医生所在科室（会诊由目标科室医生书写）
         $consultationId = (int)post('consultation_id', 0);
