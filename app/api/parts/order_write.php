@@ -467,35 +467,45 @@ function order_part_write($action) {
                 json_fail('该开单已进入执行流程，不能删除（如需删除请先在收费处退费）');
             }
         }
-        // 恢复药品库存：仅未缴费的处方需要恢复（已退费的处方在退费时已恢复库存）
-        if ($order['order_type'] === 'prescription') {
-            foreach ($items as $it) {
-                if ($it['item_id'] > 0 && (int)$it['sub_of'] === 0 && $it['status'] === 'open') {
-                    OrderRepository::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array((int)$it['quantity'], $it['item_id']));
-                    OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
-                        $it['item_id'], (int)$it['quantity'], 'order_restore', $order['order_no'], $u['name'], now_str(),
-                    ));
-                }
-            }
-        }
-        // 处方：级联删除自动生成的联动处置单（皮试/途径绑定，source_order_id 指向本处方）
-        $autoOrders = array();
-        if ($order['order_type'] === 'prescription') {
-            $autoOrders = OrderRepository::q("SELECT * FROM orders WHERE source_order_id=? AND order_type='procedure'", array($orderId));
-            foreach ($autoOrders as $ao) {
-                $aoItems = OrderRepository::q('SELECT * FROM order_items WHERE order_id=?', array($ao['id']));
-                foreach ($aoItems as $aoIt) {
-                    if (!in_array($aoIt['status'], array('open', 'refunded'), true)) {
-                        json_fail('该处方的联动处置单已进入执行流程，不能自动删除（请先在收费处处理联动处置单）');
+        // 数据变更（库存恢复 + 级联删除）为复合写操作：原生事务保证原子性
+        $pdoDel = DatabaseManager::getMain();
+        $pdoDel->beginTransaction();
+        try {
+            // 恢复药品库存：仅未缴费的处方需要恢复（已退费的处方在退费时已恢复库存）
+            if ($order['order_type'] === 'prescription') {
+                foreach ($items as $it) {
+                    if ($it['item_id'] > 0 && (int)$it['sub_of'] === 0 && $it['status'] === 'open') {
+                        OrderRepository::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array((int)$it['quantity'], $it['item_id']));
+                        OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
+                            $it['item_id'], (int)$it['quantity'], 'order_restore', $order['order_no'], $u['name'], now_str(),
+                        ));
                     }
                 }
             }
-        }
-        OrderRepository::exec('DELETE FROM order_items WHERE order_id=?', array($orderId));
-        OrderRepository::exec('DELETE FROM orders WHERE id=?', array($orderId));
-        foreach ($autoOrders as $ao) {
-            OrderRepository::exec('DELETE FROM order_items WHERE order_id=?', array($ao['id']));
-            OrderRepository::exec('DELETE FROM orders WHERE id=?', array($ao['id']));
+            // 处方：级联删除自动生成的联动处置单（皮试/途径绑定，source_order_id 指向本处方）
+            $autoOrders = array();
+            if ($order['order_type'] === 'prescription') {
+                $autoOrders = OrderRepository::q("SELECT * FROM orders WHERE source_order_id=? AND order_type='procedure'", array($orderId));
+                foreach ($autoOrders as $ao) {
+                    $aoItems = OrderRepository::q('SELECT * FROM order_items WHERE order_id=?', array($ao['id']));
+                    foreach ($aoItems as $aoIt) {
+                        if (!in_array($aoIt['status'], array('open', 'refunded'), true)) {
+                            $pdoDel->rollBack();
+                            json_fail('该处方的联动处置单已进入执行流程，不能自动删除（请先在收费处处理联动处置单）');
+                        }
+                    }
+                }
+            }
+            OrderRepository::exec('DELETE FROM order_items WHERE order_id=?', array($orderId));
+            OrderRepository::exec('DELETE FROM orders WHERE id=?', array($orderId));
+            foreach ($autoOrders as $ao) {
+                OrderRepository::exec('DELETE FROM order_items WHERE order_id=?', array($ao['id']));
+                OrderRepository::exec('DELETE FROM orders WHERE id=?', array($ao['id']));
+            }
+            $pdoDel->commit();
+        } catch (Exception $ex) {
+            if ($pdoDel->inTransaction()) $pdoDel->rollBack();
+            json_fail('删除失败：' . $ex->getMessage());
         }
         json_ok(array(), '开单已删除' . ($order['order_type'] === 'prescription' ? '，药品库存已恢复' : '') . ($autoOrders ? '，联动处置单已同步删除' : ''));
         return;

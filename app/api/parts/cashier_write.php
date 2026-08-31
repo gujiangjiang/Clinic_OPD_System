@@ -240,10 +240,7 @@ function cashier_part_write($action) {
             foreach ($items as $it) {
                 if ($it['item_id'] > 0 && (int)$it['sub_of'] === 0) {
                     CashierRepository::restoreDrugStock($it['item_id'], (int)$it['quantity']);
-                    CashierRepository::createInventoryTrans(array(
-                        'drug_id' => (int)$it['item_id'], 'qty_change' => (int)$it['quantity'], 'type' => 'refund',
-                        'ref' => $order['order_no'], 'operator' => $u['name'],
-                    ));
+                    CashierRepository::createInventoryTrans((int)$it['item_id'], (int)$it['quantity'], 'refund', $order['order_no'], $u['name']);
                 }
             }
         }

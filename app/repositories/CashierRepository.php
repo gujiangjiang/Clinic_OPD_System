@@ -223,8 +223,8 @@ class CashierRepository extends BaseRepository {
         return self::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array((int)$qty, (int)$drugId));
     }
 
-    /** 新增库存流水（委托 DrugRepository 统一实现） */
-    public static function createInventoryTrans($data) {
-        return DrugRepository::createInventoryTrans($data);
+    /** 新增库存流水（委托 DrugRepository 统一实现，签名保持一致） */
+    public static function createInventoryTrans($drugId, $qtyChange, $type, $ref, $operator) {
+        return DrugRepository::createInventoryTrans($drugId, $qtyChange, $type, $ref, $operator);
     }
 }

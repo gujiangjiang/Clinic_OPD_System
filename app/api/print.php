@@ -10,6 +10,25 @@
 require __DIR__ . '/_init.php';
 require_once APP_ROOT . '/app/includes/print_templates.php';
 
+$u = Auth::user();
+
+/**
+ * 打印访问守卫（越权防护）：管理员放行；其余按角色白名单 + 就诊归属校验。
+ * 说明：不做可查看天数限制——历史只读面板（打印）不受 queue_days 限制。
+ * @param array  $visit 就诊记录（registrations 行）
+ * @param array  $allowedRoles 允许打印该单据的角色
+ */
+function print_guard($visit, $allowedRoles) {
+    global $u;
+    if ($u['role'] === 'admin') return;
+    if (!in_array($u['role'], $allowedRoles, true)) {
+        json_fail('无权限打印该单据');
+    }
+    if (!visit_dept_authorized($visit, $u)) {
+        json_fail('无权打印该就诊的单据');
+    }
+}
+
 switch ($action) {
 
     /* ---------------- 挂号凭条 ---------------- */
@@ -18,6 +37,7 @@ switch ($action) {
         if ($vid <= 0) json_fail('链接无效或已过期，请重新获取打印凭据');
         $row = get_visit_row($vid);
         if (!$row) json_fail('就诊记录不存在');
+        print_guard($row['visit'], array('cashier'));
         $visit = $row['visit'];
         $visit['name'] = $row['patient']['name'];
         $visit['gender'] = $row['patient']['gender'];
@@ -34,6 +54,9 @@ switch ($action) {
         $payId = did(get('payment_id'));
         $pay = EmrRepository::one('SELECT * FROM payments WHERE id=?', array($payId));
         if (!$pay) json_fail('缴费记录不存在');
+        $payVisit = EmrRepository::one('SELECT * FROM registrations WHERE id=?', array($pay['visit_id']));
+        if (!$payVisit) json_fail('就诊记录不存在');
+        print_guard($payVisit, array('cashier'));
         $items = array();
         if ($pay['kind'] === 'visit') {
             // 挂号费缴费：项目为挂号费
@@ -64,6 +87,10 @@ switch ($action) {
         foreach ($orderIds as $orderId) {
             $order = EmrRepository::one('SELECT * FROM orders WHERE id=?', array($orderId));
             if (!$order) json_fail('开单记录不存在');
+            // 按就诊归属校验
+            $orderVisit = EmrRepository::one('SELECT * FROM registrations WHERE id=?', array($order['visit_id']));
+            if (!$orderVisit) json_fail('就诊记录不存在');
+            print_guard($orderVisit, array('doctor'));
             $items = EmrRepository::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($orderId));
             // 检查申请单标题动态化：显示「{检查分类}申请单」（如 CT申请单 / DR（数字化X线）申请单）
             $title = isset($titles[$order['order_type']]) ? $titles[$order['order_type']] : '申请单';
@@ -127,6 +154,7 @@ switch ($action) {
     case 'record':
         $row = get_visit_row(did(get('visit_id')));
         if (!$row) json_fail('就诊记录不存在');
+        print_guard($row['visit'], array('doctor'));
         $visit = $row['visit'];
         $visit['name'] = $row['patient']['name'];
         $visit['gender'] = $row['patient']['gender'];
@@ -176,6 +204,7 @@ switch ($action) {
         $visitId = did(get('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
+        print_guard($row['visit'], array('doctor'));
         $cert = EmrRepository::one('SELECT * FROM certificates WHERE visit_id=?', array($visitId));
         if (!$cert) json_fail('该就诊未开具诊断证明');
         $record = EmrRepository::one('SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
@@ -206,6 +235,7 @@ switch ($action) {
         if (!$c) json_fail('知情同意书不存在');
         $row = get_visit_row($c['visit_id']);
         if (!$row) json_fail('就诊记录不存在');
+        print_guard($row['visit'], array('doctor'));
         $c['flow_no'] = $row['visit']['flow_no'];
         $visit = $row['visit'];
         $visit['name'] = $row['patient']['name'];
@@ -285,6 +315,11 @@ switch ($action) {
         }
         $row = get_visit_row($report['visit_id']);
         $visit = $row ? $row['visit'] : array();
+        // 报告打印角色白名单（检验/影像/医生/管理员）；不做科室归属限制——
+        // 报告由对应科室统一登记出具，跨就诊打印属正常工作流
+        if (!in_array($u['role'], array('doctor', 'lab', 'imaging'), true)) {
+            json_fail('无权限打印该报告');
+        }
         $visit['name'] = $row && $row['patient'] ? $row['patient']['name'] : '';
         $visit['gender'] = $row && $row['patient'] ? $row['patient']['gender'] : '';
         $visit['age'] = $row && $row['patient'] ? $row['patient']['age'] : '';
