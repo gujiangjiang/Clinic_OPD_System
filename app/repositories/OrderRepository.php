@@ -22,6 +22,8 @@ class OrderRepository extends BaseRepository {
     public static function byVisit($visitId, $statusFilter = '') {
         $sql = 'SELECT * FROM orders WHERE visit_id=?';
         $params = array((int)$visitId);
+        // $statusFilter 仅限内部调用的常量字符串（如 "status IN ('paid','visiting')"），
+        // 禁止传入外部输入。如需要动态过滤请改用参数化查询。
         if ($statusFilter !== '') { $sql .= " AND $statusFilter"; }
         $sql .= ' ORDER BY id DESC';
         return self::q($sql, $params);

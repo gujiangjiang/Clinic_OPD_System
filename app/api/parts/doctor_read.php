@@ -24,17 +24,13 @@ function doctor_part_read($action) {
         // 今日门诊人次（全部科室）
         $todayReg = (int)EmrRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=?", array($today));
         // 近7天本人接诊趋势
-        $labels = array();
-        $series = array();
-        for ($i = 6; $i >= 0; $i--) {
-            $day = date('Y-m-d', strtotime("-$i days"));
-            $labels[] = substr($day, 5);
-            $series[] = (int)EmrRepository::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND date(created_at)=?", array($uid, $day));
-        }
+        $trend = trend_7_days(function ($day) use ($uid) {
+            return (int)EmrRepository::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND date(created_at)=?", array($uid, $day));
+        });
         json_ok(array(
             'kpi' => array('today_visits' => $todayVisits, 'today_reg' => $todayReg, 'total' => round(array_sum($sums), 2),
                 'drug' => $sums['drug'], 'lab' => $sums['lab'], 'imaging' => $sums['imaging'], 'procedure' => $sums['procedure'], 'drafts' => $drafts),
-            'trend' => array('labels' => $labels, 'data' => $series),
+            'trend' => $trend,
         ));
         return;
     }

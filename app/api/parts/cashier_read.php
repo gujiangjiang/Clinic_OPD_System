@@ -18,16 +18,13 @@ function cashier_part_read($action) {
         $paidToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($today));
         $refundToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status='refunded' AND date(refunded_at)=?", array($today));
         $waiting = (int)CashierRepository::val("SELECT COUNT(*) FROM registrations WHERE status='paid' AND date(registered_at)=?", array($today));
-        $labels = array(); $series = array();
-        for ($i = 6; $i >= 0; $i--) {
-            $day = date('Y-m-d', strtotime("-$i days"));
-            $labels[] = substr($day, 5);
-            $series[] = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($day));
-        }
+        $trend = trend_7_days(function ($day) {
+            return (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($day));
+        });
         json_ok(array(
             'kpi' => array('reg_today' => $regToday, 'reg_fee' => round($regFeeToday, 2), 'paid_today' => round($paidToday, 2),
                 'refund_today' => round($refundToday, 2), 'waiting' => $waiting),
-            'trend' => array('labels' => $labels, 'data' => $series),
+            'trend' => $trend,
         ));
         return;
     }

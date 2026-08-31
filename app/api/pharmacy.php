@@ -22,16 +22,13 @@ switch ($action) {
         $drugTotal = (int)DrugRepository::val("SELECT COUNT(*) FROM drugs WHERE status='approved'");
         $lowStock = (int)DrugRepository::val("SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty<=50");
         $pendingAudit = (int)DrugRepository::val("SELECT COUNT(*) FROM drugs WHERE status='pending'");
-        $labels = array(); $series = array();
-        for ($i = 6; $i >= 0; $i--) {
-            $day = date('Y-m-d', strtotime("-$i days"));
-            $labels[] = substr($day, 5);
-            $series[] = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='dispensed' AND date(executed_at)=?", array($day));
-        }
+        $trend = trend_7_days(function ($day) {
+            return (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='dispensed' AND date(executed_at)=?", array($day));
+        });
         json_ok(array(
             'kpi' => array('today_disp' => $todayDisp, 'today_fee' => round($todayFee, 2), 'pending_rx' => $pendingRx,
                 'drug_total' => $drugTotal, 'low_stock' => $lowStock, 'pending_audit' => $pendingAudit),
-            'trend' => array('labels' => $labels, 'data' => $series),
+            'trend' => $trend,
         ));
         break;
 

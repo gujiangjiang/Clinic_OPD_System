@@ -29,18 +29,19 @@ function admin_part_settings($action) {
         $userCount = (int)AnalyticsRepository::val('SELECT COUNT(*) FROM users WHERE status=1');
         $msgCount = (int)AnalyticsRepository::val('SELECT COUNT(*) FROM messages WHERE is_read=0 AND (to_role=? OR to_user_id=?)', array($u['role'], $u['id']));
         // 近7天趋势（挂号人次 + 缴费金额）
-        $labels = array(); $regSeries = array(); $revSeries = array();
-        for ($i = 6; $i >= 0; $i--) {
-            $day = date('Y-m-d', strtotime("-$i days"));
-            $labels[] = substr($day, 5);
-            $regSeries[] = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=? AND status IN ('paid','visiting','finished')", array($day));
-            $revSeries[] = round((float)AnalyticsRepository::val("SELECT COALESCE(SUM(total),0) FROM payments WHERE date(created_at)=?", array($day)), 2);
-        }
+        $trend = trend_7_days(array(
+            'reg' => function ($day) {
+                return (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=? AND status IN ('paid','visiting','finished')", array($day));
+            },
+            'rev' => function ($day) {
+                return round((float)AnalyticsRepository::val("SELECT COALESCE(SUM(total),0) FROM payments WHERE date(created_at)=?", array($day)), 2);
+            },
+        ));
         json_ok(array(
             'reg_today' => $regToday, 'waiting' => $waiting, 'revenue' => money($revenue),
             'pending_audits' => $pendingAudits, 'low_stock' => $lowStock,
             'dept_count' => $deptCount, 'user_count' => $userCount, 'msg_count' => $msgCount,
-            'trend' => array('labels' => $labels, 'reg' => $regSeries, 'rev' => $revSeries),
+            'trend' => $trend,
         ));
     }
 

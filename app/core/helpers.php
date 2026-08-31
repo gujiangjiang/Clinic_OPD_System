@@ -569,6 +569,36 @@ function search_visit_records($kw) {
     return $list;
 }
 
+/**
+ * 近 7 天趋势数据生成（统一迭代循环，消除 7 处重复的 for 循环）
+ * @param callable|array $queries 单 series：callable(string $day) → mixed；
+ *                                多 series：array('key' => callable) 如 ['reg'=>fn,'rev'=>fn]
+ * @return array ['labels'=>string[], 'data'=>mixed[]] 或 ['labels'=>..., 'reg'=>..., 'rev'=>...]
+ */
+function trend_7_days($queries) {
+    $labels = array();
+    $series = array();
+    $multi = is_array($queries) && !is_callable($queries);
+    for ($i = 6; $i >= 0; $i--) {
+        $day = date('Y-m-d', strtotime("-$i days"));
+        $labels[] = substr($day, 5);
+        if ($multi) {
+            foreach ($queries as $k => $q) {
+                $series[$k][] = $q($day);
+            }
+        } else {
+            $series[] = $queries($day);
+        }
+    }
+    $result = array('labels' => $labels);
+    if ($multi) {
+        foreach ($series as $k => $v) { $result[$k] = $v; }
+    } else {
+        $result['data'] = $series;
+    }
+    return $result;
+}
+
 /** 生成会诊单号（HZ + 时间戳 + 2 位随机，与申请单号同规则、前缀互不冲突） */
 function consult_gen_no() {
     return 'HZ' . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);

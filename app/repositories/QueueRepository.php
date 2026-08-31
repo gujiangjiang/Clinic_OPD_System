@@ -41,13 +41,14 @@ class QueueRepository extends BaseRepository {
         return self::q(
             "SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
              FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-             WHERE r.current_dept_id=? AND r.status='paid' ORDER BY r.visit_seq, r.registered_at LIMIT $limit",
+             WHERE r.current_dept_id=? AND r.status='paid' ORDER BY r.visit_seq, r.registered_at LIMIT " . (int)$limit,
             array((int)$deptId)
         );
     }
 
     /** 按科室查询候诊队列（护士站使用，含多种状态） */
     public static function deptQueue($deptId, $date, $statusWhere = "r.status IN ('paid','visiting','finished')") {
+        // $statusWhere 仅限内部调用的常量字符串，禁止传入外部输入；如需动态过滤请改参数化查询
         return self::q(
             "SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
              FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no

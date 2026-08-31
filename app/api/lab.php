@@ -25,16 +25,13 @@ switch ($action) {
         $pendingRep = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='lab' AND status='registered'", array());
         $itemTotal = (int)OrderRepository::val("SELECT COUNT(*) FROM lab_items WHERE status='approved'", array());
         $pendingAudit = (int)OrderRepository::val("SELECT COUNT(*) FROM lab_items WHERE status='pending'", array());
-        $labels = array(); $series = array();
-        for ($i = 6; $i >= 0; $i--) {
-            $day = date('Y-m-d', strtotime("-$i days"));
-            $labels[] = substr($day, 5);
-            $series[] = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='lab' AND date(created_at)=?", array($day));
-        }
+        $trend = trend_7_days(function ($day) {
+            return (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='lab' AND date(created_at)=?", array($day));
+        });
         json_ok(array(
             'kpi' => array('today_items' => $todayItems, 'today_fee' => round($todayFee, 2),
                 'pending_reg' => $pendingReg, 'pending_rep' => $pendingRep, 'item_total' => $itemTotal, 'pending_audit' => $pendingAudit),
-            'trend' => array('labels' => $labels, 'data' => $series),
+            'trend' => $trend,
         ));
         break;
 
