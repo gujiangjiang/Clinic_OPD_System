@@ -19,28 +19,25 @@ $u = Auth::user();
 /** 患者唯一ID：年月日 + 当日序号2位（25031101） */
 function next_patient_no() {
     $ymd = date('ymd');
-    $n = (int)DB::val("SELECT COUNT(*) FROM patients WHERE substr(patient_no,1,6)=?", array($ymd));
+    $n = CashierRepository::countPatientsByPrefix($ymd);
     return $ymd . str_pad((string)($n + 1), 2, '0', STR_PAD_LEFT);
 }
 
 /** 门诊流水号：年月日 + 当日序号4位（2503110001） */
 function next_flow_no() {
     $ymd = date('ymd');
-    $n = (int)DB::val("SELECT COUNT(*) FROM registrations WHERE substr(flow_no,1,6)=?", array($ymd));
+    $n = CashierRepository::countRegistrationsByPrefix($ymd);
     return $ymd . str_pad((string)($n + 1), 4, '0', STR_PAD_LEFT);
 }
 
 /** 门诊就诊序号：每科室每日3位独立递增（含退费/取消记录，序号不回收） */
 function next_visit_seq($deptId) {
-    $n = (int)DB::val("SELECT COUNT(*) FROM registrations WHERE first_dept_id=? AND date(registered_at)=?", array($deptId, today_str()));
-    return $n + 1;
+    return CashierRepository::countVisitSeq($deptId, today_str()) + 1;
 }
 
 /** 当日某科室某时段已用号源数 */
 function dept_used_count($deptId, $session) {
-    return (int)DB::val("SELECT COUNT(*) FROM registrations
-        WHERE first_dept_id=? AND date(registered_at)=? AND session=? AND status IN ('pending','paid','visiting','finished')",
-        array($deptId, today_str(), $session));
+    return CashierRepository::deptUsed($deptId, $session);
 }
 
 require __DIR__ . '/parts/cashier_read.php';

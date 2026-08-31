@@ -4,6 +4,8 @@
  * parts/cashier_write.php — 收费处：写入
  * ============================================================
  * cashier.php 按功能拆分的一部分，写入/操作类动作。
+ * 数据访问统一委托 CashierRepository，本文件不含原生 SQL。
+ * 复合写操作在本层开启原生事务协同多个 Repository。
  * ============================================================ */
 
 function cashier_part_write($action) {
@@ -29,7 +31,7 @@ function cashier_part_write($action) {
             if (strpos($name, '无名氏') === 0) json_fail('请填写患者真实姓名');
         }
         if ($deptId <= 0) json_fail('请选择挂号科室');
-        $dept = DB::one('SELECT * FROM departments WHERE id=? AND status=1', array($deptId));
+        $dept = CashierRepository::activeDept($deptId);
         if (!$dept) json_fail('科室不存在或已停用');
 
         $gender = $birth = $age = 0;
@@ -78,11 +80,13 @@ function cashier_part_write($action) {
         $pdo = DatabaseManager::getMain();
         $pdo->beginTransaction();
         try {
-        $patient = $hasId ? DB::one('SELECT * FROM patients WHERE id_card=?', array($idCard)) : null;
+        $patient = $hasId ? PatientRepository::byIdCard($idCard) : null;
         if ($patient) {
             // 已就诊过：更新可修改信息，姓名/性别/出生日期保持锁定
-            DB::exec('UPDATE patients SET name=?, ethnicity=?, marital=?, occupation=?, work_unit=?, address=?, phone=? WHERE id_card=?', array(
-                $name, post('ethnicity'), post('marital'), post('occupation'), post('work_unit'), post('address'), post('phone'), $idCard,
+            CashierRepository::updatePatientByIdCard($idCard, array(
+                'name' => $name, 'ethnicity' => post('ethnicity'), 'marital' => post('marital'),
+                'occupation' => post('occupation'), 'work_unit' => post('work_unit'),
+                'address' => post('address'), 'phone' => post('phone'),
             ));
             $patientNo = $patient['patient_no'];
         } else {
@@ -94,15 +98,16 @@ function cashier_part_write($action) {
             // 注意：无身份证时 id_card 存 NULL（SQLite 唯一约束允许多个 NULL，
             // 若存空字符串则第二位无身份证患者会触发唯一约束冲突）
             $dbCard = ($idCard !== '') ? $idCard : null;
-            DB::insert('INSERT INTO patients(patient_no, id_card, name, gender, birth_date, age, ethnicity, marital, occupation, work_unit, address, phone, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
-                $patientNo, $dbCard, $name, $gender, $birth, $age, post('ethnicity'), post('marital'), post('occupation'), post('work_unit'), post('address'), post('phone'), now_str(),
+            CashierRepository::createPatient(array(
+                'patient_no' => $patientNo, 'id_card' => $dbCard, 'name' => $name, 'gender' => $gender,
+                'birth_date' => $birth, 'age' => $age, 'ethnicity' => post('ethnicity'),
+                'marital' => post('marital'), 'occupation' => post('occupation'),
+                'work_unit' => post('work_unit'), 'address' => post('address'), 'phone' => post('phone'),
             ));
         }
 
         // ===== 同一患者当日同【首次挂号科室】仅可挂一次 =====
-        $dup = DB::one("SELECT id FROM registrations
-            WHERE patient_no=? AND first_dept_id=? AND date(registered_at)=? AND status IN ('pending','paid','visiting','finished')",
-            array($patientNo, $deptId, today_str()));
+        $dup = CashierRepository::todayDupVisit($patientNo, $deptId);
         if ($dup) {
             json_fail('该患者今日已在【' . $dept['name'] . '】挂号，不能重复挂号（退费后可以重新挂号）');
         }
@@ -116,26 +121,28 @@ function cashier_part_write($action) {
         $session = $dept['type'] === 'emergency' ? 'all' : ($wsState === 'pm' ? 'pm' : 'am');
         if ($dept['type'] === 'clinic') {
             $quota = $session === 'am' ? (int)$dept['am_quota'] : (int)$dept['pm_quota'];
-            $used = dept_used_count($deptId, $session);
+            $used = CashierRepository::deptUsed($deptId, $session);
             if ($quota > 0 && $used >= $quota) {
                 // 号源满：校验医生加号（仅限该患者本人）
-                $slot = $hasId ? DB::one('SELECT id FROM extra_slots WHERE dept_id=? AND reg_date=? AND id_card=? AND used=0', array($deptId, today_str(), $idCard)) : null;
+                $slot = $hasId ? CashierRepository::unusedSlot($deptId, $idCard) : null;
                 if (!$slot) {
                     json_fail('【' . $dept['name'] . '】今日号源已满，无法挂号，可联系医生工作站加号');
                 }
                 $isExtra = 1;
-                DB::exec('UPDATE extra_slots SET used=1 WHERE id=?', array($slot['id']));
+                CashierRepository::markSlotUsed($slot['id']);
             }
         }
 
         // ===== 生成挂号记录 =====
         $flowNo = next_flow_no();
         $visitSeq = next_visit_seq($deptId);
-        $visitId = DB::insert('INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, cashier_id, cashier_name, registered_at, is_extra) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
-            $patientNo, $flowNo, $visitSeq,
-            $deptId, $dept['name'], $deptId, $dept['name'],
-            $session, $feeType, (float)$dept['fee'], 'pending',
-            $u['id'], $u['name'], now_str(), $isExtra,
+        $visitId = CashierRepository::createRegistration(array(
+            'patient_no' => $patientNo, 'flow_no' => $flowNo, 'visit_seq' => $visitSeq,
+            'first_dept_id' => $deptId, 'first_dept_name' => $dept['name'],
+            'current_dept_id' => $deptId, 'current_dept_name' => $dept['name'],
+            'session' => $session, 'fee_type' => $feeType, 'fee' => (float)$dept['fee'],
+            'status' => 'pending', 'cashier_id' => $u['id'], 'cashier_name' => $u['name'],
+            'is_extra' => $isExtra,
         ));
 
         $pdo->commit();
@@ -163,9 +170,11 @@ function cashier_part_write($action) {
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
         if ($visit['status'] !== 'pending') json_fail('当前状态不可缴费');
-        DB::exec('UPDATE registrations SET status=?, paid_at=? WHERE id=?', array('paid', now_str(), $visitId));
-        $payId = DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total, item_count, cashier_id, cashier_name, created_at) VALUES(?,0,?,?,?,?,1,?,?,?)', array(
-            $visitId, $visit['patient_no'], $visit['flow_no'], 'visit', (float)$visit['fee'], $u['id'], $u['name'], now_str(),
+        CashierRepository::updateVisitStatus($visitId, 'paid', array('paid_at' => now_str()));
+        $payId = CashierRepository::createPayment(array(
+            'visit_id' => $visitId, 'order_id' => 0, 'patient_no' => $visit['patient_no'], 'flow_no' => $visit['flow_no'],
+            'kind' => 'visit', 'total' => (float)$visit['fee'], 'item_count' => 1,
+            'cashier_id' => $u['id'], 'cashier_name' => $u['name'],
         ));
         json_ok(array('payment_id' => oid($payId)), '缴费成功');
         return;
@@ -178,16 +187,17 @@ function cashier_part_write($action) {
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
         if ($visit['status'] === 'pending') {
-            DB::exec("UPDATE registrations SET status='cancelled', cancel_reason=? WHERE id=?", array($reason, $visitId));
+            CashierRepository::updateVisitStatus($visitId, 'cancelled', array('cancel_reason' => $reason));
             json_ok(array(), '挂号已取消');
         } elseif ($visit['status'] === 'paid') {
             // 已缴费：退费并登记退费记录；同首次科室当日可重新挂号（序号递增）
             $pdo = DatabaseManager::getMain();
             $pdo->beginTransaction();
             try {
-                DB::exec("UPDATE registrations SET status='refunded', cancel_reason=? WHERE id=?", array($reason, $visitId));
-                DB::insert('INSERT INTO refunds(visit_id, order_id, patient_no, flow_no, total, reason, cashier_id, cashier_name, created_at) VALUES(?,0,?,?,?,?,?,?,?)', array(
-                    $visitId, $visit['patient_no'], $visit['flow_no'], (float)$visit['fee'], $reason, $u['id'], $u['name'], now_str(),
+                CashierRepository::updateVisitStatus($visitId, 'refunded', array('cancel_reason' => $reason));
+                CashierRepository::createRefund(array(
+                    'visit_id' => $visitId, 'order_id' => 0, 'patient_no' => $visit['patient_no'], 'flow_no' => $visit['flow_no'],
+                    'total' => (float)$visit['fee'], 'reason' => $reason, 'cashier_id' => $u['id'], 'cashier_name' => $u['name'],
                 ));
                 $pdo->commit();
             } catch (Exception $ex) {
@@ -205,9 +215,9 @@ function cashier_part_write($action) {
         $orderId = did(post('order_id'));
         if ($orderId <= 0) json_fail('参数无效');
         $reason = post('reason', '');
-        $order = DB::one('SELECT * FROM orders WHERE id=?', array($orderId));
+        $order = CashierRepository::order($orderId);
         if (!$order) json_fail('开单不存在');
-        $items = DB::q('SELECT * FROM order_items WHERE order_id=?', array($orderId));
+        $items = CashierRepository::orderItems($orderId);
         // 退费资格：检验/检查未登记、药房未发药、处置未执行
         foreach ($items as $it) {
             $started = ($it['status'] !== 'paid');
@@ -219,19 +229,20 @@ function cashier_part_write($action) {
         $pdo = DatabaseManager::getMain();
         $pdo->beginTransaction();
         try {
-        DB::exec("UPDATE order_items SET status='refunded' WHERE order_id=?", array($orderId));
-        DB::exec("UPDATE orders SET status='refunded', refunded_at=? WHERE id=?", array(now_str(), $orderId));
-        DB::insert('INSERT INTO refunds(visit_id, order_id, patient_no, flow_no, total, reason, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
-            $order['visit_id'], $orderId, $order['patient_no'], $order['flow_no'],
-            (float)$order['total_amount'], $reason, $u['id'], $u['name'], now_str(),
+        CashierRepository::updateOrderItemsStatus($orderId, 'refunded');
+        CashierRepository::updateOrderStatus($orderId, 'refunded', array('refunded_at' => now_str()));
+        CashierRepository::createRefund(array(
+            'visit_id' => $order['visit_id'], 'order_id' => $orderId, 'patient_no' => $order['patient_no'], 'flow_no' => $order['flow_no'],
+            'total' => (float)$order['total_amount'], 'reason' => $reason, 'cashier_id' => $u['id'], 'cashier_name' => $u['name'],
         ));
         // 药品退费：恢复库存
         if ($order['order_type'] === 'prescription') {
             foreach ($items as $it) {
                 if ($it['item_id'] > 0 && (int)$it['sub_of'] === 0) {
-                    DB::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array((int)$it['quantity'], $it['item_id']));
-                    DB::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
-                        $it['item_id'], (int)$it['quantity'], 'refund', $order['order_no'], $u['name'], now_str(),
+                    CashierRepository::restoreDrugStock($it['item_id'], (int)$it['quantity']);
+                    CashierRepository::createInventoryTrans(array(
+                        'drug_id' => (int)$it['item_id'], 'qty_change' => (int)$it['quantity'], 'type' => 'refund',
+                        'ref' => $order['order_no'], 'operator' => $u['name'],
                     ));
                 }
             }
