@@ -1135,14 +1135,11 @@ diagnoses: [],
         if (!o) return false;
         if (!Clinic.emr.isMyOrder(o)) return false;
         if (o.status !== 'open' && o.status !== 'refunded') return false;
-        // 就诊已诊毕 → 只读不可删
-        if (DATA && DATA.visit && DATA.visit.status === 'finished') return false;
-        // 会诊锁/只读模式 → 不可删
-        if (DATA && DATA.__consult_mode) return false;
-        if (DATA && DATA.record && DATA.record.consultation_id > 0 && !(DATA.record.record_id > 0)) return false;
-        // 病历ID强关联：开单所属病历必须等于当前编辑病历
+        // SSOT 能力门控：后端派生 can_delete_order（诊毕/会诊锁/跨科/转科熔断）
+        if (window.Clinic && Clinic.emr.rules && !Clinic.emr.rules.canDeleteOrder()) return false;
+        // 病历ID强关联：开单所属病历必须等于当前活跃容器（归属判定）
         var oRec = (o.record_id || 0);
-        var curRec = (DATA && DATA.record && DATA.record.record_id) || 0;
+        var curRec = (Clinic.emr.rules && Clinic.emr.rules.activeContainerId()) || 0;
         if (oRec <= 0 || curRec <= 0 || oRec !== curRec) return false;
         return true;
     }
