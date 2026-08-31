@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 2,
+    'version' => 9,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -614,6 +614,31 @@ return array(
     'migrations' => array(
         2 => array(
             "ALTER TABLE consultations ADD COLUMN finished_by TEXT",
+        ),
+        // v7：结构化电子病历表 patient_records 高频索引（幂等；新库建表不含索引，
+        // 需显式创建。字段名已规范化：primary_icd10→icd10_code, main_symptom→chief_complaint）
+        7 => array(
+            "CREATE INDEX IF NOT EXISTS idx_patient_records_visit ON patient_records(visit_id)",
+            "CREATE INDEX IF NOT EXISTS idx_patient_records_patient ON patient_records(patient_no)",
+            "CREATE INDEX IF NOT EXISTS idx_patient_records_visit_doctor ON patient_records(visit_id, doctor_id)",
+            "CREATE INDEX IF NOT EXISTS idx_patient_records_stat ON patient_records(icd10_code, is_leave_hospital, chief_complaint)",
+        ),
+        // v8：orders / order_items / results / vitals / payments / registrations 高频查询索引
+        8 => array(
+            "CREATE INDEX IF NOT EXISTS idx_orders_visit ON orders(visit_id)",
+            "CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id)",
+            "CREATE INDEX IF NOT EXISTS idx_results_item ON results(order_item_id)",
+            "CREATE INDEX IF NOT EXISTS idx_results_visit ON results(visit_id)",
+            "CREATE INDEX IF NOT EXISTS idx_vitals_visit ON vitals(visit_id)",
+            "CREATE INDEX IF NOT EXISTS idx_vitals_record ON vitals(record_id)",
+            "CREATE INDEX IF NOT EXISTS idx_payments_visit ON payments(visit_id)",
+            "CREATE INDEX IF NOT EXISTS idx_registrations_patient ON registrations(patient_no)",
+            "CREATE INDEX IF NOT EXISTS idx_registrations_dept_date ON registrations(first_dept_id, date(registered_at))",
+        ),
+        // v9：存量数据回填（旧迁移数据字段可能为空，补正）
+        9 => array(
+            "UPDATE certificates SET cert_no = 'ZM' || replace(substr(created_at,1,10),'-','') || substr('0000' || id, -4, 4) WHERE cert_no IS NULL OR cert_no = ''",
+            "UPDATE patient_records SET record_type='initial' WHERE record_type IS NULL OR record_type=''",
         ),
     ),
     'seed' => array(
