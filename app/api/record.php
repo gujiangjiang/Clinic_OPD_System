@@ -25,7 +25,7 @@ $u = Auth::user();
  * 无结构化病历时回退旧 records 镜像（兼容历史就诊）。
  */
 function cert_snapshot_summary($visitId) {
-    $pr = DB::one("SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC LIMIT 1", array($visitId));
+    $pr = EmrRepository::one("SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC LIMIT 1", array($visitId));
     if ($pr) {
         $emr = json_decode($pr['emr_data'], true);
         if (is_array($emr)) {
@@ -36,7 +36,7 @@ function cert_snapshot_summary($visitId) {
             );
         }
     }
-    $rec = DB::one('SELECT chief_complaint, present_illness, preliminary_diagnosis FROM records WHERE visit_id=? ORDER BY id ASC LIMIT 1', array($visitId));
+    $rec = EmrRepository::one('SELECT chief_complaint, present_illness, preliminary_diagnosis FROM records WHERE visit_id=? ORDER BY id ASC LIMIT 1', array($visitId));
     return array(
         'chief_complaint' => $rec ? (string)$rec['chief_complaint'] : '',
         'present_illness' => $rec ? (string)$rec['present_illness'] : '',
@@ -52,12 +52,12 @@ function emr_order_snapshot($visitId, $doctorId = 0) {
     $params = array($visitId);
     if ((int)$doctorId > 0) { $sql .= ' AND doctor_id=?'; $params[] = (int)$doctorId; }
     $sql .= ' ORDER BY id ASC';   // 与 visit_orders 同口径：新开项目追加在列表末尾
-    $orders = DB::q($sql, $params);
+    $orders = OrderRepository::q($sql, $params);
     $orderNames = array();
     $rxLines = array();
     $dispItems = array();
     foreach ($orders as $o) {
-        $items = DB::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
+        $items = OrderRepository::itemsByOrder($o['id']);
         $agg = order_agg_status($o['order_type'], $items);
         if ($agg === 'refunded' || $agg === 'cancelled') continue;
         foreach ($items as $it) {

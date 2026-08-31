@@ -6,6 +6,7 @@
  * record.php 按功能拆分的一部分，动作：
  *   certificate 开具 / certificate_print 打印 /
  *   check_previous_diagnoses 前序诊断查重
+ * 数据访问统一委托 EmrRepository / PatientRepository，本文件不含原生 SQL。
  * ============================================================ */
 
 function record_part_cert($action) {
@@ -18,7 +19,7 @@ function record_part_cert($action) {
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         // 会诊期间拦截：存在进行中会诊时不允许开具诊断证明（会诊仅看病不诊断）
-        $doingCertCons = DB::one("SELECT id FROM consultations WHERE visit_id=? AND status='doing' LIMIT 1", array($visitId));
+        $doingCertCons = ConsultationRepository::one("SELECT id FROM consultations WHERE visit_id=? AND status='doing' LIMIT 1", array($visitId));
         if ($doingCertCons) {
             json_fail('该就诊正在进行会诊，会诊期间不可开具诊断证明');
         }
@@ -28,7 +29,7 @@ function record_part_cert($action) {
         if ($u['role'] !== 'admin') {
             $archived = (string)$row['visit']['status'] === 'finished';
             if ($archived) {
-                $involved = (int)DB::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array($visitId, $u['id']));
+                $involved = EmrRepository::countByVisitDoctor($visitId, $u['id']);
                 if ($involved === 0) {
                     json_fail('您未接诊过该患者，无权开具诊断证明');
                 }
@@ -39,20 +40,21 @@ function record_part_cert($action) {
                 }
             }
         }
-        if ((int)DB::val('SELECT COUNT(*) FROM certificates WHERE visit_id=?', array($visitId)) > 0) {
+        if (EmrRepository::countCertificatesByVisit($visitId) > 0) {
             json_fail('本次就诊已开具过诊断证明，不可重复开具');
         }
         // 证明号：ZM 前缀 + 时间戳 + 2 位随机——与申请单号（JY/JC/CZ/CF/DD）同源
         // 规则但前缀互不冲突；循环校验保证唯一。
         do {
             $certNo = 'ZM' . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
-        } while ((int)DB::val('SELECT COUNT(*) FROM certificates WHERE cert_no=?', array($certNo)) > 0);
+        } while (EmrRepository::countCertificatesByNo($certNo) > 0);
         // 病历摘要快照：开具瞬间以首诊文书为锚点固化主诉/现病史/初步诊断，
         // 证书内容从此不再随续写或后续修改变化（法律文书不可变性）
         $snap = cert_snapshot_summary($visitId);
-        DB::insert('INSERT INTO certificates(visit_id, patient_no, flow_no, doctor_id, doctor_name, content, created_at, cert_no, chief_complaint, present_illness, preliminary_diagnosis) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
-            $visitId, $row['visit']['patient_no'], $row['visit']['flow_no'], $u['id'], $u['name'], $content, now_str(), $certNo,
-            $snap['chief_complaint'], $snap['present_illness'], $snap['preliminary_diagnosis'],
+        EmrRepository::insertCertificate(array(
+            'visit_id' => $visitId, 'patient_no' => $row['visit']['patient_no'], 'flow_no' => $row['visit']['flow_no'],
+            'doctor_id' => $u['id'], 'doctor_name' => $u['name'], 'content' => $content, 'created_at' => now_str(), 'cert_no' => $certNo,
+            'chief_complaint' => $snap['chief_complaint'], 'present_illness' => $snap['present_illness'], 'preliminary_diagnosis' => $snap['preliminary_diagnosis'],
         ));
         json_ok(array('cert_no' => $certNo), '诊断证明已开具');
         return;
@@ -62,9 +64,9 @@ function record_part_cert($action) {
         $visitId = did(get('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
-        $cert = DB::one('SELECT * FROM certificates WHERE visit_id=?', array($visitId));
+        $cert = EmrRepository::certificateByVisit($visitId);
         if (!$cert) json_fail('未开具诊断证明');
-        $record = DB::one('SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        $record = EmrRepository::one('SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
         // 固化快照：证书存有开具时的病历摘要则原样使用——无论谁开具、
         // 谁补打、后续有多少次续写，打印内容与开具时完全一致；
         // 历史证明（无快照列）回退原实时取数行为。
@@ -92,7 +94,7 @@ function record_part_cert($action) {
         // 中文无大小写差异，ASCII 编码字母统一小写比较）
         $lc = function ($s) { return function_exists('mb_strtolower') ? mb_strtolower((string)$s, 'UTF-8') : strtolower((string)$s); };
         $lkw = $lc($kw);
-        $rows = DB::q('SELECT * FROM patient_records WHERE visit_id=? AND doctor_id<>? ORDER BY id ASC', array($visitId, $u['id']));
+        $rows = EmrRepository::certificatesByVisitOtherDoctors($visitId, $u['id']);
         $list = array();
         foreach ($rows as $pr2) {
             $emr2 = json_decode($pr2['emr_data'], true);
