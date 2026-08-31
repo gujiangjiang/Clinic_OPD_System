@@ -65,14 +65,7 @@ function record_part_read($action) {
             // 生命体征归属：按文书记录精确关联（record_id 优先，兼容旧数据按录入医生取最新）。
             // 续写/会诊病历各自独立体征——只取本记录关联的体征；续写无自身体征则恒为空，
             // 首诊记录才按 operator 回退就诊体征。
-            $ownVitals = null;
-            if ((int)$pr2['id'] > 0) {
-                $ownVitals = EmrRepository::one('SELECT * FROM vitals WHERE record_id=? ORDER BY id DESC LIMIT 1', array((int)$pr2['id']));
-            }
-            if (!$ownVitals && $pr2['record_type'] !== 'progress') {
-                $ownVitals = EmrRepository::one('SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1',
-                    array((int)$pr2['visit_id'], (string)$pr2['doctor_name']));
-            }
+            $ownVitals = get_record_vitals($pr2['id'], $pr2['visit_id'], $pr2['doctor_name'], $pr2['record_type']);
             // 意识状态/初复诊按文书医生本人从旧 records 镜像表回读
             $mirror = EmrRepository::one('SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC',
                 array((int)$pr2['visit_id'], (int)$pr2['doctor_id']));

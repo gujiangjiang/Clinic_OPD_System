@@ -113,23 +113,7 @@ switch ($action) {
     case 'search':
         $kw = trim(get('kw', ''));
         if ($kw === '') json_ok(array('list' => array()));
-        $list = array();
-        $p = PatientRepository::byCardOrNo($kw);
-        if ($p) {
-            $visits = CashierRepository::visitsOfPatient($p['patient_no']);
-            foreach ($visits as $v) {
-                $v['id'] = oid($v['id']);
-                $list[] = array('visit' => $v, 'patient' => $p);
-            }
-        } else {
-            $v = CashierRepository::visitByFlow($kw);
-            if ($v) {
-                $v['id'] = oid($v['id']);
-                $pp = PatientRepository::byPatientNo($v['patient_no']);
-                $list[] = array('visit' => $v, 'patient' => $pp);
-            }
-        }
-        json_ok(array('list' => $list));
+        json_ok(array('list' => search_visit_records($kw)));
         break;
 
     /* ==================== 就诊详情 ==================== */

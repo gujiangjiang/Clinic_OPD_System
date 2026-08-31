@@ -182,13 +182,7 @@ switch ($action) {
                 // 生命体征归属：按文书记录精确关联（record_id 优先）。
                 // 续写/会诊病历各自独立体征——只取本记录关联的体征，绝不复用首诊体征；
                 // 首诊记录才按 operator 回退就诊体征（护士站录入共用）。
-                $segVitals = null;
-                if ((int)$pr['id'] > 0) {
-                    $segVitals = EmrRepository::one('SELECT * FROM vitals WHERE record_id=? ORDER BY id DESC LIMIT 1', array((int)$pr['id']));
-                }
-                if (!$segVitals && $pr['record_type'] !== 'progress') {
-                    $segVitals = EmrRepository::one('SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1', array($visit['id'], $pr['doctor_name']));
-                }
+                $segVitals = get_record_vitals($pr['id'], $visit['id'], $pr['doctor_name'], $pr['record_type']);
                 $body .= pt_record($visit, $row['patient'], $pr, $segVitals ? $segVitals : array(), $i === 0 ? 'full' : 'continue', $i === $last, $firstCreatedAt);
             }
             json_ok(array('html' => '<div class="print-record-doc">' . $body . '</div>'));
@@ -210,14 +204,7 @@ switch ($action) {
         $record = EmrRepository::one('SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
         // 固化快照：证书存有开具时的病历摘要则原样使用（与 certificate_print
         // 同规则）——补打内容与开具时完全一致，不随后续续写漂移
-        if ((isset($cert['chief_complaint']) && $cert['chief_complaint'] !== '') ||
-            (isset($cert['present_illness']) && $cert['present_illness'] !== '') ||
-            (isset($cert['preliminary_diagnosis']) && $cert['preliminary_diagnosis'] !== '')) {
-            $record = is_array($record) ? $record : array();
-            $record['chief_complaint'] = $cert['chief_complaint'];
-            $record['present_illness'] = $cert['present_illness'];
-            $record['preliminary_diagnosis'] = $cert['preliminary_diagnosis'];
-        }
+        $record = cert_fallback_snapshot($record, $cert);
         $visit = $row['visit'];
         $visit['name'] = $row['patient']['name'];
         $visit['gender'] = $row['patient']['gender'];

@@ -224,6 +224,24 @@ function today_str() {
     return date('Y-m-d');
 }
 
+/**
+ * 病历段生命体征归属查询（统一规则）：
+ * 按文书记录精确关联（record_id 优先）；续写/会诊病历各自独立体征——
+ * 只取本记录关联的体征，绝不复用首诊体征；首诊记录（非续写）才按
+ * operator 回退就诊体征（护士站录入共用）。
+ * @return array|null vitals 行
+ */
+function get_record_vitals($recordId, $visitId, $operator, $recordType) {
+    if ((int)$recordId > 0) {
+        $v = EmrRepository::one('SELECT * FROM vitals WHERE record_id=? ORDER BY id DESC LIMIT 1', array((int)$recordId));
+        if ($v) return $v;
+    }
+    if ($recordType !== 'progress') {
+        return EmrRepository::one('SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1', array((int)$visitId, (string)$operator));
+    }
+    return null;
+}
+
 /** 金额格式化：保留两位小数 */
 function money($n) {
     return number_format((float)$n, 2, '.', '');
@@ -503,6 +521,52 @@ function get_visit_row($visitId) {
     }
     $p = DB::one('SELECT * FROM patients WHERE patient_no=?', array($v['patient_no']));
     return array('visit' => $v, 'patient' => $p);
+}
+
+/**
+ * 诊断证明固化快照回退：证书存有开具时的病历摘要则原样使用——
+ * 补打/展示内容与开具时完全一致，不随后续续写漂移。
+ * @param array|null $record 病历数据（可为 null）
+ * @param array      $cert   诊断证明行
+ * @return array 合并快照后的病历数据
+ */
+function cert_fallback_snapshot($record, $cert) {
+    $record = is_array($record) ? $record : array();
+    if ((isset($cert['chief_complaint']) && $cert['chief_complaint'] !== '') ||
+        (isset($cert['present_illness']) && $cert['present_illness'] !== '') ||
+        (isset($cert['preliminary_diagnosis']) && $cert['preliminary_diagnosis'] !== '')) {
+        $record['chief_complaint'] = $cert['chief_complaint'];
+        $record['present_illness'] = $cert['present_illness'];
+        $record['preliminary_diagnosis'] = $cert['preliminary_diagnosis'];
+    }
+    return $record;
+}
+
+/**
+ * 患者就诊搜索（统一规则，收费处/护士站共用）：
+ * 1. 按身份证/患者编号查患者 → 该患者全部就诊；
+ * 2. 未命中则按患者编号/流水号直接查单条就诊。
+ * @return array [ ['visit'=>行,'patient'=>行], ... ]（visit.id 已混淆）
+ */
+function search_visit_records($kw) {
+    $kw = trim((string)$kw);
+    if ($kw === '') return array();
+    $list = array();
+    $patient = PatientRepository::byCardOrNo($kw);
+    if ($patient) {
+        $visits = CashierRepository::visitsOfPatient($patient['patient_no']);
+        foreach ($visits as $v) {
+            $v['id'] = oid($v['id']);
+            $list[] = array('visit' => $v, 'patient' => $patient);
+        }
+    } else {
+        $v = CashierRepository::one('SELECT * FROM registrations WHERE patient_no=? OR flow_no=? ORDER BY registered_at DESC, id DESC LIMIT 1', array($kw, $kw));
+        if ($v) {
+            $v['id'] = oid($v['id']);
+            $list[] = array('visit' => $v, 'patient' => PatientRepository::byPatientNo($v['patient_no']));
+        }
+    }
+    return $list;
 }
 
 /** 生成会诊单号（HZ + 时间戳 + 2 位随机，与申请单号同规则、前缀互不冲突） */

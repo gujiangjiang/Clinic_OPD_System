@@ -69,14 +69,7 @@ function record_part_cert($action) {
         // 固化快照：证书存有开具时的病历摘要则原样使用——无论谁开具、
         // 谁补打、后续有多少次续写，打印内容与开具时完全一致；
         // 历史证明（无快照列）回退原实时取数行为。
-        if ((isset($cert['chief_complaint']) && $cert['chief_complaint'] !== '') ||
-            (isset($cert['present_illness']) && $cert['present_illness'] !== '') ||
-            (isset($cert['preliminary_diagnosis']) && $cert['preliminary_diagnosis'] !== '')) {
-            $record = is_array($record) ? $record : array();
-            $record['chief_complaint'] = $cert['chief_complaint'];
-            $record['present_illness'] = $cert['present_illness'];
-            $record['preliminary_diagnosis'] = $cert['preliminary_diagnosis'];
-        }
+        $record = cert_fallback_snapshot($record, $cert);
         $visit = $row['visit'];
         $visit['name'] = $row['patient']['name'];
         $visit['gender'] = $row['patient']['gender'];

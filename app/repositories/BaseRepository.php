@@ -21,40 +21,32 @@ class BaseRepository {
     }
 
     // ==================== 查询 ====================
+    // 通用查询统一委托 DatabaseManager（DB 门面，唯一的底层 PDO 执行入口），
+    // 消除两套重复的 prepare/execute/fetch 实现。非 icd10 的 key 一律路由主库。
 
     /** 查询多行，返回数组 */
     public static function q($sql, $params = array()) {
-        $st = self::db()->prepare($sql);
-        $st->execute($params);
-        return $st->fetchAll(PDO::FETCH_ASSOC);
+        return DatabaseManager::q($sql, $params);
     }
 
     /** 查询单行，返回关联数组或 null */
     public static function one($sql, $params = array()) {
-        $st = self::db()->prepare($sql);
-        $st->execute($params);
-        $r = $st->fetch(PDO::FETCH_ASSOC);
-        return $r === false ? null : $r;
+        return DatabaseManager::one($sql, $params);
     }
 
     /** 查询单值，返回标量或 null */
     public static function val($sql, $params = array()) {
-        $st = self::db()->prepare($sql);
-        $st->execute($params);
-        $v = $st->fetchColumn();
-        return $v === false ? null : $v;
+        return DatabaseManager::val($sql, $params);
     }
 
     /** 执行写操作，返回影响行数 */
     public static function exec($sql, $params = array()) {
-        $st = self::db()->prepare($sql);
-        $st->execute($params);
-        return $st->rowCount();
+        return DatabaseManager::exec($sql, $params);
     }
 
     /** 插入并返回自增主键 */
     public static function insert($sql, $params = array()) {
-        return self::execInsert(self::db(), $sql, $params);
+        return DatabaseManager::insert($sql, $params);
     }
 
     // ==================== ICD-10 字典库查询 ====================
@@ -91,11 +83,8 @@ class BaseRepository {
 
     /** 按库名动态查询（数据导入等场景：$db='main' 或 'icd10'） */
     public static function dbVal($db, $sql, $params = array()) {
-        $pdo = ($db === 'icd10') ? self::icd10Db() : self::db();
-        $st = $pdo->prepare($sql);
-        $st->execute($params);
-        $v = $st->fetchColumn();
-        return $v === false ? null : $v;
+        if ($db === 'icd10') return self::icd10val($sql, $params);
+        return self::val($sql, $params);
     }
 
     /** 通用动态执行（供 API 层在事务中通过 Repository 门面执行动态 SQL） */
@@ -133,14 +122,6 @@ class BaseRepository {
         if (self::db()->inTransaction()) {
             self::db()->rollBack();
         }
-    }
-
-    // ==================== 内部辅助 ====================
-
-    /** 插入并返回自增主键（指定 PDO 连接） */
-    private static function execInsert($pdo, $sql, $params) {
-        $pdo->prepare($sql)->execute($params);
-        return (int)$pdo->lastInsertId();
     }
 
     // ==================== 通用查询模式 ====================

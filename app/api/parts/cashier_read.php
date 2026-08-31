@@ -121,25 +121,7 @@ function cashier_part_read($action) {
     if ($action === 'visit_search') {
         $kw = trim(get('kw', ''));
         if ($kw === '') json_ok(array('list' => array()));
-        $list = array();
-        // 按身份证查患者 → 该患者全部就诊
-        $patient = PatientRepository::byIdCard($kw);
-        if ($patient) {
-            $visits = CashierRepository::visitsOfPatient($patient['patient_no']);
-            foreach ($visits as $v) {
-                $v['id'] = oid($v['id']);   // 混淆串：前端透传，后端解码
-                $list[] = array('visit' => $v, 'patient' => $patient);
-            }
-        } else {
-            // 按患者ID / 流水号直接查
-            $v = CashierRepository::one('SELECT * FROM registrations WHERE patient_no=? OR flow_no=? ORDER BY registered_at DESC, id DESC LIMIT 1', array($kw, $kw));
-            if ($v) {
-                $v['id'] = oid($v['id']);   // 混淆串
-                $p = PatientRepository::byPatientNo($v['patient_no']);
-                $list[] = array('visit' => $v, 'patient' => $p);
-            }
-        }
-        json_ok(array('list' => $list));
+        json_ok(array('list' => search_visit_records($kw)));
         return;
     }
 
