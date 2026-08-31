@@ -42,6 +42,8 @@ data/db/*.db
 data/db/*.db-journal
 data/db/*.db-shm
 data/db/*.db-wal
+data/db/.*.db.
+data/db/.*.db-journal.
 data/session/*
 demo/**/*.db
 dist/

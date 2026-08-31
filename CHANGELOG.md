@@ -32,6 +32,18 @@
     在 API 层统一 `beginTransaction()/commit()/rollBack()`，跨 Repository 协同一致。
 - 系统版本号由 `5.0.2` 升级为 `6.0.0`（大版本：数据访问层架构级重构）。
 
+### 修复
+
+- **会诊模式新建病历保存死锁**：会诊处理中且无会诊病历（record=null）时，
+  EmrContextResolver 返回可写 consultation 上下文（can_write/can_diag=true）而非 consult_lock；
+  record_write 守卫对会诊病历新建（$isConsultCreate）豁免容器存在性检查，
+  前端 fallback 派生 consult_editing 可写，消除「需诊断但诊断需保存」互锁。
+- **会诊完毕只读态病历节点滚动失效**：scrollToRecord 增加 DATA.__readonly_view 判定，
+  只读模式点击病历节点滚动到对应 recSeg 锚点（与会诊完毕查看完整病历一致）。
+- **转科切换病历后删除按钮残留**：emr_rules.js 新增 contextConsistent() 一致性校验，
+  switchToRecord 切换病历节点后，缓存 active_context 与当前记录不一致时回退本地派生
+  （基于 dept_match），正确判定只读并隐藏 + 与删除按钮。
+
 ### 新增
 
 - `app/repositories/BaseRepository.php`：通用 PDO 查询助手（q/one/val/exec/insert、
