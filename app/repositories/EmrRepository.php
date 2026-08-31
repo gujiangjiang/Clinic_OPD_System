@@ -156,4 +156,13 @@ class EmrRepository extends BaseRepository {
     public static function consentsByVisit($visitId) {
         return self::q('SELECT * FROM consents WHERE visit_id=? ORDER BY id', array((int)$visitId));
     }
+
+    // ===== nursing_records 护理记录 =====
+    public static function nursingByVisit($visitId, $limit = 50) {
+        return self::q('SELECT * FROM nursing_records WHERE visit_id=? ORDER BY id DESC LIMIT ' . (int)$limit, array((int)$visitId));
+    }
+    public static function insertNursing($data) {
+        return self::insert('INSERT INTO nursing_records(visit_id, patient_no, flow_no, content, operator, created_at) VALUES(?,?,?,?,?,?)',
+            array((int)$data['visit_id'], $data['patient_no'], $data['flow_no'], $data['content'], $data['operator'], now_str()));
+    }
 }

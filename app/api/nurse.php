@@ -3,12 +3,8 @@
  * ============================================================
  * nurse.php — 护士站接口
  * ============================================================
- * 说明：
- * 1. 今日患者列表（按护士关联科室过滤）
- * 2. 待处置：开单时勾选【护士站处置】的处置项目
- *    （缴费后进入待处置，护士完成后显示执行护士姓名并通知医生）
- * 3. 生命体征：与医生工作站共用接口双向同步（血压/心率/脉搏/血氧/呼吸）
- * 4. 护理记录：按患者记录护理信息
+ * 数据访问统一委托 EmrRepository / OrderRepository / PatientRepository
+ * / QueueRepository，本文件不含原生 SQL。
  * ============================================================ */
 require __DIR__ . '/_init.php';
 
@@ -18,7 +14,6 @@ $u = Auth::user();
 function nurse_dept_ids() {
     global $u;
     $ids = array();
-    // 会话快照中的 dept_ids 可能为 NULL，先判空再拆分，避免 PHP 8 告警污染 JSON
     foreach (explode(',', isset($u['dept_ids']) ? (string)$u['dept_ids'] : '') as $id) {
         if ((int)$id > 0) $ids[] = (int)$id;
     }
@@ -30,15 +25,15 @@ switch ($action) {
     /* ==================== 护士站首页统计 ==================== */
     case 'home_stats':
         $today = date('Y-m-d');
-        $todayDone = (int)DB::val("SELECT COUNT(*) FROM order_items WHERE item_type='procedure' AND status='done' AND date(executed_at)=?", array($today));
-        $pendingExec = (int)DB::val("SELECT COUNT(*) FROM order_items WHERE item_type='procedure' AND status='paid'", array());
-        $todayFee = (float)DB::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type='procedure' AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($today));
-        $dispTotal = (int)DB::val("SELECT COUNT(*) FROM disposal_items WHERE status='approved'", array());
+        $todayDone = OrderRepository::todayDisposalDone($today);
+        $pendingExec = OrderRepository::pendingDisposal();
+        $todayFee = OrderRepository::todayDisposalFee($today);
+        $dispTotal = (int)OrderRepository::val("SELECT COUNT(*) FROM disposal_items WHERE status='approved'");
         $labels = array(); $series = array();
         for ($i = 6; $i >= 0; $i--) {
             $day = date('Y-m-d', strtotime("-$i days"));
             $labels[] = substr($day, 5);
-            $series[] = (int)DB::val("SELECT COUNT(*) FROM order_items WHERE item_type='procedure' AND status='done' AND date(executed_at)=?", array($day));
+            $series[] = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='procedure' AND status='done' AND date(executed_at)=?", array($day));
         }
         json_ok(array(
             'kpi' => array('today_done' => $todayDone, 'pending_exec' => $pendingExec, 'today_fee' => round($todayFee, 2), 'disp_total' => $dispTotal),
@@ -55,12 +50,11 @@ switch ($action) {
             $where .= ' AND r.current_dept_id IN (' . implode(',', array_fill(0, count($deptIds), '?')) . ')';
             $params = array_merge($params, $deptIds);
         }
-        $rows = DB::q("SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page, p.id_card AS pid_card, p.birth_date AS pbirth
+        $rows = QueueRepository::q("SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page, p.id_card AS pid_card, p.birth_date AS pbirth
             FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
             WHERE $where ORDER BY r.visit_seq", $params);
         json_ok(array('list' => array_map(function ($r) {
             return array(
-                // 混淆串：前端 openVitals 等回传时后端 did 解码
                 'visit_id' => oid($r['id']),
                 'name' => $r['pname'],
                 'gender' => $r['pgender'],
@@ -78,8 +72,7 @@ switch ($action) {
 
     /* ==================== 待处置列表（护士站执行） ==================== */
     case 'treatments':
-        // 说明：跨库数据（科室名/患者信息）按 visit_id 逐条补充
-        $rows = DB::q("SELECT * FROM order_items WHERE item_type='procedure' AND is_nurse=1 AND status='paid' ORDER BY id DESC LIMIT 100");
+        $rows = OrderRepository::nurseTreatments(100);
         $html = '';
         if (!$rows) {
             $html = '<div class="empty"><div class="empty-ico">✅</div>暂无待处置项目</div>';
@@ -87,8 +80,8 @@ switch ($action) {
             $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
                 '<th>患者</th><th>处置项目</th><th>流水号</th><th>科室</th><th>开单医生</th><th>开单时间</th><th>操作</th></tr></thead><tbody>';
             foreach ($rows as $r) {
-                $v = DB::one('SELECT current_dept_name FROM registrations WHERE id=?', array($r['visit_id']));
-                $p = DB::one('SELECT name, gender, birth_date FROM patients WHERE patient_no=?', array($r['patient_no']));
+                $v = CashierRepository::one('SELECT current_dept_name FROM registrations WHERE id=?', array($r['visit_id']));
+                $p = PatientRepository::byPatientNo($r['patient_no']);
                 $html .= '<tr>' .
                     '<td class="fw-600">' . e($p ? $p['name'] : '') . ' <span class="fs-12 text-muted fw-400">' . e($p ? $p['gender'] : '') . '/' . ($p ? age_format($p['birth_date']) : '—') . '</span></td>' .
                     '<td>' . e($r['item_name']) . ' ×' . (int)$r['quantity'] . '</td>' .
@@ -103,47 +96,47 @@ switch ($action) {
         json_ok(array('html' => $html));
         break;
 
-    /* ==================== 完成处置（显示执行护士姓名并通知医生） ==================== */
+    /* ==================== 完成处置 ==================== */
     case 'complete':
         $itemId = did(post('item_id'));
-        $it = DB::one('SELECT * FROM order_items WHERE id=?', array($itemId));
+        $it = OrderRepository::itemById($itemId);
         if (!$it || $it['status'] !== 'paid') json_fail('该处置不存在或状态异常');
-        DB::exec("UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
+        OrderRepository::updateItem($itemId, array('status' => 'done', 'executed_by' => $u['name'], 'executed_at' => now_str()));
         if ($it['doctor_id'] > 0) {
-            $pName = DB::val('SELECT name FROM patients WHERE patient_no=?', array($it['patient_no']));
+            $pName = PatientRepository::byPatientNo($it['patient_no']);
             send_msg('doctor', $it['doctor_id'],
                 '处置已完成：' . $it['item_name'],
-                '护士 ' . $u['name'] . ' 已完成患者「' . $pName . '」（' . $it['patient_no'] . '）的处置「' . $it['item_name'] . '」',
+                '护士 ' . $u['name'] . ' 已完成患者「' . ($pName ? $pName['name'] : '') . '」（' . $it['patient_no'] . '）的处置「' . $it['item_name'] . '」',
                 '', '',
-                array('msg_type' => 'patient', 'patient_name' => $pName, 'visit_id' => (int)$it['visit_id']));
+                array('msg_type' => 'patient', 'patient_name' => $pName ? $pName['name'] : '', 'visit_id' => (int)$it['visit_id']));
         }
         json_ok(array(), '处置已完成（执行护士：' . $u['name'] . '）');
         break;
 
-    /* ==================== 患者搜索（ID/身份证/流水号，需求21.1） ==================== */
+    /* ==================== 患者搜索 ==================== */
     case 'search':
         $kw = trim(get('kw', ''));
         if ($kw === '') json_ok(array('list' => array()));
         $list = array();
-        $p = DB::one('SELECT * FROM patients WHERE patient_no=? OR id_card=?', array($kw, $kw));
+        $p = PatientRepository::byCardOrNo($kw);
         if ($p) {
-            $visits = DB::q('SELECT * FROM registrations WHERE patient_no=? ORDER BY registered_at DESC, id DESC', array($p['patient_no']));
+            $visits = CashierRepository::visitsOfPatient($p['patient_no']);
             foreach ($visits as $v) {
-                $v['id'] = oid($v['id']);   // 混淆串：前端仅透传，后端解码
+                $v['id'] = oid($v['id']);
                 $list[] = array('visit' => $v, 'patient' => $p);
             }
         } else {
-            $v = DB::one('SELECT * FROM registrations WHERE flow_no=? ORDER BY registered_at DESC, id DESC LIMIT 1', array($kw));
+            $v = CashierRepository::visitByFlow($kw);
             if ($v) {
-                $v['id'] = oid($v['id']);   // 混淆串
-                $pp = DB::one('SELECT * FROM patients WHERE patient_no=?', array($v['patient_no']));
+                $v['id'] = oid($v['id']);
+                $pp = PatientRepository::byPatientNo($v['patient_no']);
                 $list[] = array('visit' => $v, 'patient' => $pp);
             }
         }
         json_ok(array('list' => $list));
         break;
 
-    /* ==================== 就诊详情（患者信息 + 当日医嘱 + 生命体征 + 护理，需求21.2） ==================== */
+    /* ==================== 就诊详情 ==================== */
     case 'visit_detail':
         $visitId = did(get('visit_id', ''));
         $row = get_visit_row($visitId);
@@ -161,15 +154,14 @@ switch ($action) {
             '<button class="btn btn-outline btn-sm" onclick="openVitals(\'' . e(oid($visitId)) . '\')">🌡️ 生命体征</button>' .
             '<button class="btn btn-outline btn-sm" onclick="openNursing(\'' . e(oid($visitId)) . '\')">📝 护理记录</button></div></div>';
 
-        // 当日医生开具的检验/检查/处置/处方
-        $orders = DB::q("SELECT * FROM orders WHERE visit_id=? ORDER BY id DESC", array($visitId));
+        $orders = OrderRepository::byVisit($visitId);
         $typeNames = array('lab' => '检验', 'imaging' => '检查', 'procedure' => '处置', 'prescription' => '处方');
         $html .= '<div class="fs-14 fw-700 mb-8">医生开单（检验/检查/处置/处方）</div>';
         if (!$orders) {
             $html .= '<div class="fs-13 text-muted">暂无开单</div>';
         }
         foreach ($orders as $o) {
-            $items = DB::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
+            $items = OrderRepository::itemsByOrder($o['id']);
             $html .= '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:6px">' .
                 '<div class="flex-between fs-13"><span class="fw-600">' . e(isset($typeNames[$o['order_type']]) ? $typeNames[$o['order_type']] : $o['order_type']) . ' ' . e($o['order_no']) . '</span>' .
                 '<span class="fs-12 text-muted">' . e($o['doctor_name']) . ' ｜ ' . e(substr($o['created_at'], 5, 11)) . ' ｜ ' . e(order_agg_status($o['order_type'], $items)) . '</span></div>';
@@ -183,12 +175,9 @@ switch ($action) {
         json_ok(array('html' => $html));
         break;
 
-    /* ==================== 待执行医嘱（护士站执行处方，需求21.4） ==================== */
+    /* ==================== 待执行医嘱 ==================== */
     case 'med_orders':
-        $rows = DB::q("SELECT oi.*, o.order_no, o.doctor_name AS odoc
-            FROM order_items oi JOIN orders o ON o.id=oi.order_id
-            WHERE oi.item_type='prescription' AND oi.is_nurse=1 AND oi.status IN ('paid','dispensing')
-            ORDER BY oi.id DESC LIMIT 100");
+        $rows = OrderRepository::nurseMedOrders(100);
         $html = '<div class="fs-13 text-muted mb-8">待执行医嘱：' . count($rows) . ' 项</div>';
         if (!$rows) {
             $html .= '<div class="empty"><div class="empty-ico">💉</div>暂无待执行医嘱</div>';
@@ -196,8 +185,8 @@ switch ($action) {
             $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
                 '<th>患者</th><th>医嘱</th><th>流水号</th><th>开单医生</th><th>开单时间</th><th>状态</th><th>操作</th></tr></thead><tbody>';
             foreach ($rows as $r) {
-                $p = DB::one('SELECT name, gender, birth_date FROM patients WHERE patient_no=?', array($r['patient_no']));
-                $v = DB::one('SELECT current_dept_name, visit_seq FROM registrations WHERE id=?', array($r['visit_id']));
+                $p = PatientRepository::byPatientNo($r['patient_no']);
+                $v = CashierRepository::one('SELECT current_dept_name, visit_seq FROM registrations WHERE id=?', array($r['visit_id']));
                 $html .= '<tr>' .
                     '<td class="fw-600">' . e($p ? $p['name'] : '') . ' <span class="fs-12 text-muted fw-400">' . e($p ? $p['gender'] : '') . '/' . ($p ? age_format($p['birth_date']) : '—') . '</span><br>' .
                     '<span class="fs-12 text-muted">' . e($v ? $v['current_dept_name'] : '') . ' 第' . str_pad((string)($v ? $v['visit_seq'] : 0), 3, '0', STR_PAD_LEFT) . '号</span></td>' .
@@ -218,14 +207,13 @@ switch ($action) {
         json_ok(array('html' => $html));
         break;
 
-    /* ==================== 医嘱详情（含子处方，整单查看） ==================== */
+    /* ==================== 医嘱详情 ==================== */
     case 'med_detail':
         $orderId = did(get('order_id'));
-        $order = DB::one('SELECT * FROM orders WHERE id=?', array($orderId));
+        $order = OrderRepository::byId($orderId);
         if (!$order) json_fail('处方不存在');
-        $items = DB::q('SELECT * FROM order_items WHERE order_id=? ORDER BY sub_of, id', array($orderId));
+        $items = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? ORDER BY sub_of, id', array($orderId));
         $html = '<div class="fs-13 text-muted mb-8">处方单号：' . e($order['order_no']) . ' ｜ 开单医生：' . e($order['doctor_name']) . ' ｜ ' . e($order['created_at']) . '</div>';
-        // 子处方按主项目序号（sub_of）关联展示
         $idx = 0;
         foreach ($items as $it) {
             if ((int)$it['sub_of'] > 0) continue;
@@ -243,56 +231,56 @@ switch ($action) {
         json_ok(array('html' => $html));
         break;
 
-    /* ==================== 等待执行（待执行医嘱：待执行 → 执行中） ==================== */
+    /* ==================== 等待执行 ==================== */
     case 'med_start':
         $itemId = did(post('item_id'));
-        $it = DB::one('SELECT * FROM order_items WHERE id=?', array($itemId));
+        $it = OrderRepository::itemById($itemId);
         if (!$it || $it['item_type'] !== 'prescription' || $it['status'] !== 'paid') {
             json_fail('医嘱不存在或状态异常');
         }
-        DB::exec("UPDATE order_items SET status='dispensing' WHERE id=?", array($itemId));
+        OrderRepository::updateItem($itemId, array('status' => 'dispensing'));
         json_ok(array(), '已标记为等待执行，执行完成后请点击【执行完成】');
         break;
 
-    /* ==================== 执行完成（反馈医生工作站） ==================== */
+    /* ==================== 执行完成 ==================== */
     case 'med_done':
         $itemId = did(post('item_id'));
-        $it = DB::one('SELECT * FROM order_items WHERE id=?', array($itemId));
+        $it = OrderRepository::itemById($itemId);
         if (!$it || $it['item_type'] !== 'prescription' || $it['status'] !== 'dispensing') {
             json_fail('医嘱不存在或状态异常');
         }
-        DB::exec("UPDATE order_items SET status='dispensed', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
+        OrderRepository::updateItem($itemId, array('status' => 'dispensed', 'executed_by' => $u['name'], 'executed_at' => now_str()));
         if ($it['doctor_id'] > 0) {
-            $pName = DB::val('SELECT name FROM patients WHERE patient_no=?', array($it['patient_no']));
+            $pName = PatientRepository::byPatientNo($it['patient_no']);
             send_msg('doctor', $it['doctor_id'],
                 '医嘱已执行：' . $it['item_name'],
-                '护士 ' . $u['name'] . ' 已完成患者「' . $pName . '」（' . $it['patient_no'] . '）的医嘱「' . $it['item_name'] . '」执行（' . $it['route'] . '）',
+                '护士 ' . $u['name'] . ' 已完成患者「' . ($pName ? $pName['name'] : '') . '」（' . $it['patient_no'] . '）的医嘱「' . $it['item_name'] . '」执行（' . $it['route'] . '）',
                 '', '',
-                array('msg_type' => 'patient', 'patient_name' => $pName, 'visit_id' => (int)$it['visit_id']));
+                array('msg_type' => 'patient', 'patient_name' => $pName ? $pName['name'] : '', 'visit_id' => (int)$it['visit_id']));
         }
         json_ok(array(), '执行成功（执行护士：' . $u['name'] . '）');
         break;
 
-    /* ==================== 生命体征：读取全部（按时间升序，供趋势分析） ==================== */
+    /* ==================== 生命体征：读取 ==================== */
     case 'vitals':
         $visitId = did(get('visit_id'));
-        $all = DB::q('SELECT * FROM vitals WHERE visit_id=? ORDER BY id ASC', array($visitId));
+        $all = EmrRepository::vitalsByVisit($visitId);
         $latest = $all ? end($all) : null;
         json_ok(array('vitals' => $latest ? $latest : null, 'vitals_history' => $all ? $all : array()));
         break;
 
-    /* ==================== 生命体征：保存（与医生站同接口双向同步） ==================== */
+    /* ==================== 生命体征：保存 ==================== */
     case 'save_vitals':
         $visitId = did(post('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $recordId = (int)post('record_id', 0);
-        // 护士站无记录关联（record_id=0）：每次录入新增一条（多次测量留档）
-        DB::insert('INSERT INTO vitals(visit_id, patient_no, flow_no, vital_sbp, vital_dbp, vital_heart_rate, vital_pulse, vital_spo2, vital_respiration, operator, created_at, record_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', array(
-            $visitId, $row['visit']['patient_no'], $row['visit']['flow_no'],
-            (int)post('vital_sbp', 0), (int)post('vital_dbp', 0),
-            post('vital_heart_rate'), post('vital_pulse'), post('vital_spo2'), post('vital_respiration'),
-            $u['name'], now_str(), $recordId,
+        EmrRepository::insertVitals(array(
+            'visit_id' => $visitId, 'patient_no' => $row['visit']['patient_no'], 'flow_no' => $row['visit']['flow_no'],
+            'vital_sbp' => (int)post('vital_sbp', 0), 'vital_dbp' => (int)post('vital_dbp', 0),
+            'vital_heart_rate' => post('vital_heart_rate'), 'vital_pulse' => post('vital_pulse'),
+            'vital_spo2' => post('vital_spo2'), 'vital_respiration' => post('vital_respiration'),
+            'operator' => $u['name'], 'created_at' => now_str(), 'record_id' => $recordId,
         ));
         json_ok(array(), '生命体征已保存（医生工作站将同步显示）');
         break;
@@ -300,7 +288,7 @@ switch ($action) {
     /* ==================== 护理记录列表 ==================== */
     case 'nursing_list':
         $visitId = did(get('visit_id'));
-        $rows = DB::q('SELECT * FROM nursing_records WHERE visit_id=? ORDER BY id DESC LIMIT 50', array($visitId));
+        $rows = EmrRepository::nursingByVisit($visitId);
         $html = '';
         if (!$rows) {
             $html = '<div class="text-muted fs-13">暂无护理记录</div>';
@@ -320,8 +308,9 @@ switch ($action) {
         if ($content === '') json_fail('请输入护理记录内容');
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
-        DB::insert('INSERT INTO nursing_records(visit_id, patient_no, flow_no, content, operator, created_at) VALUES(?,?,?,?,?,?)', array(
-            $visitId, $row['visit']['patient_no'], $row['visit']['flow_no'], $content, $u['name'], now_str(),
+        EmrRepository::insertNursing(array(
+            'visit_id' => $visitId, 'patient_no' => $row['visit']['patient_no'], 'flow_no' => $row['visit']['flow_no'],
+            'content' => $content, 'operator' => $u['name'],
         ));
         json_ok(array(), '护理记录已添加');
         break;

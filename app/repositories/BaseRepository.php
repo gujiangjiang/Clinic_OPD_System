@@ -23,14 +23,14 @@ class BaseRepository {
     // ==================== 查询 ====================
 
     /** 查询多行，返回数组 */
-    protected static function q($sql, $params = array()) {
+    public static function q($sql, $params = array()) {
         $st = self::db()->prepare($sql);
         $st->execute($params);
         return $st->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /** 查询单行，返回关联数组或 null */
-    protected static function one($sql, $params = array()) {
+    public static function one($sql, $params = array()) {
         $st = self::db()->prepare($sql);
         $st->execute($params);
         $r = $st->fetch(PDO::FETCH_ASSOC);
@@ -38,7 +38,7 @@ class BaseRepository {
     }
 
     /** 查询单值，返回标量或 null */
-    protected static function val($sql, $params = array()) {
+    public static function val($sql, $params = array()) {
         $st = self::db()->prepare($sql);
         $st->execute($params);
         $v = $st->fetchColumn();
@@ -46,28 +46,28 @@ class BaseRepository {
     }
 
     /** 执行写操作，返回影响行数 */
-    protected static function exec($sql, $params = array()) {
+    public static function exec($sql, $params = array()) {
         $st = self::db()->prepare($sql);
         $st->execute($params);
         return $st->rowCount();
     }
 
     /** 插入并返回自增主键 */
-    protected static function insert($sql, $params = array()) {
+    public static function insert($sql, $params = array()) {
         return self::execInsert(self::db(), $sql, $params);
     }
 
     // ==================== ICD-10 字典库查询 ====================
 
     /** ICD-10 多行查询 */
-    protected static function icd10q($sql, $params = array()) {
+    public static function icd10q($sql, $params = array()) {
         $st = self::icd10Db()->prepare($sql);
         $st->execute($params);
         return $st->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /** ICD-10 单行查询 */
-    protected static function icd10one($sql, $params = array()) {
+    public static function icd10one($sql, $params = array()) {
         $st = self::icd10Db()->prepare($sql);
         $st->execute($params);
         $r = $st->fetch(PDO::FETCH_ASSOC);
@@ -75,7 +75,7 @@ class BaseRepository {
     }
 
     /** ICD-10 单值查询 */
-    protected static function icd10val($sql, $params = array()) {
+    public static function icd10val($sql, $params = array()) {
         $st = self::icd10Db()->prepare($sql);
         $st->execute($params);
         $v = $st->fetchColumn();
@@ -83,7 +83,7 @@ class BaseRepository {
     }
 
     /** ICD-10 写操作 */
-    protected static function icd10exec($sql, $params = array()) {
+    public static function icd10exec($sql, $params = array()) {
         $st = self::icd10Db()->prepare($sql);
         $st->execute($params);
         return $st->rowCount();

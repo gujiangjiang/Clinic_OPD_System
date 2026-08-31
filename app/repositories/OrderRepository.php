@@ -161,4 +161,34 @@ class OrderRepository extends BaseRepository {
     public static function todayDisposalFee($today) {
         return (float)self::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type='procedure' AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($today));
     }
+
+    /** 护士站待处置列表（勾选护士执行 + 已缴费） */
+    public static function nurseTreatments($limit = 100) {
+        return self::q("SELECT * FROM order_items WHERE item_type='procedure' AND is_nurse=1 AND status='paid' ORDER BY id DESC LIMIT " . (int)$limit);
+    }
+
+    /** 护士站待执行医嘱（护士执行处方，待执行/执行中） */
+    public static function nurseMedOrders($limit = 100) {
+        return self::q(
+            "SELECT oi.*, o.order_no, o.doctor_name AS odoc
+             FROM order_items oi JOIN orders o ON o.id=oi.order_id
+             WHERE oi.item_type='prescription' AND oi.is_nurse=1 AND oi.status IN ('paid','dispensing')
+             ORDER BY oi.id DESC LIMIT " . (int)$limit
+        );
+    }
+
+    /** 医嘱子处方（同订单同组非主药） */
+    public static function itemsByOrderGroup($orderId, $groupNo) {
+        return self::q('SELECT * FROM order_items WHERE order_id=? AND group_no=? AND is_parent=0 ORDER BY id', array((int)$orderId, (int)$groupNo));
+    }
+
+    /** 今日处方发药数 */
+    public static function todayDispensedCount($today) {
+        return (int)self::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='dispensed' AND date(executed_at)=?", array($today));
+    }
+
+    /** 待发药处方数 */
+    public static function pendingRxCount() {
+        return (int)self::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='paid'");
+    }
 }
