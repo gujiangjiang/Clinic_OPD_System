@@ -176,7 +176,7 @@ function admin_part_import($action) {
                     $vals[] = password_hash($password, PASSWORD_DEFAULT);
                     $ins[] = 'password';
                 }
-                $pdo->prepare($sql)->execute($vals);
+                BaseRepository::prepareExec($sql, $vals);
                 $inserted++;
             }
             $pdo->commit();

@@ -89,6 +89,33 @@ class BaseRepository {
         return $st->rowCount();
     }
 
+    /** 按库名动态查询（数据导入等场景：$db='main' 或 'icd10'） */
+    public static function dbVal($db, $sql, $params = array()) {
+        $pdo = ($db === 'icd10') ? self::icd10Db() : self::db();
+        $st = $pdo->prepare($sql);
+        $st->execute($params);
+        $v = $st->fetchColumn();
+        return $v === false ? null : $v;
+    }
+
+    /** 通用动态执行（供 API 层在事务中通过 Repository 门面执行动态 SQL） */
+    public static function prepareExec($sql, $params = array()) {
+        self::db()->prepare($sql)->execute($params);
+    }
+
+    /** 通用动态查询（返回多行，供 API 层在事务中通过 Repository 门面执行动态 SQL） */
+    public static function prepareQ($sql, $params = array()) {
+        $st = self::db()->prepare($sql);
+        $st->execute($params);
+        return $st->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** 通用动态插入并返回 lastInsertId（供 API 层在事务中使用） */
+    public static function prepareInsert($sql, $params = array()) {
+        self::db()->prepare($sql)->execute($params);
+        return (int)self::db()->lastInsertId();
+    }
+
     // ==================== 事务辅助 ====================
 
     /** 开启主库事务 */

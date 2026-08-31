@@ -152,10 +152,31 @@ class EmrRepository extends BaseRepository {
         self::exec('UPDATE diag_orders SET ord_keys=?, updated_at=? WHERE id=?', array($ordKeys, now_str(), (int)$id));
     }
 
-    // ===== consents 知情同意书 =====
-    public static function consentsByVisit($visitId) {
-        return self::q('SELECT * FROM consents WHERE visit_id=? ORDER BY id', array((int)$visitId));
+    /** 删除镜像（按 id） */
+    public static function deleteMirrorById($id) {
+        return self::exec('DELETE FROM records WHERE id=?', array((int)$id));
     }
+
+    /** 会诊处理回退（删除会诊病历 = 放弃本次会诊处理） */
+    public static function revertConsultation($consultId) {
+        self::exec("UPDATE consultations SET status='pending', accepted_by='', accepted_at='' WHERE id=?", array((int)$consultId));
+    }
+
+    /** 就诊状态退回待就诊（当前科室已无文书时） */
+    public static function revertVisitStatus($visitId, $status) {
+        self::exec('UPDATE registrations SET status=? WHERE id=?', array($status, (int)$visitId));
+    }
+
+    /** 按就诊+医生查病历（续写节点/状态流转用） */
+    public static function recordsByVisitDoctorOther($visitId, $doctorId) {
+        return self::q('SELECT * FROM patient_records WHERE visit_id=? AND doctor_id<>? ORDER BY id DESC', array((int)$visitId, (int)$doctorId));
+    }
+
+    /** 会诊进行中数量（进行中会诊用） */
+    public static function activeConsultsByVisit($visitId) {
+        return self::q("SELECT id FROM consultations WHERE visit_id=? AND status IN ('pending','doing')", array((int)$visitId));
+    }
+
 
     // ===== nursing_records 护理记录 =====
     public static function nursingByVisit($visitId, $limit = 50) {

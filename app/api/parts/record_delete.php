@@ -57,19 +57,19 @@ function record_part_delete($action) {
         if ($recConsultId > 0) {
             $cons = EmrRepository::one('SELECT * FROM consultations WHERE id=?', array($recConsultId));
             if ($cons && $cons['status'] === 'doing') {
-                EmrRepository::exec("UPDATE consultations SET status='pending', accepted_by='', accepted_at='' WHERE id=?", array($recConsultId));
+                EmrRepository::revertConsultation($recConsultId);
             }
         }
-        // 3. 删除（物理删除 + 镜像清理）
+        // 3. 删除（物理删除 + 镜像清理）——复合写操作在 API 层事务控制
         $pdo = DatabaseManager::getMain();
         try {
             $pdo->beginTransaction();
-            $pdo->prepare('DELETE FROM patient_records WHERE id=?')->execute(array($recordId));
+            EmrRepository::deleteRecord($recordId);
             // 清理该文书对应的旧镜像（精确匹配 patient_record_id；旧数据无关联时按 visit+doctor 最新兜底）
-            $pdo->prepare('DELETE FROM records WHERE patient_record_id=?')->execute(array($recordId));
+            EmrRepository::deleteMirrorByRecordId($recordId);
             $mirrorOld = EmrRepository::one('SELECT id FROM records WHERE visit_id=? AND doctor_id=? AND patient_record_id=0 ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
             if ($mirrorOld) {
-                $pdo->prepare('DELETE FROM records WHERE id=?')->execute(array($mirrorOld['id']));
+                EmrRepository::deleteMirrorById($mirrorOld['id']);
             }
             $pdo->commit();
         } catch (Exception $ex) {
@@ -83,7 +83,7 @@ function record_part_delete($action) {
             $remainCurDept = (int)EmrRepository::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND dept_id=?',
                 array($visitId, (int)$row['visit']['current_dept_id']));
             if ($remainCurDept === 0) {
-                EmrRepository::exec('UPDATE registrations SET status=? WHERE id=?', array('paid', $visitId));
+                EmrRepository::revertVisitStatus($visitId, 'paid');
             }
         }
         $newStatus = (string)EmrRepository::val('SELECT status FROM registrations WHERE id=?', array($visitId));

@@ -51,11 +51,11 @@ function record_part_write($action) {
         try {
             $pdo->beginTransaction();
             // patient_records：空骨架（status=draft，正文为空，保存时填充）
-            $pdo->prepare('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, emr_data, emr_print_text, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)')
-                ->execute(array($visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name'], 'progress', (int)$ownLatest['id'], $cleanJson, '', 'draft', $now, $now));
+            EmrRepository::prepareInsert('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, emr_data, emr_print_text, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                $visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name'], 'progress', (int)$ownLatest['id'], $cleanJson, '', 'draft', $now, $now));
             // records 旧镜像表同步占位（兼容既有消费方）
-            $pdo->prepare('INSERT INTO records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?)')
-                ->execute(array($visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name'], 'draft', $now, $now));
+            EmrRepository::prepareInsert('INSERT INTO records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
+                $visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name'], 'draft', $now, $now));
             $pdo->commit();
         } catch (Exception $ex) {
             if ($pdo->inTransaction()) $pdo->rollBack();
@@ -274,13 +274,12 @@ function record_part_write($action) {
                 $pr = EmrRepository::one('SELECT id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
             }
             if ($pr && !$progressNew) {
-                $pdo->prepare('UPDATE patient_records SET chief_complaint=?, symptom_duration=?, symptom_unit=?, informant=?, arrival_way=?, has_past_history=?, allergy_history=?, is_leave_hospital=?, icd10_code=?, diagnosis_name=?, emr_data=?, emr_print_text=?, status=?, updated_at=? WHERE id=?')
-                    ->execute(array($mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $pr['id']));
+                EmrRepository::prepareExec('UPDATE patient_records SET chief_complaint=?, symptom_duration=?, symptom_unit=?, informant=?, arrival_way=?, has_past_history=?, allergy_history=?, is_leave_hospital=?, icd10_code=?, diagnosis_name=?, emr_data=?, emr_print_text=?, status=?, updated_at=? WHERE id=?', array(
+                    $mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $pr['id']));
                 $recordId = (int)$pr['id'];
             } else {
-                $pdo->prepare('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, chief_complaint, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergy_history, is_leave_hospital, icd10_code, diagnosis_name, emr_data, emr_print_text, status, created_at, updated_at, consultation_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-                    ->execute(array($visitId, $visit['patient_no'], $visit['flow_no'], $recDeptId, $u['id'], $u['name'], $recordType, $parentRecordId, $mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $now, $consultationId));
-                $recordId = (int)$pdo->lastInsertId();
+                $recordId = EmrRepository::prepareInsert('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, chief_complaint, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergy_history, is_leave_hospital, icd10_code, diagnosis_name, emr_data, emr_print_text, status, created_at, updated_at, consultation_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                    $visitId, $visit['patient_no'], $visit['flow_no'], $recDeptId, $u['id'], $u['name'], $recordType, $parentRecordId, $mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $now, $consultationId));
                 // 体征记录回填：新病历保存前若以 record_id=0 录入过体征（未保存时的
                 // 录入），关联到本次新建病历，保证该病历内后续修改体征为更新而非新增。
                 EmrRepository::exec('UPDATE vitals SET record_id=? WHERE visit_id=? AND operator=? AND record_id=0', array($recordId, $visitId, $u['name']));
@@ -321,7 +320,7 @@ function record_part_write($action) {
                 $params = array();
                 foreach ($mirror as $k => $v) { $set[] = $k . '=?'; $params[] = $v; }
                 $params[] = $old['id'];
-                $pdo->prepare('UPDATE records SET ' . implode(',', $set) . ' WHERE id=?')->execute($params);
+                EmrRepository::prepareExec('UPDATE records SET ' . implode(',', $set) . ' WHERE id=?', $params);
                 $oldRecordId = (int)$old['id'];
             } else {
                 $cols = 'visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, patient_record_id, ' . implode(',', array_keys($mirror)) . ', created_at';
@@ -329,8 +328,7 @@ function record_part_write($action) {
                 $params = array($visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name'], $recordId);
                 foreach ($mirror as $v) $params[] = $v;
                 $params[] = $now;
-                $pdo->prepare("INSERT INTO records($cols) VALUES($marks)")->execute($params);
-                $oldRecordId = (int)$pdo->lastInsertId();
+                $oldRecordId = EmrRepository::prepareInsert("INSERT INTO records($cols) VALUES($marks)", $params);
             }
 
             $pdo->commit();
@@ -485,9 +483,7 @@ function record_part_write($action) {
         }
         $exist = (int)EmrRepository::val('SELECT id FROM diag_orders WHERE visit_id=? AND doctor_id=?', array($visitId, $u['id']));
         if ($exist > 0) {
-            $pdo2 = DatabaseManager::getMain();
-            $pdo2->prepare('UPDATE diag_orders SET ord_keys=?, updated_at=? WHERE id=?')
-                ->execute(array(implode("\n", $clean), now_str(), $exist));
+            EmrRepository::prepareExec('UPDATE diag_orders SET ord_keys=?, updated_at=? WHERE id=?', array(implode("\n", $clean), now_str(), $exist));
         } else {
             EmrRepository::insert('INSERT INTO diag_orders(visit_id, doctor_id, ord_keys, updated_at) VALUES(?,?,?,?)', array(
                 $visitId, $u['id'], implode("\n", $clean), now_str(),
@@ -565,16 +561,14 @@ function record_part_write($action) {
         $emr['diagnoses'] = $clean;
         $diagText = $clean ? emr_diag_text($clean) : '';
         $firstCode = $clean ? (string)$clean[0]['code'] : '';
-        $pdo = DatabaseManager::getMain();
         // 结构化文书更新（诊断 + 主诊断投影）
-        $pdo->prepare('UPDATE patient_records SET emr_data=?, icd10_code=?, diagnosis_name=? WHERE id=?')
-            ->execute(array(json_encode($emr, JSON_UNESCAPED_UNICODE), $firstCode, $diagText, $pr['id']));
+        EmrRepository::prepareExec('UPDATE patient_records SET emr_data=?, icd10_code=?, diagnosis_name=? WHERE id=?', array(
+            json_encode($emr, JSON_UNESCAPED_UNICODE), $firstCode, $diagText, $pr['id']));
         // 旧镜像表同步（最新一行）：注意镜像表 ICD 列名为 icd10_code；
         // 先查 id 再按 id 更新（避免 UPDATE 内子查询的兼容性问题）
         $mirrorId = (int)EmrRepository::val('SELECT id FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
         if ($mirrorId > 0) {
-            $pdo->prepare('UPDATE records SET preliminary_diagnosis=?, icd10_code=? WHERE id=?')
-                ->execute(array($diagText, $firstCode, $mirrorId));
+            EmrRepository::prepareExec('UPDATE records SET preliminary_diagnosis=?, icd10_code=? WHERE id=?', array($diagText, $firstCode, $mirrorId));
         }
         json_ok(array('diagnoses' => $clean), '诊断已更新');
         return;

@@ -149,13 +149,13 @@ function order_part_write($action) {
             // ===== 项目存在性校验 + 权威核价（非处方类）：防止空名明细混入病历/打印 =====
             if ($orderType !== 'prescription' && $subOf === 0 && $itemId > 0) {
                 $catTable = array(
-                    'lab' => array('lab', 'lab_items', 'price'),
-                    'imaging' => array('lab', 'exam_items', 'price'),
-                    'procedure' => array('disp', 'disposal_items', 'fee'),
+                    'lab' => array('lab_items', 'price'),
+                    'imaging' => array('exam_items', 'price'),
+                    'procedure' => array('disposal_items', 'fee'),
                 );
                 if (isset($catTable[$orderType])) {
-                    $itemRow = OrderRepository::one($catTable[$orderType][0],
-                        'SELECT name, status, ' . $catTable[$orderType][2] . ' AS p FROM ' . $catTable[$orderType][1] . ' WHERE id=?',
+                    $itemRow = OrderRepository::one(
+                        'SELECT name, status, ' . $catTable[$orderType][1] . ' AS p FROM ' . $catTable[$orderType][0] . ' WHERE id=?',
                         array($itemId));
                     if (!$itemRow || $itemRow['status'] !== 'approved') {
                         json_fail('开单项目不存在或未通过审核，请刷新后重试');
