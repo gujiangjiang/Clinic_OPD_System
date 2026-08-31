@@ -3243,23 +3243,36 @@ diagnoses: [],
     }
 
     function printRecord() {
-        // 只读查看模式（会诊完毕「查看完整病历」）或诊毕：打印是只读操作，直接放行
-        // （后端 print.php 渲染该就诊全部已保存文书，不依赖当前是否可编辑）
-        if (DATA && (DATA.__readonly_view || (DATA.visit && DATA.visit.status === 'finished'))) {
-            var visitId2 = document.getElementById('visitId').value;
-            Clinic.print.load('/api/print?action=record&visit_id=' + visitId2, null, 'a5');
+        // 打印是只读操作，不依赖当前编辑权限：
+        // 1) 跨科室只读查看（会诊完毕「查看完整病历」）→ 直接放行
+        // 2) 诊毕归档 → 直接放行
+        // 3) 转科前旧文书（dept_mismatch 只读，dept_match=0）→ 已有已保存文书，放行打印
+        //    （打印不要求当前病历可编辑，后端按就诊渲染全部已保存文书）
+        var visitIdP = document.getElementById('visitId').value;
+        var hasSavedRec = DATA && DATA.record && DATA.record.record_id > 0;
+        // 只读上下文放行打印：跨科室只读 / 诊毕 / 转科前旧文书（dept_mismatch）——
+        // 均需已有已保存文书（record_id>0）；无保存病历（record_id=0）仍走下方保存校验
+        var readOnlyContext = DATA && hasSavedRec && (
+            DATA.__readonly_view ||
+            (DATA.visit && DATA.visit.status === 'finished') ||
+            DATA.record.dept_match === 0
+        );
+        if (readOnlyContext) {
+            // 有未保存修改先拦截（避免打印出未保存的内容）
+            if (EMR_DIRTY) {
+                Clinic.toast.warning('病历有修改未保存，请先点击「💾 保存」后再打印病历');
+                return;
+            }
+            Clinic.print.load('/api/print?action=record&visit_id=' + visitIdP, null, 'a5');
             return;
         }
-        // 前置条件：病历已完善并保存（有未保存修改先拦截）
+        // 可编辑场景：要求已保存且完善（主诉/现病史/初步诊断）
         if (!requireSaved('打印病历')) return;
         if (!isRecordComplete()) {
             Clinic.toast.warning('请先在病历中完善主诉、现病史与初步诊断并保存，再打印病历');
             return;
         }
-        var visitId = document.getElementById('visitId').value;
-        // 直接使用统一打印模板（print.php?action=record），与屏幕所见即所得病历版式一致；
-        // A5 病历纸（竖版窄条，宽度受限、可向下延伸）
-        Clinic.print.load('/api/print?action=record&visit_id=' + visitId, null, 'a5');
+        Clinic.print.load('/api/print?action=record&visit_id=' + visitIdP, null, 'a5');
     }
 
     /** 编辑中占位点击时定位到编辑器（首诊/续写编辑中节点） */
