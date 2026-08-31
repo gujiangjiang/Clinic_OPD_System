@@ -637,7 +637,7 @@ diagnoses: [],
             if (needProgress) {
                 if (deptMismatch) {
                     // 转科前旧文书（deptMismatch）：docBody 直接展示当前文书只读段，
-                    // 并附「仅可查看」提示（病历在哪个科写只能在哪个科编辑）
+                    // 提示语以 toast 轻提示呈现（不额外占据病历区域）
                     refreshReadOnlyBodies(d);
                     var dmBody = document.getElementById('docBody');
                     if (dmBody && r.record_id > 0) {
@@ -645,10 +645,10 @@ diagnoses: [],
                             doctor_name: r.doctor_name, doctor_emp: r.doctor_emp||'', doctor_title: r.doctor_title||'',
                             record_type: r.record_type, emr: r.emr||{}, created_at: r.created_at||'',
                             consultation_id: r.consultation_id||0, consciousness: r.consciousness||'', vitals: {} };
-                        dmBody.innerHTML = '<div class="prev-record-wrap">' + roSegmentHtml(dmSeg) + '</div>' +
-                            '<div class="ro-placeholder" id="roPlaceholder">' +
-                            '<div class="fs-12 text-muted mt-4">该病历书写科室与当前科室不一致，仅可查看（只读）。' +
-                            '如需书写请在当前科室新建续写病历。</div></div>';
+                        dmBody.innerHTML = '<div class="prev-record-wrap">' + roSegmentHtml(dmSeg) + '</div>';
+                    }
+                    if (window.Clinic && Clinic.toast) {
+                        Clinic.toast.info('该病历书写科室与当前科室不一致，仅可查看（只读）。如需书写请在当前科室新建续写病历');
                     }
                 } else {
                     // 会诊模式：就诊存在待处理/进行中的会诊 → 占位显示「确认会诊」
