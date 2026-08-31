@@ -25,23 +25,23 @@ function record_part_read($action) {
         }
 
         // 当前科室（可能已转科，显示当前就诊科室）
-        $dept = DB::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
+        $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
         $deptName = $dept ? $dept['name'] : $visit['first_dept_name'];
         $deptType = $dept ? $dept['type'] : 'clinic';
 
         // 医生信息（工号/职称，需求18.2：工作站显示医生姓名工号职称）
-        $doc = DB::one('SELECT emp_no, title FROM users WHERE id=?', array($u['id']));
+        $doc = EmrRepository::one('SELECT emp_no, title FROM users WHERE id=?', array($u['id']));
 
         // ===== 多医生接诊（1:N）：该挂号流水下全部病历（按创建时间升序） =====
         // 每位医生各自拥有独立文书：谁书写谁签名；前序病历对后序医生只读展示。
-        $allRows = DB::q('SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC', array($visitId));
+        $allRows = EmrRepository::q('SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC', array($visitId));
         // 补齐各文书医生的工号/职称（users 与 medical 分库，不能 JOIN，按 id 批量查询）
         $docIds = array();
         foreach ($allRows as $pr2) { $docIds[(int)$pr2['doctor_id']] = true; }
         $docMeta = array();
         if ($docIds) {
             $ph = implode(',', array_fill(0, count($docIds), '?'));
-            foreach (DB::q("SELECT id, emp_no, title FROM users WHERE id IN ($ph)", array_keys($docIds)) as $dm) {
+            foreach (EmrRepository::q("SELECT id, emp_no, title FROM users WHERE id IN ($ph)", array_keys($docIds)) as $dm) {
                 $docMeta[(int)$dm['id']] = $dm;
             }
         }
@@ -51,7 +51,7 @@ function record_part_read($action) {
         $deptNames = array();
         if ($deptIds) {
             $ph2 = implode(',', array_fill(0, count($deptIds), '?'));
-            foreach (DB::q("SELECT id, name FROM departments WHERE id IN ($ph2)", array_keys($deptIds)) as $dn) {
+            foreach (EmrRepository::q("SELECT id, name FROM departments WHERE id IN ($ph2)", array_keys($deptIds)) as $dn) {
                 $deptNames[(int)$dn['id']] = (string)$dn['name'];
             }
         }
@@ -67,14 +67,14 @@ function record_part_read($action) {
             // 首诊记录才按 operator 回退就诊体征。
             $ownVitals = null;
             if ((int)$pr2['id'] > 0) {
-                $ownVitals = DB::one('SELECT * FROM vitals WHERE record_id=? ORDER BY id DESC LIMIT 1', array((int)$pr2['id']));
+                $ownVitals = EmrRepository::one('SELECT * FROM vitals WHERE record_id=? ORDER BY id DESC LIMIT 1', array((int)$pr2['id']));
             }
             if (!$ownVitals && $pr2['record_type'] !== 'progress') {
-                $ownVitals = DB::one('SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1',
+                $ownVitals = EmrRepository::one('SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1',
                     array((int)$pr2['visit_id'], (string)$pr2['doctor_name']));
             }
             // 意识状态/初复诊按文书医生本人从旧 records 镜像表回读
-            $mirror = DB::one('SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC',
+            $mirror = EmrRepository::one('SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC',
                 array((int)$pr2['visit_id'], (int)$pr2['doctor_id']));
             return array(
                 'id' => (int)$pr2['id'],
@@ -108,7 +108,7 @@ function record_part_read($action) {
         // 医生当前所在科室（会话 auth_user 不含 current_dept_id，须从 user 库读取）
         $docDept = (int)(isset($u['current_dept_id']) ? $u['current_dept_id'] : 0);
         if ($docDept <= 0) {
-            $docDeptRow = DB::one('SELECT current_dept_id FROM users WHERE id=?', array((int)$u['id']));
+            $docDeptRow = EmrRepository::one('SELECT current_dept_id FROM users WHERE id=?', array((int)$u['id']));
             $docDept = $docDeptRow ? (int)$docDeptRow['current_dept_id'] : 0;
         }
         // 跨科室只读查看（纯状态驱动，不用 URL 参数）：
@@ -134,7 +134,7 @@ function record_part_read($action) {
                 $editable = $consultMode
                     ? (int)$pr2['consultation_id'] === (int)$consultCtx['id']
                     : ((int)$pr2['dept_id'] === (int)$visit['current_dept_id']
-                        || ((int)$pr2['consultation_id'] > 0 && DB::val(                            "SELECT COUNT(*) FROM consultations WHERE id=? AND visit_id=? AND status IN ('pending','doing')",
+                        || ((int)$pr2['consultation_id'] > 0 && EmrRepository::val(                            "SELECT COUNT(*) FROM consultations WHERE id=? AND visit_id=? AND status IN ('pending','doing')",
                             array((int)$pr2['consultation_id'], (int)$visit['id'])) > 0));
                 if ($editable) $mine = $item;   // 最新可编辑者胜出
             }
@@ -143,7 +143,7 @@ function record_part_read($action) {
 
         // 结构化病历：严格取当前医生本人的记录（无则新建骨架，
         // 绝不回退他人病历——他人病历仅作上方只读展示，互不篡改）
-        $pr = $mine ? DB::one('SELECT * FROM patient_records WHERE id=?', array($mine['id'])) : null;
+        $pr = $mine ? EmrRepository::one('SELECT * FROM patient_records WHERE id=?', array($mine['id'])) : null;
         $emr = emr_merge_defaults(
             emr_normalize($pr ? json_decode($pr['emr_data'], true) : array()),
             emr_default_data($pr ? null : $patient)
@@ -168,7 +168,7 @@ function record_part_read($action) {
                 ($consultMode
                     ? (int)$pr['consultation_id'] === (int)$consultCtx['id']
                     : ((int)$pr['dept_id'] === (int)$visit['current_dept_id']
-                        || ((int)$pr['consultation_id'] > 0 && DB::val("SELECT COUNT(*) FROM consultations WHERE id=? AND visit_id=? AND status IN ('pending','doing')",
+                        || ((int)$pr['consultation_id'] > 0 && EmrRepository::val("SELECT COUNT(*) FROM consultations WHERE id=? AND visit_id=? AND status IN ('pending','doing')",
                             array((int)$pr['consultation_id'], (int)$visit['id'])) > 0))
                     )
             )) ? 1 : 0,
@@ -180,20 +180,20 @@ function record_part_read($action) {
         // 意识状态/初复诊保存在旧 records 镜像表（结构化表不含这两项），
         // 必须回读，否则保存后刷新页面意识状态会丢失回「未选择」、初复诊回「初诊」。
         // 仅取当前医生本人的镜像行——多医生文书互不串写。
-        $mirror = DB::one('SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visitId, $u['id']));
+        $mirror = EmrRepository::one('SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visitId, $u['id']));
         $recordData['consciousness'] = $mirror ? (string)$mirror['consciousness'] : '';
         $recordData['visit_type'] = ($mirror && $mirror['visit_type'] !== '') ? $mirror['visit_type'] : '初诊';
         // 生命体征归属：按文书记录精确关联（record_id 优先，兼容旧数据）。
         // 续写/会诊病历各自独立体征——只取本记录关联的体征，绝不复用首诊体征。
         $myVitals = null;
         if ($pr && (int)$pr['id'] > 0) {
-            $myVitals = DB::one('SELECT * FROM vitals WHERE record_id=? ORDER BY id DESC LIMIT 1', array((int)$pr['id']));
+            $myVitals = EmrRepository::one('SELECT * FROM vitals WHERE record_id=? ORDER BY id DESC LIMIT 1', array((int)$pr['id']));
         }
         // 续写/会诊记录：无自身体征则恒为空（不回退就诊/首诊体征）；
         // 首诊记录才按 operator 回退就诊体征（护士站录入共用）
         $isPrgRec = $pr && $pr['record_type'] === 'progress';
         if (!$myVitals && !$isPrgRec) {
-            $myVitals = DB::one('SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1', array($visitId, $u['name']));
+            $myVitals = EmrRepository::one('SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1', array($visitId, $u['name']));
         }
         $recordData['vitals'] = $myVitals ? $myVitals : array();
         // 扁平投影字段（主诉/现病史/初步诊断）：供诊断证明补开等旧字段消费方使用。
@@ -221,7 +221,7 @@ function record_part_read($action) {
                 if ($ccText !== '' && $piText !== '' && $diagText !== '') break;
             }
         }
-        $mirrorFlat = DB::one('SELECT chief_complaint, present_illness, preliminary_diagnosis FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        $mirrorFlat = EmrRepository::one('SELECT chief_complaint, present_illness, preliminary_diagnosis FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
         if ($ccText === '' && $mirrorFlat) $ccText = (string)$mirrorFlat['chief_complaint'];
         if ($piText === '' && $mirrorFlat) $piText = (string)$mirrorFlat['present_illness'];
         // 初步诊断直接使用投影文本——诊断名称本身已含 ICD-10 编码前缀
@@ -241,7 +241,7 @@ function record_part_read($action) {
         );
 
         // 该患者全部既往病历（跨就诊，供转科一键引用；附带 content 供前端模板方式填充）
-        $prevRows = DB::q('SELECT * FROM patient_records WHERE patient_no=? ORDER BY id DESC LIMIT 20', array($patient['patient_no']));
+        $prevRows = EmrRepository::q('SELECT * FROM patient_records WHERE patient_no=? ORDER BY id DESC LIMIT 20', array($patient['patient_no']));
         $prevRecords = array();
         foreach ($prevRows as $pr2) {
             $prevEmr = json_decode($pr2['emr_data'], true);
@@ -261,7 +261,7 @@ function record_part_read($action) {
         // 诊断证明信息：供前端「已开具」只读预览展示。
         // 注意——前端只读区域仅是预览，真正打印走 certificate_print
         // 从服务器重新渲染，内容以服务器保存数据为准，不可被前端篡改。
-        $certRow = DB::one('SELECT cert_no, content, doctor_name, created_at FROM certificates WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        $certRow = EmrRepository::one('SELECT cert_no, content, doctor_name, created_at FROM certificates WHERE visit_id=? ORDER BY id DESC', array($visitId));
 
         json_ok(array(
             'diag_order' => diag_order_keys($visitId, $u['id']),   // 本人诊断聚合显示顺序（跨医生排序载体，独立存储）
@@ -318,7 +318,7 @@ function record_part_read($action) {
                     'record_id' => (int)(isset($cc['record_id']) ? $cc['record_id'] : 0),
                     'accepted_by' => (string)$cc['accepted_by'],
                 );
-            }, DB::q('SELECT id, from_doctor_id, from_dept_name, target_dept_id, target_dept_name, status, record_id, accepted_by FROM consultations WHERE visit_id=? ORDER BY id ASC', array($visitId))),
+            }, EmrRepository::q('SELECT id, from_doctor_id, from_dept_name, target_dept_id, target_dept_name, status, record_id, accepted_by FROM consultations WHERE visit_id=? ORDER BY id ASC', array($visitId))),
             // current_doctor_record：当前登录医生本人此前已保存的草稿/病历，
             // 无则 null——有则回显编辑，绝不回退他人病历。
             'current_doctor_record' => $mine,

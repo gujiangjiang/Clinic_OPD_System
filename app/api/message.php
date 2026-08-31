@@ -20,19 +20,19 @@ switch ($action) {
 
     /* ---------------- 未读消息数（铃铛角标）+ 最新未读消息ID（用于前端检测新消息） ---------------- */
     case 'unread_count':
-        $count = (int)DB::val('SELECT COUNT(*) FROM messages WHERE is_read=0 AND (to_user_id=? OR (to_user_id=0 AND to_role=?))',
+        $count = (int)CoreRepository::val('SELECT COUNT(*) FROM messages WHERE is_read=0 AND (to_user_id=? OR (to_user_id=0 AND to_role=?))',
             array($u['id'], $u['role']));
         // latest_id：当前用户未读消息中的最大 ID（0 表示无未读）。
         // 前端轮询时比较该值是否增大，从而判断「是否有新消息到达」，
         // 比单纯比较数量更准确（避免多端已读导致的计数波动误判）。
-        $latestId = (int)DB::val('SELECT MAX(id) FROM messages WHERE is_read=0 AND (to_user_id=? OR (to_user_id=0 AND to_role=?))',
+        $latestId = (int)CoreRepository::val('SELECT MAX(id) FROM messages WHERE is_read=0 AND (to_user_id=? OR (to_user_id=0 AND to_role=?))',
             array($u['id'], $u['role']));
         json_ok(array('count' => $count, 'latest_id' => $latestId));
         break;
 
     /* ---------------- 消息列表（最近50条，面板用） ---------------- */
     case 'list':
-        $list = DB::q('SELECT * FROM messages WHERE (to_user_id=? OR (to_user_id=0 AND to_role=?)) ORDER BY id DESC LIMIT 50',
+        $list = CoreRepository::q('SELECT * FROM messages WHERE (to_user_id=? OR (to_user_id=0 AND to_role=?)) ORDER BY id DESC LIMIT 50',
             array($u['id'], $u['role']));
         obfList($list);
         json_ok(array('list' => $list));
@@ -41,13 +41,13 @@ switch ($action) {
     /* ---------------- 标记已读 ---------------- */
     case 'read':
         $id = (int)post('id');
-        DB::exec('UPDATE messages SET is_read=1 WHERE id=? AND (to_user_id=? OR (to_user_id=0 AND to_role=?))', array($id, $u['id'], $u['role']));
+        CoreRepository::exec('UPDATE messages SET is_read=1 WHERE id=? AND (to_user_id=? OR (to_user_id=0 AND to_role=?))', array($id, $u['id'], $u['role']));
         json_ok();
         break;
 
     /* ---------------- 全部消息（消息中心页面） ---------------- */
     case 'all':
-        $list = DB::q('SELECT * FROM messages WHERE (to_user_id=? OR (to_user_id=0 AND to_role=?)) ORDER BY id DESC LIMIT 200',
+        $list = CoreRepository::q('SELECT * FROM messages WHERE (to_user_id=? OR (to_user_id=0 AND to_role=?)) ORDER BY id DESC LIMIT 200',
             array($u['id'], $u['role']));
         obfList($list);
         json_ok(array('list' => $list));
@@ -56,26 +56,26 @@ switch ($action) {
     /* ---------------- 删除单条消息 ---------------- */
     case 'delete':
         $id = (int)post('id');
-        DB::exec('DELETE FROM messages WHERE id=? AND (to_user_id=? OR (to_user_id=0 AND to_role=?))', array($id, $u['id'], $u['role']));
+        CoreRepository::exec('DELETE FROM messages WHERE id=? AND (to_user_id=? OR (to_user_id=0 AND to_role=?))', array($id, $u['id'], $u['role']));
         json_ok(array(), '消息已删除');
         break;
 
     /* ---------------- 一键清空所有消息 ---------------- */
     case 'clear_all':
-        DB::exec('DELETE FROM messages WHERE (to_user_id=? OR (to_user_id=0 AND to_role=?))', array($u['id'], $u['role']));
+        CoreRepository::exec('DELETE FROM messages WHERE (to_user_id=? OR (to_user_id=0 AND to_role=?))', array($u['id'], $u['role']));
         json_ok(array(), '已清空所有消息');
         break;
 
     /* ---------------- 标记全部已读（一次性，避免前端逐个异步请求的竞态问题） ---------------- */
     case 'read_all':
-        DB::exec('UPDATE messages SET is_read=1 WHERE is_read=0 AND (to_user_id=? OR (to_user_id=0 AND to_role=?))',
+        CoreRepository::exec('UPDATE messages SET is_read=1 WHERE is_read=0 AND (to_user_id=? OR (to_user_id=0 AND to_role=?))',
             array($u['id'], $u['role']));
         json_ok(array(), '已全部标记为已读');
         break;
 
     /* ---------------- 发送消息：通讯录（按角色分组，排除自己，仅启用账号） ---------------- */
     case 'contacts':
-        $rows = DB::q('SELECT id, name, emp_no, role FROM users WHERE status=1 AND id<>? ORDER BY role, name', array($u['id']));
+        $rows = CoreRepository::q('SELECT id, name, emp_no, role FROM users WHERE status=1 AND id<>? ORDER BY role, name', array($u['id']));
         $groups = array();
         foreach ($rows as $r) {
             if (!isset($groups[$r['role']])) {
@@ -99,7 +99,7 @@ switch ($action) {
         // 普通用户：仅允许单选 + 30 秒限流（后端强制，防技术手段批量发送）
         if ($u['role'] !== 'admin') {
             if (count($recipients) > 1) json_fail('每次只能发送给一位用户');
-            $last = DB::val("SELECT created_at FROM messages WHERE from_user_id=? AND msg_type='user' ORDER BY id DESC LIMIT 1", array($u['id']));
+            $last = CoreRepository::val("SELECT created_at FROM messages WHERE from_user_id=? AND msg_type='user' ORDER BY id DESC LIMIT 1", array($u['id']));
             if ($last !== '' && $last !== null) {
                 $elapsed = time() - strtotime($last);
                 if ($elapsed < 30) {
@@ -112,7 +112,7 @@ switch ($action) {
         $ph = implode(',', array_fill(0, count($recipients), '?'));
         $params = array_merge(array($u['id']), $recipients);
         $valid = array();
-        foreach (DB::q("SELECT id, role, name FROM users WHERE status=1 AND id<>? AND id IN ($ph)", $params) as $r) {
+        foreach (CoreRepository::q("SELECT id, role, name FROM users WHERE status=1 AND id<>? AND id IN ($ph)", $params) as $r) {
             $valid[(int)$r['id']] = $r;
         }
         if (!count($valid)) json_fail('接收者不存在或不可用');
@@ -122,7 +122,7 @@ switch ($action) {
             $names[] = $r['name'];
         }
         // 发送日志（独立于收件消息行）：删除/清空已发送不影响接收者查看
-        DB::insert('INSERT INTO sent_messages(sender_id, sender_name, title, content, recipients, recipient_count, created_at) VALUES(?,?,?,?,?,?,?)', array(
+        CoreRepository::insert('INSERT INTO sent_messages(sender_id, sender_name, title, content, recipients, recipient_count, created_at) VALUES(?,?,?,?,?,?,?)', array(
             $u['id'], $u['name'], $title, $content, implode('、', $names), count($valid), now_str(),
         ));
         json_ok(array('count' => count($valid)), '消息已发送给 ' . count($valid) . ' 位用户');
@@ -130,7 +130,7 @@ switch ($action) {
 
     /* ---------------- 已发送列表（发送日志，仅本人） ---------------- */
     case 'sent_list':
-        $list = DB::q('SELECT * FROM sent_messages WHERE sender_id=? ORDER BY id DESC LIMIT 200', array($u['id']));
+        $list = CoreRepository::q('SELECT * FROM sent_messages WHERE sender_id=? ORDER BY id DESC LIMIT 200', array($u['id']));
         json_ok(array('list' => $list));
         break;
 
@@ -142,13 +142,13 @@ switch ($action) {
         $ph = implode(',', array_fill(0, count($ids), '?'));
         $params = $ids;
         $params[] = $u['id'];
-        DB::exec("DELETE FROM sent_messages WHERE id IN ($ph) AND sender_id=?", $params);
+        CoreRepository::exec("DELETE FROM sent_messages WHERE id IN ($ph) AND sender_id=?", $params);
         json_ok(array(), '已删除 ' . count($ids) . ' 条发送记录');
         break;
 
     /* ---------------- 清空已发送记录（仅本人日志，不影响接收者） ---------------- */
     case 'sent_clear':
-        DB::exec('DELETE FROM sent_messages WHERE sender_id=?', array($u['id']));
+        CoreRepository::exec('DELETE FROM sent_messages WHERE sender_id=?', array($u['id']));
         json_ok(array(), '已清空所有发送记录');
         break;
 

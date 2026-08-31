@@ -20,21 +20,21 @@ function admin_part_settings($action) {
     /* ==================== 工作台统计 ==================== */
     if ($action === 'stats') {
         $today = today_str();
-        $regToday = (int)DB::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=? AND status IN ('paid','visiting','finished')", array($today));
-        $waiting = (int)DB::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=? AND status='paid'", array($today));
-        $revenue = (float)DB::val("SELECT COALESCE(SUM(total),0) FROM payments WHERE date(created_at)=?", array($today));
-        $pendingAudits = (int)DB::val("SELECT COUNT(*) FROM audits WHERE status='pending'");
-        $lowStock = (int)DB::val("SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty<=10");
-        $deptCount = (int)DB::val("SELECT COUNT(*) FROM departments WHERE status=1 AND type IN ('clinic','emergency')");
-        $userCount = (int)DB::val('SELECT COUNT(*) FROM users WHERE status=1');
-        $msgCount = (int)DB::val('SELECT COUNT(*) FROM messages WHERE is_read=0 AND (to_role=? OR to_user_id=?)', array($u['role'], $u['id']));
+        $regToday = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=? AND status IN ('paid','visiting','finished')", array($today));
+        $waiting = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=? AND status='paid'", array($today));
+        $revenue = (float)AnalyticsRepository::val("SELECT COALESCE(SUM(total),0) FROM payments WHERE date(created_at)=?", array($today));
+        $pendingAudits = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM audits WHERE status='pending'");
+        $lowStock = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty<=10");
+        $deptCount = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM departments WHERE status=1 AND type IN ('clinic','emergency')");
+        $userCount = (int)AnalyticsRepository::val('SELECT COUNT(*) FROM users WHERE status=1');
+        $msgCount = (int)AnalyticsRepository::val('SELECT COUNT(*) FROM messages WHERE is_read=0 AND (to_role=? OR to_user_id=?)', array($u['role'], $u['id']));
         // 近7天趋势（挂号人次 + 缴费金额）
         $labels = array(); $regSeries = array(); $revSeries = array();
         for ($i = 6; $i >= 0; $i--) {
             $day = date('Y-m-d', strtotime("-$i days"));
             $labels[] = substr($day, 5);
-            $regSeries[] = (int)DB::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=? AND status IN ('paid','visiting','finished')", array($day));
-            $revSeries[] = round((float)DB::val("SELECT COALESCE(SUM(total),0) FROM payments WHERE date(created_at)=?", array($day)), 2);
+            $regSeries[] = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=? AND status IN ('paid','visiting','finished')", array($day));
+            $revSeries[] = round((float)AnalyticsRepository::val("SELECT COALESCE(SUM(total),0) FROM payments WHERE date(created_at)=?", array($day)), 2);
         }
         json_ok(array(
             'reg_today' => $regToday, 'waiting' => $waiting, 'revenue' => money($revenue),
@@ -133,9 +133,9 @@ function admin_part_settings($action) {
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
-        $hasRecord = (int)DB::val('SELECT COUNT(*) FROM records WHERE visit_id=?', array($visitId)) > 0;
-        $hasCert = (int)DB::val('SELECT COUNT(*) FROM certificates WHERE visit_id=?', array($visitId)) > 0;
-        $orders = DB::q('SELECT * FROM orders WHERE visit_id=? ORDER BY id', array($visitId));
+        $hasRecord = (int)AnalyticsRepository::val('SELECT COUNT(*) FROM records WHERE visit_id=?', array($visitId)) > 0;
+        $hasCert = (int)AnalyticsRepository::val('SELECT COUNT(*) FROM certificates WHERE visit_id=?', array($visitId)) > 0;
+        $orders = AnalyticsRepository::q('SELECT * FROM orders WHERE visit_id=? ORDER BY id', array($visitId));
         $typeNames = array('lab' => '检验申请单', 'imaging' => '检查申请单', 'procedure' => '处置单', 'prescription' => '处方单');
         $vOid = oid($visitId);
         $html = '<div class="card" style="padding:14px">' .

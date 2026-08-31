@@ -19,7 +19,7 @@ function order_flow_steps($o, $items) {
     $flow = array();
     $flow[] = array('label' => '开单', 'operator' => (string)$o['doctor_name'], 'time' => (string)$o['created_at'], 'done' => 1);
     // 缴费：payments 表（order_id 关联，任取一条）
-    $pay = DB::one('SELECT cashier_name, created_at FROM payments WHERE order_id=? ORDER BY id DESC LIMIT 1', array($o['id']));
+    $pay = OrderRepository::one('SELECT cashier_name, created_at FROM payments WHERE order_id=? ORDER BY id DESC LIMIT 1', array($o['id']));
     $payDone = !empty($o['paid_at']) || $pay;
     $flow[] = array('label' => '缴费',
         'operator' => $pay ? (string)$pay['cashier_name'] : '',
@@ -67,7 +67,7 @@ function order_part_read($action) {
         $list = array();
         if ($type === 'lab') {
             // 检验：全部单项（含被组合包含的成员，均可单独开具）+ 检验组合（按组价整体收费，可整体开组）
-            $rows = DB::q("SELECT * FROM lab_items WHERE is_group=0 AND status='approved' ORDER BY category, id");
+            $rows = OrderRepository::q("SELECT * FROM lab_items WHERE is_group=0 AND status='approved' ORDER BY category, id");
             foreach ($rows as $r) {
                 $list[] = array(
                     'id' => (int)$r['id'], 'name' => $r['name'], 'price' => (float)$r['price'],
@@ -75,11 +75,11 @@ function order_part_read($action) {
                     'is_group' => 0, 'members' => '',
                 );
             }
-            $groups = DB::q("SELECT * FROM lab_items WHERE is_group=1 AND status='approved' ORDER BY category, id");
+            $groups = OrderRepository::q("SELECT * FROM lab_items WHERE is_group=1 AND status='approved' ORDER BY category, id");
             foreach ($groups as $g) {
                 $mNames = array();
                 $mIds = array();
-                foreach (DB::q('SELECT id, name FROM lab_items WHERE id IN (SELECT item_id FROM lab_group_members WHERE group_id=?) ORDER BY id', array($g['id'])) as $m) {
+                foreach (OrderRepository::q('SELECT id, name FROM lab_items WHERE id IN (SELECT item_id FROM lab_group_members WHERE group_id=?) ORDER BY id', array($g['id'])) as $m) {
                     $mNames[] = $m['name'];
                     $mIds[] = (int)$m['id'];
                 }
@@ -92,7 +92,7 @@ function order_part_read($action) {
                 );
             }
         } elseif ($type === 'imaging') {
-            $rows = DB::q("SELECT * FROM exam_items WHERE status='approved' ORDER BY category, id");
+            $rows = OrderRepository::q("SELECT * FROM exam_items WHERE status='approved' ORDER BY category, id");
             foreach ($rows as $r) {
                 $list[] = array(
                     'id' => (int)$r['id'], 'name' => $r['name'], 'price' => (float)$r['price'],
@@ -100,7 +100,7 @@ function order_part_read($action) {
                 );
             }
         } elseif ($type === 'procedure') {
-            $rows = DB::q("SELECT * FROM disposal_items WHERE status='approved' ORDER BY id");
+            $rows = OrderRepository::q("SELECT * FROM disposal_items WHERE status='approved' ORDER BY id");
             foreach ($rows as $r) {
                 $list[] = array(
                     'id' => (int)$r['id'], 'name' => $r['name'], 'price' => (float)$r['fee'],
@@ -109,7 +109,7 @@ function order_part_read($action) {
                 );
             }
         } elseif ($type === 'prescription') {
-            $rows = DB::q("SELECT * FROM drugs WHERE status='approved' ORDER BY category, id");
+            $rows = OrderRepository::q("SELECT * FROM drugs WHERE status='approved' ORDER BY category, id");
             foreach ($rows as $r) {
                 $list[] = array(
                     'id' => (int)$r['id'], 'name' => $r['name'], 'price' => (float)$r['price'],
@@ -133,10 +133,10 @@ function order_part_read($action) {
         // 联动字典：皮试处置详情（id→名称/费用）+ 给药途径绑定计费处置（途径名→处置）
         //           + 频次/途径选项列表（供已选列表下拉选择）
         $dicts = array('skin_tests' => array(), 'route_bindings' => array(), 'frequencies' => array(), 'routes' => array());
-        foreach (DB::q("SELECT name FROM drug_settings WHERE stype='freq' ORDER BY sort, id") as $fq) {
+        foreach (OrderRepository::q("SELECT name FROM drug_settings WHERE stype='freq' ORDER BY sort, id") as $fq) {
             $dicts['frequencies'][] = $fq['name'];
         }
-        foreach (DB::q("SELECT name FROM drug_settings WHERE stype='route' ORDER BY sort, id") as $rt) {
+        foreach (OrderRepository::q("SELECT name FROM drug_settings WHERE stype='route' ORDER BY sort, id") as $rt) {
             $dicts['routes'][] = $rt['name'];
         }
         $stIds = array();
@@ -145,12 +145,12 @@ function order_part_read($action) {
         }
         if ($stIds) {
             $ph = implode(',', array_fill(0, count($stIds), '?'));
-            foreach (DB::q("SELECT id, name, fee FROM disposal_items WHERE id IN ($ph)", array_keys($stIds)) as $d) {
+            foreach (OrderRepository::q("SELECT id, name, fee FROM disposal_items WHERE id IN ($ph)", array_keys($stIds)) as $d) {
                 $dicts['skin_tests'][(int)$d['id']] = array('name' => $d['name'], 'fee' => (float)$d['fee']);
             }
         }
-        foreach (DB::q("SELECT name, bind_disposal_item_id FROM drug_settings WHERE stype='route' AND bind_disposal_item_id > 0") as $rb) {
-            $dd = DB::one('SELECT id, name, fee FROM disposal_items WHERE id=?', array((int)$rb['bind_disposal_item_id']));
+        foreach (OrderRepository::q("SELECT name, bind_disposal_item_id FROM drug_settings WHERE stype='route' AND bind_disposal_item_id > 0") as $rb) {
+            $dd = OrderRepository::one('SELECT id, name, fee FROM disposal_items WHERE id=?', array((int)$rb['bind_disposal_item_id']));
             if ($dd) $dicts['route_bindings'][$rb['name']] = array('id' => (int)$dd['id'], 'name' => $dd['name'], 'fee' => (float)$dd['fee']);
         }
         json_ok(array('list' => $list, 'link_dicts' => $dicts));
@@ -163,7 +163,7 @@ function order_part_read($action) {
         if (!$row) json_fail('就诊记录不存在');
         $patientNo = $row['visit']['patient_no'];
         $type = get('type', 'lab');
-        $rows = DB::q("SELECT oi.item_id, oi.item_name, o.created_at, o.order_no FROM order_items oi
+        $rows = OrderRepository::q("SELECT oi.item_id, oi.item_name, o.created_at, o.order_no FROM order_items oi
             JOIN orders o ON o.id = oi.order_id
             WHERE oi.patient_no=? AND oi.item_type=? AND oi.sub_of=0
             ORDER BY o.id DESC LIMIT 200", array($patientNo, $type));
@@ -187,9 +187,9 @@ function order_part_read($action) {
     if ($action === 'print') {
         $orderIdP = did(get('order_id'));
         if ($orderIdP <= 0) json_fail('链接无效或已过期');
-        $order = DB::one('SELECT * FROM orders WHERE id=?', array($orderIdP));
+        $order = OrderRepository::one('SELECT * FROM orders WHERE id=?', array($orderIdP));
         if (!$order) json_fail('开单记录不存在');
-        $items = DB::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($order['id']));
+        $items = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($order['id']));
         $titles = array('lab' => '检验申请单', 'imaging' => '检查申请单', 'procedure' => '处置申请单', 'prescription' => '门诊处方笺');
         $title = isset($titles[$order['order_type']]) ? $titles[$order['order_type']] : '申请单';
         $order['is_nurse_any'] = 0;
@@ -202,10 +202,10 @@ function order_part_read($action) {
 
     if ($action === 'visit_orders') {
         $visitId = did(get('visit_id'));
-        $orders = DB::q('SELECT * FROM orders WHERE visit_id=? ORDER BY id ASC', array($visitId));
+        $orders = OrderRepository::q('SELECT * FROM orders WHERE visit_id=? ORDER BY id ASC', array($visitId));
         $out = array();
         foreach ($orders as $o) {
-            $items = DB::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
+            $items = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
             $doneBy = '';
             foreach ($items as $it) {
                 if ($it['executed_by']) $doneBy = $it['executed_by'];
@@ -218,13 +218,13 @@ function order_part_read($action) {
                 foreach ($items as $it) $itemIds[] = (int)$it['id'];
                 if ($itemIds) {
                     $ph = implode(',', array_fill(0, count($itemIds), '?'));
-                    $resRows = DB::q("SELECT id, order_item_id FROM results WHERE order_item_id IN ($ph)", $itemIds);
+                    $resRows = OrderRepository::q("SELECT id, order_item_id FROM results WHERE order_item_id IN ($ph)", $itemIds);
                     $resIds = array(); $resToItem = array();
                     foreach ($resRows as $rr) { $resIds[] = (int)$rr['id']; $resToItem[(int)$rr['id']] = (int)$rr['order_item_id']; }
                     if ($resIds) {
                         $ph2 = implode(',', array_fill(0, count($resIds), '?'));
                         // 每个结果取最新一份有效报告
-                        foreach (DB::q("SELECT result_id, MAX(id) AS rid FROM reports WHERE result_id IN ($ph2) AND status<>'withdrawn' GROUP BY result_id", $resIds) as $rp) {
+                        foreach (OrderRepository::q("SELECT result_id, MAX(id) AS rid FROM reports WHERE result_id IN ($ph2) AND status<>'withdrawn' GROUP BY result_id", $resIds) as $rp) {
                             $itemId = isset($resToItem[(int)$rp['result_id']]) ? $resToItem[(int)$rp['result_id']] : 0;
                             if ($itemId > 0) $reportMap[$itemId] = (int)$rp['rid'];
                         }

@@ -54,7 +54,7 @@ switch ($action) {
 
     /* ==================== 临床科室列表（模板编辑弹窗用，医生可访问） ==================== */
     case 'depts':
-        $rows = DB::q("SELECT id, name FROM departments WHERE status=1 AND type IN ('clinic','emergency') ORDER BY sort, id");
+        $rows = EmrRepository::q("SELECT id, name FROM departments WHERE status=1 AND type IN ('clinic','emergency') ORDER BY sort, id");
         json_ok(array('list' => $rows));
         break;
 
@@ -93,17 +93,17 @@ switch ($action) {
         }
         // 排序：系统模板置顶，其余按创建时间倒序（新创建的显示在上）
         $sql .= " ORDER BY is_system DESC, id DESC";
-        $rows = DB::q($sql, $params);
+        $rows = EmrRepository::q($sql, $params);
         $out = array();
         foreach ($rows as $t) {
             // 关联科室名
             $deptNames = array();
-            $links = DB::q('SELECT dept_id FROM emr_template_depts WHERE template_id=?', array((int)$t['id']));
+            $links = EmrRepository::q('SELECT dept_id FROM emr_template_depts WHERE template_id=?', array((int)$t['id']));
             if ($links) {
                 $dids = array();
                 foreach ($links as $l) $dids[] = (int)$l['dept_id'];
                 $ph2 = implode(',', array_fill(0, count($dids), '?'));
-                foreach (DB::q("SELECT id, name FROM departments WHERE id IN ($ph2)", $dids) as $dn) {
+                foreach (EmrRepository::q("SELECT id, name FROM departments WHERE id IN ($ph2)", $dids) as $dn) {
                     $deptNames[] = $dn['name'];
                 }
             }
@@ -127,7 +127,7 @@ switch ($action) {
     /* ==================== 单条模板详情（编辑回填） ==================== */
     case 'get':
         $id = (int)get('id');
-        $t = DB::one('SELECT * FROM emr_templates WHERE id=?', array($id));
+        $t = EmrRepository::one('SELECT * FROM emr_templates WHERE id=?', array($id));
         if (!$t) json_fail('模板不存在');
         // for_apply=1：应用模板/创建病历场景——允许读取任何可见模板（含系统模板）
         // 供医生套用到病历；编辑模板（默认）才做系统/归属越权拦截。
@@ -138,7 +138,7 @@ switch ($action) {
                 json_fail('无权编辑该模板');
             }
         }
-        $links = DB::q('SELECT dept_id FROM emr_template_depts WHERE template_id=?', array($id));
+        $links = EmrRepository::q('SELECT dept_id FROM emr_template_depts WHERE template_id=?', array($id));
         $deptIds = array();
         foreach ($links as $l) $deptIds[] = (int)$l['dept_id'];
         json_ok(array(
@@ -189,18 +189,18 @@ switch ($action) {
 
         // 编辑：越权防护
         if ($id > 0) {
-            $old = DB::one('SELECT * FROM emr_templates WHERE id=?', array($id));
+            $old = EmrRepository::one('SELECT * FROM emr_templates WHERE id=?', array($id));
             if (!$old) json_fail('模板不存在');
             if ((int)$old['is_system'] === 1) json_fail('通用模板不可修改');
             if ((int)$old['creator_id'] !== (int)$u['id'] && !$isAdmin) json_fail('无权修改该模板');
             // 待审核锁定：提交审核后的模板不允许编辑（审核通过/驳回后恢复），防止审核与修改竞态
             if ($old['status'] === 'pending_review') json_fail('模板正在审核中，审核通过或驳回后方可修改');
             // 管理员编辑他人模板不改变归属；医生编辑保持原 scope/状态语义
-            DB::exec('UPDATE emr_templates SET title=?, type=?, scope=?, content_json=?, updated_at=? WHERE id=?',
+            EmrRepository::exec('UPDATE emr_templates SET title=?, type=?, scope=?, content_json=?, updated_at=? WHERE id=?',
                 array($title, $type, $scope, json_encode($contentArr, JSON_UNESCAPED_UNICODE), now_str(), $id));
             $tplId = $id;
         } else {
-            $tplId = DB::insert('INSERT INTO emr_templates(title, type, scope, creator_id, creator_name, status, is_system, content_json, created_at, updated_at) VALUES(?,?,?,?,?,?,0,?,?,?)', array(
+            $tplId = EmrRepository::insert('INSERT INTO emr_templates(title, type, scope, creator_id, creator_name, status, is_system, content_json, created_at, updated_at) VALUES(?,?,?,?,?,?,0,?,?,?)', array(
                 $title, $type, $scope, $u['id'], $u['name'], $status,
                 json_encode($contentArr, JSON_UNESCAPED_UNICODE), now_str(), now_str(),
             ));
@@ -208,7 +208,7 @@ switch ($action) {
 
         // 科室关联（仅 dept 范围）
         $deptIds = array();
-        DB::exec('DELETE FROM emr_template_depts WHERE template_id=?', array($tplId));
+        EmrRepository::exec('DELETE FROM emr_template_depts WHERE template_id=?', array($tplId));
         if ($scope === 'dept') {
             $deptIds = array();
             foreach (explode(',', (string)post('dept_ids', '')) as $d) {
@@ -218,8 +218,8 @@ switch ($action) {
             // 校验科室存在且为临床科室
             if ($deptIds) {
                 $ph = implode(',', array_fill(0, count($deptIds), '?'));
-                foreach (DB::q("SELECT id FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph)", array_keys($deptIds)) as $dd) {
-                    DB::insert('INSERT OR IGNORE INTO emr_template_depts(template_id, dept_id) VALUES(?,?)', array($tplId, (int)$dd['id']));
+                foreach (EmrRepository::q("SELECT id FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph)", array_keys($deptIds)) as $dd) {
+                    EmrRepository::insert('INSERT OR IGNORE INTO emr_template_depts(template_id, dept_id) VALUES(?,?)', array($tplId, (int)$dd['id']));
                 }
             }
         }
@@ -228,12 +228,12 @@ switch ($action) {
         // 创建/更新一条待审核记录，管理员在【审核中心】统一处理
         if ($status === 'pending_review') {
             $scopeName = $scope === 'hospital' ? '全院' : '科室';
-            $existing = DB::one("SELECT id FROM audits WHERE type='template' AND ref_id=? AND status='pending'", array($tplId));
+            $existing = EmrRepository::one("SELECT id FROM audits WHERE type='template' AND ref_id=? AND status='pending'", array($tplId));
             $auditData = json_encode(array(
                 'title' => $title, 'scope' => $scope, 'dept_ids' => $deptIds ? array_keys($deptIds) : array(),
             ), JSON_UNESCAPED_UNICODE);
             if ($existing) {
-                DB::exec('UPDATE audits SET title=?, content=?, data=?, proposer=?, proposer_id=?, created_at=? WHERE id=?', array(
+                EmrRepository::exec('UPDATE audits SET title=?, content=?, data=?, proposer=?, proposer_id=?, created_at=? WHERE id=?', array(
                     $typeLabel . '待审核：' . $title, '提交' . $scopeName . $typeLabel . '「' . $title . '」，请在审核中心查看详情并审核', $auditData, $u['name'], $u['id'], now_str(), (int)$existing['id'],
                 ));
             } else {
@@ -247,7 +247,7 @@ switch ($action) {
                 '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
         } else {
             // 免审（个人/管理员）或已过审：清理该模板残留的待审核记录
-            DB::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='template' AND ref_id=? AND status='pending'", array($u['name'], now_str(), $tplId));
+            EmrRepository::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='template' AND ref_id=? AND status='pending'", array($u['name'], now_str(), $tplId));
         }
 
         json_ok(array('id' => $tplId, 'status' => $status),
@@ -259,15 +259,15 @@ switch ($action) {
         if ($u['role'] !== 'admin') json_fail('仅管理员可审核模板');
         $id = (int)post('id');
         $verdict = post('verdict');   // approve / reject
-        $t = DB::one('SELECT * FROM emr_templates WHERE id=?', array($id));
+        $t = EmrRepository::one('SELECT * FROM emr_templates WHERE id=?', array($id));
         if (!$t) json_fail('模板不存在');
         if ((int)$t['is_system'] === 1) json_fail('通用模板不可审核');
         if ($verdict === 'approve') {
-            DB::exec('UPDATE emr_templates SET status=?, updated_at=? WHERE id=?', array('published', now_str(), $id));
+            EmrRepository::exec('UPDATE emr_templates SET status=?, updated_at=? WHERE id=?', array('published', now_str(), $id));
             json_ok(array(), '模板审核通过，已发布');
         } elseif ($verdict === 'reject') {
             // 驳回：状态 rejected + 范围强制降级为个人 + 系统通知创建者
-            DB::exec('UPDATE emr_templates SET status=?, scope=?, updated_at=? WHERE id=?', array('rejected', 'personal', now_str(), $id));
+            EmrRepository::exec('UPDATE emr_templates SET status=?, scope=?, updated_at=? WHERE id=?', array('rejected', 'personal', now_str(), $id));
             if ((int)$t['creator_id'] > 0) {
                 send_msg('doctor', (int)$t['creator_id'],
                     '病历模板被驳回',
@@ -283,14 +283,14 @@ switch ($action) {
     /* ==================== 删除模板（越权防护） ==================== */
     case 'delete':
         $id = (int)post('id');
-        $t = DB::one('SELECT * FROM emr_templates WHERE id=?', array($id));
+        $t = EmrRepository::one('SELECT * FROM emr_templates WHERE id=?', array($id));
         if (!$t) json_fail('模板不存在');
         if ((int)$t['is_system'] === 1) json_fail('通用模板不可删除');
         if ((int)$t['creator_id'] !== (int)$u['id'] && $u['role'] !== 'admin') json_fail('无权删除该模板');
         // 待审核锁定：提交审核后的模板不允许删除（审核通过/驳回后恢复）
         if ($t['status'] === 'pending_review') json_fail('模板正在审核中，审核通过或驳回后方可删除');
-        DB::exec('DELETE FROM emr_templates WHERE id=?', array($id));
-        DB::exec('DELETE FROM emr_template_depts WHERE template_id=?', array($id));
+        EmrRepository::exec('DELETE FROM emr_templates WHERE id=?', array($id));
+        EmrRepository::exec('DELETE FROM emr_template_depts WHERE template_id=?', array($id));
         json_ok(array(), '模板已删除');
         break;
 

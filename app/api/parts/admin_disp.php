@@ -20,7 +20,7 @@ function admin_part_disp($action) {
 
     /* ==================== 处置项目列表 ==================== */
     if ($action === 'disposal_list') {
-        $rows = DB::q('SELECT * FROM disposal_items ORDER BY id');
+        $rows = OrderRepository::q('SELECT * FROM disposal_items ORDER BY id');
         $rowsHtml = '<thead><tr>' .
             '<th>处置名称</th><th>费用</th><th>需护士站处置</th><th>描述备注</th><th>状态</th><th>操作</th></tr></thead><tbody>';
         foreach ($rows as $r) {
@@ -42,7 +42,7 @@ function admin_part_disp($action) {
     if ($action === 'disposal_form') {
         // 表单弹窗通过 POST 提交 id，必须用 req() 兼容读取（否则编辑弹窗空白）
         $id = (int)req('id', 0);
-        $r = $id ? DB::one('SELECT * FROM disposal_items WHERE id=?', array($id)) : array('name' => '', 'fee' => '0', 'description' => '', 'is_nurse' => 0);
+        $r = $id ? OrderRepository::one('SELECT * FROM disposal_items WHERE id=?', array($id)) : array('name' => '', 'fee' => '0', 'description' => '', 'is_nurse' => 0);
         $html = '<input type="hidden" id="f_id" value="' . (int)$id . '">
         <div class="form-group"><label class="form-label">处置名称 <span class="req">*</span></label>
             <input class="input" id="f_name" value="' . e($r['name']) . '" placeholder="如：清创缝合、换药"></div>
@@ -63,20 +63,20 @@ function admin_part_disp($action) {
         $needNurse = (int)post('is_nurse', 0);
         if ($name === '') json_fail('请填写处置名称');
         if ($id > 0) {
-            DB::exec('UPDATE disposal_items SET name=?, fee=?, description=?, is_nurse=?, status=? WHERE id=?', array($name, $fee, $desc, $needNurse, 'approved', $id));
+            OrderRepository::exec('UPDATE disposal_items SET name=?, fee=?, description=?, is_nurse=?, status=? WHERE id=?', array($name, $fee, $desc, $needNurse, 'approved', $id));
             // 清理该处置的待审核记录（管理员保存即视为已通过）
-            DB::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_disp' AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
+            OrderRepository::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_disp' AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
             json_ok(array(), '处置项目已保存');
         }
         // 管理员添加的处置免审核：直接可用，无需创建审核记录
-        $newId = DB::insert('INSERT INTO disposal_items(name, fee, description, is_nurse, status, created_at) VALUES(?,?,?,?,?,?)', array($name, $fee, $desc, $needNurse, 'approved', now_str()));
+        $newId = OrderRepository::insert('INSERT INTO disposal_items(name, fee, description, is_nurse, status, created_at) VALUES(?,?,?,?,?,?)', array($name, $fee, $desc, $needNurse, 'approved', now_str()));
         json_ok(array(), '处置项目已添加，可直接开单使用');
     }
 
     /* ==================== 删除处置 ==================== */
     if ($action === 'disposal_delete') {
         $id = (int)post('id');
-        DB::exec('DELETE FROM disposal_items WHERE id=?', array($id));
+        OrderRepository::exec('DELETE FROM disposal_items WHERE id=?', array($id));
         json_ok(array(), '处置项目已删除');
     }
 
@@ -85,7 +85,7 @@ function admin_part_disp($action) {
     /* ==================== 通用检索：处置项目（供通用选择器组件调用） ==================== */
     if ($action === 'disposal_search') {
         $kw = trim(get('kw', ''));
-        $rows = DB::q("SELECT id, name, fee FROM disposal_items WHERE status='approved'" .
+        $rows = OrderRepository::q("SELECT id, name, fee FROM disposal_items WHERE status='approved'" .
             ($kw !== '' ? ' AND name LIKE ?' : '') . ' ORDER BY id DESC LIMIT 20',
             $kw !== '' ? array('%' . $kw . '%') : array());
         json_ok(array('list' => $rows));
@@ -101,15 +101,15 @@ function admin_part_disp($action) {
         if ($name === '') json_fail('请填写处置名称');
         if (mb_strlen($name) > 50) json_fail('处置名称过长');
         // 同名去重：已存在直接复用（幂等），避免重复建项
-        $exId = (int)DB::val('SELECT id FROM disposal_items WHERE name=? ORDER BY id DESC LIMIT 1', array($name));
+        $exId = (int)OrderRepository::val('SELECT id FROM disposal_items WHERE name=? ORDER BY id DESC LIMIT 1', array($name));
         if ($exId > 0) {
-            $exStatus = (string)DB::val('SELECT status FROM disposal_items WHERE id=?', array($exId));
+            $exStatus = (string)OrderRepository::val('SELECT status FROM disposal_items WHERE id=?', array($exId));
             json_ok(array('id' => $exId, 'name' => $name,
-                'fee' => (float)DB::val('SELECT fee FROM disposal_items WHERE id=?', array($exId)),
+                'fee' => (float)OrderRepository::val('SELECT fee FROM disposal_items WHERE id=?', array($exId)),
                 'status' => $exStatus, 'existed' => true), '已存在同名处置，已直接关联');
         }
         $isAdmin = $u['role'] === 'admin';
-        $newId = DB::insert('INSERT INTO disposal_items(name, fee, description, status, created_at) VALUES(?,?,?,?,?)',
+        $newId = OrderRepository::insert('INSERT INTO disposal_items(name, fee, description, status, created_at) VALUES(?,?,?,?,?)',
             array($name, $fee, '【关联创建】' . ($source !== '' ? $source : '快捷创建'), $isAdmin ? 'approved' : 'pending', now_str()));
         if (!$isAdmin) {
             submit_audit('item_disp', $newId, '快捷创建处置：' . $name,

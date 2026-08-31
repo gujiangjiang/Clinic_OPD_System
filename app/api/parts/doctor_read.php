@@ -13,23 +13,23 @@ function doctor_part_read($action) {
         $uid = (int)$u['id'];
         $today = date('Y-m-d');
         // 今日接诊人次（本人）
-        $todayVisits = (int)DB::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND date(created_at)=?", array($uid, $today));
+        $todayVisits = (int)EmrRepository::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND date(created_at)=?", array($uid, $today));
         // 今日开单金额（本人、已缴费、排除退费取消）
         $sums = array('drug' => 0.0, 'lab' => 0.0, 'imaging' => 0.0, 'procedure' => 0.0);
-        foreach (DB::q("SELECT order_type, COALESCE(SUM(total_amount),0) s FROM orders WHERE doctor_id=? AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=? GROUP BY order_type", array($uid, $today)) as $r) {
+        foreach (EmrRepository::q("SELECT order_type, COALESCE(SUM(total_amount),0) s FROM orders WHERE doctor_id=? AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=? GROUP BY order_type", array($uid, $today)) as $r) {
             if (isset($sums[$r['order_type']])) $sums[$r['order_type']] = round((float)$r['s'], 2);
         }
         // 我的草稿病历（待完成接诊）
-        $drafts = (int)DB::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND status='draft'", array($uid));
+        $drafts = (int)EmrRepository::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND status='draft'", array($uid));
         // 今日门诊人次（全部科室）
-        $todayReg = (int)DB::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=?", array($today));
+        $todayReg = (int)EmrRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=?", array($today));
         // 近7天本人接诊趋势
         $labels = array();
         $series = array();
         for ($i = 6; $i >= 0; $i--) {
             $day = date('Y-m-d', strtotime("-$i days"));
             $labels[] = substr($day, 5);
-            $series[] = (int)DB::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND date(created_at)=?", array($uid, $day));
+            $series[] = (int)EmrRepository::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND date(created_at)=?", array($uid, $day));
         }
         json_ok(array(
             'kpi' => array('today_visits' => $todayVisits, 'today_reg' => $todayReg, 'total' => round(array_sum($sums), 2),
@@ -41,11 +41,11 @@ function doctor_part_read($action) {
 
     if ($action === 'depts') {
         $ids = doctor_dept_ids($u);
-        $curRow = DB::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+        $curRow = EmrRepository::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
         $curDeptId = $curRow ? (int)$curRow['current_dept_id'] : 0;
         if ($ids) {
             $ph = implode(',', array_fill(0, count($ids), '?'));
-            $list = DB::q("SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id", $ids);
+            $list = EmrRepository::q("SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id", $ids);
         } else {
             $list = array();
         }
@@ -76,7 +76,7 @@ function doctor_part_read($action) {
         $where .= ' AND r.current_dept_id=' . $deptId;
         $params = array();
         if ($status === 'done') $params[] = today_str();
-        $rows = DB::q("SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page, p.birth_date AS pbirth
+        $rows = EmrRepository::q("SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page, p.birth_date AS pbirth
             FROM registrations r LEFT JOIN patients p ON p.patient_no = r.patient_no
             WHERE $where ORDER BY r.visit_seq", $params);
 
@@ -119,15 +119,15 @@ function doctor_part_read($action) {
     if ($action === 'call_queue') {
         $deptId = (int)get('dept_id', 0);
         if ($deptId <= 0) {
-            $curRow = DB::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+            $curRow = EmrRepository::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
             $deptId = $curRow ? (int)$curRow['current_dept_id'] : 0;
         }
-        $dept = DB::one('SELECT * FROM departments WHERE id=? AND status=1', array($deptId));
+        $dept = EmrRepository::one('SELECT * FROM departments WHERE id=? AND status=1', array($deptId));
         if (!$dept) {
             $ids = doctor_dept_ids($u);
             if ($ids) {
                 $ph = implode(',', array_fill(0, count($ids), '?'));
-                $first = DB::one("SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id LIMIT 1", $ids);
+                $first = EmrRepository::one("SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id LIMIT 1", $ids);
                 if ($first) $dept = $first;
             }
         }
@@ -135,19 +135,19 @@ function doctor_part_read($action) {
         $deptId = (int)$dept['id'];
 
         // 该科室当前就诊中患者（最新的）
-        $current = DB::one("SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
+        $current = EmrRepository::one("SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
             FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
             WHERE r.current_dept_id=? AND r.status='visiting' ORDER BY r.id DESC LIMIT 1", array($deptId));
         // 下一位候诊患者（按就诊序号取最早的一位）
-        $next = DB::one("SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
+        $next = EmrRepository::one("SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
             FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
             WHERE r.current_dept_id=? AND r.status='paid' ORDER BY r.visit_seq, r.registered_at LIMIT 1", array($deptId));
-        $waiting = (int)DB::val("SELECT COUNT(*) FROM registrations WHERE current_dept_id=? AND status='paid'", array($deptId));
+        $waiting = (int)EmrRepository::val("SELECT COUNT(*) FROM registrations WHERE current_dept_id=? AND status='paid'", array($deptId));
 
         // 该科室出诊医生（按用户-科室关联过滤）
         // 注意：必须 SELECT dept_ids，否则下面 explode() 拿不到关联科室，doctors 恒为空
         $doctors = array();
-        $docs = DB::q("SELECT name, emp_no, title, photo, intro, dept_ids FROM users WHERE role='doctor' AND status=1 ORDER BY id");
+        $docs = EmrRepository::q("SELECT name, emp_no, title, photo, intro, dept_ids FROM users WHERE role='doctor' AND status=1 ORDER BY id");
         foreach ($docs as $doc) {
             $ids = array();
             foreach (explode(',', isset($doc['dept_ids']) ? $doc['dept_ids'] : '') as $x) {
@@ -168,7 +168,7 @@ function doctor_part_read($action) {
             // 复诊标记（预留）：同一患者当日在本科室已有其他就诊记录（已缴费/就诊中/已诊毕）
             $follow = 0;
             if (!empty($r['patient_no'])) {
-                $follow = (int)DB::val("SELECT COUNT(*) FROM registrations
+                $follow = (int)EmrRepository::val("SELECT COUNT(*) FROM registrations
                     WHERE patient_no=? AND current_dept_id=? AND date(registered_at)=?
                     AND status IN ('paid','visiting','finished') AND id<>?",
                     array($r['patient_no'], $deptId, today_str(), $r['id']));
@@ -194,14 +194,14 @@ function doctor_part_read($action) {
     if ($action === 'queue_list') {
         $deptId = (int)get('dept_id', 0);
         if ($deptId <= 0) {
-            $curRow = DB::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+            $curRow = EmrRepository::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
             $deptId = $curRow ? (int)$curRow['current_dept_id'] : 0;
         }
         if ($deptId <= 0) {
             $ids = doctor_dept_ids($u);
             if ($ids) {
                 $ph = implode(',', array_fill(0, count($ids), '?'));
-                $first = DB::one("SELECT id FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id LIMIT 1", $ids);
+                $first = EmrRepository::one("SELECT id FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id LIMIT 1", $ids);
                 if ($first) $deptId = (int)$first['id'];
             }
         }
@@ -211,11 +211,11 @@ function doctor_part_read($action) {
         if (isset($u['queue_days'])) {
             $queueDays = (int)$u['queue_days'];
         } else {
-            $ud = DB::one('SELECT queue_days FROM users WHERE id=?', array($u['id']));
+            $ud = EmrRepository::one('SELECT queue_days FROM users WHERE id=?', array($u['id']));
             if ($ud && (int)$ud['queue_days'] >= 2 && (int)$ud['queue_days'] <= 7) $queueDays = (int)$ud['queue_days'];
         }
         $since = date('Y-m-d', strtotime('-' . ($queueDays - 1) . ' days'));   // 近 N 天（含今日）
-        $rows = DB::q("SELECT r.id, r.patient_no, r.visit_seq, r.first_dept_name, r.session,
+        $rows = EmrRepository::q("SELECT r.id, r.patient_no, r.visit_seq, r.first_dept_name, r.session,
                 r.status, r.registered_at, r.finished_at,
                 p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
             FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
@@ -244,7 +244,7 @@ function doctor_part_read($action) {
         // 前端会诊 Tab 复用候诊列表样式渲染。
         $consVisits = array();
         $consStatus = array();
-        foreach (DB::q("SELECT id, visit_id, status, created_at, accepted_by, record_id FROM consultations WHERE target_dept_id=? AND date(created_at)>=? ORDER BY id DESC", array($deptId, $since)) as $c) {
+        foreach (EmrRepository::q("SELECT id, visit_id, status, created_at, accepted_by, record_id FROM consultations WHERE target_dept_id=? AND date(created_at)>=? ORDER BY id DESC", array($deptId, $since)) as $c) {
             $vid = (int)$c['visit_id'];
             if (!isset($consStatus[$vid])) {
                 $consVisits[] = $vid;
@@ -255,7 +255,7 @@ function doctor_part_read($action) {
         if ($consVisits) {
             $phC = implode(',', array_fill(0, count($consVisits), '?'));
             // 注意：不加 current_dept_id 过滤——患者转科不影响已发会诊的展示
-            $cRows = DB::q("SELECT r.id, r.patient_no, r.visit_seq, r.first_dept_id, r.first_dept_name, r.session,
+            $cRows = EmrRepository::q("SELECT r.id, r.patient_no, r.visit_seq, r.first_dept_id, r.first_dept_name, r.session,
                     r.status, r.registered_at, r.finished_at,
                     p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
                 FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
@@ -283,7 +283,7 @@ function doctor_part_read($action) {
         }
         json_ok(array(
             'dept_id' => $deptId,
-            'waiting' => (int)DB::val("SELECT COUNT(*) FROM registrations WHERE current_dept_id=? AND status='paid'", array($deptId)),
+            'waiting' => (int)EmrRepository::val("SELECT COUNT(*) FROM registrations WHERE current_dept_id=? AND status='paid'", array($deptId)),
             'list' => $list,
             'consultations' => $consultations,
             'pref' => array('seen' => empty($pref['seen']) ? 0 : 1, 'today' => empty($pref['today']) ? 0 : 1, 'consult' => empty($pref['consult']) ? 0 : 1),
@@ -303,19 +303,19 @@ function doctor_part_read($action) {
 
     if ($action === 'report_detail') {
         $rid = did(get('report_id'));
-        $report = DB::one('SELECT * FROM reports WHERE id=?', array($rid));
+        $report = EmrRepository::one('SELECT * FROM reports WHERE id=?', array($rid));
         if (!$report) json_fail('报告不存在');
-        $result = DB::one('SELECT * FROM results WHERE id=?', array($report['result_id']));
+        $result = EmrRepository::one('SELECT * FROM results WHERE id=?', array($report['result_id']));
         $itemName = '';
         $rows = array();
         $findings = '';
         $conclusion = '';
         if ($result && $result['type'] === 'lab') {
-            $li = DB::one('SELECT * FROM lab_items WHERE id=?', array($result['item_id']));
+            $li = EmrRepository::one('SELECT * FROM lab_items WHERE id=?', array($result['item_id']));
             $itemName = $li ? $li['name'] : '';
             $values = json_decode($result['values_json'], true);
             if (is_array($values) && !empty($values['group'])) {
-                $members = DB::q('SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array((int)$result['item_id']));
+                $members = EmrRepository::q('SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array((int)$result['item_id']));
                 foreach ($members as $m) {
                     $v = isset($values['values'][(string)$m['id']]) ? $values['values'][(string)$m['id']] : '';
                     $rows[] = array(
@@ -336,7 +336,7 @@ function doctor_part_read($action) {
             }
         }
         if ($result && $result['type'] === 'imaging') {
-            $ei = DB::one('SELECT * FROM exam_items WHERE id=?', array($result['item_id']));
+            $ei = EmrRepository::one('SELECT * FROM exam_items WHERE id=?', array($result['item_id']));
             $itemName = $ei ? $ei['name'] : '';
             $findings = (string)$result['findings'];
             $conclusion = (string)$result['conclusion'];
@@ -356,7 +356,7 @@ function doctor_part_read($action) {
     if ($action === 'get_available_rooms') {
         $deptId = (int)get('dept_id');
         if ($deptId <= 0) json_fail('请先选择科室');
-        $rows = DB::q("SELECT * FROM clinic_rooms WHERE dept_id=? AND room_type='doctor' ORDER BY id", array($deptId));
+        $rows = EmrRepository::q("SELECT * FROM clinic_rooms WHERE dept_id=? AND room_type='doctor' ORDER BY id", array($deptId));
         $list = array();
         foreach ($rows as $room) {
             $isOnline = (!empty($room['screen_last_heartbeat']) && (time() - strtotime($room['screen_last_heartbeat'])) <= 30);
@@ -374,7 +374,7 @@ function doctor_part_read($action) {
             );
         }
         // 当前医生已绑定的诊室（跨科室，供右上角显示）
-        $myBound = DB::one("SELECT * FROM clinic_rooms WHERE current_doctor_id=? ORDER BY id DESC LIMIT 1", array($u['id']));
+        $myBound = EmrRepository::one("SELECT * FROM clinic_rooms WHERE current_doctor_id=? ORDER BY id DESC LIMIT 1", array($u['id']));
         json_ok(array('list' => $list, 'bound' => $myBound ? array('id' => (int)$myBound['id'], 'name' => $myBound['room_name']) : null));
         return;
     }

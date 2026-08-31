@@ -100,7 +100,7 @@ function admin_part_import($action) {
                 }
             }
             // 冲突判定：唯一键是否已存在
-            $exists = (int)DB::val($db, "SELECT COUNT(*) FROM $table WHERE $keyCol=?", array($assoc[$keyCol]));
+            $exists = (int)BaseRepository::dbVal($db, "SELECT COUNT(*) FROM $table WHERE $keyCol=?", array($assoc[$keyCol]));
             if ($exists > 0) {
                 $conflictRows[] = array('row' => $i + 1, 'key' => $assoc[$keyCol], 'name' => isset($assoc['name']) ? $assoc['name'] : '', 'reason' => '唯一键已存在');
             } else {

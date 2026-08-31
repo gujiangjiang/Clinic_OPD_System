@@ -52,7 +52,7 @@ function admin_part_analytics($action) {
               ($extraWhere !== '' ? ' AND ' . $extraWhere : '');
         if ($groupExpr !== '') $sql .= ' GROUP BY order_type' . ($groupExpr !== '' ? ',' . $groupExpr : '');
         else $sql .= ' GROUP BY order_type';
-        $rows = DB::q($sql, array_merge(array($start, $end), $extraParams));
+        $rows = AnalyticsRepository::q($sql, array_merge(array($start, $end), $extraParams));
         return $rows;
     }
 
@@ -61,10 +61,10 @@ function admin_part_analytics($action) {
         list($start, $end) = ana_range();
 
         // KPI：门诊人次 + 挂号费
-        $patients = (int)DB::val("SELECT COUNT(*) FROM registrations
+        $patients = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations
             WHERE status IN ('paid','visiting','finished') AND paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ?",
             array($start, $end));
-        $regFee = (float)DB::val("SELECT COALESCE(SUM(total),0) FROM payments WHERE kind='visit' AND date(created_at) BETWEEN ? AND ?", array($start, $end));
+        $regFee = (float)AnalyticsRepository::val("SELECT COALESCE(SUM(total),0) FROM payments WHERE kind='visit' AND date(created_at) BETWEEN ? AND ?", array($start, $end));
 
         // 四类项目费 + 合计
         $sums = array('prescription' => 0, 'lab' => 0, 'imaging' => 0, 'procedure' => 0);
@@ -121,13 +121,13 @@ function admin_part_analytics($action) {
             $series['total'][$i] += round((float)$r['s'], 2);
         }
         // 挂号费日序列（并入 total，不单列折线避免过密）
-        foreach (DB::q("SELECT strftime('%Y-%m-%d', created_at) AS g, COALESCE(SUM(total),0) AS s
+        foreach (AnalyticsRepository::q("SELECT strftime('%Y-%m-%d', created_at) AS g, COALESCE(SUM(total),0) AS s
             FROM payments WHERE kind='visit' AND date(created_at) BETWEEN ? AND ? GROUP BY g", array($start, $end)) as $r) {
             if (!isset($days[$r['g']])) continue;
             $series['total'][$days[$r['g']]] += round((float)$r['s'], 2);
         }
         // 人次日序列
-        foreach (DB::q("SELECT date(paid_at) AS g, COUNT(*) AS c FROM registrations
+        foreach (AnalyticsRepository::q("SELECT date(paid_at) AS g, COUNT(*) AS c FROM registrations
             WHERE status IN ('paid','visiting','finished') AND paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ? GROUP BY g",
             array($start, $end)) as $r) {
             if (!isset($days[$r['g']])) continue;
@@ -141,13 +141,13 @@ function admin_part_analytics($action) {
     if ($action === 'ana_dept') {
         list($start, $end) = ana_range();
         // 人次与挂号费：按就诊当前科室归集
-        $regs = DB::q("SELECT current_dept_id AS d, COUNT(*) AS c, COALESCE(SUM(fee),0) AS f
+        $regs = AnalyticsRepository::q("SELECT current_dept_id AS d, COUNT(*) AS c, COALESCE(SUM(fee),0) AS f
             FROM registrations WHERE status IN ('paid','visiting','finished') AND paid_at IS NOT NULL
             AND date(paid_at) BETWEEN ? AND ? GROUP BY current_dept_id", array($start, $end));
         // 项目费：orders → visit_id → 就诊科室（分散库不能 JOIN，PHP 内存映射）
         $vids = array();
         $oidMap = array();
-        $ordRows = DB::q("SELECT visit_id, order_type, COALESCE(SUM(total_amount),0) AS s FROM orders
+        $ordRows = AnalyticsRepository::q("SELECT visit_id, order_type, COALESCE(SUM(total_amount),0) AS s FROM orders
             WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ?
             GROUP BY visit_id, order_type", array($start, $end));
         foreach ($ordRows as $r) { $vids[(int)$r['visit_id']] = true; $oidMap[] = $r; }
@@ -157,7 +157,7 @@ function admin_part_analytics($action) {
             $ids = array_keys($vids);
             foreach (array_chunk($ids, 400) as $chunk) {
                 $ph = implode(',', array_fill(0, count($chunk), '?'));
-                foreach (DB::q("SELECT id, current_dept_id FROM registrations WHERE id IN ($ph)", $chunk) as $v) {
+                foreach (AnalyticsRepository::q("SELECT id, current_dept_id FROM registrations WHERE id IN ($ph)", $chunk) as $v) {
                     $visitDept[(int)$v['id']] = (int)$v['current_dept_id'];
                 }
             }
@@ -165,7 +165,7 @@ function admin_part_analytics($action) {
         // 科室名与类型
         $deptNames = array();
         $deptType = array();
-        foreach (DB::q('SELECT id, name, type FROM departments') as $dd) {
+        foreach (AnalyticsRepository::q('SELECT id, name, type FROM departments') as $dd) {
             $deptNames[(int)$dd['id']] = $dd['name'];
             $deptType[(int)$dd['id']] = (string)$dd['type'];
         }
@@ -206,7 +206,7 @@ function admin_part_analytics($action) {
 
         // 接诊人次：本人病历创建数（每次接诊一条文书）
         $visits = array();
-        foreach (DB::q("SELECT doctor_id, doctor_name, COUNT(*) AS c FROM patient_records
+        foreach (AnalyticsRepository::q("SELECT doctor_id, doctor_name, COUNT(*) AS c FROM patient_records
             WHERE date(created_at) BETWEEN ? AND ? GROUP BY doctor_id, doctor_name", array($start, $end)) as $r) {
             $visits[(int)$r['doctor_id']] = array('name' => $r['doctor_name'], 'c' => (int)$r['c']);
         }
@@ -233,7 +233,7 @@ function admin_part_analytics($action) {
         $uids = array_keys($stat);
         if ($uids) {
             $ph = implode(',', array_fill(0, count($uids), '?'));
-            foreach (DB::q("SELECT id, name, emp_no, dept_ids, title FROM users WHERE id IN ($ph)", $uids) as $u2) {
+            foreach (AnalyticsRepository::q("SELECT id, name, emp_no, dept_ids, title FROM users WHERE id IN ($ph)", $uids) as $u2) {
                 if (empty($names[(int)$u2['id']])) $names[(int)$u2['id']] = $u2['name'];
                 $docDept[(int)$u2['id']] = array('title' => $u2['title'], 'dept_ids' => (string)$u2['dept_ids'], 'emp_no' => (string)$u2['emp_no']);
             }
@@ -282,9 +282,9 @@ function admin_part_analytics($action) {
             $teReg = $timeExpr('paid_at');
             // 收集所有分组标签
             $labelSet = array();
-            foreach (DB::q("SELECT DISTINCT $tePaid AS g FROM orders WHERE paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ?", array($start, $end)) as $r) $labelSet[$r['g']] = true;
-            foreach (DB::q("SELECT DISTINCT $tePay AS g FROM payments WHERE kind='visit' AND date(created_at) BETWEEN ? AND ?", array($start, $end)) as $r) $labelSet[$r['g']] = true;
-            foreach (DB::q("SELECT DISTINCT $teReg AS g FROM registrations WHERE paid_at IS NOT NULL AND status IN ('paid','visiting','finished') AND date(paid_at) BETWEEN ? AND ?", array($start, $end)) as $r) $labelSet[$r['g']] = true;
+            foreach (AnalyticsRepository::q("SELECT DISTINCT $tePaid AS g FROM orders WHERE paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ?", array($start, $end)) as $r) $labelSet[$r['g']] = true;
+            foreach (AnalyticsRepository::q("SELECT DISTINCT $tePay AS g FROM payments WHERE kind='visit' AND date(created_at) BETWEEN ? AND ?", array($start, $end)) as $r) $labelSet[$r['g']] = true;
+            foreach (AnalyticsRepository::q("SELECT DISTINCT $teReg AS g FROM registrations WHERE paid_at IS NOT NULL AND status IN ('paid','visiting','finished') AND date(paid_at) BETWEEN ? AND ?", array($start, $end)) as $r) $labelSet[$r['g']] = true;
             ksort($labelSet);
             $labels = array_keys($labelSet);
             $idx = array_flip($labels);
@@ -298,7 +298,7 @@ function admin_part_analytics($action) {
             $needOrder = array_intersect($metrics, array('drug', 'lab', 'imaging', 'procedure', 'total'));
             if ($needOrder) {
                 $ge = $timeExpr('paid_at');
-                foreach (DB::q("SELECT order_type AS t, $ge AS g, COALESCE(SUM(total_amount),0) AS s FROM orders
+                foreach (AnalyticsRepository::q("SELECT order_type AS t, $ge AS g, COALESCE(SUM(total_amount),0) AS s FROM orders
                     WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ? GROUP BY t, g",
                     array($start, $end)) as $r) {
                     $k = array('prescription' => 'drug', 'lab' => 'lab', 'imaging' => 'imaging', 'procedure' => 'procedure');
@@ -309,12 +309,12 @@ function admin_part_analytics($action) {
                 }
             }
             if (in_array('reg_fee', $metrics, true)) {
-                foreach (DB::q("SELECT $tePay AS g, COALESCE(SUM(total),0) AS s FROM payments WHERE kind='visit' AND date(created_at) BETWEEN ? AND ? GROUP BY g", array($start, $end)) as $r) {
+                foreach (AnalyticsRepository::q("SELECT $tePay AS g, COALESCE(SUM(total),0) AS s FROM payments WHERE kind='visit' AND date(created_at) BETWEEN ? AND ? GROUP BY g", array($start, $end)) as $r) {
                     $add('reg_fee', $r['g'], (float)$r['s']);
                 }
             }
             if (in_array('patients', $metrics, true)) {
-                foreach (DB::q("SELECT $teReg AS g, COUNT(*) AS c FROM registrations WHERE paid_at IS NOT NULL AND status IN ('paid','visiting','finished') AND date(paid_at) BETWEEN ? AND ? GROUP BY g", array($start, $end)) as $r) {
+                foreach (AnalyticsRepository::q("SELECT $teReg AS g, COUNT(*) AS c FROM registrations WHERE paid_at IS NOT NULL AND status IN ('paid','visiting','finished') AND date(paid_at) BETWEEN ? AND ? GROUP BY g", array($start, $end)) as $r) {
                     $add('patients', $r['g'], (int)$r['c']);
                 }
             }
@@ -331,11 +331,11 @@ function admin_part_analytics($action) {
         if ($groupBy === 'dept') {
             $rows = array();
             // 直接调用内部逻辑：复制 ana_dept 输出结构（此处重新查询）
-            $regs = DB::q("SELECT current_dept_id AS d, COUNT(*) AS c, COALESCE(SUM(fee),0) AS f
+            $regs = AnalyticsRepository::q("SELECT current_dept_id AS d, COUNT(*) AS c, COALESCE(SUM(fee),0) AS f
                 FROM registrations WHERE status IN ('paid','visiting','finished') AND paid_at IS NOT NULL
                 AND date(paid_at) BETWEEN ? AND ? GROUP BY current_dept_id", array($start, $end));
             $deptNames = array();
-            foreach (DB::q('SELECT id, name FROM departments') as $dd) $deptNames[(int)$dd['id']] = $dd['name'];
+            foreach (AnalyticsRepository::q('SELECT id, name FROM departments') as $dd) $deptNames[(int)$dd['id']] = $dd['name'];
             $stat = array();
             foreach ($regs as $r) {
                 $d = (int)$r['d'];
@@ -344,13 +344,13 @@ function admin_part_analytics($action) {
                 $stat[$d]['reg_fee'] += (float)$r['f'];
             }
             $vd = array(); $map = array();
-            foreach (DB::q("SELECT visit_id, order_type, COALESCE(SUM(total_amount),0) AS s FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ? GROUP BY visit_id, order_type", array($start, $end)) as $r) { $vd[(int)$r['visit_id']] = true; $map[] = $r; }
+            foreach (AnalyticsRepository::q("SELECT visit_id, order_type, COALESCE(SUM(total_amount),0) AS s FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ? GROUP BY visit_id, order_type", array($start, $end)) as $r) { $vd[(int)$r['visit_id']] = true; $map[] = $r; }
             $vdept = array();
             if ($vd) {
                 $ids = array_keys($vd);
                 foreach (array_chunk($ids, 400) as $chunk) {
                     $ph = implode(',', array_fill(0, count($chunk), '?'));
-                    foreach (DB::q("SELECT id, current_dept_id FROM registrations WHERE id IN ($ph)", $chunk) as $v3) $vdept[(int)$v3['id']] = (int)$v3['current_dept_id'];
+                    foreach (AnalyticsRepository::q("SELECT id, current_dept_id FROM registrations WHERE id IN ($ph)", $chunk) as $v3) $vdept[(int)$v3['id']] = (int)$v3['current_dept_id'];
                 }
             }
             $tk = array('prescription' => 'drug', 'lab' => 'lab', 'imaging' => 'imaging', 'procedure' => 'procedure');
@@ -373,7 +373,7 @@ function admin_part_analytics($action) {
 
         // doctor 维度
         $rows = array();
-        foreach (DB::q("SELECT doctor_id, doctor_name, COUNT(*) AS c FROM patient_records WHERE date(created_at) BETWEEN ? AND ? GROUP BY doctor_id, doctor_name", array($start, $end)) as $r) {
+        foreach (AnalyticsRepository::q("SELECT doctor_id, doctor_name, COUNT(*) AS c FROM patient_records WHERE date(created_at) BETWEEN ? AND ? GROUP BY doctor_id, doctor_name", array($start, $end)) as $r) {
             $rows[(int)$r['doctor_id']] = array('label' => $r['doctor_name'], 'patients' => (int)$r['c'], 'reg_fee' => 0.0, 'drug' => 0.0, 'lab' => 0.0, 'imaging' => 0.0, 'procedure' => 0.0, 'total' => 0.0);
         }
         foreach (ana_order_sums($start, $end, 'doctor_id > 0', array(), 'doctor_id') as $r) {
@@ -409,7 +409,7 @@ function admin_part_analytics($action) {
         $sql .= ' ORDER BY r.id DESC LIMIT 200';
         $rows = array();
         $vids = array();
-        foreach (DB::q($sql, $params) as $r) {
+        foreach (AnalyticsRepository::q($sql, $params) as $r) {
             $r['doctor_name'] = '';   // 医生在 medical 库，第二段查询回填（首诊医生）
             $vids[] = (int)$r['visit_id'];
             $rows[] = $r;
@@ -418,14 +418,14 @@ function admin_part_analytics($action) {
         if ($vids) {
             $ph = implode(',', array_fill(0, count($vids), '?'));
             $docMap = array();
-            foreach (DB::q("SELECT visit_id, doctor_name FROM patient_records WHERE visit_id IN ($ph) ORDER BY id ASC", $vids) as $pr) {
+            foreach (AnalyticsRepository::q("SELECT visit_id, doctor_name FROM patient_records WHERE visit_id IN ($ph) ORDER BY id ASC", $vids) as $pr) {
                 if (!isset($docMap[(int)$pr['visit_id']])) $docMap[(int)$pr['visit_id']] = (string)$pr['doctor_name'];
             }
             foreach ($rows as &$r) {
                 $vid = (int)$r['visit_id'];
                 if (!isset($docMap[$vid])) {
                     // 结构化表无记录时回退旧镜像表
-                    foreach (DB::q("SELECT visit_id, doctor_name FROM records WHERE visit_id IN ($ph) ORDER BY id ASC", $vids) as $pr) {
+                    foreach (AnalyticsRepository::q("SELECT visit_id, doctor_name FROM records WHERE visit_id IN ($ph) ORDER BY id ASC", $vids) as $pr) {
                         if ((int)$pr['visit_id'] === $vid) { $docMap[$vid] = (string)$pr['doctor_name']; break; }
                     }
                 }

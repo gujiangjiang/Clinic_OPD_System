@@ -20,14 +20,14 @@ function admin_part_drug($action) {
     /* ==================== 药品设置列表 ==================== */
     if ($action === 'drugsetting_list') {
         $stype = get('stype', 'category');
-        $rows = DB::q('SELECT * FROM drug_settings WHERE stype=? ORDER BY sort, id', array($stype));
+        $rows = DrugRepository::q('SELECT * FROM drug_settings WHERE stype=? ORDER BY sort, id', array($stype));
         $html = '<div class="table-wrap"><table class="table"><thead><tr><th>名称</th>' .
             ($stype === 'route' ? '<th>需护士站处理</th><th>绑定计费处置</th>' : '') . '<th>操作</th></tr></thead><tbody>';
         foreach ($rows as $r) {
             // 绑定处置名称回显
             $bindName = '';
             if (!empty($r['bind_disposal_item_id'])) {
-                $bn = DB::val('SELECT name FROM disposal_items WHERE id=?', array((int)$r['bind_disposal_item_id']));
+                $bn = DrugRepository::val('SELECT name FROM disposal_items WHERE id=?', array((int)$r['bind_disposal_item_id']));
                 $bindName = (string)$bn;
             }
             $html .= '<tr><td class="fw-600">' . e($r['name']) . '</td>' .
@@ -54,14 +54,14 @@ function admin_part_drug($action) {
         $bindDisp = (int)post('bind_disposal_item_id', 0);
         // 绑定处置校验：必须为已审核通过的处置项目（0=不绑定）
         if ($bindDisp > 0) {
-            $ex = DB::val("SELECT COUNT(*) FROM disposal_items WHERE id=? AND status='approved'", array($bindDisp));
+            $ex = DrugRepository::val("SELECT COUNT(*) FROM disposal_items WHERE id=? AND status='approved'", array($bindDisp));
             if (!$ex) json_fail('绑定的处置项目不存在或未通过审核');
         }
         if ($name === '') json_fail('请输入名称');
         // 非管理员：新增 / 修改提交需管理员审核（药品设置项由管理员统一管理）
         if ($u['role'] !== 'admin') {
             if ($id > 0) {
-                DB::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='drugsetting' AND ref_id=? AND status IN ('pending','rejected')", array($u['name'], now_str(), $id));
+                DrugRepository::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='drugsetting' AND ref_id=? AND status IN ('pending','rejected')", array($u['name'], now_str(), $id));
             }
             $typeNames = array('category' => '药品分类', 'package' => '包装单位', 'form' => '药品剂型', 'freq' => '用药频次', 'route' => '给药途径');
             submit_audit('drugsetting', $id, ($typeNames[$stype] ?? $stype) . '：' . $name,
@@ -71,9 +71,9 @@ function admin_part_drug($action) {
             json_ok(array(), '设置项已提交，待管理员审核');
         }
         if ($id > 0) {
-            DB::exec('UPDATE drug_settings SET name=?, is_nurse=?, bind_disposal_item_id=? WHERE id=?', array($name, $needNurse, $bindDisp, $id));
+            DrugRepository::exec('UPDATE drug_settings SET name=?, is_nurse=?, bind_disposal_item_id=? WHERE id=?', array($name, $needNurse, $bindDisp, $id));
         } else {
-            DB::insert('INSERT INTO drug_settings(stype, name, is_nurse, bind_disposal_item_id, sort) VALUES(?,?,?,?,0)', array($stype, $name, $needNurse, $bindDisp));
+            DrugRepository::insert('INSERT INTO drug_settings(stype, name, is_nurse, bind_disposal_item_id, sort) VALUES(?,?,?,?,0)', array($stype, $name, $needNurse, $bindDisp));
         }
         json_ok(array(), '已保存');
     }
@@ -81,14 +81,14 @@ function admin_part_drug($action) {
     /* ==================== 删除药品设置 ==================== */
     if ($action === 'drugsetting_delete') {
         $id = (int)post('id');
-        $used = (int)DB::val('SELECT COUNT(*) FROM drugs WHERE route IN (SELECT name FROM drug_settings WHERE id=?) OR package_unit IN (SELECT name FROM drug_settings WHERE id=?) OR form IN (SELECT name FROM drug_settings WHERE id=?) OR frequency IN (SELECT name FROM drug_settings WHERE id=?) OR category IN (SELECT name FROM drug_settings WHERE id=?)', array($id, $id, $id, $id, $id));
-        DB::exec('DELETE FROM drug_settings WHERE id=?', array($id));
+        $used = (int)DrugRepository::val('SELECT COUNT(*) FROM drugs WHERE route IN (SELECT name FROM drug_settings WHERE id=?) OR package_unit IN (SELECT name FROM drug_settings WHERE id=?) OR form IN (SELECT name FROM drug_settings WHERE id=?) OR frequency IN (SELECT name FROM drug_settings WHERE id=?) OR category IN (SELECT name FROM drug_settings WHERE id=?)', array($id, $id, $id, $id, $id));
+        DrugRepository::exec('DELETE FROM drug_settings WHERE id=?', array($id));
         json_ok(array(), '已删除');
     }
 
     /* ==================== 药品信息列表 ==================== */
     if ($action === 'drug_list') {
-        $rows = DB::q('SELECT * FROM drugs ORDER BY category, id');
+        $rows = DrugRepository::q('SELECT * FROM drugs ORDER BY category, id');
         $rowsHtml = '<thead><tr>' .
             '<th>药品名称</th><th>通用名</th><th>厂家简称</th><th>分类</th><th>规格</th><th>剂型</th><th>频次</th><th>途径</th><th>库存</th><th>价格</th><th>状态</th><th>操作</th></tr></thead><tbody>';
         foreach ($rows as $r) {
@@ -149,7 +149,7 @@ function admin_part_drug($action) {
             'single_use_qty' => (float)post('single_use_qty', 1),
         );
         if ((int)$data['is_skin_test'] === 1) {
-            $stOk = DB::val("SELECT COUNT(*) FROM disposal_items WHERE id=? AND status='approved'", array($data['skin_test_item_id']));
+            $stOk = DrugRepository::val("SELECT COUNT(*) FROM disposal_items WHERE id=? AND status='approved'", array($data['skin_test_item_id']));
             if (!$stOk) json_fail('请关联有效的皮试处置项目（需已通过审核）');
         } else {
             $data['skin_test_item_id'] = 0;
@@ -159,12 +159,12 @@ function admin_part_drug($action) {
             foreach ($data as $k => $v) { $set[] = $k . '=?'; $params[] = $v; }
             $set[] = 'status=?'; $params[] = $finalStatus;
             $params[] = $id;
-            DB::exec('UPDATE drugs SET ' . implode(',', $set) . ' WHERE id=?', $params);
+            DrugRepository::exec('UPDATE drugs SET ' . implode(',', $set) . ' WHERE id=?', $params);
             if ($isAdmin) {
                 // 清理该药品的待审核记录（管理员保存即视为已通过）
-                DB::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_drug' AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
+                DrugRepository::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_drug' AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
             } else {
-                DB::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_drug' AND ref_id=? AND status IN ('pending','rejected')", array($u['name'], now_str(), $id));
+                DrugRepository::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_drug' AND ref_id=? AND status IN ('pending','rejected')", array($u['name'], now_str(), $id));
                 submit_audit('item_drug', $id, '修改药品：' . $name, '提交药品信息修改：' . $name);
                 send_msg('admin', 0, '待审核提醒', '有新的药品修改待审核：' . $name . '，请前往审核中心处理', '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
             }
@@ -175,7 +175,7 @@ function admin_part_drug($action) {
         $params[] = now_str();
         // INSERT 列与 $data 键顺序严格对应：
         // 16 业务列 + name + is_skin_test + skin_test_item_id + 规格结构化5列 + status + created_at
-        $newId = DB::insert('INSERT INTO drugs(generic_name, category, vendor, vendor_short, package_unit, spec, form, single_dose, frequency, route, price, qty, is_rx, is_limited, note, is_nurse, name, is_skin_test, skin_test_item_id, spec_dose, spec_dose_unit, spec_pack_qty, spec_pack_unit, single_use_qty, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        $newId = DrugRepository::insert('INSERT INTO drugs(generic_name, category, vendor, vendor_short, package_unit, spec, form, single_dose, frequency, route, price, qty, is_rx, is_limited, note, is_nurse, name, is_skin_test, skin_test_item_id, spec_dose, spec_dose_unit, spec_pack_qty, spec_pack_unit, single_use_qty, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             array_merge(
                 array_slice($params, 0, 16), array($name),
                 array($params[16], $params[17]),
@@ -193,7 +193,7 @@ function admin_part_drug($action) {
     /* ==================== 删除药品 ==================== */
     if ($action === 'drug_delete') {
         $id = (int)post('id');
-        DB::exec('DELETE FROM drugs WHERE id=?', array($id));
+        DrugRepository::exec('DELETE FROM drugs WHERE id=?', array($id));
         json_ok(array(), '药品已删除');
     }
 

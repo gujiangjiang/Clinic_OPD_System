@@ -23,7 +23,7 @@ if (!$room) {
 /* ---------- 通用：返回该诊室叫号数据 ---------- */
 function screen_payload($room) {
     $deptId = (int)$room['dept_id'];
-    $dept = DB::one('SELECT * FROM departments WHERE id=?', array($deptId));
+    $dept = DeptRepository::one('SELECT * FROM departments WHERE id=?', array($deptId));
     $roomName = $room['room_name'];
     $mask = (int)$room['enable_mask'] === 1;
 
@@ -127,7 +127,7 @@ if ($action === 'heartbeat' || $action === 'data') {
     if ((int)$room['current_doctor_id'] > 0) {
         if (QueueRepository::doctorHeartbeatStale($room['id'])) {
             QueueRepository::unbindDoctor($room['id']);
-            $room = DB::one('SELECT * FROM clinic_rooms WHERE id=?', array((int)$room['id']));
+            $room = QueueRepository::roomById($room['id']);
         }
     }
     if ($action === 'heartbeat') {

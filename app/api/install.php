@@ -10,7 +10,7 @@
  * ============================================================ */
 
 // 仅允许未安装状态调用
-if ((int)DB::val('SELECT COUNT(*) FROM users') > 0) {
+if ((int)UserRepository::val('SELECT COUNT(*) FROM users') > 0) {
     json_fail('系统已安装，无需重复初始化');
 }
 
@@ -57,7 +57,7 @@ if (!empty($_FILES['logo']) && $_FILES['logo']['error'] !== UPLOAD_ERR_NO_FILE) 
 }
 
 // ===== 创建管理员用户 =====
-$adminId = DB::insert('INSERT INTO users(emp_no, username, password, name, role, theme, status, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
+$adminId = UserRepository::insert('INSERT INTO users(emp_no, username, password, name, role, theme, status, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
     '0001', 'admin', password_hash($password, PASSWORD_DEFAULT), '系统管理员', 'admin', 'auto', 1, now_str(),
 ));
 

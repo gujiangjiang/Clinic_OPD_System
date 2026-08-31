@@ -19,7 +19,7 @@ function admin_part_user($action) {
 
     /* ==================== 用户列表 ==================== */
     if ($action === 'user_list') {
-        $rows = DB::q('SELECT * FROM users ORDER BY role, id');
+        $rows = UserRepository::q('SELECT * FROM users ORDER BY role, id');
         $rowsHtml = '<thead><tr>' .
             '<th>工号</th><th>用户名</th><th>姓名</th><th>角色</th><th>职称</th><th>关联科室</th><th>状态</th><th>操作</th></tr></thead><tbody>';
         foreach ($rows as $r) {
@@ -29,7 +29,7 @@ function admin_part_user($action) {
             foreach (explode(',', (string)$r['dept_ids']) as $d) if ((int)$d > 0) $ids[] = (int)$d;
             if ($ids) {
                 $ph = implode(',', array_fill(0, count($ids), '?'));
-                $ds = DB::q("SELECT name FROM departments WHERE id IN ($ph)", $ids);
+                $ds = UserRepository::q("SELECT name FROM departments WHERE id IN ($ph)", $ids);
                 $deptNames = implode('、', array_map(function ($d) { return $d['name']; }, $ds));
             }
             $rowsHtml .= '<tr data-role="' . e($r['role']) . '">' .
@@ -56,7 +56,7 @@ function admin_part_user($action) {
     if ($action === 'user_form') {
         // 表单弹窗通过 POST 提交 id，必须用 req() 兼容读取（get() 读不到导致编辑弹窗空白）
         $id = (int)req('id', 0);
-        $r = $id ? DB::one('SELECT * FROM users WHERE id=?', array($id)) : array(
+        $r = $id ? UserRepository::one('SELECT * FROM users WHERE id=?', array($id)) : array(
             'emp_no' => '', 'username' => '', 'name' => '', 'role' => 'doctor', 'dept_ids' => '',
             'education' => '', 'degree' => '', 'title' => '', 'position' => '', 'intro' => '', 'photo' => '', 'status' => 1,
             'queue_days' => 3,
@@ -68,7 +68,7 @@ function admin_part_user($action) {
             $roleOpts .= '<option value="' . $k . '"' . ($r['role'] === $k ? ' selected' : '') . '>' . $v . '</option>';
         }
         // 科室树仅列临床科室（门诊/急诊）；医技/其他为叫号大屏专用，医生不可关联
-        $depts = DB::q("SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') ORDER BY sort, id");
+        $depts = UserRepository::q("SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') ORDER BY sort, id");
         $selDept = array();
         // dept_ids 可能为 NULL，先转字符串再拆分，避免 PHP 8 告警污染 JSON 响应
         foreach (explode(',', (string)$r['dept_ids']) as $d) if ((int)$d > 0) $selDept[] = (int)$d;
@@ -173,7 +173,7 @@ function admin_part_user($action) {
         }
         if ($idsArr) {
             $ph = implode(',', array_fill(0, count($idsArr), '?'));
-            $valid = DB::q("SELECT id FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph)", $idsArr);
+            $valid = UserRepository::q("SELECT id FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph)", $idsArr);
             $okMap = array();
             foreach ($valid as $v) $okMap[(int)$v['id']] = 1;
             $idsArr = array_values(array_filter($idsArr, function ($x) use ($okMap) { return isset($okMap[$x]); }));
@@ -196,7 +196,7 @@ function admin_part_user($action) {
         if ($name === '') json_fail('请填写姓名');
         if (!in_array($role, array('admin', 'cashier', 'doctor', 'nurse', 'lab', 'imaging', 'pharmacy'), true)) $role = 'doctor';
         // 用户名唯一
-        $exists = DB::one('SELECT id FROM users WHERE username=? AND id<>?', array($username, $id));
+        $exists = UserRepository::one('SELECT id FROM users WHERE username=? AND id<>?', array($username, $id));
         if ($exists) json_fail('登录用户名已存在');
         // 照片上传（可选）
         $photo = '';
@@ -217,9 +217,9 @@ function admin_part_user($action) {
                 $params[] = $photo;
             }
             $params[] = $id;
-            DB::exec('UPDATE users SET ' . $set . ' WHERE id=?', $params);
+            UserRepository::exec('UPDATE users SET ' . $set . ' WHERE id=?', $params);
         } else {
-            DB::insert('INSERT INTO users(emp_no, username, password, name, role, dept_ids, education, degree, title, position, intro, queue_days, photo, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+            UserRepository::insert('INSERT INTO users(emp_no, username, password, name, role, dept_ids, education, degree, title, position, intro, queue_days, photo, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                 $empNo, $username, password_hash($password !== '' ? $password : '123456', PASSWORD_DEFAULT),
                 $name, $role, $deptIds, $education, $degree, $title, $position, $intro, $queueDays, $photo, $status, now_str(),
             ));
@@ -231,7 +231,7 @@ function admin_part_user($action) {
     if ($action === 'user_delete') {
         $id = (int)post('id');
         if ($id === Auth::id()) json_fail('不能删除当前登录用户');
-        DB::exec('DELETE FROM users WHERE id=? AND role<>?', array($id, 'admin'));
+        UserRepository::exec('DELETE FROM users WHERE id=? AND role<>?', array($id, 'admin'));
         json_ok(array(), '用户已删除');
     }
 
