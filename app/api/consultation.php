@@ -209,10 +209,12 @@ switch ($action) {
         $curDeptRow = ConsultationRepository::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
         $curDeptId = $curDeptRow ? (int)$curDeptRow['current_dept_id'] : 0;
         if ((int)$c['target_dept_id'] !== $curDeptId) json_fail('该会诊不属于当前科室');
-        if ($c['status'] !== 'pending') json_fail('该会诊已开始处理');
-        // 接受会诊：记录接收医生，状态立即置为会诊中（doing）
-        ConsultationRepository::exec('UPDATE consultations SET status=?, accepted_by=?, accepted_at=? WHERE id=?',
-            array('doing', $u['name'], now_str(), $cid));
+        // 接受会诊：原子条件更新防并发重复接受（仅 pending 可转 doing）
+        $acceptAffected = ConsultationRepository::exec(
+            "UPDATE consultations SET status=?, accepted_by=?, accepted_at=? WHERE id=? AND status='pending'",
+            array('doing', $u['name'], now_str(), $cid)
+        );
+        if ($acceptAffected === 0) json_fail('该会诊已被其他医生处理');
         json_ok(array(), '已接受会诊，请书写会诊病历');
         break;
 
@@ -226,8 +228,12 @@ switch ($action) {
         if ((int)$c['target_dept_id'] !== $curDeptId2) json_fail('该会诊不属于当前科室');
         if ($c['status'] === 'pending') json_fail('会诊尚未开始');
         if ($c['status'] === 'done') json_fail('该会诊已完毕');
-        ConsultationRepository::exec('UPDATE consultations SET status=?, finished_by=?, finished_at=? WHERE id=?',
-            array('done', $u['name'], now_str(), $cid));
+        // 原子条件更新防并发重复完成（仅 doing 可转 done）
+        $finishAffected = ConsultationRepository::exec(
+            "UPDATE consultations SET status=?, finished_by=?, finished_at=? WHERE id=? AND status='doing'",
+            array('done', $u['name'], now_str(), $cid)
+        );
+        if ($finishAffected === 0) json_fail('该会诊状态已变更，请刷新后重试');
         json_ok(array(), '会诊已完毕');
         break;
 

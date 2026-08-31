@@ -52,40 +52,39 @@ function record_part_delete($action) {
                 json_fail('该会诊已完毕，会诊病历已永久锁定为只读，不可删除');
             }
         }
-        // 2.7 会诊病历回退：删除会诊病历 = 放弃本次会诊处理 → 会诊状态回退待会诊
-        $recConsultId = (int)$rec['consultation_id'];
-        if ($recConsultId > 0) {
-            $cons = EmrRepository::one('SELECT id, status FROM consultations WHERE id=?', array($recConsultId));
-            if ($cons && $cons['status'] !== 'done') {
-                EmrRepository::revertConsultation($recConsultId);
-            }
-        }
-        // 3. 删除（物理删除 + 镜像清理）——复合写操作在 API 层事务控制
+        // 3. 删除（物理删除 + 镜像清理 + 关联状态回退）——复合写操作在事务内控制
         $pdo = DatabaseManager::getMain();
         try {
             $pdo->beginTransaction();
+            // 3.1 会诊病历回退：删除会诊病历 = 放弃本次会诊处理 → 会诊状态回退待会诊
+            $recConsultId = (int)$rec['consultation_id'];
+            if ($recConsultId > 0) {
+                $cons = EmrRepository::one('SELECT id, status FROM consultations WHERE id=?', array($recConsultId));
+                if ($cons && $cons['status'] !== 'done') {
+                    EmrRepository::revertConsultation($recConsultId);
+                }
+            }
+            // 3.2 删除病历记录 + 镜像清理
             EmrRepository::deleteRecord($recordId);
-            // 清理该文书对应的旧镜像（精确匹配 patient_record_id；旧数据无关联时按 visit+doctor 最新兜底）
             EmrRepository::deleteMirrorByPatientRecord($recordId);
             $mirrorOld = EmrRepository::one('SELECT id FROM records WHERE visit_id=? AND doctor_id=? AND patient_record_id=0 ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
             if ($mirrorOld) {
                 EmrRepository::deleteMirrorById($mirrorOld['id']);
+            }
+            // 3.3 删除后：若当前科室已无文书 → 该科室就诊状态退回待就诊（paid）
+            if ($row['visit']['status'] === 'visiting') {
+                $remainCurDept = (int)EmrRepository::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND dept_id=?',
+                    array($visitId, (int)$row['visit']['current_dept_id']));
+                if ($remainCurDept === 0) {
+                    EmrRepository::revertVisitStatus($visitId, 'paid');
+                }
             }
             $pdo->commit();
         } catch (Exception $ex) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             json_fail('病历删除失败：' . $ex->getMessage());
         }
-        // 4. 删除后：若当前科室已无文书 → 该科室就诊状态退回待就诊（paid）
-        //    （就诊状态按科室划分：当前科室存在文书即就诊中，删除后无文书则待就诊；
-        //     其他科室的文书不受影响——转回原科室仍显示就诊中）
-        if ($row['visit']['status'] === 'visiting') {
-            $remainCurDept = (int)EmrRepository::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND dept_id=?',
-                array($visitId, (int)$row['visit']['current_dept_id']));
-            if ($remainCurDept === 0) {
-                EmrRepository::revertVisitStatus($visitId, 'paid');
-            }
-        }
+        $newStatus = (string)EmrRepository::val('SELECT status FROM registrations WHERE id=?', array($visitId));
         $newStatus = (string)EmrRepository::val('SELECT status FROM registrations WHERE id=?', array($visitId));
         json_ok(array('record_type' => $rec['record_type'], 'visit_status' => $newStatus), '病历记录已删除');
         return;

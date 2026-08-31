@@ -345,78 +345,80 @@ function record_part_write($action) {
                 $oldRecordId = EmrRepository::prepareInsert("INSERT INTO records($cols) VALUES($marks)", $params);
             }
 
+            // C. 同步患者主表全局既往史/过敏史（随病历保存同一事务，保证原子性）
+            $curGlobal = EmrRepository::one('SELECT has_past_history, past_history, allergy_history FROM patients WHERE patient_no=?', array($visit['patient_no']));
+            $phType = (string)$emr['past_history']['type'];
+            $phDetail = (string)$emr['past_history']['detail'];
+            $alType = isset($emr['allergies']['type']) ? (string)$emr['allergies']['type'] : '';
+            $alDetail = isset($emr['allergies']['detail']) ? (string)$emr['allergies']['detail'] : '';
+            // 过敏史：仅当通过模态框修改过（allergy_modified=1）才同步患者主表——
+            // 患者主表是唯一数据源，模态框读写；未打开模态框保存病历不改变主表。
+            $allergyModified = (int)post('allergy_modified', 0);
+            $newAllergy = $curGlobal ? (string)$curGlobal['allergy_history'] : '';
+            if ($allergyModified === 1) {
+                $newAllergy = ($alType === '承认') ? $alDetail : '';
+            }
+            // 既往史：本次「承认」则同步；本次否认但全局为「承认」 → 保留全局
+            $newPhType = $phType;
+            $newPhDetail = $phDetail;
+            if ($phType !== '承认' && $curGlobal && $curGlobal['has_past_history'] === '承认') {
+                $newPhType = $curGlobal['has_past_history'];
+                $newPhDetail = $curGlobal['past_history'];
+            }
+            EmrRepository::exec('UPDATE patients SET has_past_history=?, past_history=?, allergy_history=? WHERE patient_no=?', array(
+                $newPhType, $newPhDetail, $newAllergy, $visit['patient_no'],
+            ));
+
+            // C2. 保存病历即视为接诊：若就诊状态仍为待就诊(paid)，标记为就诊中(visiting)
+            // （以「是否存在病历」判定是否就诊，而非打开页面即算）
+            if (!$finish && isset($visit['status']) && $visit['status'] === 'paid') {
+                EmrRepository::exec('UPDATE registrations SET status=? WHERE id=?', array('visiting', $visitId));
+            }
+
+            // ===== 会诊病历保存成功 → 确保会诊状态为 doing =====
+            // （接受会诊时已置 doing，此处兜底；若尚未接受则同步置 doing + 记录接收医生）
+            if ($consultationId > 0) {
+                $cons2 = EmrRepository::one('SELECT status, accepted_by FROM consultations WHERE id=?', array($consultationId));
+                if ($cons2) {
+                    $updates = array();
+                    if ($cons2['status'] === 'pending') $updates['status'] = 'doing';
+                    if (empty($cons2['accepted_by'])) $updates['accepted_by'] = $u['name'];
+                    $updates['accepted_at'] = now_str();
+                    if (isset($updates['status'])) {
+                        EmrRepository::exec('UPDATE consultations SET status=?, accepted_by=?, accepted_at=? WHERE id=?',
+                            array($updates['status'], $updates['accepted_by'], $updates['accepted_at'], $consultationId));
+                    }
+                }
+            }
+
+            // D. 诊毕：更新就诊状态
+            if ($finish) {
+                // 诊毕转归：离院方式必选；非「自主离院」必须填写对应补充信息
+                $disposition = trim((string)post('disposition', ''));
+                $dispDetail = trim((string)post('disposition_detail', ''));
+                $dispAllow = array('自主离院', '住院', '转院', '死亡', '其他');
+                if (!in_array($disposition, $dispAllow, true)) {
+                    $pdo->rollBack();
+                    json_fail('请选择离院方式（自主离院/住院/转院/死亡/其他）');
+                }
+                $dispNeed = array('住院' => '住院病区', '转院' => '接收医院名称', '死亡' => '死亡原因', '其他' => '其他转归情况');
+                if ($disposition === '自主离院') {
+                    $dispDetail = '';
+                } elseif ($dispDetail === '') {
+                    $pdo->rollBack();
+                    json_fail('请填写' . $dispNeed[$disposition]);
+                }
+                EmrRepository::exec('UPDATE registrations SET status=?, disposition=?, disposition_detail=?, finished_at=?, paid_at=COALESCE(paid_at,?) WHERE id=?',
+                    array('finished', $disposition, $dispDetail, now_str(), now_str(), $visitId));
+                $pdo->commit();
+                json_ok(array('finished' => 1, 'record_id' => $recordId), '病历已保存并诊毕');
+            }
             $pdo->commit();
+            json_ok(array('finished' => 0, 'record_id' => $recordId), '病历已保存');
         } catch (Exception $ex) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             json_fail('病历保存失败：' . $ex->getMessage());
         }
-
-        // C. 同步患者主表全局既往史/过敏史
-        $curGlobal = EmrRepository::one('SELECT has_past_history, past_history, allergy_history FROM patients WHERE patient_no=?', array($visit['patient_no']));
-        $phType = (string)$emr['past_history']['type'];
-        $phDetail = (string)$emr['past_history']['detail'];
-        $alType = isset($emr['allergies']['type']) ? (string)$emr['allergies']['type'] : '';
-        $alDetail = isset($emr['allergies']['detail']) ? (string)$emr['allergies']['detail'] : '';
-        // 过敏史：仅当通过模态框修改过（allergy_modified=1）才同步患者主表——
-        // 患者主表是唯一数据源，模态框读写；未打开模态框保存病历不改变主表。
-        $allergyModified = (int)post('allergy_modified', 0);
-        $newAllergy = $curGlobal ? (string)$curGlobal['allergy_history'] : '';
-        if ($allergyModified === 1) {
-            $newAllergy = ($alType === '承认') ? $alDetail : '';
-        }
-        // 既往史：本次「承认」则同步；本次否认但全局为「承认」 → 保留全局
-        $newPhType = $phType;
-        $newPhDetail = $phDetail;
-        if ($phType !== '承认' && $curGlobal && $curGlobal['has_past_history'] === '承认') {
-            $newPhType = $curGlobal['has_past_history'];
-            $newPhDetail = $curGlobal['past_history'];
-        }
-        EmrRepository::exec('UPDATE patients SET has_past_history=?, past_history=?, allergy_history=? WHERE patient_no=?', array(
-            $newPhType, $newPhDetail, $newAllergy, $visit['patient_no'],
-        ));
-
-        // C2. 保存病历即视为接诊：若就诊状态仍为待就诊(paid)，标记为就诊中(visiting)
-        // （以「是否存在病历」判定是否就诊，而非打开页面即算）
-        if (!$finish && isset($visit['status']) && $visit['status'] === 'paid') {
-            EmrRepository::exec('UPDATE registrations SET status=? WHERE id=?', array('visiting', $visitId));
-        }
-
-        // ===== 会诊病历保存成功 → 确保会诊状态为 doing =====
-        // （接受会诊时已置 doing，此处兜底；若尚未接受则同步置 doing + 记录接收医生）
-        if ($consultationId > 0) {
-            $cons2 = EmrRepository::one('SELECT status, accepted_by FROM consultations WHERE id=?', array($consultationId));
-            if ($cons2) {
-                $updates = array();
-                if ($cons2['status'] === 'pending') $updates['status'] = 'doing';
-                if (empty($cons2['accepted_by'])) $updates['accepted_by'] = $u['name'];
-                $updates['accepted_at'] = now_str();
-                if (isset($updates['status'])) {
-                    EmrRepository::exec('UPDATE consultations SET status=?, accepted_by=?, accepted_at=? WHERE id=?',
-                        array($updates['status'], $updates['accepted_by'], $updates['accepted_at'], $consultationId));
-                }
-            }
-        }
-
-        // D. 诊毕：更新就诊状态
-        if ($finish) {
-            // 诊毕转归：离院方式必选；非「自主离院」必须填写对应补充信息
-            $disposition = trim((string)post('disposition', ''));
-            $dispDetail = trim((string)post('disposition_detail', ''));
-            $dispAllow = array('自主离院', '住院', '转院', '死亡', '其他');
-            if (!in_array($disposition, $dispAllow, true)) {
-                json_fail('请选择离院方式（自主离院/住院/转院/死亡/其他）');
-            }
-            $dispNeed = array('住院' => '住院病区', '转院' => '接收医院名称', '死亡' => '死亡原因', '其他' => '其他转归情况');
-            if ($disposition === '自主离院') {
-                $dispDetail = '';
-            } elseif ($dispDetail === '') {
-                json_fail('请填写' . $dispNeed[$disposition]);
-            }
-            EmrRepository::exec('UPDATE registrations SET status=?, disposition=?, disposition_detail=?, finished_at=?, paid_at=COALESCE(paid_at,?) WHERE id=?',
-                array('finished', $disposition, $dispDetail, now_str(), now_str(), $visitId));
-            json_ok(array('finished' => 1, 'record_id' => $recordId), '病历已保存并诊毕');
-        }
-        json_ok(array('finished' => 0, 'record_id' => $recordId), '病历已保存');
         return;
     }
 

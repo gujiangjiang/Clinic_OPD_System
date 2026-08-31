@@ -169,8 +169,12 @@ function cashier_part_write($action) {
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
-        if ($visit['status'] !== 'pending') json_fail('当前状态不可缴费');
-        CashierRepository::updateVisitStatus($visitId, 'paid', array('paid_at' => now_str()));
+        // 原子条件更新防并发重复缴费（仅 pending 可转 paid）
+        $affectedPay = CashierRepository::exec(
+            "UPDATE registrations SET status='paid', paid_at=? WHERE id=? AND status='pending'",
+            array(now_str(), $visitId)
+        );
+        if ($affectedPay === 0) json_fail('当前状态不可缴费');
         $payId = CashierRepository::createPayment(array(
             'visit_id' => $visitId, 'order_id' => 0, 'patient_no' => $visit['patient_no'], 'flow_no' => $visit['flow_no'],
             'kind' => 'visit', 'total' => (float)$visit['fee'], 'item_count' => 1,
