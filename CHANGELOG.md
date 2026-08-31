@@ -13,6 +13,33 @@
 
 ---
 
+## [6.1.0] - 2026-09-01
+
+### 修复
+
+- **退费崩溃**：`CashierRepository::createInventoryTrans` 参数签名不匹配，导致处方退费时 500 崩溃（`app/repositories/CashierRepository.php`、`app/api/parts/cashier_write.php`）
+- **越权打印**：`print.php` 全部打印接口（receipt/payment/order/record/certificate/report）新增角色白名单+就诊归属校验，防止任何登录用户打印他人病历（`app/api/print.php`）
+- **事务丢失**：`order_write.php:delete` 库存恢复+级联删除无事务包裹；`record_write.php:save` 的 C/C2/D 段在 commit 后执行；`record_delete.php` 会诊回退/就诊状态回退在事务外 —— 均修复为原子事务（`app/api/parts/order_write.php`、`app/api/parts/record_write.php`、`app/api/parts/record_delete.php`）
+- **并发竞态**：会诊 accept/finish、pay_visit、pay_orders 改为原子条件 UPDATE + 影响行数判定（`app/api/consultation.php`、`app/api/parts/cashier_write.php`、`app/api/parts/cashier_read.php`）
+- **物理删除孤岛**：项目/药品/处置/科室删除增加引用检查（关联开单/结果/库存/皮试/挂号/病历/会诊/诊室/用户时禁止删除）（`app/api/parts/admin_item.php`、`admin_drug.php`、`admin_disp.php`、`admin_dept.php`）
+- **版本号锚定**：`APP_VERSION` 从 6.0.0 同步至 6.1.0（`app/config/bootstrap.php`）
+
+### 新增
+
+- **核心表索引**：为 patient_records/orders/order_items/results/vitals/payments/registrations 创建 13 个高频查询索引（幂等迁移，兼容新旧库升级路径）（`app/config/schema/main.php`）
+- **数据导入校验**：admin_import 预检新增 CSV 扩展名 + 二进制内容拦截（`app/api/parts/admin_import.php`）
+- **json_decode 深度限制**：病历保存 json_decode 限深 512（`app/api/parts/record_write.php`）
+
+### 变更
+
+- **DB/BaseRepository 收敛**：`BaseRepository::q/one/val/exec/insert` 委托 `DatabaseManager` 作为唯一底层 PDO 门面，消除两套 prepare/execute/fetch 实现（`app/repositories/BaseRepository.php`）
+- **dept_ids 解析统一**：`doctor_dept_ids`/`nurse_dept_ids`/`tpl_dept_ids`/`visit_dept_authorized` 4 处内联解析统一为 `user_dept_ids()` 公共函数（`app/core/helpers.php`、`app/api/doctor.php`、`app/api/nurse.php`、`app/api/template.php`、`app/api/parts/admin_user.php`）
+- **生命体征查询统一**：`get_record_vitals()` 覆盖 record_read.php 与 print.php 两处重复（`app/core/helpers.php`）
+- **诊断证明快照统一**：`cert_fallback_snapshot()` 覆盖 print.php 与 record_cert.php 两处重复（`app/core/helpers.php`）
+- **患者搜索统一**：`search_visit_records()` 覆盖 cashier_read.php 与 nurse.php 两处重复（`app/core/helpers.php`）
+- **php-lint 递归修复**：`glob('**/*.php')` 不递归问题改为 `RecursiveIteratorIterator`，检测文件数从 62 提升至 144（`tools/php-lint.php`）
+- **seed 会话值统一**：seed_demo_data/seed_test_data 的 `registrations.session` 存储值由中文 `'上午'/'下午'` 改为业务约定 `'am'/'pm'`（`tools/seed_demo_data.php`、`tools/seed_test_data.php`）
+
 ## [6.0.4] - 2026-08-31
 
 ### 修复
