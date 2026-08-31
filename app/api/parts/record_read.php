@@ -295,6 +295,10 @@ function record_part_read($action) {
                 'created_at' => $visit['registered_at'],
             ),
             'record' => $recordData,
+            // ===== 统一病历上下文（SSOT）=====
+            // 前端据此派生全部写操作能力（编辑器只读/开单面板/删除按钮等），
+            // 状态单向派生：UI 不维护独立布尔，完全由 active_context 驱动。
+            'active_context' => EmrContextResolver::resolve($visit, $u, $pr),
             // 会诊模式锁定（后端权威）：当前医生对该就诊是否处于会诊处理中。
             // 前端据此进入会诊模式——刷新后依然有效（不依赖 URL 参数）。
             'consult_mode' => $consultMode,
