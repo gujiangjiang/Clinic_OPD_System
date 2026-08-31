@@ -10,7 +10,7 @@ class DrugRepository extends BaseRepository {
 
     /** 药品详情 */
     public static function byId($id) {
-        return self::one('SELECT * FROM drugs WHERE id=?', array((int)$id));
+        return self::findById('drugs', $id);
     }
 
     /** 按名称精确查（唯一性/查重用） */
@@ -38,17 +38,12 @@ class DrugRepository extends BaseRepository {
 
     /** 新增药品 */
     public static function create($data) {
-        $cols = implode(',', array_keys($data));
-        $phs = implode(',', array_fill(0, count($data), '?'));
-        return self::insert("INSERT INTO drugs($cols) VALUES($phs)", array_values($data));
+        return self::insertRow('drugs', $data);
     }
 
     /** 更新药品 */
     public static function update($id, $data) {
-        $set = array(); $params = array();
-        foreach ($data as $k => $v) { $set[] = "$k=?"; $params[] = $v; }
-        $params[] = (int)$id;
-        return self::exec('UPDATE drugs SET ' . implode(',', $set) . ' WHERE id=?', $params);
+        return self::updateRow('drugs', $id, $data);
     }
 
     /** 库存扣减（原子条件更新防并发竞态）：仅库存充足时扣减，返回影响行数 */

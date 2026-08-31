@@ -9,9 +9,7 @@
 class EmrRepository extends BaseRepository {
 
     // ===== patient_records 结构化病历 =====
-    public static function recordById($id) {
-        return self::one('SELECT * FROM patient_records WHERE id=?', array((int)$id));
-    }
+    public static function recordById($id) { return self::findById('patient_records', $id); }
     public static function recordsByVisit($visitId) {
         return self::q('SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC', array((int)$visitId));
     }
@@ -21,17 +19,8 @@ class EmrRepository extends BaseRepository {
     public static function latestRecordByVisitDoctor($visitId, $doctorId) {
         return self::one('SELECT id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array((int)$visitId, (int)$doctorId));
     }
-    public static function updateRecord($id, $data) {
-        $set = array(); $params = array();
-        foreach ($data as $k => $v) { $set[] = "$k=?"; $params[] = $v; }
-        $params[] = (int)$id;
-        return self::exec('UPDATE patient_records SET ' . implode(',', $set) . ' WHERE id=?', $params);
-    }
-    public static function insertRecord($data) {
-        $cols = implode(',', array_keys($data));
-        $phs = implode(',', array_fill(0, count($data), '?'));
-        return self::insert("INSERT INTO patient_records($cols) VALUES($phs)", array_values($data));
-    }
+    public static function updateRecord($id, $data) { return self::updateRow('patient_records', $id, $data); }
+    public static function insertRecord($data) { return self::insertRow('patient_records', $data); }
     public static function deleteRecord($id) {
         return self::exec('DELETE FROM patient_records WHERE id=?', array((int)$id));
     }
@@ -58,17 +47,8 @@ class EmrRepository extends BaseRepository {
     public static function mirrorByVisitDoctorFallback($visitId, $doctorId) {
         return self::one('SELECT id FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array((int)$visitId, (int)$doctorId));
     }
-    public static function insertMirror($data) {
-        $cols = implode(',', array_keys($data));
-        $phs = implode(',', array_fill(0, count($data), '?'));
-        return self::insert("INSERT INTO records($cols) VALUES($phs)", array_values($data));
-    }
-    public static function updateMirror($id, $data) {
-        $set = array(); $params = array();
-        foreach ($data as $k => $v) { $set[] = "$k=?"; $params[] = $v; }
-        $params[] = (int)$id;
-        return self::exec('UPDATE records SET ' . implode(',', $set) . ' WHERE id=?', $params);
-    }
+    public static function insertMirror($data) { return self::insertRow('records', $data); }
+    public static function updateMirror($id, $data) { return self::updateRow('records', $id, $data); }
     public static function deleteMirrorByPatientRecord($patientRecordId) {
         self::exec('DELETE FROM records WHERE patient_record_id=?', array((int)$patientRecordId));
     }
@@ -95,17 +75,8 @@ class EmrRepository extends BaseRepository {
     public static function vitalsIdByVisitRecord($visitId, $recordId) {
         return self::one('SELECT id FROM vitals WHERE visit_id=? AND record_id=? LIMIT 1', array((int)$visitId, (int)$recordId));
     }
-    public static function insertVitals($data) {
-        $cols = implode(',', array_keys($data));
-        $phs = implode(',', array_fill(0, count($data), '?'));
-        return self::insert("INSERT INTO vitals($cols) VALUES($phs)", array_values($data));
-    }
-    public static function updateVitals($id, $data) {
-        $set = array(); $params = array();
-        foreach ($data as $k => $v) { $set[] = "$k=?"; $params[] = $v; }
-        $params[] = (int)$id;
-        return self::exec('UPDATE vitals SET ' . implode(',', $set) . ' WHERE id=?', $params);
-    }
+    public static function insertVitals($data) { return self::insertRow('vitals', $data); }
+    public static function updateVitals($id, $data) { return self::updateRow('vitals', $id, $data); }
     public static function updateVitalsRecordId($recordId, $visitId, $operator) {
         self::exec('UPDATE vitals SET record_id=? WHERE visit_id=? AND operator=? AND record_id=0', array((int)$recordId, (int)$visitId, $operator));
     }
@@ -125,21 +96,13 @@ class EmrRepository extends BaseRepository {
     public static function countCertificatesByNo($certNo) {
         return (int)self::val('SELECT COUNT(*) FROM certificates WHERE cert_no=?', array($certNo));
     }
-    public static function insertCertificate($data) {
-        $cols = implode(',', array_keys($data));
-        $phs = implode(',', array_fill(0, count($data), '?'));
-        return self::insert("INSERT INTO certificates($cols) VALUES($phs)", array_values($data));
-    }
+    public static function insertCertificate($data) { return self::insertRow('certificates', $data); }
     public static function certificatesByVisitOtherDoctors($visitId, $doctorId) {
         return self::q('SELECT * FROM patient_records WHERE visit_id=? AND doctor_id<>? ORDER BY id ASC', array((int)$visitId, (int)$doctorId));
     }
 
     // ===== referrals 转科 =====
-    public static function insertReferral($data) {
-        $cols = implode(',', array_keys($data));
-        $phs = implode(',', array_fill(0, count($data), '?'));
-        return self::insert("INSERT INTO referrals($cols) VALUES($phs)", array_values($data));
-    }
+    public static function insertReferral($data) { return self::insertRow('referrals', $data); }
 
     // ===== diag_orders 诊断排序 =====
     public static function diagOrderByVisitDoctor($visitId, $doctorId) {

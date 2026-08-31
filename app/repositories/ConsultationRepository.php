@@ -8,9 +8,7 @@
 class ConsultationRepository extends BaseRepository {
 
     /** 按 id 查会诊 */
-    public static function byId($id) {
-        return self::one('SELECT * FROM consultations WHERE id=?', array((int)$id));
-    }
+    public static function byId($id) { return self::findById('consultations', $id); }
 
     /** 会诊详情（oid code 解码后） */
     public static function byCode($code) {
@@ -48,13 +46,11 @@ class ConsultationRepository extends BaseRepository {
 
     /** 更新会诊状态 */
     public static function updateStatus($id, $status, $extra = array()) {
-        $set = array('status=?');
-        $params = array($status);
-        if (isset($extra['accepted_by'])) { $set[] = 'accepted_by=?'; $params[] = $extra['accepted_by']; }
-        if (isset($extra['accepted_at'])) { $set[] = 'accepted_at=?'; $params[] = $extra['accepted_at']; }
-        if (isset($extra['finished_at'])) { $set[] = 'finished_at=?'; $params[] = $extra['finished_at']; }
-        $params[] = (int)$id;
-        return self::exec('UPDATE consultations SET ' . implode(',', $set) . ' WHERE id=?', $params);
+        $data = array('status' => $status);
+        if (isset($extra['accepted_by'])) $data['accepted_by'] = $extra['accepted_by'];
+        if (isset($extra['accepted_at'])) $data['accepted_at'] = $extra['accepted_at'];
+        if (isset($extra['finished_at'])) $data['finished_at'] = $extra['finished_at'];
+        return self::updateRow('consultations', $id, $data);
     }
 
     /** 会诊单号查重 */

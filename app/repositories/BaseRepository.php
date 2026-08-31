@@ -170,4 +170,56 @@ class BaseRepository {
     protected static function delete($table, $id) {
         return self::exec("DELETE FROM \"$table\" WHERE id=?", array((int)$id));
     }
+
+    // ==================== 通用 CRUD 助手（消除子类重复） ====================
+
+    /**
+     * 通用插入：INSERT INTO $table(cols) VALUES(...)，返回自增主键
+     * @param string $table 表名（白名单：仅允许标识符字符）
+     * @param array $data 关联数组 [列 => 值]
+     */
+    protected static function insertRow($table, $data) {
+        self::assertTable($table);
+        $cols = implode(',', array_keys($data));
+        $phs = implode(',', array_fill(0, count($data), '?'));
+        return self::insert("INSERT INTO \"$table\"($cols) VALUES($phs)", array_values($data));
+    }
+
+    /**
+     * 通用更新：UPDATE $table SET col=?,... WHERE id=?，返回影响行数
+     * @param string $table 表名
+     * @param int $id 主键
+     * @param array $data 关联数组 [列 => 值]
+     */
+    protected static function updateRow($table, $id, $data) {
+        self::assertTable($table);
+        $set = array();
+        $params = array();
+        foreach ($data as $k => $v) { $set[] = "$k=?"; $params[] = $v; }
+        $params[] = (int)$id;
+        return self::exec("UPDATE \"$table\" SET " . implode(',', $set) . ' WHERE id=?', $params);
+    }
+
+    /**
+     * 通用条件更新：UPDATE $table SET col=?,... WHERE <where>，返回影响行数
+     * @param string $table 表名
+     * @param array $data 关联数组 [列 => 值]
+     * @param string $where WHERE 子句（含占位符）
+     * @param array $whereParams WHERE 参数
+     */
+    protected static function updateWhere($table, $data, $where, $whereParams = array()) {
+        self::assertTable($table);
+        $set = array();
+        $params = array();
+        foreach ($data as $k => $v) { $set[] = "$k=?"; $params[] = $v; }
+        $params = array_merge($params, $whereParams);
+        return self::exec("UPDATE \"$table\" SET " . implode(',', $set) . " WHERE $where", $params);
+    }
+
+    /** 表名白名单校验（防注入：仅允许字母数字下划线） */
+    private static function assertTable($table) {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', (string)$table)) {
+            throw new Exception('非法表名: ' . $table);
+        }
+    }
 }

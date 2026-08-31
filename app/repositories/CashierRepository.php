@@ -116,13 +116,11 @@ class CashierRepository extends BaseRepository {
 
     /** 更新挂号状态 */
     public static function updateVisitStatus($visitId, $status, $extra = array()) {
-        $set = array('status=?');
-        $params = array($status);
-        if (isset($extra['paid_at'])) { $set[] = 'paid_at=?'; $params[] = $extra['paid_at']; }
-        if (isset($extra['cancel_reason'])) { $set[] = 'cancel_reason=?'; $params[] = $extra['cancel_reason']; }
-        if (isset($extra['finished_at'])) { $set[] = 'finished_at=?'; $params[] = $extra['finished_at']; }
-        $params[] = (int)$visitId;
-        return self::exec('UPDATE registrations SET ' . implode(',', $set) . ' WHERE id=?', $params);
+        $data = array('status' => $status);
+        if (isset($extra['paid_at'])) $data['paid_at'] = $extra['paid_at'];
+        if (isset($extra['cancel_reason'])) $data['cancel_reason'] = $extra['cancel_reason'];
+        if (isset($extra['finished_at'])) $data['finished_at'] = $extra['finished_at'];
+        return self::updateRow('registrations', $visitId, $data);
     }
 
     /* ---------------- 缴费 / 退费 ---------------- */
@@ -179,32 +177,26 @@ class CashierRepository extends BaseRepository {
 
     /** 批量更新订单明细状态（按 order_id） */
     public static function updateOrderItemsStatus($orderId, $status, $extra = array()) {
-        $set = array('status=?');
-        $params = array($status);
-        if (isset($extra['executed_by'])) { $set[] = 'executed_by=?'; $params[] = $extra['executed_by']; }
-        if (isset($extra['executed_at'])) { $set[] = 'executed_at=?'; $params[] = $extra['executed_at']; }
-        $params[] = (int)$orderId;
-        return self::exec('UPDATE order_items SET ' . implode(',', $set) . ' WHERE order_id=?', $params);
+        $data = array('status' => $status);
+        if (isset($extra['executed_by'])) $data['executed_by'] = $extra['executed_by'];
+        if (isset($extra['executed_at'])) $data['executed_at'] = $extra['executed_at'];
+        return self::updateWhere('order_items', $data, 'order_id=?', array((int)$orderId));
     }
 
     /** 更新单条明细状态 */
     public static function updateOrderItemStatus($itemId, $status, $extra = array()) {
-        $set = array('status=?');
-        $params = array($status);
-        if (isset($extra['executed_by'])) { $set[] = 'executed_by=?'; $params[] = $extra['executed_by']; }
-        if (isset($extra['executed_at'])) { $set[] = 'executed_at=?'; $params[] = $extra['executed_at']; }
-        $params[] = (int)$itemId;
-        return self::exec('UPDATE order_items SET ' . implode(',', $set) . ' WHERE id=?', $params);
+        $data = array('status' => $status);
+        if (isset($extra['executed_by'])) $data['executed_by'] = $extra['executed_by'];
+        if (isset($extra['executed_at'])) $data['executed_at'] = $extra['executed_at'];
+        return self::updateRow('order_items', $itemId, $data);
     }
 
     /** 更新订单状态（含支付/退费时间） */
     public static function updateOrderStatus($orderId, $status, $extra = array()) {
-        $set = array('status=?');
-        $params = array($status);
-        if (isset($extra['paid_at'])) { $set[] = 'paid_at=?'; $params[] = $extra['paid_at']; }
-        if (isset($extra['refunded_at'])) { $set[] = 'refunded_at=?'; $params[] = $extra['refunded_at']; }
-        $params[] = (int)$orderId;
-        return self::exec('UPDATE orders SET ' . implode(',', $set) . ' WHERE id=?', $params);
+        $data = array('status' => $status);
+        if (isset($extra['paid_at'])) $data['paid_at'] = $extra['paid_at'];
+        if (isset($extra['refunded_at'])) $data['refunded_at'] = $extra['refunded_at'];
+        return self::updateRow('orders', $orderId, $data);
     }
 
     /* ---------------- 编号规则 / 计数 ---------------- */
@@ -231,11 +223,8 @@ class CashierRepository extends BaseRepository {
         return self::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array((int)$qty, (int)$drugId));
     }
 
-    /** 新增库存流水 */
+    /** 新增库存流水（委托 DrugRepository 统一实现） */
     public static function createInventoryTrans($data) {
-        return self::insert(
-            'INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)',
-            array((int)$data['drug_id'], (int)$data['qty_change'], $data['type'], $data['ref'], $data['operator'], now_str())
-        );
+        return DrugRepository::createInventoryTrans($data);
     }
 }

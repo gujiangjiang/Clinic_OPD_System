@@ -13,6 +13,52 @@
 
 ---
 
+## [6.0.0] - 2026-08-31
+
+### 变更
+
+- **数据访问层架构升级（引入 Repository 数据仓库模式，实现业务与 SQL 彻底解耦）**：
+  - 新增 `app/repositories/` 数据访问层，按业务领域划分 12 个专属 Repository 类：
+    `BaseRepository`、`Icd10Repository`、`PatientRepository`、`QueueRepository`、
+    `CashierRepository`、`EmrRepository`、`DrugRepository`、`OrderRepository`、
+    `UserRepository`、`DeptRepository`、`AnalyticsRepository`、`ConsultationRepository`、
+    `CoreRepository`。所有 SQL 编写、预编译参数绑定与原生 PDO 操作统一收敛至该层。
+  - **净化业务 API 控制层**：全部 42 个 `app/api/*.php` / `app/api/parts/*.php` 文件
+    彻底剥离原生 SQL（全盘 `DB::` 门面调用与直接 PDO `prepare()` 残留为 0），仅保留
+    身份认证/权限检查、入参校验、调用对应 Repository 方法、事务控制与 JSON 响应组装。
+  - **保持双驱动兼容与安全性**：所有 Repository 内部 SQL 严格经 `DatabaseManager::getMain()`
+    （或 `getIcd10()`）预编译参数绑定执行，保持 SQLite / MySQL 双驱动方言兼容。
+  - **事务分层**：复合写操作（挂号收费、接诊开方、药房发药、退费冲正、病历保存等）
+    在 API 层统一 `beginTransaction()/commit()/rollBack()`，跨 Repository 协同一致。
+- 系统版本号由 `5.0.2` 升级为 `6.0.0`（大版本：数据访问层架构级重构）。
+
+### 新增
+
+- `app/repositories/BaseRepository.php`：通用 PDO 查询助手（q/one/val/exec/insert、
+  事务辅助、ICD-10 查询、动态 SQL 门面 prepareExec/prepareQ/prepareInsert/dbVal 等）
+  以及通用 CRUD 助手（insertRow/updateRow/updateWhere/findById，含表名白名单校验）
+- `app/repositories/` 各业务域 Repository（Icd10/Patient/Queue/Cashier/Emr/Drug/Order/
+  User/Dept/Analytics/Consultation/Core）
+- `app/config/bootstrap.php`：repositories 目录自动加载（BaseRepository 优先）
+
+### 变更
+
+- **消除 Repository 层重复的 CRUD 读写代码（DRY 优化）**：
+  - 动态插入收敛：Dept/Drug/Order/User `create`、Emr `insertRecord/insertMirror/
+    insertVitals/insertCertificate/insertReferral`、Core `insertMessage/insertSentMessage/
+    insertAudit`、Order `insertItem` 等 12 处统一复用 `BaseRepository::insertRow`；
+  - 动态更新收敛：各 `update`/`updateXxx`（含 Cashier 状态流转、Consultation 会诊状态、
+    Patient 资料更新等 13 处）统一复用 `updateRow`/`updateWhere`；
+  - 按 ID 查询收敛：13 处 `*ById` 方法统一复用 `findById`；
+  - 跨仓库重复方法收敛：`CashierRepository::createInventoryTrans` 委托
+    `DrugRepository` 统一实现。
+  - 效果：全盘动态插入/更新拼接残留归零，后续新增同构操作直接调用通用助手，
+    降低维护成本。
+
+### 文档
+
+- README：版本徽章与目录结构同步更新（新增 repositories/ 数据访问层说明）。
+
 ## [5.0.2] - 2026-08-31
 
 ### 修复

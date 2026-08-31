@@ -21,7 +21,7 @@ class DeptRepository extends BaseRepository {
 
     /** 科室详情 */
     public static function byId($id) {
-        return self::one('SELECT * FROM departments WHERE id=?', array((int)$id));
+        return self::findById('departments', $id);
     }
 
     /** 启用科室详情 */
@@ -41,17 +41,12 @@ class DeptRepository extends BaseRepository {
 
     /** 新增科室 */
     public static function create($data) {
-        $cols = implode(',', array_keys($data));
-        $phs = implode(',', array_fill(0, count($data), '?'));
-        return self::insert("INSERT INTO departments($cols) VALUES($phs)", array_values($data));
+        return self::insertRow('departments', $data);
     }
 
     /** 更新科室 */
     public static function update($id, $data) {
-        $set = array(); $params = array();
-        foreach ($data as $k => $v) { $set[] = "$k=?"; $params[] = $v; }
-        $params[] = (int)$id;
-        return self::exec('UPDATE departments SET ' . implode(',', $set) . ' WHERE id=?', $params);
+        return self::updateRow('departments', $id, $data);
     }
 
     /** 删除科室 */
@@ -76,23 +71,16 @@ class DeptRepository extends BaseRepository {
     }
 
     /** 诊室详情 */
-    public static function roomById($id) {
-        return self::one('SELECT * FROM clinic_rooms WHERE id=?', array((int)$id));
-    }
+    public static function roomById($id) { return self::findById('clinic_rooms', $id); }
 
     /** 新增诊室 */
     public static function createRoom($data) {
-        $cols = implode(',', array_keys($data));
-        $phs = implode(',', array_fill(0, count($data), '?'));
-        return self::insert("INSERT INTO clinic_rooms($cols) VALUES($phs)", array_values($data));
+        return self::insertRow('clinic_rooms', $data);
     }
 
     /** 更新诊室 */
     public static function updateRoom($id, $data) {
-        $set = array(); $params = array();
-        foreach ($data as $k => $v) { $set[] = "$k=?"; $params[] = $v; }
-        $params[] = (int)$id;
-        return self::exec('UPDATE clinic_rooms SET ' . implode(',', $set) . ' WHERE id=?', $params);
+        return self::updateRow('clinic_rooms', $id, $data);
     }
 
     /** 删除诊室 */

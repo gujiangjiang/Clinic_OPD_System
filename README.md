@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v5.0.2-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v6.0.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -91,7 +91,12 @@
 │   │       └── legacy/        # 旧分散式 schema 归档（供迁移工具引用）
 │   ├── core/                  # 核心类
 │   │   └── DatabaseManager.php（getMain/getIcd10 双连接 + 方言辅助）Auth.php Session.php CSRF.php Upload.php Router.php helpers.php
-│   ├── api/                   # AJAX 接口（按功能拆分，含角色权限校验）
+│   ├── repositories/          # 数据访问层（Repository 数据仓库模式，业务与 SQL 解耦）
+│   │   └── BaseRepository.php（通用 CRUD 助手）+ 各业务域仓库：
+│   │       Icd10 / Patient / Queue / Cashier / Emr / Drug / Order /
+│   │       User / Dept / Analytics / Consultation / Core
+│   ├── api/                   # AJAX 接口（按功能拆分，含角色权限校验；不含原生 SQL，
+│   │   │                      # 统一调用对应 Repository）
 │   │   ├── _init.php          # 接口公共入口（CSRF + 登录 + 角色校验）
 │   │   ├── parts/             # 管理端接口按功能拆分（settings/dept/user/item/drug/disp/audit/call）
 │   │   ├── auth.php install.php message.php icd10.php patient.php print.php his.php
@@ -103,7 +108,7 @@
 │   │   └── print_templates.php# 统一打印模板
 │   └── views/                 # 页面视图（按角色/模块分子目录）
 ├── data/                      # 运行时数据目录（Web 无法访问，首次访问自动创建）
-│   ├── db/                    # 分散式 SQLite 数据库
+│   ├── db/                    # SQLite 数据库（clinic_main.db 统一主库 + icd10.db 字典库）
 │   └── session/               # Session 文件
 ├── tools/                     # 工具脚本
 │   ├── seed_demo_data.php     # 演示数据生成器（近30天136次就诊/277份病历/250医嘱单/205体征/6证明）

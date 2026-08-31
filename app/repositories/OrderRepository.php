@@ -36,16 +36,11 @@ class OrderRepository extends BaseRepository {
 
     /** 插入订单，返回自增 id */
     public static function create($data) {
-        $cols = implode(',', array_keys($data));
-        $phs = implode(',', array_fill(0, count($data), '?'));
-        return self::insert("INSERT INTO orders($cols) VALUES($phs)", array_values($data));
+        return self::insertRow('orders', $data);
     }
 
     public static function update($id, $data) {
-        $set = array(); $params = array();
-        foreach ($data as $k => $v) { $set[] = "$k=?"; $params[] = $v; }
-        $params[] = (int)$id;
-        return self::exec('UPDATE orders SET ' . implode(',', $set) . ' WHERE id=?', $params);
+        return self::updateRow('orders', $id, $data);
     }
 
     public static function deleteOrder($id) {
@@ -62,22 +57,11 @@ class OrderRepository extends BaseRepository {
         return self::q('SELECT * FROM order_items WHERE visit_id=? ORDER BY id', array((int)$visitId));
     }
 
-    public static function itemById($id) {
-        return self::one('SELECT * FROM order_items WHERE id=?', array((int)$id));
-    }
+    public static function itemById($id) { return self::findById('order_items', $id); }
 
-    public static function insertItem($data) {
-        $cols = implode(',', array_keys($data));
-        $phs = implode(',', array_fill(0, count($data), '?'));
-        return self::insert("INSERT INTO order_items($cols) VALUES($phs)", array_values($data));
-    }
+    public static function insertItem($data) { return self::insertRow('order_items', $data); }
 
-    public static function updateItem($id, $data) {
-        $set = array(); $params = array();
-        foreach ($data as $k => $v) { $set[] = "$k=?"; $params[] = $v; }
-        $params[] = (int)$id;
-        return self::exec('UPDATE order_items SET ' . implode(',', $set) . ' WHERE id=?', $params);
-    }
+    public static function updateItem($id, $data) { return self::updateRow('order_items', $id, $data); }
 
     public static function deleteItemsByOrder($orderId) {
         return self::exec('DELETE FROM order_items WHERE order_id=?', array((int)$orderId));
@@ -93,9 +77,7 @@ class OrderRepository extends BaseRepository {
         return self::q($sql, $params);
     }
 
-    public static function labItemById($id) {
-        return self::one('SELECT * FROM lab_items WHERE id=?', array((int)$id));
-    }
+    public static function labItemById($id) { return self::findById('lab_items', $id); }
 
     public static function examItems($status = '') {
         $sql = 'SELECT * FROM exam_items';
@@ -105,9 +87,7 @@ class OrderRepository extends BaseRepository {
         return self::q($sql, $params);
     }
 
-    public static function examItemById($id) {
-        return self::one('SELECT * FROM exam_items WHERE id=?', array((int)$id));
-    }
+    public static function examItemById($id) { return self::findById('exam_items', $id); }
 
     public static function disposalItems($status = '') {
         $sql = 'SELECT * FROM disposal_items';
@@ -117,9 +97,7 @@ class OrderRepository extends BaseRepository {
         return self::q($sql, $params);
     }
 
-    public static function disposalItemById($id) {
-        return self::one('SELECT * FROM disposal_items WHERE id=?', array((int)$id));
-    }
+    public static function disposalItemById($id) { return self::findById('disposal_items', $id); }
 
     public static function categories($ctype = '') {
         $sql = 'SELECT * FROM item_categories';

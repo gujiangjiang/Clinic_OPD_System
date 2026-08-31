@@ -14,9 +14,7 @@ class QueueRepository extends BaseRepository {
     }
 
     /** 按 id 查找叫号大屏 */
-    public static function roomById($id) {
-        return self::one('SELECT * FROM clinic_rooms WHERE id=?', array((int)$id));
-    }
+    public static function roomById($id) { return self::findById('clinic_rooms', $id); }
 
     /** 按科室查找当前就诊中患者（最近一条） */
     public static function currentVisit($deptId) {

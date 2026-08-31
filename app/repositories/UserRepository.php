@@ -19,7 +19,7 @@ class UserRepository extends BaseRepository {
 
     /** 按 id 查用户 */
     public static function byId($id) {
-        return self::one('SELECT * FROM users WHERE id=?', array((int)$id));
+        return self::findById('users', $id);
     }
 
     /** 用户是否存在（安装检查） */
@@ -43,17 +43,12 @@ class UserRepository extends BaseRepository {
 
     /** 新增用户 */
     public static function create($data) {
-        $cols = implode(',', array_keys($data));
-        $phs = implode(',', array_fill(0, count($data), '?'));
-        return self::insert("INSERT INTO users($cols) VALUES($phs)", array_values($data));
+        return self::insertRow('users', $data);
     }
 
     /** 更新用户 */
     public static function update($id, $data) {
-        $set = array(); $params = array();
-        foreach ($data as $k => $v) { $set[] = "$k=?"; $params[] = $v; }
-        $params[] = (int)$id;
-        return self::exec('UPDATE users SET ' . implode(',', $set) . ' WHERE id=?', $params);
+        return self::updateRow('users', $id, $data);
     }
 
     /** 删除用户 */

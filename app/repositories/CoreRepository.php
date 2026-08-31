@@ -27,11 +27,7 @@ class CoreRepository extends BaseRepository {
     /* ---------------- 站内消息 ---------------- */
 
     /** 新增消息 */
-    public static function insertMessage($data) {
-        $cols = implode(',', array_keys($data));
-        $phs = implode(',', array_fill(0, count($data), '?'));
-        return self::insert("INSERT INTO messages($cols) VALUES($phs)", array_values($data));
-    }
+    public static function insertMessage($data) { return self::insertRow('messages', $data); }
 
     /** 未读消息数 */
     public static function unreadCount($role, $userId) {
@@ -59,11 +55,7 @@ class CoreRepository extends BaseRepository {
     }
 
     /** 新增发送日志 */
-    public static function insertSentMessage($data) {
-        $cols = implode(',', array_keys($data));
-        $phs = implode(',', array_fill(0, count($data), '?'));
-        return self::insert("INSERT INTO sent_messages($cols) VALUES($phs)", array_values($data));
-    }
+    public static function insertSentMessage($data) { return self::insertRow('sent_messages', $data); }
 
     /** 发送日志列表 */
     public static function sentMessages($limit = 100) {
@@ -73,11 +65,7 @@ class CoreRepository extends BaseRepository {
     /* ---------------- 审核中心 ---------------- */
 
     /** 新增审核记录 */
-    public static function insertAudit($data) {
-        $cols = implode(',', array_keys($data));
-        $phs = implode(',', array_fill(0, count($data), '?'));
-        return self::insert("INSERT INTO audits($cols) VALUES($phs)", array_values($data));
-    }
+    public static function insertAudit($data) { return self::insertRow('audits', $data); }
 
     /** 待审核数 */
     public static function pendingCount() {
@@ -97,15 +85,8 @@ class CoreRepository extends BaseRepository {
     }
 
     /** 审核记录详情 */
-    public static function auditById($id) {
-        return self::one('SELECT * FROM audits WHERE id=?', array((int)$id));
-    }
+    public static function auditById($id) { return self::findById('audits', $id); }
 
     /** 更新审核状态 */
-    public static function updateAudit($id, $data) {
-        $set = array(); $params = array();
-        foreach ($data as $k => $v) { $set[] = "$k=?"; $params[] = $v; }
-        $params[] = (int)$id;
-        return self::exec('UPDATE audits SET ' . implode(',', $set) . ' WHERE id=?', $params);
-    }
+    public static function updateAudit($id, $data) { return self::updateRow('audits', $id, $data); }
 }

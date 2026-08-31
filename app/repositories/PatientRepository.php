@@ -34,15 +34,10 @@ class PatientRepository extends BaseRepository {
 
     /** 更新患者可修改信息（姓名/性别/身份证/出生年月不可改） */
     public static function updateProfile($patientNo, $fields) {
-        $set = array();
-        $params = array();
         $allowed = array('phone', 'ethnicity', 'marital', 'occupation', 'work_unit', 'address');
-        foreach ($allowed as $f) {
-            $set[] = $f . '=?';
-            $params[] = isset($fields[$f]) ? $fields[$f] : '';
-        }
-        $params[] = $patientNo;
-        return self::exec('UPDATE patients SET ' . implode(',', $set) . ' WHERE patient_no=?', $params);
+        $data = array();
+        foreach ($allowed as $f) { $data[$f] = isset($fields[$f]) ? $fields[$f] : ''; }
+        return self::updateWhere('patients', $data, 'patient_no=?', array($patientNo));
     }
 
     /** 该患者全部就诊记录（倒序） */
