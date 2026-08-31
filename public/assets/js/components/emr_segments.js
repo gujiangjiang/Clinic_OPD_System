@@ -108,9 +108,11 @@ Clinic.emr.segments = (function () {
         if (d.__consult_mode) {
             return { before: hist.slice(0, myIdx), after: hist.slice(myIdx + 1) };
         }
-        // 转科后：本人当前文书书写科室与就诊当前科室不一致 → 该文书一并归入只读段
+        // 转科后：本人当前文书书写科室与就诊当前科室不一致（dept_mismatch）
+        // → 当前文书由 renderEmrCard 的 deptMismatch 分支单独渲染为只读段，
+        //   不得重复归入 before/after（与 consult_mode 同理，避免双份展示）
         var deptMismatch = d.record && d.record.dept_match === 0;
-        if (deptMismatch) return { before: hist.slice(0, myIdx + 1), after: hist.slice(myIdx + 1) };
+        if (deptMismatch) return { before: hist.slice(0, myIdx), after: hist.slice(myIdx + 1) };
         return { before: hist.slice(0, myIdx), after: hist.slice(myIdx + 1) };
     }
 

@@ -635,36 +635,53 @@ diagnoses: [],
             // 场景 C：已有他人保存病历但本人尚无文书 → 默认只读展示他人病历 +
             // 续写占位，不渲染空编辑器；显式点击「病历节点 +」才渲染续写编辑器
             if (needProgress) {
-                // 会诊模式：就诊存在待处理/进行中的会诊 → 占位显示「确认会诊」
-                // （仅按状态判定，不比较科室——会诊目标科室≠患者当前科室）
-                var myConsult = null;
-                (d.consults || []).forEach(function (c) {
-                    if ((c.status === 'pending' || c.status === 'doing') && !myConsult) myConsult = c;
-                });
-                var phBody = document.getElementById('docBody');
-                if (phBody) {
-                    if (myConsult) {
-                        var cStatus = myConsult.status === 'doing' ? '会诊进行中' : '新会诊请求';
-                        // 会诊：默认只读展示原病历 + 引导点击「病历节点 ＋」创建会诊病历，
-                        // 不自动新建续写。待会诊（pending）时可直接点击「确认会诊」开始。
-                        var startBtn = (myConsult.status === 'pending')
-                            ? '<button class="btn btn-primary btn-sm mt-8" onclick="Clinic.emr.startConsult(\'' + escHtml(myConsult.code) + '\')">🤝 确认会诊</button>'
-                            : '';
-                        phBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
-                            '<div class="fs-14">🤝 ' + escHtml((myConsult.from_dept_name || '') + ' 会诊请求') +
-                            ' <span class="badge badge-warning">' + cStatus + '</span></div>' +
-                            '<div class="fs-12 text-muted mt-4">该患者已有保存的病历（上方只读展示）。' +
-                            '点击右侧「病历节点 ＋」开始创建会诊病历。</div>' +
-                            startBtn +
-                            '<div class="fs-12 text-muted mt-8">会诊病历创建后即可书写会诊记录，完成后点击右上「会诊完毕」结束本次会诊。</div></div>';
-                    } else {
-                        phBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
-                            '<div class="fs-14">📝 病历续写</div>' +
-                            '<div class="fs-12 text-muted mt-4">该患者已有保存的病历（上方只读展示）。' +
-                            '点击左侧「病历节点 ＋」开始书写续写病历。</div></div>';
+                if (deptMismatch) {
+                    // 转科前旧文书（deptMismatch）：docBody 直接展示当前文书只读段，
+                    // 并附「仅可查看」提示（病历在哪个科写只能在哪个科编辑）
+                    refreshReadOnlyBodies(d);
+                    var dmBody = document.getElementById('docBody');
+                    if (dmBody && r.record_id > 0) {
+                        var dmSeg = { id: r.record_id, record_id: r.record_id, doctor_id: r.doctor_id,
+                            doctor_name: r.doctor_name, doctor_emp: r.doctor_emp||'', doctor_title: r.doctor_title||'',
+                            record_type: r.record_type, emr: r.emr||{}, created_at: r.created_at||'',
+                            consultation_id: r.consultation_id||0, consciousness: r.consciousness||'', vitals: {} };
+                        dmBody.innerHTML = '<div class="prev-record-wrap">' + roSegmentHtml(dmSeg) + '</div>' +
+                            '<div class="ro-placeholder" id="roPlaceholder">' +
+                            '<div class="fs-12 text-muted mt-4">该病历书写科室与当前科室不一致，仅可查看（只读）。' +
+                            '如需书写请在当前科室新建续写病历。</div></div>';
                     }
+                } else {
+                    // 会诊模式：就诊存在待处理/进行中的会诊 → 占位显示「确认会诊」
+                    // （仅按状态判定，不比较科室——会诊目标科室≠患者当前科室）
+                    var myConsult = null;
+                    (d.consults || []).forEach(function (c) {
+                        if ((c.status === 'pending' || c.status === 'doing') && !myConsult) myConsult = c;
+                    });
+                    var phBody = document.getElementById('docBody');
+                    if (phBody) {
+                        if (myConsult) {
+                            var cStatus = myConsult.status === 'doing' ? '会诊进行中' : '新会诊请求';
+                            // 会诊：默认只读展示原病历 + 引导点击「病历节点 ＋」创建会诊病历，
+                            // 不自动新建续写。待会诊（pending）时可直接点击「确认会诊」开始。
+                            var startBtn = (myConsult.status === 'pending')
+                                ? '<button class="btn btn-primary btn-sm mt-8" onclick="Clinic.emr.startConsult(\'' + escHtml(myConsult.code) + '\')">🤝 确认会诊</button>'
+                                : '';
+                            phBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
+                                '<div class="fs-14">🤝 ' + escHtml((myConsult.from_dept_name || '') + ' 会诊请求') +
+                                ' <span class="badge badge-warning">' + cStatus + '</span></div>' +
+                                '<div class="fs-12 text-muted mt-4">该患者已有保存的病历（上方只读展示）。' +
+                                '点击右侧「病历节点 ＋」开始创建会诊病历。</div>' +
+                                startBtn +
+                                '<div class="fs-12 text-muted mt-8">会诊病历创建后即可书写会诊记录，完成后点击右上「会诊完毕」结束本次会诊。</div></div>';
+                        } else {
+                            phBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
+                                '<div class="fs-14">📝 病历续写</div>' +
+                                '<div class="fs-12 text-muted mt-4">该患者已有保存的病历（上方只读展示）。' +
+                                '点击左侧「病历节点 ＋」开始书写续写病历。</div></div>';
+                        }
+                    }
+                    refreshReadOnlyBodies(d);
                 }
-                refreshReadOnlyBodies(d);
             } else if (emptyInitial) {
                 // 场景 D：首诊空病历 → 不渲染空白编辑器，显示占位提示，
                 // 待自动弹出模板选择创建首张电子病历
@@ -700,8 +717,15 @@ diagnoses: [],
             scrollToEditor(200);
         }
         // ===== 恢复顶栏写操作按钮（从只读/会诊锁切回可编辑记录时） =====
+        // deptMismatch（转科前旧文书只读）：不恢复写按钮，隐藏之
         if (!readOnly && !consultLock) {
-            restoreWriteButtons();
+            if (deptMismatch) {
+                document.querySelectorAll('.emr-top-actions .emr-write').forEach(function (b) { b.style.display = 'none'; });
+                var stDm = document.getElementById('saveStatus');
+                if (stDm) { stDm.textContent = '转科前旧文书：仅可查看（只读）'; stDm.style.color = 'var(--text-muted)'; }
+            } else {
+                restoreWriteButtons();
+            }
         }
         // 大纲栏「＋」按可编辑病历状态显示/隐藏（与后端同规则）
         syncNavAdds();
@@ -1956,6 +1980,32 @@ diagnoses: [],
      * 前置条件由调用方校验（当前文书必填已保存且无未保存修改）。
      * 切换后重渲染整卡：目标文书为编辑器，其余（含原当前文书）全部只读段。
      */
+    /** 计算目标文书在当前上下文下的 dept_match（镜像后端 record_read 权威规则）
+     *  · 跨科室绝对只读（readonly_view）→ 0（全锁死）
+     *  · 会诊处理中（__consult_mode）→ 仅该进行中会诊病历为 1
+     *  · 普通模式：书写科室（dept_id）== 就诊当前科室 → 1；否则 0（转科前旧文书只读）；
+     *    本人会诊文书且会诊进行中（pending/doing）→ 1（例外，与后端一致） */
+    function calcDeptMatch(target) {
+        if (DATA && DATA.__readonly_view) return 0;
+        var visitDept = (DATA && DATA.visit) ? (DATA.visit.current_dept_id || 0) : 0;
+        if (DATA && DATA.__consult_mode && DATA.__consult_id) {
+            var cid = (target.consultation_id || 0);
+            var consActive = (DATA.consults || []).some(function (cc) {
+                return (cc.id || 0) === cid && (cc.status === 'pending' || cc.status === 'doing');
+            });
+            return consActive ? 1 : 0;
+        }
+        if ((target.dept_id || 0) > 0 && (target.dept_id || 0) === visitDept) return 1;
+        // 会诊进行中例外：本人会诊文书（consultation_id>0）且会诊未完毕 → 可编辑
+        if ((target.consultation_id || 0) > 0) {
+            var consGo = (DATA.consults || []).some(function (cc) {
+                return (cc.id || 0) === (target.consultation_id || 0) && (cc.status === 'pending' || cc.status === 'doing');
+            });
+            if (consGo) return 1;
+        }
+        return 0;
+    }
+
     function switchToRecord(recId) {
         var target = null;
         (DATA.records_history || []).forEach(function (h) { if (h.record_id === recId) target = h; });
@@ -1973,6 +2023,7 @@ diagnoses: [],
         DATA.record = {
             record_id: target.record_id,
             id: target.id,
+            dept_id: target.dept_id || 0,
             doctor_id: target.doctor_id,
             doctor_name: target.doctor_name,
             doctor_emp: target.doctor_emp || '',
@@ -1983,8 +2034,9 @@ diagnoses: [],
             consciousness: target.consciousness || '',
             created_at: target.created_at || '',
             updated_at: target.updated_at || '',
-            // 切换回本人旧文书：dept_match 由后端权威判定（前端按需重新拉取），
-            // 切换后 renderEmrCard 会按 dept_match/consultation 状态决定可编辑性
+            // 切换时按当前上下文重新计算 dept_match（镜像后端权威规则），
+            // 确保转科前旧文书只读、续写可编辑，避免残留旧值导致判定错误。
+            dept_match: calcDeptMatch(target),
         };
         DATA.__edit_record_id = recId;   // 保存时精确回写该文书
         // 重渲染时抑制内部自动滚动（避免 200ms 延迟造成「先闪可编辑再滚动」），
@@ -2046,8 +2098,11 @@ diagnoses: [],
             return;
         }
         // 3. 本人旧文书 → 切换为可编辑状态（前置：必填已保存 + 无未保存修改）
-        //    例外：会诊已完毕（done）的会诊病历永久只读——即使本人也只滚动到只读段，
-        //    不切换为可编辑（与后端 save/save_diags/delete 的 done 锁定一致）
+        //    例外 A：会诊已完毕（done）的会诊病历永久只读——即使本人也只滚动到只读段，
+        //           不切换为可编辑（与后端 save/save_diags/delete 的 done 锁定一致）
+        //    例外 B：转科前旧文书（dept_match=0，书写科室 != 就诊当前科室）——
+        //           切换到该文书后 renderEmrCard 依据 dept_match=0 渲染为只读展示，
+        //           右侧 + 同步隐藏（病历在哪个科写只能在哪个科编辑，跨科一律只读）
         var tgtRec = null;
         (DATA.records_history || []).forEach(function (h) { if ((h.record_id || h.id) === recId) tgtRec = h; });
         if (tgtRec && (tgtRec.consultation_id || 0) > 0) {
