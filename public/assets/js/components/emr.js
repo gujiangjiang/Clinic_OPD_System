@@ -1628,6 +1628,8 @@ diagnoses: [],
 
     /**
      * 删除成功后联动：
+     * · 会诊病历删除 → 关闭病历页，退回医生工作站（已选科室占位页），
+     *   候诊列表自动弹出（可重新进入接诊/继续处理会诊）
      * · 首诊删除 → 刷新页面（records_history 为空，loadData 自动触发模板选择引导）
      * · 续写删除 → 刷新页面（病历树重建，初始定位回显上一有效可编辑文书）
      */
@@ -1639,18 +1641,18 @@ diagnoses: [],
         DATA.__pending_progress = false;
         DATA.__pending_initial = false;
         // 如果删除的是会诊病历（consultation_id>0），会诊状态已回退 pending，
-        // 需退出会诊模式，恢复占位符引导页面
+        // 关闭病历页退回工作台（已选科室占位页 + 候诊列表自动弹出）
         var wasConsult = !!(DATA && DATA.__consult_mode && DATA.__consult_id);
         DATA.__consult_mode = false;
         DATA.__consult_id = null;
+        if (wasConsult) {
+            location.href = '/doctor/emr';
+            return;
+        }
         // 局部重载病历区（AJAX 拉取最新数据并完整重渲染）：
         // 横条/签名/续写提示/编辑态判断（科室/书写者）/锚点滚动全部
         // 套用 loadData 既有完善逻辑，不做任何特殊分支
         loadData(document.getElementById('visitId').value);
-        // 删除会诊病历后自动弹出候诊列表（引导医生重新操作）
-        if (wasConsult && window.Clinic && Clinic.queuePanel) {
-            setTimeout(function () { Clinic.queuePanel.open(); }, 500);
-        }
     }
 
     /**
