@@ -12,11 +12,16 @@
  */
 
 $files = array_merge(
-    glob(__DIR__ . '/../app/**/*.php') ?: array(),
-    glob(__DIR__ . '/../public/**/*.php') ?: array(),
-    array(__DIR__ . '/../router.php'),
+    glob(__DIR__ . '/../*.php') ?: array(),
 );
-$files = array_filter($files, 'is_file');
+// 递归收集 app、public、tools 目录下的全部 PHP 文件（glob ** 不递归，需用 DIT）
+$rii = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(__DIR__ . '/../app'));
+foreach ($rii as $f) { if ($f->isFile() && $f->getExtension() === 'php') $files[] = $f->getRealPath(); }
+$rii2 = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(__DIR__ . '/../public'));
+foreach ($rii2 as $f) { if ($f->isFile() && $f->getExtension() === 'php') $files[] = $f->getRealPath(); }
+$rii3 = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(__DIR__ . '/../tools'));
+foreach ($rii3 as $f) { if ($f->isFile() && $f->getExtension() === 'php') $files[] = $f->getRealPath(); }
+$files = array_unique(array_filter($files, 'is_file'));
 
 $bad = 0;
 foreach ($files as $f) {

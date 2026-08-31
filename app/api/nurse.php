@@ -10,14 +10,10 @@ require __DIR__ . '/_init.php';
 
 $u = Auth::user();
 
-/** 护士可见科室ID数组（未设置则全部科室） */
+/** 护士可见科室ID数组（未设置则全部科室，委托公共函数） */
 function nurse_dept_ids() {
     global $u;
-    $ids = array();
-    foreach (explode(',', isset($u['dept_ids']) ? (string)$u['dept_ids'] : '') as $id) {
-        if ((int)$id > 0) $ids[] = (int)$id;
-    }
-    return $ids;
+    return user_dept_ids($u);
 }
 
 switch ($action) {

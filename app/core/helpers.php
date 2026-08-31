@@ -201,6 +201,24 @@ function now_str($fmt = 'Y-m-d H:i:s') {
     return date($fmt);
 }
 
+/**
+ * 用户关联科室 ID 列表（统一解析 dept_ids 逗号分隔串）
+ * 说明：会话快照中的 dept_ids 可能为 NULL（如管理员等无科室用户），
+ * 先判空再拆分，避免 PHP 8 的 Undefined key / Deprecated 告警污染 JSON。
+ * @param array $u 用户数据（含 dept_ids 字段；缺省取当前登录用户）
+ * @return int[]
+ */
+function user_dept_ids($u = null) {
+    if ($u === null) {
+        $u = Auth::user();
+    }
+    $ids = array();
+    foreach (explode(',', isset($u['dept_ids']) ? (string)$u['dept_ids'] : '') as $id) {
+        if ((int)$id > 0) $ids[] = (int)$id;
+    }
+    return $ids;
+}
+
 /** 当前日期字符串 */
 function today_str() {
     return date('Y-m-d');
@@ -594,10 +612,7 @@ function visit_dept_authorized($visit, $u) {
     if (isset($visit['status']) && $visit['status'] === 'finished') return true;
     $curDept = (int)(isset($visit['current_dept_id']) ? $visit['current_dept_id'] : 0);
     if ($curDept <= 0) return true;
-    $myDepts = array();
-    foreach (explode(',', isset($u['dept_ids']) ? (string)$u['dept_ids'] : '') as $dd) {
-        if ((int)$dd > 0) $myDepts[] = (int)$dd;
-    }
+    $myDepts = user_dept_ids($u);
     if (in_array($curDept, $myDepts, true)) return true;
     $visitId = (int)(isset($visit['id']) ? $visit['id'] : 0);
     if ($visitId > 0) {

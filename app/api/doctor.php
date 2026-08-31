@@ -15,15 +15,9 @@ require __DIR__ . '/_init.php';
 
 $u = Auth::user();
 
-/** 当前医生关联科室ID列表（用于权限校验与科室回退） */
+/** 当前医生关联科室ID列表（用于权限校验与科室回退，委托公共函数） */
 function doctor_dept_ids($u) {
-    $ids = array();
-    // 会话快照中的 dept_ids 可能为 NULL（如管理员登录医生端接口时），
-    // 先判空再拆分，避免 PHP 8 的 Undefined key / Deprecated 告警污染 JSON
-    foreach (explode(',', isset($u['dept_ids']) ? (string)$u['dept_ids'] : '') as $id) {
-        if ((int)$id > 0) $ids[] = (int)$id;
-    }
-    return $ids;
+    return user_dept_ids($u);
 }
 
 /** 科室是否为限号（门诊且上/下午号源数量 > 0；急诊与 0 号源为不限号） */

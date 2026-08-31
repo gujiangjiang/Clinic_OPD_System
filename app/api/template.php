@@ -17,13 +17,9 @@ require __DIR__ . '/_init.php';
 
 $u = Auth::user();
 
-/** 取当前医生所在科室 ID 列表（与 doctor.php 同源） */
+/** 取当前医生所在科室 ID 列表（委托公共函数） */
 function tpl_dept_ids($u) {
-    $ids = array();
-    foreach (explode(',', isset($u['dept_ids']) ? (string)$u['dept_ids'] : '') as $id) {
-        if ((int)$id > 0) $ids[] = (int)$id;
-    }
-    return $ids;
+    return user_dept_ids($u);
 }
 
 /**

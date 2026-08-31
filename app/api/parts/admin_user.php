@@ -24,9 +24,7 @@ function admin_part_user($action) {
             '<th>工号</th><th>用户名</th><th>姓名</th><th>角色</th><th>职称</th><th>关联科室</th><th>状态</th><th>操作</th></tr></thead><tbody>';
         foreach ($rows as $r) {
             $deptNames = '';
-            $ids = array();
-            // dept_ids 可能为 NULL（如管理员等无科室用户），先转字符串再拆分，避免 PHP 8 告警
-            foreach (explode(',', (string)$r['dept_ids']) as $d) if ((int)$d > 0) $ids[] = (int)$d;
+            $ids = user_dept_ids($r);
             if ($ids) {
                 $ph = implode(',', array_fill(0, count($ids), '?'));
                 $ds = UserRepository::q("SELECT name FROM departments WHERE id IN ($ph)", $ids);
@@ -69,9 +67,7 @@ function admin_part_user($action) {
         }
         // 科室树仅列临床科室（门诊/急诊）；医技/其他为叫号大屏专用，医生不可关联
         $depts = UserRepository::q("SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') ORDER BY sort, id");
-        $selDept = array();
-        // dept_ids 可能为 NULL，先转字符串再拆分，避免 PHP 8 告警污染 JSON 响应
-        foreach (explode(',', (string)$r['dept_ids']) as $d) if ((int)$d > 0) $selDept[] = (int)$d;
+        $selDept = user_dept_ids($r);
         // 三级分类树（可折叠，默认折叠）：全院 → 门诊/急诊（按类型分组）→ 各科室（多选）
         $byType = array(
             'clinic' => array('label' => '门诊', 'items' => array()),

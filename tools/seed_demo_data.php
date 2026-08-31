@@ -357,7 +357,7 @@ for ($d = 30; $d >= 0; $d--) {
         if (!$prow) continue;
         $visitId = (int)DB::insert('INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, paid_at, cashier_id, cashier_name, registered_at, cancel_reason, is_extra, disposition, disposition_detail) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
             $prow['patient_no'], $flowNo, $visitSeq, $dept, $deptRow['name'], $dept, $deptRow['name'],
-            pick(array('上午','下午')), pick(array('自费','居民医保','职工医保','自费')), $fee,
+            pick(array('am','pm')), pick(array('自费','居民医保','职工医保','自费')), $fee,
             $status, $payTime, 2, $staff['cashier'], $regTime, '', 0, $disp, $dispDetail,
         ));
         $visitCount++;
