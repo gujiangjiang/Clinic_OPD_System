@@ -87,8 +87,10 @@ require_once __DIR__ . '/../core/Auth.php';
 require_once __DIR__ . '/../core/Upload.php';
 require_once __DIR__ . '/../core/Router.php';
 
-/* ---------- 引入数据访问层（Repository 自动加载） ---------- */
+/* ---------- 引入数据访问层（Repository 自动加载：BaseRepository 先加载） ---------- */
+require_once __DIR__ . '/../repositories/BaseRepository.php';
 foreach (glob(__DIR__ . '/../repositories/*.php') ?: array() as $__repoFile) {
+    if (basename($__repoFile) === 'BaseRepository.php') continue;
     require_once $__repoFile;
 }
 
