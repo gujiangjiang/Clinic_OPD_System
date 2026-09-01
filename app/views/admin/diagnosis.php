@@ -104,6 +104,15 @@ function expandTreeToCategory(chapter, section, category, catName, callback) {
             for (var i = 0; i < catItems.length; i++) {
                 var item = catItems[i];
                 if (item.textContent.trim().indexOf(category) === 0) {
+                    // 清除左侧树之前的高亮
+                    document.querySelectorAll('#icdTree .tree-cat-highlight').forEach(function (el) {
+                        el.classList.remove('tree-cat-highlight');
+                        el.style.background = '';
+                    });
+                    // 高亮左侧树类目 + 滚动到可见（仅滚动树容器，避免整页跳动）
+                    item.style.background = 'var(--primary-soft, #e6f0ff)';
+                    item.classList.add('tree-cat-highlight');
+                    item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                     item.click();
                     clicked = true;
                     break;
@@ -245,12 +254,23 @@ function toggleSection(el) {
         onSuccess: function (j) {
             target.innerHTML = (j.data.list || []).map(function (cat) {
                 var cid = 'cat_' + cat.code.replace(/[^A-Z0-9]/g, '_');
-                return '<div class="dd-item" style="font-size:12px;padding:4px 8px;cursor:pointer;margin-left:12px;border-radius:4px" onclick="showCategoryDetail(\'' + cat.code + '\',\'' + (cat.name || '').replace(/'/g, "\\'") + '\')">' +
+                return '<div class="dd-item" style="font-size:12px;padding:4px 8px;cursor:pointer;margin-left:12px;border-radius:4px" onclick="pickTreeCategory(this,\'' + cat.code + '\',\'' + (cat.name || '').replace(/'/g, "\\'") + '\')">' +
                     '<span class="fw-600">' + cat.code + '</span>  ' + cat.name + '</div>';
             }).join('');
             target.setAttribute('data-loaded', '1');
         },
     });
+}
+
+/* 点击树类目：清除旧高亮 → 高亮当前项 → 显示右侧详情 */
+function pickTreeCategory(el, code, name) {
+    document.querySelectorAll('#icdTree .tree-cat-highlight').forEach(function (x) {
+        x.classList.remove('tree-cat-highlight');
+        x.style.background = '';
+    });
+    el.style.background = 'var(--primary-soft, #e6f0ff)';
+    el.classList.add('tree-cat-highlight');
+    showCategoryDetail(code, name);
 }
 
 /* ==================== 右侧详情（类目两行标题 + 诊断二级列表） ==================== */
