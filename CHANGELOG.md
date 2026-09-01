@@ -13,6 +13,26 @@
 
 ---
 
+## [6.1.1] - 2026-09-01
+
+### 变更
+
+- **ICD-10 诊断字典升级为完整标准编码库（医保版）**：`data/db/icd10.db` 纳入版本管理（不再忽略），
+  31681 条完整诊断数据，每行含四级分类链：章(chapter)→节(section)→类目(category)→亚目(subcategory)→最终诊断。
+  `Icd10Repository` / `api/icd10.php` 全面重写适配新库字段（diagnosis_code / diagnosis_name / search_tags），
+  schema 同步更新。（`app/repositories/Icd10Repository.php`、`app/api/icd10.php`、`app/config/schema/icd10.php`、`.gitignore`）
+
+- **诊断管理页面树形浏览**：左侧三级树（章→节→类目，懒加载折叠），点击类目右侧显示亚目列表 + 诊断明细，
+  支持按诊断码/名称/拼音实时检索并跳转类目；标准库只读，移除新增/编辑/删除与导入模块。
+  （`app/views/admin/diagnosis.php`、`app/core/DataExportImport.php`、`app/api/parts/admin_import.php`）
+
+### 修复
+
+- **ICD-10 编码抓取拆分异常**：修复 34 条因亚目名过长被拆行的异常编码
+  （31 条「前缀+真编码」、2 条「编码跑到诊断名开头」、1 条「前缀含 subcategory_code 自身」），
+  同步补齐被截断的亚目名与 search_tags 拼音。新增可复用修复脚本
+  `tools/fix_icd10_split.php`，二次校验 0 条残留。
+
 ## [6.1.0] - 2026-09-01
 
 ### 修复
