@@ -171,19 +171,11 @@ function admin_part_drug($action) {
             }
             json_ok(array(), $isAdmin ? '药品已保存' : '修改已提交，待管理员审核');
         }
-        $params = array_values($data);   // 23 值（含规格结构化 5 列）
-        $params[] = $finalStatus;
-        $params[] = now_str();
-        // INSERT 列与 $data 键顺序严格对应：
-        // 16 业务列 + name + is_skin_test + skin_test_item_id + 规格结构化5列 + status + created_at
-        $newId = DrugRepository::insert('INSERT INTO drugs(generic_name, category, vendor, vendor_short, package_unit, spec, form, single_dose, frequency, route, price, qty, is_rx, is_limited, note, is_nurse, name, is_skin_test, skin_test_item_id, spec_dose, spec_dose_unit, spec_pack_qty, spec_pack_unit, single_use_qty, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-            array_merge(
-                array_slice($params, 0, 16), array($name),
-                array($params[16], $params[17]),
-                array_slice($params, 18, 5),   // spec_dose..single_use_qty
-                array_slice($params, 23)       // status, now_str
-            )
-        );
+        // 统一走 insertRow 动态列构建（列名与值一一对应，消除手写 array_slice 偏移的脆弱性）
+        $data['name'] = $name;
+        $data['status'] = $finalStatus;
+        $data['created_at'] = now_str();
+        $newId = DrugRepository::create($data);
         if (!$isAdmin) {
             submit_audit('item_drug', $newId, '新增药品：' . $name, '提交新增药品：' . $name);
             send_msg('admin', 0, '待审核提醒', '有新的药品待审核：' . $name . '，请前往审核中心处理', '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
