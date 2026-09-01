@@ -101,16 +101,6 @@ class DataExportImport {
                     array('描述', 'description', false, ''),
                 ),
             ),
-            'icd10' => array(
-                'title' => 'ICD-10 诊断',
-                'table' => array('icd10', 'icd10'),
-                'key'   => 'code',
-                'fields' => array(
-                    array('编码', 'code', true, 'A09.0'),
-                    array('疾病名称', 'name', true, '急性肠炎'),
-                    array('拼音首字母', 'pinyin', false, 'JXCY'),
-                ),
-            ),
         );
     }
 

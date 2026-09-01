@@ -3,72 +3,109 @@
  * ============================================================
  * Icd10Repository.php — ICD-10 诊断字典仓库
  * ============================================================
- * 说明：对接独立 ICD-10 字典库（DatabaseManager::getIcd10()），
- * 提供疾病编码/名称/拼音首字母检索、管理端分页列表、
- * 新增/编辑/删除维护。仅操作 icd10 表，不参与主库事务。
+ * 说明：对接独立 ICD-10 诊断字典库（DatabaseManager::getIcd10()）。
+ * 新版库为完整标准编码库（医保版 ICD-10），每行含四级分类链：
+ *   章(chapter_code_range/chapter_name)
+ *   → 节(section_code_range/section_name)
+ *   → 类目(category_code/category_name)
+ *   → 亚目(subcategory_code/subcategory_name)
+ *   以及最终诊断(diagnosis_code=ICD10编码 / diagnosis_name=诊断名称 /
+ *   search_tags=拼音检索码)。
+ * 本库为只读标准字典，不参与主库事务；管理端仅浏览检索。
  * ============================================================ */
 class Icd10Repository extends BaseRepository {
 
+    /** 查询用字段集（四级分类链 + 最终诊断） */
+    private static function cols() {
+        return 'id, diagnosis_code, diagnosis_name, search_tags,
+                chapter_code_range, chapter_name, section_code_range, section_name,
+                category_code, category_name, subcategory_code, subcategory_name';
+    }
+
     /**
-     * 关键字检索（病历诊断联动）：按编码/名称/拼音首字母模糊匹配
+     * 关键字检索（病历诊断联动）：按诊断码/名称/拼音检索码模糊匹配
      * @param string $kw 关键字
      * @param int $limit 返回条数（默认 20）
-     * @return array [{id, code, name, pinyin}]
+     * @return array 完整行（含四级分类链）
      */
     public static function search($kw, $limit = 20) {
         if ($kw === '') return array();
         $limit = max(1, min(50, (int)$limit));
         $like = '%' . $kw . '%';
         return self::icd10q(
-            "SELECT id, code, name, pinyin FROM icd10
-             WHERE code LIKE ? OR name LIKE ? OR pinyin LIKE ? ORDER BY id LIMIT $limit",
+            "SELECT " . self::cols() . " FROM icd10
+             WHERE diagnosis_code LIKE ? OR diagnosis_name LIKE ? OR search_tags LIKE ?
+             ORDER BY diagnosis_code LIMIT $limit",
             array($like, $like, strtoupper($like))
         );
     }
 
     /**
-     * 分页列表（管理端）：可选关键字，按编码升序
+     * 管理端分页列表：支持关键字 + 四级层级过滤
      * @param string $kw 关键字（可为空）
      * @param int $limit 每页条数
      * @param int $offset 偏移
+     * @param string $chapter 章范围过滤（可为空）
+     * @param string $section 节范围过滤（可为空）
+     * @param string $category 类目过滤（可为空）
+     * @param string $subcategory 亚目过滤（可为空）
      * @return array [rows, total]
      */
-    public static function paginate($kw, $limit, $offset) {
-        $where = '';
+    public static function paginate($kw, $limit, $offset, $chapter = '', $section = '', $category = '', $subcategory = '') {
+        $where = array();
         $params = array();
         if ($kw !== '') {
             $like = '%' . $kw . '%';
-            $where = ' WHERE code LIKE ? OR name LIKE ? OR pinyin LIKE ?';
-            $params = array($like, $like, strtoupper($like));
+            $where[] = '(diagnosis_code LIKE ? OR diagnosis_name LIKE ? OR search_tags LIKE ?)';
+            $params = array_merge($params, array($like, $like, strtoupper($like)));
         }
-        $total = (int)self::icd10val('SELECT COUNT(*) FROM icd10' . $where, $params);
+        if ($chapter !== '')  { $where[] = 'chapter_code_range=?';   $params[] = $chapter; }
+        if ($section !== '')  { $where[] = 'section_code_range=?';   $params[] = $section; }
+        if ($category !== '') { $where[] = 'category_code=?';        $params[] = $category; }
+        if ($subcategory !== '') { $where[] = 'subcategory_code=?';  $params[] = $subcategory; }
+        $whereSql = $where ? (' WHERE ' . implode(' AND ', $where)) : '';
+        $total = (int)self::icd10val('SELECT COUNT(*) FROM icd10' . $whereSql, $params);
         $rows = self::icd10q(
-            "SELECT id, code, name, pinyin FROM icd10$where ORDER BY code ASC LIMIT $limit OFFSET $offset",
+            "SELECT " . self::cols() . " FROM icd10$whereSql ORDER BY diagnosis_code ASC LIMIT $limit OFFSET $offset",
             $params
         );
         return array($rows, $total);
     }
 
-    /** 按编码或名称查重（排除指定 id） */
-    public static function findDuplicate($code, $name, $excludeId = 0) {
-        return self::icd10one(
-            'SELECT id FROM icd10 WHERE (code=? OR name=?) AND id<>?',
-            array($code, $name, (int)$excludeId)
+    /* ==================== 层级树（章→节→类目→亚目） ==================== */
+
+    /** 章列表 */
+    public static function chapters() {
+        return self::icd10q(
+            "SELECT DISTINCT chapter_code_range, chapter_name
+             FROM icd10 WHERE chapter_code_range<>'' ORDER BY chapter_code_range"
         );
     }
 
-    /** 新增诊断 */
-    public static function create($code, $name, $pinyin) {
-        self::icd10exec('INSERT INTO icd10(code, name, pinyin) VALUES(?,?,?)', array($code, $name, $pinyin));
+    /** 某章下的节列表 */
+    public static function sections($chapter) {
+        return self::icd10q(
+            "SELECT DISTINCT section_code_range, section_name
+             FROM icd10 WHERE chapter_code_range=? AND section_code_range<>'' ORDER BY section_code_range",
+            array($chapter)
+        );
     }
 
-    /** 更新诊断 */
-    public static function update($id, $code, $name, $pinyin) {
-        self::icd10exec('UPDATE icd10 SET code=?, name=?, pinyin=? WHERE id=?', array($code, $name, $pinyin, (int)$id));
+    /** 某节下的类目列表 */
+    public static function categories($section) {
+        return self::icd10q(
+            "SELECT DISTINCT category_code, category_name
+             FROM icd10 WHERE section_code_range=? AND category_code<>'' ORDER BY category_code",
+            array($section)
+        );
     }
 
-    /** 删除诊断 */
-    public static function remove($id) {
-        self::icd10exec('DELETE FROM icd10 WHERE id=?', array((int)$id));
+    /** 某类目下的亚目列表 */
+    public static function subcategories($category) {
+        return self::icd10q(
+            "SELECT DISTINCT subcategory_code, subcategory_name
+             FROM icd10 WHERE category_code=? AND subcategory_code<>'' ORDER BY subcategory_code",
+            array($category)
+        );
     }
 }

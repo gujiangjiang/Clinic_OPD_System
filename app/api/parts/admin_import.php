@@ -173,7 +173,6 @@ function admin_part_import($action) {
                 if ($mod === 'drug') { $ins[] = 'status'; $vals[] = 'approved'; $ins[] = 'created_at'; $vals[] = now_str(); }
                 if ($mod === 'lab' || $mod === 'exam') { $ins[] = 'status'; $vals[] = 'approved'; $ins[] = 'created_at'; $vals[] = now_str(); }
                 if ($mod === 'disp') { $ins[] = 'status'; $vals[] = 'approved'; $ins[] = 'created_at'; $vals[] = now_str(); }
-                if ($mod === 'icd10') { $ins[] = 'created_at'; $vals[] = now_str(); }
                 if ($mod === 'dept') { $ins[] = 'status'; $vals[] = '1'; $ins[] = 'created_at'; $vals[] = now_str(); }
                 if ($mod === 'user') { $ins[] = 'status'; $vals[] = '1'; $ins[] = 'created_at'; $vals[] = now_str(); $ins[] = 'pwd_changed'; $vals[] = '0'; $ins[] = 'theme'; $vals[] = 'auto'; }
                 if ($mod === 'drug') { $ins[] = 'name'; $vals[] = $row['name']; }
