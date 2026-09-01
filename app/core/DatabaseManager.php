@@ -274,16 +274,16 @@ class DatabaseManager {
 
     /** 判断表中是否存在指定列（SQLite 用 PRAGMA，MySQL 用 SHOW COLUMNS） */
     private static function columnExists($pdo, $table, $column) {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $table) || !preg_match('/^[a-zA-Z0-9_]+$/', $column)) {
+            return false;
+        }
         try {
             if (DB_DRIVER === 'mysql') {
-                $rows = $pdo->query('SHOW COLUMNS FROM `' . $table . '` LIKE \'' . $column . '\'')->fetchAll();
+                $rows = $pdo->query("SHOW COLUMNS FROM `$table` LIKE '$column'")->fetchAll();
                 return count($rows) > 0;
             }
-            $cols = $pdo->query('PRAGMA table_info(' . $table . ')')->fetchAll(PDO::FETCH_ASSOC);
-            foreach ($cols as $c) {
-                if (strcasecmp($c['name'], $column) === 0) return true;
-            }
-            return false;
+            $cols = $pdo->query("SELECT * FROM pragma_table_info('$table') WHERE name='$column'")->fetchAll(PDO::FETCH_ASSOC);
+            return count($cols) > 0;
         } catch (Exception $ex) {
             return false;
         }

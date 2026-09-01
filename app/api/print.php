@@ -304,7 +304,7 @@ switch ($action) {
         $visit = $row ? $row['visit'] : array();
         // 报告打印角色白名单（检验/影像/医生/管理员）；不做科室归属限制——
         // 报告由对应科室统一登记出具，跨就诊打印属正常工作流
-        if (!in_array($u['role'], array('doctor', 'lab', 'imaging'), true)) {
+        if (!in_array($u['role'], array('doctor', 'lab', 'imaging', 'admin'), true)) {
             json_fail('无权限打印该报告');
         }
         $visit['name'] = $row && $row['patient'] ? $row['patient']['name'] : '';

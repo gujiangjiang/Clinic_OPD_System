@@ -27,7 +27,7 @@ function admin_part_settings($action) {
         $lowStock = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty<=10");
         $deptCount = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM departments WHERE status=1 AND type IN ('clinic','emergency')");
         $userCount = (int)AnalyticsRepository::val('SELECT COUNT(*) FROM users WHERE status=1');
-        $msgCount = (int)AnalyticsRepository::val('SELECT COUNT(*) FROM messages WHERE is_read=0 AND (to_role=? OR to_user_id=?)', array($u['role'], $u['id']));
+        $msgCount = (int)AnalyticsRepository::val('SELECT COUNT(*) FROM messages WHERE is_read=0 AND (to_user_id=? OR (to_user_id=0 AND to_role=?))', array($u['id'], $u['role']));
         // 近7天趋势（挂号人次 + 缴费金额）
         $trend = trend_7_days(array(
             'reg' => function ($day) {

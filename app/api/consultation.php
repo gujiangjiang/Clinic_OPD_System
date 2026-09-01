@@ -179,6 +179,17 @@ switch ($action) {
         $cid = did(get('id'));
         $c = ConsultationRepository::one('SELECT * FROM consultations WHERE id=?', array($cid));
         if (!$c) json_fail('会诊记录不存在');
+        // 权限校验：发起医生、目标科室医生、或就诊科室授权医生可查看
+        $isFromDoctor = (int)$c['from_doctor_id'] === (int)$u['id'];
+        $isTargetDept = false;
+        $curDeptRow = ConsultationRepository::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
+        $isTargetDept = $curDeptRow && (int)$curDeptRow['current_dept_id'] === (int)$c['target_dept_id'];
+        if (!$isFromDoctor && !$isTargetDept) {
+            $vRow = get_visit_row((int)$c['visit_id']);
+            if (!$vRow || !visit_dept_authorized($vRow['visit'], $u)) {
+                json_fail('无权限查看该会诊');
+            }
+        }
         $data = consultation_row($c);
         // 病历快照：取发起科室医生的首诊文书（主诉/现病史/体格检查/诊断）
         $pr = ConsultationRepository::one("SELECT * FROM patient_records WHERE visit_id=? AND dept_id=? AND record_type='initial' ORDER BY id ASC LIMIT 1",

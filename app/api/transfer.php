@@ -35,6 +35,7 @@ switch ($action) {
         if ($visit['status'] !== 'visiting') {
             json_fail('仅就诊中的患者可转科');
         }
+        if (!visit_dept_authorized($visit, $u)) json_fail('无权限操作该就诊的转科');
         $dept = EmrRepository::one('SELECT * FROM departments WHERE id=? AND status=1', array($targetDept));
         if (!$dept) json_fail('目标科室不存在或已停用');
         // 防自转：目标科室不能与患者当前科室相同（前端已隐藏当前科室，此处双保险）

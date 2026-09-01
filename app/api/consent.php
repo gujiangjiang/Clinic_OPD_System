@@ -67,6 +67,9 @@ switch ($action) {
     case 'list':
         $visitId = did(get('visit_id'));
         if ($visitId <= 0) json_fail('参数错误');
+        $row = get_visit_row($visitId);
+        if (!$row) json_fail('就诊记录不存在');
+        if (!visit_dept_authorized($row['visit'], $u)) json_fail('无权限查看该就诊的知情同意书');
         $rows = EmrRepository::q('SELECT * FROM consents WHERE visit_id=? ORDER BY id ASC', array($visitId));
         $list = array();
         foreach ($rows as $r) {
@@ -86,6 +89,8 @@ switch ($action) {
         $id = (int)get('id', 0);
         $r = EmrRepository::one('SELECT * FROM consents WHERE id=?', array($id));
         if (!$r) json_fail('知情同意书不存在');
+        $vRow = get_visit_row((int)$r['visit_id']);
+        if ($vRow && !visit_dept_authorized($vRow['visit'], $u)) json_fail('无权限查看');
         json_ok(array(
             'consent' => array(
                 'id' => (int)$r['id'],
