@@ -21,9 +21,9 @@ Router::title('诊断管理');
         <div class="card-title mb-8">📂 分类树</div>
         <div id="icdTree"><div class="fs-13 text-muted">加载中…</div></div>
     </div>
-    <div class="card" style="flex:1;min-width:0" id="detailBox">
-        <div class="fs-13 text-muted" id="detailTitle">选择左侧类目查看详情</div>
-        <div id="detailContent"></div>
+    <div class="card" style="flex:1;min-width:0;max-height:70vh;display:flex;flex-direction:column;padding:0;overflow:hidden" id="detailBox">
+        <div id="detailTitle" style="flex-shrink:0;padding:14px 16px 0">选择左侧类目查看详情</div>
+        <div id="detailContent" style="flex:1;overflow-y:auto;padding:12px 16px 16px"></div>
     </div>
 </div>
 
@@ -139,66 +139,36 @@ function toggleSection(el) {
     });
 }
 
-/* ==================== 右侧详情（亚目徽章 + 诊断二级列表） ==================== */
+/* ==================== 右侧详情（类目两行标题 + 诊断二级列表） ==================== */
 var CURRENT_CATEGORY = '';
 
 function showCategoryDetail(code, name) {
     CURRENT_CATEGORY = code;
     document.getElementById('diagKw').value = '';
-    document.getElementById('detailTitle').textContent = '📂 ' + code + '  ' + name;
+    // 类目标题：编码徽章 + 名称加粗（可折行）
+    document.getElementById('detailTitle').innerHTML =
+        '<div style="display:flex;align-items:flex-start;gap:10px;border-bottom:1px solid var(--border);padding-bottom:10px">' +
+        '<span class="badge badge-primary" style="font-family:monospace;font-weight:700;font-size:14px;padding:4px 12px;flex-shrink:0;margin-top:2px">' + code + '</span>' +
+        '<div style="font-weight:700;font-size:15px;line-height:1.5">' + name + '</div>' +
+        '</div>';
     var content = document.getElementById('detailContent');
     content.innerHTML = '<div class="spinner" style="border-top-color:var(--primary);width:24px;height:24px;margin:10px auto"></div>';
-    // 加载亚目
-    Clinic.get('/api/icd10?action=tree&level=subcategories&parent=' + encodeURIComponent(code), null, {
-        onSuccess: function (j) {
-            var subs = j.data.list || [];
-            // 加载诊断明细
-            Clinic.get('/api/icd10?action=list&category=' + encodeURIComponent(code) + '&limit=500', null, {
-                onSuccess: function (j2) {
-                    var diags = j2.data.list || [];
-                    var html = '';
-                    // 亚目徽章列表
-                    if (subs.length) {
-                        html += '<div class="mb-12"><div class="fs-13 fw-600 mb-8">亚目</div>' +
-                            '<div class="flex gap-4" style="flex-wrap:wrap">' +
-                            subs.map(function (s) {
-                                var cnt = diags.filter(function (d) { return d.subcategory_code === s.code; }).length;
-                                return '<span class="badge badge-primary" style="cursor:pointer;font-size:13px;padding:5px 12px" onclick="showSubcategoryDetail(\'' + s.code + '\')">' +
-                                    '<span style="font-family:monospace;font-weight:700">' + s.code + '</span> ' + s.name + (cnt ? '（' + cnt + '）' : '') + '</span>';
-                            }).join('') +
-                            '</div></div>';
-                    }
-                    // 诊断二级列表（按父诊断分组，子诊断可展开）
-                    html += '<div class="fs-13 fw-600 mb-8">诊断明细（' + diags.length + '）</div>' +
-                        '<div id="diagListWrap">' + buildDiagListHtml(diags) + '</div>';
-                    content.innerHTML = html;
-                },
-            });
-        },
-    });
-}
-
-function showSubcategoryDetail(code) {
-    document.getElementById('detailTitle').textContent = '亚目：' + code;
-    Clinic.get('/api/icd10?action=list&subcategory=' + encodeURIComponent(code) + '&limit=500', null, {
-        onSuccess: function (j) {
-            var diags = j.data.list || [];
-            document.getElementById('detailContent').innerHTML =
-                '<div class="fs-13 fw-600 mb-8">诊断明细（' + diags.length + '）</div>' +
+    // 加载诊断明细
+    Clinic.get('/api/icd10?action=list&category=' + encodeURIComponent(code) + '&limit=500', null, {
+        onSuccess: function (j2) {
+            var diags = j2.data.list || [];
+            content.innerHTML = '<div class="fs-13 fw-600 mb-8">诊断明细（' + diags.length + '）</div>' +
                 '<div id="diagListWrap">' + buildDiagListHtml(diags) + '</div>';
         },
     });
 }
 
-/* 构建诊断二级列表（父诊断 + 子诊断可展开） */
+/* 构建诊断二级列表（父诊断 + 子诊断可展开；所有行统一预留 + 号位对齐） */
 function buildDiagListHtml(diags) {
-    // 分组：按基码分组（取 diagnosis_code 中第一个 . 前为主码判断依据）
-    // 同一基码 prefix 下如果有多条，首条为父诊断，其余为子诊断
-    // 基码规则：取诊断码中字母+数字部分到第一个 x 或扩展前
+    // 分组：同一基码（去掉 x 扩展）下多条则首条为父诊断，其余为子诊断
     var groups = {};
     diags.forEach(function (d) {
         var code = d.icd10_code;
-        // 提取基码：A01.000x004 → A01.000
         var base = code.replace(/x\d{3}.*$/, '');
         if (!groups[base]) groups[base] = [];
         groups[base].push(d);
@@ -209,25 +179,28 @@ function buildDiagListHtml(diags) {
         var items = groups[base];
         var first = items[0];
         var hasSub = items.length > 1;
+        // 统一 16px 折叠位：有子诊断显示 +，无子诊断显示空白（保持上下对齐）
+        var toggleCell = hasSub
+            ? '<span class="tree-toggle" style="width:16px;flex-shrink:0;margin-right:6px;user-select:none;border:none;font-weight:700">+</span>'
+            : '<span style="width:16px;flex-shrink:0;margin-right:6px;display:inline-block">&nbsp;</span>';
+        var wrapId = 'sub_' + base.replace(/[^A-Z0-9.]/g, '_');
         if (hasSub) {
-            // 父诊断（可展开）
-            var wrapId = 'sub_' + base.replace(/[^A-Z0-9.]/g, '_');
-            html += '<div style="border-bottom:1px solid var(--border)">' +
-                '<div class="dd-item" style="display:flex;align-items:center;padding:5px 8px;cursor:pointer" onclick="toggleSubDiags(this, \'' + wrapId + '\')">' +
-                '<span class="tree-toggle" style="font-size:14px;margin-right:4px;user-select:none">+</span>' +
+            html += '<div class="dd-item" style="display:flex;align-items:center;padding:5px 8px;cursor:pointer;border-bottom:1px solid var(--border)" onclick="toggleSubDiags(this, \'' + wrapId + '\')">' +
+                toggleCell +
                 '<span class="fw-600" style="font-family:monospace;font-size:13px">' + first.icd10_code + '</span>' +
                 ' <span class="fs-13">' + first.diagnosis_name + '</span>' +
                 '<span class="fs-12 text-muted" style="margin-left:8px">（' + items.length + '）</span></div>' +
-                '<div id="' + wrapId + '" style="display:none;padding-left:28px">' +
+                '<div id="' + wrapId + '" style="display:none;padding-left:30px">' +
                 items.slice(1).map(function (it) {
-                    return '<div class="dd-item" style="padding:3px 8px;font-size:12px">' +
+                    return '<div class="dd-item" style="display:flex;align-items:center;padding:3px 8px;font-size:12px;border-bottom:1px dashed var(--border)">' +
+                        '<span style="width:16px;flex-shrink:0;margin-right:6px;display:inline-block">&nbsp;</span>' +
                         '<span class="fw-600" style="font-family:monospace">' + it.icd10_code + '</span> ' + it.diagnosis_name +
                         '<span class="fs-12 text-muted" style="margin-left:6px">' + (it.pinyin || '') + '</span></div>';
                 }).join('') +
-                '</div></div>';
+                '</div>';
         } else {
-            // 无子诊断：直接显示
-            html += '<div class="dd-item" style="padding:5px 8px;border-bottom:1px solid var(--border)">' +
+            html += '<div class="dd-item" style="display:flex;align-items:center;padding:5px 8px;border-bottom:1px solid var(--border)">' +
+                toggleCell +
                 '<span class="fw-600" style="font-family:monospace;font-size:13px">' + first.icd10_code + '</span> ' +
                 '<span class="fs-13">' + first.diagnosis_name + '</span>' +
                 '<span class="fs-12 text-muted" style="margin-left:6px">' + (first.pinyin || '') + '</span></div>';
