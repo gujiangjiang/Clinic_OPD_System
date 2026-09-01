@@ -52,7 +52,7 @@ switch ($action) {
     case 'list':
         $kw = get('kw', '');
         $limit = (int)get('limit', 50);
-        if ($limit <= 0 || $limit > 200) $limit = 50;
+        if ($limit <= 0 || $limit > 500) $limit = 50;
         $offset = (int)get('offset', 0);
         if ($offset < 0) $offset = 0;
         $chapter = get('chapter', '');
