@@ -97,11 +97,15 @@ function form_drug($id) {
             $specShow .= '×' . (int)$r['spec_pack_qty'] . $r['spec_pack_unit'];
         }
     }
-    $sel = function ($stype, $cur) {
-        $rows = DB::q('SELECT * FROM drug_settings WHERE stype=? ORDER BY sort, id', array($stype));
+    // 药品设置字典：一次查出全部，按 stype 分组复用（避免每个下拉框重复查库）
+    $dict = array();
+    foreach (DB::q('SELECT * FROM drug_settings ORDER BY sort, id') as $__d) {
+        $dict[$__d['stype']][] = $__d['name'];
+    }
+    $sel = function ($stype, $cur) use ($dict) {
         $html = '<option value="">请选择</option>';
-        foreach ($rows as $x) {
-            $html .= '<option value="' . e($x['name']) . '"' . ($cur === $x['name'] ? ' selected' : '') . '>' . e($x['name']) . '</option>';
+        foreach (isset($dict[$stype]) ? $dict[$stype] : array() as $nm) {
+            $html .= '<option value="' . e($nm) . '"' . ($cur === $nm ? ' selected' : '') . '>' . e($nm) . '</option>';
         }
         return $html;
     };
