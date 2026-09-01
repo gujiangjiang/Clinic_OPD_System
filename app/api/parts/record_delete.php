@@ -85,7 +85,6 @@ function record_part_delete($action) {
             json_fail('病历删除失败：' . $ex->getMessage());
         }
         $newStatus = (string)EmrRepository::val('SELECT status FROM registrations WHERE id=?', array($visitId));
-        $newStatus = (string)EmrRepository::val('SELECT status FROM registrations WHERE id=?', array($visitId));
         json_ok(array('record_type' => $rec['record_type'], 'visit_status' => $newStatus), '病历记录已删除');
         return;
     }

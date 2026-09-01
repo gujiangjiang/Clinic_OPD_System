@@ -3379,7 +3379,6 @@ diagnoses: [],
         /** 删除病历记录（节点生命周期约束：仅本人/首诊锁定/续写独立删除） */
         deleteRecord: deleteRecord,
         loadOrders: loadOrders,
-        isMyOrder: isMyOrder,
         scrollToPendingEditor: scrollToPendingEditor,
         cancelPendingRecord: cancelPendingRecord,
     };

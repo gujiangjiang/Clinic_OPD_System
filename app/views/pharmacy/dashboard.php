@@ -51,7 +51,7 @@ function dispenseDrug(itemId) {
         Clinic.ajax('/api/pharmacy', { action: 'dispense', item_id: itemId }, {
             onSuccess: function (json) {
                 Clinic.toast.success(json.msg);
-                loadQueue();
+                loadQueue('paid');
             },
         });
     });

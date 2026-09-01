@@ -82,6 +82,7 @@ function admin_part_drug($action) {
     if ($action === 'drugsetting_delete') {
         $id = (int)post('id');
         $used = (int)DrugRepository::val('SELECT COUNT(*) FROM drugs WHERE route IN (SELECT name FROM drug_settings WHERE id=?) OR package_unit IN (SELECT name FROM drug_settings WHERE id=?) OR form IN (SELECT name FROM drug_settings WHERE id=?) OR frequency IN (SELECT name FROM drug_settings WHERE id=?) OR category IN (SELECT name FROM drug_settings WHERE id=?)', array($id, $id, $id, $id, $id));
+        if ($used > 0) json_fail('该设置项已被药品引用，不能删除');
         DrugRepository::exec('DELETE FROM drug_settings WHERE id=?', array($id));
         json_ok(array(), '已删除');
     }

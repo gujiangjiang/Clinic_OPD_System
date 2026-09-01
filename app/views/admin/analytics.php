@@ -106,12 +106,6 @@ $depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type
 
 <!-- ============ 医生统计 ============ -->
 <div id="ana-pane-doctor" style="display:none">
-    <div class="card" style="margin-bottom:16px">
-        <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-            <span class="fs-13 text-muted">科室筛选：</span>
-            <select class="select" id="docDeptSel" onchange="loadDoctor()" style="width:auto"><option value="0">全部科室</option></select>
-        </div>
-    </div>
     <div class="card">
         <div class="flex gap-8" style="align-items:center;flex-wrap:wrap;margin-bottom:10px">
             <span class="fs-13 text-muted">科室筛选：</span>
