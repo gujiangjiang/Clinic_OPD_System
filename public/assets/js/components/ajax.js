@@ -78,31 +78,16 @@ Clinic.ajax = function (url, data, opts) {
 };
 
 /**
- * GET 请求快捷方式（查询数据用）
+ * GET 请求快捷方式（查询数据用，统一委托 Clinic.ajax 复用错误处理）
  * @param {string} url  接口地址
  * @param {object} data 查询参数
  * @param {object} opts 附加选项
  */
 Clinic.get = function (url, data, opts) {
+    opts = opts || {};
+    opts.method = 'GET';
     const qs = data ? '?' + new URLSearchParams(data).toString() : '';
-    return fetch(url + qs, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(function (res) { return res.json(); })
-        .then(function (json) {
-            if (!json.ok) {
-                Clinic.toast.error(json.msg || '操作失败');
-                if (opts && opts.onError) opts.onError(json);
-                return json;
-            }
-            if (opts && opts.onSuccess) opts.onSuccess(json);
-            return json;
-        })
-        .catch(function (err) {
-            Clinic.toast.error('网络请求失败');
-            if (opts && opts.onError) opts.onError({ ok: false });
-            // 重抛使真实异常（如回调内 ReferenceError）可见于控制台，
-            // 避免被吞后仅剩无定位信息的「网络请求失败」提示
-            throw err;
-        });
+    return Clinic.ajax(url + qs, null, opts);
 };
 
 /**
