@@ -97,7 +97,7 @@ class EmrRepository extends BaseRepository {
         return (int)self::val('SELECT COUNT(*) FROM certificates WHERE cert_no=?', array($certNo));
     }
     public static function insertCertificate($data) { return self::insertRow('certificates', $data); }
-    public static function certificatesByVisitOtherDoctors($visitId, $doctorId) {
+    public static function recordsByVisitOtherDoctors($visitId, $doctorId) {
         return self::q('SELECT * FROM patient_records WHERE visit_id=? AND doctor_id<>? ORDER BY id ASC', array((int)$visitId, (int)$doctorId));
     }
 

@@ -233,36 +233,6 @@ switch ($action) {
         json_ok(array(), '已提交审核，审核通过后生效');
         break;
 
-    /* ---------------- 个人信息（兼容旧接口，改为即时+审核混合提示） ---------------- */
-    case 'profile':
-        // 旧逻辑保留：仅保存即时字段（头像/主题），学历/学位/介绍需走 profile_submit 审核
-        $updates = array();
-        $photo = isset($_FILES['photo']) ? Upload::save('photo', 'user/' . Auth::user()['role']) : null;
-        if ($photo && isset($photo['error'])) {
-            json_fail($photo['error']);
-        }
-        if ($photo && $photo['ok']) {
-            $updates['photo'] = $photo['path'];
-        }
-        $theme = post('theme', '');
-        if (in_array($theme, array('auto', 'light', 'dark'), true)) {
-            $updates['theme'] = $theme;
-        }
-        if ($updates) {
-            $set = array();
-            $params = array();
-            foreach ($updates as $k => $v) {
-                $set[] = $k . '=?';
-                $params[] = $v;
-            }
-            $params[] = Auth::id();
-            UserRepository::exec('UPDATE users SET ' . implode(',', $set) . ' WHERE id=?', $params);
-            if ($photo && $photo['ok']) Auth::updateSession('photo', $photo['path']);
-            if ($theme !== '') Auth::updateSession('theme', $theme);
-        }
-        json_ok(array(), '资料已保存');
-        break;
-
     /* ---------------- 当前用户信息 ---------------- */
     case 'me':
         $u = Auth::user();

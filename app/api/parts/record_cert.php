@@ -86,7 +86,7 @@ function record_part_cert($action) {
         // 中文无大小写差异，ASCII 编码字母统一小写比较）
         $lc = function ($s) { return function_exists('mb_strtolower') ? mb_strtolower((string)$s, 'UTF-8') : strtolower((string)$s); };
         $lkw = $lc($kw);
-        $rows = EmrRepository::certificatesByVisitOtherDoctors($visitId, $u['id']);
+        $rows = EmrRepository::recordsByVisitOtherDoctors($visitId, $u['id']);
         $list = array();
         foreach ($rows as $pr2) {
             $emr2 = json_decode($pr2['emr_data'], true);
