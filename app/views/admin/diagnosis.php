@@ -13,68 +13,182 @@ Router::title('诊断管理');
 <div class="page-head">
     <div><div class="page-title">📖 诊断管理</div><div class="page-desc">ICD10 标准编码库 · 四级分类树：章→节→类目→亚目→诊断</div></div>
 </div>
-<div class="card" style="margin-bottom:12px">
-    <input class="input" id="diagKw" placeholder="🔍 输入诊断码 / 名称 / 拼音首字母（实时检索）" autocomplete="off" oninput="diagSearchDebounced()">
+<div class="card" style="margin-bottom:12px;position:relative">
+    <input class="input" id="diagKw" placeholder="🔍 输入诊断码 / 名称 / 拼音首字母（实时检索）" autocomplete="off" oninput="diagSearchDebounced()" onfocus="showSearchDrop()">
+    <div id="searchDrop" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;max-height:350px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:0 0 8px 8px;box-shadow:0 8px 24px var(--shadow)"></div>
 </div>
-<div class="flex gap-16" style="align-items:flex-start">
-    <div class="card" style="width:360px;flex-shrink:0;max-height:70vh;overflow-y:auto" id="treeBox">
-        <div class="card-title mb-8">📂 分类树</div>
-        <div id="icdTree"><div class="fs-13 text-muted">加载中…</div></div>
+<div class="flex gap-16" style="align-items:stretch">
+    <div class="card" style="width:360px;flex-shrink:0;height:70vh;display:flex;flex-direction:column;padding:0;overflow:hidden" id="treeBox">
+        <div class="card-title" style="padding:14px 16px 0;margin-bottom:8px">📂 分类树</div>
+        <div id="icdTree" style="flex:1;overflow-y:auto;padding:0 16px 16px"><div class="fs-13 text-muted">加载中…</div></div>
     </div>
-    <div class="card" style="flex:1;min-width:0;max-height:70vh;display:flex;flex-direction:column;padding:0;overflow:hidden" id="detailBox">
-        <div id="detailTitle" style="flex-shrink:0;padding:14px 16px 0">选择左侧类目查看详情</div>
-        <div id="detailContent" style="flex:1;overflow-y:auto;padding:12px 16px 16px"></div>
+    <div class="card" style="flex:1;min-width:0;height:70vh;display:flex;flex-direction:column;padding:0;overflow:hidden" id="detailBox">
+        <div id="detailTitle" style="flex-shrink:0;padding:14px 16px 0;display:none"></div>
+        <div id="detailContent" style="flex:1;overflow-y:auto;padding:12px 16px 16px;display:flex;align-items:center;justify-content:center">
+            <div style="text-align:center">
+                <div style="font-size:48px;line-height:1;margin-bottom:12px">📖</div>
+                <div class="fw-600" style="font-size:16px;color:var(--text-muted)">选择左侧类目查看诊断详情</div>
+                <div class="fs-13 text-muted" style="margin-top:6px">点击左侧分类树中的类目节点，右侧将显示该类目下的所有诊断</div>
+            </div>
+        </div>
     </div>
 </div>
 
 <script>
-/* ==================== 搜索 ==================== */
+/* ==================== 搜索浮层 ==================== */
 var diagDebounce = null;
-var diagOffset = 0;
-var diagTotal = 0;
 var diagLoading = false;
+var SEARCH_HIGHLIGHT_CODE = '';   // 当前搜索高亮的诊断码
+
 function diagSearchDebounced() {
     if (diagDebounce) clearTimeout(diagDebounce);
-    diagDebounce = setTimeout(function () { diagOffset = 0; showSearchResults(); }, 300);
+    diagDebounce = setTimeout(function () { showSearchDrop(); }, 300);
 }
-function showSearchResults() {
+function showSearchDrop() {
     var kw = document.getElementById('diagKw').value.trim();
-    if (!kw) { loadTree(); document.getElementById('detailContent').innerHTML = ''; return; }
+    var drop = document.getElementById('searchDrop');
+    if (!kw) { drop.style.display = 'none'; return; }
     if (diagLoading) return;
     diagLoading = true;
-    Clinic.get('/api/icd10?action=list&kw=' + encodeURIComponent(kw) + '&offset=' + diagOffset + '&limit=50', null, {
+    Clinic.get('/api/icd10?action=list&kw=' + encodeURIComponent(kw) + '&limit=50', null, {
         onSuccess: function (json) {
             diagLoading = false;
             var list = json.data.list || [];
-            diagTotal = json.data.total || 0;
-            document.getElementById('icdTree').innerHTML = '<div class="fs-12 text-muted mb-8">检索结果：' + diagTotal + ' 条</div>' +
+            var total = json.data.total || 0;
+            if (!list.length) {
+                drop.innerHTML = '<div class="fs-12 text-muted" style="padding:10px 14px">未检索到匹配诊断</div>';
+                drop.style.display = '';
+                return;
+            }
+            drop.innerHTML = '<div class="fs-12 text-muted" style="padding:6px 14px;border-bottom:1px solid var(--border)">检索到 ' + total + ' 条诊断</div>' +
                 list.map(function (d) {
                     var chain = [];
                     if (d.chapter_name) chain.push(d.chapter_name);
                     if (d.section_name) chain.push(d.section_name);
                     if (d.category_name) chain.push(d.category_name);
                     if (d.subcategory_name) chain.push(d.subcategory_name);
-                    return '<div class="dd-item" style="font-size:13px;padding:6px 8px;border-bottom:1px solid var(--border);cursor:pointer" onclick="showCategoryDetail(\'' + d.category_code + '\',\'' + (d.category_name || '').replace(/'/g, "\\'") + '\')">' +
-                        '<div><span class="fw-600" style="font-family:monospace">' + d.icd10_code + '</span> ' + d.diagnosis_name + '</div>' +
+                    return '<div class="dd-item" style="padding:7px 14px;cursor:pointer;border-bottom:1px solid var(--border)" ' +
+                        'onclick="onSearchPick(\'' + d.category_code + '\',\'' + (d.category_name || '').replace(/'/g, "\\'") + '\',\'' + d.section_code_range + '\',\'' + d.chapter_code_range + '\',\'' + d.icd10_code + '\',\'' + (d.subcategory_code || '').replace(/'/g, "\\'") + '\')">' +
+                        '<div class="fw-600" style="font-size:13px"><span style="font-family:monospace">' + d.icd10_code + '</span> ' + d.diagnosis_name + '</div>' +
                         '<div class="fs-12 text-muted ellipsis">' + chain.join(' → ') + '</div></div>';
-                }).join('') +
-                (diagOffset + list.length < diagTotal
-                    ? '<div class="text-center" style="padding:8px"><button class="btn btn-outline btn-sm" onclick="loadMoreSearch()">加载更多</button></div>'
-                    : '');
-            diagOffset += list.length;
-            document.getElementById('detailTitle').textContent = '搜索：' + kw;
-            document.getElementById('detailContent').innerHTML = '';
+                }).join('');
+            drop.style.display = '';
         },
         onError: function () { diagLoading = false; },
     });
 }
-function loadMoreSearch() { showSearchResults(); }
+/* 点击搜索结果：关闭浮层 → 展开树到类目 → 右侧显示详情 → 高亮 */
+function onSearchPick(catCode, catName, secCode, chCode, diagCode, subCode) {
+    SEARCH_HIGHLIGHT_CODE = diagCode;
+    document.getElementById('searchDrop').style.display = 'none';
+    document.getElementById('diagKw').value = '';
+    // 展开左侧树到目标类目（类目节点点击会自动触发 showCategoryDetail 并高亮）
+    expandTreeToCategory(chCode, secCode, catCode, catName);
+}
+/* 点击页面其他区域关闭搜索浮层 */
+document.addEventListener('click', function (e) {
+    var drop = document.getElementById('searchDrop');
+    var input = document.getElementById('diagKw');
+    if (drop && drop.style.display !== 'none' && !e.target.closest('#searchDrop') && e.target !== input) {
+        drop.style.display = 'none';
+    }
+});
+
+/* ==================== 展开树到指定类目（异步懒加载） ==================== */
+function expandTreeToCategory(chapter, section, category, catName, callback) {
+    expandChapter(chapter, function () {
+        expandSection(section, function () {
+            // 找到类目节点并点击
+            var catItems = document.querySelectorAll('#icdTree .dd-item');
+            var clicked = false;
+            for (var i = 0; i < catItems.length; i++) {
+                var item = catItems[i];
+                if (item.textContent.trim().indexOf(category) === 0) {
+                    item.click();
+                    clicked = true;
+                    break;
+                }
+            }
+            // 未找到类目（树未加载出该节点）→ 直接显示右侧详情兜底
+            if (!clicked) showCategoryDetail(category, catName);
+            if (callback) callback();
+        });
+    });
+}
+function expandChapter(chapter, callback) {
+    var chId = 'ch_' + chapter.replace(/[^A-Z0-9]/g, '_');
+    var container = document.getElementById(chId);
+    if (!container || container.style.display !== 'none' && container.getAttribute('data-loaded')) {
+        if (callback) callback(); return;
+    }
+    if (container.style.display !== 'none') { waitLoaded(container, callback); return; }
+    var row = container.closest('.send-grp');
+    var btn = row ? row.querySelector('.tree-toggle') : null;
+    if (!btn) { if (callback) callback(); return; }
+    toggleChapter(btn);
+    waitLoaded(container, callback);
+}
+function expandSection(section, callback) {
+    var secId = 'sec_' + section.replace(/[^A-Z0-9]/g, '_');
+    var container = document.getElementById(secId);
+    if (!container || container.style.display !== 'none' && container.getAttribute('data-loaded')) {
+        if (callback) callback(); return;
+    }
+    if (container.style.display !== 'none') { waitLoaded(container, callback); return; }
+    var row = container.closest('.send-grp');
+    var btn = row ? row.querySelector('.tree-toggle') : null;
+    if (!btn) { if (callback) callback(); return; }
+    toggleSection(btn);
+    waitLoaded(container, callback);
+}
+function waitLoaded(container, callback) {
+    if (container.getAttribute('data-loaded')) { if (callback) callback(); return; }
+    var timer = setInterval(function () {
+        if (container.getAttribute('data-loaded')) {
+            clearInterval(timer);
+            if (callback) callback();
+        }
+    }, 50);
+    setTimeout(function () { clearInterval(timer); if (callback) callback(); }, 8000);
+}
+
+/* ==================== 高亮 + 展开子诊断 ==================== */
+function highlightAndExpand(diagCode, subCode) {
+    // 清除之前的高亮
+    document.querySelectorAll('#diagListWrap .diag-highlight').forEach(function (el) {
+        el.classList.remove('diag-highlight');
+        el.style.background = '';
+    });
+    var items = document.querySelectorAll('#diagListWrap .dd-item');
+    var found = null;
+    for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        if (item.textContent.indexOf(diagCode) !== -1) {
+            found = item;
+            break;
+        }
+    }
+    if (!found) return;
+    found.style.background = 'var(--primary-soft, #e6f0ff)';
+    found.classList.add('diag-highlight');
+    // 如果是子诊断（父诊断含 + 号），展开父诊断
+    var parent = found.closest('[id^="sub_"]');
+    if (parent && parent.style.display === 'none') {
+        var parentRow = parent.previousElementSibling;
+        if (parentRow && parentRow.onclick) parentRow.click();
+    }
+    found.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 
 /* ==================== 左侧三级树（复用 window.treeToggle） ==================== */
 function loadTree() {
     Clinic.get('/api/icd10?action=tree&level=chapters', null, {
         onSuccess: function (j) {
             var list = j.data.list || [];
+            if (!list.length) {
+                document.getElementById('icdTree').innerHTML = '<div class="empty" style="padding:20px 0"><div class="empty-ico" style="font-size:32px">📂</div>暂无诊断数据</div>';
+                return;
+            }
             document.getElementById('icdTree').innerHTML = list.map(function (ch) {
                 var id = 'ch_' + ch.code.replace(/[^A-Z0-9]/g, '_');
                 return '<div class="send-grp">' +
@@ -99,7 +213,6 @@ function toggleChapter(el) {
     if (target.style.display !== 'none') { window.treeToggle(btn); return; }
     window.treeToggle(btn);
     if (target.getAttribute('data-loaded')) return;
-    target.setAttribute('data-loaded', '1');
     var code = head.querySelector('b').textContent.trim().split(' ')[0];
     Clinic.get('/api/icd10?action=tree&level=sections&parent=' + encodeURIComponent(code), null, {
         onSuccess: function (j) {
@@ -115,6 +228,7 @@ function toggleChapter(el) {
                     '  </div>' +
                     '</div>';
             }).join('');
+            target.setAttribute('data-loaded', '1');
         },
     });
 }
@@ -126,7 +240,6 @@ function toggleSection(el) {
     if (target.style.display !== 'none') { window.treeToggle(btn); return; }
     window.treeToggle(btn);
     if (target.getAttribute('data-loaded')) return;
-    target.setAttribute('data-loaded', '1');
     var code = head.querySelector('span').textContent.trim().split(' ')[0];
     Clinic.get('/api/icd10?action=tree&level=categories&parent=' + encodeURIComponent(code), null, {
         onSuccess: function (j) {
@@ -135,6 +248,7 @@ function toggleSection(el) {
                 return '<div class="dd-item" style="font-size:12px;padding:4px 8px;cursor:pointer;margin-left:12px;border-radius:4px" onclick="showCategoryDetail(\'' + cat.code + '\',\'' + (cat.name || '').replace(/'/g, "\\'") + '\')">' +
                     '<span class="fw-600">' + cat.code + '</span>  ' + cat.name + '</div>';
             }).join('');
+            target.setAttribute('data-loaded', '1');
         },
     });
 }
@@ -145,13 +259,15 @@ var CURRENT_CATEGORY = '';
 function showCategoryDetail(code, name) {
     CURRENT_CATEGORY = code;
     document.getElementById('diagKw').value = '';
-    // 类目标题：编码徽章 + 名称加粗（可折行）
+    // 类目标题：编码 + 名称整体放入徽章，醒目
+    document.getElementById('detailTitle').style.display = '';
     document.getElementById('detailTitle').innerHTML =
-        '<div style="display:flex;align-items:flex-start;gap:10px;border-bottom:1px solid var(--border);padding-bottom:10px">' +
-        '<span class="badge badge-primary" style="font-family:monospace;font-weight:700;font-size:14px;padding:4px 12px;flex-shrink:0;margin-top:2px">' + code + '</span>' +
-        '<div style="font-weight:700;font-size:15px;line-height:1.5">' + name + '</div>' +
+        '<div style="display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);padding-bottom:10px">' +
+        '<span class="badge badge-primary" style="font-family:monospace;font-weight:700;font-size:15px;padding:6px 14px">' + code + ' ' + name + '</span>' +
         '</div>';
     var content = document.getElementById('detailContent');
+    // 从居中引导态切换为普通内容区
+    content.style.display = 'block';
     content.innerHTML = '<div class="spinner" style="border-top-color:var(--primary);width:24px;height:24px;margin:10px auto"></div>';
     // 加载诊断明细
     Clinic.get('/api/icd10?action=list&category=' + encodeURIComponent(code) + '&limit=500', null, {
@@ -159,6 +275,11 @@ function showCategoryDetail(code, name) {
             var diags = j2.data.list || [];
             content.innerHTML = '<div class="fs-13 fw-600 mb-8">诊断明细（' + diags.length + '）</div>' +
                 '<div id="diagListWrap">' + buildDiagListHtml(diags) + '</div>';
+            // 若来自搜索定位（存在待高亮诊断码），渲染完成后执行高亮 + 展开子诊断
+            if (SEARCH_HIGHLIGHT_CODE) {
+                highlightAndExpand(SEARCH_HIGHLIGHT_CODE);
+                SEARCH_HIGHLIGHT_CODE = '';
+            }
         },
     });
 }
