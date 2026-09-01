@@ -49,60 +49,31 @@ class BaseRepository {
         return DatabaseManager::insert($sql, $params);
     }
 
-    // ==================== ICD-10 字典库查询 ====================
+    // ==================== ICD-10 字典库查询（委托 DatabaseManager 路由） ====================
 
     /** ICD-10 多行查询 */
     public static function icd10q($sql, $params = array()) {
-        $st = self::icd10Db()->prepare($sql);
-        $st->execute($params);
-        return $st->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    /** ICD-10 单行查询 */
-    public static function icd10one($sql, $params = array()) {
-        $st = self::icd10Db()->prepare($sql);
-        $st->execute($params);
-        $r = $st->fetch(PDO::FETCH_ASSOC);
-        return $r === false ? null : $r;
+        return DatabaseManager::q('icd10', $sql, $params);
     }
 
     /** ICD-10 单值查询 */
     public static function icd10val($sql, $params = array()) {
-        $st = self::icd10Db()->prepare($sql);
-        $st->execute($params);
-        $v = $st->fetchColumn();
-        return $v === false ? null : $v;
-    }
-
-    /** ICD-10 写操作 */
-    public static function icd10exec($sql, $params = array()) {
-        $st = self::icd10Db()->prepare($sql);
-        $st->execute($params);
-        return $st->rowCount();
+        return DatabaseManager::val('icd10', $sql, $params);
     }
 
     /** 按库名动态查询（数据导入等场景：$db='main' 或 'icd10'） */
     public static function dbVal($db, $sql, $params = array()) {
-        if ($db === 'icd10') return self::icd10val($sql, $params);
-        return self::val($sql, $params);
+        return DatabaseManager::val($db, $sql, $params);
     }
 
-    /** 通用动态执行（供 API 层在事务中通过 Repository 门面执行动态 SQL） */
+    /** 通用动态执行（供 API 层在事务中使用，委托 self::exec） */
     public static function prepareExec($sql, $params = array()) {
-        self::db()->prepare($sql)->execute($params);
+        return self::exec($sql, $params);
     }
 
-    /** 通用动态查询（返回多行，供 API 层在事务中通过 Repository 门面执行动态 SQL） */
-    public static function prepareQ($sql, $params = array()) {
-        $st = self::db()->prepare($sql);
-        $st->execute($params);
-        return $st->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    /** 通用动态插入并返回 lastInsertId（供 API 层在事务中使用） */
+    /** 通用动态插入（供 API 层在事务中使用，委托 self::insert） */
     public static function prepareInsert($sql, $params = array()) {
-        self::db()->prepare($sql)->execute($params);
-        return (int)self::db()->lastInsertId();
+        return self::insert($sql, $params);
     }
 
     // ==================== 事务辅助 ====================
@@ -138,6 +109,11 @@ class BaseRepository {
         if ($order) $sql .= " ORDER BY $order";
         if ($limit) $sql .= " LIMIT $limit";
         return self::q($sql, $params);
+    }
+
+    /** 按单字段等值过滤查询 */
+    protected static function findAllByField($table, $field, $value, $order = 'id') {
+        return self::findAll($table, ($value !== null && $value !== '') ? "$field=?" : '', ($value !== null && $value !== '') ? array($value) : array(), $order);
     }
 
     /** 计数 */

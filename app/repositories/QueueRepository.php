@@ -60,7 +60,7 @@ class QueueRepository extends BaseRepository {
 
     /** 医生信息（大屏展示用） */
     public static function doctorInfo($doctorId) {
-        return self::one('SELECT name, emp_no, title, intro, photo FROM users WHERE id=?', array((int)$doctorId));
+        return UserRepository::doctorProfile($doctorId);
     }
 
     /** 大屏医生心跳保活检测：超过 90 秒未更新视为异常断开 */

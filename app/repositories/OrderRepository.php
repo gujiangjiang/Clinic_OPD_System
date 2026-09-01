@@ -72,41 +72,25 @@ class OrderRepository extends BaseRepository {
     /* ---------------- 项目字典（检验/检查/处置） ---------------- */
 
     public static function labItems($status = '') {
-        $sql = 'SELECT * FROM lab_items';
-        $params = array();
-        if ($status !== '') { $sql .= " WHERE status=?"; $params[] = $status; }
-        $sql .= ' ORDER BY id';
-        return self::q($sql, $params);
+        return self::findAllByField('lab_items', 'status', $status, 'id');
     }
 
     public static function labItemById($id) { return self::findById('lab_items', $id); }
 
     public static function examItems($status = '') {
-        $sql = 'SELECT * FROM exam_items';
-        $params = array();
-        if ($status !== '') { $sql .= " WHERE status=?"; $params[] = $status; }
-        $sql .= ' ORDER BY id';
-        return self::q($sql, $params);
+        return self::findAllByField('exam_items', 'status', $status, 'id');
     }
 
     public static function examItemById($id) { return self::findById('exam_items', $id); }
 
     public static function disposalItems($status = '') {
-        $sql = 'SELECT * FROM disposal_items';
-        $params = array();
-        if ($status !== '') { $sql .= " WHERE status=?"; $params[] = $status; }
-        $sql .= ' ORDER BY id';
-        return self::q($sql, $params);
+        return self::findAllByField('disposal_items', 'status', $status, 'id');
     }
 
     public static function disposalItemById($id) { return self::findById('disposal_items', $id); }
 
     public static function categories($ctype = '') {
-        $sql = 'SELECT * FROM item_categories';
-        $params = array();
-        if ($ctype !== '') { $sql .= " WHERE ctype=?"; $params[] = $ctype; }
-        $sql .= ' ORDER BY sort, id';
-        return self::q($sql, $params);
+        return self::findAllByField('item_categories', 'ctype', $ctype, 'sort, id');
     }
 
     /** 检验组合成员（组合项目 id → 成员列表） */

@@ -137,7 +137,7 @@ class EmrRepository extends BaseRepository {
 
     /** 会诊进行中数量（进行中会诊用） */
     public static function activeConsultsByVisit($visitId) {
-        return self::q("SELECT id FROM consultations WHERE visit_id=? AND status IN ('pending','doing')", array((int)$visitId));
+        return ConsultationRepository::activeByVisit($visitId);
     }
 
 

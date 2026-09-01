@@ -13,12 +13,12 @@ class CashierRepository extends BaseRepository {
 
     /** 查询可用科室（挂号用，可停用过滤） */
     public static function activeDept($deptId) {
-        return self::one('SELECT * FROM departments WHERE id=? AND status=1', array((int)$deptId));
+        return DeptRepository::activeById($deptId);
     }
 
     /** 查询科室（任意状态） */
     public static function dept($deptId) {
-        return self::one('SELECT * FROM departments WHERE id=?', array((int)$deptId));
+        return DeptRepository::byId($deptId);
     }
 
     /** 所有启用科室（挂号列表/号源展示） */
@@ -101,7 +101,7 @@ class CashierRepository extends BaseRepository {
 
     /** 患者全部挂号（倒序） */
     public static function visitsOfPatient($patientNo) {
-        return self::q('SELECT * FROM registrations WHERE patient_no=? ORDER BY registered_at DESC, id DESC', array($patientNo));
+        return PatientRepository::visitsOf($patientNo);
     }
 
     /** 当日挂号列表（含患者姓名/性别/年龄，按就诊序号） */
@@ -220,7 +220,7 @@ class CashierRepository extends BaseRepository {
 
     /** 药品退费恢复库存 */
     public static function restoreDrugStock($drugId, $qty) {
-        return self::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array((int)$qty, (int)$drugId));
+        return DrugRepository::restoreStock($drugId, $qty);
     }
 
     /** 新增库存流水（委托 DrugRepository 统一实现，签名保持一致） */
