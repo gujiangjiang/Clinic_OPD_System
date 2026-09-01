@@ -11,6 +11,7 @@
  * ============================================================ */
 require __DIR__ . '/_init.php';
 require_once APP_ROOT . '/app/includes/forms.php';
+require_once __DIR__ . '/parts/dept_common.php';
 
 $u = Auth::user();
 
@@ -18,62 +19,12 @@ switch ($action) {
 
     /* ==================== 检验科首页统计 ==================== */
     case 'home_stats':
-        $today = date('Y-m-d');
-        $todayItems = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='lab' AND date(created_at)=?", array($today));
-        $todayFee = (float)OrderRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type='lab' AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($today));
-        $pendingReg = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='lab' AND status='paid'", array());
-        $pendingRep = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='lab' AND status='registered'", array());
-        $itemTotal = (int)OrderRepository::val("SELECT COUNT(*) FROM lab_items WHERE status='approved'", array());
-        $pendingAudit = (int)OrderRepository::val("SELECT COUNT(*) FROM lab_items WHERE status='pending'", array());
-        $trend = trend_7_days(function ($day) {
-            return (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='lab' AND date(created_at)=?", array($day));
-        });
-        json_ok(array(
-            'kpi' => array('today_items' => $todayItems, 'today_fee' => round($todayFee, 2),
-                'pending_reg' => $pendingReg, 'pending_rep' => $pendingRep, 'item_total' => $itemTotal, 'pending_audit' => $pendingAudit),
-            'trend' => $trend,
-        ));
+        dept_home_stats('lab', 'lab_items');
         break;
 
     /* ==================== 队列列表（HTML） ==================== */
     case 'queue':
-        $status = get('status', 'paid');
-        $map = array('paid' => '待登记', 'registered' => '待出报告', 'done' => '已完成');
-        // 说明：SQLite 分散式数据库不支持跨库 JOIN，患者信息按 patient_no 逐条补充
-        $rows = OrderRepository::q("SELECT * FROM order_items WHERE item_type='lab' AND status=? ORDER BY id DESC LIMIT 200", array($status));
-        $html = '<div class="fs-13 text-muted mb-8">' . $map[$status] . '：' . count($rows) . ' 项</div>';
-        if (!$rows) {
-            $html .= '<div class="empty"><div class="empty-ico">🧪</div>暂无' . $map[$status] . '项目</div>';
-        } else {
-            $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
-                '<th>患者</th><th>检验项目</th><th>流水号</th><th>开单医生</th><th>开单时间</th><th>操作</th></tr></thead><tbody>';
-            foreach ($rows as $r) {
-                $p = OrderRepository::one('SELECT name, gender, birth_date FROM patients WHERE patient_no=?', array($r['patient_no']));
-                $html .= '<tr>' .
-                    '<td class="fw-600">' . e($p ? $p['name'] : '') . ' <span class="fs-12 text-muted fw-400">' . e($p ? $p['gender'] : '') . '/' . ($p ? age_format($p['birth_date']) : '—') . '</span></td>' .
-                    '<td>' . e($r['item_name']) . '</td>' .
-                    '<td>' . e($r['flow_no']) . '</td>' .
-                    '<td>' . e($r['doctor_name']) . '</td>' .
-                    '<td class="fs-12">' . e(substr($r['created_at'], 5, 11)) . '</td>' .
-                    '<td>';
-                if ($status === 'paid') {
-                    $html .= '<button class="btn btn-primary btn-sm" onclick="labRegister(\'' . e(oid($r['id'])) . '\')">登记</button>';
-                } elseif ($status === 'registered') {
-                    $html .= '<button class="btn btn-success btn-sm" onclick="labResultForm(\'' . e(oid($r['id'])) . '\')">录入结果</button>';
-                } else {
-                    $report = OrderRepository::one('SELECT * FROM reports WHERE result_id=? AND status<>? ORDER BY id DESC', array((int)$r['result_id'], 'withdrawn'));
-                    if ($report) {
-                        $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' . e(oid($report['id'])) . '\',null)">查看报告</button> ' .
-                            '<button class="btn btn-outline btn-sm" onclick="withdrawReport(\'' . e(oid($report['id'])) . '\')">申请撤回</button>';
-                    } else {
-                        $html .= '<span class="badge badge-gray">撤回审核中</span>';
-                    }
-                }
-                $html .= '</td></tr>';
-            }
-            $html .= '</tbody></table></div>';
-        }
-        json_ok(array('html' => $html));
+        dept_queue('lab', '🧪', 'labRegister', 'labResultForm');
         break;
 
     /* ==================== 新增检验项目（需求19：提交后需管理员审核） ==================== */
@@ -89,7 +40,6 @@ switch ($action) {
         $price = (float)post('price', 0);
         if ($name === '') json_fail('请填写项目名称');
         if ($id > 0) {
-            // 重新提交：更新原记录内容，回到待审核状态，并重建一条审核记录
             OrderRepository::exec('UPDATE lab_items SET category=?, name=?, unit=?, price=?, normal_range=?, critical_low=?, critical_high=?, description=?, status=? WHERE id=?', array(
                 $category, $name, post('unit'), $price, post('normal_range'), post('critical_low'), post('critical_high'), post('description'), 'pending', $id,
             ));
@@ -108,13 +58,7 @@ switch ($action) {
 
     /* ==================== 登记（采样） ==================== */
     case 'register':
-        $itemId = did(post('item_id'));
-        $it = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array($itemId));
-        if (!$it || $it['item_type'] !== 'lab' || $it['status'] !== 'paid') {
-            json_fail('项目不存在或状态异常');
-        }
-        OrderRepository::exec("UPDATE order_items SET status='registered' WHERE id=?", array($itemId));
-        json_ok(array(), '登记成功，请采样检验');
+        dept_register('lab');
         break;
 
     /* ==================== 检验录入表单（HTML，含正常范围与危急值提示；检验组显示成员明细） ==================== */
@@ -196,7 +140,6 @@ switch ($action) {
             if ($value === '') json_fail('请输入检验结果数值');
             $valuesJson = json_encode(array('value' => $value), JSON_UNESCAPED_UNICODE);
         }
-        $row = get_visit_row($it['visit_id']);
 
         // 写入结果（撤回后重填时更新原结果）
         $result = OrderRepository::one('SELECT * FROM results WHERE order_item_id=?', array($itemId));
@@ -234,16 +177,7 @@ switch ($action) {
 
     /* ==================== 申请撤回报告（管理员审核） ==================== */
     case 'withdraw':
-        $reportId = did(post('report_id'));
-        $reason = post('reason', '');
-        if ($reason === '') json_fail('请填写撤回原因');
-        $report = OrderRepository::one('SELECT * FROM reports WHERE id=?', array($reportId));
-        if (!$report || $report['status'] !== 'done') json_fail('报告不存在或已撤回');
-        submit_audit('report_withdraw', $reportId,
-            '检验报告撤回申请：' . $report['report_no'],
-            '检验科 ' . $u['name'] . ' 申请撤回报告 ' . $report['report_no'] . '，原因：' . $reason,
-            array('data' => json_encode(array('report_no' => $report['report_no'], 'reason' => $reason), JSON_UNESCAPED_UNICODE)));
-        json_ok(array(), '撤回申请已提交，等待管理员审核');
+        dept_withdraw('检验', '检验');
         break;
 
     default:
