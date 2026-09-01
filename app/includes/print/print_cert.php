@@ -8,24 +8,19 @@ function pt_certificate($visit, $patient, $record, $cert, $doctorName) {
     $html .= pt_header('诊断证明书');
 
     // 右上角条形码：证明号
-    $html .= '<div class="print-record-barcode">' . barcode128_svg($certNo) .
-        '<div>' . e($certNo) . '</div></div>';
+    $html .= pt_barcode($certNo);
 
     // 患者信息两行（第一行 姓名/性别/出生日期/年龄，第二行 患者ID/流水号/证明号）
-    $cell = function ($k, $val) {
-        $val = ($val !== '' && $val !== null) ? $val : '—';
-        return '<span class="print-info-cell"><strong>' . e($k) . '</strong>：' . e($val) . '</span>';
-    };
     $html .= '<div class="print-info-lines">' .
         '<div class="print-info-line">' .
-        $cell('姓名', isset($visit['name']) && $visit['name'] !== '' ? $visit['name'] : (isset($patient['name']) ? $patient['name'] : '')) .
-        $cell('性别', isset($visit['gender']) && $visit['gender'] !== '' ? $visit['gender'] : (isset($patient['gender']) ? $patient['gender'] : '')) .
-        $cell('出生日期', isset($patient['birth_date']) ? $patient['birth_date'] : '') .
-        $cell('年龄', function_exists('pt_age_text') ? pt_age_text($patient, $visit) : '') . '</div>' .
+        pt_info_cell('姓名', isset($visit['name']) && $visit['name'] !== '' ? $visit['name'] : (isset($patient['name']) ? $patient['name'] : '')) .
+        pt_info_cell('性别', isset($visit['gender']) && $visit['gender'] !== '' ? $visit['gender'] : (isset($patient['gender']) ? $patient['gender'] : '')) .
+        pt_info_cell('出生日期', isset($patient['birth_date']) ? $patient['birth_date'] : '') .
+        pt_info_cell('年龄', function_exists('pt_age_text') ? pt_age_text($patient, $visit) : '') . '</div>' .
         '<div class="print-info-line">' .
-        $cell('患者ID', isset($visit['patient_no']) ? $visit['patient_no'] : '') .
-        $cell('流水号', isset($visit['flow_no']) ? $visit['flow_no'] : '') .
-        $cell('证明号', $certNo) . '</div>' .
+        pt_info_cell('患者ID', isset($visit['patient_no']) ? $visit['patient_no'] : '') .
+        pt_info_cell('流水号', isset($visit['flow_no']) ? $visit['flow_no'] : '') .
+        pt_info_cell('证明号', $certNo) . '</div>' .
         '</div><div class="print-line"></div>';
 
     // 病历摘要与医生建议（每节独立 record-section，可随分页器跨页）
@@ -35,12 +30,9 @@ function pt_certificate($visit, $patient, $record, $cert, $doctorName) {
     $html .= pt_sec('初步诊断', e(isset($record['preliminary_diagnosis']) ? $record['preliminary_diagnosis'] : ''));
     $html .= pt_sec('医生建议', nl2br(e(isset($cert['content']) ? $cert['content'] : '')));
 
-    // 医生签名右下角 + 末尾横线 + 页脚（左下角开具时间、右下角打印时间）
+    // 医生签名右下角 + 末尾横线 + 页脚
     $html .= '<div class="print-record-sign">医生：' . e($doctorName) . '</div>';
-    $html .= '<div class="print-line"></div>';
-    $html .= '<div class="print-record-foot">' .
-        '<span>开具时间：' . e(isset($cert['created_at']) ? $cert['created_at'] : '') . '</span>' .
-        '<span>打印时间：' . now_str() . '</span></div>';
+    $html .= pt_doc_foot('开具时间', isset($cert['created_at']) ? $cert['created_at'] : '');
     $html .= '</div>';
     return $html;
 }

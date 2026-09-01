@@ -29,8 +29,7 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
         // 右上角条形码（与挂号凭条一致：门诊号 flow_no，方便患者扫码缴费/打印报告）
         $code = isset($visit['flow_no']) && $visit['flow_no'] !== '' ? $visit['flow_no'] : (isset($patient['patient_no']) ? $patient['patient_no'] : '');
         if ($code !== '') {
-            $html .= '<div class="print-record-barcode">' . barcode128_svg($code) .
-                '<div>' . e($code) . '</div></div>';
+            $html .= pt_barcode($code);
         }
     }
 
@@ -42,21 +41,17 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
     $name = isset($visit['name']) ? $visit['name'] : (isset($patient['name']) ? $patient['name'] : '');
     $gender = isset($visit['gender']) ? $visit['gender'] : '';
     $age = pt_age_text($patient, $visit);
-    $cell = function ($k, $val) {
-        $val = ($val !== '' && $val !== null) ? $val : '—';
-        return '<span class="print-info-cell"><strong>' . e($k) . '</strong>：' . e($val) . '</span>';
-    };
     if ($emergency) {
-        $info = '<div class="print-info-lines">' .
-            '<div class="print-info-line">' .
-            $cell('姓名', $name) . $cell('性别', $gender) .
-            $cell('出生日期', isset($patient['birth_date']) ? $patient['birth_date'] : '') .
-            $cell('年龄', $age) . '</div>' .
-            '<div class="print-info-line">' .
-            $cell('患者ID', isset($patient['patient_no']) ? $patient['patient_no'] : '') .
-            $cell('就诊科室', isset($visit['current_dept_name']) ? $visit['current_dept_name'] : '') .
-            $cell('就诊时间', isset($visit['registered_at']) ? $visit['registered_at'] : '') .
-            '</div></div>';
+$info = '<div class="print-info-lines">' .
+        '<div class="print-info-line">' .
+        pt_info_cell('姓名', $name) . pt_info_cell('性别', $gender) .
+        pt_info_cell('出生日期', isset($patient['birth_date']) ? $patient['birth_date'] : '') .
+        pt_info_cell('年龄', $age) . '</div>' .
+        '<div class="print-info-line">' .
+        pt_info_cell('患者ID', isset($patient['patient_no']) ? $patient['patient_no'] : '') .
+        pt_info_cell('就诊科室', isset($visit['current_dept_name']) ? $visit['current_dept_name'] : '') .
+        pt_info_cell('就诊时间', isset($visit['registered_at']) ? $visit['registered_at'] : '') .
+        '</div></div>';
     } else {
         $items = array(
             '姓名' => $name,
@@ -74,7 +69,7 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
         );
         $info = '<div class="print-info-grid">';
         foreach ($items as $k => $val) {
-            $info .= $cell($k, $val);
+            $info .= pt_info_cell($k, $val);
         }
         $info .= '</div>';
     }
@@ -211,7 +206,7 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
         $treat = '';
         if ($rxs) foreach ($rxs as $rx) $treat .= '<div class="pf-rx-line">' . $rx . '</div>';
         $dispParts = array_merge($procs, isset($emr['disposition_custom']) && $emr['disposition_custom'] !== '' ? array(e($emr['disposition_custom'])) : array());
-        if ($dispParts) $treat .= ($treat ? '' : '') . '<span class="pf-treat-proc">' . implode('，', $dispParts) . '</span>';
+        if ($dispParts) $treat .= '<span class="pf-treat-proc">' . implode('，', $dispParts) . '</span>';
         // 门诊处置：续写空节不显示
         if (!$isProgress || $treat !== '') {
             $secs[] = array('门诊处置', $treat !== '' ? $treat : '-');

@@ -11,14 +11,9 @@ function pt_consult($visit, $patient, $cons, $snap) {
 
     // 右上角条形码 + 会诊单号
     $displayNo = isset($cons['consult_no']) && $cons['consult_no'] !== '' ? $cons['consult_no'] : (string)$cons['id'];
-    $html .= '<div class="print-record-barcode">' . barcode128_svg($displayNo) .
-        '<div>' . e($displayNo) . '</div></div>';
+    $html .= pt_barcode($displayNo);
 
     // 患者信息：姓名/性别/出生日期/年龄 + 患者ID/流水号/申请科室（无临床诊断）
-    $cell = function ($k, $val) {
-        $val = ($val !== '' && $val !== null) ? $val : '—';
-        return '<span class="print-info-cell"><strong>' . e($k) . '</strong>：' . e($val) . '</span>';
-    };
     $applyDept = (string)$cons['from_dept_name'];
     if ($applyDept === '') {
         $docU = DB::one('SELECT current_dept_id FROM users WHERE id=?', array((int)$cons['from_doctor_id']));
@@ -29,14 +24,14 @@ function pt_consult($visit, $patient, $cons, $snap) {
     }
     $html .= '<div class="print-info-lines">' .
         '<div class="print-info-line">' .
-        $cell('姓名', $patient ? $patient['name'] : '') .
-        $cell('性别', $patient ? $patient['gender'] : '') .
-        $cell('出生日期', $patient ? $patient['birth_date'] : '') .
-        $cell('年龄', $patient ? pt_age_text($patient, null) : '') . '</div>' .
+        pt_info_cell('姓名', $patient ? $patient['name'] : '') .
+        pt_info_cell('性别', $patient ? $patient['gender'] : '') .
+        pt_info_cell('出生日期', $patient ? $patient['birth_date'] : '') .
+        pt_info_cell('年龄', $patient ? pt_age_text($patient, null) : '') . '</div>' .
         '<div class="print-info-line">' .
-        $cell('患者ID', isset($cons['patient_no']) ? $cons['patient_no'] : '') .
-        $cell('流水号', isset($cons['flow_no']) ? $cons['flow_no'] : '') .
-        $cell('申请科室', $applyDept) . '</div>' .
+        pt_info_cell('患者ID', isset($cons['patient_no']) ? $cons['patient_no'] : '') .
+        pt_info_cell('流水号', isset($cons['flow_no']) ? $cons['flow_no'] : '') .
+        pt_info_cell('申请科室', $applyDept) . '</div>' .
         '</div><div class="print-line"></div>';
 
     // 正文：主诉/现病史/体格检查/会诊详情/会诊目的/会诊科室
@@ -59,10 +54,7 @@ function pt_consult($visit, $patient, $cons, $snap) {
     $html .= '<div class="print-record-sign">' .
         '申请医生：' . e(isset($cons['from_doctor_name']) ? $cons['from_doctor_name'] : '') . '</div>';
     // 末尾横线 + 页脚：左下角申请时间、右下角打印时间
-    $html .= '<div class="print-line"></div>';
-    $html .= '<div class="print-record-foot">' .
-        '<span>申请时间：' . e(isset($cons['created_at']) ? $cons['created_at'] : '') . '</span>' .
-        '<span>打印时间：' . now_str() . '</span></div>';
+    $html .= pt_doc_foot('申请时间', isset($cons['created_at']) ? $cons['created_at'] : '');
 
     $html .= '</div>';
     return $html;

@@ -40,30 +40,23 @@ function pt_age_text($patient, $visit) {
     return '';
 }
 
-function pt_patient_info($visit, $patient) {
-    $name = isset($visit['name']) ? $visit['name'] : (isset($patient['name']) ? $patient['name'] : '');
-    $gender = isset($visit['gender']) ? $visit['gender'] : '';
-    $age = pt_age_text($patient, $visit);
-    $items = array(
-        '姓名' => $name,
-        '性别' => $gender,
-        '年龄' => $age,
-        '患者ID' => isset($patient['patient_no']) ? $patient['patient_no'] : '',
-        '证件号码' => isset($patient['id_card']) ? $patient['id_card'] : '',
-        '门诊流水号' => isset($visit['flow_no']) ? $visit['flow_no'] : '',
-        '科室' => isset($visit['first_dept_name']) ? $visit['first_dept_name'] : (isset($visit['current_dept_name']) ? $visit['current_dept_name'] : ''),
-        '就诊序号' => isset($visit['visit_seq']) ? str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) : '',
-        '挂号时间' => isset($visit['registered_at']) ? $visit['registered_at'] : '',
-        '费用类别' => isset($visit['fee_type']) ? $visit['fee_type'] : '',
-    );
-    $html = '<div class="print-info">';
-    foreach ($items as $k => $v) {
-        if ($v !== '' && $v !== null) {
-            $html .= '<span><strong>' . e($k) . '</strong>：' . e($v) . '</span>';
-        }
-    }
-    $html .= '</div><div class="print-line"></div>';
-    return $html;
+/** 打印信息格：键值对（空值回退 —） */
+function pt_info_cell($k, $val) {
+    $val = ($val !== '' && $val !== null) ? $val : '—';
+    return '<span class="print-info-cell"><strong>' . e($k) . '</strong>：' . e($val) . '</span>';
+}
+
+/** 条形码块（文档类打印） */
+function pt_barcode($code) {
+    return '<div class="print-record-barcode">' . barcode128_svg($code) . '<div>' . e($code) . '</div></div>';
+}
+
+/** 文档页脚（末尾横线 + 左下角时间/右下角打印时间） */
+function pt_doc_foot($timeLabel, $time) {
+    return '<div class="print-line"></div>' .
+        '<div class="print-record-foot">' .
+        '<span>' . e($timeLabel) . '：' . e($time) . '</span>' .
+        '<span>打印时间：' . now_str() . '</span></div>';
 }
 
 function pt_sec($label, $body) {

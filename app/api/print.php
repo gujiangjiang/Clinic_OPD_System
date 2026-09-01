@@ -301,17 +301,12 @@ switch ($action) {
             $item = EmrRepository::one('SELECT * FROM ' . ($result['type'] === 'lab' ? 'lab_items' : 'exam_items') . ' WHERE id=?', array($result['item_id']));
         }
         $row = get_visit_row($report['visit_id']);
-        $visit = $row ? $row['visit'] : array();
         // 报告打印角色白名单（检验/影像/医生/管理员）；不做科室归属限制——
         // 报告由对应科室统一登记出具，跨就诊打印属正常工作流
         if (!in_array($u['role'], array('doctor', 'lab', 'imaging', 'admin'), true)) {
             json_fail('无权限打印该报告');
         }
-        $visit['name'] = $row && $row['patient'] ? $row['patient']['name'] : '';
-        $visit['gender'] = $row && $row['patient'] ? $row['patient']['gender'] : '';
-        $visit['age'] = $row && $row['patient'] ? $row['patient']['age'] : '';
-        $visit['birth_date'] = $row && $row['patient'] ? $row['patient']['birth_date'] : '';
-        json_ok(array('html' => pt_report($report, $result, $item, $visit)));
+        json_ok(array('html' => pt_report($report, $result, $item)));
         break;
 
     default:

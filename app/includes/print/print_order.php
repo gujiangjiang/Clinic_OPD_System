@@ -10,8 +10,7 @@ function pt_order($order, $items, $title, $opts = array()) {
     $html .= pt_header($title);
 
     // 右上角条形码：处方单号/申请单号（输液笺用派生单号，与原处方单区分）
-    $html .= '<div class="print-record-barcode">' . barcode128_svg($displayNo) .
-        '<div>' . e($displayNo) . '</div></div>';
+    $html .= pt_barcode($displayNo);
 
     // 患者信息：参考急诊病历两行流式排版、两端对齐（无论门诊/急诊开单统一此样式）
     $patient = DB::one('SELECT * FROM patients WHERE patient_no=?', array($order['patient_no']));
@@ -31,8 +30,7 @@ function pt_order($order, $items, $title, $opts = array()) {
         }
     }
     $cell = function ($k, $val) {
-        $val = ($val !== '' && $val !== null) ? $val : '—';
-        return '<span class="print-info-cell"><strong>' . e($k) . '</strong>：' . e($val) . '</span>';
+        return pt_info_cell($k, $val);
     };
     // 开单科室：取开单医生当前科室（单号已由右上角条形码展示，这里显示科室）
     $deptName = '';
@@ -166,9 +164,7 @@ function pt_order($order, $items, $title, $opts = array()) {
         $html .= '<div class="print-line"></div>';
         $html .= '<div class="print-note" style="display:flex;font-size:13px;line-height:1.8;margin-top:4px;margin-bottom:4px"><span style="flex:1;text-align:left">调配：</span><span style="flex:1;text-align:left">复核、发药：</span></div>';
         $html .= '<div class="print-line"></div>';
-        $html .= '<div class="print-record-foot">' .
-            '<span>开单时间：' . e(isset($order['created_at']) ? $order['created_at'] : '') . '</span>' .
-            '<span>打印时间：' . now_str() . '</span></div>';
+        $html .= pt_doc_foot('开单时间', isset($order['created_at']) ? $order['created_at'] : '');
         $html .= '<div class="print-note" style="text-align:center">（本处方当日内有效）</div>';
     } else {
         // 合计：不用表格行，直接显示在表格右下方（避免超出表格空间）
@@ -184,10 +180,7 @@ function pt_order($order, $items, $title, $opts = array()) {
         $html .= '<div class="print-record-sign">' .
             '开单医生：' . e(isset($order['doctor_name']) ? $order['doctor_name'] : '') . '</div>';
         // 末尾横线 + 页脚：左下角开单时间、右下角打印时间
-        $html .= '<div class="print-line"></div>';
-        $html .= '<div class="print-record-foot">' .
-            '<span>开单时间：' . e(isset($order['created_at']) ? $order['created_at'] : '') . '</span>' .
-            '<span>打印时间：' . now_str() . '</span></div>';
+        $html .= pt_doc_foot('开单时间', isset($order['created_at']) ? $order['created_at'] : '');
     }
     $html .= '</div>';
     return $html;

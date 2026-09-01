@@ -1,7 +1,7 @@
 <?php
 /** print/print_report.php — 统一打印模板：检验/检查报告 */
 
-function pt_report($report, $result, $item, $visit) {
+function pt_report($report, $result, $item) {
     $title = ($result['type'] === 'lab') ? '检验报告单' : '检查报告单';
     $html = pt_header($title);
     $html .= '<div class="print-info">

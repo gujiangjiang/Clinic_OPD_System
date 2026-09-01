@@ -24,19 +24,15 @@ function pt_consent($visit, $patient, $consent, $doctorName, $record) {
     $name = isset($visit['name']) ? $visit['name'] : (isset($patient['name']) ? $patient['name'] : '');
     $gender = isset($visit['gender']) ? $visit['gender'] : '';
     $age = pt_age_text($patient, $visit);
-    $cell = function ($k, $val) {
-        $val = ($val !== '' && $val !== null) ? $val : '—';
-        return '<span class="print-info-cell"><strong>' . e($k) . '</strong>：' . e($val) . '</span>';
-    };
     $html .= '<div class="print-info-lines">' .
         '<div class="print-info-line">' .
-        $cell('姓名', $name) . $cell('性别', $gender) .
-        $cell('出生日期', isset($patient['birth_date']) ? $patient['birth_date'] : '') .
-        $cell('年龄', $age) . '</div>' .
+        pt_info_cell('姓名', $name) . pt_info_cell('性别', $gender) .
+        pt_info_cell('出生日期', isset($patient['birth_date']) ? $patient['birth_date'] : '') .
+        pt_info_cell('年龄', $age) . '</div>' .
         '<div class="print-info-line">' .
-        $cell('就诊科室', isset($visit['current_dept_name']) ? $visit['current_dept_name'] : '') .
-        $cell('患者ID', isset($patient['patient_no']) ? $patient['patient_no'] : '') .
-        $cell('就诊时间', isset($visit['registered_at']) ? $visit['registered_at'] : '') .
+        pt_info_cell('就诊科室', isset($visit['current_dept_name']) ? $visit['current_dept_name'] : '') .
+        pt_info_cell('患者ID', isset($patient['patient_no']) ? $patient['patient_no'] : '') .
+        pt_info_cell('就诊时间', isset($visit['registered_at']) ? $visit['registered_at'] : '') .
         '</div></div>';
     $html .= '<div class="print-line"></div>';
 
