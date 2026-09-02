@@ -96,15 +96,15 @@ Clinic.notify = (function () {
                 ? '<span class="msg-type msg-type-user">用户</span>'
                 : '<span class="msg-type msg-type-system">系统</span>');
         const who = isPatient && m.patient_name
-            ? '<span class="msg-who">👤 ' + m.patient_name + '</span>' : '';
+            ? '<span class="msg-who">👤 ' + Clinic.escHtml(m.patient_name) + '</span>' : '';
         return '<div class="msg-item ' + (m.is_read ? '' : 'unread') +
             '" data-id="' + m.id + '" data-msg=\'' +
             JSON.stringify({ id: m.id, link_url: m.link_url || '', visit_id: m.visit_id || 0, print_url: m.print_url || '' }).replace(/'/g, '&#39;') +
             '\'>' +
             '<div class="msg-title-row">' + typeBadge + who +
-            '<div class="msg-title ellipsis">' + m.title + '</div></div>' +
-            '<div class="msg-content">' + m.content + '</div>' +
-            '<div class="msg-time">' + m.created_at + '</div>' +
+            '<div class="msg-title ellipsis">' + Clinic.escHtml(m.title) + '</div></div>' +
+            '<div class="msg-content">' + Clinic.escHtml(m.content) + '</div>' +
+            '<div class="msg-time">' + Clinic.escHtml(m.created_at) + '</div>' +
             '</div>';
     }
 

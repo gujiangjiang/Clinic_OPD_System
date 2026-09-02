@@ -29,16 +29,6 @@ if (!IS_ADMIN) {
     var ct = document.getElementById('labCatBtn'); if (ct) ct.style.display = 'none';
     var ib = document.getElementById('impBtns'); if (ib) ib.style.display = 'none';
 }
-function buildLabCats() {
-    var cats = [];
-    document.querySelectorAll('#itemList tbody tr').forEach(function (tr) {
-        var c = tr.getAttribute('data-cat') || '';
-        if (c && cats.indexOf(c) === -1) cats.push(c);
-    });
-    var bar = document.getElementById('labCatTabs');
-    bar.innerHTML = '<button class="btn btn-sm ' + (LAB_CAT === '' ? 'btn-primary' : 'btn-outline') + '" onclick="labCatFilter(this,\'\')">全部</button>' +
-        cats.map(function (c) { return '<button class="btn btn-sm ' + (LAB_CAT === c ? 'btn-primary' : 'btn-outline') + '" onclick="labCatFilter(this,\'' + c + '\')">' + c + '</button>'; }).join('');
-}
 function labCatFilter(btn, c) { LAB_CAT = c; document.querySelectorAll('#labCatTabs .btn').forEach(function (b) { b.className = 'btn btn-sm ' + ((b.getAttribute('data-cat') || '') === c ? 'btn-primary' : 'btn-outline'); }); applyLabFilter(); }
 function applyLabFilter() {
     var q = (document.getElementById('labSearch').value || '').trim().toLowerCase(); var n = 0;

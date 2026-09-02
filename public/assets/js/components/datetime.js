@@ -62,7 +62,7 @@ Clinic.datetime = (function () {
      */
     function clock(el, fmt) {
         const target = typeof el === 'string' ? document.querySelector(el) : el;
-        if (!target) return;
+        if (!target) return null;
         const weekMap = ['日', '一', '二', '三', '四', '五', '六'];
         function tick() {
             const d = new Date();
@@ -72,8 +72,8 @@ Clinic.datetime = (function () {
             target.textContent = text;
         }
         tick();
-        setInterval(tick, 1000);
-        return { stop: function () { clearInterval(); } };
+        const timer = setInterval(tick, 1000);
+        return { stop: function () { clearInterval(timer); } };
     }
 
     return { format: format, age: age, clock: clock };

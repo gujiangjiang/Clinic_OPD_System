@@ -183,9 +183,9 @@ Clinic.docTools = (function () {
                 if (!list.length) { box.innerHTML = '<div class="text-muted">未检索到该患者</div>'; return; }
                 box.innerHTML = '<div class="fs-13 text-muted mb-8">检索到 ' + list.length + ' 位患者，点击查看全部就诊历史</div>' +
                     list.map(function (p) {
-                        return '<div class="dd-item" style="cursor:pointer" onclick="showPatientHistory(\'' + p.patient_no + '\')">' +
-                            '<div class="flex-between"><span class="fw-600">' + p.name + '</span>' +
-                            '<span class="text-muted fs-12">' + p.patient_no + ' ｜ ' + p.gender + '/' + (p.age_fmt || Clinic.validate.formatAge(p.birth_date)) + '</span></div></div>';
+                        return '<div class="dd-item" style="cursor:pointer" onclick="showPatientHistory(\'' + Clinic.escHtml(p.patient_no) + '\')">' +
+                            '<div class="flex-between"><span class="fw-600">' + Clinic.escHtml(p.name) + '</span>' +
+                            '<span class="text-muted fs-12">' + Clinic.escHtml(p.patient_no) + ' ｜ ' + Clinic.escHtml(p.gender) + '/' + Clinic.escHtml(p.age_fmt || Clinic.validate.formatAge(p.birth_date)) + '</span></div></div>';
                     }).join('');
             },
         });

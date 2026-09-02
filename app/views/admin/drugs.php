@@ -44,16 +44,6 @@ function buildDrugCats() {
             return '<button class="btn btn-sm ' + (DRUG_CAT === c ? 'btn-primary' : 'btn-outline') + '" data-cat="' + c + '" onclick="drugCatFilter(this,\'' + c + '\')">' + c + '</button>';
         }).join('');
 }
-function drugCatFilter(btn, c) {
-    DRUG_CAT = c;
-    document.querySelectorAll('#drugCatTabs .btn').forEach(function (b) {
-        b.className = 'btn btn-sm ' + ((b.getAttribute('data-cat') || '') === c ? 'btn-primary' : 'btn-outline');
-    });
-    document.querySelectorAll('#drugList tbody tr').forEach(function (tr) {
-        tr.style.display = (c === '' || tr.getAttribute('data-cat') === c) ? '' : 'none';
-    });
-}
-/* 快速搜索：分类 + 关键词组合过滤 */
 function quickFilter() {
     applyDrugFilter();
 }

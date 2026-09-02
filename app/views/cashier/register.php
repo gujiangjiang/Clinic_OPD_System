@@ -84,8 +84,8 @@ document.getElementById('birth').addEventListener('click', function () {
 });
 
 /* ---------- 身份证输入：校验 + 自动计算 + 既往登记检索 ---------- */
+/* 单一监听：onCardChange 内部已同步 refreshRegState，避免每次击键重复执行 */
 document.getElementById('idCard').addEventListener('input', function () { onCardChange(); });
-document.getElementById('idCard').addEventListener('input', refreshRegState);
 document.getElementById('name').addEventListener('input', refreshRegState);
 /* 性别/出生日期变化（含日历选择派发的 change 事件）同步按钮状态 */
 document.getElementById('gender').addEventListener('change', refreshRegState);
@@ -103,6 +103,7 @@ function onCardChange() {
         feeType.disabled = true;
         setDerivedLocked(false);
         document.getElementById('regNotice').innerHTML = '';
+        refreshRegState();
         return;
     }
     if (!Clinic.validate.idCard(card)) {

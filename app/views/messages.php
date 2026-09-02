@@ -49,16 +49,16 @@ function loadMsgs() {
                             ? '<span class="msg-type msg-type-user">用户</span>'
                             : '<span class="msg-type msg-type-system">系统</span>');
                     var who = isPatient && m.patient_name
-                        ? '<span class="msg-who">👤 ' + m.patient_name + '</span>' : '';
+                        ? '<span class="msg-who">👤 ' + Clinic.escHtml(m.patient_name) + '</span>' : '';
                     var jump = '';
                     if (m.link_url) jump = m.link_url;
                     else if (m.visit_id) jump = '/doctor/emr?visit_id=' + encodeURIComponent(m.visit_id);
-                    return '<div class="msg-item ' + (m.is_read ? '' : 'unread') + '" style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--border);cursor:pointer" data-id="' + m.id + '" data-jump="' + jump + '">' +
+                    return '<div class="msg-item ' + (m.is_read ? '' : 'unread') + '" style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--border);cursor:pointer" data-id="' + m.id + '" data-jump="' + Clinic.escHtml(jump) + '">' +
                         '<div style="flex:1;min-width:0">' +
                         '  <div class="msg-title-row">' + typeBadge + who +
-                        '    <div class="fw-600 fs-14 ellipsis">' + m.title + '</div></div>' +
-                        '  <div class="fs-13 text-muted">' + m.content + '</div>' +
-                        '  <div class="fs-12 text-muted mt-4">' + m.created_at + ' ｜ 来自 ' + m.from_name + '</div>' +
+                        '    <div class="fw-600 fs-14 ellipsis">' + Clinic.escHtml(m.title) + '</div></div>' +
+                        '  <div class="fs-13 text-muted">' + Clinic.escHtml(m.content) + '</div>' +
+                        '  <div class="fs-12 text-muted mt-4">' + Clinic.escHtml(m.created_at) + ' ｜ 来自 ' + Clinic.escHtml(m.from_name) + '</div>' +
                         '</div>' +
                         '<div class="flex gap-4">' + btn +
                         '<button class="btn btn-outline btn-sm" title="删除" onclick="event.stopPropagation();delMsg(' + m.id + ')">🗑</button>' +
@@ -166,15 +166,15 @@ function openSendMsg() {
             if (SEND_ADMIN) {
                 var roleBlocks = SEND_GROUPS.map(function (g) {
                     var users = g.users.map(function (u2) {
-                        return '<label class="send-user"><input type="checkbox" name="smUser" class="sm-user" data-role="' + g.role + '" value="' + u2.id + '" onchange="smUserChange(this)">' + u2.name +
-                            ' <span class="fs-12 text-muted">' + (u2.emp_no || '') + '</span></label>';
+                        return '<label class="send-user"><input type="checkbox" name="smUser" class="sm-user" data-role="' + Clinic.escHtml(g.role) + '" value="' + u2.id + '" onchange="smUserChange(this)">' + Clinic.escHtml(u2.name) +
+                            ' <span class="fs-12 text-muted">' + Clinic.escHtml(u2.emp_no || '') + '</span></label>';
                     }).join('');
                     return '<div class="send-grp">' +
                         '<div class="send-grp-head-row">' +
-                        '<button type="button" class="tree-toggle" onclick="treeToggle(this)" data-toggle="smG_' + g.role + '">+</button>' +
-                        '<label class="send-grp-head"><input type="checkbox" class="sm-role" data-role="' + g.role + '" onchange="smToggleRole(\'' + g.role + '\', this.checked)"> <b>' + g.role_name + '</b>（' + g.users.length + ' 人）</label>' +
+                        '<button type="button" class="tree-toggle" onclick="treeToggle(this)" data-toggle="smG_' + Clinic.escHtml(g.role) + '">+</button>' +
+                        '<label class="send-grp-head"><input type="checkbox" class="sm-role" data-role="' + Clinic.escHtml(g.role) + '" onchange="smToggleRole(\'' + Clinic.escHtml(g.role) + '\', this.checked)"> <b>' + Clinic.escHtml(g.role_name) + '</b>（' + g.users.length + ' 人）</label>' +
                         '</div>' +
-                        '<div class="send-grp-children send-tree-level-3" id="smG_' + g.role + '" style="display:none">' + users + '</div>' +
+                        '<div class="send-grp-children send-tree-level-3" id="smG_' + Clinic.escHtml(g.role) + '" style="display:none">' + users + '</div>' +
                         '</div>';
                 }).join('');
                 tree =
@@ -188,15 +188,15 @@ function openSendMsg() {
             } else {
                 tree = SEND_GROUPS.map(function (g) {
                     var users = g.users.map(function (u2) {
-                        return '<label class="send-user"><input type="radio" name="smUser" value="' + u2.id + '">' + u2.name +
-                            ' <span class="fs-12 text-muted">' + (u2.emp_no || '') + '</span></label>';
+                        return '<label class="send-user"><input type="radio" name="smUser" value="' + u2.id + '">' + Clinic.escHtml(u2.name) +
+                            ' <span class="fs-12 text-muted">' + Clinic.escHtml(u2.emp_no || '') + '</span></label>';
                     }).join('');
                     return '<div class="send-grp">' +
                         '<div class="send-grp-head-row">' +
-                        '<button type="button" class="tree-toggle" onclick="treeToggle(this)" data-toggle="smG_' + g.role + '">+</button>' +
-                        '<div class="send-grp-head"><b>' + g.role_name + '</b>（' + g.users.length + ' 人）</div>' +
+                        '<button type="button" class="tree-toggle" onclick="treeToggle(this)" data-toggle="smG_' + Clinic.escHtml(g.role) + '">+</button>' +
+                        '<div class="send-grp-head"><b>' + Clinic.escHtml(g.role_name) + '</b>（' + g.users.length + ' 人）</div>' +
                         '</div>' +
-                        '<div class="send-grp-children send-tree-level-3" id="smG_' + g.role + '" style="display:none">' + users + '</div>' +
+                        '<div class="send-grp-children send-tree-level-3" id="smG_' + Clinic.escHtml(g.role) + '" style="display:none">' + users + '</div>' +
                         '</div>';
                 }).join('');
             }
@@ -286,10 +286,10 @@ function openSent() {
                       return '<div class="sent-item" style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--border)">' +
                           '<input type="checkbox" class="sent-check" value="' + m.id + '">' +
                           '<div style="flex:1;min-width:0">' +
-                          '  <div class="fw-600 fs-14 ellipsis">' + m.title + ' <span class="fs-12 text-muted fw-400">（' + (m.recipient_count || 1) + ' 人）</span></div>' +
-                          '  <div class="fs-13 text-muted ellipsis">接收者：' + m.recipients + '</div>' +
-                          '  <div class="fs-13 text-muted ellipsis">' + m.content + '</div>' +
-                          '  <div class="fs-12 text-muted mt-4">' + m.created_at + '</div>' +
+                          '  <div class="fw-600 fs-14 ellipsis">' + Clinic.escHtml(m.title) + ' <span class="fs-12 text-muted fw-400">（' + (m.recipient_count || 1) + ' 人）</span></div>' +
+                          '  <div class="fs-13 text-muted ellipsis">接收者：' + Clinic.escHtml(m.recipients) + '</div>' +
+                          '  <div class="fs-13 text-muted ellipsis">' + Clinic.escHtml(m.content) + '</div>' +
+                          '  <div class="fs-12 text-muted mt-4">' + Clinic.escHtml(m.created_at) + '</div>' +
                           '</div></div>';
                   }).join('')
                 : '<div class="empty"><div class="empty-ico">📤</div>暂无发送记录</div>';

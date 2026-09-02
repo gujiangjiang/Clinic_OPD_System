@@ -180,7 +180,7 @@ function closeQuickPop() {
 
 /* 编辑诊室 */
 function editRoom(id, name, type, voice, mask) {
-    // 获取当前温馨提示（从列表行获取）
+    // 获取当前温馨提示（从列表行获取，data-tips 存 JSON 数组字符串）
     var tips = '';
     var tipInterval = 5;
     document.querySelectorAll('#cmList tr[data-tips]').forEach(function (tr) {
@@ -189,9 +189,17 @@ function editRoom(id, name, type, voice, mask) {
             tipInterval = parseInt(tr.getAttribute('data-interval'), 10) || 5;
         }
     });
+    // JSON 数组 → 每行一条（兼容旧数据缺失引号/括号的裸文本）
+    var tipsText = '';
+    try {
+        var arr = JSON.parse(tips);
+        tipsText = Array.isArray(arr) ? arr.join('\n') : String(tips);
+    } catch (e) {
+        tipsText = String(tips);
+    }
     Clinic.modal.open(
         '<div class="form-group"><label class="form-label">诊室 / 窗口名称 <span class="req">*</span></label>' +
-        '<input class="input" id="erName" value="' + name + '"></div>' +
+        '<input class="input" id="erName" value="' + Clinic.escHtml(name) + '"></div>' +
         '<div class="form-group"><label class="form-label">类型</label>' +
         '<select class="select" id="erType">' +
         '<option value="doctor"' + (type === 'doctor' ? ' selected' : '') + '>医生诊室</option>' +
@@ -204,7 +212,7 @@ function editRoom(id, name, type, voice, mask) {
         '<label class="flex gap-4 mb-8" style="font-size:13px;cursor:pointer"><input type="checkbox" id="erMask"' + (mask ? ' checked' : '') + '> 患者姓名脱敏（张*三）</label>' +
         '<div class="card-title mt-8"><span>💡 温馨提示</span></div>' +
         '<div class="fs-12 text-muted mb-4">每行一条，留空则使用默认提示；多条提示自动轮播切换。</div>' +
-        '<textarea class="textarea" id="erTips" rows="4" placeholder="请输入温馨提示，每行一条">' + tips.split('","').join('\n').replace(/^\["?|"?\]$/g, '').replace(/\\"/g, '"') + '</textarea>' +
+        '<textarea class="textarea" id="erTips" rows="4" placeholder="请输入温馨提示，每行一条">' + Clinic.escHtml(tipsText) + '</textarea>' +
         '<div class="form-row mt-4"><div class="form-group"><label class="form-label">轮播间隔（秒）</label>' +
         '<input class="input" id="erInterval" type="number" min="2" max="60" value="' + tipInterval + '"></div></div>',
         {

@@ -15,23 +15,23 @@ Clinic.emr.patient = (function () {
 
     function renderPatientCard(d) {
         var p = d.patient, v = d.visit;
-        var editModal = "Clinic.patient.editModal('" + p.patient_id + "')";
-        var historyModal = "showPatientHistory('" + p.patient_id + "')";
+        var editModal = "Clinic.patient.editModal('" + escHtml(p.patient_id) + "')";
+        var historyModal = "showPatientHistory('" + escHtml(p.patient_id) + "')";
         document.getElementById('emrHeader').innerHTML =
             '<div class="flex-between">' +
             '  <div class="flex gap-12" style="align-items:center">' +
             '    <div class="emr-patient-avatar" onclick="' + historyModal + '" title="点击查看就诊历史">👤</div>' +
             '    <div>' +
             '      <div class="fs-18 fw-700">' +
-            '        <span class="emr-patient-name" onclick="' + editModal + '" title="点击修改患者信息">' + v.name + '</span>' +
-            '        <span class="badge badge-gray" style="margin-left:8px">' + v.gender + ' / ' + (v.age_fmt || '') + '</span>' +
+            '        <span class="emr-patient-name" onclick="' + editModal + '" title="点击修改患者信息">' + escHtml(v.name) + '</span>' +
+            '        <span class="badge badge-gray" style="margin-left:8px">' + escHtml(v.gender) + ' / ' + escHtml(v.age_fmt || '') + '</span>' +
             '        ' + (v.fee_type ? '<span class="badge badge-warning" style="margin-left:4px" title="费用类别">' + escHtml(v.fee_type) + '</span>' : '') +
             '        <span class="badge ' + (v.dept_type === 'emergency' ? 'badge-danger' : 'badge-primary') +
             '" style="margin-left:4px">' + (v.dept_type === 'emergency' ? '急诊' : '门诊') + '</span>' +
             '        <span class="badge badge-warning" id="hdrTotal" style="display:none"></span>' +
             '      </div>' +
-            '      <div class="text-muted fs-13">患者ID：' + p.patient_id + ' ｜ 流水号：' + v.visit_no +
-            ' ｜ ' + (v.first_dept_name || v.dept_name) + ' 第' + String(v.visit_seq).padStart(3, 0) + '号</div>' +
+            '      <div class="text-muted fs-13">患者ID：' + escHtml(p.patient_id) + ' ｜ 流水号：' + escHtml(v.visit_no) +
+            ' ｜ ' + escHtml(v.first_dept_name || v.dept_name) + ' 第' + String(v.visit_seq).padStart(3, 0) + '号</div>' +
             '    </div>' +
             '  </div>' +
             '</div>';
@@ -51,7 +51,7 @@ Clinic.emr.patient = (function () {
                 return '<div class="doc-cell"><span class="doc-cell-label">' + f[0] + '：</span>' + f[1] + '</div>';
             }
             return '<div class="doc-cell"><span class="doc-cell-label">' + f[0] + '：</span>' +
-                '<span class="doc-cell-value">' + f[1] + '</span></div>';
+                '<span class="doc-cell-value">' + escHtml(f[1]) + '</span></div>';
         };
         if (vv.dept_type === 'emergency') {
             var lines = [

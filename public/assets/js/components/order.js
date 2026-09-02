@@ -200,24 +200,24 @@ Clinic.order = (function () {
                     '（按组价整体收费）</div>';
             }
             return '<div class="dd-item" data-id="' + it.id + '" ' +
-                'data-price="' + (it.price || 0) + '" data-name="' + (it.name || '').replace(/"/g, '&quot;') + '"' +
-                ' data-spec="' + (it.spec || '') + '" data-unit="' + (it.unit || '') + '"' +
-                ' data-company="' + (it.company_short || '') + '"' +
-                ' data-dose="' + (it.single_dose || '') + '"' +
-                ' data-freq="' + (it.frequency || '') + '"' +
-                ' data-route="' + (it.route || '') + '"' +
+                'data-price="' + (it.price || 0) + '" data-name="' + Clinic.escHtml(it.name || '') + '"' +
+                ' data-spec="' + Clinic.escHtml(it.spec || '') + '" data-unit="' + Clinic.escHtml(it.unit || '') + '"' +
+                ' data-company="' + Clinic.escHtml(it.company_short || '') + '"' +
+                ' data-dose="' + Clinic.escHtml(it.single_dose || '') + '"' +
+                ' data-freq="' + Clinic.escHtml(it.frequency || '') + '"' +
+                ' data-route="' + Clinic.escHtml(it.route || '') + '"' +
                 ' data-route-nurse="' + (it.route_nurse_required || 0) + '"' +
                 ' data-stock="' + (it.stock || 0) + '"' +
                 ' data-nurse-req="' + (it.nurse_required || 0) + '"' +
                 ' data-need-skin-test="' + (it.is_skin_test || 0) + '"' +
                 ' data-is-group="' + (it.is_group ? 1 : 0) + '"' +
-                ' data-members="' + (it.member_ids || '') + '"' +
+                ' data-members="' + Clinic.escHtml(it.member_ids || '') + '"' +
                 '>' +
                 '<div class="flex-between">' +
-                '  <div><span class="fw-600">' + (it.name || '') + '</span>' +
+                '  <div><span class="fw-600">' + Clinic.escHtml(it.name || '') + '</span>' +
                 (it.is_group ? ' <span class="badge badge-primary fs-12">组合</span>' : '') +
-                (isDrug && it.company_short ? ' <span class="fs-12 text-muted">' + it.company_short + '</span>' : '') +
-                (it.category_name ? ' <span class="badge badge-gray fs-12">' + it.category_name + '</span>' : '') +
+                (isDrug && it.company_short ? ' <span class="fs-12 text-muted">' + Clinic.escHtml(it.company_short) + '</span>' : '') +
+                (it.category_name ? ' <span class="badge badge-gray fs-12">' + Clinic.escHtml(it.category_name) + '</span>' : '') +
                 '</div>' +
                 '  <div class="text-right">' +
                 '    <div class="fw-600" style="color:var(--primary)">¥' + parseFloat(it.price || 0).toFixed(2) + '</div>' +
