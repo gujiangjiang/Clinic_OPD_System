@@ -38,16 +38,19 @@ function icd10_row_map($row) {
 
 switch ($action) {
 
-    /* ---------------- 搜索（病历诊断联动） ---------------- */
+    /* ---------------- 搜索（病历诊断联动，支持分页） ---------------- */
     case 'search':
         $kw = get('kw', '');
         $limit = (int)get('limit', 50);
-        if ($limit <= 0 || $limit > 50) $limit = 50;
+        if ($limit <= 0 || $limit > 200) $limit = 50;
+        $offset = (int)get('offset', 0);
+        if ($offset < 0) $offset = 0;
+        list($rows, $total) = Icd10Repository::search($kw, $limit, $offset);
         $out = array();
-        foreach (Icd10Repository::search($kw, $limit) as $row) {
+        foreach ($rows as $row) {
             $out[] = icd10_row_map($row);
         }
-        json_ok(array('list' => $out));
+        json_ok(array('list' => $out, 'total' => (int)$total, 'offset' => $offset, 'limit' => $limit));
         break;
 
     /* ---------------- 诊断列表（管理端，支持检索与层级过滤） ---------------- */

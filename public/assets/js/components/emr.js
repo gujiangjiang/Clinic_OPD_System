@@ -1359,25 +1359,61 @@ diagnoses: [],
         placeDiagPop(pop, ev);
         var kw = pop.querySelector('#dpKw');
         setTimeout(function () { kw.focus(); }, 50);
+        // 搜索结果分段加载状态（无限滚动：滚动到底部自动加载下一页，直至全部结果加载完成）
+        var dpState = { kw: '', offset: 0, total: 0, loading: false, done: false };
+        var dpRes = pop.querySelector('#dpRes');
+        function dpRenderRows(list) {
+            return list.map(function (x) {
+                return '<div class="diag-pop-item" data-code="' + escHtml(x.icd10_code) + '" data-name="' + escHtml(x.diagnosis_name) + '">' +
+                    '<span class="text-muted">' + escHtml(x.icd10_code) + '</span> <b>' + escHtml(x.diagnosis_name) + '</b></div>';
+            }).join('');
+        }
+        function dpAppendMore() {
+            if (dpState.loading || dpState.done) return;
+            dpState.loading = true;
+            Clinic.get('/api/icd10?action=search&kw=' + encodeURIComponent(dpState.kw) + '&offset=' + dpState.offset, null, {
+                onSuccess: function (j) {
+                    var list = j.data.list || [];
+                    dpState.total = j.data.total || 0;
+                    dpState.loading = false;
+                    if (dpState.offset === 0) {
+                        // 首次：整页替换
+                        dpRes.innerHTML = list.length
+                            ? dpRenderRows(list)
+                            : '<div class="fs-12 text-muted" style="padding:8px 2px">未检索到匹配诊断</div>';
+                    } else {
+                        // 追加下一页
+                        if (list.length) {
+                            var tmp = document.createElement('div');
+                            tmp.innerHTML = dpRenderRows(list);
+                            while (tmp.firstChild) dpRes.appendChild(tmp.firstChild);
+                        }
+                    }
+                    dpState.offset += list.length;
+                    dpState.done = dpState.offset >= dpState.total;
+                    // 结果列表撑高浮窗后重新夹紧视口
+                    clampPop(pop);
+                    // 若本页未填满可视区且仍有更多，自动继续加载（少数场景一次性显示完全部结果）
+                    if (!dpState.done && dpRes.scrollHeight <= dpRes.clientHeight) dpAppendMore();
+                },
+            });
+        }
         var timer = null;
         kw.addEventListener('input', function () {
             var q = this.value.trim();
             if (timer) clearTimeout(timer);
-            if (!q) { pop.querySelector('#dpRes').innerHTML = '<div class="fs-12 text-muted" style="padding:8px 2px">输入关键词检索 ICD10 诊断</div>'; return; }
+            if (!q) { dpState.done = true; dpState.offset = 0; dpState.total = 0; dpRes.innerHTML = '<div class="fs-12 text-muted" style="padding:8px 2px">输入关键词检索 ICD10 诊断</div>'; return; }
             timer = setTimeout(function () {
-                Clinic.get('/api/icd10?action=search&kw=' + encodeURIComponent(q), null, {
-                    onSuccess: function (j) {
-                        var list = j.data.list || [];
-                        pop.querySelector('#dpRes').innerHTML = list.length
-                            ? list.map(function (x) {
-                                return '<div class="diag-pop-item" data-code="' + escHtml(x.icd10_code) + '" data-name="' + escHtml(x.diagnosis_name) + '">' +
-                                    '<span class="text-muted">' + escHtml(x.icd10_code) + '</span> <b>' + escHtml(x.diagnosis_name) + '</b></div>';
-                            }).join('')
-                            : '<div class="fs-12 text-muted" style="padding:8px 2px">未检索到匹配诊断</div>';
-                        clampPop(pop);   // 结果列表撑高浮窗后重新夹紧视口
-                    },
-                });
+                dpState.kw = q;
+                dpState.offset = 0;
+                dpState.total = 0;
+                dpState.done = false;
+                dpAppendMore();
             }, 200);
+        });
+        // 滚动到底部自动加载下一页（无限滚动直至全部结果加载完成）
+        dpRes.addEventListener('scroll', function () {
+            if (dpRes.scrollTop + dpRes.clientHeight >= dpRes.scrollHeight - 8) dpAppendMore();
         });
         pop.querySelector('#dpRes').addEventListener('click', function (e) {
             var item = e.target.closest('.diag-pop-item');

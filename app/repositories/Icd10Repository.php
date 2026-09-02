@@ -27,20 +27,24 @@ class Icd10Repository extends BaseRepository {
      * 相关度排序（让核心诊断优先）：
      *   0 名称完全等于关键词 → 1 名称以关键词开头 → 2 编码以关键词开头 →
      *   3 拼音首字母开头 → 4 名称包含关键词；同级按名称长度升序（更简洁的更靠前）。
+     * 支持 offset 分页（前端无限滚动分段加载，直至全部结果加载完成，无总条数上限）。
      * @param string $kw 关键字
-     * @param int $limit 返回条数（默认 20）
-     * @return array 完整行（含四级分类链）
+     * @param int $limit 每页条数
+     * @param int $offset 偏移量
+     * @return array [rows, total] 完整行（含四级分类链） + 匹配总数
      */
-    public static function search($kw, $limit = 20) {
-        if ($kw === '') return array();
-        $limit = max(1, min(50, (int)$limit));
+    public static function search($kw, $limit = 20, $offset = 0) {
+        if ($kw === '') return array(array(), 0);
+        $limit = max(1, min(200, (int)$limit));
+        $offset = max(0, (int)$offset);
         $kw = trim((string)$kw);
         $contains = '%' . $kw . '%';
         $prefix = $kw . '%';
         $upperContains = '%' . strtoupper($kw) . '%';
-        return self::icd10q(
-            "SELECT " . self::cols() . " FROM icd10
-             WHERE diagnosis_code LIKE ? OR diagnosis_name LIKE ? OR search_tags LIKE ?
+        $whereSql = 'diagnosis_code LIKE ? OR diagnosis_name LIKE ? OR search_tags LIKE ?';
+        $total = (int)self::icd10val('SELECT COUNT(*) FROM icd10 WHERE ' . $whereSql, array($contains, $contains, $upperContains));
+        $rows = self::icd10q(
+            "SELECT " . self::cols() . " FROM icd10 WHERE $whereSql
              ORDER BY
                CASE
                  WHEN diagnosis_name = ? THEN 0
@@ -51,9 +55,10 @@ class Icd10Repository extends BaseRepository {
                END,
                LENGTH(diagnosis_name) ASC,
                diagnosis_code ASC
-             LIMIT $limit",
+             LIMIT $limit OFFSET $offset",
             array($contains, $contains, $upperContains, $kw, $prefix, $prefix, $upperContains)
         );
+        return array($rows, $total);
     }
 
     /**
