@@ -23,7 +23,8 @@ function record_part_save_diags($u) {
     if ($editDiagRecordId > 0) {
         $pr = EmrRepository::one('SELECT * FROM patient_records WHERE id=? AND doctor_id=?', array($editDiagRecordId, $u['id']));
     } else {
-        $pr = EmrRepository::one('SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+        $ed = get_editable_record($row['visit'], $u);
+        $pr = $ed ? EmrRepository::one('SELECT * FROM patient_records WHERE id=?', array($ed['id'])) : null;
     }
     if (!$pr) json_fail('您在该就诊下暂无病历文书');
     // 会诊锁校验：仅当医生处于「会诊处理中」（当前科室=目标科室）时，

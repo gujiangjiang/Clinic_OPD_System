@@ -19,9 +19,12 @@ function record_part_create_progress($u) {
     if (!visit_access_allowed($visit, $u)) {
         json_fail('该病历超出您的可查看历史天数，无法修改');
     }
-    // 本人最近一条文书（首诊或上一次续写）——作为续写的父记录
-    $ownLatest = EmrRepository::one('SELECT id, record_type, emr_data FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+    // 本人最近一条可编辑文书（首诊或上一次续写）——作为续写的父记录。
+    // 用 get_editable_record 判定：非会诊模式下仅本科室记录（dept 匹配）可作为续写父记录，
+    // 绝不误取会诊记录（会诊记录归属目标科室，仅会诊处理中才可作为续写父记录）。
+    $ownLatest = get_editable_record($visit, $u);
     if (!$ownLatest) json_fail('本人尚无病历，请先书写首诊病历');
+    $ownLatest = EmrRepository::one('SELECT id, record_type, emr_data FROM patient_records WHERE id=?', array($ownLatest['id']));
     // 必填校验：当前文书必须已完善并保存，才能继续续写
     $ownEmr = json_decode((string)$ownLatest['emr_data'], true);
     if (!is_array($ownEmr)) $ownEmr = array();
