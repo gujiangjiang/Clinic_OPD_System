@@ -26,9 +26,11 @@ function record_part_save_diags($u) {
         $pr = EmrRepository::one('SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
     }
     if (!$pr) json_fail('您在该就诊下暂无病历文书');
-    // 会诊锁校验：会诊期间非会诊病历不可调整诊断；会诊完毕的会诊病历不可再调整诊断
-    $diagDoingCons = EmrRepository::one("SELECT * FROM consultations WHERE visit_id=? AND status='doing' ORDER BY id DESC LIMIT 1", array($visitId));
-    if ($diagDoingCons && (int)$pr['consultation_id'] === 0) {
+    // 会诊锁校验：仅当医生处于「会诊处理中」（当前科室=目标科室）时，
+    // 非会诊病历不可调整诊断；原科室医生不受会诊影响。
+    // 会诊完毕的会诊病历不可再调整诊断
+    $diagConsultCtx = get_consult_context($row['visit'], $u);
+    if ($diagConsultCtx && (int)$pr['consultation_id'] === 0) {
         json_fail('该就诊正在进行会诊，会诊前的病历已锁定为只读，仅可编辑会诊病历');
     }
     if ((int)$pr['consultation_id'] > 0) {

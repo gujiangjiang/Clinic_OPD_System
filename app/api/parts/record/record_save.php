@@ -26,11 +26,14 @@ function record_part_save($u) {
     }
 
     // ===== 会诊锁校验（会诊期间病历只读） =====
-    // 1) 就诊存在「进行中」会诊时，非会诊病历一律只读（无论是否本人书写）；
+    // 1) 医生处于「会诊处理中」（当前科室 = 某进行中/待处理会诊的目标科室）时，
+    //    非会诊病历一律只读——仅会诊病历可编辑；
+    //    医生在原科室（非目标科室）不受会诊影响，可正常编辑/续写首诊病历。
+    //    （会诊不锁原科室：A 发 B 会诊未完毕，A 科室医生仍可继续编辑 A 病历。）
     // 2) 会诊病历在会诊「完毕」后永久只读。
-    $doingCons = EmrRepository::one("SELECT * FROM consultations WHERE visit_id=? AND status='doing' ORDER BY id DESC LIMIT 1", array($visitId));
+    $consultCtx = get_consult_context($visit, $u);
     $consultationId = (int)post('consultation_id', 0);
-    if ($doingCons && $consultationId === 0) {
+    if ($consultCtx && $consultationId === 0) {
         json_fail('该就诊正在进行会诊，会诊前的病历已锁定为只读，仅可编辑会诊病历');
     }
     if ($consultationId > 0) {
