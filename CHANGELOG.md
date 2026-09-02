@@ -19,6 +19,12 @@
 
 - **ICD-10 诊断编码库升级至 2.0**：替换 `data/db/icd10.db` 标准字典库（31681 → 33304 条诊断，净增约 1600 条），新增一批诊断编码并优化部分诊断拼音检索（`search_tags`），诊断搜索、ICD-10 联动与管理员诊断管理即时生效。（`data/db/icd10.db`）
 
+### 修复
+
+- **候诊列表人数过多时行高被压缩**：`.qp-list` 为 flex 列容器（`max-height:46vh` + `overflow-y:auto`），而 `.qp-row` 保持默认 `flex-shrink:1`，行数超过约 50 后 flex 压缩行高而非触发滚动条，导致列表样式丢失、行变得非常窄。修复：`.qp-row` 增加 `flex-shrink:0`，行高恒定、超量患者仅在面板内部滚动；同时将原误嵌在 chips 点击回调内（首次打开面板从不执行）的高度钳制逻辑抽取为 `clampListHeight()`，在面板渲染 / 列表刷新 / chips 点击时统一调用，面板最高不超过视口 46vh 且不溢出屏幕底部。（`public/assets/js/components/queuepanel.js`、`public/assets/css/layout.css`）
+- **候诊列表筛选 chips 点击无选中态反馈**：为保留搜索输入框焦点，chips 点击由整面板重渲染改为仅刷新列表区（`renderListOnly`），但该路径不再重渲染 chips 的 `active` 选中态。修复：点击回调内直接 `classList.toggle('active')`，选中态即时更新、列表与计数同步刷新。（`public/assets/js/components/queuepanel.js`）
+- **影像科报告录入首次必失败**：`imaging.php` 保存检查报告时 `results` 表 INSERT 声明 12 列但 VALUES 仅 11 个占位符，PDO 抛 `Invalid parameter number`，首次生成报告（result 行不存在走 INSERT 分支）即失败。修复：补为 12 个占位符，与 12 个绑定值对齐。（`app/api/imaging.php`）
+
 ## [6.4.1] - 2026-09-02
 
 ### 变更
