@@ -45,6 +45,15 @@
     box-shadow: var(--shadow-sm);
     padding: 26px 30px;
 }
+/* 抬头块：以第一名称为宽度基准（width:fit-content 收缩到最长行宽并居中），
+   第二名称（存在时）宽度铺满该块，左右两端与第一名称两边对齐
+   （与打印抬头 pt_header 结构一致，所见即所得） */
+.emr-doc .doc-hosp-block {
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto;
+}
 .emr-doc .doc-hosp {
     text-align: center;
     font-size: 22px;
@@ -56,7 +65,10 @@
     color: var(--text);
 }
 .emr-doc .doc-sub {
-    text-align: center;
+    /* 铺满第一名称宽度；两端对齐，使第二名称左右两边与第一名称对齐 */
+    width: 100%;
+    text-align: justify;
+    text-align-last: justify;
     font-size: 13px;
     color: var(--text-muted);
     margin-top: 2px;

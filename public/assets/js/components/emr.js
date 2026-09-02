@@ -536,8 +536,10 @@ diagnoses: [],
         // 公共页眉（抬头/标题/患者信息/条形码）
         var headHtml =
             bcHtml +
+            '<div class="doc-hosp-block">' +
             (hosp ? '<div class="doc-hosp">' + hosp + '</div>' : '') +
             (hosp2 ? '<div class="doc-sub">' + hosp2 + '</div>' : '') +
+            '</div>' +
             '<div class="doc-title-bar">' +
             '  <span class="doc-title">' + docTitle + '</span>' +
             '</div>' +
@@ -3447,32 +3449,13 @@ function openTransfer() {
 }
 
 /* ============================================================
- * 就诊历史入口（patient.php history 弹窗内按钮调用）
- * openHistoryCertificate：未开具时补开——与开具共用
- * Clinic.emr.certificateModal，仅标题不同；visitId 为就诊历史中
- * 目标那一次就诊的 ID，引用的是该次就诊的病历内容。
- * printHistoryCertificate：已开具时查看/再次打印
+ * 就诊历史诊断证明（补开/查看）全局函数已迁至全局加载的
+ * historypanel.js（openHistoryCertificate / archiveCertificateConfirm /
+ * printHistoryCertificate），本文件不再定义，避免 EMR 页与
+ * 医生工作站等页面因加载差异导致函数未定义。
  * ============================================================ */
-function openHistoryCertificate(visitId) {
-    // warnOnIssued=true：补开动作遇到已开具的历史就诊 → 提醒重复
-    Clinic.emr.certificateModal(visitId, '补开诊断证明', null, true);
-}
 
-/* 全局：归档病历补开诊断证明确认（就诊历史「补开」按钮调用）
- * 提示语区分是否接诊过该患者，确认后打开补开表单 */
-function archiveCertificateConfirm(treated, visitId) {
-    var msg = '该病历已经归档' +
-        (treated ? '' : '，且您未接诊过该病人') +
-        (treated ? '，是否补开诊断证明？' : '，是否确认为该患者开具诊断证明？');
-    Clinic.modal.confirm(msg, function () {
-        Clinic.emr.certificateModal(visitId, '补开诊断证明', null, true);
-    });
-}
-
-/* 查看已开具的诊断证明（弹窗打印预览，可再次打印） */
-function printHistoryCertificate(visitId) {
-    Clinic.print.load('/api/record?action=certificate_print&visit_id=' + visitId, null, 'a5');
-}
+/* 全局：转科 */
 
 /* 全局：开单详情弹窗内 删除 / 毁方（处方） */
 function delOrderFlow(orderId, label) {

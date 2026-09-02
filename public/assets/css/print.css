@@ -81,11 +81,22 @@
     margin-bottom: 2px;
 }
 .print-area .print-sub {
-    text-align: center;
+    /* 铺满第一名称宽度；两端对齐，使第二名称左右两边与第一名称对齐 */
+    width: 100%;
+    text-align: justify;
+    text-align-last: justify;
     font-size: 13px;
     line-height: 1.35;
     color: #444;
     margin-bottom: 4px;
+}
+/* 抬头块：以第一名称为宽度基准（width:fit-content 收缩到最长行宽并居中），
+   第二名称（存在时）宽度铺满该块，左右两端与第一名称两边对齐 */
+.print-area .print-hosp-block {
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto;
 }
 .print-area .print-hosp {
     text-align: center;

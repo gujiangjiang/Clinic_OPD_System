@@ -201,7 +201,7 @@ Clinic.print = (function () {
 
             var MM = 3.779527559;
 
-            var headRe = /^(print-hosp|print-sub|print-title-line|print-header|print-record-barcode|print-line|print-info-grid|print-info-lines|print-head-sec)$/;
+            var headRe = /^(print-hosp-block|print-hosp|print-sub|print-title-line|print-header|print-record-barcode|print-line|print-info-grid|print-info-lines|print-head-sec)$/;
             // 页脚组类名集合：签名/末尾横线/时间行 + 提示词（沉底到医生签名上方，
             // 不紧跟表格/列表）。匹配按 class 逐个判断，兼容多类名节点。
             var footSet = ['print-record-sign', 'print-record-foot', 'print-line', 'print-note', 'print-note-tip'];
@@ -273,13 +273,25 @@ Clinic.print = (function () {
                     });
                 }
 
-                // ---- 测量页眉高度（按完整页眉计；后续页精简只会更矮，保守安全）----
+                // ---- 测量页眉高度（首页用完整页眉）----
                 var mHead = document.createElement('div');
                 mHead.className = 'a5-head';
                 headNodes.forEach(function (n) { mHead.appendChild(n.cloneNode(true)); });
                 meas.appendChild(mHead);
                 var headH = mHead.offsetHeight;
                 meas.innerHTML = '';
+
+                // ---- 测量精简页眉高度（第2页起使用：更矮，可用高度应更大，
+                //      否则底部会多出「完整页眉-精简页眉」的高度差空白）----
+                var compactHeadH = 0;
+                if (compactHeadNodes) {
+                    var mCompact = document.createElement('div');
+                    mCompact.className = 'a5-head';
+                    compactHeadNodes.forEach(function (n) { mCompact.appendChild(n.cloneNode(true)); });
+                    meas.appendChild(mCompact);
+                    compactHeadH = mCompact.offsetHeight;
+                    meas.innerHTML = '';
+                }
 
                 // ---- 测量页脚高度（含页码行占位）----
                 var mFoot = document.createElement('div');
@@ -294,8 +306,11 @@ Clinic.print = (function () {
                 meas.innerHTML = '';
 
                 // 正文可用高度：以 184mm 为基准（打印纸张锁定 187mm，再留 3mm 防
-                // 字体度量微差），叠加 14px 安全余量——预览与打印完全一致
-                var availH = Math.floor(184 * MM) - headH - footH - 14;
+                // 字体度量微差），叠加 14px 安全余量——预览与打印完全一致。
+                // 首页用完整页眉高；第2页起用精简页眉高（更矮 → 可用高度更大，
+                // 避免每页底部留出「完整页眉-精简页眉」的空白差）
+                var availHFull = Math.floor(184 * MM) - headH - footH - 14;
+                var availHCompact = compactHeadH > 0 ? Math.floor(184 * MM) - compactHeadH - footH - 14 : availHFull;
 
                 // ---- 分离「底部签名区」（print-foot-sec）与正文流 ----
                 // 签名区不参与正文流分页，随正文流保留在最后一页；
@@ -362,9 +377,12 @@ Clinic.print = (function () {
                 var pages = [];
                 var used = 0;
                 function ensurePage() {
+                    var isFirst = pages.length === 0;
+                    var useCompact = !isFirst && !!compactHeadNodes;
                     pages.push({
-                        head: (pages.length && compactHeadNodes) ? compactHeadNodes : headNodes,
-                        body: [], foot: footNodes, over: false
+                        head: useCompact ? compactHeadNodes : headNodes,
+                        body: [], foot: footNodes, over: false,
+                        avail: useCompact ? availHCompact : availHFull,
                     });
                     used = 0;
                 }
@@ -374,12 +392,12 @@ Clinic.print = (function () {
                     var cur = pages[pages.length - 1];
                     var n = bodyNodes[bi];
                     var h = measureHeight(n);
-                    if (used + h <= availH) {
+                    if (used + h <= cur.avail) {
                         cur.body.push(n); used += h; bi++;
                         continue;
                     }
                     if (isSplittable(n)) {
-                        var availLeft = availH - used;
+                        var availLeft = cur.avail - used;
                         if (availLeft > 24) {
                             var res = splitTextNode(n, availLeft);
                             if (res && res.fitH > 0) {
@@ -390,7 +408,7 @@ Clinic.print = (function () {
                             }
                         }
                     }
-                    if (h > availH) {
+                    if (h > cur.avail) {
                         cur.over = true;
                         cur.body.push(n); used += h; bi++;
                         continue;
@@ -405,7 +423,7 @@ Clinic.print = (function () {
                 if (footSecNodes.length) {
                     if (!pages.length) ensurePage();
                     var lastPage = pages[pages.length - 1];
-                    if (used + footSecH > availH) lastPage.over = true;
+                    if (used + footSecH > lastPage.avail) lastPage.over = true;
                     footSecNodes.forEach(function (n) { lastPage.body.push(n); });
                 }
                 if (!pages.length) {

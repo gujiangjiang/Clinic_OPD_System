@@ -19,10 +19,15 @@ function pt_ticket_row($label, $value) {
 function pt_header($title) {
     $hosp = setting('hospital_name', '');
     $hosp2 = setting('hospital_name2', '');
-    $h = '<div class="print-hosp">' . e($hosp) . '</div>';
+    // 抬头块：以第一名称长度为标准宽度，第二名称（若存在）左右两端与第一名称对齐
+    $h = '<div class="print-hosp-block">';
+    if ($hosp !== '') {
+        $h .= '<div class="print-hosp">' . e($hosp) . '</div>';
+    }
     if ($hosp2 !== '') {
         $h .= '<div class="print-sub">' . e($hosp2) . '</div>';
     }
+    $h .= '</div>';
     $h .= '<div class="print-title-line">' . e($title) . '</div>';
     return $h;
 }
