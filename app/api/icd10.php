@@ -41,8 +41,10 @@ switch ($action) {
     /* ---------------- 搜索（病历诊断联动） ---------------- */
     case 'search':
         $kw = get('kw', '');
+        $limit = (int)get('limit', 50);
+        if ($limit <= 0 || $limit > 50) $limit = 50;
         $out = array();
-        foreach (Icd10Repository::search($kw, 20) as $row) {
+        foreach (Icd10Repository::search($kw, $limit) as $row) {
             $out[] = icd10_row_map($row);
         }
         json_ok(array('list' => $out));

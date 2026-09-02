@@ -24,6 +24,9 @@ class Icd10Repository extends BaseRepository {
 
     /**
      * 关键字检索（病历诊断联动）：按诊断码/名称/拼音检索码模糊匹配
+     * 相关度排序（让核心诊断优先）：
+     *   0 名称完全等于关键词 → 1 名称以关键词开头 → 2 编码以关键词开头 →
+     *   3 拼音首字母开头 → 4 名称包含关键词；同级按名称长度升序（更简洁的更靠前）。
      * @param string $kw 关键字
      * @param int $limit 返回条数（默认 20）
      * @return array 完整行（含四级分类链）
@@ -31,12 +34,25 @@ class Icd10Repository extends BaseRepository {
     public static function search($kw, $limit = 20) {
         if ($kw === '') return array();
         $limit = max(1, min(50, (int)$limit));
-        $like = '%' . $kw . '%';
+        $kw = trim((string)$kw);
+        $contains = '%' . $kw . '%';
+        $prefix = $kw . '%';
+        $upperContains = '%' . strtoupper($kw) . '%';
         return self::icd10q(
             "SELECT " . self::cols() . " FROM icd10
              WHERE diagnosis_code LIKE ? OR diagnosis_name LIKE ? OR search_tags LIKE ?
-             ORDER BY diagnosis_code LIMIT $limit",
-            array($like, $like, strtoupper($like))
+             ORDER BY
+               CASE
+                 WHEN diagnosis_name = ? THEN 0
+                 WHEN diagnosis_name LIKE ? THEN 1
+                 WHEN diagnosis_code LIKE ? THEN 2
+                 WHEN search_tags LIKE ? THEN 3
+                 ELSE 4
+               END,
+               LENGTH(diagnosis_name) ASC,
+               diagnosis_code ASC
+             LIMIT $limit",
+            array($contains, $contains, $upperContains, $kw, $prefix, $prefix, $upperContains)
         );
     }
 
@@ -54,6 +70,7 @@ class Icd10Repository extends BaseRepository {
     public static function paginate($kw, $limit, $offset, $chapter = '', $section = '', $category = '', $subcategory = '') {
         $where = array();
         $params = array();
+        $kw = trim((string)$kw);
         if ($kw !== '') {
             $like = '%' . $kw . '%';
             $where[] = '(diagnosis_code LIKE ? OR diagnosis_name LIKE ? OR search_tags LIKE ?)';
@@ -65,8 +82,20 @@ class Icd10Repository extends BaseRepository {
         if ($subcategory !== '') { $where[] = 'subcategory_code=?';  $params[] = $subcategory; }
         $whereSql = $where ? (' WHERE ' . implode(' AND ', $where)) : '';
         $total = (int)self::icd10val('SELECT COUNT(*) FROM icd10' . $whereSql, $params);
+        // 关键字检索时按相关度排序（与 search 同规则）；无关键字（层级浏览）按编码升序稳定分页
+        $orderSql = ' ORDER BY diagnosis_code ASC';
+        if ($kw !== '') {
+            $kwPrefix = $kw . '%';
+            $orderSql = " ORDER BY CASE
+                WHEN diagnosis_name = ? THEN 0
+                WHEN diagnosis_name LIKE ? THEN 1
+                WHEN diagnosis_code LIKE ? THEN 2
+                WHEN search_tags LIKE ? THEN 3
+                ELSE 4 END, LENGTH(diagnosis_name) ASC, diagnosis_code ASC";
+            $params = array_merge($params, array($kw, $kwPrefix, $kwPrefix, strtoupper($kwPrefix)));
+        }
         $rows = self::icd10q(
-            "SELECT " . self::cols() . " FROM icd10$whereSql ORDER BY diagnosis_code ASC LIMIT $limit OFFSET $offset",
+            "SELECT " . self::cols() . " FROM icd10$whereSql$orderSql LIMIT $limit OFFSET $offset",
             $params
         );
         return array($rows, $total);
