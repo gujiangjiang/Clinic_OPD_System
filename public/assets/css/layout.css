@@ -136,6 +136,20 @@
 }
 .topbar-title { font-size: 16px; font-weight: 700; }
 .topbar-right { display: flex; align-items: center; gap: 12px; }
+/* 医生工作站（新）标题「医生工作站-科室」：科室名可点击切换（仅多科室权限） */
+.topbar-title .doc-work-dept {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-left: 2px;
+}
+.topbar-title .doc-work-dept.clickable {
+    color: var(--primary);
+    cursor: pointer;
+    text-decoration: underline dashed;
+    text-underline-offset: 3px;
+}
+.topbar-title .doc-work-dept.clickable:hover { color: var(--primary-strong, var(--primary)); }
 
 /* ---------- 右上角用户悬浮窗 ---------- */
 .user-wrap { position: relative; }

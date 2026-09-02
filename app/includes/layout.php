@@ -153,8 +153,9 @@ class Layout {
      * @param string $title     页面标题
      * @param bool   $forceMini 强制缩小侧边栏（病历书写页为书写区让出空间，忽略用户偏好）
      * @param bool   $needEmr   是否需要 EMR 栈组件（医生工作站/模板/审核预览）
+     * @param bool   $docTools  医生工作站（新）顶栏工具（工具箱/叫号/科室切换）
      */
-    public static function appPage($content, $title, $forceMini = false, $needEmr = false) {
+    public static function appPage($content, $title, $forceMini = false, $needEmr = false, $docTools = false) {
         $u = Auth::user();
         if (!$u) {
             header('Location: /login');
@@ -173,6 +174,8 @@ class Layout {
         // 页脚版权：固定格式自动生成【© 年份 医院名称 版权所有】，无需手动配置
         $footer = '© ' . date('Y') . ' ' . ($hosp !== '' ? $hosp : '门诊一体化信息系统') . ' 版权所有';
         $theme = $u['theme'] ? $u['theme'] : 'auto';
+        // 医生工作站（新）顶栏工具开关：仅医生角色生效（同脚本注入条件）
+        $docTools = $docTools && $u['role'] === 'doctor';
         // 侧边栏偏好：expand 展开 / mini 缩小（仅图标），跟随用户保存；
         // 病历书写页强制 mini（$forceMini），不持久化用户选择
         $sidebar = $forceMini ? 'mini' : Auth::sidebar();
@@ -210,6 +213,10 @@ class Layout {
                 'order', 'editor', 'emreditor', 'eventbus', 'emr', 'emr_rules', 'emr_format',
                 'emr_template', 'emr_fee', 'emr_patient', 'emr_orders', 'emr_segments', 'emr_consent', 'queuepanel',
             )));
+        }
+        // 医生工作站（新）顶栏工具：工具箱 / 叫号大屏绑定 / 科室切换（仅医生角色）
+        if ($docTools && $u['role'] === 'doctor') {
+            $emrScripts .= "\n" . '<script src="/assets/js/components/doctor_tools.js?v=' . APP_VERSION . '"></script>';
         }
         $uPop = '<div class="user-pop">' .
             '<div class="user-pop-head">' .
@@ -287,9 +294,27 @@ class Layout {
                     <header class="topbar">
                         <div class="flex gap-12" style="align-items:center">
                             <button type="button" class="btn btn-outline btn-sm" data-sidebar-toggle style="padding:4px 10px">☰</button>
-                            <div class="topbar-title">' . e($title !== '' ? $title : $hosp) . '</div>
+                            ' . ($docTools
+                                ? '<div class="topbar-title doc-work-title">' . e($title !== '' ? $title : $hosp) . '<span class="doc-work-dept" id="docWorkDept">-加载科室…</span></div>'
+                                : '<div class="topbar-title">' . e($title !== '' ? $title : $hosp) . '</div>') . '
                         </div>
                         <div class="topbar-right">
+                            ' . ($docTools ? '
+                            <!-- 叫号大屏绑定（工具箱左侧） -->
+                            <div style="position:relative">
+                                <button type="button" class="btn btn-outline btn-sm" id="docCallBtn" title="叫号大屏绑定" onclick="Clinic.docTools.toggleRoomList()">📢 <span id="docCallName">叫号</span></button>
+                                <div id="docRoomList" style="display:none;position:absolute;top:100%;right:0;min-width:300px;max-height:340px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:8px;z-index:100;box-shadow:0 8px 24px var(--shadow)"></div>
+                            </div>
+                            <!-- 工具箱（明亮模式左侧） -->
+                            <div style="position:relative">
+                                <button type="button" class="btn btn-outline btn-sm" id="docToolboxBtn" title="工具箱" onclick="Clinic.docTools.toggleToolbox()">🧰 工具箱 ▾</button>
+                                <div id="docToolbox" style="display:none;position:absolute;top:100%;right:0;min-width:170px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:100;box-shadow:0 8px 24px var(--shadow)">
+                                    <div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openAddSlot()">＋ 加号</div>
+                                    <div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openPatientSearch()">🔍 患者查询</div>
+                                    <div class="dd-item" style="cursor:pointer" onclick="location.href=\'/doctor/templates\'">📋 模板管理</div>
+                                </div>
+                            </div>
+                            ' : '') . '
                             <button type="button" class="btn btn-outline btn-sm" data-theme-btn title="切换主题">
                                 <span class="theme-label">' . ($theme === 'auto' ? '自动模式' : ($theme === 'dark' ? '夜间模式' : '明亮模式')) . '</span>
                             </button>

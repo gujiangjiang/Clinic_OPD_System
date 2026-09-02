@@ -185,7 +185,9 @@ class Router {
             echo Layout::authPage($content);
         } else {
             // 病历书写页强制缩小侧边栏，为书写区提供足够空间（忽略用户偏好）
-            echo Layout::appPage($content, self::$title, $view === 'doctor/emr.php', $needEmr);
+            // 医生工作站（新）顶栏注入：工具箱下拉 / 叫号大屏绑定 / 科室切换
+            $isDocWork = ($view === 'doctor/emr.php');
+            echo Layout::appPage($content, self::$title, $isDocWork, $needEmr, $isDocWork);
         }
     }
 
