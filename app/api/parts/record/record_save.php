@@ -79,7 +79,14 @@ function record_part_save($u) {
         }
         $recordType = $ownRow['record_type'];
     } else {
-        $ownRow = EmrRepository::one('SELECT id, record_type, consultation_id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+        // 未显式指定编辑记录：优先取「当前上下文可编辑病历」——
+        // 非会诊模式下仅 dept_id == 就诊科室 的记录可编辑（会诊病历归属目标科室，
+        // 绝不误取为保存目标）；会诊处理中（目标科室）取会诊病历。二者均由
+        // get_editable_record 统一判定，避免 ORDER BY id DESC 误取会诊记录。
+        $ownRow = get_editable_record($visit, $u);
+        if ($ownRow) {
+            $ownRow = EmrRepository::one('SELECT id, record_type, dept_id, consultation_id FROM patient_records WHERE id=?', array($ownRow['id']));
+        }
         // 会诊完毕锁定：仅当保存目标是「本人最新现有文书」时校验（无 edit_record_id
         // 且非新建续写 progress_new）；若本人最新文书是已完毕会诊病历则只读。
         // 新建续写（progress_new=1）保存目标是全新文书，与旧会诊记录无关，不可误拦。
@@ -228,8 +235,10 @@ function record_part_save($u) {
         $pr = null;
         if ($editRecordId > 0) {
             $pr = array('id' => $editRecordId);   // 切换回旧文书：精确更新指定记录
+        } elseif ($ownRow) {
+            $pr = array('id' => (int)$ownRow['id']);   // 复用上面判定的可编辑记录（非会诊模式下即本科室记录）
         } else {
-            $pr = EmrRepository::one('SELECT id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array($visitId, $u['id']));
+            $pr = null;   // 无既有记录 → 新建
         }
         if ($pr && !$progressNew) {
             EmrRepository::prepareExec('UPDATE patient_records SET chief_complaint=?, symptom_duration=?, symptom_unit=?, informant=?, arrival_way=?, has_past_history=?, allergy_history=?, is_leave_hospital=?, icd10_code=?, diagnosis_name=?, emr_data=?, emr_print_text=?, status=?, updated_at=? WHERE id=?', array(
