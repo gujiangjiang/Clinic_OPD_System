@@ -13,6 +13,22 @@
 
 ---
 
+## [6.4.0] - 2026-09-02
+
+### 移除
+
+- **彻底删除旧医生工作站**：移除 `/doctor/dashboard` 路由、`app/views/doctor/dashboard.php` 视图、专属接口 `action=list`（`doctor_list.php`）；移除侧边栏「旧工作站」菜单、医生首页「旧工作站」快速入口、EMR 页「就诊记录不存在」回退链接中的 `/doctor/dashboard` 引用。切换科室后统一跳转新工作站 `/doctor/emr`。（`app/core/Router.php`、`app/includes/layout.php`、`app/views/doctor/home.php`、`app/views/doctor/emr.php`、`app/api/doctor.php`、`app/api/parts/doctor_read.php`、`public/assets/js/components/doctor_tools.js`）
+
+### 新增
+
+- **诊室大屏绑定心跳全局化（room_heartbeat.js）**：医生角色所有页面（工作站/首页/模板页等）均加载心跳组件，绑定信息存 `sessionStorage`（绑定账号+会话ID），跨页面跳转不丢失；页面加载自动从会话恢复绑定并立即发送心跳。解决「离开工作站页面 / 刷新页面后大屏自动解绑」问题——绑定仅随退出登录（`Auth::logout` 已解绑）或异常断开释放。（`app/includes/layout.php`、`public/assets/js/components/room_heartbeat.js`）
+- **工具箱新增「切换科室」**：位于加号与患者查询之间，复用科室选择弹窗（仅多科室权限可切）。（`app/includes/layout.php`）
+
+### 变更
+
+- **叫号按钮实时显示绑定状态**：医生工作站加载后自动拉取诊室绑定信息，按钮即时显示「叫号：诊室名」，无需手动点击展开。（`public/assets/js/components/doctor_tools.js`）
+- **大屏自动解绑超时放宽**：医生心跳保活检测由 90 秒放宽至 300 秒，配合全局心跳彻底避免正常使用中自动解绑。（`app/repositories/QueueRepository.php`）
+
 ## [6.3.0] - 2026-09-02
 
 ### 新增

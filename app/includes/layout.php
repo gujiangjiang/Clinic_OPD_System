@@ -52,7 +52,6 @@ class Layout {
             $items['医生工作站'] = array(
                 array('首页', '🏠', '/doctor/home'),
                 array('医生工作站', '🩺', '/doctor/emr'),
-                array('旧工作站', '🖥️', '/doctor/dashboard'),
                 array('模板管理', '📋', '/doctor/templates'),
             );
         } elseif ($role === 'nurse') {
@@ -218,6 +217,10 @@ class Layout {
         if ($docTools && $u['role'] === 'doctor') {
             $emrScripts .= "\n" . '<script src="/assets/js/components/doctor_tools.js?v=' . APP_VERSION . '"></script>';
         }
+        // 医生角色全局：诊室大屏绑定心跳保活（跨页面持续，离开工作站/刷新不自动解绑）
+        if ($u['role'] === 'doctor') {
+            $emrScripts .= "\n" . '<script src="/assets/js/components/room_heartbeat.js?v=' . APP_VERSION . '"></script>';
+        }
         $uPop = '<div class="user-pop">' .
             '<div class="user-pop-head">' .
             '<span class="avatar" style="width:38px;height:38px;font-size:15px">' . $avatar . '</span>' .
@@ -310,6 +313,7 @@ class Layout {
                                 <button type="button" class="btn btn-outline btn-sm" id="docToolboxBtn" title="工具箱" onclick="Clinic.docTools.toggleToolbox()">🧰 工具箱 ▾</button>
                                 <div id="docToolbox" style="display:none;position:absolute;top:100%;right:0;min-width:170px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:100;box-shadow:0 8px 24px var(--shadow)">
                                     <div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openAddSlot()">＋ 加号</div>
+                                    <div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openDeptSwitch()">🏥 切换科室</div>
                                     <div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openPatientSearch()">🔍 患者查询</div>
                                     <div class="dd-item" style="cursor:pointer" onclick="location.href=\'/doctor/templates\'">📋 模板管理</div>
                                 </div>

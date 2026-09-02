@@ -63,11 +63,13 @@ class QueueRepository extends BaseRepository {
         return UserRepository::doctorProfile($doctorId);
     }
 
-    /** 大屏医生心跳保活检测：超过 90 秒未更新视为异常断开 */
+    /** 大屏医生心跳保活检测：超过 300 秒未更新视为异常断开
+     *  （医生端 room_heartbeat.js 全局每 30 秒心跳一次，跨页面持续；
+     *   离开工作站/刷新页面均不会中断，仅真正退出登录或异常断开才解绑） */
     public static function doctorHeartbeatStale($roomId) {
         return (int)self::val(
             "SELECT COUNT(*) FROM clinic_rooms WHERE id=? AND (doctor_heartbeat IS NULL
-             OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat)) > 90)",
+             OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat)) > 300)",
             array((int)$roomId)
         ) > 0;
     }
