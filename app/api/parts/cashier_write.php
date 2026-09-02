@@ -80,6 +80,11 @@ function cashier_part_write($action) {
         // 并发撞号重试：patient_no/flow_no 为 COUNT+1 生成（无锁），两个窗口同时挂号
         // 可能生成相同编号，触发 UNIQUE 约束冲突（SQLite=19/MySQL=1062）→ 回滚并重试
         // 重新生成编号，最多 3 次。加号标记已改为条件更新（used=0→1）防双发。
+        // fail()：事务内业务校验失败先显式回滚再输出（兼容 MySQL 非持久连接）
+        $fail = function ($msg) use (&$pdo) {
+            if ($pdo && $pdo->inTransaction()) $pdo->rollBack();
+            json_fail($msg);
+        };
         $pdo = DatabaseManager::getMain();
         $maxAttempts = 3;
         for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
@@ -114,14 +119,14 @@ function cashier_part_write($action) {
         // ===== 同一患者当日同【首次挂号科室】仅可挂一次 =====
         $dup = CashierRepository::todayDupVisit($patientNo, $deptId);
         if ($dup) {
-            json_fail('该患者今日已在【' . $dept['name'] . '】挂号，不能重复挂号（退费后可以重新挂号）');
+            $fail('该患者今日已在【' . $dept['name'] . '】挂号，不能重复挂号（退费后可以重新挂号）');
         }
 
         // ===== 号源控制（门诊科室：按作息时间开放，急诊 24 小时不受限） =====
         $isExtra = 0;
         $wsState = work_session_now();
         if ($dept['type'] === 'clinic' && !in_array($wsState, array('am', 'pm'), true)) {
-            json_fail(work_status_msg($wsState));
+            $fail(work_status_msg($wsState));
         }
         $session = $dept['type'] === 'emergency' ? 'all' : ($wsState === 'pm' ? 'pm' : 'am');
         if ($dept['type'] === 'clinic') {
@@ -131,12 +136,12 @@ function cashier_part_write($action) {
                 // 号源满：校验医生加号（仅限该患者本人）
                 $slot = $hasId ? CashierRepository::unusedSlot($deptId, $idCard) : null;
                 if (!$slot) {
-                    json_fail('【' . $dept['name'] . '】今日号源已满，无法挂号，可联系医生工作站加号');
+                    $fail('【' . $dept['name'] . '】今日号源已满，无法挂号，可联系医生工作站加号');
                 }
                 $isExtra = 1;
                 $affectedSlot = CashierRepository::markSlotUsed($slot['id']);
                 if ($affectedSlot === 0) {
-                    json_fail('该加号名额已被使用，请刷新后重试');
+                    $fail('该加号名额已被使用，请刷新后重试');
                 }
             }
         }

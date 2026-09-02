@@ -353,6 +353,7 @@ function order_part_submit($u) {
                     $affected = OrderRepository::exec('UPDATE drugs SET qty = qty - ? WHERE id=? AND qty >= ?',
                         array($it['quantity'], $it['item_id'], $it['quantity']));
                     if ($affected === 0) {
+                        if ($pdo->inTransaction()) $pdo->rollBack();
                         json_fail('药品【' . $it['item_name'] . '】库存不足（并发扣减），请重试');
                     }
                     OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(

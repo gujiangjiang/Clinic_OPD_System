@@ -105,6 +105,7 @@ class OrderRepository extends BaseRepository {
     }
 
     public static function reportIdsByResultIds($resultIds) {
+        if (!$resultIds || !count($resultIds)) return array();
         $ph = implode(',', array_fill(0, count($resultIds), '?'));
         return self::q("SELECT result_id, MAX(id) AS rid FROM reports WHERE result_id IN ($ph) AND status<>'withdrawn' GROUP BY result_id", $resultIds);
     }

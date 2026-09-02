@@ -209,21 +209,33 @@ function cashier_part_read($action) {
         $total = 0;
         foreach ($ids as $oidStr) {
             $oidNum = did($oidStr);
-            if ($oidNum <= 0) json_fail('存在无效的开单标识，请刷新后重试');
+            if ($oidNum <= 0) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                json_fail('存在无效的开单标识，请刷新后重试');
+            }
             $order = CashierRepository::order($oidNum);
-            if (!$order) json_fail('开单不存在');
+            if (!$order) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                json_fail('开单不存在');
+            }
             $items = CashierRepository::orderItems($order['id']);
             // 原子条件更新防并发重复缴费：仅 open 明细可转 paid（事务内按影响行数判定）
             $paidRows = CashierRepository::updateWhere(
                 'order_items', array('status' => 'paid'),
                 'order_id=? AND status=\'open\'', array($order['id'])
             );
-            if ($paidRows === 0) json_fail('存在已缴费项目，请刷新后重试');
+            if ($paidRows === 0) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                json_fail('存在已缴费项目，请刷新后重试');
+            }
             $orderAffected = CashierRepository::exec(
                 "UPDATE orders SET status='paid', paid_at=? WHERE id=? AND status='open'",
                 array(now_str(), $order['id'])
             );
-            if ($orderAffected === 0) json_fail('该开单已缴费，请刷新后重试');
+            if ($orderAffected === 0) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                json_fail('该开单已缴费，请刷新后重试');
+            }
             // 处置（医生直接执行类）：缴费即视为已执行
             if ($order['order_type'] === 'procedure') {
                 foreach ($items as $it) {
