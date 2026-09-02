@@ -13,6 +13,16 @@
 
 ---
 
+## [6.2.5] - 2026-09-02
+
+### 修复
+
+- **会诊上下文判定精细化**：修复非会诊科室被误判为会诊模式、会诊病历被错误设为可编辑的 bug。
+  
+  根因：`record_read.php`、`get_editable_record()`、前端 `calcDeptMatch()` 三处在非会诊模式下均存在 `OR (consultation_id>0 AND 会诊进行中)` 条件，导致会诊病历在非会诊科室被识别为可编辑，并抢占默认编辑位（`$mine`），使首诊病历被锁定为只读。
+
+  修复：非会诊模式下，仅 `dept_id == 就诊当前科室` 的记录可编辑；会诊病历（`consultation_id>0`）在非会诊科室永久只读（`dept_match=0`），不抢占编辑位、不触发会诊模式锁，原科室医生可正常编辑/续写首诊病历和开单。（`app/api/parts/record_read.php`、`app/core/helpers.d/consult.php`、`public/assets/js/components/emr.js`）
+
 ## [6.2.4] - 2026-09-02
 
 ### 变更

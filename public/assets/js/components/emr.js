@@ -2035,13 +2035,6 @@ diagnoses: [],
             return consActive ? 1 : 0;
         }
         if ((target.dept_id || 0) > 0 && (target.dept_id || 0) === visitDept) return 1;
-        // 会诊进行中例外：本人会诊文书（consultation_id>0）且会诊未完毕 → 可编辑
-        if ((target.consultation_id || 0) > 0) {
-            var consGo = (DATA.consults || []).some(function (cc) {
-                return (cc.id || 0) === (target.consultation_id || 0) && (cc.status === 'pending' || cc.status === 'doing');
-            });
-            if (consGo) return 1;
-        }
         return 0;
     }
 

@@ -51,7 +51,8 @@ function get_consult_context($visit, $u) {
  * 可编辑定义（统一判定，前后端同规则）：
  * · 会诊处理中（get_consult_context 命中）→ 仅本人「会诊病历」可编辑
  *   （consultation_id = 该进行中会诊），其余一律只读；
- * · 普通接诊/续写/转科 → 本人已保存且书写科室 == 就诊当前科室。
+ * · 普通接诊/续写/转科 → 本人已保存且书写科室 == 就诊当前科室
+ *   （会诊病历归属目标科室，非会诊模式下恒为只读，绝不抢占编辑位）。
  * 开单 / 发会诊 / 开诊断证明 / 加诊断等所有需病历支撑的操作统一以此为准。
  * 返回最新可编辑病历行（含 id），无则返回 null。
  */
@@ -67,7 +68,8 @@ function get_editable_record($visit, $u) {
     }
     // 普通模式：书写科室 == 就诊当前科室，且医生当前科室 == 就诊当前科室
     // （跨科室绝对只读——医生在外科不能编辑急诊科文书，反之亦然；
-    //   会诊完毕或转科后同样受此规则约束，无需 URL 参数做只读屏障）
+    //   会诊完毕或转科后同样受此规则约束，无需 URL 参数做只读屏障。
+    //   会诊病历书写科室为目标科室，非会诊模式下不与就诊当前科室匹配 → 只读）
     $docDept = (int)(isset($u['current_dept_id']) ? $u['current_dept_id'] : 0);
     if ($docDept <= 0) {
         $row = DB::one('SELECT current_dept_id FROM users WHERE id=?', array($uid));
@@ -77,29 +79,6 @@ function get_editable_record($visit, $u) {
     $visitDept = (int)(isset($visit['current_dept_id']) ? $visit['current_dept_id'] : 0);
     // 医生当前科室 != 就诊当前科室 → 跨科室查看，一切只读
     if ($docDept !== $visitDept) return null;
-    // 本就诊进行中的会诊（consultations 表在 consultation 库，不可嵌入 medical 库子查询）
-    $activeConsIds = array();
-    $activeConsRows = DB::q(        "SELECT id FROM consultations WHERE visit_id=? AND status IN ('pending','doing')", array($visitId));
-    foreach ($activeConsRows as $acr) {
-        $activeConsIds[] = (int)$acr['id'];
-    }
-    if ($visitDept > 0) {
-        if ($activeConsIds) {
-            $ph = implode(',', array_fill(0, count($activeConsIds), '?'));
-            return DB::one(                "SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND (
-                    dept_id=?
-                    OR (consultation_id>0 AND consultation_id IN ($ph))
-                ) ORDER BY id DESC LIMIT 1",
-                array_merge(array($visitId, $uid, $visitDept), $activeConsIds));
-        }
-        return DB::one(            'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND dept_id=? ORDER BY id DESC LIMIT 1',
-            array($visitId, $uid, $visitDept));
-    }
-    if ($activeConsIds) {
-        $ph = implode(',', array_fill(0, count($activeConsIds), '?'));
-        return DB::one(            "SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id>0
-                AND consultation_id IN ($ph) ORDER BY id DESC LIMIT 1",
-            array_merge(array($visitId, $uid), $activeConsIds));
-    }
-    return null;
+    return DB::one(        'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND dept_id=? ORDER BY id DESC LIMIT 1',
+        array($visitId, $uid, $visitDept));
 }

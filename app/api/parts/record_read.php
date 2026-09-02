@@ -122,13 +122,12 @@ function record_part_read($action) {
                 // 跨科室只读查看：一律不设可编辑文书（dept_match=0，全只读展示）
                 if ($crossDeptView) continue;
                 // 当前上下文可编辑判定（与 dept_match 同规则）：
-                // 会诊处理中 → 仅会诊病历可编辑；普通模式 → 书写科室==当前科室
-                // 或 本人会诊文书且会诊未完毕（已完毕的会诊病历只读，不抢占编辑位）
+                // 会诊处理中 → 仅会诊病历可编辑（consultation_id = 该进行中会诊）；
+                // 普通模式 → 仅书写科室 == 就诊当前科室 可编辑（会诊病历归属目标科室，
+                //   在本就诊当前科室下为只读，绝不抢占编辑位——会诊不锁原科室首诊）。
                 $editable = $consultMode
                     ? (int)$pr2['consultation_id'] === (int)$consultCtx['id']
-                    : ((int)$pr2['dept_id'] === (int)$visit['current_dept_id']
-                        || ((int)$pr2['consultation_id'] > 0 && EmrRepository::val(                            "SELECT COUNT(*) FROM consultations WHERE id=? AND visit_id=? AND status IN ('pending','doing')",
-                            array((int)$pr2['consultation_id'], (int)$visit['id'])) > 0));
+                    : (int)$pr2['dept_id'] === (int)$visit['current_dept_id'];
                 if ($editable) $mine = $item;   // 最新可编辑者胜出
             }
         }
@@ -160,10 +159,7 @@ function record_part_read($action) {
             'dept_match' => (!$crossDeptView && $pr && (
                 ($consultMode
                     ? (int)$pr['consultation_id'] === (int)$consultCtx['id']
-                    : ((int)$pr['dept_id'] === (int)$visit['current_dept_id']
-                        || ((int)$pr['consultation_id'] > 0 && EmrRepository::val("SELECT COUNT(*) FROM consultations WHERE id=? AND visit_id=? AND status IN ('pending','doing')",
-                            array((int)$pr['consultation_id'], (int)$visit['id'])) > 0))
-                    )
+                    : (int)$pr['dept_id'] === (int)$visit['current_dept_id'])
             )) ? 1 : 0,
             'created_at' => $pr ? $pr['created_at'] : '',
             'updated_at' => $pr ? $pr['updated_at'] : '',
