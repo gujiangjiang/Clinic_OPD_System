@@ -254,7 +254,18 @@ function record_part_read($action) {
         // 诊断证明信息：供前端「已开具」只读预览展示。
         // 注意——前端只读区域仅是预览，真正打印走 certificate_print
         // 从服务器重新渲染，内容以服务器保存数据为准，不可被前端篡改。
-        $certRow = EmrRepository::one('SELECT cert_no, content, doctor_name, created_at FROM certificates WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        $certRow = EmrRepository::one('SELECT cert_no, content, doctor_name, doctor_id, dept_id, created_at FROM certificates WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        // 诊断证明删除权限（后端权威）：仅开具医生本人 且 开具科室 == 医生当前科室。
+        // 转科（医生当前科室改变）或换医生后不可删除；会诊期间不可开具也不可删除。
+        $certCanDelete = 0;
+        if ($certRow) {
+            $doingCertCons = ConsultationRepository::one("SELECT id FROM consultations WHERE visit_id=? AND status='doing' LIMIT 1", array($visitId));
+            $certDocDept = (int)(isset($certRow['dept_id']) ? $certRow['dept_id'] : 0);
+            $curDocDept = (int)$docDept;   // 上方已解析的医生当前科室
+            if (!$doingCertCons && (int)$certRow['doctor_id'] === (int)$u['id'] && $certDocDept > 0 && $certDocDept === $curDocDept) {
+                $certCanDelete = 1;
+            }
+        }
 
         json_ok(array(
             'diag_order' => diag_order_keys($visitId, $u['id']),   // 本人诊断聚合显示顺序（跨医生排序载体，独立存储）
@@ -337,6 +348,9 @@ function record_part_read($action) {
                 'cert_no' => (string)$certRow['cert_no'],
                 'content' => (string)$certRow['content'],
                 'doctor_name' => (string)$certRow['doctor_name'],
+                'doctor_id' => (int)$certRow['doctor_id'],
+                'dept_id' => (int)(isset($certRow['dept_id']) ? $certRow['dept_id'] : 0),
+                'can_delete' => $certCanDelete,
                 'created_at' => (string)$certRow['created_at'],
                 'chief_complaint' => (string)(isset($certRow['chief_complaint']) ? $certRow['chief_complaint'] : ''),
                 'present_illness' => (string)(isset($certRow['present_illness']) ? $certRow['present_illness'] : ''),

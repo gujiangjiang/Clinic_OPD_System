@@ -26,6 +26,9 @@ function record_part_cert($action) {
         // 权限校验：
         // 已诊毕（归档）病历 → 补开证明走原逻辑：接诊过该患者的医生（或管理员）可开具；
         // 未诊毕 → 必须持有当前科室可编辑病历（转科后旧文书只读，须先续写保存）。
+        $curDeptId = 0;
+        $curDeptRow = UserRepository::currentDept($u['id']);
+        $curDeptId = $curDeptRow ? (int)$curDeptRow['current_dept_id'] : 0;
         if ($u['role'] !== 'admin') {
             $archived = (string)$row['visit']['status'] === 'finished';
             if ($archived) {
@@ -52,7 +55,7 @@ function record_part_cert($action) {
         $snap = cert_snapshot_summary($visitId);
         EmrRepository::insertCertificate(array(
             'visit_id' => $visitId, 'patient_no' => $row['visit']['patient_no'], 'flow_no' => $row['visit']['flow_no'],
-            'doctor_id' => $u['id'], 'doctor_name' => $u['name'], 'content' => $content, 'created_at' => now_str(), 'cert_no' => $certNo,
+            'doctor_id' => $u['id'], 'doctor_name' => $u['name'], 'dept_id' => $curDeptId, 'content' => $content, 'created_at' => now_str(), 'cert_no' => $certNo,
             'chief_complaint' => $snap['chief_complaint'], 'present_illness' => $snap['present_illness'], 'preliminary_diagnosis' => $snap['preliminary_diagnosis'],
         ));
         json_ok(array('cert_no' => $certNo), '诊断证明已开具');
@@ -75,6 +78,35 @@ function record_part_cert($action) {
         $visit['gender'] = $row['patient']['gender'];
         $visit['age'] = $row['patient']['age'];
         json_ok(array('html' => pt_certificate($visit, $row['patient'], $record, $cert, $cert['doctor_name'])));
+        return;
+    }
+
+    /* ==================== 删除诊断证明（仅本人 + 开具科室一致） ==================== */
+    // 删除约束（法律文书可撤销但必须严格控制）：
+    // · 仅开具医生本人可删（doctor_id 一致）；
+    // · 且开具时科室 == 医生当前科室（转科后旧科室文书不可删）；
+    // · 会诊期间不可删（会诊病历本身也不可开具证明）。
+    if ($action === 'certificate_delete') {
+        $visitId = did(post('visit_id'));
+        $row = get_visit_row($visitId);
+        if (!$row) json_fail('就诊记录不存在');
+        $cert = EmrRepository::certificateByVisit($visitId);
+        if (!$cert) json_fail('该就诊未开具诊断证明');
+        // 会诊期间拦截
+        $doingDelCons = ConsultationRepository::one("SELECT id FROM consultations WHERE visit_id=? AND status='doing' LIMIT 1", array($visitId));
+        if ($doingDelCons) {
+            json_fail('该就诊正在进行会诊，会诊期间不可删除诊断证明');
+        }
+        if ((int)$cert['doctor_id'] !== (int)$u['id']) {
+            json_fail('仅开具证明的医生本人可删除');
+        }
+        $curDeptRow = UserRepository::currentDept($u['id']);
+        $curDeptId = $curDeptRow ? (int)$curDeptRow['current_dept_id'] : 0;
+        if ((int)$cert['dept_id'] > 0 && (int)$cert['dept_id'] !== $curDeptId) {
+            json_fail('该证明开具于其他科室，转科后不可删除');
+        }
+        EmrRepository::exec('DELETE FROM certificates WHERE id=?', array((int)$cert['id']));
+        json_ok(array(), '诊断证明已删除');
         return;
     }
 

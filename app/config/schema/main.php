@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 9,
+    'version' => 10,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -380,6 +380,7 @@ return array(
             flow_no TEXT,
             doctor_id INTEGER,
             doctor_name TEXT,
+            dept_id INTEGER DEFAULT 0,
             content TEXT,
             created_at TEXT,
             cert_no TEXT DEFAULT '',
@@ -639,6 +640,10 @@ return array(
         9 => array(
             "UPDATE certificates SET cert_no = 'ZM' || replace(substr(created_at,1,10),'-','') || substr('0000' || id, -4, 4) WHERE cert_no IS NULL OR cert_no = ''",
             "UPDATE patient_records SET record_type='initial' WHERE record_type IS NULL OR record_type=''",
+        ),
+        // v10：诊断证明增加 dept_id 字段（记录开具时科室，用于删除权限校验）
+        10 => array(
+            "ALTER TABLE certificates ADD COLUMN dept_id INTEGER DEFAULT 0",
         ),
     ),
     'seed' => array(

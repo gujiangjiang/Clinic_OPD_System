@@ -12,7 +12,7 @@ Router::title('打印中心');
 
 <div class="card">
     <div class="flex gap-8">
-        <input class="input" id="pcKw" placeholder="输入患者ID / 门诊流水号 / 身份证号" style="flex:1" autocomplete="off">
+        <input class="input" id="pcKw" placeholder="输入患者ID / 门诊流水号 / 身份证号" style="flex:1" autocomplete="off" onkeydown="if(event.key==='Enter')searchVisit()">
         <button class="btn btn-primary btn-sm" onclick="searchVisit()">查询</button>
     </div>
 </div>

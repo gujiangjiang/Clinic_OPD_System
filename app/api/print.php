@@ -24,6 +24,8 @@ function print_guard($visit, $allowedRoles) {
     if (!in_array($u['role'], $allowedRoles, true)) {
         json_fail('无权限打印该单据');
     }
+    // 收费员打印凭条不受科室限制（全院收费）
+    if ($u['role'] === 'cashier') return;
     if (!visit_dept_authorized($visit, $u)) {
         json_fail('无权打印该就诊的单据');
     }

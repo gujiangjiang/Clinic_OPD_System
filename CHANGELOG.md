@@ -13,6 +13,19 @@
 
 ---
 
+## [6.2.1] - 2026-09-02
+
+### 修复
+
+- **搜索交互优化**：统一打印中心与缴费退费搜索栏支持回车键直接搜索（无需点击查询按钮）。（`app/views/admin/printcenter.php`、`app/views/cashier/paymanage.php`）
+- **缴费明细展开修复**：缴费与退费页点击就诊记录后未展开明细——混淆 ID 在 `onclick` 内缺少引号导致 JS 错误，补全引号。（`app/views/cashier/paymanage.php`）
+- **缴费凭条权限修复**：收费员缴费后打印凭条提示「无权打印该单据」——`print_guard` 对 cashier 角色误判科室归属，豁免收费员（全院收费）。（`app/api/print.php`）
+- **诊断证明列表即时刷新**：开具诊断证明成功后立即刷新左侧病历导航栏，无需手动刷新页面。（`public/assets/js/components/emr.js`）
+- **诊断证明删除功能（新增）**：certificates 表新增 `dept_id` 字段（迁移 v10），开具时记录科室；后端 `certificate_delete` 校验（仅开具医生本人 + 开具科室与医生当前科室一致 + 非会诊期）；前端仅在 `can_delete` 标志为真时显示删除按钮，前后端双重拦截。（`app/config/schema/main.php`、`app/api/parts/record_cert.php`、`app/api/record.php`、`app/api/parts/record_read.php`）
+- **会诊列表日期时间修正**：候诊列表「会诊」Tab 下左侧日期/时间应为发起会诊的时间，而非患者挂号时间。（`app/api/parts/doctor/doctor_queue_list.php`）
+- **会诊病历门诊处置误显示修复**：B 科室医生新建会诊病历骨架时，门诊处置误显示 A 医生发起的「请X科会诊」——`renderDocOrders` 会诊过滤补充「当前记录未保存时排除已绑定其他病历的会诊」分支，与 `orderTextsFor` 规则对齐。（`public/assets/js/components/emr_orders.js`）
+- **病历生命体征隔离修复**：打印病历时间体征跨病历串用——`get_record_vitals` 回退路径增加 `AND record_id=0` 限定，只回退未归属任何病历的体征（护士站录入），已归属其他病历/会诊的体征永不跨病历引用。（`app/core/helpers.d/authz.php`）
+
 ## [6.2.0] - 2026-09-02
 
 ### 修复

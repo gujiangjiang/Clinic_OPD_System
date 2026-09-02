@@ -17,7 +17,7 @@ Router::title('缴费与退费');
 
 <div class="card">
     <div class="flex gap-8">
-        <input class="input" id="payKw" placeholder="输入患者ID / 门诊流水号 / 身份证号" style="flex:1" autocomplete="off">
+        <input class="input" id="payKw" placeholder="输入患者ID / 门诊流水号 / 身份证号" style="flex:1" autocomplete="off" onkeydown="if(event.key==='Enter')searchVisits()">
         <button class="btn btn-primary btn-sm" onclick="searchVisits()">查询</button>
     </div>
     <div class="fs-12 text-muted mt-8">提示：按患者ID或身份证查询时，将分组显示该患者每次就诊的缴费信息。</div>
@@ -43,7 +43,7 @@ function searchVisits() {
             box.innerHTML = '<div class="fs-13 text-muted mb-8">共检索到 ' + list.length + ' 次就诊，点击查看缴费明细：</div>' +
                 list.map(function (g) {
                     var v = g.visit, p = g.patient;
-                    return '<div class="dd-item" style="border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;cursor:pointer" onclick="loadDetail(' + v.id + ')">' +
+                    return '<div class="dd-item" style="border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;cursor:pointer" onclick="loadDetail(\'' + v.id + '\')">' +
                         '<div class="flex-between">' +
                         '<span class="fw-600">' + (p ? p.name : '') + ' <span class="fs-12 text-muted fw-400">' + (p ? p.gender + '/' + Clinic.validate.formatAge(p.birth_date) : '') + '</span></span>' +
                         '<span class="fs-12 text-muted">' + v.first_dept_name + ' 第' + String(v.visit_seq).padStart(3, '0') + '号</span></div>' +

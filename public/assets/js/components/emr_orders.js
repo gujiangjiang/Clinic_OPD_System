@@ -138,10 +138,16 @@ Clinic.emr.orders = (function () {
         // 会诊：本人发起的会诊在门诊处置中显示「请X科会诊」（点击弹出会诊详情）；
         // 样式由病历系统统一渲染（复用 .emr-item-link 项目标签同款样式）
         // 会诊与病历强关联：仅显示【本记录】（record_id）发起的会诊；旧数据（record_id=0）回退按医生归属
+        // （与 orderTextsFor 同规则：当前记录未保存时绝不显示绑定在其他病历上的会诊，
+        //   防止新建续写/会诊骨架时把 A 发起给 B 的会诊误带进 B 的会诊病历）
         (ctx.CONSULTS || []).forEach(function (c) {
             if ((c.from_doctor_id || 0) !== myId) return;
             var cRec = c.record_id || 0;
-            if (curRecId > 0 && cRec > 0 && cRec !== curRecId) return;
+            if (curRecId > 0) {
+                if (cRec > 0 && cRec !== curRecId) return;
+            } else {
+                if (cRec > 0) return;
+            }
             dispT.push('<span class="emr-item-link emr-consult-link" data-cid="' + c.id + '" onclick="event.stopPropagation();Clinic.emr.openConsultDetail(\'' + c.code + '\')">请' + escHtml(c.target_dept_name || '') + '会诊</span>');
         });
         Clinic.emrEditor.setAuto('aux_orders', auxT.join('，'), auxT.length > 0);

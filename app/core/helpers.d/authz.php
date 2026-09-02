@@ -30,7 +30,7 @@ function user_dept_ids($u = null) {
  * 病历段生命体征归属查询（统一规则）：
  * 按文书记录精确关联（record_id 优先）；续写/会诊病历各自独立体征——
  * 只取本记录关联的体征，绝不复用首诊体征；首诊记录（非续写）才按
- * operator 回退就诊体征（护士站录入共用）。
+ * operator 回退就诊体征（护士站录入共用，仅回退未归属任何病历的体征）。
  * @return array|null vitals 行
  */
 function get_record_vitals($recordId, $visitId, $operator, $recordType) {
@@ -39,7 +39,9 @@ function get_record_vitals($recordId, $visitId, $operator, $recordType) {
         if ($v) return $v;
     }
     if ($recordType !== 'progress') {
-        return EmrRepository::one('SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1', array((int)$visitId, (string)$operator));
+        // 仅回退「未归属任何病历」的体征（record_id=0），且 operator 一致——
+        // 绝不引用其他病历/会诊已归属的体征，保证病历间体征完全隔离。
+        return EmrRepository::one('SELECT * FROM vitals WHERE visit_id=? AND operator=? AND record_id=0 ORDER BY id DESC LIMIT 1', array((int)$visitId, (string)$operator));
     }
     return null;
 }

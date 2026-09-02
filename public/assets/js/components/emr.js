@@ -1935,10 +1935,14 @@ diagnoses: [],
             var cert = (DATA && DATA.certificate) || {};
             var certTime = (cert.created_at || '').substring(5, 16);   // MM-DD HH:MM
             var certDept = (DATA.visit && DATA.visit.dept_name) || '';
+            // 删除权限：后端权威计算（开具医生+科室一致+非会诊期）
+            var canDelCert = cert.can_delete ? 1 : 0;
             certEl.innerHTML = '<div class="ena-item" onclick=\"Clinic.emr.certificateModal(visitId.value, \'诊断证明\')\">' +
                 '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                 escHtml(certTime) + ' ' + escHtml(certDept) + '</span>' +
-                '<span class="ena-sub">' + escHtml(cert.doctor_name || '') + '</span></div>';
+                '<span class="ena-sub">' + escHtml(cert.doctor_name || '') + '</span>' +
+                (canDelCert ? '<span class="ena-del" title="删除诊断证明" onclick="Clinic.emr.deleteCertificate(\'' + visitId.value + '\');event.stopPropagation()">🗑️</span>' : '') +
+                '</div>';
         } else {
             // 未开具时不再放正文入口，统一走分区标题右侧「＋」（emrNavAdd('cert')）
             certEl.innerHTML = '<div class="ena-empty">暂未开具</div>';
@@ -3109,6 +3113,7 @@ diagnoses: [],
                                             Clinic.toast.success('诊断证明已开具');
                                             Clinic.modal.close();
                                             Clinic.print.load('/api/record?action=certificate_print&visit_id=' + visitId, null, 'a5');
+                                            renderLeftNav();
                                             if (typeof onIssued === 'function') onIssued();
                                         },
                                     });
@@ -3371,6 +3376,17 @@ diagnoses: [],
         openCertificate: openCertificate,
         certificateModal: certificateModal,
         viewCertificate: viewCertificate,
+        /** 删除诊断证明（仅本人+科室一致，后端硬校验） */
+        deleteCertificate: function (visitId) {
+            Clinic.modal.confirm('确认删除该诊断证明？删除后不可恢复。', function () {
+                Clinic.ajax('/api/record', { action: 'certificate_delete', visit_id: visitId }, {
+                    onSuccess: function () {
+                        Clinic.toast.success('诊断证明已删除');
+                        renderLeftNav();
+                    },
+                });
+            }, { title: '删除诊断证明', okText: '确认删除' });
+        },
         openVitals: openVitals,
         printRecord: printRecord,
         isRecordComplete: isRecordComplete,

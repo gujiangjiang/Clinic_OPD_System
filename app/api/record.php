@@ -101,6 +101,7 @@ switch ($action) {
 
     case 'certificate':
     case 'certificate_print':
+    case 'certificate_delete':
     case 'check_previous_diagnoses':
         record_part_cert($action);
         break;
