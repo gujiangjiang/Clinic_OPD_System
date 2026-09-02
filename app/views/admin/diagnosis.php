@@ -35,48 +35,74 @@ Router::title('诊断管理');
 </div>
 
 <script>
-/* ==================== 搜索浮层 ==================== */
+/* ==================== 搜索浮层（无限滚动分段加载：滚动到底部加载下一页，直至全部结果加载完成） ==================== */
 var diagDebounce = null;
 var diagLoading = false;
 var SEARCH_HIGHLIGHT_CODE = '';   // 当前搜索高亮的诊断码
+var diagSearch = { kw: '', offset: 0, total: 0, done: false };   // 分段加载状态
 
 function diagSearchDebounced() {
     if (diagDebounce) clearTimeout(diagDebounce);
     diagDebounce = setTimeout(function () { showSearchDrop(); }, 300);
 }
+
+function diagRowHtml(d) {
+    var chain = [];
+    if (d.chapter_name) chain.push(d.chapter_name);
+    if (d.section_name) chain.push(d.section_name);
+    if (d.category_name) chain.push(d.category_name);
+    if (d.subcategory_name) chain.push(d.subcategory_name);
+    return '<div class="dd-item" style="padding:7px 14px;cursor:pointer;border-bottom:1px solid var(--border)" ' +
+        'onclick="onSearchPick(\'' + d.category_code + '\',\'' + (d.category_name || '').replace(/'/g, "\\'") + '\',\'' + d.section_code_range + '\',\'' + d.chapter_code_range + '\',\'' + d.icd10_code + '\',\'' + (d.subcategory_code || '').replace(/'/g, "\\'") + '\')">' +
+        '<div class="fw-600" style="font-size:13px"><span style="font-family:monospace">' + d.icd10_code + '</span> ' + d.diagnosis_name + '</div>' +
+        '<div class="fs-12 text-muted ellipsis">' + chain.join(' → ') + '</div></div>';
+}
+
 function showSearchDrop() {
     var kw = document.getElementById('diagKw').value.trim();
     var drop = document.getElementById('searchDrop');
-    if (!kw) { drop.style.display = 'none'; return; }
+    if (!kw) { drop.style.display = 'none'; diagSearch.done = true; return; }
     if (diagLoading) return;
     diagLoading = true;
-    Clinic.get('/api/icd10?action=list&kw=' + encodeURIComponent(kw) + '&limit=50', null, {
+    // 首次（关键词变化）重置分页；继续加载（滚动触发）沿用当前 offset
+    var first = diagSearch.kw !== kw;
+    if (first) { diagSearch.kw = kw; diagSearch.offset = 0; diagSearch.total = 0; diagSearch.done = false; }
+    Clinic.get('/api/icd10?action=list&kw=' + encodeURIComponent(kw) + '&limit=50&offset=' + diagSearch.offset, null, {
         onSuccess: function (json) {
             diagLoading = false;
             var list = json.data.list || [];
             var total = json.data.total || 0;
+            diagSearch.total = total;
             if (!list.length) {
-                drop.innerHTML = '<div class="fs-12 text-muted" style="padding:10px 14px">未检索到匹配诊断</div>';
+                if (first) drop.innerHTML = '<div class="fs-12 text-muted" style="padding:10px 14px">未检索到匹配诊断</div>';
+                diagSearch.done = true;
                 drop.style.display = '';
                 return;
             }
-            drop.innerHTML = '<div class="fs-12 text-muted" style="padding:6px 14px;border-bottom:1px solid var(--border)">检索到 ' + total + ' 条诊断</div>' +
-                list.map(function (d) {
-                    var chain = [];
-                    if (d.chapter_name) chain.push(d.chapter_name);
-                    if (d.section_name) chain.push(d.section_name);
-                    if (d.category_name) chain.push(d.category_name);
-                    if (d.subcategory_name) chain.push(d.subcategory_name);
-                    return '<div class="dd-item" style="padding:7px 14px;cursor:pointer;border-bottom:1px solid var(--border)" ' +
-                        'onclick="onSearchPick(\'' + d.category_code + '\',\'' + (d.category_name || '').replace(/'/g, "\\'") + '\',\'' + d.section_code_range + '\',\'' + d.chapter_code_range + '\',\'' + d.icd10_code + '\',\'' + (d.subcategory_code || '').replace(/'/g, "\\'") + '\')">' +
-                        '<div class="fw-600" style="font-size:13px"><span style="font-family:monospace">' + d.icd10_code + '</span> ' + d.diagnosis_name + '</div>' +
-                        '<div class="fs-12 text-muted ellipsis">' + chain.join(' → ') + '</div></div>';
-                }).join('');
+            if (first) {
+                drop.innerHTML = '<div class="fs-12 text-muted" style="padding:6px 14px;border-bottom:1px solid var(--border)">检索到 ' + total + ' 条诊断</div>' +
+                    list.map(diagRowHtml).join('');
+            } else {
+                // 追加下一页（保留顶部计数行）
+                var frag = document.createElement('div');
+                frag.innerHTML = list.map(diagRowHtml).join('');
+                while (frag.firstChild) drop.insertBefore(frag.firstChild, null);
+            }
+            diagSearch.offset += list.length;
+            diagSearch.done = diagSearch.offset >= total;
             drop.style.display = '';
+            // 若本页未填满浮层且仍有更多，自动继续加载（一次性显示完全部结果）
+            if (!diagSearch.done && drop.scrollHeight <= drop.clientHeight) showSearchDrop();
         },
         onError: function () { diagLoading = false; },
     });
 }
+/* 滚动到底部自动加载下一页（无限滚动直至全部结果加载完成） */
+document.getElementById('searchDrop').addEventListener('scroll', function () {
+    var drop = this;
+    if (diagSearch.done || diagLoading) return;
+    if (drop.scrollTop + drop.clientHeight >= drop.scrollHeight - 8) showSearchDrop();
+});
 /* 点击搜索结果：关闭浮层 → 展开树到类目 → 右侧显示详情 → 高亮 */
 function onSearchPick(catCode, catName, secCode, chCode, diagCode, subCode) {
     SEARCH_HIGHLIGHT_CODE = diagCode;
