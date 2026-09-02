@@ -234,7 +234,7 @@ Clinic.queuePanel = (function () {
             '  <input class="input qp-search" id="qpSearch" placeholder="搜索：姓名/科室/序号" value="' + escHtml(KEYWORD) + '">' +
             '</div>' +
             '<div class="qp-list">' + listHtml(list) + '</div>';
-        // 勾选切换：保留搜索关键字（跨列表找同一患者），同步偏好与会话
+        // 勾选切换：仅重渲染列表区（保留搜索输入焦点与光标），同步偏好与会话
         p.querySelectorAll('.qp-chip').forEach(function (c) {
             c.addEventListener('click', function () {
                 var k = c.getAttribute('data-k');
@@ -243,15 +243,8 @@ Clinic.queuePanel = (function () {
                 else todayOnly = !todayOnly;
                 savePref();
                 renderBtn();
-            renderPanel();
-            /* 列表高度限制：不超过视口（46vh），且不溢出屏幕底部——
-               患者再多也只在面板内部滚动，不遮挡页面其他区域 */
-            var listEl = p.querySelector('.qp-list');
-            if (listEl) {
-                var chromeH = p.offsetHeight - listEl.offsetHeight;   // chips+搜索+内边距
-                var avail = window.innerHeight - p.getBoundingClientRect().top - chromeH - 12;
-                listEl.style.maxHeight = Math.max(140, Math.min(window.innerHeight * 0.46, avail)) + 'px';
-            }
+                renderListOnly(p);
+                clampListHeight(p);
             });
         });
         // 搜索即时过滤（重渲染列表区，保持输入框焦点与光标位置）
@@ -267,6 +260,8 @@ Clinic.queuePanel = (function () {
         search.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
         // 点击条目 → 跳转该患者病历页（会诊行同样进入患者病历）
         bindRowClicks(p);
+        // 首次渲染即钳制列表高度（CSS flex 容器压缩修复见 layout.css .qp-row flex-shrink）
+        clampListHeight(p);
     }
 
     /* 仅刷新列表区与计数（搜索输入时保留输入框状态） */
@@ -276,6 +271,18 @@ Clinic.queuePanel = (function () {
         box.innerHTML = listHtml(list);
         p.querySelector('.qp-count').textContent = list.length + ' 人';
         bindRowClicks(p);
+        clampListHeight(p);
+    }
+
+    /* 列表高度钳制：最高不超过视口 46vh，且不溢出屏幕底部——
+       患者再多也只在面板内部滚动，不遮挡页面其他区域。
+       必须在 DOM 渲染完成后调用（依赖 offsetHeight 实测值）。 */
+    function clampListHeight(p) {
+        var listEl = p.querySelector('.qp-list');
+        if (!listEl) return;
+        var chromeH = p.offsetHeight - listEl.offsetHeight;   // chips+搜索+内边距
+        var avail = window.innerHeight - p.getBoundingClientRect().top - chromeH - 12;
+        listEl.style.maxHeight = Math.max(140, Math.min(window.innerHeight * 0.46, avail)) + 'px';
     }
 
     /* 绑定患者条目点击：会诊行（带 data-consult-code）弹会诊详情；其余跳病历 */

@@ -659,6 +659,7 @@
     padding: 7px 8px;
     border-radius: 6px;
     cursor: pointer;
+    flex-shrink: 0;
 }
 .qp-row:hover { background: var(--primary-soft, rgba(37, 99, 235, .08)); }
 /* 单元格：超长截断（悬停 title 提示完整内容） */
