@@ -31,13 +31,22 @@ require __DIR__ . '/parts/admin_analytics.php';
 require __DIR__ . '/parts/admin_import.php';
 
 // 科室角色（检验科/影像科/药房）仅开放与本职相关的只读接口与提交审核：
-// 其余管理操作（删除/分类/用户/科室/组合管理/设置等）仍仅限管理员
+// 其余管理操作（删除/分类/用户/科室/组合管理/设置等）仍仅限管理员。
+// 各角色仅能访问本职字典：检验科=检验项目，影像科=检查项目，药房=药品，
+// 杜绝跨科室互改（如影像科改检验项目、检验科改药品）。
 if (in_array($u['role'], array('lab', 'imaging', 'pharmacy'), true)) {
-    $roleOpenActions = array(
-        'item_list', 'item_form', 'item_save', 'cat_list',           // 检验/检查项目查看与提交审核
-        'lab_groups', 'lab_group_get', 'lab_group_candidates',        // 组合只读
-        'drug_list', 'drugsetting_list', 'drugsetting_save', 'drug_save',   // 药品信息/设置只读 + 新增修改提交审核
-    );
+    if ($u['role'] === 'pharmacy') {
+        // 药房：仅药品信息/设置只读 + 新增修改提交审核
+        $roleOpenActions = array(
+            'drug_list', 'drugsetting_list', 'drugsetting_save', 'drug_save',
+        );
+    } else {
+        // 检验科（lab）/ 影像科（imaging）：本职项目查看与提交审核 + 组合只读
+        $roleOpenActions = array(
+            'item_list', 'item_form', 'item_save', 'cat_list',
+            'lab_groups', 'lab_group_get', 'lab_group_candidates',
+        );
+    }
     if (!in_array($action, $roleOpenActions, true)) {
         json_fail('无权限访问该功能（该操作需管理员处理）');
     }

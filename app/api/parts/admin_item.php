@@ -19,7 +19,11 @@ function admin_part_item($action) {
 
     /* ==================== 项目列表 ==================== */
     if ($action === 'item_list') {
-        $type = get('type', 'lab');
+        // 角色锁定 type：检验科=lab、影像科=exam（仅 admin 自由选择），
+        // 杜绝跨科室读取/篡改他科项目
+        if ($u['role'] === 'lab') $type = 'lab';
+        elseif ($u['role'] === 'imaging') $type = 'exam';
+        else $type = get('type', 'lab');
         $table = $type === 'lab' ? 'lab_items' : 'exam_items';
         $isAdmin = $u['role'] === 'admin';
         if ($type === 'lab') {
@@ -221,14 +225,21 @@ function admin_part_item($action) {
     /* ==================== 项目表单（共享模块渲染） ==================== */
     if ($action === 'item_form') {
         // 表单弹窗通过 POST 提交 type/id，必须用 req() 兼容读取（否则编辑弹窗拿不到 id/type）
-        $type = req('type', 'lab');
+        // 角色锁定 type：检验科=lab、影像科=exam（仅 admin 自由选择）
+        if ($u['role'] === 'lab') $type = 'lab';
+        elseif ($u['role'] === 'imaging') $type = 'exam';
+        else $type = req('type', 'lab');
         $id = (int)req('id', 0);
         json_ok(array('html' => form_item($type, $id)));
     }
 
     /* ==================== 保存项目 ==================== */
     if ($action === 'item_save') {
-        $type = post('type', 'lab');
+        // 角色锁定：检验科只能改检验项目、影像科只能改检查项目、
+        // 药房无权改检验/检查项目——杜绝跨科室篡改字典
+        if ($u['role'] === 'lab') $type = 'lab';
+        elseif ($u['role'] === 'imaging') $type = 'exam';
+        else $type = post('type', 'lab');   // admin 自由选择
         $id = (int)post('id');
         $table = $type === 'lab' ? 'lab_items' : 'exam_items';
         $name = post('name');
@@ -300,7 +311,10 @@ function admin_part_item($action) {
 
     /* ==================== 项目分类管理 ==================== */
     if ($action === 'cat_list') {
-        $type = get('type', 'lab');
+        // 角色锁定 type：检验科=lab、影像科=exam（仅 admin 自由选择）
+        if ($u['role'] === 'lab') $type = 'lab';
+        elseif ($u['role'] === 'imaging') $type = 'exam';
+        else $type = get('type', 'lab');
         $rows = OrderRepository::q('SELECT * FROM item_categories WHERE ctype=? ORDER BY sort, id', array($type));
         json_ok(array('list' => array_map(function ($c) {
             return array('id' => (int)$c['id'], 'name' => $c['name']);
