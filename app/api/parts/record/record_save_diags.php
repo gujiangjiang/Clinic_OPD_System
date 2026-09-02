@@ -18,6 +18,11 @@ function record_part_save_diags($u) {
     if (!visit_access_allowed($row['visit'], $u)) {
         json_fail('该病历超出您的可查看历史天数，无法修改');
     }
+    // 科室数据隔离校验（与 record_save / record_read 等接口一致）：
+    // 防止非关联科室医生（edit_record_id 分支仅按 doctor_id 归属）越权调整诊断
+    if (!visit_dept_authorized($row['visit'], $u)) {
+        json_fail('无权限操作该就诊的诊断');
+    }
     // 仅本人文书可调整，且未诊毕；切换回旧文书编辑时按 edit_record_id 精确定位
     $editDiagRecordId = (int)post('edit_record_id', 0);
     if ($editDiagRecordId > 0) {

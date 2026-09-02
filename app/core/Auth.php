@@ -29,6 +29,28 @@ class Auth {
     }
 
     /**
+     * 实时校验当前会话用户仍存在且启用。
+     * 会话快照可能滞后：管理员停用(status=0)或删除用户后，既有会话
+     * 若不校验，其全部接口/页面仍可用。此处按用户 ID 实时读库，
+     * 失活即强制登出并返回 false。
+     * @return bool 是否仍为有效启用用户
+     */
+    public static function assertActive() {
+        $u = self::user();
+        if (!$u) return false;
+        try {
+            $row = DB::one('SELECT id, status FROM users WHERE id=?', array((int)$u['id']));
+        } catch (Exception $ex) {
+            return false;
+        }
+        if (!$row || (int)$row['status'] !== 1) {
+            self::logout();
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * 登录校验
      * @return bool|string true 成功；字符串为错误提示
      */

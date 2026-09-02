@@ -141,6 +141,11 @@ class Router {
                 header('Location: /login?next=' . urlencode($uri));
                 exit;
             }
+            // 实时校验：管理员停用/删除用户后，既有会话立即失效（跳转登录页）
+            if (!Auth::assertActive()) {
+                header('Location: /login');
+                exit;
+            }
             // ===== ③ 角色门：无关角色直接访问他人页面 → 403 =====
             if (!in_array('user', $route[1], true) && !in_array($u['role'], $route[1], true) && $u['role'] !== 'admin') {
                 self::forbidden();
