@@ -278,8 +278,8 @@ switch ($action) {
         $visit['birth_date'] = $row['patient']['birth_date'];
         $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
-        // 病历快照：取发起科室医生的首诊文书（主诉/现病史/体格检查）
-        $snap = array('chief_complaint' => '', 'present_illness' => '', 'physical_exam' => '');
+        // 病历快照：取发起科室医生的首诊文书（主诉/现病史/体格检查/初步诊断）
+        $snap = array('chief_complaint' => '', 'present_illness' => '', 'physical_exam' => '', 'diagnoses' => '');
         $pr = EmrRepository::one("SELECT * FROM patient_records WHERE visit_id=? AND dept_id=? AND record_type='initial' ORDER BY id ASC LIMIT 1",
             array((int)$cons['visit_id'], (int)$cons['from_dept_id']));
         if ($pr) {
@@ -287,6 +287,7 @@ switch ($action) {
             $snap['chief_complaint'] = emr_cc_text($emr['chief_complaint']);
             $snap['present_illness'] = emr_pi_text($emr['history_present']);
             $snap['physical_exam'] = emr_pe_text($emr['physical_exam']);
+            $snap['diagnoses'] = emr_diag_text(isset($emr['diagnoses']) ? $emr['diagnoses'] : array());
         }
         $cons = consult_ensure_no($cons);
         json_ok(array('html' => pt_consult($visit, $row['patient'], $cons, $snap)));

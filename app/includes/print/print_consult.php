@@ -34,19 +34,28 @@ function pt_consult($visit, $patient, $cons, $snap) {
         pt_info_cell('申请科室', $applyDept) . '</div>' .
         '</div><div class="print-line"></div>';
 
-    // 正文：主诉/现病史/体格检查/会诊详情/会诊目的/会诊科室
+    // 正文：上 2/3 病历摘要（主诉/现病史/体格检查/初步诊断）+ 虚线分隔
+    // + 下 1/3 会诊信息（会诊科室/会诊详情/会诊目的）
     // （使用打印专用 .print-flow/.pf-sec/.pf-body 段落样式，与电子病历打印一致）
     $ro = function ($label, $val) {
         $val = ($val !== '' && $val !== null) ? $val : '—';
         return '<span class="pf-sec"><strong>' . e($label) . '：</strong><span class="pf-body">' . e($val) . '</span></span>';
     };
-    $html .= '<div class="print-flow">' .
+    // 会诊申请单专用：正文区纵向按 2:1 分栏（病历摘要占上 2/3，会诊信息占下 1/3），
+    // 中间一条虚线分隔；整个正文区撑满 A5 版心，屏显与打印一致。
+    $html .= '<div class="print-consult-flex">' .
+        '<div class="print-consult-top">' .
         $ro('主诉', isset($snap['chief_complaint']) ? $snap['chief_complaint'] : '') .
         $ro('现病史', isset($snap['present_illness']) ? $snap['present_illness'] : '') .
         $ro('体格检查', isset($snap['physical_exam']) ? $snap['physical_exam'] : '') .
+        $ro('初步诊断', isset($snap['diagnoses']) ? $snap['diagnoses'] : '') .
+        '</div>' .
+        '<div class="print-consult-divider"></div>' .
+        '<div class="print-consult-bottom">' .
+        $ro('会诊科室', isset($cons['target_dept_name']) ? $cons['target_dept_name'] : '') .
         $ro('会诊详情', isset($cons['description']) ? $cons['description'] : '') .
         $ro('会诊目的', isset($cons['purpose']) ? $cons['purpose'] : '') .
-        $ro('会诊科室', isset($cons['target_dept_name']) ? $cons['target_dept_name'] : '') .
+        '</div>' .
         '</div><div class="print-line" style="margin-top:14px"></div>';
 
     // 左下角提示 + 右下角申请医生
