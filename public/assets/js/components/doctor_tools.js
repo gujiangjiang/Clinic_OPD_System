@@ -45,15 +45,14 @@ Clinic.docTools = (function () {
     }
 
     /* 渲染标题「医生工作站-科室」：科室名做成胶囊徽章样式，
-       多科室权限 → 主色胶囊 + 下拉箭头可点击切换；单科室 → 灰色不可点击 */
+       多科室权限 → 主色胶囊可点击切换；单科室 → 灰色不可点击 */
     function renderDeptTitle() {
         var el = document.getElementById('docWorkDept');
         if (!el) return;
         var cur = null;
         DEPT_LIST.forEach(function (d) { if (d.id === CUR_DEPT) cur = d; });
         var name = cur ? cur.name : '未选科室';
-        var arrow = DEPT_LIST.length > 1 ? '<span class="doc-dept-arrow">▾</span>' : '';
-        el.innerHTML = '<span class="doc-dept-name"></span>' + arrow;
+        el.innerHTML = '<span class="doc-dept-name"></span>';
         el.querySelector('.doc-dept-name').textContent = name;
         el.title = DEPT_LIST.length > 1 ? '点击切换科室' : '您仅有该科室权限，不可切换';
         // 多科室权限 → 可点击；单科室 → 无反应（不绑点击）

@@ -19,6 +19,7 @@
 
 - **切换科室自动解绑叫号大屏**：医生手动切换科室后，自动静默解绑当前绑定的叫号大屏（`doUnbindRoom` 静默版），避免换科后大屏仍挂原科室叫号；解绑后进入新科室工作台。（`public/assets/js/components/doctor_tools.js`）
 - **科室名胶囊徽章样式**：标题区「医生工作站-科室」的科室名由「蓝色文字+底部虚线」改为更精致的胶囊徽章——多科室权限为主色浅底胶囊 + 下拉箭头（悬停加深、箭头旋转），单科室为灰色中性胶囊不可点击。（`public/assets/css/layout.css`、`app/includes/layout.php`、`public/assets/js/components/doctor_tools.js`）
+- **胶囊箭头移除**：科室名胶囊去掉「▾」下拉箭头（箭头造成视觉不平衡），保留胶囊与悬停加深效果；版本号 6.4.1→6.4.2 强制刷新 JS 缓存。（`public/assets/css/layout.css`、`public/assets/js/components/doctor_tools.js`）
 
 ## [6.4.0] - 2026-09-02
 
