@@ -40,9 +40,9 @@ class CashierRepository extends BaseRepository {
             array((int)$deptId, today_str(), $idCard));
     }
 
-    /** 标记加号已使用 */
+    /** 标记加号已使用（条件更新防并发双发：仅 used=0 可置为 1，返回影响行数） */
     public static function markSlotUsed($slotId) {
-        self::exec('UPDATE extra_slots SET used=1 WHERE id=?', array((int)$slotId));
+        return self::exec('UPDATE extra_slots SET used=1 WHERE id=? AND used=0', array((int)$slotId));
     }
 
     /* ---------------- 患者 ---------------- */

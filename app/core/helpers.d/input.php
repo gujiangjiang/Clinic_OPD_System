@@ -47,3 +47,58 @@ function now_str($fmt = 'Y-m-d H:i:s') {
 function today_str() {
     return date('Y-m-d');
 }
+
+/**
+ * 判断数据库异常是否为「唯一约束冲突」（并发撞号用）
+ * SQLite：SQLSTATE 23000 + driver code 19（UNIQUE constraint failed）
+ * MySQL ：SQLSTATE 23000 + driver code 1062（Duplicate entry）
+ * @param Exception $ex 捕获的异常
+ * @return bool
+ */
+function is_unique_conflict($ex) {
+    if ($ex instanceof PDOException) {
+        $info = $ex->errorInfo;
+        $code = isset($info[1]) ? (int)$info[1] : 0;
+        return $code === 19 || $code === 1062;
+    }
+    return false;
+}
+
+/**
+ * 生成报告编号（BG + 年月日 + 4 位序号，MAX+1 复用序号）
+ * @param string $type 报告类型（lab/imaging，目前编号不含类型前缀）
+ * @return string 报告编号
+ */
+function next_report_no($type) {
+    $seq = (int)OrderRepository::val(
+        "SELECT MAX(CAST(substr(report_no, 11) AS INTEGER)) FROM reports WHERE substr(report_no,3,8)=?",
+        array(date('Ymd'))
+    ) + 1;
+    return 'BG' . date('Ymd') . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+}
+
+/**
+ * 插入报告（唯一索引防并发撞号：INSERT 触发唯一冲突时重新生成编号重试）
+ * @param array $data result_id/report_no/visit_id/patient_no/flow_no/type/doctor/status
+ * @return int 报告自增 id
+ */
+function insert_report($data) {
+    for ($attempt = 0; $attempt < 3; $attempt++) {
+        if ($attempt > 0) {
+            // 首次生成的编号被并发占用 → 按 MAX+1 重新生成（消除重叠）
+            $data['report_no'] = next_report_no($data['type']);
+        }
+        try {
+            return OrderRepository::insert(
+                'INSERT INTO reports(result_id, report_no, visit_id, patient_no, flow_no, type, doctor, status, created_at) VALUES(?,?,?,?,?,?,?,?,?)',
+                array($data['result_id'], $data['report_no'], $data['visit_id'], $data['patient_no'], $data['flow_no'],
+                    $data['type'], $data['doctor'], $data['status'], now_str())
+            );
+        } catch (Exception $ex) {
+            if (!is_unique_conflict($ex) || $attempt >= 2) {
+                throw $ex;
+            }
+        }
+    }
+    throw new RuntimeException('报告编号生成失败');
+}

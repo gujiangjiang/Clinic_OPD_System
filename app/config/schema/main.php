@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 10,
+    'version' => 11,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -644,6 +644,11 @@ return array(
         // v10：诊断证明增加 dept_id 字段（记录开具时科室，用于删除权限校验）
         10 => array(
             "ALTER TABLE certificates ADD COLUMN dept_id INTEGER DEFAULT 0",
+        ),
+        // v11：报告编号唯一约束（报告号由 COUNT+1 生成，并发下可能重复——
+        // 唯一约束 + API 层撞号重试，杜绝静默重复报告号）
+        11 => array(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_reports_report_no ON reports(report_no)",
         ),
     ),
     'seed' => array(

@@ -157,10 +157,12 @@ switch ($action) {
         // 回写 order_items.result_id：检验/影像「已完成」队列据此关联报告，支持查看/申请撤回
         OrderRepository::exec('UPDATE order_items SET result_id=? WHERE id=?', array($resultId, $itemId));
 
-        // 报告
-        $reportNo = 'BG' . date('Ymd') . str_pad((string)OrderRepository::val('SELECT COUNT(*) FROM reports WHERE substr(report_no,3,8)=?', array(date('Ymd'))) + 1, 4, '0', STR_PAD_LEFT);
-        $reportId = OrderRepository::insert('INSERT INTO reports(result_id, report_no, visit_id, patient_no, flow_no, type, doctor, status, created_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
-            $resultId, $reportNo, $it['visit_id'], $it['patient_no'], $it['flow_no'], 'lab', $u['name'], 'done', now_str(),
+        // 报告（insert_report：MAX+1 生成 + 唯一索引并发撞号重试，杜绝重复报告号）
+        $reportNo = next_report_no('lab');
+        $reportId = insert_report(array(
+            'result_id' => $resultId, 'report_no' => $reportNo,
+            'visit_id' => $it['visit_id'], 'patient_no' => $it['patient_no'], 'flow_no' => $it['flow_no'],
+            'type' => 'lab', 'doctor' => $u['name'], 'status' => 'done',
         ));
         OrderRepository::exec("UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
         // 通知医生 + 打印提醒
