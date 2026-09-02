@@ -241,6 +241,7 @@ Clinic.queuePanel = (function () {
                 if (k === 'seen') seen = !seen;
                 else if (k === 'consult') consult = !consult;
                 else todayOnly = !todayOnly;
+                c.classList.toggle('active');
                 savePref();
                 renderBtn();
                 renderListOnly(p);
