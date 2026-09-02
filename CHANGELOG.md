@@ -13,6 +13,31 @@
 
 ---
 
+## [6.2.0] - 2026-09-02
+
+### 修复
+
+- **修复 6 处已确认逻辑缺陷**：`admin/analytics.php` 医生统计页重复 `docDeptSel` 元素 ID（筛选失效）；`record_delete.php` 重复查询；`pharmacy/dashboard.php` 发药后 `loadQueue()` 未传参数；`admin_drug.php` 删除药品设置项未校验引用计数；`emr.js` 公开 API 重复 `isMyOrder` 属性；`base.css` 重复变量与滚动条声明。
+
+### 安全
+
+- **跨科室授权校验补齐**：`consent.php`（list/get）、`consultation.php`（detail）、`transfer.php`（do）补充 `visit_dept_authorized` 等科室授权校验，杜绝知晓 ID 即跨科室读取/操作。
+- **报告打印角色白名单补充 admin**：管理员打印中心可打印检验/检查报告。
+- **未读消息可见性修复**：`admin_settings.php` 消息计数改用与 `message.php` 一致的规则 `(to_user_id=? OR (to_user_id=0 AND to_role=?))`。
+- **会话 Cookie 增加 secure 标志**（HTTPS 下启用）；`DatabaseManager::columnExists` 增加表名/列名白名单校验。
+
+### 变更
+
+- **BaseRepository 去重**：ICD-10 查询与 `prepare*` 冗余方法委托 `DatabaseManager`，移除重复 PDO 样板；跨仓库 8 组重复 SQL 改为互相委托；`OrderRepository` 字典查询统一走 `findAllByField`。
+- **打印模块公共助手抽取**：新增 `pt_info_cell` / `pt_barcode` / `pt_doc_foot`，消除 5 处 `$cell` 闭包、4 处条形码块、6 处页脚重复；删除死代码 `pt_patient_info`、`print_record.php` 死三元、`print_report.php` 未用参数。
+- **检验/影像共享逻辑合并**：`imaging.php` 与 `lab.php` 的 home_stats/queue/register/withdraw 抽取至 `dept_common.php`，各减少约 150 行重复。
+- **drug_save 统一动态列构建**：`admin_drug.php` 删除手写 26 列 INSERT + `array_slice` 偏移拼接，改用 `insertRow` 动态列。
+- **JS 工具收敛**：新增 `Clinic.utils`（pad/age）；`Clinic.get` 委托 `Clinic.ajax` 复用统一错误处理。
+- **helpers.php 按域拆分**：811 行拆分为 `helpers.d/` 下 13 个职责单一文件，入口 `helpers.php` 保留为统一加载器。
+- **大文件按动作拆分**：`record_write.php`（592 行）拆为 5 个动作文件；`order_write.php`（513 行）拆为 submit/delete；`doctor_read.php`（377 行）拆为 8 个动作文件。各文件保留分发器，逻辑零变动（已用 SQL/消息等价性校验）。
+- **移除遗留代码**：`auth.php` 无前端调用的 `profile` 兼容接口；`EmrRepository::certificatesByVisitOtherDoctors` 更名 `recordsByVisitOtherDoctors`（实际查询 patient_records 表）。
+- **forms.php 查询优化**：药品设置字典一次查出按类型分组，消除每页 5 次重复查询。
+
 ## [6.1.1] - 2026-09-01
 
 ### 变更

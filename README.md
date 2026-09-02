@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v6.1.1-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v6.2.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -90,7 +90,8 @@
 │   │       ├── icd10.php      # ICD-10 独立字典库 schema
 │   │       └── legacy/        # 旧分散式 schema 归档（供迁移工具引用）
 │   ├── core/                  # 核心类
-│   │   └── DatabaseManager.php（getMain/getIcd10 双连接 + 方言辅助）Auth.php Session.php CSRF.php Upload.php Router.php helpers.php
+│   │   ├── DatabaseManager.php（getMain/getIcd10 双连接 + 方言辅助）Auth.php Session.php CSRF.php Upload.php Router.php helpers.php（加载 helpers.d/*.php）
+│   │   └── helpers.d/         # 辅助函数按域拆分（13 个文件：string/input/upload/idcard/pinyin/settings/work/oid/visit/trend/consult/authz/message）
 │   ├── repositories/          # 数据访问层（Repository 数据仓库模式，业务与 SQL 解耦）
 │   │   └── BaseRepository.php（通用 CRUD 助手）+ 各业务域仓库：
 │   │       Icd10 / Patient / Queue / Cashier / Emr / Drug / Order /
@@ -98,7 +99,8 @@
 │   ├── api/                   # AJAX 接口（按功能拆分，含角色权限校验；不含原生 SQL，
 │   │   │                      # 统一调用对应 Repository）
 │   │   ├── _init.php          # 接口公共入口（CSRF + 登录 + 角色校验）
-│   │   ├── parts/             # 管理端接口按功能拆分（settings/dept/user/item/drug/disp/audit/call）
+│   │   ├── parts/             # 接口按功能拆分（settings/dept/user/item/drug/disp/audit/call；
+│   │   │   │                  # record_write/order_write/doctor_read 再按动作拆分到各自子目录）
 │   │   ├── auth.php install.php message.php icd10.php patient.php print.php his.php
 │   │   ├── admin.php cashier.php doctor.php record.php order.php
 │   │   ├── template.php transfer.php nurse.php lab.php imaging.php pharmacy.php
