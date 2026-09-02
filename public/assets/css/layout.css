@@ -136,20 +136,42 @@
 }
 .topbar-title { font-size: 16px; font-weight: 700; }
 .topbar-right { display: flex; align-items: center; gap: 12px; }
-/* 医生工作站（新）标题「医生工作站-科室」：科室名可点击切换（仅多科室权限） */
+/* 医生工作站（新）标题「医生工作站-科室」：科室名胶囊徽章样式
+   - 多科室权限 → 主色浅底胶囊 + 下拉箭头，悬停加深/描边，可点击切换
+   - 单科室权限 → 灰色中性胶囊，不可点击 */
 .topbar-title .doc-work-dept {
-    font-size: 15px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    padding: 2px 12px;
+    font-size: 13px;
     font-weight: 600;
+    line-height: 1.7;
+    border-radius: 999px;
+    vertical-align: middle;
     color: var(--text-muted);
-    margin-left: 2px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+}
+.topbar-title .doc-work-dept .doc-dept-arrow {
+    font-size: 10px;
+    opacity: .8;
+    transition: transform .15s ease;
 }
 .topbar-title .doc-work-dept.clickable {
     color: var(--primary);
+    background: var(--primary-soft);
+    border-color: var(--primary);
     cursor: pointer;
-    text-decoration: underline dashed;
-    text-underline-offset: 3px;
+    transition: background .15s ease, color .15s ease, box-shadow .15s ease;
 }
-.topbar-title .doc-work-dept.clickable:hover { color: var(--primary-strong, var(--primary)); }
+.topbar-title .doc-work-dept.clickable:hover {
+    background: var(--primary-hover);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(14, 116, 144, .35);
+}
+.topbar-title .doc-work-dept.clickable:hover .doc-dept-arrow { transform: rotate(180deg); }
 
 /* ---------- 右上角用户悬浮窗 ---------- */
 .user-wrap { position: relative; }

@@ -44,14 +44,17 @@ Clinic.docTools = (function () {
         });
     }
 
-    /* 渲染标题「医生工作站-科室」：单科室无反应（不可点击） */
+    /* 渲染标题「医生工作站-科室」：科室名做成胶囊徽章样式，
+       多科室权限 → 主色胶囊 + 下拉箭头可点击切换；单科室 → 灰色不可点击 */
     function renderDeptTitle() {
         var el = document.getElementById('docWorkDept');
         if (!el) return;
         var cur = null;
         DEPT_LIST.forEach(function (d) { if (d.id === CUR_DEPT) cur = d; });
         var name = cur ? cur.name : '未选科室';
-        el.textContent = '-' + name;
+        var arrow = DEPT_LIST.length > 1 ? '<span class="doc-dept-arrow">▾</span>' : '';
+        el.innerHTML = '<span class="doc-dept-name"></span>' + arrow;
+        el.querySelector('.doc-dept-name').textContent = name;
         el.title = DEPT_LIST.length > 1 ? '点击切换科室' : '您仅有该科室权限，不可切换';
         // 多科室权限 → 可点击；单科室 → 无反应（不绑点击）
         if (DEPT_LIST.length > 1) {
@@ -80,6 +83,10 @@ Clinic.docTools = (function () {
         if (id === CUR_DEPT) return;
         Clinic.ajax('/api/doctor', { action: 'set_dept', dept_id: id }, {
             onSuccess: function (json) {
+                // 手动切换科室：自动解绑当前叫号大屏（静默），避免换科后大屏仍挂原科室叫号
+                if (ROOM_BOUND && ROOM_BOUND.id) {
+                    doUnbindRoom(ROOM_BOUND.id, true);
+                }
                 CUR_DEPT = id;
                 // 同步记忆到会话存储（与医生工作站工作台同一记忆键：绑定账号+会话ID）
                 try {
@@ -277,16 +284,23 @@ Clinic.docTools = (function () {
         });
     }
 
+    /* 解绑大屏（内部静默版：不弹确认框，供「切换科室自动解绑」调用）
+     * @param roomId  诊室 ID
+     * @param silent  静默（true 不弹成功提示，切换科室场景用） */
+    function doUnbindRoom(roomId, silent) {
+        Clinic.ajax('/api/doctor', { action: 'unbind_room', room_id: roomId }, {
+            onSuccess: function (json) {
+                if (!silent) Clinic.toast.success(json.msg);
+                if (window.Clinic && Clinic.roomHeartbeat) Clinic.roomHeartbeat.forget();
+                ROOM_BOUND = null;
+                loadRoomList();
+            },
+        });
+    }
+
     function unbindRoom(roomId) {
         Clinic.modal.confirm('确认解除与当前大屏的绑定？', function () {
-            Clinic.ajax('/api/doctor', { action: 'unbind_room', room_id: roomId }, {
-                onSuccess: function (json) {
-                    Clinic.toast.success(json.msg);
-                    if (window.Clinic && Clinic.roomHeartbeat) Clinic.roomHeartbeat.forget();
-                    ROOM_BOUND = null;
-                    loadRoomList();
-                },
-            });
+            doUnbindRoom(roomId, false);
         }, { title: '解绑确认', okText: '确认解绑' });
     }
 

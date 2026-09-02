@@ -298,7 +298,7 @@ class Layout {
                         <div class="flex gap-12" style="align-items:center">
                             <button type="button" class="btn btn-outline btn-sm" data-sidebar-toggle style="padding:4px 10px">☰</button>
                             ' . ($docTools
-                                ? '<div class="topbar-title doc-work-title">' . e($title !== '' ? $title : $hosp) . '<span class="doc-work-dept" id="docWorkDept">-加载科室…</span></div>'
+                                ? '<div class="topbar-title doc-work-title">' . e($title !== '' ? $title : $hosp) . '<span class="doc-work-dept" id="docWorkDept">加载科室…</span></div>'
                                 : '<div class="topbar-title">' . e($title !== '' ? $title : $hosp) . '</div>') . '
                         </div>
                         <div class="topbar-right">
