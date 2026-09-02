@@ -138,7 +138,6 @@ class Layout {
             ' . $brandHtml . '
             ' . $content . '
             <script src="/assets/js/components/ajax.js?v=' . APP_VERSION . '"></script>
-            <script src="/assets/js/components/utils.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/toast.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/theme.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/validation.js?v=' . APP_VERSION . '"></script>
@@ -209,7 +208,7 @@ class Layout {
             $emrScripts = implode("\n", array_map(function ($f) {
                 return '<script src="/assets/js/components/' . $f . '.js?v=' . APP_VERSION . '"></script>';
             }, array(
-                'order', 'editor', 'emreditor', 'eventbus', 'emr', 'emr_rules', 'emr_format',
+                'order', 'emreditor', 'eventbus', 'emr', 'emr_rules', 'emr_format',
                 'emr_template', 'emr_fee', 'emr_patient', 'emr_orders', 'emr_segments', 'emr_consent', 'queuepanel',
             )));
         }
@@ -259,7 +258,6 @@ class Layout {
 因此脚本放在内容区之前，保证内联脚本执行时 Clinic 已就绪。 -->
             <!-- 核心通用组件（所有页面加载） -->
             <script src="/assets/js/components/ajax.js?v=' . APP_VERSION . '"></script>
-            <script src="/assets/js/components/utils.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/modal.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/deptpicker.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/depttree.js?v=' . APP_VERSION . '"></script>

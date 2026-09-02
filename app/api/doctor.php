@@ -40,7 +40,6 @@ switch ($action) {
         break;
 
     case 'set_dept':
-    case 'take':
     case 'add_slot':
     case 'bind_room':
     case 'unbind_room':

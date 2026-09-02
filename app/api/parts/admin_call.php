@@ -19,11 +19,6 @@
 function admin_part_call($action) {
     $u = Auth::user();
 
-    /* ==================== 生成随机大屏 Token（32 位十六进制） ==================== */
-    if ($action === 'room_token') {
-        json_ok(array('token' => bin2hex(random_bytes(16))));
-    }
-
     /* ==================== 按科室列出大屏 ==================== */
     if ($action === 'room_list') {
         $deptId = (int)get('dept_id');

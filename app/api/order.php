@@ -19,7 +19,6 @@ require __DIR__ . '/parts/order_write.php';
 switch ($action) {
     case 'catalog':
     case 'prev_items':
-    case 'print':
     case 'visit_orders':
         order_part_read($action);
         break;

@@ -12,17 +12,8 @@
  * 说明：Upload::save 返回相对 public 的路径（如 uploads/logo/x.png）。
  * 若直接输出到 src/href，浏览器按当前页面路径解析：
  * /login 页解析为 /uploads/... 正常，而 /admin/dashboard 页会解析成
- * /admin/uploads/... 导致 404。统一经以下两个函数输出：
+ * /admin/uploads/... 导致 404。统一经 img_data() 输出 base64 Data URI：
  * ============================================================ */
-
-/**
- * 上传文件绝对 URL：补全根斜杠（uploads/... → /uploads/...）
- * 适用：用户头像等允许直接以 URL 引用的图片
- */
-function upload_url($path) {
-    $path = ltrim((string)$path, '/');
-    return $path === '' ? '' : '/' . $path;
-}
 
 /**
  * 图片转 base64 Data URI 内联显示（不暴露文件 URL）

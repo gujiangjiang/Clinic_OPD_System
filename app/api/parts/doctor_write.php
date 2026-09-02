@@ -21,25 +21,6 @@ function doctor_part_write($action) {
         return;
     }
 
-    if ($action === 'take') {
-        $visitId = did(post('visit_id'));
-        $row = get_visit_row($visitId);
-        if (!$row) json_fail('就诊记录不存在');
-        $visit = $row['visit'];
-        if ($visit['status'] !== 'paid') {
-            json_fail('该患者当前状态不可接诊');
-        }
-        // 科室数据隔离：非挂号科室医生不能接诊（患者未转科到本医生科室）
-        if (!visit_dept_authorized($visit, $u)) {
-            json_fail('您无权接诊该患者（就诊科室不在您的权限范围内）');
-        }
-        EmrRepository::exec('UPDATE registrations SET status=? WHERE id=?', array('visiting', $visitId));
-        // 转科引用：返回最近一次转科的原始病历ID（新科室医生一键引用）
-        $ref = EmrRepository::one('SELECT ref_record_id FROM referrals WHERE visit_id=? ORDER BY id DESC', array($visitId));
-        json_ok(array('ref_record_id' => $ref ? oid($ref['ref_record_id']) : 0), '接诊成功');
-        return;
-    }
-
     if ($action === 'add_slot') {
         $deptId = (int)post('dept_id');
         $idCard = strtoupper(post('id_card'));

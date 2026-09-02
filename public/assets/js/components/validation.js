@@ -130,29 +130,6 @@ Clinic.validate = (function () {
     }
 
     /**
-     * 必填校验：检查表单中带 data-required 的控件
-     * @param {HTMLElement} form 表单容器
-     * @returns {boolean} 是否全部通过
-     */
-    function required(form) {
-        const fields = form.querySelectorAll('[data-required]');
-        let ok = true;
-        fields.forEach(function (f) {
-            const label = f.getAttribute('data-required');
-            const val = (f.value || '').trim();
-            if (!val) {
-                Clinic.toast.warning('请填写：' + label);
-                f.focus();
-                f.classList.add('input-error');
-                ok = false;
-                return;
-            }
-            f.classList.remove('input-error');
-        });
-        return ok;
-    }
-
-    /**
      * 手机号校验
      * @param {string} phone 手机号
      * @returns {boolean}
@@ -177,7 +154,6 @@ Clinic.validate = (function () {
         ageFromId: ageFromId,
         ageFromBirth: ageFromBirth,
         formatAge: formatAge,
-        required: required,
         phone: phone,
         number: number,
     };

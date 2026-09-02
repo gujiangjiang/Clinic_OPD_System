@@ -5,11 +5,11 @@
  * ============================================================
  * 说明：按功能拆分到 parts/（沿用 admin parts 模式）：
  *   parts/record_read.php   读取（get）
- *   parts/record_write.php  写入（create_progress/save/save_vitals/
+ *   parts/record_write.php  写入（save/save_vitals/
  *                           save_diag_order/save_diags）
  *   parts/record_delete.php 删除（delete_record）
  *   parts/record_cert.php   诊断证明（certificate/certificate_print/
- *                           check_previous_diagnoses）
+ *                           certificate_delete）
  * 本文件保留公共引导、共享辅助函数与动作分发。
  * ============================================================ */
 require __DIR__ . '/_init.php';
@@ -87,7 +87,6 @@ switch ($action) {
         record_part_read($action);
         break;
 
-    case 'create_progress':
     case 'save':
     case 'save_vitals':
     case 'save_diag_order':
@@ -102,7 +101,6 @@ switch ($action) {
     case 'certificate':
     case 'certificate_print':
     case 'certificate_delete':
-    case 'check_previous_diagnoses':
         record_part_cert($action);
         break;
 

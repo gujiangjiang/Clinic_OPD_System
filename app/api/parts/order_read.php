@@ -184,22 +184,6 @@ function order_part_read($action) {
         return;
     }
 
-    if ($action === 'print') {
-        $orderIdP = did(get('order_id'));
-        if ($orderIdP <= 0) json_fail('链接无效或已过期');
-        $order = OrderRepository::one('SELECT * FROM orders WHERE id=?', array($orderIdP));
-        if (!$order) json_fail('开单记录不存在');
-        $items = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($order['id']));
-        $titles = array('lab' => '检验申请单', 'imaging' => '检查申请单', 'procedure' => '处置申请单', 'prescription' => '门诊处方笺');
-        $title = isset($titles[$order['order_type']]) ? $titles[$order['order_type']] : '申请单';
-        $order['is_nurse_any'] = 0;
-        foreach ($items as $it) {
-            if (!empty($it['is_nurse'])) $order['is_nurse_any'] = 1;
-        }
-        json_ok(array('html' => pt_order($order, $items, $title)));
-        return;
-    }
-
     if ($action === 'visit_orders') {
         $visitId = did(get('visit_id'));
         $orders = OrderRepository::q('SELECT * FROM orders WHERE visit_id=? ORDER BY id ASC', array($visitId));

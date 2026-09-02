@@ -16,9 +16,6 @@ class EmrRepository extends BaseRepository {
     public static function recordByVisitDoctor($visitId, $doctorId) {
         return self::one('SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array((int)$visitId, (int)$doctorId));
     }
-    public static function latestRecordByVisitDoctor($visitId, $doctorId) {
-        return self::one('SELECT id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array((int)$visitId, (int)$doctorId));
-    }
     public static function updateRecord($id, $data) { return self::updateRow('patient_records', $id, $data); }
     public static function insertRecord($data) { return self::insertRow('patient_records', $data); }
     public static function deleteRecord($id) {
@@ -27,59 +24,18 @@ class EmrRepository extends BaseRepository {
     public static function countByVisitDoctor($visitId, $doctorId) {
         return (int)self::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array((int)$visitId, (int)$doctorId));
     }
-    public static function countByVisit($visitId) {
-        return (int)self::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=?', array((int)$visitId));
-    }
-    public static function maxIdByVisit($visitId) {
-        return (int)self::val('SELECT MAX(id) FROM patient_records WHERE visit_id=?', array((int)$visitId));
-    }
-    public static function countByVisitDoctorOtherDept($visitId, $doctorId, $deptId) {
-        return (int)self::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id<>? AND dept_id=?', array((int)$visitId, (int)$doctorId, (int)$deptId));
-    }
 
     // ===== records 扁平镜像 =====
-    public static function mirrorByVisitDoctor($visitId, $doctorId) {
-        return self::one('SELECT * FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array((int)$visitId, (int)$doctorId));
-    }
-    public static function mirrorByPatientRecord($patientRecordId) {
-        return self::one('SELECT id FROM records WHERE patient_record_id=?', array((int)$patientRecordId));
-    }
-    public static function mirrorByVisitDoctorFallback($visitId, $doctorId) {
-        return self::one('SELECT id FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array((int)$visitId, (int)$doctorId));
-    }
-    public static function insertMirror($data) { return self::insertRow('records', $data); }
-    public static function updateMirror($id, $data) { return self::updateRow('records', $id, $data); }
+    /** 删除镜像（按病历记录 id） */
     public static function deleteMirrorByPatientRecord($patientRecordId) {
         self::exec('DELETE FROM records WHERE patient_record_id=?', array((int)$patientRecordId));
-    }
-    public static function countByVisitDoctorMirror($visitId, $doctorId) {
-        return (int)self::val('SELECT COUNT(*) FROM records WHERE visit_id=? AND doctor_id=?', array((int)$visitId, (int)$doctorId));
-    }
-    public static function latestMirrorIdByVisitDoctor($visitId, $doctorId) {
-        return (int)self::val('SELECT id FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array((int)$visitId, (int)$doctorId));
-    }
-    public static function mirrorByVisitDoctorWithPatientRecordZero($visitId, $doctorId) {
-        return self::one('SELECT id FROM records WHERE visit_id=? AND doctor_id=? AND patient_record_id=0 ORDER BY id DESC LIMIT 1', array((int)$visitId, (int)$doctorId));
     }
 
     // ===== vitals 体征 =====
     public static function vitalsByVisit($visitId) {
         return self::q('SELECT * FROM vitals WHERE visit_id=? ORDER BY id ASC', array((int)$visitId));
     }
-    public static function vitalsByRecordId($recordId) {
-        return self::one('SELECT * FROM vitals WHERE record_id=? ORDER BY id DESC LIMIT 1', array((int)$recordId));
-    }
-    public static function vitalsByVisitOperator($visitId, $operator) {
-        return self::one('SELECT * FROM vitals WHERE visit_id=? AND operator=? ORDER BY id DESC LIMIT 1', array((int)$visitId, $operator));
-    }
-    public static function vitalsIdByVisitRecord($visitId, $recordId) {
-        return self::one('SELECT id FROM vitals WHERE visit_id=? AND record_id=? LIMIT 1', array((int)$visitId, (int)$recordId));
-    }
     public static function insertVitals($data) { return self::insertRow('vitals', $data); }
-    public static function updateVitals($id, $data) { return self::updateRow('vitals', $id, $data); }
-    public static function updateVitalsRecordId($recordId, $visitId, $operator) {
-        self::exec('UPDATE vitals SET record_id=? WHERE visit_id=? AND operator=? AND record_id=0', array((int)$recordId, (int)$visitId, $operator));
-    }
 
     // ===== templates 病历模板 =====
     public static function templates() {
@@ -97,23 +53,8 @@ class EmrRepository extends BaseRepository {
         return (int)self::val('SELECT COUNT(*) FROM certificates WHERE cert_no=?', array($certNo));
     }
     public static function insertCertificate($data) { return self::insertRow('certificates', $data); }
-    public static function recordsByVisitOtherDoctors($visitId, $doctorId) {
-        return self::q('SELECT * FROM patient_records WHERE visit_id=? AND doctor_id<>? ORDER BY id ASC', array((int)$visitId, (int)$doctorId));
-    }
-
-    // ===== referrals 转科 =====
-    public static function insertReferral($data) { return self::insertRow('referrals', $data); }
 
     // ===== diag_orders 诊断排序 =====
-    public static function diagOrderByVisitDoctor($visitId, $doctorId) {
-        return self::one('SELECT id FROM diag_orders WHERE visit_id=? AND doctor_id=?', array((int)$visitId, (int)$doctorId));
-    }
-    public static function insertDiagOrder($visitId, $doctorId, $ordKeys) {
-        return self::insert('INSERT INTO diag_orders(visit_id, doctor_id, ord_keys, updated_at) VALUES(?,?,?,?)', array((int)$visitId, (int)$doctorId, $ordKeys, now_str()));
-    }
-    public static function updateDiagOrder($id, $ordKeys) {
-        self::exec('UPDATE diag_orders SET ord_keys=?, updated_at=? WHERE id=?', array($ordKeys, now_str(), (int)$id));
-    }
 
     /** 删除镜像（按 id） */
     public static function deleteMirrorById($id) {
@@ -129,17 +70,6 @@ class EmrRepository extends BaseRepository {
     public static function revertVisitStatus($visitId, $status) {
         self::exec('UPDATE registrations SET status=? WHERE id=?', array($status, (int)$visitId));
     }
-
-    /** 按就诊+医生查病历（续写节点/状态流转用） */
-    public static function recordsByVisitDoctorOther($visitId, $doctorId) {
-        return self::q('SELECT * FROM patient_records WHERE visit_id=? AND doctor_id<>? ORDER BY id DESC', array((int)$visitId, (int)$doctorId));
-    }
-
-    /** 会诊进行中数量（进行中会诊用） */
-    public static function activeConsultsByVisit($visitId) {
-        return ConsultationRepository::activeByVisit($visitId);
-    }
-
 
     // ===== nursing_records 护理记录 =====
     public static function nursingByVisit($visitId, $limit = 50) {

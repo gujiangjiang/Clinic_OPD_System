@@ -139,7 +139,6 @@ switch ($action) {
     case 'room_reset_token':
     case 'room_release':
     case 'room_delete':
-    case 'room_token':
         admin_part_call($action);
         break;
 

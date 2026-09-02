@@ -139,38 +139,6 @@ switch ($action) {
         json_ok(array(), '密码修改成功');
         break;
 
-    /* ---------------- 个人资料：即时保存（仅头像/主题，无需审核） ---------------- */
-    case 'profile_save':
-        $updates = array();
-        // 头像上传（即时生效）
-        $photo = isset($_FILES['photo']) ? Upload::save('photo', 'user/' . Auth::user()['role']) : null;
-        if ($photo && isset($photo['error'])) {
-            json_fail($photo['error']);
-        }
-        if ($photo && $photo['ok']) {
-            $updates['photo'] = $photo['path'];
-        }
-        // 主题（即时生效，可单独保存）
-        $theme = post('theme', '');
-        if (in_array($theme, array('auto', 'light', 'dark'), true)) {
-            $updates['theme'] = $theme;
-        }
-        if (!$updates) {
-            json_fail('没有需要保存的变更');
-        }
-        $set = array();
-        $params = array();
-        foreach ($updates as $k => $v) {
-            $set[] = $k . '=?';
-            $params[] = $v;
-        }
-        $params[] = Auth::id();
-        UserRepository::exec('UPDATE users SET ' . implode(',', $set) . ' WHERE id=?', $params);
-        if ($photo && $photo['ok']) Auth::updateSession('photo', $photo['path']);
-        if ($theme !== '') Auth::updateSession('theme', $theme);
-        json_ok(array(), '资料已保存');
-        break;
-
     /* ---------------- 个人资料：提交审核（学历/学位/个人介绍/头像） ----------------
      * 说明：学历/学位/个人介绍/头像属于需管理员审核的字段，提交后写入审核池
      * （type=profile_update），审核通过才生效；已有待审核申请时禁止重复提交。
@@ -231,15 +199,6 @@ switch ($action) {
             '用户「' . $me['name'] . '」（工号 ' . ($meRow ? $meRow['emp_no'] : '') . '）申请修改个人资料：' . implode('；', $titleParts) .
             '，请在【审核中心】处理', '', '');
         json_ok(array(), '已提交审核，审核通过后生效');
-        break;
-
-    /* ---------------- 当前用户信息 ---------------- */
-    case 'me':
-        $u = Auth::user();
-        json_ok(array(
-            'id' => $u['id'], 'username' => $u['username'], 'name' => $u['name'],
-            'role' => $u['role'], 'photo' => $u['photo'], 'theme' => Auth::theme(),
-        ));
         break;
 
     default:

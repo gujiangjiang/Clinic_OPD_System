@@ -94,11 +94,6 @@ class CashierRepository extends BaseRepository {
         return self::one('SELECT * FROM registrations WHERE id=?', array((int)$visitId));
     }
 
-    /** 按流水号查挂号记录 */
-    public static function visitByFlow($flowNo) {
-        return self::one('SELECT * FROM registrations WHERE flow_no=? ORDER BY registered_at DESC, id DESC LIMIT 1', array($flowNo));
-    }
-
     /** 患者全部挂号（倒序） */
     public static function visitsOfPatient($patientNo) {
         return PatientRepository::visitsOf($patientNo);
@@ -158,11 +153,6 @@ class CashierRepository extends BaseRepository {
     /** 按 id 查订单 */
     public static function order($orderId) {
         return self::one('SELECT * FROM orders WHERE id=?', array((int)$orderId));
-    }
-
-    /** 就诊全部订单（倒序） */
-    public static function ordersOfVisit($visitId) {
-        return self::q('SELECT * FROM orders WHERE visit_id=? ORDER BY id DESC', array((int)$visitId));
     }
 
     /** 待缴费/可退费订单（排除已退费/已取消） */

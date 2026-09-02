@@ -250,32 +250,6 @@ switch ($action) {
             $status === 'pending_review' ? '模板已提交，科室/全院模板需管理员在【审核中心】审核后生效' : '模板已保存');
         break;
 
-    /* ==================== 审核（管理员专属） ==================== */
-    case 'review':
-        if ($u['role'] !== 'admin') json_fail('仅管理员可审核模板');
-        $id = (int)post('id');
-        $verdict = post('verdict');   // approve / reject
-        $t = EmrRepository::one('SELECT * FROM emr_templates WHERE id=?', array($id));
-        if (!$t) json_fail('模板不存在');
-        if ((int)$t['is_system'] === 1) json_fail('通用模板不可审核');
-        if ($verdict === 'approve') {
-            EmrRepository::exec('UPDATE emr_templates SET status=?, updated_at=? WHERE id=?', array('published', now_str(), $id));
-            json_ok(array(), '模板审核通过，已发布');
-        } elseif ($verdict === 'reject') {
-            // 驳回：状态 rejected + 范围强制降级为个人 + 系统通知创建者
-            EmrRepository::exec('UPDATE emr_templates SET status=?, scope=?, updated_at=? WHERE id=?', array('rejected', 'personal', now_str(), $id));
-            if ((int)$t['creator_id'] > 0) {
-                send_msg('doctor', (int)$t['creator_id'],
-                    '病历模板被驳回',
-                    '您的模板「' . $t['title'] . '」未通过管理员审核，已降级为个人模板（仅自己可见可用）。请修改后重新提交。',
-                    '', '', array('msg_type' => 'system'));
-            }
-            json_ok(array(), '模板已驳回，已通知创建人并降级为个人模板');
-        } else {
-            json_fail('审核指令无效');
-        }
-        break;
-
     /* ==================== 删除模板（越权防护） ==================== */
     case 'delete':
         $id = (int)post('id');
