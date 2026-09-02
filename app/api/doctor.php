@@ -31,7 +31,6 @@ require __DIR__ . '/parts/doctor_write.php';
 switch ($action) {
     case 'home_stats':
     case 'depts':
-    case 'list':
     case 'call_queue':
     case 'queue_list':
     case 'queue_pref':

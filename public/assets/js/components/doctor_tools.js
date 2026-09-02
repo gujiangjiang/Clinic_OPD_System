@@ -1,14 +1,13 @@
 /**
  * ============================================================
- * doctor_tools.js v1.0.0 — 医生工作站（新）顶栏工具
+ * doctor_tools.js v1.1.0 — 医生工作站（新）顶栏工具
  * ============================================================
- * 说明：迁移自旧医生工作站（/doctor/dashboard）的常用功能，
- * 以顶栏按钮形式集成到医生工作站（新）顶部标题区域：
+ * 说明：以顶栏按钮形式集成到医生工作站（新）顶部标题区域：
  * 1. 标题「医生工作站-科室」：科室可点击切换（仅多科室权限可切，
  *    单科室点击无反应；后端 set_dept 亦做权限强校验）
- * 2. 工具箱下拉：加号 / 患者查询 / 模板管理
- * 3. 叫号大屏绑定（工具箱左侧）
- * 依赖：ajax.js / modal.js / deptpicker.js / toast.js / validate
+ * 2. 工具箱下拉：加号 / 切换科室 / 患者查询 / 模板管理
+ * 3. 叫号大屏绑定（工具箱左侧），绑定信息存会话 + 全局心跳保活
+ * 依赖：ajax.js / modal.js / deptpicker.js / toast.js / validate / room_heartbeat.js
  * ============================================================ */
 
 window.Clinic = window.Clinic || {};
@@ -18,11 +17,15 @@ Clinic.docTools = (function () {
     var CUR_DEPT = 0;      // 当前科室 ID
     var DEPT_LIST = [];    // 医生关联科室列表
     var ROOM_BOUND = null; // 当前绑定诊室 {id, name}
-    var ROOM_TIMER = null;
     var ROOM_DATA = [];    // 大屏列表缓存
 
     /* ==================== 初始化 ==================== */
     function init() {
+        // 恢复本次登录会话已绑定的大屏（sessionStorage），心跳由全局 room_heartbeat.js 维持
+        var bound = (window.Clinic && Clinic.roomHeartbeat) ? Clinic.roomHeartbeat.current() : null;
+        if (bound && bound.room_id) {
+            ROOM_BOUND = { id: bound.room_id, name: bound.room_name || '' };
+        }
         loadDepts();
         bindOutsideClick();
     }
@@ -35,6 +38,8 @@ Clinic.docTools = (function () {
                 CUR_DEPT = parseInt(json.data.current || document.body.getAttribute('data-dept') || 0, 10) || 0;
                 if (!CUR_DEPT && DEPT_LIST.length) CUR_DEPT = DEPT_LIST[0].id;
                 renderDeptTitle();
+                // 自动加载房间绑定状态，叫号按钮实时显示已绑定诊室
+                loadRoomList();
             },
         });
     }
@@ -76,7 +81,7 @@ Clinic.docTools = (function () {
         Clinic.ajax('/api/doctor', { action: 'set_dept', dept_id: id }, {
             onSuccess: function (json) {
                 CUR_DEPT = id;
-                // 同步记忆到会话存储（与旧工作站同一记忆键：绑定账号+会话ID）
+                // 同步记忆到会话存储（与医生工作站工作台同一记忆键：绑定账号+会话ID）
                 try {
                     sessionStorage.setItem('clinic_doc_dept', JSON.stringify({
                         u: document.body.getAttribute('data-uid') || '',
@@ -87,8 +92,8 @@ Clinic.docTools = (function () {
                 Clinic.toast.success(json.msg || '科室已切换');
                 renderDeptTitle();
                 loadRoomList();
-                // 切换科室后跳转到新科室患者列表（医生工作站首页）
-                setTimeout(function () { location.href = '/doctor/dashboard'; }, 600);
+                // 切换科室后进入医生工作站（新）：工作台自动读取已选科室并弹出候诊队列
+                setTimeout(function () { location.href = '/doctor/emr'; }, 600);
             },
         });
     }
@@ -260,8 +265,11 @@ Clinic.docTools = (function () {
                 var rid = json.data && json.data.room_id;
                 var rname = (json.data && json.data.room_name) || roomName || '';
                 ROOM_BOUND = rid ? { id: rid, name: rname } : null;
+                // 绑定信息持久化到会话 + 启动全局心跳（离开工作站/刷新页面不自动解绑）
+                if (window.Clinic && Clinic.roomHeartbeat && rid) {
+                    Clinic.roomHeartbeat.remember(rid, rname);
+                }
                 loadRoomList();
-                startRoomHeartbeat(roomId);
             },
             onError: function (json) {
                 Clinic.toast.error((json && json.msg) || '绑定失败');
@@ -274,21 +282,12 @@ Clinic.docTools = (function () {
             Clinic.ajax('/api/doctor', { action: 'unbind_room', room_id: roomId }, {
                 onSuccess: function (json) {
                     Clinic.toast.success(json.msg);
-                    if (ROOM_TIMER) { clearInterval(ROOM_TIMER); ROOM_TIMER = null; }
+                    if (window.Clinic && Clinic.roomHeartbeat) Clinic.roomHeartbeat.forget();
                     ROOM_BOUND = null;
                     loadRoomList();
                 },
             });
         }, { title: '解绑确认', okText: '确认解绑' });
-    }
-
-    function startRoomHeartbeat(roomId) {
-        if (ROOM_TIMER) clearInterval(ROOM_TIMER);
-        ROOM_TIMER = setInterval(function () {
-            Clinic.ajax('/api/doctor', { action: 'room_heartbeat', room_id: roomId }, {
-                onError: function () { /* 静默 */ },
-            });
-        }, 30000);
     }
 
     /* ==================== 点击下拉框外关闭 ==================== */
@@ -314,6 +313,7 @@ Clinic.docTools = (function () {
 
     return {
         toggleToolbox: toggleToolbox,
+        openDeptSwitch: openDeptSwitch,
         openAddSlot: openAddSlot,
         openPatientSearch: openPatientSearch,
         doPatientSearch: doPatientSearch,

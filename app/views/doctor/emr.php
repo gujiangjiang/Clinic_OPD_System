@@ -137,7 +137,7 @@ document.addEventListener('DOMContentLoaded', wbLoadDepts);
 }
 $row = $visitId ? get_visit_row($visitId) : null;
 if (!$row) {
-    echo '<div class="card"><div class="empty"><div class="empty-ico">⚠️</div>就诊记录不存在<br><a href="/doctor/dashboard">返回医生工作站</a></div></div>';
+    echo '<div class="card"><div class="empty"><div class="empty-ico">⚠️</div>就诊记录不存在<br><a href="/doctor/emr">返回医生工作站</a></div></div>';
     return;
 }
 $patient = $row['patient'];

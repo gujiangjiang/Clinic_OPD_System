@@ -22,7 +22,6 @@ render_role_home(array(
     'chart' => array('title' => '近 7 天接诊趋势', 'name' => '接诊人次'),
     'links' => array(
         array('/doctor/emr', '🩺 医生工作站'),
-        array('/doctor/dashboard', '🖥️ 旧工作站'),
         array('/messages', '💬 站内消息'),
         array('/profile', '👤 个人信息'),
     ),

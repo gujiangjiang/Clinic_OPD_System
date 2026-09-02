@@ -58,7 +58,6 @@ class Router {
         '/cashier/regmanage' => array('cashier/regmanage.php',  array('cashier')),
         '/cashier/paymanage' => array('cashier/paymanage.php',  array('cashier')),
         // ===== 医生工作站 =====
-        '/doctor/dashboard'  => array('doctor/dashboard.php',   array('doctor')),
         '/doctor/home'       => array('doctor/home.php',        array('doctor')),
         '/doctor/emr'        => array('doctor/emr.php',         array('doctor')),
         '/doctor/call'       => array('doctor/call.php',        array('doctor')),
