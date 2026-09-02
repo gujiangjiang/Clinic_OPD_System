@@ -13,6 +13,22 @@
 
 ---
 
+## [6.3.0] - 2026-09-02
+
+### 新增
+
+- **医生工作站（新）顶栏工具**：标题区域「明亮模式」左侧新增「工具箱」下拉（加号 / 患者查询 / 模板管理），加号与患者查询沿用旧工作站模块；工具箱左侧新增「叫号」大屏绑定按钮（参考旧工作站叫号设置，含绑定/解绑/心跳保活）。（`app/includes/layout.php`、`public/assets/js/components/doctor_tools.js`、`public/assets/css/layout.css`）
+- **医生工作站（新）标题科室切换**：标题由「医生工作站」改为「医生工作站-科室」（如 医生工作站-外科门诊），科室名可点击调出科室切换；仅多科室权限可切换，单科室点击无反应；后端 `set_dept` 已有权限强校验（无权选择即拦截）。（`app/includes/layout.php`、`public/assets/js/components/doctor_tools.js`）
+
+### 变更
+
+- **打印抬头优化**：病历 / 知情同意 / 开单项目 / 会诊申请 / 诊断证明等所有文档打印抬头统一以「医院名称」长度为标准宽度（`pt_header` 输出包裹块 `.print-hosp-block`），第二名称（若存在）左右两端与第一名称两边对齐；同步到病历编辑页面顶部医院名称区域（`.doc-hosp-block`）。（`app/includes/print/print_common.php`、`public/assets/css/print.css`、`public/assets/css/components-emr.css`、`public/assets/js/components/emr.js`、`public/assets/js/components/print.js`）
+
+### 修复
+
+- **A5 病历打印第 2 页起底部留白**：分页器原按「完整页眉」高度预留正文可用高度，但第 2 页起实际使用更矮的精简页眉，导致每页底部多出「完整页眉-精简页眉」的高度差（约 4-5 行空白）。修复：测量精简页眉高度，第 2 页起按其计算可用高度，正文铺满整页。（`public/assets/js/components/print.js`）
+- **就诊历史补开诊断证明报错**：`archiveCertificateConfirm is not defined`——该函数原定义于仅 EMR 页加载的 `emr.js`，而就诊历史面板（`historypanel.js`）全局加载并在医生工作站调用。修复：将 `openHistoryCertificate / archiveCertificateConfirm / printHistoryCertificate` 迁至全局加载的 `historypanel.js`，内置自包含证书弹窗（已加载 `Clinic.emr` 时复用其 `certificateModal`）。（`public/assets/js/components/historypanel.js`、`public/assets/js/components/emr.js`）
+
 ## [6.2.7] - 2026-09-02
 
 ### 变更
