@@ -13,6 +13,12 @@
 
 ---
 
+## [6.2.6] - 2026-09-02
+
+### 修复
+
+- **续写保存后切换病历节点 dept_match 误判**：本会话新建并保存的续写病历，点击会诊记录后再切回该续写时被误判为「科室不一致只读」。根因：前端保存回调新增 records_history 条目时缺少 `dept_id` 字段，`switchToRecord` 依赖 `target.dept_id` 计算 `dept_match`，缺失导致 `calcDeptMatch` 返回 0。修复：保存时取 `DATA.record.dept_id` 或就诊当前科室回填 `dept_id`；后端 `record_read` 返回的 `recordData` 补充 `dept_id` 字段。同时强制版本号递增刷新前端 JS 缓存（`?v=6.2.6`）。（`app/api/parts/record_read.php`、`public/assets/js/components/emr.js`）
+
 ## [6.2.5] - 2026-09-02
 
 ### 修复
