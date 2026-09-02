@@ -98,12 +98,8 @@ function record_part_read($action) {
         $consultMode = $consultCtx ? 1 : 0;
         $consultCode = $consultCtx ? oid($consultCtx['id']) : '';
 
-        // 医生当前所在科室（会话 auth_user 不含 current_dept_id，须从 user 库读取）
-        $docDept = (int)(isset($u['current_dept_id']) ? $u['current_dept_id'] : 0);
-        if ($docDept <= 0) {
-            $docDeptRow = EmrRepository::one('SELECT current_dept_id FROM users WHERE id=?', array((int)$u['id']));
-            $docDept = $docDeptRow ? (int)$docDeptRow['current_dept_id'] : 0;
-        }
+        // 医生当前所在科室（会话 auth_user 不含 current_dept_id，统一走公共函数）
+        $docDept = current_dept_id($u);
         // 跨科室只读查看（纯状态驱动，不用 URL 参数）：
         // 医生当前科室 != 就诊当前科室，且非会诊处理中 → 本就诊对当前医生绝对只读
         // （不同科室病历隔离：跨科室仅可查看，要书写须转科/续写/发会诊）。

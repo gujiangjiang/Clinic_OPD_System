@@ -141,8 +141,7 @@ function record_part_save($u) {
         $cons = EmrRepository::one('SELECT * FROM consultations WHERE id=?', array($consultationId));
         if (!$cons) json_fail('会诊记录不存在');
         if ((int)$cons['visit_id'] !== (int)$visitId) json_fail('会诊记录不属于本次就诊');
-        $curDeptRow = EmrRepository::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
-        $curDeptId = $curDeptRow ? (int)$curDeptRow['current_dept_id'] : 0;
+        $curDeptId = current_dept_id($u);
         if ((int)$cons['target_dept_id'] !== $curDeptId) json_fail('该会诊不属于当前科室，无法书写会诊病历');
         // 会诊记录书写科室 = 会诊目标科室（非患者当前就诊科室）
         $recDeptId = (int)$cons['target_dept_id'];

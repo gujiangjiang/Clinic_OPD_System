@@ -11,7 +11,7 @@ function doctor_part_write($action) {
 
     if ($action === 'set_dept') {
         $deptId = (int)post('dept_id');
-        $ids = doctor_dept_ids($u);
+        $ids = user_dept_ids($u);
         if (!in_array($deptId, $ids, true)) json_fail('无权选择该科室');
         $dept = EmrRepository::one('SELECT id FROM departments WHERE id=? AND status=1', array($deptId));
         if (!$dept) json_fail('科室不存在或已停用');

@@ -10,12 +10,6 @@ require __DIR__ . '/_init.php';
 
 $u = Auth::user();
 
-/** 护士可见科室ID数组（未设置则全部科室，委托公共函数） */
-function nurse_dept_ids() {
-    global $u;
-    return user_dept_ids($u);
-}
-
 switch ($action) {
 
     /* ==================== 护士站首页统计 ==================== */
@@ -36,7 +30,7 @@ switch ($action) {
 
     /* ==================== 今日患者列表 ==================== */
     case 'patients':
-        $deptIds = nurse_dept_ids();
+        $deptIds = user_dept_ids($u);
         $where = "date(r.registered_at)=? AND r.status IN ('paid','visiting','finished')";
         $params = array(today_str());
         if ($deptIds) {

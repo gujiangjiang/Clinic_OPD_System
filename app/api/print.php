@@ -263,8 +263,7 @@ switch ($action) {
         if (!$row) json_fail('就诊记录不存在');
         // 权限：发起医生本人 / 会诊目标科室医生（已接受处理的接收方）可打印；
         // 其他科室医生或确认会诊前的接收医生一律拒绝（后端硬拦截）。
-        $curDeptRow = EmrRepository::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
-        $curDeptId = $curDeptRow ? (int)$curDeptRow['current_dept_id'] : 0;
+        $curDeptId = current_dept_id($u);
         $isFrom = (int)$cons['from_doctor_id'] === (int)$u['id'];
         $isTarget = (int)$cons['target_dept_id'] === $curDeptId;
         if (!$isFrom && !$isTarget) json_fail('无权打印该会诊申请单');

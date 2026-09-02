@@ -27,6 +27,22 @@ function user_dept_ids($u = null) {
 }
 
 /**
+ * 用户当前所在科室 ID（统一读取 users.current_dept_id）
+ * 说明：会话快照（auth_user）不含 current_dept_id，各接口此前重复内联
+ * SELECT current_dept_id FROM users，统一收敛到本函数（含会话快照
+ * 优先的快速路径）。
+ * @param array $u 用户数据（含可选 current_dept_id / id）
+ * @return int 科室 ID，0 表示未选择
+ */
+function current_dept_id($u) {
+    if (isset($u['current_dept_id']) && (int)$u['current_dept_id'] > 0) {
+        return (int)$u['current_dept_id'];
+    }
+    $row = UserRepository::currentDept((int)$u['id']);
+    return $row ? (int)$row['current_dept_id'] : 0;
+}
+
+/**
  * 病历段生命体征归属查询（统一规则）：
  * 按文书记录精确关联（record_id 优先）；续写/会诊病历各自独立体征——
  * 只取本记录关联的体征，绝不复用首诊体征；首诊记录（非续写）才按

@@ -17,11 +17,6 @@ require __DIR__ . '/_init.php';
 
 $u = Auth::user();
 
-/** 取当前医生所在科室 ID 列表（委托公共函数） */
-function tpl_dept_ids($u) {
-    return user_dept_ids($u);
-}
-
 /**
  * 模板内容过滤：仅保留模板允许的结构化文本项。
  * 强制剥离：生命体征/意识状态（外部节，本就不在 emr_data）、
@@ -67,7 +62,7 @@ switch ($action) {
         if ($isAdmin) {
             // 管理员：全部（含草稿/驳回）
         } else {
-            $myDepts = tpl_dept_ids($u);
+            $myDepts = user_dept_ids($u);
             // 可见性：本人个人模板（任意状态）+ 本人待审核模板（未通过前仅自己可见可用）+
             // 已发布全院 + 已发布本人科室模板
             $conds = array("(scope='personal' AND creator_id=?)");

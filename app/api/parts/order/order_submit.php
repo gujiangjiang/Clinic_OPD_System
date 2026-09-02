@@ -20,8 +20,7 @@ function order_part_submit($u) {
         if ($dn) $deptName = (string)$dn['name'];
     }
     if ($deptName === '') {
-        $curRow = OrderRepository::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
-        $deptId = $curRow ? (int)$curRow['current_dept_id'] : 0;
+        $deptId = current_dept_id($u);
         if ($deptId > 0) {
             $dn2 = OrderRepository::one('SELECT name FROM departments WHERE id=?', array($deptId));
             if ($dn2) $deptName = (string)$dn2['name'];

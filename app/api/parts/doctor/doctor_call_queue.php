@@ -7,12 +7,11 @@
 function doctor_read_call_queue($u) {
     $deptId = (int)get('dept_id', 0);
     if ($deptId <= 0) {
-        $curRow = EmrRepository::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
-        $deptId = $curRow ? (int)$curRow['current_dept_id'] : 0;
+        $deptId = current_dept_id($u);
     }
     $dept = EmrRepository::one('SELECT * FROM departments WHERE id=? AND status=1', array($deptId));
     if (!$dept) {
-        $ids = doctor_dept_ids($u);
+        $ids = user_dept_ids($u);
         if ($ids) {
             $ph = implode(',', array_fill(0, count($ids), '?'));
             $first = EmrRepository::one("SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id LIMIT 1", $ids);

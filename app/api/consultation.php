@@ -128,8 +128,7 @@ switch ($action) {
     case 'list':
         $deptId = (int)get('dept_id', 0);
         if ($deptId <= 0) {
-            $curRow = ConsultationRepository::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
-            $deptId = $curRow ? (int)$curRow['current_dept_id'] : 0;
+            $deptId = current_dept_id($u);
         }
         if ($deptId <= 0) json_fail('当前医生未关联可用科室');
         $days = consultation_queue_days($u);
@@ -182,8 +181,7 @@ switch ($action) {
         // 权限校验：发起医生、目标科室医生、或就诊科室授权医生可查看
         $isFromDoctor = (int)$c['from_doctor_id'] === (int)$u['id'];
         $isTargetDept = false;
-        $curDeptRow = ConsultationRepository::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
-        $isTargetDept = $curDeptRow && (int)$curDeptRow['current_dept_id'] === (int)$c['target_dept_id'];
+        $isTargetDept = current_dept_id($u) === (int)$c['target_dept_id'];
         if (!$isFromDoctor && !$isTargetDept) {
             $vRow = get_visit_row((int)$c['visit_id']);
             if (!$vRow || !visit_dept_authorized($vRow['visit'], $u)) {
@@ -217,8 +215,7 @@ switch ($action) {
         $cid = did(post('id'));
         $c = ConsultationRepository::one('SELECT * FROM consultations WHERE id=?', array($cid));
         if (!$c) json_fail('会诊记录不存在');
-        $curDeptRow = ConsultationRepository::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
-        $curDeptId = $curDeptRow ? (int)$curDeptRow['current_dept_id'] : 0;
+        $curDeptId = current_dept_id($u);
         if ((int)$c['target_dept_id'] !== $curDeptId) json_fail('该会诊不属于当前科室');
         // 接受会诊：原子条件更新防并发重复接受（仅 pending 可转 doing）
         $acceptAffected = ConsultationRepository::exec(
@@ -234,8 +231,7 @@ switch ($action) {
         $cid = did(post('id'));
         $c = ConsultationRepository::one('SELECT * FROM consultations WHERE id=?', array($cid));
         if (!$c) json_fail('会诊记录不存在');
-        $curDeptRow2 = ConsultationRepository::one('SELECT current_dept_id FROM users WHERE id=?', array($u['id']));
-        $curDeptId2 = $curDeptRow2 ? (int)$curDeptRow2['current_dept_id'] : 0;
+        $curDeptId2 = current_dept_id($u);
         if ((int)$c['target_dept_id'] !== $curDeptId2) json_fail('该会诊不属于当前科室');
         if ($c['status'] === 'pending') json_fail('会诊尚未开始');
         if ($c['status'] === 'done') json_fail('该会诊已完毕');

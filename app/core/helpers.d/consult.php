@@ -36,11 +36,7 @@ function get_consult_context($visit, $u) {
     $visitId = (int)(isset($visit['id']) ? $visit['id'] : 0);
     if ($visitId <= 0) return null;
     // 医生当前所在科室（会话 auth_user 不含 current_dept_id，须从 user 库读取）
-    $myDept = (int)(isset($u['current_dept_id']) ? $u['current_dept_id'] : 0);
-    if ($myDept <= 0) {
-        $row = DB::one('SELECT current_dept_id FROM users WHERE id=?', array((int)$u['id']));
-        $myDept = $row ? (int)$row['current_dept_id'] : 0;
-    }
+    $myDept = current_dept_id($u);
     if ($myDept <= 0) return null;
     return DB::one(        "SELECT * FROM consultations WHERE visit_id=? AND target_dept_id=? AND status IN ('pending','doing') ORDER BY id DESC LIMIT 1",
         array($visitId, $myDept));
@@ -70,11 +66,7 @@ function get_editable_record($visit, $u) {
     // （跨科室绝对只读——医生在外科不能编辑急诊科文书，反之亦然；
     //   会诊完毕或转科后同样受此规则约束，无需 URL 参数做只读屏障。
     //   会诊病历书写科室为目标科室，非会诊模式下不与就诊当前科室匹配 → 只读）
-    $docDept = (int)(isset($u['current_dept_id']) ? $u['current_dept_id'] : 0);
-    if ($docDept <= 0) {
-        $row = DB::one('SELECT current_dept_id FROM users WHERE id=?', array($uid));
-        $docDept = $row ? (int)$row['current_dept_id'] : 0;
-    }
+    $docDept = current_dept_id($u);
     if ($docDept <= 0) return null;
     $visitDept = (int)(isset($visit['current_dept_id']) ? $visit['current_dept_id'] : 0);
     // 医生当前科室 != 就诊当前科室 → 跨科室查看，一切只读

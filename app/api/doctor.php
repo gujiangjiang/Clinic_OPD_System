@@ -15,11 +15,6 @@ require __DIR__ . '/_init.php';
 
 $u = Auth::user();
 
-/** 当前医生关联科室ID列表（用于权限校验与科室回退，委托公共函数） */
-function doctor_dept_ids($u) {
-    return user_dept_ids($u);
-}
-
 /** 科室是否为限号（门诊且上/下午号源数量 > 0；急诊与 0 号源为不限号） */
 function dept_is_limited($d) {
     return $d['type'] === 'clinic' && ((int)$d['am_quota'] > 0 || (int)$d['pm_quota'] > 0);
