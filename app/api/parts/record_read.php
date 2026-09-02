@@ -148,6 +148,8 @@ function record_part_read($action) {
             'doctor_name' => $u['name'],
             'doctor_emp' => $doc ? $doc['emp_no'] : '',
             'doctor_title' => $doc ? $doc['title'] : '',
+            // 书写科室：供前端 switchToRecord 切换回该记录时 calcDeptMatch 正确计算 dept_match
+            'dept_id' => $pr ? (int)$pr['dept_id'] : 0,
             // 文书类型：本次流水下已有他人病历时，当前医生的新文书为续写（progress）
             'record_type' => $pr ? (string)$pr['record_type'] : ($recordsHistory ? 'progress' : 'initial'),
             // 会诊记录关联 id（>0 即会诊病历，前端据此显示「会诊记录」徽章）

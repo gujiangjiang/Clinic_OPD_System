@@ -2628,10 +2628,15 @@ diagnoses: [],
                         });
                     }
                     if (!histEntry) {
+                        // 新保存文书归属当前科室：dept_id 取就诊当前科室（新文书一定写在当前科室），
+                        // 缺失会导致 switchToRecord 切换回该文书时 calcDeptMatch 误判为 0（科室不一致只读）
+                        var savedDeptId = DATA.record.dept_id || (DATA.visit && DATA.visit.current_dept_id) || 0;
+                        DATA.record.dept_id = savedDeptId;
                         histEntry = {
                             id: DATA.record.record_id, record_id: DATA.record.record_id,
                             doctor_id: mineId2, doctor_name: DATA.record.doctor_name,
                             doctor_emp: DATA.record.doctor_emp, doctor_title: DATA.record.doctor_title,
+                            dept_id: savedDeptId,
                             dept_name: (DATA.visit && DATA.visit.dept_name) || '',
                             record_type: DATA.record.record_type,
                             created_at: DATA.record.created_at, updated_at: now,
