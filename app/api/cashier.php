@@ -59,6 +59,7 @@ switch ($action) {
     case 'reg_list':
     case 'visit_search':
     case 'visit_detail':
+    case 'payment_batch_detail':
     case 'pay_orders':
         cashier_part_read($action);
         break;

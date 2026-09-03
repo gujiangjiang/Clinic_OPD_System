@@ -137,3 +137,62 @@ function rx_dispensed($orderId) {
     $o = OrderRepository::one('SELECT status, dispensed_at FROM orders WHERE id=?', array((int)$orderId));
     return $o && $o['status'] === 'dispensed' && !empty($o['dispensed_at']);
 }
+
+/**
+ * 订单执行流程节点（操作人+时间）：开单→缴费→登记/执行→完成，
+ * 供开单详情/病历流程/缴费凭条详情展示（doctor/order/cashier 共用）。
+ * · 开单 = 开单医生 / 创建时间
+ * · 缴费 = 收费员 / 缴费时间（payments 表，无则未缴费）
+ * · 登记 = 首个执行操作人 / 时间（lab/imaging 登记环节；处方无此步）
+ * · 发药(完成) = 执行操作人 / 时间（发药或执行完成时写入）
+ * 返回 [{label, operator, time, done, rejected?}]
+ */
+function order_flow_steps($o, $items) {
+    $flow = array();
+    $flow[] = array('label' => '开单', 'operator' => (string)$o['doctor_name'], 'time' => (string)$o['created_at'], 'done' => 1);
+    // 缴费：payments 表（order_id 关联，任取一条）
+    $pay = OrderRepository::one('SELECT cashier_name, created_at FROM payments WHERE order_id=? ORDER BY id DESC LIMIT 1', array($o['id']));
+    $payDone = !empty($o['paid_at']) || $pay;
+    $flow[] = array('label' => '缴费',
+        'operator' => $pay ? (string)$pay['cashier_name'] : '',
+        'time' => !empty($o['paid_at']) ? (string)$o['paid_at'] : ($pay ? (string)$pay['created_at'] : ''),
+        'done' => $payDone ? 1 : 0);
+    $reg = null; $disp = null;
+    foreach ($items as $it) {
+        if (!empty($it['executed_by'])) {
+            if (!$reg) $reg = array('operator' => (string)$it['executed_by'], 'time' => (string)$it['executed_at']);
+            $disp = array('operator' => (string)$it['executed_by'], 'time' => (string)$it['executed_at']);
+        }
+    }
+    if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
+        $flow[] = array('label' => '登记',
+            'operator' => $reg ? $reg['operator'] : '',
+            'time' => $reg ? $reg['time'] : '',
+            'done' => $reg ? 1 : 0);
+        $flow[] = array('label' => '报告完成',
+            'operator' => $disp ? $disp['operator'] : '',
+            'time' => $disp ? $disp['time'] : '',
+            'done' => ($disp || in_array($o['status'], array('done'), true)) ? 1 : 0);
+    } elseif ($o['order_type'] === 'prescription') {
+        // 处方进度按整单审方流转：药房处理（审方通过/驳回）→ 发药完成
+        // 通过：orders.status='dispensed' + dispensed_at；驳回：status='rejected'
+        $rxDisp = !empty($o['dispensed_at']) ? $o['dispensed_at'] : ($disp ? $disp['time'] : '');
+        $rxDone = $o['status'] === 'dispensed' || $disp;
+        $rxRejected = $o['status'] === 'rejected';
+        $flow[] = array('label' => '审方通过',
+            'operator' => $rxDone ? ($reg ? $reg['operator'] : ($o['done_by'] ? $o['done_by'] : '')) : '',
+            'time' => $rxDisp,
+            'done' => $rxDone ? 1 : 0,
+            'rejected' => $rxRejected ? 1 : 0);
+        $flow[] = array('label' => '发药完成',
+            'operator' => $rxDone ? ($o['done_by'] ? $o['done_by'] : ($disp ? $disp['operator'] : '')) : '',
+            'time' => $rxDisp,
+            'done' => $rxDone ? 1 : 0);
+    } else {
+        $flow[] = array('label' => '执行完成',
+            'operator' => $disp ? $disp['operator'] : '',
+            'time' => $disp ? $disp['time'] : '',
+            'done' => $disp ? 1 : 0);
+    }
+    return $flow;
+}

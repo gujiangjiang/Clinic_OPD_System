@@ -623,25 +623,34 @@ body.emr-readonly .emr-item-link,
 
 /* ============================================================
    缴费管理（paymanage）左右两栏布局
+   说明：两列固定高度（各自内部滚动，不随页面滚动），默认带背景占位符
    ============================================================ */
 .paymgr-layout {
     display: grid;
     grid-template-columns: 300px minmax(0, 1fr);
     gap: 12px;
-    align-items: start;
+    align-items: stretch;
+    height: calc(100vh - 150px);   /* 顶栏+页头+搜索卡后的剩余视口高度 */
 }
-.paymgr-left {
-    position: sticky;
-    top: 12px;
-    max-height: calc(100vh - 120px);
-    overflow-y: auto;
+.paymgr-left,
+.paymgr-right {
     background: var(--bg-card, #fff);
     border: 1px solid var(--border, #e5e7eb);
     border-radius: 10px;
     padding: 10px;
+    overflow-y: auto;
+    min-height: 0;
 }
-.paymgr-right {
-    min-height: 240px;
+/* 默认占位背景：两列在无内容时也保持背景与边框 */
+.paymgr-left:empty::after,
+.paymgr-right:empty::after {
+    content: '暂无数据';
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--muted, #9ca3af);
+    font-size: 13px;
 }
 .paymgr-item {
     border: 1px solid var(--border, #e5e7eb);
@@ -659,11 +668,12 @@ body.emr-readonly .emr-item-link,
     background: var(--primary-soft, rgba(37, 99, 235, .08));
 }
 .paymgr-empty {
-    border: 1px dashed var(--border, #d1d5db);
-    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
     color: var(--muted, #9ca3af);
     text-align: center;
-    padding: 60px 20px;
     font-size: 14px;
 }
 

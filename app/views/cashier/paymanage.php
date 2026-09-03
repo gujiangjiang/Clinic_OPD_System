@@ -153,6 +153,57 @@ document.addEventListener('change', function (e) {
     if (e.target && e.target.classList && e.target.classList.contains('batchPay')) updateBatchCount();
 });
 
+/* 批次详情：弹窗展示该凭条全部项目 + 每项目执行状态流程（每行一个项目） */
+function showBatchDetail(paymentNo) {
+    Clinic.get('/api/cashier?action=payment_batch_detail&payment_no=' + encodeURIComponent(paymentNo), null, {
+        onSuccess: function (json) {
+            var d = json.data || {};
+            var orders = d.orders || [];
+            var rows = '';
+            var typeNames = { lab: '检验', imaging: '检查', procedure: '处置', prescription: '处方' };
+            var statusMap = {
+                open: ['badge-warning', '待缴费'],
+                paid: ['badge-primary', '已缴费'],
+                registered: ['badge-info', '已登记'],
+                dispensing: ['badge-warning', '发药中'],
+                dispensed: ['badge-success', '已发药'],
+                done: ['badge-success', '已完成'],
+                rejected: ['badge-danger', '已驳回'],
+                refunded: ['badge-gray', '已退费'],
+                cancelled: ['badge-gray', '已取消'],
+            };
+            orders.forEach(function (o) {
+                rows += '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">' +
+                    '<div class="fs-13 fw-600">' + (typeNames[o.order_type] || '') + ' ' + Clinic.escHtml(o.order_no) +
+                    ' ｜ 开单医生 ' + Clinic.escHtml(o.doctor_name) + ' ｜ ¥' + parseFloat(o.total).toFixed(2) + '</div>';
+                // 订单级流程（横向进度：开单→缴费→执行→完成）
+                var steps = (o.flow || []).map(function (s) {
+                    var cls = s.done ? 'var(--success)' : 'var(--border)';
+                    if (s.rejected) cls = 'var(--danger)';
+                    return '<span style="color:' + cls + ';font-size:12px;white-space:nowrap">' +
+                        (s.done ? '✓ ' : '○ ') + Clinic.escHtml(s.label) +
+                        (s.operator ? '（' + Clinic.escHtml(s.operator) + '）' : '') + '</span>';
+                }).join('<span style="color:var(--border)"> → </span>');
+                rows += '<div style="margin:6px 0;overflow-x:auto;white-space:nowrap">' + steps + '</div>';
+                // 项目明细（每项目一行）
+                (o.items || []).forEach(function (it) {
+                    var st = statusMap[it.status] || ['badge-gray', it.status || ''];
+                    rows += '<div class="flex-between" style="padding:4px 0;border-top:1px dashed var(--border)">' +
+                        '<span class="fs-13">· ' + Clinic.escHtml(it.name) + (it.quantity > 1 ? ' ×' + it.quantity : '') + '</span>' +
+                        '<span><span class="badge ' + st[0] + '" style="font-size:11px">' + st[1] + '</span>' +
+                        (it.executed_by ? ' <span class="fs-12 text-muted">' + Clinic.escHtml(it.executed_by) + '</span>' : '') + '</span></div>';
+                });
+                rows += '</div>';
+            });
+            Clinic.modal.open(
+                '<div class="fs-13 fw-700 mb-4">缴费凭条流水号：' + Clinic.escHtml(d.payment_no) + '</div>' +
+                '<div class="fs-12 text-muted mb-8">共 ' + orders.length + ' 张开单，以下为全部缴费项目与执行进度</div>' + rows,
+                { title: '🧾 缴费凭条详情', size: 'modal-lg' }
+            );
+        },
+    });
+}
+
 /* ---------- 退费 ---------- */
 function refundOrder(orderId) {
     var reason = prompt('请填写退费原因：', '');

@@ -266,6 +266,7 @@ function cashier_part_read($action) {
                 '<div class="fs-12 text-muted mt-4" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' . $sumText . '</div>' .
                 '<div class="mt-8 flex gap-8">' .
                 '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=payment&payment_id=' . e(oid($g['pay_id'])) . '\',null,\'ticket\')">🖨️ 补打凭条</button>' .
+                '<button class="btn btn-outline btn-sm" onclick="showBatchDetail(\'' . e($g['payment_no']) . '\')">📋 详情</button>' .
                 // 同批次多订单 → 整单退费（不可单独退）；单订单 → 普通退费
                 ($multi
                     ? '<button class="btn btn-outline btn-sm" onclick="refundBatch(\'' . e($g['payment_no']) . '\')">退费（整单）</button>'
@@ -273,6 +274,41 @@ function cashier_part_read($action) {
                 '</div></div>';
         }
         json_ok(array('html' => $html));
+        return;
+    }
+
+    if ($action === 'payment_batch_detail') {
+        // 缴费凭条详情：按 payment_no 返回同批次全部订单的项目明细 + 执行状态流程（每项目一行）
+        $paymentNo = trim((string)get('payment_no', ''));
+        if ($paymentNo === '') json_fail('缺少缴费批次号');
+        $pays = CashierRepository::q("SELECT * FROM payments WHERE payment_no=? AND kind='order' ORDER BY id ASC", array($paymentNo));
+        if (!$pays) json_fail('未找到该缴费批次');
+        $visitId = (int)$pays[0]['visit_id'];
+        $orders = array();
+        foreach ($pays as $p) {
+            $order = CashierRepository::order($p['order_id']);
+            if (!$order) continue;
+            $items = CashierRepository::orderItems($order['id']);
+            $orders[] = array(
+                'order_no' => $order['order_no'],
+                'order_type' => $order['order_type'],
+                'doctor_name' => $order['doctor_name'],
+                'total' => (float)$order['total_amount'],
+                'status' => $order['status'],
+                'flow' => order_flow_steps($order, $items),
+                'items' => array_map(function ($it) {
+                    return array(
+                        'name' => $it['item_name'],
+                        'quantity' => (int)$it['quantity'],
+                        'price' => (float)$it['price'],
+                        'status' => $it['status'],
+                        'executed_by' => $it['executed_by'],
+                        'executed_at' => $it['executed_at'],
+                    );
+                }, $items),
+            );
+        }
+        json_ok(array('payment_no' => $paymentNo, 'visit_id' => oid($visitId), 'orders' => $orders));
         return;
     }
 
