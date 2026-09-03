@@ -88,6 +88,9 @@ switch ($action) {
         $itemId = did(post('item_id'));
         $it = OrderRepository::itemById($itemId);
         if (!$it || $it['status'] !== 'paid') json_fail('该处置不存在或状态异常');
+        // 护士科室归属校验（宽松：未绑定科室=全院放行；已绑科室须匹配就诊科室）
+        $itVisit = get_visit_row((int)$it['visit_id']);
+        if (!$itVisit || !nurse_visit_allowed($itVisit['visit'], $u)) json_fail('无权限执行该就诊的处置');
         OrderRepository::updateItem($itemId, array('status' => 'done', 'executed_by' => $u['name'], 'executed_at' => now_str()));
         if ($it['doctor_id'] > 0) {
             $pName = PatientRepository::byPatientNo($it['patient_no']);
@@ -209,6 +212,9 @@ switch ($action) {
         if (!$it || $it['item_type'] !== 'prescription' || $it['status'] !== 'paid') {
             json_fail('医嘱不存在或状态异常');
         }
+        // 护士科室归属校验（宽松：未绑定科室=全院放行；已绑科室须匹配就诊科室）
+        $itVisit = get_visit_row((int)$it['visit_id']);
+        if (!$itVisit || !nurse_visit_allowed($itVisit['visit'], $u)) json_fail('无权限执行该就诊的医嘱');
         OrderRepository::updateItem($itemId, array('status' => 'dispensing'));
         json_ok(array(), '已标记为等待执行，执行完成后请点击【执行完成】');
         break;
@@ -220,6 +226,9 @@ switch ($action) {
         if (!$it || $it['item_type'] !== 'prescription' || $it['status'] !== 'dispensing') {
             json_fail('医嘱不存在或状态异常');
         }
+        // 护士科室归属校验（宽松：未绑定科室=全院放行；已绑科室须匹配就诊科室）
+        $itVisit = get_visit_row((int)$it['visit_id']);
+        if (!$itVisit || !nurse_visit_allowed($itVisit['visit'], $u)) json_fail('无权限执行该就诊的医嘱');
         OrderRepository::updateItem($itemId, array('status' => 'dispensed', 'executed_by' => $u['name'], 'executed_at' => now_str()));
         if ($it['doctor_id'] > 0) {
             $pName = PatientRepository::byPatientNo($it['patient_no']);
@@ -235,6 +244,10 @@ switch ($action) {
     /* ==================== 生命体征：读取 ==================== */
     case 'vitals':
         $visitId = did(get('visit_id'));
+        $vVisit = get_visit_row($visitId);
+        if (!$vVisit) json_fail('就诊记录不存在');
+        // 护士科室归属校验（宽松：未绑定科室=全院放行；已绑科室须匹配就诊科室）
+        if (!nurse_visit_allowed($vVisit['visit'], $u)) json_fail('无权限查看该就诊的生命体征');
         $all = EmrRepository::vitalsByVisit($visitId);
         $latest = $all ? end($all) : null;
         json_ok(array('vitals' => $latest ? $latest : null, 'vitals_history' => $all ? $all : array()));
@@ -245,6 +258,8 @@ switch ($action) {
         $visitId = did(post('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
+        // 护士科室归属校验（宽松：未绑定科室=全院放行；已绑科室须匹配就诊科室）
+        if (!nurse_visit_allowed($row['visit'], $u)) json_fail('无权限录入该就诊的生命体征');
         $recordId = (int)post('record_id', 0);
         EmrRepository::insertVitals(array(
             'visit_id' => $visitId, 'patient_no' => $row['visit']['patient_no'], 'flow_no' => $row['visit']['flow_no'],
@@ -279,6 +294,8 @@ switch ($action) {
         if ($content === '') json_fail('请输入护理记录内容');
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
+        // 护士科室归属校验（宽松：未绑定科室=全院放行；已绑科室须匹配就诊科室）
+        if (!nurse_visit_allowed($row['visit'], $u)) json_fail('无权限录入该就诊的护理记录');
         EmrRepository::insertNursing(array(
             'visit_id' => $visitId, 'patient_no' => $row['visit']['patient_no'], 'flow_no' => $row['visit']['flow_no'],
             'content' => $content, 'operator' => $u['name'],

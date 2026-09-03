@@ -27,6 +27,23 @@ function user_dept_ids($u = null) {
 }
 
 /**
+ * 护士操作科室归属校验（宽松版）。
+ * 说明：护士默认不绑定科室（dept_ids 为空 = 全院），此时一律放行——
+ * 强制执行 visit_dept_authorized 会拦停所有护士操作；仅当护士在
+ * 用户管理中确实配置了 dept_ids 时，才校验就诊当前科室是否在其
+ * 关联科室范围内。
+ * @param array $visit 就诊行（需含 current_dept_id）
+ * @param array $u     当前用户
+ * @return bool
+ */
+function nurse_visit_allowed($visit, $u) {
+    $myDepts = user_dept_ids($u);
+    if (!$myDepts) return true;   // 未绑定科室 = 全院护士
+    $visitDept = (int)(isset($visit['current_dept_id']) ? $visit['current_dept_id'] : 0);
+    return $visitDept <= 0 || in_array($visitDept, $myDepts, true);
+}
+
+/**
  * 用户当前所在科室 ID（统一读取 users.current_dept_id）
  * 说明：会话快照（auth_user）不含 current_dept_id，各接口此前重复内联
  * SELECT current_dept_id FROM users，统一收敛到本函数（含会话快照

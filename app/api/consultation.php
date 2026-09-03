@@ -150,6 +150,8 @@ switch ($action) {
         $visitId = did(get('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
+        // 科室数据隔离：仅可快照就诊科室/本人接诊过的就诊（已诊毕归档直接放行）
+        if (!visit_dept_authorized($row['visit'], $u)) json_fail('无权限查看该就诊的病历快照');
         if (!visit_access_allowed($row['visit'], $u)) json_fail('该病历超出您的可查看历史天数');
         // 取本人首诊文书的快照（无则空）
         $pr = ConsultationRepository::one("SELECT emr_data FROM patient_records WHERE visit_id=? AND record_type='initial' ORDER BY id ASC LIMIT 1",
@@ -169,6 +171,10 @@ switch ($action) {
     case 'visit_consults':
         $visitId = did(get('visit_id'));
         if ($visitId <= 0) json_fail('参数错误');
+        $row = get_visit_row($visitId);
+        if (!$row) json_fail('就诊记录不存在');
+        // 科室数据隔离：仅可查看就诊科室/本人接诊过的就诊会诊（已诊毕归档直接放行）
+        if (!visit_dept_authorized($row['visit'], $u)) json_fail('无权限查看该就诊的会诊');
         $rows = ConsultationRepository::q('SELECT * FROM consultations WHERE visit_id=? ORDER BY id ASC', array($visitId));
         json_ok(array('list' => array_map('consultation_row', $rows)));
         break;

@@ -28,6 +28,7 @@ if (!Auth::assertActive()) {
 // 接口 → 允许角色 映射（不在映射中的接口任何登录用户均可调用）
 $__roleMap = array(
     'admin'    => array('admin', 'lab', 'imaging', 'pharmacy'),   // 管理端部分功能对科室开放（只读+提交审核）
+    'patient'  => array('cashier', 'doctor', 'nurse'),            // 患者档案（含身份证/电话/住址）：仅需患者数据的角色
     'order'    => 'doctor',
     'record'   => 'doctor',
     'consent'  => 'doctor',

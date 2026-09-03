@@ -308,6 +308,11 @@ switch ($action) {
         if (!in_array($u['role'], array('doctor', 'lab', 'imaging', 'admin'), true)) {
             json_fail('无权限打印该报告');
         }
+        // 医生打印报告补就诊归属校验（已诊毕归档 visit_dept_authorized 直接放行）；
+        // 检验/影像为出具科室、admin 为打印中心，维持原行为不做科室限制
+        if ($u['role'] === 'doctor' && (!$row || !visit_dept_authorized($row['visit'], $u))) {
+            json_fail('无权打印该就诊的报告');
+        }
         json_ok(array('html' => pt_report($report, $result, $item)));
         break;
 

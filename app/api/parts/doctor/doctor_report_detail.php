@@ -8,6 +8,12 @@ function doctor_read_report_detail($u) {
     $rid = did(get('report_id'));
     $report = EmrRepository::one('SELECT * FROM reports WHERE id=?', array($rid));
     if (!$report) json_fail('报告不存在');
+    // 科室数据隔离：医生仅可查看其就诊科室/本人接诊过的就诊报告
+    // （已诊毕归档 visit_dept_authorized 直接放行，历史报告不受影响）
+    $vRow = get_visit_row((int)$report['visit_id']);
+    if (!$vRow || !visit_dept_authorized($vRow['visit'], $u)) {
+        json_fail('无权限查看该报告');
+    }
     $result = EmrRepository::one('SELECT * FROM results WHERE id=?', array($report['result_id']));
     $itemName = '';
     $rows = array();

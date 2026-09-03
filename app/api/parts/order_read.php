@@ -161,6 +161,8 @@ function order_part_read($action) {
         $visitId = did(get('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
+        // 科室数据隔离：医生仅可查看其就诊科室/本人接诊过的就诊既往开单
+        if (!visit_dept_authorized($row['visit'], $u)) json_fail('无权限查看该就诊的既往开单');
         $patientNo = $row['visit']['patient_no'];
         $type = get('type', 'lab');
         $rows = OrderRepository::q("SELECT oi.item_id, oi.item_name, o.created_at, o.order_no FROM order_items oi
@@ -186,6 +188,10 @@ function order_part_read($action) {
 
     if ($action === 'visit_orders') {
         $visitId = did(get('visit_id'));
+        $row = get_visit_row($visitId);
+        if (!$row) json_fail('就诊记录不存在');
+        // 科室数据隔离：医生仅可查看其就诊科室/本人接诊过的就诊开单
+        if (!visit_dept_authorized($row['visit'], $u)) json_fail('无权限查看该就诊的开单');
         $orders = OrderRepository::q('SELECT * FROM orders WHERE visit_id=? ORDER BY id ASC', array($visitId));
         $out = array();
         foreach ($orders as $o) {

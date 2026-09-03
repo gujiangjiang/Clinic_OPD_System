@@ -66,6 +66,9 @@ function record_part_cert($action) {
         $visitId = did(get('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
+        // 科室数据隔离：仅可打印就诊科室/本人接诊过的就诊诊断证明
+        // （已诊毕归档 visit_dept_authorized 直接放行，历史补打不受影响）
+        if (!visit_dept_authorized($row['visit'], $u)) json_fail('无权限打印该诊断证明');
         $cert = EmrRepository::certificateByVisit($visitId);
         if (!$cert) json_fail('未开具诊断证明');
         $record = EmrRepository::one('SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
