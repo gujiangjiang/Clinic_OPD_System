@@ -11,29 +11,33 @@
 Clinic.deptTree = (function () {
 
     var SELECTED = [];
-    var CONTAINER = null;
+    var CONTAINER = null;   // 容器 CSS 选择器（元素传入时为 null）
+    var ROOT = null;        // 容器 DOM 元素（内部查询统一基于元素，杜绝 null 拼接选择器）
 
     /* 折叠/展开：复用全局 window.treeToggle（app.js 定义，全站加载） */
 
     /* 全选/全不选 */
     function deptToggleAll(checked) {
-        document.querySelectorAll(CONTAINER + ' .deptChk').forEach(function (c) { c.checked = checked; });
-        document.querySelectorAll(CONTAINER + ' .deptGrpChk').forEach(function (c) { c.checked = checked; });
+        if (!ROOT) return;
+        ROOT.querySelectorAll('.deptChk').forEach(function (c) { c.checked = checked; });
+        ROOT.querySelectorAll('.deptGrpChk').forEach(function (c) { c.checked = checked; });
         syncGroups();
     }
 
     /* 按组全选/全不选 */
     function deptToggleGroup(type, checked) {
-        document.querySelectorAll(CONTAINER + ' .deptChk[data-type="' + type + '"]').forEach(function (c) { c.checked = checked; });
+        if (!ROOT) return;
+        ROOT.querySelectorAll('.deptChk[data-type="' + type + '"]').forEach(function (c) { c.checked = checked; });
         syncGroups();
     }
 
     /* 同步全选/分组选中态 */
     function syncGroups() {
-        var all = document.querySelectorAll(CONTAINER + ' .deptChk');
+        if (!ROOT) return;
+        var all = ROOT.querySelectorAll('.deptChk');
         var allChecked = true;
         all.forEach(function (c) { if (!c.checked) allChecked = false; });
-        var allEl = document.querySelector(CONTAINER + ' #dtAll');
+        var allEl = ROOT.querySelector('#dtAll');
         if (allEl) allEl.checked = allChecked;
         // 同步各分组
         var groups = {};
@@ -44,7 +48,7 @@ Clinic.deptTree = (function () {
             if (c.checked) groups[t].checked++;
         });
         Object.keys(groups).forEach(function (t) {
-            var grpEl = document.querySelector(CONTAINER + ' .deptGrpChk[data-type="' + t + '"]');
+            var grpEl = ROOT.querySelector('.deptGrpChk[data-type="' + t + '"]');
             if (grpEl) grpEl.checked = groups[t].checked > 0 && groups[t].checked === groups[t].total;
         });
         // 更新选中列表
@@ -108,6 +112,7 @@ Clinic.deptTree = (function () {
         CONTAINER = typeof container === 'string' ? container : null;
         var el = typeof container === 'string' ? document.querySelector(container) : container;
         if (!el) return;
+        ROOT = el;   // 内部查询统一基于元素，兼容选择器与元素两种传参
         SELECTED = opts.selected || [];
 
         function render(depts) {
@@ -138,7 +143,7 @@ Clinic.deptTree = (function () {
                     '  </div>' +
                     '</div>';
             });
-            el.innerHTML =
+            ROOT.innerHTML =
                 '<div class="tree-box">' +
                 '  <input class="input tree-box-search" id="dtSearch" placeholder="🔍 搜索科室，可定位到列表" autocomplete="off">' +
                 '  <div class="tree-search-res" id="dtRes" style="display:none"></div>' +
@@ -155,7 +160,7 @@ Clinic.deptTree = (function () {
             // 绑定搜索
             initSearch('dtSearch', 'dtRes', treeId);
             // 折叠/展开
-            el.querySelectorAll('.tree-toggle').forEach(function (btn) {
+            ROOT.querySelectorAll('.tree-toggle').forEach(function (btn) {
                 btn.addEventListener('click', function () { window.treeToggle(btn); });
             });
             syncGroups();

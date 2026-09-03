@@ -172,6 +172,9 @@ function openDrugForm(id) {
         var routeMap = (e.detail && e.detail.route_nurse) || {};
         var nurseChk = document.getElementById('f_nurse');
         window.__routeMap = routeMap;
+        // 规格编辑器单位候选（历史已用去重，datalist 下拉/可输入）——与管理员药品表单一致
+        window.__doseUnits = (e.detail && e.detail.dose_units) || [];
+        window.__packUnits = (e.detail && e.detail.pack_units) || [];
         window.syncNurse = function () {
             var route = document.getElementById('f_route').value;
             if (routeMap[route] === 1) nurseChk.checked = true;
@@ -180,6 +183,23 @@ function openDrugForm(id) {
             '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
             '<button type="button" class="btn btn-primary" id="phDrugSave">提交审核</button>';
         document.getElementById('phDrugSave').addEventListener('click', function () {
+            // 皮试必填校验：勾选"需要皮试"必须关联皮试处置项目（与管理员一致）
+            var skinTestChk = document.getElementById('f_skin_test');
+            var skinItemVal = parseInt(document.getElementById('f_skin_item') ? document.getElementById('f_skin_item').value : '0', 10) || 0;
+            if (skinTestChk && skinTestChk.checked && !skinItemVal) {
+                Clinic.toast.warning('勾选了【需要皮试药品】，请先选择关联的皮试处置项目（点击"选择/新建"）');
+                return;
+            }
+            // 规格结构化必填校验（与管理员一致）
+            var specDose = parseFloat(document.getElementById('f_spec_dose').value);
+            if (!(specDose > 0)) {
+                Clinic.toast.warning('请先点击【药物规格】设置规格（如 0.5g×24粒）');
+                return;
+            }
+            var specPackUnit = document.getElementById('f_spec_pack_unit').value.trim();
+            var useQty = Math.max(1, parseInt(document.getElementById('f_dose').value, 10) || 1);
+            // 单次使用剂量展示串（如 2粒）：随单次数量 + 包装单位推导
+            var singleDoseShow = useQty + (specPackUnit !== '' ? specPackUnit : '');
             Clinic.ajax('/api/pharmacy', {
                 action: 'drug_save',
                 name: document.getElementById('f_name').value.trim(),
@@ -189,8 +209,13 @@ function openDrugForm(id) {
                 vendor_short: document.getElementById('f_vendor_short').value.trim(),
                 package_unit: document.getElementById('f_pkg').value,
                 spec: document.getElementById('f_spec').value.trim(),
+                spec_dose: specDose,
+                spec_dose_unit: document.getElementById('f_spec_dose_unit').value.trim(),
+                spec_pack_qty: Math.max(1, parseInt(document.getElementById('f_spec_pack_qty').value, 10) || 1),
+                spec_pack_unit: specPackUnit,
+                single_use_qty: useQty,
                 form: document.getElementById('f_form').value,
-                single_dose: document.getElementById('f_dose').value.trim(),
+                single_dose: singleDoseShow,
                 frequency: document.getElementById('f_freq').value,
                 route: document.getElementById('f_route').value,
                 price: document.getElementById('f_price').value,
@@ -198,6 +223,8 @@ function openDrugForm(id) {
                 is_rx: document.getElementById('f_rx').checked ? 1 : 0,
                 is_limited: document.getElementById('f_limited').checked ? 1 : 0,
                 is_nurse: document.getElementById('f_nurse').checked ? 1 : 0,
+                is_skin_test: document.getElementById('f_skin_test') ? (document.getElementById('f_skin_test').checked ? 1 : 0) : 0,
+                skin_test_item_id: parseInt(document.getElementById('f_skin_item') ? document.getElementById('f_skin_item').value : '0', 10) || 0,
                 note: document.getElementById('f_note').value.trim(),
             }, {
                 onSuccess: function (json) {

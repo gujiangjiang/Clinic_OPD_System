@@ -111,6 +111,8 @@ function payOrder(orderId, visitId) {
 /* 一键全部缴费：全部未缴费开单合并为一张凭条（挂号费走「缴挂号费」独立按钮） */
 function batchPayAll() {
     var ids = [];
+    // 未勾选任何项目时默认覆盖全部待缴费项目（一键全部缴费语义）；
+    // 已勾选则仅支付勾选项目——两次判定冗余，去掉空集兜底后的二次报错
     document.querySelectorAll('.batchPay').forEach(function (c) {
         if (c.checked) ids.push(c.value);
     });

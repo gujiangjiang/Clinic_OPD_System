@@ -383,7 +383,8 @@ Clinic.queuePanel = (function () {
     function outsideClose(e) {
         var p = panelEl();
         var btn = document.getElementById('queueBtn');
-        if (p && !p.contains(e.target) && e.target !== btn && !btn.contains(e.target)) closePanel();
+        // btn 可能为 null（DOM 局部刷新后触发按钮被移除），缺省视为非面板内点击
+        if (p && !p.contains(e.target) && (!btn || (e.target !== btn && !btn.contains(e.target)))) closePanel();
     }
     function escClose(e) { if (e.key === 'Escape') closePanel(); }
     function closePanel() {

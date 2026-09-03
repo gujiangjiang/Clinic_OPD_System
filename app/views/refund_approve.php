@@ -14,7 +14,6 @@ Router::title('退费申请审批');
 
 <script>
 var REQ_ID = new URLSearchParams(location.search).get('id') || '';
-var MY_UID = parseInt(document.body.getAttribute('data-uid'), 10) || 0;
 var MY_ROLE = document.body.getAttribute('data-role') || '';
 
 function loadReq() {
@@ -75,11 +74,7 @@ function loadReq() {
                 html += '</div>';
             });
             html += '</div>';
-            // 审批操作（待审批且当前用户是审批人 / 管理员）
-            var isApprover = approvals.some(function (a) {
-                return a.user_name && (MY_UID > 0 && approvals.some(function (x) { return x.user_name === (document.body.getAttribute('data-name') || ''); }));
-            });
-            // 简单判定：审批人按 role+user 精确匹配（详情已返回 user_name，按当前登录名比对）
+            // 审批判定：审批人按 role+user 精确匹配（详情已返回 user_name，按当前登录名比对）
             var myName = document.body.getAttribute('data-name') || '';
             var canAct = r.status === 'pending' && approvals.some(function (a) { return a.user_name === myName; });
             if (r.status === 'pending' && (canAct || MY_ROLE === 'admin')) {

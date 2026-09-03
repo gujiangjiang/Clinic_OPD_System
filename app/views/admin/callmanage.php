@@ -84,6 +84,29 @@ function loadRooms() {
     });
 }
 
+/* 操作按钮事件委托（服务端不再将名称/Token 嵌入 onclick，统一走 data-room-action） */
+document.getElementById('cmList').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-room-action]');
+    if (!btn) return;
+    var id = parseInt(btn.getAttribute('data-room-id'), 10) || 0;
+    if (!id) return;
+    var tr = btn.closest('tr[data-token]');
+    switch (btn.getAttribute('data-room-action')) {
+        case 'preview': previewRoom(id); break;
+        case 'copy': copyRoomLink(id, tr ? tr.getAttribute('data-token') : ''); break;
+        case 'reset': resetRoomToken(id); break;
+        case 'release': releaseRoom(id); break;
+        case 'del': delRoom(id); break;
+        case 'edit':
+            editRoom(id,
+                tr ? tr.getAttribute('data-room-name') : '',
+                tr ? tr.getAttribute('data-room-type') : 'doctor',
+                tr ? (tr.getAttribute('data-room-voice') === '1') : false,
+                tr ? (tr.getAttribute('data-room-mask') === '1') : false);
+            break;
+    }
+});
+
 /* 每 10 秒自动刷新大屏在线状态 */
 function startAutoRefresh() {
     if (CM_TIMER) clearInterval(CM_TIMER);
@@ -244,11 +267,7 @@ function editRoom(id, name, type, voice, mask) {
 
 /* 预览大屏：弹窗 iframe 加载 */
 function previewRoom(id) {
-    var room = null;
-    document.querySelectorAll('#cmList [data-room]').forEach(function (el) {
-        if (parseInt(el.getAttribute('data-room'), 10) === id) room = el.getAttribute('data-token');
-    });
-    // 从列表行取 token（room_list 已将 token 渲染在行内）
+    // 从列表行取 token（room_list 已将 token 渲染在 data-token）
     var token = getTokenById(id);
     if (!token) { Clinic.toast.warning('无法获取大屏链接'); return; }
     Clinic.modal.open(

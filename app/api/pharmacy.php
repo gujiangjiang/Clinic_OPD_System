@@ -246,6 +246,14 @@ switch ($action) {
             'qty' => (int)post('qty', 0), 'is_rx' => (int)post('is_rx', 0),
             'is_limited' => (int)post('is_limited', 0), 'note' => post('note'),
             'is_nurse' => (int)post('is_nurse', 0), 'name' => $name,
+            // 规格结构化 + 皮试关联（与管理员 drug_save 对齐，药房新增药品时一并落库）
+            'spec_dose' => (float)post('spec_dose', 0),
+            'spec_dose_unit' => post('spec_dose_unit'),
+            'spec_pack_qty' => max(1, (int)post('spec_pack_qty', 1)),
+            'spec_pack_unit' => post('spec_pack_unit'),
+            'single_use_qty' => max(1, (int)post('single_use_qty', 1)),
+            'is_skin_test' => (int)post('is_skin_test', 0),
+            'skin_test_item_id' => (int)post('skin_test_item_id', 0),
         );
         if ($id > 0) {
             DrugRepository::update($id, $data);

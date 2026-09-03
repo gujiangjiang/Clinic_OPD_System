@@ -38,7 +38,9 @@ function admin_part_call($action) {
                 ? '<span class="badge badge-warning">' . e($r['current_doctor_name']) . ' 正在坐诊</span>'
                 : '<span class="badge badge-gray">空闲</span>';
             $rowsHtml .= '<tr data-id="' . (int)$r['id'] . '" data-token="' . e($r['screen_token']) . '"' .
-                ' data-tips="' . e($r['screen_tips']) . '" data-interval="' . (int)$r['tip_interval'] . '">' .
+                ' data-tips="' . e($r['screen_tips']) . '" data-interval="' . (int)$r['tip_interval'] . '"' .
+                ' data-room-name="' . e($r['room_name']) . '" data-room-type="' . e($r['room_type']) . '"' .
+                ' data-room-voice="' . (int)$r['enable_voice'] . '" data-room-mask="' . (int)$r['enable_mask'] . '">' .
                 '<td class="fw-600">' . e($r['room_name']) . '</td>' .
                 '<td>' . e(isset($typeNames[$r['room_type']]) ? $typeNames[$r['room_type']] : $r['room_type']) . '</td>' .
                 '<td>' . $st . '</td>' .
@@ -46,13 +48,15 @@ function admin_part_call($action) {
                 '<td class="fs-12" style="font-family:monospace;word-break:break-all;max-width:180px">' . e($r['screen_token']) . '</td>' .
                 '<td>' .
                     '<span class="fs-12">' . ($r['enable_voice'] ? '🔊' : '🔇') . ' ' . ($r['enable_mask'] ? '脱敏' : '实名') . '</span></td>' .
-                '<td><div class="flex gap-4">' .
-                    '<button class="btn btn-outline btn-sm" onclick="previewRoom(' . (int)$r['id'] . ')">预览</button>' .
-                    '<button class="btn btn-outline btn-sm" onclick="copyRoomLink(' . (int)$r['id'] . ',\'' . e($r['screen_token']) . '\')">复制链接</button>' .
-                    '<button class="btn btn-outline btn-sm" onclick="resetRoomToken(' . (int)$r['id'] . ')">重置Token</button>' .
-                    ((int)$r['current_doctor_id'] > 0 ? '<button class="btn btn-warning btn-sm" onclick="releaseRoom(' . (int)$r['id'] . ')">强制释放</button>' : '') .
-                    '<button class="btn btn-outline btn-sm" onclick="editRoom(' . (int)$r['id'] . ',\'' . e($r['room_name']) . '\',\'' . e($r['room_type']) . '\',' . (int)$r['enable_voice'] . ',' . (int)$r['enable_mask'] . ')">编辑</button>' .
-                    '<button class="btn btn-outline btn-sm" onclick="delRoom(' . (int)$r['id'] . ')">删除</button>' .
+                // 操作按钮改为事件委托（data-room-id）：用户可控名称/Token 不再嵌入 onclick
+                // 字符串，杜绝引号/HTML 注入（原 e() 转义在属性值解码后无法覆盖单引号截断）
+                $rowsHtml .= '<td><div class="flex gap-4">' .
+                    '<button class="btn btn-outline btn-sm" data-room-action="preview" data-room-id="' . (int)$r['id'] . '">预览</button>' .
+                    '<button class="btn btn-outline btn-sm" data-room-action="copy" data-room-id="' . (int)$r['id'] . '">复制链接</button>' .
+                    '<button class="btn btn-outline btn-sm" data-room-action="reset" data-room-id="' . (int)$r['id'] . '">重置Token</button>' .
+                    ((int)$r['current_doctor_id'] > 0 ? '<button class="btn btn-warning btn-sm" data-room-action="release" data-room-id="' . (int)$r['id'] . '">强制释放</button>' : '') .
+                    '<button class="btn btn-outline btn-sm" data-room-action="edit" data-room-id="' . (int)$r['id'] . '">编辑</button>' .
+                    '<button class="btn btn-outline btn-sm" data-room-action="del" data-room-id="' . (int)$r['id'] . '">删除</button>' .
                     '</div></td></tr>';
         }
         $rowsHtml .= '</tbody>';

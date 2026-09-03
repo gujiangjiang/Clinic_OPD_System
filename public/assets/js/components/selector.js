@@ -236,11 +236,23 @@ Clinic.universalSelector = (function () {
         });
     }
 
+    /** 检索防抖定时器 / 请求序号（只渲染最新一次响应，防 AJAX 竞态旧数据覆盖新结果） */
+    let searchTimer = null;
+    let searchSeq = 0;
+
     /** 检索 */
     function doSearch(box, kw) {
-        Clinic.get('/api/admin?action=' + CFG.searchAction + '&kw=' + encodeURIComponent(kw || ''), null, {
-            onSuccess: function (json) { renderList(box, json.data.list || []); },
-        });
+        if (searchTimer) clearTimeout(searchTimer);
+        const myBox = box;
+        const myKw = kw;
+        searchTimer = setTimeout(function () {
+            const seq = ++searchSeq;
+            Clinic.get('/api/admin?action=' + CFG.searchAction + '&kw=' + encodeURIComponent(myKw || ''), null, {
+                onSuccess: function (json) {
+                    if (seq === searchSeq) renderList(myBox, json.data.list || []);
+                },
+            });
+        }, myKw === '' ? 0 : 250);   // 初始空搜索立即；输入防抖 250ms
     }
 
     /**

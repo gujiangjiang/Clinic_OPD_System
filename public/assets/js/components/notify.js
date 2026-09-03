@@ -29,9 +29,20 @@ Clinic.notify = (function () {
     function init(badgeSel) {
         badge = document.querySelector(badgeSel || '[data-msg-badge]');
         if (!badge) return;
+        // 防止重复 init 叠加多个轮询定时器（AJAX 局部刷新后重复初始化场景）
+        if (timer) clearInterval(timer);
         // 立即查询一次，然后每 15 秒轮询（兼顾实时性与服务器压力）
         refresh();
         timer = setInterval(refresh, 15000);
+    }
+
+    /** 销毁：清理轮询定时器（页面卸载/局部刷新前调用） */
+    function destroy() {
+        if (timer) {
+            clearInterval(timer);
+            timer = null;
+        }
+        lastLatestId = 0;
     }
 
     /**
@@ -187,5 +198,5 @@ Clinic.notify = (function () {
         });
     }
 
-    return { init: init, refresh: refresh, openPanel: openPanel };
+    return { init: init, refresh: refresh, openPanel: openPanel, destroy: destroy };
 })();
