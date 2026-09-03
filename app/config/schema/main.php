@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 13,
+    'version' => 14,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -659,6 +659,12 @@ return array(
         // 打印凭条/补打/退费批次判定（同批次不可单独退费）统一以此关联
         13 => array(
             "ALTER TABLE payments ADD COLUMN payment_no TEXT",
+            "ALTER TABLE refunds ADD COLUMN payment_no TEXT",
+        ),
+        // v14：支付方式（现金/医保/银行卡/扫码）——缴费与退费记录支付方式
+        14 => array(
+            "ALTER TABLE payments ADD COLUMN method TEXT",
+            "ALTER TABLE refunds ADD COLUMN method TEXT",
         ),
     ),
     'seed' => array(

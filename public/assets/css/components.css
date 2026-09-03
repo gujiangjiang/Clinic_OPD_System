@@ -621,3 +621,89 @@ body.emr-readonly .emr-item-link,
     }
 }
 
+/* ============================================================
+   缴费管理（paymanage）左右两栏布局
+   ============================================================ */
+.paymgr-layout {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+}
+.paymgr-left {
+    position: sticky;
+    top: 12px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 10px;
+    padding: 10px;
+}
+.paymgr-right {
+    min-height: 240px;
+}
+.paymgr-item {
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+}
+.paymgr-item:hover {
+    border-color: var(--primary, #2563eb);
+}
+.paymgr-item.active {
+    border-color: var(--primary, #2563eb);
+    background: var(--primary-soft, rgba(37, 99, 235, .08));
+}
+.paymgr-empty {
+    border: 1px dashed var(--border, #d1d5db);
+    border-radius: 10px;
+    color: var(--muted, #9ca3af);
+    text-align: center;
+    padding: 60px 20px;
+    font-size: 14px;
+}
+
+/* 支付方式选择（矩形大按钮，参考科室选择卡片） */
+.pay-methods {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+.pay-method {
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 10px;
+    padding: 16px 14px;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color .15s, background .15s;
+}
+.pay-method:hover {
+    border-color: var(--primary, #2563eb);
+    background: var(--primary-soft, rgba(37, 99, 235, .08));
+}
+.pay-method.disabled {
+    cursor: not-allowed;
+    opacity: .5;
+}
+.pay-method.disabled:hover {
+    border-color: var(--border, #e5e7eb);
+    background: transparent;
+}
+.pay-method-icon {
+    font-size: 28px;
+    margin-bottom: 6px;
+}
+.pay-method-name {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+.pay-method-desc {
+    font-size: 11px;
+    color: var(--muted, #9ca3af);
+}
+

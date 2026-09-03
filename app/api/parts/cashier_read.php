@@ -137,36 +137,20 @@ function cashier_part_read($action) {
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
-        $html = '<div class="card" style="padding:14px;margin-bottom:12px" data-vid="' . e(oid($visitId)) . '">' .
-            '<div class="flex-between"><div><span class="fw-700 fs-16">' . e($row['patient']['name']) . '</span> ' .
-            '<span class="text-muted fs-13">' . e($row['patient']['gender']) . ' / ' . age_format($row['patient']['birth_date'], $visit['registered_at']) . '</span></div>' .
+        $patient = $row['patient'];
+        $html = '';
+
+        // ===== 患者信息卡（姓名/年龄/性别/挂号科室/挂号时间/流水号） =====
+        $html .= '<div class="card" style="padding:14px;margin-bottom:12px" data-vid="' . e(oid($visitId)) . '">' .
+            '<div class="flex-between"><div><span class="fw-700 fs-16">' . e($patient['name']) . '</span> ' .
+            '<span class="text-muted fs-13">' . e($patient['gender']) . ' / ' . age_format($patient['birth_date'], $visit['registered_at']) . '</span></div>' .
             '<span class="badge badge-primary">' . e($visit['flow_no']) . '</span></div>' .
             '<div class="fs-13 text-muted mt-4">患者ID ' . e($visit['patient_no']) . ' ｜ 首次科室 ' . e($visit['first_dept_name']) .
-            ' 第' . str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) . '号 ｜ 挂号 ' . e(substr($visit['registered_at'], 0, 16)) . '</div></div>';
+            ' 第' . str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) . '号 ｜ 挂号 ' . e(substr($visit['registered_at'], 0, 16)) .
+            ' ｜ <span class="badge badge-gray">' . e(visit_status_name($visit['status'])) . '</span></div></div>';
 
-        // 已缴费（含挂号费与项目缴费）
-        $pays = CashierRepository::paymentsOfVisit($visitId);
-        $html .= '<div class="fs-14 fw-700 mb-8">已缴费</div>';
-        if (!$pays) {
-            $html .= '<div class="fs-13 text-muted mb-12">暂无缴费记录</div>';
-        }
-        foreach ($pays as $p) {
-            $html .= '<div class="flex-between" style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:6px">' .
-                '<span class="fs-13">' . e($p['kind'] === 'visit' ? '挂号费' : '项目缴费') . ' ｜ ' . e(substr($p['created_at'], 0, 16)) . ' ｜ ' . e($p['cashier_name']) . '</span>' .
-                '<span class="fs-13 fw-600">¥' . money($p['total']) . '</span></div>';
-        }
-
-        // 待缴费开单（分组显示开单医生、开单时间）
+        // 批量查询开单明细（避免逐单 N+1）
         $orders = CashierRepository::payableOrdersOfVisit($visitId);
-        $html .= '<div class="fs-14 fw-700 mb-8 mt-16">待缴费 / 可退费项目</div>';
-        $html .= '<div class="flex gap-8 mb-8" id="batchBar" style="align-items:center">' .
-            '<label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="batchAll" onchange="toggleAll()"> 全选</label>' .
-            '<button class="btn btn-success btn-sm" onclick="batchPay()">批量缴费（已选 <span id="batchCount">0</span>）</button>' .
-            '</div>';
-        if (!$orders) {
-            $html .= '<div class="fs-13 text-muted">暂无待缴费项目</div>';
-        }
-        // 批量查询明细（避免逐单 N+1）
         $orderIds = array();
         foreach ($orders as $o) $orderIds[] = (int)$o['id'];
         $itemsByOrder = array();
@@ -177,33 +161,115 @@ function cashier_part_read($action) {
             }
         }
         $typeNames = array('lab' => '检验', 'imaging' => '检查', 'procedure' => '处置', 'prescription' => '处方');
+
+        // ===== 未缴费项目（挂号费 + open 开单）提示与缴费 =====
+        $unpaid = array();
+        if ($visit['status'] === 'pending') {
+            $unpaid[] = array('kind' => 'visit', 'name' => '挂号费（' . $visit['first_dept_name'] . '）', 'amount' => (float)$visit['fee']);
+        }
+        $openOrders = array();
         foreach ($orders as $o) {
             $items = isset($itemsByOrder[(int)$o['id']]) ? $itemsByOrder[(int)$o['id']] : array();
-            $agg = order_agg_status($o['order_type'], $items);
-            $html .= '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">';
-            $html .= '<div class="flex-between">' .
-                '<span class="fs-13 fw-600">' . (isset($typeNames[$o['order_type']]) ? $typeNames[$o['order_type']] : '') . ' ' . e($o['order_no']) .
-                ' ｜ 开单医生 ' . e($o['doctor_name']) . ' ｜ ' . e(substr($o['created_at'], 0, 16)) . '</span>' .
-                '<span class="fs-13 fw-600">¥' . money($o['total_amount']) . '</span></div>';
-            $itemLines = '';
-            foreach ($items as $it) {
-                $itemLines .= '<div class="fs-12 text-muted">· ' . e($it['item_name']) . ' ×' . (int)$it['quantity'] .
-                    ' ￥' . money($it['price'] * $it['quantity']) . '（' . e(item_status_name($it['status'])) . '）</div>';
+            if (order_agg_status($o['order_type'], $items) === 'open') {
+                $openOrders[] = $o;
+                $unpaid[] = array('kind' => 'order', 'oid' => oid($o['id']), 'order_no' => $o['order_no'],
+                    'name' => (isset($typeNames[$o['order_type']]) ? $typeNames[$o['order_type']] : '') . ' ' . $o['order_no'],
+                    'doctor' => $o['doctor_name'], 'amount' => (float)$o['total_amount'], 'items' => $items);
             }
-            $html .= $itemLines;
-            // 操作：待缴费 → 缴费按钮；已缴费 → 退费按钮（仅未使用项目）
-            if ($agg === 'open') {
+        }
+        if ($unpaid) {
+            $unpaidTotal = 0;
+            foreach ($unpaid as $u) $unpaidTotal += $u['amount'];
+            $html .= '<div class="fs-14 fw-700 mb-8">未缴费 <span class="fs-12 text-muted fw-400">（' . count($unpaid) . ' 项，合计 ¥' . money($unpaidTotal) . '）</span></div>';
+            $html .= '<div style="border:1px solid var(--warning,#f59e0b);background:var(--warning-soft,rgba(245,158,11,.06));border-radius:8px;padding:10px 12px;margin-bottom:8px" class="flex-between">' .
+                '<span class="fs-13">💡 该次就诊存在未缴费项目，点击「批量缴费」可一次性全部缴清（合并为一张缴费凭条）。</span>' .
+                '<button class="btn btn-warning btn-sm" onclick="batchPayAll()">💳 一键全部缴费（¥' . money($unpaidTotal) . '）</button></div>';
+            $html .= '<div class="flex gap-8 mb-8" id="batchBar" style="align-items:center">' .
+                '<label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="batchAll" onchange="toggleAll()"> 全选</label>' .
+                '<button class="btn btn-success btn-sm" onclick="batchPay()">批量缴费（已选 <span id="batchCount">0</span>）</button>' .
+                ($visit['status'] === 'pending' ? '<button class="btn btn-primary btn-sm" onclick="payVisitFee(\'' . e(oid($visitId)) . '\')">缴挂号费</button>' : '') .
+                '</div>';
+            foreach ($unpaid as $u) {
+                if ($u['kind'] === 'visit') {
+                    $html .= '<div class="flex-between" style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:6px">' .
+                        '<span class="fs-13">🎫 ' . e($u['name']) . '</span>' .
+                        '<span class="fs-13 fw-600">¥' . money($u['amount']) . '</span></div>';
+                    continue;
+                }
+                $html .= '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">' .
+                    '<div class="flex-between">' .
+                    '<span class="fs-13 fw-600">' . e($u['name']) . ' ｜ 开单医生 ' . e($u['doctor']) . '</span>' .
+                    '<span class="fs-13 fw-600">¥' . money($u['amount']) . '</span></div>';
+                foreach ($u['items'] as $it) {
+                    $html .= '<div class="fs-12 text-muted">· ' . e($it['item_name']) . ' ×' . (int)$it['quantity'] . ' ￥' . money($it['price'] * $it['quantity']) . '</div>';
+                }
                 $html .= '<div class="mt-8 flex gap-8">' .
-                    '<label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" class="batchPay" value="' . e(oid($o['id'])) . '" onchange="updateBatchCount()"> 选择</label>' .
-                    '<button class="btn btn-success btn-sm" onclick="payOrder(\'' . e(oid($o['id'])) . '\')">缴费</button></div>';
-            } elseif ($agg === 'paid') {
-                $html .= '<div class="mt-8"><button class="btn btn-outline btn-sm" onclick="refundOrder(\'' . e(oid($o['id'])) . '\')">申请退费</button></div>';
-            } elseif ($agg === 'refunded') {
-                $html .= '<div class="mt-8"><span class="badge badge-gray">已退费</span></div>';
-            } else {
-                $html .= '<div class="mt-8"><span class="fs-12 text-muted">已进入执行流程，不可退费</span></div>';
+                    '<label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" class="batchPay" value="' . e($u['oid']) . '" onchange="updateBatchCount()"> 选择</label>' .
+                    '<button class="btn btn-success btn-sm" onclick="payOrder(\'' . e($u['oid']) . '\')">缴费</button></div></div>';
             }
-            $html .= '</div>';
+        }
+
+        // ===== 已缴费：按缴费凭条批次（payment_no）分组展示 =====
+        $pays = CashierRepository::paymentsOfVisit($visitId);
+        // 分组：挂号费独立一组；订单按 payment_no 聚合（同批次共享凭条）
+        $groups = array();
+        $visitPay = null;
+        foreach ($pays as $p) {
+            if ($p['kind'] === 'visit') {
+                $visitPay = $p;
+                continue;
+            }
+            $no = (!empty($p['payment_no'])) ? $p['payment_no'] : ('P' . $p['id']);
+            if (!isset($groups[$no])) $groups[$no] = array('payment_no' => $no, 'pay_id' => $p['id'], 'created_at' => $p['created_at'],
+                'cashier_name' => $p['cashier_name'], 'method' => $p['method'], 'total' => 0, 'orders' => array());
+            $groups[$no]['total'] += (float)$p['total'];
+            $groups[$no]['orders'][] = $p['order_id'];
+        }
+        $html .= '<div class="fs-14 fw-700 mb-8 mt-16">缴费凭条 <span class="fs-12 text-muted fw-400">（同批次共享一张凭条与流水号，不可单独退费）</span></div>';
+        if (!$pays) {
+            $html .= '<div class="fs-13 text-muted">暂无缴费记录</div>';
+        }
+        // 挂号费凭条
+        if ($visitPay) {
+            $html .= '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">' .
+                '<div class="flex-between">' .
+                '<span class="fs-13 fw-600">🎫 挂号费凭条</span>' .
+                '<span class="fs-13 fw-600">¥' . money($visitPay['total']) . '</span></div>' .
+                '<div class="fs-12 text-muted mt-4">流水号：' . e($visitPay['payment_no']) . ' ｜ ' . e(substr($visitPay['created_at'], 0, 16)) . ' ｜ 收费员 ' . e($visitPay['cashier_name']) . ' ｜ ' . e($visitPay['method']) . '</div>' .
+                '<div class="mt-8 flex gap-8">' .
+                '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=payment&payment_id=' . e(oid($visitPay['id'])) . '\',null,\'ticket\')">🖨️ 补打缴费凭条</button>' .
+                ($visit['status'] === 'paid' ? '<button class="btn btn-outline btn-sm" onclick="cancelVisit(\'' . e(oid($visitId)) . '\',\'paid\')">退费</button>' : '') .
+                '</div></div>';
+        }
+        foreach ($groups as $g) {
+            // 该批次订单明细（取首个 payment_id 打印合并凭条）
+            $orderNames = array();
+            $multi = count($g['orders']) > 1;
+            $gItemCnt = 0;
+            foreach ($g['orders'] as $gOid) {
+                $gOrder = CashierRepository::order($gOid);
+                $gItems = $gOrder ? CashierRepository::orderItems($gOid) : array();
+                foreach ($gItems as $gi) {
+                    $orderNames[] = $gi['item_name'];
+                    $gItemCnt++;
+                }
+            }
+            // 项目摘要：最多显示 3 项，其余省略
+            $showNames = array_slice($orderNames, 0, 3);
+            $sumText = implode('、', array_map('e', $showNames)) . (count($orderNames) > 3 ? ' 等 ' . count($orderNames) . ' 项' : '');
+            $html .= '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">' .
+                '<div class="flex-between">' .
+                '<span class="fs-13 fw-600">🧾 缴费凭条 <span class="fs-12 text-muted fw-400">' . ($multi ? '（含' . count($g['orders']) . '张开单）' : '') . '</span></span>' .
+                '<span class="fs-13 fw-600">¥' . money($g['total']) . '</span></div>' .
+                '<div class="fs-12 text-muted mt-4">流水号：' . e($g['payment_no']) . ' ｜ ' . e(substr($g['created_at'], 0, 16)) . ' ｜ 收费员 ' . e($g['cashier_name']) . ' ｜ ' . e($g['method']) . '</div>' .
+                '<div class="fs-12 text-muted mt-4" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' . $sumText . '</div>' .
+                '<div class="mt-8 flex gap-8">' .
+                '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=payment&payment_id=' . e(oid($g['pay_id'])) . '\',null,\'ticket\')">🖨️ 补打凭条</button>' .
+                // 同批次多订单 → 整单退费（不可单独退）；单订单 → 普通退费
+                ($multi
+                    ? '<button class="btn btn-outline btn-sm" onclick="refundBatch(\'' . e($g['payment_no']) . '\')">退费（整单）</button>'
+                    : '<button class="btn btn-outline btn-sm" onclick="refundOrder(\'' . e(oid($g['orders'][0])) . '\')">退费</button>') .
+                '</div></div>';
         }
         json_ok(array('html' => $html));
         return;
@@ -212,6 +278,7 @@ function cashier_part_read($action) {
     if ($action === 'pay_orders') {
         $ids = json_decode(post('order_ids', '[]'), true);
         if (!is_array($ids) || !$ids) json_fail('请选择要缴费的项目');
+        $method = post('method', '现金');
         $pdo = DatabaseManager::getMain();
         $pdo->beginTransaction();
         try {
@@ -261,7 +328,7 @@ function cashier_part_read($action) {
             $payId = CashierRepository::createPayment(array(
                 'visit_id' => $order['visit_id'], 'order_id' => $order['id'], 'patient_no' => $order['patient_no'], 'flow_no' => $order['flow_no'],
                 'kind' => 'order', 'total' => (float)$order['total_amount'], 'item_count' => count($items),
-                'cashier_id' => $u['id'], 'cashier_name' => $u['name'], 'payment_no' => $paymentNo,
+                'cashier_id' => $u['id'], 'cashier_name' => $u['name'], 'payment_no' => $paymentNo, 'method' => $method,
             ));
         }
         $pdo->commit();

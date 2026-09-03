@@ -184,6 +184,7 @@ function cashier_part_write($action) {
 
     if ($action === 'pay_visit') {
         $visitId = did(post('visit_id'));
+        $method = post('method', '现金');
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
@@ -198,7 +199,7 @@ function cashier_part_write($action) {
         $payId = CashierRepository::createPayment(array(
             'visit_id' => $visitId, 'order_id' => 0, 'patient_no' => $visit['patient_no'], 'flow_no' => $visit['flow_no'],
             'kind' => 'visit', 'total' => (float)$visit['fee'], 'item_count' => 1,
-            'cashier_id' => $u['id'], 'cashier_name' => $u['name'], 'payment_no' => $paymentNo,
+            'cashier_id' => $u['id'], 'cashier_name' => $u['name'], 'payment_no' => $paymentNo, 'method' => $method,
         ));
         json_ok(array('payment_id' => oid($payId), 'payment_no' => $paymentNo), '缴费成功');
         return;
@@ -244,6 +245,57 @@ function cashier_part_write($action) {
         return;
     }
 
+    // ===== 退费核心（单订单原子退费：状态迁移 + 退费流水 + 药品库存恢复） =====
+    // 条件状态迁移防并发重复退费；支持 payment_no（批次凭条）与支付方式记录
+    $refundOne = function ($u, $order, $reason, $paymentNo, $method) {
+        $orderId = (int)$order['id'];
+        $items = CashierRepository::orderItems($orderId);
+        // 退费资格：检验/检查未登记、药房未发药、处置未执行
+        foreach ($items as $it) {
+            if ($it['status'] !== 'paid') {
+                json_fail('存在已开始执行的项目（' . e($it['item_name']) . '），不可退费');
+            }
+        }
+        $pdo = DatabaseManager::getMain();
+        $pdo->beginTransaction();
+        try {
+            $affectedOrder = CashierRepository::exec(
+                "UPDATE orders SET status='refunded', refunded_at=? WHERE id=? AND status='paid'",
+                array(now_str(), $orderId)
+            );
+            if ($affectedOrder === 0) {
+                $pdo->rollBack();
+                json_fail('当前订单状态不可退费（已退费/已取消/未缴费）');
+            }
+            $affectedItems = CashierRepository::exec(
+                "UPDATE order_items SET status='refunded' WHERE order_id=? AND status='paid'",
+                array($orderId)
+            );
+            if ($affectedItems === 0) {
+                $pdo->rollBack();
+                json_fail('订单明细状态已变更，不可退费');
+            }
+            CashierRepository::createRefund(array(
+                'visit_id' => $order['visit_id'], 'order_id' => $orderId, 'patient_no' => $order['patient_no'], 'flow_no' => $order['flow_no'],
+                'total' => (float)$order['total_amount'], 'reason' => $reason, 'cashier_id' => $u['id'], 'cashier_name' => $u['name'],
+                'payment_no' => $paymentNo, 'method' => $method,
+            ));
+            // 药品退费：恢复库存（幂等——仅对本事务实际置为 refunded 的 paid 明细）
+            if ($order['order_type'] === 'prescription') {
+                foreach ($items as $it) {
+                    if ($it['item_id'] > 0 && (int)$it['sub_of'] === 0 && $it['status'] === 'paid') {
+                        CashierRepository::restoreDrugStock($it['item_id'], (int)$it['quantity']);
+                        CashierRepository::createInventoryTrans((int)$it['item_id'], (int)$it['quantity'], 'refund', $order['order_no'], $u['name']);
+                    }
+                }
+            }
+            $pdo->commit();
+        } catch (Exception $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            json_fail('退费失败：' . $ex->getMessage());
+        }
+    };
+
     if ($action === 'refund_order') {
         $orderId = did(post('order_id'));
         if ($orderId <= 0) json_fail('参数无效');
@@ -252,71 +304,43 @@ function cashier_part_write($action) {
         if (!$order) json_fail('开单不存在');
         // 批量缴费批次判定：同 payment_no 关联多张订单 = 同一张缴费凭条，
         // 凭条一致性要求整单退费，禁止单独退其中某一项目（前后端一致拦截）
-        $batchOrders = array();
         $batchPay = CashierRepository::one(
             "SELECT payment_no FROM payments WHERE order_id=? AND kind='order' ORDER BY id DESC LIMIT 1",
             array($orderId)
         );
-        if ($batchPay && !empty($batchPay['payment_no'])) {
+        $paymentNo = ($batchPay && !empty($batchPay['payment_no'])) ? $batchPay['payment_no'] : '';
+        if ($paymentNo !== '') {
             $batchOrders = CashierRepository::q(
                 'SELECT o.* FROM orders o JOIN payments p ON p.order_id=o.id AND p.kind=\'order\'
                  WHERE p.payment_no=? AND o.id<>? AND o.status=\'paid\'',
-                array($batchPay['payment_no'], $orderId)
+                array($paymentNo, $orderId)
             );
-        }
-        if ($batchOrders) {
-            json_fail('该单与 ' . count($batchOrders) . ' 张开单为同一缴费批次（同一缴费凭条），不可单独退费，请整单退费');
-        }
-        $items = CashierRepository::orderItems($orderId);
-        // 退费资格：检验/检查未登记、药房未发药、处置未执行
-        foreach ($items as $it) {
-            $started = ($it['status'] !== 'paid');
-            if ($started) {
-                json_fail('存在已开始执行的项目（' . e($it['item_name']) . '），不可退费');
+            if ($batchOrders) {
+                json_fail('该单与 ' . count($batchOrders) . ' 张开单为同一缴费批次（同一缴费凭条），不可单独退费，请整单退费');
             }
         }
-        // 退费 + 恢复库存为复合写操作：原生事务保证原子性。
-        // 条件状态迁移（WHERE status='paid'）防并发重复退费 + 双倍回补库存：
-        // 两个窗口同时退同一单，仅第一个 UPDATE 影响行数为 1，第二个为 0 即拒绝
-        $pdo = DatabaseManager::getMain();
-        $pdo->beginTransaction();
-        try {
-        $affectedOrder = CashierRepository::exec(
-            "UPDATE orders SET status='refunded', refunded_at=? WHERE id=? AND status='paid'",
-            array(now_str(), $orderId)
-        );
-        if ($affectedOrder === 0) {
-            $pdo->rollBack();
-            json_fail('当前订单状态不可退费（已退费/已取消/未缴费）');
-        }
-        // 仅将仍为 paid 的明细置为 refunded（影响行数即为本次实际退费的条目数）
-        $affectedItems = CashierRepository::exec(
-            "UPDATE order_items SET status='refunded' WHERE order_id=? AND status='paid'",
-            array($orderId)
-        );
-        if ($affectedItems === 0) {
-            $pdo->rollBack();
-            json_fail('订单明细状态已变更，不可退费');
-        }
-        CashierRepository::createRefund(array(
-            'visit_id' => $order['visit_id'], 'order_id' => $orderId, 'patient_no' => $order['patient_no'], 'flow_no' => $order['flow_no'],
-            'total' => (float)$order['total_amount'], 'reason' => $reason, 'cashier_id' => $u['id'], 'cashier_name' => $u['name'],
-        ));
-        // 药品退费：恢复库存（幂等——仅对本事务实际置为 refunded 的 paid 明细）
-        if ($order['order_type'] === 'prescription') {
-            foreach ($items as $it) {
-                if ($it['item_id'] > 0 && (int)$it['sub_of'] === 0 && $it['status'] === 'paid') {
-                    CashierRepository::restoreDrugStock($it['item_id'], (int)$it['quantity']);
-                    CashierRepository::createInventoryTrans((int)$it['item_id'], (int)$it['quantity'], 'refund', $order['order_no'], $u['name']);
-                }
-            }
-        }
-        $pdo->commit();
+        $refundOne($u, $order, $reason, $paymentNo, post('method', '现金'));
         json_ok(array(), '退费成功，药品库存已恢复');
         return;
-        } catch (Exception $ex) {
-            if ($pdo->inTransaction()) $pdo->rollBack();
-            json_fail('退费失败：' . $ex->getMessage());
+    }
+
+    if ($action === 'refund_batch') {
+        // 整单退费：同 payment_no（同一缴费凭条）的全部订单一起退，
+        // 凭条一致性要求不允许单独退其中某一项目，只能整单退
+        $paymentNo = trim((string)post('payment_no', ''));
+        $reason = post('reason', '');
+        if ($paymentNo === '') json_fail('缺少缴费批次号');
+        $orders = CashierRepository::q(
+            'SELECT o.* FROM orders o JOIN payments p ON p.order_id=o.id AND p.kind=\'order\'
+             WHERE p.payment_no=? AND o.status=\'paid\' ORDER BY o.id ASC',
+            array($paymentNo)
+        );
+        if (!$orders) json_fail('该缴费批次无待退费订单（已退费/已取消）');
+        $method = post('method', '现金');
+        foreach ($orders as $o) {
+            $refundOne($u, $o, $reason, $paymentNo, $method);
         }
+        json_ok(array(), '已整单退费 ' . count($orders) . ' 张开单');
+        return;
     }
 }

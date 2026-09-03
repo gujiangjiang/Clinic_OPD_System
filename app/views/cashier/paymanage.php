@@ -1,21 +1,20 @@
 <?php
 /**
- * cashier/paymanage.php — 缴费与退费
+ * cashier/paymanage.php — 缴费管理
  * 说明：
- * 1. 通过患者ID / 门诊流水号 / 身份证号查询患者就诊数据
- * 2. 分组显示每次就诊的已缴费 / 待缴费信息（含开单医生、开单时间）
- * 3. 支持单项目缴费 / 批量缴费，缴费成功后弹出缴费凭条
- *    （收费项目列表、数量、金额、收费员）
- * 4. 退费仅限未使用的项目（检验未登记、检查未登记、药房未发药、
- *    处置未执行），退费成功后对应处方可删除并恢复库存
+ * 1. 上方搜索患者（ID/流水号/身份证）
+ * 2. 下方左右两栏：左=患者就诊列表，右=缴费/退费视图
+ * 3. 右侧按「缴费凭条批次」展示（同一缴费批次共享流水号，合并一张凭条）
+ * 4. 批量缴费合并为一张凭条（唯一缴费流水号），同批次不可单独退费，需整单退
+ * 5. 缴费前选择支付方式（现金/医保/银行卡/扫码）
  */
-Router::title('缴费与退费');
+Router::title('缴费管理');
 ?>
 <div class="page-head">
-    <div><div class="page-title">💳 缴费与退费</div><div class="page-desc">按患者ID / 门诊流水号 / 身份证号查询并处理缴费退费</div></div>
+    <div><div class="page-title">💳 缴费管理</div><div class="page-desc">按患者ID / 门诊流水号 / 身份证号查询并处理缴费退费</div></div>
 </div>
 
-<div class="card">
+<div class="card" style="margin-bottom:12px">
     <div class="flex gap-8">
         <input class="input" id="payKw" placeholder="输入患者ID / 门诊流水号 / 身份证号" style="flex:1" autocomplete="off" onkeydown="if(event.key==='Enter')searchVisits()">
         <button class="btn btn-primary btn-sm" onclick="searchVisits()">查询</button>
@@ -23,8 +22,12 @@ Router::title('缴费与退费');
     <div class="fs-12 text-muted mt-8">提示：按患者ID或身份证查询时，将分组显示该患者每次就诊的缴费信息。</div>
 </div>
 
-<div id="visitList" class="mt-12"></div>
-<div id="visitDetail"></div>
+<div class="paymgr-layout">
+    <div class="paymgr-left" id="visitList"></div>
+    <div class="paymgr-right" id="visitDetail">
+        <div class="paymgr-empty">👈 点击左侧就诊记录，查看该次就诊的缴费明细与退费操作</div>
+    </div>
+</div>
 
 <script>
 /* ---------- 查询就诊 ---------- */
@@ -35,19 +38,20 @@ function searchVisits() {
         onSuccess: function (json) {
             var list = json.data.list || [];
             var box = document.getElementById('visitList');
-            document.getElementById('visitDetail').innerHTML = '';
+            document.getElementById('visitDetail').innerHTML = '<div class="paymgr-empty">👈 点击左侧就诊记录，查看该次就诊的缴费明细与退费操作</div>';
             if (!list.length) {
                 box.innerHTML = '<div class="empty"><div class="empty-ico">🔍</div>未检索到就诊记录</div>';
                 return;
             }
-            box.innerHTML = '<div class="fs-13 text-muted mb-8">共检索到 ' + list.length + ' 次就诊，点击查看缴费明细：</div>' +
+            box.innerHTML = '<div class="fs-13 text-muted mb-8">共检索到 ' + list.length + ' 次就诊：</div>' +
                 list.map(function (g) {
                     var v = g.visit, p = g.patient;
-                    return '<div class="dd-item" style="border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;cursor:pointer" onclick="loadDetail(\'' + v.id + '\')">' +
+                    return '<div class="paymgr-item" onclick="selectVisit(this,\'' + v.id + '\')">' +
                         '<div class="flex-between">' +
-                        '<span class="fw-600">' + (p ? p.name : '') + ' <span class="fs-12 text-muted fw-400">' + (p ? p.gender + '/' + Clinic.validate.formatAge(p.birth_date) : '') + '</span></span>' +
-                        '<span class="fs-12 text-muted">' + v.first_dept_name + ' 第' + String(v.visit_seq).padStart(3, '0') + '号</span></div>' +
-                        '<div class="fs-12 text-muted mt-4">患者ID ' + v.patient_no + ' ｜ 流水号 ' + v.flow_no + ' ｜ ' + v.registered_at +
+                        '<span class="fw-600">' + (p ? Clinic.escHtml(p.name) : '') + ' <span class="fs-12 text-muted fw-400">' +
+                        (p ? Clinic.escHtml(p.gender) + '/' + Clinic.escHtml(Clinic.validate.formatAge(p.birth_date)) : '') + '</span></span>' +
+                        '<span class="fs-12 text-muted">' + Clinic.escHtml(v.first_dept_name) + ' 第' + String(v.visit_seq).padStart(3, '0') + '号</span></div>' +
+                        '<div class="fs-12 text-muted mt-4">患者ID ' + Clinic.escHtml(v.patient_no) + ' ｜ 流水号 ' + Clinic.escHtml(v.flow_no) + ' ｜ ' + Clinic.escHtml(v.registered_at) +
                         ' ｜ <span class="badge ' + (v.status === 'paid' ? 'badge-primary' : (v.status === 'finished' ? 'badge-success' : 'badge-gray')) + '">' + visitStatusName(v.status) + '</span></div></div>';
                 }).join('');
         },
@@ -59,13 +63,79 @@ function visitStatusName(s) {
     return map[s] || s;
 }
 
-/* ---------- 加载某次就诊的缴费明细 ---------- */
+/* ---------- 选中左侧就诊 → 加载右侧缴费视图 ---------- */
+var CUR_VISIT = null;
+function selectVisit(el, visitId) {
+    document.querySelectorAll('.paymgr-item').forEach(function (x) { x.classList.remove('active'); });
+    if (el) el.classList.add('active');
+    CUR_VISIT = visitId;
+    loadDetail(visitId);
+}
+
 function loadDetail(visitId) {
     Clinic.get('/api/cashier?action=visit_detail&visit_id=' + visitId, null, {
         onSuccess: function (json) {
-            var box = document.getElementById('visitDetail');
-            box.innerHTML = json.data.html;
-            box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document.getElementById('visitDetail').innerHTML = json.data.html;
+        },
+    });
+}
+
+/* ==================== 缴费凭条批次（visit_detail 返回结构） ==================== */
+
+/* 缴费（挂号费） */
+function payVisitFee(visitId) {
+    openPayMethod('挂号费缴费', function (method) {
+        Clinic.ajax('/api/cashier', { action: 'pay_visit', visit_id: visitId, method: method }, {
+            loading: true,
+            onSuccess: function (json) {
+                Clinic.toast.success(json.msg);
+                Clinic.print.load('/api/print?action=payment&payment_id=' + json.data.payment_id, null, 'ticket');
+                loadDetail(visitId);
+            },
+        });
+    });
+}
+
+/* 单个开单缴费 */
+function payOrder(orderId, visitId) {
+    openPayMethod('缴费确认', function (method) {
+        doPay([orderId], visitId, method);
+    });
+}
+
+/* 一键全部缴费：全部未缴费开单合并为一张凭条（挂号费走「缴挂号费」独立按钮） */
+function batchPayAll() {
+    var ids = [];
+    document.querySelectorAll('.batchPay').forEach(function (c) {
+        if (c.checked) ids.push(c.value);
+    });
+    if (!ids.length) {
+        document.querySelectorAll('.batchPay').forEach(function (c) { ids.push(c.value); });
+    }
+    if (!ids.length) { Clinic.toast.warning('暂无可缴费项目'); return; }
+    openPayMethod('一键批量缴费（' + ids.length + ' 项）', function (method) {
+        doPay(ids, CUR_VISIT, method);
+    });
+}
+
+/* 批量缴费 */
+function batchPay() {
+    var ids = [];
+    document.querySelectorAll('.batchPay:checked').forEach(function (c) { ids.push(c.value); });
+    if (!ids.length) { Clinic.toast.warning('请先勾选要缴费的项目'); return; }
+    openPayMethod('批量缴费（' + ids.length + ' 项）', function (method) {
+        doPay(ids, CUR_VISIT, method);
+    });
+}
+
+function doPay(ids, visitId, method) {
+    Clinic.ajax('/api/cashier', { action: 'pay_orders', order_ids: JSON.stringify(ids), method: method }, {
+        loading: true,
+        onSuccess: function (json) {
+            Clinic.toast.success(json.msg + '，合计 ¥' + parseFloat(json.data.total).toFixed(2) + '（' + method + '）');
+            // 批量缴费合并为一张凭条（同 payment_no，缴费流水号展示在凭条上）
+            Clinic.print.load('/api/print?action=payment&payment_id=' + json.data.payment_id, null, 'ticket');
+            loadDetail(visitId || CUR_VISIT);
         },
     });
 }
@@ -76,43 +146,14 @@ function toggleAll() {
     updateBatchCount();
 }
 function updateBatchCount() {
-    document.getElementById('batchCount').textContent = document.querySelectorAll('.batchPay:checked').length;
+    var el = document.getElementById('batchCount');
+    if (el) el.textContent = document.querySelectorAll('.batchPay:checked').length;
 }
 document.addEventListener('change', function (e) {
     if (e.target && e.target.classList && e.target.classList.contains('batchPay')) updateBatchCount();
 });
 
-/* ---------- 单项目缴费 / 批量缴费 ---------- */
-function payOrder(orderId) {
-    Clinic.modal.confirm('确认为该开单缴费？', function () {
-        doPay([orderId]);
-    }, { title: '缴费确认', okText: '确认缴费' });
-}
-
-function batchPay() {
-    var ids = [];
-    // 混淆 ID 为不透明字符串（不可 parseInt），原样透传由后端解码
-    document.querySelectorAll('.batchPay:checked').forEach(function (c) { ids.push(c.value); });
-    if (!ids.length) { Clinic.toast.warning('请先勾选要缴费的项目'); return; }
-    doPay(ids);
-}
-
-function doPay(ids) {
-    Clinic.ajax('/api/cashier', { action: 'pay_orders', order_ids: JSON.stringify(ids) }, {
-        loading: true,
-        onSuccess: function (json) {
-            Clinic.toast.success(json.msg + '，合计 ¥' + parseFloat(json.data.total).toFixed(2));
-            // 缴费成功后弹出缴费凭条（收费项目列表、数量、金额、收费员）
-            Clinic.print.load('/api/print?action=payment&payment_id=' + json.data.payment_id, null, 'ticket');
-            // 刷新明细
-            var detail = document.getElementById('visitDetail');
-            var vid = detail.querySelector('[data-vid]');
-            if (vid) loadDetail(vid.getAttribute('data-vid'));
-        },
-    });
-}
-
-/* ---------- 退费（仅限未使用的项目） ---------- */
+/* ---------- 退费 ---------- */
 function refundOrder(orderId) {
     var reason = prompt('请填写退费原因：', '');
     if (reason === null) return;
@@ -120,10 +161,55 @@ function refundOrder(orderId) {
         Clinic.ajax('/api/cashier', { action: 'refund_order', order_id: orderId, reason: reason }, {
             onSuccess: function (json) {
                 Clinic.toast.success(json.msg);
-                var vid = document.getElementById('visitDetail').querySelector('[data-vid]');
-                if (vid) loadDetail(vid.getAttribute('data-vid'));
+                loadDetail(CUR_VISIT);
             },
         });
     }, { title: '退费确认', okText: '确认退费' });
+}
+
+/* 整单退费：同缴费批次（同一缴费凭条）的全部项目一起退 */
+function refundBatch(paymentNo) {
+    var reason = prompt('该凭条包含同批次多张开单，需整单退费。请填写退费原因：', '');
+    if (reason === null) return;
+    Clinic.modal.confirm('确认整单退费？该缴费凭条（流水号 ' + paymentNo + '）上的全部项目将一起退费。', function () {
+        Clinic.ajax('/api/cashier', { action: 'refund_batch', payment_no: paymentNo, reason: reason }, {
+            onSuccess: function (json) {
+                Clinic.toast.success(json.msg);
+                loadDetail(CUR_VISIT);
+            },
+        });
+    }, { title: '整单退费', okText: '确认整单退费' });
+}
+
+/* ==================== 支付方式选择（优化6） ==================== */
+/* 现金完整可用；医保卡/银行卡/扫码提示开发中 */
+function openPayMethod(title, onDone) {
+    var methods = [
+        { k: '现金', icon: '💵', name: '现金', desc: '现金支付（支持找零）', avail: 1 },
+        { k: '医保', icon: '🪪', name: '医保卡', desc: '医保卡实时结算', avail: 0 },
+        { k: 'bank', icon: '💳', name: '银行卡', desc: '银联 / VISA / MasterCard / AE', avail: 0 },
+        { k: 'scan', icon: '📱', name: '扫码支付', desc: '微信 / 支付宝 / 云闪付', avail: 0 },
+    ];
+    Clinic.modal.open(
+        '<div class="pay-methods">' + methods.map(function (m) {
+            return '<div class="pay-method' + (m.avail ? '' : ' disabled') + '" data-k="' + m.k + '">' +
+                '<div class="pay-method-icon">' + m.icon + '</div>' +
+                '<div class="pay-method-name">' + m.name + '</div>' +
+                '<div class="pay-method-desc">' + m.desc + '</div></div>';
+        }).join('') + '</div>' +
+        '<div class="fs-12 text-muted mt-8">当前演示环境仅支持现金支付，其余支付方式即将上线。</div>',
+        { title: title + ' · 选择支付方式', size: 'modal-md', buttons: [{ text: '取消', cls: 'btn-outline' }] }
+    );
+    document.querySelectorAll('.pay-method').forEach(function (el) {
+        el.addEventListener('click', function () {
+            var k = el.getAttribute('data-k');
+            if (el.classList.contains('disabled')) {
+                Clinic.toast.info('「' + k + '」支付方式正在开发中，请选择现金');
+                return;
+            }
+            Clinic.modal.close();
+            if (onDone) onDone('现金');
+        });
+    });
 }
 </script>

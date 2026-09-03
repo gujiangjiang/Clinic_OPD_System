@@ -58,6 +58,7 @@ switch ($action) {
     case 'pay_visit':
     case 'cancel_visit':
     case 'refund_order':
+    case 'refund_batch':
         cashier_part_write($action);
         break;
 
