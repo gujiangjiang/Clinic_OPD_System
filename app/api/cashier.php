@@ -35,6 +35,16 @@ function next_visit_seq($deptId) {
     return CashierRepository::countVisitSeq($deptId, today_str()) + 1;
 }
 
+/**
+ * 缴费流水号：与挂号流水号关联（JF + 流水号 + HHMMSS + 2位随机），
+ * 长位数防重复；同一批次（批量缴费合并一张凭条）共享同一编号。
+ * @param string $flowNo 挂号流水号（如 2609030001）
+ * @return string 缴费流水号
+ */
+function next_payment_no($flowNo) {
+    return 'JF' . $flowNo . date('His') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
+}
+
 /** 当日某科室某时段已用号源数 */
 function dept_used_count($deptId, $session) {
     return CashierRepository::deptUsed($deptId, $session);

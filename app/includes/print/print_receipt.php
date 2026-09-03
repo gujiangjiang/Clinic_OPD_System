@@ -59,8 +59,7 @@ function pt_payment($pay, $items) {
     }
     $html .= '<div class="ticket-row ticket-total"><span>合计</span><span class="ticket-val">¥' . money($total) . '</span></div>';
     $html .= '<div class="ticket-divider"></div>';
-    $html .= '<div class="ticket-barcode">' . barcode128_svg($code, 44, 2) .
-        '<div class="ticket-barcode-text">门诊号: ' . e($code) . '</div></div>';
+    // 优化3：缴费凭条（非挂号费）不显示门诊号条形码——仅挂号费走 pt_receipt 保留条形码
     $html .= '<div class="ticket-note">缴费成功，请妥善保管本凭条，凭此前往相应科室执行检查/检验/取药。</div>';
     $html .= '<div class="ticket-print-time">打印时间: ' . now_str() . '</div>';
     $html .= '</div>';

@@ -194,8 +194,8 @@ function cashier_part_write($action) {
             array(now_str(), $visitId)
         );
         if ($affectedPay === 0) json_fail('当前状态不可缴费');
-        // 缴费流水号：挂号费同样生成唯一编号（凭条显示/退费批次判定）
-        $paymentNo = 'JF' . date('YmdHis') . str_pad((string)rand(0, 999), 3, '0', STR_PAD_LEFT);
+        // 缴费流水号：与挂号流水号关联（JF + 流水号 + 时间戳 + 随机），长位数防重复
+        $paymentNo = next_payment_no($visit['flow_no']);
         $payId = CashierRepository::createPayment(array(
             'visit_id' => $visitId, 'order_id' => 0, 'patient_no' => $visit['patient_no'], 'flow_no' => $visit['flow_no'],
             'kind' => 'visit', 'total' => (float)$visit['fee'], 'item_count' => 1,

@@ -11,6 +11,11 @@
  */
 Router::title('挂号管理');
 ?>
+<style>
+/* 挂号管理：列表区填满剩余视口，表格内部滚动，消除下方留白 */
+.regm-fill { display: flex; flex-direction: column; height: calc(100vh - 190px); }
+.regm-fill .table-wrap { max-height: none; flex: 1; min-height: 0; }
+</style>
 <div class="page-head">
     <div><div class="page-title">📋 挂号管理</div><div class="page-desc">查询任意一天的挂号记录，支持补打凭条、退费/取消</div></div>
 </div>
@@ -35,7 +40,7 @@ Router::title('挂号管理');
         <button class="btn btn-primary btn-sm" onclick="loadList()">查询</button>
     </div>
 </div>
-<div id="regList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+<div id="regList" class="regm-fill"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
 function loadList() {
