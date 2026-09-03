@@ -15,10 +15,6 @@ class OrderRepository extends BaseRepository {
         return self::one('SELECT * FROM orders WHERE id=?', array((int)$id));
     }
 
-    public static function byNo($orderNo) {
-        return self::one('SELECT id FROM orders WHERE order_no=?', array($orderNo));
-    }
-
     public static function byVisit($visitId, $statusFilter = '') {
         $sql = 'SELECT * FROM orders WHERE visit_id=?';
         $params = array((int)$visitId);
@@ -36,79 +32,15 @@ class OrderRepository extends BaseRepository {
         );
     }
 
-    /** 插入订单，返回自增 id */
-    public static function create($data) {
-        return self::insertRow('orders', $data);
-    }
-
-    public static function update($id, $data) {
-        return self::updateRow('orders', $id, $data);
-    }
-
-    public static function deleteOrder($id) {
-        return self::exec('DELETE FROM orders WHERE id=?', array((int)$id));
-    }
-
     /* ---------------- 明细 ---------------- */
 
     public static function itemsByOrder($orderId) {
         return self::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array((int)$orderId));
     }
 
-    public static function itemsByVisit($visitId) {
-        return self::q('SELECT * FROM order_items WHERE visit_id=? ORDER BY id', array((int)$visitId));
-    }
-
     public static function itemById($id) { return self::findById('order_items', $id); }
 
-    public static function insertItem($data) { return self::insertRow('order_items', $data); }
-
     public static function updateItem($id, $data) { return self::updateRow('order_items', $id, $data); }
-
-    public static function deleteItemsByOrder($orderId) {
-        return self::exec('DELETE FROM order_items WHERE order_id=?', array((int)$orderId));
-    }
-
-    /* ---------------- 项目字典（检验/检查/处置） ---------------- */
-
-    public static function labItems($status = '') {
-        return self::findAllByField('lab_items', 'status', $status, 'id');
-    }
-
-    public static function labItemById($id) { return self::findById('lab_items', $id); }
-
-    public static function examItems($status = '') {
-        return self::findAllByField('exam_items', 'status', $status, 'id');
-    }
-
-    public static function examItemById($id) { return self::findById('exam_items', $id); }
-
-    public static function disposalItems($status = '') {
-        return self::findAllByField('disposal_items', 'status', $status, 'id');
-    }
-
-    public static function disposalItemById($id) { return self::findById('disposal_items', $id); }
-
-    public static function categories($ctype = '') {
-        return self::findAllByField('item_categories', 'ctype', $ctype, 'sort, id');
-    }
-
-    /** 检验组合成员（组合项目 id → 成员列表） */
-    public static function labGroupMembers($groupId) {
-        return self::q('SELECT item_id FROM lab_group_members WHERE group_id=?', array((int)$groupId));
-    }
-
-    /* ---------------- 结果 / 报告 ---------------- */
-
-    public static function resultsByVisit($visitId) {
-        return self::q('SELECT * FROM results WHERE visit_id=? ORDER BY id', array((int)$visitId));
-    }
-
-    public static function reportIdsByResultIds($resultIds) {
-        if (!$resultIds || !count($resultIds)) return array();
-        $ph = implode(',', array_fill(0, count($resultIds), '?'));
-        return self::q("SELECT result_id, MAX(id) AS rid FROM reports WHERE result_id IN ($ph) AND status<>'withdrawn' GROUP BY result_id", $resultIds);
-    }
 
     /* ---------------- 统计聚合 ---------------- */
 
@@ -153,20 +85,5 @@ class OrderRepository extends BaseRepository {
         }
         $sql .= " ORDER BY oi.id DESC LIMIT " . (int)$limit;
         return self::q($sql, $params);
-    }
-
-    /** 医嘱子处方（同订单同组非主药） */
-    public static function itemsByOrderGroup($orderId, $groupNo) {
-        return self::q('SELECT * FROM order_items WHERE order_id=? AND group_no=? AND is_parent=0 ORDER BY id', array((int)$orderId, (int)$groupNo));
-    }
-
-    /** 今日处方发药数 */
-    public static function todayDispensedCount($today) {
-        return (int)self::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='dispensed' AND date(executed_at)=?", array($today));
-    }
-
-    /** 待发药处方数 */
-    public static function pendingRxCount() {
-        return (int)self::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='paid'");
     }
 }

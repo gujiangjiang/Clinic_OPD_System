@@ -47,18 +47,6 @@ class QueueRepository extends BaseRepository {
     }
 
     /** 按科室查询候诊队列（护士站使用，含多种状态） */
-    public static function deptQueue($deptId, $date, $statusWhere = "r.status IN ('paid','visiting','finished')") {
-        // $statusWhere 仅限内部调用的常量字符串，禁止传入外部输入；如需动态过滤请改参数化查询
-        return self::q(
-            "SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
-             FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-             WHERE r.current_dept_id=? AND date(r.registered_at)=? AND $statusWhere
-             ORDER BY r.visit_seq",
-            array((int)$deptId, $date)
-        );
-    }
-
-    /** 医生信息（大屏展示用） */
     public static function doctorInfo($doctorId) {
         return UserRepository::doctorProfile($doctorId);
     }
@@ -84,11 +72,5 @@ class QueueRepository extends BaseRepository {
     public static function updateHeartbeat($roomId) {
         self::exec('UPDATE clinic_rooms SET screen_last_heartbeat=?, is_screen_online=1, updated_at=? WHERE id=?',
             array(now_str(), now_str(), (int)$roomId));
-    }
-
-    /** 更新大屏绑定医生 */
-    public static function bindDoctor($roomId, $doctorId, $doctorName) {
-        self::exec('UPDATE clinic_rooms SET current_doctor_id=?, current_doctor_name=?, doctor_heartbeat=?, updated_at=? WHERE id=?',
-            array((int)$doctorId, $doctorName, now_str(), now_str(), (int)$roomId));
     }
 }

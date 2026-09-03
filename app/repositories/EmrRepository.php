@@ -9,15 +9,6 @@
 class EmrRepository extends BaseRepository {
 
     // ===== patient_records 结构化病历 =====
-    public static function recordById($id) { return self::findById('patient_records', $id); }
-    public static function recordsByVisit($visitId) {
-        return self::q('SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC', array((int)$visitId));
-    }
-    public static function recordByVisitDoctor($visitId, $doctorId) {
-        return self::one('SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array((int)$visitId, (int)$doctorId));
-    }
-    public static function updateRecord($id, $data) { return self::updateRow('patient_records', $id, $data); }
-    public static function insertRecord($data) { return self::insertRow('patient_records', $data); }
     public static function deleteRecord($id) {
         return self::exec('DELETE FROM patient_records WHERE id=?', array((int)$id));
     }
@@ -36,11 +27,6 @@ class EmrRepository extends BaseRepository {
         return self::q('SELECT * FROM vitals WHERE visit_id=? ORDER BY id ASC', array((int)$visitId));
     }
     public static function insertVitals($data) { return self::insertRow('vitals', $data); }
-
-    // ===== templates 病历模板 =====
-    public static function templates() {
-        return self::q('SELECT * FROM templates ORDER BY id');
-    }
 
     // ===== certificates 诊断证明 =====
     public static function certificateByVisit($visitId) {

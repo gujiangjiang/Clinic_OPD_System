@@ -76,25 +76,6 @@ class BaseRepository {
         return self::insert($sql, $params);
     }
 
-    // ==================== 事务辅助 ====================
-
-    /** 开启主库事务 */
-    protected static function begin() {
-        self::db()->beginTransaction();
-    }
-
-    /** 提交主库事务 */
-    protected static function commit() {
-        self::db()->commit();
-    }
-
-    /** 回滚主库事务 */
-    protected static function rollBack() {
-        if (self::db()->inTransaction()) {
-            self::db()->rollBack();
-        }
-    }
-
     // ==================== 通用查询模式 ====================
 
     /** 按 ID 查询单行 */

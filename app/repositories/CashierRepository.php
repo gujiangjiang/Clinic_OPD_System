@@ -16,16 +16,6 @@ class CashierRepository extends BaseRepository {
         return DeptRepository::activeById($deptId);
     }
 
-    /** 查询科室（任意状态） */
-    public static function dept($deptId) {
-        return DeptRepository::byId($deptId);
-    }
-
-    /** 所有启用科室（挂号列表/号源展示） */
-    public static function depts() {
-        return self::q('SELECT * FROM departments ORDER BY sort, id');
-    }
-
     /** 科室当日已用号源数 */
     public static function deptUsed($deptId, $session) {
         return (int)self::val(
@@ -87,11 +77,6 @@ class CashierRepository extends BaseRepository {
                 (int)$data['cashier_id'], $data['cashier_name'], now_str(), (int)$data['is_extra'],
             )
         );
-    }
-
-    /** 按 id 查挂号记录 */
-    public static function visit($visitId) {
-        return self::one('SELECT * FROM registrations WHERE id=?', array((int)$visitId));
     }
 
     /** 患者全部挂号（倒序） */
@@ -186,28 +171,12 @@ class CashierRepository extends BaseRepository {
         return self::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array((int)$orderId));
     }
 
-    /** 批量更新订单明细状态（按 order_id） */
-    public static function updateOrderItemsStatus($orderId, $status, $extra = array()) {
-        $data = array('status' => $status);
-        if (isset($extra['executed_by'])) $data['executed_by'] = $extra['executed_by'];
-        if (isset($extra['executed_at'])) $data['executed_at'] = $extra['executed_at'];
-        return self::updateWhere('order_items', $data, 'order_id=?', array((int)$orderId));
-    }
-
     /** 更新单条明细状态 */
     public static function updateOrderItemStatus($itemId, $status, $extra = array()) {
         $data = array('status' => $status);
         if (isset($extra['executed_by'])) $data['executed_by'] = $extra['executed_by'];
         if (isset($extra['executed_at'])) $data['executed_at'] = $extra['executed_at'];
         return self::updateRow('order_items', $itemId, $data);
-    }
-
-    /** 更新订单状态（含支付/退费时间） */
-    public static function updateOrderStatus($orderId, $status, $extra = array()) {
-        $data = array('status' => $status);
-        if (isset($extra['paid_at'])) $data['paid_at'] = $extra['paid_at'];
-        if (isset($extra['refunded_at'])) $data['refunded_at'] = $extra['refunded_at'];
-        return self::updateRow('orders', $orderId, $data);
     }
 
     /* ---------------- 编号规则 / 计数 ---------------- */
