@@ -140,11 +140,12 @@ class CashierRepository extends BaseRepository {
     /** 新增缴费流水，返回自增 id */
     public static function createPayment($data) {
         return self::insert(
-            'INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
+            'INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total, item_count, cashier_id, cashier_name, created_at, payment_no) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
             array(
                 (int)$data['visit_id'], (int)$data['order_id'], $data['patient_no'], $data['flow_no'],
                 $data['kind'], (float)$data['total'], (int)$data['item_count'],
                 (int)$data['cashier_id'], $data['cashier_name'], now_str(),
+                isset($data['payment_no']) ? $data['payment_no'] : '',
             )
         );
     }

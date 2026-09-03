@@ -59,16 +59,23 @@ switch ($action) {
         $payVisit = EmrRepository::one('SELECT * FROM registrations WHERE id=?', array($pay['visit_id']));
         if (!$payVisit) json_fail('就诊记录不存在');
         print_guard($payVisit, array('cashier'));
+        // 批量缴费：同 payment_no 的多张订单合并为一张凭条（同批次凭条一致，不可单独退费）
+        $batchPays = array();
+        if (!empty($pay['payment_no'])) {
+            $batchPays = EmrRepository::q('SELECT * FROM payments WHERE payment_no=? AND visit_id=? ORDER BY id ASC', array($pay['payment_no'], $pay['visit_id']));
+        }
+        if (!$batchPays) $batchPays = array($pay);
         $items = array();
-        if ($pay['kind'] === 'visit') {
-            // 挂号费缴费：项目为挂号费
-            $visit = EmrRepository::one('SELECT * FROM registrations WHERE id=?', array($pay['visit_id']));
-            $dept = $visit ? EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['first_dept_id'])) : null;
-            $items[] = array('name' => '挂号费（' . ($visit ? $visit['first_dept_name'] : '') . '）', 'quantity' => 1, 'price' => $pay['total']);
-        } else {
-            $rows = EmrRepository::q('SELECT * FROM order_items WHERE order_id=?', array($pay['order_id']));
-            foreach ($rows as $r) {
-                $items[] = array('name' => $r['item_name'], 'quantity' => (int)$r['quantity'], 'price' => $r['price']);
+        foreach ($batchPays as $bp) {
+            if ($bp['kind'] === 'visit') {
+                // 挂号费缴费：项目为挂号费
+                $visit = EmrRepository::one('SELECT * FROM registrations WHERE id=?', array($bp['visit_id']));
+                $items[] = array('name' => '挂号费（' . ($visit ? $visit['first_dept_name'] : '') . '）', 'quantity' => 1, 'price' => $bp['total']);
+            } else {
+                $rows = EmrRepository::q('SELECT * FROM order_items WHERE order_id=?', array($bp['order_id']));
+                foreach ($rows as $r) {
+                    $items[] = array('name' => $r['item_name'], 'quantity' => (int)$r['quantity'], 'price' => $r['price']);
+                }
             }
         }
         json_ok(array('html' => pt_payment($pay, $items)));

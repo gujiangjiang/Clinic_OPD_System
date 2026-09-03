@@ -193,12 +193,14 @@ function cashier_part_write($action) {
             array(now_str(), $visitId)
         );
         if ($affectedPay === 0) json_fail('当前状态不可缴费');
+        // 缴费流水号：挂号费同样生成唯一编号（凭条显示/退费批次判定）
+        $paymentNo = 'JF' . date('YmdHis') . str_pad((string)rand(0, 999), 3, '0', STR_PAD_LEFT);
         $payId = CashierRepository::createPayment(array(
             'visit_id' => $visitId, 'order_id' => 0, 'patient_no' => $visit['patient_no'], 'flow_no' => $visit['flow_no'],
             'kind' => 'visit', 'total' => (float)$visit['fee'], 'item_count' => 1,
-            'cashier_id' => $u['id'], 'cashier_name' => $u['name'],
+            'cashier_id' => $u['id'], 'cashier_name' => $u['name'], 'payment_no' => $paymentNo,
         ));
-        json_ok(array('payment_id' => oid($payId)), '缴费成功');
+        json_ok(array('payment_id' => oid($payId), 'payment_no' => $paymentNo), '缴费成功');
         return;
     }
 
@@ -248,6 +250,23 @@ function cashier_part_write($action) {
         $reason = post('reason', '');
         $order = CashierRepository::order($orderId);
         if (!$order) json_fail('开单不存在');
+        // 批量缴费批次判定：同 payment_no 关联多张订单 = 同一张缴费凭条，
+        // 凭条一致性要求整单退费，禁止单独退其中某一项目（前后端一致拦截）
+        $batchOrders = array();
+        $batchPay = CashierRepository::one(
+            "SELECT payment_no FROM payments WHERE order_id=? AND kind='order' ORDER BY id DESC LIMIT 1",
+            array($orderId)
+        );
+        if ($batchPay && !empty($batchPay['payment_no'])) {
+            $batchOrders = CashierRepository::q(
+                'SELECT o.* FROM orders o JOIN payments p ON p.order_id=o.id AND p.kind=\'order\'
+                 WHERE p.payment_no=? AND o.id<>? AND o.status=\'paid\'',
+                array($batchPay['payment_no'], $orderId)
+            );
+        }
+        if ($batchOrders) {
+            json_fail('该单与 ' . count($batchOrders) . ' 张开单为同一缴费批次（同一缴费凭条），不可单独退费，请整单退费');
+        }
         $items = CashierRepository::orderItems($orderId);
         // 退费资格：检验/检查未登记、药房未发药、处置未执行
         foreach ($items as $it) {

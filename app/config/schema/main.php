@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 12,
+    'version' => 13,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -654,6 +654,11 @@ return array(
         // 不复用 refunded_at（退费时间语义）
         12 => array(
             "ALTER TABLE orders ADD COLUMN dispensed_at TEXT",
+        ),
+        // v13：缴费流水号（payments.payment_no）——每次缴费（含批量合并）生成唯一编号，
+        // 打印凭条/补打/退费批次判定（同批次不可单独退费）统一以此关联
+        13 => array(
+            "ALTER TABLE payments ADD COLUMN payment_no TEXT",
         ),
     ),
     'seed' => array(

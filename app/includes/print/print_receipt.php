@@ -34,12 +34,17 @@ function pt_receipt($visit, $patient) {
 function pt_payment($pay, $items) {
     $pName = isset($pay['patient_no']) ? DB::val('SELECT name FROM patients WHERE patient_no=?', array($pay['patient_no'])) : '';
     $code = isset($pay['flow_no']) && $pay['flow_no'] !== '' ? $pay['flow_no'] : (isset($pay['patient_no']) ? $pay['patient_no'] : '');
+    // 缴费流水号：批量缴费同批次共享同一编号（凭条一致性，退费按整单处理）
+    $payNo = isset($pay['payment_no']) && $pay['payment_no'] !== '' ? $pay['payment_no'] : '';
     $html = '<div class="print-ticket">';
     $html .= pt_ticket_header('缴费凭条');
     $html .= '<div class="ticket-divider"></div>';
     $html .= pt_ticket_row('患者姓名', $pName);
     $html .= pt_ticket_row('患者ID', isset($pay['patient_no']) ? $pay['patient_no'] : '');
     $html .= pt_ticket_row('门诊号', $code);
+    if ($payNo !== '') {
+        $html .= pt_ticket_row('缴费流水号', $payNo);
+    }
     $html .= pt_ticket_row('缴费时间', isset($pay['created_at']) ? substr($pay['created_at'], 0, 16) : '');
     $html .= pt_ticket_row('收费员', isset($pay['cashier_name']) ? $pay['cashier_name'] : '');
     $html .= '<div class="ticket-divider"></div>';

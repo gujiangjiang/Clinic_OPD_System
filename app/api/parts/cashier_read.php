@@ -16,7 +16,9 @@ function cashier_part_read($action) {
         $regToday = (int)CashierRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=?", array($today));
         $regFeeToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total),0) FROM payments WHERE kind='visit' AND date(created_at)=?", array($today));
         $paidToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($today));
-        $refundToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status='refunded' AND date(refunded_at)=?", array($today));
+        // 今日退费：refunds 表为挂号退费与订单退费统一流水（orders.refunded_at 只覆盖订单退费，
+        // 挂号退费 cancel_visit 仅写 refunds + registrations.status=refunded，不落 orders）
+        $refundToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total),0) FROM refunds WHERE date(created_at)=?", array($today));
         $waiting = (int)CashierRepository::val("SELECT COUNT(*) FROM registrations WHERE status='paid' AND date(registered_at)=?", array($today));
         $trend = trend_7_days(function ($day) {
             return (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($day));
@@ -213,6 +215,9 @@ function cashier_part_read($action) {
         $pdo = DatabaseManager::getMain();
         $pdo->beginTransaction();
         try {
+        // 缴费流水号：每次缴费（含批量合并）生成唯一编号，同批次共享——
+        // 打印合并凭条 / 补打 / 退费批次判定统一以 payment_no 关联
+        $paymentNo = 'JF' . date('YmdHis') . str_pad((string)rand(0, 999), 3, '0', STR_PAD_LEFT);
         $payId = 0;
         $total = 0;
         foreach ($ids as $oidStr) {
@@ -256,11 +261,11 @@ function cashier_part_read($action) {
             $payId = CashierRepository::createPayment(array(
                 'visit_id' => $order['visit_id'], 'order_id' => $order['id'], 'patient_no' => $order['patient_no'], 'flow_no' => $order['flow_no'],
                 'kind' => 'order', 'total' => (float)$order['total_amount'], 'item_count' => count($items),
-                'cashier_id' => $u['id'], 'cashier_name' => $u['name'],
+                'cashier_id' => $u['id'], 'cashier_name' => $u['name'], 'payment_no' => $paymentNo,
             ));
         }
         $pdo->commit();
-        json_ok(array('payment_id' => oid($payId), 'total' => $total), '缴费成功');
+        json_ok(array('payment_id' => oid($payId), 'payment_no' => $paymentNo, 'total' => $total), '缴费成功');
         return;
         } catch (Exception $ex) {
             if ($pdo->inTransaction()) $pdo->rollBack();
