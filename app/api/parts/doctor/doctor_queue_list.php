@@ -6,11 +6,16 @@
 
 function doctor_read_queue_list($u) {
     $deptId = (int)get('dept_id', 0);
+    $myDepts = user_dept_ids($u);
+    // 科室归属校验：dept_id 参数必须在医生关联科室范围内，防止跨科室越权查看候诊列表
+    if ($deptId > 0 && !in_array($deptId, $myDepts, true)) {
+        json_fail('无权查看该科室候诊列表');
+    }
     if ($deptId <= 0) {
         $deptId = current_dept_id($u);
     }
     if ($deptId <= 0) {
-        $ids = user_dept_ids($u);
+        $ids = $myDepts;
         if ($ids) {
             $ph = implode(',', array_fill(0, count($ids), '?'));
             $first = EmrRepository::one("SELECT id FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id LIMIT 1", $ids);

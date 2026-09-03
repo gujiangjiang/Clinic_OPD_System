@@ -18,6 +18,8 @@ $u = Auth::user();
 
 /* ==================== 退费前置检测（收费员） ==================== */
 if ($action === 'check') {
+    // 仅收费员/管理员可发起退费检测（退费由收费处负责）
+    if ($u['role'] !== 'cashier' && $u['role'] !== 'admin') json_fail('无权限进行退费操作');
     // 检测缴费批次是否可直接退费：
     // 全部项目处于 paid（未开始执行）→ 可直接退费；
     // 存在 registered/done/dispensed 等已执行状态 → 需走退费申请审批流
@@ -55,6 +57,8 @@ if ($action === 'check') {
 
 /* ==================== 发起退费申请（收费员） ==================== */
 if ($action === 'apply') {
+    // 仅收费员/管理员可发起退费申请（医生/护士等角色仅可审批，不可代发起）
+    if ($u['role'] !== 'cashier' && $u['role'] !== 'admin') json_fail('无权限发起退费申请');
     $paymentNo = trim((string)post('payment_no', ''));
     $reason = trim((string)post('reason', ''));
     if ($paymentNo === '') json_fail('缺少缴费批次号');
@@ -158,6 +162,10 @@ if ($action === 'detail') {
     $reqId = did(get('id'));
     $req = CoreRepository::one('SELECT * FROM refund_requests WHERE id=?', array($reqId));
     if (!$req) json_fail('退费申请不存在');
+    // 归属校验：仅申请发起人、关联审批人、管理员可查看（防 IDOR 枚举他人退费申请）
+    $isCreator = (int)$req['created_by'] === (int)$u['id'];
+    $isApprover = (int)CoreRepository::val('SELECT COUNT(*) FROM refund_approvals WHERE request_id=? AND user_id=?', array($reqId, (int)$u['id'])) > 0;
+    if ($u['role'] !== 'admin' && !$isCreator && !$isApprover) json_fail('无权限查看该退费申请');
     $approvals = CoreRepository::q('SELECT * FROM refund_approvals WHERE request_id=? ORDER BY id ASC', array($reqId));
     // 项目执行状态
     $orderIds = json_decode($req['order_ids'], true);

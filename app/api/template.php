@@ -120,10 +120,27 @@ switch ($action) {
         $id = (int)get('id');
         $t = EmrRepository::one('SELECT * FROM emr_templates WHERE id=?', array($id));
         if (!$t) json_fail('模板不存在');
-        // for_apply=1：应用模板/创建病历场景——允许读取任何可见模板（含系统模板）
+        // for_apply=1：应用模板/创建病历场景——允许读取当前医生可见模板（含系统模板）
         // 供医生套用到病历；编辑模板（默认）才做系统/归属越权拦截。
         $forApply = (int)get('for_apply', 0);
-        if ($forApply !== 1) {
+        if ($forApply === 1) {
+            // 可见性过滤须与 list 一致：本人个人模板（任意状态）+ 本人待审核模板
+            // + 已发布全院 + 已发布本人科室模板（防越权读取他人私有模板）
+            $isVisible = false;
+            $myDepts = user_dept_ids($u);
+            if ((int)$t['creator_id'] === (int)$u['id'] && $t['scope'] === 'personal') {
+                $isVisible = true;
+            } elseif ((int)$t['creator_id'] === (int)$u['id'] && $t['status'] === 'pending_review') {
+                $isVisible = true;
+            } elseif ($t['scope'] === 'hospital' && $t['status'] === 'published') {
+                $isVisible = true;
+            } elseif ($t['scope'] === 'dept' && $t['status'] === 'published' && $myDepts) {
+                $ph = implode(',', array_fill(0, count($myDepts), '?'));
+                $cnt = (int)EmrRepository::val("SELECT COUNT(*) FROM emr_template_depts WHERE template_id=? AND dept_id IN ($ph)", array_merge(array($id), $myDepts));
+                if ($cnt > 0) $isVisible = true;
+            }
+            if (!$isVisible) json_fail('无权查看该模板');
+        } else {
             if ($t['is_system'] == 1) json_fail('通用模板不可编辑');
             if ((int)$t['creator_id'] !== (int)$u['id'] && $u['role'] !== 'admin') {
                 json_fail('无权编辑该模板');

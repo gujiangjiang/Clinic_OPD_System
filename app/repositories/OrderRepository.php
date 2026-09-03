@@ -127,19 +127,32 @@ class OrderRepository extends BaseRepository {
         return (float)self::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type='procedure' AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($today));
     }
 
-    /** 护士站待处置列表（勾选护士执行 + 已缴费） */
-    public static function nurseTreatments($limit = 100) {
-        return self::q("SELECT * FROM order_items WHERE item_type='procedure' AND is_nurse=1 AND status='paid' ORDER BY id DESC LIMIT " . (int)$limit);
+    /** 护士站待处置列表（勾选护士执行 + 已缴费）——deptIds 非空时按就诊科室过滤 */
+    public static function nurseTreatments($limit = 100, $deptIds = array()) {
+        $sql = "SELECT * FROM order_items WHERE item_type='procedure' AND is_nurse=1 AND status='paid'";
+        $params = array();
+        if ($deptIds) {
+            $ph = implode(',', array_fill(0, count($deptIds), '?'));
+            $sql .= " AND visit_id IN (SELECT id FROM registrations WHERE current_dept_id IN ($ph))";
+            $params = $deptIds;
+        }
+        $sql .= " ORDER BY id DESC LIMIT " . (int)$limit;
+        return self::q($sql, $params);
     }
 
-    /** 护士站待执行医嘱（护士执行处方，待执行/执行中） */
-    public static function nurseMedOrders($limit = 100) {
-        return self::q(
-            "SELECT oi.*, o.order_no, o.doctor_name AS odoc
+    /** 护士站待执行医嘱（护士执行处方，待执行/执行中）——deptIds 非空时按就诊科室过滤 */
+    public static function nurseMedOrders($limit = 100, $deptIds = array()) {
+        $sql = "SELECT oi.*, o.order_no, o.doctor_name AS odoc
              FROM order_items oi JOIN orders o ON o.id=oi.order_id
-             WHERE oi.item_type='prescription' AND oi.is_nurse=1 AND oi.status IN ('paid','dispensing')
-             ORDER BY oi.id DESC LIMIT " . (int)$limit
-        );
+             WHERE oi.item_type='prescription' AND oi.is_nurse=1 AND oi.status IN ('paid','dispensing')";
+        $params = array();
+        if ($deptIds) {
+            $ph = implode(',', array_fill(0, count($deptIds), '?'));
+            $sql .= " AND oi.visit_id IN (SELECT id FROM registrations WHERE current_dept_id IN ($ph))";
+            $params = $deptIds;
+        }
+        $sql .= " ORDER BY oi.id DESC LIMIT " . (int)$limit;
+        return self::q($sql, $params);
     }
 
     /** 医嘱子处方（同订单同组非主药） */

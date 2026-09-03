@@ -59,7 +59,7 @@ switch ($action) {
 
     /* ==================== 待处置列表（护士站执行） ==================== */
     case 'treatments':
-        $rows = OrderRepository::nurseTreatments(100);
+        $rows = OrderRepository::nurseTreatments(100, user_dept_ids($u));
         $html = '';
         if (!$rows) {
             $html = '<div class="empty"><div class="empty-ico">✅</div>暂无待处置项目</div>';
@@ -151,7 +151,7 @@ switch ($action) {
 
     /* ==================== 待执行医嘱 ==================== */
     case 'med_orders':
-        $rows = OrderRepository::nurseMedOrders(100);
+        $rows = OrderRepository::nurseMedOrders(100, user_dept_ids($u));
         $html = '<div class="fs-13 text-muted mb-8">待执行医嘱：' . count($rows) . ' 项</div>';
         if (!$rows) {
             $html .= '<div class="empty"><div class="empty-ico">💉</div>暂无待执行医嘱</div>';
@@ -194,6 +194,9 @@ switch ($action) {
         $orderId = did(get('order_id'));
         $order = OrderRepository::byId($orderId);
         if (!$order) json_fail('处方不存在');
+        // 护士科室归属校验（宽松：未绑定科室=全院放行；已绑科室须匹配就诊科室）
+        $mdVisit = get_visit_row((int)$order['visit_id']);
+        if (!$mdVisit || !nurse_visit_allowed($mdVisit['visit'], $u)) json_fail('无权限查看该就诊的处方');
         $items = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? ORDER BY sub_of, id', array($orderId));
         $html = '<div class="fs-13 text-muted mb-8">处方单号：' . e($order['order_no']) . ' ｜ 开单医生：' . e($order['doctor_name']) . ' ｜ ' . e($order['created_at']) . '</div>';
         $idx = 0;
@@ -291,6 +294,10 @@ switch ($action) {
     /* ==================== 护理记录列表 ==================== */
     case 'nursing_list':
         $visitId = did(get('visit_id'));
+        // 护士科室归属校验（宽松：未绑定科室=全院放行；已绑科室须匹配就诊科室）
+        $nlVisit = get_visit_row($visitId);
+        if (!$nlVisit) json_fail('就诊记录不存在');
+        if (!nurse_visit_allowed($nlVisit['visit'], $u)) json_fail('无权限查看该就诊的护理记录');
         $rows = EmrRepository::nursingByVisit($visitId);
         $html = '';
         if (!$rows) {

@@ -46,6 +46,10 @@ function doctor_part_write($action) {
         $roomId = (int)post('room_id');
         $room = EmrRepository::one('SELECT * FROM clinic_rooms WHERE id=?', array($roomId));
         if (!$room) json_fail('诊室不存在');
+        // 科室归属校验：诊室必须属于本人关联科室，防止跨科室绑定大屏
+        if (!in_array((int)$room['dept_id'], user_dept_ids($u), true)) {
+            json_fail('无权绑定该科室诊室');
+        }
         // 后端强拦截：大屏必须在线
         if (empty($room['screen_last_heartbeat']) || (time() - strtotime($room['screen_last_heartbeat'])) > 30) {
             json_fail('该大屏当前处于离线状态，无法绑定，请确保大屏已开启并在运行！');

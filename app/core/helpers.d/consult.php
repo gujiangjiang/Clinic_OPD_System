@@ -71,6 +71,8 @@ function get_editable_record($visit, $u) {
     $visitDept = (int)(isset($visit['current_dept_id']) ? $visit['current_dept_id'] : 0);
     // 医生当前科室 != 就诊当前科室 → 跨科室查看，一切只读
     if ($docDept !== $visitDept) return null;
-    return DB::one(        'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND dept_id=? ORDER BY id DESC LIMIT 1',
+    // 排除会诊病历（consultation_id>0）——已完结会诊的病历 dept_id 与就诊当前科室一致，
+    // 若不排除会被误判为可编辑，与 EmrContextResolver 的 consult_done 只读熔断矛盾
+    return DB::one(        'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND dept_id=? AND (consultation_id IS NULL OR consultation_id=0) ORDER BY id DESC LIMIT 1',
         array($visitId, $uid, $visitDept));
 }

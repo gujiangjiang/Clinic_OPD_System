@@ -127,6 +127,10 @@ switch ($action) {
     /* ==================== 会诊列表（type=received 收到 / sent 发出） ==================== */
     case 'list':
         $deptId = (int)get('dept_id', 0);
+        // 科室归属校验：received 列表 dept_id 必须在本人关联科室范围内，防越权查看其他科室收到的会诊
+        if ($deptId > 0 && !in_array($deptId, user_dept_ids($u), true)) {
+            json_fail('无权查看该科室的会诊列表');
+        }
         if ($deptId <= 0) {
             $deptId = current_dept_id($u);
         }

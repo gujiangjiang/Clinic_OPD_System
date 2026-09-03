@@ -38,7 +38,10 @@ class EmrContextResolver {
         if ($cons) {
             $isConsultRecord = $record && (int)$record['consultation_id'] === (int)$cons['id'];
             if ($isConsultRecord) {
-                // 会诊病历可编辑
+                // 会诊病历可编辑（仅限会诊病历的书写医生本人——同科室其他医生只读）
+                if ((int)$record['doctor_id'] !== $uid) {
+                    return self::frozen('others', '他人会诊文书，只读展示');
+                }
                 return self::writable('consultation', (int)$record['id'], array(
                     'can_write' => true, 'can_order' => true, 'can_delete_order' => true,
                     'can_consult' => false, 'can_append' => true, 'can_issue_cert' => true,

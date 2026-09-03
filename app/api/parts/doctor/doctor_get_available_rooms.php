@@ -7,6 +7,10 @@
 function doctor_read_get_available_rooms($u) {
     $deptId = (int)get('dept_id');
     if ($deptId <= 0) json_fail('请先选择科室');
+    // 科室归属校验：仅可查看本人关联科室的诊室，防止跨科室越权
+    if (!in_array($deptId, user_dept_ids($u), true)) {
+        json_fail('无权查看该科室诊室');
+    }
     $rows = EmrRepository::q("SELECT * FROM clinic_rooms WHERE dept_id=? AND room_type='doctor' ORDER BY id", array($deptId));
     $list = array();
     foreach ($rows as $room) {
