@@ -13,6 +13,51 @@
 
 ---
 
+## [6.5.0] - 2026-09-03
+
+### 安全
+
+- **字典管理按角色锁定**：检验科仅可改检验项目、影像科仅可改检查项目、药房仅可改药品（`item_save/item_form/item_list/cat_list` 的 type 按角色锁定，仅 admin 自由选择），`admin.php` 的 roleOpenActions 白名单按角色拆分——杜绝跨科室互改字典、绕过审核流语义。（`app/api/parts/admin_item.php`、`app/api/admin.php`）
+- **停用/删除用户既有会话立即失效**：会话快照不实时校验用户状态，管理员停用/删除用户后其既有会话仍可调用全部接口/页面。新增 `Auth::assertActive()`（按 ID 实时读库，失活即强制登出），API 公共入口与页面路由两处调用。（`app/core/Auth.php`、`app/api/_init.php`、`app/core/Router.php`）
+- **前端存储型 XSS 封堵**：消息标题/内容/患者名/收件人（`notify.js`、`messages.php`）、患者信息卡（姓名/性别/年龄/ID/证件号/电话，`emr_patient.js`）、患者搜索结果（onclick 引号注入，`doctor_tools.js`）、药品目录行（`order.js`）等用户可控字段未转义直接拼 innerHTML——统一补 `Clinic.escHtml()`。
+- **大屏脱敏不再泄露患者全名**：`screen.php` 无论 `enable_mask` 是否开启都返回 `raw_name` 全名（供语音播报），公开常驻大屏链接持有者可读到患者完整姓名。修复：脱敏开启时 `raw_name` 返回脱敏名，脱敏关闭时才下发原始姓名。（`app/api/screen.php`）
+- **诊断保存补科室隔离校验**：`record_save_diags.php` 的 `edit_record_id>0` 分支此前仅校验 doctor_id 归属，未做就诊科室授权校验，非关联科室医生可越权调整他人就诊诊断——补充 `visit_dept_authorized()`。（`app/api/parts/record/record_save_diags.php`）
+- **患者档案接口角色白名单**：`patient` 接口（by_card/search/edit_form/update/history，含身份证/电话/住址等敏感数据）此前不在 `_init.php` roleMap 白名单内、任何登录角色可查改任意患者档案。修复：限定 `cashier/doctor/nurse`（需患者数据的角色）；`message`（站内互发）与 `icd10`（字典查询）保持全员开放——均为设计意图。（`app/api/_init.php`）
+
+### 修复
+
+- **退费/取消挂号并发竞态**：`refund_order` 存在 TOCTOU 竞态（两请求同时读到 paid → 双倍退费 + 双倍回补库存）；`cancel_visit` 已缴费退费状态迁移无守卫。修复：改为条件状态迁移（`WHERE status='paid'`）+ 影响行数判定，库存恢复仅对本事务实际置为 refunded 的明细执行。（`app/api/parts/cashier_write.php`）
+- **编号生成撞号重试**：挂号事务加唯一约束冲突重试（最多 3 次，撞号时回滚重新生成 patient_no/flow_no/visit_seq）；加号标记 `markSlotUsed` 改条件更新（used=0→1）+ 行数校验防双发；报告编号改 MAX+1 + `reports.report_no` 唯一索引（schema v11）+ `insert_report` 撞号重试，杜绝并发重复报告号。新增 `is_unique_conflict()` / `next_report_no()` / `insert_report()`。（`app/api/parts/cashier_write.php`、`app/repositories/CashierRepository.php`、`app/core/helpers.d/input.php`、`app/config/schema/main.php`、`app/api/lab.php`、`app/api/imaging.php`）
+- **转科补事务**：`transfer.php` 写 referrals + 更新 registrations 原无事务，第二步失败产生孤儿转诊记录——包裹原生事务。（`app/api/transfer.php`）
+- **事务内失败显式回滚**：order_submit / cashier_read / cashier_write 的 register 中，事务内 `json_fail()` 直接 exit 不回滚（MySQL 下危险）——在失败路径前显式 rollBack，register 用内联 `$fail()` 闭包统一处理。（`app/api/parts/order/order_submit.php`、`app/api/parts/cashier_read.php`、`app/api/parts/cashier_write.php`）
+- **空数组 SQL 防护**：`OrderRepository::reportIdsByResultIds` 空数组会生成 `IN ()` 语法错误——空数组直接返回。（`app/repositories/OrderRepository.php`）
+- **读/打印接口补就诊科室隔离**：`print.php` report（doctor 角色）、`doctor_report_detail`、`order_read` prev_items/visit_orders、`consultation` snapshot/visit_consults、`record_cert` certificate_print 此前仅校验角色/存在性，未做就诊归属校验，知晓 ID 即可跨科室查看开单/报告/会诊/证明。修复：统一补 `visit_dept_authorized()`——已诊毕归档直接放行（历史就诊不受影响），仅收紧未诊毕跨科室查看；lab/imaging 为报告出具科室、admin 为打印中心，维持原行为。（`app/api/print.php`、`app/api/parts/doctor/doctor_report_detail.php`、`app/api/parts/order_read.php`、`app/api/consultation.php`、`app/api/parts/record_cert.php`）
+- **护士操作科室归属校验（宽松版）**：护士站 complete/med_start/med_done/vitals/save_vitals/nursing_add 此前无科室归属校验。修复：新增 `nurse_visit_allowed()`——护士默认不绑定科室（dept_ids 空 = 全院）一律放行，仅当确实配置了 dept_ids 时才校验就诊科室归属，不破坏现有护士站流程。（`app/api/nurse.php`、`app/core/helpers.d/authz.php`）
+- **时钟 interval 泄漏**：`datetime.js` `clock()` 的 `setInterval` 永不清理且 `stop()` 里 `clearInterval()` 无参数（无效调用）——保存 timer 引用，stop 正确清理。（`public/assets/js/components/datetime.js`）
+- **身份证输入重复监听**：`register.php` 的 `#idCard` 重复绑定两个 input 监听导致每次击键重复执行——合并为单一监听，空卡分支补 `refreshRegState` 保持行为一致。（`app/views/cashier/register.php`）
+- **函数定义覆盖**：`drugs.php` 的 `drugCatFilter`、`labitems.php` 的 `buildLabCats` 各定义两遍，靠 JS 函数提升覆盖、行为依赖加载时序——删除旧版。（`app/views/admin/drugs.php`、`app/views/admin/labitems.php`）
+- **温馨提示解析脆弱**：`callmanage.php` `editRoom` 用 `tips.split('","')` 字符串解析脆弱（含引号/转义的 tips 会错位）——改为 `JSON.parse`，`erName` 补 `escHtml`。（`app/views/admin/callmanage.php`）
+- **开单缴费 500 崩溃**：`pay_orders` 缴费在全局函数作用域调用 `BaseRepository::updateWhere()`，而该方法为 `protected` —— PHP 抛 `Error: Call to protected method`，且 `catch (Exception)` 捕获不到 `Error`（PHP7 中 Error 非 Exception 子类），致命错误吞掉 JSON 响应，前端报 `Unexpected end of JSON input`（500）。修复：`updateWhere` 改为 `public`（与 `q/one/val/exec/insert` 数据访问门面对称，内部仅调用 public 的 `self::exec`，无副作用）。（`app/repositories/BaseRepository.php`）
+- **护士站页面列表无法加载**：`nurse/dashboard.php` 内联脚本中 4 处 HTML 拼接漏了反斜杠转义（`onclick="openVisitDetail('" + v.id + "')"` 写法错误），产生语法错误导致整个 script 块解析失败——`switchTab`/`loadTreatments` 等函数全部未定义，页面一直转圈、点击 Tab 无反应。修复：补齐转义，并用 JavaScriptCore 验证内联脚本语法恢复 OK。（`app/views/nurse/dashboard.php`）
+- **药房发药按钮无反应**：`pharmacy.php` 的 queue 接口渲染发药按钮 `onclick="dispense(...)"`，但前端 `pharmacy/dashboard.php` 定义的是 `dispenseDrug()`——函数名不一致，点击调用未定义函数。修复：后端渲染改名 `dispenseDrug(...)` 与前端对齐，并全面核查全库 37 个后端 onclick 函数名与前端定义一致性（其余全部匹配）。（`app/api/pharmacy.php`）
+
+### 变更
+
+- **科室ID别名收敛**：删除 `doctor_dept_ids` / `nurse_dept_ids` / `tpl_dept_ids` 三个仅包装 `user_dept_ids` 的别名函数，调用方统一直调 `user_dept_ids()`。
+- **`current_dept_id()` 公共函数**：全站 12 处内联 `SELECT current_dept_id FROM users` 收敛为公共函数——优先读会话快照，缺省走一次查询。（`app/core/helpers.d/authz.php`）
+
+### 重构
+
+- **清理全库死代码（约 -880 行）**：
+  - Repository 死方法：`EmrRepository` 删除 16 个无引用方法（镜像系/vitals 系/recordsByVisitDoctorOther 等）；`UserRepository` 精简为 3 个在用方法；`CoreRepository` / `AnalyticsRepository` 业务方法全库零调用（运营分析/消息/审核均内联 SQL 直调继承的 `q/one/val/exec/insert`），精简为空白门面类，消除双份 SQL 维护；`CashierRepository` 删除 `visitByFlow` / `ordersOfVisit`。
+  - 死文件：删除 `editor.js`（`Clinic.editor` 0 引用）、`utils.js`（`Clinic.utils` 0 引用，功能由 `datetime.js` 承担），同步清理 `layout.php` 3 处加载标签；删除 `record_create_progress.php`。
+  - JS 死函数：`emr.js` 删除 `delOrder` / `viewOrderFlow`（约 110 行）、`itemStepIdx`、`feePopTimer`；`anaMoney2` 改名 `money2`；`scrollToPendingEditor` 移除未用参数；`validation.js` 删除 0 调用的 `required`；`upload_url()` 0 引用删除。
+  - API 死 action：`auth.me` / `auth.profile_save` / `doctor.take` / `record.create_progress` / `record_cert.check_previous_diagnoses` / `template.review` / `admin_call.room_token` / `order.print`（均经前端全库验证无调用，同步清理分发器 case）。
+
+### 文档
+
+- CHANGELOG：版本 6.4.3 小节补充候诊列表修复、chips 选中态、影像 INSERT 占位符 3 条记录。
+
 ## [6.4.3] - 2026-09-03
 
 ### 变更
