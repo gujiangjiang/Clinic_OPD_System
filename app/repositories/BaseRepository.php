@@ -159,12 +159,14 @@ class BaseRepository {
 
     /**
      * 通用条件更新：UPDATE $table SET col=?,... WHERE <where>，返回影响行数
+     * 说明：与 q/one/val/exec/insert 同为数据访问门面，供 API 层在全局
+     * 作用域直接调用（如 pay_orders 的原子条件缴费更新）。
      * @param string $table 表名
      * @param array $data 关联数组 [列 => 值]
      * @param string $where WHERE 子句（含占位符）
      * @param array $whereParams WHERE 参数
      */
-    protected static function updateWhere($table, $data, $where, $whereParams = array()) {
+    public static function updateWhere($table, $data, $where, $whereParams = array()) {
         self::assertTable($table);
         $set = array();
         $params = array();
