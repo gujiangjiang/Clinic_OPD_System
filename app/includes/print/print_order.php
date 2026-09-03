@@ -5,6 +5,8 @@
  * 处方提示凭条（药房审方通过后交给患者的取药小票）：
  * 凭条区域每味药一行药物名称，第二行显示 剂量/用法/用量；
  * 一张处方含几味药即显示几行（主药 + 其子药树形缩进）。
+ * 护士站执行（is_nurse=1）的药品不在药房发药、不出现在凭条：
+ * 混合处方自动隐藏护士站执行药品；全部为护士站执行时由调用方拦截（不打印）。
  */
 function pt_rx_slip($order, $mainItems, $patient) {
     $html = '<div class="print-ticket">';
@@ -17,13 +19,15 @@ function pt_rx_slip($order, $mainItems, $patient) {
     $html .= '<div class="ticket-divider"></div>';
     $html .= '<div class="ticket-section-title">取药清单</div>';
     foreach ($mainItems as $it) {
+        // 护士站执行的药品不打印凭条（药房不直接发药给患者）
+        if ((int)$it['is_nurse'] === 1) continue;
         $html .= '<div class="ticket-row ticket-item"><span class="fw-600">' . e($it['item_name']) .
             ((int)$it['quantity'] > 1 ? ' ×' . (int)$it['quantity'] : '') . '</span></div>';
         $useTxt = implode(' ', array_filter(array(
             $it['single_dose'], $it['frequency'], $it['route'],
         )));
         $html .= '<div class="ticket-row"><span class="ticket-val" style="font-size:12px">' . e($useTxt) . '</span></div>';
-        // 子药树形缩进（组医嘱）
+        // 子药树形缩进（组医嘱）；子药不单独标护士站，跟随主药
         $subs = isset($it['_subs']) ? $it['_subs'] : array();
         foreach ($subs as $s) {
             $html .= '<div class="ticket-row ticket-item"><span>　└ ' . e($s['item_name']) .

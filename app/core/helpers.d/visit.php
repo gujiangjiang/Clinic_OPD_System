@@ -113,7 +113,12 @@ function order_agg_status($orderType, $items) {
     if (in_array('open', $sts, true)) return 'open';
     if (in_array('paid', $sts, true)) return 'paid';
     if ($orderType === 'prescription') {
-        if (in_array('dispensed', $sts, true)) return 'dispensed';
+        // 处方审方通过后：非护士站药品 dispensed、护士站药品 dispensing（护士站执行中）——
+        // 只要无 open/paid 残留即视为已发药完成（含全护士站执行场景）
+        if (!in_array('open', $sts, true) && !in_array('paid', $sts, true) &&
+            (in_array('dispensed', $sts, true) || in_array('dispensing', $sts, true))) {
+            return 'dispensed';
+        }
         return 'paid';
     }
     if (in_array('executing', $sts, true)) return 'in_progress';

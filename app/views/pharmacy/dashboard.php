@@ -103,8 +103,10 @@ function reviewRx(orderId) {
             onSuccess: function (json) {
                 Clinic.toast.success(json.msg);
                 Clinic.modal.close();
-                // 发药完成 → 弹出处方提示凭条（可现场交给患者）
-                Clinic.print.load('/api/pharmacy?action=rx_slip&order_id=' + orderId, null, 'ticket');
+                // 存在非护士站执行药品才弹取药凭条（全护士站执行 → has_slip=0，后台亦拦截）
+                if (json.data && json.data.has_slip) {
+                    Clinic.print.load('/api/pharmacy?action=rx_slip&order_id=' + orderId, null, 'ticket');
+                }
                 loadQueue('paid');
             },
         });
