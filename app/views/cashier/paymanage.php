@@ -181,35 +181,8 @@ function refundBatch(paymentNo) {
     }, { title: '整单退费', okText: '确认整单退费' });
 }
 
-/* ==================== 支付方式选择（优化6） ==================== */
-/* 现金完整可用；医保卡/银行卡/扫码提示开发中 */
+/* ==================== 支付方式选择（优化6，公共组件 Clinic.payMethod） ==================== */
 function openPayMethod(title, onDone) {
-    var methods = [
-        { k: '现金', icon: '💵', name: '现金', desc: '现金支付（支持找零）', avail: 1 },
-        { k: '医保', icon: '🪪', name: '医保卡', desc: '医保卡实时结算', avail: 0 },
-        { k: 'bank', icon: '💳', name: '银行卡', desc: '银联 / VISA / MasterCard / AE', avail: 0 },
-        { k: 'scan', icon: '📱', name: '扫码支付', desc: '微信 / 支付宝 / 云闪付', avail: 0 },
-    ];
-    Clinic.modal.open(
-        '<div class="pay-methods">' + methods.map(function (m) {
-            return '<div class="pay-method' + (m.avail ? '' : ' disabled') + '" data-k="' + m.k + '">' +
-                '<div class="pay-method-icon">' + m.icon + '</div>' +
-                '<div class="pay-method-name">' + m.name + '</div>' +
-                '<div class="pay-method-desc">' + m.desc + '</div></div>';
-        }).join('') + '</div>' +
-        '<div class="fs-12 text-muted mt-8">当前演示环境仅支持现金支付，其余支付方式即将上线。</div>',
-        { title: title + ' · 选择支付方式', size: 'modal-md', buttons: [{ text: '取消', cls: 'btn-outline' }] }
-    );
-    document.querySelectorAll('.pay-method').forEach(function (el) {
-        el.addEventListener('click', function () {
-            var k = el.getAttribute('data-k');
-            if (el.classList.contains('disabled')) {
-                Clinic.toast.info('「' + k + '」支付方式正在开发中，请选择现金');
-                return;
-            }
-            Clinic.modal.close();
-            if (onDone) onDone('现金');
-        });
-    });
+    Clinic.payMethod.open(title, onDone);
 }
 </script>

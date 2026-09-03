@@ -58,15 +58,15 @@ function patientEdit(patientNo) {
 
 /* 继续缴费（待缴费的挂号）：完成缴费后自动打印凭条并刷新列表 */
 function payVisit(visitId) {
-    Clinic.modal.confirm('确定为该挂号完成缴费？', function () {
-        Clinic.ajax('/api/cashier', { action: 'pay_visit', visit_id: visitId }, {
+    Clinic.payMethod.open('挂号费缴费', function (method) {
+        Clinic.ajax('/api/cashier', { action: 'pay_visit', visit_id: visitId, method: method }, {
             onSuccess: function (json) {
-                Clinic.toast.success('缴费成功，挂号完成');
+                Clinic.toast.success('缴费成功（' + method + '），挂号完成');
                 Clinic.print.load('/api/print?action=receipt&visit_id=' + visitId, null, 'ticket');
                 loadList();
             },
         });
-    }, { title: '缴费确认' });
+    });
 }
 
 /* 退费 / 取消挂号 */

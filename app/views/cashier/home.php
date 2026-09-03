@@ -17,7 +17,7 @@ render_role_home(array(
     'links' => array(
         array('/cashier/register', '🎫 挂号收费'),
         array('/cashier/regmanage', '📋 挂号管理'),
-        array('/cashier/paymanage', '💳 缴费与退费'),
+        array('/cashier/paymanage', '💳 缴费管理'),
         array('/messages', '💬 站内消息'),
     ),
     'tips' => array(

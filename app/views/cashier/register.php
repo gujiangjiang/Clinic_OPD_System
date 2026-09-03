@@ -372,21 +372,24 @@ function submitRegister(d, quick) {
 
 /* ---------- 缴费（模拟）→ 自动弹出挂号凭条打印 ---------- */
 function payAndPrint() {
-    Clinic.ajax('/api/cashier', { action: 'pay_visit', visit_id: REG.visit_id }, {
-        onSuccess: function (json) {
-            Clinic.modal.close();
-            Clinic.toast.success('缴费成功，挂号完成');
-            // 自动弹出挂号凭条打印模块
-            Clinic.print.load('/api/print?action=receipt&visit_id=' + REG.visit_id, null, 'ticket');
-            // 重置表单并刷新号源总览
-            document.getElementById('idCard').value = '';
-            document.getElementById('name').value = '';
-            REG.dept = null;
-            clearDerived();
-            onCardChange();
-            loadOverview();
-            refreshRegState();
-        },
+    // 优化6：缴费前选择支付方式（现金可用，其余提示开发中）
+    Clinic.payMethod.open('挂号费缴费', function (method) {
+        Clinic.ajax('/api/cashier', { action: 'pay_visit', visit_id: REG.visit_id, method: method }, {
+            onSuccess: function (json) {
+                Clinic.modal.close();
+                Clinic.toast.success('缴费成功（' + method + '），挂号完成');
+                // 自动弹出挂号凭条打印模块
+                Clinic.print.load('/api/print?action=receipt&visit_id=' + REG.visit_id, null, 'ticket');
+                // 重置表单并刷新号源总览
+                document.getElementById('idCard').value = '';
+                document.getElementById('name').value = '';
+                REG.dept = null;
+                clearDerived();
+                onCardChange();
+                loadOverview();
+                refreshRegState();
+            },
+        });
     });
 }
 

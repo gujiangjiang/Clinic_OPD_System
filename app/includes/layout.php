@@ -46,7 +46,7 @@ class Layout {
                 array('首页', '🏠', '/cashier/home'),
                 array('挂号收费', '🎫', '/cashier/register'),
                 array('挂号管理', '📋', '/cashier/regmanage'),
-                array('缴费与退费', '💳', '/cashier/paymanage'),
+                array('缴费管理', '💳', '/cashier/paymanage'),
             );
         } elseif ($role === 'doctor') {
             $items['医生工作站'] = array(
