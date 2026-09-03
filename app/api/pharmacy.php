@@ -63,7 +63,7 @@ switch ($action) {
                 }
                 $html .= '<td>' .
                     ($status === 'paid'
-                        ? '<button class="btn btn-primary btn-sm" onclick="dispense(\'' . oid($r['id']) . '\')">发药</button>'
+                        ? '<button class="btn btn-primary btn-sm" onclick="dispenseDrug(\'' . oid($r['id']) . '\')">发药</button>'
                         : '<span class="badge badge-success">已发药</span>') .
                     '</td></tr>';
             }
