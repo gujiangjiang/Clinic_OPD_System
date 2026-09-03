@@ -240,12 +240,12 @@ function renderDispTable() {
     var trs = rows.map(function (r) {
         return '<tr>' +
             '<td>' + (r.registered_at || '') + '</td>' +
-            '<td class="fw-600">' + (r.pname || '') + ' <span class="fs-12 text-muted">' + (r.gender || '') + '/' + (r.age_fmt || '') + '</span></td>' +
-            '<td class="fs-12">' + (r.flow_no || '') + '</td>' +
-            '<td>' + (r.dept_name || '') + '</td>' +
-            '<td>' + (r.doctor_name || '') + '</td>' +
-            '<td><span class="badge badge-primary">' + (r.disposition || '') + '</span></td>' +
-            (needDetail ? '<td>' + (r.disposition_detail || '') + '</td>' : '') +
+            '<td class="fw-600">' + Clinic.escHtml(r.pname || '') + ' <span class="fs-12 text-muted">' + Clinic.escHtml(r.gender || '') + '/' + (r.age_fmt || '') + '</span></td>' +
+            '<td class="fs-12">' + Clinic.escHtml(r.flow_no || '') + '</td>' +
+            '<td>' + Clinic.escHtml(r.dept_name || '') + '</td>' +
+            '<td>' + Clinic.escHtml(r.doctor_name || '') + '</td>' +
+            '<td><span class="badge badge-primary">' + Clinic.escHtml(r.disposition || '') + '</span></td>' +
+            (needDetail ? '<td>' + Clinic.escHtml(r.disposition_detail || '') + '</td>' : '') +
             '</tr>';
     }).join('');
     document.getElementById('dispTable').innerHTML =
@@ -326,7 +326,7 @@ function renderDeptTable() {
         html += '<div class="table-wrap"><table class="table"><thead><tr>' +
             '<th>科室</th><th>门诊人次</th><th>挂号费</th><th>药费</th><th>检验费</th><th>检查费</th><th>处置费</th><th>合计收入</th></tr></thead><tbody>';
         rows.forEach(function (x) {
-            html += '<tr><td class="fw-600">' + x.dept_name + '</td>' +
+            html += '<tr><td class="fw-600">' + Clinic.escHtml(x.dept_name) + '</td>' +
                 '<td>' + anaNum(x.patients) + '</td>' +
                 '<td>' + anaMoney(x.reg_fee) + '</td><td>' + anaMoney(x.drug) + '</td>' +
                 '<td>' + anaMoney(x.lab) + '</td><td>' + anaMoney(x.imaging) + '</td>' +
@@ -364,9 +364,9 @@ function renderDoctorTable() {
         html += '<div class="table-wrap"><table class="table"><thead><tr>' +
             '<th>工号</th><th>医生</th><th>职称</th><th>接诊人次</th><th>药费（处方）</th><th>检验费</th><th>检查费</th><th>处置费</th><th>开单收入合计</th></tr></thead><tbody>';
         rows.forEach(function (x) {
-            html += '<tr><td class="fs-12 text-muted">' + (x.emp_no || '—') + '</td>' +
-                '<td class="fw-600">' + (x.doctor_name || '—') + '</td>' +
-                '<td>' + (x.title || '—') + '</td>' +
+            html += '<tr><td class="fs-12 text-muted">' + Clinic.escHtml(x.emp_no || '—') + '</td>' +
+                '<td class="fw-600">' + Clinic.escHtml(x.doctor_name || '—') + '</td>' +
+                '<td>' + Clinic.escHtml(x.title || '—') + '</td>' +
                 '<td>' + anaNum(x.visits) + '</td>' +
                 '<td>' + anaMoney(x.drug) + '</td><td>' + anaMoney(x.lab) + '</td>' +
                 '<td>' + anaMoney(x.imaging) + '</td><td>' + anaMoney(x.procedure) + '</td>' +
@@ -416,7 +416,7 @@ function loadCustom() {
             html += '</tr></thead><tbody>';
             if (!d.rows.length) html += '<tr><td colspan="' + (d.metrics.length + 1) + '" class="text-muted" style="text-align:center;padding:16px">该条件下暂无数据</td></tr>';
             d.rows.forEach(function (row) {
-                html += '<tr><td class="fw-600">' + row.label + '</td>';
+                html += '<tr><td class="fw-600">' + Clinic.escHtml(row.label) + '</td>';
                 d.metrics.forEach(function (mk) {
                     html += '<td>' + (moneySet.indexOf(mk) >= 0 ? anaMoney(row[mk]) : anaNum(row[mk])) + '</td>';
                 });

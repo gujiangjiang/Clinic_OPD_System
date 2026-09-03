@@ -197,7 +197,7 @@ server {
 在【系统设置】中配置「HIS 预留接口密钥」（留空则接口关闭）。外部系统携带密钥调用：
 
 ```bash
-curl "http://your-domain/api/his?api_key=你的密钥&action=patient_get&id_card=110101199001011234"
+curl -H "X-HIS-Key: 你的密钥" "http://your-domain/api/his?action=patient_get&id_card=110101199001011234"
 curl -H "X-HIS-Key: 你的密钥" "http://your-domain/api/his?action=visit_status&flow_no=2503110001"
 ```
 

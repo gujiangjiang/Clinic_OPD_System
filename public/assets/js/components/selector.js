@@ -72,8 +72,8 @@ Clinic.selector = (function () {
                 div.className = 'dd-item' + (i === 0 ? ' active' : '');
                 div.innerHTML =
                     '<div class="flex-between">' +
-                    '  <span>' + (o.label || '') + '</span>' +
-                    (o.sub ? '<span class="text-muted fs-12">' + o.sub + '</span>' : '') +
+                    '  <span>' + Clinic.escHtml(o.label || '') + '</span>' +
+                    (o.sub ? '<span class="text-muted fs-12">' + Clinic.escHtml(o.sub) + '</span>' : '') +
                     '</div>';
                 div.addEventListener('mousedown', function (e) {
                     e.preventDefault();
@@ -222,9 +222,9 @@ Clinic.universalSelector = (function () {
             return;
         }
         box.innerHTML = rows.map(function (r) {
-            return '<div class="us-item" data-id="' + r.id + '" data-name="' + String(r.name).replace(/"/g, '&quot;') + '"' +
+            return '<div class="us-item" data-id="' + r.id + '" data-name="' + Clinic.escHtml(r.name || '') + '"' +
                 ' data-fee="' + (r.fee || 0) + '" style="padding:10px 14px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer">' +
-                '<div class="flex-between"><span class="fw-600">' + String(r.name) + '</span>' +
+                '<div class="flex-between"><span class="fw-600">' + Clinic.escHtml(r.name || '') + '</span>' +
                 '<span class="fs-12 text-muted">¥' + Number(r.fee || 0).toFixed(2) + '</span></div></div>';
         }).join('');
         box.querySelectorAll('.us-item').forEach(function (el) {

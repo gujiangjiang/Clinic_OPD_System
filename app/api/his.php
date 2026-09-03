@@ -7,9 +7,7 @@
  *   1. 通过 API 密钥认证（系统设置 → HIS接口密钥，为空时接口关闭）
  *   2. 只读查询：患者档案 / 就诊记录 / 就诊状态 / 开单明细
  *   3. 接口均返回统一 JSON 格式 { ok, msg, data }
- * 认证方式（二选一）：
- *   GET 参数：/api/his?api_key=xxxx&action=patient_get&id_card=...
- *   请求头：  X-HIS-Key: xxxx
+ * 认证方式：请求头 X-HIS-Key: xxxx（密钥不进 URL，避免进入 Web 日志/浏览器历史/Referer）
  * 说明：本接口不依赖登录会话，供外部系统（住院HIS、医保、BI等）调用。
  * ============================================================ */
 
@@ -18,10 +16,8 @@ $hisKey = (string)setting('his_api_key', '');
 if ($hisKey === '') {
     json_fail('HIS 接口未启用（请在系统设置中配置 HIS 接口密钥）');
 }
-$given = get('api_key', '');
-if ($given === '' && isset($_SERVER['HTTP_X_HIS_KEY'])) {
-    $given = trim((string)$_SERVER['HTTP_X_HIS_KEY']);
-}
+// 仅接受请求头传递密钥：GET 参数方式会泄露至访问日志，予以移除
+$given = isset($_SERVER['HTTP_X_HIS_KEY']) ? trim((string)$_SERVER['HTTP_X_HIS_KEY']) : '';
 if ($given === '' || !hash_equals($hisKey, $given)) {
     json_fail('HIS API 密钥无效');
 }

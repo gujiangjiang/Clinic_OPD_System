@@ -73,7 +73,8 @@ Clinic.ajax = function (url, data, opts) {
             if (opts.loading) Clinic.loading.hide();
             Clinic.toast.error('网络请求失败，请检查网络连接');
             if (opts.onError) opts.onError({ ok: false, msg: '网络错误' });
-            throw err;
+            // 已通过 toast+onError 处理：不再向上抛出，避免全站产生未处理的 Promise rejection
+            return { ok: false, msg: '网络错误' };
         });
 };
 
