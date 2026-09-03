@@ -218,18 +218,65 @@ function refundOrder(orderId) {
     }, { title: '退费确认', okText: '确认退费' });
 }
 
-/* 整单退费：同缴费批次（同一缴费凭条）的全部项目一起退 */
+/* 整单退费：同缴费批次（同一缴费凭条）的全部项目一起退。
+   优化7：先检测批次项目状态——全部未执行（仅 paid）可直接退；
+   存在已执行（已登记/已检查/已发药/患者已就诊）需先提交退费申请，
+   经开单医生/检验/影像/药房/护士站全部同意后方可执行退费。 */
 function refundBatch(paymentNo) {
-    var reason = prompt('该凭条包含同批次多张开单，需整单退费。请填写退费原因：', '');
-    if (reason === null) return;
-    Clinic.modal.confirm('确认整单退费？该缴费凭条（流水号 ' + paymentNo + '）上的全部项目将一起退费。', function () {
-        Clinic.ajax('/api/cashier', { action: 'refund_batch', payment_no: paymentNo, reason: reason }, {
-            onSuccess: function (json) {
-                Clinic.toast.success(json.msg);
-                loadDetail(CUR_VISIT);
-            },
-        });
-    }, { title: '整单退费', okText: '确认整单退费' });
+    Clinic.get('/api/refund?action=check&payment_no=' + encodeURIComponent(paymentNo), null, {
+        onSuccess: function (json) {
+            var d = json.data || {};
+            if (d.pending_request_id) {
+                Clinic.modal.open('该缴费批次已有待审批的退费申请，请等待相关人员审批通过后再执行退费。',
+                    { title: '退费申请进行中', size: 'modal-sm', buttons: [{ text: '知道了', cls: 'btn-primary' }] });
+                return;
+            }
+            if (d.all_paid) {
+                // 全部未执行 → 直接整单退费
+                var reason = prompt('该凭条包含同批次多张开单，需整单退费。请填写退费原因：', '');
+                if (reason === null) return;
+                Clinic.modal.confirm('确认整单退费？该缴费凭条（流水号 ' + paymentNo + '）上的全部项目将一起退费。', function () {
+                    Clinic.ajax('/api/cashier', { action: 'refund_batch', payment_no: paymentNo, reason: reason }, {
+                        onSuccess: function (json) {
+                            Clinic.toast.success(json.msg);
+                            loadDetail(CUR_VISIT);
+                        },
+                    });
+                }, { title: '整单退费', okText: '确认整单退费' });
+                return;
+            }
+            // 存在已执行项目 → 走退费申请审批流
+            var blocks = (d.blocked || []).map(function (b) {
+                return '· ' + Clinic.escHtml(b.name) + '（' + Clinic.escHtml(b.status) + '）';
+            }).join('<br>');
+            var html =
+                '<div class="fs-13" style="background:var(--danger-soft,rgba(239,68,68,.08));border:1px solid var(--danger,#ef4444);color:var(--danger,#ef4444);border-radius:8px;padding:10px 12px;margin-bottom:10px">' +
+                '⚠️ 该凭条存在已开始执行的项目，无法直接退费：<br>' + blocks +
+                '<div class="fs-12 mt-4" style="color:var(--text-muted)">将提交退费申请并通知开单医生/检验/影像/药房/护士站审批，全部同意后方可退费。</div></div>' +
+                '<div class="form-group"><label class="form-label">退费理由（可选）</label>' +
+                '<textarea class="textarea" id="rfReason" rows="2" placeholder="如：患者需转院，已执行的检查项目申请退费"></textarea></div>';
+            Clinic.modal.open(html, {
+                title: '提交退费申请（需多方审批）',
+                size: 'modal-md',
+                buttons: [
+                    { text: '取消', cls: 'btn-outline' },
+                    {
+                        text: '📨 提交退费申请', cls: 'btn-primary', autoClose: false,
+                        onClick: function () {
+                            var reason = (document.getElementById('rfReason') || {}).value || '';
+                            Clinic.ajax('/api/refund', { action: 'apply', payment_no: paymentNo, reason: reason.trim() }, {
+                                onSuccess: function (json) {
+                                    Clinic.toast.success(json.msg);
+                                    Clinic.modal.close();
+                                    loadDetail(CUR_VISIT);
+                                },
+                            });
+                        },
+                    },
+                ],
+            });
+        },
+    });
 }
 
 /* ==================== 支付方式选择（优化6，公共组件 Clinic.payMethod） ==================== */

@@ -57,6 +57,9 @@ class Router {
         '/cashier/home'      => array('cashier/home.php',       array('cashier')),
         '/cashier/regmanage' => array('cashier/regmanage.php',  array('cashier')),
         '/cashier/paymanage' => array('cashier/paymanage.php',  array('cashier')),
+        // ===== 退费审批页（收费员/医生/检验/影像/药房/护士站 均可访问） =====
+        '/refund/approve'  => array('refund_approve.php',    array('user')),
+
         // ===== 医生工作站 =====
         '/doctor/home'       => array('doctor/home.php',        array('doctor')),
         '/doctor/emr'        => array('doctor/emr.php',         array('doctor')),

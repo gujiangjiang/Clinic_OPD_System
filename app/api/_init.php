@@ -41,6 +41,7 @@ $__roleMap = array(
     'lab'      => 'lab',
     'imaging'  => 'imaging',
     'pharmacy' => 'pharmacy',
+    'refund'   => array('cashier', 'doctor', 'nurse', 'lab', 'imaging', 'pharmacy'),   // 退费申请/审批（收费员发起，相关角色审批）
 );
 
 if (isset($__roleMap[CURRENT_API]) && $__u['role'] !== 'admin' && $__u['role'] !== $__roleMap[CURRENT_API]) {

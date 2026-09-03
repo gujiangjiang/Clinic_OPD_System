@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 14,
+    'version' => 15,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -254,7 +254,33 @@ return array(
             reason TEXT,
             cashier_id INTEGER,
             cashier_name TEXT,
+            created_at TEXT,
+            payment_no TEXT,
+            method TEXT
+        )",
+
+        /* ---------------- 退费申请审批流（已执行项目需多方确认后放行） ---------------- */
+        'refund_requests' => "CREATE TABLE IF NOT EXISTS refund_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            visit_id INTEGER,
+            patient_no TEXT,
+            flow_no TEXT,
+            payment_no TEXT,
+            order_ids TEXT,
+            reason TEXT,
+            status TEXT DEFAULT 'pending',
+            created_by INTEGER,
             created_at TEXT
+        )",
+        'refund_approvals' => "CREATE TABLE IF NOT EXISTS refund_approvals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            request_id INTEGER,
+            role TEXT,
+            user_id INTEGER,
+            user_name TEXT,
+            verdict TEXT DEFAULT 'pending',
+            note TEXT,
+            decided_at TEXT
         )",
 
         'inventory_trans' => "CREATE TABLE IF NOT EXISTS inventory_trans (
@@ -665,6 +691,33 @@ return array(
         14 => array(
             "ALTER TABLE payments ADD COLUMN method TEXT",
             "ALTER TABLE refunds ADD COLUMN method TEXT",
+        ),
+        // v15：退费申请审批流——已开始执行的项目不可直接退费，
+        // 需由开单医生/检验/影像/药房/护士站等经站内消息逐级确认后放行
+        15 => array(
+            "CREATE TABLE IF NOT EXISTS refund_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                visit_id INTEGER,
+                patient_no TEXT,
+                flow_no TEXT,
+                payment_no TEXT,
+                order_ids TEXT,
+                reason TEXT,
+                status TEXT DEFAULT 'pending',
+                requested_by TEXT,
+                created_at TEXT,
+                updated_at TEXT
+            )",
+            "CREATE TABLE IF NOT EXISTS refund_approvals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                request_id INTEGER,
+                role TEXT,
+                user_id INTEGER,
+                user_name TEXT,
+                verdict TEXT DEFAULT 'pending',
+                note TEXT,
+                decided_at TEXT
+            )",
         ),
     ),
     'seed' => array(

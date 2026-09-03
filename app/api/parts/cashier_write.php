@@ -246,14 +246,19 @@ function cashier_part_write($action) {
     }
 
     // ===== 退费核心（单订单原子退费：状态迁移 + 退费流水 + 药品库存恢复） =====
-    // 条件状态迁移防并发重复退费；支持 payment_no（批次凭条）与支付方式记录
-    $refundOne = function ($u, $order, $reason, $paymentNo, $method) {
+    // 条件状态迁移防并发重复退费；支持 payment_no（批次凭条）与支付方式记录。
+    // $allowExecuted：退费申请审批通过后，可退已开始执行的项目（registered/done 等），
+    // 仅通过退款审批流程进入；直接退费时保持原 paid 硬校验。
+    $refundOne = function ($u, $order, $reason, $paymentNo, $method, $allowExecuted = false) {
         $orderId = (int)$order['id'];
         $items = CashierRepository::orderItems($orderId);
-        // 退费资格：检验/检查未登记、药房未发药、处置未执行
-        foreach ($items as $it) {
-            if ($it['status'] !== 'paid') {
-                json_fail('存在已开始执行的项目（' . e($it['item_name']) . '），不可退费');
+        // 退费资格：未审批时要求全部 paid（检验/检查未登记、药房未发药、处置未执行）；
+        // 审批通过后（allowExecuted）允许已执行项目退费
+        if (!$allowExecuted) {
+            foreach ($items as $it) {
+                if ($it['status'] !== 'paid') {
+                    json_fail('存在已开始执行的项目（' . e($it['item_name']) . '），不可退费');
+                }
             }
         }
         $pdo = DatabaseManager::getMain();
@@ -267,10 +272,18 @@ function cashier_part_write($action) {
                 $pdo->rollBack();
                 json_fail('当前订单状态不可退费（已退费/已取消/未缴费）');
             }
-            $affectedItems = CashierRepository::exec(
-                "UPDATE order_items SET status='refunded' WHERE order_id=? AND status='paid'",
-                array($orderId)
-            );
+            // 明细置 refunded：审批通过退已执行项目时覆盖 paid/registered/done 等非 open/refunded/cancelled
+            if ($allowExecuted) {
+                $affectedItems = CashierRepository::exec(
+                    "UPDATE order_items SET status='refunded' WHERE order_id=? AND status NOT IN ('open','refunded','cancelled')",
+                    array($orderId)
+                );
+            } else {
+                $affectedItems = CashierRepository::exec(
+                    "UPDATE order_items SET status='refunded' WHERE order_id=? AND status='paid'",
+                    array($orderId)
+                );
+            }
             if ($affectedItems === 0) {
                 $pdo->rollBack();
                 json_fail('订单明细状态已变更，不可退费');
@@ -280,10 +293,10 @@ function cashier_part_write($action) {
                 'total' => (float)$order['total_amount'], 'reason' => $reason, 'cashier_id' => $u['id'], 'cashier_name' => $u['name'],
                 'payment_no' => $paymentNo, 'method' => $method,
             ));
-            // 药品退费：恢复库存（幂等——仅对本事务实际置为 refunded 的 paid 明细）
+            // 药品退费：恢复库存（幂等——仅对 prescription 且曾 paid/在途的明细）
             if ($order['order_type'] === 'prescription') {
                 foreach ($items as $it) {
-                    if ($it['item_id'] > 0 && (int)$it['sub_of'] === 0 && $it['status'] === 'paid') {
+                    if ($it['item_id'] > 0 && (int)$it['sub_of'] === 0 && in_array($it['status'], array('paid', 'dispensing'), true)) {
                         CashierRepository::restoreDrugStock($it['item_id'], (int)$it['quantity']);
                         CashierRepository::createInventoryTrans((int)$it['item_id'], (int)$it['quantity'], 'refund', $order['order_no'], $u['name']);
                     }
@@ -336,9 +349,32 @@ function cashier_part_write($action) {
             array($paymentNo)
         );
         if (!$orders) json_fail('该缴费批次无待退费订单（已退费/已取消）');
-        $method = post('method', '现金');
+        // 优化7：审批放行校验——批次内存在已开始执行的项目时，
+        // 须有「退费申请已全部审批同意」才可执行退费（前端已引导走申请流，此处后端硬校验）
+        $hasExecuted = false;
         foreach ($orders as $o) {
-            $refundOne($u, $o, $reason, $paymentNo, $method);
+            foreach (CashierRepository::orderItems($o['id']) as $it) {
+                if ($it['status'] !== 'paid' && $it['status'] !== 'open' &&
+                    $it['status'] !== 'refunded' && $it['status'] !== 'cancelled') {
+                    $hasExecuted = true;
+                    break 2;
+                }
+            }
+        }
+        if ($hasExecuted) {
+            $approvedReq = CashierRepository::one(
+                "SELECT id FROM refund_requests WHERE payment_no=? AND status='approved' ORDER BY id DESC LIMIT 1",
+                array($paymentNo)
+            );
+            if (!$approvedReq) {
+                json_fail('该批次存在已开始执行的项目，需先提交退费申请并获开单医生/检验/影像/药房/护士站全部同意后方可退费');
+            }
+        }
+        $method = post('method', '现金');
+        // 存在已执行项目且申请已审批通过 → 允许退已执行项目（allowExecuted）
+        $allowExecuted = $hasExecuted;
+        foreach ($orders as $o) {
+            $refundOne($u, $o, $reason, $paymentNo, $method, $allowExecuted);
         }
         json_ok(array(), '已整单退费 ' . count($orders) . ' 张开单');
         return;
