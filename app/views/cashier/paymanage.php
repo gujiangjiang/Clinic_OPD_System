@@ -10,6 +10,11 @@
  */
 Router::title('缴费管理');
 ?>
+<style>
+/* 缴费管理：内容区 flex 纵向布局，两栏自适应填满剩余视口，各自内部滚动 */
+.content { display: flex; flex-direction: column; }
+.paymgr-layout { flex: 1; min-height: 0; }
+</style>
 <div class="page-head">
     <div><div class="page-title">💳 缴费管理</div><div class="page-desc">按患者ID / 门诊流水号 / 身份证号查询并处理缴费退费</div></div>
 </div>
@@ -202,6 +207,21 @@ function showBatchDetail(paymentNo) {
             );
         },
     });
+}
+
+/* 退费 / 取消挂号（挂号费退费，regmanage 与 paymanage 共用逻辑） */
+function cancelVisit(visitId, status) {
+    var tip = status === 'paid' ? '确定为该挂号退费？退费后该患者可在同一首次科室重新挂号。' : '确定取消该挂号？';
+    Clinic.modal.confirm(tip, function () {
+        var reason = prompt('请填写' + (status === 'paid' ? '退费' : '取消') + '原因（可留空）：', '');
+        if (reason === null) return;
+        Clinic.ajax('/api/cashier', { action: 'cancel_visit', visit_id: visitId, reason: reason }, {
+            onSuccess: function (json) {
+                Clinic.toast.success(json.msg);
+                loadDetail(CUR_VISIT);
+            },
+        });
+    }, { title: status === 'paid' ? '退费确认' : '取消确认' });
 }
 
 /* ---------- 退费 ---------- */

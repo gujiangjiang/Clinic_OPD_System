@@ -70,6 +70,11 @@ function loadMsgs() {
                     el.classList.remove('unread');
                     Clinic.notify.refresh();
                     var jump = el.getAttribute('data-jump');
+                    // 退费审批消息：直接弹模态框审批，避免页面跳转中断操作流
+                    if (Clinic.refundApproval && Clinic.refundApproval.isApproveLink(jump)) {
+                        Clinic.refundApproval.open(Clinic.refundApproval.reqIdFromLink(jump));
+                        return;
+                    }
                     if (jump) location.href = jump;
                 });
             });

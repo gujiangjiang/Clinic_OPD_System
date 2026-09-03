@@ -331,6 +331,9 @@ diagnoses: [],
             DATA.__pending_progress = true;
             renderLeftNav();
             scrollToEditor(0);
+            // 新建续写（record_id=0）应恢复顶栏写按钮：
+            // 转科患者旧文书进入时 deptMismatch 分支曾隐藏保存按钮，此处恢复
+            restoreWriteButtons();
         } catch (e) {
             console.error('续写编辑器渲染失败', e);
             Clinic.toast.error('续写编辑器渲染失败，请刷新页面重试');
@@ -413,6 +416,9 @@ diagnoses: [],
         // 5. 更新左侧病历节点列表（renderLeftNav 内自动追加「续写编辑中」占位）
         renderLeftNav();
         scrollToEditor(0);
+        // 6. 新建续写（record_id=0）恢复顶栏写按钮：
+        //    转科患者旧文书进入时 deptMismatch 分支曾隐藏保存按钮，此处恢复
+        restoreWriteButtons();
     }
 
     /**

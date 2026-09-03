@@ -71,6 +71,11 @@ Clinic.notify = (function () {
         Clinic.ajax('/api/message', { action: 'read', id: m.id }, { loading: false });
         if (el) el.classList.remove('unread');
         refresh();
+        // 退费申请审批消息：直接打开模态框，避免页面跳转中断操作流
+        if (Clinic.refundApproval && Clinic.refundApproval.isApproveLink(m.link_url)) {
+            Clinic.refundApproval.open(Clinic.refundApproval.reqIdFromLink(m.link_url));
+            return;
+        }
         if (m.link_url) { location.href = m.link_url; return; }
         // visit_id 为后端混淆串（不可 >0 数值比较），非空即跳转病历页
         if (m.visit_id) { location.href = '/doctor/emr?visit_id=' + encodeURIComponent(m.visit_id); return; }

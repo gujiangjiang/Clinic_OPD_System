@@ -623,14 +623,15 @@ body.emr-readonly .emr-item-link,
 
 /* ============================================================
    缴费管理（paymanage）左右两栏布局
-   说明：两列固定高度（各自内部滚动，不随页面滚动），默认带背景占位符
+   说明：内容区 flex 纵向布局，两栏自适应填满剩余视口，各自内部滚动
    ============================================================ */
 .paymgr-layout {
     display: grid;
     grid-template-columns: 300px minmax(0, 1fr);
     gap: 12px;
     align-items: stretch;
-    height: calc(100vh - 150px);   /* 顶栏+页头+搜索卡后的剩余视口高度 */
+    flex: 1;
+    min-height: 0;
 }
 .paymgr-left,
 .paymgr-right {
