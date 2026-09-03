@@ -32,12 +32,15 @@ function pt_order($order, $items, $title, $opts = array()) {
     $cell = function ($k, $val) {
         return pt_info_cell($k, $val);
     };
-    // 开单科室：取开单医生当前科室（单号已由右上角条形码展示，这里显示科室）
-    $deptName = '';
-    $docU = DB::one('SELECT current_dept_id FROM users WHERE id=?', array((int)$order['doctor_id']));
-    if ($docU && (int)$docU['current_dept_id'] > 0) {
-        $dp = DB::one('SELECT name FROM departments WHERE id=?', array((int)$docU['current_dept_id']));
-        if ($dp) $deptName = $dp['name'];
+    // 开单科室：以开单时固化的订单科室为准（会诊/转科后打印不随医生当前科室漂移）；
+    // 旧数据无 dept_name 时回退取开单医生当前科室，再兜底就诊当前科室
+    $deptName = isset($order['dept_name']) && $order['dept_name'] !== '' ? $order['dept_name'] : '';
+    if ($deptName === '') {
+        $docU = DB::one('SELECT current_dept_id FROM users WHERE id=?', array((int)$order['doctor_id']));
+        if ($docU && (int)$docU['current_dept_id'] > 0) {
+            $dp = DB::one('SELECT name FROM departments WHERE id=?', array((int)$docU['current_dept_id']));
+            if ($dp) $deptName = $dp['name'];
+        }
     }
     if ($deptName === '') {
         $ordVisit = DB::one('SELECT current_dept_name FROM registrations WHERE id=?', array((int)$order['visit_id']));

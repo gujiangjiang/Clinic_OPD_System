@@ -121,9 +121,11 @@ Clinic.queuePanel = (function () {
         return waiting.sort(function (a, b) { return (a.date + ' ' + a.time).localeCompare(b.date + ' ' + b.time); });
     }
 
-    /* 状态徽章（consult 模式显示会诊状态，与候诊状态徽章同款配色） */
+    /* 状态徽章（consult 模式显示会诊状态，与候诊状态徽章同款配色；
+       就诊已诊毕优先显示「诊毕」——A科诊毕后 B 科会诊请求不可再处理） */
     function statusBadge(st, consultStatus) {
         if (consult) {
+            if (st === 'finished') return '<span class="badge badge-gray" style="font-size:11px">诊毕</span>';
             if (consultStatus === 'done') return '<span class="badge badge-gray" style="font-size:11px">会诊完毕</span>';
             if (consultStatus === 'doing') return '<span class="badge badge-danger" style="font-size:11px">会诊中</span>';
             return '<span class="badge badge-warning" style="font-size:11px">待会诊</span>';
@@ -143,6 +145,7 @@ Clinic.queuePanel = (function () {
         return '<div class="qp-row" data-code="' + r.code + '"' +
             (r.consult_code ? ' data-consult-code="' + escHtml(r.consult_code) + '"' : '') +
             (r.consult_status ? ' data-consult-status="' + escHtml(r.consult_status) + '"' : '') +
+            ' data-visit-status="' + escHtml(r.status || '') + '"' +
             (r.accepted_by ? ' data-consult-accepted="' + escHtml(r.accepted_by) + '"' : '') + '>' +
             cell('qp-c-date fs-13 text-muted', r.date.substr(5)) +
             cell('qp-c-time fs-13 text-muted', r.time) +
@@ -290,8 +293,15 @@ Clinic.queuePanel = (function () {
     function bindRowClicks(p) {
         p.querySelectorAll('.qp-row:not(.qp-head)').forEach(function (row) {
             row.addEventListener('click', function () {
+                var visitStatus = row.getAttribute('data-visit-status');
                 var consultCode = row.getAttribute('data-consult-code');
                 if (consult && consultCode) {
+                    // 就诊已诊毕：A 科诊毕后病历强制快照只读，B 科不可再处理该会诊
+                    if (visitStatus === 'finished') {
+                        closePanel();
+                        Clinic.toast.warning('该患者已诊毕，无法进行会诊（诊毕病历已归档锁定）');
+                        return;
+                    }
                     var consultStatus = row.getAttribute('data-consult-status');
                     var acceptedBy = row.getAttribute('data-consult-accepted') || '';
                     var myName = document.body.getAttribute('data-name') || '';
@@ -431,6 +441,11 @@ Clinic.queuePanel = (function () {
         id = parseInt(id, 10) || 0;
         DEPT_ID = id;
         DATA = null;
+        // 切换科室：清空筛选记忆，恢复初始状态（诊毕/当日/会诊 全部取消勾选）
+        seen = false;
+        todayOnly = false;
+        consult = false;
+        savePref();
         renderBtn();
         if (id > 0) {
             load(true);

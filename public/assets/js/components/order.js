@@ -186,7 +186,10 @@ Clinic.order = (function () {
                 '<span class="fs-13 ' + (i === 0 ? 'fw-600' : 'text-muted') + '">' + s + '</span></div>';
         }).join('<div style="width:2px;height:16px;background:var(--border);margin-left:11px"></div>');
 
-        var rows = CATALOG.map(function (it) {
+        var rows = CATALOG.filter(function (it) {
+            // 处方：库存为 0 的药品不显示（缺货不可开具）
+            return !(isDrug && (it.stock || 0) <= 0);
+        }).map(function (it) {
             var info = '';
             if (isDrug) {
                 var parts = [];

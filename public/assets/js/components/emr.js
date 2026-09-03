@@ -2878,6 +2878,11 @@ diagnoses: [],
                     { label: '会诊完毕', operator: (c.status === 'done' ? (c.finished_by || c.accepted_by || (c.record && c.record.doctor_name) || '') : ''), time: (c.finished_at || ''), done: c.status === 'done' },
                 ];
                 var stepHtml = flowColumnHtml(steps, -1, '会诊进度');
+                // 就诊已诊毕：病历强制快照只读，B 科不可再处理该会诊（提示 + 不显示确认会诊）
+                var visitFinished = c.visit_status === 'finished';
+                var finishedTip = visitFinished
+                    ? '<div class="fs-13" style="background:var(--danger-soft, rgba(239,68,68,.08));border:1px solid var(--danger, #ef4444);color:var(--danger, #ef4444);border-radius:8px;padding:10px 12px;margin-bottom:10px">⚠️ 该患者已诊毕，无法进行会诊（诊毕病历已归档锁定）</div>'
+                    : '';
                 var buttons = [
                     { text: '关闭', cls: 'btn-outline' },
                 ];
@@ -2905,7 +2910,8 @@ diagnoses: [],
                     });
                 }
                 // 候诊入口（withAccept=true）且待会诊 → 底部「确认会诊」进入病历书写
-                if (withAccept && c.status === 'pending') {
+                // 就诊已诊毕时不显示（后端 accept 亦拦截）
+                if (withAccept && c.status === 'pending' && !visitFinished) {
                     buttons.push({
                         text: '✅ 确认会诊', cls: 'btn-primary', autoClose: false,
                         onClick: function () {
@@ -2921,6 +2927,7 @@ diagnoses: [],
                     });
                 }
                 Clinic.modal.open(
+                    finishedTip +
                     '<div class="flex gap-16" style="align-items:stretch">' +
                     '  <div style="flex:1.4;min-width:0;border-right:1px solid var(--border);padding-right:14px">' +
                     '    <div class="fs-13 fw-700 mb-8">' + escHtml(c.from_dept_name || '') + ' 请' + escHtml(c.target_dept_name || '') + '会诊</div>' +

@@ -195,6 +195,9 @@ switch ($action) {
             }
         }
         $data = consultation_row($c);
+        // 就诊状态：前端据此判断诊毕拦截（诊毕病历归档锁定，不可再处理会诊）
+        $detVisit = get_visit_row((int)$c['visit_id']);
+        $data['visit_status'] = $detVisit ? (string)$detVisit['visit']['status'] : '';
         // 病历快照：取发起科室医生的首诊文书（主诉/现病史/体格检查/诊断）
         $pr = ConsultationRepository::one("SELECT * FROM patient_records WHERE visit_id=? AND dept_id=? AND record_type='initial' ORDER BY id ASC LIMIT 1",
             array((int)$c['visit_id'], (int)$c['from_dept_id']));
@@ -223,6 +226,11 @@ switch ($action) {
         if (!$c) json_fail('会诊记录不存在');
         $curDeptId = current_dept_id($u);
         if ((int)$c['target_dept_id'] !== $curDeptId) json_fail('该会诊不属于当前科室');
+        // 诊毕拦截：就诊已诊毕时病历强制快照只读，B 科不可再接受该会诊
+        $accVisit = get_visit_row((int)$c['visit_id']);
+        if ($accVisit && $accVisit['visit']['status'] === 'finished') {
+            json_fail('该患者已诊毕，无法进行会诊（诊毕病历已归档锁定）');
+        }
         // 接受会诊：原子条件更新防并发重复接受（仅 pending 可转 doing）
         $acceptAffected = ConsultationRepository::exec(
             "UPDATE consultations SET status=?, accepted_by=?, accepted_at=? WHERE id=? AND status='pending'",
@@ -241,6 +249,11 @@ switch ($action) {
         if ((int)$c['target_dept_id'] !== $curDeptId2) json_fail('该会诊不属于当前科室');
         if ($c['status'] === 'pending') json_fail('会诊尚未开始');
         if ($c['status'] === 'done') json_fail('该会诊已完毕');
+        // 诊毕拦截：就诊已诊毕时病历强制快照只读，B 科不可再完成会诊
+        $finVisit = get_visit_row((int)$c['visit_id']);
+        if ($finVisit && $finVisit['visit']['status'] === 'finished') {
+            json_fail('该患者已诊毕，无法进行会诊（诊毕病历已归档锁定）');
+        }
         // 原子条件更新防并发重复完成（仅 doing 可转 done）
         $finishAffected = ConsultationRepository::exec(
             "UPDATE consultations SET status=?, finished_by=?, finished_at=? WHERE id=? AND status='doing'",
@@ -256,6 +269,11 @@ switch ($action) {
         $c = ConsultationRepository::one('SELECT * FROM consultations WHERE id=?', array($cid));
         if (!$c) json_fail('会诊记录不存在');
         if ((int)$c['from_doctor_id'] !== (int)$u['id']) json_fail('仅发起会诊本人可删除');
+        // 诊毕拦截：就诊已诊毕时病历已归档锁定，A 科亦不可再删除会诊
+        $delVisit = get_visit_row((int)$c['visit_id']);
+        if ($delVisit && $delVisit['visit']['status'] === 'finished') {
+            json_fail('该患者已诊毕，病历已归档，不可删除会诊');
+        }
         // 已被接收（doing/done）的会诊不可删除——B 科室已投入处理
         if ($c['status'] !== 'pending') json_fail('该会诊已被接收科室处理，不可删除');
         ConsultationRepository::exec('DELETE FROM consultations WHERE id=?', array($cid));
