@@ -91,28 +91,44 @@ switch ($action) {
         if (!$it || $it['item_type'] !== 'imaging' || !in_array($it['status'], array('registered', 'done'), true)) {
             json_fail('项目不存在或状态异常');
         }
-        $result = OrderRepository::one('SELECT * FROM results WHERE order_item_id=?', array($itemId));
-        if ($result) {
-            OrderRepository::exec("UPDATE results SET findings=?, conclusion=?, status='done', executor=?, updated_at=? WHERE id=?", array(
-                $findings, $conclusion, $u['name'], now_str(), $result['id'],
-            ));
-            $resultId = $result['id'];
-        } else {
-            $resultId = OrderRepository::insert("INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, findings, conclusion, executor, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", array(
-                $it['item_id'], $itemId, $it['visit_id'], $it['patient_no'], $it['flow_no'], 'imaging',
-                $findings, $conclusion, $u['name'], 'done', now_str(), now_str(),
-            ));
+        // done 状态拦截：已生成非撤回报告的项目不可重复提交（防重复报告）；
+        // 需重新录入须先走撤回流程（撤回后状态回到 registered）
+        if ($it['status'] === 'done' && (int)$it['result_id'] > 0) {
+            $hasActive = (int)OrderRepository::val("SELECT COUNT(*) FROM reports WHERE result_id=? AND status<>'withdrawn'", array((int)$it['result_id']));
+            if ($hasActive > 0) json_fail('该检查项目已生成报告，如需修改请先申请撤回');
         }
-        OrderRepository::exec('UPDATE order_items SET result_id=? WHERE id=?', array($resultId, $itemId));
 
-        // 报告（insert_report：MAX+1 生成 + 唯一索引并发撞号重试，杜绝重复报告号）
-        $reportNo = next_report_no('imaging');
-        $reportId = insert_report(array(
-            'result_id' => $resultId, 'report_no' => $reportNo,
-            'visit_id' => $it['visit_id'], 'patient_no' => $it['patient_no'], 'flow_no' => $it['flow_no'],
-            'type' => 'imaging', 'doctor' => $u['name'], 'status' => 'done',
-        ));
-        OrderRepository::exec("UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
+        // 复合写操作（results + order_items 回写 + reports + 状态）整体包事务保证原子性
+        $pdo = DatabaseManager::getMain();
+        $pdo->beginTransaction();
+        try {
+            $result = OrderRepository::one('SELECT * FROM results WHERE order_item_id=?', array($itemId));
+            if ($result) {
+                OrderRepository::exec("UPDATE results SET findings=?, conclusion=?, status='done', executor=?, updated_at=? WHERE id=?", array(
+                    $findings, $conclusion, $u['name'], now_str(), $result['id'],
+                ));
+                $resultId = $result['id'];
+            } else {
+                $resultId = OrderRepository::insert("INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, findings, conclusion, executor, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", array(
+                    $it['item_id'], $itemId, $it['visit_id'], $it['patient_no'], $it['flow_no'], 'imaging',
+                    $findings, $conclusion, $u['name'], 'done', now_str(), now_str(),
+                ));
+            }
+            OrderRepository::exec('UPDATE order_items SET result_id=? WHERE id=?', array($resultId, $itemId));
+
+            // 报告（insert_report：MAX+1 生成 + 唯一索引并发撞号重试，杜绝重复报告号）
+            $reportNo = next_report_no('imaging');
+            $reportId = insert_report(array(
+                'result_id' => $resultId, 'report_no' => $reportNo,
+                'visit_id' => $it['visit_id'], 'patient_no' => $it['patient_no'], 'flow_no' => $it['flow_no'],
+                'type' => 'imaging', 'doctor' => $u['name'], 'status' => 'done',
+            ));
+            OrderRepository::exec("UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
+            $pdo->commit();
+        } catch (Exception $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            json_fail('保存失败：' . $ex->getMessage());
+        }
         if ($it['doctor_id'] > 0) {
             $pName = OrderRepository::val('SELECT name FROM patients WHERE patient_no=?', array($it['patient_no']));
             send_msg('doctor', $it['doctor_id'],

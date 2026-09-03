@@ -294,9 +294,10 @@ function cashier_part_write($action) {
                 'payment_no' => $paymentNo, 'method' => $method,
             ));
             // 药品退费：恢复库存（幂等——仅对 prescription 且曾 paid/在途的明细）
+            // 覆盖全部药品明细（主药 + 子药）：开单时主/子药均扣减库存，恢复须口径一致
             if ($order['order_type'] === 'prescription') {
                 foreach ($items as $it) {
-                    if ($it['item_id'] > 0 && (int)$it['sub_of'] === 0 && in_array($it['status'], array('paid', 'dispensing'), true)) {
+                    if ($it['item_id'] > 0 && in_array($it['status'], array('paid', 'dispensing'), true)) {
                         CashierRepository::restoreDrugStock($it['item_id'], (int)$it['quantity']);
                         CashierRepository::createInventoryTrans((int)$it['item_id'], (int)$it['quantity'], 'refund', $order['order_no'], $u['name']);
                     }

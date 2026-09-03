@@ -122,9 +122,11 @@ switch ($action) {
         if ($order['status'] !== 'paid') json_fail('该处方当前状态不可审方（已处理/已取消）');
         if (!in_array($verdict, array('pass', 'reject'), true)) json_fail('审方指令无效');
         if ($verdict === 'reject' && $reason === '') json_fail('请填写拒绝理由');
-        // 全部主药明细（子药随主药一并处理）
+        // 全部主药明细（子药随主药一并处理；库存恢复需同时覆盖子药——开单时主/子药均扣减库存）
         $items = OrderRepository::q("SELECT * FROM order_items WHERE order_id=? AND item_type='prescription' AND sub_of=0 AND status='paid'", array($orderId));
         if (!$items) json_fail('该处方无待发药明细');
+        // 全部含子药的药品明细（用于拒绝时库存恢复：主药 sub_of=0 + 子药 sub_of>0）
+        $allRxItems = OrderRepository::q("SELECT * FROM order_items WHERE order_id=? AND item_type='prescription' AND item_id>0 AND status='paid'", array($orderId));
         $pdo = DatabaseManager::getMain();
         $pdo->beginTransaction();
         try {
@@ -135,16 +137,17 @@ switch ($action) {
                     // 保持护士站待执行队列可见，不可直接置 dispensed
                     $newStatus = ((int)$it['is_nurse'] === 1) ? 'dispensing' : 'dispensed';
                     OrderRepository::exec('UPDATE order_items SET status=?, executed_by=?, executed_at=? WHERE id=?', array($newStatus, $u['name'], now_str(), (int)$it['id']));
-                } else {
-                    // 拒绝：恢复库存（开方时已减库存）+ 明细置 rejected
-                    if ($it['item_id'] > 0) {
-                        OrderRepository::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array((int)$it['quantity'], $it['item_id']));
-                        OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
-                            $it['item_id'], (int)$it['quantity'], 'order_reject', $order['order_no'], $u['name'], now_str(),
-                        ));
-                    }
-                    OrderRepository::exec("UPDATE order_items SET status='rejected', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), (int)$it['id']));
                 }
+            }
+            if ($verdict === 'reject') {
+                // 拒绝：恢复库存（开方时主药+子药均已减库存）+ 全部明细置 rejected
+                foreach ($allRxItems as $it) {
+                    OrderRepository::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array((int)$it['quantity'], $it['item_id']));
+                    OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
+                        $it['item_id'], (int)$it['quantity'], 'order_reject', $order['order_no'], $u['name'], now_str(),
+                    ));
+                }
+                OrderRepository::exec("UPDATE order_items SET status='rejected', executed_by=?, executed_at=? WHERE order_id=? AND status='paid'", array($u['name'], now_str(), $orderId));
             }
             $orderStatus = $verdict === 'pass' ? 'dispensed' : 'rejected';
             if ($verdict === 'pass') {
@@ -276,17 +279,22 @@ switch ($action) {
         $drugId = (int)post('drug_id');
         $type = post('type', 'in');
         $change = (int)post('qty', 0);
+        // type 白名单：仅允许 in/out，防止拼写/伪造值误走入库分支
+        if (!in_array($type, array('in', 'out'), true)) json_fail('库存变动类型无效');
         if ($change <= 0) json_fail('数量必须大于 0');
         $drug = DrugRepository::byId($drugId);
         if (!$drug) json_fail('药品不存在');
         if ($type === 'out') {
-            if ((int)$drug['qty'] < $change) json_fail('库存不足（当前库存 ' . (int)$drug['qty'] . '）');
-            DrugRepository::restoreStock($drugId, -$change);
+            // 原子条件更新防并发超扣库存（读判写分离的 TOCTOU：改为一并校验充足性）
+            $affected = DrugRepository::exec('UPDATE drugs SET qty = qty - ? WHERE id=? AND qty >= ?', array($change, $drugId, $change));
+            if ($affected === 0) json_fail('库存不足（当前库存 ' . (int)$drug['qty'] . '）');
         } else {
             DrugRepository::restoreStock($drugId, $change);
         }
         DrugRepository::createInventoryTrans($drugId, $type === 'out' ? -$change : $change, $type, post('note', ''), $u['name']);
-        json_ok(array('qty' => (int)$drug['qty'] + ($type === 'out' ? -$change : $change)), '库存已更新');
+        // 回读最新库存（原子更新后的权威值）
+        $newQty = (int)DrugRepository::val('SELECT qty FROM drugs WHERE id=?', array($drugId));
+        json_ok(array('qty' => $newQty), '库存已更新');
         break;
 
     default:

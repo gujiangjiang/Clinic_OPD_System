@@ -115,6 +115,12 @@ switch ($action) {
         if (!$it || $it['item_type'] !== 'lab' || !in_array($it['status'], array('registered', 'done'), true)) {
             json_fail('项目不存在或状态异常');
         }
+        // done 状态拦截：已生成非撤回报告的项目不可重复提交（防重复报告）；
+        // 需重新录入须先走撤回流程（撤回后状态回到 registered）
+        if ($it['status'] === 'done' && (int)$it['result_id'] > 0) {
+            $hasActive = (int)OrderRepository::val("SELECT COUNT(*) FROM reports WHERE result_id=? AND status<>'withdrawn'", array((int)$it['result_id']));
+            if ($hasActive > 0) json_fail('该检验项目已生成报告，如需修改请先申请撤回');
+        }
         $item = OrderRepository::one('SELECT * FROM lab_items WHERE id=?', array($it['item_id']));
         // 检验组：value 为 JSON（成员 id => 数值），校验组内每项均已填写
         if ($isGroup) {
@@ -141,30 +147,43 @@ switch ($action) {
             $valuesJson = json_encode(array('value' => $value), JSON_UNESCAPED_UNICODE);
         }
 
-        // 写入结果（撤回后重填时更新原结果）
-        $result = OrderRepository::one('SELECT * FROM results WHERE order_item_id=?', array($itemId));
-        if ($result) {
-            OrderRepository::exec("UPDATE results SET values_json=?, status='done', executor=?, updated_at=? WHERE id=?", array(
-                $valuesJson, $u['name'], now_str(), $result['id'],
-            ));
-            $resultId = $result['id'];
-        } else {
-            $resultId = OrderRepository::insert("INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, values_json, executor, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)", array(
-                $it['item_id'], $itemId, $it['visit_id'], $it['patient_no'], $it['flow_no'], 'lab',
-                $valuesJson, $u['name'], 'done', now_str(), now_str(),
-            ));
-        }
-        // 回写 order_items.result_id：检验/影像「已完成」队列据此关联报告，支持查看/申请撤回
-        OrderRepository::exec('UPDATE order_items SET result_id=? WHERE id=?', array($resultId, $itemId));
+        // 复合写操作（results + order_items 回写 + reports + 状态）整体包事务保证原子性
+        $failTx = function ($msg) {
+            if (DatabaseManager::getMain()->inTransaction()) DatabaseManager::getMain()->rollBack();
+            json_fail($msg);
+        };
+        $pdo = DatabaseManager::getMain();
+        $pdo->beginTransaction();
+        try {
+            // 写入结果（撤回后重填时更新原结果）
+            $result = OrderRepository::one('SELECT * FROM results WHERE order_item_id=?', array($itemId));
+            if ($result) {
+                OrderRepository::exec("UPDATE results SET values_json=?, status='done', executor=?, updated_at=? WHERE id=?", array(
+                    $valuesJson, $u['name'], now_str(), $result['id'],
+                ));
+                $resultId = $result['id'];
+            } else {
+                $resultId = OrderRepository::insert("INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, values_json, executor, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)", array(
+                    $it['item_id'], $itemId, $it['visit_id'], $it['patient_no'], $it['flow_no'], 'lab',
+                    $valuesJson, $u['name'], 'done', now_str(), now_str(),
+                ));
+            }
+            // 回写 order_items.result_id：检验/影像「已完成」队列据此关联报告，支持查看/申请撤回
+            OrderRepository::exec('UPDATE order_items SET result_id=? WHERE id=?', array($resultId, $itemId));
 
-        // 报告（insert_report：MAX+1 生成 + 唯一索引并发撞号重试，杜绝重复报告号）
-        $reportNo = next_report_no('lab');
-        $reportId = insert_report(array(
-            'result_id' => $resultId, 'report_no' => $reportNo,
-            'visit_id' => $it['visit_id'], 'patient_no' => $it['patient_no'], 'flow_no' => $it['flow_no'],
-            'type' => 'lab', 'doctor' => $u['name'], 'status' => 'done',
-        ));
-        OrderRepository::exec("UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
+            // 报告（insert_report：MAX+1 生成 + 唯一索引并发撞号重试，杜绝重复报告号）
+            $reportNo = next_report_no('lab');
+            $reportId = insert_report(array(
+                'result_id' => $resultId, 'report_no' => $reportNo,
+                'visit_id' => $it['visit_id'], 'patient_no' => $it['patient_no'], 'flow_no' => $it['flow_no'],
+                'type' => 'lab', 'doctor' => $u['name'], 'status' => 'done',
+            ));
+            OrderRepository::exec("UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
+            $pdo->commit();
+        } catch (Exception $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            json_fail('保存失败：' . $ex->getMessage());
+        }
         // 通知医生 + 打印提醒
         if ($it['doctor_id'] > 0) {
             $pName = OrderRepository::val('SELECT name FROM patients WHERE patient_no=?', array($it['patient_no']));

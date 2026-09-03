@@ -9,9 +9,17 @@
  * 3. 上传医院 LOGO（可选，同时用作网站 favicon）
  * ============================================================ */
 
-// 仅允许未安装状态调用
-if ((int)UserRepository::val('SELECT COUNT(*) FROM users') > 0) {
-    json_fail('系统已安装，无需重复初始化');
+// 仅允许未安装状态调用：事务内「检查 + 创建」原子化，防并发安装产生多个管理员
+$__pdo = DatabaseManager::getMain();
+$__pdo->beginTransaction();
+try {
+    if ((int)UserRepository::val('SELECT COUNT(*) FROM users') > 0) {
+        $__pdo->rollBack();
+        json_fail('系统已安装，无需重复初始化');
+    }
+} catch (Exception $ex) {
+    if ($__pdo->inTransaction()) $__pdo->rollBack();
+    json_fail('系统初始化检查失败：' . $ex->getMessage());
 }
 
 CSRF::check();
@@ -70,5 +78,8 @@ set_setting('install_time', now_str());
 
 // 站点时区立即生效
 date_default_timezone_set($timezone);
+
+// 提交事务：管理员 + 系统设置原子写入
+$__pdo->commit();
 
 json_ok(array('admin_id' => $adminId), '系统安装成功，请使用管理员账号登录');

@@ -110,7 +110,12 @@ function admin_part_import($action) {
             // 冲突判定：唯一键是否已存在
             $exists = (int)BaseRepository::dbVal($db, "SELECT COUNT(*) FROM $table WHERE $keyCol=?", array($assoc[$keyCol]));
             if ($exists > 0) {
-                $conflictRows[] = array('row' => $i + 1, 'key' => $assoc[$keyCol], 'name' => isset($assoc['name']) ? $assoc['name'] : '', 'reason' => '唯一键已存在');
+                // 冲突行附带完整数据：overwrite 策略需在确认导入时按行覆盖更新
+                $conflictRows[] = array(
+                    'row' => $i + 1, 'key' => $assoc[$keyCol],
+                    'name' => isset($assoc['name']) ? $assoc['name'] : '',
+                    'reason' => '唯一键已存在', 'data' => $assoc,
+                );
             } else {
                 $validRows[] = $assoc;
             }
@@ -124,7 +129,8 @@ function admin_part_import($action) {
             'valid_count' => count($validRows),
             'conflict_count' => count($conflictRows),
             'error_count' => count($errorRows),
-            'conflict_list' => array_slice($conflictRows, 0, 20),
+            // 预览仅返回轻量字段（row/key/name/reason），剥离内部完整 data（仅导入确认时使用）
+            'conflict_list' => array_map(function ($c) { unset($c['data']); return $c; }, array_slice($conflictRows, 0, 20)),
             'error_list' => array_slice($errorRows, 0, 20),
             'has_pending' => true,
         ));
@@ -148,10 +154,25 @@ function admin_part_import($action) {
         $pdo = DatabaseManager::getMain();
         try {
             $pdo->beginTransaction();
-            // 1. 冲突覆盖（overwrite 时）
+            // 1. 冲突覆盖（overwrite 时）：按唯一键逐行 UPDATE（不覆盖密码，保持原密码）
             if ($strategy === 'overwrite' && !empty($pending['conflict'])) {
-                // 冲突列表只存了前 20 条预览；实际覆盖需重查全部冲突
-                // 简化：重新从 session 数据判定（valid 中是全新，conflict 是已存在）
+                foreach ($pending['conflict'] as $c) {
+                    $row = isset($c['data']) ? $c['data'] : null;
+                    if (!is_array($row) || !isset($row[$keyCol]) || $row[$keyCol] === '') continue;
+                    $set = array();
+                    $vals = array();
+                    foreach ($cfg['fields'] as $f) {
+                        $col = $f[1];
+                        if ($col === '_password' || $col === $keyCol) continue;
+                        if (!isset($row[$col])) continue;
+                        $set[] = $col . '=?';
+                        $vals[] = $row[$col];
+                    }
+                    if (!$set) continue;
+                    $vals[] = $row[$keyCol];
+                    BaseRepository::prepareExec("UPDATE $table SET " . implode(',', $set) . " WHERE $keyCol=?", $vals);
+                    $updated++;
+                }
             }
             // 2. 全新数据插入
             foreach ($pending['valid'] as $row) {
@@ -162,27 +183,20 @@ function admin_part_import($action) {
                     if ($col === '_password') continue;
                     if (!isset($row[$col])) continue;
                     $ins[] = $col;
-                    if ($col === 'password') {
-                        $vals[] = password_hash($row[$col] !== '' ? $row[$col] : '123456', PASSWORD_DEFAULT);
-                    } else {
-                        $vals[] = $row[$col];
-                    }
+                    $vals[] = $row[$col];
                 }
-                // 补充默认字段
-                $extra = array();
-                if ($mod === 'drug') { $ins[] = 'status'; $vals[] = 'approved'; $ins[] = 'created_at'; $vals[] = now_str(); }
-                if ($mod === 'lab' || $mod === 'exam') { $ins[] = 'status'; $vals[] = 'approved'; $ins[] = 'created_at'; $vals[] = now_str(); }
-                if ($mod === 'disp') { $ins[] = 'status'; $vals[] = 'approved'; $ins[] = 'created_at'; $vals[] = now_str(); }
-                if ($mod === 'dept') { $ins[] = 'status'; $vals[] = '1'; $ins[] = 'created_at'; $vals[] = now_str(); }
-                if ($mod === 'user') { $ins[] = 'status'; $vals[] = '1'; $ins[] = 'created_at'; $vals[] = now_str(); $ins[] = 'pwd_changed'; $vals[] = '0'; $ins[] = 'theme'; $vals[] = 'auto'; }
-                if ($mod === 'drug') { $ins[] = 'name'; $vals[] = $row['name']; }
-                $sql = 'INSERT INTO ' . $table . '(' . implode(',', $ins) . ') VALUES(' . implode(',', array_fill(0, count($vals), '?')) . ')';
-                // 处理 user 的 password 列（映射 _password）
+                // 处理 user 的密码列（映射 _password → password，须在生成 SQL 前加入，
+                // 保证占位符数与参数一一对应）
                 if ($mod === 'user') {
                     $password = isset($row['_password']) && $row['_password'] !== '' ? $row['_password'] : '123456';
-                    $vals[] = password_hash($password, PASSWORD_DEFAULT);
                     $ins[] = 'password';
+                    $vals[] = password_hash($password, PASSWORD_DEFAULT);
                 }
+                // 补充默认字段（列与值始终成对追加，杜绝占位符/参数错配）
+                if (in_array($mod, array('drug', 'lab', 'exam', 'disp'), true)) { $ins[] = 'status'; $vals[] = 'approved'; $ins[] = 'created_at'; $vals[] = now_str(); }
+                if ($mod === 'dept') { $ins[] = 'status'; $vals[] = '1'; $ins[] = 'created_at'; $vals[] = now_str(); }
+                if ($mod === 'user') { $ins[] = 'status'; $vals[] = '1'; $ins[] = 'created_at'; $vals[] = now_str(); $ins[] = 'pwd_changed'; $vals[] = '0'; $ins[] = 'theme'; $vals[] = 'auto'; }
+                $sql = 'INSERT INTO ' . $table . '(' . implode(',', $ins) . ') VALUES(' . implode(',', array_fill(0, count($vals), '?')) . ')';
                 BaseRepository::prepareExec($sql, $vals);
                 $inserted++;
             }

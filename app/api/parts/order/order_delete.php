@@ -44,9 +44,10 @@ function order_part_delete($u) {
     $pdoDel->beginTransaction();
     try {
         // 恢复药品库存：仅未缴费的处方需要恢复（已退费的处方在退费时已恢复库存）
+        // 覆盖全部药品明细（主药 + 子药）：开单时主/子药均扣减库存，恢复须口径一致
         if ($order['order_type'] === 'prescription') {
             foreach ($items as $it) {
-                if ($it['item_id'] > 0 && (int)$it['sub_of'] === 0 && $it['status'] === 'open') {
+                if ($it['item_id'] > 0 && $it['status'] === 'open') {
                     OrderRepository::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array((int)$it['quantity'], $it['item_id']));
                     OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
                         $it['item_id'], (int)$it['quantity'], 'order_restore', $order['order_no'], $u['name'], now_str(),

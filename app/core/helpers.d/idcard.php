@@ -37,10 +37,14 @@ function idcard_valid($id) {
 
 /**
  * 从身份证提取 出生日期/年龄/性别（挂号时自动计算并锁定）
+ * 说明：内部防御——非法身份证直接返回空默认值，不再产生垃圾出生日期/年龄。
  * @return array ['birth'=>'Y-m-d','age'=>int,'gender'=>'男'|'女']
  */
 function idcard_info($id) {
     $id = strtoupper(trim((string)$id));
+    if (!idcard_valid($id)) {
+        return array('birth' => '', 'age' => 0, 'gender' => '');
+    }
     $birth = substr($id, 6, 4) . '-' . substr($id, 10, 2) . '-' . substr($id, 12, 2);
     $gender = ((int)substr($id, 16, 1)) % 2 === 1 ? '男' : '女';
     return array('birth' => $birth, 'age' => calc_age($birth), 'gender' => $gender);
