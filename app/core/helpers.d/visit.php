@@ -97,7 +97,7 @@ function item_status_name($s) {
     return isset($map[$s]) ? $map[$s] : $s;
 }
 
-/** 计算订单聚合状态（open/paid/registered/in_progress/done/dispensed/refunded/cancelled） */
+/** 计算订单聚合状态（open/paid/registered/in_progress/done/dispensed/refunded/cancelled/rejected） */
 function order_agg_status($orderType, $items) {
     $sts = array();
     foreach ($items as $it) $sts[] = $it['status'];
@@ -106,6 +106,7 @@ function order_agg_status($orderType, $items) {
         $only = $sts[0];
         if ($only === 'refunded') return 'refunded';
         if ($only === 'cancelled') return 'cancelled';
+        if ($only === 'rejected') return 'rejected';
         if ($only === 'dispensed') return 'dispensed';
         if ($only === 'done') return 'done';
     }

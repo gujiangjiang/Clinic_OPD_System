@@ -42,14 +42,20 @@ function order_flow_steps($o, $items) {
             'time' => $disp ? $disp['time'] : '',
             'done' => ($disp || in_array($o['status'], array('done'), true)) ? 1 : 0);
     } elseif ($o['order_type'] === 'prescription') {
-        $flow[] = array('label' => '药房处理',
-            'operator' => $reg ? $reg['operator'] : '',
-            'time' => $reg ? $reg['time'] : '',
-            'done' => $reg ? 1 : 0);
+        // 处方进度按整单审方流转：药房处理（审方通过/驳回）→ 发药完成
+        // 通过：orders.status='dispensed' + dispensed_at；驳回：status='rejected'
+        $rxDisp = !empty($o['dispensed_at']) ? $o['dispensed_at'] : ($disp ? $disp['time'] : '');
+        $rxDone = $o['status'] === 'dispensed' || $disp;
+        $rxRejected = $o['status'] === 'rejected';
+        $flow[] = array('label' => '审方通过',
+            'operator' => $rxDone ? ($reg ? $reg['operator'] : ($o['done_by'] ? $o['done_by'] : '')) : '',
+            'time' => $rxDisp,
+            'done' => $rxDone ? 1 : 0,
+            'rejected' => $rxRejected ? 1 : 0);
         $flow[] = array('label' => '发药完成',
-            'operator' => $disp ? $disp['operator'] : '',
-            'time' => $disp ? $disp['time'] : '',
-            'done' => $disp ? 1 : 0);
+            'operator' => $rxDone ? ($o['done_by'] ? $o['done_by'] : ($disp ? $disp['operator'] : '')) : '',
+            'time' => $rxDisp,
+            'done' => $rxDone ? 1 : 0);
     } else {
         $flow[] = array('label' => '执行完成',
             'operator' => $disp ? $disp['operator'] : '',

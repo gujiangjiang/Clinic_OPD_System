@@ -8,6 +8,7 @@
  * ============================================================ */
 require __DIR__ . '/_init.php';
 require_once APP_ROOT . '/app/includes/forms.php';
+require_once APP_ROOT . '/app/includes/print_templates.php';   // pt_rx_slip 处方提示凭条
 
 $u = Auth::user();
 
@@ -32,39 +33,48 @@ switch ($action) {
         ));
         break;
 
-    /* ==================== 发药队列 ==================== */
+    /* ==================== 发药队列（按处方单维度聚合：一张处方审一次） ==================== */
     case 'queue':
         $status = get('status', 'paid');
+        // 待审方：处方单已缴费（orders.status='paid'）且存在未发药的主药明细
+        // 发药完成：处方单已发药（orders.status='dispensed'）
         $statusWhere = ($status === 'dispensed')
-            ? "oi.item_type='prescription' AND oi.sub_of=0 AND oi.is_nurse=0 AND oi.status='dispensed'"
-            : "oi.item_type='prescription' AND oi.sub_of=0 AND oi.is_nurse=0 AND oi.status='paid'";
-        $rows = OrderRepository::q("SELECT oi.*, o.order_no FROM order_items oi
-            LEFT JOIN orders o ON o.id=oi.order_id
-            WHERE $statusWhere ORDER BY oi.id DESC", array());
-        $html = '<div class="fs-13 text-muted mb-8">共 ' . count($rows) . ' 条记录</div>';
+            ? "o.order_type='prescription' AND o.status='dispensed'"
+            : "o.order_type='prescription' AND o.status='paid'";
+        $rows = OrderRepository::q("SELECT o.* FROM orders o
+            WHERE $statusWhere
+            AND EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id=o.id
+                AND oi.item_type='prescription' AND oi.is_nurse=0 AND oi.sub_of=0
+                AND oi.status" . ($status === 'dispensed' ? "='dispensed'" : "='paid'") . ")
+            ORDER BY o.id DESC", array());
+        $html = '<div class="fs-13 text-muted mb-8">共 ' . count($rows) . ' 张' . ($status === 'dispensed' ? '已发药' : '待审方') . '处方</div>';
         if (!$rows) {
-            $html .= '<div class="empty"><div class="empty-ico">💊</div>暂无待处理处方</div>';
+            $html .= '<div class="empty"><div class="empty-ico">💊</div>' . ($status === 'dispensed' ? '暂无已发药处方' : '暂无待审方处方') . '</div>';
         } else {
             $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
-                '<th>患者</th><th>药品</th><th>剂量</th><th>用量</th>' .
+                '<th>患者</th><th>处方号</th><th>药品明细</th>' .
                 ($status === 'dispensed' ? '<th>发药药师</th><th>发药时间</th>' : '') . '<th>操作</th></tr></thead><tbody>';
-            foreach ($rows as $r) {
-                $p = PatientRepository::byPatientNo($r['patient_no']);
-                $subs = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? AND group_no=? AND is_parent=0 ORDER BY id', array((int)$r['order_id'], (int)$r['group_no']));
+            foreach ($rows as $o) {
+                $p = PatientRepository::byPatientNo($o['patient_no']);
+                // 整张处方全部主药明细（含各自子药，按处方展示）
+                $rxItems = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? AND sub_of=0 ORDER BY id', array((int)$o['id']));
+                $names = array();
+                foreach ($rxItems as $ri) {
+                    $names[] = $ri['item_name'];
+                    $subs = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? AND group_no=? AND is_parent=0 ORDER BY id', array((int)$o['id'], (int)$ri['group_no']));
+                    foreach ($subs as $s) $names[] = '└' . $s['item_name'];
+                }
                 $html .= '<tr>' .
                     '<td class="fw-600">' . e($p ? $p['name'] : '—') . '</td>' .
-                    '<td>' . e($r['item_name']) . ($subs ? '（含' . implode('', array_map(function ($s, $i) use ($subs) {
-                        return ($i > 0 ? '、' : '') . e($s['item_name']);
-                    }, $subs, array_keys($subs))) . '）' : '') . '</td>' .
-                    '<td class="fs-12">' . e($r['single_dose']) . ' ' . e($r['frequency']) . ' ' . e($r['route']) . '</td>' .
-                    '<td>' . (int)$r['quantity'] . e($r['unit']) . '</td>';
+                    '<td>' . e($o['order_no']) . '</td>' .
+                    '<td class="fs-12">' . e(implode('<br>', $names)) . '</td>';
                 if ($status === 'dispensed') {
-                    $html .= '<td>' . e($r['executed_by']) . '</td><td class="fs-12">' . e(substr($r['executed_at'], 5, 11)) . '</td>';
+                    $html .= '<td>' . e($o['done_by'] ? $o['done_by'] : '') . '</td><td class="fs-12">' . e(substr((string)$o['dispensed_at'], 5, 11)) . '</td>';
                 }
                 $html .= '<td>' .
                     ($status === 'paid'
-                        ? '<button class="btn btn-primary btn-sm" onclick="dispenseDrug(\'' . oid($r['id']) . '\')">发药</button>'
-                        : '<span class="badge badge-success">已发药</span>') .
+                        ? '<button class="btn btn-primary btn-sm" onclick="reviewRx(\'' . oid($o['id']) . '\')">审方</button>'
+                        : '<button class="btn btn-outline btn-sm" onclick="reprintRxSlip(\'' . oid($o['id']) . '\')">🖨️ 处方提示</button>') .
                     '</td></tr>';
             }
             $html .= '</tbody></table></div>';
@@ -72,31 +82,100 @@ switch ($action) {
         json_ok(array('html' => $html));
         break;
 
-    /* ==================== 发药操作 ==================== */
-    case 'dispense':
-        $itemId = did(post('item_id'));
-        $it = OrderRepository::itemById($itemId);
-        if (!$it || $it['item_type'] !== 'prescription' || $it['status'] !== 'paid') {
-            json_fail('处方不存在或状态异常');
+    /* ==================== 处方详情（审方模态框数据） ==================== */
+    case 'rx_detail':
+        $orderId = did(get('order_id'));
+        $order = OrderRepository::one('SELECT * FROM orders WHERE id=?', array($orderId));
+        if (!$order || $order['order_type'] !== 'prescription') json_fail('处方不存在');
+        $patient = PatientRepository::byPatientNo($order['patient_no']);
+        $mainItems = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? AND sub_of=0 ORDER BY id', array($orderId));
+        $mainList = array();
+        foreach ($mainItems as $m) {
+            $m['subs'] = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? AND group_no=? AND is_parent=0 ORDER BY id', array($orderId, (int)$m['group_no']));
+            $mainList[] = $m;
         }
+        json_ok(array(
+            'order' => array(
+                'id' => oid($order['id']), 'order_no' => $order['order_no'],
+                'doctor_name' => $order['doctor_name'], 'dept_name' => $order['dept_name'],
+                'created_at' => $order['created_at'], 'total_amount' => (float)$order['total_amount'],
+                'status' => $order['status'],
+            ),
+            'patient' => array('name' => $patient ? $patient['name'] : '', 'patient_no' => $order['patient_no'], 'flow_no' => $order['flow_no']),
+            'items' => $mainList,
+        ));
+        break;
+
+    /* ==================== 审方（整张处方一次通过/拒绝） ==================== */
+    case 'audit':
+        $orderId = did(post('order_id'));
+        $verdict = post('verdict', '');   // pass 通过发药 / reject 拒绝
+        $reason = trim((string)post('reason', ''));
+        $order = OrderRepository::one('SELECT * FROM orders WHERE id=?', array($orderId));
+        if (!$order || $order['order_type'] !== 'prescription') json_fail('处方不存在');
+        if ($order['status'] !== 'paid') json_fail('该处方当前状态不可审方（已处理/已取消）');
+        if (!in_array($verdict, array('pass', 'reject'), true)) json_fail('审方指令无效');
+        if ($verdict === 'reject' && $reason === '') json_fail('请填写拒绝理由');
+        // 全部主药明细（子药随主药一并处理）
+        $items = OrderRepository::q("SELECT * FROM order_items WHERE order_id=? AND item_type='prescription' AND sub_of=0 AND status='paid'", array($orderId));
+        if (!$items) json_fail('该处方无待发药明细');
         $pdo = DatabaseManager::getMain();
         $pdo->beginTransaction();
         try {
-            OrderRepository::updateItem($itemId, array('status' => 'dispensed', 'executed_by' => $u['name'], 'executed_at' => now_str()));
-            $pdo->commit();
-            if ($it['doctor_id'] > 0) {
-                $pName = PatientRepository::byPatientNo($it['patient_no']);
-                send_msg('doctor', $it['doctor_id'],
-                    '药品已发：' . $it['item_name'],
-                    '药剂师 ' . $u['name'] . ' 已发放患者「' . ($pName ? $pName['name'] : '') . '」（' . $it['patient_no'] . '）的药品「' . $it['item_name'] . '」×' . (int)$it['quantity'],
-                    '', '',
-                    array('msg_type' => 'patient', 'patient_name' => $pName ? $pName['name'] : '', 'visit_id' => (int)$it['visit_id']));
+            foreach ($items as $it) {
+                if ($verdict === 'pass') {
+                    OrderRepository::exec("UPDATE order_items SET status='dispensed', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), (int)$it['id']));
+                } else {
+                    // 拒绝：恢复库存（开方时已减库存）+ 明细置 rejected
+                    if ($it['item_id'] > 0) {
+                        OrderRepository::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array((int)$it['quantity'], $it['item_id']));
+                        OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
+                            $it['item_id'], (int)$it['quantity'], 'order_reject', $order['order_no'], $u['name'], now_str(),
+                        ));
+                    }
+                    OrderRepository::exec("UPDATE order_items SET status='rejected', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), (int)$it['id']));
+                }
             }
-            json_ok(array(), '发药成功');
+            $orderStatus = $verdict === 'pass' ? 'dispensed' : 'rejected';
+            if ($verdict === 'pass') {
+                OrderRepository::exec('UPDATE orders SET status=?, done_by=?, dispensed_at=? WHERE id=?', array($orderStatus, $u['name'], now_str(), $orderId));
+            } else {
+                OrderRepository::exec('UPDATE orders SET status=?, done_by=? WHERE id=?', array($orderStatus, $u['name'], $orderId));
+            }
+            $pdo->commit();
         } catch (Exception $ex) {
             if ($pdo->inTransaction()) $pdo->rollBack();
-            json_fail('发药失败：' . $ex->getMessage());
+            json_fail('审方失败：' . $ex->getMessage());
         }
+        $pName = PatientRepository::byPatientNo($order['patient_no']);
+        $pNameStr = $pName ? $pName['name'] : '';
+        if ($verdict === 'pass') {
+            $msgTitle = '处方已发药';
+            $msgContent = '药剂师 ' . $u['name'] . ' 已完成患者「' . $pNameStr . '」（' . $order['patient_no'] . '）处方 ' . $order['order_no'] . ' 的发药，可引导患者取药。';
+        } else {
+            $msgTitle = '处方被驳回';
+            $msgContent = '药剂师 ' . $u['name'] . ' 驳回了患者「' . $pNameStr . '」（' . $order['patient_no'] . '）处方 ' . $order['order_no'] . '：' . $reason;
+        }
+        if ((int)$order['doctor_id'] > 0) {
+            send_msg('doctor', (int)$order['doctor_id'], $msgTitle, $msgContent, '', '',
+                array('msg_type' => 'patient', 'patient_name' => $pNameStr, 'visit_id' => (int)$order['visit_id']));
+        }
+        json_ok(array('order_id' => oid($orderId), 'verdict' => $verdict),
+            $verdict === 'pass' ? '审方通过，已发药并通知开单医生' : '已驳回并通知开单医生，库存已恢复');
+        break;
+
+    /* ==================== 处方提示（发药完成补打/凭条） ==================== */
+    case 'rx_slip':
+        $orderId = did(get('order_id'));
+        $order = OrderRepository::one('SELECT * FROM orders WHERE id=?', array($orderId));
+        if (!$order || $order['order_type'] !== 'prescription') json_fail('处方不存在');
+        if ($order['status'] !== 'dispensed') json_fail('该处方尚未发药，无法打印处方提示');
+        $items = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? AND sub_of=0 ORDER BY id', array($orderId));
+        foreach ($items as $i => $mi) {
+            $items[$i]['_subs'] = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? AND group_no=? AND is_parent=0 ORDER BY id', array($orderId, (int)$mi['group_no']));
+        }
+        $patient = PatientRepository::byPatientNo($order['patient_no']);
+        json_ok(array('html' => pt_rx_slip($order, $items, $patient)));
         break;
 
     /* ==================== 库存列表 ==================== */

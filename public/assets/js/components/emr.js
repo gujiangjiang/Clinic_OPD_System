@@ -1718,6 +1718,7 @@ diagnoses: [],
     function navDotCls(st) {
         if (st === 'open') return 'gray';
         if (st === 'done' || st === 'dispensed') return 'green';
+        if (st === 'rejected') return 'gray';
         return 'red';   // paid / registered / in_progress / dispensing：已缴费未完成
     }
     /** 指示灯悬浮提示（title） */
@@ -1725,6 +1726,7 @@ diagnoses: [],
         if (st === 'open') return '未缴费';
         if (st === 'done') return '已完成（报告已出）';
         if (st === 'dispensed') return '已完成（已发药）';
+        if (st === 'rejected') return '已驳回（请重开处方）';
         return '已缴费（报告 / 执行中）';
     }
     function navDot(st) {
@@ -2391,14 +2393,15 @@ diagnoses: [],
     function flowColumnHtml(steps, curIdx, title) {
         var flow = steps.map(function (st, i) {
             var done = (curIdx >= 0 && i <= curIdx) || st.done;
-            var cls = done ? 'var(--success)' : 'var(--border)';
+            var rej = st.rejected;
+            var cls = rej ? 'var(--danger)' : (done ? 'var(--success)' : 'var(--border)');
             var info = (st.operator ? escHtml(st.operator) : '') +
                 (st.time ? (st.operator ? ' · ' : '') + escHtml(String(st.time).substring(5, 16)) : '');
             return '<div class="flex gap-8" style="align-items:center">' +
                 '<div style="width:26px;height:26px;border-radius:50%;background:' + cls + ';' +
                 'display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;flex-shrink:0">' +
-                (done ? '✓' : (i + 1)) + '</div>' +
-                '<div class="fs-13" style="color:' + (done ? 'var(--text)' : 'var(--text-muted)') + '">' +
+                (rej ? '✕' : (done ? '✓' : (i + 1))) + '</div>' +
+                '<div class="fs-13" style="color:' + (rej ? 'var(--danger)' : (done ? 'var(--text)' : 'var(--text-muted)')) + '">' +
                 '<div class="fw-600">' + escHtml(st.label) + '</div>' +
                 (info ? '<div class="fs-12 text-muted">' + info + '</div>' : '') + '</div></div>';
         }).join('<div style="width:2px;height:14px;background:var(--border);margin-left:12px"></div>');
@@ -2415,9 +2418,10 @@ diagnoses: [],
         if (!o) return;
         var rxStatusMap = {
             open: '<span class="badge badge-warning">待缴费</span>',
-            paid: '<span class="badge badge-primary">已缴费 · 待发药</span>',
+            paid: '<span class="badge badge-primary">已缴费 · 待审方</span>',
             dispensing: '<span class="badge badge-warning">发药中</span>',
             dispensed: '<span class="badge badge-success">已发药</span>',
+            rejected: '<span class="badge badge-danger">已驳回</span>',
             refunded: '<span class="badge badge-gray">已退费</span>',
             cancelled: '<span class="badge badge-gray">已取消</span>',
         };

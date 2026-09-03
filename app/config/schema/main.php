@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 11,
+    'version' => 12,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -649,6 +649,11 @@ return array(
         // 唯一约束 + API 层撞号重试，杜绝静默重复报告号）
         11 => array(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_reports_report_no ON reports(report_no)",
+        ),
+        // v12：处方审方通过时间（orders.dispensed_at）——整单发药记录独立时间，
+        // 不复用 refunded_at（退费时间语义）
+        12 => array(
+            "ALTER TABLE orders ADD COLUMN dispensed_at TEXT",
         ),
     ),
     'seed' => array(

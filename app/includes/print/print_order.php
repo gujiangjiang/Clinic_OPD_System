@@ -1,6 +1,44 @@
 <?php
 /** print/print_order.php — 统一打印模板：申请单/处方单/处置单 */
 
+/**
+ * 处方提示凭条（药房审方通过后交给患者的取药小票）：
+ * 凭条区域每味药一行药物名称，第二行显示 剂量/用法/用量；
+ * 一张处方含几味药即显示几行（主药 + 其子药树形缩进）。
+ */
+function pt_rx_slip($order, $mainItems, $patient) {
+    $html = '<div class="print-ticket">';
+    $html .= pt_ticket_header('处方提示');
+    $html .= '<div class="ticket-divider"></div>';
+    $html .= pt_ticket_row('患者姓名', $patient ? $patient['name'] : '');
+    $html .= pt_ticket_row('患者ID', isset($order['patient_no']) ? $order['patient_no'] : '');
+    $html .= pt_ticket_row('处方号', isset($order['order_no']) ? $order['order_no'] : '');
+    $html .= pt_ticket_row('开单科室', isset($order['dept_name']) && $order['dept_name'] !== '' ? $order['dept_name'] : '');
+    $html .= '<div class="ticket-divider"></div>';
+    $html .= '<div class="ticket-section-title">取药清单</div>';
+    foreach ($mainItems as $it) {
+        $html .= '<div class="ticket-row ticket-item"><span class="fw-600">' . e($it['item_name']) .
+            ((int)$it['quantity'] > 1 ? ' ×' . (int)$it['quantity'] : '') . '</span></div>';
+        $useTxt = implode(' ', array_filter(array(
+            $it['single_dose'], $it['frequency'], $it['route'],
+        )));
+        $html .= '<div class="ticket-row"><span class="ticket-val" style="font-size:12px">' . e($useTxt) . '</span></div>';
+        // 子药树形缩进（组医嘱）
+        $subs = isset($it['_subs']) ? $it['_subs'] : array();
+        foreach ($subs as $s) {
+            $html .= '<div class="ticket-row ticket-item"><span>　└ ' . e($s['item_name']) .
+                ((int)$s['quantity'] > 1 ? ' ×' . (int)$s['quantity'] : '') . '</span></div>';
+            $subTxt = implode(' ', array_filter(array($s['single_dose'], $s['frequency'], $s['route'])));
+            $html .= '<div class="ticket-row"><span class="ticket-val" style="font-size:12px">　　' . e($subTxt) . '</span></div>';
+        }
+    }
+    $html .= '<div class="ticket-divider"></div>';
+    $html .= '<div class="ticket-note">请按医嘱服药，药品请在药房窗口领取。</div>';
+    $html .= '<div class="ticket-print-time">打印时间: ' . now_str() . '</div>';
+    $html .= '</div>';
+    return $html;
+}
+
 function pt_order($order, $items, $title, $opts = array()) {
     // $opts：display_no 单号（输液笺用派生单号）；note_type 'pharm'药房取药 / 'nurse'护士站输液注射
     $displayNo = isset($opts['display_no']) && $opts['display_no'] !== '' ? $opts['display_no'] : (isset($order['order_no']) ? $order['order_no'] : '');

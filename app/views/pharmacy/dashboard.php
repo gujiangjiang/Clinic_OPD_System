@@ -46,15 +46,85 @@ function loadInventory() {
     });
 }
 
-function dispenseDrug(itemId) {
-    Clinic.modal.confirm('确认该药品已发放给患者？', function () {
-        Clinic.ajax('/api/pharmacy', { action: 'dispense', item_id: itemId }, {
+/* 审方：拉取整张处方明细 → 模态框展示 + 通过/拒绝 */
+function reviewRx(orderId) {
+    Clinic.get('/api/pharmacy?action=rx_detail&order_id=' + orderId, null, {
+        onSuccess: function (json) {
+            var d = json.data || {};
+            var o = d.order || {}, p = d.patient || {};
+            var items = d.items || [];
+            var rows = '';
+            items.forEach(function (m) {
+                rows += '<tr>' +
+                    '<td class="fw-600">' + Clinic.escHtml(m.item_name) + '</td>' +
+                    '<td class="fs-13">' + Clinic.escHtml(m.single_dose || '—') + '</td>' +
+                    '<td class="fs-13">' + Clinic.escHtml(m.frequency || '—') + '</td>' +
+                    '<td class="fs-13">' + Clinic.escHtml(m.route || '—') + '</td>' +
+                    '<td class="fs-13">' + (m.quantity || 0) + '</td>' +
+                    '<td class="fs-13 text-muted">¥' + (parseFloat(m.price || 0) * (m.quantity || 0)).toFixed(2) + '</td></tr>';
+                (m.subs || []).forEach(function (s) {
+                    rows += '<tr>' +
+                        '<td class="fs-13">　└ ' + Clinic.escHtml(s.item_name) + '</td>' +
+                        '<td class="fs-13">' + Clinic.escHtml(s.single_dose || '—') + '</td>' +
+                        '<td class="fs-13">' + Clinic.escHtml(s.frequency || '—') + '</td>' +
+                        '<td class="fs-13">' + Clinic.escHtml(s.route || '—') + '</td>' +
+                        '<td class="fs-13">' + (s.quantity || 0) + '</td>' +
+                        '<td class="fs-13 text-muted">¥' + (parseFloat(s.price || 0) * (s.quantity || 0)).toFixed(2) + '</td></tr>';
+                });
+            });
+            var html =
+                '<div class="fs-13 fw-700 mb-4">患者：' + Clinic.escHtml(p.name) + '（' + Clinic.escHtml(p.patient_no) + '）</div>' +
+                '<div class="fs-12 text-muted mb-8">处方号：' + Clinic.escHtml(o.order_no) +
+                ' ｜ 开单医生：' + Clinic.escHtml(o.doctor_name || '') +
+                (o.dept_name ? ' ｜ ' + Clinic.escHtml(o.dept_name) : '') + ' ｜ ' + Clinic.escHtml(o.created_at || '') + '</div>' +
+                '<div class="table-wrap"><table class="table"><thead><tr>' +
+                '<th>药品</th><th>剂量</th><th>频次</th><th>途径</th><th>数量</th><th>小计</th></tr></thead><tbody>' +
+                rows + '</tbody></table></div>' +
+                '<div class="flex-between mt-8"><span></span><span class="fw-600">合计：¥' + parseFloat(o.total_amount || 0).toFixed(2) + '</span></div>' +
+                '<div class="fs-12 text-muted mt-4">审方通过即整单发药并打印处方提示；拒绝需填写理由，将通知开单医生。</div>' +
+                '<div id="rejectBox" style="display:none" class="mt-8"><label class="form-label">拒绝理由 <span class="req">*</span></label>' +
+                '<textarea class="textarea" id="rejectReason" rows="2" placeholder="如：剂量超限 / 配伍禁忌 / 库存不足"></textarea></div>';
+            Clinic.modal.open(html, {
+                title: '💊 处方审方',
+                size: 'modal-lg',
+                buttons: [
+                    { text: '关闭', cls: 'btn-outline' },
+                    { text: '❌ 拒绝', cls: 'btn-danger', autoClose: false, onClick: doReject },
+                    { text: '✅ 通过发药', cls: 'btn-primary', autoClose: false, onClick: doPass },
+                ],
+            });
+            var box = document.getElementById('rejectBox');
+            if (box) box.style.display = '';
+        },
+    });
+
+    function doPass() {
+        Clinic.ajax('/api/pharmacy', { action: 'audit', order_id: orderId, verdict: 'pass' }, {
             onSuccess: function (json) {
                 Clinic.toast.success(json.msg);
+                Clinic.modal.close();
+                // 发药完成 → 弹出处方提示凭条（可现场交给患者）
+                Clinic.print.load('/api/pharmacy?action=rx_slip&order_id=' + orderId, null, 'ticket');
                 loadQueue('paid');
             },
         });
-    });
+    }
+    function doReject() {
+        var reason = (document.getElementById('rejectReason') || {}).value || '';
+        if (!reason.trim()) { Clinic.toast.warning('请填写拒绝理由'); return; }
+        Clinic.ajax('/api/pharmacy', { action: 'audit', order_id: orderId, verdict: 'reject', reason: reason.trim() }, {
+            onSuccess: function (json) {
+                Clinic.toast.success(json.msg);
+                Clinic.modal.close();
+                loadQueue('paid');
+            },
+        });
+    }
+}
+
+/* 发药完成：补打处方提示凭条 */
+function reprintRxSlip(orderId) {
+    Clinic.print.load('/api/pharmacy?action=rx_slip&order_id=' + orderId, null, 'ticket');
 }
 
 function stockModal(drugId, drugName) {
