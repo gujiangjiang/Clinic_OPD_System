@@ -78,16 +78,24 @@ function cashier_part_read($action) {
     if ($action === 'reg_list') {
         $date = get('date', today_str());
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) $date = today_str();
-        $rows = CashierRepository::visitListByDate($date);
+        $filters = array(
+            'dept_type' => get('dept_type', ''),
+            'status'    => get('status', ''),
+            'kw'        => trim((string)get('kw', '')),
+        );
+        $rows = CashierRepository::visitListByDate($date, $filters);
         $html = '<div class="fs-13 text-muted mb-8">共 ' . count($rows) . ' 条挂号记录（含退费/取消）</div>';
         if (!$rows) {
-            $html .= '<div class="empty"><div class="empty-ico">🗓️</div>当日暂无挂号记录</div>';
+            $html .= '<div class="empty"><div class="empty-ico">🗓️</div>当日暂无符合筛选条件的挂号记录</div>';
         } else {
             $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
                 '<th>就诊序号</th><th>患者</th><th>患者ID</th><th>流水号</th><th>首次挂号科室</th><th>当前科室</th>' .
                 '<th>费用</th><th>状态</th><th>挂号时间</th><th>操作</th></tr></thead><tbody>';
             foreach ($rows as $r) {
                 $statusBadge = '<span class="badge ' . ($r['status'] === 'paid' ? 'badge-primary' : ($r['status'] === 'finished' ? 'badge-success' : ($r['status'] === 'refunded' ? 'badge-gray' : ($r['status'] === 'cancelled' ? 'badge-gray' : 'badge-warning')))) . '">' . e(visit_status_name($r['status'])) . '</span>';
+                // 操作列：退费患者显示退费理由（未填写则隐藏）
+                $refundNote = ($r['status'] === 'refunded' && !empty($r['cancel_reason']))
+                    ? '<div class="fs-12 text-danger" title="退费理由">退费：' . e($r['cancel_reason']) . '</div>' : '';
                 $html .= '<tr>' .
                     '<td class="fw-700">' . e($r['first_dept_name']) . ' ' . str_pad((string)$r['visit_seq'], 3, '0', STR_PAD_LEFT) . '号</td>' .
                     '<td><a href="javascript:void(0)" onclick="patientEdit(\'' . e($r['patient_no']) . '\')">' . e($r['pname']) . '</a></td>' .
@@ -96,7 +104,7 @@ function cashier_part_read($action) {
                     '<td>' . e($r['first_dept_name']) . '</td>' .
                     '<td>' . e($r['current_dept_name']) . '</td>' .
                     '<td>¥' . money($r['fee']) . '</td>' .
-                    '<td>' . $statusBadge . '</td>' .
+                    '<td>' . $statusBadge . $refundNote . '</td>' .
                     '<td class="fs-12">' . e(substr($r['registered_at'], 5, 11)) . '</td>' .
                     '<td><div class="flex gap-4">' .
                     // 凭条是缴费凭证：仅已实际缴费的状态提供补打（待缴费/取消/退费不显示）

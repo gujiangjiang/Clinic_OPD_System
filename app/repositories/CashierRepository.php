@@ -99,14 +99,31 @@ class CashierRepository extends BaseRepository {
         return PatientRepository::visitsOf($patientNo);
     }
 
-    /** 当日挂号列表（含患者姓名/性别/年龄，按就诊序号） */
-    public static function visitListByDate($date) {
-        return self::q(
-            'SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
+    /** 当日挂号列表（含患者姓名/性别/年龄，按就诊序号；支持科室类型/状态/关键字过滤） */
+    public static function visitListByDate($date, $filters = array()) {
+        $sql = 'SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
              FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-             WHERE date(r.registered_at)=? ORDER BY r.visit_seq',
-            array($date)
-        );
+             WHERE date(r.registered_at)=?';
+        $params = array($date);
+        // 科室类型：clinic 门诊 / emergency 急诊（按首次挂号科室）
+        if (!empty($filters['dept_type']) && in_array($filters['dept_type'], array('clinic', 'emergency'), true)) {
+            $sql .= ' AND EXISTS (SELECT 1 FROM departments d WHERE d.id=r.first_dept_id AND d.type=?)';
+            $params[] = $filters['dept_type'];
+        }
+        // 状态（pending 待缴费/paid 待就诊/visiting 就诊中/finished 已完成/refunded 已退费/cancelled 已取消）
+        if (!empty($filters['status'])) {
+            $sql .= ' AND r.status=?';
+            $params[] = $filters['status'];
+        }
+        // 关键字：姓名/患者ID/流水号 模糊匹配
+        if (!empty($filters['kw'])) {
+            $kw = '%' . $filters['kw'] . '%';
+            $sql .= ' AND (p.name LIKE ? OR r.patient_no LIKE ? OR r.flow_no LIKE ?)';
+            $params[] = $kw; $params[] = $kw; $params[] = $kw;
+        }
+        // 默认按流水号倒序（最新挂号在最上）；流水号含年月日+当日递增序号，天然单调
+        $sql .= ' ORDER BY r.flow_no DESC';
+        return self::q($sql, $params);
     }
 
     /** 更新挂号状态 */
