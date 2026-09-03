@@ -126,3 +126,14 @@ function order_agg_status($orderType, $items) {
     if (in_array('done', $sts, true)) return 'done';
     return 'open';
 }
+
+/**
+ * 处方是否已由药房审方发药（护士站执行药品医嘱的前置条件）。
+ * 判定依据：orders.status='dispensed' 且 dispensed_at 非空。
+ * @param int $orderId 处方单 id
+ * @return bool
+ */
+function rx_dispensed($orderId) {
+    $o = OrderRepository::one('SELECT status, dispensed_at FROM orders WHERE id=?', array((int)$orderId));
+    return $o && $o['status'] === 'dispensed' && !empty($o['dispensed_at']);
+}

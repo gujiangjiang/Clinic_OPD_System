@@ -60,7 +60,9 @@ switch ($action) {
                 // 整张处方全部主药明细（含各自子药，按处方展示）；
                 // 先逐项转义再拼 <br>（整体 e() 会把 <br> 也转义成字面量）
                 $names = array();
+                $allNurse = true;   // 处方是否全部为护士站执行（影响发药完成列表操作列）
                 foreach ($rxItems = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? AND sub_of=0 ORDER BY id', array((int)$o['id'])) as $ri) {
+                    if ((int)$ri['is_nurse'] === 0) $allNurse = false;
                     $names[] = e($ri['item_name']) . ($ri['is_nurse'] ? ' <span class="badge badge-warning" style="font-size:11px">护士站执行</span>' : '');
                     $subs = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? AND group_no=? AND is_parent=0 ORDER BY id', array((int)$o['id'], (int)$ri['group_no']));
                     foreach ($subs as $s) $names[] = '　└ ' . e($s['item_name']);
@@ -75,7 +77,10 @@ switch ($action) {
                 $html .= '<td>' .
                     ($status === 'paid'
                         ? '<button class="btn btn-primary btn-sm" onclick="reviewRx(\'' . oid($o['id']) . '\')">审方</button>'
-                        : '<button class="btn btn-outline btn-sm" onclick="reprintRxSlip(\'' . oid($o['id']) . '\')">🖨️ 处方提示</button>') .
+                        // 全部为护士站执行：无药房取药凭条，操作列显示「护士站执行」徽章（不可补打）
+                        : ($allNurse
+                            ? '<span class="badge badge-warning">护士站执行</span>'
+                            : '<button class="btn btn-outline btn-sm" onclick="reprintRxSlip(\'' . oid($o['id']) . '\')">🖨️ 处方提示</button>')) .
                     '</td></tr>';
             }
             $html .= '</tbody></table></div>';

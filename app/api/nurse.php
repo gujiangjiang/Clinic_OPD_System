@@ -161,6 +161,8 @@ switch ($action) {
             foreach ($rows as $r) {
                 $p = PatientRepository::byPatientNo($r['patient_no']);
                 $v = CashierRepository::one('SELECT current_dept_name, visit_seq FROM registrations WHERE id=?', array($r['visit_id']));
+                // 药房是否已审方发药：护士站执行药品医嘱的前提是先到药房领药
+                $rxReady = rx_dispensed((int)$r['order_id']);
                 $html .= '<tr>' .
                     '<td class="fw-600">' . e($p ? $p['name'] : '') . ' <span class="fs-12 text-muted fw-400">' . e($p ? $p['gender'] : '') . '/' . ($p ? age_format($p['birth_date']) : '—') . '</span><br>' .
                     '<span class="fs-12 text-muted">' . e($v ? $v['current_dept_name'] : '') . ' 第' . str_pad((string)($v ? $v['visit_seq'] : 0), 3, '0', STR_PAD_LEFT) . '号</span></td>' .
@@ -168,11 +170,17 @@ switch ($action) {
                     '<td>' . e($r['flow_no']) . '</td>' .
                     '<td>' . e($r['odoc']) . '</td>' .
                     '<td class="fs-12">' . e(substr($r['created_at'], 5, 11)) . '</td>' .
-                    '<td>' . ($r['status'] === 'paid' ? '<span class="badge badge-warning">待执行</span>' : '<span class="badge badge-primary">执行中</span>') . '</td>' .
+                    '<td>' .
+                    ($r['status'] === 'paid'
+                        ? ($rxReady ? '<span class="badge badge-warning">待执行</span>' : '<span class="badge badge-gray">待药房发药</span>')
+                        : '<span class="badge badge-primary">执行中</span>') .
+                    '</td>' .
                     '<td><div class="flex gap-4">' .
                     '<button class="btn btn-outline btn-sm" onclick="medDetail(\'' . e(oid($r['order_id'])) . '\')">详情</button>' .
                     ($r['status'] === 'paid'
-                        ? '<button class="btn btn-primary btn-sm" onclick="medStart(\'' . e(oid($r['id'])) . '\')">等待执行</button>'
+                        ? ($rxReady
+                            ? '<button class="btn btn-primary btn-sm" onclick="medStart(\'' . e(oid($r['id'])) . '\')">等待执行</button>'
+                            : '<span class="fs-12 text-muted">药房发药后执行</span>')
                         : '<button class="btn btn-success btn-sm" onclick="medDone(\'' . e(oid($r['id'])) . '\')">执行完成</button>') .
                     '</div></td></tr>';
             }
@@ -215,6 +223,11 @@ switch ($action) {
         // 护士科室归属校验（宽松：未绑定科室=全院放行；已绑科室须匹配就诊科室）
         $itVisit = get_visit_row((int)$it['visit_id']);
         if (!$itVisit || !nurse_visit_allowed($itVisit['visit'], $u)) json_fail('无权限执行该就诊的医嘱');
+        // 发药前置校验：护士执行药品医嘱的前提是药房已审方发药（患者已领药）——
+        // 药房审方通过后护士站药品自动置 dispensing，此处仅允许药房已发药订单继续
+        if (!rx_dispensed($it['order_id'])) {
+            json_fail('该药品尚未发药，请先到药房领取药品后再执行（药房审方通过后自动开放执行）');
+        }
         OrderRepository::updateItem($itemId, array('status' => 'dispensing'));
         json_ok(array(), '已标记为等待执行，执行完成后请点击【执行完成】');
         break;
@@ -229,6 +242,10 @@ switch ($action) {
         // 护士科室归属校验（宽松：未绑定科室=全院放行；已绑科室须匹配就诊科室）
         $itVisit = get_visit_row((int)$it['visit_id']);
         if (!$itVisit || !nurse_visit_allowed($itVisit['visit'], $u)) json_fail('无权限执行该就诊的医嘱');
+        // 发药前置校验：仅药房已审方发药的处方可执行完成（med_start 已校验，此处双重保障）
+        if (!rx_dispensed($it['order_id'])) {
+            json_fail('该药品尚未发药，请先到药房领取药品后再执行');
+        }
         OrderRepository::updateItem($itemId, array('status' => 'dispensed', 'executed_by' => $u['name'], 'executed_at' => now_str()));
         if ($it['doctor_id'] > 0) {
             $pName = PatientRepository::byPatientNo($it['patient_no']);
