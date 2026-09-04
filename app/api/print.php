@@ -41,10 +41,7 @@ switch ($action) {
         if (!$row) json_fail('就诊记录不存在');
         print_guard($row['visit'], array('cashier'));
         $visit = $row['visit'];
-        $visit['name'] = $row['patient']['name'];
-        $visit['gender'] = $row['patient']['gender'];
-        $visit['age'] = $row['patient']['age'];
-        $visit['birth_date'] = $row['patient']['birth_date'];
+        $visit = decorate_visit_patient($visit, $row['patient']);
         $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['first_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
         $visit['status_name'] = visit_status_name($visit['status']);
@@ -165,10 +162,7 @@ switch ($action) {
         if (!$row) json_fail('就诊记录不存在');
         print_guard($row['visit'], array('doctor'));
         $visit = $row['visit'];
-        $visit['name'] = $row['patient']['name'];
-        $visit['gender'] = $row['patient']['gender'];
-        $visit['age'] = $row['patient']['age'];
-        $visit['birth_date'] = $row['patient']['birth_date'];
+        $visit = decorate_visit_patient($visit, $row['patient']);
         $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
         $vitals = EmrRepository::one('SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
@@ -215,10 +209,7 @@ switch ($action) {
         // 同规则）——补打内容与开具时完全一致，不随后续续写漂移
         $record = cert_fallback_snapshot($record, $cert);
         $visit = $row['visit'];
-        $visit['name'] = $row['patient']['name'];
-        $visit['gender'] = $row['patient']['gender'];
-        $visit['age'] = $row['patient']['age'];
-        $visit['birth_date'] = $row['patient']['birth_date'];
+        $visit = decorate_visit_patient($visit, $row['patient']);
         $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
         json_ok(array('html' => pt_certificate($visit, $row['patient'], $record, $cert, $cert['doctor_name'])));
@@ -234,10 +225,7 @@ switch ($action) {
         print_guard($row['visit'], array('doctor'));
         $c['flow_no'] = $row['visit']['flow_no'];
         $visit = $row['visit'];
-        $visit['name'] = $row['patient']['name'];
-        $visit['gender'] = $row['patient']['gender'];
-        $visit['age'] = $row['patient']['age'];
-        $visit['birth_date'] = $row['patient']['birth_date'];
+        $visit = decorate_visit_patient($visit, $row['patient']);
         $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
         // 病情介绍：取该就诊首诊文书（结构化 emr 投影），无则回退旧 records 镜像
@@ -278,10 +266,7 @@ switch ($action) {
             json_fail('请先确认会诊后再打印该会诊申请单');
         }
         $visit = $row['visit'];
-        $visit['name'] = $row['patient']['name'];
-        $visit['gender'] = $row['patient']['gender'];
-        $visit['age'] = $row['patient']['age'];
-        $visit['birth_date'] = $row['patient']['birth_date'];
+        $visit = decorate_visit_patient($visit, $row['patient']);
         $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
         // 病历快照：取发起科室医生的首诊文书（主诉/现病史/体格检查/初步诊断）

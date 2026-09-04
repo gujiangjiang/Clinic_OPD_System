@@ -23,6 +23,23 @@ function get_visit_row($visitId) {
 }
 
 /**
+ * 将患者档案字段合并到就诊行（打印模板使用）。
+ * 说明：打印页此前 5 处各自手写 name/gender/age/birth_date 五行赋值，
+ * 统一收敛到本函数。返回合并后的 $visit（原数组就地追加字段）。
+ * @param array $visit 就诊行
+ * @param array|null $patient 患者行（可为 null）
+ * @return array
+ */
+function decorate_visit_patient($visit, $patient) {
+    if (is_array($patient)) {
+        foreach (array('name', 'gender', 'age', 'birth_date') as $k) {
+            if (isset($patient[$k])) $visit[$k] = $patient[$k];
+        }
+    }
+    return $visit;
+}
+
+/**
  * 诊断证明固化快照回退：证书存有开具时的病历摘要则原样使用——
  * 补打/展示内容与开具时完全一致，不随后续续写漂移。
  * @param array|null $record 病历数据（可为 null）
