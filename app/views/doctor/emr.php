@@ -233,5 +233,7 @@ $patient = $row['patient'];
 function refreshLeftNavSummary() {
     if (window.Clinic && Clinic.emr && Clinic.emr.loadOrders) Clinic.emr.loadOrders();
 }
-setInterval(refreshLeftNavSummary, 30000);
+var __navTimer = setInterval(refreshLeftNavSummary, 30000);
+/* 离开页面清理定时器，避免长驻工作台内反复进入累积多个轮询 */
+window.addEventListener('beforeunload', function () { clearInterval(__navTimer); });
 </script>

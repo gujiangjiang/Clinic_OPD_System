@@ -51,6 +51,11 @@ Clinic.queuePanel = (function () {
                 renderBtn();
                 if (cb) cb();
             },
+            onError: function () {
+                // 拉取失败提示（保留旧数据；面板未打开过时保持可重试，轮询会继续自动刷新）
+                Clinic.toast.warning('候诊列表加载失败，稍后自动重试');
+                if (cb) cb();
+            },
         });
     }
 

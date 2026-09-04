@@ -80,12 +80,12 @@ class BaseRepository {
 
     /** 按 ID 查询单行 */
     protected static function findById($table, $id) {
-        return self::one("SELECT * FROM \"$table\" WHERE id=?", array((int)$id));
+        return self::one('SELECT * FROM ' . self::qt($table) . ' WHERE id=?', array((int)$id));
     }
 
     /** 按条件查询多行 */
     protected static function findAll($table, $where = '', $params = array(), $order = '', $limit = '') {
-        $sql = "SELECT * FROM \"$table\"";
+        $sql = 'SELECT * FROM ' . self::qt($table);
         if ($where) $sql .= " WHERE $where";
         if ($order) $sql .= " ORDER BY $order";
         if ($limit) $sql .= " LIMIT $limit";
@@ -99,14 +99,14 @@ class BaseRepository {
 
     /** 计数 */
     protected static function count($table, $where = '', $params = array()) {
-        $sql = "SELECT COUNT(*) FROM \"$table\"";
+        $sql = 'SELECT COUNT(*) FROM ' . self::qt($table);
         if ($where) $sql .= " WHERE $where";
         return (int)self::val($sql, $params);
     }
 
     /** 删除 */
     protected static function delete($table, $id) {
-        return self::exec("DELETE FROM \"$table\" WHERE id=?", array((int)$id));
+        return self::exec('DELETE FROM ' . self::qt($table) . ' WHERE id=?', array((int)$id));
     }
 
     // ==================== 通用 CRUD 助手（消除子类重复） ====================
@@ -120,7 +120,7 @@ class BaseRepository {
         self::assertTable($table);
         $cols = implode(',', array_keys($data));
         $phs = in_placeholders($data);
-        return self::insert("INSERT INTO \"$table\"($cols) VALUES($phs)", array_values($data));
+        return self::insert('INSERT INTO ' . self::qt($table) . "($cols) VALUES($phs)", array_values($data));
     }
 
     /**
@@ -135,7 +135,7 @@ class BaseRepository {
         $params = array();
         foreach ($data as $k => $v) { $set[] = "$k=?"; $params[] = $v; }
         $params[] = (int)$id;
-        return self::exec("UPDATE \"$table\" SET " . implode(',', $set) . ' WHERE id=?', $params);
+        return self::exec('UPDATE ' . self::qt($table) . ' SET ' . implode(',', $set) . ' WHERE id=?', $params);
     }
 
     /**
@@ -153,7 +153,7 @@ class BaseRepository {
         $params = array();
         foreach ($data as $k => $v) { $set[] = "$k=?"; $params[] = $v; }
         $params = array_merge($params, $whereParams);
-        return self::exec("UPDATE \"$table\" SET " . implode(',', $set) . " WHERE $where", $params);
+        return self::exec('UPDATE ' . self::qt($table) . ' SET ' . implode(',', $set) . " WHERE $where", $params);
     }
 
     /** 表名白名单校验（防注入：仅允许字母数字下划线） */
@@ -161,5 +161,17 @@ class BaseRepository {
         if (!preg_match('/^[a-zA-Z0-9_]+$/', (string)$table)) {
             throw new Exception('非法表名: ' . $table);
         }
+    }
+
+    /**
+     * 表名标识符引用（反引号）。
+     * 说明：SQLite 与 MySQL 均接受反引号标识符（MySQL 默认 sql_mode 下
+     * 双引号会被当作字符串字面量，`FROM "drugs"` 会语法错误），统一用反引号
+     * 保证双驱动一键切换在通用 CRUD 链路上成立。
+     * @param string $table 表名（须先经 assertTable 白名单校验）
+     * @return string
+     */
+    private static function qt($table) {
+        return '`' . $table . '`';
     }
 }

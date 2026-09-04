@@ -76,8 +76,8 @@ class DatabaseManager {
 
     /**
      * 获取 ICD-10 独立字典库 PDO 连接（独立库）
-     * 说明：首次访问若文件不存在则先读写建库建表种子，再以
-     * 可读写，管理端可维护诊断
+     * 说明：首次访问若文件不存在则先读写建库建表种子；库以读写模式打开，
+     * 管理端可维护诊断（新增/编辑/删除均走 icd10 库）。
      */
     public static function getIcd10() {
         if (self::$icd10 !== null) {
@@ -292,6 +292,8 @@ class DatabaseManager {
     /**
      * 主库种子数据（幂等）：通过 settings 表标记已执行，避免重复写入
      * （首次初始化写入字典类默认数据，如药品设置、项目分类、模板等）
+     * 并发首启防护：事务内完成「检查 + 执行 + 写标记」，避免两个并发
+     * 首次请求都通过检查重复执行种子。
      */
     public static function seedAll() {
         if (self::$seeded) return;
@@ -299,22 +301,26 @@ class DatabaseManager {
         $pdo = self::getMain();
         $doneKey = 'seed_done_v1';
         try {
+            $pdo->beginTransaction();
             $n = (int)$pdo->query("SELECT COUNT(*) FROM settings WHERE skey='seed_done_v1'")->fetchColumn();
-            if ($n > 0) return;
-        } catch (Exception $ex) {
-            return; // 表不存在时静默（由建表兜底）
-        }
-        $def = self::mainSchema();
-        foreach ((array)$def['seed'] as $seedSql) {
-            try {
-                $pdo->exec(self::dialectSql($seedSql));
-            } catch (Exception $ex) {
-                if (DEBUG) error_log('[种子失败] main: ' . $ex->getMessage());
+            if ($n > 0) {
+                $pdo->rollBack();
+                return;
             }
-        }
-        try {
+            $def = self::mainSchema();
+            foreach ((array)$def['seed'] as $seedSql) {
+                try {
+                    $pdo->exec(self::dialectSql($seedSql));
+                } catch (Exception $ex) {
+                    if (DEBUG) error_log('[种子失败] main: ' . $ex->getMessage());
+                }
+            }
             self::setSettingRaw($pdo, $doneKey, '1');
-        } catch (Exception $ex) {}
+            $pdo->commit();
+        } catch (Exception $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            if (DEBUG) error_log('[种子异常] main: ' . $ex->getMessage());
+        }
     }
 
     /** ICD-10 种子数据（幂等 INSERT OR IGNORE；仅首次建库时执行） */
@@ -341,7 +347,6 @@ class DatabaseManager {
         $sql = preg_replace('/\bINSERT\s+OR\s+IGNORE\b/i', 'INSERT IGNORE', $sql);
         $sql = preg_replace('/\bINSERT\s+OR\s+REPLACE\b(?=\s)/i', 'REPLACE', $sql);
         $sql = str_replace("datetime('now','localtime')", 'NOW()', $sql);
-        $sql = preg_replace('/\bIFNULL\(/i', 'IFNULL(', $sql);
         return $sql;
     }
 
@@ -361,10 +366,13 @@ class DatabaseManager {
      * 统一参数解析：兼容新旧两种签名
      *   新式：DB::q($sql, $params)
      *   旧式：DB::q($key, $sql, $params) / DB::q($key, $sql)
+     * 判定顺序：第二个参数是 SQL（SELECT/INSERT/... 开头）才按旧签名，
+     * 避免新式调用中 SQL 恰为 legacy key 字面量（极罕见）时的误路由。
      * @return array [PDO, sql, params]
      */
     private static function resolve($a, $b, $c) {
-        if (is_string($a) && in_array($a, self::$legacyKeys, true) && is_string($b)) {
+        if (is_string($a) && in_array($a, self::$legacyKeys, true) && is_string($b)
+            && preg_match('/^\s*(SELECT|INSERT|UPDATE|DELETE|REPLACE|CREATE|ALTER|DROP|PRAGMA)\b/i', $b)) {
             // 旧签名：第一个参数是分散库 key
             $pdo = $a === 'icd10' ? self::getIcd10() : self::getMain();
             return array($pdo, $b, is_array($c) ? $c : array());

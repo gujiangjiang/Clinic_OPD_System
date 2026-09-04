@@ -308,15 +308,20 @@
     }
 
     /* ============ 轮询心跳 + 数据 ============ */
+    var pollFails = 0;   // 连续失败次数：≥3 次渲染断连提示（数据可能过期），恢复后自动消失
     function poll() {
         fetch('/api/screen?action=heartbeat&token=' + encodeURIComponent(TOKEN))
             .then(function (r) { return r.json(); })
             .then(function (j) {
+                pollFails = 0;   // 成功即清零，正常渲染
                 if (!j.ok) { renderErr(j.msg); return; }
                 render(j.data);
                 maybeAnnounce(j.data);
             })
-            .catch(function () {});
+            .catch(function () {
+                pollFails++;
+                if (pollFails >= 3) renderErr('⚠️ 连接中断，正在重试…');
+            });
     }
 
     function renderErr(msg) {

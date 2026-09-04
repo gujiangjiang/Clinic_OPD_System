@@ -137,6 +137,12 @@ Clinic.order = (function () {
                 catalogReady = true;
                 tryOpen();
             },
+            onError: function () {
+                // 目录加载失败：置空目录并放行（弹窗内显示空态），避免点击开单按钮毫无反应
+                CATALOG = [];
+                catalogReady = true;
+                tryOpen();
+            },
         });
         if (type === 'lab') {
             Clinic.get('/api/order?action=prev_items&visit_id=' + VISIT_ID + '&type=lab', null, {
