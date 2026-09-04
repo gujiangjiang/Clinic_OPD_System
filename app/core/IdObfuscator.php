@@ -32,13 +32,18 @@ class IdObfuscator {
 
     /**
      * 取当前混淆密钥；未设置时自动生成 32 位随机十六进制并持久化
-     * （保证系统开箱即用，管理员可在【系统设置】中随时重置）
+     * （保证系统开箱即用，管理员可在【系统设置】中随时重置）。
+     * 并发首访防竞态：生成后回读数据库取最终值（写覆盖窗口内两个并发
+     * 请求可能各自生成不同密钥——以库中持久化值为准，在途请求一并收敛），
+     * 避免窗口期内旧密文互相解不开。
      */
     public static function secret() {
         $t = setting(self::TOKEN_KEY, '');
         if ($t === '' || !preg_match('/^[0-9a-f]{32}$/', $t)) {
-            $t = bin2hex(random_bytes(16));
-            set_setting(self::TOKEN_KEY, $t);
+            set_setting(self::TOKEN_KEY, bin2hex(random_bytes(16)));
+            // 回读：取库中最终持久化值（并发写覆盖场景下收敛到同一密钥）
+            $t = setting(self::TOKEN_KEY, '');
+            if (!preg_match('/^[0-9a-f]{32}$/', $t)) $t = '';
         }
         return $t;
     }

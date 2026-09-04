@@ -79,11 +79,16 @@ class Auth {
             DB::exec('UPDATE users SET login_fail_count=0, login_locked_until=NULL WHERE id=?', array((int)$u['id']));
         }
         if (!password_verify($password, $u['password'])) {
-            // 密码错误：递增失败计数，连续 5 次锁定 15 分钟
-            $newCount = (int)$u['login_fail_count'] + 1;
-            $lockedUntil = $newCount >= 5 ? date('Y-m-d H:i:s', time() + 900) : null;
-            DB::exec('UPDATE users SET login_fail_count=?, login_locked_until=? WHERE id=?',
-                array($newCount, $lockedUntil, (int)$u['id']));
+            // 密码错误：原子递增失败计数（避免并发登录请求的 read-modify-write 竞态
+            // 覆盖计数），连续失败 5 次锁定 15 分钟——条件更新仅在恰好达到阈值时上锁
+            $lockedUntil = date('Y-m-d H:i:s', time() + 900);
+            DB::exec(
+                "UPDATE users SET
+                    login_fail_count = login_fail_count + 1,
+                    login_locked_until = CASE WHEN login_fail_count + 1 >= 5 THEN ? ELSE NULL END
+                 WHERE id=?",
+                array($lockedUntil, (int)$u['id'])
+            );
             return '用户名/工号或密码错误';
         }
         // 登录成功：重置失败计数

@@ -110,11 +110,17 @@ class DataExportImport {
         return isset($all[$mod]) ? $all[$mod] : null;
     }
 
-    /** CSV 安全单元格（含 ," 换行时加引号） */
+    /**
+     * CSV 单元格公式注入防护：以 = + - @ 开头的单元格前缀单引号，
+     * 防止导出后 Excel 将数据当作公式执行（导入数据中可被写入
+     * =HYPERLINK 等恶意公式）。引号/逗号/换行转义由 fputcsv 统一处理。
+     * @param string $v 单元格值
+     * @return string 防护后的值
+     */
     private static function csvCell($v) {
         $v = (string)$v;
-        if (strpbrk($v, ",\"\n\r") !== false) {
-            return '"' . str_replace('"', '""', $v) . '"';
+        if ($v !== '' && strpbrk($v[0], '=+-@') !== false) {
+            return "'" . $v;
         }
         return $v;
     }
@@ -130,9 +136,11 @@ class DataExportImport {
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         echo "\xEF\xBB\xBF";  // BOM
         $out = fopen('php://output', 'w');
-        fputcsv($out, $headers);
+        // 先逐单元格做公式注入防护（= + - @ 前缀加单引号），再交给 fputcsv 转义输出
+        $safeHeaders = array_map(array(__CLASS__, 'csvCell'), $headers);
+        fputcsv($out, $safeHeaders);
         foreach ($rows as $r) {
-            fputcsv($out, $r);
+            fputcsv($out, array_map(array(__CLASS__, 'csvCell'), $r));
         }
         fclose($out);
         exit;

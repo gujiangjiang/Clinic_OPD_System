@@ -19,6 +19,12 @@
 
 /** 读取当前生效的作息（含夏令时判断），返回 HH:MM 四要素与 is_dst 标记 */
 function work_schedule() {
+    // 请求级缓存：一次请求内多次调用（挂号号源判断/文案提示）只查一次库，
+    // 避免每次调用触发 10+ 次 settings 查询；修改作息设置时经
+    // work_schedule_reset() 失效缓存，保证同请求内读取新值
+    if (isset($GLOBALS['__work_schedule']) && is_array($GLOBALS['__work_schedule'])) {
+        return $GLOBALS['__work_schedule'];
+    }
     $w = array(
         'am_start' => setting('work_am_start', '08:00'),
         'am_end'   => setting('work_am_end', '12:00'),
@@ -46,7 +52,13 @@ function work_schedule() {
             }
         }
     }
+    $GLOBALS['__work_schedule'] = $w;
     return $w;
+}
+
+/** 失效作息请求级缓存（修改医院作息设置后调用，保证同请求内读取新值） */
+function work_schedule_reset() {
+    unset($GLOBALS['__work_schedule']);
 }
 
 /**

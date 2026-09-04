@@ -33,8 +33,21 @@ function json_ok($data = array(), $msg = '操作成功') {
     json_response(true, $msg, $data);
 }
 
-/** 失败响应快捷方式 */
+/**
+ * 失败响应快捷方式
+ * 说明：事务内调用时先自动回滚再输出——历史调用点已手动回滚的
+ * 不受影响（inTransaction() 为 false 时跳过），为未来新增的事务内
+ * fail 调用提供安全网（防止 MySQL 下事务悬挂）。
+ */
 function json_fail($msg) {
+    try {
+        $__db = DatabaseManager::getMain();
+        if ($__db && $__db->inTransaction()) {
+            $__db->rollBack();
+        }
+    } catch (Exception $ex) {
+        // 数据库连接不可用时跳过回滚（事务本就不存在）
+    }
     json_response(false, $msg);
 }
 

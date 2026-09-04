@@ -21,10 +21,13 @@ class Session {
         }
         ini_set('session.save_path', $path);
         session_name('HIS_SID');
+        // secure 判定兼容反向代理（Nginx 终结 TLS 时经 X-Forwarded-Proto 传递）
+        $secure = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on')
+            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && stripos($_SERVER['HTTP_X_FORWARDED_PROTO'], 'https') === 0);
         session_set_cookie_params(array(
             'lifetime' => 0,
             'path'     => '/',
-            'secure'   => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',
+            'secure'   => $secure,
             'httponly' => true,
             'samesite' => 'Lax',
         ));
