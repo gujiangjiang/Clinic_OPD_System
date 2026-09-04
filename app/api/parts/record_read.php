@@ -40,7 +40,7 @@ function record_part_read($action) {
         foreach ($allRows as $pr2) { $docIds[(int)$pr2['doctor_id']] = true; }
         $docMeta = array();
         if ($docIds) {
-            $ph = implode(',', array_fill(0, count($docIds), '?'));
+            $ph = in_placeholders($docIds);
             foreach (EmrRepository::q("SELECT id, emp_no, title FROM users WHERE id IN ($ph)", array_keys($docIds)) as $dm) {
                 $docMeta[(int)$dm['id']] = $dm;
             }
@@ -50,7 +50,7 @@ function record_part_read($action) {
         foreach ($allRows as $pr2) { if ((int)$pr2['dept_id'] > 0) $deptIds[(int)$pr2['dept_id']] = true; }
         $deptNames = array();
         if ($deptIds) {
-            $ph2 = implode(',', array_fill(0, count($deptIds), '?'));
+            $ph2 = in_placeholders($deptIds);
             foreach (EmrRepository::q("SELECT id, name FROM departments WHERE id IN ($ph2)", array_keys($deptIds)) as $dn) {
                 $deptNames[(int)$dn['id']] = (string)$dn['name'];
             }

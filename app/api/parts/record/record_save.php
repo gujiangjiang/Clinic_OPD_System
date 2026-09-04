@@ -290,7 +290,7 @@ function record_part_save($u) {
             $oldRecordId = (int)$old['id'];
         } else {
             $cols = 'visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, patient_record_id, ' . implode(',', array_keys($mirror)) . ', created_at';
-            $marks = '?,?,?,?,?,?,?, ' . implode(',', array_fill(0, count($mirror), '?')) . ',?';
+            $marks = '?,?,?,?,?,?,?, ' . in_placeholders($mirror) . ',?';
             $params = array($visitId, $visit['patient_no'], $visit['flow_no'], $visit['current_dept_id'], $u['id'], $u['name'], $recordId);
             foreach ($mirror as $v) $params[] = $v;
             $params[] = $now;

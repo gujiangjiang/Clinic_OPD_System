@@ -64,7 +64,7 @@ class OrderRepository extends BaseRepository {
         $sql = "SELECT * FROM order_items WHERE item_type='procedure' AND is_nurse=1 AND status='paid'";
         $params = array();
         if ($deptIds) {
-            $ph = implode(',', array_fill(0, count($deptIds), '?'));
+            $ph = in_placeholders($deptIds);
             $sql .= " AND visit_id IN (SELECT id FROM registrations WHERE current_dept_id IN ($ph))";
             $params = $deptIds;
         }
@@ -79,7 +79,7 @@ class OrderRepository extends BaseRepository {
              WHERE oi.item_type='prescription' AND oi.is_nurse=1 AND oi.status IN ('paid','dispensing')";
         $params = array();
         if ($deptIds) {
-            $ph = implode(',', array_fill(0, count($deptIds), '?'));
+            $ph = in_placeholders($deptIds);
             $sql .= " AND oi.visit_id IN (SELECT id FROM registrations WHERE current_dept_id IN ($ph))";
             $params = $deptIds;
         }

@@ -25,7 +25,7 @@ function admin_ana_disposition() {
         $rows[] = $r;
     }
     if ($vids) {
-        $ph = implode(',', array_fill(0, count($vids), '?'));
+        $ph = in_placeholders($vids);
         $docMap = array();
         foreach (AnalyticsRepository::q("SELECT visit_id, doctor_name FROM patient_records WHERE visit_id IN ($ph) ORDER BY id ASC", $vids) as $pr) {
             if (!isset($docMap[(int)$pr['visit_id']])) $docMap[(int)$pr['visit_id']] = (string)$pr['doctor_name'];

@@ -83,7 +83,7 @@ function admin_ana_custom() {
         if ($vd) {
             $ids = array_keys($vd);
             foreach (array_chunk($ids, 400) as $chunk) {
-                $ph = implode(',', array_fill(0, count($chunk), '?'));
+                $ph = in_placeholders($chunk);
                 foreach (AnalyticsRepository::q("SELECT id, current_dept_id FROM registrations WHERE id IN ($ph)", $chunk) as $v3) $vdept[(int)$v3['id']] = (int)$v3['current_dept_id'];
             }
         }

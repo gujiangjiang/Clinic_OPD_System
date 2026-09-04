@@ -47,9 +47,7 @@ function record_part_cert($action) {
         }
         // 证明号：ZM 前缀 + 时间戳 + 2 位随机——与申请单号（JY/JC/CZ/CF/DD）同源
         // 规则但前缀互不冲突；循环校验保证唯一。
-        do {
-            $certNo = 'ZM' . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
-        } while (EmrRepository::countCertificatesByNo($certNo) > 0);
+        $certNo = gen_unique_no('ZM', 'certificates', 'cert_no');
         // 病历摘要快照：开具瞬间以首诊文书为锚点固化主诉/现病史/初步诊断，
         // 证书内容从此不再随续写或后续修改变化（法律文书不可变性）
         $snap = cert_snapshot_summary($visitId);

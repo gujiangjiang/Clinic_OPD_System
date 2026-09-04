@@ -268,7 +268,7 @@ function order_part_submit($u) {
         }
         $catMap = array();
         if ($examIds) {
-            $ph = implode(',', array_fill(0, count($examIds), '?'));
+            $ph = in_placeholders($examIds);
             foreach (OrderRepository::q("SELECT id, category FROM exam_items WHERE id IN ($ph)", array_keys($examIds)) as $r) {
                 $catMap[(int)$r['id']] = trim((string)$r['category']);
             }
@@ -321,9 +321,8 @@ function order_part_submit($u) {
             $groupTotal += (float)$orderItems[$i]['price'] * max(1, (int)$orderItems[$i]['quantity']);   // 主药与子医嘱均计费
         }
 
-        do {
-            $orderNo = (isset($typeCode[$orderType]) ? $typeCode[$orderType] : 'DD') . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
-        } while ((int)OrderRepository::val('SELECT COUNT(*) FROM orders WHERE order_no=?', array($orderNo)) > 0);
+        // 申请单号（JY/JC/CZ/CF/DD 前缀 + 时间戳 + 随机，循环查重防撞号）
+        $orderNo = gen_unique_no(isset($typeCode[$orderType]) ? $typeCode[$orderType] : 'DD', 'orders', 'order_no');
 
         $orderId = OrderRepository::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
             $visitId, $visit['patient_no'], $visit['flow_no'], $orderType, $orderNo, $g['cat'],
@@ -387,9 +386,7 @@ function order_part_submit($u) {
     if ($orderType === 'prescription' && $autoDisp) {
         $autoTotal = 0;
         foreach ($autoDisp as $d) { $autoTotal += (float)$d['fee'] * (int)$d['qty']; }
-        do {
-            $autoOrderNo = 'CZ' . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
-        } while ((int)OrderRepository::val('SELECT COUNT(*) FROM orders WHERE order_no=?', array($autoOrderNo)) > 0);
+        $autoOrderNo = gen_unique_no('CZ', 'orders', 'order_no');
 
         $autoOrderId = OrderRepository::insert(                'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, source_order_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             array($visitId, $visit['patient_no'], $visit['flow_no'], 'procedure', $autoOrderNo, '',

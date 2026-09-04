@@ -155,7 +155,7 @@ function cashier_part_read($action) {
         foreach ($orders as $o) $orderIds[] = (int)$o['id'];
         $itemsByOrder = array();
         if ($orderIds) {
-            $ph = implode(',', array_fill(0, count($orderIds), '?'));
+            $ph = in_placeholders($orderIds);
             foreach (CashierRepository::q("SELECT * FROM order_items WHERE order_id IN ($ph) ORDER BY id", $orderIds) as $it) {
                 $itemsByOrder[(int)$it['order_id']][] = $it;
             }

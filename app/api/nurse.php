@@ -34,7 +34,7 @@ switch ($action) {
         $where = "date(r.registered_at)=? AND r.status IN ('paid','visiting','finished')";
         $params = array(today_str());
         if ($deptIds) {
-            $where .= ' AND r.current_dept_id IN (' . implode(',', array_fill(0, count($deptIds), '?')) . ')';
+            $where .= ' AND r.current_dept_id IN (' . in_placeholders($deptIds) . ')';
             $params = array_merge($params, $deptIds);
         }
         $rows = QueueRepository::q("SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page, p.id_card AS pid_card, p.birth_date AS pbirth

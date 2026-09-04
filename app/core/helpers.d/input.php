@@ -65,6 +65,29 @@ function is_unique_conflict($ex) {
 }
 
 /**
+ * 生成唯一业务单号（前缀 + 时间戳 + 2 位随机，循环查重防撞号）。
+ * 说明：申请单号（JY/JC/CZ/CF/DD）、会诊单号（HZ）、证明号（ZM）此前
+ * 各位置手写同一套 `do { $no = 'XX'.date('YmdHis').rand(); } while (count)`
+ * 循环，统一收敛到本函数。
+ * @param string $prefix 单号前缀（JY/JC/CZ/CF/DD/HZ/ZM 等，仅字母数字）
+ * @param string $table  查重表名（内部常量，白名单校验防注入）
+ * @param string $col    查重列名（内部常量，白名单校验防注入）
+ * @return string 唯一单号
+ */
+function gen_unique_no($prefix, $table, $col) {
+    if (!preg_match('/^[A-Za-z0-9]+$/', $prefix)) {
+        throw new Exception('非法单号前缀: ' . $prefix);
+    }
+    if (!preg_match('/^[a-z0-9_]+$/', $table) || !preg_match('/^[a-z0-9_]+$/', $col)) {
+        throw new Exception('非法查重表/列名');
+    }
+    do {
+        $no = $prefix . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
+    } while ((int)DB::val("SELECT COUNT(*) FROM $table WHERE $col=?", array($no)) > 0);
+    return $no;
+}
+
+/**
  * 生成报告编号（BG + 年月日 + 4 位序号，MAX+1 复用序号）
  * @param string $type 报告类型（lab/imaging，目前编号不含类型前缀）
  * @return string 报告编号

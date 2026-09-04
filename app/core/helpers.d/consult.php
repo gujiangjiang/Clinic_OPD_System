@@ -7,18 +7,11 @@
  * 统一规则。由 helpers.php 统一加载，拆分后引用方式不变。
  * ============================================================ */
 
-/** 生成会诊单号（HZ + 时间戳 + 2 位随机，与申请单号同规则、前缀互不冲突） */
-function consult_gen_no() {
-    return 'HZ' . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
-}
-
 /** 惰性补齐会诊单号：旧数据（无 consult_no）首次读取时生成并落库 */
 function consult_ensure_no($c) {
     $no = trim((string)(isset($c['consult_no']) ? $c['consult_no'] : ''));
     if ($no === '') {
-        do {
-            $no = consult_gen_no();
-        } while ((int)DB::val('SELECT COUNT(*) FROM consultations WHERE consult_no=?', array($no)) > 0);
+        $no = gen_unique_no('HZ', 'consultations', 'consult_no');
         DB::exec('UPDATE consultations SET consult_no=? WHERE id=?', array($no, (int)$c['id']));
         $c['consult_no'] = $no;
     }

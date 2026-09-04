@@ -119,7 +119,7 @@ class BaseRepository {
     protected static function insertRow($table, $data) {
         self::assertTable($table);
         $cols = implode(',', array_keys($data));
-        $phs = implode(',', array_fill(0, count($data), '?'));
+        $phs = in_placeholders($data);
         return self::insert("INSERT INTO \"$table\"($cols) VALUES($phs)", array_values($data));
     }
 

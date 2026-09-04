@@ -109,7 +109,7 @@ switch ($action) {
         }
         // 校验收件人（启用账号且非本人）
         // 注意参数顺序：SQL 中 id<>? 在前、IN 在后，绑定须为 [本人id, ...收件人ids]
-        $ph = implode(',', array_fill(0, count($recipients), '?'));
+        $ph = in_placeholders($recipients);
         $params = array_merge(array($u['id']), $recipients);
         $valid = array();
         foreach (CoreRepository::q("SELECT id, role, name FROM users WHERE status=1 AND id<>? AND id IN ($ph)", $params) as $r) {
@@ -139,7 +139,7 @@ switch ($action) {
         $ids = json_decode((string)post('ids', '[]'), true);
         $ids = array_values(array_unique(array_filter(array_map('intval', is_array($ids) ? $ids : array()))));
         if (!count($ids)) json_fail('请选择要删除的记录');
-        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $ph = in_placeholders($ids);
         $params = $ids;
         $params[] = $u['id'];
         CoreRepository::exec("DELETE FROM sent_messages WHERE id IN ($ph) AND sender_id=?", $params);

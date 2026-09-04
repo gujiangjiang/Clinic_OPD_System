@@ -17,19 +17,13 @@ function doctor_read_queue_list($u) {
     if ($deptId <= 0) {
         $ids = $myDepts;
         if ($ids) {
-            $ph = implode(',', array_fill(0, count($ids), '?'));
+            $ph = in_placeholders($ids);
             $first = EmrRepository::one("SELECT id FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id LIMIT 1", $ids);
             if ($first) $deptId = (int)$first['id'];
         }
     }
     if ($deptId <= 0) json_fail('当前医生未关联可用科室');
-    $queueDays = 3;
-    if (isset($u['queue_days'])) {
-        $queueDays = (int)$u['queue_days'];
-    } else {
-        $ud = EmrRepository::one('SELECT queue_days FROM users WHERE id=?', array($u['id']));
-        if ($ud && (int)$ud['queue_days'] >= 2 && (int)$ud['queue_days'] <= 7) $queueDays = (int)$ud['queue_days'];
-    }
+    $queueDays = user_queue_days($u);
     $since = date('Y-m-d', strtotime('-' . ($queueDays - 1) . ' days'));
     $rows = EmrRepository::q("SELECT r.id, r.patient_no, r.visit_seq, r.first_dept_name, r.session,
             r.status, r.registered_at, r.finished_at,
@@ -65,7 +59,7 @@ function doctor_read_queue_list($u) {
     }
     $consultations = array();
     if ($consVisits) {
-        $phC = implode(',', array_fill(0, count($consVisits), '?'));
+        $phC = in_placeholders($consVisits);
         $cRows = EmrRepository::q("SELECT r.id, r.patient_no, r.visit_seq, r.first_dept_id, r.first_dept_name, r.session,
                 r.status, r.registered_at, r.finished_at,
                 p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth

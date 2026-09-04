@@ -62,6 +62,17 @@ function render_list_wrapper($countText, $emptyText, $tableHtml = '', $countId =
 }
 
 /**
+ * 生成 IN 子句占位符串（"?,?,?"）。
+ * 说明：全库 30+ 处手写 `implode(',', array_fill(0, count($ids), '?'))`，
+ * 统一收敛到本函数。空数组返回 ''（调用方应自行跳过该 IN 条件）。
+ * @param array $items 参数数组（仅用其长度）
+ * @return string 如 "?,?,?"
+ */
+function in_placeholders($items) {
+    return $items ? implode(',', array_fill(0, count($items), '?')) : '';
+}
+
+/**
  * 统一提交审核记录（audits 表）。消除各处重复的 INSERT 拼接（含可选
  * data / creation_source 列）。proposer 默认取当前登录用户；auth.php
  * 忘记密码等无登录场景可经 $extra['proposer']/'proposer_id' 覆盖。
@@ -82,7 +93,7 @@ function submit_audit($type, $refId, $title, $content, $extra = array()) {
     $cols = 'type, ref_id, title, content, status, proposer, proposer_id, created_at';
     if ($data !== null) { $cols .= ', data'; $params[] = $data; }
     if ($source !== '') { $cols .= ', creation_source'; $params[] = $source; }
-    return DB::insert('INSERT INTO audits(' . $cols . ') VALUES(' . implode(',', array_fill(0, count($params), '?')) . ')', $params);
+    return DB::insert('INSERT INTO audits(' . $cols . ') VALUES(' . in_placeholders($params) . ')', $params);
 }
 
 /** 金额格式化：保留两位小数 */

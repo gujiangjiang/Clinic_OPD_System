@@ -60,6 +60,23 @@ function current_dept_id($u) {
 }
 
 /**
+ * 医生候诊可见天数（2-7，缺省 3）。
+ * 说明：会话快照可能不含 queue_days（登录仅存 8 个字段），缺省回库读取；
+ * 候诊列表/会诊列表/病历可访问天数三处此前各自内联同一套「会话快照→
+ * 查库→2-7 钳制→默认 3」逻辑，统一收敛到本函数。
+ * @param array $u 用户数据（含可选 queue_days / id）
+ * @return int 2-7 之间的可见天数
+ */
+function user_queue_days($u) {
+    if (isset($u['queue_days']) && (int)$u['queue_days'] >= 2 && (int)$u['queue_days'] <= 7) {
+        return (int)$u['queue_days'];
+    }
+    $ud = DB::one('SELECT queue_days FROM users WHERE id=?', array((int)$u['id']));
+    if ($ud && (int)$ud['queue_days'] >= 2 && (int)$ud['queue_days'] <= 7) return (int)$ud['queue_days'];
+    return 3;
+}
+
+/**
  * 病历段生命体征归属查询（统一规则）：
  * 按文书记录精确关联（record_id 优先）；续写/会诊病历各自独立体征——
  * 只取本记录关联的体征，绝不复用首诊体征；首诊记录（非续写）才按
@@ -107,13 +124,7 @@ function visit_dept_authorized($visit, $u) {
  */
 function visit_access_allowed($visit, $u) {
     if ($u['role'] === 'admin') return true;
-    $queueDays = 3;
-    if (isset($u['queue_days']) && (int)$u['queue_days'] >= 2 && (int)$u['queue_days'] <= 7) {
-        $queueDays = (int)$u['queue_days'];
-    } else {
-        $ud = DB::one('SELECT queue_days FROM users WHERE id=?', array((int)$u['id']));
-        if ($ud && (int)$ud['queue_days'] >= 2 && (int)$ud['queue_days'] <= 7) $queueDays = (int)$ud['queue_days'];
-    }
+    $queueDays = user_queue_days($u);
     $regTime = isset($visit['registered_at']) ? (string)$visit['registered_at'] : '';
     if ($regTime === '') return true;
     $since = date('Y-m-d', strtotime('-' . ($queueDays - 1) . ' days'));

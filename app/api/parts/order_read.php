@@ -100,7 +100,7 @@ function order_part_read($action) {
             if (!empty($it['skin_test_item_id'])) $stIds[(int)$it['skin_test_item_id']] = true;
         }
         if ($stIds) {
-            $ph = implode(',', array_fill(0, count($stIds), '?'));
+            $ph = in_placeholders($stIds);
             foreach (OrderRepository::q("SELECT id, name, fee FROM disposal_items WHERE id IN ($ph)", array_keys($stIds)) as $d) {
                 $dicts['skin_tests'][(int)$d['id']] = array('name' => $d['name'], 'fee' => (float)$d['fee']);
             }
@@ -163,12 +163,12 @@ function order_part_read($action) {
                 $itemIds = array();
                 foreach ($items as $it) $itemIds[] = (int)$it['id'];
                 if ($itemIds) {
-                    $ph = implode(',', array_fill(0, count($itemIds), '?'));
+                    $ph = in_placeholders($itemIds);
                     $resRows = OrderRepository::q("SELECT id, order_item_id FROM results WHERE order_item_id IN ($ph)", $itemIds);
                     $resIds = array(); $resToItem = array();
                     foreach ($resRows as $rr) { $resIds[] = (int)$rr['id']; $resToItem[(int)$rr['id']] = (int)$rr['order_item_id']; }
                     if ($resIds) {
-                        $ph2 = implode(',', array_fill(0, count($resIds), '?'));
+                        $ph2 = in_placeholders($resIds);
                         // 每个结果取最新一份有效报告
                         foreach (OrderRepository::q("SELECT result_id, MAX(id) AS rid FROM reports WHERE result_id IN ($ph2) AND status<>'withdrawn' GROUP BY result_id", $resIds) as $rp) {
                             $itemId = isset($resToItem[(int)$rp['result_id']]) ? $resToItem[(int)$rp['result_id']] : 0;

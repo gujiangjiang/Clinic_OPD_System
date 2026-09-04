@@ -26,7 +26,7 @@ function admin_part_user($action) {
             $deptNames = '';
             $ids = user_dept_ids($r);
             if ($ids) {
-                $ph = implode(',', array_fill(0, count($ids), '?'));
+                $ph = in_placeholders($ids);
                 $ds = UserRepository::q("SELECT name FROM departments WHERE id IN ($ph)", $ids);
                 $deptNames = implode('、', array_map(function ($d) { return $d['name']; }, $ds));
             }
@@ -168,7 +168,7 @@ function admin_part_user($action) {
             if ($di > 0 && !in_array($di, $idsArr, true)) $idsArr[] = $di;
         }
         if ($idsArr) {
-            $ph = implode(',', array_fill(0, count($idsArr), '?'));
+            $ph = in_placeholders($idsArr);
             $valid = UserRepository::q("SELECT id FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph)", $idsArr);
             $okMap = array();
             foreach ($valid as $v) $okMap[(int)$v['id']] = 1;

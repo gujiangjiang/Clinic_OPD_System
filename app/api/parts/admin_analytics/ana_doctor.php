@@ -31,7 +31,7 @@ function admin_ana_doctor() {
     }
     $uids = array_keys($stat);
     if ($uids) {
-        $ph = implode(',', array_fill(0, count($uids), '?'));
+        $ph = in_placeholders($uids);
         foreach (AnalyticsRepository::q("SELECT id, name, emp_no, dept_ids, title FROM users WHERE id IN ($ph)", $uids) as $u2) {
             if (empty($names[(int)$u2['id']])) $names[(int)$u2['id']] = $u2['name'];
             $docDept[(int)$u2['id']] = array('title' => $u2['title'], 'dept_ids' => (string)$u2['dept_ids'], 'emp_no' => (string)$u2['emp_no']);

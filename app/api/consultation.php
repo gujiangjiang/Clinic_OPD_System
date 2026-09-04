@@ -17,16 +17,6 @@ require_once APP_ROOT . '/app/includes/emr_formatter.php';
 
 $u = Auth::user();
 
-/** 医生候诊可见天数（2-7，缺省 3）——会诊列表同样受此限制 */
-function consultation_queue_days($u) {
-    if (isset($u['queue_days']) && (int)$u['queue_days'] >= 2 && (int)$u['queue_days'] <= 7) {
-        return (int)$u['queue_days'];
-    }
-    $ud = ConsultationRepository::one('SELECT queue_days FROM users WHERE id=?', array($u['id']));
-    if ($ud && (int)$ud['queue_days'] >= 2 && (int)$ud['queue_days'] <= 7) return (int)$ud['queue_days'];
-    return 3;
-}
-
 /** 会诊行 → 前端结构（id 一律返回混淆串 code，前端传回后 did 解码） */
 function consultation_row($c) {
     $c = consult_ensure_no($c);
@@ -83,7 +73,7 @@ switch ($action) {
         }
         $ownConsult = 0;
         if ($ownConsultIds) {
-            $ph = implode(',', array_fill(0, count($ownConsultIds), '?'));
+            $ph = in_placeholders($ownConsultIds);
             $ownConsult = (int)ConsultationRepository::val(                "SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id IN ($ph)",
                 array_merge(array($visitId, $u['id']), $ownConsultIds));
         }
@@ -105,9 +95,7 @@ switch ($action) {
         if ($purpose === '') json_fail('请填写会诊目的');
         $now = now_str();
         // 生成唯一会诊单号（HZ + 时间戳 + 随机，循环查重防撞号）
-        do {
-            $consultNo = consult_gen_no();
-        } while ((int)ConsultationRepository::val('SELECT COUNT(*) FROM consultations WHERE consult_no=?', array($consultNo)) > 0);
+        $consultNo = gen_unique_no('HZ', 'consultations', 'consult_no');
         $cid = ConsultationRepository::insert('INSERT INTO consultations(visit_id, patient_no, flow_no, consult_no, from_dept_id, from_dept_name, from_doctor_id, from_doctor_name, target_dept_id, target_dept_name, description, purpose, status, record_id, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
             $visitId, $visit['patient_no'], $visit['flow_no'], $consultNo,
             (int)$visit['current_dept_id'], (string)$visit['current_dept_name'],
@@ -135,7 +123,7 @@ switch ($action) {
             $deptId = current_dept_id($u);
         }
         if ($deptId <= 0) json_fail('当前医生未关联可用科室');
-        $days = consultation_queue_days($u);
+        $days = user_queue_days($u);
         $since = date('Y-m-d', strtotime('-' . ($days - 1) . ' days'));
         $type = get('type', 'received');
         if ($type === 'sent') {

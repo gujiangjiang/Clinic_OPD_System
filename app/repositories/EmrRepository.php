@@ -35,9 +35,6 @@ class EmrRepository extends BaseRepository {
     public static function countCertificatesByVisit($visitId) {
         return (int)self::val('SELECT COUNT(*) FROM certificates WHERE visit_id=?', array((int)$visitId));
     }
-    public static function countCertificatesByNo($certNo) {
-        return (int)self::val('SELECT COUNT(*) FROM certificates WHERE cert_no=?', array($certNo));
-    }
     public static function insertCertificate($data) { return self::insertRow('certificates', $data); }
 
     // ===== diag_orders 诊断排序 =====

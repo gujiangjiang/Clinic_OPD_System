@@ -10,7 +10,7 @@ function doctor_read_depts($u) {
     $ids = user_dept_ids($u);
     $curDeptId = current_dept_id($u);
     if ($ids) {
-        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $ph = in_placeholders($ids);
         $list = EmrRepository::q("SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id", $ids);
     } else {
         $list = array();

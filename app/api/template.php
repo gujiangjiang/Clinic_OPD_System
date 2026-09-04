@@ -72,7 +72,7 @@ switch ($action) {
             $conds[] = "(scope='hospital' AND status='published')";
             if ($myDepts) {
                 // 科室模板：已发布且包含本人科室的（关联表多对多）
-                $ph = implode(',', array_fill(0, count($myDepts), '?'));
+                $ph = in_placeholders($myDepts);
                 $conds[] = "(scope='dept' AND status='published' AND id IN (SELECT template_id FROM emr_template_depts WHERE dept_id IN ($ph)))";
                 foreach ($myDepts as $d) $params[] = $d;
             }
@@ -93,7 +93,7 @@ switch ($action) {
             if ($links) {
                 $dids = array();
                 foreach ($links as $l) $dids[] = (int)$l['dept_id'];
-                $ph2 = implode(',', array_fill(0, count($dids), '?'));
+                $ph2 = in_placeholders($dids);
                 foreach (EmrRepository::q("SELECT id, name FROM departments WHERE id IN ($ph2)", $dids) as $dn) {
                     $deptNames[] = $dn['name'];
                 }
@@ -135,7 +135,7 @@ switch ($action) {
             } elseif ($t['scope'] === 'hospital' && $t['status'] === 'published') {
                 $isVisible = true;
             } elseif ($t['scope'] === 'dept' && $t['status'] === 'published' && $myDepts) {
-                $ph = implode(',', array_fill(0, count($myDepts), '?'));
+                $ph = in_placeholders($myDepts);
                 $cnt = (int)EmrRepository::val("SELECT COUNT(*) FROM emr_template_depts WHERE template_id=? AND dept_id IN ($ph)", array_merge(array($id), $myDepts));
                 if ($cnt > 0) $isVisible = true;
             }
@@ -225,7 +225,7 @@ switch ($action) {
             }
             // 校验科室存在且为临床科室
             if ($deptIds) {
-                $ph = implode(',', array_fill(0, count($deptIds), '?'));
+                $ph = in_placeholders($deptIds);
                 foreach (EmrRepository::q("SELECT id FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph)", array_keys($deptIds)) as $dd) {
                     EmrRepository::insert('INSERT OR IGNORE INTO emr_template_depts(template_id, dept_id) VALUES(?,?)', array($tplId, (int)$dd['id']));
                 }

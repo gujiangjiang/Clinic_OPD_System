@@ -24,7 +24,7 @@ function admin_ana_dept() {
     if ($vids) {
         $ids = array_keys($vids);
         foreach (array_chunk($ids, 400) as $chunk) {
-            $ph = implode(',', array_fill(0, count($chunk), '?'));
+            $ph = in_placeholders($chunk);
             foreach (AnalyticsRepository::q("SELECT id, current_dept_id FROM registrations WHERE id IN ($ph)", $chunk) as $v) {
                 $visitDept[(int)$v['id']] = (int)$v['current_dept_id'];
             }

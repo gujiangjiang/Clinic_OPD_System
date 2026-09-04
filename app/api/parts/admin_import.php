@@ -196,7 +196,7 @@ function admin_part_import($action) {
                 if (in_array($mod, array('drug', 'lab', 'exam', 'disp'), true)) { $ins[] = 'status'; $vals[] = 'approved'; $ins[] = 'created_at'; $vals[] = now_str(); }
                 if ($mod === 'dept') { $ins[] = 'status'; $vals[] = '1'; $ins[] = 'created_at'; $vals[] = now_str(); }
                 if ($mod === 'user') { $ins[] = 'status'; $vals[] = '1'; $ins[] = 'created_at'; $vals[] = now_str(); $ins[] = 'pwd_changed'; $vals[] = '0'; $ins[] = 'theme'; $vals[] = 'auto'; }
-                $sql = 'INSERT INTO ' . $table . '(' . implode(',', $ins) . ') VALUES(' . implode(',', array_fill(0, count($vals), '?')) . ')';
+                $sql = 'INSERT INTO ' . $table . '(' . implode(',', $ins) . ') VALUES(' . in_placeholders($vals) . ')';
                 BaseRepository::prepareExec($sql, $vals);
                 $inserted++;
             }

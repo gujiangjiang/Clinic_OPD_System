@@ -18,7 +18,7 @@ function doctor_read_call_queue($u) {
     if (!$dept) {
         $ids = $myDepts;
         if ($ids) {
-            $ph = implode(',', array_fill(0, count($ids), '?'));
+            $ph = in_placeholders($ids);
             $first = EmrRepository::one("SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id LIMIT 1", $ids);
             if ($first) $dept = $first;
         }
