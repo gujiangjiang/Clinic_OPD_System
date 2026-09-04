@@ -3062,11 +3062,7 @@ diagnoses: [],
                 var r = j.data.record || {};
                 var issued = !!j.data.has_certificate;
                 var cert = j.data.certificate || {};
-                var text = function (html) {
-                    var t = document.createElement('div');
-                    t.innerHTML = html || '';
-                    return t.textContent.trim();
-                };
+                var text = Clinic.textOf;
                 var esc = function (s) {
                     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
                         .replace(/>/g, '&gt;').replace(/"/g, '&quot;');

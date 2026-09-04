@@ -12,12 +12,6 @@
     cursor: not-allowed;
     opacity: .85;
 }
-#emrCard .rich-editor.readonly {
-    background: var(--bg-soft);
-    cursor: not-allowed;
-    opacity: .85;
-}
-#emrCard .rich-editor.readonly:focus { outline: none; }
 
 /* ---------- 患者信息头：点击头像或姓名弹出「修改患者信息」弹窗 ---------- */
 .emr-patient-avatar {
@@ -87,13 +81,6 @@
     font-weight: 800;
     letter-spacing: 4px;
     padding-left: 4px; /* 抵消 letter-spacing 造成的视觉右偏 */
-}
-/* 病历模板按钮：文档页头左上角——与医院名称行视觉对齐、左侧与左边距齐平 */
-.emr-doc .doc-tpl {
-    position: absolute;
-    top: 27px;    /* 与医院名称（行高28px）光学居中对齐 */
-    left: 30px;   /* 与 .emr-doc 的 padding-left 一致 */
-    z-index: 1;
 }
 .emr-doc .doc-patient-grid {
     display: grid;
@@ -171,47 +158,15 @@
     line-height: 1.6;
     padding-top: 7px;
 }
-.emr-doc .doc-body .rich-editor {
-    flex: 1;
-    min-width: 0;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 8px 10px;
-    min-height: 36px;
-    line-height: 1.6;
-}
 /* 生命体征行：可点击样式仅在内容区（.emr-item-link），标签与空白为普通文字 */
 .emr-doc .doc-sec-vital .doc-sec-body { font-weight: 600; }
 
-/* 病历正文 已开项目所见即所得：辅助检查/门诊处置 */
-.emr-doc .doc-order-chip {
-    display: inline-block;
-    border: 1px solid var(--border);
-    background: var(--bg-soft);
-    border-radius: 6px;
-    padding: 1px 8px;
-    margin: 2px 4px 2px 0;
-    font-size: 13px;
-    cursor: pointer;
-    transition: border-color .2s ease, color .2s ease;
-}
-.emr-doc .doc-order-chip:hover { border-color: var(--primary); color: var(--primary); }
-.emr-doc .doc-treat-proc { margin-bottom: 4px; }
-.emr-doc .doc-rx-line {
-    line-height: 1.7;
-    cursor: pointer;
-    transition: color .2s ease;
-}
-.emr-doc .doc-rx-line:hover { color: var(--primary); }
 /* 病历正文右下角医生签名（页脚医生信息保留，互不影响） */
 .emr-doc .doc-body-sign {
     text-align: right;
     font-weight: 600;
     font-size: 13px;
     margin-top: 10px;
-}
-.emr-doc .doc-doctor {
-    font-weight: 600;
 }
 
 /* ---------- 病历文档页头右上角条形码（与挂号凭条 / 打印预览一致，位于病历文档页头） ---------- */
@@ -241,8 +196,6 @@
     .emr-doc .doc-patient-grid { grid-template-columns: 1fr; }
     .emr-doc .doc-barcode { top: 22px; right: 16px; }  /* 18px 内边距 + 字形顶部偏移 ~4px */
     .emr-doc .doc-barcode svg { height: 22px; width: auto; max-width: 38mm; }
-    .emr-doc .doc-tpl { top: 21px; left: 16px; }
-    .emr-doc .doc-tpl .btn { padding: 2px 10px; font-size: 12px; }
 }
 
 /* ============================================================
@@ -335,22 +288,6 @@
     user-select: none;
 }
 .ef-diag-add:hover { transform: scale(1.15); }
-/* 诊断选择模态框（左搜索右已选） */
-.diag-pick { display: flex; gap: 12px; min-height: 320px; }
-.diag-pick-left { flex: 1.2; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
-.diag-pick-results { flex: 1; overflow-y: auto; max-height: 340px; border: 1px solid var(--border); border-radius: 8px; }
-.diag-pick-item { padding: 9px 12px; cursor: pointer; border-bottom: 1px solid var(--border); }
-.diag-pick-item:hover { background: var(--primary-soft); }
-.diag-pick-right { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.diag-pick-selected { flex: 1; overflow-y: auto; max-height: 380px; }
-.diag-sel-row {
-    display: flex; justify-content: space-between; align-items: center; gap: 8px;
-    border: 1px solid var(--border); border-radius: 8px;
-    padding: 8px 10px; margin-bottom: 6px; cursor: pointer;
-}
-.diag-sel-row:hover { border-color: var(--primary); }
-.diag-sel-ops { display: flex; gap: 4px; flex-shrink: 0; }
-.diag-sel-ops .btn { padding: 1px 8px; }
 
 /* 结构化病历节内控件：横向流式排列，允许换行 */
 .emr-doc .doc-body .doc-sec > .select { width: auto; min-width: 140px; }

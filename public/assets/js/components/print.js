@@ -71,8 +71,6 @@ Clinic.print = (function () {
             '  <button type="button" class="btn btn-primary" data-act="do">🖨️ 打印</button>' +
             '</div>';
         document.body.appendChild(preview);
-        // 预览层禁用右键菜单，避免误操作打断打印流程
-        preview.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
         // 按纸张类型注入打印页面尺寸（A5 病历纸 / 凭条按实测尺寸动态生成）
         applyPageSize(sheet);
@@ -176,13 +174,6 @@ Clinic.print = (function () {
         if (e.key === 'Escape') close();
     }
 
-    /**
-     * A5 固定纸张分页器：
-     * 支持一次打印多份单据（如按检查分类拆分出的多张申请单）——
-     * 每份 .print-record-doc 独立分页（新文档必从新页开始），
-     * 页码跨文档连续累计（第 X 页 / 共 Y 页）。
-     * 每一页都带完整页眉与页脚；屏幕预览与打印输出同构（所见即所得）。
-     */
     /**
      * A5 固定纸张分页器：
      * 支持一次打印多份单据（如按检查分类拆分出的多张检查申请单）——

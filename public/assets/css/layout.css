@@ -387,8 +387,9 @@
 }
 .ena-sec-title .ena-arrow { margin-left: auto; font-size: 10px; color: var(--text-muted); transition: transform .15s; }
 .ena-sec-title .ena-sum + .ena-arrow { margin-left: 2px; }
-/* + 号隐藏（display:none）时箭头自动靠右——统一处理，无需各分区单独修复 */
-.ena-sec-title:has(.ena-add[style*="display: none"]) .ena-arrow { margin-left: auto; }
+/* + 号隐藏（display:none）时箭头自动靠右——统一处理，无需各分区单独修复
+   （style 属性空格差异两种写法并集，兼容内联样式有无空格） */
+.ena-sec-title:has(.ena-add[style*="display: none"]) .ena-arrow,
 .ena-sec-title:has(.ena-add[style*="display:none"]) .ena-arrow { margin-left: auto; }
 
 /* 分区标题项目数徽章：文字后小胶囊数字（如 3 = 3 个项目），0 项时隐藏 */.ena-sec-title .ena-count {

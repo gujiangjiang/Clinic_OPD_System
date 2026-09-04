@@ -168,11 +168,7 @@ function hpCertificateModal(visitId, title, warnOnIssued) {
         return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     };
-    var text = function (html) {
-        var t = document.createElement('div');
-        t.innerHTML = html || '';
-        return t.textContent.trim();
-    };
+    var text = Clinic.textOf;
     Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
         onSuccess: function (j) {
             var r = j.data.record || {};

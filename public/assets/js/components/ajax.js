@@ -22,6 +22,19 @@ Clinic.escHtml = function (s) {
 };
 
 /**
+ * HTML 字符串 → 纯文本（提取 textContent 并去除首尾空白）。
+ * 说明：历史病历摘要、诊断证明快照等多处以「创建临时 div 取 textContent」
+ * 实现同一逻辑，统一收敛到本函数。
+ * @param {*} html HTML 字符串（null/undefined 视为空串）
+ * @returns {string}
+ */
+Clinic.textOf = function (html) {
+    var t = document.createElement('div');
+    t.innerHTML = html || '';
+    return t.textContent.trim();
+};
+
+/**
  * 发起 AJAX 请求
  * @param {string} url   接口地址（如 /api/register）
  * @param {object} data  参数（自动附加 csrf_token）
