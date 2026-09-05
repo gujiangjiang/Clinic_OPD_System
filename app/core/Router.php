@@ -194,7 +194,18 @@ class Router {
         // ===== 局部刷新模式（SPA 导航）：仅输出视图内容 + 页面标题，
         // 由前端 nav.js 替换 .content 并重执行内联脚本，地址栏不变 =====
         if (self::isPartial() && !in_array($view, self::$fullPages, true)) {
-            echo '<div class="view-root" data-page-title="' . e(self::$title) . '">' . $content . '</div>';
+            // 页面需要但 layout 未全局加载的前端组件栈（nav.js 按需动态注入）：
+            // emr 栈（order/emreditor/eventbus/emr/emr_*/queuepanel）；
+            // docTools 栈（room_heartbeat/doctor_tools，仅医生工作站）
+            $needs = array();
+            if ($view === 'doctor/emr.php') {
+                $needs[] = 'emr';
+                $needs[] = 'docTools';
+            } elseif ($view === 'templates.php' || $view === 'admin/review.php') {
+                $needs[] = 'emr';
+            }
+            $needsAttr = $needs ? ' data-needs="' . e(implode(' ', $needs)) . '"' : '';
+            echo '<div class="view-root" data-page-title="' . e(self::$title) . '"' . $needsAttr . '>' . $content . '</div>';
             return;
         }
 

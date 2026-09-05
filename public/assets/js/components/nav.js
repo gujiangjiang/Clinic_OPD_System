@@ -25,6 +25,72 @@ Clinic.nav = {
     /** 防重复加载锁 */
     _busy: false,
 
+    /** 页面按需组件栈：partial 响应 data-needs 声明所需栈，
+        layout 未全局加载的脚本由 nav.js 动态注入（保持「按页裁剪」的体积设计）
+        emr 栈：病历/模板/审核预览共用；docTools 栈：仅医生工作站
+        顺序即加载顺序（emr_* 子模块依赖 Clinic.emr 先就绪） */
+    pageScripts: {
+        emr: ['order', 'emreditor', 'eventbus', 'emr', 'emr_rules', 'emr_format', 'emr_template', 'emr_fee', 'emr_patient', 'emr_orders', 'emr_segments', 'emr_consent', 'queuepanel'],
+        docTools: ['room_heartbeat', 'doctor_tools'],
+    },
+
+    /** 判断组件是否已加载（按全局命名空间标记） */
+    isLoaded: function (name) {
+        if (!window.Clinic) return false;
+        switch (name) {
+            case 'order': return !!Clinic.order;
+            case 'emreditor': return !!Clinic.emreditor;
+            case 'eventbus': return !!Clinic.eventBus;
+            case 'emr': return !!Clinic.emr;
+            case 'emr_rules': return !!(Clinic.emr && Clinic.emr.rules);
+            case 'emr_format': return !!(Clinic.emr && Clinic.emr.format);
+            case 'emr_template': return !!(Clinic.emr && Clinic.emr.template);
+            case 'emr_fee': return !!(Clinic.emr && Clinic.emr.fee);
+            case 'emr_patient': return !!(Clinic.emr && Clinic.emr.patient);
+            case 'emr_orders': return !!(Clinic.emr && Clinic.emr.orders);
+            case 'emr_segments': return !!(Clinic.emr && Clinic.emr.segments);
+            case 'emr_consent': return !!(Clinic.emr && Clinic.emr.consent);
+            case 'queuepanel': return !!Clinic.queuePanel;
+            case 'room_heartbeat': return !!Clinic.roomHeartbeat;
+            case 'doctor_tools': return !!Clinic.docTools;
+            default: return false;
+        }
+    },
+
+    /** 依据 data-needs 收集缺失组件并按序加载（顺序保证依赖） */
+    loadNeeds: function (root) {
+        var needs = (root.getAttribute('data-needs') || '').split(/\s+/).filter(Boolean);
+        if (!needs.length) return Promise.resolve();
+        var that = this;
+        var missing = [];
+        needs.forEach(function (n) {
+            (that.pageScripts[n] || []).forEach(function (name) {
+                if (!that.isLoaded(name)) missing.push(name);
+            });
+        });
+        missing = missing.filter(function (v, i) { return missing.indexOf(v) === i; });
+        if (!missing.length) return Promise.resolve();
+        return this.loadScripts(missing);
+    },
+
+    /** 顺序加载外部脚本（前一个 onload 后再注入下一个，保证依赖先后） */
+    loadScripts: function (names) {
+        var chain = Promise.resolve();
+        var ver = document.body.getAttribute('data-ver') || '';
+        names.forEach(function (name) {
+            chain = chain.then(function () {
+                return new Promise(function (resolve, reject) {
+                    var s = document.createElement('script');
+                    s.src = '/assets/js/components/' + name + '.js?v=' + ver;
+                    s.onload = resolve;
+                    s.onerror = function () { reject(new Error('script load failed: ' + name)); };
+                    document.head.appendChild(s);
+                });
+            });
+        });
+        return chain;
+    },
+
     /** 需整页加载的地址（独立页 / 外链 / 接口 / 文件下载） */
     isFullPage: function (href) {
         if (!href || href.charAt(0) !== '/') return true;
@@ -66,13 +132,31 @@ Clinic.nav = {
         })
             .then(function (res) { return res.text(); })
             .then(function (html) {
-                Clinic.loading.hide();
-                that._busy = false;
-                that.install(html);
-                that.current = href.split('?')[0];
-                that.lastUrl = href;
-                that.markActive();
-                if (window.Clinic && Clinic.refresh) Clinic.refresh(document.querySelector('.content'));
+                // 临时容器解析：脚本不会自动执行，可安全提取
+                var tmp = document.createElement('div');
+                tmp.innerHTML = html;
+                var root = tmp.querySelector('.view-root');
+                // 未登录 / 会话失效 / 独立页回退整页加载
+                if (!root) {
+                    Clinic.loading.hide();
+                    that._busy = false;
+                    window.location.reload();
+                    return;
+                }
+                // 先按需注入页面组件脚本（依赖就绪后）再安装内容与执行内联脚本
+                that.loadNeeds(root).then(function () {
+                    Clinic.loading.hide();
+                    that._busy = false;
+                    that.install(root);
+                    that.current = href.split('?')[0];
+                    that.lastUrl = href;
+                    that.markActive();
+                    if (window.Clinic && Clinic.refresh) Clinic.refresh(document.querySelector('.content'));
+                }).catch(function () {
+                    Clinic.loading.hide();
+                    that._busy = false;
+                    Clinic.toast.error('页面组件加载失败，请刷新重试');
+                });
             })
             .catch(function () {
                 Clinic.loading.hide();
@@ -81,17 +165,8 @@ Clinic.nav = {
             });
     },
 
-    /** 安装局部内容：替换 .content + 重执行脚本 + 更新标题/高亮 */
-    install: function (html) {
-        // 临时容器解析：脚本不会自动执行，可安全提取
-        var tmp = document.createElement('div');
-        tmp.innerHTML = html;
-        var root = tmp.querySelector('.view-root');
-        // 未登录 / 会话失效 / 独立页回退整页加载
-        if (!root) {
-            window.location.reload();
-            return;
-        }
+    /** 安装局部内容：替换 .content + 重执行脚本 + 更新标题/高亮（root 为解析后的 view-root 元素） */
+    install: function (root) {
         var title = root.getAttribute('data-page-title') || '';
         var scripts = root.querySelectorAll('script');
 
