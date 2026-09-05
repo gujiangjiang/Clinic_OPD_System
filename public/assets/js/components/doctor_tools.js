@@ -413,8 +413,8 @@ Clinic.docTools = (function () {
         return '<div class="doc-call-pop-head">' +
             '  <span class="doc-call-pop-title">📢 叫号 · ' + Clinic.escHtml(ROOM_BOUND.name || '') + '</span>' +
             '  <span class="doc-call-pop-tools">' +
-            '    <span class="doc-call-pop-x" data-act="mini" title="切换精简模式">⤢</span>' +
-            '    <span class="doc-call-pop-x" data-act="hide" title="收起">—</span>' +
+            '    <span class="doc-call-pop-x" data-act="mini" title="最小化（切换到精简版）">-</span>' +
+            '    <span class="doc-call-pop-x" data-act="hide" title="关闭">x</span>' +
             '  </span>' +
             '</div>' +
             '<div class="doc-call-pop-body">' +
@@ -443,14 +443,14 @@ Clinic.docTools = (function () {
             '</div>';
     }
 
-    /* 精简版悬浮窗 HTML：标题（恢复/解绑/最小化）+ 当前就诊 + 下一位 + 三个叫号按钮 */
+    /* 精简版悬浮窗 HTML：标题（解绑/最大化/关闭）+ 当前就诊 + 下一位 + 三个叫号按钮 */
     function miniPopHtml() {
         return '<div class="doc-call-pop-head">' +
             '  <span class="doc-call-pop-title">📢 ' + Clinic.escHtml(ROOM_BOUND.name || '') + '</span>' +
             '  <span class="doc-call-pop-tools">' +
-            '    <span class="doc-call-pop-x" data-act="restore" title="恢复完整叫号悬浮窗">⤢</span>' +
-            '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">🔓</span>' +
-            '    <span class="doc-call-pop-x" data-act="hide" title="最小化（点击顶栏「叫号」按钮重新打开）">—</span>' +
+            '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">解</span>' +
+            '    <span class="doc-call-pop-x" data-act="restore" title="最大化（恢复完整版）">+</span>' +
+            '    <span class="doc-call-pop-x" data-act="hide" title="关闭">x</span>' +
             '  </span>' +
             '</div>' +
             '<div class="doc-call-pop-body doc-call-mini-body">' +

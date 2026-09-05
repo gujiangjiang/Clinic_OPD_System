@@ -750,13 +750,19 @@ body.emr-readonly .emr-item-link,
     letter-spacing: .5px;
     pointer-events: none;
 }
+/* 标题栏按钮：统一大小（等宽正方形）、统一字符标志（解 / + / - / x） */
 .doc-call-pop-x {
     cursor: pointer;
-    font-size: 16px;
+    font-size: 15px;
     line-height: 1;
-    padding: 2px 6px;
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border-radius: 6px;
     pointer-events: auto;
+    font-weight: 700;
 }
 .doc-call-pop-x:hover { background: rgba(255, 255, 255, .2); }
 .doc-call-pop-tools { display: flex; align-items: center; pointer-events: none; }
