@@ -249,9 +249,10 @@ function cashier_part_read($action) {
                 ($allRefunded ? ' ｜ <span class="badge badge-gray">已退费</span>' : '') . '</div>' .
                 '<div class="fs-12 text-muted mt-4" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' . $sumText . '</div>' .
                 '<div class="mt-8 flex gap-8">' .
-                // 整单已退费：凭条作废，不可补打，亦不可重复退费
+                // 整单已退费：凭条作废，不可补打、不可重复退费；但仍可查看详情（项目执行进度）
                 ($allRefunded
-                    ? '<span class="fs-13 text-muted">该凭条已整单退费，不可补打凭条</span>'
+                    ? '<span class="fs-13 text-muted">该凭条已整单退费，不可补打凭条</span>' .
+                      '<button class="btn btn-outline btn-sm" onclick="showBatchDetail(\'' . e($g['payment_no']) . '\')">📋 详情</button>'
                     : '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=payment&payment_id=' . e(oid($g['pay_id'])) . '\',null,\'ticket\')">🖨️ 补打凭条</button>' .
                     '<button class="btn btn-outline btn-sm" onclick="showBatchDetail(\'' . e($g['payment_no']) . '\')">📋 详情</button>' .
                     // 同批次多订单 → 整单退费（不可单独退）；单订单 → 普通退费

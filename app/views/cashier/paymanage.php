@@ -35,23 +35,31 @@ Router::title('缴费管理');
 </div>
 
 <script>
-/* ---------- 查询就诊 ---------- */
-function searchVisits() {
+/* ---------- 查询就诊 ----------
+ * @param {boolean} keepDetail 为 true 时仅刷新左侧列表、保留右侧详情
+ *   （退费/缴费等操作后调用：右侧已重新加载，无需重置回空态）
+ */
+function searchVisits(keepDetail) {
     var kw = document.getElementById('payKw').value.trim();
     if (!kw) { Clinic.toast.warning('请输入查询关键字'); return; }
     Clinic.get('/api/cashier?action=visit_search&kw=' + encodeURIComponent(kw), null, {
         onSuccess: function (json) {
             var list = json.data.list || [];
             var box = document.getElementById('visitList');
-            document.getElementById('visitDetail').innerHTML = '<div class="paymgr-empty">👈 点击左侧就诊记录，查看该次就诊的缴费明细与退费操作</div>';
+            // 仅首次查询/主动搜索时重置右侧空态；keepDetail=true（退费后刷新）保留右侧
+            if (!keepDetail) {
+                document.getElementById('visitDetail').innerHTML = '<div class="paymgr-empty">👈 点击左侧就诊记录，查看该次就诊的缴费明细与退费操作</div>';
+            }
             if (!list.length) {
                 box.innerHTML = '<div class="empty"><div class="empty-ico">🔍</div>未检索到就诊记录</div>';
                 return;
             }
+            // 保持当前选中项高亮（退费后刷新左侧时选中态不丢失）
             box.innerHTML = '<div class="fs-13 text-muted mb-8">共检索到 ' + list.length + ' 次就诊：</div>' +
                 list.map(function (g) {
                     var v = g.visit, p = g.patient;
-                    return '<div class="paymgr-item" onclick="selectVisit(this,\'' + v.id + '\')">' +
+                    var active = (CUR_VISIT && String(CUR_VISIT) === String(v.id)) ? ' active' : '';
+                    return '<div class="paymgr-item' + active + '" onclick="selectVisit(this,\'' + v.id + '\')">' +
                         '<div class="flex-between">' +
                         '<span class="fw-600">' + (p ? Clinic.escHtml(p.name) : '') + ' <span class="fs-12 text-muted fw-400">' +
                         (p ? Clinic.escHtml(p.gender) + '/' + Clinic.escHtml(Clinic.validate.formatAge(p.birth_date)) : '') + '</span></span>' +
@@ -265,7 +273,7 @@ function cancelVisit(visitId, status) {
                 Clinic.toast.success(json.msg);
                 loadDetail(CUR_VISIT);
                 // 退费后左侧就诊列表状态同步刷新（原仅刷新右侧详情，左侧仍显示旧状态）
-                if (document.getElementById('payKw').value.trim()) searchVisits();
+                if (document.getElementById('payKw').value.trim()) searchVisits(true);
             },
         });
     }, { title: status === 'paid' ? '退费确认' : '取消确认' });
@@ -280,7 +288,7 @@ function refundOrder(orderId) {
             onSuccess: function (json) {
                 Clinic.toast.success(json.msg);
                 loadDetail(CUR_VISIT);
-                if (document.getElementById('payKw').value.trim()) searchVisits();
+                if (document.getElementById('payKw').value.trim()) searchVisits(true);
             },
         });
     }, { title: '退费确认', okText: '确认退费' });
@@ -309,7 +317,7 @@ function refundBatch(paymentNo) {
                             Clinic.toast.success(json.msg);
                             loadDetail(CUR_VISIT);
                             // 整单退费后左侧就诊状态同步刷新（原仅刷新右侧，凭条仍显示退费/补打按钮）
-                            if (document.getElementById('payKw').value.trim()) searchVisits();
+                            if (document.getElementById('payKw').value.trim()) searchVisits(true);
                         },
                     });
                 }, { title: '整单退费', okText: '确认整单退费' });
