@@ -134,6 +134,7 @@ switch ($action) {
 
     /* ---------------- 叫号大屏/诊室管理 ---------------- */
     case 'room_list':
+    case 'room_stats':
     case 'room_create':
     case 'room_save':
     case 'room_reset_token':
