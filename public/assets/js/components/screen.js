@@ -307,7 +307,9 @@
     }
 
     /* 动态计算等待就诊显示数量：以可用高度得出放几行；过号患者恒居末尾并按顺序排列。
-       cols=1 单列逐行；cols=2 方屏双排（每行2位，列间分隔线） */
+       cols=1 单列逐行；cols=2 方屏双排（每行2位，列间分隔线）。
+       姓名列宽度：取已渲染条目最大姓名自然宽度设为共享列宽（--wait-name-w），
+       保证各行 序号/姓名/性别/年龄 全部纵向对齐，且姓名后无大片空白。 */
     function fitWaitList(main, normalArr, missedArr, cols) {
         var panel = main.querySelector('.screen-wait-panel');
         var listEl = cols === 2 ? main.querySelector('.screen-wait-land-list') : main.querySelector('.screen-wait-list');
@@ -328,16 +330,34 @@
             maxRows = Math.min(10, rowsCap);      // 上限 10 行（20 位）
             fitN = maxRows * 2;
             listEl.style.gridTemplateRows = 'repeat(' + maxRows + ', minmax(0, 1fr))';
+            listEl.style.setProperty('--wait-rows', maxRows);   // 分隔线自第二列起
         } else {
             var total = listEl.scrollHeight;
-            if (total <= avail + 2) { updateWaitTitle(panel, count); return; }
-            var itemH = total / count;
-            fitN = Math.max(1, Math.floor((avail - 4) / itemH));   // 预留余量避免末行裁切
+            if (total <= avail + 2) {
+                fitN = count;
+            } else {
+                var itemH = total / count;
+                fitN = Math.max(1, Math.floor((avail - 4) / itemH));   // 预留余量避免末行裁切
+            }
         }
         var showMissed = missedArr.slice(0, fitN);
         var showNormal = normalArr.slice(0, Math.max(0, fitN - showMissed.length));
         var shown = showNormal.concat(showMissed);
+        // 共享姓名列宽：以已渲染条目的最大姓名自然宽度为准（+少量缓冲），保证各列纵向对齐
+        var nameW = 0;
+        listEl.querySelectorAll('.screen-wait-item .screen-wait-name').forEach(function (n) {
+            var w = n.scrollWidth;
+            if (w > nameW) nameW = w;
+        });
+        if (nameW > 0) listEl.style.setProperty('--wait-name-w', (Math.ceil(nameW) + 6) + 'px');
         listEl.innerHTML = shown.map(waitItemHtml).join('');
+        // 方屏双排：给第二列条目加 class，用于显示纵向分隔线
+        if (cols === 2 && maxRows) {
+            var all = listEl.querySelectorAll('.screen-wait-item');
+            for (var i = 0; i < all.length; i++) {
+                if (i >= maxRows) all[i].classList.add('wait-col2');
+            }
+        }
         updateWaitTitle(panel, shown.length);
     }
 

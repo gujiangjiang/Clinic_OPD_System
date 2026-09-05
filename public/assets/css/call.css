@@ -448,13 +448,20 @@
     grid-auto-columns: 1fr;
     column-gap: clamp(12px, 2cqmin, 30px);
 }
-.call-body.screen-square .screen-wait-land-list .screen-wait-item:nth-child(n+9) {
-    border-left: 1px dashed rgba(255, 255, 255, .28);   /* 两列之间的纵向分隔线 */
+.call-body.screen-square .screen-wait-land-list .screen-wait-item.wait-col2 {
+    border-left: 1px dashed rgba(255, 255, 255, .28);   /* 第二列显示纵向分隔线 */
     padding-left: clamp(8px, 1.2cqmin, 16px);
 }
-/* ===== 宽屏/超宽屏（≥16:10）：左中右三等分 ===== */
+/* ===== 宽屏/超宽屏（≥16:10）：左 医生加宽(照片正常) | 中 就诊(保持) | 右 等待(压缩) ===== */
 .call-body.screen-wide .screen-land-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 0.7fr);
+}
+/* 宽屏医生照片：正方形显示（不拉成竖条） */
+.call-body.screen-wide .screen-land-doctor .screen-doc-photo {
+    height: auto;
+    aspect-ratio: 1;
+    align-self: center;
+    justify-self: center;
 }
 /* 主区（竖屏下方）：左右两列网格（左列 正在就诊+下一位，右列 等待就诊） */
 .screen-main-area {
@@ -530,19 +537,15 @@
    列宽与间隙用 cqmin 随画布同步缩放（方屏/宽屏姓名列 1fr 填满，竖屏姓名列自适应内容） */
 .screen-wait-item {
     display: grid;
-    grid-template-columns: 2.6cqmin 6.5cqmin minmax(0, 1fr) 4.5cqmin 7cqmin;
+    grid-template-columns: 2.6cqmin 6.5cqmin var(--wait-name-w, minmax(0, 1fr)) 4.5cqmin 7cqmin;
     align-items: center;
     gap: 1.2cqmin;
     font-size: clamp(14px, 3cqmin, 44px);
     color: #e6f2ff;
-    padding: 0.5cqmin 0.4cqmin;
+    padding: 1.1cqmin 0.4cqmin 0.15cqmin;   /* 顶部略多：姓名视觉下移，底部不留大片空 */
     border-bottom: 1px dashed rgba(255, 255, 255, .12);
     box-sizing: border-box;
-}
-/* 竖屏：姓名列按内容宽度自适应（fit-content 上限 16cqmin），消除姓名后的大片空白，
-   同时与各列保持纵向对齐 */
-.call-body.screen-portrait .screen-wait-item {
-    grid-template-columns: 2.6cqmin 6.5cqmin fit-content(16cqmin) 4.5cqmin 7cqmin;
+    line-height: 1.15;
 }
 .screen-wait-seq {
     font-weight: 800;
@@ -562,6 +565,9 @@
     font-size: .86em;
     font-variant-numeric: tabular-nums;
     text-align: left;
+    white-space: nowrap;           /* 性别/年龄单行显示，超出省略号（如 x岁x月 只显示 x岁…） */
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 /* 过号圆形徽标：仅过号患者在序号前显示圆圈「过」字；
    非过号患者占位保持透明（列对齐，不显示圆圈） */
@@ -579,6 +585,7 @@
     font-size: 0.62em;
     line-height: 1;
     letter-spacing: 0;
+    box-sizing: border-box;        /* 含边框正好占满预留列宽，不挤压序号 */
 }
 .screen-wait-miss-empty {
     background: transparent;
@@ -594,47 +601,7 @@
     justify-content: center;
 }
 .screen-wait-empty .screen-empty { margin: 0; }
-.screen-wait-seq {
-    font-weight: 800;
-    color: #ffd54f;
-    font-variant-numeric: tabular-nums;
-    text-align: left;
-}
-.screen-wait-name {
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.screen-wait-gender,
-.screen-wait-age {
-    color: #a8c8e8;
-    font-size: .86em;
-    font-variant-numeric: tabular-nums;
-    text-align: left;
-}
-/* 过号圆形徽标：仅过号患者在序号前显示圆圈「过」字；
-   非过号患者占位保持透明（列对齐，不显示圆圈） */
-.screen-wait-miss {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: clamp(20px, 2.7cqmin, 32px);
-    height: clamp(20px, 2.7cqmin, 32px);
-    border-radius: 50%;
-    background: rgba(255, 90, 70, .22);
-    border: 1.5px solid #ff6a55;
-    color: #ff6a55;
-    font-weight: 800;
-    font-size: .62em;
-    line-height: 1;
-    letter-spacing: 0;
-}
-.screen-wait-miss-empty {
-    background: transparent;
-    border-color: transparent;
-    color: transparent;
-}
+
 
 /* ---------- 模式B：医技列表看板 ---------- */
 .screen-dept-head {
