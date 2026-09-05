@@ -201,8 +201,15 @@
     function renderDoctorMode(d) {
         var cur = d.current || {};
         var next = d.next || {};
-        var wait = d.waiting || [];
         var doc = d.doctor || {};
+        // 横屏/方屏（宽>=高）显示 16 位等待就诊（双排），竖屏显示 8 位；
+        // 过号患者始终排在列表末尾（末尾留位优先过号患者），保证「过」徽标可见
+        var isLand = !document.body.classList.contains('screen-portrait');
+        var maxWait = isLand ? 16 : 8;
+        var waitRaw = d.waiting || [];
+        var missedArr = waitRaw.filter(function (w) { return w.missed; }).slice(0, maxWait);
+        var normalArr = waitRaw.filter(function (w) { return !w.missed; }).slice(0, maxWait - missedArr.length);
+        var wait = normalArr.concat(missedArr);
 
         var curCard = cur.name
             ? '<div class="screen-cur-name">' + maskName(cur.name) + '</div>' +
@@ -239,18 +246,35 @@
               '<div class="screen-doc-info"><div class="screen-doc-name">医生出诊中</div>' +
               '<div class="screen-doc-intro screen-doc-intro-empty">暂无医生信息</div></div></div>';
 
-        return '<div class="screen-doctor-grid">' +
-            docCard +
-            '<div class="screen-main-area">' +
-            '<div class="screen-left-col">' +
-            '  <div class="screen-panel screen-cur-panel"><div class="screen-panel-title">正在就诊</div>' +
-            '    <div class="screen-panel-body"><div class="screen-panel-inner">' + curCard + '</div></div></div>' +
-            '  <div class="screen-panel screen-next-panel"><div class="screen-panel-title">下一位</div>' +
-            '    <div class="screen-panel-body"><div class="screen-panel-inner">' + nextCard + '</div></div></div>' +
+        // ===== 竖屏排版：医生卡在上，主区（正在就诊/下一位 | 等待就诊）在下 =====
+        if (!isLand) {
+            return '<div class="screen-doctor-grid">' +
+                docCard +
+                '<div class="screen-main-area">' +
+                '<div class="screen-left-col">' +
+                '  <div class="screen-panel screen-cur-panel"><div class="screen-panel-title">正在就诊</div>' +
+                '    <div class="screen-panel-body"><div class="screen-panel-inner">' + curCard + '</div></div></div>' +
+                '  <div class="screen-panel screen-next-panel"><div class="screen-panel-title">下一位</div>' +
+                '    <div class="screen-panel-body"><div class="screen-panel-inner">' + nextCard + '</div></div></div>' +
+                '</div>' +
+                '<div class="screen-wait-panel"><div class="screen-panel-title">等待就诊（' + wait.length + '）</div>' +
+                '  <div class="screen-panel-body"><div class="screen-panel-inner">' + waitList + '</div></div></div>' +
+                '</div></div>';
+        }
+        // ===== 横屏/方屏排版：上半 医生卡(左) | 正在就诊+下一位(右)；下半 等待就诊双排 =====
+        return '<div class="screen-land-grid">' +
+            '<div class="screen-land-top">' +
+            '  <div class="screen-land-doctor">' + docCard + '</div>' +
+            '  <div class="screen-land-main">' +
+            '    <div class="screen-panel screen-cur-panel"><div class="screen-panel-title">正在就诊</div>' +
+            '      <div class="screen-panel-body"><div class="screen-panel-inner">' + curCard + '</div></div></div>' +
+            '    <div class="screen-panel screen-next-panel"><div class="screen-panel-title">下一位</div>' +
+            '      <div class="screen-panel-body"><div class="screen-panel-inner">' + nextCard + '</div></div></div>' +
+            '  </div>' +
             '</div>' +
             '<div class="screen-wait-panel"><div class="screen-panel-title">等待就诊（' + wait.length + '）</div>' +
-            '  <div class="screen-panel-body"><div class="screen-panel-inner">' + waitList + '</div></div></div>' +
-            '</div></div>';
+            '  <div class="screen-wait-land-list">' + waitList + '</div></div>' +
+            '</div>';
     }
 
     function renderDeptMode(d) {

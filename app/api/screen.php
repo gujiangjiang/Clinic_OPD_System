@@ -108,7 +108,8 @@ function screen_payload($room) {
         // 叫号会话日期维护（跨天规则：不允许则跨天清空重建，允许则跨 0 点延续）
         $room = QueueRepository::roomQueueRefresh($room);
         // 号源池：当天/会话日期号源中未被任何医生认领的患者（动态拼接，多医生并发不重复）
-        $pool = QueueRepository::deptPoolForRoom($room, 8);
+        // 取 17 位：首位作「下一位」，其余供等待就诊区展示（竖屏 8 / 横屏双排 16）
+        $pool = QueueRepository::deptPoolForRoom($room, 17);
         $next = $pool ? $pool[0] : null;
         $missed = QueueRepository::deptMissedForRoom($room, 5);
         // 候诊列表 = 号源池剩余（除去已展示的「下一位」）+ 过号患者（末尾追加，带（过号）标记）
