@@ -13,6 +13,19 @@
 
 ---
 
+## [6.9.1] - 2026-09-05
+
+> 叫号系统底层数据结构准备（为医生工作站推送大屏数据 + 多医生并发叫号防重奠基）。
+
+### 新增
+
+- **叫号事件表 call_events**：记录每次叫号动作（call / repeat_call / miss）的患者与医生，
+  支撑「多医生并发叫号防重认领」「过号标记」「再次叫号」。
+- **clinic_rooms 增加叫号状态列**：current_visit_id / current_flow_no / current_called_at /
+  last_call_action / last_call_at，存放大屏当前就诊患者（医生工作站推送信号的落点，大屏端
+  仅按 token 读取并回库校验）。
+  （`app/config/schema/main.php`，schema 版本 15 → 17）
+
 ## [6.9.0] - 2026-09-05
 
 > 管理端叫号管理优化：选择科室模态框大屏统计实时更新，新建/删除大屏后无需刷新页面即可看到。

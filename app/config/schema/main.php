@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 15,
+    'version' => 17,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -609,8 +609,28 @@ return array(
             enable_mask TINYINT DEFAULT 1,
             screen_tips TEXT DEFAULT '',
             tip_interval INTEGER DEFAULT 5,
+            current_visit_id INTEGER DEFAULT 0,
+            current_flow_no TEXT DEFAULT '',
+            current_called_at TEXT DEFAULT '',
+            last_call_action TEXT DEFAULT '',
+            last_call_at TEXT DEFAULT '',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+
+        /* ---------------- 叫号事件（多医生并发叫号防重 + 过号标记） ---------------- */
+
+        'call_events' => "CREATE TABLE IF NOT EXISTS call_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            visit_id INTEGER,
+            flow_no TEXT DEFAULT '',
+            patient_no TEXT DEFAULT '',
+            dept_id INTEGER DEFAULT 0,
+            room_id INTEGER DEFAULT 0,
+            doctor_id INTEGER DEFAULT 0,
+            doctor_name TEXT DEFAULT '',
+            action TEXT DEFAULT 'call',
+            created_at TEXT
         )",
 
         /* ---------------- 会诊 ---------------- */
@@ -718,6 +738,31 @@ return array(
                 note TEXT,
                 decided_at TEXT
             )",
+        ),
+        // v16：叫号大屏当前就诊状态（由医生工作站推送信号，大屏端仅按 token 读取校验）
+        16 => array(
+            "ALTER TABLE clinic_rooms ADD COLUMN current_visit_id INTEGER DEFAULT 0",
+            "ALTER TABLE clinic_rooms ADD COLUMN current_flow_no TEXT DEFAULT ''",
+            "ALTER TABLE clinic_rooms ADD COLUMN current_called_at TEXT DEFAULT ''",
+            "ALTER TABLE clinic_rooms ADD COLUMN last_call_action TEXT DEFAULT ''",
+            "ALTER TABLE clinic_rooms ADD COLUMN last_call_at TEXT DEFAULT ''",
+        ),
+        // v17：叫号事件表——多医生并发叫号防重认领 + 过号标记 + 再次叫号记录
+        17 => array(
+            "CREATE TABLE IF NOT EXISTS call_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                visit_id INTEGER,
+                flow_no TEXT DEFAULT '',
+                patient_no TEXT DEFAULT '',
+                dept_id INTEGER DEFAULT 0,
+                room_id INTEGER DEFAULT 0,
+                doctor_id INTEGER DEFAULT 0,
+                doctor_name TEXT DEFAULT '',
+                action TEXT DEFAULT 'call',
+                created_at TEXT
+            )",
+            "CREATE INDEX IF NOT EXISTS idx_call_events_visit ON call_events(visit_id)",
+            "CREATE INDEX IF NOT EXISTS idx_call_events_dept_action ON call_events(dept_id, action)",
         ),
     ),
     'seed' => array(
