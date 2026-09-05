@@ -32,6 +32,16 @@
     detectOrientation();
     window.addEventListener('resize', detectOrientation);
 
+    /* ============ 预览锁定等比缩放 ============
+       管理端预览（pv_w/pv_h）时：页面以固定设计尺寸排版，这里整体 transform:scale
+       缩放到预览尺寸，保证「比例一致 → 显示内容一致」，所有文字随画布同步缩放。 */
+    (function () {
+        var s = parseFloat(document.body.getAttribute('data-pv-scale') || '');
+        if (s > 0 && Math.abs(s - 1) > 0.0001) {
+            document.body.style.transform = 'scale(' + s + ')';
+        }
+    })();
+
     /* ============ 时钟 ============ */
     function tickClock() {
         var el = document.getElementById('clock');

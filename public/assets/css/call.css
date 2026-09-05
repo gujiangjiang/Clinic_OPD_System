@@ -22,25 +22,25 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: clamp(10px, 1.8vmin, 36px) clamp(16px, 2.8vmin, 56px);
+    padding: clamp(10px, 1.8cqmin, 36px) clamp(16px, 2.8cqmin, 56px);
     background: rgba(255, 255, 255, .06);
     border-bottom: 1px solid rgba(255, 255, 255, .12);
     flex-shrink: 0;
-    gap: clamp(8px, 1.2vmin, 24px);
+    gap: clamp(8px, 1.2cqmin, 24px);
 }
 .call-brand {
     display: flex;
     align-items: center;
-    gap: clamp(8px, 1.4vmin, 20px);
+    gap: clamp(8px, 1.4cqmin, 20px);
     min-width: 0;
 }
 .call-brand img {
-    height: clamp(34px, 5.5vmin, 104px);
-    width: clamp(34px, 5.5vmin, 104px);
+    height: clamp(34px, 5.5cqmin, 104px);
+    width: clamp(34px, 5.5cqmin, 104px);
     object-fit: contain;
-    border-radius: clamp(6px, 0.8vmin, 14px);
+    border-radius: clamp(6px, 0.8cqmin, 14px);
     background: #fff;
-    padding: clamp(2px, 0.3vmin, 6px);
+    padding: clamp(2px, 0.3cqmin, 6px);
     flex-shrink: 0;
 }
 /* 名称区撑满 LOGO 与时钟之间：两行名称左右两端对齐（徽标式排版） */
@@ -49,7 +49,7 @@
     min-width: 0;
 }
 .call-hosp .hosp-main {
-    font-size: clamp(20px, 3.4vmin, 72px);
+    font-size: clamp(20px, 3.4cqmin, 72px);
     font-weight: 800;
     letter-spacing: 1px;
     line-height: 1.2;
@@ -60,7 +60,7 @@
     text-align-last: justify;
 }
 .call-hosp .hosp-sub {
-    font-size: clamp(13px, 2vmin, 44px);
+    font-size: clamp(13px, 2cqmin, 44px);
     color: #a8c8e8;
     letter-spacing: 1px;
     white-space: nowrap;
@@ -70,7 +70,7 @@
     text-align-last: justify;
 }
 .call-clock {
-    font-size: clamp(18px, 3vmin, 64px);
+    font-size: clamp(18px, 3cqmin, 64px);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     color: #ffd54f;
@@ -83,15 +83,15 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: clamp(8px, 1.5vmin, 30px) clamp(10px, 2vmin, 40px);
+    padding: clamp(8px, 1.5cqmin, 30px) clamp(10px, 2cqmin, 40px);
     flex-shrink: 0;
 }
 .call-dept {
-    font-size: clamp(20px, 3.8vmin, 80px);
+    font-size: clamp(20px, 3.8cqmin, 80px);
     font-weight: 700;
     color: #ffd54f;
     letter-spacing: 3px;
-    padding: clamp(4px, 0.7vmin, 16px) clamp(14px, 2.4vmin, 52px);
+    padding: clamp(4px, 0.7cqmin, 16px) clamp(14px, 2.4cqmin, 52px);
     border: 1.5px solid #ffd54f;
     border-radius: 30px;
     background: rgba(255, 213, 79, .12);
@@ -230,7 +230,9 @@
     100% { transform: translateX(-100%); }
 }
 
-/* ---------- 大屏内容主区（container-type 提供 cqmin 相对字号基准） ---------- */
+/* ============================================================
+ * 大屏内容主区（container-type 提供 cqmin 相对字号基准）
+ * ============================================================ */
 .screen-main {
     flex: 1;
     display: flex;
@@ -239,6 +241,14 @@
     overflow: hidden;
     container-type: size;
 }
+
+/* ---------- 预览锁定（pv-locked）：固定设计尺寸 + 整体等比缩放 ----------
+   管理端预览 iframe 传入 pv_w/pv_h 时，页面以「短边 1080」的设计尺寸排版，
+   再整体 transform:scale 缩放到预览尺寸。由于设计尺寸足够大，字号 clamp 下限
+   不会被触发，保证「只要比例一致，显示内容就完全一致」（文字随画布同步缩放）。
+   真实大屏不传 pv 参数，不受影响。 */
+.call-body.pv-locked { container-type: size; transform-origin: 0 0; }
+.call-body.pv-locked .screen-main { container-type: normal; }
 
 /* ---------- 通用面板：标题固定顶部居中，内容居中显示 ---------- */
 .screen-panel {
@@ -635,12 +645,12 @@
  * 竖屏适配（宽 < 高）：整体采用同一套 CSS Grid 布局，
  * 仅微调列宽比例与医生卡头像列占比，字号由 cqmin 随屏自动缩放。
  * ============================================================ */
-.call-body.screen-portrait .call-top { padding: clamp(5px, 0.9vmin, 16px) clamp(10px, 1.6vmin, 28px); }
-.call-body.screen-portrait .call-brand img { height: clamp(28px, 4.2vmin, 72px); width: clamp(28px, 4.2vmin, 72px); }
-.call-body.screen-portrait .call-hosp .hosp-main { font-size: clamp(16px, 2.6vmin, 50px); }
-.call-body.screen-portrait .call-hosp .hosp-sub { font-size: clamp(11px, 1.6vmin, 30px); }
-.call-body.screen-portrait .call-clock { font-size: clamp(15px, 2.4vmin, 44px); }
-.call-body.screen-portrait .call-dept { font-size: clamp(17px, 3vmin, 56px); padding: 3px 14px; letter-spacing: 2px; }
+.call-body.screen-portrait .call-top { padding: clamp(5px, 0.9cqmin, 16px) clamp(10px, 1.6cqmin, 28px); }
+.call-body.screen-portrait .call-brand img { height: clamp(28px, 4.2cqmin, 72px); width: clamp(28px, 4.2cqmin, 72px); }
+.call-body.screen-portrait .call-hosp .hosp-main { font-size: clamp(16px, 2.6cqmin, 50px); }
+.call-body.screen-portrait .call-hosp .hosp-sub { font-size: clamp(11px, 1.6cqmin, 30px); }
+.call-body.screen-portrait .call-clock { font-size: clamp(15px, 2.4cqmin, 44px); }
+.call-body.screen-portrait .call-dept { font-size: clamp(17px, 3cqmin, 56px); padding: 3px 14px; letter-spacing: 2px; }
 .call-body.screen-portrait .screen-main { padding: 6px 10px; }
 .call-body.screen-portrait .screen-doctor-grid {
     grid-template-rows: 1fr 1fr;
@@ -663,10 +673,10 @@
  * 横屏窄高度适配（宽 > 高，如 16:9 电视）：同一套网格，
  * 仅顶部收敛，字号随 cqmin 缩放。
  * ============================================================ */
-.call-body.screen-landscape .call-top { padding: clamp(8px, 1.2vmin, 22px) clamp(14px, 2.4vmin, 48px); }
-.call-body.screen-landscape .call-hosp .hosp-main { font-size: clamp(18px, 2.9vmin, 58px); }
-.call-body.screen-landscape .call-hosp .hosp-sub { font-size: clamp(12px, 1.7vmin, 34px); }
-.call-body.screen-landscape .call-clock { font-size: clamp(16px, 2.6vmin, 50px); }
+.call-body.screen-landscape .call-top { padding: clamp(8px, 1.2cqmin, 22px) clamp(14px, 2.4cqmin, 48px); }
+.call-body.screen-landscape .call-hosp .hosp-main { font-size: clamp(18px, 2.9cqmin, 58px); }
+.call-body.screen-landscape .call-hosp .hosp-sub { font-size: clamp(12px, 1.7cqmin, 34px); }
+.call-body.screen-landscape .call-clock { font-size: clamp(16px, 2.6cqmin, 50px); }
 
 /* 小屏（<900px）通用收敛：字号已由 cqmin 自适应，仅收敛间距 */
 @media (max-width: 900px) {

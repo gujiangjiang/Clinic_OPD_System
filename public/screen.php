@@ -10,13 +10,27 @@
  *   模式 B（lab/imaging/pharmacy/nurse 医技）：列表看板——队列 + 当前呼叫高亮。
  * ============================================================ */
 $token = isset($_GET['token']) ? trim($_GET['token']) : '';
-// 预览模式锁定画布尺寸：管理端预览 iframe 传入 pv_w/pv_h，大屏严格按该尺寸排版
-// （避免预览时按浏览器窗口尺寸渲染导致文字溢出），真实大屏不传此参数不受影响
+// 预览模式锁定：管理端预览 iframe 传入 pv_w/pv_h。
+// 页面以「短边 1080」的固定设计尺寸排版，再由 screen.js 整体 transform:scale
+// 缩放到预览尺寸——设计尺寸足够大，字号 clamp 下限不触发，保证任何预览尺寸下
+// 只要比例一致，显示内容就完全一致（所有文字/元素随画布同步缩放，不溢出）。
 $pvW = (int)(isset($_GET['pv_w']) ? $_GET['pv_w'] : 0);
 $pvH = (int)(isset($_GET['pv_h']) ? $_GET['pv_h'] : 0);
-$pvStyle = ($pvW >= 100 && $pvH >= 100)
-    ? ' width:' . (int)$pvW . 'px;height:' . (int)$pvH . 'px;min-height:' . (int)$pvH . 'px;'
-    : '';
+$pvStyle = '';
+$pvClass = '';
+$pvScale = 1.0;
+if ($pvW >= 100 && $pvH >= 100) {
+    $pvClass = ' pv-locked';
+    if ($pvH >= $pvW) {
+        $dW = 1080;
+        $dH = (int)round(1080 * $pvH / $pvW);
+    } else {
+        $dH = 1080;
+        $dW = (int)round(1080 * $pvW / $pvH);
+    }
+    $pvScale = $pvW / $dW;
+    $pvStyle = ' width:' . (int)$dW . 'px;height:' . (int)$dH . 'px;min-height:' . (int)$dH . 'px;';
+}
 $noToken = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">' .
     '<title>大屏链接无效</title><style>body{background:#111;color:#eee;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-size:24px}</style></head>' .
     '<body><div>🔗 大屏链接无效或已失效，请联系管理员获取新的访问链接</div></body></html>';
@@ -45,11 +59,12 @@ $isDoctor = $room['room_type'] === 'doctor';
     <link rel="stylesheet" href="/assets/css/call.css">
     <style>
         body { background: linear-gradient(135deg,#0f2027,#203a43,#2c5364); color:#fff; }
+        <?php if ($pvClass !== ''): ?>html, body { overflow: hidden; }<?php endif; ?>
     </style>
 </head>
-<body class="call-body" data-token="<?php echo e($token); ?>" data-roomtype="<?php echo e($room['room_type']); ?>"
+<body class="call-body<?php echo $pvClass; ?>" data-token="<?php echo e($token); ?>" data-roomtype="<?php echo e($room['room_type']); ?>"
       data-csrf="<?php echo e(CSRF::token()); ?>" data-hosp="<?php echo e($hosp); ?>" data-hosp2="<?php echo e($hosp2); ?>"
-      style="<?php echo trim($pvStyle); ?>">
+      data-pv-scale="<?php echo $pvScale; ?>" style="<?php echo trim($pvStyle); ?>">
 
 <!-- 顶部抬头：LOGO + 医院名 + 时钟（紧凑单行，不做大字号，语音开关由管理员在设置页控制） -->
 <header class="call-top">
