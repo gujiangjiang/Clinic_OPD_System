@@ -13,6 +13,105 @@
 
 ---
 
+## [6.6.0] - 2026-09-04
+
+> 本次为大规模代码复盘优化版本：修复逻辑漏洞 40+ 处、清理冗余死代码约 700 行、
+> 抽取 8 个公共函数、前端工具收敛，全部改动保证逻辑与功能等价，经语法检查与
+> 新旧实现对照验证。
+
+### 安全
+
+- **医生跨科室越权封堵**：候诊队列/候诊列表/诊室列表的 `dept_id` 参数此前无科室归属校验，
+  医生可枚举任意科室患者姓名/流水号并查看任意诊室。修复：`dept_id` 必须在本人关联科室
+  范围内，否则拒绝。（`app/api/parts/doctor/doctor_call_queue.php`、`doctor_queue_list.php`、`doctor_get_available_rooms.php`、`doctor_write.php`）
+- **护士站越权封堵**：护理记录列表 `nursing_list`、处方详情 `med_detail` 此前无科室归属校验；
+  待处置/待执行医嘱列表无科室过滤。修复：补 `nurse_visit_allowed` 校验 + 列表按就诊科室过滤。
+  （`app/api/nurse.php`、`app/repositories/OrderRepository.php`）
+- **退费流程角色/归属校验**：`check`/`apply` 此前任何 refund 角色可调用（医生/护士可代发起退费），
+  `detail` 无归属校验（IDOR 可枚举他人退费申请）。修复：`check`/`apply` 限定收费员/管理员，
+  `detail` 校验发起人/审批人/管理员。（`app/api/refund.php`）
+- **病历模板越权读取**：`template.get?for_apply=1` 此前绕过全部可见性过滤，任意医生可读他人
+  私有/待审核模板。修复：for_apply 采用与 list 一致的可见性规则。（`app/api/template.php`）
+- **会诊列表跨科室查看**：`consultation.list` 的 `dept_id` 未校验归属。修复：限定本人科室。
+  （`app/api/consultation.php`）
+- **会诊病历归属校验**：`EmrContextResolver` 会诊可写分支未校验 `doctor_id`，同科室其他医生可
+  改他人会诊文书。修复：仅书写医生本人可编辑。（`app/core/EmrContextResolver.php`）
+- **XSS 封堵**：运营分析页科室/医生/转归/自定义统计多字段、通用选择器搜索结果、日期/方案下拉
+  未转义拼 innerHTML——统一 `Clinic.escHtml`。（`app/views/admin/analytics.php`、`public/assets/js/components/selector.js`）
+- **HIS 接口密钥泄漏面**：`api_key` 支持 GET 参数传递会进入 Web 日志/浏览器历史/Referer。
+  修复：仅接受 `X-HIS-Key` 请求头，同步更新 README 示例。（`app/api/his.php`、`README.md`）
+- **CSRF 补同源校验**：POST 校验 Origin（或 Referer 兜底）必须为本站，防 SameSite 不可靠场景。
+  （`app/core/CSRF.php`）
+- **CSV 导出公式注入防护**：以 `= + - @` 开头的单元格前缀单引号，防 Excel 将数据当公式执行。
+  （`app/core/DataExportImport.php`）
+
+### 修复
+
+- **药房库存超扣竞态**：`stock` 出库为读判写分离（读库存→判充足→扣减），并发可超扣。
+  修复：原子条件更新 `UPDATE drugs SET qty=qty-? WHERE id=? AND qty>=?`，type 白名单校验。
+  （`app/api/pharmacy.php`）
+- **子药库存泄漏**：开单时主药+子药均扣库存，但药房驳回/退费/删单恢复仅恢复主药（`sub_of=0`）。
+  修复：三处恢复口径统一覆盖全部药品明细。（`app/api/pharmacy.php`、`app/api/parts/cashier_write.php`、`app/api/parts/order/order_delete.php`）
+- **检验/影像报告生成无事务**：`save_result` 多表写（results + 回写 + reports + 状态）无事务，
+  `done` 状态可重复提交生成重复报告。修复：包原生事务 + done 且已有非撤回报告时拦截重复提交。
+  （`app/api/lab.php`、`app/api/imaging.php`）
+- **user 数据导入必失败**：`admin_import` user 模块 SQL 占位符比绑定参数少 1（password 列在
+  生成 SQL 后才追加），导入必抛 PDO 异常。修复：密码列在生成 SQL 前加入。（`app/api/parts/admin_import.php`）
+- **导入 overwrite 策略空实现**：选择「覆盖」时冲突行实际被静默忽略。修复：按唯一键逐行 UPDATE
+  （密码除外），预览时附带完整冲突数据。（`app/api/parts/admin_import.php`）
+- **并发安装可产生两个管理员**：`install.php` 先查后插无锁。修复：事务内原子检查+创建+提交。
+  （`app/api/install.php`）
+- **登录失败计数竞态**：失败计数 read-modify-write 并发下互相覆盖。修复：原子 UPDATE +
+  阈值条件上锁。（`app/core/Auth.php`）
+- **混淆密钥并发首访竞态**：两个并发首访各自生成密钥互相覆盖，窗口期旧密文解不开。
+  修复：写入后回读取库中最终值。（`app/core/IdObfuscator.php`）
+- **药房新增药品表单断链**：规格编辑器 `openSpecEditor/seSaveSpec` 仅管理端内联定义，药房点击
+  即报错，且保存丢规格/皮试字段。修复：抽取公共组件 `drugform.js` 全站加载，药房保存补齐字段
+  与必填校验。（`public/assets/js/components/drugform.js`、`app/api/pharmacy.php`、`app/includes/layout.php`）
+- **叫号管理 onclick 注入面**：诊室名/Token 拼进 onclick 字符串（引号可截断）。修复：改事件委托
+  `data-room-action`。（`app/api/parts/admin_call.php`、`app/views/admin/callmanage.php`）
+- **JS 请求失败静默**：开单目录加载失败弹窗毫无反应、候诊队列失败面板空白、大屏断连无提示。
+  修复：均补 onError/失败提示/连续失败渲染断连提示。（`order.js`、`queuepanel.js`、`screen.js`）
+- **EMR 30 秒轮询定时器不清理**：长驻页面反复进入累积多个定时器。修复：保存引用 +
+  beforeunload 清理。（`app/views/doctor/emr.php`）
+- **AJAX catch 后仍 throw**：全站产生 unhandled Promise rejection 红错。修复：catch 返回哨兵对象。
+  （`ajax.js`）
+- **`get_editable_record` 与 resolver 判定矛盾**：普通模式会命中已完结会诊病历（dept_id 一致），
+  与 `consult_done` 只读熔断冲突。修复：查询排除 `consultation_id>0`。（`app/core/helpers.d/consult.php`）
+
+### 重构
+
+- **清理 Repository 死代码（约 -330 行）**：ConsultationRepository（仅保留 statusById）、
+  OrderRepository（删 byNo/create/update/labItems*/disposalItems*/reportIdsByResultIds 等 19 个）、
+  DrugRepository（删 byName/approved/settingsByType/deductStock/routeBindDisposal）、
+  CashierRepository（删 dept/depts/visit/updateOrder*Status）、EmrRepository（删 recordById/
+  templates 等）、QueueRepository（删 deptQueue/bindDoctor）、DeptRepository（仅保留 activeById）、
+  UserRepository（删 updateCurrentDept）、BaseRepository（删 begin/commit/rollBack）。
+  删除前逐方法全库验证 0 引用。
+- **公共函数抽取（行为完全等价）**：
+  - `gen_unique_no()`：统一「前缀+时间戳+随机，循环查重」单号生成（会诊/申请单/联动处置/证明号）
+  - `user_queue_days()`：统一「会话快照→查库→2-7 钳制→默认 3」（会诊/候诊/病历可访问天数）
+  - `in_placeholders()`：统一空数组 IN() 占位符生成（收敛全库 30+ 处）
+  - `decorate_visit_patient()`：统一打印页患者信息装饰（print.php 5 处）
+  - `Clinic.textOf()`：统一 html→textContent 提取（emr.js/historypanel.js 双实现）
+  - `work_schedule()` 请求级缓存 + `work_schedule_reset()` 失效钩子
+- **前端清理**：print.js 重复 contextmenu 绑定与重复 JSDoc；components-emr.css 删除 7 个无引用
+  死样式类（doc-order-chip/doc-rx-line/doc-treat-proc/doc-tpl/doc-doctor/rich-editor/diag-pick*）；
+  layout.css 合并重复 `:has` 规则。
+- **pinyin 映射表去重**：105 处重复键收敛为 282 唯一键（脚本验证与 PHP 后写覆盖结果完全一致），
+  截串改 `preg_split` 一次切分消除 O(n²)。
+- **`json_fail` 事务内自动回滚**：检测 `inTransaction()` 先回滚再输出，为事务内失败调用提供安全网。
+  （`app/core/helpers.d/string.php`）
+- **BaseRepository 表名改反引号**：`FROM "drugs"` 在 MySQL 默认 sql_mode 下语法错误，统一反引号
+  保证双驱动通用 CRUD 链路成立。（`app/repositories/BaseRepository.php`）
+- **DatabaseManager 健壮性**：seedAll 事务化防并发重复种数据；resolve 旧签名判定加 SQL 关键字
+  前置校验防误路由；删除 IFNULL 空操作死代码；ICD-10 注释对齐读写模式。
+
+### 文档
+
+- README 更新 HIS 接口调用示例（仅 X-HIS-Key 请求头）。
+- package.json 版本号 6.4.3 → 6.5.0 同步（此前滞后于 bootstrap/README/CHANGELOG）。
+
 ## [6.5.0] - 2026-09-03
 
 ### 安全
