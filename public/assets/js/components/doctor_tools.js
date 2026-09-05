@@ -22,6 +22,7 @@ Clinic.docTools = (function () {
     var ROOM_DATA = [];    // 大屏列表缓存
     var CALL_POP_TIMER = null; // 叫号悬浮窗轮询定时器
     var CALL_POOL_LIMIT = 20;  // 号源池已加载条数（滚动到末尾分段加载，上限 200）
+    var LAST_PANEL = null;     // 最近一次悬浮窗数据（跨页面重建时先渲染缓存，减少闪烁）
 
     /* ==================== 会话记忆（悬浮窗开合 + 位置，跨页面保持） ==================== */
     function memKey() {
@@ -344,6 +345,9 @@ Clinic.docTools = (function () {
                     Clinic.roomHeartbeat.remember(rid, rname);
                 }
                 loadRoomList();
+                // 先收起绑定下拉，避免与叫号悬浮窗重叠
+                var box = document.getElementById('docRoomList');
+                if (box) box.style.display = 'none';
                 // 绑定成功后自动打开叫号悬浮窗
                 if (ROOM_BOUND && ROOM_BOUND.id) openCallPop();
             },
@@ -403,6 +407,8 @@ Clinic.docTools = (function () {
         CALL_POOL_LIMIT = 20;   // 重新打开时重置号源池加载量
         bindCallPopDrag(pop);
         bindCallPopActions(pop);
+        // 先用最近缓存立即渲染（切换患者重建页面时不出现「加载中」闪烁），再异步刷新
+        if (LAST_PANEL) renderCallPop(LAST_PANEL);
         refreshCallPanel();
         if (CALL_POP_TIMER) clearInterval(CALL_POP_TIMER);
         CALL_POP_TIMER = setInterval(refreshCallPanel, 10000);
@@ -438,7 +444,7 @@ Clinic.docTools = (function () {
             '  </div>' +
             '  <div class="doc-call-foot">' +
             '    <span class="doc-call-status" id="dcpStatus"></span>' +
-            '    <button type="button" class="btn btn-outline btn-sm" data-act="unbind">解绑大屏</button>' +
+            '    <button type="button" class="btn btn-outline btn-sm" data-act="unbind">解绑</button>' +
             '  </div>' +
             '</div>';
     }
@@ -571,12 +577,12 @@ Clinic.docTools = (function () {
         var isMini = callPopEl() && callPopEl().classList.contains('doc-call-mini');
         Clinic.ajax('/api/doctor', { action: 'call_next', room_id: ROOM_BOUND.id, smart: isMini ? 1 : 0 }, {
             onSuccess: function (json) {
-                refreshCallPanel();
                 var v = json.data && json.data.visit;
                 if (v && v.visit_code && currentVisitCode() !== v.visit_code) {
-                    // 病历联动：自动切换到该患者病历页（等同于手动点击候诊列表该患者）
+                    // 病历联动：直接跳转新患者病历页（页面导航本身会刷新悬浮窗，跳过多余刷新）
                     location.href = '/doctor/emr?visit_id=' + v.visit_code;
                 } else {
+                    refreshCallPanel();
                     Clinic.toast.success(json.msg);
                 }
             },
@@ -589,11 +595,11 @@ Clinic.docTools = (function () {
         if (guardDirty()) return;
         Clinic.ajax('/api/doctor', { action: 'recall_missed', room_id: ROOM_BOUND.id, visit_code: visitCode }, {
             onSuccess: function (json) {
-                refreshCallPanel();
                 var v = json.data && json.data.visit;
                 if (v && v.visit_code && currentVisitCode() !== v.visit_code) {
                     location.href = '/doctor/emr?visit_id=' + v.visit_code;
                 } else {
+                    refreshCallPanel();
                     Clinic.toast.success(json.msg);
                 }
             },
@@ -609,11 +615,11 @@ Clinic.docTools = (function () {
             function () {
                 Clinic.ajax('/api/doctor', { action: 'call_miss', room_id: ROOM_BOUND.id }, {
                     onSuccess: function (json) {
-                        refreshCallPanel();
                         var v = json.data && json.data.visit;
                         if (v && v.visit_code && currentVisitCode() !== v.visit_code) {
                             location.href = '/doctor/emr?visit_id=' + v.visit_code;
                         } else {
+                            refreshCallPanel();
                             Clinic.toast.success(json.msg);
                         }
                     },
@@ -644,8 +650,7 @@ Clinic.docTools = (function () {
     function renderCallPop(d) {
         var pop = callPopEl();
         if (!pop) return;
-        if (!d.bound) {
-            // 后端判定绑定失效（医生心跳超时 / 被管理员释放等）：
+        if (!d.bound) {            // 后端判定绑定失效（医生心跳超时 / 被管理员释放等）：
             // 收起悬浮窗并重置本地绑定，引导医生重新绑定
             closeCallPop();
             Clinic.toast.warning('大屏绑定已失效，请重新绑定');
@@ -654,6 +659,7 @@ Clinic.docTools = (function () {
             loadRoomList();
             return;
         }
+        LAST_PANEL = d;   // 缓存最近面板数据（跨页面重建悬浮窗时先用缓存渲染，减少闪烁）
         var cur = d.current, next = d.next;
         var isMini = pop.classList.contains('doc-call-mini');
         var titleEl = pop.querySelector('.doc-call-pop-title');

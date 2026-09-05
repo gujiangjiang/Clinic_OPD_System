@@ -215,7 +215,8 @@ class QueueRepository extends BaseRepository {
         );
     }
 
-    /** 过号患者列表（最近 N 位，按跨天规则，供大屏显示（过号）标记） */
+    /** 过号患者列表（按跨天规则，供大屏显示（过号）标记）；
+        正序排列：最早过号的在上、最新过号的在最底部 */
     public static function deptMissedForRoom($room, $limit = 8) {
         $deptId = (int)$room['dept_id'];
         $params = array($deptId, $deptId);
@@ -227,7 +228,7 @@ class QueueRepository extends BaseRepository {
              LEFT JOIN (SELECT visit_id, MAX(created_at) AS transfer_at FROM referrals WHERE to_dept_id=? GROUP BY visit_id) tr ON tr.visit_id=r.id
              WHERE r.current_dept_id=? AND r.status='paid' AND $dateCond
                AND EXISTS (SELECT 1 FROM call_events ce WHERE ce.visit_id=r.id AND ce.action='miss')
-             ORDER BY (SELECT MAX(created_at) FROM call_events ce2 WHERE ce2.visit_id=r.id AND ce2.action='miss') DESC
+             ORDER BY (SELECT MAX(created_at) FROM call_events ce2 WHERE ce2.visit_id=r.id AND ce2.action='miss') ASC
              LIMIT " . (int)$limit,
             $params
         );
