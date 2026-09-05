@@ -50,7 +50,7 @@ function admin_part_call($action) {
                     '<span class="fs-12">' . ($r['enable_voice'] ? '🔊' : '🔇') . ' ' . ($r['enable_mask'] ? '脱敏' : '实名') . '</span></td>' .
                 // 操作按钮改为事件委托（data-room-id）：用户可控名称/Token 不再嵌入 onclick
                 // 字符串，杜绝引号/HTML 注入（原 e() 转义在属性值解码后无法覆盖单引号截断）
-                $rowsHtml .= '<td><div class="flex gap-4">' .
+                '<td><div class="flex gap-4">' .
                     '<button class="btn btn-outline btn-sm" data-room-action="preview" data-room-id="' . (int)$r['id'] . '">预览</button>' .
                     '<button class="btn btn-outline btn-sm" data-room-action="copy" data-room-id="' . (int)$r['id'] . '">复制链接</button>' .
                     '<button class="btn btn-outline btn-sm" data-room-action="reset" data-room-id="' . (int)$r['id'] . '">重置Token</button>' .

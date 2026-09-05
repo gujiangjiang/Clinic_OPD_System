@@ -277,9 +277,7 @@ Clinic.docTools = (function () {
                 }
                 loadRoomList();
             },
-            onError: function (json) {
-                Clinic.toast.error((json && json.msg) || '绑定失败');
-            },
+            // 失败提示由 Clinic.ajax 统一 toast（此处不再重复弹出，避免双重提醒）
         });
     }
 
