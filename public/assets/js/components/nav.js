@@ -19,6 +19,9 @@ window.Clinic = window.Clinic || {};
 Clinic.nav = {
     /** 当前局部导航路径（用于侧边栏高亮，不含 query） */
     current: '',
+    /** 最近一次局部加载的完整地址（含 query，用于去重；EMR 切换患者时
+        query 不同即视为不同目标，不能只比 path） */
+    lastUrl: '',
     /** 防重复加载锁 */
     _busy: false,
 
@@ -51,7 +54,7 @@ Clinic.nav = {
     /** 拉取并安装目标页 partial 内容 */
     load: function (href) {
         if (this._busy) return;
-        if (href === this.current + location.search) return;
+        if (href === this.lastUrl) return;
         this._busy = true;
         // 导航离开前关闭可能打开的模态窗（如会诊详情内「查看完整病历」入口）
         if (window.Clinic && Clinic.modal && Clinic.modal.close) Clinic.modal.close();
@@ -67,6 +70,7 @@ Clinic.nav = {
                 that._busy = false;
                 that.install(html);
                 that.current = href.split('?')[0];
+                that.lastUrl = href;
                 that.markActive();
                 if (window.Clinic && Clinic.refresh) Clinic.refresh(document.querySelector('.content'));
             })
