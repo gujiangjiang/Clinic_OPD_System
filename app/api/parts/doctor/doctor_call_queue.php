@@ -1,33 +1,44 @@
 <?php
 /**
  * ============================================================
- * parts/doctor/doctor_call_queue.php — 叫号队列
+ * parts/doctor/doctor_call_queue.php — 医生端叫号大屏（/doctor/call）数据
+ * ============================================================
+ * 说明：医生「诊室门口叫号屏幕」的轮询数据源。与叫号大屏一致，遵循
+ * 「医生工作站推送信号 + 回库校验」模型：仅当医生已绑定大屏时返回该
+ * 诊室的患者数据（当前就诊/下一位/候诊数/出诊医生），未绑定一律为空，
+ * 不再从数据库自动抓取全科室患者。
  * ============================================================ */
 
 function doctor_read_call_queue($u) {
-    $deptId = (int)get('dept_id', 0);
-    $myDepts = user_dept_ids($u);
-    // 科室归属校验：dept_id 参数必须在医生关联科室范围内，防止跨科室越权查看队列
-    if ($deptId > 0 && !in_array($deptId, $myDepts, true)) {
-        json_fail('无权查看该科室候诊队列');
+    $room = QueueRepository::one(
+        "SELECT * FROM clinic_rooms WHERE current_doctor_id=? AND room_type='doctor' ORDER BY id DESC LIMIT 1",
+        array((int)$u['id'])
+    );
+    if (!$room) {
+        json_ok(array(
+            'dept' => null, 'bound' => false,
+            'current' => null, 'next' => null, 'waiting' => 0, 'doctors' => array(),
+        ));
+        return;
     }
-    if ($deptId <= 0) {
-        $deptId = current_dept_id($u);
-    }
+    $deptId = (int)$room['dept_id'];
     $dept = EmrRepository::one('SELECT * FROM departments WHERE id=? AND status=1', array($deptId));
     if (!$dept) {
-        $ids = $myDepts;
-        if ($ids) {
-            $ph = in_placeholders($ids);
-            $first = EmrRepository::one("SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph) ORDER BY sort, id LIMIT 1", $ids);
-            if ($first) $dept = $first;
-        }
+        json_fail('大屏科室不存在');
     }
-    if (!$dept) json_fail('当前医生未关联可用科室');
-    $deptId = (int)$dept['id'];
-    $current = EmrRepository::one("SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no WHERE r.current_dept_id=? AND r.status='visiting' ORDER BY r.id DESC LIMIT 1", array($deptId));
-    $next = EmrRepository::one("SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no WHERE r.current_dept_id=? AND r.status='paid' ORDER BY r.visit_seq, r.registered_at LIMIT 1", array($deptId));
-    $waiting = (int)EmrRepository::val("SELECT COUNT(*) FROM registrations WHERE current_dept_id=? AND status='paid'", array($deptId));
+    $bound = QueueRepository::roomBound($room);
+    if (!$bound) {
+        json_ok(array(
+            'dept' => array('id' => (int)$dept['id'], 'name' => $dept['name'], 'type' => $dept['type']),
+            'bound' => false,
+            'current' => null, 'next' => null, 'waiting' => 0, 'doctors' => array(),
+        ));
+        return;
+    }
+    $current = QueueRepository::roomCurrentVisit($room);
+    $pool = QueueRepository::deptPool($deptId, 8);
+    $next = $pool ? $pool[0] : null;
+    $waiting = (int)QueueRepository::deptPoolCount($deptId);
     $doctors = array();
     $docs = EmrRepository::q("SELECT name, emp_no, title, photo, intro, dept_ids FROM users WHERE role='doctor' AND status=1 ORDER BY id");
     foreach ($docs as $doc) {
@@ -60,6 +71,7 @@ function doctor_read_call_queue($u) {
     };
     json_ok(array(
         'dept' => array('id' => (int)$dept['id'], 'name' => $dept['name'], 'type' => $dept['type']),
+        'bound' => true,
         'current' => $fmt($current),
         'next' => $fmt($next),
         'waiting' => $waiting,

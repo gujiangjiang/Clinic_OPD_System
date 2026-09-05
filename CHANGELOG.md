@@ -13,6 +13,32 @@
 
 ---
 
+## [7.0.0] - 2026-09-05
+
+> 叫号大屏数据模型重构（重大）：大屏患者数据由医生工作站推送信号 + 回库校验，
+> 未绑定医生一律不显示患者；多医生并发叫号号源动态拼接、互不重复。
+
+### 变更
+
+- **大屏患者数据由医生工作站推送（不再自动从数据库抓取）**：医生诊室大屏只有在
+  「已绑定医生且医生心跳存活」时才显示患者数据（当前就诊/下一位/候诊列表），
+  未绑定时大屏显示「暂无医生接诊」空态，杜绝「无医生接诊却显示一堆患者」的错乱。
+  当前就诊以医生工作站推送的 current_visit_id 为准，回库校验（患者当前科室必须为该
+  大屏科室、状态有效，防前端篡改后推送错误信息）。
+  （`app/api/screen.php`、`app/api/parts/doctor/doctor_call_queue.php`、
+  `public/assets/js/components/screen.js`、`call.js`）
+- **动态号源队列（多医生并发不重复）**：号源池 = 当前科室「已缴费待就诊且未被任何医生
+  叫号认领」的患者，按到科室生效时间排序（转入患者按转入时间、普通挂号按挂号时间）。
+  任一医生叫号后该患者即离开号源池，其他医生队列自动消失该患者（含过号患者），
+  保证 5 个医生同时看诊时号源互不冲突。
+  （`app/repositories/QueueRepository.php`：deptPool / deptPoolNext / deptMissed /
+  roomCurrentVisit / roomBound / deptPoolCount）
+- **叫号动作 API**：`/api/doctor` 新增 `call_next`（认领下一位）/ `call_miss`（过号并
+  自动呼叫下一位）/ `call_repeat`（再次叫号）/ `call_panel`（悬浮窗数据），全部落库
+  （clinic_rooms 当前就诊 + call_events 事件表），事务内完成防重认领。
+  （`app/api/parts/doctor_write.php`、`app/api/parts/doctor/doctor_call_actions.php`、
+  `app/api/parts/doctor/doctor_call_panel.php`）
+
 ## [6.9.1] - 2026-09-05
 
 > 叫号系统底层数据结构准备（为医生工作站推送大屏数据 + 多医生并发叫号防重奠基）。

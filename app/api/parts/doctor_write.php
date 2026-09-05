@@ -6,6 +6,8 @@
  * doctor.php 按功能拆分的一部分，写入/操作类动作。
  * ============================================================ */
 
+require __DIR__ . '/doctor/doctor_call_actions.php';
+
 function doctor_part_write($action) {
     $u = Auth::user();
 
@@ -80,6 +82,92 @@ function doctor_part_write($action) {
         EmrRepository::exec('UPDATE clinic_rooms SET doctor_heartbeat=?, updated_at=? WHERE id=? AND current_doctor_id=?',
             array(now_str(), now_str(), $roomId, $u['id']));
         json_ok(array());
+        return;
+    }
+
+    /* ==================== 叫号动作（下一位 / 过号 / 再次叫号） ==================== */
+
+    if ($action === 'call_next') {
+        $room = doctor_bound_room($u, (int)post('room_id'));
+        if (!$room) json_fail('请先绑定大屏诊室后再叫号');
+        $pdo = DatabaseManager::getMain();
+        $pdo->beginTransaction();
+        try {
+            $res = doctor_call_claim_next_tx($u, $room);
+            if (isset($res['error'])) { $pdo->rollBack(); json_fail($res['error']); }
+            $pdo->commit();
+        } catch (Exception $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            json_fail('叫号失败：' . $ex->getMessage());
+        }
+        json_ok(array(
+            'visit' => $res['visit'],
+            'pool_count' => QueueRepository::deptPoolCount((int)$room['dept_id']),
+        ), '已呼叫 ' . $res['name']);
+        return;
+    }
+
+    if ($action === 'call_repeat') {
+        $room = doctor_bound_room($u, (int)post('room_id'));
+        if (!$room) json_fail('请先绑定大屏诊室');
+        if ((int)$room['current_visit_id'] <= 0) json_fail('当前无就诊患者，无法再次叫号');
+        $cur = QueueRepository::roomCurrentVisit($room);
+        if (!$cur) json_fail('当前患者状态已变化，请刷新后再操作');
+        $now = now_str();
+        QueueRepository::exec(
+            "UPDATE clinic_rooms SET current_called_at=?, last_call_action='repeat_call', last_call_at=?, updated_at=? WHERE id=?",
+            array($now, $now, $now, (int)$room['id'])
+        );
+        QueueRepository::insert(
+            "INSERT INTO call_events(visit_id, flow_no, patient_no, dept_id, room_id, doctor_id, doctor_name, action, created_at)
+             VALUES(?,?,?,?,?,?,?,'repeat_call',?)",
+            array((int)$cur['id'], $cur['flow_no'], $cur['patient_no'], (int)$room['dept_id'], (int)$room['id'], $u['id'], $u['name'], $now)
+        );
+        json_ok(array(), '已再次呼叫 ' . $cur['pname']);
+        return;
+    }
+
+    if ($action === 'call_miss') {
+        $room = doctor_bound_room($u, (int)post('room_id'));
+        if (!$room) json_fail('请先绑定大屏诊室');
+        $curId = (int)$room['current_visit_id'];
+        if ($curId <= 0) json_fail('当前无就诊患者，无需过号');
+        $cur = QueueRepository::roomCurrentVisit($room);
+        if (!$cur) json_fail('当前患者状态已变化，请刷新后再操作');
+        $pdo = DatabaseManager::getMain();
+        $pdo->beginTransaction();
+        try {
+            $now = now_str();
+            // 1) 标记当前患者过号
+            QueueRepository::insert(
+                "INSERT INTO call_events(visit_id, flow_no, patient_no, dept_id, room_id, doctor_id, doctor_name, action, created_at)
+                 VALUES(?,?,?,?,?,?,?,'miss',?)",
+                array($curId, $cur['flow_no'], $cur['patient_no'], (int)$room['dept_id'], (int)$room['id'], $u['id'], $u['name'], $now)
+            );
+            // 2) 自动认领下一位
+            $res = doctor_call_claim_next_tx($u, $room);
+            if (isset($res['error'])) {
+                // 无下一位：清空当前就诊，大屏显示暂无就诊患者
+                QueueRepository::exec(
+                    "UPDATE clinic_rooms SET current_visit_id=0, current_flow_no='', current_called_at=?,
+                     last_call_action='miss', last_call_at=?, updated_at=? WHERE id=?",
+                    array($now, $now, $now, (int)$room['id'])
+                );
+                $pdo->commit();
+                json_ok(array('missed' => $cur['pname'], 'visit' => null),
+                    '已过号 ' . $cur['pname'] . '，当前无候诊患者');
+                return;
+            }
+            $pdo->commit();
+        } catch (Exception $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            json_fail('过号失败：' . $ex->getMessage());
+        }
+        json_ok(array(
+            'missed' => $cur['pname'],
+            'visit' => $res['visit'],
+            'pool_count' => QueueRepository::deptPoolCount((int)$room['dept_id']),
+        ), '已过号 ' . $cur['pname'] . '，自动呼叫 ' . $res['name']);
         return;
     }
 }

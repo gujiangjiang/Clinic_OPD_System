@@ -27,61 +27,6 @@ function screen_payload($room) {
     $roomName = $room['room_name'];
     $mask = (int)$room['enable_mask'] === 1;
 
-    // 当前就诊中患者（该科室）
-    $current = QueueRepository::currentVisit($deptId);
-    // 下一位候诊
-    $next = QueueRepository::nextWaiting($deptId);
-    // 候诊队列（前 8 位）
-    $waiting = QueueRepository::waitingList($deptId, 8);
-    // 当前医生（完整信息：姓名/工号/职称/介绍/照片，供医生大屏展示）
-    $doctor = null;
-    if ((int)$room['current_doctor_id'] > 0) {
-        $doc = QueueRepository::doctorInfo($room['current_doctor_id']);
-        if ($doc) {
-            $doctor = array(
-                'name' => $doc['name'],
-                'emp_no' => $doc['emp_no'],
-                'title' => $doc['title'],
-                'intro' => $doc['intro'],
-                'photo' => $doc['photo'] ? img_data($doc['photo']) : '',
-            );
-        }
-    }
-    $fmt = function ($r) use ($mask, $deptId) {
-        if (!$r) return null;
-        $rawName = $r['pname'];
-        $nm = $rawName;
-        if ($mask && mb_strlen($nm) > 1) {
-            $len = mb_strlen($nm);
-            if (mb_substr($nm, 0, 3) === '无名氏') {
-                // 无名氏（匿名患者）：无真实姓名，脱敏无意义，保留原样
-                $nm = $rawName;
-            } elseif ($len === 2) {
-                // 2个字：保留首字，其余*（如"张三"→"张*"）
-                $nm = mb_substr($nm, 0, 1) . '*';
-            } elseif ($len === 3) {
-                // 3个字：保留首尾，中间*（如"张小三"→"张*三"）
-                $nm = mb_substr($nm, 0, 1) . '*' . mb_substr($nm, -1);
-            } else {
-                // 4个字及以上：保留首尾各1字，中间*（如"王小明三"→"王**三"、"买买提·肉孜"→"买****孜"）
-                $nm = mb_substr($nm, 0, 1) . str_repeat('*', $len - 2) . mb_substr($nm, -1);
-            }
-        }
-        // 转诊标记：挂号科室与当前就诊科室不一致 => 转诊患者（序号需显示完整 + 转标记）
-        $isTransfer = !empty($r['first_dept_id']) && (int)$r['first_dept_id'] !== $deptId;
-        // 大屏文字（name）按脱敏设置显示；语音播报（raw_name）始终使用真实全名——
-        // 脱敏仅作用于屏幕文字，语音呼叫全名避免「张*三 请到 XX 诊室」的怪异播报
-        return array(
-            'name' => $nm,
-            'raw_name' => $rawName,
-            'gender' => $r['pgender'],
-            'age_fmt' => age_format($r['pbirth'], $r['registered_at']),
-            'visit_seq' => (int)$r['visit_seq'], 'flow_no' => $r['flow_no'],
-            'patient_no' => $r['patient_no'],
-            'is_transfer' => $isTransfer ? 1 : 0,          // 是否转诊患者
-            'first_dept_name' => $r['first_dept_name'],     // 挂号（原）科室名
-        );
-    };
     // 温馨提示：优先取诊室自定义（JSON 数组），为空则按类型返回默认提示
     $tips = array();
     if (!empty($room['screen_tips'])) {
@@ -96,18 +41,106 @@ function screen_payload($room) {
     if (!$tips) {
         $tips = default_screen_tips($room['room_type']);
     }
-    return array(
+    $base = array(
         'room' => array('id' => (int)$room['id'], 'name' => $roomName, 'type' => $room['room_type'], 'dept' => $dept ? $dept['name'] : ''),
         'enable_voice' => (int)$room['enable_voice'],
         'enable_mask' => (int)$room['enable_mask'],
-        'current' => $fmt($current),
-        'next' => $fmt($next),
-        'waiting' => array_map($fmt, $waiting),
-        'doctor' => $doctor,
         'tips' => $tips,
         'tip_interval' => max(2, (int)$room['tip_interval']),
         'servertime' => now_str(),
     );
+
+    // 姓名脱敏（仅屏幕文字；raw_name 始终为真实全名，供语音播报）
+    $maskName = function ($nm) use ($mask) {
+        $nm = (string)$nm;
+        if (!$mask || mb_strlen($nm) <= 1) return $nm;
+        $len = mb_strlen($nm);
+        if (mb_substr($nm, 0, 3) === '无名氏') return $nm;   // 匿名患者保留原样
+        if ($len === 2) return mb_substr($nm, 0, 1) . '*';
+        if ($len === 3) return mb_substr($nm, 0, 1) . '*' . mb_substr($nm, -1);
+        return mb_substr($nm, 0, 1) . str_repeat('*', $len - 2) . mb_substr($nm, -1);
+    };
+    $fmt = function ($r, $missed = 0) use ($deptId, $maskName) {
+        if (!$r) return null;
+        // 转诊标记：挂号科室与当前就诊科室不一致 => 转诊患者（序号需显示完整 + 转标记）
+        $isTransfer = !empty($r['first_dept_id']) && (int)$r['first_dept_id'] !== $deptId;
+        return array(
+            'name' => $maskName($r['pname']),
+            'raw_name' => $r['pname'],
+            'gender' => $r['pgender'],
+            'age_fmt' => age_format($r['pbirth'], $r['registered_at']),
+            'visit_seq' => (int)$r['visit_seq'], 'flow_no' => $r['flow_no'],
+            'patient_no' => $r['patient_no'],
+            'is_transfer' => $isTransfer ? 1 : 0,
+            'first_dept_name' => $r['first_dept_name'],
+            'missed' => (int)$missed,
+        );
+    };
+
+    // 当前医生（完整信息：姓名/工号/职称/介绍/照片，供医生大屏展示）
+    $doctor = null;
+    if ((int)$room['current_doctor_id'] > 0) {
+        $doc = QueueRepository::doctorInfo($room['current_doctor_id']);
+        if ($doc) {
+            $doctor = array(
+                'name' => $doc['name'],
+                'emp_no' => $doc['emp_no'],
+                'title' => $doc['title'],
+                'intro' => $doc['intro'],
+                'photo' => $doc['photo'] ? img_data($doc['photo']) : '',
+            );
+        }
+    }
+
+    // ===== 医生诊室大屏：数据由医生工作站推送 + 回库校验 =====
+    // 未绑定医生（或无存活心跳）时一律不显示任何患者，避免「无医生接诊却出现患者」的错乱
+    if ($room['room_type'] === 'doctor') {
+        $bound = QueueRepository::roomBound($room);
+        if (!$bound) {
+            return array_merge($base, array(
+                'bound' => false,
+                'current' => null, 'next' => null, 'waiting' => array(),
+                'missed' => array(), 'doctor' => null,
+            ));
+        }
+        // 当前就诊：以医生工作站推送的 current_visit_id 为准，回库校验（防前端篡改）
+        $current = QueueRepository::roomCurrentVisit($room);
+        // 号源池：未被任何医生认领的患者（动态拼接，多医生并发不重复）
+        $pool = QueueRepository::deptPool($deptId, 8);
+        $next = $pool ? $pool[0] : null;
+        $missed = QueueRepository::deptMissed($deptId, 5);
+        // 候诊列表 = 号源池剩余（除去已展示的「下一位」）+ 过号患者（末尾追加，带（过号）标记）
+        $waiting = array();
+        foreach (array_slice($pool, 1) as $r) $waiting[] = $fmt($r, 0);
+        foreach ($missed as $m) $waiting[] = $fmt($m, 1);
+        // 当前患者附叫号时间（called_at）：大屏据此识别「再次叫号」触发重复播报
+        $curFmt = $fmt($current);
+        if ($curFmt) $curFmt['called_at'] = (string)$room['current_called_at'];
+        return array_merge($base, array(
+            'bound' => true,
+            'current' => $curFmt,
+            'next' => $fmt($next),
+            'waiting' => $waiting,
+            'missed' => array_map(function ($m) use ($fmt) { return $fmt($m, 1); }, $missed),
+            'doctor' => $doctor,
+        ));
+    }
+
+    // ===== 医技大屏（lab/imaging/pharmacy/nurse）：科室排队看板，保持原逻辑 =====
+    // 当前就诊中患者（该科室）
+    $current = QueueRepository::currentVisit($deptId);
+    // 下一位候诊
+    $next = QueueRepository::nextWaiting($deptId);
+    // 候诊队列（前 8 位）
+    $waiting = QueueRepository::waitingList($deptId, 8);
+    return array_merge($base, array(
+        'bound' => true,
+        'current' => $fmt($current),
+        'next' => $fmt($next),
+        'waiting' => array_map(function ($r) use ($fmt) { return $fmt($r, 0); }, $waiting),
+        'missed' => array(),
+        'doctor' => $doctor,
+    ));
 }
 
 /** 按大屏类型返回默认温馨提示 */

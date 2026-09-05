@@ -190,21 +190,19 @@
 
     function maskName(n) { return n || ''; }
 
+    /* 就诊序号标签：转诊患者显示完整序号 +（转） */
+    function seqLabel(r) {
+        if (!r) return '';
+        var s = String(r.visit_seq).padStart(3, '0') + ' 号';
+        if (r.is_transfer) s = (r.first_dept_name || '转科') + ' ' + s + '（转）';
+        return s;
+    }
+
     function renderDoctorMode(d) {
         var cur = d.current || {};
         var next = d.next || {};
         var wait = d.waiting || [];
         var doc = d.doctor || {};
-
-        // 就诊序号：转诊患者显示完整序号 + （转）
-        function seqLabel(r) {
-            if (!r) return '';
-            var s = String(r.visit_seq).padStart(3, '0') + ' 号';
-            if (r.is_transfer) {
-                s = (r.first_dept_name || '转科') + ' ' + s + '（转）';
-            }
-            return s;
-        }
 
         var curCard = cur.name
             ? '<div class="screen-cur-name">' + maskName(cur.name) + '</div>' +
@@ -215,10 +213,11 @@
               '<div class="screen-next-seq">' + seqLabel(next) + '</div>'
             : '<div class="screen-empty">暂无候诊患者</div>';
         var waitList = wait.length
-            ? wait.map(function (w, i) {
+            ? wait.map(function (w) {
                 return '<div class="screen-wait-item">' +
                     '<span class="screen-wait-seq">' + String(w.visit_seq).padStart(3, '0') + (w.is_transfer ? '★' : '') + '</span>' +
-                    '<span class="screen-wait-name">' + maskName(w.name) + '</span>' +
+                    '<span class="screen-wait-name">' + maskName(w.name) +
+                    (w.missed ? ' <span class="screen-missed">（过号）</span>' : '') + '</span>' +
                     '<span class="screen-wait-extra">' + (w.gender || '') + ' ' + (w.age_fmt || '') + '</span></div>';
             }).join('')
             : '<div class="screen-empty">暂无候诊患者</div>';
@@ -282,6 +281,13 @@
             titleEl.textContent = deptName ? deptName + ' ' + roomName : roomName;
         }
         voiceEnabled = !!d.enable_voice;
+        // 医生诊室大屏：医生工作站未绑定（或无存活心跳）时，一律不显示患者数据
+        if (ROOM_TYPE === 'doctor' && d.bound === false) {
+            main.innerHTML = '<div class="screen-empty-big">🛑 暂无医生接诊<br>' +
+                '<div style="font-size:18px;color:#a8c8e8;margin-top:8px">请医生在医生工作站绑定本大屏后开始叫号</div></div>';
+            if (d.tips) startTips(d.tips, d.tip_interval || 5);
+            return;
+        }
         main.innerHTML = ROOM_TYPE === 'doctor' ? renderDoctorMode(d) : renderDeptMode(d);
 
         // 医生信息字号动态适配（渲染后测量单元格尺寸）
@@ -293,15 +299,19 @@
         }
     }
 
-    /* ============ 叫号播报（幂等判定） ============ */
+    /* ============ 叫号播报（幂等判定：当前患者变化 / 再次叫号均触发） ============
+       播报对象是「正在就诊」的当前患者（医生工作站推送信号 + 回库校验后的数据）：
+       · 叫号下一位 → current.flow_no 变化 → 播报新患者
+       · 再次叫号   → current.called_at 变化 → 重复播报同一患者 */
     function maybeAnnounce(d) {
-        var next = d.next || {};
-        if (!next.flow_no) return;
-        var key = next.flow_no + '|' + next.visit_seq;
+        if (ROOM_TYPE !== 'doctor' || d.bound === false) return;
+        var cur = d.current || {};
+        if (!cur.flow_no || !cur.called_at) return;
+        var key = cur.flow_no + '|' + cur.called_at;
         if (key === lastCallKey) return;
         lastCallKey = key;
         var roomName = (d.room && d.room.name) || '';
-        var text = '请 ' + String(next.visit_seq).padStart(3, '0') + ' 号 ' + (next.raw_name || next.name || '') + ' 到 ' + roomName + ' 就诊';
+        var text = '请 ' + String(cur.visit_seq).padStart(3, '0') + ' 号 ' + (cur.raw_name || cur.name || '') + ' 到 ' + roomName + ' 就诊';
         TTS.chime();
         TTS.speak(text, 2);
         TTS.resume();

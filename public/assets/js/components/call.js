@@ -25,7 +25,23 @@
 
     /* ---------- 渲染队列数据 ---------- */
     function render(d) {
+        // 未绑定大屏：仅显示科室（若有），患者数据一律为空
+        if (!d.dept) {
+            document.getElementById('callDept').textContent = '· 未绑定大屏 ·';
+            document.getElementById('callNowName').textContent = '请先在医生工作站绑定大屏';
+            document.getElementById('callNowSub').innerHTML = '绑定后自动显示科室与叫号队列';
+            document.getElementById('callNextName').textContent = '—';
+            document.getElementById('callNextSub').innerHTML = '';
+            return;
+        }
         document.getElementById('callDept').textContent = '· ' + d.dept.name + ' ·';
+        if (d.bound === false) {
+            document.getElementById('callNowName').textContent = '暂无医生接诊';
+            document.getElementById('callNowSub').innerHTML = '请医生在医生工作站绑定本大屏';
+            document.getElementById('callNextName').textContent = '—';
+            document.getElementById('callNextSub').innerHTML = '';
+            return;
+        }
         var cur = d.current, next = d.next;
 
         document.getElementById('callNowName').textContent = cur ? cur.name : '暂无就诊患者';

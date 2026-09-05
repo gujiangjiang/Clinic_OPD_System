@@ -470,6 +470,19 @@
     color: #ffd54f;
     font-variant-numeric: tabular-nums;
 }
+.screen-missed {
+    display: inline-block;
+    color: #ffb4a2;
+    background: rgba(255, 90, 70, .16);
+    border: 1px solid rgba(255, 120, 100, .45);
+    border-radius: 999px;
+    padding: 0 10px;
+    margin-left: 6px;
+    font-size: .62em;
+    font-weight: 700;
+    vertical-align: middle;
+    letter-spacing: 1px;
+}
 .screen-wait-extra { margin-left: auto; color: #a8c8e8; font-size: clamp(12px, 2.1cqmin, 30px); }
 
 /* ---------- 模式B：医技列表看板 ---------- */
