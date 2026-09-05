@@ -649,7 +649,12 @@ Clinic.docTools = (function () {
             }
         }
         var nextEl = pop.querySelector('#dcpNext');
-        if (nextEl) nextEl.textContent = next ? next.name + '（第' + pad3(next.visit_seq) + '号）' : '—';
+        if (nextEl) {
+            // mini 模式简化：省略「第」字（张三（012号））；标准模式正常显示
+            nextEl.textContent = next
+                ? (isMini ? next.name + '（' + pad3(next.visit_seq) + '号）' : next.name + '（第' + pad3(next.visit_seq) + '号）')
+                : '—';
+        }
         var countEl = pop.querySelector('#dcpCount');
         if (countEl) countEl.textContent = d.pool_count || 0;
         var poolListEl = pop.querySelector('#dcpPoolList');

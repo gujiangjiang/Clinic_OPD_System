@@ -724,12 +724,12 @@ body.emr-readonly .emr-item-link,
 .doc-call-pop {
     position: fixed;
     z-index: 800;   /* 高于页面下拉(100)但低于模态框遮罩(1000)，解绑确认弹窗不被遮挡 */
-    width: 320px;
+    width: 200px;
     background: var(--bg-card, #fff);
     border: 1px solid var(--border, #e5e7eb);
     border-radius: 12px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, .18);
-    font-size: 13px;
+    font-size: 12px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -738,7 +738,7 @@ body.emr-readonly .emr-item-link,
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 12px;
+    padding: 8px 10px;
     background: linear-gradient(135deg, var(--primary, #2563eb), var(--primary-dark, #1d4ed8));
     color: #fff;
     cursor: move;
@@ -746,17 +746,20 @@ body.emr-readonly .emr-item-link,
 }
 .doc-call-pop-title {
     font-weight: 700;
-    font-size: 14px;
+    font-size: 13px;
     letter-spacing: .5px;
     pointer-events: none;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 /* 标题栏按钮：统一大小（等宽正方形）、统一字符标志（解 / + / - / x） */
 .doc-call-pop-x {
     cursor: pointer;
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1;
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -767,68 +770,71 @@ body.emr-readonly .emr-item-link,
 .doc-call-pop-x:hover { background: rgba(255, 255, 255, .2); }
 .doc-call-pop-tools { display: flex; align-items: center; pointer-events: none; }
 .doc-call-pop-tools .doc-call-pop-x { pointer-events: auto; }
-.doc-call-pop-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.doc-call-pop-body { padding: 8px 8px; display: flex; flex-direction: column; gap: 6px; }
 .doc-call-block {
-    background: var(--bg-soft, #f3f5f9);
-    border-radius: 8px;
-    padding: 8px 10px;
-}
-.doc-call-label {
-    font-size: 11px;
-    color: var(--muted, #9ca3af);
-    letter-spacing: 1px;
-    margin-bottom: 2px;
-}
-.doc-call-cur {
-    font-size: 18px;
-    font-weight: 800;
-    color: var(--text, #1f2937);
-}
-.doc-call-cur-sub { font-size: 12px; color: var(--muted, #6b7280); margin-top: 2px; }
-.doc-call-next-name { font-size: 15px; font-weight: 700; color: var(--primary, #2563eb); }
-.doc-call-actions { display: flex; gap: 6px; }
-.doc-call-actions .btn { flex: 1; }
-.doc-call-pool { border-top: 1px dashed var(--border, #e5e7eb); padding-top: 8px; }
-.doc-call-pool-title { font-size: 12px; color: var(--muted, #6b7280); margin-bottom: 4px; }
-.doc-call-pool-list { max-height: 210px; overflow-y: auto; }
-.doc-call-pool-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 3px 6px;
-    border-radius: 6px;
-    font-size: 12px;
-    color: var(--text, #1f2937);
-}
-.doc-call-pool-item:nth-child(odd) { background: var(--bg-soft, #f6f8fc); }
-.doc-call-pool-seq { width: 34px; font-weight: 700; color: var(--primary, #2563eb); font-variant-numeric: tabular-nums; }
-.doc-call-pool-missed { color: #dc2626; font-weight: 700; }
-.doc-call-pop-more {
-    text-align: center;
-    font-size: 11px;
-    color: var(--muted, #9ca3af);
-    padding: 6px 0;
-}
-
-/* ==================== 精简版叫号悬浮窗（mini） ==================== */
-.doc-call-mini { width: 260px; }
-.doc-call-mini .doc-call-pop-head { padding: 8px 10px; }
-.doc-call-mini .doc-call-pop-title { font-size: 13px; }
-.doc-call-mini-body { padding: 8px 10px; gap: 6px; }
-.doc-call-mini-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
     background: var(--bg-soft, #f3f5f9);
     border-radius: 8px;
     padding: 6px 8px;
 }
+.doc-call-label {
+    font-size: 10px;
+    color: var(--muted, #9ca3af);
+    letter-spacing: 1px;
+    margin-bottom: 1px;
+}
+.doc-call-cur {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text, #1f2937);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.doc-call-cur-sub { font-size: 11px; color: var(--muted, #6b7280); margin-top: 1px; }
+.doc-call-next-name { font-size: 13px; font-weight: 700; color: var(--primary, #2563eb); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.doc-call-actions { display: flex; gap: 4px; }
+.doc-call-actions .btn { flex: 1; padding: 3px 2px; font-size: 11px; }
+.doc-call-pool { border-top: 1px dashed var(--border, #e5e7eb); padding-top: 6px; }
+.doc-call-pool-title { font-size: 11px; color: var(--muted, #6b7280); margin-bottom: 3px; }
+.doc-call-pool-list { max-height: 180px; overflow-y: auto; }
+.doc-call-pool-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px;
+    border-radius: 6px;
+    font-size: 11px;
+    color: var(--text, #1f2937);
+}
+.doc-call-pool-item:nth-child(odd) { background: var(--bg-soft, #f6f8fc); }
+.doc-call-pool-seq { width: 28px; font-weight: 700; color: var(--primary, #2563eb); font-variant-numeric: tabular-nums; }
+.doc-call-pool-missed { color: #dc2626; font-weight: 700; }
+.doc-call-pop-more {
+    text-align: center;
+    font-size: 10px;
+    color: var(--muted, #9ca3af);
+    padding: 5px 0;
+}
+
+/* ==================== 精简版叫号悬浮窗（mini） ==================== */
+.doc-call-mini { width: 200px; }
+.doc-call-mini .doc-call-pop-head { padding: 7px 10px; }
+.doc-call-mini .doc-call-pop-title { font-size: 12px; }
+.doc-call-mini-body { padding: 7px 8px; gap: 5px; }
+.doc-call-mini-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    background: var(--bg-soft, #f3f5f9);
+    border-radius: 8px;
+    padding: 5px 7px;
+}
 .doc-call-mini-label {
     color: var(--muted, #9ca3af);
-    width: 42px;
+    width: 34px;
     flex-shrink: 0;
-    font-size: 12px;
+    font-size: 11px;
     letter-spacing: 1px;
 }
 .doc-call-mini-val {
@@ -838,8 +844,8 @@ body.emr-readonly .emr-item-link,
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.doc-call-mini .doc-call-actions { gap: 4px; }
-.doc-call-mini .doc-call-actions .btn { padding: 3px 6px; font-size: 12px; }
+.doc-call-mini .doc-call-actions { gap: 3px; }
+.doc-call-mini .doc-call-actions .btn { padding: 2px 2px; font-size: 10px; }
 .doc-call-foot {
     display: flex;
     align-items: center;
