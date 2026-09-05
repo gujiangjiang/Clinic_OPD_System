@@ -105,9 +105,13 @@ function bindThemeSwitcher() {
 
 /**
  * 导航高亮：根据当前路径标记 active
+ * SPA 局部刷新模式（nav.js）：以 Clinic.nav.current 为准；
+ * 无 nav.js 时回退到 window.location.pathname
  */
 function bindNavActive() {
-    const path = window.location.pathname;
+    const path = (window.Clinic && Clinic.nav && Clinic.nav.current)
+        ? Clinic.nav.current
+        : window.location.pathname;
     document.querySelectorAll('.nav-item').forEach(function (el) {
         const href = el.getAttribute('data-href');
         // 精确匹配或按路径段前缀匹配（避免 /admin/drugs 误匹配 /admin/drugsettings）

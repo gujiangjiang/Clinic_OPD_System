@@ -162,7 +162,7 @@ Clinic.docTools = (function () {
                 renderDeptTitle();
                 loadRoomList();
                 // 切换科室后进入医生工作站（新）：工作台自动读取已选科室并弹出候诊队列
-                setTimeout(function () { location.href = '/doctor/emr'; }, 600);
+                setTimeout(function () { Clinic.nav.go('/doctor/emr'); }, 600);
             },
         });
     }
@@ -580,7 +580,7 @@ Clinic.docTools = (function () {
                 var v = json.data && json.data.visit;
                 if (v && v.visit_code && currentVisitCode() !== v.visit_code) {
                     // 病历联动：直接跳转新患者病历页（页面导航本身会刷新悬浮窗，跳过多余刷新）
-                    location.href = '/doctor/emr?visit_id=' + v.visit_code;
+                    Clinic.nav.load('/doctor/emr?visit_id=' + v.visit_code);
                 } else {
                     refreshCallPanel();
                     Clinic.toast.success(json.msg);
@@ -597,7 +597,7 @@ Clinic.docTools = (function () {
             onSuccess: function (json) {
                 var v = json.data && json.data.visit;
                 if (v && v.visit_code && currentVisitCode() !== v.visit_code) {
-                    location.href = '/doctor/emr?visit_id=' + v.visit_code;
+                    Clinic.nav.load('/doctor/emr?visit_id=' + v.visit_code);
                 } else {
                     refreshCallPanel();
                     Clinic.toast.success(json.msg);
@@ -617,7 +617,7 @@ Clinic.docTools = (function () {
                     onSuccess: function (json) {
                         var v = json.data && json.data.visit;
                         if (v && v.visit_code && currentVisitCode() !== v.visit_code) {
-                            location.href = '/doctor/emr?visit_id=' + v.visit_code;
+                            Clinic.nav.load('/doctor/emr?visit_id=' + v.visit_code);
                         } else {
                             refreshCallPanel();
                             Clinic.toast.success(json.msg);

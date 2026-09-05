@@ -212,7 +212,8 @@ Clinic.queuePanel = (function () {
             return;
         }
         closePanel();
-        location.href = '/doctor/emr?visit_id=' + code;
+        // SPA 局部刷新：切换患者不整页重载、地址栏不变（跳转入口自身已校验未保存修改）
+        Clinic.nav.load('/doctor/emr?visit_id=' + code);
     }
 
     /* 会诊状态：与费用指示灯同款小圆点（灰=待会诊 红=会诊中 绿=会诊完毕） */
@@ -321,7 +322,7 @@ Clinic.queuePanel = (function () {
                         var vCode = row.getAttribute('data-code');
                         closePanel();
                         // 会诊tab进入 → 带 consult 参数（标记为会诊模式，非会诊tab不进入会诊模式）
-                        location.href = '/doctor/emr?visit_id=' + vCode + '&consult=' + encodeURIComponent(consultCode);
+                        Clinic.nav.go('/doctor/emr?visit_id=' + vCode + '&consult=' + encodeURIComponent(consultCode));
                         return;
                     }
                     // 已接受但会诊病历未保存（status 仍 pending，accepted_by=本人）：
@@ -335,7 +336,7 @@ Clinic.queuePanel = (function () {
                         var vCode2 = row.getAttribute('data-code');
                         closePanel();
                         // 会诊tab进入 → 带 consult 参数
-                        location.href = '/doctor/emr?visit_id=' + vCode2 + '&consult=' + encodeURIComponent(consultCode);
+                        Clinic.nav.go('/doctor/emr?visit_id=' + vCode2 + '&consult=' + encodeURIComponent(consultCode));
                         return;
                     }
                     openConsultFromQueue(consultCode);
@@ -343,7 +344,8 @@ Clinic.queuePanel = (function () {
                 }
                 var code = row.getAttribute('data-code');
                 closePanel();
-                location.href = '/doctor/emr?visit_id=' + code;
+                // SPA 局部刷新：切换患者不整页重载（含未保存修改拦截）
+                Clinic.nav.go('/doctor/emr?visit_id=' + code);
             });
         });
     }

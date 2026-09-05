@@ -804,7 +804,7 @@ diagnoses: [],
                     onSuccess: function (j) {
                         Clinic.toast.success('会诊已完毕');
                         EMR_DIRTY = false;
-                        setTimeout(function () { window.location.href = '/doctor/emr'; }, 700);
+                        setTimeout(function () { Clinic.nav.go('/doctor/emr'); }, 700);
                     },
                 });
             }, { title: '确认会诊完毕', okText: '确认完毕' });
@@ -1689,7 +1689,7 @@ diagnoses: [],
         DATA.__consult_mode = false;
         DATA.__consult_id = null;
         if (wasConsult) {
-            location.href = '/doctor/emr';
+            Clinic.nav.go('/doctor/emr');
             return;
         }
         // 局部重载病历区（AJAX 拉取最新数据并完整重渲染）：
@@ -2691,7 +2691,7 @@ diagnoses: [],
                 if (finish) {
                     // 诊毕后关闭已诊毕患者病历页，回到空白工作台（自动弹出候诊列表）
                     // 无参 /doctor/emr 渲染空白工作台，自动弹候诊面板
-                    setTimeout(function () { window.location.href = '/doctor/emr'; }, 700);
+                    setTimeout(function () { Clinic.nav.go('/doctor/emr'); }, 700);
                 }
             },
         });
@@ -2728,7 +2728,7 @@ diagnoses: [],
                             onSuccess: function (j) {
                                 Clinic.toast.success(j.msg);
                                 // 转科后回到空白工作台（候诊列表自动弹出），可点击新科室患者进入病历
-                                setTimeout(function () { window.location.href = '/doctor/emr'; }, 900);
+                                setTimeout(function () { Clinic.nav.go('/doctor/emr'); }, 900);
                             },
                         });
                     },
@@ -2933,7 +2933,7 @@ diagnoses: [],
                         text: '📋 查看完整病历', cls: 'btn-primary', autoClose: false,
                         onClick: function () {
                             Clinic.modal.close();
-                            location.href = '/doctor/emr?visit_id=' + c.visit_code;
+                            Clinic.nav.go('/doctor/emr?visit_id=' + c.visit_code);
                         },
                     });
                 }
@@ -2958,7 +2958,7 @@ diagnoses: [],
                                     Clinic.toast.success(j2.msg || '会诊已开始');
                                     Clinic.modal.close();
                                     // 进入病历书写页：URL 携带 consult=code，页面内进入会诊模式
-                                    location.href = '/doctor/emr?visit_id=' + c.visit_code + '&consult=' + encodeURIComponent(c.code);
+                                    Clinic.nav.go('/doctor/emr?visit_id=' + c.visit_code + '&consult=' + encodeURIComponent(c.code));
                                 },
                             });
                         },

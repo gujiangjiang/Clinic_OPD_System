@@ -75,7 +75,7 @@ function loadMsgs() {
                         Clinic.refundApproval.open(Clinic.refundApproval.reqIdFromLink(jump));
                         return;
                     }
-                    if (jump) location.href = jump;
+                    if (jump) Clinic.nav.go(jump);
                 });
             });
         },

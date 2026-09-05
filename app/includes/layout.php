@@ -276,6 +276,7 @@ class Layout {
             <script src="/assets/js/components/drugform.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/chart.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/app.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/nav.js?v=' . APP_VERSION . '"></script>
             ' . $emrScripts . '
             <div class="' . $appClass . '">
                 <!-- ===== 侧边栏 ===== -->
@@ -314,7 +315,7 @@ class Layout {
                                     <div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openAddSlot()">＋ 加号</div>
                                     <div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openDeptSwitch()">🏥 切换科室</div>
                                     <div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openPatientSearch()">🔍 患者查询</div>
-                                    <div class="dd-item" style="cursor:pointer" onclick="location.href=\'/doctor/templates\'">📋 模板管理</div>
+                                    <div class="dd-item" style="cursor:pointer" onclick="Clinic.nav.go(\'/doctor/templates\')">📋 模板管理</div>
                                 </div>
                             </div>
                             ' : '') . '
