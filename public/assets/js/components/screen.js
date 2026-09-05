@@ -308,8 +308,8 @@
 
     /* 动态计算等待就诊显示数量：以可用高度得出放几行；过号患者恒居末尾并按顺序排列。
        cols=1 单列逐行；cols=2 方屏双排（每行2位，列间分隔线）。
-       姓名列宽度：取已渲染条目最大姓名自然宽度设为共享列宽（--wait-name-w），
-       保证各行 序号/姓名/性别/年龄 全部纵向对齐，且姓名后无大片空白。 */
+       列宽由 CSS max-content 按内容自适应（共享列轨），各行 序号/姓名/性别/年龄 自动
+       纵向对齐且姓名后无超长空隙。 */
     function fitWaitList(main, normalArr, missedArr, cols) {
         var panel = main.querySelector('.screen-wait-panel');
         var listEl = cols === 2 ? main.querySelector('.screen-wait-land-list') : main.querySelector('.screen-wait-list');
@@ -343,14 +343,10 @@
         var showMissed = missedArr.slice(0, fitN);
         var showNormal = normalArr.slice(0, Math.max(0, fitN - showMissed.length));
         var shown = showNormal.concat(showMissed);
-        // 共享姓名列宽：以已渲染条目的最大姓名自然宽度为准（+少量缓冲），保证各列纵向对齐
-        var nameW = 0;
-        listEl.querySelectorAll('.screen-wait-item .screen-wait-name').forEach(function (n) {
-            var w = n.scrollWidth;
-            if (w > nameW) nameW = w;
-        });
-        if (nameW > 0) listEl.style.setProperty('--wait-name-w', (Math.ceil(nameW) + 6) + 'px');
         listEl.innerHTML = shown.map(waitItemHtml).join('');
+        // 共享列宽：用同字号隐藏探针测量各列内容最大自然宽度，设为列宽变量，
+        // 保证各行 序号/姓名/性别/年龄 全部纵向对齐，且姓名后无超长空隙
+        measureWaitColumns(listEl, shown);
         // 方屏双排：给第二列条目加 class，用于显示纵向分隔线
         if (cols === 2 && maxRows) {
             var all = listEl.querySelectorAll('.screen-wait-item');
@@ -364,6 +360,46 @@
     function updateWaitTitle(panel, n) {
         var t = panel ? panel.querySelector('.screen-panel-title') : null;
         if (t) t.textContent = '等待就诊（' + n + '）';
+    }
+
+    /* 共享列宽：构造同字号隐藏探针行（各列取最长内容），测出每列自然宽度，
+       设为 --wait-*-w 变量（+4px 缓冲）。因所有行共用这些列宽，五列全部纵向对齐，
+       且列宽贴合内容、姓名后无超长空隙。 */
+    function measureWaitColumns(listEl, shown) {
+        if (!shown || !shown.length) return;
+        var longest = function (fn) {
+            var t = '';
+            for (var i = 0; i < shown.length; i++) {
+                var v = String(fn(shown[i]) || '');
+                if (v.length > t.length) t = v;
+            }
+            return t;
+        };
+        var seqText = longest(function (w) { return String(w.visit_seq).padStart(3, '0') + (w.is_transfer ? '★' : ''); });
+        var nameText = longest(function (w) { return maskName(w.name); });
+        var genderText = longest(function (w) { return w.gender || ''; });
+        var ageText = longest(function (w) { return w.age_fmt || ''; });
+        var probe = document.createElement('div');
+        probe.className = 'screen-wait-item';
+        probe.style.cssText = 'position:absolute;visibility:hidden;top:0;left:0;pointer-events:none';
+        probe.innerHTML = '<span class="screen-wait-miss">过</span>' +
+            '<span class="screen-wait-seq">' + seqText + '</span>' +
+            '<span class="screen-wait-name">' + nameText + '</span>' +
+            '<span class="screen-wait-gender">' + genderText + '</span>' +
+            '<span class="screen-wait-age">' + ageText + '</span>';
+        listEl.appendChild(probe);
+        var missW = probe.children[0].getBoundingClientRect().width;
+        var seqW = probe.children[1].getBoundingClientRect().width;
+        var nameW = probe.children[2].getBoundingClientRect().width;
+        var genderW = probe.children[3].getBoundingClientRect().width;
+        var ageW = probe.children[4].getBoundingClientRect().width;
+        listEl.removeChild(probe);
+        var set = function (k, v) { if (v > 0) listEl.style.setProperty(k, (Math.ceil(v) + 4) + 'px'); };
+        set('--wait-miss-w', missW);
+        set('--wait-seq-w', seqW);
+        set('--wait-name-w', nameW);
+        set('--wait-gender-w', genderW);
+        set('--wait-age-w', ageW);
     }
 
     function renderDeptMode(d) {

@@ -8,13 +8,14 @@
 
 .call-body {
     margin: 0;
-    min-height: 100vh;
+    height: 100vh;   /* 确定高度（而非 min-height），保证 cqmin 正确解析、文字随画布等比缩放 */
     display: flex;
     flex-direction: column;
     background: linear-gradient(160deg, #0b2a43 0%, #0e3a5f 55%, #0b2440 100%);
     color: #fff;
     font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
     overflow: hidden;
+    container-type: size;   /* 以 body 为 cqmin 基准：真实屏/预览均正确等比缩放 */
 }
 
 /* ---------- 顶部：LOGO + 医院名称 + 时钟（紧凑） ---------- */
@@ -231,7 +232,7 @@
 }
 
 /* ============================================================
- * 大屏内容主区（container-type 提供 cqmin 相对字号基准）
+ * 大屏内容主区（cqmin 基准已上移到 body，此处不再单独作为容器）
  * ============================================================ */
 .screen-main {
     flex: 1;
@@ -239,14 +240,11 @@
     min-height: 0;
     padding: clamp(6px, 1cqmin, 16px) clamp(8px, 1.6cqmin, 28px);
     overflow: hidden;
-    container-type: size;
+    container-type: normal;
 }
 
-/* ---------- 预览锁定（pv-locked）：以「显示出来的画布尺寸」为基准排版 ----------
-   管理端预览 iframe 传入 pv_w/pv_h 时，body 直接锁定为显示尺寸，并把 cqmin 字号基准
-   统一到 body（container-type: size），使页面上所有文字随画布同步缩放、不溢出。 */
-.call-body.pv-locked { container-type: size; }
-.call-body.pv-locked .screen-main { container-type: normal; }
+/* ---------- 预览锁定（pv-locked）：body 直接锁定为显示尺寸（cqmin 基准已在 body） ----------
+   管理端预览 iframe 传入 pv_w/pv_h 时，body 内联锁定宽高，页面文字随画布同步缩放、不溢出。 */
 
 /* ---------- 通用面板：标题固定顶部居中，内容居中显示 ---------- */
 .screen-panel {
@@ -456,17 +454,11 @@
 .call-body.screen-wide .screen-land-grid {
     grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 0.7fr);
 }
-/* 宽屏医生照片：正方形显示（不拉成竖条） */
-.call-body.screen-wide .screen-land-doctor .screen-doc-photo {
-    height: auto;
-    aspect-ratio: 1;
-    align-self: center;
-    justify-self: center;
-}
+/* 宽屏医生照片：直接填满所在单元格（不限定正方形），图片保持原比例 */
 /* 主区（竖屏下方）：左右两列网格（左列 正在就诊+下一位，右列 等待就诊） */
 .screen-main-area {
     display: grid;
-    grid-template-columns: 1.2fr 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: clamp(6px, 1.2cqmin, 18px);
     min-height: 0;
     overflow: hidden;
@@ -537,9 +529,11 @@
    列宽与间隙用 cqmin 随画布同步缩放（方屏/宽屏姓名列 1fr 填满，竖屏姓名列自适应内容） */
 .screen-wait-item {
     display: grid;
-    grid-template-columns: 2.6cqmin 6.5cqmin var(--wait-name-w, minmax(0, 1fr)) 4.5cqmin 7cqmin;
+    /* 五列共享列宽（--wait-*-w 由 JS 按内容最大自然宽度测量，fallback=max-content 内容自适应）：
+       各行 序号/姓名/性别/年龄 全部纵向对齐，且姓名后无超长空隙 */
+    grid-template-columns: var(--wait-miss-w, max-content) var(--wait-seq-w, max-content) var(--wait-name-w, max-content) var(--wait-gender-w, max-content) var(--wait-age-w, max-content);
     align-items: center;
-    gap: 1.2cqmin;
+    gap: 1.8cqmin;
     font-size: clamp(14px, 3cqmin, 44px);
     color: #e6f2ff;
     padding: 1.1cqmin 0.4cqmin 0.15cqmin;   /* 顶部略多：姓名视觉下移，底部不留大片空 */
