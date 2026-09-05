@@ -168,7 +168,18 @@ class Router {
         }
     }
 
-    /** 渲染视图（输出完整页面） */
+    /** 无需局部刷新的独立页面（始终整页加载） */
+    public static $fullPages = array('login.php', 'install.php', 'landing.php', 'logout.php', 'doctor/call.php');
+
+    /**
+     * 是否局部刷新请求（SPA 导航）
+     * 检测：URL 携带 _partial=1 或请求头 X-Partial: 1
+     */
+    public static function isPartial() {
+        return get('_partial') === '1' || (isset($_SERVER['HTTP_X_PARTIAL']) && $_SERVER['HTTP_X_PARTIAL'] === '1');
+    }
+
+    /** 渲染视图（完整页面 / 局部刷新双模式） */
     public static function render($view) {
         $viewFile = VIEW_PATH . '/' . $view;
         if (!is_file($viewFile)) {
@@ -179,6 +190,14 @@ class Router {
         ob_start();
         require $viewFile;
         $content = ob_get_clean();
+
+        // ===== 局部刷新模式（SPA 导航）：仅输出视图内容 + 页面标题，
+        // 由前端 nav.js 替换 .content 并重执行内联脚本，地址栏不变 =====
+        if (self::isPartial() && !in_array($view, self::$fullPages, true)) {
+            echo '<div class="view-root" data-page-title="' . e(self::$title) . '">' . $content . '</div>';
+            return;
+        }
+
         $standalone = ($view === 'login.php' || $view === 'install.php' || $view === 'landing.php' || $view === 'doctor/call.php');
         // 需要 EMR 栈（emr.js + emr_* + order + queuepanel 等）的页面：
         // 医生工作站、模板管理、审核中心（模板预览）
