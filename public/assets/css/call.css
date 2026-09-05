@@ -405,10 +405,9 @@
     min-height: 0;
 }
 
-/* ---------- 模式A横屏/方屏：三栏排版（左 医生卡 | 中 正在就诊+下一位 | 右 等待就诊） ---------- */
+/* ---------- 模式A 横屏（宽>=高）：方屏/宽屏共用外层网格，屏型由 body 类细分 ---------- */
 .screen-land-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr);
     gap: clamp(8px, 1.4cqmin, 18px);
     flex: 1;
     min-height: 0;
@@ -429,6 +428,34 @@
     min-height: 0;
 }
 .screen-land-main .screen-panel { text-align: center; }
+/* ===== 方屏/近方屏（1:1 ~ 16:10）：上 医生卡(左)+正在就诊/下一位(右)；下 等待就诊（双排2列） ===== */
+.call-body.screen-square .screen-land-grid {
+    grid-template-rows: minmax(0, 5fr) minmax(0, 4fr);
+}
+.call-body.screen-square .screen-land-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(8px, 1.4cqmin, 18px);
+    min-height: 0;
+}
+.call-body.screen-square .screen-wait-land-list {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: repeat(8, minmax(0, 1fr));   /* 行数由 fitWaitList 动态调整 */
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    column-gap: clamp(12px, 2cqmin, 30px);
+}
+.call-body.screen-square .screen-wait-land-list .screen-wait-item:nth-child(n+9) {
+    border-left: 1px dashed rgba(255, 255, 255, .28);   /* 两列之间的纵向分隔线 */
+    padding-left: clamp(8px, 1.2cqmin, 16px);
+}
+/* ===== 宽屏/超宽屏（≥16:10）：左中右三等分 ===== */
+.call-body.screen-wide .screen-land-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+}
 /* 主区（竖屏下方）：左右两列网格（左列 正在就诊+下一位，右列 等待就诊） */
 .screen-main-area {
     display: grid;
@@ -500,8 +527,7 @@
     flex-direction: column;
 }
 /* 等待就诊条目：序号/姓名/性别/年龄 纵向对齐分隔；
-   所有列宽与间隙均用 cqmin 随画布同步缩放（姓名 minmax(0,1fr) 自适应剩余），
-   任意画布尺寸下列宽/间隙协调缩放，姓名不会被挤没 */
+   列宽与间隙用 cqmin 随画布同步缩放（方屏/宽屏姓名列 1fr 填满，竖屏姓名列自适应内容） */
 .screen-wait-item {
     display: grid;
     grid-template-columns: 2.6cqmin 6.5cqmin minmax(0, 1fr) 4.5cqmin 7cqmin;
@@ -512,6 +538,11 @@
     padding: 0.5cqmin 0.4cqmin;
     border-bottom: 1px dashed rgba(255, 255, 255, .12);
     box-sizing: border-box;
+}
+/* 竖屏：姓名列按内容宽度自适应（fit-content 上限 16cqmin），消除姓名后的大片空白，
+   同时与各列保持纵向对齐 */
+.call-body.screen-portrait .screen-wait-item {
+    grid-template-columns: 2.6cqmin 6.5cqmin fit-content(16cqmin) 4.5cqmin 7cqmin;
 }
 .screen-wait-seq {
     font-weight: 800;

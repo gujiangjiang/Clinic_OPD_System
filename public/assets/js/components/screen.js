@@ -16,17 +16,21 @@
     var tipsTimer = null;
     var tipsIndex = 0;
 
-    /* ============ 竖屏/横屏检测 ============ */
+    /* ============ 屏型检测（三套布局自动切换） ============
+       · 纵向（宽<高）：screen-portrait
+       · 方屏/近方屏（1:1 ~ 16:10）：screen-landscape + screen-square（上 医生卡+就诊，下 等待双排）
+       · 宽屏/超宽屏（≥16:10）：screen-landscape + screen-wide（左中右三等分三栏） */
     function detectOrientation() {
         var w = window.innerWidth || document.documentElement.clientWidth;
         var h = window.innerHeight || document.documentElement.clientHeight;
         var body = document.body;
+        body.classList.remove('screen-portrait', 'screen-landscape', 'screen-square', 'screen-wide');
         if (w < h) {
             body.classList.add('screen-portrait');
-            body.classList.remove('screen-landscape');
         } else {
             body.classList.add('screen-landscape');
-            body.classList.remove('screen-portrait');
+            if (w / h >= 1.6) body.classList.add('screen-wide');
+            else body.classList.add('screen-square');
         }
     }
     detectOrientation();
@@ -202,8 +206,11 @@
         var cur = d.current || {};
         var next = d.next || {};
         var doc = d.doctor || {};
-        // 等待就诊：过号患者恒居末尾（多过号按顺序排列），数量由 fitWaitList 按可用高度动态计算
-        var isLand = !document.body.classList.contains('screen-portrait');
+        // 三种屏型：纵向 / 方屏(近方屏) / 宽屏(≥16:10)，自动切换布局
+        var body = document.body;
+        var isPortrait = body.classList.contains('screen-portrait');
+        var isWide = body.classList.contains('screen-wide');
+        var mode = isPortrait ? 'portrait' : (isWide ? 'wide' : 'square');
         var waitRaw = d.waiting || [];
         var missedArr = waitRaw.filter(function (w) { return w.missed; });
         var normalArr = waitRaw.filter(function (w) { return !w.missed; });
@@ -234,36 +241,45 @@
               '<div class="screen-doc-info"><div class="screen-doc-name">医生出诊中</div>' +
               '<div class="screen-doc-intro screen-doc-intro-empty">暂无医生信息</div></div></div>';
 
+        var curNext = '<div class="screen-panel screen-cur-panel"><div class="screen-panel-title">正在就诊</div>' +
+            '  <div class="screen-panel-body"><div class="screen-panel-inner">' + curCard + '</div></div></div>' +
+            '<div class="screen-panel screen-next-panel"><div class="screen-panel-title">下一位</div>' +
+            '  <div class="screen-panel-body"><div class="screen-panel-inner">' + nextCard + '</div></div></div>';
+
         var main = document.getElementById('screenMain');
-        var waitPanel = waitPanelHtml(candidates);
-        // ===== 竖屏排版：医生卡在上，主区（正在就诊/下一位 | 等待就诊）在下 =====
-        if (!isLand) {
+        var cols = 1;
+        var waitPanel;
+        if (mode === 'portrait') {
+            // ===== 纵向：医生卡在上，主区（正在就诊/下一位 | 等待就诊）在下 =====
+            waitPanel = waitPanelHtml(candidates, 1);
             main.innerHTML = '<div class="screen-doctor-grid">' +
                 docCard +
                 '<div class="screen-main-area">' +
-                '<div class="screen-left-col">' +
-                '  <div class="screen-panel screen-cur-panel"><div class="screen-panel-title">正在就诊</div>' +
-                '    <div class="screen-panel-body"><div class="screen-panel-inner">' + curCard + '</div></div></div>' +
-                '  <div class="screen-panel screen-next-panel"><div class="screen-panel-title">下一位</div>' +
-                '    <div class="screen-panel-body"><div class="screen-panel-inner">' + nextCard + '</div></div></div>' +
-                '</div>' +
+                '<div class="screen-left-col">' + curNext + '</div>' +
                 waitPanel +
                 '</div></div>';
+        } else if (mode === 'square') {
+            // ===== 方屏/近方屏：上 医生卡(左)+正在就诊/下一位(右)；下 等待就诊（双排2列） =====
+            cols = 2;
+            waitPanel = waitPanelHtml(candidates, 2);
+            main.innerHTML = '<div class="screen-land-grid">' +
+                '<div class="screen-land-top">' +
+                '  <div class="screen-land-doctor">' + docCard + '</div>' +
+                '  <div class="screen-land-main">' + curNext + '</div>' +
+                '</div>' +
+                waitPanel +
+                '</div>';
         } else {
-            // ===== 横屏/方屏排版：左 医生卡 | 中 正在就诊+下一位 | 右 等待就诊（满高单列） =====
+            // ===== 宽屏/超宽屏：左 医生卡 | 中 正在就诊/下一位 | 右 等待就诊（满高单列） =====
+            waitPanel = waitPanelHtml(candidates, 1);
             main.innerHTML = '<div class="screen-land-grid">' +
                 '  <div class="screen-land-doctor">' + docCard + '</div>' +
-                '  <div class="screen-land-main">' +
-                '    <div class="screen-panel screen-cur-panel"><div class="screen-panel-title">正在就诊</div>' +
-                '      <div class="screen-panel-body"><div class="screen-panel-inner">' + curCard + '</div></div></div>' +
-                '    <div class="screen-panel screen-next-panel"><div class="screen-panel-title">下一位</div>' +
-                '      <div class="screen-panel-body"><div class="screen-panel-inner">' + nextCard + '</div></div></div>' +
-                '  </div>' +
+                '  <div class="screen-land-main">' + curNext + '</div>' +
                 waitPanel +
                 '</div>';
         }
         // 动态裁剪等待就诊数量（放不下则减少，超长屏可多显示；过号恒居末尾）
-        fitWaitList(main, normalArr, missedArr);
+        fitWaitList(main, normalArr, missedArr, cols);
     }
 
     /* 等待就诊单行 HTML */
@@ -276,30 +292,48 @@
             '<span class="screen-wait-age">' + (w.age_fmt || '') + '</span></div>';
     }
 
-    /* 等待就诊面板 HTML（统一单列列表，供 fitWaitList 动态裁剪） */
-    function waitPanelHtml(list) {
-        var body = list.length
-            ? '<div class="screen-wait-list">' + list.map(waitItemHtml).join('') + '</div>'
-            : '<div class="screen-wait-empty"><div class="screen-empty">暂无候诊患者</div></div>';
+    /* 等待就诊面板 HTML（cols=1 单列 / cols=2 方屏双排），供 fitWaitList 动态裁剪 */
+    function waitPanelHtml(list, cols) {
+        var body;
+        if (!list.length) {
+            body = '<div class="screen-wait-empty"><div class="screen-empty">暂无候诊患者</div></div>';
+        } else {
+            body = cols === 2
+                ? '<div class="screen-wait-land-list">' + list.map(waitItemHtml).join('') + '</div>'
+                : '<div class="screen-wait-list">' + list.map(waitItemHtml).join('') + '</div>';
+        }
         return '<div class="screen-wait-panel">' +
             '<div class="screen-panel-title">等待就诊（' + list.length + '）</div>' + body + '</div>';
     }
 
-    /* 动态计算等待就诊显示数量：以列表可用高度 / 单行高度得出，
-       放不下则减少；过号患者恒居末尾并按顺序排列 */
-    function fitWaitList(main, normalArr, missedArr) {
+    /* 动态计算等待就诊显示数量：以可用高度得出放几行；过号患者恒居末尾并按顺序排列。
+       cols=1 单列逐行；cols=2 方屏双排（每行2位，列间分隔线） */
+    function fitWaitList(main, normalArr, missedArr, cols) {
         var panel = main.querySelector('.screen-wait-panel');
-        var listEl = main.querySelector('.screen-wait-list');
+        var listEl = cols === 2 ? main.querySelector('.screen-wait-land-list') : main.querySelector('.screen-wait-list');
         if (!listEl) return;
-        var count = listEl.querySelectorAll('.screen-wait-item').length;
+        var items = listEl.querySelectorAll('.screen-wait-item');
+        var count = items.length;
         if (!count) return;
         var avail = listEl.clientHeight;
         if (avail <= 0) return;
-        var total = listEl.scrollHeight;
-        if (total <= avail + 2) { updateWaitTitle(panel, count); return; }
-        var itemH = total / count;
-        // 预留少量余量，避免取整后末行轻微裁切
-        var fitN = Math.max(1, Math.floor((avail - 4) / itemH));
+        var fitN, maxRows;
+        if (cols === 2) {
+            // 双排：行高 = 当前 repeat(8,1fr) 行高；文本超出当前行则按文本自然高缩行数
+            var rowH = items[0].offsetHeight;
+            var contentH = items[0].scrollHeight;
+            var rowsCap = (contentH > rowH + 1)
+                ? Math.max(1, Math.floor((avail - 2) / contentH))
+                : Math.max(1, Math.floor((avail - 4) / rowH));
+            maxRows = Math.min(10, rowsCap);      // 上限 10 行（20 位）
+            fitN = maxRows * 2;
+            listEl.style.gridTemplateRows = 'repeat(' + maxRows + ', minmax(0, 1fr))';
+        } else {
+            var total = listEl.scrollHeight;
+            if (total <= avail + 2) { updateWaitTitle(panel, count); return; }
+            var itemH = total / count;
+            fitN = Math.max(1, Math.floor((avail - 4) / itemH));   // 预留余量避免末行裁切
+        }
         var showMissed = missedArr.slice(0, fitN);
         var showNormal = normalArr.slice(0, Math.max(0, fitN - showMissed.length));
         var shown = showNormal.concat(showMissed);
