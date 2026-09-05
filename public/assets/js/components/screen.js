@@ -202,14 +202,12 @@
         var cur = d.current || {};
         var next = d.next || {};
         var doc = d.doctor || {};
-        // 横屏/方屏（宽>=高）显示 16 位等待就诊（双排），竖屏显示 8 位；
-        // 过号患者始终排在列表末尾（末尾留位优先过号患者），保证「过」徽标可见
+        // 等待就诊：过号患者恒居末尾（多过号按顺序排列），数量由 fitWaitList 按可用高度动态计算
         var isLand = !document.body.classList.contains('screen-portrait');
-        var maxWait = isLand ? 16 : 8;
         var waitRaw = d.waiting || [];
-        var missedArr = waitRaw.filter(function (w) { return w.missed; }).slice(0, maxWait);
-        var normalArr = waitRaw.filter(function (w) { return !w.missed; }).slice(0, maxWait - missedArr.length);
-        var wait = normalArr.concat(missedArr);
+        var missedArr = waitRaw.filter(function (w) { return w.missed; });
+        var normalArr = waitRaw.filter(function (w) { return !w.missed; });
+        var candidates = normalArr.concat(missedArr).slice(0, 50);   // 超长屏可多显示
 
         var curCard = cur.name
             ? '<div class="screen-cur-name">' + maskName(cur.name) + '</div>' +
@@ -218,16 +216,6 @@
         var nextCard = next.name
             ? '<div class="screen-next-name">' + maskName(next.name) + '</div>' +
               '<div class="screen-next-seq">' + seqLabel(next) + '</div>'
-            : '<div class="screen-empty">暂无候诊患者</div>';
-        var waitList = wait.length
-            ? wait.map(function (w) {
-                return '<div class="screen-wait-item">' +
-                    (w.missed ? '<span class="screen-wait-miss">过</span>' : '<span class="screen-wait-miss screen-wait-miss-empty"></span>') +
-                    '<span class="screen-wait-seq">' + String(w.visit_seq).padStart(3, '0') + (w.is_transfer ? '★' : '') + '</span>' +
-                    '<span class="screen-wait-name">' + maskName(w.name) + '</span>' +
-                    '<span class="screen-wait-gender">' + (w.gender || '') + '</span>' +
-                    '<span class="screen-wait-age">' + (w.age_fmt || '') + '</span></div>';
-            }).join('')
             : '<div class="screen-empty">暂无候诊患者</div>';
 
         // 医生信息卡：左列照片（单元格内等比最大化），右列 7 行网格
@@ -246,9 +234,11 @@
               '<div class="screen-doc-info"><div class="screen-doc-name">医生出诊中</div>' +
               '<div class="screen-doc-intro screen-doc-intro-empty">暂无医生信息</div></div></div>';
 
+        var main = document.getElementById('screenMain');
+        var waitPanel = waitPanelHtml(candidates);
         // ===== 竖屏排版：医生卡在上，主区（正在就诊/下一位 | 等待就诊）在下 =====
         if (!isLand) {
-            return '<div class="screen-doctor-grid">' +
+            main.innerHTML = '<div class="screen-doctor-grid">' +
                 docCard +
                 '<div class="screen-main-area">' +
                 '<div class="screen-left-col">' +
@@ -257,29 +247,69 @@
                 '  <div class="screen-panel screen-next-panel"><div class="screen-panel-title">下一位</div>' +
                 '    <div class="screen-panel-body"><div class="screen-panel-inner">' + nextCard + '</div></div></div>' +
                 '</div>' +
-                '<div class="screen-wait-panel"><div class="screen-panel-title">等待就诊（' + wait.length + '）</div>' +
-                (wait.length
-                    ? '  <div class="screen-panel-body"><div class="screen-panel-inner">' + waitList + '</div></div>'
-                    : '  <div class="screen-wait-empty">' + waitList + '</div>') +
-                '</div></div></div>';
+                waitPanel +
+                '</div></div>';
+        } else {
+            // ===== 横屏/方屏排版：左 医生卡 | 中 正在就诊+下一位 | 右 等待就诊（满高单列） =====
+            main.innerHTML = '<div class="screen-land-grid">' +
+                '  <div class="screen-land-doctor">' + docCard + '</div>' +
+                '  <div class="screen-land-main">' +
+                '    <div class="screen-panel screen-cur-panel"><div class="screen-panel-title">正在就诊</div>' +
+                '      <div class="screen-panel-body"><div class="screen-panel-inner">' + curCard + '</div></div></div>' +
+                '    <div class="screen-panel screen-next-panel"><div class="screen-panel-title">下一位</div>' +
+                '      <div class="screen-panel-body"><div class="screen-panel-inner">' + nextCard + '</div></div></div>' +
+                '  </div>' +
+                waitPanel +
+                '</div>';
         }
-        // ===== 横屏/方屏排版：上半 医生卡(左) | 正在就诊+下一位(右)；下半 等待就诊双排 =====
-        return '<div class="screen-land-grid">' +
-            '<div class="screen-land-top">' +
-            '  <div class="screen-land-doctor">' + docCard + '</div>' +
-            '  <div class="screen-land-main">' +
-            '    <div class="screen-panel screen-cur-panel"><div class="screen-panel-title">正在就诊</div>' +
-            '      <div class="screen-panel-body"><div class="screen-panel-inner">' + curCard + '</div></div></div>' +
-            '    <div class="screen-panel screen-next-panel"><div class="screen-panel-title">下一位</div>' +
-            '      <div class="screen-panel-body"><div class="screen-panel-inner">' + nextCard + '</div></div></div>' +
-            '  </div>' +
-            '</div>' +
-            '<div class="screen-wait-panel"><div class="screen-panel-title">等待就诊（' + wait.length + '）</div>' +
-            (wait.length
-                ? '  <div class="screen-wait-land-list">' + waitList + '</div>'
-                : '  <div class="screen-wait-empty">' + waitList + '</div>') +
-            '</div>' +
-            '</div>';
+        // 动态裁剪等待就诊数量（放不下则减少，超长屏可多显示；过号恒居末尾）
+        fitWaitList(main, normalArr, missedArr);
+    }
+
+    /* 等待就诊单行 HTML */
+    function waitItemHtml(w) {
+        return '<div class="screen-wait-item">' +
+            (w.missed ? '<span class="screen-wait-miss">过</span>' : '<span class="screen-wait-miss screen-wait-miss-empty"></span>') +
+            '<span class="screen-wait-seq">' + String(w.visit_seq).padStart(3, '0') + (w.is_transfer ? '★' : '') + '</span>' +
+            '<span class="screen-wait-name">' + maskName(w.name) + '</span>' +
+            '<span class="screen-wait-gender">' + (w.gender || '') + '</span>' +
+            '<span class="screen-wait-age">' + (w.age_fmt || '') + '</span></div>';
+    }
+
+    /* 等待就诊面板 HTML（统一单列列表，供 fitWaitList 动态裁剪） */
+    function waitPanelHtml(list) {
+        var body = list.length
+            ? '<div class="screen-wait-list">' + list.map(waitItemHtml).join('') + '</div>'
+            : '<div class="screen-wait-empty"><div class="screen-empty">暂无候诊患者</div></div>';
+        return '<div class="screen-wait-panel">' +
+            '<div class="screen-panel-title">等待就诊（' + list.length + '）</div>' + body + '</div>';
+    }
+
+    /* 动态计算等待就诊显示数量：以列表可用高度 / 单行高度得出，
+       放不下则减少；过号患者恒居末尾并按顺序排列 */
+    function fitWaitList(main, normalArr, missedArr) {
+        var panel = main.querySelector('.screen-wait-panel');
+        var listEl = main.querySelector('.screen-wait-list');
+        if (!listEl) return;
+        var count = listEl.querySelectorAll('.screen-wait-item').length;
+        if (!count) return;
+        var avail = listEl.clientHeight;
+        if (avail <= 0) return;
+        var total = listEl.scrollHeight;
+        if (total <= avail + 2) { updateWaitTitle(panel, count); return; }
+        var itemH = total / count;
+        // 预留少量余量，避免取整后末行轻微裁切
+        var fitN = Math.max(1, Math.floor((avail - 4) / itemH));
+        var showMissed = missedArr.slice(0, fitN);
+        var showNormal = normalArr.slice(0, Math.max(0, fitN - showMissed.length));
+        var shown = showNormal.concat(showMissed);
+        listEl.innerHTML = shown.map(waitItemHtml).join('');
+        updateWaitTitle(panel, shown.length);
+    }
+
+    function updateWaitTitle(panel, n) {
+        var t = panel ? panel.querySelector('.screen-panel-title') : null;
+        if (t) t.textContent = '等待就诊（' + n + '）';
     }
 
     function renderDeptMode(d) {
@@ -313,7 +343,11 @@
         voiceEnabled = !!d.enable_voice;
         // 医生诊室大屏：未绑定医生（或无存活心跳）时患者数据为空，
         // 但仍渲染面向患者的整体框架（就诊中/下一位/待就诊空态提示，而非医生操作提示）
-        main.innerHTML = ROOM_TYPE === 'doctor' ? renderDoctorMode(d) : renderDeptMode(d);
+        if (ROOM_TYPE === 'doctor') {
+            renderDoctorMode(d);   // 内部自行写入 screenMain + 动态裁剪等待就诊
+        } else {
+            main.innerHTML = renderDeptMode(d);
+        }
 
         // 医生信息字号动态适配（渲染后测量单元格尺寸）
         if (ROOM_TYPE === 'doctor') fitDoctorCard();
