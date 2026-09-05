@@ -316,6 +316,8 @@
     object-fit: contain;
 }
 /* 右列：均分 7 行；1-2 行合并姓名（最大），3 行职称，4 行工号，5-7 行合并介绍 */
+/* 医生空态卡：默认（竖屏）单列纵向布局（照片在上 | 信息在下）；横屏改用 左右两列
+   （照片 | 信息），保证中间分隔虚线始终居中，不跑到卡片左沿 */
 .screen-doctor-card-empty { grid-template-columns: 1fr; }
 .screen-doctor-card-empty .screen-doc-photo {
     width: clamp(60px, 10cqmin, 130px);
@@ -324,6 +326,7 @@
     justify-self: center;
     align-self: center;
 }
+.call-body.screen-landscape .screen-doctor-card-empty { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .screen-doc-info {
     display: grid;
     grid-template-rows: repeat(7, 1fr);
@@ -442,6 +445,10 @@
 .screen-wait-land-list .screen-wait-item:nth-child(n+9) {
     border-left: 1px dashed rgba(255, 255, 255, .28);   /* 两列之间的纵向分隔线 */
     padding-left: clamp(8px, 1.2cqmin, 16px);
+}
+/* 横屏等待就诊条目：序号/姓名/性别/年龄 四列等宽均匀分布（不再将姓名列一味拉长） */
+.screen-wait-land-list .screen-wait-item {
+    grid-template-columns: clamp(24px, 3cqmin, 36px) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
 }
 /* 主区（下方）：左右两列网格（左列 正在就诊+下一位，右列 等待就诊） */
 .screen-main-area {
