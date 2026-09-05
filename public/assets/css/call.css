@@ -455,35 +455,63 @@
     border-radius: 18px;
     padding: clamp(8px, 1.2cqmin, 20px);
 }
-.screen-wait-item {
-    display: flex;
+/* 等待就诊表头（与列表列对齐） */
+.screen-wait-head {
+    display: grid;
+    grid-template-columns: clamp(22px, 3cqmin, 34px) clamp(56px, 7.5cqmin, 96px) 1fr clamp(40px, 5cqmin, 64px) clamp(52px, 7cqmin, 96px);
     align-items: center;
     gap: clamp(6px, 1cqmin, 14px);
-    font-size: clamp(14px, 2.7cqmin, 40px);
+    font-size: clamp(12px, 1.9cqmin, 24px);
+    color: #a8c8e8;
+    padding: clamp(2px, 0.5cqmin, 6px) clamp(3px, 0.5cqmin, 6px);
+    border-bottom: 1px solid rgba(255, 255, 255, .18);
+    letter-spacing: 1px;
+    font-weight: 600;
+}
+/* 等待就诊条目：序号/姓名/性别/年龄 纵向对齐分隔 */
+.screen-wait-item {
+    display: grid;
+    grid-template-columns: clamp(22px, 3cqmin, 34px) clamp(56px, 7.5cqmin, 96px) 1fr clamp(40px, 5cqmin, 64px) clamp(52px, 7cqmin, 96px);
+    align-items: center;
+    gap: clamp(6px, 1cqmin, 14px);
+    font-size: clamp(16px, 3.1cqmin, 44px);
     color: #e6f2ff;
-    padding: clamp(2px, 0.5cqmin, 8px) clamp(3px, 0.5cqmin, 6px);
+    padding: clamp(3px, 0.6cqmin, 9px) clamp(3px, 0.5cqmin, 6px);
     border-bottom: 1px dashed rgba(255, 255, 255, .12);
 }
 .screen-wait-seq {
-    width: clamp(34px, 5.6cqmin, 84px);
     font-weight: 800;
     color: #ffd54f;
     font-variant-numeric: tabular-nums;
 }
-.screen-missed {
-    display: inline-block;
-    color: #ffb4a2;
-    background: rgba(255, 90, 70, .16);
-    border: 1px solid rgba(255, 120, 100, .45);
-    border-radius: 999px;
-    padding: 0 10px;
-    margin-left: 6px;
-    font-size: .62em;
-    font-weight: 700;
-    vertical-align: middle;
-    letter-spacing: 1px;
+.screen-wait-name {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-.screen-wait-extra { margin-left: auto; color: #a8c8e8; font-size: clamp(12px, 2.1cqmin, 30px); }
+.screen-wait-gender,
+.screen-wait-age {
+    color: #a8c8e8;
+    font-size: .86em;
+    font-variant-numeric: tabular-nums;
+}
+/* 过号圆圈徽标：序号前显示圆形「过」字，患者一目了然 */
+.screen-wait-miss {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(20px, 2.7cqmin, 32px);
+    height: clamp(20px, 2.7cqmin, 32px);
+    border-radius: 50%;
+    background: rgba(255, 90, 70, .22);
+    border: 1.5px solid #ff6a55;
+    color: #ff6a55;
+    font-weight: 800;
+    font-size: .62em;
+    line-height: 1;
+    letter-spacing: 0;
+}
 
 /* ---------- 模式B：医技列表看板 ---------- */
 .screen-dept-head {

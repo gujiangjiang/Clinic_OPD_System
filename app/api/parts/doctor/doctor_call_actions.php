@@ -30,7 +30,7 @@ function doctor_bound_room($u, $roomId) {
  */
 function doctor_call_claim_next_tx($u, $room) {
     $deptId = (int)$room['dept_id'];
-    $next = QueueRepository::deptPoolNext($deptId);
+    $next = QueueRepository::deptPoolNextForRoom($room);
     if (!$next) return array('error' => '暂无候诊患者，请稍候');
     $visitId = (int)$next['id'];
     // 双保险：该就诊若已被其他医生认领（并发场景事务内串行写，此处兜底拦截）

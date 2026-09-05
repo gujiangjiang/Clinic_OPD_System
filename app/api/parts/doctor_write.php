@@ -62,9 +62,9 @@ function doctor_part_write($action) {
         }
         // 释放该医生此前绑定的其他诊室（一人一块屏）
         EmrRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL WHERE current_doctor_id=?', array($u['id']));
-        // 绑定当前诊室
-        EmrRepository::exec('UPDATE clinic_rooms SET current_doctor_id=?, current_doctor_name=?, doctor_heartbeat=?, updated_at=? WHERE id=?',
-            array($u['id'], $u['name'], now_str(), now_str(), $roomId));
+        // 绑定当前诊室：重新建立叫号会话日期（默认只叫当天号源；跨天规则见 roomQueueRefresh）
+        EmrRepository::exec('UPDATE clinic_rooms SET current_doctor_id=?, current_doctor_name=?, doctor_heartbeat=?, call_session_date=?, updated_at=? WHERE id=?',
+            array($u['id'], $u['name'], now_str(), today_str(), now_str(), $roomId));
         json_ok(array('room_id' => $roomId, 'room_name' => $room['room_name']), '已绑定大屏「' . $room['room_name'] . '」');
         return;
     }
@@ -90,6 +90,7 @@ function doctor_part_write($action) {
     if ($action === 'call_next') {
         $room = doctor_bound_room($u, (int)post('room_id'));
         if (!$room) json_fail('请先绑定大屏诊室后再叫号');
+        $room = QueueRepository::roomQueueRefresh($room);   // 跨天规则：会话日期/清空
         $pdo = DatabaseManager::getMain();
         $pdo->beginTransaction();
         try {
@@ -110,6 +111,7 @@ function doctor_part_write($action) {
     if ($action === 'call_repeat') {
         $room = doctor_bound_room($u, (int)post('room_id'));
         if (!$room) json_fail('请先绑定大屏诊室');
+        $room = QueueRepository::roomQueueRefresh($room);   // 跨天规则：会话日期/清空
         if ((int)$room['current_visit_id'] <= 0) json_fail('当前无就诊患者，无法再次叫号');
         $cur = QueueRepository::roomCurrentVisit($room);
         if (!$cur) json_fail('当前患者状态已变化，请刷新后再操作');
@@ -130,6 +132,7 @@ function doctor_part_write($action) {
     if ($action === 'call_miss') {
         $room = doctor_bound_room($u, (int)post('room_id'));
         if (!$room) json_fail('请先绑定大屏诊室');
+        $room = QueueRepository::roomQueueRefresh($room);   // 跨天规则：会话日期/清空
         $curId = (int)$room['current_visit_id'];
         if ($curId <= 0) json_fail('当前无就诊患者，无需过号');
         $cur = QueueRepository::roomCurrentVisit($room);

@@ -13,6 +13,36 @@
 
 ---
 
+## [7.2.0] - 2026-09-05
+
+> 叫号大屏面向患者优化：未绑定医生时显示完整就诊框架（空态）；只叫当天号源 + 诊室可配置
+> 跨天叫号；等待就诊区域分列对齐、过号圆形徽标、字体调大。
+
+### 变更
+
+- **未绑定医生时大屏面向患者显示完整框架**：不再显示「请医生绑定本大屏」等面向医生的操作
+  提示；改为照常渲染「正在就诊 / 下一位 / 等待就诊」整体框架，无患者时显示「暂无就诊中患者」
+  等空态、医生卡显示「医生出诊中」，纯面向候诊患者。
+  （`public/assets/js/components/screen.js`）
+
+### 新增
+
+- **只叫当天号源 + 跨天叫号设置**：
+  - 叫号号源默认只统计**当天**挂号的患者（转入患者按当天转入时间），非当天号一律不叫；
+  - 诊室设置新增「允许跨天叫号」（急诊夜班场景）：不允许时跨 0 点自动清空前一天所有叫号
+    记录（含认领/过号）并重置当前就诊，新的一天从当天号源重新开始；允许时在一次登录
+    （绑定）期间支持跨 0 点继续叫号，号源从会话日期 0 点起延续，重新登录后仍只显示当天号源。
+  - 绑定诊室时自动建立叫号会话日期。
+  （`app/config/schema/main.php` v18、`app/repositories/QueueRepository.php`、
+  `app/api/screen.php`、`app/api/parts/doctor/doctor_call_panel.php`、
+  `app/api/parts/doctor/doctor_call_actions.php`、`app/api/parts/doctor_write.php`、
+  `app/api/parts/admin_call.php`、`app/views/admin/callmanage.php`）
+- **等待就诊区域分列对齐 + 过号圆形徽标**：等待就诊列表改为「序号 / 姓名 / 性别 / 年龄」
+  四列纵向对齐（含表头），字号适当调大；过号患者在序号前显示红色圆形「过」字徽标，患者
+  一目了然。（`public/assets/js/components/screen.js`、`public/assets/css/call.css`）
+- **叫号测试数据工具**：`tools/seed_call_test.php` 为指定科室生成当天已缴费（paid）患者，
+  便于本地测试叫号系统（写入数据已被 .gitignore 忽略，不入库）。
+
 ## [7.1.1] - 2026-09-05
 
 > 修复：叫号管理科室统计接口 room_stats 未加入管理员接口动作白名单。

@@ -11,12 +11,14 @@ function doctor_read_call_panel($u) {
         array((int)$u['id'])
     );
     if (!$room) json_ok(array('bound' => false));
+    // 叫号会话日期维护（跨天规则）
+    $room = QueueRepository::roomQueueRefresh($room);
     $deptId = (int)$room['dept_id'];
     $dept = DeptRepository::one('SELECT * FROM departments WHERE id=?', array($deptId));
     $current = QueueRepository::roomCurrentVisit($room);
-    $pool = QueueRepository::deptPool($deptId, 20);
+    $pool = QueueRepository::deptPoolForRoom($room, 20);
     $next = $pool ? $pool[0] : null;
-    $missed = QueueRepository::deptMissed($deptId, 5);
+    $missed = QueueRepository::deptMissedForRoom($room, 5);
     $fmt = function ($r, $missedFlag = 0) {
         if (!$r) return null;
         return array(
@@ -38,7 +40,7 @@ function doctor_read_call_panel($u) {
         'current' => $curFmt,
         'next' => $fmt($next),
         'pool' => array_map(function ($r) use ($fmt) { return $fmt($r, 0); }, $pool),
-        'pool_count' => QueueRepository::deptPoolCount($deptId),
+        'pool_count' => QueueRepository::deptPoolCountForRoom($room),
         'missed' => array_map(function ($r) use ($fmt) { return $fmt($r, 1); }, $missed),
         'servertime' => now_str(),
     ));

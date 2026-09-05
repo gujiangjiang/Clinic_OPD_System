@@ -215,10 +215,11 @@
         var waitList = wait.length
             ? wait.map(function (w) {
                 return '<div class="screen-wait-item">' +
+                    (w.missed ? '<span class="screen-wait-miss">过</span>' : '<span class="screen-wait-miss"></span>') +
                     '<span class="screen-wait-seq">' + String(w.visit_seq).padStart(3, '0') + (w.is_transfer ? '★' : '') + '</span>' +
-                    '<span class="screen-wait-name">' + maskName(w.name) +
-                    (w.missed ? ' <span class="screen-missed">（过号）</span>' : '') + '</span>' +
-                    '<span class="screen-wait-extra">' + (w.gender || '') + ' ' + (w.age_fmt || '') + '</span></div>';
+                    '<span class="screen-wait-name">' + maskName(w.name) + '</span>' +
+                    '<span class="screen-wait-gender">' + (w.gender || '') + '</span>' +
+                    '<span class="screen-wait-age">' + (w.age_fmt || '') + '</span></div>';
             }).join('')
             : '<div class="screen-empty">暂无候诊患者</div>';
 
@@ -248,6 +249,10 @@
             '    <div class="screen-panel-body"><div class="screen-panel-inner">' + nextCard + '</div></div></div>' +
             '</div>' +
             '<div class="screen-wait-panel"><div class="screen-panel-title">等待就诊（' + wait.length + '）</div>' +
+            '  <div class="screen-wait-head">' +
+            '    <span class="screen-wait-miss"></span><span class="screen-wait-seq">号</span>' +
+            '    <span class="screen-wait-name">姓名</span><span class="screen-wait-gender">性别</span><span class="screen-wait-age">年龄</span>' +
+            '  </div>' +
             '  <div class="screen-panel-body"><div class="screen-panel-inner">' + waitList + '</div></div></div>' +
             '</div></div>';
     }
@@ -281,13 +286,8 @@
             titleEl.textContent = deptName ? deptName + ' ' + roomName : roomName;
         }
         voiceEnabled = !!d.enable_voice;
-        // 医生诊室大屏：医生工作站未绑定（或无存活心跳）时，一律不显示患者数据
-        if (ROOM_TYPE === 'doctor' && d.bound === false) {
-            main.innerHTML = '<div class="screen-empty-big">🛑 暂无医生接诊<br>' +
-                '<div style="font-size:18px;color:#a8c8e8;margin-top:8px">请医生在医生工作站绑定本大屏后开始叫号</div></div>';
-            if (d.tips) startTips(d.tips, d.tip_interval || 5);
-            return;
-        }
+        // 医生诊室大屏：未绑定医生（或无存活心跳）时患者数据为空，
+        // 但仍渲染面向患者的整体框架（就诊中/下一位/待就诊空态提示，而非医生操作提示）
         main.innerHTML = ROOM_TYPE === 'doctor' ? renderDoctorMode(d) : renderDeptMode(d);
 
         // 医生信息字号动态适配（渲染后测量单元格尺寸）

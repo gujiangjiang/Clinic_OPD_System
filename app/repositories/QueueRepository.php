@@ -119,6 +119,117 @@ class QueueRepository extends BaseRepository {
         return (int)$room['current_doctor_id'] > 0 && !self::doctorHeartbeatStale($room['id']);
     }
 
+    /**
+     * 叫号会话日期（跨天规则）——在每次取号源/叫号前调用，返回更新后的诊室行（已持久化）
+     *  · 首次使用（call_session_date 为空）：记录为当天日期
+     *  · 跨天后（call_session_date != 今天）：
+     *      - 不允许跨天（allow_cross_day=0）：清空本诊室前一天所有叫号记录 + 重置当前就诊，
+     *        会话日期改为今天（新的一天从当天号源重新叫起，非当天号一律不叫）
+     *      - 允许跨天（allow_cross_day=1）：保持会话日期，号源从会话日期 0 点起延续，
+     *        一次登录（绑定）内支持跨 0 点继续叫号；重新登录绑定后从当天号源开始
+     */
+    public static function roomQueueRefresh($room) {
+        $today = today_str();
+        $sessDate = !empty($room['call_session_date']) ? (string)$room['call_session_date'] : '';
+        if ($sessDate === '') {
+            self::exec("UPDATE clinic_rooms SET call_session_date=?, updated_at=? WHERE id=?",
+                array($today, now_str(), (int)$room['id']));
+            $room['call_session_date'] = $today;
+            return $room;
+        }
+        if ($sessDate !== $today) {
+            if ((int)$room['allow_cross_day'] !== 1) {
+                $now = now_str();
+                // 跨天且不允许：清空本诊室前一天所有叫号记录（含过号/认领），重置当前就诊
+                self::exec("DELETE FROM call_events WHERE room_id=? OR (dept_id=? AND date(created_at) < ?)",
+                    array((int)$room['id'], (int)$room['dept_id'], $today));
+                self::exec("UPDATE clinic_rooms SET current_visit_id=0, current_flow_no='', current_called_at='',
+                    last_call_action='', last_call_at='', call_session_date=?, updated_at=? WHERE id=?",
+                    array($today, $now, (int)$room['id']));
+                $room['current_visit_id'] = 0;
+                $room['current_flow_no'] = '';
+                $room['call_session_date'] = $today;
+            }
+            // 允许跨天：保持会话日期，继续沿用（跨 0 点后号源从会话日期延续）
+        }
+        return $room;
+    }
+
+    /** 号源生效日期过滤子句（跨天规则）：返回 SQL 片段 + 追加参数 */
+    private static function poolDateCond($room, &$params) {
+        $sessDate = !empty($room['call_session_date']) ? (string)$room['call_session_date'] : today_str();
+        if ((int)$room['allow_cross_day'] === 1) {
+            // 允许跨天：号源从会话日期 0 点起延续（一次登录内跨 0 点不中断）
+            $params[] = $sessDate . ' 00:00:00';
+            return 'COALESCE(tr.transfer_at, r.registered_at) >= ?';
+        }
+        // 仅当天：只叫「当天号源」，非当天不叫
+        $params[] = $sessDate;
+        return 'date(COALESCE(tr.transfer_at, r.registered_at)) = ?';
+    }
+
+    /**
+     * 科室动态号源池（未认领患者，按跨天规则过滤当天/会话日期号源）
+     * 规则：
+     *  · 仅统计当前在该科室、状态 paid（已缴费候诊）且号源日期符合跨天设置的就诊记录
+     *  · 已被任何医生「叫号认领」（call_events 存在 action='call'）的患者不再入池，
+     *    保证多医生并发时号源不重复；过号（miss）患者同样不再入池
+     *  · 排序按「到本科室的生效时间」：转入患者按转入时间、普通挂号按挂号时间
+     */
+    public static function deptPoolForRoom($room, $limit = 0) {
+        $deptId = (int)$room['dept_id'];
+        $params = array($deptId, $deptId);
+        $dateCond = self::poolDateCond($room, $params);
+        $sql = "SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth,
+                COALESCE(tr.transfer_at, r.registered_at) AS eff_time
+             FROM registrations r
+             LEFT JOIN patients p ON p.patient_no=r.patient_no
+             LEFT JOIN (SELECT visit_id, MAX(created_at) AS transfer_at FROM referrals WHERE to_dept_id=? GROUP BY visit_id) tr ON tr.visit_id=r.id
+             WHERE r.current_dept_id=? AND r.status='paid' AND $dateCond
+               AND NOT EXISTS (SELECT 1 FROM call_events ce WHERE ce.visit_id=r.id AND ce.action='call')
+             ORDER BY eff_time, r.registered_at, r.id";
+        if ($limit > 0) $sql .= ' LIMIT ' . (int)$limit;
+        return self::q($sql, $params);
+    }
+
+    /** 科室号源池首条（下一位，按跨天规则） */
+    public static function deptPoolNextForRoom($room) {
+        $rows = self::deptPoolForRoom($room, 1);
+        return $rows ? $rows[0] : null;
+    }
+
+    /** 科室号源池总数（按跨天规则） */
+    public static function deptPoolCountForRoom($room) {
+        $deptId = (int)$room['dept_id'];
+        $params = array($deptId, $deptId);
+        $dateCond = self::poolDateCond($room, $params);
+        return (int)self::val(
+            "SELECT COUNT(*) FROM registrations r
+             LEFT JOIN (SELECT visit_id, MAX(created_at) AS transfer_at FROM referrals WHERE to_dept_id=? GROUP BY visit_id) tr ON tr.visit_id=r.id
+             WHERE r.current_dept_id=? AND r.status='paid' AND $dateCond
+               AND NOT EXISTS (SELECT 1 FROM call_events ce WHERE ce.visit_id=r.id AND ce.action='call')",
+            $params
+        );
+    }
+
+    /** 过号患者列表（最近 N 位，按跨天规则，供大屏显示（过号）标记） */
+    public static function deptMissedForRoom($room, $limit = 8) {
+        $deptId = (int)$room['dept_id'];
+        $params = array($deptId, $deptId);
+        $dateCond = self::poolDateCond($room, $params);
+        return self::q(
+            "SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
+             FROM registrations r
+             LEFT JOIN patients p ON p.patient_no=r.patient_no
+             LEFT JOIN (SELECT visit_id, MAX(created_at) AS transfer_at FROM referrals WHERE to_dept_id=? GROUP BY visit_id) tr ON tr.visit_id=r.id
+             WHERE r.current_dept_id=? AND r.status='paid' AND $dateCond
+               AND EXISTS (SELECT 1 FROM call_events ce WHERE ce.visit_id=r.id AND ce.action='miss')
+             ORDER BY (SELECT MAX(created_at) FROM call_events ce2 WHERE ce2.visit_id=r.id AND ce2.action='miss') DESC
+             LIMIT " . (int)$limit,
+            $params
+        );
+    }
+
     /** 按科室查询候诊队列（护士站使用，含多种状态） */
     public static function doctorInfo($doctorId) {
         return UserRepository::doctorProfile($doctorId);

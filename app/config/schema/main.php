@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 17,
+    'version' => 18,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -614,6 +614,8 @@ return array(
             current_called_at TEXT DEFAULT '',
             last_call_action TEXT DEFAULT '',
             last_call_at TEXT DEFAULT '',
+            allow_cross_day TINYINT DEFAULT 0,
+            call_session_date TEXT DEFAULT '',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
@@ -763,6 +765,11 @@ return array(
             )",
             "CREATE INDEX IF NOT EXISTS idx_call_events_visit ON call_events(visit_id)",
             "CREATE INDEX IF NOT EXISTS idx_call_events_dept_action ON call_events(dept_id, action)",
+        ),
+        // v18：叫号跨天设置——是否允许跨天叫号（急诊夜班场景）+ 叫号会话日期
+        18 => array(
+            "ALTER TABLE clinic_rooms ADD COLUMN allow_cross_day TINYINT DEFAULT 0",
+            "ALTER TABLE clinic_rooms ADD COLUMN call_session_date TEXT DEFAULT ''",
         ),
     ),
     'seed' => array(

@@ -40,14 +40,16 @@ function admin_part_call($action) {
             $rowsHtml .= '<tr data-id="' . (int)$r['id'] . '" data-token="' . e($r['screen_token']) . '"' .
                 ' data-tips="' . e($r['screen_tips']) . '" data-interval="' . (int)$r['tip_interval'] . '"' .
                 ' data-room-name="' . e($r['room_name']) . '" data-room-type="' . e($r['room_type']) . '"' .
-                ' data-room-voice="' . (int)$r['enable_voice'] . '" data-room-mask="' . (int)$r['enable_mask'] . '">' .
+                ' data-room-voice="' . (int)$r['enable_voice'] . '" data-room-mask="' . (int)$r['enable_mask'] . '"' .
+                ' data-room-cross="' . (int)$r['allow_cross_day'] . '">' .
                 '<td class="fw-600">' . e($r['room_name']) . '</td>' .
                 '<td>' . e(isset($typeNames[$r['room_type']]) ? $typeNames[$r['room_type']] : $r['room_type']) . '</td>' .
                 '<td>' . $st . '</td>' .
                 '<td>' . $bind . '</td>' .
                 '<td class="fs-12" style="font-family:monospace;word-break:break-all;max-width:180px">' . e($r['screen_token']) . '</td>' .
                 '<td>' .
-                    '<span class="fs-12">' . ($r['enable_voice'] ? '🔊' : '🔇') . ' ' . ($r['enable_mask'] ? '脱敏' : '实名') . '</span></td>' .
+                    '<span class="fs-12">' . ($r['enable_voice'] ? '🔊' : '🔇') . ' ' . ($r['enable_mask'] ? '脱敏' : '实名') .
+                    ' ' . ((int)$r['allow_cross_day'] === 1 ? '🌙跨天' : '') . '</span></td>' .
                 // 操作按钮改为事件委托（data-room-id）：用户可控名称/Token 不再嵌入 onclick
                 // 字符串，杜绝引号/HTML 注入（原 e() 转义在属性值解码后无法覆盖单引号截断）
                 '<td><div class="flex gap-4">' .
@@ -92,20 +94,21 @@ function admin_part_call($action) {
         json_ok(array('token' => $token), '诊室已创建');
     }
 
-    /* ==================== 编辑诊室（名称/类型/语音/脱敏/温馨提示） ==================== */
+    /* ==================== 编辑诊室（名称/类型/语音/脱敏/跨天/温馨提示） ==================== */
     if ($action === 'room_save') {
         $id = (int)post('id');
         $roomName = trim(post('room_name'));
         $roomType = post('room_type', 'doctor');
         $voice = (int)post('enable_voice', 1);
         $mask = (int)post('enable_mask', 1);
+        $crossDay = (int)post('allow_cross_day', 0);
         // 温馨提示：JSON 数组字符串（前端提交），空字符串则清空
         $tips = trim(post('screen_tips', ''));
         $tipInterval = max(2, (int)post('tip_interval', 5));
         if ($id <= 0) json_fail('参数错误');
         if ($roomName === '') json_fail('请填写诊室名称');
-        DeptRepository::exec('UPDATE clinic_rooms SET room_name=?, room_type=?, enable_voice=?, enable_mask=?, screen_tips=?, tip_interval=?, updated_at=? WHERE id=?',
-            array($roomName, $roomType, $voice, $mask, $tips, $tipInterval, now_str(), $id));
+        DeptRepository::exec('UPDATE clinic_rooms SET room_name=?, room_type=?, enable_voice=?, enable_mask=?, allow_cross_day=?, screen_tips=?, tip_interval=?, updated_at=? WHERE id=?',
+            array($roomName, $roomType, $voice, $mask, $crossDay, $tips, $tipInterval, now_str(), $id));
         json_ok(array(), '诊室已更新');
     }
 

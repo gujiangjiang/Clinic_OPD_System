@@ -105,10 +105,12 @@ function screen_payload($room) {
         }
         // 当前就诊：以医生工作站推送的 current_visit_id 为准，回库校验（防前端篡改）
         $current = QueueRepository::roomCurrentVisit($room);
-        // 号源池：未被任何医生认领的患者（动态拼接，多医生并发不重复）
-        $pool = QueueRepository::deptPool($deptId, 8);
+        // 叫号会话日期维护（跨天规则：不允许则跨天清空重建，允许则跨 0 点延续）
+        $room = QueueRepository::roomQueueRefresh($room);
+        // 号源池：当天/会话日期号源中未被任何医生认领的患者（动态拼接，多医生并发不重复）
+        $pool = QueueRepository::deptPoolForRoom($room, 8);
         $next = $pool ? $pool[0] : null;
-        $missed = QueueRepository::deptMissed($deptId, 5);
+        $missed = QueueRepository::deptMissedForRoom($room, 5);
         // 候诊列表 = 号源池剩余（除去已展示的「下一位」）+ 过号患者（末尾追加，带（过号）标记）
         $waiting = array();
         foreach (array_slice($pool, 1) as $r) $waiting[] = $fmt($r, 0);

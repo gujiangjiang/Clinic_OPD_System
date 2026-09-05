@@ -122,7 +122,8 @@ document.getElementById('cmList').addEventListener('click', function (e) {
                 tr ? tr.getAttribute('data-room-name') : '',
                 tr ? tr.getAttribute('data-room-type') : 'doctor',
                 tr ? (tr.getAttribute('data-room-voice') === '1') : false,
-                tr ? (tr.getAttribute('data-room-mask') === '1') : false);
+                tr ? (tr.getAttribute('data-room-mask') === '1') : false,
+                tr ? (tr.getAttribute('data-room-cross') === '1') : false);
             break;
     }
 });
@@ -223,7 +224,7 @@ function closeQuickPop() {
 }
 
 /* 编辑诊室 */
-function editRoom(id, name, type, voice, mask) {
+function editRoom(id, name, type, voice, mask, crossDay) {
     // 获取当前温馨提示（从列表行获取，data-tips 存 JSON 数组字符串）
     var tips = '';
     var tipInterval = 5;
@@ -253,7 +254,9 @@ function editRoom(id, name, type, voice, mask) {
         '<option value="nurse"' + (type === 'nurse' ? ' selected' : '') + '>护士站</option>' +
         '</select></div>' +
         '<label class="flex gap-4 mb-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="erVoice"' + (voice ? ' checked' : '') + '> 语音播报</label>' +
-        '<label class="flex gap-4 mb-8" style="font-size:13px;cursor:pointer"><input type="checkbox" id="erMask"' + (mask ? ' checked' : '') + '> 患者姓名脱敏（张*三）</label>' +
+        '<label class="flex gap-4 mb-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="erMask"' + (mask ? ' checked' : '') + '> 患者姓名脱敏（张*三）</label>' +
+        '<label class="flex gap-4 mb-4" style="font-size:13px;cursor:pointer" title="默认只叫当天号源；开启后在一次登录（绑定）期间支持跨0点继续叫号（如急诊夜班）"><input type="checkbox" id="erCross"' + (crossDay ? ' checked' : '') + '> 允许跨天叫号（急诊夜班场景）</label>' +
+        '<div class="fs-12 text-muted mb-8">跨天规则：不允许时跨天自动清空前一天所有叫号记录；允许时仅本次登录内跨0点延续，重新登录后仍只显示当天号源。</div>' +
         '<div class="card-title mt-8"><span>💡 温馨提示</span></div>' +
         '<div class="fs-12 text-muted mb-4">每行一条，留空则使用默认提示；多条提示自动轮播切换。</div>' +
         '<textarea class="textarea" id="erTips" rows="4" placeholder="请输入温馨提示，每行一条">' + Clinic.escHtml(tipsText) + '</textarea>' +
@@ -275,6 +278,7 @@ function editRoom(id, name, type, voice, mask) {
                         room_type: document.getElementById('erType').value,
                         enable_voice: document.getElementById('erVoice').checked ? 1 : 0,
                         enable_mask: document.getElementById('erMask').checked ? 1 : 0,
+                        allow_cross_day: document.getElementById('erCross').checked ? 1 : 0,
                         screen_tips: tipsJson,
                         tip_interval: parseInt(document.getElementById('erInterval').value, 10) || 5,
                     }, {
