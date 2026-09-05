@@ -12,7 +12,10 @@ function order_part_submit($u) {
     $nurseReq = (int)post('nurse_required', 0);
     // 开单所在病历文书（首诊/续写/会诊）——用于开单与病历强关联展示
     $recId = (int)post('record_id', 0);
-    // 开单科室固化：优先取前端所在科室，否则回退医生当前科室（打印/展示不随转科漂移）
+    // ===== 开单科室固化：优先取前端所在科室，否则回退医生当前科室（打印/展示不随转科漂移） =====
+    // 注意：前端提交的 dept_id 取自「就诊当前科室」，会诊场景下会诊目标科室医生
+    // 开单时就诊 current_dept_id 仍是发起科室 A——本处以「绑定病历的书写科室」为准
+    // （病历 dept_id 已按会诊目标科室落库），下方 recId 确定后覆盖。
     $deptId = (int)post('dept_id', 0);
     $deptName = '';
     if ($deptId > 0) {
@@ -65,6 +68,18 @@ function order_part_submit($u) {
     }
     if ($recId <= 0) {
         $recId = (int)$myRec['id'];
+    }
+    // ===== 开单科室以「绑定病历的书写科室」为准 =====
+    // 病历 dept_id 已按实际书写科室落库：会诊病历=目标科室（B）、续写/转科=当前科室、
+    // 首诊=挂号科室。前端传的 dept_id 取自就诊当前科室，会诊场景下是发起科室（A），
+    // 必须在此覆盖——否则会诊病历开单/处方固化错误的开单科室。
+    if ($recId > 0) {
+        $recDeptRow = OrderRepository::one('SELECT dept_id FROM patient_records WHERE id=?', array($recId));
+        if ($recDeptRow && (int)$recDeptRow['dept_id'] > 0) {
+            $deptId = (int)$recDeptRow['dept_id'];
+            $dnDept = OrderRepository::one('SELECT name FROM departments WHERE id=?', array($deptId));
+            if ($dnDept) $deptName = (string)$dnDept['name'];
+        }
     }
     $myEmr = emr_merge_defaults(emr_normalize(json_decode($myRec['emr_data'], true)), emr_default_data(null));
     if ($myRec['record_type'] === 'progress') {

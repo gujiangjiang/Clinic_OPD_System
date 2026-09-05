@@ -221,6 +221,8 @@ function cancelVisit(visitId, status) {
             onSuccess: function (json) {
                 Clinic.toast.success(json.msg);
                 loadDetail(CUR_VISIT);
+                // 退费后左侧就诊列表状态同步刷新（原仅刷新右侧详情，左侧仍显示旧状态）
+                if (document.getElementById('payKw').value.trim()) searchVisits();
             },
         });
     }, { title: status === 'paid' ? '退费确认' : '取消确认' });
@@ -235,6 +237,7 @@ function refundOrder(orderId) {
             onSuccess: function (json) {
                 Clinic.toast.success(json.msg);
                 loadDetail(CUR_VISIT);
+                if (document.getElementById('payKw').value.trim()) searchVisits();
             },
         });
     }, { title: '退费确认', okText: '确认退费' });
@@ -262,6 +265,8 @@ function refundBatch(paymentNo) {
                         onSuccess: function (json) {
                             Clinic.toast.success(json.msg);
                             loadDetail(CUR_VISIT);
+                            // 整单退费后左侧就诊状态同步刷新（原仅刷新右侧，凭条仍显示退费/补打按钮）
+                            if (document.getElementById('payKw').value.trim()) searchVisits();
                         },
                     });
                 }, { title: '整单退费', okText: '确认整单退费' });

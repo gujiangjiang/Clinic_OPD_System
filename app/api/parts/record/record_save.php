@@ -137,6 +137,7 @@ function record_part_save($u) {
     // 校验：会诊单属于本就诊 + 目标科室为当前登录医生所在科室（会诊由目标科室医生书写）
     $consultationId = (int)post('consultation_id', 0);
     $recDeptId = (int)$visit['current_dept_id'];
+    $recDeptName = (string)$visit['current_dept_name'];
     if ($consultationId > 0) {
         $cons = EmrRepository::one('SELECT * FROM consultations WHERE id=?', array($consultationId));
         if (!$cons) json_fail('会诊记录不存在');
@@ -145,6 +146,7 @@ function record_part_save($u) {
         if ((int)$cons['target_dept_id'] !== $curDeptId) json_fail('该会诊不属于当前科室，无法书写会诊病历');
         // 会诊记录书写科室 = 会诊目标科室（非患者当前就诊科室）
         $recDeptId = (int)$cons['target_dept_id'];
+        $recDeptName = (string)$cons['target_dept_name'];
     }
 
     // ===== 2. 必填校验（按文书类型分支） =====
@@ -363,10 +365,10 @@ function record_part_save($u) {
             EmrRepository::exec('UPDATE registrations SET status=?, disposition=?, disposition_detail=?, finished_at=?, paid_at=COALESCE(paid_at,?) WHERE id=?',
                 array('finished', $disposition, $dispDetail, now_str(), now_str(), $visitId));
             $pdo->commit();
-            json_ok(array('finished' => 1, 'record_id' => $recordId), '病历已保存并诊毕');
+            json_ok(array('finished' => 1, 'record_id' => $recordId, 'dept_id' => (int)$recDeptId, 'dept_name' => $recDeptName), '病历已保存并诊毕');
         }
         $pdo->commit();
-        json_ok(array('finished' => 0, 'record_id' => $recordId), '病历已保存');
+        json_ok(array('finished' => 0, 'record_id' => $recordId, 'dept_id' => (int)$recDeptId, 'dept_name' => $recDeptName), '病历已保存');
     } catch (Exception $ex) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         json_fail('病历保存失败：' . $ex->getMessage());

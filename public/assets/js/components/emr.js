@@ -2630,16 +2630,20 @@ diagnoses: [],
                         });
                     }
                     if (!histEntry) {
-                        // 新保存文书归属当前科室：dept_id 取就诊当前科室（新文书一定写在当前科室），
-                        // 缺失会导致 switchToRecord 切换回该文书时 calcDeptMatch 误判为 0（科室不一致只读）
-                        var savedDeptId = DATA.record.dept_id || (DATA.visit && DATA.visit.current_dept_id) || 0;
+                        // 新保存文书归属当前书写科室：优先用后端返回的 dept_id/dept_name
+                        // （会诊病历 = 会诊目标科室 B；续写/转科 = 当前科室；首诊 = 挂号科室），
+                        // 缺失时回退就诊当前科室（新文书一定写在当前科室）。
+                        var savedDeptId = (j.data && j.data.dept_id > 0) ? j.data.dept_id
+                            : (DATA.record.dept_id || (DATA.visit && DATA.visit.current_dept_id) || 0);
+                        var savedDeptName = (j.data && j.data.dept_name) ? j.data.dept_name
+                            : (DATA.visit && DATA.visit.dept_name) || '';
                         DATA.record.dept_id = savedDeptId;
                         histEntry = {
                             id: DATA.record.record_id, record_id: DATA.record.record_id,
                             doctor_id: mineId2, doctor_name: DATA.record.doctor_name,
                             doctor_emp: DATA.record.doctor_emp, doctor_title: DATA.record.doctor_title,
                             dept_id: savedDeptId,
-                            dept_name: (DATA.visit && DATA.visit.dept_name) || '',
+                            dept_name: savedDeptName,
                             record_type: DATA.record.record_type,
                             created_at: DATA.record.created_at, updated_at: now,
                             emr: JSON.parse(JSON.stringify(emr)),
@@ -2829,33 +2833,48 @@ diagnoses: [],
     /** 渲染右侧会诊列表（本人发起，本就诊）：状态小圆点 + 日期 请X科会诊 + 删除（仅本人） */
     function renderConsultList() {
         var el = document.getElementById('navConsult');
-        if (!el) return;
         var visitId = document.getElementById('visitId').value;
         if (!visitId) return;
         Clinic.get('/api/consultation?action=visit_consults&visit_id=' + visitId, null, {
             onSuccess: function (j) {
                 var list = j.data.list || [];
-                var myUid = parseInt(document.body.getAttribute('data-uid') || '0', 10) || 0;
-                // 状态小圆点（与费用状态指示灯同款样式）：黄=待处理 绿=进行中 灰=完毕
-                var dot = function (st) {
-                    var cls = st === 'done' ? 'green' : (st === 'doing' ? 'red' : 'gray');
-                    var txt = st === 'done' ? '会诊完毕' : (st === 'doing' ? '正在会诊' : '待处理');
-                    return '<span class="status-indicator ' + cls + '" title="' + txt + '"></span>';
-                };
-                el.innerHTML = list.length ? list.map(function (c) {
-                    // 删除按钮：仅发起人本人 + 会诊仍为待会诊（pending）时可删除；
-                    // 已在会诊中（doing/done）一律不显示删除按钮
-                    var delBtn = (c.from_doctor_id === myUid && c.status === 'pending')
-                        ? '<span class="ena-del" title="删除会诊" onclick="event.stopPropagation();Clinic.emr.delConsult(\'' + c.code + '\')">🗑️</span>'
-                        : '';
-                    return '<div class="ena-item" style="cursor:pointer" title="点击查看会诊详情" onclick="Clinic.emr.openConsultDetail(\'' + c.code + '\')">' +
-                        dot(c.status) +
-                        '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
-                        escHtml((c.created_at || '').substring(5, 16)) + ' 请' + escHtml(c.target_dept_name) + '会诊</span>' +
-                        delBtn + '</div>';
-                }).join('') : '<div class="ena-empty">暂无会诊</div>';
+                // 同步会诊数据源：门诊处置「请X科会诊」据此渲染——
+                // 会诊发送/删除后无需刷新页面即可实时更新病历正文
+                CONSULTS = list;
+                if (DATA) DATA.consults = list;
+                if (el) {
+                    renderConsultListBox(el, list);
+                }
+                // 会诊创建/删除后刷新病历正文处置区与左侧大纲
+                if (window.Clinic && Clinic.emr.orders) {
+                    Clinic.emr.orders.renderDocOrders();
+                    renderLeftNav();
+                }
             },
         });
+    }
+
+    /** 渲染右侧会诊列表内容（从 renderConsultList 抽出，列表刷新时复用） */
+    function renderConsultListBox(el, list) {
+        var myUid = parseInt(document.body.getAttribute('data-uid') || '0', 10) || 0;
+        // 状态小圆点（与费用状态指示灯同款样式）：黄=待处理 绿=进行中 灰=完毕
+        var dot = function (st) {
+            var cls = st === 'done' ? 'green' : (st === 'doing' ? 'red' : 'gray');
+            var txt = st === 'done' ? '会诊完毕' : (st === 'doing' ? '正在会诊' : '待处理');
+            return '<span class="status-indicator ' + cls + '" title="' + txt + '"></span>';
+        };
+        el.innerHTML = list.length ? list.map(function (c) {
+            // 删除按钮：仅发起人本人 + 会诊仍为待会诊（pending）时可删除；
+            // 已在会诊中（doing/done）一律不显示删除按钮
+            var delBtn = (c.from_doctor_id === myUid && c.status === 'pending')
+                ? '<span class="ena-del" title="删除会诊" onclick="event.stopPropagation();Clinic.emr.delConsult(\'' + c.code + '\')">🗑️</span>'
+                : '';
+            return '<div class="ena-item" style="cursor:pointer" title="点击查看会诊详情" onclick="Clinic.emr.openConsultDetail(\'' + c.code + '\')">' +
+                dot(c.status) +
+                '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+                escHtml((c.created_at || '').substring(5, 16)) + ' 请' + escHtml(c.target_dept_name) + '会诊</span>' +
+                delBtn + '</div>';
+        }).join('') : '<div class="ena-empty">暂无会诊</div>';
     }
 
     /** 删除会诊（仅发起医生本人，后端硬校验） */

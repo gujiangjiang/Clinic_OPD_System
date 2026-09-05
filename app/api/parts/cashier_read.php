@@ -230,16 +230,21 @@ function cashier_part_read($action) {
             $html .= '<div class="fs-13 text-muted">暂无缴费记录</div>';
         }
         // 挂号费凭条（优化2：补打直接用挂号凭条 receipt，非缴费凭条）
+        // 退费/取消后不再提供补打与退费按钮
         if ($visitPay) {
+            $visitRefunded = in_array($visit['status'], array('refunded', 'cancelled'), true);
             $html .= '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">' .
                 '<div class="flex-between">' .
                 '<span class="fs-13 fw-600">🎫 挂号费凭条</span>' .
                 '<span class="fs-13 fw-600">¥' . money($visitPay['total']) . '</span></div>' .
                 // 优化8：挂号费凭条不显示流水号，仅 日期 时间 收费员
-                '<div class="fs-12 text-muted mt-4">' . e(substr($visitPay['created_at'], 0, 16)) . ' ｜ 收费员 ' . e($visitPay['cashier_name']) . ' ｜ ' . e($visitPay['method']) . '</div>' .
+                '<div class="fs-12 text-muted mt-4">' . e(substr($visitPay['created_at'], 0, 16)) . ' ｜ 收费员 ' . e($visitPay['cashier_name']) . ' ｜ ' . e($visitPay['method']) .
+                ($visitRefunded ? ' ｜ <span class="badge badge-gray">' . e(visit_status_name($visit['status'])) . '</span>' : '') . '</div>' .
                 '<div class="mt-8 flex gap-8">' .
-                '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=receipt&visit_id=' . e(oid($visitId)) . '\',null,\'ticket\')">🖨️ 补打挂号凭条</button>' .
-                ($visit['status'] === 'paid' ? '<button class="btn btn-outline btn-sm" onclick="cancelVisit(\'' . e(oid($visitId)) . '\',\'paid\')">退费</button>' : '') .
+                ($visitRefunded
+                    ? '<span class="fs-13 text-muted">该挂号已' . e(visit_status_name($visit['status'])) . '，不可补打凭条</span>'
+                    : '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=receipt&visit_id=' . e(oid($visitId)) . '\',null,\'ticket\')">🖨️ 补打挂号凭条</button>' .
+                    ($visit['status'] === 'paid' ? '<button class="btn btn-outline btn-sm" onclick="cancelVisit(\'' . e(oid($visitId)) . '\',\'paid\')">退费</button>' : '')) .
                 '</div></div>';
         }
         foreach ($groups as $g) {
@@ -247,9 +252,11 @@ function cashier_part_read($action) {
             $orderNames = array();
             $multi = count($g['orders']) > 1;
             $gItemCnt = 0;
+            $allRefunded = true;   // 整单是否已全部退费（退费后隐藏补打/退费按钮）
             foreach ($g['orders'] as $gOid) {
                 $gOrder = CashierRepository::order($gOid);
                 $gItems = $gOrder ? CashierRepository::orderItems($gOid) : array();
+                if (!$gOrder || $gOrder['status'] !== 'refunded') $allRefunded = false;
                 foreach ($gItems as $gi) {
                     $orderNames[] = $gi['item_name'];
                     $gItemCnt++;
@@ -262,15 +269,19 @@ function cashier_part_read($action) {
                 '<div class="flex-between">' .
                 '<span class="fs-13 fw-600">🧾 缴费凭条 <span class="fs-12 text-muted fw-400">' . ($multi ? '（含' . count($g['orders']) . '张开单）' : '') . '</span></span>' .
                 '<span class="fs-13 fw-600">¥' . money($g['total']) . '</span></div>' .
-                '<div class="fs-12 text-muted mt-4">' . e(substr($g['created_at'], 0, 16)) . ' ｜ 流水号 ' . e($g['payment_no']) . ' ｜ 收费员 ' . e($g['cashier_name']) . '</div>' .
+                '<div class="fs-12 text-muted mt-4">' . e(substr($g['created_at'], 0, 16)) . ' ｜ 流水号 ' . e($g['payment_no']) . ' ｜ 收费员 ' . e($g['cashier_name']) .
+                ($allRefunded ? ' ｜ <span class="badge badge-gray">已退费</span>' : '') . '</div>' .
                 '<div class="fs-12 text-muted mt-4" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' . $sumText . '</div>' .
                 '<div class="mt-8 flex gap-8">' .
-                '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=payment&payment_id=' . e(oid($g['pay_id'])) . '\',null,\'ticket\')">🖨️ 补打凭条</button>' .
-                '<button class="btn btn-outline btn-sm" onclick="showBatchDetail(\'' . e($g['payment_no']) . '\')">📋 详情</button>' .
-                // 同批次多订单 → 整单退费（不可单独退）；单订单 → 普通退费
-                ($multi
-                    ? '<button class="btn btn-outline btn-sm" onclick="refundBatch(\'' . e($g['payment_no']) . '\')">退费（整单）</button>'
-                    : '<button class="btn btn-outline btn-sm" onclick="refundOrder(\'' . e(oid($g['orders'][0])) . '\')">退费</button>') .
+                // 整单已退费：凭条作废，不可补打，亦不可重复退费
+                ($allRefunded
+                    ? '<span class="fs-13 text-muted">该凭条已整单退费，不可补打凭条</span>'
+                    : '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=payment&payment_id=' . e(oid($g['pay_id'])) . '\',null,\'ticket\')">🖨️ 补打凭条</button>' .
+                    '<button class="btn btn-outline btn-sm" onclick="showBatchDetail(\'' . e($g['payment_no']) . '\')">📋 详情</button>' .
+                    // 同批次多订单 → 整单退费（不可单独退）；单订单 → 普通退费
+                    ($multi
+                        ? '<button class="btn btn-outline btn-sm" onclick="refundBatch(\'' . e($g['payment_no']) . '\')">退费（整单）</button>'
+                        : '<button class="btn btn-outline btn-sm" onclick="refundOrder(\'' . e(oid($g['orders'][0])) . '\')">退费</button>')) .
                 '</div></div>';
         }
         json_ok(array('html' => $html));

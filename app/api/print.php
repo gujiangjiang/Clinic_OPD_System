@@ -40,6 +40,10 @@ switch ($action) {
         $row = get_visit_row($vid);
         if (!$row) json_fail('就诊记录不存在');
         print_guard($row['visit'], array('cashier'));
+        // 退费/取消后凭条作废，禁止补打（凭条是缴费凭证，已退费即失效）
+        if (in_array($row['visit']['status'], array('refunded', 'cancelled'), true)) {
+            json_fail('该挂号已' . visit_status_name($row['visit']['status']) . '，凭条已作废，不可补打');
+        }
         $visit = $row['visit'];
         $visit = decorate_visit_patient($visit, $row['patient']);
         $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['first_dept_id']));
@@ -56,6 +60,18 @@ switch ($action) {
         $payVisit = EmrRepository::one('SELECT * FROM registrations WHERE id=?', array($pay['visit_id']));
         if (!$payVisit) json_fail('就诊记录不存在');
         print_guard($payVisit, array('cashier'));
+        // 已退费凭条禁止补打：挂号费已退费 → 作废；订单批次全部退费 → 作废
+        if ($pay['kind'] === 'visit' && in_array($payVisit['status'], array('refunded', 'cancelled'), true)) {
+            json_fail('该挂号已' . visit_status_name($payVisit['status']) . '，凭条已作废，不可补打');
+        }
+        if ($pay['kind'] === 'order' && !empty($pay['payment_no'])) {
+            $aliveOrders = (int)EmrRepository::val(
+                "SELECT COUNT(*) FROM orders o JOIN payments p ON p.order_id=o.id AND p.kind='order'
+                 WHERE p.payment_no=? AND o.status<>'refunded'",
+                array($pay['payment_no'])
+            );
+            if ($aliveOrders === 0) json_fail('该缴费批次已全部退费，凭条已作废，不可补打');
+        }
         // 批量缴费：同 payment_no 的多张订单合并为一张凭条（同批次凭条一致，不可单独退费）
         $batchPays = array();
         if (!empty($pay['payment_no'])) {

@@ -1085,9 +1085,10 @@ Clinic.order = (function () {
             items: JSON.stringify(flat),
             skin_choices: JSON.stringify(skinChoices),
             // 开单与病历强关联：记录当前所在病历（首诊/续写/会诊），
-            // 开单科室随病历固化，展示/打印不跨病历串显示
+            // 开单科室随病历固化（取病历书写科室——会诊病历=目标科室 B，
+            // 而非就诊当前科室 A），展示/打印不跨病历串显示
             record_id: (Clinic.emr && Clinic.emr._ctx && Clinic.emr._ctx.DATA && Clinic.emr._ctx.DATA.record) ? (Clinic.emr._ctx.DATA.record.record_id || 0) : 0,
-            dept_id: (Clinic.emr && Clinic.emr._ctx && Clinic.emr._ctx.DATA && Clinic.emr._ctx.DATA.visit) ? (Clinic.emr._ctx.DATA.visit.current_dept_id || 0) : 0,
+            dept_id: (Clinic.emr && Clinic.emr._ctx && Clinic.emr._ctx.DATA && Clinic.emr._ctx.DATA.record) ? (Clinic.emr._ctx.DATA.record.dept_id || 0) : 0,
         }, {
             loading: true,
             onSuccess: function (j) {
