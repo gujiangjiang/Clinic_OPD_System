@@ -315,7 +315,7 @@ function previewRoom(id) {
         '16_9': { w: 16, h: 9, label: '横向 16:9' },
         'free': { w: 0, h: 0,  label: '自由' },
     };
-    var cur = '16_9';
+    var cur = 'free';
     Clinic.modal.open(
         '<div class="pv-toolbar">' +
             Object.keys(RATIOS).map(function (k) {
