@@ -448,7 +448,7 @@ Clinic.docTools = (function () {
         return '<div class="doc-call-pop-head">' +
             '  <span class="doc-call-pop-title">📢 ' + Clinic.escHtml(ROOM_BOUND.name || '') + '</span>' +
             '  <span class="doc-call-pop-tools">' +
-            '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">解</span>' +
+            '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">⊘</span>' +
             '    <span class="doc-call-pop-x" data-act="restore" title="最大化（恢复完整版）">+</span>' +
             '    <span class="doc-call-pop-x" data-act="hide" title="关闭">x</span>' +
             '  </span>' +
