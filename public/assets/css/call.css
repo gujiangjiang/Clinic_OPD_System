@@ -455,23 +455,10 @@
     border-radius: 18px;
     padding: clamp(8px, 1.2cqmin, 20px);
 }
-/* 等待就诊表头（与列表列对齐） */
-.screen-wait-head {
-    display: grid;
-    grid-template-columns: clamp(22px, 3cqmin, 34px) clamp(56px, 7.5cqmin, 96px) 1fr clamp(40px, 5cqmin, 64px) clamp(52px, 7cqmin, 96px);
-    align-items: center;
-    gap: clamp(6px, 1cqmin, 14px);
-    font-size: clamp(12px, 1.9cqmin, 24px);
-    color: #a8c8e8;
-    padding: clamp(2px, 0.5cqmin, 6px) clamp(3px, 0.5cqmin, 6px);
-    border-bottom: 1px solid rgba(255, 255, 255, .18);
-    letter-spacing: 1px;
-    font-weight: 600;
-}
-/* 等待就诊条目：序号/姓名/性别/年龄 纵向对齐分隔 */
+/* 等待就诊条目：序号/姓名/性别/年龄 纵向对齐分隔（grid 各列固定宽度，天然对齐） */
 .screen-wait-item {
     display: grid;
-    grid-template-columns: clamp(22px, 3cqmin, 34px) clamp(56px, 7.5cqmin, 96px) 1fr clamp(40px, 5cqmin, 64px) clamp(52px, 7cqmin, 96px);
+    grid-template-columns: clamp(24px, 3cqmin, 36px) clamp(56px, 7cqmin, 96px) minmax(clamp(96px, 12cqmin, 180px), 1fr) clamp(42px, 5cqmin, 64px) clamp(56px, 8cqmin, 96px);
     align-items: center;
     gap: clamp(6px, 1cqmin, 14px);
     font-size: clamp(16px, 3.1cqmin, 44px);
@@ -483,6 +470,7 @@
     font-weight: 800;
     color: #ffd54f;
     font-variant-numeric: tabular-nums;
+    text-align: left;
 }
 .screen-wait-name {
     font-weight: 600;
@@ -495,8 +483,10 @@
     color: #a8c8e8;
     font-size: .86em;
     font-variant-numeric: tabular-nums;
+    text-align: left;
 }
-/* 过号圆圈徽标：序号前显示圆形「过」字，患者一目了然 */
+/* 过号圆形徽标：仅过号患者在序号前显示圆圈「过」字；
+   非过号患者占位保持透明（列对齐，不显示圆圈） */
 .screen-wait-miss {
     display: inline-flex;
     align-items: center;
@@ -511,6 +501,11 @@
     font-size: .62em;
     line-height: 1;
     letter-spacing: 0;
+}
+.screen-wait-miss-empty {
+    background: transparent;
+    border-color: transparent;
+    color: transparent;
 }
 
 /* ---------- 模式B：医技列表看板 ---------- */

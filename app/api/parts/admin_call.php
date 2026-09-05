@@ -28,7 +28,7 @@ function admin_part_call($action) {
         $rows = DeptRepository::q('SELECT * FROM clinic_rooms WHERE dept_id=? ORDER BY id', array($deptId));
         $typeNames = array('doctor' => '医生诊室', 'lab' => '检验科', 'imaging' => '影像科', 'pharmacy' => '药房', 'nurse' => '护士站');
         $rowsHtml = '<thead><tr>' .
-            '<th>诊室/窗口</th><th>类型</th><th>大屏状态</th><th>绑定</th><th>Token</th><th>设置</th><th>操作</th></tr></thead><tbody>';
+            '<th>诊室/窗口</th><th>类型</th><th>大屏状态</th><th>绑定</th><th>设置</th><th>操作</th></tr></thead><tbody>';
         foreach ($rows as $r) {
             $online = (!empty($r['screen_last_heartbeat']) && (time() - strtotime($r['screen_last_heartbeat'])) <= 30);
             $st = $online
@@ -46,7 +46,6 @@ function admin_part_call($action) {
                 '<td>' . e(isset($typeNames[$r['room_type']]) ? $typeNames[$r['room_type']] : $r['room_type']) . '</td>' .
                 '<td>' . $st . '</td>' .
                 '<td>' . $bind . '</td>' .
-                '<td class="fs-12" style="font-family:monospace;word-break:break-all;max-width:180px">' . e($r['screen_token']) . '</td>' .
                 '<td>' .
                     '<span class="fs-12">' . ($r['enable_voice'] ? '🔊' : '🔇') . ' ' . ($r['enable_mask'] ? '脱敏' : '实名') .
                     ' ' . ((int)$r['allow_cross_day'] === 1 ? '🌙跨天' : '') . '</span></td>' .

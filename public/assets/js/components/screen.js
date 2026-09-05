@@ -215,7 +215,7 @@
         var waitList = wait.length
             ? wait.map(function (w) {
                 return '<div class="screen-wait-item">' +
-                    (w.missed ? '<span class="screen-wait-miss">过</span>' : '<span class="screen-wait-miss"></span>') +
+                    (w.missed ? '<span class="screen-wait-miss">过</span>' : '<span class="screen-wait-miss screen-wait-miss-empty"></span>') +
                     '<span class="screen-wait-seq">' + String(w.visit_seq).padStart(3, '0') + (w.is_transfer ? '★' : '') + '</span>' +
                     '<span class="screen-wait-name">' + maskName(w.name) + '</span>' +
                     '<span class="screen-wait-gender">' + (w.gender || '') + '</span>' +
@@ -249,10 +249,6 @@
             '    <div class="screen-panel-body"><div class="screen-panel-inner">' + nextCard + '</div></div></div>' +
             '</div>' +
             '<div class="screen-wait-panel"><div class="screen-panel-title">等待就诊（' + wait.length + '）</div>' +
-            '  <div class="screen-wait-head">' +
-            '    <span class="screen-wait-miss"></span><span class="screen-wait-seq">号</span>' +
-            '    <span class="screen-wait-name">姓名</span><span class="screen-wait-gender">性别</span><span class="screen-wait-age">年龄</span>' +
-            '  </div>' +
             '  <div class="screen-panel-body"><div class="screen-panel-inner">' + waitList + '</div></div></div>' +
             '</div></div>';
     }
