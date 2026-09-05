@@ -53,6 +53,8 @@ Clinic.nav = {
         if (this._busy) return;
         if (href === this.current + location.search) return;
         this._busy = true;
+        // 导航离开前关闭可能打开的模态窗（如会诊详情内「查看完整病历」入口）
+        if (window.Clinic && Clinic.modal && Clinic.modal.close) Clinic.modal.close();
         Clinic.loading.show();
         var sep = href.indexOf('?') === -1 ? '?' : '&';
         var that = this;
