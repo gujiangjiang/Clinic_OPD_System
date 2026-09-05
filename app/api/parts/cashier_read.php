@@ -319,17 +319,10 @@ function cashier_part_read($action) {
                 $flow[] = array('label' => '开单', 'done' => 1);
                 $st = (string)$it['status'];
                 if ($isRefunded || $st === 'refunded') {
-                    // 已退费：缴费节点显示「已退费」（红色），后续节点一律未完成
+                    // 已退费：保留「缴费」记录，在缴费下方追加「已退费」节点（红色），
+                    // 后续执行节点不显示——项目已作废不再执行，流程含缴费与退费完整记录
+                    $flow[] = array('label' => '缴费', 'done' => 1);
                     $flow[] = array('label' => '已退费', 'done' => 0, 'refunded' => 1);
-                    if ($order['order_type'] === 'lab' || $order['order_type'] === 'imaging') {
-                        $flow[] = array('label' => '登记', 'done' => 0);
-                        $flow[] = array('label' => '报告完成', 'done' => 0);
-                    } elseif ($order['order_type'] === 'prescription') {
-                        $flow[] = array('label' => '审方通过', 'done' => 0);
-                        $flow[] = array('label' => '发药完成', 'done' => 0);
-                    } else {
-                        $flow[] = array('label' => '执行完成', 'done' => 0);
-                    }
                     return $flow;
                 }
                 $flow[] = array('label' => '缴费', 'done' => 1);
