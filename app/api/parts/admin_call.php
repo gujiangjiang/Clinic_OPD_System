@@ -66,6 +66,18 @@ function admin_part_call($action) {
             'online_count' => (int)DeptRepository::val("SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat IS NOT NULL AND (strftime('%s','now','localtime') - strftime('%s',screen_last_heartbeat)) <= 30", array($deptId))));
     }
 
+    /* ==================== 全科室大屏统计（选择科室模态框实时数据源） ==================== */
+    if ($action === 'room_stats') {
+        $depts = DeptRepository::q('SELECT id FROM departments WHERE status=1 ORDER BY sort, id');
+        $stats = array();
+        foreach ($depts as $d) {
+            $total = (int)DeptRepository::val('SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=?', array((int)$d['id']));
+            $online = (int)DeptRepository::val("SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat IS NOT NULL AND (strftime('%s','now','localtime') - strftime('%s',screen_last_heartbeat)) <= 30", array((int)$d['id']));
+            $stats[] = array('id' => (int)$d['id'], 'room_count' => $total, 'online_count' => $online);
+        }
+        json_ok(array('list' => $stats));
+    }
+
     /* ==================== 新建诊室 ==================== */
     if ($action === 'room_create') {
         $deptId = (int)post('dept_id');

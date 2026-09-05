@@ -84,6 +84,26 @@ function loadRooms() {
     });
 }
 
+/* 刷新全科室大屏统计（同步到选择科室模态框的数据源 CM_DEPS）：
+   新建/删除/编辑/重置Token/强制释放后调用，保证模态框内「在线/总数」实时准确，
+   无需整页刷新即可看到刚创建的大屏 */
+function refreshDeptStats() {
+    Clinic.get('/api/admin?action=room_stats', null, {
+        loading: false,
+        onSuccess: function (json) {
+            var map = {};
+            (json.data.list || []).forEach(function (s) { map[s.id] = s; });
+            CM_DEPS.forEach(function (d) {
+                var s = map[d.id];
+                if (s) {
+                    d.room_count = s.room_count;
+                    d.online_count = s.online_count;
+                }
+            });
+        },
+    });
+}
+
 /* 操作按钮事件委托（服务端不再将名称/Token 嵌入 onclick，统一走 data-room-action） */
 document.getElementById('cmList').addEventListener('click', function (e) {
     var btn = e.target.closest('[data-room-action]');
@@ -170,6 +190,7 @@ function createRoom(ev) {
                 Clinic.toast.success(json.msg);
                 closeQuickPop();
                 loadRooms();
+                refreshDeptStats();
             },
         });
     }
@@ -257,7 +278,7 @@ function editRoom(id, name, type, voice, mask) {
                         screen_tips: tipsJson,
                         tip_interval: parseInt(document.getElementById('erInterval').value, 10) || 5,
                     }, {
-                        onSuccess: function (json) { Clinic.toast.success(json.msg); Clinic.modal.close(); loadRooms(); },
+                        onSuccess: function (json) { Clinic.toast.success(json.msg); Clinic.modal.close(); loadRooms(); refreshDeptStats(); },
                     });
                 } },
             ],
@@ -302,7 +323,7 @@ function copyRoomLink(id, token) {
 function resetRoomToken(id) {
     Clinic.modal.confirm('重置后旧大屏链接立即失效，确认重置？', function () {
         Clinic.ajax('/api/admin', { action: 'room_reset_token', id: id }, {
-            onSuccess: function (json) { Clinic.toast.success(json.msg); loadRooms(); },
+            onSuccess: function (json) { Clinic.toast.success(json.msg); loadRooms(); refreshDeptStats(); },
         });
     }, { title: '重置 Token', okText: '确认重置' });
 }
@@ -311,7 +332,7 @@ function resetRoomToken(id) {
 function releaseRoom(id) {
     Clinic.modal.confirm('确认强制释放该诊室？（解除当前医生占用）', function () {
         Clinic.ajax('/api/admin', { action: 'room_release', id: id }, {
-            onSuccess: function (json) { Clinic.toast.success(json.msg); loadRooms(); },
+            onSuccess: function (json) { Clinic.toast.success(json.msg); loadRooms(); refreshDeptStats(); },
         });
     }, { title: '强制释放', okText: '确认释放' });
 }
@@ -320,7 +341,7 @@ function releaseRoom(id) {
 function delRoom(id) {
     Clinic.modal.confirm('确认删除该诊室/大屏？（不可恢复）', function () {
         Clinic.ajax('/api/admin', { action: 'room_delete', id: id }, {
-            onSuccess: function (json) { Clinic.toast.success(json.msg); loadRooms(); },
+            onSuccess: function (json) { Clinic.toast.success(json.msg); loadRooms(); refreshDeptStats(); },
         });
     }, { title: '删除确认', okText: '确认删除' });
 }
