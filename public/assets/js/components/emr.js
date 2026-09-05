@@ -2388,7 +2388,7 @@ diagnoses: [],
         // 且病历ID强关联 + 当前可编辑（canDeleteOrder 统一校验）
         var delLabel = o.order_type === 'prescription' ? '毁方' : '删除';
         var delBtn2 = Clinic.emr.canDeleteOrder(o)
-            ? '<button type="button" class="btn btn-danger btn-sm mt-8" onclick="delOrderFlow(\'' + o.id + '\',\'' + delLabel + '\')">🗑️ ' + delLabel + '</button>'
+            ? '<button type="button" class="btn btn-danger btn-sm" style="margin-left:8px" onclick="delOrderFlow(\'' + o.id + '\',\'' + delLabel + '\')">🗑️ ' + delLabel + '</button>'
             : '';
         html += '<div style="margin-top:12px">' +
             '<button type="button" class="btn btn-outline btn-sm" ' +
