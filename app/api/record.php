@@ -46,7 +46,8 @@ function cert_snapshot_summary($visitId) {
 
 /** 已开项目快照（与 /api/order visit_orders 同口径；多医生接诊：$doctorId>0 时仅取该医生本人开具的项目——谁开单归属谁的病历）。
  * 开单是病历文书的法律快照：退费只影响费用结算，不影响已开具的文书——
- * 退费项目仍写入快照并标注「（已退费）」，仅已取消（cancelled 聚合态）不写入。
+ * 退费项目同样写入快照（病历客观记录开单事实，不标注费用状态），
+ * 仅已取消（cancelled 聚合态）不写入。
  * 返回 [检验检查名列表, 处方行列表, 处置项列表] */
 function emr_order_snapshot($visitId, $doctorId = 0) {
     $sql = 'SELECT * FROM orders WHERE visit_id=?';
@@ -61,18 +62,16 @@ function emr_order_snapshot($visitId, $doctorId = 0) {
         $items = OrderRepository::itemsByOrder($o['id']);
         $agg = order_agg_status($o['order_type'], $items);
         if ($agg === 'cancelled') continue;
-        // 退费标记（法律快照保留，仅标注）
-        $refundMark = ($agg === 'refunded' || $o['status'] === 'refunded') ? '（已退费）' : '';
         foreach ($items as $it) {
             if (empty($it['item_name'])) continue; // 防空名明细混入病历文本
             if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
-                $orderNames[] = $it['item_name'] . $refundMark;
+                $orderNames[] = $it['item_name'];
             } elseif ($o['order_type'] === 'procedure') {
-                $dispItems[] = array('name' => $it['item_name'] . $refundMark, 'qty' => (int)$it['quantity']);
+                $dispItems[] = array('name' => $it['item_name'], 'qty' => (int)$it['quantity']);
             } elseif ($o['order_type'] === 'prescription') {
                 // 处方行统一走公共方法：成组医嘱树形格式（子药含剂量，
                 // 组内频次/途径/数量仅主药行一次），全系统同一套规则
-                foreach (emr_rx_display_lines($items) as $l) { $rxLines[] = $l . $refundMark; }
+                foreach (emr_rx_display_lines($items) as $l) { $rxLines[] = $l; }
                 break; // 该处方单已整单处理，无需逐条重复
             }
         }

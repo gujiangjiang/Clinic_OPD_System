@@ -1723,6 +1723,7 @@ diagnoses: [],
     /** 缴费/报告状态 → 指示灯颜色：灰=未缴费，红=已缴费未完成（醒目），绿=已完成 */
     function navDotCls(st) {
         if (st === 'open') return 'gray';
+        if (st === 'refunded') return 'dark-gray';   // 已退费：深灰圆点（区别于未缴费浅灰）
         if (st === 'done' || st === 'dispensed') return 'green';
         if (st === 'rejected') return 'gray';
         return 'red';   // paid / registered / in_progress / dispensing：已缴费未完成
@@ -1730,6 +1731,7 @@ diagnoses: [],
     /** 指示灯悬浮提示（title） */
     function navDotText(st) {
         if (st === 'open') return '未缴费';
+        if (st === 'refunded') return '已退费';
         if (st === 'done') return '已完成（报告已出）';
         if (st === 'dispensed') return '已完成（已发药）';
         if (st === 'rejected') return '已驳回（请重开处方）';
@@ -1951,7 +1953,7 @@ diagnoses: [],
         fillTypeNav('navProc', buckets.procedure, '处置');
 
         // 处方模块：按处方单列出（处方N + 开单医生靠右），行内删除仅本人
-        // 未缴费/已退费处方可见（法律快照：退费保留展示并标注「已退费」）
+        // 未缴费/已退费处方可见（法律快照：退费以 navDot 深灰圆点区分，不显示文字）
         var rxE1 = document.getElementById('navRx');
         if (!rxOrders.length) {
             rxE1.innerHTML = '<div class="ena-empty">暂未开立处方</div>';
@@ -1961,8 +1963,7 @@ diagnoses: [],
                 var canDel = Clinic.emr.canDeleteOrder(o);
                 return '<div class="ena-item" onclick="showRxDetail(\'' + o.id + '\')">' +
                     navDot(o.status) +
-                    '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">处方' + (oi + 1) +
-                    (o.status === 'refunded' ? ' <span class="fs-11 text-danger">（已退费）</span>' : '') + '</span>' +
+                    '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">处方' + (oi + 1) + '</span>' +
                     '<span class="ena-sub">' + escHtml(o.doctor_name || '') + '</span>' +
                     (canDel ? '<span class="ena-del" title="毁方" onclick="delOrderFlow(\'' + o.id + '\',\'毁方\');event.stopPropagation()">🗑️</span>' : '') +
                     '</div>';
@@ -2011,17 +2012,16 @@ diagnoses: [],
 
     /** 检查/检验/处置三栏共用填充：状态灯 + 点击详情弹窗 + 开单医生靠右；
      *  行内删除按钮仅本人开具且未缴费/已退费的单子显示（复用 delOrderFlow）；
-     *  已退费项目保留展示（法律快照），名称后标注「已退费」 */
+     *  已退费项目保留展示（法律快照），以 navDot 深灰圆点区分（不显示文字） */
     function fillTypeNav(elId, arr, label) {
         var el = document.getElementById(elId);
         if (!arr.length) { el.innerHTML = '<div class="ena-empty">暂未开立' + label + '</div>'; return; }
         el.innerHTML = arr.map(function (x) {
             var st = x.it.status || 'open';
             var canDel = Clinic.emr.canDeleteOrder(x.order);
-            var refunded = (st === 'refunded' || (x.order.status === 'refunded'));
             return '<div class="ena-item" onclick="showItemDetail(\'' + x.order.id + '\',\'' + x.it.id + '\')">' +
                 navDot(st) + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
-                escHtml(x.it.item_name) + (refunded ? ' <span class="fs-11 text-danger">（已退费）</span>' : '') + '</span>' +
+                escHtml(x.it.item_name) + '</span>' +
                 '<span class="ena-sub">' + escHtml(x.order.doctor_name || '') + '</span>' +
                 (canDel ? '<span class="ena-del" title="删除该开单" onclick="delOrderFlow(\'' + x.order.id + '\',\'删除\');event.stopPropagation()">🗑️</span>' : '') +
                 '</div>';

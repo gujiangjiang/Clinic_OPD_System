@@ -18,7 +18,8 @@ Clinic.emr.orders = (function () {
      * 只读段纯文本（首诊/续写只读展示用）：
      * 返回 [检验检查名列表, 处方行列表, 处置项列表]。
      * 开单是病历文书的法律快照：退费只影响费用结算，不影响已开具的文书——
-     * 退费项目仍保留展示（标注「已退费」），仅已取消（cancelled 聚合态）不展示。
+     * 退费项目同样展示（病历客观记录开单事实，不标注费用状态），
+     * 仅已取消（cancelled 聚合态）不展示。
      * 开单按【病历记录】强关联过滤：仅展示本记录（record_id）开具的项目，
      * 杜绝会诊/续写病历与首诊之间互相串显示。兼容旧数据（record_id=0）按医生归属。
      */
@@ -30,8 +31,6 @@ Clinic.emr.orders = (function () {
         (ctx.ORDERS || []).forEach(function (o) {
             if ((o.doctor_id || 0) !== doctorId) return;
             if (o.status === 'cancelled') return;
-            // 退费标记（法律快照保留，仅标注）
-            var refundMark = (o.status === 'refunded') ? '（已退费）' : '';
             // 新数据按 record_id 强关联；旧数据（record_id=0）回退按医生归属
             var oRec = o.record_id || 0;
             // 严格按病历绑定展示：
@@ -45,13 +44,13 @@ Clinic.emr.orders = (function () {
             }
             o.items.forEach(function (it) {
                 if (o.order_type === 'lab' || o.order_type === 'imaging') {
-                    aux.push(it.item_name + refundMark);
+                    aux.push(it.item_name);
                 } else if (o.order_type === 'procedure') {
-                    proc.push(it.item_name + '×' + it.quantity + refundMark);
+                    proc.push(it.item_name + '×' + it.quantity);
                 }
             });
             if (o.order_type === 'prescription') {
-                Clinic.orderRxLines(o.items).forEach(function (l) { rxs.push(l + refundMark); });
+                Clinic.orderRxLines(o.items).forEach(function (l) { rxs.push(l); });
             }
         });
         // 会诊：本人发起的会诊在门诊处置中显示「请X科会诊」（目标科室名）
@@ -72,15 +71,13 @@ Clinic.emr.orders = (function () {
 
     /**
      * 项目交互 token：活跃病历正文中的可点击行内标签（只读段不使用）
-     * 已退费项目保留展示（法律快照），追加「已退费」角标
+     * 开单是法律快照：退费项目同样渲染（病历客观记录开单事实，不标注费用状态）
      */
     function itemToken(o, it, extra) {
         var suffix = '';
         if ((o.order_type === 'lab' || o.order_type === 'imaging') && it.report_id) suffix = '（已出报告）';
-        var refundCls = (o.status === 'refunded') ? ' order-refunded' : '';
-        return '<span class="emr-item-link' + refundCls + '" data-otype="' + o.order_type + '" data-oid="' + o.id + '" data-iid="' + it.id + '">' +
-            escHtml(it.item_name) + (extra || '') + suffix +
-            (o.status === 'refunded' ? '<span class="fs-11 text-danger">（已退费）</span>' : '') + '</span>';
+        return '<span class="emr-item-link" data-otype="' + o.order_type + '" data-oid="' + o.id + '" data-iid="' + it.id + '">' +
+            escHtml(it.item_name) + (extra || '') + suffix + '</span>';
     }
 
     /**
