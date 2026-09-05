@@ -222,9 +222,11 @@ class Router {
             echo Layout::authPage($content);
         } else {
             // 病历书写页强制缩小侧边栏，为书写区提供足够空间（忽略用户偏好）
-            // 医生工作站（新）顶栏注入：工具箱下拉 / 叫号大屏绑定 / 科室切换
+            // 医生顶栏工具（叫号大屏绑定 / 工具箱 / 科室切换）对全部医生页面开放：
+            // SPA 局部导航下顶栏常驻，若只在病历页首屏渲染，从其他页面局部进入
+            // 病历页时工具会消失（layout 内部按角色门禁，非医生不受影响）
             $isDocWork = ($view === 'doctor/emr.php');
-            echo Layout::appPage($content, self::$title, $isDocWork, $needEmr, $isDocWork);
+            echo Layout::appPage($content, self::$title, $isDocWork, $needEmr, true);
         }
     }
 
