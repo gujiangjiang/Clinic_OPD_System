@@ -233,6 +233,29 @@ class QueueRepository extends BaseRepository {
         );
     }
 
+    /**
+     * 待自动重呼的过号患者（最早过号优先）：仅统计「被过号一次且从未被重呼过」的患者。
+     * 已重呼过（存在 recall_missed 事件）又再次过号者，不再自动重呼——防止永远叫不来的
+     * 患者阻塞「下一位」。
+     */
+    public static function deptMissedAutoForRoom($room, $limit = 8) {
+        $deptId = (int)$room['dept_id'];
+        $params = array($deptId, $deptId);
+        $dateCond = self::poolDateCond($room, $params);
+        return self::q(
+            "SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
+             FROM registrations r
+             LEFT JOIN patients p ON p.patient_no=r.patient_no
+             LEFT JOIN (SELECT visit_id, MAX(created_at) AS transfer_at FROM referrals WHERE to_dept_id=? GROUP BY visit_id) tr ON tr.visit_id=r.id
+             WHERE r.current_dept_id=? AND r.status='paid' AND $dateCond
+               AND EXISTS (SELECT 1 FROM call_events ce WHERE ce.visit_id=r.id AND ce.action='miss')
+               AND NOT EXISTS (SELECT 1 FROM call_events ce2 WHERE ce2.visit_id=r.id AND ce2.action='recall_missed')
+             ORDER BY (SELECT MAX(created_at) FROM call_events ce3 WHERE ce3.visit_id=r.id AND ce3.action='miss') ASC
+             LIMIT " . (int)$limit,
+            $params
+        );
+    }
+
     /** 按科室查询候诊队列（护士站使用，含多种状态） */
     public static function doctorInfo($doctorId) {
         return UserRepository::doctorProfile($doctorId);

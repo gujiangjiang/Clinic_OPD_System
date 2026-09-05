@@ -809,6 +809,8 @@ body.emr-readonly .emr-item-link,
 .doc-call-pool-item:nth-child(odd) { background: var(--bg-soft, #f6f8fc); }
 .doc-call-pool-seq { width: 28px; font-weight: 700; color: var(--primary, #2563eb); font-variant-numeric: tabular-nums; }
 .doc-call-pool-missed { color: #dc2626; font-weight: 700; }
+.doc-call-pool-missed-item { cursor: pointer; }
+.doc-call-pool-missed-item:hover { background: rgba(220, 38, 38, .08); }
 .doc-call-pop-more {
     text-align: center;
     font-size: 10px;

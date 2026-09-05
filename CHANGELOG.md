@@ -13,6 +13,28 @@
 
 ---
 
+## [7.6.6] - 2026-09-05
+
+> 过号患者支持再次叫号：mini 版「下一位」智能优先重呼过号患者；完整版号源列表点击过号患者
+> 手动重呼；每个过号患者最多自动重呼一次，二次过号后不再自动重呼。
+
+### 新增
+
+- **过号患者再次叫号**：
+  - **mini 版智能下一位**：有过号患者时点「下一位」，优先重呼最早被过号的「待自动重呼」
+    患者（清过号标记、设为当前、大屏播报、病历联动）；没有待重呼的过号患者才叫正常新号。
+  - **完整版点击重呼**：号源列表中过号患者（（过号·点重呼））可直接点击重呼，双击即清
+    标记并设为当前。
+  - **防阻塞规则**：每个过号患者最多被自动重呼一次——重呼后若仍未到诊再次过号
+    （二次过号），「下一位」不再自动重呼他，直接叫新号（避免永远叫不来的患者卡住叫号）；
+    完整版仍可手动点击重呼，重新挂号/诊毕自然清除。
+- 后端新增 `recall_missed` 动作（清 miss 标记 + 记 `recall_missed` 事件 + 设为当前）；
+  `call_next` 支持 `smart` 参数（mini 传 1）。过号判断基于 call_events 事件表，无需改库。
+  （`app/api/parts/doctor_write.php`、`app/api/parts/doctor/doctor_call_actions.php`、
+  `app/api/parts/doctor/doctor_call_panel.php`、`app/repositories/QueueRepository.php`、
+  `app/api/doctor.php`、`public/assets/js/components/doctor_tools.js`、
+  `public/assets/css/components.css`）
+
 ## [7.6.5] - 2026-09-05
 
 > 叫号悬浮窗细节优化：完整版按钮统一为「重呼」、候诊号源显示约 5 条、宽度 200→220px、

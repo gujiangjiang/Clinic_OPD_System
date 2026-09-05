@@ -91,10 +91,12 @@ function doctor_part_write($action) {
         $room = doctor_bound_room($u, (int)post('room_id'));
         if (!$room) json_fail('请先绑定大屏诊室后再叫号');
         $room = QueueRepository::roomQueueRefresh($room);   // 跨天规则：会话日期/清空
+        // smart=1（mini 版下一位）：优先重呼最早「待自动重呼」的过号患者
+        $smart = (int)post('smart', 0) === 1;
         $pdo = DatabaseManager::getMain();
         $pdo->beginTransaction();
         try {
-            $res = doctor_call_claim_next_tx($u, $room);
+            $res = doctor_call_claim_next_tx($u, $room, $smart);
             if (isset($res['error'])) { $pdo->rollBack(); json_fail($res['error']); }
             $pdo->commit();
         } catch (Exception $ex) {
@@ -103,8 +105,38 @@ function doctor_part_write($action) {
         }
         json_ok(array(
             'visit' => $res['visit'],
-            'pool_count' => QueueRepository::deptPoolCount((int)$room['dept_id']),
-        ), '已呼叫 ' . $res['name']);
+            'pool_count' => QueueRepository::deptPoolCountForRoom($room),
+        ), ($res['is_recall'] ? '已重呼 ' : '已呼叫 ') . $res['name']);
+        return;
+    }
+
+    /* 重呼过号患者：清标记 + 设为当前（完整版点击号源末尾过号患者 / 智能下一位共用） */
+    if ($action === 'recall_missed') {
+        $room = doctor_bound_room($u, (int)post('room_id'));
+        if (!$room) json_fail('请先绑定大屏诊室');
+        $room = QueueRepository::roomQueueRefresh($room);   // 跨天规则：会话日期/清空
+        $visitId = did(trim((string)post('visit_code')));
+        if ($visitId <= 0) json_fail('患者记录不存在');
+        // 校验：该就诊属于本科室且已过号
+        $visit = QueueRepository::one(
+            "SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
+             FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
+             WHERE r.id=? AND r.current_dept_id=?",
+            array($visitId, (int)$room['dept_id'])
+        );
+        if (!$visit) json_fail('患者不在当前科室');
+        $isMissed = (int)QueueRepository::val("SELECT COUNT(*) FROM call_events WHERE visit_id=? AND action='miss'", array($visitId));
+        if ($isMissed <= 0) json_fail('该患者当前未被标记过号');
+        $pdo = DatabaseManager::getMain();
+        $pdo->beginTransaction();
+        try {
+            $res = doctor_call_recall_missed_tx($u, $room, $visit);
+            $pdo->commit();
+        } catch (Exception $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            json_fail('重呼失败：' . $ex->getMessage());
+        }
+        json_ok(array('visit' => $res['visit'], 'name' => $res['name']), '已重呼 ' . $res['name']);
         return;
     }
 

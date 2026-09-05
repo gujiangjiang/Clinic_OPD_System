@@ -527,6 +527,11 @@ Clinic.docTools = (function () {
                     loadMorePool();
                 }
             });
+            // 点击过号患者 → 重新叫号（事件委托）
+            poolList.addEventListener('click', function (e) {
+                var it = e.target.closest('[data-recall]');
+                if (it) recallMissed(it.getAttribute('data-recall'));
+            });
         }
     }
 
@@ -562,12 +567,31 @@ Clinic.docTools = (function () {
     function doCallNext() {
         if (!ROOM_BOUND || !ROOM_BOUND.id) { Clinic.toast.warning('请先绑定大屏诊室'); return; }
         if (guardDirty()) return;
-        Clinic.ajax('/api/doctor', { action: 'call_next', room_id: ROOM_BOUND.id }, {
+        // mini 版下一位为「智能」：后端优先重呼最早「待自动重呼」的过号患者；完整版下一位叫正常新号
+        var isMini = callPopEl() && callPopEl().classList.contains('doc-call-mini');
+        Clinic.ajax('/api/doctor', { action: 'call_next', room_id: ROOM_BOUND.id, smart: isMini ? 1 : 0 }, {
             onSuccess: function (json) {
                 refreshCallPanel();
                 var v = json.data && json.data.visit;
                 if (v && v.visit_code && currentVisitCode() !== v.visit_code) {
                     // 病历联动：自动切换到该患者病历页（等同于手动点击候诊列表该患者）
+                    location.href = '/doctor/emr?visit_id=' + v.visit_code;
+                } else {
+                    Clinic.toast.success(json.msg);
+                }
+            },
+        });
+    }
+
+    /* 完整版：点击号源列表中过号患者 → 重呼（清标记 + 设为当前 + 播报 + 病历联动） */
+    function recallMissed(visitCode) {
+        if (!visitCode) return;
+        if (guardDirty()) return;
+        Clinic.ajax('/api/doctor', { action: 'recall_missed', room_id: ROOM_BOUND.id, visit_code: visitCode }, {
+            onSuccess: function (json) {
+                refreshCallPanel();
+                var v = json.data && json.data.visit;
+                if (v && v.visit_code && currentVisitCode() !== v.visit_code) {
                     location.href = '/doctor/emr?visit_id=' + v.visit_code;
                 } else {
                     Clinic.toast.success(json.msg);
@@ -666,8 +690,9 @@ Clinic.docTools = (function () {
                     '<span>' + Clinic.escHtml(p.name) + '</span></div>');
             });
             (d.missed || []).slice(0, 4).forEach(function (p) {
-                items.push('<div class="doc-call-pool-item"><span class="doc-call-pool-seq">' + pad3(p.visit_seq) + '</span>' +
-                    '<span>' + Clinic.escHtml(p.name) + '</span><span class="doc-call-pool-missed">（过号）</span></div>');
+                items.push('<div class="doc-call-pool-item doc-call-pool-missed-item" data-recall="' + p.visit_code + '" title="点击重新叫号（清除过号标记）">' +
+                    '<span class="doc-call-pool-seq">' + pad3(p.visit_seq) + '</span>' +
+                    '<span>' + Clinic.escHtml(p.name) + '</span><span class="doc-call-pool-missed">（过号·点重呼）</span></div>');
             });
             if (d.has_more) {
                 items.push('<div class="doc-call-pool-more">继续向下滚动加载更多…</div>');

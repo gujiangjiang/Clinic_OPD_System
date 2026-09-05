@@ -43,6 +43,7 @@ switch ($action) {
     case 'call_next':
     case 'call_miss':
     case 'call_repeat':
+    case 'recall_missed':
         doctor_part_write($action);
         break;
 
