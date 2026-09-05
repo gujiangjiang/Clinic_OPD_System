@@ -229,8 +229,12 @@ $patient = $row['patient'];
 
 <script>
 /* 左侧大纲栏异步刷新总线：开单提交 / 缴费状态变化后调用，
-   局部刷新左栏金额与指示灯（30 秒轮询兜底覆盖收费处缴费场景） */
+   局部刷新左栏金额与指示灯（30 秒轮询兜底覆盖收费处缴费场景）。
+   SPA 局部导航下离开患者页后 #visitId 被移除，loadOrders() 会以空 visit_id
+   请求接口弹「就诊记录不存在」toast：先校验病历页患者标识再刷新 */
 function refreshLeftNavSummary() {
+    var vidEl = document.getElementById('visitId');
+    if (!vidEl || !vidEl.value) return;
     if (window.Clinic && Clinic.emr && Clinic.emr.loadOrders) Clinic.emr.loadOrders();
 }
 /* SPA 局部刷新下脚本会重复执行：先清旧定时器再重建，避免累积多个轮询；

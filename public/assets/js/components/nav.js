@@ -208,6 +208,12 @@ Clinic.nav = {
         if (document.getElementById('emrHeader') && window.Clinic && Clinic.queuePanel && Clinic.queuePanel.init) {
             Clinic.queuePanel.init();
         }
+        // 离开病历患者页（无 #visitId）：清空 EMR 30s 大纲轮询定时器，
+        // 防止其以空 visit_id 请求接口弹「就诊记录不存在」toast
+        if (!document.getElementById('visitId') && window.__emrNavTimer) {
+            clearInterval(window.__emrNavTimer);
+            window.__emrNavTimer = null;
+        }
     },
 
     /**
