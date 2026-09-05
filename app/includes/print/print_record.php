@@ -154,11 +154,13 @@ $info = '<div class="print-info-lines">' .
     // 辅助检查：仅显示项目名称；处置：不换行显示名称×数量；处方：每行一个药品（名称/剂量/用法/途径/数量）
     // 多医生接诊：已开项目按该文书医生本人过滤（谁开单归属谁的病历）
     // 开单与病历强关联：仅打印本记录（record_id）名下开单；旧数据（record_id=0）回退按医生归属
+    // 开单是病历文书的法律快照：退费只影响费用结算，不影响已开具的文书——
+    // 退费项目仍打印并标注「（已退费）」，仅已取消（cancelled）不打印
     $aux = array();
     $procs = array();
     $rxs = array();
     $recPrintId = (int)(isset($record['id']) ? $record['id'] : 0);
-    $orderSql = "SELECT * FROM orders WHERE visit_id=? AND status NOT IN ('refunded','cancelled')";
+    $orderSql = "SELECT * FROM orders WHERE visit_id=? AND status NOT IN ('cancelled')";
     $orderParams = array($visit['id']);
     if (!empty($record['doctor_id'])) {
         $orderSql .= ' AND doctor_id=?';
@@ -169,19 +171,20 @@ $info = '<div class="print-info-lines">' .
     $orderSql .= ' ORDER BY id ASC';
     $orders = DB::q($orderSql, $orderParams);
     foreach ($orders as $o) {
+        $refundMark = ($o['status'] === 'refunded') ? '（已退费）' : '';
         $its = DB::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
         foreach ($its as $it) {
             if ($it['item_name'] === '' || $it['item_name'] === null) continue; // 防空名明细
             if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
-                $aux[] = e($it['item_name']);
+                $aux[] = e($it['item_name']) . $refundMark;
             } elseif ($o['order_type'] === 'procedure') {
-                $procs[] = e($it['item_name']) . '×' . (int)$it['quantity'];
+                $procs[] = e($it['item_name']) . '×' . (int)$it['quantity'] . $refundMark;
             }
         }
         // 处方行统一走公共方法：成组医嘱树形格式（主药全要素、子药 ├─/└─ 缩进含剂量，
         // 组内频次/途径/数量仅主药行一次），与病历编辑页、打印快照全系统一致
         if ($o['order_type'] !== 'prescription') continue;
-        foreach (emr_rx_display_lines($its) as $l) { $rxs[] = e($l); }
+        foreach (emr_rx_display_lines($its) as $l) { $rxs[] = e($l) . $refundMark; }
     }
     // 会诊：本人发起的会诊在门诊处置中显示「请X科会诊」（与病历编辑页一致）
     // 会诊与病历强关联：仅打印本记录（record_id）发起的会诊；旧数据（record_id=0）回退按医生归属

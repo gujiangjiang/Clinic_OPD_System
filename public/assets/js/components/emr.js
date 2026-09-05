@@ -1903,14 +1903,17 @@ diagnoses: [],
         var buckets = { imaging: [], lab: [], procedure: [] };
         var rxOrders = [];
         (ORDERS || []).forEach(function (o) {
-            if (o.status === 'refunded' || o.status === 'cancelled') return; // 退费/取消不计入
+            if (o.status === 'cancelled') return;
+            // 开单是病历文书的法律快照：退费只影响费用结算，不影响已开具的文书——
+            // 退费项目仍进入列表展示（navDot 灰色 + 列表可见），但金额不计入总费用
+            var isRefunded = (o.status === 'refunded');
             if (buckets[o.order_type]) {
-                sum[o.order_type] += parseFloat(o.total_amount) || 0;
+                if (!isRefunded) sum[o.order_type] += parseFloat(o.total_amount) || 0;
                 o.items.forEach(function (it) {
                     buckets[o.order_type].push({ order: o, it: it });
                 });
             } else if (o.order_type === 'prescription') {
-                sum.prescription += parseFloat(o.total_amount) || 0;
+                if (!isRefunded) sum.prescription += parseFloat(o.total_amount) || 0;
                 rxOrders.push(o);
             }
         });
@@ -1948,7 +1951,7 @@ diagnoses: [],
         fillTypeNav('navProc', buckets.procedure, '处置');
 
         // 处方模块：按处方单列出（处方N + 开单医生靠右），行内删除仅本人
-        // 未缴费/已退费处方可见；点击条目展开药品明细与发药状态
+        // 未缴费/已退费处方可见（法律快照：退费保留展示并标注「已退费」）
         var rxE1 = document.getElementById('navRx');
         if (!rxOrders.length) {
             rxE1.innerHTML = '<div class="ena-empty">暂未开立处方</div>';
@@ -1958,7 +1961,8 @@ diagnoses: [],
                 var canDel = Clinic.emr.canDeleteOrder(o);
                 return '<div class="ena-item" onclick="showRxDetail(\'' + o.id + '\')">' +
                     navDot(o.status) +
-                    '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">处方' + (oi + 1) + '</span>' +
+                    '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">处方' + (oi + 1) +
+                    (o.status === 'refunded' ? ' <span class="fs-11 text-danger">（已退费）</span>' : '') + '</span>' +
                     '<span class="ena-sub">' + escHtml(o.doctor_name || '') + '</span>' +
                     (canDel ? '<span class="ena-del" title="毁方" onclick="delOrderFlow(\'' + o.id + '\',\'毁方\');event.stopPropagation()">🗑️</span>' : '') +
                     '</div>';
@@ -2006,16 +2010,18 @@ diagnoses: [],
     }
 
     /** 检查/检验/处置三栏共用填充：状态灯 + 点击详情弹窗 + 开单医生靠右；
-     *  行内删除按钮仅本人开具且未缴费/已退费的单子显示（复用 delOrderFlow） */
+     *  行内删除按钮仅本人开具且未缴费/已退费的单子显示（复用 delOrderFlow）；
+     *  已退费项目保留展示（法律快照），名称后标注「已退费」 */
     function fillTypeNav(elId, arr, label) {
         var el = document.getElementById(elId);
         if (!arr.length) { el.innerHTML = '<div class="ena-empty">暂未开立' + label + '</div>'; return; }
         el.innerHTML = arr.map(function (x) {
             var st = x.it.status || 'open';
             var canDel = Clinic.emr.canDeleteOrder(x.order);
+            var refunded = (st === 'refunded' || (x.order.status === 'refunded'));
             return '<div class="ena-item" onclick="showItemDetail(\'' + x.order.id + '\',\'' + x.it.id + '\')">' +
                 navDot(st) + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
-                escHtml(x.it.item_name) + '</span>' +
+                escHtml(x.it.item_name) + (refunded ? ' <span class="fs-11 text-danger">（已退费）</span>' : '') + '</span>' +
                 '<span class="ena-sub">' + escHtml(x.order.doctor_name || '') + '</span>' +
                 (canDel ? '<span class="ena-del" title="删除该开单" onclick="delOrderFlow(\'' + x.order.id + '\',\'删除\');event.stopPropagation()">🗑️</span>' : '') +
                 '</div>';
@@ -2319,7 +2325,8 @@ diagnoses: [],
         var typeNames = { imaging: '检查详情与影像报告', lab: '化验报告与指标明细', procedure: '处置执行记录' };
         var stMap = { open: '<span class="badge badge-warning">待缴费</span>', paid: '<span class="badge badge-primary">已缴费</span>',
             registered: '<span class="badge badge-primary">已登记</span>', in_progress: '<span class="badge badge-primary">执行中</span>',
-            done: '<span class="badge badge-success">已完成</span>' };
+            done: '<span class="badge badge-success">已完成</span>',
+            refunded: '<span class="badge badge-gray">已退费</span>', cancelled: '<span class="badge badge-gray">已取消</span>' };
         var html = '<div style="display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:16px;width:100%">' +
             '<div style="min-width:0">' +
             '<div class="fs-14 fw-600 mb-8">' + escHtml(it.item_name) + (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>' +
