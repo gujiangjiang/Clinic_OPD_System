@@ -258,8 +258,10 @@
                 '    <div class="screen-panel-body"><div class="screen-panel-inner">' + nextCard + '</div></div></div>' +
                 '</div>' +
                 '<div class="screen-wait-panel"><div class="screen-panel-title">等待就诊（' + wait.length + '）</div>' +
-                '  <div class="screen-panel-body"><div class="screen-panel-inner">' + waitList + '</div></div></div>' +
-                '</div></div>';
+                (wait.length
+                    ? '  <div class="screen-panel-body"><div class="screen-panel-inner">' + waitList + '</div></div>'
+                    : '  <div class="screen-wait-empty">' + waitList + '</div>') +
+                '</div></div></div>';
         }
         // ===== 横屏/方屏排版：上半 医生卡(左) | 正在就诊+下一位(右)；下半 等待就诊双排 =====
         return '<div class="screen-land-grid">' +
@@ -273,7 +275,10 @@
             '  </div>' +
             '</div>' +
             '<div class="screen-wait-panel"><div class="screen-panel-title">等待就诊（' + wait.length + '）</div>' +
-            '  <div class="screen-wait-land-list">' + waitList + '</div></div>' +
+            (wait.length
+                ? '  <div class="screen-wait-land-list">' + waitList + '</div>'
+                : '  <div class="screen-wait-empty">' + waitList + '</div>') +
+            '</div>' +
             '</div>';
     }
 

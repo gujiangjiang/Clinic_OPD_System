@@ -531,6 +531,15 @@
     align-items: stretch;
     justify-content: flex-start;
 }
+/* 等待就诊空态（暂无候诊患者）：占满标题以下区域并整体居中显示 */
+.screen-wait-empty {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.screen-wait-empty .screen-empty { margin: 0; }
 .screen-wait-seq {
     font-weight: 800;
     color: #ffd54f;
