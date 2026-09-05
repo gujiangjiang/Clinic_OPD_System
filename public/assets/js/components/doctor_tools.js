@@ -428,7 +428,7 @@ Clinic.docTools = (function () {
             '    <div class="doc-call-next-name" id="dcpNext">—</div>' +
             '  </div>' +
             '  <div class="doc-call-actions">' +
-            '    <button type="button" class="btn btn-outline btn-sm" id="dcpRepeat" title="重复呼叫当前就诊患者（防止患者没听到）">🔁 再次叫号</button>' +
+            '    <button type="button" class="btn btn-outline btn-sm" id="dcpRepeat" title="重复呼叫当前就诊患者（防止患者没听到）">🔁 重呼</button>' +
             '    <button type="button" class="btn btn-warning btn-sm" id="dcpMiss" title="当前患者过号，自动呼叫下一位">⏭ 过号</button>' +
             '    <button type="button" class="btn btn-primary btn-sm" id="dcpNextBtn" title="呼叫下一位患者并打开其病历">⬇ 下一位</button>' +
             '  </div>' +
