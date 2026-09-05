@@ -1,12 +1,14 @@
 /**
  * ============================================================
- * doctor_tools.js v1.1.0 — 医生工作站（新）顶栏工具
+ * doctor_tools.js v2.0.0 — 医生工作站（新）顶栏工具
  * ============================================================
  * 说明：以顶栏按钮形式集成到医生工作站（新）顶部标题区域：
  * 1. 标题「医生工作站-科室」：科室可点击切换（仅多科室权限可切，
  *    单科室点击无反应；后端 set_dept 亦做权限强校验）
  * 2. 工具箱下拉：加号 / 切换科室 / 患者查询 / 模板管理
- * 3. 叫号大屏绑定（工具箱左侧），绑定信息存会话 + 全局心跳保活
+ * 3. 叫号大屏绑定（工具箱左侧）：未绑定诊室 → 下拉选择可绑定的诊室列表；
+ *    已绑定诊室 → 打开可拖动的叫号悬浮窗（诊室名称/当前就诊/再次叫号/
+ *    过号/下一位/候诊号源池/解绑大屏），并支持病历联动（叫号自动切换病历）
  * 依赖：ajax.js / modal.js / deptpicker.js / toast.js / validate / room_heartbeat.js
  * ============================================================ */
 
@@ -18,6 +20,45 @@ Clinic.docTools = (function () {
     var DEPT_LIST = [];    // 医生关联科室列表
     var ROOM_BOUND = null; // 当前绑定诊室 {id, name}
     var ROOM_DATA = [];    // 大屏列表缓存
+    var CALL_POP_TIMER = null; // 叫号悬浮窗轮询定时器
+
+    /* ==================== 会话记忆（悬浮窗开合 + 位置，跨页面保持） ==================== */
+    function memKey() {
+        return { u: document.body.getAttribute('data-uid') || '', s: document.body.getAttribute('data-sid') || '' };
+    }
+    function readCallPopOpen() {
+        try {
+            var k = memKey();
+            var sv = JSON.parse(sessionStorage.getItem('clinic_doc_callpop') || 'null');
+            return !!(sv && String(sv.u) === k.u && String(sv.s) === k.s && sv.open);
+        } catch (e) { return false; }
+    }
+    function saveCallPopOpen(open) {
+        try {
+            var k = memKey();
+            sessionStorage.setItem('clinic_doc_callpop', JSON.stringify({ u: k.u, s: k.s, open: !!open }));
+        } catch (e) { /* 忽略 */ }
+    }
+    function readCallPopPos() {
+        try {
+            var k = memKey();
+            var sv = JSON.parse(sessionStorage.getItem('clinic_doc_callpop_pos') || 'null');
+            if (sv && String(sv.u) === k.u && String(sv.s) === k.s && typeof sv.x === 'number' && typeof sv.y === 'number') {
+                return { x: sv.x, y: sv.y };
+            }
+        } catch (e) { /* 忽略 */ }
+        return null;
+    }
+    function saveCallPopPos(x, y) {
+        try {
+            var k = memKey();
+            sessionStorage.setItem('clinic_doc_callpop_pos', JSON.stringify({ u: k.u, s: k.s, x: x, y: y }));
+        } catch (e) { /* 忽略 */ }
+    }
+    function pad3(n) {
+        n = parseInt(n, 10) || 0;
+        return n < 10 ? '00' + n : (n < 100 ? '0' + n : '' + n);
+    }
 
     /* ==================== 初始化 ==================== */
     function init() {
@@ -28,6 +69,10 @@ Clinic.docTools = (function () {
         }
         loadDepts();
         bindOutsideClick();
+        // 恢复叫号悬浮窗（跨患者切换保持打开）
+        if (ROOM_BOUND && ROOM_BOUND.id && readCallPopOpen()) {
+            setTimeout(openCallPop, 60);
+        }
     }
 
     /* 加载医生科室列表（与医生工作站一致：接口按权限过滤） */
@@ -240,6 +285,12 @@ Clinic.docTools = (function () {
     }
 
     function toggleRoomList() {
+        // 已绑定诊室：点击叫号按钮 → 打开/收起叫号悬浮窗
+        if (ROOM_BOUND && ROOM_BOUND.id) {
+            toggleCallPop();
+            return;
+        }
+        // 未绑定诊室：保持原逻辑，下拉显示可绑定的诊室列表
         var box = document.getElementById('docRoomList');
         if (!box) return;
         if (box.style.display === 'none') {
@@ -276,6 +327,8 @@ Clinic.docTools = (function () {
                     Clinic.roomHeartbeat.remember(rid, rname);
                 }
                 loadRoomList();
+                // 绑定成功后自动打开叫号悬浮窗
+                if (ROOM_BOUND && ROOM_BOUND.id) openCallPop();
             },
             // 失败提示由 Clinic.ajax 统一 toast（此处不再重复弹出，避免双重提醒）
         });
@@ -290,6 +343,7 @@ Clinic.docTools = (function () {
                 if (!silent) Clinic.toast.success(json.msg);
                 if (window.Clinic && Clinic.roomHeartbeat) Clinic.roomHeartbeat.forget();
                 ROOM_BOUND = null;
+                closeCallPop();
                 loadRoomList();
             },
         });
@@ -299,6 +353,225 @@ Clinic.docTools = (function () {
         Clinic.modal.confirm('确认解除与当前大屏的绑定？', function () {
             doUnbindRoom(roomId, false);
         }, { title: '解绑确认', okText: '确认解绑' });
+    }
+
+    /* ==================== 叫号悬浮窗（可拖动，绑定诊室后显示） ====================
+       显示：诊室名称 / 当前就诊 / 再次叫号 / 过号 / 下一位 / 候诊号源池 / 解绑大屏。
+       病历联动：点「下一位」自动认领号源池首位并跳转该患者病历页（有脏数据先拦截保存）。 */
+    function callPopEl() { return document.getElementById('docCallPop'); }
+
+    function toggleCallPop() {
+        if (callPopEl()) closeCallPop();
+        else openCallPop();
+    }
+
+    function openCallPop() {
+        if (!ROOM_BOUND || !ROOM_BOUND.id) { toggleRoomList(); return; }
+        if (callPopEl()) return;
+        var pop = document.createElement('div');
+        pop.className = 'doc-call-pop';
+        pop.id = 'docCallPop';
+        var pos = readCallPopPos();
+        if (pos) {
+            pop.style.left = pos.x + 'px';
+            pop.style.top = pos.y + 'px';
+        } else {
+            pop.style.right = '16px';
+            pop.style.bottom = '64px';
+        }
+        pop.innerHTML =
+            '<div class="doc-call-pop-head">' +
+            '  <span class="doc-call-pop-title">📢 叫号 · ' + Clinic.escHtml(ROOM_BOUND.name || '') + '</span>' +
+            '  <span class="doc-call-pop-x" title="收起">—</span>' +
+            '</div>' +
+            '<div class="doc-call-pop-body">' +
+            '  <div class="doc-call-block">' +
+            '    <div class="doc-call-label">当前就诊</div>' +
+            '    <div class="doc-call-cur" id="dcpCur">加载中…</div>' +
+            '    <div class="doc-call-cur-sub" id="dcpCurSub"></div>' +
+            '  </div>' +
+            '  <div class="doc-call-block">' +
+            '    <div class="doc-call-label">下一位</div>' +
+            '    <div class="doc-call-next-name" id="dcpNext">—</div>' +
+            '  </div>' +
+            '  <div class="doc-call-actions">' +
+            '    <button type="button" class="btn btn-outline btn-sm" id="dcpRepeat" title="重复呼叫当前就诊患者（防止患者没听到）">🔁 再次叫号</button>' +
+            '    <button type="button" class="btn btn-warning btn-sm" id="dcpMiss" title="当前患者过号，自动呼叫下一位">⏭ 过号</button>' +
+            '    <button type="button" class="btn btn-primary btn-sm" id="dcpNextBtn" title="呼叫下一位患者并打开其病历">⬇ 下一位</button>' +
+            '  </div>' +
+            '  <div class="doc-call-pool">' +
+            '    <div class="doc-call-pool-title">候诊号源 <b id="dcpCount">0</b> 人</div>' +
+            '    <div class="doc-call-pool-list" id="dcpPoolList"><div class="fs-12 text-muted">加载中…</div></div>' +
+            '  </div>' +
+            '  <div class="doc-call-foot">' +
+            '    <span class="doc-call-status" id="dcpStatus"></span>' +
+            '    <button type="button" class="btn btn-outline btn-sm" id="dcpUnbind">解绑大屏</button>' +
+            '  </div>' +
+            '</div>';
+        document.body.appendChild(pop);
+        saveCallPopOpen(true);
+        bindCallPopDrag(pop);
+        bindCallPopActions(pop);
+        refreshCallPanel();
+        if (CALL_POP_TIMER) clearInterval(CALL_POP_TIMER);
+        CALL_POP_TIMER = setInterval(refreshCallPanel, 10000);
+    }
+
+    function closeCallPop() {
+        var pop = callPopEl();
+        if (pop) pop.remove();
+        saveCallPopOpen(false);
+        if (CALL_POP_TIMER) { clearInterval(CALL_POP_TIMER); CALL_POP_TIMER = null; }
+    }
+
+    /* 悬浮窗拖动：按住标题栏可在页面上任意拖动，松开记忆位置 */
+    function bindCallPopDrag(pop) {
+        var head = pop.querySelector('.doc-call-pop-head');
+        var dragging = false, offX = 0, offY = 0;
+        head.addEventListener('mousedown', function (e) {
+            if (e.target.closest('.doc-call-pop-x')) return;
+            dragging = true;
+            offX = e.clientX - pop.getBoundingClientRect().left;
+            offY = e.clientY - pop.getBoundingClientRect().top;
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', function (e) {
+            if (!dragging) return;
+            var x = Math.max(0, Math.min(e.clientX - offX, window.innerWidth - 80));
+            var y = Math.max(0, Math.min(e.clientY - offY, window.innerHeight - 80));
+            pop.style.left = x + 'px';
+            pop.style.top = y + 'px';
+            pop.style.right = 'auto';
+            pop.style.bottom = 'auto';
+        });
+        document.addEventListener('mouseup', function () {
+            if (!dragging) return;
+            dragging = false;
+            saveCallPopPos(parseInt(pop.style.left, 10) || 0, parseInt(pop.style.top, 10) || 0);
+        });
+    }
+
+    function bindCallPopActions(pop) {
+        pop.querySelector('.doc-call-pop-x').addEventListener('click', closeCallPop);
+        pop.querySelector('#dcpUnbind').addEventListener('click', function () {
+            if (ROOM_BOUND) unbindRoom(ROOM_BOUND.id);
+        });
+        pop.querySelector('#dcpNextBtn').addEventListener('click', doCallNext);
+        pop.querySelector('#dcpMiss').addEventListener('click', doCallMiss);
+        pop.querySelector('#dcpRepeat').addEventListener('click', doCallRepeat);
+    }
+
+    /* 当前病历页就诊混淆码（工作台空态无 #visitId） */
+    function currentVisitCode() {
+        var el = document.getElementById('visitId');
+        return el ? el.value : '';
+    }
+
+    /* 脏数据拦截：复用病历系统统一的「未保存修改」校验（打印/开单/切换患者同款逻辑） */
+    function guardDirty() {
+        if (window.Clinic && Clinic.emr && Clinic.emr.isDirty && Clinic.emr.isDirty()) {
+            Clinic.toast.warning('当前病历有未保存的修改，请先点击「💾 保存」后再叫号下一位');
+            return true;
+        }
+        return false;
+    }
+
+    function doCallNext() {
+        if (!ROOM_BOUND || !ROOM_BOUND.id) { Clinic.toast.warning('请先绑定大屏诊室'); return; }
+        if (guardDirty()) return;
+        Clinic.ajax('/api/doctor', { action: 'call_next', room_id: ROOM_BOUND.id }, {
+            onSuccess: function (json) {
+                refreshCallPanel();
+                var v = json.data && json.data.visit;
+                if (v && v.visit_code && currentVisitCode() !== v.visit_code) {
+                    // 病历联动：自动切换到该患者病历页（等同于手动点击候诊列表该患者）
+                    location.href = '/doctor/emr?visit_id=' + v.visit_code;
+                } else {
+                    Clinic.toast.success(json.msg);
+                }
+            },
+        });
+    }
+
+    function doCallMiss() {
+        if (!ROOM_BOUND || !ROOM_BOUND.id) { Clinic.toast.warning('请先绑定大屏诊室'); return; }
+        if (guardDirty()) return;
+        Clinic.modal.confirm(
+            '确认将当前就诊患者标记为「<strong>过号</strong>」？<br>' +
+            '<span class="fs-13 text-muted">过号后自动呼叫下一位患者，该患者本次就诊不再进入号源队列（大屏显示（过号）标记）。</span>',
+            function () {
+                Clinic.ajax('/api/doctor', { action: 'call_miss', room_id: ROOM_BOUND.id }, {
+                    onSuccess: function (json) {
+                        refreshCallPanel();
+                        var v = json.data && json.data.visit;
+                        if (v && v.visit_code && currentVisitCode() !== v.visit_code) {
+                            location.href = '/doctor/emr?visit_id=' + v.visit_code;
+                        } else {
+                            Clinic.toast.success(json.msg);
+                        }
+                    },
+                });
+            },
+            { title: '过号确认', okText: '确认过号' }
+        );
+    }
+
+    function doCallRepeat() {
+        if (!ROOM_BOUND || !ROOM_BOUND.id) { Clinic.toast.warning('请先绑定大屏诊室'); return; }
+        Clinic.ajax('/api/doctor', { action: 'call_repeat', room_id: ROOM_BOUND.id }, {
+            onSuccess: function (json) { Clinic.toast.success(json.msg); refreshCallPanel(); },
+        });
+    }
+
+    /* 轮询刷新悬浮窗数据（每 10 秒 + 每次动作后） */
+    function refreshCallPanel() {
+        var pop = callPopEl();
+        if (!pop || !ROOM_BOUND || !ROOM_BOUND.id) return;
+        Clinic.get('/api/doctor?action=call_panel', null, {
+            loading: false,
+            onSuccess: function (json) { renderCallPop(json.data); },
+            onError: function () { /* 静默，下次轮询自动恢复 */ },
+        });
+    }
+
+    function renderCallPop(d) {
+        var pop = callPopEl();
+        if (!pop) return;
+        if (!d.bound) {
+            // 后端判定绑定失效（医生心跳超时 / 被管理员释放等）：
+            // 收起悬浮窗并重置本地绑定，引导医生重新绑定
+            closeCallPop();
+            Clinic.toast.warning('大屏绑定已失效，请重新绑定');
+            if (window.Clinic && Clinic.roomHeartbeat) Clinic.roomHeartbeat.forget();
+            ROOM_BOUND = null;
+            loadRoomList();
+            return;
+        }
+        var cur = d.current, next = d.next;
+        pop.querySelector('.doc-call-pop-title').textContent = '📢 叫号 · ' + (d.room && d.room.name ? d.room.name : '');
+        var curEl = pop.querySelector('#dcpCur');
+        var curSubEl = pop.querySelector('#dcpCurSub');
+        if (cur) {
+            curEl.textContent = cur.name;
+            var st = cur.status === 'finished' ? '已诊毕' : (cur.status === 'visiting' ? '就诊中' : '候诊');
+            curSubEl.textContent = '第' + pad3(cur.visit_seq) + '号' + ' · ' + st + (cur.missed ? ' · 过号' : '');
+        } else {
+            curEl.textContent = '暂无';
+            curSubEl.textContent = '点击「⬇ 下一位」呼叫候诊患者';
+        }
+        pop.querySelector('#dcpNext').textContent = next ? next.name + '（第' + pad3(next.visit_seq) + '号）' : '—';
+        pop.querySelector('#dcpCount').textContent = d.pool_count || 0;
+        var items = [];
+        (d.pool || []).slice(0, 8).forEach(function (p) {
+            items.push('<div class="doc-call-pool-item"><span class="doc-call-pool-seq">' + pad3(p.visit_seq) + '</span>' +
+                '<span>' + Clinic.escHtml(p.name) + '</span></div>');
+        });
+        (d.missed || []).slice(0, 4).forEach(function (p) {
+            items.push('<div class="doc-call-pool-item"><span class="doc-call-pool-seq">' + pad3(p.visit_seq) + '</span>' +
+                '<span>' + Clinic.escHtml(p.name) + '</span><span class="doc-call-pool-missed">（过号）</span></div>');
+        });
+        pop.querySelector('#dcpPoolList').innerHTML = items.join('') || '<div class="fs-12 text-muted">暂无候诊患者</div>';
+        pop.querySelector('#dcpStatus').textContent = (d.room && d.room.dept_name) ? d.room.dept_name + ' · 数据实时同步' : '';
     }
 
     /* ==================== 点击下拉框外关闭 ==================== */
@@ -331,5 +604,8 @@ Clinic.docTools = (function () {
         toggleRoomList: toggleRoomList,
         bindRoom: bindRoom,
         unbindRoom: unbindRoom,
+        openCallPop: openCallPop,
+        closeCallPop: closeCallPop,
+        refreshCallPanel: refreshCallPanel,
     };
 })();

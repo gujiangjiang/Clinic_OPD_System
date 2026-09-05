@@ -27,6 +27,7 @@ switch ($action) {
     case 'home_stats':
     case 'depts':
     case 'call_queue':
+    case 'call_panel':
     case 'queue_list':
     case 'queue_pref':
     case 'report_detail':
@@ -39,6 +40,9 @@ switch ($action) {
     case 'bind_room':
     case 'unbind_room':
     case 'room_heartbeat':
+    case 'call_next':
+    case 'call_miss':
+    case 'call_repeat':
         doctor_part_write($action);
         break;
 
