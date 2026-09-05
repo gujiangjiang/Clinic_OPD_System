@@ -162,9 +162,9 @@ function rx_dispensed($orderId) {
  * · 缴费 = 收费员 / 缴费时间（payments 表，无则未缴费）
  * · 登记 = 首个执行操作人 / 时间（lab/imaging 登记环节；处方无此步）
  * · 发药(完成) = 执行操作人 / 时间（发药或执行完成时写入）
- * 退费后：保留「缴费」记录，在缴费下方追加「已退费」节点（refunded=1，红色 ✕），
- * 后续执行节点（登记/报告/发药/执行完成）不输出——项目已作废不再执行，流程含
- * 缴费与退费完整记录更清晰。
+ * 退费后：保留「缴费」记录，缴费下方追加「已退费」节点（refunded=1，红色 ✕）；
+ * 后续执行节点（登记/报告/发药/执行完成）照常显示——已执行的项目经站内消息确认
+ * 退费后，执行记录仍保留（按实际执行状态判定 done），流程含缴费与退费完整记录。
  * 返回 [{label, operator, time, done, rejected?, refunded?}]
  */
 function order_flow_steps($o, $items) {
@@ -178,7 +178,8 @@ function order_flow_steps($o, $items) {
         'operator' => $pay ? (string)$pay['cashier_name'] : '',
         'time' => !empty($o['paid_at']) ? (string)$o['paid_at'] : ($pay ? (string)$pay['created_at'] : ''),
         'done' => $payDone ? 1 : 0);
-    // 已退费：仅在退费单追加（缴费下方），默认不显示
+    // 已退费：仅在退费单追加（缴费下方），默认不显示；后续执行节点照常显示——
+    // 已执行的项目经站内消息确认退费后，执行记录仍保留（按实际执行状态判定）
     if ($refunded) {
         $ref = OrderRepository::one('SELECT cashier_name, created_at, reason FROM refunds WHERE order_id=? ORDER BY id DESC LIMIT 1', array($o['id']));
         $flow[] = array('label' => '已退费',
@@ -186,7 +187,6 @@ function order_flow_steps($o, $items) {
             'time' => $ref ? (string)$ref['created_at'] : (!empty($o['refunded_at']) ? (string)$o['refunded_at'] : ''),
             'done' => 0, 'refunded' => 1,
             'reason' => $ref ? (string)$ref['reason'] : '');
-        return $flow;   // 退费后项目作废，不再显示登记/报告/发药/执行完成节点
     }
     $reg = null; $disp = null;
     foreach ($items as $it) {

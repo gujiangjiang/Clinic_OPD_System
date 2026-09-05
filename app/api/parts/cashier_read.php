@@ -318,29 +318,33 @@ function cashier_part_read($action) {
                 $flow = array();
                 $flow[] = array('label' => '开单', 'done' => 1);
                 $st = (string)$it['status'];
-                if ($isRefunded || $st === 'refunded') {
-                    // 已退费：保留「缴费」记录，在缴费下方追加「已退费」节点（红色），
-                    // 后续执行节点不显示——项目已作废不再执行，流程含缴费与退费完整记录
-                    $flow[] = array('label' => '缴费', 'done' => 1);
-                    $flow[] = array('label' => '已退费', 'done' => 0, 'refunded' => 1);
-                    return $flow;
-                }
+                $refunded = ($isRefunded || $st === 'refunded');
+                // 缴费：无论是否退费均保留缴费记录
                 $flow[] = array('label' => '缴费', 'done' => 1);
+                // 已退费：仅退费项目追加（缴费下方），默认不显示；后续执行节点照常显示——
+                // 已执行的项目经站内消息确认退费后，执行记录仍保留（按执行痕迹判定）
+                if ($refunded) {
+                    $flow[] = array('label' => '已退费', 'done' => 0, 'refunded' => 1);
+                }
+                // 执行痕迹：退费后 status=refunded，须按 executed_by/report 判断是否已执行
+                $executed = !empty($it['executed_by']) || !empty($it['executed_at']);
+                // 报告已出：order_items.result_id 关联 results 行（有结果即已出具/登记）
+                $hasReport = !empty($it['result_id']) || $st === 'done';
                 if ($order['order_type'] === 'lab' || $order['order_type'] === 'imaging') {
                     // 检验/检查：登记 + 报告完成（两者进度独立，登记完成未必出报告）
-                    $regDone = in_array($st, array('registered', 'done'), true);
-                    $repDone = $st === 'done';
+                    $regDone = $executed || in_array($st, array('registered', 'done'), true);
+                    $repDone = $hasReport || $st === 'done';
                     $flow[] = array('label' => '登记', 'done' => $regDone ? 1 : 0);
                     $flow[] = array('label' => '报告完成', 'done' => $repDone ? 1 : 0);
                 } elseif ($order['order_type'] === 'prescription') {
                     // 处方：审方通过（dispensed/dispensing）+ 发药完成（dispensed）
-                    $rxDone = in_array($st, array('dispensed', 'dispensing'), true);
+                    $rxDone = $executed || in_array($st, array('dispensed', 'dispensing'), true);
                     $dispDone = $st === 'dispensed';
                     $flow[] = array('label' => '审方通过', 'done' => $rxDone ? 1 : 0, 'rejected' => $st === 'rejected' ? 1 : 0);
                     $flow[] = array('label' => '发药完成', 'done' => $dispDone ? 1 : 0);
                 } else {
                     // 处置：执行完成（护士站执行 done）
-                    $flow[] = array('label' => '执行完成', 'done' => $st === 'done' ? 1 : 0);
+                    $flow[] = array('label' => '执行完成', 'done' => ($executed || $st === 'done') ? 1 : 0);
                 }
                 return $flow;
             };
