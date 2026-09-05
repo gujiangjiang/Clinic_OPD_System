@@ -27,6 +27,13 @@ Clinic.patient = {
     },
 
     /**
+     * 取消订阅患者资料更新事件（SPA 局部刷新重复初始化时防累积）
+     */
+    offInfoUpdated: function (fn) {
+        this._subs = this._subs.filter(function (f) { return f !== fn; });
+    },
+
+    /**
      * 广播患者资料已更新（保存成功后调用）
      * @param {string} patientNo 患者 ID
      */

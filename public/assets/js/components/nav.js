@@ -120,6 +120,10 @@ Clinic.nav = {
         if (document.getElementById('visitId') && window.Clinic && Clinic.emr && Clinic.emr.init) {
             Clinic.emr.init();
         }
+        // EMR 页顶栏重建后，候诊按钮（#queueBtn）随旧顶栏被移除，需重新挂载
+        if (document.getElementById('emrHeader') && window.Clinic && Clinic.queuePanel && Clinic.queuePanel.init) {
+            Clinic.queuePanel.init();
+        }
     },
 
     /**

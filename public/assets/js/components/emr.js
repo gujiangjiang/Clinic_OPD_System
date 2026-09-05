@@ -66,15 +66,21 @@ Clinic.emr = (function () {
         }
         // 患者资料保存后自动局部刷新本页头部（订阅 patient.js 的更新广播；
         // 只重建患者卡与文档内患者信息区，绝不触碰下方未保存的病历正文）
+        Clinic.patient.offInfoUpdated(refreshPatientHead);
         Clinic.patient.onInfoUpdated(refreshPatientHead);
         // 订阅跨模块事件：数据变更 → 刷新左侧大纲 + 他人文书只读段
         // （子模块如 emr_template 应用模板后只 emit 事件，无需知道大纲存在）
-        Clinic.eventBus.on('emr:dataChanged', function () {
-            renderLeftNav();
-            refreshReadOnlyBodies();
-        });
+        // SPA 局部刷新下 init 可能被多次调用：先 off 再 on，避免事件重复触发
+        Clinic.eventBus.off('emr:dataChanged', onDataChanged);
+        Clinic.eventBus.on('emr:dataChanged', onDataChanged);
         // 同步科室到后端，再加载病历数据（避免跨科室只读判定用旧值）
         syncDeptThenLoad(visitId);
+    }
+
+    /** 数据变更订阅回调（具名便于 off 去重，SPA 重复 init 不累积订阅） */
+    function onDataChanged() {
+        renderLeftNav();
+        refreshReadOnlyBodies();
     }
 
     /** 同步当前科室到后端后加载病历数据 */

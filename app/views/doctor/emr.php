@@ -233,7 +233,11 @@ $patient = $row['patient'];
 function refreshLeftNavSummary() {
     if (window.Clinic && Clinic.emr && Clinic.emr.loadOrders) Clinic.emr.loadOrders();
 }
-var __navTimer = setInterval(refreshLeftNavSummary, 30000);
-/* 离开页面清理定时器，避免长驻工作台内反复进入累积多个轮询 */
-window.addEventListener('beforeunload', function () { clearInterval(__navTimer); });
+/* SPA 局部刷新下脚本会重复执行：先清旧定时器再重建，避免累积多个轮询；
+   同一键保存句柄，beforeunload 清理监听也仅保留一份 */
+if (window.__emrNavTimer) clearInterval(window.__emrNavTimer);
+window.__emrNavTimer = setInterval(refreshLeftNavSummary, 30000);
+if (window.__emrNavCleanup) window.removeEventListener('beforeunload', window.__emrNavCleanup);
+window.__emrNavCleanup = function () { clearInterval(window.__emrNavTimer); };
+window.addEventListener('beforeunload', window.__emrNavCleanup);
 </script>
