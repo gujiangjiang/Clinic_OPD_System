@@ -114,22 +114,13 @@ function openUnpaidModal() {
         rows +
         '<div class="flex gap-8 mt-8" style="align-items:center">' +
         '<label class="flex gap-4 fs-13" style="cursor:pointer"><input type="checkbox" id="unpaidAll" checked onchange="toggleUnpaidAll()"> 全选</label>' +
-        '<span class="fs-12 text-muted">合计 <b class="fs-14">¥<span id="unpaidTotal">' + total.toFixed(2) + '</span></b></span></div>';
-    Clinic.modal.open(body, {
-        title: '💳 未缴费项目（' + UNPAID_DATA.length + ' 项）',
-        size: 'modal-md',
-        buttons: [
-            { text: '取消', cls: 'btn-outline' },
-            {
-                text: '💰 一键全部缴费', cls: 'btn-warning', autoClose: false,
-                onClick: function () { submitUnpaidPay('all'); },
-            },
-            {
-                text: '批量缴费（已选 <span id="unpaidCount">0</span>）', cls: 'btn-success', autoClose: false,
-                onClick: function () { submitUnpaidPay('checked'); },
-            },
-        ],
-    });
+        '<span class="fs-12 text-muted">合计 <b class="fs-14">¥<span id="unpaidTotal">' + total.toFixed(2) + '</span></b></span></div>' +
+        '<div class="flex gap-8 mt-8">' +
+        '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+        '<button type="button" class="btn btn-warning" id="unpaidPayAll" onclick="submitUnpaidPay(\'all\')">💰 一键全部缴费</button>' +
+        '<button type="button" class="btn btn-success" id="unpaidPayChecked" onclick="submitUnpaidPay(\'checked\')">批量缴费（已选 <span id="unpaidCount">0</span>）</button>' +
+        '</div>';
+    Clinic.modal.open(body, { title: '💳 未缴费项目（' + UNPAID_DATA.length + ' 项）', size: 'modal-md' });
     updateUnpaidCount();
 }
 
@@ -150,6 +141,13 @@ function updateUnpaidCount() {
     if (cnt) cnt.textContent = n;
     var tot = document.getElementById('unpaidTotal');
     if (tot) tot.textContent = total.toFixed(2);
+    // 未勾选任何项目 → 批量缴费按钮禁用；一键全部缴费不受影响
+    var chkBtn = document.getElementById('unpaidPayChecked');
+    if (chkBtn) {
+        chkBtn.disabled = n === 0;
+        chkBtn.style.opacity = n === 0 ? '.5' : '1';
+        chkBtn.style.cursor = n === 0 ? 'not-allowed' : 'pointer';
+    }
 }
 
 function submitUnpaidPay(mode) {
@@ -210,38 +208,48 @@ function showBatchDetail(paymentNo) {
         onSuccess: function (json) {
             var d = json.data || {};
             var orders = d.orders || [];
+            var head = d.head || {};
+            var refund = d.refund || null;
             var rows = '';
             var typeNames = { lab: '检验', imaging: '检查', procedure: '处置', prescription: '处方' };
-            // 每项目独立进度渲染（同一凭条不同项目进度各不相同）
+            // 每项目独立进度渲染（只显示节点，不显示操作人姓名；退费节点红色）
             var flowText = function (flow) {
                 if (!flow || !flow.length) return '';
                 return '<span class="fs-11" style="white-space:nowrap">' +
                     flow.map(function (s) {
-                        var color = s.done ? 'var(--success)' : 'var(--border)';
+                        var color = s.refunded ? 'var(--danger)' : (s.done ? 'var(--success)' : 'var(--border)');
                         if (s.rejected) color = 'var(--danger)';
                         return '<span style="color:' + color + '">' +
-                            (s.done ? '✓' : '○') + ' ' + Clinic.escHtml(s.label) +
-                            (s.operator ? '(' + Clinic.escHtml(s.operator) + ')' : '') + '</span>';
+                            (s.refunded ? '✕' : (s.done ? '✓' : '○')) + ' ' + Clinic.escHtml(s.label) + '</span>';
                     }).join('<span style="color:var(--border)"> → </span>') +
                     '</span>';
             };
             orders.forEach(function (o) {
                 rows += '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">' +
+                    '<div class="flex-between">' +
                     '<div class="fs-13 fw-600">' + (typeNames[o.order_type] || '') + ' ' + Clinic.escHtml(o.order_no) +
-                    ' ｜ 开单医生 ' + Clinic.escHtml(o.doctor_name) + ' ｜ ¥' + parseFloat(o.total).toFixed(2) + '</div>';
-                // 项目明细（每项目一行，右侧显示该项目自身进度）
+                    '<span class="fs-12 text-muted fw-400"> ｜ 开单医生 ' + Clinic.escHtml(o.doctor_name) + '</span></div>' +
+                    '<span class="fs-13 fw-600">¥' + parseFloat(o.total).toFixed(2) + '</span></div>';
+                // 项目明细（每项目一行）：名称占左 2/3，进度靠右侧约 1/3 分隔线靠左对齐
                 (o.items || []).forEach(function (it) {
-                    rows += '<div class="flex-between" style="padding:5px 0;border-top:1px dashed var(--border);gap:12px">' +
-                        '<span class="fs-13" style="flex-shrink:0">· ' + Clinic.escHtml(it.name) + (it.quantity > 1 ? ' ×' + it.quantity : '') + '</span>' +
-                        '<span style="overflow-x:auto">' + flowText(it.flow) + '</span></div>';
+                    rows += '<div style="display:flex;padding:5px 0;border-top:1px dashed var(--border);align-items:center">' +
+                        '<span class="fs-13" style="flex:2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">· ' + Clinic.escHtml(it.name) + (it.quantity > 1 ? ' ×' + it.quantity : '') + '</span>' +
+                        '<span style="flex:1;min-width:0;padding-left:10px;border-left:1px solid var(--border);overflow-x:auto">' + flowText(it.flow) + '</span></div>';
                 });
                 rows += '</div>';
             });
-            Clinic.modal.open(
-                '<div class="fs-13 fw-700 mb-4">缴费凭条流水号：' + Clinic.escHtml(d.payment_no) + '</div>' +
-                '<div class="fs-12 text-muted mb-8">共 ' + orders.length + ' 张开单，以下为全部缴费项目与各自执行进度</div>' + rows,
-                { title: '🧾 缴费凭条详情', size: 'modal-lg' }
-            );
+            // 凭条头信息：收费员 / 收费时间 / 收费方式；退费后保留并追加退费行
+            var headHtml =
+                '<div class="fs-13 fw-700 mb-2">缴费凭条流水号：' + Clinic.escHtml(d.payment_no) + '</div>' +
+                '<div class="fs-12 text-muted mb-1">收费时间 ' + Clinic.escHtml((head.created_at || '').substring(0, 19)) +
+                ' ｜ 收费方式 ' + Clinic.escHtml(head.method || '现金') + ' ｜ 收费员 ' + Clinic.escHtml(head.cashier_name || '') + '</div>' +
+                (refund
+                    ? '<div class="fs-12 mb-1" style="color:var(--danger)">✕ 退费时间 ' + Clinic.escHtml((refund.created_at || '').substring(0, 19)) +
+                    ' ｜ 退费员 ' + Clinic.escHtml(refund.cashier_name || '') +
+                    (refund.reason ? ' ｜ 理由 ' + Clinic.escHtml(refund.reason) : '') + '</div>'
+                    : '') +
+                '<div class="fs-12 text-muted mb-6">共 ' + orders.length + ' 张开单，以下为全部缴费项目与各自执行进度</div>';
+            Clinic.modal.open(headHtml + rows, { title: '🧾 缴费凭条详情', size: 'modal-lg' });
         },
     });
 }

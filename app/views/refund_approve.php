@@ -59,9 +59,11 @@ function loadReq() {
                     '<div class="fs-13 fw-600">' + (typeNames[o.order_type] || '') + ' ' + Clinic.escHtml(o.order_no) +
                     ' ｜ 开单医生 ' + Clinic.escHtml(o.doctor_name) + '</div>';
                 var steps = (o.flow || []).map(function (s) {
-                    var cls = s.done ? 'var(--success)' : 'var(--border)';
+                    var refund = s.refunded;
+                    var cls = refund ? 'var(--danger)' : (s.done ? 'var(--success)' : 'var(--border)');
                     if (s.rejected) cls = 'var(--danger)';
-                    return '<span style="color:' + cls + ';font-size:12px;white-space:nowrap">' + (s.done ? '✓ ' : '○ ') + Clinic.escHtml(s.label) + '</span>';
+                    return '<span style="color:' + cls + ';font-size:12px;white-space:nowrap">' +
+                        (refund || s.rejected ? '✕ ' : (s.done ? '✓ ' : '○ ')) + Clinic.escHtml(s.label) + '</span>';
                 }).join('<span style="color:var(--border)"> → </span>');
                 html += '<div style="margin:6px 0;overflow-x:auto;white-space:nowrap">' + steps + '</div>';
                 (o.items || []).forEach(function (it) {

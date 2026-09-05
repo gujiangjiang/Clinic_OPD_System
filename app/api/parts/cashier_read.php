@@ -282,51 +282,71 @@ function cashier_part_read($action) {
         $pays = CashierRepository::q("SELECT * FROM payments WHERE payment_no=? AND kind='order' ORDER BY id ASC", array($paymentNo));
         if (!$pays) json_fail('未找到该缴费批次');
         $visitId = (int)$pays[0]['visit_id'];
+        // ===== 凭条头信息：同一凭条由同一收费员一次开具 =====
+        $headPay = $pays[0];
+        // 退费信息：本批次订单是否已退费（退费后凭条作废，保留收费信息 + 追加退费行）
+        $refundedOrders = array();
+        $refundInfo = null;
+        foreach ($pays as $pp) {
+            $oo = CashierRepository::order($pp['order_id']);
+            if ($oo && $oo['status'] === 'refunded') $refundedOrders[(int)$oo['id']] = true;
+        }
+        if ($refundedOrders) {
+            $refIds = array_keys($refundedOrders);
+            $phRef = in_placeholders($refIds);
+            $refRow = CashierRepository::one("SELECT cashier_name, created_at, reason FROM refunds WHERE order_id IN ($phRef) ORDER BY id DESC LIMIT 1", $refIds);
+            if ($refRow) {
+                $refundInfo = array(
+                    'cashier_name' => (string)$refRow['cashier_name'],
+                    'created_at' => (string)$refRow['created_at'],
+                    'reason' => (string)$refRow['reason'],
+                );
+            }
+        }
         $orders = array();
         foreach ($pays as $p) {
             $order = CashierRepository::order($p['order_id']);
             if (!$order) continue;
             $items = CashierRepository::orderItems($order['id']);
+            $isRefunded = (int)$order['status'] === 'refunded';
             // 每项目独立进度：开单→缴费→登记(检验/检查)→报告/发药/执行完成
             // 同一张凭条内不同医生开单、不同项目执行进度可能各不相同——
-            // 以 item 自身状态为准逐项生成，不整单共用一条进度
-            $itemFlow = function ($it) use ($order, $p) {
+            // 以 item 自身状态为准逐项生成，不整单共用一条进度；
+            // 进度只显示节点（不显示操作人姓名，姓名集中在凭条头）
+            $itemFlow = function ($it) use ($order, $p, $isRefunded) {
                 $flow = array();
-                $flow[] = array('label' => '开单', 'operator' => (string)$order['doctor_name'], 'time' => (string)$order['created_at'], 'done' => 1);
-                $flow[] = array('label' => '缴费', 'operator' => (string)$p['cashier_name'], 'time' => (string)$p['created_at'], 'done' => 1);
+                $flow[] = array('label' => '开单', 'done' => 1);
                 $st = (string)$it['status'];
+                if ($isRefunded || $st === 'refunded') {
+                    // 已退费：缴费节点显示「已退费」（红色），后续节点一律未完成
+                    $flow[] = array('label' => '已退费', 'done' => 0, 'refunded' => 1);
+                    if ($order['order_type'] === 'lab' || $order['order_type'] === 'imaging') {
+                        $flow[] = array('label' => '登记', 'done' => 0);
+                        $flow[] = array('label' => '报告完成', 'done' => 0);
+                    } elseif ($order['order_type'] === 'prescription') {
+                        $flow[] = array('label' => '审方通过', 'done' => 0);
+                        $flow[] = array('label' => '发药完成', 'done' => 0);
+                    } else {
+                        $flow[] = array('label' => '执行完成', 'done' => 0);
+                    }
+                    return $flow;
+                }
+                $flow[] = array('label' => '缴费', 'done' => 1);
                 if ($order['order_type'] === 'lab' || $order['order_type'] === 'imaging') {
                     // 检验/检查：登记 + 报告完成（两者进度独立，登记完成未必出报告）
                     $regDone = in_array($st, array('registered', 'done'), true);
-                    $repDone = in_array($st, array('done'), true);
-                    $flow[] = array('label' => '登记',
-                        'operator' => $regDone ? (string)$it['executed_by'] : '',
-                        'time' => $regDone ? (string)$it['executed_at'] : '',
-                        'done' => $regDone ? 1 : 0);
-                    $flow[] = array('label' => '报告完成',
-                        'operator' => $repDone ? (string)$it['executed_by'] : '',
-                        'time' => $repDone ? (string)$it['executed_at'] : '',
-                        'done' => $repDone ? 1 : 0);
+                    $repDone = $st === 'done';
+                    $flow[] = array('label' => '登记', 'done' => $regDone ? 1 : 0);
+                    $flow[] = array('label' => '报告完成', 'done' => $repDone ? 1 : 0);
                 } elseif ($order['order_type'] === 'prescription') {
                     // 处方：审方通过（dispensed/dispensing）+ 发药完成（dispensed）
                     $rxDone = in_array($st, array('dispensed', 'dispensing'), true);
                     $dispDone = $st === 'dispensed';
-                    $flow[] = array('label' => '审方通过',
-                        'operator' => $rxDone ? (string)$it['executed_by'] : '',
-                        'time' => $rxDone ? (string)$it['executed_at'] : '',
-                        'done' => $rxDone ? 1 : 0,
-                        'rejected' => $st === 'rejected' ? 1 : 0);
-                    $flow[] = array('label' => '发药完成',
-                        'operator' => $dispDone ? (string)$it['executed_by'] : '',
-                        'time' => $dispDone ? (string)$it['executed_at'] : '',
-                        'done' => $dispDone ? 1 : 0);
+                    $flow[] = array('label' => '审方通过', 'done' => $rxDone ? 1 : 0, 'rejected' => $st === 'rejected' ? 1 : 0);
+                    $flow[] = array('label' => '发药完成', 'done' => $dispDone ? 1 : 0);
                 } else {
                     // 处置：执行完成（护士站执行 done）
-                    $procDone = $st === 'done';
-                    $flow[] = array('label' => '执行完成',
-                        'operator' => $procDone ? (string)$it['executed_by'] : '',
-                        'time' => $procDone ? (string)$it['executed_at'] : '',
-                        'done' => $procDone ? 1 : 0);
+                    $flow[] = array('label' => '执行完成', 'done' => $st === 'done' ? 1 : 0);
                 }
                 return $flow;
             };
@@ -336,20 +356,29 @@ function cashier_part_read($action) {
                 'doctor_name' => $order['doctor_name'],
                 'total' => (float)$order['total_amount'],
                 'status' => $order['status'],
+                'refunded' => $isRefunded ? 1 : 0,
                 'items' => array_map(function ($it) use ($itemFlow) {
                     return array(
                         'name' => $it['item_name'],
                         'quantity' => (int)$it['quantity'],
                         'price' => (float)$it['price'],
                         'status' => $it['status'],
-                        'executed_by' => $it['executed_by'],
-                        'executed_at' => $it['executed_at'],
                         'flow' => $itemFlow($it),
                     );
                 }, $items),
             );
         }
-        json_ok(array('payment_no' => $paymentNo, 'visit_id' => oid($visitId), 'orders' => $orders));
+        json_ok(array(
+            'payment_no' => $paymentNo,
+            'visit_id' => oid($visitId),
+            'head' => array(
+                'cashier_name' => (string)$headPay['cashier_name'],
+                'created_at' => (string)$headPay['created_at'],
+                'method' => (string)$headPay['method'],
+            ),
+            'refund' => $refundInfo,
+            'orders' => $orders,
+        ));
         return;
     }
 

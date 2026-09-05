@@ -2393,6 +2393,7 @@ diagnoses: [],
     /**
      * 闭环追踪流程列（统一样式）：steps=[{label, operator, time, done}]。
      * 圆形步骤节点（完成✓/未完成序号）+ 操作人/时间——开单详情与会诊进度共用。
+     * 已退费节点（st.refunded）：红色 ✕，label 显示「已退费」。
      * @param {number} curIdx -1 时以 steps[].done 判定完成状态
      * @param {string} title   标题（默认「流程进度」，会诊传「会诊进度」）
      */
@@ -2400,14 +2401,15 @@ diagnoses: [],
         var flow = steps.map(function (st, i) {
             var done = (curIdx >= 0 && i <= curIdx) || st.done;
             var rej = st.rejected;
-            var cls = rej ? 'var(--danger)' : (done ? 'var(--success)' : 'var(--border)');
+            var refund = st.refunded;
+            var cls = refund ? 'var(--danger)' : (rej ? 'var(--danger)' : (done ? 'var(--success)' : 'var(--border)'));
             var info = (st.operator ? escHtml(st.operator) : '') +
                 (st.time ? (st.operator ? ' · ' : '') + escHtml(String(st.time).substring(5, 16)) : '');
             return '<div class="flex gap-8" style="align-items:center">' +
                 '<div style="width:26px;height:26px;border-radius:50%;background:' + cls + ';' +
                 'display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;flex-shrink:0">' +
-                (rej ? '✕' : (done ? '✓' : (i + 1))) + '</div>' +
-                '<div class="fs-13" style="color:' + (rej ? 'var(--danger)' : (done ? 'var(--text)' : 'var(--text-muted)')) + '">' +
+                (refund || rej ? '✕' : (done ? '✓' : (i + 1))) + '</div>' +
+                '<div class="fs-13" style="color:' + (refund || rej ? 'var(--danger)' : (done ? 'var(--text)' : 'var(--text-muted)')) + '">' +
                 '<div class="fw-600">' + escHtml(st.label) + '</div>' +
                 (info ? '<div class="fs-12 text-muted">' + info + '</div>' : '') + '</div></div>';
         }).join('<div style="width:2px;height:14px;background:var(--border);margin-left:12px"></div>');
