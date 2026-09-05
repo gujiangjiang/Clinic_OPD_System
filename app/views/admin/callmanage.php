@@ -45,6 +45,20 @@ foreach ($depts as $d) {
 
 <div id="cmList"><div class="card"><div class="empty"><div class="empty-ico">🏥</div>请先选择科室，查看该科室下的大屏配置<br><span class="fs-13 text-muted">点击上方「🏥 选择科室」按钮开始使用</span></div></div></div>
 
+<style>
+/* 大屏预览：尺寸切换工具条 + 舞台（ifarme 按所选比例锁定显示） */
+.pv-toolbar { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; }
+.pv-stage {
+    width: 100%;
+    height: min(66vh, 640px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0f2027, #203a43);
+    border-radius: 10px;
+    overflow: hidden;
+}
+</style>
 <script>
 var CM_DEPT = 0;
 var CM_DEPS = <?php echo json_encode($deptPickerData); ?>;
@@ -290,15 +304,72 @@ function editRoom(id, name, type, voice, mask, crossDay) {
     );
 }
 
-/* 预览大屏：弹窗 iframe 加载 */
+/* 预览大屏：弹窗 iframe 加载，支持切换并锁定屏幕尺寸（纵向 9:16 / 方形 1:1 / 横向 16:9） */
 function previewRoom(id) {
     // 从列表行取 token（room_list 已将 token 渲染在 data-token）
     var token = getTokenById(id);
     if (!token) { Clinic.toast.warning('无法获取大屏链接'); return; }
+    var RATIOS = {
+        '9_16': { w: 9, h: 16, label: '纵向 9:16' },
+        '1_1':  { w: 1, h: 1,  label: '方形 1:1' },
+        '16_9': { w: 16, h: 9, label: '横向 16:9' },
+    };
+    var cur = '16_9';
     Clinic.modal.open(
-        '<iframe src="/screen.php?token=' + token + '" style="width:100%;height:70vh;border:0;border-radius:8px"></iframe>',
+        '<div class="pv-toolbar">' +
+            Object.keys(RATIOS).map(function (k) {
+                return '<button type="button" class="btn btn-outline btn-sm" data-ratio="' + k + '">' + RATIOS[k].label + '</button>';
+            }).join('') +
+        '</div>' +
+        '<div class="pv-stage" id="pvStage">' +
+        '  <iframe id="pvFrame" src="/screen.php?token=' + token + '" style="border:0;border-radius:8px;background:#111"></iframe>' +
+        '</div>',
         { title: '大屏预览', size: 'modal-lg', buttons: [{ text: '关闭', cls: 'btn-outline' }] }
     );
+    var stage = document.getElementById('pvStage');
+    var frame = document.getElementById('pvFrame');
+    if (!stage || !frame) return;
+
+    /* 在舞台可用尺寸内，按所选比例锁定 iframe 最大宽高（居中显示）；
+       同时向大屏传入 pv_w/pv_h，让大屏严格按预览尺寸排版（避免文字按浏览器窗口尺寸溢出） */
+    function setRatio(k) {
+        var r = RATIOS[k];
+        if (!r) return;
+        cur = k;
+        var aw = stage.clientWidth || 800;
+        var ah = stage.clientHeight || 500;
+        var w, h;
+        if (r.w >= r.h) {
+            w = aw;
+            h = aw * r.h / r.w;
+            if (h > ah) { h = ah; w = ah * r.w / r.h; }
+        } else {
+            h = ah;
+            w = ah * r.w / r.h;
+            if (w > aw) { w = aw; h = aw * r.h / r.w; }
+        }
+        w = Math.floor(w); h = Math.floor(h);
+        frame.style.width = w + 'px';
+        frame.style.height = h + 'px';
+        var src = '/screen.php?token=' + token + '&pv_w=' + w + '&pv_h=' + h;
+        if (frame.getAttribute('src') !== src) frame.setAttribute('src', src);
+        document.querySelectorAll('.pv-toolbar [data-ratio]').forEach(function (b) {
+            b.className = 'btn btn-sm ' + (b.getAttribute('data-ratio') === k ? 'btn-primary' : 'btn-outline');
+        });
+    }
+    /* 窗口缩放时重新适配比例（弹窗关闭后元素消失自动失效） */
+    var onResize = function () {
+        if (!document.getElementById('pvStage') || !document.getElementById('pvFrame')) {
+            window.removeEventListener('resize', onResize);
+            return;
+        }
+        setRatio(cur);
+    };
+    window.addEventListener('resize', onResize);
+    document.querySelectorAll('.pv-toolbar [data-ratio]').forEach(function (b) {
+        b.addEventListener('click', function () { setRatio(b.getAttribute('data-ratio')); });
+    });
+    setTimeout(function () { setRatio(cur); }, 30);
 }
 
 /* 从列表 HTML 提取 token（按行 data-token） */

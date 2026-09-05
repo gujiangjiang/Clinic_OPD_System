@@ -10,6 +10,13 @@
  *   模式 B（lab/imaging/pharmacy/nurse 医技）：列表看板——队列 + 当前呼叫高亮。
  * ============================================================ */
 $token = isset($_GET['token']) ? trim($_GET['token']) : '';
+// 预览模式锁定画布尺寸：管理端预览 iframe 传入 pv_w/pv_h，大屏严格按该尺寸排版
+// （避免预览时按浏览器窗口尺寸渲染导致文字溢出），真实大屏不传此参数不受影响
+$pvW = (int)(isset($_GET['pv_w']) ? $_GET['pv_w'] : 0);
+$pvH = (int)(isset($_GET['pv_h']) ? $_GET['pv_h'] : 0);
+$pvStyle = ($pvW >= 100 && $pvH >= 100)
+    ? ' width:' . (int)$pvW . 'px;height:' . (int)$pvH . 'px;min-height:' . (int)$pvH . 'px;'
+    : '';
 $noToken = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">' .
     '<title>大屏链接无效</title><style>body{background:#111;color:#eee;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-size:24px}</style></head>' .
     '<body><div>🔗 大屏链接无效或已失效，请联系管理员获取新的访问链接</div></body></html>';
@@ -41,7 +48,8 @@ $isDoctor = $room['room_type'] === 'doctor';
     </style>
 </head>
 <body class="call-body" data-token="<?php echo e($token); ?>" data-roomtype="<?php echo e($room['room_type']); ?>"
-      data-csrf="<?php echo e(CSRF::token()); ?>" data-hosp="<?php echo e($hosp); ?>" data-hosp2="<?php echo e($hosp2); ?>">
+      data-csrf="<?php echo e(CSRF::token()); ?>" data-hosp="<?php echo e($hosp); ?>" data-hosp2="<?php echo e($hosp2); ?>"
+      style="<?php echo trim($pvStyle); ?>">
 
 <!-- 顶部抬头：LOGO + 医院名 + 时钟（紧凑单行，不做大字号，语音开关由管理员在设置页控制） -->
 <header class="call-top">
