@@ -176,7 +176,7 @@ class QueueRepository extends BaseRepository {
      *    保证多医生并发时号源不重复；过号（miss）患者同样不再入池
      *  · 排序按「到本科室的生效时间」：转入患者按转入时间、普通挂号按挂号时间
      */
-    public static function deptPoolForRoom($room, $limit = 0) {
+    public static function deptPoolForRoom($room, $limit = 0, $offset = 0) {
         $deptId = (int)$room['dept_id'];
         $params = array($deptId, $deptId);
         $dateCond = self::poolDateCond($room, $params);
@@ -188,7 +188,10 @@ class QueueRepository extends BaseRepository {
              WHERE r.current_dept_id=? AND r.status='paid' AND $dateCond
                AND NOT EXISTS (SELECT 1 FROM call_events ce WHERE ce.visit_id=r.id AND ce.action='call')
              ORDER BY eff_time, r.registered_at, r.id";
-        if ($limit > 0) $sql .= ' LIMIT ' . (int)$limit;
+        if ($limit > 0) {
+            $sql .= ' LIMIT ' . (int)$limit;
+            if ($offset > 0) $sql .= ' OFFSET ' . (int)$offset;
+        }
         return self::q($sql, $params);
     }
 

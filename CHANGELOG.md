@@ -13,6 +13,20 @@
 
 ---
 
+## [7.4.3] - 2026-09-05
+
+> 叫号悬浮窗候诊号源完整显示：分段滚动加载 + 实时刷新（他医叫号即消失、新挂号即出现）。
+
+### 变更
+
+- **候诊号源完整显示**：悬浮窗号源列表不再只显示前 8 位，改为完整显示已加载号源，
+  滚动到底部自动分段加载更多（每次 +20，上限 200）。
+- **实时更新**：号源列表随 10 秒轮询实时刷新——其他医生叫过号的号源自动消失、
+  新挂号且未被叫过的号源自动出现；刷新时保留列表滚动位置不跳顶。
+  （`app/api/parts/doctor/doctor_call_panel.php`：limit/offset 分页 +
+  `app/repositories/QueueRepository.php`：deptPoolForRoom 支持 offset、
+  `public/assets/js/components/doctor_tools.js`、`public/assets/css/components.css`）
+
 ## [7.4.2] - 2026-09-05
 
 > 大屏预览默认使用「自由」尺寸模式。

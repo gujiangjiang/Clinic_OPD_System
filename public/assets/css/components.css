@@ -782,7 +782,7 @@ body.emr-readonly .emr-item-link,
 .doc-call-actions .btn { flex: 1; }
 .doc-call-pool { border-top: 1px dashed var(--border, #e5e7eb); padding-top: 8px; }
 .doc-call-pool-title { font-size: 12px; color: var(--muted, #6b7280); margin-bottom: 4px; }
-.doc-call-pool-list { max-height: 140px; overflow-y: auto; }
+.doc-call-pool-list { max-height: 210px; overflow-y: auto; }
 .doc-call-pool-item {
     display: flex;
     align-items: center;
@@ -795,6 +795,12 @@ body.emr-readonly .emr-item-link,
 .doc-call-pool-item:nth-child(odd) { background: var(--bg-soft, #f6f8fc); }
 .doc-call-pool-seq { width: 34px; font-weight: 700; color: var(--primary, #2563eb); font-variant-numeric: tabular-nums; }
 .doc-call-pool-missed { color: #dc2626; font-weight: 700; }
+.doc-call-pool-more {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted, #9ca3af);
+    padding: 6px 0;
+}
 .doc-call-foot {
     display: flex;
     align-items: center;

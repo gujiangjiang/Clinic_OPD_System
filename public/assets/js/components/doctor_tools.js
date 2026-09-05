@@ -21,6 +21,7 @@ Clinic.docTools = (function () {
     var ROOM_BOUND = null; // 当前绑定诊室 {id, name}
     var ROOM_DATA = [];    // 大屏列表缓存
     var CALL_POP_TIMER = null; // 叫号悬浮窗轮询定时器
+    var CALL_POOL_LIMIT = 20;  // 号源池已加载条数（滚动到末尾分段加载，上限 200）
 
     /* ==================== 会话记忆（悬浮窗开合 + 位置，跨页面保持） ==================== */
     function memKey() {
@@ -410,6 +411,7 @@ Clinic.docTools = (function () {
             '</div>';
         document.body.appendChild(pop);
         saveCallPopOpen(true);
+        CALL_POOL_LIMIT = 20;   // 重新打开时重置号源池加载量
         bindCallPopDrag(pop);
         bindCallPopActions(pop);
         refreshCallPanel();
@@ -459,6 +461,22 @@ Clinic.docTools = (function () {
         pop.querySelector('#dcpNextBtn').addEventListener('click', doCallNext);
         pop.querySelector('#dcpMiss').addEventListener('click', doCallMiss);
         pop.querySelector('#dcpRepeat').addEventListener('click', doCallRepeat);
+        // 号源池滚动到底部 → 分段加载更多
+        var poolList = pop.querySelector('#dcpPoolList');
+        if (poolList) {
+            poolList.addEventListener('scroll', function () {
+                if (poolList.scrollTop + poolList.clientHeight >= poolList.scrollHeight - 40) {
+                    loadMorePool();
+                }
+            });
+        }
+    }
+
+    /* 号源池分段加载：滚动到末尾时每次多加载 20 条（上限 200） */
+    function loadMorePool() {
+        if (CALL_POOL_LIMIT >= 200) return;
+        CALL_POOL_LIMIT = Math.min(200, CALL_POOL_LIMIT + 20);
+        refreshCallPanel();
     }
 
     /* 当前病历页就诊混淆码（工作台空态无 #visitId） */
@@ -523,11 +541,11 @@ Clinic.docTools = (function () {
         });
     }
 
-    /* 轮询刷新悬浮窗数据（每 10 秒 + 每次动作后） */
+    /* 轮询刷新悬浮窗数据（每 10 秒 + 每次动作后；携带当前已加载条数） */
     function refreshCallPanel() {
         var pop = callPopEl();
         if (!pop || !ROOM_BOUND || !ROOM_BOUND.id) return;
-        Clinic.get('/api/doctor?action=call_panel', null, {
+        Clinic.get('/api/doctor?action=call_panel&limit=' + CALL_POOL_LIMIT, null, {
             loading: false,
             onSuccess: function (json) { renderCallPop(json.data); },
             onError: function () { /* 静默，下次轮询自动恢复 */ },
@@ -548,30 +566,47 @@ Clinic.docTools = (function () {
             return;
         }
         var cur = d.current, next = d.next;
-        pop.querySelector('.doc-call-pop-title').textContent = '📢 叫号 · ' + (d.room && d.room.name ? d.room.name : '');
+        var titleEl = pop.querySelector('.doc-call-pop-title');
+        if (titleEl) titleEl.textContent = '📢 叫号 · ' + (d.room && d.room.name ? d.room.name : '');
         var curEl = pop.querySelector('#dcpCur');
         var curSubEl = pop.querySelector('#dcpCurSub');
-        if (cur) {
-            curEl.textContent = cur.name;
-            var st = cur.status === 'finished' ? '已诊毕' : (cur.status === 'visiting' ? '就诊中' : '候诊');
-            curSubEl.textContent = '第' + pad3(cur.visit_seq) + '号' + ' · ' + st + (cur.missed ? ' · 过号' : '');
-        } else {
-            curEl.textContent = '暂无';
-            curSubEl.textContent = '点击「⬇ 下一位」呼叫候诊患者';
+        if (curEl) {
+            if (cur) {
+                curEl.textContent = cur.name;
+                if (curSubEl) {
+                    var st = cur.status === 'finished' ? '已诊毕' : (cur.status === 'visiting' ? '就诊中' : '候诊');
+                    curSubEl.textContent = '第' + pad3(cur.visit_seq) + '号' + ' · ' + st + (cur.missed ? ' · 过号' : '');
+                }
+            } else {
+                curEl.textContent = '暂无';
+                if (curSubEl) curSubEl.textContent = '点击「⬇ 下一位」呼叫候诊患者';
+            }
         }
-        pop.querySelector('#dcpNext').textContent = next ? next.name + '（第' + pad3(next.visit_seq) + '号）' : '—';
-        pop.querySelector('#dcpCount').textContent = d.pool_count || 0;
-        var items = [];
-        (d.pool || []).slice(0, 8).forEach(function (p) {
-            items.push('<div class="doc-call-pool-item"><span class="doc-call-pool-seq">' + pad3(p.visit_seq) + '</span>' +
-                '<span>' + Clinic.escHtml(p.name) + '</span></div>');
-        });
-        (d.missed || []).slice(0, 4).forEach(function (p) {
-            items.push('<div class="doc-call-pool-item"><span class="doc-call-pool-seq">' + pad3(p.visit_seq) + '</span>' +
-                '<span>' + Clinic.escHtml(p.name) + '</span><span class="doc-call-pool-missed">（过号）</span></div>');
-        });
-        pop.querySelector('#dcpPoolList').innerHTML = items.join('') || '<div class="fs-12 text-muted">暂无候诊患者</div>';
-        pop.querySelector('#dcpStatus').textContent = (d.room && d.room.dept_name) ? d.room.dept_name + ' · 数据实时同步' : '';
+        var nextEl = pop.querySelector('#dcpNext');
+        if (nextEl) nextEl.textContent = next ? next.name + '（第' + pad3(next.visit_seq) + '号）' : '—';
+        var countEl = pop.querySelector('#dcpCount');
+        if (countEl) countEl.textContent = d.pool_count || 0;
+        var poolListEl = pop.querySelector('#dcpPoolList');
+        if (poolListEl) {
+            // 完整显示已加载号源（分段加载），保留滚动位置（实时刷新不跳顶）
+            var items = [];
+            (d.pool || []).forEach(function (p) {
+                items.push('<div class="doc-call-pool-item"><span class="doc-call-pool-seq">' + pad3(p.visit_seq) + '</span>' +
+                    '<span>' + Clinic.escHtml(p.name) + '</span></div>');
+            });
+            (d.missed || []).slice(0, 4).forEach(function (p) {
+                items.push('<div class="doc-call-pool-item"><span class="doc-call-pool-seq">' + pad3(p.visit_seq) + '</span>' +
+                    '<span>' + Clinic.escHtml(p.name) + '</span><span class="doc-call-pool-missed">（过号）</span></div>');
+            });
+            if (d.has_more) {
+                items.push('<div class="doc-call-pool-more">继续向下滚动加载更多…</div>');
+            }
+            var st = poolListEl.scrollTop;
+            poolListEl.innerHTML = items.join('') || '<div class="fs-12 text-muted">暂无候诊患者</div>';
+            poolListEl.scrollTop = st;
+        }
+        var statusEl = pop.querySelector('#dcpStatus');
+        if (statusEl) statusEl.textContent = (d.room && d.room.dept_name) ? d.room.dept_name + ' · 数据实时同步' : '';
     }
 
     /* ==================== 点击下拉框外关闭 ==================== */

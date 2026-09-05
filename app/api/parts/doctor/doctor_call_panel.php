@@ -16,7 +16,11 @@ function doctor_read_call_panel($u) {
     $deptId = (int)$room['dept_id'];
     $dept = DeptRepository::one('SELECT * FROM departments WHERE id=?', array($deptId));
     $current = QueueRepository::roomCurrentVisit($room);
-    $pool = QueueRepository::deptPoolForRoom($room, 20);
+    // 号源池分页：悬浮窗完整显示 + 滚动分段加载（默认 20 / 上限 200）
+    $poolLimit = max(1, min(200, (int)get('limit', 20)));
+    $poolOffset = max(0, (int)get('offset', 0));
+    $pool = QueueRepository::deptPoolForRoom($room, $poolLimit, $poolOffset);
+    $poolCount = QueueRepository::deptPoolCountForRoom($room);
     $next = $pool ? $pool[0] : null;
     $missed = QueueRepository::deptMissedForRoom($room, 5);
     $fmt = function ($r, $missedFlag = 0) {
@@ -40,7 +44,9 @@ function doctor_read_call_panel($u) {
         'current' => $curFmt,
         'next' => $fmt($next),
         'pool' => array_map(function ($r) use ($fmt) { return $fmt($r, 0); }, $pool),
-        'pool_count' => QueueRepository::deptPoolCountForRoom($room),
+        'pool_count' => $poolCount,
+        'loaded' => $poolOffset + count($pool),
+        'has_more' => ($poolOffset + count($pool)) < $poolCount,
         'missed' => array_map(function ($r) use ($fmt) { return $fmt($r, 1); }, $missed),
         'servertime' => now_str(),
     ));
