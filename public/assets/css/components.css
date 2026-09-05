@@ -723,7 +723,7 @@ body.emr-readonly .emr-item-link,
 /* ==================== 医生叫号悬浮窗（可拖动） ==================== */
 .doc-call-pop {
     position: fixed;
-    z-index: 2000;
+    z-index: 800;   /* 高于页面下拉(100)但低于模态框遮罩(1000)，解绑确认弹窗不被遮挡 */
     width: 320px;
     background: var(--bg-card, #fff);
     border: 1px solid var(--border, #e5e7eb);
