@@ -39,7 +39,7 @@ Clinic.nav = {
         if (!window.Clinic) return false;
         switch (name) {
             case 'order': return !!Clinic.order;
-            case 'emreditor': return !!Clinic.emreditor;
+            case 'emreditor': return !!Clinic.emrEditor;
             case 'eventbus': return !!Clinic.eventBus;
             case 'emr': return !!Clinic.emr;
             case 'emr_rules': return !!(Clinic.emr && Clinic.emr.rules);
