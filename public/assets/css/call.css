@@ -242,12 +242,10 @@
     container-type: size;
 }
 
-/* ---------- 预览锁定（pv-locked）：固定设计尺寸 + 整体等比缩放 ----------
-   管理端预览 iframe 传入 pv_w/pv_h 时，页面以「短边 1080」的设计尺寸排版，
-   再整体 transform:scale 缩放到预览尺寸。由于设计尺寸足够大，字号 clamp 下限
-   不会被触发，保证「只要比例一致，显示内容就完全一致」（文字随画布同步缩放）。
-   真实大屏不传 pv 参数，不受影响。 */
-.call-body.pv-locked { container-type: size; transform-origin: 0 0; }
+/* ---------- 预览锁定（pv-locked）：以「显示出来的画布尺寸」为基准排版 ----------
+   管理端预览 iframe 传入 pv_w/pv_h 时，body 直接锁定为显示尺寸，并把 cqmin 字号基准
+   统一到 body（container-type: size），使页面上所有文字随画布同步缩放、不溢出。 */
+.call-body.pv-locked { container-type: size; }
 .call-body.pv-locked .screen-main { container-type: normal; }
 
 /* ---------- 通用面板：标题固定顶部居中，内容居中显示 ---------- */

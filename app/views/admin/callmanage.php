@@ -46,11 +46,12 @@ foreach ($depts as $d) {
 <div id="cmList"><div class="card"><div class="empty"><div class="empty-ico">🏥</div>请先选择科室，查看该科室下的大屏配置<br><span class="fs-13 text-muted">点击上方「🏥 选择科室」按钮开始使用</span></div></div></div>
 
 <style>
-/* 大屏预览：尺寸切换工具条 + 舞台（ifarme 按所选比例锁定显示） */
+/* 大屏预览：尺寸切换工具条 + 舞台（iframe 按所选比例锁定显示；
+   舞台适当加高，保证 9:16 纵向画布显示更大、文字更清晰） */
 .pv-toolbar { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; }
 .pv-stage {
     width: 100%;
-    height: min(66vh, 640px);
+    height: min(72vh, 700px);
     display: flex;
     align-items: center;
     justify-content: center;

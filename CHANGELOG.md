@@ -13,6 +13,22 @@
 
 ---
 
+## [7.5.4] - 2026-09-05
+
+> 大屏预览改为「以显示出来的画布尺寸」直接排版（去掉大设计尺寸 + transform 缩放），
+> 并加高预览舞台，9:16 纵向预览文字更清晰。
+
+### 变更
+
+- **预览按显示画布尺寸排版**：预览 iframe 传入 pv_w/pv_h 后，页面直接把 body 锁定为
+  显示尺寸并以该尺寸为 cqmin 基准排版（不再用 1080 短边设计尺寸 + JS transform 缩放），
+  避免小画布下 transform 缩放导致文字过小/偏移；body 显式尺寸 + container-type 统一，
+  任意浏览器下文字随画布同步缩放、不溢出。
+- **预览舞台加高**：预览舞台高度由 `min(66vh,640px)` 提升至 `min(72vh,700px)`，
+  9:16 纵向画布显示更大、文字更清晰。
+  （`public/screen.php`、`public/assets/js/components/screen.js`、
+  `public/assets/css/call.css`、`app/views/admin/callmanage.php`）
+
 ## [7.5.3] - 2026-09-05
 
 > 精简版叫号悬浮窗「解绑」按钮符号由「解」字替换为统一风格的断开符号「⊘」。
