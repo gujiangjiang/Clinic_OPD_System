@@ -49,6 +49,11 @@ $isDoctor = $room['room_type'] === 'doctor';
     <link rel="stylesheet" href="/assets/css/call.css">
     <style>
         body { background: linear-gradient(135deg,#0f2027,#203a43,#2c5364); color:#fff; }
+        .apm-icon { animation: apm-breathe 1.8s ease-in-out infinite; }
+        @keyframes apm-breathe {
+            0%, 100% { transform: scale(1); opacity: .85; }
+            50% { transform: scale(1.12); opacity: 1; }
+        }
         <?php if ($pvClass !== ''): ?>html, body { overflow: hidden; }<?php endif; ?>
     </style>
 </head>
@@ -82,10 +87,11 @@ $isDoctor = $room['room_type'] === 'doctor';
     <div class="call-tips-inner" id="tipsInner"></div>
 </footer>
 
-<!-- 自动播放解锁遮罩 -->
-<div id="autoplayMask" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:28px;gap:20px;cursor:pointer">
-    <div>🔊 点击屏幕启动叫号语音大屏系统</div>
-    <div style="font-size:16px;color:#aaa">点击后开始自动播报叫号</div>
+<!-- 自动播放解锁遮罩（提示语分段展示 + 字号随屏幕缩放，小尺寸屏幕不换行溢出） -->
+<div id="autoplayMask" style="position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(10px,4vh,26px);padding:clamp(16px,4vh,40px);text-align:center;cursor:pointer">
+    <div class="apm-icon" style="font-size:clamp(36px,12vh,84px);line-height:1">🔊</div>
+    <div style="font-size:clamp(16px,5vh,40px);font-weight:700;color:#fff;letter-spacing:3px;line-height:1.45;max-width:90%">点击屏幕<br>启动叫号语音大屏系统</div>
+    <div style="font-size:clamp(12px,3.2vh,24px);color:#a8c8e8;letter-spacing:2px">点击后自动开始播报叫号</div>
 </div>
 
 <script src="/assets/js/components/screen.js"></script>
