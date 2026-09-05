@@ -172,11 +172,12 @@ Clinic.nav = {
 
         var contentEl = document.querySelector('.content');
         if (!contentEl) { window.location.reload(); return; }
-        // 逐个移动非 script 子节点（保留原始节点引用，确保事件/状态完整）
+        // 逐个移动非 script / 非顶栏补丁的子节点（保留原始节点引用，确保事件/状态完整）
         contentEl.innerHTML = '';
         var nodes = Array.prototype.slice.call(root.childNodes);
         nodes.forEach(function (n) {
-            if (n.nodeType === 1 && n.tagName === 'SCRIPT') return;
+            if (n.nodeType !== 1) { contentEl.appendChild(n); return; }
+            if (n.tagName === 'SCRIPT' || n.classList.contains('view-topbar-patch')) return;
             contentEl.appendChild(n);
         });
         // 执行内联脚本（捕获其新注册的 DOMContentLoaded 回调）
@@ -196,6 +197,8 @@ Clinic.nav = {
             }
         }
         window.scrollTo(0, 0);
+        // 页面专属顶栏元素同步：病历页注入医生工具组 + 科室胶囊，其他页移除
+        this.syncTopbar(root);
         // EMR 病历页：重建病历工作台（emr.js 的 DOMContentLoaded 全局监听
         // 已在首屏执行过，此处主动调用 init 完成病历状态重建）
         if (document.getElementById('visitId') && window.Clinic && Clinic.emr && Clinic.emr.init) {
@@ -204,6 +207,45 @@ Clinic.nav = {
         // EMR 页顶栏重建后，候诊按钮（#queueBtn）随旧顶栏被移除，需重新挂载
         if (document.getElementById('emrHeader') && window.Clinic && Clinic.queuePanel && Clinic.queuePanel.init) {
             Clinic.queuePanel.init();
+        }
+    },
+
+    /**
+     * 同步页面专属顶栏元素（SPA 局部导航下顶栏常驻不重渲染）：
+     * - 目标页带 [data-topbar-doc-tools]（医生工作站病历页）→ 注入工具组并切换
+     *   标题为 doc-work-title（含科室胶囊）；doctor_tools 异步回填科室名
+     * - 目标页无补丁 → 移除已注入的工具组并恢复普通标题
+     */
+    syncTopbar: function (root) {
+        var bar = document.querySelector('.topbar-right');
+        var tt = document.querySelector('.topbar-title');
+        if (!bar || !tt) return;
+        var hasTools = root.querySelector('[data-topbar-doc-tools]');
+        var curTools = bar.querySelector('[data-topbar-doc-tools]');
+        if (hasTools && !curTools) {
+            var themeBtn = bar.querySelector('[data-theme-btn]');
+            if (themeBtn) bar.insertBefore(hasTools, themeBtn);
+            else bar.appendChild(hasTools);
+        } else if (!hasTools && curTools) {
+            curTools.parentNode.removeChild(curTools);
+        }
+        if (hasTools) {
+            if (!tt.classList.contains('doc-work-title')) {
+                tt.classList.add('doc-work-title');
+                var dept = document.createElement('span');
+                dept.className = 'doc-work-dept';
+                dept.id = 'docWorkDept';
+                dept.textContent = '加载科室…';
+                tt.appendChild(dept);
+            }
+            // 重新进入病历页（doctor_tools 已加载、科室数据已就绪）时回填科室名
+            if (window.Clinic && Clinic.docTools && Clinic.docTools.refreshTitle) {
+                Clinic.docTools.refreshTitle();
+            }
+        } else if (tt.classList.contains('doc-work-title')) {
+            tt.classList.remove('doc-work-title');
+            var d = tt.querySelector('#docWorkDept');
+            if (d) d.parentNode.removeChild(d);
         }
     },
 

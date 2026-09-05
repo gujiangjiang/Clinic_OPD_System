@@ -102,6 +102,34 @@ class Layout {
         return $html;
     }
 
+    /**
+     * 医生工作站（新）顶栏工具组 HTML：叫号大屏绑定 + 工具箱
+     * 完整页与 SPA 局部补丁（Router partial 输出）共用同一份，保证 DOM 一致：
+     * 外层带 data-topbar-doc-tools 标记，nav.js 依据当前页动态注入/移除顶栏
+     */
+    public static function docToolsBar() {
+        return '<div data-topbar-doc-tools style="display:inline-flex;align-items:center;gap:12px">' .
+            '<div style="position:relative">' .
+                '<button type="button" class="btn btn-outline btn-sm" id="docCallBtn" title="叫号大屏绑定" onclick="Clinic.docTools.toggleRoomList()">📢 <span id="docCallName">叫号</span></button>' .
+                '<div id="docRoomList" style="display:none;position:absolute;top:100%;right:0;min-width:300px;max-height:340px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:8px;z-index:100;box-shadow:0 8px 24px var(--shadow)"></div>' .
+            '</div>' .
+            '<div style="position:relative">' .
+                '<button type="button" class="btn btn-outline btn-sm" id="docToolboxBtn" title="工具箱" onclick="Clinic.docTools.toggleToolbox()">🧰 工具箱 ▾</button>' .
+                '<div id="docToolbox" style="display:none;position:absolute;top:100%;right:0;min-width:170px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:100;box-shadow:0 8px 24px var(--shadow)">' .
+                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openAddSlot()">＋ 加号</div>' .
+                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openDeptSwitch()">🏥 切换科室</div>' .
+                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openPatientSearch()">🔍 患者查询</div>' .
+                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.nav.go(\'/doctor/templates\')">📋 模板管理</div>' .
+                '</div>' .
+            '</div>' .
+        '</div>';
+    }
+
+    /** 医生工作站标题（标题 + 当前科室胶囊），SPA 局部导航由 nav.js 同步增删 */
+    public static function docWorkTitle($label) {
+        return '<div class="topbar-title doc-work-title">' . e($label) . '<span class="doc-work-dept" id="docWorkDept">加载科室…</span></div>';
+    }
+
     /** 独立页面（登录/安装/403/404） */
     public static function authPage($content) {
         $hosp = setting('hospital_name', '');
@@ -298,27 +326,11 @@ class Layout {
                         <div class="flex gap-12" style="align-items:center">
                             <button type="button" class="btn btn-outline btn-sm" data-sidebar-toggle style="padding:4px 10px">☰</button>
                             ' . ($docTools
-                                ? '<div class="topbar-title doc-work-title">' . e($title !== '' ? $title : $hosp) . '<span class="doc-work-dept" id="docWorkDept">加载科室…</span></div>'
+                                ? self::docWorkTitle($title !== '' ? $title : $hosp)
                                 : '<div class="topbar-title">' . e($title !== '' ? $title : $hosp) . '</div>') . '
                         </div>
                         <div class="topbar-right">
-                            ' . ($docTools ? '
-                            <!-- 叫号大屏绑定（工具箱左侧） -->
-                            <div style="position:relative">
-                                <button type="button" class="btn btn-outline btn-sm" id="docCallBtn" title="叫号大屏绑定" onclick="Clinic.docTools.toggleRoomList()">📢 <span id="docCallName">叫号</span></button>
-                                <div id="docRoomList" style="display:none;position:absolute;top:100%;right:0;min-width:300px;max-height:340px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:8px;z-index:100;box-shadow:0 8px 24px var(--shadow)"></div>
-                            </div>
-                            <!-- 工具箱（明亮模式左侧） -->
-                            <div style="position:relative">
-                                <button type="button" class="btn btn-outline btn-sm" id="docToolboxBtn" title="工具箱" onclick="Clinic.docTools.toggleToolbox()">🧰 工具箱 ▾</button>
-                                <div id="docToolbox" style="display:none;position:absolute;top:100%;right:0;min-width:170px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:100;box-shadow:0 8px 24px var(--shadow)">
-                                    <div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openAddSlot()">＋ 加号</div>
-                                    <div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openDeptSwitch()">🏥 切换科室</div>
-                                    <div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openPatientSearch()">🔍 患者查询</div>
-                                    <div class="dd-item" style="cursor:pointer" onclick="Clinic.nav.go(\'/doctor/templates\')">📋 模板管理</div>
-                                </div>
-                            </div>
-                            ' : '') . '
+                            ' . ($docTools ? self::docToolsBar() : '') . '
                             <button type="button" class="btn btn-outline btn-sm" data-theme-btn title="切换主题">
                                 <span class="theme-label">' . ($theme === 'auto' ? '自动模式' : ($theme === 'dark' ? '夜间模式' : '明亮模式')) . '</span>
                             </button>

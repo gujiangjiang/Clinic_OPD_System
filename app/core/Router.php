@@ -198,14 +198,18 @@ class Router {
             // emr 栈（order/emreditor/eventbus/emr/emr_*/queuepanel）；
             // docTools 栈（room_heartbeat/doctor_tools，仅医生工作站）
             $needs = array();
+            $topbarPatch = '';
             if ($view === 'doctor/emr.php') {
                 $needs[] = 'emr';
                 $needs[] = 'docTools';
+                // 顶栏工具补丁：SPA 局部导航下顶栏常驻，进入病历页时由 nav.js
+                // 将工具组注入顶栏、离开时移除（仅病历页显示）
+                $topbarPatch = '<div class="view-topbar-patch" style="display:none">' . Layout::docToolsBar() . '</div>';
             } elseif ($view === 'templates.php' || $view === 'admin/review.php') {
                 $needs[] = 'emr';
             }
             $needsAttr = $needs ? ' data-needs="' . e(implode(' ', $needs)) . '"' : '';
-            echo '<div class="view-root" data-page-title="' . e(self::$title) . '"' . $needsAttr . '>' . $content . '</div>';
+            echo '<div class="view-root" data-page-title="' . e(self::$title) . '"' . $needsAttr . '>' . $topbarPatch . $content . '</div>';
             return;
         }
 
@@ -222,11 +226,9 @@ class Router {
             echo Layout::authPage($content);
         } else {
             // 病历书写页强制缩小侧边栏，为书写区提供足够空间（忽略用户偏好）
-            // 医生顶栏工具（叫号大屏绑定 / 工具箱 / 科室切换）对全部医生页面开放：
-            // SPA 局部导航下顶栏常驻，若只在病历页首屏渲染，从其他页面局部进入
-            // 病历页时工具会消失（layout 内部按角色门禁，非医生不受影响）
+            // 医生工作站（新）顶栏注入：工具箱下拉 / 叫号大屏绑定 / 科室切换
             $isDocWork = ($view === 'doctor/emr.php');
-            echo Layout::appPage($content, self::$title, $isDocWork, $needEmr, true);
+            echo Layout::appPage($content, self::$title, $isDocWork, $needEmr, $isDocWork);
         }
     }
 

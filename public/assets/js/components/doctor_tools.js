@@ -744,5 +744,10 @@ Clinic.docTools = (function () {
         openCallPop: openCallPop,
         closeCallPop: closeCallPop,
         refreshCallPanel: refreshCallPanel,
+        /** SPA 局部导航后顶栏科室胶囊重绘（仅科室数据已加载时生效；
+            未加载时由 loadDepts 异步 onSuccess 回填） */
+        refreshTitle: function () {
+            if (DEPT_LIST && DEPT_LIST.length) renderDeptTitle();
+        },
     };
 })();
