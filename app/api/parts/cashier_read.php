@@ -162,7 +162,7 @@ function cashier_part_read($action) {
         }
         $typeNames = array('lab' => '检验', 'imaging' => '检查', 'procedure' => '处置', 'prescription' => '处方');
 
-        // ===== 未缴费项目（挂号费 + open 开单）提示与缴费 =====
+        // ===== 未缴费项目（挂号费 + open 开单）——仅在顶部简洁提示，明细走模态框 =====
         $unpaid = array();
         if ($visit['status'] === 'pending') {
             $unpaid[] = array('kind' => 'visit', 'name' => '挂号费（' . $visit['first_dept_name'] . '）', 'amount' => (float)$visit['fee']);
@@ -180,33 +180,9 @@ function cashier_part_read($action) {
         if ($unpaid) {
             $unpaidTotal = 0;
             foreach ($unpaid as $u) $unpaidTotal += $u['amount'];
-            $html .= '<div class="fs-14 fw-700 mb-8">未缴费 <span class="fs-12 text-muted fw-400">（' . count($unpaid) . ' 项，合计 ¥' . money($unpaidTotal) . '）</span></div>';
-            $html .= '<div style="border:1px solid var(--warning,#f59e0b);background:var(--warning-soft,rgba(245,158,11,.06));border-radius:8px;padding:10px 12px;margin-bottom:8px" class="flex-between">' .
-                '<span class="fs-13">💡 该次就诊存在未缴费项目，点击「批量缴费」可一次性全部缴清（合并为一张缴费凭条）。</span>' .
-                '<button class="btn btn-warning btn-sm" onclick="batchPayAll()">💳 一键全部缴费（¥' . money($unpaidTotal) . '）</button></div>';
-            $html .= '<div class="flex gap-8 mb-8" id="batchBar" style="align-items:center">' .
-                '<label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="batchAll" onchange="toggleAll()"> 全选</label>' .
-                '<button class="btn btn-success btn-sm" onclick="batchPay()">批量缴费（已选 <span id="batchCount">0</span>）</button>' .
-                ($visit['status'] === 'pending' ? '<button class="btn btn-primary btn-sm" onclick="payVisitFee(\'' . e(oid($visitId)) . '\')">缴挂号费</button>' : '') .
-                '</div>';
-            foreach ($unpaid as $u) {
-                if ($u['kind'] === 'visit') {
-                    $html .= '<div class="flex-between" style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:6px">' .
-                        '<span class="fs-13">🎫 ' . e($u['name']) . '</span>' .
-                        '<span class="fs-13 fw-600">¥' . money($u['amount']) . '</span></div>';
-                    continue;
-                }
-                $html .= '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">' .
-                    '<div class="flex-between">' .
-                    '<span class="fs-13 fw-600">' . e($u['name']) . ' ｜ 开单医生 ' . e($u['doctor']) . '</span>' .
-                    '<span class="fs-13 fw-600">¥' . money($u['amount']) . '</span></div>';
-                foreach ($u['items'] as $it) {
-                    $html .= '<div class="fs-12 text-muted">· ' . e($it['item_name']) . ' ×' . (int)$it['quantity'] . ' ￥' . money($it['price'] * $it['quantity']) . '</div>';
-                }
-                $html .= '<div class="mt-8 flex gap-8">' .
-                    '<label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" class="batchPay" value="' . e($u['oid']) . '" onchange="updateBatchCount()"> 选择</label>' .
-                    '<button class="btn btn-success btn-sm" onclick="payOrder(\'' . e($u['oid']) . '\')">缴费</button></div></div>';
-            }
+            $html .= '<div style="border:1px solid var(--warning,#f59e0b);background:var(--warning-soft,rgba(245,158,11,.06));border-radius:8px;padding:10px 12px;margin-bottom:12px" class="flex-between">' .
+                '<span class="fs-13">💡 <b>' . count($unpaid) . '</b> 项未缴费（合计 <b>¥' . money($unpaidTotal) . '</b>）</span>' .
+                '<button class="btn btn-warning btn-sm" onclick="openUnpaidModal()">💳 查看并缴费</button></div>';
         }
 
         // ===== 已缴费：按缴费凭条批次（payment_no）分组展示 =====
@@ -284,12 +260,23 @@ function cashier_part_read($action) {
                         : '<button class="btn btn-outline btn-sm" onclick="refundOrder(\'' . e(oid($g['orders'][0])) . '\')">退费</button>')) .
                 '</div></div>';
         }
-        json_ok(array('html' => $html));
+        // 返回未缴费明细（前端模态框渲染，避免右侧列表臃肿）
+        $unpaidData = array();
+        foreach ($unpaid as $u) {
+            if ($u['kind'] === 'visit') {
+                $unpaidData[] = array('kind' => 'visit', 'oid' => '', 'name' => $u['name'], 'amount' => $u['amount'], 'doctor' => '', 'items' => array());
+            } else {
+                $unpaidData[] = array('kind' => 'order', 'oid' => $u['oid'], 'name' => $u['name'], 'amount' => $u['amount'], 'doctor' => $u['doctor'], 'items' => array_map(function ($it) {
+                    return array('item_name' => $it['item_name'], 'quantity' => (int)$it['quantity'], 'price' => (float)$it['price']);
+                }, $u['items']));
+            }
+        }
+        json_ok(array('html' => $html, 'unpaid' => $unpaidData, 'unpaid_count' => count($unpaid)));
         return;
     }
 
     if ($action === 'payment_batch_detail') {
-        // 缴费凭条详情：按 payment_no 返回同批次全部订单的项目明细 + 执行状态流程（每项目一行）
+        // 缴费凭条详情：按 payment_no 返回同批次全部订单的项目明细 + 每项目独立执行进度
         $paymentNo = trim((string)get('payment_no', ''));
         if ($paymentNo === '') json_fail('缺少缴费批次号');
         $pays = CashierRepository::q("SELECT * FROM payments WHERE payment_no=? AND kind='order' ORDER BY id ASC", array($paymentNo));
@@ -300,14 +287,56 @@ function cashier_part_read($action) {
             $order = CashierRepository::order($p['order_id']);
             if (!$order) continue;
             $items = CashierRepository::orderItems($order['id']);
+            // 每项目独立进度：开单→缴费→登记(检验/检查)→报告/发药/执行完成
+            // 同一张凭条内不同医生开单、不同项目执行进度可能各不相同——
+            // 以 item 自身状态为准逐项生成，不整单共用一条进度
+            $itemFlow = function ($it) use ($order, $p) {
+                $flow = array();
+                $flow[] = array('label' => '开单', 'operator' => (string)$order['doctor_name'], 'time' => (string)$order['created_at'], 'done' => 1);
+                $flow[] = array('label' => '缴费', 'operator' => (string)$p['cashier_name'], 'time' => (string)$p['created_at'], 'done' => 1);
+                $st = (string)$it['status'];
+                if ($order['order_type'] === 'lab' || $order['order_type'] === 'imaging') {
+                    // 检验/检查：登记 + 报告完成（两者进度独立，登记完成未必出报告）
+                    $regDone = in_array($st, array('registered', 'done'), true);
+                    $repDone = in_array($st, array('done'), true);
+                    $flow[] = array('label' => '登记',
+                        'operator' => $regDone ? (string)$it['executed_by'] : '',
+                        'time' => $regDone ? (string)$it['executed_at'] : '',
+                        'done' => $regDone ? 1 : 0);
+                    $flow[] = array('label' => '报告完成',
+                        'operator' => $repDone ? (string)$it['executed_by'] : '',
+                        'time' => $repDone ? (string)$it['executed_at'] : '',
+                        'done' => $repDone ? 1 : 0);
+                } elseif ($order['order_type'] === 'prescription') {
+                    // 处方：审方通过（dispensed/dispensing）+ 发药完成（dispensed）
+                    $rxDone = in_array($st, array('dispensed', 'dispensing'), true);
+                    $dispDone = $st === 'dispensed';
+                    $flow[] = array('label' => '审方通过',
+                        'operator' => $rxDone ? (string)$it['executed_by'] : '',
+                        'time' => $rxDone ? (string)$it['executed_at'] : '',
+                        'done' => $rxDone ? 1 : 0,
+                        'rejected' => $st === 'rejected' ? 1 : 0);
+                    $flow[] = array('label' => '发药完成',
+                        'operator' => $dispDone ? (string)$it['executed_by'] : '',
+                        'time' => $dispDone ? (string)$it['executed_at'] : '',
+                        'done' => $dispDone ? 1 : 0);
+                } else {
+                    // 处置：执行完成（护士站执行 done）
+                    $procDone = $st === 'done';
+                    $flow[] = array('label' => '执行完成',
+                        'operator' => $procDone ? (string)$it['executed_by'] : '',
+                        'time' => $procDone ? (string)$it['executed_at'] : '',
+                        'done' => $procDone ? 1 : 0);
+                }
+                return $flow;
+            };
             $orders[] = array(
                 'order_no' => $order['order_no'],
                 'order_type' => $order['order_type'],
                 'doctor_name' => $order['doctor_name'],
                 'total' => (float)$order['total_amount'],
                 'status' => $order['status'],
-                'flow' => order_flow_steps($order, $items),
-                'items' => array_map(function ($it) {
+                'items' => array_map(function ($it) use ($itemFlow) {
                     return array(
                         'name' => $it['item_name'],
                         'quantity' => (int)$it['quantity'],
@@ -315,6 +344,7 @@ function cashier_part_read($action) {
                         'status' => $it['status'],
                         'executed_by' => $it['executed_by'],
                         'executed_at' => $it['executed_at'],
+                        'flow' => $itemFlow($it),
                     );
                 }, $items),
             );
