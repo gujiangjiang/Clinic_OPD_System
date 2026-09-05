@@ -61,6 +61,22 @@ Clinic.docTools = (function () {
         return n < 10 ? '00' + n : (n < 100 ? '0' + n : '' + n);
     }
 
+    /* ==================== 悬浮窗模式记忆（精简版/完整版，跟随医生本地持久化） ====================
+       用 localStorage 按医生 uid 保存，退出登录/重启浏览器后仍记住所选版本 */
+    function readCallPopMode() {
+        try {
+            var sv = JSON.parse(localStorage.getItem('clinic_doc_callpop_mode') || 'null');
+            var u = document.body.getAttribute('data-uid') || '';
+            return (sv && String(sv.u) === u && sv.mode === 'mini') ? 'mini' : 'full';
+        } catch (e) { return 'full'; }
+    }
+    function saveCallPopMode(mode) {
+        try {
+            localStorage.setItem('clinic_doc_callpop_mode',
+                JSON.stringify({ u: document.body.getAttribute('data-uid') || '', mode: mode === 'mini' ? 'mini' : 'full' }));
+        } catch (e) { /* 忽略 */ }
+    }
+
     /* ==================== 初始化 ==================== */
     function init() {
         // 恢复本次登录会话已绑定的大屏（sessionStorage），心跳由全局 room_heartbeat.js 维持
@@ -369,8 +385,9 @@ Clinic.docTools = (function () {
     function openCallPop() {
         if (!ROOM_BOUND || !ROOM_BOUND.id) { toggleRoomList(); return; }
         if (callPopEl()) return;
+        var mini = readCallPopMode() === 'mini';
         var pop = document.createElement('div');
-        pop.className = 'doc-call-pop';
+        pop.className = 'doc-call-pop' + (mini ? ' doc-call-mini' : '');
         pop.id = 'docCallPop';
         var pos = readCallPopPos();
         if (pos) {
@@ -380,10 +397,25 @@ Clinic.docTools = (function () {
             pop.style.right = '16px';
             pop.style.bottom = '64px';
         }
-        pop.innerHTML =
-            '<div class="doc-call-pop-head">' +
+        pop.innerHTML = mini ? miniPopHtml() : fullPopHtml();
+        document.body.appendChild(pop);
+        saveCallPopOpen(true);
+        CALL_POOL_LIMIT = 20;   // 重新打开时重置号源池加载量
+        bindCallPopDrag(pop);
+        bindCallPopActions(pop);
+        refreshCallPanel();
+        if (CALL_POP_TIMER) clearInterval(CALL_POP_TIMER);
+        CALL_POP_TIMER = setInterval(refreshCallPanel, 10000);
+    }
+
+    /* 完整版悬浮窗 HTML（当前就诊/下一位/叫号按钮/完整号源列表/解绑） */
+    function fullPopHtml() {
+        return '<div class="doc-call-pop-head">' +
             '  <span class="doc-call-pop-title">📢 叫号 · ' + Clinic.escHtml(ROOM_BOUND.name || '') + '</span>' +
-            '  <span class="doc-call-pop-x" title="收起">—</span>' +
+            '  <span class="doc-call-pop-tools">' +
+            '    <span class="doc-call-pop-x" data-act="mini" title="切换精简模式">⤢</span>' +
+            '    <span class="doc-call-pop-x" data-act="hide" title="收起">—</span>' +
+            '  </span>' +
             '</div>' +
             '<div class="doc-call-pop-body">' +
             '  <div class="doc-call-block">' +
@@ -406,17 +438,36 @@ Clinic.docTools = (function () {
             '  </div>' +
             '  <div class="doc-call-foot">' +
             '    <span class="doc-call-status" id="dcpStatus"></span>' +
-            '    <button type="button" class="btn btn-outline btn-sm" id="dcpUnbind">解绑大屏</button>' +
+            '    <button type="button" class="btn btn-outline btn-sm" data-act="unbind">解绑大屏</button>' +
             '  </div>' +
             '</div>';
-        document.body.appendChild(pop);
-        saveCallPopOpen(true);
-        CALL_POOL_LIMIT = 20;   // 重新打开时重置号源池加载量
-        bindCallPopDrag(pop);
-        bindCallPopActions(pop);
-        refreshCallPanel();
-        if (CALL_POP_TIMER) clearInterval(CALL_POP_TIMER);
-        CALL_POP_TIMER = setInterval(refreshCallPanel, 10000);
+    }
+
+    /* 精简版悬浮窗 HTML：标题（恢复/解绑/最小化）+ 当前就诊 + 下一位 + 三个叫号按钮 */
+    function miniPopHtml() {
+        return '<div class="doc-call-pop-head">' +
+            '  <span class="doc-call-pop-title">📢 ' + Clinic.escHtml(ROOM_BOUND.name || '') + '</span>' +
+            '  <span class="doc-call-pop-tools">' +
+            '    <span class="doc-call-pop-x" data-act="restore" title="恢复完整叫号悬浮窗">⤢</span>' +
+            '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">🔓</span>' +
+            '    <span class="doc-call-pop-x" data-act="hide" title="最小化（点击顶栏「叫号」按钮重新打开）">—</span>' +
+            '  </span>' +
+            '</div>' +
+            '<div class="doc-call-pop-body doc-call-mini-body">' +
+            '  <div class="doc-call-mini-row">' +
+            '    <span class="doc-call-mini-label">当前</span>' +
+            '    <span class="doc-call-mini-val" id="dcpCur">—</span>' +
+            '  </div>' +
+            '  <div class="doc-call-mini-row">' +
+            '    <span class="doc-call-mini-label">下一位</span>' +
+            '    <span class="doc-call-mini-val" id="dcpNext">—</span>' +
+            '  </div>' +
+            '  <div class="doc-call-actions">' +
+            '    <button type="button" class="btn btn-outline btn-sm" id="dcpRepeat" title="重复呼叫当前就诊患者">🔁 重呼</button>' +
+            '    <button type="button" class="btn btn-warning btn-sm" id="dcpMiss" title="过号并自动呼叫下一位">⏭ 过号</button>' +
+            '    <button type="button" class="btn btn-primary btn-sm" id="dcpNextBtn" title="呼叫下一位患者并打开其病历">⬇ 下一位</button>' +
+            '  </div>' +
+            '</div>';
     }
 
     function closeCallPop() {
@@ -454,9 +505,16 @@ Clinic.docTools = (function () {
     }
 
     function bindCallPopActions(pop) {
-        pop.querySelector('.doc-call-pop-x').addEventListener('click', closeCallPop);
-        pop.querySelector('#dcpUnbind').addEventListener('click', function () {
-            if (ROOM_BOUND) unbindRoom(ROOM_BOUND.id);
+        // 标题栏/底部操作按钮统一走 data-act：mini（进精简）/ restore（恢复完整）/
+        // unbind（解绑大屏）/ hide（收起·最小化，点击顶栏「叫号」重新打开）
+        pop.querySelectorAll('[data-act]').forEach(function (b) {
+            b.addEventListener('click', function () {
+                var act = b.getAttribute('data-act');
+                if (act === 'mini') switchCallPopMode('mini');
+                else if (act === 'restore') switchCallPopMode('full');
+                else if (act === 'unbind') { if (ROOM_BOUND) unbindRoom(ROOM_BOUND.id); }
+                else closeCallPop();
+            });
         });
         pop.querySelector('#dcpNextBtn').addEventListener('click', doCallNext);
         pop.querySelector('#dcpMiss').addEventListener('click', doCallMiss);
@@ -470,6 +528,13 @@ Clinic.docTools = (function () {
                 }
             });
         }
+    }
+
+    /* 切换悬浮窗模式（精简版/完整版），保存医生记忆并立即按新版本重建 */
+    function switchCallPopMode(mode) {
+        saveCallPopMode(mode);
+        closeCallPop();
+        openCallPop();
     }
 
     /* 号源池分段加载：滚动到末尾时每次多加载 20 条（上限 200） */
@@ -566,8 +631,9 @@ Clinic.docTools = (function () {
             return;
         }
         var cur = d.current, next = d.next;
+        var isMini = pop.classList.contains('doc-call-mini');
         var titleEl = pop.querySelector('.doc-call-pop-title');
-        if (titleEl) titleEl.textContent = '📢 叫号 · ' + (d.room && d.room.name ? d.room.name : '');
+        if (titleEl) titleEl.textContent = (isMini ? '📢 ' : '📢 叫号 · ') + (d.room && d.room.name ? d.room.name : '');
         var curEl = pop.querySelector('#dcpCur');
         var curSubEl = pop.querySelector('#dcpCurSub');
         if (curEl) {
