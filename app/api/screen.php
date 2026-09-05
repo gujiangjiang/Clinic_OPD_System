@@ -69,11 +69,11 @@ function screen_payload($room) {
         }
         // 转诊标记：挂号科室与当前就诊科室不一致 => 转诊患者（序号需显示完整 + 转标记）
         $isTransfer = !empty($r['first_dept_id']) && (int)$r['first_dept_id'] !== $deptId;
-        // 脱敏开启时不下发 raw_name（语音播报改用脱敏名），杜绝公开大屏泄露患者全名；
-        // 脱敏关闭时才保留原始姓名供语音/显示使用
+        // 大屏文字（name）按脱敏设置显示；语音播报（raw_name）始终使用真实全名——
+        // 脱敏仅作用于屏幕文字，语音呼叫全名避免「张*三 请到 XX 诊室」的怪异播报
         return array(
             'name' => $nm,
-            'raw_name' => $mask ? $nm : $rawName,
+            'raw_name' => $rawName,
             'gender' => $r['pgender'],
             'age_fmt' => age_format($r['pbirth'], $r['registered_at']),
             'visit_seq' => (int)$r['visit_seq'], 'flow_no' => $r['flow_no'],
