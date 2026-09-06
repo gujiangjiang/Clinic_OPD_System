@@ -1153,13 +1153,13 @@ diagnoses: [],
      * 1) 开单所属病历（record_id）=== 当前编辑病历（record_id）；
      * 2) 开单人 === 当前登录医生；
      * 3) 当前病历处于可编辑状态（未诊毕 / 未会诊锁只读）；
-     * 4) 开单未缴费（open）或已退费（refunded）。
+     * 4) 开单未缴费（open）——已缴费/已退费项目保留财务与病历追溯，不可删除。
      * 任一项不符一律不显示删除按钮（后端 delete 同步硬校验）。
      */
     function canDeleteOrder(o) {
         if (!o) return false;
         if (!Clinic.emr.isMyOrder(o)) return false;
-        if (o.status !== 'open' && o.status !== 'refunded') return false;
+        if (o.status !== 'open') return false;
         // SSOT 能力门控：后端派生 can_delete_order（诊毕/会诊锁/跨科/转科熔断）
         if (window.Clinic && Clinic.emr.rules && !Clinic.emr.rules.canDeleteOrder()) return false;
         // 病历ID强关联：开单所属病历必须等于当前活跃容器（归属判定）
@@ -2029,7 +2029,7 @@ diagnoses: [],
     }
 
     /** 检查/检验/处置三栏共用填充：状态灯 + 点击详情弹窗 + 开单医生靠右；
-     *  行内删除按钮仅本人开具且未缴费/已退费的单子显示（复用 delOrderFlow）；
+     *  行内删除按钮仅本人开具且未缴费（open）的单子显示（复用 delOrderFlow）；
      *  已退费项目保留展示（法律快照），以 navDot 深灰圆点区分（不显示文字） */
     function fillTypeNav(elId, arr, label) {
         var el = document.getElementById(elId);

@@ -34,9 +34,11 @@ function order_part_delete($u) {
     }
     $items = OrderRepository::q('SELECT * FROM order_items WHERE order_id=?', array($orderId));
     foreach ($items as $it) {
-        // 允许删除：未缴费（open）或已退费（refunded）
-        if (!in_array($it['status'], array('open', 'refunded'), true)) {
-            json_fail('该开单已进入执行流程，不能删除（如需删除请先在收费处退费）');
+        // 仅允许删除未缴费（open）开单：已退费（refunded）项目保留完整财务/病历追溯，
+        // 物理删除会切断 payments/refunds 关联并使病历快照（以 orders 表为准）丢失，
+        // 违背「病历客观记录开单事实」的承诺
+        if ($it['status'] !== 'open') {
+            json_fail('该开单已缴费或已进入执行流程，不能删除（已缴费项目请在收费处退费后保留记录）');
         }
     }
     // 数据变更（库存恢复 + 级联删除）为复合写操作：原生事务保证原子性
