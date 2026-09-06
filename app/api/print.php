@@ -26,6 +26,14 @@ function print_guard($visit, $allowedRoles) {
     }
     // 收费员打印凭条不受科室限制（全院收费）
     if ($u['role'] === 'cashier') return;
+    // 医技角色（护士/检验/影像/药房）：未绑定科室 = 全院放行；已绑科室须匹配就诊科室
+    if (in_array($u['role'], array('nurse', 'lab', 'imaging', 'pharmacy'), true)) {
+        $myDepts = user_dept_ids($u);
+        if (!$myDepts) return;
+        $visitDept = (int)(isset($visit['current_dept_id']) ? $visit['current_dept_id'] : 0);
+        if ($visitDept <= 0 || in_array($visitDept, $myDepts, true)) return;
+        json_fail('无权打印该就诊的单据');
+    }
     if (!visit_dept_authorized($visit, $u)) {
         json_fail('无权打印该就诊的单据');
     }
@@ -97,6 +105,7 @@ switch ($action) {
     /* ---------------- 申请单 / 处方单 / 处置单 ---------------- */
     case 'order':
         // 支持批量：检查申请单按分类拆分后，一次性打印多张（order_ids=1,2,3）
+        // 医技角色（护士/检验/影像/药房）可预览（只读模态框），管理员打印中心不受限
         $idsRaw = trim((string)get('order_ids', ''));
         if ($idsRaw !== '') {
             $orderIds = array_values(array_unique(array_filter(did_list($idsRaw), function ($v) { return $v > 0; })));
@@ -112,7 +121,7 @@ switch ($action) {
             // 按就诊归属校验
             $orderVisit = EmrRepository::one('SELECT * FROM registrations WHERE id=?', array($order['visit_id']));
             if (!$orderVisit) json_fail('就诊记录不存在');
-            print_guard($orderVisit, array('doctor'));
+            print_guard($orderVisit, array('doctor', 'nurse', 'lab', 'imaging', 'pharmacy'));
             $items = EmrRepository::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($orderId));
             // 检查申请单标题动态化：显示「{检查分类}申请单」（如 CT申请单 / DR（数字化X线）申请单）
             $title = isset($titles[$order['order_type']]) ? $titles[$order['order_type']] : '申请单';
@@ -176,7 +185,7 @@ switch ($action) {
     case 'record':
         $row = get_visit_row(did(get('visit_id')));
         if (!$row) json_fail('就诊记录不存在');
-        print_guard($row['visit'], array('doctor'));
+        print_guard($row['visit'], array('doctor', 'nurse', 'lab', 'imaging', 'pharmacy'));
         $visit = $row['visit'];
         $visit = decorate_visit_patient($visit, $row['patient']);
         $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));

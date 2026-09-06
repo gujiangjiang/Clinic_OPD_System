@@ -13,7 +13,7 @@ window.Clinic = window.Clinic || {};
 
 Clinic.print = (function () {
     /** 预览层元素 */
-    let preview = null;
+    let previewEl = null;
 
     /** 当前自动打印偏好：内存态实时读写；
      *  初始值来自服务端注入的 body[data-print-auto]，
@@ -46,20 +46,20 @@ Clinic.print = (function () {
         // 关闭已有预览
         close();
 
-        preview = document.createElement('div');
-        preview.className = 'print-preview' + (sheet ? ' sheet-' + sheet : '');
+        previewEl = document.createElement('div');
+        previewEl.className = 'print-preview' + (sheet ? ' sheet-' + sheet : '');
         // 打印内容防复制：整个预览层（含单据正文与工具栏）禁右键/
         // 选择/拖拽/复制——单据含患者隐私，预览层外不受影响
-        preview.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-        preview.addEventListener('selectstart', function (e) { e.preventDefault(); });
-        preview.addEventListener('dragstart', function (e) { e.preventDefault(); });
-        preview.addEventListener('copy', function (e) { e.preventDefault(); });
+        previewEl.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+        previewEl.addEventListener('selectstart', function (e) { e.preventDefault(); });
+        previewEl.addEventListener('dragstart', function (e) { e.preventDefault(); });
+        previewEl.addEventListener('copy', function (e) { e.preventDefault(); });
         // 结构说明：遮罩（含 backdrop-filter 虚化）与滚动内容分层、工具栏为兄弟节点。
         // 关键：backdrop-filter 会把后代 position:fixed 的定位基准降级为该祖先，
         // 若工具栏放在带虚化的元素内部就会跟着内容一起滚动——
         // 因此虚化只放在兄弟层 .pp-backdrop 上，工具栏祖先链无任何 filter，
         // 其 fixed 定位始终相对视口，实现真正固定悬浮。
-        preview.innerHTML =
+        previewEl.innerHTML =
             '<div class="pp-backdrop"></div>' +
             '<div class="pp-scroll">' +
             '<div id="print-area" class="print-area">' + html + '</div>' +
@@ -77,17 +77,17 @@ Clinic.print = (function () {
 
         // A5 固定纸张：手动分页——每页固定「页眉+正文+页脚」，预览即所得
         if (sheet === 'a5') {
-            paginateSheetA5();
+            paginateSheetA5(document.getElementById('print-area'));
         }
 
         // 绑定工具栏
-        preview.querySelector('[data-act="close"]').addEventListener('click', close);
-        preview.querySelector('[data-act="do"]').addEventListener('click', function () {
+        previewEl.querySelector('[data-act="close"]').addEventListener('click', close);
+        previewEl.querySelector('[data-act="do"]').addEventListener('click', function () {
             window.print();
         });
 
         // 自动打印偏好（服务端 users.print_auto，跟随用户跨设备生效）
-        var autoChk = preview.querySelector('[data-act="auto"]');
+        var autoChk = previewEl.querySelector('[data-act="auto"]');
         autoChk.checked = readAutoPref();
         autoChk.addEventListener('change', function () {
             saveAutoPref(autoChk.checked);
@@ -103,7 +103,7 @@ Clinic.print = (function () {
 
         // 允许 ESC 关闭
         document.addEventListener('keydown', escHandler);
-        return preview;
+        return previewEl;
     }
 
     /**
@@ -123,6 +123,48 @@ Clinic.print = (function () {
                 }
             },
         });
+    }
+
+    /**
+     * 只读打印预览模态框（不可打印 / 不可交互，仅关闭）：
+     * 复用打印模板的 HTML（含 A5 分页），在 modal-xl 中展示。
+     * 供护士站查看完整病历 / 处置单 / 处方等场景复用。
+     * @param {string} url        内容接口地址
+     * @param {object} [data]     参数
+     * @param {string} [title]    模态框标题（缺省「预览」）
+     */
+    function preview(url, data, title) {
+        var mask = Clinic.modal.open(
+            '<div class="text-center" style="padding:30px"><div class="spinner" style="border-top-color:var(--primary)"></div></div>',
+            { title: title || '预览', size: 'modal-xl', buttons: [{ text: '关闭', cls: 'btn-primary' }] }
+        );
+        var body = mask.querySelector('.modal-body');
+        body.style.overflow = 'auto';
+        body.style.padding = '0';
+        body.style.background = 'var(--bg-soft, #f1f5f9)';
+        Clinic.ajax(url, data, {
+            loading: false,
+            onSuccess: function (json) {
+                if (!(json.data && json.data.html)) {
+                    body.innerHTML = '<div class="empty" style="padding:40px">内容获取失败</div>';
+                    return;
+                }
+                var wrap = document.createElement('div');
+                wrap.className = 'print-preview sheet-a5 print-preview-in-modal';
+                wrap.innerHTML = '<div id="print-area" class="print-area">' + json.data.html + '</div>';
+                body.appendChild(wrap);
+                // A5 分页（病历 / 申请单 / 处方等 print-record-doc 文档）
+                try { paginateSheetA5(wrap.querySelector('#print-area')); } catch (e) { /* 分页失败保持单页 */ }
+                // 只读预览：禁右键 / 选择 / 复制（同打印预览层，防拷贝患者隐私）
+                ['contextmenu', 'selectstart', 'dragstart', 'copy'].forEach(function (ev) {
+                    wrap.addEventListener(ev, function (e) { e.preventDefault(); });
+                });
+            },
+            onError: function () {
+                body.innerHTML = '<div class="empty" style="padding:40px">内容加载失败</div>';
+            },
+        });
+        return mask;
     }
 
     /**
@@ -158,9 +200,9 @@ Clinic.print = (function () {
      * 关闭打印预览
      */
     function close() {
-        if (preview) {
-            preview.remove();
-            preview = null;
+        if (previewEl) {
+            previewEl.remove();
+            previewEl = null;
             document.removeEventListener('keydown', escHandler);
             var st = document.getElementById('printPageSize');
             if (st) st.remove();
@@ -181,10 +223,11 @@ Clinic.print = (function () {
      * 页码跨文档连续累计（第 X 页 / 共 Y 页）。
      * 多页病历自第 2 页起使用精简页眉（患者信息压缩为两行，标题不变）。
      * 屏幕预览与打印输出同构（所见即所得）。
+     * @param {HTMLElement} [areaEl] 目标打印容器（缺省取 #print-area）
      */
-    function paginateSheetA5() {
+    function paginateSheetA5(areaEl) {
         try {
-            var area = document.getElementById('print-area');
+            var area = areaEl || document.getElementById('print-area');
             // 收集待分页的单据文档：多份时逐份处理
             var docs = Array.prototype.slice.call(area.querySelectorAll('.print-record-doc'));
             if (!docs.length && area.firstElementChild) docs = [area.firstElementChild];
@@ -463,5 +506,5 @@ Clinic.print = (function () {
             // 分页失败时保持原始单页渲染，不影响打印
         }
     }
-    return { open: open, load: load, close: close };
+    return { open: open, load: load, close: close, preview: preview };
 })();

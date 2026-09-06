@@ -73,6 +73,21 @@
     font-size: 13px;
 }
 
+/* 模态框只读预览：复用 A5 排版作用域（print-preview sheet-a5），
+   但去除全屏 fixed 定位，改由模态框 body 内滚动展示 */
+.print-preview.print-preview-in-modal {
+    position: static;
+    inset: auto;
+    z-index: auto;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+}
+.print-preview.print-preview-in-modal .print-area {
+    margin: 12px auto;
+    padding: 24px;
+}
 /* ---------- 单据通用排版 ---------- */
 .print-area h1 {
     text-align: center;
