@@ -337,6 +337,10 @@ switch ($action) {
         if (!$row) json_fail('就诊记录不存在');
         // 护士科室归属校验（宽松：未绑定科室=全院放行；已绑科室须匹配就诊科室）
         if (!nurse_visit_allowed($row['visit'], $u)) json_fail('无权限删除该就诊的护理记录');
+        // 创建人归属校验：仅录入人本人可删除（管理员兜底），防止护士删除他人护理记录
+        if ($u['role'] !== 'admin' && (string)$nr['operator'] !== (string)$u['name']) {
+            json_fail('仅录入人本人可删除该护理记录');
+        }
         EmrRepository::exec('DELETE FROM nursing_records WHERE id=?', array($id));
         json_ok(array(), '护理记录已删除');
         break;

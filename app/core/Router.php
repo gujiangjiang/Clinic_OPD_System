@@ -151,6 +151,8 @@ class Router {
                 header('Location: /login');
                 exit;
             }
+            // assertActive 可能已同步刷新会话快照中的角色/科室，重新读取以最新为准
+            $u = Auth::user();
             // ===== ③ 角色门：无关角色直接访问他人页面 → 403 =====
             if (!in_array('user', $route[1], true) && !in_array($u['role'], $route[1], true) && $u['role'] !== 'admin') {
                 self::forbidden();

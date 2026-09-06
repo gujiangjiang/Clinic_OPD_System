@@ -32,20 +32,27 @@ class Auth {
      * 实时校验当前会话用户仍存在且启用。
      * 会话快照可能滞后：管理员停用(status=0)或删除用户后，既有会话
      * 若不校验，其全部接口/页面仍可用。此处按用户 ID 实时读库，
-     * 失活即强制登出并返回 false。
+     * 失活即强制登出并返回 false；同时将角色/关联科室实时同步回会话快照，
+     * 保证管理员降权 / 移除科室授权后既有会话即时生效（不残留原权限）。
      * @return bool 是否仍为有效启用用户
      */
     public static function assertActive() {
         $u = self::user();
         if (!$u) return false;
         try {
-            $row = DB::one('SELECT id, status FROM users WHERE id=?', array((int)$u['id']));
+            $row = DB::one('SELECT id, status, role, dept_ids FROM users WHERE id=?', array((int)$u['id']));
         } catch (Exception $ex) {
             return false;
         }
         if (!$row || (int)$row['status'] !== 1) {
             self::logout();
             return false;
+        }
+        // 权限字段实时刷新（角色 / 关联科室）
+        foreach (array('role', 'dept_ids') as $f) {
+            if ((string)(isset($u[$f]) ? $u[$f] : '') !== (string)(isset($row[$f]) ? $row[$f] : '')) {
+                $_SESSION['auth_user'][$f] = $row[$f];
+            }
         }
         return true;
     }
