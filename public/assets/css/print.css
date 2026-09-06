@@ -720,6 +720,28 @@
     overflow: hidden;
 }
 .lr-doc { position: relative; }
+/* 打印：横向 A5 固定纸张，与画布同尺寸；页间强制分页、仅最后一页不追加 */
+@media print {
+    .print-preview.sheet-lr .lr-sheet {
+        width: 210mm !important;
+        height: 147.5mm !important;
+        min-height: 147.5mm !important;
+        max-height: 147.5mm !important;
+        padding: 7mm 9mm 6mm !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        page-break-after: always;
+        break-after: page;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .print-preview.sheet-lr .lr-sheet:last-child {
+        page-break-after: auto;
+        break-after: auto;
+    }
+    .print-preview.sheet-lr .lr-result { min-height: 0; }
+}
 /* 抬头：医院名称（+第二名称两端对齐）与「检验报告单」同行整体居中 */
 .lr-titleline {
     display: flex;

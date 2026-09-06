@@ -148,7 +148,7 @@ Clinic.print = (function () {
         var colheadH = colhead ? measure(colhead.cloneNode(true)) : 0;
         meas.remove();
 
-        var avail = innerH - headH - footH;
+        var avail = innerH - headH - footH - 5;
         if (avail <= 0) avail = 40;
         var capPerCol = rowH > 0 ? Math.max(1, Math.floor((avail - colheadH) / rowH)) : 1;
         // 单列放不下 → 双列（每页容量 = 2×capPerCol）
