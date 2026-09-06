@@ -6,12 +6,14 @@
  * 说明：采用与医生工作站一致的「顶部患者信息横条 + 左侧候诊列表 +
  * 主工作区」布局（公共骨架见 app/includes/dept_workbench.php，
  * 公共交互见 deptwork.js）：
- *   候诊列表页签：待处置 / 完成 / 当日；点击患者弹出护理记录单页面：
- *   ① 护理记录（查看 + 新增）② 病历摘要（只读：主诉/现病史/既往史/
- *   过敏史/查体/初步诊断）③ 生命体征趋势图 + 手动录入 ④ 待处理处置
- *   / 待执行医嘱操作。
+ *   候诊列表页签：待处置 / 完成（互斥单选）+ 当日（叠加）；点击患者
+ *   弹出护理记录单页面：① 护理记录 ② 病历摘要（只读 + 查看完整病历
+ *   预览）③ 生命体征趋势 + 录入悬浮窗 ④ 待处理处置（医嘱单号可点击
+ *   预览处置单）⑤ 待执行医嘱（处方号可点击预览处方）。
+ *   各区块操作后仅局部刷新，不重建整页（保持滚动位置）。
  * 数据接口：/api/deptwork（queue/patient）+ /api/nurse（nursing_list/
- * nursing_add、vitals、save_vitals、complete、med_start、med_done）。
+ * nursing_add、vitals、save_vitals、complete、med_start、med_done）
+ * + /api/print（record/order 只读预览）。
  * ============================================================ */
 require APP_ROOT . '/app/includes/dept_workbench.php';
 dept_workbench(array(
@@ -26,21 +28,37 @@ dept_workbench(array(
 Clinic.deptwork.configure({
     role: 'nurse',
     render: renderNurseWork,
-    afterAction: afterNurseAction,
+    afterAction: function () { Clinic.deptwork.refreshQueue(); },
 });
 
 var CUR_VISIT = '';   // 当前患者混淆码（体征/护理/处置操作回传）
-
-function afterNurseAction() {
-    Clinic.deptwork.reloadPatient();
-    Clinic.deptwork.refreshQueue();
-}
 
 function esc(s) { return Clinic.escHtml(s); }
 function nl2br(s) { return (s || '').replace(/\n/g, '<br>'); }
 function itemStatusName(s) {
     var map = { paid: '待执行', dispensing: '执行中', done: '已完成', dispensed: '已执行', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
     return map[s] || s;
+}
+function itemStatusBadge(s) {
+    var cls = s === 'done' || s === 'dispensed' ? 'badge-success' : (s === 'paid' || s === 'dispensing' ? 'badge-warning' : 'badge-gray');
+    return '<span class="badge ' + cls + '" style="font-size:11px">' + itemStatusName(s) + '</span>';
+}
+
+/* 链接样式（处置单号/处方号可点击） */
+function orderLink(orderId, orderNo) {
+    if (!orderId) return esc(orderNo || '—');
+    return '<a href="javascript:void(0)" style="color:var(--primary);cursor:pointer;text-decoration:underline" ' +
+        'onclick="previewOrder(\'' + esc(orderId) + '\',\'' + esc(orderNo || '') + '\')">' + esc(orderNo || '—') + '</a>';
+}
+
+/* ==================== 通用只读打印预览 ==================== */
+function previewRecord() {
+    if (!CUR_VISIT) return;
+    Clinic.print.preview('/api/print?action=record&visit_id=' + CUR_VISIT, null, '完整病历预览');
+}
+function previewOrder(orderId, orderNo) {
+    if (!orderId) return;
+    Clinic.print.preview('/api/print?action=order&order_id=' + orderId, null, '单据预览：' + (orderNo || ''));
 }
 
 /* ==================== 生命体征趋势（复用原护士站实现） ==================== */
@@ -91,41 +109,62 @@ function vitalsSection(data) {
             '<td>' + esc(r.operator || '') + '</td></tr>';
     }).join('') : '<tr><td colspan="7" class="text-muted text-center">暂无记录</td></tr>';
 
-    return '<div class="dw-nurse-sec">' +
+    return '<div class="dw-nurse-sec" id="nurseSecVitals">' +
         '<div class="dw-nurse-sec-title"><span class="emoji">📈</span>生命体征趋势</div>' + trendHtml +
         '<div class="fs-13 fw-700 mt-8 mb-4">体征历史记录</div>' +
         '<div style="max-height:180px;overflow-y:auto"><table class="table table-sm" style="font-size:12px"><thead><tr>' +
         '<th>时间</th><th>血压</th><th>心率</th><th>脉搏</th><th>血氧</th><th>呼吸</th><th>录入人</th></tr></thead><tbody>' +
         histRows + '</tbody></table></div>' +
-        '<div class="fs-13 fw-700 mt-8 mb-4">手动录入生命体征</div>' +
-        '<div class="form-row">' +
-        '<div class="form-group"><label class="form-label">收缩压（mmHg）</label><input class="input" id="vSys" type="number" min="0" placeholder="收缩压"></div>' +
-        '<div class="form-group"><label class="form-label">舒张压（mmHg）</label><input class="input" id="vDia" type="number" min="0" placeholder="舒张压"></div></div>' +
-        '<div class="form-row">' +
-        '<div class="form-group"><label class="form-label">心率（次/分）</label><input class="input" id="vHR" placeholder="心率"></div>' +
-        '<div class="form-group"><label class="form-label">脉搏（次/分）</label><input class="input" id="vPulse" placeholder="脉搏"></div></div>' +
-        '<div class="form-row">' +
-        '<div class="form-group"><label class="form-label">血氧饱和度（%）</label><input class="input" id="vSpO2" placeholder="血氧"></div>' +
-        '<div class="form-group"><label class="form-label">呼吸（次/分）</label><input class="input" id="vRR" placeholder="呼吸"></div></div>' +
-        '<div class="fs-12 text-muted">每次保存将新增一条体征记录，医生工作站病历将自动同步显示。</div>' +
-        '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" id="vSaveBtn">💾 保存体征</button></div>' +
+        '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" onclick="openVitalsModal()">🌡️ 录入生命体征</button></div>' +
         '</div>';
 }
 
-function saveVitals() {
-    Clinic.ajax('/api/nurse', {
-        action: 'save_vitals',
-        visit_id: CUR_VISIT,
-        vital_sbp: parseInt(document.getElementById('vSys').value, 10) || 0,
-        vital_dbp: parseInt(document.getElementById('vDia').value, 10) || 0,
-        vital_heart_rate: (document.getElementById('vHR') || {}).value || '',
-        vital_pulse: (document.getElementById('vPulse') || {}).value || '',
-        vital_spo2: (document.getElementById('vSpO2') || {}).value || '',
-        vital_respiration: (document.getElementById('vRR') || {}).value || '',
-    }, {
+/* 生命体征录入悬浮窗（复用已有录入逻辑，弹窗内输入，保存后局部刷新） */
+function openVitalsModal() {
+    Clinic.get('/api/nurse?action=vitals&visit_id=' + CUR_VISIT, null, {
         onSuccess: function (json) {
-            Clinic.toast.success(json.msg);
-            afterNurseAction();
+            var v = json.data.vitals || {};
+            var val = function (x) { return x || ''; };
+            Clinic.modal.open(
+                '<div class="form-row">' +
+                '<div class="form-group"><label class="form-label">收缩压（mmHg）</label><input class="input" id="vSys" type="number" min="0" value="' + val(v.vital_sbp) + '"></div>' +
+                '<div class="form-group"><label class="form-label">舒张压（mmHg）</label><input class="input" id="vDia" type="number" min="0" value="' + val(v.vital_dbp) + '"></div></div>' +
+                '<div class="form-row">' +
+                '<div class="form-group"><label class="form-label">心率（次/分）</label><input class="input" id="vHR" value="' + val(v.vital_heart_rate) + '"></div>' +
+                '<div class="form-group"><label class="form-label">脉搏（次/分）</label><input class="input" id="vPulse" value="' + val(v.vital_pulse) + '"></div></div>' +
+                '<div class="form-row">' +
+                '<div class="form-group"><label class="form-label">血氧饱和度（%）</label><input class="input" id="vSpO2" value="' + val(v.vital_spo2) + '"></div>' +
+                '<div class="form-group"><label class="form-label">呼吸（次/分）</label><input class="input" id="vRR" value="' + val(v.vital_respiration) + '"></div></div>' +
+                '<div class="fs-12 text-muted">每次保存将新增一条体征记录，医生工作站病历将自动同步显示。</div>',
+                {
+                    title: '🌡️ 录入生命体征',
+                    size: 'modal-md',
+                    buttons: [
+                        { text: '取消', cls: 'btn-outline' },
+                        {
+                            text: '💾 保存', cls: 'btn-primary', autoClose: false,
+                            onClick: function () {
+                                Clinic.ajax('/api/nurse', {
+                                    action: 'save_vitals',
+                                    visit_id: CUR_VISIT,
+                                    vital_sbp: parseInt(document.getElementById('vSys').value, 10) || 0,
+                                    vital_dbp: parseInt(document.getElementById('vDia').value, 10) || 0,
+                                    vital_heart_rate: (document.getElementById('vHR') || {}).value || '',
+                                    vital_pulse: (document.getElementById('vPulse') || {}).value || '',
+                                    vital_spo2: (document.getElementById('vSpO2') || {}).value || '',
+                                    vital_respiration: (document.getElementById('vRR') || {}).value || '',
+                                }, {
+                                    onSuccess: function (j) {
+                                        Clinic.toast.success(j.msg);
+                                        Clinic.modal.close();
+                                        refreshNurseSec('Vitals');
+                                    },
+                                });
+                            },
+                        },
+                    ],
+                }
+            );
         },
     });
 }
@@ -138,11 +177,11 @@ function nursingSection(data) {
             '<div class="fs-13">' + nl2br(esc(r.content)) + '</div>' +
             '<div class="fs-12 text-muted mt-4">' + esc(r.operator) + ' ｜ ' + esc(r.created_at) + '</div></div>';
     }).join('') : '<div class="fs-13 text-muted">暂无护理记录</div>';
-    return '<div class="dw-nurse-sec">' +
+    return '<div class="dw-nurse-sec" id="nurseSecNursing">' +
         '<div class="dw-nurse-sec-title"><span class="emoji">📝</span>护理记录</div>' + rows +
         '<div class="form-group mt-8"><label class="form-label">新增护理记录</label>' +
         '<textarea class="textarea" id="nursingContent" rows="2" placeholder="如：测量体温36.5℃，患者生命体征平稳"></textarea></div>' +
-        '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" id="nursingAddBtn">➕ 添加护理记录</button></div>' +
+        '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" onclick="addNursing()">➕ 添加护理记录</button></div>' +
         '</div>';
 }
 
@@ -151,21 +190,22 @@ function addNursing() {
     content = content.trim();
     if (!content) { Clinic.toast.warning('请输入护理记录内容'); return; }
     Clinic.ajax('/api/nurse', { action: 'nursing_add', visit_id: CUR_VISIT, content: content }, {
-        onSuccess: function (json) {
-            Clinic.toast.success(json.msg);
-            afterNurseAction();
+        onSuccess: function (j) {
+            Clinic.toast.success(j.msg);
+            // 局部刷新护理记录区块，不重建整页
+            refreshNurseSec('Nursing');
         },
     });
 }
 
-/* ==================== 病历摘要（只读） ==================== */
+/* ==================== 病历摘要（只读）+ 查看完整病历 ==================== */
 function summarySection(data) {
     var s = data.summary || {};
     var grid = function (label, value) {
         return '<div class="item"><span class="label">' + label + '</span><span class="value">' + (value ? esc(value) : '—') + '</span></div>';
     };
-    return '<div class="dw-nurse-sec">' +
-        '<div class="dw-nurse-sec-title"><span class="emoji">📋</span>病历摘要（只读）</div>' +
+    return '<div class="dw-nurse-sec" id="nurseSecSummary">' +
+        '<div class="dw-nurse-sec-title"><span class="emoji">📋</span>病历摘要</div>' +
         '<div class="dw-nurse-grid">' +
         grid('主诉', s.chief_complaint) +
         grid('现病史', s.present_illness) +
@@ -173,7 +213,9 @@ function summarySection(data) {
         grid('过敏史', s.allergy_history) +
         grid('查体', s.physical_exam) +
         grid('初步诊断', s.diagnosis) +
-        '</div></div>';
+        '</div>' +
+        '<div class="dw-report-actions"><button class="btn btn-outline btn-sm" onclick="previewRecord()">📋 查看完整病历</button></div>' +
+        '</div>';
 }
 
 /* ==================== 待处理处置 / 待执行医嘱 ==================== */
@@ -186,13 +228,11 @@ function procSection(data) {
         });
     });
     var rows = '';
-    var hasTodo = false;
     items.forEach(function (e) {
         var it = e.it, o = e.o;
-        if (it.status === 'paid' || it.status === 'done') hasTodo = true;
         rows += '<tr>' +
             '<td class="fw-600">' + esc(it.item_name) + ' ×' + it.quantity + '</td>' +
-            '<td>' + esc(o.order_no) + '</td>' +
+            '<td>' + orderLink(o.order_id, o.order_no) + '</td>' +
             '<td>' + esc(o.doctor_name || '') + '</td>' +
             '<td class="fs-12">' + esc((it.created_at || '').substr(5, 11)) + '</td>' +
             '<td>' + itemStatusBadge(it.status) + '</td>' +
@@ -201,16 +241,12 @@ function procSection(data) {
                 : '') + '</td></tr>';
     });
     if (!rows) rows = '<tr><td colspan="6" class="text-muted text-center">暂无处置项目</td></tr>';
-    return '<div class="dw-nurse-sec">' +
-        '<div class="dw-nurse-sec-title"><span class="emoji">💉</span>处置项目' + (hasTodo ? '' : '') + '</div>' +
+    return '<div class="dw-nurse-sec" id="nurseSecProc">' +
+        '<div class="dw-nurse-sec-title"><span class="emoji">💉</span>处置项目</div>' +
+        '<div class="fs-12 text-muted mb-4">点击医嘱单号可查看处置单预览。</div>' +
         '<div class="table-wrap"><table class="table table-sm" style="font-size:12.5px"><thead><tr>' +
         '<th>处置项目</th><th>医嘱单号</th><th>开单医生</th><th>开单时间</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
         rows + '</tbody></table></div></div>';
-}
-
-function itemStatusBadge(s) {
-    var cls = s === 'done' || s === 'dispensed' ? 'badge-success' : (s === 'paid' || s === 'dispensing' ? 'badge-warning' : 'badge-gray');
-    return '<span class="badge ' + cls + '" style="font-size:11px">' + itemStatusName(s) + '</span>';
 }
 
 function medSection(data) {
@@ -226,7 +262,7 @@ function medSection(data) {
         var it = e.it, o = e.o;
         rows += '<tr>' +
             '<td class="fw-600">' + esc(it.item_name) + ' ×' + it.quantity + ' <span class="fs-12 text-muted fw-400">' + esc(it.route || '') + '</span></td>' +
-            '<td>' + esc(o.order_no) + '</td>' +
+            '<td>' + orderLink(o.order_id, o.order_no) + '</td>' +
             '<td>' + esc(o.doctor_name || '') + '</td>' +
             '<td class="fs-12">' + esc((it.created_at || '').substr(5, 11)) + '</td>' +
             '<td>' + itemStatusBadge(it.status) + '</td>' +
@@ -239,9 +275,9 @@ function medSection(data) {
             '</div></td></tr>';
     });
     if (!rows) rows = '<tr><td colspan="6" class="text-muted text-center">暂无待执行医嘱</td></tr>';
-    return '<div class="dw-nurse-sec">' +
-        '<div class="dw-nurse-sec-title"><span class="emoji">💊</span>待执行医嘱（护士站执行）</div>' +
-        '<div class="fs-12 text-muted mb-4">护士站执行的药品医嘱需药房审方发药后方可执行。</div>' +
+    return '<div class="dw-nurse-sec" id="nurseSecMed">' +
+        '<div class="dw-nurse-sec-title"><span class="emoji">💊</span>待执行医嘱</div>' +
+        '<div class="fs-12 text-muted mb-4">药房审方发药后方可执行；点击处方号可查看处方预览。</div>' +
         '<div class="table-wrap"><table class="table table-sm" style="font-size:12.5px"><thead><tr>' +
         '<th>医嘱</th><th>处方号</th><th>开单医生</th><th>开单时间</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
         rows + '</tbody></table></div></div>';
@@ -250,9 +286,11 @@ function medSection(data) {
 function completeProc(itemId) {
     Clinic.modal.confirm('确认该处置已执行完成？', function () {
         Clinic.ajax('/api/nurse', { action: 'complete', item_id: itemId }, {
-            onSuccess: function (json) {
-                Clinic.toast.success(json.msg);
-                afterNurseAction();
+            onSuccess: function (j) {
+                Clinic.toast.success(j.msg);
+                refreshNurseSec('Proc');
+                refreshNurseSide();
+                Clinic.deptwork.refreshQueue();
             },
         });
     });
@@ -260,9 +298,11 @@ function completeProc(itemId) {
 
 function medStart(itemId) {
     Clinic.ajax('/api/nurse', { action: 'med_start', item_id: itemId }, {
-        onSuccess: function (json) {
-            Clinic.toast.success(json.msg);
-            afterNurseAction();
+        onSuccess: function (j) {
+            Clinic.toast.success(j.msg);
+            refreshNurseSec('Med');
+            refreshNurseSide();
+            Clinic.deptwork.refreshQueue();
         },
     });
 }
@@ -270,20 +310,31 @@ function medStart(itemId) {
 function medDone(itemId) {
     Clinic.modal.confirm('确认该医嘱已执行完成？执行后将反馈医生工作站。', function () {
         Clinic.ajax('/api/nurse', { action: 'med_done', item_id: itemId }, {
-            onSuccess: function (json) {
-                Clinic.toast.success(json.msg);
-                afterNurseAction();
+            onSuccess: function (j) {
+                Clinic.toast.success(j.msg);
+                refreshNurseSec('Med');
+                refreshNurseSide();
+                Clinic.deptwork.refreshQueue();
             },
         });
     }, { title: '执行确认', okText: '执行完成' });
 }
 
-/* ==================== 主渲染 ==================== */
-function renderNurseWork(data) {
-    CUR_VISIT = (data.visit || {}).code || '';
-    var v = data.visit || {}, p = data.patient || {};
+/* ==================== 局部刷新（不重建整页，保持滚动位置） ==================== */
+function refreshNurseSec(name) {
+    Clinic.deptwork.fetchPatient(function (data) {
+        var map = { Nursing: nursingSection, Vitals: vitalsSection, Summary: summarySection, Proc: procSection, Med: medSection };
+        var fn = map[name];
+        var el = document.getElementById('nurseSec' + name);
+        if (fn && el) el.outerHTML = fn(data);
+    });
+}
 
-    // 右栏大纲：患者待办导航
+function refreshNurseSide() {
+    Clinic.deptwork.fetchPatient(function (data) { renderNurseSide(data); });
+}
+
+function renderNurseSide(data) {
     var procCnt = 0, medCnt = 0;
     (data.orders || []).forEach(function (o) {
         o.items.forEach(function (it) {
@@ -295,37 +346,45 @@ function renderNurseWork(data) {
         '<div class="dw-side-sec"><div class="dw-side-title">📋 病历摘要</div>' +
         '<div class="dw-side-item" onclick="scrollToSec(\'nurseSecSummary\')">主诉 / 现病史 / 诊断</div></div>' +
         '<div class="dw-side-sec"><div class="dw-side-title">📈 生命体征</div>' +
-        '<div class="dw-side-item" onclick="scrollToSec(\'nurseSecVitals\')">趋势图 / 手动录入</div></div>' +
+        '<div class="dw-side-item" onclick="scrollToSec(\'nurseSecVitals\')">趋势图 / 录入</div></div>' +
         '<div class="dw-side-sec"><div class="dw-side-title">💉 待办事项</div>' +
         '<div class="dw-side-item" onclick="scrollToSec(\'nurseSecProc\')">待处置 ' + procCnt + ' 项</div>' +
         '<div class="dw-side-item" onclick="scrollToSec(\'nurseSecMed\')">待执行医嘱 ' + medCnt + ' 项</div></div>';
+}
 
-    // 主区：护理记录单
+/* ==================== 主渲染 ==================== */
+function renderNurseWork(data) {
+    CUR_VISIT = (data.visit || {}).code || '';
+    var v = data.visit || {}, p = data.patient || {};
+    renderNurseSide(data);
+
+    // 主区：护理记录单（抬头医院名称+第二名称，患者信息两行）
     var hosp = document.body.getAttribute('data-hosp') || '';
+    var hosp2 = document.body.getAttribute('data-hosp2') || '';
     var head = '<div class="card dw-report-card"><div class="dw-report-head">' +
         '<div class="dw-report-hosp">' + esc(hosp) + '</div>' +
+        (hosp2 ? '<div class="dw-report-sub">' + esc(hosp2) + '</div>' : '') +
         '<div class="dw-report-title">护 理 记 录 单</div></div>' +
-        '<div class="dw-report-meta">' +
+        '<div class="dw-report-meta dw-report-meta-lines">' +
+        '<div class="dw-meta-line">' +
         '<span>姓名：<b>' + esc(v.name) + '</b></span>' +
         '<span>性别：' + esc(v.gender) + '</span>' +
         '<span>年龄：' + esc(v.age_fmt || '') + '</span>' +
-        '<span>患者ID：' + esc(p.patient_id) + '</span>' +
+        '<span>患者ID：' + esc(p.patient_id) + '</span></div>' +
+        '<div class="dw-meta-line">' +
         '<span>流水号：' + esc(v.visit_no) + '</span>' +
-        '<span>就诊科室：' + esc(v.dept_name || v.first_dept_name) + '</span></div></div>';
+        '<span>就诊科室：' + esc(v.dept_name || v.first_dept_name) + '</span>' +
+        '<span>就诊时间：' + esc((v.created_at || '').substr(0, 16)) + '</span></div>' +
+        '</div></div>';
 
     var body =
-        '<div id="nurseSecNursing">' + nursingSection(data) + '</div>' +
-        '<div id="nurseSecSummary">' + summarySection(data) + '</div>' +
-        '<div id="nurseSecVitals">' + vitalsSection(data) + '</div>' +
-        '<div id="nurseSecProc">' + procSection(data) + '</div>' +
-        '<div id="nurseSecMed">' + medSection(data) + '</div>';
+        nursingSection(data) +
+        summarySection(data) +
+        vitalsSection(data) +
+        procSection(data) +
+        medSection(data);
 
     document.getElementById('dwMain').innerHTML = head + body;
-
-    var vSave = document.getElementById('vSaveBtn');
-    if (vSave) vSave.onclick = saveVitals;
-    var nAdd = document.getElementById('nursingAddBtn');
-    if (nAdd) nAdd.onclick = addNursing;
 }
 
 function scrollToSec(id) {

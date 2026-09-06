@@ -735,6 +735,11 @@
 .dw-report-title { font-size: 16px; font-weight: 700; color: var(--text-muted); margin-top: 6px; border-bottom: 2px solid var(--border); padding-bottom: 12px; }
 .dw-report-meta { display: flex; flex-wrap: wrap; gap: 6px 20px; padding: 14px 24px 6px; font-size: 13px; }
 .dw-report-meta b { font-weight: 600; }
+/* 护理记录单：抬头第二名称 + 患者信息两行（急诊病历样式） */
+.dw-report-sub { text-align: center; font-size: 13px; color: var(--text-muted); letter-spacing: 1px; margin: 2px 0 4px; }
+.dw-report-meta-lines { display: block; padding: 12px 24px 6px; }
+.dw-report-meta-lines .dw-meta-line { display: flex; flex-wrap: wrap; gap: 4px 22px; font-size: 13px; padding: 3px 0; }
+.dw-report-meta-lines .dw-meta-line b { font-weight: 600; }
 .dw-report-item { padding: 14px 24px; border-top: 1px dashed var(--border); }
 .dw-report-item-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
 .dw-report-item-status { margin-left: 8px; font-size: 12px; font-weight: 400; }

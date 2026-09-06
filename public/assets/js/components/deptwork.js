@@ -154,7 +154,8 @@ Clinic.deptwork = (function () {
             onSuccess: function (json) {
                 var d = json.data;
                 renderHeader(d);
-                setStatus('患者 ' + (d.visit ? d.visit.name : '') + ' · ' + (d.visit ? d.visit.visit_no : ''));
+                // 顶部横条已显示流水号，状态位展示就诊状态，避免重复
+                setStatus('就诊状态：' + (d.visit ? visitStatusName(d.visit.status) : ''));
                 if (RENDER) RENDER(d);
             },
             onError: function () {
@@ -544,6 +545,14 @@ Clinic.deptwork = (function () {
         reloadPatient: reloadPatient,
         refreshQueue: function () { loadQueue(true); },
         currentVisit: function () { return VISIT; },
+        /** 拉取当前患者最新聚合数据（局部刷新用，不重建整页） */
+        fetchPatient: function (cb) {
+            if (!VISIT) return;
+            Clinic.get('/api/deptwork?action=patient&visit_id=' + encodeURIComponent(VISIT), null, {
+                loading: false,
+                onSuccess: function (json) { if (cb) cb(json.data); },
+            });
+        },
     };
 })();
 
