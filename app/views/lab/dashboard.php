@@ -6,11 +6,13 @@
  * 说明：采用与医生工作站一致的「顶部患者信息横条 + 左侧候诊列表 +
  * 主工作区」布局（公共骨架见 app/includes/dept_workbench.php，
  * 公共交互见 deptwork.js）：
- *   候诊列表页签：检验中 / 完成 / 当日；点击患者弹出检验结果
- *   录入列表（含计量单位/正常范围/危急值提示，组合检验逐项录入），
- *   提交自动生成报告并打印。
- * 数据接口：/api/deptwork（queue/patient）+ /api/lab（register/
- * save_result/withdraw）。
+ *   候诊列表页签：检验中 / 完成 / 当日；点击患者弹出检验报告单页：
+ *   抬头（医院名称+第二名称+检验报告单+患者信息两行）→ 按申请单号
+ *   组合的检验项目区块（整张申请单统一登记）。
+ *   结果录入：输入框位于项目右侧，失焦自动临时保存（results draft，
+ *   刷新不丢失），提交后才生成正式报告。
+ * 数据接口：/api/deptwork（queue/patient）+ /api/lab（register_order/
+ * save_draft、save_result、withdraw）。
  * ============================================================ */
 require APP_ROOT . '/app/includes/dept_workbench.php';
 dept_workbench(array(
@@ -56,6 +58,11 @@ function parseLabValues(it) {
 function renderLabWork(data) {
     var v = data.visit || {}, p = data.patient || {};
     var orders = (data.orders || []).filter(function (o) { return o.order_type === 'lab'; });
+    // 缓存当前项目列表（失焦临时保存用）
+    var items = [];
+    orders.forEach(function (o) { items = items.concat(o.items); });
+    window.__labItems = items;
+
     // 右栏大纲：按申请单分组（点击滚动定位对应申请单区块）
     var sideItems = orders.map(function (o) {
         var pending = o.items.some(function (it) { return it.status === 'paid' || it.status === 'registered'; });
@@ -75,18 +82,19 @@ function renderLabWork(data) {
         orders.forEach(function (o) { body += labOrderHtml(o); });
     }
     document.getElementById('dwMain').innerHTML = head + body;
-    // 绑定操作
-    orders.forEach(function (o) {
-        o.items.forEach(function (it) {
-            if (it.status === 'paid') {
-                var b = document.getElementById('labReg_' + it.id);
-                if (b) b.onclick = function () { doLabRegister(it); };
-            } else if (it.status === 'registered') {
-                var s = document.getElementById('labSave_' + it.id);
-                if (s) s.onclick = function () { doLabSave(it); };
-            }
-        });
+    // 绑定「提交并打印报告」操作
+    items.forEach(function (it) {
+        if (it.status === 'registered') {
+            var s = document.getElementById('labSave_' + it.id);
+            if (s) s.onclick = function () { doLabSave(it); };
+        }
     });
+    // 输入框失焦自动临时保存（focusout 冒泡，事件委托一次绑定）
+    var main = document.getElementById('dwMain');
+    main.onfocusout = function (e) {
+        var el = e.target;
+        if (el && el.getAttribute && el.getAttribute('data-draft')) labDraft(el);
+    };
 }
 
 /* 抬头：医院名称 + 第二名称 + 检验报告单 + 患者信息两行（与护理记录单同版式） */
@@ -113,12 +121,16 @@ function labHeadHtml(data) {
         '</div></div>';
 }
 
-/* 单张申请单区块：申请单号（可点击预览检验申请单）+ 其下各检验项目 */
+/* 单张申请单区块：申请单号（可点击预览检验申请单）+ 统一登记按钮 + 各检验项目 */
 function labOrderHtml(o) {
-    var pending = o.items.some(function (it) { return it.status === 'paid' || it.status === 'registered'; });
+    var hasPaid = o.items.some(function (it) { return it.status === 'paid'; });
+    var pending = hasPaid || o.items.some(function (it) { return it.status === 'registered'; });
     var badge = pending
         ? '<span class="badge badge-warning" style="font-size:11px">检验中</span>'
         : '<span class="badge badge-success" style="font-size:11px">已完成</span>';
+    var regBtn = hasPaid
+        ? '<button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="doLabRegisterOrder(\'' + esc(o.order_id) + '\')">📝 登记</button>'
+        : '';
     var itemsHtml = o.items.map(labItemHtml).join('');
     return '<div class="card dw-lab-order" id="labSec_' + esc(o.order_id) + '" style="margin-bottom:14px">' +
         '<div class="dw-lab-order-head">' +
@@ -127,7 +139,18 @@ function labOrderHtml(o) {
         'onclick="previewLabOrder(\'' + esc(o.order_id) + '\',\'' + esc(o.order_no) + '\')">' + esc(o.order_no) + '</a>' +
         '  <span class="fs-12 text-muted" style="margin-left:10px">开单医生：' + esc(o.doctor_name || '') + ' ｜ ' + esc((o.created_at || '').substr(0, 16)) + '</span>' +
         badge +
+        regBtn +
         '</div>' + itemsHtml + '</div>';
+}
+
+/* 整张申请单统一登记 */
+function doLabRegisterOrder(orderId) {
+    Clinic.ajax('/api/lab', { action: 'register_order', order_id: orderId }, {
+        onSuccess: function (json) {
+            Clinic.toast.success(json.msg);
+            afterLabAction();
+        },
+    });
 }
 
 function previewLabOrder(orderId, orderNo) {
@@ -152,30 +175,39 @@ function labItemHtml(it) {
     var badge = labStatusBadge(it.status);
     var inner;
     if (it.status === 'paid') {
-        inner = '<div class="fs-13 text-muted">该项目已缴费，尚未登记采样。</div>' +
-            '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" id="labReg_' + id + '">📝 登记</button></div>';
+        inner = '<div class="fs-13 text-muted">该项目已缴费，尚未登记（整张申请单统一登记）。</div>';
     } else if (it.status === 'registered') {
-        var inputs = '';
+        var val = parseLabValues(it);
+        var rows = '';
         if (it.is_group) {
             if (!it.members || !it.members.length) {
-                inputs = '<div class="fs-13" style="color:var(--danger)">该组合项目未配置组内成员，无法录入结果，请联系管理员在【检验管理】中完善检验组合。</div>';
+                inner = '<div class="fs-13" style="color:var(--danger)">该组合项目未配置组内成员，无法录入结果，请联系管理员在【检验管理】中完善检验组合。</div>';
             } else {
-                inputs = '<div class="fs-12 text-muted mb-4">该检验为组合项目，请逐一填写组内各项检验结果：</div>';
+                rows = '<div class="fs-12 text-muted mb-4">该检验为组合项目，请逐一填写组内各项检验结果：</div>';
                 (it.members || []).forEach(function (m) {
-                    inputs += '<div class="dw-lab-item" style="margin-bottom:8px">' +
-                        '<div class="dw-lab-item-name">' + esc(m.name) + ' <span class="fs-12 text-muted fw-400">（单位：' + esc(m.unit || '—') + '）</span></div>' +
-                        '<div class="dw-lab-item-hint">正常范围：' + esc(m.normal_range || '—') + '</div>' + critHint(it, m) +
-                        '<input type="text" class="input mt-4" id="labVal_' + id + '_' + esc(m.id) + '" placeholder="请输入检验结果数值"></div>';
+                    var mv = val.group ? (val.values[String(m.id)] || '') : '';
+                    rows += '<div class="dw-lab-item-row">' +
+                        '<div class="dw-lab-item-info">' +
+                        '  <div class="dw-lab-item-name">' + esc(m.name) + ' <span class="fs-12 text-muted fw-400">（单位：' + esc(m.unit || '—') + '）</span></div>' +
+                        '  <div class="dw-lab-item-hint">正常范围：' + esc(m.normal_range || '—') + '</div>' + critHint(it, m) +
+                        '</div>' +
+                        '<input type="text" class="input dw-lab-input" data-draft="' + id + '" data-mid="' + esc(m.id) + '" ' +
+                        'id="labVal_' + id + '_' + esc(m.id) + '" value="' + esc(mv) + '" placeholder="请输入检验结果"></div>';
                 });
+                inner = rows;
             }
         } else {
-            inputs = '<div class="dw-lab-item">' +
-                '<div class="dw-lab-item-name">化验数值 <span class="fs-12 text-muted fw-400">（单位：' + esc(it.unit || '—') + '）</span></div>' +
-                '<div class="dw-lab-item-hint">正常范围：' + esc(it.normal_range || '—') + '</div>' + critHint(it, null) +
-                '<input type="text" class="input mt-4" id="labVal_' + id + '" placeholder="请输入检验结果数值"></div>';
+            var sv = val.group ? '' : (val.value || '');
+            inner = '<div class="dw-lab-item-row">' +
+                '<div class="dw-lab-item-info">' +
+                '  <div class="dw-lab-item-name">化验数值 <span class="fs-12 text-muted fw-400">（单位：' + esc(it.unit || '—') + '）</span></div>' +
+                '  <div class="dw-lab-item-hint">正常范围：' + esc(it.normal_range || '—') + '</div>' + critHint(it, null) +
+                '</div>' +
+                '<input type="text" class="input dw-lab-input" data-draft="' + id + '" ' +
+                'id="labVal_' + id + '" value="' + esc(sv) + '" placeholder="请输入检验结果"></div>';
         }
-        inner = inputs +
-            '<div class="fs-12 text-muted mt-4">提交后自动生成报告并打印。</div>' +
+        inner = inner +
+            '<div class="fs-12 text-muted mt-4">输入后失焦自动临时保存（刷新不丢失），提交后生成正式报告。</div>' +
             '<div class="dw-report-actions"><button class="btn btn-success btn-sm" id="labSave_' + id + '">💾 提交并打印报告</button></div>';
     } else {
         var val = parseLabValues(it);
@@ -186,7 +218,7 @@ function labItemHtml(it) {
                 shown += '<div class="dw-lab-value">' + esc(m.name) + '：<b>' + esc(mv || '—') + '</b> ' + esc(m.unit || '') + '</div>';
             });
         } else {
-            shown = '<div class="dw-lab-value">化验数值：<b>' + esc(val.value || '—') + '</b> ' + esc(it.unit || '') + '</div>';
+            shown = '<div class="dw-lab-value">化验结果：<b>' + esc(val.value || '—') + '</b> ' + esc(it.unit || '') + '</div>';
         }
         inner = shown +
             '<div class="dw-report-foot"><span>检验技师：' + esc(it.executed_by || it.doctor_name || '') + '</span>' +
@@ -200,12 +232,28 @@ function labItemHtml(it) {
         '<div class="dw-report-item-name">' + esc(it.item_name) + ' <span class="dw-report-item-status">' + badge + '</span></div>' + inner + '</div>';
 }
 
-function doLabRegister(it) {
-    Clinic.ajax('/api/lab', { action: 'register', item_id: it.id }, {
-        onSuccess: function (json) {
-            Clinic.toast.success(json.msg);
-            afterLabAction();
-        },
+/* 输入框失焦自动临时保存（草稿） */
+function labDraft(el) {
+    var id = el.getAttribute('data-draft');
+    var it = null;
+    (window.__labItems || []).forEach(function (x) { if (x.id === id) it = x; });
+    if (!it) return;
+    var value, isGroup;
+    if (it.is_group) {
+        var vals = {};
+        (it.members || []).forEach(function (m) {
+            var e = document.getElementById('labVal_' + it.id + '_' + m.id);
+            vals[m.id] = e ? e.value.trim() : '';
+        });
+        value = JSON.stringify(vals);
+        isGroup = 1;
+    } else {
+        value = el.value.trim();
+        isGroup = 0;
+    }
+    Clinic.ajax('/api/lab', { action: 'save_draft', item_id: id, value: value, is_group: isGroup }, {
+        loading: false,
+        onSuccess: function () { /* 静默成功，无需提示 */ },
     });
 }
 
@@ -229,7 +277,7 @@ function doLabSave(it) {
     } else {
         value = (document.getElementById('labVal_' + it.id) || {}).value || '';
         value = value.trim();
-        if (!value) { Clinic.toast.warning('请输入检验结果数值'); return; }
+        if (!value) { Clinic.toast.warning('请输入检验结果'); return; }
         isGroup = 0;
     }
     Clinic.ajax('/api/lab', {

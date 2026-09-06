@@ -61,6 +61,54 @@ switch ($action) {
         dept_register('lab');
         break;
 
+    /* ==================== 整张检验申请单登记 ====================
+     * 登记以申请单为单位：该申请单全部待登记检验项目一次性置为已登记
+     * （出报告亦按申请单维度，避免逐子项目登记的繁琐与错乱） */
+    case 'register_order':
+        $orderId = did(post('order_id'));
+        $order = OrderRepository::one('SELECT * FROM orders WHERE id=?', array($orderId));
+        if (!$order || $order['order_type'] !== 'lab') json_fail('检验申请单不存在');
+        // 医护角色归属校验（宽松：未绑定科室=全院放行；已绑科室须匹配就诊科室）
+        $rv = get_visit_row((int)$order['visit_id']);
+        if (!$rv) json_fail('就诊记录不存在');
+        if (!dept_visit_allowed($rv['visit'], $u)) json_fail('无权限登记该申请单');
+        $n = (int)OrderRepository::exec("UPDATE order_items SET status='registered' WHERE order_id=? AND item_type='lab' AND status='paid'", array($orderId));
+        if ($n <= 0) json_fail('该申请单暂无待登记项目');
+        json_ok(array(), '已登记该申请单 ' . $n . ' 个检验项目');
+        break;
+
+    /* ==================== 检验结果临时保存（失焦自动保存草稿） ====================
+     * 一张检验单常需录入十几二十项，刷新丢失代价大：输入框失焦即写入
+     * results.status='draft'，刷新后回填；仅「提交并打印报告」才生成正式报告。 */
+    case 'save_draft':
+        $itemId = did(post('item_id'));
+        $value = (string)post('value', '');
+        $isGroup = (int)post('is_group', 0) === 1 ? 1 : 0;
+        $it = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array($itemId));
+        if (!$it || $it['item_type'] !== 'lab' || !in_array($it['status'], array('paid', 'registered'), true)) {
+            json_fail('项目不存在或状态异常');
+        }
+        if ($isGroup) {
+            $vals = json_decode($value, true);
+            if (!is_array($vals)) json_fail('参数错误');
+            $valuesJson = json_encode(array('group' => 1, 'values' => $vals), JSON_UNESCAPED_UNICODE);
+        } else {
+            $valuesJson = json_encode(array('value' => $value), JSON_UNESCAPED_UNICODE);
+        }
+        $result = OrderRepository::one('SELECT * FROM results WHERE order_item_id=?', array($itemId));
+        if ($result) {
+            OrderRepository::exec("UPDATE results SET values_json=?, status='draft', executor=?, updated_at=? WHERE id=?", array(
+                $valuesJson, $u['name'], now_str(), $result['id'],
+            ));
+        } else {
+            OrderRepository::insert("INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, values_json, executor, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)", array(
+                $it['item_id'], $itemId, $it['visit_id'], $it['patient_no'], $it['flow_no'], 'lab',
+                $valuesJson, $u['name'], 'draft', now_str(), now_str(),
+            ));
+        }
+        json_ok(array(), '已临时保存');
+        break;
+
     /* ==================== 检验录入表单（HTML，含正常范围与危急值提示；检验组显示成员明细） ==================== */
     case 'result_form':
         // 表单弹窗通过 POST 提交 item_id，用 req() 兼容读取
