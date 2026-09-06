@@ -48,11 +48,11 @@ class CashierRepository extends BaseRepository {
         );
     }
 
-    /** 更新患者档案（挂号时覆盖可修改字段） */
+    /** 更新患者档案（挂号时覆盖可修改字段；姓名/性别/出生日期保持锁定） */
     public static function updatePatientByIdCard($idCard, $data) {
         self::exec(
-            'UPDATE patients SET name=?, ethnicity=?, marital=?, occupation=?, work_unit=?, address=?, phone=? WHERE id_card=?',
-            array($data['name'], $data['ethnicity'], $data['marital'], $data['occupation'], $data['work_unit'], $data['address'], $data['phone'], $idCard)
+            'UPDATE patients SET ethnicity=?, marital=?, occupation=?, work_unit=?, address=?, phone=? WHERE id_card=?',
+            array($data['ethnicity'], $data['marital'], $data['occupation'], $data['work_unit'], $data['address'], $data['phone'], $idCard)
         );
     }
 

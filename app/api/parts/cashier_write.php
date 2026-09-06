@@ -92,9 +92,10 @@ function cashier_part_write($action) {
         try {
         $patient = $hasId ? PatientRepository::byIdCard($idCard) : null;
         if ($patient) {
-            // 已就诊过：更新可修改信息，姓名/性别/出生日期保持锁定
+            // 已就诊过：更新可修改信息，姓名/性别/出生日期保持锁定（不覆盖既有姓名，
+            // 防止收费员误改导致历史病历/证明姓名漂移；与 patient.php 修改患者口径一致）
             CashierRepository::updatePatientByIdCard($idCard, array(
-                'name' => $name, 'ethnicity' => post('ethnicity'), 'marital' => post('marital'),
+                'ethnicity' => post('ethnicity'), 'marital' => post('marital'),
                 'occupation' => post('occupation'), 'work_unit' => post('work_unit'),
                 'address' => post('address'), 'phone' => post('phone'),
             ));
