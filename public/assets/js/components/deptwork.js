@@ -439,8 +439,8 @@ Clinic.deptwork = (function () {
     function itemStatusBadge(r) {
         var pending = '';
         if (ROLE === 'pharmacy') {
+            // 药房侧：发药完成即完成（dispensing 为已转交护士站，药房不再处理）
             if (r.st_paid) pending = '待发药';
-            else if (r.st_dispensing) pending = '执行中';
         } else if (ROLE === 'nurse') {
             if (r.st_paid) pending = '待处置';
             else if (r.st_dispensing) pending = '待执行';
