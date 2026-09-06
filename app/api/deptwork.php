@@ -85,14 +85,17 @@ function deptwork_queue_rows($u, $status, $today) {
     // 患者级归类（HAVING）：只要存在未办结项目 → 归入「待处置/待发药/检查中」；
     // 全部办结才算「完成」。不再按「存在单个完成项目」混入完成列表。
     // 未办结状态集（按角色）：护士 处置/医嘱 待执行+执行中；药房 待审方；
-    // 检验/影像 待登记+待出报告。办结状态 = done / dispensed。
+    // 检验/影像 待登记+待出报告。办结状态 = done / dispensed（药房另含已转交护士站的 dispensing）。
     $unDoneSet = ($role === 'pharmacy')
         ? "'paid'"
         : (($role === 'nurse') ? "'paid','dispensing'" : "'paid','registered'");
+    $finDoneSet = ($role === 'pharmacy')
+        ? "'done','dispensed','dispensing'"
+        : "'done','dispensed'";
     if ($status === 'doing') {
         $having = "SUM(CASE WHEN oi.status IN ($unDoneSet) THEN 1 ELSE 0 END) > 0";
     } else {
-        $having = "SUM(CASE WHEN oi.status IN ('done','dispensed') THEN 1 ELSE 0 END) > 0
+        $having = "SUM(CASE WHEN oi.status IN ($finDoneSet) THEN 1 ELSE 0 END) > 0
             AND SUM(CASE WHEN oi.status IN ($unDoneSet) THEN 1 ELSE 0 END) = 0";
     }
     // 「当日」叠加筛选
@@ -107,6 +110,7 @@ function deptwork_queue_rows($u, $status, $today) {
                 SUM(CASE WHEN oi.status='paid' THEN 1 ELSE 0 END) AS st_paid,
                 SUM(CASE WHEN oi.status='registered' THEN 1 ELSE 0 END) AS st_reg,
                 SUM(CASE WHEN oi.status='dispensing' THEN 1 ELSE 0 END) AS st_dispensing,
+                SUM(CASE WHEN oi.status='dispensed' THEN 1 ELSE 0 END) AS st_dispensed,
                 SUM(CASE WHEN oi.status='done' THEN 1 ELSE 0 END) AS st_done,
                 SUM(CASE WHEN oi.item_type='procedure' THEN 1 ELSE 0 END) AS proc_total,
                 SUM(CASE WHEN oi.item_type='procedure' AND oi.status='done' THEN 1 ELSE 0 END) AS proc_done,
@@ -164,6 +168,7 @@ function deptwork_queue($u) {
             'st_paid' => (int)$r['st_paid'],
             'st_reg' => (int)$r['st_reg'],
             'st_dispensing' => (int)$r['st_dispensing'],
+            'st_dispensed' => (int)$r['st_dispensed'],
             'st_done' => (int)$r['st_done'],
             'proc_total' => (int)$r['proc_total'],
             'proc_done' => (int)$r['proc_done'],

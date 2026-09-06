@@ -416,8 +416,10 @@ Clinic.deptwork = (function () {
         }
         var parts = [];
         if (ROLE === 'pharmacy') {
+            // 药房侧：发药完成即完成（含转交护士站的 dispensing，执行与药房无关）
             if (r.st_paid) parts.push('待发药 ' + r.st_paid);
-            if (r.st_dispensing) parts.push('执行中 ' + r.st_dispensing);
+            var doneCnt = (r.st_dispensed || 0) + (r.st_dispensing || 0);
+            if (doneCnt) parts.push('完成 ' + doneCnt);
         } else {
             if (r.st_paid) parts.push('待登记 ' + r.st_paid);
             if (r.st_reg) parts.push('待报告 ' + r.st_reg);

@@ -130,11 +130,9 @@ switch ($action) {
         $pdo = DatabaseManager::getMain();
         $pdo->beginTransaction();
         try {
-            foreach ($items as $it) {
-                if ($verdict === 'pass') {
-                    // 非护士站执行药品：药房发药完成（dispensed）
-                    // 护士站执行药品：转交护士站（dispensing），由护士站 med_done 完成——
-                    // 保持护士站待执行队列可见，不可直接置 dispensed
+            if ($verdict === 'pass') {
+                // 通过：全部待发药明细（含主药与子药）按各自 is_nurse 发药/转交护士站
+                foreach ($allRxItems as $it) {
                     $newStatus = ((int)$it['is_nurse'] === 1) ? 'dispensing' : 'dispensed';
                     OrderRepository::exec('UPDATE order_items SET status=?, executed_by=?, executed_at=? WHERE id=?', array($newStatus, $u['name'], now_str(), (int)$it['id']));
                 }
