@@ -80,6 +80,50 @@ Clinic.deptwork = (function () {
         });
         var hb = document.getElementById('dwHomeBtn');
         if (hb) hb.addEventListener('click', goHome);
+        var sb = document.getElementById('dwSearchBtn');
+        if (sb) sb.addEventListener('click', openPatientSearch);
+    }
+
+    /* ==================== 患者查询（全部就诊历史） ==================== */
+    function openPatientSearch() {
+        Clinic.modal.open(
+            '<div class="form-group"><label class="form-label">患者ID / 身份证号 / 姓名</label>' +
+            '<input class="input" id="dwPsKw" placeholder="请输入患者ID / 身份证号 / 姓名" ' +
+            'onkeydown="if(event.key===\'Enter\')Clinic.deptwork.doPatientSearch()"></div>' +
+            '<div id="dwPsResult" class="fs-13"></div>',
+            {
+                title: '🔍 患者查询',
+                size: 'modal-sm',
+                buttons: [
+                    { text: '关闭', cls: 'btn-outline' },
+                    { text: '查 询', cls: 'btn-primary', autoClose: false, onClick: doPatientSearch },
+                ],
+            }
+        );
+        setTimeout(function () {
+            var el = document.getElementById('dwPsKw');
+            if (el) el.focus();
+        }, 80);
+    }
+
+    function doPatientSearch() {
+        var kw = (document.getElementById('dwPsKw') || {}).value || '';
+        kw = kw.trim();
+        if (!kw) { Clinic.toast.warning('请输入患者ID / 身份证号 / 姓名'); return; }
+        var box = document.getElementById('dwPsResult');
+        box.innerHTML = '<div class="spinner" style="border-top-color:var(--primary);width:24px;height:24px;margin:10px auto"></div>';
+        Clinic.get('/api/patient?action=search&kw=' + encodeURIComponent(kw), null, {
+            onSuccess: function (json) {
+                var list = json.data.list || [];
+                if (!list.length) { box.innerHTML = '<div class="text-muted">未检索到该患者</div>'; return; }
+                box.innerHTML = '<div class="fs-13 text-muted mb-8">检索到 ' + list.length + ' 位患者，点击查看全部就诊历史</div>' +
+                    list.map(function (p) {
+                        return '<div class="dd-item" style="cursor:pointer" onclick="showPatientHistory(\'' + escHtml(p.patient_no) + '\')">' +
+                            '<div class="flex-between"><span class="fw-600">' + escHtml(p.name) + '</span>' +
+                            '<span class="text-muted fs-12">' + escHtml(p.patient_no) + ' ｜ ' + escHtml(p.gender) + '/' + escHtml(p.age_fmt || (Clinic.validate && Clinic.validate.formatAge(p.birth_date)) || '') + '</span></div></div>';
+                    }).join('');
+            },
+        });
     }
 
     function goHome() {
