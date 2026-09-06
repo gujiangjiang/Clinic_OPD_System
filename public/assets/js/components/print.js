@@ -223,7 +223,7 @@ Clinic.print = (function () {
         if (!doc) return;
         var sheet = document.createElement('div');
         sheet.className = 'imr-sheet';
-        doc.querySelectorAll('.lr-titleline, .imr-patgrid').forEach(function (n) { sheet.appendChild(n.cloneNode(true)); });
+        doc.querySelectorAll('.print-hosp-block, .print-title-line, .imr-patgrid').forEach(function (n) { sheet.appendChild(n.cloneNode(true)); });
         var body = doc.querySelector('.imr-body');
         if (body) sheet.appendChild(body.cloneNode(true));
         doc.querySelectorAll('.imr-footgrid').forEach(function (n) { sheet.appendChild(n.cloneNode(true)); });
