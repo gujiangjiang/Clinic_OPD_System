@@ -208,12 +208,18 @@ if ($action === 'approve') {
     $req = CoreRepository::one('SELECT * FROM refund_requests WHERE id=?', array($reqId));
     if (!$req) json_fail('退费申请不存在');
     if ($req['status'] !== 'pending') json_fail('该申请已完结，不可再审批');
-    // 仅申请关联的审批人可审批（管理员兜底）
+    // 仅申请关联的审批人可审批（管理员可代审批）
     $myApproval = CoreRepository::one('SELECT * FROM refund_approvals WHERE request_id=? AND user_id=?', array($reqId, (int)$u['id']));
     if (!$myApproval && $u['role'] !== 'admin') json_fail('您不是该申请的审批人');
-    // 记录审批
-    CoreRepository::exec("UPDATE refund_approvals SET verdict=?, note=?, decided_at=? WHERE request_id=? AND user_id=?",
-        array($verdict, $note, now_str(), $reqId, (int)$u['id']));
+    // 记录审批：本人审批行写入意见；管理员代审批时对其余全部待审行统一生效
+    // （修复：管理员非审批人时 UPDATE 影响 0 行，意见被静默丢弃，申请永远 pending）
+    if ($myApproval) {
+        CoreRepository::exec("UPDATE refund_approvals SET verdict=?, note=?, decided_at=? WHERE request_id=? AND user_id=?",
+            array($verdict, $note, now_str(), $reqId, (int)$u['id']));
+    } else {
+        CoreRepository::exec("UPDATE refund_approvals SET verdict=?, note=?, decided_at=? WHERE request_id=? AND verdict='pending'",
+            array($verdict, $note, now_str(), $reqId));
+    }
     // 汇总：全部同意 → approved；任一拒绝 → rejected
     $all = CoreRepository::q('SELECT verdict FROM refund_approvals WHERE request_id=?', array($reqId));
     $allApprove = true;

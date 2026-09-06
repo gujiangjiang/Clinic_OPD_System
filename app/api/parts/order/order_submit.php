@@ -104,7 +104,12 @@ function order_part_submit($u) {
     $total = 0;
     foreach ($items as $i => $it) {
         $itemId = (int)(isset($it['item_id']) ? $it['item_id'] : 0);
-        $qty = max(1, (int)(isset($it['quantity']) ? $it['quantity'] : 1));
+        // 数量校验：下限 1；上限与前端一致——处方受库存约束且单明细 ≤999，
+        // 检验/检查/处置单明细 ≤99（order.js 输入框 max 已限制，此处后端兜底防伪造）
+        $qty = (int)(isset($it['quantity']) ? $it['quantity'] : 1);
+        if ($qty < 1) $qty = 1;
+        $qtyCap = ($orderType === 'prescription') ? 999 : 99;
+        if ($qty > $qtyCap) json_fail('单项数量不能超过 ' . $qtyCap);
         $price = 0;
         $subOf = (int)(isset($it['sub_of']) ? $it['sub_of'] : 0);
         $needNurse = 0;

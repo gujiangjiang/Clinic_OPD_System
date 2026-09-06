@@ -393,6 +393,9 @@ function cashier_part_read($action) {
         $firstOid = did($ids[0]);
         $firstOrder = $firstOid > 0 ? CashierRepository::order($firstOid) : null;
         $paymentNo = next_payment_no($firstOrder ? $firstOrder['flow_no'] : '');
+        // 批次一致性：同一缴费批次（同一 payment_no 凭条）的所有开单必须属于同一就诊
+        // （同一患者），防止跨患者/跨就诊合并缴费，避免退费批次整单错乱
+        $batchVisitId = $firstOrder ? (int)$firstOrder['visit_id'] : 0;
         $payId = 0;
         $total = 0;
         foreach ($ids as $oidStr) {
@@ -405,6 +408,10 @@ function cashier_part_read($action) {
             if (!$order) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 json_fail('开单不存在');
+            }
+            if ((int)$order['visit_id'] !== $batchVisitId) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                json_fail('同批次缴费的开单必须属于同一患者就诊，请分开缴费');
             }
             $items = CashierRepository::orderItems($order['id']);
             // 原子条件更新防并发重复缴费：仅 open 明细可转 paid（事务内按影响行数判定）
