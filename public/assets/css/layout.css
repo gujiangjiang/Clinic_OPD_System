@@ -691,6 +691,40 @@
 .queue-panel .qp-search { flex: 1; min-width: 120px; max-width: 350px; width: auto; height: 28px; font-size: 13px; padding: 2px 8px; }
 
 /* ============================================================
+   科室工作台候诊列表行（护士站/检验/影像/药房，患者级队列）
+   八列：日期/时间/号别/姓名/性别/年龄/明细摘要/状态
+   ============================================================ */
+.dw-qp-row {
+    display: grid;
+    grid-template-columns: 40px 36px 38px minmax(52px, 1fr) 26px 48px minmax(76px, 1fr) 56px;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    padding: 7px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.dw-qp-row:hover { background: var(--primary-soft, rgba(37, 99, 235, .08)); }
+.dw-qp-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bg-card, #fff);
+    cursor: default;
+    font-size: 11px;
+    color: var(--muted, #9ca3af);
+    padding: 4px 8px 6px;
+    border-bottom: 1px solid var(--border, #f3f4f6);
+    border-radius: 0;
+    margin-bottom: 2px;
+}
+.dw-qp-head:hover { background: transparent; }
+.dw-qp-row .qp-c-sum { font-size: 11.5px; color: var(--text-muted); }
+.dw-qp-row .qp-c-seq, .dw-qp-row .qp-c-time { font-variant-numeric: tabular-nums; }
+
+/* ============================================================
    病历续写占位（场景 C：已有他人病历但本人尚无文书）
    ============================================================ */
 .ro-placeholder {

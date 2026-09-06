@@ -1,0 +1,489 @@
+/**
+ * deptwork.js v1.0.0 — 科室工作台共用组件（护士站/检验科/影像科/药房）
+ * ============================================================
+ * 说明：四个医技角色工作台共用同一套交互框架，与医生工作站布局一致：
+ *   1. 顶部患者信息横条（#dwHeader）+ 候诊按钮（#queueBtn）+ 状态 + 操作按钮组
+ *      （叫号 #dwCallBtn / 返回 #dwHomeBtn）
+ *   2. 左侧候诊列表（弹层面板）：页签按角色由接口下发（检验中/检查中/待发药/
+ *      待处置/完成/当日），一行=一位患者，点击加载该患者工作台
+ *   3. 主工作区（#dwMain）+ 右栏大纲（#dwSide）：由各角色 configure 注入的
+ *      render(data) 渲染（所见即所得报告单 / 检验值列表 / 处方单 / 护理记录页）
+ *   4. 叫号：科室排队悬浮窗（当前处理中/下一位/候诊队列，点击直接跳转患者），
+ *      复用医生叫号悬浮窗样式，10 秒轮询
+ * 数据接口：/api/deptwork（queue / queue_pref / patient / call_panel）
+ * 依赖：ajax.js / modal.js / toast.js
+ * ============================================================ */
+
+window.Clinic = window.Clinic || {};
+
+Clinic.deptwork = (function () {
+
+    var ROLE = '';            // nurse / lab / imaging / pharmacy
+    var RENDER = null;        // 角色个性化渲染 render(data)：负责 #dwMain + #dwSide
+    var AFTER_ACTION = null;  // 角色操作后回调（可选，用于刷新局部数据）
+    var DATA = null;          // queue 接口缓存
+    var TAB = 'doing';        // 当前页签
+    var TAB_LABELS = {};      // 页签名 {doing:'检查中',...}
+    var KEYWORD = '';         // 候诊搜索关键字（面板关闭清空）
+    var VISIT = '';           // 当前患者混淆码
+    var QUEUE_TIMER = null;   // 候诊数据 30s 轮询
+    var CALL_TIMER = null;    // 排队悬浮窗 10s 轮询
+    var PANEL_OPEN = false;
+    var CALL_CACHE = null;    // 最近一次排队数据缓存
+
+    function escHtml(s) { return Clinic.escHtml(s); }
+
+    function pad3(n) {
+        n = parseInt(n, 10) || 0;
+        return n < 10 ? '00' + n : (n < 100 ? '0' + n : '' + n);
+    }
+
+    /* ==================== 配置与初始化 ==================== */
+    function configure(opts) {
+        ROLE = opts.role || '';
+        RENDER = opts.render || null;
+        AFTER_ACTION = opts.afterAction || null;
+    }
+
+    function init() {
+        if (!document.getElementById('dwMain')) return;
+        bindButtons();
+        // 深链 / 刷新保持：URL 带 visit_id 直接加载该患者
+        var m = (location.search.match(/[?&]visit_id=([^&]+)/) || [])[1];
+        if (m) {
+            loadPatient(decodeURIComponent(m));
+        } else {
+            // 首次进入自动弹出候诊列表
+            setTimeout(function () { openPanel(); }, 150);
+        }
+        // 候诊数据轮询（计数/列表实时刷新）
+        if (QUEUE_TIMER) clearInterval(QUEUE_TIMER);
+        QUEUE_TIMER = setInterval(function () { loadQueue(true); }, 30000);
+    }
+
+    function bindButtons() {
+        var qb = document.getElementById('queueBtn');
+        if (qb) qb.addEventListener('click', function () {
+            if (panelEl()) closePanel(); else openPanel();
+        });
+        var cb = document.getElementById('dwCallBtn');
+        if (cb) cb.addEventListener('click', function () {
+            if (callPopEl()) closeCallPop(); else openCallPop();
+        });
+        var hb = document.getElementById('dwHomeBtn');
+        if (hb) hb.addEventListener('click', goHome);
+    }
+
+    function goHome() {
+        var map = { nurse: '/nurse/home', lab: '/lab/home', imaging: '/imaging/home', pharmacy: '/pharmacy/home' };
+        // 清掉 visit_id，避免返回工作台时自动回到旧患者
+        try { history.replaceState({}, '', location.pathname); } catch (e) {}
+        if (map[ROLE]) Clinic.nav.go(map[ROLE]);
+    }
+
+    /* ==================== 患者加载 ==================== */
+    function loadPatient(code) {
+        closePanel();
+        if (!code) return;
+        VISIT = code;
+        try {
+            var url = location.pathname + '?visit_id=' + encodeURIComponent(code);
+            history.replaceState({}, '', url);
+        } catch (e) {}
+        var main = document.getElementById('dwMain');
+        var side = document.getElementById('dwSide');
+        var head = document.getElementById('dwHeader');
+        if (head) head.innerHTML = '';
+        if (side) side.innerHTML = '';
+        if (main) main.innerHTML = '<div class="card"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div><div class="fs-13 text-muted mt-8">正在加载患者工作台…</div></div></div>';
+        setStatus('加载中…');
+        Clinic.get('/api/deptwork?action=patient&visit_id=' + encodeURIComponent(code), null, {
+            onSuccess: function (json) {
+                var d = json.data;
+                renderHeader(d);
+                setStatus('患者 ' + (d.visit ? d.visit.name : '') + ' · ' + (d.visit ? d.visit.visit_no : ''));
+                if (RENDER) RENDER(d);
+            },
+            onError: function () {
+                if (main) main.innerHTML = '<div class="card"><div class="empty"><div class="empty-ico">⚠️</div>患者数据加载失败，请刷新重试</div></div>';
+                setStatus('');
+            },
+        });
+    }
+
+    /** 刷新当前患者（角色操作后调用，如提交报告/发药完成） */
+    function reloadPatient() {
+        if (VISIT) loadPatient(VISIT);
+    }
+
+    function renderHeader(d) {
+        var p = d.patient || {}, v = d.visit || {};
+        var head = document.getElementById('dwHeader');
+        if (!head) return;
+        head.innerHTML =
+            '<div class="flex-between">' +
+            '  <div class="flex gap-12" style="align-items:center">' +
+            '    <div class="emr-patient-avatar" title="患者信息">👤</div>' +
+            '    <div>' +
+            '      <div class="fs-18 fw-700">' +
+            '        <span class="emr-patient-name">' + escHtml(v.name) + '</span>' +
+            '        <span class="badge badge-gray" style="margin-left:8px">' + escHtml(v.gender) + ' / ' + escHtml(v.age_fmt || '') + '</span>' +
+            '        ' + (v.fee_type ? '<span class="badge badge-warning" style="margin-left:4px" title="费用类别">' + escHtml(v.fee_type) + '</span>' : '') +
+            '        <span class="badge ' + (v.dept_type === 'emergency' ? 'badge-danger' : 'badge-primary') + '" style="margin-left:4px">' + (v.dept_type === 'emergency' ? '急诊' : '门诊') + '</span>' +
+            '      </div>' +
+            '      <div class="text-muted fs-13">患者ID：' + escHtml(p.patient_id) + ' ｜ 流水号：' + escHtml(v.visit_no) +
+            ' ｜ ' + escHtml(v.first_dept_name || v.dept_name) + ' 第' + pad3(v.visit_seq) + '号' +
+            ' ｜ 挂号 ' + escHtml((v.created_at || '').substr(0, 16)) + '</div>' +
+            '    </div>' +
+            '  </div>' +
+            '</div>';
+    }
+
+    function setStatus(t) {
+        var el = document.getElementById('dwStatus');
+        if (el) el.textContent = t || '';
+    }
+
+    /* ==================== 候诊列表 ==================== */
+    function panelEl() { return document.getElementById('dwQueuePanel'); }
+
+    function loadQueue(force, cb) {
+        Clinic.get('/api/deptwork?action=queue&tab=' + encodeURIComponent(TAB), null, {
+            loading: false,
+            onSuccess: function (json) {
+                DATA = json.data;
+                TAB_LABELS = DATA.tabs || {};
+                if (!TAB_LABELS[TAB]) {
+                    var keys = Object.keys(TAB_LABELS);
+                    if (keys.length) TAB = keys[0];
+                }
+                renderQueueBtn();
+                if (PANEL_OPEN && panelEl()) renderPanel();
+                if (cb) cb();
+            },
+            onError: function () { if (cb) cb(); },
+        });
+    }
+
+    /** 切换页签偏好保存（登录会话，跨页面保持） */
+    function saveTabPref() {
+        try {
+            var fd = new FormData();
+            fd.append('csrf_token', document.body.getAttribute('data-csrf') || '');
+            fd.append('tab', TAB);
+            fetch('/api/deptwork?action=queue_pref&tab=' + encodeURIComponent(TAB), {
+                method: 'POST', body: fd,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            }).catch(function () {});
+        } catch (e) {}
+    }
+
+    function renderQueueBtn() {
+        var btn = document.getElementById('queueBtn');
+        if (!btn || !DATA) return;
+        var n = DATA.list ? DATA.list.length : 0;
+        btn.innerHTML = '📋 候诊 <b>' + n + '</b>';
+        btn.title = '候诊 / 患者列表（' + (TAB_LABELS[TAB] || TAB) + '）';
+    }
+
+    function scopedList() {
+        if (!DATA) return [];
+        var list = DATA.list || [];
+        if (!KEYWORD) return list;
+        return list.filter(function (r) {
+            var hay = (r.name || '') + '|' + (r.dept_name || '') + '|' + pad3(r.visit_seq) + '|' + (r.flow_no || '');
+            return hay.toLowerCase().indexOf(KEYWORD.toLowerCase()) !== -1;
+        });
+    }
+
+    /** 行内明细摘要（按角色语义展示待办/完成数量） */
+    function itemSummary(r) {
+        var parts = [];
+        if (ROLE === 'pharmacy') {
+            if (r.st_paid) parts.push('待发药 ' + r.st_paid);
+            if (r.st_dispensing) parts.push('执行中 ' + r.st_dispensing);
+        } else if (ROLE === 'nurse') {
+            if (r.st_paid) parts.push('待处置 ' + r.st_paid);
+            if (r.st_dispensing) parts.push('待执行 ' + r.st_dispensing);
+        } else {
+            if (r.st_paid) parts.push('待登记 ' + r.st_paid);
+            if (r.st_reg) parts.push('待报告 ' + r.st_reg);
+        }
+        if (r.st_done) parts.push('完成 ' + r.st_done);
+        var txt = parts.length ? parts.join(' · ') : ('共 ' + r.item_cnt + ' 项');
+        return { html: txt, tip: '共 ' + r.item_cnt + ' 项：' + parts.join('，') };
+    }
+
+    function visitStatusName(s) {
+        var map = { pending: '待缴费', paid: '候诊', visiting: '就诊中', finished: '诊毕', refunded: '已退费', cancelled: '已取消' };
+        return map[s] || s;
+    }
+
+    function statusBadge(st) {
+        if (st === 'finished') return '<span class="badge badge-gray" style="font-size:11px">诊毕</span>';
+        if (st === 'visiting') return '<span class="badge badge-warning" style="font-size:11px">就诊中</span>';
+        return '<span class="badge badge-primary" style="font-size:11px">候诊</span>';
+    }
+
+    function rowHtml(r) {
+        var sum = itemSummary(r);
+        return '<div class="dw-qp-row" data-code="' + escHtml(r.code) + '" title="' + escHtml(sum.tip) + '">' +
+            '<span class="qp-cell qp-c-date fs-13 text-muted">' + (r.date || '').substr(5) + '</span>' +
+            '<span class="qp-cell qp-c-time fs-13 text-muted">' + escHtml(r.time || '') + '</span>' +
+            '<span class="qp-cell qp-c-seq fs-13 fw-600">' + pad3(r.visit_seq) + '</span>' +
+            '<span class="qp-cell qp-c-name fs-13">' + escHtml(r.name) + '</span>' +
+            '<span class="qp-cell qp-c-gender fs-12 text-muted">' + escHtml(r.gender) + '</span>' +
+            '<span class="qp-cell qp-c-age fs-12 text-muted">' + escHtml(r.age_fmt || '') + '</span>' +
+            '<span class="qp-cell qp-c-sum fs-12">' + escHtml(sum.html) + '</span>' +
+            '<span class="qp-cell qp-c-st">' + statusBadge(r.visit_status) + '</span>' +
+            '</div>';
+    }
+
+    function listHtml(list) {
+        if (!list.length) {
+            return '<div class="qp-empty">' + (KEYWORD ? '未找到匹配的患者' : '当前筛选条件下暂无患者') + '</div>';
+        }
+        var head = '<div class="dw-qp-row dw-qp-head">' +
+            '<span class="qp-cell qp-c-date">日期</span>' +
+            '<span class="qp-cell qp-c-time">时间</span>' +
+            '<span class="qp-cell qp-c-seq">号别</span>' +
+            '<span class="qp-cell qp-c-name">姓名</span>' +
+            '<span class="qp-cell qp-c-gender">性别</span>' +
+            '<span class="qp-cell qp-c-age">年龄</span>' +
+            '<span class="qp-cell qp-c-sum">明细</span>' +
+            '<span class="qp-cell qp-c-st">状态</span>' +
+            '</div>';
+        return head + list.map(rowHtml).join('');
+    }
+
+    function renderPanel() {
+        var p = panelEl();
+        if (!p) return;
+        var list = scopedList();
+        var chips = '';
+        Object.keys(TAB_LABELS).forEach(function (k) {
+            chips += '<button type="button" class="qp-chip' + (TAB === k ? ' active' : '') + '" data-tab="' + k + '">' + escHtml(TAB_LABELS[k]) + '</button>';
+        });
+        p.innerHTML =
+            '<div class="qp-chips">' + chips +
+            '  <span class="fs-12 text-muted qp-count">' + list.length + ' 人</span>' +
+            '  <input class="input qp-search" id="dwQpSearch" placeholder="搜索：姓名/号别/流水号" value="' + escHtml(KEYWORD) + '">' +
+            '</div>' +
+            '<div class="qp-list">' + listHtml(list) + '</div>';
+        // 页签切换：重新请求并渲染列表区
+        p.querySelectorAll('[data-tab]').forEach(function (c) {
+            c.addEventListener('click', function () {
+                TAB = c.getAttribute('data-tab');
+                saveTabPref();
+                p.querySelector('.qp-list').innerHTML = '<div class="qp-empty">加载中…</div>';
+                loadQueue(true, function () { renderPanel(); });
+            });
+        });
+        // 搜索即时过滤（保留输入框焦点与光标位置）
+        var search = p.querySelector('#dwQpSearch');
+        search.addEventListener('input', function () {
+            var pos = search.selectionStart;
+            KEYWORD = search.value.trim();
+            renderListOnly(p);
+            var again = p.querySelector('#dwQpSearch');
+            if (again) { again.focus(); again.setSelectionRange(pos, pos); }
+        });
+        search.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+        bindRowClicks(p);
+        clampListHeight(p);
+    }
+
+    function renderListOnly(p) {
+        var list = scopedList();
+        var box = p.querySelector('.qp-list');
+        if (!box) return;
+        box.innerHTML = listHtml(list);
+        var cnt = p.querySelector('.qp-count');
+        if (cnt) cnt.textContent = list.length + ' 人';
+        bindRowClicks(p);
+        clampListHeight(p);
+    }
+
+    function clampListHeight(p) {
+        var listEl = p.querySelector('.qp-list');
+        if (!listEl) return;
+        var chromeH = p.offsetHeight - listEl.offsetHeight;
+        var avail = window.innerHeight - p.getBoundingClientRect().top - chromeH - 12;
+        listEl.style.maxHeight = Math.max(140, Math.min(window.innerHeight * 0.46, avail)) + 'px';
+    }
+
+    function bindRowClicks(p) {
+        p.querySelectorAll('.dw-qp-row:not(.dw-qp-head)').forEach(function (row) {
+            row.addEventListener('click', function () {
+                loadPatient(row.getAttribute('data-code'));
+            });
+        });
+    }
+
+    function openPanel() {
+        closePanel();
+        var btn = document.getElementById('queueBtn');
+        if (!btn) return;
+        var p = document.createElement('div');
+        p.id = 'dwQueuePanel';
+        p.className = 'queue-panel';
+        document.body.appendChild(p);
+        var rect = btn.getBoundingClientRect();
+        p.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+        p.style.left = Math.max(8, rect.left + window.scrollX) + 'px';
+        PANEL_OPEN = true;
+        if (!DATA) {
+            p.innerHTML = '<div class="qp-empty">加载中…</div>';
+            loadQueue(true, function () { renderPanel(); });
+        } else {
+            renderPanel();
+        }
+        setTimeout(function () {
+            document.addEventListener('mousedown', outsideClose, true);
+            document.addEventListener('keydown', escClose, true);
+        }, 0);
+    }
+
+    function outsideClose(e) {
+        var p = panelEl();
+        var btn = document.getElementById('queueBtn');
+        if (p && !p.contains(e.target) && (!btn || (e.target !== btn && !btn.contains(e.target)))) closePanel();
+    }
+    function escClose(e) { if (e.key === 'Escape') closePanel(); }
+    function closePanel() {
+        var p = panelEl();
+        if (p) p.remove();
+        PANEL_OPEN = false;
+        KEYWORD = '';
+        document.removeEventListener('mousedown', outsideClose, true);
+        document.removeEventListener('keydown', escClose, true);
+    }
+
+    /* ==================== 科室排队悬浮窗 ==================== */
+    function callPopEl() { return document.getElementById('dwCallPop'); }
+
+    function openCallPop() {
+        if (callPopEl()) return;
+        var pop = document.createElement('div');
+        pop.className = 'doc-call-pop';
+        pop.id = 'dwCallPop';
+        pop.style.right = '16px';
+        pop.style.bottom = '64px';
+        pop.innerHTML =
+            '<div class="doc-call-pop-head">' +
+            '  <span class="doc-call-pop-title">📢 科室排队</span>' +
+            '  <span class="doc-call-pop-tools"><span class="doc-call-pop-x" data-act="hide" title="关闭">x</span></span>' +
+            '</div>' +
+            '<div class="doc-call-pop-body">' +
+            '  <div class="doc-call-block">' +
+            '    <div class="doc-call-label">当前处理中</div>' +
+            '    <div class="doc-call-cur" id="dwcpCur">加载中…</div>' +
+            '    <div class="doc-call-cur-sub" id="dwcpCurSub"></div>' +
+            '  </div>' +
+            '  <div class="doc-call-block">' +
+            '    <div class="doc-call-label">下一位</div>' +
+            '    <div class="doc-call-next-name" id="dwcpNext">—</div>' +
+            '  </div>' +
+            '  <div class="doc-call-pool">' +
+            '    <div class="doc-call-pool-title">候诊队列</div>' +
+            '    <div class="doc-call-pool-list" id="dwcpList"><div class="fs-12 text-muted">加载中…</div></div>' +
+            '  </div>' +
+            '</div>';
+        document.body.appendChild(pop);
+        bindCallPopDrag(pop);
+        pop.querySelector('[data-act="hide"]').addEventListener('click', closeCallPop);
+        pop.querySelector('#dwcpList').addEventListener('click', function (e) {
+            var it = e.target.closest('[data-vc]');
+            if (it) { closeCallPop(); loadPatient(it.getAttribute('data-vc')); }
+        });
+        if (CALL_CACHE) renderCallPanel(CALL_CACHE);
+        refreshCallPanel();
+        if (CALL_TIMER) clearInterval(CALL_TIMER);
+        CALL_TIMER = setInterval(refreshCallPanel, 10000);
+    }
+
+    function closeCallPop() {
+        var pop = callPopEl();
+        if (pop) pop.remove();
+        if (CALL_TIMER) { clearInterval(CALL_TIMER); CALL_TIMER = null; }
+    }
+
+    function bindCallPopDrag(pop) {
+        var head = pop.querySelector('.doc-call-pop-head');
+        var dragging = false, offX = 0, offY = 0;
+        head.addEventListener('mousedown', function (e) {
+            if (e.target.closest('.doc-call-pop-x')) return;
+            dragging = true;
+            offX = e.clientX - pop.getBoundingClientRect().left;
+            offY = e.clientY - pop.getBoundingClientRect().top;
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', function (e) {
+            if (!dragging) return;
+            var x = Math.max(0, Math.min(e.clientX - offX, window.innerWidth - 80));
+            var y = Math.max(0, Math.min(e.clientY - offY, window.innerHeight - 80));
+            pop.style.left = x + 'px';
+            pop.style.top = y + 'px';
+            pop.style.right = 'auto';
+            pop.style.bottom = 'auto';
+        });
+        document.addEventListener('mouseup', function () {
+            dragging = false;
+        });
+    }
+
+    function refreshCallPanel() {
+        var pop = callPopEl();
+        if (!pop) return;
+        Clinic.get('/api/deptwork?action=call_panel', null, {
+            loading: false,
+            onSuccess: function (json) { renderCallPanel(json.data); },
+            onError: function () {},
+        });
+    }
+
+    function renderCallPanel(d) {
+        CALL_CACHE = d;
+        var pop = callPopEl();
+        if (!pop) return;
+        var title = pop.querySelector('.doc-call-pop-title');
+        if (title) title.textContent = '📢 ' + (d.dept_name ? d.dept_name + ' · 排队' : '科室排队');
+        var cur = d.current, next = d.next;
+        var curEl = pop.querySelector('#dwcpCur');
+        var curSubEl = pop.querySelector('#dwcpCurSub');
+        if (curEl) {
+            if (cur) {
+                curEl.textContent = cur.name;
+                if (curSubEl) curSubEl.textContent = '第' + pad3(cur.visit_seq) + '号 · ' + visitStatusName(cur.status);
+            } else {
+                curEl.textContent = '暂无';
+                if (curSubEl) curSubEl.textContent = '当前无处理中患者';
+            }
+        }
+        var nextEl = pop.querySelector('#dwcpNext');
+        if (nextEl) nextEl.textContent = next ? next.name + '（第' + pad3(next.visit_seq) + '号）' : '—';
+        var listEl = pop.querySelector('#dwcpList');
+        if (listEl) {
+            var items = (d.waiting || []).map(function (w) {
+                return '<div class="doc-call-pool-item" data-vc="' + escHtml(w.visit_code) + '" title="点击打开该患者工作台">' +
+                    '<span class="doc-call-pool-seq">' + pad3(w.visit_seq) + '</span>' +
+                    '<span>' + escHtml(w.name) + '</span></div>';
+            });
+            listEl.innerHTML = items.join('') || '<div class="fs-12 text-muted">暂无候诊患者</div>';
+        }
+    }
+
+    /* ==================== 对外 ==================== */
+    return {
+        configure: configure,
+        init: init,
+        openPanel: openPanel,
+        closePanel: closePanel,
+        loadPatient: loadPatient,
+        reloadPatient: reloadPatient,
+        refreshQueue: function () { loadQueue(true); },
+        currentVisit: function () { return VISIT; },
+    };
+})();
+
+/* 工作台页面就绪后由视图内联脚本调用：configure + init */
