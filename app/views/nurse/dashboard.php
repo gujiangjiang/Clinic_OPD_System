@@ -45,7 +45,7 @@ function itemStatusBadge(s) {
 }
 
 /* 链接样式（处置单号/处方号可点击） */
-function orderLink(orderId, orderNo) {
+function orderLink(orderId, orderNo, type) {
     if (!orderId) return esc(orderNo || '—');
     return '<a href="javascript:void(0)" style="color:var(--primary);cursor:pointer;text-decoration:underline" ' +
         'onclick="previewOrder(\'' + esc(orderId) + '\',\'' + esc(orderNo || '') + '\',\'' + esc(type || '') + '\')">' + esc(orderNo || '—') + '</a>';
