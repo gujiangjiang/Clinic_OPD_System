@@ -6,10 +6,11 @@
  * 说明：采用与医生工作站一致的「顶部患者信息横条 + 左侧候诊列表 +
  * 主工作区」布局（公共骨架见 app/includes/dept_workbench.php，
  * 公共交互见 deptwork.js）：
- *   候诊列表页签：检查中 / 完成 / 当日；点击患者弹出所见即所得
- *   影像诊断报告单页，可直接书写「影像所见 / 影像诊断」并提交
- *   生成报告（提交后自动打印），已完成项目可查看报告/申请撤回。
- * 数据接口：/api/deptwork（queue/patient）+ /api/imaging（register/
+ *   候诊列表页签：检查中 / 完成 / 当日；点击患者弹出影像诊断报告单页：
+ *   抬头（医院名称+第二名称+影像诊断报告单+患者信息两行，参照急诊病历版式）
+ *   → 按申请单号组合的检查项目区块（整张申请单统一登记）。
+ *   报告书写：注册后即可在申请单内书写影像所见 / 影像诊断并提交生成报告。
+ * 数据接口：/api/deptwork（queue/patient）+ /api/imaging（register_order/
  * save_result/withdraw）。
  * ============================================================ */
 require APP_ROOT . '/app/includes/dept_workbench.php';
@@ -46,53 +47,100 @@ function imgStatusBadge(s) {
 
 function renderImgWork(data) {
     var v = data.visit || {}, p = data.patient || {};
-    var items = [];
-    (data.orders || []).forEach(function (o) {
-        if (o.order_type !== 'imaging') return;
-        o.items.forEach(function (it) { items.push(it); });
-    });
-    // 右栏大纲：检查项目导航（点击滚动定位对应报告段）
-    var sideItems = items.map(function (it) {
-        var dot = it.status === 'done' ? 'ok' : (it.status === 'registered' ? 'pending' : 'done');
-        return '<div class="dw-side-item" onclick="scrollToImg(\'' + esc(it.id) + '\')"><span class="dot ' + dot + '"></span>' + esc(it.item_name) + '</div>';
+    var orders = (data.orders || []).filter(function (o) { return o.order_type === 'imaging'; });
+    // 右栏大纲：按申请单分组（点击滚动定位对应申请单区块）
+    var sideItems = orders.map(function (o) {
+        var pending = o.items.some(function (it) { return it.status === 'paid' || it.status === 'registered'; });
+        return '<div class="dw-side-item" onclick="scrollToImg(\'' + esc(o.order_id) + '\')"><span class="dot ' + (pending ? 'pending' : 'ok') + '"></span>' +
+            esc(o.order_no) + '（' + o.items.length + ' 项）</div>';
     }).join('');
     document.getElementById('dwSide').innerHTML =
-        '<div class="dw-side-sec"><div class="dw-side-title">🩻 本次检查（' + items.length + ' 项）</div>' +
+        '<div class="dw-side-sec"><div class="dw-side-title">🩻 检查申请单（' + orders.length + ' 张）</div>' +
         (sideItems || '<div class="dw-side-item">暂无检查项目</div>') + '</div>';
 
-    // 主区：所见即所得报告单
-    var hosp = document.body.getAttribute('data-hosp') || '';
-    var head = '<div class="card dw-report-card"><div class="dw-report-head">' +
-        '<div class="dw-report-hosp">' + esc(hosp) + '</div>' +
-        '<div class="dw-report-title">影 像 诊 断 报 告 单</div></div>' +
-        '<div class="dw-report-meta">' +
-        '<span>姓名：<b>' + esc(v.name) + '</b></span>' +
-        '<span>性别：' + esc(v.gender) + '</span>' +
-        '<span>年龄：' + esc(v.age_fmt || '') + '</span>' +
-        '<span>患者ID：' + esc(p.patient_id) + '</span>' +
-        '<span>流水号：' + esc(v.visit_no) + '</span>' +
-        '<span>就诊科室：' + esc(v.dept_name || v.first_dept_name) + '</span></div>';
+    // 主区：抬头（参照护理/急诊病历版式）+ 各申请单区块
+    var head = imgHeadHtml(data);
     var body = '';
-    if (!items.length) {
-        body = '<div class="dw-report-item"><div class="empty" style="padding:30px 0"><div class="empty-ico">🩻</div>本次就诊暂无检查项目</div></div>';
+    if (!orders.length) {
+        body = '<div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">🩻</div>本次就诊暂无检查项目</div></div>';
     } else {
-        items.forEach(function (it) { body += imgItemHtml(it); });
+        orders.forEach(function (o) { body += imgOrderHtml(o); });
     }
-    document.getElementById('dwMain').innerHTML = head + body + '</div>';
-    // 绑定操作
-    items.forEach(function (it) {
-        if (it.status === 'paid') {
-            var b = document.getElementById('imgReg_' + it.id);
-            if (b) b.onclick = function () { doImgRegister(it); };
-        } else if (it.status === 'registered') {
-            var s = document.getElementById('imgSave_' + it.id);
-            if (s) s.onclick = function () { doImgSave(it); };
-        }
+    document.getElementById('dwMain').innerHTML = head + body;
+    // 绑定「提交并打印报告」操作
+    orders.forEach(function (o) {
+        o.items.forEach(function (it) {
+            if (it.status === 'registered') {
+                var s = document.getElementById('imgSave_' + it.id);
+                if (s) s.onclick = function () { doImgSave(it); };
+            }
+        });
     });
 }
 
-function scrollToImg(id) {
-    var el = document.getElementById('imgSec_' + id);
+/* 抬头：医院名称 + 第二名称 + 影像诊断报告单 + 患者信息两行（急诊病历版式） */
+function imgHeadHtml(data) {
+    var v = data.visit || {}, p = data.patient || {};
+    var hosp = document.body.getAttribute('data-hosp') || '';
+    var hosp2 = document.body.getAttribute('data-hosp2') || '';
+    var cell = function (label, value) {
+        return '<div class="dw-line-cell"><span class="lbl">' + label + '：</span><span class="val">' + (value || '—') + '</span></div>';
+    };
+    return '<div class="card dw-nurse-doc">' +
+        '<div class="dw-hosp-block">' +
+        '  <div class="dw-hosp">' + esc(hosp) + '</div>' +
+        (hosp2 ? '  <div class="dw-sub">' + esc(hosp2) + '</div>' : '') +
+        '</div>' +
+        '<div class="dw-title-bar"><div class="dw-title">影 像 诊 断 报 告 单</div></div>' +
+        '<div class="dw-pat-lines">' +
+        '  <div class="dw-line-row">' +
+        cell('姓名', esc(v.name)) + cell('性别', esc(v.gender)) + cell('年龄', esc(v.age_fmt || '')) + cell('出生日期', esc(p.birth_date || '')) +
+        '  </div>' +
+        '  <div class="dw-line-row">' +
+        cell('患者ID', esc(p.patient_id)) + cell('流水号', esc(v.visit_no)) + cell('首诊科室', esc(v.first_dept_name || '')) + cell('首诊时间', esc((v.created_at || '').substr(0, 16))) +
+        '  </div>' +
+        '</div></div>';
+}
+
+/* 单张申请单区块：申请单号（可点击预览检查申请单）+ 统一登记按钮 + 检查项目 */
+function imgOrderHtml(o) {
+    var hasPaid = o.items.some(function (it) { return it.status === 'paid'; });
+    var pending = hasPaid || o.items.some(function (it) { return it.status === 'registered'; });
+    var badge = pending
+        ? '<span class="badge badge-warning" style="font-size:11px">检查中</span>'
+        : '<span class="badge badge-success" style="font-size:11px">已完成</span>';
+    var regBtn = hasPaid
+        ? '<button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="doImgRegisterOrder(\'' + esc(o.order_id) + '\')">📝 登记</button>'
+        : '';
+    var itemsHtml = o.items.map(imgItemHtml).join('');
+    return '<div class="card dw-lab-order" id="imgSec_' + esc(o.order_id) + '" style="margin-bottom:14px">' +
+        '<div class="dw-lab-order-head">' +
+        '  <span class="fw-700">🩻 检查申请单</span>' +
+        '  <a href="javascript:void(0)" style="color:var(--primary);cursor:pointer;text-decoration:underline;margin-left:10px" ' +
+        'onclick="previewImgOrder(\'' + esc(o.order_id) + '\',\'' + esc(o.order_no) + '\')">' + esc(o.order_no) + '</a>' +
+        '  <span class="fs-12 text-muted" style="margin-left:10px">开单医生：' + esc(o.doctor_name || '') + ' ｜ ' + esc((o.created_at || '').substr(0, 16)) + '</span>' +
+        badge +
+        regBtn +
+        '</div>' + itemsHtml + '</div>';
+}
+
+/* 整张申请单统一登记 */
+function doImgRegisterOrder(orderId) {
+    Clinic.ajax('/api/imaging', { action: 'register_order', order_id: orderId }, {
+        onSuccess: function (json) {
+            Clinic.toast.success(json.msg);
+            afterImgAction();
+        },
+    });
+}
+
+function previewImgOrder(orderId, orderNo) {
+    if (!orderId) return;
+    Clinic.print.preview('/api/print?action=order&order_id=' + orderId, null, '检查申请单预览：' + (orderNo || ''));
+}
+
+function scrollToImg(orderId) {
+    var el = document.getElementById('imgSec_' + orderId);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -101,8 +149,7 @@ function imgItemHtml(it) {
     var badge = imgStatusBadge(it.status);
     var inner;
     if (it.status === 'paid') {
-        inner = '<div class="fs-13 text-muted">该项目已缴费，尚未登记检查。</div>' +
-            '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" id="imgReg_' + id + '">📝 登记</button></div>';
+        inner = '<div class="fs-13 text-muted">该项目已缴费，尚未登记检查（整张申请单统一登记）。</div>';
     } else if (it.status === 'registered') {
         inner =
             '<div class="dw-report-sec-label">影像所见</div>' +
@@ -124,17 +171,8 @@ function imgItemHtml(it) {
             (it.report_id ? '<button class="btn btn-outline btn-sm" onclick="imgWithdraw(\'' + esc(it.report_id) + '\')">申请撤回</button>' : '') +
             '</div>';
     }
-    return '<div class="dw-report-item" id="imgSec_' + id + '">' +
+    return '<div class="dw-report-item">' +
         '<div class="dw-report-item-name">' + esc(it.item_name) + ' <span class="dw-report-item-status">' + badge + '</span></div>' + inner + '</div>';
-}
-
-function doImgRegister(it) {
-    Clinic.ajax('/api/imaging', { action: 'register', item_id: it.id }, {
-        onSuccess: function (json) {
-            Clinic.toast.success(json.msg);
-            afterImgAction();
-        },
-    });
 }
 
 function doImgSave(it) {

@@ -59,6 +59,21 @@ switch ($action) {
         dept_register('imaging');
         break;
 
+    /* ==================== 整张检查申请单登记 ====================
+     * 登记以申请单为单位：该申请单全部待登记检查项目一次性置为已登记
+     * （报告亦按申请单维度书写，避免逐子项目登记的繁琐） */
+    case 'register_order':
+        $orderId = did(post('order_id'));
+        $order = OrderRepository::one('SELECT * FROM orders WHERE id=?', array($orderId));
+        if (!$order || $order['order_type'] !== 'imaging') json_fail('检查申请单不存在');
+        $rv = get_visit_row((int)$order['visit_id']);
+        if (!$rv) json_fail('就诊记录不存在');
+        if (!dept_visit_allowed($rv['visit'], $u)) json_fail('无权限登记该申请单');
+        $n = (int)OrderRepository::exec("UPDATE order_items SET status='registered', registered_at=? WHERE order_id=? AND item_type='imaging' AND status='paid'", array(now_str(), $orderId));
+        if ($n <= 0) json_fail('该申请单暂无待登记项目');
+        json_ok(array(), '已登记该申请单 ' . $n . ' 个检查项目');
+        break;
+
     /* ==================== 报告录入表单（HTML） ==================== */
     case 'result_form':
         $itemId = did(req('item_id'));
