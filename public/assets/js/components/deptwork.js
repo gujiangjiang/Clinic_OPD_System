@@ -55,7 +55,9 @@ Clinic.deptwork = (function () {
         if (m) {
             loadPatient(decodeURIComponent(m));
         } else {
-            // 首次进入自动弹出候诊列表
+            // 无患者：显示侧边栏占位符 + 关闭按钮隐藏 + 自动弹出候诊列表
+            renderSidePlaceholder();
+            setCloseBtn(false);
             setTimeout(function () { openPanel(); }, 150);
         }
         // 候诊数据轮询（计数/列表实时刷新；离开工作台页面自动停止，避免后台空轮询）
@@ -68,6 +70,29 @@ Clinic.deptwork = (function () {
             }
             loadQueue(true);
         }, 30000);
+    }
+
+    /* ==================== 关闭按钮显隐 ==================== */
+    function setCloseBtn(show) {
+        var btn = document.getElementById('dwHomeBtn');
+        if (btn) btn.style.display = show ? '' : 'none';
+    }
+
+    /* ==================== 无患者时侧边栏占位（参照病历右侧侧边栏空态） ==================== */
+    function renderSidePlaceholder() {
+        var side = document.getElementById('dwSide');
+        if (!side) return;
+        var cfg = {
+            nurse: '📝 护理记录',
+            lab: '🧪 检验项目',
+            imaging: '🩻 检查项目',
+            pharmacy: '💊 处方',
+        }[ROLE] || '📋 项目';
+        side.innerHTML =
+            '<div class="ena-sec"><div class="ena-sec-title">' + cfg + '</div>' +
+            '<div class="ena-empty">暂无患者，请从候诊列表选择</div></div>' +
+            '<div class="ena-sec"><div class="ena-sec-title">📋 病历摘要</div>' +
+            '<div class="ena-empty">暂无病历</div></div>';
     }
 
     function bindButtons() {
@@ -104,7 +129,9 @@ Clinic.deptwork = (function () {
         VISIT = '';
         closePanel();
         closeCallPop();
+        setCloseBtn(false);
         renderEmptyWork();
+        renderSidePlaceholder();
         setTimeout(function () { openPanel(); }, 120);
     }
 
@@ -190,6 +217,7 @@ Clinic.deptwork = (function () {
                 renderHeader(d);
                 // 就诊状态已在横条徽章展示，状态位保持空白
                 setStatus('');
+                setCloseBtn(true);
                 if (RENDER) RENDER(d);
             },
             onError: function () {

@@ -327,6 +327,20 @@ switch ($action) {
         json_ok(array(), '护理记录已添加');
         break;
 
+    /* ==================== 删除护理记录 ==================== */
+    case 'nursing_delete':
+        $id = (int)post('id');
+        if ($id <= 0) json_fail('参数错误');
+        $nr = EmrRepository::one('SELECT * FROM nursing_records WHERE id=?', array($id));
+        if (!$nr) json_fail('护理记录不存在');
+        $row = get_visit_row((int)$nr['visit_id']);
+        if (!$row) json_fail('就诊记录不存在');
+        // 护士科室归属校验（宽松：未绑定科室=全院放行；已绑科室须匹配就诊科室）
+        if (!nurse_visit_allowed($row['visit'], $u)) json_fail('无权限删除该就诊的护理记录');
+        EmrRepository::exec('DELETE FROM nursing_records WHERE id=?', array($id));
+        json_ok(array(), '护理记录已删除');
+        break;
+
     default:
         json_fail('未知操作');
 }

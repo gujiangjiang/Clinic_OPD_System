@@ -41,12 +41,13 @@ function admin_part_audit($action) {
             $typeNames = array(
                 'template' => '病历模板', 'item_lab' => '检验项目添加', 'item_exam' => '检查项目添加',
                 'item_drug' => '药品添加', 'item_disp' => '处置项目添加', 'drugsetting' => '药品设置',
+                'nursing_record' => '护理记录模板',
                 'report_withdraw' => '报告撤回',
                 'pwd_reset' => '密码重置申请', 'profile_update' => '个人资料修改',
             );
             // 单条记录渲染（平铺与分组共用；分组视图可隐藏冗余列）
             // 可预览类型：凡经模态框表单提交的均提供「预览」按钮（复用原表单，只读展示）
-            $previewableTypes = array('template', 'item_lab', 'item_exam', 'item_drug', 'item_disp', 'drugsetting');
+            $previewableTypes = array('template', 'nursing_template', 'item_lab', 'item_exam', 'item_drug', 'item_disp', 'drugsetting');
             $rowHtml = function ($r, $showType = true, $showProposer = true) use ($typeNames, $previewableTypes) {
                 $h = '<tr>';
                 if ($showType) {
@@ -165,10 +166,14 @@ function admin_part_audit($action) {
                 case 'template':
                     $backUrl = '/doctor/templates';
                     break;
+                case 'nursing_template':
+                    $backUrl = '/nurse/templates';
+                    break;
             }
         }
         switch ($audit['type']) {
             case 'template':
+            case 'nursing_template':
                 $tplStatus = $approve ? 'published' : 'rejected';
                 CoreRepository::exec('UPDATE emr_templates SET status=?, updated_at=? WHERE id=?', array($tplStatus, now_str(), $refId));
                 // 驳回时降级为个人模板（仅自己可见可用）
@@ -176,8 +181,11 @@ function admin_part_audit($action) {
                     CoreRepository::exec('UPDATE emr_templates SET scope=? WHERE id=?', array('personal', $refId));
                 }
                 if ($proposerId > 0) {
-                    send_msg('doctor', $proposerId, '病历模板审核结果',
-                        '您的病历模板「' . $audit['title'] . '」审核' . ($approve ? '已通过，现在可以使用' : '未通过：' . $note . '，已降级为个人模板'),
+                    $isNurseTpl = $audit['type'] === 'nursing_template';
+                    $tplLabel = $isNurseTpl ? '护理记录模板' : '病历模板';
+                    $toRole = $proposerRole !== '' ? $proposerRole : ($isNurseTpl ? 'nurse' : 'doctor');
+                    send_msg($toRole, $proposerId, $tplLabel . '审核结果',
+                        '您的' . $tplLabel . '「' . $audit['title'] . '」审核' . ($approve ? '已通过，现在可以使用' : '未通过：' . $note . '，已降级为个人模板'),
                         '', '', array('msg_type' => 'system', 'link_url' => $backUrl));
                 }
                 break;

@@ -55,7 +55,7 @@ switch ($action) {
     case 'list':
         $kw = trim((string)get('kw', ''));
         $type = get('type', 'medical_record');
-        if (!in_array($type, array('medical_record', 'consent', 'order_note'), true)) $type = 'medical_record';
+        if (!in_array($type, array('medical_record', 'consent', 'order_note', 'nursing_record'), true)) $type = 'medical_record';
         $isAdmin = ($u['role'] === 'admin');
         $sql = "SELECT * FROM emr_templates WHERE type=?";
         $params = array($type);
@@ -169,19 +169,23 @@ switch ($action) {
         $type = post('type', 'medical_record');
         $scope = post('scope', 'personal');
         $content = post('content', '{}');
-        if (!in_array($type, array('medical_record', 'consent', 'order_note'), true)) $type = 'medical_record';
+        if (!in_array($type, array('medical_record', 'consent', 'order_note', 'nursing_record'), true)) $type = 'medical_record';
         if (!in_array($scope, array('personal', 'dept', 'hospital'), true)) $scope = 'personal';
         if ($title === '') json_fail('请填写模板名称');
         $contentArr = json_decode((string)$content, true);
         if (!is_array($contentArr)) $contentArr = array();
         // 内容按模板类型区分：
         // · consent 知情同意书模板：{ name: XX（标题中的 XX）, content: 正文 }
+        // · nursing_record 护理记录模板：{ content: 正文 }
         // · medical_record 病历模板：结构化 EMR（后端剥离禁止字段）
-        $typeLabel = $type === 'consent' ? '知情同意书模板' : '病历模板';
+        $typeLabel = $type === 'consent' ? '知情同意书模板' : ($type === 'nursing_record' ? '护理记录模板' : '病历模板');
         if ($type === 'consent') {
             if (empty($contentArr['name'])) $contentArr['name'] = '通用';
             if (!isset($contentArr['content'])) $contentArr['content'] = '';
             $contentArr['content'] = trim((string)$contentArr['content']);
+        } elseif ($type === 'nursing_record') {
+            if (!isset($contentArr['content'])) $contentArr['content'] = '';
+            $contentArr = array('content' => trim((string)$contentArr['content']));
         } else {
             $contentArr = tpl_filter_content($contentArr);
         }
@@ -234,9 +238,11 @@ switch ($action) {
 
         // 非管理员提交的 dept/hospital 模板进入审核中心（audits 表）：
         // 创建/更新一条待审核记录，管理员在【审核中心】统一处理
+        // 护理记录模板用独立审核类型（nursing_template），便于审核中心识别与跳转护士站
+        $auditType = ($type === 'nursing_record') ? 'nursing_template' : 'template';
         if ($status === 'pending_review') {
             $scopeName = $scope === 'hospital' ? '全院' : '科室';
-            $existing = EmrRepository::one("SELECT id FROM audits WHERE type='template' AND ref_id=? AND status='pending'", array($tplId));
+            $existing = EmrRepository::one("SELECT id FROM audits WHERE type=? AND ref_id=? AND status='pending'", array($auditType, $tplId));
             $auditData = json_encode(array(
                 'title' => $title, 'scope' => $scope, 'dept_ids' => $deptIds ? array_keys($deptIds) : array(),
             ), JSON_UNESCAPED_UNICODE);
@@ -245,17 +251,17 @@ switch ($action) {
                     $typeLabel . '待审核：' . $title, '提交' . $scopeName . $typeLabel . '「' . $title . '」，请在审核中心查看详情并审核', $auditData, $u['name'], $u['id'], now_str(), (int)$existing['id'],
                 ));
             } else {
-                submit_audit('template', $tplId, $typeLabel . '待审核：' . $title,
+                submit_audit($auditType, $tplId, $typeLabel . '待审核：' . $title,
                     '提交' . $scopeName . $typeLabel . '「' . $title . '」，请在审核中心查看详情并审核',
                     array('data' => $auditData));
             }
             // 站内消息提醒管理员前往审核中心处理
             send_msg('admin', 0, '待审核提醒',
-                '医生 ' . $u['name'] . ' 提交了' . $scopeName . $typeLabel . '「' . $title . '」待审核，请前往审核中心处理',
+                ($u['role'] === 'nurse' ? '护士 ' : '医生 ') . $u['name'] . ' 提交了' . $scopeName . $typeLabel . '「' . $title . '」待审核，请前往审核中心处理',
                 '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
         } else {
             // 免审（个人/管理员）或已过审：清理该模板残留的待审核记录
-            EmrRepository::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='template' AND ref_id=? AND status='pending'", array($u['name'], now_str(), $tplId));
+            EmrRepository::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type=? AND ref_id=? AND status='pending'", array($u['name'], now_str(), $auditType, $tplId));
         }
 
         json_ok(array('id' => $tplId, 'status' => $status),

@@ -48,7 +48,7 @@ function itemStatusBadge(s) {
 function orderLink(orderId, orderNo) {
     if (!orderId) return esc(orderNo || '—');
     return '<a href="javascript:void(0)" style="color:var(--primary);cursor:pointer;text-decoration:underline" ' +
-        'onclick="previewOrder(\'' + esc(orderId) + '\',\'' + esc(orderNo || '') + '\')">' + esc(orderNo || '—') + '</a>';
+        'onclick="previewOrder(\'' + esc(orderId) + '\',\'' + esc(orderNo || '') + '\',\'' + esc(type || '') + '\')">' + esc(orderNo || '—') + '</a>';
 }
 
 /* ==================== 通用只读打印预览 ==================== */
@@ -56,10 +56,13 @@ function previewRecord() {
     if (!CUR_VISIT) return;
     Clinic.print.preview('/api/print?action=record&visit_id=' + CUR_VISIT, null, '完整病历预览');
 }
-function previewOrder(orderId, orderNo) {
+function previewOrder(orderId, orderNo, type) {
     if (!orderId) return;
-    // 护士只关心「门诊输液（注射）笺」（单号+Z），处方笺给药房取药，不展示
-    Clinic.print.preview('/api/print?action=order&order_id=' + orderId + '&nurse_only=1', null, '输液（注射）笺预览：' + (orderNo || ''));
+    var isRx = type === 'prescription';
+    // 处方：护士只关心「门诊输液（注射）笺」（单号+Z），处方笺给药房取药，不展示；
+    // 处置：显示处置单
+    var title = isRx ? '输液（注射）笺预览：' + (orderNo || '') : '处置单预览：' + (orderNo || '');
+    Clinic.print.preview('/api/print?action=order&order_id=' + orderId + (isRx ? '&nurse_only=1' : ''), null, title);
 }
 
 /* ==================== 生命体征趋势（复用原护士站实现） ==================== */
@@ -216,25 +219,98 @@ function nursingSection(data) {
     var list = data.nursing || [];
     var rows = list.length ? list.map(function (r) {
         return '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">' +
-            '<div class="fs-13">' + nl2br(esc(r.content)) + '</div>' +
+            '<div class="flex-between">' +
+            '  <div class="fs-13" style="flex:1;min-width:0">' + nl2br(esc(r.content)) + '</div>' +
+            '  <span class="fs-14" style="color:var(--danger);cursor:pointer;flex-shrink:0;margin-left:10px" title="删除该护理记录" onclick="delNursing(' + (r.id || 0) + ')">✕</span>' +
+            '</div>' +
             '<div class="fs-12 text-muted mt-4">' + esc(r.operator) + ' ｜ ' + esc(r.created_at) + '</div></div>';
     }).join('') : '<div class="fs-13 text-muted">暂无护理记录</div>';
     return '<div class="dw-nurse-sec" id="nurseSecNursing">' +
         '<div class="dw-nurse-sec-title"><span class="emoji">📝</span>护理记录</div>' + rows +
-        '<div class="form-group mt-8"><label class="form-label">新增护理记录</label>' +
-        '<textarea class="textarea" id="nursingContent" rows="2" placeholder="如：测量体温36.5℃，患者生命体征平稳"></textarea></div>' +
-        '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" onclick="addNursing()">➕ 添加护理记录</button></div>' +
+        '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" onclick="openNursingModal()">➕ 添加护理记录</button></div>' +
         '</div>';
 }
 
-function addNursing() {
-    var content = (document.getElementById('nursingContent') || {}).value || '';
+function delNursing(id) {
+    if (!id) return;
+    Clinic.modal.confirm('确定删除该条护理记录？删除后不可恢复。', function () {
+        Clinic.ajax('/api/nurse', { action: 'nursing_delete', id: id }, {
+            onSuccess: function (j) {
+                Clinic.toast.success(j.msg);
+                refreshNurseSec('Nursing');
+            },
+        });
+    });
+}
+
+/* 添加护理记录模态框：左侧护理模板列表 + 右侧自由输入（点模板带入内容） */
+var NM_TPLS = [];
+function openNursingModal() {
+    var mask = Clinic.modal.open(
+        '<div class="flex" style="gap:14px;height:460px">' +
+        '  <div style="width:300px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--border);padding-right:14px;min-height:0">' +
+        '    <div class="form-group"><label class="form-label">护理模板</label>' +
+        '    <input class="input" id="nmSearch" placeholder="🔍 搜索模板" oninput="nmRenderTpls()"></div>' +
+        '    <div id="nmTplList" style="flex:1;overflow-y:auto;min-height:0"></div>' +
+        '  </div>' +
+        '  <div style="flex:1;min-width:0;display:flex;flex-direction:column">' +
+        '    <div class="form-group" style="flex:1;display:flex;flex-direction:column;min-height:0">' +
+        '      <label class="form-label">护理记录内容 <span class="req">*</span></label>' +
+        '      <textarea class="textarea" id="nmContent" style="flex:1;min-height:0" placeholder="可自由输入，或点击左侧模板直接带入"></textarea></div>' +
+        '  </div>' +
+        '</div>',
+        { title: '➕ 添加护理记录', size: 'modal-lg', buttons: [] }
+    );
+    NM_TPLS = [];
+    loadNursingTpls();
+    mask.querySelector('.modal-foot').innerHTML =
+        '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+        '<button type="button" class="btn btn-primary" onclick="nmSave()">添加</button>';
+}
+
+function loadNursingTpls() {
+    Clinic.get('/api/template?action=list&type=nursing_record', null, {
+        loading: false,
+        onSuccess: function (j) {
+            NM_TPLS = j.data.list || [];
+            nmRenderTpls();
+        },
+    });
+}
+
+function nmRenderTpls() {
+    var box = document.getElementById('nmTplList');
+    if (!box) return;
+    var kw = ((document.getElementById('nmSearch') || {}).value || '').trim().toLowerCase();
+    var list = NM_TPLS.filter(function (t) {
+        return !kw || (t.title || '').toLowerCase().indexOf(kw) !== -1;
+    });
+    box.innerHTML = list.length ? list.map(function (t) {
+        return '<div class="dd-item" style="cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px" onclick="nmPickTpl(' + t.id + ')">' +
+            '<div class="fw-600 fs-13">' + esc(t.title) + '</div>' +
+            '<div class="fs-12 text-muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + esc((t.content && t.content.content) || '') + '">' + esc((t.content && t.content.content) || '') + '</div></div>';
+    }).join('') : '<div class="fs-12 text-muted">暂无护理模板（可自由输入）</div>';
+}
+
+function nmPickTpl(id) {
+    Clinic.get('/api/template?action=get&id=' + id + '&for_apply=1', null, {
+        loading: false,
+        onSuccess: function (j) {
+            var t = j.data && j.data.template;
+            var ta = document.getElementById('nmContent');
+            if (ta && t && t.content && t.content.content) ta.value = t.content.content;
+        },
+    });
+}
+
+function nmSave() {
+    var content = (document.getElementById('nmContent') || {}).value || '';
     content = content.trim();
     if (!content) { Clinic.toast.warning('请输入护理记录内容'); return; }
     Clinic.ajax('/api/nurse', { action: 'nursing_add', visit_id: CUR_VISIT, content: content }, {
         onSuccess: function (j) {
             Clinic.toast.success(j.msg);
-            // 局部刷新护理记录区块，不重建整页
+            Clinic.modal.close();
             refreshNurseSec('Nursing');
         },
     });
@@ -274,7 +350,7 @@ function procSection(data) {
         var it = e.it, o = e.o;
         rows += '<tr>' +
             '<td class="fw-600">' + esc(it.item_name) + ' ×' + it.quantity + '</td>' +
-            '<td>' + orderLink(o.order_id, o.order_no) + '</td>' +
+            '<td>' + orderLink(o.order_id, o.order_no, 'procedure') + '</td>' +
             '<td>' + esc(o.doctor_name || '') + '</td>' +
             '<td class="fs-12">' + esc((it.created_at || '').substr(5, 11)) + '</td>' +
             '<td>' + itemStatusBadge(it.status) + '</td>' +
@@ -304,7 +380,7 @@ function medSection(data) {
         var it = e.it, o = e.o;
         rows += '<tr>' +
             '<td class="fw-600">' + esc(it.item_name) + ' ×' + it.quantity + ' <span class="fs-12 text-muted fw-400">' + esc(it.route || '') + '</span></td>' +
-            '<td>' + orderLink(o.order_id, o.order_no) + '</td>' +
+            '<td>' + orderLink(o.order_id, o.order_no, 'prescription') + '</td>' +
             '<td>' + esc(o.doctor_name || '') + '</td>' +
             '<td class="fs-12">' + esc((it.created_at || '').substr(5, 11)) + '</td>' +
             '<td>' + itemStatusBadge(it.status) + '</td>' +
@@ -385,6 +461,8 @@ function renderNurseSide(data) {
         });
     });
     document.getElementById('dwSide').innerHTML =
+        '<div class="dw-side-sec"><div class="dw-side-title">📝 护理记录</div>' +
+        '<div class="dw-side-item" onclick="scrollToSec(\'nurseSecNursing\')">护理记录 / 添加 / 删除</div></div>' +
         '<div class="dw-side-sec"><div class="dw-side-title">📋 病历摘要</div>' +
         '<div class="dw-side-item" onclick="scrollToSec(\'nurseSecSummary\')">主诉 / 现病史 / 诊断</div></div>' +
         '<div class="dw-side-sec"><div class="dw-side-title">📈 生命体征</div>' +

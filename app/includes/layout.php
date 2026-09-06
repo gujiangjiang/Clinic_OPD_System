@@ -58,6 +58,7 @@ class Layout {
             $items['护士站'] = array(
                 array('首页', '🏠', '/nurse/home'),
                 array('护士工作站', '💉', '/nurse/dashboard'),
+                array('护理模板', '📋', '/nurse/templates'),
             );
         } elseif ($role === 'lab') {
             $items['检验科'] = array(

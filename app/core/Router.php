@@ -67,6 +67,7 @@ class Router {
         // ===== 护士站 =====
         '/nurse/dashboard'   => array('nurse/dashboard.php',    array('nurse')),
         '/nurse/home'        => array('nurse/home.php',         array('nurse')),
+        '/nurse/templates'   => array('nurse/templates.php',    array('nurse')),
         // ===== 检验科 =====
         '/lab/dashboard'     => array('lab/dashboard.php',      array('lab')),
         '/lab/home'          => array('lab/home.php',           array('lab')),

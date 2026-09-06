@@ -32,7 +32,7 @@ function dept_workbench($cfg) {
         <div id="dwHeader"></div>
         <span class="fs-12 text-muted emr-top-status" id="dwStatus"></span>
         <div class="emr-top-actions">
-            <button type="button" class="btn btn-outline btn-sm" id="dwHomeBtn" title="关闭护理记录单，返回候诊列表">✕ 关闭</button>
+            <button type="button" class="btn btn-outline btn-sm" id="dwHomeBtn" title="关闭护理记录单，返回候诊列表" style="display:none">✕ 关闭</button>
         </div>
     </header>
     <div class="emr-body-layout">
