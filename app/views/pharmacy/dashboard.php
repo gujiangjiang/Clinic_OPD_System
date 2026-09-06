@@ -6,10 +6,10 @@
  * 说明：采用与医生工作站一致的「顶部患者信息横条 + 左侧候诊列表 +
  * 主工作区」布局（公共骨架见 app/includes/dept_workbench.php，
  * 公共交互见 deptwork.js）：
- *   候诊列表页签：待发药 / 完成 / 当日；点击患者弹出只读打印样式
- *   处方单，可直接「通过发药 / 拒绝」审方。
- * 数据接口：/api/deptwork（queue/patient）+ /api/pharmacy（audit/
- * rx_slip）。
+ *   候诊列表页签：待发药 / 完成 / 当日；点击患者弹出门诊处方笺页：
+ *   抬头（医院名称+第二名称+门诊处方笺+患者信息两行，参照急诊病历版式）
+ *   → 按处方号组合的处方卡片（一张处方一个整体，审方中 → 通过发药/拒绝）。
+ * 数据接口：/api/deptwork（queue/patient）+ /api/pharmacy（audit/rx_slip）。
  * ============================================================ */
 require APP_ROOT . '/app/includes/dept_workbench.php';
 dept_workbench(array(
@@ -36,7 +36,8 @@ function afterRxAction() {
 function esc(s) { return Clinic.escHtml(s); }
 function money(n) { return '¥' + (parseFloat(n) || 0).toFixed(2); }
 function orderStatusName(s) {
-    var map = { pending: '待缴费', paid: '待审方', dispensed: '已发药', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
+    // 药房审方上下文：待审方（paid）即「审方中」
+    var map = { pending: '待缴费', paid: '审方中', dispensed: '已发药', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
     return map[s] || s;
 }
 function rxStatusBadge(s) {
@@ -47,27 +48,36 @@ function rxStatusBadge(s) {
 function renderRxWork(data) {
     var v = data.visit || {}, p = data.patient || {};
     var orders = (data.orders || []).filter(function (o) { return o.order_type === 'prescription'; });
-    // 右栏大纲：处方导航
+    // 右栏大纲：按处方分组（处方号可点「+」展开该处方全部药品）
     var sideItems = orders.map(function (o) {
-        var dot = o.status === 'dispensed' ? 'ok' : (o.status === 'paid' ? 'pending' : 'done');
-        return '<div class="dw-side-item" onclick="scrollToRx(\'' + esc(o.order_id) + '\')"><span class="dot ' + dot + '"></span>' +
-            esc(o.order_no) + '（' + o.items.length + ' 项）</div>';
+        var pending = o.status === 'paid';
+        var subs = o.items.filter(function (it) { return it.sub_of === 0; }).map(function (it) {
+            return '<div class="dw-side-item dw-side-subitem"><span class="dot done"></span>' + esc(it.item_name) + '</div>';
+        }).join('');
+        return '<div class="dw-side-order">' +
+            '<div class="dw-side-item" onclick="scrollToRx(\'' + esc(o.order_id) + '\')">' +
+            '<span class="dw-side-plus" id="sidePlus_' + esc(o.order_id) + '" title="展开该处方药品" ' +
+            'onclick="event.stopPropagation();Clinic.deptwork.toggleSideOrder(\'' + esc(o.order_id) + '\')">+</span>' +
+            '<span class="dot ' + (pending ? 'pending' : 'ok') + '"></span>' +
+            '<span class="dw-side-oname">' + esc(o.order_no) + '（' + o.items.length + ' 项）</span>' +
+            '</div>' +
+            '<div class="dw-side-sub" id="sideSub_' + esc(o.order_id) + '" style="display:none">' + subs + '</div>' +
+            '</div>';
     }).join('');
     document.getElementById('dwSide').innerHTML =
         '<div class="dw-side-sec"><div class="dw-side-title">💊 本次处方（' + orders.length + ' 张）</div>' +
         (sideItems || '<div class="dw-side-item">暂无处方</div>') + '</div>';
 
-    // 主区：只读打印样式处方单
-    var head = '<div class="fs-13 text-muted mb-8">患者 ' + esc(v.name) +
-        '（' + esc(p.patient_id) + '）本次就诊处方共 ' + orders.length + ' 张</div>';
+    // 主区：抬头（急诊病历版式）+ 各处方卡片
+    var head = rxHeadHtml(data);
     var body = '';
     if (!orders.length) {
         body = '<div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">💊</div>本次就诊暂无处方</div></div>';
     } else {
-        orders.forEach(function (o) { body += rxOrderHtml(data, o); });
+        orders.forEach(function (o) { body += rxOrderHtml(o); });
     }
     document.getElementById('dwMain').innerHTML = head + body;
-    // 绑定审方操作
+    // 绑定审方操作（paid → 审方中）
     orders.forEach(function (o) {
         if (o.status === 'paid') {
             var pass = document.getElementById('rxPass_' + o.order_id);
@@ -78,24 +88,32 @@ function renderRxWork(data) {
     });
 }
 
-function scrollToRx(orderId) {
-    var el = document.getElementById('rxSec_' + orderId);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function rxRowHtml(it, sub) {
-    return '<tr>' +
-        '<td class="fw-600">' + (sub ? '　└ ' : '') + esc(it.item_name) + (it.is_nurse ? ' <span class="badge badge-warning" style="font-size:10px">护士站执行</span>' : '') + '</td>' +
-        '<td>' + esc(it.single_dose || '—') + '</td>' +
-        '<td>' + esc(it.frequency || '—') + '</td>' +
-        '<td>' + esc(it.route || '—') + '</td>' +
-        '<td>' + (it.quantity || 0) + '</td>' +
-        '<td>' + money((parseFloat(it.price) || 0) * (it.quantity || 0)) + '</td></tr>';
-}
-
-function rxOrderHtml(data, o) {
+/* 抬头：医院名称 + 第二名称 + 门诊处方笺 + 患者信息两行（急诊病历版式） */
+function rxHeadHtml(data) {
     var v = data.visit || {}, p = data.patient || {};
     var hosp = document.body.getAttribute('data-hosp') || '';
+    var hosp2 = document.body.getAttribute('data-hosp2') || '';
+    var cell = function (label, value) {
+        return '<div class="dw-line-cell"><span class="lbl">' + label + '：</span><span class="val">' + (value || '—') + '</span></div>';
+    };
+    return '<div class="card dw-nurse-doc">' +
+        '<div class="dw-hosp-block">' +
+        '  <div class="dw-hosp">' + esc(hosp) + '</div>' +
+        (hosp2 ? '  <div class="dw-sub">' + esc(hosp2) + '</div>' : '') +
+        '</div>' +
+        '<div class="dw-title-bar"><div class="dw-title">门 诊 处 方 笺</div></div>' +
+        '<div class="dw-pat-lines">' +
+        '  <div class="dw-line-row">' +
+        cell('姓名', esc(v.name)) + cell('性别', esc(v.gender)) + cell('年龄', esc(v.age_fmt || '')) + cell('出生日期', esc(p.birth_date || '')) +
+        '  </div>' +
+        '  <div class="dw-line-row">' +
+        cell('患者ID', esc(p.patient_id)) + cell('流水号', esc(v.visit_no)) + cell('首诊科室', esc(v.first_dept_name || '')) + cell('首诊时间', esc((v.created_at || '').substr(0, 16))) +
+        '  </div>' +
+        '</div></div>';
+}
+
+/* 单张处方卡片：处方号（可点击预览全部处方，不含输液笺）+ 状态进度 + 药品明细 + 审方操作 */
+function rxOrderHtml(o) {
     var mainItems = o.items.filter(function (it) { return it.sub_of === 0; });
     var rows = '';
     mainItems.forEach(function (mi) {
@@ -119,18 +137,14 @@ function rxOrderHtml(data, o) {
             '</div>';
     }
     return '<div class="card dw-rx-card" id="rxSec_' + esc(o.order_id) + '" style="margin-bottom:14px">' +
-        '<div class="dw-rx-hosp">' + esc(hosp) + '</div>' +
-        '<div class="dw-rx-title">处 方 笺 ' + rxStatusBadge(o.status) + '</div>' +
-        '<div class="dw-rx-meta">' +
-        '<span>姓名：<b>' + esc(v.name) + '</b></span>' +
-        '<span>性别：' + esc(v.gender) + '　年龄：' + esc(v.age_fmt || '') + '</span>' +
-        '<span>患者ID：' + esc(p.patient_id) + '</span>' +
-        '<span>处方号：' + esc(o.order_no) + '</span>' +
-        '<span>开单医生：' + esc(o.doctor_name || '') + '</span>' +
-        '<span>开单科室：' + esc(o.dept_name || '') + '</span>' +
-        '<span>开单时间：' + esc((o.created_at || '').substr(0, 16)) + '</span>' +
-        '<span>流水号：' + esc(v.visit_no) + '</span>' +
+        '<div class="dw-rx-head">' +
+        '  <span class="fw-700">💊 处方</span>' +
+        '  <a href="javascript:void(0)" style="color:var(--primary);cursor:pointer;text-decoration:underline;margin-left:10px" ' +
+        'onclick="previewRx(\'' + esc(o.order_id) + '\',\'' + esc(o.order_no) + '\')">' + esc(o.order_no) + '</a>' +
+        '  <span class="fs-12 text-muted" style="margin-left:10px">开单医生：' + esc(o.doctor_name || '') + ' ｜ ' + esc((o.created_at || '').substr(0, 16)) + '</span>' +
+        rxStatusBadge(o.status) +
         '</div>' +
+        '<div class="dw-rx-steps">' + rxProgressHtml(o) + '</div>' +
         '<table class="dw-rx-table"><thead><tr><th>药品</th><th>剂量</th><th>频次</th><th>途径</th><th>数量</th><th>小计</th></tr></thead><tbody>' +
         rows + '</tbody></table>' +
         '<div class="flex-between mt-8"><span class="fs-13">共 ' + o.items.length + ' 项</span>' +
@@ -140,6 +154,46 @@ function rxOrderHtml(data, o) {
               '<span>发药药师：' + esc(o.done_by || '') + '</span><span>发药时间：' + esc((o.dispensed_at || '').substr(0, 16)) + '</span></div>'
             : '') +
         actions + '</div>';
+}
+
+/* 状态进度：开单 → 缴费 → 审方（点进患者即审方中）→ 发药/拒绝 */
+function rxProgressHtml(o) {
+    var steps;
+    if (o.status === 'dispensed') {
+        steps = [['开单', 1], ['缴费', 1], ['审方', 1], ['发药', 1]];
+    } else if (o.status === 'rejected') {
+        steps = [['开单', 1], ['缴费', 1], ['审方', 1], ['拒绝', -1]];
+    } else {
+        steps = [['开单', 1], ['缴费', 1], ['审方', 0], ['发药', 0]];
+    }
+    var html = '';
+    steps.forEach(function (s, i) {
+        if (i) html += '<span class="dw-rx-arrow">→</span>';
+        var cls = s[1] === 1 ? 'done' : (s[1] === -1 ? 'rejected' : 'current');
+        html += '<span class="dw-rx-step ' + cls + '">' + (s[1] === 0 && s[0] === '审方' ? '审方中' : s[0]) + '</span>';
+    });
+    return html;
+}
+
+function scrollToRx(orderId) {
+    var el = document.getElementById('rxSec_' + orderId);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function rxRowHtml(it, sub) {
+    return '<tr>' +
+        '<td class="fw-600">' + (sub ? '　└ ' : '') + esc(it.item_name) + (it.is_nurse ? ' <span class="badge badge-warning" style="font-size:10px">护士站执行</span>' : '') + '</td>' +
+        '<td>' + esc(it.single_dose || '—') + '</td>' +
+        '<td>' + esc(it.frequency || '—') + '</td>' +
+        '<td>' + esc(it.route || '—') + '</td>' +
+        '<td>' + (it.quantity || 0) + '</td>' +
+        '<td>' + money((parseFloat(it.price) || 0) * (it.quantity || 0)) + '</td></tr>';
+}
+
+/* 处方预览：该处方号全部处方（含药房/护士站处方笺，不含门诊输液注射笺） */
+function previewRx(orderId, orderNo) {
+    if (!orderId) return;
+    Clinic.print.preview('/api/print?action=order&order_id=' + orderId + '&exclude_inject=1', null, '处方预览：' + (orderNo || ''));
 }
 
 function doRxPass(o) {

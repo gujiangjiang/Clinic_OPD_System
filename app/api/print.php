@@ -175,10 +175,12 @@ switch ($action) {
                 if ($pharmItems) {
                     $html .= pt_order($order, $pharmItems, '门诊处方笺', array('note_type' => 'pharm', 'display_no' => $order['order_no']));
                 }
-                // ②③ 护士药品：处方笺 + 输液注射笺副本
+                // ②③ 护士药品：处方笺 + 输液注射笺副本（药房预览 exclude_inject=1 时不含输液笺）
                 if ($nurseItems) {
                     $html .= pt_order($order, $nurseItems, '门诊处方笺', array('note_type' => 'pharm', 'display_no' => $order['order_no'] . 'N'));
-                    $html .= pt_order($order, $nurseItems, '门诊输液（注射）笺', array('note_type' => 'nurse', 'display_no' => $order['order_no'] . 'Z'));
+                    if ((int)get('exclude_inject', 0) === 0) {
+                        $html .= pt_order($order, $nurseItems, '门诊输液（注射）笺', array('note_type' => 'nurse', 'display_no' => $order['order_no'] . 'Z'));
+                    }
                 }
             } else {
                 $order['is_nurse_any'] = 0;

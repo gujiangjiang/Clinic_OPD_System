@@ -835,7 +835,28 @@
 }
 .dw-lab-order-head .badge { margin-left: auto; }
 /* 处方单（打印样式，只读） */
-.dw-rx-card { padding: 24px 28px; }
+.dw-rx-card { padding: 0; overflow: hidden; }
+.dw-rx-card .dw-rx-table { margin: 12px 18px 0; width: calc(100% - 36px); }
+.dw-rx-card .flex-between { padding: 0 18px; }
+.dw-rx-card .dw-rx-sign { padding: 0 18px 18px; }
+.dw-rx-card .dw-report-actions { padding: 0 18px 18px; }
+.dw-rx-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    padding: 12px 18px;
+    font-size: 13px;
+    border-bottom: 1px dashed var(--border);
+}
+.dw-rx-head .badge { margin-left: auto; }
+/* 审方状态进度条 */
+.dw-rx-steps { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 10px 18px 0; font-size: 12px; }
+.dw-rx-step { padding: 2px 10px; border-radius: 999px; background: var(--bg-soft); color: var(--text-muted); white-space: nowrap; }
+.dw-rx-step.done { background: var(--success, #16a34a); color: #fff; }
+.dw-rx-step.current { background: var(--warning, #f59e0b); color: #fff; font-weight: 700; }
+.dw-rx-step.rejected { background: var(--danger, #ef4444); color: #fff; }
+.dw-rx-arrow { color: var(--text-muted); }
 .dw-rx-hosp { text-align: center; font-size: 19px; font-weight: 700; letter-spacing: 3px; }
 .dw-rx-title { text-align: center; font-size: 15px; font-weight: 700; color: var(--text-muted); border-bottom: 2px solid var(--border); padding: 8px 0 12px; margin: 4px 0 14px; }
 .dw-rx-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 24px; font-size: 13px; margin-bottom: 12px; }
