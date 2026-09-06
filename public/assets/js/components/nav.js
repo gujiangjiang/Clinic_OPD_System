@@ -32,6 +32,7 @@ Clinic.nav = {
     pageScripts: {
         emr: ['order', 'emreditor', 'eventbus', 'emr', 'emr_rules', 'emr_format', 'emr_template', 'emr_fee', 'emr_patient', 'emr_orders', 'emr_segments', 'emr_consent', 'queuepanel'],
         docTools: ['room_heartbeat', 'doctor_tools'],
+        deptwork: ['deptwork'],
     },
 
     /** 判断组件是否已加载（按全局命名空间标记） */
@@ -53,6 +54,7 @@ Clinic.nav = {
             case 'queuepanel': return !!Clinic.queuePanel;
             case 'room_heartbeat': return !!Clinic.roomHeartbeat;
             case 'doctor_tools': return !!Clinic.docTools;
+            case 'deptwork': return !!Clinic.deptwork;
             default: return false;
         }
     },

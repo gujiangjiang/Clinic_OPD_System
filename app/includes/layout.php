@@ -180,8 +180,9 @@ class Layout {
      * @param bool   $forceMini 强制缩小侧边栏（病历书写页为书写区让出空间，忽略用户偏好）
      * @param bool   $needEmr   是否需要 EMR 栈组件（医生工作站/模板/审核预览）
      * @param bool   $docTools  医生工作站（新）顶栏工具（工具箱/叫号/科室切换）
+     * @param bool   $needDeptWork 是否需要科室工作台组件（护士站/检验/影像/药房工作台）
      */
-    public static function appPage($content, $title, $forceMini = false, $needEmr = false, $docTools = false) {
+    public static function appPage($content, $title, $forceMini = false, $needEmr = false, $docTools = false, $needDeptWork = false) {
         $u = Auth::user();
         if (!$u) {
             header('Location: /login');
@@ -247,6 +248,10 @@ class Layout {
         // 医生角色全局：诊室大屏绑定心跳保活（跨页面持续，离开工作站/刷新不自动解绑）
         if ($u['role'] === 'doctor') {
             $emrScripts .= "\n" . '<script src="/assets/js/components/room_heartbeat.js?v=' . APP_VERSION . '"></script>';
+        }
+        // 科室工作台（护士站/检验/影像/药房）共用组件
+        if ($needDeptWork) {
+            $emrScripts .= "\n" . '<script src="/assets/js/components/deptwork.js?v=' . APP_VERSION . '"></script>';
         }
         $uPop = '<div class="user-pop">' .
             '<div class="user-pop-head">' .

@@ -207,6 +207,8 @@ class Router {
                 $topbarPatch = '<div class="view-topbar-patch" style="display:none">' . Layout::docToolsBar() . '</div>';
             } elseif ($view === 'templates.php' || $view === 'admin/review.php') {
                 $needs[] = 'emr';
+            } elseif (in_array($view, array('nurse/dashboard.php', 'lab/dashboard.php', 'imaging/dashboard.php', 'pharmacy/dashboard.php'), true)) {
+                $needs[] = 'deptwork';
             }
             $needsAttr = $needs ? ' data-needs="' . e(implode(' ', $needs)) . '"' : '';
             echo '<div class="view-root" data-page-title="' . e(self::$title) . '"' . $needsAttr . '>' . $topbarPatch . $content . '</div>';
@@ -217,6 +219,8 @@ class Router {
         // 需要 EMR 栈（emr.js + emr_* + order + queuepanel 等）的页面：
         // 医生工作站、模板管理、审核中心（模板预览）
         $needEmr = ($view === 'doctor/emr.php' || $view === 'templates.php' || $view === 'admin/review.php');
+        // 需要科室工作台组件（deptwork.js）的页面：护士站/检验/影像/药房工作台
+        $needDeptWork = in_array($view, array('nurse/dashboard.php', 'lab/dashboard.php', 'imaging/dashboard.php', 'pharmacy/dashboard.php'), true);
         if ($view === 'landing.php' || $view === 'doctor/call.php') {
             // 落地页 / 叫号屏自带完整 HTML，直接输出捕获内容即可
             echo $content;
@@ -228,7 +232,9 @@ class Router {
             // 病历书写页强制缩小侧边栏，为书写区提供足够空间（忽略用户偏好）
             // 医生工作站（新）顶栏注入：工具箱下拉 / 叫号大屏绑定 / 科室切换
             $isDocWork = ($view === 'doctor/emr.php');
-            echo Layout::appPage($content, self::$title, $isDocWork, $needEmr, $isDocWork);
+            // 科室工作台与病历书写页同样锁定视口布局，强制缩小侧边栏让出空间
+            $isDeptWork = $needDeptWork;
+            echo Layout::appPage($content, self::$title, $isDocWork || $isDeptWork, $needEmr, $isDocWork, $needDeptWork);
         }
     }
 
