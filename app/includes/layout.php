@@ -130,6 +130,22 @@ class Layout {
         return '<div class="topbar-title doc-work-title">' . e($label) . '<span class="doc-work-dept" id="docWorkDept">加载科室…</span></div>';
     }
 
+    /** 科室工作台顶栏工具组 HTML：叫号排队悬浮窗 + 工具箱（患者查询/返回首页）
+     * 完整页与 SPA 局部补丁（Router partial 输出）共用同一份，保证 DOM 一致：
+     * 外层带 data-topbar-dept-tools 标记，nav.js 依据当前页动态注入/移除顶栏 */
+    public static function deptToolsBar() {
+        return '<div data-topbar-dept-tools style="display:inline-flex;align-items:center;gap:12px">' .
+            '<button type="button" class="btn btn-outline btn-sm" id="dwCallBtn" title="科室排队悬浮窗" onclick="Clinic.deptwork.toggleCallPop()">📢 叫号</button>' .
+            '<div style="position:relative">' .
+                '<button type="button" class="btn btn-outline btn-sm" id="dwToolboxBtn" title="工具箱" onclick="Clinic.deptwork.toggleToolbox()">🧰 工具箱 ▾</button>' .
+                '<div id="dwToolbox" style="display:none;position:absolute;top:100%;right:0;min-width:170px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:100;box-shadow:0 8px 24px var(--shadow)">' .
+                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.deptwork.openPatientSearch()">🔍 患者查询</div>' .
+                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.deptwork.goHome()">🏠 返回首页</div>' .
+                '</div>' .
+            '</div>' .
+        '</div>';
+    }
+
     /** 独立页面（登录/安装/403/404） */
     public static function authPage($content) {
         $hosp = setting('hospital_name', '');
@@ -336,6 +352,7 @@ class Layout {
                         </div>
                         <div class="topbar-right">
                             ' . ($docTools ? self::docToolsBar() : '') . '
+                            ' . ($needDeptWork ? self::deptToolsBar() : '') . '
                             <button type="button" class="btn btn-outline btn-sm" data-theme-btn title="切换主题">
                                 <span class="theme-label">' . ($theme === 'auto' ? '自动模式' : ($theme === 'dark' ? '夜间模式' : '明亮模式')) . '</span>
                             </button>

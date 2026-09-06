@@ -328,6 +328,7 @@ function deptwork_patient($u) {
             'visit_no' => $visit['flow_no'],
             'visit_seq' => (int)$visit['visit_seq'],
             'fee_type' => isset($visit['fee_type']) ? $visit['fee_type'] : '',
+            'fee' => (float)(isset($visit['fee']) ? $visit['fee'] : 0),
             'status' => $visit['status'],
             'created_at' => $visit['registered_at'],
         ),

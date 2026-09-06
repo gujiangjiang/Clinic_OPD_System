@@ -75,15 +75,26 @@ Clinic.deptwork = (function () {
         if (qb) qb.addEventListener('click', function () {
             if (panelEl()) closePanel(); else openPanel();
         });
-        var cb = document.getElementById('dwCallBtn');
-        if (cb) cb.addEventListener('click', function () {
-            if (callPopEl()) closeCallPop(); else openCallPop();
-        });
         var hb = document.getElementById('dwHomeBtn');
         if (hb) hb.addEventListener('click', goHome);
-        var sb = document.getElementById('dwSearchBtn');
-        if (sb) sb.addEventListener('click', openPatientSearch);
+        // 叫号/工具箱按钮位于顶栏（Layout::deptToolsBar 注入），通过内联 onclick 调用，
+        // 无需在此绑定（避免与内联 onclick 重复触发）
     }
+
+    /* ==================== 顶栏工具箱（下拉） ==================== */
+    function toggleToolbox() {
+        var box = document.getElementById('dwToolbox');
+        if (!box) return;
+        box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    }
+    document.addEventListener('click', function (e) {
+        var box = document.getElementById('dwToolbox');
+        var btn = document.getElementById('dwToolboxBtn');
+        if (!box || box.style.display === 'none') return;
+        if (!e.target.closest('#dwToolboxBtn') && !e.target.closest('#dwToolbox')) {
+            box.style.display = 'none';
+        }
+    });
 
     /* ==================== 患者查询（全部就诊历史） ==================== */
     function openPatientSearch() {
@@ -180,6 +191,8 @@ Clinic.deptwork = (function () {
             '        <span class="badge badge-gray" style="margin-left:8px">' + escHtml(v.gender) + ' / ' + escHtml(v.age_fmt || '') + '</span>' +
             '        ' + (v.fee_type ? '<span class="badge badge-warning" style="margin-left:4px" title="费用类别">' + escHtml(v.fee_type) + '</span>' : '') +
             '        <span class="badge ' + (v.dept_type === 'emergency' ? 'badge-danger' : 'badge-primary') + '" style="margin-left:4px">' + (v.dept_type === 'emergency' ? '急诊' : '门诊') + '</span>' +
+            '        <span class="badge ' + (v.status === 'finished' ? 'badge-gray' : (v.status === 'visiting' ? 'badge-success' : 'badge-primary')) + '" style="margin-left:4px" title="就诊状态">' + visitStatusName(v.status) + '</span>' +
+            '        <span class="badge badge-warning" id="hdrTotal" style="display:none"></span>' +
             '      </div>' +
             '      <div class="text-muted fs-13">患者ID：' + escHtml(p.patient_id) + ' ｜ 流水号：' + escHtml(v.visit_no) +
             ' ｜ ' + escHtml(v.first_dept_name || v.dept_name) + ' 第' + pad3(v.visit_seq) + '号' +
@@ -187,6 +200,81 @@ Clinic.deptwork = (function () {
             '    </div>' +
             '  </div>' +
             '</div>';
+        bindFeeBadge(d);
+    }
+
+    /* ==================== 总费用徽章 + 悬浮明细（参照医生工作站横条） ==================== */
+    var feePopTimer = null;
+    function feeRows(d) {
+        var rows = [];
+        var total = 0;
+        var regFee = (d.visit && d.visit.fee) ? parseFloat(d.visit.fee) : 0;
+        var regSt = (d.visit && d.visit.status === 'finished') ? 'done' : 'paid';
+        var regDept = (d.visit && d.visit.first_dept_name) || '';
+        if (regFee > 0) rows.push({ st: regSt, name: regDept ? ('挂号费（' + regDept + '）') : '挂号费', amt: regFee });
+        (d.orders || []).forEach(function (o) {
+            if (o.status === 'refunded' || o.status === 'cancelled') return;
+            (o.items || []).forEach(function (i2) {
+                var amt = (parseFloat(i2.price) || 0) * (parseFloat(i2.quantity) || 1);
+                total += amt;
+                var st = (i2.status === 'done' || i2.status === 'dispensed') ? 'done'
+                    : ((i2.status === 'dispensing' || i2.status === 'registered') ? 'yellow' : 'red');
+                rows.push({ st: st, name: i2.item_name, amt: amt });
+            });
+        });
+        total += regFee;
+        return { rows: rows, total: total };
+    }
+    function feeStatusDot(st) {
+        var cls = st === 'done' ? 'green' : (st === 'yellow' ? 'yellow' : (st === 'paid' ? 'red' : (st === 'gray' ? 'gray' : 'red')));
+        var txt = st === 'done' ? '已完成' : (st === 'yellow' ? '进行中' : (st === 'gray' ? '未缴费' : '待完成'));
+        return '<span class="status-indicator ' + cls + '" title="' + txt + '"></span>';
+    }
+    function showFeePop(anchor, d) {
+        if (feePopTimer) { clearTimeout(feePopTimer); feePopTimer = null; }
+        var stale = document.getElementById('feePop');
+        if (stale) stale.remove();
+        var fr = feeRows(d);
+        if (!fr.rows.length) return;
+        var pop = document.createElement('div');
+        pop.id = 'feePop';
+        pop.className = 'fee-pop';
+        pop.innerHTML = fr.rows.map(function (r) {
+            return '<div class="fee-pop-row">' +
+                feeStatusDot(r.st) +
+                '<span class="fee-pop-name" title="' + escHtml(r.name) + '">' + escHtml(r.name) + '</span>' +
+                '<span class="fee-pop-amt">¥' + r.amt.toFixed(2) + '</span></div>';
+        }).join('') +
+            '<div class="fee-pop-total"><span>合计</span><span>¥' + fr.total.toFixed(2) + '</span></div>';
+        document.body.appendChild(pop);
+        var rect = anchor.getBoundingClientRect();
+        pop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+        pop.style.left = Math.max(8, rect.right + window.scrollX - 270) + 'px';
+        pop.addEventListener('mouseenter', function () { if (feePopTimer) { clearTimeout(feePopTimer); feePopTimer = null; } });
+        pop.addEventListener('mouseleave', hideFeePop);
+    }
+    function hideFeePop() {
+        if (feePopTimer) clearTimeout(feePopTimer);
+        feePopTimer = setTimeout(function () {
+            var pop = document.getElementById('feePop');
+            if (pop) pop.remove();
+        }, 180);
+    }
+    function bindFeeBadge(d) {
+        var total = feeRows(d).total;
+        var el = document.getElementById('hdrTotal');
+        if (!el) return;
+        if (total > 0) {
+            el.textContent = '总费用 ¥' + total.toFixed(2);
+            el.style.display = '';
+            if (!el._feeHover) {
+                el._feeHover = true;
+                el.addEventListener('mouseenter', function () { showFeePop(el, d); });
+                el.addEventListener('mouseleave', hideFeePop);
+            }
+        } else {
+            el.style.display = 'none';
+        }
     }
 
     function setStatus(t) {
@@ -564,6 +652,12 @@ Clinic.deptwork = (function () {
         reloadPatient: reloadPatient,
         refreshQueue: function () { loadQueue(true); },
         currentVisit: function () { return VISIT; },
+        toggleToolbox: toggleToolbox,
+        toggleCallPop: function () {
+            if (callPopEl()) closeCallPop(); else openCallPop();
+        },
+        openPatientSearch: openPatientSearch,
+        goHome: goHome,
         /** 拉取当前患者最新聚合数据（局部刷新用，不重建整页） */
         fetchPatient: function (cb) {
             if (!VISIT) return;

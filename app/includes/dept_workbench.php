@@ -32,9 +32,6 @@ function dept_workbench($cfg) {
         <div id="dwHeader"></div>
         <span class="fs-12 text-muted emr-top-status" id="dwStatus"></span>
         <div class="emr-top-actions">
-            <?php echo $extraActions; ?>
-            <button type="button" class="btn btn-outline btn-sm" id="dwSearchBtn" title="患者查询（全部就诊历史）">🔍 患者</button>
-            <button type="button" class="btn btn-outline btn-sm" id="dwCallBtn" title="科室排队悬浮窗">📢 叫号</button>
             <button type="button" class="btn btn-outline btn-sm" id="dwHomeBtn" title="返回工作台首页">🏠 返回</button>
         </div>
     </header>

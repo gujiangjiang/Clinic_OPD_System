@@ -253,16 +253,20 @@ Clinic.nav = {
         var bar = document.querySelector('.topbar-right');
         var tt = document.querySelector('.topbar-title');
         if (!bar || !tt) return;
-        var hasTools = root.querySelector('[data-topbar-doc-tools]');
-        var curTools = bar.querySelector('[data-topbar-doc-tools]');
-        if (hasTools && !curTools) {
-            var themeBtn = bar.querySelector('[data-theme-btn]');
-            if (themeBtn) bar.insertBefore(hasTools, themeBtn);
-            else bar.appendChild(hasTools);
-        } else if (!hasTools && curTools) {
-            curTools.parentNode.removeChild(curTools);
-        }
-        if (hasTools) {
+        // 医生工作站工具组（叫号大屏绑定/工具箱）与科室工作台工具组（叫号/工具箱）共用一套注入逻辑
+        var groups = ['[data-topbar-doc-tools]', '[data-topbar-dept-tools]'];
+        groups.forEach(function (sel) {
+            var hasTools = root.querySelector(sel);
+            var curTools = bar.querySelector(sel);
+            if (hasTools && !curTools) {
+                var themeBtn = bar.querySelector('[data-theme-btn]');
+                if (themeBtn) bar.insertBefore(hasTools, themeBtn);
+                else bar.appendChild(hasTools);
+            } else if (!hasTools && curTools) {
+                curTools.parentNode.removeChild(curTools);
+            }
+        });
+        if (root.querySelector('[data-topbar-doc-tools]')) {
             if (!tt.classList.contains('doc-work-title')) {
                 tt.classList.add('doc-work-title');
                 var dept = document.createElement('span');
