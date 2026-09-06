@@ -254,10 +254,15 @@ switch ($action) {
             'skin_test_item_id' => (int)post('skin_test_item_id', 0),
         );
         if ($id > 0) {
+            // 编辑已审核药品：置为待审核状态，重新走管理员审核（与管理员端/检验/检查口径一致），
+            // 防止药房直接篡改已生效药品的价格/库存影响计费
+            $data['status'] = 'pending';
             DrugRepository::update($id, $data);
             DrugRepository::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_drug' AND ref_id=? AND status IN ('pending','rejected')",
                 array($u['name'], now_str(), $id));
-            json_ok(array(), '药品已更新');
+            submit_audit('item_drug', $id, '修改药品：' . $name, '提交药品信息修改：' . $name);
+            send_msg('admin', 0, '待审核提醒', '有新的药品修改待审核：' . $name . '，请前往审核中心处理', '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
+            json_ok(array(), '修改已提交，待管理员审核');
         } else {
             $data['status'] = 'pending';
             $data['created_at'] = now_str();
