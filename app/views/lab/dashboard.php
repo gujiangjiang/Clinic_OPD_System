@@ -280,12 +280,37 @@ function doLabSave(it) {
         if (!value) { Clinic.toast.warning('请输入检验结果'); return; }
         isGroup = 0;
     }
+    // 提交确认弹窗：可选填写检验备注（显示在报告单页脚）
+    Clinic.modal.open(
+        '<div class="fs-13 fw-700 mb-8">确认提交该检验结果并生成报告？</div>' +
+        '<div class="form-group"><label class="form-label">检验备注（可选）</label>' +
+        '<textarea class="textarea" id="labNote" rows="2" placeholder="如：标本轻度溶血，结果仅供参考"></textarea></div>' +
+        '<div class="fs-12 text-muted">备注将显示在报告单页脚；提交后生成正式报告并打印。</div>',
+        {
+            title: '提交检验结果',
+            size: 'modal-md',
+            buttons: [
+                { text: '取消', cls: 'btn-outline' },
+                {
+                    text: '💾 确认提交', cls: 'btn-primary', autoClose: false,
+                    onClick: function () {
+                        var note = (document.getElementById('labNote') || {}).value || '';
+                        submitLabResult(it, value, isGroup, note.trim());
+                    },
+                },
+            ],
+        }
+    );
+}
+
+function submitLabResult(it, value, isGroup, note) {
     Clinic.ajax('/api/lab', {
-        action: 'save_result', item_id: it.id, value: value, is_group: isGroup,
+        action: 'save_result', item_id: it.id, value: value, is_group: isGroup, note: note,
     }, {
         loading: true,
         onSuccess: function (json) {
             Clinic.toast.success(json.msg);
+            Clinic.modal.close();
             Clinic.print.load('/api/print?action=report&report_id=' + json.data.report_id, null);
             afterLabAction();
         },

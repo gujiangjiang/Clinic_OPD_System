@@ -113,9 +113,9 @@ function insert_report($data) {
         }
         try {
             return OrderRepository::insert(
-                'INSERT INTO reports(result_id, report_no, visit_id, patient_no, flow_no, type, doctor, status, created_at) VALUES(?,?,?,?,?,?,?,?,?)',
+                'INSERT INTO reports(result_id, report_no, visit_id, patient_no, flow_no, type, doctor, status, content, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
                 array($data['result_id'], $data['report_no'], $data['visit_id'], $data['patient_no'], $data['flow_no'],
-                    $data['type'], $data['doctor'], $data['status'], now_str())
+                    $data['type'], $data['doctor'], $data['status'], isset($data['content']) ? (string)$data['content'] : '', now_str())
             );
         } catch (Exception $ex) {
             if (!is_unique_conflict($ex) || $attempt >= 2) {

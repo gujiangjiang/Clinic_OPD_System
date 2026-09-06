@@ -85,7 +85,7 @@ function dept_register($itemType) {
     if (!$it || $it['item_type'] !== $itemType || $it['status'] !== 'paid') {
         json_fail('项目不存在或状态异常');
     }
-    OrderRepository::exec("UPDATE order_items SET status='registered' WHERE id=?", array($itemId));
+    OrderRepository::exec("UPDATE order_items SET status='registered', registered_at=? WHERE id=?", array(now_str(), $itemId));
     json_ok(array(), '登记成功');
 }
 

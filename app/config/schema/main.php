@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 19,
+    'version' => 20,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -778,6 +778,10 @@ return array(
         19 => array(
             "ALTER TABLE consents ADD COLUMN dept_id INTEGER DEFAULT 0",
             "ALTER TABLE consents ADD COLUMN dept_name TEXT",
+        ),
+        // v20：检验登记时间（order_items.registered_at）——报告单「检验时间」列展示
+        20 => array(
+            "ALTER TABLE order_items ADD COLUMN registered_at TEXT",
         ),
     ),
     'seed' => array(

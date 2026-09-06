@@ -72,7 +72,7 @@ switch ($action) {
         $rv = get_visit_row((int)$order['visit_id']);
         if (!$rv) json_fail('就诊记录不存在');
         if (!dept_visit_allowed($rv['visit'], $u)) json_fail('无权限登记该申请单');
-        $n = (int)OrderRepository::exec("UPDATE order_items SET status='registered' WHERE order_id=? AND item_type='lab' AND status='paid'", array($orderId));
+        $n = (int)OrderRepository::exec("UPDATE order_items SET status='registered', registered_at=? WHERE order_id=? AND item_type='lab' AND status='paid'", array(now_str(), $orderId));
         if ($n <= 0) json_fail('该申请单暂无待登记项目');
         json_ok(array(), '已登记该申请单 ' . $n . ' 个检验项目');
         break;
@@ -225,6 +225,8 @@ switch ($action) {
                 'result_id' => $resultId, 'report_no' => $reportNo,
                 'visit_id' => $it['visit_id'], 'patient_no' => $it['patient_no'], 'flow_no' => $it['flow_no'],
                 'type' => 'lab', 'doctor' => $u['name'], 'status' => 'done',
+                // 检验备注：报告单页脚展示（提交时可选填写）
+                'content' => trim((string)post('note', '')),
             ));
             OrderRepository::exec("UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
             $pdo->commit();

@@ -695,3 +695,108 @@
     justify-self: end;
     font-size: 13px;
 }
+
+/* ============================================================
+   检验报告单（横向 A5 固定画布，JS 分列分页）
+   ============================================================ */
+.print-preview.sheet-lr .print-area {
+    width: auto;
+    max-width: none;
+    min-height: 0;
+    padding: 6px;
+    background: #dfe3ea;
+    box-shadow: none;
+}
+/* 横向 A5 单张画布：210mm × 148mm，尺寸恒定，内容超出一页自动分页 */
+.lr-sheet {
+    width: 210mm;
+    height: 148mm;
+    box-sizing: border-box;
+    margin: 4px auto;
+    background: #fff;
+    padding: 7mm 9mm 6mm;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.lr-doc { position: relative; }
+/* 抬头：医院名称 + 检验报告单 同行整体居中；第二名称两端对齐 */
+.lr-titleline {
+    text-align: center;
+    margin-bottom: 2mm;
+    white-space: nowrap;
+}
+.lr-titleline .lr-hosp {
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+.lr-titleline .lr-name {
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    margin-left: 8px;
+}
+.lr-sub {
+    width: 100%;
+    text-align: justify;
+    text-align-last: justify;
+    font-size: 12px;
+    color: #444;
+    margin-bottom: 2mm;
+}
+/* 患者信息两行：两端对齐 */
+.lr-patlines { margin-bottom: 3mm; }
+.lr-patlines .lr-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    line-height: 1.9;
+    padding: 0 1mm;
+}
+.lr-patlines .lr-cell { white-space: nowrap; }
+.lr-patlines .lr-cell b { font-weight: 600; }
+/* 结果区：列头 + 行（前端分列/分页填充） */
+.lr-result {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border: 1.2px solid #111;
+    border-bottom: none;
+}
+.lr-colhead, .lr-row {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #111;
+}
+.lr-colhead { background: #f0f0f0; font-weight: 700; }
+.lr-colhead .lr-seq, .lr-colhead .lr-item, .lr-colhead .lr-val,
+.lr-colhead .lr-unit, .lr-colhead .lr-ref,
+.lr-row .lr-seq, .lr-row .lr-item, .lr-row .lr-val,
+.lr-row .lr-unit, .lr-row .lr-ref {
+    padding: 0 3mm;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.lr-seq { width: 14mm; text-align: center; }
+.lr-item { flex: 1; min-width: 0; }
+.lr-val { width: 30mm; }
+.lr-unit { width: 22mm; }
+.lr-ref { width: 34mm; }
+.lr-colhead, .lr-row { font-size: 12px; height: 8mm; }
+/* 双列模式：中间虚线分隔，隐藏序号列 */
+.lr-cols { display: flex; flex: 1; min-height: 0; }
+.lr-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.lr-col + .lr-col { border-left: 1px dashed #999; margin-left: 6px; padding-left: 6px; }
+.lr-cols .lr-seq { display: none; }
+.lr-cols .lr-colhead .lr-seq { display: none; }
+/* 页脚 */
+.lr-foot { flex-shrink: 0; margin-top: 3mm; }
+.lr-note { font-size: 12px; min-height: 6mm; }
+.lr-solid { border-bottom: 1.2px solid #111; margin: 1mm 0 2mm; }
+.lr-meta1, .lr-meta2 { display: flex; justify-content: space-between; font-size: 11px; padding: 0 1mm; line-height: 1.9; }
+.lr-meta2 .lr-audit { display: inline-block; min-width: 30mm; border-bottom: 1px solid #111; }
+.lr-tip { font-size: 10.5px; color: #333; margin-top: 1mm; }

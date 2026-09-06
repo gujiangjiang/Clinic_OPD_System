@@ -79,6 +79,11 @@ Clinic.print = (function () {
         if (sheet === 'a5') {
             paginateSheetA5(document.getElementById('print-area'));
         }
+        // 检验报告单横向 A5：识别 .lr-doc 自动启用横版画布 + 分列分页
+        if (previewEl.querySelector('#print-area .lr-doc')) {
+            previewEl.classList.add('sheet-lr');
+            try { paginateLabReport(document.getElementById('print-area')); } catch (e) { /* 分列失败保持原样 */ }
+        }
 
         // 绑定工具栏
         previewEl.querySelector('[data-act="close"]').addEventListener('click', close);
@@ -104,6 +109,100 @@ Clinic.print = (function () {
         // 允许 ESC 关闭
         document.addEventListener('keydown', escHandler);
         return previewEl;
+    }
+
+    /**
+     * 检验报告单横向 A5 分列分页：
+     * · 固定画布 210mm×148mm，每页大小恒定；
+     * · 结果行单列容量不足时自动双列（中间虚线分隔、隐藏序号）；
+     * · 双列仍放不下则自动分页，页脚填充 第x页/共x页。
+     * @param {HTMLElement} areaEl 打印容器
+     */
+    function paginateLabReport(areaEl) {
+        var doc = areaEl.querySelector('.lr-doc');
+        if (!doc) return;
+        var MM = 3.779527559;
+        var sheetW = 210, sheetH = 148, padT = 7, padB = 6, padLR = 9;
+        var innerW = (sheetW - padLR * 2) * MM;
+        var innerH = (sheetH - padT - padB) * MM;
+
+        var meas = document.createElement('div');
+        meas.style.cssText = 'position:absolute;left:-99999px;top:0;width:' + innerW + 'px;visibility:hidden';
+        areaEl.appendChild(meas);
+        function measure(el) {
+            meas.appendChild(el);
+            var cs = window.getComputedStyle(el);
+            var r = el.offsetHeight + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+            meas.removeChild(el);
+            return r;
+        }
+        var headSel = '.lr-titleline, .lr-sub, .lr-patlines';
+        var footSel = '.lr-note, .lr-solid, .lr-meta1, .lr-meta2, .lr-tip';
+        var headH = 0, footH = 0, rowH = 0;
+        doc.querySelectorAll(headSel).forEach(function (n) { headH += measure(n.cloneNode(true)); });
+        doc.querySelectorAll(footSel).forEach(function (n) { footH += measure(n.cloneNode(true)); });
+        var rows = Array.prototype.slice.call(doc.querySelectorAll('.lr-row'));
+        if (rows.length) rowH = measure(rows[0].cloneNode(true));
+        var colhead = doc.querySelector('.lr-colhead');
+        var colheadH = colhead ? measure(colhead.cloneNode(true)) : 0;
+        meas.remove();
+
+        var avail = innerH - headH - footH;
+        if (avail <= 0) avail = 40;
+        var capPerCol = rowH > 0 ? Math.max(1, Math.floor((avail - colheadH) / rowH)) : 1;
+        // 单列放不下 → 双列（每页容量 = 2×capPerCol）
+        var colCount = rows.length > capPerCol ? 2 : 1;
+        var perPage = colCount * capPerCol;
+        var pageCount = rows.length ? Math.max(1, Math.ceil(rows.length / perPage)) : 1;
+
+        var sheets = [];
+        for (var pi = 0; pi < pageCount; pi++) {
+            var sheet = document.createElement('div');
+            sheet.className = 'lr-sheet';
+            // 抬头
+            doc.querySelectorAll(headSel).forEach(function (n) { sheet.appendChild(n.cloneNode(true)); });
+            // 结果区
+            var res = document.createElement('div');
+            res.className = 'lr-result';
+            var start = pi * perPage;
+            var end = Math.min(rows.length, start + perPage);
+            if (colCount === 1) {
+                // 单列：列头（含序号）+ 行（序号 1 起）
+                res.appendChild(colhead.cloneNode(true));
+                for (var i = start; i < end; i++) {
+                    var r = rows[i].cloneNode(true);
+                    var sq = r.querySelector('.lr-seq');
+                    if (sq) sq.textContent = (i + 1);
+                    res.appendChild(r);
+                }
+            } else {
+                // 双列：无序号，第一列满后第二列从上往下
+                var cols = document.createElement('div');
+                cols.className = 'lr-cols';
+                for (var c = 0; c < 2; c++) {
+                    var col = document.createElement('div');
+                    col.className = 'lr-col';
+                    col.appendChild(colhead.cloneNode(true));
+                    var cStart = start + c * capPerCol;
+                    var cEnd = Math.min(end, cStart + capPerCol);
+                    for (var k = cStart; k < cEnd; k++) col.appendChild(rows[k].cloneNode(true));
+                    cols.appendChild(col);
+                }
+                res.appendChild(cols);
+            }
+            sheet.appendChild(res);
+            // 页脚（第x页/共x页 + 审核者留空）
+            doc.querySelectorAll(footSel).forEach(function (n) { sheet.appendChild(n.cloneNode(true)); });
+            var pageEl = sheet.querySelector('.lr-page');
+            var totalEl = sheet.querySelector('.lr-total');
+            if (pageEl) pageEl.textContent = (pi + 1);
+            if (totalEl) totalEl.textContent = pageCount;
+            var auditEl = sheet.querySelector('.lr-audit');
+            if (auditEl) auditEl.textContent = '';
+            sheets.push(sheet);
+        }
+        areaEl.innerHTML = '';
+        sheets.forEach(function (s) { areaEl.appendChild(s); });
     }
 
     /**
