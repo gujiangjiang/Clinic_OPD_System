@@ -852,3 +852,86 @@
 .lr-footgrid .lr-fright { text-align: right; }
 .lr-footgrid .lr-fspan { grid-column: 1 / span 2; text-align: left; font-size: 10.5px; color: #333; }
 .lr-footgrid .lr-audit { display: inline-block; min-width: 30mm; border-bottom: 1px solid #111; }
+
+/* ============================================================
+   检查报告单（影像，A4 纵向固定画布）
+   ============================================================ */
+.print-preview.sheet-imr .print-area {
+    width: auto;
+    max-width: none;
+    min-height: 0;
+    padding: 20px;
+    background: transparent;
+    box-shadow: none;
+}
+.imr-sheet {
+    width: 210mm;
+    height: 297mm;
+    box-sizing: border-box;
+    margin: 0 auto;
+    background: #fff;
+    padding: 10mm 12mm;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+/* 患者信息：4×3 隐形表格（第三行检查项目合并，自动换行） */
+.imr-patgrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0 6mm;
+    margin: 2mm 0 4mm;
+    font-size: 12px;
+}
+.imr-patgrid .imr-cell {
+    text-align: left;
+    line-height: 1.9;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-all;
+}
+.imr-patgrid .imr-cell b { font-weight: 600; }
+.imr-patgrid .imr-cell-no { white-space: nowrap; }
+.imr-patgrid .imr-reportno { display: inline-block; white-space: nowrap; font-size: 12px; }
+.imr-patgrid .imr-cell-proj { grid-column: 1 / span 4; }
+/* 正文：影像所见 2/3 + 影像诊断 1/3 */
+.imr-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border-top: 1.2px solid #111;
+}
+.imr-sec { display: flex; flex-direction: column; padding-top: 4mm; min-height: 0; }
+.imr-sec-findings { flex: 2; }
+.imr-sec-conclusion { flex: 1; border-top: 1px dashed #999; }
+.imr-sec-label { font-weight: 700; font-size: 13px; margin-bottom: 2mm; }
+.imr-sec-content { font-size: 13px; line-height: 1.9; white-space: pre-wrap; word-break: break-word; overflow: hidden; }
+/* 页脚：3×3 隐形表格（第三行前两列合并提示语 + 末列页码靠右） */
+.imr-footgrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 6mm;
+    font-size: 11.5px;
+    margin-top: 4mm;
+    padding-top: 2mm;
+    border-top: 1.2px solid #111;
+}
+.imr-footgrid .imr-cell { text-align: left; line-height: 1.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.imr-footgrid .imr-cell b { font-weight: 600; }
+.imr-footgrid .imr-foot-tip { grid-column: 1 / span 2; white-space: normal; font-size: 10.5px; color: #333; }
+.imr-footgrid .imr-foot-page { text-align: right; }
+.imr-footgrid .imr-audit { display: inline-block; min-width: 30mm; border-bottom: 1px solid #111; }
+@media print {
+    .print-preview.sheet-imr .imr-sheet {
+        width: 210mm !important;
+        height: 296.5mm !important;
+        min-height: 296.5mm !important;
+        max-height: 296.5mm !important;
+        padding: 10mm 12mm !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+    }
+}

@@ -9,6 +9,7 @@
  * ============================================================ */
 require __DIR__ . '/_init.php';
 require_once APP_ROOT . '/app/includes/forms.php';
+require_once APP_ROOT . '/app/includes/emr_formatter.php';
 require_once __DIR__ . '/parts/dept_common.php';
 
 $u = Auth::user();
@@ -133,10 +134,28 @@ switch ($action) {
 
             // 报告（insert_report：MAX+1 生成 + 唯一索引并发撞号重试，杜绝重复报告号）
             $reportNo = next_report_no('imaging');
+            // 快照固化：申请科室/申请医生/临床诊断（首诊断不含 ICD10）/申请时间/检查登记时间
+            $snapOrder = OrderRepository::one('SELECT * FROM orders WHERE id=?', array((int)$it['order_id']));
+            $diag = '';
+            $prDiag = OrderRepository::one("SELECT emr_data FROM patient_records WHERE visit_id=? AND emr_data IS NOT NULL AND emr_data!='' ORDER BY id ASC LIMIT 1", array((int)$it['visit_id']));
+            if ($prDiag) {
+                $emrD = emr_merge_defaults(emr_normalize(json_decode((string)$prDiag['emr_data'], true) ?: array()), emr_default_data(null));
+                $diags = isset($emrD['diagnoses']) && is_array($emrD['diagnoses']) ? $emrD['diagnoses'] : array();
+                if ($diags) $diag = emr_diag_text(array($diags[0]), false);
+            }
+            if ($diag === '') {
+                $mirrorD = OrderRepository::one("SELECT preliminary_diagnosis FROM records WHERE visit_id=? AND preliminary_diagnosis IS NOT NULL AND preliminary_diagnosis!='' ORDER BY id ASC LIMIT 1", array((int)$it['visit_id']));
+                if ($mirrorD) $diag = (string)$mirrorD['preliminary_diagnosis'];
+            }
             $reportId = insert_report(array(
                 'result_id' => $resultId, 'report_no' => $reportNo,
                 'visit_id' => $it['visit_id'], 'patient_no' => $it['patient_no'], 'flow_no' => $it['flow_no'],
                 'type' => 'imaging', 'doctor' => $u['name'], 'status' => 'done',
+                'apply_dept' => $snapOrder ? (string)$snapOrder['dept_name'] : '',
+                'apply_doctor' => $snapOrder ? (string)$snapOrder['doctor_name'] : '',
+                'clinical_diag' => $diag,
+                'apply_time' => $snapOrder ? (string)$snapOrder['created_at'] : '',
+                'reg_time' => (string)$it['registered_at'],
             ));
             OrderRepository::exec("UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
             $pdo->commit();

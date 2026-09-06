@@ -111,11 +111,105 @@ function pt_lab_report($report, $result, $item) {
     return $html;
 }
 
+/** 检查报告单：A4 纵向固定画布（页眉 4×3 患者信息 / 正文所见 2/3 + 诊断 1/3 / 页脚 3×3） */
+function pt_imaging_report($report, $result, $item) {
+    $hosp = setting('hospital_name', '');
+    $hosp2 = setting('hospital_name2', '');
+    $html = '<div class="print-record-doc imr-doc">';
+
+    // ===== 抬头：医院名称 + 第二名称两端对齐 + 检查报告单 =====
+    $html .= '<div class="lr-titleline">' .
+        '<div class="lr-hospwrap">' .
+        '<span class="lr-hosp">' . e($hosp) . '</span>' .
+        ($hosp2 !== '' ? '<div class="lr-sub">' . e($hosp2) . '</div>' : '') .
+        '</div>' .
+        '<span class="lr-name">检查报告单</span>' .
+        '</div>';
+
+    // ===== 患者信息（4×3 隐形表格） =====
+    $row = get_visit_row((int)$report['visit_id']);
+    $pname = $row ? $row['patient']['name'] : '';
+    $pgender = $row ? $row['patient']['gender'] : '';
+    $pbirth = $row ? $row['patient']['birth_date'] : '';
+    $page = $row ? age_format($pbirth, $row['visit']['registered_at']) : '';
+    // 快照优先；旧报告回退实时查询
+    $applyDept = trim((string)(isset($report['apply_dept']) ? $report['apply_dept'] : ''));
+    $applyDoctor = trim((string)(isset($report['apply_doctor']) ? $report['apply_doctor'] : ''));
+    $diag = trim((string)(isset($report['clinical_diag']) ? $report['clinical_diag'] : ''));
+    $applyTime = trim((string)(isset($report['apply_time']) ? $report['apply_time'] : ''));
+    $regTime = trim((string)(isset($report['reg_time']) ? $report['reg_time'] : ''));
+    $orderItem = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array((int)$result['order_item_id']));
+    $order = $orderItem ? OrderRepository::one('SELECT * FROM orders WHERE id=?', array((int)$orderItem['order_id'])) : null;
+    if (($applyDept === '' || $applyDoctor === '' || $applyTime === '') && $order) {
+        if ($applyDept === '') $applyDept = (string)$order['dept_name'];
+        if ($applyDoctor === '') $applyDoctor = (string)$order['doctor_name'];
+        if ($applyTime === '') $applyTime = (string)$order['created_at'];
+    }
+    if ($regTime === '' && $orderItem) $regTime = (string)$orderItem['registered_at'];
+    if ($diag === '') {
+        $pr = OrderRepository::one("SELECT emr_data FROM patient_records WHERE visit_id=? AND emr_data IS NOT NULL AND emr_data!='' ORDER BY id ASC LIMIT 1", array((int)$report['visit_id']));
+        if ($pr) {
+            $emr = emr_merge_defaults(emr_normalize(json_decode((string)$pr['emr_data'], true) ?: array()), emr_default_data(null));
+            $diags = isset($emr['diagnoses']) && is_array($emr['diagnoses']) ? $emr['diagnoses'] : array();
+            if ($diags) $diag = emr_diag_text(array($diags[0]), false);
+        }
+        if ($diag === '') {
+            $mirror = OrderRepository::one("SELECT preliminary_diagnosis FROM records WHERE visit_id=? AND preliminary_diagnosis IS NOT NULL AND preliminary_diagnosis!='' ORDER BY id ASC LIMIT 1", array((int)$report['visit_id']));
+            if ($mirror) $diag = (string)$mirror['preliminary_diagnosis'];
+        }
+    }
+    // 项目：该申请单全部检查项目逗号连接
+    $itemNames = array();
+    if ($order) {
+        foreach (OrderRepository::q("SELECT item_name FROM order_items WHERE order_id=? AND item_type='imaging' ORDER BY id", array((int)$order['id'])) as $oi2) {
+            $itemNames[] = (string)$oi2['item_name'];
+        }
+    }
+    if (!$itemNames) $itemNames[] = isset($item['name']) ? $item['name'] : '';
+    $itemsStr = implode('，', $itemNames);
+
+    $pc = function ($label, $val) { return '<span class="imr-cell"><b>' . $label . '：</b>' . e($val) . '</span>'; };
+    $html .= '<div class="imr-patgrid">' .
+        $pc('姓名', $pname) . $pc('性别', $pgender) . $pc('年龄', $page) . $pc('出生日期', $pbirth) .
+        $pc('患者ID', $report['patient_no']) . $pc('申请科室', $applyDept) . $pc('临床诊断', $diag) .
+        '<span class="imr-cell imr-cell-no"><b>报告单号：</b><span class="imr-reportno">' . e($report['report_no']) . '</span></span>' .
+        '<span class="imr-cell imr-cell-proj"><b>检查项目：</b>' . e($itemsStr) . '</span>' .
+        '</div>';
+
+    // ===== 正文：影像所见 2/3 + 影像诊断 1/3 =====
+    $html .= '<div class="imr-body">' .
+        '<div class="imr-sec imr-sec-findings"><div class="imr-sec-label">影像所见</div>' .
+        '<div class="imr-sec-content">' . nl2br(e((string)$result['findings'])) . '</div></div>' .
+        '<div class="imr-sec imr-sec-conclusion"><div class="imr-sec-label">影像诊断</div>' .
+        '<div class="imr-sec-content">' . nl2br(e((string)$result['conclusion'])) . '</div></div>' .
+        '</div>';
+
+    // ===== 页脚（3×3 隐形表格） =====
+    $applyTimeD = $applyTime !== '' ? substr($applyTime, 0, 16) : '—';
+    $regTimeD = $regTime !== '' ? substr($regTime, 0, 16) : '—';
+    $repTime = substr((string)$report['created_at'], 0, 16);
+    $fc = function ($label, $val) { return '<span class="imr-cell"><b>' . $label . '</b>' . e($val) . '</span>'; };
+    $html .= '<div class="imr-footgrid">' .
+        $fc('申请医生：', $applyDoctor) .
+        $fc('报告医生：', $report['doctor']) .
+        '<span class="imr-cell"><b>审核医生：</b><span class="imr-audit"></span></span>' .
+        $fc('申请时间：', $applyTimeD) . $fc('检查时间：', $regTimeD) . $fc('报告时间：', $repTime) .
+        '<span class="imr-cell imr-foot-tip">仅供医师诊断参考，不做其他用途</span>' .
+        '<span class="imr-cell imr-foot-page">第 <span class="imr-page">1</span> / <span class="imr-total">1</span> 页</span>' .
+        '</div>';
+
+    $html .= '</div>';
+    return $html;
+}
+
 function pt_report($report, $result, $item) {
     $title = ($result['type'] === 'lab') ? '检验报告单' : '检查报告单';
-    // 检验报告走独立横向 A5 版式
+    // 检验报告走独立横向 A5 版式；检查报告走独立 A4 纵向版式
     if ($result['type'] === 'lab') {
         return pt_lab_report($report, $result, $item);
+    }
+    if ($result['type'] === 'imaging') {
+        return pt_imaging_report($report, $result, $item);
     }
     $html = pt_header($title);
     $html .= '<div class="print-info">

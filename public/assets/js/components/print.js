@@ -85,6 +85,12 @@ Clinic.print = (function () {
             applyPageSize('lr');
             try { paginateLabReport(document.getElementById('print-area')); } catch (e) { /* 分列失败保持原样 */ }
         }
+        // 检查报告单（影像）A4 纵向：识别 .imr-doc 自动启用 A4 画布 + 打印纸张
+        if (previewEl.querySelector('#print-area .imr-doc')) {
+            previewEl.classList.add('sheet-imr');
+            applyPageSize('imr');
+            try { paginateImgReport(document.getElementById('print-area')); } catch (e) { /* 保持原样 */ }
+        }
 
         // 绑定工具栏
         previewEl.querySelector('[data-act="close"]').addEventListener('click', close);
@@ -208,6 +214,31 @@ Clinic.print = (function () {
     }
 
     /**
+     * 检查报告单（影像）A4 纵向画布：单张固定 A4（210×297mm），
+     * 页眉 4×3 患者信息 + 正文所见 2/3 / 诊断 1/3 + 页脚 3×3。
+     * @param {HTMLElement} areaEl 打印容器
+     */
+    function paginateImgReport(areaEl) {
+        var doc = areaEl.querySelector('.imr-doc');
+        if (!doc) return;
+        var sheet = document.createElement('div');
+        sheet.className = 'imr-sheet';
+        doc.querySelectorAll('.lr-titleline, .imr-patgrid').forEach(function (n) { sheet.appendChild(n.cloneNode(true)); });
+        var body = doc.querySelector('.imr-body');
+        if (body) sheet.appendChild(body.cloneNode(true));
+        doc.querySelectorAll('.imr-footgrid').forEach(function (n) { sheet.appendChild(n.cloneNode(true)); });
+        var pageEl = sheet.querySelector('.imr-page');
+        var totalEl = sheet.querySelector('.imr-total');
+        if (pageEl) pageEl.textContent = '1';
+        if (totalEl) totalEl.textContent = '1';
+        var auditEl = sheet.querySelector('.imr-audit');
+        if (auditEl) auditEl.textContent = '';
+        areaEl.innerHTML = '';
+        areaEl.appendChild(sheet);
+        fitReportNo(areaEl);
+    }
+
+    /**
      * 报告单号自动缩放：始终在一行内显示，超出单元格宽度时逐步缩小字号至刚好放下。
      * @param {HTMLElement} areaEl 打印容器
      */
@@ -227,7 +258,7 @@ Clinic.print = (function () {
                 el.style.fontSize = fs + 'px';
             }
         }
-        box.querySelectorAll('.lr-reportno').forEach(function (el) { fit(el); });
+        box.querySelectorAll('.lr-reportno, .imr-reportno').forEach(function (el) { fit(el); });
     }
 
     /**
@@ -324,6 +355,12 @@ Clinic.print = (function () {
             st = document.createElement('style');
             st.id = 'printPageSize';
             st.textContent = '@page { size: 210mm 148mm; margin: 0; }';
+            document.head.appendChild(st);
+        } else if (sheet === 'imr') {
+            // 检查报告单（影像）：A4 纵向固定纸张（210mm × 297mm）
+            st = document.createElement('style');
+            st.id = 'printPageSize';
+            st.textContent = '@page { size: A4; margin: 0; }';
             document.head.appendChild(st);
         }
     }
