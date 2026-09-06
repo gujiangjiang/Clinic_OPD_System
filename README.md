@@ -2,12 +2,15 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v7.6.7-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v7.7.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
 
 支持 **明亮 / 夜间 / 自动** 三种主题、**侧边栏展开/缩小两态切换**、**站内消息互发与打印提醒**、**统一打印中心**。
+
+> **全站 AJAX 局部刷新导航（v7.7.0+）**：侧边栏菜单 / 站内链接 / 病历页切换患者均通过 AJAX
+> 局部刷新完成（地址栏保持不变，不整页重载）；登录、安装、落地页、退出、叫号大屏等独立页仍整页加载。
 
 > 技术要点：严格 PHP 7.x 兼容（未使用任何 PHP 8 新特性）；Nginx 单入口部署；SQLite 分散式数据库（预留 MySQL 切换接口）；全中文注释，按模块拆分的目录结构，便于维护与二次开发。
 
