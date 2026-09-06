@@ -99,7 +99,8 @@ function get_record_vitals($recordId, $visitId, $operator, $recordType) {
 /**
  * 科室数据隔离：非挂号科室的医生不能查看/接诊当前就诊。
  * 放行条件：管理员；已诊毕归档（历史查看）；当前就诊科室在医生科室范围内；
- * 或医生已在本就诊写过病历（临床连续性）。患者历史就诊（既往病历）不受限。
+ * 医生已在本就诊写过病历（临床连续性）；或该就诊有发给当前医生科室的
+ * 进行中/待处理会诊（会诊医生可跨科室查看该就诊）。患者历史就诊不受限。
  */
 function visit_dept_authorized($visit, $u) {
     if ($u['role'] === 'admin') return true;
@@ -112,6 +113,13 @@ function visit_dept_authorized($visit, $u) {
     if ($visitId > 0) {
         $n = (int)DB::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array($visitId, (int)$u['id']));
         if ($n > 0) return true;
+        // 会诊放行：该就诊有发给当前医生所在科室的进行中/待处理会诊 →
+        // 会诊医生（仅需本科室权限）可查看该跨科室就诊并书写会诊病历
+        $docDept = current_dept_id($u);
+        if ($docDept > 0) {
+            $c = (int)DB::val("SELECT COUNT(*) FROM consultations WHERE visit_id=? AND target_dept_id=? AND status IN ('pending','doing')", array($visitId, $docDept));
+            if ($c > 0) return true;
+        }
     }
     return false;
 }
@@ -120,6 +128,7 @@ function visit_dept_authorized($visit, $u) {
  * 病历可访问天数校验（防越权访问超期历史病历）：
  * 管理员放行；所有就诊（含待就诊/就诊中）均须在医生 queue_days
  * （2-7，默认 3）可查看天数内——门诊挂号一次管 N 天，过期即不可见。
+ * 会诊处理中（发给当前医生科室的进行中/待处理会诊）不受天数限制。
  * 历史只读面板（print.php）不受此限制。
  */
 function visit_access_allowed($visit, $u) {
@@ -128,5 +137,15 @@ function visit_access_allowed($visit, $u) {
     $regTime = isset($visit['registered_at']) ? (string)$visit['registered_at'] : '';
     if ($regTime === '') return true;
     $since = date('Y-m-d', strtotime('-' . ($queueDays - 1) . ' days'));
-    return substr($regTime, 0, 10) >= $since;
+    if (substr($regTime, 0, 10) >= $since) return true;
+    // 会诊放行：进行中/待处理会诊（发给当前医生科室）不受可查看天数限制
+    $visitId = (int)(isset($visit['id']) ? $visit['id'] : 0);
+    if ($visitId > 0) {
+        $docDept = current_dept_id($u);
+        if ($docDept > 0) {
+            $c = (int)DB::val("SELECT COUNT(*) FROM consultations WHERE visit_id=? AND target_dept_id=? AND status IN ('pending','doing')", array($visitId, $docDept));
+            if ($c > 0) return true;
+        }
+    }
+    return false;
 }
