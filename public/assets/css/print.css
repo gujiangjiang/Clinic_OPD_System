@@ -703,8 +703,8 @@
     width: auto;
     max-width: none;
     min-height: 0;
-    padding: 6px;
-    background: #dfe3ea;
+    padding: 20px;
+    background: transparent;
     box-shadow: none;
 }
 /* 横向 A5 单张画布：210mm × 148mm，尺寸恒定，内容超出一页自动分页 */

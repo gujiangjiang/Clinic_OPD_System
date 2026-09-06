@@ -79,9 +79,10 @@ Clinic.print = (function () {
         if (sheet === 'a5') {
             paginateSheetA5(document.getElementById('print-area'));
         }
-        // 检验报告单横向 A5：识别 .lr-doc 自动启用横版画布 + 分列分页
+        // 检验报告单横向 A5：识别 .lr-doc 自动启用横版画布 + 分列分页 + 横向 A5 打印纸张
         if (previewEl.querySelector('#print-area .lr-doc')) {
             previewEl.classList.add('sheet-lr');
+            applyPageSize('lr');
             try { paginateLabReport(document.getElementById('print-area')); } catch (e) { /* 分列失败保持原样 */ }
         }
 
@@ -136,8 +137,8 @@ Clinic.print = (function () {
             meas.removeChild(el);
             return r;
         }
-        var headSel = '.lr-titleline, .lr-sub, .lr-patlines';
-        var footSel = '.lr-note, .lr-solid, .lr-meta1, .lr-meta2, .lr-tip';
+        var headSel = '.lr-titleline, .lr-patgrid';
+        var footSel = '.lr-note, .lr-solid, .lr-footgrid';
         var headH = 0, footH = 0, rowH = 0;
         doc.querySelectorAll(headSel).forEach(function (n) { headH += measure(n.cloneNode(true)); });
         doc.querySelectorAll(footSel).forEach(function (n) { footH += measure(n.cloneNode(true)); });
@@ -294,6 +295,12 @@ Clinic.print = (function () {
                 st.textContent = '@page { size: ' + w + 'mm ' + h + 'mm; margin: 0; }';
                 document.head.appendChild(st);
             }
+        } else if (sheet === 'lr') {
+            // 检验报告单：横向 A5 固定纸张（210mm × 148mm），与画布同尺寸
+            st = document.createElement('style');
+            st.id = 'printPageSize';
+            st.textContent = '@page { size: 210mm 148mm; margin: 0; }';
+            document.head.appendChild(st);
         }
     }
 
