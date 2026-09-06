@@ -29,6 +29,12 @@ switch ($action) {
         if ($visit['status'] === 'finished') {
             json_fail('该患者已诊毕，病历已归档，不可修改');
         }
+        // 新建前置：无已保存首诊病历 → 禁止创建知情同意书
+        // （同意书需有首诊病历支撑；与前端 syncNavAdds 隐藏「＋」同规则）
+        if ($id <= 0) {
+            $hasInitial = EmrRepository::one("SELECT id FROM patient_records WHERE visit_id=? AND record_type='initial' LIMIT 1", array($visitId));
+            if (!$hasInitial) json_fail('请先书写并保存首诊病历后再创建知情同意书');
+        }
         // 跨科室只读锁定：医生当前科室 != 就诊当前科室（非会诊处理中）→ 绝对只读，
         // 不可保存/编辑知情同意书（与病历只读规则一致，杜绝跨科室修改）
         if (!get_editable_record($visit, $u)) {

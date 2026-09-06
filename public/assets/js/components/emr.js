@@ -123,18 +123,20 @@ Clinic.emr = (function () {
                 // 会诊列表渲染（门诊处置「请X科会诊」数据源：DATA.consults）
                 CONSULTS = j.data.consults || [];
                 renderConsultList();
-                // 会诊模式：本人正在会诊处理中 → 隐藏会诊分区「＋」（不可再发起会诊）
+                // 会诊「＋」显示条件：非会诊处理中 且 存在可编辑病历（与 syncNavAdds 同规则）。
+                // 注意：原代码此处只要非会诊处理中就无条件重新显示，覆盖了 syncNavAdds
+                // 基于可编辑病历的隐藏——导致「无已保存病历（首诊空病历/续写未保存）」时
+                // 会诊＋错误出现且箭头未靠右。修正为双条件判定。
                 var inConsult = (j.data.consults || []).some(function (c) {
                     return c.status === 'pending' || c.status === 'doing';
                 });
                 var consAdd = document.querySelector('.ena-sec-title .ena-add[title="发起会诊"]');
                 if (consAdd) {
-                    consAdd.style.display = inConsult ? 'none' : '';
+                    var showConsAdd = !inConsult && hasEditableRecord();
+                    consAdd.style.display = showConsAdd ? '' : 'none';
                     // + 隐藏后箭头靠右修复（.ena-add + .ena-arrow 的 margin-left:3px 会覆盖 auto）
-                    if (inConsult) {
-                        var arrow = consAdd.parentNode ? consAdd.parentNode.querySelector('.ena-arrow') : null;
-                        if (arrow) arrow.style.marginLeft = 'auto';
-                    }
+                    var arrow = consAdd.parentNode ? consAdd.parentNode.querySelector('.ena-arrow') : null;
+                    if (arrow) arrow.style.marginLeft = showConsAdd ? '' : 'auto';
                 }
                 // 前序医生诊断上下文注入（诊断模态框跨医生引用查重用）
                 injectPrevDiagContext();
@@ -763,12 +765,13 @@ diagnoses: [],
      * 仅当存在当前科室可编辑病历（record_id>0 且 dept_match=1 或会诊记录）时，
      * 才显示 检查/检验/处置/处方/诊断/会诊/诊断证明 的「＋」；
      * 转科后未续写（无可编辑病历）→ 这些「＋」一律隐藏，仅保留「病历节点/知情同意书」＋。
+     * 知情同意书「＋」另受首诊病历约束：无已保存首诊病历 → 隐藏（同意书需有首诊支撑）。
      * 与后端 get_editable_record / requireSaved 同规则（前端展示层兜底）。
      */
     function syncNavAdds() {
         var editable = hasEditableRecord();
         var inConsult = !!(DATA && DATA.__consult_mode);
-        var ids = ['diagsAddBtn', 'imgAddBtn', 'labAddBtn', 'procAddBtn', 'rxAddBtn', 'consAddBtn', 'certAddBtn'];
+        var ids = ['consentAddBtn', 'diagsAddBtn', 'imgAddBtn', 'labAddBtn', 'procAddBtn', 'rxAddBtn', 'consAddBtn', 'certAddBtn'];
         ids.forEach(function (id) {
             var b = document.getElementById(id);
             if (!b) return;
@@ -776,6 +779,8 @@ diagnoses: [],
             if (id === 'certAddBtn' && DATA && DATA.visit && DATA.visit.status === 'finished' && !(DATA.has_certificate)) return;
             // 会诊期间：不可再发起会诊、不可开具诊断证明（与 applyConsultMode 同规则）
             if ((id === 'consAddBtn' || id === 'certAddBtn') && inConsult) { b.style.display = 'none'; return; }
+            // 知情同意书：无已保存首诊病历 → 隐藏（创建需有首诊病历支撑）
+            if (id === 'consentAddBtn') { b.style.display = hasInitialRecord() ? '' : 'none'; return; }
             b.style.display = editable ? '' : 'none';
         });
         // 「＋」隐藏后分区折叠箭头贴左修复
@@ -783,6 +788,13 @@ diagnoses: [],
             var arrow = b.parentNode ? b.parentNode.querySelector('.ena-arrow') : null;
             if (arrow) arrow.style.marginLeft = (b.style.display === 'none') ? 'auto' : '';
         });
+    }
+
+    /** 是否存在已保存的首诊病历（知情同意书创建的前置支撑） */
+    function hasInitialRecord() {
+        return !!(DATA && (DATA.records_history || []).some(function (h) {
+            return h.record_type === 'initial';
+        }));
     }
 
     /**
@@ -2308,6 +2320,11 @@ diagnoses: [],
                 return;
             case 'consent':
                 // 知情同意书：打开模板选择框 → 编辑 → 保存/打印（emr_consent.js）
+                // 前置：无已保存首诊病历 → 拒绝（与后端 save 同规则）
+                if (!hasInitialRecord()) {
+                    Clinic.toast.warning('请先书写并保存首诊病历后再创建知情同意书');
+                    return;
+                }
                 if (Clinic.emr.consent) { Clinic.emr.consent.openPicker(ev); }
                 else { Clinic.toast.info('知情同意书模块未加载'); }
                 return;
