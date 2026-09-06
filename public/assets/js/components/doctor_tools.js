@@ -489,20 +489,21 @@ Clinic.docTools = (function () {
         if (pop) pop.remove();
         saveCallPopOpen(false);
         if (CALL_POP_TIMER) { clearInterval(CALL_POP_TIMER); CALL_POP_TIMER = null; }
+        // 清理文档级拖动监听（与 bindCallPopDrag 成对），防止反复开关累积泄漏
+        document.removeEventListener('mousemove', dragMoveHandler, true);
+        document.removeEventListener('mouseup', dragUpHandler, true);
     }
 
     /* 悬浮窗拖动：按住标题栏可在页面上任意拖动，松开记忆位置 */
+    var dragMoveHandler = null;
+    var dragUpHandler = null;
     function bindCallPopDrag(pop) {
         var head = pop.querySelector('.doc-call-pop-head');
         var dragging = false, offX = 0, offY = 0;
-        head.addEventListener('mousedown', function (e) {
-            if (e.target.closest('.doc-call-pop-x')) return;
-            dragging = true;
-            offX = e.clientX - pop.getBoundingClientRect().left;
-            offY = e.clientY - pop.getBoundingClientRect().top;
-            e.preventDefault();
-        });
-        document.addEventListener('mousemove', function (e) {
+        // 先移除旧句柄再注册，避免 mode 切换（close+open）时文档级监听累积
+        if (dragMoveHandler) document.removeEventListener('mousemove', dragMoveHandler, true);
+        if (dragUpHandler) document.removeEventListener('mouseup', dragUpHandler, true);
+        dragMoveHandler = function (e) {
             if (!dragging) return;
             var x = Math.max(0, Math.min(e.clientX - offX, window.innerWidth - 80));
             var y = Math.max(0, Math.min(e.clientY - offY, window.innerHeight - 80));
@@ -510,12 +511,21 @@ Clinic.docTools = (function () {
             pop.style.top = y + 'px';
             pop.style.right = 'auto';
             pop.style.bottom = 'auto';
-        });
-        document.addEventListener('mouseup', function () {
+        };
+        dragUpHandler = function () {
             if (!dragging) return;
             dragging = false;
             saveCallPopPos(parseInt(pop.style.left, 10) || 0, parseInt(pop.style.top, 10) || 0);
+        };
+        head.addEventListener('mousedown', function (e) {
+            if (e.target.closest('.doc-call-pop-x')) return;
+            dragging = true;
+            offX = e.clientX - pop.getBoundingClientRect().left;
+            offY = e.clientY - pop.getBoundingClientRect().top;
+            e.preventDefault();
         });
+        document.addEventListener('mousemove', dragMoveHandler, true);
+        document.addEventListener('mouseup', dragUpHandler, true);
     }
 
     function bindCallPopActions(pop) {

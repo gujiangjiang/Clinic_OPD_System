@@ -641,19 +641,19 @@ Clinic.deptwork = (function () {
         var pop = callPopEl();
         if (pop) pop.remove();
         if (CALL_TIMER) { clearInterval(CALL_TIMER); CALL_TIMER = null; }
+        // 清理文档级拖动监听（与 bindCallPopDrag 成对），防止反复开关累积泄漏
+        document.removeEventListener('mousemove', dragMoveHandler, true);
+        document.removeEventListener('mouseup', dragUpHandler, true);
     }
 
+    var dragMoveHandler = null;
+    var dragUpHandler = null;
     function bindCallPopDrag(pop) {
         var head = pop.querySelector('.doc-call-pop-head');
         var dragging = false, offX = 0, offY = 0;
-        head.addEventListener('mousedown', function (e) {
-            if (e.target.closest('.doc-call-pop-x')) return;
-            dragging = true;
-            offX = e.clientX - pop.getBoundingClientRect().left;
-            offY = e.clientY - pop.getBoundingClientRect().top;
-            e.preventDefault();
-        });
-        document.addEventListener('mousemove', function (e) {
+        if (dragMoveHandler) document.removeEventListener('mousemove', dragMoveHandler, true);
+        if (dragUpHandler) document.removeEventListener('mouseup', dragUpHandler, true);
+        dragMoveHandler = function (e) {
             if (!dragging) return;
             var x = Math.max(0, Math.min(e.clientX - offX, window.innerWidth - 80));
             var y = Math.max(0, Math.min(e.clientY - offY, window.innerHeight - 80));
@@ -661,10 +661,19 @@ Clinic.deptwork = (function () {
             pop.style.top = y + 'px';
             pop.style.right = 'auto';
             pop.style.bottom = 'auto';
-        });
-        document.addEventListener('mouseup', function () {
+        };
+        dragUpHandler = function () {
             dragging = false;
+        };
+        head.addEventListener('mousedown', function (e) {
+            if (e.target.closest('.doc-call-pop-x')) return;
+            dragging = true;
+            offX = e.clientX - pop.getBoundingClientRect().left;
+            offY = e.clientY - pop.getBoundingClientRect().top;
+            e.preventDefault();
         });
+        document.addEventListener('mousemove', dragMoveHandler, true);
+        document.addEventListener('mouseup', dragUpHandler, true);
     }
 
     function refreshCallPanel() {

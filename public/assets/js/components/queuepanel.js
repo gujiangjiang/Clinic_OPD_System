@@ -437,7 +437,18 @@ Clinic.queuePanel = (function () {
         renderBtn();
         if (DEPT_ID <= 0) return;
         load(true);
-        TIMER = setInterval(function () { load(true); }, 30000);
+        // 轮询定时器：离开病历页（#queueBtn 被 SPA 局部刷新移除）后自动停止，
+        // 防止后台空轮询持续请求 /api/doctor?action=queue_list
+        // （重进 EMR 页 init() 再次调用，先清旧定时器避免累积重复轮询）
+        if (TIMER) clearInterval(TIMER);
+        TIMER = setInterval(function () {
+            if (!document.getElementById('queueBtn')) {
+                clearInterval(TIMER);
+                TIMER = null;
+                return;
+            }
+            load(true);
+        }, 30000);
     }
 
     /**
@@ -449,6 +460,8 @@ Clinic.queuePanel = (function () {
         id = parseInt(id, 10) || 0;
         DEPT_ID = id;
         DATA = null;
+        // 切换科室先停旧轮询（id=0 或重建新定时器前都需清理，避免重复）
+        if (TIMER) { clearInterval(TIMER); TIMER = null; }
         // 切换科室：清空筛选记忆，恢复初始状态（诊毕/当日/会诊 全部取消勾选）
         seen = false;
         todayOnly = false;
@@ -457,7 +470,15 @@ Clinic.queuePanel = (function () {
         renderBtn();
         if (id > 0) {
             load(true);
-            if (!TIMER) TIMER = setInterval(function () { load(true); }, 30000);
+            // 与 init() 相同的自终止轮询：按钮移除即停，避免后台空轮询
+            TIMER = setInterval(function () {
+                if (!document.getElementById('queueBtn')) {
+                    clearInterval(TIMER);
+                    TIMER = null;
+                    return;
+                }
+                load(true);
+            }, 30000);
         }
     }
 
