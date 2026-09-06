@@ -57,9 +57,16 @@ Clinic.deptwork = (function () {
             // 首次进入自动弹出候诊列表
             setTimeout(function () { openPanel(); }, 150);
         }
-        // 候诊数据轮询（计数/列表实时刷新）
+        // 候诊数据轮询（计数/列表实时刷新；离开工作台页面自动停止，避免后台空轮询）
         if (QUEUE_TIMER) clearInterval(QUEUE_TIMER);
-        QUEUE_TIMER = setInterval(function () { loadQueue(true); }, 30000);
+        QUEUE_TIMER = setInterval(function () {
+            if (!document.getElementById('dwMain')) {
+                clearInterval(QUEUE_TIMER);
+                QUEUE_TIMER = null;
+                return;
+            }
+            loadQueue(true);
+        }, 30000);
     }
 
     function bindButtons() {
