@@ -202,15 +202,21 @@ function doLabSave(it) {
 }
 
 function labWithdraw(reportId) {
-    var reason = prompt('请填写撤回原因：', '');
-    if (reason === null) return;
-    Clinic.modal.confirm('确认申请撤回该报告？需管理员审核通过后生效。', function () {
-        Clinic.ajax('/api/lab', { action: 'withdraw', report_id: reportId, reason: reason }, {
-            onSuccess: function (json) {
-                Clinic.toast.success(json.msg);
-                afterLabAction();
-            },
-        });
+    Clinic.modal.prompt({
+        title: '申请撤回报告',
+        label: '请填写撤回原因',
+        placeholder: '如：检验结果有误，需重新检验',
+        required: true,
+        onOk: function (reason) {
+            Clinic.modal.confirm('确认申请撤回该报告？需管理员审核通过后生效。', function () {
+                Clinic.ajax('/api/lab', { action: 'withdraw', report_id: reportId, reason: reason }, {
+                    onSuccess: function (json) {
+                        Clinic.toast.success(json.msg);
+                        afterLabAction();
+                    },
+                });
+            });
+        },
     });
 }
 
