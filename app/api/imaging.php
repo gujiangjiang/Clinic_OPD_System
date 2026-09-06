@@ -107,6 +107,10 @@ switch ($action) {
         if (!$it || $it['item_type'] !== 'imaging' || !in_array($it['status'], array('registered', 'done'), true)) {
             json_fail('项目不存在或状态异常');
         }
+        // 医护角色归属校验（与 register_order 口径一致）
+        $rv = get_visit_row((int)$it['visit_id']);
+        if (!$rv) json_fail('就诊记录不存在');
+        if (!dept_visit_allowed($rv['visit'], $u)) json_fail('无权限提交该就诊的检查报告');
         // done 状态拦截：已生成非撤回报告的项目不可重复提交（防重复报告）；
         // 需重新录入须先走撤回流程（撤回后状态回到 registered）
         if ($it['status'] === 'done' && (int)$it['result_id'] > 0) {
