@@ -7,6 +7,18 @@
  * 差异部分（result_form/save_result/item_save）保留在原文件。
  * ============================================================ */
 
+/**
+ * 医技角色（护士/检验/影像/药房）就诊归属校验（宽松版）。
+ * 说明：未绑定科室（dept_ids 为空）= 全院放行；已绑科室须匹配就诊当前科室。
+ */
+function dept_visit_allowed($visit, $u) {
+    if ($u['role'] === 'admin') return true;
+    $myDepts = user_dept_ids($u);
+    if (!$myDepts) return true;
+    $visitDept = (int)(isset($visit['current_dept_id']) ? $visit['current_dept_id'] : 0);
+    return $visitDept <= 0 || in_array($visitDept, $myDepts, true);
+}
+
 /** 科室首页统计 */
 function dept_home_stats($itemType, $itemTable) {
     $today = date('Y-m-d');
