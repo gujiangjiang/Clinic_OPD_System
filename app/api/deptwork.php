@@ -64,14 +64,16 @@ function deptwork_type_where($cfg, $alias) {
     return array($sql, $params);
 }
 
-/** 患者级候诊队列（一行=一位患者，聚合其相关明细数量与状态） */
-function deptwork_queue($u) {
+/**
+ * 患者级候诊队列原始行（一行=一位患者，聚合其相关明细数量与状态）
+ * @return array 原始行（未格式化 visit_id 混淆等）
+ */
+function deptwork_queue_rows($u, $status, $today) {
     $role = $u['role'];
     $cfg = deptwork_role_cfg($role);
     // 双筛选：status（待处置/待发药/检查中等 状态页签，互斥单选）+ today（当日叠加可选）
-    $status = get('status', 'doing');
     if (!in_array($status, array('doing', 'done'), true)) $status = 'doing';
-    $today = (int)get('today', 0) === 1 ? 1 : 0;
+    $today = (int)$today === 1 ? 1 : 0;
     list($typeWhere, $typeParams) = deptwork_type_where($cfg, 'oi');
 
     $deptIds = user_dept_ids($u);
@@ -87,14 +89,11 @@ function deptwork_queue($u) {
     $unDoneSet = ($role === 'pharmacy')
         ? "'paid'"
         : (($role === 'nurse') ? "'paid','dispensing'" : "'paid','registered'");
-    switch ($status) {
-        case 'doing':
-            $having = "SUM(CASE WHEN oi.status IN ($unDoneSet) THEN 1 ELSE 0 END) > 0";
-            break;
-        default: // done：存在办结项目 且 无任何未办结项目
-            $having = "SUM(CASE WHEN oi.status IN ('done','dispensed') THEN 1 ELSE 0 END) > 0
-                AND SUM(CASE WHEN oi.status IN ($unDoneSet) THEN 1 ELSE 0 END) = 0";
-            break;
+    if ($status === 'doing') {
+        $having = "SUM(CASE WHEN oi.status IN ($unDoneSet) THEN 1 ELSE 0 END) > 0";
+    } else {
+        $having = "SUM(CASE WHEN oi.status IN ('done','dispensed') THEN 1 ELSE 0 END) > 0
+            AND SUM(CASE WHEN oi.status IN ($unDoneSet) THEN 1 ELSE 0 END) = 0";
     }
     // 「当日」叠加筛选
     $todayWhere = $today ? " AND date(oi.created_at)=?" : '';
@@ -134,7 +133,17 @@ function deptwork_queue($u) {
 
     $params = array_merge($typeParams, $deptIds);
     if ($today) $params[] = today_str();
-    $rows = OrderRepository::q($sql, $params);
+    return OrderRepository::q($sql, $params);
+}
+
+/** 患者级候诊队列（一行=一位患者，聚合其相关明细数量与状态） */
+function deptwork_queue($u) {
+    $role = $u['role'];
+    $cfg = deptwork_role_cfg($role);
+    $status = get('status', 'doing');
+    if (!in_array($status, array('doing', 'done'), true)) $status = 'doing';
+    $today = (int)get('today', 0) === 1 ? 1 : 0;
+    $rows = deptwork_queue_rows($u, $status, $today);
 
     $list = array();
     foreach ($rows as $r) {
@@ -339,53 +348,47 @@ function deptwork_patient($u) {
     ));
 }
 
-/** 角色工作台所属科室（排队悬浮窗数据源）：
- * 优先用户关联科室 dept_ids；未配置时按角色名匹配科室（检验科/影像科/药房/护士站） */
-function deptwork_role_depts($u) {
-    $ids = user_dept_ids($u);
-    if ($ids) return $ids;
-    $kw = array('lab' => '检验', 'imaging' => '影像', 'pharmacy' => '药房', 'nurse' => '护士');
-    $name = isset($kw[$u['role']]) ? $kw[$u['role']] : '';
-    if ($name !== '') {
-        $rows = DB::q("SELECT id FROM departments WHERE status=1 AND name LIKE ? ORDER BY sort, id LIMIT 1", array('%' . $name . '%'));
-        if ($rows) return array((int)$rows[0]['id']);
-    }
-    $any = DB::one("SELECT id FROM departments WHERE status=1 ORDER BY sort, id LIMIT 1");
-    return $any ? array((int)$any['id']) : array();
-}
-
-/** 科室排队悬浮窗数据（当前处理中/下一位/候诊队列，复用医技大屏逻辑） */
+/** 科室排队悬浮窗数据（当前处理中/下一位/候诊队列）
+ * 数据源与候诊列表一致：患者级在办队列（按本角色未办结明细聚合），
+ * 而非注册在当前科室的就诊——患者挂号在临床科室，护士/检验/影像/药房
+ * 的排队看板须以其明细为准，否则恒为空。 */
 function deptwork_call_panel($u) {
     $role = $u['role'];
     $cfg = deptwork_role_cfg($role);
-    $deptIds = deptwork_role_depts($u);
-    if (!$deptIds) {
-        json_ok(array('depts' => array(), 'current' => null, 'next' => null, 'waiting' => array(), 'bound' => true));
-        return;
-    }
-    // 未绑定科室=全院：取当前科室；多科室仅聚合当前科室队列
-    $deptId = $deptIds[0];
-    $dept = DeptRepository::one('SELECT * FROM departments WHERE id=?', array($deptId));
-    $fmt = function ($r) {
-        if (!$r) return null;
-        return array(
+    $deptName = array('nurse' => '护士站', 'lab' => '检验科', 'imaging' => '影像科', 'pharmacy' => '药房');
+    $title = isset($deptName[$role]) ? $deptName[$role] : '科室';
+
+    // 在办队列（doing，不含当日过滤）
+    $rows = deptwork_queue_rows($u, 'doing', 0);
+    $list = array();
+    foreach ($rows as $r) {
+        $list[] = array(
             'name' => $r['pname'],
             'gender' => $r['pgender'],
             'age_fmt' => age_format($r['pbirth'], $r['registered_at']),
             'visit_seq' => (int)$r['visit_seq'],
             'flow_no' => $r['flow_no'],
             'patient_no' => $r['patient_no'],
-            'visit_code' => oid((int)$r['id']),
-            'status' => $r['status'],
+            'visit_code' => oid((int)$r['visit_id']),
+            'status' => $r['visit_status'],
         );
-    };
+    }
+
+    // 当前处理中：前端正在打开的患者（current_visit 命中则在办队列中取回）
+    $cur = null;
+    $curCode = get('current_visit', '');
+    if ($curCode !== '') {
+        foreach ($list as $p) {
+            if ($p['visit_code'] === $curCode) { $cur = $p; break; }
+        }
+    }
+    $next = isset($list[0]) ? $list[0] : null;
     json_ok(array(
-        'depts' => $deptIds,
-        'dept_name' => $dept ? $dept['name'] : '',
+        'dept_name' => $title,
         'bound' => true,
-        'current' => $fmt(QueueRepository::currentVisit($deptId)),
-        'next' => $fmt(QueueRepository::nextWaiting($deptId)),
-        'waiting' => array_map($fmt, QueueRepository::waitingList($deptId, 8)),
+        'current' => $cur,
+        'next' => $next,
+        'waiting' => $list,
     ));
 }
 

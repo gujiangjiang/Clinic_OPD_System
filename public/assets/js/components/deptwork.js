@@ -659,7 +659,9 @@ Clinic.deptwork = (function () {
     function refreshCallPanel() {
         var pop = callPopEl();
         if (!pop) return;
-        Clinic.get('/api/deptwork?action=call_panel', null, {
+        // 携带当前打开的患者，排队悬浮窗据此展示「当前处理中」
+        var qs = VISIT ? '&current_visit=' + encodeURIComponent(VISIT) : '';
+        Clinic.get('/api/deptwork?action=call_panel' + qs, null, {
             loading: false,
             onSuccess: function (json) { renderCallPanel(json.data); },
             onError: function () {},
