@@ -266,14 +266,20 @@ function showBatchDetail(paymentNo) {
 function cancelVisit(visitId, status) {
     var tip = status === 'paid' ? '确定为该挂号退费？退费后该患者可在同一首次科室重新挂号。' : '确定取消该挂号？';
     Clinic.modal.confirm(tip, function () {
-        var reason = prompt('请填写' + (status === 'paid' ? '退费' : '取消') + '原因（可留空）：', '');
-        if (reason === null) return;
-        Clinic.ajax('/api/cashier', { action: 'cancel_visit', visit_id: visitId, reason: reason }, {
-            onSuccess: function (json) {
-                Clinic.toast.success(json.msg);
-                loadDetail(CUR_VISIT);
-                // 退费后左侧就诊列表状态同步刷新（原仅刷新右侧详情，左侧仍显示旧状态）
-                if (document.getElementById('payKw').value.trim()) searchVisits(true);
+        Clinic.modal.prompt({
+            title: status === 'paid' ? '退费原因' : '取消原因',
+            label: '请填写' + (status === 'paid' ? '退费' : '取消') + '原因（可留空）',
+            placeholder: status === 'paid' ? '如：患者自愿退号' : '如：患者信息有误，需重新挂号',
+            required: false,
+            onOk: function (reason) {
+                Clinic.ajax('/api/cashier', { action: 'cancel_visit', visit_id: visitId, reason: reason }, {
+                    onSuccess: function (json) {
+                        Clinic.toast.success(json.msg);
+                        loadDetail(CUR_VISIT);
+                        // 退费后左侧就诊列表状态同步刷新（原仅刷新右侧详情，左侧仍显示旧状态）
+                        if (document.getElementById('payKw').value.trim()) searchVisits(true);
+                    },
+                });
             },
         });
     }, { title: status === 'paid' ? '退费确认' : '取消确认' });
@@ -281,17 +287,23 @@ function cancelVisit(visitId, status) {
 
 /* ---------- 退费 ---------- */
 function refundOrder(orderId) {
-    var reason = prompt('请填写退费原因：', '');
-    if (reason === null) return;
-    Clinic.modal.confirm('确认退费？仅限未使用的项目（检验未登记、检查未登记、药房未发药、处置未执行）。', function () {
-        Clinic.ajax('/api/cashier', { action: 'refund_order', order_id: orderId, reason: reason }, {
-            onSuccess: function (json) {
-                Clinic.toast.success(json.msg);
-                loadDetail(CUR_VISIT);
-                if (document.getElementById('payKw').value.trim()) searchVisits(true);
-            },
-        });
-    }, { title: '退费确认', okText: '确认退费' });
+    Clinic.modal.prompt({
+        title: '退费原因',
+        label: '请填写退费原因',
+        placeholder: '如：重复开单 / 患者要求退费',
+        required: false,
+        onOk: function (reason) {
+            Clinic.modal.confirm('确认退费？仅限未使用的项目（检验未登记、检查未登记、药房未发药、处置未执行）。', function () {
+                Clinic.ajax('/api/cashier', { action: 'refund_order', order_id: orderId, reason: reason }, {
+                    onSuccess: function (json) {
+                        Clinic.toast.success(json.msg);
+                        loadDetail(CUR_VISIT);
+                        if (document.getElementById('payKw').value.trim()) searchVisits(true);
+                    },
+                });
+            }, { title: '退费确认', okText: '确认退费' });
+        },
+    });
 }
 
 /* 整单退费：同缴费批次（同一缴费凭条）的全部项目一起退。
@@ -309,18 +321,24 @@ function refundBatch(paymentNo) {
             }
             if (d.all_paid) {
                 // 全部未执行 → 直接整单退费
-                var reason = prompt('该凭条包含同批次多张开单，需整单退费。请填写退费原因：', '');
-                if (reason === null) return;
-                Clinic.modal.confirm('确认整单退费？该缴费凭条（流水号 ' + paymentNo + '）上的全部项目将一起退费。', function () {
-                    Clinic.ajax('/api/cashier', { action: 'refund_batch', payment_no: paymentNo, reason: reason }, {
-                        onSuccess: function (json) {
-                            Clinic.toast.success(json.msg);
-                            loadDetail(CUR_VISIT);
-                            // 整单退费后左侧就诊状态同步刷新（原仅刷新右侧，凭条仍显示退费/补打按钮）
-                            if (document.getElementById('payKw').value.trim()) searchVisits(true);
-                        },
-                    });
-                }, { title: '整单退费', okText: '确认整单退费' });
+                Clinic.modal.prompt({
+                    title: '整单退费',
+                    label: '该凭条包含同批次多张开单，需整单退费。请填写退费原因',
+                    placeholder: '如：患者转院，需整单退费',
+                    required: false,
+                    onOk: function (reason) {
+                        Clinic.modal.confirm('确认整单退费？该缴费凭条（流水号 ' + paymentNo + '）上的全部项目将一起退费。', function () {
+                            Clinic.ajax('/api/cashier', { action: 'refund_batch', payment_no: paymentNo, reason: reason }, {
+                                onSuccess: function (json) {
+                                    Clinic.toast.success(json.msg);
+                                    loadDetail(CUR_VISIT);
+                                    // 整单退费后左侧就诊状态同步刷新（原仅刷新右侧，凭条仍显示退费/补打按钮）
+                                    if (document.getElementById('payKw').value.trim()) searchVisits(true);
+                                },
+                            });
+                        }, { title: '整单退费', okText: '确认整单退费' });
+                    },
+                });
                 return;
             }
             // 存在已执行项目 → 走退费申请审批流
