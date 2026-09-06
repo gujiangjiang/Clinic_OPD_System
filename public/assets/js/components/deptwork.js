@@ -22,8 +22,9 @@ Clinic.deptwork = (function () {
     var RENDER = null;        // 角色个性化渲染 render(data)：负责 #dwMain + #dwSide
     var AFTER_ACTION = null;  // 角色操作后回调（可选，用于刷新局部数据）
     var DATA = null;          // queue 接口缓存
-    var TAB = 'doing';        // 当前页签
-    var TAB_LABELS = {};      // 页签名 {doing:'检查中',...}
+    var STATUS = 'doing';     // 状态页签（doing/done，互斥单选）
+    var TODAY = false;        // 当日叠加筛选（可选）
+    var TAB_LABELS = {};      // 页签名 {doing:'检查中', done:'完成', today:'当日'}
     var KEYWORD = '';         // 候诊搜索关键字（面板关闭清空）
     var VISIT = '';           // 当前患者混淆码
     var QUEUE_TIMER = null;   // 候诊数据 30s 轮询
@@ -200,21 +201,16 @@ Clinic.deptwork = (function () {
     function panelEl() { return document.getElementById('dwQueuePanel'); }
 
     function loadQueue(force, cb) {
-        Clinic.get('/api/deptwork?action=queue&tab=' + encodeURIComponent(TAB), null, {
+        Clinic.get('/api/deptwork?action=queue&status=' + encodeURIComponent(STATUS) + '&today=' + (TODAY ? 1 : 0), null, {
             loading: false,
             onSuccess: function (json) {
                 DATA = json.data;
                 TAB_LABELS = DATA.tabs || {};
-                if (!TAB_LABELS[TAB]) {
-                    var keys = Object.keys(TAB_LABELS);
-                    if (keys.length) TAB = keys[0];
-                }
-                // 首次加载应用登录会话记忆的页签（避免每次回到默认页签）
-                if (!PREF_APPLIED && DATA.pref && DATA.pref.tab && DATA.pref.tab !== TAB && TAB_LABELS[DATA.pref.tab]) {
+                // 首次加载应用登录会话记忆的筛选（状态页签 + 当日）
+                if (!PREF_APPLIED && DATA.pref) {
                     PREF_APPLIED = true;
-                    TAB = DATA.pref.tab;
-                    loadQueue(true, cb);
-                    return;
+                    if (DATA.pref.status && (DATA.pref.status === 'doing' || DATA.pref.status === 'done')) STATUS = DATA.pref.status;
+                    TODAY = !!DATA.pref.today;
                 }
                 PREF_APPLIED = true;
                 renderQueueBtn();
@@ -225,13 +221,14 @@ Clinic.deptwork = (function () {
         });
     }
 
-    /** 切换页签偏好保存（登录会话，跨页面保持） */
+    /** 筛选偏好保存（登录会话，跨页面保持） */
     function saveTabPref() {
         try {
             var fd = new FormData();
             fd.append('csrf_token', document.body.getAttribute('data-csrf') || '');
-            fd.append('tab', TAB);
-            fetch('/api/deptwork?action=queue_pref&tab=' + encodeURIComponent(TAB), {
+            fd.append('status', STATUS);
+            fd.append('today', TODAY ? 1 : 0);
+            fetch('/api/deptwork?action=queue_pref&status=' + encodeURIComponent(STATUS) + '&today=' + (TODAY ? 1 : 0), {
                 method: 'POST', body: fd,
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
             }).catch(function () {});
@@ -243,7 +240,7 @@ Clinic.deptwork = (function () {
         if (!btn || !DATA) return;
         var n = DATA.list ? DATA.list.length : 0;
         btn.innerHTML = '📋 候诊 <b>' + n + '</b>';
-        btn.title = '候诊 / 患者列表（' + (TAB_LABELS[TAB] || TAB) + '）';
+        btn.title = '候诊 / 患者列表（' + (TAB_LABELS[STATUS] || STATUS) + (TODAY ? ' · 当日' : '') + '）';
     }
 
     function scopedList() {
@@ -285,16 +282,16 @@ Clinic.deptwork = (function () {
         return '<span class="badge badge-primary" style="font-size:11px">候诊</span>';
     }
 
+    /* 行：时间(日期+时间) 号别 姓名 性别 年龄 状态 —— 状态列固定展示就诊状态
+       （候诊/就诊中/诊毕），不再展示明细摘要，避免与页签状态混淆 */
     function rowHtml(r) {
         var sum = itemSummary(r);
         return '<div class="dw-qp-row" data-code="' + escHtml(r.code) + '" title="' + escHtml(sum.tip) + '">' +
-            '<span class="qp-cell qp-c-date fs-13 text-muted">' + (r.date || '').substr(5) + '</span>' +
-            '<span class="qp-cell qp-c-time fs-13 text-muted">' + escHtml(r.time || '') + '</span>' +
+            '<span class="qp-cell qp-c-time fs-13">' + escHtml((r.date || '').substr(5)) + ' ' + escHtml(r.time || '') + '</span>' +
             '<span class="qp-cell qp-c-seq fs-13 fw-600">' + pad3(r.visit_seq) + '</span>' +
             '<span class="qp-cell qp-c-name fs-13">' + escHtml(r.name) + '</span>' +
             '<span class="qp-cell qp-c-gender fs-12 text-muted">' + escHtml(r.gender) + '</span>' +
             '<span class="qp-cell qp-c-age fs-12 text-muted">' + escHtml(r.age_fmt || '') + '</span>' +
-            '<span class="qp-cell qp-c-sum fs-12">' + escHtml(sum.html) + '</span>' +
             '<span class="qp-cell qp-c-st">' + statusBadge(r.visit_status) + '</span>' +
             '</div>';
     }
@@ -304,13 +301,11 @@ Clinic.deptwork = (function () {
             return '<div class="qp-empty">' + (KEYWORD ? '未找到匹配的患者' : '当前筛选条件下暂无患者') + '</div>';
         }
         var head = '<div class="dw-qp-row dw-qp-head">' +
-            '<span class="qp-cell qp-c-date">日期</span>' +
             '<span class="qp-cell qp-c-time">时间</span>' +
             '<span class="qp-cell qp-c-seq">号别</span>' +
             '<span class="qp-cell qp-c-name">姓名</span>' +
             '<span class="qp-cell qp-c-gender">性别</span>' +
             '<span class="qp-cell qp-c-age">年龄</span>' +
-            '<span class="qp-cell qp-c-sum">明细</span>' +
             '<span class="qp-cell qp-c-st">状态</span>' +
             '</div>';
         return head + list.map(rowHtml).join('');
@@ -320,20 +315,26 @@ Clinic.deptwork = (function () {
         var p = panelEl();
         if (!p) return;
         var list = scopedList();
-        var chips = '';
-        Object.keys(TAB_LABELS).forEach(function (k) {
-            chips += '<button type="button" class="qp-chip' + (TAB === k ? ' active' : '') + '" data-tab="' + k + '">' + escHtml(TAB_LABELS[k]) + '</button>';
-        });
+        // 页签：状态页签（待处置/完成… 互斥单选）+ 当日（叠加可选）
+        var chips =
+            '<button type="button" class="qp-chip' + (STATUS === 'doing' ? ' active' : '') + '" data-k="doing">' + escHtml(TAB_LABELS.doing || '在办') + '</button>' +
+            '<button type="button" class="qp-chip' + (STATUS === 'done' ? ' active' : '') + '" data-k="done">' + escHtml(TAB_LABELS.done || '完成') + '</button>' +
+            '<button type="button" class="qp-chip' + (TODAY ? ' active' : '') + '" data-k="today">' + escHtml(TAB_LABELS.today || '当日') + '</button>';
         p.innerHTML =
             '<div class="qp-chips">' + chips +
             '  <span class="fs-12 text-muted qp-count">' + list.length + ' 人</span>' +
             '  <input class="input qp-search" id="dwQpSearch" placeholder="搜索：姓名/号别/流水号" value="' + escHtml(KEYWORD) + '">' +
             '</div>' +
             '<div class="qp-list">' + listHtml(list) + '</div>';
-        // 页签切换：重新请求并渲染列表区（loadQueue 完成后自动重渲染面板）
-        p.querySelectorAll('[data-tab]').forEach(function (c) {
+        // 页签切换：doing/done 互斥单选，today 叠加切换；切换后重新请求并渲染列表区
+        p.querySelectorAll('[data-k]').forEach(function (c) {
             c.addEventListener('click', function () {
-                TAB = c.getAttribute('data-tab');
+                var k = c.getAttribute('data-k');
+                if (k === 'today') {
+                    TODAY = !TODAY;
+                } else {
+                    STATUS = k === 'done' ? 'done' : 'doing';
+                }
                 saveTabPref();
                 p.querySelector('.qp-list').innerHTML = '<div class="qp-empty">加载中…</div>';
                 loadQueue(true);
