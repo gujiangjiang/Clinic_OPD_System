@@ -53,10 +53,11 @@ function pt_lab_report($report, $result, $item) {
             if ($mirror) $diag = (string)$mirror['preliminary_diagnosis'];
         }
     }
-    $li = function ($label, $val) { return '<span class="lr-cell"><b>' . $label . '：</b>' . e($val) . '</span>'; };
-    $html .= '<div class="lr-patlines">' .
-        '<div class="lr-line">' . $li('姓名', $pname) . $li('性别', $pgender) . $li('年龄', $page) . $li('出生日期', $pbirth) . '</div>' .
-        '<div class="lr-line">' . $li('患者ID', $report['patient_no']) . $li('申请科室', $applyDept) . $li('申请医生', $applyDoctor) . $li('临床诊断', $diag) . '</div>' .
+    $li = function ($label, $val) { return '<span class="lr-pcell"><b>' . $label . '：</b>' . e($val) . '</span>'; };
+    // 患者信息：隐形 2×4 表格（两行 8 字段）
+    $html .= '<div class="lr-patgrid">' .
+        $li('姓名', $pname) . $li('性别', $pgender) . $li('年龄', $page) . $li('出生日期', $pbirth) .
+        $li('患者ID', $report['patient_no']) . $li('申请科室', $applyDept) . $li('申请医生', $applyDoctor) . $li('临床诊断', $diag) .
         '</div>';
 
     // ===== 结果区：表格头两条实线 + 无边框行（前端分列分页） =====
@@ -87,16 +88,20 @@ function pt_lab_report($report, $result, $item) {
     $regTimeD = $regTime !== '' ? substr($regTime, 0, 16) : '—';
     $repTime = substr((string)$report['created_at'], 0, 16);
     $note = trim((string)(isset($report['content']) ? $report['content'] : ''));
+    $fc = function ($label, $val) { return '<span class="lr-fcell"><b>' . $label . '</b>' . e($val) . '</span>'; };
+    // 页脚：隐形 3×3 表格（第一行 申请/检验/报告时间，第二行 检验者/审核者/页码，
+    // 第三行合并三列显示提示语）；除报告时间与页码外均靠左
     $html .= '<div class="lr-foot">' .
         '<div class="lr-note">检验备注：' . ($note !== '' ? e($note) : '（无）') . '</div>' .
         '<div class="lr-solid"></div>' .
-        '<div class="lr-meta1">' . $li('申请时间', $applyTimeD) . $li('检验时间', $regTimeD) . $li('报告时间', $repTime) . '</div>' .
-        '<div class="lr-meta2">' .
-        '<span class="lr-cell"><b>检验者：</b>' . e($report['doctor']) . '</span>' .
-        '<span class="lr-cell"><b>审核者：</b><span class="lr-audit"></span></span>' .
-        '<span class="lr-cell lr-pageno">第 <span class="lr-page">1</span> / <span class="lr-total">1</span> 页</span>' .
+        '<div class="lr-footgrid">' .
+        $fc('申请时间：', $applyTimeD) . $fc('检验时间：', $regTimeD) .
+        '<span class="lr-fcell lr-fright"><b>报告时间：</b>' . e($repTime) . '</span>' .
+        $fc('检验者：', $report['doctor']) .
+        '<span class="lr-fcell"><b>审核者：</b><span class="lr-audit"></span></span>' .
+        '<span class="lr-fcell lr-fright">第 <span class="lr-page">1</span> / <span class="lr-total">1</span> 页</span>' .
+        '<span class="lr-fcell lr-fspan">检验结果仅供临床诊疗参考，仅对送检标本负责！</span>' .
         '</div>' .
-        '<div class="lr-tip">检验结果仅供临床诊疗参考，仅对送检标本负责！</div>' .
         '</div>';
 
     $html .= '</div>';
