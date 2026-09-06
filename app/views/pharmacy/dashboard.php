@@ -17,6 +17,7 @@ dept_workbench(array(
     'title' => '药房工作台',
     'desc' => '处方审方发药（药品信息请到「药品信息 / 药品设置」维护）',
     'emoji' => '💊',
+    'extra_actions' => '<button type="button" class="btn btn-outline btn-sm" id="dwInvBtn" title="库存管理（入库/出库）">📦 库存</button>',
 ));
 ?>
 <script>
@@ -185,6 +186,61 @@ function doRxReject(o) {
 function reprintRx(orderId) {
     Clinic.print.load('/api/pharmacy?action=rx_slip&order_id=' + orderId, null, 'ticket');
 }
+
+/* ==================== 库存管理（顶栏「📦 库存」入口，保持原功能） ==================== */
+function openInventory() {
+    var mask = Clinic.modal.open(
+        '<div id="invBody"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>',
+        { title: '📦 库存管理', size: 'modal-lg', buttons: [{ text: '关闭', cls: 'btn-outline' }] }
+    );
+    Clinic.get('/api/pharmacy?action=inventory', null, {
+        onSuccess: function (json) {
+            var box = document.getElementById('invBody');
+            if (box) box.innerHTML = json.data.html;
+        },
+    });
+}
+
+function stockModal(drugId, drugName) {
+    Clinic.modal.open(
+        '<div class="fs-13 text-muted mb-8">药品：' + drugName + '</div>' +
+        '<div class="form-row">' +
+        '<div class="form-group"><label class="form-label">操作类型</label><select class="select" id="stType">' +
+        '<option value="in">入库</option><option value="out">出库</option></select></div>' +
+        '<div class="form-group"><label class="form-label">数量</label><input class="input" type="number" min="1" id="stQty" value="1"></div></div>' +
+        '<div class="form-group"><label class="form-label">备注</label><input class="input" id="stNote" placeholder="如：进货单号 / 报损"></div>',
+        {
+            title: '库存变动',
+            size: 'modal-sm',
+            buttons: [
+                { text: '取消', cls: 'btn-outline' },
+                {
+                    text: '确定', cls: 'btn-primary', autoClose: false,
+                    onClick: function () {
+                        var qty = parseInt(document.getElementById('stQty').value, 10);
+                        if (!qty || qty <= 0) { Clinic.toast.warning('请输入正确的数量'); return; }
+                        Clinic.ajax('/api/pharmacy', {
+                            action: 'stock', drug_id: drugId,
+                            qty: qty, type: document.getElementById('stType').value,
+                            note: document.getElementById('stNote').value.trim(),
+                        }, {
+                            onSuccess: function (json) {
+                                Clinic.toast.success(json.msg);
+                                Clinic.modal.close();
+                                openInventory();
+                            },
+                        });
+                    },
+                },
+            ],
+        }
+    );
+}
+
+(function () {
+    var btn = document.getElementById('dwInvBtn');
+    if (btn) btn.onclick = openInventory;
+})();
 
 Clinic.deptwork.init();
 </script>

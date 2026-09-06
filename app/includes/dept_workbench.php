@@ -16,13 +16,14 @@
 
 /**
  * 渲染科室工作台骨架
- * @param array $cfg 角色配置：role / title / desc / emoji
+ * @param array $cfg 角色配置：role / title / desc / emoji / extra_actions（可选，顶栏额外按钮 HTML）
  */
 function dept_workbench($cfg) {
     $role = isset($cfg['role']) ? $cfg['role'] : '';
     $title = isset($cfg['title']) ? $cfg['title'] : '工作台';
     $desc = isset($cfg['desc']) ? $cfg['desc'] : '';
     $emoji = isset($cfg['emoji']) ? $cfg['emoji'] : '🏥';
+    $extraActions = isset($cfg['extra_actions']) ? $cfg['extra_actions'] : '';
     Router::title($title);
     ?>
 <div class="emr-workspace-layout">
@@ -31,6 +32,7 @@ function dept_workbench($cfg) {
         <div id="dwHeader"></div>
         <span class="fs-12 text-muted emr-top-status" id="dwStatus"></span>
         <div class="emr-top-actions">
+            <?php echo $extraActions; ?>
             <button type="button" class="btn btn-outline btn-sm" id="dwCallBtn" title="科室排队悬浮窗">📢 叫号</button>
             <button type="button" class="btn btn-outline btn-sm" id="dwHomeBtn" title="返回工作台首页">🏠 返回</button>
         </div>
