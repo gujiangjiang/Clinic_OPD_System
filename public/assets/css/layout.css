@@ -692,12 +692,12 @@
 
 /* ============================================================
    科室工作台候诊列表行（护士站/检验/影像/药房，患者级队列）
-   六列：时间(日期+时间) / 号别 / 姓名 / 性别 / 年龄 / 状态
-   时间列加宽、姓名列适度、状态列展示就诊状态（候诊/就诊中/诊毕）
+   八列：日期/时间/号别/姓名/性别/年龄/明细摘要/状态
+   日期与时间分列紧凑显示；姓名列适度；状态列展示项目状态（待处置/完成…）
    ============================================================ */
 .dw-qp-row {
     display: grid;
-    grid-template-columns: minmax(96px, 1fr) 38px minmax(48px, 1fr) 26px 48px 52px;
+    grid-template-columns: 36px 34px 32px minmax(42px, 1fr) 24px 36px minmax(70px, 1fr) 48px;
     align-items: center;
     gap: 6px;
     white-space: nowrap;
@@ -722,8 +722,8 @@
     margin-bottom: 2px;
 }
 .dw-qp-head:hover { background: transparent; }
-.dw-qp-row .qp-c-time { font-variant-numeric: tabular-nums; }
-.dw-qp-row .qp-c-seq { font-variant-numeric: tabular-nums; }
+.dw-qp-row .qp-c-date, .dw-qp-row .qp-c-time, .dw-qp-row .qp-c-seq { font-variant-numeric: tabular-nums; }
+.dw-qp-row .qp-c-sum { font-size: 11.5px; color: var(--text-muted); }
 
 /* ============================================================
    科室工作台患者工作区（影像报告单 / 检验列表 / 处方单 / 护理记录页）
@@ -740,6 +740,52 @@
 .dw-report-meta-lines { display: block; padding: 12px 24px 6px; }
 .dw-report-meta-lines .dw-meta-line { display: flex; flex-wrap: wrap; gap: 4px 22px; font-size: 13px; padding: 3px 0; }
 .dw-report-meta-lines .dw-meta-line b { font-weight: 600; }
+/* 护理记录单头部（参照急诊电子病历版式：医院名称/第二名称两端对齐 + 标题 + 患者信息两行两端对齐） */
+.dw-nurse-doc {
+    max-width: 860px;
+    margin: 0 auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    padding: 24px 28px 6px;
+}
+.dw-nurse-doc .dw-hosp-block { display: block; width: fit-content; max-width: 100%; margin: 0 auto; }
+.dw-nurse-doc .dw-hosp {
+    text-align: center;
+    font-size: 22px;
+    line-height: 28px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: var(--text);
+}
+.dw-nurse-doc .dw-sub {
+    width: 100%;
+    text-align: justify;
+    text-align-last: justify;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+.dw-nurse-doc .dw-title-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 14px 0 12px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--text);
+}
+.dw-nurse-doc .dw-title {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 4px;
+    padding-left: 4px;
+}
+.dw-nurse-doc .dw-pat-lines { display: block; margin-bottom: 6px; }
+.dw-nurse-doc .dw-pat-lines .dw-line-row { display: flex; flex-wrap: wrap; justify-content: space-between; }
+.dw-nurse-doc .dw-line-cell { display: flex; gap: 4px; line-height: 1.9; }
+.dw-nurse-doc .dw-line-cell .lbl { color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+.dw-nurse-doc .dw-line-cell .val { font-weight: 600; word-break: break-all; }
 .dw-report-item { padding: 14px 24px; border-top: 1px dashed var(--border); }
 .dw-report-item-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
 .dw-report-item-status { margin-left: 8px; font-size: 12px; font-weight: 400; }

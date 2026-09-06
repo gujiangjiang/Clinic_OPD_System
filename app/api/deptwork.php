@@ -110,7 +110,7 @@ function deptwork_queue($u) {
                 SUM(CASE WHEN oi.status='registered' THEN 1 ELSE 0 END) AS st_reg,
                 SUM(CASE WHEN oi.status='dispensing' THEN 1 ELSE 0 END) AS st_dispensing,
                 SUM(CASE WHEN oi.status='done' THEN 1 ELSE 0 END) AS st_done,
-                MIN(oi.created_at) AS min_created, MAX(oi.executed_at) AS max_executed
+                MAX(oi.created_at) AS last_order_at, MAX(oi.executed_at) AS max_executed
             FROM order_items oi
             LEFT JOIN users usr ON usr.id=oi.doctor_id
             JOIN registrations r ON r.id=oi.visit_id
@@ -119,11 +119,10 @@ function deptwork_queue($u) {
               AND date(oi.created_at) >= date('now','localtime','-' || (MAX(2, MIN(7, COALESCE(usr.queue_days,3))) - 1) || ' days')
               $deptWhere$statusWhere$todayWhere
             GROUP BY oi.visit_id";
-    // 排序：当日按挂号时间倒序；待处置/待发药按最早开单在前；完成按最近执行时间倒序
-    if ($today) {
-        $sql .= ' ORDER BY r.registered_at DESC';
-    } elseif ($status === 'doing') {
-        $sql .= ' ORDER BY min_created ASC';
+    // 排序：待处置按最后一次开具到本科室的时间正序（最新在下面）；
+    // 完成按最近完成时间倒序（最新完成在上面）
+    if ($status === 'doing') {
+        $sql .= ' ORDER BY last_order_at ASC';
     } else {
         $sql .= ' ORDER BY max_executed DESC';
     }
@@ -143,8 +142,9 @@ function deptwork_queue($u) {
             'dept_name' => $r['current_dept_name'] ? $r['current_dept_name'] : $r['first_dept_name'],
             'visit_seq' => (int)$r['visit_seq'],
             'flow_no' => $r['flow_no'],
-            'date' => substr($r['registered_at'], 0, 10),
-            'time' => substr($r['registered_at'], 11, 5),
+            // 时间 = 最后一次开具到本科室的处置/医嘱时间（非挂号时间）
+            'date' => substr($r['last_order_at'], 0, 10),
+            'time' => substr($r['last_order_at'], 11, 5),
             'visit_status' => $r['visit_status'],
             'registered_at' => $r['registered_at'],
             'item_cnt' => (int)$r['item_cnt'],

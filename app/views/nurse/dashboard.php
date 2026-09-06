@@ -115,56 +115,102 @@ function vitalsSection(data) {
         '<div style="max-height:180px;overflow-y:auto"><table class="table table-sm" style="font-size:12px"><thead><tr>' +
         '<th>时间</th><th>血压</th><th>心率</th><th>脉搏</th><th>血氧</th><th>呼吸</th><th>录入人</th></tr></thead><tbody>' +
         histRows + '</tbody></table></div>' +
-        '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" onclick="openVitalsModal()">🌡️ 录入生命体征</button></div>' +
+        '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" onclick="openVitalsPop(event)">🌡️ 录入生命体征</button></div>' +
         '</div>';
 }
 
-/* 生命体征录入悬浮窗（复用已有录入逻辑，弹窗内输入，保存后局部刷新） */
-function openVitalsModal() {
+/* 生命体征录入悬浮窗（与医生工作站一致，固定定位跟随点击处，保存后局部刷新） */
+var vitalsPopHandler = null;
+function closeVitalsPop() {
+    var pop = document.getElementById('vitalsPop');
+    if (pop) pop.remove();
+    if (vitalsPopHandler) {
+        document.removeEventListener('mousedown', vitalsPopHandler);
+        vitalsPopHandler = null;
+    }
+}
+function openVitalsPop(ev) {
+    if (document.getElementById('vitalsPop')) { closeVitalsPop(); return; }
+    var cx = ev && typeof ev.clientX === 'number' ? ev.clientX : window.innerWidth / 2 - 150;
+    var cy = ev && typeof ev.clientY === 'number' ? ev.clientY : 120;
     Clinic.get('/api/nurse?action=vitals&visit_id=' + CUR_VISIT, null, {
         onSuccess: function (json) {
             var v = json.data.vitals || {};
             var val = function (x) { return x || ''; };
-            Clinic.modal.open(
-                '<div class="form-row">' +
-                '<div class="form-group"><label class="form-label">收缩压（mmHg）</label><input class="input" id="vSys" type="number" min="0" value="' + val(v.vital_sbp) + '"></div>' +
-                '<div class="form-group"><label class="form-label">舒张压（mmHg）</label><input class="input" id="vDia" type="number" min="0" value="' + val(v.vital_dbp) + '"></div></div>' +
-                '<div class="form-row">' +
-                '<div class="form-group"><label class="form-label">心率（次/分）</label><input class="input" id="vHR" value="' + val(v.vital_heart_rate) + '"></div>' +
-                '<div class="form-group"><label class="form-label">脉搏（次/分）</label><input class="input" id="vPulse" value="' + val(v.vital_pulse) + '"></div></div>' +
-                '<div class="form-row">' +
-                '<div class="form-group"><label class="form-label">血氧饱和度（%）</label><input class="input" id="vSpO2" value="' + val(v.vital_spo2) + '"></div>' +
-                '<div class="form-group"><label class="form-label">呼吸（次/分）</label><input class="input" id="vRR" value="' + val(v.vital_respiration) + '"></div></div>' +
-                '<div class="fs-12 text-muted">每次保存将新增一条体征记录，医生工作站病历将自动同步显示。</div>',
-                {
-                    title: '🌡️ 录入生命体征',
-                    size: 'modal-md',
-                    buttons: [
-                        { text: '取消', cls: 'btn-outline' },
-                        {
-                            text: '💾 保存', cls: 'btn-primary', autoClose: false,
-                            onClick: function () {
-                                Clinic.ajax('/api/nurse', {
-                                    action: 'save_vitals',
-                                    visit_id: CUR_VISIT,
-                                    vital_sbp: parseInt(document.getElementById('vSys').value, 10) || 0,
-                                    vital_dbp: parseInt(document.getElementById('vDia').value, 10) || 0,
-                                    vital_heart_rate: (document.getElementById('vHR') || {}).value || '',
-                                    vital_pulse: (document.getElementById('vPulse') || {}).value || '',
-                                    vital_spo2: (document.getElementById('vSpO2') || {}).value || '',
-                                    vital_respiration: (document.getElementById('vRR') || {}).value || '',
-                                }, {
-                                    onSuccess: function (j) {
-                                        Clinic.toast.success(j.msg);
-                                        Clinic.modal.close();
-                                        refreshNurseSec('Vitals');
-                                    },
-                                });
-                            },
-                        },
-                    ],
+            var pop = document.createElement('div');
+            pop.id = 'vitalsPop';
+            pop.className = 'finish-pop vitals-pop';
+            pop.innerHTML =
+                '<div class="fs-13 fw-700 mb-8">生命体征编辑</div>' +
+                '<div class="vitals-grid">' +
+                '  <div><label class="form-label">收缩压 mmHg</label><input class="input" id="vSys" type="number" min="0" value="' + val(v.vital_sbp) + '"></div>' +
+                '  <div><label class="form-label">舒张压 mmHg</label><input class="input" id="vDia" type="number" min="0" value="' + val(v.vital_dbp) + '"></div>' +
+                '  <div><label class="form-label">心率 次/分</label><input class="input" id="vHR" value="' + val(v.vital_heart_rate) + '"></div>' +
+                '  <div><label class="form-label">脉搏 次/分</label><input class="input" id="vPulse" value="' + val(v.vital_pulse) + '"></div>' +
+                '  <div><label class="form-label">血氧饱和度 %</label><input class="input" id="vSpO2" value="' + val(v.vital_spo2) + '"></div>' +
+                '  <div><label class="form-label">呼吸 次/分</label><input class="input" id="vResp" value="' + val(v.vital_respiration) + '"></div>' +
+                '</div>' +
+                '<div class="fs-12 text-muted mt-4">保存后医生工作站病历将自动同步显示。</div>' +
+                '<div class="flex gap-8 mt-8">' +
+                '  <button type="button" class="btn btn-outline btn-sm" style="flex:1" id="vitalsCancel">取消</button>' +
+                '  <button type="button" class="btn btn-primary btn-sm" style="flex:1" id="vitalsSave">保存</button>' +
+                '</div>';
+            document.body.appendChild(pop);
+            pop.style.left = (cx + 12) + 'px';
+            pop.style.top = (cy + 12) + 'px';
+            if (window.Clinic && Clinic.emr && Clinic.emr._ctx && Clinic.emr._ctx.clampPop) {
+                Clinic.emr._ctx.clampPop(pop);
+            } else {
+                // 视口内夹紧兜底
+                var r = pop.getBoundingClientRect();
+                if (r.right > window.innerWidth - 8) pop.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
+                if (r.bottom > window.innerHeight - 8) pop.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+            }
+            pop.querySelector('#vitalsCancel').addEventListener('click', closeVitalsPop);
+            pop.querySelector('#vitalsSave').addEventListener('click', function () {
+                // 数值校验：整数、生理合理区间；留空视为未测（与医生工作站同规则）
+                var spec = [
+                    { id: 'vSys', label: '收缩压', min: 1, max: 300 },
+                    { id: 'vDia', label: '舒张压', min: 1, max: 250 },
+                    { id: 'vHR', label: '心率', min: 1, max: 300 },
+                    { id: 'vPulse', label: '脉搏', min: 1, max: 300 },
+                    { id: 'vSpO2', label: '血氧饱和度', min: 1, max: 100 },
+                    { id: 'vResp', label: '呼吸', min: 1, max: 100 },
+                ];
+                var vals = {};
+                for (var i = 0; i < spec.length; i++) {
+                    var s = spec[i];
+                    var raw = document.getElementById(s.id).value.trim();
+                    if (raw === '') { vals[s.id] = ''; continue; }
+                    if (!/^\d+$/.test(raw)) { Clinic.toast.warning(s.label + '须为非负整数（不留小数 / 负数 / 单位）'); return; }
+                    var n = parseInt(raw, 10);
+                    if (n !== 0 && (n < s.min || n > s.max)) {
+                        Clinic.toast.warning(s.label + '超出合理范围（' + s.min + '-' + s.max + '）');
+                        return;
+                    }
+                    vals[s.id] = raw;
                 }
-            );
+                Clinic.ajax('/api/nurse', {
+                    action: 'save_vitals',
+                    visit_id: CUR_VISIT,
+                    vital_sbp: vals.vSys === '' ? 0 : parseInt(vals.vSys, 10),
+                    vital_dbp: vals.vDia === '' ? 0 : parseInt(vals.vDia, 10),
+                    vital_heart_rate: vals.vHR,
+                    vital_pulse: vals.vPulse,
+                    vital_spo2: vals.vSpO2,
+                    vital_respiration: vals.vResp,
+                }, {
+                    onSuccess: function (j) {
+                        Clinic.toast.success(j.msg);
+                        closeVitalsPop();
+                        refreshNurseSec('Vitals');
+                    },
+                });
+            });
+            vitalsPopHandler = function (e) {
+                if (!pop.contains(e.target)) closeVitalsPop();
+            };
+            setTimeout(function () { document.addEventListener('mousedown', vitalsPopHandler); }, 0);
         },
     });
 }
@@ -358,23 +404,25 @@ function renderNurseWork(data) {
     var v = data.visit || {}, p = data.patient || {};
     renderNurseSide(data);
 
-    // 主区：护理记录单（抬头医院名称+第二名称，患者信息两行）
+    // 主区：护理记录单（抬头参照急诊电子病历布局：医院名称/第二名称两端对齐 + 标题 + 患者信息两行两端对齐）
     var hosp = document.body.getAttribute('data-hosp') || '';
     var hosp2 = document.body.getAttribute('data-hosp2') || '';
-    var head = '<div class="card dw-report-card"><div class="dw-report-head">' +
-        '<div class="dw-report-hosp">' + esc(hosp) + '</div>' +
-        (hosp2 ? '<div class="dw-report-sub">' + esc(hosp2) + '</div>' : '') +
-        '<div class="dw-report-title">护 理 记 录 单</div></div>' +
-        '<div class="dw-report-meta dw-report-meta-lines">' +
-        '<div class="dw-meta-line">' +
-        '<span>姓名：<b>' + esc(v.name) + '</b></span>' +
-        '<span>性别：' + esc(v.gender) + '</span>' +
-        '<span>年龄：' + esc(v.age_fmt || '') + '</span>' +
-        '<span>患者ID：' + esc(p.patient_id) + '</span></div>' +
-        '<div class="dw-meta-line">' +
-        '<span>流水号：' + esc(v.visit_no) + '</span>' +
-        '<span>就诊科室：' + esc(v.dept_name || v.first_dept_name) + '</span>' +
-        '<span>就诊时间：' + esc((v.created_at || '').substr(0, 16)) + '</span></div>' +
+    var cell = function (label, value) {
+        return '<div class="dw-line-cell"><span class="lbl">' + label + '：</span><span class="val">' + (value || '—') + '</span></div>';
+    };
+    var head = '<div class="card dw-nurse-doc">' +
+        '<div class="dw-hosp-block">' +
+        '  <div class="dw-hosp">' + esc(hosp) + '</div>' +
+        (hosp2 ? '  <div class="dw-sub">' + esc(hosp2) + '</div>' : '') +
+        '</div>' +
+        '<div class="dw-title-bar"><div class="dw-title">护 理 记 录 单</div></div>' +
+        '<div class="dw-pat-lines">' +
+        '  <div class="dw-line-row">' +
+        cell('姓名', esc(v.name)) + cell('性别', esc(v.gender)) + cell('年龄', esc(v.age_fmt || '')) + cell('患者ID', esc(p.patient_id)) +
+        '  </div>' +
+        '  <div class="dw-line-row">' +
+        cell('流水号', esc(v.visit_no)) + cell('就诊科室', esc(v.dept_name || v.first_dept_name)) + cell('就诊时间', esc((v.created_at || '').substr(0, 16))) +
+        '  </div>' +
         '</div></div>';
 
     var body =

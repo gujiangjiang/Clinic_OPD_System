@@ -129,8 +129,6 @@ Clinic.deptwork = (function () {
 
     function goHome() {
         var map = { nurse: '/nurse/home', lab: '/lab/home', imaging: '/imaging/home', pharmacy: '/pharmacy/home' };
-        // 清掉 visit_id，避免返回工作台时自动回到旧患者
-        try { history.replaceState({}, '', location.pathname); } catch (e) {}
         if (map[ROLE]) Clinic.nav.go(map[ROLE]);
     }
 
@@ -139,10 +137,8 @@ Clinic.deptwork = (function () {
         closePanel();
         if (!code) return;
         VISIT = code;
-        try {
-            var url = location.pathname + '?visit_id=' + encodeURIComponent(code);
-            history.replaceState({}, '', url);
-        } catch (e) {}
+        // 注意：SPA 局部刷新下地址栏保持不变（地址栏可能是进入工作台前的旧路径，
+        // 不可用 replaceState 写入 visit_id，否则刷新会回到错误地址）
         var main = document.getElementById('dwMain');
         var side = document.getElementById('dwSide');
         var head = document.getElementById('dwHeader');
@@ -277,23 +273,37 @@ Clinic.deptwork = (function () {
         return map[s] || s;
     }
 
-    function statusBadge(st) {
-        if (st === 'finished') return '<span class="badge badge-gray" style="font-size:11px">诊毕</span>';
-        if (st === 'visiting') return '<span class="badge badge-warning" style="font-size:11px">就诊中</span>';
-        return '<span class="badge badge-primary" style="font-size:11px">候诊</span>';
+    /** 状态列徽章：按角色语义展示项目状态（待处置 / 待发药 / 待登记… / 完成），
+       而非就诊状态（候诊/就诊中） */
+    function itemStatusBadge(r) {
+        var pending = '';
+        if (ROLE === 'pharmacy') {
+            if (r.st_paid) pending = '待发药';
+            else if (r.st_dispensing) pending = '执行中';
+        } else if (ROLE === 'nurse') {
+            if (r.st_paid) pending = '待处置';
+            else if (r.st_dispensing) pending = '待执行';
+        } else {
+            if (r.st_paid) pending = '待登记';
+            else if (r.st_reg) pending = '待报告';
+        }
+        if (pending) return '<span class="badge badge-warning" style="font-size:11px">' + pending + '</span>';
+        return '<span class="badge badge-success" style="font-size:11px">完成</span>';
     }
 
-    /* 行：时间(日期+时间) 号别 姓名 性别 年龄 状态 —— 状态列固定展示就诊状态
-       （候诊/就诊中/诊毕），不再展示明细摘要，避免与页签状态混淆 */
+    /* 行：日期 | 时间 | 号别 | 姓名 | 性别 | 年龄 | 明细 | 状态
+       时间 = 最后一次开具到本科室的处置/医嘱时间；状态 = 项目状态（待处置/完成…） */
     function rowHtml(r) {
         var sum = itemSummary(r);
         return '<div class="dw-qp-row" data-code="' + escHtml(r.code) + '" title="' + escHtml(sum.tip) + '">' +
-            '<span class="qp-cell qp-c-time fs-13">' + escHtml((r.date || '').substr(5)) + ' ' + escHtml(r.time || '') + '</span>' +
-            '<span class="qp-cell qp-c-seq fs-13 fw-600">' + pad3(r.visit_seq) + '</span>' +
+            '<span class="qp-cell qp-c-date fs-12">' + escHtml((r.date || '').substr(5)) + '</span>' +
+            '<span class="qp-cell qp-c-time fs-12">' + escHtml(r.time || '') + '</span>' +
+            '<span class="qp-cell qp-c-seq fs-12 fw-600">' + pad3(r.visit_seq) + '</span>' +
             '<span class="qp-cell qp-c-name fs-13">' + escHtml(r.name) + '</span>' +
             '<span class="qp-cell qp-c-gender fs-12 text-muted">' + escHtml(r.gender) + '</span>' +
             '<span class="qp-cell qp-c-age fs-12 text-muted">' + escHtml(r.age_fmt || '') + '</span>' +
-            '<span class="qp-cell qp-c-st">' + statusBadge(r.visit_status) + '</span>' +
+            '<span class="qp-cell qp-c-sum fs-12">' + escHtml(sum.html) + '</span>' +
+            '<span class="qp-cell qp-c-st">' + itemStatusBadge(r) + '</span>' +
             '</div>';
     }
 
@@ -302,11 +312,13 @@ Clinic.deptwork = (function () {
             return '<div class="qp-empty">' + (KEYWORD ? '未找到匹配的患者' : '当前筛选条件下暂无患者') + '</div>';
         }
         var head = '<div class="dw-qp-row dw-qp-head">' +
+            '<span class="qp-cell qp-c-date">日期</span>' +
             '<span class="qp-cell qp-c-time">时间</span>' +
             '<span class="qp-cell qp-c-seq">号别</span>' +
             '<span class="qp-cell qp-c-name">姓名</span>' +
             '<span class="qp-cell qp-c-gender">性别</span>' +
             '<span class="qp-cell qp-c-age">年龄</span>' +
+            '<span class="qp-cell qp-c-sum">明细</span>' +
             '<span class="qp-cell qp-c-st">状态</span>' +
             '</div>';
         return head + list.map(rowHtml).join('');
