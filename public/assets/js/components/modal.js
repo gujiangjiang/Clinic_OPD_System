@@ -6,7 +6,8 @@
  * 1. open(html, opts)      打开一个静态内容模态框
  * 2. load(url, opts)       通过 AJAX 加载内容到模态框
  * 3. confirm(msg, onOk)    确认对话框
- * 4. close()               关闭当前模态框
+ * 4. prompt(opts)          输入对话框（替代原生 prompt()，含必填校验）
+ * 5. close()               关闭当前模态框
  * ============================================================ */
 
 window.Clinic = window.Clinic || {};
@@ -160,5 +161,61 @@ Clinic.modal = (function () {
         });
     }
 
-    return { open: open, load: load, close: close, confirm: confirm };
+    /**
+     * 输入对话框（替代原生 prompt()）
+     * @param {object} opts 配置项：
+     *   title        标题
+     *   label        输入框标签（必填项自动追加红色 *）
+     *   placeholder  占位提示
+     *   value        初始值
+     *   required     是否必填（空值点击确定时 toast 拦截）
+     *   multiline    是否多行文本域（缺省单行输入框）
+     *   rows         多行文本域行数
+     *   hint         标签下方辅助说明
+     *   okText       确定按钮文案
+     *   cancelText   取消按钮文案
+     *   onOk(value)  确定回调（已 trim）
+     */
+    function prompt(opts) {
+        opts = opts || {};
+        const required = !!opts.required;
+        const reqMark = required ? ' <span class="req">*</span>' : '';
+        const field = opts.multiline
+            ? '<textarea class="textarea" id="modalPromptInput" rows="' + (opts.rows || 3) + '" placeholder="' + (opts.placeholder || '') + '">' + (opts.value || '') + '</textarea>'
+            : '<input class="input" id="modalPromptInput" type="text" placeholder="' + (opts.placeholder || '') + '" value="' + (opts.value || '') + '">';
+        const html =
+            '<div class="form-group">' +
+            '  <label class="form-label">' + (opts.label || '请输入') + reqMark + '</label>' +
+            field +
+            (opts.hint ? '<div class="fs-12 text-muted mt-4">' + opts.hint + '</div>' : '') +
+            '</div>';
+        open(html, {
+            title: opts.title || '请输入',
+            size: opts.size || 'modal-sm',
+            buttons: [
+                { text: opts.cancelText || '取消', cls: 'btn-outline', onClick: close },
+                {
+                    text: opts.okText || '确定',
+                    cls: 'btn-primary',
+                    autoClose: false,
+                    onClick: function () {
+                        const el = document.getElementById('modalPromptInput');
+                        const val = el ? el.value : '';
+                        if (required && val.trim() === '') {
+                            Clinic.toast.warning('请填写' + (opts.label || '内容'));
+                            return;
+                        }
+                        close();
+                        if (opts.onOk) opts.onOk(val.trim());
+                    },
+                },
+            ],
+        });
+        setTimeout(function () {
+            const el = document.getElementById('modalPromptInput');
+            if (el) el.focus();
+        }, 80);
+    }
+
+    return { open: open, load: load, close: close, confirm: confirm, prompt: prompt };
 })();
