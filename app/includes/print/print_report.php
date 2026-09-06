@@ -113,19 +113,9 @@ function pt_lab_report($report, $result, $item) {
 
 /** 检查报告单：A4 纵向固定画布（页眉 4×3 患者信息 / 正文所见 2/3 + 诊断 1/3 / 页脚 3×3） */
 function pt_imaging_report($report, $result, $item) {
-    $hosp = setting('hospital_name', '');
-    $hosp2 = setting('hospital_name2', '');
     $html = '<div class="print-record-doc imr-doc">';
 
-    // ===== 抬头：医院名称 + 第二名称两端对齐 + 检查报告单 =====
-    $html .= '<div class="lr-titleline">' .
-        '<div class="lr-hospwrap">' .
-        '<span class="lr-hosp">' . e($hosp) . '</span>' .
-        ($hosp2 !== '' ? '<div class="lr-sub">' . e($hosp2) . '</div>' : '') .
-        '</div>' .
-        '<span class="lr-name">检查报告单</span>' .
-        '</div>';
-
+    // ===== 抬头（急诊病历版式：医院名称/第二名称两端对齐，标题在其下方） =====
     // ===== 患者信息（4×3 隐形表格） =====
     $row = get_visit_row((int)$report['visit_id']);
     $pname = $row ? $row['patient']['name'] : '';
@@ -140,6 +130,10 @@ function pt_imaging_report($report, $result, $item) {
     $regTime = trim((string)(isset($report['reg_time']) ? $report['reg_time'] : ''));
     $orderItem = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array((int)$result['order_item_id']));
     $order = $orderItem ? OrderRepository::one('SELECT * FROM orders WHERE id=?', array((int)$orderItem['order_id'])) : null;
+    // 报告单名称动态化：按检查分类（CT/DR/超声…）显示「XX检查报告单」
+    $catName = $order && !empty($order['category_name']) ? trim((string)$order['category_name']) : '';
+    $title = $catName !== '' ? $catName . '检查报告单' : '检查报告单';
+    $html .= pt_header($title);
     if (($applyDept === '' || $applyDoctor === '' || $applyTime === '') && $order) {
         if ($applyDept === '') $applyDept = (string)$order['dept_name'];
         if ($applyDoctor === '') $applyDoctor = (string)$order['doctor_name'];

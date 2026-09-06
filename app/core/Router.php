@@ -74,6 +74,7 @@ class Router {
         // ===== 影像科 =====
         '/imaging/dashboard' => array('imaging/dashboard.php',  array('imaging')),
         '/imaging/home'      => array('imaging/home.php',       array('imaging')),
+        '/imaging/templates' => array('imaging/templates.php',  array('imaging')),
         // ===== 药房 =====
         '/pharmacy/dashboard'=> array('pharmacy/dashboard.php', array('pharmacy')),
         '/pharmacy/home'     => array('pharmacy/home.php',      array('pharmacy')),

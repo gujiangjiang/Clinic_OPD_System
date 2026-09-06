@@ -116,13 +116,13 @@ function previewAudit(btn) {
     var refId = parseInt(btn.getAttribute('data-ref'), 10) || 0;
     var auditId = parseInt(btn.getAttribute('data-id'), 10) || 0;
     var titleMap = {
-        template: '预览 · 病历模板', nursing_template: '预览 · 护理记录模板',
+        template: '预览 · 病历模板', nursing_template: '预览 · 护理记录模板', imaging_template: '预览 · 影像报告模板',
         item_lab: '预览 · 检验项目', item_exam: '预览 · 检查项目',
         item_drug: '预览 · 药品', item_disp: '预览 · 处置项目', drugsetting: '预览 · 药品设置',
     };
     var modalTitle = titleMap[type] || '预览';
-    if (type === 'template' || type === 'nursing_template') {
-        // 模板预览：病历模板 → emrEditor 只读；知情同意书模板 → 名称+正文文本；护理记录模板 → 正文文本
+    if (type === 'template' || type === 'nursing_template' || type === 'imaging_template') {
+        // 模板预览：病历模板 → emrEditor 只读；知情同意书/护理记录/影像报告 → 文本预览
         Clinic.get('/api/template?action=get&id=' + refId, null, {
             onSuccess: function (j) {
                 var t = j.data && j.data.template;
@@ -130,14 +130,21 @@ function previewAudit(btn) {
                 var scopeNames = { personal: '个人', dept: '科室', hospital: '全院' };
                 var isConsent = t.type === 'consent';
                 var isNurse = t.type === 'nursing_record';
-                var rightHtml = (isConsent || isNurse)
-                    ? '<div class="card-title"><span>📝 ' + (isNurse ? '护理记录模板' : '知情同意书模板') + '（只读）</span></div>' +
+                var isImg = t.type === 'imaging_report';
+                var rightHtml = (isConsent || isNurse || isImg)
+                    ? '<div class="card-title"><span>📝 ' +
+                      (isConsent ? '知情同意书模板' : (isNurse ? '护理记录模板' : '影像报告模板')) + '（只读）</span></div>' +
                       (isConsent
                           ? '<div class="form-group"><label class="form-label">知情同意书名称（XX）</label>' +
                             '<input class="input" value="' + escHtml((t.content && t.content.name) || '') + '" readonly></div>'
                           : '') +
-                      '<div class="form-group"><label class="form-label">' + (isNurse ? '护理记录内容' : '知情同意内容') + '</label>' +
-                      '<textarea class="textarea" rows="14" readonly style="min-height:380px">' + escHtml((t.content && t.content.content) || '') + '</textarea></div>'
+                      (isImg
+                          ? '<div class="form-group"><label class="form-label">影像所见</label>' +
+                            '<textarea class="textarea" rows="8" readonly>' + escHtml((t.content && t.content.findings) || '') + '</textarea></div>' +
+                            '<div class="form-group"><label class="form-label">影像诊断</label>' +
+                            '<textarea class="textarea" rows="5" readonly>' + escHtml((t.content && t.content.conclusion) || '') + '</textarea></div>'
+                          : '<div class="form-group"><label class="form-label">' + (isNurse ? '护理记录内容' : '知情同意内容') + '</label>' +
+                            '<textarea class="textarea" rows="14" readonly style="min-height:380px">' + escHtml((t.content && t.content.content) || '') + '</textarea></div>')
                     : '<div class="card-title"><span>📝 模板正文（只读）</span></div>' +
                       '<div class="emr-doc"><div class="doc-body" id="previewTemplateEditor" style="border:1px solid var(--border);border-radius:8px;padding:14px;min-height:380px"></div></div>';
                 var html = '<div class="tpl-form">' +

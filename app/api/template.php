@@ -55,7 +55,7 @@ switch ($action) {
     case 'list':
         $kw = trim((string)get('kw', ''));
         $type = get('type', 'medical_record');
-        if (!in_array($type, array('medical_record', 'consent', 'order_note', 'nursing_record'), true)) $type = 'medical_record';
+        if (!in_array($type, array('medical_record', 'consent', 'order_note', 'nursing_record', 'imaging_report'), true)) $type = 'medical_record';
         $isAdmin = ($u['role'] === 'admin');
         $sql = "SELECT * FROM emr_templates WHERE type=?";
         $params = array($type);
@@ -169,7 +169,7 @@ switch ($action) {
         $type = post('type', 'medical_record');
         $scope = post('scope', 'personal');
         $content = post('content', '{}');
-        if (!in_array($type, array('medical_record', 'consent', 'order_note', 'nursing_record'), true)) $type = 'medical_record';
+        if (!in_array($type, array('medical_record', 'consent', 'order_note', 'nursing_record', 'imaging_report'), true)) $type = 'medical_record';
         if (!in_array($scope, array('personal', 'dept', 'hospital'), true)) $scope = 'personal';
         if ($title === '') json_fail('请填写模板名称');
         $contentArr = json_decode((string)$content, true);
@@ -178,7 +178,7 @@ switch ($action) {
         // · consent 知情同意书模板：{ name: XX（标题中的 XX）, content: 正文 }
         // · nursing_record 护理记录模板：{ content: 正文 }
         // · medical_record 病历模板：结构化 EMR（后端剥离禁止字段）
-        $typeLabel = $type === 'consent' ? '知情同意书模板' : ($type === 'nursing_record' ? '护理记录模板' : '病历模板');
+        $typeLabel = $type === 'consent' ? '知情同意书模板' : ($type === 'nursing_record' ? '护理记录模板' : ($type === 'imaging_report' ? '影像报告模板' : '病历模板'));
         if ($type === 'consent') {
             if (empty($contentArr['name'])) $contentArr['name'] = '通用';
             if (!isset($contentArr['content'])) $contentArr['content'] = '';
@@ -186,6 +186,14 @@ switch ($action) {
         } elseif ($type === 'nursing_record') {
             if (!isset($contentArr['content'])) $contentArr['content'] = '';
             $contentArr = array('content' => trim((string)$contentArr['content']));
+        } elseif ($type === 'imaging_report') {
+            // 影像报告模板：影像所见 + 影像诊断
+            if (!isset($contentArr['findings'])) $contentArr['findings'] = '';
+            if (!isset($contentArr['conclusion'])) $contentArr['conclusion'] = '';
+            $contentArr = array(
+                'findings' => trim((string)$contentArr['findings']),
+                'conclusion' => trim((string)$contentArr['conclusion']),
+            );
         } else {
             $contentArr = tpl_filter_content($contentArr);
         }
@@ -239,7 +247,7 @@ switch ($action) {
         // 非管理员提交的 dept/hospital 模板进入审核中心（audits 表）：
         // 创建/更新一条待审核记录，管理员在【审核中心】统一处理
         // 护理记录模板用独立审核类型（nursing_template），便于审核中心识别与跳转护士站
-        $auditType = ($type === 'nursing_record') ? 'nursing_template' : 'template';
+        $auditType = ($type === 'nursing_record') ? 'nursing_template' : (($type === 'imaging_report') ? 'imaging_template' : 'template');
         if ($status === 'pending_review') {
             $scopeName = $scope === 'hospital' ? '全院' : '科室';
             $existing = EmrRepository::one("SELECT id FROM audits WHERE type=? AND ref_id=? AND status='pending'", array($auditType, $tplId));

@@ -72,6 +72,7 @@ class Layout {
             $items['影像科'] = array(
                 array('首页', '🏠', '/imaging/home'),
                 array('影像科工作台', '🩻', '/imaging/dashboard'),
+                array('影像模板', '📋', '/imaging/templates'),
             );
             $items['管理'] = array(
                 array('检查管理', '🩻', '/admin/examitems'),

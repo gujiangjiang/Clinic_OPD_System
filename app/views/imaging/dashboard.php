@@ -48,6 +48,9 @@ function imgStatusBadge(s) {
 function renderImgWork(data) {
     var v = data.visit || {}, p = data.patient || {};
     var orders = (data.orders || []).filter(function (o) { return o.order_type === 'imaging'; });
+    var imgItems = [];
+    orders.forEach(function (o) { imgItems = imgItems.concat(o.items); });
+    window.__imgItems = imgItems;
     // 右栏大纲：按申请单分组（申请单号可点「+」展开该单全部检查项目）
     var sideItems = orders.map(function (o) {
         var pending = o.items.some(function (it) { return it.status === 'paid' || it.status === 'registered'; });
@@ -78,15 +81,6 @@ function renderImgWork(data) {
         orders.forEach(function (o) { body += imgOrderHtml(o); });
     }
     document.getElementById('dwMain').innerHTML = head + body;
-    // 绑定「提交并打印报告」操作
-    orders.forEach(function (o) {
-        o.items.forEach(function (it) {
-            if (it.status === 'registered') {
-                var s = document.getElementById('imgSave_' + it.id);
-                if (s) s.onclick = function () { doImgSave(it); };
-            }
-        });
-    });
 }
 
 /* 抬头：医院名称 + 第二名称 + 影像诊断报告单 + 患者信息两行（急诊病历版式） */
@@ -163,12 +157,8 @@ function imgItemHtml(it) {
         inner = '<div class="fs-13 text-muted">该项目已缴费，尚未登记检查（整张申请单统一登记）。</div>';
     } else if (it.status === 'registered') {
         inner =
-            '<div class="dw-report-sec-label">影像所见</div>' +
-            '<textarea class="textarea" id="imgFindings_' + id + '" rows="4" placeholder="请填写影像所见描述">' + esc(it.findings) + '</textarea>' +
-            '<div class="dw-report-sec-label">影像诊断</div>' +
-            '<textarea class="textarea" id="imgConclusion_' + id + '" rows="3" placeholder="请填写影像诊断（检查结论）">' + esc(it.conclusion) + '</textarea>' +
-            '<div class="fs-12 text-muted mt-4">提交后自动生成报告并打印，需完善影像所见与影像诊断。</div>' +
-            '<div class="dw-report-actions"><button class="btn btn-success btn-sm" id="imgSave_' + id + '">💾 提交并打印报告</button></div>';
+            '<div class="fs-13 text-muted">该项目已登记，请点击「去写报告」书写影像所见与影像诊断。</div>' +
+            '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" onclick="openImgReportModal(\'' + id + '\')">✍️ 去写报告</button></div>';
     } else {
         inner =
             '<div class="dw-report-sec-label">影像所见</div>' +
@@ -195,6 +185,114 @@ function doImgSave(it) {
         loading: true,
         onSuccess: function (json) {
             Clinic.toast.success(json.msg);
+            Clinic.print.load('/api/print?action=report&report_id=' + json.data.report_id, null);
+            afterImgAction();
+        },
+    });
+}
+
+/* ==================== 去写报告：模板 + 影像所见/影像诊断 模态框 ==================== */
+var CUR_IMG_ITEM = null;
+var IMG_TPLS = [];
+
+function openImgReportModal(id) {
+    var it = null;
+    (window.__imgItems || []).forEach(function (x) { if (x.id === id) it = x; });
+    if (!it) return;
+    CUR_IMG_ITEM = it;
+    var mask = Clinic.modal.open(
+        '<div class="flex" style="gap:14px;height:500px">' +
+        '  <div style="width:300px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--border);padding-right:14px;min-height:0">' +
+        '    <div class="form-group"><label class="form-label">报告模板</label>' +
+        '    <input class="input" id="imgTplSearch" placeholder="🔍 搜索模板" oninput="imgRenderTpls()"></div>' +
+        '    <div id="imgTplList" style="flex:1;overflow-y:auto;min-height:0"></div>' +
+        '  </div>' +
+        '  <div style="flex:1;min-width:0;display:flex;flex-direction:column">' +
+        '    <div class="form-group" style="flex:1;display:flex;flex-direction:column;min-height:0">' +
+        '      <label class="form-label">影像所见 <span class="req">*</span></label>' +
+        '      <textarea class="textarea" id="imgModalFindings" style="flex:2;min-height:0" placeholder="请填写影像所见描述">' + esc(it.findings) + '</textarea></div>' +
+        '    <div class="form-group" style="flex:1;display:flex;flex-direction:column;min-height:0">' +
+        '      <label class="form-label">影像诊断 <span class="req">*</span></label>' +
+        '      <textarea class="textarea" id="imgModalConclusion" style="flex:1;min-height:0" placeholder="请填写影像诊断（检查结论）">' + esc(it.conclusion) + '</textarea></div>' +
+        '  </div>' +
+        '</div>',
+        { title: '✍️ 书写检查报告：' + it.item_name, size: 'modal-lg', buttons: [] }
+    );
+    IMG_TPLS = [];
+    loadImgTpls();
+    mask.querySelector('.modal-foot').innerHTML =
+        '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+        '<button type="button" class="btn btn-primary" onclick="imgModalSave()">💾 提交并打印报告</button>';
+}
+
+function loadImgTpls() {
+    Clinic.get('/api/template?action=list&type=imaging_report', null, {
+        loading: false,
+        onSuccess: function (j) { IMG_TPLS = j.data.list || []; imgRenderTpls(); },
+    });
+}
+
+function imgRenderTpls() {
+    var box = document.getElementById('imgTplList');
+    if (!box) return;
+    var kw = ((document.getElementById('imgTplSearch') || {}).value || '').trim().toLowerCase();
+    var list = IMG_TPLS.filter(function (t) { return !kw || (t.title || '').toLowerCase().indexOf(kw) !== -1; });
+    box.innerHTML = list.length ? list.map(function (t) {
+        return '<div class="dd-item" style="cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px" onclick="imgApplyTpl(' + t.id + ')">' +
+            '<div class="fw-600 fs-13">' + esc(t.title) + '</div>' +
+            '<div class="fs-12 text-muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc((t.content && t.content.findings) || '') + '</div></div>';
+    }).join('') : '<div class="fs-12 text-muted">暂无影像报告模板（可自由书写）</div>';
+}
+
+/* 点击模板：弹出小悬浮窗询问「替换 / 追加」 */
+function imgApplyTpl(tplId) {
+    Clinic.get('/api/template?action=get&id=' + tplId + '&for_apply=1', null, {
+        loading: false,
+        onSuccess: function (j) {
+            var t = j.data && j.data.template;
+            if (!t) return;
+            Clinic.modal.open(
+                '<div class="fs-13 fw-700 mb-8">模板「' + esc(t.title) + '」应用方式：</div>' +
+                '<div class="flex gap-8">' +
+                '  <button class="btn btn-primary btn-sm" style="flex:1" onclick="imgDoApplyTpl(' + t.id + ',1)">替换</button>' +
+                '  <button class="btn btn-outline btn-sm" style="flex:1" onclick="imgDoApplyTpl(' + t.id + ',0)">追加</button>' +
+                '</div>' +
+                '<div class="fs-12 text-muted mt-4">替换：直接替换影像所见全部内容；追加：另起一行将内容顺延下去，保留当前影像所见内容。</div>',
+                { title: '应用报告模板', size: 'modal-sm', buttons: [{ text: '关闭', cls: 'btn-outline' }] }
+            );
+        },
+    });
+}
+
+function imgDoApplyTpl(tplId, replace) {
+    Clinic.get('/api/template?action=get&id=' + tplId + '&for_apply=1', null, {
+        loading: false,
+        onSuccess: function (j) {
+            var t = j.data && j.data.template;
+            if (!t) return;
+            var f = (t.content && t.content.findings) || '';
+            var c = (t.content && t.content.conclusion) || '';
+            var fEl = document.getElementById('imgModalFindings');
+            var cEl = document.getElementById('imgModalConclusion');
+            if (fEl) fEl.value = replace ? f : (fEl.value.trim() ? fEl.value.replace(/\s*$/, '') + '\n' : '') + f;
+            if (cEl) cEl.value = replace ? c : (cEl.value.trim() ? cEl.value.replace(/\s*$/, '') + '\n' : '') + c;
+            Clinic.modal.close();
+        },
+    });
+}
+
+function imgModalSave() {
+    if (!CUR_IMG_ITEM) return;
+    var findings = ((document.getElementById('imgModalFindings') || {}).value || '').trim();
+    var conclusion = ((document.getElementById('imgModalConclusion') || {}).value || '').trim();
+    if (!findings) { Clinic.toast.warning('请填写影像所见'); return; }
+    if (!conclusion) { Clinic.toast.warning('请填写影像诊断'); return; }
+    var it = CUR_IMG_ITEM;
+    Clinic.ajax('/api/imaging', { action: 'save_result', item_id: it.id, findings: findings, conclusion: conclusion }, {
+        loading: true,
+        onSuccess: function (json) {
+            Clinic.toast.success(json.msg);
+            Clinic.modal.close();
             Clinic.print.load('/api/print?action=report&report_id=' + json.data.report_id, null);
             afterImgAction();
         },
