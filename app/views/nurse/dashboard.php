@@ -418,10 +418,10 @@ function renderNurseWork(data) {
         '<div class="dw-title-bar"><div class="dw-title">护 理 记 录 单</div></div>' +
         '<div class="dw-pat-lines">' +
         '  <div class="dw-line-row">' +
-        cell('姓名', esc(v.name)) + cell('性别', esc(v.gender)) + cell('年龄', esc(v.age_fmt || '')) + cell('患者ID', esc(p.patient_id)) +
+        cell('姓名', esc(v.name)) + cell('性别', esc(v.gender)) + cell('年龄', esc(v.age_fmt || '')) + cell('出生日期', esc(p.birth_date || '')) +
         '  </div>' +
         '  <div class="dw-line-row">' +
-        cell('流水号', esc(v.visit_no)) + cell('就诊科室', esc(v.dept_name || v.first_dept_name)) + cell('就诊时间', esc((v.created_at || '').substr(0, 16))) +
+        cell('患者ID', esc(p.patient_id)) + cell('流水号', esc(v.visit_no)) + cell('首诊科室', esc(v.first_dept_name || '')) + cell('首诊时间', esc((v.created_at || '').substr(0, 16))) +
         '  </div>' +
         '</div></div>';
 

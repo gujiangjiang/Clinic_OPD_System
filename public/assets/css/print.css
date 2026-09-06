@@ -74,7 +74,8 @@
 }
 
 /* 模态框只读预览：复用 A5 排版作用域（print-preview sheet-a5），
-   但去除全屏 fixed 定位，改由模态框 body 内滚动展示 */
+   但去除全屏 fixed 定位，改由模态框 body 内滚动展示；
+   纸张周围仅留 1-2mm 间距，宽度跟随纸张（fit-content） */
 .print-preview.print-preview-in-modal {
     position: static;
     inset: auto;
@@ -85,8 +86,8 @@
     max-height: none;
 }
 .print-preview.print-preview-in-modal .print-area {
-    margin: 12px auto;
-    padding: 24px;
+    margin: 4px;
+    padding: 0;
 }
 /* ---------- 单据通用排版 ---------- */
 .print-area h1 {

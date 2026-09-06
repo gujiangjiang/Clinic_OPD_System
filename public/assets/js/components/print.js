@@ -136,7 +136,7 @@ Clinic.print = (function () {
     function preview(url, data, title) {
         var mask = Clinic.modal.open(
             '<div class="text-center" style="padding:30px"><div class="spinner" style="border-top-color:var(--primary)"></div></div>',
-            { title: title || '预览', size: 'modal-xl', buttons: [{ text: '关闭', cls: 'btn-primary' }] }
+            { title: title || '预览', size: 'modal-preview', buttons: [{ text: '关闭', cls: 'btn-primary' }] }
         );
         var body = mask.querySelector('.modal-body');
         body.style.overflow = 'auto';

@@ -693,13 +693,13 @@
 /* ============================================================
    科室工作台候诊列表行（护士站/检验/影像/药房，患者级队列）
    八列：日期/时间/号别/姓名/性别/年龄/明细摘要/状态
-   日期与时间分列紧凑显示；姓名列适度；状态列展示项目状态（待处置/完成…）
+   姓名列固定宽度（不再占满弹性空间），剩余空间给明细列
    ============================================================ */
 .dw-qp-row {
     display: grid;
-    grid-template-columns: 36px 34px 32px minmax(42px, 1fr) 24px 36px minmax(70px, 1fr) 48px;
+    grid-template-columns: 30px 32px 28px 72px 22px 32px minmax(90px, 1fr) 46px;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     white-space: nowrap;
     overflow: hidden;
     padding: 7px 8px;
@@ -742,8 +742,8 @@
 .dw-report-meta-lines .dw-meta-line b { font-weight: 600; }
 /* 护理记录单头部（参照急诊电子病历版式：医院名称/第二名称两端对齐 + 标题 + 患者信息两行两端对齐） */
 .dw-nurse-doc {
-    max-width: 860px;
-    margin: 0 auto;
+    width: 100%;            /* 与下方记录区块等宽（不设 max-width 收缩） */
+    margin: 0 0 12px;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 12px;

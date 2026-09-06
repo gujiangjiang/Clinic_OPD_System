@@ -110,6 +110,10 @@ function deptwork_queue($u) {
                 SUM(CASE WHEN oi.status='registered' THEN 1 ELSE 0 END) AS st_reg,
                 SUM(CASE WHEN oi.status='dispensing' THEN 1 ELSE 0 END) AS st_dispensing,
                 SUM(CASE WHEN oi.status='done' THEN 1 ELSE 0 END) AS st_done,
+                SUM(CASE WHEN oi.item_type='procedure' THEN 1 ELSE 0 END) AS proc_total,
+                SUM(CASE WHEN oi.item_type='procedure' AND oi.status='done' THEN 1 ELSE 0 END) AS proc_done,
+                SUM(CASE WHEN oi.item_type='prescription' THEN 1 ELSE 0 END) AS med_total,
+                SUM(CASE WHEN oi.item_type='prescription' AND oi.status='dispensed' THEN 1 ELSE 0 END) AS med_done,
                 MAX(oi.created_at) AS last_order_at, MAX(oi.executed_at) AS max_executed
             FROM order_items oi
             LEFT JOIN users usr ON usr.id=oi.doctor_id
@@ -152,6 +156,10 @@ function deptwork_queue($u) {
             'st_reg' => (int)$r['st_reg'],
             'st_dispensing' => (int)$r['st_dispensing'],
             'st_done' => (int)$r['st_done'],
+            'proc_total' => (int)$r['proc_total'],
+            'proc_done' => (int)$r['proc_done'],
+            'med_total' => (int)$r['med_total'],
+            'med_done' => (int)$r['med_done'],
         );
     }
     $pref = isset($_SESSION['deptwork_tab'][$role]) ? $_SESSION['deptwork_tab'][$role] : array();

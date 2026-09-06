@@ -250,15 +250,22 @@ Clinic.deptwork = (function () {
         });
     }
 
-    /** 行内明细摘要（按角色语义展示待办/完成数量） */
+    /** 行内明细摘要（按角色语义精准展示执行进度）
+        · 护士站：处置1/2（2 个处置执行了 1 个）、医嘱2/3（3 条医嘱执行了 2 条），
+          某类全部完成显示「处置执行完成 / 医嘱执行完成」
+        · 药房/检验/影像：待发药/待登记/待报告/完成数量 */
     function itemSummary(r) {
+        if (ROLE === 'nurse') {
+            var parts = [];
+            if (r.proc_total > 0) parts.push(r.proc_done >= r.proc_total ? '处置执行完成' : '处置' + r.proc_done + '/' + r.proc_total);
+            if (r.med_total > 0) parts.push(r.med_done >= r.med_total ? '医嘱执行完成' : '医嘱' + r.med_done + '/' + r.med_total);
+            var txt = parts.join('，') || ('共 ' + r.item_cnt + ' 项');
+            return { html: txt, tip: txt };
+        }
         var parts = [];
         if (ROLE === 'pharmacy') {
             if (r.st_paid) parts.push('待发药 ' + r.st_paid);
             if (r.st_dispensing) parts.push('执行中 ' + r.st_dispensing);
-        } else if (ROLE === 'nurse') {
-            if (r.st_paid) parts.push('待处置 ' + r.st_paid);
-            if (r.st_dispensing) parts.push('待执行 ' + r.st_dispensing);
         } else {
             if (r.st_paid) parts.push('待登记 ' + r.st_paid);
             if (r.st_reg) parts.push('待报告 ' + r.st_reg);

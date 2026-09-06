@@ -37,6 +37,8 @@
 .modal-lg { width: 860px; }
 .modal-sm { width: 400px; }
 .modal-xl { width: 1080px; }
+/* 打印预览模态框：宽度跟随纸张内容（A5 ≈ 148mm），最小宽度兜底 */
+.modal-preview { width: fit-content; min-width: 380px; max-width: 94vw; }
 .modal-head {
     display: flex;
     align-items: center;
