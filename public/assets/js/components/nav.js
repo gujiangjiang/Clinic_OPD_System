@@ -25,6 +25,30 @@ Clinic.nav = {
     /** 防重复加载锁 */
     _busy: false,
 
+    /** 局部导航加载遮罩：延迟显示，避免快速切换页面时一闪而过 */
+    _navLoadingTimer: null,
+    _navLoadingShown: false,
+
+    /** 延迟显示加载遮罩（180ms 内完成则不显示，消除快速切换的闪烁） */
+    _showNavLoading: function () {
+        var that = this;
+        this._navLoadingShown = false;
+        clearTimeout(this._navLoadingTimer);
+        this._navLoadingTimer = setTimeout(function () {
+            that._navLoadingShown = true;
+            Clinic.loading.show();
+        }, 180);
+    },
+    /** 关闭加载遮罩（取消未到期的延迟显示，并撤销已显示的遮罩） */
+    _hideNavLoading: function () {
+        clearTimeout(this._navLoadingTimer);
+        this._navLoadingTimer = null;
+        if (this._navLoadingShown) {
+            this._navLoadingShown = false;
+            Clinic.loading.hide();
+        }
+    },
+
     /** 页面按需组件栈：partial 响应 data-needs 声明所需栈，
         layout 未全局加载的脚本由 nav.js 动态注入（保持「按页裁剪」的体积设计）
         emr 栈：病历/模板/审核预览共用；docTools 栈：仅医生工作站
@@ -126,7 +150,7 @@ Clinic.nav = {
         this._busy = true;
         // 导航离开前关闭可能打开的模态窗（如会诊详情内「查看完整病历」入口）
         if (window.Clinic && Clinic.modal && Clinic.modal.close) Clinic.modal.close();
-        Clinic.loading.show();
+        this._showNavLoading();
         var sep = href.indexOf('?') === -1 ? '?' : '&';
         var that = this;
         fetch(href + sep + '_partial=1', {
@@ -140,28 +164,29 @@ Clinic.nav = {
                 var root = tmp.querySelector('.view-root');
                 // 未登录 / 会话失效 / 独立页回退整页加载
                 if (!root) {
-                    Clinic.loading.hide();
+                    that._hideNavLoading();
                     that._busy = false;
                     window.location.reload();
                     return;
                 }
-                // 先按需注入页面组件脚本（依赖就绪后）再安装内容与执行内联脚本
+                // 先按需注入页面组件脚本（依赖就绪后）再安装内容与执行内联脚本；
+                // 遮罩在内容安装完成后再关闭，避免露出旧内容造成闪烁
                 that.loadNeeds(root).then(function () {
-                    Clinic.loading.hide();
                     that._busy = false;
                     that.install(root);
+                    that._hideNavLoading();
                     that.current = href.split('?')[0];
                     that.lastUrl = href;
                     that.markActive();
                     if (window.Clinic && Clinic.refresh) Clinic.refresh(document.querySelector('.content'));
                 }).catch(function () {
-                    Clinic.loading.hide();
+                    that._hideNavLoading();
                     that._busy = false;
                     Clinic.toast.error('页面组件加载失败，请刷新重试');
                 });
             })
             .catch(function () {
-                Clinic.loading.hide();
+                that._hideNavLoading();
                 that._busy = false;
                 Clinic.toast.error('页面加载失败，请重试');
             });
