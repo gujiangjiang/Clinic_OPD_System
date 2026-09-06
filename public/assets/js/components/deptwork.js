@@ -134,7 +134,6 @@ Clinic.deptwork = (function () {
         renderSidePlaceholder();
         setTimeout(function () { openPanel(); }, 120);
     }
-
     /* ==================== 顶栏工具箱（下拉） ==================== */
     function toggleToolbox() {
         var box = document.getElementById('dwToolbox');
@@ -219,6 +218,8 @@ Clinic.deptwork = (function () {
                 setStatus('');
                 setCloseBtn(true);
                 if (RENDER) RENDER(d);
+                // 排队悬浮窗立即刷新「当前处理中/下一位」
+                if (callPopEl()) refreshCallPanel();
             },
             onError: function () {
                 if (main) main.innerHTML = '<div class="card"><div class="empty"><div class="empty-ico">⚠️</div>患者数据加载失败，请刷新重试</div></div>';

@@ -374,15 +374,41 @@ function deptwork_call_panel($u) {
         );
     }
 
-    // 当前处理中：前端正在打开的患者（current_visit 命中则在办队列中取回）
+    // 当前处理中：始终返回前端正在打开的患者（即使不在在办队列，如查看已完成单）
     $cur = null;
+    $curIndex = -1;
     $curCode = get('current_visit', '');
     if ($curCode !== '') {
-        foreach ($list as $p) {
-            if ($p['visit_code'] === $curCode) { $cur = $p; break; }
+        foreach ($list as $i => $p) {
+            if ($p['visit_code'] === $curCode) { $cur = $p; $curIndex = $i; break; }
+        }
+        if (!$cur) {
+            // 不在在办队列：直接按就诊取回患者信息（当前打开的患者即为处理中）
+            $vid = did($curCode);
+            $row = get_visit_row($vid);
+            if ($row && dept_visit_allowed($row['visit'], $u)) {
+                $v = $row['visit'];
+                $pt = $row['patient'];
+                $cur = array(
+                    'name' => $pt['name'],
+                    'gender' => $pt['gender'],
+                    'age_fmt' => age_format($pt['birth_date'], $v['registered_at']),
+                    'visit_seq' => (int)$v['visit_seq'],
+                    'flow_no' => $v['flow_no'],
+                    'patient_no' => $v['patient_no'],
+                    'visit_code' => $curCode,
+                    'status' => $v['status'],
+                );
+            }
         }
     }
-    $next = isset($list[0]) ? $list[0] : null;
+    // 下一位 = 当前患者之后的首位在办患者；无当前患者则取队首
+    $next = null;
+    if ($curIndex >= 0) {
+        if (isset($list[$curIndex + 1])) $next = $list[$curIndex + 1];
+    } elseif (isset($list[0])) {
+        $next = $list[0];
+    }
     json_ok(array(
         'dept_name' => $title,
         'bound' => true,
