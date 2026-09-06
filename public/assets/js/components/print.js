@@ -70,7 +70,7 @@ Clinic.print = (function () {
             '  <button type="button" class="btn btn-outline" data-act="close">关闭</button>' +
             '  <button type="button" class="btn btn-primary" data-act="do">🖨️ 打印</button>' +
             '</div>';
-        document.body.appendChild(preview);
+        document.body.appendChild(previewEl);
 
         // 按纸张类型注入打印页面尺寸（A5 病历纸 / 凭条按实测尺寸动态生成）
         applyPageSize(sheet);

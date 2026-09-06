@@ -46,6 +46,8 @@
   项目名称右侧（利用右侧空间）
 - 检验结果失焦自动临时保存（results draft，刷新不丢失），提交后才生成正式报告
 - 检验登记改为按整张申请单统一登记（register_order），不再逐子项目登记
+- 修复检验结果提交后弹「网络错误」：print.js open() 内残留旧变量 `preview`（改名 previewEl
+  时遗漏 `appendChild(preview)`），致打印预览打开时抛 ReferenceError 被误报为网络请求失败
 
 ---
 
