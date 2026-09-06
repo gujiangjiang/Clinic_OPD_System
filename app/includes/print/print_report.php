@@ -7,18 +7,18 @@
 
 /** 检验报告单：横向 A5 画布内容（head + 结果行 + 页脚，由前端分列分页） */
 function pt_lab_report($report, $result, $item) {
-    $html = '<div class="print-record-doc lr-doc">';
-
-    // ===== 抬头：医院名称 + 检验报告单 同一行居中；第二名称下方两端对齐 =====
     $hosp = setting('hospital_name', '');
     $hosp2 = setting('hospital_name2', '');
+
+    // ===== 抬头：无第二名称 → 医院名称 + 检验报告单；有第二名称 → 两组名称两端对齐 + 检验报告单 =====
+    $html = '<div class="print-record-doc lr-doc">';
     $html .= '<div class="lr-titleline">' .
+        '<div class="lr-hospwrap">' .
         '<span class="lr-hosp">' . e($hosp) . '</span>' .
+        ($hosp2 !== '' ? '<div class="lr-sub">' . e($hosp2) . '</div>' : '') .
+        '</div>' .
         '<span class="lr-name">检验报告单</span>' .
         '</div>';
-    if ($hosp2 !== '') {
-        $html .= '<div class="lr-sub">' . e($hosp2) . '</div>';
-    }
 
     // ===== 患者信息两行 =====
     $row = get_visit_row((int)$report['visit_id']);
@@ -26,35 +26,46 @@ function pt_lab_report($report, $result, $item) {
     $pgender = $row ? $row['patient']['gender'] : '';
     $pbirth = $row ? $row['patient']['birth_date'] : '';
     $page = $row ? age_format($pbirth, $row['visit']['registered_at']) : '';
-    // 申请科室/申请医生：按结果关联的 order_item → order
-    $orderItem = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array((int)$result['order_item_id']));
-    $order = $orderItem ? OrderRepository::one('SELECT * FROM orders WHERE id=?', array((int)$orderItem['order_id'])) : null;
-    $applyDept = $order ? (string)$order['dept_name'] : '';
-    $applyDoc = $order ? (string)$order['doctor_name'] : '';
-    // 临床诊断：该就诊首份病历的初步诊断
-    $diag = '';
-    $pr = OrderRepository::one("SELECT emr_data FROM patient_records WHERE visit_id=? AND emr_data IS NOT NULL AND emr_data!='' ORDER BY id ASC LIMIT 1", array((int)$report['visit_id']));
-    if ($pr) {
-        $emr = emr_merge_defaults(emr_normalize(json_decode($pr['emr_data'], true)), emr_default_data(null));
-        $diag = emr_diag_text(isset($emr['diagnoses']) ? $emr['diagnoses'] : array());
+    // 快照优先（生成时定格）：申请科室/医生/临床诊断/申请时间/检验时间；
+    // 旧报告（未快照）回退实时查询
+    $applyDept = trim((string)(isset($report['apply_dept']) ? $report['apply_dept'] : ''));
+    $applyDoctor = trim((string)(isset($report['apply_doctor']) ? $report['apply_doctor'] : ''));
+    $diag = trim((string)(isset($report['clinical_diag']) ? $report['clinical_diag'] : ''));
+    $applyTime = trim((string)(isset($report['apply_time']) ? $report['apply_time'] : ''));
+    $regTime = trim((string)(isset($report['reg_time']) ? $report['reg_time'] : ''));
+    if ($applyDept === '' || $applyDoctor === '' || $applyTime === '') {
+        $orderItem = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array((int)$result['order_item_id']));
+        $order = $orderItem ? OrderRepository::one('SELECT * FROM orders WHERE id=?', array((int)$orderItem['order_id'])) : null;
+        if ($applyDept === '' && $order) $applyDept = (string)$order['dept_name'];
+        if ($applyDoctor === '' && $order) $applyDoctor = (string)$order['doctor_name'];
+        if ($applyTime === '' && $order) $applyTime = (string)$order['created_at'];
+        if ($regTime === '' && $orderItem) $regTime = (string)$orderItem['registered_at'];
     }
     if ($diag === '') {
-        $mirror = OrderRepository::one('SELECT preliminary_diagnosis FROM records WHERE visit_id=? AND preliminary_diagnosis IS NOT NULL AND preliminary_diagnosis!=\'\' ORDER BY id ASC LIMIT 1', array((int)$report['visit_id']));
-        if ($mirror) $diag = (string)$mirror['preliminary_diagnosis'];
+        $pr = OrderRepository::one("SELECT emr_data FROM patient_records WHERE visit_id=? AND emr_data IS NOT NULL AND emr_data!='' ORDER BY id ASC LIMIT 1", array((int)$report['visit_id']));
+        if ($pr) {
+            $emr = emr_merge_defaults(emr_normalize(json_decode((string)$pr['emr_data'], true) ?: array()), emr_default_data(null));
+            $diags = isset($emr['diagnoses']) && is_array($emr['diagnoses']) ? $emr['diagnoses'] : array();
+            if ($diags) $diag = emr_diag_text(array($diags[0]), false);   // 首诊断，不含 ICD10
+        }
+        if ($diag === '') {
+            $mirror = OrderRepository::one("SELECT preliminary_diagnosis FROM records WHERE visit_id=? AND preliminary_diagnosis IS NOT NULL AND preliminary_diagnosis!='' ORDER BY id ASC LIMIT 1", array((int)$report['visit_id']));
+            if ($mirror) $diag = (string)$mirror['preliminary_diagnosis'];
+        }
     }
     $li = function ($label, $val) { return '<span class="lr-cell"><b>' . $label . '：</b>' . e($val) . '</span>'; };
     $html .= '<div class="lr-patlines">' .
         '<div class="lr-line">' . $li('姓名', $pname) . $li('性别', $pgender) . $li('年龄', $page) . $li('出生日期', $pbirth) . '</div>' .
-        '<div class="lr-line">' . $li('患者ID', $report['patient_no']) . $li('申请科室', $applyDept) . $li('申请医生', $applyDoc) . $li('临床诊断', $diag) . '</div>' .
+        '<div class="lr-line">' . $li('患者ID', $report['patient_no']) . $li('申请科室', $applyDept) . $li('申请医生', $applyDoctor) . $li('临床诊断', $diag) . '</div>' .
         '</div>';
 
-    // ===== 结果区：列头 + 行（前端分列/分页，单列含序号） =====
+    // ===== 结果区：表格头两条实线 + 无边框行（前端分列分页） =====
     $html .= '<div class="lr-result">' .
         '<div class="lr-colhead"><span class="lr-seq">序号</span><span class="lr-item">项目</span>' .
-        '<span class="lr-val">结果</span><span class="lr-unit">单位</span><span class="lr-ref">参考范围</span></div>' .
-        '<div class="lr-rows">';
+        '<span class="lr-val">结果</span><span class="lr-unit">单位</span><span class="lr-ref">参考范围</span></div>';
     $values = json_decode((string)$result['values_json'], true);
     if (is_array($values) && !empty($values['group'])) {
+        // 检验组：按组内成员逐行显示结果（组合项目按组价收费，成员结果分别出具）
         $members = OrderRepository::q('SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array((int)$item['id']));
         if (!$members) $members = array();
         foreach ($members as $m) {
@@ -69,20 +80,20 @@ function pt_lab_report($report, $result, $item) {
             '<span class="lr-val">' . e($value) . '</span><span class="lr-unit">' . e(isset($item['unit']) ? $item['unit'] : '') . '</span>' .
             '<span class="lr-ref">' . e(isset($item['normal_range']) ? $item['normal_range'] : '') . '</span></div>';
     }
-    $html .= '</div></div>';
+    $html .= '</div>';
 
-    // ===== 页脚：检验备注 + 实线 + 时间 + 检验者/审核者/页码 + 提示语 =====
-    $applyTime = $order ? substr((string)$order['created_at'], 0, 16) : '';
-    $regTime = $orderItem && !empty($orderItem['registered_at']) ? substr((string)$orderItem['registered_at'], 0, 16) : '';
+    // ===== 页脚 =====
+    $applyTimeD = $applyTime !== '' ? substr($applyTime, 0, 16) : '—';
+    $regTimeD = $regTime !== '' ? substr($regTime, 0, 16) : '—';
     $repTime = substr((string)$report['created_at'], 0, 16);
     $note = trim((string)(isset($report['content']) ? $report['content'] : ''));
     $html .= '<div class="lr-foot">' .
         '<div class="lr-note">检验备注：' . ($note !== '' ? e($note) : '（无）') . '</div>' .
         '<div class="lr-solid"></div>' .
-        '<div class="lr-meta1">' . $li('申请时间', $applyTime) . $li('检验时间', $regTime) . $li('报告时间', $repTime) . '</div>' .
+        '<div class="lr-meta1">' . $li('申请时间', $applyTimeD) . $li('检验时间', $regTimeD) . $li('报告时间', $repTime) . '</div>' .
         '<div class="lr-meta2">' .
         '<span class="lr-cell"><b>检验者：</b>' . e($report['doctor']) . '</span>' .
-        '<span class="lr-cell"><b>审核者：</b><span class="lr-audit">（留空）</span></span>' .
+        '<span class="lr-cell"><b>审核者：</b><span class="lr-audit"></span></span>' .
         '<span class="lr-cell lr-pageno">第 <span class="lr-page">1</span> / <span class="lr-total">1</span> 页</span>' .
         '</div>' .
         '<div class="lr-tip">检验结果仅供临床诊疗参考，仅对送检标本负责！</div>' .

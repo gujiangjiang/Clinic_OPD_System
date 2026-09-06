@@ -720,33 +720,43 @@
     overflow: hidden;
 }
 .lr-doc { position: relative; }
-/* 抬头：医院名称 + 检验报告单 同行整体居中；第二名称两端对齐 */
+/* 抬头：医院名称（+第二名称两端对齐）与「检验报告单」同行整体居中 */
 .lr-titleline {
-    text-align: center;
-    margin-bottom: 2mm;
-    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 3mm;
+}
+.lr-titleline .lr-hospwrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: fit-content;
 }
 .lr-titleline .lr-hosp {
     font-size: 19px;
     font-weight: 800;
     letter-spacing: 1px;
+    line-height: 1.25;
+    white-space: nowrap;
 }
-.lr-titleline .lr-name {
-    font-size: 19px;
-    font-weight: 800;
-    letter-spacing: 3px;
-    margin-left: 8px;
-}
-.lr-sub {
+.lr-titleline .lr-sub {
     width: 100%;
     text-align: justify;
     text-align-last: justify;
     font-size: 12px;
     color: #444;
-    margin-bottom: 2mm;
+    white-space: nowrap;
+}
+.lr-titleline .lr-name {
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    margin-left: 10px;
+    white-space: nowrap;
 }
 /* 患者信息两行：两端对齐 */
-.lr-patlines { margin-bottom: 3mm; }
+.lr-patlines { margin-bottom: 4mm; }
 .lr-patlines .lr-line {
     display: flex;
     justify-content: space-between;
@@ -756,21 +766,24 @@
 }
 .lr-patlines .lr-cell { white-space: nowrap; }
 .lr-patlines .lr-cell b { font-weight: 600; }
-/* 结果区：列头 + 行（前端分列/分页填充） */
+/* 结果区：表格头两条实线（无背景灰、无行边框），结果行纯文本 */
 .lr-result {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    border: 1.2px solid #111;
-    border-bottom: none;
 }
 .lr-colhead, .lr-row {
     display: flex;
     align-items: center;
-    border-bottom: 1px solid #111;
+    font-size: 12px;
 }
-.lr-colhead { background: #f0f0f0; font-weight: 700; }
+.lr-colhead {
+    font-weight: 700;
+    border-top: 1.2px solid #111;
+    border-bottom: 1.2px solid #111;
+}
+.lr-row { height: 8mm; }
 .lr-colhead .lr-seq, .lr-colhead .lr-item, .lr-colhead .lr-val,
 .lr-colhead .lr-unit, .lr-colhead .lr-ref,
 .lr-row .lr-seq, .lr-row .lr-item, .lr-row .lr-val,
@@ -786,7 +799,6 @@
 .lr-val { width: 30mm; }
 .lr-unit { width: 22mm; }
 .lr-ref { width: 34mm; }
-.lr-colhead, .lr-row { font-size: 12px; height: 8mm; }
 /* 双列模式：中间虚线分隔，隐藏序号列 */
 .lr-cols { display: flex; flex: 1; min-height: 0; }
 .lr-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }

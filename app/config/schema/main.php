@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 20,
+    'version' => 21,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -782,6 +782,15 @@ return array(
         // v20：检验登记时间（order_items.registered_at）——报告单「检验时间」列展示
         20 => array(
             "ALTER TABLE order_items ADD COLUMN registered_at TEXT",
+        ),
+        // v21：检验报告快照固化（生成时定格申请科室/医生/临床诊断/申请时间/检验时间，
+        // 后期调阅不受病历/转科等后续变化影响）
+        21 => array(
+            "ALTER TABLE reports ADD COLUMN apply_dept TEXT",
+            "ALTER TABLE reports ADD COLUMN apply_doctor TEXT",
+            "ALTER TABLE reports ADD COLUMN clinical_diag TEXT",
+            "ALTER TABLE reports ADD COLUMN apply_time TEXT",
+            "ALTER TABLE reports ADD COLUMN reg_time TEXT",
         ),
     ),
     'seed' => array(

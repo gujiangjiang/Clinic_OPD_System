@@ -350,8 +350,16 @@ Clinic.deptwork = (function () {
                 // 首次加载应用登录会话记忆的筛选（状态页签 + 当日）
                 if (!PREF_APPLIED && DATA.pref) {
                     PREF_APPLIED = true;
-                    if (DATA.pref.status && (DATA.pref.status === 'doing' || DATA.pref.status === 'done')) STATUS = DATA.pref.status;
-                    TODAY = !!DATA.pref.today;
+                    var prefStatus = (DATA.pref.status === 'doing' || DATA.pref.status === 'done') ? DATA.pref.status : STATUS;
+                    var prefToday = !!DATA.pref.today;
+                    // 会话记忆的筛选与本次请求不一致 → 按记忆重新拉取，
+                    // 修复刷新后 tab 高亮与列表内容不一致的 bug
+                    if (prefStatus !== STATUS || prefToday !== TODAY) {
+                        STATUS = prefStatus;
+                        TODAY = prefToday;
+                        loadQueue(true, cb);
+                        return;
+                    }
                 }
                 PREF_APPLIED = true;
                 renderQueueBtn();
