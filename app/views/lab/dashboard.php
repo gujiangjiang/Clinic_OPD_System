@@ -42,7 +42,7 @@ function itemStatusName(s) {
 }
 function labStatusBadge(s) {
     var cls = s === 'done' ? 'badge-success' : (s === 'registered' ? 'badge-warning' : 'badge-gray');
-    return '<span class="badge ' + cls + '" style="font-size:11px">' + itemStatusName(s) + '</span>';
+    return Clinic.deptwork.statusBadge(itemStatusName(s), cls);
 }
 
 /* 解析已保存的化验值（单值 {"value":"5.2"}；组合 {"group":1,"values":{memberId:"5.2"}}） */
@@ -64,25 +64,12 @@ function renderLabWork(data) {
     window.__labItems = items;
 
     // 右栏大纲：按申请单分组（申请单号可点「+」展开该单全部检验项目）
-    var sideItems = orders.map(function (o) {
-        var pending = o.items.some(function (it) { return it.status === 'paid' || it.status === 'registered'; });
-        var subs = o.items.map(function (it) {
-            var dot = it.status === 'done' ? 'ok' : (it.status === 'registered' ? 'pending' : 'done');
-            return '<div class="dw-side-item dw-side-subitem"><span class="dot ' + dot + '"></span>' + esc(it.item_name) + '</div>';
-        }).join('');
-        return '<div class="dw-side-order">' +
-            '<div class="dw-side-item" onclick="scrollToLab(\'' + esc(o.order_id) + '\')">' +
-            '<span class="dw-side-plus" id="sidePlus_' + esc(o.order_id) + '" title="展开该单检验项目" ' +
-            'onclick="event.stopPropagation();Clinic.deptwork.toggleSideOrder(\'' + esc(o.order_id) + '\')">+</span>' +
-            '<span class="dot ' + (pending ? 'pending' : 'ok') + '"></span>' +
-            '<span class="dw-side-oname">' + esc(o.order_no) + '（' + o.items.length + ' 项）</span>' +
-            '</div>' +
-            '<div class="dw-side-sub" id="sideSub_' + esc(o.order_id) + '" style="display:none">' + subs + '</div>' +
-            '</div>';
-    }).join('');
-    document.getElementById('dwSide').innerHTML =
-        '<div class="dw-side-sec"><div class="dw-side-title">🧪 检验申请单（' + orders.length + ' 张）</div>' +
-        (sideItems || '<div class="dw-side-item">暂无检验项目</div>') + '</div>';
+    Clinic.deptwork.renderOrderSide(orders, {
+        emoji: '🧪', title: '检验申请单', empty: '暂无检验项目',
+        pending: function (o) { return o.items.some(function (it) { return it.status === 'paid' || it.status === 'registered'; }); },
+        subDot: function (it) { return it.status === 'done' ? 'ok' : (it.status === 'registered' ? 'pending' : 'done'); },
+        scrollTo: 'Lab',
+    });
 
     // 主区：抬头（参照护理记录单样式）+ 各申请单区块
     var head = labHeadHtml(data);
@@ -108,28 +95,9 @@ function renderLabWork(data) {
     };
 }
 
-/* 抬头：医院名称 + 第二名称 + 检验报告单 + 患者信息两行（与护理记录单同版式） */
+/* 抬头：医院名称 + 第二名称 + 检验报告单 + 患者信息两行（统一走 Clinic.deptwork.headHtml） */
 function labHeadHtml(data) {
-    var v = data.visit || {}, p = data.patient || {};
-    var hosp = document.body.getAttribute('data-hosp') || '';
-    var hosp2 = document.body.getAttribute('data-hosp2') || '';
-    var cell = function (label, value) {
-        return '<div class="dw-line-cell"><span class="lbl">' + label + '：</span><span class="val">' + (value || '—') + '</span></div>';
-    };
-    return '<div class="card dw-nurse-doc">' +
-        '<div class="dw-hosp-block">' +
-        '  <div class="dw-hosp">' + esc(hosp) + '</div>' +
-        (hosp2 ? '  <div class="dw-sub">' + esc(hosp2) + '</div>' : '') +
-        '</div>' +
-        '<div class="dw-title-bar"><div class="dw-title">检 验 报 告 单</div></div>' +
-        '<div class="dw-pat-lines">' +
-        '  <div class="dw-line-row">' +
-        cell('姓名', esc(v.name)) + cell('性别', esc(v.gender)) + cell('年龄', esc(v.age_fmt || '')) + cell('出生日期', esc(p.birth_date || '')) +
-        '  </div>' +
-        '  <div class="dw-line-row">' +
-        cell('患者ID', esc(p.patient_id)) + cell('流水号', esc(v.visit_no)) + cell('首诊科室', esc(v.first_dept_name || '')) + cell('首诊时间', esc((v.created_at || '').substr(0, 16))) +
-        '  </div>' +
-        '</div></div>';
+    return Clinic.deptwork.headHtml(data, '检 验 报 告 单');
 }
 
 /* 单张申请单区块：申请单号（可点击预览检验申请单）+ 统一登记按钮 + 各检验项目 */

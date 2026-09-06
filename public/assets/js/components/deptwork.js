@@ -338,6 +338,83 @@ Clinic.deptwork = (function () {
         if (el) el.textContent = t || '';
     }
 
+    /**
+     * 状态徽章骨架（统一样式）：各角色视图仅需提供中文名与配色，
+     * 徽章 HTML 统一在此生成，避免四处重复拼接导致样式漂移。
+     * @param {string} name 状态中文名（已查 map）
+     * @param {string} cls  badge 配色类（badge-success/warning/danger/gray…）
+     * @returns {string}
+     */
+    function statusBadge(name, cls) {
+        return '<span class="badge ' + cls + '" style="font-size:11px">' + name + '</span>';
+    }
+
+    /**
+     * 右侧申请单/处方大纲（按单号分组，单号可点「+」展开项目）：
+     * 检验/影像/药房 三视图共用，差异经 cfg 注入。
+     * @param {Array}  orders 已过滤的申请单数组（含 order_id/order_no/items）
+     * @param {object} cfg    { emoji, title, empty, pending(o), subItems(o), subDot(it), scrollTo }
+     *                        · pending  单号行点色（false=ok 完成 / true=pending 进行中）
+     *                        · subItems 展开的子项目数组（药房仅主药）
+     *                        · subDot   子项目点色函数
+     *                        · scrollTo 页面滚动函数后缀（如 'Lab' → scrollToLab）
+     */
+    function renderOrderSide(orders, cfg) {
+        cfg = cfg || {};
+        var subItems = cfg.subItems || function (o) { return o.items || []; };
+        var subDot = cfg.subDot || function () { return 'done'; };
+        var pending = cfg.pending || function () { return false; };
+        var scrollFn = cfg.scrollTo ? 'scrollTo' + cfg.scrollTo : '';
+        var sideItems = (orders || []).map(function (o) {
+            var subs = subItems(o).map(function (it) {
+                return '<div class="dw-side-item dw-side-subitem"><span class="dot ' + subDot(it) + '"></span>' + escHtml(it.item_name) + '</div>';
+            }).join('');
+            return '<div class="dw-side-order">' +
+                '<div class="dw-side-item" onclick="' + scrollFn + '(\'' + escHtml(o.order_id) + '\')">' +
+                '<span class="dw-side-plus" id="sidePlus_' + escHtml(o.order_id) + '" title="展开该单项目" ' +
+                'onclick="event.stopPropagation();Clinic.deptwork.toggleSideOrder(\'' + escHtml(o.order_id) + '\')">+</span>' +
+                '<span class="dot ' + (pending(o) ? 'pending' : 'ok') + '"></span>' +
+                '<span class="dw-side-oname">' + escHtml(o.order_no) + '（' + o.items.length + ' 项）</span>' +
+                '</div>' +
+                '<div class="dw-side-sub" id="sideSub_' + escHtml(o.order_id) + '" style="display:none">' + subs + '</div>' +
+                '</div>';
+        }).join('');
+        document.getElementById('dwSide').innerHTML =
+            '<div class="dw-side-sec"><div class="dw-side-title">' + cfg.emoji + ' ' + cfg.title + '（' + (orders || []).length + ' 张）</div>' +
+            (sideItems || '<div class="dw-side-item">' + cfg.empty + '</div>') + '</div>';
+    }
+
+    /**
+     * 患者工作台抬头（医院名称+第二名称+标题+患者信息两行）。
+     * 护士站 / 检验科 / 影像科 / 药房 四视图共用同一版式，仅标题文字不同；
+     * 统一在此维护，避免四处重复实现导致样式漂移。
+     * @param {object} data  /api/deptwork patient 返回（含 visit/patient）
+     * @param {string} title 文档标题（如「检 验 报 告 单」）
+     * @returns {string} 抬头 HTML
+     */
+    function headHtml(data, title) {
+        var v = data.visit || {}, p = data.patient || {};
+        var hosp = document.body.getAttribute('data-hosp') || '';
+        var hosp2 = document.body.getAttribute('data-hosp2') || '';
+        var cell = function (label, value) {
+            return '<div class="dw-line-cell"><span class="lbl">' + escHtml(label) + '：</span><span class="val">' + escHtml(value || '—') + '</span></div>';
+        };
+        return '<div class="card dw-nurse-doc">' +
+            '<div class="dw-hosp-block">' +
+            '  <div class="dw-hosp">' + escHtml(hosp) + '</div>' +
+            (hosp2 ? '  <div class="dw-sub">' + escHtml(hosp2) + '</div>' : '') +
+            '</div>' +
+            '<div class="dw-title-bar"><div class="dw-title">' + escHtml(title) + '</div></div>' +
+            '<div class="dw-pat-lines">' +
+            '  <div class="dw-line-row">' +
+            cell('姓名', v.name) + cell('性别', v.gender) + cell('年龄', v.age_fmt || '') + cell('出生日期', p.birth_date || '') +
+            '  </div>' +
+            '  <div class="dw-line-row">' +
+            cell('患者ID', p.patient_id) + cell('流水号', v.visit_no) + cell('首诊科室', v.first_dept_name || '') + cell('首诊时间', (v.created_at || '').substr(0, 16)) +
+            '  </div>' +
+            '</div></div>';
+    }
+
     /* ==================== 候诊列表 ==================== */
     function panelEl() { return document.getElementById('dwQueuePanel'); }
 
@@ -744,6 +821,12 @@ Clinic.deptwork = (function () {
         },
         openPatientSearch: openPatientSearch,
         closePatient: closePatient,
+        /** 患者工作台抬头（医院名称+标题+患者信息两行），四医技角色共用 */
+        headHtml: headHtml,
+        /** 状态徽章骨架（中文名 + 配色），四医技角色共用 */
+        statusBadge: statusBadge,
+        /** 右侧申请单/处方大纲渲染（检验/影像/药房共用） */
+        renderOrderSide: renderOrderSide,
         /** 拉取当前患者最新聚合数据（局部刷新用，不重建整页） */
         fetchPatient: function (cb) {
             if (!VISIT) return;

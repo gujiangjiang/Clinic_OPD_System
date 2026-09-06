@@ -41,7 +41,7 @@ function itemStatusName(s) {
 }
 function itemStatusBadge(s) {
     var cls = s === 'done' || s === 'dispensed' ? 'badge-success' : (s === 'paid' || s === 'dispensing' ? 'badge-warning' : 'badge-gray');
-    return '<span class="badge ' + cls + '" style="font-size:11px">' + itemStatusName(s) + '</span>';
+    return Clinic.deptwork.statusBadge(itemStatusName(s), cls);
 }
 
 /* 链接样式（处置单号/处方号可点击） */
@@ -478,26 +478,8 @@ function renderNurseWork(data) {
     var v = data.visit || {}, p = data.patient || {};
     renderNurseSide(data);
 
-    // 主区：护理记录单（抬头参照急诊电子病历布局：医院名称/第二名称两端对齐 + 标题 + 患者信息两行两端对齐）
-    var hosp = document.body.getAttribute('data-hosp') || '';
-    var hosp2 = document.body.getAttribute('data-hosp2') || '';
-    var cell = function (label, value) {
-        return '<div class="dw-line-cell"><span class="lbl">' + label + '：</span><span class="val">' + (value || '—') + '</span></div>';
-    };
-    var head = '<div class="card dw-nurse-doc">' +
-        '<div class="dw-hosp-block">' +
-        '  <div class="dw-hosp">' + esc(hosp) + '</div>' +
-        (hosp2 ? '  <div class="dw-sub">' + esc(hosp2) + '</div>' : '') +
-        '</div>' +
-        '<div class="dw-title-bar"><div class="dw-title">护 理 记 录 单</div></div>' +
-        '<div class="dw-pat-lines">' +
-        '  <div class="dw-line-row">' +
-        cell('姓名', esc(v.name)) + cell('性别', esc(v.gender)) + cell('年龄', esc(v.age_fmt || '')) + cell('出生日期', esc(p.birth_date || '')) +
-        '  </div>' +
-        '  <div class="dw-line-row">' +
-        cell('患者ID', esc(p.patient_id)) + cell('流水号', esc(v.visit_no)) + cell('首诊科室', esc(v.first_dept_name || '')) + cell('首诊时间', esc((v.created_at || '').substr(0, 16))) +
-        '  </div>' +
-        '</div></div>';
+    // 主区：护理记录单（抬头统一走 Clinic.deptwork.headHtml，与检验/影像/药房同版式）
+    var head = Clinic.deptwork.headHtml(data, '护 理 记 录 单');
 
     var body =
         nursingSection(data) +
