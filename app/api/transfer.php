@@ -63,9 +63,9 @@ switch ($action) {
                 $u['id'], $u['name'], now_str(),
             ));
 
-            // 更新当前科室；状态回到待就诊（新科室候诊）
-            EmrRepository::exec('UPDATE registrations SET current_dept_id=?, current_dept_name=?, status=? WHERE id=?', array(
-                $targetDept, $dept['name'], 'paid', $visitId,
+            // 更新当前科室；就诊状态保持「就诊中」（患者持续接诊中，转科不回落候诊）
+            EmrRepository::exec('UPDATE registrations SET current_dept_id=?, current_dept_name=? WHERE id=?', array(
+                $targetDept, $dept['name'], $visitId,
             ));
             $pdo->commit();
         } catch (Exception $ex) {
