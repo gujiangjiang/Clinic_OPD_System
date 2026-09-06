@@ -693,11 +693,12 @@
 /* ============================================================
    科室工作台候诊列表行（护士站/检验/影像/药房，患者级队列）
    八列：日期/时间/号别/姓名/性别/年龄/明细摘要/状态
-   姓名列固定宽度（不再占满弹性空间），剩余空间给明细列
+   日期/时间按内容自适应（minmax 保底不裁剪），姓名列固定宽度，
+   剩余空间给明细列；状态列加宽容纳徽章
    ============================================================ */
 .dw-qp-row {
     display: grid;
-    grid-template-columns: 30px 32px 28px 72px 22px 32px minmax(90px, 1fr) 46px;
+    grid-template-columns: minmax(38px, auto) minmax(36px, auto) 28px 72px 22px 32px minmax(90px, 1fr) 56px;
     align-items: center;
     gap: 5px;
     white-space: nowrap;

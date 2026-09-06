@@ -152,6 +152,8 @@ Clinic.print = (function () {
                 var wrap = document.createElement('div');
                 wrap.className = 'print-preview sheet-a5 print-preview-in-modal';
                 wrap.innerHTML = '<div id="print-area" class="print-area">' + json.data.html + '</div>';
+                // 先清空加载圈，再挂载内容
+                body.innerHTML = '';
                 body.appendChild(wrap);
                 // A5 分页（病历 / 申请单 / 处方等 print-record-doc 文档）
                 try { paginateSheetA5(wrap.querySelector('#print-area')); } catch (e) { /* 分页失败保持单页 */ }
