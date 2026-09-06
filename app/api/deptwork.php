@@ -52,14 +52,14 @@ function deptwork_role_cfg($role) {
     return $map[$role];
 }
 
-/** 明细类型过滤 SQL（护士站额外包含「护士站执行」的处方） */
+/** 明细类型过滤 SQL（护士站仅纳入「护士站执行」的处置/处方） */
 function deptwork_type_where($cfg, $alias) {
     $types = $cfg['item_types'];
     $ph = implode(',', array_fill(0, count($types), '?'));
     $sql = "$alias.item_type IN ($ph)";
     $params = $types;
     if (!empty($cfg['nurse_rx'])) {
-        $sql = "($alias.item_type IN ($ph) OR ($alias.item_type='prescription' AND $alias.is_nurse=1))";
+        $sql = "($alias.item_type IN ($ph) AND $alias.is_nurse=1)";
     }
     return array($sql, $params);
 }
@@ -81,9 +81,13 @@ function deptwork_queue($u) {
     // 页签状态过滤（状态码为白名单常量，无注入风险）
     switch ($tab) {
         case 'doing':
+            // 检验/影像「检查中」= 待登记(paid) + 待出报告(registered) 全流程在办项目；
+            // 药房「待发药」= 已缴费待审方；护士「待处置」= 处置/医嘱在办
             $tabWhere = ($role === 'pharmacy')
                 ? " AND oi.status='paid'"
-                : (($role === 'nurse') ? " AND oi.status IN ('paid','dispensing')" : " AND oi.status='registered'");
+                : (($role === 'nurse')
+                    ? " AND oi.status IN ('paid','dispensing')"
+                    : " AND oi.status IN ('paid','registered')");
             break;
         case 'done':
             $tabWhere = ($role === 'pharmacy')
@@ -95,7 +99,8 @@ function deptwork_queue($u) {
             break;
     }
 
-    $since = date('Y-m-d', strtotime('-2 days'));
+    // 候诊可见天数与医生候诊一致（user_queue_days 2-7，默认 3）
+    $since = date('Y-m-d', strtotime('-' . (user_queue_days($u) - 1) . ' days'));
     $sql = "SELECT r.id AS visit_id, r.current_dept_name, r.current_dept_id, r.visit_seq, r.flow_no,
                 r.status AS visit_status, r.registered_at, r.first_dept_name,
                 p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth,
@@ -315,15 +320,26 @@ function deptwork_patient($u) {
     ));
 }
 
+/** 角色工作台所属科室（排队悬浮窗数据源）：
+ * 优先用户关联科室 dept_ids；未配置时按角色名匹配科室（检验科/影像科/药房/护士站） */
+function deptwork_role_depts($u) {
+    $ids = user_dept_ids($u);
+    if ($ids) return $ids;
+    $kw = array('lab' => '检验', 'imaging' => '影像', 'pharmacy' => '药房', 'nurse' => '护士');
+    $name = isset($kw[$u['role']]) ? $kw[$u['role']] : '';
+    if ($name !== '') {
+        $rows = DB::q("SELECT id FROM departments WHERE status=1 AND name LIKE ? ORDER BY sort, id LIMIT 1", array('%' . $name . '%'));
+        if ($rows) return array((int)$rows[0]['id']);
+    }
+    $any = DB::one("SELECT id FROM departments WHERE status=1 ORDER BY sort, id LIMIT 1");
+    return $any ? array((int)$any['id']) : array();
+}
+
 /** 科室排队悬浮窗数据（当前处理中/下一位/候诊队列，复用医技大屏逻辑） */
 function deptwork_call_panel($u) {
     $role = $u['role'];
     $cfg = deptwork_role_cfg($role);
-    $deptIds = user_dept_ids($u);
-    if (!$deptIds) {
-        $cur = current_dept_id($u);
-        if ($cur > 0) $deptIds = array($cur);
-    }
+    $deptIds = deptwork_role_depts($u);
     if (!$deptIds) {
         json_ok(array('depts' => array(), 'current' => null, 'next' => null, 'waiting' => array(), 'bound' => true));
         return;

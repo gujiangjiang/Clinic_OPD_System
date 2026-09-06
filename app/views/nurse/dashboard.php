@@ -182,7 +182,7 @@ function procSection(data) {
     (data.orders || []).forEach(function (o) {
         if (o.order_type !== 'procedure') return;
         o.items.forEach(function (it) {
-            items.push({ it: it, o: o });
+            if (it.is_nurse) items.push({ it: it, o: o });
         });
     });
     var rows = '';
@@ -287,7 +287,7 @@ function renderNurseWork(data) {
     var procCnt = 0, medCnt = 0;
     (data.orders || []).forEach(function (o) {
         o.items.forEach(function (it) {
-            if (o.order_type === 'procedure' && it.status === 'paid') procCnt++;
+            if (o.order_type === 'procedure' && it.is_nurse && it.status === 'paid') procCnt++;
             if (o.order_type === 'prescription' && it.is_nurse && (it.status === 'paid' || it.status === 'dispensing')) medCnt++;
         });
     });

@@ -30,6 +30,7 @@ Clinic.deptwork = (function () {
     var CALL_TIMER = null;    // 排队悬浮窗 10s 轮询
     var PANEL_OPEN = false;
     var CALL_CACHE = null;    // 最近一次排队数据缓存
+    var PREF_APPLIED = false; // 是否已应用登录会话记忆的页签
 
     function escHtml(s) { return Clinic.escHtml(s); }
 
@@ -157,6 +158,14 @@ Clinic.deptwork = (function () {
                     var keys = Object.keys(TAB_LABELS);
                     if (keys.length) TAB = keys[0];
                 }
+                // 首次加载应用登录会话记忆的页签（避免每次回到默认页签）
+                if (!PREF_APPLIED && DATA.pref && DATA.pref.tab && DATA.pref.tab !== TAB && TAB_LABELS[DATA.pref.tab]) {
+                    PREF_APPLIED = true;
+                    TAB = DATA.pref.tab;
+                    loadQueue(true, cb);
+                    return;
+                }
+                PREF_APPLIED = true;
                 renderQueueBtn();
                 if (PANEL_OPEN && panelEl()) renderPanel();
                 if (cb) cb();
@@ -270,13 +279,13 @@ Clinic.deptwork = (function () {
             '  <input class="input qp-search" id="dwQpSearch" placeholder="搜索：姓名/号别/流水号" value="' + escHtml(KEYWORD) + '">' +
             '</div>' +
             '<div class="qp-list">' + listHtml(list) + '</div>';
-        // 页签切换：重新请求并渲染列表区
+        // 页签切换：重新请求并渲染列表区（loadQueue 完成后自动重渲染面板）
         p.querySelectorAll('[data-tab]').forEach(function (c) {
             c.addEventListener('click', function () {
                 TAB = c.getAttribute('data-tab');
                 saveTabPref();
                 p.querySelector('.qp-list').innerHTML = '<div class="qp-empty">加载中…</div>';
-                loadQueue(true, function () { renderPanel(); });
+                loadQueue(true);
             });
         });
         // 搜索即时过滤（保留输入框焦点与光标位置）
@@ -334,7 +343,7 @@ Clinic.deptwork = (function () {
         PANEL_OPEN = true;
         if (!DATA) {
             p.innerHTML = '<div class="qp-empty">加载中…</div>';
-            loadQueue(true, function () { renderPanel(); });
+            loadQueue(true);
         } else {
             renderPanel();
         }
