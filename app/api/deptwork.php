@@ -80,21 +80,20 @@ function deptwork_queue($u) {
         $deptWhere = ' AND r.current_dept_id IN (' . in_placeholders($deptIds) . ')';
     }
 
-    // 状态页签过滤（状态码为白名单常量，无注入风险）
+    // 患者级归类（HAVING）：只要存在未办结项目 → 归入「待处置/待发药/检查中」；
+    // 全部办结才算「完成」。不再按「存在单个完成项目」混入完成列表。
+    // 未办结状态集（按角色）：护士 处置/医嘱 待执行+执行中；药房 待审方；
+    // 检验/影像 待登记+待出报告。办结状态 = done / dispensed。
+    $unDoneSet = ($role === 'pharmacy')
+        ? "'paid'"
+        : (($role === 'nurse') ? "'paid','dispensing'" : "'paid','registered'");
     switch ($status) {
         case 'doing':
-            // 检验/影像「检查中」= 待登记(paid) + 待出报告(registered) 全流程在办项目；
-            // 药房「待发药」= 已缴费待审方；护士「待处置」= 处置/医嘱在办
-            $statusWhere = ($role === 'pharmacy')
-                ? " AND oi.status='paid'"
-                : (($role === 'nurse')
-                    ? " AND oi.status IN ('paid','dispensing')"
-                    : " AND oi.status IN ('paid','registered')");
+            $having = "SUM(CASE WHEN oi.status IN ($unDoneSet) THEN 1 ELSE 0 END) > 0";
             break;
-        default: // done
-            $statusWhere = ($role === 'pharmacy')
-                ? " AND oi.status IN ('dispensed','dispensing')"
-                : " AND oi.status='done'";
+        default: // done：存在办结项目 且 无任何未办结项目
+            $having = "SUM(CASE WHEN oi.status IN ('done','dispensed') THEN 1 ELSE 0 END) > 0
+                AND SUM(CASE WHEN oi.status IN ($unDoneSet) THEN 1 ELSE 0 END) = 0";
             break;
     }
     // 「当日」叠加筛选
@@ -121,8 +120,9 @@ function deptwork_queue($u) {
             JOIN patients p ON p.patient_no=oi.patient_no
             WHERE $typeWhere
               AND date(oi.created_at) >= date('now','localtime','-' || (MAX(2, MIN(7, COALESCE(usr.queue_days,3))) - 1) || ' days')
-              $deptWhere$statusWhere$todayWhere
-            GROUP BY oi.visit_id";
+              $deptWhere$todayWhere
+            GROUP BY oi.visit_id
+            HAVING $having";
     // 排序：待处置按最后一次开具到本科室的时间正序（最新在下面）；
     // 完成按最近完成时间倒序（最新完成在上面）
     if ($status === 'doing') {

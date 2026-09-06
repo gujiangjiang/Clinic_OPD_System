@@ -76,9 +76,36 @@ Clinic.deptwork = (function () {
             if (panelEl()) closePanel(); else openPanel();
         });
         var hb = document.getElementById('dwHomeBtn');
-        if (hb) hb.addEventListener('click', goHome);
+        if (hb) hb.addEventListener('click', closePatient);
         // 叫号/工具箱按钮位于顶栏（Layout::deptToolsBar 注入），通过内联 onclick 调用，
         // 无需在此绑定（避免与内联 onclick 重复触发）
+    }
+
+    /* ==================== 关闭当前患者（返回空白工作台 + 自动弹出候诊列表） ==================== */
+    function renderEmptyWork() {
+        var conf = {
+            nurse: { emoji: '💉', title: '欢迎使用护士工作站' },
+            lab: { emoji: '🧪', title: '欢迎使用检验科工作台' },
+            imaging: { emoji: '🩻', title: '欢迎使用影像科工作台' },
+            pharmacy: { emoji: '💊', title: '欢迎使用药房工作台' },
+        }[ROLE] || { emoji: '🏥', title: '欢迎使用工作台' };
+        var main = document.getElementById('dwMain');
+        if (main) main.innerHTML = '<div class="card wb-empty" style="padding:40px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center">' +
+            '<div style="font-size:72px;margin-bottom:16px">' + conf.emoji + '</div>' +
+            '<div class="fs-18 fw-600 text-muted">' + conf.title + '</div>' +
+            '<div class="fs-12 text-muted mt-8">候诊列表已自动打开，点击患者即可进入工作台</div></div>';
+        var side = document.getElementById('dwSide');
+        if (side) side.innerHTML = '';
+        var head = document.getElementById('dwHeader');
+        if (head) head.innerHTML = '';
+        setStatus('');
+    }
+    function closePatient() {
+        VISIT = '';
+        closePanel();
+        closeCallPop();
+        renderEmptyWork();
+        setTimeout(function () { openPanel(); }, 120);
     }
 
     /* ==================== 顶栏工具箱（下拉） ==================== */
@@ -161,8 +188,8 @@ Clinic.deptwork = (function () {
             onSuccess: function (json) {
                 var d = json.data;
                 renderHeader(d);
-                // 顶部横条已显示流水号，状态位展示就诊状态，避免重复
-                setStatus('就诊状态：' + (d.visit ? visitStatusName(d.visit.status) : ''));
+                // 就诊状态已在横条徽章展示，状态位保持空白
+                setStatus('');
                 if (RENDER) RENDER(d);
             },
             onError: function () {
@@ -345,8 +372,8 @@ Clinic.deptwork = (function () {
     function itemSummary(r) {
         if (ROLE === 'nurse') {
             var parts = [];
-            if (r.proc_total > 0) parts.push(r.proc_done >= r.proc_total ? '处置执行完成' : '处置' + r.proc_done + '/' + r.proc_total);
-            if (r.med_total > 0) parts.push(r.med_done >= r.med_total ? '医嘱执行完成' : '医嘱' + r.med_done + '/' + r.med_total);
+            if (r.proc_total > 0) parts.push(r.proc_done >= r.proc_total ? '处置已完成' : '处置' + r.proc_done + '/' + r.proc_total);
+            if (r.med_total > 0) parts.push(r.med_done >= r.med_total ? '医嘱已完成' : '医嘱' + r.med_done + '/' + r.med_total);
             var txt = parts.join('，') || ('共 ' + r.item_cnt + ' 项');
             return { html: txt, tip: txt };
         }
@@ -657,7 +684,7 @@ Clinic.deptwork = (function () {
             if (callPopEl()) closeCallPop(); else openCallPop();
         },
         openPatientSearch: openPatientSearch,
-        goHome: goHome,
+        closePatient: closePatient,
         /** 拉取当前患者最新聚合数据（局部刷新用，不重建整页） */
         fetchPatient: function (cb) {
             if (!VISIT) return;

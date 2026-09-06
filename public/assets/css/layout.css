@@ -320,6 +320,15 @@
     align-items: center;
 }
 .emr-top-bar #emrHeader > .flex-between { width: 100%; }
+/* 科室工作台横条：患者信息占满弹性空间，使「✕ 关闭」靠右对齐 */
+.emr-top-bar #dwHeader {
+    flex: 1;
+    min-width: 0;
+    overflow-x: hidden;
+    display: flex;
+    align-items: center;
+}
+.emr-top-bar #dwHeader > .flex-between { width: 100%; }
 .emr-top-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .emr-top-actions .btn { white-space: nowrap; }
 .emr-top-status {

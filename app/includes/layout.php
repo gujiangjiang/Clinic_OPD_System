@@ -140,7 +140,6 @@ class Layout {
                 '<button type="button" class="btn btn-outline btn-sm" id="dwToolboxBtn" title="工具箱" onclick="Clinic.deptwork.toggleToolbox()">🧰 工具箱 ▾</button>' .
                 '<div id="dwToolbox" style="display:none;position:absolute;top:100%;right:0;min-width:170px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:100;box-shadow:0 8px 24px var(--shadow)">' .
                     '<div class="dd-item" style="cursor:pointer" onclick="Clinic.deptwork.openPatientSearch()">🔍 患者查询</div>' .
-                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.deptwork.goHome()">🏠 返回首页</div>' .
                 '</div>' .
             '</div>' .
         '</div>';

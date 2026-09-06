@@ -58,7 +58,8 @@ function previewRecord() {
 }
 function previewOrder(orderId, orderNo) {
     if (!orderId) return;
-    Clinic.print.preview('/api/print?action=order&order_id=' + orderId, null, '单据预览：' + (orderNo || ''));
+    // 护士只关心「门诊输液（注射）笺」（单号+Z），处方笺给药房取药，不展示
+    Clinic.print.preview('/api/print?action=order&order_id=' + orderId + '&nurse_only=1', null, '输液（注射）笺预览：' + (orderNo || ''));
 }
 
 /* ==================== 生命体征趋势（复用原护士站实现） ==================== */

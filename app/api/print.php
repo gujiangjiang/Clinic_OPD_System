@@ -113,6 +113,9 @@ switch ($action) {
             $orderIds = array_filter(array(did(get('order_id'))), function ($v) { return $v > 0; });
         }
         if (!$orderIds) json_fail('开单记录不存在');
+        // 护士站预览：仅输出护士站执行药品的「门诊输液（注射）笺」（单号+Z），
+        // 处方笺给药房取药，护士不关心
+        $nurseOnly = (int)get('nurse_only', 0) === 1;
         $titles = array('lab' => '检验申请单', 'imaging' => '检查申请单', 'procedure' => '处置申请单', 'prescription' => '门诊处方笺');
         $html = '';
         foreach ($orderIds as $orderId) {
@@ -160,6 +163,13 @@ switch ($action) {
                         $pharmItems[] = $g['main'];
                         foreach ($g['subs'] as $s) { $s['sub_of'] = $pharmSeq; $pharmItems[] = $s; }
                     }
+                }
+                // 护士站预览（nurse_only）：只输出护士执行药品的输液（注射）笺副本（Z 结尾）
+                if ($nurseOnly) {
+                    if ($nurseItems) {
+                        $html .= pt_order($order, $nurseItems, '门诊输液（注射）笺', array('note_type' => 'nurse', 'display_no' => $order['order_no'] . 'Z'));
+                    }
+                    continue;
                 }
                 // ① 非护士药品处方笺
                 if ($pharmItems) {
