@@ -204,6 +204,30 @@ Clinic.print = (function () {
         }
         areaEl.innerHTML = '';
         sheets.forEach(function (s) { areaEl.appendChild(s); });
+        fitReportNo(areaEl);
+    }
+
+    /**
+     * 报告单号自动缩放：始终在一行内显示，超出单元格宽度时逐步缩小字号至刚好放下。
+     * @param {HTMLElement} areaEl 打印容器
+     */
+    function fitReportNo(areaEl) {
+        var box = (areaEl && areaEl.querySelector) ? areaEl : null;
+        if (!box) return;
+        var guard = 0;
+        function fit(el) {
+            var parent = el.parentNode;
+            if (!parent) return;
+            el.style.whiteSpace = 'nowrap';
+            var fs = 12;
+            el.style.fontSize = fs + 'px';
+            var avail = parent.clientWidth - 4;
+            while (fs > 6 && el.scrollWidth > avail && guard++ < 200) {
+                fs -= 0.5;
+                el.style.fontSize = fs + 'px';
+            }
+        }
+        box.querySelectorAll('.lr-reportno').forEach(function (el) { fit(el); });
     }
 
     /**

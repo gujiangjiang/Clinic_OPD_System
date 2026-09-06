@@ -58,7 +58,8 @@ function pt_lab_report($report, $result, $item) {
     // 第二行 患者ID 申请科室 临床诊断 报告单号）
     $html .= '<div class="lr-patgrid">' .
         $li('姓名', $pname) . $li('性别', $pgender) . $li('年龄', $page) . $li('出生日期', $pbirth) .
-        $li('患者ID', $report['patient_no']) . $li('申请科室', $applyDept) . $li('临床诊断', $diag) . $li('报告单号', $report['report_no']) .
+        $li('患者ID', $report['patient_no']) . $li('申请科室', $applyDept) . $li('临床诊断', $diag) .
+        '<span class="lr-pcell lr-pcell-no"><b>报告单号：</b><span class="lr-reportno">' . e($report['report_no']) . '</span></span>' .
         '</div>';
 
     // ===== 结果区：表格头两条实线 + 无边框行（前端分列分页） =====

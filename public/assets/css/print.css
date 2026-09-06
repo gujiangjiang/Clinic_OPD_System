@@ -780,7 +780,7 @@
 /* 患者信息：隐形 2×4 表格（两行 8 字段，靠左对齐；长值自动换行不溢出） */
 .lr-patgrid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0 6mm;
     margin-bottom: 4mm;
     font-size: 12px;
@@ -791,8 +791,12 @@
     white-space: normal;
     overflow-wrap: break-word;
     word-break: break-all;
+    min-width: 0;
 }
 .lr-patgrid .lr-pcell b { font-weight: 600; }
+/* 报告单号：单行显示，超出时由 JS 自动缩放字号（始终一行内） */
+.lr-patgrid .lr-pcell-no { white-space: nowrap; }
+.lr-patgrid .lr-reportno { display: inline-block; white-space: nowrap; vertical-align: baseline; font-size: 12px; }
 /* 结果区：表格头两条实线（无背景灰、无行边框），结果行纯文本 */
 .lr-result {
     flex: 1;
