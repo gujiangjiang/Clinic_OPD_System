@@ -68,8 +68,10 @@ function deptwork_type_where($cfg, $alias) {
 function deptwork_queue($u) {
     $role = $u['role'];
     $cfg = deptwork_role_cfg($role);
-    $tab = get('tab', 'doing');
-    if (!isset($cfg['tabs'][$tab])) $tab = 'doing';
+    // 双筛选：status（待处置/待发药/检查中等 状态页签，互斥单选）+ today（当日叠加可选）
+    $status = get('status', 'doing');
+    if (!in_array($status, array('doing', 'done'), true)) $status = 'doing';
+    $today = (int)get('today', 0) === 1 ? 1 : 0;
     list($typeWhere, $typeParams) = deptwork_type_where($cfg, 'oi');
 
     $deptIds = user_dept_ids($u);
@@ -78,29 +80,28 @@ function deptwork_queue($u) {
         $deptWhere = ' AND r.current_dept_id IN (' . in_placeholders($deptIds) . ')';
     }
 
-    // 页签状态过滤（状态码为白名单常量，无注入风险）
-    switch ($tab) {
+    // 状态页签过滤（状态码为白名单常量，无注入风险）
+    switch ($status) {
         case 'doing':
             // 检验/影像「检查中」= 待登记(paid) + 待出报告(registered) 全流程在办项目；
             // 药房「待发药」= 已缴费待审方；护士「待处置」= 处置/医嘱在办
-            $tabWhere = ($role === 'pharmacy')
+            $statusWhere = ($role === 'pharmacy')
                 ? " AND oi.status='paid'"
                 : (($role === 'nurse')
                     ? " AND oi.status IN ('paid','dispensing')"
                     : " AND oi.status IN ('paid','registered')");
             break;
-        case 'done':
-            $tabWhere = ($role === 'pharmacy')
+        default: // done
+            $statusWhere = ($role === 'pharmacy')
                 ? " AND oi.status IN ('dispensed','dispensing')"
                 : " AND oi.status='done'";
             break;
-        default: // today
-            $tabWhere = " AND date(oi.created_at)=? AND oi.status<>'rejected'";
-            break;
     }
+    // 「当日」叠加筛选
+    $todayWhere = $today ? " AND date(oi.created_at)=?" : '';
 
-    // 候诊可见天数与医生候诊一致（user_queue_days 2-7，默认 3）
-    $since = date('Y-m-d', strtotime('-' . (user_queue_days($u) - 1) . ' days'));
+    // 可见天数跟随开单医生权限（users.queue_days 2-7，默认 3）：
+    // 每条明细按其开单医生的可见天数过滤；多医生开单以各自天数并集（取最长窗口）。
     $sql = "SELECT r.id AS visit_id, r.current_dept_name, r.current_dept_id, r.visit_seq, r.flow_no,
                 r.status AS visit_status, r.registered_at, r.first_dept_name,
                 p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth,
@@ -111,19 +112,25 @@ function deptwork_queue($u) {
                 SUM(CASE WHEN oi.status='done' THEN 1 ELSE 0 END) AS st_done,
                 MIN(oi.created_at) AS min_created, MAX(oi.executed_at) AS max_executed
             FROM order_items oi
+            LEFT JOIN users usr ON usr.id=oi.doctor_id
             JOIN registrations r ON r.id=oi.visit_id
             JOIN patients p ON p.patient_no=oi.patient_no
-            WHERE $typeWhere AND date(oi.created_at)>=?$deptWhere$tabWhere
+            WHERE $typeWhere
+              AND date(oi.created_at) >= date('now','localtime','-' || (MAX(2, MIN(7, COALESCE(usr.queue_days,3))) - 1) || ' days')
+              $deptWhere$statusWhere$todayWhere
             GROUP BY oi.visit_id";
-    switch ($tab) {
-        case 'doing': $sql .= ' ORDER BY min_created ASC'; break;
-        case 'done':  $sql .= ' ORDER BY max_executed DESC'; break;
-        default:      $sql .= ' ORDER BY r.registered_at DESC'; break;
+    // 排序：当日按挂号时间倒序；待处置/待发药按最早开单在前；完成按最近执行时间倒序
+    if ($today) {
+        $sql .= ' ORDER BY r.registered_at DESC';
+    } elseif ($status === 'doing') {
+        $sql .= ' ORDER BY min_created ASC';
+    } else {
+        $sql .= ' ORDER BY max_executed DESC';
     }
     $sql .= ' LIMIT 300';
 
-    $params = array_merge($typeParams, array($since), $deptIds);
-    if ($tab === 'today') $params[] = today_str();
+    $params = array_merge($typeParams, $deptIds);
+    if ($today) $params[] = today_str();
     $rows = OrderRepository::q($sql, $params);
 
     $list = array();
@@ -147,12 +154,14 @@ function deptwork_queue($u) {
             'st_done' => (int)$r['st_done'],
         );
     }
+    $pref = isset($_SESSION['deptwork_tab'][$role]) ? $_SESSION['deptwork_tab'][$role] : array();
     json_ok(array(
         'role' => $role,
         'tabs' => $cfg['tabs'],
         'list' => $list,
         'pref' => array(
-            'tab' => isset($_SESSION['deptwork_tab'][$role]) ? $_SESSION['deptwork_tab'][$role] : 'doing',
+            'status' => isset($pref['status']) && in_array($pref['status'], array('doing', 'done'), true) ? $pref['status'] : 'doing',
+            'today' => !empty($pref['today']) ? 1 : 0,
         ),
     ));
 }
@@ -161,10 +170,11 @@ function deptwork_queue($u) {
 function deptwork_queue_pref($u) {
     $role = $u['role'];
     $cfg = deptwork_role_cfg($role);
-    $tab = get('tab', 'doing');
-    if (!isset($cfg['tabs'][$tab])) $tab = 'doing';
-    $_SESSION['deptwork_tab'][$role] = $tab;
-    json_ok(array('tab' => $tab));
+    $status = get('status', 'doing');
+    if (!in_array($status, array('doing', 'done'), true)) $status = 'doing';
+    $today = (int)get('today', 0) === 1 ? 1 : 0;
+    $_SESSION['deptwork_tab'][$role] = array('status' => $status, 'today' => $today);
+    json_ok(array('status' => $status, 'today' => $today));
 }
 
 /** 病历摘要（主诉/现病史/既往史/过敏史/查体/初步诊断）——多文书聚合取首个非空 */
