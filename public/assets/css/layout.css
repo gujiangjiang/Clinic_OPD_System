@@ -811,6 +811,17 @@
 .dw-lab-item-hint { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 .dw-lab-crit { color: var(--danger); font-size: 12px; margin-top: 4px; }
 .dw-lab-value { font-size: 14px; font-weight: 600; margin-top: 6px; }
+/* 检验申请单区块（按申请单号组合展示） */
+.dw-lab-order { padding: 0; overflow: hidden; }
+.dw-lab-order-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    padding: 10px 18px;
+    font-size: 13px;
+}
+.dw-lab-order-head .badge { margin-left: auto; }
 /* 处方单（打印样式，只读） */
 .dw-rx-card { padding: 24px 28px; }
 .dw-rx-hosp { text-align: center; font-size: 19px; font-weight: 700; letter-spacing: 3px; }

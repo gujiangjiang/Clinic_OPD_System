@@ -74,14 +74,25 @@ $labGroups = array(
     )),
 );
 foreach ($labGroups as $G) {
-    if (DB::one('SELECT id FROM lab_items WHERE name=? AND is_group=1', array($G[1]))) continue;
-    $gid = (int)DB::insert('INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,1,0)', array(
-        $G[0], $G[1], '项', $G[2], '', '', '', '', 'approved', now_str(),
-    ));
-    foreach ($G[3] as $C) {
-        DB::insert('INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,? ,0,?)', array(
-            $G[0], $C[0], $C[1], $C[2], $C[3], '', '', '', 'approved', now_str(), $gid,
+    // 组已存在则复用其 id，否则新建（幂等：重复运行不重建）
+    $gid = (int)DB::val('SELECT id FROM lab_items WHERE name=? AND is_group=1', array($G[1]));
+    if (!$gid) {
+        $gid = (int)DB::insert('INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,1,0)', array(
+            $G[0], $G[1], '项', $G[2], '', '', '', '', 'approved', now_str(),
         ));
+    }
+    foreach ($G[3] as $C) {
+        // 成员已归属本组则跳过
+        if (DB::one('SELECT id FROM lab_items WHERE name=? AND parent_id=?', array($C[0], $gid))) continue;
+        // 优先把游离独立项目（同名、未归属任何组）链接为本组成员，避免孤儿数据
+        $orphan = DB::one('SELECT id FROM lab_items WHERE name=? AND is_group=0 AND parent_id=0', array($C[0]));
+        if ($orphan) {
+            DB::exec('UPDATE lab_items SET parent_id=? WHERE id=?', array($gid, (int)$orphan['id']));
+        } else {
+            DB::insert('INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,?,0,?)', array(
+                $G[0], $C[0], $C[1], $C[2], $C[3], '', '', '', 'approved', now_str(), $gid,
+            ));
+        }
     }
 }
 $labDefs = array(
