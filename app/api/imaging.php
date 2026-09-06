@@ -147,6 +147,18 @@ switch ($action) {
                 $mirrorD = OrderRepository::one("SELECT preliminary_diagnosis FROM records WHERE visit_id=? AND preliminary_diagnosis IS NOT NULL AND preliminary_diagnosis!='' ORDER BY id ASC LIMIT 1", array((int)$it['visit_id']));
                 if ($mirrorD) $diag = (string)$mirrorD['preliminary_diagnosis'];
             }
+            // 检查分类快照（标题前缀）：申请单 category_name，空则回退检查项目分类
+            $catName = '';
+            if ($snapOrder && !empty($snapOrder['category_name'])) {
+                $catName = trim((string)$snapOrder['category_name']);
+            }
+            if ($catName === '' && (int)$it['item_id'] > 0) {
+                $catItem = OrderRepository::one('SELECT category FROM exam_items WHERE id=?', array((int)$it['item_id']));
+                if ($catItem) {
+                    $c2 = trim((string)$catItem['category']);
+                    if ($c2 !== '' && $c2 !== '检查') $catName = $c2;
+                }
+            }
             $reportId = insert_report(array(
                 'result_id' => $resultId, 'report_no' => $reportNo,
                 'visit_id' => $it['visit_id'], 'patient_no' => $it['patient_no'], 'flow_no' => $it['flow_no'],
@@ -156,6 +168,7 @@ switch ($action) {
                 'clinical_diag' => $diag,
                 'apply_time' => $snapOrder ? (string)$snapOrder['created_at'] : '',
                 'reg_time' => (string)$it['registered_at'],
+                'category_name' => $catName,
             ));
             OrderRepository::exec("UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
             $pdo->commit();

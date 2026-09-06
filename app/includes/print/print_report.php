@@ -131,7 +131,14 @@ function pt_imaging_report($report, $result, $item) {
     $orderItem = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array((int)$result['order_item_id']));
     $order = $orderItem ? OrderRepository::one('SELECT * FROM orders WHERE id=?', array((int)$orderItem['order_id'])) : null;
     // 报告单名称动态化：按检查分类（CT/DR/超声…）显示「XX检查报告单」
-    $catName = $order && !empty($order['category_name']) ? trim((string)$order['category_name']) : '';
+    // 快照 category_name 优先，其次申请单/检查项目分类回退
+    $catName = trim((string)(isset($report['category_name']) ? $report['category_name'] : ''));
+    if ($catName === '' && $order && !empty($order['category_name'])) {
+        $catName = trim((string)$order['category_name']);
+    }
+    if ($catName === '' && $item && !empty($item['category']) && trim((string)$item['category']) !== '检查') {
+        $catName = trim((string)$item['category']);
+    }
     $title = $catName !== '' ? $catName . '检查报告单' : '检查报告单';
     $html .= pt_header($title);
     if (($applyDept === '' || $applyDoctor === '' || $applyTime === '') && $order) {

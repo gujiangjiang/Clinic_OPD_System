@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 21,
+    'version' => 22,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -555,6 +555,7 @@ return array(
             withdraw_reason TEXT,
             withdraw_by TEXT,
             withdraw_at TEXT,
+            category_name TEXT,
             created_at TEXT
         )",
 
@@ -791,6 +792,10 @@ return array(
             "ALTER TABLE reports ADD COLUMN clinical_diag TEXT",
             "ALTER TABLE reports ADD COLUMN apply_time TEXT",
             "ALTER TABLE reports ADD COLUMN reg_time TEXT",
+        ),
+        // v22：报告检查分类快照（CT/DR/超声…）——检查报告单标题动态前缀
+        22 => array(
+            "ALTER TABLE reports ADD COLUMN category_name TEXT",
         ),
     ),
     'seed' => array(
