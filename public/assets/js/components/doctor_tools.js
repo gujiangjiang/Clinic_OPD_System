@@ -161,8 +161,16 @@ Clinic.docTools = (function () {
                 Clinic.toast.success(json.msg || '科室已切换');
                 renderDeptTitle();
                 loadRoomList();
-                // 切换科室后进入医生工作站（新）：工作台自动读取已选科室并弹出候诊队列
-                setTimeout(function () { Clinic.nav.go('/doctor/emr'); }, 600);
+                // 切换科室后自动弹出新科室候诊队列（无需等待整页/局部跳转）
+                if (window.Clinic && Clinic.queuePanel && Clinic.queuePanel.setDept) {
+                    Clinic.queuePanel.setDept(CUR_DEPT);
+                    Clinic.queuePanel.open();
+                }
+                // 当前正查看患者（病历页）→ 回到新科室工作台（空态 + 候诊列表）；
+                // 已在工作台空态则上方已直接刷新候诊队列，无需跳转（避免 nav 同 URL 去重不生效）
+                if (document.getElementById('visitId')) {
+                    Clinic.nav.load('/doctor/emr');
+                }
             },
         });
     }
