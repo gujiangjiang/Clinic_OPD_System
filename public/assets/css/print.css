@@ -846,5 +846,5 @@
 .lr-footgrid .lr-fcell { text-align: left; line-height: 1.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lr-footgrid .lr-fcell b { font-weight: 600; }
 .lr-footgrid .lr-fright { text-align: right; }
-.lr-footgrid .lr-fspan { grid-column: 1 / span 3; text-align: left; font-size: 10.5px; color: #333; }
+.lr-footgrid .lr-fspan { grid-column: 1 / span 2; text-align: left; font-size: 10.5px; color: #333; }
 .lr-footgrid .lr-audit { display: inline-block; min-width: 30mm; border-bottom: 1px solid #111; }
