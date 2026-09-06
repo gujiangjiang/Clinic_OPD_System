@@ -97,12 +97,12 @@ function pt_lab_report($report, $result, $item) {
         '<div class="lr-solid"></div>' .
         '<div class="lr-footgrid">' .
         $fc('申请时间：', $applyTimeD) . $fc('检验时间：', $regTimeD) .
-        '<span class="lr-fcell lr-fright"><b>报告时间：</b>' . e($repTime) . '</span>' .
+        $fc('报告时间：', $repTime) .
         $fc('申请医生：', $applyDoctor) .
         $fc('检验者：', $report['doctor']) .
         '<span class="lr-fcell"><b>审核者：</b><span class="lr-audit"></span></span>' .
         '<span class="lr-fcell lr-fspan">检验结果仅供临床诊疗参考，仅对送检标本负责！</span>' .
-        '<span class="lr-fcell">第 <span class="lr-page">1</span> / <span class="lr-total">1</span> 页</span>' .
+        '<span class="lr-fcell lr-fright">第 <span class="lr-page">1</span> / <span class="lr-total">1</span> 页</span>' .
         '</div>' .
         '</div>';
 

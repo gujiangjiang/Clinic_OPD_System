@@ -777,7 +777,7 @@
     margin-left: 10px;
     white-space: nowrap;
 }
-/* 患者信息：隐形 2×4 表格（两行 8 字段，靠左对齐） */
+/* 患者信息：隐形 2×4 表格（两行 8 字段，靠左对齐；长值自动换行不溢出） */
 .lr-patgrid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -788,9 +788,9 @@
 .lr-patgrid .lr-pcell {
     text-align: left;
     line-height: 1.9;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-all;
 }
 .lr-patgrid .lr-pcell b { font-weight: 600; }
 /* 结果区：表格头两条实线（无背景灰、无行边框），结果行纯文本 */
