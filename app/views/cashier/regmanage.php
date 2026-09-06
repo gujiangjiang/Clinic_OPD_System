@@ -80,12 +80,18 @@ function payVisit(visitId) {
 function cancelVisit(visitId, status) {
     var tip = status === 'paid' ? '确定为该挂号退费？退费后该患者可在同一首次科室重新挂号。' : '确定取消该挂号？';
     Clinic.modal.confirm(tip, function () {
-        var reason = prompt('请填写' + (status === 'paid' ? '退费' : '取消') + '原因（可留空）：', '');
-        if (reason === null) return;
-        Clinic.ajax('/api/cashier', { action: 'cancel_visit', visit_id: visitId, reason: reason }, {
-            onSuccess: function (json) {
-                Clinic.toast.success(json.msg);
-                loadList();
+        Clinic.modal.prompt({
+            title: status === 'paid' ? '退费原因' : '取消原因',
+            label: '请填写' + (status === 'paid' ? '退费' : '取消') + '原因（可留空）',
+            placeholder: status === 'paid' ? '如：患者自愿退号' : '如：患者信息有误，需重新挂号',
+            required: false,
+            onOk: function (reason) {
+                Clinic.ajax('/api/cashier', { action: 'cancel_visit', visit_id: visitId, reason: reason }, {
+                    onSuccess: function (json) {
+                        Clinic.toast.success(json.msg);
+                        loadList();
+                    },
+                });
             },
         });
     }, { title: status === 'paid' ? '退费确认' : '取消确认' });
