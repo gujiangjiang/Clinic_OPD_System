@@ -198,6 +198,7 @@ function deptwork_orders($visitId) {
                 'item_type' => $it['item_type'],
                 'status' => $it['status'],
                 'quantity' => (int)$it['quantity'],
+                'price' => (float)$it['price'],
                 'single_dose' => $it['single_dose'],
                 'frequency' => $it['frequency'],
                 'route' => $it['route'],
@@ -262,6 +263,8 @@ function deptwork_orders($visitId) {
             'created_at' => $o['created_at'],
             'total_amount' => (float)$o['total_amount'],
             'status' => $o['status'],
+            'done_by' => isset($o['done_by']) ? $o['done_by'] : '',
+            'dispensed_at' => isset($o['dispensed_at']) ? $o['dispensed_at'] : '',
             'items' => $items,
         );
     }
