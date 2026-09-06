@@ -722,6 +722,15 @@ Clinic.deptwork = (function () {
         toggleCallPop: function () {
             if (callPopEl()) closeCallPop(); else openCallPop();
         },
+        /** 侧边栏申请单号「+」展开/收起该单号下的项目列表 */
+        toggleSideOrder: function (orderId) {
+            var btn = document.getElementById('sidePlus_' + orderId);
+            var sub = document.getElementById('sideSub_' + orderId);
+            if (!sub) return;
+            var open = sub.style.display !== 'none';
+            sub.style.display = open ? 'none' : 'block';
+            if (btn) btn.textContent = open ? '+' : '−';
+        },
         openPatientSearch: openPatientSearch,
         closePatient: closePatient,
         /** 拉取当前患者最新聚合数据（局部刷新用，不重建整页） */

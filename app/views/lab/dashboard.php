@@ -63,11 +63,22 @@ function renderLabWork(data) {
     orders.forEach(function (o) { items = items.concat(o.items); });
     window.__labItems = items;
 
-    // 右栏大纲：按申请单分组（点击滚动定位对应申请单区块）
+    // 右栏大纲：按申请单分组（申请单号可点「+」展开该单全部检验项目）
     var sideItems = orders.map(function (o) {
         var pending = o.items.some(function (it) { return it.status === 'paid' || it.status === 'registered'; });
-        return '<div class="dw-side-item" onclick="scrollToLab(\'' + esc(o.order_id) + '\')"><span class="dot ' + (pending ? 'pending' : 'ok') + '"></span>' +
-            esc(o.order_no) + '（' + o.items.length + ' 项）</div>';
+        var subs = o.items.map(function (it) {
+            var dot = it.status === 'done' ? 'ok' : (it.status === 'registered' ? 'pending' : 'done');
+            return '<div class="dw-side-item dw-side-subitem"><span class="dot ' + dot + '"></span>' + esc(it.item_name) + '</div>';
+        }).join('');
+        return '<div class="dw-side-order">' +
+            '<div class="dw-side-item" onclick="scrollToLab(\'' + esc(o.order_id) + '\')">' +
+            '<span class="dw-side-plus" id="sidePlus_' + esc(o.order_id) + '" title="展开该单检验项目" ' +
+            'onclick="event.stopPropagation();Clinic.deptwork.toggleSideOrder(\'' + esc(o.order_id) + '\')">+</span>' +
+            '<span class="dot ' + (pending ? 'pending' : 'ok') + '"></span>' +
+            '<span class="dw-side-oname">' + esc(o.order_no) + '（' + o.items.length + ' 项）</span>' +
+            '</div>' +
+            '<div class="dw-side-sub" id="sideSub_' + esc(o.order_id) + '" style="display:none">' + subs + '</div>' +
+            '</div>';
     }).join('');
     document.getElementById('dwSide').innerHTML =
         '<div class="dw-side-sec"><div class="dw-side-title">🧪 检验申请单（' + orders.length + ' 张）</div>' +
