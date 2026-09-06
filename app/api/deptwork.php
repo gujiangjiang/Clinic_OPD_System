@@ -277,6 +277,9 @@ function deptwork_patient($u) {
     $patient = $row['patient'];
     if (!dept_visit_allowed($visit, $u)) json_fail('无权限查看该患者');
 
+    // 就诊科室类型（门诊/急诊）：横条徽章展示
+    $dept = EmrRepository::one('SELECT type FROM departments WHERE id=?', array((int)$visit['current_dept_id']));
+
     $vitals = EmrRepository::vitalsByVisit($visitId);
     $nursing = EmrRepository::nursingByVisit($visitId);
     json_ok(array(
@@ -293,7 +296,7 @@ function deptwork_patient($u) {
             'name' => $patient['name'],
             'gender' => $patient['gender'],
             'age_fmt' => age_format($patient['birth_date'], $visit['registered_at']),
-            'dept_type' => isset($visit['dept_type']) ? $visit['dept_type'] : 'clinic',
+            'dept_type' => $dept ? $dept['type'] : 'clinic',
             'dept_name' => $visit['current_dept_name'],
             'first_dept_name' => $visit['first_dept_name'],
             'visit_no' => $visit['flow_no'],

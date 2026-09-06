@@ -725,6 +725,62 @@
 .dw-qp-row .qp-c-seq, .dw-qp-row .qp-c-time { font-variant-numeric: tabular-nums; }
 
 /* ============================================================
+   科室工作台患者工作区（影像报告单 / 检验列表 / 处方单 / 护理记录页）
+   ============================================================ */
+/* 影像/检验报告单：所见即所得纸张样式 */
+.dw-report-card { padding: 0; overflow: hidden; }
+.dw-report-head { text-align: center; padding: 20px 24px 8px; }
+.dw-report-hosp { font-size: 20px; font-weight: 700; letter-spacing: 3px; }
+.dw-report-title { font-size: 16px; font-weight: 700; color: var(--text-muted); margin-top: 6px; border-bottom: 2px solid var(--border); padding-bottom: 12px; }
+.dw-report-meta { display: flex; flex-wrap: wrap; gap: 6px 20px; padding: 14px 24px 6px; font-size: 13px; }
+.dw-report-meta b { font-weight: 600; }
+.dw-report-item { padding: 14px 24px; border-top: 1px dashed var(--border); }
+.dw-report-item-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.dw-report-item-status { margin-left: 8px; font-size: 12px; font-weight: 400; }
+.dw-report-sec-label { font-size: 13px; font-weight: 700; margin: 12px 0 6px; color: var(--text); }
+.dw-report-sec-text { font-size: 13.5px; line-height: 1.9; white-space: pre-wrap; color: var(--text); min-height: 18px; padding: 8px 10px; background: var(--bg-soft); border-radius: 6px; }
+.dw-report-sec-text.empty { color: var(--text-muted); background: transparent; padding: 2px; }
+.dw-report-foot { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text-muted); margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border); }
+.dw-report-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.dw-report-actions .btn { white-space: nowrap; }
+/* 检验列表卡片 */
+.dw-lab-item { border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px; }
+.dw-lab-item-name { font-weight: 700; font-size: 14px; }
+.dw-lab-item-hint { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.dw-lab-crit { color: var(--danger); font-size: 12px; margin-top: 4px; }
+.dw-lab-value { font-size: 14px; font-weight: 600; margin-top: 6px; }
+/* 处方单（打印样式，只读） */
+.dw-rx-card { padding: 24px 28px; }
+.dw-rx-hosp { text-align: center; font-size: 19px; font-weight: 700; letter-spacing: 3px; }
+.dw-rx-title { text-align: center; font-size: 15px; font-weight: 700; color: var(--text-muted); border-bottom: 2px solid var(--border); padding: 8px 0 12px; margin: 4px 0 14px; }
+.dw-rx-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 24px; font-size: 13px; margin-bottom: 12px; }
+.dw-rx-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.dw-rx-table th, .dw-rx-table td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; }
+.dw-rx-table th { background: var(--bg-soft); font-weight: 700; }
+.dw-rx-sign { display: flex; justify-content: space-between; margin-top: 28px; font-size: 13px; color: var(--text-muted); }
+/* 护理记录页 */
+.dw-nurse-sec { border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin-bottom: 12px; background: var(--bg-card); }
+.dw-nurse-sec-title { font-weight: 700; font-size: 14px; margin-bottom: 10px; }
+.dw-nurse-sec-title .emoji { margin-right: 6px; }
+.dw-nurse-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 20px; }
+.dw-nurse-grid .item { font-size: 13px; }
+.dw-nurse-grid .item .label { color: var(--text-muted); font-size: 12px; margin-right: 6px; }
+.dw-nurse-grid .item .value { font-weight: 600; }
+/* 生命体征趋势行 */
+.dw-vital-row { display: flex; align-items: center; gap: 12px; padding: 4px 0; }
+.dw-vital-label { width: 52px; font-size: 12.5px; color: var(--text-muted); flex-shrink: 0; }
+.dw-vital-val { font-size: 13px; font-weight: 600; flex-shrink: 0; min-width: 40px; text-align: right; }
+/* 右栏大纲：患者开单分组导航 */
+.dw-side-sec { margin-bottom: 10px; }
+.dw-side-title { font-size: 13px; font-weight: 700; padding: 6px 6px; border-radius: 6px; }
+.dw-side-item { font-size: 12.5px; color: var(--text-muted); padding: 5px 6px 5px 14px; cursor: pointer; border-radius: 6px; display: flex; align-items: center; gap: 6px; }
+.dw-side-item:hover { background: var(--primary-soft); color: var(--primary); }
+.dw-side-item .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dw-side-item .dot.ok { background: var(--success, #16a34a); }
+.dw-side-item .dot.pending { background: var(--warning, #f59e0b); }
+.dw-side-item .dot.done { background: var(--text-muted); }
+
+/* ============================================================
    病历续写占位（场景 C：已有他人病历但本人尚无文书）
    ============================================================ */
 .ro-placeholder {
