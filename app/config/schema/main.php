@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 18,
+    'version' => 19,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -449,6 +449,8 @@ return array(
             content TEXT,
             doctor_id INTEGER,
             doctor_name TEXT,
+            dept_id INTEGER DEFAULT 0,
+            dept_name TEXT,
             created_at TEXT,
             updated_at TEXT
         )",
@@ -770,6 +772,12 @@ return array(
         18 => array(
             "ALTER TABLE clinic_rooms ADD COLUMN allow_cross_day TINYINT DEFAULT 0",
             "ALTER TABLE clinic_rooms ADD COLUMN call_session_date TEXT DEFAULT ''",
+        ),
+        // v19：知情同意书固定开具科室（dept_id/dept_name）——就诊科室随创建时
+        // 固化，转科/会诊后打印与展示仍显示开具时的科室
+        19 => array(
+            "ALTER TABLE consents ADD COLUMN dept_id INTEGER DEFAULT 0",
+            "ALTER TABLE consents ADD COLUMN dept_name TEXT",
         ),
     ),
     'seed' => array(

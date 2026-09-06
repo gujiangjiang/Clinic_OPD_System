@@ -30,7 +30,8 @@ function pt_consent($visit, $patient, $consent, $doctorName, $record) {
         pt_info_cell('出生日期', isset($patient['birth_date']) ? $patient['birth_date'] : '') .
         pt_info_cell('年龄', $age) . '</div>' .
         '<div class="print-info-line">' .
-        pt_info_cell('就诊科室', isset($visit['current_dept_name']) ? $visit['current_dept_name'] : '') .
+        // 就诊科室：优先取知情同意书开具时固化科室（dept_name），旧数据回退当前就诊科室
+        pt_info_cell('就诊科室', !empty($consent['dept_name']) ? $consent['dept_name'] : (isset($visit['current_dept_name']) ? $visit['current_dept_name'] : '')) .
         pt_info_cell('患者ID', isset($patient['patient_no']) ? $patient['patient_no'] : '') .
         pt_info_cell('就诊时间', isset($visit['registered_at']) ? $visit['registered_at'] : '') .
         '</div></div>';

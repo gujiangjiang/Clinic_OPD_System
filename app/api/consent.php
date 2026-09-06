@@ -62,8 +62,11 @@ switch ($action) {
                 }
             }
             if ($title === '') json_fail('请从有效的知情同意书模板创建');
-            $id = EmrRepository::insert('INSERT INTO consents(visit_id, patient_no, flow_no, title, content, doctor_id, doctor_name, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
-                $visitId, $patient['patient_no'], $visit['flow_no'], $title, $content, $u['id'], $u['name'], $now, $now,
+            // 开具科室固化：就诊当前科室（创建时确定，转科/会诊后不再变化）
+            $deptId = (int)$visit['current_dept_id'];
+            $deptName = (string)$visit['current_dept_name'];
+            $id = EmrRepository::insert('INSERT INTO consents(visit_id, patient_no, flow_no, title, content, doctor_id, doctor_name, dept_id, dept_name, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
+                $visitId, $patient['patient_no'], $visit['flow_no'], $title, $content, $u['id'], $u['name'], $deptId, $deptName, $now, $now,
             ));
         }
         json_ok(array('id' => $id), '知情同意书已保存');
@@ -84,6 +87,7 @@ switch ($action) {
                 'title' => (string)$r['title'],
                 'doctor_id' => (int)$r['doctor_id'],
                 'doctor_name' => (string)$r['doctor_name'],
+                'dept_name' => (string)(isset($r['dept_name']) ? $r['dept_name'] : ''),
                 'created_at' => (string)$r['created_at'],
             );
         }
@@ -105,6 +109,7 @@ switch ($action) {
                 'content' => (string)$r['content'],
                 'doctor_id' => (int)$r['doctor_id'],
                 'doctor_name' => (string)$r['doctor_name'],
+                'dept_name' => (string)(isset($r['dept_name']) ? $r['dept_name'] : ''),
                 'created_at' => (string)$r['created_at'],
                 'updated_at' => (string)$r['updated_at'],
             ),

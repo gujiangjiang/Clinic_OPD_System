@@ -50,9 +50,14 @@ Clinic.emr.consent = (function () {
         _consentId = consentId || 0;
         _templateId = templateId || 0;
         _docId = data && data.doctor_id ? parseInt(data.doctor_id, 10) || 0 : 0;
+        // 就诊科室：新建显示当前就诊科室（保存时服务端固化）；查看显示开具时固化科室
+        var deptName = data && data.dept_name ? data.dept_name
+            : ((Clinic.emr._ctx && Clinic.emr._ctx.DATA && Clinic.emr._ctx.DATA.visit && Clinic.emr._ctx.DATA.visit.dept_name) || '');
         var html =
             '<div class="form-group"><label class="form-label">知情同意书名称 <span class="req">*</span></label>' +
             '<input class="input" id="ctName" value="' + escHtml(name) + '" readonly placeholder="由模板确定，不可更改"></div>' +
+            '<div class="form-group"><label class="form-label">就诊科室 <span class="fs-12 text-muted fw-400">（开具时固化，不随转科/会诊变化）</span></label>' +
+            '<input class="input" id="ctDept" value="' + escHtml(deptName) + '" readonly></div>' +
             '<div class="form-group"><label class="form-label">知情同意内容 <span class="req">*</span></label>' +
             '<textarea class="textarea" id="ctContent" rows="14" style="min-height:360px" placeholder="请输入知情同意内容…">' + escHtml(content) + '</textarea></div>' +
             '<div class="fs-12 text-muted">开具医生将自动记录（打印时显示）。</div>';
@@ -199,7 +204,7 @@ Clinic.emr.consent = (function () {
                 if (!c) return;
                 // title 形如「手术知情同意书」→ 反推名称「手术」
                 var name = c.title.replace(/知情同意书$/, '');
-                openEditor({ name: name, content: c.content, doctor_id: c.doctor_id }, c.id, 0);
+                openEditor({ name: name, content: c.content, doctor_id: c.doctor_id, dept_name: c.dept_name }, c.id, 0);
             },
         });
     }
