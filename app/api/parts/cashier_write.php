@@ -264,8 +264,11 @@ function cashier_part_write($action) {
         $pdo = DatabaseManager::getMain();
         $pdo->beginTransaction();
         try {
+            // 订单状态迁移：未审批退费仅允许 paid；审批通过后（allowExecuted）允许已发药
+            // （dispensed）订单退费——修复「已发药处方退费死锁」：审批流放行而执行被状态硬拦
+            $orderWhere = $allowExecuted ? "status IN ('paid','dispensed')" : "status='paid'";
             $affectedOrder = CashierRepository::exec(
-                "UPDATE orders SET status='refunded', refunded_at=? WHERE id=? AND status='paid'",
+                "UPDATE orders SET status='refunded', refunded_at=? WHERE id=? AND $orderWhere",
                 array(now_str(), $orderId)
             );
             if ($affectedOrder === 0) {
@@ -293,11 +296,13 @@ function cashier_part_write($action) {
                 'total' => (float)$order['total_amount'], 'reason' => $reason, 'cashier_id' => $u['id'], 'cashier_name' => $u['name'],
                 'payment_no' => $paymentNo, 'method' => $method,
             ));
-            // 药品退费：恢复库存（幂等——仅对 prescription 且曾 paid/在途的明细）
-            // 覆盖全部药品明细（主药 + 子药）：开单时主/子药均扣减库存，恢复须口径一致
+            // 药品退费：恢复库存（幂等——仅对 prescription 且曾生效扣库存的明细）
+            // 覆盖全部药品明细（主药 + 子药）：开单时主/子药均扣减库存，恢复须口径一致。
+            // 口径：paid（未发药）/ dispensing（护士站执行中）/ dispensed（已发药，药房同意
+            // 退药）均可退，恢复库存；rejected/cancelled 已在审方拒绝/删除时恢复过，不再重复。
             if ($order['order_type'] === 'prescription') {
                 foreach ($items as $it) {
-                    if ($it['item_id'] > 0 && in_array($it['status'], array('paid', 'dispensing'), true)) {
+                    if ($it['item_id'] > 0 && in_array($it['status'], array('paid', 'dispensing', 'dispensed'), true)) {
                         CashierRepository::restoreDrugStock($it['item_id'], (int)$it['quantity']);
                         CashierRepository::createInventoryTrans((int)$it['item_id'], (int)$it['quantity'], 'refund', $order['order_no'], $u['name']);
                     }
