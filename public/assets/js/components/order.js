@@ -61,6 +61,8 @@ Clinic.order = (function () {
     var VISIT_ID = 0;
     /** 当前开单类型 */
     var CUR_TYPE = 'lab';
+    /** 提交防重入锁：请求发出至返回期间阻止重复提交（弹窗按钮 autoClose:false 双击会重复建单） */
+    var SUBMITTING = false;
     /** 检验筛选：single=单个 / group=组合 */
     var LAB_FILTER = 'single';
     /** 子医嘱面板外部点击监听是否已注册 */
@@ -1039,6 +1041,7 @@ Clinic.order = (function () {
      * 提交开单
      */
     function submit() {
+        if (SUBMITTING) return;
         if (!SELECTED.length) {
             Clinic.toast.warning('请至少选择一个项目');
             return;
@@ -1077,6 +1080,7 @@ Clinic.order = (function () {
             });
         });
 
+        SUBMITTING = true;
         Clinic.ajax('/api/order', {
             action: 'submit',
             visit_id: VISIT_ID,
@@ -1092,6 +1096,7 @@ Clinic.order = (function () {
         }, {
             loading: true,
             onSuccess: function (j) {
+                SUBMITTING = false;
                 var msg = j.msg || '开单成功';
                 Clinic.toast.success(msg + '，总费用 ¥' + parseFloat(j.data.total).toFixed(2));
                 Clinic.modal.close();
@@ -1101,6 +1106,7 @@ Clinic.order = (function () {
                 Clinic.print.load('/api/print?action=order&' + q, null, 'a5');
                 Clinic.emr.loadOrders(VISIT_ID);
             },
+            onError: function () { SUBMITTING = false; },
         });
     }
 
@@ -1111,7 +1117,7 @@ Clinic.order = (function () {
         var s = SELECTED[i];
         if (s.sub_items && s.sub_items.length) {
             Clinic.modal.confirm(
-                '删除主药【' + s.name + '】将同时移除所有关联子医嘱（' + s.sub_items.length + '项），是否确认？',
+                '删除主药【' + Clinic.escHtml(s.name || '') + '】将同时移除所有关联子医嘱（' + s.sub_items.length + '项），是否确认？',
                 function () { doRemove(i); },
                 { title: '确认删除成组医嘱', okText: '确认删除' }
             );

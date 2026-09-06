@@ -292,22 +292,39 @@ Clinic.docTools = (function () {
             box.innerHTML = '<div class="fs-13 text-muted text-center" style="padding:16px">该科室暂无大屏配置，请联系管理员在【叫号管理】中新建</div>';
             return;
         }
+        // 数据驱动渲染：不再内联 onclick（规避诊室名注入），改 data 属性 + 事件委托
+        bindRoomListClick(box);
         var rows = list.map(function (r) {
             var icon = r.status === 'available' ? '🟢' : (r.status === 'bound' ? '🔵' : (r.status === 'occupied' ? '🟡' : '🔴'));
             var disabled = !r.selectable;
-            var action = '';
-            if (r.status === 'bound') {
-                action = 'onclick="Clinic.docTools.unbindRoom(\'' + r.id + '\')"';
-            } else if (r.status === 'available') {
-                action = 'onclick="Clinic.docTools.bindRoom(\'' + r.id + '\',\'' + r.name.replace(/'/g, "\\'") + '\')"';
-            }
+            var clickable = (r.status === 'bound' || r.status === 'available') && !disabled;
+            var attrs = clickable
+                ? 'data-room-id="' + r.id + '" data-room-name="' + Clinic.escHtml(r.name || '') + '" data-room-bound="' + (r.status === 'bound' ? 1 : 0) + '"'
+                : '';
             var cls = r.status === 'bound' ? 'style="background:var(--primary-soft);border-radius:6px"' : '';
             var hint = r.status === 'bound' ? '<span class="fs-12 text-primary">（点击解绑）</span>' : '';
-            return '<div class="fs-13 flex-between" style="padding:8px 10px;cursor:' + (disabled ? 'not-allowed' : 'pointer') + ';opacity:' + (disabled ? '.55' : '1') + ';border-radius:6px"' + cls + ' ' + action + '>' +
-                '<span>' + icon + ' ' + r.name + '</span>' +
-                '<span class="fs-12" style="color:' + (r.status === 'offline' ? 'var(--danger)' : 'var(--text-muted)') + '">' + r.status_text + ' ' + hint + '</span></div>';
+            return '<div class="fs-13 flex-between" style="padding:8px 10px;cursor:' + (disabled ? 'not-allowed' : 'pointer') + ';opacity:' + (disabled ? '.55' : '1') + ';border-radius:6px"' + cls + ' ' + attrs + '>' +
+                '<span>' + icon + ' ' + Clinic.escHtml(r.name || '') + '</span>' +
+                '<span class="fs-12" style="color:' + (r.status === 'offline' ? 'var(--danger)' : 'var(--text-muted)') + '">' + Clinic.escHtml(r.status_text || '') + ' ' + hint + '</span></div>';
         }).join('');
         box.innerHTML = rows;
+    }
+
+    /* 诊室列表点击委托（一次性绑定，避免重复监听） */
+    function bindRoomListClick(box) {
+        if (box._roomClickBound) return;
+        box._roomClickBound = true;
+        box.addEventListener('click', function (e) {
+            var row = e.target.closest('[data-room-id]');
+            if (!row) return;
+            var id = row.getAttribute('data-room-id');
+            var name = row.getAttribute('data-room-name') || '';
+            if (row.getAttribute('data-room-bound') === '1') {
+                Clinic.docTools.unbindRoom(id);
+            } else {
+                Clinic.docTools.bindRoom(id, name);
+            }
+        });
     }
 
     function toggleRoomList() {
@@ -329,10 +346,13 @@ Clinic.docTools = (function () {
 
     function bindRoom(roomId, roomName) {
         if (ROOM_BOUND && String(ROOM_BOUND.id) !== String(roomId)) {
+            // 诊室名来自数据库，转义后拼入 confirm 内容防 XSS（confirm 内容为 innerHTML）
+            var boundName = Clinic.escHtml(ROOM_BOUND.name || '');
+            var targetName = Clinic.escHtml(roomName || '新诊室');
             Clinic.modal.confirm(
-                '当前已绑定「<strong>' + ROOM_BOUND.name + '</strong>」诊室大屏。<br>' +
-                '是否将叫号大屏<strong>从「' + ROOM_BOUND.name + '」切换到「' + (roomName || '新诊室') + '」</strong>？<br>' +
-                '<span class="fs-13 text-muted">切换后，该医生的叫号信息将显示在「' + (roomName || '新诊室') + '」大屏上。</span>',
+                '当前已绑定「<strong>' + boundName + '</strong>」诊室大屏。<br>' +
+                '是否将叫号大屏<strong>从「' + boundName + '」切换到「' + targetName + '」</strong>？<br>' +
+                '<span class="fs-13 text-muted">切换后，该医生的叫号信息将显示在「' + targetName + '」大屏上。</span>',
                 function () { doBind(roomId, roomName); },
                 { title: '切换诊室大屏', okText: '确认切换', cls: 'btn-primary' }
             );

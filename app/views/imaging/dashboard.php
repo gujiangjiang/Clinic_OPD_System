@@ -176,21 +176,6 @@ function imgItemHtml(it) {
         '<div class="dw-report-item-name">' + esc(it.item_name) + ' <span class="dw-report-item-status">' + badge + '</span></div>' + inner + '</div>';
 }
 
-function doImgSave(it) {
-    var findings = document.getElementById('imgFindings_' + it.id).value.trim();
-    var conclusion = document.getElementById('imgConclusion_' + it.id).value.trim();
-    if (!findings) { Clinic.toast.warning('请填写影像所见'); return; }
-    if (!conclusion) { Clinic.toast.warning('请填写影像诊断'); return; }
-    Clinic.ajax('/api/imaging', { action: 'save_result', item_id: it.id, findings: findings, conclusion: conclusion }, {
-        loading: true,
-        onSuccess: function (json) {
-            Clinic.toast.success(json.msg);
-            Clinic.print.load('/api/print?action=report&report_id=' + json.data.report_id, null);
-            afterImgAction();
-        },
-    });
-}
-
 /* ==================== 去写报告：模板 + 影像所见/影像诊断 模态框 ==================== */
 var CUR_IMG_ITEM = null;
 var IMG_TPLS = [];
@@ -281,21 +266,27 @@ function imgDoApplyTpl(tplId, replace) {
     });
 }
 
+/* 提交防重入锁（双击确认会重复生成报告） */
+var IMG_SUBMITTING = false;
 function imgModalSave() {
     if (!CUR_IMG_ITEM) return;
+    if (IMG_SUBMITTING) return;
     var findings = ((document.getElementById('imgModalFindings') || {}).value || '').trim();
     var conclusion = ((document.getElementById('imgModalConclusion') || {}).value || '').trim();
     if (!findings) { Clinic.toast.warning('请填写影像所见'); return; }
     if (!conclusion) { Clinic.toast.warning('请填写影像诊断'); return; }
     var it = CUR_IMG_ITEM;
+    IMG_SUBMITTING = true;
     Clinic.ajax('/api/imaging', { action: 'save_result', item_id: it.id, findings: findings, conclusion: conclusion }, {
         loading: true,
         onSuccess: function (json) {
+            IMG_SUBMITTING = false;
             Clinic.toast.success(json.msg);
             Clinic.modal.close();
             Clinic.print.load('/api/print?action=report&report_id=' + json.data.report_id, null);
             afterImgAction();
         },
+        onError: function () { IMG_SUBMITTING = false; },
     });
 }
 

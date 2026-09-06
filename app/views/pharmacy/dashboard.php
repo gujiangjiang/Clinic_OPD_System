@@ -196,15 +196,21 @@ function previewRx(orderId, orderNo) {
     Clinic.print.preview('/api/print?action=order&order_id=' + orderId + '&exclude_inject=1', null, '处方预览：' + (orderNo || ''));
 }
 
+/* 审方通过防重入锁（双击重复请求会重复发药打印/重复通知开单医生） */
+var RX_SUBMITTING = false;
 function doRxPass(o) {
+    if (RX_SUBMITTING) return;
+    RX_SUBMITTING = true;
     Clinic.ajax('/api/pharmacy', { action: 'audit', order_id: o.order_id, verdict: 'pass' }, {
         onSuccess: function (json) {
+            RX_SUBMITTING = false;
             Clinic.toast.success(json.msg);
             if (json.data && json.data.has_slip) {
                 Clinic.print.load('/api/pharmacy?action=rx_slip&order_id=' + o.order_id, null, 'ticket');
             }
             afterRxAction();
         },
+        onError: function () { RX_SUBMITTING = false; },
     });
 }
 

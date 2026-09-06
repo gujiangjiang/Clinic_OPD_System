@@ -2743,7 +2743,7 @@ diagnoses: [],
             currentId: curDept,
             onSelect: function (d) {
                 Clinic.modal.confirm(
-                    '确定将患者转往【' + d.name + '】吗？转科后就诊序号、首次挂号科室等信息均保持不变。',
+                    '确定将患者转往【' + escHtml(d.name || '') + '】吗？转科后就诊序号、首次挂号科室等信息均保持不变。',
                     function () {
                         Clinic.ajax('/api/transfer', {
                             action: 'do', visit_id: visitId, target_dept: d.id,

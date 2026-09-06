@@ -314,17 +314,23 @@ function doLabSave(it) {
     );
 }
 
+/* 提交防重入锁（双击确认会重复生成报告） */
+var LAB_SUBMITTING = false;
 function submitLabResult(it, value, isGroup, note) {
+    if (LAB_SUBMITTING) return;
+    LAB_SUBMITTING = true;
     Clinic.ajax('/api/lab', {
         action: 'save_result', item_id: it.id, value: value, is_group: isGroup, note: note,
     }, {
         loading: true,
         onSuccess: function (json) {
+            LAB_SUBMITTING = false;
             Clinic.toast.success(json.msg);
             Clinic.modal.close();
             Clinic.print.load('/api/print?action=report&report_id=' + json.data.report_id, null);
             afterLabAction();
         },
+        onError: function () { LAB_SUBMITTING = false; },
     });
 }
 
