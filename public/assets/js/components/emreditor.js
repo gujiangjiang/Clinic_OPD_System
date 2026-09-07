@@ -161,8 +161,9 @@ Clinic.emrEditor = (function () {
         return s;
     }
 
-    /** 绑定字段交互事件（双击全选/退格保护/回车跳格/纯文本粘贴） */
+    /** 绑定字段交互事件（双击全选/退格保护/回车跳格/纯文本粘贴/撤销历史） */
     function bindFieldEvents(el) {
+        el.__undoPrev = '';   // 撤销历史基线：新建字段从空值开始，set()/input 持续同步
         // 双击 → 全选该字段文字（单击仅正常定位光标，符合常规输入习惯）
         el.addEventListener('dblclick', function () {
             var range = document.createRange();
@@ -189,14 +190,33 @@ Clinic.emrEditor = (function () {
             var t = (e.clipboardData || window.clipboardData).getData('text/plain') || '';
             document.execCommand('insertText', false, t.replace(/[\r\n]+/g, ''));
         });
-        // 输入：置脏标记 + 清空还原。contenteditable 内文字删净后浏览器常残留
-        // <br> 子节点，使 .ef-field:empty::before 的占位提示语（data-ph）不再匹配
-        // （:empty 要求无任何子节点），表现为「提示语消失且不重新出现」——
-        // 检测到无实际文字时清空子节点，让占位提示语按输入规则重新显示。
+        // 聚焦：记录当前值作为撤销历史快照基线（聚焦期间持续输入时逐次压栈）
+        el.addEventListener('focus', function () {
+            el.__undoPrev = textNow(el);
+        });
+        // 输入：撤销历史压栈 + 置脏标记 + 清空还原占位提示语。
+        // 撤销历史：每次内容变化前把旧值压入 __undoStack（上限 50），供右键菜单
+        // 「撤销」逐级回退；清空还原指 contenteditable 内文字删净后浏览器残留的
+        // <br> 子节点，会使 .ef-field:empty::before 的占位提示语（data-ph）不再
+        // 匹配（:empty 要求无任何子节点）——检测无实际文字时清空子节点。
         el.addEventListener('input', function () {
-            if (el.innerText.trim() === '' && el.innerHTML !== '') el.innerHTML = '';
+            var cur = textNow(el);
+            var prev = el.__undoPrev;
+            if (prev === undefined) prev = cur;   // 首次事件无基线：不压栈
+            if (prev !== cur) {
+                if (!el.__undoStack) el.__undoStack = [];
+                el.__undoStack.push(prev);
+                if (el.__undoStack.length > 50) el.__undoStack.shift();
+            }
+            el.__undoPrev = cur;
+            if (cur.trim() === '' && el.innerHTML !== '') el.innerHTML = '';
             markDirty();
         });
+    }
+
+    /** 读取字段当前文本（contenteditable 以 innerText 为准，规整不换行空格） */
+    function textNow(el) {
+        return String(el.innerText || '').replace(/\u00a0/g, ' ');
     }
 
     /** 聚焦注册表中的下一个字段 */
@@ -604,6 +624,7 @@ Clinic.emrEditor = (function () {
             var v = dig(data, f.path);
             if (f.type === 'text') {
                 f.el.innerText = v == null ? '' : String(v);
+                f.el.__undoPrev = textNow(f.el);   // 程序化填充后同步撤销基线（不压栈）
             } else if (f.type === 'select') {
                 f.el.value = v == null ? '' : String(v);
             } else if (f.type === 'diag') {
@@ -703,6 +724,22 @@ Clinic.emrEditor = (function () {
         setDiags: function (list) {
             DIAGS = Array.isArray(list) ? list : [];
             renderDiagText();
+        },
+        /** 字段是否可撤销（右键菜单「撤销」用：存在未回退的输入历史） */
+        canUndo: function (el) {
+            return !!(el && el.__undoStack && el.__undoStack.length > 0);
+        },
+        /** 撤销一次字段编辑：回退到最近一次变化前的文本（恢复误删内容），
+         *  成功后返回 true。恢复后派发 input 触发脏标记与占位提示语还原。 */
+        undo: function (el) {
+            if (!this.canUndo(el)) return false;
+            var prev = el.__undoStack.pop();
+            if (el.isContentEditable) el.innerText = prev;
+            else el.value = prev;
+            el.__undoPrev = prev;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            try { el.focus(); } catch (e) {}
+            return true;
         },
     };
 })();

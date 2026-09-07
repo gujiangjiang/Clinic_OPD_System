@@ -162,6 +162,14 @@ Clinic.emrMenu = (function () {
 
     /* ==================== 菜单操作分发 ==================== */
 
+    function doUndo(el) {
+        if (!el) return;
+        if (!window.Clinic || !Clinic.emrEditor || !Clinic.emrEditor.undo) return;
+        if (!Clinic.emrEditor.undo(el)) {
+            if (Clinic.toast) Clinic.toast.warning('没有可撤销的操作');
+        }
+    }
+
     function doCopy(el) {
         if (!el) return;
         var r = fieldRange(el);
@@ -200,9 +208,107 @@ Clinic.emrMenu = (function () {
         focusField(el);
     }
 
-    /** 嘱托「模板」：预留，后期完善 */
-    function doTemplate() {
-        if (window.Clinic && Clinic.toast) Clinic.toast.info('嘱托模板功能建设中，敬请期待');
+    /** 嘱托「模板」：打开嘱托模板选择模态框（左侧搜索+列表，右侧预览，覆盖/续写/关闭） */
+    function doTemplate(el) {
+        if (!el) return;
+        if (!window.Clinic || !Clinic.modal) return;
+        openAdviceTplModal(el);
+    }
+
+    /** 将模板文本写入嘱托字段：overwrite 覆盖 / append 保留原有内容续写在后 */
+    function applyAdvice(el, mode, text) {
+        if (!el || !text) return;
+        var cur = fieldText(el).trim();
+        var val = mode === 'overwrite' ? text : (cur ? cur + text : text);
+        el.innerText = val;
+        markChanged(el);
+        try { el.focus(); } catch (e) {}
+    }
+
+    /**
+     * 嘱托模板选择模态框（与护理记录/影像报告模板统一交互）：
+     * 左侧搜索 + 模板列表，右侧预览选中模板内容；覆盖 = 清空后完全按模板填充，
+     * 续写 = 保留嘱托原有内容、模板内容插入到后面，关闭 = 关闭模态框。
+     * 模板类型 order_note（医生个人免审 / 科室全院经管理员审核）。
+     */
+    function openAdviceTplModal(fieldEl) {
+        Clinic.modal.open(
+            '<div class="flex" style="gap:14px;height:460px">' +
+            '  <div style="width:300px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--border);padding-right:14px;min-height:0">' +
+            '    <div class="form-group"><label class="form-label">嘱托模板</label>' +
+            '    <input class="input" id="atSearch" placeholder="🔍 搜索模板" autocomplete="off"></div>' +
+            '    <div id="atTplList" style="flex:1;overflow-y:auto;min-height:0"></div>' +
+            '  </div>' +
+            '  <div style="flex:1;min-width:0;display:flex;flex-direction:column">' +
+            '    <div class="form-group" style="flex:1;display:flex;flex-direction:column;min-height:0">' +
+            '      <label class="form-label">模板内容</label>' +
+            '      <div id="atPreview" class="textarea" readonly style="flex:1;min-height:0;white-space:pre-wrap;overflow-y:auto;cursor:text">点击左侧模板查看内容</div>' +
+            '    </div>' +
+            '    <div class="flex gap-8" style="margin-top:10px">' +
+            '      <button type="button" class="btn btn-primary btn-sm" style="flex:1" id="atOverwrite">覆盖</button>' +
+            '      <button type="button" class="btn btn-outline btn-sm" style="flex:1" id="atAppend">续写</button>' +
+            '      <button type="button" class="btn btn-outline btn-sm" style="flex:1" onclick="Clinic.modal.close()">关闭</button>' +
+            '    </div>' +
+            '  </div>' +
+            '</div>',
+            { title: '📝 选择嘱托模板', size: 'modal-lg', buttons: [] }
+        );
+        var search = document.getElementById('atSearch');
+        var list = document.getElementById('atTplList');
+        var preview = document.getElementById('atPreview');
+        var all = [];
+        var cur = null;   // 当前选中的模板
+
+        function render() {
+            var kw = (search.value || '').trim().toLowerCase();
+            var items = all.filter(function (t) {
+                return !kw || (t.title || '').toLowerCase().indexOf(kw) !== -1;
+            });
+            list.innerHTML = items.length ? items.map(function (t) {
+                return '<div class="at-tpl-item" data-id="' + t.id + '" style="cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px">' +
+                    '<div class="fw-600 fs-13">' + Clinic.escHtml(t.title) + '</div>' +
+                    '<div class="fs-12 text-muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+                    Clinic.escHtml((t.content && t.content.content) || '') + '</div></div>';
+            }).join('') : '<div class="fs-12 text-muted">暂无嘱托模板（可自由书写）</div>';
+            list.querySelectorAll('.at-tpl-item').forEach(function (it) {
+                it.addEventListener('click', function () {
+                    var id = parseInt(it.getAttribute('data-id'), 10);
+                    all.forEach(function (t) { if (t.id === id) cur = t; });
+                    preview.textContent = (cur && cur.content && cur.content.content) ? cur.content.content : '';
+                    list.querySelectorAll('.at-tpl-item').forEach(function (x) {
+                        x.style.borderColor = 'var(--border)';
+                    });
+                    it.style.borderColor = 'var(--primary)';
+                });
+            });
+        }
+        search.addEventListener('input', render);
+
+        document.getElementById('atOverwrite').addEventListener('click', function () {
+            var c = cur && cur.content && cur.content.content;
+            if (!c) { Clinic.toast.warning('请先在左侧选择一个模板'); return; }
+            applyAdvice(fieldEl, 'overwrite', c);
+            Clinic.modal.close();
+            Clinic.toast.success('已用模板覆盖嘱托内容');
+        });
+        document.getElementById('atAppend').addEventListener('click', function () {
+            var c = cur && cur.content && cur.content.content;
+            if (!c) { Clinic.toast.warning('请先在左侧选择一个模板'); return; }
+            applyAdvice(fieldEl, 'append', c);
+            Clinic.modal.close();
+            Clinic.toast.success('已续写嘱托内容');
+        });
+
+        Clinic.get('/api/template?action=list&type=order_note', null, {
+            loading: false,
+            onSuccess: function (j) {
+                all = j.data.list || [];
+                render();
+            },
+            onError: function () {
+                list.innerHTML = '<div class="fs-12 text-muted">加载模板失败，请重试或前往「模板管理」创建</div>';
+            },
+        });
     }
 
     function tipUnavailable() {
@@ -211,11 +317,12 @@ Clinic.emrMenu = (function () {
 
     function run(act, el) {
         switch (act) {
+            case 'undo': doUndo(el); break;
             case 'copy': doCopy(el); break;
             case 'cut': doCut(el); break;
             case 'paste': doPaste(el); break;
             case 'clear': doClear(el); break;
-            case 'template': doTemplate(); break;
+            case 'template': doTemplate(el); break;
         }
     }
 
@@ -224,12 +331,16 @@ Clinic.emrMenu = (function () {
     /** 在 (x, y) 处弹出菜单（fixed 视口坐标，四边夹紧 4px） */
     function build(ev) {
         var isAdvice = field && field.getAttribute('data-k') === 'advice';
+        var canUndo = !!(window.Clinic && Clinic.emrEditor && Clinic.emrEditor.canUndo &&
+            field && Clinic.emrEditor.canUndo(field));
         menu = document.createElement('div');
         menu.className = 'emr-ctxmenu';
         menu.setAttribute('role', 'menu');
         var html = '';
+        var labels = { undo: '撤销', copy: '复制', cut: '剪切', paste: '粘贴', clear: '清空' };
+        // 撤销：仅当字段存在可回退的编辑历史时显示
+        if (canUndo) html += '<div class="emr-ctxmenu-item" role="menuitem" data-act="undo">' + labels.undo + '</div>';
         ['copy', 'cut', 'paste', 'clear'].forEach(function (act) {
-            var labels = { copy: '复制', cut: '剪切', paste: '粘贴', clear: '清空' };
             html += '<div class="emr-ctxmenu-item" role="menuitem" data-act="' + act + '">' + labels[act] + '</div>';
         });
         if (isAdvice) {
