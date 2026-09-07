@@ -977,6 +977,21 @@ Clinic.order = (function () {
         if (s.route && routeOpts && RX_ROUTES.indexOf(s.route) === -1) {
             routeOpts = '<option value="' + s.route + '" selected>' + s.route + '</option>' + routeOpts;
         }
+        // 频次/途径下拉：带搜索 + 清空 X，占位「用药频次/使用途径」为空值且不进候选列表；
+        // 药品数据含频次/途径自动回填（selected），缺失则回退占位；提交时必填（剂量/频次/途径）
+        // 词典为空且无当前值时回退文本输入（无可选项）
+        var freqSel = freqOpts
+            ? '<select class="select" data-csd-search="1" data-csd-clear="1" style="width:128px;padding:4px 8px;min-height:28px;font-size:13px" ' +
+              'onchange="Clinic.order.setField(' + i + ',\'frequency\',this.value)">' +
+              '<option value="">用药频次</option>' + freqOpts + '</select>'
+            : '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" ' +
+              'value="' + (s.frequency || '') + '" placeholder="频次" onchange="Clinic.order.setField(' + i + ',\'frequency\',this.value)">';
+        var routeSel = routeOpts
+            ? '<select class="select" data-csd-search="1" data-csd-clear="1" style="width:128px;padding:4px 8px;min-height:28px;font-size:13px" ' +
+              'onchange="Clinic.order.setRoute(' + i + ',this.value)">' +
+              '<option value="">使用途径</option>' + routeOpts + '</select>'
+            : '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" ' +
+              'value="' + (s.route || '') + '" placeholder="途径" onchange="Clinic.order.setRoute(' + i + ',this.value)">';
         // 剂量：结构化规格 → 只读可点击按钮（弹迷你悬浮窗）；否则回退文本输入
         var doseArea = (s.spec_dose > 0)
             ? '<button type="button" class="btn btn-outline btn-sm" style="min-height:28px;font-weight:600" ' +
@@ -985,14 +1000,8 @@ Clinic.order = (function () {
               'value="' + (s.dose || '') + '" placeholder="剂量" onchange="Clinic.order.setField(' + i + ',\'dose\',this.value)">';
         return '<div class="flex gap-8 mt-4" style="flex-wrap:wrap">' +
             doseArea +
-            (freqOpts ? '<select class="select" style="width:112px;padding:4px 8px;min-height:28px;font-size:13px" ' +
-                'onchange="Clinic.order.setField(' + i + ',\'frequency\',this.value)">' + freqOpts + '</select>'
-                : '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" ' +
-                'value="' + (s.frequency || '') + '" placeholder="频次" onchange="Clinic.order.setField(' + i + ',\'frequency\',this.value)">') +
-            (routeOpts ? '<select class="select" style="width:112px;padding:4px 8px;min-height:28px;font-size:13px" ' +
-                'onchange="Clinic.order.setRoute(' + i + ',this.value)">' + routeOpts + '</select>'
-                : '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" ' +
-                'value="' + (s.route || '') + '" placeholder="途径" onchange="Clinic.order.setRoute(' + i + ',this.value)">') +
+            freqSel +
+            routeSel +
             '<button type="button" class="btn btn-outline btn-sm" ' +
             'onclick="Clinic.order.openSubDrop(' + i + ',this)">＋ 子医嘱</button>' +
             '</div>' +
@@ -1046,12 +1055,22 @@ Clinic.order = (function () {
             Clinic.toast.warning('请至少选择一个项目');
             return;
         }
-        // 处方库存上限校验（仅药品有库存概念；检验/检查/处置项目无库存，不做校验）
+        // 处方库存上限 + 剂量/频次/途径必填校验（仅药品；检验/检查/处置无库存且无剂量要素）
         if (CUR_TYPE === 'prescription') {
             for (var i = 0; i < SELECTED.length; i++) {
-                if (SELECTED[i].quantity > (SELECTED[i].stock || 0)) {
-                    Clinic.toast.warning('【' + SELECTED[i].name + '】数量超过库存');
+                var s = SELECTED[i];
+                if (s.quantity > (s.stock || 0)) {
+                    Clinic.toast.warning('【' + s.name + '】数量超过库存');
                     return;
+                }
+                if (!(s.dose || '').toString().trim()) { Clinic.toast.warning('请填写【' + s.name + '】剂量（必填）'); return; }
+                if (!(s.frequency || '').trim()) { Clinic.toast.warning('请选择【' + s.name + '】用药频次（必填）'); return; }
+                if (!(s.route || '').trim()) { Clinic.toast.warning('请选择【' + s.name + '】使用途径（必填）'); return; }
+                for (var si = 0; si < (s.sub_items || []).length; si++) {
+                    if (!((s.sub_items[si].dose || '').toString().trim())) {
+                        Clinic.toast.warning('请填写子医嘱【' + s.sub_items[si].name + '】剂量（必填）');
+                        return;
+                    }
                 }
             }
         }

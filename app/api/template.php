@@ -41,6 +41,24 @@ function tpl_filter_content($emr) {
     return $keep;
 }
 
+/** 模板类型-角色权限：医生仅病历/知情同意书，护士仅护理记录，影像仅影像报告，管理员全类型 */
+function tpl_type_allowed($role, $type) {
+    $map = array(
+        'admin'   => array('medical_record', 'consent', 'order_note', 'nursing_record', 'imaging_report'),
+        'doctor'  => array('medical_record', 'consent'),
+        'nurse'   => array('nursing_record'),
+        'imaging' => array('imaging_report'),
+    );
+    return in_array($type, isset($map[$role]) ? $map[$role] : array(), true);
+}
+
+/** 模板类型校验：不满足角色权限直接拒绝 */
+function tpl_assert_type($u, $type) {
+    if (!tpl_type_allowed($u['role'], $type)) {
+        json_fail('无权限访问该类型的模板');
+    }
+}
+
 switch ($action) {
 
     /* ==================== 临床科室列表（模板编辑弹窗用，医生可访问） ==================== */
@@ -56,6 +74,8 @@ switch ($action) {
         $kw = trim((string)get('kw', ''));
         $type = get('type', 'medical_record');
         if (!in_array($type, array('medical_record', 'consent', 'order_note', 'nursing_record', 'imaging_report'), true)) $type = 'medical_record';
+        // 类型-角色权限隔离（医生不可见护理/影像模板等）
+        tpl_assert_type($u, $type);
         $isAdmin = ($u['role'] === 'admin');
         $sql = "SELECT * FROM emr_templates WHERE type=?";
         $params = array($type);
@@ -120,6 +140,8 @@ switch ($action) {
         $id = (int)get('id');
         $t = EmrRepository::one('SELECT * FROM emr_templates WHERE id=?', array($id));
         if (!$t) json_fail('模板不存在');
+        // 类型-角色权限隔离
+        tpl_assert_type($u, (string)$t['type']);
         // for_apply=1：应用模板/创建病历场景——允许读取当前医生可见模板（含系统模板）
         // 供医生套用到病历；编辑模板（默认）才做系统/归属越权拦截。
         $forApply = (int)get('for_apply', 0);
@@ -170,6 +192,8 @@ switch ($action) {
         $scope = post('scope', 'personal');
         $content = post('content', '{}');
         if (!in_array($type, array('medical_record', 'consent', 'order_note', 'nursing_record', 'imaging_report'), true)) $type = 'medical_record';
+        // 类型-角色权限隔离（防伪造 type 提交越权模板）
+        tpl_assert_type($u, $type);
         if (!in_array($scope, array('personal', 'dept', 'hospital'), true)) $scope = 'personal';
         if ($title === '') json_fail('请填写模板名称');
         $contentArr = json_decode((string)$content, true);
@@ -281,6 +305,8 @@ switch ($action) {
         $id = (int)post('id');
         $t = EmrRepository::one('SELECT * FROM emr_templates WHERE id=?', array($id));
         if (!$t) json_fail('模板不存在');
+        // 类型-角色权限隔离
+        tpl_assert_type($u, (string)$t['type']);
         if ((int)$t['is_system'] === 1) json_fail('通用模板不可删除');
         if ((int)$t['creator_id'] !== (int)$u['id'] && $u['role'] !== 'admin') json_fail('无权删除该模板');
         // 待审核锁定：提交审核后的模板不允许删除（审核通过/驳回后恢复）

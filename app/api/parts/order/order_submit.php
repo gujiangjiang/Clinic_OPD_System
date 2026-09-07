@@ -224,6 +224,15 @@ function order_part_submit($u) {
         if ($singleDoseShow === '') {
             $singleDoseShow = isset($it['dose']) ? (string)$it['dose'] : '';
         }
+        // 处方剂量/频次/途径必填（前端 submit 已拦截，此处后端兜底）：
+        // 主药需 剂量 + 频次 + 途径；子医嘱需 剂量（频次/途径随组主药）
+        if ($orderType === 'prescription') {
+            if (trim((string)$singleDoseShow) === '') json_fail('处方【' . $rxName . '】请填写剂量（必填）');
+            if ($subOf === 0) {
+                if (trim((string)(isset($it['frequency']) ? $it['frequency'] : '')) === '') json_fail('处方【' . $rxName . '】请选择用药频次（必填）');
+                if (trim((string)(isset($it['route']) ? $it['route'] : '')) === '') json_fail('处方【' . $rxName . '】请选择使用途径（必填）');
+            }
+        }
         // 需皮试主药（skinChoice='yes'）：记录其条目下标，后续拆独立皮试处方单（皮试量）
         if ($orderType === 'prescription' && $subOf === 0 && $skinChoice === 'yes' && (int)$itemId > 0) {
             $skinMainSeqs[] = count($orderItems);

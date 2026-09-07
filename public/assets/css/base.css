@@ -23,6 +23,12 @@ a:hover { text-decoration: none; opacity: .85; }
 img { max-width: 100%; vertical-align: middle; }
 ul, ol { list-style: none; }
 
+/* 表单控件主题色：复选框/单选/数字输入上下箭头不再使用浏览器原生黑色，
+   统一取 --primary（日间/夜间/自动均随主题变量适配） */
+input[type="checkbox"], input[type="radio"], input[type="number"] {
+    accent-color: var(--primary);
+}
+
 /* ---------- 主题变量（明亮模式默认 + 自动模式） ---------- */
 :root, [data-theme="light"] {
     --bg: #f1f5f9;
