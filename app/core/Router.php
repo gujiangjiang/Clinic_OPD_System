@@ -216,6 +216,9 @@ class Router {
                 // 顶栏工具补丁：SPA 局部导航下顶栏常驻，进入科室工作台时由 nav.js
                 // 将工具组注入顶栏（叫号/工具箱）、离开时移除
                 $topbarPatch = '<div class="view-topbar-patch" style="display:none">' . Layout::deptToolsBar() . '</div>';
+            } elseif (in_array($view, array('admin/labitems.php', 'admin/examitems.php', 'admin/drugs.php'), true)) {
+                // 管理端项目列表（检验/检查/药品）共用 admin_items 列表基础设施
+                $needs[] = 'adminItems';
             }
             $needsAttr = $needs ? ' data-needs="' . e(implode(' ', $needs)) . '"' : '';
             echo '<div class="view-root" data-page-title="' . e(self::$title) . '"' . $needsAttr . '>' . $topbarPatch . $content . '</div>';
@@ -228,6 +231,8 @@ class Router {
         $needEmr = ($view === 'doctor/emr.php' || $view === 'templates.php' || $view === 'admin/review.php');
         // 需要科室工作台组件（deptwork.js）的页面：护士站/检验/影像/药房工作台
         $needDeptWork = in_array($view, array('nurse/dashboard.php', 'lab/dashboard.php', 'imaging/dashboard.php', 'pharmacy/dashboard.php'), true);
+        // 需要管理端项目列表组件（admin_items.js）的页面：检验/检查/药品管理
+        $needAdminItems = in_array($view, array('admin/labitems.php', 'admin/examitems.php', 'admin/drugs.php'), true);
         if ($view === 'landing.php' || $view === 'doctor/call.php') {
             // 落地页 / 叫号屏自带完整 HTML，直接输出捕获内容即可
             echo $content;
@@ -241,7 +246,7 @@ class Router {
             $isDocWork = ($view === 'doctor/emr.php');
             // 科室工作台与病历书写页同样锁定视口布局，强制缩小侧边栏让出空间
             $isDeptWork = $needDeptWork;
-            echo Layout::appPage($content, self::$title, $isDocWork || $isDeptWork, $needEmr, $isDocWork, $needDeptWork);
+            echo Layout::appPage($content, self::$title, $isDocWork || $isDeptWork, $needEmr, $isDocWork, $needDeptWork, $needAdminItems);
         }
     }
 

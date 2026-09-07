@@ -29,24 +29,23 @@ if (!IS_ADMIN) {
     var ct = document.getElementById('labCatBtn'); if (ct) ct.style.display = 'none';
     var ib = document.getElementById('impBtns'); if (ib) ib.style.display = 'none';
 }
-function labCatFilter(btn, c) { LAB_CAT = c; document.querySelectorAll('#labCatTabs .btn').forEach(function (b) { b.className = 'btn btn-sm ' + ((b.getAttribute('data-cat') || '') === c ? 'btn-primary' : 'btn-outline'); }); applyLabFilter(); }
+/* 分类 tab + 关键字过滤 + 计数（统一走 Clinic.adminItems 公共组件） */
+function labCatFilter(btn, c) {
+    Clinic.adminItems.filterByCat({ tabsId: 'labCatTabs', setCat: function (x) { LAB_CAT = x; }, apply: applyLabFilter }, c);
+}
 function applyLabFilter() {
-    var q = (document.getElementById('labSearch').value || '').trim().toLowerCase(); var n = 0;
-    document.querySelectorAll('#itemList tbody tr').forEach(function (tr) {
-        var hit = (LAB_CAT === '' || tr.getAttribute('data-cat') === LAB_CAT) && tr.textContent.toLowerCase().indexOf(q) !== -1;
-        tr.style.display = hit ? '' : 'none'; if (hit) n++;
+    Clinic.adminItems.filterRows({
+        listId: 'itemList', countId: 'labCountDiv',
+        getCat: function () { return LAB_CAT; },
+        getQuery: function () { return document.getElementById('labSearch').value || ''; },
+        countText: function (cat, q, n) {
+            return cat === '' ? (q ? '检验项目 ' + n + ' 项' : '检验项目共 ' + n + ' 项')
+                : '检验项目（' + cat + '）' + (q ? n + ' 项' : '共 ' + n + ' 项');
+        },
     });
-    var cnt = document.getElementById('labCountDiv'); if (cnt) cnt.textContent = LAB_CAT === '' ? (q ? '检验项目 ' + n + ' 项' : '检验项目共 ' + n + ' 项') : '检验项目（' + LAB_CAT + '）' + (q ? n + ' 项' : '共 ' + n + ' 项');
 }
 function buildLabCats() {
-    var cats = [];
-    document.querySelectorAll('#itemList tbody tr').forEach(function (tr) {
-        var c = tr.getAttribute('data-cat') || '';
-        if (c && cats.indexOf(c) === -1) cats.push(c);
-    });
-    var bar = document.getElementById('labCatTabs');
-    bar.innerHTML = '<button class="btn btn-sm ' + (LAB_CAT === '' ? 'btn-primary' : 'btn-outline') + '" data-cat="" onclick="labCatFilter(this,\'\')">全部</button>' +
-        cats.map(function (c) { return '<button class="btn btn-sm ' + (LAB_CAT === c ? 'btn-primary' : 'btn-outline') + '" data-cat="' + c + '" onclick="labCatFilter(this,\'' + c + '\')">' + c + '</button>'; }).join('');
+    Clinic.adminItems.buildCats({ listId: 'itemList', tabsId: 'labCatTabs', current: LAB_CAT, tabFn: 'labCatFilter' });
 }
 Clinic.importer._reloads['lab'] = loadItemList;
 Clinic.importer.attach('lab', 'impBtns', '检验项目');
@@ -281,18 +280,9 @@ function refreshComboCounts() {
 }
 function jsE(s) { return String(s || '').replace(/&/g, '&amp;').replace(/'/g, '\\\'').replace(/"/g, '&quot;'); }
 
-/* 分类管理（与之前相同） */
+/* 分类管理（统一走 Clinic.adminItems 公共组件） */
 function openCatMgr() {
-    var loadCats = function () {
-        Clinic.get('/api/admin?action=cat_list&type=lab', null, { onSuccess: function (json) {
-            var list = json.data.list || [];
-            document.getElementById('catBox').innerHTML = list.map(function (c) { return '<span class="badge badge-gray" style="margin:0 6px 6px 0;padding:5px 12px">' + c.name + ' <a href="javascript:void(0)" style="color:var(--danger)" onclick="delCat(' + c.id + ')">✕</a></span>'; }).join('') || '<span class="text-muted fs-13">暂无分类</span>';
-        } });
-    };
-    Clinic.modal.open('<div class="flex gap-8 mb-8"><input class="input" id="catName" placeholder="新增检验分类名称（如：血液检验）" style="flex:1"><button class="btn btn-primary btn-sm" onclick="addCat()">添加</button></div><div id="catBox"></div>', { title: '检验分类管理', size: 'modal-sm', buttons: [{ text: '关闭', cls: 'btn-outline' }] });
-    loadCats();
-    window.addCat = function () { var name = document.getElementById('catName').value.trim(); if (!name) { Clinic.toast.warning('请输入分类名称'); return; } Clinic.ajax('/api/admin', { action: 'cat_add', type: 'lab', name: name }, { onSuccess: function (json) { Clinic.toast.success(json.msg); document.getElementById('catName').value = ''; loadCats(); } }); };
-    window.delCat = function (id) { Clinic.ajax('/api/admin', { action: 'cat_delete', id: id }, { onSuccess: function () { loadCats(); } }); };
+    Clinic.adminItems.catManager({ type: 'lab', title: '检验分类管理', placeholder: '新增检验分类名称（如：血液检验）' });
 }
 function openItemForm(id) { /* same as before, reused for single item edit */
     var mask = Clinic.modal.load('/api/admin', { action: 'item_form', type: 'lab', id: id || 0 }, { title: id ? '编辑检验项目' : '新增检验项目' });
@@ -306,8 +296,9 @@ function openItemForm(id) { /* same as before, reused for single item edit */
     });
 }
 function delItem(type, id) {
-    Clinic.modal.confirm('确定删除该检验项目？', function () { Clinic.ajax('/api/admin', { action: 'item_delete', type: type, id: id }, { onSuccess: function (json) { Clinic.toast.success(json.msg); loadItemList(); } }); });
+    Clinic.adminItems.delItem({ confirm: '确定删除该检验项目？', url: '/api/admin', action: 'item_delete', params: { type: type }, reload: loadItemList }, id);
 }
 loadItemList();
-(function () { var m = (location.search.match(/[?&]edit=(\d+)/) || [])[1]; if (m) openItemForm(parseInt(m, 10)); })();
+/* 驳回后点击站内消息跳回：自动打开编辑表单并回填原提交内容（?edit=ID） */
+Clinic.adminItems.bindEditDeepLink(function (id) { openItemForm(id); });
 </script>

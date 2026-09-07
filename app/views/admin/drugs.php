@@ -31,53 +31,26 @@ var IS_ADMIN = document.body.getAttribute('data-role') === 'admin';
 if (!IS_ADMIN) {
     var ib = document.getElementById('drugImportBtns'); if (ib) ib.style.display = 'none';
 }
-/* 分类子 tab（按数据动态生成） */
+/* 分类子 tab + 关键字过滤 + 计数（统一走 Clinic.adminItems 公共组件） */
 function buildDrugCats() {
-    var cats = [];
-    document.querySelectorAll('#drugList tbody tr').forEach(function (tr) {
-        var c = tr.getAttribute('data-cat') || '';
-        if (c && cats.indexOf(c) === -1) cats.push(c);
-    });
-    var bar = document.getElementById('drugCatTabs');
-    bar.innerHTML = '<button class="btn btn-sm ' + (DRUG_CAT === '' ? 'btn-primary' : 'btn-outline') + '" onclick="drugCatFilter(this,\'\')">全部</button>' +
-        cats.map(function (c) {
-            return '<button class="btn btn-sm ' + (DRUG_CAT === c ? 'btn-primary' : 'btn-outline') + '" data-cat="' + c + '" onclick="drugCatFilter(this,\'' + c + '\')">' + c + '</button>';
-        }).join('');
+    Clinic.adminItems.buildCats({ listId: 'drugList', tabsId: 'drugCatTabs', current: DRUG_CAT, tabFn: 'drugCatFilter' });
 }
 function quickFilter() {
     applyDrugFilter();
 }
-/* 分类子标签 + 关键词组合过滤，并动态更新计数 */
 function drugCatFilter(btn, c) {
-    DRUG_CAT = c;
-    document.querySelectorAll('#drugCatTabs .btn').forEach(function (b) {
-        b.className = 'btn btn-sm ' + ((b.getAttribute('data-cat') || '') === c ? 'btn-primary' : 'btn-outline');
-    });
-    applyDrugFilter();
+    Clinic.adminItems.filterByCat({ tabsId: 'drugCatTabs', setCat: function (x) { DRUG_CAT = x; }, apply: applyDrugFilter }, c);
 }
 function applyDrugFilter() {
-    var inp = document.querySelector('input[oninput*="drugList"]');
-    var q = ((inp && inp.value) || '').trim().toLowerCase();
-    var n = 0;
-    document.querySelectorAll('#drugList tbody tr').forEach(function (tr) {
-        var hit = (DRUG_CAT === '' || tr.getAttribute('data-cat') === DRUG_CAT) &&
-                  tr.textContent.toLowerCase().indexOf(q) !== -1;
-        tr.style.display = hit ? '' : 'none';
-        if (hit) n++;
+    Clinic.adminItems.filterRows({
+        listId: 'drugList', countId: 'drugCountDiv',
+        getCat: function () { return DRUG_CAT; },
+        getQuery: function () { var inp = document.querySelector('input[oninput*="drugList"]'); return (inp && inp.value) || ''; },
+        countText: function (cat, q, n) {
+            if (cat === '') return q ? '药品 ' + n + ' 种' : '共 ' + n + ' 种药品';
+            return q ? '药品（' + cat + '）' + n + ' 种' : '药品（' + cat + '）共 ' + n + ' 种';
+        },
     });
-    updateDrugCount(n);
-}
-/* 计数动态更新：默认「共 N 种」/ 分类「药品（西药）共 N 种」/ 搜索「药品 N 种」 */
-function updateDrugCount(n) {
-    var cnt = document.getElementById('drugCountDiv');
-    if (!cnt) return;
-    var inp = document.querySelector('input[oninput*="drugList"]');
-    var searched = ((inp && inp.value) || '').trim() !== '';
-    if (DRUG_CAT === '') {
-        cnt.textContent = searched ? '药品 ' + n + ' 种' : '共 ' + n + ' 种药品';
-    } else {
-        cnt.textContent = searched ? '药品（' + DRUG_CAT + '）' + n + ' 种' : '药品（' + DRUG_CAT + '）共 ' + n + ' 种';
-    }
 }
 Clinic.importer._reloads['drug'] = loadDrugList;
 Clinic.importer.attach('drug', 'drugImportBtns', '药品');
@@ -171,21 +144,11 @@ function openDrugForm(id) {
    管理端与药房新增药品共用同一实现，避免双份维护。 */
 
 function delDrug(id) {
-    Clinic.modal.confirm('确定删除该药品？', function () {
-        Clinic.ajax('/api/admin', { action: 'drug_delete', id: id }, {
-            onSuccess: function (json) {
-                Clinic.toast.success(json.msg);
-                loadDrugList();
-            },
-        });
-    });
+    Clinic.adminItems.delItem({ confirm: '确定删除该药品？', url: '/api/admin', action: 'drug_delete', reload: loadDrugList }, id);
 }
 
 loadDrugList();
 
 /* 驳回后点击站内消息跳回：自动打开编辑表单并回填原提交内容（?edit=ID） */
-(function () {
-    var m = (location.search.match(/[?&]edit=(\d+)/) || [])[1];
-    if (m) openDrugForm(parseInt(m, 10));
-})();
+Clinic.adminItems.bindEditDeepLink(openDrugForm);
 </script>

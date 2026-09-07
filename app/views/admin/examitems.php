@@ -32,40 +32,23 @@ if (!IS_ADMIN) {
     var ct = document.getElementById('examCatBtn'); if (ct) ct.style.display = 'none';
     var ib = document.getElementById('impBtns'); if (ib) ib.style.display = 'none';
 }
-/* 分类子 tab（按数据动态生成） */
+/* 分类子 tab + 关键字过滤 + 计数（统一走 Clinic.adminItems 公共组件） */
 function buildExamCats() {
-    var cats = [];
-    document.querySelectorAll('#itemList tbody tr').forEach(function (tr) {
-        var c = tr.getAttribute('data-cat') || '';
-        if (c && cats.indexOf(c) === -1) cats.push(c);
-    });
-    var bar = document.getElementById('examCatTabs');
-    bar.innerHTML = '<button class="btn btn-sm ' + (EXAM_CAT === '' ? 'btn-primary' : 'btn-outline') + '" data-cat="" onclick="examCatFilter(this,\'\')">全部</button>' +
-        cats.map(function (c) {
-            return '<button class="btn btn-sm ' + (EXAM_CAT === c ? 'btn-primary' : 'btn-outline') + '" data-cat="' + c + '" onclick="examCatFilter(this,\'' + c + '\')">' + c + '</button>';
-        }).join('');
+    Clinic.adminItems.buildCats({ listId: 'itemList', tabsId: 'examCatTabs', current: EXAM_CAT, tabFn: 'examCatFilter' });
 }
 function examCatFilter(btn, c) {
-    EXAM_CAT = c;
-    document.querySelectorAll('#examCatTabs .btn').forEach(function (b) {
-        b.className = 'btn btn-sm ' + ((b.getAttribute('data-cat') || '') === c ? 'btn-primary' : 'btn-outline');
-    });
-    applyExamFilter();
+    Clinic.adminItems.filterByCat({ tabsId: 'examCatTabs', setCat: function (x) { EXAM_CAT = x; }, apply: applyExamFilter }, c);
 }
-/* 快速搜索 + 计数动态更新（搜索去掉「共」，分类显示「（分类）」） */
 function applyExamFilter() {
-    var q = (document.getElementById('examSearch').value || '').trim().toLowerCase();
-    var n = 0;
-    document.querySelectorAll('#itemList tbody tr').forEach(function (tr) {
-        var hit = (EXAM_CAT === '' || tr.getAttribute('data-cat') === EXAM_CAT) &&
-                  tr.textContent.toLowerCase().indexOf(q) !== -1;
-        tr.style.display = hit ? '' : 'none';
-        if (hit) n++;
+    Clinic.adminItems.filterRows({
+        listId: 'itemList', countId: 'examCountDiv',
+        getCat: function () { return EXAM_CAT; },
+        getQuery: function () { return document.getElementById('examSearch').value || ''; },
+        countText: function (cat, q, n) {
+            return cat === '' ? (q !== '' ? '检查项目 ' + n + ' 项' : '检查项目共 ' + n + ' 项')
+                : '检查项目（' + cat + '）' + (q !== '' ? n + ' 项' : '共 ' + n + ' 项');
+        },
     });
-    var cnt = document.getElementById('examCountDiv');
-    if (cnt) cnt.textContent = EXAM_CAT === ''
-        ? (q !== '' ? '检查项目 ' + n + ' 项' : '检查项目共 ' + n + ' 项')
-        : '检查项目（' + EXAM_CAT + '）' + (q !== '' ? n + ' 项' : '共 ' + n + ' 项');
 }
 Clinic.importer._reloads['exam'] = loadItemList;
 Clinic.importer.attach('exam', 'impBtns', '检查项目');
@@ -106,67 +89,16 @@ function openItemForm(id) {
 }
 
 function delItem(type, id) {
-    Clinic.modal.confirm('确定删除该检查项目？', function () {
-        Clinic.ajax('/api/admin', { action: 'item_delete', type: type, id: id }, {
-            onSuccess: function (json) {
-                Clinic.toast.success(json.msg);
-                loadItemList();
-            },
-        });
-    });
+    Clinic.adminItems.delItem({ confirm: '确定删除该检查项目？', url: '/api/admin', action: 'item_delete', params: { type: type }, reload: loadItemList }, id);
 }
 
-/* 检查分类管理 */
+/* 检查分类管理（统一走 Clinic.adminItems 公共组件） */
 function openCatMgr() {
-    var loadCats = function () {
-        Clinic.get('/api/admin?action=cat_list&type=exam', null, {
-            onSuccess: function (json) {
-                var list = json.data.list || [];
-                document.getElementById('catBox').innerHTML = list.map(function (c) {
-                    return '<span class="badge badge-gray" style="margin:0 6px 6px 0;padding:5px 12px">' + c.name +
-                        ' <a href="javascript:void(0)" style="color:var(--danger)" onclick="delCat(' + c.id + ')">✕</a></span>';
-                }).join('') || '<span class="text-muted fs-13">暂无分类</span>';
-            },
-        });
-    };
-    Clinic.modal.open(
-        '<div class="flex gap-8 mb-8">' +
-        '<input class="input" id="catName" placeholder="新增检查分类名称（如：CT、MR）" style="flex:1">' +
-        '<button class="btn btn-primary btn-sm" onclick="addCat()">添加</button></div>' +
-        '<div id="catBox"></div>',
-        {
-            title: '检查分类管理',
-            size: 'modal-sm',
-            buttons: [{ text: '关闭', cls: 'btn-outline' }],
-        }
-    );
-    loadCats();
-    window.addCat = function () {
-        var name = document.getElementById('catName').value.trim();
-        if (!name) { Clinic.toast.warning('请输入分类名称'); return; }
-        Clinic.ajax('/api/admin', { action: 'cat_add', type: 'exam', name: name }, {
-            onSuccess: function (json) {
-                Clinic.toast.success(json.msg);
-                document.getElementById('catName').value = '';
-                loadCats();
-            },
-        });
-    };
-    window.delCat = function (id) {
-        Clinic.ajax('/api/admin', { action: 'cat_delete', id: id }, {
-            onSuccess: function (json) {
-                Clinic.toast.success(json.msg);
-                loadCats();
-            },
-        });
-    };
+    Clinic.adminItems.catManager({ type: 'exam', title: '检查分类管理', placeholder: '新增检查分类名称（如：CT、MR）' });
 }
 
 loadItemList();
 
 /* 驳回后点击站内消息跳回：自动打开编辑表单并回填原提交内容（?edit=ID） */
-(function () {
-    var m = (location.search.match(/[?&]edit=(\d+)/) || [])[1];
-    if (m) openItemForm(parseInt(m, 10));
-})();
+Clinic.adminItems.bindEditDeepLink(openItemForm);
 </script>
