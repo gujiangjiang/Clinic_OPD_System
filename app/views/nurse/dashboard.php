@@ -85,7 +85,7 @@ function submitSkinResult(drugId, result) {
     });
 }
 function itemStatusName(s) {
-    var map = { paid: '待执行', dispensing: '执行中', done: '已完成', dispensed: '已执行', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
+    var map = { open: '待缴费', paid: '待执行', dispensing: '执行中', done: '已完成', dispensed: '已执行', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
     return map[s] || s;
 }
 function itemStatusBadge(s) {
@@ -328,7 +328,8 @@ function procSection(data) {
     (data.orders || []).forEach(function (o) {
         if (o.order_type !== 'procedure') return;
         o.items.forEach(function (it) {
-            if (it.is_nurse) items.push({ it: it, o: o });
+            // 仅展示可执行/已执行项目（paid 待缴费未进入护士流程前不展示 open 明细）
+            if (it.is_nurse && it.status !== 'open') items.push({ it: it, o: o });
         });
     });
     var rows = '';
@@ -372,7 +373,8 @@ function medSection(data) {
     (data.orders || []).forEach(function (o) {
         if (o.order_type !== 'prescription') return;
         o.items.forEach(function (it) {
-            if (it.is_nurse) items.push({ it: it, o: o });
+            // 仅展示可执行/已执行项目（paid 待缴费未进入护士流程前不展示 open 明细）
+            if (it.is_nurse && it.status !== 'open') items.push({ it: it, o: o });
         });
     });
     var rows = '';
