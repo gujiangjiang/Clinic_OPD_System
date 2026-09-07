@@ -156,6 +156,50 @@ function rx_dispensed($orderId) {
 }
 
 /**
+ * 单项执行流程节点（精简，无操作人）：开单→缴费→登记/审方/执行→完成。
+ * 用于按「明细」独立展示进度（缴费凭条详情逐项生成：同一凭条内不同医生开单、
+ * 不同项目执行进度各不相同，以 item 自身状态为准逐项判定，不整单共用）。
+ * 已退费：仅退费项目追加「已退费」节点（缴费下方），后续执行节点照常显示——
+ * 已执行的项目经站内消息确认退费后，执行记录仍保留（按 executed_by/result 痕迹判定）。
+ * @param array $it         order_items 行
+ * @param array $order      orders 行（含 order_type）
+ * @param bool  $isRefunded 整单是否已退费
+ * @return array [{label, done, refunded?, rejected?}]
+ */
+function item_flow_steps($it, $order, $isRefunded) {
+    $flow = array();
+    $flow[] = array('label' => '开单', 'done' => 1);
+    $st = (string)$it['status'];
+    $refunded = ($isRefunded || $st === 'refunded');
+    // 缴费：无论是否退费均保留缴费记录
+    $flow[] = array('label' => '缴费', 'done' => 1);
+    if ($refunded) {
+        $flow[] = array('label' => '已退费', 'done' => 0, 'refunded' => 1);
+    }
+    // 执行痕迹：退费后 status=refunded，须按 executed_by/report 判断是否已执行
+    $executed = !empty($it['executed_by']) || !empty($it['executed_at']);
+    // 报告已出：order_items.result_id 关联 results 行（有结果即已出具/登记）
+    $hasReport = !empty($it['result_id']) || $st === 'done';
+    if ($order['order_type'] === 'lab' || $order['order_type'] === 'imaging') {
+        // 检验/检查：登记 + 报告完成（两者进度独立，登记完成未必出报告）
+        $regDone = $executed || in_array($st, array('registered', 'done'), true);
+        $repDone = $hasReport || $st === 'done';
+        $flow[] = array('label' => '登记', 'done' => $regDone ? 1 : 0);
+        $flow[] = array('label' => '报告完成', 'done' => $repDone ? 1 : 0);
+    } elseif ($order['order_type'] === 'prescription') {
+        // 处方：审方通过（dispensed/dispensing）+ 发药完成（dispensed）
+        $rxDone = $executed || in_array($st, array('dispensed', 'dispensing'), true);
+        $dispDone = $st === 'dispensed';
+        $flow[] = array('label' => '审方通过', 'done' => $rxDone ? 1 : 0, 'rejected' => $st === 'rejected' ? 1 : 0);
+        $flow[] = array('label' => '发药完成', 'done' => $dispDone ? 1 : 0);
+    } else {
+        // 处置：执行完成（护士站执行 done）
+        $flow[] = array('label' => '执行完成', 'done' => ($executed || $st === 'done') ? 1 : 0);
+    }
+    return $flow;
+}
+
+/**
  * 订单执行流程节点（操作人+时间）：开单→缴费→登记/执行→完成，
  * 供开单详情/病历流程/缴费凭条详情展示（doctor/order/cashier 共用）。
  * · 开单 = 开单医生 / 创建时间
