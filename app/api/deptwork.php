@@ -239,7 +239,8 @@ function deptwork_record_summary($visitId) {
         'past_history' => emr_ph_text(isset($collect['past_history']) ? $collect['past_history'] : array()),
         'allergy_history' => emr_al_text(isset($collect['allergies']) ? $collect['allergies'] : array()),
         'physical_exam' => emr_pe_text(isset($collect['physical_exam']) ? $collect['physical_exam'] : array()),
-        'diagnosis' => emr_diag_text(isset($collect['diagnoses']) ? $collect['diagnoses'] : array()),
+        // 初步诊断仅名称（不含 ICD10 编码）——护理/医技工作台摘要展示精简
+        'diagnosis' => emr_diag_names(isset($collect['diagnoses']) ? $collect['diagnoses'] : array()),
     );
 }
 
