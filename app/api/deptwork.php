@@ -244,9 +244,10 @@ function deptwork_record_summary($visitId) {
     );
 }
 
-/** 开单明细（含项目目录信息与结果数据，供各角色工作台复用） */
+/** 开单明细（含项目目录信息与结果数据，供各角色工作台复用）
+ *  排序：按开单时间正序（最早开单在上、最新在下），药房/检验/影像按就诊先后顺序处理 */
 function deptwork_orders($visitId) {
-    $orders = OrderRepository::byVisit((int)$visitId);
+    $orders = OrderRepository::q('SELECT * FROM orders WHERE visit_id=? ORDER BY id ASC', array((int)$visitId));
     $typeNames = array('lab' => '检验', 'imaging' => '检查', 'procedure' => '处置', 'prescription' => '处方');
     $out = array();
     foreach ($orders as $o) {
@@ -254,6 +255,7 @@ function deptwork_orders($visitId) {
         foreach (OrderRepository::itemsByOrder((int)$o['id']) as $it) {
             $row = array(
                 'id' => oid((int)$it['id']),
+                'order_id' => oid((int)$o['id']),
                 'item_id' => (int)$it['item_id'],
                 'item_name' => $it['item_name'],
                 'item_type' => $it['item_type'],
