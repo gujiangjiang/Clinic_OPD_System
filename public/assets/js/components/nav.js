@@ -54,9 +54,9 @@ Clinic.nav = {
         emr 栈：病历/模板/审核预览共用；docTools 栈：仅医生工作站
         顺序即加载顺序（emr_* 子模块依赖 Clinic.emr 先就绪） */
     pageScripts: {
-        emr: ['order', 'emreditor', 'eventbus', 'emr', 'emr_rules', 'emr_format', 'emr_template', 'emr_fee', 'emr_patient', 'emr_orders', 'emr_segments', 'emr_consent', 'queuepanel'],
+        emr: ['order', 'emreditor', 'eventbus', 'emr', 'emr_rules', 'emr_format', 'emr_template', 'emr_fee', 'emr_patient', 'emr_orders', 'emr_segments', 'emr_consent', 'vitals', 'queuepanel'],
         docTools: ['room_heartbeat', 'doctor_tools'],
-        deptwork: ['deptwork'],
+        deptwork: ['deptwork', 'vitals'],
     },
 
     /** 判断组件是否已加载（按全局命名空间标记） */
@@ -76,6 +76,7 @@ Clinic.nav = {
             case 'emr_segments': return !!(Clinic.emr && Clinic.emr.segments);
             case 'emr_consent': return !!(Clinic.emr && Clinic.emr.consent);
             case 'queuepanel': return !!Clinic.queuePanel;
+            case 'vitals': return !!Clinic.vitals;
             case 'room_heartbeat': return !!Clinic.roomHeartbeat;
             case 'doctor_tools': return !!Clinic.docTools;
             case 'deptwork': return !!Clinic.deptwork;

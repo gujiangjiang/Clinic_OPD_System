@@ -255,7 +255,7 @@ class Layout {
                 return '<script src="/assets/js/components/' . $f . '.js?v=' . APP_VERSION . '"></script>';
             }, array(
                 'order', 'emreditor', 'eventbus', 'emr', 'emr_rules', 'emr_format',
-                'emr_template', 'emr_fee', 'emr_patient', 'emr_orders', 'emr_segments', 'emr_consent', 'queuepanel',
+                'emr_template', 'emr_fee', 'emr_patient', 'emr_orders', 'emr_segments', 'emr_consent', 'vitals', 'queuepanel',
             )));
         }
         // 医生工作站（新）顶栏工具：工具箱 / 叫号大屏绑定 / 科室切换（仅医生角色）
@@ -266,9 +266,10 @@ class Layout {
         if ($u['role'] === 'doctor') {
             $emrScripts .= "\n" . '<script src="/assets/js/components/room_heartbeat.js?v=' . APP_VERSION . '"></script>';
         }
-        // 科室工作台（护士站/检验/影像/药房）共用组件
+        // 科室工作台（护士站/检验/影像/药房）共用组件 + 生命体征悬浮窗组件
         if ($needDeptWork) {
             $emrScripts .= "\n" . '<script src="/assets/js/components/deptwork.js?v=' . APP_VERSION . '"></script>';
+            $emrScripts .= "\n" . '<script src="/assets/js/components/vitals.js?v=' . APP_VERSION . '"></script>';
         }
         $uPop = '<div class="user-pop">' .
             '<div class="user-pop-head">' .

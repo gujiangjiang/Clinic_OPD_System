@@ -981,14 +981,9 @@ diagnoses: [],
     /**
      * 打开生命体征编辑弹窗（6 个输入框：收缩压/舒张压/心率/脉搏/血氧/呼吸，与护士站共用接口）
      */
-    var vitalsPopHandler = null;
+    /* 生命体征编辑悬浮窗：统一走 Clinic.vitals 公共组件（与护士站工作台同实现） */
     function closeVitalsPop() {
-        var pop = document.getElementById('vitalsPop');
-        if (pop) pop.remove();
-        if (vitalsPopHandler) {
-            document.removeEventListener('mousedown', vitalsPopHandler);
-            vitalsPopHandler = null;
-        }
+        if (window.Clinic && Clinic.vitals) Clinic.vitals.close();
     }
     function openVitals(ev) {
         // 诊毕只读：不允许修改生命体征（仅展示）
@@ -996,67 +991,28 @@ diagnoses: [],
             Clinic.toast.warning('该患者已诊毕，生命体征为只读状态');
             return;
         }
-        // 已打开则先收起（再次点击 = 关闭）
-        if (document.getElementById('vitalsPop')) { closeVitalsPop(); return; }
         var sec = document.querySelector('.doc-sec-vital');
         if (!sec) { Clinic.toast.warning('生命体征区域不可见'); return; }
-        // 鼠标点击位置（视口坐标，面板 fixed 定位跟随点击处）
-        var cx = ev && typeof ev.clientX === 'number' ? ev.clientX : window.innerWidth / 2 - 150;
-        var cy = ev && typeof ev.clientY === 'number' ? ev.clientY : 120;
+        if (!window.Clinic || !Clinic.vitals) { Clinic.toast.warning('体征组件未加载'); return; }
         var visitId = document.getElementById('visitId').value;
-
-        // 构建并展示体征编辑弹窗（v = 预填值）
-        var showVitalsPop = function (v) {
-            v = v || {};
-            closeVitalsPop();
-            var val = function (x) { return x || ''; };
-            var pop = document.createElement('div');
-            pop.id = 'vitalsPop';
-            pop.className = 'finish-pop vitals-pop';
-            pop.innerHTML =
-                '<div class="fs-13 fw-700 mb-8">生命体征编辑</div>' +
-                '<div class="vitals-grid">' +
-                '  <div><label class="form-label">收缩压 mmHg</label><input class="input" id="vSys" type="number" min="0" value="' + val(v.vital_sbp) + '"></div>' +
-                '  <div><label class="form-label">舒张压 mmHg</label><input class="input" id="vDia" type="number" min="0" value="' + val(v.vital_dbp) + '"></div>' +
-                '  <div><label class="form-label">心率 次/分</label><input class="input" id="vHR" value="' + val(v.vital_heart_rate) + '"></div>' +
-                '  <div><label class="form-label">脉搏 次/分</label><input class="input" id="vPulse" value="' + val(v.vital_pulse) + '"></div>' +
-                '  <div><label class="form-label">血氧饱和度 %</label><input class="input" id="vSpO2" value="' + val(v.vital_spo2) + '"></div>' +
-                '  <div><label class="form-label">呼吸 次/分</label><input class="input" id="vResp" value="' + val(v.vital_respiration) + '"></div>' +
-                '</div>' +
-                '<div class="fs-12 text-muted mt-4">保存后护士站将同步显示。</div>' +
-                '<div class="flex gap-8 mt-8">' +
-                '  <button type="button" class="btn btn-outline btn-sm" style="flex:1" id="vitalsCancel">取消</button>' +
-                '  <button type="button" class="btn btn-primary btn-sm" style="flex:1" id="vitalsSave">保存</button>' +
-                '</div>';
-            document.body.appendChild(pop);
-            // fixed 定位跟随鼠标点击处，实际尺寸夹紧在视口内
-            pop.style.left = (cx + 12) + 'px';
-            pop.style.top = (cy + 12) + 'px';
-            clampPop(pop);
-            pop.querySelector('#vitalsCancel').addEventListener('click', closeVitalsPop);
-            pop.querySelector('#vitalsSave').addEventListener('click', function () {
-                // 数值校验：整数、生理合理区间；留空视为未测
-                var spec = [
-                    { id: 'vSys', label: '收缩压', min: 1, max: 300 },
-                    { id: 'vDia', label: '舒张压', min: 1, max: 250 },
-                    { id: 'vHR', label: '心率', min: 1, max: 300 },
-                    { id: 'vPulse', label: '脉搏', min: 1, max: 300 },
-                    { id: 'vSpO2', label: '血氧饱和度', min: 1, max: 100 },
-                    { id: 'vResp', label: '呼吸', min: 1, max: 100 },
-                ];
-                var vals = {};
-                for (var i = 0; i < spec.length; i++) {
-                    var s = spec[i];
-                    var raw = document.getElementById(s.id).value.trim();
-                    if (raw === '') { vals[s.id] = ''; continue; }
-                    if (!/^\d+$/.test(raw)) { Clinic.toast.warning(s.label + '须为非负整数（不留小数 / 负数 / 单位）'); return; }
-                    var n = parseInt(raw, 10);
-                    if (n !== 0 && (n < s.min || n > s.max)) {
-                        Clinic.toast.warning(s.label + '超出合理范围（' + s.min + '-' + s.max + '）');
-                        return;
-                    }
-                    vals[s.id] = raw;
+        Clinic.vitals.open({
+            cx: ev && typeof ev.clientX === 'number' ? ev.clientX : window.innerWidth / 2 - 150,
+            cy: ev && typeof ev.clientY === 'number' ? ev.clientY : 120,
+            hint: '保存后护士站将同步显示。',
+            // 点击体征入口链接时交由 openVitals 自身 toggle，不在此关闭
+            exempt: '#vitalLink',
+            prefill: function (fill) {
+                // 续写病历：用记录自身 vitals（新建续写为空，不继承首诊）；初始病历取就诊 vitals（护士站同步）
+                var isProgRec = DATA && DATA.record && DATA.record.record_type === 'progress';
+                if (isProgRec) {
+                    fill((DATA.record.emr && DATA.record.emr.vitals) || {});
+                } else {
+                    Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
+                        onSuccess: function (j) { fill(j.data.vitals || {}); },
+                    });
                 }
+            },
+            onSubmit: function (vals, done) {
                 var data = {
                     action: 'save_vitals',
                     visit_id: visitId,
@@ -1083,29 +1039,12 @@ diagnoses: [],
                             };
                         }
                         Clinic.toast.success(json.msg);
-                        closeVitalsPop();
+                        done();
                         refreshVitalDisplay();
                     },
                 });
-            });
-            // 点击面板以外区域关闭（豁免范围仅限内容链接，行内标签/空白不豁免）
-            vitalsPopHandler = function (e) {
-                var link = document.getElementById('vitalLink');
-                if (!pop.contains(e.target) && !(link && link.contains(e.target))) closeVitalsPop();
-            };
-            setTimeout(function () { document.addEventListener('mousedown', vitalsPopHandler); }, 0);
-        };
-
-        // 续写病历：用记录自身 vitals（新建续写为空，不继承首诊）；初始病历取就诊 vitals（护士站同步）
-        var isProgRec = DATA && DATA.record && DATA.record.record_type === 'progress';
-        if (isProgRec) {
-            var ownV = (DATA.record.emr && DATA.record.emr.vitals) ? DATA.record.emr.vitals : {};
-            showVitalsPop(ownV);
-        } else {
-            Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
-                onSuccess: function (j) { showVitalsPop(j.data.vitals || {}); },
-            });
-        }
+            },
+        });
     }
 
     /**
