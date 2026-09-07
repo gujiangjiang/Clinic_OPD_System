@@ -158,8 +158,16 @@ function record_part_save($u) {
         if ($progContent === '') json_fail('病历续写为必填项，请输入续写内容（可快捷填入「病史同上」）');
         if (!$hasDiagnosis) json_fail('初步诊断为必填项，请至少添加一个诊断');
     } else {
+        // 首诊：主诉（主要症状/持续时间/时间单位）+ 现病史（具体内容/供史者/来院途径 各部分）
+        // 均必填，任一为空判定对应节未完善，与前端 save 校验同规则
         if (!isset($cc['symptom']) || trim((string)$cc['symptom']) === '') json_fail('主诉为必填项，请填写主要症状');
+        if (!isset($cc['duration']) || trim((string)$cc['duration']) === '') json_fail('主诉为必填项，请填写症状持续时间');
+        if (!isset($cc['unit']) || trim((string)$cc['unit']) === '') json_fail('主诉为必填项，请选择症状持续时间单位');
         if (!isset($pi['content']) || trim((string)$pi['content']) === '') json_fail('现病史为必填项，请填写具体内容');
+        if (!isset($pi['duration']) || trim((string)$pi['duration']) === '') json_fail('现病史为必填项，请填写发病时间');
+        if (!isset($pi['unit']) || trim((string)$pi['unit']) === '') json_fail('现病史为必填项，请选择发病时间单位');
+        if (!isset($pi['informant']) || trim((string)$pi['informant']) === '') json_fail('现病史为必填项，请选择供史者');
+        if (!isset($pi['arrival_way']) || trim((string)$pi['arrival_way']) === '') json_fail('现病史为必填项，请选择来院途径');
         if (!$hasDiagnosis) json_fail('初步诊断为必填项，请至少添加一个诊断');
     }
 

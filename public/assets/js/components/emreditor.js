@@ -230,22 +230,23 @@ Clinic.emrEditor = (function () {
         var d = secWrap('主诉', true);
         d.appendChild(textField('chief_complaint.symptom', '主要症状', 90));
         d.appendChild(textField('chief_complaint.duration', '时间', 36));
-        d.appendChild(selectField('chief_complaint.unit', '单位', UNITS));
+        // 单位下拉：搜索 + 清空 X，占位「单位」不进候选列表
+        d.appendChild(selectField('chief_complaint.unit', '单位', UNITS, { csdSearch: 1, csdClear: 1 }));
         d.appendChild(textField('chief_complaint.second_symptom', '次要症状', 90));
         d.appendChild(textField('chief_complaint.second_duration', '时间', 36));
-        d.appendChild(selectField('chief_complaint.second_unit', '单位', UNITS));
+        d.appendChild(selectField('chief_complaint.second_unit', '单位', UNITS, { csdSearch: 1, csdClear: 1 }));
         return d;
     }
 
     /** 现病史 */
     function buildPI() {
         var d = secWrap('现病史', true);
-        d.appendChild(selectField('history_present.informant', '供史者', INFORMANTS));
+        d.appendChild(selectField('history_present.informant', '供史者', INFORMANTS, { csdSearch: 1, csdClear: 1 }));
         d.appendChild(textField('history_present.duration', '时间', 36));
-        d.appendChild(selectField('history_present.unit', '单位', UNITS));
+        d.appendChild(selectField('history_present.unit', '单位', UNITS, { csdSearch: 1, csdClear: 1 }));
         d.appendChild(textField('history_present.content', '现病史具体内容', 260));
         d.appendChild(staticText('，'));
-        d.appendChild(selectField('history_present.arrival_way', '来院途径', ARRIVAL_WAYS));
+        d.appendChild(selectField('history_present.arrival_way', '来院途径', ARRIVAL_WAYS, { csdSearch: 1, csdClear: 1 }));
         return d;
     }
 

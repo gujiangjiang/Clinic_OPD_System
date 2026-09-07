@@ -2518,8 +2518,16 @@ Clinic.emr = (function () {
             if (!((emr.progress || {}).content || '').trim()) { Clinic.toast.warning('请填写病历续写内容（必填，可快捷填入「病史同上」）'); return; }
             if (!emr.diagnoses || !emr.diagnoses.length) { Clinic.toast.warning('请添加初步诊断（必填）'); return; }
         } else {
-            if (!(cc.symptom || '').trim()) { Clinic.toast.warning('请填写主诉（必填）'); return; }
-            if (!(pi.content || '').trim()) { Clinic.toast.warning('请填写现病史（必填）'); return; }
+            // 主诉：主要症状 / 症状持续时间 / 时间单位 全部必填；
+            // 现病史：具体内容 / 供史者 / 来院途径 等各部分均必填，任一为空判定现病史未完善
+            if (!(cc.symptom || '').trim()) { Clinic.toast.warning('请填写主诉-主要症状（必填）'); return; }
+            if (!(cc.duration || '').trim()) { Clinic.toast.warning('请填写主诉-症状持续时间（必填）'); return; }
+            if (!(cc.unit || '').trim()) { Clinic.toast.warning('请选择主诉-症状持续时间单位（必填）'); return; }
+            if (!(pi.content || '').trim()) { Clinic.toast.warning('请填写现病史具体内容（必填）'); return; }
+            if (!(pi.duration || '').trim()) { Clinic.toast.warning('请填写现病史-发病时间（必填）'); return; }
+            if (!(pi.unit || '').trim()) { Clinic.toast.warning('请选择现病史-发病时间单位（必填）'); return; }
+            if (!(pi.informant || '').trim()) { Clinic.toast.warning('请选择现病史-供史者（必填）'); return; }
+            if (!(pi.arrival_way || '').trim()) { Clinic.toast.warning('请选择现病史-来院途径（必填）'); return; }
             if (!emr.diagnoses || !emr.diagnoses.length) { Clinic.toast.warning('请添加初步诊断（必填）'); return; }
         }
 
