@@ -53,14 +53,18 @@ Clinic.emr = (function () {
      */
     function init() {
         var visitId = document.getElementById('visitId').value;
-        // 病历编辑区域禁止右键菜单：仅放行输入类控件（输入框/文本域/下拉/
-        // 富文本可编辑区，粘贴等操作不受影响），其余区域一律屏蔽。
+        // 病历编辑区域禁止右键菜单：仅放行输入框（input/textarea/富文本可编辑区），
+        // 由自定义右键菜单接管（emr_ctxmenu.js：复制/剪切/粘贴/清空，嘱托输入框另有
+        // 「模板」预留项）；下拉选择（select，如「请选择」）与其余区域一律屏蔽原生菜单。
         // 作用范围限定在电子病历文档卡片（#emrCard），页面其他区域不受影响。
         var cardEl = document.getElementById('emrCard');
         if (cardEl) {
             cardEl.addEventListener('contextmenu', function (ev) {
                 var t = ev.target;
-                if (t && t.closest && t.closest('input, textarea, select, [contenteditable="true"]')) return;
+                if (t && t.closest && t.closest('input, textarea, [contenteditable="true"]')) {
+                    if (window.Clinic && Clinic.emrMenu && Clinic.emrMenu.show) Clinic.emrMenu.show(ev);
+                    return;
+                }
                 ev.preventDefault();
             });
         }

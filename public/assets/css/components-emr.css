@@ -386,3 +386,39 @@
 /* ---------- 续写承接头（活跃编辑器，虚线下方） ---------- */
 .emr-cont-divider { border-top: 1px dashed var(--border); margin: 14px 0 8px; }
 .emr-cont-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+
+/* ====================================================
+   病历输入框自定义右键菜单（emr_ctxmenu.js）
+   替代浏览器原生右键菜单：普通输入框 复制/剪切/粘贴/清空，
+   嘱托输入框额外「模板」项；走主题变量自动适配明暗模式
+   ==================================================== */
+.emr-ctxmenu {
+    position: fixed;
+    z-index: 10001;
+    min-width: 108px;
+    padding: 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
+    font-size: 13px;
+    line-height: 1.5;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.emr-ctxmenu .emr-ctxmenu-item {
+    padding: 6px 14px;
+    border-radius: 4px;
+    color: var(--text);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.emr-ctxmenu .emr-ctxmenu-item:hover {
+    background: var(--primary-soft);
+    color: var(--primary);
+}
+.emr-ctxmenu .emr-ctxmenu-sep {
+    height: 1px;
+    margin: 4px 6px;
+    background: var(--border);
+}
