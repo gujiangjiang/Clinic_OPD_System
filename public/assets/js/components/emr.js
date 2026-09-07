@@ -1907,9 +1907,10 @@ Clinic.emr = (function () {
             rxE1.innerHTML = rxOrders.map(function (o, oi) {
                 // 删除按钮：病历ID + 开单人 + 可编辑状态 三项全符合才显示
                 var canDel = Clinic.emr.canDeleteOrder(o);
+                var skinTag = o.is_skin_test ? ' <span class="badge badge-warning" style="font-size:10px">皮试</span>' : '';
                 return '<div class="ena-item" onclick="showRxDetail(\'' + o.id + '\')">' +
                     navDot(o.status) +
-                    '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">处方' + (oi + 1) + '</span>' +
+                    '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">处方' + (oi + 1) + skinTag + '</span>' +
                     '<span class="ena-sub">' + escHtml(o.doctor_name || '') + '</span>' +
                     (canDel ? '<span class="ena-del" title="毁方" onclick="delOrderFlow(\'' + o.id + '\',\'毁方\');event.stopPropagation()">🗑️</span>' : '') +
                     '</div>';

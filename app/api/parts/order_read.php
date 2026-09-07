@@ -148,7 +148,8 @@ function order_part_read($action) {
         if (!$row) json_fail('就诊记录不存在');
         // 科室数据隔离：医生仅可查看其就诊科室/本人接诊过的就诊开单
         if (!visit_dept_authorized($row['visit'], $u)) json_fail('无权限查看该就诊的开单');
-        $orders = OrderRepository::q('SELECT * FROM orders WHERE visit_id=? ORDER BY id ASC', array($visitId));
+        // 排序：皮试单（is_skin_test=1）置前（先皮试后正式），其余按开单时间正序
+        $orders = OrderRepository::q('SELECT * FROM orders WHERE visit_id=? ORDER BY is_skin_test DESC, id ASC', array($visitId));
         $out = array();
         foreach ($orders as $o) {
             $items = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
@@ -180,6 +181,8 @@ function order_part_read($action) {
             $out[] = array(
                 // 混淆串：前端删除/打印外链回传时后端统一 did 解码
                 'id' => oid($o['id']), 'order_no' => $o['order_no'], 'order_type' => $o['order_type'],
+                // 皮试单标记：需皮试药品开单拆分的皮试处方/皮试处置（导航与正文置前展示）
+                'is_skin_test' => (int)(isset($o['is_skin_test']) ? $o['is_skin_test'] : 0),
                 // 检查分类名称快照：检查申请单按分类拆分后，前端动态显示「XX申请单」
                 'category_name' => isset($o['category_name']) ? (string)$o['category_name'] : '',
                 'status' => order_agg_status($o['order_type'], $items),
