@@ -344,10 +344,12 @@ function order_part_submit($u) {
             $skinCloneIdx[] = count($orderItems) - 1;
         }
         // 正式处方（P2，全部原条目）+ 各皮试处方（P1，皮试版单条目）
-        $createGroups[] = array('cat' => '', 'idx' => $allIdx, 'is_skin_test' => 0);
+        // 建单顺序：皮试处方在前、正式处方在后——同一皮试开单拆出的两张处方单按 id 自然序
+        // 即「皮试在先、正式随后」，病历右侧列表/正文/医技工作台展示无需额外排序
         foreach ($skinCloneIdx as $ci) {
             $createGroups[] = array('cat' => '', 'idx' => array($ci), 'is_skin_test' => 1);
         }
+        $createGroups[] = array('cat' => '', 'idx' => $allIdx, 'is_skin_test' => 0);
     } else {
         foreach ($groupList as $g) {
             $createGroups[] = array('cat' => $g['cat'], 'idx' => $g['idx'], 'is_skin_test' => 0);

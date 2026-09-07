@@ -148,8 +148,9 @@ function order_part_read($action) {
         if (!$row) json_fail('就诊记录不存在');
         // 科室数据隔离：医生仅可查看其就诊科室/本人接诊过的就诊开单
         if (!visit_dept_authorized($row['visit'], $u)) json_fail('无权限查看该就诊的开单');
-        // 排序：皮试单（is_skin_test=1）置前（先皮试后正式），其余按开单时间正序
-        $orders = OrderRepository::q('SELECT * FROM orders WHERE visit_id=? ORDER BY is_skin_test DESC, id ASC', array($visitId));
+        // 排序：按开单时间正序；同一皮试开单拆出的皮试处方/正式处方由开单侧先建皮试后建正式，
+        // 自然 id 序即「皮试在前、正式随后」（不干扰其他处方相对顺序）
+        $orders = OrderRepository::q('SELECT * FROM orders WHERE visit_id=? ORDER BY id ASC', array($visitId));
         $out = array();
         foreach ($orders as $o) {
             $items = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
