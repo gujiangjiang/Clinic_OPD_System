@@ -131,8 +131,6 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
 .csd-pop {
     position: fixed;
     z-index: 9999;
-    max-height: 220px;
-    overflow-y: auto;
     padding: 4px;
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -140,6 +138,51 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
     box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
     font-size: 13px;
     line-height: 1.5;
+}
+/* 弹层头部：搜索栏 + 清空 X（按 select 的 data-csd-search / data-csd-clear 显示） */
+.csd-pop .csd-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+}
+.csd-pop .csd-search {
+    flex: 1;
+    min-width: 0;
+    padding: 5px 10px;
+    font-size: 13px;
+    color: var(--text);
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    outline: none;
+}
+.csd-pop .csd-search:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-soft);
+}
+.csd-pop .csd-clear {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 12px;
+}
+.csd-pop .csd-clear:hover {
+    background: var(--bg-soft);
+    color: var(--danger);
+}
+/* 选项列表：独立滚动（头部固定） */
+.csd-pop .csd-list {
+    max-height: 200px;
+    overflow-y: auto;
 }
 .csd-pop .csd-opt {
     padding: 6px 10px;

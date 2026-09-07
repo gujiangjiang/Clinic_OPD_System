@@ -39,7 +39,7 @@ Router::title('挂号收费');
             <div class="form-group"><label class="form-label">年龄（按出生日期自动计算）</label><input class="input" id="age" disabled placeholder="—"></div>
         </div>
         <div class="form-row">
-            <div class="form-group"><label class="form-label">民族</label><select class="select" id="ethnicity"><?php echo opt_options('ethnicity', '汉族'); ?></select></div>
+            <div class="form-group"><label class="form-label">民族</label><select class="select" id="ethnicity" data-csd-search="1"><?php echo opt_options('ethnicity', '汉族'); ?></select></div>
             <div class="form-group"><label class="form-label">婚姻状况</label><select class="select" id="marital"><?php echo opt_options('marital'); ?></select></div>
             <div class="form-group"><label class="form-label">费用类别</label><select class="select" id="fee_type"><?php echo opt_options('fee_type', '自费'); ?></select></div>
         </div>

@@ -124,12 +124,12 @@ function admin_part_user($action) {
                 <input class="input" id="f_queue_days" type="number" min="2" max="7" value="' . (int)$r['queue_days'] . '" placeholder="2-7"></div>
         </div>
         <div class="form-row">
-            <div class="form-group"><label class="form-label">学历</label><select class="select" id="f_education">' . opt_options('education', $r['education']) . '</select></div>
-            <div class="form-group"><label class="form-label">学位</label><select class="select" id="f_degree">' . opt_options('degree', $r['degree']) . '</select></div>
+            <div class="form-group"><label class="form-label">学历</label><select class="select" id="f_education" data-csd-search="1">' . opt_options('education', $r['education']) . '</select></div>
+            <div class="form-group"><label class="form-label">学位</label><select class="select" id="f_degree" data-csd-search="1">' . opt_options('degree', $r['degree']) . '</select></div>
         </div>
         <div class="form-row">
-            <div class="form-group" id="titleWrap" style="display:none"><label class="form-label">职称</label><select class="select" id="f_title"></select></div>
-            <div class="form-group"><label class="form-label">职务</label><select class="select" id="f_position">' . opt_options('position', $r['position']) . '</select></div>
+            <div class="form-group" id="titleWrap" style="display:none"><label class="form-label">职称</label><select class="select" id="f_title" data-csd-search="1"></select></div>
+            <div class="form-group"><label class="form-label">职务</label><select class="select" id="f_position" data-csd-search="1">' . opt_options('position', $r['position']) . '</select></div>
         </div>
         <div class="form-group" id="deptWrap" style="display:none"><label class="form-label">所属科室（医生可选多个，支持按全院 / 门诊 / 急诊快速勾选）</label>
             <div class="tree-box">

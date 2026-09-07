@@ -121,13 +121,18 @@ Clinic.emrEditor = (function () {
     }
 
     /** 下拉选择字段 */
-    function selectField(path, ph, options) {
+    function selectField(path, ph, options, opts) {
+        opts = opts || {};
         var wrap = document.createElement('span');
         wrap.className = 'ef-select-wrap';
         var sel = document.createElement('select');
         sel.className = 'ef-select';
+        // 自定义下拉增强（dropdown.js）：搜索栏 / 清空 X 按 opts 开关
+        if (opts.csdSearch) sel.setAttribute('data-csd-search', '1');
+        if (opts.csdClear) sel.setAttribute('data-csd-clear', '1');
         sel.setAttribute('data-k', path);
-        sel.innerHTML = '<option value="">' + ph + '</option>' +
+        // placeholder 传空串 → 默认空白（无「请选择」占位文案，可由清空 X 退回空白）
+        sel.innerHTML = '<option value="">' + (opts.placeholder || ph) + '</option>' +
             options.map(function (o) { return '<option value="' + o + '">' + o + '</option>'; }).join('');
         sel.addEventListener('change', markDirty);
         wrap.appendChild(sel);
@@ -240,7 +245,7 @@ Clinic.emrEditor = (function () {
         d.appendChild(selectField('history_present.unit', '单位', UNITS));
         d.appendChild(textField('history_present.content', '现病史具体内容', 260));
         d.appendChild(staticText('，'));
-        d.appendChild(selectField('history_present.arrival_way', '来院途径', ARRIVAL_WAYS));
+        d.appendChild(selectField('history_present.arrival_way', '请选择', ARRIVAL_WAYS, { csdClear: 1 }));
         return d;
     }
 
@@ -414,7 +419,9 @@ Clinic.emrEditor = (function () {
         Object.keys(MAIN_SYMPTOM_CATS).forEach(function (cat, i) {
             if (i > 0) d.appendChild(staticText('　'));
             d.appendChild(staticText(cat + '：'));
-            d.appendChild(selectField('main_symptoms.' + cat, '请选择', MAIN_SYMPTOM_CATS[cat]));
+            // 主要症状下拉：默认空白（无「请选择」占位），支持顶部搜索 + 清空 X 退回空白
+            d.appendChild(selectField('main_symptoms.' + cat, '', MAIN_SYMPTOM_CATS[cat],
+                { csdSearch: 1, csdClear: 1, placeholder: '' }));
         });
         return d;
     }
