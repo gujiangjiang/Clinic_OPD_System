@@ -164,12 +164,37 @@ switch ($action) {
                         foreach ($g['subs'] as $s) { $s['sub_of'] = $pharmSeq; $pharmItems[] = $s; }
                     }
                 }
-                // 护士站预览（nurse_only）：只输出护士执行药品的输液（注射）笺副本（Z 结尾）
+                // 需皮试药品（主药名含「(需要皮试)」后缀）：打印时在常规处方/输液笺之前
+                // 额外生成「皮试处方」（途径改为皮内注射）与「皮试注射笺」（护士站执行时）。
+                // 皮试单不额外计费（皮试处置费已含在联动处置单），仅作为执行单据。
+                $skinItems = array();      // 皮试处方明细（单组）
+                $skinNurseItems = array(); // 皮试注射笺明细（单组，护士站执行）
+                foreach ($groups as $g) {
+                    if (strpos((string)$g['main']['item_name'], '(需要皮试)') === false) continue;
+                    $si = array_merge($g['main'], array('route' => '皮内注射', 'sub_of' => 0));
+                    $ss = array();
+                    $sSeq = 0;
+                    foreach ($g['subs'] as $s) { $sSeq++; $s2 = $s; $s2['sub_of'] = $sSeq; $ss[] = $s2; }
+                    $skinItems[] = array_merge(array($si), $ss);
+                    if (!empty($g['main']['is_nurse'])) $skinNurseItems[] = array_merge(array($si), $ss);
+                }
+                // 护士站预览（nurse_only）：只输出护士执行药品的输液（注射）笺副本（Z 结尾）——
+                // 含皮试注射笺（SZ 结尾）与常规输液笺
                 if ($nurseOnly) {
+                    foreach ($skinNurseItems as $sk) {
+                        $html .= pt_order($order, $sk, '门诊皮试注射笺', array('note_type' => 'nurse', 'display_no' => $order['order_no'] . 'SZ'));
+                    }
                     if ($nurseItems) {
                         $html .= pt_order($order, $nurseItems, '门诊输液（注射）笺', array('note_type' => 'nurse', 'display_no' => $order['order_no'] . 'Z'));
                     }
                     continue;
+                }
+                // 皮试单据置前：皮试处方（S）+ 皮试注射笺（SZ，护士站执行时）
+                foreach ($skinItems as $sk) {
+                    $html .= pt_order($order, $sk, '门诊皮试处方笺', array('note_type' => 'pharm', 'display_no' => $order['order_no'] . 'S'));
+                }
+                foreach ($skinNurseItems as $sk) {
+                    $html .= pt_order($order, $sk, '门诊皮试注射笺', array('note_type' => 'nurse', 'display_no' => $order['order_no'] . 'SZ'));
                 }
                 // ① 非护士药品处方笺
                 if ($pharmItems) {
