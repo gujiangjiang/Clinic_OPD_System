@@ -18,10 +18,7 @@
     /* ---------- 实时时钟 ---------- */
     Clinic.datetime.clock('#callClock', 'Y年m月d日');
 
-    function pad3(n) {
-        n = parseInt(n, 10) || 0;
-        return n < 10 ? '00' + n : (n < 100 ? '0' + n : '' + n);
-    }
+    function pad3(n) { return Clinic.pad3(n); }
 
     /* ---------- 渲染队列数据 ---------- */
     function render(d) {

@@ -111,12 +111,25 @@ function loadModal(url, data, title) {
     });
 }
 
+/**
+ * 通用格式化 helper（多模块重复实现，统一收敛到 Clinic 全局）
+ */
+Clinic.pad3 = function (n) {
+    n = parseInt(n, 10) || 0;
+    return n < 10 ? '00' + n : (n < 100 ? '0' + n : '' + n);
+};
+Clinic.money = function (n) {
+    return '¥' + (parseFloat(n) || 0).toFixed(2);
+};
+Clinic.nl2br = function (s) {
+    return (s || '').replace(/\n/g, '<br>');
+};
+
 Clinic.ui = {
     /**
      * 打开服务端渲染的表单弹窗并绑定保存
      */
-    formModal: function (url, data, title, fields, onSaved) {
-        var mask = Clinic.modal.load(url, data, { title: title });
+    formModal: function (url, data, title, fields, onSaved) {        var mask = Clinic.modal.load(url, data, { title: title });
         mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
             var foot = mask.querySelector('.modal-foot');
             foot.innerHTML =

@@ -34,7 +34,7 @@ Router::title('护理模板管理');
 </style>
 
 <script>
-function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function escHtml(s) { return Clinic.escHtml(s); }
 
 var NTPL_DATA = [];
 var NTPL_SCOPE = '';

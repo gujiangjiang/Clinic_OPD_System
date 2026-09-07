@@ -34,7 +34,7 @@ Router::title('影像模板管理');
 </style>
 
 <script>
-function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function escHtml(s) { return Clinic.escHtml(s); }
 
 var ITPL_DATA = [];
 var ITPL_SCOPE = '';

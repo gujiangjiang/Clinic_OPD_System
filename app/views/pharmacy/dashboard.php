@@ -34,7 +34,7 @@ function afterRxAction() {
 }
 
 function esc(s) { return Clinic.escHtml(s); }
-function money(n) { return '¥' + (parseFloat(n) || 0).toFixed(2); }
+function money(n) { return Clinic.money(n); }
 function orderStatusName(s) {
     // 药房审方上下文：待审方（paid）即「审方中」
     var map = { pending: '待缴费', paid: '审方中', dispensed: '已发药', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };

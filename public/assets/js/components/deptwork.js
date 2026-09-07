@@ -36,10 +36,7 @@ Clinic.deptwork = (function () {
 
     function escHtml(s) { return Clinic.escHtml(s); }
 
-    function pad3(n) {
-        n = parseInt(n, 10) || 0;
-        return n < 10 ? '00' + n : (n < 100 ? '0' + n : '' + n);
-    }
+    function pad3(n) { return Clinic.pad3(n); }
 
     /* ==================== 配置与初始化 ==================== */
     function configure(opts) {

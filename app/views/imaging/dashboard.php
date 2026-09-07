@@ -35,7 +35,7 @@ function afterImgAction() {
 }
 
 function esc(s) { return Clinic.escHtml(s); }
-function nl2br(s) { return (s || '').replace(/\n/g, '<br>'); }
+function nl2br(s) { return Clinic.nl2br(s); }
 function itemStatusName(s) {
     var map = { paid: '待登记', registered: '待出报告', done: '已完成', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
     return map[s] || s;

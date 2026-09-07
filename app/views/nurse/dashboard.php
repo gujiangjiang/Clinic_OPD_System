@@ -34,7 +34,7 @@ Clinic.deptwork.configure({
 var CUR_VISIT = '';   // 当前患者混淆码（体征/护理/处置操作回传）
 
 function esc(s) { return Clinic.escHtml(s); }
-function nl2br(s) { return (s || '').replace(/\n/g, '<br>'); }
+function nl2br(s) { return Clinic.nl2br(s); }
 function itemStatusName(s) {
     var map = { paid: '待执行', dispensing: '执行中', done: '已完成', dispensed: '已执行', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
     return map[s] || s;

@@ -1946,7 +1946,7 @@ Clinic.emr = (function () {
     }
 
     /** 处方金额显示（¥xx.xx，空单返回空串由标题隐藏） */
-    function money2(v) { return '¥' + Number(v || 0).toFixed(2); }
+    function money2(v) { return Clinic.money(v); }
 
     /** 分区标题项目数徽章：>0 显示数字，0 隐藏 */
     function setNavCount(id, n) {

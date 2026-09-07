@@ -57,10 +57,7 @@ Clinic.docTools = (function () {
             sessionStorage.setItem('clinic_doc_callpop_pos', JSON.stringify({ u: k.u, s: k.s, x: x, y: y }));
         } catch (e) { /* 忽略 */ }
     }
-    function pad3(n) {
-        n = parseInt(n, 10) || 0;
-        return n < 10 ? '00' + n : (n < 100 ? '0' + n : '' + n);
-    }
+    function pad3(n) { return Clinic.pad3(n); }
 
     /* ==================== 悬浮窗模式记忆（精简版/完整版，跟随医生本地持久化） ====================
        用 localStorage 按医生 uid 保存，退出登录/重启浏览器后仍记住所选版本 */

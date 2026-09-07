@@ -50,7 +50,7 @@ var TPL_DATA = [];
 var TPL_SCOPE = '';   // 范围筛选（空=全部）
 
 /* HTML 转义（内联视图用，全局供模板列表渲染等） */
-function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function escHtml(s) { return Clinic.escHtml(s); }
 
 function setTplTypeSel() {
     TPL_TYPE = document.getElementById('tplTypeSel').value;
