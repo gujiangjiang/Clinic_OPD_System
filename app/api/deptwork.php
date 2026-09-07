@@ -328,8 +328,20 @@ function deptwork_orders($visitId) {
             'dispensed_at' => isset($o['dispensed_at']) ? $o['dispensed_at'] : '',
             'review_by' => isset($o['review_by']) ? $o['review_by'] : '',
             'reviewed_at' => isset($o['reviewed_at']) ? $o['reviewed_at'] : '',
+            'is_skin_test' => (int)(isset($o['is_skin_test']) ? $o['is_skin_test'] : 0),
+            'source_order_id' => ((int)(isset($o['source_order_id']) ? $o['source_order_id'] : 0) > 0) ? oid((int)$o['source_order_id']) : 0,
+            // 皮试处置单：附带皮试药品信息（供护士记录皮试结果）
+            'skin_drug_id' => 0, 'skin_drug_name' => '',
             'items' => $items,
         );
+        // 皮试处置单（is_skin_test=1 且关联皮试处方）→ 回填皮试药品（源处方主药）
+        if (isset($o['is_skin_test']) && (int)$o['is_skin_test'] === 1 && $o['order_type'] === 'procedure' && (int)$o['source_order_id'] > 0) {
+            $srcIt = OrderRepository::one("SELECT item_id, item_name FROM order_items WHERE order_id=? AND item_type='prescription' AND sub_of=0 ORDER BY id LIMIT 1", array((int)$o['source_order_id']));
+            if ($srcIt) {
+                $out[count($out) - 1]['skin_drug_id'] = (int)$srcIt['item_id'];
+                $out[count($out) - 1]['skin_drug_name'] = preg_replace('/\(需要皮试\)/', '', (string)$srcIt['item_name']);
+            }
+        }
     }
     return $out;
 }

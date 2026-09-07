@@ -172,9 +172,12 @@ function cashier_part_read($action) {
             $items = isset($itemsByOrder[(int)$o['id']]) ? $itemsByOrder[(int)$o['id']] : array();
             if (order_agg_status($o['order_type'], $items) === 'open') {
                 $openOrders[] = $o;
+                // 皮试钳制：含需皮试药品且本次就诊尚无阴性结果的正式处方/处置不可缴费（前端禁选 + 后端硬拦）
+                $locked = order_skin_locked($o, $items) ? 1 : 0;
                 $unpaid[] = array('kind' => 'order', 'oid' => oid($o['id']), 'order_no' => $o['order_no'],
                     'name' => (isset($typeNames[$o['order_type']]) ? $typeNames[$o['order_type']] : '') . ' ' . $o['order_no'],
-                    'doctor' => $o['doctor_name'], 'amount' => (float)$o['total_amount'], 'items' => $items);
+                    'doctor' => $o['doctor_name'], 'amount' => (float)$o['total_amount'], 'items' => $items,
+                    'locked' => $locked, 'locked_reason' => $locked ? '需先完成皮试且结果阴性后方可缴费' : '');
             }
         }
         if ($unpaid) {
@@ -379,6 +382,12 @@ function cashier_part_read($action) {
             if ((int)$order['visit_id'] !== $batchVisitId) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 json_fail('同批次缴费的开单必须属于同一患者就诊，请分开缴费');
+            }
+            $items = CashierRepository::orderItems($order['id']);
+            // 皮试钳制硬拦截：含需皮试药品且本次就诊尚无阴性结果 → 禁止缴费（后端兜底）
+            if (order_skin_locked($order, $items)) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                json_fail('该开单含需皮试药品，请先完成皮试且结果阴性后方可缴费');
             }
             $items = CashierRepository::orderItems($order['id']);
             // 原子条件更新防并发重复缴费：仅 open 明细可转 paid（事务内按影响行数判定）

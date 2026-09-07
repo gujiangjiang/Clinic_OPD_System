@@ -108,13 +108,19 @@ function openUnpaidModal() {
         var itemsTxt = (u.items || []).map(function (it) {
             return '· ' + Clinic.escHtml(it.item_name) + (it.quantity > 1 ? ' ×' + it.quantity : '') + ' ￥' + parseFloat(it.price * it.quantity).toFixed(2);
         }).join('<br>');
-        return '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:6px">' +
+        // 皮试钳制：正式处方/处置在皮试阴性前不可缴费（checkbox 禁用 + 🔒 提示）
+        var locked = u.kind === 'order' && u.locked;
+        var chk = locked
+            ? '<input type="checkbox" class="unpaidChk" value="' + u.oid + '" data-kind="' + u.kind + '" disabled onchange="updateUnpaidCount()">'
+            : '<input type="checkbox" class="unpaidChk" value="' + (u.kind === 'visit' ? 'visit' : u.oid) + '" data-kind="' + u.kind + '" onchange="updateUnpaidCount()" checked>';
+        return '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:6px' + (locked ? ';opacity:.6;background:var(--bg-soft)' : '') + '">' +
             '<div class="flex-between">' +
             '<label class="flex gap-4 fs-13" style="cursor:pointer;flex:1;min-width:0">' +
-            '<input type="checkbox" class="unpaidChk" value="' + (u.kind === 'visit' ? 'visit' : u.oid) + '" data-kind="' + u.kind + '" onchange="updateUnpaidCount()" checked>' +
+            chk +
             '<span class="ellipsis">' + (u.kind === 'visit' ? '🎫 ' : '') + Clinic.escHtml(u.name) + (u.doctor ? ' <span class="fs-12 text-muted">｜ ' + Clinic.escHtml(u.doctor) + '</span>' : '') + '</span></label>' +
             '<span class="fs-13 fw-600">¥' + parseFloat(u.amount).toFixed(2) + '</span></div>' +
             (itemsTxt ? '<div class="fs-12 text-muted mt-4" style="padding-left:24px">' + itemsTxt + '</div>' : '') +
+            (locked ? '<div class="fs-12 mt-4" style="padding-left:24px;color:var(--danger)">🔒 ' + Clinic.escHtml(u.locked_reason || '待皮试结果后方可缴费') + '</div>' : '') +
             '</div>';
     }).join('');
     var body =
@@ -163,6 +169,7 @@ function submitUnpaidPay(mode) {
     var ids = [];
     var needVisit = false;
     document.querySelectorAll('.unpaidChk').forEach(function (c) {
+        if (c.disabled) return;   // 皮试钳制的正式单在「一键全部缴费」中同样排除
         var checked = (mode === 'all') ? true : c.checked;
         if (!checked) return;
         if (c.getAttribute('data-kind') === 'order') ids.push(c.value);
