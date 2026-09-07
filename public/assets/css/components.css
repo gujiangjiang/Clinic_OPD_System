@@ -76,10 +76,16 @@
     border-color: var(--primary);
     box-shadow: 0 0 0 3px var(--primary-soft);
 }
-/* 悬浮反馈：表单控件悬停边框变主色（与整体交互一致）；下拉打开态（dropdown.js 加 .csd-open）同聚焦高亮 */
-.input:hover, .select:hover, .textarea:hover { border-color: var(--primary); }
+/* 悬浮反馈：与 EMR 纸面字段 focus 一致——悬停显示主色浅蓝底 + 主色边框；
+   下拉打开态（dropdown.js 加 .csd-open）同样蓝色底高亮 */
+.input:hover, .select:hover {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+}
+.textarea:hover { border-color: var(--primary); }
 .select.csd-open {
     border-color: var(--primary);
+    background: var(--primary-soft);
     box-shadow: 0 0 0 3px var(--primary-soft);
 }
 .input:disabled, .select:disabled { background: var(--bg-soft); color: var(--text-muted); }
