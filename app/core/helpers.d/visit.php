@@ -356,7 +356,7 @@ function patient_allergy_append($patientNo, $drugName) {
     $p = OrderRepository::one('SELECT allergy_history FROM patients WHERE patient_no=?', array($patientNo));
     $cur = $p ? (string)$p['allergy_history'] : '';
     $items = array();
-    foreach (preg_split('/[、，,;；\n\/]/', $cur) as $s) {
+    foreach (preg_split('/[、，,;；\n\/]/u', $cur) as $s) {
         $s = trim($s);
         if ($s !== '' && !in_array($s, $items, true)) $items[] = $s;
     }
