@@ -185,6 +185,15 @@ function openImgReportModal(id) {
         '    <div id="imgTplList" style="flex:1;overflow-y:auto;min-height:0"></div>' +
         '  </div>' +
         '  <div style="flex:1;min-width:0;display:flex;flex-direction:column">' +
+        '    <div class="form-group">' +
+        '      <label class="form-label">模板预览</label>' +
+        '      <div id="imgTplPreview" class="textarea" readonly style="height:130px;resize:none;white-space:pre-wrap;overflow-y:auto;cursor:text">点击左侧模板查看内容</div>' +
+        '    </div>' +
+        '    <div class="flex gap-8" style="margin-bottom:10px">' +
+        '      <button type="button" class="btn btn-primary btn-sm" style="flex:1" onclick="imgApplyTpl(\'overwrite\')">覆盖</button>' +
+        '      <button type="button" class="btn btn-outline btn-sm" style="flex:1" onclick="imgApplyTpl(\'append\')">续写</button>' +
+        '      <button type="button" class="btn btn-outline btn-sm" style="flex:1" onclick="Clinic.modal.close()">关闭</button>' +
+        '    </div>' +
         '    <div class="form-group" style="flex:1;display:flex;flex-direction:column;min-height:0">' +
         '      <label class="form-label">影像所见 <span class="req">*</span></label>' +
         '      <textarea class="textarea" id="imgModalFindings" style="flex:2;min-height:0" placeholder="请填写影像所见描述">' + esc(it.findings) + '</textarea></div>' +
@@ -215,47 +224,45 @@ function imgRenderTpls() {
     var kw = ((document.getElementById('imgTplSearch') || {}).value || '').trim().toLowerCase();
     var list = IMG_TPLS.filter(function (t) { return !kw || (t.title || '').toLowerCase().indexOf(kw) !== -1; });
     box.innerHTML = list.length ? list.map(function (t) {
-        return '<div class="dd-item" style="cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px" onclick="imgApplyTpl(' + t.id + ')">' +
+        return '<div class="dd-item" style="cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px" onclick="imgPickTpl(' + t.id + ')">' +
             '<div class="fw-600 fs-13">' + esc(t.title) + '</div>' +
             '<div class="fs-12 text-muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc((t.content && t.content.findings) || '') + '</div></div>';
     }).join('') : '<div class="fs-12 text-muted">暂无影像报告模板（可自由书写）</div>';
 }
 
-/* 点击模板：弹出小悬浮窗询问「替换 / 追加」 */
-function imgApplyTpl(tplId) {
+var IMG_CUR = null;   // 当前选中的影像报告模板
+
+/* 点击模板：选中并在右侧预览（不直接写入），由 覆盖/续写/关闭 按钮应用 */
+function imgPickTpl(tplId) {
     Clinic.get('/api/template?action=get&id=' + tplId + '&for_apply=1', null, {
         loading: false,
         onSuccess: function (j) {
             var t = j.data && j.data.template;
-            if (!t) return;
-            Clinic.modal.open(
-                '<div class="fs-13 fw-700 mb-8">模板「' + esc(t.title) + '」应用方式：</div>' +
-                '<div class="flex gap-8">' +
-                '  <button class="btn btn-primary btn-sm" style="flex:1" onclick="imgDoApplyTpl(' + t.id + ',1)">替换</button>' +
-                '  <button class="btn btn-outline btn-sm" style="flex:1" onclick="imgDoApplyTpl(' + t.id + ',0)">追加</button>' +
-                '</div>' +
-                '<div class="fs-12 text-muted mt-4">替换：直接替换影像所见全部内容；追加：另起一行将内容顺延下去，保留当前影像所见内容。</div>',
-                { title: '应用报告模板', size: 'modal-sm', buttons: [{ text: '关闭', cls: 'btn-outline' }] }
-            );
+            IMG_CUR = t || null;
+            var pv = document.getElementById('imgTplPreview');
+            if (!pv) return;
+            var f = (t && t.content && t.content.findings) || '';
+            var c = (t && t.content && t.content.conclusion) || '';
+            pv.textContent = (f ? '影像所见：\n' + f : '') + (c ? '\n\n影像诊断：\n' + c : '');
         },
     });
 }
 
-function imgDoApplyTpl(tplId, replace) {
-    Clinic.get('/api/template?action=get&id=' + tplId + '&for_apply=1', null, {
-        loading: false,
-        onSuccess: function (j) {
-            var t = j.data && j.data.template;
-            if (!t) return;
-            var f = (t.content && t.content.findings) || '';
-            var c = (t.content && t.content.conclusion) || '';
-            var fEl = document.getElementById('imgModalFindings');
-            var cEl = document.getElementById('imgModalConclusion');
-            if (fEl) fEl.value = replace ? f : (fEl.value.trim() ? fEl.value.replace(/\s*$/, '') + '\n' : '') + f;
-            if (cEl) cEl.value = replace ? c : (cEl.value.trim() ? cEl.value.replace(/\s*$/, '') + '\n' : '') + c;
-            Clinic.modal.close();
-        },
-    });
+/* 模板应用：覆盖 = 清空后完全按模板；续写 = 保留原有内容、模板内容插入到后面 */
+function imgApplyTpl(mode) {
+    var t = IMG_CUR;
+    if (!t || !t.content) { Clinic.toast.warning('请先在左侧选择一个模板'); return; }
+    var f = (t.content.findings) || '';
+    var c = (t.content.conclusion) || '';
+    var fEl = document.getElementById('imgModalFindings');
+    var cEl = document.getElementById('imgModalConclusion');
+    if (mode === 'overwrite') {
+        if (fEl) fEl.value = f;
+        if (cEl) cEl.value = c;
+    } else {
+        if (fEl) fEl.value = (fEl.value.trim() ? fEl.value.replace(/\s*$/, '') + '\n' : '') + f;
+        if (cEl) cEl.value = (cEl.value.trim() ? cEl.value.replace(/\s*$/, '') + '\n' : '') + c;
+    }
 }
 
 /* 提交防重入锁（双击确认会重复生成报告） */

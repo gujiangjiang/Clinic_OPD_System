@@ -229,8 +229,9 @@ function delNursing(id) {
     });
 }
 
-/* 添加护理记录模态框：左侧护理模板列表 + 右侧自由输入（点模板带入内容） */
+/* 添加护理记录模态框：左侧护理模板列表 + 右侧预览/编辑（模板覆盖/续写/关闭） */
 var NM_TPLS = [];
+var NM_CUR = null;   // 当前选中的护理模板
 function openNursingModal() {
     var mask = Clinic.modal.open(
         '<div class="flex" style="gap:14px;height:460px">' +
@@ -240,9 +241,18 @@ function openNursingModal() {
         '    <div id="nmTplList" style="flex:1;overflow-y:auto;min-height:0"></div>' +
         '  </div>' +
         '  <div style="flex:1;min-width:0;display:flex;flex-direction:column">' +
+        '    <div class="form-group">' +
+        '      <label class="form-label">模板预览</label>' +
+        '      <div id="nmPreview" class="textarea" readonly style="height:140px;resize:none;white-space:pre-wrap;overflow-y:auto;cursor:text">点击左侧模板查看内容</div>' +
+        '    </div>' +
+        '    <div class="flex gap-8" style="margin-bottom:12px">' +
+        '      <button type="button" class="btn btn-primary btn-sm" style="flex:1" onclick="nmApplyTpl(\'overwrite\')">覆盖</button>' +
+        '      <button type="button" class="btn btn-outline btn-sm" style="flex:1" onclick="nmApplyTpl(\'append\')">续写</button>' +
+        '      <button type="button" class="btn btn-outline btn-sm" style="flex:1" onclick="Clinic.modal.close()">关闭</button>' +
+        '    </div>' +
         '    <div class="form-group" style="flex:1;display:flex;flex-direction:column;min-height:0">' +
         '      <label class="form-label">护理记录内容 <span class="req">*</span></label>' +
-        '      <textarea class="textarea" id="nmContent" style="flex:1;min-height:0" placeholder="可自由输入，或点击左侧模板直接带入"></textarea></div>' +
+        '      <textarea class="textarea" id="nmContent" style="flex:1;min-height:0" placeholder="可自由输入，或选择左侧模板后点击覆盖/续写"></textarea></div>' +
         '  </div>' +
         '</div>',
         { title: '➕ 添加护理记录', size: 'modal-lg', buttons: [] }
@@ -278,15 +288,28 @@ function nmRenderTpls() {
     }).join('') : '<div class="fs-12 text-muted">暂无护理模板（可自由输入）</div>';
 }
 
+/* 点击模板：选中并在右侧预览（不直接写入），由 覆盖/续写/关闭 按钮应用 */
 function nmPickTpl(id) {
     Clinic.get('/api/template?action=get&id=' + id + '&for_apply=1', null, {
         loading: false,
         onSuccess: function (j) {
             var t = j.data && j.data.template;
-            var ta = document.getElementById('nmContent');
-            if (ta && t && t.content && t.content.content) ta.value = t.content.content;
+            NM_CUR = t || null;
+            var pv = document.getElementById('nmPreview');
+            if (pv) pv.textContent = (t && t.content && t.content.content) || '';
         },
     });
+}
+
+/* 模板应用：覆盖 = 清空后完全按模板；续写 = 保留原有内容、模板内容插入到后面 */
+function nmApplyTpl(mode) {
+    var text = NM_CUR && NM_CUR.content && NM_CUR.content.content;
+    if (!text) { Clinic.toast.warning('请先在左侧选择一个模板'); return; }
+    var ta = document.getElementById('nmContent');
+    if (!ta) return;
+    var cur = (ta.value || '').trim();
+    ta.value = mode === 'overwrite' ? text : (cur ? cur + text : text);
+    ta.focus();
 }
 
 function nmSave() {
