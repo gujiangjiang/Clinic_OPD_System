@@ -76,16 +76,11 @@
     border-color: var(--primary);
     box-shadow: 0 0 0 3px var(--primary-soft);
 }
-/* 悬浮反馈：与 EMR 纸面字段 focus 一致——悬停显示主色浅蓝底 + 主色边框；
-   下拉打开态（dropdown.js 加 .csd-open）同样蓝色底高亮 */
-.input:hover, .select:hover {
-    border-color: var(--primary);
-    background: var(--primary-soft);
-}
-.textarea:hover { border-color: var(--primary); }
+/* 悬浮反馈（普通表单/开单组件）：仅主色边框（普通按钮/输入框样式，不做蓝色填充——
+   蓝色底仅用于病历纸面字段，见 components-emr.css） */
+.input:hover, .select:hover, .textarea:hover { border-color: var(--primary); }
 .select.csd-open {
     border-color: var(--primary);
-    background: var(--primary-soft);
     box-shadow: 0 0 0 3px var(--primary-soft);
 }
 .input:disabled, .select:disabled { background: var(--bg-soft); color: var(--text-muted); }
