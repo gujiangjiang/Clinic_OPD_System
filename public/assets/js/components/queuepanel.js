@@ -25,6 +25,7 @@ Clinic.queuePanel = (function () {
     var consult = false;    // 多选项：会诊
     var KEYWORD = '';       // 搜索关键字（仅当前筛选结果范围内过滤；面板关闭时清空）
     var DEPT_ID = 0;        // 当前科室（0=未选择；仅存本次登录会话，由工作台 setDept 设置）
+    var PANEL_BIND = null;  // 面板外部点击/Esc 关闭解绑句柄（queuePanelCore.bindClose 返回）
 
     /* HTML 转义（组件内私有：emr.js 的 escHtml 为 IIFE 私有不可复用） */
     function escHtml(s) { return Clinic.escHtml(s); }
@@ -284,15 +285,9 @@ Clinic.queuePanel = (function () {
         clampListHeight(p);
     }
 
-    /* 列表高度钳制：最高不超过视口 46vh，且不溢出屏幕底部——
-       患者再多也只在面板内部滚动，不遮挡页面其他区域。
-       必须在 DOM 渲染完成后调用（依赖 offsetHeight 实测值）。 */
+    /* 列表高度钳制（统一走 Clinic.queuePanelCore 公共实现） */
     function clampListHeight(p) {
-        var listEl = p.querySelector('.qp-list');
-        if (!listEl) return;
-        var chromeH = p.offsetHeight - listEl.offsetHeight;   // chips+搜索+内边距
-        var avail = window.innerHeight - p.getBoundingClientRect().top - chromeH - 12;
-        listEl.style.maxHeight = Math.max(140, Math.min(window.innerHeight * 0.46, avail)) + 'px';
+        Clinic.queuePanelCore.clampHeight(p);
     }
 
     /* 绑定患者条目点击：会诊行（带 data-consult-code）弹会诊详情；其余跳病历 */
@@ -356,50 +351,24 @@ Clinic.queuePanel = (function () {
         if (!btn) return;
         // 未选科室：面板显示提示，不加载数据
         if (DEPT_ID <= 0) {
-            var p0 = document.createElement('div');
-            p0.id = 'queuePanel';
-            p0.className = 'queue-panel';
-            document.body.appendChild(p0);
+            var p0 = Clinic.queuePanelCore.createPanel(btn, 'queuePanel');
             p0.innerHTML = '<div class="qp-empty">🩺 请先选择科室后开始接诊<br><span class="fs-12">点击左上角「🏥 选择科室」按钮</span></div>';
-            var r0 = btn.getBoundingClientRect();
-            p0.style.top = (r0.bottom + window.scrollY + 6) + 'px';
-            p0.style.left = Math.max(8, r0.left + window.scrollX) + 'px';
-            setTimeout(function () {
-                document.addEventListener('mousedown', outsideClose, true);
-                document.addEventListener('keydown', escClose, true);
-            }, 0);
+            PANEL_BIND = Clinic.queuePanelCore.bindClose(p0, closePanel);
             return;
         }
         load(true, function () {
-            var btn = document.getElementById('queueBtn');
-            var p = document.createElement('div');
-            p.id = 'queuePanel';
-            p.className = 'queue-panel';
-            document.body.appendChild(p);
-            var rect = btn.getBoundingClientRect();
-            p.style.top = (rect.bottom + window.scrollY + 6) + 'px';
-            p.style.left = Math.max(8, rect.left + window.scrollX) + 'px';
+            var btn2 = document.getElementById('queueBtn');
+            var p = Clinic.queuePanelCore.createPanel(btn2, 'queuePanel');
+            PANEL_BIND = Clinic.queuePanelCore.bindClose(p, closePanel);
             renderPanel();
-            setTimeout(function () {
-                document.addEventListener('mousedown', outsideClose, true);
-                document.addEventListener('keydown', escClose, true);
-            }, 0);
         });
     }
 
-    function outsideClose(e) {
-        var p = panelEl();
-        var btn = document.getElementById('queueBtn');
-        // btn 可能为 null（DOM 局部刷新后触发按钮被移除），缺省视为非面板内点击
-        if (p && !p.contains(e.target) && (!btn || (e.target !== btn && !btn.contains(e.target)))) closePanel();
-    }
-    function escClose(e) { if (e.key === 'Escape') closePanel(); }
     function closePanel() {
         var p = panelEl();
         if (p) p.remove();
         KEYWORD = '';   // 面板关闭即清空搜索，下次打开为全新搜索
-        document.removeEventListener('mousedown', outsideClose, true);
-        document.removeEventListener('keydown', escClose, true);
+        if (PANEL_BIND) { PANEL_BIND.unbind(); PANEL_BIND = null; }
     }
 
     /**

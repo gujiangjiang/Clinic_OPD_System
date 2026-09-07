@@ -30,6 +30,7 @@ Clinic.deptwork = (function () {
     var QUEUE_TIMER = null;   // 候诊数据 30s 轮询
     var CALL_TIMER = null;    // 排队悬浮窗 10s 轮询
     var PANEL_OPEN = false;
+    var PANEL_BIND = null;  // 面板外部点击/Esc 关闭解绑句柄（queuePanelCore.bindClose 返回）
     var CALL_CACHE = null;    // 最近一次排队数据缓存
     var PREF_APPLIED = false; // 是否已应用登录会话记忆的页签
 
@@ -584,11 +585,7 @@ Clinic.deptwork = (function () {
     }
 
     function clampListHeight(p) {
-        var listEl = p.querySelector('.qp-list');
-        if (!listEl) return;
-        var chromeH = p.offsetHeight - listEl.offsetHeight;
-        var avail = window.innerHeight - p.getBoundingClientRect().top - chromeH - 12;
-        listEl.style.maxHeight = Math.max(140, Math.min(window.innerHeight * 0.46, avail)) + 'px';
+        Clinic.queuePanelCore.clampHeight(p);
     }
 
     function bindRowClicks(p) {
@@ -603,13 +600,8 @@ Clinic.deptwork = (function () {
         closePanel();
         var btn = document.getElementById('queueBtn');
         if (!btn) return;
-        var p = document.createElement('div');
-        p.id = 'dwQueuePanel';
-        p.className = 'queue-panel';
-        document.body.appendChild(p);
-        var rect = btn.getBoundingClientRect();
-        p.style.top = (rect.bottom + window.scrollY + 6) + 'px';
-        p.style.left = Math.max(8, rect.left + window.scrollX) + 'px';
+        var p = Clinic.queuePanelCore.createPanel(btn, 'dwQueuePanel');
+        PANEL_BIND = Clinic.queuePanelCore.bindClose(p, closePanel);
         PANEL_OPEN = true;
         if (!DATA) {
             p.innerHTML = '<div class="qp-empty">加载中…</div>';
@@ -617,25 +609,14 @@ Clinic.deptwork = (function () {
         } else {
             renderPanel();
         }
-        setTimeout(function () {
-            document.addEventListener('mousedown', outsideClose, true);
-            document.addEventListener('keydown', escClose, true);
-        }, 0);
     }
 
-    function outsideClose(e) {
-        var p = panelEl();
-        var btn = document.getElementById('queueBtn');
-        if (p && !p.contains(e.target) && (!btn || (e.target !== btn && !btn.contains(e.target)))) closePanel();
-    }
-    function escClose(e) { if (e.key === 'Escape') closePanel(); }
     function closePanel() {
         var p = panelEl();
         if (p) p.remove();
         PANEL_OPEN = false;
         KEYWORD = '';
-        document.removeEventListener('mousedown', outsideClose, true);
-        document.removeEventListener('keydown', escClose, true);
+        if (PANEL_BIND) { PANEL_BIND.unbind(); PANEL_BIND = null; }
     }
 
     /* ==================== 科室排队悬浮窗 ==================== */
