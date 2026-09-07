@@ -292,6 +292,28 @@ Clinic.emr = (function () {
     }
 
     /**
+     * 续写病历全新默认 EMR 结构（只保留既往史，过敏史默认否认——
+     * 不自动引用历史，手动确认后才引入；其余各节清空）。
+     * @param {object} [pastHistory] 待保留的既往史（无则默认否认）
+     * @returns {object} 全新续写 EMR 骨架
+     */
+    function cleanProgressEmr(pastHistory) {
+        return {
+            progress: { content: '' },
+            chief_complaint: { symptom: '', duration: '', unit: '', second_symptom: '', second_duration: '', second_unit: '' },
+            history_present: { informant: '', duration: '', unit: '', content: '', arrival_way: '' },
+            main_symptoms: { 全身症状: '', 呼吸道症状: '', 消化道症状: '', 皮疹症状: '', 出血症状: '', 神经系统症状: '' },
+            physical_exam: { 皮肤黏膜: '', 头部: '', 胸部: '', 肺脏及胸膜: '', 心脏: '', 腹部: '', 神经反射: '', 肌力及肌张力: '', 其它体格检查: '' },
+            diagnoses: [],
+            past_history: pastHistory || { type: '否认', detail: '' },
+            allergies: { type: '否认', detail: '' },
+            aux_result: '', aux_external: '', disposition_custom: '', advice: '',
+            is_leave_hospital: '否',
+            vitals: {},
+        };
+    }
+
+    /**
      * 渲染续写编辑器（占位态「病历节点 +」点击后调用）：
      * 将 docBody 中的占位替换为续写编辑器，并滚动定位到本人病历区。
      * 场景：无本人文书但有他人文书（首次接诊续写）
@@ -305,22 +327,7 @@ Clinic.emr = (function () {
         var cleanEmr = JSON.parse(JSON.stringify(r.emr || {}));
         // 保留既往史
         var ph = cleanEmr.past_history;
-        // 重置为默认空结构（只保留既往史）
-        var defaults = {
-            progress: { content: '' },
-            chief_complaint: { symptom: '', duration: '', unit: '', second_symptom: '', second_duration: '', second_unit: '' },
-            history_present: { informant: '', duration: '', unit: '', content: '', arrival_way: '' },
-            main_symptoms: { 全身症状: '', 呼吸道症状: '', 消化道症状: '', 皮疹症状: '', 出血症状: '', 神经系统症状: '' },
-            physical_exam: { 皮肤黏膜: '', 头部: '', 胸部: '', 肺脏及胸膜: '', 心脏: '', 腹部: '', 神经反射: '', 肌力及肌张力: '', 其它体格检查: '' },
-diagnoses: [],
-            past_history: { type: '否认', detail: '' },
-            allergies: { type: '否认', detail: '' },   // 续写默认否认，不自动引用历史
-            aux_result: '', aux_external: '', disposition_custom: '', advice: '',
-            is_leave_hospital: '否',   // 留观默认否
-            vitals: {},   // 续写病历独立的生命体征（新建为空，不继承首诊）
-        };
-        if (ph) defaults.past_history = ph;
-        cleanEmr = defaults;
+        cleanEmr = cleanProgressEmr(ph);
         try {
             fillContHead(r);
             var signEl = document.getElementById('signWrap');
@@ -380,21 +387,9 @@ diagnoses: [],
         DATA.__edit_record_id = 0;   // 新建续写走 progress_new，不使用精确回写
         DATA.record.record_id = 0;
         DATA.record.record_type = 'progress';
-var base = JSON.parse(JSON.stringify(r.emr || {}));
+        var base = JSON.parse(JSON.stringify(r.emr || {}));
         var ph = base.past_history;
-        DATA.record.emr = {
-            progress: { content: '' },
-            chief_complaint: { symptom: '', duration: '', unit: '', second_symptom: '', second_duration: '', second_unit: '' },
-            history_present: { informant: '', duration: '', unit: '', content: '', arrival_way: '' },
-            main_symptoms: { 全身症状: '', 呼吸道症状: '', 消化道症状: '', 皮疹症状: '', 出血症状: '', 神经系统症状: '' },
-            physical_exam: { 皮肤黏膜: '', 头部: '', 胸部: '', 肺脏及胸膜: '', 心脏: '', 腹部: '', 神经反射: '', 肌力及肌张力: '', 其它体格检查: '' },
-diagnoses: [],
-            past_history: ph || { type: '否认', detail: '' },
-            allergies: { type: '否认', detail: '' },   // 续写默认否认，不自动引用历史
-            aux_result: '', aux_external: '', disposition_custom: '', advice: '',
-            is_leave_hospital: '否',   // 留观默认否
-            vitals: {},   // 续写病历独立的生命体征（新建为空，不继承首诊）
-        };
+        DATA.record.emr = cleanProgressEmr(ph);
         DATA.record.created_at = '';
         DATA.record.updated_at = '';
         // 3. 重建 docBody 为新续写编辑器
@@ -632,10 +627,7 @@ diagnoses: [],
             refreshReadOnlyBodies(d);
             var lcBody = document.getElementById('docBody');
             if (lcBody && r.record_id > 0) {
-                var recSeg = { id: r.record_id, record_id: r.record_id, doctor_id: r.doctor_id,
-                    doctor_name: r.doctor_name, doctor_emp: r.doctor_emp||'', doctor_title: r.doctor_title||'',
-                    record_type: r.record_type, emr: r.emr||{}, created_at: r.created_at||'',
-                    consultation_id: r.consultation_id||0, consciousness: r.consciousness||'', vitals: {} };
+                var recSeg = Clinic.emr.segments.readOnlyRecShape(r);
                 lcBody.innerHTML = '<div class="prev-record-wrap">' + roSegmentHtml(recSeg) + '</div>';
             }
             // 只隐藏顶栏写操作按钮（不破坏导航与加号）
@@ -656,10 +648,7 @@ diagnoses: [],
                     refreshReadOnlyBodies(d);
                     var dmBody = document.getElementById('docBody');
                     if (dmBody && r.record_id > 0) {
-                        var dmSeg = { id: r.record_id, record_id: r.record_id, doctor_id: r.doctor_id,
-                            doctor_name: r.doctor_name, doctor_emp: r.doctor_emp||'', doctor_title: r.doctor_title||'',
-                            record_type: r.record_type, emr: r.emr||{}, created_at: r.created_at||'',
-                            consultation_id: r.consultation_id||0, consciousness: r.consciousness||'', vitals: {} };
+                        var dmSeg = Clinic.emr.segments.readOnlyRecShape(r);
                         dmBody.innerHTML = '<div class="prev-record-wrap">' + roSegmentHtml(dmSeg) + '</div>';
                     }
                     if (window.Clinic && Clinic.toast) {

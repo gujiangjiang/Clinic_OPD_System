@@ -14,11 +14,19 @@ Clinic.emr.segments = (function () {
     var escHtml = ctx.escHtml;
     var vitalDisplayText = ctx.vitalDisplayText;
 
+    /** 只读段记录形状（consultLock / deptMismatch / 只读查看时构造 recSeg 用，
+     *  与 roSegmentHtml 配套；注意 emr 为引用不深拷贝，vitals 空——仅作展示快照） */
+    function readOnlyRecShape(r) {
+        return { id: r.record_id, record_id: r.record_id, doctor_id: r.doctor_id,
+            doctor_name: r.doctor_name, doctor_emp: r.doctor_emp || '', doctor_title: r.doctor_title || '',
+            record_type: r.record_type, emr: r.emr || {}, created_at: r.created_at || '',
+            consultation_id: r.consultation_id || 0, consciousness: r.consciousness || '', vitals: {} };
+    }
+
     function roSegmentHtml(rec) {
         var e = rec.emr || {};
         var isProgress = rec.record_type === 'progress';
-        var isConsultRec = (rec.consultation_id || 0) > 0;
-        var secs = [];
+        var isConsultRec = (rec.consultation_id || 0) > 0;        var secs = [];
         var push = function (label, val, dashWhenEmpty) {
             val = val == null ? '' : String(val).trim();
             if (!val && !dashWhenEmpty) return;
@@ -156,10 +164,7 @@ Clinic.emr.segments = (function () {
                 var docBody2 = document.getElementById('docBody');
                 if (docBody2 && d.record && d.record.record_id > 0) {
                     var rec2 = d.record;
-                    var seg2 = { id: rec2.record_id, record_id: rec2.record_id, doctor_id: rec2.doctor_id,
-                        doctor_name: rec2.doctor_name, doctor_emp: rec2.doctor_emp||'', doctor_title: rec2.doctor_title||'',
-                        record_type: rec2.record_type, emr: rec2.emr||{}, created_at: rec2.created_at||'',
-                        consultation_id: rec2.consultation_id||0, consciousness: rec2.consciousness||'', vitals: {} };
+                    var seg2 = Clinic.emr.segments.readOnlyRecShape(rec2);
                     docBody2.innerHTML = '<div class="prev-record-wrap">' + roSegmentHtml(seg2) + '</div>';
                 }
             }
@@ -193,6 +198,7 @@ Clinic.emr.segments = (function () {
 
     return {
         roSegmentHtml: roSegmentHtml,
+        readOnlyRecShape: readOnlyRecShape,
         splitOthers: splitOthers,
         refreshReadOnlyBodies: refreshReadOnlyBodies,
         injectPrevDiagContext: injectPrevDiagContext,
