@@ -190,8 +190,9 @@ Clinic.dropdown = (function () {
         var sel = e.target && e.target.closest ? e.target.closest('select') : null;
         if (sel) {
             if (sel.disabled) return;
-            // 已打开同一下拉 → 切换收起
-            if (target === sel && pop) { close(); return; }
+            // 已打开同一下拉 → 切换收起（必须同样 preventDefault，否则第二次 mousedown
+            // 的默认动作会触发浏览器原生下拉弹出——这正是双击弹原生的根因）
+            if (target === sel && pop) { e.preventDefault(); close(); return; }
             e.preventDefault();   // 阻止原生下拉弹层
             open(sel);
             return;
