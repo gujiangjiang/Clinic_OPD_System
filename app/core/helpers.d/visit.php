@@ -276,3 +276,90 @@ function order_flow_steps($o, $items) {
     }
     return $flow;
 }
+
+/* ==================== 皮试（skin test）公共判定 ==================== */
+
+/**
+ * 某药品是否需皮试（drugs.is_skin_test=1）
+ * @param int $drugId
+ * @return bool
+ */
+function drug_requires_skin_test($drugId) {
+    $drugId = (int)$drugId;
+    if ($drugId <= 0) return false;
+    $row = OrderRepository::one('SELECT is_skin_test FROM drugs WHERE id=?', array($drugId));
+    return $row && (int)$row['is_skin_test'] === 1;
+}
+
+/**
+ * 本次就诊该药品是否有「阴性」皮试结果（阴性才解锁正式处方/处置缴费与执行）
+ * @param int $visitId
+ * @param int $drugId
+ * @return bool
+ */
+function visit_skin_negative($visitId, $drugId) {
+    $visitId = (int)$visitId;
+    $drugId = (int)$drugId;
+    if ($visitId <= 0 || $drugId <= 0) return false;
+    $row = OrderRepository::one("SELECT id FROM skin_test_results WHERE visit_id=? AND drug_id=? AND result='negative' ORDER BY id DESC LIMIT 1", array($visitId, $drugId));
+    return (bool)$row;
+}
+
+/**
+ * 订单是否被皮试结果钳制（不可缴费/不可执行）。
+ * 规则：皮试单（orders.is_skin_test=1）本身不钳制；正式处方/处置若含需皮试药品
+ * （或 source_order 含需皮试药品）且本次就诊该药品尚无阴性结果 → 钳制。
+ * @param array $order orders 行
+ * @param array $items order_items 行（可空，自动查询）
+ * @return bool
+ */
+function order_skin_locked($order, $items = null) {
+    if (!$order) return false;
+    if (!empty($order['is_skin_test'])) return false;   // 皮试单放行
+    $orderType = isset($order['order_type']) ? $order['order_type'] : '';
+    if ($orderType !== 'prescription' && $orderType !== 'procedure') return false;
+    if ($items === null) {
+        $items = OrderRepository::q('SELECT * FROM order_items WHERE order_id=?', array((int)$order['id']));
+    }
+    $drugIds = array();
+    foreach ($items as $it) {
+        if ($it['item_type'] === 'prescription' && (int)$it['item_id'] > 0) {
+            $drugIds[] = (int)$it['item_id'];
+        }
+    }
+    // procedure 单：源处方（source_order_id）的药品判定
+    if (!$drugIds && !empty($order['source_order_id'])) {
+        $srcOrder = OrderRepository::one('SELECT * FROM orders WHERE id=?', array((int)$order['source_order_id']));
+        if ($srcOrder) {
+            return order_skin_locked($srcOrder);
+        }
+        return false;
+    }
+    if (!$drugIds) return false;
+    $visitId = (int)$order['visit_id'];
+    foreach (array_unique($drugIds) as $did) {
+        if (drug_requires_skin_test($did) && !visit_skin_negative($visitId, $did)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * 追加药品到患者过敏史（patients.allergy_history，逗号分隔去重）
+ * @param string $patientNo
+ * @param string $drugName
+ */
+function patient_allergy_append($patientNo, $drugName) {
+    $drugName = trim((string)$drugName);
+    if ($drugName === '') return;
+    $p = OrderRepository::one('SELECT allergy_history FROM patients WHERE patient_no=?', array($patientNo));
+    $cur = $p ? (string)$p['allergy_history'] : '';
+    $items = array();
+    foreach (preg_split('/[、，,;；\n\/]/', $cur) as $s) {
+        $s = trim($s);
+        if ($s !== '' && !in_array($s, $items, true)) $items[] = $s;
+    }
+    if (!in_array($drugName, $items, true)) $items[] = $drugName;
+    OrderRepository::exec('UPDATE patients SET allergy_history=? WHERE patient_no=?', array(implode('、', $items), $patientNo));
+}

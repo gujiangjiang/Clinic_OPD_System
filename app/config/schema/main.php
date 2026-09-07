@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 23,
+    'version' => 24,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -198,7 +198,8 @@ return array(
             category_name TEXT DEFAULT '',
             source_order_id INTEGER DEFAULT 0,
             review_by TEXT,
-            reviewed_at TEXT
+            reviewed_at TEXT,
+            is_skin_test INTEGER DEFAULT 0
         )",
 
         'order_items' => "CREATE TABLE IF NOT EXISTS order_items (
@@ -484,6 +485,21 @@ return array(
             operator TEXT,
             created_at TEXT
         )",
+
+        /* ---------------- 皮试结果 ---------------- */
+        'skin_test_results' => "CREATE TABLE IF NOT EXISTS skin_test_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            visit_id INTEGER,
+            patient_no TEXT,
+            flow_no TEXT,
+            drug_id INTEGER DEFAULT 0,
+            drug_name TEXT,
+            result TEXT,
+            operator TEXT,
+            created_at TEXT
+        )",
+        "CREATE INDEX IF NOT EXISTS idx_skin_test_results_visit ON skin_test_results(visit_id)",
+        "CREATE INDEX IF NOT EXISTS idx_skin_test_results_drug ON skin_test_results(patient_no, drug_id)",
 
         /* ---------------- 检验 / 检查 ---------------- */
 
@@ -804,6 +820,11 @@ return array(
         23 => array(
             "ALTER TABLE orders ADD COLUMN review_by TEXT",
             "ALTER TABLE orders ADD COLUMN reviewed_at TEXT",
+        ),
+        // v24：需皮试药品开单拆分——orders.is_skin_test 标记皮试单（皮试处方/皮试处置），
+        // 皮试结果表（skin_test_results）记录阳性/阴性；皮试阴性前正式处方/处置不可缴费
+        24 => array(
+            "ALTER TABLE orders ADD COLUMN is_skin_test INTEGER DEFAULT 0",
         ),
     ),
     'seed' => array(
