@@ -189,7 +189,14 @@ Clinic.emrEditor = (function () {
             var t = (e.clipboardData || window.clipboardData).getData('text/plain') || '';
             document.execCommand('insertText', false, t.replace(/[\r\n]+/g, ''));
         });
-        el.addEventListener('input', markDirty);
+        // 输入：置脏标记 + 清空还原。contenteditable 内文字删净后浏览器常残留
+        // <br> 子节点，使 .ef-field:empty::before 的占位提示语（data-ph）不再匹配
+        // （:empty 要求无任何子节点），表现为「提示语消失且不重新出现」——
+        // 检测到无实际文字时清空子节点，让占位提示语按输入规则重新显示。
+        el.addEventListener('input', function () {
+            if (el.innerText.trim() === '' && el.innerHTML !== '') el.innerHTML = '';
+            markDirty();
+        });
     }
 
     /** 聚焦注册表中的下一个字段 */
