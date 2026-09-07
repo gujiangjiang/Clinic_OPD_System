@@ -28,9 +28,10 @@ Clinic.deptwork.configure({
     afterAction: afterRxAction,
 });
 
-function afterRxAction() {
-    Clinic.deptwork.reloadPatient();
-    Clinic.deptwork.refreshQueue();
+function afterRxAction(orderId) {
+    // 局部刷新：仅重建该处方卡片 + 右栏 + 候诊数（不整页刷新、保持滚动位置）
+    if (orderId) refreshRxCard(orderId);
+    else { Clinic.deptwork.reloadPatient(); Clinic.deptwork.refreshQueue(); }
 }
 
 function esc(s) { return Clinic.escHtml(s); }
@@ -49,12 +50,7 @@ function renderRxWork(data) {
     var v = data.visit || {}, p = data.patient || {};
     var orders = (data.orders || []).filter(function (o) { return o.order_type === 'prescription'; });
     // 右栏大纲：按处方分组（处方号点击展开/缩回该处方全部药品）
-    Clinic.deptwork.renderOrderSide(orders, {
-        emoji: '💊', title: '本次处方', empty: '暂无处方',
-        pending: function (o) { return o.status === 'paid' || o.status === 'reviewed'; },
-        subItems: function (o) { return o.items.filter(function (it) { return it.sub_of === 0; }); },
-        subDot: function () { return 'done'; },
-    });
+    renderRxSide(data);
 
     // 主区：抬头（急诊病历版式）+ 各处方卡片
     var head = rxHeadHtml(data);
@@ -66,16 +62,46 @@ function renderRxWork(data) {
     }
     document.getElementById('dwMain').innerHTML = head + body;
     // 绑定操作：待审方（paid）→ 审方/拒绝；待发药（reviewed）→ 发药
-    orders.forEach(function (o) {
-        if (o.status === 'paid') {
-            var pass = document.getElementById('rxPass_' + o.order_id);
-            if (pass) pass.onclick = function () { doRxReview(o); };
-            var rej = document.getElementById('rxReject_' + o.order_id);
-            if (rej) rej.onclick = function () { doRxReject(o); };
-        } else if (o.status === 'reviewed') {
-            var disp = document.getElementById('rxDispense_' + o.order_id);
-            if (disp) disp.onclick = function () { doRxDispense(o); };
+    orders.forEach(bindRxActions);
+}
+
+/* 右侧处方大纲（局部刷新时复用） */
+function renderRxSide(data) {
+    var orders = (data.orders || []).filter(function (o) { return o.order_type === 'prescription'; });
+    Clinic.deptwork.renderOrderSide(orders, {
+        emoji: '💊', title: '本次处方', empty: '暂无处方',
+        pending: function (o) { return o.status === 'paid' || o.status === 'reviewed'; },
+        subItems: function (o) { return o.items.filter(function (it) { return it.sub_of === 0; }); },
+        subDot: function () { return 'done'; },
+    });
+}
+
+/* 单张处方卡片的操作按钮绑定（局部刷新后复用） */
+function bindRxActions(o) {
+    if (o.status === 'paid') {
+        var pass = document.getElementById('rxPass_' + o.order_id);
+        if (pass) pass.onclick = function () { doRxReview(o); };
+        var rej = document.getElementById('rxReject_' + o.order_id);
+        if (rej) rej.onclick = function () { doRxReject(o); };
+    } else if (o.status === 'reviewed') {
+        var disp = document.getElementById('rxDispense_' + o.order_id);
+        if (disp) disp.onclick = function () { doRxDispense(o); };
+    }
+}
+
+/* 局部刷新单张处方卡片（审方/发药/拒绝后，仅重建该卡片 + 右栏 + 候诊数，
+   不重建整页、保持滚动位置——与护理工作站局部刷新同逻辑） */
+function refreshRxCard(orderId) {
+    Clinic.deptwork.fetchPatient(function (data) {
+        var order = null;
+        (data.orders || []).forEach(function (o) { if (o.order_id === orderId) order = o; });
+        if (order) {
+            var el = document.getElementById('rxSec_' + orderId);
+            if (el) el.outerHTML = rxOrderHtml(order);
+            bindRxActions(order);
         }
+        renderRxSide(data);
+        Clinic.deptwork.refreshQueue();
     });
 }
 
@@ -144,23 +170,29 @@ function rxOrderHtml(o) {
         actions + '</div>';
 }
 
-/* 状态进度：开单 → 缴费 → 审方 → 发药/拒绝（审方/发药分步，可不同人） */
+/* 状态进度：开单 → 缴费 → 审方 → 发药/拒绝（数据驱动，缴费步骤按订单真实缴费状态判定，
+   不再硬编码：未缴费（open）时缴费步骤为「待缴费」而非绿色已完成） */
 function rxProgressHtml(o) {
+    var s = o.status;
     var steps;
-    if (o.status === 'dispensed') {
+    if (s === 'dispensed') {
         steps = [['开单', 1], ['缴费', 1], ['审方', 1], ['发药', 1]];
-    } else if (o.status === 'reviewed') {
+    } else if (s === 'reviewed') {
         steps = [['开单', 1], ['缴费', 1], ['审方', 1], ['发药', 0]];
-    } else if (o.status === 'rejected') {
+    } else if (s === 'rejected') {
         steps = [['开单', 1], ['缴费', 1], ['审方', 1], ['拒绝', -1]];
+    } else if (s === 'open') {
+        steps = [['开单', 1], ['缴费', 0], ['审方', 0], ['发药', 0]];
     } else {
         steps = [['开单', 1], ['缴费', 1], ['审方', 0], ['发药', 0]];
     }
     var html = '';
-    steps.forEach(function (s, i) {
+    steps.forEach(function (x, i) {
         if (i) html += '<span class="dw-rx-arrow">→</span>';
-        var cls = s[1] === 1 ? 'done' : (s[1] === -1 ? 'rejected' : 'current');
-        var lbl = (s[1] === 0 && s[0] === '审方') ? '审方中' : s[0];
+        var cls = x[1] === 1 ? 'done' : (x[1] === -1 ? 'rejected' : 'current');
+        var lbl = x[0];
+        if (x[1] === 0 && x[0] === '审方') lbl = '审方中';
+        else if (x[1] === 0 && x[0] === '缴费' && s === 'open') lbl = '待缴费';
         html += '<span class="dw-rx-step ' + cls + '">' + lbl + '</span>';
     });
     return html;
@@ -191,7 +223,7 @@ function doRxReview(o) {
         onSuccess: function (json) {
             RX_SUBMITTING = false;
             Clinic.toast.success(json.msg);
-            afterRxAction();
+            afterRxAction(o.order_id);
         },
         onError: function () { RX_SUBMITTING = false; },
     });
@@ -209,7 +241,7 @@ function doRxDispense(o) {
             if (json.data && json.data.has_slip) {
                 Clinic.print.load('/api/pharmacy?action=rx_slip&order_id=' + o.order_id, null, 'ticket');
             }
-            afterRxAction();
+            afterRxAction(o.order_id);
         },
         onError: function () { RX_SUBMITTING = false; },
     });
@@ -234,7 +266,7 @@ function doRxReject(o) {
                             onSuccess: function (json) {
                                 Clinic.toast.success(json.msg);
                                 Clinic.modal.close();
-                                afterRxAction();
+                                afterRxAction(o.order_id);
                             },
                         });
                     },
