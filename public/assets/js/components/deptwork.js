@@ -75,6 +75,16 @@ Clinic.deptwork = (function () {
         var btn = document.getElementById('dwHomeBtn');
         if (btn) btn.style.display = show ? '' : 'none';
     }
+    /* 顶栏「📋 病历」按钮（四医技角色共用）：打开患者时显示，关闭/无患者时隐藏 */
+    function setRecordBtn(show) {
+        var btn = document.getElementById('dwRecordBtn');
+        if (btn) btn.style.display = show ? '' : 'none';
+    }
+    /** 预览当前患者完整病历（弹出打印预览模态框，替代各视图内查看完整病历按钮） */
+    function previewRecord() {
+        if (!VISIT) return;
+        Clinic.print.preview('/api/print?action=record&visit_id=' + VISIT, null, '完整病历预览');
+    }
 
     /* ==================== 无患者时侧边栏占位（参照病历右侧侧边栏空态） ==================== */
     function renderSidePlaceholder() {
@@ -100,6 +110,8 @@ Clinic.deptwork = (function () {
         });
         var hb = document.getElementById('dwHomeBtn');
         if (hb) hb.addEventListener('click', closePatient);
+        var rb = document.getElementById('dwRecordBtn');
+        if (rb) rb.addEventListener('click', previewRecord);
         // 叫号/工具箱按钮位于顶栏（Layout::deptToolsBar 注入），通过内联 onclick 调用，
         // 无需在此绑定（避免与内联 onclick 重复触发）
     }
@@ -128,6 +140,7 @@ Clinic.deptwork = (function () {
         closePanel();
         closeCallPop();
         setCloseBtn(false);
+        setRecordBtn(false);
         renderEmptyWork();
         renderSidePlaceholder();
         setTimeout(function () { openPanel(); }, 120);
@@ -182,6 +195,7 @@ Clinic.deptwork = (function () {
                 // 就诊状态已在横条徽章展示，状态位保持空白
                 setStatus('');
                 setCloseBtn(true);
+                setRecordBtn(true);
                 if (RENDER) RENDER(d);
                 // 排队悬浮窗立即刷新「当前处理中/下一位」
                 if (callPopEl()) refreshCallPanel();
@@ -315,33 +329,31 @@ Clinic.deptwork = (function () {
     }
 
     /**
-     * 右侧申请单/处方大纲（按单号分组，单号可点「+」展开项目）：
-     * 检验/影像/药房 三视图共用，差异经 cfg 注入。
+     * 右侧申请单/处方大纲（按单号分组）：点击整个单号行展开/缩回项目列表，
+     * 默认展开（省去「+」号）；展开内容向右缩进一个层级。
      * @param {Array}  orders 已过滤的申请单数组（含 order_id/order_no/items）
-     * @param {object} cfg    { emoji, title, empty, pending(o), subItems(o), subDot(it), scrollTo }
+     * @param {object} cfg    { emoji, title, empty, pending(o), subItems(o), subDot(it) }
      *                        · pending  单号行点色（false=ok 完成 / true=pending 进行中）
      *                        · subItems 展开的子项目数组（药房仅主药）
      *                        · subDot   子项目点色函数
-     *                        · scrollTo 页面滚动函数后缀（如 'Lab' → scrollToLab）
      */
     function renderOrderSide(orders, cfg) {
         cfg = cfg || {};
         var subItems = cfg.subItems || function (o) { return o.items || []; };
         var subDot = cfg.subDot || function () { return 'done'; };
         var pending = cfg.pending || function () { return false; };
-        var scrollFn = cfg.scrollTo ? 'scrollTo' + cfg.scrollTo : '';
         var sideItems = (orders || []).map(function (o) {
             var subs = subItems(o).map(function (it) {
                 return '<div class="dw-side-item dw-side-subitem"><span class="dot ' + subDot(it) + '"></span>' + escHtml(it.item_name) + '</div>';
             }).join('');
             return '<div class="dw-side-order">' +
-                '<div class="dw-side-item" onclick="' + scrollFn + '(\'' + escHtml(o.order_id) + '\')">' +
-                '<span class="dw-side-plus" id="sidePlus_' + escHtml(o.order_id) + '" title="展开该单项目" ' +
-                'onclick="event.stopPropagation();Clinic.deptwork.toggleSideOrder(\'' + escHtml(o.order_id) + '\')">+</span>' +
+                '<div class="dw-side-item" title="点击展开 / 收起项目明细" ' +
+                'onclick="Clinic.deptwork.toggleSideOrder(\'' + escHtml(o.order_id) + '\')">' +
+                '<span class="dw-side-caret" id="sideCaret_' + escHtml(o.order_id) + '">▾</span>' +
                 '<span class="dot ' + (pending(o) ? 'pending' : 'ok') + '"></span>' +
                 '<span class="dw-side-oname">' + escHtml(o.order_no) + '（' + o.items.length + ' 项）</span>' +
                 '</div>' +
-                '<div class="dw-side-sub" id="sideSub_' + escHtml(o.order_id) + '" style="display:none">' + subs + '</div>' +
+                '<div class="dw-side-sub" id="sideSub_' + escHtml(o.order_id) + '">' + subs + '</div>' +
                 '</div>';
         }).join('');
         document.getElementById('dwSide').innerHTML =
@@ -762,14 +774,14 @@ Clinic.deptwork = (function () {
         toggleCallPop: function () {
             if (callPopEl()) closeCallPop(); else openCallPop();
         },
-        /** 侧边栏申请单号「+」展开/收起该单号下的项目列表 */
+        /** 右侧申请单号行点击：展开/收起该单号下的项目列表（默认展开，箭头 ▾/▸ 同步切换） */
         toggleSideOrder: function (orderId) {
-            var btn = document.getElementById('sidePlus_' + orderId);
             var sub = document.getElementById('sideSub_' + orderId);
             if (!sub) return;
             var open = sub.style.display !== 'none';
             sub.style.display = open ? 'none' : 'block';
-            if (btn) btn.textContent = open ? '+' : '−';
+            var caret = document.getElementById('sideCaret_' + orderId);
+            if (caret) caret.textContent = open ? '▸' : '▾';
         },
         openPatientSearch: openPatientSearch,
         closePatient: closePatient,
