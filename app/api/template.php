@@ -41,11 +41,11 @@ function tpl_filter_content($emr) {
     return $keep;
 }
 
-/** 模板类型-角色权限：医生仅病历/知情同意书，护士仅护理记录，影像仅影像报告，管理员全类型 */
+/** 模板类型-角色权限：医生仅病历/知情同意书/病历嘱托，护士仅护理记录，影像仅影像报告，管理员全类型 */
 function tpl_type_allowed($role, $type) {
     $map = array(
         'admin'   => array('medical_record', 'consent', 'order_note', 'nursing_record', 'imaging_report'),
-        'doctor'  => array('medical_record', 'consent'),
+        'doctor'  => array('medical_record', 'consent', 'order_note'),
         'nurse'   => array('nursing_record'),
         'imaging' => array('imaging_report'),
     );
@@ -201,13 +201,18 @@ switch ($action) {
         // 内容按模板类型区分：
         // · consent 知情同意书模板：{ name: XX（标题中的 XX）, content: 正文 }
         // · nursing_record 护理记录模板：{ content: 正文 }
+        // · order_note 病历嘱托模板：{ content: 正文 }
         // · medical_record 病历模板：结构化 EMR（后端剥离禁止字段）
-        $typeLabel = $type === 'consent' ? '知情同意书模板' : ($type === 'nursing_record' ? '护理记录模板' : ($type === 'imaging_report' ? '影像报告模板' : '病历模板'));
+        $typeLabel = $type === 'consent' ? '知情同意书模板' : ($type === 'nursing_record' ? '护理记录模板' : ($type === 'imaging_report' ? '影像报告模板' : ($type === 'order_note' ? '病历嘱托模板' : '病历模板')));
         if ($type === 'consent') {
             if (empty($contentArr['name'])) $contentArr['name'] = '通用';
             if (!isset($contentArr['content'])) $contentArr['content'] = '';
             $contentArr['content'] = trim((string)$contentArr['content']);
         } elseif ($type === 'nursing_record') {
+            if (!isset($contentArr['content'])) $contentArr['content'] = '';
+            $contentArr = array('content' => trim((string)$contentArr['content']));
+        } elseif ($type === 'order_note') {
+            // 病历嘱托模板：单段嘱托正文
             if (!isset($contentArr['content'])) $contentArr['content'] = '';
             $contentArr = array('content' => trim((string)$contentArr['content']));
         } elseif ($type === 'imaging_report') {

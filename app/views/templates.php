@@ -20,7 +20,7 @@ $isAdmin = $u['role'] === 'admin';
             <option value="nursing_record">护理记录模板</option>
             <option value="imaging_report">影像报告模板</option>
             <?php } ?>
-            <option value="order_note" disabled>病历嘱托模板（预留）</option>
+            <option value="order_note">病历嘱托模板</option>
         </select>
         <button class="btn btn-primary btn-sm" onclick="openTplForm(0)">＋ 新建模板</button>
     </div>
@@ -163,11 +163,13 @@ function buildTplForm(mask, tpl) {
     var isConsent = TPL_TYPE === 'consent';
     var isNurse = TPL_TYPE === 'nursing_record';
     var isImg = TPL_TYPE === 'imaging_report';
+    var isAdvice = TPL_TYPE === 'order_note';
     // 知情同意书模板：名称 + 适用范围 + 知情名称(XX) + 正文（textarea）
     // 护理记录模板：名称 + 适用范围 + 正文（textarea）
+    // 病历嘱托模板：名称 + 适用范围 + 嘱托正文（textarea）
     // 影像报告模板：名称 + 适用范围 + 影像所见 + 影像诊断（textarea）
     // 病历模板：名称 + 适用范围 + 结构化 EMR 编辑器
-    var contentField = (isConsent || isNurse || isImg)
+    var contentField = (isConsent || isNurse || isImg || isAdvice)
         ? (isConsent
             ? '<div class="form-group"><label class="form-label">知情同意书名称（XX） <span class="req">*</span></label>' +
               '<input class="input" id="tfCName" value="' + escHtml((tpl && tpl.content && tpl.content.name) || '') + '" placeholder="如：手术、输血、有创操作"></div>'
@@ -177,8 +179,8 @@ function buildTplForm(mask, tpl) {
                 '<textarea class="textarea" id="tfFindings" rows="8" placeholder="请输入影像所见描述…">' + escHtml((tpl && tpl.content && tpl.content.findings) || '') + '</textarea></div>' +
                 '<div class="form-group"><label class="form-label">影像诊断 <span class="req">*</span></label>' +
                 '<textarea class="textarea" id="tfConclusion" rows="5" placeholder="请输入影像诊断（检查结论）…">' + escHtml((tpl && tpl.content && tpl.content.conclusion) || '') + '</textarea></div>'
-              : '<div class="form-group"><label class="form-label">' + (isNurse ? '护理记录内容' : '知情同意内容') + ' <span class="req">*</span></label>' +
-                '<textarea class="textarea" id="tfCContent" rows="14" style="min-height:380px" placeholder="' + (isNurse ? '请输入护理记录模板正文内容…' : '请输入知情同意书正文内容…') + '">' + escHtml((tpl && tpl.content && tpl.content.content) || '') + '</textarea></div>')
+              : '<div class="form-group"><label class="form-label">' + (isNurse ? '护理记录内容' : (isAdvice ? '嘱托正文' : '知情同意内容')) + ' <span class="req">*</span></label>' +
+                '<textarea class="textarea" id="tfCContent" rows="14" style="min-height:380px" placeholder="' + (isNurse ? '请输入护理记录模板正文内容…' : (isAdvice ? '请输入嘱托模板正文内容…' : '请输入知情同意书正文内容…')) + '">' + escHtml((tpl && tpl.content && tpl.content.content) || '') + '</textarea></div>')
         : '<div class="card-title"><span>📝 模板正文</span></div>' +
           '<div class="emr-doc"><div class="doc-body" id="templateEditor" style="border:1px solid var(--border);border-radius:8px;padding:14px;min-height:380px"></div></div>';
     var html =
@@ -204,7 +206,7 @@ function buildTplForm(mask, tpl) {
         Clinic.deptTree.build(treeBox, { selected: (tpl && tpl.dept_ids) || [] });
     }
     // 病历模板：渲染结构化编辑器（模板模式）
-    if (!isConsent && !isNurse && !isImg) {
+    if (!isConsent && !isNurse && !isImg && !isAdvice) {
         var container = document.getElementById('templateEditor');
         if (container) {
             try {
@@ -240,6 +242,7 @@ function saveTplForm(id, origStatus) {
     var isConsent = TPL_TYPE === 'consent';
     var isNurse = TPL_TYPE === 'nursing_record';
     var isImg = TPL_TYPE === 'imaging_report';
+    var isAdvice = TPL_TYPE === 'order_note';
     var content = {};
     if (isConsent) {
         var cName = (document.getElementById('tfCName') || {}).value || '';
@@ -251,6 +254,10 @@ function saveTplForm(id, origStatus) {
         var nContent = (document.getElementById('tfCContent') || {}).value || '';
         if (!nContent.trim()) { Clinic.toast.warning('请填写护理记录内容'); return; }
         content = { content: nContent.trim() };
+    } else if (isAdvice) {
+        var aContent = (document.getElementById('tfCContent') || {}).value || '';
+        if (!aContent.trim()) { Clinic.toast.warning('请填写嘱托正文'); return; }
+        content = { content: aContent.trim() };
     } else if (isImg) {
         var findings = (document.getElementById('tfFindings') || {}).value || '';
         var conclusion = (document.getElementById('tfConclusion') || {}).value || '';

@@ -186,9 +186,19 @@ function admin_part_audit($action) {
                     CoreRepository::exec('UPDATE emr_templates SET scope=? WHERE id=?', array('personal', $refId));
                 }
                 if ($proposerId > 0) {
+                    // 模板结果标签按实际类型区分（template 审核类型覆盖 病历/知情同意书/病历嘱托）
+                    $tplLabel = '病历模板';
+                    if ($audit['type'] === 'template') {
+                        $tplType = CoreRepository::val('SELECT type FROM emr_templates WHERE id=?', array($refId));
+                        if ($tplType === 'order_note') $tplLabel = '病历嘱托模板';
+                        elseif ($tplType === 'consent') $tplLabel = '知情同意书模板';
+                    } elseif ($audit['type'] === 'nursing_template') {
+                        $tplLabel = '护理记录模板';
+                    } elseif ($audit['type'] === 'imaging_template') {
+                        $tplLabel = '影像报告模板';
+                    }
                     $isNurseTpl = $audit['type'] === 'nursing_template';
                     $isImgTpl = $audit['type'] === 'imaging_template';
-                    $tplLabel = $isNurseTpl ? '护理记录模板' : ($isImgTpl ? '影像报告模板' : '病历模板');
                     $toRole = $proposerRole !== '' ? $proposerRole : ($isNurseTpl ? 'nurse' : ($isImgTpl ? 'imaging' : 'doctor'));
                     send_msg($toRole, $proposerId, $tplLabel . '审核结果',
                         '您的' . $tplLabel . '「' . $audit['title'] . '」审核' . ($approve ? '已通过，现在可以使用' : '未通过：' . $note . '，已降级为个人模板'),

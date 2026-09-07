@@ -131,9 +131,10 @@ function previewAudit(btn) {
                 var isConsent = t.type === 'consent';
                 var isNurse = t.type === 'nursing_record';
                 var isImg = t.type === 'imaging_report';
-                var rightHtml = (isConsent || isNurse || isImg)
-                    ? '<div class="card-title"><span>📝 ' +
-                      (isConsent ? '知情同意书模板' : (isNurse ? '护理记录模板' : '影像报告模板')) + '（只读）</span></div>' +
+                var isAdvice = t.type === 'order_note';
+                var textLabel = isConsent ? '知情同意书模板' : (isNurse ? '护理记录模板' : (isAdvice ? '病历嘱托模板' : '影像报告模板'));
+                var rightHtml = (isConsent || isNurse || isImg || isAdvice)
+                    ? '<div class="card-title"><span>📝 ' + textLabel + '（只读）</span></div>' +
                       (isConsent
                           ? '<div class="form-group"><label class="form-label">知情同意书名称（XX）</label>' +
                             '<input class="input" value="' + escHtml((t.content && t.content.name) || '') + '" readonly></div>'
@@ -143,7 +144,7 @@ function previewAudit(btn) {
                             '<textarea class="textarea" rows="8" readonly>' + escHtml((t.content && t.content.findings) || '') + '</textarea></div>' +
                             '<div class="form-group"><label class="form-label">影像诊断</label>' +
                             '<textarea class="textarea" rows="5" readonly>' + escHtml((t.content && t.content.conclusion) || '') + '</textarea></div>'
-                          : '<div class="form-group"><label class="form-label">' + (isNurse ? '护理记录内容' : '知情同意内容') + '</label>' +
+                          : '<div class="form-group"><label class="form-label">' + (isNurse ? '护理记录内容' : (isAdvice ? '嘱托正文' : '知情同意内容')) + '</label>' +
                             '<textarea class="textarea" rows="14" readonly style="min-height:380px">' + escHtml((t.content && t.content.content) || '') + '</textarea></div>')
                     : '<div class="card-title"><span>📝 模板正文（只读）</span></div>' +
                       '<div class="emr-doc"><div class="doc-body" id="previewTemplateEditor" style="border:1px solid var(--border);border-radius:8px;padding:14px;min-height:380px"></div></div>';
@@ -155,8 +156,8 @@ function previewAudit(btn) {
                     '<input class="input" value="' + (scopeNames[t.scope] || t.scope) + '" readonly></div>' +
                     '</div>' +
                     '<div class="tpl-right">' + rightHtml + '</div></div>';
-                var mask = Clinic.modal.open(html, { title: modalTitle, size: 'modal-xl' });
-                if (!isConsent) {
+                var mask = Clinic.modal.open(html, { title: isAdvice ? '预览 · 病历嘱托模板' : modalTitle, size: 'modal-xl' });
+                if (!isConsent && !isAdvice) {
                     var container = document.getElementById('previewTemplateEditor');
                     if (container && t.content) {
                         Clinic.emrEditor.render(container, t.content, { templateMode: true, readonly: true });
