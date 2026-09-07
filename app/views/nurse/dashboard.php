@@ -51,11 +51,7 @@ function orderLink(orderId, orderNo, type) {
         'onclick="previewOrder(\'' + esc(orderId) + '\',\'' + esc(orderNo || '') + '\',\'' + esc(type || '') + '\')">' + esc(orderNo || '—') + '</a>';
 }
 
-/* ==================== 通用只读打印预览 ==================== */
-function previewRecord() {
-    if (!CUR_VISIT) return;
-    Clinic.print.preview('/api/print?action=record&visit_id=' + CUR_VISIT, null, '完整病历预览');
-}
+/* ==================== 通用只读打印预览（病历预览入口已移至顶栏通用【病历】按钮） ==================== */
 function previewOrder(orderId, orderNo, type) {
     if (!orderId) return;
     var isRx = type === 'prescription';
@@ -257,7 +253,7 @@ function nmSave() {
     });
 }
 
-/* ==================== 病历摘要（只读）+ 查看完整病历 ==================== */
+/* ==================== 病历摘要（只读，纵向排列；查看完整病历入口移至顶栏【病历】按钮） ==================== */
 function summarySection(data) {
     var s = data.summary || {};
     var grid = function (label, value) {
@@ -265,16 +261,14 @@ function summarySection(data) {
     };
     return '<div class="dw-nurse-sec" id="nurseSecSummary">' +
         '<div class="dw-nurse-sec-title"><span class="emoji">📋</span>病历摘要</div>' +
-        '<div class="dw-nurse-grid">' +
+        '<div class="dw-nurse-vert">' +
         grid('主诉', s.chief_complaint) +
         grid('现病史', s.present_illness) +
         grid('既往史', s.past_history) +
         grid('过敏史', s.allergy_history) +
         grid('查体', s.physical_exam) +
         grid('初步诊断', s.diagnosis) +
-        '</div>' +
-        '<div class="dw-report-actions"><button class="btn btn-outline btn-sm" onclick="previewRecord()">📋 查看完整病历</button></div>' +
-        '</div>';
+        '</div></div>';
 }
 
 /* ==================== 待处理处置 / 待执行医嘱 ==================== */
@@ -411,10 +405,10 @@ function renderNurseSide(data) {
         });
     });
     document.getElementById('dwSide').innerHTML =
-        '<div class="dw-side-sec"><div class="dw-side-title">📝 护理记录</div>' +
-        '<div class="dw-side-item" onclick="scrollToSec(\'nurseSecNursing\')">护理记录 / 添加 / 删除</div></div>' +
         '<div class="dw-side-sec"><div class="dw-side-title">📋 病历摘要</div>' +
         '<div class="dw-side-item" onclick="scrollToSec(\'nurseSecSummary\')">主诉 / 现病史 / 诊断</div></div>' +
+        '<div class="dw-side-sec"><div class="dw-side-title">📝 护理记录</div>' +
+        '<div class="dw-side-item" onclick="scrollToSec(\'nurseSecNursing\')">护理记录 / 添加 / 删除</div></div>' +
         '<div class="dw-side-sec"><div class="dw-side-title">📈 生命体征</div>' +
         '<div class="dw-side-item" onclick="scrollToSec(\'nurseSecVitals\')">趋势图 / 录入</div></div>' +
         '<div class="dw-side-sec"><div class="dw-side-title">💉 待办事项</div>' +
@@ -428,12 +422,12 @@ function renderNurseWork(data) {
     var v = data.visit || {}, p = data.patient || {};
     renderNurseSide(data);
 
-    // 主区：护理记录单（抬头统一走 Clinic.deptwork.headHtml，与检验/影像/药房同版式）
+    // 主区：护理记录单（病历摘要在前、护理记录随后，符合病历逻辑；抬头统一走公共组件）
     var head = Clinic.deptwork.headHtml(data, '护 理 记 录 单');
 
     var body =
-        nursingSection(data) +
         summarySection(data) +
+        nursingSection(data) +
         vitalsSection(data) +
         procSection(data) +
         medSection(data);
