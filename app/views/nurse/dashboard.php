@@ -35,6 +35,55 @@ var CUR_VISIT = '';   // 当前患者混淆码（体征/护理/处置操作回�
 
 function esc(s) { return Clinic.escHtml(s); }
 function nl2br(s) { return Clinic.nl2br(s); }
+
+/* 联动执行 + 皮试结果（渲染时由 procSection/medSection 填充） */
+var NURSE_LINKED = {};   // 项目 itemId -> 关联项目 itemId（逗号分隔，一并执行）
+var NURSE_SKIN = {};     // 项目 itemId -> {drug_id, drug_name}（皮试单才设置）
+
+/* 联动执行确认框：一并执行 / 单独执行 / 取消 */
+function confirmLinked(opts, onLink, onAlone) {
+    Clinic.modal.open(
+        '<div class="fs-13 fw-700 mb-8">' + opts.title + '</div>' +
+        '<div class="fs-13 text-muted">' + opts.desc + '</div>',
+        {
+            title: opts.title,
+            size: 'modal-sm',
+            buttons: [
+                { text: '取消', cls: 'btn-outline' },
+                { text: '单独执行', cls: 'btn-outline', autoClose: false, onClick: function () { Clinic.modal.close(); onAlone(); } },
+                { text: '💊 一并执行', cls: 'btn-primary', autoClose: false, onClick: function () { Clinic.modal.close(); onLink(); } },
+            ],
+        }
+    );
+}
+
+/* 皮试结果弹窗（皮试处置/皮试医嘱执行完成后弹出） */
+function openSkinResultModal(drugId, drugName) {
+    Clinic.modal.open(
+        '<div class="fs-13 fw-700 mb-8">🧪 记录皮试结果</div>' +
+        '<div class="fs-13 mb-8">药品：<b>' + esc(drugName || '') + '</b></div>' +
+        '<div class="flex gap-8">' +
+        '<button type="button" class="btn btn-danger" style="flex:1" onclick="submitSkinResult(' + (drugId || 0) + ',\'positive\')">🔴 阳性</button>' +
+        '<button type="button" class="btn btn-success" style="flex:1" onclick="submitSkinResult(' + (drugId || 0) + ',\'negative\')">🟢 阴性</button>' +
+        '</div>' +
+        '<div class="fs-12 text-muted mt-8">阴性：解锁正式处方/处置缴费资格；阳性：自动加入患者过敏史，禁用该药。</div>',
+        { title: '皮试结果', size: 'modal-sm', buttons: [{ text: '取消', cls: 'btn-outline' }] }
+    );
+    window.__skinDrugName = drugName || '';
+}
+function submitSkinResult(drugId, result) {
+    if (!drugId) { Clinic.toast.warning('缺少皮试药品信息'); return; }
+    Clinic.ajax('/api/nurse', {
+        action: 'skin_result', visit_id: CUR_VISIT, drug_id: drugId,
+        drug_name: window.__skinDrugName || '', result: result,
+    }, {
+        onSuccess: function (j) {
+            Clinic.toast.success(j.msg);
+            Clinic.modal.close();
+            Clinic.deptwork.refreshQueue();
+        },
+    });
+}
 function itemStatusName(s) {
     var map = { paid: '待执行', dispensing: '执行中', done: '已完成', dispensed: '已执行', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
     return map[s] || s;
@@ -273,6 +322,8 @@ function summarySection(data) {
 
 /* ==================== 待处理处置 / 待执行医嘱 ==================== */
 function procSection(data) {
+    var byId = {};
+    (data.orders || []).forEach(function (x) { byId[x.order_id] = x; });
     var items = [];
     (data.orders || []).forEach(function (o) {
         if (o.order_type !== 'procedure') return;
@@ -283,20 +334,34 @@ function procSection(data) {
     var rows = '';
     items.forEach(function (e) {
         var it = e.it, o = e.o;
+        // 关联医嘱：本处置单 source_order 处方的护士站「执行中」医嘱可一并执行
+        var linked = [];
+        if (o.source_order_id && byId[o.source_order_id]) {
+            byId[o.source_order_id].items.forEach(function (mi) {
+                if (mi.is_nurse && mi.status === 'dispensing') linked.push(mi.id);
+            });
+        }
+        NURSE_LINKED[it.id] = linked.join(',');
+        // 皮试处置：记录皮试药品（供结果弹窗）
+        if (o.is_skin_test) NURSE_SKIN[it.id] = { drug_id: o.skin_drug_id, drug_name: o.skin_drug_name };
+        var execTxt = (it.status === 'done' && it.executed_by)
+            ? '<div class="fs-12 text-muted mt-4">执行：' + esc(it.executed_by) + ' ｜ ' + esc((it.executed_at || '').substr(0, 16)) + '</div>'
+            : '';
         rows += '<tr>' +
-            '<td class="fw-600">' + esc(it.item_name) + ' ×' + it.quantity + '</td>' +
+            '<td class="fw-600">' + esc(it.item_name) + ' ×' + it.quantity +
+            (o.is_skin_test ? ' <span class="badge badge-warning" style="font-size:10px">皮试</span>' : '') + '</td>' +
             '<td>' + orderLink(o.order_id, o.order_no, 'procedure') + '</td>' +
             '<td>' + esc(o.doctor_name || '') + '</td>' +
             '<td class="fs-12">' + esc((it.created_at || '').substr(5, 11)) + '</td>' +
             '<td>' + itemStatusBadge(it.status) + '</td>' +
             '<td>' + (it.status === 'paid'
                 ? '<button class="btn btn-success btn-sm" onclick="completeProc(\'' + esc(it.id) + '\')">完成处置</button>'
-                : '') + '</td></tr>';
+                : execTxt) + '</td></tr>';
     });
     if (!rows) rows = '<tr><td colspan="6" class="text-muted text-center">暂无处置项目</td></tr>';
     return '<div class="dw-nurse-sec" id="nurseSecProc">' +
         '<div class="dw-nurse-sec-title"><span class="emoji">💉</span>处置项目</div>' +
-        '<div class="fs-12 text-muted mb-4">点击医嘱单号可查看处置单预览。</div>' +
+        '<div class="fs-12 text-muted mb-4">点击医嘱单号可查看处置单预览；关联医嘱可联动一并执行。</div>' +
         '<div class="table-wrap"><table class="table table-sm" style="font-size:12.5px"><thead><tr>' +
         '<th>处置项目</th><th>医嘱单号</th><th>开单医生</th><th>开单时间</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
         rows + '</tbody></table></div></div>';
@@ -316,45 +381,80 @@ function medSection(data) {
         // 审方/发药拆分：paid 且药房未发药（reviewed/paid）→ 显示「待药房发药」，
         // 仅药房已发药（dispensed）后 paid 明细才可「等待执行」
         var waitDisp = (it.status === 'paid' && o.status !== 'dispensed');
+        // 关联处置：以本处方为 source_order 的处置单中「待执行」处置可一并完成
+        var linked = [];
+        (data.orders || []).forEach(function (po) {
+            if (po.order_type === 'procedure' && po.source_order_id === o.order_id) {
+                po.items.forEach(function (pi) {
+                    if (pi.is_nurse && pi.status === 'paid') linked.push(pi.id);
+                });
+            }
+        });
+        NURSE_LINKED[it.id] = linked.join(',');
+        // 皮试医嘱：记录皮试药品（供结果弹窗）
+        if (o.is_skin_test) {
+            NURSE_SKIN[it.id] = { drug_id: it.item_id, drug_name: String(it.item_name || '').replace(/\(需要皮试\)/g, '') };
+        }
         var stBadge = waitDisp
             ? '<span class="badge badge-gray" style="font-size:11px">待药房发药</span>'
             : itemStatusBadge(it.status);
+        var execTxt = (it.status === 'dispensed' && it.executed_by)
+            ? '<div class="fs-12 text-muted mt-4">执行：' + esc(it.executed_by) + ' ｜ ' + esc((it.executed_at || '').substr(0, 16)) + '</div>'
+            : '';
+        var action;
+        if (waitDisp) {
+            action = '<span class="fs-12 text-muted">待药房发药</span>';
+        } else if (it.status === 'paid') {
+            action = '<button class="btn btn-primary btn-sm" onclick="medStart(\'' + esc(it.id) + '\')">等待执行</button>';
+        } else if (it.status === 'dispensing') {
+            action = '<button class="btn btn-success btn-sm" onclick="medDone(\'' + esc(it.id) + '\')">执行完成</button>';
+        } else {
+            action = execTxt;
+        }
         rows += '<tr>' +
-            '<td class="fw-600">' + esc(it.item_name) + ' ×' + it.quantity + ' <span class="fs-12 text-muted fw-400">' + esc(it.route || '') + '</span></td>' +
+            '<td class="fw-600">' + esc(it.item_name) + ' ×' + it.quantity + ' <span class="fs-12 text-muted fw-400">' + esc(it.route || '') + '</span>' +
+            (o.is_skin_test ? ' <span class="badge badge-warning" style="font-size:10px">皮试</span>' : '') + '</td>' +
             '<td>' + orderLink(o.order_id, o.order_no, 'prescription') + '</td>' +
             '<td>' + esc(o.doctor_name || '') + '</td>' +
             '<td class="fs-12">' + esc((it.created_at || '').substr(5, 11)) + '</td>' +
             '<td>' + stBadge + '</td>' +
-            '<td><div class="flex gap-4">' +
-            (waitDisp
-                ? '<span class="fs-12 text-muted">待药房发药</span>'
-                : (it.status === 'paid'
-                    ? '<button class="btn btn-primary btn-sm" onclick="medStart(\'' + esc(it.id) + '\')">等待执行</button>'
-                    : (it.status === 'dispensing'
-                        ? '<button class="btn btn-success btn-sm" onclick="medDone(\'' + esc(it.id) + '\')">执行完成</button>'
-                        : ''))) +
-            '</div></td></tr>';
+            '<td><div class="flex gap-4">' + action + '</div></td></tr>';
     });
     if (!rows) rows = '<tr><td colspan="6" class="text-muted text-center">暂无待执行医嘱</td></tr>';
     return '<div class="dw-nurse-sec" id="nurseSecMed">' +
         '<div class="dw-nurse-sec-title"><span class="emoji">💊</span>待执行医嘱</div>' +
-        '<div class="fs-12 text-muted mb-4">药房审方发药后方可执行；点击处方号可查看处方预览。</div>' +
+        '<div class="fs-12 text-muted mb-4">药房审方发药后方可执行；关联处置可联动一并执行。</div>' +
         '<div class="table-wrap"><table class="table table-sm" style="font-size:12.5px"><thead><tr>' +
         '<th>医嘱</th><th>处方号</th><th>开单医生</th><th>开单时间</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
         rows + '</tbody></table></div></div>';
 }
 
 function completeProc(itemId) {
-    Clinic.modal.confirm('确认该处置已执行完成？', function () {
-        Clinic.ajax('/api/nurse', { action: 'complete', item_id: itemId }, {
+    var linked = (NURSE_LINKED[itemId] || '').split(',').filter(Boolean);
+    var skin = NURSE_SKIN[itemId];
+    var doComplete = function (linkedIds) {
+        Clinic.ajax('/api/nurse', { action: 'complete', item_id: itemId, linked_ids: JSON.stringify(linkedIds) }, {
             onSuccess: function (j) {
                 Clinic.toast.success(j.msg);
                 refreshNurseSec('Proc');
                 refreshNurseSide();
                 Clinic.deptwork.refreshQueue();
+                // 皮试处置完成 → 弹出皮试结果记录
+                if (j.data && j.data.skin_test && skin) {
+                    openSkinResultModal(skin.drug_id, skin.drug_name);
+                }
             },
         });
-    });
+    };
+    if (linked.length) {
+        confirmLinked(
+            { title: '联动执行确认', desc: '该处置关联 ' + linked.length + ' 条医嘱，是否一并执行完成？选择「单独执行」则只完成本处置。' },
+            function () { doComplete(linked); },
+            function () { doComplete([]); }
+        );
+    } else {
+        Clinic.modal.confirm('确认该处置已执行完成？', function () { doComplete([]); });
+    }
 }
 
 function medStart(itemId) {
@@ -369,16 +469,31 @@ function medStart(itemId) {
 }
 
 function medDone(itemId) {
-    Clinic.modal.confirm('确认该医嘱已执行完成？执行后将反馈医生工作站。', function () {
-        Clinic.ajax('/api/nurse', { action: 'med_done', item_id: itemId }, {
+    var linked = (NURSE_LINKED[itemId] || '').split(',').filter(Boolean);
+    var skin = NURSE_SKIN[itemId];
+    var doDone = function (linkedIds) {
+        Clinic.ajax('/api/nurse', { action: 'med_done', item_id: itemId, linked_ids: JSON.stringify(linkedIds) }, {
             onSuccess: function (j) {
                 Clinic.toast.success(j.msg);
                 refreshNurseSec('Med');
                 refreshNurseSide();
                 Clinic.deptwork.refreshQueue();
+                // 皮试医嘱完成 → 弹出皮试结果记录
+                if (j.data && j.data.skin_test && skin) {
+                    openSkinResultModal(skin.drug_id, skin.drug_name);
+                }
             },
         });
-    }, { title: '执行确认', okText: '执行完成' });
+    };
+    if (linked.length) {
+        confirmLinked(
+            { title: '联动执行确认', desc: '该医嘱关联 ' + linked.length + ' 条处置，是否一并执行完成？选择「单独执行」则只完成本医嘱。' },
+            function () { doDone(linked); },
+            function () { doDone([]); }
+        );
+    } else {
+        Clinic.modal.confirm('确认该医嘱已执行完成？执行后将反馈医生工作站。', function () { doDone([]); }, { title: '执行确认', okText: '执行完成' });
+    }
 }
 
 /* ==================== 局部刷新（不重建整页，保持滚动位置） ==================== */

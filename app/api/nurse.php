@@ -83,15 +83,36 @@ switch ($action) {
         json_ok(array('html' => $html));
         break;
 
-    /* ==================== 完成处置 ==================== */
+    /* ==================== 完成处置（支持联动医嘱一并执行；皮试处置返回 skin_test 标记） ==================== */
     case 'complete':
         $itemId = did(post('item_id'));
+        $linkedIds = json_decode(post('linked_ids', '[]'), true);   // 联动医嘱明细 id（混淆串数组）
         $it = OrderRepository::itemById($itemId);
         if (!$it || $it['status'] !== 'paid') json_fail('该处置不存在或状态异常');
         // 护士科室归属校验（宽松：未绑定科室=全院放行；已绑科室须匹配就诊科室）
         $itVisit = get_visit_row((int)$it['visit_id']);
         if (!$itVisit || !nurse_visit_allowed($itVisit['visit'], $u)) json_fail('无权限执行该就诊的处置');
-        OrderRepository::updateItem($itemId, array('status' => 'done', 'executed_by' => $u['name'], 'executed_at' => now_str()));
+        // 皮试处置判定（orders.is_skin_test=1）：完成后前端需记录皮试结果
+        $procOrder = OrderRepository::one('SELECT * FROM orders WHERE id=?', array((int)$it['order_id']));
+        $isSkin = $procOrder && (int)(isset($procOrder['is_skin_test']) ? $procOrder['is_skin_test'] : 0) === 1;
+        $pdo = DatabaseManager::getMain();
+        $pdo->beginTransaction();
+        try {
+            OrderRepository::updateItem($itemId, array('status' => 'done', 'executed_by' => $u['name'], 'executed_at' => now_str()));
+            // 联动医嘱一并执行完成（仅药房已发药（rx_dispensed）的护士站医嘱可直接完成）
+            foreach ((array)$linkedIds as $lid) {
+                $lid = did($lid);
+                if ($lid <= 0) continue;
+                $lm = OrderRepository::itemById($lid);
+                if (!$lm || $lm['item_type'] !== 'prescription') continue;
+                if (!rx_dispensed((int)$lm['order_id'])) continue;
+                OrderRepository::updateItem($lid, array('status' => 'dispensed', 'executed_by' => $u['name'], 'executed_at' => now_str()));
+            }
+            $pdo->commit();
+        } catch (Exception $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            json_fail('处置执行失败：' . $ex->getMessage());
+        }
         if ($it['doctor_id'] > 0) {
             $pName = PatientRepository::byPatientNo($it['patient_no']);
             send_msg('doctor', $it['doctor_id'],
@@ -100,7 +121,7 @@ switch ($action) {
                 '', '',
                 array('msg_type' => 'patient', 'patient_name' => $pName ? $pName['name'] : '', 'visit_id' => (int)$it['visit_id']));
         }
-        json_ok(array(), '处置已完成（执行护士：' . $u['name'] . '）');
+        json_ok(array('skin_test' => $isSkin ? 1 : 0), '处置已完成（执行护士：' . $u['name'] . '）');
         break;
 
     /* ==================== 患者搜索 ==================== */
@@ -235,9 +256,10 @@ switch ($action) {
         json_ok(array(), '已标记为等待执行，执行完成后请点击【执行完成】');
         break;
 
-    /* ==================== 执行完成 ==================== */
+    /* ==================== 执行完成（医嘱，支持联动处置一并执行；皮试医嘱返回 skin_test 标记） ==================== */
     case 'med_done':
         $itemId = did(post('item_id'));
+        $linkedIds = json_decode(post('linked_ids', '[]'), true);   // 联动处置明细 id（混淆串数组）
         $it = OrderRepository::itemById($itemId);
         if (!$it || $it['item_type'] !== 'prescription' || $it['status'] !== 'dispensing') {
             json_fail('医嘱不存在或状态异常');
@@ -249,7 +271,26 @@ switch ($action) {
         if (!rx_dispensed($it['order_id'])) {
             json_fail('该药品尚未发药，请先到药房领取药品后再执行');
         }
-        OrderRepository::updateItem($itemId, array('status' => 'dispensed', 'executed_by' => $u['name'], 'executed_at' => now_str()));
+        // 皮试医嘱判定（皮试处方单 is_skin_test=1）
+        $rxOrder = OrderRepository::one('SELECT * FROM orders WHERE id=?', array((int)$it['order_id']));
+        $isSkin = $rxOrder && (int)(isset($rxOrder['is_skin_test']) ? $rxOrder['is_skin_test'] : 0) === 1;
+        $pdo = DatabaseManager::getMain();
+        $pdo->beginTransaction();
+        try {
+            OrderRepository::updateItem($itemId, array('status' => 'dispensed', 'executed_by' => $u['name'], 'executed_at' => now_str()));
+            // 联动处置一并执行完成（仅 paid 处置）
+            foreach ((array)$linkedIds as $lid) {
+                $lid = did($lid);
+                if ($lid <= 0) continue;
+                $lm = OrderRepository::itemById($lid);
+                if (!$lm || $lm['item_type'] !== 'procedure' || $lm['status'] !== 'paid') continue;
+                OrderRepository::updateItem($lid, array('status' => 'done', 'executed_by' => $u['name'], 'executed_at' => now_str()));
+            }
+            $pdo->commit();
+        } catch (Exception $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            json_fail('医嘱执行失败：' . $ex->getMessage());
+        }
         if ($it['doctor_id'] > 0) {
             $pName = PatientRepository::byPatientNo($it['patient_no']);
             send_msg('doctor', $it['doctor_id'],
@@ -258,7 +299,34 @@ switch ($action) {
                 '', '',
                 array('msg_type' => 'patient', 'patient_name' => $pName ? $pName['name'] : '', 'visit_id' => (int)$it['visit_id']));
         }
-        json_ok(array(), '执行成功（执行护士：' . $u['name'] . '）');
+        json_ok(array('skin_test' => $isSkin ? 1 : 0), '医嘱已执行完成（执行护士：' . $u['name'] . '）');
+        break;
+
+    /* ==================== 记录皮试结果（阳性/阴性） ====================
+     * 阴性：解锁正式处方/处置缴费资格（visit_skin_negative 判定）；
+     * 阳性：将该药品追加到患者过敏史（医生过敏史模态框自动显示）。 */
+    case 'skin_result':
+        $visitId = did(post('visit_id'));
+        $drugId = (int)post('drug_id', 0);
+        $result = post('result', '');
+        if (!in_array($result, array('positive', 'negative'), true)) json_fail('皮试结果无效');
+        if ($drugId <= 0) json_fail('缺少皮试药品');
+        $row = get_visit_row($visitId);
+        if (!$row) json_fail('就诊记录不存在');
+        if (!nurse_visit_allowed($row['visit'], $u)) json_fail('无权限记录该就诊的皮试结果');
+        $drugName = trim((string)post('drug_name', ''));
+        if ($drugName === '') {
+            $d = OrderRepository::one('SELECT name FROM drugs WHERE id=?', array($drugId));
+            $drugName = $d ? (string)$d['name'] : '';
+        }
+        OrderRepository::insert('INSERT INTO skin_test_results(visit_id, patient_no, flow_no, drug_id, drug_name, result, operator, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
+            $visitId, $row['visit']['patient_no'], $row['visit']['flow_no'], $drugId, $drugName, $result, $u['name'], now_str(),
+        ));
+        if ($result === 'positive') {
+            patient_allergy_append($row['visit']['patient_no'], $drugName);
+        }
+        json_ok(array('unlocked' => $result === 'negative' ? 1 : 0),
+            $result === 'positive' ? '皮试阳性：已将该药品加入患者过敏史，禁止使用该药' : '皮试阴性：正式处方/处置已解锁，患者可前往缴费');
         break;
 
     /* ==================== 生命体征：读取 ==================== */
