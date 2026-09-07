@@ -262,27 +262,14 @@ function showBatchDetail(paymentNo) {
     });
 }
 
-/* 退费 / 取消挂号（挂号费退费，regmanage 与 paymanage 共用逻辑） */
+/* 退费 / 取消挂号（接口生成的 onclick 需全局函数；共用 Clinic.cashier.cancelVisit，
+   仅成功后的局部刷新不同） */
 function cancelVisit(visitId, status) {
-    var tip = status === 'paid' ? '确定为该挂号退费？退费后该患者可在同一首次科室重新挂号。' : '确定取消该挂号？';
-    Clinic.modal.confirm(tip, function () {
-        Clinic.modal.prompt({
-            title: status === 'paid' ? '退费原因' : '取消原因',
-            label: '请填写' + (status === 'paid' ? '退费' : '取消') + '原因（可留空）',
-            placeholder: status === 'paid' ? '如：患者自愿退号' : '如：患者信息有误，需重新挂号',
-            required: false,
-            onOk: function (reason) {
-                Clinic.ajax('/api/cashier', { action: 'cancel_visit', visit_id: visitId, reason: reason }, {
-                    onSuccess: function (json) {
-                        Clinic.toast.success(json.msg);
-                        loadDetail(CUR_VISIT);
-                        // 退费后左侧就诊列表状态同步刷新（原仅刷新右侧详情，左侧仍显示旧状态）
-                        if (document.getElementById('payKw').value.trim()) searchVisits(true);
-                    },
-                });
-            },
-        });
-    }, { title: status === 'paid' ? '退费确认' : '取消确认' });
+    Clinic.cashier.cancelVisit(visitId, status, function () {
+        loadDetail(CUR_VISIT);
+        // 退费后左侧就诊列表状态同步刷新（原仅刷新右侧详情，左侧仍显示旧状态）
+        if (document.getElementById('payKw').value.trim()) searchVisits(true);
+    });
 }
 
 /* ---------- 退费 ---------- */

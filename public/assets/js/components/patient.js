@@ -14,6 +14,58 @@
 
 window.Clinic = window.Clinic || {};
 
+/**
+ * 患者查询弹窗（医生工作站工具箱 / 医技工作台工具箱共用）。
+ * 输入患者ID/身份证号/姓名 → /api/patient search → 点击条目查看全部就诊历史。
+ * @param {object} opts { idPrefix } 元素 ID 前缀（doctor_tools=ps / deptwork=dwPs）
+ */
+Clinic.patientSearch = {
+    open: function (opts) {
+        opts = opts || {};
+        var prefix = opts.idPrefix || 'ps';
+        var kwId = prefix + 'Kw';
+        Clinic.modal.open(
+            '<div class="form-group"><label class="form-label">患者ID / 身份证号 / 姓名</label>' +
+            '<input class="input" id="' + kwId + '" placeholder="请输入患者ID / 身份证号 / 姓名" ' +
+            'onkeydown="if(event.key===\'Enter\')Clinic.patientSearch.doSearch(\'' + prefix + '\')"></div>' +
+            '<div id="' + prefix + 'Result" class="fs-13"></div>',
+            {
+                title: opts.title || '患者查询',
+                size: 'modal-sm',
+                buttons: [
+                    { text: '关闭', cls: 'btn-outline' },
+                    { text: '查 询', cls: 'btn-primary', autoClose: false, onClick: function () { Clinic.patientSearch.doSearch(prefix); } },
+                ],
+            }
+        );
+        setTimeout(function () {
+            var el = document.getElementById(kwId);
+            if (el) el.focus();
+        }, 80);
+    },
+
+    doSearch: function (prefix) {
+        var kwEl = document.getElementById(prefix + 'Kw');
+        var kw = (kwEl ? kwEl.value : '').trim();
+        if (!kw) { Clinic.toast.warning('请输入患者ID / 身份证号 / 姓名'); return; }
+        var box = document.getElementById(prefix + 'Result');
+        if (!box) return;
+        box.innerHTML = '<div class="spinner" style="border-top-color:var(--primary);width:24px;height:24px;margin:10px auto"></div>';
+        Clinic.get('/api/patient?action=search&kw=' + encodeURIComponent(kw), null, {
+            onSuccess: function (json) {
+                var list = json.data.list || [];
+                if (!list.length) { box.innerHTML = '<div class="text-muted">未检索到该患者</div>'; return; }
+                box.innerHTML = '<div class="fs-13 text-muted mb-8">检索到 ' + list.length + ' 位患者，点击查看全部就诊历史</div>' +
+                    list.map(function (p) {
+                        return '<div class="dd-item" style="cursor:pointer" onclick="showPatientHistory(\'' + Clinic.escHtml(p.patient_no) + '\')">' +
+                            '<div class="flex-between"><span class="fw-600">' + Clinic.escHtml(p.name) + '</span>' +
+                            '<span class="text-muted fs-12">' + Clinic.escHtml(p.patient_no) + ' ｜ ' + Clinic.escHtml(p.gender) + '/' + Clinic.escHtml(p.age_fmt || (Clinic.validate && Clinic.validate.formatAge(p.birth_date)) || '') + '</span></div></div>';
+                    }).join('');
+            },
+        });
+    },
+};
+
 Clinic.patient = {
     /** 患者资料更新订阅者列表 */
     _subs: [],

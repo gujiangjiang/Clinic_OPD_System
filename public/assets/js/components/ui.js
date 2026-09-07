@@ -198,6 +198,35 @@ document.addEventListener('modal:loaded', function (e) {
 }, true);
 
 /**
+ * 收费处共用：退费 / 取消挂号（缴费管理 paymanage 与挂号管理 regmanage 共用，
+ * 成功后的局部刷新差异由 onDone 注入）
+ * @param {string}   visitId 就诊混淆串
+ * @param {string}   status  'paid'=退费 / 其他=取消
+ * @param {function} onDone  成功后回调（刷新列表/详情）
+ */
+Clinic.cashier = {
+    cancelVisit: function (visitId, status, onDone) {
+        var tip = status === 'paid' ? '确定为该挂号退费？退费后该患者可在同一首次科室重新挂号。' : '确定取消该挂号？';
+        Clinic.modal.confirm(tip, function () {
+            Clinic.modal.prompt({
+                title: status === 'paid' ? '退费原因' : '取消原因',
+                label: '请填写' + (status === 'paid' ? '退费' : '取消') + '原因（可留空）',
+                placeholder: status === 'paid' ? '如：患者自愿退号' : '如：患者信息有误，需重新挂号',
+                required: false,
+                onOk: function (reason) {
+                    Clinic.ajax('/api/cashier', { action: 'cancel_visit', visit_id: visitId, reason: reason }, {
+                        onSuccess: function (json) {
+                            Clinic.toast.success(json.msg);
+                            if (onDone) onDone();
+                        },
+                    });
+                },
+            });
+        }, { title: status === 'paid' ? '退费确认' : '取消确认' });
+    },
+};
+
+/**
  * 支付方式选择模态框（挂号缴费 / 缴费管理共用，优化6）
  * 说明：现金完整可用（选择后回调继续缴费并打印凭条）；
  * 医保卡/银行卡/扫码支付演示环境未开通，选择时提示开发中。
