@@ -23,10 +23,49 @@ a:hover { text-decoration: none; opacity: .85; }
 img { max-width: 100%; vertical-align: middle; }
 ul, ol { list-style: none; }
 
-/* 表单控件主题色：复选框/单选/数字输入上下箭头不再使用浏览器原生黑色，
-   统一取 --primary（日间/夜间/自动均随主题变量适配） */
-input[type="checkbox"], input[type="radio"], input[type="number"] {
+/* 表单控件主题色：复选框用自定义样式替代浏览器原生黑色（边框/勾选随主题变量），
+   单选/数字/范围用 accent-color 随主题适配；WebKit 数字上下箭头无法 CSS 改色 → 隐藏
+   （Firefox/Edge 的数字箭头由 accent-color 上色保留） */
+input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    vertical-align: middle;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-card);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: background .15s ease, border-color .15s ease;
+}
+input[type="checkbox"]:hover { border-color: var(--primary); }
+input[type="checkbox"]:checked {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 5px;
+    height: 9px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: translate(-50%, -58%) rotate(45deg);
+}
+input[type="checkbox"]:disabled { opacity: .55; cursor: not-allowed; }
+
+input[type="radio"], input[type="number"], input[type="range"] {
     accent-color: var(--primary);
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 /* ---------- 主题变量（明亮模式默认 + 自动模式） ---------- */
