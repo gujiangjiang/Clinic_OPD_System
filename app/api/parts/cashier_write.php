@@ -265,9 +265,10 @@ function cashier_part_write($action) {
         $pdo = DatabaseManager::getMain();
         $pdo->beginTransaction();
         try {
-            // 订单状态迁移：未审批退费仅允许 paid；审批通过后（allowExecuted）允许已发药
-            // （dispensed）订单退费——修复「已发药处方退费死锁」：审批流放行而执行被状态硬拦
-            $orderWhere = $allowExecuted ? "status IN ('paid','dispensed')" : "status='paid'";
+            // 订单状态迁移：未审批退费允许 paid / reviewed（审方通过未发药）；审批通过后
+            // （allowExecuted）再允许已发药（dispensed）订单退费——
+            // 修复「已发药处方退费死锁」：审批流放行而执行被状态硬拦
+            $orderWhere = $allowExecuted ? "status IN ('paid','reviewed','dispensed')" : "status IN ('paid','reviewed')";
             $affectedOrder = CashierRepository::exec(
                 "UPDATE orders SET status='refunded', refunded_at=? WHERE id=? AND $orderWhere",
                 array(now_str(), $orderId)

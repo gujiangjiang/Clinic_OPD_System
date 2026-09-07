@@ -392,7 +392,7 @@ Clinic.deptwork = (function () {
                 // 首次加载应用登录会话记忆的筛选（状态页签 + 当日）
                 if (!PREF_APPLIED && DATA.pref) {
                     PREF_APPLIED = true;
-                    var prefStatus = (DATA.pref.status === 'doing' || DATA.pref.status === 'done') ? DATA.pref.status : STATUS;
+                    var prefStatus = (DATA.pref.status === 'doing' || DATA.pref.status === 'reviewed' || DATA.pref.status === 'done') ? DATA.pref.status : STATUS;
                     var prefToday = !!DATA.pref.today;
                     // 会话记忆的筛选与本次请求不一致 → 按记忆重新拉取，
                     // 修复刷新后 tab 高亮与列表内容不一致的 bug
@@ -447,7 +447,8 @@ Clinic.deptwork = (function () {
     /** 行内明细摘要（按角色语义精准展示执行进度）
         · 护士站：处置1/2（2 个处置执行了 1 个）、医嘱2/3（3 条医嘱执行了 2 条），
           某类全部完成显示「处置执行完成 / 医嘱执行完成」
-        · 药房/检验/影像：待发药/待登记/待报告/完成数量 */
+        · 药房（审方/发药拆分）：待审方 X · 待发药 Y · 已发药 Z（订单级计数）
+        · 检验/影像：待登记/待报告/完成数量 */
     function itemSummary(r) {
         if (ROLE === 'nurse') {
             var parts = [];
@@ -458,15 +459,15 @@ Clinic.deptwork = (function () {
         }
         var parts = [];
         if (ROLE === 'pharmacy') {
-            // 药房侧：发药完成即完成（含转交护士站的 dispensing，执行与药房无关）
-            if (r.st_paid) parts.push('待发药 ' + r.st_paid);
-            var doneCnt = (r.st_dispensed || 0) + (r.st_dispensing || 0);
-            if (doneCnt) parts.push('完成 ' + doneCnt);
+            // 药房侧：按订单状态分 待审方（paid）/ 待发药（reviewed）/ 已发药（dispensed）
+            if (r.ord_paid) parts.push('待审方 ' + r.ord_paid);
+            if (r.ord_reviewed) parts.push('待发药 ' + r.ord_reviewed);
+            if (r.ord_dispensed) parts.push('已发药 ' + r.ord_dispensed);
         } else {
             if (r.st_paid) parts.push('待登记 ' + r.st_paid);
             if (r.st_reg) parts.push('待报告 ' + r.st_reg);
         }
-        if (r.st_done) parts.push('完成 ' + r.st_done);
+        if (r.st_done && ROLE !== 'pharmacy') parts.push('完成 ' + r.st_done);
         var txt = parts.length ? parts.join(' · ') : ('共 ' + r.item_cnt + ' 项');
         return { html: txt, tip: '共 ' + r.item_cnt + ' 项：' + parts.join('，') };
     }
@@ -476,13 +477,14 @@ Clinic.deptwork = (function () {
         return map[s] || s;
     }
 
-    /** 状态列徽章：按角色语义展示项目状态（待处置 / 待发药 / 待登记… / 完成），
+    /** 状态列徽章：按角色语义展示项目状态（待处置 / 待审方 / 待发药 / 完成…），
        而非就诊状态（候诊/就诊中） */
     function itemStatusBadge(r) {
         var pending = '';
         if (ROLE === 'pharmacy') {
-            // 药房侧：发药完成即完成（dispensing 为已转交护士站，药房不再处理）
-            if (r.st_paid) pending = '待发药';
+            // 药房（审方/发药拆分）：优先级 待审方 > 待发药 > 完成
+            if (r.ord_paid) pending = '待审方';
+            else if (r.ord_reviewed) pending = '待发药';
         } else if (ROLE === 'nurse') {
             if (r.st_paid) pending = '待处置';
             else if (r.st_dispensing) pending = '待执行';
@@ -531,25 +533,30 @@ Clinic.deptwork = (function () {
         var p = panelEl();
         if (!p) return;
         var list = scopedList();
-        // 页签：状态页签（待处置/完成… 互斥单选）+ 当日（叠加可选）
-        var chips =
-            '<button type="button" class="qp-chip' + (STATUS === 'doing' ? ' active' : '') + '" data-k="doing">' + escHtml(TAB_LABELS.doing || '在办') + '</button>' +
-            '<button type="button" class="qp-chip' + (STATUS === 'done' ? ' active' : '') + '" data-k="done">' + escHtml(TAB_LABELS.done || '完成') + '</button>' +
-            '<button type="button" class="qp-chip' + (TODAY ? ' active' : '') + '" data-k="today">' + escHtml(TAB_LABELS.today || '当日') + '</button>';
+        // 页签：状态页签（按后端 tabs 动态生成：doing/reviewed/done，互斥单选）+ 当日（叠加可选）
+        var chips = '';
+        ['doing', 'reviewed', 'done'].forEach(function (k) {
+            if (TAB_LABELS[k]) {
+                chips += '<button type="button" class="qp-chip' + (STATUS === k ? ' active' : '') + '" data-k="' + k + '">' + escHtml(TAB_LABELS[k]) + '</button>';
+            }
+        });
+        if (TAB_LABELS.today) {
+            chips += '<button type="button" class="qp-chip' + (TODAY ? ' active' : '') + '" data-k="today">' + escHtml(TAB_LABELS.today) + '</button>';
+        }
         p.innerHTML =
             '<div class="qp-chips">' + chips +
             '  <span class="fs-12 text-muted qp-count">' + list.length + ' 人</span>' +
             '  <input class="input qp-search" id="dwQpSearch" placeholder="搜索：姓名/号别/流水号" value="' + escHtml(KEYWORD) + '">' +
             '</div>' +
             '<div class="qp-list">' + listHtml(list) + '</div>';
-        // 页签切换：doing/done 互斥单选，today 叠加切换；切换后重新请求并渲染列表区
+        // 页签切换：状态页签（doing/reviewed/done）互斥单选，today 叠加切换；切换后重新请求
         p.querySelectorAll('[data-k]').forEach(function (c) {
             c.addEventListener('click', function () {
                 var k = c.getAttribute('data-k');
                 if (k === 'today') {
                     TODAY = !TODAY;
                 } else {
-                    STATUS = k === 'done' ? 'done' : 'doing';
+                    STATUS = k;
                 }
                 saveTabPref();
                 p.querySelector('.qp-list').innerHTML = '<div class="qp-empty">加载中…</div>';

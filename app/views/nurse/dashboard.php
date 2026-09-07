@@ -319,18 +319,26 @@ function medSection(data) {
     var rows = '';
     items.forEach(function (e) {
         var it = e.it, o = e.o;
+        // 审方/发药拆分：paid 且药房未发药（reviewed/paid）→ 显示「待药房发药」，
+        // 仅药房已发药（dispensed）后 paid 明细才可「等待执行」
+        var waitDisp = (it.status === 'paid' && o.status !== 'dispensed');
+        var stBadge = waitDisp
+            ? '<span class="badge badge-gray" style="font-size:11px">待药房发药</span>'
+            : itemStatusBadge(it.status);
         rows += '<tr>' +
             '<td class="fw-600">' + esc(it.item_name) + ' ×' + it.quantity + ' <span class="fs-12 text-muted fw-400">' + esc(it.route || '') + '</span></td>' +
             '<td>' + orderLink(o.order_id, o.order_no, 'prescription') + '</td>' +
             '<td>' + esc(o.doctor_name || '') + '</td>' +
             '<td class="fs-12">' + esc((it.created_at || '').substr(5, 11)) + '</td>' +
-            '<td>' + itemStatusBadge(it.status) + '</td>' +
+            '<td>' + stBadge + '</td>' +
             '<td><div class="flex gap-4">' +
-            (it.status === 'paid'
-                ? '<button class="btn btn-primary btn-sm" onclick="medStart(\'' + esc(it.id) + '\')">等待执行</button>'
-                : (it.status === 'dispensing'
-                    ? '<button class="btn btn-success btn-sm" onclick="medDone(\'' + esc(it.id) + '\')">执行完成</button>'
-                    : '')) +
+            (waitDisp
+                ? '<span class="fs-12 text-muted">待药房发药</span>'
+                : (it.status === 'paid'
+                    ? '<button class="btn btn-primary btn-sm" onclick="medStart(\'' + esc(it.id) + '\')">等待执行</button>'
+                    : (it.status === 'dispensing'
+                        ? '<button class="btn btn-success btn-sm" onclick="medDone(\'' + esc(it.id) + '\')">执行完成</button>'
+                        : ''))) +
             '</div></td></tr>';
     });
     if (!rows) rows = '<tr><td colspan="6" class="text-muted text-center">暂无待执行医嘱</td></tr>';
@@ -398,7 +406,8 @@ function renderNurseSide(data) {
     (data.orders || []).forEach(function (o) {
         o.items.forEach(function (it) {
             if (o.order_type === 'procedure' && it.is_nurse && it.status === 'paid') procCnt++;
-            if (o.order_type === 'prescription' && it.is_nurse && (it.status === 'paid' || it.status === 'dispensing')) medCnt++;
+            // 仅计可执行/执行中：药房已发药（dispensed）的 paid 明细 + 执行中（dispensing）
+            if (o.order_type === 'prescription' && it.is_nurse && (it.status === 'dispensing' || (it.status === 'paid' && o.status === 'dispensed'))) medCnt++;
         });
     });
     document.getElementById('dwSide').innerHTML =

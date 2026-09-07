@@ -46,7 +46,8 @@ function deptwork_role_cfg($role) {
         'pharmacy' => array(
             'emoji' => '💊', 'room_type' => 'pharmacy',
             'item_types' => array('prescription'), 'nurse_rx' => false,
-            'tabs' => array('doing' => '待发药', 'done' => '完成', 'today' => '当日'),
+            // 审方/发药拆分：待审方（doing）→ 待发药（reviewed）→ 已发药（done）+ 当日叠加
+            'tabs' => array('doing' => '待审方', 'reviewed' => '待发药', 'done' => '已发药', 'today' => '当日'),
         ),
     );
     return $map[$role];
@@ -71,8 +72,8 @@ function deptwork_type_where($cfg, $alias) {
 function deptwork_queue_rows($u, $status, $today) {
     $role = $u['role'];
     $cfg = deptwork_role_cfg($role);
-    // 双筛选：status（待处置/待发药/检查中等 状态页签，互斥单选）+ today（当日叠加可选）
-    if (!in_array($status, array('doing', 'done'), true)) $status = 'doing';
+    // 双筛选：状态页签（药房含 reviewed 待发药，互斥单选）+ today（当日叠加可选）
+    if (!in_array($status, array('doing', 'reviewed', 'done'), true)) $status = 'doing';
     $today = (int)$today === 1 ? 1 : 0;
     list($typeWhere, $typeParams) = deptwork_type_where($cfg, 'oi');
 
@@ -82,21 +83,33 @@ function deptwork_queue_rows($u, $status, $today) {
         $deptWhere = ' AND r.current_dept_id IN (' . in_placeholders($deptIds) . ')';
     }
 
-    // 患者级归类（HAVING）：只要存在未办结项目 → 归入「待处置/待发药/检查中」；
-    // 全部办结才算「完成」。不再按「存在单个完成项目」混入完成列表。
-    // 未办结状态集（按角色）：护士 处置/医嘱 待执行+执行中；药房 待审方；
-    // 检验/影像 待登记+待出报告。办结状态 = done / dispensed（药房另含已转交护士站的 dispensing）。
+    // 患者级归类（HAVING）：只要存在未办结项目 → 归入「待处置/待审方/检查中」；
+    // 全部办结才算「完成」。药房按订单状态分三段：待审方（orders.status='paid'）/
+    // 待发药（'reviewed'）/ 已发药（全部订单 dispensed/rejected 等）。
     $unDoneSet = ($role === 'pharmacy')
         ? "'paid'"
         : (($role === 'nurse') ? "'paid','dispensing'" : "'paid','registered'");
     $finDoneSet = ($role === 'pharmacy')
         ? "'done','dispensed','dispensing'"
         : "'done','dispensed'";
-    if ($status === 'doing') {
-        $having = "SUM(CASE WHEN oi.status IN ($unDoneSet) THEN 1 ELSE 0 END) > 0";
+    if ($role === 'pharmacy') {
+        // 药房：按订单状态（join orders o）判定，而非明细状态（审方通过后明细仍为 paid）
+        if ($status === 'doing') {
+            $having = "SUM(CASE WHEN o.status='paid' THEN 1 ELSE 0 END) > 0";
+        } elseif ($status === 'reviewed') {
+            $having = "SUM(CASE WHEN o.status='reviewed' THEN 1 ELSE 0 END) > 0";
+        } else {
+            $having = "COUNT(DISTINCT o.id) > 0
+                AND SUM(CASE WHEN o.status='paid' THEN 1 ELSE 0 END) = 0
+                AND SUM(CASE WHEN o.status='reviewed' THEN 1 ELSE 0 END) = 0";
+        }
     } else {
-        $having = "SUM(CASE WHEN oi.status IN ($finDoneSet) THEN 1 ELSE 0 END) > 0
-            AND SUM(CASE WHEN oi.status IN ($unDoneSet) THEN 1 ELSE 0 END) = 0";
+        if ($status === 'doing') {
+            $having = "SUM(CASE WHEN oi.status IN ($unDoneSet) THEN 1 ELSE 0 END) > 0";
+        } else {
+            $having = "SUM(CASE WHEN oi.status IN ($finDoneSet) THEN 1 ELSE 0 END) > 0
+                AND SUM(CASE WHEN oi.status IN ($unDoneSet) THEN 1 ELSE 0 END) = 0";
+        }
     }
     // 「当日」叠加筛选
     $todayWhere = $today ? " AND date(oi.created_at)=?" : '';
@@ -116,9 +129,14 @@ function deptwork_queue_rows($u, $status, $today) {
                 SUM(CASE WHEN oi.item_type='procedure' AND oi.status='done' THEN 1 ELSE 0 END) AS proc_done,
                 SUM(CASE WHEN oi.item_type='prescription' THEN 1 ELSE 0 END) AS med_total,
                 SUM(CASE WHEN oi.item_type='prescription' AND oi.status='dispensed' THEN 1 ELSE 0 END) AS med_done,
+                COUNT(DISTINCT CASE WHEN o.status='paid' THEN o.id END) AS ord_paid,
+                COUNT(DISTINCT CASE WHEN o.status='reviewed' THEN o.id END) AS ord_reviewed,
+                COUNT(DISTINCT CASE WHEN o.status='dispensed' THEN o.id END) AS ord_dispensed,
+                COUNT(DISTINCT o.id) AS ord_total,
                 MAX(oi.created_at) AS last_order_at, MAX(oi.executed_at) AS max_executed
             FROM order_items oi
             LEFT JOIN users usr ON usr.id=oi.doctor_id
+            JOIN orders o ON o.id=oi.order_id
             JOIN registrations r ON r.id=oi.visit_id
             JOIN patients p ON p.patient_no=oi.patient_no
             WHERE $typeWhere
@@ -126,12 +144,12 @@ function deptwork_queue_rows($u, $status, $today) {
               $deptWhere$todayWhere
             GROUP BY oi.visit_id
             HAVING $having";
-    // 排序：待处置按最后一次开具到本科室的时间正序（最新在下面）；
-    // 完成按最近完成时间倒序（最新完成在上面）
-    if ($status === 'doing') {
-        $sql .= ' ORDER BY last_order_at ASC';
-    } else {
+    // 排序：待处置/待审方按最后一次开具到本科室的时间正序（最新在下面）；
+    // 待发药同样按时间正序；完成按最近完成时间倒序（最新完成在上面）
+    if ($status === 'done') {
         $sql .= ' ORDER BY max_executed DESC';
+    } else {
+        $sql .= ' ORDER BY last_order_at ASC';
     }
     $sql .= ' LIMIT 300';
 
@@ -145,7 +163,7 @@ function deptwork_queue($u) {
     $role = $u['role'];
     $cfg = deptwork_role_cfg($role);
     $status = get('status', 'doing');
-    if (!in_array($status, array('doing', 'done'), true)) $status = 'doing';
+    if (!in_array($status, array('doing', 'reviewed', 'done'), true)) $status = 'doing';
     $today = (int)get('today', 0) === 1 ? 1 : 0;
     $rows = deptwork_queue_rows($u, $status, $today);
 
@@ -174,6 +192,11 @@ function deptwork_queue($u) {
             'proc_done' => (int)$r['proc_done'],
             'med_total' => (int)$r['med_total'],
             'med_done' => (int)$r['med_done'],
+            // 药房订单级计数：待审方 / 待发药 / 已发药（审方/发药拆分后按订单状态）
+            'ord_paid' => (int)$r['ord_paid'],
+            'ord_reviewed' => (int)$r['ord_reviewed'],
+            'ord_dispensed' => (int)$r['ord_dispensed'],
+            'ord_total' => (int)$r['ord_total'],
         );
     }
     $pref = isset($_SESSION['deptwork_tab'][$role]) ? $_SESSION['deptwork_tab'][$role] : array();
@@ -182,7 +205,7 @@ function deptwork_queue($u) {
         'tabs' => $cfg['tabs'],
         'list' => $list,
         'pref' => array(
-            'status' => isset($pref['status']) && in_array($pref['status'], array('doing', 'done'), true) ? $pref['status'] : 'doing',
+            'status' => isset($pref['status']) && in_array($pref['status'], array('doing', 'reviewed', 'done'), true) ? $pref['status'] : 'doing',
             'today' => !empty($pref['today']) ? 1 : 0,
         ),
     ));
@@ -193,7 +216,7 @@ function deptwork_queue_pref($u) {
     $role = $u['role'];
     $cfg = deptwork_role_cfg($role);
     $status = get('status', 'doing');
-    if (!in_array($status, array('doing', 'done'), true)) $status = 'doing';
+    if (!in_array($status, array('doing', 'reviewed', 'done'), true)) $status = 'doing';
     $today = (int)get('today', 0) === 1 ? 1 : 0;
     $_SESSION['deptwork_tab'][$role] = array('status' => $status, 'today' => $today);
     json_ok(array('status' => $status, 'today' => $today));
@@ -302,6 +325,8 @@ function deptwork_orders($visitId) {
             'status' => $o['status'],
             'done_by' => isset($o['done_by']) ? $o['done_by'] : '',
             'dispensed_at' => isset($o['dispensed_at']) ? $o['dispensed_at'] : '',
+            'review_by' => isset($o['review_by']) ? $o['review_by'] : '',
+            'reviewed_at' => isset($o['reviewed_at']) ? $o['reviewed_at'] : '',
             'items' => $items,
         );
     }

@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 22,
+    'version' => 23,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -196,7 +196,9 @@ return array(
             refunded_at TEXT,
             done_by TEXT,
             category_name TEXT DEFAULT '',
-            source_order_id INTEGER DEFAULT 0
+            source_order_id INTEGER DEFAULT 0,
+            review_by TEXT,
+            reviewed_at TEXT
         )",
 
         'order_items' => "CREATE TABLE IF NOT EXISTS order_items (
@@ -796,6 +798,12 @@ return array(
         // v22：报告检查分类快照（CT/DR/超声…）——检查报告单标题动态前缀
         22 => array(
             "ALTER TABLE reports ADD COLUMN category_name TEXT",
+        ),
+        // v23：处方审方拆分——审方通过（review_by/reviewed_at，待发药）与发药（done_by/
+        // dispensed_at）分离，支持审方人≠发药人（orders.status='reviewed' 为审方通过待发药）
+        23 => array(
+            "ALTER TABLE orders ADD COLUMN review_by TEXT",
+            "ALTER TABLE orders ADD COLUMN reviewed_at TEXT",
         ),
     ),
     'seed' => array(

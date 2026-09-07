@@ -187,10 +187,11 @@ function item_flow_steps($it, $order, $isRefunded) {
         $flow[] = array('label' => '登记', 'done' => $regDone ? 1 : 0);
         $flow[] = array('label' => '报告完成', 'done' => $repDone ? 1 : 0);
     } elseif ($order['order_type'] === 'prescription') {
-        // 处方：审方通过（dispensed/dispensing）+ 发药完成（dispensed）
-        $rxDone = $executed || in_array($st, array('dispensed', 'dispensing'), true);
+        // 处方（审方/发药拆分）：审方通过（orders.status='reviewed'）→ 发药完成（dispensed）
+        $oSt = isset($order['status']) ? $order['status'] : '';
+        $rxDone = $executed || in_array($st, array('dispensed', 'dispensing'), true) || $oSt === 'reviewed' || $oSt === 'dispensed';
         $dispDone = $st === 'dispensed';
-        $flow[] = array('label' => '审方通过', 'done' => $rxDone ? 1 : 0, 'rejected' => $st === 'rejected' ? 1 : 0);
+        $flow[] = array('label' => '审方通过', 'done' => $rxDone ? 1 : 0, 'rejected' => ($st === 'rejected' || $oSt === 'rejected') ? 1 : 0);
         $flow[] = array('label' => '发药完成', 'done' => $dispDone ? 1 : 0);
     } else {
         // 处置：执行完成（护士站执行 done）
@@ -250,20 +251,22 @@ function order_flow_steps($o, $items) {
             'time' => $regDone && $disp ? $disp['time'] : '',
             'done' => ($disp || in_array($o['status'], array('done'), true)) ? 1 : 0);
     } elseif ($o['order_type'] === 'prescription') {
-        // 处方进度按整单审方流转：药房处理（审方通过/驳回）→ 发药完成
-        // 通过：orders.status='dispensed' + dispensed_at；驳回：status='rejected'
-        $rxDisp = !empty($o['dispensed_at']) ? $o['dispensed_at'] : ($disp ? $disp['time'] : '');
-        $rxDone = $o['status'] === 'dispensed' || $disp;
-        $rxRejected = $o['status'] === 'rejected';
+        // 处方进度按整单审方流转（审方/发药拆分）：审方通过（reviewed）→ 发药完成（dispensed）
+        // 审方人 review_by 与发药人 done_by 可为不同人，各自节点显示各自操作人
+        $rxDisp = !empty($o['dispensed_at']) ? $o['dispensed_at'] : (!empty($o['reviewed_at']) ? $o['reviewed_at'] : ($disp ? $disp['time'] : ''));
+        $reviewed = $o['status'] === 'reviewed' || $o['status'] === 'dispensed';
+        $dispensed = $o['status'] === 'dispensed';
+        $reviewer = !empty($o['review_by']) ? $o['review_by'] : ($o['done_by'] ? $o['done_by'] : ($reg ? $reg['operator'] : ''));
+        $dispenser = $o['done_by'] ? $o['done_by'] : ($disp ? $disp['operator'] : '');
         $flow[] = array('label' => '审方通过',
-            'operator' => $rxDone ? ($reg ? $reg['operator'] : ($o['done_by'] ? $o['done_by'] : '')) : '',
-            'time' => $rxDisp,
-            'done' => $rxDone ? 1 : 0,
-            'rejected' => $rxRejected ? 1 : 0);
+            'operator' => $reviewed ? $reviewer : '',
+            'time' => $reviewed ? (!empty($o['reviewed_at']) ? $o['reviewed_at'] : $rxDisp) : '',
+            'done' => $reviewed ? 1 : 0,
+            'rejected' => $o['status'] === 'rejected' ? 1 : 0);
         $flow[] = array('label' => '发药完成',
-            'operator' => $rxDone ? ($o['done_by'] ? $o['done_by'] : ($disp ? $disp['operator'] : '')) : '',
-            'time' => $rxDisp,
-            'done' => $rxDone ? 1 : 0);
+            'operator' => $dispensed ? $dispenser : '',
+            'time' => $dispensed ? (!empty($o['dispensed_at']) ? $o['dispensed_at'] : $rxDisp) : '',
+            'done' => $dispensed ? 1 : 0);
     } else {
         $procDone = (bool)$disp;
         $flow[] = array('label' => '执行完成',

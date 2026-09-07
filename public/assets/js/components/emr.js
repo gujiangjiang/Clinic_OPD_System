@@ -2385,6 +2385,7 @@ Clinic.emr = (function () {
         var rxStatusMap = {
             open: '<span class="badge badge-warning">待缴费</span>',
             paid: '<span class="badge badge-primary">已缴费 · 待审方</span>',
+            reviewed: '<span class="badge badge-warning">已审方 · 待发药</span>',
             dispensing: '<span class="badge badge-warning">发药中</span>',
             dispensed: '<span class="badge badge-success">已发药</span>',
             rejected: '<span class="badge badge-danger">已驳回</span>',

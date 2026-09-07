@@ -36,25 +36,24 @@ function afterRxAction() {
 function esc(s) { return Clinic.escHtml(s); }
 function money(n) { return Clinic.money(n); }
 function orderStatusName(s) {
-    // 药房审方上下文：待审方（paid）即「审方中」
-    var map = { pending: '待缴费', paid: '审方中', dispensed: '已发药', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
+    // 药房审方/发药拆分上下文：待审方（paid）、待发药（reviewed）、已发药（dispensed）
+    var map = { pending: '待缴费', paid: '待审方', reviewed: '待发药', dispensed: '已发药', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
     return map[s] || s;
 }
 function rxStatusBadge(s) {
-    var cls = s === 'dispensed' ? 'badge-success' : (s === 'paid' ? 'badge-warning' : 'badge-gray');
+    var cls = s === 'dispensed' ? 'badge-success' : ((s === 'paid' || s === 'reviewed') ? 'badge-warning' : 'badge-gray');
     return Clinic.deptwork.statusBadge(orderStatusName(s), cls);
 }
 
 function renderRxWork(data) {
     var v = data.visit || {}, p = data.patient || {};
     var orders = (data.orders || []).filter(function (o) { return o.order_type === 'prescription'; });
-    // 右栏大纲：按处方分组（处方号可点「+」展开该处方全部药品）
+    // 右栏大纲：按处方分组（处方号点击展开/缩回该处方全部药品）
     Clinic.deptwork.renderOrderSide(orders, {
         emoji: '💊', title: '本次处方', empty: '暂无处方',
-        pending: function (o) { return o.status === 'paid'; },
+        pending: function (o) { return o.status === 'paid' || o.status === 'reviewed'; },
         subItems: function (o) { return o.items.filter(function (it) { return it.sub_of === 0; }); },
         subDot: function () { return 'done'; },
-        scrollTo: 'Rx',
     });
 
     // 主区：抬头（急诊病历版式）+ 各处方卡片
@@ -66,13 +65,16 @@ function renderRxWork(data) {
         orders.forEach(function (o) { body += rxOrderHtml(o); });
     }
     document.getElementById('dwMain').innerHTML = head + body;
-    // 绑定审方操作（paid → 审方中）
+    // 绑定操作：待审方（paid）→ 审方/拒绝；待发药（reviewed）→ 发药
     orders.forEach(function (o) {
         if (o.status === 'paid') {
             var pass = document.getElementById('rxPass_' + o.order_id);
-            if (pass) pass.onclick = function () { doRxPass(o); };
+            if (pass) pass.onclick = function () { doRxReview(o); };
             var rej = document.getElementById('rxReject_' + o.order_id);
             if (rej) rej.onclick = function () { doRxReject(o); };
+        } else if (o.status === 'reviewed') {
+            var disp = document.getElementById('rxDispense_' + o.order_id);
+            if (disp) disp.onclick = function () { doRxDispense(o); };
         }
     });
 }
@@ -82,7 +84,7 @@ function rxHeadHtml(data) {
     return Clinic.deptwork.headHtml(data, '门 诊 处 方 笺');
 }
 
-/* 单张处方卡片：处方号（可点击预览全部处方，不含输液笺）+ 状态进度 + 药品明细 + 审方操作 */
+/* 单张处方卡片：处方号（可点击预览全部处方，不含输液笺）+ 状态进度 + 药品明细 + 审方/发药操作 */
 function rxOrderHtml(o) {
     var mainItems = o.items.filter(function (it) { return it.sub_of === 0; });
     var rows = '';
@@ -94,17 +96,36 @@ function rxOrderHtml(o) {
     var allNurse = mainItems.length > 0 && mainItems.every(function (mi) { return mi.is_nurse; });
     var actions = '';
     if (o.status === 'paid') {
+        // 待审方：审方 / 拒绝（审方通过仅置待发药，不发药、不打印凭条）
         actions = '<div class="dw-report-actions">' +
-            '<button class="btn btn-success btn-sm" id="rxPass_' + esc(o.order_id) + '">✅ 通过发药</button>' +
+            '<button class="btn btn-primary btn-sm" id="rxPass_' + esc(o.order_id) + '">✅ 审方</button>' +
             '<button class="btn btn-danger btn-sm" id="rxReject_' + esc(o.order_id) + '">❌ 拒绝</button>' +
             '</div>' +
-            '<div class="fs-12 text-muted mt-4">审方通过即整单发药并打印取药凭条；拒绝需填写理由并通知开单医生，库存自动恢复。</div>';
+            '<div class="fs-12 text-muted mt-4">审方通过后进入「待发药」；取药凭条在发药完成后才打印。拒绝需填写理由并通知开单医生，库存自动恢复。</div>';
+    } else if (o.status === 'reviewed') {
+        // 待发药：仅发药（审方人与发药人可为同一人，也可不同）
+        actions = '<div class="dw-report-actions">' +
+            '<button class="btn btn-success btn-sm" id="rxDispense_' + esc(o.order_id) + '">💊 发药</button>' +
+            '</div>' +
+            '<div class="fs-12 text-muted mt-4">审方已通过，点击发药后生成取药凭条并通知开单医生。</div>';
     } else if (o.status === 'dispensed') {
         actions = '<div class="dw-report-actions">' +
             (allNurse
                 ? '<span class="badge badge-warning">全部护士站执行</span>'
                 : '<button class="btn btn-outline btn-sm" onclick="reprintRx(\'' + esc(o.order_id) + '\')">🖨️ 处方提示</button>') +
             '</div>';
+    }
+    // 签名：开单医生 + 审方药师（如有）+ 发药药师（如有）；同人时仅显示一次
+    var sign = '<span>开单医生：' + esc(o.doctor_name || '') + '</span>';
+    if (o.review_by) sign += '<span>审方药师：' + esc(o.review_by) + '</span>';
+    if (o.done_by) {
+        if (o.review_by === o.done_by) {
+            // 审方发药同一人：合并显示
+            sign = '<span>开单医生：' + esc(o.doctor_name || '') + '</span>' +
+                '<span>审方发药：' + esc(o.done_by) + '</span>';
+        } else {
+            sign += '<span>发药药师：' + esc(o.done_by) + '</span>';
+        }
     }
     return '<div class="card dw-rx-card" id="rxSec_' + esc(o.order_id) + '" style="margin-bottom:14px">' +
         '<div class="dw-rx-head">' +
@@ -119,18 +140,17 @@ function rxOrderHtml(o) {
         rows + '</tbody></table>' +
         '<div class="flex-between mt-8"><span class="fs-13">共 ' + o.items.length + ' 项</span>' +
         '<span class="fw-600">合计：' + money(o.total_amount) + '</span></div>' +
-        (o.status === 'dispensed'
-            ? '<div class="dw-rx-sign"><span>开单医生：' + esc(o.doctor_name || '') + '</span>' +
-              '<span>发药药师：' + esc(o.done_by || '') + '</span><span>发药时间：' + esc((o.dispensed_at || '').substr(0, 16)) + '</span></div>'
-            : '') +
+        ((o.review_by || o.done_by) ? '<div class="dw-rx-sign">' + sign + '</div>' : '') +
         actions + '</div>';
 }
 
-/* 状态进度：开单 → 缴费 → 审方（点进患者即审方中）→ 发药/拒绝 */
+/* 状态进度：开单 → 缴费 → 审方 → 发药/拒绝（审方/发药分步，可不同人） */
 function rxProgressHtml(o) {
     var steps;
     if (o.status === 'dispensed') {
         steps = [['开单', 1], ['缴费', 1], ['审方', 1], ['发药', 1]];
+    } else if (o.status === 'reviewed') {
+        steps = [['开单', 1], ['缴费', 1], ['审方', 1], ['发药', 0]];
     } else if (o.status === 'rejected') {
         steps = [['开单', 1], ['缴费', 1], ['审方', 1], ['拒绝', -1]];
     } else {
@@ -140,7 +160,8 @@ function rxProgressHtml(o) {
     steps.forEach(function (s, i) {
         if (i) html += '<span class="dw-rx-arrow">→</span>';
         var cls = s[1] === 1 ? 'done' : (s[1] === -1 ? 'rejected' : 'current');
-        html += '<span class="dw-rx-step ' + cls + '">' + (s[1] === 0 && s[0] === '审方' ? '审方中' : s[0]) + '</span>';
+        var lbl = (s[1] === 0 && s[0] === '审方') ? '审方中' : s[0];
+        html += '<span class="dw-rx-step ' + cls + '">' + lbl + '</span>';
     });
     return html;
 }
@@ -166,15 +187,30 @@ function previewRx(orderId, orderNo) {
     Clinic.print.preview('/api/print?action=order&order_id=' + orderId + '&exclude_inject=1', null, '处方预览：' + (orderNo || ''));
 }
 
-/* 审方通过防重入锁（双击重复请求会重复发药打印/重复通知开单医生） */
+/* 审方通过防重入锁（双击重复请求会重复审方/通知） */
 var RX_SUBMITTING = false;
-function doRxPass(o) {
+function doRxReview(o) {
     if (RX_SUBMITTING) return;
     RX_SUBMITTING = true;
     Clinic.ajax('/api/pharmacy', { action: 'audit', order_id: o.order_id, verdict: 'pass' }, {
         onSuccess: function (json) {
             RX_SUBMITTING = false;
             Clinic.toast.success(json.msg);
+            afterRxAction();
+        },
+        onError: function () { RX_SUBMITTING = false; },
+    });
+}
+
+/* 发药防重入锁（双击重复请求会重复发药打印/重复通知） */
+function doRxDispense(o) {
+    if (RX_SUBMITTING) return;
+    RX_SUBMITTING = true;
+    Clinic.ajax('/api/pharmacy', { action: 'dispense', order_id: o.order_id }, {
+        onSuccess: function (json) {
+            RX_SUBMITTING = false;
+            Clinic.toast.success(json.msg);
+            // 取药凭条仅在发药成功后打印（后端 rx_slip 亦仅在 dispensed 状态放行）
             if (json.data && json.data.has_slip) {
                 Clinic.print.load('/api/pharmacy?action=rx_slip&order_id=' + o.order_id, null, 'ticket');
             }

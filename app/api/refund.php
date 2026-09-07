@@ -34,6 +34,12 @@ if ($action === 'check') {
     foreach ($orderIds as $oid) {
         $o = CoreRepository::one('SELECT * FROM orders WHERE id=?', array($oid));
         if (!$o) continue;
+        // 审方/发药拆分：审方通过未发药（reviewed）的药房处方视为已介入，需走审批
+        if ($o['order_type'] === 'prescription' && $o['status'] === 'reviewed') {
+            $allPaid = false;
+            $blocked[] = array('name' => '处方（审方通过待发药）', 'status' => 'reviewed', 'executed_by' => $o['review_by']);
+            continue;
+        }
         $its = CoreRepository::q('SELECT * FROM order_items WHERE order_id=?', array($oid));
         foreach ($its as $it) {
             if ($it['status'] === 'paid') continue;
@@ -81,12 +87,15 @@ if ($action === 'apply') {
         $o = CoreRepository::one('SELECT * FROM orders WHERE id=?', array($oid));
         if (!$o) continue;
         if ((int)$o['doctor_id'] > 0) $doctors[(int)$o['doctor_id']] = $o['doctor_name'];
+        // 审方/发药拆分：审方通过未发药（reviewed）视为已介入，不可直接退费
+        if ($o['order_type'] === 'prescription' && $o['status'] === 'reviewed') $allPaid = false;
         $its = CoreRepository::q('SELECT * FROM order_items WHERE order_id=?', array($oid));
         foreach ($its as $it) {
             if ($it['status'] !== 'paid' && $it['status'] !== 'open') $allPaid = false;
             if ($o['order_type'] === 'lab' && in_array($it['status'], array('registered', 'done'), true)) $needLab = true;
             if ($o['order_type'] === 'imaging' && in_array($it['status'], array('registered', 'done'), true)) $needImaging = true;
-            if ($o['order_type'] === 'prescription' && $it['status'] === 'dispensed') $needPharmacy = true;
+            // 药房涉及：已审方（reviewed）或已发药（dispensed）均视为药房已介入，需药房审批
+            if ($o['order_type'] === 'prescription' && in_array($o['status'], array('reviewed', 'dispensed'), true)) $needPharmacy = true;
             if ($o['order_type'] === 'procedure' && in_array($it['status'], array('done', 'dispensing', 'dispensed'), true)) $needNurse = true;
         }
     }

@@ -313,7 +313,7 @@ Clinic.refundApproval = {
         var typeNames = { lab: '检验', imaging: '检查', procedure: '处置', prescription: '处方' };
         var statusMap = {
             open: ['badge-warning', '待缴费'], paid: ['badge-primary', '已缴费'],
-            registered: ['badge-info', '已登记'], dispensing: ['badge-warning', '发药中'],
+            reviewed: ['badge-warning', '审方通过待发药'], registered: ['badge-info', '已登记'], dispensing: ['badge-warning', '发药中'],
             dispensed: ['badge-success', '已发药'], done: ['badge-success', '已完成'],
             rejected: ['badge-danger', '已驳回'], refunded: ['badge-gray', '已退费'], cancelled: ['badge-gray', '已取消'],
         };
