@@ -29,6 +29,15 @@ switch ($action) {
         json_ok(array('list' => PatientRepository::search($kw)));
         break;
 
+    /* ---------------- 患者过敏史（唯一数据源：患者主表 allergy_history；
+        皮试阳性等场景护士侧可能实时更新，医生过敏史模态框打开时重新拉取） ---------------- */
+    case 'get_allergy':
+        $pno = get('patient_no', '');
+        if ($pno === '') json_fail('缺少患者ID');
+        $p = PatientRepository::byPatientNo($pno);
+        json_ok(array('allergy_history' => $p ? (string)$p['allergy_history'] : ''));
+        break;
+
     /* ---------------- 患者信息修改表单（服务端渲染，字典来自 options_data.php） ---------------- */
     case 'edit_form':
         $kw = get('kw', '');

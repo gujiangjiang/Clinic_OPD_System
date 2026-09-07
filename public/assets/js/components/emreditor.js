@@ -327,8 +327,26 @@ Clinic.emrEditor = (function () {
 
     /** 过敏史模态框：输入框 + 列表（+添加/删除，保存引用）
      *  患者主表（ALLERGY_HIST）是唯一数据源。模态框始终从患者主表读取，
-     *  保存后写入患者主表。病历显示的过敏史是快照，与模态框无关。 */
+     *  保存后写入患者主表。病历显示的过敏史是快照，与模态框无关。
+     *  打开时实时从患者主表重新拉取（皮试阳性等场景护士侧可能已更新）。 */
     function openAllergyModal() {
+        var patientNo = (Clinic.emr && Clinic.emr._ctx && Clinic.emr._ctx.DATA && Clinic.emr._ctx.DATA.patient)
+            ? (Clinic.emr._ctx.DATA.patient.patient_id || '') : '';
+        if (patientNo) {
+            Clinic.get('/api/patient?action=get_allergy&patient_no=' + encodeURIComponent(patientNo), null, {
+                loading: false,
+                onSuccess: function (j) {
+                    ALLERGY_HIST = (j.data && j.data.allergy_history) || '';
+                    openAllergyModalBody();
+                },
+                onError: function () { openAllergyModalBody(); },
+            });
+        } else {
+            openAllergyModalBody();
+        }
+    }
+
+    function openAllergyModalBody() {
         var items = [];
         var seed = ALLERGY_HIST || '';
         if (seed) {
