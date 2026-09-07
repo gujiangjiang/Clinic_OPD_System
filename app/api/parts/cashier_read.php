@@ -270,9 +270,12 @@ function cashier_part_read($action) {
             if ($u['kind'] === 'visit') {
                 $unpaidData[] = array('kind' => 'visit', 'oid' => '', 'name' => $u['name'], 'amount' => $u['amount'], 'doctor' => '', 'items' => array());
             } else {
-                $unpaidData[] = array('kind' => 'order', 'oid' => $u['oid'], 'name' => $u['name'], 'amount' => $u['amount'], 'doctor' => $u['doctor'], 'items' => array_map(function ($it) {
-                    return array('item_name' => $it['item_name'], 'quantity' => (int)$it['quantity'], 'price' => (float)$it['price']);
-                }, $u['items']));
+                $unpaidData[] = array('kind' => 'order', 'oid' => $u['oid'], 'order_no' => isset($u['order_no']) ? $u['order_no'] : '',
+                    'name' => $u['name'], 'amount' => $u['amount'], 'doctor' => $u['doctor'],
+                    'locked' => !empty($u['locked']) ? 1 : 0, 'locked_reason' => isset($u['locked_reason']) ? $u['locked_reason'] : '',
+                    'items' => array_map(function ($it) {
+                        return array('item_name' => $it['item_name'], 'quantity' => (int)$it['quantity'], 'price' => (float)$it['price']);
+                    }, $u['items']));
             }
         }
         json_ok(array('html' => $html, 'unpaid' => $unpaidData, 'unpaid_count' => count($unpaid)));
