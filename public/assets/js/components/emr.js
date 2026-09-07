@@ -258,7 +258,7 @@ Clinic.emr = (function () {
                 '<span class="doc-sec-body">' + escHtml(curCon) + '</span>';
         } else {
             node.innerHTML = '<span class="doc-sec-label">意识状态</span>' +
-                '<span class="ef-select-wrap"><select class="ef-select" id="consciousness">' +
+                '<span class="ef-select-wrap"><select class="ef-select" id="consciousness" data-csd-search="1">' +
                 consciousness.map(function (c) {
                     return '<option value="' + c + '"' + (curCon === c ? ' selected' : '') + '>' + c + '</option>';
                 }).join('') + '</select></span>';
