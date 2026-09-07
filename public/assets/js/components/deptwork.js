@@ -86,7 +86,7 @@ Clinic.deptwork = (function () {
         Clinic.print.preview('/api/print?action=record&visit_id=' + VISIT, null, '完整病历预览');
     }
 
-    /* ==================== 无患者时侧边栏占位（参照病历右侧侧边栏空态） ==================== */
+    /* ==================== 无患者时侧边栏占位（病历摘要置顶，护理/项目随后） ==================== */
     function renderSidePlaceholder() {
         var side = document.getElementById('dwSide');
         if (!side) return;
@@ -97,10 +97,10 @@ Clinic.deptwork = (function () {
             pharmacy: '💊 处方',
         }[ROLE] || '📋 项目';
         side.innerHTML =
-            '<div class="ena-sec"><div class="ena-sec-title">' + cfg + '</div>' +
-            '<div class="ena-empty">暂无患者，请从候诊列表选择</div></div>' +
             '<div class="ena-sec"><div class="ena-sec-title">📋 病历摘要</div>' +
-            '<div class="ena-empty">暂无病历</div></div>';
+            '<div class="ena-empty">暂无病历</div></div>' +
+            '<div class="ena-sec"><div class="ena-sec-title">' + cfg + '</div>' +
+            '<div class="ena-empty">暂无患者，请从候诊列表选择</div></div>';
     }
 
     function bindButtons() {
@@ -349,9 +349,9 @@ Clinic.deptwork = (function () {
             return '<div class="dw-side-order">' +
                 '<div class="dw-side-item" title="点击展开 / 收起项目明细" ' +
                 'onclick="Clinic.deptwork.toggleSideOrder(\'' + escHtml(o.order_id) + '\')">' +
-                '<span class="dw-side-caret" id="sideCaret_' + escHtml(o.order_id) + '">▾</span>' +
                 '<span class="dot ' + (pending(o) ? 'pending' : 'ok') + '"></span>' +
                 '<span class="dw-side-oname">' + escHtml(o.order_no) + '（' + o.items.length + ' 项）</span>' +
+                '<span class="dw-side-caret" id="sideCaret_' + escHtml(o.order_id) + '">▾</span>' +
                 '</div>' +
                 '<div class="dw-side-sub" id="sideSub_' + escHtml(o.order_id) + '">' + subs + '</div>' +
                 '</div>';
