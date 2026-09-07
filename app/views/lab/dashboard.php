@@ -37,7 +37,7 @@ function afterLabAction() {
 
 function esc(s) { return Clinic.escHtml(s); }
 function itemStatusName(s) {
-    var map = { paid: '待登记', registered: '检验中', done: '已完成', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
+    var map = { open: '待缴费', paid: '待登记', registered: '检验中', done: '已完成', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
     return map[s] || s;
 }
 function labStatusBadge(s) {
@@ -147,7 +147,10 @@ function labItemHtml(it) {
     var id = esc(it.id);
     var badge = labStatusBadge(it.status);
     var inner;
-    if (it.status === 'paid') {
+    if (it.status === 'open') {
+        // 未缴费项目：不落入「已完成」展示，提示待缴费
+        inner = '<div class="fs-13 text-muted">该项目尚未缴费，缴费后进入检验科待登记队列。</div>';
+    } else if (it.status === 'paid') {
         inner = '<div class="fs-13 text-muted">该项目已缴费，尚未登记（整张申请单统一登记）。</div>';
     } else if (it.status === 'registered') {
         var val = parseLabValues(it);

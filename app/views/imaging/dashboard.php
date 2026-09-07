@@ -37,7 +37,7 @@ function afterImgAction() {
 function esc(s) { return Clinic.escHtml(s); }
 function nl2br(s) { return Clinic.nl2br(s); }
 function itemStatusName(s) {
-    var map = { paid: '待登记', registered: '待出报告', done: '已完成', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
+    var map = { open: '待缴费', paid: '待登记', registered: '待出报告', done: '已完成', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
     return map[s] || s;
 }
 function imgStatusBadge(s) {
@@ -115,7 +115,10 @@ function imgItemHtml(it) {
     var id = esc(it.id);
     var badge = imgStatusBadge(it.status);
     var inner;
-    if (it.status === 'paid') {
+    if (it.status === 'open') {
+        // 未缴费项目：不落入「已完成」展示，提示待缴费
+        inner = '<div class="fs-13 text-muted">该项目尚未缴费，缴费后进入影像科待登记队列。</div>';
+    } else if (it.status === 'paid') {
         inner = '<div class="fs-13 text-muted">该项目已缴费，尚未登记检查（整张申请单统一登记）。</div>';
     } else if (it.status === 'registered') {
         inner =

@@ -37,7 +37,7 @@ function esc(s) { return Clinic.escHtml(s); }
 function money(n) { return Clinic.money(n); }
 function orderStatusName(s) {
     // 药房审方/发药拆分上下文：待审方（paid）、待发药（reviewed）、已发药（dispensed）
-    var map = { pending: '待缴费', paid: '待审方', reviewed: '待发药', dispensed: '已发药', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
+    var map = { open: '待缴费', pending: '待缴费', paid: '待审方', reviewed: '待发药', dispensed: '已发药', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
     return map[s] || s;
 }
 function rxStatusBadge(s) {
