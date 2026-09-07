@@ -115,17 +115,24 @@ Clinic.emr.orders = (function () {
                 o.items.forEach(function (it) { dispT.push(itemToken(o, it) + (it.quantity > 1 ? '×' + it.quantity : '')); });
             } else if (o.order_type === 'prescription') {
                 var i3 = 0;
+                // 整条处方行（药名 + 剂量/频次/途径/×数量）作为【一个整体】应用 emr-item-link
+                // 样式（含中间全角空格区域），与诊断行一致；子药行同理整体套用
+                var rxFullLine = function (it) {
+                    var meta = [it.single_dose, it.frequency, it.route].filter(Boolean).join('\u3000');
+                    var text = it.item_name + (meta ? '\u3000' + meta : '') + '\u3000\u00D7' + it.quantity;
+                    return '<div class="ef-rx-line">' +
+                        '<span class="emr-item-link" data-otype="' + o.order_type + '" data-oid="' + o.id + '" data-iid="' + it.id + '">' +
+                        escHtml(text) + '</span></div>';
+                };
+                var rxSubLine = function (x, branch) {
+                    var text = (x.single_dose ? '\u3000' + x.single_dose : '');
+                    return '<div class="ef-rx-line ef-rx-sub">' +
+                        '<span class="emr-item-link" data-otype="' + o.order_type + '" data-oid="' + o.id + '" data-iid="' + x.id + '">' +
+                        escHtml(branch + x.item_name + text) + '</span></div>';
+                };
                 while (i3 < o.items.length) {
                     var it0 = o.items[i3];
                     var g = it0.group_no || 0;
-                    // 整条处方行视为一个整体：药名（可点击）+ 剂量/频次/途径/数量 同权重展示
-                    var rxFullLine = function (it) {
-                        return '<div class="ef-rx-line">' + itemToken(o, it) +
-                            '<span class="ef-rx-meta">' +
-                            '\u3000' + escHtml([it.single_dose, it.frequency, it.route].filter(Boolean).join('\u3000')) +
-                            '\u3000\u00D7' + it.quantity +
-                            '</span></div>';
-                    };
                     if (!g) {
                         rxLines.push(rxFullLine(it0));
                         i3++;
@@ -138,9 +145,8 @@ Clinic.emr.orders = (function () {
                         if (xi === 0) {
                             rxLines.push(rxFullLine(x));
                         } else {
-                            var head = (xi === arr.length - 1 ? '\u2514\u2500 ' : '\u251C\u2500 ') + itemToken(o, x) +
-                                (x.single_dose ? '\u3000' + escHtml(x.single_dose) : '');
-                            rxLines.push('<div class="ef-rx-line ef-rx-sub">' + head + '</div>');
+                            var branch = (xi === arr.length - 1 ? '\u2514\u2500 ' : '\u251C\u2500 ');
+                            rxLines.push(rxSubLine(x, branch));
                         }
                     });
                     i3 = j3;

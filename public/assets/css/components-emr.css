@@ -263,9 +263,6 @@
 .emr-doc .doc-body .ef-auto.empty { display: none; }
 .emr-doc .doc-body .ef-rx-lines { display: block; }
 .emr-doc .doc-body .ef-rx-line { display: block; line-height: 1.8; }
-/* 处方行整体展示：剂量/频次/途径/数量与药名同权重，构成一个完整处方条目
-   （药名仍保留可点击标签样式；只读/打印降级见 components.css 纯文本规则） */
-.emr-doc .doc-body .ef-rx-line .ef-rx-meta { font-weight: 600; }
 .emr-doc .doc-body .ef-disp-box { display: block; flex: 1; min-width: 0; }
 /* 初步诊断触发字段与已选诊断项 */
 .emr-doc .doc-body .ef-diag { cursor: pointer; }
