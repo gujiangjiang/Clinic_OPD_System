@@ -21,39 +21,19 @@ function pt_lab_report($report, $result, $item) {
         '</div>';
 
     // ===== 患者信息两行 =====
-    $row = get_visit_row((int)$report['visit_id']);
-    $pname = $row ? $row['patient']['name'] : '';
-    $pgender = $row ? $row['patient']['gender'] : '';
-    $pbirth = $row ? $row['patient']['birth_date'] : '';
-    $page = $row ? age_format($pbirth, $row['visit']['registered_at']) : '';
     // 快照优先（生成时定格）：申请科室/医生/临床诊断/申请时间/检验时间；
-    // 旧报告（未快照）回退实时查询
-    $applyDept = trim((string)(isset($report['apply_dept']) ? $report['apply_dept'] : ''));
-    $applyDoctor = trim((string)(isset($report['apply_doctor']) ? $report['apply_doctor'] : ''));
-    $diag = trim((string)(isset($report['clinical_diag']) ? $report['clinical_diag'] : ''));
-    $applyTime = trim((string)(isset($report['apply_time']) ? $report['apply_time'] : ''));
-    $regTime = trim((string)(isset($report['reg_time']) ? $report['reg_time'] : ''));
-    if ($applyDept === '' || $applyDoctor === '' || $applyTime === '') {
-        $orderItem = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array((int)$result['order_item_id']));
-        $order = $orderItem ? OrderRepository::one('SELECT * FROM orders WHERE id=?', array((int)$orderItem['order_id'])) : null;
-        if ($applyDept === '' && $order) $applyDept = (string)$order['dept_name'];
-        if ($applyDoctor === '' && $order) $applyDoctor = (string)$order['doctor_name'];
-        if ($applyTime === '' && $order) $applyTime = (string)$order['created_at'];
-        if ($regTime === '' && $orderItem) $regTime = (string)$orderItem['registered_at'];
-    }
-    if ($diag === '') {
-        $pr = OrderRepository::one("SELECT emr_data FROM patient_records WHERE visit_id=? AND emr_data IS NOT NULL AND emr_data!='' ORDER BY id ASC LIMIT 1", array((int)$report['visit_id']));
-        if ($pr) {
-            $emr = emr_merge_defaults(emr_normalize(json_decode((string)$pr['emr_data'], true) ?: array()), emr_default_data(null));
-            $diags = isset($emr['diagnoses']) && is_array($emr['diagnoses']) ? $emr['diagnoses'] : array();
-            if ($diags) $diag = emr_diag_text(array($diags[0]), false);   // 首诊断，不含 ICD10
-        }
-        if ($diag === '') {
-            $mirror = OrderRepository::one("SELECT preliminary_diagnosis FROM records WHERE visit_id=? AND preliminary_diagnosis IS NOT NULL AND preliminary_diagnosis!='' ORDER BY id ASC LIMIT 1", array((int)$report['visit_id']));
-            if ($mirror) $diag = (string)$mirror['preliminary_diagnosis'];
-        }
-    }
-    $li = function ($label, $val) { return '<span class="lr-pcell"><b>' . $label . '：</b>' . e($val) . '</span>'; };
+    // 旧报告（未快照）回退实时查询（统一走 pt_report_context）
+    $ctx = pt_report_context($report, $result);
+    $pname = $ctx['pname'];
+    $pgender = $ctx['pgender'];
+    $pbirth = $ctx['pbirth'];
+    $page = $ctx['page'];
+    $applyDept = $ctx['applyDept'];
+    $applyDoctor = $ctx['applyDoctor'];
+    $diag = $ctx['diag'];
+    $applyTime = $ctx['applyTime'];
+    $regTime = $ctx['regTime'];
+    $li = function ($label, $val) { return pt_cell($label, $val, 'lr-pcell'); };
     // 患者信息：隐形 2×4 表格（第一行 姓名 性别 年龄 出生日期；
     // 第二行 患者ID 申请科室 临床诊断 报告单号）
     $html .= '<div class="lr-patgrid">' .
@@ -116,20 +96,19 @@ function pt_imaging_report($report, $result, $item) {
     $html = '<div class="print-record-doc imr-doc">';
 
     // ===== 抬头（急诊病历版式：医院名称/第二名称两端对齐，标题在其下方） =====
-    // ===== 患者信息（4×3 隐形表格） =====
-    $row = get_visit_row((int)$report['visit_id']);
-    $pname = $row ? $row['patient']['name'] : '';
-    $pgender = $row ? $row['patient']['gender'] : '';
-    $pbirth = $row ? $row['patient']['birth_date'] : '';
-    $page = $row ? age_format($pbirth, $row['visit']['registered_at']) : '';
-    // 快照优先；旧报告回退实时查询
-    $applyDept = trim((string)(isset($report['apply_dept']) ? $report['apply_dept'] : ''));
-    $applyDoctor = trim((string)(isset($report['apply_doctor']) ? $report['apply_doctor'] : ''));
-    $diag = trim((string)(isset($report['clinical_diag']) ? $report['clinical_diag'] : ''));
-    $applyTime = trim((string)(isset($report['apply_time']) ? $report['apply_time'] : ''));
-    $regTime = trim((string)(isset($report['reg_time']) ? $report['reg_time'] : ''));
-    $orderItem = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array((int)$result['order_item_id']));
-    $order = $orderItem ? OrderRepository::one('SELECT * FROM orders WHERE id=?', array((int)$orderItem['order_id'])) : null;
+    // ===== 患者信息（4×3 隐形表格）；快照优先，旧报告回退（统一走 pt_report_context） =====
+    $ctx = pt_report_context($report, $result);
+    $pname = $ctx['pname'];
+    $pgender = $ctx['pgender'];
+    $pbirth = $ctx['pbirth'];
+    $page = $ctx['page'];
+    $applyDept = $ctx['applyDept'];
+    $applyDoctor = $ctx['applyDoctor'];
+    $diag = $ctx['diag'];
+    $applyTime = $ctx['applyTime'];
+    $regTime = $ctx['regTime'];
+    $order = $ctx['order'];
+    $orderItem = $ctx['orderItem'];
     // 报告单名称动态化：按检查分类（CT/DR/超声…）显示「XX检查报告单」
     // 快照 category_name 优先，其次申请单/检查项目分类回退
     $catName = trim((string)(isset($report['category_name']) ? $report['category_name'] : ''));
@@ -141,24 +120,6 @@ function pt_imaging_report($report, $result, $item) {
     }
     $title = $catName !== '' ? $catName . '检查报告单' : '检查报告单';
     $html .= pt_header($title);
-    if (($applyDept === '' || $applyDoctor === '' || $applyTime === '') && $order) {
-        if ($applyDept === '') $applyDept = (string)$order['dept_name'];
-        if ($applyDoctor === '') $applyDoctor = (string)$order['doctor_name'];
-        if ($applyTime === '') $applyTime = (string)$order['created_at'];
-    }
-    if ($regTime === '' && $orderItem) $regTime = (string)$orderItem['registered_at'];
-    if ($diag === '') {
-        $pr = OrderRepository::one("SELECT emr_data FROM patient_records WHERE visit_id=? AND emr_data IS NOT NULL AND emr_data!='' ORDER BY id ASC LIMIT 1", array((int)$report['visit_id']));
-        if ($pr) {
-            $emr = emr_merge_defaults(emr_normalize(json_decode((string)$pr['emr_data'], true) ?: array()), emr_default_data(null));
-            $diags = isset($emr['diagnoses']) && is_array($emr['diagnoses']) ? $emr['diagnoses'] : array();
-            if ($diags) $diag = emr_diag_text(array($diags[0]), false);
-        }
-        if ($diag === '') {
-            $mirror = OrderRepository::one("SELECT preliminary_diagnosis FROM records WHERE visit_id=? AND preliminary_diagnosis IS NOT NULL AND preliminary_diagnosis!='' ORDER BY id ASC LIMIT 1", array((int)$report['visit_id']));
-            if ($mirror) $diag = (string)$mirror['preliminary_diagnosis'];
-        }
-    }
     // 项目：该申请单全部检查项目逗号连接
     $itemNames = array();
     if ($order) {
@@ -169,7 +130,7 @@ function pt_imaging_report($report, $result, $item) {
     if (!$itemNames) $itemNames[] = isset($item['name']) ? $item['name'] : '';
     $itemsStr = implode('，', $itemNames);
 
-    $pc = function ($label, $val) { return '<span class="imr-cell"><b>' . $label . '：</b>' . e($val) . '</span>'; };
+    $pc = function ($label, $val) { return pt_cell($label, $val, 'imr-cell'); };
     $html .= '<div class="imr-patgrid">' .
         $pc('姓名', $pname) . $pc('性别', $pgender) . $pc('年龄', $page) . $pc('出生日期', $pbirth) .
         $pc('患者ID', $report['patient_no']) . $pc('申请科室', $applyDept) . $pc('临床诊断', $diag) .
