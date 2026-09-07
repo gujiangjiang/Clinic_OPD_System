@@ -92,7 +92,7 @@
 │   │   └── js/components/     # 组件拆分：ajax / modal / print / theme / notify / selector /
 │   │                          #           validation / datetime / order / editor / emr / queuepanel /
 │   │                          #           historypanel / depttree / patient / ui / toast / app / deptwork /
-│   │                          #           vitals / queuepanel_core / admin_items
+│   │                          #           vitals / queuepanel_core / admin_items / dropdown
 │   └── uploads/               # 上传文件：logo/、user/{角色}/——运行时生成，不提交
 ├── app/                       # 业务代码（Web 无法访问）
 │   ├── config/

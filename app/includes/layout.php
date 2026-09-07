@@ -321,6 +321,7 @@ class Layout {
             <script src="/assets/js/components/toast.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/print.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/theme.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/dropdown.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/notify.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/import.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/selector.js?v=' . APP_VERSION . '"></script>
