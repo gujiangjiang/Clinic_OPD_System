@@ -178,7 +178,7 @@
     padding: 6px 8px;
     text-align: left;
 }
-.print-area table th { background: #f0f0f0; font-weight: 600; }
+.print-area table th { background: #f0f0f0; font-weight: 600; white-space: nowrap; }
 /* 处方单：标准医院处方样式——无表头/序号/边框 */
 .print-area table.rx-print {
     border-collapse: collapse;
