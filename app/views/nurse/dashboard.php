@@ -438,7 +438,8 @@ function completeProc(itemId) {
         Clinic.ajax('/api/nurse', { action: 'complete', item_id: itemId, linked_ids: JSON.stringify(linkedIds) }, {
             onSuccess: function (j) {
                 Clinic.toast.success(j.msg);
-                refreshNurseSec('Proc');
+                // 联动执行：同时刷新处置与关联医嘱两个区块（关联医嘱状态实时更新为已执行）
+                refreshNurseSections(linkedIds.length ? ['Proc', 'Med'] : ['Proc']);
                 refreshNurseSide();
                 Clinic.deptwork.refreshQueue();
                 // 皮试处置完成 → 弹出皮试结果记录
@@ -477,7 +478,8 @@ function medDone(itemId) {
         Clinic.ajax('/api/nurse', { action: 'med_done', item_id: itemId, linked_ids: JSON.stringify(linkedIds) }, {
             onSuccess: function (j) {
                 Clinic.toast.success(j.msg);
-                refreshNurseSec('Med');
+                // 联动执行：同时刷新医嘱与关联处置两个区块（关联处置状态实时更新为已完成）
+                refreshNurseSections(linkedIds.length ? ['Med', 'Proc'] : ['Med']);
                 refreshNurseSide();
                 Clinic.deptwork.refreshQueue();
                 // 皮试医嘱完成 → 弹出皮试结果记录
@@ -505,6 +507,18 @@ function refreshNurseSec(name) {
         var fn = map[name];
         var el = document.getElementById('nurseSec' + name);
         if (fn && el) el.outerHTML = fn(data);
+    });
+}
+
+/* 联动执行：一次拉取数据同时刷新多个区块（如处置+关联医嘱一并执行后两侧状态都要更新） */
+function refreshNurseSections(names) {
+    Clinic.deptwork.fetchPatient(function (data) {
+        var map = { Nursing: nursingSection, Vitals: vitalsSection, Summary: summarySection, Proc: procSection, Med: medSection };
+        names.forEach(function (name) {
+            var fn = map[name];
+            var el = document.getElementById('nurseSec' + name);
+            if (fn && el) el.outerHTML = fn(data);
+        });
     });
 }
 
