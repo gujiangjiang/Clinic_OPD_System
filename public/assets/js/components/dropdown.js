@@ -24,13 +24,13 @@ Clinic.dropdown = (function () {
     var lastCodeScroll = 0;   // 代码滚动时间戳（选项定位用，避免误关闭）
     var searchBox = null;     // 弹层内搜索输入框
 
-    /** 构建弹层选项 HTML（clear 启用时隐藏空值占位项，如「请选择」） */
+    /** 构建弹层选项 HTML：默认隐藏空值占位符（请选择/请填写/单位 等占位选项不进候选列表；
+     *  个别确实需要把空值当真实选项的下拉可用 data-csd-keepempty="1" 保留） */
     function rowsHtml(select) {
-        var clear = select.getAttribute('data-csd-clear') === '1';
+        var keepEmpty = select.getAttribute('data-csd-keepempty') === '1';
         var rows = [];
         Array.prototype.forEach.call(select.options, function (o, i) {
-            // clear 模式：空值选项视为占位（空白态），不在列表中展示，由清空 X 承担
-            if (clear && o.value === '') return;
+            if (!keepEmpty && o.value === '') return;
             var cls = 'csd-opt' + (o.disabled ? ' disabled' : '') + (o.selected ? ' selected' : '');
             rows.push('<div class="' + cls + '" data-i="' + i + '"' + (o.disabled ? ' aria-disabled="true"' : '') + '>' +
                 Clinic.escHtml(o.text) + '</div>');
@@ -42,6 +42,7 @@ Clinic.dropdown = (function () {
     function open(select) {
         close();
         target = select;
+        select.classList.add('csd-open');   // 打开态样式（悬浮/点击反馈）
         pop = document.createElement('div');
         pop.className = 'csd-pop';
         pop.setAttribute('role', 'listbox');
@@ -180,6 +181,7 @@ Clinic.dropdown = (function () {
     }
 
     function close() {
+        if (target) target.classList.remove('csd-open');
         if (pop) { pop.remove(); pop = null; }
         target = null;
         searchBox = null;

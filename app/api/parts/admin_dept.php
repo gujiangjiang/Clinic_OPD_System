@@ -57,10 +57,11 @@ function admin_part_dept($action) {
             <div class="form-group"><label class="form-label">科室类型 <span class="req">*</span></label>
                 <select class="select" id="f_type" onchange="toggleQuota()">
                     <option value="clinic"' . ($r['type'] === 'clinic' ? ' selected' : '') . '>门诊（需设置号源）</option>
-                    <option value="emergency"' . ($r['type'] === 'emergency' ? ' selected' : '') . '>急诊（无需号源）</option>
-                    <option value="tech"' . ($r['type'] === 'tech' ? ' selected' : '') . '>医技（叫号大屏专用）</option>
-                    <option value="other"' . ($r['type'] === 'other' ? ' selected' : '') . '>其他（叫号大屏专用）</option>
-                </select></div>
+                    <option value="emergency"' . ($r['type'] === 'emergency' ? ' selected' : '') . '>急诊（无需号源）</option>' .
+                    // 医技/其他为叫号大屏专用科室，仅编辑既有此类科室时保留该选项（防类型被误改为门诊/急诊）
+                    ($r['type'] === 'tech' ? '<option value="tech" selected>医技（叫号大屏专用）</option>' : '') .
+                    ($r['type'] === 'other' ? '<option value="other" selected>其他（叫号大屏专用）</option>' : '') .
+                '</select></div>
             <div class="form-group"><label class="form-label">挂号费（元）</label>
                 <input class="input" type="number" step="0.01" min="0" id="f_fee" value="' . e($r['fee']) . '"></div>
         </div>

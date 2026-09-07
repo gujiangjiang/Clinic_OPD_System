@@ -54,7 +54,7 @@ function form_item($type, $id) {
         <div class="form-group"><label class="form-label">项目名称 <span class="req">*</span></label>
             <input class="input" id="f_name" value="' . e($r['name']) . '"></div>
         <div class="form-group"><label class="form-label">所属分类（CT/MR 等）</label>
-            <select class="select" id="f_category">' . $catOpts . '</select></div>
+            <select class="select" id="f_category" data-csd-search="1">' . $catOpts . '</select></div>
     </div>
     <div class="form-row">
         <div class="form-group"><label class="form-label">价格（元）</label>
@@ -121,9 +121,9 @@ function form_drug($id) {
         <div class="form-group"><label class="form-label">通用名称</label><input class="input" id="f_generic" value="' . e($r['generic_name']) . '"></div>
     </div>
     <div class="form-row">
-        <div class="form-group"><label class="form-label">分类（西药/中成药/中药）</label><select class="select" id="f_category">' . $sel('category', $r['category']) . '</select></div>
-        <div class="form-group"><label class="form-label">包装单位</label><select class="select" id="f_pkg">' . $sel('package', $r['package_unit']) . '</select></div>
-        <div class="form-group"><label class="form-label">药品剂型</label><select class="select" id="f_form">' . $sel('form', $r['form']) . '</select></div>
+        <div class="form-group"><label class="form-label">分类（西药/中成药/中药）</label><select class="select" id="f_category" data-csd-search="1">' . $sel('category', $r['category']) . '</select></div>
+        <div class="form-group"><label class="form-label">包装单位</label><select class="select" id="f_pkg" data-csd-search="1">' . $sel('package', $r['package_unit']) . '</select></div>
+        <div class="form-group"><label class="form-label">药品剂型</label><select class="select" id="f_form" data-csd-search="1">' . $sel('form', $r['form']) . '</select></div>
     </div>
     <div class="form-row">
         <div class="form-group"><label class="form-label">药品企业名称</label><input class="input" id="f_vendor" value="' . e($r['vendor']) . '"></div>
@@ -142,8 +142,8 @@ function form_drug($id) {
         </div>
     </div>
     <div class="form-row">
-        <div class="form-group"><label class="form-label">用药频次</label><select class="select" id="f_freq">' . $sel('freq', $r['frequency']) . '</select></div>
-        <div class="form-group"><label class="form-label">使用途径</label><select class="select" id="f_route" onchange="syncNurse()">' . $sel('route', $r['route']) . '</select></div>
+        <div class="form-group"><label class="form-label">用药频次</label><select class="select" id="f_freq" data-csd-search="1">' . $sel('freq', $r['frequency']) . '</select></div>
+        <div class="form-group"><label class="form-label">使用途径</label><select class="select" id="f_route" data-csd-search="1" onchange="syncNurse()">' . $sel('route', $r['route']) . '</select></div>
     </div>
     <div class="form-row">
         <div class="form-group"><label class="form-label">价格（元）</label><input class="input" type="number" step="0.01" min="0" id="f_price" value="' . e($r['price']) . '"></div>

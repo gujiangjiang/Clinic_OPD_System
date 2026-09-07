@@ -44,7 +44,7 @@ Router::title('挂号收费');
             <div class="form-group"><label class="form-label">费用类别</label><select class="select" id="fee_type"><?php echo opt_options('fee_type', '自费'); ?></select></div>
         </div>
         <div class="form-row">
-            <div class="form-group"><label class="form-label">职业</label><select class="select" id="occupation"><?php echo opt_options('occupation'); ?></select></div>
+            <div class="form-group"><label class="form-label">职业</label><select class="select" id="occupation" data-csd-search="1" data-csd-clear="1"><?php echo opt_options('occupation'); ?></select></div>
             <div class="form-group"><label class="form-label">联系电话</label><input class="input" id="phone" maxlength="11"></div>
         </div>
         <div class="form-row">

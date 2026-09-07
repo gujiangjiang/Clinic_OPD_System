@@ -60,8 +60,8 @@ $showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
 
     <!-- 学历/学位/个人介绍 -->
     <div class="form-row">
-        <div class="form-group"><label class="form-label">学历</label><select class="select" id="f_education" data-csd-search="1"<?php echo $pending ? ' disabled' : ''; ?>><?php echo opt_options('education', $pending && isset($pendingData['education']) ? $pendingData['education'] : $user['education']); ?></select></div>
-        <div class="form-group"><label class="form-label">学位</label><select class="select" id="f_degree" data-csd-search="1"<?php echo $pending ? ' disabled' : ''; ?>><?php echo opt_options('degree', $pending && isset($pendingData['degree']) ? $pendingData['degree'] : $user['degree']); ?></select></div>
+        <div class="form-group"><label class="form-label">学历</label><select class="select" id="f_education" data-csd-search="1" data-csd-clear="1"<?php echo $pending ? ' disabled' : ''; ?>><?php echo opt_options('education', $pending && isset($pendingData['education']) ? $pendingData['education'] : $user['education']); ?></select></div>
+        <div class="form-group"><label class="form-label">学位</label><select class="select" id="f_degree" data-csd-search="1" data-csd-clear="1"<?php echo $pending ? ' disabled' : ''; ?>><?php echo opt_options('degree', $pending && isset($pendingData['degree']) ? $pendingData['degree'] : $user['degree']); ?></select></div>
     </div>
     <div class="form-group"><label class="form-label">个人介绍</label><textarea class="textarea" id="f_intro" rows="3"<?php echo $pending ? ' disabled' : ''; ?>><?php echo e($pending && isset($pendingData['intro']) ? $pendingData['intro'] : $user['intro']); ?></textarea></div>
     <?php if ($pending): ?>
