@@ -126,12 +126,14 @@ Clinic.dropdown = (function () {
         });
     }
 
-    /** 定位弹层：fixed 视口坐标，下方优先、空间不足翻转上方，四边夹紧 */
+    /** 定位弹层：fixed 视口坐标，下方优先、空间不足翻转上方，四边夹紧；
+     *  宽度自适应——下限与触发 select 同宽，自然宽度按最宽选项内容收缩（如单位 1-2 字
+     *  不撑成 160px），上限 340px（长选项省略号） */
     function position(select) {
         var r = select.getBoundingClientRect();
-        var pr = pop.getBoundingClientRect();
-        pop.style.minWidth = Math.max(r.width, 160) + 'px';
+        pop.style.minWidth = r.width + 'px';
         pop.style.maxWidth = Math.min(340, window.innerWidth - 16) + 'px';
+        var pr = pop.getBoundingClientRect();
         var top = r.bottom + 4;
         if (top + pr.height > window.innerHeight - 4) top = Math.max(4, r.top - pr.height - 4);
         pop.style.left = Math.max(4, Math.min(r.left, window.innerWidth - pr.width - 4)) + 'px';
