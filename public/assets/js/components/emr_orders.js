@@ -118,10 +118,16 @@ Clinic.emr.orders = (function () {
                 while (i3 < o.items.length) {
                     var it0 = o.items[i3];
                     var g = it0.group_no || 0;
+                    // 整条处方行视为一个整体：药名（可点击）+ 剂量/频次/途径/数量 同权重展示
+                    var rxFullLine = function (it) {
+                        return '<div class="ef-rx-line">' + itemToken(o, it) +
+                            '<span class="ef-rx-meta">' +
+                            '\u3000' + escHtml([it.single_dose, it.frequency, it.route].filter(Boolean).join('\u3000')) +
+                            '\u3000\u00D7' + it.quantity +
+                            '</span></div>';
+                    };
                     if (!g) {
-                        rxLines.push('<div class="ef-rx-line">' + itemToken(o, it0) +
-                            '\u3000' + escHtml([it0.single_dose, it0.frequency, it0.route].filter(Boolean).join('\u3000')) +
-                            '\u3000\u00D7' + it0.quantity + '</div>');
+                        rxLines.push(rxFullLine(it0));
                         i3++;
                         continue;
                     }
@@ -130,9 +136,7 @@ Clinic.emr.orders = (function () {
                     while (j3 < o.items.length && (o.items[j3].group_no || 0) === g) { arr.push(o.items[j3]); j3++; }
                     arr.forEach(function (x, xi) {
                         if (xi === 0) {
-                            rxLines.push('<div class="ef-rx-line">' + itemToken(o, x) +
-                                '\u3000' + escHtml([x.single_dose, x.frequency, x.route].filter(Boolean).join('\u3000')) +
-                                '\u3000\u00D7' + x.quantity + '</div>');
+                            rxLines.push(rxFullLine(x));
                         } else {
                             var head = (xi === arr.length - 1 ? '\u2514\u2500 ' : '\u251C\u2500 ') + itemToken(o, x) +
                                 (x.single_dose ? '\u3000' + escHtml(x.single_dose) : '');
