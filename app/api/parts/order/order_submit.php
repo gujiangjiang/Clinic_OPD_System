@@ -33,7 +33,11 @@ function order_part_submit($u) {
     $skinChoices = json_decode(post('skin_choices', '[]'), true);
     if (!is_array($skinChoices)) $skinChoices = array();
     // 联动处置聚合容器：disposal_id => [name, fee, qty]
+    // 皮试处置（autoDispSkin）与途径绑定处置（autoDispOther）分开，独立处置申请单
     $autoDisp = array();
+    $autoDispSkin = array();
+    $autoDispOther = array();
+    $skinMainSeqs = array();   // 需皮试主药在 $orderItems 中的下标（用于拆皮试处方单）
     $rawItems = post('items', '[]');
     $items = json_decode($rawItems, true);
     if (!is_array($items) || !$items) {
@@ -141,25 +145,25 @@ function order_part_submit($u) {
                 if ($routeBind && (int)$routeBind['bind_disposal_item_id'] > 0) {
                     $routeBindId = (int)$routeBind['bind_disposal_item_id'];
                 }
-                // 聚合联动处置（按处置项目累加数量，稍后统一生成一张处置单）
+                // 聚合联动处置：皮试处置单独（autoDispSkin），途径绑定处置单独（autoDispOther）
                 if ($skinChoice === 'yes' && (int)$drug['skin_test_item_id'] > 0) {
                     $stId = (int)$drug['skin_test_item_id'];
-                    if (!isset($autoDisp[$stId])) {
+                    if (!isset($autoDispSkin[$stId])) {
                         $stInfo = OrderRepository::one('SELECT name, fee FROM disposal_items WHERE id=?', array($stId));
                         if (!$stInfo) json_fail('皮试处置项目不存在：#' . $stId);
-                        $autoDisp[$stId] = array('name' => $stInfo['name'], 'fee' => (float)$stInfo['fee'], 'qty' => 0);
+                        $autoDispSkin[$stId] = array('name' => $stInfo['name'], 'fee' => (float)$stInfo['fee'], 'qty' => 0);
                     }
-                    $autoDisp[$stId]['qty'] += 1;
+                    $autoDispSkin[$stId]['qty'] += 1;
                 }
                 if ($routeBindId > 0) {
-                    if (!isset($autoDisp[$routeBindId])) {
+                    if (!isset($autoDispOther[$routeBindId])) {
                         $rbInfo = OrderRepository::one('SELECT name, fee FROM disposal_items WHERE id=?', array($routeBindId));
                         if (!$rbInfo) json_fail('途径绑定处置不存在：#' . $routeBindId);
-                        $autoDisp[$routeBindId] = array('name' => $rbInfo['name'], 'fee' => (float)$rbInfo['fee'], 'qty' => 0);
+                        $autoDispOther[$routeBindId] = array('name' => $rbInfo['name'], 'fee' => (float)$rbInfo['fee'], 'qty' => 0);
                     }
                     // 按组数核算（1.9.0）：一个主药 = 一个组，同组内子药不叠加——
                     // 同一瓶液体加入多种药只产生 1 次注射/输液处置费
-                    $autoDisp[$routeBindId]['qty'] += 1;
+                    $autoDispOther[$routeBindId]['qty'] += 1;
                 }
             }
         } elseif ($orderType === 'procedure') {
@@ -219,6 +223,10 @@ function order_part_submit($u) {
         }
         if ($singleDoseShow === '') {
             $singleDoseShow = isset($it['dose']) ? (string)$it['dose'] : '';
+        }
+        // 需皮试主药（skinChoice='yes'）：记录其条目下标，后续拆独立皮试处方单（皮试量）
+        if ($orderType === 'prescription' && $subOf === 0 && $skinChoice === 'yes' && (int)$itemId > 0) {
+            $skinMainSeqs[] = count($orderItems);
         }
         $orderItems[] = array(
             'item_type' => $orderType, 'item_id' => $itemId,
@@ -317,6 +325,35 @@ function order_part_submit($u) {
         $groupList = array(array('cat' => '', 'idx' => array_keys($orderItems)));
     }
 
+    // ===== 处方：需皮试药品拆分为 皮试处方（P1，is_skin_test=1）+ 正式处方（P2）=====
+    // 皮试处方独立单号（皮试量1/途径皮内注射/护士站执行）；正式处方保留原药原量原途径。
+    // 皮试处置（autoDispSkin）单独一张处置单；途径绑定处置（autoDispOther）另一张。
+    $createGroups = array();
+    if ($orderType === 'prescription') {
+        $allIdx = array_keys($orderItems);
+        // 皮试主药皮试版条目（追加到 orderItems 末尾，正式处方 P2 用 $allIdx 快照不受影响）
+        $skinCloneIdx = array();
+        foreach ($skinMainSeqs as $si) {
+            if (!isset($orderItems[$si])) continue;
+            $clone = $orderItems[$si];
+            $clone['quantity'] = 1;
+            $clone['route'] = '皮内注射';
+            $clone['is_nurse'] = 1;   // 皮试必须护士站执行
+            $clone['sub_of'] = 0; $clone['group_no'] = 0; $clone['is_parent'] = 1; $clone['parent_item_id'] = 0;
+            $orderItems[] = $clone;
+            $skinCloneIdx[] = count($orderItems) - 1;
+        }
+        // 正式处方（P2，全部原条目）+ 各皮试处方（P1，皮试版单条目）
+        $createGroups[] = array('cat' => '', 'idx' => $allIdx, 'is_skin_test' => 0);
+        foreach ($skinCloneIdx as $ci) {
+            $createGroups[] = array('cat' => '', 'idx' => array($ci), 'is_skin_test' => 1);
+        }
+    } else {
+        foreach ($groupList as $g) {
+            $createGroups[] = array('cat' => $g['cat'], 'idx' => $g['idx'], 'is_skin_test' => 0);
+        }
+    }
+
     // ===== 逐组生成申请单（单号遵循原规则；循环查重保证多张同时创建不撞号） =====
     // 开单+联动处置+库存扣减为复合写操作：整体包裹原生事务保证原子性
     $pdo = DatabaseManager::getMain();
@@ -328,13 +365,15 @@ function order_part_submit($u) {
     $createdIds = array();
     $createdNos = array();
     $totalAll = 0;
-    foreach ($groupList as $g) {
+    $mainOrderId = 0;   // 正式处方/主申请单 id（联动处置 source 关联）
+    $skinOrderId = 0;   // 首个皮试处方 id（皮试处置 source 关联）
+    foreach ($createGroups as $g) {
         // 组内主项目重新编号（子项 sub_of 引用同步改写为本组新序号）
         $localNo = 0;
         $mapSeq = array();   // 全局主项目序号 => 本组新序号
         $groupTotal = 0;
         foreach ($g['idx'] as $i) {
-            if ((int)$orderItems[$i]['sub_of'] === 0) {
+            if ((int)$orderItems[$i]['sub_of'] === 0 && isset($itemSeq[$i])) {
                 $localNo++;
                 $mapSeq[$itemSeq[$i]] = $localNo;
             }
@@ -344,9 +383,10 @@ function order_part_submit($u) {
         // 申请单号（JY/JC/CZ/CF/DD 前缀 + 时间戳 + 随机，循环查重防撞号）
         $orderNo = gen_unique_no(isset($typeCode[$orderType]) ? $typeCode[$orderType] : 'DD', 'orders', 'order_no');
 
-        $orderId = OrderRepository::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+        $isSkin = (int)$g['is_skin_test'];
+        $orderId = OrderRepository::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, is_skin_test) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
             $visitId, $visit['patient_no'], $visit['flow_no'], $orderType, $orderNo, $g['cat'],
-            $u['id'], $u['name'], $recId, $deptId, $deptName, $groupTotal, 'open', now_str(),
+            $u['id'], $u['name'], $recId, $deptId, $deptName, $groupTotal, 'open', now_str(), $isSkin,
         ));
         foreach ($g['idx'] as $i) {
             $it = $orderItems[$i];
@@ -385,6 +425,8 @@ function order_part_submit($u) {
         $printUrl = '/api/print?action=order&order_id=' . oid($orderId);
         if ($orderType === 'imaging') {
             $msgTitle = ($g['cat'] !== '' && $g['cat'] !== '检查') ? '新的' . $g['cat'] . '申请单' : $typeTitle[$orderType];
+        } elseif ($orderType === 'prescription' && $isSkin) {
+            $msgTitle = '新的皮试处方单';
         } else {
             $msgTitle = isset($typeTitle[$orderType]) ? '新的' . $typeTitle[$orderType] : '新的申请单';
         }
@@ -396,41 +438,66 @@ function order_part_submit($u) {
                 array('msg_type' => 'patient', 'patient_name' => $row['patient']['name'], 'visit_id' => $visitId));
         }
 
+        // 记录正式处方/主申请单 与 皮试处方 id（联动处置 source 关联）
+        if ($orderType === 'prescription' && !$isSkin && $mainOrderId === 0) $mainOrderId = $orderId;
+        if ($isSkin && $skinOrderId === 0) $skinOrderId = $orderId;
+
         $createdIds[] = $orderId;
         $createdNos[] = $orderNo;
         $totalAll += $groupTotal;
     }
 
-    // ===== 皮试/途径联动处置单（仅处方开单且存在联动项时生成） =====
-    // 与处方同一请求内完成写入；任一步失败即回滚（事务保证处方与联动单原子提交）
-    if ($orderType === 'prescription' && $autoDisp) {
-        $autoTotal = 0;
-        foreach ($autoDisp as $d) { $autoTotal += (float)$d['fee'] * (int)$d['qty']; }
-        $autoOrderNo = gen_unique_no('CZ', 'orders', 'order_no');
-
-        $autoOrderId = OrderRepository::insert(                'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, source_order_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-            array($visitId, $visit['patient_no'], $visit['flow_no'], 'procedure', $autoOrderNo, '',
-                  $u['id'], $u['name'], $recId, $deptId, $deptName, $autoTotal, 'open', now_str(), $orderId));
-
-        foreach ($autoDisp as $dispId => $d) {
-            OrderRepository::insert(                    'INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, price, quantity, unit, is_nurse, sub_of, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-                array($autoOrderId, $visitId, $visit['patient_no'], $visit['flow_no'],
-                      'procedure', $dispId, $d['name'], (float)$d['fee'], (int)$d['qty'],
-                      '次', 1, 0, 'open', $u['id'], $u['name'], now_str()));
+    // ===== 联动处置单（仅处方开单且存在联动项时生成） =====
+    // 皮试处置（autoDispSkin）与途径绑定处置（autoDispOther）分开两张处置单：
+    // 皮试处置需与皮试处方一起缴费（is_skin_test=1），正式处置随正式处方缴费
+    if ($orderType === 'prescription') {
+        if ($autoDispSkin) {
+            $skinDispTotal = 0;
+            foreach ($autoDispSkin as $d) { $skinDispTotal += (float)$d['fee'] * (int)$d['qty']; }
+            $skinDispNo = gen_unique_no('CZ', 'orders', 'order_no');
+            $srcSkin = $skinOrderId > 0 ? $skinOrderId : $mainOrderId;
+            $skinDispId = OrderRepository::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, source_order_id, is_skin_test) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                $visitId, $visit['patient_no'], $visit['flow_no'], 'procedure', $skinDispNo, '',
+                $u['id'], $u['name'], $recId, $deptId, $deptName, $skinDispTotal, 'open', now_str(), $srcSkin, 1,
+            ));
+            foreach ($autoDispSkin as $dispId => $d) {
+                OrderRepository::insert('INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, price, quantity, unit, is_nurse, sub_of, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                    $skinDispId, $visitId, $visit['patient_no'], $visit['flow_no'],
+                    'procedure', $dispId, $d['name'], (float)$d['fee'], (int)$d['qty'],
+                    '次', 1, 0, 'open', $u['id'], $u['name'], now_str()));
+            }
+            send_msg('nurse', 0,
+                '新的皮试处置单（' . count($autoDispSkin) . '项）',
+                '患者：' . $row['patient']['name'] . '（' . $visit['patient_no'] . '），流水号 ' . $visit['flow_no'] . '，含皮试处置，请及时处理',
+                'order', '/api/print?action=order&order_id=' . oid($skinDispId),
+                array('msg_type' => 'patient', 'patient_name' => $row['patient']['name'], 'visit_id' => $visitId));
+            $createdIds[] = $skinDispId;
+            $createdNos[] = $skinDispNo;
+            $totalAll += $skinDispTotal;
         }
-
-        // 通知护士站执行 + 打印提醒
-        $firstAuto = reset($autoDisp);
-        send_msg('nurse', 0,
-            '新的联动处置单（' . count($autoDisp) . '项）',
-            '患者：' . $row['patient']['name'] . '（' . $visit['patient_no'] . '），流水号 ' . $visit['flow_no'] .
-                '，含皮试/注射类处置，请及时处理',
-            'order', '/api/print?action=order&order_id=' . oid($autoOrderId),
-            array('msg_type' => 'patient', 'patient_name' => $row['patient']['name'], 'visit_id' => $visitId));
-
-        $createdIds[] = $autoOrderId;
-        $createdNos[] = $autoOrderNo;
-        $totalAll += $autoTotal;
+        if ($autoDispOther && $mainOrderId > 0) {
+            $otherTotal = 0;
+            foreach ($autoDispOther as $d) { $otherTotal += (float)$d['fee'] * (int)$d['qty']; }
+            $otherNo = gen_unique_no('CZ', 'orders', 'order_no');
+            $otherId = OrderRepository::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, source_order_id, is_skin_test) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                $visitId, $visit['patient_no'], $visit['flow_no'], 'procedure', $otherNo, '',
+                $u['id'], $u['name'], $recId, $deptId, $deptName, $otherTotal, 'open', now_str(), $mainOrderId, 0,
+            ));
+            foreach ($autoDispOther as $dispId => $d) {
+                OrderRepository::insert('INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, price, quantity, unit, is_nurse, sub_of, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                    $otherId, $visitId, $visit['patient_no'], $visit['flow_no'],
+                    'procedure', $dispId, $d['name'], (float)$d['fee'], (int)$d['qty'],
+                    '次', 1, 0, 'open', $u['id'], $u['name'], now_str()));
+            }
+            send_msg('nurse', 0,
+                '新的联动处置单（' . count($autoDispOther) . '项）',
+                '患者：' . $row['patient']['name'] . '（' . $visit['patient_no'] . '），流水号 ' . $visit['flow_no'] . '，含注射/输液类处置，请及时处理',
+                'order', '/api/print?action=order&order_id=' . oid($otherId),
+                array('msg_type' => 'patient', 'patient_name' => $row['patient']['name'], 'visit_id' => $visitId));
+            $createdIds[] = $otherId;
+            $createdNos[] = $otherNo;
+            $totalAll += $otherTotal;
+        }
     }
 
     $pdo->commit();
@@ -440,7 +507,7 @@ function order_part_submit($u) {
         'order_no' => $createdNos[0],
         'order_nos' => $createdNos,
         'total' => $totalAll,
-    ), count($createdIds) > 1 ? '已按检查分类拆分为 ' . count($createdIds) . ' 张申请单' : '开单成功');
+    ), count($createdIds) > 1 ? '已拆分为 ' . count($createdIds) . ' 张开单（' . implode(' / ', $createdNos) . '）' : '开单成功');
     return;
     } catch (Exception $ex) {
         if ($pdo->inTransaction()) $pdo->rollBack();
