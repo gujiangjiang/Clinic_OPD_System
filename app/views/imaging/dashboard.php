@@ -29,9 +29,11 @@ Clinic.deptwork.configure({
     afterAction: afterImgAction,
 });
 
-function afterImgAction() {
-    Clinic.deptwork.reloadPatient();
-    Clinic.deptwork.refreshQueue();
+function afterImgAction(orderId) {
+    // 局部刷新：登记/提交报告（已知申请单）仅重建该区块保持滚动位置；
+    // 撤回等无法定位申请单的场景轻量重渲染（fetchPatient 无加载遮罩，不整页刷新）
+    if (orderId) refreshImgSec(orderId);
+    else Clinic.deptwork.fetchPatient(function (data) { renderImgWork(data); Clinic.deptwork.refreshQueue(); });
 }
 
 function esc(s) { return Clinic.escHtml(s); }
@@ -52,11 +54,7 @@ function renderImgWork(data) {
     orders.forEach(function (o) { imgItems = imgItems.concat(o.items); });
     window.__imgItems = imgItems;
     // 右栏大纲：按申请单分组（申请单号可点「+」展开该单全部检查项目）
-    Clinic.deptwork.renderOrderSide(orders, {
-        emoji: '🩻', title: '检查申请单', empty: '暂无检查项目',
-        pending: function (o) { return o.items.some(function (it) { return it.status === 'paid' || it.status === 'registered'; }); },
-        subDot: function (it) { return it.status === 'done' ? 'ok' : (it.status === 'registered' ? 'pending' : 'done'); },
-    });
+    renderImgSide(data);
 
     // 主区：抬头（参照护理/急诊病历版式）+ 各申请单区块
     var head = imgHeadHtml(data);
@@ -67,6 +65,35 @@ function renderImgWork(data) {
         orders.forEach(function (o) { body += imgOrderHtml(o); });
     }
     document.getElementById('dwMain').innerHTML = head + body;
+}
+
+/* 右侧申请单大纲（局部刷新时复用） */
+function renderImgSide(data) {
+    var orders = (data.orders || []).filter(function (o) { return o.order_type === 'imaging'; });
+    Clinic.deptwork.renderOrderSide(orders, {
+        emoji: '🩻', title: '检查申请单', empty: '暂无检查项目',
+        pending: function (o) { return o.items.some(function (it) { return it.status === 'paid' || it.status === 'registered'; }); },
+        subDot: function (it) { return it.status === 'done' ? 'ok' : (it.status === 'registered' ? 'pending' : 'done'); },
+    });
+}
+
+/* 局部刷新单张申请单区块（登记/提交报告后，仅重建该区块 + 右栏 + 候诊数，
+   不重建整页、保持滚动位置） */
+function refreshImgSec(orderId) {
+    Clinic.deptwork.fetchPatient(function (data) {
+        var order = null;
+        (data.orders || []).forEach(function (o) { if (o.order_id === orderId) order = o; });
+        if (order) {
+            var el = document.getElementById('imgSec_' + orderId);
+            if (el) el.outerHTML = imgOrderHtml(order);
+        }
+        // 更新「去写报告」缓存
+        var imgItems = [];
+        (data.orders || []).forEach(function (o) { if (o.order_type === 'imaging') imgItems = imgItems.concat(o.items); });
+        window.__imgItems = imgItems;
+        renderImgSide(data);
+        Clinic.deptwork.refreshQueue();
+    });
 }
 
 /* 抬头：医院名称 + 第二名称 + 影像诊断报告单 + 患者信息两行（统一走 Clinic.deptwork.headHtml） */
@@ -101,7 +128,7 @@ function doImgRegisterOrder(orderId) {
     Clinic.ajax('/api/imaging', { action: 'register_order', order_id: orderId }, {
         onSuccess: function (json) {
             Clinic.toast.success(json.msg);
-            afterImgAction();
+            afterImgAction(orderId);
         },
     });
 }
@@ -249,7 +276,7 @@ function imgModalSave() {
             Clinic.toast.success(json.msg);
             Clinic.modal.close();
             Clinic.print.load('/api/print?action=report&report_id=' + json.data.report_id, null);
-            afterImgAction();
+            afterImgAction(it.order_id);
         },
         onError: function () { IMG_SUBMITTING = false; },
     });

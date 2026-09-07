@@ -30,9 +30,11 @@ Clinic.deptwork.configure({
     afterAction: afterLabAction,
 });
 
-function afterLabAction() {
-    Clinic.deptwork.reloadPatient();
-    Clinic.deptwork.refreshQueue();
+function afterLabAction(orderId) {
+    // 局部刷新：登记/提交报告（已知申请单）仅重建该区块保持滚动位置；
+    // 撤回等无法定位申请单的场景轻量重渲染（fetchPatient 无加载遮罩，不整页刷新）
+    if (orderId) refreshLabSec(orderId);
+    else Clinic.deptwork.fetchPatient(function (data) { renderLabWork(data); Clinic.deptwork.refreshQueue(); });
 }
 
 function esc(s) { return Clinic.escHtml(s); }
@@ -64,11 +66,7 @@ function renderLabWork(data) {
     window.__labItems = items;
 
     // 右栏大纲：按申请单分组（申请单号可点「+」展开该单全部检验项目）
-    Clinic.deptwork.renderOrderSide(orders, {
-        emoji: '🧪', title: '检验申请单', empty: '暂无检验项目',
-        pending: function (o) { return o.items.some(function (it) { return it.status === 'paid' || it.status === 'registered'; }); },
-        subDot: function (it) { return it.status === 'done' ? 'ok' : (it.status === 'registered' ? 'pending' : 'done'); },
-    });
+    renderLabSide(data);
 
     // 主区：抬头（参照护理记录单样式）+ 各申请单区块
     var head = labHeadHtml(data);
@@ -80,18 +78,53 @@ function renderLabWork(data) {
     }
     document.getElementById('dwMain').innerHTML = head + body;
     // 绑定「提交并打印报告」操作
-    items.forEach(function (it) {
-        if (it.status === 'registered') {
-            var s = document.getElementById('labSave_' + it.id);
-            if (s) s.onclick = function () { doLabSave(it); };
-        }
-    });
+    bindLabOrder(items);
     // 输入框失焦自动临时保存（focusout 冒泡，事件委托一次绑定）
     var main = document.getElementById('dwMain');
     main.onfocusout = function (e) {
         var el = e.target;
         if (el && el.getAttribute && el.getAttribute('data-draft')) labDraft(el);
     };
+}
+
+/* 右侧申请单大纲（局部刷新时复用） */
+function renderLabSide(data) {
+    var orders = (data.orders || []).filter(function (o) { return o.order_type === 'lab'; });
+    Clinic.deptwork.renderOrderSide(orders, {
+        emoji: '🧪', title: '检验申请单', empty: '暂无检验项目',
+        pending: function (o) { return o.items.some(function (it) { return it.status === 'paid' || it.status === 'registered'; }); },
+        subDot: function (it) { return it.status === 'done' ? 'ok' : (it.status === 'registered' ? 'pending' : 'done'); },
+    });
+}
+
+/* 绑定申请单内「提交并打印报告」按钮（局部刷新后复用） */
+function bindLabOrder(items) {
+    (items || []).forEach(function (it) {
+        if (it.status === 'registered') {
+            var s = document.getElementById('labSave_' + it.id);
+            if (s) s.onclick = function () { doLabSave(it); };
+        }
+    });
+}
+
+/* 局部刷新单张申请单区块（登记/提交报告/撤回后，仅重建该区块 + 右栏 + 候诊数，
+   不重建整页、保持滚动位置） */
+function refreshLabSec(orderId) {
+    Clinic.deptwork.fetchPatient(function (data) {
+        var order = null;
+        (data.orders || []).forEach(function (o) { if (o.order_id === orderId) order = o; });
+        if (order) {
+            var el = document.getElementById('labSec_' + orderId);
+            if (el) el.outerHTML = labOrderHtml(order);
+            bindLabOrder(order.items || []);
+        }
+        // 更新失焦草稿缓存
+        var items = [];
+        (data.orders || []).forEach(function (o) { if (o.order_type === 'lab') items = items.concat(o.items); });
+        window.__labItems = items;
+        renderLabSide(data);
+        Clinic.deptwork.refreshQueue();
+    });
 }
 
 /* 抬头：医院名称 + 第二名称 + 检验报告单 + 患者信息两行（统一走 Clinic.deptwork.headHtml） */
@@ -126,7 +159,7 @@ function doLabRegisterOrder(orderId) {
     Clinic.ajax('/api/lab', { action: 'register_order', order_id: orderId }, {
         onSuccess: function (json) {
             Clinic.toast.success(json.msg);
-            afterLabAction();
+            afterLabAction(orderId);
         },
     });
 }
@@ -293,7 +326,7 @@ function submitLabResult(it, value, isGroup, note) {
             Clinic.toast.success(json.msg);
             Clinic.modal.close();
             Clinic.print.load('/api/print?action=report&report_id=' + json.data.report_id, null);
-            afterLabAction();
+            afterLabAction(it.order_id);
         },
         onError: function () { LAB_SUBMITTING = false; },
     });
