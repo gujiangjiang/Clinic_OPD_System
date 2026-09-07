@@ -166,11 +166,6 @@ function rxProgressHtml(o) {
     return html;
 }
 
-function scrollToRx(orderId) {
-    var el = document.getElementById('rxSec_' + orderId);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
 function rxRowHtml(it, sub) {
     return '<tr>' +
         '<td class="fw-600">' + (sub ? '　└ ' : '') + esc(it.item_name) + (it.is_nurse ? ' <span class="badge badge-warning" style="font-size:10px">护士站执行</span>' : '') + '</td>' +

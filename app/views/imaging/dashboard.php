@@ -56,7 +56,6 @@ function renderImgWork(data) {
         emoji: '🩻', title: '检查申请单', empty: '暂无检查项目',
         pending: function (o) { return o.items.some(function (it) { return it.status === 'paid' || it.status === 'registered'; }); },
         subDot: function (it) { return it.status === 'done' ? 'ok' : (it.status === 'registered' ? 'pending' : 'done'); },
-        scrollTo: 'Img',
     });
 
     // 主区：抬头（参照护理/急诊病历版式）+ 各申请单区块
@@ -110,11 +109,6 @@ function doImgRegisterOrder(orderId) {
 function previewImgOrder(orderId, orderNo) {
     if (!orderId) return;
     Clinic.print.preview('/api/print?action=order&order_id=' + orderId, null, '检查申请单预览：' + (orderNo || ''));
-}
-
-function scrollToImg(orderId) {
-    var el = document.getElementById('imgSec_' + orderId);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function imgItemHtml(it) {

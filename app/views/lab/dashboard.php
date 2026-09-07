@@ -68,7 +68,6 @@ function renderLabWork(data) {
         emoji: '🧪', title: '检验申请单', empty: '暂无检验项目',
         pending: function (o) { return o.items.some(function (it) { return it.status === 'paid' || it.status === 'registered'; }); },
         subDot: function (it) { return it.status === 'done' ? 'ok' : (it.status === 'registered' ? 'pending' : 'done'); },
-        scrollTo: 'Lab',
     });
 
     // 主区：抬头（参照护理记录单样式）+ 各申请单区块
@@ -135,11 +134,6 @@ function doLabRegisterOrder(orderId) {
 function previewLabOrder(orderId, orderNo) {
     if (!orderId) return;
     Clinic.print.preview('/api/print?action=order&order_id=' + orderId, null, '检验申请单预览：' + (orderNo || ''));
-}
-
-function scrollToLab(orderId) {
-    var el = document.getElementById('labSec_' + orderId);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /* 危急值提示（低/高任一配置即显示） */
