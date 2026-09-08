@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 29,
+    'version' => 30,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -893,6 +893,12 @@ return array(
         29 => array(
             "ALTER TABLE consents ADD COLUMN notice TEXT DEFAULT ''",
             "ALTER TABLE consents ADD COLUMN emr_snapshot TEXT DEFAULT ''",
+        ),
+        // v30：知情同意模板存量清理——早期版本保存时强制写入的 content.name
+        //（"通用"等）已废弃（标题一律取模板名称原文），移除该键防旧数据干扰
+        30 => array(
+            "UPDATE emr_templates SET content_json = json_remove(content_json, '$.name')
+             WHERE type='consent' AND json_extract(content_json, '$.name') IS NOT NULL",
         ),
     ),
     'seed' => array(

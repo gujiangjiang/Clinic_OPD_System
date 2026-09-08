@@ -61,22 +61,13 @@ switch ($action) {
             EmrRepository::exec('UPDATE consents SET content=?, notice=?, emr_snapshot=?, updated_at=? WHERE id=?',
                 array($content, $notice, $snapshotJson, $now, $id));
         } else {
-            // 标题推导（完全自定义抬头）：
-            // · 新模板（content 无 name 字段）→ 模板 title 原文（门诊告知书/病重通知书等任意标题）
-            // · 旧模板（content.name 非空）→ 兼容旧逻辑 name + 知情同意书
+            // 标题推导（完全自定义抬头）：模板名称即文书标题（门诊告知书/病重通知书/
+            // 手术知情同意书等任意告知文书），服务端取模板 title 原文，前端不可指定/篡改
             $tplId = (int)post('template_id', 0);
             $title = '';
             if ($tplId > 0) {
-                $tpl = EmrRepository::one('SELECT title, content_json FROM emr_templates WHERE id=?', array($tplId));
-                if ($tpl) {
-                    $tc = json_decode((string)$tpl['content_json'], true);
-                    $nm = is_array($tc) && isset($tc['name']) && trim((string)$tc['name']) !== '' ? trim((string)$tc['name']) : '';
-                    if ($nm !== '') {
-                        $title = $nm . '知情同意书';
-                    } else {
-                        $title = trim((string)$tpl['title']);
-                    }
-                }
+                $tpl = EmrRepository::one('SELECT title FROM emr_templates WHERE id=?', array($tplId));
+                if ($tpl) $title = trim((string)$tpl['title']);
             }
             if ($title === '') json_fail('请从有效的知情同意书模板创建');
             // 开具科室固化：就诊当前科室（创建时确定，转科/会诊后不再变化）

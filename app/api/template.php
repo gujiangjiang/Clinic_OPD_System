@@ -207,7 +207,7 @@ switch ($action) {
         // · medical_record 病历模板：结构化 EMR（后端剥离禁止字段）
         $typeLabel = $type === 'consent' ? '知情同意书模板' : ($type === 'nursing_record' ? '护理记录模板' : ($type === 'imaging_report' ? '影像报告模板' : ($type === 'order_note' ? '病历嘱托模板' : '病历模板')));
         if ($type === 'consent') {
-            if (empty($contentArr['name'])) $contentArr['name'] = '通用';
+            // 标题即模板名称（完全自定义抬头），content 不再携带 name；
             if (!isset($contentArr['content'])) $contentArr['content'] = '';
             $contentArr['content'] = trim((string)$contentArr['content']);
             // 告知内容：空则回落默认话术（打印签名区上方显示）
