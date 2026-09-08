@@ -507,13 +507,16 @@ Clinic.print = (function () {
                 meas.appendChild(mFoot);
                 var footH = mFoot.offsetHeight;
                 meas.innerHTML = '';
+                // .a5-foot 有 margin-top:8px（offsetHeight 不含外边距），打印/预览时
+                // 该边距真实占压正文空间——精确计入，否则每页多出 8px 留白
+                footH += 8;
 
-                // 正文可用高度：以 184mm 为基准（打印纸张锁定 187mm，再留 3mm 防
-                // 字体度量微差），叠加 14px 安全余量——预览与打印完全一致。
+                // 正文可用高度：以 186.5mm 为基准（打印纸张锁定 187mm，仅留 0.5mm 防
+                // 字体度量微差），叠加 4px 安全余量——分页精确填满，预览与打印一致。
                 // 首页用完整页眉高；第2页起用精简页眉高（更矮 → 可用高度更大，
                 // 避免每页底部留出「完整页眉-精简页眉」的空白差）
-                var availHFull = Math.floor(184 * MM) - headH - footH - 14;
-                var availHCompact = compactHeadH > 0 ? Math.floor(184 * MM) - compactHeadH - footH - 14 : availHFull;
+                var availHFull = Math.floor(186.5 * MM) - headH - footH - 4;
+                var availHCompact = compactHeadH > 0 ? Math.floor(186.5 * MM) - compactHeadH - footH - 4 : availHFull;
 
                 // ---- 分离「底部签名区」（print-foot-sec）与正文流 ----
                 // 签名区不参与正文流分页，随正文流保留在最后一页；
@@ -572,11 +575,11 @@ Clinic.print = (function () {
                     return { fit: fit, fitH: measLen(cut), rest: rest };
                 }
 
-                // ---- 底部签名区高度（供末页腾位判断） ----
+                // ---- 底部签名区高度：分配正文时即为末页预留，签名区稳落末页底部 ----
                 var footSecH = 0;
                 footSecNodes.forEach(function (n) { footSecH += measureHeight(n); });
 
-                // ---- 正文流分配：可拆分文本自动续页，整页填满不预留 ----
+                // ---- 正文流分配：可拆分文本自动续页；末页可用高度扣除签名区 ----
                 var pages = [];
                 var used = 0;
                 function ensurePage() {
@@ -595,12 +598,16 @@ Clinic.print = (function () {
                     var cur = pages[pages.length - 1];
                     var n = bodyNodes[bi];
                     var h = measureHeight(n);
-                    if (used + h <= cur.avail) {
+                    // 末页预留：本页之后再无正文节点时，本页需容纳签名区——
+                    // 可用高度扣除 footSecH，避免签名区被挤触发超长兜底
+                    var isLastBody = (bi === bodyNodes.length - 1);
+                    var effAvail = isLastBody ? (cur.avail - footSecH) : cur.avail;
+                    if (used + h <= effAvail) {
                         cur.body.push(n); used += h; bi++;
                         continue;
                     }
                     if (isSplittable(n)) {
-                        var availLeft = cur.avail - used;
+                        var availLeft = effAvail - used;
                         if (availLeft > 24) {
                             var res = splitTextNode(n, availLeft);
                             if (res && res.fitH > 0) {
@@ -612,6 +619,14 @@ Clinic.print = (function () {
                         }
                     }
                     if (h > cur.avail) {
+                        cur.over = true;
+                        cur.body.push(n); used += h; bi++;
+                        continue;
+                    }
+                    // 整节点放不下且不可拆 → 推到下一页。但若本页为空页（末页签名区
+                    // 预留挤压可能出现：h 放不进 effAvail 却放得进整页），再推会产生
+                    // 死循环——直接放置并置 over 兜底（签名区随后追加，页高自动放开）
+                    if (used === 0) {
                         cur.over = true;
                         cur.body.push(n); used += h; bi++;
                         continue;
