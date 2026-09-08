@@ -511,12 +511,14 @@ Clinic.print = (function () {
                 // 该边距真实占压正文空间——精确计入，否则每页多出 8px 留白
                 footH += 8;
 
-                // 正文可用高度：以 186.5mm 为基准（打印纸张锁定 187mm，仅留 0.5mm 防
-                // 字体度量微差），叠加 4px 安全余量——分页精确填满，预览与打印一致。
+                // 正文可用高度：以 187mm 打印纸张内高足额为基准。安全缓冲由两处提供：
+                // ① 页尾悬挂 marginBottom 不计占用（每页回收约 4~10px，视内容而定）；
+                // ② 0.5mm 舍入差由 Math.floor 吸收。分页逐节点实测驱动，
+                // 预览(190mm 内高)与打印(187mm)均按打印几何结算，保证不裁字。
                 // 首页用完整页眉高；第2页起用精简页眉高（更矮 → 可用高度更大，
                 // 避免每页底部留出「完整页眉-精简页眉」的空白差）
-                var availHFull = Math.floor(186.5 * MM) - headH - footH - 4;
-                var availHCompact = compactHeadH > 0 ? Math.floor(186.5 * MM) - compactHeadH - footH - 4 : availHFull;
+                var availHFull = Math.floor(187 * MM) - headH - footH;
+                var availHCompact = compactHeadH > 0 ? Math.floor(187 * MM) - compactHeadH - footH : availHFull;
 
                 // ---- 分离「底部签名区」（print-foot-sec）与正文流 ----
                 // 签名区不参与正文流分页，随正文流保留在最后一页；
@@ -584,7 +586,9 @@ Clinic.print = (function () {
                 //   预留会在长正文跨页拆分时把「每一页」都扣掉签名区高度，
                 //   造成每页下部大面积空白；页填满后签名区自然跟随末页正文）
                 var pages = [];
-                var used = 0;
+                var used = 0;      // 已占用（含页尾悬挂的 marginBottom，见 hangMb）
+                var hangMb = 0;    // 页尾悬挂：最末节点的下外边距在页内视觉上是纯空白，
+                                   // 不占版心——结算可用空间时从 used 中扣除
                 function ensurePage() {
                     var isFirst = pages.length === 0;
                     var useCompact = !isFirst && !!compactHeadNodes;
@@ -594,6 +598,7 @@ Clinic.print = (function () {
                         avail: useCompact ? availHCompact : availHFull,
                     });
                     used = 0;
+                    hangMb = 0;
                 }
                 if (bodyNodes.length) ensurePage();
                 var bi = 0;
@@ -601,16 +606,24 @@ Clinic.print = (function () {
                     var cur = pages[pages.length - 1];
                     var n = bodyNodes[bi];
                     var h = measureHeight(n);
-                    if (used + h <= cur.avail) {
-                        cur.body.push(n); used += h; bi++;
+                    // 判定/拆分均以「真实占用 used − hangMb」为基准（页尾悬挂 margin
+                    // 是可回收空白）；本系统节点 marginTop 均为 0，无需折叠判断
+                    var realUsed = used - hangMb;
+                    if (realUsed + h <= cur.avail) {
+                        cur.body.push(n);
+                        used = realUsed + h;   // used = 真实占用 + 页尾悬挂（h 含本节点 mb）
+                        hangMb = parseFloat((window.getComputedStyle(n) || {}).marginBottom) || 0;
+                        bi++;
                         continue;
                     }
                     if (isSplittable(n)) {
-                        var availLeft = cur.avail - used;
+                        var availLeft = cur.avail - realUsed;   // 拆分按真实占用计算
                         if (availLeft > 24) {
                             var res = splitTextNode(n, availLeft);
                             if (res && res.fitH > 0) {
-                                cur.body.push(res.fit); used += res.fitH;
+                                cur.body.push(res.fit);
+                                used = realUsed + res.fitH;      // 拆分前半段无下边距 → 无悬挂
+                                hangMb = 0;
                                 bodyNodes[bi] = res.rest;
                                 ensurePage();
                                 continue;
