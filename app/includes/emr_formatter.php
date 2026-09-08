@@ -249,6 +249,99 @@ function emr_obs_text($emr) {
     return (isset($emr['is_leave_hospital']) && $emr['is_leave_hospital'] === '是') ? '是' : '否';
 }
 
+/**
+ * 生命体征文本（血压/心率/脉搏/血氧/呼吸，与病历打印拼接规则一致；全空返回 ''）
+ * @param array $vitals vitals 行（vital_sbp/vital_dbp/vital_heart_rate/...）
+ * @return string
+ */
+function emr_vitals_text($vitals) {
+    $v = is_array($vitals) ? $vitals : array();
+    $vp = array();
+    if (!empty($v['vital_sbp'])) $vp[] = '血压 ' . $v['vital_sbp'] . '/' . $v['vital_dbp'] . 'mmHg';
+    if (!empty($v['vital_heart_rate'])) $vp[] = '心率 ' . $v['vital_heart_rate'] . '次/分';
+    if (!empty($v['vital_pulse'])) $vp[] = '脉搏 ' . $v['vital_pulse'] . '次/分';
+    if (!empty($v['vital_spo2'])) $vp[] = '血氧 ' . $v['vital_spo2'] . '%';
+    if (!empty($v['vital_respiration'])) $vp[] = '呼吸 ' . $v['vital_respiration'] . '次/分';
+    return $vp ? implode('；', $vp) : '';
+}
+
+/* ============================================================
+ * 知情同意/告知文书：病历内容节（可勾选展示）+ 快照投影
+ * ============================================================ */
+
+/** 默认告知话术（模板与开具处占位符共用；空值保存时回落此文本） */
+function consent_default_notice() {
+    return '患者/委托人已知晓上述病情介绍与知情同意内容，医生已向我详细解释，我已完全理解，愿意承担可能出现风险及并发症，并遵从医嘱，配合治疗。';
+}
+
+/** 知情同意书可勾选的病历内容节（键 => 中文标签，顺序即展示顺序） */
+function consent_section_keys() {
+    return array(
+        'chief_complaint'       => '主诉',
+        'present_illness'       => '现病史',
+        'past_history'          => '既往史',
+        'allergy_history'       => '过敏史',
+        'main_symptoms'         => '主要症状',
+        'vitals'                => '生命体征',
+        'consciousness'         => '意识状态',
+        'physical_exam'         => '体格检查',
+        'preliminary_diagnosis' => '初步诊断',
+    );
+}
+
+/** 过滤勾选节（仅保留合法键，保持 consent_section_keys 的顺序） */
+function consent_section_filter($sections) {
+    $all = consent_section_keys();
+    $out = array();
+    foreach ((array)$sections as $k) {
+        $k = trim((string)$k);
+        if (isset($all[$k]) && !in_array($k, $out, true)) $out[] = $k;
+    }
+    return $out;
+}
+
+/**
+ * 知情同意书病历内容快照（固化锚点）：以该挂号流水的【首诊文书】为唯一事实来源
+ * 投影全部 9 节文本（空节存空串），保存时按勾选 sections 过滤打印。
+ * 无结构化病历时回退旧 records 镜像（兼容历史就诊；生命体征/意识状态/主要症状
+ * 等镜像缺失项为空串）。
+ * @return array{sections:array,data:array<string,string>}
+ */
+function consent_emr_snapshot($visitId, $sections) {
+    $sections = consent_section_filter($sections);
+    $data = array();
+    foreach (array_keys(consent_section_keys()) as $k) $data[$k] = '';
+    $pr = EmrRepository::one("SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC LIMIT 1", array($visitId));
+    if ($pr) {
+        $emr = json_decode((string)$pr['emr_data'], true);
+        if (is_array($emr)) {
+            $data['chief_complaint'] = emr_cc_text(isset($emr['chief_complaint']) ? $emr['chief_complaint'] : array());
+            $data['present_illness'] = emr_pi_text(isset($emr['history_present']) ? $emr['history_present'] : array());
+            $data['past_history'] = emr_ph_text(isset($emr['past_history']) ? $emr['past_history'] : array());
+            $alRaw = isset($emr['allergies']) ? $emr['allergies'] : '';
+            $data['allergy_history'] = is_array($alRaw) ? emr_al_text($alRaw) : (string)$alRaw;
+            $data['main_symptoms'] = emr_ms_text(isset($emr['main_symptoms']) ? $emr['main_symptoms'] : array());
+            $data['physical_exam'] = emr_pe_text(isset($emr['physical_exam']) ? $emr['physical_exam'] : array());
+            $data['preliminary_diagnosis'] = emr_diag_text(isset($emr['diagnoses']) ? $emr['diagnoses'] : array());
+        }
+        // 生命体征：该就诊首诊文书绑定体征（record_id），无则回退就诊级
+        $vRow = EmrRepository::one('SELECT * FROM vitals WHERE visit_id=? AND record_id=? ORDER BY id DESC LIMIT 1', array($visitId, (int)$pr['id']));
+        if (!$vRow) $vRow = EmrRepository::one('SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($visitId));
+        $data['vitals'] = emr_vitals_text($vRow);
+        // 意识状态：首诊文书镜像（records.patient_record_id 关联）
+        $rec = EmrRepository::one('SELECT consciousness FROM records WHERE patient_record_id=? LIMIT 1', array((int)$pr['id']));
+        $data['consciousness'] = $rec ? (string)$rec['consciousness'] : '';
+    } else {
+        $mirror = EmrRepository::one('SELECT chief_complaint, present_illness, preliminary_diagnosis FROM records WHERE visit_id=? ORDER BY id ASC LIMIT 1', array($visitId));
+        if ($mirror) {
+            $data['chief_complaint'] = (string)$mirror['chief_complaint'];
+            $data['present_illness'] = (string)$mirror['present_illness'];
+            $data['preliminary_diagnosis'] = (string)$mirror['preliminary_diagnosis'];
+        }
+    }
+    return array('sections' => $sections, 'data' => $data);
+}
+
 /** 诊断聚合显示顺序键（visit+医生维度，跨医生排序载体；无记录返回空数组） */
 function diag_order_keys($visitId, $doctorId) {
     $row = DB::one('SELECT ord_keys FROM diag_orders WHERE visit_id=? AND doctor_id=?', array($visitId, $doctorId));

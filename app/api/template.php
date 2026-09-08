@@ -14,6 +14,8 @@
  *    严禁修改/删除。
  * ============================================================ */
 require __DIR__ . '/_init.php';
+// 知情同意/告知文书：默认话术与勾选节白名单（consent_default_notice/consent_section_filter）
+require_once APP_ROOT . '/app/includes/emr_formatter.php';
 
 $u = Auth::user();
 
@@ -208,6 +210,11 @@ switch ($action) {
             if (empty($contentArr['name'])) $contentArr['name'] = '通用';
             if (!isset($contentArr['content'])) $contentArr['content'] = '';
             $contentArr['content'] = trim((string)$contentArr['content']);
+            // 告知内容：空则回落默认话术（打印签名区上方显示）
+            $notice = isset($contentArr['notice']) ? trim((string)$contentArr['notice']) : '';
+            $contentArr['notice'] = $notice !== '' ? $notice : consent_default_notice();
+            // 病历内容显示节（白名单过滤；未勾选则开具时不展示任何病历节）
+            $contentArr['sections'] = consent_section_filter(isset($contentArr['sections']) ? $contentArr['sections'] : array());
         } elseif ($type === 'nursing_record') {
             if (!isset($contentArr['content'])) $contentArr['content'] = '';
             $contentArr = array('content' => trim((string)$contentArr['content']));

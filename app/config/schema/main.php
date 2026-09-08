@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 28,
+    'version' => 29,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -450,6 +450,8 @@ return array(
             flow_no TEXT,
             title TEXT,
             content TEXT,
+            notice TEXT DEFAULT '',
+            emr_snapshot TEXT DEFAULT '',
             doctor_id INTEGER,
             doctor_name TEXT,
             dept_id INTEGER DEFAULT 0,
@@ -884,6 +886,13 @@ return array(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_order_no ON orders(order_no)",
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_consultations_consult_no ON consultations(consult_no)",
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_certificates_cert_no ON certificates(cert_no)",
+        ),
+        // v29：知情同意书升级——告知内容（notice，可自定义话术，签名区上方显示）
+        // 与病历内容快照（emr_snapshot：勾选节 + 各节文本 JSON），开具即固化，
+        // 后续病历修改不影响已开具文书；编辑重存时随当前病历重新快照
+        29 => array(
+            "ALTER TABLE consents ADD COLUMN notice TEXT DEFAULT ''",
+            "ALTER TABLE consents ADD COLUMN emr_snapshot TEXT DEFAULT ''",
         ),
     ),
     'seed' => array(

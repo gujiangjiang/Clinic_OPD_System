@@ -268,22 +268,32 @@ switch ($action) {
         $visit = decorate_visit_patient($visit, $row['patient']);
         $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
-        // 病情介绍：取该就诊首诊文书（结构化 emr 投影），无则回退旧 records 镜像
-        $record = array();
-        $pr = EmrRepository::one("SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC LIMIT 1", array($c['visit_id']));
-        if ($pr) {
-            $emr = json_decode((string)$pr['emr_data'], true);
-            if (is_array($emr)) {
-                $record['chief_complaint'] = emr_cc_text(isset($emr['chief_complaint']) ? $emr['chief_complaint'] : array());
-                $record['present_illness'] = emr_pi_text(isset($emr['history_present']) ? $emr['history_present'] : array());
-                $record['preliminary_diagnosis'] = emr_diag_text(isset($emr['diagnoses']) ? $emr['diagnoses'] : array());
+        // 病历内容：优先用开具/编辑时固化的快照（emr_snapshot，后期病历修改不影响已开具文书）；
+        // 旧数据无快照 → 回退实时投影（主诉/现病史/初步诊断，旧行为兼容）
+        $snapshot = json_decode((string)(isset($c['emr_snapshot']) ? $c['emr_snapshot'] : ''), true);
+        if (is_array($snapshot) && !empty($snapshot['data'])) {
+            $snapshot['data'] = array_map('strval', $snapshot['data']);
+            $c['emr_snapshot'] = $snapshot;
+        } else {
+            $record = array();
+            $pr = EmrRepository::one("SELECT * FROM patient_records WHERE visit_id=? ORDER BY id ASC LIMIT 1", array($c['visit_id']));
+            if ($pr) {
+                $emr = json_decode((string)$pr['emr_data'], true);
+                if (is_array($emr)) {
+                    $record['chief_complaint'] = emr_cc_text(isset($emr['chief_complaint']) ? $emr['chief_complaint'] : array());
+                    $record['present_illness'] = emr_pi_text(isset($emr['history_present']) ? $emr['history_present'] : array());
+                    $record['preliminary_diagnosis'] = emr_diag_text(isset($emr['diagnoses']) ? $emr['diagnoses'] : array());
+                }
             }
+            if (!$record) {
+                $mirror = EmrRepository::one('SELECT chief_complaint, present_illness, preliminary_diagnosis FROM records WHERE visit_id=? ORDER BY id ASC LIMIT 1', array($c['visit_id']));
+                if ($mirror) $record = $mirror;
+            }
+            $c['legacy_record'] = $record;
         }
-        if (!$record) {
-            $mirror = EmrRepository::one('SELECT chief_complaint, present_illness, preliminary_diagnosis FROM records WHERE visit_id=? ORDER BY id ASC LIMIT 1', array($c['visit_id']));
-            if ($mirror) $record = $mirror;
-        }
-        json_ok(array('html' => pt_consent($visit, $row['patient'], $c, $c['doctor_name'], $record)));
+        // 告知内容：旧数据（notice 空）回退默认话术
+        if (trim((string)(isset($c['notice']) ? $c['notice'] : '')) === '') $c['notice'] = consent_default_notice();
+        json_ok(array('html' => pt_consent($visit, $row['patient'], $c, $c['doctor_name'])));
         break;
 
     /* ---------------- 会诊申请单打印 ---------------- */

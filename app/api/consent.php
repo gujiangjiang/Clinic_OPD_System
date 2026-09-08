@@ -9,6 +9,8 @@
  * 3. get    获取单条知情同意书详情
  * ============================================================ */
 require __DIR__ . '/_init.php';
+// 病历内容快照投影（emr_*_text / consent_emr_snapshot / 默认话术）由 emr_formatter 提供
+require_once APP_ROOT . '/app/includes/emr_formatter.php';
 
 $u = Auth::user();
 
@@ -23,6 +25,12 @@ switch ($action) {
         $patient = $row['patient'];
         $content = trim((string)post('content', ''));
         if ($content === '') json_fail('请填写知情同意内容');
+        // 告知内容：空则回落默认话术（与打印签名区上方文案一致）
+        $notice = trim((string)post('notice', ''));
+        if ($notice === '') $notice = consent_default_notice();
+        // 勾选的病历内容节（白名单过滤）
+        $sectionsIn = json_decode((string)post('sections', '[]'), true);
+        $sections = consent_section_filter(is_array($sectionsIn) ? $sectionsIn : array());
         $id = (int)post('id', 0);
         $now = now_str();
         // 归档锁定：已诊毕不可修改
@@ -44,29 +52,38 @@ switch ($action) {
         if (!visit_access_allowed($visit, $u)) {
             json_fail('该病历超出您的可查看历史天数，无法修改');
         }
+        // 病历内容快照：以首诊文书为锚点固化（编辑重存时随当前病历重新快照）
+        $snapshotJson = json_encode(consent_emr_snapshot($visitId, $sections), JSON_UNESCAPED_UNICODE);
         if ($id > 0) {
-            // 编辑：仅更新内容，标题保持原值（不可更改）
+            // 编辑：更新 内容/告知内容/勾选节 + 重新快照（随当前病历更新），标题保持原值
             $old = EmrRepository::one('SELECT * FROM consents WHERE id=? AND doctor_id=?', array($id, $u['id']));
             if (!$old) json_fail('知情同意书不存在或无权修改');
-            EmrRepository::exec('UPDATE consents SET content=?, updated_at=? WHERE id=?', array($content, $now, $id));
+            EmrRepository::exec('UPDATE consents SET content=?, notice=?, emr_snapshot=?, updated_at=? WHERE id=?',
+                array($content, $notice, $snapshotJson, $now, $id));
         } else {
-            // 新建：标题由服务端从模板推导（模板的 name + 知情同意书），前端不可指定/篡改
+            // 标题推导（完全自定义抬头）：
+            // · 新模板（content 无 name 字段）→ 模板 title 原文（门诊告知书/病重通知书等任意标题）
+            // · 旧模板（content.name 非空）→ 兼容旧逻辑 name + 知情同意书
             $tplId = (int)post('template_id', 0);
             $title = '';
             if ($tplId > 0) {
-                $tpl = EmrRepository::one('SELECT content_json FROM emr_templates WHERE id=?', array($tplId));
+                $tpl = EmrRepository::one('SELECT title, content_json FROM emr_templates WHERE id=?', array($tplId));
                 if ($tpl) {
                     $tc = json_decode((string)$tpl['content_json'], true);
-                    $nm = is_array($tc) && !empty($tc['name']) ? trim((string)$tc['name']) : '';
-                    if ($nm !== '') $title = $nm . '知情同意书';
+                    $nm = is_array($tc) && isset($tc['name']) && trim((string)$tc['name']) !== '' ? trim((string)$tc['name']) : '';
+                    if ($nm !== '') {
+                        $title = $nm . '知情同意书';
+                    } else {
+                        $title = trim((string)$tpl['title']);
+                    }
                 }
             }
             if ($title === '') json_fail('请从有效的知情同意书模板创建');
             // 开具科室固化：就诊当前科室（创建时确定，转科/会诊后不再变化）
             $deptId = (int)$visit['current_dept_id'];
             $deptName = (string)$visit['current_dept_name'];
-            $id = EmrRepository::insert('INSERT INTO consents(visit_id, patient_no, flow_no, title, content, doctor_id, doctor_name, dept_id, dept_name, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
-                $visitId, $patient['patient_no'], $visit['flow_no'], $title, $content, $u['id'], $u['name'], $deptId, $deptName, $now, $now,
+            $id = EmrRepository::insert('INSERT INTO consents(visit_id, patient_no, flow_no, title, content, notice, emr_snapshot, doctor_id, doctor_name, dept_id, dept_name, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                $visitId, $patient['patient_no'], $visit['flow_no'], $title, $content, $notice, $snapshotJson, $u['id'], $u['name'], $deptId, $deptName, $now, $now,
             ));
         }
         json_ok(array('id' => $id), '知情同意书已保存');
@@ -101,12 +118,19 @@ switch ($action) {
         if (!$r) json_fail('知情同意书不存在');
         $vRow = get_visit_row((int)$r['visit_id']);
         if ($vRow && !visit_dept_authorized($vRow['visit'], $u)) json_fail('无权限查看');
+        // 勾选节：优先取快照记录的 sections（编辑回填），旧数据回退旧行为（主诉+初步诊断）
+        $snap = json_decode((string)$r['emr_snapshot'], true);
+        $sections = is_array($snap) && !empty($snap['sections'])
+            ? consent_section_filter($snap['sections'])
+            : array('chief_complaint', 'preliminary_diagnosis');
         json_ok(array(
             'consent' => array(
                 'id' => (int)$r['id'],
                 'visit_id' => (int)$r['visit_id'],
                 'title' => (string)$r['title'],
                 'content' => (string)$r['content'],
+                'notice' => (string)(isset($r['notice']) ? $r['notice'] : ''),
+                'sections' => $sections,
                 'doctor_id' => (int)$r['doctor_id'],
                 'doctor_name' => (string)$r['doctor_name'],
                 'dept_name' => (string)(isset($r['dept_name']) ? $r['dept_name'] : ''),
