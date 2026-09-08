@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 24,
+    'version' => 26,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -825,6 +825,44 @@ return array(
         // 皮试结果表（skin_test_results）记录阳性/阴性；皮试阴性前正式处方/处置不可缴费
         24 => array(
             "ALTER TABLE orders ADD COLUMN is_skin_test INTEGER DEFAULT 0",
+        ),
+        // v25：就诊序号去重——历史数据中可能残留并发挂号造成的重复序号
+        // （同一科室同日 visit_seq 相同），先为重复行的非首条重新分配
+        // 「该科室当日最大序号 + 组内序次」，保证存量数据可承载下方唯一索引。
+        // 仅重编号重复行，不改变既有序号；无重复的分组不受影响。
+        25 => array(
+            "UPDATE registrations SET visit_seq = (
+                SELECT m.mx + t.rk
+                FROM (
+                    SELECT MAX(r2.visit_seq) AS mx
+                    FROM registrations r2
+                    WHERE r2.first_dept_id = registrations.first_dept_id
+                      AND date(r2.registered_at) = date(registrations.registered_at)
+                ) m,
+                (
+                    SELECT COUNT(*) AS rk
+                    FROM registrations r3
+                    WHERE r3.first_dept_id = registrations.first_dept_id
+                      AND date(r3.registered_at) = date(registrations.registered_at)
+                      AND r3.visit_seq = registrations.visit_seq
+                      AND (r3.registered_at < registrations.registered_at OR (r3.registered_at = registrations.registered_at AND r3.id < registrations.id))
+                ) t
+            )
+            WHERE id IN (
+                SELECT id FROM (
+                    SELECT r4.id,
+                           ROW_NUMBER() OVER (PARTITION BY r4.first_dept_id, date(r4.registered_at), r4.visit_seq ORDER BY r4.registered_at, r4.id) AS rn
+                    FROM registrations r4
+                ) x WHERE x.rn > 1
+            )",
+        ),
+        // v26：就诊序号唯一约束——同科室同日 visit_seq 不可重复。
+        // 就诊序号由 MAX+1 生成（挂号事务内），配合本唯一索引 + 挂号撞号重试，
+        // 杜绝并发挂号得到相同就诊序号（原 COUNT+1 无锁，双窗口并发可能重复）。
+        // 注：SQLite 方言（ROW_NUMBER 窗口函数）仅用于 SQLite；MySQL 部署
+        // 若此处失败仅停在本版本（等价于不加索引），不影响既有功能。
+        26 => array(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_registrations_dept_date_seq ON registrations(first_dept_id, date(registered_at), visit_seq)",
         ),
     ),
     'seed' => array(

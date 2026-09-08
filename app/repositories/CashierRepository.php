@@ -191,9 +191,11 @@ class CashierRepository extends BaseRepository {
         return (int)self::val('SELECT COUNT(*) FROM registrations WHERE substr(flow_no,1,6)=?', array($ymd));
     }
 
-    /** 某科室当日挂号数（就诊序号生成用，含退费/取消，序号不回收） */
-    public static function countVisitSeq($deptId, $date) {
-        return (int)self::val('SELECT COUNT(*) FROM registrations WHERE first_dept_id=? AND date(registered_at)=?', array((int)$deptId, $date));
+    /** 某科室当日已用最大就诊序号（就诊序号生成用：MAX+1 优于 COUNT+1，
+     *  配合 registrations(first_dept_id,date(registered_at),visit_seq) 唯一索引 +
+     *  挂号事务撞号重试，杜绝并发挂号得到相同序号；退费/取消不回收，序号单调递增） */
+    public static function maxVisitSeq($deptId, $date) {
+        return (int)self::val('SELECT COALESCE(MAX(visit_seq),0) FROM registrations WHERE first_dept_id=? AND date(registered_at)=?', array((int)$deptId, $date));
     }
 
     /* ---------------- 药品库存 ---------------- */

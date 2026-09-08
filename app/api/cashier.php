@@ -30,9 +30,11 @@ function next_flow_no() {
     return $ymd . str_pad((string)($n + 1), 4, '0', STR_PAD_LEFT);
 }
 
-/** 门诊就诊序号：每科室每日3位独立递增（含退费/取消记录，序号不回收） */
+/** 门诊就诊序号：每科室每日3位独立递增（含退费/取消记录，序号不回收）。
+ *  MAX+1 生成（在挂号事务内执行）+ 唯一索引防并发重复：两个窗口同时挂号
+ *  同科室同日时可能取到相同 MAX，由唯一约束冲突触发挂号事务撞号重试。 */
 function next_visit_seq($deptId) {
-    return CashierRepository::countVisitSeq($deptId, today_str()) + 1;
+    return CashierRepository::maxVisitSeq($deptId, today_str()) + 1;
 }
 
 /**
