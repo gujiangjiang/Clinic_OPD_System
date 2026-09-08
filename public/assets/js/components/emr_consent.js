@@ -38,6 +38,7 @@ Clinic.emr.consent = (function () {
     var _consentId = 0;      // 当前编辑的知情同意书 id（0=新建）
     var _templateId = 0;     // 新建时的模板 id（标题服务端推导）
     var _docId = 0;          // 当前查看知情同意书的开具医生 id（用于删除权限）
+    var _docTitle = '';      // 当前文书标题（模态框标题展示用）
 
     /** 跨科室只读查看模式（后端 readonly_view 状态驱动）：知情同意书仅可查看/打印，禁止增删改 */
     function isReadonlyView() {
@@ -71,10 +72,10 @@ Clinic.emr.consent = (function () {
     }
 
     /**
-     * 打开知情同意/告知文书模态框：
+     * 打开知情同意/告知文书模态框（模态框标题即文书标题）：
      * 新建（consentId=0）→ 编辑态（内容可编辑 + 保存）；
      * 查看已保存（consentId>0）→ 查看态（内容只读 + 编辑/打印/删除）。
-     * data: { title?, name?, content, notice, sections[], doctor_id?, dept_name? }
+     * data: { title?, content, notice, sections[], doctor_id? }
      */
     function openEditor(data, consentId, templateId) {
         var content = data && data.content ? data.content : '';
@@ -83,22 +84,18 @@ Clinic.emr.consent = (function () {
         _consentId = consentId || 0;
         _templateId = templateId || 0;
         _docId = data && data.doctor_id ? parseInt(data.doctor_id, 10) || 0 : 0;
+        _docTitle = (data && data.title) || '';
         var html =
-            '<div class="form-group"><label class="form-label">文书标题 <span class="fs-12 text-muted fw-400">（由模板确定，开具后按原文显示，不可修改）</span></label>' +
-            '<input class="input" id="ctTitle" value="' + escHtml((data && (data.title || data.name)) || '') + '" readonly></div>' +
-            // 编辑已保存文书时的提示（编辑态显示，查看态隐藏；重存随当前病历重新快照）
-            (_consentId > 0
-                ? '<div class="fs-13" id="ctEditTip" style="display:none;background:var(--primary-soft);border:1px solid var(--primary);border-radius:8px;padding:8px 12px;margin-bottom:10px">✏️ 正在编辑已开具的文书：保存后正文与病情介绍快照将随当前病历更新重新固化，历史打印不再变化。</div>'
-                : '') +
+            // 编辑已保存文书时点击「编辑」弹确认框（见 enterEdit），此处不内嵌提示条
             '<div class="form-group"><label class="form-label">病情介绍显示内容 <span class="fs-12 text-muted fw-400">（保存时按所选节固化病历快照，空内容自动不显示）</span></label>' +
             '<div id="ctSections">' + sectionsHtml(sections) + '</div></div>' +
-            '<div class="form-group"><label class="form-label">告知内容 <span class="fs-12 text-muted fw-400">（显示于签名区上方；留空保存默认话术）</span></label>' +
-            '<textarea class="textarea" id="ctNotice" rows="3" placeholder="' + escHtml(DEFAULT_NOTICE) + '">' + escHtml(notice) + '</textarea></div>' +
             '<div class="form-group"><label class="form-label">正文内容 <span class="req">*</span></label>' +
             '<textarea class="textarea" id="ctContent" rows="12" style="min-height:300px" placeholder="请输入正文内容…">' + escHtml(content) + '</textarea></div>' +
+            '<div class="form-group"><label class="form-label">告知内容 <span class="fs-12 text-muted fw-400">（显示于签名区上方；留空保存默认话术）</span></label>' +
+            '<textarea class="textarea" id="ctNotice" rows="3" placeholder="' + escHtml(DEFAULT_NOTICE) + '">' + escHtml(notice) + '</textarea></div>' +
             '<div class="fs-12 text-muted">开具医生与就诊科室将自动记录（打印时显示，开具后固化）。</div>';
         _mask = Clinic.modal.open(html, {
-            title: (_consentId > 0 ? ((data && data.title) || '文书详情') : '新建文书'),
+            title: _docTitle || (_consentId > 0 ? '文书详情' : '新建文书'),
             size: 'modal-lg',
             buttons: [],
         });
@@ -114,14 +111,11 @@ Clinic.emr.consent = (function () {
 
     /** 进入编辑态：内容可编辑，脚部 取消/保存 */
     function _enterEditState() {
-        ['#ctTitle', '#ctContent', '#ctNotice'].forEach(function (sel) {
+        ['#ctContent', '#ctNotice'].forEach(function (sel) {
             var el = _mask.querySelector(sel);
             if (el) { el.disabled = false; el.readOnly = false; }
         });
         _mask.querySelectorAll('.ct-sec-chk').forEach(function (c) { c.disabled = false; });
-        // 编辑提示条：仅编辑态显示
-        var tip = _mask.querySelector('#ctEditTip');
-        if (tip) tip.style.display = '';
         var foot = _mask.querySelector('.modal-foot');
         foot.innerHTML =
             '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
@@ -130,14 +124,11 @@ Clinic.emr.consent = (function () {
 
     /** 进入查看态：内容只读（disabled 不可点击），脚部 取消/编辑/打印/删除(仅本人) */
     function _enterViewState() {
-        ['#ctTitle', '#ctContent', '#ctNotice'].forEach(function (sel) {
+        ['#ctContent', '#ctNotice'].forEach(function (sel) {
             var el = _mask.querySelector(sel);
             if (el) { el.disabled = true; el.readOnly = true; }
         });
         _mask.querySelectorAll('.ct-sec-chk').forEach(function (c) { c.disabled = true; });
-        // 查看态隐藏编辑提示条
-        var tip = _mask.querySelector('#ctEditTip');
-        if (tip) tip.style.display = 'none';
         var myUid = parseInt(document.body.getAttribute('data-uid') || '0', 10) || 0;
         var readonlyView = !!(window.Clinic && Clinic.emr && Clinic.emr._ctx && Clinic.emr._ctx.DATA && Clinic.emr._ctx.DATA.__readonly_view);
         var foot = _mask.querySelector('.modal-foot');
@@ -172,7 +163,12 @@ Clinic.emr.consent = (function () {
     /** 查看态 → 编辑态 */
     function enterEdit() {
         if (isReadonlyView()) { Clinic.toast.warning('跨科室病历仅只读，当前科室不可编辑知情同意书'); return; }
-        _enterEditState();
+        // 编辑确认弹框：重存后正文与病情介绍快照将随当前病历更新重新固化
+        Clinic.modal.confirm(
+            '编辑并保存后，正文内容与病情介绍快照将随当前病历更新重新固化，历史打印内容不再变化。确定编辑吗？',
+            function () { _enterEditState(); },
+            { title: '编辑' + (_docTitle || '文书'), okText: '开始编辑' }
+        );
     }
 
     /** 保存知情同意/告知文书（新建/编辑），成功后自动弹出打印预览 */
