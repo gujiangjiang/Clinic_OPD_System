@@ -575,11 +575,14 @@ Clinic.print = (function () {
                     return { fit: fit, fitH: measLen(cut), rest: rest };
                 }
 
-                // ---- 底部签名区高度：分配正文时即为末页预留，签名区稳落末页底部 ----
+                // ---- 底部签名区高度（信息记录；签名区作为普通正文流节点跟随内容） ----
                 var footSecH = 0;
                 footSecNodes.forEach(function (n) { footSecH += measureHeight(n); });
 
-                // ---- 正文流分配：可拆分文本自动续页；末页可用高度扣除签名区 ----
+                // ---- 正文流分配：可拆分文本自动续页，整页填满不预留 ----
+                // （与电子病历分页同构：签名区跟随正文流，不做末页预留——
+                //   预留会在长正文跨页拆分时把「每一页」都扣掉签名区高度，
+                //   造成每页下部大面积空白；页填满后签名区自然跟随末页正文）
                 var pages = [];
                 var used = 0;
                 function ensurePage() {
@@ -598,16 +601,12 @@ Clinic.print = (function () {
                     var cur = pages[pages.length - 1];
                     var n = bodyNodes[bi];
                     var h = measureHeight(n);
-                    // 末页预留：本页之后再无正文节点时，本页需容纳签名区——
-                    // 可用高度扣除 footSecH，避免签名区被挤触发超长兜底
-                    var isLastBody = (bi === bodyNodes.length - 1);
-                    var effAvail = isLastBody ? (cur.avail - footSecH) : cur.avail;
-                    if (used + h <= effAvail) {
+                    if (used + h <= cur.avail) {
                         cur.body.push(n); used += h; bi++;
                         continue;
                     }
                     if (isSplittable(n)) {
-                        var availLeft = effAvail - used;
+                        var availLeft = cur.avail - used;
                         if (availLeft > 24) {
                             var res = splitTextNode(n, availLeft);
                             if (res && res.fitH > 0) {
@@ -619,14 +618,6 @@ Clinic.print = (function () {
                         }
                     }
                     if (h > cur.avail) {
-                        cur.over = true;
-                        cur.body.push(n); used += h; bi++;
-                        continue;
-                    }
-                    // 整节点放不下且不可拆 → 推到下一页。但若本页为空页（末页签名区
-                    // 预留挤压可能出现：h 放不进 effAvail 却放得进整页），再推会产生
-                    // 死循环——直接放置并置 over 兜底（签名区随后追加，页高自动放开）
-                    if (used === 0) {
                         cur.over = true;
                         cur.body.push(n); used += h; bi++;
                         continue;

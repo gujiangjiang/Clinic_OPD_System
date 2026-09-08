@@ -7,8 +7,9 @@
  *               （print-split），分页器在放不下的位置自动把剩余文字自然换行续到
  *               下一页，不按固定字数/标点硬切——逐节独立节点 + 文本流共同保证
  *               勾选节增减时分页时机动态精确
- *              → 底部签名区（虚线告知内容 + 双列签名，print-foot-sec）：正文最底部，
- *               由分页器预留高度，随正文流保留在最后一页
+ *              → 底部签名区（虚线告知内容 + 双列签名）：普通正文流节点
+ *               （与电子病历签名同构），紧跟正文最后一段，page-break-inside:avoid
+ *               防拆分；不做末页高度预留，页自然填满不产生整页空白
  *  页脚（每页重复，精简）：一式两份提示语 */
 
 /** 签名横线（与文字底对齐）：标签 + flex 弹性下划线 */
@@ -79,10 +80,13 @@ function pt_consent($visit, $patient, $consent, $doctorName) {
         if ($p === '') continue;
         $html .= '<div class="print-split" style="white-space:pre-wrap;line-height:1.9;font-size:14px;word-break:break-all">' . e($p) . '</div>';
     }
-    // 底部签名区：告知内容（开具时固化，可自定义话术；旧数据回退默认话术）+ 双列签名
+    // 底部签名区：告知内容（开具时固化，可自定义话术；旧数据回退默认话术）+ 双列签名。
+    // 普通正文流节点（与电子病历签名同构，不用 print-foot-sec 特殊标记）——
+    // 紧跟正文最后一段，分页器逐节点分配，page-break-inside:avoid 保证签名区
+    // 不被从中间拆开；页填满时整体随正文自然续页，绝不产生整页预留空白
     $notice = trim((string)(isset($consent['notice']) ? $consent['notice'] : ''));
     if ($notice === '') $notice = consent_default_notice();
-    $html .= '<div class="print-foot-sec" style="page-break-inside:avoid;padding-top:14px">' .
+    $html .= '<div style="page-break-inside:avoid;padding-top:14px">' .
         '<div style="border-top:1px dashed #000;padding:8px 0 2px;line-height:1.9;font-size:13px;font-weight:700">' .
         e($notice) .
         '</div>' .
