@@ -266,20 +266,32 @@ Clinic.emrMenu = (function () {
             });
             list.innerHTML = items.length ? items.map(function (t) {
                 return '<div class="at-tpl-item" data-id="' + t.id + '" style="cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px">' +
-                    '<div class="fw-600 fs-13">' + Clinic.escHtml(t.title) + '</div>' +
-                    '<div class="fs-12 text-muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
-                    Clinic.escHtml((t.content && t.content.content) || '') + '</div></div>';
+                    '<div class="fw-600 fs-13">' + Clinic.escHtml(t.title) + '</div></div>';
             }).join('') : '<div class="fs-12 text-muted">暂无嘱托模板（可自由书写）</div>';
             list.querySelectorAll('.at-tpl-item').forEach(function (it) {
                 it.addEventListener('click', function () {
-                    var id = parseInt(it.getAttribute('data-id'), 10);
-                    all.forEach(function (t) { if (t.id === id) cur = t; });
-                    preview.textContent = (cur && cur.content && cur.content.content) ? cur.content.content : '';
+                    pickTpl(parseInt(it.getAttribute('data-id'), 10));
+                });
+            });
+        }
+
+        // 点击模板：按 id 拉取完整内容（list 接口不含 content）后右侧预览并高亮
+        function pickTpl(id) {
+            Clinic.get('/api/template?action=get&id=' + id + '&for_apply=1', null, {
+                loading: false,
+                onSuccess: function (j) {
+                    var t = j.data && j.data.template;
+                    cur = t || null;
+                    preview.textContent = (t && t.content && t.content.content) ? t.content.content : '';
                     list.querySelectorAll('.at-tpl-item').forEach(function (x) {
                         x.style.borderColor = 'var(--border)';
                     });
-                    it.style.borderColor = 'var(--primary)';
-                });
+                    var hit = list.querySelector('.at-tpl-item[data-id="' + id + '"]');
+                    if (hit) hit.style.borderColor = 'var(--primary)';
+                },
+                onError: function () {
+                    preview.textContent = '模板内容加载失败，请重试';
+                },
             });
         }
         search.addEventListener('input', render);
