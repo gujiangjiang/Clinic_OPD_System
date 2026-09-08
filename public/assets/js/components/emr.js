@@ -2556,6 +2556,8 @@ Clinic.emr = (function () {
         isRecordComplete: isRecordComplete,
         /** 返回当前病历是否有未保存的修改（候诊切换患者时拦截跳转用） */
         isDirty: function () { return EMR_DIRTY; },
+        /** 清除未保存修改标记（确认放弃离开后调用，避免后续 SPA 导航反复弹确认） */
+        markClean: function () { EMR_DIRTY = false; },
         /** 删除病历记录（节点生命周期约束：仅本人/首诊锁定/续写独立删除） */
         deleteRecord: deleteRecord,
         loadOrders: loadOrders,

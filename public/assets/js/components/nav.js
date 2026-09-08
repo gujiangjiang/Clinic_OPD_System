@@ -144,6 +144,8 @@ case 'emr_diag': return !!(Clinic.emr && Clinic.emr.diag);
         // 直接调用 load() 避免二次确认）
         if (window.Clinic && Clinic.emr && Clinic.emr.isDirty && Clinic.emr.isDirty()) {
             Clinic.modal.confirm('当前病历有未保存的修改，确定离开吗？', function () {
+                // 确认放弃离开：清除未保存标记，否则后续每次 SPA 导航都会再次弹确认
+                if (window.Clinic && Clinic.emr && Clinic.emr.markClean) Clinic.emr.markClean();
                 Clinic.nav.load(href);
             });
             return;
