@@ -511,14 +511,15 @@ Clinic.print = (function () {
                 // 该边距真实占压正文空间——精确计入，否则每页多出 8px 留白
                 footH += 8;
 
-                // 正文可用高度：以 187mm 打印纸张内高足额为基准。安全缓冲由两处提供：
-                // ① 页尾悬挂 marginBottom 不计占用（每页回收约 4~10px，视内容而定）；
-                // ② 0.5mm 舍入差由 Math.floor 吸收。分页逐节点实测驱动，
-                // 预览(190mm 内高)与打印(187mm)均按打印几何结算，保证不裁字。
+                // 正文可用高度：以 186.5mm 为基准（打印纸张锁定 187mm，留 0.5mm 结构
+                // 保护）+ 8px 安全余量——余量必须覆盖打印引擎与屏幕渲染的累计舍入差
+                // （整页 20+ 行逐行取整，实测约一行；不足会吞掉页面最后一行文字）。
+                // 页尾悬挂 marginBottom 记账（见下方 hangMb）回收页尾纯空白约 3~10px，
+                // 净效果比历史版本（184mm+14px）每页多排约半行，且打印安全。
                 // 首页用完整页眉高；第2页起用精简页眉高（更矮 → 可用高度更大，
                 // 避免每页底部留出「完整页眉-精简页眉」的空白差）
-                var availHFull = Math.floor(187 * MM) - headH - footH;
-                var availHCompact = compactHeadH > 0 ? Math.floor(187 * MM) - compactHeadH - footH : availHFull;
+                var availHFull = Math.floor(186.5 * MM) - headH - footH - 8;
+                var availHCompact = compactHeadH > 0 ? Math.floor(186.5 * MM) - compactHeadH - footH - 8 : availHFull;
 
                 // ---- 分离「底部签名区」（print-foot-sec）与正文流 ----
                 // 签名区不参与正文流分页，随正文流保留在最后一页；
