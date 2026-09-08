@@ -13,6 +13,25 @@
 
 ---
 
+## [7.28.2] - 2026-09-08
+
+> 病历页两处缺陷修复（诊断弹窗无限递归崩溃 / 控件 hover 过渡不统一）。
+
+### 修复
+- **诊断模态框打不开（Maximum call stack size exceeded）**：emr.js 拆分诊断模块时，
+  emr_diag.js 顶部的 `var clampPop = ctx.clampPop` 别名在 IIFE 执行时覆盖了提升的
+  本地函数声明，而 ctx.clampPop 是 emr.js 的桥接（指向本模块）——自引用形成无限
+  递归，诊断添加/编辑弹窗与费用悬浮窗全部无法使用。修复：删除自引用别名，模块内
+  直接使用本地 clampPop 实现。（`public/assets/js/components/emr_diag.js`）
+
+### 变更
+- **病历控件 hover 反馈统一**：过敏史/生命体征等 .emr-item-link 标签的蓝底 hover
+  原有 0.15s 淡入淡出过渡，而纸面字段（ef-field/ef-select）与诊断项
+  （ef-diag-item）为瞬时出现——补齐同款 transition，全部可交互控件观感一致。
+  （`public/assets/css/components-emr.css`）
+
+---
+
 ## [7.28.1] - 2026-09-08
 
 > 知情同意/告知文书四项体验修复：标题推导、区域顺序、编辑确认框、A5 分页精确化。
