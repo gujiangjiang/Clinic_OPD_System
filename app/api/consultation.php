@@ -94,15 +94,26 @@ switch ($action) {
         if ($description === '') json_fail('请填写会诊描述');
         if ($purpose === '') json_fail('请填写会诊目的');
         $now = now_str();
-        // 生成唯一会诊单号（HZ + 时间戳 + 随机，循环查重防撞号）
+        // 生成唯一会诊单号（HZ + 时间戳 + 随机，循环查重防撞号）。
+        // 唯一索引兜底：INSERT 触发唯一冲突时重新生成单号重试（最多 3 次），
+        // 杜绝并发发起会诊得到相同会诊单号。
         $consultNo = gen_unique_no('HZ', 'consultations', 'consult_no');
-        $cid = ConsultationRepository::insert('INSERT INTO consultations(visit_id, patient_no, flow_no, consult_no, from_dept_id, from_dept_name, from_doctor_id, from_doctor_name, target_dept_id, target_dept_name, description, purpose, status, record_id, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
-            $visitId, $visit['patient_no'], $visit['flow_no'], $consultNo,
-            (int)$visit['current_dept_id'], (string)$visit['current_dept_name'],
-            $u['id'], $u['name'],
-            (int)$targetDept['id'], (string)$targetDept['name'],
-            $description, $purpose, 'pending', $consRecId, $now,
-        ));
+        $cid = 0;
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            if ($attempt > 0) $consultNo = gen_unique_no('HZ', 'consultations', 'consult_no');
+            try {
+                $cid = ConsultationRepository::insert('INSERT INTO consultations(visit_id, patient_no, flow_no, consult_no, from_dept_id, from_dept_name, from_doctor_id, from_doctor_name, target_dept_id, target_dept_name, description, purpose, status, record_id, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                    $visitId, $visit['patient_no'], $visit['flow_no'], $consultNo,
+                    (int)$visit['current_dept_id'], (string)$visit['current_dept_name'],
+                    $u['id'], $u['name'],
+                    (int)$targetDept['id'], (string)$targetDept['name'],
+                    $description, $purpose, 'pending', $consRecId, $now,
+                ));
+                break;
+            } catch (Exception $ex) {
+                if (!is_unique_conflict($ex) || $attempt >= 2) throw $ex;
+            }
+        }
         // 站内信通知目标科室（携带会诊详情链接）
         send_msg('doctor', 0, '新的会诊请求',
             '患者：' . $row['patient']['name'] . '（' . $visit['patient_no'] . '），' .

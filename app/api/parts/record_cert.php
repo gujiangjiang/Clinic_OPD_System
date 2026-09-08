@@ -47,15 +47,25 @@ function record_part_cert($action) {
         }
         // 证明号：ZM 前缀 + 时间戳 + 2 位随机——与申请单号（JY/JC/CZ/CF/DD）同源
         // 规则但前缀互不冲突；循环校验保证唯一。
+        // 唯一索引兜底：INSERT 触发唯一冲突时重新生成证明号重试（最多 3 次），
+        // 杜绝并发开具诊断证明得到相同证明号。
         $certNo = gen_unique_no('ZM', 'certificates', 'cert_no');
         // 病历摘要快照：开具瞬间以首诊文书为锚点固化主诉/现病史/初步诊断，
         // 证书内容从此不再随续写或后续修改变化（法律文书不可变性）
         $snap = cert_snapshot_summary($visitId);
-        EmrRepository::insertCertificate(array(
-            'visit_id' => $visitId, 'patient_no' => $row['visit']['patient_no'], 'flow_no' => $row['visit']['flow_no'],
-            'doctor_id' => $u['id'], 'doctor_name' => $u['name'], 'dept_id' => $curDeptId, 'content' => $content, 'created_at' => now_str(), 'cert_no' => $certNo,
-            'chief_complaint' => $snap['chief_complaint'], 'present_illness' => $snap['present_illness'], 'preliminary_diagnosis' => $snap['preliminary_diagnosis'],
-        ));
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            if ($attempt > 0) $certNo = gen_unique_no('ZM', 'certificates', 'cert_no');
+            try {
+                EmrRepository::insertCertificate(array(
+                    'visit_id' => $visitId, 'patient_no' => $row['visit']['patient_no'], 'flow_no' => $row['visit']['flow_no'],
+                    'doctor_id' => $u['id'], 'doctor_name' => $u['name'], 'dept_id' => $curDeptId, 'content' => $content, 'created_at' => now_str(), 'cert_no' => $certNo,
+                    'chief_complaint' => $snap['chief_complaint'], 'present_illness' => $snap['present_illness'], 'preliminary_diagnosis' => $snap['preliminary_diagnosis'],
+                ));
+                break;
+            } catch (Exception $ex) {
+                if (!is_unique_conflict($ex) || $attempt >= 2) throw $ex;
+            }
+        }
         json_ok(array('cert_no' => $certNo), '诊断证明已开具');
         return;
     }

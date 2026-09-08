@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 26,
+    'version' => 28,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -863,6 +863,27 @@ return array(
         // 若此处失败仅停在本版本（等价于不加索引），不影响既有功能。
         26 => array(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_registrations_dept_date_seq ON registrations(first_dept_id, date(registered_at), visit_seq)",
+        ),
+        // v27：业务单号存量去重——orders.order_no / consultations.consult_no /
+        // certificates.cert_no 历史数据可能残留并发撞号产生的重复单号，
+        // 为重复行的非首条追加 `_id` 后缀使其唯一（仅动重复行，无重复不受影响）。
+        27 => array(
+            "UPDATE orders SET order_no = order_no || '_' || id
+             WHERE id IN (SELECT id FROM (SELECT o.id, ROW_NUMBER() OVER (PARTITION BY o.order_no ORDER BY o.id) rn FROM orders o WHERE o.order_no IS NOT NULL AND o.order_no <> '') x WHERE x.rn > 1)",
+            "UPDATE consultations SET consult_no = consult_no || '_' || id
+             WHERE id IN (SELECT id FROM (SELECT c.id, ROW_NUMBER() OVER (PARTITION BY c.consult_no ORDER BY c.id) rn FROM consultations c WHERE c.consult_no IS NOT NULL AND c.consult_no <> '') x WHERE x.rn > 1)",
+            "UPDATE certificates SET cert_no = cert_no || '_' || id
+             WHERE id IN (SELECT id FROM (SELECT c.id, ROW_NUMBER() OVER (PARTITION BY c.cert_no ORDER BY c.id) rn FROM certificates c WHERE c.cert_no IS NOT NULL AND c.cert_no <> '') x WHERE x.rn > 1)",
+        ),
+        // v28：业务单号唯一约束——申请单号/会诊单号/证明号不可重复。
+        // 单号由 gen_unique_no（查重循环）生成，配合本唯一索引 + 各插入处
+        // 撞号重试（重新生成单号），杜绝并发下 TOCTOU 撞号。
+        // 注：SQLite 方言（ROW_NUMBER 窗口函数）仅用于 SQLite；MySQL 部署
+        // 若此处失败仅停在本版本（等价于不加索引），不影响既有功能。
+        28 => array(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_order_no ON orders(order_no)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_consultations_consult_no ON consultations(consult_no)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_certificates_cert_no ON certificates(cert_no)",
         ),
     ),
     'seed' => array(
