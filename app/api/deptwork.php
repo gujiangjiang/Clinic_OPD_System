@@ -114,6 +114,12 @@ function deptwork_queue_rows($u, $status, $today) {
     // 「当日」叠加筛选
     $todayWhere = $today ? " AND date(oi.created_at)=?" : '';
 
+    // 可见天数过滤：每条明细按其开单医生的可见天数过滤；多医生开单以各自天数并集。
+    // 双驱动方言：SQLite 用日期修饰符 + 标量 MAX/MIN；MySQL 用 DATE_SUB + GREATEST/LEAST。
+    $queueDaysClause = (DB_DRIVER === 'mysql')
+        ? "date(oi.created_at) >= DATE_SUB(CURDATE(), INTERVAL (GREATEST(2, LEAST(7, COALESCE(usr.queue_days,3))) - 1) DAY)"
+        : "date(oi.created_at) >= date('now','localtime','-' || (MAX(2, MIN(7, COALESCE(usr.queue_days,3))) - 1) || ' days')";
+
     // 可见天数跟随开单医生权限（users.queue_days 2-7，默认 3）：
     // 每条明细按其开单医生的可见天数过滤；多医生开单以各自天数并集（取最长窗口）。
     $sql = "SELECT r.id AS visit_id, r.current_dept_name, r.current_dept_id, r.visit_seq, r.flow_no,
@@ -140,7 +146,7 @@ function deptwork_queue_rows($u, $status, $today) {
             JOIN registrations r ON r.id=oi.visit_id
             JOIN patients p ON p.patient_no=oi.patient_no
             WHERE $typeWhere
-              AND date(oi.created_at) >= date('now','localtime','-' || (MAX(2, MIN(7, COALESCE(usr.queue_days,3))) - 1) || ' days')
+              AND $queueDaysClause
               $deptWhere$todayWhere
             GROUP BY oi.visit_id
             HAVING $having";

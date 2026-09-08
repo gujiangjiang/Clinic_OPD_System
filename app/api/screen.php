@@ -160,7 +160,7 @@ function default_screen_tips($type) {
 
 /* ==================== 心跳 + 数据 ==================== */
 if ($action === 'heartbeat' || $action === 'data') {
-    // 绑定医生保活检查：医生心跳超过 90 秒未更新（异常退出浏览器 / 会话过期等
+    // 绑定医生保活检查：医生心跳超过 300 秒未更新（异常退出浏览器 / 会话过期等
     // 未走正常登出流程的场景）时，大屏自动取消与该医生的关联
     if ((int)$room['current_doctor_id'] > 0) {
         if (QueueRepository::doctorHeartbeatStale($room['id'])) {

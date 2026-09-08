@@ -264,8 +264,16 @@ class QueueRepository extends BaseRepository {
 
     /** 大屏医生心跳保活检测：超过 300 秒未更新视为异常断开
      *  （医生端 room_heartbeat.js 全局每 30 秒心跳一次，跨页面持续；
-     *   离开工作站/刷新页面均不会中断，仅真正退出登录或异常断开才解绑） */
+     *   离开工作站/刷新页面均不会中断，仅真正退出登录或异常断开才解绑）
+     *  双驱动方言：SQLite 用 strftime 转 epoch；MySQL 用 UNIX_TIMESTAMP。 */
     public static function doctorHeartbeatStale($roomId) {
+        if (DB_DRIVER === 'mysql') {
+            return (int)self::val(
+                "SELECT COUNT(*) FROM clinic_rooms WHERE id=? AND (doctor_heartbeat IS NULL
+                 OR (UNIX_TIMESTAMP() - UNIX_TIMESTAMP(doctor_heartbeat)) > 300)",
+                array((int)$roomId)
+            ) > 0;
+        }
         return (int)self::val(
             "SELECT COUNT(*) FROM clinic_rooms WHERE id=? AND (doctor_heartbeat IS NULL
              OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat)) > 300)",
