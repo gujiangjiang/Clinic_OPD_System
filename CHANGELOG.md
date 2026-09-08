@@ -13,6 +13,23 @@
 
 ---
 
+## [7.27.1] - 2026-09-08
+
+> 病历页两处交互缺陷修复（嘱托模板预览空白 / 未保存修改确认后脏标记未清除）。
+
+### 修复
+- **嘱托模板模态框点击模板右侧预览空白**：模板列表接口（`action=list`）不返回
+  `content` 字段，`openAdviceTplModal` 直接用列表数据取内容必然为空。改为点击模板时
+  按 id 调用 `action=get&for_apply=1` 拉取完整内容（与护理/影像模板同款逻辑）后
+  右侧预览并高亮选中项。（`public/assets/js/components/emr_ctxmenu.js`）
+- **未保存修改确认离开后脏标记未清除**：`nav.js go()` 的 EMR 未保存拦截在用户确认
+  离开后仅加载目标页，未清除 `EMR_DIRTY`——模块级脏标记随 SPA 单例持续存在，只要
+  不整页刷新，后续每次 SPA 导航都会再次弹「当前病历有未保存的修改，确定离开吗？」。
+  修复：`Clinic.emr` 新增 `markClean()`，确认回调中先清除再导航。
+  （`public/assets/js/components/emr.js`、`public/assets/js/components/nav.js`）
+
+---
+
 ## [7.27.0] - 2026-09-08
 
 > 安全与并发缺陷修复（打印 XSS / 就诊序号 / 业务单号 / 双驱动兼容 / 退费竞态）+ 前端大型文件拆分（行为不变）。
