@@ -221,6 +221,8 @@
     cursor: text;
     line-height: 1.7;
     vertical-align: bottom;
+    /* 与 .emr-item-link（过敏史/生命体征可点击标签）同款淡入淡出，全控件统一 */
+    transition: background 0.15s ease-in-out, color 0.15s ease-in-out, border-bottom-color 0.15s ease-in-out;
 }
 .emr-doc .doc-body .ef-field:empty::before {
     content: attr(data-ph);
@@ -264,6 +266,9 @@
     border-bottom-color: var(--primary);
     color: var(--primary);
 }
+.emr-doc .doc-body .ef-select {
+    transition: background 0.15s ease-in-out, color 0.15s ease-in-out, border-bottom-color 0.15s ease-in-out;
+}
 .emr-doc .doc-body .ef-select:hover { background-color: var(--primary-soft); border-bottom-color: var(--primary); color: var(--primary); }
 .emr-doc .doc-body .ef-select.csd-open { background-color: var(--primary-soft); border-bottom-color: var(--primary); color: var(--primary); }
 .emr-doc .doc-body .ef-auto { color: var(--text); }
@@ -274,7 +279,10 @@
 .emr-doc .doc-body .ef-disp-box { display: block; flex: 1; min-width: 0; }
 /* 初步诊断触发字段与已选诊断项 */
 .emr-doc .doc-body .ef-diag { cursor: pointer; }
-.emr-doc .doc-body .ef-diag-item { border-bottom: none; }
+.emr-doc .doc-body .ef-diag-item {
+    border-bottom: none;
+    transition: background 0.15s ease-in-out;
+}
 .emr-doc .doc-body .ef-diag-item:hover { background: var(--primary-soft); }
 .emr-doc .doc-body .ef-diag-sep { color: var(--text); margin: 0 2px; }
 /* 首个诊断后的「＋」快捷添加入口（点击弹出跟随鼠标的诊断添加悬浮窗） */
