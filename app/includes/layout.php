@@ -255,7 +255,7 @@ class Layout {
             $emrScripts = implode("\n", array_map(function ($f) {
                 return '<script src="/assets/js/components/' . $f . '.js?v=' . APP_VERSION . '"></script>';
             }, array(
-                'queuepanel_core', 'order', 'emreditor', 'emr_ctxmenu', 'eventbus', 'emr', 'emr_cert', 'emr_consult', 'emr_rules', 'emr_format',
+                'queuepanel_core', 'order', 'emreditor', 'emr_ctxmenu', 'eventbus', 'emr', 'emr_diag', 'emr_cert', 'emr_consult', 'emr_rules', 'emr_format',
                 'emr_template', 'emr_fee', 'emr_patient', 'emr_orders', 'emr_segments', 'emr_consent', 'vitals', 'queuepanel',
             )));
         }
