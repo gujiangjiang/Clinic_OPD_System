@@ -12,18 +12,23 @@ Clinic.emr = Clinic.emr || {};
 
 Clinic.emr.consent = (function () {
 
-    /** 打开知情同意书模板选择框（复用病历模板选择框，type=consent） */
+    /** 打开知情同意/告知文书模板选择框（复用病历模板选择框，type=consent） */
     function openPicker(ev) {
         Clinic.emr.template.openTemplatePicker(ev, {
             type: 'consent',
-            pickPlaceholder: '🔍 搜索知情同意书模板',
-            emptyText: '暂无可用的知情同意书模板，可前往「模板管理」创建',
+            pickPlaceholder: '🔍 搜索知情同意/告知文书模板',
+            emptyText: '暂无可用的知情同意/告知文书模板，可前往「模板管理」创建',
             onApply: function (t) {
                 var c = t.content || {};
+                // 标题展示（服务端权威推导）：新模板（无 name）→ 模板名称原文（完全自定义抬头）；
+                // 旧模板（含 name 非空）→ 兼容旧逻辑 name + 知情同意书
+                var titleGuess = (c.name && String(c.name).trim()) ? (String(c.name).trim() + '知情同意书') : (t.title || '');
                 openEditor({
-                    name: c.name || '通用',
+                    title: titleGuess,
                     content: c.content || '',
-                    title: t.title || '',
+                    notice: c.notice || '',
+                    // 旧模板无 sections → 默认主诉+初步诊断（旧行为）
+                    sections: Array.isArray(c.sections) ? c.sections : ['chief_complaint', 'preliminary_diagnosis'],
                 }, 0, t.id);
             },
         });
@@ -39,30 +44,61 @@ Clinic.emr.consent = (function () {
         return !!(window.Clinic && Clinic.emr && Clinic.emr._ctx && Clinic.emr._ctx.DATA && Clinic.emr._ctx.DATA.__readonly_view);
     }
 
+    /** 默认告知话术（占位符；空值保存时后端回落同一文本） */
+    var DEFAULT_NOTICE = '患者/委托人已知晓上述病情介绍与知情同意内容，医生已向我详细解释，我已完全理解，愿意承担可能出现风险及并发症，并遵从医嘱，配合治疗。';
+
+    /** 可勾选的病历内容节（键 => 标签，与后端 consent_section_keys 一致） */
+    var CONSENT_SECTIONS = [
+        ['chief_complaint', '主诉'], ['present_illness', '现病史'], ['past_history', '既往史'],
+        ['allergy_history', '过敏史'], ['main_symptoms', '主要症状'], ['vitals', '生命体征'],
+        ['consciousness', '意识状态'], ['physical_exam', '体格检查'], ['preliminary_diagnosis', '初步诊断'],
+    ];
+
+    /** 病历内容显示节复选框组（sel 为勾选键数组） */
+    function sectionsHtml(sel) {
+        sel = sel || [];
+        return CONSENT_SECTIONS.map(function (s) {
+            var on = sel.indexOf(s[0]) !== -1;
+            return '<label class="fs-13" style="display:inline-flex;align-items:center;gap:4px;margin:2px 10px 2px 0;cursor:pointer">' +
+                '<input type="checkbox" class="ct-sec-chk" value="' + s[0] + '"' + (on ? ' checked' : '') + '>' + s[1] + '</label>';
+        }).join('');
+    }
+
+    function sectionsFromDom() {
+        var out = [];
+        document.querySelectorAll('.ct-sec-chk:checked').forEach(function (c) { out.push(c.value); });
+        return out;
+    }
+
     /**
-     * 打开知情同意书模态框：
+     * 打开知情同意/告知文书模态框：
      * 新建（consentId=0）→ 编辑态（内容可编辑 + 保存）；
      * 查看已保存（consentId>0）→ 查看态（内容只读 + 编辑/打印/删除）。
+     * data: { title?, name?, content, notice, sections[], doctor_id?, dept_name? }
      */
     function openEditor(data, consentId, templateId) {
-        var name = data && data.name ? data.name : '';
         var content = data && data.content ? data.content : '';
+        var notice = data && data.notice ? data.notice : '';
+        var sections = data && data.sections ? data.sections : ['chief_complaint', 'preliminary_diagnosis'];
         _consentId = consentId || 0;
         _templateId = templateId || 0;
         _docId = data && data.doctor_id ? parseInt(data.doctor_id, 10) || 0 : 0;
-        // 就诊科室：新建显示当前就诊科室（保存时服务端固化）；查看显示开具时固化科室
-        var deptName = data && data.dept_name ? data.dept_name
-            : ((Clinic.emr._ctx && Clinic.emr._ctx.DATA && Clinic.emr._ctx.DATA.visit && Clinic.emr._ctx.DATA.visit.dept_name) || '');
         var html =
-            '<div class="form-group"><label class="form-label">知情同意书名称 <span class="req">*</span></label>' +
-            '<input class="input" id="ctName" value="' + escHtml(name) + '" readonly placeholder="由模板确定，不可更改"></div>' +
-            '<div class="form-group"><label class="form-label">就诊科室 <span class="fs-12 text-muted fw-400">（开具时固化，不随转科/会诊变化）</span></label>' +
-            '<input class="input" id="ctDept" value="' + escHtml(deptName) + '" readonly></div>' +
-            '<div class="form-group"><label class="form-label">知情同意内容 <span class="req">*</span></label>' +
-            '<textarea class="textarea" id="ctContent" rows="14" style="min-height:360px" placeholder="请输入知情同意内容…">' + escHtml(content) + '</textarea></div>' +
-            '<div class="fs-12 text-muted">开具医生将自动记录（打印时显示）。</div>';
+            '<div class="form-group"><label class="form-label">文书标题 <span class="fs-12 text-muted fw-400">（由模板确定，开具后按原文显示，不可修改）</span></label>' +
+            '<input class="input" id="ctTitle" value="' + escHtml((data && (data.title || data.name)) || '') + '" readonly></div>' +
+            // 编辑已保存文书时的提示（编辑态显示，查看态隐藏；重存随当前病历重新快照）
+            (_consentId > 0
+                ? '<div class="fs-13" id="ctEditTip" style="display:none;background:var(--primary-soft);border:1px solid var(--primary);border-radius:8px;padding:8px 12px;margin-bottom:10px">✏️ 正在编辑已开具的文书：保存后正文与病情介绍快照将随当前病历更新重新固化，历史打印不再变化。</div>'
+                : '') +
+            '<div class="form-group"><label class="form-label">病情介绍显示内容 <span class="fs-12 text-muted fw-400">（保存时按所选节固化病历快照，空内容自动不显示）</span></label>' +
+            '<div id="ctSections">' + sectionsHtml(sections) + '</div></div>' +
+            '<div class="form-group"><label class="form-label">告知内容 <span class="fs-12 text-muted fw-400">（显示于签名区上方；留空保存默认话术）</span></label>' +
+            '<textarea class="textarea" id="ctNotice" rows="3" placeholder="' + escHtml(DEFAULT_NOTICE) + '">' + escHtml(notice) + '</textarea></div>' +
+            '<div class="form-group"><label class="form-label">正文内容 <span class="req">*</span></label>' +
+            '<textarea class="textarea" id="ctContent" rows="12" style="min-height:300px" placeholder="请输入正文内容…">' + escHtml(content) + '</textarea></div>' +
+            '<div class="fs-12 text-muted">开具医生与就诊科室将自动记录（打印时显示，开具后固化）。</div>';
         _mask = Clinic.modal.open(html, {
-            title: (_consentId > 0 ? '知情同意书' : '新建知情同意书'),
+            title: (_consentId > 0 ? ((data && data.title) || '文书详情') : '新建文书'),
             size: 'modal-lg',
             buttons: [],
         });
@@ -73,15 +109,19 @@ Clinic.emr.consent = (function () {
             // 新建：编辑态
             _enterEditState();
         }
-        _mask.querySelector('#ctName').focus();
+        if (_mask.querySelector('#ctContent') && !_consentId) _mask.querySelector('#ctContent').focus();
     }
 
     /** 进入编辑态：内容可编辑，脚部 取消/保存 */
     function _enterEditState() {
-        ['#ctName', '#ctContent'].forEach(function (sel) {
+        ['#ctTitle', '#ctContent', '#ctNotice'].forEach(function (sel) {
             var el = _mask.querySelector(sel);
             if (el) { el.disabled = false; el.readOnly = false; }
         });
+        _mask.querySelectorAll('.ct-sec-chk').forEach(function (c) { c.disabled = false; });
+        // 编辑提示条：仅编辑态显示
+        var tip = _mask.querySelector('#ctEditTip');
+        if (tip) tip.style.display = '';
         var foot = _mask.querySelector('.modal-foot');
         foot.innerHTML =
             '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
@@ -90,10 +130,14 @@ Clinic.emr.consent = (function () {
 
     /** 进入查看态：内容只读（disabled 不可点击），脚部 取消/编辑/打印/删除(仅本人) */
     function _enterViewState() {
-        ['#ctName', '#ctContent'].forEach(function (sel) {
+        ['#ctTitle', '#ctContent', '#ctNotice'].forEach(function (sel) {
             var el = _mask.querySelector(sel);
             if (el) { el.disabled = true; el.readOnly = true; }
         });
+        _mask.querySelectorAll('.ct-sec-chk').forEach(function (c) { c.disabled = true; });
+        // 查看态隐藏编辑提示条
+        var tip = _mask.querySelector('#ctEditTip');
+        if (tip) tip.style.display = 'none';
         var myUid = parseInt(document.body.getAttribute('data-uid') || '0', 10) || 0;
         var readonlyView = !!(window.Clinic && Clinic.emr && Clinic.emr._ctx && Clinic.emr._ctx.DATA && Clinic.emr._ctx.DATA.__readonly_view);
         var foot = _mask.querySelector('.modal-foot');
@@ -131,13 +175,18 @@ Clinic.emr.consent = (function () {
         _enterEditState();
     }
 
-    /** 保存知情同意书（新建/编辑），成功后自动弹出打印预览 */
+    /** 保存知情同意/告知文书（新建/编辑），成功后自动弹出打印预览 */
     function save() {
         if (isReadonlyView()) { Clinic.toast.warning('跨科室病历仅只读，当前科室不可保存知情同意书'); return; }
         var content = (document.getElementById('ctContent') || {}).value || '';
-        if (!content.trim()) { Clinic.toast.warning('请填写知情同意内容'); return; }
+        if (!content.trim()) { Clinic.toast.warning('请填写正文内容'); return; }
+        var notice = (document.getElementById('ctNotice') || {}).value || '';
         var visitId = document.getElementById('visitId').value;
-        var data = { action: 'save', visit_id: visitId, content: content.trim() };
+        var data = {
+            action: 'save', visit_id: visitId,
+            content: content.trim(), notice: notice.trim(),
+            sections: JSON.stringify(sectionsFromDom()),
+        };
         if (_consentId > 0) data.id = _consentId;
         if (_templateId > 0) data.template_id = _templateId;
         Clinic.ajax('/api/consent', data, {
@@ -196,15 +245,19 @@ Clinic.emr.consent = (function () {
         }, { title: '删除知情同意书', okText: '确认删除' });
     }
 
-    /** 编辑已保存的知情同意书（加载内容后打开编辑模态框） */
+    /** 编辑已保存的文书（加载内容后打开编辑模态框；重存将随当前病历重新快照） */
     function edit(id) {
         Clinic.get('/api/consent?action=get&id=' + id, null, {
             onSuccess: function (j) {
                 var c = j.data.consent;
                 if (!c) return;
-                // title 形如「手术知情同意书」→ 反推名称「手术」
-                var name = c.title.replace(/知情同意书$/, '');
-                openEditor({ name: name, content: c.content, doctor_id: c.doctor_id, dept_name: c.dept_name }, c.id, 0);
+                openEditor({
+                    title: c.title,
+                    content: c.content,
+                    notice: c.notice || '',
+                    sections: c.sections || ['chief_complaint', 'preliminary_diagnosis'],
+                    doctor_id: c.doctor_id,
+                }, c.id, 0);
             },
         });
     }
