@@ -252,19 +252,23 @@ function cashier_part_write($action) {
     // 仅通过退款审批流程进入；直接退费时保持原 paid 硬校验。
     $refundOne = function ($u, $order, $reason, $paymentNo, $method, $allowExecuted = false) {
         $orderId = (int)$order['id'];
-        $items = CashierRepository::orderItems($orderId);
-        // 退费资格：未审批时要求全部 paid（检验/检查未登记、药房未发药、处置未执行）；
-        // 审批通过后（allowExecuted）允许已执行项目退费
-        if (!$allowExecuted) {
-            foreach ($items as $it) {
-                if ($it['status'] !== 'paid') {
-                    json_fail('存在已开始执行的项目（' . e($it['item_name']) . '），不可退费');
-                }
-            }
-        }
         $pdo = DatabaseManager::getMain();
         $pdo->beginTransaction();
         try {
+            // 事务内重新读取明细并校验退费资格：资格判定与状态迁移同处一个事务，
+            // 杜绝「校验通过后、状态迁移前」检验科/药房并发登记/发药导致的半退状态
+            // （校验在事务外时，订单被标 refunded 但新登记的明细停留在 registered）
+            $items = CashierRepository::orderItems($orderId);
+            // 退费资格：未审批时要求全部 paid（检验/检查未登记、药房未发药、处置未执行）；
+            // 审批通过后（allowExecuted）允许已执行项目退费
+            if (!$allowExecuted) {
+                foreach ($items as $it) {
+                    if ($it['status'] !== 'paid') {
+                        $pdo->rollBack();
+                        json_fail('存在已开始执行的项目（' . e($it['item_name']) . '），不可退费');
+                    }
+                }
+            }
             // 订单状态迁移：未审批退费允许 paid / reviewed（审方通过未发药）；审批通过后
             // （allowExecuted）再允许已发药（dispensed）订单退费——
             // 修复「已发药处方退费死锁」：审批流放行而执行被状态硬拦
@@ -292,6 +296,12 @@ function cashier_part_write($action) {
             if ($affectedItems === 0) {
                 $pdo->rollBack();
                 json_fail('订单明细状态已变更，不可退费');
+            }
+            // 原子兜底：未审批退费要求全部明细都被成功置为 refunded——
+            // 若明细数不一致，说明校验后又有明细被并发登记/发药（半退状态），整单回滚
+            if (!$allowExecuted && $affectedItems !== count($items)) {
+                $pdo->rollBack();
+                json_fail('订单明细状态已变更，存在已开始执行的项目，不可退费');
             }
             CashierRepository::createRefund(array(
                 'visit_id' => $order['visit_id'], 'order_id' => $orderId, 'patient_no' => $order['patient_no'], 'flow_no' => $order['flow_no'],
