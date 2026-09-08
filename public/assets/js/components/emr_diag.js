@@ -17,7 +17,10 @@ Clinic.emr.diag = (function () {
     var myDoctorId = ctx.myDoctorId;
     var currentRecordEditable = ctx.currentRecordEditable;
     var renderLeftNav = ctx.renderLeftNav;
-    var clampPop = ctx.clampPop;
+    // 注意：clampPop 的本地实现就在本模块内（见下方 function clampPop），
+    // 不可写 `var clampPop = ctx.clampPop`——该赋值会覆盖提升的函数声明，
+    // 而 ctx.clampPop 是 emr.js 的桥接（指向本模块），自引用将导致无限递归
+    // （Maximum call stack size exceeded，诊断弹窗打不开）
 
     /* ==================== 诊断悬浮窗（跟随鼠标：添加 / 排序操作） ==================== */
 
