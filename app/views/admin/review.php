@@ -133,19 +133,29 @@ function previewAudit(btn) {
                 var isImg = t.type === 'imaging_report';
                 var isAdvice = t.type === 'order_note';
                 var textLabel = isConsent ? '知情同意书模板' : (isNurse ? '护理记录模板' : (isAdvice ? '病历嘱托模板' : '影像报告模板'));
+                // 知情同意/告知文书模板预览：告知内容 + 病历内容显示节（勾选状态）
+                var CONSENT_SEC_NAMES = { chief_complaint: '主诉', present_illness: '现病史', past_history: '既往史', allergy_history: '过敏史', main_symptoms: '主要症状', vitals: '生命体征', consciousness: '意识状态', physical_exam: '体格检查', preliminary_diagnosis: '初步诊断' };
+                var consentSecText = '';
+                if (isConsent) {
+                    var secs = (t.content && t.content.sections) || [];
+                    consentSecText = secs.length ? secs.map(function (k) { return CONSENT_SEC_NAMES[k] || k; }).join('、') : '（不显示病情介绍）';
+                }
                 var rightHtml = (isConsent || isNurse || isImg || isAdvice)
                     ? '<div class="card-title"><span>📝 ' + textLabel + '（只读）</span></div>' +
                       (isConsent
-                          ? '<div class="form-group"><label class="form-label">知情同意书名称（XX）</label>' +
-                            '<input class="input" value="' + escHtml((t.content && t.content.name) || '') + '" readonly></div>'
-                          : '') +
-                      (isImg
+                          ? '<div class="form-group"><label class="form-label">告知内容（签名区上方）</label>' +
+                            '<textarea class="textarea" rows="3" readonly>' + escHtml((t.content && t.content.notice) || '') + '</textarea></div>' +
+                            '<div class="form-group"><label class="form-label">病情介绍显示内容</label>' +
+                            '<input class="input" value="' + escHtml(consentSecText) + '" readonly></div>' +
+                            '<div class="form-group"><label class="form-label">正文内容</label>' +
+                            '<textarea class="textarea" rows="12" readonly style="min-height:300px">' + escHtml((t.content && t.content.content) || '') + '</textarea></div>'
+                          : (isImg
                           ? '<div class="form-group"><label class="form-label">影像所见</label>' +
                             '<textarea class="textarea" rows="8" readonly>' + escHtml((t.content && t.content.findings) || '') + '</textarea></div>' +
                             '<div class="form-group"><label class="form-label">影像诊断</label>' +
                             '<textarea class="textarea" rows="5" readonly>' + escHtml((t.content && t.content.conclusion) || '') + '</textarea></div>'
                           : '<div class="form-group"><label class="form-label">' + (isNurse ? '护理记录内容' : (isAdvice ? '嘱托正文' : '知情同意内容')) + '</label>' +
-                            '<textarea class="textarea" rows="14" readonly style="min-height:380px">' + escHtml((t.content && t.content.content) || '') + '</textarea></div>')
+                            '<textarea class="textarea" rows="14" readonly style="min-height:380px">' + escHtml((t.content && t.content.content) || '') + '</textarea></div>'))
                     : '<div class="card-title"><span>📝 模板正文（只读）</span></div>' +
                       '<div class="emr-doc"><div class="doc-body" id="previewTemplateEditor" style="border:1px solid var(--border);border-radius:8px;padding:14px;min-height:380px"></div></div>';
                 var html = '<div class="tpl-form">' +

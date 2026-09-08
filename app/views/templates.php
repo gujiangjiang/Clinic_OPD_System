@@ -164,30 +164,50 @@ function buildTplForm(mask, tpl) {
     var isNurse = TPL_TYPE === 'nursing_record';
     var isImg = TPL_TYPE === 'imaging_report';
     var isAdvice = TPL_TYPE === 'order_note';
-    // 知情同意书模板：名称 + 适用范围 + 知情名称(XX) + 正文（textarea）
+    // 知情同意/告知文书模板：标题（模板名称即文书抬头，完全自定义）+ 适用范围 +
+    //   正文（textarea）+ 告知内容（占位符=默认话术，空则保存默认）+ 病历内容显示节（复选框）
     // 护理记录模板：名称 + 适用范围 + 正文（textarea）
     // 病历嘱托模板：名称 + 适用范围 + 嘱托正文（textarea）
     // 影像报告模板：名称 + 适用范围 + 影像所见 + 影像诊断（textarea）
     // 病历模板：名称 + 适用范围 + 结构化 EMR 编辑器
+    var CONSENT_SECTIONS = [
+        ['chief_complaint', '主诉'], ['present_illness', '现病史'], ['past_history', '既往史'],
+        ['allergy_history', '过敏史'], ['main_symptoms', '主要症状'], ['vitals', '生命体征'],
+        ['consciousness', '意识状态'], ['physical_exam', '体格检查'], ['preliminary_diagnosis', '初步诊断'],
+    ];
+    function consentSectionsHtml(sel) {
+        return CONSENT_SECTIONS.map(function (s) {
+            var on = sel.indexOf(s[0]) !== -1;
+            return '<label class="fs-13" style="display:inline-flex;align-items:center;gap:4px;margin:2px 10px 2px 0;cursor:pointer">' +
+                '<input type="checkbox" class="consent-sec-chk" value="' + s[0] + '"' + (on ? ' checked' : '') + '>' + s[1] + '</label>';
+        }).join('');
+    }
     var contentField = (isConsent || isNurse || isImg || isAdvice)
         ? (isConsent
-            ? '<div class="form-group"><label class="form-label">知情同意书名称（XX） <span class="req">*</span></label>' +
-              '<input class="input" id="tfCName" value="' + escHtml((tpl && tpl.content && tpl.content.name) || '') + '" placeholder="如：手术、输血、有创操作"></div>'
-            : '') +
-          (isImg
+            ? '<div class="form-group"><label class="form-label">告知内容 <span class="fs-12 text-muted fw-400">（显示于签名区上方；留空保存默认话术）</span></label>' +
+              '<textarea class="textarea" id="tfCNotice" rows="3" placeholder="患者/委托人已知晓上述病情介绍与知情同意内容，医生已向我详细解释，我已完全理解，愿意承担可能出现风险及并发症，并遵从医嘱，配合治疗。">' + escHtml((tpl && tpl.content && tpl.content.notice) || '') + '</textarea></div>' +
+              '<div class="form-group"><label class="form-label">病情介绍显示内容 <span class="fs-12 text-muted fw-400">（开具时按所选节固化病历快照，空内容自动不显示）</span></label>' +
+              '<div id="tfCSections">' + consentSectionsHtml((tpl && tpl.content && tpl.content.sections) || ['chief_complaint', 'preliminary_diagnosis']) + '</div></div>' +
+              '<div class="form-group"><label class="form-label">正文内容 <span class="req">*</span></label>' +
+              '<textarea class="textarea" id="tfCContent" rows="12" style="min-height:300px" placeholder="请输入正文内容…（标题即左侧「模板名称」，如：门诊告知书 / 病重通知书 / 手术知情同意书）">' + escHtml((tpl && tpl.content && tpl.content.content) || '') + '</textarea></div>'
+          : (isImg
               ? '<div class="form-group"><label class="form-label">影像所见 <span class="req">*</span></label>' +
                 '<textarea class="textarea" id="tfFindings" rows="8" placeholder="请输入影像所见描述…">' + escHtml((tpl && tpl.content && tpl.content.findings) || '') + '</textarea></div>' +
                 '<div class="form-group"><label class="form-label">影像诊断 <span class="req">*</span></label>' +
                 '<textarea class="textarea" id="tfConclusion" rows="5" placeholder="请输入影像诊断（检查结论）…">' + escHtml((tpl && tpl.content && tpl.content.conclusion) || '') + '</textarea></div>'
-              : '<div class="form-group"><label class="form-label">' + (isNurse ? '护理记录内容' : (isAdvice ? '嘱托正文' : '知情同意内容')) + ' <span class="req">*</span></label>' +
-                '<textarea class="textarea" id="tfCContent" rows="14" style="min-height:380px" placeholder="' + (isNurse ? '请输入护理记录模板正文内容…' : (isAdvice ? '请输入嘱托模板正文内容…' : '请输入知情同意书正文内容…')) + '">' + escHtml((tpl && tpl.content && tpl.content.content) || '') + '</textarea></div>')
+              : '<div class="form-group"><label class="form-label">' + (isNurse ? '护理记录内容' : '嘱托正文') + ' <span class="req">*</span></label>' +
+                '<textarea class="textarea" id="tfCContent" rows="14" style="min-height:380px" placeholder="' + (isNurse ? '请输入护理记录模板正文内容…' : '请输入嘱托模板正文内容…') + '">' + escHtml((tpl && tpl.content && tpl.content.content) || '') + '</textarea></div>'))
         : '<div class="card-title"><span>📝 模板正文</span></div>' +
           '<div class="emr-doc"><div class="doc-body" id="templateEditor" style="border:1px solid var(--border);border-radius:8px;padding:14px;min-height:380px"></div></div>';
     var html =
         '<div class="tpl-form">' +
         '  <div class="tpl-left">' +
         '    <div class="form-group"><label class="form-label">模板名称 <span class="req">*</span></label>' +
-        '      <input class="input" id="tfTitle" value="' + escHtml(tpl ? tpl.title : '') + '" placeholder="如：骨科门诊病历模板"></div>' +
+        '      <input class="input" id="tfTitle" value="' + escHtml(tpl ? tpl.title : '') + '" placeholder="如：骨科门诊病历模板">' +
+        (isConsent
+            ? '<div class="fs-12 text-muted mt-4">⚠️ 该名称将作为文书抬头完全自定义（如：门诊告知书 / 病重通知书 / 手术知情同意书），开具后按原文显示</div>'
+            : '') +
+        '    </div>' +
         '    <div class="form-group"><label class="form-label">适用范围</label>' +
         '      <select class="select" id="tfScope" onchange="onTplScopeChange()">' +
         '        <option value="personal"' + (tpl && tpl.scope === 'personal' ? ' selected' : '') + (isAdmin ? ' disabled' : '') + '>个人</option>' +
@@ -245,11 +265,13 @@ function saveTplForm(id, origStatus) {
     var isAdvice = TPL_TYPE === 'order_note';
     var content = {};
     if (isConsent) {
-        var cName = (document.getElementById('tfCName') || {}).value || '';
         var cContent = (document.getElementById('tfCContent') || {}).value || '';
-        if (!cName.trim()) { Clinic.toast.warning('请填写知情同意书名称（如：手术、输血）'); return; }
-        if (!cContent.trim()) { Clinic.toast.warning('请填写知情同意内容'); return; }
-        content = { name: cName.trim(), content: cContent.trim() };
+        if (!cContent.trim()) { Clinic.toast.warning('请填写正文内容'); return; }
+        // 告知内容：空则后端回落默认话术；勾选节白名单由后端过滤
+        var cNotice = (document.getElementById('tfCNotice') || {}).value || '';
+        var cSections = [];
+        document.querySelectorAll('#tfCSections .consent-sec-chk:checked').forEach(function (c) { cSections.push(c.value); });
+        content = { content: cContent.trim(), notice: cNotice.trim(), sections: cSections };
     } else if (isNurse) {
         var nContent = (document.getElementById('tfCContent') || {}).value || '';
         if (!nContent.trim()) { Clinic.toast.warning('请填写护理记录内容'); return; }
