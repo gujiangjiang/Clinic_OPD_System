@@ -143,12 +143,12 @@ function previewAudit(btn) {
                 var rightHtml = (isConsent || isNurse || isImg || isAdvice)
                     ? '<div class="card-title"><span>📝 ' + textLabel + '（只读）</span></div>' +
                       (isConsent
-                          ? '<div class="form-group"><label class="form-label">告知内容（签名区上方）</label>' +
-                            '<textarea class="textarea" rows="3" readonly>' + escHtml((t.content && t.content.notice) || '') + '</textarea></div>' +
-                            '<div class="form-group"><label class="form-label">病情介绍显示内容</label>' +
+                          ? '<div class="form-group"><label class="form-label">病情介绍显示内容</label>' +
                             '<input class="input" value="' + escHtml(consentSecText) + '" readonly></div>' +
                             '<div class="form-group"><label class="form-label">正文内容</label>' +
-                            '<textarea class="textarea" rows="12" readonly style="min-height:300px">' + escHtml((t.content && t.content.content) || '') + '</textarea></div>'
+                            '<textarea class="textarea" rows="12" readonly style="min-height:300px">' + escHtml((t.content && t.content.content) || '') + '</textarea></div>' +
+                            '<div class="form-group"><label class="form-label">告知内容（签名区上方）</label>' +
+                            '<textarea class="textarea" rows="3" readonly>' + escHtml((t.content && t.content.notice) || '') + '</textarea></div>'
                           : (isImg
                           ? '<div class="form-group"><label class="form-label">影像所见</label>' +
                             '<textarea class="textarea" rows="8" readonly>' + escHtml((t.content && t.content.findings) || '') + '</textarea></div>' +

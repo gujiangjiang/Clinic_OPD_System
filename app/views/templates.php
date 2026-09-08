@@ -184,12 +184,12 @@ function buildTplForm(mask, tpl) {
     }
     var contentField = (isConsent || isNurse || isImg || isAdvice)
         ? (isConsent
-            ? '<div class="form-group"><label class="form-label">告知内容 <span class="fs-12 text-muted fw-400">（显示于签名区上方；留空保存默认话术）</span></label>' +
-              '<textarea class="textarea" id="tfCNotice" rows="3" placeholder="患者/委托人已知晓上述病情介绍与知情同意内容，医生已向我详细解释，我已完全理解，愿意承担可能出现风险及并发症，并遵从医嘱，配合治疗。">' + escHtml((tpl && tpl.content && tpl.content.notice) || '') + '</textarea></div>' +
-              '<div class="form-group"><label class="form-label">病情介绍显示内容 <span class="fs-12 text-muted fw-400">（开具时按所选节固化病历快照，空内容自动不显示）</span></label>' +
+            ? '<div class="form-group"><label class="form-label">病情介绍显示内容 <span class="fs-12 text-muted fw-400">（开具时按所选节固化病历快照，空内容自动不显示）</span></label>' +
               '<div id="tfCSections">' + consentSectionsHtml((tpl && tpl.content && tpl.content.sections) || ['chief_complaint', 'preliminary_diagnosis']) + '</div></div>' +
               '<div class="form-group"><label class="form-label">正文内容 <span class="req">*</span></label>' +
-              '<textarea class="textarea" id="tfCContent" rows="12" style="min-height:300px" placeholder="请输入正文内容…（标题即左侧「模板名称」，如：门诊告知书 / 病重通知书 / 手术知情同意书）">' + escHtml((tpl && tpl.content && tpl.content.content) || '') + '</textarea></div>'
+              '<textarea class="textarea" id="tfCContent" rows="12" style="min-height:300px" placeholder="请输入正文内容…（标题即左侧「模板名称」，如：门诊告知书 / 病重通知书 / 手术知情同意书）">' + escHtml((tpl && tpl.content && tpl.content.content) || '') + '</textarea></div>' +
+              '<div class="form-group"><label class="form-label">告知内容 <span class="fs-12 text-muted fw-400">（显示于签名区上方；留空保存默认话术）</span></label>' +
+              '<textarea class="textarea" id="tfCNotice" rows="3" placeholder="患者/委托人已知晓上述病情介绍与知情同意内容，医生已向我详细解释，我已完全理解，愿意承担可能出现风险及并发症，并遵从医嘱，配合治疗。">' + escHtml((tpl && tpl.content && tpl.content.notice) || '') + '</textarea></div>'
           : (isImg
               ? '<div class="form-group"><label class="form-label">影像所见 <span class="req">*</span></label>' +
                 '<textarea class="textarea" id="tfFindings" rows="8" placeholder="请输入影像所见描述…">' + escHtml((tpl && tpl.content && tpl.content.findings) || '') + '</textarea></div>' +
