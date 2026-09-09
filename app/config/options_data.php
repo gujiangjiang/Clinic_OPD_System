@@ -66,6 +66,10 @@ function opt_list($key) {
             'consciousness' => array('清醒', '嗜睡', '意识模糊', '昏睡', '昏迷', '谵妄'),
             // ---- 初复诊 ----
             'visit_type' => array('初诊', '复诊'),
+            // ---- 登录验证码启用模式（系统设置 → 安全设置）----
+            // off 不开启（完全不展示与校验）；auto 智能开启（默认：正常不显示，
+            // 遇错误/风险自动弹出）；force 强制开启（每次登录均要求）
+            'login_captcha_mode' => array('off', 'auto', 'force'),
         );
     }
     return isset($all[$key]) ? $all[$key] : array();

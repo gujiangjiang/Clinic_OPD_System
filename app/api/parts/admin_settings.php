@@ -59,6 +59,13 @@ function admin_part_settings($action) {
         // HIS 预留接口密钥（可为空=关闭外部接口）
         $hisKey = post('his_api_key', '');
         set_setting('his_api_key', $hisKey);
+        // 登录安全：验证码启用模式（off/auto/force）与锁定阈值（3-10）
+        $captchaMode = post('login_captcha_mode', 'auto');
+        if (!in_array($captchaMode, opt_list('login_captcha_mode'), true)) $captchaMode = 'auto';
+        set_setting('login_captcha_mode', $captchaMode);
+        $lockCount = (int)post('login_fail_lock_count', 5);
+        if ($lockCount < 3 || $lockCount > 10) $lockCount = 5;
+        set_setting('login_fail_lock_count', (string)$lockCount);
         date_default_timezone_set($tz);
         json_ok(array(), '系统设置已保存');
     }

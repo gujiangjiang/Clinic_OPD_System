@@ -94,7 +94,18 @@ foreach ($commonTz as $t) {
     <!-- ===== 安全设置 ===== -->
     <div class="card setting-card">
         <div class="card-title">🔐 安全设置</div>
-        <div class="setting-sec-title" style="margin-top:0;padding-top:0;border-top:none">URL 安全混淆密钥（防链接撞库）</div>
+        <div class="setting-sec-title" style="margin-top:0;padding-top:0;border-top:none">登录验证码与防爆破锁定</div>
+        <div class="form-group"><label class="form-label">登录验证码启用模式</label>
+            <select class="select" id="s_captcha_mode">
+                <option value="auto"<?php echo setting('login_captcha_mode', 'auto') === 'auto' ? ' selected' : ''; ?>>智能开启（默认：正常不显示，遇错误/风险自动弹出）</option>
+                <option value="force"<?php echo setting('login_captcha_mode') === 'force' ? ' selected' : ''; ?>>强制开启（每次登录均要求验证码）</option>
+                <option value="off"<?php echo setting('login_captcha_mode') === 'off' ? ' selected' : ''; ?>>不开启（完全不展示与校验验证码）</option>
+            </select></div>
+        <div class="form-group"><label class="form-label">密码连续错误锁定阈值（次）</label>
+            <input class="input" id="s_lock_count" type="number" min="3" max="10" value="<?php echo (int)setting('login_fail_lock_count', 5); ?>">
+            <div class="fs-12 text-muted mt-4">连续密码错误达到阈值后账号自动安全锁定（status=0），需管理员在【用户管理】中解锁；解锁时同步重置错误计数与锁定信息。</div></div>
+        <button class="btn btn-primary btn-sm" onclick="saveSettings()">保存</button>
+        <div class="setting-sec-title" style="margin-top:18px">URL 安全混淆密钥（防链接撞库）</div>
         <div class="fs-13 text-muted mb-8">用于加密就诊、申请单、报告等链接中的实体 ID，防止通过改数字遍历他人医疗数据。</div>
         <div class="fs-12 mb-8" style="font-family:monospace;word-break:break-all;background:var(--bg-soft);border-radius:8px;padding:10px" id="obf_secret">加载中…</div>
         <div class="flex gap-8">
@@ -311,12 +322,16 @@ loadObfStatus();
 function saveSettings() {
     var hosp = document.getElementById('s_hosp').value.trim();
     if (!hosp) { Clinic.toast.warning('请填写医院名称'); return; }
+    var lockCount = parseInt(document.getElementById('s_lock_count').value, 10) || 5;
+    if (lockCount < 3 || lockCount > 10) { Clinic.toast.warning('锁定阈值需在 3-10 次之间'); return; }
     Clinic.ajax('/api/admin', {
         action: 'settings',
         hospital_name: hosp,
         hospital_name2: document.getElementById('s_hosp2').value.trim(),
         timezone: document.getElementById('s_tz').value,
         his_api_key: document.getElementById('s_his_key').value.trim(),
+        login_captcha_mode: document.getElementById('s_captcha_mode').value,
+        login_fail_lock_count: String(lockCount),
     }, {
         onSuccess: function (json) {
             Clinic.toast.success(json.msg);
