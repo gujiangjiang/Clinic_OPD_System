@@ -220,6 +220,26 @@ function buildTplForm(mask, tpl) {
         '  <div class="tpl-right">' + contentField + '</div>' +
         '</div>';
     mask.querySelector('.modal-body').innerHTML = html;
+    // 模板创建/编辑模态框：模板正文等编辑区禁用浏览器原生右键菜单——
+    // 输入框（input/textarea/富文本字段）右击调用自定义菜单（复制/剪切/粘贴/清空），
+    // 其余区域一律屏蔽原生菜单；本模态框即模板创建场景，嘱托字段隐藏「模板」项。
+    var tplFormEl = mask.querySelector('.tpl-form');
+    if (tplFormEl) {
+        tplFormEl.addEventListener('contextmenu', function (ev) {
+            var t = ev.target;
+            // 仅文本输入类（input[type=text]/无 type/search、textarea、富文本字段）调用
+            // 自定义菜单；勾选框/单选/隐藏输入等其余区域一律屏蔽原生菜单
+            var textEntry = t && t.closest &&
+                t.closest('input[type="text"], input[type="search"], input:not([type]), textarea, [contenteditable="true"]');
+            if (textEntry) {
+                if (window.Clinic && Clinic.emrMenu && Clinic.emrMenu.show) {
+                    Clinic.emrMenu.show(ev, { hideTemplate: true });
+                }
+                return;
+            }
+            ev.preventDefault();
+        });
+    }
     // 渲染科室三级树（复用 depttree 组件）
     var treeBox = document.getElementById('tfDeptTree');
     if (treeBox) {

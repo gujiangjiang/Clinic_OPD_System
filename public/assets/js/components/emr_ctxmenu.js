@@ -10,8 +10,9 @@
  * 3. 菜单项点击即执行并自动关闭；点菜单外部 / Esc / 滚动即关闭
  * 4. 颜色全部走 CSS 变量（--bg-card/--border/--primary/--text-*），
  *    自动适配明暗主题
- * 触发方式：emr.js 的 #emrCard contextmenu 委托命中输入框后调用
- * Clinic.emrMenu.show(ev)，本组件内部 preventDefault 屏蔽原生菜单。
+ * 触发方式：emr.js 的 #emrCard contextmenu 委托 / 模板创建模态框等
+ * Clinic.emrMenu.show(ev[, opts])，本组件内部 preventDefault 屏蔽原生菜单。
+ * opts.hideTemplate=true 时嘱托字段不显示「模板」项（模板创建场景）。
  * 依赖：Clinic.toast（可选，仅提示用）。
  * ============================================================ */
 window.Clinic = window.Clinic || {};
@@ -340,8 +341,14 @@ Clinic.emrMenu = (function () {
 
     /* ==================== 菜单生命周期 ==================== */
 
-    /** 在 (x, y) 处弹出菜单（fixed 视口坐标，四边夹紧 4px） */
-    function build(ev) {
+    /**
+     * 在 (x, y) 处弹出菜单（fixed 视口坐标，四边夹紧 4px）
+     * @param {Event} ev 右键事件
+     * @param {object} opts { hideTemplate: bool } 模板创建模态框等场景传 true 时，
+     *   嘱托字段不显示「模板」项（本就在创建模板，无需再选模板）
+     */
+    function build(ev, opts) {
+        opts = opts || {};
         var isAdvice = field && field.getAttribute('data-k') === 'advice';
         var canUndo = !!(window.Clinic && Clinic.emrEditor && Clinic.emrEditor.canUndo &&
             field && Clinic.emrEditor.canUndo(field));
@@ -355,7 +362,7 @@ Clinic.emrMenu = (function () {
         ['copy', 'cut', 'paste', 'clear'].forEach(function (act) {
             html += '<div class="emr-ctxmenu-item" role="menuitem" data-act="' + act + '">' + labels[act] + '</div>';
         });
-        if (isAdvice) {
+        if (isAdvice && !opts.hideTemplate) {
             html += '<div class="emr-ctxmenu-sep"></div>';
             html += '<div class="emr-ctxmenu-item" role="menuitem" data-act="template">模板</div>';
         }
@@ -386,10 +393,12 @@ Clinic.emrMenu = (function () {
     }
 
     /**
-     * 输入框右键入口（emr.js 的 #emrCard contextmenu 委托调用）：
+     * 输入框右键入口（#emrCard 病历区 / 模板创建模态框等 contextmenu 委托调用）：
      * 命中输入框则阻止原生菜单并弹出自定义菜单；非输入框直接忽略。
+     * @param {Event} ev 右键事件
+     * @param {object} [opts] 透传给 build（如 { hideTemplate: true }）
      */
-    function show(ev) {
+    function show(ev, opts) {
         var t = ev.target;
         if (!t || !t.closest) return;
         var el = t.closest('input, textarea, [contenteditable="true"]');
@@ -399,7 +408,7 @@ Clinic.emrMenu = (function () {
         if (el.tagName === 'INPUT' && (el.type === 'hidden' || el.style.display === 'none')) return;
         close();
         field = el;
-        build(ev);
+        build(ev, opts || {});
     }
 
     function close() {
