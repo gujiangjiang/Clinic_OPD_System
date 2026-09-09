@@ -515,21 +515,22 @@ Clinic.print = (function () {
                 // 该边距真实占压正文空间——精确计入，否则每页多出 8px 留白
                 footH += 8;
 
-                // 正文可用高度：以 179mm 为基准 + 8px 安全余量。设计对齐：
+                // 正文可用高度：以 187mm 为基准 + 8px 安全余量。设计对齐：
                 // · 打印 @page 边距已归零，页边距改由 .a5-sheet 内部 padding 呈现——
                 //   打印文字区宽高与预览、测高容器逐像素一致，换行点不再随驱动漂移；
-                // · 基准 179mm 对应打印 sheet 内容区 179mm（sheet 最小 202mm，下边距
-                //   13mm）——页脚落在纸面 189mm 处，距纸底 210mm 留出 21mm 缓冲，
-                //   可吸收打印机硬件不可打印区 + 打印端正文比预览高出的约一行偏差，
-                //   签名/页脚不再被裁掉；
+                // · 基准 187mm 对应打印 sheet 内容区 187mm（sheet 最小 202mm，
+                //   上边距 10mm、下边距 5mm）——页脚落在纸面 197mm 处（比 7.28.8
+                //   的 189mm 低约 2 行，版面饱满），同时 sheet 仍保有约 10mm 增高
+                //   余量（与 7.28.8 相同），打印端正文比预览略高的偏差先被吸收，
+                //   不会冲破 210mm 物理页高、页脚不会挤到新页；
                 // · 8px 余量吸收 DPI 逐像素取整的行高舍入；sheet 随内容自然增高不裁剪
                 //   （print.css），内容永不丢失。
                 // 页尾悬挂 marginBottom 记账（见下方 hangMb）回收页尾纯空白约 3~10px，
                 // 页面底部几乎无可见留白。
                 // 首页用完整页眉高；第2页起用精简页眉高（更矮 → 可用高度更大，
                 // 避免每页底部留出「完整页眉-精简页眉」的空白差）
-                var availHFull = Math.floor(179 * MM) - headH - footH - 8;
-                var availHCompact = compactHeadH > 0 ? Math.floor(179 * MM) - compactHeadH - footH - 8 : availHFull;
+                var availHFull = Math.floor(187 * MM) - headH - footH - 8;
+                var availHCompact = compactHeadH > 0 ? Math.floor(187 * MM) - compactHeadH - footH - 8 : availHFull;
 
                 // ---- 分离「底部签名区」（print-foot-sec）与正文流 ----
                 // 签名区不参与正文流分页，随正文流保留在最后一页；
