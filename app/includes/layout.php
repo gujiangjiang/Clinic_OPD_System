@@ -169,12 +169,18 @@ class Layout {
             ? '<div class="auth-brand">' . $logoImg . '<div class="brand-names">' . $brandNames . '</div></div>'
             : '';
         $favicon = $logoData !== '' ? '<link rel="icon" href="' . e($logoData) . '">' : '';
+        // PWA 桌面应用：清单（应用名=医院名称）+ 图标 + 独立窗口
+        $pwaHead = '<link rel="manifest" href="/manifest.webmanifest">' .
+            '<meta name="theme-color" content="#2563eb">' .
+            '<meta name="mobile-web-app-capable" content="yes">' .
+            '<meta name="apple-mobile-web-app-title" content="' . e($hosp !== '' ? $hosp : '门诊一体化系统') . '">' .
+            '<link rel="apple-touch-icon" href="/pwa-icon.png">';
         $theme = Auth::theme();
         $html = '<!DOCTYPE html><html lang="zh-CN"><head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>' . e($hosp !== '' ? $hosp . ' - 门诊一体化系统' : '门诊一体化系统') . '</title>
-            ' . $favicon . '
+            ' . $favicon . $pwaHead . '
             <link rel="stylesheet" href="/assets/css/base.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/components.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/components-emr.css?v=' . APP_VERSION . '">
@@ -190,6 +196,13 @@ class Layout {
             <script src="/assets/js/components/toast.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/theme.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/validation.js?v=' . APP_VERSION . '"></script>
+            <script>
+            if ("serviceWorker" in navigator) {
+                window.addEventListener("load", function () {
+                    navigator.serviceWorker.register("/sw.js").catch(function () {});
+                });
+            }
+            </script>
         </body></html>';
         return $html;
     }
@@ -300,6 +313,11 @@ class Layout {
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>' . e($pageTitle) . '</title>
             ' . $favicon . '
+            <link rel="manifest" href="/manifest.webmanifest">
+            <meta name="theme-color" content="#2563eb">
+            <meta name="mobile-web-app-capable" content="yes">
+            <meta name="apple-mobile-web-app-title" content="' . e($hosp !== '' ? $hosp : '门诊一体化系统') . '">
+            <link rel="apple-touch-icon" href="/pwa-icon.png">
             <link rel="stylesheet" href="/assets/css/base.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/components.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/components-emr.css?v=' . APP_VERSION . '">
@@ -340,6 +358,13 @@ class Layout {
             <script src="/assets/js/components/critical.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/app.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/nav.js?v=' . APP_VERSION . '"></script>
+            <script>
+            if ("serviceWorker" in navigator) {
+                window.addEventListener("load", function () {
+                    navigator.serviceWorker.register("/sw.js").catch(function () {});
+                });
+            }
+            </script>
             ' . $emrScripts . '
             <div class="' . $appClass . '">
                 <!-- ===== 侧边栏 ===== -->

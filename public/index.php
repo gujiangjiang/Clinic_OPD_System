@@ -23,6 +23,22 @@ DatabaseManager::initAll();
 $uri      = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $uri      = rtrim($uri, '/') ?: '/';
 
+/* ---------- PWA 资源（manifest / 图标 / Service Worker） ---------- */
+// 动态资源（清单含医院名称、图标含 LOGO）由 PHP 生成；SW 从静态文件读出
+if ($uri === '/manifest.webmanifest' || $uri === '/pwa-icon.png') {
+    require APP_ROOT . '/app/includes/pwa.php';
+    exit;
+}
+if ($uri === '/sw.js') {
+    header('Content-Type: application/javascript; charset=utf-8');
+    header('Cache-Control: no-cache');
+    $swFile = APP_ROOT . '/public/assets/js/sw.js';
+    if (is_file($swFile)) {
+        readfile($swFile);
+    }
+    exit;
+}
+
 /* ---------- AJAX 接口分发 ---------- */
 if (preg_match('#^/api/([a-z0-9_]+)$#i', $uri, $m)) {
     $apiName = $m[1];

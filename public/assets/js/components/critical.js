@@ -418,6 +418,27 @@ Clinic.critical = (function () {
         var isDoctor = cfg.role === 'doctor';
         var isAdmin = cfg.role === 'admin';
 
+        /** 默认时间范围：最近 3 天（含今天），可手动修改；优先服务端站点时区日期 */
+        function setDefaultRange() {
+            var fmt = function (d) {
+                return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+            };
+            if (cfg.defaultFrom && cfg.defaultTo) {
+                state.from = cfg.defaultFrom;
+                state.to = cfg.defaultTo;
+            } else {
+                var t = new Date();
+                var f = new Date();
+                f.setDate(t.getDate() - 2);
+                state.from = fmt(f);
+                state.to = fmt(t);
+            }
+            var fromEl = document.getElementById('critFrom');
+            var toEl = document.getElementById('critTo');
+            if (fromEl) fromEl.value = state.from;
+            if (toEl) toEl.value = state.to;
+        }
+
         function head() {
             var cols = isDoctor || isAdmin
                 ? '<th>患者</th><th>项目</th><th>发起科室</th><th>发起时间</th><th>处理时间</th><th>处理时长</th><th>状态</th>'
@@ -494,6 +515,16 @@ Clinic.critical = (function () {
             load(false);
         };
 
+        // 默认时间范围：最近 3 天
+        setDefaultRange();
+
+        // 「重置」恢复默认 3 天范围（不清空），而非回到全量
+        window.__critListResetDefault = function () {
+            setDefaultRange();
+            document.getElementById('critStatus').value = '';
+            load(true);
+        };
+
         var container = document.getElementById(cfg.container);
         if (container) {
             container.innerHTML =
@@ -542,7 +573,7 @@ Clinic.critical = (function () {
         document.getElementById('critFrom').value = '';
         document.getElementById('critTo').value = '';
         document.getElementById('critStatus').value = '';
-        if (window.__critListApply) window.__critListApply({ status: '', from: '', to: '' });
+        if (window.__critListResetDefault) window.__critListResetDefault();
     }
 
     function _listMore() {
