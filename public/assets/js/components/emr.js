@@ -136,13 +136,13 @@ Clinic.emr = (function () {
                 // 会诊列表渲染（门诊处置「请X科会诊」数据源：DATA.consults）
                 CONSULTS = j.data.consults || [];
                 renderConsultList();
-                // 会诊「＋」显示条件：非会诊处理中 且 存在可编辑病历（与 syncNavAdds 同规则）。
-                // 注意：原代码此处只要非会诊处理中就无条件重新显示，覆盖了 syncNavAdds
-                // 基于可编辑病历的隐藏——导致「无已保存病历（首诊空病历/续写未保存）」时
-                // 会诊＋错误出现且箭头未靠右。修正为双条件判定。
-                var inConsult = (j.data.consults || []).some(function (c) {
-                    return c.status === 'pending' || c.status === 'doing';
-                });
+                // 会诊「＋」显示条件：非会诊模式 且 存在可编辑病历（与 syncNavAdds 同规则）。
+                // 注意：仅「处于会诊模式」（本医生科室被要求会诊、后端 consult_mode 锁定）
+                // 才隐藏「＋」——本人向多科室发起的并发会诊（pending/doing）不锁定发起方，
+                // 发起会诊后「＋」必须保留（同科室重复会诊由选择弹窗与后端 create 拦截）。
+                // 原逻辑以「就诊存在任意进行中会诊」判定 inConsult，导致发起会诊后
+                // 「＋」立即消失且刷新后不再出现，无法向多个科室发起会诊。
+                var inConsult = !!(j.data && j.data.consult_mode);
                 var consAdd = document.querySelector('.ena-sec-title .ena-add[title="发起会诊"]');
                 if (consAdd) {
                     var showConsAdd = !inConsult && hasEditableRecord();
