@@ -597,54 +597,161 @@
 .screen-wait-empty .screen-empty { margin: 0; }
 
 
-/* ---------- 模式B：医技列表看板 ---------- */
-.screen-dept-head {
+/* ---------- 模式B：医技叫号大屏（护士/检验/影像/药房，三种尺寸） ----------
+ * 竖屏：上半 当前患者（标签+姓名换行）→ 下半 排队队列（姓名/性别/年龄/开单科室）
+ * 方屏：同竖屏但上半更小、当前患者文字横排「当前患者 XXX」
+ * 宽屏：左侧 当前患者（标签+姓名换行），右侧一半 排队队列
+ * 无患者/无队列时占位提示居中显示。字号统一 cqmin 随屏等比缩放。 */
+.dept-screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    width: 100%;
+    gap: clamp(6px, 1.2cqmin, 18px);
+}
+.dept-now {
+    flex: 0 0 38%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+    border: 1px solid rgba(255, 255, 255, .18);
+    border-radius: clamp(10px, 1.6cqmin, 24px);
+    padding: clamp(10px, 2cqmin, 30px);
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 clamp(10px, 1.5cqmin, 26px) rgba(37, 99, 235, .35);
+}
+.dept-now::before {
+    content: '';
+    position: absolute;
+    width: 170%; height: 170%;
+    top: -35%; left: -35%;
+    background: radial-gradient(circle, rgba(255, 255, 255, .12), transparent 60%);
+    pointer-events: none;
+}
+.dept-now-label {
+    font-size: clamp(16px, 3.4cqmin, 52px);
+    color: rgba(255, 255, 255, .85);
+    letter-spacing: clamp(2px, 0.6cqmin, 8px);
+    position: relative;
+}
+.dept-now-name {
+    font-size: clamp(34px, 10cqmin, 150px);
+    font-weight: 800;
+    margin-top: clamp(4px, 1cqmin, 14px);
+    line-height: 1.15;
+    word-break: break-all;
+    position: relative;
+    text-shadow: 0 0 clamp(6px, 1cqmin, 16px) rgba(255, 255, 255, .35);
+}
+.dept-now-sub {
+    font-size: clamp(14px, 3cqmin, 44px);
+    color: rgba(255, 255, 255, .85);
+    margin-top: clamp(4px, 0.9cqmin, 12px);
+    position: relative;
+}
+.dept-now-empty {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 8px 6px;
-    margin-bottom: 12px;
+    justify-content: center;
+    height: 100%;
+    font-size: clamp(22px, 5cqmin, 72px);
+    color: rgba(255, 255, 255, .45);
+    letter-spacing: clamp(2px, 0.8cqmin, 10px);
+    position: relative;
 }
-.screen-dept-calling {
-    font-size: 30px;
+.dept-wait {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid rgba(255, 255, 255, .10);
+    border-radius: clamp(10px, 1.6cqmin, 24px);
+    padding: clamp(8px, 1.4cqmin, 20px);
+    box-sizing: border-box;
+}
+.dept-wait-title {
+    font-size: clamp(16px, 3.4cqmin, 52px);
     font-weight: 800;
-    color: #7CFC98;
-    letter-spacing: 2px;
-    animation: call-bounce 1.4s infinite;
+    color: #ffd54f;
+    letter-spacing: clamp(2px, 0.8cqmin, 10px);
+    text-align: center;
+    flex-shrink: 0;
+    padding-bottom: clamp(4px, 0.8cqmin, 12px);
 }
-.screen-dept-list {
+.dept-wait-list {
     flex: 1;
     min-height: 0;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(4px, 0.8cqmin, 12px);
 }
-.screen-dept-item {
+.dept-wait-item {
     display: flex;
     align-items: center;
-    gap: 16px;
-    font-size: 26px;
-    color: #e6f2ff;
-    padding: 12px 16px;
-    border-radius: 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, .10);
+    gap: clamp(8px, 1.6cqmin, 24px);
+    font-size: clamp(16px, 3.2cqmin, 48px);
+    background: rgba(255, 255, 255, .06);
+    border-radius: clamp(6px, 1cqmin, 14px);
+    padding: clamp(6px, 1cqmin, 16px) clamp(10px, 2cqmin, 28px);
+    flex-shrink: 0;
+    border-left: clamp(4px, 0.6cqmin, 10px) solid rgba(37, 99, 235, .8);
 }
-.screen-dept-current {
-    background: rgba(124, 252, 152, .14);
-    border: 2px solid #7CFC98;
-    font-size: 36px;
+.dept-wait-seq {
     font-weight: 800;
+    color: #ffd54f;
+    font-variant-numeric: tabular-nums;
+    width: clamp(36px, 5cqmin, 90px);
+    text-align: center;
+    flex-shrink: 0;
+}
+.dept-wait-name { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dept-wait-gender, .dept-wait-age { color: #a8c8e8; flex-shrink: 0; }
+.dept-wait-dept {
     color: #7CFC98;
-    transform: scale(1.03);
-    box-shadow: 0 0 30px rgba(124, 252, 152, .25);
-    animation: screen-blink 1.6s infinite;
+    flex-shrink: 0;
+    background: rgba(124, 252, 152, .10);
+    border-radius: clamp(4px, 0.6cqmin, 10px);
+    padding: clamp(2px, 0.4cqmin, 6px) clamp(6px, 1cqmin, 14px);
+    font-size: .9em;
+    white-space: nowrap;
 }
-@keyframes screen-blink {
-    0%, 100% { box-shadow: 0 0 20px rgba(124, 252, 152, .18); }
-    50%      { box-shadow: 0 0 46px rgba(124, 252, 152, .42); }
+.dept-wait-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(22px, 5cqmin, 72px);
+    color: rgba(255, 255, 255, .40);
+    letter-spacing: clamp(2px, 0.8cqmin, 10px);
 }
-.screen-dept-seq { width: 62px; font-weight: 800; color: #ffd54f; font-variant-numeric: tabular-nums; }
-.screen-dept-name { font-weight: 700; }
-.screen-dept-extra { margin-left: auto; color: #a8c8e8; font-size: 20px; }
-.screen-dept-flow { color: #8fd3ff; font-size: 20px; }
+
+/* 竖屏：当前患者上（占 36%），队列下 */
+.call-body.screen-portrait .dept-now { flex: 0 0 36%; }
+
+/* 方屏：当前患者上（占 24%），文字横排「当前患者 XXX」 */
+.call-body.screen-square .dept-now {
+    flex: 0 0 24%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(8px, 2cqmin, 28px);
+}
+.call-body.screen-square .dept-now-label { font-size: clamp(18px, 3.8cqmin, 58px); }
+.call-body.screen-square .dept-now-name { font-size: clamp(28px, 7cqmin, 100px); margin-top: 0; }
+.call-body.screen-square .dept-now-sub { margin-top: 0; }
+
+/* 宽屏：左 当前患者，右 队列 */
+.call-body.screen-wide .dept-screen { flex-direction: row; }
+.call-body.screen-wide .dept-now { flex: 0 0 42%; }
+.call-body.screen-wide .dept-wait { flex: 1; }
 
 /* ============================================================
  * 竖屏适配（宽 < 高）：整体采用同一套 CSS Grid 布局，

@@ -402,21 +402,40 @@
         set('--wait-age-w', ageW);
     }
 
+    /* 医技大屏（lab/imaging/pharmacy/nurse）：三种尺寸重设计
+     * 竖屏：上半 当前患者（标签+姓名换行）→ 下半 排队队列（姓名/性别/年龄/开单科室）
+     * 方屏：同竖屏但上半更小、当前患者文字横排「当前患者 XXX」
+     * 宽屏：左侧 当前患者（标签+姓名换行），右侧一半 排队队列
+     * 无患者/无队列时占位提示居中显示。 */
     function renderDeptMode(d) {
+        var esc = function (s) { return Clinic.escHtml(s); };
         var wait = d.waiting || [];
         var cur = d.current || {};
-        var list = wait.map(function (w, i) {
-            var isCur = cur.name && w.visit_seq === cur.visit_seq && w.flow_no === cur.flow_no;
-            return '<div class="screen-dept-item' + (isCur ? ' screen-dept-current' : '') + '">' +
-                '<span class="screen-dept-seq">' + String(w.visit_seq).padStart(3, '0') + '</span>' +
-                '<span class="screen-dept-name">' + maskName(w.name) + '</span>' +
-                '<span class="screen-dept-extra">' + (w.gender || '') + ' ' + (w.age_fmt || '') + '</span>' +
-                '<span class="screen-dept-flow">' + w.flow_no + '</span></div>';
-        }).join('') || '<div class="screen-empty-big">当前暂无排队患者</div>';
-        return '<div class="screen-dept-head">' +
-            '<div class="screen-panel-title">排队队列</div>' +
-            (cur.name ? '<div class="screen-dept-calling">呼叫：' + maskName(cur.name) + '（' + String(cur.visit_seq).padStart(3, '0') + ' 号）</div>' : '') +
-            '</div><div class="screen-dept-list">' + list + '</div>';
+        var nowHtml;
+        if (cur.name) {
+            nowHtml = '<div class="dept-now-label">当前患者</div>' +
+                '<div class="dept-now-name">' + esc(maskName(cur.name)) + '</div>' +
+                '<div class="dept-now-sub">' + String(cur.visit_seq).padStart(3, '0') + ' 号' +
+                (cur.dept_name ? ' · ' + esc(cur.dept_name) : '') + '</div>';
+        } else {
+            nowHtml = '<div class="dept-now-empty">当前暂无患者</div>';
+        }
+        var listHtml = wait.length
+            ? wait.map(function (w) {
+                return '<div class="dept-wait-item">' +
+                    '<span class="dept-wait-seq">' + String(w.visit_seq).padStart(3, '0') + '</span>' +
+                    '<span class="dept-wait-name">' + esc(maskName(w.name)) + '</span>' +
+                    '<span class="dept-wait-gender">' + esc(w.gender || '') + '</span>' +
+                    '<span class="dept-wait-age">' + esc(w.age_fmt || '') + '</span>' +
+                    '<span class="dept-wait-dept">' + esc(w.dept_name || '') + '</span></div>';
+            }).join('')
+            : '<div class="dept-wait-empty">当前暂无排队患者</div>';
+        return '<div class="dept-screen">' +
+            '<div class="dept-now">' + nowHtml + '</div>' +
+            '<div class="dept-wait">' +
+            '  <div class="dept-wait-title">排队队列</div>' +
+            '  <div class="dept-wait-list">' + listHtml + '</div>' +
+            '</div></div>';
     }
 
     /* ============ 主渲染 ============ */

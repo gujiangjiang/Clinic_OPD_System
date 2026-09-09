@@ -129,21 +129,63 @@ function screen_payload($room) {
         ));
     }
 
-    // ===== 医技大屏（lab/imaging/pharmacy/nurse）：科室排队看板，保持原逻辑 =====
-    // 当前就诊中患者（该科室）
-    $current = QueueRepository::currentVisit($deptId);
-    // 下一位候诊
-    $next = QueueRepository::nextWaiting($deptId);
-    // 候诊队列（前 8 位）
-    $waiting = QueueRepository::waitingList($deptId, 8);
+    // ===== 医技大屏（lab/imaging/pharmacy/nurse）：科室排队看板 =====
+    // 队列 = 本类型待办患者（按最近一次开单时间正序，一行=一位患者）；
+    // 当前 = 叫号面板推送的患者（room.current_visit_id，仍待办时显示并移出队列）
+    $techRows = tech_dept_queue($room['room_type'], 12);
+    $pushedId = (int)$room['current_visit_id'];
+    $current = null;
+    $waiting = array();
+    foreach ($techRows as $r) {
+        $item = $fmt($r);
+        $item['dept_name'] = $r['order_dept_name'] ? $r['order_dept_name'] : ($r['current_dept_name'] ? $r['current_dept_name'] : $r['first_dept_name']);
+        if ($pushedId > 0 && (int)$r['visit_id'] === $pushedId) {
+            $current = $item;   // 已被叫号 → 作为当前，不重复进队列
+        } else {
+            $waiting[] = $item;
+        }
+    }
     return array_merge($base, array(
         'bound' => true,
-        'current' => $fmt($current),
-        'next' => $fmt($next),
-        'waiting' => array_map(function ($r) use ($fmt) { return $fmt($r, 0); }, $waiting),
+        'current' => $current,
+        'next' => $waiting ? $waiting[0] : null,
+        'waiting' => $waiting,
         'missed' => array(),
         'doctor' => $doctor,
     ));
+}
+
+/** 医技类型待办患者队列（订单级：一行=一位患者，含最近开单科室） */
+function tech_dept_queue($roomType, $limit) {
+    switch ($roomType) {
+        case 'lab':
+            $typeWhere = "oi.item_type='lab' AND oi.status IN ('paid','registered')";
+            break;
+        case 'imaging':
+            $typeWhere = "oi.item_type='imaging' AND oi.status IN ('paid','registered')";
+            break;
+        case 'pharmacy':
+            $typeWhere = "o.order_type='prescription' AND o.status IN ('paid','reviewed')";
+            break;
+        case 'nurse':
+            $typeWhere = "oi.item_type IN ('procedure','prescription') AND oi.is_nurse=1 AND oi.status IN ('paid','dispensing')";
+            break;
+        default:
+            return array();
+    }
+    return DB::q(
+        "SELECT r.id AS visit_id, r.visit_seq, r.flow_no, r.registered_at, r.first_dept_name, r.current_dept_name,
+                p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth,
+                MAX(o.dept_name) AS order_dept_name
+         FROM order_items oi
+         JOIN orders o ON o.id=oi.order_id
+         JOIN registrations r ON r.id=oi.visit_id
+         JOIN patients p ON p.patient_no=oi.patient_no
+         WHERE $typeWhere
+         GROUP BY oi.visit_id
+         ORDER BY MAX(oi.created_at) ASC
+         LIMIT " . (int)$limit
+    );
 }
 
 /** 按大屏类型返回默认温馨提示 */
