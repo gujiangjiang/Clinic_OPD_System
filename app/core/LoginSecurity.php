@@ -67,13 +67,15 @@ class LoginSecurity {
         unset($_SESSION[self::SESSION_IPKEY]);
     }
 
-    /** 当前 IP 是否处于连续失败惩罚期（auto 模式判定强制验证码用） */
+    /** 当前 IP 是否处于连续失败惩罚期（auto 模式判定强制验证码用）：
+     *  连续失败 1 次即进入惩罚期（遇错即弹，与前端体验一致），30 分钟无
+     *  失败则自动解除 */
     public static function ipInPenalty() {
         $st = isset($_SESSION[self::SESSION_IPKEY]) && is_array($_SESSION[self::SESSION_IPKEY])
             ? $_SESSION[self::SESSION_IPKEY] : null;
         if (!$st || (int)$st['count'] <= 0) return false;
         if ((time() - (int)$st['last_at']) > self::IP_FAIL_TTL) return false;   // 窗口已过
-        return (int)$st['count'] >= 2;   // 连续失败 ≥2 次进入惩罚期
+        return (int)$st['count'] >= 1;
     }
 
     /* ==================== 验证码需求判定 ==================== */

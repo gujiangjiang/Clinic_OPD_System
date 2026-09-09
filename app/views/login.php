@@ -86,6 +86,9 @@ if ($next === '' || $next[0] !== '/') {
 </style>
 
 <script>
+/* 全局验证码模式（服务端权威）：off 不展示不校验 / auto 智能弹出 / force 常显 */
+var CAPTCHA_MODE = '<?php echo e(setting('login_captcha_mode', 'auto')); ?>';
+
 var CAPTCHA_KEY = 'clinic_login_fail_flag';   // 本地失败标记（轨道1）
 var captchaTimer = null;                       // 用户名防抖句柄
 var captchaBlobUrl = '';                       // 当前验证码 blob URL（换图前 revoke，防内存泄漏）
@@ -117,12 +120,15 @@ function loadCaptchaImage() {
         .catch(function () { /* 拉取失败静默：用户可点击重试 */ });
 }
 
-/** 展开验证码行并（重）拉取图片（blob，不暴露直链） */
-function showCaptcha() {
+/** 展开验证码行并（重）拉取图片（blob，不暴露直链）：
+ *  已展开时也强制重新拉图（服务端比对该图后已销毁，旧图不可复用） */
+function showCaptcha(force) {
     var g = document.getElementById('captchaGroup');
     if (g.style.display !== '') {
         g.style.display = '';            // 独立一行展开（带 fade 动画）
         loadCaptchaImage();
+    } else if (force) {
+        loadCaptchaImage();              // 已显示：任何登录失败后强制换新图
     }
 }
 
@@ -133,8 +139,10 @@ function hideCaptcha() {
     document.getElementById('captcha').value = '';
 }
 
-/* 轨道2：用户名 blur / 防抖输入（400ms）后服务端嗅探（无论隐私模式与否） */
+/* 轨道2：用户名 blur / 防抖输入（400ms）后服务端嗅探（无论隐私模式与否）；
+ * 密码框聚焦同样触发嗅探——输完用户名光标切到密码框时立即弹出验证码 */
 function probeCaptcha() {
+    if (CAPTCHA_MODE === 'off') return;
     var username = document.getElementById('username').value.trim();
     if (!username) return;
     var localFlag = lsGet(CAPTCHA_KEY) === '1' ? 1 : 0;
@@ -152,9 +160,11 @@ document.getElementById('username').addEventListener('input', function () {
     clearTimeout(captchaTimer);
     captchaTimer = setTimeout(probeCaptcha, 400);
 });
+document.getElementById('password').addEventListener('focus', probeCaptcha);
 
-/* 轨道1：本地失败标记优先展示（页面加载即执行，不等服务端） */
-if (lsGet(CAPTCHA_KEY) === '1') showCaptcha();
+/* 初始展示：force 常显；auto/force 模式下本地失败标记优先展示（轨道1，
+ * 不等服务端嗅探）；off 模式永不展示 */
+if (CAPTCHA_MODE === 'force' || lsGet(CAPTCHA_KEY) === '1') showCaptcha();
 
 /* 验证码图片点击刷新（重新 fetch blob） */
 document.getElementById('captchaImg').addEventListener('click', function () {
@@ -189,9 +199,9 @@ function doLogin() {
             lsSet(CAPTCHA_KEY, '1');
             btn.disabled = false;
             btn.textContent = '登 录';
-            // 验证码已显示时无论何种失败（密码错误/验证码错误/锁定）都强制
-            // 换新图——服务端比对该图后已销毁，旧图不可复用；未显示时不展开
-            if (needCap) loadCaptchaImage();
+            // 无论何种失败（密码错误/验证码错误/锁定）都立即展开验证码并
+            // 强制换新图——服务端比对该图后已销毁；off 模式除外（永不展示）
+            if (CAPTCHA_MODE !== 'off') showCaptcha(true);
         },
     });
 }
