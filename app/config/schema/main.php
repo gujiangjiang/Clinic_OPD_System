@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 30,
+    'version' => 31,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -100,7 +100,10 @@ return array(
             print_auto INTEGER DEFAULT 0,
             queue_days INTEGER DEFAULT 3,
             login_fail_count INTEGER DEFAULT 0,
-            login_locked_until TEXT
+            login_locked_until TEXT,
+            lock_reason TEXT DEFAULT NULL,
+            locked_at TEXT DEFAULT NULL,
+            lock_ip TEXT DEFAULT ''
         )",
 
         /* ---------------- 科室 / 加号 ---------------- */
@@ -899,6 +902,18 @@ return array(
         30 => array(
             "UPDATE emr_templates SET content_json = json_remove(content_json, '$.name')
              WHERE type='consent' AND json_extract(content_json, '$.name') IS NOT NULL",
+        ),
+        // v31：登录安全体系升级——锁定归因三件套（lock_reason 锁定原因 /
+        // locked_at 锁定时间 / lock_ip 触发来源 IP），支撑：
+        // · 密码连续错误达上限 → status=0 + lock_reason='password_error_locked'
+        //   自动安全锁定（区别于管理员主动停用 'admin_disabled'）；
+        // · 管理员用户列表三态徽章展示 + 一键解锁（解锁即清零全部锁定字段）。
+        // ALTER ADD COLUMN 幂等（DatabaseManager 检测列已存在自动跳过），
+        // 存量数据不受影响（默认 NULL/空串）。
+        31 => array(
+            "ALTER TABLE users ADD COLUMN lock_reason TEXT DEFAULT NULL",
+            "ALTER TABLE users ADD COLUMN locked_at TEXT DEFAULT NULL",
+            "ALTER TABLE users ADD COLUMN lock_ip TEXT DEFAULT ''",
         ),
     ),
     'seed' => array(
