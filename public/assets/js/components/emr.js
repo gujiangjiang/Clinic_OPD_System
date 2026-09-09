@@ -2315,7 +2315,8 @@ Clinic.emr = (function () {
     function enterConsultMode(consultId) { return Clinic.emr.consult.enterConsultMode(consultId); }
     function enterConsultEditor(consultId) { return Clinic.emr.consult.enterConsultEditor(consultId); }
     function applyConsultMode(consultId) { return Clinic.emr.consult.applyConsultMode(consultId); }
-    function consultRawId(consultId) { return Clinic.emr.consult.consultRawId(consultId); }
+    /* consultRawId：拆分残留的死桥接（目标函数未从 emr_consult.js 导出，
+     * 且被下方 2409 行的本地实现按函数声明提升覆盖）——已删除，保留本地实现。 */
 
 
     /**
