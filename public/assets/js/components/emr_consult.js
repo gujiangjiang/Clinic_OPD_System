@@ -44,6 +44,8 @@ Clinic.emr.consult = (function () {
             title: '发起会诊 · 选择会诊科室',
             fetchUrl: '/api/transfer?action=targets&dept_id=' + curDept,
             currentId: curDept,
+            // 会诊默认进入就诊当前科室所在类型 Tab（当前科室已被服务端排除）
+            currentType: (ctx.DATA && ctx.DATA.visit && ctx.DATA.visit.dept_type) || '',
             onSelect: function (d) {
                 // 重复会诊拦截（与后端 create 同规则）：本就诊已发往该科室且未完毕
                 // 的进行中会诊 → 点击科室即提醒并中止；会诊完毕（done）后可再次发起

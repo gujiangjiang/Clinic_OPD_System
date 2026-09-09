@@ -13,6 +13,9 @@
  *   opts.fetchUrl   register/transfer 模式的数据接口（GET，返回 {list:[...]})
  *   opts.depts      select 模式直接传入科室数组（免请求）
  *   opts.currentId  select/transfer 模式的当前科室 ID
+ *   opts.currentType select/transfer 模式的当前科室类型（emergency/clinic）：
+ *                    转科/会诊时当前科室被服务端排除，列表中找不到 currentId，
+ *                    由此字段定位「本科室所在类型 Tab」
  *   opts.noIdCard   register 模式：未填身份证（仅急诊 Tab 可用）
  *   opts.onSelect(dept)  点击科室卡片回调（挂号满号卡片会拦截并提示）
  *
@@ -27,6 +30,30 @@ Clinic.deptPicker = (function () {
     /** 类型中文名 */
     function typeName(t) {
         return t === 'emergency' ? '急诊' : '门诊';
+    }
+
+    /* ==================== 最后使用科室类型记忆（localStorage 持久化） ====================
+     * 医生工作站首次进入的科室选择弹窗默认 Tab 依据：
+     * 最后一次使用的科室是急诊 → 下次登录默认进急诊 Tab；门诊 → 门诊 Tab。
+     * 仅影响首次登录（后期切换/转科由 currentId 定位本科室类型 Tab）。
+     * key 绑定账号（data-uid），换账号互不干扰；读写失败静默降级。 */
+    function memUid() {
+        return (window.Clinic && document.body.getAttribute('data-uid')) || '';
+    }
+    function lastUsedType() {
+        try {
+            var sv = JSON.parse(localStorage.getItem('clinic_last_dept_type') || '""');
+            if (sv && String(sv.u) === String(memUid())) {
+                return (sv.t === 'emergency') ? 'emergency' : 'clinic';
+            }
+        } catch (e) { /* 忽略 */ }
+        return '';
+    }
+    function rememberType(type) {
+        if (type !== 'emergency' && type !== 'clinic') return;
+        try {
+            localStorage.setItem('clinic_last_dept_type', JSON.stringify({ u: memUid(), t: type }));
+        } catch (e) { /* 忽略（隐私模式等） */ }
     }
 
     /**
@@ -131,7 +158,10 @@ Clinic.deptPicker = (function () {
 
             // 叫号大屏（call）显示 急诊/门诊/医技/其他 四个 Tab；
             // 医生站/挂号/转科等仅急诊/门诊，医技/其他科室自动过滤不渲染
-            var tabKeys = (opts.mode === 'call') ? ['emergency', 'clinic', 'tech', 'other'] : ['emergency', 'clinic'];
+            var allTabKeys = (opts.mode === 'call') ? ['emergency', 'clinic', 'tech', 'other'] : ['emergency', 'clinic'];
+            // 通用逻辑：某类型下没有科室 → 该 Tab 整个隐藏（如医院未设置急诊科室、
+            // 或转科时本科室类型仅剩当前科室已被排除），不再显示空态 Tab
+            var tabKeys = allTabKeys.filter(function (k) { return byType[k].length > 0; });
 
             function tabHtml(key, label, count) {
                 var disabled = key === 'clinic' && lockClinic;
@@ -192,20 +222,31 @@ Clinic.deptPicker = (function () {
             });
 
             /* 默认 Tab：
-               · 非挂号模式且已选择科室（currentId）→ 定位到该科室所在 Tab
-                 （如当前选药房 → 「其他」，选检验科 → 「医技」）
-               · 未选择科室 → 默认「门诊」（叫号大屏 / 医生站）
-               · 挂号：无身份证或指定 → 急诊，否则门诊 */
+               · 有当前科室（select/transfer/call，currentId）→ 定位到该科室所在 Tab
+                 （切换科室/转科：默认进入本科室所在类型 Tab；转科时当前科室已被
+                 排除，若该类型下已无其他科室则该 Tab 已被隐藏，自动回落其他 Tab）
+               · 挂号：无身份证或指定 → 急诊，否则门诊
+               · 其余（首次登录无记忆等）→ 读 localStorage「最后使用科室类型」，
+                 无记忆时默认「门诊」 */
             var def = 'clinic';
             if (opts.mode !== 'register' && opts.currentId) {
                 var curDept = null;
                 (list || []).forEach(function (x) { if (x.id === opts.currentId) curDept = x; });
                 if (curDept && curDept.type && tabKeys.indexOf(curDept.type) !== -1) def = curDept.type;
+                // 转科/会诊：当前科室已被服务端排除（列表中找不到），
+                // 按调用方传入的 currentType（就诊/医生当前科室类型）定位本科室 Tab；
+                // 该类型下已无其他科室时 Tab 已被隐藏 → 走下方回落逻辑自动跳其他 Tab
+                else if (!curDept && opts.currentType && tabKeys.indexOf(opts.currentType) !== -1) def = opts.currentType;
+                else if (!curDept) def = lastUsedType() || 'clinic';
             } else if (opts.mode === 'register') {
                 def = (opts.defaultTab === 'emergency' || lockClinic) ? 'emergency' : 'clinic';
+            } else {
+                def = lastUsedType() || 'clinic';
             }
-            if (!byType[def] || !byType[def].length) {
-                def = (byType.clinic.length && !lockClinic) ? 'clinic' : 'emergency';
+            // 当前 Tab 不存在（被空 Tab 隐藏过滤 / 挂号置灰）→ 按剩余 Tab 顺序回落
+            if (tabKeys.indexOf(def) === -1) {
+                def = lockClinic && tabKeys.indexOf('emergency') !== -1 ? 'emergency'
+                    : (tabKeys[0] || 'emergency');
             }
             activate(def);
 
@@ -232,6 +273,8 @@ Clinic.deptPicker = (function () {
                         Clinic.toast.info('当前已在该科室');
                         return;
                     }
+                    // 记忆最后使用科室类型（医生工作站首次登录默认 Tab 依据）
+                    if (d.type === 'emergency' || d.type === 'clinic') rememberType(d.type);
                     Clinic.modal.close();
                     if (opts.onSelect) opts.onSelect(d);
                 });

@@ -2262,6 +2262,9 @@ Clinic.emr = (function () {
             mode: 'transfer',
             fetchUrl: '/api/transfer?action=targets&dept_id=' + curDept,
             currentId: curDept,
+            // 转科默认进入患者当前科室所在类型 Tab（当前科室已被服务端排除）；
+            // 该类型下无其他科室时 Tab 自动隐藏并回落其他 Tab
+            currentType: (DATA && DATA.visit && DATA.visit.dept_type) || '',
             onSelect: function (d) {
                 Clinic.modal.confirm(
                     '确定将患者转往【' + escHtml(d.name || '') + '】吗？转科后就诊序号、首次挂号科室等信息均保持不变。',
