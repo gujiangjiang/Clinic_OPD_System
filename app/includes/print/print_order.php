@@ -194,7 +194,7 @@ function pt_order($order, $items, $title, $opts = array()) {
         // 以下从「取药提示」到「本处方当日内有效」连续进入 A5 页脚（foot 区块），
         // 聚集在页面底部，依次为：
         // 取药提示（print-note）→ 医师签名（print-record-sign）→ 实线（print-line）
-        // → 调配/复核发药（print-note）→ 实线（print-line）→ 开单/打印时间
+        // → 调配/复核发药（print-note）→ 实线+开单/打印时间（pt_doc_foot 自带横线）
         // （print-record-foot）→ 本处方当日内有效（print-note），之后由分页器
         // 追加页码。
         // 取药提示：药房取药（pharm）或 护士站输液/注射（nurse）
@@ -208,7 +208,8 @@ function pt_order($order, $items, $title, $opts = array()) {
             '</div>';
         $html .= '<div class="print-line"></div>';
         $html .= '<div class="print-note" style="display:flex;font-size:13px;line-height:1.8;margin-top:4px;margin-bottom:4px"><span style="flex:1;text-align:left">调配：</span><span style="flex:1;text-align:left">复核、发药：</span></div>';
-        $html .= '<div class="print-line"></div>';
+        // 此处不再单独输出实线：pt_doc_foot 自带一条横线，否则调配/复核发药下方
+        // 出现两条紧贴的实线（双实线问题，其他文书均无此问题）
         $html .= pt_doc_foot('开单时间', isset($order['created_at']) ? $order['created_at'] : '');
         $html .= '<div class="print-note" style="text-align:center">（本处方当日内有效）</div>';
     } else {
