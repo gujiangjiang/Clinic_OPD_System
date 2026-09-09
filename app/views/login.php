@@ -25,14 +25,14 @@ if ($next === '' || $next[0] !== '/') {
     </div>
     <div class="form-group">
         <label class="form-label">密码</label>
-        <div class="login-captcha-row" id="captchaRow">
-            <div class="input-wrap login-pwd-wrap" id="pwdWrap"><span class="input-icon">🔒</span>
-                <input type="password" class="input" id="password" placeholder="请输入密码" autocomplete="current-password"></div>
-            <div class="login-captcha-extra" id="captchaExtra">
-                <div class="input-wrap login-captcha-input-wrap"><span class="input-icon">#</span>
-                    <input type="text" class="input" id="captcha" placeholder="验证码" maxlength="4" autocomplete="off"></div>
-                <img id="captchaImg" class="login-captcha-img" src="/api/auth?action=captcha" alt="验证码" title="点击刷新验证码" style="display:none">
-            </div>
+        <div class="input-wrap"><span class="input-icon">🔒</span>
+            <input type="password" class="input" id="password" placeholder="请输入密码" autocomplete="current-password"></div>
+    </div>
+    <div class="form-group login-captcha-group" id="captchaGroup" style="display:none">
+        <label class="form-label">验证码</label>
+        <div class="login-captcha-box">
+            <input type="text" class="input" id="captcha" placeholder="请输入右侧字符" maxlength="4" autocomplete="off">
+            <img id="captchaImg" class="login-captcha-img" src="/api/auth?action=captcha" alt="验证码" title="看不清？点击刷新">
         </div>
     </div>
     <input type="hidden" id="next" value="<?php echo e($next); ?>">
@@ -40,29 +40,44 @@ if ($next === '' || $next[0] !== '/') {
 </div>
 
 <style>
-/* ---------- 登录验证码弹性等宽布局 ----------
- * 密码行 .login-captcha-row 为 flex 容器（宽度=用户名输入框 100%）：
- * · 默认（无需验证码）：验证码区 display:none，密码框 flex:1 占满整行；
- * · 激活（需验证码）：容器加 .show-captcha，密码框收缩至 flex:1.9，
- *   验证码输入框 flex:1、验证码图 flex:1.15——三段拼接总宽仍与用户名
- *   输入框严格 1:1 对齐；宽度切换带平滑过渡动画 */
-.login-captcha-row { display: flex; gap: 8px; align-items: stretch; }
-.login-captcha-row .input-wrap { margin: 0; }
-.login-captcha-row .login-pwd-wrap { flex: 1 1 auto; min-width: 0; transition: flex .28s ease; }
-.login-captcha-row.show-captcha .login-pwd-wrap { flex: 1.9 1 0; }
-.login-captcha-extra { display: none; flex: 1 1 auto; min-width: 0; gap: 8px; }
-.login-captcha-row.show-captcha .login-captcha-extra { display: flex; }
-.login-captcha-row.show-captcha .login-captcha-input-wrap { flex: 1 1 0; min-width: 0; }
-.login-captcha-img {
-    flex: 1.15 1 0;
-    min-width: 0;
-    height: 38px;
+/* ---------- 登录验证码独立一行布局 ----------
+ * 验证码为密码下方的独立表单行（展开/折叠 display 切换 + fade 过渡）；
+ * 【验证码输入框 + 右侧内嵌图片】同处一个圆角边框容器（.login-captcha-box），
+ * 图片被局限在输入框内部右段——与输入框浑然一体，总宽与用户名/密码
+ * 输入框严格 1:1 等宽 */
+.login-captcha-box {
+    display: flex;
+    align-items: center;
     border: 1px solid var(--border);
     border-radius: 8px;
-    background: var(--bg-soft);
-    object-fit: contain;
-    cursor: pointer;   /* 点击刷新 */
-    transition: flex .28s ease;
+    background: var(--bg-card);
+    overflow: hidden;           /* 图片贴右缘，随容器圆角裁切 */
+    transition: border-color .2s ease;
+}
+.login-captcha-box:focus-within { border-color: var(--primary); }
+.login-captcha-box .input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: none;               /* 边框由容器统一提供 */
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    height: 38px;
+}
+.login-captcha-box .input:focus { box-shadow: none; }
+.login-captcha-img {
+    flex: 0 0 auto;
+    width: 110px;               /* 固定右段宽（图片 130×42 等比缩放） */
+    height: 38px;
+    object-fit: cover;
+    cursor: pointer;            /* 点击刷新 */
+    border-left: 1px solid var(--border);   /* 与输入区分隔细线 */
+    display: block;
+}
+.login-captcha-group { animation: captchaIn .25s ease; }
+@keyframes captchaIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 </style>
 
@@ -73,20 +88,20 @@ var captchaTimer = null;                       // 用户名防抖句柄
 function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* 隐私模式忽略 */ } }
 
-/** 展开验证码区域并（重）拉取图片（时间戳防缓存） */
+/** 展开验证码行并（重）拉取图片（时间戳防缓存） */
 function showCaptcha() {
-    var row = document.getElementById('captchaRow');
+    var g = document.getElementById('captchaGroup');
     var img = document.getElementById('captchaImg');
-    if (!row.classList.contains('show-captcha')) row.classList.add('show-captcha');
-    img.style.display = '';
-    img.src = '/api/auth?action=captcha&t=' + Date.now();
+    if (g.style.display !== '') {
+        g.style.display = '';            // 独立一行展开（带 fade 动画）
+        img.src = '/api/auth?action=captcha&t=' + Date.now();
+    }
 }
 
-/** 隐藏验证码区域（off 模式或预检判定不需要） */
+/** 隐藏验证码行（off 模式或预检判定不需要） */
 function hideCaptcha() {
-    var row = document.getElementById('captchaRow');
-    row.classList.remove('show-captcha');
-    document.getElementById('captchaImg').style.display = 'none';
+    var g = document.getElementById('captchaGroup');
+    g.style.display = 'none';
     document.getElementById('captcha').value = '';
 }
 
@@ -123,7 +138,7 @@ function doLogin() {
     var password = document.getElementById('password').value;
     var captcha = document.getElementById('captcha').value.trim();
     if (!username || !password) { Clinic.toast.warning('请输入用户名和密码'); return; }
-    var needCap = document.getElementById('captchaRow').classList.contains('show-captcha');
+    var needCap = document.getElementById('captchaGroup').style.display !== 'none';
     if (needCap && !captcha) { Clinic.toast.warning('请输入验证码'); return; }
     var btn = document.getElementById('loginBtn');
     btn.disabled = true;
