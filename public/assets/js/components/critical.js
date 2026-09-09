@@ -515,9 +515,6 @@ Clinic.critical = (function () {
             load(false);
         };
 
-        // 默认时间范围：最近 3 天
-        setDefaultRange();
-
         // 「重置」恢复默认 3 天范围（不清空），而非回到全量
         window.__critListResetDefault = function () {
             setDefaultRange();
@@ -556,6 +553,8 @@ Clinic.critical = (function () {
                 '    <button class="btn btn-outline btn-sm" id="' + cfg.footEl + '" style="display:none" onclick="Clinic.critical._listMore()">加载更多</button>' +
                 '  </div>' +
                 '</div>';
+            // 先渲染容器（日期输入框就位）再填充默认近 3 天日期，否则 placeholder 不会消失
+            setDefaultRange();
             load(true);
         }
     }
