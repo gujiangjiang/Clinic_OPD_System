@@ -49,6 +49,11 @@ class Router {
         '/admin/printcenter' => array('admin/printcenter.php',  array('admin')),
         '/admin/callmanage'  => array('admin/callmanage.php',   array('admin')),
         '/admin/analytics'   => array('admin/analytics.php',    array('admin')),
+        '/admin/querycenter' => array('admin/querycenter.php',  array('admin')),
+        // ===== 危急值管理 =====
+        '/doctor/critical'   => array('doctor/critical.php',    array('doctor')),
+        '/lab/critical'      => array('lab/critical.php',       array('lab')),
+        '/imaging/critical'  => array('imaging/critical.php',   array('imaging')),
         // ===== 模板管理（管理员/医生共用视图，按角色渲染） =====
         '/admin/templates'   => array('templates.php',          array('admin')),
         '/doctor/templates'  => array('templates.php',          array('doctor')),

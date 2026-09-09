@@ -43,11 +43,13 @@ function loadMsgs() {
                         btn = '<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();Clinic.print.load(\'' + m.print_url + '\',null,\'' + psheet + '\')">🖨️ 打印</button>';
                     }
                     var isPatient = m.msg_type === 'patient';
-                    var typeBadge = isPatient
-                        ? '<span class="msg-type msg-type-patient">患者</span>'
-                        : (m.msg_type === 'user'
-                            ? '<span class="msg-type msg-type-user">用户</span>'
-                            : '<span class="msg-type msg-type-system">系统</span>');
+                    var typeBadge = m.msg_type === 'critical'
+                        ? '<span class="msg-type" style="background:rgba(220,38,38,.1);color:var(--danger,#dc2626)">危急值</span>'
+                        : (isPatient
+                            ? '<span class="msg-type msg-type-patient">患者</span>'
+                            : (m.msg_type === 'user'
+                                ? '<span class="msg-type msg-type-user">用户</span>'
+                                : '<span class="msg-type msg-type-system">系统</span>'));
                     var who = isPatient && m.patient_name
                         ? '<span class="msg-who">👤 ' + Clinic.escHtml(m.patient_name) + '</span>' : '';
                     var jump = '';
@@ -70,6 +72,8 @@ function loadMsgs() {
                     el.classList.remove('unread');
                     Clinic.notify.refresh();
                     var jump = el.getAttribute('data-jump');
+                    // 危急值消息：直接打开处理/详情弹窗，不跳转页面
+                    if (window.Clinic && Clinic.critical && Clinic.critical.handleLink(jump)) return;
                     // 退费审批消息：直接弹模态框审批，避免页面跳转中断操作流
                     if (Clinic.refundApproval && Clinic.refundApproval.isApproveLink(jump)) {
                         Clinic.refundApproval.open(Clinic.refundApproval.reqIdFromLink(jump));

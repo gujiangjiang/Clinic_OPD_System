@@ -82,6 +82,10 @@ Clinic.notify = (function () {
         Clinic.ajax('/api/message', { action: 'read', id: m.id }, { loading: false });
         if (el) el.classList.remove('unread');
         refresh();
+        // 危急值消息：直接打开处理/详情弹窗，无需页面跳转
+        if (window.Clinic && Clinic.critical && Clinic.critical.handleLink(m.link_url)) {
+            return;
+        }
         // 退费申请审批消息：直接打开模态框，避免页面跳转中断操作流
         if (Clinic.refundApproval && Clinic.refundApproval.isApproveLink(m.link_url)) {
             Clinic.refundApproval.open(Clinic.refundApproval.reqIdFromLink(m.link_url));
@@ -115,7 +119,7 @@ Clinic.notify = (function () {
             ? '<span class="msg-who">👤 ' + Clinic.escHtml(m.patient_name) + '</span>' : '';
         return '<div class="msg-item ' + (m.is_read ? '' : 'unread') +
             '" data-id="' + m.id + '" data-msg=\'' +
-            JSON.stringify({ id: m.id, link_url: m.link_url || '', visit_id: m.visit_id || 0, print_url: m.print_url || '' }).replace(/'/g, '&#39;') +
+            JSON.stringify({ id: m.id, link_url: m.link_url || '', visit_id: m.visit_id || 0, print_url: m.print_url || '', msg_type: m.msg_type || '' }).replace(/'/g, '&#39;') +
             '\'>' +
             '<div class="msg-title-row">' + typeBadge + who +
             '<div class="msg-title ellipsis">' + Clinic.escHtml(m.title) + '</div></div>' +

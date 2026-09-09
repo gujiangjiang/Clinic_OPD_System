@@ -14,6 +14,7 @@
  * ============================================================ */
 require __DIR__ . '/_init.php';
 require_once APP_ROOT . '/app/includes/emr_formatter.php';
+require_once __DIR__ . '/parts/dept_common.php';
 
 $u = Auth::user();
 
@@ -128,7 +129,10 @@ function crit_sentence($cv, $matchText, $treatment) {
     $valText = implode('、', $parts);
     $s = '接收' . $srcName . '报告 ' . $kind . '：' . $valText . '，报危急值';
     if ($matchText !== '') $s .= '，' . $matchText;
-    if ($treatment !== '') $s .= '，予' . $treatment . '处理';
+    if ($treatment !== '') {
+        // 处理意见若已以「处理」结尾则不再追加，避免「…处理处理」
+        $s .= '，予' . $treatment . (preg_match('/处理$/u', $treatment) ? '' : '处理');
+    }
     return $s;
 }
 
@@ -269,6 +273,11 @@ switch ($action) {
         $cv['items'] = json_decode((string)$cv['items_json'], true) ?: array();
         $cv['snapshot'] = json_decode((string)$cv['snapshot_json'], true) ?: array();
         $cv['duration'] = crit_duration_text((string)$cv['created_at'], (string)$cv['processed_at']);
+        $cv['processed_by_name'] = '';
+        if ((int)$cv['processed_by'] > 0) {
+            $pb = DB::one('SELECT name FROM users WHERE id=?', array((int)$cv['processed_by']));
+            $cv['processed_by_name'] = $pb ? (string)$pb['name'] : '';
+        }
         unset($cv['items_json'], $cv['snapshot_json']);
         json_ok(array('cv' => $cv));
         break;

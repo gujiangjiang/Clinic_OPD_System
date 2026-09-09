@@ -166,7 +166,20 @@ case 'emr_diag': return !!(Clinic.emr && Clinic.emr.diag);
         fetch(href + sep + '_partial=1', {
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-Partial': '1' },
         })
-            .then(function (res) { return res.text(); })
+            .then(function (res) {
+                // 403 无权限 / 其他非 2xx：角色门已在服务端拦截，前端给出明确提示并返回工作台，
+                // 避免跳转到一个死 403 页（SPA 下不应直接整页刷新到无权页面）
+                if (!res.ok) {
+                    if (res.status === 403) {
+                        Clinic.toast.error('您没有权限访问该页面');
+                        window.location.href = '/';
+                    } else if (res.status === 401) {
+                        window.location.reload();
+                    }
+                    throw new Error('nav http ' + res.status);
+                }
+                return res.text();
+            })
             .then(function (html) {
                 // 临时容器解析：脚本不会自动执行，可安全提取
                 var tmp = document.createElement('div');

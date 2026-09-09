@@ -275,6 +275,7 @@ function deptwork_orders($visitId) {
                 'sub_of' => (int)$it['sub_of'],
                 'group_no' => (int)$it['group_no'],
                 'is_parent' => (int)(isset($it['is_parent']) ? $it['is_parent'] : 0),
+                'doctor_id' => (int)$o['doctor_id'],
                 'doctor_name' => $o['doctor_name'],
                 'executed_by' => $it['executed_by'],
                 'executed_at' => $it['executed_at'],

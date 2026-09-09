@@ -35,6 +35,7 @@ class Layout {
             $items['运营管理'] = array(
                 array('审核中心', '✅', '/admin/review'),
                 array('运营分析', '📊', '/admin/analytics'),
+                array('查询中心', '🔍', '/admin/querycenter'),
                 array('打印中心', '🖨️', '/admin/printcenter'),
                 array('叫号管理', '🖥️', '/admin/callmanage'),
             );
@@ -52,6 +53,7 @@ class Layout {
             $items['医生工作站'] = array(
                 array('首页', '🏠', '/doctor/home'),
                 array('医生工作站', '🩺', '/doctor/emr'),
+                array('危急值管理', '🚨', '/doctor/critical'),
                 array('模板管理', '📋', '/doctor/templates'),
             );
         } elseif ($role === 'nurse') {
@@ -64,6 +66,7 @@ class Layout {
             $items['检验科'] = array(
                 array('首页', '🏠', '/lab/home'),
                 array('检验科工作台', '🧪', '/lab/dashboard'),
+                array('危急值管理', '🚨', '/lab/critical'),
             );
             $items['管理'] = array(
                 array('检验管理', '🧪', '/admin/labitems'),
@@ -72,6 +75,7 @@ class Layout {
             $items['影像科'] = array(
                 array('首页', '🏠', '/imaging/home'),
                 array('影像科工作台', '🩻', '/imaging/dashboard'),
+                array('危急值管理', '🚨', '/imaging/critical'),
                 array('影像模板', '📋', '/imaging/templates'),
             );
             $items['管理'] = array(
@@ -333,6 +337,7 @@ class Layout {
             <script src="/assets/js/components/ui.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/drugform.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/chart.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/critical.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/app.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/nav.js?v=' . APP_VERSION . '"></script>
             ' . $emrScripts . '

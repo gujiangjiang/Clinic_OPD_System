@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 32,
+    'version' => 33,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -988,6 +988,12 @@ return array(
             "CREATE INDEX IF NOT EXISTS idx_critical_to_doctor ON critical_values(to_doctor_id, status)",
             "CREATE INDEX IF NOT EXISTS idx_critical_source ON critical_values(source, created_at)",
             "CREATE INDEX IF NOT EXISTS idx_critical_created ON critical_values(created_at)",
+            "ALTER TABLE patient_records ADD COLUMN is_critical INTEGER DEFAULT 0",
+        ),
+        // v33：病历危急值只读标记（is_critical）——系统自动插入的「危急值记录」
+        // 续写文书全局只读，不占用医生编辑位、任何人不可删除/修改。
+        // 独立版本：v32 早期运行环境可能已在 v32 阶段建库完成，须补此列。
+        33 => array(
             "ALTER TABLE patient_records ADD COLUMN is_critical INTEGER DEFAULT 0",
         ),
     ),

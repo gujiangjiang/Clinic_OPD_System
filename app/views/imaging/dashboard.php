@@ -183,6 +183,10 @@ function openImgReportModal(id) {
         '    <div class="form-group"><label class="form-label">报告模板</label>' +
         '    <input class="input" id="imgTplSearch" placeholder="🔍 搜索模板" oninput="imgRenderTpls()"></div>' +
         '    <div id="imgTplList" style="flex:1;overflow-y:auto;min-height:0"></div>' +
+        '    <div class="dw-crit-queue" style="border-top:1px solid var(--border);padding-top:10px;margin-top:10px">' +
+        '      <button type="button" class="btn btn-outline btn-sm" style="width:100%" onclick="openImgCritSend()">🚨 报危急值</button>' +
+        '      <div id="imgCritQueue" style="margin-top:8px"></div>' +
+        '    </div>' +
         '  </div>' +
         '  <div style="flex:1;min-width:0;display:flex;flex-direction:column">' +
         '    <div class="form-group">' +
@@ -206,9 +210,47 @@ function openImgReportModal(id) {
     );
     IMG_TPLS = [];
     loadImgTpls();
+    // 危急值预览队列：随报告发布一并发送（未发布即关闭则本次不发送）
+    window.__imgCritQueue = [];
+    renderImgCritQueue();
     mask.querySelector('.modal-foot').innerHTML =
         '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
         '<button type="button" class="btn btn-primary" onclick="imgModalSave()">💾 提交并打印报告</button>';
+}
+
+/* ==================== 影像科危急值（手动上报，发布时一并发送） ==================== */
+function openImgCritSend() {
+    if (!CUR_IMG_ITEM) return;
+    Clinic.critical.openSend({
+        source: 'imaging',
+        report_id: '',
+        mode: 'imaging',
+        doctor_id: CUR_IMG_ITEM.doctor_id || 0,
+        doctor_name: CUR_IMG_ITEM.doctor_name || '',
+        onAdd: function (q) {
+            (window.__imgCritQueue || []).push(q);
+            renderImgCritQueue();
+        },
+    });
+}
+
+function renderImgCritQueue() {
+    var box = document.getElementById('imgCritQueue');
+    if (!box) return;
+    var q = window.__imgCritQueue || [];
+    box.innerHTML = q.length
+        ? q.map(function (x, i) {
+            return '<div class="dw-crit-queue-item">' +
+                '<span class="crit-q-name">' + esc(x.item) + '</span>' +
+                '<span class="fs-12 text-muted">→ ' + esc(x.to_doctor_name) + '</span>' +
+                '<button type="button" class="btn btn-outline btn-sm" style="margin-left:auto;padding:1px 8px" onclick="imgCritRemove(' + i + ')">✕</button></div>';
+        }).join('')
+        : '<div class="fs-12 text-muted">暂无危急值（点击上方按钮手动上报）</div>';
+}
+
+function imgCritRemove(i) {
+    (window.__imgCritQueue || []).splice(i, 1);
+    renderImgCritQueue();
 }
 
 function loadImgTpls() {
@@ -267,6 +309,14 @@ function imgApplyTpl(mode) {
 
 /* 提交防重入锁（双击确认会重复生成报告） */
 var IMG_SUBMITTING = false;
+
+/** 发布完成收尾：关闭弹窗 + 打印报告 + 局部刷新（危急值已发送完毕后调用） */
+function finishImgPublish(json) {
+    Clinic.modal.close();
+    Clinic.print.load('/api/print?action=report&report_id=' + json.data.report_id, null);
+    afterImgAction(CUR_IMG_ITEM.order_id);
+}
+
 function imgModalSave() {
     if (!CUR_IMG_ITEM) return;
     if (IMG_SUBMITTING) return;
@@ -280,10 +330,34 @@ function imgModalSave() {
         loading: true,
         onSuccess: function (json) {
             IMG_SUBMITTING = false;
-            Clinic.toast.success(json.msg);
-            Clinic.modal.close();
-            Clinic.print.load('/api/print?action=report&report_id=' + json.data.report_id, null);
-            afterImgAction(it.order_id);
+            // 报告已发布：若存在危急值预览队列，逐条发送（手动上报的危急值随发布一并发出）
+            var queue = window.__imgCritQueue || [];
+            window.__imgCritQueue = [];
+            if (!queue.length) { finishImgPublish(json); return; }
+            var remaining = queue.length;
+            queue.forEach(function (q) {
+                Clinic.critical.send({
+                    source: 'imaging',
+                    report_id: json.data.report_id,
+                    to_doctor_id: q.to_doctor_id,
+                    item: q.item,
+                }, {
+                    onSuccess: function () {
+                        remaining--;
+                        if (remaining <= 0) {
+                            Clinic.toast.success('报告已生成，危急值已发送并通知医生');
+                            finishImgPublish(json);
+                        }
+                    },
+                    onError: function () {
+                        remaining--;
+                        if (remaining <= 0) {
+                            Clinic.toast.warning('报告已生成，部分危急值发送失败，请到危急值管理核实');
+                            finishImgPublish(json);
+                        }
+                    },
+                });
+            });
         },
         onError: function () { IMG_SUBMITTING = false; },
     });

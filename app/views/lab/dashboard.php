@@ -327,6 +327,19 @@ function submitLabResult(it, value, isGroup, note) {
             Clinic.modal.close();
             Clinic.print.load('/api/print?action=report&report_id=' + json.data.report_id, null);
             afterLabAction(it.order_id);
+            // 检测到危急值：弹出「检测到危急值 → 通知医生」流程（默认通知开单医生）
+            var crit = json.data.critical;
+            if (crit && crit.items && crit.items.length) {
+                Clinic.critical.openSend({
+                    source: 'lab',
+                    report_id: crit.report_id,
+                    mode: 'lab',
+                    detected: crit.items,
+                    item_name: crit.item_name,
+                    doctor_id: crit.doctor_id,
+                    doctor_name: crit.doctor_name,
+                });
+            }
         },
         onError: function () { LAB_SUBMITTING = false; },
     });
