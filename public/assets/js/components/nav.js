@@ -265,6 +265,8 @@ case 'emr_diag': return !!(Clinic.emr && Clinic.emr.diag);
         if (!bar || !tt) return;
         // 医生工作站工具组（叫号大屏绑定/工具箱）与科室工作台工具组（叫号/工具箱）共用一套注入逻辑
         var groups = ['[data-topbar-doc-tools]', '[data-topbar-dept-tools]'];
+        // 提前判定是否为医生工作站（hasTools 元素随后会被移入顶栏，不能再从 root 二次查询）
+        var isDocWork = !!root.querySelector('[data-topbar-doc-tools]');
         groups.forEach(function (sel) {
             var hasTools = root.querySelector(sel);
             var curTools = bar.querySelector(sel);
@@ -276,7 +278,7 @@ case 'emr_diag': return !!(Clinic.emr && Clinic.emr.diag);
                 curTools.parentNode.removeChild(curTools);
             }
         });
-        if (root.querySelector('[data-topbar-doc-tools]')) {
+        if (isDocWork) {
             if (!tt.classList.contains('doc-work-title')) {
                 tt.classList.add('doc-work-title');
                 var dept = document.createElement('span');

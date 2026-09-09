@@ -77,6 +77,11 @@ function wbPickDept(id) {
     if (window.Clinic) {
         Clinic.ajax('/api/doctor', { action: 'set_dept', dept_id: id }, { loading: false });
     }
+    // 顶栏「医生工作站-科室」胶囊立即显示所选科室（doctor_tools 已就绪时），
+    // 未就绪时由其 loadDepts 读取会话记忆回填
+    if (window.Clinic && Clinic.docTools && Clinic.docTools.syncDept) {
+        Clinic.docTools.syncDept(id);
+    }
     // 更新空状态提示
     document.querySelector('.wb-empty .fs-18').textContent = '🏥 已选择科室';
     document.querySelector('.wb-empty .fs-14').textContent = '候诊列表已打开，点击患者即可进入病历书写';

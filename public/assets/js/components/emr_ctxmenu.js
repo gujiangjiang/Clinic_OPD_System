@@ -243,7 +243,7 @@ Clinic.emrMenu = (function () {
             '  <div style="flex:1;min-width:0;display:flex;flex-direction:column">' +
             '    <div class="form-group" style="flex:1;display:flex;flex-direction:column;min-height:0">' +
             '      <label class="form-label">模板内容</label>' +
-            '      <div id="atPreview" class="textarea" readonly style="flex:1;min-height:0;white-space:pre-wrap;overflow-y:auto;cursor:text">点击左侧模板查看内容</div>' +
+            '      <div id="atPreview" class="textarea" readonly style="flex:1;min-height:0;white-space:pre-wrap;overflow-y:auto;cursor:text;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--text-muted)">点击左侧模板查看内容</div>' +
             '    </div>' +
             '    <div class="flex gap-8" style="margin-top:10px">' +
             '      <button type="button" class="btn btn-primary btn-sm" style="flex:1" id="atOverwrite">覆盖</button>' +
@@ -259,6 +259,17 @@ Clinic.emrMenu = (function () {
         var preview = document.getElementById('atPreview');
         var all = [];
         var cur = null;   // 当前选中的模板
+
+        /** 预览区填充：空内容/未选中 → 居中灰色占位提示；有内容 → 左对齐正文 */
+        function setPreview(text) {
+            var has = !!(text && String(text).trim());
+            preview.textContent = text || (has ? '' : '点击左侧模板查看内容');
+            preview.style.display = has ? 'block' : 'flex';
+            preview.style.alignItems = has ? '' : 'center';
+            preview.style.justifyContent = has ? '' : 'center';
+            preview.style.textAlign = has ? 'left' : 'center';
+            preview.style.color = has ? '' : 'var(--text-muted)';
+        }
 
         function render() {
             var kw = (search.value || '').trim().toLowerCase();
@@ -283,7 +294,7 @@ Clinic.emrMenu = (function () {
                 onSuccess: function (j) {
                     var t = j.data && j.data.template;
                     cur = t || null;
-                    preview.textContent = (t && t.content && t.content.content) ? t.content.content : '';
+                    setPreview((t && t.content && t.content.content) ? t.content.content : '');
                     list.querySelectorAll('.at-tpl-item').forEach(function (x) {
                         x.style.borderColor = 'var(--border)';
                     });
@@ -291,7 +302,7 @@ Clinic.emrMenu = (function () {
                     if (hit) hit.style.borderColor = 'var(--primary)';
                 },
                 onError: function () {
-                    preview.textContent = '模板内容加载失败，请重试';
+                    setPreview('模板内容加载失败，请重试');
                 },
             });
         }

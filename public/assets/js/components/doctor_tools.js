@@ -95,7 +95,17 @@ Clinic.docTools = (function () {
         Clinic.get('/api/doctor?action=depts', null, {
             onSuccess: function (json) {
                 DEPT_LIST = json.data.list || [];
-                CUR_DEPT = parseInt(json.data.current || document.body.getAttribute('data-dept') || 0, 10) || 0;
+                // 优先采用本次会话记忆的科室（用户在工作站首页刚挑选/切换的科室，
+                // 与服务端 current 可能不同步）：保证顶栏科室胶囊与所选一致
+                var savedDept = 0;
+                try {
+                    var k = memKey();
+                    var sv = JSON.parse(sessionStorage.getItem('clinic_doc_dept') || '""');
+                    if (sv && String(sv.u) === k.u && String(sv.s) === k.s && parseInt(sv.d, 10) > 0) {
+                        savedDept = parseInt(sv.d, 10);
+                    }
+                } catch (e) { /* 忽略 */ }
+                CUR_DEPT = savedDept || parseInt(json.data.current || document.body.getAttribute('data-dept') || 0, 10) || 0;
                 if (!CUR_DEPT && DEPT_LIST.length) CUR_DEPT = DEPT_LIST[0].id;
                 renderDeptTitle();
                 // 自动加载房间绑定状态，叫号按钮实时显示已绑定诊室
@@ -749,6 +759,21 @@ Clinic.docTools = (function () {
             未加载时由 loadDepts 异步 onSuccess 回填） */
         refreshTitle: function () {
             if (DEPT_LIST && DEPT_LIST.length) renderDeptTitle();
+        },
+        /** 同步当前科室（工作台 wbPickDept 等外部入口选中科室后调用）：
+            立即重绘顶栏科室胶囊，并写会话记忆供后续 loadDepts 采用 */
+        syncDept: function (id) {
+            id = parseInt(id, 10) || 0;
+            if (!id) return;
+            CUR_DEPT = id;
+            renderDeptTitle();
+            try {
+                sessionStorage.setItem('clinic_doc_dept', JSON.stringify({
+                    u: document.body.getAttribute('data-uid') || '',
+                    s: document.body.getAttribute('data-sid') || '',
+                    d: id,
+                }));
+            } catch (e) { /* 忽略 */ }
         },
     };
 })();

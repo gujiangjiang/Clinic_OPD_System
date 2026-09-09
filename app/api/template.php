@@ -65,7 +65,8 @@ switch ($action) {
 
     /* ==================== 临床科室列表（模板编辑弹窗用，医生可访问） ==================== */
     case 'depts':
-        $rows = EmrRepository::q("SELECT id, name FROM departments WHERE status=1 AND type IN ('clinic','emergency') ORDER BY sort, id");
+        // 必须带出 type（clinic/emergency），前端 depttree 据此分「门诊/急诊」两组
+        $rows = EmrRepository::q("SELECT id, name, type FROM departments WHERE status=1 AND type IN ('clinic','emergency') ORDER BY sort, id");
         json_ok(array('list' => $rows));
         break;
 

@@ -13,6 +13,35 @@
 
 ---
 
+## [7.28.13] - 2026-09-09
+
+> 医生工作站科室体验修复 + 首页模板入口 + 嘱托模板预览占位优化 + 模板科室树分组修复。
+
+### 修复
+- **医生工作站顶栏科室胶囊在 SPA 导航进入工作台首页时缺失（选科室后/刷新后必须点患者才出现）**：
+  `nav.js syncTopbar` 先注入工具组（把 `[data-topbar-doc-tools]` 元素移入顶栏），随后又
+  用 `root.querySelector('[data-topbar-doc-tools]')` 判断——元素已被移走返回 null，
+  添加 `doc-work-title` 类与科室胶囊的分支被跳过。修复：移动前提前捕获 `isDocWork`，
+  不再二次查询。
+- **选科室后顶栏胶囊显示默认科室而非所选科室**：`wbPickDept`（emr.php）只同步后端与候诊
+  队列，未同步 `doctor_tools` 的 `CUR_DEPT`。修复：`doctor_tools` 新增公开 `syncDept(id)`
+  （重绘胶囊+写会话记忆），`wbPickDept` 选中后调用；`loadDepts` 优先采用会话记忆键
+  `clinic_doc_dept`（用户刚挑选的科室），消除加载顺序竞态。
+- **模板创建/编辑模态框科室三级树门诊/急诊分组错误**：`/api/template?action=depts` 接口
+  SQL 只查 `id, name`，漏选 `type` 列，前端 `depttree` 按 `d.type==='emergency'` 分组时
+  全部落入「门诊」。修复：`SELECT id, name, type`。
+
+### 新增
+- **医生首页快速入口加「📋 模板管理」**（`/doctor/home` links）。
+- **嘱托模板选择模态框右侧模板内容占位提示居中**：空/未选中时灰色居中显示「点击左侧模板
+  查看内容」，选中模板后左对齐正文（`emr_ctxmenu.js setPreview`）。
+
+### 说明
+- 涉及文件：app/api/template.php、app/views/doctor/emr.php、app/views/doctor/home.php、
+  public/assets/js/components/doctor_tools.js、nav.js、emr_ctxmenu.js。
+
+---
+
 ## [7.28.12] - 2026-09-09
 
 > 模板创建/编辑模态框右键菜单：禁用浏览器原生右键菜单，输入框右击调用自定义菜单（复制/剪切/粘贴/清空）；模板创建场景下嘱托字段隐藏「模板」项。
