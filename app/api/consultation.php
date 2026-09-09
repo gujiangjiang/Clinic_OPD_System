@@ -120,7 +120,10 @@ switch ($action) {
             (string)$visit['current_dept_name'] . ' ' . $u['name'] . ' 请' . $targetDept['name'] . '会诊，请及时处理',
             'consultation', '/api/consultation?action=detail&id=' . oid($cid),
             array('msg_type' => 'patient', 'patient_name' => $row['patient']['name'], 'visit_id' => $visitId, 'target_dept_id' => (int)$targetDept['id']));
-        json_ok(array('id' => $cid), '会诊发送成功');
+        // 响应附带完整会诊行：前端发起成功后即时插入右侧会诊列表并同步
+        // DATA.consults（无需刷新页面，也不依赖二次列表请求）
+        $newRow = ConsultationRepository::one('SELECT * FROM consultations WHERE id=?', array($cid));
+        json_ok(array('id' => $cid, 'consultation' => $newRow ? consultation_row($newRow) : null), '会诊发送成功');
         break;
 
     /* ==================== 会诊列表（type=received 收到 / sent 发出） ==================== */

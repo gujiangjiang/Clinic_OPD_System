@@ -104,6 +104,13 @@ Clinic.emr.consult = (function () {
                                     }, {
                                         onSuccess: function (json) {
                                             Clinic.toast.success(json.msg);
+                                            // 即时同步：响应附带完整会诊行，本地插入 DATA.consults
+                                            // 并同步 CONSULTS 数据源后立即重渲染右侧列表与病历
+                                            // 门诊处置「请X科会诊」——不依赖二次列表请求
+                                            var nc = json.data && json.data.consultation;
+                                            if (nc && ctx.DATA) {
+                                                ctx.DATA.consults = (ctx.DATA.consults || []).concat([nc]);
+                                            }
                                             Clinic.modal.close();
                                             renderConsultList();
                                             ctx.loadOrders(visitId);   // 病历门诊处置追加「请X科会诊」
