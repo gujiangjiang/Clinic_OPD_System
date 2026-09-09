@@ -470,6 +470,123 @@ function deptwork_call_panel($u) {
     ));
 }
 
+/* ==================== 医技诊室绑定 / 叫号（参考医生工作站大屏） ====================
+ * 说明：护士站/检验/影像/药房工作台「叫号」同样先绑定大屏诊室（悬浮窗），
+ * 绑定后才打开叫号面板；绑定/解绑/心跳/叫号与医生诊室共用 clinic_rooms 的
+ * current_doctor_id 关联（一人一块屏），room_type 限定本角色诊室类型。 */
+
+/** 可用诊室列表（本角色类型；绑定归属随 current_doctor_id） */
+function deptwork_get_available_rooms($u) {
+    $cfg = deptwork_role_cfg($u['role']);
+    $roomType = $cfg['room_type'];
+    $myDepts = user_dept_ids($u);
+    $where = 'room_type=?';
+    $params = array($roomType);
+    if ($myDepts) {
+        $where .= ' AND dept_id IN (' . in_placeholders($myDepts) . ')';
+        $params = array_merge($params, $myDepts);
+    }
+    $rows = DB::q("SELECT * FROM clinic_rooms WHERE $where ORDER BY id", $params);
+    $list = array();
+    foreach ($rows as $room) {
+        $isOnline = (!empty($room['screen_last_heartbeat']) && (time() - strtotime($room['screen_last_heartbeat'])) <= 30);
+        if (!$isOnline) {
+            $status = 'offline'; $text = '大屏离线，请联系管理员'; $sel = false;
+        } elseif ($room['current_doctor_id'] > 0 && (int)$room['current_doctor_id'] !== (int)$u['id']) {
+            $status = 'occupied'; $text = $room['current_doctor_name'] . ' 正在使用'; $sel = false;
+        } else {
+            $status = ($room['current_doctor_id'] == $u['id']) ? 'bound' : 'available';
+            $text = $status === 'bound' ? '已绑定' : '在线空闲'; $sel = true;
+        }
+        $list[] = array('id' => (int)$room['id'], 'name' => $room['room_name'], 'status' => $status, 'status_text' => $text, 'selectable' => $sel);
+    }
+    $myBound = DB::one('SELECT * FROM clinic_rooms WHERE current_doctor_id=? ORDER BY id DESC LIMIT 1', array($u['id']));
+    json_ok(array('list' => $list, 'bound' => $myBound ? array('id' => (int)$myBound['id'], 'name' => $myBound['room_name']) : null));
+}
+
+/** 绑定大屏诊室 */
+function deptwork_bind_room($u) {
+    $roomId = (int)post('room_id');
+    $room = DB::one('SELECT * FROM clinic_rooms WHERE id=?', array($roomId));
+    if (!$room) json_fail('诊室不存在');
+    // 类型限定：仅可绑定本角色类型诊室（护士→nurse / 检验→lab / 影像→imaging / 药房→pharmacy）
+    $cfg = deptwork_role_cfg($u['role']);
+    if ($room['room_type'] !== $cfg['room_type']) json_fail('无权绑定该类型诊室');
+    // 后端强拦截：大屏必须在线
+    if (empty($room['screen_last_heartbeat']) || (time() - strtotime($room['screen_last_heartbeat'])) > 30) {
+        json_fail('该大屏当前处于离线状态，无法绑定，请确保大屏已开启并在运行！');
+    }
+    // 已被他人占用 → 拒绝
+    if ($room['current_doctor_id'] > 0 && (int)$room['current_doctor_id'] !== (int)$u['id']) {
+        json_fail('该大屏已被 ' . $room['current_doctor_name'] . ' 使用，无法绑定');
+    }
+    // 释放本人此前绑定的其他诊室（一人一块屏）
+    DB::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL WHERE current_doctor_id=?', array($u['id']));
+    DB::exec('UPDATE clinic_rooms SET current_doctor_id=?, current_doctor_name=?, doctor_heartbeat=?, call_session_date=?, updated_at=? WHERE id=?',
+        array($u['id'], $u['name'], now_str(), today_str(), now_str(), $roomId));
+    json_ok(array('room_id' => $roomId, 'room_name' => $room['room_name']), '已绑定大屏「' . $room['room_name'] . '」');
+}
+
+/** 解绑大屏诊室 */
+function deptwork_unbind_room($u) {
+    $roomId = (int)post('room_id');
+    DB::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL, current_visit_id=0, current_flow_no="", current_called_at="", last_call_action="", last_call_at="", updated_at=? WHERE id=? AND current_doctor_id=?',
+        array(now_str(), $roomId, $u['id']));
+    json_ok(array(), '已释放诊室');
+}
+
+/** 绑定心跳保活 */
+function deptwork_room_heartbeat($u) {
+    $roomId = (int)post('room_id');
+    DB::exec('UPDATE clinic_rooms SET doctor_heartbeat=?, updated_at=? WHERE id=? AND current_doctor_id=?',
+        array(now_str(), now_str(), $roomId, $u['id']));
+    json_ok(array());
+}
+
+/** 当前绑定诊室（无则 null） */
+function deptwork_bound_room($u) {
+    return DB::one('SELECT * FROM clinic_rooms WHERE current_doctor_id=? ORDER BY id DESC LIMIT 1', array($u['id']));
+}
+
+/** 医技叫号下一位：把在办队列中的下一位患者推送到大屏（当前处理中之后或队首） */
+function deptwork_call_next($u) {
+    $room = deptwork_bound_room($u);
+    if (!$room) json_fail('请先绑定大屏诊室后再叫号');
+    $rows = deptwork_queue_rows($u, 'doing', 0);
+    if (!$rows) json_fail('当前暂无待叫号患者');
+    // 下一位：优先「当前打开患者」之后的首位，否则取队首
+    $curCode = post('current_visit', '');
+    $next = null;
+    if ($curCode !== '') {
+        $found = false;
+        foreach ($rows as $r) {
+            if ($found) { $next = $r; break; }
+            if (oid((int)$r['visit_id']) === $curCode) $found = true;
+        }
+    }
+    if (!$next) $next = $rows[0];
+    $visitId = (int)$next['visit_id'];
+    $now = now_str();
+    DB::exec('UPDATE clinic_rooms SET current_visit_id=?, current_flow_no=?, current_called_at=?, last_call_action=?, last_call_at=?, updated_at=? WHERE id=?',
+        array($visitId, $next['flow_no'], $now, 'call', $now, $now, (int)$room['id']));
+    DB::insert('INSERT INTO call_events(visit_id, flow_no, patient_no, dept_id, room_id, doctor_id, doctor_name, action, created_at) VALUES(?,?,?,?,?,?,?,?,?)',
+        array($visitId, $next['flow_no'], $next['patient_no'], (int)$room['dept_id'], (int)$room['id'], (int)$u['id'], $u['name'], 'call', $now));
+    json_ok(array('visit_id' => oid($visitId), 'name' => $next['pname'], 'flow_no' => $next['flow_no']), '已呼叫 ' . $next['pname']);
+}
+
+/** 医技再次叫号（重复播报当前） */
+function deptwork_call_repeat($u) {
+    $room = deptwork_bound_room($u);
+    if (!$room) json_fail('请先绑定大屏诊室');
+    if ((int)$room['current_visit_id'] <= 0) json_fail('当前无正在呼叫的患者');
+    $now = now_str();
+    DB::exec('UPDATE clinic_rooms SET current_called_at=?, last_call_action=?, last_call_at=?, updated_at=? WHERE id=?',
+        array($now, 'repeat_call', $now, $now, (int)$room['id']));
+    DB::insert('INSERT INTO call_events(visit_id, flow_no, patient_no, dept_id, room_id, doctor_id, doctor_name, action, created_at) VALUES(?,?,?,?,?,?,?,?,?)',
+        array((int)$room['current_visit_id'], $room['current_flow_no'], '', (int)$room['dept_id'], (int)$room['id'], (int)$u['id'], $u['name'], 'repeat_call', $now));
+    json_ok(array(), '已再次呼叫');
+}
+
 switch ($action) {
     case 'queue':
         deptwork_queue($u);
@@ -482,6 +599,24 @@ switch ($action) {
         break;
     case 'call_panel':
         deptwork_call_panel($u);
+        break;
+    case 'get_available_rooms':
+        deptwork_get_available_rooms($u);
+        break;
+    case 'bind_room':
+        deptwork_bind_room($u);
+        break;
+    case 'unbind_room':
+        deptwork_unbind_room($u);
+        break;
+    case 'room_heartbeat':
+        deptwork_room_heartbeat($u);
+        break;
+    case 'call_next':
+        deptwork_call_next($u);
+        break;
+    case 'call_repeat':
+        deptwork_call_repeat($u);
         break;
     default:
         json_fail('未知操作');
