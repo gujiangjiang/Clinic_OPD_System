@@ -169,7 +169,8 @@ class LoginSecurity {
             imagestring($img, 5, $x0 + $i * $charW + random_int(-2, 2), random_int(8, 14), $code[$i], $c);
         }
         imagepng($img);
-        imagedestroy($img);
+        // 不调用 imagedestroy：PHP 8.0 起为 no-op、8.5 起标记废弃（脚本结束
+        // 自动释放），移除以兼容 PHP 7.x ~ 8.x 全系
     }
 
     /* ==================== check_captcha 防枚举限流 ==================== */
