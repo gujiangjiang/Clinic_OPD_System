@@ -114,6 +114,11 @@ Clinic.emr.consult = (function () {
                                             Clinic.modal.close();
                                             renderConsultList();
                                             ctx.loadOrders(visitId);   // 病历门诊处置追加「请X科会诊」
+                                            // 自动弹出会诊申请单打印预览（与诊断证明开具后
+                                            // 自动打印同模式；code 兜底直接用会诊 id）
+                                            if (nc && (nc.code || json.data.id)) {
+                                                Clinic.print.load('/api/print?action=consultation&id=' + encodeURIComponent(nc.code || json.data.id), null, 'a5');
+                                            }
                                         },
                                     });
                                 },
