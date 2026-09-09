@@ -105,8 +105,11 @@ Clinic.docTools = (function () {
                         savedDept = parseInt(sv.d, 10);
                     }
                 } catch (e) { /* 忽略 */ }
-                CUR_DEPT = savedDept || parseInt(json.data.current || document.body.getAttribute('data-dept') || 0, 10) || 0;
-                if (!CUR_DEPT && DEPT_LIST.length) CUR_DEPT = DEPT_LIST[0].id;
+                // 当前科室以「本次会话记忆」为准（医生在工作站首页刚挑选/切换的科室）：
+                // 未选择时保持 0 → 胶囊隐藏，不回落持久化的 users.current_dept_id
+                // （否则首次进入会显示上次遗留的默认门诊科室，不合理）
+                CUR_DEPT = savedDept || 0;
+                // 不默认第一个科室：未选择时保持 0，胶囊隐藏，待医生显式选择后再显示
                 renderDeptTitle();
                 // 自动加载房间绑定状态，叫号按钮实时显示已绑定诊室
                 loadRoomList();
@@ -115,15 +118,22 @@ Clinic.docTools = (function () {
     }
 
     /* 渲染标题「医生工作站-科室」：科室名做成胶囊徽章样式，
-       多科室权限 → 主色胶囊可点击切换；单科室 → 灰色不可点击 */
+       多科室权限 → 主色胶囊可点击切换；单科室 → 灰色不可点击；
+       未选择科室（CUR_DEPT=0 或无匹配）→ 胶囊隐藏，待医生显式选择后再显示 */
     function renderDeptTitle() {
         var el = document.getElementById('docWorkDept');
         if (!el) return;
         var cur = null;
         DEPT_LIST.forEach(function (d) { if (d.id === CUR_DEPT) cur = d; });
-        var name = cur ? cur.name : '未选科室';
+        if (!cur) {
+            el.style.display = 'none';
+            el.onclick = null;
+            el.title = '';
+            return;
+        }
+        el.style.display = '';   // 恢复 CSS 的 inline-flex
         el.innerHTML = '<span class="doc-dept-name"></span>';
-        el.querySelector('.doc-dept-name').textContent = name;
+        el.querySelector('.doc-dept-name').textContent = cur.name;
         el.title = DEPT_LIST.length > 1 ? '点击切换科室' : '您仅有该科室权限，不可切换';
         // 多科室权限 → 可点击；单科室 → 无反应（不绑点击）
         if (DEPT_LIST.length > 1) {
