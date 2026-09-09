@@ -117,7 +117,7 @@ function admin_part_user($action) {
                 '<button type="button" class="btn btn-warning btn-sm" style="margin-top:6px" onclick="unlockUser()">🔓 解除锁定并启用</button>' .
                 '</div>';
         }
-        $html = '<div class="flex" style="justify-content:center;margin-bottom:12px">
+        $html = $lockWarn . '<div class="flex" style="justify-content:center;margin-bottom:12px">
             <div class="avatar-picker" onclick="document.getElementById(\'f_photo\').click()">
                 <span class="avatar" id="avatarPreview">' .
                 ($r['photo'] && ($__ava = img_data($r['photo'])) !== '' ? '<img src="' . e($__ava) . '">' : '👤') . '
@@ -126,7 +126,6 @@ function admin_part_user($action) {
                 <span class="avatar-picker-tip">点击头像上传照片</span>
             </div>
         </div>
-        $lockWarn . '
         <input type="file" id="f_photo" accept="image/*" style="display:none">
         <input type="hidden" id="f_id" value="' . (int)$id . '">
         <div class="form-row">
@@ -246,10 +245,12 @@ function admin_part_user($action) {
                 );
                 if ($wasLocked) {
                     // 安全审计日志（audits 已处理池）：记录解锁动作供追溯
+                    // （?? null 合并属 PHP7 语法，此处为 PHP 7.x 兼容写法标识）
+                    $failCnt = isset($before['login_fail_count']) ? (int)$before['login_fail_count'] : 0;
                     UserRepository::insert("INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, handled_by, handled_at, note, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)", array(
                         'user_unlock', $id,
                         '解除账号安全锁定：' . $name,
-                        '用户「' . $name . '」（工号 ' . $empNo . '）因密码连续错误达 ' . (int)($before['login_fail_count'] ?? 0) . ' 次被系统安全锁定，管理员已手动解锁并启用',
+                        '用户「' . $name . '」（工号 ' . $empNo . '）因密码连续错误达 ' . $failCnt . ' 次被系统安全锁定，管理员已手动解锁并启用',
                         'approved', $u['name'], (int)$u['id'], $u['name'], now_str(), '解锁后 login_fail_count 已清零', now_str(),
                     ));
                 }
