@@ -71,6 +71,11 @@ class DatabaseManager {
         $def = self::mainSchema();
         self::createTables(self::$main, $def);
         self::migrate(self::$main, $def);
+        // 运行时关键列自愈：版本迁移链若因历史版本失败而中断（如旧 SQLite
+        // 缺 JSON1 扩展卡在 json_extract 迁移），后续版本的 ALTER 不会执行，
+        // 新代码引用缺失列将直接 500。此处对登录安全等关键列做幂等补齐，
+        // 与版本迁移解耦——保证任何存量库都能平滑升级。
+        self::ensureRuntimeColumns(self::$main);
         return self::$main;
     }
 
@@ -286,6 +291,39 @@ class DatabaseManager {
             return count($cols) > 0;
         } catch (Exception $ex) {
             return false;
+        }
+    }
+
+    /**
+     * 运行时关键列自愈（与版本迁移解耦的兜底保障）：
+     * 逐列检测缺失即补齐（ALTER ADD COLUMN，幂等）。覆盖登录安全体系
+     * 依赖的列——若迁移链中断（历史版本失败卡版本号），登录页将因
+     * UPDATE/SELECT 引用缺失列而 500，任何用户无法登录。此处保证
+     * 首次访问即完成补齐，无需人工干预。
+     * 列定义与 main.php 建表语句/v31 迁移保持一致。
+     */
+    private static function ensureRuntimeColumns($pdo) {
+        // 表 => 列 => 类型（方言无关：SQLite/MySQL 均 ADD COLUMN 语法）
+        $need = array(
+            'users' => array(
+                'lock_reason'      => 'TEXT DEFAULT NULL',
+                'locked_at'        => 'TEXT DEFAULT NULL',
+                'lock_ip'          => "TEXT DEFAULT ''",
+                'login_fail_count' => 'INTEGER DEFAULT 0',
+                'login_locked_until' => 'TEXT',
+                'status'           => 'INTEGER DEFAULT 1',
+            ),
+        );
+        foreach ($need as $table => $cols) {
+            foreach ($cols as $col => $type) {
+                if (!self::columnExists($pdo, $table, $col)) {
+                    try {
+                        $pdo->exec("ALTER TABLE `$table` ADD COLUMN `$col` $type");
+                    } catch (Exception $ex) {
+                        if (DEBUG) error_log('[运行时列自愈失败] ' . $table . '.' . $col . ': ' . $ex->getMessage());
+                    }
+                }
+            }
         }
     }
 
