@@ -194,6 +194,7 @@ Clinic.critical = (function () {
         SEND_CTX = {
             source: opts.source, report_id: opts.report_id, mode: opts.mode || 'lab',
             to_doctor_id: opts.doctor_id || 0, to_doctor_name: opts.doctor_name || '',
+            onAdd: opts.onAdd, onSent: opts.onSent,
         };
         var detHtml = '';
         if (opts.detected && opts.detected.length) {
@@ -206,11 +207,23 @@ Clinic.critical = (function () {
                         ' <span class="crit-range">（危急值阈值 低' + esc(d.critical_low || '—') + ' / 高' + esc(d.critical_high || '—') + '）</span></div>';
                 }).join('') + '</div>';
         }
+        // 影像科：已加入预览队列的危急值（等待发送）在弹窗内展示，避免重复添加/遗漏
+        var existingHtml = '';
+        if (opts.mode === 'imaging' && opts.existing && opts.existing.length) {
+            existingHtml = '<div class="crit-existing-box">' +
+                '<div class="crit-subtitle">已添加的危急值（等待发送）</div>' +
+                opts.existing.map(function (x) {
+                    return '<div class="dw-crit-queue-item">' +
+                        '<span class="crit-q-name">' + esc(x.item) + '</span>' +
+                        '<span class="fs-12 text-muted">→ ' + esc(x.to_doctor_name || '') + '</span></div>';
+                }).join('') +
+                '<div class="fs-12 text-muted mt-4">以上危急值将在报告发布时一并发送，可继续添加。</div></div>';
+        }
         var manualHtml = opts.mode === 'imaging'
             ? '<div class="form-group"><label class="form-label">危急值项目 <span class="req">*</span></label>' +
               '<input class="input" id="critItemInput" placeholder="手动输入危急值项目，如：脑疝、眼球破裂等"></div>'
             : '';
-        var html = detHtml + manualHtml +
+        var html = detHtml + existingHtml + manualHtml +
             '<div class="form-group">' +
             '  <label class="form-label">接收医生</label>' +
             '  <div class="crit-doc-sel" id="critDocSel" onclick="Clinic.critical._openPickerFromSend()">' +
@@ -488,11 +501,11 @@ Clinic.critical = (function () {
                 '  <div class="flex gap-8" style="align-items:flex-end;flex-wrap:wrap;padding:14px">' +
                 '    <div class="form-group" style="margin:0">' +
                 '      <label class="form-label">开始日期</label>' +
-                '      <input type="date" class="input" id="critFrom">' +
+                '      <input type="text" class="input" id="critFrom" readonly placeholder="开始日期" style="width:150px;cursor:pointer;background:var(--bg)" onclick="Clinic.datePicker.open(this,{maxToday:false})">' +
                 '    </div>' +
                 '    <div class="form-group" style="margin:0">' +
                 '      <label class="form-label">结束日期</label>' +
-                '      <input type="date" class="input" id="critTo">' +
+                '      <input type="text" class="input" id="critTo" readonly placeholder="结束日期" style="width:150px;cursor:pointer;background:var(--bg)" onclick="Clinic.datePicker.open(this,{maxToday:true})">' +
                 '    </div>' +
                 '    <div class="form-group" style="margin:0">' +
                 '      <label class="form-label">处理状态</label>' +

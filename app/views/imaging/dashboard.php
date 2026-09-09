@@ -185,7 +185,8 @@ function openImgReportModal(id) {
         '    <div id="imgTplList" style="flex:1;overflow-y:auto;min-height:0"></div>' +
         '    <div class="dw-crit-queue" style="border-top:1px solid var(--border);padding-top:10px;margin-top:10px">' +
         '      <button type="button" class="btn btn-outline btn-sm" style="width:100%" onclick="openImgCritSend()">🚨 报危急值</button>' +
-        '      <div id="imgCritQueue" style="margin-top:8px"></div>' +
+        '      <div class="dw-crit-queue-title">危急值等待发送（<span id="imgCritCount">0</span>）</div>' +
+        '      <div id="imgCritQueue" style="margin-top:6px"></div>' +
         '    </div>' +
         '  </div>' +
         '  <div style="flex:1;min-width:0;display:flex;flex-direction:column">' +
@@ -221,12 +222,14 @@ function openImgReportModal(id) {
 /* ==================== 影像科危急值（手动上报，发布时一并发送） ==================== */
 function openImgCritSend() {
     if (!CUR_IMG_ITEM) return;
+    // 将已添加的危急值预览回传弹窗：再次点开可看到已填内容，避免误以为丢失
     Clinic.critical.openSend({
         source: 'imaging',
         report_id: '',
         mode: 'imaging',
         doctor_id: CUR_IMG_ITEM.doctor_id || 0,
         doctor_name: CUR_IMG_ITEM.doctor_name || '',
+        existing: window.__imgCritQueue || [],
         onAdd: function (q) {
             (window.__imgCritQueue || []).push(q);
             renderImgCritQueue();
@@ -236,8 +239,10 @@ function openImgCritSend() {
 
 function renderImgCritQueue() {
     var box = document.getElementById('imgCritQueue');
-    if (!box) return;
+    var cnt = document.getElementById('imgCritCount');
     var q = window.__imgCritQueue || [];
+    if (cnt) cnt.textContent = q.length;
+    if (!box) return;
     box.innerHTML = q.length
         ? q.map(function (x, i) {
             return '<div class="dw-crit-queue-item">' +

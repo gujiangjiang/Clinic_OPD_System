@@ -1008,6 +1008,15 @@ body.emr-readonly .emr-item-link,
 .crit-doc-tip { padding: 16px; text-align: center; color: var(--muted); font-size: 13px; }
 .crit-doc-foot { text-align: center; color: var(--muted); font-size: 12px; padding: 8px; }
 .dw-crit-queue { margin-top: 10px; }
+.dw-crit-queue-title {
+    font-size: 12px; font-weight: 700; color: var(--danger, #dc2626);
+    margin-top: 8px; display: flex; align-items: center; gap: 4px;
+}
+.crit-existing-box {
+    background: var(--bg-soft); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 12px; margin-bottom: 14px;
+}
+.crit-existing-box .crit-subtitle { margin-top: 0; }
 .dw-crit-queue-item {
     display: flex; align-items: center; gap: 8px; font-size: 13px;
     background: rgba(220, 38, 38, .05); border: 1px solid rgba(220, 38, 38, .25);
