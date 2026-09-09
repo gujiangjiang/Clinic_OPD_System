@@ -16,8 +16,19 @@ function doctor_read_home_stats($u) {
     foreach (EmrRepository::q("SELECT order_type, COALESCE(SUM(total_amount),0) s FROM orders WHERE doctor_id=? AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=? GROUP BY order_type", array($uid, $today)) as $r) {
         if (isset($sums[$r['order_type']])) $sums[$r['order_type']] = round((float)$r['s'], 2);
     }
-    // 我的草稿病历（待完成接诊）
-    $drafts = (int)EmrRepository::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND status='draft'", array($uid));
+    // 我的待完成接诊：医生本人首诊（record_type=initial，排除续写/会诊）、就诊尚未诊毕、
+    // 且在医生病历权限（queue_days，管理员设置）可查看天数内——超期/他人诊毕/已取消退费
+    // 均不计数（超期病历医生本也无法查看/诊毕）
+    $queueDays = user_queue_days($u);
+    $since = date('Y-m-d', strtotime('-' . ($queueDays - 1) . ' days'));
+    $drafts = (int)EmrRepository::val(
+        "SELECT COUNT(*) FROM patient_records r
+         JOIN registrations v ON v.id = r.visit_id
+         WHERE r.doctor_id = ? AND r.record_type = 'initial'
+           AND v.status NOT IN ('finished','cancelled','refunded')
+           AND date(v.registered_at) >= ?",
+        array($uid, $since)
+    );
     // 今日门诊人次（全部科室）
     $todayReg = (int)EmrRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=?", array($today));
     // 近7天本人接诊趋势

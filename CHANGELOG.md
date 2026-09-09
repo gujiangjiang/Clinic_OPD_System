@@ -13,6 +13,25 @@
 
 ---
 
+## [7.28.16] - 2026-09-09
+
+> 医生首页「我的待完成病历」按权限口径统计：仅本人首诊、未诊毕、且在当前病历权限天数内。
+
+### 修复
+- **「我的待完成病历」统计了超出权限的病历（超期无法查看/诊毕）**：原逻辑
+  `WHERE doctor_id=? AND status='draft'` 未限制权限天数、未排除已诊毕/取消/退费就诊，
+  也未排除续写/会诊记录。修复（`doctor_home_stats.php`）：
+  1. 仅统计医生本人**首诊**（`record_type='initial'`，排除续写/会诊）；
+  2. 就诊**尚未诊毕**（`registrations.status NOT IN ('finished','cancelled','refunded')`）；
+  3. 就诊时间在医生病历权限（`queue_days`，管理员设置 2-7）窗口内
+     （`date(registered_at) >= 今天-(queue_days-1)`，与 `visit_access_allowed` 同口径）。
+- 真实数据验证：医生张伟旧统计 124 → 新统计 1（仅窗口内本人首诊未诊毕）。
+
+### 说明
+- 涉及文件：app/api/parts/doctor/doctor_home_stats.php。
+
+---
+
 ## [7.28.15] - 2026-09-09
 
 > 过敏史模态框实时刷新：本次会话已修改过敏史后，再次打开直接用内存最新值，不再被未同步的患者主表旧值覆盖。
