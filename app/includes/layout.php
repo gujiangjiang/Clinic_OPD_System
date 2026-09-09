@@ -283,7 +283,9 @@ class Layout {
             $emrScripts .= "\n" . '<script src="/assets/js/components/doctor_tools.js?v=' . APP_VERSION . '"></script>';
         }
         // 医生角色全局：诊室大屏绑定心跳保活（跨页面持续，离开工作站/刷新不自动解绑）
-        if ($u['role'] === 'doctor') {
+        // 医技四科室（护士/检验/影像/药房）：大屏绑定心跳同样跨页面保活（room_heartbeat
+        // 按 data-role 自动路由到 /api/deptwork）
+        if (in_array($u['role'], array('doctor', 'nurse', 'lab', 'imaging', 'pharmacy'), true)) {
             $emrScripts .= "\n" . '<script src="/assets/js/components/room_heartbeat.js?v=' . APP_VERSION . '"></script>';
         }
         // 科室工作台（护士站/检验/影像/药房）共用组件 + 候诊面板核心 + 生命体征悬浮窗组件

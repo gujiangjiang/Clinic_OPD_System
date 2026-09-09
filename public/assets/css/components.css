@@ -958,6 +958,20 @@ body.emr-readonly .emr-item-link,
     border-top: 1px solid var(--border, #e5e7eb);
 }
 
+/* ==================== 医技诊室绑定悬浮窗（护士/检验/影像/药房叫号） ==================== */
+.dw-room-list-body { min-width: 240px; }
+.dw-room-bound {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    background: var(--bg-soft); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; margin-bottom: 8px; font-size: 13px;
+}
+.dw-room-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 9px 12px; border-bottom: 1px solid var(--border); cursor: pointer;
+}
+.dw-room-item:hover { background: var(--bg-soft); }
+.dw-room-off { cursor: not-allowed; opacity: .55; }
+
 /* ==================== 危急值 ==================== */
 
 .crit-modal { display: flex; gap: 18px; min-height: 380px; }

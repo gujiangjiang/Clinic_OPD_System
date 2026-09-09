@@ -54,7 +54,10 @@ Clinic.roomHeartbeat = (function () {
     function beat() {
         var b = readBound();
         if (!b || !b.room_id) return;
-        Clinic.ajax('/api/doctor', { action: 'room_heartbeat', room_id: b.room_id }, {
+        // 医生走 /api/doctor，医技（护士/检验/影像/药房）走 /api/deptwork
+        var role = document.body.getAttribute('data-role') || '';
+        var url = role === 'doctor' ? '/api/doctor' : '/api/deptwork';
+        Clinic.ajax(url, { action: 'room_heartbeat', room_id: b.room_id }, {
             loading: false,
             onError: function () { /* 静默 */ },
         });

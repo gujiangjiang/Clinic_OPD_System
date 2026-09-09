@@ -635,20 +635,147 @@ Clinic.deptwork = (function () {
         if (PANEL_BIND) { PANEL_BIND.unbind(); PANEL_BIND = null; }
     }
 
-    /* ==================== 科室排队悬浮窗 ==================== */
+    /* ==================== 医技叫号（诊室绑定 + 叫号面板，参考医生工作站） ====================
+     * 护士/检验/影像/药房工作台「叫号」：先绑定大屏诊室（悬浮窗），绑定后才打开叫号面板；
+     * 面板含 当前处理中/下一位/候诊队列 + 叫号下一位/重呼 + mini 精简版（记忆）+ 底部解绑。
+     * 绑定信息复用 Clinic.roomHeartbeat（sessionStorage 持久，跨页面心跳保活）。 */
     function callPopEl() { return document.getElementById('dwCallPop'); }
+    function roomListEl() { return document.getElementById('dwRoomList'); }
 
-    function openCallPop() {
-        if (callPopEl()) return;
+    function dwModeKey() { return 'clinic_dept_call_mode_' + (document.body.getAttribute('data-uid') || ''); }
+    function dwReadMode() { try { return localStorage.getItem(dwModeKey()) || ''; } catch (e) { return ''; } }
+    function dwSaveMode(m) { try { localStorage.setItem(dwModeKey(), m); } catch (e) { /* 忽略 */ } }
+    function dwReadPos() { try { var sv = JSON.parse(sessionStorage.getItem('clinic_dept_call_pos') || 'null'); return sv; } catch (e) { return null; } }
+    function dwSavePos(x, y) { try { sessionStorage.setItem('clinic_dept_call_pos', JSON.stringify({ x: x, y: y })); } catch (e) { /* 忽略 */ } }
+
+    function currentRoom() { return Clinic.roomHeartbeat.current(); }
+
+    function toggleCallPop() {
+        if (callPopEl()) { closeCallPop(); return; }
+        var r = currentRoom();
+        if (!r || !r.room_id) { toggleRoomList(); return; }   // 未绑定 → 先出绑定悬浮窗
+        openCallPop();
+    }
+
+    /* ---------- 绑定大屏诊室悬浮窗 ---------- */
+    function toggleRoomList() {
+        var el = roomListEl();
+        if (el) { el.remove(); return; }
         var pop = document.createElement('div');
         pop.className = 'doc-call-pop';
-        pop.id = 'dwCallPop';
+        pop.id = 'dwRoomList';
         pop.style.right = '16px';
         pop.style.bottom = '64px';
         pop.innerHTML =
             '<div class="doc-call-pop-head">' +
-            '  <span class="doc-call-pop-title">📢 科室排队</span>' +
+            '  <span class="doc-call-pop-title">📢 选择大屏诊室</span>' +
             '  <span class="doc-call-pop-tools"><span class="doc-call-pop-x" data-act="hide" title="关闭">x</span></span>' +
+            '</div>' +
+            '<div class="doc-call-pop-body dw-room-list-body">' +
+            '  <div class="fs-12 text-muted" style="padding:4px 2px">请先绑定诊室大屏，绑定后可进行叫号。</div>' +
+            '  <div id="dwRoomListBody"><div class="fs-12 text-muted">加载中…</div></div>' +
+            '</div>';
+        document.body.appendChild(pop);
+        pop.querySelector('[data-act="hide"]').addEventListener('click', function () { pop.remove(); });
+        loadRooms();
+    }
+
+    function loadRooms() {
+        Clinic.get('/api/deptwork?action=get_available_rooms', null, {
+            loading: false,
+            onSuccess: function (json) {
+                var d = json.data;
+                var body = document.getElementById('dwRoomListBody');
+                if (!body) return;
+                var html = '';
+                if (d.bound) {
+                    html += '<div class="dw-room-bound">已绑定：<b>' + escHtml(d.bound.name) + '</b> ' +
+                        '<button type="button" class="btn btn-outline btn-sm" data-room-id="' + d.bound.id + '" data-act="unbind">解绑</button></div>';
+                }
+                html += (d.list || []).map(function (r) {
+                    return '<div class="dw-room-item' + (r.selectable ? '' : ' dw-room-off') + '" data-room-id="' + r.id + '" ' +
+                        'data-room-name="' + escHtml(r.name) + '" data-sel="' + (r.selectable ? 1 : 0) + '">' +
+                        '<span class="fw-600">' + escHtml(r.name) + '</span>' +
+                        '<span class="fs-12 text-muted">' + escHtml(r.status_text) + '</span></div>';
+                }).join('');
+                body.innerHTML = html || '<div class="fs-12 text-muted">暂无可用诊室，请联系管理员在「叫号管理」中创建</div>';
+                body.querySelectorAll('.dw-room-item').forEach(function (it) {
+                    it.addEventListener('click', function () {
+                        if (it.getAttribute('data-sel') !== '1') {
+                            Clinic.toast.warning((it.querySelector('span:last-child') || {}).textContent || '该诊室不可用');
+                            return;
+                        }
+                        dwBindRoom(parseInt(it.getAttribute('data-room-id'), 10), it.getAttribute('data-room-name'));
+                    });
+                });
+                body.querySelectorAll('[data-act="unbind"]').forEach(function (b) {
+                    b.addEventListener('click', function () { dwUnbindRoom(parseInt(b.getAttribute('data-room-id'), 10)); });
+                });
+            },
+        });
+    }
+
+    function dwBindRoom(roomId, roomName) {
+        Clinic.ajax('/api/deptwork', { action: 'bind_room', room_id: roomId }, {
+            onSuccess: function (json) {
+                Clinic.toast.success(json.msg);
+                Clinic.roomHeartbeat.remember(roomId, roomName);
+                var rl = roomListEl();
+                if (rl) rl.remove();
+                openCallPop();
+            },
+        });
+    }
+
+    function dwUnbindRoom(roomId) {
+        Clinic.modal.confirm('确定解绑大屏诊室？解绑后需重新绑定才能叫号。', function () {
+            Clinic.ajax('/api/deptwork', { action: 'unbind_room', room_id: roomId }, {
+                onSuccess: function (json) {
+                    Clinic.toast.success(json.msg);
+                    Clinic.roomHeartbeat.forget();
+                    closeCallPop();
+                    var rl = roomListEl();
+                    if (rl) rl.remove();
+                    toggleRoomList();
+                },
+            });
+        }, { title: '解绑大屏', okText: '解绑' });
+    }
+
+    /* ---------- 叫号面板 ---------- */
+    function openCallPop() {
+        if (callPopEl()) return;
+        var r = currentRoom();
+        if (!r || !r.room_id) { toggleRoomList(); return; }
+        var mini = dwReadMode() === 'mini';
+        var pop = document.createElement('div');
+        pop.className = 'doc-call-pop' + (mini ? ' doc-call-mini' : '');
+        pop.id = 'dwCallPop';
+        var pos = dwReadPos();
+        if (pos) {
+            pop.style.left = pos.x + 'px';
+            pop.style.top = pos.y + 'px';
+        } else {
+            pop.style.right = '16px';
+            pop.style.bottom = '64px';
+        }
+        pop.innerHTML = mini ? dwMiniPopHtml(r) : dwFullPopHtml(r);
+        document.body.appendChild(pop);
+        bindCallPopDrag(pop);
+        bindCallPopActions(pop);
+        if (CALL_CACHE) renderCallPanel(CALL_CACHE);
+        refreshCallPanel();
+        if (CALL_TIMER) clearInterval(CALL_TIMER);
+        CALL_TIMER = setInterval(refreshCallPanel, 10000);
+    }
+
+    function dwFullPopHtml(r) {
+        return '<div class="doc-call-pop-head">' +
+            '  <span class="doc-call-pop-title">📢 叫号 · ' + escHtml(r.room_name || '') + '</span>' +
+            '  <span class="doc-call-pop-tools">' +
+            '    <span class="doc-call-pop-x" data-act="mini" title="最小化（切换到精简版）">-</span>' +
+            '    <span class="doc-call-pop-x" data-act="hide" title="关闭">x</span>' +
+            '  </span>' +
             '</div>' +
             '<div class="doc-call-pop-body">' +
             '  <div class="doc-call-block">' +
@@ -660,22 +787,40 @@ Clinic.deptwork = (function () {
             '    <div class="doc-call-label">下一位</div>' +
             '    <div class="doc-call-next-name" id="dwcpNext">—</div>' +
             '  </div>' +
+            '  <div class="doc-call-actions">' +
+            '    <button type="button" class="btn btn-outline btn-sm" id="dwcpRepeat" title="重复呼叫当前患者">🔁 重呼</button>' +
+            '    <button type="button" class="btn btn-primary btn-sm" id="dwcpNextBtn" title="呼叫下一位患者到诊室大屏">📢 叫号下一位</button>' +
+            '  </div>' +
             '  <div class="doc-call-pool">' +
             '    <div class="doc-call-pool-title">候诊队列</div>' +
             '    <div class="doc-call-pool-list" id="dwcpList"><div class="fs-12 text-muted">加载中…</div></div>' +
             '  </div>' +
+            '  <div class="doc-call-foot">' +
+            '    <span class="doc-call-status" id="dwcpStatus"></span>' +
+            '    <button type="button" class="btn btn-outline btn-sm" data-act="unbind">解绑</button>' +
+            '  </div>' +
             '</div>';
-        document.body.appendChild(pop);
-        bindCallPopDrag(pop);
-        pop.querySelector('[data-act="hide"]').addEventListener('click', closeCallPop);
-        pop.querySelector('#dwcpList').addEventListener('click', function (e) {
-            var it = e.target.closest('[data-vc]');
-            if (it) { closeCallPop(); loadPatient(it.getAttribute('data-vc')); }
-        });
-        if (CALL_CACHE) renderCallPanel(CALL_CACHE);
-        refreshCallPanel();
-        if (CALL_TIMER) clearInterval(CALL_TIMER);
-        CALL_TIMER = setInterval(refreshCallPanel, 10000);
+    }
+
+    function dwMiniPopHtml(r) {
+        return '<div class="doc-call-pop-head">' +
+            '  <span class="doc-call-pop-title">📢 ' + escHtml(r.room_name || '') + '</span>' +
+            '  <span class="doc-call-pop-tools">' +
+            '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">⊘</span>' +
+            '    <span class="doc-call-pop-x" data-act="restore" title="最大化（恢复完整版）">+</span>' +
+            '    <span class="doc-call-pop-x" data-act="hide" title="关闭">x</span>' +
+            '  </span>' +
+            '</div>' +
+            '<div class="doc-call-pop-body doc-call-mini-body">' +
+            '  <div class="doc-call-mini-row"><span class="doc-call-mini-label">当前</span>' +
+            '    <span class="doc-call-mini-val" id="dwcpCur">—</span></div>' +
+            '  <div class="doc-call-mini-row"><span class="doc-call-mini-label">下一位</span>' +
+            '    <span class="doc-call-mini-val" id="dwcpNext">—</span></div>' +
+            '  <div class="doc-call-actions">' +
+            '    <button type="button" class="btn btn-outline btn-sm" id="dwcpRepeat">🔁 重呼</button>' +
+            '    <button type="button" class="btn btn-primary btn-sm" id="dwcpNextBtn">📢 下一位</button>' +
+            '  </div>' +
+            '</div>';
     }
 
     function closeCallPop() {
@@ -704,7 +849,9 @@ Clinic.deptwork = (function () {
             pop.style.bottom = 'auto';
         };
         dragUpHandler = function () {
+            if (!dragging) return;
             dragging = false;
+            dwSavePos(parseInt(pop.style.left, 10) || 0, parseInt(pop.style.top, 10) || 0);
         };
         head.addEventListener('mousedown', function (e) {
             if (e.target.closest('.doc-call-pop-x')) return;
@@ -715,6 +862,46 @@ Clinic.deptwork = (function () {
         });
         document.addEventListener('mousemove', dragMoveHandler, true);
         document.addEventListener('mouseup', dragUpHandler, true);
+    }
+
+    function bindCallPopActions(pop) {
+        var hide = pop.querySelector('[data-act="hide"]');
+        if (hide) hide.addEventListener('click', closeCallPop);
+        var mini = pop.querySelector('[data-act="mini"]');
+        if (mini) mini.addEventListener('click', function () { dwSaveMode('mini'); closeCallPop(); openCallPop(); });
+        var restore = pop.querySelector('[data-act="restore"]');
+        if (restore) restore.addEventListener('click', function () { dwSaveMode(''); closeCallPop(); openCallPop(); });
+        var unbind = pop.querySelector('[data-act="unbind"]');
+        if (unbind) unbind.addEventListener('click', function () { var r = currentRoom(); if (r) dwUnbindRoom(r.room_id); });
+        var nextBtn = pop.querySelector('#dwcpNextBtn');
+        if (nextBtn) nextBtn.addEventListener('click', doDeptCallNext);
+        var repBtn = pop.querySelector('#dwcpRepeat');
+        if (repBtn) repBtn.addEventListener('click', doDeptCallRepeat);
+        var listEl = pop.querySelector('#dwcpList');
+        if (listEl) listEl.addEventListener('click', function (e) {
+            var it = e.target.closest('[data-vc]');
+            if (it) { closeCallPop(); loadPatient(it.getAttribute('data-vc')); }
+        });
+    }
+
+    /** 叫号下一位：推送在办队列下一位患者到诊室大屏 */
+    function doDeptCallNext() {
+        Clinic.ajax('/api/deptwork', { action: 'call_next', current_visit: VISIT || '' }, {
+            onSuccess: function (json) {
+                Clinic.toast.success(json.msg);
+                refreshCallPanel();
+            },
+        });
+    }
+
+    /** 再次叫号：重复播报当前患者 */
+    function doDeptCallRepeat() {
+        Clinic.ajax('/api/deptwork', { action: 'call_repeat' }, {
+            onSuccess: function (json) {
+                Clinic.toast.success(json.msg);
+                refreshCallPanel();
+            },
+        });
     }
 
     function refreshCallPanel() {
@@ -734,7 +921,10 @@ Clinic.deptwork = (function () {
         var pop = callPopEl();
         if (!pop) return;
         var title = pop.querySelector('.doc-call-pop-title');
-        if (title) title.textContent = '📢 ' + (d.dept_name ? d.dept_name + ' · 排队' : '科室排队');
+        if (title) {
+            var r = currentRoom();
+            title.textContent = '📢 叫号' + (r && r.room_name ? ' · ' + r.room_name : '');
+        }
         var cur = d.current, next = d.next;
         var curEl = pop.querySelector('#dwcpCur');
         var curSubEl = pop.querySelector('#dwcpCurSub');
@@ -758,6 +948,8 @@ Clinic.deptwork = (function () {
             });
             listEl.innerHTML = items.join('') || '<div class="fs-12 text-muted">暂无候诊患者</div>';
         }
+        var st = pop.querySelector('#dwcpStatus');
+        if (st) st.textContent = d.dept_name || '';
     }
 
     /* ==================== 对外 ==================== */
