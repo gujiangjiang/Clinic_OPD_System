@@ -356,6 +356,11 @@
 /* 病历打印：辅助检查/门诊处置（已开项目所见即所得） */
 .print-area .print-flow .pf-rx-line { display: block; }
 .print-area .print-flow .pf-treat-proc { margin-right: 8px; }
+/* 门诊处置逐行节点（跨页拆分用）：标签独立占行，内容行全部从标签起点
+   左对齐起笔（无缩进）；行节点无 margin、处方行之间无空行（.pf-row 将
+   .pf-sec 默认 4px 节间距收拢为 0，末行不带该类以保留与下一小节的分隔） */
+.print-area .print-flow.print-flow-row { margin-bottom: 0; }
+.print-area .print-flow.print-flow-row .pf-sec.pf-row { margin-bottom: 0; }
 
 /* 处方 ℞ 起始标志（处方内容左上角） */
 .print-area .print-rx-mark {

@@ -207,11 +207,11 @@ $info = '<div class="print-info-lines">' .
             $secs[] = array('辅助检查', $auxAll ? implode('，', $auxAll) : '-');
         }
         // 门诊处置按「行」拆分：处方行逐行、处置项(含数量)+自定义整段一行——
-        // 每行输出为独立 .print-flow 节点（首行带标签，后续行以隐藏标签占位
-        // 对齐缩进），A5 分页器按节点分配页面，处置/处方过多时自然跨页续行，
+        // 每行输出为独立 .print-flow 节点（纯 inline 内容，不嵌 block 元素），
+        // A5 分页器按节点分配页面，处置/处方过多时自然跨页续行，
         // 不再整节后置到下一页造成第一页大片空白
         $treatLines = array();
-        foreach ($rxs as $rx) $treatLines[] = '<div class="pf-rx-line">' . $rx . '</div>';
+        foreach ($rxs as $rx) $treatLines[] = $rx;
         $dispParts = array_merge($procs, isset($emr['disposition_custom']) && $emr['disposition_custom'] !== '' ? array(e($emr['disposition_custom'])) : array());
         if ($dispParts) $treatLines[] = '<span class="pf-treat-proc">' . implode('，', $dispParts) . '</span>';
         // 门诊处置：续写空节不显示
@@ -224,7 +224,7 @@ $info = '<div class="print-info-lines">' .
         // 门诊处置（旧数据）：处置项在前、处方行在后，同样按行拆分
         $treatLines = array();
         if ($procs) $treatLines[] = '<span class="pf-treat-proc">' . implode('　', $procs) . '</span>';
-        foreach ($rxs as $rx) $treatLines[] = '<div class="pf-rx-line">' . $rx . '</div>';
+        foreach ($rxs as $rx) $treatLines[] = $rx;
         if ($treatLines) $secs[] = array('门诊处置', $treatLines, true);
     }
 
@@ -238,18 +238,29 @@ $info = '<div class="print-info-lines">' .
     // 只会在单页内溢出被裁掉。拆成逐节节点后可在小节边界自然翻页。
     // · 纯文本小节（主诉/现病史/…/嘱托）追加 print-split 类：分页器对放不下的
     //   节点按字符二分拆分续页，超长文本不再整节后置（如超长现病史跨页续行）；
-    // · 门诊处置（$s[2] 为行数组）：逐行输出独立节点——首行带「门诊处置：」
-    //   标签，后续行以 visibility:hidden 标签占位对齐缩进，行间 margin 收拢
-    //   保持与原整节一致的行距视觉。
+    // · 门诊处置（$s[2] 为行数组）：逐行输出独立节点——首行「门诊处置：」标签
+    //   后直接跟第一行内容（与原整节同款视觉），后续行同样从标签起点左对齐起笔
+    //   （原版式：标签独立占行、内容行全部左对齐，无缩进）。行节点全部为
+    //   inline 内容、行间 margin 收拢（print.css .pf-row），处方行之间无空行。
     foreach ($secs as $s) {
         if (!empty($s[2]) && is_array($s[1])) {
             $total = count($s[1]);
+            $emptyOnly = ($total === 1 && $s[1][0] === '-');
+            if (!$emptyOnly) {
+                // 标签独立占行（原整节版式：block-in-inline 使标签自成一行的视觉效果）
+                $html .= '<div class="print-flow print-flow-row"><span class="pf-sec pf-row"><strong>' . e($s[0]) . '：</strong></span></div>';
+            }
             foreach ($s[1] as $ti => $line) {
-                $labelHtml = $ti === 0 ? '<strong>' . e($s[0]) . '：</strong>'
-                    : '<strong style="visibility:hidden">' . e($s[0]) . '：</strong>';
-                $rowStyle = $ti === $total - 1 ? '' : ' style="margin-bottom:0"';   // 行间收拢，仅末行保留节间距
-                $html .= '<div class="print-flow"><span class="pf-sec"' . $rowStyle . '>' . $labelHtml .
-                    '<span class="pf-body">' . $line . '</span></span></div>';
+                if ($emptyOnly) {
+                    // 空处置：标签与「-」同行（原版式「门诊处置：-」）
+                    $html .= '<div class="print-flow"><span class="pf-sec"><strong>' . e($s[0]) . '：</strong><span class="pf-body">-</span></span></div>';
+                } else {
+                    // 内容行全部从标签起点左对齐起笔（无缩进、无空行）；
+                    // 非末行 margin 收拢为 0，末行保留 4px 与下一小节分隔
+                    $last = $ti === $total - 1;
+                    $rowCls = $last ? '' : ' pf-row';
+                    $html .= '<div class="print-flow print-flow-row"><span class="pf-sec' . $rowCls . '"><span class="pf-body">' . $line . '</span></span></div>';
+                }
             }
         } else {
             $html .= '<div class="print-flow print-split"><span class="pf-sec"><strong>' . e($s[0]) . '：</strong><span class="pf-body">' . $s[1] . '</span></span></div>';
