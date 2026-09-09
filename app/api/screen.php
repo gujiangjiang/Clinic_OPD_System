@@ -132,7 +132,7 @@ function screen_payload($room) {
     // ===== 医技大屏（lab/imaging/pharmacy/nurse）：科室排队看板 =====
     // 队列 = 本类型待办患者（按最近一次开单时间正序，一行=一位患者）；
     // 当前 = 叫号面板推送的患者（room.current_visit_id，仍待办时显示并移出队列）
-    $techRows = tech_dept_queue($room['room_type'], 12);
+    $techRows = tech_dept_queue($room['room_type'], 20);
     $pushedId = (int)$room['current_visit_id'];
     $current = null;
     $waiting = array();
@@ -143,6 +143,21 @@ function screen_payload($room) {
             $current = $item;   // 已被叫号 → 作为当前，不重复进队列
         } else {
             $waiting[] = $item;
+        }
+    }
+    // 被叫号患者若不在队列前 N 位（队列过长被截断）：单独回查，保证大屏始终显示当前叫号患者
+    if (!$current && $pushedId > 0) {
+        $pushed = DB::one(
+            "SELECT r.id AS visit_id, r.visit_seq, r.flow_no, r.registered_at, r.first_dept_name, r.current_dept_name,
+                    p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
+             FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
+             WHERE r.id=? AND r.status IN ('paid','visiting')",
+            array($pushedId)
+        );
+        if ($pushed) {
+            $c = $fmt($pushed);
+            $c['dept_name'] = $pushed['current_dept_name'] ? $pushed['current_dept_name'] : $pushed['first_dept_name'];
+            $current = $c;
         }
     }
     return array_merge($base, array(
