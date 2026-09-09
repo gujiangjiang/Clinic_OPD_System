@@ -26,6 +26,7 @@ Clinic.emr.segments = (function () {
     function roSegmentHtml(rec) {
         var e = rec.emr || {};
         var isProgress = rec.record_type === 'progress';
+        var isCritical = (rec.is_critical || 0) === 1;
         var isConsultRec = (rec.consultation_id || 0) > 0;        var secs = [];
         var push = function (label, val, dashWhenEmpty) {
             val = val == null ? '' : String(val).trim();
@@ -33,7 +34,7 @@ Clinic.emr.segments = (function () {
             secs.push('<div class="prev-sec"><span class="doc-sec-label">' + label + '：</span>' +
                 escHtml(val || '-') + '</div>');
         };
-        if (isProgress) push(isConsultRec ? '会诊记录' : '病历续写', (e.progress || {}).content);
+        if (isProgress) push(isCritical ? '危急值记录' : (isConsultRec ? '会诊记录' : '病历续写'), (e.progress || {}).content);
         // 续写/会诊：主诉/现病史/主要症状归首诊文书；既往史/过敏史仅「承认」时显示（与打印一致）
         if (isProgress) {
             var phT = Clinic.emr.format.fmtPH(e.past_history);
@@ -85,11 +86,13 @@ Clinic.emr.segments = (function () {
         }
         push('是否留观', e.is_leave_hospital === '是' ? '是' : '否', isProgress ? false : true);
         push('嘱托', e.advice);
-        var typeBadge = isConsultRec
-            ? '<span class="badge badge-warning">会诊记录</span>'
-            : (isProgress
-                ? '<span class="badge badge-primary">病历续写</span>'
-                : '<span class="badge badge-gray">首诊</span>');
+        var typeBadge = isCritical
+            ? '<span class="badge badge-danger">危急值记录</span>'
+            : (isConsultRec
+                ? '<span class="badge badge-warning">会诊记录</span>'
+                : (isProgress
+                    ? '<span class="badge badge-primary">病历续写</span>'
+                    : '<span class="badge badge-gray">首诊</span>'));
         var authorSpan = '<span class="fw-600">记录医生：' + escHtml(rec.doctor_name) +
             (rec.doctor_title ? ' ' + escHtml(rec.doctor_title) : '') +
             (rec.doctor_emp ? ' （工号 ' + escHtml(rec.doctor_emp) + '）' : '') + '</span>';

@@ -1314,15 +1314,17 @@ Clinic.emr = (function () {
         var hasSavedProgress = hist.some(function (h) { return h.record_type === 'progress' && h.status !== 'draft'; });
         recEl.innerHTML = hist.length ? hist.map(function (r2) {
             var isConsult = (r2.consultation_id || 0) > 0;
-            var typeName = isConsult ? '（会）' : (r2.record_type === 'progress' ? '（续）' : '（首）');
+            var isCrit = (r2.is_critical || 0) === 1;
+            var typeName = isCrit ? '（危）' : (isConsult ? '（会）' : (r2.record_type === 'progress' ? '（续）' : '（首）'));
             var dt = (r2.created_at || '').substring(5, 16);   // MM-DD HH:MM
             // 删除按钮：仅本人创建；本人首诊且已有续写病程则锁定不显示；
-            // 会诊已完毕（done）的会诊病历永久只读，任何人不可删除
+            // 会诊已完毕（done）的会诊病历永久只读，任何人不可删除；
+            // 危急值记录（系统自动插入）全局只读，任何人不显示删除
             var isMine = (r2.doctor_id || 0) === myUid;
             var isFinished = DATA && DATA.visit && DATA.visit.status === 'finished';
             // 只读查看模式（会诊完毕「查看完整病历」）→ 等同诊毕，禁止一切删除
             if (DATA && DATA.__readonly_view) isFinished = true;
-            var canDel = !isFinished && isMine && (r2.record_type !== 'initial' || !hasSavedProgress);
+            var canDel = !isCrit && !isFinished && isMine && (r2.record_type !== 'initial' || !hasSavedProgress);
             if (canDel && (r2.consultation_id || 0) > 0) {
                 var recConsDone = (DATA.consults || []).some(function (cc) {
                     return (cc.id || 0) === (r2.consultation_id || 0) && cc.status === 'done';

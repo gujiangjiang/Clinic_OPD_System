@@ -41,6 +41,7 @@ $__roleMap = array(
     'imaging'  => 'imaging',
     'pharmacy' => 'pharmacy',
     'refund'   => array('cashier', 'doctor', 'nurse', 'lab', 'imaging', 'pharmacy'),   // 退费申请/审批（收费员发起，相关角色审批）
+    'critical' => array('doctor', 'lab', 'imaging'),   // 危急值（检验/影像发送，医生处理，管理员全院查看）
 );
 
 if (isset($__roleMap[CURRENT_API]) && $__u['role'] !== 'admin' && $__u['role'] !== $__roleMap[CURRENT_API]) {

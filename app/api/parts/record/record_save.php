@@ -64,6 +64,9 @@ function record_part_save($u) {
         // 编辑本人指定文书（切换回旧首诊/旧续写）——校验归属
         $ownRow = EmrRepository::one('SELECT id, record_type, dept_id, consultation_id FROM patient_records WHERE id=? AND doctor_id=?', array($editRecordId, $u['id']));
         if (!$ownRow) json_fail('病历记录不存在或无权编辑');
+        // 危急值记录（系统自动插入）全局只读：禁止任何编辑/覆盖
+        $ownCrit = EmrRepository::val('SELECT is_critical FROM patient_records WHERE id=?', array($editRecordId));
+        if ((int)$ownCrit === 1) json_fail('危急值记录为系统固化文书，不可修改');
         // 会诊完毕锁定：以记录自身的 consultation_id 为准（不信任前端传参——
         // 前端切换旧文书时可能丢失 consultation_id 导致 done 拦截被绕过）
         if ((int)$ownRow['consultation_id'] > 0) {

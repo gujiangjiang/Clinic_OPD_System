@@ -271,7 +271,45 @@ switch ($action) {
                 'report', '/api/print?action=report&report_id=' . oid($reportId),
                 array('msg_type' => 'patient', 'patient_name' => $pName, 'visit_id' => (int)$it['visit_id']));
         }
-        json_ok(array('report_id' => oid($reportId)), '结果已提交，报告已生成');
+        // ===== 危急值检测：比对化验数值与项目危急值上下限，命中则交前端弹出通知流程 =====
+        $critItems = array();
+        if ($item) {
+            if ($isGroup) {
+                $members = OrderRepository::q("SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id", array($it['item_id']));
+                foreach ($members as $m) {
+                    $v = isset($filled[(int)$m['id']]) ? $filled[(int)$m['id']] : '';
+                    $n = crit_parse_num($v);
+                    if ($n === null) continue;
+                    if ($m['critical_low'] !== '' && $n < (float)$m['critical_low']) {
+                        $critItems[] = array('name' => (string)$m['name'], 'value' => $v, 'unit' => (string)$m['unit'], 'normal_range' => (string)$m['normal_range'], 'critical_low' => (string)$m['critical_low'], 'critical_high' => (string)$m['critical_high'], 'flag' => 'low');
+                    } elseif ($m['critical_high'] !== '' && $n > (float)$m['critical_high']) {
+                        $critItems[] = array('name' => (string)$m['name'], 'value' => $v, 'unit' => (string)$m['unit'], 'normal_range' => (string)$m['normal_range'], 'critical_low' => (string)$m['critical_low'], 'critical_high' => (string)$m['critical_high'], 'flag' => 'high');
+                    }
+                }
+            } else {
+                $n = crit_parse_num($value);
+                if ($n !== null) {
+                    if ($item['critical_low'] !== '' && $n < (float)$item['critical_low']) {
+                        $critItems[] = array('name' => (string)$item['name'], 'value' => $value, 'unit' => (string)$item['unit'], 'normal_range' => (string)$item['normal_range'], 'critical_low' => (string)$item['critical_low'], 'critical_high' => (string)$item['critical_high'], 'flag' => 'low');
+                    } elseif ($item['critical_high'] !== '' && $n > (float)$item['critical_high']) {
+                        $critItems[] = array('name' => (string)$item['name'], 'value' => $value, 'unit' => (string)$item['unit'], 'normal_range' => (string)$item['normal_range'], 'critical_low' => (string)$item['critical_low'], 'critical_high' => (string)$item['critical_high'], 'flag' => 'high');
+                    }
+                }
+            }
+        }
+        $data = array('report_id' => oid($reportId));
+        if ($critItems) {
+            // 命中危急值：随报告响应回传，前端据此弹出「检测到危急值 → 是否通知医生」
+            // （默认通知开单医生，可改选其他医生）；report_id 供发送接口回读快照
+            $data['critical'] = array(
+                'items' => $critItems,
+                'report_id' => oid($reportId),
+                'item_name' => $item ? (string)$item['name'] : (string)$it['item_name'],
+                'doctor_id' => (int)$it['doctor_id'],
+                'doctor_name' => (string)$it['doctor_name'],
+            );
+        }
+        json_ok($data, '结果已提交，报告已生成');
         break;
 
     /* ==================== 申请撤回报告（管理员审核） ==================== */

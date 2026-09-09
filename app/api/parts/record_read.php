@@ -81,6 +81,7 @@ function record_part_read($action) {
                 'consultation_id' => (int)(isset($pr2['consultation_id']) ? $pr2['consultation_id'] : 0),
                 'record_type' => ($pr2['record_type'] === 'progress') ? 'progress' : 'initial',
                 'parent_record_id' => (int)$pr2['parent_record_id'],
+                'is_critical' => (int)(isset($pr2['is_critical']) ? $pr2['is_critical'] : 0),
                 'icd10_code' => (string)$pr2['icd10_code'],
                 'diagnosis_name' => (string)$pr2['diagnosis_name'],
                 'status' => (string)$pr2['status'],
@@ -114,6 +115,9 @@ function record_part_read($action) {
             $item = $mapRecord($pr2);
             $recordsHistory[] = $item;
             if ((int)$pr2['doctor_id'] === (int)$u['id']) {
+                // 危急值记录（系统自动插入，is_critical=1）永不作为可编辑/兜底文书：
+                // 全局只读，仅展示在病历节点与只读段，不抢占医生编辑位
+                if ((int)(isset($pr2['is_critical']) ? $pr2['is_critical'] : 0) === 1) continue;
                 $mineLatest = $item;
                 // 跨科室只读查看：一律不设可编辑文书（dept_match=0，全只读展示）
                 if ($crossDeptView) continue;

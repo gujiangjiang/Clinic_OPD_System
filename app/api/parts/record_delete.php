@@ -22,6 +22,10 @@ function record_part_delete($action) {
         if ((string)$row['visit']['status'] === 'finished') {
             json_fail('该患者已诊毕，病历已归档，不可删除');
         }
+        // 0.5 危急值记录（系统自动插入）全局只读：任何人任何状态一律不可删除
+        if ((int)(isset($rec['is_critical']) ? $rec['is_critical'] : 0) === 1) {
+            json_fail('危急值记录为系统固化文书，不可删除');
+        }
         // 1. 身份越权拦截
         if ((int)$rec['doctor_id'] !== (int)$u['id']) {
             json_fail('无权删除非本人创建的病历记录');

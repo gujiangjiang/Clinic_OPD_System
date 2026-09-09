@@ -113,3 +113,16 @@ function submit_audit($type, $refId, $title, $content, $extra = array()) {
 function money($n) {
     return number_format((float)$n, 2, '.', '');
 }
+
+/**
+ * 解析化验数值为浮点（危急值比对用）：
+ * 容忍 "5.2"、">200"、"<0.1"、"≤5"、"≥10" 等带比较符号的写法，
+ * 非数值（如「阳性」「未见异常」）返回 null。
+ * @param mixed $v 化验值字符串
+ * @return float|null
+ */
+function crit_parse_num($v) {
+    $v = trim((string)$v);
+    if ($v === '' || !preg_match('/^[<>≤≥]?\s*([0-9]+(?:\.[0-9]+)?)/', $v, $m)) return null;
+    return (float)$m[1];
+}
