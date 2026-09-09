@@ -506,11 +506,11 @@ Clinic.emr = (function () {
         // patientGridHtml，供患者资料保存后的局部刷新复用）
         var gridWrap = patientGridHtml(d, '');
 
-        // 病历文档页头右上角条形码（与挂号凭条/打印预览一致：门诊号 flow_no，Code 128）
+        // 病历文档页头右上角条形码（与挂号凭条/打印预览一致：门诊号 flow_no，Code 128；
+        // 单号文字已内嵌 SVG（textLength 与条码等宽对齐），无需外层文字节点）
         var bcSrc = document.getElementById('emrBarcodeSrc');
         var bcHtml = (bcSrc && bcSrc.innerHTML)
-            ? '<div class="doc-barcode">' + bcSrc.innerHTML +
-              '<div class="doc-barcode-text">' + vv.visit_no + '</div></div>'
+            ? '<div class="doc-barcode">' + bcSrc.innerHTML + '</div>'
             : '';
 
         // 病历正文：结构化字段编辑器（[] 占位字段引擎，静态标签不可编辑，

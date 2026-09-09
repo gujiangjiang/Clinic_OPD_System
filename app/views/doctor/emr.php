@@ -150,10 +150,11 @@ $patient = $row['patient'];
 <input type="hidden" id="visitId" value="<?php echo e($visitCode); ?>">
 <input type="hidden" id="refRecordId" value="<?php echo (int)$refId; ?>">
 
-<!-- 条形码源（与挂号凭条一致：门诊号 flow_no，Code 128 SVG，emr.js 放入页头右上角） -->
+<!-- 条形码源（与挂号凭条一致：门诊号 flow_no，Code 128 SVG 含内嵌单号文字，
+     emr.js 放入页头右上角；文字经 SVG textLength 与条码等宽对齐） -->
 <div id="emrBarcodeSrc" style="display:none"><?php
     $bcCode = !empty($row['visit']['flow_no']) ? $row['visit']['flow_no'] : $row['patient']['patient_no'];
-    echo barcode128_svg($bcCode);
+    echo barcode128_svg($bcCode, 44, 1, true);
 ?></div>
 
 <!-- ===== 工作区（顶部通栏信息条 + 中编辑器 + 右大纲栏） ===== -->

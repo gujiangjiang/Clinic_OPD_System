@@ -322,23 +322,15 @@
     position: absolute;
     top: 4px;
     right: 0;
-    text-align: center;
 }
 .print-area .print-record-barcode svg {
-    height: 26px;      /* 高度与医院名称（22px 字号）齐平，比例不变 */
+    /* viewBox 68 高（44 条码 + 24 文字区，含内嵌单号文字）：
+       显示高 40px 时条码部分 ≈26px（与医院名称 22px 字号区域齐平）、文字 ≈10.6px；
+       单号文字经 SVG textLength 与条码黑条区等宽对齐（几何精确，无需 JS） */
+    height: 40px;
     width: auto;
     max-width: 38mm;   /* 单号过长（如申请单号）时整体等比缩小，避免压到医院名称 */
     display: block;
-    margin-left: auto;
-}
-.print-area .print-record-barcode div {
-    font-size: 11px;
-    letter-spacing: 0.5px;
-    color: #111;
-    margin-top: 2px;
-    max-width: 38mm;
-    overflow: hidden;
-    white-space: nowrap;
 }
 .print-area .print-flow {
     font-size: 14px;   /* 病历正文比患者信息区字体加大一号，便于阅读与区分 */

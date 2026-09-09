@@ -26,12 +26,13 @@ if (!function_exists('e')) {
 
 /**
  * 生成 Code 128 条形码（SVG 格式）
- * @param string $text   编码内容（数字/大小写字母/常用符号，ASCII 32-126）
- * @param int    $height 条码高度（px）
- * @param int    $scale  模块宽度（px），默认 1
+ * @param string $text     编码内容（数字/大小写字母/常用符号，ASCII 32-126）
+ * @param int    $height   条码高度（px）
+ * @param int    $scale    模块宽度（px），默认 1
+ * @param bool   $withText 是否在条码下方内嵌单号文字（textLength 强制与条码等宽对齐）
  * @return string SVG HTML；内容为空或不可编码时返回空字符串
  */
-function barcode128_svg($text, $height = 44, $scale = 1) {
+function barcode128_svg($text, $height = 44, $scale = 1, $withText = false) {
     // Code 128 符号模式表：值 → 条/空宽度序列（首元素为条，每符号 6 元素合计 11 模块）
     static $patterns = array(
         0 => '212222', 1 => '222122', 2 => '222221', 3 => '121223', 4 => '121322',
@@ -95,7 +96,26 @@ function barcode128_svg($text, $height = 44, $scale = 1) {
         $x += $mw;
         $isBar = !$isBar;
     }
+    // 内嵌单号文字：SVG <text> + textLength/lengthAdjust 在 viewBox 用户坐标系内
+    // 强制文字渲染宽度精确等于条码黑条区宽度（首条左缘 → 末条右缘）——
+    // 文字与条码同处一个 SVG、随容器等比缩放，对齐关系在任意显示尺寸/
+    // 打印驱动下恒成立（几何精确，无需 JS 测量，杜绝两端超出条码边缘）。
+    // lengthAdjust="spacing" 只调字距不变形字形（等宽数字视觉自然）；
+    // 黑条区每字符 11 模块恒大于 monospace 字宽（~0.6em），仅拉伸不重叠。
+    $textEl = '';
+    if ($withText) {
+        $barLeft = 10 * $scale;                        // 首根黑条左缘（静区后）
+        $barW = $x - $barLeft;                         // 黑条区总宽（末条右缘 - 首条左缘）
+        if ($barW > 0) {
+            $textH = max(16, (int)round($height * 0.41));   // 字号（viewBox 单位，条码高的 ~41%）
+            $textEl = '<text x="' . $barLeft . '" y="' . ($height + $textH) . '"' .
+                ' textLength="' . $barW . '" lengthAdjust="spacing"' .
+                ' font-size="' . $textH . '" text-anchor="start" fill="#111"' .
+                ' font-family="Menlo, Consolas, \'Courier New\', monospace">' . e($text) . '</text>';
+            $height += $textH + 6;   // viewBox 总高追加文字区（+6 上下呼吸）
+        }
+    }
     return '<svg class="barcode-svg" viewBox="0 0 ' . $w . ' ' . $height . '" xmlns="http://www.w3.org/2000/svg"' .
         ' preserveAspectRatio="xMidYMid meet" role="img" aria-label="' . e($text) . '">' .
-        '<rect width="' . $w . '" height="' . $height . '" fill="#ffffff"/>' . $rects . '</svg>';
+        '<rect width="' . $w . '" height="' . $height . '" fill="#ffffff"/>' . $rects . $textEl . '</svg>';
 }

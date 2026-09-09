@@ -59,9 +59,9 @@ function pt_cell($label, $val, $cls) {
     return '<span class="' . e($cls) . '"><b>' . e($label) . '：</b>' . e($val) . '</span>';
 }
 
-/** 条形码块（文档类打印） */
+/** 条形码块（文档类打印）：单号文字内嵌 SVG（textLength 与条码黑条区等宽对齐） */
 function pt_barcode($code) {
-    return '<div class="print-record-barcode">' . barcode128_svg($code) . '<div>' . e($code) . '</div></div>';
+    return '<div class="print-record-barcode">' . barcode128_svg($code, 44, 1, true) . '</div>';
 }
 
 /** 文档页脚（末尾横线 + 左下角时间/右下角打印时间） */

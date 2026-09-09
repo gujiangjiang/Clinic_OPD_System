@@ -176,26 +176,22 @@
     position: absolute;
     top: 30px;      /* padding-top 26px + 医院名称字形顶部偏移 ~4px */
     right: 30px;    /* 与 .emr-doc 的 padding-right 一致，即与右侧页边距齐平 */
-    text-align: center;
     z-index: 1;
 }
 .emr-doc .doc-barcode svg {
-    height: 26px;      /* 高度与医院名称（22px 字号）齐平，比例不变（width 由 viewBox 等比推算） */
+    /* viewBox 68 高（44 条码 + 24 内嵌单号文字区）：
+       显示高 40px 时条码部分 ≈26px、文字 ≈10.6px（与打印版式一致）；
+       单号文字经 SVG textLength 与条码黑条区等宽对齐（几何精确，无需 JS） */
+    height: 40px;
     width: auto;
     max-width: 38mm;   /* 单号过长时整体等比缩小，防止压到医院名称 */
     display: block;
-}
-.emr-doc .doc-barcode .doc-barcode-text {
-    font-size: 12px;
-    letter-spacing: 1px;
-    color: var(--text-muted);
-    margin-top: 2px;
 }
 @media (max-width: 640px) {
     .emr-doc { padding: 18px 16px; }
     .emr-doc .doc-patient-grid { grid-template-columns: 1fr; }
     .emr-doc .doc-barcode { top: 22px; right: 16px; }  /* 18px 内边距 + 字形顶部偏移 ~4px */
-    .emr-doc .doc-barcode svg { height: 22px; width: auto; max-width: 38mm; }
+    .emr-doc .doc-barcode svg { height: 34px; width: auto; max-width: 38mm; }
 }
 
 /* ============================================================
