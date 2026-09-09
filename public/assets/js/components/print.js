@@ -558,6 +558,61 @@ Clinic.print = (function () {
                     return (' ' + ((n.className || '') + '').trim() + ' ').indexOf(' print-split ') !== -1;
                 }
 
+                /**
+                 * 结构化小节拆分（.print-flow.print-split 含 .pf-body）：
+                 * 保留「标签 + 内容」结构按字符二分——前半段保留原标签样式，
+                 * 续段以 visibility:hidden 标签占位对齐缩进（与门诊处置逐行
+                 * 节点同款视觉），超长小节（现病史等）跨页续行不再整节后置。
+                 * 纯文本节点（无 .pf-body，如知情同意书段落）走 splitTextNode。
+                 */
+                function splitFlowNode(node, availLeft) {
+                    var body = node.querySelector('.pf-body');
+                    if (!body) return splitTextNode(node, availLeft);
+                    var full = body.textContent || '';
+                    if (!full) return null;
+                    var label = node.querySelector('.pf-sec > strong') || node.querySelector('strong');
+                    function tpl(labelHidden) {
+                        var d = node.cloneNode(false);
+                        var sec = document.createElement('span');
+                        sec.className = 'pf-sec';
+                        if (label) {
+                            var l2 = label.cloneNode(false);
+                            if (labelHidden) l2.style.visibility = 'hidden';
+                            sec.appendChild(l2);
+                        }
+                        var b2 = document.createElement('span');
+                        b2.className = 'pf-body';
+                        sec.appendChild(b2);
+                        d.appendChild(sec);
+                        return d;
+                    }
+                    function measLen(len) {
+                        var c = tpl(false);
+                        c.querySelector('.pf-body').textContent = full.slice(0, len);
+                        meas.appendChild(c);
+                        var cs = window.getComputedStyle(c);
+                        var h = c.offsetHeight +
+                            (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+                        meas.removeChild(c);
+                        return h;
+                    }
+                    var lo = 0, hi = full.length;
+                    while (lo < hi) {
+                        var mid = Math.ceil((lo + hi) / 2);
+                        if (measLen(mid) <= availLeft) { lo = mid; } else { hi = mid - 1; }
+                    }
+                    if (lo <= 0 || lo >= full.length) return null;
+                    var cut = lo;
+                    while (cut > 0 && !/\s/.test(full[cut - 1])) cut--;
+                    if (cut <= 0 || cut < lo * 0.5) cut = lo;
+                    var fit = tpl(false);
+                    fit.querySelector('.pf-body').textContent = full.slice(0, cut);
+                    var rest = tpl(true);
+                    rest.querySelector('.pf-body').textContent = full.slice(cut);
+                    if (!rest.querySelector('.pf-body').textContent) return null;
+                    return { fit: fit, fitH: measLen(cut), rest: rest };
+                }
+
                 function splitTextNode(node, availLeft) {
                     var full = node.textContent || '';
                     if (!full) return null;
@@ -631,7 +686,11 @@ Clinic.print = (function () {
                     if (isSplittable(n)) {
                         var availLeft = cur.avail - realUsed;   // 拆分按真实占用计算
                         if (availLeft > 24) {
-                            var res = splitTextNode(n, availLeft);
+                            // 含 .pf-body 的结构化小节走保留标签结构的拆分；
+                            // 纯文本节点走字符二分（知情同意书段落等）
+                            var res = (n.querySelector && n.querySelector('.pf-body'))
+                                ? splitFlowNode(n, availLeft)
+                                : splitTextNode(n, availLeft);
                             if (res && res.fitH > 0) {
                                 cur.body.push(res.fit);
                                 used = realUsed + res.fitH;      // 拆分前半段无下边距 → 无悬挂

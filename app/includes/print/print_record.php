@@ -206,20 +206,26 @@ $info = '<div class="print-info-lines">' .
         if (!$isProgress || $auxAll) {
             $secs[] = array('辅助检查', $auxAll ? implode('，', $auxAll) : '-');
         }
-        $treat = '';
-        if ($rxs) foreach ($rxs as $rx) $treat .= '<div class="pf-rx-line">' . $rx . '</div>';
+        // 门诊处置按「行」拆分：处方行逐行、处置项(含数量)+自定义整段一行——
+        // 每行输出为独立 .print-flow 节点（首行带标签，后续行以隐藏标签占位
+        // 对齐缩进），A5 分页器按节点分配页面，处置/处方过多时自然跨页续行，
+        // 不再整节后置到下一页造成第一页大片空白
+        $treatLines = array();
+        foreach ($rxs as $rx) $treatLines[] = '<div class="pf-rx-line">' . $rx . '</div>';
         $dispParts = array_merge($procs, isset($emr['disposition_custom']) && $emr['disposition_custom'] !== '' ? array(e($emr['disposition_custom'])) : array());
-        if ($dispParts) $treat .= '<span class="pf-treat-proc">' . implode('，', $dispParts) . '</span>';
+        if ($dispParts) $treatLines[] = '<span class="pf-treat-proc">' . implode('，', $dispParts) . '</span>';
         // 门诊处置：续写空节不显示
-        if (!$isProgress || $treat !== '') {
-            $secs[] = array('门诊处置', $treat !== '' ? $treat : '-');
+        if (!$isProgress || $treatLines) {
+            if (!$treatLines) $treatLines[] = '-';
+            $secs[] = array('门诊处置', $treatLines, true);
         }
     } else {
         if ($aux) $secs[] = array('辅助检查', implode('、', $aux));
-        $treat = '';
-        if ($procs) $treat .= '<span class="pf-treat-proc">' . implode('　', $procs) . '</span>';
-        foreach ($rxs as $rx) $treat .= '<div class="pf-rx-line">' . $rx . '</div>';
-        if ($treat !== '') $secs[] = array('门诊处置', $treat);
+        // 门诊处置（旧数据）：处置项在前、处方行在后，同样按行拆分
+        $treatLines = array();
+        if ($procs) $treatLines[] = '<span class="pf-treat-proc">' . implode('　', $procs) . '</span>';
+        foreach ($rxs as $rx) $treatLines[] = '<div class="pf-rx-line">' . $rx . '</div>';
+        if ($treatLines) $secs[] = array('门诊处置', $treatLines, true);
     }
 
     $secs[] = array('是否留观', e($emrStructured ? emr_obs_text($emr) : (!empty($record['is_observation']) ? '是' : '否')));
@@ -230,8 +236,24 @@ $info = '<div class="print-info-lines">' .
     // 每个小节独立一个 .print-flow 块级节点：A5 分页器按「整节点」分配页面，
     // 若所有小节包在同一个节点里，内容再长也永远不会跨页拆分，
     // 只会在单页内溢出被裁掉。拆成逐节节点后可在小节边界自然翻页。
+    // · 纯文本小节（主诉/现病史/…/嘱托）追加 print-split 类：分页器对放不下的
+    //   节点按字符二分拆分续页，超长文本不再整节后置（如超长现病史跨页续行）；
+    // · 门诊处置（$s[2] 为行数组）：逐行输出独立节点——首行带「门诊处置：」
+    //   标签，后续行以 visibility:hidden 标签占位对齐缩进，行间 margin 收拢
+    //   保持与原整节一致的行距视觉。
     foreach ($secs as $s) {
-        $html .= '<div class="print-flow"><span class="pf-sec"><strong>' . e($s[0]) . '：</strong><span class="pf-body">' . $s[1] . '</span></span></div>';
+        if (!empty($s[2]) && is_array($s[1])) {
+            $total = count($s[1]);
+            foreach ($s[1] as $ti => $line) {
+                $labelHtml = $ti === 0 ? '<strong>' . e($s[0]) . '：</strong>'
+                    : '<strong style="visibility:hidden">' . e($s[0]) . '：</strong>';
+                $rowStyle = $ti === $total - 1 ? '' : ' style="margin-bottom:0"';   // 行间收拢，仅末行保留节间距
+                $html .= '<div class="print-flow"><span class="pf-sec"' . $rowStyle . '>' . $labelHtml .
+                    '<span class="pf-body">' . $line . '</span></span></div>';
+            }
+        } else {
+            $html .= '<div class="print-flow print-split"><span class="pf-sec"><strong>' . e($s[0]) . '：</strong><span class="pf-body">' . $s[1] . '</span></span></div>';
+        }
     }
 
     // 医生签名：紧跟本段病历正文末尾、右下角。类名用 .print-rec-sign
