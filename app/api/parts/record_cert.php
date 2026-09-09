@@ -53,12 +53,13 @@ function record_part_cert($action) {
         // 病历摘要快照：开具瞬间以首诊文书为锚点固化主诉/现病史/初步诊断，
         // 证书内容从此不再随续写或后续修改变化（法律文书不可变性）
         $snap = cert_snapshot_summary($visitId);
+        $createdAt = now_str();
         for ($attempt = 0; $attempt < 3; $attempt++) {
             if ($attempt > 0) $certNo = gen_unique_no('ZM', 'certificates', 'cert_no');
             try {
                 EmrRepository::insertCertificate(array(
                     'visit_id' => $visitId, 'patient_no' => $row['visit']['patient_no'], 'flow_no' => $row['visit']['flow_no'],
-                    'doctor_id' => $u['id'], 'doctor_name' => $u['name'], 'dept_id' => $curDeptId, 'content' => $content, 'created_at' => now_str(), 'cert_no' => $certNo,
+                    'doctor_id' => $u['id'], 'doctor_name' => $u['name'], 'dept_id' => $curDeptId, 'content' => $content, 'created_at' => $createdAt, 'cert_no' => $certNo,
                     'chief_complaint' => $snap['chief_complaint'], 'present_illness' => $snap['present_illness'], 'preliminary_diagnosis' => $snap['preliminary_diagnosis'],
                 ));
                 break;
@@ -66,7 +67,24 @@ function record_part_cert($action) {
                 if (!is_unique_conflict($ex) || $attempt >= 2) throw $ex;
             }
         }
-        json_ok(array('cert_no' => $certNo), '诊断证明已开具');
+        // 响应附带完整证明行：前端开具后即时同步本地 DATA 并刷新右侧诊断证明
+        // 分区（无需刷新页面）。can_delete 与 record_read.php 同口径——
+        // 诊毕归档封存后一律不可删除（含归档补开的证明）。
+        json_ok(array(
+            'cert_no' => $certNo,
+            'certificate' => array(
+                'cert_no' => (string)$certNo,
+                'content' => (string)$content,
+                'doctor_name' => (string)$u['name'],
+                'doctor_id' => (int)$u['id'],
+                'dept_id' => (int)$curDeptId,
+                'can_delete' => ((string)$row['visit']['status'] !== 'finished') ? 1 : 0,
+                'created_at' => (string)$createdAt,
+                'chief_complaint' => (string)$snap['chief_complaint'],
+                'present_illness' => (string)$snap['present_illness'],
+                'preliminary_diagnosis' => (string)$snap['preliminary_diagnosis'],
+            ),
+        ), '诊断证明已开具');
         return;
     }
 

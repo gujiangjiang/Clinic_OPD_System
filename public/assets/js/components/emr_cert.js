@@ -122,8 +122,15 @@ Clinic.emr.cert = (function () {
                                     Clinic.ajax('/api/record', {
                                         action: 'certificate', visit_id: visitId, content: content,
                                     }, {
-                                        onSuccess: function () {
+                                        onSuccess: function (j) {
                                             Clinic.toast.success('诊断证明已开具');
+                                            // 即时同步本地 DATA（has_certificate + 证明行），
+                                            // renderLeftNav 立即显示右侧「诊断证明」条目，无需刷新页面
+                                            if (ctx.DATA) {
+                                                ctx.DATA.has_certificate = 1;
+                                                ctx.DATA.certificate = (j.data && j.data.certificate) || null;
+                                                ctx.DATA.cert_summary = null;
+                                            }
                                             Clinic.modal.close();
                                             Clinic.print.load('/api/record?action=certificate_print&visit_id=' + visitId, null, 'a5');
                                             renderLeftNav();

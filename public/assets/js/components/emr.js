@@ -1529,6 +1529,23 @@ Clinic.emr = (function () {
         } else {
             // 未开具时不再放正文入口，统一走分区标题右侧「＋」（emrNavAdd('cert')）
             certEl.innerHTML = '<div class="ena-empty">暂未开具</div>';
+            // 「＋」恢复：开具时已被物理 remove（一份就诊仅一份证明），删除证明后
+            // 需重建入口——否则只能刷新页面才能再次开具。跨科室只读（__readonly_view）
+            // 不恢复（同 setReadonlyUI 例外口径：该模式不允许开具诊断证明）。
+            if (!document.getElementById('certAddBtn') && !(DATA && DATA.__readonly_view)) {
+                var certSec = document.getElementById('certSec');
+                var certTitle = certSec ? certSec.querySelector('.ena-sec-title') : null;
+                var certArrow = certTitle ? certTitle.querySelector('.ena-arrow') : null;
+                if (certTitle && certArrow) {
+                    var certAddNew = document.createElement('span');
+                    certAddNew.id = 'certAddBtn';
+                    certAddNew.className = 'ena-add emr-write';
+                    certAddNew.title = '开具诊断证明';
+                    certAddNew.textContent = '+';
+                    certAddNew.setAttribute('onclick', "emrNavAdd('cert');event.stopPropagation()");
+                    certTitle.insertBefore(certAddNew, certArrow);
+                }
+            }
         }
     }
 
@@ -2552,7 +2569,15 @@ Clinic.emr = (function () {
                 Clinic.ajax('/api/record', { action: 'certificate_delete', visit_id: visitId }, {
                     onSuccess: function () {
                         Clinic.toast.success('诊断证明已删除');
+                        // 即时同步本地 DATA：清空证明行后 renderLeftNav 立即回到「暂未开具」，
+                        // 并恢复分区「＋」（未开具时唯一开具入口），无需刷新页面
+                        if (DATA) {
+                            DATA.has_certificate = 0;
+                            DATA.certificate = null;
+                            DATA.cert_summary = null;
+                        }
                         renderLeftNav();
+                        syncNavAdds();
                     },
                 });
             }, { title: '删除诊断证明', okText: '确认删除' });
