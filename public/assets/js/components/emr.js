@@ -1409,7 +1409,10 @@ Clinic.emr = (function () {
             return ra - rb;
         });
         diagOrder.forEach(function (x, i) { x.idx = i; });
-        DIAG_ROWS = diagOrder;
+        // 同步诊断行缓存到 emr_diag 模块（delDiag/openDiagOpsPop 据此定位行）——
+        // 拆分后 DIAG_ROWS 为 emr_diag 私有状态，必须经 setter 同步，
+        // 否则删除按钮/排序浮窗点击静默无反应（row 恒 undefined）
+        if (Clinic.emr.diag && Clinic.emr.diag.setDiagRows) Clinic.emr.diag.setDiagRows(diagOrder);
         diagEl.innerHTML = diagOrder.length ? diagOrder.map(function (x) {
             var quoted = x.others && !x.ownOld;  // 仅他人诊断（不在本人任何旧文书中）显示引用标记
             // 全局首行 = 主诊断：徽标提醒，但支持删除（主诊断保护移除——

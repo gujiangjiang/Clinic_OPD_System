@@ -354,6 +354,15 @@ Clinic.emr.diag = (function () {
      * （按新顺序插入），未调整的诊断不引用；编辑器初步诊断同步新顺序。
      */
     var DIAG_ROWS = [];   // 侧边栏诊断行缓存（含显示顺序与原始诊断对象）
+
+    /** 同步侧边栏诊断行缓存（emr.js renderLeftNav 渲染时调用）：
+     *  DIAG_ROWS 为本模块私有状态——delDiag / openDiagOpsPop 据此定位行，
+     *  emr.js 渲染侧边栏后必须经此 setter 同步（拆分模块间不可直接赋值），
+     *  否则缓存恒为空数组 → 删除按钮/排序浮窗点击静默无反应 */
+    function setDiagRows(rows) {
+        DIAG_ROWS = rows || [];
+    }
+
     function openDiagOpsPop(ev, idx) {
         var row = DIAG_ROWS[idx];
         if (!row) return;
@@ -479,5 +488,6 @@ Clinic.emr.diag = (function () {
         openDiagOpsPop: openDiagOpsPop,
         saveDiagOrder: saveDiagOrder,
         delDiag: delDiag,
+        setDiagRows: setDiagRows,
     };
 })();
