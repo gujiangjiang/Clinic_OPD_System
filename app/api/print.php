@@ -218,8 +218,13 @@ switch ($action) {
             $firstCreatedAt = isset($prs[0]['created_at']) ? $prs[0]['created_at'] : null;
             $body = '';
             foreach ($prs as $i => $pr) {
-                // 意识状态/初复诊存于旧 records 镜像表，按各文书医生本人回读
-                $mirror = EmrRepository::one('SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visit['id'], $pr['doctor_id']));
+                // 意识状态/初复诊存于旧 records 镜像表，按各文书自身的镜像精确回读
+                // （危急值记录的系统空镜像不污染首诊文书显示）；旧数据无精确镜像时
+                // 回退到该文书医生非危急值记录的最新镜像
+                $mirror = EmrRepository::one('SELECT consciousness, visit_type FROM records WHERE patient_record_id=?', array($pr['id']));
+                if (!$mirror) {
+                    $mirror = EmrRepository::one("SELECT r.consciousness, r.visit_type FROM records r LEFT JOIN patient_records pr2 ON pr2.id=r.patient_record_id WHERE r.visit_id=? AND r.doctor_id=? AND (pr2.is_critical IS NULL OR pr2.is_critical=0) ORDER BY r.id DESC", array($visit['id'], $pr['doctor_id']));
+                }
                 $pr['consciousness'] = $mirror ? (string)$mirror['consciousness'] : '';
                 $pr['visit_type'] = ($mirror && $mirror['visit_type'] !== '') ? (string)$mirror['visit_type'] : '初诊';
                 // 生命体征归属：按文书记录精确关联（record_id 优先）。

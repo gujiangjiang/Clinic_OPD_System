@@ -55,12 +55,12 @@ function crit_lab_snapshot($result, $item) {
     }
     $criticalIdx = array();
     foreach ($rows as $i => $r) {
-        $n = crit_parse_num($r['value']);
-        if ($n === null) continue;
-        if ($r['critical_low'] !== '' && $n < (float)$r['critical_low']) {
-            $rows[$i]['is_critical'] = 1; $rows[$i]['flag'] = 'low'; $criticalIdx[] = $i;
-        } elseif ($r['critical_high'] !== '' && $n > (float)$r['critical_high']) {
-            $rows[$i]['is_critical'] = 1; $rows[$i]['flag'] = 'high'; $criticalIdx[] = $i;
+        // 数值型：低于下限 / 高于上限命中；文本型（HIV 阳性等定性项目）：
+        // 录入值等于危急值文本（不区分大小写）即命中
+        if (crit_row_hit($r['value'], $r['critical_low'], $r['critical_high'])) {
+            $rows[$i]['is_critical'] = 1;
+            $rows[$i]['flag'] = 'text';
+            $criticalIdx[] = $i;
         }
     }
     return array('rows' => $rows, 'criticalIdx' => $criticalIdx, 'item_name' => (string)$item['name']);

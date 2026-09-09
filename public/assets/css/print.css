@@ -864,8 +864,13 @@
 .lr-seq { width: 14mm; text-align: center; }
 .lr-item { flex: 1; min-width: 0; }
 .lr-val { width: 30mm; }
+.lr-mark { width: 8mm; text-align: center; font-weight: 700; flex-shrink: 0; }
+.lr-mark .lr-mark-val { color: #dc2626; }
 .lr-unit { width: 22mm; }
 .lr-ref { width: 34mm; }
+/* 趋势标记列：无表头，占位窄列（colhead 中该 span 不显示文字） */
+.lr-colhead .lr-mark, .lr-row .lr-mark { padding: 0 1mm; }
+.lr-colhead .lr-mark { color: transparent; }
 /* 双列模式：中间虚线分隔，隐藏序号列 */
 .lr-cols { display: flex; flex: 1; min-height: 0; }
 .lr-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }

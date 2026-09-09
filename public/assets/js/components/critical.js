@@ -330,8 +330,11 @@ Clinic.critical = (function () {
             onSuccess: function (json) {
                 Clinic.toast.success(json.msg);
                 Clinic.modal.close();
-                // 正在该患者病历页 → 重载病历，展示新增的「危急值记录」节点
-                if (document.getElementById('visitId') && Clinic.emr && Clinic.emr.init) {
+                // 仅当「正打开的就是该患者病历页」且「无未保存修改」时重载病历，
+                // 展示新增的「危急值记录」节点——避免误重载其他患者或丢弃首诊未保存内容
+                var curVid = document.getElementById('visitId');
+                var emrClean = !(window.Clinic && Clinic.emr && Clinic.emr.isDirty && Clinic.emr.isDirty());
+                if (curVid && cv.visit_id && curVid.value === cv.visit_id && emrClean && Clinic.emr && Clinic.emr.init) {
                     try { Clinic.emr.init(); } catch (e) { /* ignore */ }
                 }
                 if (LIST_REFRESH) LIST_REFRESH();

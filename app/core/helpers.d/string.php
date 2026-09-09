@@ -126,3 +126,62 @@ function crit_parse_num($v) {
     if ($v === '' || !preg_match('/^[<>≤≥]?\s*([0-9]+(?:\.[0-9]+)?)/', $v, $m)) return null;
     return (float)$m[1];
 }
+
+/**
+ * 文本型危急值匹配（HIV 阳性等定性项目）：
+ * 数值不可解析时，若录入值等于危急值文本（不区分大小写）即命中。
+ * @param string $value        录入值
+ * @param string $criticalLow  危急值下限（可能为文本，如「阳性」）
+ * @param string $criticalHigh 危急值上限
+ * @return bool
+ */
+function crit_text_match($value, $criticalLow, $criticalHigh) {
+    $v = trim((string)$value);
+    if ($v === '') return false;
+    $lo = trim((string)$criticalLow);
+    $hi = trim((string)$criticalHigh);
+    return ($lo !== '' && strcasecmp($v, $lo) === 0) || ($hi !== '' && strcasecmp($v, $hi) === 0);
+}
+
+/**
+ * 单行检验结果是否命中危急值（数值型 或 文本型）
+ * @param string $value        录入值
+ * @param string $criticalLow  危急值下限
+ * @param string $criticalHigh 危急值上限
+ * @return bool
+ */
+function crit_row_hit($value, $criticalLow, $criticalHigh) {
+    $n = crit_parse_num($value);
+    if ($n !== null) {
+        if (trim((string)$criticalLow) !== '' && $n < (float)$criticalLow) return true;
+        if (trim((string)$criticalHigh) !== '' && $n > (float)$criticalHigh) return true;
+        return false;
+    }
+    return crit_text_match($value, $criticalLow, $criticalHigh);
+}
+
+/**
+ * 检验报告单趋势标记：危 / ↑ / ↓ / ''
+ * 规则：危急值 → 「危」；数值型结果且正常范围为闭合数值区间（如 4-8）时，
+ * 低于下限 → ↓、高于上限 → ↑、范围内 → 空；
+ * 非数值 / 未配置正常范围 / 范围非闭合（如「阴性」「>5」）→ 不显示箭头。
+ * @param string $value        录入值
+ * @param string $normalRange  正常范围
+ * @param string $criticalLow  危急值下限
+ * @param string $criticalHigh 危急值上限
+ * @return string
+ */
+function crit_trend_mark($value, $normalRange, $criticalLow = '', $criticalHigh = '') {
+    if (crit_row_hit($value, $criticalLow, $criticalHigh)) return '危';
+    $n = crit_parse_num($value);
+    if ($n === null) return '';
+    $nr = trim((string)$normalRange);
+    // 闭合数值区间（容忍尾部单位，如 "4-8 mmol/L"；「阴性」等文本不匹配）
+    if (!preg_match('/^\s*([0-9]+(?:\.[0-9]+)?)\s*[-~]\s*([0-9]+(?:\.[0-9]+)?)/', $nr, $m)) return '';
+    $lo = (float)$m[1];
+    $hi = (float)$m[2];
+    if ($hi <= $lo) return '';
+    if ($n < $lo) return '↓';
+    if ($n > $hi) return '↑';
+    return '';
+}

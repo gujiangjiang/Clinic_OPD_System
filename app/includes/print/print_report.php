@@ -43,9 +43,11 @@ function pt_lab_report($report, $result, $item) {
         '</div>';
 
     // ===== 结果区：表格头两条实线 + 无边框行（前端分列分页） =====
+    // 结果与单位之间插入细小的趋势标记纵列（无表头）：数值型结果自动
+    // 显示 ↓/↑（对照闭合正常范围），危急值显示「危」（红色）
     $html .= '<div class="lr-result">' .
         '<div class="lr-colhead"><span class="lr-seq">序号</span><span class="lr-item">项目</span>' .
-        '<span class="lr-val">结果</span><span class="lr-unit">单位</span><span class="lr-ref">参考范围</span></div>';
+        '<span class="lr-val">结果</span><span class="lr-mark"></span><span class="lr-unit">单位</span><span class="lr-ref">参考范围</span></div>';
     $values = json_decode((string)$result['values_json'], true);
     if (is_array($values) && !empty($values['group'])) {
         // 检验组：按组内成员逐行显示结果（组合项目按组价收费，成员结果分别出具）
@@ -53,14 +55,20 @@ function pt_lab_report($report, $result, $item) {
         if (!$members) $members = array();
         foreach ($members as $m) {
             $v = isset($values['values'][(string)$m['id']]) ? $values['values'][(string)$m['id']] : '';
+            $mark = crit_trend_mark($v, $m['normal_range'], $m['critical_low'], $m['critical_high']);
             $html .= '<div class="lr-row"><span class="lr-seq"></span><span class="lr-item">' . e($m['name']) . '</span>' .
-                '<span class="lr-val">' . e($v) . '</span><span class="lr-unit">' . e($m['unit']) . '</span>' .
+                '<span class="lr-val">' . e($v) . '</span>' .
+                '<span class="lr-mark">' . ($mark !== '' ? '<b class="lr-mark-val">' . e($mark) . '</b>' : '') . '</span>' .
+                '<span class="lr-unit">' . e($m['unit']) . '</span>' .
                 '<span class="lr-ref">' . e($m['normal_range']) . '</span></div>';
         }
     } else {
         $value = is_array($values) && isset($values['value']) ? $values['value'] : '';
+        $mark = crit_trend_mark($value, isset($item['normal_range']) ? $item['normal_range'] : '', isset($item['critical_low']) ? $item['critical_low'] : '', isset($item['critical_high']) ? $item['critical_high'] : '');
         $html .= '<div class="lr-row"><span class="lr-seq"></span><span class="lr-item">' . e(isset($item['name']) ? $item['name'] : '') . '</span>' .
-            '<span class="lr-val">' . e($value) . '</span><span class="lr-unit">' . e(isset($item['unit']) ? $item['unit'] : '') . '</span>' .
+            '<span class="lr-val">' . e($value) . '</span>' .
+            '<span class="lr-mark">' . ($mark !== '' ? '<b class="lr-mark-val">' . e($mark) . '</b>' : '') . '</span>' .
+            '<span class="lr-unit">' . e(isset($item['unit']) ? $item['unit'] : '') . '</span>' .
             '<span class="lr-ref">' . e(isset($item['normal_range']) ? $item['normal_range'] : '') . '</span></div>';
     }
     $html .= '</div>';

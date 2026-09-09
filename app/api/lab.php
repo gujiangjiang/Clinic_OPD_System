@@ -271,29 +271,20 @@ switch ($action) {
                 'report', '/api/print?action=report&report_id=' . oid($reportId),
                 array('msg_type' => 'patient', 'patient_name' => $pName, 'visit_id' => (int)$it['visit_id']));
         }
-        // ===== 危急值检测：比对化验数值与项目危急值上下限，命中则交前端弹出通知流程 =====
+        // ===== 危急值检测：数值型比对上下限，文本型（HIV 阳性等）比对危急值文本 =====
         $critItems = array();
         if ($item) {
             if ($isGroup) {
                 $members = OrderRepository::q("SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id", array($it['item_id']));
                 foreach ($members as $m) {
                     $v = isset($filled[(int)$m['id']]) ? $filled[(int)$m['id']] : '';
-                    $n = crit_parse_num($v);
-                    if ($n === null) continue;
-                    if ($m['critical_low'] !== '' && $n < (float)$m['critical_low']) {
-                        $critItems[] = array('name' => (string)$m['name'], 'value' => $v, 'unit' => (string)$m['unit'], 'normal_range' => (string)$m['normal_range'], 'critical_low' => (string)$m['critical_low'], 'critical_high' => (string)$m['critical_high'], 'flag' => 'low');
-                    } elseif ($m['critical_high'] !== '' && $n > (float)$m['critical_high']) {
-                        $critItems[] = array('name' => (string)$m['name'], 'value' => $v, 'unit' => (string)$m['unit'], 'normal_range' => (string)$m['normal_range'], 'critical_low' => (string)$m['critical_low'], 'critical_high' => (string)$m['critical_high'], 'flag' => 'high');
+                    if (crit_row_hit($v, $m['critical_low'], $m['critical_high'])) {
+                        $critItems[] = array('name' => (string)$m['name'], 'value' => $v, 'unit' => (string)$m['unit'], 'normal_range' => (string)$m['normal_range'], 'critical_low' => (string)$m['critical_low'], 'critical_high' => (string)$m['critical_high'], 'flag' => 'text');
                     }
                 }
             } else {
-                $n = crit_parse_num($value);
-                if ($n !== null) {
-                    if ($item['critical_low'] !== '' && $n < (float)$item['critical_low']) {
-                        $critItems[] = array('name' => (string)$item['name'], 'value' => $value, 'unit' => (string)$item['unit'], 'normal_range' => (string)$item['normal_range'], 'critical_low' => (string)$item['critical_low'], 'critical_high' => (string)$item['critical_high'], 'flag' => 'low');
-                    } elseif ($item['critical_high'] !== '' && $n > (float)$item['critical_high']) {
-                        $critItems[] = array('name' => (string)$item['name'], 'value' => $value, 'unit' => (string)$item['unit'], 'normal_range' => (string)$item['normal_range'], 'critical_low' => (string)$item['critical_low'], 'critical_high' => (string)$item['critical_high'], 'flag' => 'high');
-                    }
+                if (crit_row_hit($value, $item['critical_low'], $item['critical_high'])) {
+                    $critItems[] = array('name' => (string)$item['name'], 'value' => $value, 'unit' => (string)$item['unit'], 'normal_range' => (string)$item['normal_range'], 'critical_low' => (string)$item['critical_low'], 'critical_high' => (string)$item['critical_high'], 'flag' => 'text');
                 }
             }
         }

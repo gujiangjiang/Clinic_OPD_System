@@ -170,8 +170,16 @@ function record_part_read($action) {
         );
         // 意识状态/初复诊保存在旧 records 镜像表（结构化表不含这两项），
         // 必须回读，否则保存后刷新页面意识状态会丢失回「未选择」、初复诊回「初诊」。
-        // 仅取当前医生本人的镜像行——多医生文书互不串写。
-        $mirror = EmrRepository::one('SELECT consciousness, visit_type FROM records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC', array($visitId, $u['id']));
+        // 按「当前文书自身的镜像」精确回读（首诊/续写各自独立），杜绝危急值记录
+        // （系统自动插入的空镜像）污染当前文书显示；无精确镜像时回退到该医生
+        // 非危急值记录的最新镜像（兼容旧数据未按 patient_record_id 落镜像的场景）。
+        $mirror = null;
+        if ($mine) {
+            $mirror = EmrRepository::one('SELECT consciousness, visit_type FROM records WHERE patient_record_id=?', array($mine['id']));
+        }
+        if (!$mirror) {
+            $mirror = EmrRepository::one("SELECT r.consciousness, r.visit_type FROM records r LEFT JOIN patient_records pr ON pr.id=r.patient_record_id WHERE r.visit_id=? AND r.doctor_id=? AND (pr.is_critical IS NULL OR pr.is_critical=0) ORDER BY r.id DESC", array($visitId, $u['id']));
+        }
         $recordData['consciousness'] = $mirror ? (string)$mirror['consciousness'] : '';
         $recordData['visit_type'] = ($mirror && $mirror['visit_type'] !== '') ? $mirror['visit_type'] : '初诊';
         // 生命体征归属：按文书记录精确关联（record_id 优先，兼容旧数据）。
