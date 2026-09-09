@@ -110,11 +110,13 @@ Clinic.notify = (function () {
      */
     function itemHtml(m) {
         const isPatient = m.msg_type === 'patient';
-        const typeBadge = isPatient
-            ? '<span class="msg-type msg-type-patient">患者</span>'
-            : (m.msg_type === 'user'
-                ? '<span class="msg-type msg-type-user">用户</span>'
-                : '<span class="msg-type msg-type-system">系统</span>');
+        const typeBadge = m.msg_type === 'critical'
+            ? '<span class="msg-type" style="background:rgba(220,38,38,.1);color:var(--danger,#dc2626)">危急值</span>'
+            : (isPatient
+                ? '<span class="msg-type msg-type-patient">患者</span>'
+                : (m.msg_type === 'user'
+                    ? '<span class="msg-type msg-type-user">用户</span>'
+                    : '<span class="msg-type msg-type-system">系统</span>'));
         const who = isPatient && m.patient_name
             ? '<span class="msg-who">👤 ' + Clinic.escHtml(m.patient_name) + '</span>' : '';
         return '<div class="msg-item ' + (m.is_read ? '' : 'unread') +

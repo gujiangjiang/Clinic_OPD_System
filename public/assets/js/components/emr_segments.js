@@ -20,7 +20,8 @@ Clinic.emr.segments = (function () {
         return { id: r.record_id, record_id: r.record_id, doctor_id: r.doctor_id,
             doctor_name: r.doctor_name, doctor_emp: r.doctor_emp || '', doctor_title: r.doctor_title || '',
             record_type: r.record_type, emr: r.emr || {}, created_at: r.created_at || '',
-            consultation_id: r.consultation_id || 0, consciousness: r.consciousness || '', vitals: {} };
+            consultation_id: r.consultation_id || 0, is_critical: r.is_critical || 0,
+            consciousness: r.consciousness || '', vitals: {} };
     }
 
     function roSegmentHtml(rec) {
