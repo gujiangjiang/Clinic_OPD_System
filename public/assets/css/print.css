@@ -343,7 +343,12 @@
 .print-area .print-consult-flex {
     display: flex;
     flex-direction: column;
-    min-height: 140mm;   /* 撑满 A5 版心（184mm - 页眉页脚后约 140mm），内容多时自然增长 */
+    /* 分页器实际可用版心 = 187mm − 完整页眉(约 48mm) − 页脚组(约 38mm) ≈ 99mm；
+       旧值 140mm 按未扣页眉页脚的版心估算，必然超出可用高度 → 触发分页器
+       .a5-overflow 兜底：正文页自然增高变长 + 提示语/签名/页脚组被推到
+       第二页（视觉上的空白第二页）。改为 85mm 安全值：任何页眉高度下均
+       可单页容纳；flex 内部 2:1 弹性分栏仍会把摘要区/信息区拉伸撑满该区域 */
+    min-height: 85mm;
 }
 .print-area .print-consult-flex .print-consult-top { flex: 2 1 0; display: flex; flex-direction: column; }
 .print-area .print-consult-flex .print-consult-bottom { flex: 1 1 0; display: flex; flex-direction: column; }

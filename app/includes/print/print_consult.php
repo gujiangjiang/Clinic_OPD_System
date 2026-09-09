@@ -58,8 +58,11 @@ function pt_consult($visit, $patient, $cons, $snap) {
         '</div>' .
         // 提示语上方原有一条实线（print-line），已按需求去除——仅去掉 1px 线条，
         // 用同尺寸透明占位（复刻 print-line 的 padding-bottom:6px 与内外边距）
-        // 保持垂直占位完全不变，布局与排版零位移
-        '</div><div style="margin-top:14px;height:6px;margin-bottom:10px"></div>';
+        // 保持垂直占位完全不变，布局与排版零位移。
+        // 占位借 print-note 类归入分页器「页脚沉底组」（print.js footSet）：
+        // 该 div 原本 className 为空会被识别为正文节点，极端页眉高度下可能
+        // 被单独推到第二页（视觉上的空白页）
+        '</div><div class="print-note" style="margin-top:14px;height:6px;margin-bottom:10px"></div>';
 
     // 左下角提示 + 右下角申请医生
     $html .= '<div class="print-note">请凭本会诊单至相应科室会诊。</div>';
