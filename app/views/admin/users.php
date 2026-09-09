@@ -5,8 +5,11 @@
  * 学历、学位、职称、职务、个人介绍；
  * 医生/护士/检验/影像有职称选项，其余角色无；
  * 仅医生显示所属科室多选框（可多选科室看诊）。
+ * 站内信安全告警直达：/admin/users?edit_user_id=N 自动打开该用户编辑弹窗解锁。
  */
 Router::title('用户管理');
+/* 安全告警站内信直达解锁：partial/整页渲染时均可读取 query 参数 */
+$editFromUrl = (int)get('edit_user_id', 0);
 ?>
 <div class="page-head">
     <div><div class="page-title">👥 用户管理</div><div class="page-desc">创建各科室账号，医生可关联多个科室</div></div>
@@ -245,5 +248,19 @@ function delUser(id) {
     });
 }
 
+/* 一键解锁（编辑弹窗内【解除锁定并启用】）：置启用状态并走统一保存流程——
+   后端 user_save 对 status=1 自动清零锁定归因字段与失败计数并写审计日志 */
+function unlockUser() {
+    var sel = document.getElementById('f_status');
+    if (sel) sel.value = '1';
+    var save = document.getElementById('userSave');
+    if (save) save.click();
+    Clinic.toast.info('正在解除锁定并启用该账号…');
+}
+
 loadUserList();
+/* 安全告警站内信直达：自动打开目标用户编辑弹窗（含锁定警告框与一键解锁） */
+<?php if ($editFromUrl > 0): ?>
+setTimeout(function () { openUserForm(<?php echo $editFromUrl; ?>); }, 300);
+<?php endif; ?>
 </script>
