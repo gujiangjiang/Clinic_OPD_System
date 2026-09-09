@@ -251,8 +251,9 @@ function record_part_read($action) {
         $certRow = EmrRepository::one('SELECT cert_no, content, doctor_name, doctor_id, dept_id, created_at FROM certificates WHERE visit_id=? ORDER BY id DESC', array($visitId));
         // 诊断证明删除权限（后端权威）：仅开具医生本人 且 开具科室 == 医生当前科室。
         // 转科（医生当前科室改变）或换医生后不可删除；会诊期间不可开具也不可删除。
+        // 诊毕归档封存：已诊毕病历一切数据快照封存，诊断证明一律不可删除（前端隐藏按钮 + 接口硬拦截）
         $certCanDelete = 0;
-        if ($certRow) {
+        if ($certRow && (string)$visit['status'] !== 'finished') {
             $doingCertCons = ConsultationRepository::one("SELECT id FROM consultations WHERE visit_id=? AND status='doing' LIMIT 1", array($visitId));
             $certDocDept = (int)(isset($certRow['dept_id']) ? $certRow['dept_id'] : 0);
             $curDocDept = (int)$docDept;   // 上方已解析的医生当前科室

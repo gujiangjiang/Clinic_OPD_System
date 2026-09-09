@@ -94,6 +94,7 @@ function record_part_cert($action) {
 
     /* ==================== 删除诊断证明（仅本人 + 开具科室一致） ==================== */
     // 删除约束（法律文书可撤销但必须严格控制）：
+    // · 诊毕归档封存：已诊毕病历一切数据快照封存，诊断证明一律不可删除（法律/合规底线）；
     // · 仅开具医生本人可删（doctor_id 一致）；
     // · 且开具时科室 == 医生当前科室（转科后旧科室文书不可删）；
     // · 会诊期间不可删（会诊病历本身也不可开具证明）。
@@ -101,6 +102,10 @@ function record_part_cert($action) {
         $visitId = did(post('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
+        // 诊毕归档锁定：已诊毕不可删除
+        if ((string)$row['visit']['status'] === 'finished') {
+            json_fail('该患者已诊毕，病历已归档，不可删除诊断证明');
+        }
         $cert = EmrRepository::certificateByVisit($visitId);
         if (!$cert) json_fail('该就诊未开具诊断证明');
         // 会诊期间拦截
