@@ -30,6 +30,14 @@ function admin_part_user($action) {
                 $ds = UserRepository::q("SELECT name FROM departments WHERE id IN ($ph)", $ids);
                 $deptNames = implode('、', array_map(function ($d) { return $d['name']; }, $ds));
             }
+            // 状态三态徽章：正常启用 / 安全锁定(密码超限) / 已停用——
+            // 区分系统自动锁定（password_error_locked）与管理员主动停用
+            $statusHtml = badge_html('success', '正常启用');
+            if ((int)$r['status'] !== 1) {
+                $statusHtml = ((string)$r['lock_reason'] === 'password_error_locked')
+                    ? badge_html('danger', '安全锁定 (密码超限)')
+                    : badge_html('gray', '已停用');
+            }
             $rowsHtml .= '<tr data-role="' . e($r['role']) . '">' .
                 '<td>' . e($r['emp_no']) . '</td>'.
                 '<td>' . e($r['username']) . '</td>' .
@@ -37,7 +45,7 @@ function admin_part_user($action) {
                 '<td>' . e(Auth::roleName($r['role'])) . '</td>' .
                 '<td>' . e($r['title']) . '</td>' .
                 '<td class="fs-12">' . e($deptNames) . '</td>' .
-                '<td>' . ($r['status'] == 1 ? badge_html('success', '启用') : badge_html('gray', '停用')) . '</td>' .
+                '<td>' . $statusHtml . '</td>' .
                 '<td><div class="flex gap-4">' .
                 // 编辑按钮与「新增」共用 openUserForm(id)：会执行 onRoleChange() 初始化职称/科室显示，
                 // 保证医生编辑时能看到并勾选所属科室（loadModal 通用逻辑不会初始化页面控件）
@@ -98,6 +106,17 @@ function admin_part_user($action) {
             $deptBox .= '</div></div>';
         }
         $deptBox .= '</div></div>';
+        // 安全锁定警告框：password_error_locked 状态时置顶展示归因信息，
+        // 并提供【解除锁定并启用】快捷按钮（置 status=1，保存时后端同步清零）
+        $lockWarn = '';
+        if ((int)$r['status'] !== 1 && (string)$r['lock_reason'] === 'password_error_locked') {
+            $lockWarn = '<div class="mb-12" style="background:var(--warning-soft,#fef3c7);border:1px solid var(--warning,#f59e0b);color:var(--warning,#b45309);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.8">' .
+                '⚠️ 该账号于 <b>' . e((string)(isset($r['locked_at']) ? $r['locked_at'] : '-')) . '</b>' .
+                ' 因密码连续错误达 <b>' . (int)(isset($r['login_fail_count']) ? $r['login_fail_count'] : 0) . '</b> 次' .
+                '已被系统锁定，来源 IP: <b>' . e((string)(isset($r['lock_ip']) ? $r['lock_ip'] : '-')) . '</b><br>' .
+                '<button type="button" class="btn btn-warning btn-sm" style="margin-top:6px" onclick="unlockUser()">🔓 解除锁定并启用</button>' .
+                '</div>';
+        }
         $html = '<div class="flex" style="justify-content:center;margin-bottom:12px">
             <div class="avatar-picker" onclick="document.getElementById(\'f_photo\').click()">
                 <span class="avatar" id="avatarPreview">' .
@@ -107,6 +126,7 @@ function admin_part_user($action) {
                 <span class="avatar-picker-tip">点击头像上传照片</span>
             </div>
         </div>
+        $lockWarn . '
         <input type="file" id="f_photo" accept="image/*" style="display:none">
         <input type="hidden" id="f_id" value="' . (int)$id . '">
         <div class="form-row">
@@ -213,7 +233,27 @@ function admin_part_user($action) {
                 $params[] = $photo;
             }
             $params[] = $id;
+            // 取锁定归因旧值（启用/解锁时同步清零 + 写安全审计日志）
+            $before = UserRepository::one('SELECT status, lock_reason, login_fail_count FROM users WHERE id=?', array($id));
             UserRepository::exec('UPDATE users SET ' . $set . ' WHERE id=?', $params);
+            $wasLocked = $before && (int)$before['status'] === 0 && (string)$before['lock_reason'] === 'password_error_locked';
+            if ((int)$status === 1) {
+                // 启用（含一键解锁）：重置锁定归因三件套 + 失败计数——
+                // 该用户即可恢复无障碍正常登录，无需任何二次繁琐操作
+                UserRepository::exec(
+                    'UPDATE users SET lock_reason=NULL, locked_at=NULL, lock_ip=?, login_fail_count=0, login_locked_until=NULL WHERE id=?',
+                    array('', $id)
+                );
+                if ($wasLocked) {
+                    // 安全审计日志（audits 已处理池）：记录解锁动作供追溯
+                    UserRepository::insert("INSERT INTO audits(type, ref_id, title, content, status, proposer, proposer_id, handled_by, handled_at, note, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)", array(
+                        'user_unlock', $id,
+                        '解除账号安全锁定：' . $name,
+                        '用户「' . $name . '」（工号 ' . $empNo . '）因密码连续错误达 ' . (int)($before['login_fail_count'] ?? 0) . ' 次被系统安全锁定，管理员已手动解锁并启用',
+                        'approved', $u['name'], (int)$u['id'], $u['name'], now_str(), '解锁后 login_fail_count 已清零', now_str(),
+                    ));
+                }
+            }
         } else {
             UserRepository::insert('INSERT INTO users(emp_no, username, password, name, role, dept_ids, education, degree, title, position, intro, queue_days, photo, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                 $empNo, $username, password_hash($password !== '' ? $password : '123456', PASSWORD_DEFAULT),
