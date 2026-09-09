@@ -133,8 +133,16 @@ function onRoleChange() {
         }).join('');
         titleSel.innerHTML = opts;
     }
+    // 候诊列表可显示天数：仅医生角色显示（其他角色可见范围由开单医生的天数
+    // 权限决定，无需该配置；后端保存时也强制回落默认 3）
+    var qdWrap = document.getElementById('queueDaysWrap');
+    if (qdWrap) qdWrap.style.display = role === 'doctor' ? '' : 'none';
     // 仅医生显示所属科室多选框
     document.getElementById('deptWrap').style.display = role === 'doctor' ? '' : 'none';
+    // 角色切为管理员时隐藏状态选择（管理员不可被停用，含自锁保护）
+    var statusGroup = document.getElementById('f_status');
+    if (statusGroup && role === 'admin') statusGroup.closest('.form-group').style.display = 'none';
+    else if (statusGroup) statusGroup.closest('.form-group').style.display = '';
 }
 
 function openUserForm(id) {
@@ -203,7 +211,9 @@ function openUserForm(id) {
             var deptIds = [];
             document.querySelectorAll('.deptChk:checked').forEach(function (c) { deptIds.push(c.value); });
             fd.append('dept_ids', deptIds.join(','));
-            fd.append('status', document.getElementById('f_status').value);
+            // 状态：仅非管理员角色提交（管理员表单无该控件，后端强制启用）
+            var statusEl = document.getElementById('f_status');
+            fd.append('status', statusEl ? statusEl.value : '1');
             var qdEl = document.getElementById('f_queue_days');
             if (qdEl) {
                 var qdRaw = qdEl.value.trim();

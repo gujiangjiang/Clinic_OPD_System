@@ -106,8 +106,21 @@ function admin_part_user($action) {
             $deptBox .= '</div></div>';
         }
         $deptBox .= '</div></div>';
-        // 安全锁定警告框：password_error_locked 状态时置顶展示归因信息，
-        // 并提供【解除锁定并启用】快捷按钮（置 status=1，保存时后端同步清零）
+        // ===== 角色驱动字段显隐（后端权威生成，前端 onRoleChange 联动）=====
+        // · 候诊列表可显示天数：仅医生角色需要（其他角色的候诊可见范围由
+        //   开单医生的天数权限决定，自身无此配置项）；
+        // · 状态（启用/停用）：管理员角色不显示且强制启用——管理员不可被停用
+        //   （含自锁保护），避免系统失去管理入口。
+        $isDoctor = ($r['role'] === 'doctor');
+        $isAdmin = ($r['role'] === 'admin');
+        // 角色驱动字段（仅医生渲染候诊天数；仅非管理员渲染状态选择）
+        $queueDaysHtml = $isDoctor
+            ? '<div class="form-group" id="queueDaysWrap"><label class="form-label">候诊列表可显示天数</label>
+                <input class="input" id="f_queue_days" type="number" min="2" max="7" value="' . (int)$r['queue_days'] . '" placeholder="2-7"></div>'
+            : '';
+        $statusHtml = $isAdmin ? '' : '<div class="form-group"><label class="form-label">状态</label>
+            <select class="select" id="f_status"><option value="1"' . ($r['status'] == 1 ? ' selected' : '') . '>启用</option>
+            <option value="0"' . ($r['status'] == 0 ? ' selected' : '') . '>停用</option></select></div>';
         $lockWarn = '';
         if ((int)$r['status'] !== 1 && (string)$r['lock_reason'] === 'password_error_locked') {
             $lockWarn = '<div class="mb-12" style="background:var(--warning-soft,#fef3c7);border:1px solid var(--warning,#f59e0b);color:var(--warning,#b45309);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.8">' .
@@ -138,9 +151,8 @@ function admin_part_user($action) {
         </div>
         <div class="form-row">
             <div class="form-group"><label class="form-label">默认密码</label>
-                <input class="input" type="password" id="f_password" placeholder="' . ($id ? '留空表示不修改密码' : '默认密码 123456') . '"></div>
-            <div class="form-group" id="queueDaysWrap"><label class="form-label">候诊列表可显示天数</label>
-                <input class="input" id="f_queue_days" type="number" min="2" max="7" value="' . (int)$r['queue_days'] . '" placeholder="2-7"></div>
+                <input class="input" type="password" id="f_password" placeholder="' . ($id ? '留空表示不修改密码' : '默认密码 123456') . '"></div>' .
+            $queueDaysHtml . '
         </div>
         <div class="form-row">
             <div class="form-group"><label class="form-label">学历</label><select class="select" id="f_education" data-csd-search="1" data-csd-clear="1">' . opt_options('education', $r['education']) . '</select></div>
@@ -156,10 +168,8 @@ function admin_part_user($action) {
                 <div id="deptSearchRes" class="tree-search-res" style="display:none"></div>
                 <div class="send-tree" id="deptTreeBox" style="max-height:220px">' . $deptBox . '</div>
             </div></div>
-        <div class="form-group"><label class="form-label">个人介绍</label><textarea class="textarea" id="f_intro" rows="2">' . e($r['intro']) . '</textarea></div>
-        <div class="form-group"><label class="form-label">状态</label>
-            <select class="select" id="f_status"><option value="1"' . ($r['status'] == 1 ? ' selected' : '') . '>启用</option>
-            <option value="0"' . ($r['status'] == 0 ? ' selected' : '') . '>停用</option></select></div>';
+        <div class="form-group"><label class="form-label">个人介绍</label><textarea class="textarea" id="f_intro" rows="2">' . e($r['intro']) . '</textarea></div>' .
+        $statusHtml;
         json_ok(array('html' => $html, 'title' => $r['title']));
     }
 
@@ -210,6 +220,13 @@ function admin_part_user($action) {
         }
         if ($name === '') json_fail('请填写姓名');
         if (!in_array($role, array('admin', 'cashier', 'doctor', 'nurse', 'lab', 'imaging', 'pharmacy'), true)) $role = 'doctor';
+        // ===== 角色驱动字段兜底（与 user_form 显隐同口径）=====
+        // · 管理员角色强制启用（管理员不可被停用，含自锁保护——表单已隐藏
+        //   状态选择，此处后端权威兜底，防伪造请求绕过）；
+        // · 候诊天数仅医生角色可配置：其他角色一律回默认 3（其候诊可见范围
+        //   由开单医生的天数权限决定，自身无此配置）。
+        if ($role === 'admin') $status = 1;
+        if ($role !== 'doctor') $queueDays = 3;
         // 用户名唯一
         $exists = UserRepository::one('SELECT id FROM users WHERE username=? AND id<>?', array($username, $id));
         if ($exists) json_fail('登录用户名已存在');
