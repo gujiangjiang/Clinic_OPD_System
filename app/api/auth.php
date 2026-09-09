@@ -4,8 +4,10 @@
  * auth.php — 认证接口
  * ============================================================
  * 接口：/api/auth
- * action=login        登录（POST，支持用户名或工号）
- * action=logout_page  退出并跳转登录页（GET）
+ * action=login          登录（POST，支持用户名或工号，含验证码/防爆破）
+ * action=captcha        登录图形验证码（GET，GD 生成，公开访问）
+ * action=check_captcha  验证码需求预检（GET，auto 模式动态嗅探，公开访问）
+ * action=logout_page    退出并跳转登录页（GET）
  * action=theme        保存主题偏好 auto/light/dark（POST）
  * action=sidebar      保存侧边栏偏好 expand 展开 / mini 缩小（POST）
  * action=password     修改密码（POST）
@@ -13,9 +15,31 @@
  * action=me           获取当前用户信息（GET）
  * ============================================================ */
 /* ============================================================
- * 公开动作（登录 / 退出）无需登录即可访问，需在 _init 登录校验前处理
+ * 公开动作（登录 / 退出 / 验证码）无需登录即可访问，需在 _init 登录校验前处理
  * ============================================================ */
 $__act = isset($_REQUEST['action']) ? trim((string)$_REQUEST['action']) : '';
+if ($__act === 'captcha') {
+    // 图形验证码（GET）：GD 生成并写入 Session，比对即销毁（防重放）
+    LoginSecurity::captchaRender();
+    exit;
+}
+if ($__act === 'check_captcha') {
+    // 验证码需求预检（GET）：登录页输入工号时动态嗅探是否需要验证码
+    // 防枚举限流：每会话每分钟限量，超限直接拒绝（防高频穷举有效工号）
+    if (!LoginSecurity::checkRateOk()) {
+        json_fail('请求过于频繁，请稍后再试');
+    }
+    $username = trim((string)get('username', ''));
+    $flag = get('flag') === '1';
+    $mode = LoginSecurity::mode();
+    $userFail = 0;
+    if ($mode === 'auto' && $username !== '') {
+        $probe = DB::one('SELECT login_fail_count FROM users WHERE username=?', array($username));
+        if (!$probe) $probe = DB::one('SELECT login_fail_count FROM users WHERE emp_no=?', array($username));
+        $userFail = $probe ? (int)$probe['login_fail_count'] : 0;
+    }
+    json_ok(array('require_captcha' => LoginSecurity::needCaptcha($mode, $flag, $userFail)));
+}
 if ($__act === 'login' || $__act === 'logout_page') {
     CSRF::check();
 
@@ -25,8 +49,15 @@ if ($__act === 'login' || $__act === 'logout_page') {
         // 密码必须原样读取（不 trim），保证与入库密码逐字一致
         $password = post_raw('password');
         $next = post('next', '');
-        $res = Auth::login($username, $password);
+        $captcha = post('captcha', '');
+        // 客户端本地失败标记（Storage 轨道）：前端记录过失败 → 提交标志
+        $captchaFlag = post('need_captcha') === '1';
+        $res = Auth::login($username, $password, $captcha, $captchaFlag);
         if ($res !== true) {
+            // 锁定/停用场景按需求返回 403（话术区分安全锁定与管理员停用）
+            if (strpos($res, '已被系统安全锁定') !== false || strpos($res, '已被管理员停用') !== false) {
+                http_response_code(403);
+            }
             json_fail($res);
         }
         // 登录成功后按角色返回默认首页（防开放重定向：仅允许站内路径）

@@ -83,6 +83,7 @@ require_once __DIR__ . '/../core/DatabaseManager.php';
 require_once __DIR__ . '/../core/IdObfuscator.php';
 require_once __DIR__ . '/../core/DataExportImport.php';
 require_once __DIR__ . '/../core/CSRF.php';
+require_once __DIR__ . '/../core/LoginSecurity.php';
 require_once __DIR__ . '/../core/Auth.php';
 require_once __DIR__ . '/../core/Upload.php';
 require_once __DIR__ . '/../core/Router.php';
