@@ -346,6 +346,10 @@ switch ($action) {
         $visitId = did(post('visit_id'));
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
+        // 诊毕归档锁定：已诊毕病历一切数据快照封存，不可再录入生命体征
+        if ((string)$row['visit']['status'] === 'finished') {
+            json_fail('该患者已诊毕，病历已归档，不可再录入生命体征');
+        }
         // 护士科室归属校验（宽松：未绑定科室=全院放行；已绑科室须匹配就诊科室）
         if (!nurse_visit_allowed($row['visit'], $u)) json_fail('无权限录入该就诊的生命体征');
         // 数值校验（与医生端 record_save_vitals 同规则）：非负整数、生理合理区间；留空视为未测
@@ -404,6 +408,10 @@ switch ($action) {
         if ($content === '') json_fail('请输入护理记录内容');
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
+        // 诊毕归档锁定：已诊毕病历一切数据快照封存，不可再新增护理记录
+        if ((string)$row['visit']['status'] === 'finished') {
+            json_fail('该患者已诊毕，病历已归档，不可再新增护理记录');
+        }
         // 护士科室归属校验（宽松：未绑定科室=全院放行；已绑科室须匹配就诊科室）
         if (!nurse_visit_allowed($row['visit'], $u)) json_fail('无权限录入该就诊的护理记录');
         EmrRepository::insertNursing(array(
@@ -421,6 +429,10 @@ switch ($action) {
         if (!$nr) json_fail('护理记录不存在');
         $row = get_visit_row((int)$nr['visit_id']);
         if (!$row) json_fail('就诊记录不存在');
+        // 诊毕归档锁定：已诊毕病历一切数据快照封存，护理记录不可删除
+        if ((string)$row['visit']['status'] === 'finished') {
+            json_fail('该患者已诊毕，病历已归档，不可删除护理记录');
+        }
         // 护士科室归属校验（宽松：未绑定科室=全院放行；已绑科室须匹配就诊科室）
         if (!nurse_visit_allowed($row['visit'], $u)) json_fail('无权限删除该就诊的护理记录');
         // 创建人归属校验：仅录入人本人可删除（管理员兜底），防止护士删除他人护理记录
