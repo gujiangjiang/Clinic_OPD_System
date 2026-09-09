@@ -48,6 +48,8 @@ Clinic.deptwork = (function () {
     function init() {
         if (!document.getElementById('dwMain')) return;
         bindButtons();
+        // 刷新/深链保持：恢复已绑定诊室的「叫号：xxx」按钮文案
+        updateCallBtnLabel();
         // 深链 / 刷新保持：URL 带 visit_id 直接加载该患者
         var m = (location.search.match(/[?&]visit_id=([^&]+)/) || [])[1];
         if (m) {
@@ -657,89 +659,125 @@ Clinic.deptwork = (function () {
         openCallPop();
     }
 
-    /* ---------- 绑定大屏诊室悬浮窗 ---------- */
+    /* ---------- 绑定大屏诊室下拉（参考医生工作站：#dwRoomList 悬浮在叫号按钮下方） ---------- */
+    function updateCallBtnLabel() {
+        var r = currentRoom();
+        var lbl = document.getElementById('dwCallName');
+        if (lbl) lbl.textContent = (r && r.room_name) ? '叫号：' + r.room_name : '叫号';
+    }
+
     function toggleRoomList() {
-        var el = roomListEl();
-        if (el) { el.remove(); return; }
-        var pop = document.createElement('div');
-        pop.className = 'doc-call-pop';
-        pop.id = 'dwRoomList';
-        pop.style.right = '16px';
-        pop.style.bottom = '64px';
-        pop.innerHTML =
-            '<div class="doc-call-pop-head">' +
-            '  <span class="doc-call-pop-title">📢 选择大屏诊室</span>' +
-            '  <span class="doc-call-pop-tools"><span class="doc-call-pop-x" data-act="hide" title="关闭">x</span></span>' +
-            '</div>' +
-            '<div class="doc-call-pop-body dw-room-list-body">' +
-            '  <div class="fs-12 text-muted" style="padding:4px 2px">请先绑定诊室大屏，绑定后可进行叫号。</div>' +
-            '  <div id="dwRoomListBody"><div class="fs-12 text-muted">加载中…</div></div>' +
-            '</div>';
-        document.body.appendChild(pop);
-        pop.querySelector('[data-act="hide"]').addEventListener('click', function () { pop.remove(); });
-        loadRooms();
+        var box = roomListEl();
+        if (!box) return;
+        if (box.style.display === 'none') {
+            loadRooms();
+            box.style.display = 'block';
+        } else {
+            box.style.display = 'none';
+        }
     }
 
     function loadRooms() {
+        var box = roomListEl();
+        if (!box) return;
+        box.innerHTML = '<div class="fs-13 text-muted text-center" style="padding:16px">加载中…</div>';
         Clinic.get('/api/deptwork?action=get_available_rooms', null, {
             loading: false,
             onSuccess: function (json) {
                 var d = json.data;
-                var body = document.getElementById('dwRoomListBody');
-                if (!body) return;
-                var html = '';
-                if (d.bound) {
-                    html += '<div class="dw-room-bound">已绑定：<b>' + escHtml(d.bound.name) + '</b> ' +
-                        '<button type="button" class="btn btn-outline btn-sm" data-room-id="' + d.bound.id + '" data-act="unbind">解绑</button></div>';
+                updateCallBtnLabel();
+                var list = d.list || [];
+                if (!list.length) {
+                    box.innerHTML = '<div class="fs-13 text-muted text-center" style="padding:16px">该科室暂无大屏配置，请联系管理员在【叫号管理】中新建</div>';
+                    return;
                 }
-                html += (d.list || []).map(function (r) {
-                    return '<div class="dw-room-item' + (r.selectable ? '' : ' dw-room-off') + '" data-room-id="' + r.id + '" ' +
-                        'data-room-name="' + escHtml(r.name) + '" data-sel="' + (r.selectable ? 1 : 0) + '">' +
-                        '<span class="fw-600">' + escHtml(r.name) + '</span>' +
-                        '<span class="fs-12 text-muted">' + escHtml(r.status_text) + '</span></div>';
+                // 数据驱动渲染（与医生工作站同款：状态图标 + 在线/占用/已绑定/离线）
+                var rows = list.map(function (r) {
+                    var icon = r.status === 'available' ? '🟢' : (r.status === 'bound' ? '🔵' : (r.status === 'occupied' ? '🟡' : '🔴'));
+                    var disabled = !r.selectable;
+                    var clickable = (r.status === 'bound' || r.status === 'available') && !disabled;
+                    var attrs = clickable
+                        ? 'data-room-id="' + r.id + '" data-room-name="' + escHtml(r.name || '') + '" data-room-bound="' + (r.status === 'bound' ? 1 : 0) + '"'
+                        : '';
+                    var cls = r.status === 'bound' ? 'style="background:var(--primary-soft);border-radius:6px"' : '';
+                    var hint = r.status === 'bound' ? '<span class="fs-12 text-primary">（点击解绑）</span>' : '';
+                    return '<div class="fs-13 flex-between" style="padding:8px 10px;cursor:' + (disabled ? 'not-allowed' : 'pointer') + ';opacity:' + (disabled ? '.55' : '1') + ';border-radius:6px"' + cls + ' ' + attrs + '>' +
+                        '<span>' + icon + ' ' + escHtml(r.name || '') + '</span>' +
+                        '<span class="fs-12" style="color:' + (r.status === 'offline' ? 'var(--danger)' : 'var(--text-muted)') + '">' + escHtml(r.status_text || '') + ' ' + hint + '</span></div>';
                 }).join('');
-                body.innerHTML = html || '<div class="fs-12 text-muted">暂无可用诊室，请联系管理员在「叫号管理」中创建</div>';
-                body.querySelectorAll('.dw-room-item').forEach(function (it) {
-                    it.addEventListener('click', function () {
-                        if (it.getAttribute('data-sel') !== '1') {
-                            Clinic.toast.warning((it.querySelector('span:last-child') || {}).textContent || '该诊室不可用');
-                            return;
-                        }
-                        dwBindRoom(parseInt(it.getAttribute('data-room-id'), 10), it.getAttribute('data-room-name'));
-                    });
-                });
-                body.querySelectorAll('[data-act="unbind"]').forEach(function (b) {
-                    b.addEventListener('click', function () { dwUnbindRoom(parseInt(b.getAttribute('data-room-id'), 10)); });
-                });
+                box.innerHTML = rows;
+                bindRoomListClick(box);
+            },
+            onError: function () {
+                box.innerHTML = '<div class="fs-13 text-muted text-center" style="padding:16px">诊室列表加载失败</div>';
             },
         });
     }
 
+    /* 诊室列表点击委托（一次性绑定，避免重复监听） */
+    function bindRoomListClick(box) {
+        if (box._dwRoomClickBound) return;
+        box._dwRoomClickBound = true;
+        box.addEventListener('click', function (e) {
+            var row = e.target.closest('[data-room-id]');
+            if (!row) return;
+            var id = row.getAttribute('data-room-id');
+            var name = row.getAttribute('data-room-name') || '';
+            if (row.getAttribute('data-room-bound') === '1') {
+                dwUnbindRoom(id);
+            } else {
+                dwBindRoom(id, name);
+            }
+        });
+    }
+
     function dwBindRoom(roomId, roomName) {
+        // 已绑定其他诊室 → 弹确认切换（与医生工作站一致）
+        var cur = currentRoom();
+        if (cur && String(cur.room_id) !== String(roomId)) {
+            Clinic.modal.confirm(
+                '当前已绑定「<strong>' + escHtml(cur.room_name || '') + '</strong>」诊室大屏。<br>' +
+                '是否将叫号大屏<strong>从「' + escHtml(cur.room_name || '') + '」切换到「' + escHtml(roomName || '新诊室') + '」</strong>？',
+                function () { dwDoBind(roomId, roomName); },
+                { title: '切换诊室大屏', okText: '确认切换', cls: 'btn-primary' }
+            );
+            return;
+        }
+        dwDoBind(roomId, roomName);
+    }
+
+    function dwDoBind(roomId, roomName) {
         Clinic.ajax('/api/deptwork', { action: 'bind_room', room_id: roomId }, {
             onSuccess: function (json) {
                 Clinic.toast.success(json.msg);
-                Clinic.roomHeartbeat.remember(roomId, roomName);
-                var rl = roomListEl();
-                if (rl) rl.remove();
-                openCallPop();
+                var rid = json.data && json.data.room_id;
+                var rname = (json.data && json.data.room_name) || roomName || '';
+                if (window.Clinic && Clinic.roomHeartbeat && rid) {
+                    Clinic.roomHeartbeat.remember(rid, rname);
+                }
+                updateCallBtnLabel();
+                var box = roomListEl();
+                if (box) box.style.display = 'none';
+                // 绑定成功后自动打开叫号悬浮窗
+                if (currentRoom()) openCallPop();
             },
         });
     }
 
     function dwUnbindRoom(roomId) {
-        Clinic.modal.confirm('确定解绑大屏诊室？解绑后需重新绑定才能叫号。', function () {
+        Clinic.modal.confirm('确认解除与当前大屏的绑定？', function () {
             Clinic.ajax('/api/deptwork', { action: 'unbind_room', room_id: roomId }, {
                 onSuccess: function (json) {
                     Clinic.toast.success(json.msg);
-                    Clinic.roomHeartbeat.forget();
+                    if (window.Clinic && Clinic.roomHeartbeat) Clinic.roomHeartbeat.forget();
+                    updateCallBtnLabel();
                     closeCallPop();
-                    var rl = roomListEl();
-                    if (rl) rl.remove();
+                    var box = roomListEl();
+                    if (box) box.style.display = 'none';
                     toggleRoomList();
                 },
             });
-        }, { title: '解绑大屏', okText: '解绑' });
+        }, { title: '解绑确认', okText: '确认解绑' });
     }
 
     /* ---------- 叫号面板 ---------- */

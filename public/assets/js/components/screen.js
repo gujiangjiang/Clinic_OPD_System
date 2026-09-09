@@ -408,7 +408,12 @@
      * 宽屏：左侧 当前患者（标签+姓名换行），右侧一半 排队队列
      * 无患者/无队列时占位提示居中显示。 */
     function renderDeptMode(d) {
-        var esc = function (s) { return Clinic.escHtml(s); };
+        // 大屏页仅加载 screen.js（无 Clinic），就地定义 HTML 转义
+        var esc = function (s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        };
         var wait = d.waiting || [];
         var cur = d.current || {};
         var nowHtml;
