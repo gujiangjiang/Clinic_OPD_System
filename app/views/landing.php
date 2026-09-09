@@ -54,7 +54,7 @@ $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
             <p class="sub">
                 一套系统同时服务挂号收费处、医生工作站、护士站、检验科、影像科与药房，
                 覆盖挂号、缴费、电子病历、开单、报告、发药全流程。
-                支持明亮 / 夜间 / 自动主题与分散式数据库，即装即用。
+                统一业务主库（SQLite/MySQL 双驱动）+ 明亮 / 夜间 / 自动主题，即装即用。
             </p>
             <div class="hero-ctas">
                 <a class="btn-hero primary" href="/login">进入系统 →</a>
@@ -65,7 +65,6 @@ $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
                 <div class="stat"><div class="num">8</div><div class="lbl">类单据打印</div></div>
                 <div class="stat"><div class="num">3</div><div class="lbl">种界面主题</div></div>
             </div>
-        </div>
     </section>
 
     <!-- ===== 功能矩阵 ===== -->
@@ -76,7 +75,7 @@ $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
         </div>
         <div class="feature-grid">
             <div class="feature-card"><div class="ico">🎫</div><h3>挂号收费处</h3><p>身份证自动校验与既往登记回填，号源实时展示，挂号缴费后一键打印凭条，支持退费与补打。</p></div>
-            <div class="feature-card"><div class="ico">🩺</div><h3>医生工作站</h3><p>所见即所得电子病历，ICD10 诊断联动，检验/检查/处置/处方开单，流程进度一目了然。</p></div>
+            <div class="feature-card"><div class="ico">🩺</div><h3>医生工作站</h3><p>所见即所得电子病历，ICD10 诊断联动，检验/检查/处置/处方开单，科室间会诊、知情同意书、诊断证明，流程进度一目了然。</p></div>
             <div class="feature-card"><div class="ico">💉</div><h3>护士站</h3><p>护士站处置执行、生命体征录入（与医生站双向同步）、护理记录管理。</p></div>
             <div class="feature-card"><div class="ico">🧪</div><h3>检验科</h3><p>检验登记、结果录入（正常范围与危急值提示）、报告自动生成与打印、支持申请撤回。</p></div>
             <div class="feature-card"><div class="ico">🩻</div><h3>影像科</h3><p>检查登记与报告书写（影像所见 + 结论），报告一键打印，与医生实时联动。</p></div>
@@ -108,12 +107,13 @@ $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
         </div>
         <ul class="tick-list">
             <li>PHP 7.x + SQLite 即装即用，预留 MySQL 切换接口</li>
-            <li>分散式数据库 + 统一迁移，各模块独立文件便于维护</li>
+            <li>统一业务主库 + 版本化增量迁移，SQLite/MySQL 双驱动一键切换</li>
             <li>框架式界面，AJAX 局部刷新 + 模态对话框，无需整页跳转</li>
             <li>明亮 / 夜间 / 自动三模式，偏好跟随用户保存</li>
             <li>统一打印中心：凭条 / 病历 / 处方 / 申请单 / 报告 / 证明</li>
             <li>站内消息通知 + 打印提醒，业务流转不错过</li>
-            <li>CSRF 防护、预处理防注入、角色级权限隔离</li>
+            <li>登录验证码（三模式）+ 密码连续错误自动锁定，管理员一键解锁</li>
+            <li>CSRF 防护、预处理防注入、角色级权限隔离、全链路 URL 混淆</li>
             <li>全中文注释，公共字典集中管理，可快速二次开发</li>
         </ul>
     </section>
@@ -129,7 +129,7 @@ $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
 <!-- ===== 页脚 ===== -->
 <footer class="landing-footer"><?php echo e($footer); ?></footer>
 
-<script src="/assets/js/components/theme.js"></script>
+<script src="/assets/js/components/theme.js?v=<?php echo APP_VERSION; ?>"></script>
 <script>document.addEventListener('DOMContentLoaded', function () { Clinic.theme.init(); });</script>
 </body>
 </html>

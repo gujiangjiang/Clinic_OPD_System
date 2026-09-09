@@ -36,7 +36,8 @@
 | 📋 模板系统 | 病历模板 / 知情同意书 / **病历嘱托模板** / **护理记录模板** / **影像报告模板**：个人免审即用，科室 / 全院提交管理员审核（审核期间仅本人可用、被驳回自动降级为个人）；管理员可管理全部模板；报告书写 / 护理记录 / 嘱托字段模板选择统一为「左侧列表 → 右侧预览 → 覆盖 / 续写」交互 |
 | 🖨️ 开单与打印 | 开单项目按开单医生归档；删除/毁方仅限开单本人（后端硬校验）；打印病历为连续文书（页眉归首诊、续写段虚线承接、各段签名、页脚时间固定）；诊断证明开具即固化病历摘要快照，不随续写变化；**知情同意/告知文书**（标题完全自定义：知情同意书/门诊告知书/病重通知书等）A5 打印：告知内容可自定义（留空默认话术）、病情介绍按模板勾选节固化病历快照（主诉/现病史/既往史/过敏史/主要症状/生命体征/意识状态/体格检查/初步诊断，空内容自动不显示），正文按段落连续流式分页（自然换行、跨页自动续页、不硬切断词），签名区留在正文最底部最后一页（不预留空页、不落单），页脚仅一行一式两份提示语 |
 | 🖥️ 叫号大屏 | 面向候诊患者：医生诊室大屏数据由**医生工作站推送 + 回库校验**（未绑定医生时仍显示完整就诊框架与空态）；**只叫当天号源**，诊室可配置**允许跨天叫号**（急诊夜班场景：不允许则跨天自动清空前一天叫号记录，允许则一次登录内跨 0 点延续）；当前就诊/下一位/等待就诊（序号/姓名/性别/年龄分列对齐，过号患者显示红色圆形「过」徽标）+ 多医生并发**动态号源队列**（被任一医生叫号认领的患者自动离开其他医生号源，互不冲突）；**竖屏/横屏自动切换排版**（横屏医生卡+就诊信息在上、等待就诊双排 16 位在下，两列纵向分隔线）；语音呼叫始终使用患者全名（脱敏仅作用于屏幕文字）、再次叫号重复播报、医生信息卡、温馨提示轮播、心跳防休眠；医技（检验/影像/药房/护士站）大屏保持科室排队看板 |
-| ⚙️ 管理员 | 首次安装、医院信息/LOGO/时区、科室/用户管理、检验/检查/药品/处置/诊断管理（ICD-10 完整标准编码库，四级分类树：章→节→类目→亚目，支持按编码/名称/拼音检索、搜索结果自动定位展开并高亮、分级浏览）、审核中心（一键通过/驳回重提/预览提交内容/站内消息通知）、组合管理（多对多关联表）、药品设置、检验/检查/药品分类管理、统一打印中心、医院运营分析（KPI 总览/收入趋势/科室医生统计/自定义维度/转归查询）、叫号大屏管理、HIS 预留接口 |
+| 🔐 登录安全 | **图形验证码（零依赖 GD，blob 呈现不暴露直链）**三模式：off 不开启 / auto 智能开启（默认，遇错误或风险自动弹出）/ force 强制常显；**防爆破自动锁定**——密码连续错误达阈值（可配 3-10，默认 5）账号自动安全锁定并向全体管理员发送安全告警站内信（含来源 IP 与直达解锁链接）；管理员【用户管理】三态徽章（正常启用/安全锁定/已停用）+ 一键解锁（同步清零锁定字段、写安全审计日志）；登录失败 IP+会话频控、验证码比对即销毁防重放、预检接口防枚举限流 |
+| ⚙️ 管理员 | 首次安装、医院信息/LOGO/时区、科室/用户管理（登录验证码模式与锁定阈值配置、账号安全锁定三态管理与一键解锁）、检验/检查/药品/处置/诊断管理（ICD-10 完整标准编码库，四级分类树：章→节→类目→亚目，支持按编码/名称/拼音检索、搜索结果自动定位展开并高亮、分级浏览）、审核中心（一键通过/驳回重提/预览提交内容/站内消息通知）、组合管理（多对多关联表）、药品设置、检验/检查/药品分类管理、统一打印中心、医院运营分析（KPI 总览/收入趋势/科室医生统计/自定义维度/转归查询）、叫号大屏管理、HIS 预留接口 |
 
 ### 诊毕转归与运营分析
 - 诊毕时选择离院方式（自主离院/住院/转院/死亡/其他），非自主离院需填写补充信息（住院病区/接收医院/死亡原因/其他转归），前后端双重校验
@@ -70,7 +71,7 @@
 | `pharmacy` 药房 | 处方发药、药品库存管理；药品信息/设置（只读） | 药房首页（药品总数/发药/低库存 KPI） |
 
 > 各角色登录后仅能访问自己的工作台与接口；非管理员可通过管理页面（只读）查看本职数据，新增/修改提交走审核。
-> 登录支持 **用户名或工号**；用户名必须以英文字母开头。
+> 登录支持 **用户名或工号**；用户名必须以英文字母开头；按全局配置可能要求图形验证码（off/auto/force 三模式，管理员可在【系统设置 → 安全设置】配置），密码连续错误达阈值账号将自动锁定，需管理员在【用户管理】解锁。
 
 ## 🛠 技术栈
 
@@ -90,21 +91,29 @@
 │   ├── assets/
 │   │   ├── css/               # 样式拆分：base / components / modal / layout / dark / print / auth / landing
 │   │   └── js/components/     # 组件拆分：ajax / modal / print / theme / notify / selector /
-│   │                          #           validation / datetime / order / emreditor / emr_ctxmenu / emr /
-│   │                          #           emr_cert / emr_consult / emr_diag / queuepanel /
-│   │                          #           historypanel / depttree / patient / ui / toast / app / deptwork /
-│   │                          #           vitals / queuepanel_core / admin_items / dropdown
+│   │                          #           validation / datetime / datepicker / order / drugform /
+│   │                          #           emreditor / emr_ctxmenu / emr / emr_cert / emr_consent /
+│   │                          #           emr_consult / emr_diag / emr_fee / emr_orders / emr_patient /
+│   │                          #           emr_rules / emr_segments / emr_template / queuepanel /
+│   │                          #           queuepanel_core / historypanel / depttree / deptpicker /
+│   │                          #           patient / ui / toast / app / deptwork / doctor_tools /
+│   │                          #           vitals / room_heartbeat / eventbus / import / admin_items /
+│   │                          #           dropdown / call / chart / screen
 │   └── uploads/               # 上传文件：logo/、user/{角色}/——运行时生成，不提交
 ├── app/                       # 业务代码（Web 无法访问）
 │   ├── config/
 │   │   ├── bootstrap.php      # 启动引导（常量、Session、时区、类加载、DB_DRIVER 驱动配置）
 │   │   ├── options_data.php   # 公共字典（统一数据源）
 │   │   └── schema/            # 数据库表结构定义
-│   │       ├── main.php       # 统一业务主库 schema（39 张表，SQLite/MySQL 双驱动兼容）
+│   │       ├── main.php       # 统一业务主库 schema（43 张表，SQLite/MySQL 双驱动兼容）
 │   │       ├── icd10.php      # ICD-10 独立字典库 schema
 │   │       └── legacy/        # 旧分散式 schema 归档（供迁移工具引用）
 │   ├── core/                  # 核心类
-│   │   ├── DatabaseManager.php（getMain/getIcd10 双连接 + 方言辅助）Auth.php Session.php CSRF.php Upload.php Router.php helpers.php（加载 helpers.d/*.php）
+│   │   ├── DatabaseManager.php（getMain/getIcd10 双连接 + 方言辅助 + 运行时列自愈）
+│   │   │   Auth.php（登录/会话/角色）LoginSecurity.php（验证码 + IP 频控 + 防爆破）
+│   │   │   Session.php CSRF.php Upload.php Router.php IdObfuscator.php（URL 混淆）
+│   │   │   EmrContextResolver.php（病历上下文 SSOT）barcode.php（Code128 条形码）
+│   │   │   DataExportImport.php emr_rules.php helpers.php（加载 helpers.d/*.php）
 │   │   └── helpers.d/         # 辅助函数按域拆分（13 个文件：string/input/upload/idcard/pinyin/settings/work/oid/visit/trend/consult/authz/message）
 │   ├── repositories/          # 数据访问层（Repository 数据仓库模式，业务与 SQL 解耦）
 │   │   └── BaseRepository.php（通用 CRUD 助手）+ 各业务域仓库：
@@ -193,8 +202,8 @@ server {
 1. 访问首页 → 安装页设置管理员密码、医院名称 → 完成安装。
 2. 用 `admin` 登录 → 【科室管理】添加科室 → 【用户管理】创建各角色账号（医生勾选关联科室）→ 添加检验/检查/药品/处置项目并在【审核中心】通过审核。
 3. 挂号收费处挂号 → 缴费 → 凭条打印。
-4. 医生工作站接诊 → 书写病历（主诉/现病史/诊断必填并保存）→ 开检验/检查/处置/处方（缴费后各科室可见）→ 知情同意书（选模板→填写→保存→打印，新建默认追加在下方）。
-    同一次挂号可由多位医生接诊（续写），开单项目跟随医生归档，删除/毁方仅限开单本人。
+4. 医生工作站接诊 → 书写病历（主诉/现病史/诊断必填并保存）→ 开检验/检查/处置/处方（缴费后各科室可见）→ 知情同意书（选模板→填写→保存→打印，新建默认追加在下方）→ 需要时可发起**科室间会诊**（选科室→会诊单→发送，自动弹出会诊申请单打印预览；可同时向多个科室发起，同科室需待完毕后再发）。
+    同一次挂号可由多位医生接诊（续写），开单项目跟随医生归档，删除/毁方仅限开单本人；诊毕后病历全链路快照封存（文书/诊断/开单/会诊/证明均不可删改，归档仅可查看与补开诊断证明）。
 5. 检验科/影像科登记 → 录入结果 → 报告生成；药房发药；护士站执行处置与生命体征。
 6. 诊毕 → 选择离院方式（自主离院/住院/转院/死亡/其他）→ 运营分析可查询转归。
 
@@ -237,6 +246,7 @@ curl -H "X-HIS-Key: 你的密钥" "http://your-domain/api/his?action=visit_statu
 ## 🔒 安全说明
 
 - CSRF 令牌校验所有 POST 请求；PDO 预处理语句防 SQL 注入；`password_hash/verify` 密码哈希。
+- **登录验证码与防爆破锁定**（见上方「登录安全」）：验证码 Session 存储比对即销毁（防重放）、登录失败 IP+会话频控（30 分钟窗口）、预检接口防枚举限流、密码连续错误达阈值自动锁定（管理员解锁闭环 + 审计日志）。
 - **业务实体 ID 全链路混淆加密**（见上方「URL 混淆密钥」），防 URL 撞库遍历他人医疗数据。
 - 输出统一 `e()` 转义防 XSS；Session Cookie HttpOnly + SameSite；登录重置会话 ID。
 - 角色级页面/接口权限（无关角色无法直接访问其他科室功能）；非管理员管理页面只读，新增走审核。
@@ -250,7 +260,7 @@ curl -H "X-HIS-Key: 你的密钥" "http://your-domain/api/his?action=visit_statu
 - **单文件小、职责单一**：PHP / JS / CSS 文件按功能拆分，管理端接口已拆分到 `app/api/parts/`，项目/药品表单统一收敛到 `app/includes/forms.php`；病历主控 `emr.js` 已拆分出 `emr_cert` / `emr_consult` / `emr_diag` 等子模块（经 `Clinic.emr._ctx` 共享上下文桥接，内部调用与公共 API 语义不变）。
 - **公共数据统一存放**：性别、民族、职业、职称、频次、途径等字典统一维护在 `app/config/options_data.php`。
 - **样式按主题拆分**：明亮 / 夜间 / 自动模式分别维护。
-- **数据库分散 + 统一管理**：新增模块时在 `app/config/schema/` 中新建迁移文件，`DatabaseManager` 自动建库与增量迁移。
+- **数据库统一主库 + 迁移规范化**：业务数据收敛于唯一主库 clinic_main，新增模块时在 `app/config/schema/main.php` 中补表定义与版本迁移，`DatabaseManager` 自动建库、增量迁移并做运行时关键列自愈（SQLite/MySQL 双驱动幂等）。
 - **接口与页面分离**：业务逻辑写入 `app/api/`，页面通过 AJAX 局部刷新调用。
 
 ## 📜 更新日志
