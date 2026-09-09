@@ -334,7 +334,11 @@ Clinic.print = (function () {
         if (sheet === 'a5') {
             st = document.createElement('style');
             st.id = 'printPageSize';
-            st.textContent = '@page { size: A5 portrait; margin: 10mm; }';
+            // @page 边距归零：页边距改由 .a5-sheet 内部 padding（10mm/13mm）呈现，
+            // 打印文字区宽高因此与预览/测高容器（128×186mm）逐像素一致——
+            // 若仍依赖 @page margin:10mm，驱动实际可用区一旦与它不同，
+            // 打印端每行可容纳字数变化、换行点漂移、整页行数变多，末行被挤出页面。
+            st.textContent = '@page { size: A5 portrait; margin: 0; }';
             document.head.appendChild(st);
         } else if (sheet === 'ticket') {
             // 凭条：按「白边缓冲 + 黑边凭条」整体实测尺寸动态生成纸张，
@@ -511,15 +515,21 @@ Clinic.print = (function () {
                 // 该边距真实占压正文空间——精确计入，否则每页多出 8px 留白
                 footH += 8;
 
-                // 正文可用高度：以 186.5mm 为基准（打印纸张锁定 187mm，留 0.5mm 结构
-                // 保护）+ 8px 安全余量——余量必须覆盖打印引擎与屏幕渲染的累计舍入差
-                // （整页 20+ 行逐行取整，实测约一行；不足会吞掉页面最后一行文字）。
+                // 正文可用高度：以 179mm 为基准 + 8px 安全余量。设计对齐：
+                // · 打印 @page 边距已归零，页边距改由 .a5-sheet 内部 padding 呈现——
+                //   打印文字区宽高与预览、测高容器逐像素一致，换行点不再随驱动漂移；
+                // · 基准 179mm 对应打印 sheet 内容区 179mm（sheet 最小 202mm，下边距
+                //   13mm）——页脚落在纸面 189mm 处，距纸底 210mm 留出 21mm 缓冲，
+                //   可吸收打印机硬件不可打印区 + 打印端正文比预览高出的约一行偏差，
+                //   签名/页脚不再被裁掉；
+                // · 8px 余量吸收 DPI 逐像素取整的行高舍入；sheet 随内容自然增高不裁剪
+                //   （print.css），内容永不丢失。
                 // 页尾悬挂 marginBottom 记账（见下方 hangMb）回收页尾纯空白约 3~10px，
-                // 净效果比历史版本（184mm+14px）每页多排约半行，且打印安全。
+                // 页面底部几乎无可见留白。
                 // 首页用完整页眉高；第2页起用精简页眉高（更矮 → 可用高度更大，
                 // 避免每页底部留出「完整页眉-精简页眉」的空白差）
-                var availHFull = Math.floor(186.5 * MM) - headH - footH - 8;
-                var availHCompact = compactHeadH > 0 ? Math.floor(186.5 * MM) - compactHeadH - footH - 8 : availHFull;
+                var availHFull = Math.floor(179 * MM) - headH - footH - 8;
+                var availHCompact = compactHeadH > 0 ? Math.floor(179 * MM) - compactHeadH - footH - 8 : availHFull;
 
                 // ---- 分离「底部签名区」（print-foot-sec）与正文流 ----
                 // 签名区不参与正文流分页，随正文流保留在最后一页；

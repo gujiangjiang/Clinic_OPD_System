@@ -532,14 +532,15 @@
         max-width: none !important;
         min-height: 0 !important;
         margin: 0 !important;
-        padding: 0 !important; /* 页边距由 @page 提供，避免双重内边距压缩正文 */
+        padding: 0 !important; /* 单据页边距由各自结构内部 padding / @page 注入提供 */
         box-shadow: none !important;
         border-radius: 0 !important;
         overflow: visible !important;
         background: #fff !important;
         color: #111 !important;
     }
-    @page { margin: 10mm; }
+    /* 兜底：各类单据均在 print.js 注入精确 @page（size+margin:0）覆盖本规则 */
+    @page { margin: 0; }
 }
 
 /* ---------- 打印输出：窄条凭条保留四周等宽白边缓冲 ----------
@@ -560,8 +561,10 @@
 }
 
 /* ---------- A5 固定版式（病历/处方笺/申请单/处置单） ----------
- * 纸张语义固定：A5 148×210mm，@page 四边 10mm 页边距；
- * 可打印区宽 128mm × 高 190mm。
+ * 纸张语义固定：A5 148×210mm，@page 边距归零；
+ * 页边距由 .a5-sheet 内部 padding（10/10/13mm）呈现——
+ * 可打印区宽 128mm × 高 179mm（与预览/测高容器逐像素一致），
+ * 底部预留 21mm 安全缓冲，签名/页脚不被打印机硬件边距裁掉。
  * - 内容不足一页：剩余区域保持空白（min-height 撑满整页版心）
  * - 内容超过一页：自动纵向拆分为多页（表格行/处方行禁止跨页截断）
  * 与付款凭条（窄条、随内容无限拉长）明确区分。 */
@@ -582,15 +585,22 @@
 @media screen {
     .print-preview.sheet-a5 .a5-sheet {
         width: 148mm;
-        height: 210mm;
-        padding: 10mm;
+        /* 最小 210mm、随内容自然增高、不裁剪——与打印端同构：
+           内容恰好排满时页面固定 210mm；打印/渲染的细微高度差异
+           由页面自然增高吸收，预览与打印都绝不裁掉正文 */
+        height: auto;
+        min-height: 210mm;
+        /* 下边距 21mm → 版心高 179mm，与打印 sheet 的内容区（202-13=179mm）严格一致：
+           页脚位置 = 打印页脚位置（纸面 189mm 处），给打印底部留 21mm 安全缓冲，
+           签名/页脚不会被打印机硬件边距裁掉；分页器预算 179mm + 8px 余量落在版心内 */
+        padding: 10mm 10mm 21mm;
         background: #fff;
         margin: 0 auto 16px;
         box-shadow: 0 2px 10px rgba(0,0,0,.2);
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        overflow: visible;
     }
 }
 /* 页眉作为条形码的定位容器：分页后 .print-record-doc 包裹层被移除，
@@ -598,7 +608,7 @@
    .print-preview（整个预览层/网页右上角）。锚定页眉后每页页头右上角
    各一枚，顶部与医院名称齐平、右侧与内容区右缘齐平。 */
 .print-preview.sheet-a5 .a5-head { flex-shrink: 0; position: relative; }
-.print-preview.sheet-a5 .a5-body { flex: 1 1 auto; overflow: hidden; }
+.print-preview.sheet-a5 .a5-body { flex: 1 1 auto; overflow: visible; }
 .print-preview.sheet-a5 .a5-foot {
     flex-shrink: 0;
     margin-top: 8px;
@@ -610,29 +620,51 @@
     color: #444;
     margin-top: 6px;
 }
-/* 打印：每张 sheet 精确占满一页物理纸张，页间强制分页 */
+/* 打印：每张 sheet 精确占满一页物理纸张，页间强制分页。
+ * @page 边距已归零（print.js 注入 size:A5 portrait; margin:0），
+ * 页边距改由本 sheet 内部 padding 呈现——文字区宽高（128×186mm）由
+ * 我们钉死，与预览/测高容器逐像素一致，不再随驱动可用区漂移。
+ * 纸张边缘留 10/10/13mm 白边，驱动硬件不可打印区只会裁掉白边、
+ * 永远碰不到正文。 */
 @media print {
     .print-preview.sheet-a5 .a5-sheet {
-        width: auto !important;
+        width: 148mm !important;
         min-width: 0 !important;
         max-width: none !important;
-        height: 187mm;
-        max-height: 187mm;   /* A5 可打印高 190mm，留 3mm 防舍入溢出 */
-        min-height: 187mm;
-        padding: 0 !important;
+        /* 高度「最小 202mm、随内容自然增高、不裁剪」：
+           202mm = 纸张 210mm 底部留 8mm + sheet 下边距 13mm = 21mm 安全缓冲，
+           页脚/医生签名距纸底足够远，打印端正文比预览高出的约一行先被
+           缓冲吸收、不会顶到硬件不可打印区；内容区 179mm。
+           再超高才触发浏览器自然续页（内容永不丢失，仅页脚可能顺延）。 */
+        height: auto !important;
+        max-height: none !important;
+        min-height: 202mm;
+        padding: 10mm 10mm 13mm !important;
         margin: 0 !important;
         background: #fff !important;
         box-shadow: none !important;
         border-radius: 0 !important;
+        box-sizing: border-box;
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        overflow: visible;
         page-break-after: always;
         break-after: page;
     }
     .print-preview.sheet-a5 .a5-sheet:last-child {
         page-break-after: auto;
         break-after: auto;
+    }
+    /* 正文不裁剪：超高时随 sheet 自然增高/续页（见 .a5-sheet 注释） */
+    .print-preview.sheet-a5 .a5-sheet .a5-body {
+        overflow: visible !important;
+    }
+    /* 打印字体栈与屏幕预览显式一致（-apple-system/PingFang 等）：
+       避免个别环境打印时回退到其他中文字体导致字宽变化 */
+    .print-preview.sheet-a5 .print-area,
+    .print-preview.sheet-a5 .print-area * {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                     "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     }
 }
 
@@ -652,7 +684,7 @@
 @media print {
     .print-preview.sheet-a5 .a5-sheet.a5-overflow {
         height: auto;
-        min-height: 187mm;
+        min-height: 202mm;
         max-height: none;
     }
 }
