@@ -10,6 +10,10 @@ function record_part_save_diag_order($u) {
     $visitId = did(post('visit_id'));
     $rowOrder = get_visit_row($visitId);
     if (!$rowOrder) json_fail('就诊记录不存在');
+    // 诊毕归档锁定：已诊毕病历一切数据快照封存，诊断顺序不可调整
+    if ((string)$rowOrder['visit']['status'] === 'finished') {
+        json_fail('该患者已诊毕，病历已归档，不可调整诊断顺序');
+    }
     // 病历可访问天数校验
     if (!visit_access_allowed($rowOrder['visit'], $u)) {
         json_fail('该病历超出您的可查看历史天数，无法修改');
