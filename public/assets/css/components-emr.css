@@ -215,6 +215,7 @@
     padding: 1px 4px;
     margin: 0 1px;
     border-bottom: 1px dashed var(--border);
+    border-radius: 4px;   /* 与过敏史按钮同款微圆角（悬停高亮一致） */
     color: var(--primary);
     font-weight: 600;
     outline: none;
@@ -240,16 +241,19 @@
     border-bottom-color: transparent;
 }
 .emr-doc .doc-body .ef-field.readonly:empty::before { content: ''; }
-.emr-doc .doc-body .ef-select-wrap { display: inline-block; margin: 0 1px; }
+.emr-doc .doc-body .ef-select-wrap { display: inline-block; }
 .emr-doc .doc-body .ef-select {
-    height: 26px;
-    padding: 0 22px 0 6px;
-    font-size: 13px;
+    /* 与 .emr-item-link（过敏史按钮）/ .ef-field 统一盒模型与垂直基准：
+       同字号 14px、同行高 1.6、同左内边距 4px、同外边距 0 1px；
+       去掉固定 26px 高改由内容撑开——既往史/过敏史等「否认」文字严格左对齐 */
+    height: auto;
+    padding: 1px 22px 1px 4px;   /* 左 4px 与过敏史按钮一致；右 22px 留给下拉箭头 */
+    font-size: 14px;
     font-weight: 600;
     color: var(--primary);
     border: none;
     border-bottom: 1px dashed var(--border);
-    border-radius: 0;
+    border-radius: 4px;          /* 与过敏史按钮同款微圆角（悬停高亮一致） */
     background-color: transparent;
     background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
@@ -258,6 +262,9 @@
     -webkit-appearance: none;
     outline: none;
     cursor: pointer;
+    line-height: 1.6;
+    vertical-align: baseline;   /* 与 .emr-item-link（过敏史按钮）一致 */
+    margin: 0 1px;
 }
 .emr-doc .doc-body .ef-select:disabled { color: var(--text); cursor: default; }
 /* 悬浮/打开态反馈：纸面内联字段与下拉悬停/点开时同 focus 蓝色底 + 主色下划线 */
@@ -281,6 +288,7 @@
 .emr-doc .doc-body .ef-diag { cursor: pointer; }
 .emr-doc .doc-body .ef-diag-item {
     border-bottom: none;
+    border-radius: 4px;   /* 与过敏史按钮同款微圆角（悬停高亮一致） */
     transition: background 0.15s ease-in-out;
 }
 .emr-doc .doc-body .ef-diag-item:hover { background: var(--primary-soft); }
@@ -312,7 +320,10 @@
     flex-shrink: 1;
 }
 .emr-doc .doc-body .ef-select-wrap { flex-shrink: 0; }
-.emr-doc .doc-body .ef-cond { display: inline-block; }
+/* 条件详情包裹层（.ef-cond）：display:contents 让空包裹（过敏史隐藏字段）不再作为
+   flex 子项产生额外 gap，避免过敏史按钮被多出的 8px 间隙推右、与既往史「否认」错位；
+   有内容（既往史=承认的详情字段）时子项直接参与父级流式排列，显示不变 */
+.emr-doc .doc-body .ef-cond { display: contents; }
 
 /* ============================================================
    多医生接诊/续写（1:N 文书隔离）
