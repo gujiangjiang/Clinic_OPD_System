@@ -365,7 +365,10 @@ Clinic.emrEditor = (function () {
     function openAllergyModal() {
         var patientNo = (Clinic.emr && Clinic.emr._ctx && Clinic.emr._ctx.DATA && Clinic.emr._ctx.DATA.patient)
             ? (Clinic.emr._ctx.DATA.patient.patient_id || '') : '';
-        if (patientNo) {
+        // 本次会话已通过模态框修改过过敏史（ALLERGY_MODIFIED=true）：内存 ALLERGY_HIST
+        // 即最新值，直接使用；患者主表要等「保存病历」后才同步，此时拉取会拿到旧值
+        // 覆盖内存，导致再次打开弹窗显示为空。
+        if (patientNo && !ALLERGY_MODIFIED) {
             Clinic.get('/api/patient?action=get_allergy&patient_no=' + encodeURIComponent(patientNo), null, {
                 loading: false,
                 onSuccess: function (j) {
