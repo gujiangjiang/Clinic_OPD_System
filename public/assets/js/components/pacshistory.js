@@ -88,10 +88,9 @@ Clinic.pacsHistory = (function () {
             var p = (jsonPatient()) || null;
             var head = '';
             if (p) {
-                head = '<div class="fs-12 text-muted" style="padding:2px 2px 8px">检索标识：' +
-                    esc(p.patient_id) + '（严格按患者唯一标识检索，防同名混淆）</div>';
+                head = '<div class="fs-12 text-muted" style="padding:2px 2px 8px">检索标识：' + esc(p.patient_id) + '</div>';
             }
-            box.innerHTML = head + '<div class="fs-12 text-muted" style="padding:8px 2px">' + esc(state.emptyText) + '</div>';
+            box.innerHTML = head + histEmptyHtml(state.emptyText);
             return;
         }
 
@@ -117,6 +116,15 @@ Clinic.pacsHistory = (function () {
     }
 
     function shownCount(box) { return box.querySelectorAll('.pacs-hist-item').length; }
+
+    /** 空态：居中提示语（图标 + 主文案 + 副文案） */
+    function histEmptyHtml(text) {
+        return '<div class="pacs-hist-empty">' +
+            '<div class="hist-empty-ico">🗂️</div>' +
+            '<div class="hist-empty-title">' + esc(text) + '</div>' +
+            '<div class="hist-empty-sub">历史检查完成后可在此调阅参考</div>' +
+            '</div>';
+    }
 
     function jsonPatient() {
         // 患者头信息由接口返回但仅首屏使用；此处从缓存取（mount 后保存）

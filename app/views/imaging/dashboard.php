@@ -291,7 +291,7 @@ function imgWritePane(cur, data) {
 function imgHistPane(p) {
     return '<div class="pacs-right-pane" data-pane="hist" id="pacsHistPane">' +
         '<div class="fs-12 text-muted" style="padding:8px 2px">' +
-        (p && p.patient_id ? '按患者唯一标识 ' + esc(p.patient_id) + ' 检索历史检查（首屏最近 5 次，向下加载更多）' : '请先选择患者') +
+        (p && p.patient_id ? '患者 ' + esc(p.name || '') + '（' + esc(p.patient_id) + '）的历史影像检查' : '请先选择患者') +
         '</div></div>';
 }
 
@@ -569,7 +569,7 @@ function openImgReportModal(id) {
         '    <input class="input" id="imgTplSearch" placeholder="🔍 搜索模板" oninput="imgRenderTpls()"></div>' +
         '    <div id="imgTplList" style="flex:1;overflow-y:auto;min-height:0"></div>' +
         '    <div id="imgHistBox" style="max-height:180px;overflow-y:auto;border-top:1px solid var(--border);padding-top:8px;margin-top:8px">' +
-        '      <div class="fs-12 text-muted" style="margin-bottom:4px"><b>🕘 历史报告调阅</b>（按患者ID检索）</div>' +
+        '      <div class="fs-12 text-muted" style="margin-bottom:4px"><b>🕘 历史报告</b></div>' +
         '      <div class="fs-12 text-muted">加载中…</div>' +
         '    </div>' +
         '    <div class="dw-crit-queue" style="border-top:1px solid var(--border);padding-top:10px;margin-top:10px">' +
@@ -619,7 +619,7 @@ function openImgReportModal(id) {
         });
     } else {
         document.getElementById('imgHistBox').innerHTML =
-            '<div class="fs-12 text-muted" style="margin-bottom:4px"><b>🕘 历史报告调阅</b></div>' +
+            '<div class="fs-12 text-muted" style="margin-bottom:4px"><b>🕘 历史报告</b></div>' +
             '<div class="fs-12 text-muted">缺少患者唯一标识，无法检索历史报告</div>';
     }
     // 危急值预览队列：随报告发布一并发送（未发布即关闭则本次不发送）
