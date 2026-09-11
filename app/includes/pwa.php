@@ -35,8 +35,9 @@ if ($__pwaUri === '/manifest.webmanifest') {
         'theme_color' => '#2563eb',
         'lang' => 'zh-CN',
         'icons' => array(
-            array('src' => '/pwa-icon.png', 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'),
-            array('src' => '/pwa-icon.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any maskable'),
+            // ?v= 版本参数：图标内容更新后浏览器/Service Worker 缓存自动失效
+            array('src' => '/pwa-icon.png?v=' . APP_VERSION, 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'),
+            array('src' => '/pwa-icon.png?v=' . APP_VERSION, 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any maskable'),
         ),
     ), JSON_UNESCAPED_UNICODE);
     exit;
@@ -63,32 +64,31 @@ if ($__pwaUri === '/pwa-icon.png') {
             }
         }
     }
-    // 默认图标：GD 生成 512x512（主色 #2563eb 圆角 + 白色医疗十字）
+    // 默认图标：透明底 + 白色圆形（浅灰描边）+ 红色医疗十字。
+    // 2x（1024）绘制后重采样到 512：平滑圆形/十字边缘，圆外区域全透明。
     $size = 512;
     if (function_exists('imagecreatetruecolor')) {
+        $big = imagecreatetruecolor(1024, 1024);
+        // 全透明底：用「白色全透明」填充（而非黑色），避免重采样时圆形边缘出现黑晕
+        imagealphablending($big, false);
+        imagesavealpha($big, true);
+        imagefilledrectangle($big, 0, 0, 1023, 1023, imagecolorallocatealpha($big, 255, 255, 255, 127));
+        imagealphablending($big, true);
+        // 浅灰外环：浅色浏览器标签栏中勾勒圆形轮廓（深色背景下白圆本就清晰）
+        imagefilledellipse($big, 512, 512, 940, 940, imagecolorallocate($big, 209, 213, 219));
+        // 白色圆形底
+        imagefilledellipse($big, 512, 512, 900, 900, imagecolorallocate($big, 255, 255, 255));
+        // 红色医疗十字（居中）
+        $red = imagecolorallocate($big, 220, 38, 38);
+        $half = 280; $thick = 95;
+        imagefilledrectangle($big, 512 - $half, 512 - $thick, 512 + $half, 512 + $thick, $red);
+        imagefilledrectangle($big, 512 - $thick, 512 - $half, 512 + $thick, 512 + $half, $red);
+        // 重采样到 512 输出（保留透明通道）
         $img = imagecreatetruecolor($size, $size);
-        $bg = imagecolorallocate($img, 37, 99, 235);
-        imagefilledrectangle($img, 0, 0, $size, $size, $bg);
-        // 圆角遮罩（近似：四个角画背景色圆形，营造圆角感）
-        $rad = 64;
-        for ($i = 0; $i < 4; $i++) {
-            $cx = ($i % 2 === 0) ? $rad : $size - $rad;
-            $cy = ($i < 2) ? $rad : $size - $rad;
-            for ($y = 0; $y <= $rad; $y++) {
-                for ($x = 0; $x <= $rad; $x++) {
-                    if (($x - $rad) * ($x - $rad) + ($y - $rad) * ($y - $rad) > $rad * $rad) {
-                        $px = $i % 2 === 0 ? $x : $size - 1 - $x;
-                        $py = $i < 2 ? $y : $size - 1 - $y;
-                        imagesetpixel($img, $px, $py, $bg);
-                    }
-                }
-            }
-        }
-        // 白色医疗十字（中央）
-        $white = imagecolorallocate($img, 255, 255, 255);
-        $barW = 128; $barH = 208;
-        imagefilledrectangle($img, (int)(($size - $barW) / 2), (int)(($size - $barH) / 2), (int)(($size + $barW) / 2), (int)(($size + $barH) / 2), $white);
-        imagefilledrectangle($img, (int)(($size - $barH) / 2), (int)(($size - $barW) / 2), (int)(($size + $barH) / 2), (int)(($size + $barW) / 2), $white);
+        imagealphablending($img, false);
+        imagesavealpha($img, true);
+        imagefilledrectangle($img, 0, 0, $size - 1, $size - 1, imagecolorallocatealpha($img, 255, 255, 255, 127));
+        imagecopyresampled($img, $big, 0, 0, 0, 0, $size, $size, 1024, 1024);
         header('Content-Type: image/png');
         header('Cache-Control: public, max-age=86400');
         imagepng($img);

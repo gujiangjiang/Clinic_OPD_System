@@ -171,14 +171,15 @@ class Layout {
         $brandHtml = ($logoImg !== '' || $brandNames !== '')
             ? '<div class="auth-brand">' . $logoImg . '<div class="brand-names">' . $brandNames . '</div></div>'
             : '';
-        // 浏览器标签页图标：统一 /pwa-icon.png（有 LOGO 输出 LOGO，无则默认医疗十字图标），与 PWA 图标一致
-        $favicon = '<link rel="icon" href="/pwa-icon.png">';
+        // 浏览器标签页图标：统一 /pwa-icon.png（有 LOGO 输出 LOGO，无则默认透明底
+        // 圆形红十字图标），与 PWA 图标一致；?v= 版本参数让图标更新后缓存自动失效
+        $favicon = '<link rel="icon" href="/pwa-icon.png?v=' . APP_VERSION . '">';
         // PWA 桌面应用：清单（应用名=医院名称）+ 图标 + 独立窗口
         $pwaHead = '<link rel="manifest" href="/manifest.webmanifest">' .
             '<meta name="theme-color" content="#2563eb">' .
             '<meta name="mobile-web-app-capable" content="yes">' .
             '<meta name="apple-mobile-web-app-title" content="' . e($hosp !== '' ? $hosp : '门诊一体化系统') . '">' .
-            '<link rel="apple-touch-icon" href="/pwa-icon.png">';
+            '<link rel="apple-touch-icon" href="/pwa-icon.png?v=' . APP_VERSION . '">';
         $theme = Auth::theme();
         $html = '<!DOCTYPE html><html lang="zh-CN"><head>
             <meta charset="UTF-8">
@@ -324,7 +325,7 @@ class Layout {
             <meta name="theme-color" content="#2563eb">
             <meta name="mobile-web-app-capable" content="yes">
             <meta name="apple-mobile-web-app-title" content="' . e($hosp !== '' ? $hosp : '门诊一体化系统') . '">
-            <link rel="apple-touch-icon" href="/pwa-icon.png">
+            <link rel="apple-touch-icon" href="/pwa-icon.png?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/base.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/components.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/components-emr.css?v=' . APP_VERSION . '">
