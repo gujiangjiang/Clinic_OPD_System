@@ -258,6 +258,9 @@ function pacsPickSeries(el, itemId) {
     // 报告撰写区与底部操作栏随所选序列状态切换（待书写 / 已提交只读）
     var body = document.querySelector('.pacs-right-body');
     var foot = document.getElementById('pacsRightFoot');
+    // 记住当前激活页签（重建面板后恢复，避免被强制跳到撰写页）
+    var curTab = (document.querySelector('.pacs-right-tab.active') || {}).getAttribute;
+    var activeTab = curTab ? document.querySelector('.pacs-right-tab.active').getAttribute('data-rtab') : 'clin';
     if (body && it) {
         var wp = body.querySelector('[data-pane="write"]');
         if (wp) { wp.outerHTML = imgWritePane(it, window.__imgData || {}); }
@@ -265,6 +268,7 @@ function pacsPickSeries(el, itemId) {
         if (hp) hp.outerHTML = imgHistPane((window.__imgData || {}).patient || {});
         var pn = document.getElementById('pacsHistPane');
         if (pn) mountImgHistory((window.__imgData || {}).patient || {});
+        imgRightTab(activeTab);   // 恢复页签高亮与面板可见性
     }
     if (foot) foot.innerHTML = imgFootBar(it);
     // 模板下拉随新撰写区重建
@@ -350,7 +354,8 @@ function imgClinPane(data, idPrefix) {
     var line = function (k, val) {
         return '<div class="pacs-info-line"><span class="k">' + k + '</span><span class="v">' + esc(val || '—') + '</span></div>';
     };
-    return '<div class="pacs-right-pane" data-pane="clin" id="' + idPrefix + 'ClinPane">' +
+    // active：模态框无页签切换，须默认可见；一体化模式由 imgRightTab 统一管理高亮
+    return '<div class="pacs-right-pane active" data-pane="clin" id="' + idPrefix + 'ClinPane">' +
         '<div class="pacs-info-card" style="border:none;padding:0 0 10px">' +
         line('门诊号', v.visit_no) + line('姓名', v.name) + line('性别', v.gender) +
         line('年龄', v.age_fmt) + line('出生日期', p.birth_date) + line('患者ID', p.patient_id) +
