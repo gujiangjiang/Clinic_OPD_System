@@ -203,6 +203,7 @@ class Layout {
             <script src="/assets/js/components/ajax.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/toast.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/theme.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/authsync.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/validation.js?v=' . APP_VERSION . '"></script>
             <script>
             if ("serviceWorker" in navigator) {

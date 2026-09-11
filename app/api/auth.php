@@ -90,6 +90,21 @@ require __DIR__ . '/_init.php';
 
 switch ($action) {
 
+    /* ---------------- 当前用户信息（GET） ----------------
+     * 同时作为独立阅片窗口（viewer.php）的会话预检心跳：
+     * 未登录/会话失效由 _init 统一返回 401，viewer 收到即锁定。 */
+    case 'me':
+        $me = Auth::user();
+        $row = UserRepository::one('SELECT id, username, name, role, emp_no FROM users WHERE id=?', array($me['id']));
+        json_ok(array(
+            'user' => $row ? array(
+                'id' => (int)$row['id'], 'username' => $row['username'], 'name' => $row['name'],
+                'role' => $row['role'], 'emp_no' => $row['emp_no'],
+            ) : null,
+            'sid' => session_id(),
+        ));
+        break;
+
     /* ---------------- 忘记密码：提交重置申请（通知管理员审核，需求25） ---------------- */
     case 'forgot':
         $me = Auth::user();

@@ -191,6 +191,8 @@ function doLogin() {
     }, {
         onSuccess: function (json) {
             lsSet(CAPTCHA_KEY, '0');   // 登录成功清除本地失败标记
+            // 清除登出里程碑并广播登入（独立阅片窗口解除陈旧锁定态，优化项11）
+            if (window.Clinic && Clinic.authSync) Clinic.authSync.broadcastLogin();
             Clinic.toast.success('登录成功，欢迎 ' + (json.data.name || ''));
             setTimeout(function () { location.href = json.data.next || '/'; }, 600);
         },

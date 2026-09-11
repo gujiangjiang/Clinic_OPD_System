@@ -185,10 +185,24 @@ function renderImgIntegrated(data) {
     var tr = document.getElementById('pacsTagR');
     if (tr) tr.textContent = v.visit_no || '';
 
+    // 同步独立阅片窗口（优化项12）：患者加载完成广播当前上下文
+    broadcastImgContext(cur);
+
     // 初始化：默认打开「报告撰写」页签（撰写为高频主任务）
     imgRightTab(cur && cur.status === 'registered' ? 'write' : 'clin');
     // 历史报告调阅（仅挂载一次；切患者时重新挂载）
     mountImgHistory(p);
+}
+
+/* 独立阅片窗口上下文广播（患者/序列变化实时同步） */
+function broadcastImgContext(item) {
+    if (!window.Clinic || !Clinic.authSync) return;
+    var v = (window.__imgData || {}).visit || {};
+    Clinic.authSync.broadcastContext({
+        visit: v.code || Clinic.deptwork.currentVisit() || '',
+        item: item ? item.id : '',
+        label: item ? (item.item_name + ' ｜ ' + imgModality(item)) : '',
+    });
 }
 
 /* 检查类型（DR / CT / US 等）：由项目名/类别推导占位 */
@@ -225,6 +239,10 @@ function pacsPickSeries(el, itemId) {
     (window.__imgItems || []).forEach(function (x) { if (x.id === itemId) it = x; });
     var tl = document.getElementById('pacsTagL');
     if (tl && it) tl.textContent = '> ' + it.item_name + ' ｜ 序列已选中';
+    // 同步独立阅片窗口 + 左下角检查信息动态更新（优化项7/12）
+    window.__imgCurItem = it;
+    broadcastImgContext(it);
+    updateImgInfoCard(it);
 }
 
 function pacsTool(name) {
