@@ -12,7 +12,7 @@
  */
 
 $files = array_merge(
-    glob(__DIR__ . '/../*.php') ?: array(),
+    glob(__DIR__ . '/../*.php') ?: array()
 );
 // 递归收集 app、public、tools 目录下的全部 PHP 文件（glob ** 不递归，需用 DIT）
 $rii = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(__DIR__ . '/../app'));

@@ -374,8 +374,10 @@ try {
                 $lastRecordId = $initialRecordId;
 
                 if ($hasMultiDoc) {
-                    // 1-2个其他医生续写
-                    $otherDocs = array_filter($doctorPool, fn($d) => $d['id'] !== 3 && in_array($deptId, $d['depts']));
+                    // 1-2个其他医生续写（PHP 7.x 兼容：匿名函数代替箭头函数 fn()）
+                    $otherDocs = array_filter($doctorPool, function ($d) use ($deptId) {
+                        return $d['id'] !== 3 && in_array($deptId, $d['depts']);
+                    });
                     $otherDocs = array_values($otherDocs);
                     if (count($otherDocs) > 0) {
                         $numProgress = mt_rand(1, min(2, count($otherDocs)));
