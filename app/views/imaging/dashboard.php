@@ -190,6 +190,8 @@ function renderImgIntegrated(data) {
 
     // 初始化：默认打开「报告撰写」页签（撰写为高频主任务）
     imgRightTab(cur && cur.status === 'registered' ? 'write' : 'clin');
+    // 报告模板下拉：接入现有影像科模板（与经典模态框同一数据源）
+    loadPacsTpls();
     // 历史报告调阅（仅挂载一次；切患者时重新挂载）
     mountImgHistory(p);
 }
@@ -335,11 +337,12 @@ function mountImgHistory(p) {
     });
 }
 
-/* ---------- 模板（下拉选择 → 覆盖/续写确认应用） ---------- */
+/* ---------- 模板（下拉选择 → 覆盖/续写选择弹窗，参考经典模态框交互） ---------- */
 var IMG_TPLS2 = [];
 function loadPacsTpls() {
     var sel = document.getElementById('pacsTplSel');
     if (!sel) return;
+    // 与经典模态框共用同一数据源（/api/template imaging_report）
     Clinic.get('/api/template?action=list&type=imaging_report', null, {
         loading: false,
         onSuccess: function (j) {
@@ -348,11 +351,12 @@ function loadPacsTpls() {
                 return '<option value="' + t.id + '">' + esc(t.title) + '</option>';
             }).join('');
             var hint = document.getElementById('pacsTplHint');
-            if (hint) hint.textContent = '选择模板后可覆盖或续写应用';
+            if (hint) hint.textContent = '选择模板后预览，支持覆盖或续写应用';
         },
     });
 }
 
+/* 选择模板：弹出预览 + 覆盖/续写选择（与经典模态框「预览→覆盖/续写」一致） */
 function pacsTplPick(tplId) {
     if (!tplId) return;
     Clinic.get('/api/template?action=get&id=' + tplId + '&for_apply=1', null, {
@@ -360,26 +364,34 @@ function pacsTplPick(tplId) {
         onSuccess: function (j) {
             var t = j.data && j.data.template;
             if (!t || !t.content) { Clinic.toast.warning('模板内容为空'); return; }
-            Clinic.modal.confirm(
-                '将模板「<b>' + esc(t.title) + '</b>」应用到当前报告？',
-                function () { pacsTplApply(t, 'overwrite'); },
-                { title: '应用报告模板', okText: '覆盖应用', cls: 'btn-primary' }
-            );
-            // 追加续写入口：确认框取消后仍可通过二次选择续写
+            var f = (t.content && t.content.findings) || '';
+            var c = (t.content && t.content.conclusion) || '';
+            var pv = (f ? '【影像所见】\n' + f : '') + (c ? '\n\n【影像诊断】\n' + c : '');
             window.__pacsPendingTpl = t;
-            var hint = document.getElementById('pacsTplHint');
-            if (hint) hint.innerHTML = '已选「' + esc(t.title) + '」— <a href="javascript:void(0)" style="color:var(--primary)" onclick="pacsTplApplyPending(\'append\')">续写追加</a>';
+            Clinic.modal.open(
+                '<div class="fs-13 fw-700 mb-8">' + esc(t.title) + '</div>' +
+                '<div class="textarea" readonly style="height:220px;white-space:pre-wrap;overflow-y:auto;cursor:text;background:var(--bg-soft)">' + esc(pv || '（模板无内容）') + '</div>',
+                {
+                    title: '应用报告模板',
+                    size: 'modal-sm',
+                    buttons: [
+                        { text: '取消', cls: 'btn-outline' },
+                        { text: '续写', cls: 'btn-outline', autoClose: false, onClick: function () { pacsTplApply('append'); } },
+                        { text: '覆盖', cls: 'btn-primary', autoClose: false, onClick: function () { pacsTplApply('overwrite'); } },
+                    ],
+                }
+            );
+            var sel = document.getElementById('pacsTplSel');
+            if (sel) sel.value = '';
         },
     });
 }
 
-function pacsTplApplyPending(mode) {
-    if (window.__pacsPendingTpl) pacsTplApply(window.__pacsPendingTpl, mode);
-}
-
-function pacsTplApply(t, mode) {
-    var f = (t.content && t.content.findings) || '';
-    var c = (t.content && t.content.conclusion) || '';
+function pacsTplApply(mode) {
+    var t = window.__pacsPendingTpl;
+    if (!t || !t.content) { Clinic.modal.close(); return; }
+    var f = (t.content.findings) || '';
+    var c = (t.content.conclusion) || '';
     var fEl = document.getElementById('pacsFindings');
     var cEl = document.getElementById('pacsConclusion');
     if (mode === 'overwrite') {
@@ -389,8 +401,10 @@ function pacsTplApply(t, mode) {
         if (fEl) fEl.value = (fEl.value.trim() ? fEl.value.replace(/\s*$/, '') + '\n' : '') + f;
         if (cEl) cEl.value = (cEl.value.trim() ? cEl.value.replace(/\s*$/, '') + '\n' : '') + c;
     }
+    window.__pacsPendingTpl = null;
     Clinic.modal.close();
     Clinic.toast.success('模板已' + (mode === 'overwrite' ? '覆盖' : '续写') + '应用');
+    imgRightTab('write');
 }
 
 /* 常用语快捷插入 */
