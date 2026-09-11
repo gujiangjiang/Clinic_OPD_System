@@ -70,7 +70,13 @@ Clinic.ajax = function (url, data, opts) {
         body: method === 'POST' ? formData : undefined,
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
     })
-        .then(function (res) { return res.json(); })
+        .then(function (res) {
+            // 401 会话失效：广播登出事件（独立阅片窗口联动锁定）后按原逻辑解析
+            if (res.status === 401 && window.Clinic && Clinic.authSync) {
+                Clinic.authSync.broadcastLogout();
+            }
+            return res.json();
+        })
         .then(function (json) {
             if (opts.loading) Clinic.loading.hide();
             if (!json.ok) {

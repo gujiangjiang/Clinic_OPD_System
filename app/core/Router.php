@@ -219,6 +219,7 @@ class Router {
                 $needs[] = 'emr';
             } elseif (in_array($view, array('nurse/dashboard.php', 'lab/dashboard.php', 'imaging/dashboard.php', 'pharmacy/dashboard.php'), true)) {
                 $needs[] = 'deptwork';
+                if ($view === 'imaging/dashboard.php') $needs[] = 'pacsHistory';   // 影像科：历史报告调阅组件
                 // 顶栏工具补丁：SPA 局部导航下顶栏常驻，进入科室工作台时由 nav.js
                 // 将工具组注入顶栏（叫号/工具箱）、离开时移除
                 $topbarPatch = '<div class="view-topbar-patch" style="display:none">' . Layout::deptToolsBar() . '</div>';

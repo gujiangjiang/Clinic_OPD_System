@@ -300,6 +300,8 @@ class Layout {
             $emrScripts .= "\n" . '<script src="/assets/js/components/queuepanel_core.js?v=' . APP_VERSION . '"></script>';
             $emrScripts .= "\n" . '<script src="/assets/js/components/deptwork.js?v=' . APP_VERSION . '"></script>';
             $emrScripts .= "\n" . '<script src="/assets/js/components/vitals.js?v=' . APP_VERSION . '"></script>';
+            // 影像科专属：历史报告调阅组件（检验科加载无害，仅影像科视图调用）
+            $emrScripts .= "\n" . '<script src="/assets/js/components/pacshistory.js?v=' . APP_VERSION . '"></script>';
         }
         // 管理端项目列表（检验/检查/药品）共用组件
         if ($needAdminItems) {
@@ -334,6 +336,7 @@ class Layout {
             <link rel="stylesheet" href="/assets/css/components-emr.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/modal.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/layout.css?v=' . APP_VERSION . '">
+            <link rel="stylesheet" href="/assets/css/pacs.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/dark.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/print.css?v=' . APP_VERSION . '">
         </head>
@@ -367,6 +370,7 @@ class Layout {
             <script src="/assets/js/components/drugform.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/chart.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/critical.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/authsync.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/app.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/nav.js?v=' . APP_VERSION . '"></script>
             <script>

@@ -57,6 +57,7 @@ Clinic.nav = {
         emr: ['queuepanel_core', 'order', 'emreditor', 'emr_ctxmenu', 'eventbus', 'emr', 'emr_diag', 'emr_cert', 'emr_consult', 'emr_rules', 'emr_format', 'emr_template', 'emr_fee', 'emr_patient', 'emr_orders', 'emr_segments', 'emr_consent', 'vitals', 'queuepanel'],
         docTools: ['room_heartbeat', 'doctor_tools'],
         deptwork: ['queuepanel_core', 'deptwork', 'vitals'],
+        pacsHistory: ['pacshistory'],
         adminItems: ['admin_items'],
     },
 
@@ -86,6 +87,7 @@ case 'emr_diag': return !!(Clinic.emr && Clinic.emr.diag);
             case 'room_heartbeat': return !!Clinic.roomHeartbeat;
             case 'doctor_tools': return !!Clinic.docTools;
             case 'deptwork': return !!Clinic.deptwork;
+            case 'pacshistory': return !!(Clinic.pacsHistory);
             case 'admin_items': return !!(Clinic.adminItems);
             default: return false;
         }

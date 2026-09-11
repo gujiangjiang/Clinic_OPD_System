@@ -62,12 +62,16 @@ function bindSidebarToggle() {
 
 /**
  * 登出按钮绑定（带确认）
+ * 说明：确认退出后先广播登出事件（Clinic.authSync → BroadcastChannel
+ * clinic_auth_sync + localStorage 兜底），独立阅片窗口收到后立即
+ * 高斯模糊锁定，再跳转登出。
  */
 function bindLogout() {
     const btn = document.querySelector('[data-logout]');
     if (!btn) return;
     btn.addEventListener('click', function () {
         Clinic.modal.confirm('确定要退出登录吗？', function () {
+            if (window.Clinic && Clinic.authSync) Clinic.authSync.broadcastLogout();
             window.location.href = '/api/auth?action=logout_page';
         });
     });
