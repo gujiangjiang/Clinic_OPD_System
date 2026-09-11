@@ -134,6 +134,50 @@ function admin_part_settings($action) {
         json_ok(array('secret' => $new), 'URL 混淆密钥已重置，此前分享/收藏的链接已全部失效');
     }
 
+    /* ==================== 打印中心：就诊记录分页检索（左栏列表） ====================
+     * 关键字支持 患者姓名 / 患者ID / 门诊流水号 / 身份证号，留空返回全部；
+     * 按就诊时间倒序（最新在最上），分页返回供前端滚动分段加载。 */
+    if ($action === 'print_visits') {
+        $kw = trim(get('kw', ''));
+        $page = max(1, (int)get('page', 1));
+        $pageSize = 20;
+        $where = '1=1';
+        $params = array();
+        if ($kw !== '') {
+            $where .= ' AND (p.name LIKE ? OR r.patient_no LIKE ? OR r.flow_no LIKE ? OR p.id_card LIKE ?)';
+            $like = '%' . $kw . '%';
+            $params = array($like, $like, $like, $like);
+        }
+        $total = (int)AnalyticsRepository::val(
+            "SELECT COUNT(*) FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no WHERE $where",
+            $params
+        );
+        $rows = AnalyticsRepository::q(
+            "SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
+             FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
+             WHERE $where
+             ORDER BY r.registered_at DESC, r.id DESC
+             LIMIT ? OFFSET ?",
+            array_merge($params, array($pageSize, ($page - 1) * $pageSize))
+        );
+        $list = array();
+        foreach ($rows as $r) {
+            $list[] = array(
+                'visit_id' => oid((int)$r['id']),
+                'patient_name' => (string)$r['pname'],
+                'gender' => (string)$r['pgender'],
+                'age_fmt' => age_format($r['pbirth'], $r['registered_at']),
+                'patient_no' => (string)$r['patient_no'],
+                'flow_no' => (string)$r['flow_no'],
+                'dept_name' => (string)$r['first_dept_name'],
+                'visit_seq' => (int)$r['visit_seq'],
+                'status' => (string)$r['status'],
+                'registered_at' => (string)$r['registered_at'],
+            );
+        }
+        json_ok(array('list' => $list, 'total' => $total, 'has_more' => ($page * $pageSize) < $total));
+    }
+
     /* ==================== 打印中心：某就诊可打印单据一览 ==================== */
     if ($action === 'print_items') {
         $visitId = did(get('visit_id'));
@@ -146,7 +190,7 @@ function admin_part_settings($action) {
         $orders = AnalyticsRepository::q('SELECT * FROM orders WHERE visit_id=? ORDER BY id', array($visitId));
         $typeNames = array('lab' => '检验申请单', 'imaging' => '检查申请单', 'procedure' => '处置单', 'prescription' => '处方单');
         $vOid = oid($visitId);
-        $html = '<div class="card" style="padding:14px">' .
+        $html = '<div style="padding:4px 2px">' .
             '<div class="fw-700 fs-15">' . e($row['patient']['name']) . '（' . e($visit['flow_no']) . '）</div>' .
             '<div class="fs-13 text-muted mt-4 mb-12">' . e($visit['first_dept_name']) . ' 第' . str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) . '号 ｜ ' . e(substr($visit['registered_at'], 0, 16)) . '</div>';
         $html .= '<div class="flex gap-8" style="flex-wrap:wrap">' .

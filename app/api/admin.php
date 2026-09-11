@@ -60,6 +60,7 @@ switch ($action) {
     case 'work_save':
     case 'upload_logo':
     case 'print_items':
+    case 'print_visits':
     // URL 混淆密钥管理（状态/重置）
     case 'obf_status':
     case 'obf_reset':
