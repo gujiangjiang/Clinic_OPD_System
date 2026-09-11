@@ -11,6 +11,38 @@
  * （阅片专业规范，不随主题切换）。
  * ============================================================ */
 
+/* ---------- 外部接口集成中心：Tab 选项卡（分组导航） ---------- */
+.itg-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    padding: 0 6px 0;
+    background: var(--bg-soft, #f8fafc);
+    border-radius: 10px 10px 0 0;
+    margin: -18px -18px 6px;
+    padding: 10px 18px 0;
+}
+.itg-tab {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 9px 14px 10px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    border-radius: 8px 8px 0 0;
+    white-space: nowrap;
+    transition: color .15s, background .15s, border-color .15s;
+}
+.itg-tab:hover { color: var(--text); background: rgba(0,0,0,.03); }
+.itg-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    background: var(--bg-card, #fff);
+}
+
 /* ---------- 顶部模式切换器（两态分段控件） ---------- */
 .pacs-mode-switch {
     display: inline-flex;
