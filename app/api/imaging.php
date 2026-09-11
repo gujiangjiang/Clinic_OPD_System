@@ -14,6 +14,18 @@ require_once __DIR__ . '/parts/dept_common.php';
 
 $u = Auth::user();
 
+/**
+ * 检查类型推导（DR/CT/US/MR，与前端 imgModality 口径一致）：
+ * 供影像引用元数据（imaging_refs.modality）使用。
+ */
+function img_ref_modality($name) {
+    if (preg_match('/CT/i', $name)) return 'CT';
+    if (preg_match('/DR|X线|X光|摄片|胸片/i', $name)) return 'DR';
+    if (preg_match('/超声|US|B超/i', $name)) return 'US';
+    if (preg_match('/MR|磁共振|核磁/i', $name)) return 'MR';
+    return 'OT';
+}
+
 switch ($action) {
 
     /* ==================== 影像科首页统计 ==================== */
@@ -175,6 +187,27 @@ switch ($action) {
                 'category_name' => $catName,
             ));
             OrderRepository::exec("UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
+            // 影像引用登记（优化项1/2：三单匹配 + 只存引用）——报告出具即注册引用，
+            // study_uid 以报告号占位（PACS 网关接入后替换为真实 DICOM UID）；
+            // 三单匹配失败将抛异常回滚整个事务（硬拦截防张冠李戴）
+            ImagingRepository::putRef(array(
+                'order_item_id' => (int)$itemId,
+                'order_id' => (int)$it['order_id'],
+                'visit_id' => (int)$it['visit_id'],
+                'patient_no' => (string)$it['patient_no'],
+                'flow_no' => (string)$it['flow_no'],
+                'study_uid' => $reportNo,
+                'series_uids' => array(),
+                'instance_count' => 0,
+                'modality' => img_ref_modality($catName !== '' ? $catName : (string)$it['item_name']),
+                'region' => 'region-pacs',
+                'meta' => array(
+                    'report_id' => $reportId,
+                    'report_no' => $reportNo,
+                    'clinical_diag' => $diag,
+                ),
+                'created_by' => $u['name'],
+            ));
             $pdo->commit();
         } catch (Exception $ex) {
             if ($pdo->inTransaction()) $pdo->rollBack();
@@ -278,29 +311,43 @@ switch ($action) {
         break;
 
     /* ==================== PACS Web 阅片器地址（study_uid 变量替换） ====================
-     * 说明：读取外部接口集成中的 Web 阅片器 URL 模板（pacs_viewer_url），
-     * 将 {study_uid} 替换为当前检查对应的 Study UID（当前阶段以申请单号/
-     * 报告号作为占位 UID——PACS 尚未接入时无法取到真实 DICOM UID），
-     * 供影像工作台「独立视窗阅片 / 一体化阅片模式」打开阅片器使用。 */
+     * 说明（优化项2/3）：影像只存引用——优先读 imaging_refs 影像引用表
+     * （含 region 区域影像存储指向）；引用不存在时回退报告号/申请单号占位 UID。
+     * Web 阅片器（无插件、窗宽窗位/缩放平移/多序列/MPR/测量标注能力由阅片器
+     * 自身提供）通过 WADO-RS/DICOMweb 拉取影像，热数据调阅由 region 存储保障。 */
     case 'viewer_url':
         $itemId = did(get('item_id'));
         $tpl = trim((string)setting('pacs_viewer_url', ''));
         if ($tpl === '') json_fail('未配置 Web 阅片器 URL 模板，请管理员在【外部接口集成 → DICOM/PACS】中配置');
         $it = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['item_type'] !== 'imaging') json_fail('检查项目不存在');
-        // Study UID 占位：优先报告号（报告即一次完整检查的出具单元），回退申请单号
+        // 影像引用优先（只存引用架构：study_uid 唯一 + region 指向区域存储）
         $studyUid = '';
-        if ((int)$it['result_id'] > 0) {
-            $rep = OrderRepository::one("SELECT report_no FROM reports WHERE result_id=? AND status<>'withdrawn' ORDER BY id DESC LIMIT 1", array((int)$it['result_id']));
-            if ($rep) $studyUid = (string)$rep['report_no'];
-        }
-        if ($studyUid === '') {
-            $o = OrderRepository::one('SELECT order_no FROM orders WHERE id=?', array((int)$it['order_id']));
-            $studyUid = $o ? (string)$o['order_no'] : (string)$it['id'];
+        $region = '';
+        $seriesCount = 0;
+        $ref = ImagingRepository::refByItem($itemId);
+        if ($ref) {
+            $studyUid = (string)$ref['study_uid'];
+            $region = (string)$ref['region'];
+            $series = json_decode((string)$ref['series_uids'], true);
+            $seriesCount = is_array($series) ? count($series) : 0;
+        } else {
+            // 回退占位：优先报告号（报告即一次完整检查的出具单元），回退申请单号
+            if ((int)$it['result_id'] > 0) {
+                $rep = OrderRepository::one("SELECT report_no FROM reports WHERE result_id=? AND status<>'withdrawn' ORDER BY id DESC LIMIT 1", array((int)$it['result_id']));
+                if ($rep) $studyUid = (string)$rep['report_no'];
+            }
+            if ($studyUid === '') {
+                $o = OrderRepository::one('SELECT order_no FROM orders WHERE id=?', array((int)$it['order_id']));
+                $studyUid = $o ? (string)$o['order_no'] : (string)$it['id'];
+            }
         }
         json_ok(array(
             'url' => str_replace('{study_uid}', rawurlencode($studyUid), $tpl),
             'study_uid' => $studyUid,
+            'region' => $region,
+            'series_count' => $seriesCount,
+            'from_ref' => (bool)$ref,
         ));
         break;
 
