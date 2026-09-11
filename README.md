@@ -142,7 +142,10 @@
 ├── tools/                     # 工具脚本
 │   ├── seed_demo_data.php     # 演示数据生成器（近30天136次就诊/277份病历/250医嘱单/205体征/6证明）
 │   ├── seed_call_test.php     # 叫号测试数据生成器（为指定科室生成当天已缴费患者，便于测试叫号系统）
+│   ├── seed_dept_call_test.php # 医技叫号测试数据生成器（检验/检查/处方/护理处置各加 N 位待办患者）
+│   ├── ci-lint.php            # CI 语法检查报告器（php -l 全量 + Markdown 报告，GitHub Actions 用）
 │   └── php-lint.php           # PHP 语法检查（tokenizer，无需系统 php）
+├── .github/workflows/         # GitHub Actions：PHP 7.2~8.5 语法兼容矩阵检查 + 检查报告
 ├── nginx.conf.example         # Nginx 配置示例
 └── router.php                 # 本地开发路由（php -S）
 ```

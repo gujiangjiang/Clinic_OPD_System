@@ -23,6 +23,13 @@
   - 图标 URL 追加 `?v=版本号`（manifest icons / favicon / apple-touch-icon），
     图标更新后浏览器与 Service Worker 缓存自动失效。
 
+### 构建
+- **GitHub Actions 语法兼容检查**：新增 `.github/workflows/lint.yml`——每次 push/PR
+  以 PHP 7.2 / 7.4 / 8.2 / 8.5 矩阵对全部 PHP 文件执行 `php -l`，守住「严格 PHP 7.x
+  兼容」承诺（本机 FrankenPHP 8.5 无法验证 7.x 语法）；跑完自动生成 Markdown
+  检查报告（运行页 Summary 直读 + 可下载工件 lint-report.md）；新增报告器
+  `tools/ci-lint.php`（CI 专用，本机自查仍用 `npm run lint`）。
+
 ---
 
 ## [8.4.1] - 2026-09-10

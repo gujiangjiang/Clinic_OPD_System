@@ -1,0 +1,98 @@
+# ============================================================
+# lint.yml — PHP 语法兼容检查（GitHub Actions）
+# ============================================================
+# 说明：项目承诺「严格 PHP 7.x 兼容」，本机开发环境为 FrankenPHP 8.5
+# 无法验证 7.x 语法，故以 7.2 / 7.4 / 8.2 / 8.5 四版本矩阵对全部 PHP
+# 文件执行 php -l。跑完自动生成 Markdown 检查报告：
+#   1. 运行页 Summary 直接可读（汇总表 + 各版本明细）；
+#   2. 可下载工件 lint-report.md（四版本合并报告）。
+# ============================================================
+name: Lint（PHP 语法兼容检查）
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: php -l（PHP ${{ matrix.php }}）
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.2', '7.4', '8.2', '8.5']
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: 全量语法检查（php -l）并生成分报告
+        run: php tools/ci-lint.php "lint-report/php${{ matrix.php }}.md"
+
+      - name: 上传分报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report-php${{ matrix.php }}
+          path: lint-report/php${{ matrix.php }}.md
+          if-no-files-found: error
+
+  report:
+    name: 汇总报告
+    needs: lint
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: 下载各版本分报告
+        uses: actions/download-artifact@v4
+        with:
+          path: lint-report
+          pattern: lint-report-php*
+          merge-multiple: true
+
+      - name: 生成汇总报告（写入运行页 Summary）
+        run: |
+          {
+            echo "# 🧪 PHP 语法兼容检查报告"
+            echo
+            echo "- 触发：${GITHUB_EVENT_NAME:-push} ｜ 提交：${GITHUB_SHA::7} ｜ 分支/引用：${GITHUB_REF_NAME:-main}"
+            echo
+            echo "| PHP 版本 | 结果 |"
+            echo "| --- | --- |"
+            for f in lint-report/php*.md; do
+              v=$(basename "$f" .md)
+              if grep -q "✅ 全部通过" "$f"; then res="✅ 全部通过"; else res="❌ 存在失败"; fi
+              echo "| ${v#php} | $res |"
+            done
+            echo
+            for f in lint-report/php*.md; do
+              v=$(basename "$f" .md)
+              echo "## ${v#php}"
+              echo
+              cat "$f"
+              echo
+              echo "---"
+              echo
+            done
+          } > lint-report.md
+          cat lint-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 上传汇总报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: lint-report.md
