@@ -439,6 +439,42 @@
 .pacs-hist-empty .hist-empty-title { font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
 .pacs-hist-empty .hist-empty-sub { font-size: 11.5px; color: var(--text-muted); opacity: .75; }
 
+/* ---------- 登记门禁遮罩（未登记项目：撰写区模糊 + 居中提示 + 登记按钮） ---------- */
+.pacs-reg-gate {
+    position: relative;
+    margin: 12px 0 4px;
+    padding: 26px 16px;
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    background: var(--bg-soft, #fafafa);
+    text-align: center;
+    cursor: pointer;
+    /* 让遮罩后的表单区产生「被锁」观感：本体不透明卡片 + 提示浮层 */
+    user-select: none;
+}
+.pacs-reg-gate::before {
+    content: '';
+    position: absolute;
+    inset: -34px 0 0;
+    /* 覆盖上方表单块的模糊层（视觉暗示内容不可操作） */
+    background: linear-gradient(rgba(248,250,252,.55), rgba(248,250,252,.92));
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border-radius: 12px;
+    pointer-events: none;
+    z-index: 0;
+}
+.pacs-reg-gate > * { position: relative; z-index: 1; }
+.pacs-reg-gate .reg-gate-ico { font-size: 40px; margin-bottom: 8px; opacity: .9; }
+.pacs-reg-gate .reg-gate-title { font-size: 15px; font-weight: 700; color: var(--warning); margin-bottom: 6px; }
+.pacs-reg-gate .reg-gate-sub { font-size: 12px; color: var(--text-muted); line-height: 1.8; margin-bottom: 12px; }
+.pacs-reg-gate .reg-gate-btn { pointer-events: auto; }
+
+/* 模糊锁定态（已缴费未登记/已提交）的输入区整体观感 */
+.pacs-right-pane .pacs-rep-textarea[readonly] {
+    filter: blur(0px);           /* 文本可读（报告回显），仅灰底提示只读 */
+}
+
 /* ---------- 模式 B：独立视窗阅片按钮（患者行/工具栏） ---------- */
 .pacs-openwin-btn { white-space: nowrap; }
 

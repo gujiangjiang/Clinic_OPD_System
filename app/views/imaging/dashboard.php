@@ -109,10 +109,11 @@ function renderImgIntegrated(data) {
     orders.forEach(function (o) { imgItems = imgItems.concat(o.items); });
     window.__imgItems = imgItems;
 
-    // 当前可撰写项目：已登记待出报告的首项（无则取已完成首项供回显）
+    // 当前展示项目：已登记待出报告首项 → 已完成首项 → 已缴费未登记首项（登记门禁）
     var cur = null;
     imgItems.forEach(function (it) { if (!cur && it.status === 'registered') cur = it; });
     if (!cur) imgItems.forEach(function (it) { if (!cur && it.status === 'done') cur = it; });
+    if (!cur) imgItems.forEach(function (it) { if (!cur && it.status === 'paid') cur = it; });
     window.__imgCurItem = cur;
     // 序列列表默认选中当前项
     window.__imgCurActive = cur ? cur.id : '';
@@ -185,9 +186,9 @@ function renderImgIntegrated(data) {
     broadcastImgContext(cur);
 
     // 初始化：默认打开「报告撰写」页签（撰写为高频主任务）
-    imgRightTab(cur && cur.status === 'registered' ? 'write' : 'clin');
+    imgRightTab(cur && (cur.status === 'registered') ? 'write' : (cur ? 'write' : 'clin'));
     // 报告模板下拉：接入现有影像科模板（与经典模态框同一数据源）
-    loadPacsTpls();
+    if (cur && cur.status !== 'paid') loadPacsTpls();
     // 历史报告调阅（仅挂载一次；切患者时重新挂载）
     mountImgHistory(p);
 }
@@ -369,30 +370,46 @@ function imgWritePane(cur, data, idPrefix) {
     idPrefix = idPrefix || 'pacs';
     var quick = ['两肺纹理清晰，走行自然。', '心影大小、形态正常。', '膈肌光整，肋膈角锐利。', '必要时结合临床随访复查。', '所示骨质结构未见明显异常。'];
     var isDone = cur && cur.status === 'done';
+    var isPaid = cur && cur.status === 'paid';
     var findings0 = cur ? (cur.findings || '') : '';
     var conclusion0 = cur ? (cur.conclusion || '') : '';
     // 草稿回填：仅未提交项目（已提交以库内正式报告为准）
-    var draft = isDone ? null : imgDraftRead(cur);
+    var draft = (isDone || isPaid) ? null : imgDraftRead(cur);
     if (draft) {
         if (draft.findings) findings0 = draft.findings;
         if (draft.conclusion) conclusion0 = draft.conclusion;
     }
-    var ro = isDone ? ' readonly' : '';
-    var roStyle = isDone ? 'background:var(--bg-soft);cursor:default;' : '';
+    var lock = isDone || isPaid;
+    var ro = lock ? ' readonly' : '';
+    var roStyle = lock ? 'background:var(--bg-soft);cursor:default;' : '';
+    // 登记门禁遮罩（paid）：模糊锁定 + 居中提示 + 登记按钮（前后端双重拦截）
+    var regGate = '';
+    if (isPaid) {
+        var order = imgItemOrder(cur);
+        regGate = '<div class="pacs-reg-gate" onclick="doImgRegisterOrderGate(\'' + esc(order ? order.order_id : '') + '\')">' +
+            '<div class="reg-gate-ico">🗂️</div>' +
+            '<div class="reg-gate-title">患者尚未登记</div>' +
+            '<div class="reg-gate-sub">该项目已缴费，需先登记检查方可书写报告（整张申请单统一登记）</div>' +
+            '<button type="button" class="btn btn-primary btn-sm reg-gate-btn" onclick="event.stopPropagation();doImgRegisterOrderGate(\'' + esc(order ? order.order_id : '') + '\')">📝 登记患者</button>' +
+            '</div>';
+    }
     return '<div class="pacs-right-pane active" data-pane="write" id="' + idPrefix + 'WritePane">' +
         (isDone ?
             '<div class="fs-12 mb-8" style="padding:6px 10px;border-radius:8px;background:var(--primary-soft,rgba(37,99,235,.08));color:var(--primary)">该报告已提交（报告号 ' + esc(cur.report_no || '—') + '），如需修改请先申请撤回</div>'
             : '') +
+        (isPaid ?
+            '<div class="fs-12 mb-8" style="padding:6px 10px;border-radius:8px;background:rgba(234,88,12,.08);color:var(--warning)">该检查项目已缴费但尚未登记，登记后即可书写报告</div>'
+            : '') +
         '<div class="pacs-rep-block">' +
         '<div class="pacs-rep-label">报告模板' +
-        '<select class="select" id="' + idPrefix + 'TplSel" style="margin-left:auto;max-width:200px;font-size:12px"' + (isDone ? ' disabled' : '') + ' onchange="pacsTplPick(this.value, \'' + idPrefix + '\')"><option value="">选择模板…</option></select>' +
+        '<select class="select" id="' + idPrefix + 'TplSel" style="margin-left:auto;max-width:200px;font-size:12px"' + (lock ? ' disabled' : '') + ' onchange="pacsTplPick(this.value, \'' + idPrefix + '\')"><option value="">选择模板…</option></select>' +
         '</div>' +
         '<div class="fs-12 text-muted" id="' + idPrefix + 'TplHint">选择模板后预览，支持覆盖或续写应用</div>' +
         '</div>' +
         '<div class="pacs-rep-block">' +
         '<div class="pacs-rep-label">影像学表现（描述）<span class="req">*</span></div>' +
         '<textarea class="textarea pacs-rep-textarea" id="' + idPrefix + 'Findings" style="min-height:150px;' + roStyle + '"' + ro + ' placeholder="请填写影像学表现描述">' + esc(findings0) + '</textarea>' +
-        (isDone ? '' :
+        (lock ? '' :
         '<div class="pacs-quickwords" id="' + idPrefix + 'QuickFindings">' +
         quick.map(function (q) { return '<span class="pacs-quickword" onclick="pacsQuickInsert(\'' + idPrefix + 'Findings\', this)">' + esc(q) + '</span>'; }).join('') +
         '</div>') +
@@ -400,13 +417,32 @@ function imgWritePane(cur, data, idPrefix) {
         '<div class="pacs-rep-block">' +
         '<div class="pacs-rep-label">影像学诊断（结论）<span class="req">*</span></div>' +
         '<textarea class="textarea pacs-rep-textarea" id="' + idPrefix + 'Conclusion" style="min-height:90px;' + roStyle + '"' + ro + ' placeholder="请填写影像学诊断（检查结论）">' + esc(conclusion0) + '</textarea>' +
-        (isDone ? '' :
+        (lock ? '' :
         '<div class="pacs-quickwords" id="' + idPrefix + 'QuickConclusion">' +
         '<span class="pacs-quickword" onclick="pacsQuickInsert(\'' + idPrefix + 'Conclusion\', this)">目前影像学检查未见明显异常。</span>' +
         '<span class="pacs-quickword" onclick="pacsQuickInsert(\'' + idPrefix + 'Conclusion\', this)">建议随访复查。</span>' +
         '</div>') +
         '</div>' +
+        regGate +
         '</div>';
+}
+
+/* 按项目反查所属申请单（登记门禁 / 检查信息卡共用） */
+function imgItemOrder(it) {
+    var orders = ((window.__imgData || {}).orders || []).filter(function (o) { return o.order_type === 'imaging'; });
+    var found = null;
+    orders.forEach(function (o) {
+        (o.items || []).forEach(function (x) { if (it && x.id === it.id) found = o; });
+    });
+    return found;
+}
+
+/* 登记门禁：点击遮罩/按钮 → 整张申请单登记（成功后 fetchPatient 局部刷新解锁） */
+function doImgRegisterOrderGate(orderId) {
+    if (!orderId) { Clinic.toast.warning('未找到所属申请单，请从候诊列表重新进入'); return; }
+    Clinic.modal.confirm('将对整张检查申请单进行统一登记，登记后即可书写报告。确认登记？', function () {
+        doImgRegisterOrder(orderId);
+    }, { title: '登记检查', okText: '确认登记' });
 }
 
 /* 草稿读写（localStorage，按项目 id 存取；提交成功即清除） */
@@ -552,6 +588,11 @@ function imgFootBar(cur) {
             ? '<button type="button" class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' + esc(cur.report_id) + '\',null)">🖨️ 打印报告</button>'
             : '') +
             '<button type="button" class="btn btn-outline btn-sm" onclick="imgWithdrawReq()">✏️ 申请修改</button>';
+    }
+    if (cur && cur.status === 'paid') {
+        // 未登记：操作栏仅保留登记入口（与撰写区遮罩联动）
+        var order = imgItemOrder(cur);
+        return '<button type="button" class="btn btn-primary btn-sm" onclick="doImgRegisterOrderGate(\'' + esc(order ? order.order_id : '') + '\')">📝 登记患者</button>';
     }
     return '<button type="button" class="btn btn-outline btn-sm" onclick="imgDraftSave()">💾 保存草稿</button>' +
         '<button type="button" class="btn btn-primary btn-sm" onclick="imgPublish()">📤 提交审核</button>' +

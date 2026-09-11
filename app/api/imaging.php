@@ -116,8 +116,12 @@ switch ($action) {
         if ($findings === '') json_fail('请填写影像所见');
         if ($conclusion === '') json_fail('请填写检查结论');
         $it = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array($itemId));
-        if (!$it || $it['item_type'] !== 'imaging' || !in_array($it['status'], array('registered', 'done'), true)) {
+        if (!$it || $it['item_type'] !== 'imaging') {
             json_fail('项目不存在或状态异常');
+        }
+        // 登记状态硬拦截（防未登记先写报告）：未缴费/已缴费未登记一律拒绝
+        if (!in_array($it['status'], array('registered', 'done'), true)) {
+            json_fail($it['status'] === 'paid' ? '该检查项目尚未登记，请先登记后再书写报告' : '项目不存在或状态异常');
         }
         // 医护角色归属校验（与 register_order 口径一致）
         $rv = get_visit_row((int)$it['visit_id']);
