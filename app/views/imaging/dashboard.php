@@ -72,6 +72,8 @@ function renderImgWork(data) {
 
     // 模式 B：经典双屏分屏（原布局：右栏大纲 + 主区报告单页）
     renderImgSide(data);
+    // 同步独立阅片窗口：经典模式切换患者时广播上下文（优化项12）
+    broadcastImgContext(null);
     var head = imgHeadHtml(data);
     var body = '';
     if (!orders.length) {
