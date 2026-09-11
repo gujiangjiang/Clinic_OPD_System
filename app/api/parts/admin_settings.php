@@ -206,10 +206,14 @@ function admin_part_settings($action) {
                 '<div class="pc-row-actions">' . $btnHtml . $deadBadge . '</div>' .
                 '</div>';
         };
-        // 打印按钮（$dead=true → 禁用态占位，保留版面）
+        // 打印按钮（$dead=true → 禁用态占位，保留版面；$sheet 纸张路由：
+        // 'a5'=病历纸竖版 / 'ticket'=窄条凭条 / ''=不传（检验横版A5、检查A4
+        // 由 print.js 依据内容 .lr-doc/.imr-doc 自动识别，误传 a5 会先按
+        // 竖版分页破坏报告版式））
         $pcBtn = function ($label, $url, $sheet = 'a5', $dead = false) {
             if ($dead) return '<button class="btn btn-outline btn-sm" disabled title="已退费作废，不可补打">补打</button>';
-            return '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'' . $url . '\',null,\'' . $sheet . '\')">🖨️ 补打</button>';
+            $sheetArg = ($sheet !== '') ? (',null,\'' . $sheet . '\'') : ',null';
+            return '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'' . $url . '\'' . $sheetArg . ')">🖨️ 补打</button>';
         };
         // 组间/项间虚线分隔
         $pcSep = function () { return '<div class="pc-sep"></div>'; };
@@ -259,15 +263,14 @@ function admin_part_settings($action) {
         }
         $paneOrders = $orderCount ? implode($pcSep(), $orderSections) : $pcEmpty('该就诊暂无开单记录');
 
-        /* ---------- 页签三：缴费（全部缴费凭条；退费红色删除线保留溯源） ---------- */
-        $pays = AnalyticsRepository::q('SELECT * FROM payments WHERE visit_id=? ORDER BY id', array($visitId));
+        /* ---------- 页签三：缴费（开单缴费凭条；退费红色删除线保留溯源） ----------
+         * 挂号费缴费凭条不在此展示：挂号凭条（就诊页签）即挂号缴费凭条，不再重复。 */
+        $pays = AnalyticsRepository::q("SELECT * FROM payments WHERE visit_id=? AND kind='order' ORDER BY id", array($visitId));
         $payRows = array();
         foreach ($pays as $pay) {
             $dead = false;
             $partial = false;
-            if ((string)$pay['kind'] === 'visit') {
-                $dead = $isVisitDead;
-            } elseif (!empty($pay['payment_no'])) {
+            if (!empty($pay['payment_no'])) {
                 // 批次内存活（未退费）缴费行数：0=整批退费（作废），部分=部分退费
                 $batchAlive = (int)AnalyticsRepository::val(
                     "SELECT COUNT(*) FROM orders o JOIN payments p ON p.order_id=o.id AND p.kind='order' WHERE p.payment_no=? AND o.status<>'refunded'",
@@ -280,7 +283,7 @@ function admin_part_settings($action) {
                 if ($batchAlive === 0) $dead = true;
                 elseif ($batchAlive < $batchAll) $partial = true;
             }
-            $title = ((string)$pay['kind'] === 'visit') ? '挂号费缴费凭条' : '开单缴费凭条';
+            $title = '开单缴费凭条';
             $sub = '¥' . money($pay['total']) . ' ｜ ' . e(substr((string)$pay['created_at'], 0, 16)) . ' ｜ 收费员 ' . e((string)$pay['cashier_name']) .
                 ((int)$pay['item_count'] > 0 ? ' ｜ ' . (int)$pay['item_count'] . ' 项' : '');
             if ($partial) $sub .= '（部分退费）';
@@ -288,7 +291,7 @@ function admin_part_settings($action) {
                 $pcBtn('补打', '/api/print?action=payment&payment_id=' . e(oid((int)$pay['id'])), 'ticket', $dead),
                 $dead);
         }
-        $panePayments = $payRows ? implode($pcSep(), $payRows) : $pcEmpty('该就诊暂无缴费记录');
+        $panePayments = $payRows ? implode($pcSep(), $payRows) : $pcEmpty('该就诊暂无开单缴费记录');
 
         /* ---------- 页签四：报告（检验/检查分组，组间虚线；已撤回标记保留） ---------- */
         $reports = AnalyticsRepository::q('SELECT * FROM reports WHERE visit_id=? ORDER BY id', array($visitId));
@@ -317,7 +320,8 @@ function admin_part_settings($action) {
                 }
             }
             foreach ($resultItem as $rid => $ri) {
-                $key = $ri[1] . '_' . $ri[0];
+                // results.type 为 lab/imaging，项目表为 lab_items/exam_items → 键前缀归一
+                $key = ($ri[1] === 'lab' ? 'lab_' : 'exam_') . $ri[0];
                 $resultItem[$rid][2] = isset($nameMap[$key]) ? $nameMap[$key] : '';
             }
         }
@@ -329,13 +333,14 @@ function admin_part_settings($action) {
             $itemName = (isset($resultItem[$rid]) && $resultItem[$rid][2] !== '') ? $resultItem[$rid][2] : ($t === 'lab' ? '检验项目' : '检查项目');
             $withdrawn = ((string)$rp['status'] === 'withdrawn');
             $sub = e($itemName) . ' ｜ 报告号 ' . e((string)$rp['report_no']) . ' ｜ ' . e(substr((string)$rp['created_at'], 0, 16)) . ' ｜ ' . e((string)$rp['doctor']);
-            // 已撤回报告：红色删除线标记（保留展示便于溯源），按钮为「查看」仍可看原始报告
+            // 已撤回报告：红色删除线标记（保留展示便于溯源），按钮为「查看」仍可看原始报告。
+            // 报告纸张不传 sheet：检验横版A5 / 检查A4 由 print.js 依内容自动识别
             $reportGroups[$t][1][] = $pcRow(
                 ($t === 'lab' ? '检验报告' : '检查报告') . ' · ' . $itemName,
                 $sub,
                 $withdrawn
-                    ? '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' . e(oid((int)$rp['id'])) . '\',null,\'a5\')">🖨️ 查看</button>'
-                    : $pcBtn('补打', '/api/print?action=report&report_id=' . e(oid((int)$rp['id'])), 'a5'),
+                    ? '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' . e(oid((int)$rp['id'])) . '\',null)">🖨️ 查看</button>'
+                    : $pcBtn('补打', '/api/print?action=report&report_id=' . e(oid((int)$rp['id'])), ''),
                 $withdrawn, '已撤回');
         }
         $reportSections = array();
