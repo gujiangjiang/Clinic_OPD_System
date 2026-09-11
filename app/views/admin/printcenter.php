@@ -50,6 +50,29 @@ Router::title('打印中心');
 .pc-item .pc-item-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
 .pc-right { flex: 1; min-width: 0; overflow-y: auto; padding: 14px; }
 .pc-list-more { text-align: center; padding: 8px 0 2px; }
+/* ===== 右栏四子页签（就诊/开单/缴费/报告） ===== */
+.pc-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.pc-tab {
+    border: 1px solid var(--border); background: var(--bg-soft, #f5f7fa); color: var(--text);
+    border-radius: 18px; padding: 5px 14px; font-size: 13px; cursor: pointer;
+}
+.pc-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+.pc-tabpane { min-height: 120px; }
+.pc-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 9px 2px;
+}
+.pc-row-info { flex: 1; min-width: 0; }
+.pc-row-title { font-weight: 600; font-size: 13.5px; }
+.pc-row-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.pc-row-actions { flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
+.pc-row-actions .btn[disabled] { opacity: .5; cursor: not-allowed; }
+/* 退费/撤回：红色删除线（保留展示，便于溯源） */
+.pc-dead { text-decoration: line-through; color: var(--danger, #dc2626) !important; }
+/* 项目间 / 分组间虚线分隔 */
+.pc-sep { border-top: 1px dashed var(--border); margin: 6px 0; }
+.pc-group-title { font-weight: 700; font-size: 13px; color: var(--primary); padding: 8px 0 2px; }
+.pc-empty { padding: 36px 0; text-align: center; color: var(--muted); font-size: 13px; }
 </style>
 
 <script>
@@ -145,6 +168,16 @@ function pcPick(visitId) {
         onError: function () {
             right.innerHTML = '<div class="empty">加载失败，请重试</div>';
         },
+    });
+}
+
+/** 右栏子页签切换（就诊/开单/缴费/报告） */
+function pcTab(name) {
+    document.querySelectorAll('#pcItems .pc-tab').forEach(function (b) {
+        b.classList.toggle('active', b.getAttribute('data-tab') === name);
+    });
+    document.querySelectorAll('#pcItems .pc-tabpane').forEach(function (p) {
+        p.style.display = (p.id === 'pcPane_' + name) ? '' : 'none';
     });
 }
 
