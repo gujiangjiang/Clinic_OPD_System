@@ -1,0 +1,461 @@
+/* ============================================================
+ * pacs.css v1.0.0 — 影像科 PACS/RIS 阅片工作站样式
+ * ============================================================
+ * 说明：影像科工作台双模式（任务2）专用样式：
+ *   模式 A 一体化阅片模式：三栏 RIS 工作台（左：检查/序列缩略图；
+ *           中：专业深色读片视窗；右：报告撰写 Tab 面板），全屏隐藏
+ *           系统默认右侧大纲栏（#dwSide）保证工作空间。
+ *   模式 B 经典双屏分屏模式：保留现有布局，新增「独立视窗阅片」按钮
+ *           （window.open 弹独立窗口，BroadcastChannel Session 锁定）。
+ * 全部基于 CSS 变量，自动适配明亮/夜间模式；阅片视窗固定深色
+ * （阅片专业规范，不随主题切换）。
+ * ============================================================ */
+
+/* ---------- 顶部模式切换器（两态分段控件） ---------- */
+.pacs-mode-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--bg-soft, #f1f5f9);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px;
+    flex-shrink: 0;
+}
+.pacs-mode-switch .pms-btn {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 5px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s, color .15s;
+}
+.pacs-mode-switch .pms-btn:hover { color: var(--text); }
+.pacs-mode-switch .pms-btn.active {
+    background: var(--primary);
+    color: #fff;
+}
+
+/* ---------- 模式 A：一体化阅片工作台 ---------- */
+/* 激活时隐藏右栏大纲（.emr-sidebar-left = #dwSide），三栏全展开 */
+.pacs-integrated .emr-body-layout .emr-sidebar-left { display: none; }
+
+.pacs-workstation {
+    display: flex;
+    gap: 10px;
+    height: 100%;
+    min-height: 0;
+    flex: 1;
+}
+
+/* ===== 左栏：检查与序列缩略图 ===== */
+.pacs-left {
+    width: 250px;
+    min-width: 250px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+}
+.pacs-info-card {
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    flex-shrink: 0;
+}
+.pacs-info-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.pacs-info-line {
+    font-size: 12.5px;
+    color: var(--text);
+    line-height: 1.9;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+.pacs-info-line .k { color: var(--text-muted); flex-shrink: 0; }
+.pacs-info-line .v { font-weight: 600; text-align: right; word-break: break-all; }
+
+.pacs-series-card {
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+.pacs-series-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-right: 2px;
+}
+.pacs-series-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    transition: border-color .15s, background .15s;
+}
+.pacs-series-item:hover { background: var(--primary-soft, rgba(37,99,235,.06)); }
+.pacs-series-item.active {
+    border-color: var(--primary);
+    background: var(--primary-soft, rgba(37,99,235,.08));
+}
+.pacs-thumb {
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    background: #0f172a;   /* 阅片深色占位，与中间视窗一致 */
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    overflow: hidden;
+    position: relative;
+}
+.pacs-thumb .pacs-thumb-size {
+    position: absolute;
+    right: 3px;
+    bottom: 2px;
+    font-size: 9px;
+    color: #cbd5e1;
+    font-variant-numeric: tabular-nums;
+}
+.pacs-series-meta { min-width: 0; }
+.pacs-series-name {
+    font-size: 12.5px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pacs-series-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 3px;
+    line-height: 1.6;
+}
+
+/* ===== 中栏：读片核心视窗（专业深色，不随主题） ===== */
+.pacs-viewer {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+}
+.pacs-viewer-toolbar {
+    flex-shrink: 0;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.pacs-tool-btn {
+    border: 1px solid var(--border);
+    background: var(--bg-card, #fff);
+    color: var(--text);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s, border-color .15s;
+}
+.pacs-tool-btn:hover { background: var(--primary-soft, rgba(37,99,235,.08)); border-color: var(--primary); }
+.pacs-tool-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+
+.pacs-viewer-stage {
+    flex: 1;
+    min-height: 0;
+    background: #0f172a;   /* HOIF/Cornerstone 式深色读片背景 */
+    border-radius: 10px;
+    border: 1px solid #1e293b;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+/* DICOM Viewer 挂载点（未来无缝嵌入 DICOMweb iframe：直接填充此容器） */
+.pacs-viewer-mount {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.pacs-viewer-placeholder {
+    text-align: center;
+    color: #64748b;
+    padding: 20px;
+    user-select: none;
+}
+.pacs-viewer-placeholder .ph-ico { font-size: 56px; margin-bottom: 12px; }
+.pacs-viewer-placeholder .ph-main { color: #94a3b8; font-size: 14px; margin-bottom: 6px; }
+.pacs-viewer-placeholder .ph-sub { font-size: 12px; line-height: 1.9; }
+.pacs-viewer-tag {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    color: #94a3b8;
+    font-size: 11px;
+    font-family: monospace;
+    line-height: 1.7;
+    pointer-events: none;
+    white-space: pre;
+}
+.pacs-viewer-tag-r {
+    left: auto;
+    right: 12px;
+    text-align: right;
+}
+
+/* ===== 右栏：报告撰写与参考信息 ===== */
+.pacs-right {
+    width: 400px;
+    min-width: 400px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+.pacs-right-tabs {
+    flex-shrink: 0;
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-soft, #f8fafc);
+}
+.pacs-right-tab {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 4px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+    white-space: nowrap;
+}
+.pacs-right-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: var(--bg-card, #fff); }
+.pacs-right-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px;
+}
+.pacs-right-pane { display: none; }
+.pacs-right-pane.active { display: block; }
+
+/* 报告撰写区 */
+.pacs-rep-label {
+    font-size: 13px;
+    font-weight: 700;
+    margin: 0 0 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.pacs-rep-block { margin-bottom: 12px; }
+.pacs-rep-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 120px;
+    resize: vertical;
+    font-size: 13px;
+    line-height: 1.8;
+}
+.pacs-quickwords {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+.pacs-quickword {
+    border: 1px solid var(--border);
+    background: var(--bg-soft, #f8fafc);
+    color: var(--text);
+    font-size: 11.5px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pacs-quickword:hover { background: var(--primary-soft, rgba(37,99,235,.08)); border-color: var(--primary); }
+.pacs-crit-btn {
+    border-color: var(--danger) !important;
+    color: var(--danger) !important;
+}
+.pacs-right-foot {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    padding: 10px 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    background: var(--bg-soft, #f8fafc);
+}
+.pacs-right-foot .btn { flex: 1; min-width: 84px; }
+
+/* ---------- 历史报告调阅（任务3，右栏 Tab 内 + 模态框共用） ---------- */
+.pacs-hist-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    overflow: hidden;
+}
+.pacs-hist-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    font-size: 12.5px;
+    flex-wrap: wrap;
+}
+.pacs-hist-head:hover { background: var(--primary-soft, rgba(37,99,235,.05)); }
+.pacs-hist-head .hist-date { font-weight: 700; flex-shrink: 0; }
+.pacs-hist-head .hist-meta { color: var(--text-muted); font-size: 11.5px; min-width: 0; }
+.pacs-hist-detail {
+    border-top: 1px solid var(--border);
+    padding: 10px;
+    font-size: 12.5px;
+    line-height: 1.9;
+    background: var(--bg-soft, #fafafa);
+    display: none;
+}
+.pacs-hist-detail.open { display: block; }
+.pacs-hist-detail .hist-field { margin-bottom: 8px; }
+.pacs-hist-detail .hist-field-label { font-weight: 700; margin-bottom: 2px; display: flex; align-items: center; gap: 8px; }
+.pacs-hist-detail .hist-field-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text);
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    /* 只读保护：文本不可选中编辑、不可拖拽篡改 */
+    user-select: text;
+    cursor: default;
+}
+.pacs-hist-copy { padding: 1px 8px; font-size: 11px; }
+
+/* ---------- 模式 B：独立视窗阅片按钮（患者行/工具栏） ---------- */
+.pacs-openwin-btn { white-space: nowrap; }
+
+/* ---------- 独立阅片窗口（window.open 的 viewer.html 专用样式） ---------- */
+.pacs-solo-body { margin: 0; background: #0f172a; overflow: hidden; height: 100vh; }
+.pacs-solo {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    gap: 8px;
+    padding: 10px;
+    box-sizing: border-box;
+}
+.pacs-solo-head {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #e2e8f0;
+    font-size: 14px;
+    font-weight: 700;
+}
+.pacs-solo-head .solo-sub { color: #94a3b8; font-size: 12px; font-weight: 400; margin-left: auto; }
+.pacs-solo-stage {
+    flex: 1;
+    min-height: 0;
+    background: #0b1222;
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.pacs-solo-foot {
+    flex-shrink: 0;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.pacs-solo-foot .pacs-tool-btn {
+    background: transparent;
+    border-color: #334155;
+    color: #cbd5e1;
+}
+.pacs-solo-foot .pacs-tool-btn:hover { background: #1e293b; border-color: #475569; }
+
+/* ---------- Session 锁定遮罩（高斯模糊 + 居中提示，独立窗口/主窗口通用） ---------- */
+.pacs-lock-mask {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: rgba(15, 23, 42, .55);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+.pacs-lock-mask.show { display: flex; }
+.pacs-lock-card {
+    background: rgba(255, 255, 255, .96);
+    border-radius: 16px;
+    padding: 34px 44px;
+    text-align: center;
+    max-width: 420px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, .35);
+}
+.pacs-lock-card .lock-ico { font-size: 54px; margin-bottom: 14px; }
+.pacs-lock-card .lock-title { font-size: 17px; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
+.pacs-lock-card .lock-desc { font-size: 13px; color: #475569; line-height: 1.9; }
+
+/* ---------- 窄屏退化：三栏纵向堆叠 ---------- */
+@media (max-width: 1100px) {
+    .pacs-workstation { flex-direction: column; }
+    .pacs-left, .pacs-right { width: 100%; min-width: 0; }
+    .pacs-left { max-height: 300px; }
+    .pacs-series-list { max-height: 200px; }
+    .pacs-viewer-stage { min-height: 320px; }
+    .pacs-rep-textarea { min-height: 90px; }
+}
