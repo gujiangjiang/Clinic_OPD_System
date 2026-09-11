@@ -196,6 +196,114 @@ switch ($action) {
         dept_withdraw('影像', '检查');
         break;
 
+    /* ==================== 患者历史影像报告（按 patient_id 分页调阅） ====================
+     * 检索规范（任务3）：
+     *   1. 严格按患者唯一标识 patient_id（= patients.patient_no）检索，
+     *      禁止姓名检索（防同名同姓混淆）；
+     *   2. 分页策略：首屏最近 5 次，「加载更多」向下滚动分页；
+     *   3. 历史内容一律只读：仅返回展示所需字段，不含任何可编辑入口；
+     *      【复制到当前报告】由前端对 影像表现/影像诊断 两字段提供快捷复制。
+     * 权限：影像科角色（含 admin），需能访问该就诊（科室归属校验口径与登记一致）。 */
+    case 'history_reports':
+        $patientNo = trim((string)get('patient_id', ''));
+        if ($patientNo === '') json_fail('缺少患者唯一标识（patient_id）');
+        $page = max(1, (int)get('page', 1));
+        $pageSize = 5;   // 分段加载：首屏最近 5 次
+        $patient = OrderRepository::one('SELECT * FROM patients WHERE patient_no=?', array($patientNo));
+        if (!$patient) json_fail('患者不存在');
+
+        // 总数（含已撤回——历史调阅需完整溯源，展示时标记状态）
+        $total = (int)OrderRepository::val(
+            "SELECT COUNT(*) FROM reports WHERE patient_no=? AND type='imaging'",
+            array($patientNo)
+        );
+        $rows = OrderRepository::q(
+            "SELECT rp.*, oi.item_name, oi.visit_id AS item_visit_id, oi.executed_at
+             FROM reports rp
+             LEFT JOIN results rs ON rs.id = rp.result_id
+             LEFT JOIN order_items oi ON oi.id = rs.order_item_id
+             WHERE rp.patient_no=? AND rp.type='imaging'
+             ORDER BY rp.id DESC
+             LIMIT ? OFFSET ?",
+            array($patientNo, $pageSize, ($page - 1) * $pageSize)
+        );
+        $list = array();
+        foreach ($rows as $r) {
+            $findings = '';
+            $conclusion = '';
+            if ((int)$r['result_id'] > 0) {
+                $res = OrderRepository::one('SELECT findings, conclusion FROM results WHERE id=?', array((int)$r['result_id']));
+                if ($res) {
+                    $findings = (string)$res['findings'];
+                    $conclusion = (string)$res['conclusion'];
+                }
+            }
+            // 检查项目：报告关联明细名 → 回退申请单分类名（旧数据兜底）
+            $itemName = (string)$r['item_name'];
+            if ($itemName === '' && (string)$r['category_name'] !== '') {
+                $itemName = (string)$r['category_name'] . '检查';
+            }
+            $statusName = ((string)$r['status'] === 'withdrawn') ? '已撤回' : '已发布';
+            $list[] = array(
+                // 报告基本信息（只读）
+                'report_id' => oid((int)$r['id']),
+                'report_no' => (string)$r['report_no'],
+                'item_name' => $itemName !== '' ? $itemName : '影像检查',
+                'visit_code' => oid((int)$r['visit_id']),
+                'check_time' => (string)$r['reg_time'],
+                'report_time' => (string)$r['created_at'],
+                'report_doctor' => (string)$r['doctor'],
+                'audit_doctor' => '',   // 审核流未上线：预留字段，历史调阅展示为 —
+                'status' => (string)$r['status'],
+                'status_name' => $statusName,
+                'apply_dept' => (string)$r['apply_dept'],
+                // 报告详情（只读；仅以下两字段允许前端提供复制到当前报告）
+                'findings' => $findings,
+                'conclusion' => $conclusion,
+                'clinical_diag' => (string)$r['clinical_diag'],
+            );
+        }
+        json_ok(array(
+            'patient' => array(
+                'patient_id' => $patient['patient_no'],
+                'name' => $patient['name'],
+                'gender' => $patient['gender'],
+                'age_fmt' => age_format($patient['birth_date']),
+            ),
+            'list' => $list,
+            'total' => $total,
+            'page' => $page,
+            'has_more' => ($page * $pageSize) < $total,
+        ));
+        break;
+
+    /* ==================== PACS Web 阅片器地址（study_uid 变量替换） ====================
+     * 说明：读取外部接口集成中的 Web 阅片器 URL 模板（pacs_viewer_url），
+     * 将 {study_uid} 替换为当前检查对应的 Study UID（当前阶段以申请单号/
+     * 报告号作为占位 UID——PACS 尚未接入时无法取到真实 DICOM UID），
+     * 供影像工作台「独立视窗阅片 / 一体化阅片模式」打开阅片器使用。 */
+    case 'viewer_url':
+        $itemId = did(get('item_id'));
+        $tpl = trim((string)setting('pacs_viewer_url', ''));
+        if ($tpl === '') json_fail('未配置 Web 阅片器 URL 模板，请管理员在【外部接口集成 → DICOM/PACS】中配置');
+        $it = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array($itemId));
+        if (!$it || $it['item_type'] !== 'imaging') json_fail('检查项目不存在');
+        // Study UID 占位：优先报告号（报告即一次完整检查的出具单元），回退申请单号
+        $studyUid = '';
+        if ((int)$it['result_id'] > 0) {
+            $rep = OrderRepository::one("SELECT report_no FROM reports WHERE result_id=? AND status<>'withdrawn' ORDER BY id DESC LIMIT 1", array((int)$it['result_id']));
+            if ($rep) $studyUid = (string)$rep['report_no'];
+        }
+        if ($studyUid === '') {
+            $o = OrderRepository::one('SELECT order_no FROM orders WHERE id=?', array((int)$it['order_id']));
+            $studyUid = $o ? (string)$o['order_no'] : (string)$it['id'];
+        }
+        json_ok(array(
+            'url' => str_replace('{study_uid}', rawurlencode($studyUid), $tpl),
+            'study_uid' => $studyUid,
+        ));
+        break;
+
     default:
         json_fail('未知操作');
 }
