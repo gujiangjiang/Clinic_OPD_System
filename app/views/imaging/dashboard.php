@@ -258,9 +258,6 @@ function pacsPickSeries(el, itemId) {
     // 报告撰写区与底部操作栏随所选序列状态切换（待书写 / 已提交只读）
     var body = document.querySelector('.pacs-right-body');
     var foot = document.getElementById('pacsRightFoot');
-    // 记住当前激活页签（重建面板后恢复，避免被强制跳到撰写页）
-    var curTab = (document.querySelector('.pacs-right-tab.active') || {}).getAttribute;
-    var activeTab = curTab ? document.querySelector('.pacs-right-tab.active').getAttribute('data-rtab') : 'clin';
     if (body && it) {
         var wp = body.querySelector('[data-pane="write"]');
         if (wp) { wp.outerHTML = imgWritePane(it, window.__imgData || {}); }
@@ -268,7 +265,6 @@ function pacsPickSeries(el, itemId) {
         if (hp) hp.outerHTML = imgHistPane((window.__imgData || {}).patient || {});
         var pn = document.getElementById('pacsHistPane');
         if (pn) mountImgHistory((window.__imgData || {}).patient || {});
-        imgRightTab(activeTab);   // 恢复页签高亮与面板可见性
     }
     if (foot) foot.innerHTML = imgFootBar(it);
     // 模板下拉随新撰写区重建
@@ -348,14 +344,16 @@ function imgRightTab(tab) {
 
 /* 临床信息页签：门诊号/姓名/性别/年龄/主诉/临床初步诊断
    idPrefix：一体化右栏与经典模态框共用（优化项10） */
-function imgClinPane(data, idPrefix) {
+function imgClinPane(data, idPrefix, standalone) {
     idPrefix = idPrefix || 'pacs';
     var v = data.visit || {}, p = data.patient || {}, s = data.summary || {};
     var line = function (k, val) {
         return '<div class="pacs-info-line"><span class="k">' + k + '</span><span class="v">' + esc(val || '—') + '</span></div>';
     };
-    // active：模态框无页签切换，须默认可见；一体化模式由 imgRightTab 统一管理高亮
-    return '<div class="pacs-right-pane active" data-pane="clin" id="' + idPrefix + 'ClinPane">' +
+    // standalone=true（经典模态框）：脱离一体化右栏页签体系，直接可见
+    var paneCls = standalone ? 'pacs-right-pane active pacs-clin-standalone' : 'pacs-right-pane';
+    return '<div class="' + paneCls + '" data-pane="clin" id="' + idPrefix + 'ClinPane">' +
+        (standalone ? '<div class="fs-13 fw-700" style="margin-bottom:8px">🧑‍⚕️ 临床信息</div>' : '') +
         '<div class="pacs-info-card" style="border:none;padding:0 0 10px">' +
         line('门诊号', v.visit_no) + line('姓名', v.name) + line('性别', v.gender) +
         line('年龄', v.age_fmt) + line('出生日期', p.birth_date) + line('患者ID', p.patient_id) +
@@ -819,7 +817,7 @@ function openImgReportModal(id) {
         '<div class="pacs-modal-3col" style="display:flex;gap:12px;height:520px">' +
         '  <div style="width:230px;flex-shrink:0;min-height:0;display:flex;flex-direction:column">' +
         '    <div style="flex:1;min-height:0;overflow-y:auto" id="imgmClinHost">' +
-        imgClinPane(data, 'imgm') +
+        imgClinPane(data, 'imgm', true) +
         '    </div>' +
         '    <div class="dw-crit-queue" style="border-top:1px solid var(--border);padding-top:10px;margin-top:8px;flex-shrink:0">' +
         '      <button type="button" class="btn btn-outline btn-sm pacs-crit-btn" style="width:100%" onclick="openImgCritSend()">🚨 报危急值</button>' +

@@ -427,6 +427,13 @@
 .pacs-hist-copy { padding: 1px 8px; font-size: 11px; }
 
 /* 历史报告空态：居中图标 + 主副文案 */
+/* 经典模态框左栏临床信息（standalone）：脱离页签体系直接可见 */
+.pacs-clin-standalone { display: block !important; }
+.pacs-clin-standalone .hist-field-text {
+    color: var(--text);
+    background: var(--bg-soft, #f8fafc);
+}
+
 .pacs-hist-empty {
     text-align: center;
     padding: 28px 12px;
