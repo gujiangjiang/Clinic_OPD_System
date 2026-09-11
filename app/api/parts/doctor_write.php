@@ -45,6 +45,8 @@ function doctor_part_write($action) {
     }
 
     if ($action === 'bind_room') {
+        // 惰性自愈：先清理过期绑定，再判占用（被关闭浏览器离开的人占用的诊室可直接绑）
+        QueueRepository::sweepStaleBindings();
         $roomId = (int)post('room_id');
         $room = EmrRepository::one('SELECT * FROM clinic_rooms WHERE id=?', array($roomId));
         if (!$room) json_fail('诊室不存在');

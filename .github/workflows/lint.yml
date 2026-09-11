@@ -33,7 +33,7 @@ jobs:
         php: ['7.2', '7.4', '8.2', '8.5']
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: 安装 PHP ${{ matrix.php }}
         uses: shivammathur/setup-php@v2
@@ -45,7 +45,7 @@ jobs:
         run: php tools/ci-lint.php "lint-report/php${{ matrix.php }}.md"
 
       - name: 上传分报告
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lint-report-php${{ matrix.php }}
           path: lint-report/php${{ matrix.php }}.md
@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 下载各版本分报告
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: lint-report
           pattern: lint-report-php*
@@ -92,7 +92,7 @@ jobs:
           cat lint-report.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: 上传汇总报告
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lint-report
           path: lint-report.md

@@ -477,6 +477,9 @@ function deptwork_call_panel($u) {
 
 /** 可用诊室列表（本角色类型；绑定归属随 current_doctor_id） */
 function deptwork_get_available_rooms($u) {
+    // 惰性自愈：清理过期绑定（心跳超 300 秒未更新），被离开人员占用的诊室
+    // 可直接重新绑定，无需管理员手动强制释放
+    QueueRepository::sweepStaleBindings();
     $cfg = deptwork_role_cfg($u['role']);
     $roomType = $cfg['room_type'];
     $myDepts = user_dept_ids($u);
@@ -506,6 +509,8 @@ function deptwork_get_available_rooms($u) {
 
 /** 绑定大屏诊室 */
 function deptwork_bind_room($u) {
+    // 惰性自愈：先清理过期绑定，再判占用（被关闭浏览器离开的人占用的诊室可直接绑）
+    QueueRepository::sweepStaleBindings();
     $roomId = (int)post('room_id');
     $room = DB::one('SELECT * FROM clinic_rooms WHERE id=?', array($roomId));
     if (!$room) json_fail('诊室不存在');

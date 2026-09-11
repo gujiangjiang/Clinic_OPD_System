@@ -21,6 +21,9 @@ function admin_part_call($action) {
 
     /* ==================== 按科室列出大屏 ==================== */
     if ($action === 'room_list') {
+        // 惰性自愈：先清理过期绑定（绑定人心跳超 300 秒未更新即视为已离开），
+        // 避免绑定人关闭浏览器未解绑后，大屏永久显示「占用中」需手动踢除
+        QueueRepository::sweepStaleBindings();
         $deptId = (int)get('dept_id');
         if ($deptId <= 0) json_fail('请选择科室');
         $dept = DeptRepository::one('SELECT * FROM departments WHERE id=?', array($deptId));

@@ -287,6 +287,31 @@ class QueueRepository extends BaseRepository {
             array(now_str(), (int)$roomId));
     }
 
+    /**
+     * 过期绑定批量清理（自愈惰性触发）：
+     * 绑定人心跳超过 300 秒无更新（关闭浏览器/异常断开且未走解绑流程）即视为
+     * 已离开，自动释放绑定——与 screen.php 心跳侧的过期自动解绑同语义。
+     * 不清除叫号推送状态（current_visit_id 等）：大屏保留最后呼叫患者展示，
+     * 直至有人重新绑定并叫号。
+     * 在 管理端诊室列表 / 医生与医技可用诊室查询 / 绑定入口 惰性触发，
+     * 消除「关闭浏览器未解绑 → 大屏永久占用、需管理员手动踢除」的问题。
+     * @return int 本次释放的绑定数
+     */
+    public static function sweepStaleBindings() {
+        if (DB_DRIVER === 'mysql') {
+            return (int)self::exec(
+                "UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name='', doctor_heartbeat=NULL, updated_at=NOW()
+                 WHERE current_doctor_id>0 AND (doctor_heartbeat IS NULL
+                 OR (UNIX_TIMESTAMP() - UNIX_TIMESTAMP(doctor_heartbeat)) > 300)"
+            );
+        }
+        return (int)self::exec(
+            "UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name='', doctor_heartbeat=NULL, updated_at=datetime('now','localtime')
+             WHERE current_doctor_id>0 AND (doctor_heartbeat IS NULL
+             OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat)) > 300)"
+        );
+    }
+
     /** 更新大屏心跳 */
     public static function updateHeartbeat($roomId) {
         self::exec('UPDATE clinic_rooms SET screen_last_heartbeat=?, is_screen_online=1, updated_at=? WHERE id=?',

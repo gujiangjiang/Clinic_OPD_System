@@ -5,6 +5,9 @@
  * ============================================================ */
 
 function doctor_read_get_available_rooms($u) {
+    // 惰性自愈：清理过期绑定（心跳超 300 秒未更新），被离开的医生占用的诊室
+    // 可直接重新绑定，无需管理员手动强制释放
+    QueueRepository::sweepStaleBindings();
     $deptId = (int)get('dept_id');
     if ($deptId <= 0) json_fail('请先选择科室');
     // 科室归属校验：仅可查看本人关联科室的诊室，防止跨科室越权
