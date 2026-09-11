@@ -67,6 +67,19 @@ var CM_TIMER = null;
 
 /* 科室选择模态框（复用通用组件） */
 function openDeptPicker() {
+    // 打开前先实时刷新各科室大屏在线统计：页面停留期间大屏可能上下线，
+    // 页面加载时固化的 online_count 会滞后（如实际 3 在线仍显示 1 在线）
+    Clinic.get('/api/admin?action=room_stats', null, {
+        loading: false,
+        onSuccess: function (json) {
+            applyDeptStats(json.data.list || []);
+            openPicker();
+        },
+        onError: function () { openPicker(); },   // 统计获取失败仍打开（沿用已有数据）
+    });
+}
+
+function openPicker() {
     Clinic.deptPicker.open({
         mode: 'call',
         depts: CM_DEPS,
@@ -75,6 +88,19 @@ function openDeptPicker() {
         // 含 急诊/门诊/医技/其他 四个 Tab
         showRoomStats: true,
         onSelect: function (d) { pickDept(d.id); },
+    });
+}
+
+/* 将 room_stats 接口返回的统计写入 CM_DEPS（模态框数据源） */
+function applyDeptStats(list) {
+    var map = {};
+    (list || []).forEach(function (s) { map[s.id] = s; });
+    CM_DEPS.forEach(function (d) {
+        var s = map[d.id];
+        if (s) {
+            d.room_count = s.room_count;
+            d.online_count = s.online_count;
+        }
     });
 }
 
@@ -105,17 +131,7 @@ function loadRooms() {
 function refreshDeptStats() {
     Clinic.get('/api/admin?action=room_stats', null, {
         loading: false,
-        onSuccess: function (json) {
-            var map = {};
-            (json.data.list || []).forEach(function (s) { map[s.id] = s; });
-            CM_DEPS.forEach(function (d) {
-                var s = map[d.id];
-                if (s) {
-                    d.room_count = s.room_count;
-                    d.online_count = s.online_count;
-                }
-            });
-        },
+        onSuccess: function (json) { applyDeptStats(json.data.list || []); },
     });
 }
 
