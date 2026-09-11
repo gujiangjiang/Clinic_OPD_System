@@ -112,24 +112,21 @@ function renderImgIntegrated(data) {
     imgItems.forEach(function (it) { if (!cur && it.status === 'registered') cur = it; });
     if (!cur) imgItems.forEach(function (it) { if (!cur && it.status === 'done') cur = it; });
     window.__imgCurItem = cur;
+    // 序列列表默认选中当前项
+    window.__imgCurActive = cur ? cur.id : '';
 
     var main = document.getElementById('dwMain');
     main.innerHTML =
         '<div class="pacs-workstation">' +
-        /* 左栏：检查信息 + 序列缩略图 */
+        /* 左栏：序列缩略图（上）+ 检查信息（下，精简版随所选序列动态更新） */
         '<div class="pacs-left">' +
-        '  <div class="pacs-info-card">' +
-        '    <div class="pacs-info-title">🩻 检查信息</div>' +
-        '    <div class="pacs-info-line"><span class="k">患者</span><span class="v">' + esc(v.name) + '（' + esc(v.gender) + ' / ' + esc(v.age_fmt || '') + '）</span></div>' +
-        '    <div class="pacs-info-line"><span class="k">门诊号</span><span class="v">' + esc(v.visit_no) + '</span></div>' +
-        '    <div class="pacs-info-line"><span class="k">患者ID</span><span class="v">' + esc(p.patient_id) + '</span></div>' +
-        '    <div class="pacs-info-line"><span class="k">检查项目</span><span class="v">' + esc(cur ? cur.item_name : '—') + '</span></div>' +
-        '    <div class="pacs-info-line"><span class="k">检查类型</span><span class="v">' + esc(imgModality(cur)) + '</span></div>' +
-        '    <div class="pacs-info-line"><span class="k">开单科室</span><span class="v">' + esc(v.first_dept_name || v.dept_name || '') + '</span></div>' +
-        '  </div>' +
         '  <div class="pacs-series-card">' +
         '    <div class="pacs-info-title">📋 序列 / Series <span class="fs-12 text-muted" style="font-weight:400;margin-left:auto">DICOMweb 接入后展示</span></div>' +
         '    <div class="pacs-series-list" id="pacsSeriesList">' + pacsSeriesHtml(imgItems) + '</div>' +
+        '  </div>' +
+        '  <div class="pacs-info-card">' +
+        '    <div class="pacs-info-title">🗂️ 检查信息</div>' +
+        '    <div id="pacsInfoCard">' + imgInfoCardInner(cur) + '</div>' +
         '  </div>' +
         '</div>' +
         /* 中栏：读片核心视窗（专业深色） */
@@ -170,12 +167,7 @@ function renderImgIntegrated(data) {
         imgWritePane(cur, data) +
         imgHistPane(p) +
         '  </div>' +
-        '  <div class="pacs-right-foot">' +
-        '    <button type="button" class="btn btn-outline btn-sm" onclick="imgDraftSave()">💾 保存草稿</button>' +
-        '    <button type="button" class="btn btn-primary btn-sm" onclick="imgPublish()">📤 提交审核</button>' +
-        '    <button type="button" class="btn btn-outline btn-sm pacs-crit-btn" onclick="openImgCritSend()">🚨 标记危急值</button>' +
-        '    <button type="button" class="btn btn-outline btn-sm" onclick="imgRejectBack()">↩ 退回修改</button>' +
-        '  </div>' +
+        '  <div class="pacs-right-foot" id="pacsRightFoot">' + imgFootBar(cur) + '</div>' +
         '</div>' +
         '</div>';
 
@@ -218,20 +210,30 @@ function imgModality(it) {
     return '影像';
 }
 
-/* 序列缩略图占位（DICOMweb 接入前：尺寸 + 张数标注占位） */
+/* 序列缩略图占位（DICOMweb 接入前：尺寸 + 张数标注占位）
+   不同检查类别（DR/CT/US 等）之间以小分隔标题区分（优化项7） */
 function pacsSeriesHtml(items) {
     if (!items.length) {
         return '<div class="fs-12 text-muted" style="padding:6px 2px">暂无检查序列（PACS 接入后自动加载）</div>';
     }
-    return items.map(function (it, i) {
+    var active = window.__imgCurActive || '';
+    var lastType = null;
+    var html = '';
+    items.forEach(function (it, i) {
+        var type = imgModality(it);
+        if (type !== lastType) {
+            html += '<div class="pacs-series-sep"><span>' + esc(type) + '</span></div>';
+            lastType = type;
+        }
         var st = it.status === 'done' ? 'ok' : (it.status === 'registered' ? 'pending' : 'done');
-        return '<div class="pacs-series-item' + (i === 0 ? ' active' : '') + '" onclick="pacsPickSeries(this,\'' + esc(it.id) + '\')">' +
+        html += '<div class="pacs-series-item' + (it.id === active ? ' active' : '') + '" data-item="' + esc(it.id) + '" onclick="pacsPickSeries(this,\'' + esc(it.id) + '\')">' +
             '<div class="pacs-thumb">🩻<span class="pacs-thumb-size">512×512</span></div>' +
             '<div class="pacs-series-meta">' +
             '<div class="pacs-series-name">' + esc(it.item_name) + '</div>' +
             '<div class="pacs-series-sub">Series ' + (i + 1) + ' · <span class="dot ' + st + '"></span> ' + itemStatusName(it.status) + '</div>' +
             '</div></div>';
-    }).join('');
+    });
+    return html;
 }
 
 function pacsPickSeries(el, itemId) {
@@ -243,8 +245,56 @@ function pacsPickSeries(el, itemId) {
     if (tl && it) tl.textContent = '> ' + it.item_name + ' ｜ 序列已选中';
     // 同步独立阅片窗口 + 左下角检查信息动态更新（优化项7/12）
     window.__imgCurItem = it;
+    window.__imgCurActive = itemId;
     broadcastImgContext(it);
     updateImgInfoCard(it);
+    // 报告撰写区与底部操作栏随所选序列状态切换（待书写 / 已提交只读）
+    var body = document.querySelector('.pacs-right-body');
+    var foot = document.getElementById('pacsRightFoot');
+    if (body && it) {
+        var wp = body.querySelector('[data-pane="write"]');
+        if (wp) { wp.outerHTML = imgWritePane(it, window.__imgData || {}); }
+        var hp = body.querySelector('[data-pane="hist"]');
+        if (hp) hp.outerHTML = imgHistPane((window.__imgData || {}).patient || {});
+        var pn = document.getElementById('pacsHistPane');
+        if (pn) mountImgHistory((window.__imgData || {}).patient || {});
+    }
+    if (foot) foot.innerHTML = imgFootBar(it);
+    // 模板下拉随新撰写区重建
+    loadPacsTpls();
+}
+
+/* 左下角检查信息卡（动态更新，优化项7） */
+function updateImgInfoCard(it) {
+    var box = document.getElementById('pacsInfoCard');
+    if (!box) return;
+    box.innerHTML = imgInfoCardInner(it);
+}
+
+/* 检查信息卡内容（精简版：申请单号可点击预览申请单模态框） */
+function imgInfoCardInner(it) {
+    var v = (window.__imgData || {}).visit || {};
+    var orders = ((window.__imgData || {}).orders || []).filter(function (o) { return o.order_type === 'imaging'; });
+    // 找到所属申请单（按 item 归属）
+    var order = null;
+    orders.forEach(function (o) {
+        (o.items || []).forEach(function (x) { if (it && x.id === it.id) order = o; });
+    });
+    var orderNo = order ? order.order_no : '';
+    var line = function (k, val) {
+        return '<div class="pacs-info-line"><span class="k">' + k + '</span><span class="v">' + esc(val || '—') + '</span></div>';
+    };
+    var orderLine = '<div class="pacs-info-line"><span class="k">申请单号</span><span class="v">' +
+        (orderNo
+            ? '<a href="javascript:void(0)" style="color:var(--primary);text-decoration:underline" ' +
+              'onclick="previewImgOrder(\'' + esc(order ? order.order_id : '') + '\',\'' + esc(orderNo) + '\')">' + esc(orderNo) + '</a>'
+            : '—') +
+        '</span></div>';
+    return orderLine +
+        line('申请类型', it ? imgModality(it) : '—') +
+        line('开单科室', order ? (order.dept_name || v.first_dept_name || '') : (v.first_dept_name || '')) +
+        line('检查项目', it ? it.item_name : '—') +
+        line('检查状态', it ? itemStatusName(it.status) : '—');
 }
 
 function pacsTool(name) {
@@ -281,30 +331,68 @@ function imgClinPane(data) {
         '</div>';
 }
 
-/* 报告撰写页签：模板下拉 + 常用语快捷插入 + 危急值按钮 + 表现/诊断双区 */
+/* 报告撰写页签：模板下拉 + 常用语快捷插入 + 危急值按钮 + 表现/诊断双区
+   状态一致性（优化项5/6）：
+   - 已登记（待书写）：可编辑 + 草稿自动回填（localStorage 刷新不丢）；
+   - 已完成（已提交）：回显已提交的报告内容（只读），底部操作栏切换为
+     打印报告 / 申请修改——与双屏分屏模式展示口径一致。 */
 function imgWritePane(cur, data) {
     var quick = ['两肺纹理清晰，走行自然。', '心影大小、形态正常。', '膈肌光整，肋膈角锐利。', '必要时结合临床随访复查。', '所示骨质结构未见明显异常。'];
+    var isDone = cur && cur.status === 'done';
+    var findings0 = cur ? (cur.findings || '') : '';
+    var conclusion0 = cur ? (cur.conclusion || '') : '';
+    // 草稿回填：仅未提交项目（已提交以库内正式报告为准）
+    var draft = isDone ? null : imgDraftRead(cur);
+    if (draft) {
+        if (draft.findings) findings0 = draft.findings;
+        if (draft.conclusion) conclusion0 = draft.conclusion;
+    }
+    var ro = isDone ? ' readonly' : '';
+    var roStyle = isDone ? 'background:var(--bg-soft);cursor:default;' : '';
     return '<div class="pacs-right-pane" data-pane="write">' +
+        (isDone ?
+            '<div class="fs-12 mb-8" style="padding:6px 10px;border-radius:8px;background:var(--primary-soft,rgba(37,99,235,.08));color:var(--primary)">该报告已提交（报告号 ' + esc(cur.report_no || '—') + '），如需修改请先申请撤回</div>'
+            : '') +
         '<div class="pacs-rep-block">' +
         '<div class="pacs-rep-label">报告模板' +
-        '<select class="select" id="pacsTplSel" style="margin-left:auto;max-width:200px;font-size:12px" onchange="pacsTplPick(this.value)"><option value="">选择模板…</option></select>' +
+        '<select class="select" id="pacsTplSel" style="margin-left:auto;max-width:200px;font-size:12px"' + (isDone ? ' disabled' : '') + ' onchange="pacsTplPick(this.value)"><option value="">选择模板…</option></select>' +
         '</div>' +
-        '<div class="fs-12 text-muted" id="pacsTplHint">选择模板后可覆盖或续写应用（模板列表加载中…）</div>' +
+        '<div class="fs-12 text-muted" id="pacsTplHint">选择模板后预览，支持覆盖或续写应用</div>' +
         '</div>' +
         '<div class="pacs-rep-block">' +
         '<div class="pacs-rep-label">影像学表现（描述）<span class="req">*</span></div>' +
-        '<textarea class="textarea pacs-rep-textarea" id="pacsFindings" style="min-height:150px" placeholder="请填写影像学表现描述">' + esc(cur ? (cur.findings || '') : '') + '</textarea>' +
+        '<textarea class="textarea pacs-rep-textarea" id="pacsFindings" style="min-height:150px;' + roStyle + '"' + ro + ' placeholder="请填写影像学表现描述">' + esc(findings0) + '</textarea>' +
+        (isDone ? '' :
         '<div class="pacs-quickwords" id="pacsQuickFindings">' +
         quick.map(function (q) { return '<span class="pacs-quickword" onclick="pacsQuickInsert(\'pacsFindings\', this)">' + esc(q) + '</span>'; }).join('') +
-        '</div></div>' +
+        '</div>') +
+        '</div>' +
         '<div class="pacs-rep-block">' +
         '<div class="pacs-rep-label">影像学诊断（结论）<span class="req">*</span></div>' +
-        '<textarea class="textarea pacs-rep-textarea" id="pacsConclusion" style="min-height:90px" placeholder="请填写影像学诊断（检查结论）">' + esc(cur ? (cur.conclusion || '') : '') + '</textarea>' +
+        '<textarea class="textarea pacs-rep-textarea" id="pacsConclusion" style="min-height:90px;' + roStyle + '"' + ro + ' placeholder="请填写影像学诊断（检查结论）">' + esc(conclusion0) + '</textarea>' +
+        (isDone ? '' :
         '<div class="pacs-quickwords" id="pacsQuickConclusion">' +
         '<span class="pacs-quickword" onclick="pacsQuickInsert(\'pacsConclusion\', this)">目前影像学检查未见明显异常。</span>' +
         '<span class="pacs-quickword" onclick="pacsQuickInsert(\'pacsConclusion\', this)">建议随访复查。</span>' +
-        '</div></div>' +
+        '</div>') +
+        '</div>' +
         '</div>';
+}
+
+/* 草稿读写（localStorage，按项目 id 存取；提交成功即清除） */
+function imgDraftKey(it) { return 'clinic_img_draft_' + (it ? it.id : ''); }
+function imgDraftRead(it) {
+    if (!it) return null;
+    try { return JSON.parse(localStorage.getItem(imgDraftKey(it)) || 'null'); } catch (e) { return null; }
+}
+function imgDraftWrite(it, findings, conclusion) {
+    try {
+        localStorage.setItem(imgDraftKey(it), JSON.stringify({ findings: findings, conclusion: conclusion, at: Date.now() }));
+        return true;
+    } catch (e) { return false; }
+}
+function imgDraftClear(it) {
+    try { localStorage.removeItem(imgDraftKey(it)); } catch (e) { /* 忽略 */ }
 }
 
 /* 历史报告页签（挂载容器；组件化渲染见 pacshistory.js） */
@@ -417,32 +505,48 @@ function pacsQuickInsert(textareaId, el) {
     ta.focus();
 }
 
-/* ---------- 一体化底部操作栏 ---------- */
-function imgCurWritable() {
-    var cur = window.__imgCurItem;
-    if (!cur) { Clinic.toast.warning('当前无待书写报告的检查项目'); return null; }
-    if (cur.status !== 'registered') { Clinic.toast.warning('该项目已出报告，如需修改请先申请撤回'); return null; }
-    return cur;
+/* ---------- 一体化底部操作栏（状态感知） ----------
+   - 已登记：保存草稿 / 提交审核 / 标记危急值 / 退回修改；
+   - 已完成（已提交）：打印报告 / 申请修改（撤回，走管理员审核流）——
+     与双屏分屏模式口径一致（优化项5/6）。 */
+function imgFootBar(cur) {
+    if (cur && cur.status === 'done') {
+        return (cur.report_id
+            ? '<button type="button" class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' + esc(cur.report_id) + '\',null)">🖨️ 打印报告</button>'
+            : '') +
+            '<button type="button" class="btn btn-outline btn-sm" onclick="imgWithdrawReq()">✏️ 申请修改</button>';
+    }
+    return '<button type="button" class="btn btn-outline btn-sm" onclick="imgDraftSave()">💾 保存草稿</button>' +
+        '<button type="button" class="btn btn-primary btn-sm" onclick="imgPublish()">📤 提交审核</button>' +
+        '<button type="button" class="btn btn-outline btn-sm pacs-crit-btn" onclick="openImgCritSend()">🚨 标记危急值</button>' +
+        '<button type="button" class="btn btn-outline btn-sm" onclick="imgRejectBack()">↩ 退回修改</button>';
 }
 
-/* 保存草稿：仅暂存前端（正式提交才落库；防误关页面丢失） */
-var IMG_DRAFT_KEY = 'clinic_img_draft_';
+/* 已提交报告的「申请修改」入口（与经典模式撤回同流：管理员审核） */
+function imgWithdrawReq() {
+    var cur = window.__imgCurItem;
+    if (!cur || !cur.report_id) { Clinic.toast.warning('该报告暂无可撤回的报告号'); return; }
+    imgWithdraw(cur.report_id);
+}
+
+/* 保存草稿：localStorage 暂存（刷新自动回填，提交成功清除；优化项6） */
 function imgDraftSave() {
     var cur = window.__imgCurItem;
     var f = document.getElementById('pacsFindings');
     var c = document.getElementById('pacsConclusion');
     if (!cur || !f || !c) { Clinic.toast.warning('暂无可保存的报告内容'); return; }
-    try {
-        localStorage.setItem(IMG_DRAFT_KEY + cur.id, JSON.stringify({ findings: f.value, conclusion: c.value, at: Date.now() }));
-        Clinic.toast.success('草稿已暂存（仅本机，提交后失效）');
-    } catch (e) { Clinic.toast.warning('本地存储不可用，草稿保存失败'); }
+    if (cur.status !== 'registered') { Clinic.toast.warning('已提交报告以库内正式内容为准，不支持草稿'); return; }
+    if (imgDraftWrite(cur, f.value, c.value)) Clinic.toast.success('草稿已暂存（仅本机，提交后失效）');
+    else Clinic.toast.warning('本地存储不可用，草稿保存失败');
 }
 
 /* 提交审核（当前阶段直接生成报告，与经典模式 save_result 同一后端） */
 var IMG_PUBLISHING = false;
 function imgPublish() {
-    var cur = imgCurWritable();
-    if (!cur || IMG_PUBLISHING) return;
+    var cur = window.__imgCurItem;
+    if (!cur) { Clinic.toast.warning('当前无待书写报告的检查项目'); return; }
+    if (cur.status !== 'registered') { Clinic.toast.warning('该报告已提交，如需修改请先申请撤回'); return; }
+    if (IMG_PUBLISHING) return;
     var findings = (document.getElementById('pacsFindings') || {}).value || '';
     var conclusion = (document.getElementById('pacsConclusion') || {}).value || '';
     if (!findings.trim()) { Clinic.toast.warning('请填写影像学表现'); return; }
@@ -452,7 +556,7 @@ function imgPublish() {
         loading: true,
         onSuccess: function (json) {
             IMG_PUBLISHING = false;
-            try { localStorage.removeItem(IMG_DRAFT_KEY + cur.id); } catch (e) { /* 忽略 */ }
+            imgDraftClear(cur);   // 提交成功清除本地草稿（正式报告以库内为准）
             finishImgPublish(json);
         },
         onError: function () { IMG_PUBLISHING = false; },

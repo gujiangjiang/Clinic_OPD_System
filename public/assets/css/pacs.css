@@ -138,6 +138,23 @@
     gap: 8px;
     padding-right: 2px;
 }
+/* 检查类别小分隔（DR / CT / US 分组标题） */
+.pacs-series-sep {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    padding: 4px 2px 2px;
+    letter-spacing: .06em;
+}
+.pacs-series-sep::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
 .pacs-series-item {
     border: 1px solid var(--border);
     border-radius: 8px;
