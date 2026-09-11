@@ -36,6 +36,7 @@ class Router {
         '/admin/dashboard'   => array('admin/dashboard.php',    array('admin')),
         '/admin/settings'    => array('admin/settings.php',     array('admin')),
         '/admin/integration' => array('admin/integration.php',  array('admin')),
+        '/admin/imagerefs'   => array('admin/imagerefs.php',    array('admin', 'imaging')),
         '/admin/departments' => array('admin/departments.php',  array('admin')),
         '/admin/users'       => array('admin/users.php',        array('admin')),
         // 检验 / 检查项目分开管理（检验支持组合检验；检查无成组逻辑）

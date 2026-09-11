@@ -189,6 +189,8 @@ function renderImgIntegrated(data) {
     imgRightTab(cur && (cur.status === 'registered') ? 'write' : (cur ? 'write' : 'clin'));
     // 报告模板下拉：接入现有影像科模板（与经典模态框同一数据源）
     if (cur && cur.status !== 'paid') loadPacsTpls();
+    // 服务端草稿回填（跨设备：本地无草稿时拉取）
+    imgDraftRemoteFill(cur);
     // 历史报告调阅（仅挂载一次；切患者时重新挂载）
     mountImgHistory(p);
 }
@@ -267,6 +269,8 @@ function pacsPickSeries(el, itemId) {
     if (foot) foot.innerHTML = imgFootBar(it);
     // 模板下拉随新撰写区重建
     loadPacsTpls();
+    // 服务端草稿回填（跨设备：本地无草稿时拉取）
+    imgDraftRemoteFill(it);
 }
 
 /* 左下角检查信息卡（动态更新，优化项7） */
@@ -445,7 +449,8 @@ function doImgRegisterOrderGate(orderId) {
     }, { title: '登记检查', okText: '确认登记' });
 }
 
-/* 草稿读写（localStorage，按项目 id 存取；提交成功即清除） */
+/* 草稿读写（服务端同步为主 + localStorage 兜底；提交成功即清除）
+   服务端草稿随登录账号跨设备保留（draft_save/draft_load/draft_clear） */
 function imgDraftKey(it) { return 'clinic_img_draft_' + (it ? it.id : ''); }
 function imgDraftRead(it) {
     if (!it) return null;
@@ -454,11 +459,35 @@ function imgDraftRead(it) {
 function imgDraftWrite(it, findings, conclusion) {
     try {
         localStorage.setItem(imgDraftKey(it), JSON.stringify({ findings: findings, conclusion: conclusion, at: Date.now() }));
-        return true;
-    } catch (e) { return false; }
+    } catch (e) { /* 本地不可用，仅服务端 */ }
+    Clinic.ajax('/api/imaging', { action: 'draft_save', item_id: it.id, findings: findings, conclusion: conclusion }, { loading: false });
+    return true;
 }
 function imgDraftClear(it) {
     try { localStorage.removeItem(imgDraftKey(it)); } catch (e) { /* 忽略 */ }
+    if (it && it.id) Clinic.ajax('/api/imaging', { action: 'draft_clear', item_id: it.id }, { loading: false });
+}
+
+/** 服务端草稿异步回填（撰写区重建后调用）：
+    本地草稿优先（renderImgIntegrated 已回填），输入框为空时再拉服务端草稿填充 */
+function imgDraftRemoteFill(it, idPrefix) {
+    idPrefix = idPrefix || 'pacs';
+    if (!it || it.status !== 'registered') return;
+    if (imgDraftRead(it) && (imgDraftRead(it).findings || imgDraftRead(it).conclusion)) return;   // 本地已有
+    Clinic.get('/api/imaging?action=draft_load&item_id=' + encodeURIComponent(it.id), null, {
+        loading: false,
+        onSuccess: function (json) {
+            var d = (json.data || {}).draft;
+            if (!d || (!d.findings && !d.conclusion)) return;
+            var fEl = document.getElementById(idPrefix + 'Findings');
+            var cEl = document.getElementById(idPrefix + 'Conclusion');
+            if (!fEl || !cEl) return;
+            var touched = false;
+            if (!fEl.value.trim() && d.findings) { fEl.value = d.findings; touched = true; }
+            if (!cEl.value.trim() && d.conclusion) { cEl.value = d.conclusion; touched = true; }
+            if (touched) Clinic.toast.success('已恢复服务端草稿（跨设备同步）');
+        },
+    });
 }
 
 /* 历史报告页签（挂载容器；组件化渲染见 pacshistory.js） */
@@ -607,15 +636,15 @@ function imgWithdrawReq() {
     imgWithdraw(cur.report_id);
 }
 
-/* 保存草稿：localStorage 暂存（刷新自动回填，提交成功清除；优化项6） */
+/* 保存草稿：服务端同步 + 本地兜底（刷新/换设备自动回填；提交后清除） */
 function imgDraftSave() {
     var cur = window.__imgCurItem;
     var f = document.getElementById('pacsFindings');
     var c = document.getElementById('pacsConclusion');
     if (!cur || !f || !c) { Clinic.toast.warning('暂无可保存的报告内容'); return; }
     if (cur.status !== 'registered') { Clinic.toast.warning('已提交报告以库内正式内容为准，不支持草稿'); return; }
-    if (imgDraftWrite(cur, f.value, c.value)) Clinic.toast.success('草稿已暂存（仅本机，提交后失效）');
-    else Clinic.toast.warning('本地存储不可用，草稿保存失败');
+    imgDraftWrite(cur, f.value, c.value);
+    Clinic.toast.success('草稿已保存（服务端同步，跨设备保留）');
 }
 
 /* 提交审核（当前阶段直接生成报告，与经典模式 save_result 同一后端） */

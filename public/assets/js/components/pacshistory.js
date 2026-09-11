@@ -164,6 +164,14 @@ Clinic.pacsHistory = (function () {
             '<div class="hist-field-text">' + esc(r.audit_doctor || '—') + '</div></div>' +
             '<div class="hist-field"><div class="hist-field-label">报告状态</div>' +
             '<div class="hist-field-text">' + esc(r.status_name || '—') + '</div></div>' +
+            // 影像调阅直链（引用架构：跳 Web 阅片器查看历史影像）
+            (r.viewer_url
+                ? '<div class="hist-field"><div class="hist-field-label">影像调阅</div>' +
+                  '<div class="hist-field-text" style="display:flex;align-items:center;gap:8px">' +
+                  '<span class="fs-12 text-muted" style="font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1" title="' + esc(r.study_uid || '') + '">' + esc(r.study_uid || '—') + '</span>' +
+                  '<button type="button" class="btn btn-outline btn-sm pacs-hist-copy" data-view="' + esc(r.viewer_url) + '" title="在新窗口打开 Web 阅片器调阅该次影像">🔍 调阅影像</button>' +
+                  '</div></div>'
+                : '') +
             copyField('影像表现', 'findings', r.findings, state) +
             copyField('影像诊断', 'conclusion', r.conclusion, state);
         el.appendChild(head);
@@ -182,10 +190,15 @@ Clinic.pacsHistory = (function () {
             '<div class="hist-field-text">' + esc(safe !== '' ? safe : '—') + '</div></div>';
     }
 
-    /* 一键复制：事件委托（复制按钮动态生成，统一在容器上委托） */
+    /* 一键复制 / 影像调阅：事件委托（按钮动态生成，统一在容器上委托） */
     document.addEventListener('click', function (e) {
         var btn = e.target.closest ? e.target.closest('.pacs-hist-copy') : null;
         if (!btn) return;
+        // 影像调阅直链：新窗口打开 Web 阅片器
+        if (btn.hasAttribute('data-view')) {
+            window.open(btn.getAttribute('data-view'), '_blank', 'noopener');
+            return;
+        }
         var field = btn.closest('.hist-field');
         var item = btn.closest('.pacs-hist-item');
         if (!field || !item) return;

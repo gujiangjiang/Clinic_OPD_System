@@ -255,7 +255,7 @@ switch ($action) {
             array($patientNo)
         );
         $rows = OrderRepository::q(
-            "SELECT rp.*, oi.item_name, oi.visit_id AS item_visit_id, oi.executed_at
+            "SELECT rp.*, oi.id AS order_item_id, oi.item_name, oi.visit_id AS item_visit_id, oi.executed_at
              FROM reports rp
              LEFT JOIN results rs ON rs.id = rp.result_id
              LEFT JOIN order_items oi ON oi.id = rs.order_item_id
@@ -281,6 +281,15 @@ switch ($action) {
                 $itemName = (string)$r['category_name'] . '检查';
             }
             $statusName = ((string)$r['status'] === 'withdrawn') ? '已撤回' : '已发布';
+            // 影像调阅直链（第13项）：影像引用存在且配置了阅片器模板 → 历史详情可直达阅片
+            $studyUid = '';
+            if ((int)$r['order_item_id'] > 0) {
+                $ref = ImagingRepository::refByItem((int)$r['order_item_id']);
+                if ($ref) $studyUid = (string)$ref['study_uid'];
+            }
+            if ($studyUid === '') $studyUid = (string)$r['report_no'];   // 占位回退（报告号）
+            $tpl = trim((string)setting('pacs_viewer_url', ''));
+            $viewerUrl = $tpl !== '' ? str_replace('{study_uid}', rawurlencode($studyUid), $tpl) : '';
             $list[] = array(
                 // 报告基本信息（只读）
                 'report_id' => oid((int)$r['id']),
@@ -294,6 +303,9 @@ switch ($action) {
                 'status' => (string)$r['status'],
                 'status_name' => $statusName,
                 'apply_dept' => (string)$r['apply_dept'],
+                // 影像调阅（第13项：只存引用 → 阅片器直链）
+                'study_uid' => $studyUid,
+                'viewer_url' => $viewerUrl,
                 // 报告详情（只读；仅以下两字段允许前端提供复制到当前报告）
                 'findings' => $findings,
                 'conclusion' => $conclusion,
@@ -353,6 +365,97 @@ switch ($action) {
             'series_count' => $seriesCount,
             'from_ref' => (bool)$ref,
         ));
+        break;
+
+    /* ==================== 报告草稿（服务端同步，跨设备跨浏览器保留） ====================
+     * 说明：localStorage 草稿仅本机有效（换设备/清缓存丢失），升级为服务端
+     * 草稿：settings 键值对存储（img_draft_{uid}_{itemId}），随登录会话同步；
+     * 仅本人可读写（键内含 uid），登记/提交状态由 save_result 主流程兜底校验。 */
+    case 'draft_save':
+        $itemId = did(post('item_id'));
+        if ($itemId <= 0) json_fail('缺少检查项目标识');
+        $findings = (string)post('findings', '');
+        $conclusion = (string)post('conclusion', '');
+        // 项目归属校验（防跨患者写草稿）：项目须属于影像类型且本人可访问该就诊
+        $it = OrderRepository::one("SELECT * FROM order_items WHERE id=? AND item_type='imaging'", array($itemId));
+        if (!$it) json_fail('检查项目不存在');
+        $rv = get_visit_row((int)$it['visit_id']);
+        if (!$rv || !dept_visit_allowed($rv['visit'], $u)) json_fail('无权限操作该就诊');
+        set_setting('img_draft_' . (int)$u['id'] . '_' . $itemId, json_encode(array(
+            'findings' => $findings, 'conclusion' => $conclusion, 'at' => now_str(),
+        ), JSON_UNESCAPED_UNICODE));
+        json_ok(array(), '草稿已同步到服务端（跨设备保留）');
+        break;
+
+    case 'draft_load':
+        $itemId = did(get('item_id'));
+        if ($itemId <= 0) json_ok(array('draft' => null));
+        $it = OrderRepository::one("SELECT visit_id FROM order_items WHERE id=? AND item_type='imaging'", array($itemId));
+        if (!$it) json_ok(array('draft' => null));
+        $rv = get_visit_row((int)$it['visit_id']);
+        if (!$rv || !dept_visit_allowed($rv['visit'], $u)) json_ok(array('draft' => null));
+        $raw = setting('img_draft_' . (int)$u['id'] . '_' . $itemId, '');
+        $draft = $raw !== '' ? json_decode($raw, true) : null;
+        json_ok(array('draft' => is_array($draft) ? $draft : null));
+        break;
+
+    case 'draft_clear':
+        $itemId = did(post('item_id'));
+        if ($itemId > 0) {
+            DB::exec('DELETE FROM settings WHERE skey=?', array('img_draft_' . (int)$u['id'] . '_' . $itemId));
+        }
+        json_ok(array(), '草稿已清除');
+        break;
+
+    /* ==================== 影像引用查询（管理端/影像科，只存引用架构视图） ==================== */
+    case 'refs_list':
+        if (!in_array($u['role'], array('admin', 'imaging'), true)) json_fail('无权限查看影像引用');
+        $kw = trim((string)get('kw', ''));
+        $page = max(1, (int)get('page', 1));
+        $pageSize = 20;
+        $where = '1=1';
+        $params = array();
+        if ($kw !== '') {
+            // 检索口径：流水号 / 患者编号 / 报告号（引用元数据内）/ 申请单号——三单匹配键
+            $where .= ' AND (ir.flow_no LIKE ? OR ir.patient_no LIKE ? OR o.order_no LIKE ?)';
+            $like = '%' . $kw . '%';
+            $params = array($like, $like, $like);
+        }
+        $total = (int)OrderRepository::val(
+            "SELECT COUNT(*) FROM imaging_refs ir LEFT JOIN orders o ON o.id=ir.order_id WHERE $where",
+            $params
+        );
+        $rows = OrderRepository::q(
+            "SELECT ir.*, o.order_no, o.category_name, oi.item_name, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
+             FROM imaging_refs ir
+             LEFT JOIN orders o ON o.id=ir.order_id
+             LEFT JOIN order_items oi ON oi.id=ir.order_item_id
+             LEFT JOIN patients p ON p.patient_no=ir.patient_no
+             WHERE $where
+             ORDER BY ir.id DESC
+             LIMIT ? OFFSET ?",
+            array_merge($params, array($pageSize, ($page - 1) * $pageSize))
+        );
+        $list = array();
+        foreach ($rows as $r) {
+            $list[] = array(
+                'id' => oid((int)$r['id']),
+                'flow_no' => (string)$r['flow_no'],
+                'patient_no' => (string)$r['patient_no'],
+                'patient_name' => (string)$r['pname'],
+                'gender' => (string)$r['pgender'],
+                'age_fmt' => age_format($r['pbirth']),
+                'order_no' => (string)$r['order_no'],
+                'item_name' => (string)$r['item_name'],
+                'study_uid' => (string)$r['study_uid'],
+                'modality' => (string)$r['modality'],
+                'region' => (string)$r['region'],
+                'instance_count' => (int)$r['instance_count'],
+                'created_by' => (string)$r['created_by'],
+                'created_at' => (string)$r['created_at'],
+            );
+        }
+        json_ok(array('list' => $list, 'total' => $total, 'has_more' => ($page * $pageSize) < $total));
         break;
 
     default:
