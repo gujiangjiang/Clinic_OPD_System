@@ -141,7 +141,9 @@ function renderImgIntegrated(data) {
         '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'翻转\')">⇋ 翻转</button>' +
         '    <span class="pacs-tool-sep"></span>' +
         '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'重置\')">↺ 重置</button>' +
-        '    <span style="margin-left:auto" class="fs-12 text-muted">工具栏占位（DICOM Viewer 接入后生效）</span>' +
+        '    <span class="pacs-tool-sep"></span>' +
+        '    <button type="button" class="btn btn-primary btn-sm" style="font-size:12px" onclick="pacsOpenViewer()">🪟 内嵌阅片器</button>' +
+        '    <span style="margin-left:auto" class="fs-12 text-muted">工具栏占位（Web 阅片器接入后生效：窗宽窗位 / 缩放平移 / 多序列 / MPR / 测量标注）</span>' +
         '  </div>' +
         '  <div class="pacs-viewer-stage">' +
         '    <div class="pacs-viewer-mount" id="pacsViewerMount"></div>' +
@@ -300,6 +302,27 @@ function imgInfoCardInner(it) {
 function pacsTool(name) {
     var tl = document.getElementById('pacsTagL');
     if (tl) tl.textContent = '> 工具：' + name + '（占位交互，Viewer 接入后生效）';
+}
+
+/* 内嵌 Web 阅片器（优化项3）：按当前序列取阅片器地址（影像引用优先），
+   已配置则以 iframe 挂载到读片视窗（无插件、支持窗宽窗位/多序列/MPR/测量） */
+function pacsOpenViewer() {
+    var cur = window.__imgCurItem;
+    if (!cur) { Clinic.toast.warning('请先在左侧选择检查序列'); return; }
+    Clinic.get('/api/imaging?action=viewer_url&item_id=' + encodeURIComponent(cur.id), null, {
+        onSuccess: function (json) {
+            var d = json.data || {};
+            var mount = document.getElementById('pacsViewerMount');
+            if (!mount) return;
+            var ph = document.getElementById('pacsViewerPh');
+            mount.innerHTML = '<iframe src="' + Clinic.escHtml(d.url) + '" style="width:100%;height:100%;border:0;border-radius:10px" ' +
+                'title="Web 阅片器" allow="fullscreen"></iframe>';
+            if (ph) ph.style.display = 'none';
+            var tl = document.getElementById('pacsTagL');
+            if (tl) tl.textContent = '> 阅片器已挂载 · Study ' + Clinic.escHtml(d.study_uid || '');
+            Clinic.toast.success('阅片器已内嵌挂载' + (d.region ? '（影像区域：' + Clinic.escHtml(d.region) + '）' : ''));
+        },
+    });
 }
 
 /* ---------- 右栏页签 ---------- */

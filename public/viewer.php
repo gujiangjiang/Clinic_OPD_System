@@ -62,6 +62,7 @@ $hosp = setting('hospital_name', '门诊一体化系统');
     <div class="pacs-solo-foot">
         <button type="button" class="pacs-tool-btn" onclick="soloFit()">⤢ 适应窗口</button>
         <button type="button" class="pacs-tool-btn" onclick="soloReset()">↺ 重置</button>
+        <button type="button" class="pacs-tool-btn" onclick="soloEmbed()">🪟 内嵌阅片器</button>
         <button type="button" class="pacs-tool-btn" onclick="window.close()">✕ 关闭视窗</button>
         <span class="solo-sub" style="margin-left:auto;align-self:center" id="soloSyncState"></span>
     </div>
@@ -129,9 +130,45 @@ function applyContext(ctx) {
     if (LOCKED) return;
     if (!ctx) return;
     var changedVisit = ctx.visit && ctx.visit !== CURRENT.visit;
+    var changedItem = ctx.item && ctx.item !== CURRENT.item;
     CURRENT = { visit: ctx.visit || CURRENT.visit, item: ctx.item || '', label: ctx.label || '' };
     if (changedVisit && CURRENT.visit) loadSoloPatient(CURRENT.visit);
     else if (CURRENT.label) paintTag(CURRENT.label);
+    // 序列切换 → 自动重挂阅片器（已配置 pacs_viewer_url 时；优化项12）
+    if (changedItem && CURRENT.item) soloEmbed(true);
+}
+
+/* 内嵌 Web 阅片器（优化项3）：无插件、窗宽窗位/缩放平移/多序列/MPR/测量
+   由阅片器自身提供；影像本体走区域影像存储（WADO-RS/DICOMweb） */
+function soloEmbed(silent) {
+    if (LOCKED) return;
+    if (!CURRENT.item) { if (!silent) CliniclessToast('请先在主系统选择检查序列'); return; }
+    fetch('/api/imaging?action=viewer_url&item_id=' + encodeURIComponent(CURRENT.item), {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    }).then(function (r) {
+        if (r.status === 401) { lockViewer(); return null; }
+        return r.json();
+    }).then(function (j) {
+        if (!j || !j.ok) { if (!silent && j && j.msg) paintMain(j.msg); return; }
+        var d = j.data || {};
+        var mount = document.getElementById('soloMount');
+        if (mount) {
+            mount.innerHTML = '<iframe src="' + escHtmlAttr(d.url) + '" style="width:100%;height:100%;border:0" title="Web 阅片器" allow="fullscreen"></iframe>';
+        }
+        var ph = document.getElementById('soloPlaceholder');
+        if (ph) ph.style.display = 'none';
+        var tl = document.getElementById('soloTagL');
+        if (tl) tl.textContent = '> 阅片器已挂载 · Study ' + (d.study_uid || '');
+    }).catch(function () { /* 网络失败保持占位 */ });
+}
+
+function CliniclessToast(msg) { paintMain(msg); }
+function paintMain(msg) {
+    var m = document.getElementById('phMain');
+    if (m) m.textContent = msg;
+}
+function escHtmlAttr(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
 function paintTag(label) {
