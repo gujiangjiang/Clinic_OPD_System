@@ -713,15 +713,31 @@
     flex-shrink: 0;
 }
 .dept-wait-name { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dept-wait-gender, .dept-wait-age { color: #a8c8e8; flex-shrink: 0; }
+/* 性别/年龄/就诊科室：列宽由 JS 探针测量（--dept-*-w），各行共用 → 纵向对齐 */
+.dept-wait-gender {
+    color: #a8c8e8;
+    flex-shrink: 0;
+    width: var(--dept-gender-w, auto);
+    text-align: center;
+}
+.dept-wait-age {
+    color: #a8c8e8;
+    flex-shrink: 0;
+    width: var(--dept-age-w, auto);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
 .dept-wait-dept {
     color: #7CFC98;
     flex-shrink: 0;
+    width: var(--dept-dept-w, auto);
+    text-align: center;
     background: rgba(124, 252, 152, .10);
     border-radius: clamp(4px, 0.6cqmin, 10px);
     padding: clamp(2px, 0.4cqmin, 6px) clamp(6px, 1cqmin, 14px);
     font-size: .9em;
     white-space: nowrap;
+    box-sizing: border-box;
 }
 .dept-wait-empty {
     flex: 1;

@@ -402,6 +402,42 @@
         set('--wait-age-w', ageW);
     }
 
+    /* 医技队列共享列宽（与医生端 measureWaitColumns 同思路）：
+       用同字号隐藏探针行取各列最长内容，测出自然宽度设为 --dept-*-w 变量，
+       所有行共用列宽 → 序号/姓名/性别/年龄/就诊科室 全部纵向对齐。 */
+    function measureDeptColumns(listEl, wait) {
+        if (!listEl || !wait || !wait.length) return;
+        var longest = function (fn) {
+            var t = '';
+            for (var i = 0; i < wait.length; i++) {
+                var v = String(fn(wait[i]) || '');
+                if (v.length > t.length) t = v;
+            }
+            return t;
+        };
+        var genderText = longest(function (w) { return w.gender || ''; });
+        var ageText = longest(function (w) { return w.age_fmt || ''; });
+        var deptText = longest(function (w) { return w.dept_name || ''; });
+        var probe = document.createElement('div');
+        probe.className = 'dept-wait-item';
+        probe.style.cssText = 'position:absolute;visibility:hidden;top:0;left:0;pointer-events:none';
+        // 探针各列 width:auto，避免沿用上一轮测得的固定列宽导致测不准
+        probe.innerHTML = '<span class="dept-wait-seq">000</span>' +
+            '<span class="dept-wait-name">测</span>' +
+            '<span class="dept-wait-gender" style="width:auto">' + genderText + '</span>' +
+            '<span class="dept-wait-age" style="width:auto">' + ageText + '</span>' +
+            '<span class="dept-wait-dept" style="width:auto">' + deptText + '</span>';
+        listEl.appendChild(probe);
+        var genderW = probe.children[2].getBoundingClientRect().width;
+        var ageW = probe.children[3].getBoundingClientRect().width;
+        var deptW = probe.children[4].getBoundingClientRect().width;
+        listEl.removeChild(probe);
+        var set = function (k, v) { if (v > 0) listEl.style.setProperty(k, (Math.ceil(v) + 4) + 'px'); };
+        set('--dept-gender-w', genderW);
+        set('--dept-age-w', ageW);
+        set('--dept-dept-w', deptW);
+    }
+
     /* 医技大屏（lab/imaging/pharmacy/nurse）：三种尺寸重设计
      * 竖屏：上半 当前患者（标签+姓名换行）→ 下半 排队队列（姓名/性别/年龄/开单科室）
      * 方屏：同竖屏但上半更小、当前患者文字横排「当前患者 XXX」
@@ -461,6 +497,8 @@
             renderDoctorMode(d);   // 内部自行写入 screenMain + 动态裁剪等待就诊
         } else {
             main.innerHTML = renderDeptMode(d);
+            // 共享列宽：性别/年龄/就诊科室 各列纵向对齐
+            measureDeptColumns(main.querySelector('.dept-wait-list'), d.waiting || []);
         }
 
         // 医生信息字号动态适配（渲染后测量单元格尺寸）
