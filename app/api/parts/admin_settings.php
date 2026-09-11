@@ -56,9 +56,7 @@ function admin_part_settings($action) {
         set_setting('hospital_name2', post('hospital_name2'));
         // 页脚版权：固定格式自动生成【© 年份 医院名称 版权所有】，不再手动保存
         set_setting('timezone', $tz);
-        // HIS 预留接口密钥（可为空=关闭外部接口）
-        $hisKey = post('his_api_key', '');
-        set_setting('his_api_key', $hisKey);
+        // HIS 接口密钥已迁移至【外部接口集成】（action=integration_save）统一维护
         // 登录安全：验证码启用模式（off/auto/force）与锁定阈值（3-10）
         $captchaMode = post('login_captcha_mode', 'auto');
         if (!in_array($captchaMode, opt_list('login_captcha_mode'), true)) $captchaMode = 'auto';
@@ -110,6 +108,29 @@ function admin_part_settings($action) {
             'pm' => $eff['pm_start'] . ' ~ ' . $eff['pm_end'],
             'is_dst' => $eff['is_dst'],
         )), '作息时间已保存' . ($eff['is_dst'] === '1' ? '（当前处于夏令时区间，已按夏令时作息执行）' : ''));
+    }
+
+    /* ==================== 外部接口集成：分组保存 ====================
+     * 说明：字段字典统一由 integration_field_groups() 提供（视图渲染与
+     * 保存白名单共用同一数据源，杜绝两处维护漂移）；原系统设置中的
+     * HIS 密钥（his_api_key）随迁移一并由本入口维护。
+     * key 白名单 = 当前分组字典字段；未在字典中的提交字段一律丢弃。 */
+    if ($action === 'integration_save') {
+        $group = integration_group(post('group', ''));
+        if (!$group) json_fail('未知的接口分组');
+        $saved = array();
+        foreach ($group['fields'] as $f) {
+            $raw = post($f['key'], null);
+            if ($raw === null) continue;   // 未提交的字段不覆盖（分组保存互不干扰）
+            $val = trim((string)$raw);
+            // 端口类字段仅允许数字
+            if ($f['key'] === 'pacs_server_port' && $val !== '' && !preg_match('/^\d{1,5}$/', $val)) {
+                json_fail('PACS 端口格式不正确（1-65535 数字）');
+            }
+            set_setting($f['key'], $val);
+            $saved[] = $f['key'];
+        }
+        json_ok(array('saved' => $saved), '「' . $group['title'] . '」配置已保存');
     }
 
     /* ==================== 上传医院 LOGO（同时作为 favicon） ==================== */

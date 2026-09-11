@@ -58,6 +58,8 @@ switch ($action) {
     case 'stats':
     case 'settings':
     case 'work_save':
+    // 外部接口集成（HIS/支付/医保/PACS/HL7/FHIR 分组保存）
+    case 'integration_save':
     case 'upload_logo':
     case 'print_items':
     case 'print_visits':

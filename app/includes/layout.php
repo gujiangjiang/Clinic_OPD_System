@@ -39,6 +39,9 @@ class Layout {
                 array('打印中心', '🖨️', '/admin/printcenter'),
                 array('叫号管理', '🖥️', '/admin/callmanage'),
             );
+            $items['外部接口集成'] = array(
+                array('外部接口集成', '🔌', '/admin/integration'),
+            );
             $items['系统'] = array(
                 array('系统设置', '⚙️', '/admin/settings'),
             );

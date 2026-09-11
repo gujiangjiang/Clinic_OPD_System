@@ -23,7 +23,8 @@ foreach ($commonTz as $t) {
 }
 ?>
 <div class="page-head">
-    <div><div class="page-title">⚙️ 系统设置</div><div class="page-desc">按类别分区管理医院基础信息、品牌外观、作息时间与安全设置</div></div>
+    <div><div class="page-title">⚙️ 系统设置</div><div class="page-desc">按类别分区管理医院基础信息、品牌外观、作息时间与安全设置<br>
+    HIS / 支付 / 医保 / DICOM-PACS / HL7 / FHIR 等外部接口已迁移至 <a href="/admin/integration" style="color:var(--primary)">🔌 外部接口集成</a> 统一维护</div></div>
 </div>
 
 <div class="setting-grid">
@@ -39,18 +40,6 @@ foreach ($commonTz as $t) {
             <select class="select" id="s_tz"><?php echo $tzOpts; ?></select></div>
         <div class="fs-12 text-muted mb-12">页脚版权信息为固定格式，自动显示为【© <?php echo date('Y'); ?> <?php echo e(setting('hospital_name')); ?> 版权所有】。</div>
         <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
-    </div>
-
-    <!-- ===== HIS 接口信息 ===== -->
-    <div class="card setting-card">
-        <div class="card-title">🔌 HIS 接口信息</div>
-        <div class="form-group"><label class="form-label">预留接口密钥（留空则关闭外部接口）</label>
-            <div class="flex gap-8">
-                <input class="input" id="s_his_key" value="<?php echo e(setting('his_api_key')); ?>" placeholder="留空 = 关闭 HIS 外部接口" style="font-family:monospace">
-                <button class="btn btn-outline btn-sm" onclick="genHisKey()">生成密钥</button>
-            </div>
-            <div class="fs-12 text-muted mt-4">接口地址：/api/his（GET，携带 api_key 参数或 X-HIS-Key 请求头），仅提供只读查询。</div></div>
-        <button class="btn btn-primary btn-sm" onclick="saveSettings()">保存</button>
     </div>
 
     <!-- ===== 品牌外观 ===== -->
@@ -263,16 +252,7 @@ function saveWork() {
     });
 }
 
-/* 生成随机 HIS 接口密钥 */
-function genHisKey() {
-    var arr = new Uint8Array(16);
-    (window.crypto || window.msCrypto).getRandomValues(arr);
-    var key = Array.prototype.map.call(arr, function (b) {
-        return ('0' + b.toString(16)).slice(-2);
-    }).join('');
-    document.getElementById('s_his_key').value = key;
-    Clinic.toast.success('已生成密钥，请点击【保存设置】生效');
-}
+/* ---------- HIS 密钥迁移：已移至【外部接口集成】（/admin/integration）统一维护 ---------- */
 
 /* ---------- URL 安全混淆密钥管理 ---------- */
 var OBF_SECRET = '';
@@ -329,7 +309,6 @@ function saveSettings() {
         hospital_name: hosp,
         hospital_name2: document.getElementById('s_hosp2').value.trim(),
         timezone: document.getElementById('s_tz').value,
-        his_api_key: document.getElementById('s_his_key').value.trim(),
         login_captcha_mode: document.getElementById('s_captcha_mode').value,
         login_fail_lock_count: String(lockCount),
     }, {
