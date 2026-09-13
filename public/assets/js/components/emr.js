@@ -1976,7 +1976,7 @@ Clinic.emr = (function () {
             openLabRefPicker(reportId, d);
         } else {
             var conclusion = String(d.conclusion || '').replace(/\s+/g, ' ').trim();
-            appendAuxResult(dtText(d) + ' ' + (d.item_name || '检查') + '：' + conclusion + '。');
+            appendAuxResult(dtText(d) + ' ' + (d.item_name || '检查') + '：' + conclusion);
             Clinic.modal.closeAll();
         }
     }
@@ -1988,17 +1988,18 @@ Clinic.emr = (function () {
     }
 
     /** 追加文案到病历【请填写辅助检查结果】字段（contenteditable），不覆盖已有内容。
-     * 已有内容若以句号结尾则先去掉句号再以「，」衔接，避免出现「。，」叠字；
-     * 新文案始终以「。」结尾，与下一字段【请填写外院辅助检查结果】自然衔接。 */
+     * 引用结果始终追加在字段末尾（最后一位），默认不带标点——不影响后续
+     * 【请填写外院辅助检查结果】的输入衔接；已有内容以句号结尾先去掉句号再以「，」衔接。 */
     function appendAuxResult(text) {
         var f = document.querySelector('#docBody [data-k="aux_result"]');
         if (!f) { Clinic.toast.warning('当前病历不可编辑，无法引用结果'); return; }
         var cur = f.innerText.replace(/\u00a0/g, ' ').trim();
+        var newText = text.replace(/。+$/, '');
         if (cur) {
             var base = cur.replace(/。+$/, '');
-            f.innerText = base + '，' + text;
+            f.innerText = base + '，' + newText;
         } else {
-            f.innerText = text;
+            f.innerText = newText;
         }
         f.dispatchEvent(new Event('input', { bubbles: true }));
         try { f.focus(); } catch (e) {}
@@ -2079,7 +2080,7 @@ Clinic.emr = (function () {
         }
         if (!parts.length) { Clinic.toast.warning('请至少勾选一项检验结果'); return; }
         Clinic.modal.closeAll();
-        appendAuxResult(dtText(d) + ' ' + parts.join('，') + '。');
+        appendAuxResult(dtText(d) + ' ' + parts.join('，'));
     }
 
     /**
