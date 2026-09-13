@@ -74,10 +74,8 @@ Clinic.emr.orders = (function () {
      * 开单是法律快照：退费项目同样渲染（病历客观记录开单事实，不标注费用状态）
      */
     function itemToken(o, it, extra) {
-        var suffix = '';
-        if ((o.order_type === 'lab' || o.order_type === 'imaging') && it.report_id) suffix = '（已出报告）';
         return '<span class="emr-item-link" data-otype="' + o.order_type + '" data-oid="' + o.id + '" data-iid="' + it.id + '">' +
-            escHtml(it.item_name) + (extra || '') + suffix + '</span>';
+            escHtml(it.item_name) + (extra || '') + '</span>';
     }
 
     /**
