@@ -90,8 +90,8 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
                 <div class="itg-his-addr">
                     <div class="itg-his-addr-head">
                         <div>
-                            <div class="fw-600 fs-13">🌐 HIS 接口地址（自动生成 · 实时更新）</div>
-                            <div class="fs-12 text-muted mt-2">外部 HIS 系统调用本系统的接口地址，按当前访问地址自动生成并附带密钥；密钥变化时地址实时刷新。</div>
+                            <div class="fw-600 fs-13">🌐 HIS 接口地址（自动生成 · 保存后更新）</div>
+                            <div class="fs-12 text-muted mt-2">外部 HIS 系统调用本系统的接口地址，按当前访问地址自动生成并附带密钥；修改密钥后点击【保存本组配置】自动刷新。</div>
                         </div>
                         <button type="button" class="btn btn-outline btn-sm" onclick="copyHisUrl()">📋 复制地址</button>
                     </div>
@@ -99,24 +99,6 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
                         if ($hisKeyNow !== '') { echo e($hisApiBase . '?action=ping&api_key=' . $hisKeyNow); }
                         else { echo '<span class="itg-his-url-ph">请先填写接口密钥并保存，地址将自动生成</span>'; }
                     ?></code>
-                </div>
-                <div class="itg-his-docs">
-                    <div class="fw-600 fs-13 mb-8">📖 接口说明（外部系统调用）</div>
-                    <div class="table-wrap"><table class="table">
-                        <thead><tr><th>action</th><th>参数</th><th>说明</th></tr></thead>
-                        <tbody>
-                            <tr><td><code>ping</code></td><td>无</td><td>连通性自检，返回系统标识、系统代码与服务器时间</td></tr>
-                            <tr><td><code>patient_get</code></td><td><code>id_card</code> 或 <code>patient_no</code></td><td>查询患者档案</td></tr>
-                            <tr><td><code>visit_list</code></td><td><code>patient_no</code></td><td>该患者全部就诊记录</td></tr>
-                            <tr><td><code>visit_status</code></td><td><code>flow_no</code></td><td>查询某次就诊状态</td></tr>
-                            <tr><td><code>order_list</code></td><td><code>visit_id</code></td><td>某次就诊的开单明细</td></tr>
-                        </tbody>
-                    </table></div>
-                    <div class="fs-12 text-muted mt-8 mb-4">调用示例（GET，密钥实时更新）：</div>
-                    <div class="itg-his-curl">
-                        <code id="hisCurlDemo"></code>
-                        <button type="button" class="btn btn-outline btn-sm" title="复制 curl 示例" onclick="copyHisCurl()">📋</button>
-                    </div>
                 </div>
                 <button class="btn btn-primary btn-sm" onclick="itgSave('his')">保存本组配置</button>
             </div>
@@ -135,6 +117,24 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
                 </div>
             </div>
         </div>
+        <div class="itg-his-docs">
+            <div class="fw-600 fs-13 mb-8">📖 接口说明（外部系统调用）</div>
+            <div class="table-wrap"><table class="table">
+                <thead><tr><th>action</th><th>参数</th><th>说明</th></tr></thead>
+                <tbody>
+                    <tr><td><code>ping</code></td><td>无</td><td>连通性自检，返回系统标识、系统代码与服务器时间</td></tr>
+                    <tr><td><code>patient_get</code></td><td><code>id_card</code> 或 <code>patient_no</code></td><td>查询患者档案</td></tr>
+                    <tr><td><code>visit_list</code></td><td><code>patient_no</code></td><td>该患者全部就诊记录</td></tr>
+                    <tr><td><code>visit_status</code></td><td><code>flow_no</code></td><td>查询某次就诊状态</td></tr>
+                    <tr><td><code>order_list</code></td><td><code>visit_id</code></td><td>某次就诊的开单明细</td></tr>
+                </tbody>
+            </table></div>
+            <div class="fs-12 text-muted mt-8 mb-4">调用示例（GET，保存密钥后随地址一并刷新）：</div>
+            <div class="itg-his-curl">
+                <code id="hisCurlDemo"></code>
+                <button type="button" class="btn btn-outline btn-sm" title="复制 curl 示例" onclick="copyHisCurl()">📋</button>
+            </div>
+        </div>
         <?php else: ?>
         <?php if ($g['id'] === 'pacs'): ?>
             <div class="fs-12 text-muted mb-12">
@@ -147,7 +147,7 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
 <?php endforeach; ?>
 
 <script>
-/* ---------- HIS 接口实时渲染（地址 + curl 示例跟随密钥动态刷新） ---------- */
+/* ---------- HIS 接口渲染（地址 + curl 示例，保存本组配置后更新） ---------- */
 var HIS_BASE = <?php echo json_encode($hisApiBase); ?>;
 var HIS_SAVED_KEY = <?php echo json_encode($hisKeyNow); ?>;
 
@@ -167,11 +167,7 @@ function renderHisLive() {
             HIS_BASE + '?action=patient_get&id_card=110101199001011234"';
     }
 }
-(function bindHisLive() {
-    var keyInp = document.getElementById('itg_his_api_key');
-    if (keyInp) keyInp.addEventListener('input', renderHisLive);
-    renderHisLive();
-})();
+renderHisLive();   // 初始渲染（按当前已保存密钥）；密钥修改仅在保存后刷新
 
 /* ---------- 生成随机 HIS 接口密钥（一键生成后点击保存生效） ---------- */
 function genHisKey() {
@@ -182,7 +178,6 @@ function genHisKey() {
     }).join('');
     var el = document.getElementById('itg_his_api_key');
     if (el) el.value = key;
-    renderHisLive();
     Clinic.toast.success('已生成密钥，请点击【保存本组配置】生效');
 }
 
