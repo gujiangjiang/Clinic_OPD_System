@@ -23,8 +23,6 @@ function integration_field_groups() {
             'id' => 'his', 'emoji' => '🏥', 'title' => 'HIS 接口',
             'desc' => '与院内 HIS 系统对接的基础配置（预留接口，密钥留空则关闭外部只读查询）',
             'fields' => array(
-                array('key' => 'his_api_url', 'label' => 'HIS API 地址', 'type' => 'input',
-                    'placeholder' => '如 http://his.hospital.local:8080/api', 'default' => '', 'monospace' => true),
                 array('key' => 'his_system_code', 'label' => '系统代码', 'type' => 'input',
                     'placeholder' => '本系统在 HIS 侧登记的系统编码', 'default' => ''),
                 array('key' => 'his_api_key', 'label' => '接口密钥（留空 = 关闭外部接口）', 'type' => 'input',

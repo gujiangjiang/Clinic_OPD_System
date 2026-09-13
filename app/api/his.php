@@ -16,8 +16,10 @@ $hisKey = (string)setting('his_api_key', '');
 if ($hisKey === '') {
     json_fail('HIS 接口未启用（请在系统设置中配置 HIS 接口密钥）');
 }
-// 仅接受请求头传递密钥：GET 参数方式会泄露至访问日志，予以移除
+// 密钥传递：推荐请求头 X-HIS-Key（不进日志/浏览器历史）；兼容仅 GET 参数方式的
+// 外部 HIS 系统，也接受 api_key 参数（会进入访问日志，风险由管理员自行评估）。
 $given = isset($_SERVER['HTTP_X_HIS_KEY']) ? trim((string)$_SERVER['HTTP_X_HIS_KEY']) : '';
+if ($given === '') $given = trim((string)get('api_key', ''));
 if ($given === '' || !hash_equals($hisKey, $given)) {
     json_fail('HIS API 密钥无效');
 }
@@ -25,6 +27,11 @@ if ($given === '' || !hash_equals($hisKey, $given)) {
 $action = isset($_REQUEST['action']) ? trim((string)$_REQUEST['action']) : '';
 
 switch ($action) {
+
+    /* ---------------- 连通性自检（接口管理页测试按钮使用，无需业务参数） ---------------- */
+    case 'ping':
+        json_ok(array('pong' => true, 'system' => 'Clinic OPD System', 'server_time' => now_str()));
+        break;
 
     /* ---------------- 患者档案查询（按身份证 / 患者ID） ---------------- */
     case 'patient_get':
@@ -99,5 +106,5 @@ switch ($action) {
         break;
 
     default:
-        json_fail('未知操作（可用：patient_get / visit_list / visit_status / order_list）');
+        json_fail('未知操作（可用：ping / patient_get / visit_list / visit_status / order_list）');
 }

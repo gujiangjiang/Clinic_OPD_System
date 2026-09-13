@@ -24,6 +24,12 @@ foreach ($groups as $g) {
         $vals[$f['key']] = setting($f['key'], $f['default']);
     }
 }
+// HIS 接口地址：本系统对外地址 + /api/his（自动生成，无需人工填写；供外部 HIS 系统调用）
+$hisApiScheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$hisApiHost = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
+$hisApiBase = $hisApiScheme . '://' . $hisApiHost . '/api/his';
+$hisKeyNow = trim((string)setting('his_api_key', ''));
+$hisUrlWithKey = $hisApiBase . '?action=ping&api_key=' . ($hisKeyNow !== '' ? $hisKeyNow : '<密钥>');
 ?>
 <div class="page-head">
     <div><div class="page-title">🔌 接口管理</div>
@@ -62,18 +68,9 @@ foreach ($groups as $g) {
                         <?php endforeach; ?>
                     </select>
                 <?php else: ?>
-                    <?php
-                        // HIS 接口：API 地址为空时按当前访问地址自动生成（本系统地址，供外部 HIS 调用）
-                        $fval = $vals[$f['key']];
-                        if ($g['id'] === 'his' && $f['key'] === 'his_api_url' && trim($fval) === '') {
-                            $fsch = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-                            $fhost = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
-                            $fval = $fsch . '://' . $fhost . '/api/his';
-                        }
-                    ?>
                     <div class="flex" style="gap:8px">
                         <input class="input" id="itg_<?php echo e($f['key']); ?>"
-                            value="<?php echo e($fval); ?>"
+                            value="<?php echo e($vals[$f['key']]); ?>"
                             placeholder="<?php echo e($f['placeholder']); ?>"
                             <?php if (!empty($f['monospace'])): ?> style="font-family:monospace"<?php endif; ?>>
                         <?php if ($g['id'] === 'his' && $f['key'] === 'his_api_key'): ?>
@@ -84,14 +81,24 @@ foreach ($groups as $g) {
                 <?php if (!empty($f['hint'])): ?>
                     <div class="fs-12 text-muted mt-4"><?php echo e($f['hint']); ?></div>
                 <?php endif; ?>
-                <?php if ($g['id'] === 'his' && $f['key'] === 'his_api_url'): ?>
-                    <div class="fs-12 text-muted mt-4">即外部 HIS 系统调用本系统的接口地址，已按当前访问地址自动生成（本机地址，非 HIS 的 IP），可手动修改。</div>
-                <?php endif; ?>
             </div>
         <?php endforeach; ?>
         <?php if ($g['id'] === 'his'): ?>
-            <div class="fs-12 text-muted mb-12">
-                接口地址：/api/his（GET，携带 api_key 参数或 X-HIS-Key 请求头），仅提供只读查询；密钥留空 = 关闭 HIS 外部接口。
+            <div class="itg-his-addr">
+                <div class="itg-his-addr-head">
+                    <div>
+                        <div class="fw-600 fs-13">🌐 HIS 接口地址（自动生成，无需填写）</div>
+                        <div class="fs-12 text-muted mt-2">即外部 HIS 系统调用本系统的接口地址，按当前访问地址自动生成（本机地址，非 HIS 的 IP），已附带接口密钥。</div>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="copyHisUrl()">📋 复制地址</button>
+                </div>
+                <code class="itg-his-url" id="hisApiUrl"><?php echo e($hisUrlWithKey); ?></code>
+            </div>
+            <div class="itg-his-test">
+                <div class="fw-600 fs-13 mb-8">🧪 接口连通性测试</div>
+                <div class="fs-12 text-muted mb-8">实际请求本系统 /api/his 接口（需先保存密钥后生效），分别验证「请求头 X-HIS-Key」与「GET 参数 api_key」两种认证方式：</div>
+                <button type="button" class="btn btn-primary btn-sm" onclick="testHisApi()">▶ 开始测试</button>
+                <div id="hisTestBox" class="itg-his-result"></div>
             </div>
         <?php endif; ?>
         <?php if ($g['id'] === 'pacs'): ?>
@@ -114,6 +121,48 @@ function genHisKey() {
     var el = document.getElementById('itg_his_api_key');
     if (el) el.value = key;
     Clinic.toast.success('已生成密钥，请点击【保存本组配置】生效');
+}
+
+/* ---------- 复制 HIS 接口地址（带密钥） ---------- */
+function copyHisUrl() {
+    var el = document.getElementById('hisApiUrl');
+    if (!el) return;
+    var url = el.textContent.trim();
+    if (url.indexOf('<密钥>') !== -1) { Clinic.toast.warning('请先填写或生成接口密钥并保存本组配置'); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(function () { Clinic.toast.success('接口地址已复制'); });
+    } else {
+        var ta = document.createElement('textarea');
+        ta.value = url;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        Clinic.toast.success('接口地址已复制');
+    }
+}
+
+/* ---------- HIS 接口连通性测试（请求头 + GET 参数两种方式） ---------- */
+function testHisApi() {
+    var key = (document.getElementById('itg_his_api_key') || {}).value || '';
+    var box = document.getElementById('hisTestBox');
+    if (!box) return;
+    if (key.trim() === '') { Clinic.toast.warning('请先填写或生成接口密钥并保存本组配置'); return; }
+    var base = location.protocol + '//' + location.host + '/api/his?action=ping';
+    box.innerHTML = '<div class="fs-12 text-muted">测试中…</div>';
+    var render = function (label, url, init) {
+        fetch(url, init).then(function (r) { return r.json(); }).then(function (j) {
+            var ok = !!(j && j.ok && j.data && j.data.pong);
+            var code = JSON.stringify(j, null, 2);
+            box.innerHTML += '<div class="itg-his-titem">' +
+                '<div class="itg-his-tlabel"><span class="badge ' + (ok ? 'badge-success' : 'badge-danger') + '">' + (ok ? '✓ 通过' : '✕ 失败') + '</span> ' + label + '</div>' +
+                '<code class="itg-his-tcode">' + Clinic.escHtml(code) + '</code></div>';
+        }).catch(function () {
+            box.innerHTML += '<div class="itg-his-titem"><div class="itg-his-tlabel"><span class="badge badge-danger">✕ 请求失败</span> ' + label + '</div></div>';
+        });
+    };
+    render('请求头 X-HIS-Key', base, { headers: { 'X-HIS-Key': key } });
+    render('GET 参数 api_key', base + '&api_key=' + encodeURIComponent(key), {});
 }
 
 /* ---------- Tab 选项卡切换 ---------- */

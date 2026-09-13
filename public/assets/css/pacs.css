@@ -24,6 +24,60 @@
 }
 /* .itg-tab 仅作 JS 切换钩子，外观完全交由 .btn/.btn-sm/.btn-primary/.btn-outline */
 
+/* ---------- HIS 接口分组：自动生成地址卡 + 连通性测试 ---------- */
+.itg-his-addr {
+    margin: 2px 0 14px;
+    padding: 12px 14px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    background: var(--bg-soft, #f8fafc);
+}
+.itg-his-addr-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+.itg-his-addr-head .btn { flex-shrink: 0; }
+.itg-his-url {
+    display: block;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border);
+    font-family: monospace;
+    font-size: 12.5px;
+    word-break: break-all;
+    line-height: 1.7;
+    user-select: all;
+}
+.itg-his-test {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-card, #fff);
+}
+.itg-his-result { margin-top: 10px; }
+.itg-his-titem {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-soft, #fafafa);
+}
+.itg-his-tlabel { font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
+.itg-his-tcode {
+    display: block;
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: var(--text);
+}
+
 /* ---------- 顶部模式切换器（两态分段控件） ---------- */
 .pacs-mode-switch {
     display: inline-flex;
