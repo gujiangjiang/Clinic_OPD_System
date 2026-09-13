@@ -408,23 +408,12 @@ function imgWritePane(cur, data, idPrefix) {
     var lock = isDone || isPaid;
     var ro = lock ? ' readonly' : '';
     var roStyle = lock ? 'background:var(--bg-soft);cursor:default;' : '';
-    // 登记门禁遮罩（paid）：模糊锁定 + 居中提示 + 登记按钮（前后端双重拦截）
-    var regGate = '';
-    if (isPaid) {
-        var order = imgItemOrder(cur);
-        regGate = '<div class="pacs-reg-gate" onclick="doImgRegisterOrderGate(\'' + esc(order ? order.order_id : '') + '\')">' +
-            '<div class="reg-gate-ico">🗂️</div>' +
-            '<div class="reg-gate-title">患者尚未登记</div>' +
-            '<div class="reg-gate-sub">该项目已缴费，需先登记检查方可书写报告（整张申请单统一登记）</div>' +
-            '<button type="button" class="btn btn-primary btn-sm reg-gate-btn" onclick="event.stopPropagation();doImgRegisterOrderGate(\'' + esc(order ? order.order_id : '') + '\')">📝 登记患者</button>' +
-            '</div>';
-    }
-    return '<div class="pacs-right-pane active" data-pane="write" id="' + idPrefix + 'WritePane">' +
+    // 登记门禁（paid）：整 pane 模糊遮罩 + 居中提示 + 登记按钮（前后端双重拦截）
+    var order = isPaid ? imgItemOrder(cur) : null;
+    return '<div class="pacs-right-pane active' + (isPaid ? ' pacs-write-gated' : '') + '" data-pane="write" id="' + idPrefix + 'WritePane">' +
+        '<div class="pacs-write-gate-inner">' +
         (isDone ?
             '<div class="fs-12 mb-8" style="padding:6px 10px;border-radius:8px;background:var(--primary-soft,rgba(37,99,235,.08));color:var(--primary)">该报告已提交（报告号 ' + esc(cur.report_no || '—') + '），如需修改请先申请撤回</div>'
-            : '') +
-        (isPaid ?
-            '<div class="fs-12 mb-8" style="padding:6px 10px;border-radius:8px;background:rgba(234,88,12,.08);color:var(--warning)">该检查项目已缴费但尚未登记，登记后即可书写报告</div>'
             : '') +
         '<div class="pacs-rep-block">' +
         '<div class="pacs-rep-label">报告模板' +
@@ -446,10 +435,20 @@ function imgWritePane(cur, data, idPrefix) {
         (lock ? '' :
         '<div class="pacs-quickwords" id="' + idPrefix + 'QuickConclusion">' +
         '<span class="pacs-quickword" onclick="pacsQuickInsert(\'' + idPrefix + 'Conclusion\', this)">目前影像学检查未见明显异常。</span>' +
-        '<span class="pacs-quickword" onclick="pacsQuickInsert(\'' + idPrefix + 'Conclusion\', this)">建议随访复查。</span>' +
+        '<span class="pacs-quickword" onclick="pacsQuickInsert(\'pacs' + 'Conclusion\', this)">建议随访复查。</span>' +
         '</div>') +
         '</div>' +
-        regGate +
+        '</div>' +
+        (isPaid ?
+            // 登记门禁遮罩：整pane absolute inset:0 覆盖（模糊背景 + 居中提示 + 登记按钮）
+            '<div class="pacs-reg-gate-overlay" onclick="doImgRegisterOrderGate(\'' + esc(order ? order.order_id : '') + '\')">' +
+            '<div class="pacs-reg-gate">' +
+            '  <div class="reg-gate-ico">🗂️</div>' +
+            '  <div class="reg-gate-title">患者尚未登记</div>' +
+            '  <div class="reg-gate-sub">该项目已缴费，需先登记检查方可书写报告<br>（整张申请单统一登记），点击登记后解锁撰写</div>' +
+            '  <button type="button" class="btn btn-primary reg-gate-btn" onclick="event.stopPropagation();doImgRegisterOrderGate(\'' + esc(order ? order.order_id : '') + '\')">📝 登记患者</button>' +
+            '</div></div>'
+            : '') +
         '</div>';
 }
 
