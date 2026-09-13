@@ -265,7 +265,9 @@ function deptwork_orders($visitId) {
                 'item_id' => (int)$it['item_id'],
                 'item_name' => $it['item_name'],
                 'item_type' => $it['item_type'],
-                'status' => $it['status'],
+                // 状态归一：脏数据（如历史遗留的数字状态 '3'）不在合法流程状态集时
+                // 回退 'paid'（已缴费待登记），避免前端状态机错乱（误判为已提交等）
+                'status' => deptwork_norm_item_status($it['status'], $it['item_type']),
                 'quantity' => (int)$it['quantity'],
                 'price' => (float)$it['price'],
                 'single_dose' => $it['single_dose'],
@@ -353,6 +355,19 @@ function deptwork_orders($visitId) {
         }
     }
     return $out;
+}
+
+/**
+ * 明细状态归一（防御脏数据）：非法状态值回退 paid（已缴费待登记）。
+ * 合法流程状态集（与 order_items 状态机一致）：
+ * open/paid/registered/executing/done/dispensing/dispensed/refunded/cancelled/rejected
+ */
+function deptwork_norm_item_status($status, $itemType) {
+    $legal = array('open', 'paid', 'registered', 'executing', 'done', 'dispensing', 'dispensed', 'refunded', 'cancelled', 'rejected');
+    if (in_array((string)$status, $legal, true)) return (string)$status;
+    // 处方已审核（reviewed）仅药房语义合法
+    if ($itemType === 'prescription' && (string)$status === 'reviewed') return 'reviewed';
+    return 'paid';
 }
 
 /** 患者工作台聚合数据 */

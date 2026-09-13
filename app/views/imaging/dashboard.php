@@ -645,7 +645,9 @@ function imgDraftSave() {
     var f = document.getElementById('pacsFindings');
     var c = document.getElementById('pacsConclusion');
     if (!cur || !f || !c) { Clinic.toast.warning('暂无可保存的报告内容'); return; }
-    if (cur.status !== 'registered') { Clinic.toast.warning('已提交报告以库内正式内容为准，不支持草稿'); return; }
+    if (cur.status === 'done') { Clinic.toast.warning('该报告已提交，库内正式内容为准，如需修改请先申请撤回'); return; }
+    if (cur.status === 'paid') { Clinic.toast.warning('该检查项目尚未登记，请先登记后再书写报告'); return; }
+    if (cur.status !== 'registered') { Clinic.toast.warning('当前项目状态（' + itemStatusName(cur.status) + '）暂不支持草稿'); return; }
     imgDraftWrite(cur, f.value, c.value);
     Clinic.toast.success('草稿已保存（服务端同步，跨设备保留）');
 }
@@ -655,7 +657,9 @@ var IMG_PUBLISHING = false;
 function imgPublish() {
     var cur = window.__imgCurItem;
     if (!cur) { Clinic.toast.warning('当前无待书写报告的检查项目'); return; }
-    if (cur.status !== 'registered') { Clinic.toast.warning('该报告已提交，如需修改请先申请撤回'); return; }
+    if (cur.status === 'paid') { Clinic.toast.warning('该检查项目尚未登记，请先登记后再书写报告'); return; }
+    if (cur.status === 'done') { Clinic.toast.warning('该报告已提交，如需修改请先申请撤回'); return; }
+    if (cur.status !== 'registered') { Clinic.toast.warning('当前项目状态（' + itemStatusName(cur.status) + '）不支持提交报告'); return; }
     if (IMG_PUBLISHING) return;
     var findings = (document.getElementById('pacsFindings') || {}).value || '';
     var conclusion = (document.getElementById('pacsConclusion') || {}).value || '';
