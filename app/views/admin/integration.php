@@ -62,13 +62,30 @@ foreach ($groups as $g) {
                         <?php endforeach; ?>
                     </select>
                 <?php else: ?>
-                    <input class="input" id="itg_<?php echo e($f['key']); ?>"
-                        value="<?php echo e($vals[$f['key']]); ?>"
-                        placeholder="<?php echo e($f['placeholder']); ?>"
-                        <?php if (!empty($f['monospace'])): ?> style="font-family:monospace"<?php endif; ?>>
+                    <?php
+                        // HIS 接口：API 地址为空时按当前访问地址自动生成（本系统地址，供外部 HIS 调用）
+                        $fval = $vals[$f['key']];
+                        if ($g['id'] === 'his' && $f['key'] === 'his_api_url' && trim($fval) === '') {
+                            $fsch = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+                            $fhost = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
+                            $fval = $fsch . '://' . $fhost . '/api/his';
+                        }
+                    ?>
+                    <div class="flex" style="gap:8px">
+                        <input class="input" id="itg_<?php echo e($f['key']); ?>"
+                            value="<?php echo e($fval); ?>"
+                            placeholder="<?php echo e($f['placeholder']); ?>"
+                            <?php if (!empty($f['monospace'])): ?> style="font-family:monospace"<?php endif; ?>>
+                        <?php if ($g['id'] === 'his' && $f['key'] === 'his_api_key'): ?>
+                            <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="genHisKey()">🔑 生成密钥</button>
+                        <?php endif; ?>
+                    </div>
                 <?php endif; ?>
                 <?php if (!empty($f['hint'])): ?>
                     <div class="fs-12 text-muted mt-4"><?php echo e($f['hint']); ?></div>
+                <?php endif; ?>
+                <?php if ($g['id'] === 'his' && $f['key'] === 'his_api_url'): ?>
+                    <div class="fs-12 text-muted mt-4">即外部 HIS 系统调用本系统的接口地址，已按当前访问地址自动生成（本机地址，非 HIS 的 IP），可手动修改。</div>
                 <?php endif; ?>
             </div>
         <?php endforeach; ?>
@@ -87,6 +104,18 @@ foreach ($groups as $g) {
 <?php endforeach; ?>
 
 <script>
+/* ---------- 生成随机 HIS 接口密钥（一键生成后点击保存生效） ---------- */
+function genHisKey() {
+    var arr = new Uint8Array(16);
+    (window.crypto || window.msCrypto).getRandomValues(arr);
+    var key = Array.prototype.map.call(arr, function (b) {
+        return ('0' + b.toString(16)).slice(-2);
+    }).join('');
+    var el = document.getElementById('itg_his_api_key');
+    if (el) el.value = key;
+    Clinic.toast.success('已生成密钥，请点击【保存本组配置】生效');
+}
+
 /* ---------- Tab 选项卡切换 ---------- */
 function itgTab(id) {
     document.querySelectorAll('#itgTabs .itg-tab').forEach(function (t) {

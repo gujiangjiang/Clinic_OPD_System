@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v8.7.7-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v8.7.8-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -224,7 +224,7 @@ server {
 
 系统内置只读 HIS 对接接口（`/api/his`），为未来扩展住院 HIS、医保、BI 等系统提供数据支持。
 
-在【接口管理】（/admin/integration）中配置「HIS 接口密钥」（留空则接口关闭；API 地址/系统代码/同步模式等亦在该页维护）。外部系统携带密钥调用：
+在【接口管理】（/admin/integration）中配置「HIS 接口密钥」（留空则接口关闭；API 地址/系统代码/同步模式等亦在该页维护）。其中 **HIS API 地址即本系统对外提供服务的接口地址**（当前访问地址 + `/api/his`，字段为空时按当前访问地址自动生成），外部 HIS 系统需能访问该地址并携带密钥调用：
 
 ```bash
 curl -H "X-HIS-Key: 你的密钥" "http://your-domain/api/his?action=patient_get&id_card=110101199001011234"
