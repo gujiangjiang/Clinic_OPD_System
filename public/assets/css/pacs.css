@@ -500,6 +500,24 @@
 .pacs-reg-gate .reg-gate-sub { font-size: 12.5px; color: var(--text-muted); line-height: 1.8; margin-bottom: 14px; }
 .pacs-reg-gate .reg-gate-btn { min-width: 132px; }
 
+/* 报危急值按钮的数量徽标（暂存队列计数，红点强调） */
+.pacs-crit-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.pacs-crit-num:empty { display: none; }
+
 /* ---------- 模式 B：独立视窗阅片按钮（患者行/工具栏） ---------- */
 .pacs-openwin-btn { white-space: nowrap; }
 

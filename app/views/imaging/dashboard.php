@@ -72,8 +72,8 @@ function renderImgWork(data) {
 
     // 模式 B：经典双屏分屏（原布局：右栏大纲 + 主区报告单页）
     renderImgSide(data);
-    // 同步独立阅片窗口：经典模式切换患者时广播上下文（优化项12）
-    broadcastImgContext(null);
+    // 说明：独立视窗阅片不随患者切换自动刷新——经典模式仅当点击
+    // 【去写报告】打开书写报告模态框时，才广播该申请单对应影像（优化项3）
     var head = imgHeadHtml(data);
     var body = '';
     if (!orders.length) {
@@ -187,8 +187,8 @@ function renderImgIntegrated(data) {
     var tr = document.getElementById('pacsTagR');
     if (tr) tr.textContent = v.visit_no || '';
 
-    // 同步独立阅片窗口（优化项12）：患者加载完成广播当前上下文
-    broadcastImgContext(cur);
+    // 说明：独立视窗阅片不随患者加载自动刷新——一体化模式仅当点击左侧
+    // 序列（pacsPickSeries）时广播该序列对应影像（优化项3）
 
     // 初始化：默认打开「报告撰写」页签（撰写为高频主任务）
     imgRightTab(cur && (cur.status === 'registered') ? 'write' : (cur ? 'write' : 'clin'));
@@ -447,8 +447,6 @@ function imgWritePane(cur, data, idPrefix) {
         '<span class="pacs-quickword" onclick="pacsQuickInsert(\'' + idPrefix + 'Conclusion\', this)">建议随访复查。</span>' +
         '</div>') +
         '</div>' +
-        // 危急值暂存区：一体化撰写页签内挂载（经典模态框在左栏挂载，同一队列源）
-        (idPrefix === 'pacs' ? imgCritBoxHtml('pacs') : '') +
         '</div>' +
         (isPaid ?
             // 登记门禁遮罩：整pane absolute inset:0 覆盖（模糊背景 + 居中提示 + 登记按钮）
@@ -657,7 +655,7 @@ function imgFootBar(cur) {
     }
     return '<button type="button" class="btn btn-outline btn-sm" onclick="imgDraftSave()">💾 保存草稿</button>' +
         '<button type="button" class="btn btn-primary btn-sm" onclick="imgPublish()">📤 提交审核</button>' +
-        '<button type="button" class="btn btn-outline btn-sm pacs-crit-btn" onclick="openImgCritSend()">🚨 标记危急值</button>' +
+        '<button type="button" class="btn btn-outline btn-sm pacs-crit-btn" onclick="openImgCritSend()">🚨 报危急值 <span class="pacs-crit-num" id="pacsCritBtnCount">0</span></button>' +
         '<button type="button" class="btn btn-outline btn-sm" onclick="imgRejectBack()">↩ 退回修改</button>';
 }
 
@@ -861,7 +859,6 @@ function openImgReportModal(id) {
         '    <div style="flex:1;min-height:0;overflow-y:auto" id="imgmClinHost">' +
         imgClinPane(data, 'imgm', true) +
         '    </div>' +
-        imgCritBoxHtml('imgm') +
         '  </div>' +
         '  <div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;overflow-y:auto">' +
         imgWritePane(it, data, 'imgm') +
@@ -875,13 +872,16 @@ function openImgReportModal(id) {
         '</div>',
         { title: '✍️ 书写检查报告：' + it.item_name, size: 'modal-lg', buttons: [] }
     );
+    // 同步独立视窗阅片：经典模式点击【去写报告】才广播该申请单对应影像（优化项3）
+    broadcastImgContext(it);
     // 模板下拉（imgm 前缀）
     loadPacsTpls('imgm');
     // 历史报告调阅（模态框）：按 patient_id 检索，复制目标为模态框撰写区
     if (p.patient_id) mountImgHistory(p, 'imgm');
-    // 危急值暂存队列：跨模式/跨刷新持久（sessionStorage），打开时回显当前项目队列
+    // 危急值暂存队列回显（sessionStorage 持久化，跨模式/跨刷新不丢）
     renderImgCritQueue();
     mask.querySelector('.modal-foot').innerHTML =
+        '<button type="button" class="btn btn-outline btn-sm pacs-crit-btn" style="margin-right:auto" onclick="openImgCritSend()">🚨 报危急值 <span class="pacs-crit-num" id="imgmCritBtnCount">0</span></button>' +
         '<button type="button" class="btn btn-outline" onclick="imgmDraftSave()">💾 保存草稿</button>' +
         '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
         '<button type="button" class="btn btn-primary" onclick="imgModalSave()">💾 提交并打印报告</button>';
@@ -923,18 +923,18 @@ function imgCritClear() {
 }
 
 /* 危急值暂存区渲染（一体化撰写页签底部 / 经典模态框左栏共用；prefix 区分 DOM id） */
-function imgCritBoxHtml(prefix) {
-    return '<div class="dw-crit-queue" style="border-top:1px solid var(--border);padding-top:10px;margin-top:10px">' +
-        '<button type="button" class="btn btn-outline btn-sm pacs-crit-btn" style="width:100%" onclick="openImgCritSend()">🚨 报危急值</button>' +
-        '<div class="dw-crit-queue-title">危急值等待发送（<span id="' + prefix + 'CritCount">0</span>）</div>' +
-        '<div id="' + prefix + 'CritQueue" style="margin-top:6px"></div></div>';
+/* 报危急值按钮（一体化底部栏/经典模态框底部栏共用，带暂存数量徽标）
+ * 说明（优化项1）：暂存队列不再单独占用撰写区空间——数量收敛到按钮徽标，
+ * 点击按钮在报危急值模态框内查看/删除已添加项。 */
+function imgCritBtnLabel(prefix) {
+    return '<button type="button" class="btn btn-outline btn-sm pacs-crit-btn" onclick="openImgCritSend()">🚨 报危急值 <span class="pacs-crit-num" id="' + prefix + 'CritBtnCount">0</span></button>';
 }
 
 function openImgCritSend() {
     if (!window.__imgCurItem && !CUR_IMG_ITEM) return;
     var cur = window.__imgCurItem || CUR_IMG_ITEM;
     var q = imgCritLoad();
-    // 将已添加的危急值预览回传弹窗：再次点开可看到已填内容，避免误以为丢失
+    // 将已添加的危急值预览回传弹窗：再次点开可看到已填内容并可删除，避免误以为丢失
     Clinic.critical.openSend({
         source: 'imaging',
         report_id: '',
@@ -947,24 +947,34 @@ function openImgCritSend() {
             imgCritSave(q);
             renderImgCritQueue();
         },
+        // 删除已添加项（critical.js 弹窗内逐条提供 ✕，同步回写队列）
+        onRemove: function (i) {
+            q.splice(i, 1);
+            imgCritSave(q);
+            renderImgCritQueue();
+        },
     });
 }
 
 function renderImgCritQueue() {
     var q = imgCritLoad();
     ['pacs', 'imgm'].forEach(function (prefix) {
+        var cnt = document.getElementById(prefix + 'CritBtnCount');
+        if (cnt) cnt.textContent = q.length > 0 ? q.length : '';
+        // 兼容旧容器（若页面仍存在历史暂存区则回填）
         var box = document.getElementById(prefix + 'CritQueue');
-        var cnt = document.getElementById(prefix + 'CritCount');
-        if (cnt) cnt.textContent = q.length;
-        if (!box) return;
-        box.innerHTML = q.length
-            ? q.map(function (x, i) {
-                return '<div class="dw-crit-queue-item">' +
-                    '<span class="crit-q-name">' + esc(x.item) + '</span>' +
-                    '<span class="fs-12 text-muted">→ ' + esc(x.to_doctor_name) + '</span>' +
-                    '<button type="button" class="btn btn-outline btn-sm" style="margin-left:auto;padding:1px 8px" onclick="imgCritRemove(' + i + ')">✕</button></div>';
-            }).join('')
-            : '<div class="fs-12 text-muted">暂无危急值（点击上方按钮手动上报）</div>';
+        var oldCnt = document.getElementById(prefix + 'CritCount');
+        if (oldCnt) oldCnt.textContent = q.length;
+        if (box) {
+            box.innerHTML = q.length
+                ? q.map(function (x, i) {
+                    return '<div class="dw-crit-queue-item">' +
+                        '<span class="crit-q-name">' + esc(x.item) + '</span>' +
+                        '<span class="fs-12 text-muted">→ ' + esc(x.to_doctor_name) + '</span>' +
+                        '<button type="button" class="btn btn-outline btn-sm" style="margin-left:auto;padding:1px 8px" onclick="imgCritRemove(' + i + ')">✕</button></div>';
+                }).join('')
+                : '<div class="fs-12 text-muted">暂无危急值（点击上方按钮手动上报）</div>';
+        }
     });
 }
 

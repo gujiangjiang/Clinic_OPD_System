@@ -51,10 +51,11 @@ $hosp = setting('hospital_name', '门诊一体化系统');
     <div class="pacs-solo-stage" id="soloStage">
         <div class="pacs-viewer-mount" id="soloMount"></div>
         <div class="pacs-viewer-placeholder" id="soloPlaceholder">
-            <div class="ph-ico">🖥️</div>
-            <div class="ph-main" id="phMain">独立阅片视窗已就绪</div>
-            <div class="ph-sub" id="phSub">在主系统工作台选择患者或序列后，本窗口实时同步展示<br>
-            DICOM Viewer（DICOMweb / WADO-RS）接入后，影像将自动挂载至此视窗</div>
+            <div class="ph-ico">🩻</div>
+            <div class="ph-main" id="phMain">等待选择患者影像</div>
+            <div class="ph-sub" id="phSub">请在影像科工作台中选择患者或序列后实时同步显示<br>
+            经典模式：点击【去写报告】后同步该申请单影像；<br>
+            一体化模式：点击左侧序列后同步显示对应影像</div>
         </div>
         <div class="pacs-viewer-tag" id="soloTagL"></div>
         <div class="pacs-viewer-tag pacs-viewer-tag-r" id="soloTagR"></div>

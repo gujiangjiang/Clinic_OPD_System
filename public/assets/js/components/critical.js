@@ -194,7 +194,7 @@ Clinic.critical = (function () {
         SEND_CTX = {
             source: opts.source, report_id: opts.report_id, mode: opts.mode || 'lab',
             to_doctor_id: opts.doctor_id || 0, to_doctor_name: opts.doctor_name || '',
-            onAdd: opts.onAdd, onSent: opts.onSent,
+            onAdd: opts.onAdd, onSent: opts.onSent, onRemove: opts.onRemove,
         };
         var detHtml = '';
         if (opts.detected && opts.detected.length) {
@@ -212,12 +212,14 @@ Clinic.critical = (function () {
         if (opts.mode === 'imaging' && opts.existing && opts.existing.length) {
             existingHtml = '<div class="crit-existing-box">' +
                 '<div class="crit-subtitle">已添加的危急值（等待发送）</div>' +
-                opts.existing.map(function (x) {
+                opts.existing.map(function (x, i) {
                     return '<div class="dw-crit-queue-item">' +
                         '<span class="crit-q-name">' + esc(x.item) + '</span>' +
-                        '<span class="fs-12 text-muted">→ ' + esc(x.to_doctor_name || '') + '</span></div>';
+                        '<span class="fs-12 text-muted">→ ' + esc(x.to_doctor_name || '') + '</span>' +
+                        '<button type="button" class="btn btn-outline btn-sm" style="margin-left:auto;padding:1px 8px" ' +
+                        'onclick="Clinic.critical.removeFromPreview(' + i + ')" title="从暂存队列移除该项">✕</button></div>';
                 }).join('') +
-                '<div class="fs-12 text-muted mt-4">以上危急值将在报告发布时一并发送，可继续添加。</div></div>';
+                '<div class="fs-12 text-muted mt-4">以上危急值将在报告发布时一并发送，可点击 ✕ 移除。</div></div>';
         }
         var manualHtml = opts.mode === 'imaging'
             ? '<div class="form-group"><label class="form-label">危急值项目 <span class="req">*</span></label>' +
@@ -286,6 +288,30 @@ Clinic.critical = (function () {
         }
         Clinic.modal.close();
         Clinic.toast.success('已加入危急值预览，发布报告时一并发送');
+    }
+
+    /** 从影像科暂存队列移除一项（弹窗内 ✕）：
+        回调 onRemove 同步队列 → 重开弹窗展示最新列表 */
+    function removeFromPreview(i) {
+        if (SEND_CTX && SEND_CTX.onRemove) SEND_CTX.onRemove(i);
+        Clinic.modal.close();
+        // 若队列仍有剩余项，重开弹窗让用户继续查看/删除
+        setTimeout(function () {
+            if (SEND_CTX && SEND_CTX.source === 'imaging' && SEND_CTX.onRemove) {
+                // 需当前项目上下文仍在（调用方 imgCritLoad 依据 __imgCurItem/CUR_IMG_ITEM）
+                openSend({
+                    source: SEND_CTX.source,
+                    report_id: SEND_CTX.report_id,
+                    mode: SEND_CTX.mode,
+                    doctor_id: SEND_CTX.to_doctor_id,
+                    doctor_name: SEND_CTX.to_doctor_name,
+                    existing: (typeof imgCritLoad === 'function') ? imgCritLoad() : [],
+                    onAdd: SEND_CTX.onAdd,
+                    onSent: SEND_CTX.onSent,
+                    onRemove: SEND_CTX.onRemove,
+                });
+            }
+        }, 200);
     }
 
     /** 通用发送（影像科发布时逐条调用） */
@@ -582,6 +608,7 @@ Clinic.critical = (function () {
     return {
         openSend: openSend,
         send: send,
+        removeFromPreview: removeFromPreview,
         openProcess: openProcess,
         openView: openView,
         openRow: openRow,
