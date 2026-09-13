@@ -12,7 +12,9 @@
  *      杜绝历史会话登出里程碑导致「登录状态下误锁」；
  *   4. 实时同步（优化项12）：订阅主窗口 viewer:context 广播，
  *      主窗口切换患者/序列后本窗口实时刷新展示对象。
- * 参数：?visit=<混淆就诊ID>（可选，携带时初始展示该患者）
+ * 隐私安全（优化项2）：地址栏不携带任何患者标识（防链接外泄被他人直接查看）。
+ * 当前选中患者/序列由主窗口通过 localStorage 会话握手（sid 绑定）+ BroadcastChannel
+ * 广播传递；视窗端数据加载走登录 Session 鉴权 + 科室归属校验，双保险。
  * 数据接口：/api/deptwork?action=patient&visit_id=（登录 Session 鉴权）
  * ============================================================ */
 require_once __DIR__ . '/../app/config/bootstrap.php';
@@ -31,7 +33,6 @@ if (!in_array($u['role'], array('imaging', 'admin'), true)) {
     exit;
 }
 
-$visitCode = isset($_GET['visit']) ? trim((string)$_GET['visit']) : '';
 $hosp = setting('hospital_name', '门诊一体化系统');
 ?>
 <!DOCTYPE html>
@@ -46,7 +47,7 @@ $hosp = setting('hospital_name', '门诊一体化系统');
 <div class="pacs-solo">
     <div class="pacs-solo-head">
         <span>🩻 独立阅片工作站</span>
-        <span class="solo-sub" id="soloPatient"><?php echo $visitCode !== '' ? '就诊 ' . e($visitCode) : '等待主系统选择患者…'; ?></span>
+        <span class="solo-sub" id="soloPatient">等待主系统选择患者…</span>
     </div>
     <div class="pacs-solo-stage" id="soloStage">
         <div class="pacs-viewer-mount" id="soloMount"></div>
@@ -81,7 +82,7 @@ $hosp = setting('hospital_name', '门诊一体化系统');
 <script src="/assets/js/components/authsync.js"></script>
 <script>
 var LOCKED = false;
-var CURRENT = { visit: '<?php echo e($visitCode); ?>', item: '', label: '' };
+var CURRENT = { visit: '', item: '', label: '' };
 
 /* ---------- 锁定（服务端会话失效确认后调用） ---------- */
 function lockViewer() {
@@ -130,10 +131,12 @@ heartbeatTimer = setInterval(sessionProbe, 60000);
 function applyContext(ctx) {
     if (LOCKED) return;
     if (!ctx) return;
-    var changedVisit = ctx.visit && ctx.visit !== CURRENT.visit;
+    var changedVisit = ctx.visit !== CURRENT.visit;
     var changedItem = ctx.item && ctx.item !== CURRENT.item;
-    CURRENT = { visit: ctx.visit || CURRENT.visit, item: ctx.item || '', label: ctx.label || '' };
-    if (changedVisit && CURRENT.visit) loadSoloPatient(CURRENT.visit);
+    CURRENT = { visit: ctx.visit || '', item: ctx.item || '', label: ctx.label || '' };
+    // 主窗口未选中患者（关闭患者/首次进入）→ 视窗复位空白提示
+    if (!CURRENT.visit) { resetSolo(); return; }
+    if (changedVisit) loadSoloPatient(CURRENT.visit);
     else if (CURRENT.label) paintTag(CURRENT.label);
     // 序列切换 → 自动重挂阅片器（已配置 pacs_viewer_url 时；优化项12）
     if (changedItem && CURRENT.item) soloEmbed(true);
@@ -207,10 +210,42 @@ function loadSoloPatient(code) {
     }).catch(function () { /* 锁定时静默 */ });
 }
 
-/* 初始患者（URL 携带 visit 时直接加载） */
-<?php if ($visitCode !== ''): ?>
-loadSoloPatient('<?php echo e($visitCode); ?>');
-<?php endif; ?>
+/* 视窗复位空白态（主窗口未选中患者/关闭患者时调用） */
+function resetSolo() {
+    CURRENT = { visit: '', item: '', label: '' };
+    var mount = document.getElementById('soloMount');
+    if (mount) mount.innerHTML = '';
+    var ph = document.getElementById('soloPlaceholder');
+    if (ph) {
+        ph.style.display = '';
+        ph.innerHTML =
+            '<div class="ph-ico">🩻</div>' +
+            '<div class="ph-main">等待选择患者影像</div>' +
+            '<div class="ph-sub">请在影像科工作台中选择患者或序列后实时同步显示<br>' +
+            '经典模式：点击【去写报告】后同步该申请单影像；<br>' +
+            '一体化模式：点击左侧序列后同步显示对应影像</div>';
+    }
+    var sp = document.getElementById('soloPatient');
+    if (sp) sp.textContent = '等待主系统选择患者…';
+    var tags = [document.getElementById('soloTagL'), document.getElementById('soloTagR')];
+    tags.forEach(function (t) { if (t) t.textContent = ''; });
+}
+
+/* ---------- 会话握手（优化项2）：主窗口打开视窗前写入 pending_ctx，
+   视窗加载后读取（sid 绑定校验，防跨会话/链接直查）并应用，读后清除 ---------- */
+(function () {
+    var pending = null;
+    try { pending = JSON.parse(localStorage.getItem('clinic_viewer_pending_ctx') || 'null'); } catch (e) {}
+    if (pending && pending.sid && pending.sid === document.body.getAttribute('data-sid')) {
+        localStorage.removeItem('clinic_viewer_pending_ctx');
+        if (pending.visit) {
+            CURRENT.visit = pending.visit;
+            CURRENT.item = pending.item || '';
+            CURRENT.label = pending.label || '';
+            loadSoloPatient(pending.visit);
+        }
+    }
+})();
 
 /* ---------- 占位交互（DICOM Viewer 接入前的友好交互占位） ---------- */
 function soloFit() { if (LOCKED) return; soloTag('⤢ 适应窗口'); }

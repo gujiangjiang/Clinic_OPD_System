@@ -129,7 +129,7 @@ function renderImgIntegrated(data) {
         /* 左栏：序列缩略图（上）+ 检查信息（下，精简版随所选序列动态更新） */
         '<div class="pacs-left">' +
         '  <div class="pacs-series-card">' +
-        '    <div class="pacs-info-title">📋 序列 / Series <span class="fs-12 text-muted" style="font-weight:400;margin-left:auto">DICOMweb 接入后展示</span></div>' +
+        '    <div class="pacs-info-title">📋 序列 / Series</div>' +
         '    <div class="pacs-series-list" id="pacsSeriesList">' + pacsSeriesHtml(imgItems) + '</div>' +
         '  </div>' +
         '  <div class="pacs-info-card">' +
@@ -151,15 +151,14 @@ function renderImgIntegrated(data) {
         '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'重置\')">↺ 重置</button>' +
         '    <span class="pacs-tool-sep"></span>' +
         '    <button type="button" class="btn btn-primary btn-sm" style="font-size:12px" onclick="pacsOpenViewer()">🪟 内嵌阅片器</button>' +
-        '    <span style="margin-left:auto" class="fs-12 text-muted">工具栏占位（Web 阅片器接入后生效：窗宽窗位 / 缩放平移 / 多序列 / MPR / 测量标注）</span>' +
+        '    <span style="margin-left:auto" class="fs-12 text-muted">选择左侧序列后，点【内嵌阅片器】调阅影像</span>' +
         '  </div>' +
         '  <div class="pacs-viewer-stage">' +
         '    <div class="pacs-viewer-mount" id="pacsViewerMount"></div>' +
         '    <div class="pacs-viewer-placeholder" id="pacsViewerPh">' +
         '      <div class="ph-ico">🩻</div>' +
-        '      <div class="ph-main">专业阅片视窗</div>' +
-        '      <div class="ph-sub">DICOMweb / WADO-RS 阅片器接入后，影像将自动挂载至此视窗<br>' +
-        '      管理员可在【外部接口集成 → DICOM/PACS】配置 Web 阅片器 URL 模板（支持 {study_uid} 变量）</div>' +
+        '      <div class="ph-main">影像阅片视窗</div>' +
+        '      <div class="ph-sub">选择左侧序列后点击【内嵌阅片器】调阅影像</div>' +
         '    </div>' +
         '    <div class="pacs-viewer-tag" id="pacsTagL"></div>' +
         '    <div class="pacs-viewer-tag pacs-viewer-tag-r" id="pacsTagR"></div>' +
@@ -228,7 +227,7 @@ function imgModality(it) {
    不同检查类别（DR/CT/US 等）之间以小分隔标题区分（优化项7） */
 function pacsSeriesHtml(items) {
     if (!items.length) {
-        return '<div class="fs-12 text-muted" style="padding:6px 2px">暂无检查序列（PACS 接入后自动加载）</div>';
+        return '<div class="fs-12 text-muted" style="padding:6px 2px">暂无检查序列</div>';
     }
     var active = window.__imgCurActive || '';
     var lastType = null;
@@ -732,12 +731,24 @@ function imgHeadHtml(data) {
 
 /* ==================== 模式 B：独立视窗阅片（跨窗口 Session 联动） ==================== */
 function imgOpenSoloWindow() {
-    var visit = Clinic.deptwork.currentVisit();
-    var url = '/viewer.php' + (visit ? '?visit=' + encodeURIComponent(visit) : '');
+    // 隐私安全（优化项2）：地址栏绝不携带 visit 参数（防链接外泄被他人直接查看）。
+    // 当前选中上下文改由「localStorage 会话握手（sid 绑定）+ BroadcastChannel 广播」
+    // 传递给独立视窗；视窗端仍走登录 Session 鉴权 + 科室归属校验，双保险。
+    var cur = window.__imgCurItem || null;
+    var v = (window.__imgData || {}).visit || {};
+    var ctx = {
+        sid: document.body.getAttribute('data-sid') || '',
+        visit: Clinic.deptwork.currentVisit() || '',
+        item: cur ? cur.id : '',
+        label: cur ? (cur.item_name + ' ｜ ' + imgModality(cur)) : (v.name ? (v.name + ' ｜ ' + (v.visit_no || '')) : ''),
+    };
+    try { localStorage.setItem('clinic_viewer_pending_ctx', JSON.stringify(ctx)); } catch (e) { /* 忽略 */ }
     // 独立无工具栏窗口（多显示器全屏拖拽阅片）：与主窗口共享登录 Session，
-    // Session 失效时由 viewer.php 内 authsync（BroadcastChannel）联动锁定
-    window.open(url, 'clinic_img_viewer_' + (visit || 'solo'),
+    // 地址栏为 /viewer.php（无查询参数）
+    window.open('/viewer.php', 'clinic_img_viewer',
         'width=1280,height=800,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=no');
+    // 广播当前上下文（已打开的视窗即时更新；新开视窗由 pending_ctx 兜底握手）
+    Clinic.authSync.broadcastContext(ctx);
 }
 
 /* ==================== 单张申请单区块（模式 B 主布局） ==================== */

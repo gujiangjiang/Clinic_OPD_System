@@ -144,6 +144,10 @@ Clinic.deptwork = (function () {
         setCloseBtn(false);
         setRecordBtn(false);
         renderEmptyWork();
+        // 影像科：关闭患者时广播空上下文，独立视窗阅片同步复位空白（优化项1/2）
+        if (ROLE === 'imaging' && window.Clinic && Clinic.authSync) {
+            Clinic.authSync.broadcastContext({ visit: '', item: '', label: '' });
+        }
         renderSidePlaceholder();
         setTimeout(function () { openPanel(); }, 120);
     }

@@ -500,21 +500,24 @@
 .pacs-reg-gate .reg-gate-sub { font-size: 12.5px; color: var(--text-muted); line-height: 1.8; margin-bottom: 14px; }
 .pacs-reg-gate .reg-gate-btn { min-width: 132px; }
 
-/* 报危急值按钮的数量徽标（暂存队列计数，红点强调） */
+/* 报危急值按钮：相对定位承载右上角数量徽标（避免正文空间有限时数字溢出） */
+.pacs-crit-btn { position: relative; }
 .pacs-crit-num {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 17px;
-    height: 17px;
-    padding: 0 5px;
+    position: absolute;
+    top: -5px;
+    right: -7px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
     border-radius: 999px;
-    background: var(--danger);
+    background: var(--danger, #dc2626);
     color: #fff;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
-    line-height: 1;
+    line-height: 16px;
+    text-align: center;
     font-variant-numeric: tabular-nums;
+    box-shadow: 0 0 0 2px var(--bg-card, #fff);
 }
 .pacs-crit-num:empty { display: none; }
 

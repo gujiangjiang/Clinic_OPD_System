@@ -241,7 +241,7 @@ Clinic.critical = (function () {
         var buttons = opts.mode === 'imaging'
             ? [
                 { text: '取消', cls: 'btn-outline' },
-                { text: '＋ 加入危急值预览', cls: 'btn-primary', autoClose: false, onClick: addToPreview },
+                { text: '保存', cls: 'btn-primary', autoClose: false, onClick: addToPreview },
             ]
             : [
                 { text: '取消', cls: 'btn-outline' },
@@ -287,16 +287,18 @@ Clinic.critical = (function () {
             SEND_CTX.onAdd({ item: item, to_doctor_id: SEND_CTX.to_doctor_id, to_doctor_name: SEND_CTX.to_doctor_name });
         }
         Clinic.modal.close();
-        Clinic.toast.success('已加入危急值预览，发布报告时一并发送');
+        Clinic.toast.success('已保存，发布报告时一并发送');
     }
 
     /** 从影像科暂存队列移除一项（弹窗内 ✕）：
         回调 onRemove 同步队列 → 重开弹窗展示最新列表 */
     function removeFromPreview(i) {
-        if (SEND_CTX && SEND_CTX.onRemove) SEND_CTX.onRemove(i);
-        Clinic.modal.close();
-        // 若队列仍有剩余项，重开弹窗让用户继续查看/删除
-        setTimeout(function () {
+        // 删除前确认（避免误操作）：移除后同步队列并重开弹窗展示最新列表
+        Clinic.modal.confirm('确定从暂存队列移除该项危急值吗？', function () {
+            if (SEND_CTX && SEND_CTX.onRemove) SEND_CTX.onRemove(i);
+            Clinic.modal.close();
+            // 若队列仍有剩余项，重开弹窗让用户继续查看/删除
+            setTimeout(function () {
             if (SEND_CTX && SEND_CTX.source === 'imaging' && SEND_CTX.onRemove) {
                 // 需当前项目上下文仍在（调用方 imgCritLoad 依据 __imgCurItem/CUR_IMG_ITEM）
                 openSend({
@@ -312,6 +314,7 @@ Clinic.critical = (function () {
                 });
             }
         }, 200);
+        });
     }
 
     /** 通用发送（影像科发布时逐条调用） */
