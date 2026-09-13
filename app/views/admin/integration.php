@@ -50,7 +50,7 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
 </div>
 
 <?php foreach ($groups as $gi => $g): ?>
-    <div class="card itg-pane" id="itgPane_<?php echo e($g['id']); ?>"<?php echo $gi === 0 ? '' : ' style="display:none"'; ?>>
+    <div class="card itg-pane" id="itgPane_<?php echo e($g['id']); ?>" data-tab="<?php echo e($g['id']); ?>"<?php echo $gi === 0 ? '' : ' style="display:none"'; ?>>
         <div class="card-title"><?php echo e($g['emoji'] . ' ' . $g['title']); ?></div>
         <?php if (!empty($g['desc'])): ?>
             <div class="fs-12 text-muted mb-12" style="margin-top:-8px"><?php echo e($g['desc']); ?></div>
@@ -58,6 +58,7 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
         <?php if ($g['id'] === 'his'): ?>
         <div class="itg-his-cols">
             <div class="itg-his-left">
+                <div class="fw-600 fs-13 mb-8">⚙️ HIS 接口配置</div>
         <?php endif; ?>
         <?php foreach ($g['fields'] as $f): ?>
             <div class="form-group">
@@ -117,24 +118,25 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
                 </div>
             </div>
         </div>
-        <div class="itg-his-docs">
-            <div class="fw-600 fs-13 mb-8">📖 接口说明（外部系统调用）</div>
-            <div class="table-wrap"><table class="table">
-                <thead><tr><th>action</th><th>参数</th><th>说明</th></tr></thead>
-                <tbody>
-                    <tr><td><code>ping</code></td><td>无</td><td>连通性自检，返回系统标识、系统代码与服务器时间</td></tr>
-                    <tr><td><code>patient_get</code></td><td><code>id_card</code> 或 <code>patient_no</code></td><td>查询患者档案</td></tr>
-                    <tr><td><code>visit_list</code></td><td><code>patient_no</code></td><td>该患者全部就诊记录</td></tr>
-                    <tr><td><code>visit_status</code></td><td><code>flow_no</code></td><td>查询某次就诊状态</td></tr>
-                    <tr><td><code>order_list</code></td><td><code>visit_id</code></td><td>某次就诊的开单明细</td></tr>
-                </tbody>
-            </table></div>
-            <div class="fs-12 text-muted mt-8 mb-4">调用示例（GET，保存密钥后随地址一并刷新）：</div>
-            <div class="itg-his-curl">
-                <code id="hisCurlDemo"></code>
-                <button type="button" class="btn btn-outline btn-sm" title="复制 curl 示例" onclick="copyHisCurl()">📋</button>
-            </div>
+    </div>
+    <div class="card itg-pane-docs" id="itgDocs_<?php echo e($g['id']); ?>" data-tab="<?php echo e($g['id']); ?>"<?php echo $gi === 0 ? '' : ' style="display:none"'; ?>>
+        <div class="card-title">📖 接口说明（外部系统调用）</div>
+        <div class="table-wrap"><table class="table">
+            <thead><tr><th>action</th><th>参数</th><th>说明</th></tr></thead>
+            <tbody>
+                <tr><td><code>ping</code></td><td>无</td><td>连通性自检，返回系统标识、系统代码与服务器时间</td></tr>
+                <tr><td><code>patient_get</code></td><td><code>id_card</code> 或 <code>patient_no</code></td><td>查询患者档案</td></tr>
+                <tr><td><code>visit_list</code></td><td><code>patient_no</code></td><td>该患者全部就诊记录</td></tr>
+                <tr><td><code>visit_status</code></td><td><code>flow_no</code></td><td>查询某次就诊状态</td></tr>
+                <tr><td><code>order_list</code></td><td><code>visit_id</code></td><td>某次就诊的开单明细</td></tr>
+            </tbody>
+        </table></div>
+        <div class="fs-12 text-muted mt-8 mb-4">调用示例（GET，保存密钥后随地址一并刷新）：</div>
+        <div class="itg-his-curl">
+            <code id="hisCurlDemo"></code>
+            <button type="button" class="btn btn-outline btn-sm" title="复制 curl 示例" onclick="copyHisCurl()">📋</button>
         </div>
+    </div>
         <?php else: ?>
         <?php if ($g['id'] === 'pacs'): ?>
             <div class="fs-12 text-muted mb-12">
@@ -142,8 +144,8 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
             </div>
         <?php endif; ?>
         <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>')">保存本组配置</button>
+        </div>
         <?php endif; ?>
-    </div>
 <?php endforeach; ?>
 
 <script>
@@ -168,6 +170,11 @@ function renderHisLive() {
     }
 }
 renderHisLive();   // 初始渲染（按当前已保存密钥）；密钥修改仅在保存后刷新
+syncHisCols();     // 初始同步左右列高度（以左列高度为基准）
+window.addEventListener('resize', function () {
+    var pane = document.getElementById('itgPane_his');
+    if (pane && pane.style.display !== 'none') syncHisCols();
+});
 
 /* ---------- 生成随机 HIS 接口密钥（一键生成后点击保存生效） ---------- */
 function genHisKey() {
@@ -240,6 +247,14 @@ function testHisApi() {
     render('GET 参数 api_key', base + '&api_key=' + encodeURIComponent(key), {});
 }
 
+/* ---------- HIS 左右两列高度同步：以左列高度为基准，右列超高时内部滚动 ---------- */
+function syncHisCols() {
+    var left = document.querySelector('#itgPane_his .itg-his-left');
+    var right = document.querySelector('#itgPane_his .itg-his-right');
+    if (!left || !right) return;
+    right.style.maxHeight = left.offsetHeight + 'px';
+}
+
 /* ---------- Tab 选项卡切换 ---------- */
 function itgTab(id) {
     document.querySelectorAll('#itgTabs .itg-tab').forEach(function (t) {
@@ -248,9 +263,10 @@ function itgTab(id) {
         t.classList.toggle('btn-primary', on);
         t.classList.toggle('btn-outline', !on);
     });
-    document.querySelectorAll('.itg-pane').forEach(function (p) {
-        p.style.display = (p.id === 'itgPane_' + id) ? '' : 'none';
+    document.querySelectorAll('.itg-pane, .itg-pane-docs').forEach(function (p) {
+        p.style.display = (p.getAttribute('data-tab') === id) ? '' : 'none';
     });
+    if (id === 'his') syncHisCols();
 }
 
 /* ---------- 分组保存（仅提交该组字段） ---------- */
@@ -270,11 +286,12 @@ function itgSave(groupId) {
     Clinic.ajax('/api/admin', data, {
         onSuccess: function (json) {
             Clinic.toast.success(json.msg);
-            // HIS 保存后：同步实时渲染状态 + 清空连通性测试结果
+            // HIS 保存后：同步实时渲染状态 + 清空连通性测试结果 + 重新对齐两列高度
             if (groupId === 'his') {
                 HIS_SAVED_KEY = ((document.getElementById('itg_his_api_key') || {}).value || '').trim();
                 renderHisLive();
                 hisTestEmpty();
+                syncHisCols();
             }
         },
     });

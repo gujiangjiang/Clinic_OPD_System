@@ -34,10 +34,10 @@
 .itg-his-left, .itg-his-right {
     min-width: 0;
     min-height: 0;
-    overflow-y: auto;
     align-self: stretch;
 }
 .itg-his-right {
+    overflow-y: auto;
     border-left: 1px solid var(--border);
     padding-left: 14px;
 }
@@ -71,15 +71,9 @@
 }
 .itg-his-url-ph { color: var(--text-muted); font-family: inherit; }
 
-.itg-his-docs {
-    margin-bottom: 14px;
-    padding: 12px 14px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--bg-card, #fff);
-}
-.itg-his-docs .table { font-size: 13px; }
-.itg-his-docs .table code {
+.itg-pane-docs { margin-top: 14px; }
+.itg-pane-docs .table { font-size: 13px; }
+.itg-pane-docs .table code {
     font-family: monospace;
     background: var(--bg-soft, #f1f5f9);
     border-radius: 4px;
