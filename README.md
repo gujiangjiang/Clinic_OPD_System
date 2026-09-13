@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v8.7.9-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v8.8.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -224,7 +224,13 @@ server {
 
 系统内置只读 HIS 对接接口（`/api/his`），为未来扩展住院 HIS、医保、BI 等系统提供数据支持。
 
-在【接口管理】（/admin/integration）中配置「HIS 接口密钥」（留空则接口关闭；系统代码/同步模式等亦在该页维护）。**HIS API 地址为自动生成、无需人工填写**——即本系统对外提供服务的接口地址（当前访问地址 + `/api/his`，已在页面展示并附带密钥、一键复制）；页面还内置**接口连通性测试**（分别验证 X-HIS-Key 请求头与 api_key GET 参数两种认证方式）。外部 HIS 系统需能访问该地址并携带密钥调用：
+在【接口管理】（/admin/integration）中配置「HIS 接口密钥」（留空则接口关闭；系统代码/同步模式等亦在该页维护）。页面要点：
+
+- **HIS API 地址为自动生成、无需人工填写**：即本系统对外提供服务的接口地址（当前访问地址 + `/api/his`），页面实时展示并附带密钥、一键复制；未填密钥时显示提示占位。
+- **接口连通性测试**：右侧面板内置【▶ 开始测试】，实际请求 `/api/his` 的 `ping` 自检，分别验证「X-HIS-Key 请求头」与「GET 参数 api_key」两种认证方式并展示返回 JSON。
+- **系统代码**：由 HIS 侧分配、用于在 HIS 方标识本系统的编码（预留字段，认证仅依赖密钥；`ping` 返回中回显）。
+
+外部 HIS 系统需能访问该地址并携带密钥调用：
 
 ```bash
 # 推荐：请求头方式（密钥不进 URL / 访问日志）
@@ -235,7 +241,7 @@ curl "http://your-domain/api/his?action=patient_get&id_card=110101199001011234&a
 
 | action | 参数 | 说明 |
 | --- | --- | --- |
-| `ping` | 无 | 连通性自检（接口管理页测试按钮使用） |
+| `ping` | 无 | 连通性自检，返回系统标识、系统代码与服务器时间 |
 | `patient_get` | `id_card` 或 `patient_no` | 查询患者档案 |
 | `visit_list` | `patient_no` | 该患者全部就诊记录 |
 | `visit_status` | `flow_no` | 查询某次就诊状态 |

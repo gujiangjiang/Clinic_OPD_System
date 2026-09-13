@@ -24,7 +24,8 @@ function integration_field_groups() {
             'desc' => '与院内 HIS 系统对接的基础配置（预留接口，密钥留空则关闭外部只读查询）',
             'fields' => array(
                 array('key' => 'his_system_code', 'label' => '系统代码', 'type' => 'input',
-                    'placeholder' => '本系统在 HIS 侧登记的系统编码', 'default' => ''),
+                    'placeholder' => '本系统在 HIS 侧登记的系统编码', 'default' => '',
+                    'hint' => '由 HIS 侧分配、用于在 HIS 方标识本系统的编码（如 CLINIC-OPD）。当前为预留字段，接口认证仅依赖密钥，不参与校验；配置后会在 ping 自检返回值中回显，便于联调确认。'),
                 array('key' => 'his_api_key', 'label' => '接口密钥（留空 = 关闭外部接口）', 'type' => 'input',
                     'placeholder' => '留空 = 关闭 HIS 外部接口', 'default' => '', 'monospace' => true),
                 array('key' => 'his_sync_mode', 'label' => '同步模式', 'type' => 'select',
