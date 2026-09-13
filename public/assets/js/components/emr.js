@@ -23,6 +23,8 @@ Clinic.emr = (function () {
     /** 已开项目缓存（病历正文 辅助检查/门诊处置 所见即所得展示用） */
     var ORDERS = [];
     var CONSULTS = [];   // 本次就诊关联的会诊（门诊处置「请X科会诊」驱动）
+    /** 当前项目详情弹窗已加载的报告数据（引用结果按钮用，report_id → data） */
+    var REPORT_CACHE = {};
 
     // ===== 共享上下文：供拆分的子模块（emr_format/emr_template 等）读写 =====
     // 通过 accessor 属性与模块级状态保持同步，不改变本文件既有引用；
@@ -1907,6 +1909,9 @@ Clinic.emr = (function () {
             Clinic.get('/api/doctor?action=report_detail&report_id=' + it.report_id, null, {
                 onSuccess: function (rj) {
                     if (!rj.ok) return;
+                    REPORT_CACHE[it.report_id] = rj.data || null;
+                    var refBtn = document.getElementById('refResultBtn');
+                    if (refBtn) refBtn.disabled = false;
                     var box = document.getElementById('anaReportBox');
                     if (!box || !rj.data) return;
                     var d2 = rj.data, h2 = '';
@@ -1948,11 +1953,119 @@ Clinic.emr = (function () {
             ? '<button type="button" class="btn btn-danger btn-sm" style="margin-left:8px" onclick="delOrderFlow(\'' + o.id + '\',\'' + delLabel + '\')">🗑️ ' + delLabel + '</button>'
             : '';
         html += '<div style="margin-top:12px">' +
+            (it.report_id
+                ? '<button type="button" id="refResultBtn" class="btn btn-primary btn-sm" disabled style="margin-right:8px" ' +
+                'onclick="Clinic.emr.refResult(' + it.report_id + ')">📋 引用结果</button>'
+                : '') +
             '<button type="button" class="btn btn-outline btn-sm" ' +
             'onclick="Clinic.print.load(\'/api/print?action=order&order_id=' + o.id + '\',null,\'a5\')">🖨️ 打印申请单</button>' +
             delBtn2 + '</div>';
         Clinic.modal.open(html, { title: typeNames[o.order_type] || '项目详情', size: 'modal-lg' });
     };
+
+    /**
+     * 引用报告结果到病历辅助检查（【请填写辅助检查结果】字段）：
+     * 影像报告直接引用；检验报告先弹多选框（全选/逐项勾选）再引用。
+     * 引用文案追加在已有内容之后（「，」分隔），不影响既有文字；
+     * 影像诊断结论若多行则去除换行符、单行展示。
+     */
+    function refResult(reportId) {
+        var d = REPORT_CACHE[reportId] || null;
+        if (!d) { Clinic.toast.info('报告加载中，请稍候再试'); return; }
+        if (d.type === 'lab') {
+            openLabRefPicker(reportId, d);
+        } else {
+            var conclusion = String(d.conclusion || '').replace(/\s+/g, ' ').trim();
+            appendAuxResult(dtText(d) + ' ' + (d.item_name || '检查') + '：' + conclusion + '。');
+        }
+    }
+
+    /** 报告日期时间（created_at 形如 2026-09-13 12:04:05 → 2026-09-13 12:04） */
+    function dtText(d) {
+        var t = String(d.time || '').trim();
+        return t.length >= 16 ? t.substring(0, 16) : t;
+    }
+
+    /** 追加文案到病历【请填写辅助检查结果】字段（contenteditable），不覆盖已有内容 */
+    function appendAuxResult(text) {
+        var f = document.querySelector('#docBody [data-k="aux_result"]');
+        if (!f) { Clinic.toast.warning('当前病历不可编辑，无法引用结果'); return; }
+        var cur = f.innerText.replace(/\u00a0/g, ' ').trim();
+        f.innerText = cur ? cur + '，' + text : text;
+        f.dispatchEvent(new Event('input', { bubbles: true }));
+        try { f.focus(); } catch (e) {}
+        Clinic.toast.success('已引用到病历辅助检查');
+    }
+
+    /** 检验报告引用选择弹窗：项目/结果/单位/参考范围/危急值 + 左侧多选框 + 全选 */
+    function openLabRefPicker(reportId, d) {
+        var rows = d.rows || [];
+        if (!rows.length) { Clinic.toast.warning('该报告无指标明细可引用'); return; }
+        var body = '<div class="mb-8" style="display:flex;align-items:center;gap:8px">' +
+            '<button type="button" class="btn btn-outline btn-sm" id="refSelAll" onclick="refToggleAll()">☑️ 全选</button>' +
+            '<span class="fs-12 text-muted" id="refSelCount">已选 0 / ' + rows.length + ' 项</span></div>' +
+            '<div class="table-wrap"><table class="table"><thead><tr>' +
+            '<th style="width:36px"></th><th>项目</th><th>结果</th><th>单位</th><th>参考范围</th><th>危急值</th></tr></thead><tbody>' +
+            rows.map(function (r, i) {
+                return '<tr>' +
+                    '<td><input type="checkbox" class="ref-row-cb" data-i="' + i + '"></td>' +
+                    '<td>' + escHtml(r.name) + '</td>' +
+                    '<td class="fw-600">' + escHtml(r.value) + '</td>' +
+                    '<td>' + escHtml(r.unit || '-') + '</td>' +
+                    '<td>' + escHtml(r.range || '-') + '</td>' +
+                    '<td>' + (r.critical ? '<span class="text-danger">' + escHtml(r.critical) + '</span>' : '-') + '</td></tr>';
+            }).join('') +
+            '</tbody></table></div>' +
+            '<div class="mt-12" style="display:flex;gap:8px">' +
+            '<button type="button" class="btn btn-primary btn-sm" onclick="Clinic.emr.refLabPick(' + reportId + ')">📋 引用</button>' +
+            '<button type="button" class="btn btn-outline btn-sm" onclick="Clinic.modal.close()">取消</button></div>';
+        Clinic.modal.open('<div style="width:100%">' + body + '</div>', {
+            title: '引用检验结果到病历', size: 'modal-lg',
+        });
+        var cbs = document.querySelectorAll('.ref-row-cb');
+        for (var i = 0; i < cbs.length; i++) {
+            cbs[i].addEventListener('change', refCount);
+        }
+    }
+
+    /** 检验结果选择：全选/取消全选（切换） */
+    window.refToggleAll = function () {
+        var cbs = document.querySelectorAll('.ref-row-cb');
+        var allOn = true;
+        for (var i = 0; i < cbs.length; i++) { if (!cbs[i].checked) { allOn = false; break; } }
+        for (var j = 0; j < cbs.length; j++) { cbs[j].checked = !allOn; }
+        refCount();
+        var btn = document.getElementById('refSelAll');
+        if (btn) btn.textContent = allOn ? '⬜ 取消全选' : '☑️ 全选';
+    };
+
+    /** 检验结果选择计数刷新 */
+    function refCount() {
+        var cbs = document.querySelectorAll('.ref-row-cb');
+        var n = 0;
+        for (var i = 0; i < cbs.length; i++) { if (cbs[i].checked) n++; }
+        var c = document.getElementById('refSelCount');
+        if (c) c.textContent = '已选 ' + n + ' / ' + cbs.length + ' 项';
+    }
+
+    /** 确认引用选中的检验指标（格式：日期时间 + 项目 结果单位，逗号分隔） */
+    function refLabPick(reportId) {
+        var d = REPORT_CACHE[reportId] || null;
+        if (!d) { Clinic.toast.warning('报告数据缺失，请重试'); return; }
+        var cbs = document.querySelectorAll('.ref-row-cb');
+        var parts = [];
+        for (var i = 0; i < cbs.length; i++) {
+            if (!cbs[i].checked) continue;
+            var r = d.rows[parseInt(cbs[i].getAttribute('data-i'), 10)];
+            if (!r) continue;
+            var v = String(r.value || '').trim();
+            if (v === '') continue;
+            parts.push(r.name + ' ' + v + (r.unit ? r.unit : ''));
+        }
+        if (!parts.length) { Clinic.toast.warning('请至少勾选一项检验结果'); return; }
+        Clinic.modal.close();
+        appendAuxResult(dtText(d) + ' ' + parts.join('，') + '。');
+    }
 
     /**
      * 闭环追踪流程列（统一样式）：steps=[{label, operator, time, done}]。
@@ -2563,6 +2676,10 @@ Clinic.emr = (function () {
         delConsult: delConsult,
         renderConsultList: renderConsultList,
         startConsult: startConsult,
+        /** 引用报告结果到病历辅助检查（影像直接引用；检验先弹选择框） */
+        refResult: refResult,
+        /** 确认引用选中的检验指标（检验选择弹窗引用按钮回调） */
+        refLabPick: refLabPick,
         openCertificate: openCertificate,
         certificateModal: certificateModal,
         viewCertificate: viewCertificate,
