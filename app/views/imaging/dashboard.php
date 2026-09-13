@@ -149,16 +149,13 @@ function renderImgIntegrated(data) {
         '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'翻转\')">⇋ 翻转</button>' +
         '    <span class="pacs-tool-sep"></span>' +
         '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'重置\')">↺ 重置</button>' +
-        '    <span class="pacs-tool-sep"></span>' +
-        '    <button type="button" class="btn btn-primary btn-sm" style="font-size:12px" onclick="pacsOpenViewer()">🪟 内嵌阅片器</button>' +
-        '    <span style="margin-left:auto" class="fs-12 text-muted">选择左侧序列后，点【内嵌阅片器】调阅影像</span>' +
         '  </div>' +
         '  <div class="pacs-viewer-stage">' +
         '    <div class="pacs-viewer-mount" id="pacsViewerMount"></div>' +
         '    <div class="pacs-viewer-placeholder" id="pacsViewerPh">' +
         '      <div class="ph-ico">🩻</div>' +
         '      <div class="ph-main">影像阅片视窗</div>' +
-        '      <div class="ph-sub">选择左侧序列后点击【内嵌阅片器】调阅影像</div>' +
+        '      <div class="ph-sub">选中左侧序列后自动调阅</div>' +
         '    </div>' +
         '    <div class="pacs-viewer-tag" id="pacsTagL"></div>' +
         '    <div class="pacs-viewer-tag pacs-viewer-tag-r" id="pacsTagR"></div>' +
@@ -199,6 +196,8 @@ function renderImgIntegrated(data) {
     renderImgCritQueue();
     // 历史报告调阅（仅挂载一次；切患者时重新挂载）
     mountImgHistory(p);
+    // 自动内嵌阅片器：患者/序列加载即调阅当前序列影像（未配置阅片器时视窗内提示）
+    if (cur) pacsAutoEmbed(cur.id);
 }
 
 /* 独立阅片窗口上下文广播（患者/序列变化实时同步） */
@@ -279,6 +278,8 @@ function pacsPickSeries(el, itemId) {
     imgDraftRemoteFill(it);
     // 危急值暂存队列回显（换选序列后队列随项目切换）
     renderImgCritQueue();
+    // 自动内嵌阅片器：选中序列即调阅该序列影像（未配置阅片器时视窗内提示）
+    pacsAutoEmbed(it.id);
 }
 
 /* 左下角检查信息卡（动态更新，优化项7） */
@@ -321,42 +322,62 @@ function pacsTool(name) {
 
 /* 内嵌 Web 阅片器（优化项3）：按当前序列取阅片器地址（影像引用优先），
    已配置则以 iframe 挂载到读片视窗（无插件、支持窗宽窗位/多序列/MPR/测量） */
-function pacsOpenViewer() {
-    var cur = window.__imgCurItem;
-    if (!cur) { Clinic.toast.warning('请先在左侧选择检查序列'); return; }
-    Clinic.get('/api/imaging?action=viewer_url&item_id=' + encodeURIComponent(cur.id), null, {
-        onSuccess: function (json) {
-            var d = json.data || {};
-            var mount = document.getElementById('pacsViewerMount');
-            var ph = document.getElementById('pacsViewerPh');
-            if (!mount) return;
-            // 加载提示：外部阅片器地址不可达时给出明确引导（而非裸 iframe 错误页）
-            var escU = Clinic.escHtml(d.url);
-            mount.innerHTML =
-                '<div class="pacs-viewer-loading" id="pacsViewerLoading">🌐 正在连接 Web 阅片器…（地址需院内网络可达）</div>' +
-                '<iframe id="pacsViewerFrame" src="' + escU + '" style="width:100%;height:100%;border:0;border-radius:10px;opacity:0;transition:opacity .3s" ' +
-                'title="Web 阅片器" allow="fullscreen"></iframe>';
-            var frame = document.getElementById('pacsViewerFrame');
-            var loading = document.getElementById('pacsViewerLoading');
-            if (frame) {
-                frame.addEventListener('load', function () {
-                    frame.style.opacity = '1';
-                    if (loading) loading.remove();
-                    var tl = document.getElementById('pacsTagL');
-                    if (tl) tl.textContent = '> 阅片器已挂载 · Study ' + Clinic.escHtml(d.study_uid || '');
-                    Clinic.toast.success('阅片器已内嵌挂载');
-                });
-                // 加载失败兜底（部分浏览器 load 不触发）：10s 后仍灰显则提示排查
-                setTimeout(function () {
-                    if (document.getElementById('pacsViewerLoading')) {
-                        if (loading) loading.innerHTML = '⚠️ 阅片器连接超时：请确认阅片器地址在院内网络可达，' +
-                            '或联系管理员在【外部接口集成 → DICOM/PACS】核对 Web 阅片器 URL 模板';
-                    }
-                }, 10000);
-            }
-            if (ph) ph.style.display = 'none';
-        },
+/* 自动内嵌 Web 阅片器（优化项：选中序列即自动调阅，无需点击按钮）
+ * - 配置了 pacs_viewer_url：iframe 自动挂载读片视窗，影像随序列切换即时更新；
+ * - 未配置/不可达：视窗内居中提示（不弹 toast，不打断操作）。
+ * 供 pacsPickSeries（一体化）与开放模态框广播链（经典→独立视窗）复用。 */
+function pacsAutoEmbed(itemId) {
+    if (!itemId) return;
+    var mount = document.getElementById('pacsViewerMount');
+    var ph = document.getElementById('pacsViewerPh');
+    var tagL = document.getElementById('pacsTagL');
+    if (!mount) return;
+    // 加载提示层（iframe 就绪前展示）
+    mount.innerHTML = '<div class="pacs-viewer-loading" id="pacsViewerLoading">🌐 正在连接 Web 阅片器…（地址需院内网络可达）</div>';
+    fetch('/api/imaging?action=viewer_url&item_id=' + encodeURIComponent(itemId), {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    }).then(function (r) {
+        if (r.status === 401) {
+            if (window.Clinic && Clinic.authSync) Clinic.authSync.broadcastLogout();
+            return null;
+        }
+        return r.json();
+    }).then(function (json) {
+        var loading = document.getElementById('pacsViewerLoading');
+        if (loading) loading.remove();
+        if (!json || !json.ok) {
+            // 未配置/异常：视窗内提示
+            pacsShowViewerHint(ph, mount, (json && json.msg) || '阅片器连接失败');
+            return;
+        }
+        var d = json.data || {};
+        var escU = Clinic.escHtml(d.url);
+        mount.innerHTML = '<iframe id="pacsViewerFrame" src="' + escU + '" style="width:100%;height:100%;border:0;border-radius:10px;opacity:0;transition:opacity .3s" title="Web 阅片器" allow="fullscreen"></iframe>';
+        var frame = document.getElementById('pacsViewerFrame');
+        if (frame) {
+            frame.addEventListener('load', function () {
+                frame.style.opacity = '1';
+                if (tagL) tagL.textContent = '> 阅片器已挂载 · Study ' + Clinic.escHtml(d.study_uid || '');
+            });
+        }
+        if (ph) ph.style.display = 'none';
+    }).catch(function () {
+        var loading = document.getElementById('pacsViewerLoading');
+        if (loading) loading.remove();
+        pacsShowViewerHint(ph, mount, '网络请求失败，请检查连接');
     });
+}
+
+/* 阅片视窗内居中提示（未配置阅片器/连接失败时） */
+function pacsShowViewerHint(ph, mount, msg) {
+    if (mount) mount.innerHTML = '';
+    if (ph) {
+        ph.style.display = '';
+        ph.innerHTML = '<div class="ph-ico">🩻</div>' +
+            '<div class="ph-main">影像阅片视窗</div>' +
+            '<div class="ph-sub">' + esc(msg) +
+            '，请联系管理员在【外部接口集成 → DICOM/PACS】配置 Web 阅片器地址后自动调阅</div>';
+    }
 }
 
 /* ---------- 右栏页签 ---------- */

@@ -64,7 +64,6 @@ $hosp = setting('hospital_name', '门诊一体化系统');
     <div class="pacs-solo-foot">
         <button type="button" class="pacs-tool-btn" onclick="soloFit()">⤢ 适应窗口</button>
         <button type="button" class="pacs-tool-btn" onclick="soloReset()">↺ 重置</button>
-        <button type="button" class="pacs-tool-btn" onclick="soloEmbed()">🪟 内嵌阅片器</button>
         <button type="button" class="pacs-tool-btn" onclick="window.close()">✕ 关闭视窗</button>
         <span class="solo-sub" style="margin-left:auto;align-self:center" id="soloSyncState"></span>
     </div>
@@ -243,6 +242,8 @@ function resetSolo() {
             CURRENT.item = pending.item || '';
             CURRENT.label = pending.label || '';
             loadSoloPatient(pending.visit);
+            // 会话握手中若携带序列（一体化模式选中序列后打开视窗）：自动挂载阅片器
+            if (CURRENT.item) soloEmbed(true);
         }
     }
 })();
