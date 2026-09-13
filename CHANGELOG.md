@@ -13,6 +13,24 @@
 
 ---
 
+## [8.7.2] - 2026-09-13
+
+### 修复
+- **登记后撰写区仍被半透明遮罩遮挡（已登记项目无法输入报告）**：`imgWritePane`
+  无惨渲染 `.pacs-write-gate-inner` 内容容器，而 CSS 该选择器未限定在
+  `.pacs-write-gated`（仅未登记态）作用域内——导致已登记/已提交项目的撰写区
+  同样被 `filter:blur` + `opacity:.55` + `pointer-events:none` 虚化并禁止交互。
+  修复：样式作用域收敛为 `.pacs-write-gated .pacs-write-gate-inner`，
+  仅未登记（paid）项目触发门禁虚化；已登记/已提交撰写区恢复正常可输入。
+  验证：headless Chrome 三场景（已登记直载 / 未登记→登记 / 经典模态框）计算
+  样式全部 `filter:none、pointer-events:auto、opacity:1`。
+- **APP_VERSION 常量不同步导致的资源缓存失效**：`bootstrap.php` 中
+  `APP_VERSION` 此前硬编码 `8.4.4` 未随版本号提交同步，所有静态资源 URL
+  `?v=8.4.4` 不变，浏览器与 Service Worker 长期缓存旧 JS/CSS（前端修复代码
+  从未被加载）。同步为当前版本并 bump 至 8.7.2，强制缓存失效。
+
+---
+
 ## [8.7.1] - 2026-09-13
 
 ### 修复

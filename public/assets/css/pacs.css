@@ -462,11 +462,11 @@
 .pacs-hist-empty .hist-empty-sub { font-size: 11.5px; color: var(--text-muted); opacity: .75; }
 
 /* ---------- 登记门禁遮罩（未登记项目：撰写区整pane模糊 + 居中提示 + 登记按钮） ---------- */
-/* 结构：.pacs-write-gated（relative 锁定容器）
-        > .pacs-write-gate-inner（表单内容）
-        > .pacs-reg-gate-overlay（absolute inset:0 模糊遮罩 + 居中提示卡片） */
+/* 结构：.pacs-write-gated（relative 锁定容器，仅未登记 paid 时挂）
+        > .pacs-write-gate-inner（表单内容；仅处于 .pacs-write-gated 内时虚化，
+          已登记/已提交时正常显示可编辑——作用域限定防全局误伤） */
 .pacs-write-gated { position: relative; }
-.pacs-write-gate-inner {
+.pacs-write-gated .pacs-write-gate-inner {
     /* 表单内容被遮罩虚化（filter 比 backdrop-filter 兼容性更稳） */
     filter: blur(3px) saturate(.6);
     opacity: .55;
