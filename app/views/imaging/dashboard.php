@@ -196,6 +196,8 @@ function renderImgIntegrated(data) {
     if (cur && cur.status !== 'paid') loadPacsTpls();
     // 服务端草稿回填（跨设备：本地无草稿时拉取）
     imgDraftRemoteFill(cur);
+    // 危急值暂存队列回显（sessionStorage 持久化，刷新/切模式不丢）
+    renderImgCritQueue();
     // 历史报告调阅（仅挂载一次；切患者时重新挂载）
     mountImgHistory(p);
 }
@@ -276,6 +278,8 @@ function pacsPickSeries(el, itemId) {
     loadPacsTpls();
     // 服务端草稿回填（跨设备：本地无草稿时拉取）
     imgDraftRemoteFill(it);
+    // 危急值暂存队列回显（换选序列后队列随项目切换）
+    renderImgCritQueue();
 }
 
 /* 左下角检查信息卡（动态更新，优化项7） */
@@ -443,6 +447,8 @@ function imgWritePane(cur, data, idPrefix) {
         '<span class="pacs-quickword" onclick="pacsQuickInsert(\'' + idPrefix + 'Conclusion\', this)">建议随访复查。</span>' +
         '</div>') +
         '</div>' +
+        // 危急值暂存区：一体化撰写页签内挂载（经典模态框在左栏挂载，同一队列源）
+        (idPrefix === 'pacs' ? imgCritBoxHtml('pacs') : '') +
         '</div>' +
         (isPaid ?
             // 登记门禁遮罩：整pane absolute inset:0 覆盖（模糊背景 + 居中提示 + 登记按钮）
@@ -675,30 +681,9 @@ function imgDraftSave() {
     Clinic.toast.success('草稿已保存（服务端同步，跨设备保留）');
 }
 
-/* 提交审核（当前阶段直接生成报告，与经典模式 save_result 同一后端） */
-var IMG_PUBLISHING = false;
-function imgPublish() {
-    var cur = window.__imgCurItem;
-    if (!cur) { Clinic.toast.warning('当前无待书写报告的检查项目'); return; }
-    if (cur.status === 'paid') { Clinic.toast.warning('该检查项目尚未登记，请先登记后再书写报告'); return; }
-    if (cur.status === 'done') { Clinic.toast.warning('该报告已提交，如需修改请先申请撤回'); return; }
-    if (cur.status !== 'registered') { Clinic.toast.warning('当前项目状态（' + itemStatusName(cur.status) + '）不支持提交报告'); return; }
-    if (IMG_PUBLISHING) return;
-    var findings = (document.getElementById('pacsFindings') || {}).value || '';
-    var conclusion = (document.getElementById('pacsConclusion') || {}).value || '';
-    if (!findings.trim()) { Clinic.toast.warning('请填写影像学表现'); return; }
-    if (!conclusion.trim()) { Clinic.toast.warning('请填写影像学诊断'); return; }
-    IMG_PUBLISHING = true;
-    Clinic.ajax('/api/imaging', { action: 'save_result', item_id: cur.id, findings: findings, conclusion: conclusion }, {
-        loading: true,
-        onSuccess: function (json) {
-            IMG_PUBLISHING = false;
-            imgDraftClear(cur);   // 提交成功清除本地草稿（正式报告以库内为准）
-            finishImgPublish(json);
-        },
-        onError: function () { IMG_PUBLISHING = false; },
-    });
-}
+/* 提交审核（当前阶段直接生成报告，与经典模态框 imgSubmitReport 共用同一后端链路） */
+
+/* 已提交报告的「申请修改」入口（与经典模式撤回同流：管理员审核） */
 
 /* 退回修改：清空当前撰写区（重新书写），保留登记状态 */
 function imgRejectBack() {
@@ -876,11 +861,7 @@ function openImgReportModal(id) {
         '    <div style="flex:1;min-height:0;overflow-y:auto" id="imgmClinHost">' +
         imgClinPane(data, 'imgm', true) +
         '    </div>' +
-        '    <div class="dw-crit-queue" style="border-top:1px solid var(--border);padding-top:10px;margin-top:8px;flex-shrink:0">' +
-        '      <button type="button" class="btn btn-outline btn-sm pacs-crit-btn" style="width:100%" onclick="openImgCritSend()">🚨 报危急值</button>' +
-        '      <div class="dw-crit-queue-title">危急值等待发送（<span id="imgCritCount">0</span>）</div>' +
-        '      <div id="imgCritQueue" style="margin-top:6px"></div>' +
-        '    </div>' +
+        imgCritBoxHtml('imgm') +
         '  </div>' +
         '  <div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;overflow-y:auto">' +
         imgWritePane(it, data, 'imgm') +
@@ -898,18 +879,61 @@ function openImgReportModal(id) {
     loadPacsTpls('imgm');
     // 历史报告调阅（模态框）：按 patient_id 检索，复制目标为模态框撰写区
     if (p.patient_id) mountImgHistory(p, 'imgm');
-    // 危急值预览队列：随报告发布一并发送（未发布即关闭则本次不发送）
-    window.__imgCritQueue = [];
+    // 危急值暂存队列：跨模式/跨刷新持久（sessionStorage），打开时回显当前项目队列
     renderImgCritQueue();
     mask.querySelector('.modal-foot').innerHTML =
+        '<button type="button" class="btn btn-outline" onclick="imgmDraftSave()">💾 保存草稿</button>' +
         '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
         '<button type="button" class="btn btn-primary" onclick="imgModalSave()">💾 提交并打印报告</button>';
 }
 
-/* ==================== 影像科危急值（手动上报，发布时一并发送） ==================== */
+/* 经典模态框保存草稿（与一体化 imgDraftSave 同一数据源/同一存储） */
+function imgmDraftSave() {
+    if (!CUR_IMG_ITEM) return;
+    var f = document.getElementById('imgmFindings');
+    var c = document.getElementById('imgmConclusion');
+    if (!f || !c) { Clinic.toast.warning('暂无可保存的报告内容'); return; }
+    if (CUR_IMG_ITEM.status !== 'registered') { Clinic.toast.warning('已提交报告以库内正式内容为准，不支持草稿'); return; }
+    imgDraftWrite(CUR_IMG_ITEM, f.value, c.value);
+    Clinic.toast.success('草稿已保存（服务端同步，跨设备保留）');
+}
+
+/* ==================== 影像科危急值暂存队列（一体化/经典共用，sessionStorage 持久化） ====================
+ * 设计原则（优化项1）：危急值在报告发布前处于暂存态——同一检查项目的暂存队列
+ * 跨页面刷新、跨模式切换（一体化右栏 ↔ 经典模态框）无缝衔接：
+ *   - 队列以 sessionStorage 按项目 id 持久化（刷新页面不丢；关闭页签自动清除）
+ *   - 两个模式共用 openImgCritSend / renderImgCritQueue / imgCritRemove
+ *   - 发布报告时按当前项目取出队列逐条发送，发送后清除
+ */
+function imgCritKey(itemId) { return 'clinic_img_crit_' + itemId; }
+function imgCritLoad() {
+    var it = window.__imgCurItem || CUR_IMG_ITEM;
+    if (!it || !it.id) return [];
+    try { var v = JSON.parse(sessionStorage.getItem(imgCritKey(it.id)) || '[]'); return Array.isArray(v) ? v : []; }
+    catch (e) { return []; }
+}
+function imgCritSave(q) {
+    var it = window.__imgCurItem || CUR_IMG_ITEM;
+    if (!it || !it.id) return;
+    try { sessionStorage.setItem(imgCritKey(it.id), JSON.stringify(q || [])); } catch (e) { /* 忽略 */ }
+}
+function imgCritClear() {
+    var it = window.__imgCurItem || CUR_IMG_ITEM;
+    if (it && it.id) { try { sessionStorage.removeItem(imgCritKey(it.id)); } catch (e) { /* 忽略 */ } }
+}
+
+/* 危急值暂存区渲染（一体化撰写页签底部 / 经典模态框左栏共用；prefix 区分 DOM id） */
+function imgCritBoxHtml(prefix) {
+    return '<div class="dw-crit-queue" style="border-top:1px solid var(--border);padding-top:10px;margin-top:10px">' +
+        '<button type="button" class="btn btn-outline btn-sm pacs-crit-btn" style="width:100%" onclick="openImgCritSend()">🚨 报危急值</button>' +
+        '<div class="dw-crit-queue-title">危急值等待发送（<span id="' + prefix + 'CritCount">0</span>）</div>' +
+        '<div id="' + prefix + 'CritQueue" style="margin-top:6px"></div></div>';
+}
+
 function openImgCritSend() {
     if (!window.__imgCurItem && !CUR_IMG_ITEM) return;
     var cur = window.__imgCurItem || CUR_IMG_ITEM;
+    var q = imgCritLoad();
     // 将已添加的危急值预览回传弹窗：再次点开可看到已填内容，避免误以为丢失
     Clinic.critical.openSend({
         source: 'imaging',
@@ -917,32 +941,37 @@ function openImgCritSend() {
         mode: 'imaging',
         doctor_id: cur.doctor_id || 0,
         doctor_name: cur.doctor_name || '',
-        existing: window.__imgCritQueue || [],
-        onAdd: function (q) {
-            (window.__imgCritQueue || []).push(q);
+        existing: q,
+        onAdd: function (cv) {
+            q.push(cv);
+            imgCritSave(q);
             renderImgCritQueue();
         },
     });
 }
 
 function renderImgCritQueue() {
-    var box = document.getElementById('imgCritQueue');
-    var cnt = document.getElementById('imgCritCount');
-    var q = window.__imgCritQueue || [];
-    if (cnt) cnt.textContent = q.length;
-    if (!box) return;
-    box.innerHTML = q.length
-        ? q.map(function (x, i) {
-            return '<div class="dw-crit-queue-item">' +
-                '<span class="crit-q-name">' + esc(x.item) + '</span>' +
-                '<span class="fs-12 text-muted">→ ' + esc(x.to_doctor_name) + '</span>' +
-                '<button type="button" class="btn btn-outline btn-sm" style="margin-left:auto;padding:1px 8px" onclick="imgCritRemove(' + i + ')">✕</button></div>';
-        }).join('')
-        : '<div class="fs-12 text-muted">暂无危急值（点击上方按钮手动上报）</div>';
+    var q = imgCritLoad();
+    ['pacs', 'imgm'].forEach(function (prefix) {
+        var box = document.getElementById(prefix + 'CritQueue');
+        var cnt = document.getElementById(prefix + 'CritCount');
+        if (cnt) cnt.textContent = q.length;
+        if (!box) return;
+        box.innerHTML = q.length
+            ? q.map(function (x, i) {
+                return '<div class="dw-crit-queue-item">' +
+                    '<span class="crit-q-name">' + esc(x.item) + '</span>' +
+                    '<span class="fs-12 text-muted">→ ' + esc(x.to_doctor_name) + '</span>' +
+                    '<button type="button" class="btn btn-outline btn-sm" style="margin-left:auto;padding:1px 8px" onclick="imgCritRemove(' + i + ')">✕</button></div>';
+            }).join('')
+            : '<div class="fs-12 text-muted">暂无危急值（点击上方按钮手动上报）</div>';
+    });
 }
 
 function imgCritRemove(i) {
-    (window.__imgCritQueue || []).splice(i, 1);
+    var q = imgCritLoad();
+    q.splice(i, 1);
+    imgCritSave(q);
     renderImgCritQueue();
 }
 
@@ -956,23 +985,33 @@ function finishImgPublish(json) {
     afterImgAction((window.__imgCurItem || CUR_IMG_ITEM || {}).order_id);
 }
 
-function imgModalSave() {
-    if (!CUR_IMG_ITEM) return;
+/** 统一提交报告（一体化 imgPublish / 经典模态框 imgModalSave 单点维护，低冗余）
+ * @param it         目标检查项目
+ * @param idPrefix   输入区前缀（pacs 一体化 / imgm 模态框）
+ * @param statusCheck 是否前置状态校验（一体化保留 paid/done 拦截；模态框仅 registered 可开）
+ */
+function imgSubmitReport(it, idPrefix, statusCheck) {
+    if (!it) return;
     if (IMG_SUBMITTING) return;
-    var findings = ((document.getElementById('imgmFindings') || {}).value || '').trim();
-    var conclusion = ((document.getElementById('imgmConclusion') || {}).value || '').trim();
+    if (statusCheck) {
+        if (it.status === 'paid') { Clinic.toast.warning('该检查项目尚未登记，请先登记后再书写报告'); return; }
+        if (it.status === 'done') { Clinic.toast.warning('该报告已提交，如需修改请先申请撤回'); return; }
+        if (it.status !== 'registered') { Clinic.toast.warning('当前项目状态（' + itemStatusName(it.status) + '）不支持提交报告'); return; }
+    }
+    var findings = ((document.getElementById(idPrefix + 'Findings') || {}).value || '').trim();
+    var conclusion = ((document.getElementById(idPrefix + 'Conclusion') || {}).value || '').trim();
     if (!findings) { Clinic.toast.warning('请填写影像所见'); return; }
     if (!conclusion) { Clinic.toast.warning('请填写影像诊断'); return; }
-    var it = CUR_IMG_ITEM;
     IMG_SUBMITTING = true;
     Clinic.ajax('/api/imaging', { action: 'save_result', item_id: it.id, findings: findings, conclusion: conclusion }, {
         loading: true,
         onSuccess: function (json) {
             IMG_SUBMITTING = false;
-            imgDraftClear(it);   // 提交成功清除本地草稿
-            // 报告已发布：若存在危急值预览队列，逐条发送（手动上报的危急值随发布一并发出）
-            var queue = window.__imgCritQueue || [];
-            window.__imgCritQueue = [];
+            imgDraftClear(it);   // 提交成功清除本地草稿（正式报告以库内为准）
+            // 报告已发布：取出该项目的暂存危急值逐条发送（随发布一并发出），发送后清除
+            var queue = imgCritLoad();
+            imgCritClear();
+            renderImgCritQueue();
             if (!queue.length) { finishImgPublish(json); return; }
             var remaining = queue.length;
             queue.forEach(function (q) {
@@ -1001,6 +1040,16 @@ function imgModalSave() {
         },
         onError: function () { IMG_SUBMITTING = false; },
     });
+}
+
+/* 一体化提交入口 */
+function imgPublish() {
+    imgSubmitReport(window.__imgCurItem, 'pacs', true);
+}
+
+/* 经典模态框提交入口 */
+function imgModalSave() {
+    imgSubmitReport(CUR_IMG_ITEM, 'imgm', false);
 }
 
 function imgWithdraw(reportId) {
