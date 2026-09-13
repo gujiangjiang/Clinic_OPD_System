@@ -109,9 +109,14 @@ function renderImgIntegrated(data) {
     orders.forEach(function (o) { imgItems = imgItems.concat(o.items); });
     window.__imgItems = imgItems;
 
-    // 当前展示项目：已登记待出报告首项 → 已完成首项 → 已缴费未登记首项（登记门禁）
+    // 当前展示项目：优先保持用户已选中的序列（登记后刷新不跳项），
+    // 未选中时按 已登记 → 已完成 → 已缴费未登记 顺序取首项
     var cur = null;
-    imgItems.forEach(function (it) { if (!cur && it.status === 'registered') cur = it; });
+    var activeId = window.__imgCurActive || '';
+    if (activeId) {
+        imgItems.forEach(function (it) { if (it.id === activeId) cur = it; });
+    }
+    if (!cur) imgItems.forEach(function (it) { if (!cur && it.status === 'registered') cur = it; });
     if (!cur) imgItems.forEach(function (it) { if (!cur && it.status === 'done') cur = it; });
     if (!cur) imgItems.forEach(function (it) { if (!cur && it.status === 'paid') cur = it; });
     window.__imgCurItem = cur;
@@ -781,8 +786,38 @@ function doImgRegisterOrder(orderId) {
     Clinic.ajax('/api/imaging', { action: 'register_order', order_id: orderId }, {
         onSuccess: function (json) {
             Clinic.toast.success(json.msg);
+            // 登记成功：经典模态框若正打开该申请单的项目 → 重建其撰写区（解除遮罩/只读残留）
+            if (CUR_IMG_ITEM && CUR_IMG_ITEM.order_id === orderId) {
+                refreshOpenImgModal(orderId);
+                return;
+            }
             afterImgAction(orderId);
         },
+    });
+}
+
+/* 登记成功后重建打开中的写报告模态框内容（fetchPatient 最新数据重新渲染三栏） */
+function refreshOpenImgModal(orderId) {
+    Clinic.deptwork.fetchPatient(function (data) {
+        var it = null;
+        (data.orders || []).forEach(function (o) {
+            if (o.order_id !== orderId) return;
+            (o.items || []).forEach(function (x) {
+                if (CUR_IMG_ITEM && x.id === CUR_IMG_ITEM.id) it = x;
+            });
+        });
+        if (!it) { afterImgAction(orderId); return; }
+        CUR_IMG_ITEM = it;
+        // 中栏撰写区替换（imgm 前缀）
+        var host = document.getElementById('imgmWritePane');
+        if (host) {
+            host.outerHTML = imgWritePane(it, data, 'imgm');
+            loadPacsTpls('imgm');
+            imgDraftRemoteFill(it, 'imgm');
+            Clinic.toast.success('登记完成，撰写区已解锁');
+        } else {
+            afterImgAction(orderId);
+        }
     });
 }
 
