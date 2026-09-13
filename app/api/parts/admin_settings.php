@@ -56,7 +56,7 @@ function admin_part_settings($action) {
         set_setting('hospital_name2', post('hospital_name2'));
         // 页脚版权：固定格式自动生成【© 年份 医院名称 版权所有】，不再手动保存
         set_setting('timezone', $tz);
-        // HIS 接口密钥已迁移至【外部接口集成】（action=integration_save）统一维护
+        // HIS 接口密钥已迁移至【接口管理】（action=integration_save）统一维护
         // 登录安全：验证码启用模式（off/auto/force）与锁定阈值（3-10）
         $captchaMode = post('login_captcha_mode', 'auto');
         if (!in_array($captchaMode, opt_list('login_captcha_mode'), true)) $captchaMode = 'auto';
@@ -110,7 +110,7 @@ function admin_part_settings($action) {
         )), '作息时间已保存' . ($eff['is_dst'] === '1' ? '（当前处于夏令时区间，已按夏令时作息执行）' : ''));
     }
 
-    /* ==================== 外部接口集成：分组保存 ====================
+    /* ==================== 接口管理：分组保存 ====================
      * 说明：字段字典统一由 integration_field_groups() 提供（视图渲染与
      * 保存白名单共用同一数据源，杜绝两处维护漂移）；原系统设置中的
      * HIS 密钥（his_api_key）随迁移一并由本入口维护。

@@ -1,9 +1,9 @@
 <?php
 /**
  * ============================================================
- * helpers.d/integration.php — 外部接口集成字段字典（统一数据源）
+ * helpers.d/integration.php — 接口管理字段字典（统一数据源）
  * ============================================================
- * 说明：外部接口集成中心（/admin/integration）全部配置字段定义，
+ * 说明：接口管理中心（/admin/integration）全部配置字段定义，
  * 视图渲染与后端保存（action=integration_save）共用同一字典，
  * 避免“前端表单字段与后端白名单”两处维护漂移。
  * 存储规范：settings 键值对，键名按接口域前缀（pacs_/hl7_/fhir_/
@@ -11,7 +11,7 @@
  * ============================================================ */
 
 /**
- * 外部接口集成字段分组
+ * 接口管理字段分组
  * 结构：每组 = array(id, emoji, title, desc, fields)
  * 字段 = array(key, label, type[input|select], placeholder, default,
  *              options[select 用 val=>文案], hint, monospace)

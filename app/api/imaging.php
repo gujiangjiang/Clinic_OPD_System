@@ -334,7 +334,7 @@ switch ($action) {
     case 'viewer_url':
         $itemId = did(get('item_id'));
         $tpl = trim((string)setting('pacs_viewer_url', ''));
-        if ($tpl === '') json_fail('未配置 Web 阅片器 URL 模板，请管理员在【外部接口集成 → DICOM/PACS】中配置');
+        if ($tpl === '') json_fail('未配置 Web 阅片器 URL 模板，请管理员在【接口管理 → DICOM/PACS】中配置');
         $it = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['item_type'] !== 'imaging') json_fail('检查项目不存在');
         // 影像引用优先（只存引用架构：study_uid 唯一 + region 指向区域存储）

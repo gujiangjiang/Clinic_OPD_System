@@ -1,7 +1,7 @@
 <?php
 /**
  * ============================================================
- * admin/integration.php — 外部接口集成（统一外部接口设置中心）
+ * admin/integration.php — 接口管理（统一外部接口设置中心）
  * ============================================================
  * 说明：原系统设置中的【HIS 接口配置】迁移至此，并新增按 Tab 选项卡
  * 统一维护的外部接口配置：
@@ -15,7 +15,7 @@
  * 数据存储：settings 键值对（pacs_/hl7_/fhir_/his_/pay_/yibao_ 前缀），
  * 由 /api/admin action=integration_load / integration_save 读写。
  * ============================================================ */
-Router::title('外部接口集成');
+Router::title('接口管理');
 
 $groups = integration_field_groups();
 $vals = array();
@@ -26,14 +26,14 @@ foreach ($groups as $g) {
 }
 ?>
 <div class="page-head">
-    <div><div class="page-title">🔌 外部接口集成</div>
+    <div><div class="page-title">🔌 接口管理</div>
     <div class="page-desc">统一维护 HIS、支付、医保与医疗影像互联标准接口（DICOM/PACS · HL7 v2.x · FHIR R4）配置</div></div>
 </div>
 
 <div class="card" style="padding-bottom:6px">
     <div class="itg-tabs" id="itgTabs">
         <?php foreach ($groups as $gi => $g): ?>
-            <button type="button" class="itg-tab<?php echo $gi === 0 ? ' active' : ''; ?>"
+            <button type="button" class="itg-tab btn btn-sm<?php echo $gi === 0 ? ' btn-primary' : ' btn-outline'; ?>"
                 data-tab="<?php echo e($g['id']); ?>" onclick="itgTab('<?php echo e($g['id']); ?>')">
                 <?php echo e($g['emoji'] . ' ' . $g['title']); ?>
             </button>
@@ -90,7 +90,10 @@ foreach ($groups as $g) {
 /* ---------- Tab 选项卡切换 ---------- */
 function itgTab(id) {
     document.querySelectorAll('#itgTabs .itg-tab').forEach(function (t) {
-        t.classList.toggle('active', t.getAttribute('data-tab') === id);
+        var on = t.getAttribute('data-tab') === id;
+        t.classList.toggle('active', on);
+        t.classList.toggle('btn-primary', on);
+        t.classList.toggle('btn-outline', !on);
     });
     document.querySelectorAll('.itg-pane').forEach(function (p) {
         p.style.display = (p.id === 'itgPane_' + id) ? '' : 'none';

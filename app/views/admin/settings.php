@@ -24,7 +24,7 @@ foreach ($commonTz as $t) {
 ?>
 <div class="page-head">
     <div><div class="page-title">⚙️ 系统设置</div><div class="page-desc">按类别分区管理医院基础信息、品牌外观、作息时间与安全设置<br>
-    HIS / 支付 / 医保 / DICOM-PACS / HL7 / FHIR 等外部接口已迁移至 <a href="/admin/integration" style="color:var(--primary)">🔌 外部接口集成</a> 统一维护</div></div>
+    HIS / 支付 / 医保 / DICOM-PACS / HL7 / FHIR 等外部接口已迁移至 <a href="/admin/integration" style="color:var(--primary)">🔌 接口管理</a> 统一维护</div></div>
 </div>
 
 <div class="setting-grid">
@@ -252,7 +252,7 @@ function saveWork() {
     });
 }
 
-/* ---------- HIS 密钥迁移：已移至【外部接口集成】（/admin/integration）统一维护 ---------- */
+/* ---------- HIS 密钥迁移：已移至【接口管理】（/admin/integration）统一维护 ---------- */
 
 /* ---------- URL 安全混淆密钥管理 ---------- */
 var OBF_SECRET = '';

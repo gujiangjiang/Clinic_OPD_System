@@ -376,7 +376,7 @@ function pacsShowViewerHint(ph, mount, msg) {
         ph.innerHTML = '<div class="ph-ico">🩻</div>' +
             '<div class="ph-main">影像阅片视窗</div>' +
             '<div class="ph-sub">' + esc(msg) +
-            '，请联系管理员在【外部接口集成 → DICOM/PACS】配置 Web 阅片器地址后自动调阅</div>';
+            '，请联系管理员在【接口管理 → DICOM/PACS】配置 Web 阅片器地址后自动调阅</div>';
     }
 }
 
