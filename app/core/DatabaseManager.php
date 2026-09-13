@@ -1,21 +1,22 @@
 <?php
 /**
  * ============================================================
- * DatabaseManager.php v2.0.0 — 统一数据库管理模块（单主库 + 双驱动）
+ * DatabaseManager.php v3.0.0 — 统一数据库管理模块（单主库 + 多驱动）
  * ============================================================
  * 说明：
  * 1. 统一业务主库 clinic_main：全部业务表合并进单一主库，
- *    getMain() 返回主库 PDO（SQLite 文件 data/db/clinic_main.db
- *    或 MySQL 库 his_main，由 DB_DRIVER 切换）。
+ *    getMain() 返回主库 PDO，由 DB_DRIVER 切换：
+ *      sqlite  → data/db/clinic_main.db
+ *      mysql   → MySQL/MariaDB 库（MYSQL_* 常量）
+ *      pgsql   → PostgreSQL 库（PGSQL_* 常量）
  * 2. ICD-10 独立字典库：getIcd10() 返回独立 SQLite PDO
- *    （data/db/icd10.db），独立存储
- *    icd10 表，业务表仅冗余 icd10_code / diagnosis_name，不参与事务。
- * 3. 双驱动一键切换：DB_DRIVER='sqlite'|'mysql'，全量 SQL 遵循
- *    ANSI 标准，自增主键 / 布尔 / 时间 / 列存在检测由方言辅助处理。
+ *    （data/db/icd10.db），独立存储 icd10 表。
+ * 3. 多驱动一键切换：DB_DRIVER='sqlite'|'mysql'|'pgsql'，全量 SQL 遵循
+ *    ANSI 标准，自增主键 / 布尔 / 时间 / upsert / 列存在检测由方言翻译层
+ *    （dialectSql / upsertSetting / columnExists）按驱动统一处理。
  * 4. schema 定义：app/config/schema/main.php（主库）+ icd10.php（字典库）；
- *    旧分散式 schema 归档于 app/config/schema/legacy/（供数据迁移工具引用）。
- * 5. 兼容旧调用：DB::pdo($key)/DB::q($key,...) 等旧分散库签名仍可用，
- *    非 icd10 的 key 一律路由到主库，icd10 路由到字典库。
+ *    旧分散式 schema 归档于 app/config/schema/legacy/。
+ * 5. 兼容旧调用：DB::pdo($key)/DB::q($key,...) 等旧分散库签名仍可用。
  * 6. 所有 SQL 一律使用 PDO 预处理语句，防止 SQL 注入。
  * ============================================================ */
 class DatabaseManager {
@@ -29,6 +30,9 @@ class DatabaseManager {
     /** 是否已执行过主库种子数据 */
     private static $seeded = false;
 
+    /** 当前驱动名缓存（sqlite/mysql/pgsql） */
+    private static $driver = null;
+
     /** 旧分散库 key 白名单（兼容旧调用签名：DB::q(...)） */
     private static $legacyKeys = array(
         'core', 'user', 'dept', 'patient', 'order', 'drug', 'medical',
@@ -36,18 +40,40 @@ class DatabaseManager {
         'consultation', 'icd10', 'admin', 'main',
     );
 
+    /** 当前驱动名 */
+    public static function driver() {
+        if (self::$driver !== null) return self::$driver;
+        self::$driver = defined('DB_DRIVER') ? DB_DRIVER : 'sqlite';
+        return self::$driver;
+    }
+
+    /** 标识符加引号（MySQL/MariaDB 用反引号，PostgreSQL 用双引号，SQLite 原样） */
+    private static function qi($id) {
+        if (self::driver() === 'pgsql') return '"' . $id . '"';
+        if (self::driver() === 'mysql') return '`' . $id . '`';
+        return $id;
+    }
+
     /**
      * 获取统一业务主库 PDO 连接（懒加载：首次访问自动建库建表迁移种子）
-     * 双驱动：sqlite 打开 clinic_main.db，mysql 连接 MYSQL_DB_NAME 库
+     * 多驱动：sqlite 打开 clinic_main.db，mysql 连接 MYSQL_* 库，pgsql 连接 PGSQL_* 库
      */
     public static function getMain() {
         if (self::$main !== null) {
             return self::$main;
         }
-        if (DB_DRIVER === 'mysql') {
+        $driver = self::driver();
+        if ($driver === 'mysql') {
             $dsn = 'mysql:host=' . MYSQL_HOST . ';port=' . MYSQL_PORT
                  . ';dbname=' . MYSQL_DB_NAME . ';charset=utf8mb4';
             $pdo = new PDO($dsn, MYSQL_USER, MYSQL_PASS, array(
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ));
+        } elseif ($driver === 'pgsql') {
+            $dsn = 'pgsql:host=' . PGSQL_HOST . ';port=' . PGSQL_PORT
+                 . ';dbname=' . PGSQL_DB_NAME;
+            $pdo = new PDO($dsn, PGSQL_USER, PGSQL_PASS, array(
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ));
@@ -223,7 +249,7 @@ class DatabaseManager {
     }
 
     /**
-     * 版本迁移：SQLite 用 PRAGMA user_version，MySQL 用 settings 表记录，
+     * 版本迁移：SQLite 用 PRAGMA user_version，MySQL/PostgreSQL 用 settings 表记录，
      * 逐版本执行 migrations（幂等：ALTER ADD COLUMN 检测列已存在则跳过）
      */
     private static function migrate($pdo, $def) {
@@ -254,9 +280,9 @@ class DatabaseManager {
         }
     }
 
-    /** 读取当前 schema 版本号（SQLite: user_version；MySQL: settings 表） */
+    /** 读取当前 schema 版本号（SQLite: user_version；MySQL/PostgreSQL: settings 表） */
     private static function schemaVersion($pdo) {
-        if (DB_DRIVER === 'mysql') {
+        if (self::driver() !== 'sqlite') {
             try {
                 $r = $pdo->query("SELECT svalue FROM settings WHERE skey='db_schema_version'")->fetchColumn();
                 return (int)$r;
@@ -267,24 +293,45 @@ class DatabaseManager {
         return (int)$pdo->query('PRAGMA user_version')->fetchColumn();
     }
 
-    /** 写入当前 schema 版本号 */
+    /** 写入当前 schema 版本号（多驱动统一走 settings 键值 upsert） */
     private static function setSchemaVersion($pdo, $version) {
-        if (DB_DRIVER === 'mysql') {
-            $pdo->prepare('INSERT INTO settings(skey, svalue) VALUES(?, ?) ON DUPLICATE KEY UPDATE svalue=VALUES(svalue)')
-                ->execute(array('db_schema_version', (string)$version));
-            return;
-        }
-        $pdo->exec('PRAGMA user_version = ' . (int)$version);
+        self::upsertSetting($pdo, 'db_schema_version', (string)$version);
     }
 
-    /** 判断表中是否存在指定列（SQLite 用 PRAGMA，MySQL 用 SHOW COLUMNS） */
+    /**
+     * settings 键值 upsert（多驱动统一：SQLite INSERT OR REPLACE；
+     * MySQL ON DUPLICATE KEY UPDATE；PostgreSQL ON CONFLICT(skey)）
+     */
+    public static function upsertSetting($pdo, $key, $value) {
+        $value = (string)$value;
+        if (self::driver() === 'mysql') {
+            $pdo->prepare('INSERT INTO settings(skey, svalue) VALUES(?, ?) ON DUPLICATE KEY UPDATE svalue=VALUES(svalue)')
+                ->execute(array($key, $value));
+            return;
+        }
+        if (self::driver() === 'pgsql') {
+            $pdo->prepare('INSERT INTO settings(skey, svalue) VALUES(?, ?) ON CONFLICT (skey) DO UPDATE SET svalue=EXCLUDED.svalue')
+                ->execute(array($key, $value));
+            return;
+        }
+        $pdo->prepare('INSERT OR REPLACE INTO settings(skey, svalue) VALUES(?, ?)')->execute(array($key, $value));
+    }
+
+    /** 判断表中是否存在指定列（SQLite 用 PRAGMA；MySQL 用 SHOW COLUMNS；PostgreSQL 用 information_schema） */
     private static function columnExists($pdo, $table, $column) {
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $table) || !preg_match('/^[a-zA-Z0-9_]+$/', $column)) {
             return false;
         }
         try {
-            if (DB_DRIVER === 'mysql') {
+            $driver = self::driver();
+            if ($driver === 'mysql') {
                 $rows = $pdo->query("SHOW COLUMNS FROM `$table` LIKE '$column'")->fetchAll();
+                return count($rows) > 0;
+            }
+            if ($driver === 'pgsql') {
+                $rows = $pdo->query(
+                    "SELECT 1 FROM information_schema.columns WHERE table_name='$table' AND column_name='$column'"
+                )->fetchAll();
                 return count($rows) > 0;
             }
             $cols = $pdo->query("SELECT * FROM pragma_table_info('$table') WHERE name='$column'")->fetchAll(PDO::FETCH_ASSOC);
@@ -303,7 +350,7 @@ class DatabaseManager {
      * 列定义与 main.php 建表语句/v31 迁移保持一致。
      */
     private static function ensureRuntimeColumns($pdo) {
-        // 表 => 列 => 类型（方言无关：SQLite/MySQL 均 ADD COLUMN 语法）
+        // 表 => 列 => 类型（方言无关：各驱动均支持 ADD COLUMN 语法）
         $need = array(
             'users' => array(
                 'lock_reason'      => 'TEXT DEFAULT NULL',
@@ -315,10 +362,11 @@ class DatabaseManager {
             ),
         );
         foreach ($need as $table => $cols) {
+            $t = self::qi($table);
             foreach ($cols as $col => $type) {
                 if (!self::columnExists($pdo, $table, $col)) {
                     try {
-                        $pdo->exec("ALTER TABLE `$table` ADD COLUMN `$col` $type");
+                        $pdo->exec("ALTER TABLE $t ADD COLUMN " . self::qi($col) . " $type");
                     } catch (Exception $ex) {
                         if (DEBUG) error_log('[运行时列自愈失败] ' . $table . '.' . $col . ': ' . $ex->getMessage());
                     }
@@ -375,27 +423,40 @@ class DatabaseManager {
     /* ==================== 方言辅助 ==================== */
 
     /**
-     * SQL 方言转换（SQLite → MySQL 通用写法）：
-     * AUTOINCREMENT→AUTO_INCREMENT、INSERT OR IGNORE→INSERT IGNORE、
-     * INSERT OR REPLACE→REPLACE INTO、datetime('now','localtime')→NOW()
+     * SQL 方言翻译（SQLite 源 → MySQL/MariaDB / PostgreSQL 通用写法）：
+     * 仅在有目标驱动（非 sqlite）时执行，覆盖：
+     *  - 时间函数：datetime('now','localtime') → NOW()；strftime epoch/日期 → EXTRACT/TO_CHAR
+     *  - 自增主键：AUTOINCREMENT → AUTO_INCREMENT / SERIAL
+     *  - 幂等插入：INSERT OR IGNORE → INSERT IGNORE / INSERT ... ON CONFLICT DO NOTHING
+     *  - 替换插入：INSERT OR REPLACE → REPLACE INTO（MySQL；settings 键值由 upsertSetting 按 PG 处理）
      */
     private static function dialectSql($sql) {
-        if (DB_DRIVER !== 'mysql') return $sql;
-        $sql = str_replace('AUTOINCREMENT', 'AUTO_INCREMENT', $sql);
-        $sql = preg_replace('/\bINSERT\s+OR\s+IGNORE\b/i', 'INSERT IGNORE', $sql);
-        $sql = preg_replace('/\bINSERT\s+OR\s+REPLACE\b(?=\s)/i', 'REPLACE', $sql);
+        $driver = self::driver();
+        if ($driver === 'sqlite') return $sql;
         $sql = str_replace("datetime('now','localtime')", 'NOW()', $sql);
+        $sql = str_replace("strftime('%s','now','localtime')", 'EXTRACT(EPOCH FROM now())', $sql);
+        $sql = preg_replace("/strftime\('%s',\s*([a-zA-Z0-9_\.]+)\)/i", 'EXTRACT(EPOCH FROM $1)', $sql);
+        $sql = preg_replace("/strftime\('%Y-%m-%d',\s*([a-zA-Z0-9_\.]+)\)/i", "TO_CHAR($1, 'YYYY-MM-DD')", $sql);
+        if ($driver === 'mysql') {
+            $sql = str_replace('AUTOINCREMENT', 'AUTO_INCREMENT', $sql);
+            $sql = preg_replace('/\bINSERT\s+OR\s+IGNORE\b/i', 'INSERT IGNORE', $sql);
+            $sql = preg_replace('/\bINSERT\s+OR\s+REPLACE\b(?=\s)/i', 'REPLACE', $sql);
+            return $sql;
+        }
+        // PostgreSQL
+        $sql = preg_replace('/INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT/i', 'SERIAL PRIMARY KEY', $sql);
+        $wasIgnore = (bool)preg_match('/\bINSERT\s+OR\s+IGNORE\b/i', $sql);
+        $sql = preg_replace('/\bINSERT\s+OR\s+IGNORE\b/i', 'INSERT', $sql);
+        if ($wasIgnore) {
+            $sql = rtrim($sql, ";\s ");
+            $sql .= ' ON CONFLICT DO NOTHING;';
+        }
         return $sql;
     }
 
     /** 主库原始写设置（种子标记用，不依赖 helpers） */
     private static function setSettingRaw($pdo, $key, $value) {
-        if (DB_DRIVER === 'mysql') {
-            $pdo->prepare('INSERT INTO settings(skey, svalue) VALUES(?, ?) ON DUPLICATE KEY UPDATE svalue=VALUES(svalue)')
-                ->execute(array($key, (string)$value));
-            return;
-        }
-        $pdo->prepare('INSERT OR REPLACE INTO settings(skey, svalue) VALUES(?, ?)')->execute(array($key, (string)$value));
+        self::upsertSetting($pdo, $key, $value);
     }
 
     /* ==================== 查询门面（预处理防注入） ==================== */

@@ -16,7 +16,7 @@ function setting($key, $default = '') {
 }
 
 function set_setting($key, $value) {
-    DB::exec('INSERT OR REPLACE INTO settings(skey, svalue) VALUES(?, ?)', array($key, (string)$value));
+    DatabaseManager::upsertSetting(DatabaseManager::getMain(), $key, (string)$value);
     // 修改作息设置时失效请求级缓存，保证同请求内后续读取新值
     if (strpos((string)$key, 'work_') === 0) {
         work_schedule_reset();

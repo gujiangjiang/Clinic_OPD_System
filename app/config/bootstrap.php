@@ -19,23 +19,30 @@ define('VIEW_PATH', APP_ROOT . '/app/views');         // 页面视图目录
 define("APP_VERSION", "8.7.2");
 
 /* ============================================================
- * 数据库驱动配置（双驱动一键切换）
+ * 数据库驱动配置（多驱动一键切换）
  * ------------------------------------------------------------
  * 统一业务主库 clinic_main：
- *   - SQLite：data/db/clinic_main.db（首次访问自动建库建表迁移种子）
- *   - MySQL ：his_main 库（MYSQL_DB_NAME）
- * ICD-10 独立只读字典库 data/db/icd10.db（SQLite，PRAGMA query_only）。
+ *   - SQLite ：data/db/clinic_main.db（首次访问自动建库建表迁移种子）
+ *   - MySQL / MariaDB ：his_main 库（MYSQL_* 常量，MariaDB 与 MySQL 完全兼容）
+ *   - PostgreSQL ：his_main 库（PGSQL_* 常量）
+ * ICD-10 独立只读字典库 data/db/icd10.db（SQLite）。
  *
- * 切换 MySQL 时仅需修改 DB_DRIVER='mysql' 并填写下方 MYSQL_* 常量，
- * 全量建表 SQL 由 DatabaseManager 自动做方言转换（AUTOINCREMENT、
- * INSERT OR IGNORE、NOW() 等），业务查询代码无需改动。
+ * 切换数据库时仅需修改 DB_DRIVER 并填写对应驱动常量，全量建表 SQL 由
+ * DatabaseManager 自动做方言翻译（AUTOINCREMENT、INSERT OR IGNORE、
+ * INSERT OR REPLACE、datetime/strftime 时间函数、ON DUPLICATE 等），
+ * 业务查询代码无需改动。
  * ============================================================ */
-define('DB_DRIVER', 'sqlite');          // 可选：sqlite / mysql
+define('DB_DRIVER', 'sqlite');          // 可选：sqlite / mysql / pgsql
 define('MYSQL_HOST', '127.0.0.1');
 define('MYSQL_PORT', '3306');
-define('MYSQL_DB_NAME', 'his_main');    // MySQL 统一主库名（业务全表合并于此）
+define('MYSQL_DB_NAME', 'his_main');    // MySQL/MariaDB 统一主库名
 define('MYSQL_USER', 'root');
 define('MYSQL_PASS', '');
+define('PGSQL_HOST', '127.0.0.1');
+define('PGSQL_PORT', '5432');
+define('PGSQL_DB_NAME', 'his_main');    // PostgreSQL 统一主库名
+define('PGSQL_USER', 'postgres');
+define('PGSQL_PASS', '');
 
 /* 调试模式：正式部署请改为 false（关闭页面错误输出，仅记录日志） */
 define('DEBUG', true);
