@@ -872,7 +872,7 @@ function openImgReportModal(id) {
     // 三栏骨架：左（临床信息 220px）｜ 中（撰写 flex）｜ 右（历史报告 240px）
     var mask = Clinic.modal.open(
         '<div class="pacs-modal-3col" style="display:flex;gap:12px;height:520px">' +
-        '  <div style="width:230px;flex-shrink:0;min-height:0;display:flex;flex-direction:column">' +
+        '  <div style="width:230px;flex-shrink:0;min-height:0;display:flex;flex-direction:column;border-right:1px solid var(--border);padding-right:12px">' +
         '    <div style="flex:1;min-height:0;overflow-y:auto" id="imgmClinHost">' +
         imgClinPane(data, 'imgm', true) +
         '    </div>' +
