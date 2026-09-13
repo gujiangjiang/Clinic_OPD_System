@@ -1977,6 +1977,7 @@ Clinic.emr = (function () {
         } else {
             var conclusion = String(d.conclusion || '').replace(/\s+/g, ' ').trim();
             appendAuxResult(dtText(d) + ' ' + (d.item_name || '检查') + '：' + conclusion + '。');
+            Clinic.modal.closeAll();
         }
     }
 
@@ -1986,12 +1987,19 @@ Clinic.emr = (function () {
         return t.length >= 16 ? t.substring(0, 16) : t;
     }
 
-    /** 追加文案到病历【请填写辅助检查结果】字段（contenteditable），不覆盖已有内容 */
+    /** 追加文案到病历【请填写辅助检查结果】字段（contenteditable），不覆盖已有内容。
+     * 已有内容若以句号结尾则先去掉句号再以「，」衔接，避免出现「。，」叠字；
+     * 新文案始终以「。」结尾，与下一字段【请填写外院辅助检查结果】自然衔接。 */
     function appendAuxResult(text) {
         var f = document.querySelector('#docBody [data-k="aux_result"]');
         if (!f) { Clinic.toast.warning('当前病历不可编辑，无法引用结果'); return; }
         var cur = f.innerText.replace(/\u00a0/g, ' ').trim();
-        f.innerText = cur ? cur + '，' + text : text;
+        if (cur) {
+            var base = cur.replace(/。+$/, '');
+            f.innerText = base + '，' + text;
+        } else {
+            f.innerText = text;
+        }
         f.dispatchEvent(new Event('input', { bubbles: true }));
         try { f.focus(); } catch (e) {}
         Clinic.toast.success('已引用到病历辅助检查');
@@ -2007,8 +2015,8 @@ Clinic.emr = (function () {
             '<div class="table-wrap"><table class="table"><thead><tr>' +
             '<th style="width:36px"></th><th>项目</th><th>结果</th><th>单位</th><th>参考范围</th><th>危急值</th></tr></thead><tbody>' +
             rows.map(function (r, i) {
-                return '<tr>' +
-                    '<td><input type="checkbox" class="ref-row-cb" data-i="' + i + '"></td>' +
+                return '<tr style="cursor:pointer" onclick="refToggleRow(this,' + i + ')">' +
+                    '<td style="width:36px" onclick="event.stopPropagation()"><input type="checkbox" class="ref-row-cb" data-i="' + i + '"></td>' +
                     '<td>' + escHtml(r.name) + '</td>' +
                     '<td class="fw-600">' + escHtml(r.value) + '</td>' +
                     '<td>' + escHtml(r.unit || '-') + '</td>' +
@@ -2039,6 +2047,13 @@ Clinic.emr = (function () {
         if (btn) btn.textContent = allOn ? '⬜ 取消全选' : '☑️ 全选';
     };
 
+    /** 点击检验结果行本身：切换该行复选框（checkbox 上点击由 stopPropagation 单独处理，不会双触发） */
+    window.refToggleRow = function (tr, idx) {
+        var cb = tr ? tr.querySelector('.ref-row-cb') : null;
+        if (cb) cb.checked = !cb.checked;
+        refCount();
+    };
+
     /** 检验结果选择计数刷新 */
     function refCount() {
         var cbs = document.querySelectorAll('.ref-row-cb');
@@ -2063,7 +2078,7 @@ Clinic.emr = (function () {
             parts.push(r.name + ' ' + v + (r.unit ? r.unit : ''));
         }
         if (!parts.length) { Clinic.toast.warning('请至少勾选一项检验结果'); return; }
-        Clinic.modal.close();
+        Clinic.modal.closeAll();
         appendAuxResult(dtText(d) + ' ' + parts.join('，') + '。');
     }
 
