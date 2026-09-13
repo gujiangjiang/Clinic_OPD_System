@@ -217,5 +217,13 @@ Clinic.modal = (function () {
         }, 80);
     }
 
-    return { open: open, load: load, close: close, confirm: confirm, prompt: prompt };
+    /**
+     * 关闭全部模态框（从栈顶逐层弹出）
+     * 说明：引用结果等场景需一次性关掉 详情+选择 层叠弹窗。
+     */
+    function closeAll() {
+        while (masks.length) close();
+    }
+
+    return { open: open, load: load, close: close, closeAll: closeAll, confirm: confirm, prompt: prompt };
 })();
