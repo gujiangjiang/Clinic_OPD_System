@@ -91,7 +91,7 @@ require __DIR__ . '/_init.php';
 switch ($action) {
 
     /* ---------------- 当前用户信息（GET） ----------------
-     * 同时作为独立阅片窗口（viewer.php）的会话预检心跳：
+     * 同时作为阅片视窗（viewer.php）的会话预检心跳：
      * 未登录/会话失效由 _init 统一返回 401，viewer 收到即锁定。 */
     case 'me':
         $me = Auth::user();

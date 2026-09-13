@@ -6,7 +6,7 @@
  * 说明：顶部视图切换器（localStorage 记忆用户最后选择）：
  *   【模式 B 经典双屏分屏模式】保留现有布局与右侧侧边栏，
  *      点击患者弹出影像诊断报告单页 + 模态框写报告；
- *      患者行/顶部工具栏提供【独立视窗阅片】按钮（window.open 弹出
+ *      患者行/顶部工具栏提供【阅片视窗】按钮（window.open 弹出
  *      无工具栏独立窗口，用于多显示器全屏拖拽阅片；Session 失效时
  *      由 BroadcastChannel clinic_auth_sync 联动锁定）。
  *   【模式 A 一体化阅片模式】参考专业 RIS 阅片工作台三栏展开：
@@ -72,7 +72,7 @@ function renderImgWork(data) {
 
     // 模式 B：经典双屏分屏（原布局：右栏大纲 + 主区报告单页）
     renderImgSide(data);
-    // 说明：独立视窗阅片不随患者切换自动刷新——经典模式仅当点击
+    // 说明：阅片视窗不随患者切换自动刷新——经典模式仅当点击
     // 【去写报告】打开书写报告模态框时，才广播该申请单对应影像（优化项3）
     var head = imgHeadHtml(data);
     var body = '';
@@ -183,7 +183,7 @@ function renderImgIntegrated(data) {
     var tr = document.getElementById('pacsTagR');
     if (tr) tr.textContent = v.visit_no || '';
 
-    // 说明：独立视窗阅片不随患者加载自动刷新——一体化模式仅当点击左侧
+    // 说明：阅片视窗不随患者加载自动刷新——一体化模式仅当点击左侧
     // 序列（pacsPickSeries）时广播该序列对应影像（优化项3）
 
     // 初始化：默认打开「报告撰写」页签（撰写为高频主任务）
@@ -200,7 +200,7 @@ function renderImgIntegrated(data) {
     if (cur) pacsAutoEmbed(cur.id);
 }
 
-/* 独立阅片窗口上下文广播（患者/序列变化实时同步） */
+/* 阅片视窗上下文广播（患者/序列变化实时同步） */
 function broadcastImgContext(item) {
     if (!window.Clinic || !Clinic.authSync) return;
     var v = (window.__imgData || {}).visit || {};
@@ -255,7 +255,7 @@ function pacsPickSeries(el, itemId) {
     (window.__imgItems || []).forEach(function (x) { if (x.id === itemId) it = x; });
     var tl = document.getElementById('pacsTagL');
     if (tl && it) tl.textContent = '> ' + it.item_name + ' ｜ 序列已选中';
-    // 同步独立阅片窗口 + 左下角检查信息动态更新（优化项7/12）
+    // 同步阅片视窗 + 左下角检查信息动态更新（优化项7/12）
     window.__imgCurItem = it;
     window.__imgCurActive = itemId;
     broadcastImgContext(it);
@@ -750,7 +750,7 @@ function imgHeadHtml(data) {
     return Clinic.deptwork.headHtml(data, '影 像 诊 断 报 告 单');
 }
 
-/* ==================== 模式 B：独立视窗阅片（跨窗口 Session 联动） ==================== */
+/* ==================== 模式 B：阅片视窗（跨窗口 Session 联动） ==================== */
 function imgOpenSoloWindow() {
     // 隐私安全（优化项2）：地址栏绝不携带 visit 参数（防链接外泄被他人直接查看）。
     // 当前选中上下文改由「localStorage 会话握手（sid 绑定）+ BroadcastChannel 广播」
@@ -782,9 +782,9 @@ function imgOrderHtml(o) {
     var regBtn = hasPaid
         ? '<button class="btn btn-primary btn-sm" style="margin-left:12px" onclick="doImgRegisterOrder(\'' + esc(o.order_id) + '\')">📝 登记</button>'
         : '';
-    // 独立视窗阅片按钮（患者行级，任务2 模式 B）
+    // 阅片视窗按钮（患者行级，任务2 模式 B）
     var soloBtn = '<button class="btn btn-outline btn-sm pacs-openwin-btn" style="margin-left:auto" ' +
-        'onclick="imgOpenSoloWindow()" title="弹出独立无工具栏阅片窗口（多显示器全屏阅片）">🖥️ 独立视窗阅片</button>';
+        'onclick="imgOpenSoloWindow()" title="弹出独立无工具栏阅片窗口（多显示器全屏阅片）">🖥️ 阅片视窗</button>';
     var itemsHtml = o.items.map(imgItemHtml).join('');
     // 头部右侧操作组（徽章+登记+独立视窗）：整体靠右，与左侧申请单信息分离
     var headActions = '<div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">' +
@@ -907,7 +907,7 @@ function openImgReportModal(id) {
         '</div>',
         { title: '✍️ 书写检查报告：' + it.item_name, size: 'modal-lg', buttons: [] }
     );
-    // 同步独立视窗阅片：经典模式点击【去写报告】才广播该申请单对应影像（优化项3）
+    // 同步阅片视窗：经典模式点击【去写报告】才广播该申请单对应影像（优化项3）
     broadcastImgContext(it);
     // 模板下拉（imgm 前缀）
     loadPacsTpls('imgm');
@@ -1131,7 +1131,7 @@ function imgWithdraw(reportId) {
     solo.type = 'button';
     solo.className = 'btn btn-outline btn-sm pacs-openwin-btn';
     solo.title = '弹出独立无工具栏阅片窗口（多显示器全屏阅片）';
-    solo.innerHTML = '🖥️ 独立视窗阅片';
+    solo.innerHTML = '🖥️ 阅片视窗';
     solo.addEventListener('click', imgOpenSoloWindow);
     actions.insertBefore(solo, sw.nextSibling);
     var mode = imgReadMode();

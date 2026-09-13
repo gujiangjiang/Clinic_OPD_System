@@ -1,9 +1,9 @@
 <?php
 /**
  * ============================================================
- * public/viewer.php — 独立视窗阅片窗口（模式 B，多显示器拖拽全屏阅片）
+ * public/viewer.php — 阅片视窗（模式 B，多显示器拖拽全屏阅片）
  * ============================================================
- * 说明：影像科工作台「独立视窗阅片」按钮通过 window.open 打开本页：
+ * 说明：影像科工作台「阅片视窗」按钮通过 window.open 打开本页：
  *   1. 无系统侧边栏/顶栏，纯深色阅片工作台（window.open 控制无工具栏）；
  *   2. 与主窗口共享登录 Session（本页走登录门 + 影像科角色门）；
  *   3. Session 安全锁定（优化项11）：锁定判定以服务端会话预检为准
@@ -29,7 +29,7 @@ if (!in_array($u['role'], array('imaging', 'admin'), true)) {
     http_response_code(403);
     echo '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>403</title></head>' .
         '<body style="background:#0f172a;color:#e2e8f0;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif">' .
-        '<div style="text-align:center"><div style="font-size:64px">🔒</div><div style="margin-top:16px">仅影像科角色可使用独立阅片窗口</div></div></body></html>';
+        '<div style="text-align:center"><div style="font-size:64px">🔒</div><div style="margin-top:16px">仅影像科角色可使用阅片视窗</div></div></body></html>';
     exit;
 }
 
@@ -40,13 +40,13 @@ $hosp = setting('hospital_name', '门诊一体化系统');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?php echo e($hosp); ?> · 独立阅片工作站</title>
+    <title><?php echo e($hosp); ?> · 阅片工作站</title>
     <link rel="stylesheet" href="/assets/css/pacs.css">
 </head>
 <body class="pacs-solo-body" data-sid="<?php echo e(session_id()); ?>" data-uid="<?php echo (int)$u['id']; ?>">
 <div class="pacs-solo">
     <div class="pacs-solo-head">
-        <span>🩻 独立阅片工作站</span>
+        <span>🩻 阅片工作站</span>
         <span class="solo-sub" id="soloPatient">等待主系统选择患者…</span>
     </div>
     <div class="pacs-solo-stage" id="soloStage">

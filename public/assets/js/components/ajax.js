@@ -71,7 +71,7 @@ Clinic.ajax = function (url, data, opts) {
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
     })
         .then(function (res) {
-            // 401 会话失效：广播登出事件（独立阅片窗口联动锁定）后按原逻辑解析
+            // 401 会话失效：广播登出事件（阅片视窗联动锁定）后按原逻辑解析
             if (res.status === 401 && window.Clinic && Clinic.authSync) {
                 Clinic.authSync.broadcastLogout();
             }

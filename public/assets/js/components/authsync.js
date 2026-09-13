@@ -2,12 +2,12 @@
  * authsync.js v2.0.0 — 跨窗口登录 Session 联动与阅片工作站安全锁定
  * ============================================================
  * 说明（任务2 模式 B 核心规范 + 优化项11/12）：
- * 主窗口与独立阅片窗口共享登录 Session；通过 BroadcastChannel
+ * 主窗口与阅片视窗共享登录 Session；通过 BroadcastChannel
  * （通道名 clinic_auth_sync）+ localStorage 里程碑实现跨窗口联动：
  *   1. 主窗口：退出登录（Logout）或检测到 Session 鉴权失败（401）时，
  *      广播 auth:logout（携带 session id 与用户 id），并写 localStorage
  *      里程碑（兜底 BroadcastChannel 不可用时）；
- *   2. 独立阅片窗口：收到 auth:logout 后——仅当事件 sid 与本窗口 sid
+ *   2. 阅片视窗：收到 auth:logout 后——仅当事件 sid 与本窗口 sid
  *      一致（同一登录会话）时——立即激活高斯模糊遮罩，提示
  *      「登录会话已失效，阅片工作站已锁定，请重新登录主系统」，
  *      并禁止任何影像操作；不同会话（换账号重登）的历史里程碑自动忽略；
@@ -108,7 +108,7 @@ Clinic.authSync = (function () {
     }
 
     /**
-     * 订阅事件（独立阅片窗口在初始化时调用）
+     * 订阅事件（阅片视窗在初始化时调用）
      * @param {Function} onLogout    会话失效回调（仅同会话事件触发；激活锁定遮罩）
      * @param {Function} [onContext] 主窗口上下文变化回调（ctx）
      * @returns {{milestone: object|null}} 既有里程碑（供调用方结合服务端会话预检判定）

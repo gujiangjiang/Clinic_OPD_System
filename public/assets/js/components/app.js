@@ -63,7 +63,7 @@ function bindSidebarToggle() {
 /**
  * 登出按钮绑定（带确认）
  * 说明：确认退出后先广播登出事件（Clinic.authSync → BroadcastChannel
- * clinic_auth_sync + localStorage 兜底），独立阅片窗口收到后立即
+ * clinic_auth_sync + localStorage 兜底），阅片视窗收到后立即
  * 高斯模糊锁定，再跳转登出。
  */
 function bindLogout() {
