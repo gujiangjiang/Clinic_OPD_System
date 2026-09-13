@@ -185,6 +185,41 @@ Clinic.critical = (function () {
 
     /* ==================== 发送（检验科检测 / 影像科手动） ==================== */
 
+    /** 渲染影像科已添加危急值列表（弹窗中部，实时刷新） */
+    function renderExistingList() {
+        var q = (typeof imgCritLoad === 'function') ? imgCritLoad() : [];
+        if (!q.length) return '<div class="fs-12 text-muted">暂无已添加的危急值，请在输入框填写后点击【＋】添加。</div>';
+        return '<div class="crit-subtitle">已添加的危急值（等待发送）</div>' +
+            q.map(function (x, i) {
+                return '<div class="dw-crit-queue-item">' +
+                    '<span class="crit-q-name">' + esc(x.item) + '</span>' +
+                    '<span class="fs-12 text-muted">→ ' + esc(x.to_doctor_name || '') + '</span>' +
+                    '<button type="button" class="btn btn-outline btn-sm" style="margin-left:auto;padding:1px 8px" ' +
+                    'onclick="Clinic.critical.removeFromPreview(' + i + ')" title="从暂存队列移除该项">✕</button></div>';
+            }).join('') +
+            '<div class="fs-12 text-muted mt-4">以上危急值将在报告发布时一并发送，可点击 ✕ 移除。</div>';
+    }
+
+    /** 刷新弹窗中部已添加列表（不关弹窗，实时反映添加/删除） */
+    function refreshExistingList() {
+        var box = document.getElementById('critExistingBox');
+        if (box) box.innerHTML = renderExistingList();
+    }
+
+    /** 影像科「＋」实时添加：读输入框+当前医生 → 加入队列 → 清空输入框并刷新列表 */
+    function addFromInput() {
+        var item = ((document.getElementById('critItemInput') || {}).value || '').trim();
+        if (!item) { Clinic.toast.warning('请填写危急值项目'); return; }
+        if (!SEND_CTX.to_doctor_id) { Clinic.toast.warning('请选择接收医生'); return; }
+        if (SEND_CTX.onAdd) {
+            SEND_CTX.onAdd({ item: item, to_doctor_id: SEND_CTX.to_doctor_id, to_doctor_name: SEND_CTX.to_doctor_name });
+        }
+        var input = document.getElementById('critItemInput');
+        if (input) input.value = '';
+        refreshExistingList();
+        if (input) input.focus();
+    }
+
     /**
      * 打开发送弹窗
      * @param opts { source, report_id, mode:'lab'|'imaging', detected:[items],
@@ -207,25 +242,22 @@ Clinic.critical = (function () {
                         ' <span class="crit-range">（危急值阈值 低' + esc(d.critical_low || '—') + ' / 高' + esc(d.critical_high || '—') + '）</span></div>';
                 }).join('') + '</div>';
         }
-        // 影像科：已加入预览队列的危急值（等待发送）在弹窗内展示，避免重复添加/遗漏
-        var existingHtml = '';
-        if (opts.mode === 'imaging' && opts.existing && opts.existing.length) {
-            existingHtml = '<div class="crit-existing-box">' +
-                '<div class="crit-subtitle">已添加的危急值（等待发送）</div>' +
-                opts.existing.map(function (x, i) {
-                    return '<div class="dw-crit-queue-item">' +
-                        '<span class="crit-q-name">' + esc(x.item) + '</span>' +
-                        '<span class="fs-12 text-muted">→ ' + esc(x.to_doctor_name || '') + '</span>' +
-                        '<button type="button" class="btn btn-outline btn-sm" style="margin-left:auto;padding:1px 8px" ' +
-                        'onclick="Clinic.critical.removeFromPreview(' + i + ')" title="从暂存队列移除该项">✕</button></div>';
-                }).join('') +
-                '<div class="fs-12 text-muted mt-4">以上危急值将在报告发布时一并发送，可点击 ✕ 移除。</div></div>';
-        }
+        // 影像科（优化项）：布局顺序 危急值项目(顶) → 已添加列表(中，实时刷新) → 接收医生(底)；
+        // 输入框右侧「＋」按钮实时添加并刷新列表（不关弹窗，可连续添加）。
         var manualHtml = opts.mode === 'imaging'
             ? '<div class="form-group"><label class="form-label">危急值项目 <span class="req">*</span></label>' +
-              '<input class="input" id="critItemInput" placeholder="手动输入危急值项目，如：脑疝、眼球破裂等"></div>'
+              '<div style="display:flex;gap:8px">' +
+              '<input class="input" id="critItemInput" placeholder="手动输入危急值项目，如：脑疝、眼球破裂等" style="flex:1" ' +
+              'onkeydown="if(event.key===\'Enter\'){event.preventDefault();Clinic.critical.addFromInput();}">' +
+              '<button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" ' +
+              'onclick="Clinic.critical.addFromInput()" title="实时添加到危急值列表">＋</button>' +
+              '</div></div>'
             : '';
-        var html = detHtml + existingHtml + manualHtml +
+        var existingHtml = opts.mode === 'imaging'
+            ? '<div class="crit-existing-box" id="critExistingBox">' + renderExistingList() + '</div>'
+            : '';
+        // 布局顺序（优化项）：输入区(顶) → 已添加列表(中) → 接收医生(底)
+        var html = detHtml + manualHtml + existingHtml +
             '<div class="form-group">' +
             '  <label class="form-label">接收医生</label>' +
             '  <div class="crit-doc-sel" id="critDocSel" onclick="Clinic.critical._openPickerFromSend()">' +
@@ -293,28 +325,11 @@ Clinic.critical = (function () {
     /** 从影像科暂存队列移除一项（弹窗内 ✕）：
         回调 onRemove 同步队列 → 重开弹窗展示最新列表 */
     function removeFromPreview(i) {
-        // 删除前确认（避免误操作）：移除后同步队列并重开弹窗展示最新列表
+        // 删除前确认（避免误操作）：确认后同步队列并在原弹窗内就地刷新列表
         Clinic.modal.confirm('确定从暂存队列移除该项危急值吗？', function () {
             if (SEND_CTX && SEND_CTX.onRemove) SEND_CTX.onRemove(i);
-            Clinic.modal.close();
-            // 若队列仍有剩余项，重开弹窗让用户继续查看/删除
-            setTimeout(function () {
-            if (SEND_CTX && SEND_CTX.source === 'imaging' && SEND_CTX.onRemove) {
-                // 需当前项目上下文仍在（调用方 imgCritLoad 依据 __imgCurItem/CUR_IMG_ITEM）
-                openSend({
-                    source: SEND_CTX.source,
-                    report_id: SEND_CTX.report_id,
-                    mode: SEND_CTX.mode,
-                    doctor_id: SEND_CTX.to_doctor_id,
-                    doctor_name: SEND_CTX.to_doctor_name,
-                    existing: (typeof imgCritLoad === 'function') ? imgCritLoad() : [],
-                    onAdd: SEND_CTX.onAdd,
-                    onSent: SEND_CTX.onSent,
-                    onRemove: SEND_CTX.onRemove,
-                });
-            }
-        }, 200);
-        });
+            refreshExistingList();
+        }, { title: '移除危急值', okText: '确认移除' });
     }
 
     /** 通用发送（影像科发布时逐条调用） */
@@ -611,6 +626,7 @@ Clinic.critical = (function () {
     return {
         openSend: openSend,
         send: send,
+        addFromInput: addFromInput,
         removeFromPreview: removeFromPreview,
         openProcess: openProcess,
         openView: openView,
