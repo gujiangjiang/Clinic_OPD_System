@@ -675,7 +675,7 @@ function imgFootBar(cur) {
     }
     return '<button type="button" class="btn btn-outline btn-sm" onclick="imgDraftSave()">💾 保存草稿</button>' +
         '<button type="button" class="btn btn-primary btn-sm" onclick="imgPublish()">📤 提交审核</button>' +
-        '<button type="button" class="btn btn-outline btn-sm pacs-crit-btn" onclick="openImgCritSend()">🚨 报危急值 <span class="pacs-crit-num" id="pacsCritBtnCount">0</span></button>' +
+        '<button type="button" class="btn btn-outline btn-sm pacs-crit-btn" onclick="openImgCritSend()">🚨 报危急值 <span class="pacs-crit-num" id="pacsCritBtnCount"></span></button>' +
         '<button type="button" class="btn btn-outline btn-sm" onclick="imgRejectBack()">↩ 退回修改</button>';
 }
 
@@ -913,13 +913,13 @@ function openImgReportModal(id) {
     loadPacsTpls('imgm');
     // 历史报告调阅（模态框）：按 patient_id 检索，复制目标为模态框撰写区
     if (p.patient_id) mountImgHistory(p, 'imgm');
-    // 危急值暂存队列回显（sessionStorage 持久化，跨模式/跨刷新不丢）
-    renderImgCritQueue();
     mask.querySelector('.modal-foot').innerHTML =
-        '<button type="button" class="btn btn-outline btn-sm pacs-crit-btn" style="margin-right:auto" onclick="openImgCritSend()">🚨 报危急值 <span class="pacs-crit-num" id="imgmCritBtnCount">0</span></button>' +
+        '<button type="button" class="btn btn-outline btn-sm pacs-crit-btn" style="margin-right:auto" onclick="openImgCritSend()">🚨 报危急值 <span class="pacs-crit-num" id="imgmCritBtnCount"></span></button>' +
         '<button type="button" class="btn btn-outline" onclick="imgmDraftSave()">💾 保存草稿</button>' +
         '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
         '<button type="button" class="btn btn-primary" onclick="imgModalSave()">💾 提交并打印报告</button>';
+    // 危急值暂存队列回显（必须在 footer 就绪后调用，否则徽标停留在初始 0 不更新）
+    renderImgCritQueue();
 }
 
 /* 经典模态框保存草稿（与一体化 imgDraftSave 同一数据源/同一存储） */
