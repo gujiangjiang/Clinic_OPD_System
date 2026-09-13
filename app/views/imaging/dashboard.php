@@ -440,7 +440,7 @@ function imgWritePane(cur, data, idPrefix) {
         (lock ? '' :
         '<div class="pacs-quickwords" id="' + idPrefix + 'QuickConclusion">' +
         '<span class="pacs-quickword" onclick="pacsQuickInsert(\'' + idPrefix + 'Conclusion\', this)">目前影像学检查未见明显异常。</span>' +
-        '<span class="pacs-quickword" onclick="pacsQuickInsert(\'pacs' + 'Conclusion\', this)">建议随访复查。</span>' +
+        '<span class="pacs-quickword" onclick="pacsQuickInsert(\'' + idPrefix + 'Conclusion\', this)">建议随访复查。</span>' +
         '</div>') +
         '</div>' +
         '</div>' +
