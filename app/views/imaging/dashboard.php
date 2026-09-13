@@ -320,14 +320,33 @@ function pacsOpenViewer() {
         onSuccess: function (json) {
             var d = json.data || {};
             var mount = document.getElementById('pacsViewerMount');
-            if (!mount) return;
             var ph = document.getElementById('pacsViewerPh');
-            mount.innerHTML = '<iframe src="' + Clinic.escHtml(d.url) + '" style="width:100%;height:100%;border:0;border-radius:10px" ' +
+            if (!mount) return;
+            // 加载提示：外部阅片器地址不可达时给出明确引导（而非裸 iframe 错误页）
+            var escU = Clinic.escHtml(d.url);
+            mount.innerHTML =
+                '<div class="pacs-viewer-loading" id="pacsViewerLoading">🌐 正在连接 Web 阅片器…（地址需院内网络可达）</div>' +
+                '<iframe id="pacsViewerFrame" src="' + escU + '" style="width:100%;height:100%;border:0;border-radius:10px;opacity:0;transition:opacity .3s" ' +
                 'title="Web 阅片器" allow="fullscreen"></iframe>';
+            var frame = document.getElementById('pacsViewerFrame');
+            var loading = document.getElementById('pacsViewerLoading');
+            if (frame) {
+                frame.addEventListener('load', function () {
+                    frame.style.opacity = '1';
+                    if (loading) loading.remove();
+                    var tl = document.getElementById('pacsTagL');
+                    if (tl) tl.textContent = '> 阅片器已挂载 · Study ' + Clinic.escHtml(d.study_uid || '');
+                    Clinic.toast.success('阅片器已内嵌挂载');
+                });
+                // 加载失败兜底（部分浏览器 load 不触发）：10s 后仍灰显则提示排查
+                setTimeout(function () {
+                    if (document.getElementById('pacsViewerLoading')) {
+                        if (loading) loading.innerHTML = '⚠️ 阅片器连接超时：请确认阅片器地址在院内网络可达，' +
+                            '或联系管理员在【外部接口集成 → DICOM/PACS】核对 Web 阅片器 URL 模板';
+                    }
+                }, 10000);
+            }
             if (ph) ph.style.display = 'none';
-            var tl = document.getElementById('pacsTagL');
-            if (tl) tl.textContent = '> 阅片器已挂载 · Study ' + Clinic.escHtml(d.study_uid || '');
-            Clinic.toast.success('阅片器已内嵌挂载' + (d.region ? '（影像区域：' + Clinic.escHtml(d.region) + '）' : ''));
         },
     });
 }

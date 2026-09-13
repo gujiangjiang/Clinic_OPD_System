@@ -267,6 +267,21 @@
     padding: 20px;
     user-select: none;
 }
+/* 内嵌阅片器加载提示层（iframe 就绪前展示 / 超时引导排查） */
+.pacs-viewer-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    font-size: 13px;
+    text-align: center;
+    padding: 20px;
+    line-height: 1.9;
+    z-index: 5;
+}
+
 .pacs-viewer-placeholder .ph-ico { font-size: 56px; margin-bottom: 12px; }
 .pacs-viewer-placeholder .ph-main { color: #94a3b8; font-size: 14px; margin-bottom: 6px; }
 .pacs-viewer-placeholder .ph-sub { font-size: 12px; line-height: 1.9; }
