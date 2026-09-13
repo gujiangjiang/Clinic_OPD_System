@@ -1955,7 +1955,7 @@ Clinic.emr = (function () {
         html += '<div style="margin-top:12px">' +
             (it.report_id
                 ? '<button type="button" id="refResultBtn" class="btn btn-primary btn-sm" disabled style="margin-right:8px" ' +
-                'onclick="Clinic.emr.refResult(' + it.report_id + ')">📋 引用结果</button>'
+                'onclick="Clinic.emr.refResult(\'' + it.report_id + '\')">📋 引用结果</button>'
                 : '') +
             '<button type="button" class="btn btn-outline btn-sm" ' +
             'onclick="Clinic.print.load(\'/api/print?action=order&order_id=' + o.id + '\',null,\'a5\')">🖨️ 打印申请单</button>' +
@@ -2017,7 +2017,7 @@ Clinic.emr = (function () {
             }).join('') +
             '</tbody></table></div>' +
             '<div class="mt-12" style="display:flex;gap:8px">' +
-            '<button type="button" class="btn btn-primary btn-sm" onclick="Clinic.emr.refLabPick(' + reportId + ')">📋 引用</button>' +
+            '<button type="button" class="btn btn-primary btn-sm" onclick="Clinic.emr.refLabPick(\'' + reportId + '\')">📋 引用</button>' +
             '<button type="button" class="btn btn-outline btn-sm" onclick="Clinic.modal.close()">取消</button></div>';
         Clinic.modal.open('<div style="width:100%">' + body + '</div>', {
             title: '引用检验结果到病历', size: 'modal-lg',
