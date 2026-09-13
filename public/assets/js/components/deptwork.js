@@ -232,11 +232,9 @@ Clinic.deptwork = (function () {
             '        <span class="badge badge-gray" style="margin-left:8px">' + escHtml(v.gender) + ' / ' + escHtml(v.age_fmt || '') + '</span>' +
             '        ' + (v.fee_type ? '<span class="badge badge-warning" style="margin-left:4px" title="费用类别">' + escHtml(v.fee_type) + '</span>' : '') +
             '        <span class="badge ' + (v.dept_type === 'emergency' ? 'badge-danger' : 'badge-primary') + '" style="margin-left:4px">' + (v.dept_type === 'emergency' ? '急诊' : '门诊') + '</span>' +
-            '        <span class="badge ' + (v.status === 'finished' ? 'badge-gray' : (v.status === 'visiting' ? 'badge-success' : 'badge-primary')) + '" style="margin-left:4px" title="就诊状态">' + visitStatusName(v.status) + '</span>' +
             '        <span class="badge badge-warning" id="hdrTotal" style="display:none"></span>' +
             '      </div>' +
             '      <div class="text-muted fs-13">患者ID：' + escHtml(p.patient_id) + ' ｜ 流水号：' + escHtml(v.visit_no) +
-            ' ｜ ' + escHtml(v.first_dept_name || v.dept_name) + ' 第' + pad3(v.visit_seq) + '号' +
             ' ｜ 挂号 ' + escHtml((v.created_at || '').substr(0, 16)) + '</div>' +
             '    </div>' +
             '  </div>' +

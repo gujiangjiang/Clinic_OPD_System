@@ -786,13 +786,16 @@ function imgOrderHtml(o) {
     var soloBtn = '<button class="btn btn-outline btn-sm pacs-openwin-btn" style="margin-left:auto" ' +
         'onclick="imgOpenSoloWindow()" title="弹出独立无工具栏阅片窗口（多显示器全屏阅片）">🖥️ 独立视窗阅片</button>';
     var itemsHtml = o.items.map(imgItemHtml).join('');
+    // 头部右侧操作组（徽章+登记+独立视窗）：整体靠右，与左侧申请单信息分离
+    var headActions = '<div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">' +
+        badge + regBtn + soloBtn + '</div>';
     return '<div class="card dw-lab-order" id="imgSec_' + esc(o.order_id) + '" style="margin-bottom:14px">' +
         '<div class="dw-lab-order-head">' +
         '  <span class="fw-700">🩻 检查申请单</span>' +
         '  <a href="javascript:void(0)" style="color:var(--primary);cursor:pointer;text-decoration:underline;margin-left:10px" ' +
         'onclick="previewImgOrder(\'' + esc(o.order_id) + '\',\'' + esc(o.order_no) + '\')">' + esc(o.order_no) + '</a>' +
         '  <span class="fs-12 text-muted" style="margin-left:10px">开单医生：' + esc(o.doctor_name || '') + ' ｜ ' + esc((o.created_at || '').substr(0, 16)) + '</span>' +
-        badge + regBtn + soloBtn +
+        headActions +
         '</div>' + itemsHtml + '</div>';
 }
 
