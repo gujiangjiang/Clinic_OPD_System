@@ -203,7 +203,7 @@ switch ($action) {
                 'study_uid' => $reportNo,
                 'series_uids' => array(),
                 'instance_count' => 0,
-                'modality' => img_ref_modality($catName !== '' ? $catName : (string)$it['item_name']),
+                'modality' => $catName !== '' ? $catName : (string)$it['item_name'],
                 'region' => 'region-pacs',
                 'meta' => array(
                     'report_id' => $reportId,

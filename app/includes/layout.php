@@ -41,7 +41,6 @@ class Layout {
             );
             $items['接口管理'] = array(
                 array('接口管理', '🔌', '/admin/integration'),
-                array('影像引用查询', '🩻', '/admin/imagerefs'),
             );
             $items['系统'] = array(
                 array('系统设置', '⚙️', '/admin/settings'),
@@ -84,7 +83,6 @@ class Layout {
             );
             $items['管理'] = array(
                 array('检查管理', '🩻', '/admin/examitems'),
-                array('影像引用查询', '🗂️', '/admin/imagerefs'),
             );
         } elseif ($role === 'pharmacy') {
             $items['药房'] = array(
