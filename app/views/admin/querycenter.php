@@ -85,7 +85,7 @@ function loadRefs(page) {
                 tbl.querySelector('tbody').insertAdjacentHTML('beforeend', rows);
             }
             var hasMore = !!(d.has_more && d.has_more !== '0' && page * 20 < d.total);
-            refDone = !hasMoreThor;
+            refDone = !hasMore;
             refLoading = false;
         },
         onError: function () { refLoading = false; },
