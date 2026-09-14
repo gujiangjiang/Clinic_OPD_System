@@ -19,11 +19,7 @@ $u = Auth::user();
  * 供影像引用元数据（imaging_refs.modality）使用。
  */
 function img_ref_modality($name) {
-    if (preg_match('/CT/i', $name)) return 'CT';
-    if (preg_match('/DR|X线|X光|摄片|胸片/i', $name)) return 'DR';
-    if (preg_match('/超声|US|B超/i', $name)) return 'US';
-    if (preg_match('/MR|磁共振|核磁/i', $name)) return 'MR';
-    return 'OT';
+    return (string)$name;
 }
 
 switch ($action) {

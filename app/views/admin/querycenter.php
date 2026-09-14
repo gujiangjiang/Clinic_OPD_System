@@ -11,10 +11,10 @@ Router::title('查询中心');
     <div><div class="page-title">🔍 查询中心</div><div class="page-desc">全院业务数据查询与溯源（危急值 / 影像引用 / 更多子项）</div></div>
 </div>
 
-<div class="flex gap-8 mb-12">
-    <button class="btn btn-primary btn-sm" onclick="qcTab('critical')">🚨 危急值查询</button>
-    <button class="btn btn-outline btn-sm" onclick="qcTab('refs')">🩻 影像引用查询</button>
-    <button class="btn btn-outline btn-sm" onclick="qcTab('more')">更多子项（规划中）</button>
+<div class="flex gap-8 mb-12" id="qcTabsBar">
+    <button type="button" class="btn btn-primary btn-sm" data-qc-tab="critical" onclick="qcTab('critical')">🚨 危急值查询</button>
+    <button type="button" class="btn btn-outline btn-sm" data-qc-tab="refs" onclick="qcTab('refs')">🩻 影像引用查询</button>
+    <button type="button" class="btn btn-outline btn-sm" data-qc-tab="more" onclick="qcTab('more')">更多子项（规划中）</button>
 </div>
 
 <div id="qcCritical"></div>
@@ -92,6 +92,12 @@ function openRefViewer(studyUid) {
 window.__refViewerTpl = <?php echo json_encode(trim((string)setting('pacs_viewer_url', ''))); ?>;
 
 function qcTab(tab) {
+    // 子 Tab 按钮选中态切换（btn-primary 选中 / btn-outline 未选中）
+    document.querySelectorAll('#qcTabsBar [data-qc-tab]').forEach(function (b) {
+        var on = b.getAttribute('data-qc-tab') === tab;
+        b.classList.toggle('btn-primary', on);
+        b.classList.toggle('btn-outline', !on);
+    });
     document.getElementById('qcCritical').style.display = tab === 'critical' ? '' : 'none';
     document.getElementById('qcRefs').style.display = tab === 'refs' ? '' : 'none';
     document.getElementById('qcMore').style.display = tab === 'more' ? '' : 'none';
