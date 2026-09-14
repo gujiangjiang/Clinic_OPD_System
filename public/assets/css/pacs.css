@@ -87,8 +87,10 @@
     font-size: 12px;
     color: var(--text-muted);
     padding: 8px 0 2px;
+    cursor: pointer;
     user-select: none;
 }
+.qc-ref-scroll-status:hover { color: var(--primary); }
 .itg-his-curl {
     display: flex;
     align-items: center;

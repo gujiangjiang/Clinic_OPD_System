@@ -156,12 +156,15 @@ Clinic.critical = (function () {
         );
         var listEl = mask.querySelector('#critDocList');
         if (listEl) {
-            listEl.addEventListener('scroll', function () {
-                if (!DOC_HAS_MORE || DOC_LOADING) return;
-                if (listEl.scrollTop + listEl.clientHeight >= listEl.scrollHeight - 40) {
+            // 无限滚动：复用通用工具（容器内滚动，接近底部自动加载下一页）
+            Clinic.infiniteScroll({
+                el: listEl,
+                threshold: 40,
+                onNearBottom: function () {
+                    if (!DOC_HAS_MORE || DOC_LOADING) return false;
                     DOC_PAGE++;
                     docLoad(true);
-                }
+                },
             });
         }
         setTimeout(function () {

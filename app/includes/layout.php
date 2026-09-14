@@ -357,6 +357,7 @@ class Layout {
             <script src="/assets/js/components/depttree.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/toast.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/push.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/infinite.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/print.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/theme.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/dropdown.js?v=' . APP_VERSION . '"></script>

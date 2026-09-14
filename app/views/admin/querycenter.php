@@ -27,7 +27,7 @@ Router::title('查询中心');
             <span class="fs-12 text-muted" style="align-self:center" id="qcRefTotal"></span>
         </div>
         <div id="qcRefTable"><div class="fs-13 text-muted text-center" style="padding:24px">加载中…</div></div>
-        <div class="qc-ref-scroll-status" id="qcRefMore">滚动加载更多</div>
+        <div class="qc-ref-scroll-status" id="qcRefMore" onclick="loadRefs(curRefPage + 1)" title="点击也可加载下一页">滚动加载更多</div>
     </div>
 </div>
 <div id="qcMore" style="display:none"><div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">📊</div>更多查询子项规划中，敬请期待</div></div></div>
@@ -87,6 +87,8 @@ function loadRefs(page) {
             else if (page > 1) { more.textContent = '已加载全部引用'; more.style.display = ''; }
             else { more.style.display = 'none'; }
             refLoading = false;
+            // 加载完成后主动判定一次：内容不满一屏（无滚动条）时自动续加载下一页
+            if (window.__refScrollStop) window.__refScrollStop.check();
         },
         onError: function () { refLoading = false; },
     });
@@ -116,21 +118,22 @@ function qcTab(tab) {
     }
 }
 
-/* 无限滚动：观察列表底部哨兵元素，进入视口自动加载下一页 */
-var refObserver = null;
-if (typeof IntersectionObserver !== 'undefined') {
-    refObserver = new IntersectionObserver(function (entries) {
-        var ent = entries[0];
-        if (ent && ent.isIntersecting && document.getElementById('qcRefs').style.display !== 'none' && !refDone) {
-            loadRefs(curRefPage + 1);
-        }
-    });
-    document.addEventListener('DOMContentLoaded', function () {
-        var sentinel = document.getElementById('qcRefMore');
-        if (sentinel) refObserver.observe(sentinel);
+/* 无限滚动：通用工具 Clinic.infiniteScroll——自动识别滚动容器（.content 主内容区），
+   滚动接近列表底部自动加载下一页；refDone=true（已全部加载）后回调返回 false 停止监听 */
+window.__refScrollStop = null;
+function bindRefScroll() {
+    if (window.__refScrollStop) return;
+    var sentinel = document.getElementById('qcRefMore');
+    if (!sentinel || !window.Clinic || !Clinic.infiniteScroll) return;
+    window.__refScrollStop = Clinic.infiniteScroll({
+        el: sentinel,
+        threshold: 40,
+        onNearBottom: function () {
+            if (refDone) return false;              // 已加载完：停止监听
+            loadRefs(curRefPage + 1);               // 滚动接近底部 → 加载下一页
+        },
     });
 }
-
 document.addEventListener('DOMContentLoaded', function () {
     Clinic.critical.initListPage({
         role: 'admin',
@@ -141,5 +144,6 @@ document.addEventListener('DOMContentLoaded', function () {
         defaultFrom: '<?php echo date('Y-m-d', strtotime('-2 days')); ?>',
         defaultTo: '<?php echo date('Y-m-d'); ?>',
     });
+    bindRefScroll();
 });
 </script>

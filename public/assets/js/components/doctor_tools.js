@@ -549,10 +549,11 @@ Clinic.docTools = (function () {
         // 号源池滚动到底部 → 分段加载更多
         var poolList = pop.querySelector('#dcpPoolList');
         if (poolList) {
-            poolList.addEventListener('scroll', function () {
-                if (poolList.scrollTop + poolList.clientHeight >= poolList.scrollHeight - 40) {
-                    loadMorePool();
-                }
+            // 无限滚动：复用通用工具（号源池滚动到底部 → 分段加载更多）
+            Clinic.infiniteScroll({
+                el: poolList,
+                threshold: 40,
+                onNearBottom: function () { loadMorePool(); },
             });
             // 点击过号患者 → 重新叫号（事件委托）
             poolList.addEventListener('click', function (e) {
