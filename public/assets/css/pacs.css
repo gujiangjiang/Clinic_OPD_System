@@ -80,6 +80,15 @@
     padding: 1px 5px;
     font-size: 12px;
 }
+
+/* ---------- 查询中心：影像引用列表滚动加载状态提示 ---------- */
+.qc-ref-scroll-status {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 8px 0 2px;
+    user-select: none;
+}
 .itg-his-curl {
     display: flex;
     align-items: center;

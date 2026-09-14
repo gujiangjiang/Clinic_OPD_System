@@ -19,7 +19,7 @@ Router::title('查询中心');
 
 <div id="qcCritical"></div>
 <div id="qcRefs" style="display:none">
-    <div class="card">
+    <div class="card" style="padding-bottom:4px">
         <div class="flex gap-8" style="flex-wrap:wrap;margin-bottom:12px">
             <input class="input" id="qcRefKw" placeholder="🔍 检索：门诊流水号 / 患者编号 / 申请单号" style="flex:1;min-width:220px"
                 onkeydown="if(event.key==='Enter')loadRefs(1)">
@@ -27,19 +27,22 @@ Router::title('查询中心');
             <span class="fs-12 text-muted" style="align-self:center" id="qcRefTotal"></span>
         </div>
         <div id="qcRefTable"><div class="fs-13 text-muted text-center" style="padding:24px">加载中…</div></div>
-        <div style="text-align:center;margin-top:12px">
-            <button class="btn btn-outline btn-sm" id="qcRefMore" style="display:none" onclick="loadRefs(curRefPage + 1)">加载更多</button>
-        </div>
+        <div class="qc-ref-scroll-status" id="qcRefMore">滚动加载更多</div>
     </div>
 </div>
 <div id="qcMore" style="display:none"><div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">📊</div>更多查询子项规划中，敬请期待</div></div></div>
 
 <script>
 var curRefPage = 0;
+var refLoading = false;   // 加载锁：防止滚动触发重复请求
+var refDone = false;      // 是否已加载完全部
 
 function esc2(s) { return Clinic.escHtml(s == null ? '' : String(s)); }
 
 function loadRefs(page) {
+    if (refLoading) return;
+    refLoading = true;
+    var more = document.getElementById('qcRefMore');
     var kw = document.getElementById('qcRefKw').value.trim();
     Clinic.get('/api/imaging?action=refs_list&kw=' + encodeURIComponent(kw) + '&page=' + page, null, {
         onSuccess: function (json) {
@@ -77,9 +80,15 @@ function loadRefs(page) {
             } else {
                 tbl.querySelector('tbody').insertAdjacentHTML('beforeend', rows);
             }
-            var more = document.getElementById('qcRefMore');
-            more.style.display = d.has_more ? '' : 'none';
+            // 滚动加载状态提示：还有更多可继续滚动加载；已全部加载显示完成提示
+            var hasMore = !!(d.has_more && d.has_more !== '0' && page * 20 < d.total);
+            refDone = !hasMore;
+            if (hasMore) { more.textContent = '↓ 继续向下滚动加载更多'; more.style.display = ''; }
+            else if (page > 1) { more.textContent = '已加载全部引用'; more.style.display = ''; }
+            else { more.style.display = 'none'; }
+            refLoading = false;
         },
+        onError: function () { refLoading = false; },
     });
 }
 
@@ -106,6 +115,22 @@ function qcTab(tab) {
         loadRefs(1);
     }
 }
+
+/* 无限滚动：观察列表底部哨兵元素，进入视口自动加载下一页 */
+var refObserver = null;
+if (typeof IntersectionObserver !== 'undefined') {
+    refObserver = new IntersectionObserver(function (entries) {
+        var ent = entries[0];
+        if (ent && ent.isIntersecting && document.getElementById('qcRefs').style.display !== 'none' && !refDone) {
+            loadRefs(curRefPage + 1);
+        }
+    });
+    document.addEventListener('DOMContentLoaded', function () {
+        var sentinel = document.getElementById('qcRefMore');
+        if (sentinel) refObserver.observe(sentinel);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     Clinic.critical.initListPage({
         role: 'admin',
