@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 34,
+    'version' => 35,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -721,6 +721,16 @@ return array(
         "CREATE INDEX IF NOT EXISTS idx_critical_to_doctor ON critical_values(to_doctor_id, status)",
         "CREATE INDEX IF NOT EXISTS idx_critical_source ON critical_values(source, created_at)",
         "CREATE INDEX IF NOT EXISTS idx_critical_created ON critical_values(created_at)",
+
+        /* ---------------- 实时推送事件队列（SSE 长连接：叫号/消息/危急值） ---------------- */
+
+        'push_events' => "CREATE TABLE IF NOT EXISTS push_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            channel TEXT NOT NULL,
+            payload TEXT NOT NULL DEFAULT '',
+            created_at TEXT
+        )",
+        "CREATE INDEX IF NOT EXISTS idx_push_events_channel ON push_events(channel, id)",
     ),
     'migrations' => array(
         2 => array(
@@ -1020,6 +1030,16 @@ return array(
             "CREATE INDEX IF NOT EXISTS idx_imaging_refs_order_item ON imaging_refs(order_item_id)",
             "CREATE INDEX IF NOT EXISTS idx_imaging_refs_flow ON imaging_refs(flow_no)",
             "CREATE INDEX IF NOT EXISTS idx_imaging_refs_patient ON imaging_refs(patient_no)",
+        ),
+        // v35：实时推送事件队列（SSE 长连接）：通道（scr:屏幕令牌 / msg:用户ID / room:诊室ID / dept:科室ID）
+        35 => array(
+            "CREATE TABLE IF NOT EXISTS push_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                channel TEXT NOT NULL,
+                payload TEXT NOT NULL DEFAULT '',
+                created_at TEXT
+            )",
+            "CREATE INDEX IF NOT EXISTS idx_push_events_channel ON push_events(channel, id)",
         ),
     ),
     'seed' => array(

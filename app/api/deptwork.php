@@ -591,6 +591,7 @@ function deptwork_call_next($u) {
         array($visitId, $next['flow_no'], $now, 'call', $now, $now, (int)$room['id']));
     DB::insert('INSERT INTO call_events(visit_id, flow_no, patient_no, dept_id, room_id, doctor_id, doctor_name, action, created_at) VALUES(?,?,?,?,?,?,?,?,?)',
         array($visitId, $next['flow_no'], $next['patient_no'], (int)$room['dept_id'], (int)$room['id'], (int)$u['id'], $u['name'], 'call', $now));
+    push_room_event($room, array('action' => 'call_next', 'room_id' => (int)$room['id']));
     json_ok(array('visit_id' => oid($visitId), 'name' => $next['pname'], 'flow_no' => $next['flow_no']), '已呼叫 ' . $next['pname']);
 }
 
@@ -604,6 +605,7 @@ function deptwork_call_repeat($u) {
         array($now, 'repeat_call', $now, $now, (int)$room['id']));
     DB::insert('INSERT INTO call_events(visit_id, flow_no, patient_no, dept_id, room_id, doctor_id, doctor_name, action, created_at) VALUES(?,?,?,?,?,?,?,?,?)',
         array((int)$room['current_visit_id'], $room['current_flow_no'], '', (int)$room['dept_id'], (int)$room['id'], (int)$u['id'], $u['name'], 'repeat_call', $now));
+    push_room_event($room, array('action' => 'repeat_call', 'room_id' => (int)$room['id']));
     json_ok(array(), '已再次呼叫');
 }
 

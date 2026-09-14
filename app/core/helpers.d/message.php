@@ -25,4 +25,6 @@ function send_msg($toRole, $toUserId, $title, $content = '', $printType = '', $p
         isset($extra['link_url']) ? $extra['link_url'] : '',
         now_str(),
     ));
+    // 实时推送：通知收件人秒级感知新消息（站内消息/危急值提醒等走同一通道）
+    push_emit('msg:' . (int)$toUserId, array('type' => 'message', 'role' => $toRole));
 }

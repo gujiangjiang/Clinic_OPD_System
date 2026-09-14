@@ -105,6 +105,7 @@ function doctor_part_write($action) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             json_fail('叫号失败：' . $ex->getMessage());
         }
+        push_room_event($room, array('action' => 'call_next', 'room_id' => (int)$room['id']));
         json_ok(array(
             'visit' => $res['visit'],
             'pool_count' => QueueRepository::deptPoolCountForRoom($room),
@@ -138,6 +139,7 @@ function doctor_part_write($action) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             json_fail('重呼失败：' . $ex->getMessage());
         }
+        push_room_event($room, array('action' => 'recall_missed', 'room_id' => (int)$room['id']));
         json_ok(array('visit' => $res['visit'], 'name' => $res['name']), '已重呼 ' . $res['name']);
         return;
     }
@@ -159,6 +161,7 @@ function doctor_part_write($action) {
              VALUES(?,?,?,?,?,?,?,'repeat_call',?)",
             array((int)$cur['id'], $cur['flow_no'], $cur['patient_no'], (int)$room['dept_id'], (int)$room['id'], $u['id'], $u['name'], $now)
         );
+        push_room_event($room, array('action' => 'repeat_call', 'room_id' => (int)$room['id']));
         json_ok(array(), '已再次呼叫 ' . $cur['pname']);
         return;
     }
@@ -191,6 +194,7 @@ function doctor_part_write($action) {
                     array($now, $now, $now, (int)$room['id'])
                 );
                 $pdo->commit();
+                push_room_event($room, array('action' => 'call_miss', 'room_id' => (int)$room['id']));
                 json_ok(array('missed' => $cur['pname'], 'visit' => null),
                     '已过号 ' . $cur['pname'] . '，当前无候诊患者');
                 return;
@@ -200,6 +204,7 @@ function doctor_part_write($action) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             json_fail('过号失败：' . $ex->getMessage());
         }
+        push_room_event($room, array('action' => 'call_miss', 'room_id' => (int)$room['id']));
         json_ok(array(
             'missed' => $cur['pname'],
             'visit' => $res['visit'],
