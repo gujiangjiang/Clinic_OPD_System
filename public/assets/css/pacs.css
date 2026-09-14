@@ -81,16 +81,22 @@
     font-size: 12px;
 }
 
-/* ---------- 查询中心：影像引用列表滚动加载状态提示 ---------- */
-.qc-ref-scroll-status {
-    text-align: center;
-    font-size: 12px;
-    color: var(--text-muted);
-    padding: 8px 0 2px;
-    cursor: pointer;
-    user-select: none;
+/* ---------- 查询中心：影像引用列表（与打印中心 .pc-list 同构：外层定高 + 列表 flex:1 内部滚动） ---------- */
+.qc-ref-card {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    height: calc(100vh - 320px);
+    min-height: 380px;
 }
-.qc-ref-scroll-status:hover { color: var(--primary); }
+.qc-ref-list {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;              /* 唯一滚动容器：纵向滚动触发无限加载，横向溢出滚动 */
+    padding: 0 14px 6px;         /* 顶部不留 padding：表头 sticky 吸顶后无缝隙漏内容 */
+}
+.qc-ref-list table { min-width: 720px; }
 .itg-his-curl {
     display: flex;
     align-items: center;

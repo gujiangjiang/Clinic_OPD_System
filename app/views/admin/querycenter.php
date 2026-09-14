@@ -19,15 +19,15 @@ Router::title('查询中心');
 
 <div id="qcCritical"></div>
 <div id="qcRefs" style="display:none">
-    <div class="card" style="padding-bottom:4px">
-        <div class="flex gap-8" style="flex-wrap:wrap;margin-bottom:12px">
+    <div class="card qc-ref-card">
+        <div class="flex gap-8" style="flex-wrap:wrap;padding:14px 14px 10px">
             <input class="input" id="qcRefKw" placeholder="🔍 检索：门诊流水号 / 患者编号 / 申请单号" style="flex:1;min-width:220px"
                 onkeydown="if(event.key==='Enter')loadRefs(1)">
             <button class="btn btn-primary btn-sm" onclick="loadRefs(1)">查询</button>
             <span class="fs-12 text-muted" style="align-self:center" id="qcRefTotal"></span>
         </div>
-        <div id="qcRefTable"><div class="fs-13 text-muted text-center" style="padding:24px">加载中…</div></div>
-        <div class="qc-ref-scroll-status" id="qcRefMore" onclick="loadRefs(curRefPage + 1)" title="点击也可加载下一页">滚动加载更多</div>
+        <!-- 列表独立滚动容器（与统一打印中心 .pc-list 同构：外层定高 + 列表 flex:1 内部滚动） -->
+        <div class="qc-ref-list" id="qcRefTable"><div class="fs-13 text-muted text-center" style="padding:24px">加载中…</div></div>
     </div>
 </div>
 <div id="qcMore" style="display:none"><div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">📊</div>更多查询子项规划中，敬请期待</div></div></div>
@@ -36,13 +36,15 @@ Router::title('查询中心');
 var curRefPage = 0;
 var refLoading = false;   // 加载锁：防止滚动触发重复请求
 var refDone = false;      // 是否已加载完全部
+// 脚本级状态（SPA 局部刷新重新执行脚本时自动重置，避免旧 window 级标志残留）：
+var refsLoaded = false;   // 本渲染实例是否已加载过第一页
+var refScrollStop = null; // 无限滚动监听句柄
 
 function esc2(s) { return Clinic.escHtml(s == null ? '' : String(s)); }
 
 function loadRefs(page) {
     if (refLoading) return;
     refLoading = true;
-    var more = document.getElementById('qcRefMore');
     var kw = document.getElementById('qcRefKw').value.trim();
     Clinic.get('/api/imaging?action=refs_list&kw=' + encodeURIComponent(kw) + '&page=' + page, null, {
         onSuccess: function (json) {
@@ -73,22 +75,18 @@ function loadRefs(page) {
             }).join('');
             var tbl = box.querySelector('table');
             if (!tbl) {
-                box.innerHTML = '<div class="table-wrap"><table class="table"><thead><tr>' +
+                // 表格不使用 .table-wrap（其 overflow:auto 会抢占滚动事件，导致
+                // 无限滚动监听失效）——滚动统一交给 .qc-ref-list 容器
+                box.innerHTML = '<table class="table"><thead><tr>' +
                     '<th>登记时间</th><th>患者</th><th>流水号</th><th>申请单号</th><th>检查项目</th>' +
                     '<th>类型</th><th>Study UID</th><th>区域</th><th>登记人</th><th>调阅</th>' +
-                    '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+                    '</tr></thead><tbody>' + rows + '</tbody></table>';
             } else {
                 tbl.querySelector('tbody').insertAdjacentHTML('beforeend', rows);
             }
-            // 滚动加载状态提示：还有更多可继续滚动加载；已全部加载显示完成提示
             var hasMore = !!(d.has_more && d.has_more !== '0' && page * 20 < d.total);
-            refDone = !hasMore;
-            if (hasMore) { more.textContent = '↓ 继续向下滚动加载更多'; more.style.display = ''; }
-            else if (page > 1) { more.textContent = '已加载全部引用'; more.style.display = ''; }
-            else { more.style.display = 'none'; }
+            refDone = !hasMoreThor;
             refLoading = false;
-            // 加载完成后主动判定一次：内容不满一屏（无滚动条）时自动续加载下一页
-            if (window.__refScrollStop) window.__refScrollStop.check();
         },
         onError: function () { refLoading = false; },
     });
@@ -112,21 +110,20 @@ function qcTab(tab) {
     document.getElementById('qcCritical').style.display = tab === 'critical' ? '' : 'none';
     document.getElementById('qcRefs').style.display = tab === 'refs' ? '' : 'none';
     document.getElementById('qcMore').style.display = tab === 'more' ? '' : 'none';
-    if (tab === 'refs' && !window.__refsLoaded) {
-        window.__refsLoaded = 1;
+    if (tab === 'refs' && !refsLoaded) {
+        refsLoaded = true;
         loadRefs(1);
     }
 }
 
-/* 无限滚动：通用工具 Clinic.infiniteScroll——自动识别滚动容器（.content 主内容区），
-   滚动接近列表底部自动加载下一页；refDone=true（已全部加载）后回调返回 false 停止监听 */
-window.__refScrollStop = null;
+/* 无限滚动：列表容器 .qc-ref-list 内部滚动（与打印中心 .pc-list 同构），
+   滚动到底自动加载下一页；refDone=true（已全部加载）后回调返回 false 停止监听 */
 function bindRefScroll() {
-    if (window.__refScrollStop) return;
-    var sentinel = document.getElementById('qcRefMore');
-    if (!sentinel || !window.Clinic || !Clinic.infiniteScroll) return;
-    window.__refScrollStop = Clinic.infiniteScroll({
-        el: sentinel,
+    if (refScrollStop) return;
+    var list = document.getElementById('qcRefTable');
+    if (!list || !window.Clinic || !Clinic.infiniteScroll) return;
+    refScrollStop = Clinic.infiniteScroll({
+        el: list,
         threshold: 40,
         onNearBottom: function () {
             if (refDone) return false;              // 已加载完：停止监听

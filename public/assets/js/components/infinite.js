@@ -58,14 +58,14 @@ Clinic.infiniteScroll = function (opts) {
     var useWindow = !scroller;
     var target = useWindow ? window : scroller;
 
-    /** 是否接近底部：容器内容不满一屏时视为接近底部（自动连续加载直到撑出滚动或加载完） */
+    /** 是否接近底部：与打印中心/诊断搜索一致的判定——仅在真正滚动到接近容器底部时触发。
+     *  注意：不要在此加入「内容不满一屏视为接近底部」的自动连续加载逻辑，
+     *  否则首屏数据不足一屏时会把后续页全部自动加载完（失去分段意义）。 */
     function nearBottom() {
         if (useWindow) {
             var doc = document.documentElement;
-            if (doc.scrollHeight <= window.innerHeight + threshold) return true;
             return (window.pageYOffset || doc.scrollTop || 0) + window.innerHeight >= doc.scrollHeight - threshold;
         }
-        if (scroller.scrollHeight <= scroller.clientHeight + threshold) return true;
         return scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - threshold;
     }
 
