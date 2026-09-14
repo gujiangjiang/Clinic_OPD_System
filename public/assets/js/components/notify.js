@@ -31,9 +31,14 @@ Clinic.notify = (function () {
         if (!badge) return;
         // 防止重复 init 叠加多个轮询定时器（AJAX 局部刷新后重复初始化场景）
         if (timer) clearInterval(timer);
-        // 立即查询一次，然后每 15 秒轮询（兼顾实时性与服务器压力）
+        // 立即查询一次，然后每 15 秒轮询兜底（实时推送可用时新消息秒级到达）
         refresh();
         timer = setInterval(refresh, 15000);
+        // SSE 实时推送订阅：新消息/危急值到达时立即刷新（替代/缩短轮询等待）
+        var uid = document.body.getAttribute('data-uid');
+        if (uid && Clinic.push && Clinic.push.supported()) {
+            Clinic.push.subscribe('msg:' + uid, function () { refresh(); });
+        }
     }
 
     /** 销毁：清理轮询定时器（页面卸载/局部刷新前调用） */
@@ -43,6 +48,9 @@ Clinic.notify = (function () {
             timer = null;
         }
         lastLatestId = 0;
+        // 取消实时推送订阅（页面卸载/局部刷新前调用）
+        var uid = document.body.getAttribute('data-uid');
+        if (uid && Clinic.push) { Clinic.push.close('msg:' + uid); }
     }
 
     /**

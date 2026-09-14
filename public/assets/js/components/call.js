@@ -74,7 +74,12 @@
         });
     }
 
-    /* 初始化：首次轮询 + 每 10 秒自动刷新 */
+    /* 初始化：首次轮询 + 每 10 秒自动刷新 + 实时推送触发即时刷新 */
     refresh();
     setInterval(refresh, 10000);
+    // 实时推送：本科室任何诊室叫号事件到达立即刷新（门屏播报更快，轮询 10 秒兜底）
+    var deptId = document.body.getAttribute('data-dept');
+    if (deptId && Clinic.push && Clinic.push.supported()) {
+        Clinic.push.subscribe('dept:' + deptId, function () { refresh(); });
+    }
 })();

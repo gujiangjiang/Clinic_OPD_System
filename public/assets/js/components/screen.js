@@ -554,4 +554,8 @@
 
     poll();
     setInterval(poll, 3000);
+    // 实时推送：叫号事件到达立即刷新数据（播报更快；轮询 3 秒仍作兜底/心跳）
+    if (window.Clinic && Clinic.push && Clinic.push.supported()) {
+        Clinic.push.subscribe('scr:' + TOKEN, function () { poll(); });
+    }
 })();
