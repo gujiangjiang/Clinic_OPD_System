@@ -413,7 +413,8 @@ switch ($action) {
         $kw = trim((string)get('kw', ''));
         $page = max(1, (int)get('page', 1));
         $pageSize = 20;
-        $where = '1=1';
+        // 仅统计影像检查（imaging 订单）的引用——检验等非影像订单的引用不属于影像引用台账
+        $where = "o.order_type='imaging'";
         $params = array();
         if ($kw !== '') {
             // 检索口径：流水号 / 患者编号 / 报告号（引用元数据内）/ 申请单号——三单匹配键
