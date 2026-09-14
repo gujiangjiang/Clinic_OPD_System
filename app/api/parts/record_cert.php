@@ -54,10 +54,11 @@ function record_part_cert($action) {
         // 证书内容从此不再随续写或后续修改变化（法律文书不可变性）
         $snap = cert_snapshot_summary($visitId);
         $createdAt = now_str();
+        $certId = 0;
         for ($attempt = 0; $attempt < 3; $attempt++) {
             if ($attempt > 0) $certNo = gen_unique_no('ZM', 'certificates', 'cert_no');
             try {
-                EmrRepository::insertCertificate(array(
+                $certId = EmrRepository::insertCertificate(array(
                     'visit_id' => $visitId, 'patient_no' => $row['visit']['patient_no'], 'flow_no' => $row['visit']['flow_no'],
                     'doctor_id' => $u['id'], 'doctor_name' => $u['name'], 'dept_id' => $curDeptId, 'content' => $content, 'created_at' => $createdAt, 'cert_no' => $certNo,
                     'chief_complaint' => $snap['chief_complaint'], 'present_illness' => $snap['present_illness'], 'preliminary_diagnosis' => $snap['preliminary_diagnosis'],
@@ -66,6 +67,12 @@ function record_part_cert($action) {
             } catch (Exception $ex) {
                 if (!is_unique_conflict($ex) || $attempt >= 2) throw $ex;
             }
+        }
+        // 存证：诊断证明开具后按接口管理配置的模式计算指纹/调用外部存证服务（失败不阻断开具）
+        $evid = evid_sign('certificate', (string)$certNo, (string)$content, json_encode(array('visit_id' => $visitId), JSON_UNESCAPED_UNICODE));
+        if ($evid && $certId > 0) {
+            EmrRepository::exec('UPDATE certificates SET evid_hash=?, evid_algo=?, evid_token=?, evid_signer=?, evid_time=? WHERE id=?',
+                array($evid['hash'], $evid['algo'], $evid['token'], $evid['signer'], $evid['time'], (int)$certId));
         }
         // 响应附带完整证明行：前端开具后即时同步本地 DATA 并刷新右侧诊断证明
         // 分区（无需刷新页面）。can_delete 与 record_read.php 同口径——

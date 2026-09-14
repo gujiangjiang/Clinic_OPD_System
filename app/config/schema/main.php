@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 35,
+    'version' => 36,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -393,7 +393,12 @@ return array(
             created_at TEXT,
             updated_at TEXT,
             consultation_id INTEGER DEFAULT 0,
-            is_critical INTEGER DEFAULT 0
+            is_critical INTEGER DEFAULT 0,
+            evid_hash TEXT DEFAULT '',
+            evid_algo TEXT DEFAULT 'SHA-256',
+            evid_token TEXT DEFAULT '',
+            evid_signer TEXT DEFAULT '',
+            evid_time TEXT DEFAULT ''
         )",
 
         'templates' => "CREATE TABLE IF NOT EXISTS templates (
@@ -419,7 +424,12 @@ return array(
             cert_no TEXT DEFAULT '',
             chief_complaint TEXT DEFAULT '',
             present_illness TEXT DEFAULT '',
-            preliminary_diagnosis TEXT DEFAULT ''
+            preliminary_diagnosis TEXT DEFAULT '',
+            evid_hash TEXT DEFAULT '',
+            evid_algo TEXT DEFAULT 'SHA-256',
+            evid_token TEXT DEFAULT '',
+            evid_signer TEXT DEFAULT '',
+            evid_time TEXT DEFAULT ''
         )",
 
         'referrals' => "CREATE TABLE IF NOT EXISTS referrals (
@@ -1040,6 +1050,20 @@ return array(
                 created_at TEXT
             )",
             "CREATE INDEX IF NOT EXISTS idx_push_events_channel ON push_events(channel, id)",
+        ),
+        // v36：存证/电子签名扩展列（病历 patient_records + 诊断证明 certificates）：
+        // 保存/开具时自动计算内容哈希（SHA-256）并视模式对接外部 CA/时间戳服务，记录存证凭据
+        36 => array(
+            "ALTER TABLE patient_records ADD COLUMN evid_hash TEXT DEFAULT ''",
+            "ALTER TABLE patient_records ADD COLUMN evid_algo TEXT DEFAULT 'SHA-256'",
+            "ALTER TABLE patient_records ADD COLUMN evid_token TEXT DEFAULT ''",
+            "ALTER TABLE patient_records ADD COLUMN evid_signer TEXT DEFAULT ''",
+            "ALTER TABLE patient_records ADD COLUMN evid_time TEXT DEFAULT ''",
+            "ALTER TABLE certificates ADD COLUMN evid_hash TEXT DEFAULT ''",
+            "ALTER TABLE certificates ADD COLUMN evid_algo TEXT DEFAULT 'SHA-256'",
+            "ALTER TABLE certificates ADD COLUMN evid_token TEXT DEFAULT ''",
+            "ALTER TABLE certificates ADD COLUMN evid_signer TEXT DEFAULT ''",
+            "ALTER TABLE certificates ADD COLUMN evid_time TEXT DEFAULT ''",
         ),
     ),
     'seed' => array(

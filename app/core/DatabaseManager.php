@@ -293,8 +293,12 @@ class DatabaseManager {
         return (int)$pdo->query('PRAGMA user_version')->fetchColumn();
     }
 
-    /** 写入当前 schema 版本号（多驱动统一走 settings 键值 upsert） */
+    /** 写入当前 schema 版本号（SQLite 写 PRAGMA user_version；MySQL/PostgreSQL 写 settings 表） */
     private static function setSchemaVersion($pdo, $version) {
+        if (self::driver() === 'sqlite') {
+            $pdo->exec('PRAGMA user_version = ' . (int)$version);
+            return;
+        }
         self::upsertSetting($pdo, 'db_schema_version', (string)$version);
     }
 

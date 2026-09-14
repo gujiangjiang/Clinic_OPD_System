@@ -111,6 +111,39 @@ switch ($action) {
         json_ok(array('orders' => $out));
         break;
 
+    /* ---------------- 存证校验（按记录ID/证明号核验指纹与凭据，外部机构验真用） ---------------- */
+    case 'evidence_verify':
+        $recId = (int)get('record_id', 0);
+        $certNo = trim((string)get('cert_no', ''));
+        if ($recId > 0) {
+            $r = EmrRepository::one(
+                "SELECT id AS rid, visit_id, patient_no, flow_no, record_type, evid_hash, evid_algo, evid_token, evid_signer, evid_time, created_at
+                 FROM patient_records WHERE id=?", array($recId));
+            if (!$r) json_fail('未检索到该病历存证记录');
+            json_ok(array(
+                'type' => 'record', 'record_id' => $recId, 'patient_no' => $r['patient_no'], 'flow_no' => $r['flow_no'],
+                'record_type' => $r['record_type'], 'evid_hash' => $r['evid_hash'], 'evid_algo' => $r['evid_algo'],
+                'evid_token' => $r['evid_token'], 'evid_signer' => $r['evid_signer'], 'evid_time' => $r['evid_time'],
+                'created_at' => $r['created_at'],
+            ));
+            break;
+        }
+        if ($certNo !== '') {
+            $r = EmrRepository::one(
+                "SELECT id, visit_id, patient_no, flow_no, cert_no, content, evid_hash, evid_algo, evid_token, evid_signer, evid_time, created_at
+                 FROM certificates WHERE cert_no=?", array($certNo));
+            if (!$r) json_fail('未检索到该证明的存证记录');
+            json_ok(array(
+                'type' => 'certificate', 'cert_no' => $certNo, 'patient_no' => $r['patient_no'], 'flow_no' => $r['flow_no'],
+                'content' => $r['content'], 'evid_hash' => $r['evid_hash'], 'evid_algo' => $r['evid_algo'],
+                'evid_token' => $r['evid_token'], 'evid_signer' => $r['evid_signer'], 'evid_time' => $r['evid_time'],
+                'created_at' => $r['created_at'],
+            ));
+            break;
+        }
+        json_fail('请提供 record_id 或 cert_no 参数');
+        break;
+
     default:
-        json_fail('未知操作（可用：ping / patient_get / visit_list / visit_status / order_list）');
+        json_fail('未知操作（可用：ping / patient_get / visit_list / visit_status / order_list / evidence_verify）');
 }

@@ -127,6 +127,27 @@ function integration_field_groups() {
                     'placeholder' => '访问令牌或 client_id:client_secret', 'default' => '', 'monospace' => true),
             ),
         ),
+        array(
+            'id' => 'evid', 'emoji' => '🖋️', 'title' => '存证 / 电子签名',
+            'desc' => '电子病历与诊断证明的存证扩展接口（时间戳 + 数字证书/CA 对接，正式医疗机构使用）',
+            'fields' => array(
+                array('key' => 'evid_mode', 'label' => '存证模式', 'type' => 'select',
+                    'default' => 'off', 'options' => array(
+                        'off' => '关闭（默认，不进行存证）',
+                        'hash' => '本地哈希指纹（SHA-256 摘要入库，自证完整）',
+                        'http' => '外部存证服务（调用自定义 HTTP 接口对接 CA/时间戳服务）',
+                    ),
+                    'hint' => '选择后病历保存与诊断证明开具时自动计算内容指纹并记录；需对接第三方 CA/时间戳服务时选「外部存证服务」并配置下方接口地址。'),
+                array('key' => 'evid_endpoint', 'label' => '外部存证/签名服务接口地址', 'type' => 'input',
+                    'placeholder' => '如 https://ca.hospital.local/evidence', 'default' => '', 'monospace' => true,
+                    'hint' => 'POST JSON 调用：{ record_no, record_type, hash, content }；响应需返回 JSON { token, time }，token 将随病历/证明存证记录保存。'),
+                array('key' => 'evid_token', 'label' => '存证服务认证令牌', 'type' => 'input',
+                    'placeholder' => '第三方存证服务分配的接口令牌', 'default' => '', 'monospace' => true),
+                array('key' => 'evid_signer', 'label' => '电子签名人（印章信息）', 'type' => 'input',
+                    'placeholder' => '如 某医院医务科电子印章', 'default' => '',
+                    'hint' => '记录在存证记录中用于标识签名主体，配合数字证书/CA 使用；留空则不记录。'),
+            ),
+        ),
     );
 }
 

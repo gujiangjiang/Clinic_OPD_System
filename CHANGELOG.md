@@ -13,6 +13,17 @@
 
 ---
 
+## [8.9.0] - 2026-09-14
+
+### 新增
+- **实时推送（SSE 长连接）**：新增 `push_events` 事件队列表（v35 迁移）与 `/api/push` SSE 长连接端点（令牌/会话鉴权，认证后释放会话锁，50 秒轮换 + 20 秒心跳，EventSource 自动重连）；叫号大屏（scr: 通道）叫号事件毫秒级播报、门屏（dept: 通道）即时刷新、站内消息铃铛（msg: 通道）新消息/危急值秒级感知——三个最热门轮询均保留原间隔作降级兜底，前端 push.js 客户端统一订阅。
+- **存证 / 电子签名扩展接口**：接口管理新增【存证 / 电子签名】分组（evid_mode 关闭/本地哈希指纹/外部存证服务；evid_endpoint + evid_token + evid_signer）；病历保存与诊断证明开具后自动计算 SHA-256 内容指纹并落库（patient_records / certificates 新增 evid_* 列，v36 迁移），可对接第三方 CA/时间戳服务 HTTP 接口；HIS 外部 API 新增 `evidence_verify` 验真 action。
+
+### 变更
+- **数据库抽象层升级为多驱动**：DB_DRIVER 支持 sqlite / mysql / pgsql（MariaDB 与 MySQL 兼容），方言翻译层覆盖 AUTOINCREMENT（→SERIAL/AUTO_INCREMENT）、INSERT OR IGNORE（→INSERT IGNORE / ON CONFLICT DO NOTHING）、datetime/strftime 时间函数（→NOW/EXTRACT/TO_CHAR）、settings 键值 upsert（SQLite REPLACE / MySQL ON DUPLICATE / PG ON CONFLICT），列存在检测与标识符引号按驱动分支（10 个方言用例全过，SQLite 实跑通过）。
+
+---
+
 ## [8.8.2] - 2026-09-13
 
 ### 变更

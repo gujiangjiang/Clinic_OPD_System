@@ -129,6 +129,7 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
                 <tr><td><code>visit_list</code></td><td><code>patient_no</code></td><td>该患者全部就诊记录</td></tr>
                 <tr><td><code>visit_status</code></td><td><code>flow_no</code></td><td>查询某次就诊状态</td></tr>
                 <tr><td><code>order_list</code></td><td><code>visit_id</code></td><td>某次就诊的开单明细</td></tr>
+                <tr><td><code>evidence_verify</code></td><td><code>record_id</code> 或 <code>cert_no</code></td><td>存证校验（病历/证明的哈希指纹与凭据验真）</td></tr>
             </tbody>
         </table></div>
         <div class="fs-12 text-muted mt-8 mb-4">调用示例（GET，保存密钥后随地址一并刷新）：</div>

@@ -376,9 +376,21 @@ function record_part_save($u) {
             EmrRepository::exec('UPDATE registrations SET status=?, disposition=?, disposition_detail=?, finished_at=?, paid_at=COALESCE(paid_at,?) WHERE id=?',
                 array('finished', $disposition, $dispDetail, now_str(), now_str(), $visitId));
             $pdo->commit();
+            // 存证：按接口管理配置的模式计算指纹/调用外部存证服务，落库保存凭据（失败不阻断保存）
+            $evid = evid_sign($recordType, (string)$recordId, (string)$printText, json_encode(array('visit_id' => $visitId, 'finished' => 1), JSON_UNESCAPED_UNICODE));
+            if ($evid) {
+                EmrRepository::exec('UPDATE patient_records SET evid_hash=?, evid_algo=?, evid_token=?, evid_signer=?, evid_time=? WHERE id=?',
+                    array($evid['hash'], $evid['algo'], $evid['token'], $evid['signer'], $evid['time'], (int)$recordId));
+            }
             json_ok(array('finished' => 1, 'record_id' => $recordId, 'dept_id' => (int)$recDeptId, 'dept_name' => $recDeptName), '病历已保存并诊毕');
         }
         $pdo->commit();
+        // 存证：同诊毕路径
+        $evid = evid_sign($recordType, (string)$recordId, (string)$printText, json_encode(array('visit_id' => $visitId, 'finished' => 0), JSON_UNESCAPED_UNICODE));
+        if ($evid) {
+            EmrRepository::exec('UPDATE patient_records SET evid_hash=?, evid_algo=?, evid_token=?, evid_signer=?, evid_time=? WHERE id=?',
+                array($evid['hash'], $evid['algo'], $evid['token'], $evid['signer'], $evid['time'], (int)$recordId));
+        }
         json_ok(array('finished' => 0, 'record_id' => $recordId, 'dept_id' => (int)$recDeptId, 'dept_name' => $recDeptName), '病历已保存');
     } catch (Exception $ex) {
         if ($pdo->inTransaction()) $pdo->rollBack();
