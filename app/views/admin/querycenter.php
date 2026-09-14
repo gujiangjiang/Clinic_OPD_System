@@ -37,7 +37,7 @@ function esc2(s) { return Clinic.escHtml(s == null ? '' : String(s)); }
 
 var refList = null;   // 当前渲染实例的无限列表句柄（SPA 重跑脚本时重置）
 
-/** 渲染影像引用行（isFirst=true 首次含表头） */
+/** 渲染影像引用行（isFirst=true 首次含表头；后续页仅返回 tr 行，由 append 插入已有 tbody） */
 function refRowHtml(list, isFirst) {
     var rows = list.map(function (r) {
         return '<tr>' +
@@ -55,12 +55,11 @@ function refRowHtml(list, isFirst) {
                 : '<span class="fs-12 text-muted">—</span>') + '</td>' +
             '</tr>';
     }).join('');
-    return isFirst
-        ? '<table class="table"><thead><tr>' +
-            '<th>登记时间</th><th>患者</th><th>流水号</th><th>申请单号</th><th>检查项目</th>' +
-            '<th>类型</th><th>Study UID</th><th>区域</th><th>登记人</th><th>调阅</th>' +
-            '</tr></thead><tbody>' + rows + '</tbody></table>'
-        : '<tbody>' + rows + '</tbody>';
+    if (!isFirst) return rows;   // 后续页：仅返回行，由 append 插入已有表格 tbody
+    return '<table class="table"><thead><tr>' +
+        '<th>登记时间</th><th>患者</th><th>流水号</th><th>申请单号</th><th>检查项目</th>' +
+        '<th>类型</th><th>Study UID</th><th>区域</th><th>登记人</th><th>调阅</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
 /* 初始化影像引用列表（统一动态加载封装 Clinic.infiniteList） */
@@ -75,6 +74,12 @@ function initRefList() {
         emptyHtml: '<div class="empty" style="padding:30px 0"><div class="empty-ico">🩻</div>暂无影像引用（报告出具后自动登记）</div>',
         url: '/api/imaging?action=refs_list&kw=' + encodeURIComponent((document.getElementById('qcRefKw') || {}).value || ''),
         render: refRowHtml,
+        // 后续页仅返回 tr 行：追加到已有表格的 tbody（保证表格样式统一）
+        append: function (el, html) {
+            var tb = el.querySelector('table tbody');
+            if (tb) tb.insertAdjacentHTML('beforeend', html);
+            else el.insertAdjacentHTML('beforeend', html);
+        },
     });
 }
 
