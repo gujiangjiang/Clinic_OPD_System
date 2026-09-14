@@ -13,6 +13,19 @@
 
 ---
 
+## [8.10.0] - 2026-09-14
+
+### 新增
+- **统一动态加载封装 `Clinic.infiniteList`（infinite.js）**：把「分页请求 + 滚动无限加载 + 追加渲染 + 空态 + 总数统计 + 搜索重置」收敛为一个调用；通过参数区分场景——`pageSize` 每页数量（医生搜索/诊断选人 10、就诊记录 15、影像引用 20）、`threshold` 触发阈值、`url`（支持函数形式，搜索条件变化时 reset 即可）、`render(list, isFirst)` 渲染回调（首次含表头）、`emptyHtml` 空态、`totalEl` 总数元素；返回 `reset()`/`stop()`。
+
+### 变更
+- **打印中心就诊记录列表**改用 `Clinic.infiniteList`（删除自维护的 pcLoad/pcMore/滚动监听状态机，每页 15 条，搜索自动重置并选中最新一条）。
+- **危急值医生搜索弹窗**改用 `Clinic.infiniteList`（删除 DOC_PAGE/DOC_HAS_MORE/DOC_LOADING 状态机，每页 10 人，保留无工具时的原逻辑兜底）。
+- **影像引用查询列表**改用 `Clinic.infiniteList`（简化 loadRefs 为 refRowHtml 渲染回调，每页 20 条，搜索走 reset）。
+- **后端接口支持 size 参数**：print_visits、refs_list、doctor_search 接受前端 `size` 传每页数量（1-100 钳制），各列表按场景配置不同分页粒度。
+
+---
+
 ## [8.9.5] - 2026-09-14
 
 ### 新增

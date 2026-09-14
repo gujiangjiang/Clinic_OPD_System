@@ -161,7 +161,8 @@ function admin_part_settings($action) {
     if ($action === 'print_visits') {
         $kw = trim(get('kw', ''));
         $page = max(1, (int)get('page', 1));
-        $pageSize = 20;
+        // 每页条数：前端可传 size（打印中心就诊列表默认 20，可调 10-20 分段加载）
+        $pageSize = max(1, min(100, (int)get('size', 20)));
         $where = '1=1';
         $params = array();
         if ($kw !== '') {

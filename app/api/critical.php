@@ -195,7 +195,8 @@ switch ($action) {
     case 'doctor_search':
         $q = get('q', '');
         $page = max(1, (int)get('page', 1));
-        $pageSize = 20;
+        // 每页条数：前端可传 size（医生搜索默认 10，诊断选人列表轻量分段加载）
+        $pageSize = max(1, min(100, (int)get('size', 10)));
         $where = "role='doctor' AND status=1";
         $params = array();
         if ($q !== '') {

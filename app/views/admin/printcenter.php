@@ -76,7 +76,8 @@ Router::title('打印中心');
 </style>
 
 <script>
-var PC_PAGE = 1, PC_KW = '', PC_LOADING = false, PC_HAS_MORE = false, PC_SELECTED = '';
+var PC_SELECTED = '';
+var PC_LIST = null;   // 统一动态加载封装句柄
 
 function pcStatusBadge(s) {
     var map = { pending: '待缴费', paid: '待就诊', visiting: '就诊中', finished: '就诊完毕', refunded: '已退费', cancelled: '已取消' };
@@ -95,61 +96,42 @@ function pcItemHtml(v) {
         '</div>';
 }
 
-/** 加载就诊列表（reset=true 重置到第一页；否则追加下一页） */
-function pcLoad(reset) {
-    if (PC_LOADING) return;
-    PC_LOADING = true;
-    if (reset) PC_PAGE = 1;
+/** 初始化就诊列表（统一动态加载封装 Clinic.infiniteList） */
+function initPcList() {
     var box = document.getElementById('pcList');
-    if (reset) box.innerHTML = '<div class="text-center" style="padding:30px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div>';
-    Clinic.get('/api/admin?action=print_visits&kw=' + encodeURIComponent(PC_KW) + '&page=' + PC_PAGE, null, {
-        loading: false,
+    if (!box || PC_LIST || !window.Clinic || !Clinic.infiniteList) return;
+    PC_LIST = Clinic.infiniteList({
+        el: box,
+        pageSize: 15,   // 就诊记录每页 15 条
+        threshold: 40,
+        totalEl: document.getElementById('pcTotal'),
+        emptyHtml: '<div class="empty" style="padding:30px 0"><div class="empty-ico">🔍</div>未检索到就诊记录</div>',
+        url: '/api/admin?action=print_visits&kw=' + encodeURIComponent((document.getElementById('pcKw') || {}).value || ''),
+        render: function (list, isFirst) { return list.map(pcItemHtml).join(''); },
         onSuccess: function (json) {
-            PC_LOADING = false;
-            var d = json.data;
-            var list = d.list || [];
-            if (reset) {
-                box.innerHTML = '';
-                PC_SELECTED = '';
-            }
-            if (reset && !list.length) {
-                box.innerHTML = '<div class="empty" style="padding:30px 0"><div class="empty-ico">🔍</div>未检索到就诊记录</div>';
-            } else {
-                box.insertAdjacentHTML('beforeend', list.map(pcItemHtml).join(''));
-            }
-            PC_HAS_MORE = !!d.has_more;
-            document.getElementById('pcTotal').textContent = '共 ' + d.total + ' 条';
-            // 分段加载提示（滚动到底自动加载，也保留手动按钮兜底）
-            var more = document.getElementById('pcMore');
-            if (more) more.remove();
-            if (PC_HAS_MORE) {
-                box.insertAdjacentHTML('beforeend',
-                    '<div class="pc-list-more"><button class="btn btn-outline btn-sm" id="pcMore" onclick="pcMore()">加载更多</button></div>');
-            }
             // 首次加载自动选中最新一条，右栏直接呈现可打印单据
-            if (reset && list.length) pcPick(list[0].visit_id);
+            var d = json.data || {};
+            var list = d.list || [];
+            if (d.total && list.length && PC_SELECTED === '' ) pcPick(list[0].visit_id);
         },
-        onError: function () { PC_LOADING = false; },
     });
 }
 
-function pcMore() {
-    if (!PC_HAS_MORE || PC_LOADING) return;
-    PC_PAGE++;
-    pcLoad(false);
-}
-
-/** 关键字检索 */
+/** 搜索：重置列表到第一页 */
 function pcSearch() {
-    PC_KW = document.getElementById('pcKw').value.trim();
-    pcLoad(true);
+    PC_SELECTED = '';
+    var box = document.getElementById('pcList');
+    if (box) box.innerHTML = '<div class="text-center" style="padding:30px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div>';
+    if (PC_LIST) PC_LIST.reset();
+    else initPcList();
 }
 
 /** 重置：清空关键字回到全部列表 */
 function pcReset() {
     document.getElementById('pcKw').value = '';
-    PC_KW = '';
-    pcLoad(true);
+    PC_SELECTED = '';
+    if (PC_LIST) PC_LIST.reset();
+    else initPcList();
 }
 
 /** 选中就诊 → 右栏加载可打印单据 */
@@ -181,12 +163,6 @@ function pcTab(name) {
     });
 }
 
-/* 左栏滚动到底自动加载下一页 */
-document.getElementById('pcList').addEventListener('scroll', function () {
-    if (!PC_HAS_MORE || PC_LOADING) return;
-    if (this.scrollTop + this.clientHeight >= this.scrollHeight - 40) pcMore();
-});
-
 /* 进入页面即加载最新就诊列表 */
-pcLoad(true);
+initPcList();
 </script>

@@ -408,7 +408,8 @@ switch ($action) {
         if (!in_array($u['role'], array('admin', 'imaging'), true)) json_fail('无权限查看影像引用');
         $kw = trim((string)get('kw', ''));
         $page = max(1, (int)get('page', 1));
-        $pageSize = 20;
+        // 每页条数：前端可传 size（影像引用查询默认 20）
+        $pageSize = max(1, min(100, (int)get('size', 20)));
         // 仅统计影像检查（imaging 订单）的引用——检验等非影像订单的引用不属于影像引用台账
         $where = "o.order_type='imaging'";
         $params = array();

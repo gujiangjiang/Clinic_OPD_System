@@ -20,7 +20,7 @@ Clinic.critical = (function () {
     /** 发送弹窗上下文（含当前所选接收医生） */
     var SEND_CTX = null;
     /** 医生搜索状态 */
-    var DOC_Q = '', DOC_PAGE = 0, DOC_HAS_MORE = false, DOC_LOADING = false, DOC_PICK = null;
+    var DOC_Q = '', DOC_PAGE = 0, DOC_HAS_MORE = false, DOC_LOADING = false, DOC_PICK = null, DOC_LIST = null;
     /** 当前列表页刷新回调（危急值管理页注册） */
     var LIST_REFRESH = null;
 
@@ -140,9 +140,9 @@ Clinic.critical = (function () {
         });
     }
 
-    /** 打开医生搜索弹窗（无限滚动，每页 20 人） */
+    /** 打开医生搜索弹窗（无限滚动，每页 10 人，统一动态加载封装） */
     function openDoctorSearch(onPick, title) {
-        DOC_Q = ''; DOC_PAGE = 1; DOC_HAS_MORE = true; DOC_LOADING = false; DOC_PICK = onPick;
+        DOC_Q = ''; DOC_PICK = onPick;
         var mask = Clinic.modal.open(
             '<div class="crit-doc-search">' +
             '  <div class="form-group"><input class="input" id="critDocQ" placeholder="🔍 输入医生姓名 / 工号搜索" autocomplete="off" ' +
@@ -155,27 +155,37 @@ Clinic.critical = (function () {
             { title: title || '选择接收医生', size: 'modal-sm', buttons: [{ text: '取消', cls: 'btn-outline' }] }
         );
         var listEl = mask.querySelector('#critDocList');
-        if (listEl) {
-            // 无限滚动：复用通用工具（容器内滚动，接近底部自动加载下一页）
-            Clinic.infiniteScroll({
+        var foot = mask.querySelector('#critDocFoot');
+        if (listEl && window.Clinic && Clinic.infiniteList) {
+            DOC_LIST = Clinic.infiniteList({
                 el: listEl,
+                pageSize: 10,   // 诊断/选医生列表轻量加载：每页 10 人
                 threshold: 40,
-                onNearBottom: function () {
-                    if (!DOC_HAS_MORE || DOC_LOADING) return false;
-                    DOC_PAGE++;
-                    docLoad(true);
+                url: function (p) {
+                    return '/api/critical?action=doctor_search&q=' + encodeURIComponent(DOC_Q) + '&page=' + p + '&size=10';
+                },
+                render: function (list) { return docListHtml(list); },
+                onSuccess: function (json) {
+                    var d = json.data || {};
+                    if (foot) {
+                        foot.style.display = d.has_more ? '' : 'none';
+                        foot.textContent = d.has_more ? '↓ 下滑加载更多' : '已加载全部（共 ' + (d.total || 0) + ' 人）';
+                    }
                 },
             });
+        } else if (listEl) {
+            // 兜底：无通用工具时保留原分页逻辑
+            docLoad(false);
         }
         setTimeout(function () {
             var q = document.getElementById('critDocQ');
             if (q) q.focus();
         }, 80);
-        docLoad(false);
     }
 
     function _docSearchInput(v) {
-        DOC_Q = (v || '').trim(); DOC_PAGE = 1; DOC_HAS_MORE = true;
+        DOC_Q = (v || '').trim();
+        if (DOC_LIST) { DOC_LIST.reset(); return; }
         docLoad(false);
     }
 

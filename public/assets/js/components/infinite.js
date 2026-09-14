@@ -90,3 +90,96 @@ Clinic.infiniteScroll = function (opts) {
     target.addEventListener('scroll', onScroll, { passive: true });
     return { stop: stop, check: check };
 };
+
+/**
+ * 统一的分页列表封装：把「分页请求 + 滚动无限加载 + 追加渲染」收敛为一个调用，
+ * 各处列表只需传入接口地址、每页数量与渲染函数，消除重复的页码/加载锁/追加逻辑。
+ *
+ * 用法：
+ *   var list = Clinic.infiniteList({
+ *       el: document.getElementById('list容器'),   // 必填：滚动容器（内部滚动）
+ *       url: '/api/xxx?action=list&kw=...',         // 接口地址（会自动拼接 &page=&size=）
+ *       pageSize: 20,                              // 每页数量（诊断 5-10 / 就诊 10-20 / 引用 20）
+ *       threshold: 40,                             // 距底部触发阈值 px
+ *       totalEl: document.getElementById('总数元素'),  // 可选：显示「共 N 条」
+ *       emptyHtml: '<div class="empty">暂无数据</div>', // 可选：空态 HTML
+ *       render: function (list, isFirst) {          // 必填：把一页数据渲染为 HTML
+ *           return list.map(function (r) {          //   isFirst=true 首次渲染（可含表头）
+ *               return '<div>...</div>';            //   追加到容器
+ *           }).join('');
+ *       },
+ *       onSuccess: function (json) { }              // 可选：每次加载成功回调（可写业务状态）
+ *   });
+ *   list.reset();   // 重置到第一页（搜索条件变化时调用）
+ *   list.stop();    // 解除监听
+ *
+ * @return {{reset: function, stop: function}}
+ */
+Clinic.infiniteList = function (opts) {
+    opts = opts || {};
+    var el = opts.el;
+    var pageSize = typeof opts.pageSize === 'number' ? opts.pageSize : 20;
+    var threshold = typeof opts.threshold === 'number' ? opts.threshold : 40;
+    var totalEl = opts.totalEl || null;
+    var emptyHtml = opts.emptyHtml || '<div class="empty">暂无数据</div>';
+    var render = opts.render || function () { return ''; };
+    var onSuccess = opts.onSuccess || null;
+
+    var page = 0;
+    var loading = false;
+    var hasMore = true;
+    var stopFn = null;
+
+    function loadPage(p) {
+        if (loading || !el) return;
+        loading = true;
+        // url 支持字符串（自动拼 page/size）或函数（返回完整地址，自行拼参）
+        var url;
+        if (typeof opts.url === 'function') url = opts.url(p, pageSize);
+        else url = opts.url + (opts.url.indexOf('?') === -1 ? '?' : '&') + 'page=' + p + '&size=' + pageSize;
+        Clinic.get(url, null, {
+            onSuccess: function (json) {
+                loading = false;
+                var d = json.data || {};
+                var list = d.list || [];
+                if (p <= 1) {
+                    el.innerHTML = '';
+                    if (!list.length) {
+                        el.innerHTML = emptyHtml;
+                        hasMore = false;
+                    }
+                }
+                if (list.length) {
+                    el.insertAdjacentHTML('beforeend', render(list, p <= 1));
+                }
+                hasMore = !!d.has_more;
+                if (totalEl) totalEl.textContent = '共 ' + (d.total || 0) + ' 条';
+                if (onSuccess) onSuccess(json, p);
+            },
+            onError: function () { loading = false; },
+        });
+    }
+
+    function fireLoad() {
+        if (!hasMore) return false;   // 无更多：停止监听
+        page++;
+        loadPage(page);
+    }
+
+    stopFn = Clinic.infiniteScroll({
+        el: el,
+        threshold: threshold,
+        onNearBottom: fireLoad,
+    });
+
+    loadPage(1);   // 首屏加载第一页
+
+    return {
+        /** 重置到第一页（搜索条件变化时调用） */
+        reset: function () {
+            page = 0; hasMore = true;
+            loadPage(1);
+        },
+        stop: function () { if (stopFn) stopFn(); },
+    };
+};
