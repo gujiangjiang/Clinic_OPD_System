@@ -450,6 +450,10 @@
                 return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
             });
         };
+        // 未绑定：不显示任何患者信息（与医生诊室大屏规则一致）
+        if (d.bound === false) {
+            return '<div class="screen-empty-big" style="color:#a8c8e8">等待医技人员绑定大屏后开始叫号</div>';
+        }
         var wait = d.waiting || [];
         var cur = d.current || {};
         var nowHtml;

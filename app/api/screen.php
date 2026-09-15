@@ -130,6 +130,16 @@ function screen_payload($room) {
     }
 
     // ===== 医技大屏（lab/imaging/pharmacy/nurse）：科室排队看板 =====
+    // 未绑定（或绑定者心跳失效）时一律不显示任何患者，与医生诊室大屏规则一致，
+    // 避免「无医技人员绑定却出现患者队列」的错乱
+    $bound = QueueRepository::roomBound($room);
+    if (!$bound) {
+        return array_merge($base, array(
+            'bound' => false,
+            'current' => null, 'next' => null, 'waiting' => array(),
+            'missed' => array(), 'doctor' => null,
+        ));
+    }
     // 队列 = 本类型待办患者（按最近一次开单时间正序，一行=一位患者）；
     // 当前 = 叫号面板推送的患者（room.current_visit_id，仍待办时显示并移出队列）
     $techRows = tech_dept_queue($room['room_type'], 20);

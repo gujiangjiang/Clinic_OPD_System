@@ -88,18 +88,25 @@ Clinic.adminItems = {
             Clinic.get('/api/admin?action=cat_list&type=' + opts.type, null, {
                 onSuccess: function (json) {
                     var list = json.data.list || [];
-                    document.getElementById('catBox').innerHTML = list.map(function (c) {
-                        return '<span class="badge badge-gray" style="margin:0 6px 6px 0;padding:5px 12px">' + c.name +
-                            ' <a href="javascript:void(0)" style="color:var(--danger)" onclick="delCat(' + c.id + ')">✕</a></span>';
-                    }).join('') || '<span class="text-muted fs-13">暂无分类</span>';
+                    var box = document.getElementById('catBox');
+                    box.innerHTML = list.length
+                        ? list.map(function (c) {
+                            return '<div class="cat-mgr-row" data-id="' + c.id + '" data-name="' + Clinic.escHtml(c.name) + '">' +
+                                '<span class="cat-mgr-name">' + Clinic.escHtml(c.name) + '</span>' +
+                                '<span class="cat-mgr-actions">' +
+                                '<button type="button" class="btn btn-outline btn-sm" onclick="renCat(' + c.id + ')">✏️ 重命名</button>' +
+                                '<button type="button" class="btn btn-danger btn-sm" onclick="delCat(' + c.id + ')">🗑️ 删除</button>' +
+                                '</span></div>';
+                        }).join('')
+                        : '<div class="cat-mgr-empty">暂无分类，请输入名称添加</div>';
                 },
             });
         };
         Clinic.modal.open(
             '<div class="flex gap-8 mb-8">' +
-            '<input class="input" id="catName" placeholder="' + opts.placeholder + '" style="flex:1">' +
+            '<input class="input" id="catName" placeholder="' + opts.placeholder + '" style="flex:1" onkeydown="if(event.key===\'Enter\')addCat()">' +
             '<button class="btn btn-primary btn-sm" onclick="addCat()">添加</button></div>' +
-            '<div id="catBox"></div>',
+            '<div id="catBox" class="cat-mgr-box"></div>',
             {
                 title: opts.title,
                 size: 'modal-sm',
@@ -118,12 +125,38 @@ Clinic.adminItems = {
                 },
             });
         };
-        window.delCat = function (id) {
-            Clinic.ajax('/api/admin', { action: 'cat_delete', id: id }, {
-                onSuccess: function (json) {
-                    Clinic.toast.success(json.msg);
-                    loadCats();
+        // 重命名：行内编辑（当前名称回填），保存后后端同步更名该分类下全部项目
+        window.renCat = function (id) {
+            var row = document.querySelector('.cat-mgr-row[data-id="' + id + '"]');
+            if (!row) return;
+            var old = row.getAttribute('data-name') || '';
+            Clinic.modal.prompt({
+                title: '重命名分类',
+                label: '新分类名称（该分类下所有项目将同步更名）',
+                value: old,
+                okText: '保存',
+                onOk: function (name) {
+                    if (!name.trim()) { Clinic.toast.warning('请输入分类名称'); return; }
+                    Clinic.ajax('/api/admin', { action: 'cat_rename', id: id, name: name.trim() }, {
+                        onSuccess: function (json) {
+                            Clinic.toast.success(json.msg);
+                            loadCats();
+                        },
+                    });
                 },
+            });
+        };
+        // 删除：二次确认，删除后该分类下全部项目转未分类
+        window.delCat = function (id) {
+            var row = document.querySelector('.cat-mgr-row[data-id="' + id + '"]');
+            var name = row ? (row.getAttribute('data-name') || '') : '';
+            Clinic.modal.confirm('确定删除分类「' + name + '」吗？删除后该分类下的检验/检查项目将自动转为未分类。', function () {
+                Clinic.ajax('/api/admin', { action: 'cat_delete', id: id }, {
+                    onSuccess: function (json) {
+                        Clinic.toast.success(json.msg);
+                        loadCats();
+                    },
+                });
             });
         };
     },

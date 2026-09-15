@@ -44,6 +44,7 @@ if (in_array($u['role'], array('lab', 'imaging', 'pharmacy'), true)) {
         // 检验科（lab）/ 影像科（imaging）：本职项目查看与提交审核 + 组合只读
         $roleOpenActions = array(
             'item_list', 'item_form', 'item_save', 'cat_list',
+            'cat_add', 'cat_rename', 'cat_delete',
             'lab_groups', 'lab_group_get', 'lab_group_candidates',
         );
     }
@@ -92,6 +93,7 @@ switch ($action) {
     case 'item_delete':
     case 'cat_list':
     case 'cat_add':
+    case 'cat_rename':
     case 'cat_delete':
     // 检验组合（组合项目：按组价整体收费，医生可单独开或整体开组）
     case 'lab_group_form':

@@ -316,23 +316,54 @@ function admin_part_item($action) {
         elseif ($u['role'] === 'imaging') $type = 'exam';
         else $type = get('type', 'lab');
         $rows = OrderRepository::q('SELECT * FROM item_categories WHERE ctype=? ORDER BY sort, id', array($type));
-        json_ok(array('list' => array_map(function ($c) {
-            return array('id' => (int)$c['id'], 'name' => $c['name']);
+        json_ok(array('list' => array_map(function ($c) use ($type) {
+            return array('id' => (int)$c['id'], 'name' => $c['name'], 'type' => $type);
         }, $rows)));
     }
 
     if ($action === 'cat_add') {
         $type = post('type', 'lab');
-        $name = post('name');
+        $name = trim((string)post('name', ''));
         if ($name === '') json_fail('请输入分类名称');
+        $dup = (int)OrderRepository::val('SELECT COUNT(*) FROM item_categories WHERE ctype=? AND name=?', array($type, $name));
+        if ($dup > 0) json_fail('该分类已存在');
         OrderRepository::insert('INSERT INTO item_categories(ctype, name, sort) VALUES(?,?,0)', array($type, $name));
         json_ok(array(), '分类已添加');
     }
 
+    /** 分类重命名：同步更新该分类下全部检验/检查项目的分类字段（编辑即时生效） */
+    if ($action === 'cat_rename') {
+        $id = (int)post('id');
+        $name = trim((string)post('name', ''));
+        if ($name === '') json_fail('请输入分类名称');
+        $cat = OrderRepository::one('SELECT * FROM item_categories WHERE id=?', array($id));
+        if (!$cat) json_fail('分类不存在');
+        $dup = (int)OrderRepository::val('SELECT COUNT(*) FROM item_categories WHERE ctype=? AND name=? AND id<>?', array($cat['ctype'], $name, $id));
+        if ($dup > 0) json_fail('该分类已存在');
+        $old = (string)$cat['name'];
+        // 先改分类目录，再级联同步该项目表（lab_items / exam_items 按 ctype 区分）
+        OrderRepository::exec('UPDATE item_categories SET name=? WHERE id=?', array($name, $id));
+        if ($cat['ctype'] === 'exam') {
+            OrderRepository::exec('UPDATE exam_items SET category=? WHERE category=?', array($name, $old));
+        } else {
+            OrderRepository::exec('UPDATE lab_items SET category=? WHERE category=?', array($name, $old));
+        }
+        json_ok(array('renamed' => 1), '分类已更名，该分类下项目已同步更新');
+    }
+
     if ($action === 'cat_delete') {
         $id = (int)post('id');
+        $cat = OrderRepository::one('SELECT * FROM item_categories WHERE id=?', array($id));
+        if (!$cat) json_fail('分类不存在');
+        $name = (string)$cat['name'];
         OrderRepository::exec('DELETE FROM item_categories WHERE id=?', array($id));
-        json_ok(array(), '分类已删除');
+        // 级联：该分类下全部项目分类置空（未分类占位），避免残留失效分类名
+        if ($cat['ctype'] === 'exam') {
+            OrderRepository::exec('UPDATE exam_items SET category=\'\' WHERE category=?', array($name));
+        } else {
+            OrderRepository::exec('UPDATE lab_items SET category=\'\' WHERE category=?', array($name));
+        }
+        json_ok(array(), '分类已删除，相关项目已转为未分类');
     }
 
     json_fail('未知操作');

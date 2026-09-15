@@ -50,6 +50,43 @@
 .btn-lg { padding: 12px 24px; font-size: 15px; }
 .btn-block { width: 100%; }
 
+/* ---------- 分类管理弹窗（检验/检查共用）：小巧列表 ---------- */
+.cat-mgr-box {
+    max-height: 46vh;
+    overflow-y: auto;
+    margin-top: 4px;
+}
+.cat-mgr-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    background: var(--bg-card, #fff);
+}
+.cat-mgr-row:hover { border-color: var(--primary); }
+.cat-mgr-name {
+    font-size: 13px;
+    font-weight: 600;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cat-mgr-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.cat-mgr-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12.5px;
+    padding: 18px 0;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    margin-top: 4px;
+}
+
 /* ---------- 表单控件 ---------- */
 .form-group { margin-bottom: 14px; }
 .form-label {
