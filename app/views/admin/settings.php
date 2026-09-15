@@ -21,10 +21,15 @@ $tzOpts = '';
 foreach ($commonTz as $t) {
     $tzOpts .= '<option value="' . e($t) . '"' . ($tz === $t ? ' selected' : '') . '>' . e($t) . '</option>';
 }
+// 当前数据库类型（SQLITE / MYSQL / PGSQL）：管理员直观查看当前驱动
+$dbType = strtoupper(DatabaseManager::driver());
 ?>
 <div class="page-head">
     <div><div class="page-title">⚙️ 系统设置</div><div class="page-desc">按类别分区管理医院基础信息、品牌外观、作息时间与安全设置<br>
     HIS / 支付 / 医保 / DICOM-PACS / HL7 / FHIR 等外部接口已迁移至 <a href="/admin/integration" style="color:var(--primary)">🔌 接口管理</a> 统一维护</div></div>
+    <div style="align-self:flex-start">
+        <span class="badge badge-primary" style="font-size:11.5px;letter-spacing:.04em" title="当前数据库驱动">🗄️ 数据库：<?php echo e($dbType); ?></span>
+    </div>
 </div>
 
 <div class="setting-grid">
