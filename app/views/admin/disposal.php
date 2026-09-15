@@ -42,10 +42,11 @@ function openDisposalForm(id) {
     var mask = Clinic.modal.load('/api/admin', { action: 'disposal_form', id: id || 0 }, { title: id ? '编辑处置项目' : '新增处置项目' });
     mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
         mask.querySelector('.modal-foot').innerHTML =
-            '<button type="button" id="enabledToggle" class="btn btn-sm btn-success" onclick="toggleItemEnabled()">✅ 已启用</button>' +
-            '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
-            '<button type="button" class="btn btn-primary" id="dispSave">保存</button>';
-        initEnabledToggle();
+            '<div style="display:flex;justify-content:space-between;align-items:center;width:100%">' +
+            '<button type="button" id="enabledToggle" class="btn btn-sm btn-success" onclick="toggleItemEnabled()">✅ 启用</button>' +
+            '<span><button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+            '<button type="button" class="btn btn-primary" id="dispSave">保存</button></span></div>';
+        initEnabledToggle(id > 0);
         document.getElementById('dispSave').addEventListener('click', function () {
             Clinic.ajax('/api/admin', {
                 action: 'disposal_save',

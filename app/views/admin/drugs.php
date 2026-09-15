@@ -82,10 +82,11 @@ function openDrugForm(id) {
         };
 
         mask.querySelector('.modal-foot').innerHTML =
-            '<button type="button" id="enabledToggle" class="btn btn-sm btn-success" onclick="toggleItemEnabled()">✅ 已启用</button>' +
-            '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
-            '<button type="button" class="btn btn-primary" id="drugSave">保存</button>';
-        initEnabledToggle();
+            '<div style="display:flex;justify-content:space-between;align-items:center;width:100%">' +
+            '<button type="button" id="enabledToggle" class="btn btn-sm btn-success" onclick="toggleItemEnabled()">✅ 启用</button>' +
+            '<span><button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+            '<button type="button" class="btn btn-primary" id="drugSave">保存</button></span></div>';
+        initEnabledToggle(id > 0);
         document.getElementById('drugSave').addEventListener('click', function () {
             // 皮试必填校验：勾选"需要皮试"必须关联皮试处置项目
             var skinTestChk = document.getElementById('f_skin_test');

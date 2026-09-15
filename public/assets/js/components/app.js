@@ -14,7 +14,9 @@ window.Clinic = window.Clinic || {};
 
 /**
  * 全局启用/禁用切换（检验/检查/处置/处方项目表单底部按钮）
- * 状态存于隐藏字段 #f_enabled（1 启用 / 0 禁用），按钮绿色已启用 / 红色已禁用，点击切换。
+ * 状态存于隐藏字段 #f_enabled（1 启用 / 0 禁用）。
+ * 文案：新增模态框显示【启用/禁用】；编辑模态框显示【已启用/已禁用】（initEnabledToggle 传入 isEdit）。
+ * 点击切换后 toast 提示「保存后生效」，避免误解。
  */
 window.toggleItemEnabled = function () {
     var h = document.getElementById('f_enabled');
@@ -22,17 +24,28 @@ window.toggleItemEnabled = function () {
     if (!h || !b) return;
     h.value = h.value === '1' ? '0' : '1';
     renderEnabledToggle();
+    // 切换提示：区分新增/编辑文案
+    var on = h.value === '1';
+    if (window.__enabledToggleIsEdit) {
+        Clinic.toast.info(on ? '该项目已启用，保存后生效' : '该项目已禁用，保存后生效');
+    } else {
+        Clinic.toast.info(on ? '新项目将启用，保存后生效' : '新项目将禁用，保存后生效');
+    }
 };
 function renderEnabledToggle() {
     var h = document.getElementById('f_enabled');
     var b = document.getElementById('enabledToggle');
     if (!h || !b) return;
     var on = h.value === '1';
-    b.textContent = on ? '✅ 已启用' : '⛔ 已禁用';
+    var isEdit = window.__enabledToggleIsEdit;
+    b.textContent = isEdit ? (on ? '✅ 已启用' : '⛔ 已禁用') : (on ? '✅ 启用' : '⛔ 禁用');
     b.className = 'btn btn-sm ' + (on ? 'btn-success' : 'btn-danger');
 }
-/** 表单加载后初始化启用按钮状态（各项目管理页 modal:loaded 调用） */
-window.initEnabledToggle = function () { renderEnabledToggle(); };
+/** 表单加载后初始化启用按钮状态（各项目管理页 modal:loaded 调用；isEdit=true 编辑态） */
+window.initEnabledToggle = function (isEdit) {
+    window.__enabledToggleIsEdit = !!isEdit;
+    renderEnabledToggle();
+};
 
 /**
  * 全局初始化（在 DOMContentLoaded 后调用）
