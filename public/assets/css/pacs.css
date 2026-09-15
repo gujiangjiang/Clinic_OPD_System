@@ -55,8 +55,32 @@
     word-break: break-all;
     line-height: 1.7;
     color: var(--text);
+    cursor: pointer;                 /* 点击复制 */
+    user-select: all;                /* 单击全选便于复制 */
+    transition: border-color .15s, box-shadow .15s;
 }
+.itg-his-url:hover { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,.08); }
 .itg-his-url-ph { color: var(--text-muted); font-family: inherit; }
+
+/* 调用示例（curl）：同禁用样式，点击自动复制 */
+.itg-his-curl code {
+    flex: 1;
+    min-width: 0;
+    display: block;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--bg-soft, #f1f5f9);
+    border: 1px solid var(--border);
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    word-break: break-all;
+    color: var(--text);
+    cursor: pointer;                 /* 点击复制 */
+    user-select: all;
+    transition: border-color .15s, box-shadow .15s;
+}
+.itg-his-curl code:hover { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,.08); }
 
 .itg-pane-docs { margin-top: 14px; }
 .itg-pane-docs .table { font-size: 13px; }
@@ -84,25 +108,6 @@
     padding: 0 14px 6px;         /* 顶部不留 padding：表头 sticky 吸顶后无缝隙漏内容 */
 }
 .qc-ref-list table { min-width: 720px; }
-.itg-his-curl {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.itg-his-curl code {
-    flex: 1;
-    min-width: 0;
-    display: block;
-    padding: 8px 10px;
-    border-radius: 8px;
-    background: var(--bg-soft, #f1f5f9);
-    border: 1px solid var(--border);
-    font-family: monospace;
-    font-size: 12px;
-    line-height: 1.6;
-    word-break: break-all;
-}
-.itg-his-curl .btn { flex-shrink: 0; }
 
 .itg-his-test { padding-bottom: 2px; }
 .itg-his-test .btn { margin-bottom: 8px; }

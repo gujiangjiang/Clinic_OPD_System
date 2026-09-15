@@ -71,13 +71,15 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
                             <option value="<?php echo e($ov); ?>"<?php echo $vals[$f['key']] === (string)$ov ? ' selected' : ''; ?>><?php echo e($ot); ?></option>
                         <?php endforeach; ?>
                     </select>
-                <?php else: ?>
+<?php else: ?>
                     <div class="flex" style="gap:8px">
+                        <?php $isHisKey = ($g['id'] === 'his' && $f['key'] === 'his_api_key'); ?>
                         <input class="input" id="itg_<?php echo e($f['key']); ?>"
                             value="<?php echo e($vals[$f['key']]); ?>"
                             placeholder="<?php echo e($f['placeholder']); ?>"
+                            <?php if ($isHisKey): ?> disabled title="仅可通过随机生成，不支持手动输入"<?php endif; ?>
                             <?php if (!empty($f['monospace'])): ?> style="font-family:monospace"<?php endif; ?>>
-                        <?php if ($g['id'] === 'his' && $f['key'] === 'his_api_key'): ?>
+                        <?php if ($isHisKey): ?>
                             <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="genHisKey()">🔑 生成密钥</button>
                         <?php endif; ?>
                     </div>
@@ -93,11 +95,10 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
                         <span class="fs-12 text-muted" style="font-weight:400">即外部 HIS 系统调用本系统的接口地址，按当前访问地址自动生成并附带密钥</span>
                     </label>
                     <div class="flex" style="gap:8px">
-                        <code class="itg-his-url" id="hisApiUrl" style="flex:1;margin:0"><?php
+                        <code class="itg-his-url" id="hisApiUrl" style="flex:1;margin:0" title="点击复制地址" onclick="copyHisUrl()"><?php
                             if ($hisKeyNow !== '') { echo e($hisApiBase . '?action=ping&api_key=' . $hisKeyNow); }
                             else { echo '<span class="itg-his-url-ph">请先填写接口密钥并保存，地址将自动生成</span>'; }
                         ?></code>
-                        <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="copyHisUrl()">📋 复制地址</button>
                     </div>
                 </div>
                 <button class="btn btn-primary btn-sm" onclick="itgSave('his')">保存本组配置</button>
@@ -133,8 +134,7 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
         </table></div>
         <div class="fs-12 text-muted mt-8 mb-4">调用示例（GET，保存密钥后随地址一并刷新）：</div>
         <div class="itg-his-curl">
-            <code id="hisCurlDemo"></code>
-            <button type="button" class="btn btn-outline btn-sm" title="复制 curl 示例" onclick="copyHisCurl()">📋</button>
+            <code id="hisCurlDemo" title="点击复制 curl 示例" onclick="copyHisCurl()"></code>
         </div>
     </div>
         <?php else: ?>
