@@ -33,13 +33,20 @@ if ($action !== 'save') {
 // 密码必须原样读取（不 trim），否则含首尾空格的密码会被误删导致长度校验失败
 $password = post_raw('password');
 $password2 = post_raw('password2');
+$username = trim((string)post('username', 'admin'));
 $hospital = post('hospital_name');
 $hospital2 = post('hospital_name2');
 $timezone = post('timezone', 'Asia/Shanghai');
 
 // ===== 基础校验（报错信息带实际输入长度，便于排查输入法/自动填充导致密码不完整的问题） =====
+if ($username === '' || !preg_match('/^[A-Za-z]/', $username)) {
+    json_fail('管理员用户名必须以英文字母开头（默认 admin，可修改）');
+}
+if (strlen($username) > 50) {
+    json_fail('管理员用户名过长');
+}
 if ($password === '' || strlen($password) < 6) {
-    json_fail('管理员密码不能少于6位（当前输入 ' . strlen($password) . ' 位，请确认输入法为英文状态后重新输入）');
+    json_fail('管理员密码不能少于6位（当前输入 ' . strlen($password) . ' 位）');
 }
 if ($password !== $password2) {
     json_fail('两次输入的密码不一致，请重新输入');
@@ -64,9 +71,9 @@ if (!empty($_FILES['logo']) && $_FILES['logo']['error'] !== UPLOAD_ERR_NO_FILE) 
     $logo = $res['path'];
 }
 
-// ===== 创建管理员用户 =====
+// ===== 创建管理员用户（用户名默认 admin，可自定义；英文开头 + 唯一） =====
 $adminId = UserRepository::insert('INSERT INTO users(emp_no, username, password, name, role, theme, status, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
-    '0001', 'admin', password_hash($password, PASSWORD_DEFAULT), '系统管理员', 'admin', 'auto', 1, now_str(),
+    '0001', $username, password_hash($password, PASSWORD_DEFAULT), '系统管理员', 'admin', 'auto', 1, now_str(),
 ));
 
 // ===== 保存系统设置（页脚版权不保存：统一自动生成【© 年份 医院名称 版权所有】） =====

@@ -23,10 +23,14 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
     <div class="step-dots"><span class="step-dot on"></span><span class="step-dot"></span><span class="step-dot"></span></div>
 
     <div class="form-group">
-        <label class="form-label">管理员密码（用户名固定为 admin）<span class="req">*</span></label>
+        <label class="form-label">管理员用户名 <span class="req">*</span></label>
+        <div class="input-wrap"><span class="input-icon">👤</span>
+            <input type="text" class="input" id="username" value="admin" placeholder="默认 admin，可修改" autocomplete="username"></div>
+    </div>
+    <div class="form-group">
+        <label class="form-label">管理员密码 <span class="req">*</span></label>
         <div class="input-wrap"><span class="input-icon">🔑</span>
             <input type="password" class="input" id="password" placeholder="至少6位" autocomplete="new-password"></div>
-        <div class="fs-12 text-warning mt-4">⚠️ 请输入英文字母/数字/符号，并确保输入法已切换为<b>英文状态</b>（中文输入法会吞掉部分字母导致密码不完整）。</div>
     </div>
     <div class="form-group">
         <label class="form-label">确认管理员密码 <span class="req">*</span></label>
@@ -80,17 +84,20 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
 
 document.getElementById('installBtn').addEventListener('click', function () {
     var btn = this;
+    var username = document.getElementById('username').value.trim();
     var password = document.getElementById('password').value;
     var password2 = document.getElementById('password2').value;
     var hospital = document.getElementById('hospital_name').value.trim();
     // 校验时带上实际输入长度，便于用户发现输入法/自动填充导致的输入不完整
-    if (password.length < 6) { Clinic.toast.warning('管理员密码不能少于6位（当前输入 ' + password.length + ' 位，请确认输入法为英文状态后重新输入）'); return; }
+    if (username === '' || !/^[A-Za-z]/.test(username)) { Clinic.toast.warning('管理员用户名必须以英文字母开头（默认 admin，可修改）'); return; }
+    if (password.length < 6) { Clinic.toast.warning('管理员密码不能少于6位（当前输入 ' + password.length + ' 位）'); return; }
     if (password !== password2) { Clinic.toast.warning('两次输入的密码不一致'); return; }
     if (!hospital) { Clinic.toast.warning('请填写医院名称'); return; }
 
     var fd = new FormData();
     fd.append('csrf_token', document.body.getAttribute('data-csrf'));
     fd.append('action', 'save');
+    fd.append('username', username);
     fd.append('password', password);
     fd.append('password2', password2);
     fd.append('hospital_name', hospital);

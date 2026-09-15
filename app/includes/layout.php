@@ -158,7 +158,7 @@ class Layout {
     }
 
     /** 独立页面（登录/安装/403/404） */
-    public static function authPage($content) {
+    public static function authPage($content, $hideBrand = false) {
         $hosp = setting('hospital_name', '');
         $hosp2 = setting('hospital_name2', '');
         // LOGO 以 base64 Data URI 内联显示：不暴露文件 URL，且不受页面层级影响；
@@ -171,7 +171,8 @@ class Layout {
         $brandNames = '';
         if ($hosp !== '') $brandNames .= '<div class="brand-name">' . e($hosp) . '</div>';
         if ($hosp2 !== '') $brandNames .= '<div class="brand-name2">' . e($hosp2) . '</div>';
-        $brandHtml = ($logoImg !== '' || $brandNames !== '')
+        // 首次安装页不显示品牌区/默认图标（尚未配置医院信息，且安装框居中呈现）
+        $brandHtml = (!$hideBrand && ($logoImg !== '' || $brandNames !== ''))
             ? '<div class="auth-brand">' . $logoImg . '<div class="brand-names">' . $brandNames . '</div></div>'
             : '';
         // 浏览器标签页图标：统一 /pwa-icon.png（有 LOGO 输出 LOGO，无则默认透明底

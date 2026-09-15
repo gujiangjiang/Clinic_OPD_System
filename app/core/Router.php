@@ -247,7 +247,9 @@ class Router {
             return;
         }
         if ($standalone) {
-            echo Layout::authPage($content);
+            // 首次安装页隐藏品牌区（未配置医院信息、默认图标无意义），安装框居中
+            $hideBrand = ($view === 'install.php');
+            echo Layout::authPage($content, $hideBrand);
         } else {
             // 病历书写页强制缩小侧边栏，为书写区提供足够空间（忽略用户偏好）
             // 医生工作站（新）顶栏注入：工具箱下拉 / 叫号大屏绑定 / 科室切换
