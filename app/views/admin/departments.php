@@ -69,8 +69,11 @@ function openDeptForm(id) {
     var mask = Clinic.modal.load('/api/admin', { action: 'dept_form', id: id || 0 }, { title: id ? '编辑科室' : '新增科室' });
     mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
         mask.querySelector('.modal-foot').innerHTML =
-            '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
-            '<button type="button" class="btn btn-primary" id="deptSave">保存</button>';
+            '<div style="display:flex;justify-content:space-between;align-items:center;width:100%">' +
+            '<button type="button" id="enabledToggle" class="btn btn-success" onclick="toggleItemEnabled()">✅ 启用</button>' +
+            '<span><button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+            '<button type="button" class="btn btn-primary" id="deptSave">保存</button></span></div>';
+        initEnabledToggle(id > 0);
         document.getElementById('deptSave').addEventListener('click', function () {
             Clinic.ajax('/api/admin', {
                 action: 'dept_save',
@@ -80,7 +83,7 @@ function openDeptForm(id) {
                 fee: document.getElementById('f_fee').value,
                 am_quota: document.getElementById('f_am').value,
                 pm_quota: document.getElementById('f_pm').value,
-                status: document.getElementById('f_status').value,
+                status: document.getElementById('f_enabled').value,
             }, {
                 onSuccess: function (json) {
                     Clinic.toast.success(json.msg);

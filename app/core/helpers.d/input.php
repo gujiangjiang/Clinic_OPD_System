@@ -154,9 +154,11 @@ function insert_report($data) {
  * @return string badge HTML
  */
 function item_status_badge($status) {
+    // 状态配色：可用绿色 / 禁用红色 / 待审核黄色 / 其余状态（如 unknown 等）灰色
     if ($status === 'approved') return badge_html('success', '可用');
-    if ($status === 'disabled') return badge_html('gray', '已禁用');
-    return badge_html('warning', '待审核');
+    if ($status === 'disabled') return badge_html('danger', '已禁用');
+    if ($status === 'pending' || $status === '') return badge_html('warning', '待审核');
+    return badge_html('gray', (string)$status);
 }
 
 /* ============================================================

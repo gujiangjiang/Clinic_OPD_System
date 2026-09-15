@@ -104,7 +104,7 @@ function admin_part_drug($action) {
                 '<td class="fs-12">' . e($r['route']) . ($r['is_nurse'] ? '（护士站）' : '') . '</td>' .
                 '<td>' . (int)$r['qty'] . '</td>' .
                 '<td>¥' . money($r['price']) . '</td>' .
-                '<td>' . ($r['status'] === 'approved' ? badge_html('success', '可用') : badge_html('warning', '待审核')) . '</td>' .
+                '<td>' . item_status_badge((string)$r['status']) . '</td>' .
                 '<td>' . ($u['role'] === 'admin'
                     ? '<div class="flex gap-4">' .
                     // 编辑按钮与「新增」共用 openDrugForm(id)

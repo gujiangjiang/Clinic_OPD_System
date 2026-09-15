@@ -72,10 +72,8 @@ function admin_part_dept($action) {
                 <input class="input" type="number" min="0" id="f_pm" value="' . (int)$r['pm_quota'] . '"></div>
         </div>
         <div class="form-group"><label class="form-label">状态</label>
-            <select class="select" id="f_status">
-                <option value="1"' . ($r['status'] == 1 ? ' selected' : '') . '>启用</option>
-                <option value="0"' . ($r['status'] == 0 ? ' selected' : '') . '>停用</option>
-            </select></div>';
+            <input type="hidden" id="f_enabled" value="' . ((int)$r['status'] === 1 ? '1' : '0') . '">
+            <div class="fs-12 text-muted">停用后不可再挂号/开单，历史记录不受影响（启用状态在左下角按钮切换）</div></div>';
         json_ok(array('html' => $html));
     }
 

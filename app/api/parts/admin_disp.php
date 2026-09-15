@@ -27,7 +27,7 @@ function admin_part_disp($action) {
             $rowsHtml .= '<tr><td class="fw-600">' . e($r['name']) . '</td><td>¥' . money($r['fee']) . '</td>' .
                 '<td>' . ((int)$r['is_nurse'] === 1 ? badge_html('warning', '是') : badge_html('gray', '否')) . '</td>' .
                 '<td class="fs-12 text-muted">' . e($r['description']) . '</td>' .
-                '<td>' . ($r['status'] === 'approved' ? badge_html('success', '可用') : badge_html('warning', '待审核')) . '</td>' .
+                '<td>' . item_status_badge((string)$r['status']) . '</td>' .
                 '<td><div class="flex gap-4">' .
                 // 编辑按钮与「新增」共用 openDisposalForm(id)
                 '<button class="btn btn-outline btn-sm" onclick="openDisposalForm(' . (int)$r['id'] . ')">编辑</button>' .

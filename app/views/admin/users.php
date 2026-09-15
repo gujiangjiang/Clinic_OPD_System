@@ -139,10 +139,15 @@ function onRoleChange() {
     if (qdWrap) qdWrap.style.display = role === 'doctor' ? '' : 'none';
     // 仅医生显示所属科室多选框
     document.getElementById('deptWrap').style.display = role === 'doctor' ? '' : 'none';
-    // 角色切为管理员时隐藏状态选择（管理员不可被停用，含自锁保护）
-    var statusGroup = document.getElementById('f_status');
-    if (statusGroup && role === 'admin') statusGroup.closest('.form-group').style.display = 'none';
-    else if (statusGroup) statusGroup.closest('.form-group').style.display = '';
+    // 角色切为管理员时禁用左下角启用按钮并锁定为启用（管理员不可被停用，含自锁保护）
+    var statusBtn = document.getElementById('enabledToggle');
+    if (role === 'admin') {
+        var h = document.getElementById('f_enabled');
+        if (h) h.value = '1';
+        if (statusBtn) statusBtn.disabled = true;
+    } else if (statusBtn) {
+        statusBtn.disabled = false;
+    }
 }
 
 function openUserForm(id) {
@@ -185,8 +190,13 @@ function openUserForm(id) {
             });
         }
         mask.querySelector('.modal-foot').innerHTML =
-            '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
-            '<button type="button" class="btn btn-primary" id="userSave">保存</button>';
+            '<div style="display:flex;justify-content:space-between;align-items:center;width:100%">' +
+            '<button type="button" id="enabledToggle" class="btn btn-success" onclick="toggleItemEnabled()">✅ 启用</button>' +
+            '<span><button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+            '<button type="button" class="btn btn-primary" id="userSave">保存</button></span></div>';
+        // 按钮就绪后按当前角色同步禁用态：管理员强制启用且按钮禁用（不可自停用）
+        initEnabledToggle(id > 0);
+        onRoleChange();
         document.getElementById('userSave').addEventListener('click', function () {
             var uname = document.getElementById('f_username').value.trim();
             if (uname && !/^[A-Za-z]/.test(uname)) {
@@ -212,7 +222,7 @@ function openUserForm(id) {
             document.querySelectorAll('.deptChk:checked').forEach(function (c) { deptIds.push(c.value); });
             fd.append('dept_ids', deptIds.join(','));
             // 状态：仅非管理员角色提交（管理员表单无该控件，后端强制启用）
-            var statusEl = document.getElementById('f_status');
+            var statusEl = document.getElementById('f_enabled');
             fd.append('status', statusEl ? statusEl.value : '1');
             var qdEl = document.getElementById('f_queue_days');
             if (qdEl) {
@@ -261,8 +271,9 @@ function delUser(id) {
 /* 一键解锁（编辑弹窗内【解除锁定并启用】）：置启用状态并走统一保存流程——
    后端 user_save 对 status=1 自动清零锁定归因字段与失败计数并写审计日志 */
 function unlockUser() {
-    var sel = document.getElementById('f_status');
-    if (sel) sel.value = '1';
+    var h = document.getElementById('f_enabled');
+    if (h) h.value = '1';
+    renderEnabledToggle();
     var save = document.getElementById('userSave');
     if (save) save.click();
     Clinic.toast.info('正在解除锁定并启用该账号…');

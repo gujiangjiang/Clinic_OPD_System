@@ -118,9 +118,11 @@ function admin_part_user($action) {
             ? '<div class="form-group" id="queueDaysWrap"><label class="form-label">候诊列表可显示天数</label>
                 <input class="input" id="f_queue_days" type="number" min="2" max="7" value="' . (int)$r['queue_days'] . '" placeholder="2-7"></div>'
             : '';
-        $statusHtml = $isAdmin ? '' : '<div class="form-group"><label class="form-label">状态</label>
-            <select class="select" id="f_status"><option value="1"' . ($r['status'] == 1 ? ' selected' : '') . '>启用</option>
-            <option value="0"' . ($r['status'] == 0 ? ' selected' : '') . '>停用</option></select></div>';
+        // 状态：启用/停用（管理员角色强制启用且左下角按钮禁用，不可自停用）
+        $enabledVal = $r['status'] == 1 ? '1' : '0';
+        $statusHtml = '<div class="form-group"><label class="form-label">状态</label>
+            <input type="hidden" id="f_enabled" value="' . $enabledVal . '">
+            <div class="fs-12 text-muted">停用后不可登录，历史操作不受影响（启用状态在左下角按钮切换）' . ($isAdmin ? '；管理员账号强制启用，不可停用' : '') . '</div></div>';
         $lockWarn = '';
         if ((int)$r['status'] !== 1 && (string)$r['lock_reason'] === 'password_error_locked') {
             $lockWarn = '<div class="mb-12" style="background:var(--warning-soft,#fef3c7);border:1px solid var(--warning,#f59e0b);color:var(--warning,#b45309);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.8">' .

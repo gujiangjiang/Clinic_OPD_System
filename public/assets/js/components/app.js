@@ -39,7 +39,8 @@ function renderEnabledToggle() {
     var on = h.value === '1';
     var isEdit = window.__enabledToggleIsEdit;
     b.textContent = isEdit ? (on ? '✅ 已启用' : '⛔ 已禁用') : (on ? '✅ 启用' : '⛔ 禁用');
-    b.className = 'btn btn-sm ' + (on ? 'btn-success' : 'btn-danger');
+    // 与右侧取消/保存按钮同尺寸（btn-success/btn-danger，非 btn-sm）
+    b.className = 'btn ' + (on ? 'btn-success' : 'btn-danger');
 }
 /** 表单加载后初始化启用按钮状态（各项目管理页 modal:loaded 调用；isEdit=true 编辑态） */
 window.initEnabledToggle = function (isEdit) {
