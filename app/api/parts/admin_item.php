@@ -356,14 +356,29 @@ function admin_part_item($action) {
         $cat = OrderRepository::one('SELECT * FROM item_categories WHERE id=?', array($id));
         if (!$cat) json_fail('分类不存在');
         $name = (string)$cat['name'];
-        OrderRepository::exec('DELETE FROM item_categories WHERE id=?', array($id));
-        // 级联：该分类下全部项目分类置空（未分类占位），避免残留失效分类名
-        if ($cat['ctype'] === 'exam') {
-            OrderRepository::exec('UPDATE exam_items SET category=\'\' WHERE category=?', array($name));
-        } else {
-            OrderRepository::exec('UPDATE lab_items SET category=\'\' WHERE category=?', array($name));
+        $table = $cat['ctype'] === 'exam' ? 'exam_items' : 'lab_items';
+        $itemType = $cat['ctype'] === 'exam' ? 'imaging' : 'lab';
+        // 级联处理该分类下全部项目：
+        //  - 从未被开单（order_items 无引用）→ 视为该分类下的测试/占位项目，
+        //    连同其测试结果记录（results）一并删除，避免残留孤儿项目无法删除
+        //  - 已被开单（order_items 有引用）→ 真实历史数据保留，分类置空转未分类
+        $cleaned = 0;
+        foreach (OrderRepository::q("SELECT id FROM $table WHERE category=?", array($name)) as $it) {
+            $iid = (int)$it['id'];
+            $used = (int)OrderRepository::val(
+                'SELECT COUNT(*) FROM order_items WHERE item_type=? AND item_id=?', array($itemType, $iid));
+            if ($used > 0) {
+                OrderRepository::exec("UPDATE $table SET category='' WHERE id=?", array($iid));
+            } else {
+                OrderRepository::exec('DELETE FROM results WHERE item_id=?', array($iid));
+                OrderRepository::exec("DELETE FROM $table WHERE id=?", array($iid));
+                $cleaned++;
+            }
         }
-        json_ok(array(), '分类已删除，相关项目已转为未分类');
+        OrderRepository::exec('DELETE FROM item_categories WHERE id=?', array($id));
+        json_ok(array('cleaned' => $cleaned), $cleaned > 0
+            ? '分类已删除，已清理 ' . $cleaned . ' 个未被开单的测试项目，其余项目转为未分类'
+            : '分类已删除，相关项目已转为未分类');
     }
 
     json_fail('未知操作');
