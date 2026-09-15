@@ -17,7 +17,9 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
 }
 ?>
 <div class="auth-card">
-    <div class="auth-title">🏥 门诊一体化系统</div>
+    <div class="auth-title">🏥 门诊一体化系统
+        <span class="badge badge-primary" style="font-size:11px;letter-spacing:.04em;vertical-align:2px" title="当前数据库驱动">🗄️ 数据库：<?php echo e(strtoupper(DatabaseManager::driver())); ?></span>
+    </div>
     <div class="auth-sub">首次安装 · 创建系统管理员</div>
 
     <div class="step-dots"><span class="step-dot on"></span><span class="step-dot"></span><span class="step-dot"></span></div>
@@ -48,7 +50,7 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
     </div>
     <div class="form-group">
         <label class="form-label">网站时区（默认选中您当前的浏览器时区，可修改）</label>
-        <select class="select" id="timezone">
+        <select class="select" id="timezone" data-csd-search="1">
             <?php foreach ($tzGroups as $group => $tzList): ?>
             <optgroup label="<?php echo e($group); ?>">
                 <?php foreach ($tzList as $tz): ?>
