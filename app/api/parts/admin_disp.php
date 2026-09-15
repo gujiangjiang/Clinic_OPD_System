@@ -76,10 +76,10 @@ function admin_part_disp($action) {
     /* ==================== 删除处置 ==================== */
     if ($action === 'disposal_delete') {
         $id = (int)post('id');
-        // 引用检查：有关联开单/药品皮试绑定/途径计费绑定时禁止物理删除
-        if ((int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='procedure' AND item_id=?", array($id)) > 0) {
-            json_fail('该处置项目已有开单记录，不能删除');
-        }
+        // 流程占用检查：仅当存在未完成（待缴费/已缴费未执行/登记/执行中）开单时禁止删除
+        $chk = item_delete_check('procedure', $id);
+        if (!$chk['ok']) json_fail($chk['msg']);
+        // 配置绑定检查（皮试/计费绑定，删除将破坏绑定定义）
         if ((int)OrderRepository::val('SELECT COUNT(*) FROM drugs WHERE skin_test_item_id=?', array($id)) > 0) {
             json_fail('该处置项目已被药品绑定为皮试项目，不能删除');
         }

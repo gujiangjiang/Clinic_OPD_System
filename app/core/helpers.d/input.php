@@ -133,3 +133,36 @@ function insert_report($data) {
     }
     throw new RuntimeException('报告编号生成失败');
 }
+/* ============================================================
+ * 项目删除流程占用检查（检验/检查/处置/处方通用）
+ * ------------------------------------------------------------
+ * 规则：仅当该项目存在「未完成」的开单明细时禁止删除——
+ * 待缴费（open）/ 已缴费未执行（paid）/ 已登记（registered）/
+ * 执行中（executing）/ 发药中（dispensing）。这些状态关联缴费、
+ * 写报告、执行、发药等进行中流程，删除项目将导致流程无法继续。
+ * 已完成（done/dispensed）或终态（refunded/cancelled/rejected）
+ * 的历史开单不影响删除（过期作废可删）。
+ * @param string $itemType lab/imaging/procedure/prescription
+ * @param int    $itemId
+ * @return array ['ok' => bool, 'msg' => string]  未完成时 msg 为精准提示
+ * ============================================================ */
+function item_delete_check($itemType, $itemId) {
+    $pending = array('open', 'paid', 'registered', 'executing', 'dispensing');
+    $rows = OrderRepository::q(
+        "SELECT status, COUNT(*) c FROM order_items WHERE item_type=? AND item_id=? GROUP BY status",
+        array($itemType, (int)$itemId)
+    );
+    $unpaid = 0;   // 未缴费
+    $doing  = 0;   // 已缴费但流程未完成（待检验/检查/处置/发药）
+    foreach ($rows as $r) {
+        if ($r['status'] === 'open') $unpaid += (int)$r['c'];
+        elseif (in_array($r['status'], $pending, true)) $doing += (int)$r['c'];
+    }
+    if ($unpaid === 0 && $doing === 0) return array('ok' => true, 'msg' => '');
+    $typeName = array('lab' => '检验', 'imaging' => '检查', 'procedure' => '处置', 'prescription' => '处方');
+    $doLabel  = isset($typeName[$itemType]) ? '待' . $typeName[$itemType] : '待执行';
+    $parts = array();
+    if ($unpaid > 0) $parts[] = $unpaid . ' 位未缴费';
+    if ($doing  > 0) $parts[] = $doing . ' 位' . $doLabel;
+    return array('ok' => false, 'msg' => '该项目当前有 ' . implode('、', $parts) . '，请先完成相关流程后再删除');
+}

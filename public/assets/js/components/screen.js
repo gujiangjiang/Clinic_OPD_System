@@ -450,10 +450,8 @@
                 return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
             });
         };
-        // 未绑定：不显示任何患者信息（与医生诊室大屏规则一致）
-        if (d.bound === false) {
-            return '<div class="screen-empty-big" style="color:#a8c8e8">等待医技人员绑定大屏后开始叫号</div>';
-        }
+        // 未绑定（bound=false）时后端已清空数据：此处照常渲染整体轮廓，
+        // 患者区/排队区显示「暂无患者」占位，大屏始终面向患者展示
         var wait = d.waiting || [];
         var cur = d.current || {};
         var nowHtml;
