@@ -84,6 +84,9 @@ Clinic.adminItems = {
      * @param {object} opts { type, title, placeholder }
      */
     catManager: function (opts) {
+        // 分类变更回调（onChanged）：页面传入项目列表刷新函数（如 loadItemList），
+        // 增/改/删分类后实时刷新底层检验/检查项目列表，无需手动刷新页面
+        var onChanged = opts.onChanged || function () {};
         var loadCats = function () {
             Clinic.get('/api/admin?action=cat_list&type=' + opts.type, null, {
                 onSuccess: function (json) {
@@ -122,6 +125,7 @@ Clinic.adminItems = {
                     Clinic.toast.success(json.msg);
                     document.getElementById('catName').value = '';
                     loadCats();
+                    onChanged();   // 实时刷新项目列表
                 },
             });
         };
@@ -141,6 +145,7 @@ Clinic.adminItems = {
                         onSuccess: function (json) {
                             Clinic.toast.success(json.msg);
                             loadCats();
+                            onChanged();   // 实时刷新项目列表
                         },
                     });
                 },
@@ -155,6 +160,7 @@ Clinic.adminItems = {
                     onSuccess: function (json) {
                         Clinic.toast.success(json.msg);
                         loadCats();
+                        onChanged();   // 实时刷新项目列表
                     },
                 });
             });

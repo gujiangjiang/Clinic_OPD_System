@@ -94,7 +94,7 @@ function delItem(type, id) {
 
 /* 检查分类管理（统一走 Clinic.adminItems 公共组件） */
 function openCatMgr() {
-    Clinic.adminItems.catManager({ type: 'exam', title: '检查分类管理', placeholder: '新增检查分类名称（如：CT、MR）' });
+    Clinic.adminItems.catManager({ type: 'exam', title: '检查分类管理', placeholder: '新增检查分类名称（如：CT、MR）', onChanged: loadItemList });
 }
 
 loadItemList();

@@ -282,7 +282,7 @@ function jsE(s) { return String(s || '').replace(/&/g, '&amp;').replace(/'/g, '\
 
 /* 分类管理（统一走 Clinic.adminItems 公共组件） */
 function openCatMgr() {
-    Clinic.adminItems.catManager({ type: 'lab', title: '检验分类管理', placeholder: '新增检验分类名称（如：血液检验）' });
+    Clinic.adminItems.catManager({ type: 'lab', title: '检验分类管理', placeholder: '新增检验分类名称（如：血液检验）', onChanged: loadItemList });
 }
 function openItemForm(id) { /* same as before, reused for single item edit */
     var mask = Clinic.modal.load('/api/admin', { action: 'item_form', type: 'lab', id: id || 0 }, { title: id ? '编辑检验项目' : '新增检验项目' });
