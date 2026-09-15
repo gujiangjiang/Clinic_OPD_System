@@ -42,8 +42,9 @@ function admin_part_disp($action) {
     if ($action === 'disposal_form') {
         // 表单弹窗通过 POST 提交 id，必须用 req() 兼容读取（否则编辑弹窗空白）
         $id = (int)req('id', 0);
-        $r = $id ? OrderRepository::one('SELECT * FROM disposal_items WHERE id=?', array($id)) : array('name' => '', 'fee' => '0', 'description' => '', 'is_nurse' => 0);
+        $r = $id ? OrderRepository::one('SELECT * FROM disposal_items WHERE id=?', array($id)) : array('name' => '', 'fee' => '0', 'description' => '', 'is_nurse' => 0, 'status' => '');
         $html = '<input type="hidden" id="f_id" value="' . (int)$id . '">
+        ' . form_enabled_switch(isset($r['status']) ? $r['status'] : '') . '
         <div class="form-group"><label class="form-label">处置名称 <span class="req">*</span></label>
             <input class="input" id="f_name" value="' . e($r['name']) . '" placeholder="如：清创缝合、换药"></div>
         <div class="form-group"><label class="form-label">费用（元）</label>
@@ -61,16 +62,19 @@ function admin_part_disp($action) {
         $fee = (float)post('fee', 0);
         $desc = post('description');
         $needNurse = (int)post('is_nurse', 0);
+        $enabled = (int)post('enabled', 1);
         if ($name === '') json_fail('请填写处置名称');
+        // 启用开关：未勾选=禁用（开单列表不显示，已开单流程不受影响）；勾选按原审核规则
+        $saveStatus = $enabled ? 'approved' : 'disabled';
         if ($id > 0) {
-            OrderRepository::exec('UPDATE disposal_items SET name=?, fee=?, description=?, is_nurse=?, status=? WHERE id=?', array($name, $fee, $desc, $needNurse, 'approved', $id));
+            OrderRepository::exec('UPDATE disposal_items SET name=?, fee=?, description=?, is_nurse=?, status=? WHERE id=?', array($name, $fee, $desc, $needNurse, $saveStatus, $id));
             // 清理该处置的待审核记录（管理员保存即视为已通过）
             OrderRepository::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_disp' AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
             json_ok(array(), '处置项目已保存');
         }
         // 管理员添加的处置免审核：直接可用，无需创建审核记录
-        $newId = OrderRepository::insert('INSERT INTO disposal_items(name, fee, description, is_nurse, status, created_at) VALUES(?,?,?,?,?,?)', array($name, $fee, $desc, $needNurse, 'approved', now_str()));
-        json_ok(array(), '处置项目已添加，可直接开单使用');
+        $newId = OrderRepository::insert('INSERT INTO disposal_items(name, fee, description, is_nurse, status, created_at) VALUES(?,?,?,?,?,?)', array($name, $fee, $desc, $needNurse, $saveStatus, now_str()));
+        json_ok(array(), $enabled ? '处置项目已添加，可直接开单使用' : '处置项目已添加（当前禁用，医生开单列表不显示）');
     }
 
     /* ==================== 删除处置 ==================== */

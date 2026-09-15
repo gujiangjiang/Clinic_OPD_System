@@ -130,7 +130,13 @@ function admin_part_drug($action) {
         $name = post('name');
         if ($name === '') json_fail('请填写药品名称');
         $isAdmin = $u['role'] === 'admin';
-        $finalStatus = $isAdmin ? 'approved' : 'pending';   // 非管理员提交需管理员审核
+        $enabled = (int)post('enabled', 1);
+        // 启用开关：未勾选=禁用（医生开单列表不显示，已开单流程不受影响）；勾选按原审核规则
+        if (!$enabled) {
+            $finalStatus = 'disabled';
+        } else {
+            $finalStatus = $isAdmin ? 'approved' : 'pending';   // 非管理员提交需管理员审核
+        }
         $data = array(
             'generic_name' => post('generic_name'), 'category' => post('category'),
             'vendor' => post('vendor'), 'vendor_short' => post('vendor_short'),

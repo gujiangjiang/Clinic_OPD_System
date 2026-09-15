@@ -13,6 +13,28 @@
 window.Clinic = window.Clinic || {};
 
 /**
+ * 全局启用/禁用切换（检验/检查/处置/处方项目表单底部按钮）
+ * 状态存于隐藏字段 #f_enabled（1 启用 / 0 禁用），按钮绿色已启用 / 红色已禁用，点击切换。
+ */
+window.toggleItemEnabled = function () {
+    var h = document.getElementById('f_enabled');
+    var b = document.getElementById('enabledToggle');
+    if (!h || !b) return;
+    h.value = h.value === '1' ? '0' : '1';
+    renderEnabledToggle();
+};
+function renderEnabledToggle() {
+    var h = document.getElementById('f_enabled');
+    var b = document.getElementById('enabledToggle');
+    if (!h || !b) return;
+    var on = h.value === '1';
+    b.textContent = on ? '✅ 已启用' : '⛔ 已禁用';
+    b.className = 'btn btn-sm ' + (on ? 'btn-success' : 'btn-danger');
+}
+/** 表单加载后初始化启用按钮状态（各项目管理页 modal:loaded 调用） */
+window.initEnabledToggle = function () { renderEnabledToggle(); };
+
+/**
  * 全局初始化（在 DOMContentLoaded 后调用）
  */
 Clinic.init = function () {

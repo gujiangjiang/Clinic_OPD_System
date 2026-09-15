@@ -13,6 +13,19 @@
  * ============================================================ */
 
 /**
+ * 是否启用状态（检验/检查/处置/处方项目表单共用）
+ * 以隐藏字段保存当前启用状态（1 启用 / 0 禁用），切换按钮由各页面放在
+ * 模态框底部按钮区（绿色已启用 / 红色已禁用，点击切换）。
+ * 禁用后医生工作站开单列表不再显示该项目，已开单流程（缴费/执行/报告/发药）不受影响。
+ * @param string $status 当前状态（approved/pending/disabled/空）
+ * @return string 隐藏字段 HTML
+ */
+function form_enabled_switch($status) {
+    $on = (string)$status !== 'disabled';
+    return '<input type="hidden" id="f_enabled" value="' . ($on ? '1' : '0') . '">';
+}
+
+/**
  * 检验/检查项目表单
  * @param string $type lab 检验 / imaging 检查
  * @param int    $id   项目ID（0 为新增）
@@ -22,12 +35,12 @@ function form_item($type, $id) {
     $table = $type === 'lab' ? 'lab_items' : 'exam_items';
     $r = $id > 0 ? DB::one("SELECT * FROM $table WHERE id=?", array((int)$id)) : array(
         'category' => '', 'name' => '', 'unit' => '', 'price' => '0', 'normal_range' => '',
-        'critical_low' => '', 'critical_high' => '', 'description' => '',
+        'critical_low' => '', 'critical_high' => '', 'description' => '', 'status' => '',
     );
     if (!$r) {
         $r = array(
             'category' => '', 'name' => '', 'unit' => '', 'price' => '0', 'normal_range' => '',
-            'critical_low' => '', 'critical_high' => '', 'description' => '',
+            'critical_low' => '', 'critical_high' => '', 'description' => '', 'status' => '',
         );
     }
     $cats = DB::q("SELECT name FROM item_categories WHERE ctype=? ORDER BY sort, id", array($type));
@@ -50,6 +63,7 @@ function form_item($type, $id) {
         $unitField = '<input class="input" id="f_unit"' . ($unitDl !== '' ? ' list="f_unit_list"' : '') . ' value="' . e($r['unit']) . '" placeholder="如：mmol/L">' . $unitDl;
     }
     return '<input type="hidden" id="f_id" value="' . (int)$id . '">
+    ' . form_enabled_switch(isset($r['status']) ? $r['status'] : '') . '
     <div class="form-row">
         <div class="form-group"><label class="form-label">项目名称 <span class="req">*</span></label>
             <input class="input" id="f_name" value="' . e($r['name']) . '"></div>
@@ -87,6 +101,7 @@ function form_drug($id) {
             'package_unit' => '', 'spec' => '', 'form' => '', 'single_dose' => '', 'frequency' => '',
             'route' => '', 'price' => '0', 'qty' => '0', 'is_rx' => 0, 'is_limited' => 0, 'note' => '', 'is_nurse' => 0,
             'spec_dose' => 0, 'spec_dose_unit' => '', 'spec_pack_qty' => 1, 'spec_pack_unit' => '', 'single_use_qty' => 1,
+            'status' => '',
         );
     }
     // 规格结构化展示串：0.5g×24粒 / 100ml×1瓶 / 0.35g
@@ -116,6 +131,7 @@ function form_drug($id) {
         $skinName = (string)$sn;
     }
     $html = '<input type="hidden" id="f_id" value="' . (int)$id . '">
+    ' . form_enabled_switch(isset($r['status']) ? $r['status'] : '') . '
     <div class="form-row">
         <div class="form-group"><label class="form-label">药品名称 <span class="req">*</span></label><input class="input" id="f_name" value="' . e($r['name']) . '"></div>
         <div class="form-group"><label class="form-label">通用名称</label><input class="input" id="f_generic" value="' . e($r['generic_name']) . '"></div>

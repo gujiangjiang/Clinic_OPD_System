@@ -42,8 +42,10 @@ function openDisposalForm(id) {
     var mask = Clinic.modal.load('/api/admin', { action: 'disposal_form', id: id || 0 }, { title: id ? '编辑处置项目' : '新增处置项目' });
     mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
         mask.querySelector('.modal-foot').innerHTML =
+            '<button type="button" id="enabledToggle" class="btn btn-sm btn-success" onclick="toggleItemEnabled()">✅ 已启用</button>' +
             '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
             '<button type="button" class="btn btn-primary" id="dispSave">保存</button>';
+        initEnabledToggle();
         document.getElementById('dispSave').addEventListener('click', function () {
             Clinic.ajax('/api/admin', {
                 action: 'disposal_save',
@@ -52,6 +54,7 @@ function openDisposalForm(id) {
                 fee: document.getElementById('f_fee').value,
                 description: document.getElementById('f_desc').value.trim(),
                 is_nurse: document.getElementById('f_nurse').checked ? 1 : 0,
+                enabled: document.getElementById('f_enabled').value,
             }, {
                 onSuccess: function (json) {
                     Clinic.toast.success(json.msg);

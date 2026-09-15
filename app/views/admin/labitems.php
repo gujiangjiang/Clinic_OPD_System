@@ -287,9 +287,10 @@ function openCatMgr() {
 function openItemForm(id) { /* same as before, reused for single item edit */
     var mask = Clinic.modal.load('/api/admin', { action: 'item_form', type: 'lab', id: id || 0 }, { title: id ? '编辑检验项目' : '新增检验项目' });
     mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
-        mask.querySelector('.modal-foot').innerHTML = '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button><button type="button" class="btn btn-primary" id="itemSave">保存</button>';
+        mask.querySelector('.modal-foot').innerHTML = '<button type="button" id="enabledToggle" class="btn btn-sm btn-success" onclick="toggleItemEnabled()">✅ 已启用</button><button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button><button type="button" class="btn btn-primary" id="itemSave">保存</button>';
+        initEnabledToggle();
         document.getElementById('itemSave').addEventListener('click', function () {
-            Clinic.ajax('/api/admin', { action: 'item_save', type: 'lab', id: id || 0, name: document.getElementById('f_name').value.trim(), category: document.getElementById('f_category').value, price: document.getElementById('f_price').value, unit: document.getElementById('f_unit') ? document.getElementById('f_unit').value : '', normal_range: document.getElementById('f_normal') ? document.getElementById('f_normal').value : '', critical_low: document.getElementById('f_clow') ? document.getElementById('f_clow').value : '', critical_high: document.getElementById('f_chigh') ? document.getElementById('f_chigh').value : '', description: document.getElementById('f_desc').value }, {
+            Clinic.ajax('/api/admin', { action: 'item_save', type: 'lab', id: id || 0, name: document.getElementById('f_name').value.trim(), category: document.getElementById('f_category').value, price: document.getElementById('f_price').value, unit: document.getElementById('f_unit') ? document.getElementById('f_unit').value : '', normal_range: document.getElementById('f_normal') ? document.getElementById('f_normal').value : '', critical_low: document.getElementById('f_clow') ? document.getElementById('f_clow').value : '', critical_high: document.getElementById('f_chigh') ? document.getElementById('f_chigh').value : '', description: document.getElementById('f_desc').value, enabled: document.getElementById('f_enabled').value }, {
                 onSuccess: function (json) { Clinic.toast.success(json.msg); Clinic.modal.close(); loadItemList(); },
             });
         });

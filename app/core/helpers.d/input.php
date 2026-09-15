@@ -133,6 +133,17 @@ function insert_report($data) {
     }
     throw new RuntimeException('报告编号生成失败');
 }
+/**
+ * 项目状态徽章（检验/检查/处置/处方通用）：可用（approved）/ 待审核（pending）/ 已禁用（disabled）
+ * @param string $status
+ * @return string badge HTML
+ */
+function item_status_badge($status) {
+    if ($status === 'approved') return badge_html('success', '可用');
+    if ($status === 'disabled') return badge_html('gray', '已禁用');
+    return badge_html('warning', '待审核');
+}
+
 /* ============================================================
  * 项目删除流程占用检查（检验/检查/处置/处方通用）
  * ------------------------------------------------------------
@@ -142,6 +153,8 @@ function insert_report($data) {
  * 写报告、执行、发药等进行中流程，删除项目将导致流程无法继续。
  * 已完成（done/dispensed）或终态（refunded/cancelled/rejected）
  * 的历史开单不影响删除（过期作废可删）。
+ * 提示引导：存在未完成流程时建议先禁用项目（医生开单列表不再显示），
+ * 待全部流程完结后再删除。
  * @param string $itemType lab/imaging/procedure/prescription
  * @param int    $itemId
  * @return array ['ok' => bool, 'msg' => string]  未完成时 msg 为精准提示
@@ -164,5 +177,5 @@ function item_delete_check($itemType, $itemId) {
     $parts = array();
     if ($unpaid > 0) $parts[] = $unpaid . ' 位未缴费';
     if ($doing  > 0) $parts[] = $doing . ' 位' . $doLabel;
-    return array('ok' => false, 'msg' => '该项目当前有 ' . implode('、', $parts) . '，请先完成相关流程后再删除');
+    return array('ok' => false, 'msg' => '该项目当前有 ' . implode('、', $parts) . '，请先禁用该项目，等相关流程完成后再尝试删除');
 }

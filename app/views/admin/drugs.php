@@ -82,8 +82,10 @@ function openDrugForm(id) {
         };
 
         mask.querySelector('.modal-foot').innerHTML =
+            '<button type="button" id="enabledToggle" class="btn btn-sm btn-success" onclick="toggleItemEnabled()">✅ 已启用</button>' +
             '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
             '<button type="button" class="btn btn-primary" id="drugSave">保存</button>';
+        initEnabledToggle();
         document.getElementById('drugSave').addEventListener('click', function () {
             // 皮试必填校验：勾选"需要皮试"必须关联皮试处置项目
             var skinTestChk = document.getElementById('f_skin_test');
@@ -129,6 +131,7 @@ function openDrugForm(id) {
                 is_skin_test: document.getElementById('f_skin_test') ? (document.getElementById('f_skin_test').checked ? 1 : 0) : 0,
                 skin_test_item_id: parseInt(document.getElementById('f_skin_item') ? document.getElementById('f_skin_item').value : '0', 10) || 0,
                 note: document.getElementById('f_note').value.trim(),
+                enabled: document.getElementById('f_enabled').value,
             }, {
                 onSuccess: function (json) {
                     Clinic.toast.success(json.msg);

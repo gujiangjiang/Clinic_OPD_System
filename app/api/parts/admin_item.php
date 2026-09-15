@@ -245,10 +245,16 @@ function admin_part_item($action) {
         $name = post('name');
         $category = post('category');
         $price = (float)post('price', 0);
+        $enabled = (int)post('enabled', 1);
         if ($name === '') json_fail('请填写项目名称');
         $isAdmin = $u['role'] === 'admin';
         $auditType = $type === 'lab' ? 'item_lab' : 'item_exam';
-        $finalStatus = $isAdmin ? 'approved' : 'pending';   // 非管理员提交需管理员审核
+        // 启用开关：未勾选=禁用（医生开单列表不显示，已开单流程不受影响）；勾选按原审核规则
+        if (!$enabled) {
+            $finalStatus = 'disabled';
+        } else {
+            $finalStatus = $isAdmin ? 'approved' : 'pending';   // 非管理员提交需管理员审核
+        }
         $content = '提交检验/检查项目：' . $name;
         if ($id > 0) {
             // 管理员编辑保存即通过；非管理员保存置 pending 并提交审核
