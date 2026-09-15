@@ -32,7 +32,7 @@ function admin_part_dept($action) {
                 '<td>¥' . money($r['fee']) . '</td>' .
                 '<td>' . ($r['type'] === 'clinic' ? (int)$r['am_quota'] : '—') . '</td>' .
                 '<td>' . ($r['type'] === 'clinic' ? (int)$r['pm_quota'] : '—') . '</td>' .
-                '<td>' . ($r['status'] == 1 ? badge_html('success', '启用') : badge_html('gray', '停用')) . '</td>' .
+                '<td>' . ($r['status'] == 1 ? badge_html('success', '启用') : badge_html('danger', '停用')) . '</td>' .
                 '<td><div class="flex gap-4">' .
                 // 编辑按钮与「新增」共用 openDeptForm(id)（同一表单与初始化逻辑，保证编辑回填一致）
                 '<button class="btn btn-outline btn-sm" onclick="openDeptForm(' . (int)$r['id'] . ')">编辑</button>' .
@@ -71,9 +71,8 @@ function admin_part_dept($action) {
             <div class="form-group"><label class="form-label">下午号源数量</label>
                 <input class="input" type="number" min="0" id="f_pm" value="' . (int)$r['pm_quota'] . '"></div>
         </div>
-        <div class="form-group"><label class="form-label">状态</label>
-            <input type="hidden" id="f_enabled" value="' . ((int)$r['status'] === 1 ? '1' : '0') . '">
-            <div class="fs-12 text-muted">停用后不可再挂号/开单，历史记录不受影响（启用状态在左下角按钮切换）</div></div>';
+        <div class="form-group">
+            <input type="hidden" id="f_enabled" value="' . ((int)$r['status'] === 1 ? '1' : '0') . '"></div>';
         json_ok(array('html' => $html));
     }
 

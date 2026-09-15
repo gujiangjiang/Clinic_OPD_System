@@ -36,7 +36,7 @@ function admin_part_user($action) {
             if ((int)$r['status'] !== 1) {
                 $statusHtml = ((string)$r['lock_reason'] === 'password_error_locked')
                     ? badge_html('danger', '安全锁定 (密码超限)')
-                    : badge_html('gray', '已停用');
+                    : badge_html('danger', '已停用');
             }
             $rowsHtml .= '<tr data-role="' . e($r['role']) . '">' .
                 '<td>' . e($r['emp_no']) . '</td>'.
@@ -72,6 +72,17 @@ function admin_part_user($action) {
         $roleOpts = '';
         foreach ($roles as $k => $v) {
             $roleOpts .= '<option value="' . $k . '"' . ($r['role'] === $k ? ' selected' : '') . '>' . $v . '</option>';
+        }
+        $isAdmin = ($r['role'] === 'admin');
+        // 管理员角色：省略角色输入框（不允许修改角色，仅显示固定文本）；职称/科室等医务人员专属字段强制清空
+        if ($isAdmin) {
+            $r['title'] = '';
+            $r['dept_ids'] = '';
+            $r['queue_days'] = 3;
+            $roleField = '<div class="form-group"><label class="form-label">角色</label>
+                <input type="hidden" id="f_role" value="admin"><div class="input" style="background:var(--bg-soft);color:var(--text-muted);cursor:not-allowed">系统管理员（角色不可修改）</div></div>';
+        } else {
+            $roleField = '<div class="form-group"><label class="form-label">角色 <span class="req">*</span></label><select class="select" id="f_role" onchange="onRoleChange()">' . $roleOpts . '</select></div>';
         }
         // 科室树仅列临床科室（门诊/急诊）；医技/其他为叫号大屏专用，医生不可关联
         $depts = UserRepository::q("SELECT * FROM departments WHERE status=1 AND type IN ('clinic','emergency') ORDER BY sort, id");
@@ -112,7 +123,6 @@ function admin_part_user($action) {
         // · 状态（启用/停用）：管理员角色不显示且强制启用——管理员不可被停用
         //   （含自锁保护），避免系统失去管理入口。
         $isDoctor = ($r['role'] === 'doctor');
-        $isAdmin = ($r['role'] === 'admin');
         // 角色驱动字段（仅医生渲染候诊天数；仅非管理员渲染状态选择）
         $queueDaysHtml = $isDoctor
             ? '<div class="form-group" id="queueDaysWrap"><label class="form-label">候诊列表可显示天数</label>
@@ -120,9 +130,7 @@ function admin_part_user($action) {
             : '';
         // 状态：启用/停用（管理员角色强制启用且左下角按钮禁用，不可自停用）
         $enabledVal = $r['status'] == 1 ? '1' : '0';
-        $statusHtml = '<div class="form-group"><label class="form-label">状态</label>
-            <input type="hidden" id="f_enabled" value="' . $enabledVal . '">
-            <div class="fs-12 text-muted">停用后不可登录，历史操作不受影响（启用状态在左下角按钮切换）' . ($isAdmin ? '；管理员账号强制启用，不可停用' : '') . '</div></div>';
+        $statusHtml = '<input type="hidden" id="f_enabled" value="' . $enabledVal . '">';
         $lockWarn = '';
         if ((int)$r['status'] !== 1 && (string)$r['lock_reason'] === 'password_error_locked') {
             $lockWarn = '<div class="mb-12" style="background:var(--warning-soft,#fef3c7);border:1px solid var(--warning,#f59e0b);color:var(--warning,#b45309);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.8">' .
@@ -149,7 +157,7 @@ function admin_part_user($action) {
         </div>
         <div class="form-row">
             <div class="form-group"><label class="form-label">姓名 <span class="req">*</span></label><input class="input" id="f_name" value="' . e($r['name']) . '"></div>
-            <div class="form-group"><label class="form-label">角色 <span class="req">*</span></label><select class="select" id="f_role" onchange="onRoleChange()">' . $roleOpts . '</select></div>
+            ' . $roleField . '
         </div>
         <div class="form-row">
             <div class="form-group"><label class="form-label">默认密码</label>
@@ -213,6 +221,19 @@ function admin_part_user($action) {
         } else {
             $queueDays = (int)$queueDaysRaw;
             if ($queueDays < 2 || $queueDays > 7) json_fail('候诊列表可显示天数需在 2-7 天之间');
+        }
+        // ===== 后端拦截（防伪造请求绕过前端）=====
+        // · 目标已是管理员 → 角色强制 admin 不可修改（改角色无效）；
+        //   管理员不存在职称/关联科室/候诊天数等说法，一律清空
+        // · 普通用户不允许直接改为管理员（避免越权提升）
+        $targetRole = $id > 0
+            ? (string)UserRepository::val('SELECT role FROM users WHERE id=?', array($id))
+            : '';
+        if ($targetRole === 'admin') {
+            $role = 'admin';
+            $title = ''; $position = ''; $deptIds = ''; $queueDays = 3; $status = 1;
+        } elseif ($role === 'admin' && $id > 0 && $targetRole !== 'admin') {
+            json_fail('不允许将现有账号修改为系统管理员');
         }
         if ($username === '') json_fail('请填写登录用户名');
         // 用户名必须英文字母开头：与工号登录并存时避免纯数字/数字开头用户名
