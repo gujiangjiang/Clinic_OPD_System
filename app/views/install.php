@@ -17,8 +17,9 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
 }
 ?>
 <div class="auth-card">
-    <div class="auth-title">🏥 门诊一体化系统
-        <span class="badge badge-primary" style="font-size:11px;letter-spacing:.04em;vertical-align:2px" title="当前数据库驱动">🗄️ 数据库：<?php echo e(strtoupper(DatabaseManager::driver())); ?></span>
+    <div class="auth-title">🏥 门诊一体化系统</div>
+    <div style="text-align:center;margin:-2px 0 12px">
+        <span class="badge badge-primary" style="font-size:11px;letter-spacing:.04em" title="当前数据库驱动">🗄️ 数据库：<?php echo e(strtoupper(DatabaseManager::driver())); ?></span>
     </div>
     <div class="auth-sub">首次安装 · 创建系统管理员</div>
 
