@@ -88,18 +88,17 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
             </div>
         <?php endforeach; ?>
         <?php if ($g['id'] === 'his'): ?>
-                <div class="itg-his-addr">
-                    <div class="itg-his-addr-head">
-                        <div>
-                            <div class="fw-600 fs-13">🌐 HIS 接口地址（自动生成 · 保存后更新）</div>
-                            <div class="fs-12 text-muted mt-2">外部 HIS 系统调用本系统的接口地址，按当前访问地址自动生成并附带密钥；修改密钥后点击【保存本组配置】自动刷新。</div>
-                        </div>
-                        <button type="button" class="btn btn-outline btn-sm" onclick="copyHisUrl()">📋 复制地址</button>
+                <div class="form-group">
+                    <label class="form-label">HIS 接口地址（自动生成，无需填写）
+                        <span class="fs-12 text-muted" style="font-weight:400">即外部 HIS 系统调用本系统的接口地址，按当前访问地址自动生成并附带密钥</span>
+                    </label>
+                    <div class="flex" style="gap:8px">
+                        <code class="itg-his-url" id="hisApiUrl" style="flex:1;margin:0"><?php
+                            if ($hisKeyNow !== '') { echo e($hisApiBase . '?action=ping&api_key=' . $hisKeyNow); }
+                            else { echo '<span class="itg-his-url-ph">请先填写接口密钥并保存，地址将自动生成</span>'; }
+                        ?></code>
+                        <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="copyHisUrl()">📋 复制地址</button>
                     </div>
-                    <code class="itg-his-url" id="hisApiUrl"><?php
-                        if ($hisKeyNow !== '') { echo e($hisApiBase . '?action=ping&api_key=' . $hisKeyNow); }
-                        else { echo '<span class="itg-his-url-ph">请先填写接口密钥并保存，地址将自动生成</span>'; }
-                    ?></code>
                 </div>
                 <button class="btn btn-primary btn-sm" onclick="itgSave('his')">保存本组配置</button>
             </div>
