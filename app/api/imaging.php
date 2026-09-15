@@ -185,6 +185,13 @@ switch ($action) {
                 'apply_time' => $snapOrder ? (string)$snapOrder['created_at'] : '',
                 'reg_time' => (string)$it['registered_at'],
                 'category_name' => $catName,
+                // 检查项目字典快照（出具时刻）：后续字典改名/改类不影响历史报告
+                'item_meta' => array('group' => false, 'item' => array(
+                    'name' => (string)$it['item_name'],
+                    'category' => $catName,
+                    'findings' => (string)$findings,
+                    'conclusion' => (string)$conclusion,
+                )),
             ));
             OrderRepository::exec("UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
             // 影像引用登记（优化项1/2：三单匹配 + 只存引用）——报告出具即注册引用，

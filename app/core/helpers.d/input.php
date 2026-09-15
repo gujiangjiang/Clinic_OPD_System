@@ -103,16 +103,20 @@ function next_report_no($type) {
 /**
  * 插入报告（唯一索引防并发撞号：INSERT 触发唯一冲突时重新生成编号重试）
  * @param array $data result_id/report_no/visit_id/patient_no/flow_no/type/doctor/status
+ *                  item_meta（可选）：报告出具时项目字典快照（lab_items/exam_items 行，
+ *                  含 name/unit/normal_range/critical_low/critical_high/category），
+ *                  供打印/详情使用，杜绝事后改字典影响历史报告
  * @return int 报告自增 id
  */
 function insert_report($data) {
+    $repId = null;
     for ($attempt = 0; $attempt < 3; $attempt++) {
         if ($attempt > 0) {
             // 首次生成的编号被并发占用 → 按 MAX+1 重新生成（消除重叠）
             $data['report_no'] = next_report_no($data['type']);
         }
         try {
-            return OrderRepository::insert(
+            $repId = OrderRepository::insert(
                 'INSERT INTO reports(result_id, report_no, visit_id, patient_no, flow_no, type, doctor, status, content, apply_dept, apply_doctor, clinical_diag, apply_time, reg_time, category_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 array($data['result_id'], $data['report_no'], $data['visit_id'], $data['patient_no'], $data['flow_no'],
                     $data['type'], $data['doctor'], $data['status'],
@@ -125,13 +129,24 @@ function insert_report($data) {
                     isset($data['category_name']) ? (string)$data['category_name'] : '',
                     now_str())
             );
+            break;
         } catch (Exception $ex) {
             if (!is_unique_conflict($ex) || $attempt >= 2) {
                 throw $ex;
             }
         }
     }
-    throw new RuntimeException('报告编号生成失败');
+    // 报告打印快照（法律合规）：固化报告出具时刻的患者资料 + 项目字典元数据，
+    // 打印/详情优先使用快照，杜绝事后改患者资料或检验/检查字典影响历史报告
+    try {
+        snapshot_patient('report', (int)$repId, (string)$data['patient_no'], array(
+            'report_type' => $data['type'],
+            'item_meta' => isset($data['item_meta']) && is_array($data['item_meta']) ? $data['item_meta'] : array(),
+        ));
+    } catch (Exception $ex) {
+        if (defined('DEBUG') && DEBUG) error_log('[报告快照失败] ' . $ex->getMessage());
+    }
+    return $repId;
 }
 /**
  * 项目状态徽章（检验/检查/处置/处方通用）：可用（approved）/ 待审核（pending）/ 已禁用（disabled）
@@ -178,4 +193,84 @@ function item_delete_check($itemType, $itemId) {
     if ($unpaid > 0) $parts[] = $unpaid . ' 位未缴费';
     if ($doing  > 0) $parts[] = $doing . ' 位' . $doLabel;
     return array('ok' => false, 'msg' => '该项目当前有 ' . implode('、', $parts) . '，请先禁用该项目，等相关流程完成后再尝试删除');
+}
+
+/* ============================================================
+ * 单据打印快照（法律合规：打印时优先用开单/出具/保存时刻快照，
+ * 避免事后修改字典/患者资料改变历史单据显示）
+ * ------------------------------------------------------------
+ * 写入：snapshot_patient($bizType, $bizId, $patientNo, $extra)
+ *   开单/缴费/出报告/出具证明/保存病历 时把患者资料与上下文快照入表。
+ * 读取：snapshot_get($bizType, $bizId)
+ *   打印时优先返回快照（含患者字段 + extra 解出的上下文），无快照返回 null。
+ * 注：电子病历个人信息例外——诊毕前允许显示最新（不写快照或更新快照），
+ *   诊毕时写入终态快照（print.php record 分支按 finished 判定）。
+ * ============================================================ */
+function snapshot_patient($bizType, $bizId, $patientNo, $extra = array()) {
+    $bizType = (string)$bizType;
+    $bizId = (int)$bizId;
+    if ($bizId <= 0 || $bizType === '') return;
+    $p = $patientNo !== ''
+        ? DB::one('SELECT patient_no, name, gender, birth_date, id_card, ethnicity, occupation, marital, phone FROM patients WHERE patient_no=?', array($patientNo))
+        : null;
+    $row = array(
+        'patient_no' => $p ? $p['patient_no'] : (string)$patientNo,
+        'patient_name' => $p ? $p['name'] : '',
+        'gender' => $p ? $p['gender'] : '',
+        'birth_date' => $p ? $p['birth_date'] : '',
+        'id_card' => $p ? $p['id_card'] : '',
+        'ethnicity' => $p ? $p['ethnicity'] : '',
+        'job' => $p ? $p['occupation'] : '',
+        'marital' => $p ? $p['marital'] : '',
+        'phone' => $p ? $p['phone'] : '',
+        'extra' => json_encode(is_array($extra) ? $extra : array(), JSON_UNESCAPED_UNICODE),
+        'created_at' => now_str(),
+    );
+    $existed = (int)DB::val('SELECT COUNT(*) FROM print_snapshots WHERE biz_type=? AND biz_id=?', array($bizType, $bizId));
+    if ($existed) {
+        DB::exec('UPDATE print_snapshots SET patient_no=?, patient_name=?, gender=?, birth_date=?, id_card=?, ethnicity=?, job=?, marital=?, phone=?, extra=?, created_at=? WHERE biz_type=? AND biz_id=?',
+            array_values($row) + array($bizType, $bizId));
+    } else {
+        DB::insert('INSERT INTO print_snapshots(biz_type, biz_id, patient_no, patient_name, gender, birth_date, id_card, ethnicity, job, marital, phone, extra, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            array_merge(array($bizType, $bizId), array_values($row)));
+    }
+}
+
+/** 读取单据快照；无快照返回 null。extra 自动 JSON 解码为数组。 */
+function snapshot_get($bizType, $bizId) {
+    $r = DB::one('SELECT * FROM print_snapshots WHERE biz_type=? AND biz_id=?', array((string)$bizType, (int)$bizId));
+    if (!$r) return null;
+    $r['extra'] = json_decode((string)$r['extra'], true);
+    if (!is_array($r['extra'])) $r['extra'] = array();
+    return $r;
+}
+
+/** 快照不存在时按患者现资料补齐（兼容存量单据：首次打印即固化） */
+function snapshot_get_or_live($bizType, $bizId, $patientNo, $extra = array()) {
+    $s = snapshot_get($bizType, $bizId);
+    if ($s) return $s;
+    snapshot_patient($bizType, $bizId, $patientNo, $extra);
+    return snapshot_get($bizType, $bizId);
+}
+
+/**
+ * 打印时用单据快照覆盖患者资料（有快照才覆盖，无快照保持 live 兼容存量单据）。
+ * 用于 print.php 各 case：拿到 get_visit_row 后调用，使历史单据打印
+ * 使用开单/出具/保存时刻的患者姓名/性别/出生日期等快照。
+ * @param array  $row     get_visit_row() 返回的关联数组（引用修改 row['patient']）
+ * @param string $bizType 单据类型（order/payment/report/certificate/record）
+ * @param int    $bizId   单据 ID
+ * @return void
+ */
+function snapshot_apply_patient(&$row, $bizType, $bizId) {
+    $s = snapshot_get($bizType, $bizId);
+    if (!$s || !is_array($row) || !isset($row['patient']) || !is_array($row['patient'])) return;
+    if ((string)$s['patient_name'] !== '') $row['patient']['name'] = $s['patient_name'];
+    if ((string)$s['gender'] !== '') $row['patient']['gender'] = $s['gender'];
+    if ((string)$s['birth_date'] !== '') $row['patient']['birth_date'] = $s['birth_date'];
+    if ((string)$s['id_card'] !== '') $row['patient']['id_card'] = $s['id_card'];
+    if ((string)$s['phone'] !== '') $row['patient']['phone'] = $s['phone'];
+    if ((string)$s['job'] !== '') $row['patient']['job'] = $s['job'];
+    if ((string)$s['marital'] !== '') $row['patient']['marital'] = $s['marital'];
+    if ((string)$s['ethnicity'] !== '') $row['patient']['ethnicity'] = $s['ethnicity'];
 }

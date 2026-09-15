@@ -376,6 +376,22 @@ function record_part_save($u) {
             EmrRepository::exec('UPDATE registrations SET status=?, disposition=?, disposition_detail=?, finished_at=?, paid_at=COALESCE(paid_at,?) WHERE id=?',
                 array('finished', $disposition, $dispDetail, now_str(), now_str(), $visitId));
             $pdo->commit();
+            // 诊毕快照（法律合规）：诊毕时固化患者资料与生命体征，
+            // 诊毕后补打病历显示诊毕时刻信息（诊毕前打印仍显示最新，允许医生修正患者资料）
+            try {
+                $snapV = EmrRepository::one('SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visitId));
+                snapshot_patient('record', (int)$recordId, (string)$visit['patient_no'], array(
+                    'visit_id' => $visitId,
+                    'finished' => 1,
+                    'vitals' => $snapV ? array(
+                        'vital_sbp' => $snapV['vital_sbp'], 'vital_dbp' => $snapV['vital_dbp'],
+                        'vital_heart_rate' => $snapV['vital_heart_rate'], 'vital_pulse' => $snapV['vital_pulse'],
+                        'vital_spo2' => $snapV['vital_spo2'], 'vital_respiration' => $snapV['vital_respiration'],
+                    ) : array(),
+                ));
+            } catch (Exception $ex) {
+                if (defined('DEBUG') && DEBUG) error_log('[诊毕快照失败] ' . $ex->getMessage());
+            }
             // 存证：按接口管理配置的模式计算指纹/调用外部存证服务，落库保存凭据（失败不阻断保存）
             $evid = evid_sign($recordType, (string)$recordId, (string)$printText, json_encode(array('visit_id' => $visitId, 'finished' => 1), JSON_UNESCAPED_UNICODE));
             if ($evid) {

@@ -57,6 +57,10 @@ switch ($action) {
         $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['first_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
         $visit['status_name'] = visit_status_name($visit['status']);
+        // 挂号凭条快照（法律合规）：挂号时刻患者资料优先，补打凭条不因事后改患者资料而变化
+        snapshot_apply_patient($row, 'registration', (int)$visit['id']);
+        $visit = decorate_visit_patient($visit, $row['patient']);
+        $visit['status_name'] = visit_status_name($visit['status']);
         json_ok(array('html' => pt_receipt($visit, $row['patient'])));
         break;
 
@@ -206,6 +210,24 @@ switch ($action) {
         $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
         $vitals = EmrRepository::one('SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
+        // 诊毕快照（法律合规）：诊毕后打印冻结为诊毕时刻的患者资料与生命体征；
+        // 诊毕前打印使用最新（医生可修正患者资料），快照仅在诊毕时固化
+        $recSnap = null;
+        $snapPr = EmrRepository::one('SELECT id FROM patient_records WHERE visit_id=? ORDER BY id ASC LIMIT 1', array($visit['id']));
+        if ($snapPr) $recSnap = snapshot_get('record', (int)$snapPr['id']);
+        if ($visit['status'] === 'finished' && $recSnap) {
+            if ($recSnap['patient_name'] !== '') $row['patient']['name'] = $recSnap['patient_name'];
+            if ($recSnap['gender'] !== '') $row['patient']['gender'] = $recSnap['gender'];
+            if ($recSnap['birth_date'] !== '') $row['patient']['birth_date'] = $recSnap['birth_date'];
+            if ($recSnap['phone'] !== '') $row['patient']['phone'] = $recSnap['phone'];
+            if ($recSnap['job'] !== '') $row['patient']['job'] = $recSnap['job'];
+            if ($recSnap['marital'] !== '') $row['patient']['marital'] = $recSnap['marital'];
+            if ($recSnap['ethnicity'] !== '') $row['patient']['ethnicity'] = $recSnap['ethnicity'];
+            if (isset($recSnap['extra']['vitals']) && is_array($recSnap['extra']['vitals'])) {
+                $vitals = $recSnap['extra']['vitals'];
+            }
+            $visit = decorate_visit_patient($visit, $row['patient']);
+        }
 
         // ===== 多医生接诊（1:N）：该流水下全部文书输出为【一份连续文档】 =====
         // 首段带完整页眉（页眉归首诊文书），续写段以分割线 + 「病历续写 /
@@ -257,6 +279,13 @@ switch ($action) {
         $visit = decorate_visit_patient($visit, $row['patient']);
         $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
         $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
+        // 诊断证明快照（法律合规）：开具时刻患者资料优先，补打不因事后改患者资料而变化
+        snapshot_apply_patient($row, 'certificate', (int)$cert['id']);
+        $certSnap = snapshot_get('certificate', (int)$cert['id']);
+        if ($certSnap && isset($certSnap['extra']['dept_name']) && trim((string)$certSnap['extra']['dept_name']) !== '') {
+            $visit['current_dept_name'] = trim((string)$certSnap['extra']['dept_name']);
+        }
+        $visit = decorate_visit_patient($visit, $row['patient']);
         json_ok(array('html' => pt_certificate($visit, $row['patient'], $record, $cert, $cert['doctor_name'])));
         break;
 
@@ -350,6 +379,16 @@ switch ($action) {
             $item = EmrRepository::one('SELECT * FROM ' . ($result['type'] === 'lab' ? 'lab_items' : 'exam_items') . ' WHERE id=?', array($result['item_id']));
         }
         $row = get_visit_row($report['visit_id']);
+        // 报告打印快照（法律合规）：患者资料 + 项目字典元数据用报告出具时刻快照，
+        // 事后改患者资料/检验检查字典不影响历史报告
+        snapshot_apply_patient($row, 'report', (int)$report['id']);
+        $snap = snapshot_get('report', (int)$report['id']);
+        if ($snap && isset($snap['extra']['item_meta']) && is_array($snap['extra']['item_meta'])) {
+            $im = $snap['extra']['item_meta'];
+            if (empty($im['group']) && isset($im['item']) && is_array($im['item'])) {
+                $item = $im['item'];   // 快照优先：报告出具时项目名/单位/范围/结论等
+            }
+        }
         // 报告打印角色白名单（检验/影像/医生/管理员）；不做科室归属限制——
         // 报告由对应科室统一登记出具，跨就诊打印属正常工作流
         if (!in_array($u['role'], array('doctor', 'lab', 'imaging', 'admin'), true)) {

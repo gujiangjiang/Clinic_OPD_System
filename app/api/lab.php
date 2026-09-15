@@ -255,6 +255,17 @@ switch ($action) {
                 'clinical_diag' => $diag,
                 'apply_time' => $snapOrder ? (string)$snapOrder['created_at'] : '',
                 'reg_time' => (string)$it['registered_at'],
+                // 项目字典快照（出具时刻）：检验组=成员明细；单项=项目本身——后续字典改名/改范围不影响历史报告
+                'item_meta' => $isGroup
+                    ? array('group' => true, 'item_name' => (string)$item['name'], 'members' => array_map(function ($mm) {
+                        $x = OrderRepository::one('SELECT name, unit, normal_range, critical_low, critical_high FROM lab_items WHERE id=?', array((int)$mm['id']));
+                        return $x ? $x : array();
+                    }, $members))
+                    : array('group' => false, 'item' => array(
+                        'name' => (string)$item['name'], 'unit' => (string)$item['unit'],
+                        'normal_range' => (string)$item['normal_range'],
+                        'critical_low' => (string)$item['critical_low'], 'critical_high' => (string)$item['critical_high'],
+                    )),
             ));
             OrderRepository::exec("UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
             $pdo->commit();

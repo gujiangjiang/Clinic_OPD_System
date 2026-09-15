@@ -98,6 +98,16 @@ function pt_report_context($report, $result) {
         'applyDept' => '', 'applyDoctor' => '', 'diag' => '', 'applyTime' => '', 'regTime' => '',
         'order' => null, 'orderItem' => null,
     );
+    // 报告打印快照（法律合规）：出具时刻患者资料优先，无快照兼容旧数据回退现患者表
+    $snap = isset($report['id']) ? snapshot_get('report', (int)$report['id']) : null;
+    if ($snap) {
+        if ($snap['patient_name'] !== '') $ctx['pname'] = $snap['patient_name'];
+        if ($snap['gender'] !== '') $ctx['pgender'] = $snap['gender'];
+        if ($snap['birth_date'] !== '') {
+            $ctx['pbirth'] = $snap['birth_date'];
+            $ctx['page'] = age_format($snap['birth_date'], $row && $row['visit'] ? $row['visit']['registered_at'] : '');
+        }
+    }
     foreach (array('applyDept', 'applyDoctor', 'diag', 'applyTime', 'regTime') as $k) {
         if (isset($report[$k])) $ctx[$k] = trim((string)$report[$k]);
     }

@@ -539,6 +539,27 @@ function order_part_submit($u) {
         }
     }
 
+    // 单据打印快照（法律合规）：对本次每张开单固化患者资料 + 开单时临床诊断，
+    // 打印申请单/处方笺时优先使用开单时刻快照，杜绝事后改患者资料/病历影响历史单据
+    try {
+        $snapDiag = '';
+        $snapPr = OrderRepository::one("SELECT emr_data FROM patient_records WHERE visit_id=? AND emr_data IS NOT NULL AND emr_data!='' ORDER BY id ASC LIMIT 1", array((int)$visitId));
+        if ($snapPr) {
+            $snapE = emr_merge_defaults(emr_normalize(json_decode((string)$snapPr['emr_data'], true) ?: array()), emr_default_data(null));
+            $snapDs = isset($snapE['diagnoses']) && is_array($snapE['diagnoses']) ? $snapE['diagnoses'] : array();
+            if ($snapDs) $snapDiag = emr_diag_text(array($snapDs[0]), false);
+        }
+        if ($snapDiag === '') {
+            $snapMir = OrderRepository::one("SELECT preliminary_diagnosis FROM records WHERE visit_id=? AND preliminary_diagnosis IS NOT NULL AND preliminary_diagnosis!='' ORDER BY id ASC LIMIT 1", array((int)$visitId));
+            if ($snapMir) $snapDiag = (string)$snapMir['preliminary_diagnosis'];
+        }
+        foreach ($createdIds as $ci) {
+            snapshot_patient('order', (int)$ci, (string)$visit['patient_no'], array('clinical_diag' => $snapDiag, 'order_type' => $orderType));
+        }
+    } catch (Exception $ex) {
+        if (defined('DEBUG') && DEBUG) error_log('[开单快照失败] ' . $ex->getMessage());
+    }
+
     $pdo->commit();
     json_ok(array(
         'order_id' => oid($createdIds[0]),

@@ -68,7 +68,7 @@ class CashierRepository extends BaseRepository {
 
     /** 生成挂号记录，返回自增 id */
     public static function createRegistration($data) {
-        return self::insert(
+        $rid = self::insert(
             'INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, cashier_id, cashier_name, registered_at, is_extra) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             array(
                 $data['patient_no'], $data['flow_no'], (int)$data['visit_seq'],
@@ -77,6 +77,15 @@ class CashierRepository extends BaseRepository {
                 (int)$data['cashier_id'], $data['cashier_name'], now_str(), (int)$data['is_extra'],
             )
         );
+        // 挂号快照（法律合规）：固化挂号时刻患者资料，挂号凭条/历史面板补打不因事后改患者资料而变化
+        try {
+            snapshot_patient('registration', (int)$rid, (string)$data['patient_no'], array(
+                'dept_name' => (string)$data['first_dept_name'],
+            ));
+        } catch (Exception $ex) {
+            if (defined('DEBUG') && DEBUG) error_log('[挂号快照失败] ' . $ex->getMessage());
+        }
+        return $rid;
     }
 
     /** 患者全部挂号（倒序） */
@@ -124,7 +133,7 @@ class CashierRepository extends BaseRepository {
 
     /** 新增缴费流水，返回自增 id */
     public static function createPayment($data) {
-        return self::insert(
+        $pid = self::insert(
             'INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total, item_count, cashier_id, cashier_name, created_at, payment_no, method) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
             array(
                 (int)$data['visit_id'], (int)$data['order_id'], $data['patient_no'], $data['flow_no'],
@@ -134,6 +143,17 @@ class CashierRepository extends BaseRepository {
                 isset($data['method']) ? $data['method'] : '现金',
             )
         );
+        // 缴费凭条快照（法律合规）：固化缴费时刻患者资料，补打凭条不因事后改患者资料而变化
+        try {
+            snapshot_patient('payment', (int)$pid, (string)$data['patient_no'], array(
+                'order_id' => (int)$data['order_id'],
+                'kind' => isset($data['kind']) ? $data['kind'] : '',
+                'method' => isset($data['method']) ? $data['method'] : '现金',
+            ));
+        } catch (Exception $ex) {
+            if (defined('DEBUG') && DEBUG) error_log('[缴费快照失败] ' . $ex->getMessage());
+        }
+        return $pid;
     }
 
     /** 就诊缴费流水（倒序） */

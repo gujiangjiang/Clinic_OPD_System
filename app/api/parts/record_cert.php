@@ -74,6 +74,15 @@ function record_part_cert($action) {
             EmrRepository::exec('UPDATE certificates SET evid_hash=?, evid_algo=?, evid_token=?, evid_signer=?, evid_time=? WHERE id=?',
                 array($evid['hash'], $evid['algo'], $evid['token'], $evid['signer'], $evid['time'], (int)$certId));
         }
+        // 诊断证明打印快照（法律合规）：固化开具时刻患者资料 + 开单科室，
+        // 补打证明不因事后改患者资料/科室名称而变化
+        try {
+            snapshot_patient('certificate', (int)$certId, (string)$row['visit']['patient_no'], array(
+                'dept_name' => (string)($row['visit']['current_dept_name'] ? $row['visit']['current_dept_name'] : $row['visit']['first_dept_name']),
+            ));
+        } catch (Exception $ex) {
+            if (defined('DEBUG') && DEBUG) error_log('[证明快照失败] ' . $ex->getMessage());
+        }
         // 响应附带完整证明行：前端开具后即时同步本地 DATA 并刷新右侧诊断证明
         // 分区（无需刷新页面）。can_delete 与 record_read.php 同口径——
         // 诊毕归档封存后一律不可删除（含归档补开的证明）。

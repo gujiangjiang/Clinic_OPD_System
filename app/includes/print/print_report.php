@@ -53,9 +53,16 @@ function pt_lab_report($report, $result, $item) {
         // 检验组：按组内成员逐行显示结果（组合项目按组价收费，成员结果分别出具）
         $members = OrderRepository::q('SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array((int)$item['id']));
         if (!$members) $members = array();
+        // 组内成员快照优先（出具时刻定格）：字典改名/改范围不影响历史报告
+        $snapMembers = null;
+        $snapM = isset($report['id']) ? snapshot_get('report', (int)$report['id']) : null;
+        if ($snapM && isset($snapM['extra']['item_meta']['members']) && is_array($snapM['extra']['item_meta']['members'])) {
+            $snapMembers = $snapM['extra']['item_meta']['members'];
+        }
+        if ($snapMembers) $members = $snapMembers;
         foreach ($members as $m) {
             $v = isset($values['values'][(string)$m['id']]) ? $values['values'][(string)$m['id']] : '';
-            $mark = crit_trend_mark($v, $m['normal_range'], $m['critical_low'], $m['critical_high']);
+            $mark = crit_trend_mark($v, isset($m['normal_range']) ? $m['normal_range'] : '', isset($m['critical_low']) ? $m['critical_low'] : '', isset($m['critical_high']) ? $m['critical_high'] : '');
             $html .= '<div class="lr-row"><span class="lr-seq"></span><span class="lr-item">' . e($m['name']) . '</span>' .
                 '<span class="lr-val">' . e($v) . '</span>' .
                 '<span class="lr-mark">' . ($mark !== '' ? '<b class="lr-mark-val">' . e($mark) . '</b>' : '') . '</span>' .
@@ -200,6 +207,11 @@ function pt_report($report, $result, $item) {
             $members = DB::q('SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array(isset($item['id']) ? (int)$item['id'] : 0));
             if (!$members) {
                 $members = array();
+            }
+            // 组内成员快照优先（出具时刻定格）：字典改名/改范围不影响历史报告
+            $snapM2 = isset($report['id']) ? snapshot_get('report', (int)$report['id']) : null;
+            if ($snapM2 && isset($snapM2['extra']['item_meta']['members']) && is_array($snapM2['extra']['item_meta']['members'])) {
+                $members = $snapM2['extra']['item_meta']['members'];
             }
             foreach ($members as $m) {
                 $v = isset($values['values'][(string)$m['id']]) ? $values['values'][(string)$m['id']] : '';

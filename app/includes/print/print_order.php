@@ -54,15 +54,28 @@ function pt_order($order, $items, $title, $opts = array()) {
     // 右上角条形码：处方单号/申请单号（输液笺用派生单号，与原处方单区分）
     $html .= pt_barcode($displayNo);
 
-    // 患者信息：参考急诊病历两行流式排版、两端对齐（无论门诊/急诊开单统一此样式）
+    // 患者信息：开单时快照优先（法律合规），无快照兼容旧数据回退现患者表
     $patient = DB::one('SELECT * FROM patients WHERE patient_no=?', array($order['patient_no']));
-    // 临床诊断：取就诊结构化病历诊断（优先），旧镜像表 preliminary_diagnosis 兜底
+    $orderSnap = snapshot_get('order', (int)$order['id']);
+    if ($orderSnap) {
+        $patient = array_merge($patient ? $patient : array(), array(
+            'name' => $orderSnap['patient_name'],
+            'gender' => $orderSnap['gender'],
+            'birth_date' => $orderSnap['birth_date'],
+        ));
+    }
+    // 临床诊断：开单时快照优先（开单时刻的首诊断），无快照回退旧逻辑
     $diagText = '';
-    $pr = DB::one('SELECT emr_data FROM patient_records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($order['visit_id']));
-    if ($pr && !empty($pr['emr_data'])) {
-        $emr = json_decode($pr['emr_data'], true);
-        if (is_array($emr) && !empty($emr['diagnoses'])) {
-            $diagText = emr_diag_names($emr['diagnoses']);   // 临床诊断仅名称（+疑似?）
+    if ($orderSnap && isset($orderSnap['extra']['clinical_diag']) && trim((string)$orderSnap['extra']['clinical_diag']) !== '') {
+        $diagText = trim((string)$orderSnap['extra']['clinical_diag']);
+    }
+    if ($diagText === '') {
+        $pr = DB::one('SELECT emr_data FROM patient_records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($order['visit_id']));
+        if ($pr && !empty($pr['emr_data'])) {
+            $emr = json_decode($pr['emr_data'], true);
+            if (is_array($emr) && !empty($emr['diagnoses'])) {
+                $diagText = emr_diag_names($emr['diagnoses']);   // 临床诊断仅名称（+疑似?）
+            }
         }
     }
     if ($diagText === '') {
