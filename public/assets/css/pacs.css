@@ -48,7 +48,7 @@
     padding: 12px 14px;
     border: 1px dashed var(--border);
     border-radius: 10px;
-    background: var(--bg-soft, #f8fafc);
+    background: transparent;
 }
 .itg-his-addr-head {
     display: flex;
