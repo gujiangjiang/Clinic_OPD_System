@@ -23,6 +23,11 @@ function record_part_save_diag_order($u) {
     if ($hasConsult > 0) {
         json_fail('会诊病历不可调整诊断顺序');
     }
+    // 可编辑病历拦截：诊断顺序调整要求当前医生存在可编辑病历
+    // （首诊新建中 / 续写未保存也不可调整——必须有可编辑的已保存或进行中文书）
+    if (!get_editable_record($rowOrder['visit'], $u)) {
+        json_fail('当前无可编辑的病历，无法调整诊断顺序');
+    }
     $keys = json_decode((string)post('ord_keys', '[]'), true);
     if (!is_array($keys)) json_fail('排序数据无效');
     $clean = array();
