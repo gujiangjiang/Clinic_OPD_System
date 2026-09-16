@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v8.15.2-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v8.16.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -140,6 +140,7 @@
 │   ├── db/                    # SQLite 数据库（clinic_main.db 统一主库 + icd10.db 完整标准编码库，纳入版本管理）
 │   └── session/               # Session 文件
 ├── tools/                     # 工具脚本
+│   ├── seed_test_data.php     # 完整测试数据生成器（平台基础数据：科室/账号/检验110+16组合/检查102/处置57/药品104/模板23；患者近15天各状态≥25+历史就诊，完整就诊链含续写/会诊，密码统一123456，用户名=姓名全拼音）
 │   ├── seed_demo_data.php     # 演示数据生成器（近30天136次就诊/277份病历/250医嘱单/205体征/6证明）
 │   ├── seed_call_test.php     # 叫号测试数据生成器（为指定科室生成当天已缴费患者，便于测试叫号系统）
 │   ├── seed_dept_call_test.php # 医技叫号测试数据生成器（检验/检查/处方/护理处置各加 N 位待办患者）
