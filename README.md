@@ -18,7 +18,7 @@
 > 状态页签互斥单选 + 当日叠加、可见天数跟随开单医生权限；顶栏工具组（叫号排队悬浮窗 / 工具箱
 > 患者查询 / ✕ 关闭）常驻固定顶栏。
 
-> 技术要点：严格 PHP 7.x 兼容（未使用任何 PHP 8 新特性）；Nginx 单入口部署；统一业务主库（SQLite/MySQL 双驱动，业务 SQL 按方言适配）；关键业务单号/就诊序号唯一索引 + 撞号重试、事务内条件更新防并发竞态；全中文注释，按模块拆分的目录结构，便于维护与二次开发。
+> 技术要点：严格 PHP 7.x 兼容（未使用任何 PHP 8 新特性）；Nginx 单入口部署；统一业务主库（SQLite/MySQL/PostgreSQL 三驱动，业务 SQL 按方言适配）；关键业务单号/就诊序号唯一索引 + 撞号重试、事务内条件更新防并发竞态；全中文注释，按模块拆分的目录结构，便于维护与二次开发。
 
 ---
 
@@ -147,7 +147,7 @@
 | 类别 | 技术 |
 | --- | --- |
 | 后端 | PHP 7.x（PDO 预处理防注入、password_hash 密码哈希） |
-| 数据库 | 统一主库 clinic_main（SQLite `data/db/clinic_main.db`）· **SQLite/MySQL 双驱动一键切换**（`DB_DRIVER`，业务 SQL 按方言适配）· ICD-10 独立字典库 · 原生 ACID 事务 · 关键单号唯一索引 |
+| 数据库 | 统一主库 clinic_main · **SQLite/MySQL/PostgreSQL 三驱动一键切换**（`DB_DRIVER`，业务 SQL 按方言自动适配）· ICD-10 独立字典库 · 原生 ACID 事务 · 关键单号唯一索引 |
 | 前端 | 原生 HTML + CSS + JavaScript（AJAX 局部刷新 + 模态对话框 + 悬浮面板，无框架） |
 | 主题 | base.css（明亮）/ dark.css（夜间）/ 自动模式，按用户保存 |
 | 部署 | Nginx（单入口转发 `public/index.php`），`data/`、`app/` 位于 Web 根之外 |
@@ -174,7 +174,7 @@
 │   │   ├── bootstrap.php      # 启动引导（常量、Session、时区、类加载、DB_DRIVER 驱动配置）
 │   │   ├── options_data.php   # 公共字典（统一数据源）
 │   │   └── schema/            # 数据库表结构定义
-│   │       ├── main.php       # 统一业务主库 schema（42 张表，SQLite/MySQL 双驱动兼容）
+│   │       ├── main.php       # 统一业务主库 schema（42 张表，SQLite/MySQL/PostgreSQL 三驱动兼容）
 │   │       ├── icd10.php      # ICD-10 独立字典库 schema
 │   │       └── legacy/        # 旧分散式 schema 归档（供迁移工具引用）
 │   ├── core/                  # 核心类
@@ -282,10 +282,12 @@ server {
 
 > 首次登录系统会提醒修改默认密码；全站时区默认取创建管理员时的浏览器时区，管理员可在【系统设置】中修改。
 
-## 🔌 切换 MySQL（预留接口）
+## 🔌 切换数据库（SQLite / MySQL / PostgreSQL）
 
-1. 修改 `app/config/bootstrap.php`：`DB_DRIVER` 改为 `'mysql'`，填写 `MYSQL_HOST / MYSQL_PORT / MYSQL_DB_NAME / MYSQL_USER / MYSQL_PASS`。
-2. 业务库名按 `MYSQL_DB_NAME` 配置（统一主库，不再拆分多库）；`DatabaseManager` 自动执行建表与增量迁移（方言自动转换：`AUTOINCREMENT→AUTO_INCREMENT`、`INSERT OR IGNORE→INSERT IGNORE`、`datetime('now','localtime')→NOW()`；业务 SQL 中剩余 SQLite 专有写法已按驱动分支适配）。
+系统默认使用 SQLite（零配置即装即用），生产环境可一键切换 MySQL/MariaDB 或 PostgreSQL（统一主库，不再拆分多库）：
+
+1. 修改 `app/config/bootstrap.php`：`DB_DRIVER` 改为 `'mysql'` 或 `'pgsql'`，填写对应连接常量（`MYSQL_HOST / MYSQL_PORT / MYSQL_DB_NAME / MYSQL_USER / MYSQL_PASS` 或 `PGSQL_HOST / PGSQL_PORT / PGSQL_DB_NAME / PGSQL_USER / PGSQL_PASS`）。
+2. `DatabaseManager` 自动执行建表与增量迁移（方言自动转换：`AUTOINCREMENT→AUTO_INCREMENT/SERIAL`、`INSERT OR IGNORE→INSERT IGNORE/ON CONFLICT DO NOTHING`、`INSERT OR REPLACE→REPLACE INTO/ON CONFLICT`、`datetime('now','localtime')→NOW()`；业务 SQL 中剩余 SQLite 专有写法已按驱动分支适配）。
 3. 业务查询代码（`DB::q/one/val/exec/insert`）无需改动。
 
 ## 🔌 HIS 预留接口
@@ -343,7 +345,7 @@ curl "http://your-domain/api/his?action=patient_get&id_card=110101199001011234&a
 - **单文件小、职责单一**：PHP / JS / CSS 文件按功能拆分，管理端接口已拆分到 `app/api/parts/`，项目/药品表单统一收敛到 `app/includes/forms.php`；病历主控 `emr.js` 已拆分出 `emr_cert` / `emr_consult` / `emr_diag` 等子模块（经 `Clinic.emr._ctx` 共享上下文桥接，内部调用与公共 API 语义不变）。
 - **公共数据统一存放**：性别、民族、职业、职称、频次、途径等字典统一维护在 `app/config/options_data.php`。
 - **样式按主题拆分**：明亮 / 夜间 / 自动模式分别维护。
-- **数据库统一主库 + 迁移规范化**：业务数据收敛于唯一主库 clinic_main，新增模块时在 `app/config/schema/main.php` 中补表定义与版本迁移，`DatabaseManager` 自动建库、增量迁移并做运行时关键列自愈（SQLite/MySQL 双驱动幂等）。
+- **数据库统一主库 + 迁移规范化**：业务数据收敛于唯一主库 clinic_main，新增模块时在 `app/config/schema/main.php` 中补表定义与版本迁移，`DatabaseManager` 自动建库、增量迁移并做运行时关键列自愈（SQLite/MySQL/PostgreSQL 三驱动幂等）。
 - **接口与页面分离**：业务逻辑写入 `app/api/`，页面通过 AJAX 局部刷新调用。
 
 ## 📜 更新日志
