@@ -183,7 +183,7 @@ Clinic.emr.segments = (function () {
 
     function injectPrevDiagContext() {
         if (!ctx.DATA || !ctx.DATA.records_history) return;
-        var mineId = ctx.DATA.record && ctx.DATA.record.doctor_id;
+        var mineId = ctx.DATA.currentDoctorId || (ctx.DATA.record && ctx.DATA.record.doctor_id);
         var flat = [];
         ctx.DATA.records_history.forEach(function (r) {
             if (r.doctor_id === mineId) return;

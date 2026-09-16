@@ -1690,7 +1690,7 @@ Clinic.emr = (function () {
             }
             return;
         }
-        var mineId = r ? r.doctor_id : 0;
+        var mineId = (DATA && DATA.currentDoctorId) || 0;
         // 1. 点击当前编辑文书 → 滚动到其编辑器锚点
         if (r && recId === r.record_id) {
             scrollToEditor(0);
@@ -1708,17 +1708,19 @@ Clinic.emr = (function () {
             Clinic.toast.info('会诊期间，其他病历仅可查看（只读）。点击右侧「病历节点」切换回会诊病历');
             return;
         }
-        // 2. 他人文书 → 只读段，直接滚动定位
+        // 2. 他人文书 → 切换到该文书进入只读模式（switchToRecord 渲染为只读），
+        //    而非仅滚动定位——这样可以关闭当前编辑器，确避免读按钮滞留
         if (doctorId !== mineId) {
-            var seg = document.getElementById('recSeg' + recId);
-            if (seg) {
-                var sc = document.querySelector('.emr-main-editor-scroll');
-                if (!sc) return;
-                var y2 = seg.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 8;
-                sc.scrollTo({ top: Math.max(0, y2), behavior: 'smooth' });
-            } else {
-                Clinic.toast.info('该文书区域当前不可见');
+            if (EMR_DIRTY) {
+                Clinic.toast.warning('当前病历有未保存的修改，请先点击「💾 保存」后再切换病历节点');
+                return;
             }
+            if (!isRecordComplete()) {
+                var need3 = r && r.record_type === 'progress' ? '病历续写内容与初步诊断' : '主诉、现病史与初步诊断';
+                Clinic.toast.warning('请先完善并保存当前病历的必填项（' + need3 + '），再切换病历节点');
+                return;
+            }
+            switchToRecord(recId);
             return;
         }
         // 3. 本人旧文书 → 切换为可编辑状态（前置：必填已保存 + 无未保存修改）
