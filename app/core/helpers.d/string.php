@@ -115,6 +115,28 @@ function money($n) {
 }
 
 /**
+ * 药品规格动态拼接（全局唯一实现，展示一律调用本函数）。
+ * 规则：优先按结构化字段拼接「0.35g×24粒」；剂量段为空时回退
+ * spec 原文（旧数据/历史快照兼容）。所有展示规格的地方统一走这里，
+ * 修改 spec_dose/spec_pack_qty 等字段后展示自动联动，无需逐处手写。
+ * @param array $r 药品行（需含 spec_dose/spec_dose_unit/spec_pack_qty/spec_pack_unit/spec）
+ * @return string
+ */
+function drug_spec_text($r) {
+    $r = is_array($r) ? $r : array();
+    $dose = trim((string)(isset($r['spec_dose']) ? $r['spec_dose'] : ''));
+    $du   = trim((string)(isset($r['spec_dose_unit']) ? $r['spec_dose_unit'] : ''));
+    $pq   = (int)(isset($r['spec_pack_qty']) ? $r['spec_pack_qty'] : 1);
+    $pu   = trim((string)(isset($r['spec_pack_unit']) ? $r['spec_pack_unit'] : ''));
+    if ($dose !== '' && $dose !== '0') {
+        $s = rtrim(rtrim($dose, '0'), '.') . $du;
+        if ($pu !== '') $s .= '×' . $pq . $pu;
+        if ($s !== '') return $s;
+    }
+    return trim((string)(isset($r['spec']) ? $r['spec'] : ''));
+}
+
+/**
  * 解析化验数值为浮点（危急值比对用）：
  * 容忍 "5.2"、">200"、"<0.1"、"≤5"、"≥10" 等带比较符号的写法，
  * 非数值（如「阳性」「未见异常」）返回 null。

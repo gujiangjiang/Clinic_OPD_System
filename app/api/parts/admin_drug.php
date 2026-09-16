@@ -98,7 +98,7 @@ function admin_part_drug($action) {
                 '<td class="fs-12">' . e($r['generic_name']) . '</td>' .
                 '<td>' . e($r['vendor_short']) . '</td>' .
                 '<td>' . e($r['category']) . '</td>' .
-                '<td class="fs-12">' . e($r['spec']) . '</td>' .
+                '<td class="fs-12">' . e(drug_spec_text($r)) . '</td>' .
                 '<td>' . e($r['form']) . '</td>' .
                 '<td class="fs-12">' . e($r['frequency']) . '</td>' .
                 '<td class="fs-12">' . e($r['route']) . ($r['is_nurse'] ? '（护士站）' : '') . '</td>' .

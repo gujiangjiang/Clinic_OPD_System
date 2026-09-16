@@ -245,7 +245,7 @@ switch ($action) {
                 $html .= '<tr>' .
                     '<td class="fw-600">' . e($r['name']) . (!empty($r['vendor_short']) ? '（' . e($r['vendor_short']) . '）' : '') . '</td>' .
                     '<td>' . e($r['category']) . '</td>' .
-                    '<td>' . e($r['spec']) . '</td>' .
+                    '<td>' . e(drug_spec_text($r)) . '</td>' .
                     '<td>' . e($r['package_unit']) . '</td>' .
                     '<td class="' . ($low ? 'text-danger fw-700' : '') . '">' . (int)$r['qty'] . ($low ? ' <span class="badge badge-danger" style="font-size:11px">库存不足</span>' : '') . '</td>' .
                     '<td>¥' . money($r['price']) . '</td>' .

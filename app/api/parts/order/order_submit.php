@@ -240,7 +240,7 @@ function order_part_submit($u) {
         $orderItems[] = array(
             'item_type' => $orderType, 'item_id' => $itemId,
             'item_name' => $rxName,
-            'spec' => isset($it['spec']) ? $it['spec'] : '',
+            'spec' => (isset($it['spec']) && trim((string)$it['spec']) !== '') ? $it['spec'] : (isset($drug) && is_array($drug) ? drug_spec_text($drug) : ''),
             'unit' => isset($it['unit']) ? $it['unit'] : '',
             'company_short' => isset($it['company_short']) ? $it['company_short'] : '',
             'price' => $price, 'quantity' => $qty,

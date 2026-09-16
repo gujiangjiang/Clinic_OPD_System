@@ -104,14 +104,8 @@ function form_drug($id) {
             'status' => '',
         );
     }
-    // 规格结构化展示串：0.5g×24粒 / 100ml×1瓶 / 0.35g
-    $specShow = trim((string)$r['spec']);
-    if ($specShow === '') {
-        $specShow = trim((string)$r['spec_dose'] . $r['spec_dose_unit']);
-        if ($specShow !== '' && trim((string)$r['spec_pack_unit']) !== '') {
-            $specShow .= '×' . (int)$r['spec_pack_qty'] . $r['spec_pack_unit'];
-        }
-    }
+    // 规格结构化展示串：0.5g×24粒 / 100ml×1瓶 / 0.35g（统一走 drug_spec_text 动态拼接）
+    $specShow = drug_spec_text($r);
     // 药品设置字典：一次查出全部，按 stype 分组复用（避免每个下拉框重复查库）
     $dict = array();
     foreach (DB::q('SELECT * FROM drug_settings ORDER BY sort, id') as $__d) {
