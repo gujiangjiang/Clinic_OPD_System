@@ -13,6 +13,16 @@
 
 ---
 
+## [8.16.1] - 2026-09-16
+
+### 修复
+- **三级树父级复选框半选状态（根治）**：此前子级部分选中时父级复选框显示空白，无法区分部分选中与全不选。修复两个层面：
+  - **显示层（根因）**：`base.css` 全局自定义 checkbox（`appearance:none`）禁用了浏览器原生的 indeterminate 方框，且未定义 `:indeterminate` 样式 → 补上主题色背景 + 白色横线的半选方框样式（`input[type="checkbox"]:indeterminate`），科室三级树与发送消息树一并覆盖。
+  - **逻辑层**：`depttree.js` 的 `syncGroups()` 修正 checked 赋值会重置 indeterminate 的顺序问题（先设 checked 再设 indeterminate），一级「全院」与二级「门诊/急诊」分组复选框支持半选；`messages.php` 管理员发送消息树：角色组全选/取消后联动调用 `smUserChange()` 同步各组半选，`smAll` 全院主复选框支持半选（部分用户选中=方框、全部=勾、未选=空）。
+  - 版本同步 8.16.1（README 徽章 + bootstrap APP_VERSION）。
+
+---
+
 ## [8.16.0] - 2026-09-16
 
 ### 新增

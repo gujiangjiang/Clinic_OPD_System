@@ -240,9 +240,12 @@ function smToggleAll(checked) {
 }
 function smToggleRole(role, checked) {
     document.querySelectorAll('.send-msg-box .sm-user[data-role="' + role + '"]').forEach(function (c) { c.checked = checked; });
+    // 勾选/取消整个角色组后重新联动同步（各组半选 + 全院主复选框半选）
+    smUserChange();
 }
 function smUserChange() {
     // 角色组复选框联动：全选=勾选 / 部分选=半选态 / 全不选=空
+    // 注意：必须先设 checked 再设 indeterminate（浏览器规范：设置 checked 会重置 indeterminate）
     document.querySelectorAll('.send-msg-box .sm-role').forEach(function (rc) {
         var role = rc.getAttribute('data-role');
         var users = document.querySelectorAll('.send-msg-box .sm-user[data-role="' + role + '"]');
@@ -250,10 +253,15 @@ function smUserChange() {
         rc.checked = n === users.length;
         rc.indeterminate = n > 0 && n < users.length;
     });
-    // 任一个人勾选 → 取消全院主勾选（避免语义冲突）
-    var anyUser = document.querySelector('.send-msg-box .sm-user:checked');
+    // 全院主复选框：全部用户选中=勾 / 部分选中=半选方框 / 全不选=空
+    var allUsers = document.querySelectorAll('.send-msg-box .sm-user');
+    var totalUsers = allUsers.length;
+    var nUsers = 0; allUsers.forEach(function (u2) { if (u2.checked) nUsers++; });
     var all = document.getElementById('smAll');
-    if (all && anyUser) { all.checked = false; all.indeterminate = false; }
+    if (all) {
+        all.checked = totalUsers > 0 && nUsers === totalUsers;
+        all.indeterminate = nUsers > 0 && nUsers < totalUsers;
+    }
 }
 function doSendMsg() {
     var title = document.getElementById('smTitle').value.trim();

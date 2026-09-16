@@ -46,6 +46,23 @@ input[type="checkbox"]:checked {
     background: var(--primary);
     border-color: var(--primary);
 }
+/* 半选（indeterminate）：部分子级选中时父级复选框显示主题色底 + 白色横线方框。
+   原生 indeterminate 方框被 appearance:none 禁用，须显式补样式，否则显示为空白 */
+input[type="checkbox"]:indeterminate {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+input[type="checkbox"]:indeterminate::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 8px;
+    height: 2px;
+    background: #fff;
+    border-radius: 1px;
+    transform: translate(-50%, -50%);
+}
 input[type="checkbox"]:checked::after {
     content: '';
     position: absolute;

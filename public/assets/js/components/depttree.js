@@ -31,15 +31,21 @@ Clinic.deptTree = (function () {
         syncGroups();
     }
 
-    /* 同步全选/分组选中态 */
+    /* 同步全选/分组选中态（含半选：子级部分选中时父级显示方框 indeterminate） */
     function syncGroups() {
         if (!ROOT) return;
         var all = ROOT.querySelectorAll('.deptChk');
-        var allChecked = true;
-        all.forEach(function (c) { if (!c.checked) allChecked = false; });
+        var total = all.length;
+        var checkedCount = 0;
+        all.forEach(function (c) { if (c.checked) checkedCount++; });
+        // 一级全选：全部选中→勾；部分选中→半选方框；未选→空
+        // 注意：必须先设 checked 再设 indeterminate（浏览器规范：设置 checked 会重置 indeterminate）
         var allEl = ROOT.querySelector('#dtAll');
-        if (allEl) allEl.checked = allChecked;
-        // 同步各分组
+        if (allEl) {
+            allEl.checked = total > 0 && checkedCount === total;
+            allEl.indeterminate = checkedCount > 0 && checkedCount < total;
+        }
+        // 二级分组：同样区分全选/半选/未选
         var groups = {};
         all.forEach(function (c) {
             var t = c.getAttribute('data-type');
@@ -49,7 +55,10 @@ Clinic.deptTree = (function () {
         });
         Object.keys(groups).forEach(function (t) {
             var grpEl = ROOT.querySelector('.deptGrpChk[data-type="' + t + '"]');
-            if (grpEl) grpEl.checked = groups[t].checked > 0 && groups[t].checked === groups[t].total;
+            if (grpEl) {
+                grpEl.checked = groups[t].checked > 0 && groups[t].checked === groups[t].total;
+                grpEl.indeterminate = groups[t].checked > 0 && groups[t].checked < groups[t].total;
+            }
         });
         // 更新选中列表
         SELECTED = [];
