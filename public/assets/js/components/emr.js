@@ -2517,7 +2517,8 @@ Clinic.emr = (function () {
 
     /** 当前编辑器是否可编辑（诊断添加/正文编辑用，与 hasEditableRecord 不同——
      *  hasEditableRecord 要求已保存文书 record_id>0，用于开单等需绑定场景；
-     *  当前函数仅判定编辑上下文是否允许，新建中(record_id=0)也可编辑）。
+     *  当前函数也判定新建中（record_id=0）是否真的处于编辑中，
+     *  即医生是否已点击「病历节点 ＋」开始建编（__pending_* 标志）。
      *  委托 emr_rules.js 规则引擎（canWrite），统一首诊/续写/会诊/诊毕判定。 */
     function currentRecordEditable() {
         if (!DATA || !DATA.record) return false;
@@ -2525,12 +2526,10 @@ Clinic.emr = (function () {
         if (window.Clinic && Clinic.emr.rules) {
             var rw = Clinic.emr.rules.canWrite();
             // 当病历归档/诊毕/只读上下文时，canWrite 已为 false，无需额外判定
-            // 关键：record_id=0 时，仅当医生已点击「病历节点 ＋」开始建编（__pending_*）
+            // record_id=0 时，仅当医生已点击「病历节点 ＋」开始建编
+            // （__pending_progress / __progress_new / __pending_initial）
             // 才视为可编辑——否则仅是「他人已有病历，当前医生尚未书写」的只读浏览态
             if (rw && !(DATA.record.record_id > 0)) {
-                // record_id=0 时，仅当医生已点击「病历节点 ＋」开始建编
-                // （__pending_progress / __progress_new / __pending_initial）
-                // 才视为可编辑——否则仅是「他人已有病历，当前医生尚未书写」的只读浏览态
                 if (!(DATA.__pending_progress || DATA.__progress_new || DATA.__pending_initial)) return false;
             }
             return rw;
