@@ -54,7 +54,7 @@ $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
             <p class="sub">
                 一套系统同时服务挂号收费处、医生工作站、护士站、检验科、影像科与药房，
                 覆盖挂号、缴费、电子病历、开单、报告、发药全流程。
-                统一业务主库（SQLite/MySQL 双驱动）+ 明亮 / 夜间 / 自动主题，即装即用。
+                统一业务主库（SQLite/MySQL/PostgreSQL 三驱动）+ 明亮 / 夜间 / 自动主题，即装即用。
             </p>
             <div class="hero-ctas">
                 <a class="btn-hero primary" href="/login">进入系统 →</a>
@@ -106,8 +106,8 @@ $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
             <p>部署简单，维护省心，界面现代</p>
         </div>
         <ul class="tick-list">
-            <li>PHP 7.x + SQLite 即装即用，预留 MySQL 切换接口</li>
-            <li>统一业务主库 + 版本化增量迁移，SQLite/MySQL 双驱动一键切换</li>
+            <li>PHP 7.x + SQLite 即装即用，可一键切换 MySQL / PostgreSQL</li>
+            <li>统一业务主库 + 版本化增量迁移，SQLite/MySQL/PostgreSQL 三驱动一键切换</li>
             <li>框架式界面，AJAX 局部刷新 + 模态对话框，无需整页跳转</li>
             <li>明亮 / 夜间 / 自动三模式，偏好跟随用户保存</li>
             <li>统一打印中心：凭条 / 病历 / 处方 / 申请单 / 报告 / 证明</li>
