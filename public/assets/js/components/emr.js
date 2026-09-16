@@ -2530,6 +2530,8 @@ Clinic.emr = (function () {
     function hasEditableRecord() {
         if (!DATA || !DATA.record) return false;
         if (!(DATA.record.record_id > 0)) return false;   // 无本人已保存文书
+        // 切换到他人病历节点时（非会诊模式）：无可编辑文书，仅浏览
+        if ((DATA.record.doctor_id || 0) !== (DATA.currentDoctorId || 0) && !DATA.__consult_mode) return false;
         if (window.Clinic && Clinic.emr.rules) return Clinic.emr.rules.canOrder();
         return DATA.record.dept_match === 1;
     }

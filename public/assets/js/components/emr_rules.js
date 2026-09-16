@@ -101,7 +101,7 @@ Clinic.emr.rules = (function () {
             }
             return { state: 'consult_lock', canWrite: false, canOrder: false, canDeleteOrder: false, canConsult: false, canAppend: false, canIssueCert: false, canDiag: false, reason: '会诊病历处理中，仅目标科室医生可编辑', writable: false, containerType: 'none', containerId: null };
         }
-        if (d.record.dept_match === 1) {
+        if (d.record.dept_match === 1 && (d.record.doctor_id || 0) === (d.currentDoctorId || 0)) {
             return { state: 'editable', canWrite: true, canOrder: true, canDeleteOrder: true, canConsult: true, canAppend: true, canIssueCert: true, canDiag: true, reason: '当前科室文书可编辑', writable: true, containerType: 'main_record', containerId: d.record.record_id || null };
         }
         return { state: 'dept_mismatch', canWrite: false, canOrder: false, canDeleteOrder: false, canConsult: false, canAppend: false, canIssueCert: false, canDiag: false, reason: '转科前旧文书，当前科室只读', writable: false, containerType: 'none', containerId: null };
