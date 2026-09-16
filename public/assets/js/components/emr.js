@@ -129,6 +129,12 @@ Clinic.emr = (function () {
             onSuccess: function (j) {
                 DATA = j.data;
                 DATA.__readonly_view = !!(j.data.readonly_view);
+                // 记录登录医生的身份信息（不受 switchToRecord 影响，用于判定
+                // 诊断删除按钮显隐、引用标记等归属判断）
+                DATA.currentDoctorId = (j.data.record && j.data.record.doctor_id) || 0;
+                DATA.currentDoctorName = (j.data.record && j.data.record.doctor_name) || '';
+                DATA.currentDoctorEmp = (j.data.record && j.data.record.doctor_emp) || '';
+                DATA.currentDoctorTitle = (j.data.record && j.data.record.doctor_title) || '';
                 renderPatientCard(j.data);
                 // 页眉/主体分离：页眉公共可交互；他人文书只读段在
                 // renderEmrCard 内部渲染（前序在上、后序在下）
@@ -1077,9 +1083,11 @@ Clinic.emr = (function () {
         });
     }
 
-    /** 当前登录医生 id（DATA.record 由后端按会话返回） */
+    /** 当前登录医生 id（DATA.currentDoctorId 在页面加载时固定，不受
+     *  switchToRecord 切换他人病历节点而改变；DATA.record.doctor_id
+     *  会随当前浏览的文书切换，仅用于文书显示归属）。 */
     function myDoctorId() {
-        return DATA && DATA.record ? DATA.record.doctor_id : 0;
+        return (DATA && DATA.currentDoctorId) || 0;
     }
 
     /**
@@ -1146,7 +1154,7 @@ Clinic.emr = (function () {
         (DATA.records_history || []).forEach(function (h) { if ((h.id || h.record_id) === recId) node = h; });
         if (!node) { Clinic.toast.warning('该病历记录不存在'); return; }
         // 身份校验（预览拦截）
-        var myUid = (DATA.record && DATA.record.doctor_id) || 0;
+        var myUid = myDoctorId();
         if ((node.doctor_id || 0) !== myUid) {
             Clinic.toast.warning('无权删除非本人创建的病历记录');
             return;
@@ -1311,7 +1319,7 @@ Clinic.emr = (function () {
         // 条目格式：日期 时间 科室 （首/续） + 医生姓名靠右（与初步诊断条目同款式）
         var recEl = document.getElementById('navRecords');
         var hist = (DATA && DATA.records_history) || [];
-        var myUid = (DATA && DATA.record && DATA.record.doctor_id) || 0;
+        var myUid = myDoctorId();
         // 本次就诊是否存在已保存的续写病程（首诊锁定判定）
         var hasSavedProgress = hist.some(function (h) { return h.record_type === 'progress' && h.status !== 'draft'; });
         recEl.innerHTML = hist.length ? hist.map(function (r2) {
@@ -1348,7 +1356,7 @@ Clinic.emr = (function () {
         }
         // 续写编辑中占位（未保存，保存/reload 后自动清除）；点击跳转到续写编辑器锚点；
         // 会诊模式下显示「会诊病历编辑中」
-        var _pn = (DATA.record && DATA.record.doctor_name) || '';
+        var _pn = DATA.currentDoctorName || (DATA.record && DATA.record.doctor_name) || '';
         var _del = '<span class="ena-del" title="删除未完成的病历" onclick="event.stopPropagation();Clinic.emr.cancelPendingRecord()">🗑️</span>';
         var _pendingText = (DATA && DATA.__consult_mode) ? '🤝 会诊病历编辑中…（未保存）' : '📝 续写编辑中…（未保存）';
         if (DATA && DATA.__pending_progress && recEl) {
@@ -1376,7 +1384,7 @@ Clinic.emr = (function () {
         var diagMap = {};
         var diagOrder = [];
         var mineDoctorId = myDoctorId();
-        var pushDiag = function (dg, mine, others, srcId, ownOld, inCurrent) {
+        var pushDiag = function (dg, mine, others, srcId, ownOld, inCurrent, fromCurrentRecord) {
             if (!dg || !dg.name) return;
             var key = (dg.code || '') + '|' + dg.name;
             if (!diagMap[key]) {
@@ -1389,24 +1397,29 @@ Clinic.emr = (function () {
             if (others) diagMap[key].others = true;
             if (ownOld) diagMap[key].ownOld = true;
             if (inCurrent) diagMap[key].inCurrent = true;   // 当前编辑文书中存在 → 可删除
-            // 【引用】标记：仅当本人主动引用（添加）他人诊断到自己病历中时显示 ——
+            // 【引用】标记仅从「当前浏览文书」的诊断读取——
             // 他人病历中原生诊断（本人未添加）不显示引用标记，仅浏览不算引用
-            if (dg.quoted) diagMap[key].quoted = true;
+            if (fromCurrentRecord && dg.quoted) diagMap[key].quoted = true;
         };
         // 先遍历全部文书（首诊/续写/会诊，含当前记录）的诊断——按文书时间正序稳定聚合，
         // 顺序不随当前浏览的记录节点变化；当前编辑文书的诊断标记 inCurrent → 可删除。
         // 转科后（dept_match=0）当前文书为只读，诊断不显示删除按钮
         var curRid = DATA.record && DATA.record.record_id;
         var curDeptMatch = !(DATA.record && DATA.record.dept_match === 0);
+        // 当前浏览的文书是否为本人所有（用于判断 myList3 是否属于当前医生）
+        var curIsMine = (DATA.record && (DATA.record.doctor_id || 0) === mineDoctorId);
         (DATA && DATA.records_history ? DATA.records_history : []).forEach(function (h) {
             var isMine = (h.doctor_id || 0) === mineDoctorId;
-            var inCur = ((h.record_id || h.id) === curRid) && curDeptMatch;
+            // inCurrent 仅当前浏览的本人文书时才为 true（他人文书不显示删除按钮）
+            var inCur = ((h.record_id || h.id) === curRid) && curDeptMatch && curIsMine;
             ((h.emr && h.emr.diagnoses) || []).forEach(function (dg) {
-                pushDiag(dg, isMine, !isMine, h.doctor_id || 0, isMine, inCur);
+                pushDiag(dg, isMine, !isMine, h.doctor_id || 0, isMine, inCur, false);
             });
         });
         // 当前编辑文书若在 records_history 中不存在（未保存的新建/编辑态），补充其诊断
-        myList3.forEach(function (dg) { pushDiag(dg, true, false, mineDoctorId, false, curDeptMatch); });
+        // 仅当当前文书属于本人时才作为「本人诊断」处理；否则仅浏览他人文书
+        var curDoctorId = (DATA.record && DATA.record.doctor_id) || 0;
+        myList3.forEach(function (dg) { pushDiag(dg, curIsMine, !curIsMine, curDoctorId, false, curDeptMatch && curIsMine, true); });
         // 按本人保存的全局排序重排（未在排序中的键保持默认相对顺序追加在后）
         var ordRank = {};
         ((DATA && DATA.diag_order) || []).forEach(function (k, i) { ordRank[k] = i; });
@@ -2322,7 +2335,7 @@ Clinic.emr = (function () {
                     // 同步左侧大纲栏数据源：本人文书并入 records_history
                     // （首次保存新增节点，续存更新内容），诊断列表随之刷新
                     if (!DATA.records_history) DATA.records_history = [];
-                    var mineId2 = DATA.record.doctor_id;
+                    var mineId2 = myDoctorId();
                     var curRid2 = DATA.record.record_id;
                     var histEntry = null;
                     // 精确匹配当前编辑文书（切换回旧文书时避免误更新最新本人文书）
@@ -2347,8 +2360,8 @@ Clinic.emr = (function () {
                         DATA.record.dept_id = savedDeptId;
                         histEntry = {
                             id: DATA.record.record_id, record_id: DATA.record.record_id,
-                            doctor_id: mineId2, doctor_name: DATA.record.doctor_name,
-                            doctor_emp: DATA.record.doctor_emp, doctor_title: DATA.record.doctor_title,
+                            doctor_id: mineId2, doctor_name: DATA.currentDoctorName || DATA.record.doctor_name,
+                            doctor_emp: DATA.currentDoctorEmp || DATA.record.doctor_emp, doctor_title: DATA.currentDoctorTitle || DATA.record.doctor_title,
                             dept_id: savedDeptId,
                             dept_name: savedDeptName,
                             record_type: DATA.record.record_type,
@@ -2630,10 +2643,10 @@ Clinic.emr = (function () {
         // 且开单属于「就诊」层面、无法精确归属到某个病历节点；每个病历节点独立。
         Clinic.modal.confirm('确定删除该未完成的病历？未保存的内容将丢失。', function () {
             var wasInitial = !!DATA.__pending_initial;
-            var docId = DATA.record ? (DATA.record.doctor_id || 0) : 0;
-            var docName = DATA.record ? (DATA.record.doctor_name || '') : '';
-            var docEmp = DATA.record ? (DATA.record.doctor_emp || '') : '';
-            var docTitle = DATA.record ? (DATA.record.doctor_title || '') : '';
+            var docId = myDoctorId();
+            var docName = DATA.currentDoctorName || (DATA.record ? (DATA.record.doctor_name || '') : '');
+            var docEmp = DATA.currentDoctorEmp || (DATA.record ? (DATA.record.doctor_emp || '') : '');
+            var docTitle = DATA.currentDoctorTitle || (DATA.record ? (DATA.record.doctor_title || '') : '');
             // 清除编辑中标记
             DATA.__pending_initial = false;
             DATA.__pending_progress = false;
