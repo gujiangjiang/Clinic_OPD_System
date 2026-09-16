@@ -81,6 +81,7 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
                             <?php if (!empty($f['monospace'])): ?> style="font-family:monospace"<?php endif; ?>>
                         <?php if ($isHisKey): ?>
                             <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="genHisKey()">🔑 生成密钥</button>
+                            <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="clearHisKey()">🧹 清空密钥</button>
                         <?php endif; ?>
                     </div>
                 <?php endif; ?>
@@ -186,6 +187,14 @@ function genHisKey() {
     var el = document.getElementById('itg_his_api_key');
     if (el) el.value = key;
     Clinic.toast.success('已生成密钥，请点击【保存本组配置】生效');
+}
+
+/* ---------- 清空 HIS 接口密钥（一键清空后点击保存生效） ---------- */
+function clearHisKey() {
+    var el = document.getElementById('itg_his_api_key');
+    if (el) el.value = '';
+    renderHisLive();
+    Clinic.toast.success('已清空密钥，请点击【保存本组配置】生效');
 }
 
 /* ---------- 复制 HIS 接口地址（带密钥） ---------- */
