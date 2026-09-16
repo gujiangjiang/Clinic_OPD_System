@@ -549,8 +549,12 @@ Clinic.emr = (function () {
         // → 默认只读展示他人病历 + 续写占位，不渲染空编辑器
         // 场景 E（转科）：本人最新文书书写科室与就诊当前科室不一致 → 旧文书只读展示 +
         // 续写占位（与场景 C 同款交互，点击右侧「病历节点 ＋」开始续写）
+        // 他人病历只读：切换到他人病历节点时，仅浏览不编辑，
+        // 同 deptMismatch 进入只读展示 + 续写占位
+        var otherDoctor = !readOnly && (r.record_id > 0) && (r.doctor_id || 0) !== (d.currentDoctorId || 0) && !d.__consult_mode;
         var deptMismatch = !readOnly && (r.record_id > 0) && d.record && d.record.dept_match === 0;
-        var needProgress = (!readOnly && isProgress && !(r.record_id > 0) && (d.records_history || []).length > 0) || deptMismatch;
+        // 他人文书也视为只读（归属判定：医生 id 不匹配且非会诊模式）
+        var needProgress = (!readOnly && isProgress && !(r.record_id > 0) && (d.records_history || []).length > 0) || deptMismatch || otherDoctor;
         // 场景 D：首诊空病历（无任何保存病历，本人也尚未创建）→ 不渲染空白编辑器，
         // 显示占位提示，等待自动弹出模板选择后创建首张电子病历
         var emptyInitial = !readOnly && !isProgress && !(r.record_id > 0) && !(d.records_history || []).length;
@@ -663,9 +667,9 @@ Clinic.emr = (function () {
             // 场景 C：已有他人保存病历但本人尚无文书 → 默认只读展示他人病历 +
             // 续写占位，不渲染空编辑器；显式点击「病历节点 +」才渲染续写编辑器
             if (needProgress) {
-                if (deptMismatch) {
-                    // 转科前旧文书（deptMismatch）：docBody 直接展示当前文书只读段，
-                    // 提示语以 toast 轻提示呈现（不额外占据病历区域）
+                if (deptMismatch || otherDoctor) {
+                    // 转科前旧文书（deptMismatch）或他人文书（otherDoctor）：
+                    // docBody 直接展示当前文书只读段，提示语以 toast 轻提示呈现
                     refreshReadOnlyBodies(d);
                     var dmBody = document.getElementById('docBody');
                     if (dmBody && r.record_id > 0) {
@@ -673,7 +677,9 @@ Clinic.emr = (function () {
                         dmBody.innerHTML = '<div class="prev-record-wrap">' + roSegmentHtml(dmSeg) + '</div>';
                     }
                     if (window.Clinic && Clinic.toast) {
-                        Clinic.toast.info('该病历书写科室与当前科室不一致，仅可查看（只读）。如需书写请在当前科室新建续写病历');
+                        Clinic.toast.info(otherDoctor
+                            ? '该病历为他人编写，仅可查看（只读）。如需书写请点击右侧「病历节点 ＋」创建本人病历'
+                            : '该病历书写科室与当前科室不一致，仅可查看（只读）。如需书写请在当前科室新建续写病历');
                     }
                 } else {
                     // 会诊模式：就诊存在待处理/进行中的会诊 → 占位显示「确认会诊」
@@ -742,8 +748,8 @@ Clinic.emr = (function () {
             scrollToEditor(200);
         }
         // ===== 恢复顶栏写操作按钮（从只读/会诊锁切回可编辑记录时） =====
-        // deptMismatch（转科前旧文书只读）：不恢复写按钮，隐藏之
-        if (!readOnly && !consultLock) {
+        // deptMismatch（转科前旧文书只读）或 otherDoctor（他人文书）：不恢复写按钮，隐藏之
+        if (!readOnly && !consultLock && !otherDoctor) {
             if (deptMismatch) {
                 document.querySelectorAll('.emr-top-actions .emr-write').forEach(function (b) { b.style.display = 'none'; });
                 var stDm = document.getElementById('saveStatus');
