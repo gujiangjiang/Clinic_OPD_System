@@ -153,11 +153,12 @@ Clinic.emr.diag = (function () {
         pop.querySelector('#dpeSave').addEventListener('click', function () {
             var arr = myDiags().slice();
             if (!arr[idx]) { closeDiagPop(); return; }
-            arr[idx] = {
+             arr[idx] = {
                 code: arr[idx].code, name: arr[idx].name,
                 part: pop.querySelector('#dpPart').value.trim(),
                 note: pop.querySelector('#dpNote').value.trim(),
                 suspected: pop.querySelector('#dpSus').value,
+                quoted: arr[idx].quoted ? '1' : '',
             };
             closeDiagPop();
             saveDiags(arr, '诊断已更新：' + arr[idx].name);
@@ -169,7 +170,7 @@ Clinic.emr.diag = (function () {
                 var cur = myDiags();
                 if (!cur[idx]) { closeDiagPop(); return; }
                 var tgt = cur[idx];
-                var isQuoted = Clinic.emrEditor.findPrevDiag(tgt.code);
+                var isQuoted = !!tgt.quoted || !!Clinic.emrEditor.findPrevDiag(tgt.code);
                 var doDel = function () {
                     var arr = myDiags().slice();
                     if (!arr[idx]) { closeDiagPop(); return; }
@@ -301,12 +302,13 @@ Clinic.emr.diag = (function () {
                     '该诊断（' + escHtml(prevDg.code) + ' ' + escHtml(prevDg.name) + '）已由 ' +
                     escHtml(refName) + ' 开具。<br>是否直接引用该诊断？（引用后仍可点击诊断编辑部位/备注）',
                     function () {
-                        var nd = {
-                            code: prevDg.code || code, name: prevDg.name || name,
-                            part: prevDg.part || '', note: prevDg.note || '',
-                            suspected: prevDg.suspected || '',
-                        };
-                        var list = myDiags().slice();
+                         var nd = {
+                             code: prevDg.code || code, name: prevDg.name || name,
+                             part: prevDg.part || '', note: prevDg.note || '',
+                             suspected: prevDg.suspected || '',
+                             quoted: '1',
+                         };
+                         var list = myDiags().slice();
                         list.push(nd);
                         closeDiagPop();
                         saveDiags(list, '已引用诊断：' + nd.name);
@@ -338,6 +340,7 @@ Clinic.emr.diag = (function () {
                     part: pop.querySelector('#dpPart').value.trim(),
                     note: pop.querySelector('#dpNote').value.trim(),
                     suspected: pop.querySelector('#dpSus').value,
+                    quoted: '',
                 };
                 var list = myDiags().slice();
                 list.push(nd);
@@ -409,6 +412,7 @@ Clinic.emr.diag = (function () {
                     newList.push({
                         code: row.code, name: row.name,
                         part: row.dg.part || '', note: row.dg.note || '', suspected: row.dg.suspected || '',
+                        quoted: '1',
                     });
                 }
             });

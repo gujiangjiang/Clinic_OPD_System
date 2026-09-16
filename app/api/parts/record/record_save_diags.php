@@ -73,6 +73,7 @@ function record_part_save_diags($u) {
             'part' => (string)(isset($d['part']) ? $d['part'] : ''),
             'note' => (string)(isset($d['note']) ? $d['note'] : ''),
             'suspected' => (string)(isset($d['suspected']) ? $d['suspected'] : ''),
+            'quoted' => (string)(isset($d['quoted']) ? $d['quoted'] : ''),
         );
     }
     // 允许清空诊断：删除主诊断后第二位自动递补，无则主诊断置空

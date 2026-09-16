@@ -1380,7 +1380,7 @@ Clinic.emr = (function () {
             if (!dg || !dg.name) return;
             var key = (dg.code || '') + '|' + dg.name;
             if (!diagMap[key]) {
-                diagMap[key] = { key: key, idx: 0, code: dg.code || '', name: dg.name, dg: dg, mine: false, others: false, ownOld: false, inCurrent: false, srcId: srcId || 0 };
+                diagMap[key] = { key: key, idx: 0, code: dg.code || '', name: dg.name, dg: dg, mine: false, others: false, ownOld: false, inCurrent: false, quoted: false, srcId: srcId || 0 };
                 diagOrder.push(diagMap[key]);
             }
             // 只要诊断出现在本人任何文书（当前或旧续写/首诊）→ 归属本人（srcId=本人），
@@ -1389,6 +1389,9 @@ Clinic.emr = (function () {
             if (others) diagMap[key].others = true;
             if (ownOld) diagMap[key].ownOld = true;
             if (inCurrent) diagMap[key].inCurrent = true;   // 当前编辑文书中存在 → 可删除
+            // 【引用】标记：仅当本人主动引用（添加）他人诊断到自己病历中时显示 ——
+            // 他人病历中原生诊断（本人未添加）不显示引用标记，仅浏览不算引用
+            if (dg.quoted) diagMap[key].quoted = true;
         };
         // 先遍历全部文书（首诊/续写/会诊，含当前记录）的诊断——按文书时间正序稳定聚合，
         // 顺序不随当前浏览的记录节点变化；当前编辑文书的诊断标记 inCurrent → 可删除。
@@ -1418,7 +1421,7 @@ Clinic.emr = (function () {
         // 否则删除按钮/排序浮窗点击静默无反应（row 恒 undefined）
         if (Clinic.emr.diag && Clinic.emr.diag.setDiagRows) Clinic.emr.diag.setDiagRows(diagOrder);
         diagEl.innerHTML = diagOrder.length ? diagOrder.map(function (x) {
-            var quoted = x.others && !x.ownOld;  // 仅他人诊断（不在本人任何旧文书中）显示引用标记
+            var quoted = x.quoted;  // 仅本人主动引用的诊断显示【引用】标记
             // 全局首行 = 主诊断：徽标提醒，但支持删除（主诊断保护移除——
             // 删除主诊断后第二位自动递补，无则主诊断置空）
             var diagReadOnlyFin = DATA && DATA.visit && DATA.visit.status === 'finished';
