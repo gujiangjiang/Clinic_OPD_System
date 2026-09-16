@@ -24,7 +24,7 @@ function record_part_save_diag_order($u) {
         json_fail('会诊病历不可调整诊断顺序');
     }
     // 可编辑病历拦截：诊断顺序调整要求当前医生存在可编辑病历
-    // （首诊新建中 / 续写未保存也不可调整——必须有可编辑的已保存或进行中文书）
+    // （与 record_save_diags.php 保持一致：无可编辑文书时拒绝调整）
     if (!get_editable_record($rowOrder['visit'], $u)) {
         json_fail('当前无可编辑的病历，无法调整诊断顺序');
     }
