@@ -153,7 +153,7 @@ Clinic.emr.diag = (function () {
         pop.querySelector('#dpeSave').addEventListener('click', function () {
             var arr = myDiags().slice();
             if (!arr[idx]) { closeDiagPop(); return; }
-             arr[idx] = {
+            arr[idx] = {
                 code: arr[idx].code, name: arr[idx].name,
                 part: pop.querySelector('#dpPart').value.trim(),
                 note: pop.querySelector('#dpNote').value.trim(),
@@ -302,13 +302,13 @@ Clinic.emr.diag = (function () {
                     '该诊断（' + escHtml(prevDg.code) + ' ' + escHtml(prevDg.name) + '）已由 ' +
                     escHtml(refName) + ' 开具。<br>是否直接引用该诊断？（引用后仍可点击诊断编辑部位/备注）',
                     function () {
-                         var nd = {
-                             code: prevDg.code || code, name: prevDg.name || name,
-                             part: prevDg.part || '', note: prevDg.note || '',
-                             suspected: prevDg.suspected || '',
-                             quoted: '1',
-                         };
-                         var list = myDiags().slice();
+                        var nd = {
+                            code: prevDg.code || code, name: prevDg.name || name,
+                            part: prevDg.part || '', note: prevDg.note || '',
+                            suspected: prevDg.suspected || '',
+                            quoted: '1',
+                        };
+                        var list = myDiags().slice();
                         list.push(nd);
                         closeDiagPop();
                         saveDiags(list, '已引用诊断：' + nd.name);

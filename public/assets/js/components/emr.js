@@ -696,7 +696,7 @@ Clinic.emr = (function () {
                             phBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
                                 '<div class="fs-14">📝 病历续写</div>' +
                                 '<div class="fs-12 text-muted mt-4">该患者已有保存的病历（上方只读展示）。' +
-                                '点击左侧「病历节点 ＋」开始书写续写病历。</div></div>';
+                                '点击右侧「病历节点 ＋」开始书写续写病历。</div></div>';
                         }
                     }
                     refreshReadOnlyBodies(d);
