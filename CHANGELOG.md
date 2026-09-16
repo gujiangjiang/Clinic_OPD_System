@@ -13,7 +13,7 @@
 
 ---
 
-## [Unreleased]
+## [8.16.3] - 2026-09-16
 
 ### 修复
 - **诊断排序/主诊调整防误触发**：前端 `currentRecordEditable()` 补充 `record_id=0` 时的 `pending` 标志校验——当 B 医生打开 A 医生的病历但 _尚未_ 点击「病历节点 ＋」开始续写时，诊断排序 / 设为主诊 / 编辑诊断等操作浮窗不再弹窗。后端 `record_save_diag_order.php` 同步补充 `get_editable_record` 拦截，防接口直调绕过。
