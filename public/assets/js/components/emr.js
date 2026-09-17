@@ -366,6 +366,8 @@ Clinic.emr = (function () {
                 onChange: function () { EMR_DIRTY = true; },
             });
             refreshReadOnlyBodies(d);
+            // 续写病历应在当前科室可编辑：dept_match=1 让 "+" 按钮显示
+            DATA.record.dept_match = 1;
             // 右侧病历节点列表追加临时续写节点（renderLeftNav 内自动处理占位）
             DATA.__pending_progress = true;
             renderLeftNav();
@@ -413,6 +415,7 @@ Clinic.emr = (function () {
         DATA.__edit_record_id = 0;   // 新建续写走 progress_new，不使用精确回写
         DATA.record.record_id = 0;
         DATA.record.record_type = 'progress';
+        DATA.record.dept_match = 1;   // 续写病历在当前科室可编辑：+ 按钮显示
         var base = JSON.parse(JSON.stringify(r.emr || {}));
         var ph = base.past_history;
         DATA.record.emr = cleanProgressEmr(ph);
@@ -2507,7 +2510,11 @@ Clinic.emr = (function () {
                         histEntry.emr = JSON.parse(JSON.stringify(emr));
                         histEntry.updated_at = now;
                     }
-                    DATA.__pending_initial = false;   // 首诊已保存，占位消失
+                    // 保存成功：先清除所有 pending 标志，确保左侧节点渲染正确
+                    // 否则在 hist.length > 0 时会显示「续写编辑中（未保存）」错误节点
+                    DATA.__pending_initial = false;
+                    DATA.__pending_progress = false;
+                    DATA.__progress_new = false;
                     renderLeftNav();
                     syncNavAdds();
                     // 锚点条幅时间实时刷新为首次保存时间（首诊/续写保存后不刷新页面，
@@ -2522,15 +2529,6 @@ Clinic.emr = (function () {
                     }
                 }
                 Clinic.toast.success(j.msg);
-                // 新建续写文书已落库：页面保持不变（编辑器与内容原样保留），
-                // 仅右侧「续写编辑中」占位转为正式病历节点（renderLeftNav）。
-                // 后续再次保存 → 后端按本人最新文书更新同一条记录。
-                if (DATA && DATA.__progress_new) {
-                    DATA.__progress_new = false;
-                    DATA.__pending_progress = false;
-                    renderLeftNav();
-                    return;
-                }
                 if (finish) {
                     // 诊毕后关闭已诊毕患者病历页，回到空白工作台（自动弹出候诊列表）
                     // 无参 /doctor/emr 渲染空白工作台，自动弹候诊面板
