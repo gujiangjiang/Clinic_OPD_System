@@ -109,6 +109,7 @@ Clinic.infiniteScroll = function (opts) {
  *           }).join('');
  *       },
  *       onSuccess: function (json) { }              // 可选：每次加载成功回调（可写业务状态）
+ *       onError: function () { }                    // 可选：加载失败回调（可展示空态/重试提示）
  *   });
  *   list.reset();   // 重置到第一页（搜索条件变化时调用）
  *   list.stop();    // 解除监听
@@ -162,7 +163,7 @@ Clinic.infiniteList = function (opts) {
                 if (totalEl) totalEl.textContent = '共 ' + (d.total || 0) + ' 条';
                 if (onSuccess) onSuccess(json, p);
             },
-            onError: function () { loading = false; },
+            onError: function () { loading = false; if (opts.onError) opts.onError(); },
         });
     }
 
