@@ -306,13 +306,12 @@ Clinic.emr = (function () {
         var deptName = r.dept_name || '';
         wrap.innerHTML = (isProg ? '<div class="emr-cont-divider"></div>' : '') +
             '<div class="prev-record-head">' +
-            '<div class="pr-head-left">' + badge +
-            (deptName ? '<span class="pr-dept">' + escHtml(deptName) + '</span>' : '') +
-            '<span class="fw-600">' + escHtml(r.doctor_name) +
+            '<span class="pr-head-badge">' + badge + '</span>' +
+            (deptName ? '<span class="pr-head-dept">' + escHtml(deptName) + '</span>' : '<span class="pr-head-dept"></span>') +
+            '<span class="pr-head-doctor fw-600">' + escHtml(r.doctor_name) +
             (r.doctor_title ? ' ' + escHtml(r.doctor_title) : '') +
             (r.doctor_emp ? ' （工号 ' + escHtml(r.doctor_emp) + '）' : '') + '</span>' +
-            '</div>' +
-            '<span class="pr-time">' + escHtml(t) + '</span>' +
+            '<span class="pr-head-time">' + escHtml(t) + '</span>' +
             '</div>';
     }
 
@@ -599,15 +598,15 @@ Clinic.emr = (function () {
             var contHtml = (needProgress || emptyInitial || consultLock) ? '' :
                 (isProgress ? '<div class="emr-cont-divider"></div>' : '') +
                 '<div class="prev-record-head">' +
-                '<div class="pr-head-left">' +
+                '<span class="pr-head-badge">' +
                 ((r.consultation_id > 0) ? '<span class="badge badge-warning">会诊记录</span>'
                     : (isProgress ? '<span class="badge badge-primary">病历续写</span>' : '<span class="badge badge-gray">首诊病历</span>')) +
-                (r.dept_name ? '<span class="pr-dept">' + escHtml(r.dept_name) + '</span>' : '') +
-                '<span class="fw-600">' + escHtml(r.doctor_name) +
+                '</span>' +
+                (r.dept_name ? '<span class="pr-head-dept">' + escHtml(r.dept_name) + '</span>' : '<span class="pr-head-dept"></span>') +
+                '<span class="pr-head-doctor fw-600">' + escHtml(r.doctor_name) +
                 (r.doctor_title ? ' ' + escHtml(r.doctor_title) : '') +
                 (r.doctor_emp ? ' （工号 ' + escHtml(r.doctor_emp) + '）' : '') + '</span>' +
-                '</div>' +
-                ((r.created_at || r.updated_at) ? '<span class="pr-time">' + escHtml(r.created_at || r.updated_at) + '</span>' : '') +
+                ((r.created_at || r.updated_at) ? '<span class="pr-head-time">' + escHtml(r.created_at || r.updated_at) + '</span>' : '<span class="pr-head-time"></span>') +
                 '</div>';
             docHtml =
                 '<div class="emr-doc">' +

@@ -328,11 +328,11 @@
    虚线标注带 + 灰色只读正文 + 医生签名
    ============================================================ */
 .prev-record-head {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto 30% 45% auto;
     align-items: center;
-    justify-content: space-between;
     gap: 10px;
-    flex-wrap: wrap;
+    min-width: 0;
     margin: 10px 0 2px;
     padding: 8px 12px;
     background: var(--bg);
@@ -342,14 +342,28 @@
     color: var(--text-muted);
     user-select: none;
 }
-.pr-head-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+.pr-head-badge {
+    min-width: 60px;
 }
-.pr-dept {
+.pr-head-dept {
+    min-width: 0;
     font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pr-head-doctor {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pr-head-time {
+    justify-self: end;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .prev-record-body {
     padding: 8px 0 0;

@@ -95,16 +95,14 @@ Clinic.emr.segments = (function () {
                     ? '<span class="badge badge-primary">病历续写</span>'
                     : '<span class="badge badge-gray">首诊病历</span>'));
         var deptName = rec.dept_name || '';
-        var authorSpan = '<span class="fw-600">' + escHtml(rec.doctor_name) +
-            (rec.doctor_title ? ' ' + escHtml(rec.doctor_title) : '') +
-            (rec.doctor_emp ? ' （工号 ' + escHtml(rec.doctor_emp) + '）' : '') + '</span>';
         return '<div class="prev-record-wrap-sec emr-record-readonly" id="recSeg' + rec.id + '">' +
             '<div class="prev-record-head">' +
-            '<div class="pr-head-left">' + typeBadge +
-            (deptName ? '<span class="pr-dept">' + escHtml(deptName) + '</span>' : '') +
-            authorSpan +
-            '</div>' +
-            '<span class="pr-time">' + escHtml(rec.created_at) + '</span>' +
+            '<span class="pr-head-badge">' + typeBadge + '</span>' +
+            (deptName ? '<span class="pr-head-dept">' + escHtml(deptName) + '</span>' : '<span class="pr-head-dept"></span>') +
+            '<span class="pr-head-doctor fw-600">' + escHtml(rec.doctor_name) +
+            (rec.doctor_title ? ' ' + escHtml(rec.doctor_title) : '') +
+            (rec.doctor_emp ? ' （工号 ' + escHtml(rec.doctor_emp) + '）' : '') + '</span>' +
+            '<span class="pr-head-time">' + escHtml(rec.created_at) + '</span>' +
             '</div>' +
             '<div class="prev-record-body">' +
             (secs.length ? secs.join('') : '<div class="text-muted fs-13">（该文书暂无内容）</div>') + '</div>' +
