@@ -179,6 +179,26 @@ Clinic.emr.segments = (function () {
         var afterEl = document.getElementById('roAfter');
         if (beforeEl) beforeEl.innerHTML = parts.before.length ? parts.before.map(roSegmentHtml).join('') : '';
         if (afterEl) afterEl.innerHTML = parts.after.length ? parts.after.map(roSegmentHtml).join('') : '';
+        // 未保存的新建续写/首诊编辑器被冻结（切换他人文书节点时暂存 DATA.__pending_emr）：
+        // 其内容作为只读段追加在时间序最后（roAfter 末尾），不丢失且不可编辑；
+        // 点击左侧「续写/首诊编辑中」节点可恢复编辑（restorePendingEditor）
+        if (d.__pending_emr && afterEl) {
+            var pend = d.__pending_emr;
+            var pendRec = {
+                id: 0, record_id: 0,
+                doctor_id: d.currentDoctorId || (d.record && d.record.doctor_id) || 0,
+                doctor_name: d.currentDoctorName || (d.record && d.record.doctor_name) || '',
+                doctor_emp: d.currentDoctorEmp || '',
+                doctor_title: d.currentDoctorTitle || '',
+                record_type: pend.record_type || 'progress',
+                emr: pend.emr || {},
+                created_at: '（未保存）',
+                consultation_id: 0, is_critical: 0,
+                consciousness: pend.consciousness || '清醒',
+                vitals: {},
+            };
+            afterEl.insertAdjacentHTML('beforeend', roSegmentHtml(pendRec));
+        }
     }
 
     function injectPrevDiagContext() {

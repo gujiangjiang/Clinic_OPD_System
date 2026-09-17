@@ -748,12 +748,18 @@ Clinic.emr = (function () {
             scrollToEditor(200);
         }
         // ===== 恢复顶栏写操作按钮（从只读/会诊锁切回可编辑记录时） =====
-        // deptMismatch（转科前旧文书只读）或 otherDoctor（他人文书）：不恢复写按钮，隐藏之
-        if (!readOnly && !consultLock && !otherDoctor) {
-            if (deptMismatch) {
+        // deptMismatch（转科前旧文书只读）或 otherDoctor（他人文书）：
+        // 仅查看（只读），隐藏写操作按钮，不恢复编辑；病历节点「＋」仍可用（创建本人病历）
+        if (!readOnly && !consultLock) {
+            if (deptMismatch || otherDoctor) {
                 document.querySelectorAll('.emr-top-actions .emr-write').forEach(function (b) { b.style.display = 'none'; });
                 var stDm = document.getElementById('saveStatus');
-                if (stDm) { stDm.textContent = '转科前旧文书：仅可查看（只读）'; stDm.style.color = 'var(--text-muted)'; }
+                if (stDm) {
+                    stDm.textContent = otherDoctor
+                        ? '他人病历：仅可查看（只读），点击「病历节点 ＋」创建本人病历'
+                        : '转科前旧文书：仅可查看（只读），点击「病历节点 ＋」创建本人续写病历';
+                    stDm.style.color = 'var(--text-muted)';
+                }
             } else {
                 restoreWriteButtons();
             }
@@ -1674,6 +1680,102 @@ Clinic.emr = (function () {
         scrollToEditor(0);
     }
 
+    /**
+     * 切换他人病历节点前冻结未保存的新建编辑器（首诊/续写，record_id=0）：
+     * 收集编辑器当前内容（生命体征为外部注入节，collect 不含，需从 emr 保留）
+     * 整份暂存到 DATA.__pending_emr；切换后其内容以只读段按时间序展示
+     * （emr_segments.refreshReadOnlyBodies 追加渲染），不丢失。
+     * 点击左侧「续写/首诊编辑中」节点可恢复编辑（restorePendingEditor）。
+     */
+    function freezeUnsavedBeforeSwitch() {
+        if (!DATA || !DATA.record) return;
+        var collected = null;
+        try { collected = Clinic.emrEditor.collect(); } catch (e) { collected = null; }
+        if (collected) {
+            // collect 不含生命体征（体征为外部注入展示节），保留原 emr 体征
+            if (DATA.record.emr && DATA.record.emr.vitals && !collected.vitals) {
+                collected.vitals = DATA.record.emr.vitals;
+            }
+            DATA.record.emr = collected;
+        }
+        var consciousnessEl = document.getElementById('consciousness');
+        DATA.__pending_emr = {
+            record_type: DATA.record.record_type || 'progress',
+            emr: JSON.parse(JSON.stringify(DATA.record.emr || {})),
+            consciousness: consciousnessEl ? consciousnessEl.value : (DATA.record.consciousness || '清醒'),
+            is_initial: !!DATA.__pending_initial,
+        };
+    }
+
+    /**
+     * 恢复被冻结的未保存新建编辑器（scrollToPendingEditor 调用）：
+     * 将 DATA.__pending_emr 暂存内容原样恢复到 docBody 编辑器（不清理结构），
+     * 清除冻结暂存并刷新只读区/左侧大纲/顶栏按钮后滚动定位。
+     * @return {boolean} true=已恢复并定位；false=无需恢复（仅定位）
+     */
+    function restorePendingEditor() {
+        if (!DATA || !DATA.__pending_emr) return false;
+        // 当前已是未保存编辑器（未切换走）→ 无需恢复，仅定位
+        if (!(DATA.record && DATA.record.record_id > 0) && (DATA.__pending_progress || DATA.__pending_initial)) {
+            return false;
+        }
+        var stash = DATA.__pending_emr;
+        var isInitial = stash.is_initial || stash.record_type === 'initial';
+        // 1. 恢复 DATA.record 为未保存编辑态（本人新文书，可编辑）
+        DATA.record = {
+            record_id: 0, id: 0,
+            doctor_id: myDoctorId(),
+            doctor_name: DATA.currentDoctorName || '',
+            doctor_emp: DATA.currentDoctorEmp || '',
+            doctor_title: DATA.currentDoctorTitle || '',
+            dept_id: (DATA.visit && DATA.visit.current_dept_id) || 0,
+            record_type: isInitial ? 'initial' : 'progress',
+            emr: JSON.parse(JSON.stringify(stash.emr || {})),
+            consultation_id: 0,
+            consciousness: stash.consciousness || '清醒',
+            created_at: '', updated_at: '',
+            dept_match: 1,
+        };
+        DATA.__edit_record_id = 0;
+        DATA.__pending_initial = isInitial;
+        DATA.__pending_progress = !isInitial;
+        DATA.__progress_new = !isInitial;
+        DATA.__pending_emr = null;
+        // 2. 重建 docBody 为未保存编辑器（原内容恢复，不清理结构）
+        var docBody = document.getElementById('docBody');
+        if (docBody) {
+            docBody.innerHTML = '';
+            try {
+                Clinic.emrEditor.render(docBody, DATA.record.emr, {
+                    readonly: false,
+                    beforeVitals: buildVitalSec(false, (DATA.record.emr && DATA.record.emr.vitals) || {}),
+                    midNode: buildConsciousNode(false, DATA.record.consciousness || '清醒'),
+                    mode: isInitial ? 'initial' : 'progress',
+                    allergyHistory: allergyHistorySource(),
+                    onChange: function () { EMR_DIRTY = true; },
+                });
+            } catch (e) {
+                console.error('未保存编辑器恢复失败', e);
+                Clinic.toast.error('未保存编辑器恢复失败，请刷新页面重试');
+                return true;
+            }
+        }
+        // 3. 条幅 + 签名（首诊/续写各自版式）
+        fillContHead(DATA.record);
+        var signEl = document.getElementById('signWrap');
+        if (signEl) signEl.textContent = '医生：' + (DATA.currentDoctorName || DATA.record.doctor_name);
+        // 3.5 最近保存徽章：未保存编辑态不显示
+        var savedBadge = document.getElementById('docSavedBadge');
+        if (savedBadge) { savedBadge.textContent = ''; savedBadge.style.display = 'none'; }
+        // 4. 刷新只读区（冻结段已随 __pending_emr 清除而消失）+ 自动段 + 左侧节点 + 顶栏按钮
+        refreshReadOnlyBodies(DATA);
+        if (window.Clinic && Clinic.emr.orders) Clinic.emr.orders.renderDocOrders();
+        renderLeftNav();
+        restoreWriteButtons();
+        scrollToEditor(0);
+        return true;
+    }
+
     window.scrollToRecord = function (recId, doctorId) {
         var r = DATA && DATA.record;
         // 诊毕只读 / 跨科室绝对只读（readonly_view）：所有文书均为只读段，
@@ -1709,16 +1811,21 @@ Clinic.emr = (function () {
             return;
         }
         // 2. 他人文书 → 切换到该文书进入只读模式（switchToRecord 渲染为只读），
-        //    而非仅滚动定位——这样可以关闭当前编辑器，确避免读按钮滞留
+        //    而非仅滚动定位——这样可以关闭当前编辑器，避免只读按钮滞留。
+        //    查看他人文书是只读操作，不要求当前文书完善/保存（避免无可编辑文书时
+        //    误报「请完善当前病历」）：
+        //    · 本人已保存文书有未保存修改 → 提示先保存（防误切换丢失修改）
+        //    · 未保存的新建续写/首诊编辑器（record_id=0）→ 冻结内容防丢失，
+        //      切换后以只读段按时间序展示，点击「续写编辑中」节点可恢复编辑
+        //    · 其余（无可编辑文书 / 已保存且无修改）→ 直接切换
         if (doctorId !== mineId) {
-            if (EMR_DIRTY) {
+            if (DATA.record && DATA.record.record_id > 0 && EMR_DIRTY) {
                 Clinic.toast.warning('当前病历有未保存的修改，请先点击「💾 保存」后再切换病历节点');
                 return;
             }
-            if (!isRecordComplete()) {
-                var need3 = r && r.record_type === 'progress' ? '病历续写内容与初步诊断' : '主诉、现病史与初步诊断';
-                Clinic.toast.warning('请先完善并保存当前病历的必填项（' + need3 + '），再切换病历节点');
-                return;
+            if (!(DATA.record && DATA.record.record_id > 0)
+                && (DATA.__pending_progress || DATA.__pending_initial || DATA.__progress_new)) {
+                freezeUnsavedBeforeSwitch();
             }
             switchToRecord(recId);
             return;
@@ -1827,6 +1934,12 @@ Clinic.emr = (function () {
                             return;
                         }
                         enterConsultEditor(DATA.__consult_id);
+                        return;
+                    }
+                    // 存在被冻结的未保存编辑器（切换他人文书节点时暂存）→
+                    // 恢复其内容继续编辑，不再新建（避免放弃未保存的续写/首诊）
+                    if (DATA.__pending_emr && DATA.record && DATA.record.record_id > 0) {
+                        restorePendingEditor();
                         return;
                     }
                     // 首诊编辑中（模板已选，未保存）→ 必须保存后才能续写
@@ -2635,8 +2748,11 @@ Clinic.emr = (function () {
         Clinic.print.load('/api/print?action=record&visit_id=' + visitIdP, null, 'a5');
     }
 
-    /** 编辑中占位点击时定位到编辑器（首诊/续写编辑中节点） */
+    /** 编辑中占位点击时定位到编辑器（首诊/续写编辑中节点）；
+     *  若未保存编辑器被冻结（切换他人文书节点时暂存 DATA.__pending_emr），
+     *  先恢复其内容到编辑器再定位。 */
     function scrollToPendingEditor() {
+        if (restorePendingEditor()) return;
         scrollToEditor(0);
     }
 
@@ -2662,6 +2778,7 @@ Clinic.emr = (function () {
             DATA.__pending_progress = false;
             DATA.__progress_new = false;
             DATA.__edit_record_id = 0;
+            DATA.__pending_emr = null;   // 清冻结暂存（防恢复幽灵编辑器）
             EMR_DIRTY = false;
             if (wasInitial) {
                 // 首诊编辑中（从未保存，records_history 为空）→ 回到空病历占位
