@@ -72,10 +72,6 @@ Clinic.order = (function () {
     var DOSE_OUTER_BOUND = false;
     /** 已选项目列表 */
     var SELECTED = [];
-    /** 项目目录缓存（分页加载后的所有项目） */
-    var CATALOG = [];
-    /** 项目目录总数（用于显示「共 N 条」） */
-    var CATALOG_TOTAL = 0;
     /** 目录 id -> 名称（共享成员提醒显示用） */
     var ID_NAMES = {};
     /** 组合包含成员关系：groupId -> [memberId] */
@@ -89,8 +85,12 @@ Clinic.order = (function () {
     var RX_ROUTES = [];
     /** 待二次确认的既往项目 */
     var PENDING = null;
-    /** 项目列表的 infiniteList 实例（用于重置搜索） */
-    var CATALOG_LIST = null;
+    /** 项目目录 / 药品下拉的 infiniteList 实例（滚动分段加载） */
+    var CATALOG_LIST = null;   // 检验/检查/处置左侧目录
+    var RX_LIST = null;        // 处方顶部搜索下拉
+    var RX_SUB_LIST = null;    // 处方子医嘱内联下拉
+    /** 处方下拉最近一次加载的关键字（焦点重显时判定是否需重置） */
+    var RX_KW_LAST = '';
 
     /**
      * 初始化（页面加载时调用）
@@ -119,10 +119,10 @@ Clinic.order = (function () {
         ID_NAMES = {};
         PENDING = null;
         var names = { lab: '开检验', imaging: '开检查', procedure: '开处置', prescription: '开处方' };
-        var catalogReady = false;
         var prevReady = (type !== 'lab');   // 仅检验需要既往开具记录
         function tryOpen() {
-            if (!catalogReady || !prevReady) return;
+            if (!prevReady) return;
+            // 目录不再预加载：弹窗打开后由 infiniteList 按页加载（首屏 1 页 + 滚动续加载）
             Clinic.modal.open(renderDialog(), {
                 title: names[type] || '开单',
                 size: 'modal-lg order-modal',
@@ -132,25 +132,9 @@ Clinic.order = (function () {
                 ],
             });
             bindEvents();
+            initCatalogList();
+            if (type === 'prescription') initRxList();
         }
-        Clinic.get('/api/order?action=catalog&type=' + type, null, {
-            onSuccess: function (j) {
-                CATALOG = j.data.list;
-                if (j.data.link_dicts) {
-                    RX_FREQS = j.data.link_dicts.frequencies || [];
-                    RX_ROUTES = j.data.link_dicts.routes || [];
-                }
-                buildMaps();
-                catalogReady = true;
-                tryOpen();
-            },
-            onError: function () {
-                // 目录加载失败：置空目录并放行（弹窗内显示空态），避免点击开单按钮毫无反应
-                CATALOG = [];
-                catalogReady = true;
-                tryOpen();
-            },
-        });
         if (type === 'lab') {
             Clinic.get('/api/order?action=prev_items&visit_id=' + VISIT_ID + '&type=lab', null, {
                 onSuccess: function (j) {
@@ -165,23 +149,30 @@ Clinic.order = (function () {
                     tryOpen();
                 },
             });
+        } else {
+            tryOpen();
         }
     }
 
     /**
-     * 构建组合/成员关系映射（互斥判断用）
+     * 构建组合/成员关系映射（互斥判断用）：由首页响应的 lab_map 全量映射构建
+     * @param {object} m { names:{id:名称}, groups:{gid:[mid]}, members:{mid:[gid]} }
      */
-    function buildMaps() {
-        CATALOG.forEach(function (it) {
-            ID_NAMES[it.id] = it.name;
-            if (it.is_group && it.member_ids) {
-                var ids = String(it.member_ids).split(',').map(Number).filter(function (n) { return n > 0; });
-                GROUP_MEMBERS[it.id] = ids;
-                ids.forEach(function (mid) {
-                    (MEMBER_GROUPS[mid] = MEMBER_GROUPS[mid] || []).push(it.id);
-                });
-            }
-        });
+    function buildMapsFrom(m) {
+        ID_NAMES = {};
+        GROUP_MEMBERS = {};
+        MEMBER_GROUPS = {};
+        if (!m) return;
+        if (m.names) ID_NAMES = m.names;
+        var g = m.groups || {};
+        for (var gid in g) {
+            var gi = parseInt(gid, 10);
+            if (!(gi > 0)) continue;
+            GROUP_MEMBERS[gi] = g[gid] || [];
+            (g[gid] || []).forEach(function (mid) {
+                (MEMBER_GROUPS[mid] = MEMBER_GROUPS[mid] || []).push(gi);
+            });
+        }
     }
 
     /**
@@ -198,50 +189,6 @@ Clinic.order = (function () {
                 (i + 1) + '</div>' +
                 '<span class="fs-13 ' + (i === 0 ? 'fw-600' : 'text-muted') + '">' + s + '</span></div>';
         }).join('<div style="width:2px;height:16px;background:var(--border);margin-left:11px"></div>');
-
-        var rows = CATALOG.filter(function (it) {
-            // 处方：库存为 0 的药品不显示（缺货不可开具）
-            return !(isDrug && (it.stock || 0) <= 0);
-        }).map(function (it) {
-            var info = '';
-            if (isDrug) {
-                var parts = [];
-                if (it.single_dose) parts.push('剂量 ' + it.single_dose);
-                if (it.frequency) parts.push('频次 ' + it.frequency);
-                if (it.route) parts.push('途径 ' + it.route);
-                info = parts.length ? '<div class="fs-12 text-muted">' + parts.join(' ｜ ') + '</div>' : '';
-            } else if (it.is_group) {
-                // 检验组合：显示组内成员，按组价整体收费
-                info = '<div class="fs-12 text-muted">🧩 组合项目 ｜ 含：' + (it.members || it.spec || '') +
-                    '（按组价整体收费）</div>';
-            }
-            return '<div class="dd-item" data-id="' + it.id + '" ' +
-                'data-price="' + (it.price || 0) + '" data-name="' + Clinic.escHtml(it.name || '') + '"' +
-                ' data-spec="' + Clinic.escHtml(it.spec || '') + '" data-unit="' + Clinic.escHtml(it.unit || '') + '"' +
-                ' data-company="' + Clinic.escHtml(it.company_short || '') + '"' +
-                ' data-dose="' + Clinic.escHtml(it.single_dose || '') + '"' +
-                ' data-freq="' + Clinic.escHtml(it.frequency || '') + '"' +
-                ' data-route="' + Clinic.escHtml(it.route || '') + '"' +
-                ' data-route-nurse="' + (it.route_nurse_required || 0) + '"' +
-                ' data-stock="' + (it.stock || 0) + '"' +
-                ' data-nurse-req="' + (it.nurse_required || 0) + '"' +
-                ' data-need-skin-test="' + (it.is_skin_test || 0) + '"' +
-                ' data-is-group="' + (it.is_group ? 1 : 0) + '"' +
-                ' data-members="' + Clinic.escHtml(it.member_ids || '') + '"' +
-                '>' +
-                '<div class="flex-between">' +
-                '  <div><span class="fw-600">' + Clinic.escHtml(it.name || '') + '</span>' +
-                (it.is_group ? ' <span class="badge badge-primary fs-12">组合</span>' : '') +
-                (isDrug && it.company_short ? ' <span class="fs-12 text-muted">' + Clinic.escHtml(it.company_short) + '</span>' : '') +
-                (it.category_name ? ' <span class="badge badge-gray fs-12">' + Clinic.escHtml(it.category_name) + '</span>' : '') +
-                '</div>' +
-                '  <div class="text-right">' +
-                '    <div class="fw-600" style="color:var(--primary)">¥' + parseFloat(it.price || 0).toFixed(2) + '</div>' +
-                (isDrug ? '<div class="fs-12 ' + (it.stock > 0 ? 'text-success' : 'text-danger') + '">库存：' +
-                    (it.stock || 0) + '</div>' : '') +
-                '  </div></div>' + info +
-                '</div>';
-        }).join('') || '<div class="dd-empty">暂无可选项目，请先联系管理员添加</div>';
 
         // 护士站执行/处置均改为在「已选列表」逐项勾选（默认取管理员设置，医生可自由修改）
         var nurseBox = '';
@@ -281,8 +228,8 @@ Clinic.order = (function () {
             '    <input type="text" class="input" id="orderKw" placeholder="搜索' +
             (isDrug ? '药品名称/厂家简称' : '项目名称') + '" autocomplete="off">' +
             (CUR_TYPE === 'lab' ? labFilterBar() : '') +
-            '    <div class="order-catalog" style="flex:1;min-height:0;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-top:8px">' +
-            rows + '</div>' +
+            '    <div class="order-catalog" id="orderCatalog" style="flex:1;min-height:0;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-top:8px">' +
+            '<div class="text-center" style="padding:24px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>' +
             '    <div class="fs-12 text-muted mt-8" style="line-height:1.6">' + legend + '</div>' +
             '  </div>' +
             // 中：已选项目（大块）
@@ -313,17 +260,82 @@ Clinic.order = (function () {
             }).join('') + '</div>';
     }
 
-    /** 统一应用目录筛选：搜索关键字 + 检验筛选（单个/组合） */
-    function applyCatalogFilter() {
-        var kw = ((document.getElementById('orderKw') || {}).value || '').toLowerCase();
-        document.querySelectorAll('.order-catalog .dd-item').forEach(function (el) {
-            var matchKw = !kw || el.textContent.toLowerCase().indexOf(kw) !== -1;
-            var matchF = true;
-            if (CUR_TYPE === 'lab') {
-                var isGroup = el.getAttribute('data-is-group') === '1';
-                matchF = LAB_FILTER === 'group' ? isGroup : !isGroup;
-            }
-            el.style.display = (matchKw && matchF) ? '' : 'none';
+    /** 目录条目 HTML（分页渲染每行；已选项目置灰标识） */
+    function catalogItemHtml(it) {
+        var sel = SELECTED.some(function (s) { return s.id === it.id; });
+        var info = '';
+        if (it.is_group) {
+            // 检验组合：显示组内成员，按组价整体收费
+            info = '<div class="fs-12 text-muted">🧩 组合项目 ｜ 含：' + Clinic.escHtml(it.members || it.spec || '') +
+                '（按组价整体收费）</div>';
+        }
+        return '<div class="dd-item' + (sel ? ' dd-sel' : '') + '" data-id="' + it.id + '" ' +
+            'data-price="' + (it.price || 0) + '" data-name="' + Clinic.escHtml(it.name || '') + '"' +
+            ' data-spec="' + Clinic.escHtml(it.spec || '') + '" data-unit="' + Clinic.escHtml(it.unit || '') + '"' +
+            ' data-company="' + Clinic.escHtml(it.company_short || '') + '"' +
+            ' data-dose="' + Clinic.escHtml(it.single_dose || '') + '"' +
+            ' data-freq="' + Clinic.escHtml(it.frequency || '') + '"' +
+            ' data-route="' + Clinic.escHtml(it.route || '') + '"' +
+            ' data-route-nurse="' + (it.route_nurse_required || 0) + '"' +
+            ' data-stock="' + (it.stock || 0) + '"' +
+            ' data-nurse-req="' + (it.nurse_required || 0) + '"' +
+            ' data-need-skin-test="' + (it.is_skin_test || 0) + '"' +
+            ' data-is-group="' + (it.is_group ? 1 : 0) + '"' +
+            ' data-members="' + Clinic.escHtml(it.member_ids || '') + '"' +
+            '>' +
+            '<div class="flex-between">' +
+            '  <div><span class="fw-600">' + Clinic.escHtml(it.name || '') + '</span>' +
+            (it.is_group ? ' <span class="badge badge-primary fs-12">组合</span>' : '') +
+            (it.category_name ? ' <span class="badge badge-gray fs-12">' + Clinic.escHtml(it.category_name) + '</span>' : '') +
+            '</div>' +
+            '  <div class="text-right">' +
+            '    <div class="fw-600" style="color:var(--primary)">¥' + parseFloat(it.price || 0).toFixed(2) + '</div>' +
+            '  </div></div>' + info +
+            '</div>';
+    }
+
+    /** 目录分页接口地址（搜索关键字 / 检验筛选实时参与拼接） */
+    function catalogUrl(p, size) {
+        var kw = encodeURIComponent((document.getElementById('orderKw') || {}).value || '');
+        var f = CUR_TYPE === 'lab' ? LAB_FILTER : '';
+        return '/api/order?action=catalog&type=' + CUR_TYPE + '&page=' + p + '&size=' + size + '&kw=' + kw + '&f=' + f;
+    }
+
+    /** 重置目录列表到第一页（搜索关键字 / 单个组合切换时调用） */
+    function catalogReset() {
+        if (CATALOG_LIST) CATALOG_LIST.reset();
+        else initCatalogList();
+    }
+
+    /** 初始化目录无限滚动列表（检验/检查/处置左侧，滚动到底部续加载） */
+    function initCatalogList() {
+        var box = document.getElementById('orderCatalog');
+        if (!box) return;
+        if (CATALOG_LIST) CATALOG_LIST.stop();
+        CATALOG_LIST = Clinic.infiniteList({
+            el: box,
+            pageSize: 20,
+            threshold: 40,
+            emptyHtml: '<div class="dd-empty" style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">暂无可选项目，请先联系管理员添加</div>',
+            url: catalogUrl,
+            render: function (list, isFirst) {
+                return list.map(catalogItemHtml).join('');
+            },
+            onSuccess: function (json) {
+                // 首页响应携带组合映射 + 联动字典（后续分页不再重复携带）
+                var d = json.data || {};
+                if (d.lab_map) buildMapsFrom(d.lab_map);
+                if (d.link_dicts) {
+                    RX_FREQS = d.link_dicts.frequencies || [];
+                    RX_ROUTES = d.link_dicts.routes || [];
+                }
+            },
+            onError: function () {
+                // 首次加载失败：展示空态提示，避免停留加载态
+                if (box.querySelector('.spinner')) {
+                    box.innerHTML = '<div class="dd-empty" style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">加载失败，请重试</div>';
+                }
+            },
         });
     }
 
@@ -368,22 +380,41 @@ Clinic.order = (function () {
             '</div>';
     }
 
-    /** 渲染顶部药品下拉（kw 为空 → 完整列表） */
-    function renderRxDrop(kw) {
+    /** 处方药品下拉分页接口地址（搜索关键字实时参与拼接） */
+    function rxUrl(p, size) {
+        var kw = encodeURIComponent((document.getElementById('rxKw') || {}).value || '');
+        return '/api/order?action=catalog&type=prescription&page=' + p + '&size=' + size + '&kw=' + kw;
+    }
+
+    /** 重置药品下拉到第一页（关键字输入 / 焦点重显时调用） */
+    function rxReset() {
+        if (RX_LIST) RX_LIST.reset();
+        else initRxList();
+    }
+
+    /** 初始化顶部药品下拉无限滚动列表（聚焦弹出即加载，滚动续加载） */
+    function initRxList() {
         var box = document.getElementById('rxDrop');
         if (!box) return;
-        var k = (kw || '').trim().toLowerCase();
-        var list = CATALOG.filter(function (it) {
-            if (!k) return true;
-            return (it.name || '').toLowerCase().indexOf(k) !== -1 ||
-                (it.company_short || '').toLowerCase().indexOf(k) !== -1;
-        });
-        box.innerHTML = list.length ? list.map(function (it) { return rxItemHtml(it, true); }).join('') : '<div class="rx-drop-empty">未找到相关药品</div>';
-        box.querySelectorAll('.rx-drop-item').forEach(function (el) {
-            el.addEventListener('mousedown', function (e) {
-                e.preventDefault();   // 阻止输入框失焦，避免下拉先被关闭
-                pickRx(el);
-            });
+        if (RX_LIST) RX_LIST.stop();
+        RX_LIST = Clinic.infiniteList({
+            el: box,
+            pageSize: 15,
+            threshold: 40,
+            emptyHtml: '<div class="rx-drop-empty">未找到相关药品</div>',
+            url: rxUrl,
+            render: function (list, isFirst) {
+                return list.map(function (it) { return rxItemHtml(it, true); }).join('');
+            },
+            onSuccess: function (json) {
+                RX_KW_LAST = ((document.getElementById('rxKw') || {}).value || '').trim().toLowerCase();
+            },
+            onError: function () {
+                var b = document.getElementById('rxDrop');
+                if (b && !b.querySelector('.rx-drop-item')) {
+                    b.innerHTML = '<div class="rx-drop-empty">加载失败，请重试</div>';
+                }
+            },
         });
     }
 
@@ -417,46 +448,68 @@ Clinic.order = (function () {
             panel.id = 'rxSubDrop';
             panel.style.cssText = 'position:fixed;z-index:3000;width:380px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);overflow:hidden';
             document.body.appendChild(panel);
-            // 全局：点击面板外关闭（一次性注册）
+            // 全局：点击面板外关闭 + 下拉条目选中（委托，条目随滚动分页动态生成；一次性注册）
             if (!SUB_OUTER_BOUND) {
                 SUB_OUTER_BOUND = true;
                 document.addEventListener('mousedown', function (e) {
                     var p = document.getElementById('rxSubDrop');
                     if (p && p.style.display !== 'none' && !p.contains(e.target)) closeSubDrop();
                 }, true);
+                document.addEventListener('mousedown', function (e) {
+                    var el = e.target.closest ? e.target.closest('.rx-drop-item') : null;
+                    if (!el) return;
+                    var p = document.getElementById('rxSubDrop');
+                    if (!p || !p.contains(e.target) || p.style.display === 'none') return;
+                    e.preventDefault();
+                    pickSub(parseInt(p.getAttribute('data-sub-idx') || '0', 10), el);
+                }, true);
             }
         }
+        panel.setAttribute('data-sub-idx', idx);
         panel.innerHTML =
             '<div style="padding:8px 10px;border-bottom:1px solid var(--border)">' +
             '<input type="text" class="input" id="rxSubKw" placeholder="🔍 搜索子医嘱药品（名称 / 厂家）" autocomplete="off" style="min-height:30px;padding:5px 10px">' +
             '</div>' +
-            '<div id="rxSubList" style="max-height:220px;overflow-y:auto"></div>';
+            '<div id="rxSubList" style="max-height:220px;overflow-y:auto"><div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>';
         panel.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 388)) + 'px';
         panel.style.top = (rect.bottom + 4) + 'px';
         panel.style.display = 'block';
-        renderRxSubList(idx, '');
+        initRxSubList(idx);
         var subKw = document.getElementById('rxSubKw');
-        subKw.addEventListener('input', function () { renderRxSubList(idx, subKw.value); });
+        subKw.addEventListener('input', function () {
+            clearTimeout(subKw.__t);
+            subKw.__t = setTimeout(function () {
+                if (RX_SUB_LIST) RX_SUB_LIST.reset();
+                else initRxSubList(idx);
+            }, 300);
+        });
         subKw.addEventListener('blur', function () { setTimeout(closeSubDrop, 120); });
         subKw.focus();
     }
 
-    /** 渲染子医嘱列表（与顶部下拉同一数据源/逻辑） */
-    function renderRxSubList(idx, kw) {
+    /** 初始化子医嘱内联下拉无限滚动列表（复用药品目录接口，按输入关键字分页） */
+    function initRxSubList(idx) {
         var box = document.getElementById('rxSubList');
         if (!box) return;
-        var k = (kw || '').trim().toLowerCase();
-        var list = CATALOG.filter(function (it) {
-            if (!k) return true;
-            return (it.name || '').toLowerCase().indexOf(k) !== -1 ||
-                (it.company_short || '').toLowerCase().indexOf(k) !== -1;
-        });
-        box.innerHTML = list.length ? list.map(function (it) { return rxItemHtml(it, false); }).join('') : '<div class="rx-drop-empty">未找到相关药品</div>';
-        box.querySelectorAll('.rx-drop-item').forEach(function (el) {
-            el.addEventListener('mousedown', function (e) {
-                e.preventDefault();
-                pickSub(idx, el);
-            });
+        if (RX_SUB_LIST) RX_SUB_LIST.stop();
+        RX_SUB_LIST = Clinic.infiniteList({
+            el: box,
+            pageSize: 15,
+            threshold: 40,
+            emptyHtml: '<div class="rx-drop-empty">未找到相关药品</div>',
+            url: function (p, size) {
+                var kw = encodeURIComponent((document.getElementById('rxSubKw') || {}).value || '');
+                return '/api/order?action=catalog&type=prescription&page=' + p + '&size=' + size + '&kw=' + kw;
+            },
+            render: function (list, isFirst) {
+                return list.map(function (it) { return rxItemHtml(it, false); }).join('');
+            },
+            onError: function () {
+                var b = document.getElementById('rxSubList');
+                if (b && !b.querySelector('.rx-drop-item')) {
+                    b.innerHTML = '<div class="rx-drop-empty">加载失败，请重试</div>';
+                }
+            },
         });
     }
 
@@ -594,33 +647,57 @@ Clinic.order = (function () {
      * 绑定弹窗事件（搜索、选择）
      */
     function bindEvents() {
-        // 处方：顶部搜索横条 → 焦点弹出药品下拉；输入即筛选
+        // 处方：顶部搜索横条 → 焦点弹出药品下拉（下拉为无限滚动分页加载）
         var rxk = document.getElementById('rxKw');
         if (rxk) {
             rxk.addEventListener('focus', function () {
-                renderRxDrop(rxk.value);
+                // 关键字变化后重显时重置回第一页（避免显示旧筛选结果）
+                var k = (rxk.value || '').trim().toLowerCase();
+                if (k !== RX_KW_LAST) rxReset();
                 showRxDrop();
             });
             rxk.addEventListener('input', function () {
-                renderRxDrop(rxk.value);
+                clearTimeout(rxk.__t);
+                rxk.__t = setTimeout(function () { rxReset(); }, 300);
                 showRxDrop();
             });
             rxk.addEventListener('blur', function () { setTimeout(hideRxDrop, 120); });
         }
+        // 目录搜索：关键字变化 → 服务端分页重新检索（防抖 300ms）
         var kw = document.getElementById('orderKw');
-        if (kw) kw.addEventListener('input', applyCatalogFilter);
-        document.querySelectorAll('.order-catalog .dd-item').forEach(function (el) {
-            el.addEventListener('click', function () {
-                handleAdd(itemFromEl(el), el);
+        if (kw) {
+            kw.addEventListener('input', function () {
+                clearTimeout(kw.__t);
+                kw.__t = setTimeout(function () { catalogReset(); }, 300);
             });
-        });
+        }
+        // 目录条目点击（委托：条目随滚动分页动态生成）
+        var catBox = document.getElementById('orderCatalog');
+        if (catBox) {
+            catBox.addEventListener('click', function (e) {
+                var el = e.target.closest ? e.target.closest('.dd-item') : null;
+                if (el) handleAdd(itemFromEl(el), el);
+            });
+        }
+        // 药品下拉条目点击（委托：条目随滚动分页动态生成）
+        var drop = document.getElementById('rxDrop');
+        if (drop) {
+            drop.addEventListener('mousedown', function (e) {
+                var el = e.target.closest ? e.target.closest('.rx-drop-item') : null;
+                if (el) {
+                    e.preventDefault();   // 阻止输入框失焦，避免下拉先被关闭
+                    pickRx(el);
+                }
+            });
+        }
+        // 检验筛选徽章（单个/组合）：切换后重新分页检索
         document.querySelectorAll('#labFilterBar .qp-chip').forEach(function (chip) {
             chip.addEventListener('click', function () {
                 LAB_FILTER = chip.getAttribute('data-f');
                 document.querySelectorAll('#labFilterBar .qp-chip').forEach(function (c) {
                     c.classList.toggle('active', c === chip);
                 });
-                applyCatalogFilter();
+                catalogReset();
             });
         });
     }
@@ -899,19 +976,29 @@ Clinic.order = (function () {
         updateTotal();
 
         box.innerHTML = SELECTED.map(function (s, i) {
-            // 组合项目补充显示所含成员
-            var groupInfo = (s.is_group && s.spec)
-                ? '<div class="fs-12 text-muted mt-2">🧩 组合项目，含：' + s.spec + '</div>' : '';
+            // 组合项目：所含成员改为「标签换行」展示，避免挤占头部价格/操作区
+            var groupInfo = '';
+            if (s.is_group) {
+                var mids = GROUP_MEMBERS[s.id] || [];
+                var memHtml = mids.length
+                    ? mids.map(function (mid) {
+                        return '<span class="order-grp-mem">' + Clinic.escHtml(ID_NAMES[mid] || ('项目#' + mid)) + '</span>';
+                    }).join('')
+                    : Clinic.escHtml(s.spec || '');
+                groupInfo = '<div class="fs-12 text-muted mt-2 order-grp-info">🧩 组合项目（按组价整体收费），含：' +
+                    '<span class="order-grp-mems">' + memHtml + '</span></div>';
+            }
             var head =
                 '<div class="flex-between">' +
                 '  <div class="flex gap-8" style="align-items:center;min-width:0">' +
                 '    <span class="fw-600 fs-13 ellipsis">' + s.name + '</span>' +
-                (s.spec ? '<span class="fs-12 text-muted" style="flex-shrink:0">' + s.spec + '</span>' : '') +
+                (s.is_group ? '<span class="badge badge-primary fs-12" style="flex-shrink:0">组合</span>' : '') +
+                (!s.is_group && s.spec ? '<span class="fs-12 text-muted" style="flex-shrink:0;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + s.spec + '</span>' : '') +
                 (s.skin_test ? '<span class="badge ' + (s.skin_test === 'yes' ? 'badge-danger' : 'badge-gray') + ' fs-12">' +
                     (s.skin_test === 'yes' ? '需要皮试' : '免试') + '</span>' : '') +
                 (s.company_short ? '<span class="fs-12 text-muted">' + s.company_short + '</span>' : '') +
                 (s.quantity > 1 ? '<span class="badge badge-primary fs-12">×' + s.quantity + '</span>' : '') +
-                '    <span class="fs-12 text-muted">¥' + (s.price * s.quantity).toFixed(2) + '</span>' +
+                '    <span class="fs-12 text-muted" style="flex-shrink:0;margin-left:auto">¥' + (s.price * s.quantity).toFixed(2) + '</span>' +
                 '  </div>' +
                 '  <div class="flex gap-8" style="align-items:center;flex-shrink:0">' +
                 (isDrug || CUR_TYPE === 'procedure' ? qtyControls(s, i) : '') +
