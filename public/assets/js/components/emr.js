@@ -302,7 +302,7 @@ Clinic.emr = (function () {
             ? '<span class="badge badge-warning">会诊记录</span>'
             : (isProg
                 ? '<span class="badge badge-primary">病历续写</span>'
-                : '<span class="badge badge-gray">首诊病历</span>');
+                : '<span class="badge badge-indigo">首诊病历</span>');
         var deptName = r.dept_name || '';
         wrap.innerHTML = (isProg ? '<div class="emr-cont-divider"></div>' : '') +
             '<div class="prev-record-head">' +
@@ -600,7 +600,7 @@ Clinic.emr = (function () {
                 '<div class="prev-record-head">' +
                 '<span class="pr-head-badge">' +
                 ((r.consultation_id > 0) ? '<span class="badge badge-warning">会诊记录</span>'
-                    : (isProgress ? '<span class="badge badge-primary">病历续写</span>' : '<span class="badge badge-gray">首诊病历</span>')) +
+                    : (isProgress ? '<span class="badge badge-primary">病历续写</span>' : '<span class="badge badge-indigo">首诊病历</span>')) +
                 '</span>' +
                 (r.dept_name ? '<span class="pr-head-dept">' + escHtml(r.dept_name) + '</span>' : '<span class="pr-head-dept"></span>') +
                 '<span class="pr-head-doctor fw-600">' + escHtml(r.doctor_name) +

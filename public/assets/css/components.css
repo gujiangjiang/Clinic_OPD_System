@@ -307,6 +307,7 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
 .badge-success { background: var(--success-soft); color: var(--success); }
 .badge-warning { background: var(--warning-soft); color: var(--warning); }
 .badge-danger { background: var(--danger-soft); color: var(--danger); }
+.badge-indigo { background: var(--indigo-soft); color: var(--indigo); }
 .badge-gray { background: var(--bg-soft); color: var(--text-muted); }
 
 /* ---------- 科室选择卡片（通用科室选择弹窗：挂号/医生选科/转科） ---------- */

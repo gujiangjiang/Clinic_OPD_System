@@ -93,7 +93,7 @@ Clinic.emr.segments = (function () {
                 ? '<span class="badge badge-warning">会诊记录</span>'
                 : (isProgress
                     ? '<span class="badge badge-primary">病历续写</span>'
-                    : '<span class="badge badge-gray">首诊病历</span>'));
+                    : '<span class="badge badge-indigo">首诊病历</span>'));
         var deptName = rec.dept_name || '';
         return '<div class="prev-record-wrap-sec emr-record-readonly" id="recSeg' + rec.id + '">' +
             '<div class="prev-record-head">' +

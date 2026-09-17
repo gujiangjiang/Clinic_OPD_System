@@ -26,6 +26,8 @@
     --warning-soft: #78350f;
     --danger: #f87171;
     --danger-soft: #7f1d1d;
+    --indigo: #818cf8;
+    --indigo-soft: #312e8a;
     --shadow: 0 1px 3px rgba(0,0,0,.4);
     --shadow-lg: 0 12px 32px rgba(0,0,0,.5);
 }
