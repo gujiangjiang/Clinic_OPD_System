@@ -302,14 +302,18 @@ Clinic.emr = (function () {
             ? '<span class="badge badge-warning">会诊记录</span>'
             : (isProg
                 ? '<span class="badge badge-primary">病历续写</span>'
-                : '<span class="badge badge-gray">首诊</span>');
+                : '<span class="badge badge-gray">首诊病历</span>');
+        var deptName = r.dept_name || '';
         wrap.innerHTML = (isProg ? '<div class="emr-cont-divider"></div>' : '') +
             '<div class="prev-record-head">' +
-            '<span class="fw-600">记录医生：' + escHtml(r.doctor_name) +
+            '<div class="pr-head-left">' + badge +
+            (deptName ? '<span class="pr-dept">' + escHtml(deptName) + '</span>' : '') +
+            '<span class="fw-600">' + escHtml(r.doctor_name) +
             (r.doctor_title ? ' ' + escHtml(r.doctor_title) : '') +
             (r.doctor_emp ? ' （工号 ' + escHtml(r.doctor_emp) + '）' : '') + '</span>' +
-            '<span>记录时间：' + escHtml(t) + '</span>' +
-            badge + '</div>';
+            '</div>' +
+            '<span class="pr-time">' + escHtml(t) + '</span>' +
+            '</div>';
     }
 
     /**
@@ -393,6 +397,8 @@ Clinic.emr = (function () {
                 doctor_name: r.doctor_name,
                 doctor_emp: r.doctor_emp || '',
                 doctor_title: r.doctor_title || '',
+                dept_id: r.dept_id || 0,
+                dept_name: r.dept_name || '',
                 record_type: r.record_type,
                 emr: JSON.parse(JSON.stringify(r.emr || {})),
                 created_at: r.created_at || '',
@@ -593,12 +599,15 @@ Clinic.emr = (function () {
             var contHtml = (needProgress || emptyInitial || consultLock) ? '' :
                 (isProgress ? '<div class="emr-cont-divider"></div>' : '') +
                 '<div class="prev-record-head">' +
-                '<span class="fw-600">记录医生：' + escHtml(r.doctor_name) +
+                '<div class="pr-head-left">' +
+                ((r.consultation_id > 0) ? '<span class="badge badge-warning">会诊记录</span>'
+                    : (isProgress ? '<span class="badge badge-primary">病历续写</span>' : '<span class="badge badge-gray">首诊病历</span>')) +
+                (r.dept_name ? '<span class="pr-dept">' + escHtml(r.dept_name) + '</span>' : '') +
+                '<span class="fw-600">' + escHtml(r.doctor_name) +
                 (r.doctor_title ? ' ' + escHtml(r.doctor_title) : '') +
                 (r.doctor_emp ? ' （工号 ' + escHtml(r.doctor_emp) + '）' : '') + '</span>' +
-                ((r.created_at || r.updated_at) ? '<span>记录时间：' + escHtml(r.created_at || r.updated_at) + '</span>' : '') +
-                ((r.consultation_id > 0) ? '<span class="badge badge-warning">会诊记录</span>'
-                    : (isProgress ? '<span class="badge badge-primary">病历续写</span>' : '<span class="badge badge-gray">首诊</span>')) +
+                '</div>' +
+                ((r.created_at || r.updated_at) ? '<span class="pr-time">' + escHtml(r.created_at || r.updated_at) + '</span>' : '') +
                 '</div>';
             docHtml =
                 '<div class="emr-doc">' +
@@ -1653,6 +1662,7 @@ Clinic.emr = (function () {
             record_id: target.record_id,
             id: target.id,
             dept_id: target.dept_id || 0,
+            dept_name: target.dept_name || '',
             doctor_id: target.doctor_id,
             doctor_name: target.doctor_name,
             doctor_emp: target.doctor_emp || '',
@@ -1704,6 +1714,7 @@ Clinic.emr = (function () {
             emr: JSON.parse(JSON.stringify(DATA.record.emr || {})),
             consciousness: consciousnessEl ? consciousnessEl.value : (DATA.record.consciousness || '清醒'),
             is_initial: !!DATA.__pending_initial,
+            dept_name: (DATA.record && DATA.record.dept_name) || (DATA.visit && DATA.visit.dept_name) || '',
         };
     }
 
@@ -1729,6 +1740,7 @@ Clinic.emr = (function () {
             doctor_emp: DATA.currentDoctorEmp || '',
             doctor_title: DATA.currentDoctorTitle || '',
             dept_id: (DATA.visit && DATA.visit.current_dept_id) || 0,
+            dept_name: stash.dept_name || (DATA.visit && DATA.visit.dept_name) || '',
             record_type: isInitial ? 'initial' : 'progress',
             emr: JSON.parse(JSON.stringify(stash.emr || {})),
             consultation_id: 0,
@@ -2786,6 +2798,8 @@ Clinic.emr = (function () {
                     record_id: 0, id: 0,
                     doctor_id: docId, doctor_name: docName,
                     doctor_emp: docEmp, doctor_title: docTitle,
+                    dept_id: (DATA.visit && DATA.visit.current_dept_id) || 0,
+                    dept_name: (DATA.visit && DATA.visit.dept_name) || '',
                     record_type: 'initial',
                     emr: {}, consciousness: '', vitals: {},
                     created_at: '', updated_at: '',
@@ -2803,6 +2817,8 @@ Clinic.emr = (function () {
                         doctor_name: last.doctor_name,
                         doctor_emp: last.doctor_emp || '',
                         doctor_title: last.doctor_title || '',
+                        dept_id: last.dept_id || 0,
+                        dept_name: last.dept_name || '',
                         record_type: last.record_type,
                         emr: JSON.parse(JSON.stringify(last.emr || {})),
                         consciousness: last.consciousness || '',
@@ -2815,6 +2831,8 @@ Clinic.emr = (function () {
                         record_id: 0, id: 0,
                         doctor_id: docId, doctor_name: docName,
                         doctor_emp: docEmp, doctor_title: docTitle,
+                        dept_id: (DATA.visit && DATA.visit.current_dept_id) || 0,
+                        dept_name: (DATA.visit && DATA.visit.dept_name) || '',
                         record_type: 'initial',
                         emr: {}, consciousness: '', vitals: {},
                         created_at: '', updated_at: '',

@@ -93,13 +93,19 @@ Clinic.emr.segments = (function () {
                 ? '<span class="badge badge-warning">会诊记录</span>'
                 : (isProgress
                     ? '<span class="badge badge-primary">病历续写</span>'
-                    : '<span class="badge badge-gray">首诊</span>'));
-        var authorSpan = '<span class="fw-600">记录医生：' + escHtml(rec.doctor_name) +
+                    : '<span class="badge badge-gray">首诊病历</span>'));
+        var deptName = rec.dept_name || '';
+        var authorSpan = '<span class="fw-600">' + escHtml(rec.doctor_name) +
             (rec.doctor_title ? ' ' + escHtml(rec.doctor_title) : '') +
             (rec.doctor_emp ? ' （工号 ' + escHtml(rec.doctor_emp) + '）' : '') + '</span>';
         return '<div class="prev-record-wrap-sec emr-record-readonly" id="recSeg' + rec.id + '">' +
-            '<div class="prev-record-head">' + authorSpan +
-            '<span>记录时间：' + escHtml(rec.created_at) + '</span>' + typeBadge + '</div>' +
+            '<div class="prev-record-head">' +
+            '<div class="pr-head-left">' + typeBadge +
+            (deptName ? '<span class="pr-dept">' + escHtml(deptName) + '</span>' : '') +
+            authorSpan +
+            '</div>' +
+            '<span class="pr-time">' + escHtml(rec.created_at) + '</span>' +
+            '</div>' +
             '<div class="prev-record-body">' +
             (secs.length ? secs.join('') : '<div class="text-muted fs-13">（该文书暂无内容）</div>') + '</div>' +
             '<div class="doc-body-sign ro-sign">医生：' + escHtml(rec.doctor_name) + '</div></div>';
@@ -190,6 +196,8 @@ Clinic.emr.segments = (function () {
                 doctor_name: d.currentDoctorName || (d.record && d.record.doctor_name) || '',
                 doctor_emp: d.currentDoctorEmp || '',
                 doctor_title: d.currentDoctorTitle || '',
+                dept_id: (d.visit && d.visit.current_dept_id) || 0,
+                dept_name: (d.visit && d.visit.dept_name) || '',
                 record_type: pend.record_type || 'progress',
                 emr: pend.emr || {},
                 created_at: '（未保存）',
