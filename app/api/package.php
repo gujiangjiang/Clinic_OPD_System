@@ -46,6 +46,7 @@ switch ($action) {
         $page = max(1, (int)get('page', 1));
         $pageSize = max(1, min(100, (int)get('size', 20)));
         $kw = trim(get('kw', ''));
+        $scope = trim(get('scope', ''));
         if (!pkg_type_allowed($u['role'], $type)) $type = 'lab';
         pkg_assert_type($u, $type);
         $like = $kw !== '' ? '%' . $kw . '%' : '';
@@ -65,6 +66,11 @@ switch ($action) {
                 $visConds[] = "((scope='dept' AND status='published' AND id IN (SELECT package_id FROM package_depts WHERE dept_id IN ($ph))))";
                 foreach ($myDepts as $d) $params[] = $d;
             }
+        }
+        // 范围筛选（全部=不限制；个人/科室/全院在可见范围内再收窄）
+        if (in_array($scope, array('personal', 'dept', 'hospital'), true)) {
+            $visConds[] = "scope=?";
+            $params[] = $scope;
         }
         $where = implode(' AND ', $visConds);
         if ($kw !== '') {
