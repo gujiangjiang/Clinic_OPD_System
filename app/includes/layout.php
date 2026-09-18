@@ -31,6 +31,7 @@ class Layout {
                 array('处置项目', '🩹', '/admin/disposal'),
                 array('诊断管理', '📖', '/admin/diagnosis'),
                 array('模板管理', '📋', '/admin/templates'),
+                array('套餐管理', '🥡', '/admin/packages'),
             );
             $items['运营管理'] = array(
                 array('审核中心', '✅', '/admin/review'),
@@ -58,6 +59,7 @@ class Layout {
                 array('医生工作站', '🩺', '/doctor/emr'),
                 array('危急值管理', '🚨', '/doctor/critical'),
                 array('模板管理', '📋', '/doctor/templates'),
+                array('套餐管理', '🥡', '/doctor/packages'),
             );
         } elseif ($role === 'nurse') {
             $items['护士站'] = array(
@@ -129,6 +131,7 @@ class Layout {
                     '<div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openDeptSwitch()">🏥 切换科室</div>' .
                     '<div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openPatientSearch()">🔍 患者查询</div>' .
                     '<div class="dd-item" style="cursor:pointer" onclick="Clinic.nav.go(\'/doctor/templates\')">📋 模板管理</div>' .
+                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.nav.go(\'/doctor/packages\')">🥡 套餐管理</div>' .
                 '</div>' .
             '</div>' .
         '</div>';

@@ -58,7 +58,9 @@ class Router {
         '/imaging/critical'  => array('imaging/critical.php',   array('imaging')),
         // ===== 模板管理（管理员/医生共用视图，按角色渲染） =====
         '/admin/templates'   => array('templates.php',          array('admin')),
+        '/admin/packages'    => array('packages.php',          array('admin')),
         '/doctor/templates'  => array('templates.php',          array('doctor')),
+        '/doctor/packages'   => array('packages.php',          array('doctor')),
         // ===== 挂号收费处 =====
         '/cashier/register'  => array('cashier/register.php',   array('cashier')),
         '/cashier/home'      => array('cashier/home.php',       array('cashier')),
