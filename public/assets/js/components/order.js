@@ -813,12 +813,11 @@ Clinic.order = (function () {
                     (invalidCnt ? '，其中 <span style="color:var(--danger)">' + invalidCnt + ' 项已失效</span>（改名/删除/缺货/信息变更，灰色不可勾选）' : '') +
                     '（处方成组医嘱按「主药+子医嘱」整体勾选）：</div>' +
                     '<div id="pkgApplyList" style="max-height:400px;overflow-y:auto;padding-right:4px"></div>';
-                Clinic.modal.open(html, {
+                var pkgMask = Clinic.modal.open(html, {
                     title: '添加套餐：' + Clinic.escHtml(p.title || title || ''),
                     size: 'modal-md',
                 });
                 // 底部按钮：全选靠左对齐，取消/确认靠右（不放在 buttons 数组里，以便自定义布局）
-                var pkgMask = document.querySelector('.modal-mask.show .modal');
                 if (pkgMask) {
                     var foot = pkgMask.querySelector('.modal-foot');
                     if (foot) {
