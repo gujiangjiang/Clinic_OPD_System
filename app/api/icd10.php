@@ -41,16 +41,26 @@ switch ($action) {
     /* ---------------- 搜索（病历诊断联动，支持分页） ---------------- */
     case 'search':
         $kw = get('kw', '');
-        $limit = (int)get('limit', 50);
-        if ($limit <= 0 || $limit > 200) $limit = 50;
-        $offset = (int)get('offset', 0);
-        if ($offset < 0) $offset = 0;
+        // 分页：优先 page/size（统一无限滚动封装），兼容旧 offset/limit（老调用）
+        $page = (int)get('page', 0);
+        $pageSize = max(1, min(200, (int)get('size', 50)));
+        if ($page > 0) {
+            $limit = $pageSize;
+            $offset = ($page - 1) * $pageSize;
+        } else {
+            $limit = (int)get('limit', 50);
+            if ($limit <= 0 || $limit > 200) $limit = 50;
+            $offset = (int)get('offset', 0);
+            if ($offset < 0) $offset = 0;
+        }
         list($rows, $total) = Icd10Repository::search($kw, $limit, $offset);
         $out = array();
         foreach ($rows as $row) {
             $out[] = icd10_row_map($row);
         }
-        json_ok(array('list' => $out, 'total' => (int)$total, 'offset' => $offset, 'limit' => $limit));
+        $resp = array('list' => $out, 'total' => (int)$total, 'offset' => $offset, 'limit' => $limit);
+        if ($page > 0) $resp['has_more'] = ($page * $pageSize) < $total;
+        json_ok($resp);
         break;
 
     /* ---------------- 诊断列表（管理端，支持检索与层级过滤） ---------------- */

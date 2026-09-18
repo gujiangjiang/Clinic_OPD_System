@@ -187,6 +187,8 @@ Clinic.infiniteList = function (opts) {
             page = 0; hasMore = true;
             loadPage(1);
         },
+        /** 手动触发一次判定（内容不满一屏时配合加载完成回调实现连续加载） */
+        check: function () { if (stopFn && stopFn.check) stopFn.check(); },
         stop: function () { if (stopFn && stopFn.stop) stopFn.stop(); },
     };
 };
