@@ -35,6 +35,118 @@ function pkg_type_label($type) {
     return isset($map[$type]) ? $map[$type] : '套餐';
 }
 
+/**
+ * 套餐项目失效校验（应用套餐时逐项对比当前目录快照）：
+ * - 检验/检查/处置：项目须存在且已审核；名称发生变更 → 失效
+ * - 处方药品：存在且已审核；名称/规格/厂家/剂量/频次/途径/结构化规格 任一变更 → 失效；
+ *   库存为 0 → 失效（缺货不可开）
+ * 返回原 items 数组，每项追加 valid（0/1）+ invalid_reason（失效原因）。
+ */
+function pkg_validate_items($type, $items) {
+    if (!is_array($items)) return array();
+    $type = (string)$type;
+    // 批量取主药（sub_of=0）当前行：id → 行
+    $mainIds = array();
+    foreach ($items as $it) {
+        if ((int)(isset($it['sub_of']) ? $it['sub_of'] : 0) === 0) {
+            $mainIds[(int)(isset($it['item_id']) ? $it['item_id'] : 0)] = 1;
+        }
+    }
+    $current = array();
+    if ($mainIds) {
+        $ph = in_placeholders(array_keys($mainIds));
+        $tables = array(
+            'lab' => array('lab_items', 'name'),
+            'imaging' => array('exam_items', 'name'),
+            'procedure' => array('disposal_items', 'name'),
+            'prescription' => array('drugs', 'name'),
+        );
+        if (isset($tables[$type])) {
+            list($table, $nameCol) = $tables[$type];
+            $sel = "id, status, " . $nameCol . " AS name";
+            if ($type === 'prescription') {
+                $sel .= ", spec, vendor_short, single_dose, frequency, route, qty, spec_dose, spec_dose_unit, spec_pack_qty, spec_pack_unit, single_use_qty";
+            }
+            foreach (OrderRepository::q("SELECT $sel FROM $table WHERE id IN ($ph)", array_keys($mainIds)) as $row) {
+                $current[(int)$row['id']] = $row;
+            }
+        }
+    }
+    // 逐项判定
+    $out = array();
+    foreach ($items as $it) {
+        $item = $it;
+        $item['valid'] = 1;
+        $item['invalid_reason'] = '';
+        $id = (int)(isset($it['item_id']) ? $it['item_id'] : 0);
+        $isSub = (int)(isset($it['sub_of']) ? $it['sub_of'] : 0) > 0;
+        if ($isSub) {
+            // 子医嘱同样校验存在性/审核/库存（名称等比对与主药一致；剂量文本不比对——医生可自定）
+            $subRow = isset($current[$id]) ? $current[$id] : null;
+            if (!$subRow) {
+                $item['valid'] = 0; $item['invalid_reason'] = '子医嘱项目已不存在或未通过审核';
+            } elseif ($type === 'prescription' && (int)$subRow['qty'] <= 0) {
+                $item['valid'] = 0; $item['invalid_reason'] = '子医嘱药品已缺货';
+            }
+            $out[] = $item;
+            continue;
+        }
+        $row = isset($current[$id]) ? $current[$id] : null;
+        if (!$row) {
+            $item['valid'] = 0;
+            $item['invalid_reason'] = '项目已不存在或未通过审核';
+            $out[] = $item;
+            continue;
+        }
+        if ($row['status'] !== 'approved') {
+            $item['valid'] = 0;
+            $item['invalid_reason'] = '项目已未通过审核';
+            $out[] = $item;
+            continue;
+        }
+        // 名称比对（检验/检查/处置：仅名称变更判失效；处方：名称/规格/厂家/剂量/频次/途径 任一变更判失效）
+        $storedName = (string)(isset($it['item_name']) ? $it['item_name'] : '');
+        if ($row['name'] !== $storedName) {
+            $item['valid'] = 0;
+            $item['invalid_reason'] = '项目名称已变更（原「' . $storedName . '」→ 现「' . $row['name'] . '」）';
+            $out[] = $item;
+            continue;
+        }
+        if ($type === 'prescription') {
+            // 药品：库存 + 关键字段任一变更即失效
+            if ((int)$row['qty'] <= 0) {
+                $item['valid'] = 0;
+                $item['invalid_reason'] = '药品已缺货（库存为 0）';
+                $out[] = $item;
+                continue;
+            }
+            $fieldMap = array(
+                'spec' => '规格', 'vendor_short' => '厂家', 'single_dose' => '剂量',
+                'frequency' => '频次', 'route' => '途径',
+            );
+            $changed = array();
+            foreach ($fieldMap as $col => $label) {
+                $curV = (string)(isset($row[$col]) ? $row[$col] : '');
+                $storedV = (string)(isset($it[$col]) ? $it[$col] : '');
+                if ($curV !== $storedV) $changed[] = $label . '（' . $storedV . '→' . $curV . '）';
+            }
+            // 结构化规格数值比对（浮点宽松）
+            $specDoseCur = (float)(isset($row['spec_dose']) ? $row['spec_dose'] : 0);
+            $specDoseOld = (float)(isset($it['spec_dose']) ? $it['spec_dose'] : 0);
+            if (abs($specDoseCur - $specDoseOld) > 0.0001) $changed[] = '单剂量值';
+            $puCur = (string)(isset($row['spec_pack_unit']) ? $row['spec_pack_unit'] : '');
+            $puOld = (string)(isset($it['spec_pack_unit']) ? $it['spec_pack_unit'] : '');
+            if ($puCur !== $puOld) $changed[] = '包装单位';
+            if ($changed) {
+                $item['valid'] = 0;
+                $item['invalid_reason'] = '药品信息已变更：' . implode('、', array_slice($changed, 0, 3)) . (count($changed) > 3 ? ' 等' : '');
+            }
+        }
+        $out[] = $item;
+    }
+    return $out;
+}
+
 switch ($action) {
 
     /* ==================== 可用套餐列表（分页检索，滚动动态加载） ====================
@@ -119,7 +231,7 @@ switch ($action) {
         $t = OrderRepository::one('SELECT * FROM packages WHERE id=?', array($id));
         if (!$t) json_fail('套餐不存在');
         pkg_assert_type($u, (string)$t['type']);
-        $forApply = (int)get('for_apply', 0);
+        $forApply = (int)req('for_apply', 0);
         if ($forApply === 1) {
             // 应用套餐：可见性过滤须与 list 一致（防越权读取他人私有套餐）
             $isVisible = false;
@@ -144,6 +256,10 @@ switch ($action) {
         foreach ($links as $l) $deptIds[] = (int)$l['dept_id'];
         $content = json_decode((string)$t['content_json'], true) ?: array();
         $items = isset($content['items']) && is_array($content['items']) ? $content['items'] : array();
+        // 应用套餐：逐项与当前目录快照对比，标记失效项目（改名/删除/缺货/信息变更）
+        if ($forApply === 1) {
+            $items = pkg_validate_items((string)$t['type'], $items);
+        }
         json_ok(array(
             'package' => array(
                 'id' => (int)$t['id'],

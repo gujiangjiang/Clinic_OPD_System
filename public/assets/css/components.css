@@ -602,6 +602,12 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
 }
 .rx-drop-item:hover { background: var(--primary-soft, #cffafe); }
 .rx-drop-empty { padding: 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
+/* 套餐失效项目：删除线 + 灰字（改名/删除/缺货/信息变更，不可勾选） */
+.pkg-invalid {
+    text-decoration: line-through;
+    color: var(--text-muted) !important;
+    opacity: .7;
+}
 /* 开单已选列表：检验组合所含成员标签（换行排列，不挤占头部价格/操作区） */
 .order-grp-info { line-height: 1.9; }
 .order-grp-mems { display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: middle; }

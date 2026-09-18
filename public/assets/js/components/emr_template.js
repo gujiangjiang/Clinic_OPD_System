@@ -68,10 +68,10 @@ Clinic.emr.template = (function () {
         var tplScope = '';   // 当前筛选范围：''=全部 / hospital / dept / personal
         var TPL_LIST = null; // 模板列表 infiniteList 句柄（重新打开时旧元素已随 pop 移除，必须重置再初始化）
 
-        /** 列表分页接口地址（搜索关键字 / 范围徽章实时参与拼接） */
+        /** 列表分页接口地址（搜索关键字 / 范围徽章实时参与拼接；sort=picker 按 全院→科室→个人 分组时间升序） */
         function tplPickUrl(p, size) {
             var kw = encodeURIComponent((document.getElementById('tplPickKw') || {}).value || '');
-            return '/api/template?action=list&type=' + tplType + '&page=' + p + '&size=' + size + '&kw=' + kw + '&scope=' + tplScope;
+            return '/api/template?action=list&type=' + tplType + '&page=' + p + '&size=' + size + '&kw=' + kw + '&scope=' + tplScope + '&sort=picker';
         }
         /** 重置列表到第一页（搜索/范围变化时调用） */
         function tplPickReset() {

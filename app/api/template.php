@@ -119,8 +119,24 @@ switch ($action) {
             }
         }
         $whereSql = implode(' AND ', $where);
-        // 排序：系统模板置顶，其余按创建时间倒序（新创建的显示在上）
-        $orderSql = " ORDER BY is_system DESC, id DESC";
+        // 排序：
+        // · 默认（管理页）：系统模板置顶，其余按创建时间倒序（新创建的显示在上）
+        // · sort=picker（病历/知情同意书模板悬浮窗）：按 全院→科室→个人 分组，
+        //   组内按创建时间升序（最新创建排在最下方），更符合选择器阅读习惯；
+        //   待审核模板按「个人」分组（未过审前仅本人可见可用）
+        $sort = trim(get('sort', ''));
+        if ($sort === 'picker') {
+            $orderSql = " ORDER BY
+                CASE
+                    WHEN status='pending_review' THEN 2
+                    WHEN scope='hospital' THEN 0
+                    WHEN scope='dept' THEN 1
+                    ELSE 2
+                END ASC,
+                created_at ASC, id ASC";
+        } else {
+            $orderSql = " ORDER BY is_system DESC, id DESC";
+        }
         // 分页（仅显式传 page 时生效）：总数 + LIMIT/OFFSET + has_more
         if ($page > 0) {
             $total = (int)EmrRepository::val("SELECT COUNT(*) FROM emr_templates WHERE " . $whereSql, $params);

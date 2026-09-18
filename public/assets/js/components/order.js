@@ -434,6 +434,14 @@ Clinic.order = (function () {
             },
             onSuccess: function (json) {
                 RX_KW_LAST = ((document.getElementById('rxKw') || {}).value || '').trim().toLowerCase();
+                // 目录首页响应携带频次/途径选项字典（处方已选列表下拉用）
+                var d = json.data || {};
+                if (d.link_dicts) {
+                    RX_FREQS = d.link_dicts.frequencies || [];
+                    RX_ROUTES = d.link_dicts.routes || [];
+                    // 字典到达后重渲染已选列表，保证频次/途径下拉即时可用
+                    renderSelected();
+                }
             },
             onError: function () {
                 var b = document.getElementById('rxDrop');
@@ -559,45 +567,61 @@ Clinic.order = (function () {
         });
     }
 
-    /** 套餐项目分组：sub_of=0 为主药，其余挂到对应主药下（成组医嘱整体勾选） */
+    /** 套餐项目分组：sub_of=0 为主药，其余挂到对应主药下（成组医嘱整体勾选）。
+     * 携带失效标记：主药 valid=0 则整组失效（改名/删除/缺货/信息变更）。 */
     function pkgBuildGroups(items) {
         var groups = [];
         (items || []).forEach(function (it) {
-            if ((it.sub_of || 0) === 0) groups.push({ main: it, subs: [], checked: true });
+            if ((it.sub_of || 0) === 0) groups.push({ main: it, subs: [], checked: it.valid !== 0, valid: it.valid !== 0, reason: it.invalid_reason || '' });
         });
         (items || []).forEach(function (it) {
             var s = parseInt(it.sub_of, 10) || 0;
-            if (s > 0 && groups[s - 1]) groups[s - 1].subs.push(it);
+            if (s > 0 && groups[s - 1]) {
+                groups[s - 1].subs.push(it);
+                if (it.valid === 0) { groups[s - 1].valid = false; if (!groups[s - 1].reason) groups[s - 1].reason = it.invalid_reason || ''; }
+            }
         });
         return groups;
     }
 
-    /** 渲染套餐应用弹窗：每个项目一个复选框（处方组合 = 主药+子医嘱树形） */
+    /** 渲染套餐应用弹窗：每个项目一个复选框（处方组合 = 主药+子医嘱树形）；
+     * 失效项目：删除线 + 灰色 + 复选框禁用，全选/确认均不纳入 */
     function renderPkgApply() {
         var box = document.getElementById('pkgApplyList');
         if (!box) return;
         var isDrug = CUR_TYPE === 'prescription';
         box.innerHTML = PKG_APPLY_GROUPS.map(function (g, i) {
             var m = g.main || {};
-            var meta = '<span class="fw-600 fs-13">' + Clinic.escHtml(m.item_name || '') + '</span>' +
+            var invalid = !g.valid;
+            // 失效样式：主行灰字+删除线；复选框禁用
+            var nameHtml = '<span class="fw-600 fs-13' + (invalid ? ' pkg-invalid' : '') + '">' + Clinic.escHtml(m.item_name || '') + '</span>';
+            var meta = nameHtml +
                 (m.spec && !isDrug ? ' <span class="fs-12 text-muted">' + Clinic.escHtml(m.spec) + '</span>' : '') +
                 (isDrug ? ' <span class="fs-12 text-muted">' +
                     [m.single_dose, m.frequency, m.route].filter(function (x) { return x; }).join(' ') + '</span>' : '') +
                 (m.quantity > 1 ? ' <span class="badge badge-primary fs-12">×' + m.quantity + '</span>' : '') +
-                ((isDrug && m.is_skin_test) ? ' <span class="badge badge-danger fs-12">需皮试</span>' : '');
-            var html = '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer;background:var(--bg-card)" ' +
-                'onclick="var cb=this.querySelector(\'.pkg-apply-cb\');cb.checked=!cb.checked;Clinic.order.setPkgApplyCheck(' + i + ',cb.checked)">' +
+                ((isDrug && m.is_skin_test) ? ' <span class="badge badge-danger fs-12">需皮试</span>' : '') +
+                (invalid ? ' <span class="badge badge-gray fs-12" title="' + Clinic.escHtml(g.reason || '') + '">已失效</span>' : '');
+            var html = '<div style="border:1px solid ' + (invalid ? 'var(--border)' : 'var(--border)') + ';border-radius:8px;padding:8px 10px;margin-bottom:6px;' +
+                (invalid ? 'background:var(--bg-soft);cursor:not-allowed' : 'cursor:pointer;background:var(--bg-card)') + '" ' +
+                (invalid ? '' : 'onclick="var cb=this.querySelector(\'.pkg-apply-cb\');cb.checked=!cb.checked;Clinic.order.setPkgApplyCheck(' + i + ',cb.checked)"') +
+                '>' +
                 '<div class="flex-between" style="align-items:center">' +
-                '  <input type="checkbox" class="pkg-apply-cb" data-i="' + i + '"' + (g.checked ? ' checked' : '') + ' style="width:16px;height:16px;accent-color:var(--primary);flex-shrink:0" ' +
+                '  <input type="checkbox" class="pkg-apply-cb" data-i="' + i + '"' + (g.checked ? ' checked' : '') +
+                (invalid ? ' disabled' : '') +
+                ' style="width:16px;height:16px;accent-color:var(--primary);flex-shrink:0" ' +
                 'onclick="event.stopPropagation()" onchange="Clinic.order.setPkgApplyCheck(' + i + ',this.checked)">' +
                 '  <span class="meta" style="flex:1;min-width:0;padding:0 8px">' + meta + '</span>' +
                 '  <span style="font-size:12px;color:var(--text-muted);flex-shrink:0">¥' + ((parseFloat(m.price) || 0) * (m.quantity || 1)).toFixed(2) + '</span>' +
                 '</div>' +
+                (invalid && g.reason ? '<div class="fs-12" style="color:var(--danger);margin:4px 0 0 24px">' + Clinic.escHtml(g.reason) + '</div>' : '') +
                 (g.subs.length ? g.subs.map(function (s, si) {
                     var branch = si === g.subs.length - 1 ? '└─' : '├─';
+                    var sInvalid = s.valid === 0;
                     return '<div style="font-family:Menlo,Consolas,monospace;font-size:12px;color:var(--text-muted);margin:2px 0 2px 24px">' +
-                        branch + ' ' + Clinic.escHtml(s.item_name || '') +
+                        branch + ' ' + (sInvalid ? '<span class="pkg-invalid">' : '') + Clinic.escHtml(s.item_name || '') +
                         (s.single_dose ? ' ｜ ' + Clinic.escHtml(s.single_dose) : '') +
+                        (sInvalid ? '</span>' : '') +
                         ' ｜ ¥' + ((parseFloat(s.price) || 0) * (s.quantity || 1)).toFixed(2) + '</div>';
                 }).join('') : '') +
                 '</div>';
@@ -613,8 +637,11 @@ Clinic.order = (function () {
                 var p = j.data && j.data.package;
                 if (!p) return;
                 PKG_APPLY_GROUPS = pkgBuildGroups(p.items || []);
+                var invalidCnt = PKG_APPLY_GROUPS.filter(function (g) { return !g.valid; }).length;
                 var html =
-                    '<div class="fs-12 text-muted mb-8">套餐共 ' + (p.items || []).length + ' 项（处方成组医嘱按「主药+子医嘱」整体勾选）：</div>' +
+                    '<div class="fs-12 text-muted mb-8">套餐共 ' + (p.items || []).length + ' 项' +
+                    (invalidCnt ? '，其中 <span style="color:var(--danger)">' + invalidCnt + ' 项已失效</span>（改名/删除/缺货/信息变更，灰色不可勾选）' : '') +
+                    '（处方成组医嘱按「主药+子医嘱」整体勾选）：</div>' +
                     '<div id="pkgApplyList" style="max-height:400px;overflow-y:auto;padding-right:4px"></div>';
                 Clinic.modal.open(html, {
                     title: '添加套餐：' + Clinic.escHtml(p.title || title || ''),
@@ -630,16 +657,21 @@ Clinic.order = (function () {
         });
     }
 
-    /** 全选 / 全不选切换 */
+    /** 全选 / 全不选切换：仅有效项参与全选；失效项始终不勾选 */
     function pkgApplyToggleAll() {
-        var all = PKG_APPLY_GROUPS.length && PKG_APPLY_GROUPS.every(function (g) { return g.checked; });
-        PKG_APPLY_GROUPS.forEach(function (g) { g.checked = !all; });
+        var validGroups = PKG_APPLY_GROUPS.filter(function (g) { return g.valid; });
+        var all = validGroups.length && validGroups.every(function (g) { return g.checked; });
+        PKG_APPLY_GROUPS.forEach(function (g) {
+            if (g.valid) g.checked = !all;
+            else g.checked = false;
+        });
         renderPkgApply();
     }
 
-    /** 单项勾选（复选框 onchange） */
+    /** 单项勾选（复选框 onchange）：失效项不允许勾选 */
     function setPkgApplyCheck(i, checked) {
-        if (PKG_APPLY_GROUPS[i]) PKG_APPLY_GROUPS[i].checked = !!checked;
+        var g = PKG_APPLY_GROUPS[i];
+        if (g && g.valid) g.checked = !!checked;
     }
 
     /** 套餐项目 → 开单 SELECTED 条目结构（结构化药品剂量 = 数量×单剂量值，与数量自洽） */
@@ -678,7 +710,7 @@ Clinic.order = (function () {
 
     /** 确认添加：勾选项目去重后逐项加入 SELECTED（皮试药品逐项二次确认） */
     function pkgApplyConfirm() {
-        var groups = PKG_APPLY_GROUPS.filter(function (g) { return g.checked && g.main; });
+        var groups = PKG_APPLY_GROUPS.filter(function (g) { return g.valid && g.checked && g.main; });
         if (!groups.length) { Clinic.toast.warning('请至少勾选一个项目'); return; }
         var queue = [];
         var skipped = [];

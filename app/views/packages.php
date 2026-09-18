@@ -251,7 +251,7 @@ function pkgItemFrom(it) {
     return item;
 }
 
-/** 解析后端已保存的套餐项目为可编辑对象 */
+/** 解析后端已保存的套餐项目为可编辑对象（单个扁平条目 → 可编辑对象） */
 function pkgItemFromSaved(it) {
     return {
         item_id: parseInt(it.item_id, 10) || 0,
@@ -274,8 +274,23 @@ function pkgItemFromSaved(it) {
         spec_pack_unit: it.spec_pack_unit || '',
         single_use_qty: parseFloat(it.single_use_qty) || 1,
         quantity: Math.max(1, parseInt(it.quantity, 10) || 1),
-        sub_items: (it.sub_items || []).map(pkgItemFromSaved),
+        sub_items: [],
     };
+}
+
+/** 后端保存的套餐项目为扁平数组（主药 sub_of=0 / 子医嘱 sub_of=主药序号）。
+ * 解析回可编辑对象：主药 + 归并子医嘱到 sub_items */
+function pkgItemsFromSaved(items) {
+    var mains = [];
+    (items || []).forEach(function (it) {
+        var s = parseInt(it.sub_of, 10) || 0;
+        if (s === 0) mains.push(pkgItemFromSaved(it));
+    });
+    (items || []).forEach(function (it) {
+        var s = parseInt(it.sub_of, 10) || 0;
+        if (s > 0 && mains[s - 1]) mains[s - 1].sub_items.push(pkgItemFromSaved(it));
+    });
+    return mains;
 }
 
 function pkgBuildForm(mask, pkg) {
@@ -283,7 +298,9 @@ function pkgBuildForm(mask, pkg) {
         PKG_TYPE = pkg.type;
         var ts = document.getElementById('pkgTypeSel');
         if (ts) ts.value = pkg.type;
-        PKG_ITEMS = (pkg.items || []).map(pkgItemFromSaved);
+        PKG_ITEMS = pkgItemsFromSaved(pkg.items || []);
+    } else {
+        PKG_ITEMS = [];
     }
     var isDrug = PKG_TYPE === 'prescription';
     var scopeHtml = '<option value="personal"' + (pkg && pkg.scope === 'personal' ? ' selected' : '') + (<?php echo $isAdmin ? 'true' : 'false'; ?> ? ' disabled' : '') + '>个人</option>' +
@@ -336,6 +353,8 @@ function pkgBuildForm(mask, pkg) {
         // 条目点击委托已迁至 ensurePkgCatDrop 创建时一次性绑定（body 覆盖层）
     }
     pkgScopeChange();
+    // 渲染套餐内容（编辑回填 / 新建空态）；处方频次/途径选项需等目录首页字典返回后再次渲染
+    pkgRenderItems();
     mask.querySelector('.modal-foot').innerHTML =
         '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
         '<button type="button" class="btn btn-primary" id="pkgSaveBtn">保存</button>';
@@ -416,11 +435,12 @@ function pkgShowCatDrop() {
         box.style.top = (r.bottom + 2) + 'px';
         box.style.width = r.width + 'px';
     }
-    box.classList.add('open');
+    // 内联 display 覆盖 class（ensurePkgCatDrop 初始 display:none），必须直接设 inline 显示
+    box.style.display = 'block';
 }
 function pkgHideCatDrop() {
     var box = document.getElementById('pkgCatDrop');
-    if (box) box.classList.remove('open');
+    if (box) { box.style.display = 'none'; box.classList.remove('open'); }
 }
 
 /** 下拉点击加入套餐：检验组合展开为单个项目；处方药品加入主药（可编辑剂量/频次/途径） */
@@ -469,7 +489,6 @@ function pkgRenderItems() {
             '    <span class="pkg-item-price">¥' + (s.price * s.quantity).toFixed(2) + '</span>' +
             '  </div>' +
             '  <div class="actions">' +
-            (isDrug ? '<button type="button" class="btn btn-outline btn-sm" onclick="pkgOpenSubDrop(' + i + ',this)">＋ 子医嘱</button>' : '') +
             '    <button type="button" class="btn btn-outline btn-sm" onclick="pkgRemoveItem(' + i + ')">✕</button>' +
             '  </div>' +
             '</div>';
@@ -482,7 +501,7 @@ function pkgRenderItems() {
     }).join('') || '<div class="text-muted fs-13 text-center" style="padding:30px">尚未添加项目</div>';
 }
 
-/** 处方条目控制：剂量/频次/途径 + 子医嘱列表 */
+/** 处方条目控制：剂量/频次/途径 + 护士勾选 + 子医嘱按钮（布局跟随开处方模态框） */
 function pkgDrugControls(s, i) {
     var freqOpts = RX_FREQS.map(function (f) {
         return '<option value="' + f + '"' + (f === s.frequency ? ' selected' : '') + '>' + f + '</option>';
@@ -500,9 +519,16 @@ function pkgDrugControls(s, i) {
         ? '<select class="select" style="width:128px;padding:4px 8px;min-height:28px;font-size:13px" onchange="pkgSetField(' + i + ',\'route\',this.value)">' +
           '<option value="">使用途径</option>' + routeOpts + '</select>'
         : '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" value="' + (s.route || '') + '" placeholder="途径" onchange="pkgSetField(' + i + ',\'route\',this.value)">';
-    return '<div class="flex gap-8 mt-4" style="flex-wrap:wrap">' +
+    // 护士站执行勾选（缴费后护士站显示待执行；默认取管理员设置，医生/套餐可改）
+    var nurseBox = '<label style="display:inline-flex;align-items:center;gap:3px;font-size:12px;cursor:pointer;color:var(--text-muted);user-select:none" title="缴费后护士站显示待执行；取消勾选则不显示">' +
+        '<input type="checkbox" style="width:14px;height:14px;accent-color:var(--primary)"' +
+        (s.nurse_required ? ' checked' : '') +
+        ' onchange="pkgSetField(' + i + ',\'nurse_required\',this.checked?1:0)"> 护士</label>';
+    return '<div class="flex gap-8 mt-4" style="flex-wrap:wrap;align-items:center">' +
         '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" value="' + (s.single_dose || '') + '" placeholder="剂量" onchange="pkgSetField(' + i + ',\'single_dose\',this.value)">' +
         freqSel + routeSel +
+        nurseBox +
+        '<button type="button" class="btn btn-outline btn-sm" onclick="pkgOpenSubDrop(' + i + ',this)">＋ 子医嘱</button>' +
         '<span class="fs-12 text-muted" style="align-self:center">数量</span>' +
         '<input type="number" class="input" style="width:52px;padding:3px 6px;min-height:28px;text-align:center" value="' + s.quantity + '" min="1" max="' + (s.stock || 99) + '" onchange="pkgSetField(' + i + ',\'quantity\',parseInt(this.value,10)||1)">' +
         '</div>' +
