@@ -218,7 +218,7 @@ class Router {
                 // 顶栏工具补丁：SPA 局部导航下顶栏常驻，进入病历页时由 nav.js
                 // 将工具组注入顶栏、离开时移除（仅病历页显示）
                 $topbarPatch = '<div class="view-topbar-patch" style="display:none">' . Layout::docToolsBar() . '</div>';
-            } elseif ($view === 'templates.php' || $view === 'admin/review.php') {
+            } elseif ($view === 'templates.php' || $view === 'packages.php' || $view === 'admin/review.php') {
                 $needs[] = 'emr';
             } elseif (in_array($view, array('nurse/dashboard.php', 'lab/dashboard.php', 'imaging/dashboard.php', 'pharmacy/dashboard.php'), true)) {
                 $needs[] = 'deptwork';
@@ -238,7 +238,7 @@ class Router {
         $standalone = ($view === 'login.php' || $view === 'install.php' || $view === 'landing.php' || $view === 'doctor/call.php');
         // 需要 EMR 栈（emr.js + emr_* + order + queuepanel 等）的页面：
         // 医生工作站、模板管理、审核中心（模板预览）
-        $needEmr = ($view === 'doctor/emr.php' || $view === 'templates.php' || $view === 'admin/review.php');
+        $needEmr = ($view === 'doctor/emr.php' || $view === 'templates.php' || $view === 'packages.php' || $view === 'admin/review.php');
         // 需要科室工作台组件（deptwork.js）的页面：护士站/检验/影像/药房工作台
         $needDeptWork = in_array($view, array('nurse/dashboard.php', 'lab/dashboard.php', 'imaging/dashboard.php', 'pharmacy/dashboard.php'), true);
         // 需要管理端项目列表组件（admin_items.js）的页面：检验/检查/药品管理

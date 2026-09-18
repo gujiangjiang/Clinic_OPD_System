@@ -312,6 +312,10 @@ switch ($action) {
                 'spec_pack_qty' => (int)(isset($it['spec_pack_qty']) ? $it['spec_pack_qty'] : 1),
                 'spec_pack_unit' => (string)(isset($it['spec_pack_unit']) ? $it['spec_pack_unit'] : ''),
                 'single_use_qty' => (float)(isset($it['single_use_qty']) ? $it['single_use_qty'] : 1),
+                // 检验组合字段（组合保持组合实体保存）
+                'is_group' => (int)(isset($it['is_group']) ? $it['is_group'] : 0),
+                'members' => (string)(isset($it['members']) ? $it['members'] : ''),
+                'member_ids' => (string)(isset($it['member_ids']) ? $it['member_ids'] : ''),
             );
         }
         if (!$clean) json_fail('请先添加套餐项目');
@@ -420,12 +424,18 @@ switch ($action) {
         $pageSize = max(1, min(100, (int)get('size', 20)));
         $kw = trim(get('kw', ''));
         $like = $kw !== '' ? '%' . $kw . '%' : '';
+        // 处方快速筛选：药品分类（管理员自定义；空=全部）
+        $cat = trim(get('cat', ''));
+        // 检验快速筛选：single=单个 / group=组合（空=全部）
+        $f = get('f', '');
         $list = array();
         $total = 0;
-        $dicts = array('frequencies' => array(), 'routes' => array());
+        $dicts = array('frequencies' => array(), 'routes' => array(), 'categories' => array());
         if ($type === 'lab') {
             $where = "status='approved'";
             $params = array();
+            if ($f === 'single') $where .= " AND is_group=0";
+            elseif ($f === 'group') $where .= " AND is_group=1";
             if ($kw !== '') { $where .= " AND name LIKE ?"; $params[] = $like; }
             $total = (int)OrderRepository::val("SELECT COUNT(*) FROM lab_items WHERE $where", $params);
             $rows = OrderRepository::q("SELECT * FROM lab_items WHERE $where ORDER BY category, id LIMIT ? OFFSET ?",
@@ -490,7 +500,8 @@ switch ($action) {
         } elseif ($type === 'prescription') {
             $where = "status='approved' AND qty > 0";
             $params = array();
-            if ($kw !== '') { $where .= " AND (name LIKE ? OR vendor_short LIKE ?)"; $params = array($like, $like); }
+            if ($cat !== '') { $where .= " AND category=?"; $params[] = $cat; }
+            if ($kw !== '') { $where .= " AND (name LIKE ? OR vendor_short LIKE ?)"; $params[] = $like; $params[] = $like; }
             $total = (int)OrderRepository::val("SELECT COUNT(*) FROM drugs WHERE $where", $params);
             $rows = OrderRepository::q("SELECT * FROM drugs WHERE $where ORDER BY category, id LIMIT ? OFFSET ?",
                 array_merge($params, array($pageSize, ($page - 1) * $pageSize)));
@@ -520,6 +531,9 @@ switch ($action) {
             }
             foreach (OrderRepository::q("SELECT name FROM drug_settings WHERE stype='route' ORDER BY sort, id") as $rt) {
                 $dicts['routes'][] = $rt['name'];
+            }
+            foreach (OrderRepository::q("SELECT name FROM drug_settings WHERE stype='category' ORDER BY sort, id") as $cg) {
+                $dicts['categories'][] = $cg['name'];
             }
             $resp['link_dicts'] = $dicts;
         }

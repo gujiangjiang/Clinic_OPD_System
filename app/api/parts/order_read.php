@@ -27,11 +27,13 @@ function order_part_read($action) {
         $kw = trim(get('kw', ''));
         $f = get('f', '');   // lab: single=单个 / group=组合（空=全部）
         $like = $kw !== '' ? '%' . $kw . '%' : '';
+        // 处方快速筛选：药品分类（西药/中药/中成药，管理员自定义；空=全部）
+        $cat = trim(get('cat', ''));
         $list = array();
         $total = 0;
         // 联动字典：皮试处置详情（id→名称/费用）+ 给药途径绑定计费处置（途径名→处置）
         //           + 频次/途径选项列表（供已选列表下拉选择）
-        $dicts = array('skin_tests' => array(), 'route_bindings' => array(), 'frequencies' => array(), 'routes' => array());
+        $dicts = array('skin_tests' => array(), 'route_bindings' => array(), 'frequencies' => array(), 'routes' => array(), 'categories' => array());
         // 检验组合/成员关系全量映射（互斥/共享成员提醒用；分页下由首页随响应带回）
         $labMap = array('groups' => array(), 'members' => array(), 'names' => array());
 
@@ -109,7 +111,8 @@ function order_part_read($action) {
             // 处方：库存为 0 的药品不显示（缺货不可开具，原前端过滤下沉到服务端）
             $where = "status='approved' AND qty > 0";
             $params = array();
-            if ($kw !== '') { $where .= " AND (name LIKE ? OR vendor_short LIKE ?)"; $params = array($like, $like); }
+            if ($cat !== '') { $where .= " AND category=?"; $params[] = $cat; }
+            if ($kw !== '') { $where .= " AND (name LIKE ? OR vendor_short LIKE ?)"; $params[] = $like; $params[] = $like; }
             $total = (int)OrderRepository::val("SELECT COUNT(*) FROM drugs WHERE $where", $params);
             $rows = OrderRepository::q("SELECT * FROM drugs WHERE $where ORDER BY category, id LIMIT ? OFFSET ?",
                 array_merge($params, array($pageSize, ($page - 1) * $pageSize)));
@@ -140,6 +143,9 @@ function order_part_read($action) {
             }
             foreach (OrderRepository::q("SELECT name FROM drug_settings WHERE stype='route' ORDER BY sort, id") as $rt) {
                 $dicts['routes'][] = $rt['name'];
+            }
+            foreach (OrderRepository::q("SELECT name FROM drug_settings WHERE stype='category' ORDER BY sort, id") as $cg) {
+                $dicts['categories'][] = $cg['name'];
             }
             $stIds = array();
             foreach ($list as $it) {
