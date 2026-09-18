@@ -187,6 +187,6 @@ Clinic.infiniteList = function (opts) {
             page = 0; hasMore = true;
             loadPage(1);
         },
-        stop: function () { if (stopFn) stopFn(); },
+        stop: function () { if (stopFn && stopFn.stop) stopFn.stop(); },
     };
 };
