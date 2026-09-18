@@ -45,10 +45,11 @@ function admin_part_audit($action) {
                 'imaging_template' => '影像报告模板',
                 'report_withdraw' => '报告撤回',
                 'pwd_reset' => '密码重置申请', 'profile_update' => '个人资料修改',
+                'package' => '快速开单套餐',
             );
             // 单条记录渲染（平铺与分组共用；分组视图可隐藏冗余列）
             // 可预览类型：凡经模态框表单提交的均提供「预览」按钮（复用原表单，只读展示）
-            $previewableTypes = array('template', 'nursing_template', 'imaging_template', 'item_lab', 'item_exam', 'item_drug', 'item_disp', 'drugsetting');
+            $previewableTypes = array('template', 'nursing_template', 'imaging_template', 'item_lab', 'item_exam', 'item_drug', 'item_disp', 'drugsetting', 'package');
             $rowHtml = function ($r, $showType = true, $showProposer = true) use ($typeNames, $previewableTypes) {
                 $h = '<tr>';
                 if ($showType) {
@@ -161,6 +162,9 @@ function admin_part_audit($action) {
             $backUrl = $itemAuditTypes[$audit['type']]['url'] . '?edit=' . $refId;
         } else {
             switch ($audit['type']) {
+                case 'package':
+                    $backUrl = '/doctor/packages';
+                    break;
                 case 'drugsetting':
                     $backUrl = '/admin/drugsettings';
                     break;
@@ -176,6 +180,24 @@ function admin_part_audit($action) {
             }
         }
         switch ($audit['type']) {
+            case 'package':
+                // 套餐审核：通过发布为对应范围；驳回降级为个人（个人依然可用）
+                $pkgStatus = $approve ? 'published' : 'rejected';
+                CoreRepository::exec('UPDATE packages SET status=?, updated_at=? WHERE id=?', array($pkgStatus, now_str(), $refId));
+                if (!$approve) {
+                    CoreRepository::exec('UPDATE packages SET scope=? WHERE id=?', array('personal', $refId));
+                    CoreRepository::exec('DELETE FROM package_depts WHERE package_id=?', array($refId));
+                }
+                if ($proposerId > 0) {
+                    $pkgData = json_decode((string)$audit['data'], true);
+                    $pkgType = is_array($pkgData) && isset($pkgData['type']) ? (string)$pkgData['type'] : 'lab';
+                    $pkgLabel = array('lab' => '检验套餐', 'imaging' => '检查套餐', 'procedure' => '处置套餐', 'prescription' => '处方套餐')[$pkgType] ?? '套餐';
+                    $toRole = $proposerRole !== '' ? $proposerRole : 'doctor';
+                    send_msg($toRole, $proposerId, $pkgLabel . '审核结果',
+                        '您的' . $pkgLabel . '「' . $audit['title'] . '」审核' . ($approve ? '已通过，现在可供相关科室使用' : '未通过：' . $note . '，已降级为个人套餐（仅您个人可用）'),
+                        '', '', array('msg_type' => 'system', 'link_url' => '/doctor/packages'));
+                }
+                break;
             case 'template':
             case 'nursing_template':
             case 'imaging_template':
