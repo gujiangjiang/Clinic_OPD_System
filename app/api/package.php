@@ -317,9 +317,15 @@ switch ($action) {
                 } else {
                     $mNames = array();
                     $mIds = array();
-                    foreach (OrderRepository::q('SELECT id, name FROM lab_items WHERE id IN (SELECT item_id FROM lab_group_members WHERE group_id=?) ORDER BY id', array($r['id'])) as $m) {
+                    $mItems = array();
+                    foreach (OrderRepository::q('SELECT id, name, price, unit, category FROM lab_items WHERE id IN (SELECT item_id FROM lab_group_members WHERE group_id=?) ORDER BY id', array($r['id'])) as $m) {
                         $mNames[] = $m['name'];
                         $mIds[] = (int)$m['id'];
+                        $mItems[] = array(
+                            'id' => (int)$m['id'], 'name' => $m['name'], 'price' => (float)$m['price'],
+                            'unit' => $m['unit'], 'category_name' => $m['category'], 'spec' => '', 'stock' => 0,
+                            'is_group' => 0, 'members' => '', 'member_ids' => '', 'member_items' => array(),
+                        );
                     }
                     $list[] = array(
                         'id' => (int)$r['id'], 'name' => $r['name'], 'price' => (float)$r['price'],
@@ -327,6 +333,7 @@ switch ($action) {
                         'spec' => implode('、', $mNames), 'stock' => 0,
                         'is_group' => 1, 'members' => implode('、', $mNames),
                         'member_ids' => implode(',', $mIds),
+                        'member_items' => $mItems,
                     );
                 }
             }
