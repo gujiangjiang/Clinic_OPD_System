@@ -40,6 +40,7 @@ $isAdmin = $u['role'] === 'admin';
 <div class="card" id="pkgList">
     <div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div>
 </div>
+<div class="fs-12 text-muted mt-8" id="pkgCount">共 0 个套餐</div>
 
 <style>
 .pkg-form { display: flex; gap: 14px; }
@@ -89,9 +90,9 @@ $isAdmin = $u['role'] === 'admin';
 
 <script>
 var PKG_TYPE = 'lab';
-var PKG_DATA = [];
 var PKG_SCOPE = '';      // 范围筛选（空=全部）
 var PKG_ITEMS = [];      // 套餐内容项目（新建/编辑弹窗内）
+var PKG_LIST = null;     // 套餐列表的 infiniteList（分页滚动加载）
 var PKG_CAT_LIST = null; // 套餐编辑器搜索下拉的 infiniteList
 var PKG_CAT_KW = '';     // 套餐编辑器最近加载关键字
 var PKG_SUB_LIST = null; // 处方套餐子医嘱内联下拉
@@ -121,75 +122,88 @@ function setPkgScope(btn, s) {
     document.querySelectorAll('#pkgScopeTabs .btn').forEach(function (b) {
         b.className = 'btn btn-sm ' + ((b.getAttribute('data-pscope') || '') === s ? 'btn-primary' : 'btn-outline');
     });
-    renderPkgList();
+    loadPkgList();
 }
 
 function applyPkgFilter() {
-    var q = (document.getElementById('pkgSearchKw').value || '').trim().toLowerCase();
-    var n = 0;
-    document.querySelectorAll('#pkgList tbody tr').forEach(function (tr) {
-        var hit = tr.textContent.toLowerCase().indexOf(q) !== -1;
-        tr.style.display = hit ? '' : 'none';
-        if (hit) n++;
-    });
-    var cnt = document.getElementById('pkgCount');
-    if (cnt) cnt.textContent = q ? '搜索到 ' + n + ' 个套餐' : '共 ' + n + ' 个套餐';
+    clearTimeout(window.__pkgKwT);
+    window.__pkgKwT = setTimeout(loadPkgList, 300);
+}
+
+function pkgListUrl(p, size) {
+    var kw = encodeURIComponent((document.getElementById('pkgSearchKw') || {}).value || '');
+    return '/api/package?action=list&type=' + PKG_TYPE + '&scope=' + (PKG_SCOPE || '') + '&page=' + p + '&size=' + size + '&kw=' + kw;
 }
 
 function loadPkgList() {
-    PKG_DATA = [];
-    Clinic.get('/api/package?action=list&type=' + PKG_TYPE + '&size=200', null, {
-        onSuccess: function (j) {
-            PKG_DATA = j.data.list || [];
-            renderPkgList();
+    if (PKG_LIST) PKG_LIST.reset();
+    else initPkgList();
+}
+
+function initPkgList() {
+    var box = document.getElementById('pkgList');
+    if (!box) return;
+    PKG_LIST = Clinic.infiniteList({
+        el: box,
+        pageSize: 20,
+        threshold: 40,
+        totalEl: document.getElementById('pkgCount'),
+        emptyHtml: '<div class="empty"><div class="empty-ico">🥡</div>暂无套餐，点击右上角「新建套餐」创建</div>',
+        url: pkgListUrl,
+        render: pkgRowHtml,
+        // 后续页仅返回 tr 行：追加到已有表格 tbody（保证表格样式统一）
+        append: function (el, html) {
+            var tb = el.querySelector('table tbody');
+            if (tb) tb.insertAdjacentHTML('beforeend', html);
+            else el.insertAdjacentHTML('beforeend', html);
         },
         onError: function () {
-            document.getElementById('pkgList').innerHTML = '<div class="empty">加载失败，请重试</div>';
+            var b = document.getElementById('pkgList');
+            if (b && !b.querySelector('tr')) b.innerHTML = '<div class="empty">加载失败，请重试</div>';
         },
     });
 }
 
-function renderPkgList() {
-    var filtered = PKG_DATA.length ? PKG_DATA.filter(function (t) { return !PKG_SCOPE || t.scope === PKG_SCOPE; }) : [];
-    var rows = filtered.length ? filtered.map(function (t) {
-        // 待审核套餐：适用范围展示目标范围（全院/科室），但标注当前仅个人可用
-        var scopeBadge = '<span class="badge badge-primary">' + (PKG_SCOPE_NAMES[t.scope] || t.scope) + '</span>';
-        if (t.status === 'pending_review') {
-            scopeBadge += ' <span class="fs-12 text-muted">（待审核·暂仅个人可用）</span>';
-        }
-        var statusBadge = '<span class="badge ' + (PKG_STATUS_CLS[t.status] || 'badge-gray') + '">' + (PKG_STATUS_NAMES[t.status] || t.status) + '</span>';
-        var deptText = t.dept_names && t.dept_names.length ? '（' + t.dept_names.join('、') + '）' : '';
-        var actions = '';
-        if (t.status === 'pending_review') {
-            if (<?php echo $isAdmin ? 'true' : 'false'; ?>) {
-                actions = '<a class="btn btn-outline btn-sm" href="/admin/review">去审核中心审核</a>';
-            } else {
-                actions = '<span class="fs-12 text-muted">待审核·不可编辑</span>';
-            }
-        } else {
-            var canManage = <?php echo $isAdmin ? 'true' : 'false'; ?> || t.creator_id === <?php echo (int)$u['id']; ?>;
-            if (canManage) {
-                actions += '<button class="btn btn-outline btn-sm" onclick="openPkgForm(' + t.id + ')">编辑</button>';
-                actions += '<button class="btn btn-outline btn-sm" onclick="delPkg(' + t.id + ')">删除</button>';
-            } else {
-                actions = '<span class="fs-12 text-muted">他人套餐</span>';
-            }
-        }
-        return '<tr>' +
-            '<td class="fw-600">' + escHtml(t.title) + '</td>' +
-            '<td><span class="badge badge-gray">' + (PKG_TYPE_NAMES[t.type] || t.type) + '</span></td>' +
-            '<td>' + scopeBadge + ' ' + deptText + '</td>' +
-            '<td class="fs-12 text-muted">' + (t.item_count || 0) + ' 项 ｜ ¥' + (t.total_price || 0).toFixed(2) + '</td>' +
-            '<td>' + escHtml(t.creator_name) + '</td>' +
-            '<td>' + statusBadge + '</td>' +
-            '<td><div class="flex gap-4">' + actions + '</div></td></tr>';
-    }).join('') : '<tr><td colspan="7"><div class="empty">暂无套餐，点击右上角「新建套餐」创建</div></td></tr>';
-    document.getElementById('pkgList').innerHTML =
-        '<div class="table-wrap"><table class="table"><thead><tr>' +
+function pkgRowHtml(list, isFirst) {
+    var rows = list.map(pkgRow).join('');
+    if (!isFirst) return rows;
+    return '<div class="table-wrap"><table class="table"><thead><tr>' +
         '<th>套餐名称</th><th>类型</th><th>适用范围</th><th>项目</th><th>创建人</th><th>审核状态</th><th>操作</th></tr></thead><tbody>' +
-        rows + '</tbody></table></div>' +
-        '<div class="fs-12 text-muted mt-8" id="pkgCount">共 ' + filtered.length + ' 个套餐</div>';
-    applyPkgFilter();
+        rows + '</tbody></table></div>';
+}
+
+function pkgRow(t) {
+    // 待审核套餐：适用范围展示目标范围（全院/科室），但标注当前仅个人可用
+    var scopeBadge = '<span class="badge badge-primary">' + (PKG_SCOPE_NAMES[t.scope] || t.scope) + '</span>';
+    if (t.status === 'pending_review') {
+        scopeBadge += ' <span class="fs-12 text-muted">（待审核·暂仅个人可用）</span>';
+    }
+    var statusBadge = '<span class="badge ' + (PKG_STATUS_CLS[t.status] || 'badge-gray') + '">' + (PKG_STATUS_NAMES[t.status] || t.status) + '</span>';
+    var deptText = t.dept_names && t.dept_names.length ? '（' + t.dept_names.join('、') + '）' : '';
+    var actions = '';
+    if (t.status === 'pending_review') {
+        if (<?php echo $isAdmin ? 'true' : 'false'; ?>) {
+            actions = '<a class="btn btn-outline btn-sm" href="/admin/review">去审核中心审核</a>';
+        } else {
+            actions = '<span class="fs-12 text-muted">待审核·不可编辑</span>';
+        }
+    } else {
+        var canManage = <?php echo $isAdmin ? 'true' : 'false'; ?> || t.creator_id === <?php echo (int)$u['id']; ?>;
+        if (canManage) {
+            actions += '<button class="btn btn-outline btn-sm" onclick="openPkgForm(' + t.id + ')">编辑</button>';
+            actions += '<button class="btn btn-outline btn-sm" onclick="delPkg(' + t.id + ')">删除</button>';
+        } else {
+            actions = '<span class="fs-12 text-muted">他人套餐</span>';
+        }
+    }
+    return '<tr>' +
+        '<td class="fw-600">' + escHtml(t.title) + '</td>' +
+        '<td><span class="badge badge-gray">' + (PKG_TYPE_NAMES[t.type] || t.type) + '</span></td>' +
+        '<td>' + scopeBadge + ' ' + deptText + '</td>' +
+        '<td class="fs-12 text-muted">' + (t.item_count || 0) + ' 项 ｜ ¥' + (t.total_price || 0).toFixed(2) + '</td>' +
+        '<td>' + escHtml(t.creator_name) + '</td>' +
+        '<td>' + statusBadge + '</td>' +
+        '<td><div class="flex gap-4">' + actions + '</div></td></tr>';
 }
 
 /* ==================== 新建/编辑套餐弹窗 ==================== */

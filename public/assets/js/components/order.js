@@ -91,6 +91,16 @@ Clinic.order = (function () {
     var RX_SUB_LIST = null;    // 处方子医嘱内联下拉
     /** 处方下拉最近一次加载的关键字（焦点重显时判定是否需重置） */
     var RX_KW_LAST = '';
+    /** 套餐选择悬浮框 infiniteList（开单弹窗内） */
+    var PKG_LIST = null;
+    /** 套餐搜索最近一次加载的关键字 */
+    var PKG_KW_LAST = '';
+    /** 当前应用套餐详情（/api/package?action=get&for_apply=1） */
+    var PKG_DETAIL = null;
+    /** 套餐选择器（开单弹窗快速选择套餐加入已选） */
+    var PKG_PICK_LIST = null;  // 套餐列表 infiniteList 实例
+    var PKG_PICK_KW = '';      // 套餐列表最近搜索关键字（焦点重显判定重置）
+    var PKG_APPLY_GROUPS = []; // 套餐应用弹窗：主药+子医嘱分组（含勾选状态）
 
     /**
      * 初始化（页面加载时调用）
@@ -206,7 +216,10 @@ Clinic.order = (function () {
             return '<div class="flex gap-16 order-flex" style="align-items:stretch">' +
                 // 左：搜索横条（上）+ 已选列表（下），下拉为浮层
                 '  <div style="flex:1;min-width:0;display:flex;flex-direction:column;position:relative">' +
-                '    <input type="text" class="input" id="rxKw" placeholder="🔍 点击搜索药品（名称 / 厂家简称），支持子医嘱" autocomplete="off" style="flex-shrink:0">' +
+                '    <div class="flex gap-8" style="align-items:center">' +
+                '      <input type="text" class="input" id="rxKw" placeholder="🔍 点击搜索药品（名称 / 厂家简称），支持子医嘱" autocomplete="off" style="flex:1;min-width:0">' +
+                '      <button type="button" class="btn btn-outline btn-sm" id="rxPkgBtn" title="快速选择套餐一键加入" style="flex-shrink:0">🥡 套餐</button>' +
+                '    </div>' +
                 '    <div id="rxDrop" style="display:none;position:absolute;top:44px;left:0;right:0;z-index:40;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);max-height:300px;overflow-y:auto"></div>' +
                 '    <div class="fs-13 text-muted mb-8 mt-8">已选 <strong id="selCount">0</strong> 项</div>' +
                 '    <div id="selList" style="flex:1;min-height:0;overflow-y:auto;padding-right:4px"></div>' +
@@ -225,8 +238,11 @@ Clinic.order = (function () {
         return '<div class="flex gap-16 order-flex" style="align-items:stretch">' +
             // 左：项目显示与搜索（较窄）
             '  <div style="width:240px;flex-shrink:0;display:flex;flex-direction:column">' +
-            '    <input type="text" class="input" id="orderKw" placeholder="搜索' +
-            (isDrug ? '药品名称/厂家简称' : '项目名称') + '" autocomplete="off">' +
+            '    <div class="flex gap-8" style="align-items:center">' +
+            '      <input type="text" class="input" id="orderKw" placeholder="搜索' +
+            (isDrug ? '药品名称/厂家简称' : '项目名称') + '" autocomplete="off" style="flex:1;min-width:0">' +
+            '      <button type="button" class="btn btn-outline btn-sm" id="orderPkgBtn" title="快速选择套餐一键加入" style="flex-shrink:0">🥡 套餐</button>' +
+            '    </div>' +
             (CUR_TYPE === 'lab' ? labFilterBar() : '') +
             '    <div class="order-catalog" id="orderCatalog" style="flex:1;min-height:0;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-top:8px">' +
             '<div class="text-center" style="padding:24px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>' +
@@ -700,6 +716,11 @@ Clinic.order = (function () {
                 catalogReset();
             });
         });
+        // 套餐按钮（检验/检查/处置 与 处方 顶部）：打开套餐选择器
+        var opb = document.getElementById('orderPkgBtn');
+        if (opb) opb.addEventListener('click', openPkgPicker);
+        var rpb = document.getElementById('rxPkgBtn');
+        if (rpb) rpb.addEventListener('click', openPkgPicker);
     }
 
     /**
