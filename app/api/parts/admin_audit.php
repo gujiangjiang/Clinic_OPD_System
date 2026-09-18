@@ -17,6 +17,13 @@
  */
 function admin_part_audit($action) {
     $u = Auth::user();
+    /** 套餐类型中文名（审核中心展示用；套餐 API 中的同名函数不在此上下文加载） */
+    if (!function_exists('pkg_type_label')) {
+        function pkg_type_label($type) {
+            $map = array('lab' => '检验套餐', 'imaging' => '检查套餐', 'procedure' => '处置套餐', 'prescription' => '处方套餐');
+            return isset($map[$type]) ? $map[$type] : '套餐';
+        }
+    }
 
     /* ==================== 审核列表 ==================== */
     if ($action === 'audit_list') {
