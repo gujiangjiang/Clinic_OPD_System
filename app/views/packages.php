@@ -304,7 +304,6 @@ function pkgBuildForm(mask, pkg) {
         '  <div class="pkg-right">' +
         '    <div class="pkg-cat-box">' +
         '      <input type="text" class="input" id="pkgCatKw" placeholder="🔍 搜索' + (isDrug ? '药品（名称 / 厂家简称）' : '项目名称') + '，点击加入套餐" autocomplete="off" style="flex-shrink:0">' +
-        '      <div class="pkg-cat-drop" id="pkgCatDrop"></div>' +
         '    </div>' +
         '    <div class="fs-13 text-muted mt-8 mb-4">套餐内容 <strong id="pkgItemCount">0</strong> 项 ｜ 合计 <strong id="pkgItemTotal" style="color:var(--danger)">¥0.00</strong></div>' +
         '    <div id="pkgItems" style="flex:1;min-height:0;overflow-y:auto;padding-right:4px">' +
@@ -334,10 +333,7 @@ function pkgBuildForm(mask, pkg) {
     }
     var drop = document.getElementById('pkgCatDrop');
     if (drop) {
-        drop.addEventListener('mousedown', function (e) {
-            var el = e.target.closest ? e.target.closest('.dd-item') : null;
-            if (el) { e.preventDefault(); pkgCatPick(JSON.parse(el.getAttribute('data-it') || '{}')); }
-        });
+        // 条目点击委托已迁至 ensurePkgCatDrop 创建时一次性绑定（body 覆盖层）
     }
     pkgScopeChange();
     mask.querySelector('.modal-foot').innerHTML =
@@ -353,6 +349,22 @@ function pkgScopeChange() {
 }
 
 /* ==================== 套餐编辑器：搜索下拉（分页加载） ==================== */
+/** 套餐编辑器搜索下拉：body 上的 fixed 覆盖层（避开模态框 transform 定位/滚动干扰） */
+function ensurePkgCatDrop() {
+    var box = document.getElementById('pkgCatDrop');
+    if (box) return box;
+    box = document.createElement('div');
+    box.id = 'pkgCatDrop';
+    box.className = 'pkg-cat-drop';
+    box.style.cssText = 'display:none;position:fixed;top:44px;left:0;right:0;z-index:3200;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);max-height:280px;overflow-y:auto;padding:4px';
+    document.body.appendChild(box);
+    box.addEventListener('mousedown', function (e) {
+        var el = e.target.closest ? e.target.closest('.dd-item') : null;
+        if (el) { e.preventDefault(); pkgCatPick(JSON.parse(el.getAttribute('data-it') || '{}')); }
+    });
+    return box;
+}
+
 function pkgCatUrl(p, size) {
     var kw = encodeURIComponent((document.getElementById('pkgCatKw') || {}).value || '');
     return '/api/package?action=catalog&type=' + PKG_TYPE + '&page=' + p + '&size=' + size + '&kw=' + kw;
@@ -362,7 +374,7 @@ function pkgCatReset() {
     else pkgInitCatList();
 }
 function pkgInitCatList() {
-    var box = document.getElementById('pkgCatDrop');
+    var box = ensurePkgCatDrop();
     if (!box || PKG_CAT_LIST) return;
     PKG_CAT_LIST = Clinic.infiniteList({
         el: box,
@@ -394,8 +406,22 @@ function pkgInitCatList() {
         },
     });
 }
-function pkgShowCatDrop() { var b = document.getElementById('pkgCatDrop'); if (b) b.classList.add('open'); }
-function pkgHideCatDrop() { var b = document.getElementById('pkgCatDrop'); if (b) b.classList.remove('open'); }
+function pkgShowCatDrop() {
+    var box = ensurePkgCatDrop();
+    if (!box) return;
+    var kw = document.getElementById('pkgCatKw');
+    if (kw) {
+        var r = kw.getBoundingClientRect();
+        box.style.left = r.left + 'px';
+        box.style.top = (r.bottom + 2) + 'px';
+        box.style.width = r.width + 'px';
+    }
+    box.classList.add('open');
+}
+function pkgHideCatDrop() {
+    var box = document.getElementById('pkgCatDrop');
+    if (box) box.classList.remove('open');
+}
 
 /** 下拉点击加入套餐：检验组合展开为单个项目；处方药品加入主药（可编辑剂量/频次/途径） */
 function pkgCatPick(it) {

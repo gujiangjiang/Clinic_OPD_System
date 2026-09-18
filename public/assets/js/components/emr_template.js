@@ -64,90 +64,87 @@ Clinic.emr.template = (function () {
         var esc = function (e) { if (e.key === 'Escape') closeTemplatePicker(); };
         pop.__handlers = [outside, esc];
         setTimeout(function () { document.addEventListener('mousedown', outside, true); document.addEventListener('keydown', esc, true); }, 0);
-        Clinic.get('/api/template?action=list&type=' + tplType, null, {
-            onSuccess: function (j) {
-                var list = j.data.list || [];
-                var scopeW = { hospital: 0, dept: 1, personal: 2 };
-                var order = list.slice().sort(function (a, b) {
-                    var sa = a.status === 'pending_review' ? 'personal' : a.scope;
-                    var sb = b.status === 'pending_review' ? 'personal' : b.scope;
-                    var wa = scopeW[sa] != null ? scopeW[sa] : 9;
-                    var wb = scopeW[sb] != null ? scopeW[sb] : 9;
-                    if (wa !== wb) return wa - wb;
-                    return (b.updated_at || '').localeCompare(a.updated_at || '');
-                });
-                var scopeNames = { hospital: '全院', dept: '科室', personal: '个人' };
-                var tplScope = '';   // 当前筛选范围：''=全部 / hospital / dept / personal
+        var scopeNames = { hospital: '全院', dept: '科室', personal: '个人' };
+        var tplScope = '';   // 当前筛选范围：''=全部 / hospital / dept / personal
+        var TPL_LIST = null; // 模板列表 infiniteList 句柄（重新打开时旧元素已随 pop 移除，必须重置再初始化）
 
-                /** 获取当前筛选条件下的列表（scope + 搜索关键字） */
-                function getFilteredList() {
-                    var kw = (document.getElementById('tplPickKw') || {}).value || '';
-                    kw = kw.trim().toLowerCase();
-                    var out = order;
-                    if (tplScope) {
-                        out = out.filter(function (t) {
-                            var eff = t.status === 'pending_review' ? 'personal' : t.scope;
-                            return eff === tplScope;
-                        });
-                    }
-                    if (kw) {
-                        out = out.filter(function (t) { return t.title.toLowerCase().indexOf(kw) !== -1; });
-                    }
-                    return out;
-                }
-
-                function renderItems() {
-                    var box = document.getElementById('tplPickList');
-                    if (!box) return;
-                    var items = getFilteredList();
-                    box.innerHTML = items.length ? items.map(function (t) {
+        /** 列表分页接口地址（搜索关键字 / 范围徽章实时参与拼接） */
+        function tplPickUrl(p, size) {
+            var kw = encodeURIComponent((document.getElementById('tplPickKw') || {}).value || '');
+            return '/api/template?action=list&type=' + tplType + '&page=' + p + '&size=' + size + '&kw=' + kw + '&scope=' + tplScope;
+        }
+        /** 重置列表到第一页（搜索/范围变化时调用） */
+        function tplPickReset() {
+            if (TPL_LIST) TPL_LIST.reset();
+            else initTplPickList();
+        }
+        /** 初始化模板列表无限滚动（滚动到底部自动续加载） */
+        function initTplPickList() {
+            var box = document.getElementById('tplPickList');
+            if (!box) return;
+            if (!window.Clinic || !Clinic.infiniteList) {
+                box.innerHTML = '<div class="fs-12 text-muted" style="padding:8px 10px">加载模板失败，请重试</div>';
+                return;
+            }
+            if (TPL_LIST) TPL_LIST.stop();
+            TPL_LIST = Clinic.infiniteList({
+                el: box,
+                pageSize: 15,
+                threshold: 40,
+                emptyHtml: '<div class="fs-12 text-muted" style="padding:8px 10px">' + emptyTxt + '</div>',
+                url: tplPickUrl,
+                render: function (list) {
+                    return list.map(function (t) {
                         var effScope = t.status === 'pending_review' ? 'personal' : t.scope;
                         return '<div class="tree-search-item" style="display:flex;justify-content:space-between;align-items:center" data-id="' + t.id + '">' +
                             '<span>' + escHtml(t.title) + '</span>' +
                             '<span class="badge ' + (effScope === 'hospital' ? 'badge-primary' : (effScope === 'dept' ? 'badge-warning' : 'badge-gray')) + '" style="font-size:11px;flex-shrink:0">' +
                             (scopeNames[effScope] || t.scope) + '</span></div>';
-                    }).join('') : '<div class="fs-12 text-muted" style="padding:8px 10px">' + emptyTxt + '</div>';
-                    box.querySelectorAll('.tree-search-item').forEach(function (it) {
-                        it.addEventListener('click', function () {
-                            closeTemplatePicker();
-                            fetchAndApply(parseInt(it.getAttribute('data-id'), 10));
-                        });
-                    });
-                }
+                    }).join('');
+                },
+            });
+        }
 
-                var pop2 = document.getElementById('tplPick');
-                if (pop2) {
-                    pop2.innerHTML =
-                        '<input class="input tree-box-search" id="tplPickKw" placeholder="' + pickPh + '" autocomplete="off">' +
-                        '<div class="flex gap-4" style="margin:6px 0;flex-wrap:wrap;justify-content:center">' +
-                        '  <span class="qp-chip active" data-scope="">全部</span>' +
-                        '  <span class="qp-chip" data-scope="hospital">全院</span>' +
-                        '  <span class="qp-chip" data-scope="dept">科室</span>' +
-                        '  <span class="qp-chip" data-scope="personal">个人</span>' +
-                        '</div>' +
-                        '<div class="send-tree" id="tplPickList" style="max-height:320px"></div>';
-                    renderItems();
-                    // 绑定范围筛选徽章（互斥）
-                    pop2.querySelectorAll('.qp-chip').forEach(function (el) {
-                        el.addEventListener('click', function () {
-                            pop2.querySelectorAll('.qp-chip').forEach(function (c) { c.classList.remove('active'); });
-                            this.classList.add('active');
-                            tplScope = this.getAttribute('data-scope') || '';
-                            renderItems();
-                        });
-                    });
-                    var kw = document.getElementById('tplPickKw');
-                    if (kw) {
-                        kw.addEventListener('input', function () { renderItems(); });
-                        kw.focus();
-                    }
+        var pop2 = document.getElementById('tplPick');
+        if (pop2) {
+            pop2.innerHTML =
+                '<input class="input tree-box-search" id="tplPickKw" placeholder="' + pickPh + '" autocomplete="off">' +
+                '<div class="flex gap-4" style="margin:6px 0;flex-wrap:wrap;justify-content:center">' +
+                '  <span class="qp-chip active" data-scope="">全部</span>' +
+                '  <span class="qp-chip" data-scope="hospital">全院</span>' +
+                '  <span class="qp-chip" data-scope="dept">科室</span>' +
+                '  <span class="qp-chip" data-scope="personal">个人</span>' +
+                '</div>' +
+                '<div class="send-tree" id="tplPickList" style="max-height:320px;min-height:120px"></div>';
+            // 列表条目点击（委托：条目随滚动分页动态生成）
+            var listBox = document.getElementById('tplPickList');
+            listBox.addEventListener('click', function (e) {
+                var it = e.target.closest ? e.target.closest('.tree-search-item') : null;
+                if (it) {
+                    closeTemplatePicker();
+                    fetchAndApply(parseInt(it.getAttribute('data-id'), 10));
                 }
-            },
-            onError: function () {
-                var pop3 = document.getElementById('tplPick');
-                if (pop3) pop3.innerHTML = '<div class="fs-12 text-muted" style="padding:12px;text-align:center">加载模板失败，请重试或前往「模板管理」创建</div>';
-            },
-        });
+            });
+            initTplPickList();
+            // 范围筛选徽章（互斥单选）：切换后重置分页
+            pop2.querySelectorAll('.qp-chip').forEach(function (el) {
+                el.addEventListener('click', function () {
+                    pop2.querySelectorAll('.qp-chip').forEach(function (c) { c.classList.remove('active'); });
+                    this.classList.add('active');
+                    tplScope = this.getAttribute('data-scope') || '';
+                    tplPickReset();
+                });
+            });
+            // 搜索关键字：防抖后重置分页
+            var kw = document.getElementById('tplPickKw');
+            if (kw) {
+                kw.addEventListener('input', function () {
+                    clearTimeout(kw.__t);
+                    kw.__t = setTimeout(function () { tplPickReset(); }, 300);
+                });
+                kw.focus();
+            }
+        }
     }
 
     function closeTemplatePicker() {

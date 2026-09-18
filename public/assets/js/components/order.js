@@ -122,6 +122,8 @@ Clinic.order = (function () {
         MEMBER_GROUPS = {};
         ID_NAMES = {};
         PENDING = null;
+        // 上一弹窗残留的下拉覆盖层隐藏（复用 DOM，下次打开重定位显示）
+        hideRxDrop();
         var names = { lab: '开检验', imaging: '开检查', procedure: '开处置', prescription: '开处方' };
         var prevReady = (type !== 'lab');   // 仅检验需要既往开具记录
         function tryOpen() {
@@ -210,14 +212,13 @@ Clinic.order = (function () {
             return '<div class="flex gap-16 order-flex" style="align-items:stretch">' +
                 // 左：搜索横条（上）+ 已选列表（下），下拉为浮层
                 '  <div style="flex:1;min-width:0;display:flex;flex-direction:column;position:relative">' +
-                '    <div class="flex gap-8" style="align-items:center">' +
-                '      <input type="text" class="input" id="rxKw" placeholder="🔍 点击搜索药品（名称 / 厂家简称），支持子医嘱" autocomplete="off" style="flex:1;min-width:0">' +
-                '      <button type="button" class="btn btn-outline btn-sm" id="rxPkgBtn" title="快速选择套餐一键加入" style="flex-shrink:0">🥡 套餐</button>' +
-                '    </div>' +
-                '    <div id="rxDrop" style="display:none;position:absolute;top:44px;left:0;right:0;z-index:40;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);max-height:300px;overflow-y:auto"></div>' +
-                '    <div class="fs-13 text-muted mb-8 mt-8">已选 <strong id="selCount">0</strong> 项</div>' +
-                '    <div id="selList" style="flex:1;min-height:0;overflow-y:auto;padding-right:4px"></div>' +
-                '  </div>' +
+'    <div class="flex gap-8" style="align-items:center">' +
+                 '      <input type="text" class="input" id="rxKw" placeholder="🔍 点击搜索药品（名称 / 厂家简称），支持子医嘱" autocomplete="off" style="flex:1;min-width:0">' +
+                 '      <button type="button" class="btn btn-outline btn-sm" id="rxPkgBtn" title="快速选择套餐一键加入" style="flex-shrink:0">🥡 套餐</button>' +
+                 '    </div>' +
+                 '    <div class="fs-13 text-muted mb-8 mt-8">已选 <strong id="selCount">0</strong> 项</div>' +
+                 '    <div id="selList" style="flex:1;min-height:0;overflow-y:auto;padding-right:4px"></div>' +
+                 '  </div>' +
                 // 右：流程闭环追踪（保留）
                 '  <div style="width:140px;border-left:1px solid var(--border);padding-left:16px;flex-shrink:0;display:flex;flex-direction:column;overflow-y:auto">' +
                 '    <div class="fw-600 fs-13 mb-8">流程</div>' + flow +
@@ -402,9 +403,24 @@ Clinic.order = (function () {
         else initRxList();
     }
 
-    /** 初始化顶部药品下拉无限滚动列表（聚焦弹出即加载，滚动续加载） */
-    function initRxList() {
+    /** 初始化顶部药品下拉无限滚动列表（聚焦弹出即加载，滚动续加载）
+     * 下拉为 document.body 上的 fixed 覆盖层（避开模态框 transform 造成的定位/滚动干扰） */
+    function ensureRxDrop() {
         var box = document.getElementById('rxDrop');
+        if (box) return box;
+        box = document.createElement('div');
+        box.id = 'rxDrop';
+        box.style.cssText = 'display:none;position:fixed;top:44px;left:0;right:0;z-index:1500;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);max-height:300px;overflow-y:auto';
+        document.body.appendChild(box);
+        box.addEventListener('mousedown', function (e) {
+            var el = e.target.closest ? e.target.closest('.rx-drop-item') : null;
+            if (el) { e.preventDefault(); pickRx(el); }
+        });
+        return box;
+    }
+
+    function initRxList() {
+        var box = ensureRxDrop();
         if (!box) return;
         if (RX_LIST) RX_LIST.stop();
         RX_LIST = Clinic.infiniteList({
@@ -429,8 +445,17 @@ Clinic.order = (function () {
     }
 
     function showRxDrop() {
-        var box = document.getElementById('rxDrop');
-        if (box) box.style.display = '';
+        var box = ensureRxDrop();
+        if (!box) return;
+        var kw = document.getElementById('rxKw');
+        if (kw) {
+            // 按输入框实际位置定位（fixed 覆盖层：滚动事件直达下拉容器，不受模态框干扰）
+            var r = kw.getBoundingClientRect();
+            box.style.left = r.left + 'px';
+            box.style.top = (r.bottom + 2) + 'px';
+            box.style.width = r.width + 'px';
+        }
+        box.style.display = '';
     }
 
     function hideRxDrop() {
@@ -934,17 +959,8 @@ Clinic.order = (function () {
                 if (el) handleAdd(itemFromEl(el), el);
             });
         }
-        // 药品下拉条目点击（委托：条目随滚动分页动态生成）
-        var drop = document.getElementById('rxDrop');
-        if (drop) {
-            drop.addEventListener('mousedown', function (e) {
-                var el = e.target.closest ? e.target.closest('.rx-drop-item') : null;
-                if (el) {
-                    e.preventDefault();   // 阻止输入框失焦，避免下拉先被关闭
-                    pickRx(el);
-                }
-            });
-        }
+        // 药品下拉条目点击：已迁移到 ensureRxDrop 创建时一次性委托（body 覆盖层）
+        // 此处不再重复绑定，避免覆盖层复用时叠加多次监听
         // 检验筛选徽章（单个/组合）：切换后重新分页检索
         document.querySelectorAll('#labFilterBar .qp-chip').forEach(function (chip) {
             chip.addEventListener('click', function () {

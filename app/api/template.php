@@ -76,11 +76,16 @@ switch ($action) {
     case 'list':
         $kw = trim((string)get('kw', ''));
         $type = get('type', 'medical_record');
+        // 可选分页（医生模板选择器滚动加载用）：不传 page 返回全部（兼容模板管理页全量加载）
+        $page = (int)get('page', 0);
+        $pageSize = max(1, min(100, (int)get('size', 20)));
+        // 范围筛选（医生模板选择器按徽章过滤用；不传=全部）：pending_review 视为个人（仅本人可见可用）
+        $scope = trim(get('scope', ''));
         if (!in_array($type, array('medical_record', 'consent', 'order_note', 'nursing_record', 'imaging_report'), true)) $type = 'medical_record';
         // 类型-角色权限隔离（医生不可见护理/影像模板等）
         tpl_assert_type($u, $type);
         $isAdmin = ($u['role'] === 'admin');
-        $sql = "SELECT * FROM emr_templates WHERE type=?";
+        $where = array('type=?');
         $params = array($type);
         if ($isAdmin) {
             // 管理员：全部（含草稿/驳回）
@@ -88,26 +93,44 @@ switch ($action) {
             $myDepts = user_dept_ids($u);
             // 可见性：本人个人模板（任意状态）+ 本人待审核模板（未通过前仅自己可见可用）+
             // 已发布全院 + 已发布本人科室模板
-            $conds = array("(scope='personal' AND creator_id=?)");
+            $orConds = array("(scope='personal' AND creator_id=?)", "(status='pending_review' AND creator_id=?)", "(scope='hospital' AND status='published')");
             $params[] = $u['id'];
-            $conds[] = "(status='pending_review' AND creator_id=?)";
             $params[] = $u['id'];
-            $conds[] = "(scope='hospital' AND status='published')";
             if ($myDepts) {
                 // 科室模板：已发布且包含本人科室的（关联表多对多）
                 $ph = in_placeholders($myDepts);
-                $conds[] = "(scope='dept' AND status='published' AND id IN (SELECT template_id FROM emr_template_depts WHERE dept_id IN ($ph)))";
+                $orConds[] = "(scope='dept' AND status='published' AND id IN (SELECT template_id FROM emr_template_depts WHERE dept_id IN ($ph)))";
                 foreach ($myDepts as $d) $params[] = $d;
             }
-            $sql .= " AND (" . implode(' OR ', $conds) . ")";
+            $where[] = '(' . implode(' OR ', $orConds) . ')';
         }
         if ($kw !== '') {
-            $sql .= " AND title LIKE ?";
+            $where[] = 'title LIKE ?';
             $params[] = '%' . $kw . '%';
         }
+        // 范围筛选（可选）：pending_review 按个人处理（与前端徽章语义一致）
+        if (in_array($scope, array('personal', 'dept', 'hospital'), true)) {
+            if ($scope === 'personal') {
+                $where[] = "(scope='personal' OR status='pending_review')";
+            } elseif ($scope === 'dept') {
+                $where[] = "scope='dept'";
+            } elseif ($scope === 'hospital') {
+                $where[] = "scope='hospital'";
+            }
+        }
+        $whereSql = implode(' AND ', $where);
         // 排序：系统模板置顶，其余按创建时间倒序（新创建的显示在上）
-        $sql .= " ORDER BY is_system DESC, id DESC";
-        $rows = EmrRepository::q($sql, $params);
+        $orderSql = " ORDER BY is_system DESC, id DESC";
+        // 分页（仅显式传 page 时生效）：总数 + LIMIT/OFFSET + has_more
+        if ($page > 0) {
+            $total = (int)EmrRepository::val("SELECT COUNT(*) FROM emr_templates WHERE " . $whereSql, $params);
+            $rows = EmrRepository::q("SELECT * FROM emr_templates WHERE " . $whereSql . $orderSql . " LIMIT ? OFFSET ?", array_merge($params, array($pageSize, ($page - 1) * $pageSize)));
+            $hasMore = ($page * $pageSize) < $total;
+        } else {
+            $total = 0;
+            $hasMore = false;
+            $rows = EmrRepository::q("SELECT * FROM emr_templates WHERE " . $whereSql . $orderSql, $params);
+        }
         $out = array();
         foreach ($rows as $t) {
             // 关联科室名
@@ -135,7 +158,11 @@ switch ($action) {
                 'updated_at' => (string)$t['updated_at'],
             );
         }
-        json_ok(array('list' => $out));
+        if ($page > 0) {
+            json_ok(array('list' => $out, 'total' => $total, 'has_more' => $hasMore));
+        } else {
+            json_ok(array('list' => $out));
+        }
         break;
 
     /* ==================== 单条模板详情（编辑回填） ==================== */
