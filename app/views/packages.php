@@ -1,46 +1,44 @@
 <?php
 /**
  * packages.php — 快速开单套餐管理（管理员 / 医生共用）
- * 说明：
+ * ============================================================
+ * 说明：套餐 = 快速开单预置组合（检验/检查/处置/处方），一键添加。
  * 1. 类型下拉：检验套餐 / 检查套餐 / 处置套餐 / 处方套餐
- * 2. 个人套餐免审即用；科室/全院套餐提交管理员审核；
- *    审核期间个人可用；审核通过科室/全院可用；驳回后降级个人仍可用
- * 3. 新建/编辑弹窗：左侧名称/适用范围/科室树，右侧搜索栏+套餐内容区
- *    - 检验：搜索支持单个+组合，组合点击后展开为单个检验项目入套餐
- *    - 处方：剂量/频次/途径/子医嘱（参考开处方页面设计）
- * 4. 接口：/api/package（list/get/save/delete/catalog）
+ * 2. 个人套餐免审；科室/全院套餐提交管理员审核；驳回降级个人可用
+ * 3. 新建/编辑弹窗：左侧名称+适用范围，右侧搜索栏 + 套餐内容区
+ * 4. 列表无限滚动分页加载（Clinic.infiniteList）
+ * ============================================================
  */
 Router::title('套餐管理');
 $u = Auth::user();
 $isAdmin = $u['role'] === 'admin';
 ?>
 <div class="page-head">
-    <div><div class="page-title">🥡 套餐管理</div><div class="page-desc">快速开单套餐：检验 / 检查 / 处置 / 处方</div></div>
+    <div><div class="page-title">🥡 套餐管理</div><div class="page-desc">快速开单套餐（检验 / 检查 / 处置 / 处方）</div></div>
     <div class="flex gap-8">
-        <select class="select" id="pkgTypeSel" style="width:170px;height:34px;font-size:13px" onchange="setPkgTypeSel()">
+        <select class="select" id="pkgTypeSel" style="width:170px;height:34px;font-size:13px" onchange="pkgChangeType()">
             <option value="lab">检验套餐</option>
             <option value="imaging">检查套餐</option>
             <option value="procedure">处置套餐</option>
             <option value="prescription">处方套餐</option>
         </select>
-        <button class="btn btn-primary btn-sm" onclick="openPkgForm(0)">＋ 新建套餐</button>
+        <button class="btn btn-primary btn-sm" onclick="pkgOpenForm(0)">＋ 新建套餐</button>
     </div>
 </div>
 <div class="card" style="margin-bottom:12px">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" id="pkgSearchKw" placeholder="🔍 搜索套餐名称" style="width:220px" oninput="applyPkgFilter()">
+        <input class="input" id="pkgKw" placeholder="🔍 搜索套餐名称" style="width:220px" oninput="pkgResetSearch()">
         <span class="flex gap-4" id="pkgScopeTabs" style="flex-wrap:wrap">
-            <button class="btn btn-sm btn-primary" data-pscope="" onclick="setPkgScope(this,'')">全部</button>
-            <button class="btn btn-sm btn-outline" data-pscope="personal" onclick="setPkgScope(this,'personal')">个人</button>
-            <button class="btn btn-sm btn-outline" data-pscope="hospital" onclick="setPkgScope(this,'hospital')">全院</button>
-            <button class="btn btn-sm btn-outline" data-pscope="dept" onclick="setPkgScope(this,'dept')">科室</button>
+            <button class="btn btn-sm btn-primary" data-pscope="" onclick="pkgSetScope(this,'')">全部</button>
+            <button class="btn btn-sm btn-outline" data-pscope="personal" onclick="pkgSetScope(this,'personal')">个人</button>
+            <button class="btn btn-sm btn-outline" data-pscope="hospital" onclick="pkgSetScope(this,'hospital')">全院</button>
+            <button class="btn btn-sm btn-outline" data-pscope="dept" onclick="pkgSetScope(this,'dept')">科室</button>
         </span>
     </div>
 </div>
 <div class="card" id="pkgList">
     <div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div>
 </div>
-<div class="fs-12 text-muted mt-8" id="pkgCount">共 0 个套餐</div>
 
 <style>
 .pkg-form { display: flex; gap: 14px; }
@@ -49,9 +47,9 @@ $isAdmin = $u['role'] === 'admin';
 /* 套餐编辑器：搜索框 + 下拉浮层 + 内容列表 */
 .pkg-cat-box { position: relative; }
 .pkg-cat-drop {
-    display: none; position: absolute; top: 38px; left: 0; right: 0; z-index: 60;
+    display: none; position: absolute; top: 38px; left: 0; right: 0; z-index: 150;
     background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
-    box-shadow: var(--shadow-lg); max-height: 260px; overflow-y: auto; padding: 4px;
+    box-shadow: var(--shadow-lg); max-height: 280px; overflow-y: auto; padding: 4px;
 }
 .pkg-cat-drop.open { display: block; }
 .pkg-cat-drop .dd-item { padding: 7px 10px; font-size: 13px; cursor: pointer; border-radius: 6px; white-space: nowrap; }
@@ -76,6 +74,7 @@ $isAdmin = $u['role'] === 'admin';
 .pkg-mem-mems { display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: middle; }
 .pkg-mem-info { line-height: 1.9; }
 /* 套餐应用弹窗：勾选条目 */
+.pkg-apply-scroll { max-height: 380px; overflow-y: auto; padding-right: 4px; }
 .pkg-apply-item {
     border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; margin-bottom: 6px;
     display: flex; align-items: center; gap: 10px; cursor: pointer; background: var(--bg-card);
@@ -84,100 +83,62 @@ $isAdmin = $u['role'] === 'admin';
 .pkg-apply-item input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--primary); flex-shrink: 0; }
 .pkg-apply-item .meta { flex: 1; min-width: 0; }
 .pkg-apply-item .price { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
-.pkg-apply-sub { font-family: Menlo, Consolas, monospace; font-size: 12px; color: var(--text-muted); margin: 2px 0 2px 22px; }
-.pkg-apply-scroll { max-height: 380px; overflow-y: auto; padding-right: 4px; }
+.pkg-apply-sub { font-family: Menlo, Consolas, monospace; font-size: 12px; color: var(--text-muted); margin: 2px 0 2px 26px; }
 </style>
 
 <script>
 var PKG_TYPE = 'lab';
-var PKG_SCOPE = '';      // 范围筛选（空=全部）
-var PKG_ITEMS = [];      // 套餐内容项目（新建/编辑弹窗内）
-var PKG_LIST = null;     // 套餐列表的 infiniteList（分页滚动加载）
-var PKG_CAT_LIST = null; // 套餐编辑器搜索下拉的 infiniteList
-var PKG_CAT_KW = '';     // 套餐编辑器最近加载关键字
-var PKG_SUB_LIST = null; // 处方套餐子医嘱内联下拉
-var PKG_CAT_TOTAL = 0;
-var RX_FREQS = [];   // 频次选项（处方套餐编辑下拉，随目录首页加载）
-var RX_ROUTES = [];  // 途径选项（处方套餐编辑下拉，随目录首页加载）
-
-/* HTML 转义（内联视图用，全局供套餐列表渲染等） */
-function escHtml(s) { return Clinic.escHtml(s); }
+var PKG_SCOPE = '';          // 范围筛选（空=全部）
+var PKG_LIST = null;         // 套餐列表 infiniteList
+var PKG_ITEMS = [];          // 套餐内容（新建/编辑弹窗内）
+var PKG_CAT_LIST = null;     // 套餐编辑器搜索下拉 infiniteList
+var PKG_CAT_KW = '';
+var PKG_SUB_LIST = null;     // 处方套餐子医嘱下拉 infiniteList
+var RX_FREQS = [];           // 频次/途径选项（处方套餐编辑下拉）
+var RX_ROUTES = [];
+var PKG_SUB_BOUND = false;
 
 var PKG_TYPE_NAMES = { lab: '检验套餐', imaging: '检查套餐', procedure: '处置套餐', prescription: '处方套餐' };
 var PKG_SCOPE_NAMES = { personal: '个人', dept: '科室', hospital: '全院' };
 var PKG_STATUS_NAMES = { published: '已发布', pending_review: '待审核', rejected: '已驳回' };
 var PKG_STATUS_CLS = { published: 'badge-success', pending_review: 'badge-warning', rejected: 'badge-gray' };
 
-function setPkgTypeSel() {
+/* HTML 转义（内联视图用，供套餐列表/弹窗渲染） */
+function escHtml(s) { return Clinic.escHtml(s); }
+
+function pkgChangeType() {
     PKG_TYPE = document.getElementById('pkgTypeSel').value;
     PKG_SCOPE = '';
     document.querySelectorAll('#pkgScopeTabs .btn').forEach(function (b) {
         b.className = 'btn btn-sm ' + (b.getAttribute('data-pscope') === '' ? 'btn-primary' : 'btn-outline');
     });
-    loadPkgList();
+    var box = document.getElementById('pkgList');
+    if (box) box.innerHTML = '<div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div>';
+    if (PKG_LIST) { PKG_LIST.stop(); PKG_LIST = null; }
+    pkgInitList();
 }
 
-function setPkgScope(btn, s) {
+function pkgSetScope(btn, s) {
     PKG_SCOPE = s;
     document.querySelectorAll('#pkgScopeTabs .btn').forEach(function (b) {
         b.className = 'btn btn-sm ' + ((b.getAttribute('data-pscope') || '') === s ? 'btn-primary' : 'btn-outline');
     });
-    loadPkgList();
+    pkgResetSearch();
 }
 
-function applyPkgFilter() {
-    clearTimeout(window.__pkgKwT);
-    window.__pkgKwT = setTimeout(loadPkgList, 300);
+function pkgResetSearch() {
+    if (PKG_LIST) PKG_LIST.reset();
+    else pkgInitList();
 }
 
 function pkgListUrl(p, size) {
-    var kw = encodeURIComponent((document.getElementById('pkgSearchKw') || {}).value || '');
-    return '/api/package?action=list&type=' + PKG_TYPE + '&scope=' + (PKG_SCOPE || '') + '&page=' + p + '&size=' + size + '&kw=' + kw;
+    var kw = encodeURIComponent((document.getElementById('pkgKw') || {}).value || '');
+    return '/api/package?action=list&type=' + PKG_TYPE + '&page=' + p + '&size=' + size + '&kw=' + kw;
 }
 
-function loadPkgList() {
-    if (PKG_LIST) PKG_LIST.reset();
-    else initPkgList();
-}
-
-function initPkgList() {
-    var box = document.getElementById('pkgList');
-    if (!box) return;
-    PKG_LIST = Clinic.infiniteList({
-        el: box,
-        pageSize: 20,
-        threshold: 40,
-        totalEl: document.getElementById('pkgCount'),
-        emptyHtml: '<div class="empty"><div class="empty-ico">🥡</div>暂无套餐，点击右上角「新建套餐」创建</div>',
-        url: pkgListUrl,
-        render: pkgRowHtml,
-        // 后续页仅返回 tr 行：追加到已有表格 tbody（保证表格样式统一）
-        append: function (el, html) {
-            var tb = el.querySelector('table tbody');
-            if (tb) tb.insertAdjacentHTML('beforeend', html);
-            else el.insertAdjacentHTML('beforeend', html);
-        },
-        onError: function () {
-            var b = document.getElementById('pkgList');
-            if (b && !b.querySelector('tr')) b.innerHTML = '<div class="empty">加载失败，请重试</div>';
-        },
-    });
-}
-
-function pkgRowHtml(list, isFirst) {
-    var rows = list.map(pkgRow).join('');
-    if (!isFirst) return rows;
-    return '<div class="table-wrap"><table class="table"><thead><tr>' +
-        '<th>套餐名称</th><th>类型</th><th>适用范围</th><th>项目</th><th>创建人</th><th>审核状态</th><th>操作</th></tr></thead><tbody>' +
-        rows + '</tbody></table></div>';
-}
-
-function pkgRow(t) {
-    // 待审核套餐：适用范围展示目标范围（全院/科室），但标注当前仅个人可用
+function pkgItemRow(t) {
     var scopeBadge = '<span class="badge badge-primary">' + (PKG_SCOPE_NAMES[t.scope] || t.scope) + '</span>';
-    if (t.status === 'pending_review') {
-        scopeBadge += ' <span class="fs-12 text-muted">（待审核·暂仅个人可用）</span>';
-    }
+    if (t.status === 'pending_review') scopeBadge += ' <span class="fs-12 text-muted">（待审核·暂仅个人可用）</span>';
     var statusBadge = '<span class="badge ' + (PKG_STATUS_CLS[t.status] || 'badge-gray') + '">' + (PKG_STATUS_NAMES[t.status] || t.status) + '</span>';
     var deptText = t.dept_names && t.dept_names.length ? '（' + t.dept_names.join('、') + '）' : '';
     var actions = '';
@@ -190,54 +151,103 @@ function pkgRow(t) {
     } else {
         var canManage = <?php echo $isAdmin ? 'true' : 'false'; ?> || t.creator_id === <?php echo (int)$u['id']; ?>;
         if (canManage) {
-            actions += '<button class="btn btn-outline btn-sm" onclick="openPkgForm(' + t.id + ')">编辑</button>';
-            actions += '<button class="btn btn-outline btn-sm" onclick="delPkg(' + t.id + ')">删除</button>';
+            actions = '<button class="btn btn-outline btn-sm" onclick="pkgOpenForm(' + t.id + ')">编辑</button>' +
+                '<button class="btn btn-outline btn-sm" onclick="pkgDel(' + t.id + ')">删除</button>';
         } else {
             actions = '<span class="fs-12 text-muted">他人套餐</span>';
         }
     }
     return '<tr>' +
         '<td class="fw-600">' + escHtml(t.title) + '</td>' +
-        '<td><span class="badge badge-gray">' + (PKG_TYPE_NAMES[t.type] || t.type) + '</span></td>' +
         '<td>' + scopeBadge + ' ' + deptText + '</td>' +
-        '<td class="fs-12 text-muted">' + (t.item_count || 0) + ' 项 ｜ ¥' + (t.total_price || 0).toFixed(2) + '</td>' +
+        '<td class="fs-12 text-muted">' + (t.item_count || 0) + ' 项 ｜ ¥' + parseFloat(t.total_price || 0).toFixed(2) + '</td>' +
         '<td>' + escHtml(t.creator_name) + '</td>' +
         '<td>' + statusBadge + '</td>' +
         '<td><div class="flex gap-4">' + actions + '</div></td></tr>';
 }
 
+function pkgInitList() {
+    var box = document.getElementById('pkgList');
+    if (!box || PKG_LIST || !window.Clinic || !Clinic.infiniteList) return;
+    PKG_LIST = Clinic.infiniteList({
+        el: box,
+        pageSize: 20,
+        threshold: 40,
+        emptyHtml: '<div class="empty">暂无套餐，点击右上角「新建套餐」创建</div>',
+        url: pkgListUrl,
+        render: function (list, isFirst) {
+            var rows = list.map(pkgItemRow).join('');
+            if (isFirst) {
+                return '<div class="table-wrap"><table class="table"><thead><tr>' +
+                    '<th>套餐名称</th><th>适用范围</th><th>项目 / 合计</th><th>创建人</th><th>审核状态</th><th>操作</th>' +
+                    '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+            }
+            return rows;
+        },
+        append: function (el, html) {
+            var tb = el.querySelector('tbody');
+            if (tb) tb.insertAdjacentHTML('beforeend', html);
+            else el.insertAdjacentHTML('beforeend', html);
+        },
+    });
+}
+
 /* ==================== 新建/编辑套餐弹窗 ==================== */
-function openPkgForm(id) {
+function pkgOpenForm(id) {
     var isEdit = id && id > 0;
+    if (PKG_CAT_LIST) { PKG_CAT_LIST.stop(); PKG_CAT_LIST = null; }
+    if (PKG_SUB_LIST) { PKG_SUB_LIST.stop(); PKG_SUB_LIST = null; }
+    PKG_ITEMS = [];
+    RX_FREQS = [];
+    RX_ROUTES = [];
     var title = isEdit ? '编辑套餐' : '新建套餐';
     if (!isEdit) {
-        PKG_ITEMS = [];
-        var html = '<div id="pkgFormContent"></div>';
+        var html = '<div id="pkgFormBox"></div>';
         var mask = Clinic.modal.open(html, { title: title, size: 'modal-xl' });
-        buildPkgForm(mask, null);
+        pkgBuildForm(mask, null);
     } else {
-        PKG_ITEMS = [];
         var mask = Clinic.modal.load('/api/package?action=get&id=' + id, null, { title: title, size: 'modal-xl' });
         mask.querySelector('.modal-body').addEventListener('modal:loaded', function (e) {
-            if (e.detail && e.detail.package) {
-                var p = e.detail.package;
-                PKG_TYPE = p.type;
-                var sel = document.getElementById('pkgTypeSel');
-                if (sel) sel.value = p.type;
-                PKG_ITEMS = (p.items || []).map(function (it) {
-                    var x = clonePkgItem(it);
-                    x.sub_items = (it.sub_items || []).map(clonePkgItem);
-                    return x;
-                });
-                buildPkgForm(mask, p);
-            }
+            if (e.detail && e.detail.package) pkgBuildForm(mask, e.detail.package);
         });
     }
 }
 
-/** 克隆一个套餐项目为可编辑对象（补齐默认字段） */
-function clonePkgItem(it) {
-    it = it || {};
+/** 从目录条目构建套餐项目对象（含处方剂量结构） */
+function pkgItemFrom(it) {
+    var item = {
+        item_id: parseInt(it.id, 10) || 0,
+        item_name: it.name || '',
+        price: parseFloat(it.price) || 0,
+        spec: it.spec || '',
+        unit: it.unit || '',
+        company_short: it.company_short || '',
+        single_dose: it.single_dose || '',
+        frequency: it.frequency || '',
+        route: it.route || '',
+        route_nurse_required: parseInt(it.route_nurse_required, 10) || 0,
+        stock: parseInt(it.stock, 10) || 0,
+        nurse_required: parseInt(it.nurse_required, 10) || 0,
+        is_skin_test: parseInt(it.is_skin_test, 10) || 0,
+        skin_test_item_id: parseInt(it.skin_test_item_id, 10) || 0,
+        spec_dose: parseFloat(it.spec_dose) || 0,
+        spec_dose_unit: it.spec_dose_unit || '',
+        spec_pack_qty: parseInt(it.spec_pack_qty, 10) || 1,
+        spec_pack_unit: it.spec_pack_unit || '',
+        single_use_qty: parseFloat(it.single_use_qty) || 1,
+        quantity: 1,
+        sub_items: [],
+    };
+    // 处方结构化剂量：剂量 = 单次数量×单剂量值，数量向上取整
+    if (PKG_TYPE === 'prescription' && item.spec_dose > 0) {
+        item.single_dose = Math.round(item.single_use_qty * item.spec_dose * 100) / 100 + (item.spec_dose_unit || '');
+        item.quantity = Math.max(1, Math.ceil(item.single_use_qty));
+    }
+    return item;
+}
+
+/** 解析后端已保存的套餐项目为可编辑对象 */
+function pkgItemFromSaved(it) {
     return {
         item_id: parseInt(it.item_id, 10) || 0,
         item_name: it.item_name || '',
@@ -259,112 +269,96 @@ function clonePkgItem(it) {
         spec_pack_unit: it.spec_pack_unit || '',
         single_use_qty: parseFloat(it.single_use_qty) || 1,
         quantity: Math.max(1, parseInt(it.quantity, 10) || 1),
-        sub_items: [],
+        sub_items: (it.sub_items || []).map(pkgItemFromSaved),
     };
 }
 
-/** 从下拉条目构建可编辑对象（默认剂量：单次数量×单剂量值，数量向上取整） */
-function pkgItemFromDrop(it) {
-    var o = clonePkgItem(it);
-    var sd = parseFloat(it.spec_dose) || 0;
-    var uq = Math.max(1, parseFloat(it.single_use_qty) || 1);
-    if (sd > 0) {
-        o.single_dose = Math.round(uq * sd * 100) / 100 + (it.spec_dose_unit || '');
-        o.quantity = Math.max(1, Math.ceil(uq));
-    } else {
-        o.single_dose = it.single_dose || '';
-        o.quantity = 1;
+function pkgBuildForm(mask, pkg) {
+    if (pkg) {
+        PKG_TYPE = pkg.type;
+        var ts = document.getElementById('pkgTypeSel');
+        if (ts) ts.value = pkg.type;
+        PKG_ITEMS = (pkg.items || []).map(pkgItemFromSaved);
     }
-    return o;
-}
-
-function buildPkgForm(mask, pkg) {
     var isDrug = PKG_TYPE === 'prescription';
+    var scopeHtml = '<option value="personal"' + (pkg && pkg.scope === 'personal' ? ' selected' : '') + (<?php echo $isAdmin ? 'true' : 'false'; ?> ? ' disabled' : '') + '>个人</option>' +
+        '<option value="dept"' + (pkg && pkg.scope === 'dept' ? ' selected' : '') + '>科室</option>' +
+        '<option value="hospital"' + (pkg && pkg.scope === 'hospital' ? ' selected' : '') + '>全院</option>';
     var html =
         '<div class="pkg-form">' +
         '  <div class="pkg-left">' +
         '    <div class="form-group"><label class="form-label">套餐名称 <span class="req">*</span></label>' +
-        '      <input class="input" id="pfTitle" value="' + escHtml(pkg ? pkg.title : '') + '" placeholder="如：急诊检验套餐 / 感冒常用药套餐">' +
+        '      <input class="input" id="pkgTitle" value="' + escHtml(pkg ? pkg.title : '') + '" placeholder="如：急诊常规套餐 / 感冒常用药套餐">' +
         '    </div>' +
         '    <div class="form-group"><label class="form-label">适用范围</label>' +
-        '      <select class="select" id="pfScope" onchange="onPkgScopeChange()">' +
-        '        <option value="personal"' + (pkg && pkg.scope === 'personal' ? ' selected' : '') + (isAdmin ? ' disabled' : '') + '>个人</option>' +
-        '        <option value="dept"' + (pkg && pkg.scope === 'dept' ? ' selected' : '') + '>科室</option>' +
-        '        <option value="hospital"' + (pkg && pkg.scope === 'hospital' ? ' selected' : '') + '>全院</option>' +
-        '      </select></div>' +
-        '    <div class="form-group" id="pfDeptWrap" style="display:none"><label class="form-label">选择科室（多选）</label>' +
-        '      <div id="pfDeptTree"></div></div>' +
+        '      <select class="select" id="pkgScope" onchange="pkgScopeChange()">' + scopeHtml + '</select></div>' +
+        '    <div class="form-group" id="pkgDeptWrap" style="display:none"><label class="form-label">选择科室（多选）</label>' +
+        '      <div id="pkgDeptTree"></div></div>' +
+        '    <div class="fs-12 text-muted">' + (isDrug ? '处方套餐：剂量/频次/途径必填，子医嘱并入主药成组' : '检验组合点击后自动展开为单个检验项目') + '</div>' +
         '  </div>' +
         '  <div class="pkg-right">' +
         '    <div class="pkg-cat-box">' +
-        '      <input type="text" class="input" id="pkgCatKw" placeholder="🔍 搜索' + (isDrug ? '药品（名称/厂家简称）' : '项目名称') + '，点击加入套餐" autocomplete="off">' +
+        '      <input type="text" class="input" id="pkgCatKw" placeholder="🔍 搜索' + (isDrug ? '药品（名称 / 厂家简称）' : '项目名称') + '，点击加入套餐" autocomplete="off" style="flex-shrink:0">' +
         '      <div class="pkg-cat-drop" id="pkgCatDrop"></div>' +
         '    </div>' +
-        '    <div class="fs-12 text-muted mt-8 mb-4">套餐内容 <strong id="pkgItemCount">0</strong> 项 ｜ 合计 <strong id="pkgItemTotal">¥0.00</strong></div>' +
-        '    <div id="pkgItems" style="flex:1;min-height:0;overflow-y:auto;padding-right:4px"><div class="text-muted fs-13 text-center" style="padding:30px">尚未添加项目</div></div>' +
+        '    <div class="fs-13 text-muted mt-8 mb-4">套餐内容 <strong id="pkgItemCount">0</strong> 项 ｜ 合计 <strong id="pkgItemTotal" style="color:var(--danger)">¥0.00</strong></div>' +
+        '    <div id="pkgItems" style="flex:1;min-height:0;overflow-y:auto;padding-right:4px">' +
+        '      <div class="text-muted fs-13 text-center" style="padding:30px">尚未添加项目，请在上方搜索并点击加入</div></div>' +
         '  </div>' +
         '</div>';
     mask.querySelector('.modal-body').innerHTML = html;
-    var treeBox = document.getElementById('pfDeptTree');
+    var treeBox = document.getElementById('pkgDeptTree');
     if (treeBox) {
         Clinic.deptTree.build(treeBox, { selected: (pkg && pkg.dept_ids) || [] });
     }
-    // 搜索下拉：分页滚动加载（Clinic.infiniteList）
-    initPkgCatList();
+    // 搜索下拉：聚焦/输入 → 分页加载（滚动续加载）
+    pkgInitCatList();
     var catKw = document.getElementById('pkgCatKw');
     if (catKw) {
         catKw.addEventListener('focus', function () {
             var k = (catKw.value || '').trim().toLowerCase();
             if (k !== PKG_CAT_KW) pkgCatReset();
-            showPkgCatDrop();
+            pkgShowCatDrop();
         });
         catKw.addEventListener('input', function () {
             clearTimeout(catKw.__t);
             catKw.__t = setTimeout(function () { pkgCatReset(); }, 300);
-            showPkgCatDrop();
+            pkgShowCatDrop();
         });
-        catKw.addEventListener('blur', function () { setTimeout(hidePkgCatDrop, 150); });
+        catKw.addEventListener('blur', function () { setTimeout(pkgHideCatDrop, 150); });
     }
-    // 下拉条目点击（委托：条目随滚动动态生成）
     var drop = document.getElementById('pkgCatDrop');
     if (drop) {
         drop.addEventListener('mousedown', function (e) {
             var el = e.target.closest ? e.target.closest('.dd-item') : null;
-            if (el) {
-                e.preventDefault();
-                addPkgCatItem(JSON.parse(el.getAttribute('data-item') || '{}'));
-            }
+            if (el) { e.preventDefault(); pkgCatPick(JSON.parse(el.getAttribute('data-it') || '{}')); }
         });
     }
-    window.__pkgDirty = false;
-    onPkgScopeChange();
+    pkgScopeChange();
     mask.querySelector('.modal-foot').innerHTML =
         '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
         '<button type="button" class="btn btn-primary" id="pkgSaveBtn">保存</button>';
-    document.getElementById('pkgSaveBtn').addEventListener('click', function () { savePkgForm(pkg ? pkg.id : 0, pkg ? pkg.status : ''); });
+    document.getElementById('pkgSaveBtn').addEventListener('click', function () { pkgSave(pkg ? pkg.id : 0, pkg ? pkg.status : ''); });
 }
 
-function onPkgScopeChange() {
-    var sel = document.getElementById('pfScope');
-    var wrap = document.getElementById('pfDeptWrap');
+function pkgScopeChange() {
+    var sel = document.getElementById('pkgScope');
+    var wrap = document.getElementById('pkgDeptWrap');
     if (sel && wrap) wrap.style.display = sel.value === 'dept' ? '' : 'none';
 }
 
-/* ==================== 套餐编辑器：搜索下拉（分页滚动加载） ==================== */
+/* ==================== 套餐编辑器：搜索下拉（分页加载） ==================== */
 function pkgCatUrl(p, size) {
     var kw = encodeURIComponent((document.getElementById('pkgCatKw') || {}).value || '');
     return '/api/package?action=catalog&type=' + PKG_TYPE + '&page=' + p + '&size=' + size + '&kw=' + kw;
 }
-
 function pkgCatReset() {
     if (PKG_CAT_LIST) PKG_CAT_LIST.reset();
-    else initPkgCatList();
+    else pkgInitCatList();
 }
-
-function initPkgCatList() {
+function pkgInitCatList() {
     var box = document.getElementById('pkgCatDrop');
-    if (!box) return;
-    if (PKG_CAT_LIST) PKG_CAT_LIST.stop();
+    if (!box || PKG_CAT_LIST) return;
     PKG_CAT_LIST = Clinic.infiniteList({
         el: box,
         pageSize: 15,
@@ -373,10 +367,11 @@ function initPkgCatList() {
         url: pkgCatUrl,
         render: function (list, isFirst) {
             return list.map(function (it) {
-                return '<div class="dd-item" data-item="' + escHtml(JSON.stringify(it).replace(/"/g, '&quot;')) + '">' +
+                return '<div class="dd-item" data-it="' + escHtml(JSON.stringify(it)) + '">' +
                     '<span class="fw-600">' + escHtml(it.name || '') + '</span>' +
                     (it.is_group ? ' <span class="badge badge-primary fs-12">组合</span>' : '') +
                     (it.category_name ? ' <span class="badge badge-gray fs-12">' + escHtml(it.category_name) + '</span>' : '') +
+                    (it.company_short ? ' <span class="fs-12 text-muted">' + escHtml(it.company_short) + '</span>' : '') +
                     ' <span class="fs-12 text-muted">¥' + parseFloat(it.price || 0).toFixed(2) + '</span></div>';
             }).join('');
         },
@@ -386,70 +381,40 @@ function initPkgCatList() {
             if (d.link_dicts) {
                 RX_FREQS = d.link_dicts.frequencies || [];
                 RX_ROUTES = d.link_dicts.routes || [];
-                renderPkgItems();
             }
         },
         onError: function () {
             var b = document.getElementById('pkgCatDrop');
-            if (b && !b.querySelector('.dd-item')) {
-                b.innerHTML = '<div class="pkg-cat-empty">加载失败，请重试</div>';
-            }
+            if (b && !b.querySelector('.dd-item')) b.innerHTML = '<div class="pkg-cat-empty">加载失败，请重试</div>';
         },
     });
 }
+function pkgShowCatDrop() { var b = document.getElementById('pkgCatDrop'); if (b) b.classList.add('open'); }
+function pkgHideCatDrop() { var b = document.getElementById('pkgCatDrop'); if (b) b.classList.remove('open'); }
 
-function showPkgCatDrop() {
-    var box = document.getElementById('pkgCatDrop');
-    if (box) box.classList.add('open');
-}
-function hidePkgCatDrop() {
-    var box = document.getElementById('pkgCatDrop');
-    if (box) box.classList.remove('open');
-}
-
-/** 点击下拉条目加入套餐：组合展开为单个检验项目；药品作为主药（含剂量/频次/途径） */
-function addPkgCatItem(it) {
+/** 下拉点击加入套餐：检验组合展开为单个项目；处方药品加入主药（可编辑剂量/频次/途径） */
+function pkgCatPick(it) {
     if (!it || !it.id) return;
-    var isDrug = PKG_TYPE === 'prescription';
     if (PKG_TYPE === 'lab' && it.is_group) {
         // 组合展开为单个检验项目（套餐中不再保留组合实体）
         var members = it.member_items || [];
-        if (!members.length) { Clinic.toast.warning('该组合暂无可展开的检验项目'); return; }
-        var existed = [];
-        members.forEach(function (m) {
-            if (PKG_ITEMS.some(function (x) { return x.item_id === m.id; })) existed.push(m.name);
-        });
-        if (existed.length) {
-            Clinic.toast.warning('已存在：' + existed.join('、') + '，未重复添加');
-            return;
-        }
-        members.forEach(function (m) { PKG_ITEMS.push(clonePkgItem(m)); });
-        renderPkgItems();
+        if (!members.length) { Clinic.toast.warning('该组合暂无成员项目'); return; }
+        var exists = members.filter(function (m) { return PKG_ITEMS.some(function (x) { return x.item_id === m.id; }); });
+        if (exists.length) { Clinic.toast.warning('已存在：' + exists.map(function (m) { return m.name; }).join('、')); return; }
+        members.forEach(function (m) { PKG_ITEMS.push(pkgItemFrom(m)); });
+        pkgRenderItems();
         return;
     }
-    if (isDrug) {
-        // 处方药品：同一药品仅可添加一次（主药或子医嘱）
-        if (PKG_ITEMS.some(function (x) { return x.item_id === it.id; })) {
-            Clinic.toast.warning('【' + it.name + '】已在套餐中');
-            return;
-        }
-        var o = pkgItemFromDrop(it);
-        o.sub_items = [];
-        PKG_ITEMS.push(o);
-        renderPkgItems();
-        return;
-    }
-    // 检验单个 / 检查 / 处置：同一项目仅可添加一次
     if (PKG_ITEMS.some(function (x) { return x.item_id === it.id; })) {
         Clinic.toast.warning('【' + it.name + '】已在套餐中');
         return;
     }
-    PKG_ITEMS.push(clonePkgItem(it));
-    renderPkgItems();
+    PKG_ITEMS.push(pkgItemFrom(it));
+    pkgRenderItems();
 }
 
-/** 渲染套餐内容列表 */
-function renderPkgItems() {
+/* ==================== 套餐内容渲染 ==================== */
+function pkgRenderItems() {
     var box = document.getElementById('pkgItems');
     if (!box) return;
     var isDrug = PKG_TYPE === 'prescription';
@@ -460,25 +425,21 @@ function renderPkgItems() {
     }, 0);
     document.getElementById('pkgItemCount').textContent = PKG_ITEMS.length;
     document.getElementById('pkgItemTotal').textContent = '¥' + total.toFixed(2);
-
     box.innerHTML = PKG_ITEMS.map(function (s, i) {
-        // 检验组合（旧数据兜底）按成员标签展示；处方药品显示剂量/频次/途径/子医嘱
         var head =
             '<div class="head">' +
             '  <div class="info">' +
-            '    <span class="fw-600 fs-13">' + escHtml(s.item_name || s.name) + '</span>' +
-            (s.spec && !s.sub_items.length ? '<span class="fs-12 text-muted">' + escHtml(s.spec) + '</span>' : '') +
-            (s.single_dose && isDrug ? '<span class="fs-12 text-muted">' + escHtml(s.single_dose) + '</span>' : '') +
-            (s.frequency && isDrug ? '<span class="fs-12 text-muted">' + escHtml(s.frequency) + '</span>' : '') +
-            (s.route && isDrug ? '<span class="fs-12 text-muted">' + escHtml(s.route) + '</span>' : '') +
-            (s.quantity > 1 ? '<span class="badge badge-primary fs-12">×' + s.quantity + '</span>' : '') +
+            '    <span class="fw-600 fs-13">' + escHtml(s.item_name) + '</span>' +
+            (s.is_group ? ' <span class="badge badge-primary fs-12">组合</span>' : '') +
+            (s.spec && !isDrug ? ' <span class="fs-12 text-muted">' + escHtml(s.spec) + '</span>' : '') +
+            (isDrug && s.frequency ? ' <span class="fs-12 text-muted">' + escHtml(s.frequency) + '</span>' : '') +
+            (isDrug && s.route ? ' <span class="fs-12 text-muted">' + escHtml(s.route) + '</span>' : '') +
+            (s.quantity > 1 ? ' <span class="badge badge-primary fs-12">×' + s.quantity + '</span>' : '') +
             '    <span class="pkg-item-price">¥' + (s.price * s.quantity).toFixed(2) + '</span>' +
             '  </div>' +
             '  <div class="actions">' +
-            (isDrug
-                ? '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px" onclick="pkgOpenSubDrop(' + i + ', this)">＋ 子医嘱</button>'
-                : '') +
-            '    <button type="button" class="btn btn-outline btn-sm" style="padding:1px 8px" onclick="pkgRemoveItem(' + i + ')">✕</button>' +
+            (isDrug ? '<button type="button" class="btn btn-outline btn-sm" onclick="pkgOpenSubDrop(' + i + ',this)">＋ 子医嘱</button>' : '') +
+            '    <button type="button" class="btn btn-outline btn-sm" onclick="pkgRemoveItem(' + i + ')">✕</button>' +
             '  </div>' +
             '</div>';
         var extra = isDrug ? pkgDrugControls(s, i) : '';
@@ -487,11 +448,10 @@ function renderPkgItems() {
               s.spec.split('、').map(function (m) { return '<span class="pkg-mem-chip">' + escHtml(m) + '</span>'; }).join('') +
               '</span></div>' : '';
         return '<div class="pkg-item-card">' + head + groupInfo + extra + '</div>';
-    }).join('') || '<div class="text-muted fs-13 text-center" style="padding:30px">尚未添加项目，请在上方搜索并点击加入</div>';
-    window.__pkgDirty = true;
+    }).join('') || '<div class="text-muted fs-13 text-center" style="padding:30px">尚未添加项目</div>';
 }
 
-/** 处方套餐条目控制：剂量输入 + 频次/途径下拉 + 子医嘱列表 */
+/** 处方条目控制：剂量/频次/途径 + 子医嘱列表 */
 function pkgDrugControls(s, i) {
     var freqOpts = RX_FREQS.map(function (f) {
         return '<option value="' + f + '"' + (f === s.frequency ? ' selected' : '') + '>' + f + '</option>';
@@ -499,12 +459,8 @@ function pkgDrugControls(s, i) {
     var routeOpts = RX_ROUTES.map(function (r) {
         return '<option value="' + r + '"' + (r === s.route ? ' selected' : '') + '>' + r + '</option>';
     }).join('');
-    if (s.frequency && freqOpts && RX_FREQS.indexOf(s.frequency) === -1) {
-        freqOpts = '<option value="' + s.frequency + '" selected>' + s.frequency + '</option>' + freqOpts;
-    }
-    if (s.route && routeOpts && RX_ROUTES.indexOf(s.route) === -1) {
-        routeOpts = '<option value="' + s.route + '" selected>' + s.route + '</option>' + routeOpts;
-    }
+    if (s.frequency && freqOpts && RX_FREQS.indexOf(s.frequency) === -1) freqOpts = '<option value="' + s.frequency + '" selected>' + s.frequency + '</option>' + freqOpts;
+    if (s.route && routeOpts && RX_ROUTES.indexOf(s.route) === -1) routeOpts = '<option value="' + s.route + '" selected>' + s.route + '</option>' + routeOpts;
     var freqSel = freqOpts
         ? '<select class="select" style="width:128px;padding:4px 8px;min-height:28px;font-size:13px" onchange="pkgSetField(' + i + ',\'frequency\',this.value)">' +
           '<option value="">用药频次</option>' + freqOpts + '</select>'
@@ -516,12 +472,14 @@ function pkgDrugControls(s, i) {
     return '<div class="flex gap-8 mt-4" style="flex-wrap:wrap">' +
         '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" value="' + (s.single_dose || '') + '" placeholder="剂量" onchange="pkgSetField(' + i + ',\'single_dose\',this.value)">' +
         freqSel + routeSel +
+        '<span class="fs-12 text-muted" style="align-self:center">数量</span>' +
+        '<input type="number" class="input" style="width:52px;padding:3px 6px;min-height:28px;text-align:center" value="' + s.quantity + '" min="1" max="' + (s.stock || 99) + '" onchange="pkgSetField(' + i + ',\'quantity\',parseInt(this.value,10)||1)">' +
         '</div>' +
-        (s.sub_items.length ? pkgSubList(s, i) : '');
+        pkgSubListHtml(s, i);
 }
 
-/** 子医嘱列表（树形连线） */
-function pkgSubList(s, i) {
+function pkgSubListHtml(s, i) {
+    if (!s.sub_items || !s.sub_items.length) return '';
     var n = s.sub_items.length;
     return '<div style="margin:6px 0 0 20px;border-left:2px solid var(--warning);padding-left:10px">' +
         '<div class="fs-12 text-muted mb-4">成组医嘱（并入上方主药，途径频次随主药；剂量/数量可独立调整并计费）</div>' +
@@ -530,20 +488,20 @@ function pkgSubList(s, i) {
             return '<div class="pkg-sub-line">' +
                 '<span class="left">' + branch + ' ' + escHtml(sub.item_name) +
                 (sub.spec ? ' <span class="text-muted">' + escHtml(sub.spec) + '</span>' : '') +
-                ' ｜ 剂量：<input class="input" style="width:70px;padding:2px 6px;min-height:22px;font-size:12px" value="' + (sub.single_dose || '') + '" onchange="pkgSetSubField(' + i + ',' + si + ',\'single_dose\',this.value)">' +
+                ' ｜ 剂量：<input type="text" class="input" style="width:70px;padding:2px 6px;min-height:22px;font-size:12px" value="' + (sub.single_dose || '') + '" onchange="pkgSetSubField(' + i + ',' + si + ',\'single_dose\',this.value)">' +
                 '</span>' +
                 '<span class="right">' +
                 '<span class="pkg-item-price">¥' + ((sub.price || 0) * (sub.quantity || 1)).toFixed(2) + '</span>' +
-                '<button type="button" class="btn btn-outline btn-sm" style="padding:0 7px" onclick="pkgChangeSubQty(' + i + ',' + si + ',-1)">−</button>' +
-                '<input type="number" class="input" style="width:46px;padding:2px 4px;min-height:22px;text-align:center;font-size:12px" value="' + (sub.quantity || 1) + '" min="1" max="99" onchange="pkgSetSubQty(' + i + ',' + si + ',this.value)">' +
-                '<button type="button" class="btn btn-outline btn-sm" style="padding:0 7px" onclick="pkgChangeSubQty(' + i + ',' + si + ',1)">＋</button>' +
-                '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px" onclick="pkgRemoveSub(' + i + ',' + si + ')">✕</button>' +
+                '<button type="button" class="btn btn-outline btn-sm" style="padding:0 7px" onclick="pkgSubQty(' + i + ',' + si + ',-1)">−</button>' +
+                '<input type="number" class="input" style="width:46px;padding:2px 4px;min-height:22px;text-align:center;font-size:12px" value="' + (sub.quantity || 1) + '" min="1" max="99" onchange="pkgSubQtySet(' + i + ',' + si + ',this.value)">' +
+                '<button type="button" class="btn btn-outline btn-sm" style="padding:0 7px" onclick="pkgSubQty(' + i + ',' + si + ',1)">＋</button>' +
+                '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px" onclick="pkgSubRemove(' + i + ',' + si + ')">✕</button>' +
                 '</span>' +
                 '</div>';
         }).join('') + '</div>';
 }
 
-/* ==================== 套餐编辑器：子医嘱搜索下拉 ==================== */
+/* ==================== 子医嘱下拉（处方套餐） ==================== */
 function pkgOpenSubDrop(idx, btn) {
     var rect = btn.getBoundingClientRect();
     var panel = document.getElementById('pkgSubDrop');
@@ -552,8 +510,8 @@ function pkgOpenSubDrop(idx, btn) {
         panel.id = 'pkgSubDrop';
         panel.style.cssText = 'position:fixed;z-index:3200;width:380px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);overflow:hidden';
         document.body.appendChild(panel);
-        if (!window.__pkgSubBound) {
-            window.__pkgSubBound = true;
+        if (!PKG_SUB_BOUND) {
+            PKG_SUB_BOUND = true;
             document.addEventListener('mousedown', function (e) {
                 var p = document.getElementById('pkgSubDrop');
                 if (p && p.style.display !== 'none' && !p.contains(e.target)) p.style.display = 'none';
@@ -562,13 +520,13 @@ function pkgOpenSubDrop(idx, btn) {
                 var el = e.target.closest ? e.target.closest('.dd-item') : null;
                 if (!el) return;
                 var p = document.getElementById('pkgSubDrop');
-                if (!p || !p.contains(e.target) || p.style.display === 'none') return;
+                if (!p || p.style.display === 'none' || !p.contains(e.target)) return;
                 e.preventDefault();
-                pkgPickSub(parseInt(p.getAttribute('data-sub-idx') || '0', 10), JSON.parse(el.getAttribute('data-item') || '{}'));
+                pkgSubPick(parseInt(p.getAttribute('data-idx') || '0', 10), JSON.parse(el.getAttribute('data-it') || '{}'));
             }, true);
         }
     }
-    panel.setAttribute('data-sub-idx', idx);
+    panel.setAttribute('data-idx', idx);
     panel.innerHTML =
         '<div style="padding:8px 10px;border-bottom:1px solid var(--border)">' +
         '<input type="text" class="input" id="pkgSubKw" placeholder="🔍 搜索子医嘱药品（名称 / 厂家）" autocomplete="off" style="min-height:30px;padding:5px 10px">' +
@@ -577,20 +535,20 @@ function pkgOpenSubDrop(idx, btn) {
     panel.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 388)) + 'px';
     panel.style.top = (rect.bottom + 4) + 'px';
     panel.style.display = 'block';
-    initPkgSubList(idx);
+    pkgInitSubList(idx);
     var subKw = document.getElementById('pkgSubKw');
     subKw.addEventListener('input', function () {
         clearTimeout(subKw.__t);
         subKw.__t = setTimeout(function () {
             if (PKG_SUB_LIST) PKG_SUB_LIST.reset();
-            else initPkgSubList(idx);
+            else pkgInitSubList(idx);
         }, 300);
     });
     subKw.addEventListener('blur', function () { setTimeout(function () { var p = document.getElementById('pkgSubDrop'); if (p) p.style.display = 'none'; }, 120); });
     subKw.focus();
 }
 
-function initPkgSubList(idx) {
+function pkgInitSubList(idx) {
     var box = document.getElementById('pkgSubList');
     if (!box) return;
     if (PKG_SUB_LIST) PKG_SUB_LIST.stop();
@@ -605,7 +563,7 @@ function initPkgSubList(idx) {
         },
         render: function (list, isFirst) {
             return list.map(function (it) {
-                return '<div class="dd-item" data-item="' + escHtml(JSON.stringify(it).replace(/"/g, '&quot;')) + '">' +
+                return '<div class="dd-item" data-it="' + escHtml(JSON.stringify(it)) + '">' +
                     '<span class="fw-600">' + escHtml(it.name || '') + '</span>' +
                     (it.company_short ? ' <span class="fs-12 text-muted">' + escHtml(it.company_short) + '</span>' : '') +
                     ' <span class="fs-12 text-muted">¥' + parseFloat(it.price || 0).toFixed(2) + '</span>' +
@@ -614,23 +572,21 @@ function initPkgSubList(idx) {
         },
         onError: function () {
             var b = document.getElementById('pkgSubList');
-            if (b && !b.querySelector('.dd-item')) {
-                b.innerHTML = '<div class="pkg-cat-empty">加载失败，请重试</div>';
-            }
+            if (b && !b.querySelector('.dd-item')) b.innerHTML = '<div class="pkg-cat-empty">加载失败，请重试</div>';
         },
     });
 }
 
-function pkgPickSub(idx, it) {
+function pkgSubPick(idx, it) {
     var s = PKG_ITEMS[idx];
     if (!s || !it.id) return;
     if (s.item_id === it.id) { Clinic.toast.warning('不能添加与主药相同的药品作为子医嘱'); return; }
     if (PKG_ITEMS.some(function (m) { return m.item_id === it.id; })) { Clinic.toast.warning('该药品已是主医嘱，不能重复添加为子医嘱'); return; }
     if (s.sub_items.some(function (sub) { return sub.item_id === it.id; })) { Clinic.toast.warning('该子医嘱已存在'); return; }
-    s.sub_items.push(pkgItemFromDrop(it));
-    renderPkgItems();
+    s.sub_items.push(pkgItemFrom(it));
     var p = document.getElementById('pkgSubDrop');
     if (p) p.style.display = 'none';
+    pkgRenderItems();
 }
 
 /* ==================== 套餐内容操作 ==================== */
@@ -638,49 +594,50 @@ function pkgRemoveItem(i) {
     var s = PKG_ITEMS[i];
     if (s && s.sub_items && s.sub_items.length) {
         Clinic.modal.confirm('删除【' + s.item_name + '】将同时移除所有关联子医嘱（' + s.sub_items.length + '项），是否确认？',
-            function () { PKG_ITEMS.splice(i, 1); renderPkgItems(); },
+            function () { PKG_ITEMS.splice(i, 1); pkgRenderItems(); },
             { title: '确认删除', okText: '确认删除' });
     } else {
         PKG_ITEMS.splice(i, 1);
-        renderPkgItems();
+        pkgRenderItems();
     }
 }
 function pkgSetField(i, field, val) {
-    if (PKG_ITEMS[i]) PKG_ITEMS[i][field] = val;
-    renderPkgItems();
+    if (!PKG_ITEMS[i]) return;
+    if (field === 'quantity') PKG_ITEMS[i].quantity = Math.max(1, Math.min(PKG_ITEMS[i].stock || 99, parseInt(val, 10) || 1));
+    else PKG_ITEMS[i][field] = val;
+    pkgRenderItems();
 }
 function pkgSetSubField(i, si, field, val) {
     var s = PKG_ITEMS[i];
     if (s && s.sub_items[si]) s.sub_items[si][field] = val;
 }
-function pkgChangeSubQty(i, si, delta) {
+function pkgSubQty(i, si, delta) {
     var s = PKG_ITEMS[i];
     if (!s || !s.sub_items[si]) return;
     s.sub_items[si].quantity = Math.min(99, Math.max(1, (s.sub_items[si].quantity || 1) + delta));
-    renderPkgItems();
+    pkgRenderItems();
 }
-function pkgSetSubQty(i, si, val) {
+function pkgSubQtySet(i, si, val) {
     var s = PKG_ITEMS[i];
     if (!s || !s.sub_items[si]) return;
     s.sub_items[si].quantity = Math.min(99, Math.max(1, parseInt(val, 10) || 1));
-    renderPkgItems();
+    pkgRenderItems();
 }
-function pkgRemoveSub(i, si) {
+function pkgSubRemove(i, si) {
     PKG_ITEMS[i].sub_items.splice(si, 1);
-    renderPkgItems();
+    pkgRenderItems();
 }
 
 /* ==================== 保存套餐 ==================== */
-function savePkgForm(id, origStatus) {
-    var title = document.getElementById('pfTitle').value.trim();
+function pkgSave(id, origStatus) {
+    var title = document.getElementById('pkgTitle').value.trim();
     if (!title) { Clinic.toast.warning('请填写套餐名称'); return; }
-    var scope = document.getElementById('pfScope').value;
+    var scope = document.getElementById('pkgScope').value;
     if (scope === 'dept') {
-        var checked = document.querySelectorAll('#pfDeptTree .deptChk:checked');
+        var checked = document.querySelectorAll('#pkgDeptTree .deptChk:checked');
         if (!checked.length) { Clinic.toast.warning('请选择至少一个科室'); return; }
     }
     if (!PKG_ITEMS.length) { Clinic.toast.warning('请先添加套餐项目'); return; }
-    // 处方套餐校验：主药需剂量/频次/途径；子药需剂量
     if (PKG_TYPE === 'prescription') {
         for (var i = 0; i < PKG_ITEMS.length; i++) {
             var s = PKG_ITEMS[i];
@@ -696,8 +653,8 @@ function savePkgForm(id, origStatus) {
         }
     }
     var deptIds = [];
-    document.querySelectorAll('#pfDeptTree .deptChk:checked').forEach(function (c) { deptIds.push(c.value); });
-    // 扁平化提交：主药 + 子医嘱（sub_of 标记）
+    document.querySelectorAll('#pkgDeptTree .deptChk:checked').forEach(function (c) { deptIds.push(c.value); });
+    // 扁平化提交：主药 sub_of=0，子医嘱 sub_of=主药序号（1基）
     var flat = [];
     PKG_ITEMS.forEach(function (s, idx) {
         flat.push({
@@ -706,10 +663,9 @@ function savePkgForm(id, origStatus) {
             single_dose: s.single_dose, frequency: s.frequency, route: s.route,
             nurse_required: s.nurse_required, is_skin_test: s.is_skin_test, skin_test_item_id: s.skin_test_item_id,
             spec_dose: s.spec_dose, spec_dose_unit: s.spec_dose_unit, spec_pack_qty: s.spec_pack_qty,
-            spec_pack_unit: s.spec_pack_unit, single_use_qty: s.single_use_qty,
-            sub_of: 0,
+            spec_pack_unit: s.spec_pack_unit, single_use_qty: s.single_use_qty, sub_of: 0,
         });
-        (s.sub_items || []).forEach(function (sub, si) {
+        (s.sub_items || []).forEach(function (sub) {
             flat.push({
                 item_id: sub.item_id || 0, item_name: sub.item_name, price: sub.price || 0,
                 quantity: sub.quantity || 1, spec: sub.spec || '', unit: sub.unit || '',
@@ -728,19 +684,23 @@ function savePkgForm(id, origStatus) {
         onSuccess: function (j) {
             Clinic.toast.success(j.msg);
             Clinic.modal.close();
-            loadPkgList();
+            if (PKG_LIST) PKG_LIST.reset();
+            else pkgInitList();
         },
     });
 }
 
-/* ==================== 删除套餐 ==================== */
-function delPkg(id) {
+function pkgDel(id) {
     Clinic.modal.confirm('确定删除该套餐？', function () {
         Clinic.ajax('/api/package', { action: 'delete', id: id }, {
-            onSuccess: function (j) { Clinic.toast.success(j.msg); loadPkgList(); },
+            onSuccess: function (j) {
+                Clinic.toast.success(j.msg);
+                if (PKG_LIST) PKG_LIST.reset();
+                else pkgInitList();
+            },
         });
     });
 }
 
-loadPkgList();
+pkgInitList();
 </script>
