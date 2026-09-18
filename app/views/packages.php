@@ -41,6 +41,11 @@ $isAdmin = $u['role'] === 'admin';
 </div>
 
 <style>
+/* 套餐新建/编辑模态框：固定高度，内容区内部滚动（参考开单模态框模式） */
+.modal.pkg-form-modal { height: 700px; }
+.modal.pkg-form-modal .modal-body { overflow: hidden; display: flex; }
+.modal.pkg-form-modal .pkg-form { flex: 1; min-width: 0; min-height: 0; }
+.modal.pkg-form-modal .pkg-right { min-height: 0; }
 .pkg-form { display: flex; gap: 14px; }
 .pkg-form .pkg-left { width: 300px; flex-shrink: 0; }
 .pkg-form .pkg-right { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -203,10 +208,10 @@ function pkgOpenForm(id) {
     var title = isEdit ? '编辑套餐' : '新建套餐';
     if (!isEdit) {
         var html = '<div id="pkgFormBox"></div>';
-        var mask = Clinic.modal.open(html, { title: title, size: 'modal-xl' });
+        var mask = Clinic.modal.open(html, { title: title, size: 'modal-xl pkg-form-modal' });
         pkgBuildForm(mask, null);
     } else {
-        var mask = Clinic.modal.load('/api/package?action=get&id=' + id, null, { title: title, size: 'modal-xl' });
+        var mask = Clinic.modal.load('/api/package?action=get&id=' + id, null, { title: title, size: 'modal-xl pkg-form-modal' });
         mask.querySelector('.modal-body').addEventListener('modal:loaded', function (e) {
             if (e.detail && e.detail.package) pkgBuildForm(mask, e.detail.package);
         });

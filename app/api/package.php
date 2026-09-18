@@ -114,7 +114,8 @@ switch ($action) {
 
     /* ==================== 单条套餐详情（编辑回填 / 应用加载） ==================== */
     case 'get':
-        $id = (int)get('id');
+        // 兼容 GET（编辑回填 Clinic.modal.load）/ POST（开单应用 Clinic.ajax）两种调用
+        $id = (int)req('id');
         $t = OrderRepository::one('SELECT * FROM packages WHERE id=?', array($id));
         if (!$t) json_fail('套餐不存在');
         pkg_assert_type($u, (string)$t['type']);
