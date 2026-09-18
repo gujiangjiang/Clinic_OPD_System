@@ -176,6 +176,37 @@ function previewAudit(btn) {
                 makeReadonly(mask);
             },
         });
+    } else if (type === 'package') {
+        // 套餐预览：加载套餐内容只读展示（名称/适用范围/审核状态 + 项目明细）
+        var pkgTypeNames = { lab: '检验套餐', imaging: '检查套餐', procedure: '处置套餐', prescription: '处方套餐' };
+        var pkgScopeNames = { personal: '个人', dept: '科室', hospital: '全院' };
+        Clinic.get('/api/package?action=get&id=' + refId, null, {
+            onSuccess: function (j) {
+                var p = j.data && j.data.package;
+                if (!p) { Clinic.toast.warning('套餐数据不存在'); return; }
+                var isDrug = p.type === 'prescription';
+                var rows = (p.items || []).map(function (it, i) {
+                    var dose = [it.single_dose, it.frequency, it.route].filter(function (x) { return x; }).join(' ｜ ');
+                    var line = '<div class="flex-between" style="padding:5px 0;border-bottom:1px dashed var(--border)">' +
+                        '<span class="fw-600 fs-13">' + escHtml(it.item_name || '') + '</span>' +
+                        '<span class="fs-12 text-muted">' + (dose ? dose + ' ｜ ' : '') +
+                        '¥' + ((parseFloat(it.price) || 0) * (it.quantity || 1)).toFixed(2) + '</span></div>';
+                    if ((it.sub_of || 0) > 0) line = '<div style="padding:3px 0 3px 20px" class="fs-12 text-muted">└ 子医嘱：' +
+                        escHtml(it.item_name || '') + (dose ? ' ｜ ' + dose : '') +
+                        ' ｜ ¥' + ((parseFloat(it.price) || 0) * (it.quantity || 1)).toFixed(2) + '</div>';
+                    return line;
+                }).join('');
+                var html = '<div class="form-group"><label class="form-label">套餐名称</label>' +
+                    '<input class="input" value="' + escHtml(p.title) + '" readonly></div>' +
+                    '<div class="form-group"><label class="form-label">类型 / 适用范围</label>' +
+                    '<input class="input" value="' + ((pkgTypeNames[p.type] || p.type) + ' / ' + (pkgScopeNames[p.scope] || p.scope)) + '" readonly></div>' +
+                    '<div class="form-group"><label class="form-label">套餐内容（' + (p.items || []).length + ' 项）</label>' +
+                    '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;max-height:380px;overflow-y:auto">' +
+                    (rows || '<div class="empty">套餐暂无项目</div>') + '</div></div>';
+                var mask = Clinic.modal.open(html, { title: '预览 · ' + (pkgTypeNames[p.type] || '套餐'), size: 'modal-lg' });
+                makeReadonly(mask);
+            },
+        });
     } else {
         // 检验/检查/药品/处置/药品设置：复用原表单接口，加载完成后统一只读化
         var url = '/api/admin';

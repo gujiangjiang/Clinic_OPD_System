@@ -56,16 +56,15 @@ switch ($action) {
         $params = array($type);
         if (!$isAdmin) {
             $myDepts = user_dept_ids($u);
-            $visConds[] = "((scope='personal' AND creator_id=?))";
+            $orConds = array("(scope='personal' AND creator_id=?)", "(status='pending_review' AND creator_id=?)", "(scope='hospital' AND status='published')");
             $params[] = $u['id'];
-            $visConds[] = "((status='pending_review' AND creator_id=?))";
             $params[] = $u['id'];
-            $visConds[] = "((scope='hospital' AND status='published'))";
             if ($myDepts) {
                 $ph = in_placeholders($myDepts);
-                $visConds[] = "((scope='dept' AND status='published' AND id IN (SELECT package_id FROM package_depts WHERE dept_id IN ($ph))))";
+                $orConds[] = "(scope='dept' AND status='published' AND id IN (SELECT package_id FROM package_depts WHERE dept_id IN ($ph)))";
                 foreach ($myDepts as $d) $params[] = $d;
             }
+            $visConds[] = '(' . implode(' OR ', $orConds) . ')';
         }
         // 范围筛选（全部=不限制；个人/科室/全院在可见范围内再收窄）
         if (in_array($scope, array('personal', 'dept', 'hospital'), true)) {
