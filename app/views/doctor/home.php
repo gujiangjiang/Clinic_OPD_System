@@ -23,6 +23,7 @@ render_role_home(array(
     'links' => array(
         array('/doctor/emr', '🩺 医生工作站'),
         array('/doctor/templates', '📋 模板管理'),
+        array('/doctor/packages', '🥡 套餐管理'),
         array('/messages', '💬 站内消息'),
         array('/profile', '👤 个人信息'),
     ),
