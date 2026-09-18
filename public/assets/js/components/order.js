@@ -91,12 +91,6 @@ Clinic.order = (function () {
     var RX_SUB_LIST = null;    // 处方子医嘱内联下拉
     /** 处方下拉最近一次加载的关键字（焦点重显时判定是否需重置） */
     var RX_KW_LAST = '';
-    /** 套餐选择悬浮框 infiniteList（开单弹窗内） */
-    var PKG_LIST = null;
-    /** 套餐搜索最近一次加载的关键字 */
-    var PKG_KW_LAST = '';
-    /** 当前应用套餐详情（/api/package?action=get&for_apply=1） */
-    var PKG_DETAIL = null;
     /** 套餐选择器（开单弹窗快速选择套餐加入已选） */
     var PKG_PICK_LIST = null;  // 套餐列表 infiniteList 实例
     var PKG_PICK_KW = '';      // 套餐列表最近搜索关键字（焦点重显判定重置）
@@ -451,6 +445,251 @@ Clinic.order = (function () {
         if (kw) { kw.value = ''; kw.blur(); }
         hideRxDrop();
         handleAdd(it, el);
+    }
+
+    /* ============ 套餐快速选择（搜索 + 勾选一键加入已选列表） ============ */
+
+    /** 套餐列表分页接口地址（搜索关键字实时参与拼接，按当前开单类型过滤） */
+    function pkgPickUrl(p, size) {
+        var kw = encodeURIComponent(PKG_PICK_KW);
+        return '/api/package?action=list&type=' + CUR_TYPE + '&page=' + p + '&size=' + size + '&kw=' + kw;
+    }
+
+    /** 套餐列表行 HTML */
+    function pkgPickRowHtml(p) {
+        var scopeMap = { personal: '个人', dept: '科室', hospital: '全院' };
+        var statusMap = { published: '已发布', pending_review: '待审核', rejected: '已驳回' };
+        var scopeCls = { personal: 'badge-gray', dept: 'badge-primary', hospital: 'badge-primary' };
+        var statusCls = { published: 'badge-success', pending_review: 'badge-warning', rejected: 'badge-gray' };
+        return '<div class="dd-item pkg-pick-item" data-id="' + p.id + '" ' +
+            'data-title="' + (p.title || '').replace(/"/g, '&quot;') + '" style="cursor:pointer;padding:8px 10px;border-bottom:1px solid var(--border)">' +
+            '<div class="flex-between">' +
+            '  <span class="fw-600 fs-13 ellipsis" style="min-width:0">' + Clinic.escHtml(p.title || '') + '</span>' +
+            '  <span class="fw-600 fs-13" style="color:var(--primary);flex-shrink:0">¥' + parseFloat(p.total_price || 0).toFixed(2) + '</span>' +
+            '</div>' +
+            '<div class="fs-12 text-muted mt-2">' +
+            '<span class="badge ' + (scopeCls[p.scope] || 'badge-gray') + '">' + (scopeMap[p.scope] || p.scope) + '</span> ' +
+            '<span class="badge ' + (statusCls[p.status] || 'badge-gray') + '">' + (statusMap[p.status] || p.status) + '</span>' +
+            ' ｜ 共 ' + (p.item_count || 0) + ' 项' +
+            (p.dept_names && p.dept_names.length ? ' ｜ 适用：' + Clinic.escHtml(p.dept_names.join('、')) : '') +
+            '</div></div>';
+    }
+
+    /** 打开套餐选择器：搜索栏 + 无限滚动套餐列表 */
+    function openPkgPicker() {
+        var typeLabel = { lab: '检验', imaging: '检查', procedure: '处置', prescription: '处方' }[CUR_TYPE] || '开单';
+        PKG_PICK_KW = '';
+        PKG_PICK_LIST = null;
+        var html =
+            '<div style="display:flex;flex-direction:column;gap:8px">' +
+            '  <input type="text" class="input" id="pkgPickKw" placeholder="🔍 搜索' + typeLabel + '套餐名称" autocomplete="off">' +
+            '  <div id="pkgPickList" style="max-height:420px;min-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px"></div>' +
+            '  <div class="fs-12 text-muted">点击套餐后弹出项目勾选，确认后一键加入已选列表</div>' +
+            '</div>';
+        Clinic.modal.open(html, {
+            title: '🥡 选择' + typeLabel + '套餐',
+            size: 'modal-md',
+            buttons: [{ text: '关闭', cls: 'btn-outline' }],
+        });
+        var kw = document.getElementById('pkgPickKw');
+        kw.addEventListener('input', function () {
+            clearTimeout(kw.__t);
+            kw.__t = setTimeout(function () {
+                PKG_PICK_KW = (kw.value || '').trim().toLowerCase();
+                if (PKG_PICK_LIST) PKG_PICK_LIST.reset();
+                else initPkgPickList();
+            }, 300);
+        });
+        // 点击套餐行：关闭选择器，打开项目勾选弹窗
+        var listBox = document.getElementById('pkgPickList');
+        listBox.addEventListener('click', function (e) {
+            var el = e.target.closest ? e.target.closest('.pkg-pick-item') : null;
+            if (el) {
+                var pid = parseInt(el.getAttribute('data-id'), 10);
+                var ptitle = el.getAttribute('data-title') || '';
+                Clinic.modal.close();
+                openPkgApply(pid, ptitle);
+            }
+        });
+        initPkgPickList();
+    }
+
+    /** 初始化套餐列表无限滚动（搜索输入 / 打开时调用） */
+    function initPkgPickList() {
+        var box = document.getElementById('pkgPickList');
+        if (!box) return;
+        if (PKG_PICK_LIST) PKG_PICK_LIST.stop();
+        PKG_PICK_LIST = Clinic.infiniteList({
+            el: box,
+            pageSize: 20,
+            threshold: 40,
+            emptyHtml: '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px">暂无可用套餐，可到「套餐管理」创建</div>',
+            url: pkgPickUrl,
+            render: function (list) { return list.map(pkgPickRowHtml).join(''); },
+            onError: function () {
+                if (box && !box.querySelector('.dd-item')) {
+                    box.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px">加载失败，请重试</div>';
+                }
+            },
+        });
+    }
+
+    /** 套餐项目分组：sub_of=0 为主药，其余挂到对应主药下（成组医嘱整体勾选） */
+    function pkgBuildGroups(items) {
+        var groups = [];
+        (items || []).forEach(function (it) {
+            if ((it.sub_of || 0) === 0) groups.push({ main: it, subs: [], checked: true });
+        });
+        (items || []).forEach(function (it) {
+            var s = parseInt(it.sub_of, 10) || 0;
+            if (s > 0 && groups[s - 1]) groups[s - 1].subs.push(it);
+        });
+        return groups;
+    }
+
+    /** 渲染套餐应用弹窗：每个项目一个复选框（处方组合 = 主药+子医嘱树形） */
+    function renderPkgApply() {
+        var box = document.getElementById('pkgApplyList');
+        if (!box) return;
+        var isDrug = CUR_TYPE === 'prescription';
+        box.innerHTML = PKG_APPLY_GROUPS.map(function (g, i) {
+            var m = g.main || {};
+            var meta = '<span class="fw-600 fs-13">' + Clinic.escHtml(m.item_name || '') + '</span>' +
+                (m.spec && !isDrug ? ' <span class="fs-12 text-muted">' + Clinic.escHtml(m.spec) + '</span>' : '') +
+                (isDrug ? ' <span class="fs-12 text-muted">' +
+                    [m.single_dose, m.frequency, m.route].filter(function (x) { return x; }).join(' ') + '</span>' : '') +
+                (m.quantity > 1 ? ' <span class="badge badge-primary fs-12">×' + m.quantity + '</span>' : '') +
+                ((isDrug && m.is_skin_test) ? ' <span class="badge badge-danger fs-12">需皮试</span>' : '');
+            var html = '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer;background:var(--bg-card)" ' +
+                'onclick="var cb=this.querySelector(\'.pkg-apply-cb\');cb.checked=!cb.checked;Clinic.order.setPkgApplyCheck(' + i + ',cb.checked)">' +
+                '<div class="flex-between" style="align-items:center">' +
+                '  <input type="checkbox" class="pkg-apply-cb" data-i="' + i + '"' + (g.checked ? ' checked' : '') + ' style="width:16px;height:16px;accent-color:var(--primary);flex-shrink:0" ' +
+                'onclick="event.stopPropagation()" onchange="Clinic.order.setPkgApplyCheck(' + i + ',this.checked)">' +
+                '  <span class="meta" style="flex:1;min-width:0;padding:0 8px">' + meta + '</span>' +
+                '  <span style="font-size:12px;color:var(--text-muted);flex-shrink:0">¥' + ((parseFloat(m.price) || 0) * (m.quantity || 1)).toFixed(2) + '</span>' +
+                '</div>' +
+                (g.subs.length ? g.subs.map(function (s, si) {
+                    var branch = si === g.subs.length - 1 ? '└─' : '├─';
+                    return '<div style="font-family:Menlo,Consolas,monospace;font-size:12px;color:var(--text-muted);margin:2px 0 2px 24px">' +
+                        branch + ' ' + Clinic.escHtml(s.item_name || '') +
+                        (s.single_dose ? ' ｜ ' + Clinic.escHtml(s.single_dose) : '') +
+                        ' ｜ ¥' + ((parseFloat(s.price) || 0) * (s.quantity || 1)).toFixed(2) + '</div>';
+                }).join('') : '') +
+                '</div>';
+            return html;
+        }).join('') || '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px">套餐暂无项目</div>';
+    }
+
+    /** 套餐应用弹窗：加载套餐内容并按项目分组勾选 */
+    function openPkgApply(id, title) {
+        Clinic.ajax('/api/package', { action: 'get', id: id, for_apply: 1 }, {
+            loading: true,
+            onSuccess: function (j) {
+                var p = j.data && j.data.package;
+                if (!p) return;
+                PKG_APPLY_GROUPS = pkgBuildGroups(p.items || []);
+                var html =
+                    '<div class="fs-12 text-muted mb-8">套餐共 ' + (p.items || []).length + ' 项（处方成组医嘱按「主药+子医嘱」整体勾选）：</div>' +
+                    '<div id="pkgApplyList" style="max-height:400px;overflow-y:auto;padding-right:4px"></div>';
+                Clinic.modal.open(html, {
+                    title: '添加套餐：' + Clinic.escHtml(p.title || title || ''),
+                    size: 'modal-md',
+                    buttons: [
+                        { text: '取消', cls: 'btn-outline' },
+                        { text: '☑️ 全选', cls: 'btn-outline', autoClose: false, onClick: pkgApplyToggleAll },
+                        { text: '确认添加', cls: 'btn-primary', autoClose: false, onClick: pkgApplyConfirm },
+                    ],
+                });
+                renderPkgApply();
+            },
+        });
+    }
+
+    /** 全选 / 全不选切换 */
+    function pkgApplyToggleAll() {
+        var all = PKG_APPLY_GROUPS.length && PKG_APPLY_GROUPS.every(function (g) { return g.checked; });
+        PKG_APPLY_GROUPS.forEach(function (g) { g.checked = !all; });
+        renderPkgApply();
+    }
+
+    /** 单项勾选（复选框 onchange） */
+    function setPkgApplyCheck(i, checked) {
+        if (PKG_APPLY_GROUPS[i]) PKG_APPLY_GROUPS[i].checked = !!checked;
+    }
+
+    /** 套餐项目 → 开单 SELECTED 条目结构（结构化药品剂量 = 数量×单剂量值，与数量自洽） */
+    function pkgToOrderItem(it, isSub) {
+        var sd = parseFloat(it.spec_dose) || 0;
+        var base = {
+            id: parseInt(it.item_id, 10) || 0,
+            name: it.item_name || '',
+            price: parseFloat(it.price) || 0,
+            quantity: Math.max(1, parseInt(it.quantity, 10) || 1),
+            spec: it.spec || '',
+            unit: it.unit || '',
+            company_short: it.company_short || '',
+            frequency: isSub ? '' : (it.frequency || ''),
+            route: isSub ? '' : (it.route || ''),
+            route_nurse: it.route_nurse_required || it.nurse_required || 0,
+            stock: parseInt(it.stock, 10) || 0,
+            nurse_required: isSub ? 0 : (it.nurse_required || 0),
+            is_group: false,
+            sub_items: [],
+            spec_pack_unit: it.spec_pack_unit || '',
+            is_skin_test: parseInt(it.is_skin_test, 10) === 1 ? 1 : 0,
+            skin_test: '',
+        };
+        if (CUR_TYPE === 'prescription' && sd > 0) {
+            base.spec_dose = sd;
+            base.dose = Math.round(base.quantity * sd * 100) / 100;
+            base.dose_unit = it.spec_dose_unit || '';
+        } else {
+            base.spec_dose = 0;
+            base.dose = it.single_dose || '';
+            base.dose_unit = '';
+        }
+        return base;
+    }
+
+    /** 确认添加：勾选项目去重后逐项加入 SELECTED（皮试药品逐项二次确认） */
+    function pkgApplyConfirm() {
+        var groups = PKG_APPLY_GROUPS.filter(function (g) { return g.checked && g.main; });
+        if (!groups.length) { Clinic.toast.warning('请至少勾选一个项目'); return; }
+        var queue = [];
+        var skipped = [];
+        groups.forEach(function (g) {
+            var m = g.main;
+            var dupIds = [m.item_id].concat((g.subs || []).map(function (s) { return s.item_id; }));
+            var conflict = SELECTED.some(function (s) {
+                if (dupIds.indexOf(s.id) !== -1) return true;
+                return (s.sub_items || []).some(function (sub) { return dupIds.indexOf(sub.id) !== -1; });
+            });
+            if (conflict) { skipped.push(m.item_name); return; }
+            var item = pkgToOrderItem(m);
+            item.sub_items = (g.subs || []).map(function (s) { return pkgToOrderItem(s, true); });
+            queue.push(item);
+        });
+        if (skipped.length) Clinic.toast.warning('以下项目已在已选列表中，已跳过：' + skipped.join('、'));
+        if (!queue.length) { renderSelected(); return; }
+        Clinic.modal.close();
+        pkgApplyPushQueue(queue, 0);
+    }
+
+    /** 递归入列：需皮试药品逐个弹出确认（复用开方皮试确认），完成后刷新已选 */
+    function pkgApplyPushQueue(queue, idx) {
+        if (idx >= queue.length) { renderSelected(); return; }
+        var it = queue[idx];
+        if (CUR_TYPE === 'prescription' && it.is_skin_test === 1) {
+            mustConfirmSkinTest(it.name, function (choice) {
+                if (choice === 'cancel') { pkgApplyPushQueue(queue, idx + 1); return; }
+                it.skin_test = choice;
+                SELECTED.push(it);
+                pkgApplyPushQueue(queue, idx + 1);
+            });
+            return;
+        }
+        SELECTED.push(it);
+        pkgApplyPushQueue(queue, idx + 1);
     }
 
     /* ============ 子医嘱：跟随鼠标的内联搜索下拉（替换原模态框选择） ============ */
@@ -1336,7 +1575,7 @@ Clinic.order = (function () {
         setField: setField, setRoute: setRoute, removeSub: removeSub,
         setSubField: setSubField, changeSubQty: changeSubQty, setSubQty: setSubQty,
         setNurse: setNurse, openSubDrop: openSubDrop, closeSubDrop: closeSubDrop,
-        openDosePop: openDosePop, doseQuick: doseQuick, applyDose: applyDose, closeDosePop: closeDosePop,
-        confirmPrev: confirmPrev,
+openDosePop: openDosePop, doseQuick: doseQuick, applyDose: applyDose, closeDosePop: closeDosePop,
+        confirmPrev: confirmPrev, setPkgApplyCheck: setPkgApplyCheck,
     };
 })();
