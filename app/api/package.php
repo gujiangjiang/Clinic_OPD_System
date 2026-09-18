@@ -300,6 +300,7 @@ switch ($action) {
         $like = $kw !== '' ? '%' . $kw . '%' : '';
         $list = array();
         $total = 0;
+        $dicts = array('frequencies' => array(), 'routes' => array());
         if ($type === 'lab') {
             $where = "status='approved'";
             $params = array();
@@ -389,7 +390,18 @@ switch ($action) {
                 );
             }
         }
-        json_ok(array('list' => $list, 'total' => $total, 'has_more' => ($page * $pageSize) < $total));
+        $resp = array('list' => $list, 'total' => $total, 'has_more' => ($page * $pageSize) < $total);
+        // 联动字典：频次/途径选项（处方套餐编辑下拉用，仅首页携带）
+        if ($page <= 1) {
+            foreach (OrderRepository::q("SELECT name FROM drug_settings WHERE stype='freq' ORDER BY sort, id") as $fq) {
+                $dicts['frequencies'][] = $fq['name'];
+            }
+            foreach (OrderRepository::q("SELECT name FROM drug_settings WHERE stype='route' ORDER BY sort, id") as $rt) {
+                $dicts['routes'][] = $rt['name'];
+            }
+            $resp['link_dicts'] = $dicts;
+        }
+        json_ok($resp);
         break;
 
     default:
