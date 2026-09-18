@@ -445,7 +445,7 @@ function renderPkgItems() {
         return t;
     }, 0);
     document.getElementById('pkgItemCount').textContent = PKG_ITEMS.length;
-    document.getElementById('pkgItemTotal').textContent = '¥' + total.toFixed(2甚至是2);
+    document.getElementById('pkgItemTotal').textContent = '¥' + total.toFixed(2);
 
     box.innerHTML = PKG_ITEMS.map(function (s, i) {
         // 检验组合（旧数据兜底）按成员标签展示；处方药品显示剂量/频次/途径/子医嘱
@@ -462,7 +462,7 @@ function renderPkgItems() {
             '  </div>' +
             '  <div class="actions">' +
             (isDrug
-                ? '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px" onclick="Clinic.ordersub?addSub(' + i + ')">＋ 子医嘱</button>'
+                ? '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px" onclick="pkgOpenSubDrop(' + i + ', this)">＋ 子医嘱</button>'
                 : '') +
             '    <button type="button" class="btn btn-outline btn-sm" style="padding:1px 8px" onclick="pkgRemoveItem(' + i + ')">✕</button>' +
             '  </div>' +
