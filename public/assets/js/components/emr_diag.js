@@ -275,8 +275,9 @@ Clinic.emr.diag = (function () {
             }
             timer = setTimeout(function () { diagListReset(); }, 200);
         });
-        // 打开即加载首页（聚焦输入后用户输入触发搜索）
-        diagListInit();
+        // 打开时不立即加载列表：空输入显示「输入关键词检索」提示，输入后首次触发搜索——
+        // 避免尚未输入任何内容就错误显示「未检索到匹配诊断」
+        if (((kw && kw.value) || '').trim() !== '') diagListInit();
         // 列表条目点击（委托：条目随滚动分页动态生成）
         pop.querySelector('#dpRes').addEventListener('click', function (e) {
             var item = e.target.closest('.diag-pop-item');
