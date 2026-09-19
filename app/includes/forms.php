@@ -101,12 +101,22 @@ function form_drug($id) {
             'package_unit' => '', 'spec' => '', 'form' => '', 'single_dose' => '', 'frequency' => '',
             'route' => '', 'price' => '0', 'qty' => '0', 'is_rx' => 0, 'is_limited' => 0, 'note' => '', 'is_nurse' => 0,
             'spec_dose' => 0, 'spec_dose_unit' => '', 'spec_pack_qty' => 1, 'spec_pack_unit' => '', 'single_use_qty' => 1,
-            'allow_split' => 0,
+            'allow_split' => 0, 'warn_qty' => 0,
             'status' => '',
         );
     }
     // 规格结构化展示串：0.5g×24粒 / 100ml×1瓶 / 0.35g（统一走 drug_spec_text 动态拼接）
     $specShow = drug_spec_text($r);
+    // 库存/警戒录入单位换算（3.6.1）：表单默认按「包装单位」录入，存储为最小单位绝对值
+    $qtyPackUnit = $r['package_unit'] !== '' ? $r['package_unit'] : '盒';
+    $qtyMinUnit = $r['spec_pack_unit'] !== '' ? $r['spec_pack_unit'] : '支';
+    $packQtyN = max(1, (int)$r['spec_pack_qty']);
+    // 拆零单价展示（保留 4 位小数去尾零，与前端 syncSplitBox 口径一致）
+    $minPriceShow = rtrim(rtrim(number_format(drug_min_price($r), 4, '.', ''), '0'), '.');
+    // 库存输入框初始值按包装单位显示（整包装数；余量在切换最小单位时以真实最小单位值回显）
+    $qtyInit = $packQtyN > 1 ? floor((int)$r['qty'] / $packQtyN) : (int)$r['qty'];
+    // 警戒库存初始按包装单位回显（warn_qty 为最小单位绝对阈值）
+    $warnBoxInit = ((int)$r['warn_qty'] > 0 && $packQtyN > 1) ? floor((int)$r['warn_qty'] / $packQtyN) : (int)$r['warn_qty'];
     // 药品设置字典：一次查出全部，按 stype 分组复用（避免每个下拉框重复查库）
     $dict = array();
     foreach (DB::q('SELECT * FROM drug_settings ORDER BY sort, id') as $__d) {
@@ -158,7 +168,19 @@ function form_drug($id) {
     </div>
     <div class="form-row">
         <div class="form-group"><label class="form-label">价格（元）</label><input class="input" type="number" step="0.01" min="0" id="f_price" value="' . e($r['price']) . '"></div>
-        <div class="form-group"><label class="form-label">药品数量（库存）</label><input class="input" type="number" min="0" id="f_qty" value="' . (int)$r['qty'] . '"></div>
+        <div class="form-group"><label class="form-label">药品数量（库存）</label>
+            <div class="flex gap-4">
+                <input class="input" type="number" min="0" id="f_qty" value="' . (int)$qtyInit . '" data-min-qty="' . (int)$r['qty'] . '" style="flex:1;min-width:0" title="点击右侧单位可切换（默认包装单位，如 盒/瓶）">
+                <button type="button" class="btn btn-outline btn-sm" id="f_qty_unit_btn" style="flex-shrink:0;min-height:34px">' . e($qtyPackUnit) . '</button>
+            </div>
+            <input type="hidden" id="f_qty_unit" value="pack">
+            <div class="fs-12 text-muted mt-4" id="f_qty_hint">库存统一以最小单位存储；此处默认按包装单位录入（如 100 盒），点击单位可切换为最小单位（' . e($qtyMinUnit) . '）。</div>
+        </div>
+        <div class="form-group"><label class="form-label">警戒库存（' . e($qtyPackUnit) . '）</label>
+            <input class="input" type="number" min="0" step="1" id="f_warn_box" value="' . $warnBoxInit . '" title="按包装单位录入，自动换算为最小单位绝对警戒阈值">
+            <input type="hidden" id="f_warn_qty" value="' . (int)$r['warn_qty'] . '">
+            <div class="fs-12 text-muted mt-4" id="f_warn_hint">库存 ≤ 警戒线时低库存报警。按包装单位录入，系统自动换算为最小单位绝对阈值。</div>
+        </div>
     </div>
     <div class="form-group" style="background:var(--bg-soft);border-radius:10px;padding:12px;margin-bottom:8px">
         <label class="flex gap-4" style="font-size:13px;cursor:pointer;align-items:center">
@@ -174,8 +196,8 @@ function form_drug($id) {
                 <span>每包装数量：<b id="sp_pack_qty_name" style="color:var(--primary)">' . (int)$r['spec_pack_qty'] . '</b></span>
             </div>
             <div class="flex gap-16" style="font-size:13px;flex-wrap:wrap">
-                <span>包装售价：<b id="sp_pack_price" style="color:var(--primary)">¥' . money((float)$r['price']) . '</b> / ' . e($r['package_unit'] !== '' ? $r['package_unit'] : '盒') . '</span>
-                <span>拆零单价：<b id="sp_min_price" style="color:var(--primary)">¥' . money(drug_min_price($r)) . '</b> / ' . e($r['spec_pack_unit'] !== '' ? $r['spec_pack_unit'] : '个') . '</span>
+                <span>包装售价：<b id="sp_pack_price" style="color:var(--primary)">¥' . money((float)$r['price']) . '</b><span id="sp_pack_price_unit"> / ' . e($r['package_unit'] !== '' ? $r['package_unit'] : '盒') . '</span></span>
+                <span>拆零单价：<b id="sp_min_price" style="color:var(--primary)">¥' . ($minPriceShow !== '' && $minPriceShow !== '0' ? $minPriceShow : '0') . '</b><span id="sp_min_price_unit"> / ' . e($r['spec_pack_unit'] !== '' ? $r['spec_pack_unit'] : '个') . '</span></span>
             </div>
             <div class="fs-12 text-muted mt-4">需同时满足：包装单位（盒/瓶）、最小单位（支/粒/片）、每包装数量 &gt; 1、单剂量值已设置。</div>
         </div>

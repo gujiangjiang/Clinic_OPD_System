@@ -63,6 +63,9 @@ function seSaveSpec() {
     document.getElementById('f_spec').value = dose + dunit + (punit !== '' ? '×' + pkt + punit : '');
     Clinic.modal.close();
     syncSplitBox();
+    // 规格变化（每包装数量/最小单位）联动刷新库存/警戒单位显示与换算
+    if (typeof renderQtyInput === 'function') renderQtyInput();
+    if (typeof syncWarn === 'function') syncWarn();
 }
 
 /**
@@ -101,6 +104,134 @@ function syncSplitBox() {
     set('sp_pack_unit_name', packUnit || '—');
     set('sp_min_unit_name', minUnit || '—');
     set('sp_pack_qty_name', pkt);
-    set('sp_pack_price', '¥' + price.toFixed(2) + ' / ' + (packUnit || '盒'));
-    set('sp_min_price', '¥' + (pkt > 1 ? (price / pkt).toFixed(4) : '0').replace(/\.?0+$/, '') + ' / ' + (minUnit || '个'));
+    // 3.6.2：金额与单位分元素展示，避免「¥16.00 / 盒 / 盒」重复单位
+    set('sp_pack_price', '¥' + price.toFixed(2));
+    set('sp_pack_price_unit', ' / ' + (packUnit || '盒'));
+    set('sp_min_price', '¥' + (pkt > 1 ? (price / pkt).toFixed(4) : '0').replace(/\.?0+$/, ''));
+    set('sp_min_price_unit', ' / ' + (minUnit || '个'));
+    syncQtyHint();
+    syncWarn();
+}
+
+/* ==================== 3.6.1 库存录入单位切换（默认包装单位） ==================== */
+
+var __qtyUnitBound = false;
+var __qtyDirty = false;
+
+function bindQtyUnit() {
+    var btn = document.getElementById('f_qty_unit_btn');
+    var qty = document.getElementById('f_qty');
+    if (!btn || !qty) return;
+    if (__qtyUnitBound) { renderQtyInput(); syncWarn(); return; }
+    __qtyUnitBound = true;
+    btn.addEventListener('click', function () { toggleQtyUnit(); });
+    qty.addEventListener('input', qtyInputChanged);
+    qty.addEventListener('change', qtyInputChanged);
+    var wb = document.getElementById('f_warn_box');
+    if (wb) { wb.addEventListener('input', syncWarn); wb.addEventListener('change', syncWarn); }
+    // 规格/包装单位变化后联动刷新单位标签与换算（幂等绑定）
+    ['f_pkg', 'f_spec_pack_qty', 'f_spec_pack_unit'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) { el.addEventListener('change', refreshQtyUnits); el.addEventListener('input', refreshQtyUnits); }
+    });
+    renderQtyInput();
+    syncWarn();
+}
+
+function qtyPackSize() { return Math.max(1, parseInt((document.getElementById('f_spec_pack_qty') || {}).value, 10) || 1); }
+function qtyPackUnit() { var p = document.getElementById('f_pkg'); var v = p ? (p.value || '').trim() : ''; return v || '盒'; }
+function qtyMinUnit() { var u = (document.getElementById('f_spec_pack_unit') || {}).value || ''; return u || '支'; }
+function qtyCurrentUnit() {
+    var u = document.getElementById('f_qty_unit');
+    return u && u.value === 'min' ? 'min' : 'pack';
+}
+function qtyMinValue() {
+    var inp = document.getElementById('f_qty');
+    var raw = inp ? inp.getAttribute('data-min-qty') : '';
+    var v = parseFloat(raw);
+    return isNaN(v) ? 0 : v;
+}
+function setQtyMinValue(v) {
+    var inp = document.getElementById('f_qty');
+    if (inp) inp.setAttribute('data-min-qty', Math.max(0, Math.round(v)));
+}
+function renderQtyInput() {
+    var inp = document.getElementById('f_qty');
+    var btn = document.getElementById('f_qty_unit_btn');
+    if (!inp) return;
+    var min = qtyMinValue();
+    var ps = qtyPackSize();
+    var unit = qtyCurrentUnit();
+    if (unit === 'min') {
+        inp.value = min;
+        if (btn) btn.textContent = qtyMinUnit();
+    } else {
+        inp.value = ps > 1 ? Math.floor(min / ps) : min;
+        if (btn) btn.textContent = qtyPackUnit();
+    }
+    syncQtyHint();
+}
+function syncQtyHint() {
+    var hint = document.getElementById('f_qty_hint');
+    if (!hint) return;
+    var min = qtyMinValue();
+    var ps = qtyPackSize();
+    var unit = qtyCurrentUnit();
+    if (ps > 1) {
+        hint.textContent = unit === 'min'
+            ? '当前按最小单位录入（' + min + ' ' + qtyMinUnit() + '）；点击单位可切换为包装单位（' + Math.floor(min / ps) + ' ' + qtyPackUnit() + '）。库存统一以最小单位存储。'
+            : '当前按包装单位录入（' + Math.floor(min / ps) + ' ' + qtyPackUnit() + '）；点击单位可切换为最小单位（' + min + ' ' + qtyMinUnit() + '）。库存统一以最小单位存储。';
+    } else {
+        hint.textContent = '该药品每包装数量为 1，最小单位与包装单位一致，库存直接录入。';
+    }
+}
+function toggleQtyUnit() {
+    var u = document.getElementById('f_qty_unit');
+    if (!u) return;
+    if (qtyPackSize() <= 1) { Clinic.toast.warning('每包装数量为 1 时最小单位与包装单位一致，无需切换'); return; }
+    __qtyDirty = false;   // 切换仅改变显示单位，不改变真实最小库存
+    u.value = u.value === 'min' ? 'pack' : 'min';
+    renderQtyInput();
+}
+function qtyInputChanged() {
+    __qtyDirty = true;
+    var inp = document.getElementById('f_qty');
+    if (!inp) return;
+    var v = parseFloat(inp.value);
+    if (isNaN(v) || v < 0) v = 0;
+    var ps = qtyPackSize();
+    setQtyMinValue((qtyCurrentUnit() === 'min') ? v : v * ps);
+    syncQtyHint();
+}
+/** 对外：保存时返回库存最小单位绝对值（未编辑保留真实值含整包装余量；编辑过按当前单位换算） */
+function getFQtyMin() {
+    var inp = document.getElementById('f_qty');
+    if (!inp) return 0;
+    if (!__qtyDirty) return qtyMinValue();
+    var v = parseFloat(inp.value);
+    if (isNaN(v) || v < 0) v = 0;
+    var ps = qtyPackSize();
+    return Math.max(0, Math.round((qtyCurrentUnit() === 'min') ? v : v * ps));
+}
+function refreshQtyUnits() {
+    // 规格/包装单位变化：刷新单位按钮标签、换算展示（保持真实最小库存不变）
+    renderQtyInput();
+    syncWarn();
+    if (typeof syncSplitBox === 'function') syncSplitBox();
+}
+/** 警戒库存换算：包装单位输入 → 最小单位绝对阈值 */
+function syncWarn() {
+    var wb = document.getElementById('f_warn_box');
+    var wh = document.getElementById('f_warn_qty');
+    var hint = document.getElementById('f_warn_hint');
+    if (!wb || !wh) return;
+    var v = Math.max(0, parseInt(wb.value, 10) || 0);
+    var ps = qtyPackSize();
+    var min = v * ps;
+    wh.value = min;
+    if (hint) {
+        hint.textContent = ps > 1
+            ? '库存 ≤ 警戒线时低库存报警。当前换算：' + v + ' ' + qtyPackUnit() + ' = ' + min + ' ' + qtyMinUnit() + '（最小单位绝对阈值）。'
+            : '库存 ≤ 警戒线时低库存报警。该药品每包装数量为 1，直接按 ' + qtyPackUnit() + ' 录入。';
+    }
 }

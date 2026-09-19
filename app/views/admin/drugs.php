@@ -76,6 +76,8 @@ function openDrugForm(id) {
         window.__packUnits = (e.detail && e.detail.pack_units) || [];
         // 拆零零售面板联动（f_allow_split 开关 + 包装/拆零单价自动换算）
         if (typeof bindSplitBox === 'function') bindSplitBox();
+        // 3.6.1 库存录入单位切换（默认包装单位）+ 警戒库存换算
+        if (typeof bindQtyUnit === 'function') bindQtyUnit();
         window.syncNurse = function () {
             var route = document.getElementById('f_route').value;
             if (routeMap[route] === 1) {
@@ -137,7 +139,10 @@ function openDrugForm(id) {
                 frequency: document.getElementById('f_freq').value,
                 route: document.getElementById('f_route').value,
                 price: document.getElementById('f_price').value,
-                qty: document.getElementById('f_qty').value,
+                // 3.6.1 库存按当前录入单位换算为最小单位绝对值提交
+                qty: (typeof getFQtyMin === 'function') ? getFQtyMin() : parseInt(document.getElementById('f_qty').value, 10) || 0,
+                // 3.4 警戒库存：按包装单位录入，后端换算最小单位绝对阈值
+                warn_box: parseInt(document.getElementById('f_warn_box').value, 10) || 0,
                 is_rx: document.getElementById('f_rx').checked ? 1 : 0,
                 is_limited: document.getElementById('f_limited').checked ? 1 : 0,
                 is_nurse: document.getElementById('f_nurse').checked ? 1 : 0,

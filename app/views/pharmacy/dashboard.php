@@ -294,13 +294,25 @@ function openInventory() {
     });
 }
 
-function stockModal(drugId, drugName) {
+function stockModal(drugId, drugName, allowSplit, packSize, packUnit, minUnit, curQtyMin) {
+    allowSplit = allowSplit || 0;
+    packSize = packSize || 1;
+    packUnit = packUnit || '盒';
+    minUnit = minUnit || '支';
+    // 3.6.1 出入库单位：入库默认包装单位；出库默认按是否拆零（允许拆零→最小单位 / 否则包装单位）
+    var inUnit = 'pack', outUnit = allowSplit === 1 ? 'min' : 'pack';
     Clinic.modal.open(
         '<div class="fs-13 text-muted mb-8">药品：' + drugName + '</div>' +
+        '<div class="fs-12 text-muted mb-8" id="smCurStock" style="color:var(--primary)">当前库存：' + curQtyMin + ' ' + minUnit +
+            (packSize > 1 ? '（' + Math.floor(curQtyMin / packSize) + ' ' + packUnit + (curQtyMin % packSize ? ' + ' + (curQtyMin % packSize) + ' ' + minUnit : '') + '）' : '') + '</div>' +
         '<div class="form-row">' +
-        '<div class="form-group"><label class="form-label">操作类型</label><select class="select" id="stType">' +
+        '<div class="form-group"><label class="form-label">操作类型</label><select class="select" id="stType" onchange="smUnitChange()">' +
         '<option value="in">入库</option><option value="out">出库</option></select></div>' +
-        '<div class="form-group"><label class="form-label">数量</label><input class="input" type="number" min="1" id="stQty" value="1"></div></div>' +
+        '<div class="form-group"><label class="form-label">数量</label>' +
+        '<div class="flex gap-4"><input class="input" type="number" min="1" id="stQty" value="1" style="flex:1;min-width:0">' +
+        '<button type="button" class="btn btn-outline btn-sm" id="stUnitBtn" onclick="smToggleUnit()" style="flex-shrink:0;min-height:34px">' + packUnit + '</button></div>' +
+        '<input type="hidden" id="stUnit" value="' + inUnit + '">' +
+        '<div class="fs-12 text-muted mt-4" id="stUnitHint">入库默认按包装单位（' + packUnit + '）录入，点击切换为最小单位。</div></div></div>' +
         '<div class="form-group"><label class="form-label">备注</label><input class="input" id="stNote" placeholder="如：进货单号 / 报损"></div>',
         {
             title: '库存变动',
@@ -315,6 +327,7 @@ function stockModal(drugId, drugName) {
                         Clinic.ajax('/api/pharmacy', {
                             action: 'stock', drug_id: drugId,
                             qty: qty, type: document.getElementById('stType').value,
+                            unit: document.getElementById('stUnit').value,
                             note: document.getElementById('stNote').value.trim(),
                         }, {
                             onSuccess: function (json) {
@@ -328,6 +341,39 @@ function stockModal(drugId, drugName) {
             ],
         }
     );
+    window.__smCfg = { allowSplit: allowSplit, packSize: packSize, packUnit: packUnit, minUnit: minUnit };
+    var stType = document.getElementById('stType');
+    document.getElementById('stUnit').value = stType.value === 'in' ? inUnit : outUnit;
+    smRenderUnit();
+}
+
+/* 出入库单位切换：入库默认包装单位；出库默认按是否拆零决定（拆零→最小单位） */
+function smUnitChange() {
+    var t = document.getElementById('stType').value;
+    var c = window.__smCfg || { allowSplit: 0, packSize: 1, packUnit: '盒', minUnit: '支' };
+    document.getElementById('stUnit').value = (t === 'in') ? 'pack' : (c.allowSplit === 1 ? 'min' : 'pack');
+    smRenderUnit();
+}
+function smToggleUnit() {
+    var c = window.__smCfg || { packSize: 1, packUnit: '盒', minUnit: '支' };
+    if (c.packSize <= 1) { Clinic.toast.warning('每包装数量为 1，单位无需切换'); return; }
+    var u = document.getElementById('stUnit');
+    u.value = u.value === 'min' ? 'pack' : 'min';
+    smRenderUnit();
+}
+function smRenderUnit() {
+    var u = document.getElementById('stUnit');
+    var btn = document.getElementById('stUnitBtn');
+    var hint = document.getElementById('stUnitHint');
+    if (!u || !btn) return;
+    var c = window.__smCfg || { allowSplit: 0, packSize: 1, packUnit: '盒', minUnit: '支' };
+    var isMin = u.value === 'min';
+    btn.textContent = isMin ? c.minUnit : c.packUnit;
+    if (hint) {
+        hint.textContent = isMin
+            ? '当前按最小单位（' + c.minUnit + '）录入；点击切换为包装单位（' + c.packUnit + '）。'
+            : '当前按包装单位（' + c.packUnit + '）录入；点击切换为最小单位（' + c.minUnit + '）。';
+    }
 }
 
 (function () {
