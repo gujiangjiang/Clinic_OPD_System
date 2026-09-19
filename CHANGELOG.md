@@ -13,6 +13,19 @@
 
 ---
 
+## [8.16.14] - 2026-09-18
+
+### 修复
+- **套餐搜索点击后收起，再点搜索框无反应**：`pkgCatPick` 收起下拉后输入框仍聚焦，`focus` 不再触发；补 `click` 监听重新弹出下拉。
+- **开处方搜索栏变短**：`attachSearchTabs` 包裹输入框后，包裹 div 未继承 `flex:1` 导致原输入框的弹性宽度失效；`.search-tabs-wrap` 补 `flex:1;min-width:0;display:flex`，输入框 `flex:1` 填满。
+- **处方套餐药品条目头部显示 `undefined`**：`pkgRenderItems` 中 `headActions` 用 `var` 声明在拼接之后（变量提升导致取值时为 undefined），移到 `head` 构造前赋值。
+- **添加套餐弹窗底部按钮消失**：`openPkgApply` 自定义底部布局用 `.modal-mask.show .modal` 查询失败（`.show` 在 rAF 后才添加），改用 `Clinic.modal.open` 返回的 mask 元素。
+
+### 文档
+- **同步版本号至 v8.16.14**（README 徽章 + `bootstrap.php APP_VERSION`）。
+
+---
+
 ## [8.16.13] - 2026-09-18
 
 ### 新增
