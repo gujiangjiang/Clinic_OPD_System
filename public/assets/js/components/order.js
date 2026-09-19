@@ -106,8 +106,13 @@ Clinic.order = (function () {
     var RX_CTX = {};
 
     /** 注册条目上下文（供剂量/子医嘱/数量等通用控件定位条目数组） */
-    function rxSetCtx(key, getList, render) {
-        RX_CTX[key] = { list: getList, render: render };
+    function rxSetCtx(key, getList, render, opts) {
+        opts = opts || {};
+        RX_CTX[key] = {
+            list: getList, render: render,
+            replaceType: opts.replaceType || '',      // 更换选择器的 type（套餐编辑器=PKG_TYPE，开单=处方）
+            replaceUrlName: opts.replaceUrlName || '', // 更换选择器 url 的全局函数名（如套餐编辑器 pkgReplaceUrl；空=默认 order catalog）
+        };
     }
 
     /** 设置频次/途径字典（套餐编辑器等外部调用方把字典写入 order.js 闭包，
@@ -262,7 +267,7 @@ Clinic.order = (function () {
     function init(visitId) {
         VISIT_ID = visitId;
         // 注册「开处方已选列表」条目上下文（通用控件：剂量/数量/护士/子医嘱）
-        rxSetCtx('sel', function () { return SELECTED; }, renderSelected);
+        rxSetCtx('sel', function () { return SELECTED; }, renderSelected, { replaceType: 'prescription', replaceUrlName: '' });
     }
 
     /**
@@ -1721,14 +1726,9 @@ Clinic.order = (function () {
                 'onclick="Clinic.order.removeItem(' + i + ')">✕</button>' +
                 '  </div>' +
                 '</div>';
-            // 处方：更换按钮靠右显示在头部下方（快速换药，无需删除重开）
-            var replaceRow = isDrug
-                ? '<div style="display:flex;justify-content:flex-end;margin-top:6px"><button type="button" class="btn btn-outline btn-sm" ' +
-                  'onclick="Clinic.order.openReplace(\'sel\',' + i + ',this)" title="快速更换为其他药品">更换</button></div>'
-                : '';
             var extra = isDrug ? drugControls('sel', s, i) : '';
             return '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px">' +
-                head + replaceRow + groupInfo + extra + '</div>';
+                head + groupInfo + extra + '</div>';
         }).join('') || '<div class="text-muted fs-13 text-center">尚未选择项目</div>';
     }
 
@@ -1818,8 +1818,18 @@ Clinic.order = (function () {
             routeSel +
             (dis ? '' : '<button type="button" class="btn btn-outline btn-sm" ' +
             'onclick="Clinic.order.openSubDrop(\'' + key + '\',' + i + ',this)">＋ 子医嘱</button>') +
+            (dis ? '' : drugReplaceBtn(key, i)) +
             '</div>' +
             (s.sub_items.length ? subList(key, s, i) : '');
+    }
+
+    /** 处方条目【更换】按钮：与子医嘱同一行、靠右对齐（不单独占行） */
+    function drugReplaceBtn(key, i) {
+        var ctx = RX_CTX[key] || {};
+        var t = ctx.replaceType || 'prescription';
+        var urlRef = ctx.replaceUrlName || '';
+        return '<button type="button" class="btn btn-outline btn-sm" style="margin-left:auto" ' +
+            'onclick="Clinic.order.openReplace(\'' + key + '\',' + i + ',this,\'' + t + '\',' + (urlRef ? urlRef : 'null') + ')" title="快速更换为其他药品">更换</button>';
     }
 
     /**

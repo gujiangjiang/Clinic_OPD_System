@@ -338,7 +338,7 @@ function pkgItemsFromSaved(items) {
 function pkgBuildForm(mask, pkg) {
     // 注册套餐条目上下文（复用开处方通用控件：剂量/数量/护士/子医嘱）
     if (window.Clinic && Clinic.order && Clinic.order.rxSetCtx) {
-        Clinic.order.rxSetCtx('pkg', function () { return PKG_ITEMS; }, pkgRenderItems);
+        Clinic.order.rxSetCtx('pkg', function () { return PKG_ITEMS; }, pkgRenderItems, { replaceType: PKG_TYPE, replaceUrlName: 'pkgReplaceUrl' });
     }
     if (pkg) {
         PKG_TYPE = pkg.type;
@@ -633,8 +633,6 @@ function pkgRenderItems() {
             '    <button type="button" class="btn btn-outline btn-sm" onclick="pkgRemoveItem(' + i + ')">✕</button>' +
             '  </div>' +
             '</div>';
-        // 处方：更换按钮靠右显示在头部下方
-        var replaceRow = (isDrug && !dis) ? '<div style="display:flex;justify-content:flex-end;margin-top:6px">' + replaceBtn + '</div>' : '';
         var groupInfo = '';
         if (s.is_group) {
             // 组合成员标签：按组合 ID 从 lab_map 权威解析（不依赖快照字段，避免保存后缺失）
@@ -647,7 +645,7 @@ function pkgRenderItems() {
         }
         var invalidInfo = (s.valid === 0 && s.invalid_reason)
             ? '<div class="fs-12" style="color:var(--danger);margin:4px 0 0">' + escHtml(s.invalid_reason) + '</div>' : '';
-        return '<div class="pkg-item-card">' + head + replaceRow + invalidInfo + groupInfo + extra + '</div>';
+        return '<div class="pkg-item-card">' + head + invalidInfo + groupInfo + extra + '</div>';
     }).join('') || '<div class="text-muted fs-13 text-center" style="padding:30px">尚未添加项目</div>';
 }
 
