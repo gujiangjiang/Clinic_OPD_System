@@ -119,16 +119,29 @@ function order_part_submit($u) {
         $needNurse = 0;
         $skinChoice = '';
         $routeBindId = 0;
+        // v8.17 开立销售单位：pack=包装单位（盒/瓶）/ min=最小单位（支/粒/片），前端下拉必选；
+        // 后端权威兜底——不允许拆零的药品传 min 一律拦截（防接口直调绕过前端）
+        $unitType = (isset($it['unit_type']) && $it['unit_type'] === 'min') ? 'min' : 'pack';
         if ($orderType === 'prescription' && $itemId > 0) {
             $drug = OrderRepository::one('SELECT * FROM drugs WHERE id=?', array($itemId));
             if (!$drug || $drug['status'] !== 'approved') {
                 json_fail('药品不存在或未通过审核：' . (isset($it['item_name']) ? $it['item_name'] : ''));
             }
-            $price = (float)$drug['price'];   // 权威价格
+            if ($unitType === 'min' && (int)$drug['allow_split'] !== 1) {
+                json_fail('药品【' . $drug['name'] . '】不支持拆零销售，请按整包装（盒/瓶）开立！');
+            }
+            // 单单位销售价/销售单位：pack → 包装价 + 包装单位；min → 拆零单价（包装价÷pack_size）+ 最小单位
+            $price = drug_sale_price($drug, $unitType);
+            $saleUnit = drug_unit_name($drug, $unitType);
+            // 库存折算：库存已统一为最小单位口径——整盒售出扣减 数量×pack_size，拆零扣减实际支/粒数
+            $stockFactor = drug_stock_factor($drug, $unitType);
+            $stockNeed = $qty * $stockFactor;
+            $packSizeSnap = max(1, (int)$drug['spec_pack_qty']);
+            // 主药/子药统一库存预检（原子扣减前快速提示；扣减处仍有并发兜底）
+            if ((int)$drug['qty'] < $stockNeed) {
+                json_fail('药品【' . $drug['name'] . '】库存不足（当前库存 ' . (int)$drug['qty'] . ' 个最小单位，本次需 ' . $stockNeed . '）');
+            }
             if ($subOf === 0) {
-                if ((int)$drug['qty'] < $qty) {
-                    json_fail('药品【' . $drug['name'] . '】库存不足（当前库存 ' . (int)$drug['qty'] . '）');
-                }
                 // 【护士站执行】逐项独立设置（默认取管理员设置的 is_nurse，医生可自由修改）
                 $needNurse = (isset($it['is_nurse']) && (int)$it['is_nurse'] === 1) ? 1 : 0;
 
@@ -199,9 +212,10 @@ function order_part_submit($u) {
         if ($orderType === 'prescription' && $skinChoice !== '') {
             $rxName .= $skinChoice === 'yes' ? '(需要皮试)' : '(无需皮试)';
         }
-        // ===== 结构化剂量：单次剂量展示串 + 数量不足校验（主药/子医嘱统一） =====
-        // 所需数量 = 剂量/单剂量值 向上取整；数量不足直接拦截（医生可手动改数量，
-        // 但不得低于该剂量所需），与前端自动计算逻辑一致（逻辑闭环）。
+        // ===== 结构化剂量：单次剂量展示串 + 单次剂量覆盖性校验（主药/子医嘱统一） =====
+        // 开药总量 = 数量 × 单位容量（盒 → PackCap=pack_size×单剂量值；支 → MinCap=单剂量值）。
+        // 开药总量必须 ≥ 单次剂量，否则直接拦截（医生可手动改数量，但不得低于覆盖单次用量的底线），
+        // 与前端自动计算逻辑一致（逻辑闭环）。自动建议数量 = ceil(单次剂量 / 单位容量)。
         $singleDoseShow = '';
         $needQty = 0;
         if ($orderType === 'prescription' && $itemId > 0 && isset($drug)) {
@@ -211,10 +225,14 @@ function order_part_submit($u) {
                 $doseUnit = trim((string)(isset($it['dose_unit']) ? $it['dose_unit'] : ''));
                 $doseVal = round($doseVal, 4);
                 if ($doseVal > 0) {
-                    $needQty = max(1, (int)ceil($doseVal / $sdose));
-                    if ((int)$qty < $needQty) {
-                        json_fail('【' . $drug['name'] . '】数量不足：该剂量需 ' . $needQty . ' ' .
-                            ($drug['spec_pack_unit'] !== '' && $drug['spec_pack_unit'] !== null ? $drug['spec_pack_unit'] : '个') . '，请修改数量');
+                    // 单位容量：盒=单盒总规格量（PackCap）；支=单最小单位规格量（MinCap）
+                    $unitCap = $unitType === 'min' ? $sdose : drug_pack_cap($drug);
+                    $needQty = max(1, (int)ceil($doseVal / $unitCap));
+                    $gotAmount = round($qty * $unitCap, 4);
+                    if ($qty < $needQty) {
+                        json_fail('【' . $drug['name'] . '】开立数量无法满足单次剂量要求（当前 ' . $qty . ' ' . $saleUnit .
+                            ' 仅 ' . rtrim(rtrim(number_format($gotAmount, 4, '.', ''), '0'), '.') . $doseUnit .
+                            '，单次需 ' . $doseVal . $doseUnit . '），至少需要 ' . $needQty . ' ' . $saleUnit . '！');
                     }
                     // 单次剂量展示串：如 1g / 110ml / 0.7g
                     $singleDoseShow = rtrim(rtrim(number_format($doseVal, 4, '.', ''), '0'), '.') . $doseUnit;
@@ -241,14 +259,17 @@ function order_part_submit($u) {
             'item_type' => $orderType, 'item_id' => $itemId,
             'item_name' => $rxName,
             'spec' => (isset($it['spec']) && trim((string)$it['spec']) !== '') ? $it['spec'] : (isset($drug) && is_array($drug) ? drug_spec_text($drug) : ''),
-            'unit' => isset($it['unit']) ? $it['unit'] : '',
+            // v8.17：unit 固化「开立销售单位」（盒/瓶 或 支/粒/片），打印/药房/退费全链路一致
+            'unit' => ($orderType === 'prescription' && isset($saleUnit) && $saleUnit !== '') ? $saleUnit : (isset($it['unit']) ? $it['unit'] : ''),
+            'unit_type' => $unitType,
+            'pack_size' => isset($packSizeSnap) ? $packSizeSnap : 1,
             'company_short' => isset($it['company_short']) ? $it['company_short'] : '',
             'price' => $price, 'quantity' => $qty,
             'single_dose' => $singleDoseShow, 'frequency' => isset($it['frequency']) ? $it['frequency'] : '',
             'route' => isset($it['route']) ? $it['route'] : '',
             'is_nurse' => $needNurse, 'sub_of' => $subOf,
         );
-        $total += $price * $qty;   // 主药与子医嘱均独立计费
+        $total += round($price * $qty, 2);   // 主药与子医嘱均独立计费；单价×数量做金融四舍五入（拆零除不尽精度兜底）
     }
 
     // ===== 成组医嘱：分配组号 / 主药 / 父条目关联 =====
@@ -388,7 +409,7 @@ function order_part_submit($u) {
                 $localNo++;
                 $mapSeq[$itemSeq[$i]] = $localNo;
             }
-            $groupTotal += (float)$orderItems[$i]['price'] * max(1, (int)$orderItems[$i]['quantity']);   // 主药与子医嘱均计费
+            $groupTotal += round((float)$orderItems[$i]['price'] * max(1, (int)$orderItems[$i]['quantity']), 2);   // 主药与子医嘱均计费（金融四舍五入）
         }
 
         $isSkin = (int)$g['is_skin_test'];
@@ -413,9 +434,10 @@ function order_part_submit($u) {
             $it = $orderItems[$i];
             $sub = (int)$it['sub_of'];
             $newSub = ($sub > 0 && isset($mapSeq[$sub])) ? $mapSeq[$sub] : 0;
-            OrderRepository::insert('INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, spec, unit, company_short, price, quantity, single_dose, frequency, route, is_nurse, sub_of, group_no, is_parent, parent_item_id, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+            OrderRepository::insert('INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, spec, unit, unit_type, pack_size, company_short, price, quantity, single_dose, frequency, route, is_nurse, sub_of, group_no, is_parent, parent_item_id, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                 $orderId, $visitId, $visit['patient_no'], $visit['flow_no'], $it['item_type'], $it['item_id'],
-                $it['item_name'], $it['spec'], $it['unit'], $it['company_short'], $it['price'], $it['quantity'],
+                $it['item_name'], $it['spec'], $it['unit'], $it['unit_type'], (int)$it['pack_size'],
+                $it['company_short'], $it['price'], $it['quantity'],
                 $it['single_dose'], $it['frequency'], $it['route'], $it['is_nurse'], $newSub,
                 (int)$it['group_no'], (int)$it['is_parent'], (int)$it['parent_item_id'],
                 'open', $u['id'], $u['name'], now_str(),
@@ -427,16 +449,19 @@ function order_part_submit($u) {
             foreach ($g['idx'] as $i) {
                 $it = $orderItems[$i];
                 if ((int)$it['item_id'] > 0) {
+                    // 库存统一为最小单位口径：整盒售出扣减 数量×pack_size，拆零按实际支/粒数（系数1）
+                    $factor = ($it['unit_type'] === 'min') ? 1 : max(1, (int)$it['pack_size']);
+                    $deduct = max(1, (int)$it['quantity']) * $factor;
                     // 原子条件更新：仅当库存充足时扣减，避免 TOCTOU 竞态
                     // 预检（line 前段）仅作快速提示，此处才是最终校验
                     $affected = OrderRepository::exec('UPDATE drugs SET qty = qty - ? WHERE id=? AND qty >= ?',
-                        array($it['quantity'], $it['item_id'], $it['quantity']));
+                        array($deduct, $it['item_id'], $deduct));
                     if ($affected === 0) {
                         if ($pdo->inTransaction()) $pdo->rollBack();
                         json_fail('药品【' . $it['item_name'] . '】库存不足（并发扣减），请重试');
                     }
                     OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
-                        $it['item_id'], -$it['quantity'], 'order_out', $orderNo, $u['name'], now_str(),
+                        $it['item_id'], -$deduct, 'order_out', $orderNo, $u['name'], now_str(),
                     ));
                 }
             }

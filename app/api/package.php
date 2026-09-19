@@ -65,7 +65,7 @@ function pkg_validate_items($type, $items) {
             list($table, $nameCol) = $tables[$type];
             $sel = "id, status, " . $nameCol . " AS name";
             if ($type === 'prescription') {
-                $sel .= ", spec, vendor_short AS company_short, single_dose, frequency, route, qty, spec_dose, spec_dose_unit, spec_pack_qty, spec_pack_unit, single_use_qty";
+                $sel .= ", spec, vendor_short AS company_short, single_dose, frequency, route, qty, spec_dose, spec_dose_unit, spec_pack_qty, spec_pack_unit, single_use_qty, package_unit, allow_split";
             }
             foreach (OrderRepository::q("SELECT $sel FROM $table WHERE id IN ($ph)", array_keys($mainIds)) as $row) {
                 $current[(int)$row['id']] = $row;
@@ -122,13 +122,17 @@ function pkg_validate_items($type, $items) {
             }
             $fieldMap = array(
                 'spec' => '规格', 'company_short' => '厂家',
+                // 拆零开关/包装单位变更 → 开方单位与单价口径可能变化，判为失效
+                'allow_split' => '拆零开关', 'package_unit' => '包装单位',
                 // 频次/途径为处方开具时可自定义项（套餐编辑器下拉可选），不作为药品身份变更判据；
                 // 名称/规格/厂家/结构化剂量 才是药品身份，任一变化即失效
             );
             $changed = array();
             foreach ($fieldMap as $col => $label) {
                 $curV = (string)(isset($row[$col]) ? $row[$col] : '');
-                $storedV = (string)(isset($it[$col]) ? $it[$col] : '');
+                // 存储字段名映射：包装单位存 pack_unit（旧数据回退 unit）
+                $storedKey = ($col === 'package_unit') ? 'pack_unit' : $col;
+                $storedV = (string)(isset($it[$storedKey]) ? $it[$storedKey] : (isset($it[$col]) ? $it[$col] : ''));
                 if ($curV !== $storedV) $changed[] = $label . '（' . $storedV . '→' . $curV . '）';
             }
             // 结构化规格数值比对（浮点宽松）
@@ -317,6 +321,8 @@ switch ($action) {
                 'unit' => (string)(isset($it['unit']) ? $it['unit'] : ''),
                 'company_short' => (string)(isset($it['company_short']) ? $it['company_short'] : ''),
                 'price' => (float)(isset($it['price']) ? $it['price'] : 0),
+                // 包装单价（整盒售价）一并固化：min 单位时 price 为拆零单价，pack_price 保持包装价
+                'pack_price' => (float)(isset($it['pack_price']) ? $it['pack_price'] : (isset($it['price']) ? $it['price'] : 0)),
                 'quantity' => max(1, (int)(isset($it['quantity']) ? $it['quantity'] : 1)),
                 'single_dose' => (string)(isset($it['single_dose']) ? $it['single_dose'] : ''),
                 'frequency' => (string)(isset($it['frequency']) ? $it['frequency'] : ''),
@@ -329,6 +335,11 @@ switch ($action) {
                 'spec_pack_qty' => (int)(isset($it['spec_pack_qty']) ? $it['spec_pack_qty'] : 1),
                 'spec_pack_unit' => (string)(isset($it['spec_pack_unit']) ? $it['spec_pack_unit'] : ''),
                 'single_use_qty' => (float)(isset($it['single_use_qty']) ? $it['single_use_qty'] : 1),
+                // v8.17 拆零销售：套餐保存时一同固化开立单位（pack/min）、包装单位、拆零标记，
+                // 套餐导入开处方时保持单位选项与数量口径一致，不覆盖成错误盒数
+                'unit_type' => (string)(isset($it['unit_type']) ? $it['unit_type'] : 'pack'),
+                'pack_unit' => (string)(isset($it['pack_unit']) ? $it['pack_unit'] : ''),
+                'allow_split' => (int)(isset($it['allow_split']) ? $it['allow_split'] : 0),
                 // 检验组合字段（组合保持组合实体保存）
                 'is_group' => (int)(isset($it['is_group']) ? $it['is_group'] : 0),
                 'members' => (string)(isset($it['members']) ? $it['members'] : ''),
@@ -564,6 +575,13 @@ switch ($action) {
                     'spec_pack_qty' => (int)$r['spec_pack_qty'],
                     'spec_pack_unit' => $r['spec_pack_unit'],
                     'single_use_qty' => (float)$r['single_use_qty'],
+                    // v8.17 拆零销售语义（与开单目录接口一致）
+                    'allow_split' => (int)(isset($r['allow_split']) ? $r['allow_split'] : 0),
+                    'pack_unit' => $r['package_unit'],
+                    'min_unit' => $r['spec_pack_unit'],
+                    'pack_size' => max(1, (int)$r['spec_pack_qty']),
+                    'min_spec_amount' => (float)$r['spec_dose'],
+                    'min_spec_unit' => $r['spec_dose_unit'],
                     'is_skin_test' => (int)(isset($r['is_skin_test']) ? $r['is_skin_test'] : 0),
                     'skin_test_item_id' => (int)(isset($r['skin_test_item_id']) ? $r['skin_test_item_id'] : 0),
                 );

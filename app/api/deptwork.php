@@ -282,7 +282,7 @@ function deptwork_orders($visitId) {
                 'executed_by' => $it['executed_by'],
                 'executed_at' => $it['executed_at'],
                 'created_at' => $it['created_at'],
-                'unit' => '', 'normal_range' => '', 'critical_low' => '', 'critical_high' => '',
+                'unit' => isset($it['unit']) ? $it['unit'] : '', 'normal_range' => '', 'critical_low' => '', 'critical_high' => '',
                 'is_group' => 0, 'members' => array(),
                 'values_json' => '', 'findings' => '', 'conclusion' => '',
                 'report_no' => '', 'report_id' => 0, 'report_status' => '',

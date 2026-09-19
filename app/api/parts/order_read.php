@@ -130,6 +130,14 @@ function order_part_read($action) {
                     'spec_pack_qty' => (int)$r['spec_pack_qty'],
                     'spec_pack_unit' => $r['spec_pack_unit'],
                     'single_use_qty' => (float)$r['single_use_qty'],
+                    // v8.17 拆零销售语义：allow_split 允许拆零；pack_unit 包装单位；min_unit 最小单位；
+                    // pack_size 每包装最小单位数；库存 drugs.qty 已统一为「最小单位」口径
+                    'allow_split' => (int)(isset($r['allow_split']) ? $r['allow_split'] : 0),
+                    'pack_unit' => $r['package_unit'],
+                    'min_unit' => $r['spec_pack_unit'],
+                    'pack_size' => max(1, (int)$r['spec_pack_qty']),
+                    'min_spec_amount' => (float)$r['spec_dose'],
+                    'min_spec_unit' => $r['spec_dose_unit'],
                     // 皮试联动：开方时前端据此弹确认框并标注
                     'is_skin_test' => (int)(isset($r['is_skin_test']) ? $r['is_skin_test'] : 0),
                     'skin_test_item_id' => (int)(isset($r['skin_test_item_id']) ? $r['skin_test_item_id'] : 0),
@@ -265,6 +273,7 @@ function order_part_read($action) {
                         'id'             => oid($it['id']),
                         'item_name'      => $it['item_name'],
                         'quantity'       => (int)$it['quantity'],
+                        'unit'           => isset($it['unit']) ? (string)$it['unit'] : '',
                         'spec'           => $it['spec'],
                         'single_dose'    => $it['single_dose'],
                         'frequency' => $it['frequency'],
