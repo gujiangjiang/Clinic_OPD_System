@@ -95,6 +95,7 @@ Clinic.order = (function () {
     var PKG_PICK_LIST = null;  // 套餐列表 infiniteList 实例
     var PKG_PICK_KW = '';      // 套餐列表最近搜索关键字（焦点重显判定重置）
     var PKG_APPLY_GROUPS = []; // 套餐应用弹窗：主药+子医嘱分组（含勾选状态）
+    var PKG_APPLY_LAB_MAP = null; // 套餐应用响应自带的组合/成员映射（按 ID 解析组合显示，不依赖 GROUP_MEMBERS 时序）
     /** 搜索框内分类筛选 tab 获取器（attachSearchTabs 返回；''=搜索中全量） */
     var RX_TAB_GET = null;
 
@@ -773,10 +774,28 @@ Clinic.order = (function () {
         box.innerHTML = PKG_APPLY_GROUPS.map(function (g, i) {
             var m = g.main || {};
             var invalid = !g.valid;
+            // 组合：按组合 ID 解析成员（GROUP_MEMBERS 优先，套餐响应 lab_map 兜底），显示「组合」徽标 + 成员标签
+            var groupChips = '';
+            if (!isDrug && m.is_group) {
+                var mids = GROUP_MEMBERS[m.item_id] || [];
+                var lm = PKG_APPLY_LAB_MAP || {};
+                if (!mids.length && lm.groups && lm.groups[m.item_id]) mids = lm.groups[m.item_id];
+                if (mids.length) {
+                    var nameOf = function (mid) {
+                        return (lm.names && lm.names[mid]) || ID_NAMES[mid] || ('检验项目#' + mid);
+                    };
+                    groupChips = ' <span class="badge badge-primary fs-12">组合</span>' +
+                        '<div class="fs-12 text-muted" style="margin:4px 0 0;line-height:1.8">含：' +
+                        mids.map(function (mid) {
+                            return '<span style="display:inline-block;padding:0 7px;border:1px solid var(--border);border-radius:4px;background:var(--bg-soft);color:var(--text-muted);font-size:12px;line-height:1.7;white-space:nowrap;margin:0 3px 2px 0">' +
+                                Clinic.escHtml(nameOf(mid)) + '</span>';
+                        }).join('') + '</div>';
+                }
+            }
             // 失效样式：主行灰字+删除线；复选框禁用
             var nameHtml = '<span class="fw-600 fs-13' + (invalid ? ' pkg-invalid' : '') + '">' + Clinic.escHtml(m.item_name || '') + '</span>';
             var meta = nameHtml +
-                (m.spec && !isDrug ? ' <span class="fs-12 text-muted">' + Clinic.escHtml(m.spec) + '</span>' : '') +
+                (m.spec && !isDrug && !m.is_group ? ' <span class="fs-12 text-muted">' + Clinic.escHtml(m.spec) + '</span>' : '') +
                 (isDrug ? ' <span class="fs-12 text-muted">' +
                     [m.single_dose, m.frequency, m.route].filter(function (x) { return x; }).join(' ') + '</span>' : '') +
                 (m.quantity > 1 ? ' <span class="badge badge-primary fs-12">×' + m.quantity + '</span>' : '') +
@@ -794,6 +813,7 @@ Clinic.order = (function () {
                 '  <span class="meta" style="flex:1;min-width:0;padding:0 8px">' + meta + '</span>' +
                 '  <span style="font-size:12px;color:var(--text-muted);flex-shrink:0">¥' + ((parseFloat(m.price) || 0) * (m.quantity || 1)).toFixed(2) + '</span>' +
                 '</div>' +
+                groupChips +
                 (invalid && g.reason ? '<div class="fs-12" style="color:var(--danger);margin:4px 0 0 24px">' + Clinic.escHtml(g.reason) + '</div>' : '') +
                 (g.subs.length ? g.subs.map(function (s, si) {
                     var branch = si === g.subs.length - 1 ? '└─' : '├─';
@@ -817,6 +837,7 @@ Clinic.order = (function () {
                 var p = j.data && j.data.package;
                 if (!p) return;
                 PKG_APPLY_GROUPS = pkgBuildGroups(p.items || []);
+                PKG_APPLY_LAB_MAP = (j.data && j.data.lab_map) || null;
                 var invalidCnt = PKG_APPLY_GROUPS.filter(function (g) { return !g.valid; }).length;
                 var html =
                     '<div class="fs-12 text-muted mb-8">套餐共 ' + (p.items || []).length + ' 项' +
@@ -1662,6 +1683,10 @@ Clinic.order = (function () {
             var groupInfo = '';
             if (s.is_group) {
                 var mids = GROUP_MEMBERS[s.id] || [];
+                // 兜底：GROUP_MEMBERS 未就绪时用套餐项自带 member_ids 解析（ID 权威，不依赖快照文本）
+                if (!mids.length && s.member_ids) {
+                    mids = String(s.member_ids).split(',').map(Number).filter(function (n) { return n > 0; });
+                }
                 var memHtml = mids.length
                     ? mids.map(function (mid) {
                         return '<span class="order-grp-mem">' + Clinic.escHtml(ID_NAMES[mid] || ('项目#' + mid)) + '</span>';
@@ -1765,13 +1790,13 @@ Clinic.order = (function () {
         // 药品数据含频次/途径自动回填（selected），缺失则回退占位；提交时必填（剂量/频次/途径）
         // 词典为空且无当前值时回退文本输入（无可选项）
         var freqSel = freqOpts
-            ? '<select class="select" data-csd-search="1" data-csd-clear="1" style="width:128px;padding:4px 8px;min-height:28px;font-size:13px"' + (dis ? ' disabled' : '') + ' ' +
+            ? '<select class="select" data-csd-search="1" style="width:128px;padding:4px 8px;min-height:28px;font-size:13px"' + (dis ? ' disabled' : '') + ' ' +
               'onchange="Clinic.order.rxCtx(\'' + key + '\',\'setField\',[' + i + ',\'frequency\',this.value])">' +
               '<option value="">用药频次</option>' + freqOpts + '</select>'
             : '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px"' + (dis ? ' disabled' : '') + ' ' +
               'value="' + (s.frequency || '') + '" placeholder="频次" onchange="Clinic.order.rxCtx(\'' + key + '\',\'setField\',[' + i + ',\'frequency\',this.value])">';
         var routeSel = routeOpts
-            ? '<select class="select" data-csd-search="1" data-csd-clear="1" style="width:128px;padding:4px 8px;min-height:28px;font-size:13px"' + (dis ? ' disabled' : '') + ' ' +
+            ? '<select class="select" data-csd-search="1" style="width:128px;padding:4px 8px;min-height:28px;font-size:13px"' + (dis ? ' disabled' : '') + ' ' +
               'onchange="Clinic.order.rxCtx(\'' + key + '\',\'setRoute\',[' + i + ',this.value])">' +
               '<option value="">使用途径</option>' + routeOpts + '</select>'
             : '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px"' + (dis ? ' disabled' : '') + ' ' +

@@ -260,7 +260,7 @@ switch ($action) {
         // 逐项与当前目录快照对比，标记失效项目（改名/删除/缺货/信息变更）：
         // 应用套餐（for_apply）与编辑回填（编辑模态框需禁用失效项）都返回 valid 标记
         $items = pkg_validate_items((string)$t['type'], $items);
-        json_ok(array(
+        $resp = array(
             'package' => array(
                 'id' => (int)$t['id'],
                 'title' => (string)$t['title'],
@@ -270,7 +270,21 @@ switch ($action) {
                 'items' => $items,
                 'dept_ids' => $deptIds,
             ),
-        ));
+        );
+        // 检验套餐：随响应返回组合/成员映射，前端按 ID 解析组合显示（不依赖快照字段）
+        if ((string)$t['type'] === 'lab') {
+            $labMap = array('groups' => array(), 'members' => array(), 'names' => array());
+            foreach (OrderRepository::q("SELECT id, name FROM lab_items WHERE status='approved'") as $it) {
+                $labMap['names'][(int)$it['id']] = $it['name'];
+            }
+            foreach (OrderRepository::q("SELECT gm.group_id, gm.item_id FROM lab_group_members gm
+                JOIN lab_items g ON g.id = gm.group_id AND g.status='approved' AND g.is_group=1") as $m) {
+                $labMap['groups'][(int)$m['group_id']][] = (int)$m['item_id'];
+                $labMap['members'][(int)$m['item_id']][] = (int)$m['group_id'];
+            }
+            $resp['lab_map'] = $labMap;
+        }
+        json_ok($resp);
         break;
 
     /* ==================== 保存套餐（新建/编辑） ==================== */
@@ -565,6 +579,19 @@ switch ($action) {
                 $dicts['categories'][] = $cg['name'];
             }
             $resp['link_dicts'] = $dicts;
+        }
+        // 检验组合/成员关系全量映射（套餐编辑器按 ID 解析组合显示，避免依赖快照字段）
+        if ($type === 'lab') {
+            $labMap = array('groups' => array(), 'members' => array(), 'names' => array());
+            foreach (OrderRepository::q("SELECT id, name FROM lab_items WHERE status='approved'") as $it) {
+                $labMap['names'][(int)$it['id']] = $it['name'];
+            }
+            foreach (OrderRepository::q("SELECT gm.group_id, gm.item_id FROM lab_group_members gm
+                JOIN lab_items g ON g.id = gm.group_id AND g.status='approved' AND g.is_group=1") as $m) {
+                $labMap['groups'][(int)$m['group_id']][] = (int)$m['item_id'];
+                $labMap['members'][(int)$m['item_id']][] = (int)$m['group_id'];
+            }
+            $resp['lab_map'] = $labMap;
         }
         json_ok($resp);
         break;

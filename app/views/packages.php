@@ -104,6 +104,7 @@ var RX_ROUTES = [];
 var PKG_SUB_BOUND = false;
 var PKG_TAB_GET = null;      // 套餐编辑器搜索框内分类 tab 获取器（''=搜索中全量）
 var PKG_RX_CATS = [];        // 处方分类（管理员设置，搜索框内 tab 用）
+var PKG_LAB_MAP = null;      // 检验组合/成员映射（按 ID 解析组合显示，不依赖快照字段）
 
 var PKG_TYPE_NAMES = { lab: '检验套餐', imaging: '检查套餐', procedure: '处置套餐', prescription: '处方套餐' };
 var PKG_SCOPE_NAMES = { personal: '个人', dept: '科室', hospital: '全院' };
@@ -208,6 +209,7 @@ function pkgOpenForm(id) {
     PKG_ITEMS = [];
     RX_FREQS = [];
     RX_ROUTES = [];
+    PKG_LAB_MAP = null;   // 每次打开重建组合映射
     var title = isEdit ? '编辑套餐' : '新建套餐';
     if (!isEdit) {
         var html = '<div id="pkgFormBox"></div>';
@@ -216,6 +218,7 @@ function pkgOpenForm(id) {
     } else {
         var mask = Clinic.modal.load('/api/package?action=get&id=' + id, null, { title: title, size: 'modal-xl pkg-form-modal' });
         mask.querySelector('.modal-body').addEventListener('modal:loaded', function (e) {
+            if (e.detail && e.detail.lab_map) PKG_LAB_MAP = e.detail.lab_map;
             if (e.detail && e.detail.package) pkgBuildForm(mask, e.detail.package);
         });
     }
@@ -470,6 +473,8 @@ function pkgInitCatList() {
         onSuccess: function (json) {
             PKG_CAT_KW = ((document.getElementById('pkgCatKw') || {}).value || '').trim().toLowerCase();
             var d = json.data || {};
+            // 检验：组合/成员映射（按 ID 解析组合显示）
+            if (d.lab_map) PKG_LAB_MAP = d.lab_map;
             if (d.link_dicts) {
                 RX_FREQS = d.link_dicts.frequencies || [];
                 RX_ROUTES = d.link_dicts.routes || [];
@@ -568,6 +573,29 @@ function pkgCatPick(it) {
     Clinic.toast.success('【' + it.name + '】已添加到套餐列表');
 }
 
+/** 组合成员名称：优先按组合 ID 从 lab_map 解析（权威），其次回退快照 members/spec */
+function pkgGroupMemberNames(item) {
+    if (item && item.is_group) {
+        var ids = [];
+        if (PKG_LAB_MAP && PKG_LAB_MAP.groups && PKG_LAB_MAP.groups[item.item_id]) {
+            ids = PKG_LAB_MAP.groups[item.item_id];
+            return ids.map(function (mid) { return (PKG_LAB_MAP.names && PKG_LAB_MAP.names[mid]) || ('检验项目#' + mid); });
+        }
+        // 兼容旧数据/快照：member_ids 顿号分隔
+        var midStr = item.member_ids || '';
+        if (midStr) {
+            ids = midStr.split(',').map(Number).filter(function (n) { return n > 0; });
+            if (ids.length && PKG_LAB_MAP && PKG_LAB_MAP.names) {
+                return ids.map(function (mid) { return PKG_LAB_MAP.names[mid] || ('检验项目#' + mid); });
+            }
+        }
+        // 最后回退快照文本
+        var names = (item.members || item.spec || '').split('、').filter(function (n) { return n; });
+        if (names.length) return names;
+    }
+    return [];
+}
+
 /* ==================== 套餐内容渲染 ==================== */
 function pkgRenderItems() {
     var box = document.getElementById('pkgItems');
@@ -609,12 +637,13 @@ function pkgRenderItems() {
         var replaceRow = (isDrug && !dis) ? '<div style="display:flex;justify-content:flex-end;margin-top:6px">' + replaceBtn + '</div>' : '';
         var groupInfo = '';
         if (s.is_group) {
-            // 组合成员标签（优先 member_items 名称，兼容旧数据 members/spec 顿号分隔）
-            var memNames = (s.member_items || []).map(function (m) { return m.name || m.item_name || ''; }).filter(function (n) { return n; });
-            if (!memNames.length) memNames = (s.members || s.spec || '').split('、').filter(function (n) { return n; });
-            groupInfo = '<div class="fs-12 text-muted mt-2 pkg-mem-info">🧩 组合项目（按组价整体收费），含：<span class="pkg-mem-mems">' +
-                memNames.map(function (m) { return '<span class="pkg-mem-chip">' + escHtml(m) + '</span>'; }).join('') +
-                '</span></div>';
+            // 组合成员标签：按组合 ID 从 lab_map 权威解析（不依赖快照字段，避免保存后缺失）
+            var memNames = pkgGroupMemberNames(s);
+            if (memNames.length) {
+                groupInfo = '<div class="fs-12 text-muted mt-2 pkg-mem-info">🧩 组合项目（按组价整体收费），含：<span class="pkg-mem-mems">' +
+                    memNames.map(function (m) { return '<span class="pkg-mem-chip">' + escHtml(m) + '</span>'; }).join('') +
+                    '</span></div>';
+            }
         }
         var invalidInfo = (s.valid === 0 && s.invalid_reason)
             ? '<div class="fs-12" style="color:var(--danger);margin:4px 0 0">' + escHtml(s.invalid_reason) + '</div>' : '';
