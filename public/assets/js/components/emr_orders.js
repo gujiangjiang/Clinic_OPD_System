@@ -117,7 +117,8 @@ Clinic.emr.orders = (function () {
                 // 样式（含中间全角空格区域），与诊断行一致；子药行同理整体套用
                 var rxFullLine = function (it) {
                     var meta = [it.single_dose, it.frequency, it.route].filter(Boolean).join('\u3000');
-                    var text = it.item_name + (meta ? '\u3000' + meta : '') + '\u3000\u00D7' + it.quantity;
+                    // 数量带开立销售单位（2盒 / 2支），病历正文与处方笺口径一致
+                    var text = it.item_name + (meta ? '\u3000' + meta : '') + '\u3000\u00D7' + it.quantity + (it.unit || '');
                     return '<div class="ef-rx-line">' +
                         '<span class="emr-item-link" data-otype="' + o.order_type + '" data-oid="' + o.id + '" data-iid="' + it.id + '">' +
                         escHtml(text) + '</span></div>';

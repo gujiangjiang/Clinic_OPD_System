@@ -230,6 +230,7 @@ function pkgItemFrom(it) {
         item_id: parseInt(it.id, 10) || 0,
         item_name: it.name || '',
         price: parseFloat(it.price) || 0,
+        pack_price: parseFloat(it.price) || 0,
         spec: it.spec || '',
         unit: it.unit || '',
         company_short: it.company_short || '',
@@ -246,6 +247,11 @@ function pkgItemFrom(it) {
         spec_pack_qty: parseInt(it.spec_pack_qty, 10) || 1,
         spec_pack_unit: it.spec_pack_unit || '',
         single_use_qty: parseFloat(it.single_use_qty) || 1,
+        // v8.17 拆零销售：允许拆零标记 / 包装单位 / 最小单位；默认单位（拆零→最小单位，否则包装单位）
+        allow_split: parseInt(it.allow_split, 10) === 1 ? 1 : 0,
+        pack_unit: it.pack_unit || it.unit || '',
+        min_unit: it.min_unit || it.spec_pack_unit || '',
+        unit_type: (parseInt(it.allow_split, 10) === 1) ? 'min' : 'pack',
         quantity: 1,
         sub_items: [],
         // 检验组合字段（组合保持组合显示）
@@ -262,12 +268,14 @@ function pkgItemFrom(it) {
     // 新增项目默认有效
     item.valid = 1;
     item.invalid_reason = '';
-    // 处方结构化剂量：剂量 = 单次数量×单剂量值，数量向上取整
+    // 处方结构化剂量：剂量 = 单次数量×单剂量值，数量按开立单位覆盖所需自动换算
     if (PKG_TYPE === 'prescription' && item.spec_dose > 0) {
-        item.dose = Math.round(item.single_use_qty * item.spec_dose * 100) / 100;
+        var uq = Math.max(1, item.single_use_qty);
+        item.dose = Math.round(uq * item.spec_dose * 100) / 100;
         item.dose_unit = item.spec_dose_unit;
         item.single_dose = item.dose + (item.dose_unit || '');
-        item.quantity = Math.max(1, Math.ceil(item.single_use_qty));
+        if (Clinic.order && Clinic.order.applyUnit) Clinic.order.applyUnit(item);
+        item.quantity = (Clinic.order && Clinic.order.autoQty) ? Clinic.order.autoQty(item) : Math.max(1, Math.ceil(uq));
     }
     return item;
 }
@@ -275,10 +283,15 @@ function pkgItemFrom(it) {
 /** 解析后端已保存的套餐项目为可编辑对象（单个扁平条目 → 可编辑对象） */
 function pkgItemFromSaved(it) {
     it = it || {};
+    var savedUnitType = it.unit_type === 'min' ? 'min' : 'pack';
     var obj = {
         item_id: parseInt(it.item_id, 10) || 0,
         item_name: it.item_name || '',
         price: parseFloat(it.price) || 0,
+        // 包装单价：套餐固化 pack_price 优先；min 单位时 price 为拆零价 → 反推包装价
+        pack_price: parseFloat(it.pack_price) > 0
+            ? parseFloat(it.pack_price)
+            : (parseFloat(it.price) || 0) * (savedUnitType === 'min' ? Math.max(1, parseInt(it.spec_pack_qty, 10) || 1) : 1),
         spec: it.spec || '',
         unit: it.unit || '',
         company_short: it.company_short || '',
@@ -295,6 +308,11 @@ function pkgItemFromSaved(it) {
         spec_pack_qty: parseInt(it.spec_pack_qty, 10) || 1,
         spec_pack_unit: it.spec_pack_unit || '',
         single_use_qty: parseFloat(it.single_use_qty) || 1,
+        // v8.17 拆零销售：套餐保存时固化开立单位/拆零标记/包装单位，编辑回填保持单位口径
+        allow_split: parseInt(it.allow_split, 10) === 1 ? 1 : 0,
+        pack_unit: it.pack_unit || it.unit || '',
+        min_unit: it.min_unit || it.spec_pack_unit || '',
+        unit_type: it.unit_type === 'min' ? 'min' : 'pack',
         quantity: Math.max(1, parseInt(it.quantity, 10) || 1),
         sub_items: [],
         // 检验组合字段（保存时保留组合实体）
@@ -311,12 +329,13 @@ function pkgItemFromSaved(it) {
     obj.invalid_reason = it.invalid_reason || '';
     // 剂量展示：结构化 → dose 数值 + unit；否则回退 single_dose 文本
     if (obj.spec_dose > 0) {
-        obj.dose = Math.round(obj.quantity * obj.spec_dose * 100) / 100;
+        obj.dose = Math.round(obj.quantity * obj.spec_dose * (obj.unit_type === 'min' ? 1 : Math.max(1, obj.spec_pack_qty)) * 100) / 100;
         obj.dose_unit = obj.spec_dose_unit;
     } else {
         obj.dose = obj.single_dose || '';
         obj.dose_unit = '';
     }
+    if (Clinic.order && Clinic.order.applyUnit) Clinic.order.applyUnit(obj);
     return obj;
 }
 
@@ -602,8 +621,8 @@ function pkgRenderItems() {
     if (!box) return;
     var isDrug = PKG_TYPE === 'prescription';
     var total = PKG_ITEMS.reduce(function (s, x) {
-        var t = s + x.price * x.quantity;
-        (x.sub_items || []).forEach(function (sub) { t += (sub.price || 0) * (sub.quantity || 1); });
+        var t = s + Math.round(x.price * x.quantity * 100) / 100;
+        (x.sub_items || []).forEach(function (sub) { t += Math.round((sub.price || 0) * (sub.quantity || 1) * 100) / 100; });
         return t;
     }, 0);
     document.getElementById('pkgItemCount').textContent = PKG_ITEMS.length;
@@ -624,7 +643,8 @@ function pkgRenderItems() {
             (!s.is_group && s.spec ? ' <span class="fs-12 text-muted">' + escHtml(s.spec) + '</span>' : '') +
             (isDrug && s.frequency ? ' <span class="fs-12 text-muted">' + escHtml(s.frequency) + '</span>' : '') +
             (isDrug && s.route ? ' <span class="fs-12 text-muted">' + escHtml(s.route) + '</span>' : '') +
-            (s.quantity > 1 ? ' <span class="badge badge-primary fs-12">×' + s.quantity + '</span>' : '') +
+            (isDrug && s.sale_unit ? ' <span class="fs-12 text-muted">' + escHtml(s.quantity + ' ' + s.sale_unit) + '</span>' : '') +
+            (s.quantity > 1 && !(isDrug && s.sale_unit) ? ' <span class="badge badge-primary fs-12">×' + s.quantity + '</span>' : '') +
             '    <span class="pkg-item-price">¥' + (s.price * s.quantity).toFixed(2) + '</span>' +
             '  </div>' +
             '  <div class="actions">' +
@@ -700,27 +720,31 @@ function pkgSave(id, origStatus) {
         return d + (it.dose_unit || '');
     }
     // 扁平化提交：主药 sub_of=0，子医嘱 sub_of=主药序号（1基）
+    // v8.17：一并固化开立销售单位（pack/min）与销售单位文本，套餐导入处方时保持单位口径，
+    // 单价为销售单位单价（盒=包装价 / 支=拆零价），提交时经后端权威核价。
     var flat = [];
     PKG_ITEMS.forEach(function (s, idx) {
         flat.push({
-            item_id: s.item_id, item_name: s.item_name, price: s.price, quantity: s.quantity,
-            spec: s.spec, unit: s.unit, company_short: s.company_short,
+            item_id: s.item_id, item_name: s.item_name, price: s.price, pack_price: s.pack_price || s.price || 0, quantity: s.quantity,
+            spec: s.spec, unit: s.sale_unit || s.unit || '', company_short: s.company_short,
             single_dose: pkgDoseText(s) || s.single_dose || '', frequency: s.frequency, route: s.route,
             nurse_required: s.nurse_required, is_skin_test: s.is_skin_test, skin_test_item_id: s.skin_test_item_id,
             spec_dose: s.spec_dose, spec_dose_unit: s.spec_dose_unit, spec_pack_qty: s.spec_pack_qty,
             spec_pack_unit: s.spec_pack_unit, single_use_qty: s.single_use_qty, sub_of: 0,
+            unit_type: s.unit_type || 'pack', pack_unit: s.pack_unit || s.unit || '', allow_split: s.allow_split || 0,
             // 组合检验：保存组合身份（is_group/members/member_ids），后端据此保留组合实体
             is_group: s.is_group ? 1 : 0, members: s.members || s.spec || '', member_ids: s.member_ids || '',
         });
         (s.sub_items || []).forEach(function (sub) {
             flat.push({
                 item_id: sub.item_id || 0, item_name: sub.item_name, price: sub.price || 0,
-                quantity: sub.quantity || 1, spec: sub.spec || '', unit: sub.unit || '',
+                quantity: sub.quantity || 1, spec: sub.spec || '', unit: sub.sale_unit || sub.unit || '',
                 company_short: sub.company_short || '', single_dose: pkgDoseText(sub) || sub.single_dose || '',
                 frequency: '', route: '', nurse_required: 0, is_skin_test: 0, skin_test_item_id: 0,
                 spec_dose: sub.spec_dose || 0, spec_dose_unit: sub.spec_dose_unit || '',
                 spec_pack_qty: sub.spec_pack_qty || 1, spec_pack_unit: sub.spec_pack_unit || '',
                 single_use_qty: sub.single_use_qty || 1, sub_of: idx + 1,
+                unit_type: sub.unit_type || 'pack', pack_unit: sub.pack_unit || sub.unit || '', allow_split: sub.allow_split || 0,
             });
         });
     });
