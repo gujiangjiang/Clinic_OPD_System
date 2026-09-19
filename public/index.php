@@ -10,7 +10,7 @@
  * 4. 其他请求   → 交给 Router 分发到模块页面
  *
  * 注意：Nginx 配置中所有请求都应转发到此文件
- * （见根目录 nginx.conf.example）。
+ * （见根目录 docs/nginx.conf.example）。
  */
 
 /* ---------- 启动环境 ---------- */

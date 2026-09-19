@@ -42,7 +42,7 @@ jobs:
           coverage: none
 
       - name: 全量语法检查（php -l）并生成分报告
-        run: php tools/ci-lint.php "lint-report/php${{ matrix.php }}.md"
+        run: php tools/lint/ci-lint.php "lint-report/php${{ matrix.php }}.md"
 
       - name: 上传分报告
         uses: actions/upload-artifact@v7

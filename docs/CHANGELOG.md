@@ -13,6 +13,50 @@
 
 ---
 
+## [v8.17] 版本发行说明（2026-09-19）
+
+### 【重大特性】药品拆零零售与包装层级打通
+- 药品支持标记是否允许拆零（`allow_split`）：不可拆零药品仅支持按包装单位（盒/瓶）销售；允许拆零药品方可选择最小单位（支/片/粒）。
+- 处方端支持包装单位与最小单位灵活切换，拆零单价自动折算（包装单价 ÷ pack_size），金额/总费用实时联动。
+- 处方开立自动数量算法重构：结合整包装容量（PackCap = pack_size × 单剂量值）保证覆盖单次剂量底线，解决「开 0.6g 误变 2 盒」等数量乱翻倍问题；开立量不足以支付单次剂量时前后端强拦截阻断。
+
+### 【数据优化】库存底层与展示双轨制
+- 底层 `stock` 统一以最小单位整数存储（库存 = 包装数 × pack_size），消除浮点数账目误差；严禁浮点数库存。
+- 处方搜索列表按起售最低单位展示库存（允许拆零→最小单位、否则包装单位）；开立列表根据所选单位动态换算库存（切支→X 支、切盒→X 盒）。
+- 警戒库存输入固定为包装单位（盒/瓶），底层自动换算最小单位绝对警戒阈值（warn_qty），低库存报表按最小单位绝对值判定。
+
+### 【工程重构】测试造数工厂化与 tools 目录重组
+- `tools/` 重构为模块化架构：`tools/bin/seed.php` 统一 CLI（`--all` / `--scene=demo|call|dept_call|doctor2001` / `--module=drug`），`tools/seeder/` 领域工厂（DrugSeeder 等）、`tools/scenarios/` 场景装配器、`tools/schema/` 与 `tools/lint/` 巡检工具。
+- 历史单体脚本 `seed_test_data.php` 转为轻量级代理入口，委托统一 CLI；后续造数需求严禁在 tools/ 根目录新建孤立 seed_xxx.php。
+- 104 种药品全量生成 50~100 包装单位对应库存；自动根据给药途径（静脉、肌注、灌肠、雾化等）绑定护士执行标记（need_nurse）。
+- 预置全院适用的门诊处方、输液、检验、影像及处置套餐模板。
+
+### 【结构规范】根目录文档归档
+- `CHANGELOG.md` 与 `nginx.conf.example` 规范归入 `docs/` 目录。
+
+---
+
+## [8.17.3] - 2026-09-20
+
+### 变更
+- **根目录文档归档**：`CHANGELOG.md` → `docs/CHANGELOG.md`，`nginx.conf.example` → `docs/nginx.conf.example`；README / router.php / public/index.php / GitHub Actions 引用路径同步更新。
+- **tools 模块化造数架构落地**：统一 CLI `tools/bin/seed.php`（--all / --scene / --module=drug），`seeder/`（Seeder 基类 + DrugSeeder）与 `scenarios/`（full/demo/call/dept_call/doctor2001）场景；`seed_test_data.php` 转为轻量级代理；lint/schema 工具归档 tools/lint/、tools/schema/；全场景幂等运行（患者号数字 MAX 续接、id_card 冲突重试、doctor2001 按 emp_no 定位、icd10 字段同步）。
+- **管理员项目/药品/处置列表统一分页无限滚动**：后端 item_list / disposal_list / drug_list 支持 page/size/kw/cat 服务端过滤，新增 `Clinic.adminItems.pagedTable` 统一分页表格组件（infiniteList 滚动加载、搜索防抖、分类 tab 服务端联动）。
+
+### 修复
+- **处方主药数量自动计算错误**：`initDoseFields` 未复制 `spec_pack_qty`/`pack_price` 等字段——主药缺 pack_size 导致 autoQty 按 1 计算（健胃消食片 0.8g×32片 开 2.4g 误算 3 盒，应 1 盒；子医嘱走 itemFromPick 自带完整字段故正确）；缺 pack_price 导致切换单位后单价以已改 price 反推失效（庆大 1 支与 1 盒同价）。
+- **开单总费用/切换单位价格不实时**：主药 `pack_price` 正确固化后，切支=拆零价、切盒=包装价，小计/总费用随单位实时联动。
+- **数量步进器布局**：由「- 数量 单位 +」调整为「- 数量 + 单位」（单位在加号后）。
+- **诊断搜索空态**：打开添加诊断未输入时不显示「未检索到匹配诊断」，保持「输入关键词检索 ICD10 诊断」提示。
+- **警戒库存单位显示**：包装单位选新值时「警戒库存（盒）」标签实时联动更新（与库存单位一致）。
+- **模板/套餐他人条目只读预览**：新增 `Clinic.previewTemplate`/`previewPackage`（for_apply 可见性过滤）与通用只读化 `Clinic.modalReadonly`；模板/套餐页他人条目增加「👁 预览」按钮。
+- **全局省略悬浮提示**：新增 `Clinic.ellipsis(text,maxWidth)`，名称/规格/厂商省略显示 + 悬浮完整内容提示。
+
+### 文档
+- **同步版本号至 v8.17.3**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json`）。
+
+---
+
 ## [8.17.2] - 2026-09-19
 
 ### 新增
