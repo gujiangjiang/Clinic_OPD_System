@@ -256,6 +256,9 @@ function pkgItemFrom(it) {
     item.name = item.item_name;
     item.dose = it.dose || it.single_dose || '';
     item.dose_unit = it.spec_dose_unit || '';
+    // 新增项目默认有效
+    item.valid = 1;
+    item.invalid_reason = '';
     // 处方结构化剂量：剂量 = 单次数量×单剂量值，数量向上取整
     if (PKG_TYPE === 'prescription' && item.spec_dose > 0) {
         item.dose = Math.round(item.single_use_qty * item.spec_dose * 100) / 100;
@@ -300,6 +303,9 @@ function pkgItemFromSaved(it) {
     // 兼容共享药品控件（order.js drugControls/doseDisplay 读取 id/name/dose/dose_unit）
     obj.id = obj.item_id;
     obj.name = obj.item_name;
+    // 失效标记（后端 get 返回；编辑回填时据此禁用控件/显示删除线）
+    obj.valid = (it.valid === undefined || it.valid === null) ? 1 : (parseInt(it.valid, 10) === 1 ? 1 : 0);
+    obj.invalid_reason = it.invalid_reason || '';
     // 剂量展示：结构化 → dose 数值 + unit；否则回退 single_dose 文本
     if (obj.spec_dose > 0) {
         obj.dose = Math.round(obj.quantity * obj.spec_dose * 100) / 100;
@@ -573,7 +579,8 @@ function pkgRenderItems() {
         var head =
             '<div class="head">' +
             '  <div class="info">' +
-            '    <span class="fw-600 fs-13">' + escHtml(s.item_name) + '</span>' +
+            '    <span class="fw-600 fs-13' + (s.valid === 0 ? ' pkg-invalid' : '') + '">' + escHtml(s.item_name) + '</span>' +
+            (s.valid === 0 ? ' <span class="badge badge-gray fs-12">已失效</span>' : '') +
             (s.is_group ? ' <span class="badge badge-primary fs-12">组合</span>' : '') +
             (s.spec && !isDrug ? ' <span class="fs-12 text-muted">' + escHtml(s.spec) + '</span>' : '') +
             (isDrug && s.frequency ? ' <span class="fs-12 text-muted">' + escHtml(s.frequency) + '</span>' : '') +
@@ -595,7 +602,9 @@ function pkgRenderItems() {
                 memNames.map(function (m) { return '<span class="pkg-mem-chip">' + escHtml(m) + '</span>'; }).join('') +
                 '</span></div>';
         }
-        return '<div class="pkg-item-card">' + head + groupInfo + extra + '</div>';
+        var invalidInfo = (s.valid === 0 && s.invalid_reason)
+            ? '<div class="fs-12" style="color:var(--danger);margin:4px 0 0">' + escHtml(s.invalid_reason) + '</div>' : '';
+        return '<div class="pkg-item-card">' + head + invalidInfo + groupInfo + extra + '</div>';
     }).join('') || '<div class="text-muted fs-13 text-center" style="padding:30px">尚未添加项目</div>';
 }
 

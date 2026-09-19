@@ -256,10 +256,9 @@ switch ($action) {
         foreach ($links as $l) $deptIds[] = (int)$l['dept_id'];
         $content = json_decode((string)$t['content_json'], true) ?: array();
         $items = isset($content['items']) && is_array($content['items']) ? $content['items'] : array();
-        // 应用套餐：逐项与当前目录快照对比，标记失效项目（改名/删除/缺货/信息变更）
-        if ($forApply === 1) {
-            $items = pkg_validate_items((string)$t['type'], $items);
-        }
+        // 逐项与当前目录快照对比，标记失效项目（改名/删除/缺货/信息变更）：
+        // 应用套餐（for_apply）与编辑回填（编辑模态框需禁用失效项）都返回 valid 标记
+        $items = pkg_validate_items((string)$t['type'], $items);
         json_ok(array(
             'package' => array(
                 'id' => (int)$t['id'],
@@ -319,6 +318,18 @@ switch ($action) {
             );
         }
         if (!$clean) json_fail('请先添加套餐项目');
+        // 失效项目拦截：保存前逐项与当前目录对比，任一主项失效（改名/删除/未审核/缺货/信息变更）
+        // 均拒绝保存，提示先在编辑弹窗中删除或更换该失效项目
+        $validated = pkg_validate_items($type, $clean);
+        $invalidMains = array();
+        foreach ($validated as $it) {
+            if ((int)(isset($it['sub_of']) ? $it['sub_of'] : 0) === 0 && (int)$it['valid'] !== 1) {
+                $invalidMains[] = (string)$it['item_name'] . '（' . (string)$it['invalid_reason'] . '）';
+            }
+        }
+        if ($invalidMains) {
+            json_fail('套餐含失效项目，请先删除或更换后再保存：' . implode('、', array_slice($invalidMains, 0, 5)) . (count($invalidMains) > 5 ? ' 等' : ''));
+        }
         // 处方套餐校验：主药需剂量/频次/途径；子药需剂量
         if ($type === 'prescription') {
             foreach ($clean as $i => $it) {

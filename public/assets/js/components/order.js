@@ -1535,22 +1535,24 @@ Clinic.order = (function () {
      */
     function qtyControls(key, s, i) {
         var isDrug = key === 'sel' && CUR_TYPE === 'prescription';
+        var dis = s.valid === 0;   // 失效项目：数量控件禁用
         return '<div class="flex gap-4" style="align-items:center">' +
-            '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px" ' +
+            '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px"' + (dis ? ' disabled' : '') + ' ' +
             'onclick="Clinic.order.rxCtx(\'' + key + '\',\'changeQty\',[' + i + ',-1])">−</button>' +
             '<input type="number" class="input" style="width:52px;padding:3px 6px;min-height:28px;text-align:center" ' +
-            'value="' + s.quantity + '" min="1" max="' + (isDrug ? (s.stock || 99) : 99) + '" ' +
+            'value="' + s.quantity + '" min="1" max="' + (isDrug ? (s.stock || 99) : 99) + '"' + (dis ? ' disabled' : '') + ' ' +
             'onchange="Clinic.order.rxCtx(\'' + key + '\',\'setQty\',[' + i + ',this.value])">' +
-            '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px" ' +
+            '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px"' + (dis ? ' disabled' : '') + ' ' +
             'onclick="Clinic.order.rxCtx(\'' + key + '\',\'changeQty\',[' + i + ',1])">＋</button>' +
             (isDrug ? '<span class="fs-12 text-muted">库存' + (s.stock || 0) + '</span>' : '') + '</div>';
     }
 
-    /** 护士站处置逐项勾选（通用上下文：处方/处置） */
+    /** 护士站处置逐项勾选（通用上下文：处方/处置；失效项目禁用） */
     function nurseToggle(key, s, i) {
-        return '<label style="display:inline-flex;align-items:center;gap:3px;font-size:12px;cursor:pointer;color:var(--text-muted);user-select:none" title="缴费后护士站显示待执行；取消勾选则不显示">' +
+        var dis = s.valid === 0;
+        return '<label style="display:inline-flex;align-items:center;gap:3px;font-size:12px;cursor:' + (dis ? 'not-allowed' : 'pointer') + ';color:var(--text-muted);user-select:none" title="缴费后护士站显示待执行；取消勾选则不显示">' +
             '<input type="checkbox" style="width:14px;height:14px;accent-color:var(--primary)"' +
-            (s.nurse_required ? ' checked' : '') +
+            (s.nurse_required ? ' checked' : '') + (dis ? ' disabled' : '') +
             ' onchange="Clinic.order.rxCtx(\'' + key + '\',\'setNurse\',[' + i + ',this.checked])"> 护士</label>';
     }
 
@@ -1559,6 +1561,7 @@ Clinic.order = (function () {
      * 成组医嘱：所有药品均可添加子医嘱（不限给药途径）
      */
     function drugControls(key, s, i) {
+        var dis = s.valid === 0;   // 失效项目：剂量/频次/途径/子医嘱全部禁用
         var freqOpts = RX_FREQS.map(function (f) {
             return '<option value="' + f + '"' + (f === s.frequency ? ' selected' : '') + '>' + f + '</option>';
         }).join('');
@@ -1576,29 +1579,29 @@ Clinic.order = (function () {
         // 药品数据含频次/途径自动回填（selected），缺失则回退占位；提交时必填（剂量/频次/途径）
         // 词典为空且无当前值时回退文本输入（无可选项）
         var freqSel = freqOpts
-            ? '<select class="select" data-csd-search="1" data-csd-clear="1" style="width:128px;padding:4px 8px;min-height:28px;font-size:13px" ' +
+            ? '<select class="select" data-csd-search="1" data-csd-clear="1" style="width:128px;padding:4px 8px;min-height:28px;font-size:13px"' + (dis ? ' disabled' : '') + ' ' +
               'onchange="Clinic.order.rxCtx(\'' + key + '\',\'setField\',[' + i + ',\'frequency\',this.value])">' +
               '<option value="">用药频次</option>' + freqOpts + '</select>'
-            : '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" ' +
+            : '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px"' + (dis ? ' disabled' : '') + ' ' +
               'value="' + (s.frequency || '') + '" placeholder="频次" onchange="Clinic.order.rxCtx(\'' + key + '\',\'setField\',[' + i + ',\'frequency\',this.value])">';
         var routeSel = routeOpts
-            ? '<select class="select" data-csd-search="1" data-csd-clear="1" style="width:128px;padding:4px 8px;min-height:28px;font-size:13px" ' +
+            ? '<select class="select" data-csd-search="1" data-csd-clear="1" style="width:128px;padding:4px 8px;min-height:28px;font-size:13px"' + (dis ? ' disabled' : '') + ' ' +
               'onchange="Clinic.order.rxCtx(\'' + key + '\',\'setRoute\',[' + i + ',this.value])">' +
               '<option value="">使用途径</option>' + routeOpts + '</select>'
-            : '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" ' +
+            : '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px"' + (dis ? ' disabled' : '') + ' ' +
               'value="' + (s.route || '') + '" placeholder="途径" onchange="Clinic.order.rxCtx(\'' + key + '\',\'setRoute\',[' + i + ',this.value])">';
         // 剂量：结构化规格 → 只读可点击按钮（弹迷你悬浮窗）；否则回退文本输入
         var doseArea = (s.spec_dose > 0)
-            ? '<button type="button" class="btn btn-outline btn-sm" style="min-height:28px;font-weight:600" ' +
+            ? '<button type="button" class="btn btn-outline btn-sm" style="min-height:28px;font-weight:600"' + (dis ? ' disabled' : '') + ' ' +
               'onclick="Clinic.order.openDosePop(\'' + key + '\',' + i + ',this)" title="点击设置剂量（自动计算数量）">' + Clinic.escHtml(doseDisplay(s)) + ' ▾</button>'
-            : '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px" ' +
+            : '<input type="text" class="input" style="width:104px;padding:4px 8px;min-height:28px"' + (dis ? ' disabled' : '') + ' ' +
               'value="' + (s.dose || '') + '" placeholder="剂量" onchange="Clinic.order.rxCtx(\'' + key + '\',\'setField\',[' + i + ',\'dose\',this.value])">';
         return '<div class="flex gap-8 mt-4" style="flex-wrap:wrap">' +
             doseArea +
             freqSel +
             routeSel +
-            '<button type="button" class="btn btn-outline btn-sm" ' +
-            'onclick="Clinic.order.openSubDrop(\'' + key + '\',' + i + ',this)">＋ 子医嘱</button>' +
+            (dis ? '' : '<button type="button" class="btn btn-outline btn-sm" ' +
+            'onclick="Clinic.order.openSubDrop(\'' + key + '\',' + i + ',this)">＋ 子医嘱</button>') +
             '</div>' +
             (s.sub_items.length ? subList(key, s, i) : '');
     }
@@ -1608,6 +1611,7 @@ Clinic.order = (function () {
      */
     function subList(key, s, i) {
         var n = s.sub_items.length;
+        var dis = s.valid === 0;   // 失效项目：子医嘱控件一并禁用
         return '<div style="margin:6px 0 0 20px;border-left:2px solid var(--warning);padding-left:10px">' +
             '<div class="fs-12 text-muted mb-4">成组医嘱（并入上方主药，途径频次随主药；剂量/数量可独立调整并计费）</div>' +
             s.sub_items.map(function (sub, si) {
@@ -1615,9 +1619,9 @@ Clinic.order = (function () {
                 var branch = si === n - 1 ? '└' : '├';
                 // 剂量：结构化规格 → 只读可点击按钮；否则文本输入
                 var subDose = (sub.spec_dose > 0)
-                    ? '<button type="button" class="btn btn-outline btn-sm" style="padding:1px 8px;min-height:22px;font-weight:600" ' +
+                    ? '<button type="button" class="btn btn-outline btn-sm" style="padding:1px 8px;min-height:22px;font-weight:600"' + (dis ? ' disabled' : '') + ' ' +
                       'onclick="Clinic.order.openDosePop(\'' + key + '\',' + i + ',this,' + si + ')" title="点击设置剂量（自动计算数量）">' + Clinic.escHtml(doseDisplay(sub)) + ' ▾</button>'
-                    : '<input type="text" class="input" style="width:70px;padding:2px 6px;min-height:22px;font-size:12px" ' +
+                    : '<input type="text" class="input" style="width:70px;padding:2px 6px;min-height:22px;font-size:12px"' + (dis ? ' disabled' : '') + ' ' +
                       'value="' + (sub.dose || '') + '" placeholder="剂量" onchange="Clinic.order.rxCtx(\'' + key + '\',\'setSubField\',[' + i + ',' + si + ',\'dose\',this.value])">';
                 return '<div class="flex-between fs-13" style="padding:2px 0;align-items:center">' +
                     '<span style="min-width:0;flex:1;font-family:Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
@@ -1627,14 +1631,14 @@ Clinic.order = (function () {
                     '</span>' +
                     '<span class="flex gap-4" style="align-items:center;flex-shrink:0;margin-left:8px">' +
                     '<span class="fs-12 text-muted">¥' + ((sub.price || 0) * (sub.quantity || 1)).toFixed(2) + '</span>' +
-                    '<button type="button" class="btn btn-outline btn-sm" style="padding:0 7px" ' +
+                    '<button type="button" class="btn btn-outline btn-sm" style="padding:0 7px"' + (dis ? ' disabled' : '') + ' ' +
                     'onclick="Clinic.order.rxCtx(\'' + key + '\',\'changeSubQty\',[' + i + ',' + si + ',-1])">−</button>' +
-                    '<input type="number" class="input" style="width:46px;padding:2px 4px;min-height:22px;text-align:center;font-size:12px" ' +
+                    '<input type="number" class="input" style="width:46px;padding:2px 4px;min-height:22px;text-align:center;font-size:12px"' + (dis ? ' disabled' : '') + ' ' +
                     'value="' + (sub.quantity || 1) + '" min="1" max="99" ' +
                     'onchange="Clinic.order.rxCtx(\'' + key + '\',\'setSubQty\',[' + i + ',' + si + ',this.value])">' +
-                    '<button type="button" class="btn btn-outline btn-sm" style="padding:0 7px" ' +
+                    '<button type="button" class="btn btn-outline btn-sm" style="padding:0 7px"' + (dis ? ' disabled' : '') + ' ' +
                     'onclick="Clinic.order.rxCtx(\'' + key + '\',\'changeSubQty\',[' + i + ',' + si + ',1])">＋</button>' +
-                    '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px" ' +
+                    '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px"' + (dis ? ' disabled' : '') + ' ' +
                     'onclick="Clinic.order.rxCtx(\'' + key + '\',\'removeSub\',[' + i + ',' + si + '])">✕</button>' +
                     '</span>' +
                     '</div>';
