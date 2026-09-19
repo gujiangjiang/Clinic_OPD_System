@@ -702,6 +702,17 @@ foreach ($dispDefs as $D) {
 echo "  ✓ 处置项目已就绪（新增 {$createdDisps}，共 " . (int)$pdo->query("SELECT COUNT(*) FROM disposal_items WHERE status='approved'")->fetchColumn() . " 项）
 ";
 
+// 补充套餐所需处置项（无菌换药包 / 输液器加药处置包 / 雾化加药处置包）
+foreach ([['无菌换药包', 25, 1], ['输液器加药处置包', 8, 1], ['雾化加药处置包', 6, 1]] as $xD) {
+    $chkD = $pdo->prepare("SELECT id FROM disposal_items WHERE name=?");
+    $chkD->execute([$xD[0]]);
+    if (!$chkD->fetchColumn()) {
+        $pdo->prepare("INSERT INTO disposal_items(name,fee,is_nurse,description,status,created_at) VALUES(?,?,?,?,?,?)")->execute([
+            $xD[0], $xD[1], $xD[2], '', 'approved', now_str()
+        ]);
+    }
+}
+
 
 // --- 1.9 药品 (50+) ---
 $drugDefs = [
@@ -812,7 +823,7 @@ $drugDefs = [
     ['桉柠蒎肠溶软胶囊', '中成药', '口服', '0.3g×12粒', '1粒', '每日三次', '祛痰', 30, 0, 0, 0, 0, 0, 0],
     ['盐酸溴己新片', '西药', '口服', '8mg×100片', '1片', '每日三次', '祛痰', 7, 0, 0, 0, 0, 0, 0],
 ];
-$createdDrugs = 0;
+$createdDrugs = 0; $updatedStockDrugs = 0;
 /** 解析规格文本 "0.35g×24粒" → [剂量, 剂量单位, 包装数量, 包装单位]；无法解析时剂量/单位留空 */
 function parse_drug_spec($spec) {
     $dose = 0; $doseUnit = ''; $packQty = 1; $packUnit = '';
@@ -823,36 +834,259 @@ function parse_drug_spec($spec) {
     }
     return array($dose, $doseUnit, $packQty, $packUnit);
 }
-/** 提取单剂量文本中的数值（"2片" → 2），无则默认 1 */
-function parse_single_use($singleDose) {
-    if (preg_match('/^([\d.]+)/u', trim((string)$singleDose), $m)) return (float)$m[1];
-    return 1.0;
+/** 提取单次使用剂量（折算最小单位数量）：
+ *  · "2粒"/"1片"/"1袋"/"1支" 等计数单位 → 直接取数值（如 2、1）；
+ *  · "10ml"/"5g" 等与规格单位一致的容量/重量 → 折算最小单位数 = 数值 ÷ 单最小单位规格量
+ *    （如 100ml/瓶 口服液单次 10ml → 0.1 瓶），保证剂量展示与开方自动数量正确。
+ *  · "适量"/"按说明书"/"遵医嘱" 等 → 默认 1。
+ */
+function parse_single_use($singleDose, $specDose = 0, $specDoseUnit = '') {
+    $txt = trim((string)$singleDose);
+    if ($txt === '' || $txt === '适量' || $txt === '按说明书' || $txt === '遵医嘱') return 1.0;
+    if (!preg_match('/^([\d.]+)\s*([^\d\s]*)$/u', $txt, $m)) return 1.0;
+    $val = (float)$m[1];
+    $unit = trim((string)$m[2]);
+    if ($unit === '' || $unit === $specDoseUnit) {
+        if ($specDose > 0 && $unit === $specDoseUnit) return round($val / $specDose, 4);
+        return max(1, round($val));
+    }
+    return max(1, round($val));
 }
-$drugInsertSql = "INSERT INTO drugs(name,category,vendor,vendor_short,package_unit,spec,form,single_dose,frequency,route,price,qty,is_rx,is_limited,note,is_nurse,status,created_at,is_skin_test,skin_test_item_id,spec_dose,spec_dose_unit,spec_pack_qty,spec_pack_unit,single_use_qty,allow_split) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+/** 剂型（form）按名称特征自动判定：吸入粉雾剂→吸入剂、滴眼液→滴眼剂、注射液→注射液、片→片剂等 */
+function drug_form_from_name($name) {
+    $map = array(
+        '吸入粉雾剂' => '吸入剂', '滴眼液' => '滴眼剂', '滴鼻液' => '滴鼻剂',
+        '口服液' => '口服液', '注射液' => '注射液', '粉针剂' => '粉针剂', '混悬液' => '混悬剂',
+        '喷雾剂' => '喷雾剂', '胶囊' => '胶囊剂', '乳膏' => '乳膏剂', '软膏' => '软膏剂',
+        '凝胶' => '凝胶剂', '糖浆' => '糖浆剂', '颗粒' => '颗粒剂',
+        '洗剂' => '洗剂', '栓剂' => '栓剂', '药膏' => '贴剂', '贴' => '贴剂',
+        '正气水' => '口服液', '水' => '口服液', '膏' => '软膏剂', '散' => '散剂', '片' => '片剂',
+    );
+    foreach ($map as $kw => $f) {
+        if (strpos($name, $kw) !== false) return $f;
+    }
+    return '';
+}
+/** 通用名（generic_name）派生：品牌药显式映射，其余去除剂型后缀 */
+function drug_generic_name($name) {
+    static $brand = array(
+        '感康片' => '复方氨酚烷胺片', '连花清瘟胶囊' => '连花清瘟胶囊',
+        '急支糖浆' => '急支糖浆', '云南白药膏' => '云南白药',
+    );
+    if (isset($brand[$name])) return $brand[$name];
+    $stripped = preg_replace('/(吸入粉雾剂|滴眼液|口服液|注射液|粉针剂|混悬液|缓释胶囊|肠溶胶囊|缓释片|肠溶片|胶囊|颗粒|乳膏|软膏|凝胶|糖浆|洗剂|栓剂|药膏|贴膏|片剂|片|散剂|散)$/u', '', $name);
+    return trim($stripped) !== '' ? trim($stripped) : $name;
+}
+/** 需护士执行自动规则：静脉/输液/肌注/皮下/皮内/直肠/雾化吸入 → 1；口服/外用自用/滴眼/舌下 → 0 */
+function drug_need_nurse($route, $name) {
+    $nurseRoutes = array('静脉滴注', '静脉输液', '静脉注射', '肌肉注射', '皮下注射', '皮内注射', '直肠给药', '雾化吸入', '肛注', '灌肠');
+    if (in_array(trim((string)$route), $nurseRoutes, true)) return 1;
+    if (strpos((string)$name, '输液') !== false) return 1;
+    if (strpos((string)$name, '冲洗') !== false) return 1;
+    return 0;
+}
+$drugInsertSql = "INSERT INTO drugs(name,generic_name,category,vendor,vendor_short,package_unit,spec,form,single_dose,frequency,route,price,qty,warn_qty,is_rx,is_limited,note,is_nurse,status,created_at,is_skin_test,skin_test_item_id,spec_dose,spec_dose_unit,spec_pack_qty,spec_pack_unit,single_use_qty,allow_split) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 foreach ($drugDefs as $D) {
+    $name = $D[0];
     $stmt = $pdo->prepare("SELECT id FROM drugs WHERE name=?");
-    $stmt->execute([$D[0]]);
+    $stmt->execute([$name]);
     $did = $stmt->fetchColumn();
     list($specDose, $specDoseUnit, $specPackQty, $specPackUnit) = parse_drug_spec($D[3]);
-    $singleUse = parse_single_use($D[4]);
+    $singleUse = parse_single_use($D[4], (float)$specDose, $specDoseUnit);
+    $packSize = max(1, (int)$specPackQty);
+    // v8.17.2 业务库存：按包装单位随机 50~100 盒/瓶，底层以最小单位物理数量入库（盒数 × pack_size）
+    $stockBoxes = rnd(50, 100);
+    $stockMin = $stockBoxes * $packSize;
+    // 警戒库存：按包装单位随机 5~10 盒/瓶，同步换算为最小单位绝对警戒阈值
+    $warnBoxes = rnd(5, 10);
+    $warnMin = $warnBoxes * $packSize;
+    // 需护士执行：按给药途径/剂型/名称特征自动判定（注射输液/肌注/皮试/雾化 → 护士站执行）
+    $needNurse = drug_need_nurse($D[2], $name);
+    // 剂型/通用名：按名称特征派生
+    $form = drug_form_from_name($name);
+    $genericName = drug_generic_name($name);
     // 拆零零售默认：注射液/口服液按「支」包装（pack_size>1）允许拆零（如 8万U×10支 → 按支卖）；
     // 片/粒/袋等口服整盒药品默认整盒销售，管理员可在药品管理中自行开启。
-    $allowSplit = ($specPackUnit === '支' && $specPackQty > 1) ? 1 : 0;
+    $allowSplit = ($specPackUnit === '支' && $packSize > 1) ? 1 : 0;
+    // 包装单位（pack_unit）：按规格推导——「×1瓶」为瓶装（注射液/口服液大包装），其余整盒
+    $pkgUnit = (strpos($D[3], '×1瓶') !== false) ? '瓶' : '盒';
     if (!$did) {
         $pdo->prepare($drugInsertSql)->execute([
-            $D[0], $D[1], '北京大学医药', '北大', '盒', $D[3], '', $D[4], $D[5], $D[2], $D[7], $D[8], $D[9], $D[10], $D[6], $D[11], 'approved', now_str(), $D[12] > 0 ? 1 : 0, $D[13],
+            $name, $genericName, $D[1], '北京大学医药', '北大', $pkgUnit, $D[3], $form, $D[4], $D[5], $D[2], $D[7], $stockMin, $warnMin, $D[9], $D[10], $D[6], $needNurse, 'approved', now_str(), $D[12] > 0 ? 1 : 0, $D[13],
             $specDose, $specDoseUnit, $specPackQty, $specPackUnit, $singleUse, $allowSplit,
         ]);
         $createdDrugs++;
-} else {
-        // 已存在：补齐规格拆分字段（幂等），拆零标记按规则确定性设置
-        // （测试数据生成器以规则为准：注射液/口服液按「支」包装且 pack_size>1 → 允许拆零）
-        $pdo->prepare("UPDATE drugs SET spec_dose=?, spec_dose_unit=?, spec_pack_qty=?, spec_pack_unit=?, single_use_qty=?, allow_split=? WHERE id=?")->execute([
-            $specDose, $specDoseUnit, $specPackQty, $specPackUnit, $singleUse, $allowSplit, (int)$did
+    } else {
+        // 已存在：补齐全部结构化/业务字段（幂等，测试数据生成器以规则为准）
+        $pdo->prepare("UPDATE drugs SET generic_name=?, category=?, route=?, spec=?, form=?, package_unit=?, single_dose=?, frequency=?, note=?, price=?, qty=?, warn_qty=?, is_nurse=?, is_skin_test=?, skin_test_item_id=?, spec_dose=?, spec_dose_unit=?, spec_pack_qty=?, spec_pack_unit=?, single_use_qty=?, allow_split=?, is_rx=?, is_limited=? WHERE id=?")->execute([
+            $genericName, $D[1], $D[2], $D[3], $form, $pkgUnit, $D[4], $D[5], $D[6], $D[7], $stockMin, $warnMin, $needNurse, $D[12] > 0 ? 1 : 0, $D[13],
+            $specDose, $specDoseUnit, $specPackQty, $specPackUnit, $singleUse, $allowSplit, $D[9], $D[10], (int)$did
         ]);
+        $updatedStockDrugs++;
     }
 }
-echo "  ✓ 药品已就绪（新增 {$createdDrugs}，共 " . (int)$pdo->query("SELECT COUNT(*) FROM drugs WHERE status='approved'")->fetchColumn() . " 项，规格已拆分）
+echo "  ✓ 药品已就绪（新增 {$createdDrugs} / 更新库存与信息 {$updatedStockDrugs}，共 " . (int)$pdo->query("SELECT COUNT(*) FROM drugs WHERE status='approved'")->fetchColumn() . " 项，规格已拆分、库存按最小单位初始化、护士执行标识自动判定）
+";
+
+
+// --- 1.10 全院公共套餐模板（管理员身份发布，scope=hospital 全院可见，幂等按标题覆盖） ---
+// 处方套餐明细完整固化 unit_type / sale_unit / price / pack_price / 结构化剂量 等 v8.17 字段，
+// 医生一键导入套餐时直接触发动态库存单位显示与单次剂量自动校验。
+$adminRow2 = $pdo->query("SELECT id, name FROM users WHERE role='admin' ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+$adminId2 = $adminRow2 ? (int)$adminRow2['id'] : 1;
+$adminName2 = $adminRow2 ? $adminRow2['name'] : '系统管理员';
+/** 加载药品行并构造套餐明细（含拆零/单位/结构化剂量） */
+function pkg_drug_item($pdo, $name, $quantity, $unitType, $singleUseQty = null) {
+    $row = $pdo->query("SELECT * FROM drugs WHERE name=" . $pdo->quote($name) . " AND status='approved' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    if (!$row) return null;
+    $ps = max(1, (int)$row['spec_pack_qty']);
+    $unitType = ($unitType === 'min') ? 'min' : 'pack';
+    // 拆零限制：不允许拆零药品强制按包装单位
+    if ($unitType === 'min' && (int)$row['allow_split'] !== 1) $unitType = 'pack';
+    $packUnit = trim((string)$row['package_unit']);
+    if ($packUnit === '') $packUnit = '盒';
+    $minUnit = trim((string)$row['spec_pack_unit']);
+    $packPrice = (float)$row['price'];
+    $salePrice = ($unitType === 'min') ? round($packPrice / $ps, 4) : $packPrice;
+    $saleUnit = ($unitType === 'min') ? ($minUnit !== '' ? $minUnit : '个') : $packUnit;
+    // 单次剂量：未显式指定时取药品标准单次用量（single_use_qty，已按规格折算最小单位数）
+    if ($singleUseQty === null) $singleUseQty = (float)$row['single_use_qty'];
+    $doseVal = round((float)$singleUseQty * (float)$row['spec_dose'], 4);
+    $doseUnit = trim((string)$row['spec_dose_unit']);
+    $singleDose = rtrim(rtrim(number_format($doseVal, 4, '.', ''), '0'), '.') . $doseUnit;
+    return array(
+        'item_id' => (int)$row['id'], 'sub_of' => 0,
+        'item_name' => $row['name'], 'spec' => $row['spec'],
+        'unit' => $saleUnit, 'company_short' => $row['vendor_short'],
+        'price' => $salePrice, 'pack_price' => $packPrice,
+        'quantity' => max(1, (int)$quantity),
+        'single_dose' => $singleDose, 'frequency' => $row['frequency'], 'route' => $row['route'],
+        'nurse_required' => (int)$row['is_nurse'],
+        'is_skin_test' => (int)$row['is_skin_test'], 'skin_test_item_id' => (int)$row['skin_test_item_id'],
+        'spec_dose' => (float)$row['spec_dose'], 'spec_dose_unit' => $row['spec_dose_unit'],
+        'spec_pack_qty' => $ps, 'spec_pack_unit' => $row['spec_pack_unit'],
+        'single_use_qty' => (float)$singleUseQty,
+        'unit_type' => $unitType, 'pack_unit' => $packUnit, 'allow_split' => (int)$row['allow_split'],
+        'is_group' => 0, 'members' => '', 'member_ids' => '',
+    );
+}
+/** 加载检验单项/组合明细 */
+function pkg_lab_item($pdo, $name, $qty) {
+    $row = $pdo->query("SELECT * FROM lab_items WHERE name=" . $pdo->quote($name) . " AND status='approved' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    if (!$row) return null;
+    $members = ''; $memberIds = '';
+    if ((int)$row['is_group'] === 1) {
+        $mN = array(); $mI = array();
+        foreach ($pdo->query("SELECT li.id, li.name FROM lab_items li WHERE li.id IN (SELECT item_id FROM lab_group_members WHERE group_id=" . (int)$row['id'] . ") ORDER BY li.id") as $m) {
+            $mN[] = $m['name']; $mI[] = (int)$m['id'];
+        }
+        $members = implode('、', $mN); $memberIds = implode(',', $mI);
+    }
+    return array(
+        'item_id' => (int)$row['id'], 'sub_of' => 0, 'item_name' => $row['name'],
+        'spec' => $members, 'unit' => $row['unit'], 'company_short' => '',
+        'price' => (float)$row['price'], 'pack_price' => (float)$row['price'],
+        'quantity' => max(1, (int)$qty), 'single_dose' => '', 'frequency' => '', 'route' => '',
+        'nurse_required' => 0, 'is_skin_test' => 0, 'skin_test_item_id' => 0,
+        'spec_dose' => 0, 'spec_dose_unit' => '', 'spec_pack_qty' => 1, 'spec_pack_unit' => '',
+        'single_use_qty' => 1, 'unit_type' => 'pack', 'pack_unit' => '', 'allow_split' => 0,
+        'is_group' => (int)$row['is_group'], 'members' => $members, 'member_ids' => $memberIds,
+    );
+}
+/** 加载检查项目明细 */
+function pkg_exam_item($pdo, $name) {
+    $row = $pdo->query("SELECT * FROM exam_items WHERE name=" . $pdo->quote($name) . " AND status='approved' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    if (!$row) return null;
+    return array(
+        'item_id' => (int)$row['id'], 'sub_of' => 0, 'item_name' => $row['name'],
+        'spec' => '', 'unit' => '', 'company_short' => '',
+        'price' => (float)$row['price'], 'pack_price' => (float)$row['price'],
+        'quantity' => 1, 'single_dose' => '', 'frequency' => '', 'route' => '',
+        'nurse_required' => 0, 'is_skin_test' => 0, 'skin_test_item_id' => 0,
+        'spec_dose' => 0, 'spec_dose_unit' => '', 'spec_pack_qty' => 1, 'spec_pack_unit' => '',
+        'single_use_qty' => 1, 'unit_type' => 'pack', 'pack_unit' => '', 'allow_split' => 0,
+        'is_group' => 0, 'members' => '', 'member_ids' => '',
+    );
+}
+/** 加载处置项目明细 */
+function pkg_disp_item($pdo, $name, $qty) {
+    $row = $pdo->query("SELECT * FROM disposal_items WHERE name=" . $pdo->quote($name) . " AND status='approved' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    if (!$row) return null;
+    return array(
+        'item_id' => (int)$row['id'], 'sub_of' => 0, 'item_name' => $row['name'],
+        'spec' => '', 'unit' => '次', 'company_short' => '',
+        'price' => (float)$row['fee'], 'pack_price' => (float)$row['fee'],
+        'quantity' => max(1, (int)$qty), 'single_dose' => '', 'frequency' => '', 'route' => '',
+        'nurse_required' => (int)$row['is_nurse'], 'is_skin_test' => 0, 'skin_test_item_id' => 0,
+        'spec_dose' => 0, 'spec_dose_unit' => '', 'spec_pack_qty' => 1, 'spec_pack_unit' => '',
+        'single_use_qty' => 1, 'unit_type' => 'pack', 'pack_unit' => '', 'allow_split' => 0,
+        'is_group' => 0, 'members' => '', 'member_ids' => '',
+    );
+}
+$pkgDefs = [
+    ['成人上呼吸道感染（感冒）口服套餐', 'prescription', [
+        function ($p) { return pkg_drug_item($p, '感康片', 1, 'pack'); },
+        function ($p) { return pkg_drug_item($p, '盐酸氨溴索口服液', 1, 'pack'); },
+        function ($p) { return pkg_drug_item($p, '感冒清热颗粒', 1, 'pack'); },
+    ]],
+    ['急性支气管炎门诊静脉输液套餐', 'prescription', [
+        function ($p) { return pkg_drug_item($p, '0.9%氯化钠注射液', 1, 'pack'); },
+        function ($p) { return pkg_drug_item($p, '硫酸庆大霉素注射液', 2, 'min'); },
+        function ($p) { return pkg_drug_item($p, '地塞米松磷酸钠注射液', 1, 'min'); },
+    ]],
+    ['血常规及感染筛查套餐', 'lab', [
+        function ($p) { return pkg_lab_item($p, '血常规二十项', 1); },
+        function ($p) { return pkg_lab_item($p, 'C反应蛋白(CRP)', 1); },
+        function ($p) { return pkg_lab_item($p, '降钙素原(PCT)', 1); },
+    ]],
+    ['肝肾功能及生化基础套餐', 'lab', [
+        function ($p) { return pkg_lab_item($p, '肝功能十项', 1); },
+        function ($p) { return pkg_lab_item($p, '肾功能三项', 1); },
+        function ($p) { return pkg_lab_item($p, '空腹血糖', 1); },
+    ]],
+    ['胸部基础影像检查套餐', 'imaging', [
+        function ($p) { return pkg_exam_item($p, '胸部正位X线(DR)'); },
+    ]],
+    ['腹部基础超声筛查套餐', 'imaging', [
+        function ($p) { return pkg_exam_item($p, '腹部彩超'); },
+    ]],
+    ['常规心电生理检查', 'imaging', [
+        function ($p) { return pkg_exam_item($p, '12导心电图'); },
+    ]],
+    ['门诊小伤口清创缝合套餐', 'procedure', [
+        function ($p) { return pkg_disp_item($p, '清创缝合术(小)', 1); },
+        function ($p) { return pkg_disp_item($p, '无菌换药包', 1); },
+    ]],
+    ['常规雾化吸入治疗套餐', 'procedure', [
+        function ($p) { return pkg_disp_item($p, '雾化吸入', 1); },
+        function ($p) { return pkg_disp_item($p, '雾化加药处置包', 1); },
+    ]],
+];
+$createdPkgs = 0; $skippedPkgItems = 0;
+foreach ($pkgDefs as $pkg) {
+    $title = $pkg[0]; $type = $pkg[1];
+    $items = array();
+    foreach ($pkg[2] as $fn) {
+        $it = $fn($pdo);
+        if (!$it) { $skippedPkgItems++; continue; }
+        $items[] = $it;
+    }
+    if (!$items) continue;
+    // 幂等：同标题全院套餐覆盖（保留旧 id 以防开单引用，更新内容）
+    $oldPkg = $pdo->query("SELECT id FROM packages WHERE title=" . $pdo->quote($title) . " AND scope='hospital' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    $content = json_encode(array('items' => $items), JSON_UNESCAPED_UNICODE);
+    if ($oldPkg) {
+        $pdo->prepare("UPDATE packages SET type=?, content_json=?, updated_at=? WHERE id=?")->execute([
+            $type, $content, now_str(), (int)$oldPkg['id']
+        ]);
+    } else {
+        $pdo->prepare("INSERT INTO packages(title,type,scope,creator_id,creator_name,status,content_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)")->execute([
+            $title, $type, 'hospital', $adminId2, $adminName2, 'published', $content, now_str(), now_str()
+        ]);
+    }
+    $createdPkgs++;
+}
+echo "  ✓ 全院公共套餐模板已就绪（生成 {$createdPkgs} 组，跳过缺项 {$skippedPkgItems} 项）
 ";
 
 
@@ -1124,7 +1358,11 @@ function makeVisit($p, $deptId, $ts, $status, $opts = array()) {
         else { $disp = '其他'; $dispDetail = '症状缓解后要求离院'; }
         $finishedAt = date('Y-m-d H:i:s', $ts + mt_rand(2 * 3600, 8 * 3600));
     }
-    $regTime = date('Y-m-d H:i:s', $ts - mt_rand(0, 1800));
+    // 挂号时间随机前移 0~30 分钟，但钳制在当日 0 点后（避免跨午夜导致
+    // date(registered_at) 与序号查询的 $day 不一致 → 同日同科室 visit_seq 唯一索引冲突）
+    $regTs = $ts - mt_rand(0, 1800);
+    if (date('Y-m-d', $regTs) !== $day) $regTs = strtotime($day . ' 00:00:00');
+    $regTime = date('Y-m-d H:i:s', $regTs);
 
     $pdo->prepare("INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, paid_at, cashier_id, cashier_name, registered_at, cancel_reason, is_extra, disposition, disposition_detail, finished_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")->execute([
         $p['patient_no'], $flowNo, $visitSeq, $deptId, $dept['name'], $deptId, $dept['name'],
@@ -1388,7 +1626,8 @@ function makeVisit($p, $deptId, $ts, $status, $opts = array()) {
     $pdo->prepare("INSERT INTO records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, chief_complaint, present_illness, past_history, allergy_history, physical_exam, consciousness, preliminary_diagnosis, icd10_code, is_observation, visit_type, doctor_advice, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")->execute([
         $visitId, $p['patient_no'], $flowNo, $deptId, $doc['id'], $doc['name'],
         $ccRow[0], $emr['history_present']['content'], $emr['past_history']['detail'], '',
-        $emr['physical_exam']['content'], $consciousness, $diagText, (string)$diagPick[0]['code'],
+        // 体格检查：结构化节点（其它体格检查）内容兼容提取，避免缺 'content' 键告警
+        (isset($emr['physical_exam']['content']) ? $emr['physical_exam']['content'] : (is_array($emr['physical_exam']) ? implode('，', $emr['physical_exam']) : (string)$emr['physical_exam'])), $consciousness, $diagText, (string)$diagPick[0]['code'],
         $deptId == 5 ? 1 : 0, '初诊', $emr['advice'],
         $status === 'finished' ? 'done' : 'draft', $recCreated, $recUpdated,
     ]);
@@ -1497,6 +1736,25 @@ function makeVisit($p, $deptId, $ts, $status, $opts = array()) {
 }
 
 // ================================================================
+// 幂等清理：重新生成前先清空上次种子产生的业务链数据（患者/就诊/病历/开单/缴费/报告等），
+// 字典类数据（科室/账号/药品/检验/检查/处置/模板/套餐）按唯一键幂等 upsert 保留。
+// 各表按外键从子到父清理；表不存在或 FK 顺次差异时逐表容错。
+$cleanTables = array(
+    'refund_approvals', 'refund_requests', 'refunds', 'skin_test_results',
+    'reports', 'results', 'certificates', 'call_events', 'print_snapshots',
+    'imaging_refs', 'order_items', 'orders', 'payments', 'inventory_trans', 'consultations',
+    'patient_records', 'records', 'vitals', 'nursing', 'registrations', 'patients',
+);
+$cleanedCnt = 0;
+foreach ($cleanTables as $t) {
+    try {
+        $n = (int)$pdo->exec("DELETE FROM " . $t);
+        if ($n > 0) $cleanedCnt++;
+    } catch (Exception $ex) { /* 表不存在或顺序差异：容错跳过 */ }
+}
+echo "  已清理旧业务数据（影响 " . $cleanedCnt . " 张表，患者/就诊/病历/开单/缴费/报告重新生成）
+";
+
 $now = time();
 // 近 15 天窗口：今日 0 点起前推 14 天（如 9/16 → 9/2 ~ 9/16）
 $startDay = strtotime(date('Y-m-d') . ' 00:00:00') - 14 * 86400;
