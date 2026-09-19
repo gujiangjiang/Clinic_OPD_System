@@ -778,7 +778,18 @@ Clinic.order = (function () {
         box.innerHTML = PKG_APPLY_GROUPS.map(function (g, i) {
             var m = g.main || {};
             var invalid = !g.valid;
-            // 组合：按组合 ID 解析成员（GROUP_MEMBERS 优先，套餐响应 lab_map 兜底），显示「组合」徽标 + 成员标签
+            // 组合徽标紧跟名称显示（在 meta 行内，不换行）；成员标签单独放下方
+            var badgeHtml = (!isDrug && m.is_group) ? ' <span class="badge badge-primary fs-12" style="flex-shrink:0">组合</span>' : '';
+            // 失效样式：主行灰字+删除线；复选框禁用
+            var nameHtml = '<span class="fw-600 fs-13' + (invalid ? ' pkg-invalid' : '') + '">' + Clinic.escHtml(m.item_name || '') + '</span>';
+            var meta = nameHtml + badgeHtml +
+                (m.spec && !isDrug && !m.is_group ? ' <span class="fs-12 text-muted">' + Clinic.escHtml(m.spec) + '</span>' : '') +
+                (isDrug ? ' <span class="fs-12 text-muted">' +
+                    [m.single_dose, m.frequency, m.route].filter(function (x) { return x; }).join(' ') + '</span>' : '') +
+                (m.quantity > 1 ? ' <span class="badge badge-primary fs-12">×' + m.quantity + '</span>' : '') +
+                ((isDrug && m.is_skin_test) ? ' <span class="badge badge-danger fs-12">需皮试</span>' : '') +
+                (invalid ? ' <span class="badge badge-gray fs-12" title="' + Clinic.escHtml(g.reason || '') + '">已失效</span>' : '');
+            // 成员标签：按组合 ID 解析（GROUP_MEMBERS 优先，套餐响应 lab_map 兜底）
             var groupChips = '';
             if (!isDrug && m.is_group) {
                 var mids = GROUP_MEMBERS[m.item_id] || [];
@@ -788,23 +799,13 @@ Clinic.order = (function () {
                     var nameOf = function (mid) {
                         return (lm.names && lm.names[mid]) || ID_NAMES[mid] || ('检验项目#' + mid);
                     };
-                    groupChips = ' <span class="badge badge-primary fs-12">组合</span>' +
-                        '<div class="fs-12 text-muted" style="margin:4px 0 0;line-height:1.8">含：' +
+                    groupChips = '<div class="fs-12 text-muted" style="margin:4px 0 0 24px;line-height:1.8">含：' +
                         mids.map(function (mid) {
                             return '<span style="display:inline-block;padding:0 7px;border:1px solid var(--border);border-radius:4px;background:var(--bg-soft);color:var(--text-muted);font-size:12px;line-height:1.7;white-space:nowrap;margin:0 3px 2px 0">' +
                                 Clinic.escHtml(nameOf(mid)) + '</span>';
                         }).join('') + '</div>';
                 }
             }
-            // 失效样式：主行灰字+删除线；复选框禁用
-            var nameHtml = '<span class="fw-600 fs-13' + (invalid ? ' pkg-invalid' : '') + '">' + Clinic.escHtml(m.item_name || '') + '</span>';
-            var meta = nameHtml +
-                (m.spec && !isDrug && !m.is_group ? ' <span class="fs-12 text-muted">' + Clinic.escHtml(m.spec) + '</span>' : '') +
-                (isDrug ? ' <span class="fs-12 text-muted">' +
-                    [m.single_dose, m.frequency, m.route].filter(function (x) { return x; }).join(' ') + '</span>' : '') +
-                (m.quantity > 1 ? ' <span class="badge badge-primary fs-12">×' + m.quantity + '</span>' : '') +
-                ((isDrug && m.is_skin_test) ? ' <span class="badge badge-danger fs-12">需皮试</span>' : '') +
-                (invalid ? ' <span class="badge badge-gray fs-12" title="' + Clinic.escHtml(g.reason || '') + '">已失效</span>' : '');
             var html = '<div style="border:1px solid ' + (invalid ? 'var(--border)' : 'var(--border)') + ';border-radius:8px;padding:8px 10px;margin-bottom:6px;' +
                 (invalid ? 'background:var(--bg-soft);cursor:not-allowed' : 'cursor:pointer;background:var(--bg-card)') + '" ' +
                 (invalid ? '' : 'onclick="var cb=this.querySelector(\'.pkg-apply-cb\');cb.checked=!cb.checked;Clinic.order.setPkgApplyCheck(' + i + ',cb.checked)"') +
@@ -814,7 +815,7 @@ Clinic.order = (function () {
                 (invalid ? ' disabled' : '') +
                 ' style="width:16px;height:16px;accent-color:var(--primary);flex-shrink:0" ' +
                 'onclick="event.stopPropagation()" onchange="Clinic.order.setPkgApplyCheck(' + i + ',this.checked)">' +
-                '  <span class="meta" style="flex:1;min-width:0;padding:0 8px">' + meta + '</span>' +
+                '  <span class="meta" style="flex:1;min-width:0;padding:0 8px;display:flex;align-items:center;flex-wrap:wrap">' + meta + '</span>' +
                 '  <span style="font-size:12px;color:var(--text-muted);flex-shrink:0">¥' + ((parseFloat(m.price) || 0) * (m.quantity || 1)).toFixed(2) + '</span>' +
                 '</div>' +
                 groupChips +
