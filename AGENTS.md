@@ -2,11 +2,15 @@
 
 本文件用于约束后续每次代码更新 / 修改时的自动化行为，请严格遵守。
 
+## 版本标识
+
+- 系统基准版本：**v8.17**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
+
 ## 本地运行环境（本机 macOS arm64）
 
 - 本机 **未安装系统 php**，统一使用单文件静态 PHP 二进制：
   `~/.local/bin/frankenphp`（FrankenPHP v1.12.7，内置 PHP 8.5.9 + SQLite）。
-- 启动本地测试服务器（public 为 Web 根目录，等同生产 Nginx 配置）：
+- 启动本地测试服务器（public 为 Web 根目录，等同生产 Nginx 配置，见 `docs/nginx.conf.example`）：
 
   ```bash
   ~/.local/bin/frankenphp php-server --root public/ --listen 0.0.0.0:8080
@@ -16,15 +20,30 @@
   首次访问 `http://localhost:8080` 会自动进入安装页。
 
 - 语法检查（不需要系统 php，用 tokenizer 校验全部 PHP 文件）：
-  `npm run lint` 或 `~/.local/bin/frankenphp php-cli tools/php-lint.php`。
+  `npm run lint` 或 `~/.local/bin/frankenphp php-cli tools/lint/php-lint.php`。
 
 > 若本机安装系统 php 后可恢复 `php -S 0.0.0.0:8080 router.php` 方式。
+
+## 药品与处方规则（v8.17 核心约束）
+
+- 药品模型含 `allow_split`（是否支持拆零零售）：**不可拆零药品仅支持按包装单位（盒/瓶）销售；允许拆零药品方可选择最小单位（支/片/粒）**，前后端双重校验。
+- 底层数据库 `drugs.qty`（实时物理库存）及警戒库存（`warn_qty`）**必须且只能以最小单位整数存储与计算**，严禁浮点数库存；整盒售出扣减 `数量 × pack_size`、拆零扣减实际支/粒数。
+- 开处方数量推算必须结合整包装容量（`pack_size × spec_dose`）计算，保障覆盖单次剂量底线——**严禁将单次剂量数值直接赋值给开药盒数**；当开立总量不足以支付单次剂量时，前后端必须做强拦截阻断。
+
+## Tools 与数据工厂架构（严禁单体脚本）
+
+- `tools/` 已重构为模块化架构：
+  - `tools/bin/`：统一 CLI 控制台调度入口（`php tools/bin/seed.php --all` / `--scene=demo|call|dept_call|doctor2001` / `--module=drug`）。
+  - `tools/seeder/`：单一职责数据工厂类（`Seeder` 基类、`DrugSeeder` 等）。
+  - `tools/scenarios/`：场景装配器（`full_seed`、`demo_seed`、`call_seed`、`dept_call_seed`、`doctor2001_seed`）。
+  - `tools/schema/` 与 `tools/lint/`：巡检与语法检查工具。
+- **开发铁律**：后续任何测试造数需求，严禁在 `tools/` 根目录随意新建孤立的 `seed_xxx.php` 脚本，必须在 `seeder/` 或 `scenarios/` 中扩展复用；造数一律通过统一 CLI 入口调度。
 
 ## 每次修改必须执行的自动化步骤
 
 1. **同步版本与日志**：
-   - 有功能变化时递增版本号（README 顶部徽章 + CHANGELOG 顶部新增版本小节）。
-   - 在 `CHANGELOG.md` 顶部按既有格式新增条目（新增 / 修复 / 变更 / 移除 / 安全），
+   - 有功能变化时递增版本号（README 顶部徽章 + `bootstrap.php APP_VERSION` + `package.json` 三处同步）。
+   - 在 `docs/CHANGELOG.md` 顶部按既有格式新增条目（新增 / 修复 / 变更 / 移除 / 安全），
      日期使用当天日期。如果本次只是文档 / 配置说明类改动，可在最新版本小节补充
      「文档」条目，不必单独开版本号。
    - `README.md` 若功能 / 目录 / 运行方式有变化需同步更新（如新脚本、新目录）。

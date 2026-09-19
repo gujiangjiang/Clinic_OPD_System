@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v8.17.2-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v8.17.3-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -92,7 +92,7 @@
 - 医生诊室大屏：医生工作站推送 + 回库校验；只叫当天号源、可配置跨天叫号（急诊夜班）
 - 多医生并发动态号源队列（被认领即自动离开其他医生号源）、竖屏/横屏自动排版、语音呼叫全名
 - 医技四科室叫号：绑定诊室悬浮窗 + 叫号面板（当前处理中/下一位/候诊队列），竖屏/方屏/宽屏三种尺寸
-- 提供 `tools/seed_dept_call_test.php` 一键为四医技队列各加 N 位待办测试患者
+- 提供 `php tools/bin/seed.php --scene=dept_call` 一键为四医技队列各加 N 位待办测试患者
 
 ### 🔐 登录安全
 - **图形验证码（零依赖 GD）**：off / auto 智能开启 / force 强制三模式
@@ -204,15 +204,19 @@
 ├── data/                      # 运行时数据目录（Web 无法访问，首次访问自动创建）
 │   ├── db/                    # SQLite 数据库（clinic_main.db 统一主库 + icd10.db 完整标准编码库，纳入版本管理）
 │   └── session/               # Session 文件
-├── tools/                     # 工具脚本
-│   ├── seed_test_data.php     # 完整测试数据生成器（平台基础数据：科室/账号/检验110+16组合/检查102/处置57/药品104/模板23；患者近15天各状态≥25+历史就诊，完整就诊链含续写/会诊，密码统一123456，用户名=姓名全拼音）
-│   ├── seed_demo_data.php     # 演示数据生成器（近30天136次就诊/277份病历/250医嘱单/205体征/6证明）
-│   ├── seed_call_test.php     # 叫号测试数据生成器（为指定科室生成当天已缴费患者，便于测试叫号系统）
-│   ├── seed_dept_call_test.php # 医技叫号测试数据生成器（检验/检查/处方/护理处置各加 N 位待办患者）
-│   ├── ci-lint.php            # CI 语法检查报告器（php -l 全量 + Markdown 报告，GitHub Actions 用）
-│   └── php-lint.php           # PHP 语法检查（tokenizer，无需系统 php）
+├── tools/                     # 工具脚本（模块化造数架构，统一 CLI 入口）
+│   ├── bin/
+│   │   └── seed.php           # 统一造数 CLI：--all / --scene=demo|call|dept_call|doctor2001 / --module=drug
+│   ├── seeder/                # 单一职责数据工厂（Seeder 基类 / DrugSeeder 等）
+│   ├── scenarios/             # 场景装配器（full / demo / call / dept_call / doctor2001 场景）
+│   ├── lint/                  # php-lint.php（tokenizer 语法检查）/ ci-lint.php / jscheck.js
+│   ├── schema/                # inspect_schema.php / migrate_split_to_unified.php
+│   ├── seed_test_data.php     # 轻量级代理入口（委托 tools/bin/seed.php --all，兼容旧调用）
+│   └── refill_drug_spec.php   # 药品规格结构化填充
 ├── .github/workflows/         # GitHub Actions：PHP 7.2~8.5 语法兼容矩阵检查 + 检查报告
-├── nginx.conf.example         # Nginx 配置示例
+├── docs/                      # 文档归档
+│   ├── CHANGELOG.md           # 系统变更日志
+│   └── nginx.conf.example     # Nginx 配置示例
 └── router.php                 # 本地开发路由（php -S）
 ```
 
@@ -240,8 +244,30 @@ php -S 0.0.0.0:8080 router.php
 
 浏览器访问 `http://localhost:8080`，首次访问自动进入安装页。
 
-> 语法检查可运行 `npm run lint`（内部用 `tools/php-lint.php` 通过 tokenizer 校验全部 PHP 文件，无需系统 php）；
+> 语法检查可运行 `npm run lint`（内部用 `tools/lint/php-lint.php` 通过 tokenizer 校验全部 PHP 文件，无需系统 php）；
 > `npm run dev` / `npm run start` 默认端口 8000，可用 `PORT` 环境变量覆盖。
+
+### 🧪 快速初始化与测试造数（统一 CLI）
+
+安装完成并启动后，可通过统一造数 CLI 一键生成测试/演示数据（模块化架构，历史脚本已转为代理入口）：
+
+```bash
+# 全量测试造数（默认）：科室/账号/检验/检查/处置/104 种药品/模板/套餐 + 近 15 天患者就诊全链路
+php tools/bin/seed.php --all
+# Demo 演示环境数据（近 30 天 136 次就诊 / 病历 / 医嘱 / 体征 / 证明）
+php tools/bin/seed.php --scene=demo
+# 叫号大屏专项：为指定科室生成当天已缴费患者
+php tools/bin/seed.php --scene=call
+# 医技四科室叫号专项：检验/检查/处方/护理处置各加 N 位待办患者
+php tools/bin/seed.php --scene=dept_call
+# 医生 2001（张伟）接诊专项
+php tools/bin/seed.php --scene=doctor2001
+# 仅重置药品与库存（104 种药品最小单位库存 / 警戒库存 / 护士执行标识）
+php tools/bin/seed.php --module=drug
+```
+
+本机无系统 php 时统一加前缀：`~/.local/bin/frankenphp php-cli tools/bin/seed.php ...`。
+历史脚本 `tools/seed_test_data.php` 保留为轻量级代理入口（内部委托 `--all`），推荐直接使用统一 CLI。
 
 ### 生产部署（Nginx）
 
@@ -266,7 +292,7 @@ server {
 }
 ```
 
-完整示例见 `nginx.conf.example`。
+完整示例见 `docs/nginx.conf.example`。
 
 ## 📖 使用流程（快速体验）
 
@@ -350,7 +376,7 @@ curl "http://your-domain/api/his?action=patient_get&id_card=110101199001011234&a
 
 ## 📜 更新日志
 
-详见 [CHANGELOG.md](./CHANGELOG.md)。
+详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)。
 
 ## 📄 许可
 
