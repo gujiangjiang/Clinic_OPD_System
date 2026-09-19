@@ -1,7 +1,7 @@
 <?php
 /**
  * seed_demo_data.php — 演示数据生成器（仅限本地/测试环境使用）
- * 用法：frankenphp php-cli tools/seed_demo_data.php
+ * 统一入口：php tools/bin/seed.php --scene=demo
  * 内容：基础引导（科室/账号/医院设置/基础目录）+ 目录补充 + 患者 +
  *       近30天多状态就诊 + 规范结构化病历（含 3-4 人续写）+
  *       医嘱/报告/体征/转归/诊断证明。

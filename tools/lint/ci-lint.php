@@ -3,7 +3,7 @@
  * ============================================================
  * ci-lint.php — CI 全量 PHP 语法检查（php -l）+ Markdown 报告
  * ============================================================
- * 用法：php tools/ci-lint.php [报告输出路径]
+ * 用法：php tools/lint/ci-lint.php [报告输出路径]
  *   默认输出 php-lint-report.md（本机亦可手动运行自查）
  * 说明：供 GitHub Actions 矩阵（PHP 7.2 / 7.4 / 8.2 / 8.5）调用，
  * 对全部 PHP 源码逐文件执行 php -l；任一文件语法错误 → 进程退出码 1
@@ -42,7 +42,7 @@ if ($cand !== '' && basename($cand) === 'php') {
     exec('php -v 2>&1', $probe, $code);
     if ($code !== 0) {
         echo "本工具依赖系统 php 执行 php -l（供 CI 使用）。本机未检测到 php，\n";
-        echo "请使用：npm run lint（frankenphp php-cli tools/php-lint.php）。\n";
+        echo "请使用：npm run lint（frankenphp php-cli tools/lint/php-lint.php）。\n";
         exit(2);
     }
 }

@@ -1,7 +1,7 @@
 <?php
 /**
  * seed_call_test.php — 叫号测试数据生成（仅本地/测试环境使用）
- * 用法：frankenphp php-cli tools/seed_call_test.php
+ * 统一入口：php tools/bin/seed.php --scene=call
  * 内容：为 doctor2001（张伟）的外科门诊（dept 2）与急诊科（dept 5）
  *       各创建 30 名「当天挂号成功（paid）」的患者，供叫号大屏/悬浮窗测试。
  * 说明：本脚本仅写入本地数据库（data/db/clinic_main.db 已被 .gitignore 忽略），
