@@ -1,0 +1,98 @@
+<?php
+/**
+ * ============================================================
+ * tools/bin/seed.php — 统一造数 CLI 控制台入口（v8.17）
+ * ============================================================
+ * 模块化造数架构的统一调度入口：按「场景（scenarios）」装配完整数据，
+ * 按「模块（seeder）」只重置单一领域（如药品与库存）。
+ *
+ * 用法（推荐直接用统一 CLI）：
+ *   php tools/bin/seed.php --all                       # 全量测试造数（默认）
+ *   php tools/bin/seed.php --scene=demo                # Demo 演示环境数据
+ *   php tools/bin/seed.php --scene=call                # 叫号大屏专项测试
+ *   php tools/bin/seed.php --scene=dept_call           # 多科室分诊叫号专项
+ *   php tools/bin/seed.php --scene=doctor2001          # 医生 2001 接诊专项
+ *   php tools/bin/seed.php --module=drug               # 仅重置药品与库存
+ *
+ * 历史脚本（tools/seed_test_data.php 等）已转为轻量级代理入口，
+ * 内部委托到本统一 CLI；后续任何造数需求请在 scenarios/ 与 seeder/ 中扩展。
+ * ============================================================ */
+
+if (php_sapi_name() !== 'cli') {
+    exit("CLI only\n");
+}
+
+/* ---------------- 参数解析 ---------------- */
+$opts = array('scene' => '', 'module' => '');
+foreach (array_slice($argv, 1) as $a) {
+    if ($a === '--all') { $opts['scene'] = 'full'; }
+    elseif (strpos($a, '--scene=') === 0) { $opts['scene'] = substr($a, 8); }
+    elseif (strpos($a, '--module=') === 0) { $opts['module'] = substr($a, 9); }
+    elseif ($a === '-h' || $a === '--help') { seed_usage(); exit(0); }
+}
+
+/**
+ * 定位 PHP CLI 二进制（frankenphp 下 PHP_BINARY 为空，回退 $_SERVER['_']）：
+ *  frankenphp → `<bin> php-cli`；系统 php → `<bin>`。
+ */
+function seed_php_bin() {
+    $bin = '';
+    if (PHP_BINARY !== '') $bin = PHP_BINARY;
+    elseif (isset($_SERVER['_']) && $_SERVER['_'] !== '') $bin = $_SERVER['_'];
+    elseif (PHP_BINDIR !== '' && is_file(PHP_BINDIR . '/php')) $bin = PHP_BINDIR . '/php';
+    $bin = $bin !== '' ? $bin : 'php';
+    return stripos(basename($bin), 'frankenphp') !== false
+        ? escapeshellarg($bin) . ' php-cli'
+        : escapeshellarg($bin);
+}
+
+/** 子进程执行造数脚本（隔离运行，逐行输出） */
+function seed_run_script($script, $extraArgs = array()) {
+    if (!is_file($script)) {
+        fwrite(STDERR, "脚本不存在：$script\n");
+        return 1;
+    }
+    $cmd = seed_php_bin() . ' ' . escapeshellarg($script);
+    foreach ($extraArgs as $arg) $cmd .= ' ' . escapeshellarg($arg);
+    passthru($cmd . ' 2>&1', $code);
+    return (int)$code;
+}
+
+function seed_usage() {
+    echo <<<TXT
+统一造数 CLI（tools/bin/seed.php）
+用法：
+  php tools/bin/seed.php --all                 全量测试造数（默认）
+  php tools/bin/seed.php --scene=demo           Demo 演示环境数据
+  php tools/bin/seed.php --scene=call           叫号大屏专项测试
+  php tools/bin/seed.php --scene=dept_call      多科室分诊叫号专项
+  php tools/bin/seed.php --scene=doctor2001     医生 2001 接诊专项
+  php tools/bin/seed.php --module=drug          仅重置药品与库存（DrugSeeder）
+
+TXT;
+}
+
+$root = dirname(__DIR__);
+
+/* ---------------- 模块分发：--module=drug 走 DrugSeeder ---------------- */
+if ($opts['module'] === 'drug') {
+    echo "== 模块：药品与库存（DrugSeeder）==\n";
+    exit(seed_run_script($root . '/seeder/DrugSeeder.php'));
+}
+
+/* ---------------- 场景分发 ---------------- */
+$scenes = array(
+    'full'       => array('full_seed.php',       '完整测试数据（平台 + 患者全链路）'),
+    'demo'       => array('demo_seed.php',       'Demo 演示环境数据'),
+    'call'       => array('call_seed.php',       '叫号大屏专项测试'),
+    'dept_call'  => array('dept_call_seed.php',  '多科室分诊叫号专项'),
+    'doctor2001' => array('doctor2001_seed.php', '医生 2001 接诊专项'),
+);
+$scene = $opts['scene'] !== '' ? $opts['scene'] : 'full';
+if (!isset($scenes[$scene])) {
+    fwrite(STDERR, "未知场景：{$scene}（可用：full/demo/call/dept_call/doctor2001）\n");
+    seed_usage();
+    exit(1);
+}
+echo "== 场景：{$scenes[$scene][1]}（{$scene}）==\n";
+exit(seed_run_script($root . '/scenarios/' . $scenes[$scene][0]));

@@ -20,7 +20,7 @@
  * 幂等性：患者编号/流水号/报告号按库内 MAX 续号，重复执行数据会叠加（建议一次性使用）。
  */
 if (php_sapi_name() !== 'cli') exit("CLI only\n");
-require __DIR__ . '/../app/config/bootstrap.php';
+require dirname(__DIR__, 2) . '/app/config/bootstrap.php';
 require_once APP_ROOT . '/app/includes/emr_formatter.php';
 DatabaseManager::initAll();
 mt_srand(20260913);
@@ -28,8 +28,9 @@ mt_srand(20260913);
 echo "=== doctor2001（外科门诊+急诊科）测试数据生成 ===\n";
 
 /* ==================== 基础引用 ==================== */
-$ME = DB::one("SELECT id, name FROM users WHERE username='doctor2001'");
-if (!$ME) exit("doctor2001 不存在\n");
+// 定位医生：兼容 emp_no=2001（张伟）或旧用户名 doctor2001
+$ME = DB::one("SELECT id, name FROM users WHERE emp_no='2001' OR username='doctor2001' ORDER BY id LIMIT 1");
+if (!$ME) exit("doctor2001（张伟，工号 2001）不存在，请先运行 seed_test_data 生成账号\n");
 $ME_ID = (int)$ME['id'];
 $ME_NAME = $ME['name'];
 
@@ -120,10 +121,10 @@ function nowday($ts) { return date('Y-m-d H:i:s', $ts); }
 $surnames = array('李','王','张','刘','陈','杨','赵','黄','周','吴','徐','孙','马','朱','胡','郭','何','林','罗','郑','梁','谢','宋','唐','许','韩','冯','邓','曹','彭','曾','肖','田','董','袁','潘','蒋','蔡','余','杜');
 $givens = array('伟','芳','娜','敏','静','丽','强','磊','军','洋','勇','艳','杰','娟','涛','明','超','霞','平','刚','建国','建军','国强','志强','海燕','雪梅','丽华','嘉怡','泽宇','春华');
 
-/* 号段续号（按库内 MAX） */
+/* 号段续号（按库内 MAX，patient_no 为字符串列需用数字 MAX 避免字典序 99>100） */
 $patientSeq = 0;
-foreach (DB::q("SELECT MAX(patient_no) m FROM patients WHERE patient_no LIKE '" . date('ymd') . "%'") as $r) {
-    $patientSeq = (int)substr((string)$r['m'], -2);
+foreach (DB::q("SELECT MAX(CAST(substr(patient_no,7) AS INTEGER)) AS m FROM patients WHERE patient_no LIKE '" . date('ymd') . "%'") as $r) {
+    $patientSeq = (int)$r['m'];
 }
 $flowSeq = array();
 foreach (DB::q("SELECT substr(flow_no,1,6) d, MAX(CAST(substr(flow_no,7) AS INTEGER)) m FROM registrations GROUP BY d") as $r) {
@@ -150,14 +151,27 @@ for ($i = 0; $i < $N_NEW; $i++) {
     $age = rnd(14, 82);
     $birth = date((intval(date('Y')) - $age) . '-m-d', mt_rand(0, time()));
     $pno = date('ymd') . sprintf('%02d', $patientSeq);
-    DB::insert('INSERT INTO patients(patient_no, id_card, name, gender, birth_date, age, ethnicity, marital, occupation, work_unit, address, phone, has_past_history, past_history, allergy_history, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
-        $pno,
-        date('Ymd', strtotime($birth)) . sprintf('%04d', rnd(1000, 9999)) . sprintf('%04d', rnd(1000, 9999)),
-        $name, $gender, $birth, $age, '汉族', $age > 25 ? '已婚' : '未婚',
-        pick(array('职员','工人','农民','教师','退休','自由职业')),
-        '', '本市', '13' . sprintf('%09d', rnd(100000000, 999999999)),
-        '否认', '', '', now_str(),
-    ));
+    // 幂等：患者号已存在（重复运行/与其它场景撞号）则复用，不重复创建；
+    // id_card 随机冲突时重试（更换随机段）
+    $hasP = (int)DB::val("SELECT COUNT(*) FROM patients WHERE patient_no=?", array($pno));
+    if (!$hasP) {
+        $inserted = false;
+        for ($retry = 0; $retry < 5 && !$inserted; $retry++) {
+            try {
+                DB::insert('INSERT INTO patients(patient_no, id_card, name, gender, birth_date, age, ethnicity, marital, occupation, work_unit, address, phone, has_past_history, past_history, allergy_history, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                    $pno,
+                    date('Ymd', strtotime($birth)) . sprintf('%04d', rnd(1000, 9999)) . sprintf('%04d', rnd(1000, 9999)),
+                    $name, $gender, $birth, $age, '汉族', $age > 25 ? '已婚' : '未婚',
+                    pick(array('职员','工人','农民','教师','退休','自由职业')),
+                    '', '本市', '13' . sprintf('%09d', rnd(100000000, 999999999)),
+                    '否认', '', '', now_str(),
+                ));
+                $inserted = true;
+            } catch (Exception $ex) {
+                if (stripos((string)$ex->getMessage(), 'id_card') === false && stripos((string)$ex->getMessage(), 'patient_no') === false) throw $ex;
+            }
+        }
+    }
     $newPatients[] = array('patient_no' => $pno, 'gender' => $gender, 'birth' => $birth, 'name' => $name);
 }
 $oldPatients = array();
@@ -187,7 +201,7 @@ function makeVisit($p, $deptId, $ts, $status, $opts = array()) {
     global $depts, $flowSeq, $seqSeq, $reportSeq, $staff, $ME_ID, $ME_NAME, $others, $stats,
            $diagPool, $ccPool, $piTails, $pePool, $advicePool, $progPool, $wardPool, $hospPool, $conscPool,
            $labSingles, $exams, $disps, $drugs,
-           $recordCount, $orderCount, $itemCount, $resultCount, $vitalCount, $consCount;
+           $cc, $recordCount, $orderCount, $itemCount, $resultCount, $vitalCount, $consCount;
 
     $dept = $depts[$deptId];
     $day = date('Y-m-d', $ts);

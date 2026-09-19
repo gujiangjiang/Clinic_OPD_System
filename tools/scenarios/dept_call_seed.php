@@ -12,7 +12,7 @@
  * 幂等：同一就诊若已存在同类型待办单则不重复添加。
  * ============================================================ */
 
-require dirname(__DIR__) . '/app/config/bootstrap.php';
+require dirname(__DIR__, 2) . '/app/config/bootstrap.php';
 
 $n = isset($argv[1]) ? max(1, min(50, (int)$argv[1])) : 20;
 

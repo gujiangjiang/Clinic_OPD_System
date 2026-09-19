@@ -8,7 +8,7 @@
  * 说明：引导段仅在对应表为空时执行；主流程不幂等，请勿重复执行。
  */
 if (php_sapi_name() !== 'cli') exit("CLI only\n");
-require __DIR__ . '/../app/config/bootstrap.php';
+require dirname(__DIR__, 2) . '/app/config/bootstrap.php';
 require_once APP_ROOT . '/app/includes/emr_formatter.php';
 DatabaseManager::initAll();
 mt_srand(20260825);
@@ -225,7 +225,7 @@ foreach (DB::q("SELECT id, name, fee FROM disposal_items WHERE status='approved'
 $drugs = array();
 foreach (DB::q("SELECT id, name, price, spec, package_unit, vendor_short AS company_short, single_dose, frequency, route, is_nurse FROM drugs WHERE status='approved'") as $r) $drugs[] = $r;
 $icdAll = array();
-foreach (DB::q('icd10', 'SELECT code, name FROM icd10') as $r) $icdAll[] = $r;
+foreach (DB::q('icd10', 'SELECT diagnosis_code AS code, diagnosis_name AS name FROM icd10') as $r) $icdAll[] = $r;
 echo "目录就绪：检验单项目 " . count($labSingles) . " / 检查 " . count($exams) . " / 处置 " . count($disps) . " / 药品 " . count($drugs) . " / ICD10 " . count($icdAll) . "\n";
 
 /* ---------- 2. 医生列表 ---------- */
@@ -282,8 +282,8 @@ $otherPool = array('症状缓解后自动离院，随访丢失','转社区卫生
 $consciousPool = array('清醒','嗜睡','模糊');
 
 $patientSeq = 0;
-foreach (DB::q("SELECT MAX(patient_no) m FROM patients WHERE patient_no LIKE '" . date('ymd') . "%'") as $r) {
-    $patientSeq = (int)substr((string)$r['m'], -2);
+foreach (DB::q("SELECT MAX(CAST(substr(patient_no,7) AS INTEGER)) AS m FROM patients WHERE patient_no LIKE '" . date('ymd') . "%'") as $r) {
+    $patientSeq = (int)$r['m'];   // 数字 MAX（patient_no 为字符串列，字典序 99>100）
 }
 $flowSeq = array();
 foreach (DB::q("SELECT substr(flow_no,1,6) d, MAX(CAST(substr(flow_no,7) AS INTEGER)) m FROM registrations GROUP BY d") as $r) {
@@ -309,14 +309,27 @@ for ($i = 0; $i < $NEW_PATIENTS; $i++) {
     $gender = pick(array('男', '女'));
     $age = rnd(3, 88);
     $birth = date((intval(date('Y')) - $age) . '-m-d', mt_rand(0, time()));
-    $pid = (int)DB::insert('INSERT INTO patients(patient_no, id_card, name, gender, birth_date, age, ethnicity, marital, occupation, work_unit, address, phone, has_past_history, past_history, allergy_history, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
-        date('ymd') . sprintf('%02d', $patientSeq),
-        date('ymd') . sprintf('%02d', $patientSeq) . sprintf('%04d', rnd(1000, 9999)) . sprintf('%04d', rnd(1000, 9999)),
-        $name, $gender, $birth, $age, '汉族', $age > 25 ? '已婚' : '未婚',
-        pick(array('职员','工人','教师','退休','学生','自由职业')),
-        '', '本市', '13' . sprintf('%09d', rnd(100000000, 999999999)),
-        pick(array('否认','承认')), '', '', now_str(),
-    ));
+    $pno = date('ymd') . sprintf('%02d', $patientSeq);
+    // 幂等：患者号已存在（重复运行/撞号）则复用；id_card 随机冲突时重试
+    $pid = (int)DB::val("SELECT id FROM patients WHERE patient_no=?", array($pno));
+    if (!$pid) {
+        $ok = false;
+        for ($try = 0; $try < 5 && !$ok; $try++) {
+            try {
+                $pid = (int)DB::insert('INSERT INTO patients(patient_no, id_card, name, gender, birth_date, age, ethnicity, marital, occupation, work_unit, address, phone, has_past_history, past_history, allergy_history, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                    $pno,
+                    date('ymd') . sprintf('%02d', $patientSeq) . sprintf('%04d', rnd(1000, 9999)) . sprintf('%04d', rnd(1000, 9999)),
+                    $name, $gender, $birth, $age, '汉族', $age > 25 ? '已婚' : '未婚',
+                    pick(array('职员','工人','教师','退休','学生','自由职业')),
+                    '', '本市', '13' . sprintf('%09d', rnd(100000000, 999999999)),
+                    pick(array('否认','承认')), '', '', now_str(),
+                ));
+                $ok = true;
+            } catch (Exception $ex) {
+                if (stripos((string)$ex->getMessage(), 'id_card') === false && stripos((string)$ex->getMessage(), 'patient_no') === false) throw $ex;
+            }
+        }
+    }
     $patientIds[] = $pid;
 }
 echo "患者：{$basePatient} + {$NEW_PATIENTS} = " . count($patientIds) . "\n";

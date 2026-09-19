@@ -11,7 +11,7 @@
  * 退出码：0 全部通过；1 存在语法错误。
  * ============================================================ */
 
-$root = dirname(__DIR__);
+$root = dirname(dirname(__DIR__));   // 项目根目录（本文件位于 tools/lint/，上两级）
 $reportPath = isset($argv[1]) ? trim((string)$argv[1]) : 'php-lint-report.md';
 if ($reportPath === '') $reportPath = 'php-lint-report.md';
 
