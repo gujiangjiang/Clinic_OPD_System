@@ -172,4 +172,105 @@ Clinic.adminItems = {
         var m = (location.search.match(/[?&]edit=(\d+)/) || [])[1];
         if (m) openFn(parseInt(m, 10));
     },
+
+    /**
+     * 统一分页无限滚动列表（v8.17.3，参考查询中心-影像引用查询实现）：
+     * 服务端按 page/size/kw/cat 过滤，返回行 HTML 片段；滚动到底自动加载下一页。
+     * @param {object} cfg {
+     *   tableEl  table 元素 id（thead 由服务端首页响应提供，tbody 由本组件填充）
+     *   url     函数 (p, size, state) => 接口地址（state={kw,cat}）
+     *   state   { kw:'', cat:'' } 当前搜索/分类（修改后 reset()）
+     *   catsEl  可选：分类 tab 容器 id（服务端首页响应 cats 数组构建）
+     *   kwEl    可选：搜索输入框 id（input 防抖 reset）
+     *   countEl 可选：计数元素 id
+     *   onState 可选：state 变化回调（返回 false 阻止 reset）
+     * }
+     * @return {{reset: function, stop: function, list: object}}
+     */
+    pagedTable: function (cfg) {
+        var LIST = null;
+        var state = cfg.state || { kw: '', cat: '' };
+        var tableEl = document.getElementById(cfg.tableEl);
+        var thead = '';
+        var hasCats = false;
+        // 注册表：分类 tab 全局委托（pagedCat）按 tableId 定位
+        Clinic.adminItems.__paged = Clinic.adminItems.__paged || {};
+        Clinic.adminItems.__pagedCfg = Clinic.adminItems.__pagedCfg || {};
+        Clinic.adminItems.__paged[cfg.tableEl] = { reset: function () { hasCats = false; init(); } };
+        Clinic.adminItems.__pagedCfg[cfg.tableEl] = cfg;
+        var buildUrl = function (p, size) {
+            if (typeof cfg.url === 'function') return cfg.url(p, size, state);
+            return cfg.url;
+        };
+        var renderRows = function (list, isFirst) {
+            return (isFirst && thead !== '' ? thead : '') + list.join('');
+        };
+        function init() {
+            if (LIST) LIST.stop();
+            LIST = Clinic.infiniteList({
+                el: tableEl,
+                pageSize: 20,
+                threshold: 60,
+                emptyHtml: '<tbody><tr><td colspan="99" style="text-align:center;color:var(--text-muted);padding:24px">暂无数据</td></tr></tbody>',
+                url: buildUrl,
+                render: function (list, isFirst, data) {
+                    if (data && data.thead) thead = data.thead;
+                    return renderRows(list, isFirst);
+                },
+                onSuccess: function (json) {
+                    var d = json.data || {};
+                    if (d.thead) thead = d.thead;
+                    if (cfg.countEl) {
+                        var c = document.getElementById(cfg.countEl);
+                        if (c) c.textContent = d.count_text || ('共 ' + (d.total || 0) + ' 项');
+                    }
+                    // 首页响应构建分类 tab
+                    if (d.cats && cfg.catsEl && !hasCats) {
+                        hasCats = true;
+                        var bar = document.getElementById(cfg.catsEl);
+                        if (bar) {
+                            bar.innerHTML = '<button class="btn btn-sm ' + (state.cat === '' ? 'btn-primary' : 'btn-outline') + '" data-cat="" onclick="' +
+                                (cfg.onCat || 'Clinic.adminItems.pagedCat') + '(this,\'\',' + JSON.stringify(cfg.tableEl) + ')">全部</button>' +
+                                d.cats.map(function (c) {
+                                    return '<button class="btn btn-sm ' + (state.cat === c ? 'btn-primary' : 'btn-outline') + '" data-cat="' + c + '" onclick="' +
+                                        (cfg.onCat || 'Clinic.adminItems.pagedCat') + '(this,\'' + c + '\',' + JSON.stringify(cfg.tableEl) + ')">' + c + '</button>';
+                                }).join('');
+                        }
+                    }
+                },
+            });
+        }
+        // 搜索输入防抖联动
+        var kwEl = cfg.kwEl ? document.getElementById(cfg.kwEl) : null;
+        if (kwEl) {
+            kwEl.addEventListener('input', function () {
+                clearTimeout(kwEl.__t);
+                kwEl.__t = setTimeout(function () {
+                    state.kw = (kwEl.value || '').trim();
+                    if (cfg.onState && cfg.onState(state) === false) return;
+                    hasCats = false;
+                    init();
+                }, 250);
+            });
+        }
+        init();
+        return {
+            reset: function () { hasCats = false; init(); },
+            stop: function () { if (LIST) LIST.stop(); },
+            list: LIST,
+        };
+    },
+
+    /** 分页列表分类 tab 点击（全局委托）：更新高亮 + 重置列表 */
+    pagedCat: function (btn, cat, tableId) {
+        var cfg = Clinic.adminItems.__pagedCfg ? Clinic.adminItems.__pagedCfg[tableId] : null;
+        if (!cfg) return;
+        cfg.state.cat = cat;
+        var bar = btn.parentNode;
+        if (bar) bar.querySelectorAll('.btn').forEach(function (b) {
+            b.className = 'btn btn-sm ' + ((b.getAttribute('data-cat') || '') === cat ? 'btn-primary' : 'btn-outline');
+        });
+        var paged = Clinic.adminItems.__paged ? Clinic.adminItems.__paged[tableId] : null;
+        if (paged) paged.reset();
+    },
 };

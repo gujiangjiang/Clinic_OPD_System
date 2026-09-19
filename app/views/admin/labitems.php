@@ -14,7 +14,8 @@ $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
 
 <div class="card" style="margin-bottom:12px">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" id="labSearch" placeholder="🔍 快速搜索检验项目" style="width:220px" oninput="applyLabFilter()">
+        <input class="input" id="labSearch" placeholder="🔍 快速搜索检验项目" style="width:220px">
+        <span class="fs-13 text-muted" id="labCountDiv"></span>
         <span class="flex gap-4" id="labCatTabs" style="flex-wrap:wrap"></span>
     </div>
 </div>
@@ -29,27 +30,31 @@ if (!IS_ADMIN) {
     var ct = document.getElementById('labCatBtn'); if (ct) ct.style.display = 'none';
     var ib = document.getElementById('impBtns'); if (ib) ib.style.display = 'none';
 }
-/* 分类 tab + 关键字过滤 + 计数（统一走 Clinic.adminItems 公共组件） */
-function labCatFilter(btn, c) {
-    Clinic.adminItems.filterByCat({ tabsId: 'labCatTabs', setCat: function (x) { LAB_CAT = x; }, apply: applyLabFilter }, c);
+/* v8.17.3 统一分页无限滚动：服务端 page/size/kw/cat 过滤，滚动到底自动加载 */
+var LAB_PAGED = null;
+var LAB_STATE = { kw: '', cat: '' };
+function labListUrl(p, size, st) {
+    return '/api/admin?action=item_list&type=lab&page=' + p + '&size=' + size +
+        '&kw=' + encodeURIComponent(st.kw) + '&cat=' + encodeURIComponent(st.cat);
 }
-function applyLabFilter() {
-    Clinic.adminItems.filterRows({
-        listId: 'itemList', countId: 'labCountDiv',
-        getCat: function () { return LAB_CAT; },
-        getQuery: function () { return document.getElementById('labSearch').value || ''; },
-        countText: function (cat, q, n) {
-            return cat === '' ? (q ? '检验项目 ' + n + ' 项' : '检验项目共 ' + n + ' 项')
-                : '检验项目（' + cat + '）' + (q ? n + ' 项' : '共 ' + n + ' 项');
-        },
+function initLabPaged() {
+    var box = document.getElementById('itemList');
+    if (!box) return;
+    if (LAB_PAGED) { LAB_PAGED.reset(); return; }
+    box.innerHTML = '<table class="table" id="labTable"><tbody></tbody></table>';
+    LAB_PAGED = Clinic.adminItems.pagedTable({
+        tableEl: 'labTable',
+        state: LAB_STATE,
+        url: labListUrl,
+        countEl: 'labCountDiv',
+        catsEl: 'labCatTabs',
+        kwEl: 'labSearch',
     });
-}
-function buildLabCats() {
-    Clinic.adminItems.buildCats({ listId: 'itemList', tabsId: 'labCatTabs', current: LAB_CAT, tabFn: 'labCatFilter' });
 }
 Clinic.importer._reloads['lab'] = loadItemList;
 Clinic.importer.attach('lab', 'impBtns', '检验项目');
-function loadItemList() { Clinic.get('/api/admin?action=item_list&type=lab', null, { onSuccess: function (j) { document.getElementById('itemList').innerHTML = j.data.html; buildLabCats(); applyLabFilter(); } }); }
+function loadItemList() { initLabPaged(); }
+initLabPaged();
 
 /* ==================== 检验组合管理器（两列模态框） ==================== */
 var COMBOS = [];

@@ -151,7 +151,7 @@ Clinic.infiniteList = function (opts) {
                     }
                 }
                 if (list.length) {
-                    var html = render(list, p <= 1);
+                    var html = render(list, p <= 1, d);
                     if (typeof opts.append === 'function') {
                         // 自定义追加：表格类列表后续页仅返回行，由 append 插入已有 tbody
                         opts.append(el, html);

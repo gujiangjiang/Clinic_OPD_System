@@ -21,7 +21,8 @@ $__canManage = $__isAdmin || $__isPharmacy;
 </div>
 <div class="card" style="margin-bottom:12px">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" placeholder="🔍 快速搜索药品 / 通用名 / 厂家" style="width:220px" oninput="quickFilter(this.value,'drugList')">
+        <input class="input" id="drugSearch" placeholder="🔍 快速搜索药品 / 通用名 / 厂家" style="width:220px">
+        <span class="fs-13 text-muted" id="drugCountDiv"></span>
         <span class="flex gap-4" id="drugCatTabs" style="flex-wrap:wrap"></span>
     </div>
 </div>
@@ -36,37 +37,31 @@ var IS_DRUG_MANAGER = DRUG_ROLE === 'admin' || DRUG_ROLE === 'pharmacy';
 if (!IS_ADMIN) {
     var ib = document.getElementById('drugImportBtns'); if (ib) ib.style.display = 'none';
 }
-/* 分类子 tab + 关键字过滤 + 计数（统一走 Clinic.adminItems 公共组件） */
-function buildDrugCats() {
-    Clinic.adminItems.buildCats({ listId: 'drugList', tabsId: 'drugCatTabs', current: DRUG_CAT, tabFn: 'drugCatFilter' });
+/* v8.17.3 统一分页无限滚动：服务端 page/size/kw/cat 过滤，滚动到底自动加载 */
+var DRUG_PAGED = null;
+var DRUG_STATE = { kw: '', cat: '' };
+function drugListUrl(p, size, st) {
+    return '/api/admin?action=drug_list&page=' + p + '&size=' + size +
+        '&kw=' + encodeURIComponent(st.kw) + '&cat=' + encodeURIComponent(st.cat);
 }
-function quickFilter() {
-    applyDrugFilter();
-}
-function drugCatFilter(btn, c) {
-    Clinic.adminItems.filterByCat({ tabsId: 'drugCatTabs', setCat: function (x) { DRUG_CAT = x; }, apply: applyDrugFilter }, c);
-}
-function applyDrugFilter() {
-    Clinic.adminItems.filterRows({
-        listId: 'drugList', countId: 'drugCountDiv',
-        getCat: function () { return DRUG_CAT; },
-        getQuery: function () { var inp = document.querySelector('input[oninput*="drugList"]'); return (inp && inp.value) || ''; },
-        countText: function (cat, q, n) {
-            if (cat === '') return q ? '药品 ' + n + ' 种' : '共 ' + n + ' 种药品';
-            return q ? '药品（' + cat + '）' + n + ' 种' : '药品（' + cat + '）共 ' + n + ' 种';
-        },
+function initDrugPaged() {
+    var box = document.getElementById('drugList');
+    if (!box) return;
+    if (DRUG_PAGED) { DRUG_PAGED.reset(); return; }
+    box.innerHTML = '<table class="table" id="drugTable"><tbody></tbody></table>';
+    DRUG_PAGED = Clinic.adminItems.pagedTable({
+        tableEl: 'drugTable',
+        state: DRUG_STATE,
+        url: drugListUrl,
+        countEl: 'drugCountDiv',
+        catsEl: 'drugCatTabs',
+        kwEl: 'drugSearch',
     });
 }
 Clinic.importer._reloads['drug'] = loadDrugList;
 Clinic.importer.attach('drug', 'drugImportBtns', '药品');
-function loadDrugList() {
-    Clinic.get('/api/admin?action=drug_list', null, {
-        onSuccess: function (json) {
-            document.getElementById('drugList').innerHTML = json.data.html;
-            buildDrugCats();
-        },
-    });
-}
+function loadDrugList() { initDrugPaged(); }
+initDrugPaged();
 
 function openDrugForm(id) {
     var mask = Clinic.modal.load('/api/admin', { action: 'drug_form', id: id || 0 }, { title: id ? '编辑药品' : '新增药品' });

@@ -11,32 +11,37 @@ $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
     <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openDisposalForm(0)">＋ 新增处置项目</button></div>
 </div>
 <div class="card" style="margin-bottom:12px">
-    <input class="input" placeholder="🔍 快速搜索处置项目" oninput="quickFilter(this.value,'dispList')">
+    <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
+        <input class="input" id="dispSearch" placeholder="🔍 快速搜索处置项目" style="width:220px">
+        <span class="fs-13 text-muted" id="dispCountDiv"></span>
+    </div>
 </div>
 <div class="card" id="dispList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 
 <script>
-/* 快速搜索：按行文本过滤 + 动态计数（搜索时去掉「共」） */
-function quickFilter(q, boxId) {
-    q = q.trim().toLowerCase();
-    var n = 0;
-    document.querySelectorAll('#' + boxId + ' tbody tr').forEach(function (tr) {
-        var hit = tr.textContent.toLowerCase().indexOf(q) !== -1;
-        tr.style.display = hit ? '' : 'none';
-        if (hit) n++;
+/* v8.17.3 统一分页无限滚动：服务端 page/size/kw 过滤，滚动到底自动加载 */
+var DISP_PAGED = null;
+var DISP_STATE = { kw: '' };
+function dispListUrl(p, size, st) {
+    return '/api/admin?action=disposal_list&page=' + p + '&size=' + size + '&kw=' + encodeURIComponent(st.kw || '');
+}
+function initDispPaged() {
+    var box = document.getElementById('dispList');
+    if (!box) return;
+    if (DISP_PAGED) { DISP_PAGED.reset(); return; }
+    box.innerHTML = '<table class="table" id="dispTable"><tbody></tbody></table>';
+    DISP_PAGED = Clinic.adminItems.pagedTable({
+        tableEl: 'dispTable',
+        state: DISP_STATE,
+        url: dispListUrl,
+        countEl: 'dispCountDiv',
+        kwEl: 'dispSearch',
     });
-    var cnt = document.getElementById('dispCountDiv');
-    if (cnt) cnt.textContent = q !== '' ? '处置项目 ' + n + ' 个' : '共 ' + n + ' 个处置项目';
 }
 Clinic.importer._reloads['disp'] = loadDispList;
 Clinic.importer.attach('disp', 'impBtns', '处置项目');
-function loadDispList() {
-    Clinic.get('/api/admin?action=disposal_list', null, {
-        onSuccess: function (json) {
-            document.getElementById('dispList').innerHTML = json.data.html;
-        },
-    });
-}
+function loadDispList() { initDispPaged(); }
+initDispPaged();
 
 function openDisposalForm(id) {
     var mask = Clinic.modal.load('/api/admin', { action: 'disposal_form', id: id || 0 }, { title: id ? '编辑处置项目' : '新增处置项目' });

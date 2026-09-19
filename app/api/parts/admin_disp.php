@@ -20,11 +20,21 @@ function admin_part_disp($action) {
 
     /* ==================== 处置项目列表 ==================== */
     if ($action === 'disposal_list') {
-        $rows = OrderRepository::q('SELECT * FROM disposal_items ORDER BY id');
-        $rowsHtml = '<thead><tr>' .
-            '<th>处置名称</th><th>费用</th><th>需护士站处置</th><th>描述备注</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+        // v8.17.3 统一分页：page/size/kw 服务端过滤，无限滚动分段加载
+        $page = max(1, (int)get('page', 1));
+        $pageSize = max(1, min(100, (int)get('size', 20)));
+        $kw = trim(get('kw', ''));
+        $where = "1=1";
+        $params = array();
+        if ($kw !== '') { $where .= " AND name LIKE ?"; $params[] = '%' . $kw . '%'; }
+        $total = (int)OrderRepository::val("SELECT COUNT(*) FROM disposal_items WHERE $where", $params);
+        $rows = OrderRepository::q("SELECT * FROM disposal_items WHERE $where ORDER BY id LIMIT ? OFFSET ?",
+            array_merge($params, array($pageSize, ($page - 1) * $pageSize)));
+        $thead = '<thead><tr>' .
+            '<th>处置名称</th><th>费用</th><th>需护士站处置</th><th>描述备注</th><th>状态</th><th>操作</th></tr></thead>';
+        $list = array();
         foreach ($rows as $r) {
-            $rowsHtml .= '<tr><td class="fw-600">' . e($r['name']) . '</td><td>¥' . money($r['fee']) . '</td>' .
+            $list[] = '<tr><td class="fw-600">' . e($r['name']) . '</td><td>¥' . money($r['fee']) . '</td>' .
                 '<td>' . ((int)$r['is_nurse'] === 1 ? badge_html('warning', '是') : badge_html('gray', '否')) . '</td>' .
                 '<td class="fs-12 text-muted">' . e($r['description']) . '</td>' .
                 '<td>' . item_status_badge((string)$r['status']) . '</td>' .
@@ -33,9 +43,8 @@ function admin_part_disp($action) {
                 '<button class="btn btn-outline btn-sm" onclick="openDisposalForm(' . (int)$r['id'] . ')">编辑</button>' .
                 '<button class="btn btn-outline btn-sm" onclick="delDisposal(' . (int)$r['id'] . ')">删除</button></div></td></tr>';
         }
-        $rowsHtml .= '</tbody>';
-        $html = render_list_wrapper('共 ' . count($rows) . ' 个处置项目', '暂无处置项目', $rowsHtml, 'dispCountDiv');
-        json_ok(array('html' => $html));
+        json_ok(array('list' => $list, 'total' => $total, 'has_more' => ($page * $pageSize) < $total, 'page' => $page, 'thead' => $thead,
+            'count_text' => '共 ' . $total . ' 个处置项目' . ($kw !== '' ? '（搜索「' . $kw . '」）' : '')));
     }
 
     /* ==================== 处置表单 ==================== */

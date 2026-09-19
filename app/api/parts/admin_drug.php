@@ -89,15 +89,27 @@ function admin_part_drug($action) {
 
     /* ==================== 药品信息列表 ==================== */
     if ($action === 'drug_list') {
-        $rows = DrugRepository::q('SELECT * FROM drugs ORDER BY category, id');
-        $rowsHtml = '<thead><tr>' .
-            '<th>药品名称</th><th>通用名</th><th>厂家简称</th><th>分类</th><th>规格</th><th>剂型</th><th>频次</th><th>途径</th><th>库存</th><th>警戒</th><th>价格</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+        // v8.17.3 统一分页：page/size/kw/cat 服务端过滤，无限滚动分段加载
+        $page = max(1, (int)get('page', 1));
+        $pageSize = max(1, min(100, (int)get('size', 20)));
+        $kw = trim(get('kw', ''));
+        $cat = trim(get('cat', ''));
+        $where = "1=1";
+        $params = array();
+        if ($cat !== '') { $where .= " AND category=?"; $params[] = $cat; }
+        if ($kw !== '') { $where .= " AND (name LIKE ? OR generic_name LIKE ? OR vendor_short LIKE ?)"; $params[] = '%' . $kw . '%'; $params[] = '%' . $kw . '%'; $params[] = '%' . $kw . '%'; }
+        $total = (int)DrugRepository::val("SELECT COUNT(*) FROM drugs WHERE $where", $params);
+        $rows = DrugRepository::q("SELECT * FROM drugs WHERE $where ORDER BY category, id LIMIT ? OFFSET ?",
+            array_merge($params, array($pageSize, ($page - 1) * $pageSize)));
+        $thead = '<thead><tr>' .
+            '<th>药品名称</th><th>通用名</th><th>厂家简称</th><th>分类</th><th>规格</th><th>剂型</th><th>频次</th><th>途径</th><th>库存</th><th>警戒</th><th>价格</th><th>状态</th><th>操作</th></tr></thead>';
+        $list = array();
         foreach ($rows as $r) {
             $low = drug_low_stock_check($r);
             $packQty = max(1, (int)$r['spec_pack_qty']);
             $warnBox = (int)$r['warn_qty'] > 0 ? ((int)$r['warn_qty']) : 0;
             $warnBoxTxt = $warnBox > 0 ? ($packQty > 1 ? floor($warnBox / $packQty) : $warnBox) : '—';
-            $rowsHtml .= '<tr data-cat="' . e($r['category']) . '">' .
+            $list[] = '<tr data-cat="' . e($r['category']) . '">' .
                 '<td class="fw-600">' . e($r['name']) .
                 ((int)(isset($r['allow_split']) ? $r['allow_split'] : 0) === 1 ? ' <span class="badge badge-primary fs-12" title="允许按最小单位（支/粒/片）拆零销售">拆零</span>' : '') .
                 '</td>' .
@@ -120,9 +132,13 @@ function admin_part_drug($action) {
                     ($u['role'] === 'admin' ? '<button class="btn btn-outline btn-sm" onclick="delDrug(' . (int)$r['id'] . ')">删除</button>' : '') . '</div>'
                     : '<span class="text-muted fs-12">只读</span>') . '</td></tr>';
         }
-        $rowsHtml .= '</tbody>';
-        $html = render_list_wrapper('共 ' . count($rows) . ' 种药品', '暂无药品，请先添加', $rowsHtml, 'drugCountDiv');
-        json_ok(array('html' => $html));
+        $cats = array();
+        if ($page === 1) {
+            foreach (DrugRepository::q("SELECT name FROM drug_settings WHERE stype='category' ORDER BY sort, id") as $c) $cats[] = $c['name'];
+        }
+        json_ok(array('list' => $list, 'total' => $total, 'has_more' => ($page * $pageSize) < $total, 'page' => $page, 'thead' => $thead,
+            'cats' => $cats,
+            'count_text' => ($cat !== '' ? '药品（' . $cat . '）共 ' : '共 ') . $total . ' 种药品' . ($kw !== '' ? '（搜索「' . $kw . '」）' : '')));
     }
 
     /* ==================== 药品表单（共享模块渲染） ==================== */

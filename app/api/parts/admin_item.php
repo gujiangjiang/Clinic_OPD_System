@@ -26,15 +26,27 @@ function admin_part_item($action) {
         else $type = get('type', 'lab');
         $table = $type === 'lab' ? 'lab_items' : 'exam_items';
         $isAdmin = $u['role'] === 'admin';
-        if ($type === 'lab') {
-            // ===== 检验项目管理：主列表展示「全部检验项目」——所有单项
-            // （含已加入组合的成员），是否成组与本列表无关；组合本体在
-            // 「检验组合管理」中维护 =====
-            $singles = OrderRepository::q("SELECT * FROM lab_items WHERE is_group=0 ORDER BY category, id");
-            $rowsHtml = '<thead><tr>' .
-                '<th>名称</th><th>分类</th><th>价格</th><th>单位</th><th>正常范围</th><th>状态</th><th>操作</th></tr></thead><tbody>';
-            foreach ($singles as $r) {
-                $rowsHtml .= '<tr data-kind="single" data-cat="' . e($r['category']) . '">' .
+        // v8.17.3 统一分页：page/size/kw/cat 服务端过滤，无限滚动分段加载
+        $page = max(1, (int)get('page', 1));
+        $pageSize = max(1, min(100, (int)get('size', 20)));
+        $kw = trim(get('kw', ''));
+        $cat = trim(get('cat', ''));
+        $like = $kw !== '' ? '%' . $kw . '%' : '';
+        $where = "1=1";
+        $params = array();
+        if ($type === 'lab') $where .= " AND is_group=0";
+        if ($cat !== '') { $where .= " AND category=?"; $params[] = $cat; }
+        if ($kw !== '') { $where .= " AND name LIKE ?"; $params[] = $like; }
+        $total = (int)OrderRepository::val("SELECT COUNT(*) FROM $table WHERE $where", $params);
+        $rows = OrderRepository::q("SELECT * FROM $table WHERE $where ORDER BY category, id LIMIT ? OFFSET ?",
+            array_merge($params, array($pageSize, ($page - 1) * $pageSize)));
+        $thead = ($type === 'lab')
+            ? '<thead><tr><th>名称</th><th>分类</th><th>价格</th><th>单位</th><th>正常范围</th><th>状态</th><th>操作</th></tr></thead>'
+            : '<thead><tr><th>名称</th><th>分类</th><th>价格</th><th>描述</th><th>状态</th><th>操作</th></tr></thead>';
+        $list = array();
+        foreach ($rows as $r) {
+            if ($type === 'lab') {
+                $rowHtml = '<tr data-kind="single" data-cat="' . e($r['category']) . '">' .
                     '<td class="fw-600">' . e($r['name']) . '</td>' .
                     '<td>' . e($r['category']) . '</td>' .
                     '<td>¥' . money($r['price']) . '</td>' .
@@ -45,19 +57,8 @@ function admin_part_item($action) {
                         '<button class="btn btn-outline btn-sm" onclick="openItemForm(' . (int)$r['id'] . ')">编辑</button>' .
                         '<button class="btn btn-outline btn-sm" onclick="delItem(\'lab\',' . (int)$r['id'] . ')">删除</button></div>'
                         : '<span class="text-muted fs-12">只读</span>') . '</td></tr>';
-            }
-            $rowsHtml .= '</tbody>';
-            $html = render_list_wrapper('检验项目共 ' . count($singles) . ' 项（全部单项，含已加入组合的成员；组合本体请在「检验组合管理」中维护）',
-                '暂无检验项目，请先添加', $rowsHtml, 'labCountDiv');
-            json_ok(array('html' => $html));
-            return;
-        } else {
-            // ===== 检查项目管理：无成组逻辑，保持简单 =====
-            $rows = OrderRepository::q("SELECT * FROM $table ORDER BY category, id");
-            $rowsHtml = '<thead><tr>' .
-                '<th>名称</th><th>分类</th><th>价格</th><th>描述</th><th>状态</th><th>操作</th></tr></thead><tbody>';
-            foreach ($rows as $r) {
-                $rowsHtml .= '<tr data-kind="single" data-cat="' . e($r['category']) . '">' .
+            } else {
+                $rowHtml = '<tr data-kind="single" data-cat="' . e($r['category']) . '">' .
                     '<td class="fw-600">' . e($r['name']) . '</td>' .
                     '<td>' . e($r['category']) . '</td>' .
                     '<td>¥' . money($r['price']) . '</td>' .
@@ -69,10 +70,17 @@ function admin_part_item($action) {
                         '<button class="btn btn-outline btn-sm" onclick="delItem(\'exam\',' . (int)$r['id'] . ')">删除</button></div>'
                         : '<span class="text-muted fs-12">只读</span>') . '</td></tr>';
             }
-            $rowsHtml .= '</tbody>';
-            $html = render_list_wrapper('检查项目共 ' . count($rows) . ' 项', '暂无检查项目，请先添加', $rowsHtml, 'examCountDiv');
+            $list[] = $rowHtml;
         }
-        json_ok(array('html' => $html));
+        $cats = array();
+        if ($page === 1) {
+            foreach (OrderRepository::q("SELECT name FROM item_categories WHERE ctype=? ORDER BY sort, id", array($type)) as $c) $cats[] = $c['name'];
+        }
+        json_ok(array(
+            'list' => $list, 'total' => $total, 'has_more' => ($page * $pageSize) < $total, 'page' => $page, 'thead' => $thead,
+            'cats' => $cats,
+            'count_text' => ($type === 'lab' ? '检验项目共 ' : '检查项目共 ') . $total . ' 项' . ($kw !== '' ? '（搜索「' . $kw . '」）' : ''),
+        ));
     }
 
     /* ==================== 检验组合表单（组名/分类/组价 + 成员多选） ==================== */

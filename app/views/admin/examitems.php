@@ -18,7 +18,8 @@ $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
 
 <div class="card" style="margin-bottom:12px">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" id="examSearch" placeholder="🔍 快速搜索检查项目" style="width:220px" oninput="applyExamFilter()">
+        <input class="input" id="examSearch" placeholder="🔍 快速搜索检查项目" style="width:220px">
+        <span class="fs-13 text-muted" id="examCountDiv"></span>
         <span class="flex gap-4" id="examCatTabs" style="flex-wrap:wrap"></span>
     </div>
 </div>
@@ -32,35 +33,31 @@ if (!IS_ADMIN) {
     var ct = document.getElementById('examCatBtn'); if (ct) ct.style.display = 'none';
     var ib = document.getElementById('impBtns'); if (ib) ib.style.display = 'none';
 }
-/* 分类子 tab + 关键字过滤 + 计数（统一走 Clinic.adminItems 公共组件） */
-function buildExamCats() {
-    Clinic.adminItems.buildCats({ listId: 'itemList', tabsId: 'examCatTabs', current: EXAM_CAT, tabFn: 'examCatFilter' });
+/* v8.17.3 统一分页无限滚动：服务端 page/size/kw/cat 过滤，滚动到底自动加载 */
+var EXAM_PAGED = null;
+var EXAM_STATE = { kw: '', cat: '' };
+function examListUrl(p, size, st) {
+    return '/api/admin?action=item_list&type=exam&page=' + p + '&size=' + size +
+        '&kw=' + encodeURIComponent(st.kw) + '&cat=' + encodeURIComponent(st.cat);
 }
-function examCatFilter(btn, c) {
-    Clinic.adminItems.filterByCat({ tabsId: 'examCatTabs', setCat: function (x) { EXAM_CAT = x; }, apply: applyExamFilter }, c);
-}
-function applyExamFilter() {
-    Clinic.adminItems.filterRows({
-        listId: 'itemList', countId: 'examCountDiv',
-        getCat: function () { return EXAM_CAT; },
-        getQuery: function () { return document.getElementById('examSearch').value || ''; },
-        countText: function (cat, q, n) {
-            return cat === '' ? (q !== '' ? '检查项目 ' + n + ' 项' : '检查项目共 ' + n + ' 项')
-                : '检查项目（' + cat + '）' + (q !== '' ? n + ' 项' : '共 ' + n + ' 项');
-        },
+function initExamPaged() {
+    var box = document.getElementById('itemList');
+    if (!box) return;
+    if (EXAM_PAGED) { EXAM_PAGED.reset(); return; }
+    box.innerHTML = '<table class="table" id="examTable"><tbody></tbody></table>';
+    EXAM_PAGED = Clinic.adminItems.pagedTable({
+        tableEl: 'examTable',
+        state: EXAM_STATE,
+        url: examListUrl,
+        countEl: 'examCountDiv',
+        catsEl: 'examCatTabs',
+        kwEl: 'examSearch',
     });
 }
 Clinic.importer._reloads['exam'] = loadItemList;
 Clinic.importer.attach('exam', 'impBtns', '检查项目');
-function loadItemList() {
-    Clinic.get('/api/admin?action=item_list&type=exam', null, {
-        onSuccess: function (json) {
-            document.getElementById('itemList').innerHTML = json.data.html;
-            buildExamCats();
-            applyExamFilter();
-        },
-    });
-}
+function loadItemList() { initExamPaged(); }
+initExamPaged();
 
 function openItemForm(id) {
     var mask = Clinic.modal.load('/api/admin', { action: 'item_form', type: 'exam', id: id || 0 }, { title: id ? '编辑检查项目' : '新增检查项目' });
