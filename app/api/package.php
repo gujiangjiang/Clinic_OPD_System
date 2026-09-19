@@ -344,8 +344,10 @@ switch ($action) {
         }
 
         $isAdmin = ($u['role'] === 'admin');
-        // 管理员创建：仅限 hospital/dept
-        if ($isAdmin && $scope === 'personal') json_fail('管理员套餐适用范围仅限全院或科室');
+        // 管理员新建：仅限 hospital/dept（不可新建个人）；编辑他人已存在的个人套餐可保存（维护场景）
+        if ($isAdmin && $scope === 'personal' && $id <= 0) json_fail('管理员新建套餐适用范围仅限全院或科室');
+        $authorId = 0;   // 原创建人（管理员编辑他人套餐时用于站内信告知）
+        $oldScope = '';
         $status = $isAdmin ? 'published' : ($scope === 'personal' ? 'published' : 'pending_review');
         // 编辑：越权防护
         if ($id > 0) {
@@ -353,6 +355,9 @@ switch ($action) {
             if (!$old) json_fail('套餐不存在');
             if ((int)$old['creator_id'] !== (int)$u['id'] && !$isAdmin) json_fail('无权修改该套餐');
             if ($old['status'] === 'pending_review') json_fail('套餐正在审核中，审核通过或驳回后方可修改');
+            // 记录原创建人：管理员编辑他人套餐时站内信告知作者
+            $authorId = (int)$old['creator_id'];
+            $oldScope = (string)$old['scope'];
             // 驳回后个人可继续编辑：保持驳回状态，重新保存后再进审核
             if ($old['status'] === 'rejected') $status = ($scope === 'personal') ? 'published' : 'pending_review';
             OrderRepository::exec('UPDATE packages SET title=?, type=?, scope=?, status=?, content_json=?, updated_at=? WHERE id=?',
@@ -403,6 +408,17 @@ switch ($action) {
                 '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
         } else {
             OrderRepository::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type=? AND ref_id=? AND status='pending'", array($u['name'], now_str(), $auditType, $pkgId));
+        }
+        // 管理员编辑他人套餐：站内信告知原作者（含适用范围变更说明）
+        if ($isAdmin && $authorId > 0 && $authorId !== (int)$u['id']) {
+            $scopeNameNow = $scope === 'hospital' ? '全院' : ($scope === 'dept' ? '科室' : '个人');
+            $msg = '管理员 ' . $u['name'] . ' 修改了您的' . $typeLabel . '「' . $title . '」（当前适用范围：' . $scopeNameNow . '），请及时查看';
+            if ($oldScope !== '' && $oldScope !== $scope) {
+                $msg .= '。适用范围已由「' . ($oldScope === 'hospital' ? '全院' : ($oldScope === 'dept' ? '科室' : '个人')) . '」变更为「' . $scopeNameNow . '」';
+            }
+            send_msg('user', $authorId, $typeLabel . '被修改',
+                $msg,
+                '', '', array('msg_type' => 'system', 'link_url' => '/doctor/packages'));
         }
         json_ok(array('id' => $pkgId, 'status' => $status),
             $status === 'pending_review' ? '套餐已提交，科室/全院套餐需管理员在【审核中心】审核后生效' : '套餐已保存');

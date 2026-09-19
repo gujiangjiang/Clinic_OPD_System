@@ -279,8 +279,9 @@ switch ($action) {
         }
 
         $isAdmin = ($u['role'] === 'admin');
-        // 管理员创建：仅限 hospital/dept
-        if ($isAdmin && $scope === 'personal') json_fail('管理员模板适用范围仅限全院或科室');
+        // 管理员新建：仅限 hospital/dept（不可新建个人）；编辑他人已存在的个人模板可保存（维护场景）
+        if ($isAdmin && $scope === 'personal' && $id <= 0) json_fail('管理员新建模板适用范围仅限全院或科室');
+        $authorId = 0;   // 原创建人（管理员编辑他人模板时用于站内信告知）
         if (!$isAdmin && $scope === 'personal') {
             $status = 'published';   // 个人模板免审
         } else {
@@ -295,6 +296,8 @@ switch ($action) {
             if ((int)$old['creator_id'] !== (int)$u['id'] && !$isAdmin) json_fail('无权修改该模板');
             // 待审核锁定：提交审核后的模板不允许编辑（审核通过/驳回后恢复），防止审核与修改竞态
             if ($old['status'] === 'pending_review') json_fail('模板正在审核中，审核通过或驳回后方可修改');
+            // 记录原创建人：管理员编辑他人模板时站内信告知作者
+            $authorId = (int)$old['creator_id'];
             // 管理员编辑他人模板不改变归属；医生编辑保持原 scope/状态语义
             EmrRepository::exec('UPDATE emr_templates SET title=?, type=?, scope=?, content_json=?, updated_at=? WHERE id=?',
                 array($title, $type, $scope, json_encode($contentArr, JSON_UNESCAPED_UNICODE), now_str(), $id));
@@ -350,6 +353,18 @@ switch ($action) {
         } else {
             // 免审（个人/管理员）或已过审：清理该模板残留的待审核记录
             EmrRepository::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type=? AND ref_id=? AND status='pending'", array($u['name'], now_str(), $auditType, $tplId));
+        }
+
+        // 管理员编辑他人模板：站内信告知原作者（含适用范围变更说明）
+        if ($isAdmin && $authorId > 0 && $authorId !== (int)$u['id']) {
+            $scopeNameNow = $scope === 'hospital' ? '全院' : ($scope === 'dept' ? '科室' : '个人');
+            $msg = '管理员 ' . $u['name'] . ' 修改了您的' . $typeLabel . '「' . $title . '」（当前适用范围：' . $scopeNameNow . '），请及时查看';
+            if (isset($old) && $old && $old['scope'] !== $scope) {
+                $msg .= '。适用范围已由「' . ($old['scope'] === 'hospital' ? '全院' : ($old['scope'] === 'dept' ? '科室' : '个人')) . '」变更为「' . $scopeNameNow . '」';
+            }
+            send_msg('user', $authorId, $typeLabel . '被修改',
+                $msg,
+                '', '', array('msg_type' => 'system', 'link_url' => '/doctor/templates'));
         }
 
         json_ok(array('id' => $tplId, 'status' => $status),
