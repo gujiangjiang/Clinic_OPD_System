@@ -62,4 +62,45 @@ function seSaveSpec() {
     document.getElementById('f_spec_pack_unit').value = punit;
     document.getElementById('f_spec').value = dose + dunit + (punit !== '' ? '×' + pkt + punit : '');
     Clinic.modal.close();
+    syncSplitBox();
+}
+
+/**
+ * 拆零零售面板联动（开方单位下拉按 allow_split 决定选项）：
+ * · 开启【允许拆零零售】→ 展示拆零参数与「包装售价 / 拆零单价」自动换算；
+ * · 关闭 → 隐藏（仅整包装销售）。
+ * 拆零单价 = 包装单价 ÷ 每包装最小单位数量（保留 4 位小数，结算按金融四舍五入）。
+ * 药品表单为模态框 Ajax 加载（DOMContentLoaded 早于表单渲染），
+ * 由各页面 modal:loaded 后调用 bindSplitBox() 完成绑定与初始渲染（幂等）。
+ */
+var __splitBoxBound = false;
+function bindSplitBox() {
+    if (__splitBoxBound) { syncSplitBox(); return; }
+    __splitBoxBound = true;
+    ['f_price', 'f_pkg', 'f_spec_pack_qty', 'f_spec_pack_unit', 'f_allow_split'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', syncSplitBox);
+            el.addEventListener('input', syncSplitBox);
+        }
+    });
+    syncSplitBox();
+}
+function syncSplitBox() {
+    var chk = document.getElementById('f_allow_split');
+    var box = document.getElementById('split_box');
+    if (!chk || !box) return;
+    var on = !!chk.checked;
+    box.style.display = on ? 'block' : 'none';
+    if (!on) return;
+    var packUnit = (document.getElementById('f_pkg') || {}).value || '';
+    var minUnit = (document.getElementById('f_spec_pack_unit') || {}).value || '';
+    var pkt = parseInt((document.getElementById('f_spec_pack_qty') || {}).value, 10) || 1;
+    var price = parseFloat((document.getElementById('f_price') || {}).value) || 0;
+    var set = function (id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
+    set('sp_pack_unit_name', packUnit || '—');
+    set('sp_min_unit_name', minUnit || '—');
+    set('sp_pack_qty_name', pkt);
+    set('sp_pack_price', '¥' + price.toFixed(2) + ' / ' + (packUnit || '盒'));
+    set('sp_min_price', '¥' + (pkt > 1 ? (price / pkt).toFixed(4) : '0').replace(/\.?0+$/, '') + ' / ' + (minUnit || '个'));
 }

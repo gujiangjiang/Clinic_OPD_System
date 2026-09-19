@@ -21,7 +21,7 @@ switch ($action) {
         $todayFee = (float)OrderRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type='prescription' AND status='dispensed' AND date(paid_at)=?", array($today));
         $pendingRx = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='paid'");
         $drugTotal = (int)DrugRepository::val("SELECT COUNT(*) FROM drugs WHERE status='approved'");
-        $lowStock = (int)DrugRepository::val("SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty<=50");
+        $lowStock = (int)DrugRepository::val("SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty <= 50 * MAX(1, spec_pack_qty)");
         $pendingAudit = (int)DrugRepository::val("SELECT COUNT(*) FROM drugs WHERE status='pending'");
         $trend = trend_7_days(function ($day) {
             return (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='dispensed' AND date(executed_at)=?", array($day));
@@ -64,9 +64,12 @@ switch ($action) {
                 $allNurse = true;
                 foreach ($rxItems = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? AND sub_of=0 ORDER BY id', array((int)$o['id'])) as $ri) {
                     if ((int)$ri['is_nurse'] === 0) $allNurse = false;
-                    $names[] = e($ri['item_name']) . ($ri['is_nurse'] ? ' <span class="badge badge-warning" style="font-size:11px">护士站执行</span>' : '');
+                    // 发药清单明确显示开立单位（2盒 / 2支），防止把支发成盒造成药损
+                    $rxUnit = (isset($ri['unit']) && trim((string)$ri['unit']) !== '') ? trim((string)$ri['unit']) : '盒';
+                    $names[] = e($ri['item_name']) . ' ×' . (int)$ri['quantity'] . $rxUnit .
+                        ($ri['is_nurse'] ? ' <span class="badge badge-warning" style="font-size:11px">护士站执行</span>' : '');
                     $subs = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? AND group_no=? AND is_parent=0 ORDER BY id', array((int)$o['id'], (int)$ri['group_no']));
-                    foreach ($subs as $s) $names[] = '　└ ' . e($s['item_name']);
+                    foreach ($subs as $s) $names[] = '　└ ' . e($s['item_name']) . ' ×' . (int)$s['quantity'] . (trim((string)$s['unit']) !== '' ? trim((string)$s['unit']) : '');
                 }
                 $html .= '<tr>' .
                     '<td class="fw-600">' . e($p ? $p['name'] : '—') . '</td>' .
@@ -142,11 +145,14 @@ switch ($action) {
                 OrderRepository::exec("UPDATE orders SET status='reviewed', review_by=?, reviewed_at=? WHERE id=?", array($u['name'], now_str(), $orderId));
             }
             if ($verdict === 'reject') {
-                // 拒绝：恢复库存（开方时主药+子药均已减库存）+ 全部明细置 rejected
+                // 拒绝：恢复库存（开方时主药+子药均已减库存，按开立单位折算最小单位）
+                // + 全部明细置 rejected
                 foreach ($allRxItems as $it) {
-                    OrderRepository::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array((int)$it['quantity'], $it['item_id']));
+                    $factor = ($it['unit_type'] === 'min') ? 1 : max(1, (int)(isset($it['pack_size']) ? $it['pack_size'] : 1));
+                    $restore = max(1, (int)$it['quantity']) * $factor;
+                    OrderRepository::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array($restore, $it['item_id']));
                     OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
-                        $it['item_id'], (int)$it['quantity'], 'order_reject', $order['order_no'], $u['name'], now_str(),
+                        $it['item_id'], $restore, 'order_reject', $order['order_no'], $u['name'], now_str(),
                     ));
                 }
                 OrderRepository::exec("UPDATE order_items SET status='rejected', executed_by=?, executed_at=? WHERE order_id=? AND status='paid'", array($u['name'], now_str(), $orderId));
@@ -241,13 +247,20 @@ switch ($action) {
             $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
                 '<th>药品</th><th>分类</th><th>规格</th><th>包装</th><th>库存</th><th>单价</th><th>状态</th><th>操作</th></tr></thead><tbody>';
             foreach ($rows as $r) {
-                $low = (int)$r['qty'] <= 10;
+                // 低库存按折算整包装判断（最小单位库存 ÷ 每包装数量 ≤ 10 盒/瓶）
+                $packQtyL = max(1, (int)$r['spec_pack_qty']);
+                $low = (int)$r['qty'] <= 10 * $packQtyL;
+                $minUnit = trim((string)$r['spec_pack_unit']);
+                $packQty = max(1, (int)$r['spec_pack_qty']);
+                // 库存统一为最小单位口径；同时展示折算整包装数量（如 2400 粒 = 100 盒），药房核对方便
+                $stockTxt = (int)$r['qty'] . ($minUnit !== '' ? ' ' . $minUnit : '') .
+                    ($packQty > 1 ? '（' . floor((int)$r['qty'] / $packQty) . ' ' . e($r['package_unit']) . '）' : '');
                 $html .= '<tr>' .
                     '<td class="fw-600">' . e($r['name']) . (!empty($r['vendor_short']) ? '（' . e($r['vendor_short']) . '）' : '') . '</td>' .
                     '<td>' . e($r['category']) . '</td>' .
                     '<td>' . e(drug_spec_text($r)) . '</td>' .
                     '<td>' . e($r['package_unit']) . '</td>' .
-                    '<td class="' . ($low ? 'text-danger fw-700' : '') . '">' . (int)$r['qty'] . ($low ? ' <span class="badge badge-danger" style="font-size:11px">库存不足</span>' : '') . '</td>' .
+                    '<td class="' . ($low ? 'text-danger fw-700' : '') . '">' . $stockTxt . ($low ? ' <span class="badge badge-danger" style="font-size:11px">库存不足</span>' : '') . '</td>' .
                     '<td>¥' . money($r['price']) . '</td>' .
                     '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
                     '<td><button class="btn btn-outline btn-sm" onclick="stockModal(' . (int)$r['id'] . ',\'' . e($r['name']) . '\')">入库/出库</button></td></tr>';
@@ -281,9 +294,19 @@ switch ($action) {
             'spec_pack_qty' => max(1, (int)post('spec_pack_qty', 1)),
             'spec_pack_unit' => post('spec_pack_unit'),
             'single_use_qty' => max(1, (int)post('single_use_qty', 1)),
+            'allow_split' => (int)post('allow_split', 0),
             'is_skin_test' => (int)post('is_skin_test', 0),
             'skin_test_item_id' => (int)post('skin_test_item_id', 0),
         );
+        // 拆零开启校验（与管理员口径一致）：包装单位/最小单位/每包装数量(>1)/单剂量值必填
+        if ((int)$data['allow_split'] === 1) {
+            if (trim((string)$data['package_unit']) === '') json_fail('开启【允许拆零零售】须先选择包装单位（盒/瓶）');
+            if (trim((string)$data['spec_pack_unit']) === '') json_fail('开启【允许拆零零售】须先设置规格中的最小单位（如 支/粒/片）');
+            if ((int)$data['spec_pack_qty'] <= 1) json_fail('开启【允许拆零零售】时每包装数量必须大于 1（如 10 支/盒）');
+            if ((float)$data['spec_dose'] <= 0) json_fail('开启【允许拆零零售】须先设置规格中的单剂量值');
+        } else {
+            $data['allow_split'] = 0;
+        }
         if ($id > 0) {
             // 编辑已审核药品：置为待审核状态，重新走管理员审核（与管理员端/检验/检查口径一致），
             // 防止药房直接篡改已生效药品的价格/库存影响计费

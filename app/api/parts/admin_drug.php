@@ -94,7 +94,9 @@ function admin_part_drug($action) {
             '<th>药品名称</th><th>通用名</th><th>厂家简称</th><th>分类</th><th>规格</th><th>剂型</th><th>频次</th><th>途径</th><th>库存</th><th>价格</th><th>状态</th><th>操作</th></tr></thead><tbody>';
         foreach ($rows as $r) {
             $rowsHtml .= '<tr data-cat="' . e($r['category']) . '">' .
-                '<td class="fw-600">' . e($r['name']) . '</td>' .
+                '<td class="fw-600">' . e($r['name']) .
+                ((int)(isset($r['allow_split']) ? $r['allow_split'] : 0) === 1 ? ' <span class="badge badge-primary fs-12" title="允许按最小单位（支/粒/片）拆零销售">拆零</span>' : '') .
+                '</td>' .
                 '<td class="fs-12">' . e($r['generic_name']) . '</td>' .
                 '<td>' . e($r['vendor_short']) . '</td>' .
                 '<td>' . e($r['category']) . '</td>' .
@@ -154,7 +156,19 @@ function admin_part_drug($action) {
             'spec_pack_qty' => (int)post('spec_pack_qty', 1),
             'spec_pack_unit' => post('spec_pack_unit'),
             'single_use_qty' => (float)post('single_use_qty', 1),
+            // 拆零零售：允许按最小单位（支/粒/片）销售
+            'allow_split' => (int)post('allow_split', 0),
         );
+        // 拆零开启校验：必须完整填写 包装单位/最小单位/每包装数量(>1)/单剂量值，
+        // 保证前端开方单位下拉与拆零单价换算具备可靠数据
+        if ((int)$data['allow_split'] === 1) {
+            if (trim((string)$data['package_unit']) === '') json_fail('开启【允许拆零零售】须先选择包装单位（盒/瓶）');
+            if (trim((string)$data['spec_pack_unit']) === '') json_fail('开启【允许拆零零售】须先设置规格中的最小单位（如 支/粒/片）');
+            if ((int)$data['spec_pack_qty'] <= 1) json_fail('开启【允许拆零零售】时每包装数量必须大于 1（如 10 支/盒）');
+            if ((float)$data['spec_dose'] <= 0) json_fail('开启【允许拆零零售】须先设置规格中的单剂量值');
+        } else {
+            $data['allow_split'] = 0;
+        }
         if ((int)$data['is_skin_test'] === 1) {
             $stOk = DrugRepository::val("SELECT COUNT(*) FROM disposal_items WHERE id=? AND status='approved'", array($data['skin_test_item_id']));
             if (!$stOk) json_fail('请关联有效的皮试处置项目（需已通过审核）');

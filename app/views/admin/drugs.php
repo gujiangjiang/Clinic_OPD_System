@@ -74,6 +74,8 @@ function openDrugForm(id) {
         // 规格编辑器单位候选（历史已用去重，datalist 下拉/可输入）
         window.__doseUnits = (e.detail && e.detail.dose_units) || [];
         window.__packUnits = (e.detail && e.detail.pack_units) || [];
+        // 拆零零售面板联动（f_allow_split 开关 + 包装/拆零单价自动换算）
+        if (typeof bindSplitBox === 'function') bindSplitBox();
         window.syncNurse = function () {
             var route = document.getElementById('f_route').value;
             if (routeMap[route] === 1) {
@@ -103,6 +105,15 @@ function openDrugForm(id) {
             }
             var specPackUnit = document.getElementById('f_spec_pack_unit').value.trim();
             var useQty = Math.max(1, parseInt(document.getElementById('f_dose').value, 10) || 1);
+            // 拆零零售开启校验：包装单位/最小单位/每包装数量(>1) 必须完整
+            var allowSplit = document.getElementById('f_allow_split') ? (document.getElementById('f_allow_split').checked ? 1 : 0) : 0;
+            if (allowSplit === 1) {
+                var packUnitName = (document.getElementById('f_pkg').value || '').trim();
+                var specPackQty = parseInt(document.getElementById('f_spec_pack_qty').value, 10) || 1;
+                if (packUnitName === '') { Clinic.toast.warning('开启【允许拆零零售】须先选择包装单位（盒/瓶）'); return; }
+                if (specPackUnit === '') { Clinic.toast.warning('开启【允许拆零零售】须先设置规格中的最小单位（如 支/粒/片）'); return; }
+                if (specPackQty <= 1) { Clinic.toast.warning('开启【允许拆零零售】时每包装数量必须大于 1（如 10 支/盒）'); return; }
+            }
             // 单次使用剂量展示串（如 2粒）：随单次数量 + 包装单位推导
             var singleDoseShow = useQty + (specPackUnit !== '' ? specPackUnit : '');
             Clinic.ajax('/api/admin', {
@@ -120,6 +131,7 @@ function openDrugForm(id) {
                 spec_pack_qty: Math.max(1, parseInt(document.getElementById('f_spec_pack_qty').value, 10) || 1),
                 spec_pack_unit: specPackUnit,
                 single_use_qty: useQty,
+                allow_split: allowSplit,
                 form: document.getElementById('f_form').value,
                 single_dose: singleDoseShow,
                 frequency: document.getElementById('f_freq').value,

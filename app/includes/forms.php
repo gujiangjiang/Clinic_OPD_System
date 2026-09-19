@@ -101,6 +101,7 @@ function form_drug($id) {
             'package_unit' => '', 'spec' => '', 'form' => '', 'single_dose' => '', 'frequency' => '',
             'route' => '', 'price' => '0', 'qty' => '0', 'is_rx' => 0, 'is_limited' => 0, 'note' => '', 'is_nurse' => 0,
             'spec_dose' => 0, 'spec_dose_unit' => '', 'spec_pack_qty' => 1, 'spec_pack_unit' => '', 'single_use_qty' => 1,
+            'allow_split' => 0,
             'status' => '',
         );
     }
@@ -159,6 +160,26 @@ function form_drug($id) {
         <div class="form-group"><label class="form-label">价格（元）</label><input class="input" type="number" step="0.01" min="0" id="f_price" value="' . e($r['price']) . '"></div>
         <div class="form-group"><label class="form-label">药品数量（库存）</label><input class="input" type="number" min="0" id="f_qty" value="' . (int)$r['qty'] . '"></div>
     </div>
+    <div class="form-group" style="background:var(--bg-soft);border-radius:10px;padding:12px;margin-bottom:8px">
+        <label class="flex gap-4" style="font-size:13px;cursor:pointer;align-items:center">
+            <input type="checkbox" id="f_allow_split"' . ((int)$r['allow_split'] ? ' checked' : '') . ' onchange="syncSplitBox()">
+            <span><b>允许拆零零售</b>（按最小单位如 支/粒/片 销售）</span>
+        </label>
+        <div class="fs-12 text-muted mt-4">开启后开方时可选【最小单位】销售（如注射剂按支卖），系统自动按 包装单价 ÷ 每包装数量 核算拆零单价。关闭则仅按整包装（盒/瓶）销售。</div>
+        <div id="split_box" style="' . ((int)$r['allow_split'] ? '' : 'display:none') . 'margin-top:10px;border:1px dashed var(--border);border-radius:8px;padding:10px">
+            <div class="fs-13 fw-600 mb-4">拆零参数（开启后必填完整）</div>
+            <div class="flex gap-8 mb-4" style="flex-wrap:wrap;align-items:center;font-size:13px">
+                <span>包装单位：<b id="sp_pack_unit_name" style="color:var(--primary)">' . e($r['package_unit'] !== '' ? $r['package_unit'] : '—') . '</b></span>
+                <span>最小单位：<b id="sp_min_unit_name" style="color:var(--primary)">' . e($r['spec_pack_unit'] !== '' ? $r['spec_pack_unit'] : '—') . '</b></span>
+                <span>每包装数量：<b id="sp_pack_qty_name" style="color:var(--primary)">' . (int)$r['spec_pack_qty'] . '</b></span>
+            </div>
+            <div class="flex gap-16" style="font-size:13px;flex-wrap:wrap">
+                <span>包装售价：<b id="sp_pack_price" style="color:var(--primary)">¥' . money((float)$r['price']) . '</b> / ' . e($r['package_unit'] !== '' ? $r['package_unit'] : '盒') . '</span>
+                <span>拆零单价：<b id="sp_min_price" style="color:var(--primary)">¥' . money(drug_min_price($r)) . '</b> / ' . e($r['spec_pack_unit'] !== '' ? $r['spec_pack_unit'] : '个') . '</span>
+            </div>
+            <div class="fs-12 text-muted mt-4">需同时满足：包装单位（盒/瓶）、最小单位（支/粒/片）、每包装数量 &gt; 1、单剂量值已设置。</div>
+        </div>
+    </div>
     <div class="flex gap-16 mb-8">
         <label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="f_rx"' . ($r['is_rx'] ? ' checked' : '') . '> 处方药</label>
         <label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="f_limited"' . ($r['is_limited'] ? ' checked' : '') . '> 限制类药品</label>
@@ -194,5 +215,6 @@ function form_drug($id) {
         'is_skin_test' => (int)(isset($r['is_skin_test']) ? $r['is_skin_test'] : 0),
         'skin_test_item_id' => (int)(isset($r['skin_test_item_id']) ? $r['skin_test_item_id'] : 0),
         'skin_test_item_name' => $skinName,
+        'allow_split' => (int)(isset($r['allow_split']) ? $r['allow_split'] : 0),
         'dose_units' => $doseUnits, 'pack_units' => $packUnits);
 }
