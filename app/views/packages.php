@@ -621,7 +621,7 @@ function pkgRenderItems() {
             '    <span class="fw-600 fs-13' + (s.valid === 0 ? ' pkg-invalid' : '') + '">' + escHtml(s.item_name) + '</span>' +
             (s.valid === 0 ? ' <span class="badge badge-gray fs-12">已失效</span>' : '') +
             (s.is_group ? ' <span class="badge badge-primary fs-12">组合</span>' : '') +
-            (s.spec ? ' <span class="fs-12 text-muted">' + escHtml(s.spec) + '</span>' : '') +
+            (!s.is_group && s.spec ? ' <span class="fs-12 text-muted">' + escHtml(s.spec) + '</span>' : '') +
             (isDrug && s.frequency ? ' <span class="fs-12 text-muted">' + escHtml(s.frequency) + '</span>' : '') +
             (isDrug && s.route ? ' <span class="fs-12 text-muted">' + escHtml(s.route) + '</span>' : '') +
             (s.quantity > 1 ? ' <span class="badge badge-primary fs-12">×' + s.quantity + '</span>' : '') +
