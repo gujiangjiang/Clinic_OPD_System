@@ -220,6 +220,8 @@ function getFQtyMin() {
 }
 function refreshQtyUnits() {
     // 规格/包装单位变化：刷新单位按钮标签、换算展示（保持真实最小库存不变）
+    var lu = document.getElementById('f_warn_label_unit');
+    if (lu) lu.textContent = qtyPackUnit();
     renderQtyInput();
     syncWarn();
     if (typeof syncSplitBox === 'function') syncSplitBox();

@@ -176,7 +176,7 @@ function form_drug($id) {
             <input type="hidden" id="f_qty_unit" value="pack">
             <div class="fs-12 text-muted mt-4" id="f_qty_hint">库存统一以最小单位存储；此处默认按包装单位录入（如 100 盒），点击单位可切换为最小单位（' . e($qtyMinUnit) . '）。</div>
         </div>
-        <div class="form-group"><label class="form-label">警戒库存（' . e($qtyPackUnit) . '）</label>
+        <div class="form-group"><label class="form-label">警戒库存（<span id="f_warn_label_unit">' . e($qtyPackUnit) . '</span>）</label>
             <input class="input" type="number" min="0" step="1" id="f_warn_box" value="' . $warnBoxInit . '" title="按包装单位录入，自动换算为最小单位绝对警戒阈值">
             <input type="hidden" id="f_warn_qty" value="' . (int)$r['warn_qty'] . '">
             <div class="fs-12 text-muted mt-4" id="f_warn_hint">库存 ≤ 警戒线时低库存报警。按包装单位录入，系统自动换算为最小单位绝对阈值。</div>

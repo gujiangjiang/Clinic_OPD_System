@@ -89,7 +89,7 @@ function renderNTplList() {
                 actions += '<button class="btn btn-outline btn-sm" onclick="openNTplForm(' + t.id + ')">编辑</button>';
                 actions += '<button class="btn btn-outline btn-sm" onclick="delNTpl(' + t.id + ')">删除</button>';
             } else {
-                actions = '<span class="fs-12 text-muted">他人模板</span>';
+                actions = '<span class="fs-12 text-muted">他人模板</span>' + '<button class="btn btn-outline btn-sm" onclick="Clinic.previewTemplate(' + t.id + ')">👁 预览</button>';
             }
         }
         return '<tr>' +

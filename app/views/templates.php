@@ -115,13 +115,14 @@ function renderTplList() {
                 actions = '<span class="fs-12 text-muted">待审核·不可编辑</span>';
             }
         } else {
-            // 仅本人创建或管理员可编辑/删除
+            // 仅本人创建或管理员可编辑/删除；他人模板提供只读预览
             var canManage = <?php echo $isAdmin ? 'true' : 'false'; ?> || t.creator_id === <?php echo (int)$u['id']; ?>;
             if (canManage) {
                 actions += '<button class="btn btn-outline btn-sm" onclick="openTplForm(' + t.id + ')">编辑</button>';
                 actions += '<button class="btn btn-outline btn-sm" onclick="delTpl(' + t.id + ')">删除</button>';
             } else {
-                actions = '<span class="fs-12 text-muted">他人模板</span>';
+                actions = '<span class="fs-12 text-muted">他人模板</span>' +
+                    '<button class="btn btn-outline btn-sm" onclick="Clinic.previewTemplate(' + t.id + ')">👁 预览</button>';
             }
         }
         return '<tr>' +

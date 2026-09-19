@@ -114,6 +114,125 @@ function loadModal(url, data, title) {
 /**
  * 通用格式化 helper（多模块重复实现，统一收敛到 Clinic 全局）
  */
+/**
+ * 全局省略显示 + 悬浮完整内容提示（通用方法）：
+ * 返回带 max-width 的单行省略 span，悬浮（title）显示完整文本。
+ * 用于规格/厂商/名称等可能超长的展示位，与 .ellipsis 样式一致但自动带 title tip。
+ * @param {string} text      完整文本
+ * @param {number} maxWidth  最大宽度（px），省略截断阈值
+ * @param {string} extraCls  附加 class（如 text-muted）
+ * @returns {string} HTML
+ */
+Clinic.ellipsis = function (text, maxWidth, extraCls) {
+    text = (text == null ? '' : String(text));
+    maxWidth = maxWidth || 140;
+    return '<span class="ellipsis ' + (extraCls || '') + '" style="max-width:' + maxWidth + 'px;vertical-align:middle"' +
+        (text !== '' ? ' title="' + String(text).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '"' : '') +
+        '>' + Clinic.escHtml(text) + '</span>';
+};
+
+/**
+ * 模板/套餐只读预览（他人模板/套餐也可查看）：
+ * · Clinic.previewTemplate(tplId) —— 病历/知情同意/嘱托/护理/影像模板
+ * · Clinic.previewPackage(pkgId)  —— 检验/检查/处置/处方套餐
+ * 走 for_apply=1（仅读取对当前用户可见的已发布/本人模板），只读模态框展示。
+ */
+Clinic.previewTemplate = function (id) {
+    Clinic.get('/api/template?action=get&id=' + id + '&for_apply=1', null, {
+        onSuccess: function (j) {
+            var t = j.data && j.data.template;
+            if (!t) { Clinic.toast.warning('模板不存在或无权查看'); return; }
+            var c = t.content || {};
+            var lines = [];
+            // 通用字段递归格式化（跳过空值/对象容器按节展示）
+            var fmt = function (obj, depth) {
+                var html = '';
+                var pad = Array(depth + 1).join('　');
+                Object.keys(obj || {}).forEach(function (k) {
+                    var v = obj[k];
+                    if (v === null || v === undefined || v === '' || v === false) return;
+                    if (typeof v === 'object') {
+                        html += '<div class="fs-13 fw-600" style="margin:8px 0 2px">' + pad + k + '</div>' + fmt(v, depth + 1);
+                    } else {
+                        html += '<div class="fs-13" style="line-height:1.7;white-space:pre-wrap">' + pad + '<b>' + k + '：</b>' + Clinic.escHtml(String(v)) + '</div>';
+                    }
+                });
+                return html;
+            };
+            var body = fmt(c, 0);
+            if (body === '') body = '<div class="empty">模板暂无内容</div>';
+            var typeNames = { medical_record: '病历模板', consent: '知情同意书模板', order_note: '病历嘱托模板', nursing_record: '护理记录模板', imaging_report: '影像报告模板' };
+            var html = '<div class="form-group"><label class="form-label">模板名称</label><input class="input" value="' + Clinic.escHtml(t.title || '') + '" readonly></div>' +
+                '<div class="form-group"><label class="form-label">类型 / 适用范围</label>' +
+                '<input class="input" value="' + Clinic.escHtml((typeNames[t.type] || t.type) + ' / ' + ({ personal: '个人', dept: '科室', hospital: '全院' }[t.scope] || t.scope)) + '" readonly></div>' +
+                '<div class="form-group"><label class="form-label">模板内容</label>' +
+                '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 14px;max-height:400px;overflow-y:auto;background:var(--bg-soft)">' + body + '</div></div>';
+            var mask = Clinic.modal.open(html, { title: '预览 · ' + (typeNames[t.type] || '模板'), size: 'modal-lg' });
+            Clinic.modalReadonly(mask);
+        },
+    });
+};
+
+Clinic.previewPackage = function (id) {
+    Clinic.get('/api/package?action=get&id=' + id + '&for_apply=1', null, {
+        onSuccess: function (j) {
+            var p = j.data && j.data.package;
+            if (!p) { Clinic.toast.warning('套餐不存在或无权查看'); return; }
+            var pkgTypeNames = { lab: '检验套餐', imaging: '检查套餐', procedure: '处置套餐', prescription: '处方套餐' };
+            var isDrug = p.type === 'prescription';
+            var rows = (p.items || []).map(function (it) {
+                var dose = [it.single_dose, it.frequency, it.route].filter(function (x) { return x; }).join(' ｜ ');
+                var line = '<div class="flex-between" style="padding:5px 0;border-bottom:1px dashed var(--border)">' +
+                    '<span class="fw-600 fs-13 ellipsis" style="max-width:340px" title="' + Clinic.escHtml(it.item_name || '') + '">' + Clinic.escHtml(it.item_name || '') + '</span>' +
+                    '<span class="fs-12 text-muted">' + (it.quantity || 1) + (it.unit || '') + (dose ? ' ｜ ' + dose : '') +
+                    ' ｜ ¥' + ((parseFloat(it.price) || 0) * (it.quantity || 1)).toFixed(2) + '</span></div>';
+                if ((it.sub_of || 0) > 0) line = '<div style="padding:3px 0 3px 20px" class="fs-12 text-muted">└ 子医嘱：' +
+                    Clinic.escHtml(it.item_name || '') + (dose ? ' ｜ ' + dose : '') +
+                    ' ｜ ¥' + ((parseFloat(it.price) || 0) * (it.quantity || 1)).toFixed(2) + '</div>';
+                return line;
+            }).join('');
+            var html = '<div class="form-group"><label class="form-label">套餐名称</label><input class="input" value="' + Clinic.escHtml(p.title || '') + '" readonly></div>' +
+                '<div class="form-group"><label class="form-label">类型 / 适用范围</label>' +
+                '<input class="input" value="' + Clinic.escHtml((pkgTypeNames[p.type] || p.type) + ' / ' + ({ personal: '个人', dept: '科室', hospital: '全院' }[p.scope] || p.scope)) + '" readonly></div>' +
+                '<div class="form-group"><label class="form-label">套餐内容（' + (p.items || []).length + ' 项）</label>' +
+                '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;max-height:380px;overflow-y:auto">' +
+                (rows || '<div class="empty">套餐暂无项目</div>') + '</div></div>';
+            var mask = Clinic.modal.open(html, { title: '预览 · ' + (pkgTypeNames[p.type] || '套餐'), size: 'modal-lg' });
+            Clinic.modalReadonly(mask);
+        },
+    });
+};
+
+/**
+ * 模态框只读化（预览通用）：禁用全部交互控件，保留滚动，拦截点击/复制/右键。
+ */
+Clinic.modalReadonly = function (mask) {
+    if (!mask) return;
+    var body = mask.querySelector('.modal-body');
+    if (!body) return;
+    body.querySelectorAll('input, select, textarea').forEach(function (el) {
+        el.disabled = true;
+        el.setAttribute('readonly', '');
+    });
+    body.querySelectorAll('button, .btn').forEach(function (el) { el.disabled = true; });
+    body.querySelectorAll('[contenteditable]').forEach(function (el) { el.setAttribute('contenteditable', 'false'); });
+    body.querySelectorAll('[onclick], [onmousedown]').forEach(function (el) {
+        el.removeAttribute('onclick');
+        el.removeAttribute('onmousedown');
+    });
+    body.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); }, true);
+    body.style.userSelect = 'none';
+    body.style.webkitUserSelect = 'none';
+    body.addEventListener('contextmenu', function (e) { e.preventDefault(); return false; }, true);
+    body.addEventListener('copy', function (e) { e.preventDefault(); }, true);
+    body.addEventListener('cut', function (e) { e.preventDefault(); }, true);
+    body.addEventListener('paste', function (e) { e.preventDefault(); }, true);
+    var foot = mask.querySelector('.modal-foot');
+    if (foot) {
+        foot.innerHTML = '<span class="fs-12 text-muted">🔒 只读预览 — 内容不可编辑、复制，可滚动查看</span>';
+    }
+};
+
 Clinic.pad3 = function (n) {
     n = parseInt(n, 10) || 0;
     return n < 10 ? '00' + n : (n < 100 ? '0' + n : '' + n);

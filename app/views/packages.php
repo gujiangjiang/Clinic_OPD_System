@@ -162,7 +162,9 @@ function pkgItemRow(t) {
             actions = '<button class="btn btn-outline btn-sm" onclick="pkgOpenForm(' + t.id + ')">编辑</button>' +
                 '<button class="btn btn-outline btn-sm" onclick="pkgDel(' + t.id + ')">删除</button>';
         } else {
-            actions = '<span class="fs-12 text-muted">他人套餐</span>';
+            // 他人套餐：只读预览（走 for_apply 可见性过滤）
+            actions = '<span class="fs-12 text-muted">他人套餐</span>' +
+                '<button class="btn btn-outline btn-sm" onclick="Clinic.previewPackage(' + t.id + ')">👁 预览</button>';
         }
     }
     return '<tr>' +
@@ -644,10 +646,10 @@ function pkgRenderItems() {
         var head =
             '<div class="head">' +
             '  <div class="info">' +
-            '    <span class="fw-600 fs-13' + (s.valid === 0 ? ' pkg-invalid' : '') + '">' + escHtml(s.item_name) + '</span>' +
+            '    ' + (Clinic.ellipsis ? Clinic.ellipsis(s.item_name || '', 170, 'fw-600 fs-13' + (s.valid === 0 ? ' pkg-invalid' : '')) : '<span class="fw-600 fs-13">' + escHtml(s.item_name) + '</span>') +
             (s.valid === 0 ? ' <span class="badge badge-gray fs-12">已失效</span>' : '') +
             (s.is_group ? ' <span class="badge badge-primary fs-12">组合</span>' : '') +
-            (!s.is_group && s.spec ? ' <span class="fs-12 text-muted">' + escHtml(s.spec) + '</span>' : '') +
+            (!s.is_group && s.spec ? (Clinic.ellipsis ? Clinic.ellipsis(s.spec, 140, 'fs-12 text-muted') : ' <span class="fs-12 text-muted">' + escHtml(s.spec) + '</span>') : '') +
             (isDrug && s.frequency ? ' <span class="fs-12 text-muted">' + escHtml(s.frequency) + '</span>' : '') +
             (isDrug && s.route ? ' <span class="fs-12 text-muted">' + escHtml(s.route) + '</span>' : '') +
             (isDrug && s.sale_unit ? ' <span class="fs-12 text-muted">' + escHtml(s.quantity + ' ' + s.sale_unit) + '</span>' : '') +

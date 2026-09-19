@@ -555,7 +555,6 @@ Clinic.order = (function () {
             if (it.route) parts.push('途径 ' + it.route);
         }
         parts.push('库存 ' + (it.allow_split ? stockText(it, 'min') : stockText(it, 'pack')));
-        return '<div class="rx-drop-item" data-id="' + it.id + '" ' +
             'data-price="' + (it.price || 0) + '" data-name="' + (it.name || '').replace(/"/g, '&quot;') + '"' +
             ' data-spec="' + (it.spec || '') + '" data-unit="' + (it.unit || '') + '"' +
             ' data-company="' + (it.company_short || '') + '"' +
@@ -1845,12 +1844,12 @@ Clinic.order = (function () {
             var head =
                 '<div class="flex-between">' +
                 '  <div class="flex gap-8" style="align-items:center;min-width:0">' +
-                '    <span class="fw-600 fs-13 ellipsis">' + s.name + '</span>' +
+                '    ' + Clinic.ellipsis(s.name || '', 160, 'fw-600 fs-13') +
                 (s.is_group ? '<span class="badge badge-primary fs-12" style="flex-shrink:0">组合</span>' : '') +
-                (!s.is_group && s.spec ? '<span class="fs-12 text-muted" style="flex-shrink:0;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + s.spec + '</span>' : '') +
+                (!s.is_group && s.spec ? Clinic.ellipsis(s.spec, 150, 'fs-12 text-muted') : '') +
                 (s.skin_test ? '<span class="badge ' + (s.skin_test === 'yes' ? 'badge-danger' : 'badge-gray') + ' fs-12">' +
                     (s.skin_test === 'yes' ? '需要皮试' : '免试') + '</span>' : '') +
-                (s.company_short ? '<span class="fs-12 text-muted">' + s.company_short + '</span>' : '') +
+                (s.company_short ? Clinic.ellipsis(s.company_short, 70, 'fs-12 text-muted') : '') +
                 (isDrug && s.sale_unit ? '<span class="fs-12 text-muted" style="flex-shrink:0">' + s.quantity + ' ' + s.sale_unit + '</span>' : '') +
                 (s.quantity > 1 && !(isDrug && s.sale_unit) ? '<span class="badge badge-primary fs-12">×' + s.quantity + '</span>' : '') +
                 '    <span class="fs-12 text-muted" style="flex-shrink:0;margin-left:auto">¥' + (s.price * s.quantity).toFixed(2) + '</span>' +
