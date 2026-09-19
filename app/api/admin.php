@@ -36,9 +36,9 @@ require __DIR__ . '/parts/admin_import.php';
 // 杜绝跨科室互改（如影像科改检验项目、检验科改药品）。
 if (in_array($u['role'], array('lab', 'imaging', 'pharmacy'), true)) {
     if ($u['role'] === 'pharmacy') {
-        // 药房：仅药品信息/设置只读 + 新增修改提交审核
+        // 药房：药品信息/设置编辑（提交走审核）+ 表单读取
         $roleOpenActions = array(
-            'drug_list', 'drugsetting_list', 'drugsetting_save', 'drug_save',
+            'drug_list', 'drug_form', 'drug_save', 'drugsetting_list', 'drugsetting_save',
         );
     } else {
         // 检验科（lab）/ 影像科（imaging）：本职项目查看与提交审核 + 组合只读

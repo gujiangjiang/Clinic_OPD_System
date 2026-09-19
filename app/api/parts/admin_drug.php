@@ -35,10 +35,10 @@ function admin_part_drug($action) {
                     ? '<td>' . ($r['is_nurse'] ? '<span class="badge badge-warning">是（护士站执行）</span>' : '<span class="badge badge-gray">否</span>') . '</td>'
                       . '<td>' . ($bindName !== '' ? '<span class="badge badge-primary">' . e($bindName) . '</span>' : '<span class="badge badge-gray">未绑定</span>') . '</td>'
                     : '') .
-                '<td>' . ($u['role'] === 'admin'
+                '<td>' . (drug_can_manage($u)
                     ? '<div class="flex gap-4">' .
                 '<button class="btn btn-outline btn-sm" onclick="editDrugSetting(\'' . $stype . '\',' . (int)$r['id'] . ',\'' . e($r['name']) . '\',' . (int)$r['is_nurse'] . ',' . (int)(isset($r['bind_disposal_item_id']) ? $r['bind_disposal_item_id'] : 0) . ',\'' . e($bindName) . '\')">编辑</button>' .
-                '<button class="btn btn-outline btn-sm" onclick="delDrugSetting(' . (int)$r['id'] . ')">删除</button></div>'
+                ($u['role'] === 'admin' ? '<button class="btn btn-outline btn-sm" onclick="delDrugSetting(' . (int)$r['id'] . ')">删除</button>' : '') . '</div>'
                     : '<span class="text-muted fs-12">只读</span>') . '</td></tr>';
         }
         $html .= '</tbody></table></div>';
@@ -113,11 +113,11 @@ function admin_part_drug($action) {
                 '<td class="fs-12 text-muted">' . ($warnBoxTxt === '—' ? '—' : '≤ ' . $warnBoxTxt . ' ' . e($r['package_unit'] !== '' ? $r['package_unit'] : '盒')) . '</td>' .
                 '<td>¥' . money($r['price']) . '</td>' .
                 '<td>' . item_status_badge((string)$r['status']) . '</td>' .
-                '<td>' . ($u['role'] === 'admin'
+                '<td>' . (drug_can_manage($u)
                     ? '<div class="flex gap-4">' .
-                    // 编辑按钮与「新增」共用 openDrugForm(id)
+                    // 编辑按钮与「新增」共用 openDrugForm(id)；删除仅管理员（药房无删除权限）
                     '<button class="btn btn-outline btn-sm" onclick="openDrugForm(' . (int)$r['id'] . ')">编辑</button>' .
-                    '<button class="btn btn-outline btn-sm" onclick="delDrug(' . (int)$r['id'] . ')">删除</button></div>'
+                    ($u['role'] === 'admin' ? '<button class="btn btn-outline btn-sm" onclick="delDrug(' . (int)$r['id'] . ')">删除</button>' : '') . '</div>'
                     : '<span class="text-muted fs-12">只读</span>') . '</td></tr>';
         }
         $rowsHtml .= '</tbody>';

@@ -27,6 +27,20 @@ function user_dept_ids($u = null) {
 }
 
 /**
+ * 药品档案管理权限：管理员 + 药房（可编辑药品信息/库存/警戒库存、药品设置）。
+ * 药房作为药品进销存责任科室，须能维护药品档案与出入库；编辑仍走审核流（非管理员）。
+ * @param array $u 用户数据（缺省取当前登录用户）
+ * @return bool
+ */
+function drug_can_manage($u = null) {
+    if ($u === null) {
+        $u = Auth::user();
+    }
+    $role = isset($u['role']) ? (string)$u['role'] : '';
+    return in_array($role, array('admin', 'pharmacy'), true);
+}
+
+/**
  * 护士操作科室归属校验（宽松版）。
  * 说明：护士默认不绑定科室（dept_ids 为空 = 全院），此时一律放行——
  * 强制执行 visit_dept_authorized 会拦停所有护士操作；仅当护士在

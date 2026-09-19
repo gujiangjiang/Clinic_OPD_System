@@ -9,9 +9,11 @@
  */
 Router::title('药品信息');
 $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
+$__isPharmacy = Auth::user() && Auth::user()['role'] === 'pharmacy';
+$__canManage = $__isAdmin || $__isPharmacy;
 ?>
 <div class="page-head">
-    <div><div class="page-title">💊 药品信息</div><div class="page-desc">药品档案管理<?php echo $__isAdmin ? '' : '（新增药品需审核通过后可用）'; ?></div></div>
+    <div><div class="page-title">💊 药品信息</div><div class="page-desc">药品档案管理<?php echo $__canManage ? '' : '（新增药品需审核通过后可用）'; ?></div></div>
     <div class="flex gap-8">
         <span id="drugImportBtns" class="flex gap-8"></span>
         <button class="btn btn-primary btn-sm" onclick="openDrugForm(0)">＋ 新增药品</button>
@@ -27,7 +29,10 @@ $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
 
 <script>
 var DRUG_CAT = '';
-var IS_ADMIN = document.body.getAttribute('data-role') === 'admin';
+var DRUG_ROLE = document.body.getAttribute('data-role') || '';
+var IS_ADMIN = DRUG_ROLE === 'admin';
+// 药房可维护药品档案（编辑走审核；导入按钮仅管理员）
+var IS_DRUG_MANAGER = DRUG_ROLE === 'admin' || DRUG_ROLE === 'pharmacy';
 if (!IS_ADMIN) {
     var ib = document.getElementById('drugImportBtns'); if (ib) ib.style.display = 'none';
 }
