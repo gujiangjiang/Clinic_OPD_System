@@ -474,6 +474,8 @@ function pkgInitCatList() {
                 RX_FREQS = d.link_dicts.frequencies || [];
                 RX_ROUTES = d.link_dicts.routes || [];
                 PKG_RX_CATS = d.link_dicts.categories || [];
+                // 字典就绪后重渲染已选列表：已添加药品的频次/途径下拉即时可用
+                pkgRenderItems();
                 // 搜索框内附加快速筛选 tab（仅首次；分类就绪后）
                 var kwEl = document.getElementById('pkgCatKw');
                 if (kwEl && !PKG_TAB_GET && window.Clinic && Clinic.order && Clinic.order.attachSearchTabs) {

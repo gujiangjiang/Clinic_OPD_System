@@ -988,10 +988,13 @@ Clinic.order = (function () {
                     e.preventDefault();
                     var it = JSON.parse(el.getAttribute('data-it') || '{}');
                     p.style.display = 'none';
-                    if (opts.onPick) opts.onPick(it);
+                    // 使用面板最新回调（面板复用，闭包 opts 可能来自首次调用导致串台）
+                    if (p.__onPick) p.__onPick(it);
                 }, true);
             }
         }
+        // 每次打开更新回调（面板复用，条目点击委托读取最新回调）
+        panel.__onPick = opts.onPick || null;
         panel.innerHTML =
             '<div style="padding:8px 10px;border-bottom:1px solid var(--border)">' +
             '<input type="text" class="input" id="pickerKw" placeholder="' + (opts.placeholder || '🔍 搜索项目') + '" autocomplete="off" style="min-height:30px;padding:5px 10px">' +
@@ -1085,6 +1088,51 @@ Clinic.order = (function () {
         return initDoseFields(it, item);
     }
 
+    /** 选择器条目 → 套餐编辑器可编辑对象（item_id/item_name 结构 + 兼容共享控件字段） */
+    function pkgFromPick(it, qty) {
+        var o = {
+            item_id: parseInt(it.id, 10) || 0,
+            item_name: it.name || '',
+            price: parseFloat(it.price) || 0,
+            spec: it.spec || '',
+            unit: it.unit || '',
+            company_short: it.company_short || '',
+            single_dose: it.single_dose || '',
+            frequency: it.frequency || '',
+            route: it.route || '',
+            route_nurse_required: parseInt(it.route_nurse_required, 10) || 0,
+            stock: parseInt(it.stock, 10) || 0,
+            nurse_required: parseInt(it.nurse_required, 10) || 0,
+            is_skin_test: parseInt(it.is_skin_test, 10) || 0,
+            skin_test_item_id: parseInt(it.skin_test_item_id, 10) || 0,
+            spec_dose: parseFloat(it.spec_dose) || 0,
+            spec_dose_unit: it.spec_dose_unit || '',
+            spec_pack_qty: parseInt(it.spec_pack_qty, 10) || 1,
+            spec_pack_unit: it.spec_pack_unit || '',
+            single_use_qty: parseFloat(it.single_use_qty) || 1,
+            quantity: Math.max(1, parseInt(qty, 10) || 1),
+            sub_items: [],
+            is_group: it.is_group ? 1 : 0,
+            members: it.members || it.spec || '',
+            member_ids: it.member_ids || '',
+            member_items: it.member_items || [],
+            valid: 1,
+            invalid_reason: '',
+        };
+        // 兼容共享药品控件（order.js drugControls/doseDisplay 读取 id/name/dose/dose_unit）
+        o.id = o.item_id;
+        o.name = o.item_name;
+        if (o.spec_dose > 0) {
+            o.dose = Math.round(o.quantity * o.spec_dose * 100) / 100;
+            o.dose_unit = o.spec_dose_unit;
+            o.single_dose = o.dose + (o.dose_unit || '');
+        } else {
+            o.dose = it.dose || it.single_dose || '';
+            o.dose_unit = '';
+        }
+        return o;
+    }
+
     /** 更换当前条目：打开通用选择器（type 跟随当前开单/套餐类型），选中后确认替换 */
     function openReplace(key, idx, btn, type, url) {
         // 兼容旧调用 openReplace(idx, btn)
@@ -1116,16 +1164,22 @@ Clinic.order = (function () {
                         return (m.sub_items || []).some(function (sub) { return sub.id === it.id; });
                     });
                     if (dup) { Clinic.toast.warning('【' + it.name + '】已在列表中，不能重复'); return; }
-                    var newItem = pkgToOrderItem({
-                        item_id: it.id, item_name: it.name, price: it.price, spec: it.spec || '',
-                        unit: it.unit || '', company_short: it.company_short || '',
-                        single_dose: it.single_dose || '', frequency: it.frequency || '', route: it.route || '',
-                        spec_dose: it.spec_dose || 0, spec_dose_unit: it.spec_dose_unit || '',
-                        spec_pack_qty: it.spec_pack_qty || 1, spec_pack_unit: it.spec_pack_unit || '',
-                        single_use_qty: it.single_use_qty || 1, is_group: it.is_group ? 1 : 0,
-                        member_ids: it.member_ids || '', members: it.members || it.spec || '',
-                        quantity: s.quantity || 1, sub_of: 0, is_skin_test: it.is_skin_test || 0,
-                    }, false);
+                    // 按上下文生成正确结构：套餐编辑器='pkg' 用 item_id/item_name，开单='sel' 用 id/name
+                    var newItem;
+                    if (key === 'pkg') {
+                        newItem = pkgFromPick(it, s.quantity || 1);
+                    } else {
+                        newItem = pkgToOrderItem({
+                            item_id: it.id, item_name: it.name, price: it.price, spec: it.spec || '',
+                            unit: it.unit || '', company_short: it.company_short || '',
+                            single_dose: it.single_dose || '', frequency: it.frequency || '', route: it.route || '',
+                            spec_dose: it.spec_dose || 0, spec_dose_unit: it.spec_dose_unit || '',
+                            spec_pack_qty: it.spec_pack_qty || 1, spec_pack_unit: it.spec_pack_unit || '',
+                            single_use_qty: it.single_use_qty || 1, is_group: it.is_group ? 1 : 0,
+                            member_ids: it.member_ids || '', members: it.members || it.spec || '',
+                            quantity: s.quantity || 1, sub_of: 0, is_skin_test: it.is_skin_test || 0,
+                        }, false);
+                    }
                     // 保留原条目子医嘱（若有）与护士设置；处方沿用原频次/途径便于微调
                     newItem.sub_items = s.sub_items || [];
                     newItem.nurse_required = s.nurse_required || 0;
