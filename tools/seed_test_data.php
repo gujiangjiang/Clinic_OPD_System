@@ -828,23 +828,27 @@ function parse_single_use($singleDose) {
     if (preg_match('/^([\d.]+)/u', trim((string)$singleDose), $m)) return (float)$m[1];
     return 1.0;
 }
-$drugInsertSql = "INSERT INTO drugs(name,category,vendor,vendor_short,package_unit,spec,form,single_dose,frequency,route,price,qty,is_rx,is_limited,note,is_nurse,status,created_at,is_skin_test,skin_test_item_id,spec_dose,spec_dose_unit,spec_pack_qty,spec_pack_unit,single_use_qty) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+$drugInsertSql = "INSERT INTO drugs(name,category,vendor,vendor_short,package_unit,spec,form,single_dose,frequency,route,price,qty,is_rx,is_limited,note,is_nurse,status,created_at,is_skin_test,skin_test_item_id,spec_dose,spec_dose_unit,spec_pack_qty,spec_pack_unit,single_use_qty,allow_split) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 foreach ($drugDefs as $D) {
     $stmt = $pdo->prepare("SELECT id FROM drugs WHERE name=?");
     $stmt->execute([$D[0]]);
     $did = $stmt->fetchColumn();
     list($specDose, $specDoseUnit, $specPackQty, $specPackUnit) = parse_drug_spec($D[3]);
     $singleUse = parse_single_use($D[4]);
+    // 拆零零售默认：注射液/口服液按「支」包装（pack_size>1）允许拆零（如 8万U×10支 → 按支卖）；
+    // 片/粒/袋等口服整盒药品默认整盒销售，管理员可在药品管理中自行开启。
+    $allowSplit = ($specPackUnit === '支' && $specPackQty > 1) ? 1 : 0;
     if (!$did) {
         $pdo->prepare($drugInsertSql)->execute([
             $D[0], $D[1], '北京大学医药', '北大', '盒', $D[3], '', $D[4], $D[5], $D[2], $D[7], $D[8], $D[9], $D[10], $D[6], $D[11], 'approved', now_str(), $D[12] > 0 ? 1 : 0, $D[13],
-            $specDose, $specDoseUnit, $specPackQty, $specPackUnit, $singleUse,
+            $specDose, $specDoseUnit, $specPackQty, $specPackUnit, $singleUse, $allowSplit,
         ]);
         $createdDrugs++;
-    } else {
-        // 已存在：补齐规格拆分字段（幂等）
-        $pdo->prepare("UPDATE drugs SET spec_dose=?, spec_dose_unit=?, spec_pack_qty=?, spec_pack_unit=?, single_use_qty=? WHERE id=?")->execute([
-            $specDose, $specDoseUnit, $specPackQty, $specPackUnit, $singleUse, (int)$did
+} else {
+        // 已存在：补齐规格拆分字段（幂等），拆零标记按规则确定性设置
+        // （测试数据生成器以规则为准：注射液/口服液按「支」包装且 pack_size>1 → 允许拆零）
+        $pdo->prepare("UPDATE drugs SET spec_dose=?, spec_dose_unit=?, spec_pack_qty=?, spec_pack_unit=?, single_use_qty=?, allow_split=? WHERE id=?")->execute([
+            $specDose, $specDoseUnit, $specPackQty, $specPackUnit, $singleUse, $allowSplit, (int)$did
         ]);
     }
 }

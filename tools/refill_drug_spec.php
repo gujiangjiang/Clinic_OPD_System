@@ -6,6 +6,16 @@
  * 将 drugs.spec 文本（如 0.5g×24粒 / 250ml×1瓶 / 8万U×10支）解析为
  * 结构化字段：spec_dose / spec_dose_unit / spec_pack_qty / spec_pack_unit，
  * 并将 single_dose（如 2粒 / 按说明书）解析为单次数量 single_use_qty。
+ *
+ * 结构化字段与拆零销售语义映射（v8.17）：
+ *   spec_dose        = 最小拆分单位规格量（min_spec_amount，如 0.3、8）
+ *   spec_dose_unit   = 规格单位（min_spec_unit，如 g、mg、万U、ml）
+ *   spec_pack_qty    = 每包装内含最小单位数量（pack_size，如 24 粒/盒）
+ *   spec_pack_unit   = 最小拆分单位（min_unit，如 支、粒、片、袋）
+ *   package_unit     = 包装单位（pack_unit，如 盒、瓶、包、板）
+ *   allow_split      = 是否允许拆零零售（管理员手工维护，本工具不覆盖）
+ *   drugs.qty        = 最小单位库存（整盒数量 × pack_size）
+ *
  * 幂等：重复运行仅更新已有解析结果，不影响手工编辑过的药品。
  * 用法：~/.local/bin/frankenphp php-cli tools/refill_drug_spec.php
  * ============================================================ */

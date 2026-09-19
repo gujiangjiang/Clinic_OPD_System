@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 37,
+    'version' => 38,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -337,7 +337,8 @@ return array(
             spec_dose_unit TEXT,
             spec_pack_qty INTEGER DEFAULT 1,
             spec_pack_unit TEXT,
-            single_use_qty REAL DEFAULT 1
+            single_use_qty REAL DEFAULT 1,
+            allow_split INTEGER DEFAULT 0
         )",
 
         /* ---------------- 病历 ---------------- */
@@ -1127,6 +1128,23 @@ return array(
                 created_at TEXT
             )",
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_print_snapshot_biz ON print_snapshots(biz_type, biz_id)",
+        ),
+        // v38：门诊拆零销售与数量自动计算重构——
+        //  · drugs.allow_split 允许拆零零售开关（0=仅整包装销售 / 1=允许按最小单位销售）；
+        //  · order_items.unit_type 开立销售单位（pack=包装单位盒/瓶 / min=最小单位支/粒/片），
+        //    打印/药房发药/退费库存恢复均按此区分（历史数据回退 pack=整盒）；
+        //  · order_items.pack_size 每包装含最小单位数快照——整盒售出时库存扣减
+        //    数量×pack_size、拆零按实际支/粒数扣减，退费/审方驳回恢复口径一致；
+        //  · 存量库存统一为「最小单位」口径（整盒数量 × 每盒最小单位数），
+        //    开方数量校验与发药扣减不再因单位混淆而错扣/漏扣。
+        38 => array(
+            "ALTER TABLE drugs ADD COLUMN allow_split INTEGER DEFAULT 0",
+            "ALTER TABLE order_items ADD COLUMN unit_type TEXT DEFAULT 'pack'",
+            "ALTER TABLE order_items ADD COLUMN pack_size INTEGER DEFAULT 1",
+            "UPDATE drugs SET qty = qty * spec_pack_qty WHERE spec_pack_qty IS NOT NULL AND spec_pack_qty > 1",
+            // 历史处方明细 pack_size 回填：迁移前开立均为整包装（pack）口径，
+            // 按当前药品每包装最小单位数补齐快照——退费/审方驳回恢复库存口径一致
+            "UPDATE order_items SET pack_size = COALESCE((SELECT spec_pack_qty FROM drugs WHERE drugs.id = order_items.item_id), 1) WHERE item_type='prescription' AND (pack_size IS NULL OR pack_size < 1)",
         ),
     ),
     'seed' => array(

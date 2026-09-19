@@ -137,6 +137,80 @@ function drug_spec_text($r) {
 }
 
 /**
+ * 药品单包装总规格量（PackCap = pack_size × min_spec_amount）：
+ * 例：0.3g × 24 粒 = 单盒总规格量 7.2g；8万U × 10 支 = 单盒总规格量 80万U。
+ * 开方按包装单位销售时，1 盒能否覆盖单次剂量以此为准。
+ * @param array $r 药品行（需含 spec_dose/spec_pack_qty）
+ * @return float
+ */
+function drug_pack_cap($r) {
+    $r = is_array($r) ? $r : array();
+    return round((float)(isset($r['spec_dose']) ? $r['spec_dose'] : 0) * max(1, (int)(isset($r['spec_pack_qty']) ? $r['spec_pack_qty'] : 1)), 4);
+}
+
+/**
+ * 药品单包装售价（整包装价格，drugs.price 即包装价）。
+ * @param array $r 药品行
+ * @return float
+ */
+function drug_pack_price($r) {
+    $r = is_array($r) ? $r : array();
+    return round((float)(isset($r['price']) ? $r['price'] : 0), 4);
+}
+
+/**
+ * 拆零单价 = 包装单价 / pack_size（每包装最小单位数），保留 4 位小数防除不尽精度丢失；
+ * 结算总价统一 round(单价×数量, 2) 做金融四舍五入，各处金额核算保持一致。
+ * @param array $r 药品行
+ * @return float
+ */
+function drug_min_price($r) {
+    $r = is_array($r) ? $r : array();
+    $ps = max(1, (int)(isset($r['spec_pack_qty']) ? $r['spec_pack_qty'] : 1));
+    return round((float)(isset($r['price']) ? $r['price'] : 0) / $ps, 4);
+}
+
+/**
+ * 按开立销售单位返回「单单位销售价」：pack → 包装价；min → 拆零单价。
+ * @param array  $r        药品行
+ * @param string $unitType pack=包装单位 / min=最小单位
+ * @return float
+ */
+function drug_sale_price($r, $unitType) {
+    return $unitType === 'min' ? drug_min_price($r) : drug_pack_price($r);
+}
+
+/**
+ * 开立销售单位名称：pack → 包装单位（盒/瓶/包/板）；min → 最小拆分单位（支/粒/片/袋/丸）。
+ * @param array  $r        药品行
+ * @param string $unitType pack=包装单位 / min=最小单位
+ * @return string
+ */
+function drug_unit_name($r, $unitType) {
+    $r = is_array($r) ? $r : array();
+    if ($unitType === 'min') {
+        $u = trim((string)(isset($r['spec_pack_unit']) ? $r['spec_pack_unit'] : ''));
+        return $u !== '' ? $u : '个';
+    }
+    $u = trim((string)(isset($r['package_unit']) ? $r['package_unit'] : ''));
+    return $u !== '' ? $u : '盒';
+}
+
+/**
+ * 库存折算系数（库存统一为最小单位口径）：
+ *  · pack（整盒售出）：扣减 数量 × pack_size（1 盒 = pack_size 个最小单位）；
+ *  · min（拆零售出）：扣减实际支/粒/片数（系数 1）。
+ * @param array  $r        药品行
+ * @param string $unitType pack=包装单位 / min=最小单位
+ * @return int
+ */
+function drug_stock_factor($r, $unitType) {
+    $r = is_array($r) ? $r : array();
+    if ($unitType === 'min') return 1;
+    return max(1, (int)(isset($r['spec_pack_qty']) ? $r['spec_pack_qty'] : 1));
+}
+
+/**
  * 解析化验数值为浮点（危急值比对用）：
  * 容忍 "5.2"、">200"、"<0.1"、"≤5"、"≥10" 等带比较符号的写法，
  * 非数值（如「阳性」「未见异常」）返回 null。
