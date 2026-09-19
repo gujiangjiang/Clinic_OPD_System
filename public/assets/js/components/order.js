@@ -554,7 +554,7 @@ Clinic.order = (function () {
             if (it.frequency) parts.push('频次 ' + it.frequency);
             if (it.route) parts.push('途径 ' + it.route);
         }
-        parts.push('库存 ' + (it.stock || 0));
+        parts.push('库存 ' + (it.allow_split ? stockText(it, 'min') : stockText(it, 'pack')));
         return '<div class="rx-drop-item" data-id="' + it.id + '" ' +
             'data-price="' + (it.price || 0) + '" data-name="' + (it.name || '').replace(/"/g, '&quot;') + '"' +
             ' data-spec="' + (it.spec || '') + '" data-unit="' + (it.unit || '') + '"' +
@@ -1036,7 +1036,8 @@ Clinic.order = (function () {
         if (type === 'prescription') {
             extra = (it.company_short ? ' <span class="fs-12 text-muted">' + Clinic.escHtml(it.company_short) + '</span>' : '') +
                 ' <span class="fs-12 text-muted">¥' + parseFloat(it.price || 0).toFixed(2) + '</span>' +
-                ' <span class="fs-12 text-muted">库存' + (it.stock || 0) + '</span>';
+                // 3.5 库存单位联动：允许拆零→最小单位展示（含整包装折算）；否则包装单位
+                ' <span class="fs-12 text-muted">库存' + (it.allow_split ? stockText(it, 'min') : stockText(it, 'pack')) + '</span>';
         } else {
             if (type === 'lab' && it.is_group) {
                 name += ' <span class="badge badge-primary fs-12">组合</span>';
@@ -1647,6 +1648,32 @@ Clinic.order = (function () {
         return Math.round(parseFloat(v) * 10000) / 10000;
     }
 
+    /**
+     * 库存展示串（3.5 动态单位联动）：
+     * · min（最小单位）：X 支，pack_size>1 时附带整包装折算「X盒Y支」；
+     * · pack（包装单位）：floor(库存/pack_size) 盒（不支持拆零药品搜索候选项默认展示）。
+     * @param {object} it       目录条目（需含 stock/pack_size/pack_unit/min_unit）
+     * @param {string} unitType pack=包装单位 / min=最小单位
+     * @returns {string}
+     */
+    function stockText(it, unitType) {
+        it = it || {};
+        var min = parseInt(it.stock, 10) || 0;
+        var ps = parseInt(it.pack_size, 10) || parseInt(it.spec_pack_qty, 10) || 1;
+        var packUnit = it.pack_unit || it.unit || '盒';
+        var minUnit = it.min_unit || it.spec_pack_unit || '';
+        if (unitType === 'min') {
+            var s = min + (minUnit ? ' ' + minUnit : '');
+            if (ps > 1) {
+                var packs = Math.floor(min / ps);
+                var rem = min % ps;
+                s += '（' + packs + packUnit + (rem ? rem + minUnit : '') + '）';
+            }
+            return s;
+        }
+        return Math.floor(min / ps) + ' ' + packUnit;
+    }
+
     /** 剂量展示串：1g / 110ml / 2（无单位时仅数值） */
     function doseDisplay(o) {
         var v = (o.dose === '' || o.dose == null) ? '' : String(o.dose);
@@ -1873,11 +1900,22 @@ Clinic.order = (function () {
                     '<option value="pack" selected>' + packName + '</option></select>';
             }
         }
-        // 库存展示按开立单位折算（整盒数量 = 最小单位库存 ÷ pack_size）
+        // 库存展示按开立单位联动（3.5）：min → X 支（含整包装折算）；pack → X 盒（含拆零余量）
         var stockTxt = '';
         if (isDrug) {
             var stockMax = qtyMaxOf(s);
-            stockTxt = '<span class="fs-12 text-muted">库存' + stockMax + (s.sale_unit || '') + '</span>';
+            var minStock = parseInt(s.stock, 10) || 0;
+            var psStock = Math.max(1, parseInt(s.spec_pack_qty, 10) || 1);
+            var packNameStock = s.pack_unit || s.unit || '盒';
+            var minNameStock = s.min_unit || s.spec_pack_unit || '';
+            if (s.unit_type === 'min') {
+                stockTxt = '库存' + minStock + minNameStock +
+                    (psStock > 1 ? '（' + Math.floor(minStock / psStock) + packNameStock + ((minStock % psStock) ? (minStock % psStock) + minNameStock : '') + '）' : '');
+            } else {
+                stockTxt = '库存' + stockMax + packNameStock +
+                    (psStock > 1 && (minStock % psStock) ? '（余' + (minStock % psStock) + minNameStock + '）' : '');
+            }
+            stockTxt = '<span class="fs-12 text-muted" title="库存（按当前销售单位）">' + stockTxt + '</span>';
         }
         return '<div class="flex gap-4" style="align-items:center">' +
             '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px"' + (dis ? ' disabled' : '') + ' ' +
@@ -2212,7 +2250,7 @@ openDosePop: openDosePop, doseQuick: doseQuick, applyDose: applyDose, closeDoseP
         rxSetCtx: rxSetCtx, rxCtx: rxCtx, setRxDicts: setRxDicts,
         qtyControls: qtyControls, nurseToggle: nurseToggle, drugControls: drugControls, subList: subList,
         doseDisplay: doseDisplay, attachSearchTabs: attachSearchTabs,
-        applyUnit: applyUnit, autoQty: autoQty, qtyMaxOf: qtyMaxOf,
+        applyUnit: applyUnit, autoQty: autoQty, qtyMaxOf: qtyMaxOf, stockText: stockText,
         openItemPicker: openItemPicker, openReplace: openReplace, closeItemPicker: closeItemPicker,
     };
 })();

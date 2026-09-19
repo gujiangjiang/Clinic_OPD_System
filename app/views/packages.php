@@ -481,11 +481,18 @@ function pkgInitCatList() {
         url: pkgCatUrl,
         render: function (list, isFirst) {
             return list.map(function (it) {
+                var stockHtml = '';
+                // 3.5 处方套餐搜索候选项库存单位联动（允许拆零→最小单位 / 否则包装单位）
+                if (PKG_TYPE === 'prescription' && window.Clinic && Clinic.order && Clinic.order.stockText) {
+                    var st = Clinic.order.stockText(it, it.allow_split ? 'min' : 'pack');
+                    stockHtml = ' <span class="fs-12 text-muted">库存' + st + '</span>';
+                }
                 return '<div class="dd-item" data-it="' + escHtml(JSON.stringify(it)) + '">' +
                     '<span class="fw-600">' + escHtml(it.name || '') + '</span>' +
                     (it.is_group ? ' <span class="badge badge-primary fs-12">组合</span>' : '') +
                     (it.category_name ? ' <span class="badge badge-gray fs-12">' + escHtml(it.category_name) + '</span>' : '') +
                     (it.company_short ? ' <span class="fs-12 text-muted">' + escHtml(it.company_short) + '</span>' : '') +
+                    stockHtml +
                     ' <span class="fs-12 text-muted">¥' + parseFloat(it.price || 0).toFixed(2) + '</span></div>';
             }).join('');
         },
