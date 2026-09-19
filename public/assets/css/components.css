@@ -609,9 +609,12 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
     opacity: .7;
 }
 /* 搜索框内右侧快速筛选 tab（输入框内嵌胶囊，聚焦时右移让位） */
-.search-tabs-wrap { position: relative; }
+.search-tabs-wrap {
+    position: relative; flex: 1; min-width: 0; width: 100%;
+    display: flex; align-items: center;
+}
 .search-tabs-wrap .search-tabs {
-    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
     display: flex; gap: 4px; pointer-events: none; z-index: 2;
 }
 .search-tabs-wrap .search-tab {
@@ -624,7 +627,8 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
 .search-tabs-wrap .search-tab.active {
     background: var(--primary); border-color: var(--primary); color: #fff;
 }
-.search-tabs-wrap input { padding-right: 12px; }
+/* 输入框占满 wrap；右侧留白避免文字被 tab 遮挡（tab 数量多时输入内容左移可接受） */
+.search-tabs-wrap input { flex: 1; min-width: 0; padding-right: 4px; }
 /* 开单已选列表：检验组合所含成员标签（换行排列，不挤占头部价格/操作区） */
 .order-grp-info { line-height: 1.9; }
 .order-grp-mems { display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: middle; }

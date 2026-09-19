@@ -378,6 +378,10 @@ function pkgBuildForm(mask, pkg) {
             if (k !== PKG_CAT_KW) pkgCatReset();
             pkgShowCatDrop();
         });
+        // 点击已聚焦输入框：重新弹出下拉（focus 事件在已聚焦时不触发，pkgCatPick 收起后靠点击重开）
+        catKw.addEventListener('click', function () {
+            pkgShowCatDrop();
+        });
         catKw.addEventListener('input', function () {
             clearTimeout(catKw.__t);
             catKw.__t = setTimeout(function () { pkgCatReset(); }, 300);
@@ -564,6 +568,8 @@ function pkgRenderItems() {
     document.getElementById('pkgItemCount').textContent = PKG_ITEMS.length;
     document.getElementById('pkgItemTotal').textContent = '¥' + total.toFixed(2);
     box.innerHTML = PKG_ITEMS.map(function (s, i) {
+        var extra = isDrug ? Clinic.order.drugControls('pkg', s, i) : '';
+        var headActions = (isDrug ? Clinic.order.qtyControls('pkg', s, i) + Clinic.order.nurseToggle('pkg', s, i) : '');
         var head =
             '<div class="head">' +
             '  <div class="info">' +
@@ -580,8 +586,6 @@ function pkgRenderItems() {
             '    <button type="button" class="btn btn-outline btn-sm" onclick="pkgRemoveItem(' + i + ')">✕</button>' +
             '  </div>' +
             '</div>';
-        var extra = isDrug ? Clinic.order.drugControls('pkg', s, i) : '';
-        var headActions = (isDrug ? Clinic.order.qtyControls('pkg', s, i) + Clinic.order.nurseToggle('pkg', s, i) : '');
         var groupInfo = '';
         if (s.is_group) {
             // 组合成员标签（优先 member_items 名称，兼容旧数据 members/spec 顿号分隔）
