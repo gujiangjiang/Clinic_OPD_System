@@ -711,6 +711,8 @@ function pkgSave(id, origStatus) {
             nurse_required: s.nurse_required, is_skin_test: s.is_skin_test, skin_test_item_id: s.skin_test_item_id,
             spec_dose: s.spec_dose, spec_dose_unit: s.spec_dose_unit, spec_pack_qty: s.spec_pack_qty,
             spec_pack_unit: s.spec_pack_unit, single_use_qty: s.single_use_qty, sub_of: 0,
+            // 组合检验：保存组合身份（is_group/members/member_ids），后端据此保留组合实体
+            is_group: s.is_group ? 1 : 0, members: s.members || s.spec || '', member_ids: s.member_ids || '',
         });
         (s.sub_items || []).forEach(function (sub) {
             flat.push({
