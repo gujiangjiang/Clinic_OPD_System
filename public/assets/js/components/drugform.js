@@ -73,20 +73,23 @@ function seSaveSpec() {
  * · 开启【允许拆零零售】→ 展示拆零参数与「包装售价 / 拆零单价」自动换算；
  * · 关闭 → 隐藏（仅整包装销售）。
  * 拆零单价 = 包装单价 ÷ 每包装最小单位数量（保留 4 位小数，结算按金融四舍五入）。
- * 药品表单为模态框 Ajax 加载（DOMContentLoaded 早于表单渲染），
- * 由各页面 modal:loaded 后调用 bindSplitBox() 完成绑定与初始渲染（幂等）。
+ * 药品表单为模态框 Ajax 加载（每次打开重建 DOM），绑定以元素 data-bound 标记——
+ * 关闭再打开后新元素重新绑定，避免模块级标志位导致二次打开监听失效。
  */
-var __splitBoxBound = false;
 function bindSplitBox() {
-    if (__splitBoxBound) { syncSplitBox(); return; }
-    __splitBoxBound = true;
-    ['f_price', 'f_pkg', 'f_spec_pack_qty', 'f_spec_pack_unit', 'f_allow_split'].forEach(function (id) {
-        var el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('change', syncSplitBox);
-            el.addEventListener('input', syncSplitBox);
-        }
-    });
+    var chk = document.getElementById('f_allow_split');
+    var box = document.getElementById('split_box');
+    if (!chk || !box) return;
+    if (!chk.getAttribute('data-bound')) {
+        chk.setAttribute('data-bound', '1');
+        ['f_price', 'f_pkg', 'f_spec_pack_qty', 'f_spec_pack_unit', 'f_allow_split'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', syncSplitBox);
+                el.addEventListener('input', syncSplitBox);
+            }
+        });
+    }
     syncSplitBox();
 }
 function syncSplitBox() {
@@ -115,25 +118,27 @@ function syncSplitBox() {
 
 /* ==================== 3.6.1 库存录入单位切换（默认包装单位） ==================== */
 
-var __qtyUnitBound = false;
 var __qtyDirty = false;
 
 function bindQtyUnit() {
     var btn = document.getElementById('f_qty_unit_btn');
     var qty = document.getElementById('f_qty');
     if (!btn || !qty) return;
-    if (__qtyUnitBound) { renderQtyInput(); syncWarn(); return; }
-    __qtyUnitBound = true;
-    btn.addEventListener('click', function () { toggleQtyUnit(); });
-    qty.addEventListener('input', qtyInputChanged);
-    qty.addEventListener('change', qtyInputChanged);
-    var wb = document.getElementById('f_warn_box');
-    if (wb) { wb.addEventListener('input', syncWarn); wb.addEventListener('change', syncWarn); }
-    // 规格/包装单位变化后联动刷新单位标签与换算（幂等绑定）
-    ['f_pkg', 'f_spec_pack_qty', 'f_spec_pack_unit'].forEach(function (id) {
-        var el = document.getElementById(id);
-        if (el) { el.addEventListener('change', refreshQtyUnits); el.addEventListener('input', refreshQtyUnits); }
-    });
+    // 每次打开模态框重置编辑态（新元素承载服务端最新 data-min-qty）
+    __qtyDirty = false;
+    if (!btn.getAttribute('data-bound')) {
+        btn.setAttribute('data-bound', '1');
+        btn.addEventListener('click', function () { toggleQtyUnit(); });
+        qty.addEventListener('input', qtyInputChanged);
+        qty.addEventListener('change', qtyInputChanged);
+        var wb = document.getElementById('f_warn_box');
+        if (wb) { wb.addEventListener('input', syncWarn); wb.addEventListener('change', syncWarn); }
+        // 规格/包装单位变化后联动刷新单位标签与换算（幂等绑定）
+        ['f_pkg', 'f_spec_pack_qty', 'f_spec_pack_unit'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) { el.addEventListener('change', refreshQtyUnits); el.addEventListener('input', refreshQtyUnits); }
+        });
+    }
     renderQtyInput();
     syncWarn();
 }
