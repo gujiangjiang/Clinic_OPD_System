@@ -21,7 +21,7 @@ switch ($action) {
         $todayFee = (float)OrderRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type='prescription' AND status='dispensed' AND date(paid_at)=?", array($today));
         $pendingRx = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='paid'");
         $drugTotal = (int)DrugRepository::val("SELECT COUNT(*) FROM drugs WHERE status='approved'");
-        $lowStock = (int)DrugRepository::val("SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty <= 50 * MAX(1, spec_pack_qty)");
+        $lowStock = (int)DrugRepository::val("SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty <= CASE WHEN warn_qty > 0 THEN warn_qty ELSE 10 * MAX(1, spec_pack_qty) END");
         $pendingAudit = (int)DrugRepository::val("SELECT COUNT(*) FROM drugs WHERE status='pending'");
         $trend = trend_7_days(function ($day) {
             return (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='dispensed' AND date(executed_at)=?", array($day));
@@ -247,23 +247,28 @@ switch ($action) {
             $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
                 '<th>药品</th><th>分类</th><th>规格</th><th>包装</th><th>库存</th><th>单价</th><th>状态</th><th>操作</th></tr></thead><tbody>';
             foreach ($rows as $r) {
-                // 低库存按折算整包装判断（最小单位库存 ÷ 每包装数量 ≤ 10 盒/瓶）
-                $packQtyL = max(1, (int)$r['spec_pack_qty']);
-                $low = (int)$r['qty'] <= 10 * $packQtyL;
+                // 低库存：以最小单位绝对警戒阈值判定（3.4），未配置回退「10 包装」启发式
+                $low = drug_low_stock_check($r);
                 $minUnit = trim((string)$r['spec_pack_unit']);
+                $packUnit = trim((string)$r['package_unit']);
+                if ($packUnit === '') $packUnit = '盒';
                 $packQty = max(1, (int)$r['spec_pack_qty']);
-                // 库存统一为最小单位口径；同时展示折算整包装数量（如 2400 粒 = 100 盒），药房核对方便
-                $stockTxt = (int)$r['qty'] . ($minUnit !== '' ? ' ' . $minUnit : '') .
-                    ($packQty > 1 ? '（' . floor((int)$r['qty'] / $packQty) . ' ' . e($r['package_unit']) . '）' : '');
+                // 库存展示：整包装为主 + 拆零余量（如 100盒 + 3粒）；警戒线按包装单位折算展示
+                $stockTxt = drug_stock_text($r);
+                $warnTxt = '';
+                if ((int)$r['warn_qty'] > 0) {
+                    $warnBox = $packQty > 1 ? floor((int)$r['warn_qty'] / $packQty) : (int)$r['warn_qty'];
+                    $warnTxt = '<span class="fs-12 text-muted">警戒 ≤ ' . $warnBox . ' ' . e($packUnit) . '</span>';
+                }
                 $html .= '<tr>' .
                     '<td class="fw-600">' . e($r['name']) . (!empty($r['vendor_short']) ? '（' . e($r['vendor_short']) . '）' : '') . '</td>' .
                     '<td>' . e($r['category']) . '</td>' .
                     '<td>' . e(drug_spec_text($r)) . '</td>' .
-                    '<td>' . e($r['package_unit']) . '</td>' .
-                    '<td class="' . ($low ? 'text-danger fw-700' : '') . '">' . $stockTxt . ($low ? ' <span class="badge badge-danger" style="font-size:11px">库存不足</span>' : '') . '</td>' .
+                    '<td>' . e($packUnit) . '</td>' .
+                    '<td class="' . ($low ? 'text-danger fw-700' : '') . '">' . $stockTxt . ($low ? ' <span class="badge badge-danger" style="font-size:11px">低库存</span>' : '') . $warnTxt . '</td>' .
                     '<td>¥' . money($r['price']) . '</td>' .
                     '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
-                    '<td><button class="btn btn-outline btn-sm" onclick="stockModal(' . (int)$r['id'] . ',\'' . e($r['name']) . '\')">入库/出库</button></td></tr>';
+                    '<td><button class="btn btn-outline btn-sm" onclick="stockModal(' . (int)$r['id'] . ',\'' . e($r['name']) . '\',' . (int)$r['allow_split'] . ',' . $packQty . ',\'' . e($packUnit) . '\',\'' . e($minUnit) . '\',\'' . e((int)$r['qty']) . '\')">入库/出库</button></td></tr>';
             }
             $html .= '</tbody></table></div>';
         }
@@ -295,6 +300,8 @@ switch ($action) {
             'spec_pack_unit' => post('spec_pack_unit'),
             'single_use_qty' => max(1, (int)post('single_use_qty', 1)),
             'allow_split' => (int)post('allow_split', 0),
+            // 警戒库存：录入按「包装单位」盒数/瓶数，存储为最小单位绝对阈值
+            'warn_qty' => max(0, (int)post('warn_box', 0)) * max(1, (int)post('spec_pack_qty', 1)),
             'is_skin_test' => (int)post('is_skin_test', 0),
             'skin_test_item_id' => (int)post('skin_test_item_id', 0),
         );
@@ -344,19 +351,25 @@ switch ($action) {
         $drugId = (int)post('drug_id');
         $type = post('type', 'in');
         $change = (int)post('qty', 0);
+        // 3.6.1 出入库录入单位：pack=包装单位（盒/瓶）/ min=最小单位（支/粒）；
+        // 入库默认包装单位、出库按是否拆零决定默认单位（前端控制），此处统一折算最小单位绝对值
+        $unit = post('unit', 'pack');
+        if (!in_array($unit, array('pack', 'min'), true)) $unit = 'pack';
         // type 白名单：仅允许 in/out，防止拼写/伪造值误走入库分支
         if (!in_array($type, array('in', 'out'), true)) json_fail('库存变动类型无效');
         if ($change <= 0) json_fail('数量必须大于 0');
         $drug = DrugRepository::byId($drugId);
         if (!$drug) json_fail('药品不存在');
+        $factor = ($unit === 'min') ? 1 : max(1, (int)(isset($drug['spec_pack_qty']) ? $drug['spec_pack_qty'] : 1));
+        $changeMin = $change * $factor;
         if ($type === 'out') {
             // 原子条件更新防并发超扣库存（读判写分离的 TOCTOU：改为一并校验充足性）
-            $affected = DrugRepository::exec('UPDATE drugs SET qty = qty - ? WHERE id=? AND qty >= ?', array($change, $drugId, $change));
-            if ($affected === 0) json_fail('库存不足（当前库存 ' . (int)$drug['qty'] . '）');
+            $affected = DrugRepository::exec('UPDATE drugs SET qty = qty - ? WHERE id=? AND qty >= ?', array($changeMin, $drugId, $changeMin));
+            if ($affected === 0) json_fail('库存不足（当前库存 ' . (int)$drug['qty'] . ' ' . trim((string)$drug['spec_pack_unit']) . '）');
         } else {
-            DrugRepository::restoreStock($drugId, $change);
+            DrugRepository::restoreStock($drugId, $changeMin);
         }
-        DrugRepository::createInventoryTrans($drugId, $type === 'out' ? -$change : $change, $type, post('note', ''), $u['name']);
+        DrugRepository::createInventoryTrans($drugId, $type === 'out' ? -$changeMin : $changeMin, $type, post('note', ''), $u['name']);
         // 回读最新库存（原子更新后的权威值）
         $newQty = (int)DrugRepository::val('SELECT qty FROM drugs WHERE id=?', array($drugId));
         json_ok(array('qty' => $newQty), '库存已更新');

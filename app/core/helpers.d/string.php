@@ -211,6 +211,45 @@ function drug_stock_factor($r, $unitType) {
 }
 
 /**
+ * 库存展示串（药品列表/库存列表共用，整包装为主 + 拆零余量）：
+ * 例：0.3g×24粒 库存 2403 最小单位 → 「100盒 + 3粒」；250ml×1瓶 → 「120瓶」。
+ * @param array $r 药品行（需含 qty/spec_pack_qty/package_unit/spec_pack_unit）
+ * @return string
+ */
+function drug_stock_text($r) {
+    $r = is_array($r) ? $r : array();
+    $qty = max(0, (int)(isset($r['qty']) ? $r['qty'] : 0));
+    $ps = max(1, (int)(isset($r['spec_pack_qty']) ? $r['spec_pack_qty'] : 1));
+    $packUnit = trim((string)(isset($r['package_unit']) ? $r['package_unit'] : ''));
+    if ($packUnit === '') $packUnit = '盒';
+    $minUnit = trim((string)(isset($r['spec_pack_unit']) ? $r['spec_pack_unit'] : ''));
+    if ($ps <= 1) {
+        return $qty . ($minUnit !== '' ? ' ' . $minUnit : ' ' . $packUnit);
+    }
+    $packs = intdiv($qty, $ps);
+    $rem = $qty % $ps;
+    $s = $packs . ' ' . $packUnit;
+    if ($rem > 0) $s .= ' + ' . $rem . ($minUnit !== '' ? ' ' . $minUnit : '');
+    return $s;
+}
+
+/**
+ * 低库存判定（以最小单位绝对警戒阈值对比，防大包装药品单位混淆延迟预警）：
+ * · 已配置警戒库存（warn_qty>0）：库存 ≤ 警戒阈值 → 低库存；
+ * · 未配置（默认 0）：回退「10 包装」启发式（qty ≤ 10 × pack_size）。
+ * @param array $r 药品行（需含 qty/warn_qty/spec_pack_qty）
+ * @return bool
+ */
+function drug_low_stock_check($r) {
+    $r = is_array($r) ? $r : array();
+    $qty = max(0, (int)(isset($r['qty']) ? $r['qty'] : 0));
+    $warn = (int)(isset($r['warn_qty']) ? $r['warn_qty'] : 0);
+    if ($warn > 0) return $qty <= $warn;
+    $ps = max(1, (int)(isset($r['spec_pack_qty']) ? $r['spec_pack_qty'] : 1));
+    return $qty <= 10 * $ps;
+}
+
+/**
  * 解析化验数值为浮点（危急值比对用）：
  * 容忍 "5.2"、">200"、"<0.1"、"≤5"、"≥10" 等带比较符号的写法，
  * 非数值（如「阳性」「未见异常」）返回 null。

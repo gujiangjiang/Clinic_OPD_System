@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 38,
+    'version' => 39,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -338,7 +338,8 @@ return array(
             spec_pack_qty INTEGER DEFAULT 1,
             spec_pack_unit TEXT,
             single_use_qty REAL DEFAULT 1,
-            allow_split INTEGER DEFAULT 0
+            allow_split INTEGER DEFAULT 0,
+            warn_qty INTEGER DEFAULT 0
         )",
 
         /* ---------------- 病历 ---------------- */
@@ -1145,6 +1146,13 @@ return array(
             // 历史处方明细 pack_size 回填：迁移前开立均为整包装（pack）口径，
             // 按当前药品每包装最小单位数补齐快照——退费/审方驳回恢复库存口径一致
             "UPDATE order_items SET pack_size = COALESCE((SELECT spec_pack_qty FROM drugs WHERE drugs.id = order_items.item_id), 1) WHERE item_type='prescription' AND (pack_size IS NULL OR pack_size < 1)",
+        ),
+        // v39：警戒库存（drugs.warn_qty）——后台录入按「包装单位」输入盒数/瓶数，
+        // 存库时换算为「最小单位」绝对警戒阈值（输入盒数 × pack_size）；
+        // 低库存报表/报警判定统一以最小单位绝对值对比，杜绝大包装药品（如 100 粒/瓶）
+        // 因单位混淆导致断货前夕才预警。
+        39 => array(
+            "ALTER TABLE drugs ADD COLUMN warn_qty INTEGER DEFAULT 0",
         ),
     ),
     'seed' => array(

@@ -91,8 +91,12 @@ function admin_part_drug($action) {
     if ($action === 'drug_list') {
         $rows = DrugRepository::q('SELECT * FROM drugs ORDER BY category, id');
         $rowsHtml = '<thead><tr>' .
-            '<th>药品名称</th><th>通用名</th><th>厂家简称</th><th>分类</th><th>规格</th><th>剂型</th><th>频次</th><th>途径</th><th>库存</th><th>价格</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+            '<th>药品名称</th><th>通用名</th><th>厂家简称</th><th>分类</th><th>规格</th><th>剂型</th><th>频次</th><th>途径</th><th>库存</th><th>警戒</th><th>价格</th><th>状态</th><th>操作</th></tr></thead><tbody>';
         foreach ($rows as $r) {
+            $low = drug_low_stock_check($r);
+            $packQty = max(1, (int)$r['spec_pack_qty']);
+            $warnBox = (int)$r['warn_qty'] > 0 ? ((int)$r['warn_qty']) : 0;
+            $warnBoxTxt = $warnBox > 0 ? ($packQty > 1 ? floor($warnBox / $packQty) : $warnBox) : '—';
             $rowsHtml .= '<tr data-cat="' . e($r['category']) . '">' .
                 '<td class="fw-600">' . e($r['name']) .
                 ((int)(isset($r['allow_split']) ? $r['allow_split'] : 0) === 1 ? ' <span class="badge badge-primary fs-12" title="允许按最小单位（支/粒/片）拆零销售">拆零</span>' : '') .
@@ -104,7 +108,9 @@ function admin_part_drug($action) {
                 '<td>' . e($r['form']) . '</td>' .
                 '<td class="fs-12">' . e($r['frequency']) . '</td>' .
                 '<td class="fs-12">' . e($r['route']) . ($r['is_nurse'] ? '（护士站）' : '') . '</td>' .
-                '<td>' . (int)$r['qty'] . '</td>' .
+                // 库存展示：整包装为主 + 拆零余量（如 100盒 + 3粒）；低库存红色高亮
+                '<td class="' . ($low ? 'text-danger fw-700' : '') . '">' . e(drug_stock_text($r)) . ($low ? ' <span class="badge badge-danger" style="font-size:11px">低</span>' : '') . '</td>' .
+                '<td class="fs-12 text-muted">' . ($warnBoxTxt === '—' ? '—' : '≤ ' . $warnBoxTxt . ' ' . e($r['package_unit'] !== '' ? $r['package_unit'] : '盒')) . '</td>' .
                 '<td>¥' . money($r['price']) . '</td>' .
                 '<td>' . item_status_badge((string)$r['status']) . '</td>' .
                 '<td>' . ($u['role'] === 'admin'
@@ -158,6 +164,8 @@ function admin_part_drug($action) {
             'single_use_qty' => (float)post('single_use_qty', 1),
             // 拆零零售：允许按最小单位（支/粒/片）销售
             'allow_split' => (int)post('allow_split', 0),
+            // 警戒库存：录入按「包装单位」盒数/瓶数，存储为最小单位绝对阈值（输入盒数 × pack_size）
+            'warn_qty' => max(0, (int)post('warn_box', 0)) * max(1, (int)post('spec_pack_qty', 1)),
         );
         // 拆零开启校验：必须完整填写 包装单位/最小单位/每包装数量(>1)/单剂量值，
         // 保证前端开方单位下拉与拆零单价换算具备可靠数据
