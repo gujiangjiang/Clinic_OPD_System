@@ -65,7 +65,7 @@ function pkg_validate_items($type, $items) {
             list($table, $nameCol) = $tables[$type];
             $sel = "id, status, " . $nameCol . " AS name";
             if ($type === 'prescription') {
-                $sel .= ", spec, vendor_short, single_dose, frequency, route, qty, spec_dose, spec_dose_unit, spec_pack_qty, spec_pack_unit, single_use_qty";
+                $sel .= ", spec, vendor_short AS company_short, single_dose, frequency, route, qty, spec_dose, spec_dose_unit, spec_pack_qty, spec_pack_unit, single_use_qty";
             }
             foreach (OrderRepository::q("SELECT $sel FROM $table WHERE id IN ($ph)", array_keys($mainIds)) as $row) {
                 $current[(int)$row['id']] = $row;
@@ -121,8 +121,9 @@ function pkg_validate_items($type, $items) {
                 continue;
             }
             $fieldMap = array(
-                'spec' => '规格', 'vendor_short' => '厂家', 'single_dose' => '剂量',
-                'frequency' => '频次', 'route' => '途径',
+                'spec' => '规格', 'company_short' => '厂家',
+                // 频次/途径为处方开具时可自定义项（套餐编辑器下拉可选），不作为药品身份变更判据；
+                // 名称/规格/厂家/结构化剂量 才是药品身份，任一变化即失效
             );
             $changed = array();
             foreach ($fieldMap as $col => $label) {
@@ -344,6 +345,7 @@ switch ($action) {
         }
 
         $isAdmin = ($u['role'] === 'admin');
+        $typeLabel = pkg_type_label($type);
         // 管理员新建：仅限 hospital/dept（不可新建个人）；编辑他人已存在的个人套餐可保存（维护场景）
         if ($isAdmin && $scope === 'personal' && $id <= 0) json_fail('管理员新建套餐适用范围仅限全院或科室');
         $authorId = 0;   // 原创建人（管理员编辑他人套餐时用于站内信告知）
