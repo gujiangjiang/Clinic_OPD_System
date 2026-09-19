@@ -932,86 +932,213 @@ Clinic.order = (function () {
 
     /* ============ 子医嘱：跟随鼠标的内联搜索下拉（替换原模态框选择） ============ */
 
-    /** 打开子医嘱搜索面板（跟随 子医嘱 按钮下方；通用上下文 key） */
-    function openSubDrop(key, idx, btn) {
-        // 兼容旧调用 openSubDrop(idx, btn)
-        if (typeof key === 'number') { btn = idx; idx = key; key = 'sel'; }
-        var rect = btn.getBoundingClientRect();
-        var panel = document.getElementById('rxSubDrop');
+    /* ============ 通用项目选择器（子医嘱 / 更换 共用：搜索+无限滚动，数据跟随 type 切换） ============ */
+
+    var PICKER_BOUND = false;   // 面板全局监听是否已注册
+    var PICKER_LIST = null;     // 选择器列表 infiniteList
+
+    /** HTML 属性转义（JSON 字符串嵌入 data-it 用） */
+    function escHtmlAttr(s) {
+        return String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    /** 通用选择器条目 HTML（按类型渲染：prescription 药品 / lab / imaging / procedure） */
+    function pickerItemHtml(it, type) {
+        var name = '<span class="fw-600">' + Clinic.escHtml(it.name || '') + '</span>';
+        var extra = '';
+        if (type === 'prescription') {
+            extra = (it.company_short ? ' <span class="fs-12 text-muted">' + Clinic.escHtml(it.company_short) + '</span>' : '') +
+                ' <span class="fs-12 text-muted">¥' + parseFloat(it.price || 0).toFixed(2) + '</span>' +
+                ' <span class="fs-12 text-muted">库存' + (it.stock || 0) + '</span>';
+        } else {
+            if (type === 'lab' && it.is_group) {
+                name += ' <span class="badge badge-primary fs-12">组合</span>';
+                extra = ' <span class="fs-12 text-muted">含：' + Clinic.escHtml(it.members || it.spec || '') + '</span>';
+            }
+            if (it.category_name) extra += ' <span class="badge badge-gray fs-12">' + Clinic.escHtml(it.category_name) + '</span>';
+            extra += ' <span class="fs-12 text-muted">¥' + parseFloat(it.price || 0).toFixed(2) + '</span>';
+        }
+        return '<div class="rx-drop-item" data-it="' + escHtmlAttr(JSON.stringify(it)) + '">' +
+            name + extra + '</div>';
+    }
+
+    /** 通用项目选择器悬浮窗（body fixed 覆盖层）：
+     * opts = { btn, type, url(p,size), placeholder, onPick(it) } */
+    function openItemPicker(opts) {
+        opts = opts || {};
+        if (!opts.btn || !opts.type) return;
+        var rect = opts.btn.getBoundingClientRect();
+        var panel = document.getElementById('rxItemPicker');
         if (!panel) {
             panel = document.createElement('div');
-            panel.id = 'rxSubDrop';
-            panel.style.cssText = 'position:fixed;z-index:3000;width:380px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);overflow:hidden';
+            panel.id = 'rxItemPicker';
+            panel.style.cssText = 'position:fixed;z-index:3200;width:380px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);overflow:hidden';
             document.body.appendChild(panel);
-            // 全局：点击面板外关闭 + 下拉条目选中（委托，条目随滚动分页动态生成；一次性注册）
-            if (!SUB_OUTER_BOUND) {
-                SUB_OUTER_BOUND = true;
+            if (!PICKER_BOUND) {
+                PICKER_BOUND = true;
                 document.addEventListener('mousedown', function (e) {
-                    var p = document.getElementById('rxSubDrop');
-                    if (p && p.style.display !== 'none' && !p.contains(e.target)) closeSubDrop();
+                    var p = document.getElementById('rxItemPicker');
+                    if (p && p.style.display !== 'none' && !p.contains(e.target)) p.style.display = 'none';
                 }, true);
                 document.addEventListener('mousedown', function (e) {
                     var el = e.target.closest ? e.target.closest('.rx-drop-item') : null;
                     if (!el) return;
-                    var p = document.getElementById('rxSubDrop');
-                    if (!p || !p.contains(e.target) || p.style.display === 'none') return;
+                    var p = document.getElementById('rxItemPicker');
+                    if (!p || p.style.display === 'none' || !p.contains(e.target)) return;
                     e.preventDefault();
-                    pickSub(p.getAttribute('data-sub-key') || 'sel', parseInt(p.getAttribute('data-sub-idx') || '0', 10), el);
+                    var it = JSON.parse(el.getAttribute('data-it') || '{}');
+                    p.style.display = 'none';
+                    if (opts.onPick) opts.onPick(it);
                 }, true);
             }
         }
-        panel.setAttribute('data-sub-key', key);
-        panel.setAttribute('data-sub-idx', idx);
         panel.innerHTML =
             '<div style="padding:8px 10px;border-bottom:1px solid var(--border)">' +
-            '<input type="text" class="input" id="rxSubKw" placeholder="🔍 搜索子医嘱药品（名称 / 厂家）" autocomplete="off" style="min-height:30px;padding:5px 10px">' +
+            '<input type="text" class="input" id="pickerKw" placeholder="' + (opts.placeholder || '🔍 搜索项目') + '" autocomplete="off" style="min-height:30px;padding:5px 10px">' +
             '</div>' +
-            '<div id="rxSubList" style="max-height:220px;overflow-y:auto"><div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>';
+            '<div id="pickerList" style="max-height:260px;overflow-y:auto"><div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>';
         panel.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 388)) + 'px';
         panel.style.top = (rect.bottom + 4) + 'px';
         panel.style.display = 'block';
-        initRxSubList(key, idx);
-        var subKw = document.getElementById('rxSubKw');
-        subKw.addEventListener('input', function () {
-            clearTimeout(subKw.__t);
-            subKw.__t = setTimeout(function () {
-                if (RX_SUB_LIST) RX_SUB_LIST.reset();
-                else initRxSubList(key, idx);
-            }, 300);
-        });
-        subKw.addEventListener('blur', function () { setTimeout(closeSubDrop, 120); });
-        subKw.focus();
-    }
-
-    /** 初始化子医嘱内联下拉无限滚动列表（复用药品目录接口，按输入关键字分页） */
-    function initRxSubList(key, idx) {
-        var box = document.getElementById('rxSubList');
-        if (!box) return;
-        if (RX_SUB_LIST) RX_SUB_LIST.stop();
-        RX_SUB_LIST = Clinic.infiniteList({
-            el: box,
+        var listBox = document.getElementById('pickerList');
+        if (PICKER_LIST) PICKER_LIST.stop();
+        PICKER_LIST = Clinic.infiniteList({
+            el: listBox,
             pageSize: 15,
             threshold: 40,
-            emptyHtml: '<div class="rx-drop-empty">未找到相关药品</div>',
-            url: function (p, size) {
-                var kw = encodeURIComponent((document.getElementById('rxSubKw') || {}).value || '');
-                return '/api/order?action=catalog&type=prescription&page=' + p + '&size=' + size + '&kw=' + kw;
-            },
+            emptyHtml: '<div class="rx-drop-empty">未找到相关项目</div>',
+            url: opts.url,
             render: function (list, isFirst) {
-                return list.map(function (it) { return rxItemHtml(it, false); }).join('');
+                return list.map(function (it) { return pickerItemHtml(it, opts.type); }).join('');
             },
             onError: function () {
-                var b = document.getElementById('rxSubList');
-                if (b && !b.querySelector('.rx-drop-item')) {
-                    b.innerHTML = '<div class="rx-drop-empty">加载失败，请重试</div>';
-                }
+                if (listBox && !listBox.querySelector('.rx-drop-item')) listBox.innerHTML = '<div class="rx-drop-empty">加载失败，请重试</div>';
+            },
+        });
+        var kw = document.getElementById('pickerKw');
+        kw.addEventListener('input', function () {
+            clearTimeout(kw.__t);
+            kw.__t = setTimeout(function () { if (PICKER_LIST) PICKER_LIST.reset(); }, 300);
+        });
+        kw.addEventListener('blur', function () { setTimeout(function () { var p = document.getElementById('rxItemPicker'); if (p) p.style.display = 'none'; }, 120); });
+        kw.focus();
+    }
+
+    function closeItemPicker() {
+        var panel = document.getElementById('rxItemPicker');
+        if (panel) panel.style.display = 'none';
+    }
+
+    /** 子医嘱搜索（处方类型）：打开通用选择器，选中后追加为该条目的子医嘱 */
+    function openSubDrop(key, idx, btn) {
+        // 兼容旧调用 openSubDrop(idx, btn)
+        if (typeof key === 'number') { btn = idx; idx = key; key = 'sel'; }
+        openItemPicker({
+            btn: btn,
+            type: 'prescription',
+            placeholder: '🔍 搜索子医嘱药品（名称 / 厂家）',
+            url: function (p, size) {
+                var kw = encodeURIComponent((document.getElementById('pickerKw') || {}).value || '');
+                return '/api/order?action=catalog&type=prescription&page=' + p + '&size=' + size + '&kw=' + kw;
+            },
+            onPick: function (it) {
+                var arr = RX_CTX[key] ? RX_CTX[key].list() : [];
+                var s = arr[idx];
+                if (!s) return;
+                if (s.id && it.id === s.id) { Clinic.toast.warning('不能添加与主药相同的药品作为子医嘱'); return; }
+                if (arr.some(function (m) { return m.id === it.id; })) { Clinic.toast.warning('该药品已是主医嘱，不能重复添加为子医嘱'); return; }
+                if (s.sub_items.some(function (sub) { return sub.id === it.id; })) { Clinic.toast.warning('该子医嘱已存在'); return; }
+                var sub = itemFromPick(it);
+                sub.sub_of = (typeof s.sub_of !== 'undefined' ? s.sub_of : 0);
+                s.sub_items.push(sub);
+                ctxRender(key);
+            },
+        });
+    }
+
+    /** 选择器条目 → 可编辑对象（结构化剂量默认） */
+    function itemFromPick(it) {
+        var item = {
+            id: parseInt(it.id, 10) || 0,
+            name: it.name || '',
+            price: parseFloat(it.price) || 0,
+            spec: it.spec || '',
+            unit: it.unit || '',
+            company_short: it.company_short || '',
+            dose: it.single_dose || '',
+            frequency: it.frequency || '',
+            route: it.route || '',
+            route_nurse: parseInt(it.route_nurse_required, 10) || 0,
+            stock: parseInt(it.stock, 10) || 0,
+            nurse_required: parseInt(it.nurse_required, 10) || 0,
+            is_skin_test: parseInt(it.is_skin_test, 10) || 0,
+            skin_test_item_id: parseInt(it.skin_test_item_id, 10) || 0,
+            spec_dose: parseFloat(it.spec_dose) || 0,
+            spec_dose_unit: it.spec_dose_unit || '',
+            spec_pack_qty: parseInt(it.spec_pack_qty, 10) || 1,
+            spec_pack_unit: it.spec_pack_unit || '',
+            single_use_qty: parseFloat(it.single_use_qty) || 1,
+            quantity: 1,
+            sub_items: [],
+            valid: 1,
+        };
+        return initDoseFields(it, item);
+    }
+
+    /** 更换当前条目：打开通用选择器（type 跟随当前开单/套餐类型），选中后确认替换 */
+    function openReplace(key, idx, btn, type, url) {
+        // 兼容旧调用 openReplace(idx, btn)
+        if (typeof key === 'number') { url = type; type = btn; btn = idx; idx = key; key = 'sel'; }
+        var arr = RX_CTX[key] ? RX_CTX[key].list() : [];
+        var cur = arr[idx];
+        if (!cur) return;
+        var oldName = cur.name || cur.item_name || '';
+        var t = type || CUR_TYPE || 'prescription';
+        openItemPicker({
+            btn: btn,
+            type: t,
+            placeholder: '🔍 搜索' + ({ lab: '检验', imaging: '检查', procedure: '处置', prescription: '药品' }[t] || '项目') + '（可输入名称搜索）',
+            url: url || function (p, size) {
+                var kw = encodeURIComponent((document.getElementById('pickerKw') || {}).value || '');
+                return '/api/order?action=catalog&type=' + t + '&page=' + p + '&size=' + size + '&kw=' + kw;
+            },
+            onPick: function (it) {
+                if (!it || !it.id) return;
+                if (it.id === cur.id) { Clinic.toast.warning('更换为相同项目，无需操作'); return; }
+                Clinic.modal.confirm('确定要将「' + Clinic.escHtml(oldName) + '」更换为「' + Clinic.escHtml(it.name || '') + '」？', function () {
+                    var arr2 = RX_CTX[key] ? RX_CTX[key].list() : [];
+                    var s = arr2[idx];
+                    if (!s) return;
+                    // 同单去重：新项已存在于其他条目（或组内）→ 拦截
+                    var dup = arr2.some(function (m, mi) {
+                        if (mi === idx) return false;
+                        if (m.id === it.id) return true;
+                        return (m.sub_items || []).some(function (sub) { return sub.id === it.id; });
+                    });
+                    if (dup) { Clinic.toast.warning('【' + it.name + '】已在列表中，不能重复'); return; }
+                    var newItem = pkgToOrderItem({
+                        item_id: it.id, item_name: it.name, price: it.price, spec: it.spec || '',
+                        unit: it.unit || '', company_short: it.company_short || '',
+                        single_dose: it.single_dose || '', frequency: it.frequency || '', route: it.route || '',
+                        spec_dose: it.spec_dose || 0, spec_dose_unit: it.spec_dose_unit || '',
+                        spec_pack_qty: it.spec_pack_qty || 1, spec_pack_unit: it.spec_pack_unit || '',
+                        single_use_qty: it.single_use_qty || 1, is_group: it.is_group ? 1 : 0,
+                        member_ids: it.member_ids || '', members: it.members || it.spec || '',
+                        quantity: s.quantity || 1, sub_of: 0, is_skin_test: it.is_skin_test || 0,
+                    }, false);
+                    // 保留原条目子医嘱（若有）与护士设置；处方沿用原频次/途径便于微调
+                    newItem.sub_items = s.sub_items || [];
+                    newItem.nurse_required = s.nurse_required || 0;
+                    if (t === 'prescription') { newItem.frequency = newItem.frequency || s.frequency; newItem.route = newItem.route || s.route; }
+                    arr2[idx] = newItem;
+                    ctxRender(key);
+                }, { title: '更换项目', okText: '确认更换' });
             },
         });
     }
 
     function closeSubDrop() {
-        var panel = document.getElementById('rxSubDrop');
-        if (panel) panel.style.display = 'none';
+        closeItemPicker();
     }
 
     /* ============ 剂量迷你悬浮窗（结构化规格：固定单位 + 快速选择 + 自动数量） ============ */
@@ -1113,39 +1240,6 @@ Clinic.order = (function () {
     function closeDosePop() {
         var p = document.getElementById('rxDosePop');
         if (p) p.style.display = 'none';
-    }
-
-    /** 子医嘱下拉选中：追加到对应主药的 sub_items */
-    function pickSub(key, idx, el) {
-        // 兼容旧调用 pickSub(idx, el)
-        if (typeof key === 'number') { el = idx; idx = key; key = 'sel'; }
-        var it = itemFromEl(el);
-        var arr = RX_CTX[key] ? RX_CTX[key].list() : [];
-        var s = arr[idx];
-        if (!s) return;
-        if (s.id && it.id === s.id) {
-            Clinic.toast.warning('不能添加与主药相同的药品作为子医嘱');
-            closeSubDrop();
-            return;
-        }
-        if (arr.some(function (m) { return m.id === it.id; })) {
-            Clinic.toast.warning('该药品已是主医嘱，不能重复添加为子医嘱');
-            closeSubDrop();
-            return;
-        }
-        if (s.sub_items.some(function (sub) { return sub.id === it.id; })) {
-            Clinic.toast.warning('该子医嘱已存在');
-            closeSubDrop();
-            return;
-        }
-        var sub = initDoseFields(it, {
-            id: it.id, name: it.name, price: it.price, quantity: 1,
-            dose: it.dose, frequency: '', route: '',
-            spec: it.spec, unit: it.unit, company_short: it.company_short,
-        });
-        s.sub_items.push(sub);
-        closeSubDrop();
-        ctxRender(key);
     }
 
     /**
@@ -1506,13 +1600,20 @@ Clinic.order = (function () {
                 '  <div class="flex gap-8" style="align-items:center;flex-shrink:0">' +
                 (isDrug || CUR_TYPE === 'procedure' ? qtyControls('sel', s, i) : '') +
                 (CUR_TYPE === 'procedure' || isDrug ? nurseToggle('sel', s, i) : '') +
+                (isDrug ? '' : '<button type="button" class="btn btn-outline btn-sm" style="padding:1px 8px" ' +
+                    'onclick="Clinic.order.openReplace(\'sel\',' + i + ',this)" title="快速更换为其他项目">更换</button>') +
                 '    <button type="button" class="btn btn-outline btn-sm" style="padding:1px 8px" ' +
                 'onclick="Clinic.order.removeItem(' + i + ')">✕</button>' +
                 '  </div>' +
                 '</div>';
+            // 处方：更换按钮靠右显示在头部下方（快速换药，无需删除重开）
+            var replaceRow = isDrug
+                ? '<div style="display:flex;justify-content:flex-end;margin-top:6px"><button type="button" class="btn btn-outline btn-sm" ' +
+                  'onclick="Clinic.order.openReplace(\'sel\',' + i + ',this)" title="快速更换为其他药品">更换</button></div>'
+                : '';
             var extra = isDrug ? drugControls('sel', s, i) : '';
             return '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px">' +
-                head + groupInfo + extra + '</div>';
+                head + replaceRow + groupInfo + extra + '</div>';
         }).join('') || '<div class="text-muted fs-13 text-center">尚未选择项目</div>';
     }
 
@@ -1829,5 +1930,6 @@ openDosePop: openDosePop, doseQuick: doseQuick, applyDose: applyDose, closeDoseP
         rxSetCtx: rxSetCtx, rxCtx: rxCtx,
         qtyControls: qtyControls, nurseToggle: nurseToggle, drugControls: drugControls, subList: subList,
         doseDisplay: doseDisplay, attachSearchTabs: attachSearchTabs,
+        openItemPicker: openItemPicker, openReplace: openReplace, closeItemPicker: closeItemPicker,
     };
 })();

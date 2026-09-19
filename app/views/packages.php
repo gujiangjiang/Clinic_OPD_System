@@ -576,6 +576,10 @@ function pkgRenderItems() {
     box.innerHTML = PKG_ITEMS.map(function (s, i) {
         var extra = isDrug ? Clinic.order.drugControls('pkg', s, i) : '';
         var headActions = (isDrug ? Clinic.order.qtyControls('pkg', s, i) + Clinic.order.nurseToggle('pkg', s, i) : '');
+        // 更换按钮（失效项也可更换）：非处方在删除左侧；处方靠右显示在头部下方
+        var dis = s.valid === 0;
+        var replaceBtn = dis ? '' : '<button type="button" class="btn btn-outline btn-sm" ' +
+            'onclick="Clinic.order.openReplace(\'pkg\',' + i + ',this,\'' + PKG_TYPE + '\',pkgReplaceUrl)" title="快速更换为其他项目">更换</button>';
         var head =
             '<div class="head">' +
             '  <div class="info">' +
@@ -590,9 +594,12 @@ function pkgRenderItems() {
             '  </div>' +
             '  <div class="actions">' +
             headActions +
+            (isDrug ? '' : replaceBtn) +
             '    <button type="button" class="btn btn-outline btn-sm" onclick="pkgRemoveItem(' + i + ')">✕</button>' +
             '  </div>' +
             '</div>';
+        // 处方：更换按钮靠右显示在头部下方
+        var replaceRow = (isDrug && !dis) ? '<div style="display:flex;justify-content:flex-end;margin-top:6px">' + replaceBtn + '</div>' : '';
         var groupInfo = '';
         if (s.is_group) {
             // 组合成员标签（优先 member_items 名称，兼容旧数据 members/spec 顿号分隔）
@@ -604,8 +611,14 @@ function pkgRenderItems() {
         }
         var invalidInfo = (s.valid === 0 && s.invalid_reason)
             ? '<div class="fs-12" style="color:var(--danger);margin:4px 0 0">' + escHtml(s.invalid_reason) + '</div>' : '';
-        return '<div class="pkg-item-card">' + head + invalidInfo + groupInfo + extra + '</div>';
+        return '<div class="pkg-item-card">' + head + replaceRow + invalidInfo + groupInfo + extra + '</div>';
     }).join('') || '<div class="text-muted fs-13 text-center" style="padding:30px">尚未添加项目</div>';
+}
+
+/** 套餐编辑器更换选择器的分页地址（走 /api/package catalog，兼容管理员） */
+function pkgReplaceUrl(p, size) {
+    var kw = encodeURIComponent((document.getElementById('pickerKw') || {}).value || '');
+    return '/api/package?action=catalog&type=' + PKG_TYPE + '&page=' + p + '&size=' + size + '&kw=' + kw;
 }
 
 /* ==================== 套餐内容操作 ==================== */
