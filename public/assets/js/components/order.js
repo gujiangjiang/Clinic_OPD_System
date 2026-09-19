@@ -1586,10 +1586,17 @@ Clinic.order = (function () {
         var uq = Math.max(1, parseFloat(it.single_use_qty) || 1);
         item.dose_unit = it.spec_dose_unit || '';
         item.spec_dose = sd;
+        // v8.17.3：从目录条目完整复制包装规格字段——此前缺 spec_pack_qty 导致
+        // 主药 autoQty 按 pack_size=1 计算（健胃消食片 2.4g→3盒而非 1盒），
+        // 缺 pack_price 导致切换单位后单价以已改 price 反推失效（庆大 1支=1盒价）
+        item.spec_pack_qty = parseInt(it.spec_pack_qty, 10) || 1;
         item.spec_pack_unit = it.spec_pack_unit || '';
         item.pack_unit = it.pack_unit || it.unit || '';
         item.min_unit = it.min_unit || it.spec_pack_unit || '';
         item.allow_split = parseInt(it.allow_split, 10) === 1 ? 1 : 0;
+        item.single_use_qty = parseFloat(it.single_use_qty) || 1;
+        item.pack_price = (parseFloat(it.pack_price) > 0 ? parseFloat(it.pack_price) : 0) || (parseFloat(it.price) || 0);
+        item.stock = parseInt(it.stock, 10) > 0 ? parseInt(it.stock, 10) : (parseInt(item.stock, 10) || 0);
         if (item.unit_type !== 'min' && item.unit_type !== 'pack') {
             item.unit_type = item.allow_split === 1 ? 'min' : 'pack';
         }
@@ -1923,9 +1930,9 @@ Clinic.order = (function () {
             '<input type="number" class="input" style="width:52px;padding:3px 6px;min-height:28px;text-align:center" ' +
             'value="' + s.quantity + '" min="1" max="' + maxQty + '"' + (dis ? ' disabled' : '') + ' ' +
             'onchange="Clinic.order.rxCtx(\'' + key + '\',\'setQty\',[' + i + ',this.value])">' +
-            unitSel +
             '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px"' + (dis ? ' disabled' : '') + ' ' +
             'onclick="Clinic.order.rxCtx(\'' + key + '\',\'changeQty\',[' + i + ',1])">＋</button>' +
+            unitSel +
             stockTxt + '</div>';
     }
 
