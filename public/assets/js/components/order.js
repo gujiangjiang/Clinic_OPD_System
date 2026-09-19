@@ -167,6 +167,8 @@ Clinic.order = (function () {
             }).join('');
         }
         renderTabs();
+        // 阻止点击 tab 导致输入框失焦（失焦会关闭下拉，切换子tab时列表会消失）
+        bar.addEventListener('mousedown', function (e) { e.preventDefault(); });
         // tab 点击：设置选中并回调（同时记录为恢复值）
         bar.addEventListener('click', function (e) {
             var el = e.target.closest ? e.target.closest('.search-tab') : null;
@@ -592,6 +594,8 @@ Clinic.order = (function () {
     }
 
     function initRxList() {
+        // 每次打开重置搜索 tab 句柄（输入框为每次新建，旧句柄指向已移除元素）
+        RX_TAB_GET = null;
         var box = ensureRxDrop();
         if (!box) return;
         if (RX_LIST) RX_LIST.stop();

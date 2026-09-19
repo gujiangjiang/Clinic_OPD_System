@@ -298,6 +298,9 @@ switch ($action) {
         pkg_assert_type($u, $type);
         if (!in_array($scope, array('personal', 'dept', 'hospital'), true)) $scope = 'personal';
         if ($title === '') json_fail('请填写套餐名称');
+        // 名称重复校验：同类型下不允许同名套餐
+        $dupPkg = OrderRepository::one('SELECT id FROM packages WHERE type=? AND title=? AND id<>?', array($type, $title, (int)$id));
+        if ($dupPkg) json_fail('已存在同名套餐「' . $title . '」，请更换名称');
         $itemsArr = json_decode((string)$items, true);
         if (!is_array($itemsArr)) $itemsArr = array();
         // 内容消毒：仅保留套餐字段白名单（防止注入/冗余字段）

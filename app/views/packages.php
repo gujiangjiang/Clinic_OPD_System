@@ -618,9 +618,10 @@ function pkgRenderItems() {
         var head =
             '<div class="head">' +
             '  <div class="info">' +
-            '    <span class="fw-600 fs-13' + (s.valid === 0 ? ' pkg-invalid' : '') + '">' + escHtml(s.item_name) + '</span>' +
+            '    <span class="fw-600 fs-13' + (s.valid === 0 ? ' pkg-invalid' : '') + '" style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0">' + escHtml(s.item_name) +
             (s.valid === 0 ? ' <span class="badge badge-gray fs-12">已失效</span>' : '') +
             (s.is_group ? ' <span class="badge badge-primary fs-12">组合</span>' : '') +
+            '</span>' +
             (s.spec ? ' <span class="fs-12 text-muted">' + escHtml(s.spec) + '</span>' : '') +
             (isDrug && s.frequency ? ' <span class="fs-12 text-muted">' + escHtml(s.frequency) + '</span>' : '') +
             (isDrug && s.route ? ' <span class="fs-12 text-muted">' + escHtml(s.route) + '</span>' : '') +

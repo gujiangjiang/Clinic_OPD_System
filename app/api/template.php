@@ -242,6 +242,9 @@ switch ($action) {
         tpl_assert_type($u, $type);
         if (!in_array($scope, array('personal', 'dept', 'hospital'), true)) $scope = 'personal';
         if ($title === '') json_fail('请填写模板名称');
+        // 名称重复校验：同类型下不允许同名模板（含系统模板）
+        $dupTpl = EmrRepository::one('SELECT id FROM emr_templates WHERE type=? AND title=? AND id<>?', array($type, $title, (int)$id));
+        if ($dupTpl) json_fail('已存在同名模板「' . $title . '」，请更换名称');
         $contentArr = json_decode((string)$content, true);
         if (!is_array($contentArr)) $contentArr = array();
         // 内容按模板类型区分：
