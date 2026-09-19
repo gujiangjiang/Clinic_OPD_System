@@ -823,10 +823,10 @@ Clinic.order = (function () {
                     if (foot) {
                         foot.innerHTML =
                             '<div style="display:flex;align-items:center;justify-content:space-between;width:100%">' +
-                            '  <button type="button" class="btn btn-outline btn-sm" onclick="Clinic.order.pkgApplyToggleAll()">☑️ 全选</button>' +
+                            '  <button type="button" class="btn btn-outline" style="padding:8px 16px" onclick="Clinic.order.pkgApplyToggleAll()">☑️ 全选</button>' +
                             '  <div class="flex gap-10" style="align-items:center">' +
-                            '    <button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
-                            '    <button type="button" class="btn btn-primary" onclick="Clinic.order.pkgApplyConfirm()">确认添加</button>' +
+                            '    <button type="button" class="btn btn-outline" style="padding:8px 16px" onclick="Clinic.modal.close()">取消</button>' +
+                            '    <button type="button" class="btn btn-primary" style="padding:8px 16px" onclick="Clinic.order.pkgApplyConfirm()">确认添加</button>' +
                             '  </div>' +
                             '</div>';
                     }
@@ -1820,6 +1820,7 @@ Clinic.order = (function () {
         setNurse: setNurse, openSubDrop: openSubDrop, closeSubDrop: closeSubDrop,
 openDosePop: openDosePop, doseQuick: doseQuick, applyDose: applyDose, closeDosePop: closeDosePop,
         confirmPrev: confirmPrev, setPkgApplyCheck: setPkgApplyCheck,
+        pkgApplyToggleAll: pkgApplyToggleAll, pkgApplyConfirm: pkgApplyConfirm,
         // 通用条目上下文 + 共享控件（开处方已选 / 处方套餐编辑器共用）
         rxSetCtx: rxSetCtx, rxCtx: rxCtx,
         qtyControls: qtyControls, nurseToggle: nurseToggle, drugControls: drugControls, subList: subList,
