@@ -189,7 +189,15 @@ if ($action === 'detail') {
             'doctor_name' => $o['doctor_name'],
             'flow' => order_flow_steps($o, $items),
             'items' => array_map(function ($it) {
-                return array('name' => $it['item_name'], 'quantity' => (int)$it['quantity'], 'price' => (float)$it['price'], 'status' => $it['status'], 'executed_by' => $it['executed_by']);
+                $u = (isset($it['unit']) && trim((string)$it['unit']) !== '') ? trim((string)$it['unit']) : '';
+                return array(
+                    'name' => $it['item_name'],
+                    'quantity' => (int)$it['quantity'],
+                    'unit' => $u,
+                    'price' => (float)$it['price'],
+                    'status' => $it['status'],
+                    'executed_by' => $it['executed_by'],
+                );
             }, $items),
         );
     }

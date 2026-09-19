@@ -68,8 +68,10 @@ function loadReq() {
                 html += '<div style="margin:6px 0;overflow-x:auto;white-space:nowrap">' + steps + '</div>';
                 (o.items || []).forEach(function (it) {
                     var st = statusMap[it.status] || ['badge-gray', it.status || ''];
+                    // 退药数量带开立单位（2盒 / 3支），审批人核对拆零退药准确
+                    var itUnit = it.unit || '';
                     html += '<div class="flex-between" style="padding:4px 0;border-top:1px dashed var(--border)">' +
-                        '<span class="fs-13">· ' + Clinic.escHtml(it.name) + (it.quantity > 1 ? ' ×' + it.quantity : '') + '</span>' +
+                        '<span class="fs-13">· ' + Clinic.escHtml(it.name) + ' ×' + it.quantity + itUnit + '</span>' +
                         '<span><span class="badge ' + st[0] + '" style="font-size:11px">' + st[1] + '</span>' +
                         (it.executed_by ? ' <span class="fs-12 text-muted">' + Clinic.escHtml(it.executed_by) + '</span>' : '') + '</span></div>';
                 });

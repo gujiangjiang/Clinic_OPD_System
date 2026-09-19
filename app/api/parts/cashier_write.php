@@ -312,11 +312,14 @@ function cashier_part_write($action) {
             // 覆盖全部药品明细（主药 + 子药）：开单时主/子药均扣减库存，恢复须口径一致。
             // 口径：paid（未发药）/ dispensing（护士站执行中）/ dispensed（已发药，药房同意
             // 退药）均可退，恢复库存；rejected/cancelled 已在审方拒绝/删除时恢复过，不再重复。
+            // 库存为最小单位口径：恢复数量 = 开立数量 ×（盒 → pack_size / 支 → 1）
             if ($order['order_type'] === 'prescription') {
                 foreach ($items as $it) {
                     if ($it['item_id'] > 0 && in_array($it['status'], array('paid', 'dispensing', 'dispensed'), true)) {
-                        CashierRepository::restoreDrugStock($it['item_id'], (int)$it['quantity']);
-                        CashierRepository::createInventoryTrans((int)$it['item_id'], (int)$it['quantity'], 'refund', $order['order_no'], $u['name']);
+                        $factor = ($it['unit_type'] === 'min') ? 1 : max(1, (int)(isset($it['pack_size']) ? $it['pack_size'] : 1));
+                        $restore = max(1, (int)$it['quantity']) * $factor;
+                        CashierRepository::restoreDrugStock($it['item_id'], $restore);
+                        CashierRepository::createInventoryTrans((int)$it['item_id'], $restore, 'refund', $order['order_no'], $u['name']);
                     }
                 }
             }

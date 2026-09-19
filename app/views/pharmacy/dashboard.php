@@ -204,7 +204,7 @@ function rxRowHtml(it, sub) {
         '<td>' + esc(it.single_dose || '—') + '</td>' +
         '<td>' + esc(it.frequency || '—') + '</td>' +
         '<td>' + esc(it.route || '—') + '</td>' +
-        '<td>' + (it.quantity || 0) + '</td>' +
+        '<td>' + (it.quantity || 0) + esc(it.unit || '') + '</td>' +
         '<td>' + money((parseFloat(it.price) || 0) * (it.quantity || 0)) + '</td></tr>';
 }
 

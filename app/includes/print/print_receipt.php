@@ -54,10 +54,13 @@ function pt_payment($pay, $items) {
     $html .= '<div class="ticket-section-title">收费项目</div>';
     $total = 0;
     foreach ($items as $it) {
-        $sub = (float)$it['price'] * (int)$it['quantity'];
+        // 单价为开立销售单位单价（盒/瓶 或 支/粒），数量×单价 = 明细金额；
+        // 明细金额与总数均做金融四舍五入，杜绝拆零单价除不尽导致的一分钱差额
+        $sub = round((float)$it['price'] * (int)$it['quantity'], 2);
         $total += $sub;
+        $u = (isset($it['unit']) && trim((string)$it['unit']) !== '') ? trim((string)$it['unit']) : '';
         $html .= '<div class="ticket-row ticket-item"><span>' . e(isset($it['name']) ? $it['name'] : '') .
-            ((int)$it['quantity'] > 1 ? ' ×' . (int)$it['quantity'] : '') . '</span>' .
+            ((int)$it['quantity'] > 1 || $u !== '' ? ' ×' . (int)$it['quantity'] . $u : '') . '</span>' .
             '<span class="ticket-val">¥' . money($sub) . '</span></div>';
     }
     $html .= '<div class="ticket-row ticket-total"><span>合计</span><span class="ticket-val">¥' . money($total) . '</span></div>';

@@ -99,7 +99,7 @@ switch ($action) {
             } else {
                 $rows = EmrRepository::q('SELECT * FROM order_items WHERE order_id=?', array($bp['order_id']));
                 foreach ($rows as $r) {
-                    $items[] = array('name' => $r['item_name'], 'quantity' => (int)$r['quantity'], 'price' => $r['price']);
+                    $items[] = array('name' => $r['item_name'], 'quantity' => (int)$r['quantity'], 'price' => $r['price'], 'unit' => $r['unit']);
                 }
             }
         }

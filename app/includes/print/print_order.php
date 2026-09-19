@@ -21,8 +21,10 @@ function pt_rx_slip($order, $mainItems, $patient) {
     foreach ($mainItems as $it) {
         // 护士站执行的药品不打印凭条（药房不直接发药给患者）
         if ((int)$it['is_nurse'] === 1) continue;
+        // 取药清单数量明确带开立单位（2盒 / 2支），防止把支发成盒
+        $itUnit = (isset($it['unit']) && trim((string)$it['unit']) !== '') ? trim((string)$it['unit']) : '盒';
         $html .= '<div class="ticket-row ticket-item"><span class="fw-600">' . e($it['item_name']) .
-            ((int)$it['quantity'] > 1 ? ' ×' . (int)$it['quantity'] : '') . '</span></div>';
+            ((int)$it['quantity'] > 1 ? ' ×' . (int)$it['quantity'] : ' ×1') . $itUnit . '</span></div>';
         $useTxt = implode(' ', array_filter(array(
             $it['single_dose'], $it['frequency'], $it['route'],
         )));
@@ -30,8 +32,9 @@ function pt_rx_slip($order, $mainItems, $patient) {
         // 子药树形缩进（组医嘱）；子药不单独标护士站，跟随主药
         $subs = isset($it['_subs']) ? $it['_subs'] : array();
         foreach ($subs as $s) {
+            $sUnit = (isset($s['unit']) && trim((string)$s['unit']) !== '') ? trim((string)$s['unit']) : '盒';
             $html .= '<div class="ticket-row ticket-item"><span>　└ ' . e($s['item_name']) .
-                ((int)$s['quantity'] > 1 ? ' ×' . (int)$s['quantity'] : '') . '</span></div>';
+                ' ×' . (int)$s['quantity'] . $sUnit . '</span></div>';
             $subTxt = implode(' ', array_filter(array($s['single_dose'], $s['frequency'], $s['route'])));
             $html .= '<div class="ticket-row"><span class="ticket-val" style="font-size:12px">　　' . e($subTxt) . '</span></div>';
         }
@@ -135,6 +138,11 @@ function pt_order($order, $items, $title, $opts = array()) {
         $html .= '<table class="rx-print">';
         $mainSeq = 0;
         $rxTotal = 0;
+        // 处方笺数量列单位与开立时选择的销售单位绝对一致（2盒 / 2支，杜绝单位错位）
+        $unitOf = function ($x) {
+            $u = isset($x['unit']) ? trim((string)$x['unit']) : '';
+            return $u !== '' ? $u : '盒';
+        };
         foreach ($items as $it) {
             if ((int)$it['sub_of'] > 0) continue;
             $mainSeq++;
@@ -143,7 +151,7 @@ function pt_order($order, $items, $title, $opts = array()) {
                 if ((int)$subIt['sub_of'] === $mainSeq) $subs[] = $subIt;
             }
             $rowspan = 1 + count($subs);
-            $rxTotal += (float)$it['price'] * (int)$it['quantity'];   // 主药计费
+            $rxTotal += round((float)$it['price'] * (int)$it['quantity'], 2);   // 主药计费（金融四舍五入）
             // 组合医嘱：剂量与途径之间用朝左大括号（┐│┘）把组包起来
             $bracket = $rowspan > 1 ? '┐' : '';
             $html .= '<tr>' .
@@ -152,17 +160,17 @@ function pt_order($order, $items, $title, $opts = array()) {
                 '<td class="rx-bracket">' . $bracket . '</td>' .
                 '<td class="rx-route" rowspan="' . $rowspan . '">' . e($it['route']) . '</td>' .
                 '<td class="rx-freq" rowspan="' . $rowspan . '">' . e($it['frequency']) . '</td>' .
-                '<td class="rx-qty">×' . (int)$it['quantity'] . '</td>' .
+                '<td class="rx-qty">×' . (int)$it['quantity'] . ' ' . $unitOf($it) . '</td>' .
                 '</tr>';
             $sc = count($subs);
             foreach ($subs as $si => $sub) {
-                $rxTotal += (float)$sub['price'] * (int)$sub['quantity'];   // 子医嘱计费
+                $rxTotal += round((float)$sub['price'] * (int)$sub['quantity'], 2);   // 子医嘱计费（金融四舍五入）
                 $branch = $si === $sc - 1 ? '┘' : '┤';   // 中间子医嘱用朝左连接符 ┤
                 $html .= '<tr>' .
                     '<td class="rx-name">' . $nameTxt($sub) . '</td>' .
                     '<td class="rx-dose">' . e($sub['single_dose']) . '</td>' .
                     '<td class="rx-bracket">' . $branch . '</td>' .
-                    '<td class="rx-qty">×' . (int)$sub['quantity'] . '</td>' .
+                    '<td class="rx-qty">×' . (int)$sub['quantity'] . ' ' . $unitOf($sub) . '</td>' .
                     '</tr>';
             }
         }
