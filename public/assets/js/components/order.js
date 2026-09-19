@@ -109,6 +109,16 @@ Clinic.order = (function () {
         RX_CTX[key] = { list: getList, render: render };
     }
 
+    /** 设置频次/途径字典（套餐编辑器等外部调用方把字典写入 order.js 闭包，
+     *  使共享 drugControls/qtyControls 读取到与开处方一致的下拉选项） */
+    function setRxDicts(freqs, routes) {
+        if (freqs) RX_FREQS = freqs;
+        if (routes) RX_ROUTES = routes;
+        // 字典到达后重渲染已选列表，保证下拉即时可用（若上下文中已有药品条目）
+        var c = RX_CTX['sel'];
+        if (c && c.render) c.render();
+    }
+
     /** 取上下文条目：si 未传/为负 = 主药；否则为子医嘱 */
     function ctxItem(key, idx, si) {
         var c = RX_CTX[key];
@@ -908,6 +918,22 @@ Clinic.order = (function () {
             queue.push(item);
         });
         if (skipped.length) Clinic.toast.warning('以下项目已在已选列表中，已跳过：' + skipped.join('、'));
+        // 处方套餐：数量超出库存 → 正常加入但提示库存不足（提交处方时另有强制数量校验）
+        if (CUR_TYPE === 'prescription') {
+            var lowStock = queue.filter(function (q) {
+                return q.stock > 0 && q.quantity > q.stock;
+            }).map(function (q) { return q.name + '（需求' + q.quantity + '，库存' + q.stock + '）'; });
+            var subLow = [];
+            queue.forEach(function (q) {
+                (q.sub_items || []).forEach(function (sub) {
+                    if (sub.stock > 0 && sub.quantity > sub.stock) subLow.push(sub.name);
+                });
+            });
+            var allLow = lowStock.concat(subLow);
+            if (allLow.length) {
+                setTimeout(function () { Clinic.toast.warning('以下药品库存不足，已加入但请在提交前调整数量：' + allLow.join('、')); }, 400);
+            }
+        }
         if (!queue.length) { renderSelected(); return; }
         Clinic.modal.close();
         pkgApplyPushQueue(queue, 0);
@@ -1123,12 +1149,16 @@ Clinic.order = (function () {
         o.id = o.item_id;
         o.name = o.item_name;
         if (o.spec_dose > 0) {
-            o.dose = Math.round(o.quantity * o.spec_dose * 100) / 100;
+            // 结构化剂量：默认 1 份（single_use_qty）→ 剂量自动计算、数量自动调整为至少 1 份所需
+            var uq = Math.max(1, o.single_use_qty);
+            o.dose = Math.round(uq * o.spec_dose * 100) / 100;
             o.dose_unit = o.spec_dose_unit;
             o.single_dose = o.dose + (o.dose_unit || '');
+            o.quantity = Math.max(1, Math.ceil(uq));
         } else {
             o.dose = it.dose || it.single_dose || '';
             o.dose_unit = '';
+            o.quantity = Math.max(1, parseInt(qty, 10) || 1);
         }
         return o;
     }
@@ -1165,9 +1195,10 @@ Clinic.order = (function () {
                     });
                     if (dup) { Clinic.toast.warning('【' + it.name + '】已在列表中，不能重复'); return; }
                     // 按上下文生成正确结构：套餐编辑器='pkg' 用 item_id/item_name，开单='sel' 用 id/name
+                    // 更换后数量默认 1（结构化剂量按单份自动调整），不沿用旧数量
                     var newItem;
                     if (key === 'pkg') {
-                        newItem = pkgFromPick(it, s.quantity || 1);
+                        newItem = pkgFromPick(it, 1);
                     } else {
                         newItem = pkgToOrderItem({
                             item_id: it.id, item_name: it.name, price: it.price, spec: it.spec || '',
@@ -1177,7 +1208,7 @@ Clinic.order = (function () {
                             spec_pack_qty: it.spec_pack_qty || 1, spec_pack_unit: it.spec_pack_unit || '',
                             single_use_qty: it.single_use_qty || 1, is_group: it.is_group ? 1 : 0,
                             member_ids: it.member_ids || '', members: it.members || it.spec || '',
-                            quantity: s.quantity || 1, sub_of: 0, is_skin_test: it.is_skin_test || 0,
+                            quantity: 1, sub_of: 0, is_skin_test: it.is_skin_test || 0,
                         }, false);
                     }
                     // 保留原条目子医嘱（若有）与护士设置；处方沿用原频次/途径便于微调
@@ -1981,7 +2012,7 @@ openDosePop: openDosePop, doseQuick: doseQuick, applyDose: applyDose, closeDoseP
         confirmPrev: confirmPrev, setPkgApplyCheck: setPkgApplyCheck,
         pkgApplyToggleAll: pkgApplyToggleAll, pkgApplyConfirm: pkgApplyConfirm,
         // 通用条目上下文 + 共享控件（开处方已选 / 处方套餐编辑器共用）
-        rxSetCtx: rxSetCtx, rxCtx: rxCtx,
+        rxSetCtx: rxSetCtx, rxCtx: rxCtx, setRxDicts: setRxDicts,
         qtyControls: qtyControls, nurseToggle: nurseToggle, drugControls: drugControls, subList: subList,
         doseDisplay: doseDisplay, attachSearchTabs: attachSearchTabs,
         openItemPicker: openItemPicker, openReplace: openReplace, closeItemPicker: closeItemPicker,

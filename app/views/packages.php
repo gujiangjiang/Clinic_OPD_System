@@ -474,6 +474,11 @@ function pkgInitCatList() {
                 RX_FREQS = d.link_dicts.frequencies || [];
                 RX_ROUTES = d.link_dicts.routes || [];
                 PKG_RX_CATS = d.link_dicts.categories || [];
+                // 关键：把频次/途径字典写入 order.js 闭包（共享 drugControls 读取），
+                // 使套餐编辑器已添加药品的频次/途径显示为下拉而非文本输入
+                if (window.Clinic && Clinic.order && Clinic.order.setRxDicts) {
+                    Clinic.order.setRxDicts(d.link_dicts.frequencies || [], d.link_dicts.routes || []);
+                }
                 // 字典就绪后重渲染已选列表：已添加药品的频次/途径下拉即时可用
                 pkgRenderItems();
                 // 搜索框内附加快速筛选 tab（仅首次；分类就绪后）
@@ -588,7 +593,7 @@ function pkgRenderItems() {
             '    <span class="fw-600 fs-13' + (s.valid === 0 ? ' pkg-invalid' : '') + '">' + escHtml(s.item_name) + '</span>' +
             (s.valid === 0 ? ' <span class="badge badge-gray fs-12">已失效</span>' : '') +
             (s.is_group ? ' <span class="badge badge-primary fs-12">组合</span>' : '') +
-            (s.spec && !isDrug ? ' <span class="fs-12 text-muted">' + escHtml(s.spec) + '</span>' : '') +
+            (s.spec ? ' <span class="fs-12 text-muted">' + escHtml(s.spec) + '</span>' : '') +
             (isDrug && s.frequency ? ' <span class="fs-12 text-muted">' + escHtml(s.frequency) + '</span>' : '') +
             (isDrug && s.route ? ' <span class="fs-12 text-muted">' + escHtml(s.route) + '</span>' : '') +
             (s.quantity > 1 ? ' <span class="badge badge-primary fs-12">×' + s.quantity + '</span>' : '') +
