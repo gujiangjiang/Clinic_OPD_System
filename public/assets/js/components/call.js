@@ -68,6 +68,7 @@
     /* ---------- 轮询刷新（科室由服务端按医生端选择解析，大屏端不再传 dept_id） ---------- */
     function refresh() {
         Clinic.get('/api/doctor?action=call_queue', null, {
+            silent: true,   // 后台轮询：失败静默
             onSuccess: function (json) {
                 render(json.data);
             },

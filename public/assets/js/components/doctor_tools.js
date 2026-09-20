@@ -664,6 +664,7 @@ Clinic.docTools = (function () {
         if (!pop || !ROOM_BOUND || !ROOM_BOUND.id) return;
         Clinic.get('/api/doctor?action=call_panel&limit=' + CALL_POOL_LIMIT, null, {
             loading: false,
+            silent: true,   // 后台轮询：失败静默
             onSuccess: function (json) { renderCallPop(json.data); },
             onError: function () { /* 静默，下次轮询自动恢复 */ },
         });

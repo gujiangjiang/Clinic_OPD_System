@@ -42,6 +42,7 @@ Clinic.queuePanel = (function () {
         var applyPref = !DATA;
         if (DATA && !force) { if (cb) cb(); return; }
         Clinic.get('/api/doctor?action=queue_list&dept_id=' + DEPT_ID, null, {
+            silent: true,   // 后台轮询：失败静默
             onSuccess: function (json) {
                 DATA = json.data;
                 if (applyPref && DATA.pref) {

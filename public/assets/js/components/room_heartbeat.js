@@ -59,6 +59,7 @@ Clinic.roomHeartbeat = (function () {
         var url = role === 'doctor' ? '/api/doctor' : '/api/deptwork';
         Clinic.ajax(url, { action: 'room_heartbeat', room_id: b.room_id }, {
             loading: false,
+            silent: true,   // 后台心跳：失败静默（避免偶发网络波动弹「网络请求失败」）
             onError: function () { /* 静默 */ },
         });
     }

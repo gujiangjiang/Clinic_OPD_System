@@ -402,6 +402,7 @@ Clinic.deptwork = (function () {
     function loadQueue(force, cb) {
         Clinic.get('/api/deptwork?action=queue&status=' + encodeURIComponent(STATUS) + '&today=' + (TODAY ? 1 : 0), null, {
             loading: false,
+            silent: true,   // 后台轮询：失败静默
             onSuccess: function (json) {
                 DATA = json.data;
                 TAB_LABELS = DATA.tabs || {};
@@ -951,6 +952,7 @@ Clinic.deptwork = (function () {
         var qs = VISIT ? '&current_visit=' + encodeURIComponent(VISIT) : '';
         Clinic.get('/api/deptwork?action=call_panel' + qs, null, {
             loading: false,
+            silent: true,   // 后台轮询：失败静默
             onSuccess: function (json) { renderCallPanel(json.data); },
             onError: function () {},
         });

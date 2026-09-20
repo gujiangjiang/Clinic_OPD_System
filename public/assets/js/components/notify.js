@@ -58,6 +58,7 @@ Clinic.notify = (function () {
      */
     function refresh() {
         Clinic.get('/api/message?action=unread_count', null, {
+            silent: true,   // 后台轮询：失败静默（偶发网络波动不打扰用户）
             onSuccess: function (json) {
                 const n = json.data && json.data.count ? json.data.count : 0;
                 if (badge) {

@@ -38,7 +38,9 @@ Clinic.textOf = function (html) {
  * 发起 AJAX 请求
  * @param {string} url   接口地址（如 /api/register）
  * @param {object} data  参数（自动附加 csrf_token）
- * @param {object} opts  附加选项 { method, onSuccess, onError, loading }
+ * @param {object} opts  附加选项 { method, onSuccess, onError, loading, silent }
+ *                        silent=true 时失败仅 console.warn 记录（供后台轮询/心跳使用，
+ *                        避免偶发网络波动弹「网络请求失败」打扰用户）
  * @returns {Promise} 解析后的响应对象
  */
 Clinic.ajax = function (url, data, opts) {
@@ -90,7 +92,12 @@ Clinic.ajax = function (url, data, opts) {
         })
         .catch(function (err) {
             if (opts.loading) Clinic.loading.hide();
-            Clinic.toast.error('网络请求失败，请检查网络连接');
+            if (opts.silent) {
+                // 后台轮询/心跳：静默失败，仅记录便于排查（不打断用户）
+                if (window.console && console.warn) console.warn('[AJAX 失败·静默] ' + url + ' — ' + ((err && err.message) || err));
+            } else {
+                Clinic.toast.error('网络请求失败，请检查网络连接');
+            }
             if (opts.onError) opts.onError({ ok: false, msg: '网络错误' });
             // 已通过 toast+onError 处理：不再向上抛出，避免全站产生未处理的 Promise rejection
             return { ok: false, msg: '网络错误' };
