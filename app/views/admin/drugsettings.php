@@ -10,21 +10,24 @@ Router::title('药品设置');
 <div class="list-layout">
 <div class="page-head">
     <div><div class="page-title">📦 药品设置</div><div class="page-desc">分类 / 包装单位 / 剂型 / 用药频次 / 给药途径</div></div>
+    <button class="btn btn-primary btn-sm" id="dsAddBtn" onclick="openDsForm(0)">＋ 新增药品分类</button>
 </div>
 
-<div class="flex gap-8 mb-12" id="dsTabs">
-    <button class="btn btn-primary btn-sm" data-stype="category" onclick="switchDs('category')">药品分类</button>
-    <button class="btn btn-outline btn-sm" data-stype="package" onclick="switchDs('package')">包装单位</button>
-    <button class="btn btn-outline btn-sm" data-stype="form" onclick="switchDs('form')">药品剂型</button>
-    <button class="btn btn-outline btn-sm" data-stype="freq" onclick="switchDs('freq')">用药频次</button>
-    <button class="btn btn-outline btn-sm" data-stype="route" onclick="switchDs('route')">给药途径</button>
+<div class="card list-filter">
+    <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
+        <input class="input" id="dsSearch" placeholder="🔍 快速搜索" style="width:220px" oninput="dsSearchDebounced()">
+        <span class="fs-13 text-muted" id="dsHint"></span>
+        <span class="flex gap-4" id="dsTabs" style="flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" data-stype="category" onclick="switchDs('category')">药品分类</button>
+            <button class="btn btn-outline btn-sm" data-stype="package" onclick="switchDs('package')">包装单位</button>
+            <button class="btn btn-outline btn-sm" data-stype="form" onclick="switchDs('form')">药品剂型</button>
+            <button class="btn btn-outline btn-sm" data-stype="freq" onclick="switchDs('freq')">用药频次</button>
+            <button class="btn btn-outline btn-sm" data-stype="route" onclick="switchDs('route')">给药途径</button>
+        </span>
+    </div>
 </div>
 
 <div class="card list-card">
-    <div class="flex-between mb-12">
-        <span class="fs-13 text-muted" id="dsHint"></span>
-        <button class="btn btn-primary btn-sm" id="dsAddBtn" onclick="openDsForm(0)">＋ 新增</button>
-    </div>
     <div id="dsList" class="list-scroll"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
 </div>
 </div>
@@ -67,18 +70,31 @@ function clearRouteDisposal() {
     document.getElementById('dsBindName').value = '';
 }
 
+var DS_KW = '';
+var dsDebounce = null;
+
+function dsSearchDebounced() {
+    if (dsDebounce) clearTimeout(dsDebounce);
+    dsDebounce = setTimeout(function () { loadDs(); }, 250);
+}
+
 function switchDs(stype) {
     CUR_STYPE = stype;
     document.querySelectorAll('#dsTabs .btn').forEach(function (b) {
         b.className = 'btn btn-sm ' + (b.getAttribute('data-stype') === stype ? 'btn-primary' : 'btn-outline');
     });
+    // 右上角新增按钮随子 tab 联动（如「＋ 新增药品分类」/「＋ 新增包装单位」）
+    var ab = document.getElementById('dsAddBtn');
+    if (ab) ab.textContent = '＋ 新增' + DS_NAMES[stype];
     document.getElementById('dsHint').textContent = DS_NAMES[stype] +
         (stype === 'route' ? '：新增途径时可设置【是否需要护士站处理】（如静脉输液需护士站执行）' : '');
     loadDs();
 }
 
 function loadDs() {
-    Clinic.get('/api/admin?action=drugsetting_list&stype=' + CUR_STYPE, null, {
+    var inp = document.getElementById('dsSearch');
+    DS_KW = (inp ? inp.value : '').trim();
+    Clinic.get('/api/admin?action=drugsetting_list&stype=' + CUR_STYPE + '&kw=' + encodeURIComponent(DS_KW), null, {
         onSuccess: function (json) {
             document.getElementById('dsList').innerHTML = json.data.html;
         },

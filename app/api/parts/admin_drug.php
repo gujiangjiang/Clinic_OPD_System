@@ -20,7 +20,11 @@ function admin_part_drug($action) {
     /* ==================== 药品设置列表 ==================== */
     if ($action === 'drugsetting_list') {
         $stype = get('stype', 'category');
-        $rows = DrugRepository::q('SELECT * FROM drug_settings WHERE stype=? ORDER BY sort, id', array($stype));
+        $kw = trim(get('kw', ''));
+        $where = 'stype=?';
+        $params = array($stype);
+        if ($kw !== '') { $where .= ' AND name LIKE ?'; $params[] = '%' . $kw . '%'; }
+        $rows = DrugRepository::q('SELECT * FROM drug_settings WHERE ' . $where . ' ORDER BY sort, id', $params);
         $html = '<div class="table-wrap"><table class="table"><thead><tr><th>名称</th>' .
             ($stype === 'route' ? '<th>需护士站处理</th><th>绑定计费处置</th>' : '') . '<th>操作</th></tr></thead><tbody>';
         foreach ($rows as $r) {
