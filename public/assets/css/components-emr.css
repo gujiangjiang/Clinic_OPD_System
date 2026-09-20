@@ -237,6 +237,14 @@
     border-bottom-color: transparent;
 }
 .emr-doc .doc-body .ef-field.readonly:empty::before { content: ''; }
+/* 模态框内只读预览（模板/套餐等预览弹窗）：仅禁止编辑，不改文字颜色——
+   可编辑字段保留蓝色（--primary），下拉字段同样保留蓝色，避免预览时蓝色变黑 */
+.modal-mask .emr-doc .doc-body .ef-field.readonly {
+    color: var(--primary);
+}
+.modal-mask .emr-doc .doc-body .ef-select:disabled {
+    color: var(--primary);
+}
 .emr-doc .doc-body .ef-select-wrap { display: inline-block; }
 .emr-doc .doc-body .ef-select {
     /* 与 .emr-item-link（过敏史按钮）/ .ef-field 统一盒模型与垂直基准：
