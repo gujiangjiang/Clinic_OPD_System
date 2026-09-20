@@ -13,6 +13,16 @@
 
 ---
 
+## [8.17.24] - 2026-09-20
+
+### 修复
+- **SPA 局部导航后分页列表报 `Cannot read properties of undefined (reading 'pagedTable')`**：`admin_items.js`（分页表格组件）此前按页面条件加载，仅首次整页渲染时输出；侧边栏 SPA 局部导航不重载 layout，从非分页页（如科室管理）导航到处置/检验/药品/模板/套餐/审核/运营分析等分页页时 `Clinic.adminItems` 未定义，列表报错。现将 `admin_items.js` 改为全局加载（SPA 局部导航不重载 layout，需常驻）。
+
+### 文档
+- **同步版本号至 v8.17.24**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json`）。
+
+---
+
 ## [8.17.23] - 2026-09-20
 
 ### 变更

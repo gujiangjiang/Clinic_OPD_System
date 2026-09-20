@@ -309,10 +309,10 @@ class Layout {
             // 影像科专属：历史报告调阅组件（检验科加载无害，仅影像科视图调用）
             $emrScripts .= "\n" . '<script src="/assets/js/components/pacshistory.js?v=' . APP_VERSION . '"></script>';
         }
-        // 管理端项目列表（检验/检查/药品）共用组件
-        if ($needAdminItems) {
-            $emrScripts .= "\n" . '<script src="/assets/js/components/admin_items.js?v=' . APP_VERSION . '"></script>';
-        }
+        // 管理端项目列表（检验/检查/药品/处置/模板/套餐/审核/分析）共用组件：
+        // 全局加载（SPA 局部导航不重载 layout，条件加载会导致从非分页页
+        // 导航到分页页时 Clinic.adminItems 未定义，列表报 pagedTable 错误）
+        $emrScripts .= "\n" . '<script src="/assets/js/components/admin_items.js?v=' . APP_VERSION . '"></script>';
         $uPop = '<div class="user-pop">' .
             '<div class="user-pop-head">' .
             '<span class="avatar" style="width:38px;height:38px;font-size:15px">' . $avatar . '</span>' .
