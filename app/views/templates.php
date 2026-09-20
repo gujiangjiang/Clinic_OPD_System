@@ -176,12 +176,14 @@ function previewTpl(id, type) {
     var url = role === 'admin'
         ? '/api/template?action=get&id=' + id
         : '/api/template?action=get&id=' + id + '&for_apply=1';
-    var mask = Clinic.modal.load(url, null, { title: '预览模板', size: 'modal-xl' });
-    mask.querySelector('.modal-body').addEventListener('modal:loaded', function (e) {
-        if (e.detail && e.detail.template) {
-            buildTplForm(mask, e.detail.template, true);
+    Clinic.get(url, null, {
+        onSuccess: function (j) {
+            if (!(j.data && j.data.template)) { Clinic.toast.warning('该模板已被删除或不可见，无法预览'); return; }
+            var mask = Clinic.modal.open('<div id="tplFormContent"></div>', { title: '预览模板', size: 'modal-xl' });
+            buildTplForm(mask, j.data.template, true);
             if (Clinic.modalReadonly) Clinic.modalReadonly(mask);
-        }
+        },
+        onError: function () { Clinic.toast.warning('该模板已被删除或不可见，无法预览'); },
     });
 }
 

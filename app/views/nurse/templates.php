@@ -121,12 +121,16 @@ function openNTplForm(id) {
 }
 
 function previewNTpl(id) {
-    var mask = Clinic.modal.load('/api/template?action=get&id=' + id + '&for_apply=1', null, { title: '预览护理模板', size: 'modal-lg' });
-    mask.querySelector('.modal-body').addEventListener('modal:loaded', function (e) {
-        if (e.detail && e.detail.template) {
-            buildNTplForm(mask, e.detail.template, true);
+    var role = document.body.getAttribute('data-role');
+    var url = role === 'admin' ? '/api/template?action=get&id=' + id : '/api/template?action=get&id=' + id + '&for_apply=1';
+    Clinic.get(url, null, {
+        onSuccess: function (j) {
+            if (!(j.data && j.data.template)) { Clinic.toast.warning('该模板已被删除或不可见，无法预览'); return; }
+            var mask = Clinic.modal.open('<div id=ntplFormBox></div>', { title: '预览护理模板', size: 'modal-lg' });
+            buildNTplForm(mask, j.data.template, true);
             if (Clinic.modalReadonly) Clinic.modalReadonly(mask);
-        }
+        },
+        onError: function () { Clinic.toast.warning('该模板已被删除或不可见，无法预览'); },
     });
 }
 

@@ -121,15 +121,33 @@ function previewAudit(btn) {
         item_drug: '预览 · 药品', item_disp: '预览 · 处置项目', drugsetting: '预览 · 药品设置',
     };
     var modalTitle = titleMap[type] || '预览';
-    // 模板/套餐预览：跳转到对应管理页，复用「添加/编辑模板/套餐」同一个模态框只读预览
-    // （管理员可查看含待审核在内的全部内容；后端 get 权限已覆盖）
+    // 模板/套餐预览：跳转到对应管理页，复用「添加/编辑模板/套餐」同一个模态框只读预览。
+    // 跳转前先校验存在性——审核项可能引用的模板/套餐已被删除，避免打开空模态框闪退。
     var tplTypeMap = { template: 'medical_record', nursing_template: 'nursing_record', imaging_template: 'imaging_report' };
     if (tplTypeMap[type]) {
-        window.open('/admin/templates?preview=' + refId + '&type=' + tplTypeMap[type], '_blank');
+        Clinic.get('/api/template?action=get&id=' + refId, null, {
+            onSuccess: function (j) {
+                if (j.data && j.data.template) {
+                    window.open('/admin/templates?preview=' + refId + '&type=' + tplTypeMap[type], '_blank');
+                } else {
+                    Clinic.toast.warning('该模板已被删除，无法预览');
+                }
+            },
+            onError: function () { Clinic.toast.warning('该模板已被删除，无法预览'); },
+        });
         return;
     }
     if (type === 'package') {
-        window.open('/admin/packages?preview=' + refId, '_blank');
+        Clinic.get('/api/package?action=get&id=' + refId, null, {
+            onSuccess: function (j) {
+                if (j.data && j.data.package) {
+                    window.open('/admin/packages?preview=' + refId, '_blank');
+                } else {
+                    Clinic.toast.warning('该套餐已被删除，无法预览');
+                }
+            },
+            onError: function () { Clinic.toast.warning('该套餐已被删除，无法预览'); },
+        });
         return;
     }
     if (type === 'template' || type === 'nursing_template' || type === 'imaging_template') {

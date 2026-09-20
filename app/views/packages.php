@@ -453,11 +453,15 @@ function previewPkg(id) {
     var url = role === 'admin'
         ? '/api/package?action=get&id=' + id
         : '/api/package?action=get&id=' + id + '&for_apply=1';
-    var mask = Clinic.modal.load(url, null, { title: '预览套餐', size: 'modal-xl pkg-form-modal' });
-    mask.querySelector('.modal-body').addEventListener('modal:loaded', function (e) {
-        if (e.detail && e.detail.lab_map) PKG_LAB_MAP = e.detail.lab_map;
-        if (e.detail && e.detail.package) pkgBuildForm(mask, e.detail.package, true);
-        if (Clinic.modalReadonly) Clinic.modalReadonly(mask);
+    Clinic.get(url, null, {
+        onSuccess: function (j) {
+            if (!(j.data && j.data.package)) { Clinic.toast.warning('该套餐已被删除或不可见，无法预览'); return; }
+            var mask = Clinic.modal.open('<div id="pkgFormBox"></div>', { title: '预览套餐', size: 'modal-xl pkg-form-modal' });
+            if (j.data.lab_map) PKG_LAB_MAP = j.data.lab_map;
+            pkgBuildForm(mask, j.data.package, true);
+            if (Clinic.modalReadonly) Clinic.modalReadonly(mask);
+        },
+        onError: function () { Clinic.toast.warning('该套餐已被删除或不可见，无法预览'); },
     });
 }
 
