@@ -1999,7 +1999,8 @@ Clinic.order = (function () {
             routeSel +
             (dis ? '' : '<button type="button" class="btn btn-outline btn-sm" ' +
             'onclick="Clinic.order.openSubDrop(\'' + key + '\',' + i + ',this)">＋ 子医嘱</button>') +
-            (dis ? '' : drugReplaceBtn(key, i)) +
+            // 更换按钮：失效项（原数据变更导致不可用）必须保留——「更换」正是为了把失效项换为可用项目
+            drugReplaceBtn(key, i) +
             '</div>' +
             (s.sub_items.length ? subList(key, s, i) : '');
     }

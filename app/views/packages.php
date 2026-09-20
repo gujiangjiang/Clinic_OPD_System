@@ -710,8 +710,9 @@ function pkgRenderItems() {
         }
         var dis = s.valid === 0;
         if (!isReadonly) {
-            // 更换按钮（失效项也可更换）：非处方在删除左侧；处方靠右显示在头部下方
-            replaceBtn = dis ? '' : '<button type="button" class="btn btn-outline btn-sm" ' +
+            // 更换按钮：失效项（原数据变更导致不可用）必须保留，用于更换为可用项目——
+            // 这是「更换」按钮的核心用途；非处方在删除左侧；处方靠右显示在头部下方
+            replaceBtn = '<button type="button" class="btn btn-outline btn-sm" ' +
                 'onclick="Clinic.order.openReplace(\'pkg\',' + i + ',this,\'' + PKG_TYPE + '\',pkgReplaceUrl)" title="快速更换为其他项目">更换</button>';
             delBtn = '<button type="button" class="btn btn-outline btn-sm" onclick="pkgRemoveItem(' + i + ')">✕</button>';
         }
