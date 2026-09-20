@@ -953,6 +953,7 @@
     min-height: 0;
     overflow: hidden;
     margin-bottom: 0;
+    padding-bottom: 18px;   /* 统一列表底部留白：最后一行距外框下边框 18px，切换页面底部不忽高忽低 */
     display: flex;
     flex-direction: column;
 }
