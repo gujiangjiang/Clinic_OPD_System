@@ -13,6 +13,16 @@
 
 ---
 
+## [8.17.18] - 2026-09-20
+
+### 变更
+- **审核中心列表接入分页无限滚动 + 统一固定高度布局**：平铺列表改服务端分页（page/size 返回 thead+行数组+has_more），滚动到底自动加载；按申请人/按类型分组模式保持全量（分组结构需完整数据统计）；套用 `.list-layout` 统一布局（外框固定、表头 sticky 吸顶）；`pagedTable` 新增 `cfg.onSuccess` 回调支持；`review.php` 加入 `$needAdminItems`。
+
+### 文档
+- **同步版本号至 v8.17.18**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json`）。
+
+---
+
 ## [8.17.17] - 2026-09-20
 
 ### 变更

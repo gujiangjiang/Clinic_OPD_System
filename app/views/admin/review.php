@@ -12,14 +12,15 @@ Router::title('审核中心');
 .tpl-form .tpl-left { width: 320px; flex-shrink: 0; }
 .tpl-form .tpl-right { flex: 1; min-width: 0; }
 </style>
+<div class="list-layout">
 <div class="page-head">
     <div><div class="page-title">✅ 审核中心</div><div class="page-desc">审核项目添加、模板与报告撤回申请</div></div>
 </div>
 
-<div class="flex gap-8 mb-12">
+<div class="flex gap-8 mb-12" style="flex-shrink:0">
     <button class="btn btn-primary btn-sm" data-tab="pending" onclick="switchTab('pending')">待审核</button>
     <button class="btn btn-outline btn-sm" data-tab="handled" onclick="switchTab('handled')">已处理</button>
-    <select class="select" id="groupSelect" onchange="loadAudits(getCurrentTab())" style="width:auto;margin-left:8px">
+    <select class="select" id="groupSelect" onchange="switchGroup()" style="width:auto;margin-left:8px">
         <option value="">平铺列表</option>
         <option value="user">按申请人分组</option>
         <option value="type">按类型分组</option>
@@ -27,9 +28,13 @@ Router::title('审核中心');
     <button class="btn btn-success btn-sm" id="auditAllBtn" onclick="doAuditAll()">✅ 一键全部通过</button>
 </div>
 
-<div class="card" id="auditList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+<div class="card list-card" id="auditList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+</div>
 
 <script>
+var AUDIT_STATE = { status: 'pending' };   // 平铺分页状态
+var AUDIT_PAGED = null;                    // 平铺列表 pagedTable
+
 function switchTab(status) {
     document.querySelectorAll('[data-tab]').forEach(function (b) {
         b.className = 'btn btn-sm ' + (b.getAttribute('data-tab') === status ? 'btn-primary' : 'btn-outline');
@@ -42,12 +47,49 @@ function getCurrentTab() {
     return b ? b.getAttribute('data-tab') : 'pending';
 }
 
+function switchGroup() {
+    loadAudits(getCurrentTab());
+}
+
+/** 平铺分页地址（滚动加载） */
+function auditListUrl(p, size, st) {
+    return '/api/admin?action=audit_list&status=' + st.status + '&group=&page=' + p + '&size=' + size;
+}
+
+function initAuditPaged() {
+    var box = document.getElementById('auditList');
+    if (!box) return;
+    if (AUDIT_PAGED) { AUDIT_PAGED.reset(); return; }
+    box.innerHTML = '<div class="table-wrap"><table class="table" id="auditTable"><tbody></tbody></table></div>';
+    AUDIT_PAGED = Clinic.adminItems.pagedTable({
+        tableEl: 'auditTable',
+        state: AUDIT_STATE,
+        url: auditListUrl,
+        onSuccess: function (json) {
+            // 一键全部通过按钮：仅【待审核】页签、平铺、且有可一键通过的常规事项时显示
+            var cnt = json.data && json.data.pending_count ? json.data.pending_count : 0;
+            var b = document.getElementById('auditAllBtn');
+            if (b) b.style.display = (AUDIT_STATE.status === 'pending' && cnt > 0) ? '' : 'none';
+        },
+    });
+}
+
 function loadAudits(status) {
     var group = document.getElementById('groupSelect').value;
+    if (group === '') {
+        // 平铺：分页无限滚动
+        AUDIT_STATE.status = status;
+        if (AUDIT_PAGED) AUDIT_PAGED.reset(); else initAuditPaged();
+        return;
+    }
+    // 分组：全量加载（服务端分组渲染）
+    if (AUDIT_PAGED) { AUDIT_PAGED.stop(); AUDIT_PAGED = null; }
+    var box = document.getElementById('auditList');
+    if (box) box.innerHTML = '<div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div>';
     Clinic.get('/api/admin?action=audit_list&status=' + status + '&group=' + group, null, {
         onSuccess: function (json) {
             document.getElementById('auditList').innerHTML = json.data.html;
-            // 一键全部通过按钮：仅【待审核】页签、平铺/按类型分组、且有可一键通过的常规事项时显示
+            // 一键全部通过按钮：分组视图不显示（按类型分组支持，按申请人分组不支持）
             var cnt = json.data && json.data.pending_count ? json.data.pending_count : 0;
             document.getElementById('auditAllBtn').style.display = (status === 'pending' && group !== 'user' && cnt > 0) ? '' : 'none';
         },

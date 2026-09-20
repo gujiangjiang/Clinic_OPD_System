@@ -254,6 +254,7 @@ Clinic.adminItems = {
                                 }).join('');
                         }
                     }
+                    if (typeof cfg.onSuccess === 'function') cfg.onSuccess(json);
                 },
             });
         }

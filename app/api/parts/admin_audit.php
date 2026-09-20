@@ -28,21 +28,30 @@ function admin_part_audit($action) {
     /* ==================== 审核列表 ==================== */
     if ($action === 'audit_list') {
         $status = req('status', 'pending');
+        $page = (int)get('page', 0);
+        $pageSize = max(1, min(100, (int)get('size', 20)));
         if ($status === 'handled') {
             // 已处理页签：已通过 / 已驳回 / 已使用
-            $rows = CoreRepository::q("SELECT * FROM audits WHERE status IN ('approved','rejected','used') ORDER BY id DESC", array());
+            $statusCond = "status IN ('approved','rejected','used')";
+            $statusParams = array();
         } else {
             $status = 'pending';
-            $rows = CoreRepository::q('SELECT * FROM audits WHERE status=? ORDER BY id DESC', array($status));
+            $statusCond = 'status=?';
+            $statusParams = array($status);
         }
         // 分组维度：'' 平铺 / user 按申请人 / type 按事项类型
         $group = req('group', '');
         $group = ($group === 'user' || $group === 'type') ? $group : '';
         // 可一键通过的常规待审核事项数（密码重置 / 报告撤回不纳入一键通过）
         $pendingCount = (int)CoreRepository::val("SELECT COUNT(*) FROM audits WHERE status='pending' AND type NOT IN ('pwd_reset','report_withdraw')", array());
+        // 平铺分页模式（审核中心列表滚动加载）：group='' 且显式传 page 时按页返回
+        $pagedFlat = ($group === '' && $page > 0);
+        $rows = $pagedFlat
+            ? array()
+            : CoreRepository::q("SELECT * FROM audits WHERE $statusCond ORDER BY id DESC", $statusParams);
         $html = '<div class="fs-13 text-muted mb-8">' . ($status === 'pending' ? '待审核' : '已处理') . '：' . count($rows) . ' 条' .
             ($group ? '（按' . ($group === 'user' ? '申请人' : '类型') . '分组）' : '') . '</div>';
-        if (!$rows) {
+        if (!$pagedFlat && !$rows) {
             $html .= '<div class="empty"><div class="empty-ico">📋</div>暂无待审核事项</div>';
         } else {
             $typeNames = array(
@@ -88,6 +97,16 @@ function admin_part_audit($action) {
                 $h .= '</div></td></tr>';
                 return $h;
             };
+            // —— 平铺分页模式（group='' 且传 page>0）：返回 thead + 行数组 + has_more，供无限滚动列表使用 ——
+            if ($pagedFlat) {
+                $total = (int)CoreRepository::val("SELECT COUNT(*) FROM audits WHERE $statusCond", $statusParams);
+                $rows = CoreRepository::q("SELECT * FROM audits WHERE $statusCond ORDER BY id DESC LIMIT ? OFFSET ?",
+                    array_merge($statusParams, array($pageSize, ($page - 1) * $pageSize)));
+                $thead = '<thead><tr><th>类型</th><th>事项</th><th>申请人</th><th>申请时间</th><th>状态</th><th>操作</th></tr></thead>';
+                $list = array();
+                foreach ($rows as $r) $list[] = $rowHtml($r);
+                json_ok(array('list' => $list, 'total' => $total, 'has_more' => ($page * $pageSize) < $total, 'thead' => $thead, 'pending_count' => $pendingCount));
+            }
             if ($group === '') {
                 // —— 平铺列表 ——
                 $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .

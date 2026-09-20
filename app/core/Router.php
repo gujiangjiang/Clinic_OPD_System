@@ -241,8 +241,8 @@ class Router {
         $needEmr = ($view === 'doctor/emr.php' || $view === 'templates.php' || $view === 'packages.php' || $view === 'admin/review.php');
         // 需要科室工作台组件（deptwork.js）的页面：护士站/检验/影像/药房工作台
         $needDeptWork = in_array($view, array('nurse/dashboard.php', 'lab/dashboard.php', 'imaging/dashboard.php', 'pharmacy/dashboard.php'), true);
-        // 需要管理端项目列表组件（admin_items.js）的页面：检验/检查/药品/处置项目管理 + 模板/套餐管理
-        $needAdminItems = in_array($view, array('admin/labitems.php', 'admin/examitems.php', 'admin/drugs.php', 'admin/disposal.php', 'templates.php', 'packages.php'), true);
+        // 需要管理端项目列表组件（admin_items.js）的页面：检验/检查/药品/处置项目管理 + 模板/套餐管理 + 审核中心
+        $needAdminItems = in_array($view, array('admin/labitems.php', 'admin/examitems.php', 'admin/drugs.php', 'admin/disposal.php', 'templates.php', 'packages.php', 'admin/review.php'), true);
         if ($view === 'landing.php' || $view === 'doctor/call.php') {
             // 落地页 / 叫号屏自带完整 HTML，直接输出捕获内容即可
             echo $content;
