@@ -657,6 +657,27 @@ function pkgGroupMemberNames(item) {
     return [];
 }
 
+/** 只读预览：剂量/频次/途径保持与编辑一致的输入框/下拉样式，但全部 disabled
+ * （隐藏子医嘱/更换按钮由 pkgRenderItems 只读分支负责不渲染 qtyControls/更换/✕） */
+function pkgReadonlyControls(s) {
+    var doseArea = (s.spec_dose > 0)
+        ? '<button type="button" class="btn btn-outline btn-sm" disabled style="min-height:28px;font-weight:600">' +
+          escHtml((s.dose || s.single_dose || '—')) + '</button>'
+        : '<input type="text" class="input" disabled style="width:104px;padding:4px 8px;min-height:28px" value="' +
+          escHtml(s.dose || s.single_dose || '') + '">';
+    var freqSel = '<select class="select" disabled style="width:128px;padding:4px 8px;min-height:28px;font-size:13px">' +
+        '<option value="">' + escHtml(s.frequency || '用药频次') + '</option></select>';
+    var routeSel = '<select class="select" disabled style="width:128px;padding:4px 8px;min-height:28px;font-size:13px">' +
+        '<option value="">' + escHtml(s.route || '使用途径') + '</option></select>';
+    return '<div class="flex gap-8 mt-4" style="flex-wrap:wrap">' + doseArea + freqSel + routeSel + '</div>';
+}
+
+/** 只读子医嘱静态展示（保留成组医嘱信息，无交互控件） */
+function pkgReadonlySub(s) {
+    return '<div class="fs-12 text-muted mt-2" style="margin:6px 0 0 20px;border-left:2px solid var(--warning);padding-left:10px">成组医嘱：' +
+        s.sub_items.map(function (sub) { return escHtml(sub.name) + (sub.spec ? '（' + escHtml(sub.spec) + '）' : ''); }).join('、') + '</div>';
+}
+
 /* ==================== 套餐内容渲染 ==================== */
 function pkgRenderItems() {
     var box = document.getElementById('pkgItems');
@@ -671,8 +692,7 @@ function pkgRenderItems() {
     document.getElementById('pkgItemTotal').textContent = '¥' + total.toFixed(2);
     box.innerHTML = PKG_ITEMS.map(function (s, i) {
         var isReadonly = PKG_READONLY;
-        // 只读预览：操作控件（数量/护士/更换/✕/频次/途径下拉/子医嘱控件）一律不渲染，
-        // 改为静态文本展示（剂量/频次/途径），避免字典就绪后重渲染恢复为可点击状态
+        // 只读预览：保留与编辑一致的输入框/下拉样式（disabled），隐藏数量-+/护士/更换/✕
         var extra = '';
         var headActions = '';
         var replaceBtn = '';
@@ -683,15 +703,9 @@ function pkgRenderItems() {
                 extra = Clinic.order.drugControls('pkg', s, i);
                 headActions = Clinic.order.qtyControls('pkg', s, i) + Clinic.order.nurseToggle('pkg', s, i);
             } else {
-                extra = '<div class="flex gap-8 mt-4" style="flex-wrap:wrap">' +
-                    '<span class="fs-13 fw-600">' + escHtml((s.dose || s.single_dose || '—')) + '</span>' +
-                    (s.frequency ? '<span class="fs-13 text-muted">' + escHtml(s.frequency) + '</span>' : '') +
-                    (s.route ? '<span class="fs-13 text-muted">' + escHtml(s.route) + '</span>' : '') +
-                    '</div>';
-                if (s.sub_items.length) {
-                    subInfo = '<div class="fs-12 text-muted mt-2" style="margin:6px 0 0 20px;border-left:2px solid var(--warning);padding-left:10px">成组医嘱：' +
-                        s.sub_items.map(function (sub) { return escHtml(sub.name) + (sub.spec ? '（' + escHtml(sub.spec) + '）' : ''); }).join('、') + '</div>';
-                }
+                // 处方只读：剂量/频次/途径保持输入框/下拉样式但全部 disabled；子医嘱静态展示
+                extra = pkgReadonlyControls(s);
+                if (s.sub_items.length) subInfo = pkgReadonlySub(s);
             }
         }
         var dis = s.valid === 0;
