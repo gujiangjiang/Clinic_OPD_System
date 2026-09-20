@@ -1002,3 +1002,10 @@
 }
 /* 影像引用：覆盖旧式 calc(100vh-320px)，改占满 qc-body 剩余高度 */
 #qcRefs .qc-ref-card { height: 100%; }
+/* 打印中心：左右两栏占满 list-layout 剩余高度（覆盖旧式 calc(100vh-300px) 定高） */
+.list-layout > .pc-layout {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    min-height: 0;
+}

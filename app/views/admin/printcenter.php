@@ -7,12 +7,13 @@
  */
 Router::title('打印中心');
 ?>
+<div class="list-layout">
 <div class="page-head">
     <div><div class="page-title">🖨️ 统一打印中心</div><div class="page-desc">集中补打挂号凭条 / 电子病历 / 申请单 / 处方 / 报告 / 诊断证明</div></div>
 </div>
 
 <!-- 检索工具条 -->
-<div class="card" style="margin-bottom:14px">
+<div class="card list-filter">
     <div class="flex gap-8">
         <input class="input" id="pcKw" placeholder="输入患者姓名 / 患者ID / 门诊流水号 / 身份证号" style="flex:1" autocomplete="off" onkeydown="if(event.key==='Enter')pcSearch()">
         <button class="btn btn-primary btn-sm" onclick="pcSearch()">查询</button>
@@ -29,6 +30,7 @@ Router::title('打印中心');
     <div class="card pc-right" id="pcItems">
         <div class="empty" style="padding:60px 0"><div class="empty-ico">🖨️</div>从左侧选择就诊记录，查看可打印单据</div>
     </div>
+</div>
 </div>
 
 <style>
