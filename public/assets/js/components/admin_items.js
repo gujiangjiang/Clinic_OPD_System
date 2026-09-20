@@ -202,8 +202,10 @@ Clinic.adminItems = {
             if (typeof cfg.url === 'function') return cfg.url(p, size, state);
             return cfg.url;
         };
-        var renderRows = function (list, isFirst) {
-            return (isFirst && thead !== '' ? thead : '') + list.join('');
+        // 行渲染：不再拼接 thead（thead 由 append 插入 table 开头，行进入 tbody，
+        // 保证 table 结构正确，sticky 表头可吸顶、内容不会从表头上方穿出）
+        var renderRows = function (list) {
+            return list.join('');
         };
         function init() {
             if (LIST) LIST.stop();
@@ -215,7 +217,19 @@ Clinic.adminItems = {
                 url: buildUrl,
                 render: function (list, isFirst, data) {
                     if (data && data.thead) thead = data.thead;
-                    return renderRows(list, isFirst);
+                    return renderRows(list);
+                },
+                // 表格追加：首屏 thead 插到 table 开头，行追加到 tbody（保证合法 DOM 结构）。
+                // 服务端每页都返回 thead，这里必须检测 table 已存在 thead，否则滚动加载
+                // 下一页时会重复堆叠多个 thead（回到顶部时抬头全部堆在顶部）。
+                append: function (el, html) {
+                    if (thead !== '' && !el.querySelector('thead')) {
+                        el.insertAdjacentHTML('afterbegin', thead);
+                        thead = '';
+                    }
+                    var tb = el.querySelector('tbody');
+                    if (!tb) { tb = document.createElement('tbody'); el.appendChild(tb); }
+                    tb.insertAdjacentHTML('beforeend', html);
                 },
                 onSuccess: function (json) {
                     var d = json.data || {};
