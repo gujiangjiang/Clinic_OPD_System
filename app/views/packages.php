@@ -96,6 +96,7 @@ var PKG_TYPE = 'lab';
 var PKG_SCOPE = '';          // 范围筛选（空=全部）
 var PKG_LIST = null;         // 套餐列表 infiniteList
 var PKG_ITEMS = [];          // 套餐内容（新建/编辑弹窗内）
+var PKG_READONLY = false;    // 只读预览标记（预览时不渲染操作按钮/控件，仅静态展示）
 var PKG_CAT_LIST = null;     // 套餐编辑器搜索下拉 infiniteList
 var PKG_CAT_KW = '';
 var PKG_SUB_LIST = null;     // 处方套餐子医嘱下拉 infiniteList
@@ -356,6 +357,7 @@ function pkgItemsFromSaved(items) {
 }
 
 function pkgBuildForm(mask, pkg, readonly) {
+    PKG_READONLY = !!readonly;
     // 注册套餐条目上下文（复用开处方通用控件：剂量/数量/护士/子医嘱）
     if (window.Clinic && Clinic.order && Clinic.order.rxSetCtx) {
         Clinic.order.rxSetCtx('pkg', function () { return PKG_ITEMS; }, pkgRenderItems, { replaceType: PKG_TYPE, replaceUrlName: 'pkgReplaceUrl' });
@@ -394,6 +396,11 @@ function pkgBuildForm(mask, pkg, readonly) {
         '  </div>' +
         '</div>';
     mask.querySelector('.modal-body').innerHTML = html;
+    // 只读预览：隐藏套餐搜索添加框（仅查看内容，无需添加项目）
+    if (readonly) {
+        var cbx = mask.querySelector('.pkg-cat-box');
+        if (cbx) cbx.style.display = 'none';
+    }
     var treeBox = document.getElementById('pkgDeptTree');
     if (treeBox) {
         Clinic.deptTree.build(treeBox, { selected: (pkg && pkg.dept_ids) || [] });
@@ -670,12 +677,37 @@ function pkgRenderItems() {
     document.getElementById('pkgItemCount').textContent = PKG_ITEMS.length;
     document.getElementById('pkgItemTotal').textContent = '¥' + total.toFixed(2);
     box.innerHTML = PKG_ITEMS.map(function (s, i) {
-        var extra = isDrug ? Clinic.order.drugControls('pkg', s, i) : '';
-        var headActions = (isDrug ? Clinic.order.qtyControls('pkg', s, i) + Clinic.order.nurseToggle('pkg', s, i) : '');
-        // 更换按钮（失效项也可更换）：非处方在删除左侧；处方靠右显示在头部下方
+        var isReadonly = PKG_READONLY;
+        // 只读预览：操作控件（数量/护士/更换/✕/频次/途径下拉/子医嘱控件）一律不渲染，
+        // 改为静态文本展示（剂量/频次/途径），避免字典就绪后重渲染恢复为可点击状态
+        var extra = '';
+        var headActions = '';
+        var replaceBtn = '';
+        var delBtn = '';
+        var subInfo = '';
+        if (isDrug) {
+            if (!isReadonly) {
+                extra = Clinic.order.drugControls('pkg', s, i);
+                headActions = Clinic.order.qtyControls('pkg', s, i) + Clinic.order.nurseToggle('pkg', s, i);
+            } else {
+                extra = '<div class="flex gap-8 mt-4" style="flex-wrap:wrap">' +
+                    '<span class="fs-13 fw-600">' + escHtml((s.dose || s.single_dose || '—')) + '</span>' +
+                    (s.frequency ? '<span class="fs-13 text-muted">' + escHtml(s.frequency) + '</span>' : '') +
+                    (s.route ? '<span class="fs-13 text-muted">' + escHtml(s.route) + '</span>' : '') +
+                    '</div>';
+                if (s.sub_items.length) {
+                    subInfo = '<div class="fs-12 text-muted mt-2" style="margin:6px 0 0 20px;border-left:2px solid var(--warning);padding-left:10px">成组医嘱：' +
+                        s.sub_items.map(function (sub) { return escHtml(sub.name) + (sub.spec ? '（' + escHtml(sub.spec) + '）' : ''); }).join('、') + '</div>';
+                }
+            }
+        }
         var dis = s.valid === 0;
-        var replaceBtn = dis ? '' : '<button type="button" class="btn btn-outline btn-sm" ' +
-            'onclick="Clinic.order.openReplace(\'pkg\',' + i + ',this,\'' + PKG_TYPE + '\',pkgReplaceUrl)" title="快速更换为其他项目">更换</button>';
+        if (!isReadonly) {
+            // 更换按钮（失效项也可更换）：非处方在删除左侧；处方靠右显示在头部下方
+            replaceBtn = dis ? '' : '<button type="button" class="btn btn-outline btn-sm" ' +
+                'onclick="Clinic.order.openReplace(\'pkg\',' + i + ',this,\'' + PKG_TYPE + '\',pkgReplaceUrl)" title="快速更换为其他项目">更换</button>';
+            delBtn = '<button type="button" class="btn btn-outline btn-sm" onclick="pkgRemoveItem(' + i + ')">✕</button>';
+        }
         var head =
             '<div class="head">' +
             '  <div class="info">' +
@@ -692,7 +724,7 @@ function pkgRenderItems() {
             '  <div class="actions">' +
             headActions +
             (isDrug ? '' : replaceBtn) +
-            '    <button type="button" class="btn btn-outline btn-sm" onclick="pkgRemoveItem(' + i + ')">✕</button>' +
+            delBtn +
             '  </div>' +
             '</div>';
         var groupInfo = '';
@@ -707,7 +739,7 @@ function pkgRenderItems() {
         }
         var invalidInfo = (s.valid === 0 && s.invalid_reason)
             ? '<div class="fs-12" style="color:var(--danger);margin:4px 0 0">' + escHtml(s.invalid_reason) + '</div>' : '';
-        return '<div class="pkg-item-card">' + head + invalidInfo + groupInfo + extra + '</div>';
+        return '<div class="pkg-item-card">' + head + invalidInfo + groupInfo + extra + subInfo + '</div>';
     }).join('') || '<div class="text-muted fs-13 text-center" style="padding:30px">尚未添加项目</div>';
 }
 
