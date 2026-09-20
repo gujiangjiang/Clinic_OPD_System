@@ -2,21 +2,38 @@
 /**
  * ============================================================
  * parts/admin_analytics/ana_disposition.php — 转归查询
+ * ============================================================
+ * 支持分页（page/size/kw/type 过滤），滚动加载，避免一次性
+ * 返回最近全部诊毕记录导致请求过大。
  * ============================================================ */
 
 function admin_ana_disposition() {
     $type = trim((string)get('type', '全部'));
+    $page = max(1, (int)get('page', 1));
+    $pageSize = max(1, min(100, (int)get('size', 20)));
+    $kw = trim(get('kw', ''));
+    $where = "r.status='finished' AND r.disposition<>''";
+    $params = array();
+    if ($type !== '' && $type !== '全部') {
+        $where .= ' AND r.disposition=?';
+        $params[] = $type;
+    }
+    if ($kw !== '') {
+        $where .= ' AND (p.name LIKE ? OR r.flow_no LIKE ? OR p.id_card LIKE ?)';
+        $like = '%' . $kw . '%';
+        $params[] = $like;
+        $params[] = $like;
+        $params[] = $like;
+    }
+    $total = (int)AnalyticsRepository::val(
+        "SELECT COUNT(*) FROM registrations r JOIN patients p ON p.patient_no=r.patient_no WHERE " . $where,
+        $params
+    );
     $sql = 'SELECT r.id AS visit_id, r.registered_at, r.flow_no, r.disposition, r.disposition_detail, ' .
         'COALESCE(NULLIF(r.current_dept_name, \'\'), r.first_dept_name) AS dept_name, ' .
         'p.name AS pname, p.gender, p.birth_date, p.id_card ' .
         'FROM registrations r JOIN patients p ON p.patient_no=r.patient_no ' .
-        "WHERE r.status='finished' AND r.disposition<>''";
-    $params = array();
-    if ($type !== '' && $type !== '全部') {
-        $sql .= ' AND r.disposition=?';
-        $params[] = $type;
-    }
-    $sql .= ' ORDER BY r.id DESC LIMIT 200';
+        'WHERE ' . $where . ' ORDER BY r.id DESC LIMIT ' . $pageSize . ' OFFSET ' . (($page - 1) * $pageSize);
     $rows = array();
     $vids = array();
     foreach (AnalyticsRepository::q($sql, $params) as $r) {
@@ -56,5 +73,19 @@ function admin_ana_disposition() {
             'age_fmt' => age_format($r['birth_date'], $r['registered_at']),
         );
     }
-    json_ok(array('list' => $rowsOut));
+    // 动态列：非「全部/自主离院」类型时追加补充信息列
+    $needDetail = ($type !== '' && $type !== '全部' && $type !== '自主离院');
+    $detailHead = $needDetail
+        ? (isset($type) && in_array($type, array('住院', '转院', '死亡', '其他'), true)
+            ? array('住院' => '住院病区', '转院' => '接收医院', '死亡' => '死亡原因', '其他' => '其他转归情况')[$type]
+            : '补充信息')
+        : '';
+    $thead = '<thead><tr><th>就诊时间</th><th>患者</th><th>门诊号</th><th>科室</th><th>医生</th><th>离院方式</th>' .
+        ($needDetail ? '<th>' . $detailHead . '</th>' : '') . '</tr></thead>';
+    json_ok(array(
+        'list' => $rowsOut,
+        'total' => $total,
+        'has_more' => ($page * $pageSize) < $total,
+        'thead' => $thead,
+    ));
 }

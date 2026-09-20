@@ -55,12 +55,13 @@ $depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type
                 <button class="btn btn-outline btn-sm" data-disp="死亡" onclick="dispFilter('死亡')">死亡</button>
                 <button class="btn btn-outline btn-sm" data-disp="其他" onclick="dispFilter('其他')">其他</button>
             </div>
-            <input class="input" id="dispSearch" placeholder="🔍 搜索患者姓名 / 门诊号 / 身份证号" style="width:240px" oninput="renderDispTable()">
+            <input class="input" id="dispSearch" placeholder="🔍 搜索患者姓名 / 门诊号 / 身份证号" style="width:240px">
+                <span class="fs-13 text-muted" id="dispCount"></span>
         </div>
     </div>
     <div class="card">
         <div class="card-title"><span>患者转归情况</span></div>
-        <div id="dispTable"></div>
+        <div id="dispTable" class="ana-pane-table"></div>
     </div>
 </div>
 
@@ -100,7 +101,7 @@ $depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type
                 <button class="btn btn-sm btn-outline" data-dtype="emergency" onclick="deptTypeFilter(this,'emergency')">急诊</button>
             </span>
         </div>
-        <div id="deptTable"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+        <div id="deptTable" class="ana-pane-table"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
     </div>
 </div>
 
@@ -112,7 +113,7 @@ $depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type
             <select class="select" id="docDeptSel" onchange="loadDoctor()" style="width:auto"><option value="0">全部科室</option></select>
             <input class="input" id="docSearch" placeholder="🔍 搜索工号 / 姓名 / 职称" style="width:200px" oninput="renderDoctorTable()">
         </div>
-        <div id="doctorTable"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+        <div id="doctorTable" class="ana-pane-table"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
     </div>
 </div>
 
@@ -143,7 +144,7 @@ $depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type
         <div class="card-title"><span>统计图表</span></div>
         <div id="chartCustom"></div>
     </div>
-    <div class="card" style="margin-top:16px"><div id="customTable"></div></div>
+    <div class="card" style="margin-top:16px"><div id="customTable" class="ana-pane-table"></div></div>
 </div>
 
 <script>
@@ -203,54 +204,52 @@ function anaLoad() {
 }
 
 /* ==================== 转归查询 ==================== */
-var DISP_FILTER = '全部';
-var DISP_ROWS = [];
+var DISP_STATE = { type: '全部', kw: '' };   // 转归分页状态
+var DISP_PAGED = null;                       // 转归列表 pagedTable
+
 function dispFilter(t) {
-    DISP_FILTER = t;
+    DISP_STATE.type = t;
     document.querySelectorAll('#dispFilters [data-disp]').forEach(function (b) {
         b.className = 'btn btn-sm ' + (b.getAttribute('data-disp') === t ? 'btn-primary' : 'btn-outline');
     });
-    loadDisposition();
+    if (DISP_PAGED) DISP_PAGED.reset(); else initDispPaged();
+}
+
+function dispListUrl(p, size, st) {
+    return '/api/admin?action=ana_disposition&type=' + encodeURIComponent(st.type) +
+        '&page=' + p + '&size=' + size + '&kw=' + encodeURIComponent(st.kw);
+}
+
+/** 单行转归 HTML（服务端对象 → 行；补充信息列随类型动态显隐） */
+function dispRowHtml(r) {
+    var needDetail = DISP_STATE.type !== '全部' && DISP_STATE.type !== '自主离院';
+    return '<tr>' +
+        '<td>' + Clinic.escHtml(r.registered_at || '') + '</td>' +
+        '<td class="fw-600">' + Clinic.escHtml(r.pname || '') + ' <span class="fs-12 text-muted">' + Clinic.escHtml(r.gender || '') + '/' + (r.age_fmt || '') + '</span></td>' +
+        '<td class="fs-12">' + Clinic.escHtml(r.flow_no || '') + '</td>' +
+        '<td>' + Clinic.escHtml(r.dept_name || '') + '</td>' +
+        '<td>' + Clinic.escHtml(r.doctor_name || '') + '</td>' +
+        '<td><span class="badge badge-primary">' + Clinic.escHtml(r.disposition || '') + '</span></td>' +
+        (needDetail ? '<td>' + Clinic.escHtml(r.disposition_detail || '') + '</td>' : '') +
+        '</tr>';
+}
+
+function initDispPaged() {
+    var box = document.getElementById('dispTable');
+    if (!box) return;
+    if (DISP_PAGED) { DISP_PAGED.reset(); return; }
+    box.innerHTML = '<div class="table-wrap"><table class="table" id="dispTableEl"><tbody></tbody></table></div>';
+    DISP_PAGED = Clinic.adminItems.pagedTable({
+        tableEl: 'dispTableEl',
+        state: DISP_STATE,
+        url: dispListUrl,
+        countEl: 'dispCount',
+        kwEl: 'dispSearch',
+        render: function (list, isFirst, data) { return list.map(dispRowHtml).join(''); },
+    });
 }
 function loadDisposition() {
-    Clinic.get('/api/admin?action=ana_disposition&type=' + encodeURIComponent(DISP_FILTER), null, {
-        onSuccess: function (j) {
-            DISP_ROWS = j.data.list || [];
-            renderDispTable();
-        },
-    });
-}
-function renderDispTable() {
-    var needDetail = DISP_FILTER !== '全部' && DISP_FILTER !== '自主离院';
-    var detailHead = needDetail
-        ? ({ '住院': '住院病区', '转院': '接收医院', '死亡': '死亡原因', '其他': '其他转归情况' }[DISP_FILTER] || '补充信息')
-        : '';
-    var q = (document.getElementById('dispSearch').value || '').trim().toLowerCase();
-    var rows = DISP_ROWS.filter(function (r) {
-        if (!q) return true;
-        return ((r.pname || '') + (r.flow_no || '') + (r.id_card || '')).toLowerCase().indexOf(q) !== -1;
-    });
-    var head = '<div class="fs-13 text-muted mb-8">' +
-        (q ? rows.length + ' 条记录' : '共 ' + DISP_ROWS.length + ' 条转归记录（最近 200 条诊毕记录）') + '</div>';
-    var table = '<div class="table-wrap"><table class="table"><thead><tr>' +
-        '<th>就诊时间</th><th>患者</th><th>门诊号</th><th>科室</th><th>医生</th>' +
-        '<th>离院方式</th>' +
-        (needDetail ? '<th>' + detailHead + '</th>' : '') +
-        '</tr></thead><tbody>';
-    var trs = rows.map(function (r) {
-        return '<tr>' +
-            '<td>' + (r.registered_at || '') + '</td>' +
-            '<td class="fw-600">' + Clinic.escHtml(r.pname || '') + ' <span class="fs-12 text-muted">' + Clinic.escHtml(r.gender || '') + '/' + (r.age_fmt || '') + '</span></td>' +
-            '<td class="fs-12">' + Clinic.escHtml(r.flow_no || '') + '</td>' +
-            '<td>' + Clinic.escHtml(r.dept_name || '') + '</td>' +
-            '<td>' + Clinic.escHtml(r.doctor_name || '') + '</td>' +
-            '<td><span class="badge badge-primary">' + Clinic.escHtml(r.disposition || '') + '</span></td>' +
-            (needDetail ? '<td>' + Clinic.escHtml(r.disposition_detail || '') + '</td>' : '') +
-            '</tr>';
-    }).join('');
-    document.getElementById('dispTable').innerHTML =
-        head + table + trs + '</tbody></table></div>' +
-        (rows.length ? '' : '<div class="empty"><div class="empty-ico">🧭</div>' + (q ? '未找到匹配患者' : '暂无符合条件的转归记录') + '</div>');
+    if (DISP_PAGED) DISP_PAGED.reset(); else initDispPaged();
 }
 
 /* ==================== 运营总览 ==================== */

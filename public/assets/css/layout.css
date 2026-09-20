@@ -1016,3 +1016,39 @@
     align-items: stretch;
 }
 .diag-body .card { height: 100%; }
+/* 运营分析各 tab：pane 固定视口高度，列表卡占满剩余并内部滚动（表头 sticky、底部对齐一致） */
+#ana-pane-dept,
+#ana-pane-doctor,
+#ana-pane-custom,
+#ana-pane-disposition {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - var(--topbar-h) - 190px);
+    min-height: 420px;
+    overflow: hidden;
+}
+#ana-pane-dept > .card,
+#ana-pane-doctor > .card,
+#ana-pane-custom > .card,
+#ana-pane-disposition > .card { flex-shrink: 0; }
+#ana-pane-dept > .card:last-child,
+#ana-pane-doctor > .card:last-child,
+#ana-pane-custom > .card:last-child,
+#ana-pane-disposition > .card:last-child {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.ana-pane-table {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+.ana-pane-table .table-wrap {
+    max-height: none;
+    overflow: visible;
+    border-radius: 0;
+}
