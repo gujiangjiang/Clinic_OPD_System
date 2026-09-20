@@ -175,7 +175,9 @@ switch ($action) {
             );
         }
         if ($page > 0) {
-            json_ok(array('list' => $out, 'total' => $total, 'has_more' => $hasMore));
+            // thead 供分页表格列表复用（管理页模板列表；pagedTable 首屏插到 table 开头）
+            $thead = '<thead><tr><th>模板名称</th><th>适用范围</th><th>创建人</th><th>审核状态</th><th>操作</th></tr></thead>';
+            json_ok(array('list' => $out, 'total' => $total, 'has_more' => $hasMore, 'thead' => $thead));
         } else {
             json_ok(array('list' => $out));
         }

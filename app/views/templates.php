@@ -10,6 +10,7 @@ Router::title('模板管理');
 $u = Auth::user();
 $isAdmin = $u['role'] === 'admin';
 ?>
+<div class="list-layout">
 <div class="page-head">
     <div><div class="page-title">📋 模板管理</div><div class="page-desc">病历模板 / 知情同意书 / 病历嘱托</div></div>
     <div class="flex gap-8">
@@ -25,9 +26,10 @@ $isAdmin = $u['role'] === 'admin';
         <button class="btn btn-primary btn-sm" onclick="openTplForm(0)">＋ 新建模板</button>
     </div>
 </div>
-<div class="card" style="margin-bottom:12px">
+<div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" id="tplSearchKw" placeholder="🔍 搜索模板名称" style="width:220px" oninput="applyTplFilter()">
+        <input class="input" id="tplSearchKw" placeholder="🔍 搜索模板名称" style="width:220px">
+        <span class="fs-13 text-muted" id="tplCount"></span>
         <span class="flex gap-4" id="tplScopeTabs" style="flex-wrap:wrap">
             <button class="btn btn-sm btn-primary" data-tscope="" onclick="setTplScope(this,'')">全部</button>
             <button class="btn btn-sm btn-outline" data-tscope="personal" onclick="setTplScope(this,'personal')">个人</button>
@@ -36,8 +38,9 @@ $isAdmin = $u['role'] === 'admin';
         </span>
     </div>
 </div>
-<div class="card" id="tplList">
+<div class="card list-card" id="tplList">
     <div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div>
+</div>
 </div>
 
 <style>
@@ -48,95 +51,93 @@ $isAdmin = $u['role'] === 'admin';
 
 <script>
 var TPL_TYPE = 'medical_record';
-var TPL_DATA = [];
-var TPL_SCOPE = '';   // 范围筛选（空=全部）
+var TPL_STATE = { kw: '', cat: '' };   // 分页状态：kw=搜索词 / cat=范围筛选（scope）
+var TPL_PAGED = null;                  // 模板列表 infiniteList
 
 /* HTML 转义（内联视图用，全局供模板列表渲染等） */
 function escHtml(s) { return Clinic.escHtml(s); }
 
 function setTplTypeSel() {
     TPL_TYPE = document.getElementById('tplTypeSel').value;
-    loadTplList();
+    TPL_STATE.kw = '';
+    TPL_STATE.cat = '';
+    var inp = document.getElementById('tplSearchKw');
+    if (inp) inp.value = '';
+    if (TPL_PAGED) TPL_PAGED.reset(); else initTplPaged();
 }
 
 function setTplScope(btn, s) {
-    TPL_SCOPE = s;
+    TPL_STATE.cat = s;
     document.querySelectorAll('#tplScopeTabs .btn').forEach(function (b) {
         b.className = 'btn btn-sm ' + ((b.getAttribute('data-tscope') || '') === s ? 'btn-primary' : 'btn-outline');
     });
-    renderTplList();
-}
-
-function applyTplFilter() {
-    var q = (document.getElementById('tplSearchKw').value || '').trim().toLowerCase();
-    var n = 0;
-    document.querySelectorAll('#tplList tbody tr').forEach(function (tr) {
-        var hit = tr.textContent.toLowerCase().indexOf(q) !== -1;
-        tr.style.display = hit ? '' : 'none';
-        if (hit) n++;
-    });
-    var cnt = document.getElementById('tplCount');
-    if (cnt) cnt.textContent = q ? '搜索到 ' + n + ' 个模板' : '共 ' + n + ' 个模板';
-}
-
-function loadTplList() {
-    TPL_DATA = [];
-    Clinic.get('/api/template?action=list&type=' + TPL_TYPE, null, {
-        onSuccess: function (j) {
-            TPL_DATA = j.data.list || [];
-            renderTplList();
-        },
-    });
+    if (TPL_PAGED) TPL_PAGED.reset();
 }
 
 var SCOPE_NAMES = { personal: '个人', dept: '科室', hospital: '全院' };
 var STATUS_NAMES = { published: '已发布', pending_review: '待审核', rejected: '已驳回' };
 var STATUS_CLS = { published: 'badge-success', pending_review: 'badge-warning', rejected: 'badge-gray' };
 
-function renderTplList() {
-    var filtered = TPL_DATA.length ? TPL_DATA.filter(function (t) { return !TPL_SCOPE || t.scope === TPL_SCOPE; }) : [];
-    var rows = filtered.length ? filtered.map(function (t) {
-        // 待审核模板：适用范围展示目标范围（全院/科室），但标注当前仅个人可用；
-        // 审核通过后自动发布为对应范围
-        var scopeBadge = '<span class="badge badge-primary">' + (SCOPE_NAMES[t.scope] || t.scope) + '</span>';
-        if (t.status === 'pending_review') {
-            scopeBadge += ' <span class="fs-12 text-muted">（待审核·暂仅个人可用）</span>';
-        }
-        var statusBadge = '<span class="badge ' + (STATUS_CLS[t.status] || 'badge-gray') + '">' + (STATUS_NAMES[t.status] || t.status) + '</span>';
-        var deptText = t.dept_names && t.dept_names.length ? '（' + t.dept_names.join('、') + '）' : '';
-        var actions = '';
-        if (t.is_system) {
-            actions = '<span class="fs-12 text-muted">内置模板</span>';
-        } else if (t.status === 'pending_review') {
-            // 待审核锁定：不可编辑/删除（审核通过/驳回后恢复），管理员去审核中心处理
-            if (<?php echo $isAdmin ? 'true' : 'false'; ?>) {
-                actions = '<a class="btn btn-outline btn-sm" href="/admin/review">去审核中心审核</a>';
-            } else {
-                actions = '<span class="fs-12 text-muted">待审核·不可编辑</span>';
-            }
+/** 模板分页地址（服务端已支持 page/size/kw/scope 过滤与 thead 返回） */
+function tplListUrl(p, size, st) {
+    return '/api/template?action=list&type=' + TPL_TYPE + '&page=' + p + '&size=' + size +
+        '&kw=' + encodeURIComponent(st.kw) + '&scope=' + encodeURIComponent(st.cat);
+}
+
+/** 单行模板 HTML（对象 → 行），pagedTable cfg.render 使用 */
+function tplRowHtml(t) {
+    // 待审核模板：适用范围展示目标范围（全院/科室），但标注当前仅个人可用；
+    // 审核通过后自动发布为对应范围
+    var scopeBadge = '<span class="badge badge-primary">' + (SCOPE_NAMES[t.scope] || t.scope) + '</span>';
+    if (t.status === 'pending_review') {
+        scopeBadge += ' <span class="fs-12 text-muted">（待审核·暂仅个人可用）</span>';
+    }
+    var statusBadge = '<span class="badge ' + (STATUS_CLS[t.status] || 'badge-gray') + '">' + (STATUS_NAMES[t.status] || t.status) + '</span>';
+    var deptText = t.dept_names && t.dept_names.length ? '（' + t.dept_names.join('、') + '）' : '';
+    var actions = '';
+    if (t.is_system) {
+        actions = '<span class="fs-12 text-muted">内置模板</span>';
+    } else if (t.status === 'pending_review') {
+        // 待审核锁定：不可编辑/删除（审核通过/驳回后恢复），管理员去审核中心处理
+        if (<?php echo $isAdmin ? 'true' : 'false'; ?>) {
+            actions = '<a class="btn btn-outline btn-sm" href="/admin/review">去审核中心审核</a>';
         } else {
-            // 仅本人创建或管理员可编辑/删除；他人模板复用编辑模态框只读预览
-            var canManage = <?php echo $isAdmin ? 'true' : 'false'; ?> || t.creator_id === <?php echo (int)$u['id']; ?>;
-            if (canManage) {
-                actions += '<button class="btn btn-outline btn-sm" onclick="openTplForm(' + t.id + ')">编辑</button>';
-                actions += '<button class="btn btn-outline btn-sm" onclick="delTpl(' + t.id + ')">删除</button>';
-            } else {
-                actions = '<button class="btn btn-outline btn-sm" onclick="previewTpl(' + t.id + ')">预览</button>';
-            }
+            actions = '<span class="fs-12 text-muted">待审核·不可编辑</span>';
         }
-        return '<tr>' +
-            '<td class="fw-600">' + escHtml(t.title) + '</td>' +
-            '<td>' + scopeBadge + ' ' + deptText + '</td>' +
-            '<td>' + escHtml(t.creator_name) + '</td>' +
-            '<td>' + statusBadge + '</td>' +
-            '<td><div class="flex gap-4">' + actions + '</div></td></tr>';
-    }).join('') : '<tr><td colspan="5"><div class="empty">暂无模板</div></td></tr>';
-    document.getElementById('tplList').innerHTML =
-        '<div class="table-wrap"><table class="table"><thead><tr>' +
-        '<th>模板名称</th><th>适用范围</th><th>创建人</th><th>审核状态</th><th>操作</th></tr></thead><tbody>' +
-        rows + '</tbody></table></div>' +
-        '<div class="fs-12 text-muted mt-8" id="tplCount">共 ' + filtered.length + ' 个模板</div>';
-    applyTplFilter();
+    } else {
+        // 仅本人创建或管理员可编辑/删除；他人模板复用编辑模态框只读预览
+        var canManage = <?php echo $isAdmin ? 'true' : 'false'; ?> || t.creator_id === <?php echo (int)$u['id']; ?>;
+        if (canManage) {
+            actions += '<button class="btn btn-outline btn-sm" onclick="openTplForm(' + t.id + ')">编辑</button>';
+            actions += '<button class="btn btn-outline btn-sm" onclick="delTpl(' + t.id + ')">删除</button>';
+        } else {
+            actions = '<button class="btn btn-outline btn-sm" onclick="previewTpl(' + t.id + ')">预览</button>';
+        }
+    }
+    return '<tr>' +
+        '<td class="fw-600">' + escHtml(t.title) + '</td>' +
+        '<td>' + scopeBadge + ' ' + deptText + '</td>' +
+        '<td>' + escHtml(t.creator_name) + '</td>' +
+        '<td>' + statusBadge + '</td>' +
+        '<td><div class="flex gap-4">' + actions + '</div></td></tr>';
+}
+
+/** 初始化/重置模板分页列表 */
+function initTplPaged() {
+    var box = document.getElementById('tplList');
+    if (!box) return;
+    if (TPL_PAGED) { TPL_PAGED.reset(); return; }
+    box.innerHTML = '<div class="table-wrap"><table class="table" id="tplTable"><tbody></tbody></table></div>';
+    TPL_PAGED = Clinic.adminItems.pagedTable({
+        tableEl: 'tplTable',
+        state: TPL_STATE,
+        url: tplListUrl,
+        countEl: 'tplCount',
+        kwEl: 'tplSearchKw',
+        render: function (list, isFirst, data) {
+            return list.map(tplRowHtml).join('');
+        },
+    });
 }
 
 /* ==================== 新建/编辑 ==================== */
@@ -357,7 +358,7 @@ function saveTplForm(id, origStatus) {
         onSuccess: function (j) {
             Clinic.toast.success(j.msg);
             Clinic.modal.close();
-            loadTplList();
+            initTplPaged();
         },
     });
 }
@@ -366,12 +367,12 @@ function saveTplForm(id, origStatus) {
 function delTpl(id) {
     Clinic.modal.confirm('确定删除该模板？', function () {
         Clinic.ajax('/api/template', { action: 'delete', id: id }, {
-            onSuccess: function (j) { Clinic.toast.success(j.msg); loadTplList(); },
+            onSuccess: function (j) { Clinic.toast.success(j.msg); initTplPaged(); },
         });
     });
 }
 
-loadTplList();
+initTplPaged();
 
 /* 审核中心跳转预览：?preview=ID&type=xxx 自动打开模板只读预览（复用编辑模态框） */
 (function () {

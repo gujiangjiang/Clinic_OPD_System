@@ -13,6 +13,17 @@
 
 ---
 
+## [8.17.16] - 2026-09-20
+
+### 变更
+- **模板管理列表接入分页无限滚动 + 统一固定高度布局**：模板列表（病历/知情同意/护理/影像/嘱托各类型）由全量加载改为服务端分页（page/size/kw/scope），滚动到底自动加载；`pagedTable` 新增 `cfg.render` 支持（服务端返回对象数组时页面自定义转行 HTML）；套用 `.list-layout`（外框固定、表头 sticky 吸顶）；`templates.php` 加入 `$needAdminItems` 加载分页组件。
+- **服务端 `/api/template?action=list` 分页响应补充 thead**，供分页表格首屏插入。
+
+### 文档
+- **同步版本号至 v8.17.16**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json`）。
+
+---
+
 ## [8.17.15] - 2026-09-20
 
 ### 变更

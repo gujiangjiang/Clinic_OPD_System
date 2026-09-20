@@ -202,11 +202,12 @@ Clinic.adminItems = {
             if (typeof cfg.url === 'function') return cfg.url(p, size, state);
             return cfg.url;
         };
-        // 行渲染：不再拼接 thead（thead 由 append 插入 table 开头，行进入 tbody，
-        // 保证 table 结构正确，sticky 表头可吸顶、内容不会从表头上方穿出）
-        var renderRows = function (list) {
-            return list.join('');
-        };
+        // 行渲染：默认拼接 HTML 行；页面可传 cfg.render 自定义（服务端返回对象数组时转 HTML）。
+                // thead 不再拼进行（由 append 插入 table 开头，行进入 tbody，
+                // 保证 table 结构正确，sticky 表头可吸顶、内容不会从表头上方穿出）
+                var renderRows = function (list) {
+                    return list.join('');
+                };
         function init() {
             if (LIST) LIST.stop();
             LIST = Clinic.infiniteList({
@@ -217,6 +218,8 @@ Clinic.adminItems = {
                 url: buildUrl,
                 render: function (list, isFirst, data) {
                     if (data && data.thead) thead = data.thead;
+                    // 页面可传 cfg.render 自定义行渲染（如服务端返回对象数组时转 HTML）
+                    if (typeof cfg.render === 'function') return cfg.render(list, isFirst, data);
                     return renderRows(list);
                 },
                 // 表格追加：首屏 thead 插到 table 开头，行追加到 tbody（保证合法 DOM 结构）。
