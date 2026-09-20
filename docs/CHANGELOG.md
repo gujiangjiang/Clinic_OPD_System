@@ -13,6 +13,16 @@
 
 ---
 
+## [8.17.15] - 2026-09-20
+
+### 变更
+- **药品设置列表接入统一固定高度布局**：药品设置 5 个 tab（分类/包装单位/剂型/频次/途径）套用 `.list-layout`，tab 栏固定，列表在 `.list-scroll` 内滚动、表头 sticky 吸顶；新增 `.list-card .list-scroll` 通用滚动区样式（服务端整包 table-wrap 的场景复用）。
+
+### 文档
+- **同步版本号至 v8.17.15**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json`）。
+
+---
+
 ## [8.17.14] - 2026-09-20
 
 ### 变更

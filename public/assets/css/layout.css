@@ -923,3 +923,58 @@
     box-sizing: border-box;
     overflow: hidden;
 }
+
+/* ============================================================
+   固定高度列表布局（v8.17.10）
+   适用：科室管理 / 用户管理 / 检验·检查项目 / 处置项目等列表页。
+   特点：
+     1. 外框固定视口高度，不随列表内容多少而伸缩（底部保留内边距留白）；
+     2. 页头 / 搜索过滤区固定，不随列表滚动；
+     3. 仅列表内部（.table-wrap）滚动，页面整体不滚动；
+     4. 表头 sticky 吸顶，内容从表头下方经过，不会从表头上方穿出。
+   ============================================================ */
+.list-layout {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - var(--topbar-h) - 40px); /* 扣除顶栏与 .content 上下内边距(20×2) */
+    overflow: hidden;
+    gap: 12px;
+}
+.list-layout > .page-head {
+    flex-shrink: 0;
+    margin-bottom: 0;
+}
+.list-layout > .list-filter {
+    flex-shrink: 0;
+    margin-bottom: 0;
+}
+.list-layout > .list-card {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+}
+/* 列表滚动区：占满 list-card 剩余高度，内部纵向滚动；覆盖全局 max-height:60vh */
+.list-card .table-wrap {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    border-radius: var(--radius-sm);
+    overflow-y: auto;
+    overflow-x: auto;
+}
+/* 通用列表滚动区（服务端整包 table-wrap 的场景，如药品设置/审核中心等）：
+   由外层 list-scroll 负责滚动，内部 table-wrap 不重复滚动，sticky 表头相对 list-scroll 吸顶 */
+.list-card .list-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+.list-card .list-scroll .table-wrap {
+    max-height: none;
+    overflow: visible;
+    border-radius: 0;
+}

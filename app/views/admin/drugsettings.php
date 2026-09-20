@@ -7,6 +7,7 @@
  */
 Router::title('药品设置');
 ?>
+<div class="list-layout">
 <div class="page-head">
     <div><div class="page-title">📦 药品设置</div><div class="page-desc">分类 / 包装单位 / 剂型 / 用药频次 / 给药途径</div></div>
 </div>
@@ -19,12 +20,13 @@ Router::title('药品设置');
     <button class="btn btn-outline btn-sm" data-stype="route" onclick="switchDs('route')">给药途径</button>
 </div>
 
-<div class="card">
+<div class="card list-card">
     <div class="flex-between mb-12">
         <span class="fs-13 text-muted" id="dsHint"></span>
         <button class="btn btn-primary btn-sm" id="dsAddBtn" onclick="openDsForm(0)">＋ 新增</button>
     </div>
-    <div id="dsList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+    <div id="dsList" class="list-scroll"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+</div>
 </div>
 
 <script>
