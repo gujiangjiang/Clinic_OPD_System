@@ -13,6 +13,7 @@ Router::title('套餐管理');
 $u = Auth::user();
 $isAdmin = $u['role'] === 'admin';
 ?>
+<div class="list-layout">
 <div class="page-head">
     <div><div class="page-title">🥡 套餐管理</div><div class="page-desc">快速开单套餐（检验 / 检查 / 处置 / 处方）</div></div>
     <div class="flex gap-8">
@@ -25,9 +26,10 @@ $isAdmin = $u['role'] === 'admin';
         <button class="btn btn-primary btn-sm" onclick="pkgOpenForm(0)">＋ 新建套餐</button>
     </div>
 </div>
-<div class="card" style="margin-bottom:12px">
+<div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" id="pkgKw" placeholder="🔍 搜索套餐名称" style="width:220px" oninput="pkgResetSearch()">
+        <input class="input" id="pkgKw" placeholder="🔍 搜索套餐名称" style="width:220px">
+        <span class="fs-13 text-muted" id="pkgCount"></span>
         <span class="flex gap-4" id="pkgScopeTabs" style="flex-wrap:wrap">
             <button class="btn btn-sm btn-primary" data-pscope="" onclick="pkgSetScope(this,'')">全部</button>
             <button class="btn btn-sm btn-outline" data-pscope="personal" onclick="pkgSetScope(this,'personal')">个人</button>
@@ -36,8 +38,9 @@ $isAdmin = $u['role'] === 'admin';
         </span>
     </div>
 </div>
-<div class="card" id="pkgList">
+<div class="card list-card" id="pkgList">
     <div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div>
+</div>
 </div>
 
 <style>
@@ -94,7 +97,8 @@ $isAdmin = $u['role'] === 'admin';
 <script>
 var PKG_TYPE = 'lab';
 var PKG_SCOPE = '';          // 范围筛选（空=全部）
-var PKG_LIST = null;         // 套餐列表 infiniteList
+var PKG_STATE = { kw: '', cat: '' };   // 套餐列表分页状态（kw=搜索 / cat=scope）
+var PKG_PAGED = null;        // 套餐列表 pagedTable
 var PKG_ITEMS = [];          // 套餐内容（新建/编辑弹窗内）
 var PKG_READONLY = false;    // 只读预览标记（预览时不渲染操作按钮/控件，仅静态展示）
 var PKG_CAT_LIST = null;     // 套餐编辑器搜索下拉 infiniteList
@@ -117,32 +121,32 @@ function escHtml(s) { return Clinic.escHtml(s); }
 
 function pkgChangeType() {
     PKG_TYPE = document.getElementById('pkgTypeSel').value;
-    PKG_SCOPE = '';
+    PKG_STATE.kw = '';
+    PKG_STATE.cat = '';
+    var inp = document.getElementById('pkgKw');
+    if (inp) inp.value = '';
     document.querySelectorAll('#pkgScopeTabs .btn').forEach(function (b) {
         b.className = 'btn btn-sm ' + (b.getAttribute('data-pscope') === '' ? 'btn-primary' : 'btn-outline');
     });
-    var box = document.getElementById('pkgList');
-    if (box) box.innerHTML = '<div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div>';
-    if (PKG_LIST) { PKG_LIST.stop(); PKG_LIST = null; }
-    pkgInitList();
+    if (PKG_PAGED) PKG_PAGED.reset(); else pkgInitList();
 }
 
 function pkgSetScope(btn, s) {
-    PKG_SCOPE = s;
+    PKG_STATE.cat = s;
     document.querySelectorAll('#pkgScopeTabs .btn').forEach(function (b) {
         b.className = 'btn btn-sm ' + ((b.getAttribute('data-pscope') || '') === s ? 'btn-primary' : 'btn-outline');
     });
-    pkgResetSearch();
+    if (PKG_PAGED) PKG_PAGED.reset(); else pkgInitList();
 }
 
 function pkgResetSearch() {
-    if (PKG_LIST) PKG_LIST.reset();
+    if (PKG_PAGED) PKG_PAGED.reset();
     else pkgInitList();
 }
 
-function pkgListUrl(p, size) {
-    var kw = encodeURIComponent((document.getElementById('pkgKw') || {}).value || '');
-    return '/api/package?action=list&type=' + PKG_TYPE + '&page=' + p + '&size=' + size + '&kw=' + kw;
+function pkgListUrl(p, size, st) {
+    return '/api/package?action=list&type=' + PKG_TYPE + '&page=' + p + '&size=' + size +
+        '&kw=' + encodeURIComponent(st.kw) + '&scope=' + encodeURIComponent(st.cat);
 }
 
 function pkgItemRow(t) {
@@ -178,27 +182,16 @@ function pkgItemRow(t) {
 
 function pkgInitList() {
     var box = document.getElementById('pkgList');
-    if (!box || PKG_LIST || !window.Clinic || !Clinic.infiniteList) return;
-    PKG_LIST = Clinic.infiniteList({
-        el: box,
-        pageSize: 20,
-        threshold: 40,
-        emptyHtml: '<div class="empty">暂无套餐，点击右上角「新建套餐」创建</div>',
+    if (!box) return;
+    if (PKG_PAGED) { PKG_PAGED.reset(); return; }
+    box.innerHTML = '<div class="table-wrap"><table class="table" id="pkgTable"><tbody></tbody></table></div>';
+    PKG_PAGED = Clinic.adminItems.pagedTable({
+        tableEl: 'pkgTable',
+        state: PKG_STATE,
         url: pkgListUrl,
-        render: function (list, isFirst) {
-            var rows = list.map(pkgItemRow).join('');
-            if (isFirst) {
-                return '<div class="table-wrap"><table class="table"><thead><tr>' +
-                    '<th>套餐名称</th><th>适用范围</th><th>项目 / 合计</th><th>创建人</th><th>审核状态</th><th>操作</th>' +
-                    '</tr></thead><tbody>' + rows + '</tbody></table></div>';
-            }
-            return rows;
-        },
-        append: function (el, html) {
-            var tb = el.querySelector('tbody');
-            if (tb) tb.insertAdjacentHTML('beforeend', html);
-            else el.insertAdjacentHTML('beforeend', html);
-        },
+        countEl: 'pkgCount',
+        kwEl: 'pkgKw',
+        render: function (list, isFirst, data) { return list.map(pkgItemRow).join(''); },
     });
 }
 
@@ -829,7 +822,7 @@ function pkgSave(id, origStatus) {
         onSuccess: function (j) {
             Clinic.toast.success(j.msg);
             Clinic.modal.close();
-            if (PKG_LIST) PKG_LIST.reset();
+            if (PKG_PAGED) PKG_PAGED.reset();
             else pkgInitList();
         },
     });
@@ -840,7 +833,7 @@ function pkgDel(id) {
         Clinic.ajax('/api/package', { action: 'delete', id: id }, {
             onSuccess: function (j) {
                 Clinic.toast.success(j.msg);
-                if (PKG_LIST) PKG_LIST.reset();
+                if (PKG_PAGED) PKG_PAGED.reset();
                 else pkgInitList();
             },
         });

@@ -13,6 +13,16 @@
 
 ---
 
+## [8.17.17] - 2026-09-20
+
+### 变更
+- **套餐管理列表接入统一固定高度布局 + scope 过滤修复**：套餐列表由自定义 infiniteList 改为 pagedTable 统一分页（类型/范围 tab、搜索均走服务端过滤），滚动加载；套用 `.list-layout`（外框固定、表头 sticky 吸顶）；修复此前 scope tab 仅切换高亮未传服务端过滤的缺陷；服务端 `/api/package?action=list` 补充 thead。
+
+### 文档
+- **同步版本号至 v8.17.17**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json`）。
+
+---
+
 ## [8.17.16] - 2026-09-20
 
 ### 变更

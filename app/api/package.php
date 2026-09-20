@@ -231,7 +231,8 @@ switch ($action) {
                 'created_at' => (string)$t['created_at'],
             );
         }
-        json_ok(array('list' => $out, 'total' => $total, 'has_more' => ($page * $pageSize) < $total));
+        $thead = '<thead><tr><th>套餐名称</th><th>适用范围</th><th>项目 / 合计</th><th>创建人</th><th>审核状态</th><th>操作</th></tr></thead>';
+        json_ok(array('list' => $out, 'total' => $total, 'has_more' => ($page * $pageSize) < $total, 'thead' => $thead));
         break;
 
     /* ==================== 单条套餐详情（编辑回填 / 应用加载） ==================== */
