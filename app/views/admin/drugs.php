@@ -12,6 +12,7 @@ $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
 $__isPharmacy = Auth::user() && Auth::user()['role'] === 'pharmacy';
 $__canManage = $__isAdmin || $__isPharmacy;
 ?>
+<div class="list-layout">
 <div class="page-head">
     <div><div class="page-title">💊 药品信息</div><div class="page-desc">药品档案管理<?php echo $__canManage ? '' : '（新增药品需审核通过后可用）'; ?></div></div>
     <div class="flex gap-8">
@@ -19,14 +20,15 @@ $__canManage = $__isAdmin || $__isPharmacy;
         <button class="btn btn-primary btn-sm" onclick="openDrugForm(0)">＋ 新增药品</button>
     </div>
 </div>
-<div class="card" style="margin-bottom:12px">
+<div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
         <input class="input" id="drugSearch" placeholder="🔍 快速搜索药品 / 通用名 / 厂家" style="width:220px">
         <span class="fs-13 text-muted" id="drugCountDiv"></span>
         <span class="flex gap-4" id="drugCatTabs" style="flex-wrap:wrap"></span>
     </div>
 </div>
-<div class="card" id="drugList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+<div class="card list-card" id="drugList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+</div>
 
 <script>
 var DRUG_CAT = '';
@@ -48,7 +50,7 @@ function initDrugPaged() {
     var box = document.getElementById('drugList');
     if (!box) return;
     if (DRUG_PAGED) { DRUG_PAGED.reset(); return; }
-    box.innerHTML = '<table class="table" id="drugTable"><tbody></tbody></table>';
+    box.innerHTML = '<div class="table-wrap"><table class="table" id="drugTable"><tbody></tbody></table></div>';
     DRUG_PAGED = Clinic.adminItems.pagedTable({
         tableEl: 'drugTable',
         state: DRUG_STATE,
