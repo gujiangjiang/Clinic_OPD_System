@@ -7,6 +7,7 @@
  */
 Router::title('查询中心');
 ?>
+<div class="list-layout">
 <div class="page-head">
     <div><div class="page-title">🔍 查询中心</div><div class="page-desc">全院业务数据查询与溯源（危急值 / 影像引用 / 更多子项）</div></div>
 </div>
@@ -17,6 +18,7 @@ Router::title('查询中心');
     <button type="button" class="btn btn-outline btn-sm" data-qc-tab="more" onclick="qcTab('more')">更多子项（规划中）</button>
 </div>
 
+<div class="qc-body">
 <div id="qcCritical"></div>
 <div id="qcRefs" style="display:none">
     <div class="card qc-ref-card">
@@ -31,6 +33,8 @@ Router::title('查询中心');
     </div>
 </div>
 <div id="qcMore" style="display:none"><div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">📊</div>更多查询子项规划中，敬请期待</div></div></div>
+</div>
+</div>
 
 <script>
 function esc2(s) { return Clinic.escHtml(s == null ? '' : String(s)); }

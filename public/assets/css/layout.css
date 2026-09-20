@@ -978,3 +978,27 @@
     overflow: visible;
     border-radius: 0;
 }
+/* 查询中心各 tab 内容区：占满剩余高度，内部滚动（危急值/影像引用底部对齐一致） */
+.list-layout .qc-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+.qc-body > div { height: 100%; overflow: hidden; }
+/* 危急值列表：筛选卡固定，列表卡占满剩余并内部滚动 */
+#qcCritical { display: flex; flex-direction: column; }
+#qcCritical .card:first-child { flex-shrink: 0; }
+#qcCritical .card:last-child {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+#qcCritical .card:last-child .table-wrap {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow: auto;
+}
+/* 影像引用：覆盖旧式 calc(100vh-320px)，改占满 qc-body 剩余高度 */
+#qcRefs .qc-ref-card { height: 100%; }
