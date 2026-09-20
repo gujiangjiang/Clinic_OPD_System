@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v8.17.4-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v8.17.5-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -293,6 +293,44 @@ server {
 ```
 
 完整示例见 `docs/nginx.conf.example`。
+
+### 🔐 Session 存储架构与高并发调优
+
+会话管理器（`app/core/Session.php`）支持三种存储驱动，默认零依赖开箱即用，通过环境变量切换并自动优雅降级：
+
+**方案一：Files 原生文件驱动（默认零依赖）**
+- 适合中小诊所单机部署，零配置开箱即用；Session 文件写入 `data/session/`。
+- 单机性能优化推荐：Linux 下用 `tmpfs` 虚拟内存盘挂载 Session 目录，消除物理磁盘 I/O 损耗（见 `docs/nginx.conf.example` 注释）：
+  ```bash
+  mkdir -p /tmp/php-session
+  mount -t tmpfs -o size=64m,mode=0777 tmpfs /tmp/php-session
+  # 并设置 SESSION 目录指向该内存盘
+  ```
+
+**方案二：Redis 内存驱动模式**
+- 设定环境配置即可启用：
+  ```bash
+  SESSION_DRIVER=redis
+  REDIS_HOST=127.0.0.1
+  REDIS_PORT=6379
+  REDIS_AUTH=yourpassword        # 可选
+  REDIS_PREFIX=clinic_sess:
+  REDIS_TIMEOUT=2.0
+  ```
+- 需安装 PHP `redis` 扩展；多机负载均衡/集群部署推荐此方案，会话可跨节点共享。
+
+**方案三：Memcached 内存驱动模式**
+- 设定环境配置即可启用（支持逗号分隔多节点分布式）：
+  ```bash
+  SESSION_DRIVER=memcached
+  MEMCACHED_SERVERS=127.0.0.1:11211,10.0.0.2:11211
+  MEMCACHED_PREFIX=clinic_sess:
+  ```
+- 需安装 PHP `memcached` 扩展；适用于纯内存键值缓存集群。
+
+**自动降级**：配置了 redis/memcached 但对应 PHP 扩展未安装或连接失败时，系统记录 `error_log` 告警并自动平滑降级为 `files` 存储，绝不白屏或崩溃。
+
+**并发锁机制**：系统在高频轮询（叫号大屏每 3 秒、危急值提醒、站内消息铃铛、医生端队列与心跳、医技工作台、药房/收银台待办）的只读接口鉴权完成后调用 `Session::closeReadOnly()` 立即释放 Session 独占锁，消除多请求并发排队等待（TTFB 保持低位）。
 
 ## 📖 使用流程（快速体验）
 

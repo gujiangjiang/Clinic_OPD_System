@@ -13,6 +13,32 @@
 
 ---
 
+## [8.17.5] - 2026-09-20
+
+### 架构升级
+- **Session 会话管理器全面解耦，Files / Redis / Memcached 多驱动原生兼容**：
+  - `app/core/Session.php` 重构为工厂化分发：环境变量 `SESSION_DRIVER` 切换驱动（默认 `files` 零依赖开箱即用）。
+  - **Redis 驱动**：`REDIS_HOST/PORT/AUTH/PREFIX/TIMEOUT` 组装 DSN（`tcp://...?auth=&prefix=&timeout=`）并 `ini_set('session.save_handler','redis')`；启动前探测扩展与连接。
+  - **Memcached 驱动**：`MEMCACHED_SERVERS`（逗号分隔多节点）+ `MEMCACHED_PREFIX`，启用二进制协议、会话前缀与会话锁（`memcached.sess_locking`）。
+  - **自动优雅降级**：配置 redis/memcached 但扩展缺失或连接不可用时，`error_log` 告警并自动平滑降级 files，页面不 500 不白屏（实测：本机配置 redis 无服务 → 降级 files 正常登录）。
+  - 统一 Cookie 参数（HttpOnly / SameSite=Lax / secure 兼容反向代理）与 `session_start()` 幂等启动。
+
+### 性能优化
+- **高频只读接口全量接入 `Session::closeReadOnly()`**（鉴权后立即释放 Session 独占锁，解除文件锁并发互斥阻塞）：
+  - 叫号大屏 `app/api/screen.php` 与 `public/screen.php`（免登 token 校验后释放）；
+  - 医生端叫号/候诊列表/首页统计（`doctor_call_queue` / `doctor_queue_list` / `doctor_home_stats`）；
+  - 危急值提醒 `critical.php`、站内消息铃铛 `message.php`、医技工作台轮询 `deptwork.php`；
+  - 药房 `pharmacy.php`、收费处读取 `cashier_read.php`（纯读取接口）；
+  - SSE 长连接 `push.php` 统一走 `Session::closeReadOnly()`。
+
+### 文档
+- **README 新增【Session 存储架构与高并发调优】**：Files（默认/tmpfs 内存盘建议）/ Redis / Memcached 三方案配置与自动降级说明、并发锁释放机制。
+- **`docs/nginx.conf.example` 补充 PHP-FPM + Session 目录 tmpfs 挂载最佳实践注释**。
+- **AGENTS.md 新增「会话管理（Session 多驱动架构铁律）」**：统一由 `Session.php` 分发、严禁业务直写 `ini_set('session.*')`、只读接口鉴权后必须 `Session::closeReadOnly()`。
+- **同步版本号至 v8.17.5**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json`）。
+
+---
+
 ## [8.17.4] - 2026-09-20
 
 ### 修复
@@ -47,6 +73,12 @@
 
 ### 【结构规范】根目录文档归档
 - `CHANGELOG.md` 与 `nginx.conf.example` 规范归入 `docs/` 目录。
+
+### 【架构升级】Session 会话管理器多驱动解耦
+- `app/core/Session.php` 支持 Files / Redis / Memcached 三驱动原生兼容与自动优雅降级（详见 [8.17.5] 小节）。
+
+### 【性能优化】高频只读接口锁释放
+- 叫号大屏、危急值心跳、医生端队列、医技工作台、药房/收银台待办等高频只读接口全量接入 `Session::closeReadOnly()`，解除文件锁并发互斥阻塞。
 
 ---
 

@@ -6,6 +6,20 @@
 #   2. 修改 server_name、root 为实际域名与项目路径
 #   3. root 指向项目的 public 目录（唯一 Web 入口）
 #   4. 重启 Nginx：nginx -s reload
+#
+# ---- Session 高性能部署建议（Files 驱动 /tmpfs 内存盘挂载）----
+# 系统默认使用 files 会话驱动（Session 文件写入 data/session/）。
+# 单机高并发场景下，推荐将 Session 目录挂载到 tmpfs 虚拟内存盘，
+# 消除物理磁盘 I/O 损耗（大屏轮询/危急值心跳等高频只读接口已通过
+# Session::closeReadOnly() 释放独占锁，配合内存盘可显著降低 TTFB）：
+#
+#   mkdir -p /tmp/php-session && chmod 0777 /tmp/php-session
+#   mount -t tmpfs -o size=64m,mode=0777 tmpfs /tmp/php-session
+#   # 系统设置中配置 PHP session.save_path = /tmp/php-session
+#
+# 多机负载均衡/集群部署：可切换 Redis / Memcached 会话驱动（环境变量
+# SESSION_DRIVER=redis|memcached，见 README「Session 存储架构」），
+# 会话跨节点共享；未配置或连接失败时系统自动降级 files，不会白屏。
 # ============================================================
 
 server {

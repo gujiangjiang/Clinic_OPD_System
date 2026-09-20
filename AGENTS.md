@@ -39,6 +39,12 @@
   - `tools/schema/` 与 `tools/lint/`：巡检与语法检查工具。
 - **开发铁律**：后续任何测试造数需求，严禁在 `tools/` 根目录随意新建孤立的 `seed_xxx.php` 脚本，必须在 `seeder/` 或 `scenarios/` 中扩展复用；造数一律通过统一 CLI 入口调度。
 
+## 会话管理（Session 多驱动架构铁律）
+
+- 会话统一由 `app/core/Session.php` 驱动分发（`files` / `redis` / `memcached` 多驱动，环境变量 `SESSION_DRIVER` 切换，默认 `files` 零依赖），**严禁在业务逻辑中直接编写 `ini_set('session.*')` 或直接 `session_start()`**。
+- 配置 redis/memcached 但扩展缺失或连接失败 → `Session::start()` 自动 `error_log` 告警并平滑降级 files，绝不白屏。
+- **任何新增的纯只读、高频轮询类接口（大屏/心跳/队列/危急值/站内消息/待办统计等），在鉴权完成后必须调用 `Session::closeReadOnly()` 立即释放 Session 独占锁**，根除并发串行排队。
+
 ## 每次修改必须执行的自动化步骤
 
 1. **同步版本与日志**：
