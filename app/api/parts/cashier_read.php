@@ -10,6 +10,8 @@
 
 function cashier_part_read($action) {
     $u = Auth::user();
+    // 核心优化：收费处读取接口（纯只读），鉴权后立即释放 Session 锁，减少轮询排队
+    Session::closeReadOnly();
 
     if ($action === 'home_stats') {
         $today = date('Y-m-d');

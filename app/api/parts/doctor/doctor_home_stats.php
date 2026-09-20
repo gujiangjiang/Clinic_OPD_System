@@ -7,6 +7,8 @@
  * ============================================================ */
 
 function doctor_read_home_stats($u) {
+    // 核心优化：医生首页统计只读接口，鉴权后立即释放 Session 锁
+    Session::closeReadOnly();
     $uid = (int)$u['id'];
     $today = date('Y-m-d');
     // 今日接诊人次（本人）

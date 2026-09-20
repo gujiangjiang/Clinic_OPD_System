@@ -17,6 +17,8 @@ require_once APP_ROOT . '/app/includes/emr_formatter.php';
 require_once __DIR__ . '/parts/dept_common.php';
 
 $u = Auth::user();
+// 核心优化：危急值轮询/列表等只读接口，鉴权后立即释放 Session 锁（写操作不依赖会话）
+Session::closeReadOnly();
 
 /**
  * 构造检验报告危急值快照：

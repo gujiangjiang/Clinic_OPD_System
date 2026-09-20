@@ -39,6 +39,7 @@ if (strpos($channel, 'scr:') === 0) {
     $chan = $channel;
 }
 // 认证完成，释放会话锁（长连接期间不阻塞同用户并发请求）
+if (function_exists('Session::closeReadOnly')) { Session::closeReadOnly(); }
 if (function_exists('session_write_close')) { session_write_close(); }
 if (function_exists('session_abort')) { @session_abort(); }
 

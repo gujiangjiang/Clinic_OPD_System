@@ -32,6 +32,9 @@ require_once __DIR__ . '/../app/config/bootstrap.php';
 $room = DB::one('clinic_rooms', 'SELECT * FROM clinic_rooms WHERE screen_token=?', array($token));
 if (!$room) { echo $noToken; exit; }
 
+// 核心优化：大屏长驻轮询，页面渲染前立即释放 Session 锁，避免占用文件锁
+Session::closeReadOnly();
+
 $hosp  = setting('hospital_name', '门诊一体化系统');
 $hosp2 = setting('hospital_name2', '');
 $logoData = img_data(setting('logo', ''));

@@ -20,6 +20,9 @@ if (!$room) {
     exit;
 }
 
+// 核心优化：大屏每 3 秒轮询，只读接口立即释放 Session 锁，根除并发串行排队
+Session::closeReadOnly();
+
 /* ---------- 通用：返回该诊室叫号数据 ---------- */
 function screen_payload($room) {
     $deptId = (int)$room['dept_id'];

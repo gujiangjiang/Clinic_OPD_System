@@ -15,6 +15,8 @@
 require __DIR__ . '/_init.php';
 
 $u = Auth::user();
+// 核心优化：站内消息轮询（铃铛心跳）只读接口，鉴权后立即释放 Session 锁
+Session::closeReadOnly();
 
 switch ($action) {
 

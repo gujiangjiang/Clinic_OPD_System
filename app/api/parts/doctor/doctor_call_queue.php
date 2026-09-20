@@ -10,6 +10,8 @@
  * ============================================================ */
 
 function doctor_read_call_queue($u) {
+    // 核心优化：医生端叫号大屏轮询只读接口，鉴权后立即释放 Session 锁
+    Session::closeReadOnly();
     $room = QueueRepository::one(
         "SELECT * FROM clinic_rooms WHERE current_doctor_id=? AND room_type='doctor' ORDER BY id DESC LIMIT 1",
         array((int)$u['id'])

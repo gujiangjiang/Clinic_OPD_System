@@ -11,6 +11,8 @@ require_once APP_ROOT . '/app/includes/forms.php';
 require_once APP_ROOT . '/app/includes/print_templates.php';   // pt_rx_slip 处方提示凭条
 
 $u = Auth::user();
+// 核心优化：药房轮询/库存等接口均与会话无关，鉴权后立即释放 Session 锁
+Session::closeReadOnly();
 
 switch ($action) {
 

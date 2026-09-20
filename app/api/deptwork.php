@@ -20,6 +20,8 @@ require_once __DIR__ . '/parts/dept_common.php';
 
 $u = Auth::user();
 $role = $u['role'];
+// 核心优化：医技工作台轮询/心跳只读接口，鉴权后立即释放 Session 锁
+Session::closeReadOnly();
 
 if (!in_array($role, array('nurse', 'lab', 'imaging', 'pharmacy'), true)) {
     json_fail('无权限访问科室工作台');
