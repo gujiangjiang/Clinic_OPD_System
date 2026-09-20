@@ -115,14 +115,13 @@ function renderTplList() {
                 actions = '<span class="fs-12 text-muted">待审核·不可编辑</span>';
             }
         } else {
-            // 仅本人创建或管理员可编辑/删除；他人模板提供只读预览
+            // 仅本人创建或管理员可编辑/删除；他人模板复用编辑模态框只读预览
             var canManage = <?php echo $isAdmin ? 'true' : 'false'; ?> || t.creator_id === <?php echo (int)$u['id']; ?>;
             if (canManage) {
                 actions += '<button class="btn btn-outline btn-sm" onclick="openTplForm(' + t.id + ')">编辑</button>';
                 actions += '<button class="btn btn-outline btn-sm" onclick="delTpl(' + t.id + ')">删除</button>';
             } else {
-                actions = '<span class="fs-12 text-muted">他人模板</span>' +
-                    '<button class="btn btn-outline btn-sm" onclick="Clinic.previewTemplate(' + t.id + ')">👁 预览</button>';
+                actions = '<button class="btn btn-outline btn-sm" onclick="previewTpl(' + t.id + ')">预览</button>';
             }
         }
         return '<tr>' +
@@ -159,7 +158,34 @@ function openTplForm(id) {
     }
 }
 
-function buildTplForm(mask, tpl) {
+/**
+ * 模板只读预览：复用「添加/编辑模板」同一个模态框（buildTplForm），
+ * 打开后整框强制只读（emrEditor readonly + modalReadonly 禁用所有控件/拦截交互）。
+ * 供「他人模板」预览与管理员审核统一调用。
+ * @param {number} id     模板 ID
+ * @param {string} [type] 模板类型（medical_record/consent/...），可选（用于从审核页跳转时切 Tab）
+ */
+function previewTpl(id, type) {
+    if (type) {
+        TPL_TYPE = type;
+        var tsel = document.getElementById('tplTypeSel');
+        if (tsel) tsel.value = type;
+    }
+    // 管理员可预览任意模板（含待审核）；普通用户按可见性（for_apply）过滤
+    var role = document.body.getAttribute('data-role');
+    var url = role === 'admin'
+        ? '/api/template?action=get&id=' + id
+        : '/api/template?action=get&id=' + id + '&for_apply=1';
+    var mask = Clinic.modal.load(url, null, { title: '预览模板', size: 'modal-xl' });
+    mask.querySelector('.modal-body').addEventListener('modal:loaded', function (e) {
+        if (e.detail && e.detail.template) {
+            buildTplForm(mask, e.detail.template, true);
+            if (Clinic.modalReadonly) Clinic.modalReadonly(mask);
+        }
+    });
+}
+
+function buildTplForm(mask, tpl, readonly) {
     var isAdmin = <?php echo $isAdmin ? 'true' : 'false'; ?>;
     var isConsent = TPL_TYPE === 'consent';
     var isNurse = TPL_TYPE === 'nursing_record';
@@ -246,24 +272,29 @@ function buildTplForm(mask, tpl) {
     if (treeBox) {
         Clinic.deptTree.build(treeBox, { selected: (tpl && tpl.dept_ids) || [] });
     }
-    // 病历模板：渲染结构化编辑器（模板模式）
+    // 病历模板：渲染结构化编辑器（模板模式；readonly 预览传 readonly 禁用编辑）
     if (!isConsent && !isNurse && !isImg && !isAdvice) {
         var container = document.getElementById('templateEditor');
         if (container) {
             try {
                 Clinic.emrEditor.render(container, (tpl && tpl.content) || {}, {
                     templateMode: true,
-                    onChange: function () { window.__tplDirty = true; },
+                    readonly: !!readonly,
+                    onChange: readonly ? null : function () { window.__tplDirty = true; },
                 });
             } catch (e) { console.error('模板编辑器渲染失败', e); }
         }
     }
     window.__tplDirty = false;
     onTplScopeChange();
-    mask.querySelector('.modal-foot').innerHTML =
-        '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
-        '<button type="button" class="btn btn-primary" id="tplSaveBtn">保存</button>';
-    document.getElementById('tplSaveBtn').addEventListener('click', function () { saveTplForm(tpl ? tpl.id : 0, tpl ? tpl.status : ''); });
+    // 只读预览：底栏仅提示，不提供保存；编辑模式提供取消/保存
+    mask.querySelector('.modal-foot').innerHTML = readonly
+        ? '<span class="fs-12 text-muted">🔒 只读预览 — 模板内容不可编辑、不可保存</span>'
+        : '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+          '<button type="button" class="btn btn-primary" id="tplSaveBtn">保存</button>';
+    if (!readonly) {
+        document.getElementById('tplSaveBtn').addEventListener('click', function () { saveTplForm(tpl ? tpl.id : 0, tpl ? tpl.status : ''); });
+    }
 }
 
 function onTplScopeChange() {
@@ -339,4 +370,13 @@ function delTpl(id) {
 }
 
 loadTplList();
+
+/* 审核中心跳转预览：?preview=ID&type=xxx 自动打开模板只读预览（复用编辑模态框） */
+(function () {
+    var m = (location.search.match(/[?&]preview=(\d+)/) || [])[1];
+    if (m) {
+        var pt = (location.search.match(/[?&]type=([^&]+)/) || [])[1];
+        setTimeout(function () { previewTpl(parseInt(m, 10), pt ? decodeURIComponent(pt) : undefined); }, 300);
+    }
+})();
 </script>

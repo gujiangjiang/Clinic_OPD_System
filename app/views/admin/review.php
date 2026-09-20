@@ -121,6 +121,17 @@ function previewAudit(btn) {
         item_drug: '预览 · 药品', item_disp: '预览 · 处置项目', drugsetting: '预览 · 药品设置',
     };
     var modalTitle = titleMap[type] || '预览';
+    // 模板/套餐预览：跳转到对应管理页，复用「添加/编辑模板/套餐」同一个模态框只读预览
+    // （管理员可查看含待审核在内的全部内容；后端 get 权限已覆盖）
+    var tplTypeMap = { template: 'medical_record', nursing_template: 'nursing_record', imaging_template: 'imaging_report' };
+    if (tplTypeMap[type]) {
+        window.open('/admin/templates?preview=' + refId + '&type=' + tplTypeMap[type], '_blank');
+        return;
+    }
+    if (type === 'package') {
+        window.open('/admin/packages?preview=' + refId, '_blank');
+        return;
+    }
     if (type === 'template' || type === 'nursing_template' || type === 'imaging_template') {
         // 模板预览：病历模板 → emrEditor 只读；知情同意书/护理记录/影像报告 → 文本预览
         Clinic.get('/api/template?action=get&id=' + refId, null, {

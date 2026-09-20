@@ -162,9 +162,8 @@ function pkgItemRow(t) {
             actions = '<button class="btn btn-outline btn-sm" onclick="pkgOpenForm(' + t.id + ')">编辑</button>' +
                 '<button class="btn btn-outline btn-sm" onclick="pkgDel(' + t.id + ')">删除</button>';
         } else {
-            // 他人套餐：只读预览（走 for_apply 可见性过滤）
-            actions = '<span class="fs-12 text-muted">他人套餐</span>' +
-                '<button class="btn btn-outline btn-sm" onclick="Clinic.previewPackage(' + t.id + ')">👁 预览</button>';
+            // 他人套餐：复用编辑模态框只读预览
+            actions = '<button class="btn btn-outline btn-sm" onclick="previewPkg(' + t.id + ')">预览</button>';
         }
     }
     return '<tr>' +
@@ -356,7 +355,7 @@ function pkgItemsFromSaved(items) {
     return mains;
 }
 
-function pkgBuildForm(mask, pkg) {
+function pkgBuildForm(mask, pkg, readonly) {
     // 注册套餐条目上下文（复用开处方通用控件：剂量/数量/护士/子医嘱）
     if (window.Clinic && Clinic.order && Clinic.order.rxSetCtx) {
         Clinic.order.rxSetCtx('pkg', function () { return PKG_ITEMS; }, pkgRenderItems, { replaceType: PKG_TYPE, replaceUrlName: 'pkgReplaceUrl' });
@@ -426,10 +425,40 @@ function pkgBuildForm(mask, pkg) {
     pkgScopeChange();
     // 渲染套餐内容（编辑回填 / 新建空态）；处方频次/途径选项需等目录首页字典返回后再次渲染
     pkgRenderItems();
-    mask.querySelector('.modal-foot').innerHTML =
-        '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
-        '<button type="button" class="btn btn-primary" id="pkgSaveBtn">保存</button>';
-    document.getElementById('pkgSaveBtn').addEventListener('click', function () { pkgSave(pkg ? pkg.id : 0, pkg ? pkg.status : ''); });
+    // 只读预览：底栏仅提示，不提供保存；编辑模式提供取消/保存
+    mask.querySelector('.modal-foot').innerHTML = readonly
+        ? '<span class="fs-12 text-muted">🔒 只读预览 — 套餐内容不可编辑、不可保存</span>'
+        : '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+          '<button type="button" class="btn btn-primary" id="pkgSaveBtn">保存</button>';
+    if (!readonly) {
+        document.getElementById('pkgSaveBtn').addEventListener('click', function () { pkgSave(pkg ? pkg.id : 0, pkg ? pkg.status : ''); });
+    }
+}
+
+/**
+ * 套餐只读预览：复用「添加/编辑套餐」同一个模态框（pkgBuildForm），
+ * 打开后整框强制只读（modalReadonly 禁用所有控件/拦截交互）。
+ * 供「他人套餐」预览与管理员审核统一调用。
+ */
+function previewPkg(id) {
+    if (PKG_CAT_LIST) { PKG_CAT_LIST.stop(); PKG_CAT_LIST = null; }
+    if (PKG_SUB_LIST) { PKG_SUB_LIST.stop(); PKG_SUB_LIST = null; }
+    PKG_TAB_GET = null;
+    PKG_ITEMS = [];
+    RX_FREQS = [];
+    RX_ROUTES = [];
+    PKG_LAB_MAP = null;
+    // 管理员可预览任意套餐（含待审核）；普通用户按可见性（for_apply）过滤
+    var role = document.body.getAttribute('data-role');
+    var url = role === 'admin'
+        ? '/api/package?action=get&id=' + id
+        : '/api/package?action=get&id=' + id + '&for_apply=1';
+    var mask = Clinic.modal.load(url, null, { title: '预览套餐', size: 'modal-xl pkg-form-modal' });
+    mask.querySelector('.modal-body').addEventListener('modal:loaded', function (e) {
+        if (e.detail && e.detail.lab_map) PKG_LAB_MAP = e.detail.lab_map;
+        if (e.detail && e.detail.package) pkgBuildForm(mask, e.detail.package, true);
+        if (Clinic.modalReadonly) Clinic.modalReadonly(mask);
+    });
 }
 
 function pkgScopeChange() {
@@ -783,4 +812,12 @@ function pkgDel(id) {
 }
 
 pkgInitList();
+
+/* 审核中心跳转预览：?preview=ID 自动打开套餐只读预览（复用编辑模态框） */
+(function () {
+    var m = (location.search.match(/[?&]preview=(\d+)/) || [])[1];
+    if (m) {
+        setTimeout(function () { previewPkg(parseInt(m, 10)); }, 300);
+    }
+})();
 </script>

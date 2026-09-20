@@ -89,7 +89,7 @@ function renderITplList() {
                 actions += '<button class="btn btn-outline btn-sm" onclick="openITplForm(' + t.id + ')">编辑</button>';
                 actions += '<button class="btn btn-outline btn-sm" onclick="delITpl(' + t.id + ')">删除</button>';
             } else {
-                actions = '<span class="fs-12 text-muted">他人模板</span>' + '<button class="btn btn-outline btn-sm" onclick="Clinic.previewTemplate(' + t.id + ')">👁 预览</button>';
+                actions = '<button class="btn btn-outline btn-sm" onclick="previewITpl(' + t.id + ')">预览</button>';
             }
         }
         return '<tr>' +
@@ -120,7 +120,17 @@ function openITplForm(id) {
     }
 }
 
-function buildITplForm(mask, tpl) {
+function previewITpl(id) {
+    var mask = Clinic.modal.load('/api/template?action=get&id=' + id + '&for_apply=1', null, { title: '预览影像模板', size: 'modal-lg' });
+    mask.querySelector('.modal-body').addEventListener('modal:loaded', function (e) {
+        if (e.detail && e.detail.template) {
+            buildITplForm(mask, e.detail.template, true);
+            if (Clinic.modalReadonly) Clinic.modalReadonly(mask);
+        }
+    });
+}
+
+function buildITplForm(mask, tpl, readonly) {
     var html =
         '<div class="tpl-form">' +
         '  <div class="tpl-left">' +
@@ -147,10 +157,11 @@ function buildITplForm(mask, tpl) {
     var treeBox = document.getElementById('itfDeptTree');
     if (treeBox) Clinic.deptTree.build(treeBox, { selected: (tpl && tpl.dept_ids) || [] });
     onITplScopeChange();
-    mask.querySelector('.modal-foot').innerHTML =
-        '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
-        '<button type="button" class="btn btn-primary" id="itplSaveBtn">保存</button>';
-    document.getElementById('itplSaveBtn').addEventListener('click', function () { saveITplForm(tpl ? tpl.id : 0); });
+    mask.querySelector('.modal-foot').innerHTML = readonly
+        ? '<span class="fs-12 text-muted">🔒 只读预览 — 模板内容不可编辑、不可保存</span>'
+        : '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+          '<button type="button" class="btn btn-primary" id="itplSaveBtn">保存</button>';
+    if (!readonly) document.getElementById('itplSaveBtn').addEventListener('click', function () { saveITplForm(tpl ? tpl.id : 0); });
 }
 
 function onITplScopeChange() {
