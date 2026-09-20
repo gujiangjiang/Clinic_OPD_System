@@ -143,18 +143,29 @@ Clinic.previewTemplate = function (id) {
             var t = j.data && j.data.template;
             if (!t) { Clinic.toast.warning('模板不存在或无权查看'); return; }
             var c = t.content || {};
+            // 病历结构化字段中文映射（避免预览显示 chief_complaint 等英文键）
+            var KEY = {
+                chief_complaint: '主诉', symptom: '症状', duration: '持续时间', unit: '单位',
+                second_symptom: '伴随症状', second_duration: '伴随持续时间', second_unit: '伴随单位',
+                history_present: '现病史', informant: '陈述者', content: '内容', arrival_way: '就诊方式',
+                past_history: '既往史', type: '类型', detail: '详情', allergies: '过敏史',
+                physical_exam: '体格检查', diagnoses: '诊断', advice: '医嘱建议',
+                progress: '病历续写', chief_complaint2: '主诉2', is_critical: '危急值',
+                notice: '告知内容', sections: '显示节', temperature: '体温', pulse: '脉搏',
+                respiration: '呼吸', blood_pressure: '血压', consciousness: '意识',
+            };
             var lines = [];
-            // 通用字段递归格式化（跳过空值/对象容器按节展示）
             var fmt = function (obj, depth) {
                 var html = '';
                 var pad = Array(depth + 1).join('　');
                 Object.keys(obj || {}).forEach(function (k) {
                     var v = obj[k];
                     if (v === null || v === undefined || v === '' || v === false) return;
+                    var label = KEY[k] || k;
                     if (typeof v === 'object') {
-                        html += '<div class="fs-13 fw-600" style="margin:8px 0 2px">' + pad + k + '</div>' + fmt(v, depth + 1);
+                        html += '<div class="fs-13 fw-600" style="margin:8px 0 2px">' + pad + label + '</div>' + fmt(v, depth + 1);
                     } else {
-                        html += '<div class="fs-13" style="line-height:1.7;white-space:pre-wrap">' + pad + '<b>' + k + '：</b>' + Clinic.escHtml(String(v)) + '</div>';
+                        html += '<div class="fs-13" style="line-height:1.7;white-space:pre-wrap">' + pad + '<b>' + label + '：</b>' + Clinic.escHtml(String(v)) + '</div>';
                     }
                 });
                 return html;

@@ -555,6 +555,7 @@ Clinic.order = (function () {
             if (it.route) parts.push('途径 ' + it.route);
         }
         parts.push('库存 ' + (it.allow_split ? stockText(it, 'min') : stockText(it, 'pack')));
+        return '<div class="rx-drop-item" data-id="' + it.id + '" ' +
             'data-price="' + (it.price || 0) + '" data-name="' + (it.name || '').replace(/"/g, '&quot;') + '"' +
             ' data-spec="' + (it.spec || '') + '" data-unit="' + (it.unit || '') + '"' +
             ' data-company="' + (it.company_short || '') + '"' +
