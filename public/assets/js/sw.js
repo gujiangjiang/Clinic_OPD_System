@@ -9,7 +9,7 @@
  *    实时性要求高，避免陈旧数据）。
  * ============================================================ */
 
-var CACHE = 'clinic-opd-v1';
+var CACHE = 'clinic-opd-v2';
 
 self.addEventListener('install', function () {
     self.skipWaiting();

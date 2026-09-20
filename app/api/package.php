@@ -122,10 +122,9 @@ function pkg_validate_items($type, $items) {
             }
             $fieldMap = array(
                 'spec' => '规格', 'company_short' => '厂家',
-                // 拆零开关/包装单位变更 → 开方单位与单价口径可能变化，判为失效
-                'allow_split' => '拆零开关', 'package_unit' => '包装单位',
-                // 频次/途径为处方开具时可自定义项（套餐编辑器下拉可选），不作为药品身份变更判据；
-                // 名称/规格/厂家/结构化剂量 才是药品身份，任一变化即失效
+                'package_unit' => '包装单位',
+                // 频次/途径为处方开具时可自定义项（医生用法，套餐编辑器下拉可选），不作为药品身份变更判据；
+                // 价格改变不属于规格变动，不参与比对（价格不影响套餐有效性）
             );
             $changed = array();
             foreach ($fieldMap as $col => $label) {
@@ -135,13 +134,19 @@ function pkg_validate_items($type, $items) {
                 $storedV = (string)(isset($it[$storedKey]) ? $it[$storedKey] : (isset($it[$col]) ? $it[$col] : ''));
                 if ($curV !== $storedV) $changed[] = $label . '（' . $storedV . '→' . $curV . '）';
             }
-            // 结构化规格数值比对（浮点宽松）
+            // 结构化规格数值比对（浮点宽松）：单剂量值 / 剂量单位 / 每包装数量 / 最小单位 均属「规格」
             $specDoseCur = (float)(isset($row['spec_dose']) ? $row['spec_dose'] : 0);
             $specDoseOld = (float)(isset($it['spec_dose']) ? $it['spec_dose'] : 0);
             if (abs($specDoseCur - $specDoseOld) > 0.0001) $changed[] = '单剂量值';
+            $sduCur = (string)(isset($row['spec_dose_unit']) ? $row['spec_dose_unit'] : '');
+            $sduOld = (string)(isset($it['spec_dose_unit']) ? $it['spec_dose_unit'] : '');
+            if ($sduCur !== $sduOld) $changed[] = '剂量单位';
+            $spqCur = (int)(isset($row['spec_pack_qty']) ? $row['spec_pack_qty'] : 1);
+            $spqOld = (int)(isset($it['spec_pack_qty']) ? $it['spec_pack_qty'] : 1);
+            if ($spqCur !== $spqOld) $changed[] = '每包装数量';
             $puCur = (string)(isset($row['spec_pack_unit']) ? $row['spec_pack_unit'] : '');
             $puOld = (string)(isset($it['spec_pack_unit']) ? $it['spec_pack_unit'] : '');
-            if ($puCur !== $puOld) $changed[] = '包装单位';
+            if ($puCur !== $puOld) $changed[] = '最小单位';
             if ($changed) {
                 $item['valid'] = 0;
                 $item['invalid_reason'] = '药品信息已变更：' . implode('、', array_slice($changed, 0, 3)) . (count($changed) > 3 ? ' 等' : '');

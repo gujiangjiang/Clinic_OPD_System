@@ -237,10 +237,12 @@ Clinic.order = (function () {
                 break;
             }
             case 'setUnitType': {
-                // 销售单位切换（允许拆零药品：支/粒 ↔ 盒）：刷新单价/销售单位，并按单次剂量
-                // 自动重算数量（始终覆盖单次用药底线），不遗留旧单位口径的错误数量
+                // 销售单位切换（允许拆零药品：支/粒 ↔ 盒）：刷新单价/销售单位，并按
+                // 「覆盖单次剂量所需」重算数量——1盒 ↔ 1支 总价随单位变化（¥20/盒 vs ¥2/支），
+                // 不沿用旧数量（避免 10支 切盒后仍显示 10盒），也不做保总量换算（总价会不变）
                 var ut = a1 === 'min' ? 'min' : 'pack';
                 if (ut === 'min' && s.allow_split !== 1) { Clinic.toast.warning('该药品不支持拆零销售，请按整包装（盒/瓶）开立！'); break; }
+                if (s.unit_type === ut) break;
                 s.unit_type = ut;
                 applyUnit(s);
                 if (s.spec_dose > 0) s.quantity = autoQty(s);
@@ -939,6 +941,11 @@ Clinic.order = (function () {
             allow_split: parseInt(it.allow_split, 10) === 1 ? 1 : 0,
             pack_unit: it.pack_unit || it.unit || '',
             min_unit: it.min_unit || it.spec_pack_unit || '',
+            // 补全与手动添加（initDoseFields）一致的结构化字段：spec_pack_qty 缺失会导致
+            // applyUnit 拆零单价按 pack_size=1 计算（套餐添加药品切支金额不变的根因）
+            spec_pack_qty: parseInt(it.spec_pack_qty, 10) || 1,
+            spec_dose_unit: it.spec_dose_unit || '',
+            single_use_qty: parseFloat(it.single_use_qty) || 1,
             unit_type: unitType,
             is_skin_test: parseInt(it.is_skin_test, 10) === 1 ? 1 : 0,
             skin_test: '',
@@ -1853,7 +1860,8 @@ Clinic.order = (function () {
                 (s.company_short ? Clinic.ellipsis(s.company_short, 70, 'fs-12 text-muted') : '') +
                 (isDrug && s.sale_unit ? '<span class="fs-12 text-muted" style="flex-shrink:0">' + s.quantity + ' ' + s.sale_unit + '</span>' : '') +
                 (s.quantity > 1 && !(isDrug && s.sale_unit) ? '<span class="badge badge-primary fs-12">×' + s.quantity + '</span>' : '') +
-                '    <span class="fs-12 text-muted" style="flex-shrink:0;margin-left:auto">¥' + (s.price * s.quantity).toFixed(2) + '</span>' +
+                // 行内金额：简单展示「¥金额 = 数量 × 开立单位单价」，随单位切换实时变化（1盒 ¥18 / 1支 ¥1.8）
+                '    <span class="fs-12 fw-600" style="flex-shrink:0;margin-left:auto;color:var(--primary)">¥' + (s.price * s.quantity).toFixed(2) + '</span>' +
                 '  </div>' +
                 '  <div class="flex gap-8" style="align-items:center;flex-shrink:0">' +
                 (isDrug || CUR_TYPE === 'procedure' ? qtyControls('sel', s, i) : '') +

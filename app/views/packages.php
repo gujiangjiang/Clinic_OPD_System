@@ -654,7 +654,7 @@ function pkgRenderItems() {
             (isDrug && s.route ? ' <span class="fs-12 text-muted">' + escHtml(s.route) + '</span>' : '') +
             (isDrug && s.sale_unit ? ' <span class="fs-12 text-muted">' + escHtml(s.quantity + ' ' + s.sale_unit) + '</span>' : '') +
             (s.quantity > 1 && !(isDrug && s.sale_unit) ? ' <span class="badge badge-primary fs-12">×' + s.quantity + '</span>' : '') +
-            '    <span class="pkg-item-price">¥' + (s.price * s.quantity).toFixed(2) + '</span>' +
+            '    <span class="pkg-item-price">¥' + ((s.price || 0) * s.quantity).toFixed(2) + '</span>' +
             '  </div>' +
             '  <div class="actions">' +
             headActions +
