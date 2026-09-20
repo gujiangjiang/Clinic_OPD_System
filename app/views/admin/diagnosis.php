@@ -10,19 +10,20 @@
  * ============================================================ */
 Router::title('诊断管理');
 ?>
+<div class="list-layout">
 <div class="page-head">
     <div><div class="page-title">📖 诊断管理</div><div class="page-desc">ICD10 标准编码库 · 四级分类树：章→节→类目→亚目→诊断</div></div>
 </div>
-<div class="card" style="margin-bottom:12px;position:relative">
+<div class="card list-filter" style="position:relative">
     <input class="input" id="diagKw" placeholder="🔍 输入诊断码 / 名称 / 拼音首字母（实时检索）" autocomplete="off" oninput="diagSearchDebounced()" onfocus="showSearchDrop()">
     <div id="searchDrop" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;max-height:350px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:0 0 8px 8px;box-shadow:0 8px 24px var(--shadow)"></div>
 </div>
-<div class="flex gap-16" style="align-items:stretch">
-    <div class="card" style="width:360px;flex-shrink:0;height:70vh;display:flex;flex-direction:column;padding:0;overflow:hidden" id="treeBox">
+<div class="flex gap-16 diag-body" style="align-items:stretch">
+    <div class="card" style="width:360px;flex-shrink:0;display:flex;flex-direction:column;padding:0;overflow:hidden" id="treeBox">
         <div class="card-title" style="padding:14px 16px 0;margin-bottom:8px">📂 分类树</div>
         <div id="icdTree" style="flex:1;overflow-y:auto;padding:0 16px 16px"><div class="fs-13 text-muted">加载中…</div></div>
     </div>
-    <div class="card" style="flex:1;min-width:0;height:70vh;display:flex;flex-direction:column;padding:0;overflow:hidden" id="detailBox">
+    <div class="card" style="flex:1;min-width:0;display:flex;flex-direction:column;padding:0;overflow:hidden" id="detailBox">
         <div id="detailTitle" style="flex-shrink:0;padding:14px 16px 0;display:none"></div>
         <div id="detailContent" style="flex:1;overflow-y:auto;padding:12px 16px 16px;display:flex;align-items:center;justify-content:center">
             <div style="text-align:center">
@@ -32,6 +33,7 @@ Router::title('诊断管理');
             </div>
         </div>
     </div>
+</div>
 </div>
 
 <script>

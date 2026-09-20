@@ -1009,3 +1009,10 @@
     height: auto;
     min-height: 0;
 }
+/* 诊断管理：左右栏占满 list-layout 剩余高度，内部滚动（覆盖旧式 70vh 定高） */
+.list-layout .diag-body {
+    flex: 1;
+    min-height: 0;
+    align-items: stretch;
+}
+.diag-body .card { height: 100%; }
