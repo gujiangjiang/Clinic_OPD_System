@@ -238,9 +238,16 @@
 }
 .emr-doc .doc-body .ef-field.readonly:empty::before { content: ''; }
 /* 模态框内只读预览（模板/套餐等预览弹窗）：仅禁止编辑，不改文字颜色——
-   可编辑字段保留蓝色（--primary），下拉字段同样保留蓝色，避免预览时蓝色变黑 */
+   可编辑字段保留蓝色（--primary），下拉字段同样保留蓝色，避免预览时蓝色变黑；
+   且保留灰色虚线下划线（体格检查等空字段不因只读而消失），hover 不触发蓝色高亮 */
 .modal-mask .emr-doc .doc-body .ef-field.readonly {
     color: var(--primary);
+    border-bottom-color: var(--border);
+    background: transparent;
+}
+.modal-mask .emr-doc .doc-body .ef-field.readonly:hover {
+    border-bottom-color: var(--border);
+    background: transparent;
 }
 .modal-mask .emr-doc .doc-body .ef-select:disabled {
     color: var(--primary);
