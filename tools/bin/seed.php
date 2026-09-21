@@ -67,17 +67,42 @@ function seed_usage() {
   php tools/bin/seed.php --scene=call           叫号大屏专项测试
   php tools/bin/seed.php --scene=dept_call      多科室分诊叫号专项
   php tools/bin/seed.php --scene=doctor2001     医生 2001 接诊专项
+
+基础字典模块（可多选，逗号/空格分隔）：
+  php tools/bin/seed.php --module=clinic        仅重置机构信息（医院名称/必填机构代码/简介）
+  php tools/bin/seed.php --module=screen        按科室分类动态生成叫号大屏与诊室窗口
   php tools/bin/seed.php --module=drug          仅重置药品与库存（DrugSeeder）
+  php tools/bin/seed.php --module="lab exam disposal"  空格或逗号分隔多选
 
 TXT;
 }
 
 $root = dirname(__DIR__);
 
-/* ---------------- 模块分发：--module=drug 走 DrugSeeder ---------------- */
-if ($opts['module'] === 'drug') {
-    echo "== 模块：药品与库存（DrugSeeder）==\n";
-    exit(seed_run_script($root . '/seeder/DrugSeeder.php'));
+/* ---------------- 模块分发（支持逗号/空格分隔多选） ---------------- */
+$modules = preg_split('/[\s,]+/', trim($opts['module']), -1, PREG_SPLIT_NO_EMPTY);
+$moduleMap = array(
+    'clinic'    => array('seeder/ClinicInfoSeeder.php', '机构信息'),
+    'screen'    => array('seeder/ScreenSeeder.php',     '叫号大屏/诊室窗口'),
+    'drug'      => array('seeder/DrugSeeder.php',       '药品与库存'),
+    'exam'      => array('scenarios/full_seed.php',     '检查项目（由全量场景内部分发）'),
+    'lab'       => array('scenarios/full_seed.php',     '检验项目（由全量场景内部分发）'),
+    'disposal'  => array('scenarios/full_seed.php',     '处置项目（由全量场景内部分发）'),
+);
+if ($modules) {
+    $code = 0;
+    foreach ($modules as $m) {
+        if (!isset($moduleMap[$m])) {
+            fwrite(STDERR, "未知模块：{$m}\n");
+            $code = 1;
+            continue;
+        }
+        list($script, $label) = $moduleMap[$m];
+        echo "== 模块：{$label}（{$m}）==\n";
+        $c = seed_run_script($root . '/' . $script, $m === 'exam' || $m === 'lab' || $m === 'disposal' ? array('--module=' . $m) : array());
+        if ($c !== 0) $code = $c;
+    }
+    exit($code);
 }
 
 /* ---------------- 场景分发 ---------------- */
