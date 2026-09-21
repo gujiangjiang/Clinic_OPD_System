@@ -25,7 +25,7 @@ function integration_field_groups() {
             'fields' => array(
                 array('key' => 'his_system_code', 'label' => '系统代码', 'type' => 'input',
                     'placeholder' => '本系统在 HIS 侧登记的系统编码', 'default' => '',
-                    'hint' => '由 HIS 侧分配、用于在 HIS 方标识本系统的编码（如 CLINIC-OPD）。当前为预留字段，接口认证仅依赖密钥，不参与校验；配置后会在 ping 自检返回值中回显，便于联调确认。'),
+                    'hint' => '由 HIS 侧分配、用于在 HIS 方标识本系统的编码（如 CLINIC-OPD）。当前为预留字段，接口认证仅依赖密钥，不参与校验；配置后会在 ping 自检返回值中回显（同时返回医疗机构代码 org_code，便于联调确认机构归属）。'),
                 array('key' => 'his_api_key', 'label' => '接口密钥（留空 = 关闭外部接口）', 'type' => 'input',
                     'placeholder' => '留空 = 关闭 HIS 外部接口', 'default' => '', 'monospace' => true),
                 array('key' => 'his_sync_mode', 'label' => '同步模式', 'type' => 'select',
@@ -68,7 +68,8 @@ function integration_field_groups() {
                         'local' => '地方医保（按属地要求）',
                     )),
                 array('key' => 'yibao_org_code', 'label' => '机构编码', 'type' => 'input',
-                    'placeholder' => '医保中心分配的定点机构编码', 'default' => '', 'monospace' => true),
+                    'placeholder' => '医保中心分配的定点机构编码', 'default' => '', 'monospace' => true,
+                    'hint' => '医保结算/监管报送的定点机构编码，建议与安装/系统设置中配置的医疗机构代码（org_code）保持一致；医保接口为预留配置，接入时以此编码作为机构唯一标识上报。'),
                 array('key' => 'yibao_operator', 'label' => '操作员账号', 'type' => 'input',
                     'placeholder' => '医保结算操作员工号', 'default' => ''),
                 array('key' => 'yibao_operator_pwd', 'label' => '操作员密码（加密存储由接入层实现）', 'type' => 'input',

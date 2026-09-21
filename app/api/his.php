@@ -31,10 +31,13 @@ switch ($action) {
 
     /* ---------------- 连通性自检（接口管理页测试按钮使用，无需业务参数） ---------------- */
     case 'ping':
+        // 医疗机构代码（org_code，安装/系统设置配置的医保结算/监管报送唯一标识）
+        // 随自检返回，供外部系统（HIS/医保/BI）联调确认机构归属
         json_ok(array(
             'pong' => true,
             'system' => 'Clinic OPD System',
             'system_code' => (string)setting('his_system_code', ''),
+            'org_code' => (string)setting('org_code', ''),
             'server_time' => now_str(),
         ));
         break;
