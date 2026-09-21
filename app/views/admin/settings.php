@@ -39,8 +39,13 @@ $dbType = strtoupper(DatabaseManager::driver());
         <div class="card-title">🏥 医院信息</div>
         <div class="form-group"><label class="form-label">医院名称 <span class="req">*</span></label>
             <input class="input" id="s_hosp" value="<?php echo e(setting('hospital_name')); ?>"></div>
+        <div class="form-group"><label class="form-label">医疗机构代码 <span class="req">*</span></label>
+            <input class="input" id="s_org_code" value="<?php echo e(setting('org_code')); ?>" placeholder="如：410105001234">
+            <div class="fs-12 text-muted mt-4">医保结算、监管报送与接口对接的唯一标识。</div></div>
         <div class="form-group"><label class="form-label">医院第二名称</label>
             <input class="input" id="s_hosp2" value="<?php echo e(setting('hospital_name2')); ?>"></div>
+        <div class="form-group"><label class="form-label">机构简介</label>
+            <textarea class="textarea" id="s_intro" rows="4" placeholder="机构简介（选填），供对外展示与后续扩展使用"><?php echo e(setting('hospital_intro')); ?></textarea></div>
         <div class="form-group"><label class="form-label">网站时区</label>
             <select class="select" id="s_tz"><?php echo $tzOpts; ?></select></div>
         <div class="fs-12 text-muted mb-12">页脚版权信息为固定格式，自动显示为【© <?php echo date('Y'); ?> <?php echo e(setting('hospital_name')); ?> 版权所有】。</div>
@@ -307,12 +312,16 @@ loadObfStatus();
 function saveSettings() {
     var hosp = document.getElementById('s_hosp').value.trim();
     if (!hosp) { Clinic.toast.warning('请填写医院名称'); return; }
+    var orgCode = document.getElementById('s_org_code').value.trim();
+    if (!orgCode) { Clinic.toast.warning('请填写医疗机构代码'); return; }
     var lockCount = parseInt(document.getElementById('s_lock_count').value, 10) || 5;
     if (lockCount < 3 || lockCount > 10) { Clinic.toast.warning('锁定阈值需在 3-10 次之间'); return; }
     Clinic.ajax('/api/admin', {
         action: 'settings',
         hospital_name: hosp,
+        org_code: orgCode,
         hospital_name2: document.getElementById('s_hosp2').value.trim(),
+        hospital_intro: document.getElementById('s_intro').value.trim(),
         timezone: document.getElementById('s_tz').value,
         login_captcha_mode: document.getElementById('s_captcha_mode').value,
         login_fail_lock_count: String(lockCount),

@@ -49,11 +49,16 @@ function admin_part_settings($action) {
     if ($action === 'settings') {
         $hospital = post('hospital_name');
         if ($hospital === '') json_fail('医院名称不能为空');
+        $orgCode = trim((string)post('org_code'));
+        if ($orgCode === '') json_fail('医疗机构代码不能为空');
+        if (strlen($orgCode) > 50) json_fail('机构代码过长（不超过 50 字符）');
         $tz = post('timezone', 'Asia/Shanghai');
         $tzList = DateTimeZone::listIdentifiers();
         if (!in_array($tz, $tzList, true)) $tz = 'Asia/Shanghai';
         set_setting('hospital_name', $hospital);
+        set_setting('org_code', $orgCode);
         set_setting('hospital_name2', post('hospital_name2'));
+        set_setting('hospital_intro', post('hospital_intro'));
         // 页脚版权：固定格式自动生成【© 年份 医院名称 版权所有】，不再手动保存
         set_setting('timezone', $tz);
         // HIS 接口密钥已迁移至【接口管理】（action=integration_save）统一维护
