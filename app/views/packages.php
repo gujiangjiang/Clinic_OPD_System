@@ -657,25 +657,45 @@ function pkgGroupMemberNames(item) {
     return [];
 }
 
-/** 只读预览：剂量/频次/途径保持与编辑一致的输入框/下拉样式，但全部 disabled
- * （隐藏子医嘱/更换按钮由 pkgRenderItems 只读分支负责不渲染 qtyControls/更换/✕） */
+/** 只读预览：剂量/频次/途径/护士全部保留与编辑一致的输入框/下拉/勾选样式，但全部 disabled；
+ * 仅隐藏数量-+/更换/✕（由 pkgRenderItems 只读分支负责不渲染 headActions/更换/✕） */
 function pkgReadonlyControls(s) {
+    // 剂量：优先展示含单位的单次剂量串（如「2 粒」），结构化规格 → disabled 按钮，否则 disabled 输入框
+    var doseText = s.single_dose || (s.dose ? s.dose + (s.dose_unit || '') : '');
     var doseArea = (s.spec_dose > 0)
         ? '<button type="button" class="btn btn-outline btn-sm" disabled style="min-height:28px;font-weight:600">' +
-          escHtml((s.dose || s.single_dose || '—')) + '</button>'
+          escHtml(doseText || '—') + '</button>'
         : '<input type="text" class="input" disabled style="width:104px;padding:4px 8px;min-height:28px" value="' +
-          escHtml(s.dose || s.single_dose || '') + '">';
+          escHtml(doseText) + '">';
     var freqSel = '<select class="select" disabled style="width:128px;padding:4px 8px;min-height:28px;font-size:13px">' +
         '<option value="">' + escHtml(s.frequency || '用药频次') + '</option></select>';
     var routeSel = '<select class="select" disabled style="width:128px;padding:4px 8px;min-height:28px;font-size:13px">' +
         '<option value="">' + escHtml(s.route || '使用途径') + '</option></select>';
-    return '<div class="flex gap-8 mt-4" style="flex-wrap:wrap">' + doseArea + freqSel + routeSel + '</div>';
+    var nurseSel = '<label style="display:inline-flex;align-items:center;gap:3px;font-size:12px;color:var(--text-muted);cursor:not-allowed;user-select:none" title="缴费后护士站显示待执行">' +
+        '<input type="checkbox" disabled' + (s.nurse_required ? ' checked' : '') + ' style="width:14px;height:14px;accent-color:var(--primary)"> 护士</label>';
+    return '<div class="flex gap-8 mt-4" style="flex-wrap:wrap;align-items:center">' + doseArea + freqSel + routeSel + nurseSel + '</div>';
 }
 
-/** 只读子医嘱静态展示（保留成组医嘱信息，无交互控件） */
+/** 只读子医嘱：保留成组医嘱行（名称/规格 + 剂量 + 数量），控件 disabled，隐藏 -/+✕ */
 function pkgReadonlySub(s) {
     return '<div class="fs-12 text-muted mt-2" style="margin:6px 0 0 20px;border-left:2px solid var(--warning);padding-left:10px">成组医嘱：' +
-        s.sub_items.map(function (sub) { return escHtml(sub.name) + (sub.spec ? '（' + escHtml(sub.spec) + '）' : ''); }).join('、') + '</div>';
+        s.sub_items.map(function (sub, si) {
+            var branch = si === s.sub_items.length - 1 ? '└' : '├';
+            var subDoseText = sub.single_dose || (sub.dose ? sub.dose + (sub.dose_unit || '') : '');
+            var subDose = (sub.spec_dose > 0)
+                ? '<button type="button" class="btn btn-outline btn-sm" disabled style="padding:1px 8px;min-height:22px;font-weight:600">' + escHtml(subDoseText || '—') + '</button>'
+                : '<input type="text" class="input" disabled style="width:70px;padding:2px 6px;min-height:22px;font-size:12px" value="' + escHtml(subDoseText) + '">';
+            var subQty = '<input type="number" class="input" disabled style="width:46px;padding:2px 4px;min-height:22px;text-align:center;font-size:12px" value="' + (sub.quantity || 1) + '" min="1">';
+            return '<div class="flex-between fs-13" style="padding:2px 0;align-items:center">' +
+                '<span style="min-width:0;flex:1;font-family:Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+                branch + ' ' + escHtml(sub.name || sub.item_name || '') +
+                (sub.spec ? ' <span class="text-muted">' + escHtml(sub.spec) + '</span>' : '') +
+                ' ｜ ' + subDose +
+                '</span>' +
+                '<span class="flex gap-4" style="align-items:center;flex-shrink:0;margin-left:8px">' +
+                subQty +
+                '</span></div>';
+        }).join('') + '</div>';
 }
 
 /* ==================== 套餐内容渲染 ==================== */
@@ -788,7 +808,7 @@ function pkgSave(id, origStatus) {
             if (!(s.route || '').trim()) { Clinic.toast.warning('请选择【' + s.item_name + '】使用途径（必填）'); return; }
             for (var si = 0; si < (s.sub_items || []).length; si++) {
                 if (!pkgDoseText(s.sub_items[si])) {
-                    Clinic.toast.warning('请填写子医嘱【' + s.sub_items[si].item_name + '】剂量（必填）');
+                    Clinic.toast.warning('请填写子医嘱【' + (s.sub_items[si].item_name || s.sub_items[si].name || '未命名') + '】剂量（必填）');
                     return;
                 }
             }
@@ -819,7 +839,9 @@ function pkgSave(id, origStatus) {
         });
         (s.sub_items || []).forEach(function (sub) {
             flat.push({
-                item_id: sub.item_id || 0, item_name: sub.item_name, price: sub.price || 0,
+                // 子医嘱对象由 order.js itemFromPick 构建：字段为 id/name（非 item_id/item_name），必须回退否则保存为空
+                item_id: sub.item_id || sub.id || 0,
+                item_name: sub.item_name || sub.name || '', price: sub.price || 0,
                 quantity: sub.quantity || 1, spec: sub.spec || '', unit: sub.sale_unit || sub.unit || '',
                 company_short: sub.company_short || '', single_dose: pkgDoseText(sub) || sub.single_dose || '',
                 frequency: '', route: '', nurse_required: 0, is_skin_test: 0, skin_test_item_id: 0,
