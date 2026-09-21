@@ -241,7 +241,19 @@ if ($action === 'heartbeat' || $action === 'data') {
     if ($action === 'heartbeat') {
         QueueRepository::updateHeartbeat($room['id']);
     }
-    json_response(true, 'ok', screen_payload($room));
+    // 数据版本戳（房间叫号/绑定变更 updated_at + 本科室新挂号 registered_at）：
+    // 前端轮询带 last_updated，无任何变化时返回轻量 changed:false，避免重复返回
+    // 完整 payload 与重复渲染，降低大屏常驻轮询的带宽与解析开销。
+    $maxReg = QueueRepository::val("SELECT MAX(registered_at) FROM registrations WHERE current_dept_id=?", array((int)$room['dept_id']));
+    $version = max((int)strtotime((string)$room['updated_at']), $maxReg ? (int)strtotime((string)$maxReg) : 0);
+    $lastUpdated = (int)get('last_updated', 0);
+    if ($lastUpdated > 0 && $lastUpdated === $version) {
+        json_response(true, 'ok', array('changed' => false, 'updated_at' => $version));
+        exit;
+    }
+    $payload = screen_payload($room);
+    $payload['updated_at'] = $version;
+    json_response(true, 'ok', $payload);
     exit;
 }
 

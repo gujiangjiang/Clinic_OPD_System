@@ -13,6 +13,16 @@
 
 ---
 
+## [8.17.46] - 2026-09-20
+
+### 变更
+- **大屏心跳接口轻量化（E-Tag 式版本戳）**：`/api/screen heartbeat` 支持前端传 `last_updated`，数据无变化（房间叫号/绑定 + 科室新挂号）时返回 `{ changed:false, updated_at }` 轻量响应，避免重复返回完整 payload 与重复渲染；`updateHeartbeat` 不再污染 `updated_at`（心跳仅维护在线租约，不算业务变更）；`screen.js` 轮询带 `last_updated` 并在 `changed:false` 时跳过渲染。
+
+### 文档
+- **同步版本号至 v8.17.46**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json`）。
+
+---
+
 ## [8.17.45] - 2026-09-20
 
 ### 变更

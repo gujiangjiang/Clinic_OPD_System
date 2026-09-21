@@ -532,12 +532,16 @@
 
     /* ============ 轮询心跳 + 数据（SmartPoller 弹性兜底） ============ */
     var pollFails = 0;   // 连续失败次数：≥3 次渲染断连提示（数据可能过期），恢复后自动消失
+    var lastUpdated = 0; // 数据版本戳：轮询带 last_updated，无变化时跳过渲染（接口轻量化）
     function poll() {
-        fetch('/api/screen?action=heartbeat&token=' + encodeURIComponent(TOKEN))
+        fetch('/api/screen?action=heartbeat&token=' + encodeURIComponent(TOKEN) + '&last_updated=' + lastUpdated)
             .then(function (r) { return r.json(); })
             .then(function (j) {
                 pollFails = 0;   // 成功即清零，正常渲染
                 if (!j.ok) { renderErr(j.msg); return; }
+                // 接口轻量化：数据无变化时返回 changed:false，仅更新版本戳跳过渲染
+                if (j.data && j.data.changed === false) { if (j.data.updated_at) lastUpdated = j.data.updated_at; return; }
+                if (j.data && j.data.updated_at) lastUpdated = j.data.updated_at;
                 render(j.data);
                 maybeAnnounce(j.data);
             })
@@ -562,24 +566,12 @@
     // 取代原盲目固死 setInterval(poll, 3000)，大幅削减 SSE 正常时的数据库 I/O 与网络开销。
     if (window.Clinic && Clinic.smartPoller) {
         var poller = Clinic.smartPoller({
-            url: function () { return '/api/screen?action=heartbeat&token=' + encodeURIComponent(TOKEN); },
+            url: function () { return '/api/screen?action=heartbeat&token=' + encodeURIComponent(TOKEN) + '&last_updated=' + lastUpdated; },
             interval: 60000,
             emergencyInterval: 5000,
             fetch: function (url, ok, err) {
-                fetch(url)
-                    .then(function (r) { return r.json(); })
-                    .then(function (j) {
-                        pollFails = 0;
-                        if (!j.ok) { renderErr(j.msg); ok(j); return; }
-                        render(j.data);
-                        maybeAnnounce(j.data);
-                        ok(j);
-                    })
-                    .catch(function () {
-                        pollFails++;
-                        if (pollFails >= 3) renderErr('⚠️ 连接中断，正在重试…');
-                        err();
-                    });
+                poll();   // 复用 poll（含轻量 changed 判断）
+                ok();
             },
         });
         poller.start();

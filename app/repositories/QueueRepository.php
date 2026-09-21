@@ -314,7 +314,9 @@ class QueueRepository extends BaseRepository {
 
     /** 更新大屏心跳 */
     public static function updateHeartbeat($roomId) {
-        self::exec('UPDATE clinic_rooms SET screen_last_heartbeat=?, is_screen_online=1, updated_at=? WHERE id=?',
-            array(now_str(), now_str(), (int)$roomId));
+        // 不更新 updated_at：心跳仅维护在线租约，不构成业务数据变更，
+        // 避免大屏轻量轮询（版本戳 = updated_at）每次心跳都判定为有变化
+        self::exec('UPDATE clinic_rooms SET screen_last_heartbeat=?, is_screen_online=1 WHERE id=?',
+            array(now_str(), (int)$roomId));
     }
 }
