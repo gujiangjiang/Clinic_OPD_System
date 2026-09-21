@@ -86,13 +86,15 @@ $moduleMap = array(
     'clinic'    => array('seeder/ClinicInfoSeeder.php', '机构信息'),
     'screen'    => array('seeder/ScreenSeeder.php',     '叫号大屏/诊室窗口'),
     'drug'      => array('seeder/DrugSeeder.php',       '药品与库存'),
+    'lab'       => array('seeder/LabSeeder.php',        '检验项目'),
     'exam'      => array('seeder/ExamSeeder.php',       '检查项目'),
+    'disposal'  => array('seeder/DisposalSeeder.php',   '处置项目'),
 );
 if ($modules) {
     $code = 0;
     foreach ($modules as $m) {
         if (!isset($moduleMap[$m])) {
-            fwrite(STDERR, "未知模块：{$m}（可用：clinic / screen / drug / exam）\n");
+            fwrite(STDERR, "未知模块：{$m}（可用：clinic / screen / drug / lab / exam / disposal）\n");
             $code = 1;
             continue;
         }
@@ -135,4 +137,9 @@ if (!isset($scenes[$scene])) {
     exit(1);
 }
 echo "== 场景：{$scenes[$scene][1]}（{$scene}）==\n";
+// 全量造数前先做数据库依赖先验探测，缺失时终止避免写入脏数据
+if ($scene === 'full') {
+    $pfCode = seed_run_script($root . '/seeder/PreflightChecker.php', array('--all'));
+    if ($pfCode !== 0) exit($pfCode);
+}
 exit(seed_run_script($root . '/scenarios/' . $scenes[$scene][0], $extraArgs));

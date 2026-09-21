@@ -86,3 +86,12 @@ class PreflightChecker {
         }
     }
 }
+
+/* ---------------- CLI：--all 全项先验探测 ---------------- */
+if (isset($argv[1]) && $argv[1] === '--all') {
+    echo "== 数据库先验探测（Preflight） ==\n";
+    $pf = new PreflightChecker();
+    $pf->run(array('diagnosis', 'exam', 'lab', 'drugs', 'disposal'));
+    echo "\033[32m[Preflight OK] 依赖探测全部通过（ICD-10 诊断库 / 检查 / 检验 / 药品库存 / 处置项目）\033[0m\n";
+    exit(0);
+}

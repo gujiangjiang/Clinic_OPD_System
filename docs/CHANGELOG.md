@@ -13,6 +13,17 @@
 
 ---
 
+## [8.17.38] - 2026-09-20
+
+### 变更
+- **新增 LabSeeder / DisposalSeeder 模块**：`--module=lab` 检验项目（血液/生化/免疫等 111 项定义）、`--module=disposal` 处置项目（54 项定义），均幂等补全。
+- **全量造数前置依赖探测**：`--all` 执行前自动运行 `PreflightChecker --all`（ICD-10 诊断库/检查/检验/药品库存/处置项目），任一缺失即终止，杜绝写入脏数据。
+
+### 文档
+- **同步版本号至 v8.17.38**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json`）。
+
+---
+
 ## [8.17.37] - 2026-09-20
 
 ### 变更
