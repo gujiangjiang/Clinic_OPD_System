@@ -32,7 +32,7 @@ Router::title('查询中心');
         <div class="qc-ref-list" id="qcRefTable"><div class="fs-13 text-muted text-center" style="padding:24px">加载中…</div></div>
     </div>
 </div>
-<div id="qcMore" style="display:none"><div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">📊</div>更多查询子项规划中，敬请期待</div></div></div>
+<div id="qcMore" style="display:none"><div class="card qc-more-card"><div class="empty qc-more-empty"><div class="empty-ico">📊</div>更多查询子项规划中，敬请期待</div></div></div>
 </div>
 </div>
 
