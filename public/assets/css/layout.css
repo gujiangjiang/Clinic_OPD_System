@@ -1027,16 +1027,15 @@
     align-items: stretch;
 }
 .diag-body .card { height: 100%; }
-/* 运营分析各 tab：pane 固定视口高度，列表卡占满剩余并内部滚动（表头 sticky、底部对齐一致） */
+/* 运营分析各 tab：pane 至少占满剩余高度，列表卡保证可滚动高度（科室/自定义统计为特例，
+   图表卡内容较高时列表卡不被压缩到过小） */
 #ana-pane-dept,
 #ana-pane-doctor,
 #ana-pane-custom,
 #ana-pane-disposition {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - var(--topbar-h) - 190px);
-    min-height: 420px;
-    overflow: hidden;
+    min-height: calc(100vh - var(--topbar-h) - 250px);
 }
 #ana-pane-dept > .card,
 #ana-pane-doctor > .card,
@@ -1047,7 +1046,7 @@
 #ana-pane-custom > .card:last-child,
 #ana-pane-disposition > .card:last-child {
     flex: 1;
-    min-height: 0;
+    min-height: 320px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
