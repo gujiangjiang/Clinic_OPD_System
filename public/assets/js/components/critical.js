@@ -541,7 +541,7 @@ Clinic.critical = (function () {
                     if (reset) {
                         box.innerHTML = d.list.length
                             ? d.list.map(rowHtml).join('')
-                            : '<tr><td colspan="9"><div class="empty" style="padding:30px 0"><div class="empty-ico">🚨</div>暂无危急值记录</div></td></tr>';
+                            : '<tr class="empty-row"><td colspan="9" style="text-align:center;padding:30px 0"><div class="empty" style="padding:30px 0"><div class="empty-ico">🚨</div>暂无危急值记录</div></td></tr>';
                     } else {
                         box.insertAdjacentHTML('beforeend', d.list.map(rowHtml).join(''));
                     }

@@ -293,6 +293,9 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
 }
 .table tbody tr { transition: background .12s ease; }
 .table tbody tr:hover { background: var(--bg-soft); }
+/* 空态行：居中的「暂无数据」不应有 hover 背景色（无点击效果） */
+.table tbody tr.empty-row,
+.table tbody tr.empty-row:hover { background: transparent; cursor: default; }
 
 /* ---------- 徽章/标签 ---------- */
 .badge {
