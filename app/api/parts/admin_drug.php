@@ -187,9 +187,13 @@ function admin_part_drug($action) {
             // 警戒库存：录入按「包装单位」盒数/瓶数，存储为最小单位绝对阈值（输入盒数 × pack_size）
             'warn_qty' => max(0, (int)post('warn_box', 0)) * max(1, (int)post('spec_pack_qty', 1)),
         );
-        // 拆零开启校验：必须完整填写 包装单位/最小单位/每包装数量(>1)/单剂量值，
-        // 保证前端开方单位下拉与拆零单价换算具备可靠数据
-        if ((int)$data['allow_split'] === 1) {
+        // 拆零规则：
+        // · 规格每包装数量为 1 时【强制不允许拆零零售】（数量为 1 无法拆零），无论前端提交值一律置 0；
+        // · 开启拆零时校验 包装单位/最小单位/每包装数量(>1)/单剂量值 完整，
+        //   保证前端开方单位下拉与拆零单价换算具备可靠数据
+        if ((int)$data['spec_pack_qty'] <= 1) {
+            $data['allow_split'] = 0;
+        } elseif ((int)$data['allow_split'] === 1) {
             if (trim((string)$data['package_unit']) === '') json_fail('开启【允许拆零零售】须先选择包装单位（盒/瓶）');
             if (trim((string)$data['spec_pack_unit']) === '') json_fail('开启【允许拆零零售】须先设置规格中的最小单位（如 支/粒/片）');
             if ((int)$data['spec_pack_qty'] <= 1) json_fail('开启【允许拆零零售】时每包装数量必须大于 1（如 10 支/盒）');

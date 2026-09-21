@@ -96,12 +96,17 @@ function syncSplitBox() {
     var chk = document.getElementById('f_allow_split');
     var box = document.getElementById('split_box');
     if (!chk || !box) return;
+    var pkt = parseInt((document.getElementById('f_spec_pack_qty') || {}).value, 10) || 1;
+    // 规格每包装数量为 1 时不允许拆零零售（数量为 1 无法拆零）：隐藏选项并强制关闭
+    var grp = chk.closest ? chk.closest('.form-group') : null;
+    if (grp) grp.style.display = pkt <= 1 ? 'none' : '';
+    chk.disabled = pkt <= 1;
+    if (pkt <= 1) chk.checked = false;
     var on = !!chk.checked;
-    box.style.display = on ? 'block' : 'none';
+    box.style.display = (on && pkt > 1) ? 'block' : 'none';
     if (!on) return;
     var packUnit = (document.getElementById('f_pkg') || {}).value || '';
     var minUnit = (document.getElementById('f_spec_pack_unit') || {}).value || '';
-    var pkt = parseInt((document.getElementById('f_spec_pack_qty') || {}).value, 10) || 1;
     var price = parseFloat((document.getElementById('f_price') || {}).value) || 0;
     var set = function (id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
     set('sp_pack_unit_name', packUnit || '—');
