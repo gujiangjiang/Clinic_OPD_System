@@ -19,7 +19,8 @@
 Clinic.queuePanel = (function () {
 
     var DATA = null;        // queue_list 接口缓存 { waiting, list[], pref }
-    var TIMER = null;       // 30 秒自动刷新
+    var TIMER = null;       // 30 秒自动刷新（无 SmartPoller 时旧兜底）
+    var POLLER = null;      // SmartPoller 弹性兜底
     var seen = false;       // 多选项：已诊
     var todayOnly = false;  // 多选项：当日
     var consult = false;    // 多选项：会诊
@@ -407,16 +408,22 @@ Clinic.queuePanel = (function () {
         renderBtn();
         if (DEPT_ID <= 0) return;
         load(true);
-        // 轮询定时器：离开病历页（#queueBtn 被 SPA 局部刷新移除）后自动停止，
-        // 防止后台空轮询持续请求 /api/doctor?action=queue_list
-        // （重进 EMR 页 init() 再次调用，先清旧定时器避免累积重复轮询）
+        // 轮询定时器：SmartPoller 弹性兜底（推流健康 30s 低频、断开应急 8s）；
+        // 离开病历页（#queueBtn 被 SPA 局部刷新移除）后停止请求
         if (TIMER) clearInterval(TIMER);
-        TIMER = setInterval(function () {
-            if (!document.getElementById('queueBtn')) {
-                clearInterval(TIMER);
-                TIMER = null;
-                return;
-            }
+        TIMER = null;
+        if (POLLER) POLLER.destroy();
+        POLLER = window.Clinic && Clinic.smartPoller ? Clinic.smartPoller({
+            interval: 30000,
+            emergencyInterval: 8000,
+            fetch: function (url, ok, err) {
+                if (!document.getElementById('queueBtn')) { err(); return; }
+                load(true, ok);
+            },
+        }) : null;
+        if (POLLER) POLLER.start();
+        else TIMER = setInterval(function () {
+            if (!document.getElementById('queueBtn')) { clearInterval(TIMER); TIMER = null; return; }
             load(true);
         }, 30000);
     }
@@ -432,6 +439,7 @@ Clinic.queuePanel = (function () {
         DATA = null;
         // 切换科室先停旧轮询（id=0 或重建新定时器前都需清理，避免重复）
         if (TIMER) { clearInterval(TIMER); TIMER = null; }
+        if (POLLER) { POLLER.destroy(); POLLER = null; }
         // 切换科室：清空筛选记忆，恢复初始状态（诊毕/当日/会诊 全部取消勾选）
         seen = false;
         todayOnly = false;
@@ -440,15 +448,23 @@ Clinic.queuePanel = (function () {
         renderBtn();
         if (id > 0) {
             load(true);
-            // 与 init() 相同的自终止轮询：按钮移除即停，避免后台空轮询
-            TIMER = setInterval(function () {
-                if (!document.getElementById('queueBtn')) {
-                    clearInterval(TIMER);
-                    TIMER = null;
-                    return;
-                }
-                load(true);
-            }, 30000);
+            // 与 init() 相同的 SmartPoller 兜底轮询（按钮移除即停，避免后台空轮询）
+            if (window.Clinic && Clinic.smartPoller) {
+                POLLER = Clinic.smartPoller({
+                    interval: 30000,
+                    emergencyInterval: 8000,
+                    fetch: function (url, ok, err) {
+                        if (!document.getElementById('queueBtn')) { err(); return; }
+                        load(true, ok);
+                    },
+                });
+                POLLER.start();
+            } else {
+                TIMER = setInterval(function () {
+                    if (!document.getElementById('queueBtn')) { clearInterval(TIMER); TIMER = null; return; }
+                    load(true);
+                }, 30000);
+            }
         }
     }
 

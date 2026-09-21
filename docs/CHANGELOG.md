@@ -13,6 +13,16 @@
 
 ---
 
+## [8.17.45] - 2026-09-20
+
+### 变更
+- **医生工作站候诊面板接入 SmartPoller**（`queuepanel.js`）：候诊队列（原 30s）改 SmartPoller（30s 低频 / 8s 应急），切换科室重建轮询，离开病历页停止请求，SSE 即时刷新保留；保留无 SmartPoller 时的旧定时器兜底。
+
+### 文档
+- **同步版本号至 v8.17.45**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json`）。
+
+---
+
 ## [8.17.44] - 2026-09-20
 
 ### 变更
