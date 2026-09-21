@@ -105,7 +105,7 @@
     flex: 1;
     min-height: 0;
     overflow: auto;              /* 唯一滚动容器：纵向滚动触发无限加载，横向溢出滚动 */
-    padding: 0 14px 18px;        /* 顶部不留 padding：表头 sticky 吸顶后无缝隙漏内容；底部 18px 与统一列表留白一致 */
+    padding: 0 18px 18px;        /* 顶部不留 padding：表头 sticky 吸顶后无缝隙漏内容；水平 18px 与搜索栏及全站统一 padding 对齐 */
 }
 .qc-ref-list table { min-width: 720px; }
 

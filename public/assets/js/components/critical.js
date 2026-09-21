@@ -583,24 +583,18 @@ Clinic.critical = (function () {
         var container = document.getElementById(cfg.container);
         if (container) {
             container.innerHTML =
-                '<div class="card" style="margin-bottom:14px">' +
-                '  <div class="flex gap-8" style="align-items:flex-end;flex-wrap:wrap;padding:14px">' +
-                '    <div class="form-group" style="margin:0">' +
-                '      <label class="form-label">开始日期</label>' +
-                '      <input type="text" class="input" id="critFrom" readonly placeholder="开始日期" style="width:150px;cursor:pointer;background:var(--bg)" onclick="Clinic.datePicker.open(this,{maxToday:false})">' +
-                '    </div>' +
-                '    <div class="form-group" style="margin:0">' +
-                '      <label class="form-label">结束日期</label>' +
-                '      <input type="text" class="input" id="critTo" readonly placeholder="结束日期" style="width:150px;cursor:pointer;background:var(--bg)" onclick="Clinic.datePicker.open(this,{maxToday:true})">' +
-                '    </div>' +
-                '    <div class="form-group" style="margin:0">' +
-                '      <label class="form-label">处理状态</label>' +
-                '      <select class="select" id="critStatus">' +
-                '        <option value="">全部</option>' +
-                '        <option value="pending">待处理</option>' +
-                '        <option value="done">已处理</option>' +
-                '      </select>' +
-                '    </div>' +
+                // 筛选工具条：与科室/用户/模板管理等页面统一结构（.card list-filter
+                // + flex gap-8 单层 padding:18px，无内联 padding / form-group 标签）
+                '<div class="card list-filter">' +
+                '  <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">' +
+                '    <input type="text" class="input" id="critFrom" readonly placeholder="开始日期" style="width:150px;cursor:pointer;background:var(--bg)" onclick="Clinic.datePicker.open(this,{maxToday:false})">' +
+                '    <span class="text-muted">至</span>' +
+                '    <input type="text" class="input" id="critTo" readonly placeholder="结束日期" style="width:150px;cursor:pointer;background:var(--bg)" onclick="Clinic.datePicker.open(this,{maxToday:true})">' +
+                '    <select class="select" id="critStatus" style="width:130px">' +
+                '      <option value="">全部状态</option>' +
+                '      <option value="pending">待处理</option>' +
+                '      <option value="done">已处理</option>' +
+                '    </select>' +
                 '    <button class="btn btn-primary btn-sm" onclick="Clinic.critical._listFilter()">查询</button>' +
                 '    <button class="btn btn-outline btn-sm" onclick="Clinic.critical._listReset()">重置</button>' +
                 '    <span class="fs-13 text-muted" id="' + cfg.totalEl + '"></span>' +

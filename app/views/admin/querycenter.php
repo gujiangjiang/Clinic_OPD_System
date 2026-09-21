@@ -22,11 +22,12 @@ Router::title('查询中心');
 <div id="qcCritical"></div>
 <div id="qcRefs" style="display:none">
     <div class="card qc-ref-card">
-        <div class="flex gap-8" style="flex-wrap:wrap;padding:14px 14px 10px">
+        <!-- 搜索工具条：与其他页面统一 padding（单层 18px，无自定义内边距） -->
+        <div class="flex gap-8" style="align-items:center;flex-wrap:wrap;padding:18px">
             <input class="input" id="qcRefKw" placeholder="🔍 检索：门诊流水号 / 患者编号 / 申请单号" style="flex:1;min-width:220px"
                 onkeydown="if(event.key==='Enter')searchRefs()">
             <button class="btn btn-primary btn-sm" onclick="searchRefs()">查询</button>
-            <span class="fs-12 text-muted" style="align-self:center" id="qcRefTotal"></span>
+            <span class="fs-12 text-muted" id="qcRefTotal"></span>
         </div>
         <!-- 列表独立滚动容器（与统一打印中心 .pc-list 同构：外层定高 + 列表 flex:1 内部滚动） -->
         <div class="qc-ref-list" id="qcRefTable"><div class="fs-13 text-muted text-center" style="padding:24px">加载中…</div></div>
