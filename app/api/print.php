@@ -48,6 +48,10 @@ switch ($action) {
         $row = get_visit_row($vid);
         if (!$row) json_fail('就诊记录不存在');
         print_guard($row['visit'], array('cashier'));
+        // 凭条是缴费凭证：未缴费（待缴费）挂号尚无缴费凭据，硬拦截打印
+        if ($row['visit']['status'] === 'pending') {
+            json_fail('该挂号尚未缴费，暂无挂号凭条可打印，请先完成缴费');
+        }
         // 退费/取消后凭条作废，禁止补打（凭条是缴费凭证，已退费即失效）
         if (in_array($row['visit']['status'], array('refunded', 'cancelled'), true)) {
             json_fail('该挂号已' . visit_status_name($row['visit']['status']) . '，凭条已作废，不可补打');
