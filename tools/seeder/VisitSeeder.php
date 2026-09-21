@@ -149,15 +149,16 @@ class VisitSeeder extends Seeder {
         $this->opt = array_merge($this->opt, $opt);
     }
 
-    /* ==================== 参数解析（seed.php 透传 argv 形如 key=value） ==================== */
+    /* ==================== 参数解析（seed.php 透传 argv 形如 key=value，兼容 -- 前缀） ==================== */
     public static function parseArgv($argv) {
         $opt = array('doctor' => '', 'depts' => '', 'days' => 15, 'count' => 30, 'clean' => false);
         foreach ((array)$argv as $a) {
-            if (strpos($a, '--doctor=') === 0) $opt['doctor'] = trim(substr($a, 9));
-            elseif (strpos($a, '--depts=') === 0) $opt['depts'] = trim(substr($a, 8));
-            elseif (strpos($a, '--days=') === 0) $opt['days'] = max(1, (int)substr($a, 7));
-            elseif (strpos($a, '--count=') === 0) $opt['count'] = max(1, (int)substr($a, 8));
-            elseif ($a === '--clean') $opt['clean'] = true;
+            $a = ltrim((string)$a, '-');   // 统一去掉 -- 前缀（兼容 seed.php 透传的裸参数）
+            if (strpos($a, 'doctor=') === 0) $opt['doctor'] = trim(substr($a, 7));
+            elseif (strpos($a, 'depts=') === 0) $opt['depts'] = trim(substr($a, 6));
+            elseif (strpos($a, 'days=') === 0) $opt['days'] = max(1, (int)substr($a, 5));
+            elseif (strpos($a, 'count=') === 0) $opt['count'] = max(1, (int)substr($a, 6));
+            elseif ($a === 'clean') $opt['clean'] = true;
         }
         return $opt;
     }

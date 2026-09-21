@@ -47,17 +47,18 @@ class QueueSeeder extends Seeder {
         $this->opt = array_merge($this->opt, $opt);
     }
 
-    /* ==================== 参数解析（seed.php 透传 argv 形如 key=value / 纯值） ====================
+    /* ==================== 参数解析（seed.php 透传 argv 形如 key=value / 纯值，兼容 -- 前缀） ====================
      * 兼容原场景位置参数：visit 模式 [depts, count]；tech 模式 [types, count]。 */
     public static function parseArgv($argv) {
         $opt = array('mode' => 'visit', 'depts' => '', 'types' => '', 'count' => 30);
         foreach ((array)$argv as $a) {
-            if (strpos($a, '--mode=') === 0) $opt['mode'] = trim(substr($a, 7));
-            elseif (strpos($a, '--depts=') === 0) $opt['depts'] = trim(substr($a, 8));
-            elseif (strpos($a, '--types=') === 0) $opt['types'] = trim(substr($a, 8));
-            elseif (strpos($a, '--count=') === 0) $opt['count'] = max(1, (int)substr($a, 8));
+            $a = ltrim((string)$a, '-');   // 统一去掉 -- 前缀（兼容 seed.php 透传的裸参数）
+            if (strpos($a, 'mode=') === 0) $opt['mode'] = trim(substr($a, 5));
+            elseif (strpos($a, 'depts=') === 0) $opt['depts'] = trim(substr($a, 6));
+            elseif (strpos($a, 'types=') === 0) $opt['types'] = trim(substr($a, 6));
+            elseif (strpos($a, 'count=') === 0) $opt['count'] = max(1, (int)substr($a, 6));
             else {
-                // 位置参数（array_slice 后索引从 0 起，勿用 $i>0 判断）
+                // 位置参数（"2,5:10" / "lab" / "2,5"；array_slice 后索引从 0 起，勿用 $i>0 判断）
                 $val = trim((string)$a);
                 if (strpos($val, ':') !== false) {
                     // "2,5:10" / "lab,exam:10" — 值列表:数量
