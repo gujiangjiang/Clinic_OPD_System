@@ -75,6 +75,8 @@ class DisposalSeeder extends Seeder {
 ['外固定架调整', 50, 1],
 ['牵引术', 60, 0],
 ['关节松动术', 40, 1],
+['无菌换药包', 15, 1],
+['雾化加药处置包', 10, 1],
     ];
 
     public function run() {
