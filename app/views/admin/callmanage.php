@@ -44,7 +44,7 @@ foreach ($depts as $d) {
     <div class="fs-12 text-muted mt-8">大屏在线状态以心跳为准（最近 30 秒内有心跳视为在线），页面每 10 秒自动刷新状态；重置 Token 后旧链接立即失效。</div>
 </div>
 
-<div class="card list-card"><div class="list-scroll" id="cmList"><div class="empty"><div class="empty-ico">🏥</div>请先选择科室，查看该科室下的大屏配置<br><span class="fs-13 text-muted">点击上方「🏥 选择科室」按钮开始使用</span></div></div></div>
+<div class="card list-card"><div class="list-scroll" id="cmList"><div class="empty cm-empty"><div class="empty-ico">🏥</div>请先选择科室，查看该科室下的大屏配置<br><span class="fs-13 text-muted">点击上方「🏥 选择科室」按钮开始使用</span></div></div></div>
 </div>
 
 <style>

@@ -1014,6 +1014,16 @@
     justify-content: center;
     gap: 6px;
 }
+/* 叫号管理空态：未选科室提示在列表区内垂直水平居中 */
+#cmList .cm-empty {
+    height: 100%;
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
 /* 打印中心：左右两栏占满 list-layout 剩余高度（覆盖旧式 calc(100vh-300px) 定高） */
 .list-layout > .pc-layout {
     flex: 1;
