@@ -13,6 +13,20 @@
 
 ---
 
+## [8.17.41] - 2026-09-20
+
+### 变更
+- **推送客户端升级为连接健康管理 v2**（`push.js`）：
+  - 连接生命周期状态机 `CONNECTING/CONNECTED/DISCONNECTED/RECONNECTING`，经 `CustomEvent`（兼容 `eventbus`）广播 `push:connected/disconnected/reconnecting`；
+  - 指数退避重连（2s→4s→8s…上限 30s，成功后归零）；
+  - 心跳假死检测：服务端心跳由 SSE 注释改为真实 `heartbeat` 事件（每 20s），客户端跟踪最后活跃时间，超时 35s 判定假死并主动退避重连。
+- **服务端 push.php 心跳事件化**：`: ping` 注释 → `data: {"type":"heartbeat"}`（不带 id 不影响游标）。
+
+### 文档
+- **同步版本号至 v8.17.41**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json`）。
+
+---
+
 ## [8.17.40] - 2026-09-20
 
 ### 移除

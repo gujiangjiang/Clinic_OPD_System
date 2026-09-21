@@ -69,9 +69,10 @@ while (time() < $deadline) {
     } catch (Exception $ex) {
         if (defined('DEBUG') && DEBUG) error_log('[push] ' . $ex->getMessage());
     }
-    // 心跳注释（SSE 协议：冒号开头行被浏览器忽略）
+    // 心跳（真实 data 事件、不带 id 以免干扰游标）：客户端据此判定连接存活
+    // （SSE 注释 ": ping" 不触发浏览器 onmessage，无法作为假死检测依据）
     if (time() - $lastHeartbeat >= 20) {
-        echo ": ping\n\n";
+        echo 'data: {"type":"heartbeat"}' . "\n\n";
         $lastHeartbeat = time();
     }
     flush();
