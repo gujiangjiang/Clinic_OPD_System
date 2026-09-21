@@ -14,6 +14,7 @@
 
 require dirname(__DIR__, 2) . '/app/config/bootstrap.php';
 require dirname(__DIR__) . '/seeder/PreflightChecker.php';
+require dirname(__DIR__) . '/seeder/VisitFlowEngine.php';
 
 /* ==================== 精细模式参数 ==================== */
 // 用法：--scene="dept=lab"（仅检验）/ --scene="dept=lab,exam" / --scene="dept=prescription" / --scene="dept=disposal"
@@ -46,59 +47,11 @@ $examItem = in_array('imaging', $want, true)      ? DB::one("SELECT * FROM exam_
 $procItem = in_array('disposal', $want, true)     ? DB::one("SELECT * FROM disposal_items WHERE status='approved' AND is_nurse=1 ORDER BY id LIMIT 1") : null;
 $drugItem = in_array('prescription', $want, true) ? DB::one("SELECT * FROM drugs WHERE status='approved' ORDER BY id LIMIT 1") : null;
 
-/** 生成唯一单号 */
-function dept_call_unique_no($prefix, $table, $col) {
-    do {
-        $no = $prefix . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
-    } while ((int)DB::val("SELECT COUNT(*) FROM $table WHERE $col=?", array($no)) > 0);
-    return $no;
-}
-
-/** 为该就诊强制创建一张已缴费单（测试用；同一就诊同类型单可重复添加，保证各队列有足量新号） */
+/** 为该就诊强制创建一张已缴费单（测试用；统一走 VisitFlowEngine 状态机） */
 function dept_call_add_order($visit, $orderType, $itemType, $item, $price, $extra = array()) {
-    $visitId = (int)$visit['id'];
-    $now = now_str();
-    $prefix = array('lab' => 'JY', 'imaging' => 'JC', 'prescription' => 'CF', 'procedure' => 'CZ');
-    $orderNo = dept_call_unique_no($prefix[$orderType], 'orders', 'order_no');
-    $deptId = (int)$visit['current_dept_id'];
-    $deptName = (string)$visit['current_dept_name'];
-    // 开单医生：取本科室任一启用医生（作为开单归属），无则用测试技师
-    $doc = DB::one("SELECT id, name FROM users WHERE role='doctor' AND status=1 AND (dept_ids='' OR dept_ids LIKE ?) ORDER BY id LIMIT 1", array('%,' . $deptId . ',%'));
-    if (!$doc) $doc = DB::one("SELECT id, name FROM users WHERE role='doctor' AND status=1 ORDER BY id LIMIT 1");
-    $docId = $doc ? (int)$doc['id'] : 0;
-    $docName = $doc ? (string)$doc['name'] : '系统测试';
-
-    $pdo = DatabaseManager::getMain();
-    $pdo->beginTransaction();
-    try {
-        $orderId = (int)DB::insert(
-            'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, doctor_id, doctor_name, dept_id, dept_name, total_amount, status, created_at, paid_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
-            array($visitId, $visit['patient_no'], $visit['flow_no'], $orderType, $orderNo, $docId, $docName, $deptId, $deptName, $price, 'paid', $now, $now)
-        );
-        DB::insert(
-            'INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, spec, unit, price, quantity, single_dose, frequency, route, is_nurse, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-            array(
-                $orderId, $visitId, $visit['patient_no'], $visit['flow_no'],
-                $itemType, (int)$item['id'], (string)$item['name'],
-                isset($item['spec']) ? (string)$item['spec'] : '',
-                isset($item['unit']) ? (string)$item['unit'] : '',
-                (float)$price, 1,
-                isset($item['single_dose']) ? (string)$item['single_dose'] : '',
-                isset($item['frequency']) ? (string)$item['frequency'] : '',
-                isset($item['route']) ? (string)$item['route'] : '',
-                (int)(isset($extra['is_nurse']) ? $extra['is_nurse'] : 0),
-                'paid', $docId, $docName, $now,
-            )
-        );
-        DB::insert(
-            'INSERT INTO payments(order_id, visit_id, patient_no, flow_no, total, item_count, cashier_id, cashier_name, kind, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
-            array($orderId, $visitId, $visit['patient_no'], $visit['flow_no'], $price, 1, 2, '收款员', 'order', $now)
-        );
-        $pdo->commit();
-    } catch (Exception $ex) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
-        throw $ex;
-    }
+    static $engine = null;
+    if ($engine === null) $engine = new VisitFlowEngine();
+    $engine->createPaidOrder($visit, $orderType, $itemType, $item, $price, $extra);
     return true;
 }
 

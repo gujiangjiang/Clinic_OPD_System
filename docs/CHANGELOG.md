@@ -13,6 +13,16 @@
 
 ---
 
+## [8.17.39] - 2026-09-20
+
+### 变更
+- **新增 VisitFlowEngine 就诊全流程状态机引擎**：统一封装 `register`（挂号）与 `createPaidOrder`（orders + order_items + payments 事务写入）等节点，所有业务场景统一调用，杜绝各自编写插入 SQL；医技排队专项（dept_call）已接入引擎，精细/默认模式均验证通过。
+
+### 文档
+- **同步版本号至 v8.17.39**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json`）。
+
+---
+
 ## [8.17.38] - 2026-09-20
 
 ### 变更
