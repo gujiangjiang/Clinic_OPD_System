@@ -13,18 +13,38 @@
  * ============================================================ */
 
 require dirname(__DIR__, 2) . '/app/config/bootstrap.php';
+require dirname(__DIR__) . '/seeder/PreflightChecker.php';
 
-$n = isset($argv[1]) ? max(1, min(50, (int)$argv[1])) : 20;
-
-// 字典：检验/检查/处置/药品
-$labItem   = DB::one("SELECT * FROM lab_items WHERE status='approved' AND is_group=0 ORDER BY id LIMIT 1");
-$examItem  = DB::one("SELECT * FROM exam_items WHERE status='approved' ORDER BY id LIMIT 1");
-$procItem  = DB::one("SELECT * FROM disposal_items WHERE status='approved' AND is_nurse=1 ORDER BY id LIMIT 1");
-$drugItem  = DB::one("SELECT * FROM drugs WHERE status='approved' ORDER BY id LIMIT 1");
-if (!$labItem || !$examItem || !$procItem || !$drugItem) {
-    echo "缺少检验/检查/处置/药品项目，请先维护并通过审核。\n";
-    exit(1);
+/* ==================== 精细模式参数 ==================== */
+// 用法：--scene="dept=lab"（仅检验）/ --scene="dept=lab,exam" / --scene="dept=prescription" / --scene="dept=disposal"
+// 默认（无参数）：随机分布 检验/检查/处方/处置 四类，模拟真实门诊交叉开单
+$deptArg = isset($argv[1]) ? trim((string)$argv[1]) : '';
+$want = $deptArg === ''
+    ? array('lab', 'imaging', 'prescription', 'disposal')
+    : array_values(array_filter(explode(',', $deptArg)));
+foreach ($want as $w) {
+    if (!in_array($w, array('lab', 'imaging', 'exam', 'prescription', 'disposal'), true)) {
+        preflight_die("未知医技类型「{$w}」（可选：lab / imaging / exam / prescription / disposal，可逗号组合）");
+    }
 }
+// 规范化别名：exam = imaging（检查单），统一映射到 order_type=imaging
+$want = array_map(function ($w) { return $w === 'exam' ? 'imaging' : $w; }, $want);
+
+/* ==================== 前置依赖探测（Preflight） ==================== */
+$pf = new PreflightChecker();
+$pf->diagnosis();
+if (in_array('lab', $want, true))          $pf->lab();
+if (in_array('imaging', $want, true))      $pf->exam();
+if (in_array('disposal', $want, true))     $pf->disposal();
+if (in_array('prescription', $want, true)) $pf->drugs();
+
+$n = isset($argv[2]) ? max(1, min(50, (int)$argv[2])) : 20;
+
+// 字典：检验/检查/处置/药品（按需取）
+$labItem  = in_array('lab', $want, true)          ? DB::one("SELECT * FROM lab_items WHERE status='approved' AND is_group=0 ORDER BY id LIMIT 1") : null;
+$examItem = in_array('imaging', $want, true)      ? DB::one("SELECT * FROM exam_items WHERE status='approved' ORDER BY id LIMIT 1") : null;
+$procItem = in_array('disposal', $want, true)     ? DB::one("SELECT * FROM disposal_items WHERE status='approved' AND is_nurse=1 ORDER BY id LIMIT 1") : null;
+$drugItem = in_array('prescription', $want, true) ? DB::one("SELECT * FROM drugs WHERE status='approved' ORDER BY id LIMIT 1") : null;
 
 /** 生成唯一单号 */
 function dept_call_unique_no($prefix, $table, $col) {
@@ -85,12 +105,15 @@ function dept_call_add_order($visit, $orderType, $itemType, $item, $price, $extr
 $cnt = array('lab' => 0, 'imaging' => 0, 'prescription' => 0, 'procedure' => 0);
 // 每类各挑「尚无该类型待办单」的待就诊/就诊中患者（保证队列新增 N 位新患者）
 $plan = array(
-    'lab'          => array('lab',          'lab',          $labItem,  (float)$labItem['price'], array()),
-    'imaging'      => array('imaging',      'imaging',      $examItem, (float)$examItem['price'], array()),
-    'prescription' => array('prescription', 'prescription', $drugItem, (float)$drugItem['price'], array()),
-    'procedure'    => array('procedure',    'procedure',    $procItem, (float)$procItem['fee'],   array('is_nurse' => 1)),
+    'lab'          => array('lab',          'lab',          $labItem,  $labItem  ? (float)$labItem['price']  : 0, array()),
+    'imaging'      => array('imaging',      'imaging',      $examItem, $examItem ? (float)$examItem['price'] : 0, array()),
+    'prescription' => array('prescription', 'prescription', $drugItem, $drugItem ? (float)$drugItem['price'] : 0, array()),
+    'procedure'    => array('procedure',    'procedure',    $procItem, $procItem ? (float)$procItem['fee']   : 0, array('is_nurse' => 1)),
 );
 foreach ($plan as $key => $cfg) {
+    // 精细模式：仅生成指定类型
+    $orderType = $cfg[0];
+    if (!in_array($orderType, $want, true)) continue;
     list($orderType, $itemType, $item, $price, $extra) = $cfg;
     $visits = DB::q(
         "SELECT id, patient_no, flow_no, current_dept_id, current_dept_name, visit_seq
@@ -106,7 +129,7 @@ foreach ($plan as $key => $cfg) {
     }
 }
 
-echo "医技叫号测试数据生成完成：\n";
+echo "医技叫号测试数据生成完成" . ($deptArg !== '' ? "（精细模式：{$deptArg}）" : "（默认随机分布）") . "：\n";
 echo "  检验科（lab）       +" . $cnt['lab'] . " 张待检验单（新增患者）\n";
 echo "  影像科（imaging）   +" . $cnt['imaging'] . " 张待检查单（新增患者）\n";
 echo "  药房（pharmacy）    +" . $cnt['prescription'] . " 张待审方处方（新增患者）\n";

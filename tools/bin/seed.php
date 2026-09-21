@@ -86,21 +86,19 @@ $moduleMap = array(
     'clinic'    => array('seeder/ClinicInfoSeeder.php', '机构信息'),
     'screen'    => array('seeder/ScreenSeeder.php',     '叫号大屏/诊室窗口'),
     'drug'      => array('seeder/DrugSeeder.php',       '药品与库存'),
-    'exam'      => array('scenarios/full_seed.php',     '检查项目（由全量场景内部分发）'),
-    'lab'       => array('scenarios/full_seed.php',     '检验项目（由全量场景内部分发）'),
-    'disposal'  => array('scenarios/full_seed.php',     '处置项目（由全量场景内部分发）'),
+    'exam'      => array('seeder/ExamSeeder.php',       '检查项目'),
 );
 if ($modules) {
     $code = 0;
     foreach ($modules as $m) {
         if (!isset($moduleMap[$m])) {
-            fwrite(STDERR, "未知模块：{$m}\n");
+            fwrite(STDERR, "未知模块：{$m}（可用：clinic / screen / drug / exam）\n");
             $code = 1;
             continue;
         }
         list($script, $label) = $moduleMap[$m];
         echo "== 模块：{$label}（{$m}）==\n";
-        $c = seed_run_script($root . '/' . $script, $m === 'exam' || $m === 'lab' || $m === 'disposal' ? array('--module=' . $m) : array());
+        $c = seed_run_script($root . '/' . $script);
         if ($c !== 0) $code = $c;
     }
     exit($code);

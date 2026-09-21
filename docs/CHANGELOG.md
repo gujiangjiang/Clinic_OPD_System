@@ -13,6 +13,17 @@
 
 ---
 
+## [8.17.37] - 2026-09-20
+
+### 变更
+- **医技排队专项支持精细模式 + Preflight 依赖拦截**：`--scene="dept=lab"` 仅生成检验单、`dept=exam`（检查）、`dept=prescription`、`dept=disposal`，可逗号组合；开单前 Preflight 探测对应字典（检查项目缺失时输出 `[Preflight Error] 未找到任何【检查项目】` 并终止）；默认模式保持四类随机分布。
+- **新增 ExamSeeder（`--module=exam`）**：检查项目生成器（CT/DR/MR/超声/内镜/心电/病理/其他 102 项），供独立重建。
+
+### 文档
+- **同步版本号至 v8.17.37**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json`）。
+
+---
+
 ## [8.17.36] - 2026-09-20
 
 ### 变更
