@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v8.17.51-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v8.18.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -246,25 +246,35 @@ php -S 0.0.0.0:8080 router.php
 
 ### 🧪 快速初始化与测试造数（统一 CLI）
 
-安装完成并启动后，可通过统一造数 CLI 一键生成测试/演示数据（模块化架构，历史脚本已转为代理入口）：
+安装完成并启动后，可通过统一造数 CLI 一键生成测试/演示数据（模块化架构，
+基础字典按 `--module` 调度独立 Seeder，就诊链/叫号按 `--scene` 组合调度）：
 
 ```bash
-# 全量测试造数（默认）：科室/账号/检验/检查/处置/104 种药品/模板/套餐 + 近 15 天患者就诊全链路
+# 全量测试造数（默认）：科室/账号/药品/检验（含 16 个检验组合与危急值）/检查/处置/套餐/模板 + 近 15 天患者就诊全链路（含待缴费/已退费/已取消状态）
 php tools/bin/seed.php --all
-# Demo 演示环境数据（近 30 天 136 次就诊 / 病历 / 医嘱 / 体征 / 证明）
+# Demo 演示环境数据（同 --all）
 php tools/bin/seed.php --scene=demo
-# 叫号大屏专项：为指定科室生成当天已缴费患者
+# 患者就诊链专项（追加式，不动字典）
+php tools/bin/seed.php --scene=visit
+# 指定医生工号接诊专项（校验工号存在且为医生角色，如 2001 张伟）
+php tools/bin/seed.php --scene="doctor=2001"
+# 指定科室就诊链
+php tools/bin/seed.php --scene="dept=2,5"
+# 门诊叫号大屏专项：为指定科室生成当天已缴费患者（默认科室 2,5 各 30 名）
 php tools/bin/seed.php --scene=call
 # 医技四科室叫号专项：检验/检查/处方/护理处置各加 N 位待办患者
 php tools/bin/seed.php --scene=dept_call
-# 医生 2001（张伟）接诊专项
-php tools/bin/seed.php --scene=doctor2001
-# 仅重置药品与库存（104 种药品最小单位库存 / 警戒库存 / 护士执行标识）
+# 医技精细模式：仅开检验单（lab/exam/prescription/disposal 可组合，可带数量如 lab,exam:10）
+php tools/bin/seed.php --scene="dept=lab"
+# 仅重置药品与库存（药品最小单位库存 / 警戒库存 / 护士执行标识）
 php tools/bin/seed.php --module=drug
+# 基础字典模块：clinic/dept/user/screen/drug/lab/exam/disposal/package/template 可多选（逗号/空格分隔）
+php tools/bin/seed.php --module="lab exam disposal"
 ```
 
 本机无系统 php 时统一加前缀：`~/.local/bin/frankenphp php-cli tools/bin/seed.php ...`。
-根目录代理入口 `tools/seed_test_data.php` 已移除，统一走 `tools/bin/seed.php`；造数场景统一经 `VisitFlowEngine` 状态机引擎，前置 `PreflightChecker` 依赖探测（ICD-10 诊断库/检查/检验/药品库存/处置项目缺失即终止）。
+造数场景统一经 `VisitFlowEngine` 状态机引擎与 `VisitSeeder`/`QueueSeeder` 数据工厂组合调度，
+前置 `PreflightChecker` 依赖探测（ICD-10 诊断库/检查/检验/药品库存/处置项目缺失即终止）。
 
 ### 生产部署（Nginx）
 

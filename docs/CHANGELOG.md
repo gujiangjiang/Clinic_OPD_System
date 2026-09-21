@@ -13,6 +13,31 @@
 
 ---
 
+## [8.18.0] - 2026-09-22
+
+### 新增
+- **打印中心未缴费项目拦截与标识**：未缴费（待缴费）挂号凭条是缴费凭证，无缴费凭据不可打印——后端 `print.php receipt` 新增 pending 硬拦截（提示先完成缴费）；打印中心左栏就诊列表未缴费整条置灰降透明 + 【未缴费】徽章，右栏挂号凭条行灰色 + 【未缴费】徽章并隐藏【补打】按钮；已退费/已取消仍为红色删除线保留溯源。
+- **影像引用查询日期范围筛选**：新增开始/结束日期 + 重置按钮（与危急值/运营分析页一致），后端 `refs_list` 新增 `from`/`to` 参数（登记时间筛选）。
+- **LabSeeder 检验组合与危急值**：新增 16 个检验组合（肝功能十项/肾功能三项/电解质五项/血常规五项/凝血功能四项/甲状腺功能五项/心肌酶谱五项/肝肾综合五项/乙肝五项/免疫球蛋白三项/血脂四项/血常规二十项/血糖血脂六项/肿瘤标志物五项/心肌损伤标志物三项/呼吸道病原体抗体四项），成员缺失自动创建并同步收敛；危急值上下限（critical_low/high）回填仅补全为空字段。
+- **DeptSeeder / UserSeeder**：科室（临床 1-6 + 医技 7-10）与 14 个测试账号数据工厂（原 full_seed 1.1/1.2 数据拆分）。
+- **PackageSeeder / TemplateSeeder**：9 组全院公共套餐 + 21 个全院模板数据工厂（原 full_seed 1.10 数据拆分）；DisposalSeeder 补充套餐引用的处置包（无菌换药包/雾化加药处置包）。
+- **VisitSeeder / QueueSeeder**：患者就诊链生成器（合并原 demo/doctor2001/full 三场景：指定医生工号/指定科室/时间窗口/旧数据清理参数化，状态分布覆盖待缴费/已退费/已取消）与叫号队列生成器（合并原 call/dept_call 两场景，visit/tech 双模式）。
+- **HIS 接口预留医疗机构代码**：ping 自检返回值新增 `org_code`；接口管理 his_system_code/yibao_org_code 字段提示同步（医保机构编码建议与医疗机构代码保持一致）。
+
+### 修复
+- **审核中心药品预览拆零参数框未隐藏**：`forms.php` 拼接 `split_box` 内联样式时 `display:none` 与 `margin-top` 间缺少分号（拼出 `display:nonemargin-top:10px` 非法样式），导致不允许拆零零售的药品在预览只读模态框中拆零参数框仍然显示。
+- **影像引用查询 kw 检索失效**：`infiniteList` url 由固定字符串改为函数（每次加载读取当前检索值）——原字符串在 init 时求值，搜索后 reset() 仍用旧关键字；打印中心 `print_visits` 检索同根因一并修复。
+- **tools/schema 原有 bootstrap 断链路径**：`inspect_schema.php`、`migrate_split_to_unified.php` 的 `../app` 引用修复（此前即不可运行）。
+
+### 变更
+- **查询中心危急值/影像引用搜索栏统一复用全站 18px padding**：与科室/用户/模板管理等页面统一结构（`.card list-filter` + `flex gap-8` 单层 padding），危急值去除内层 `padding:14px` 双层叠加（32px 导致外框过大）与 form-group 标签行；影像引用内联 `padding:14px 14px 10px` 改为统一 18px，列表水平 padding 同步对齐。
+
+### 移除
+- **tools/scenarios/ 场景脚本**：`full_seed.php`（1884 行）/ `demo_seed.php` / `call_seed.php` / `dept_call_seed.php` / `doctor2001_seed.php` 全部拆分合并到 `tools/seeder/` 独立数据工厂后删除（`tools/bin/seed.php` 场景调度改为直接调度 seeder/），`doctor=2001` 命名随场景参数化（`--scene="doctor=工号"`）消除。
+- **tools/ 根目录一次性脚本**：`fix_icd10_split.php` / `refill_drug_spec.php` 移入 `tools/schema/`（与分散迁移脚本同类），bootstrap 引用路径同步修复。
+
+---
+
 ## [8.17.51] - 2026-09-21
 
 ### 修复
