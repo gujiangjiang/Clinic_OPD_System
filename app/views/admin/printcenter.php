@@ -52,6 +52,9 @@ Router::title('打印中心');
 }
 .pc-item:hover { border-color: var(--primary); }
 .pc-item.active { border-color: var(--primary); background: var(--primary-soft, rgba(37,99,235,.06)); }
+/* 未缴费：整条置灰降透明（无缴费凭据，凭条不可打印） */
+.pc-item.pending { opacity: .6; }
+.pc-item.pending .pc-item-name { color: var(--muted); font-weight: 600; }
 .pc-item .pc-item-name { font-weight: 700; font-size: 14px; }
 .pc-item .pc-item-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
 .pc-right { flex: 1; min-width: 0; overflow-y: auto; padding: 14px; }
@@ -75,6 +78,9 @@ Router::title('打印中心');
 .pc-row-actions .btn[disabled] { opacity: .5; cursor: not-allowed; }
 /* 退费/撤回：红色删除线（保留展示，便于溯源） */
 .pc-dead { text-decoration: line-through; color: var(--danger, #dc2626) !important; }
+/* 未缴费：整体置灰降透明（凭条是缴费凭证，无缴费凭据可打印） */
+.pc-muted { color: var(--muted) !important; }
+#pcItems .pc-row-actions .badge-gray { flex-shrink: 0; }
 /* 项目间 / 分组间虚线分隔 */
 .pc-sep { border-top: 1px dashed var(--border); margin: 6px 0; }
 .pc-group-title { font-weight: 700; font-size: 13px; color: var(--primary); padding: 8px 0 2px; }
@@ -86,13 +92,13 @@ var PC_SELECTED = '';
 var PC_LIST = null;   // 统一动态加载封装句柄
 
 function pcStatusBadge(s) {
-    var map = { pending: '待缴费', paid: '待就诊', visiting: '就诊中', finished: '就诊完毕', refunded: '已退费', cancelled: '已取消' };
+    var map = { pending: '未缴费', paid: '待就诊', visiting: '就诊中', finished: '就诊完毕', refunded: '已退费', cancelled: '已取消' };
     var cls = s === 'finished' ? 'badge-success' : (s === 'visiting' ? 'badge-warning' : 'badge-gray');
     return '<span class="badge ' + cls + '" style="font-size:11px">' + (map[s] || s) + '</span>';
 }
 
 function pcItemHtml(v) {
-    return '<div class="pc-item' + (PC_SELECTED === v.visit_id ? ' active' : '') + '" data-vid="' + v.visit_id + '" onclick="pcPick(\'' + v.visit_id + '\')">' +
+    return '<div class="pc-item' + (v.status === 'pending' ? ' pending' : '') + (PC_SELECTED === v.visit_id ? ' active' : '') + '" data-vid="' + v.visit_id + '" onclick="pcPick(\'' + v.visit_id + '\')">' +
         '<div class="flex-between">' +
         '  <span class="pc-item-name">' + Clinic.escHtml(v.patient_name || '—') + '</span>' +
         '  ' + pcStatusBadge(v.status) +

@@ -218,19 +218,28 @@ function admin_part_settings($action) {
         $visit = $row['visit'];
         $vOid = oid($visitId);
         $isVisitDead = in_array($visit['status'], array('refunded', 'cancelled'), true);
+        $isVisitPending = ($visit['status'] === 'pending');
         $hasRecord = (int)AnalyticsRepository::val('SELECT COUNT(*) FROM records WHERE visit_id=?', array($visitId)) > 0;
         $hasCert = (int)AnalyticsRepository::val('SELECT COUNT(*) FROM certificates WHERE visit_id=?', array($visitId)) > 0;
 
         /* ---------- 通用渲染助手 ---------- */
-        // 单据行：标题 + 说明 + 操作区（$dead=true 红色删除线保留溯源，按钮禁用）
-        $pcRow = function ($title, $sub, $btnHtml, $dead = false, $deadText = '') {
-            $deadBadge = $dead ? ' <span class="badge badge-danger" style="font-size:11px">' . e($deadText ?: '已退费') . '</span>' : '';
+        // 单据行：标题 + 说明 + 操作区（$dead=true 红色删除线保留溯源，按钮禁用；
+        // $pending=true 未缴费灰色展示 +【未缴费】徽章，隐藏补打按钮——凭条是缴费凭证，
+        // 未缴费挂号尚无缴费凭据可打印）
+        $pcRow = function ($title, $sub, $btnHtml, $dead = false, $deadText = '', $pending = false) {
+            $badge = '';
+            if ($dead) {
+                $badge = ' <span class="badge badge-danger" style="font-size:11px">' . e($deadText ?: '已退费') . '</span>';
+            } elseif ($pending) {
+                $badge = ' <span class="badge badge-gray" style="font-size:11px">未缴费</span>';
+            }
+            $dim = $dead ? ' pc-dead' : ($pending ? ' pc-muted' : '');
             return '<div class="pc-row">' .
                 '<div class="pc-row-info">' .
-                '  <div class="pc-row-title' . ($dead ? ' pc-dead' : '') . '">' . e($title) . '</div>' .
-                ($sub !== '' ? '<div class="pc-row-sub' . ($dead ? ' pc-dead' : '') . '">' . $sub . '</div>' : '') .
+                '  <div class="pc-row-title' . $dim . '">' . e($title) . '</div>' .
+                ($sub !== '' ? '<div class="pc-row-sub' . $dim . '">' . $sub . '</div>' : '') .
                 '</div>' .
-                '<div class="pc-row-actions">' . $btnHtml . $deadBadge . '</div>' .
+                '<div class="pc-row-actions">' . $btnHtml . $badge . '</div>' .
                 '</div>';
         };
         // 打印按钮（$dead=true → 禁用态占位，保留版面；$sheet 纸张路由：
@@ -249,9 +258,11 @@ function admin_part_settings($action) {
 
         /* ---------- 页签一：就诊 ---------- */
         $visitRows = array();
+        // 挂号凭条：未缴费（pending）灰色 +【未缴费】徽章并隐藏补打按钮（无缴费凭据可打印）；
+        // 已退费/已取消红色删除线保留溯源
         $visitRows[] = $pcRow('挂号凭条', '挂号费 ¥' . money($visit['fee']) . ' ｜ ' . e($visit['first_dept_name']) . ' ｜ ' . e(substr($visit['registered_at'], 0, 16)),
-            $pcBtn('补打', '/api/print?action=receipt&visit_id=' . e($vOid), 'ticket', $isVisitDead),
-            $isVisitDead, $visit['status'] === 'cancelled' ? '已取消' : '已退费');
+            $isVisitPending ? '' : $pcBtn('补打', '/api/print?action=receipt&visit_id=' . e($vOid), 'ticket', $isVisitDead),
+            $isVisitDead, $visit['status'] === 'cancelled' ? '已取消' : '已退费', $isVisitPending);
         if ($hasRecord) {
             $visitRows[] = $pcRow('电子病历', '门诊电子病历（连续文书，含历次续写）',
                 $pcBtn('补打', '/api/print?action=record&visit_id=' . e($vOid), 'a5'));
