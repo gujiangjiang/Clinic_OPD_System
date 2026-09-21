@@ -11,17 +11,19 @@ Router::title('用户管理');
 /* 安全告警站内信直达解锁：partial/整页渲染时均可读取 query 参数 */
 $editFromUrl = (int)get('edit_user_id', 0);
 ?>
+<div class="list-layout">
 <div class="page-head">
     <div><div class="page-title">👥 用户管理</div><div class="page-desc">创建各科室账号，医生可关联多个科室</div></div>
     <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openUserForm(0)">＋ 新增用户</button></div>
 </div>
-<div class="card" style="margin-bottom:12px">
+<div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
         <input class="input" id="userSearch" placeholder="🔍 快速搜索用户 / 工号 / 角色" style="width:220px" oninput="applyUserFilter()">
         <span class="flex gap-4" id="userRoleTabs" style="flex-wrap:wrap"></span>
     </div>
 </div>
-<div class="card" id="userList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+<div class="card list-card" id="userList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+</div>
 
 <script>
 var USER_ROLE = '';

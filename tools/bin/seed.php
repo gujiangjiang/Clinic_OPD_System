@@ -14,8 +14,8 @@
  *   php tools/bin/seed.php --scene=doctor2001          # 医生 2001 接诊专项
  *   php tools/bin/seed.php --module=drug               # 仅重置药品与库存
  *
- * 历史脚本（tools/seed_test_data.php 等）已转为轻量级代理入口，
- * 内部委托到本统一 CLI；后续任何造数需求请在 scenarios/ 与 seeder/ 中扩展。
+ * 根目录代理入口（tools/seed_test_data.php）已删除，统一走本 CLI；
+ * 后续任何造数需求请在 seeder/（模块）与 scenarios/（场景）中扩展。
  * ============================================================ */
 
 if (php_sapi_name() !== 'cli') {

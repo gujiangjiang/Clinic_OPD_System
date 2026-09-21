@@ -6,11 +6,12 @@
  */
 Router::title('科室管理');
 ?>
+<div class="list-layout">
 <div class="page-head">
     <div><div class="page-title">🏥 科室管理</div><div class="page-desc">门诊科室需设置上午/下午号源数量，急诊科室无需号源</div></div>
     <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openDeptForm(0)">＋ 新增科室</button></div>
 </div>
-<div class="card" style="margin-bottom:12px">
+<div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
         <input class="input" id="deptSearchKw" placeholder="🔍 快速搜索科室" style="width:220px" oninput="applyDeptFilter()">
         <span class="flex gap-4" id="deptTypeTabs" style="flex-wrap:wrap">
@@ -22,7 +23,8 @@ Router::title('科室管理');
         </span>
     </div>
 </div>
-<div class="card" id="deptList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+<div class="card list-card" id="deptList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+</div>
 
 <script>
 /* 默认「临床」（门诊+急诊）：医技/其他为叫号大屏专用科室，

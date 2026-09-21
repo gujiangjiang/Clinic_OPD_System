@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v8.17.39-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v8.17.40-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -206,12 +206,11 @@
 │   └── session/               # Session 文件
 ├── tools/                     # 工具脚本（模块化造数架构，统一 CLI 入口）
 │   ├── bin/
-│   │   └── seed.php           # 统一造数 CLI：--all / --scene=demo|call|dept_call|doctor2001 / --module=drug
-│   ├── seeder/                # 单一职责数据工厂（Seeder 基类 / DrugSeeder 等）
-│   ├── scenarios/             # 场景装配器（full / demo / call / dept_call / doctor2001 场景）
+│   │   └── seed.php           # 统一造数 CLI：--all / --scene=demo|call|dept_call|doctor2001|doctor=工号|dept=类型 / --module=clinic|screen|drug|lab|exam|disposal
+│   ├── seeder/                # 单一职责数据工厂（Seeder 基类 / PreflightChecker / ClinicInfoSeeder / ScreenSeeder / DrugSeeder / LabSeeder / ExamSeeder / DisposalSeeder / VisitFlowEngine 等）
+│   ├── scenarios/             # 场景装配器（full / demo / call / dept_call / doctor2001 场景，统一走 VisitFlowEngine）
 │   ├── lint/                  # php-lint.php（tokenizer 语法检查）/ ci-lint.php / jscheck.js
 │   ├── schema/                # inspect_schema.php / migrate_split_to_unified.php
-│   ├── seed_test_data.php     # 轻量级代理入口（委托 tools/bin/seed.php --all，兼容旧调用）
 │   └── refill_drug_spec.php   # 药品规格结构化填充
 ├── .github/workflows/         # GitHub Actions：PHP 7.2~8.5 语法兼容矩阵检查 + 检查报告
 ├── docs/                      # 文档归档
@@ -267,7 +266,7 @@ php tools/bin/seed.php --module=drug
 ```
 
 本机无系统 php 时统一加前缀：`~/.local/bin/frankenphp php-cli tools/bin/seed.php ...`。
-历史脚本 `tools/seed_test_data.php` 保留为轻量级代理入口（内部委托 `--all`），推荐直接使用统一 CLI。
+根目录代理入口 `tools/seed_test_data.php` 已移除，统一走 `tools/bin/seed.php`；造数场景统一经 `VisitFlowEngine` 状态机引擎，前置 `PreflightChecker` 依赖探测（ICD-10 诊断库/检查/检验/药品库存/处置项目缺失即终止）。
 
 ### 生产部署（Nginx）
 

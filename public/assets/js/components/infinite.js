@@ -134,6 +134,7 @@ Clinic.infiniteList = function (opts) {
     function loadPage(p) {
         if (loading || !el) return;
         loading = true;
+        page = p;
         // url 支持字符串（自动拼 page/size）或函数（返回完整地址，自行拼参）
         var url;
         if (typeof opts.url === 'function') url = opts.url(p, pageSize);
@@ -169,8 +170,9 @@ Clinic.infiniteList = function (opts) {
 
     function fireLoad() {
         if (!hasMore) return false;   // 无更多：停止监听
-        page++;
-        loadPage(page);
+        // 直接加载 page+1（page 已在 loadPage 内同步为当前已加载页），
+        // 避免快速滚动时 page++ 与 loading 锁不同步导致的跳页/重复加载
+        loadPage(page + 1);
     }
 
     stopFn = Clinic.infiniteScroll({

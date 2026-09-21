@@ -1,8 +1,8 @@
 <?php
 /**
- * tools/seed_test_data.php - 完整测试数据生成器（平台基础数据 + 病人就诊）
+ * tools/bin/seed.php --all - 完整测试数据生成器（平台基础数据 + 病人就诊）
  * ============================================================
- * 用法：~/.local/bin/frankenphp php-cli tools/seed_test_data.php
+ * 用法：~/.local/bin/frankenphp php-cli tools/bin/seed.php --all
  * 说明：本脚本仅填充数据库，不修改任何代码文件。
  * 
  * 功能：

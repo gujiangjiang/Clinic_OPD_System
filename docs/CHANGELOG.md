@@ -13,6 +13,16 @@
 
 ---
 
+## [8.17.40] - 2026-09-20
+
+### 移除
+- **删除根目录冗余代理脚本 `tools/seed_test_data.php`**：已由统一 CLI `tools/bin/seed.php --all` 全接管，注释与 README 同步更新；`scenarios/` 各场景保留为当前稳定实现（已建 `VisitFlowEngine` 统一引擎，场景逐步迁移，删除以引擎重构验证通过为前置）。
+
+### 文档
+- **同步版本号至 v8.17.40**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json`）。
+
+---
+
 ## [8.17.39] - 2026-09-20
 
 ### 变更

@@ -6,17 +6,19 @@
 Router::title('处置项目');
 $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
 ?>
+<div class="list-layout">
 <div class="page-head">
     <div><div class="page-title">🩹 处置项目</div><div class="page-desc">处置项目与费用管理<?php echo $__isAdmin ? '' : '（新增需审核通过后可用）'; ?></div></div>
     <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openDisposalForm(0)">＋ 新增处置项目</button></div>
 </div>
-<div class="card" style="margin-bottom:12px">
+<div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
         <input class="input" id="dispSearch" placeholder="🔍 快速搜索处置项目" style="width:220px">
         <span class="fs-13 text-muted" id="dispCountDiv"></span>
     </div>
 </div>
-<div class="card" id="dispList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+<div class="card list-card" id="dispList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+</div>
 
 <script>
 /* v8.17.3 统一分页无限滚动：服务端 page/size/kw 过滤，滚动到底自动加载 */
@@ -29,7 +31,7 @@ function initDispPaged() {
     var box = document.getElementById('dispList');
     if (!box) return;
     if (DISP_PAGED) { DISP_PAGED.reset(); return; }
-    box.innerHTML = '<table class="table" id="dispTable"><tbody></tbody></table>';
+    box.innerHTML = '<div class="table-wrap"><table class="table" id="dispTable"><tbody></tbody></table></div>';
     DISP_PAGED = Clinic.adminItems.pagedTable({
         tableEl: 'dispTable',
         state: DISP_STATE,

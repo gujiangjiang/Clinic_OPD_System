@@ -2,6 +2,7 @@
 Router::title('检验项目管理');
 $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
 ?>
+<div class="list-layout">
 <div class="page-head">
     <div><div class="page-title">🧪 检验项目管理</div><div class="page-desc">检验项目与组合管理<?php echo $__isAdmin ? '' : '（新项目需审核通过后可用）'; ?></div></div>
     <div class="flex gap-8">
@@ -12,7 +13,7 @@ $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
     </div>
 </div>
 
-<div class="card" style="margin-bottom:12px">
+<div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
         <input class="input" id="labSearch" placeholder="🔍 快速搜索检验项目" style="width:220px">
         <span class="fs-13 text-muted" id="labCountDiv"></span>
@@ -20,7 +21,8 @@ $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
     </div>
 </div>
 
-<div class="card" id="itemList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+<div class="card list-card" id="itemList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+</div>
 
 <script>
 var LAB_CAT = '';
@@ -41,7 +43,7 @@ function initLabPaged() {
     var box = document.getElementById('itemList');
     if (!box) return;
     if (LAB_PAGED) { LAB_PAGED.reset(); return; }
-    box.innerHTML = '<table class="table" id="labTable"><tbody></tbody></table>';
+    box.innerHTML = '<div class="table-wrap"><table class="table" id="labTable"><tbody></tbody></table></div>';
     LAB_PAGED = Clinic.adminItems.pagedTable({
         tableEl: 'labTable',
         state: LAB_STATE,
