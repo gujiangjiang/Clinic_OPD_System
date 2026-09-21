@@ -541,7 +541,8 @@ Clinic.critical = (function () {
                     if (reset) {
                         box.innerHTML = d.list.length
                             ? d.list.map(rowHtml).join('')
-                            : '<tr class="empty-row"><td colspan="9" style="text-align:center;padding:30px 0"><div class="empty" style="padding:30px 0"><div class="empty-ico">🚨</div>暂无危急值记录</div></td></tr>';
+                            // 空态：无内联样式，由 CSS（.table tbody tr.empty-row）控制去线/居中/撑开
+                            : '<tr class="empty-row"><td colspan="9"><div class="empty" style="padding:20px 0"><div class="empty-ico">🚨</div>暂无危急值记录</div></td></tr>';
                     } else {
                         box.insertAdjacentHTML('beforeend', d.list.map(rowHtml).join(''));
                     }

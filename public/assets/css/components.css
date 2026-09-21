@@ -296,6 +296,12 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
 /* 空态行：居中的「暂无数据」不应有 hover 背景色（无点击效果） */
 .table tbody tr.empty-row,
 .table tbody tr.empty-row:hover { background: transparent; cursor: default; }
+/* 空态单元格：去掉表格下边框线、内容居中撑开，避免「固定表格内」的观感 */
+.table tbody tr.empty-row td {
+    border-bottom: none;
+    text-align: center;
+    padding: 70px 16px;
+}
 
 /* ---------- 徽章/标签 ---------- */
 .badge {
