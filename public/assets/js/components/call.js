@@ -75,12 +75,23 @@
         });
     }
 
-    /* 初始化：首次轮询 + 每 10 秒自动刷新 + 实时推送触发即时刷新 */
-    refresh();
-    setInterval(refresh, 10000);
-    // 实时推送：本科室任何诊室叫号事件到达立即刷新（门屏播报更快，轮询 10 秒兜底）
+    // 实时推送：本科室任何诊室叫号事件到达立即刷新（门屏播报更快）
     var deptId = document.body.getAttribute('data-dept');
     if (deptId && Clinic.push && Clinic.push.supported()) {
         Clinic.push.subscribe('dept:' + deptId, function () { refresh(); });
+    }
+    // 弹性兜底轮询：推流健康 60s 低频对齐，断开时 SmartPoller 自动应急高频（5s）。
+    // 取代原盲目 setInterval(refresh, 10000)。
+    if (window.Clinic && Clinic.smartPoller) {
+        var poller = Clinic.smartPoller({
+            url: '/api/doctor?action=call_queue',
+            interval: 60000,
+            emergencyInterval: 5000,
+            onSuccess: function (json) { render(json.data); },
+        });
+        poller.start();
+    } else {
+        refresh();
+        setInterval(refresh, 10000);
     }
 })();

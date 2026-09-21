@@ -530,7 +530,7 @@
         TTS.resume();
     }
 
-    /* ============ 轮询心跳 + 数据 ============ */
+    /* ============ 轮询心跳 + 数据（SmartPoller 弹性兜底） ============ */
     var pollFails = 0;   // 连续失败次数：≥3 次渲染断连提示（数据可能过期），恢复后自动消失
     function poll() {
         fetch('/api/screen?action=heartbeat&token=' + encodeURIComponent(TOKEN))
@@ -554,10 +554,37 @@
 
     setInterval(function () { if (window.speechSynthesis) TTS.resume(); }, 10000);
 
-    poll();
-    setInterval(poll, 3000);
-    // 实时推送：叫号事件到达立即刷新数据（播报更快；轮询 3 秒仍作兜底/心跳）
+    // 实时推送：叫号事件到达立即刷新数据（播报更快）
     if (window.Clinic && Clinic.push && Clinic.push.supported()) {
         Clinic.push.subscribe('scr:' + TOKEN, function () { poll(); });
+    }
+    // 弹性兜底轮询：推流健康 60s 低频对齐；断开时 SmartPoller 自动升级应急高频（5s）。
+    // 取代原盲目固死 setInterval(poll, 3000)，大幅削减 SSE 正常时的数据库 I/O 与网络开销。
+    if (window.Clinic && Clinic.smartPoller) {
+        var poller = Clinic.smartPoller({
+            url: function () { return '/api/screen?action=heartbeat&token=' + encodeURIComponent(TOKEN); },
+            interval: 60000,
+            emergencyInterval: 5000,
+            fetch: function (url, ok, err) {
+                fetch(url)
+                    .then(function (r) { return r.json(); })
+                    .then(function (j) {
+                        pollFails = 0;
+                        if (!j.ok) { renderErr(j.msg); ok(j); return; }
+                        render(j.data);
+                        maybeAnnounce(j.data);
+                        ok(j);
+                    })
+                    .catch(function () {
+                        pollFails++;
+                        if (pollFails >= 3) renderErr('⚠️ 连接中断，正在重试…');
+                        err();
+                    });
+            },
+        });
+        poller.start();
+    } else {
+        poll();
+        setInterval(poll, 3000);   // 无 SmartPoller 时保留旧兜底
     }
 })();

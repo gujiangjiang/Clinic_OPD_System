@@ -13,6 +13,19 @@
 
 ---
 
+## [8.17.43] - 2026-09-20
+
+### 变更
+- **呼叫大屏 / 科室叫号门屏接入 SmartPoller**：
+  - `screen.js`：移除盲目 `setInterval(poll, 3000)`，改推流健康 60s 低频兜底、断开自动应急 5s；SSE 叫号事件仍即时切屏；
+  - `call.js`：`setInterval(refresh, 10000)` → SmartPoller（60s/5s），SSE 即时刷新保留；
+  - 无 SmartPoller 环境回退旧兜底（兼容性）。
+
+### 文档
+- **同步版本号至 v8.17.43**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json`）。
+
+---
+
 ## [8.17.42] - 2026-09-20
 
 ### 变更
