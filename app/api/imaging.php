@@ -410,10 +410,13 @@ switch ($action) {
         json_ok(array(), '草稿已清除');
         break;
 
-    /* ==================== 影像引用查询（管理端/影像科，只存引用架构视图） ==================== */
+    /* ==================== 影像引用查询（管理端/影像科，只存引用架构视图） ====================
+     * 排序：ir.id DESC（引用登记顺序倒序），最新登记的引用显示在最上面。 */
     case 'refs_list':
         if (!in_array($u['role'], array('admin', 'imaging'), true)) json_fail('无权限查看影像引用');
         $kw = trim((string)get('kw', ''));
+        $from = get('from');                       // 开始日期（YYYY-MM-DD，登记时间筛选）
+        $to = get('to');                           // 结束日期（YYYY-MM-DD）
         $page = max(1, (int)get('page', 1));
         // 每页条数：前端可传 size（影像引用查询默认 20）
         $pageSize = max(1, min(100, (int)get('size', 20)));
@@ -426,6 +429,9 @@ switch ($action) {
             $like = '%' . $kw . '%';
             $params = array($like, $like, $like);
         }
+        // 日期范围筛选（登记时间）：from/to 空字符串时跳过条件（全量查询）
+        if ($from !== '') { $where .= ' AND date(ir.created_at)>=?'; $params[] = $from; }
+        if ($to !== '') { $where .= ' AND date(ir.created_at)<=?'; $params[] = $to; }
         $total = (int)OrderRepository::val(
             "SELECT COUNT(*) FROM imaging_refs ir LEFT JOIN orders o ON o.id=ir.order_id WHERE $where",
             $params

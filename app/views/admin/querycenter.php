@@ -22,11 +22,17 @@ Router::title('查询中心');
 <div id="qcCritical"></div>
 <div id="qcRefs" style="display:none">
     <div class="card qc-ref-card">
-        <!-- 搜索工具条：与其他页面统一 padding（单层 18px，无自定义内边距） -->
+        <!-- 搜索工具条：与其他页面统一 padding（单层 18px，无自定义内边距），日期筛选与危急值/运营分析页一致 -->
         <div class="flex gap-8" style="align-items:center;flex-wrap:wrap;padding:18px">
+            <input type="text" class="input" id="qcRefFrom" readonly placeholder="开始日期" style="width:150px;cursor:pointer;background:var(--bg)"
+                onclick="Clinic.datePicker.open(this,{maxToday:false})">
+            <span class="text-muted">至</span>
+            <input type="text" class="input" id="qcRefTo" readonly placeholder="结束日期" style="width:150px;cursor:pointer;background:var(--bg)"
+                onclick="Clinic.datePicker.open(this,{maxToday:true})">
             <input class="input" id="qcRefKw" placeholder="🔍 检索：门诊流水号 / 患者编号 / 申请单号" style="flex:1;min-width:220px"
                 onkeydown="if(event.key==='Enter')searchRefs()">
             <button class="btn btn-primary btn-sm" onclick="searchRefs()">查询</button>
+            <button class="btn btn-outline btn-sm" onclick="resetRefs()">重置</button>
             <span class="fs-12 text-muted" id="qcRefTotal"></span>
         </div>
         <!-- 列表独立滚动容器（与统一打印中心 .pc-list 同构：外层定高 + 列表 flex:1 内部滚动） -->
@@ -77,7 +83,14 @@ function initRefList() {
         threshold: 40,
         totalEl: document.getElementById('qcRefTotal'),
         emptyHtml: '<div class="empty" style="padding:30px 0"><div class="empty-ico">🩻</div>暂无影像引用（报告出具后自动登记）</div>',
-        url: '/api/imaging?action=refs_list&kw=' + encodeURIComponent((document.getElementById('qcRefKw') || {}).value || ''),
+        // url 用函数（每次加载读取当前检索值）：关键字 + 日期范围均为动态条件；
+        // 后端按 ir.id DESC 倒序返回（最新登记在最上面）
+        url: function (p, size) {
+            return '/api/imaging?action=refs_list&page=' + p + '&size=' + size +
+                '&kw=' + encodeURIComponent((document.getElementById('qcRefKw') || {}).value || '') +
+                '&from=' + encodeURIComponent((document.getElementById('qcRefFrom') || {}).value || '') +
+                '&to=' + encodeURIComponent((document.getElementById('qcRefTo') || {}).value || '');
+        },
         render: refRowHtml,
         // 后续页仅返回 tr 行：追加到已有表格的 tbody（保证表格样式统一）
         append: function (el, html) {
@@ -88,11 +101,20 @@ function initRefList() {
     });
 }
 
-/* 搜索：重置列表到第一页 */
+/* 搜索：重置列表到第一页（检索值由 url 函数在加载时读取） */
 function searchRefs() {
-    var kw = (document.getElementById('qcRefKw') || {}).value || '';
-    var listEl = document.getElementById('qcRefTable');
-    if (listEl && listEl.__searchKw !== kw) { listEl.__searchKw = kw; }
+    if (refList) refList.reset();
+    else initRefList();
+}
+
+/* 重置：清空日期范围与关键字回到全部列表 */
+function resetRefs() {
+    var f = document.getElementById('qcRefFrom');
+    var t = document.getElementById('qcRefTo');
+    var kw = document.getElementById('qcRefKw');
+    if (f) f.value = '';
+    if (t) t.value = '';
+    if (kw) kw.value = '';
     if (refList) refList.reset();
     else initRefList();
 }

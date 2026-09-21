@@ -118,7 +118,12 @@ function initPcList() {
         threshold: 40,
         totalEl: document.getElementById('pcTotal'),
         emptyHtml: '<div class="empty" style="padding:30px 0"><div class="empty-ico">🔍</div>未检索到就诊记录</div>',
-        url: '/api/admin?action=print_visits&kw=' + encodeURIComponent((document.getElementById('pcKw') || {}).value || ''),
+        // url 用函数（每次加载读取当前检索值）：固定字符串会在 init 时求值，
+        // 导致搜索后 reset() 仍用旧关键字（检索失效）
+        url: function (p, size) {
+            return '/api/admin?action=print_visits&page=' + p + '&size=' + size +
+                '&kw=' + encodeURIComponent((document.getElementById('pcKw') || {}).value || '');
+        },
         render: function (list, isFirst) { return list.map(pcItemHtml).join(''); },
         onSuccess: function (json) {
             // 首次加载自动选中最新一条，右栏直接呈现可打印单据
