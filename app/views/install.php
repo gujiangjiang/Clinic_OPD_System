@@ -46,6 +46,11 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
             <input type="text" class="input" id="hospital_name" placeholder="如：XX市人民医院"></div>
     </div>
     <div class="form-group">
+        <label class="form-label">机构代码 <span class="req">*</span></label>
+        <div class="input-wrap"><span class="input-icon">🏛️</span>
+            <input type="text" class="input" id="org_code" placeholder="如：410105001234（医保结算/监管报送唯一标识）"></div>
+    </div>
+    <div class="form-group">
         <label class="form-label">医院第二名称（可选）</label>
         <input type="text" class="input" id="hospital_name2" placeholder="如：XX医科大学附属医院">
     </div>
@@ -91,11 +96,13 @@ document.getElementById('installBtn').addEventListener('click', function () {
     var password = document.getElementById('password').value;
     var password2 = document.getElementById('password2').value;
     var hospital = document.getElementById('hospital_name').value.trim();
+    var orgCode = document.getElementById('org_code').value.trim();
     // 校验时带上实际输入长度，便于用户发现输入法/自动填充导致的输入不完整
     if (username === '' || !/^[A-Za-z]/.test(username)) { Clinic.toast.warning('管理员用户名必须以英文字母开头（默认 admin，可修改）'); return; }
     if (password.length < 6) { Clinic.toast.warning('管理员密码不能少于6位（当前输入 ' + password.length + ' 位）'); return; }
     if (password !== password2) { Clinic.toast.warning('两次输入的密码不一致'); return; }
     if (!hospital) { Clinic.toast.warning('请填写医院名称'); return; }
+    if (!orgCode) { Clinic.toast.warning('请填写机构代码'); return; }
 
     var fd = new FormData();
     fd.append('csrf_token', document.body.getAttribute('data-csrf'));
@@ -104,6 +111,7 @@ document.getElementById('installBtn').addEventListener('click', function () {
     fd.append('password', password);
     fd.append('password2', password2);
     fd.append('hospital_name', hospital);
+    fd.append('org_code', orgCode);
     fd.append('hospital_name2', document.getElementById('hospital_name2').value.trim());
     fd.append('timezone', document.getElementById('timezone').value);
     var logoFile = document.getElementById('logo').files[0];

@@ -35,6 +35,7 @@ $password = post_raw('password');
 $password2 = post_raw('password2');
 $username = trim((string)post('username', 'admin'));
 $hospital = post('hospital_name');
+$orgCode = post('org_code');
 $hospital2 = post('hospital_name2');
 $timezone = post('timezone', 'Asia/Shanghai');
 
@@ -53,6 +54,13 @@ if ($password !== $password2) {
 }
 if ($hospital === '') {
     json_fail('请填写医院名称');
+}
+// 机构代码（医疗机构代码）：医保结算、监管报送与接口对接的唯一标识，必填
+if (trim((string)$orgCode) === '') {
+    json_fail('请填写机构代码');
+}
+if (strlen(trim((string)$orgCode)) > 50) {
+    json_fail('机构代码过长（不超过 50 字符）');
 }
 
 // 时区白名单校验（防止写入非法值）
@@ -78,6 +86,7 @@ $adminId = UserRepository::insert('INSERT INTO users(emp_no, username, password,
 
 // ===== 保存系统设置（页脚版权不保存：统一自动生成【© 年份 医院名称 版权所有】） =====
 set_setting('hospital_name', $hospital);
+set_setting('org_code', trim((string)$orgCode));
 set_setting('hospital_name2', $hospital2);
 set_setting('timezone', $timezone);
 set_setting('logo', $logo);
