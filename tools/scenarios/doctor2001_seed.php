@@ -25,14 +25,25 @@ require_once APP_ROOT . '/app/includes/emr_formatter.php';
 DatabaseManager::initAll();
 mt_srand(20260913);
 
-echo "=== doctor2001（外科门诊+急诊科）测试数据生成 ===\n";
+echo "=== 指定医生接诊专项（doctor 场景） ===\n";
 
-/* ==================== 基础引用 ==================== */
-// 定位医生：兼容 emp_no=2001（张伟）或旧用户名 doctor2001
-$ME = DB::one("SELECT id, name FROM users WHERE emp_no='2001' OR username='doctor2001' ORDER BY id LIMIT 1");
-if (!$ME) exit("doctor2001（张伟，工号 2001）不存在，请先运行 seed_test_data 生成账号\n");
+/* ==================== 前置：工号参数 + 角色严格校验 ==================== */
+// 用法：php tools/bin/seed.php --scene="doctor=2001"（校验工号存在且角色为医生）
+$empNo = isset($argv[1]) && trim((string)$argv[1]) !== '' ? trim((string)$argv[1]) : '2001';
+
+// 定位医生：兼容 emp_no / username（旧数据）
+$ME = DB::one("SELECT id, name, role FROM users WHERE emp_no=? OR username=? ORDER BY id LIMIT 1", array($empNo, $empNo));
+if (!$ME) {
+    fwrite(STDERR, "\033[31m[Preflight Error] 校验失败：工号 {$empNo} 不存在或关联角色不是医生！\033[0m\n");
+    exit(1);
+}
+if ((string)$ME['role'] !== 'doctor') {
+    fwrite(STDERR, "\033[31m[Preflight Error] 校验失败：工号 {$empNo}（{$ME['name']}）关联角色为「{$ME['role']}」，不是医生！\033[0m\n");
+    exit(1);
+}
 $ME_ID = (int)$ME['id'];
 $ME_NAME = $ME['name'];
+echo "    ↳ 校验通过：医生工号 {$empNo}（{$ME_NAME}）\n";
 
 // 协作医生（其他医生续写/会诊接受方）
 $others = array();

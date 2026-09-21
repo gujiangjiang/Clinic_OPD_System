@@ -66,7 +66,8 @@ function seed_usage() {
   php tools/bin/seed.php --scene=demo           Demo 演示环境数据
   php tools/bin/seed.php --scene=call           叫号大屏专项测试
   php tools/bin/seed.php --scene=dept_call      多科室分诊叫号专项
-  php tools/bin/seed.php --scene=doctor2001     医生 2001 接诊专项
+  php tools/bin/seed.php --scene="doctor=2001"  指定医生工号接诊专项（校验存在且为医生角色）
+  php tools/bin/seed.php --scene="dept=lab"     医技精细模式：仅开检验单（lab/exam/prescription/disposal 可组合）
 
 基础字典模块（可多选，逗号/空格分隔）：
   php tools/bin/seed.php --module=clinic        仅重置机构信息（医院名称/必填机构代码/简介）
@@ -114,10 +115,26 @@ $scenes = array(
     'doctor2001' => array('doctor2001_seed.php', '医生 2001 接诊专项'),
 );
 $scene = $opts['scene'] !== '' ? $opts['scene'] : 'full';
+// 带参场景解析：--scene="doctor=2001"（指定医生）/ --scene="dept=lab"（医技精细模式）
+$extraArgs = array();
+if (strpos($scene, '=') !== false) {
+    list($base, $val) = explode('=', $scene, 2);
+    if ($base === 'dept') {
+        $scene = 'dept_call';
+        $extraArgs = array($val);
+    } elseif ($base === 'doctor') {
+        $scene = 'doctor2001';
+        $extraArgs = array($val);
+    } else {
+        fwrite(STDERR, "未知场景参数：{$scene}\n");
+        seed_usage();
+        exit(1);
+    }
+}
 if (!isset($scenes[$scene])) {
     fwrite(STDERR, "未知场景：{$scene}（可用：full/demo/call/dept_call/doctor2001）\n");
     seed_usage();
     exit(1);
 }
 echo "== 场景：{$scenes[$scene][1]}（{$scene}）==\n";
-exit(seed_run_script($root . '/scenarios/' . $scenes[$scene][0]));
+exit(seed_run_script($root . '/scenarios/' . $scenes[$scene][0], $extraArgs));
