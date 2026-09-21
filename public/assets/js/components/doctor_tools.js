@@ -20,7 +20,8 @@ Clinic.docTools = (function () {
     var DEPT_LIST = [];    // 医生关联科室列表
     var ROOM_BOUND = null; // 当前绑定诊室 {id, name}
     var ROOM_DATA = [];    // 大屏列表缓存
-    var CALL_POP_TIMER = null; // 叫号悬浮窗轮询定时器
+    var CALL_POP_TIMER = null; // 叫号悬浮窗轮询定时器（无 SmartPoller 时旧兜底）
+    var CALL_POP_POLLER = null; // 叫号悬浮窗 SmartPoller
     var CALL_POOL_LIMIT = 20;  // 号源池已加载条数（滚动到末尾分段加载，上限 200）
     var LAST_PANEL = null;     // 最近一次悬浮窗数据（跨页面重建时先渲染缓存，减少闪烁）
 
@@ -421,8 +422,17 @@ Clinic.docTools = (function () {
         // 先用最近缓存立即渲染（切换患者重建页面时不出现「加载中」闪烁），再异步刷新
         if (LAST_PANEL) renderCallPop(LAST_PANEL);
         refreshCallPanel();
+        // 叫号面板 SmartPoller 弹性兜底（推流健康 30s 低频、断开应急 8s）
         if (CALL_POP_TIMER) clearInterval(CALL_POP_TIMER);
-        CALL_POP_TIMER = setInterval(refreshCallPanel, 10000);
+        CALL_POP_TIMER = null;
+        if (CALL_POP_POLLER) CALL_POP_POLLER.destroy();
+        CALL_POP_POLLER = window.Clinic && Clinic.smartPoller ? Clinic.smartPoller({
+            interval: 30000,
+            emergencyInterval: 8000,
+            fetch: function (url, ok, err) { refreshCallPanel(); ok(); },
+        }) : null;
+        if (CALL_POP_POLLER) CALL_POP_POLLER.start();
+        else CALL_POP_TIMER = setInterval(refreshCallPanel, 10000);
     }
 
     /* 完整版悬浮窗 HTML（当前就诊/下一位/叫号按钮/完整号源列表/解绑） */

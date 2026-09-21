@@ -13,6 +13,8 @@ window.Clinic = window.Clinic || {};
 Clinic.notify = (function () {
     /** 轮询定时器 */
     let timer = null;
+    /** SmartPoller 保底轮询 */
+    let poller = null;
     /** 铃铛角标元素 */
     let badge = null;
     /** 消息面板元素 */
@@ -31,9 +33,19 @@ Clinic.notify = (function () {
         if (!badge) return;
         // 防止重复 init 叠加多个轮询定时器（AJAX 局部刷新后重复初始化场景）
         if (timer) clearInterval(timer);
-        // 立即查询一次，然后每 15 秒轮询兜底（实时推送可用时新消息秒级到达）
+        // 立即查询一次，然后 SmartPoller 低频保底（推流健康 60s、断开应急 10s）
         refresh();
-        timer = setInterval(refresh, 15000);
+        if (window.Clinic && Clinic.smartPoller) {
+            if (poller) poller.destroy();
+            poller = Clinic.smartPoller({
+                interval: 60000,
+                emergencyInterval: 10000,
+                fetch: function (url, ok, err) { refresh(); ok(); },   // 复用 refresh 单次请求
+            });
+            poller.start();
+        } else {
+            timer = setInterval(refresh, 15000);
+        }
         // SSE 实时推送订阅：新消息/危急值到达时立即刷新（替代/缩短轮询等待）
         var uid = document.body.getAttribute('data-uid');
         if (uid && Clinic.push && Clinic.push.supported()) {
@@ -41,12 +53,14 @@ Clinic.notify = (function () {
         }
     }
 
+
     /** 销毁：清理轮询定时器（页面卸载/局部刷新前调用） */
     function destroy() {
         if (timer) {
             clearInterval(timer);
             timer = null;
         }
+        if (poller) { poller.destroy(); poller = null; }
         lastLatestId = 0;
         // 取消实时推送订阅（页面卸载/局部刷新前调用）
         var uid = document.body.getAttribute('data-uid');

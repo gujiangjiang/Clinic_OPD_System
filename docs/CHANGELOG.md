@@ -13,6 +13,20 @@
 
 ---
 
+## [8.17.44] - 2026-09-20
+
+### 变更
+- **工作台/叫号面板/消息铃铛接入 SmartPoller**：
+  - `deptwork.js`：候诊队列（原 30s）与排队悬浮窗（原 10s）改 SmartPoller（30s 低频 / 8s 应急）；
+  - `doctor_tools.js`：叫号面板（原 10s）改 SmartPoller（30s / 8s）；
+  - `notify.js`：未读消息（原 15s）改 SmartPoller（60s / 10s），SSE 即时刷新保留；
+  - 均保留无 SmartPoller 时的旧定时器兜底。
+
+### 文档
+- **同步版本号至 v8.17.44**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json`）。
+
+---
+
 ## [8.17.43] - 2026-09-20
 
 ### 变更

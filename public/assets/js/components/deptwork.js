@@ -27,8 +27,10 @@ Clinic.deptwork = (function () {
     var TAB_LABELS = {};      // 页签名 {doing:'检查中', done:'完成', today:'当日'}
     var KEYWORD = '';         // 候诊搜索关键字（面板关闭清空）
     var VISIT = '';           // 当前患者混淆码
-    var QUEUE_TIMER = null;   // 候诊数据 30s 轮询
-    var CALL_TIMER = null;    // 排队悬浮窗 10s 轮询
+    var QUEUE_TIMER = null;   // 候诊数据 30s 轮询（无 SmartPoller 时的旧兜底）
+    var QUEUE_POLLER = null;  // 候诊数据 SmartPoller
+    var CALL_TIMER = null;    // 排队悬浮窗 10s 轮询（无 SmartPoller 时的旧兜底）
+    var CALL_POLLER = null;   // 排队悬浮窗 SmartPoller
     var PANEL_OPEN = false;
     var PANEL_BIND = null;  // 面板外部点击/Esc 关闭解绑句柄（queuePanelCore.bindClose 返回）
     var CALL_CACHE = null;    // 最近一次排队数据缓存
@@ -60,16 +62,24 @@ Clinic.deptwork = (function () {
             setCloseBtn(false);
             setTimeout(function () { openPanel(); }, 150);
         }
-        // 候诊数据轮询（计数/列表实时刷新；离开工作台页面自动停止，避免后台空轮询）
+        // 候诊数据轮询（SmartPoller 弹性兜底：推流健康 30s 低频、断开应急 8s；
+        // 离开工作台页面自动停止，避免后台空轮询）
         if (QUEUE_TIMER) clearInterval(QUEUE_TIMER);
-        QUEUE_TIMER = setInterval(function () {
-            if (!document.getElementById('dwMain')) {
-                clearInterval(QUEUE_TIMER);
-                QUEUE_TIMER = null;
-                return;
-            }
+        QUEUE_TIMER = null;
+        if (QUEUE_POLLER) QUEUE_POLLER.destroy();
+        QUEUE_POLLER = window.Clinic && Clinic.smartPoller ? Clinic.smartPoller({
+            interval: 30000,
+            emergencyInterval: 8000,
+            fetch: function (url, ok, err) {
+                if (!document.getElementById('dwMain')) { err(); return; }
+                loadQueue(true, ok);
+            },
+        }) : null;
+        if (QUEUE_POLLER) QUEUE_POLLER.start();
+        else { QUEUE_TIMER = setInterval(function () {
+            if (!document.getElementById('dwMain')) { clearInterval(QUEUE_TIMER); QUEUE_TIMER = null; return; }
             loadQueue(true);
-        }, 30000);
+        }, 30000); }
     }
 
     /* ==================== 关闭按钮显隐 ==================== */
@@ -806,8 +816,17 @@ Clinic.deptwork = (function () {
         bindCallPopActions(pop);
         if (CALL_CACHE) renderCallPanel(CALL_CACHE);
         refreshCallPanel();
+        // 排队悬浮窗 SmartPoller 弹性兜底（推流健康 30s 低频、断开应急 8s）
         if (CALL_TIMER) clearInterval(CALL_TIMER);
-        CALL_TIMER = setInterval(refreshCallPanel, 10000);
+        CALL_TIMER = null;
+        if (CALL_POLLER) CALL_POLLER.destroy();
+        CALL_POLLER = window.Clinic && Clinic.smartPoller ? Clinic.smartPoller({
+            interval: 30000,
+            emergencyInterval: 8000,
+            fetch: function (url, ok, err) { refreshCallPanel(); ok(); },
+        }) : null;
+        if (CALL_POLLER) CALL_POLLER.start();
+        else CALL_TIMER = setInterval(refreshCallPanel, 10000);
     }
 
     function dwFullPopHtml(r) {
