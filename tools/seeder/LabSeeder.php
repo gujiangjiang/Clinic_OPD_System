@@ -3,7 +3,9 @@
  * ============================================================
  * tools/seeder/LabSeeder.php — 检验项目生成器
  * ============================================================
- * 血液/生化/免疫/尿/粪/凝血/微生物等检验项目。
+ * 血液/生化/免疫/尿/粪/凝血/微生物等检验项目 + 检验组合项目
+ * （肝功能十项 / 甲状腺功能五项 / 血常规二十项 等，组合内含单项，
+ *  经 lab_group_members 关联）+ 危急值上下限（危急值查询测试用）。
  * 执行：php tools/bin/seed.php --module=lab
  * ============================================================ */
 
@@ -135,6 +137,186 @@ class LabSeeder extends Seeder {
 ['凝血功能', '活化蛋白C抵抗(APC-R)', 's', 50, ''],
     ];
 
+    /** @var array 项目名 => [危急值下限, 危急值上限]（数值型项目危急值映射，其余留空不参与） */
+    protected $critDefs = [
+        '白细胞计数(WBC)' => array('2.0', '30.0'),
+        '红细胞计数(RBC)' => array('2.0', '7.0'),
+        '血红蛋白(HGB)' => array('60', '200'),
+        '血小板计数(PLT)' => array('20', '600'),
+        '血沉(ESR)' => array('', '100'),
+        '谷丙转氨酶(ALT)' => array('', '300'),
+        '谷草转氨酶(AST)' => array('', '300'),
+        '总胆红素(TBIL)' => array('', '200'),
+        '直接胆红素(DBIL)' => array('', '100'),
+        '总蛋白(TP)' => array('30', '100'),
+        '白蛋白(ALB)' => array('20', '60'),
+        '空腹血糖' => array('2.2', '22.2'),
+        '餐后血糖' => array('2.2', '22.2'),
+        '尿素氮(BUN)' => array('', '30'),
+        '肌酐(CREA)' => array('', '600'),
+        '尿酸(UA)' => array('', '800'),
+        '乳酸脱氢酶(LDH)' => array('', '500'),
+        '钾(K)' => array('2.5', '6.5'),
+        '钠(NA)' => array('120', '160'),
+        '氯(CL)' => array('80', '125'),
+        '钙(CA)' => array('1.5', '3.5'),
+        '磷(P)' => array('0.5', '2.5'),
+        'C反应蛋白(CRP)' => array('', '100'),
+        '降钙素原(PCT)' => array('', '10'),
+        '促甲状腺激素(TSH)' => array('0.01', '100'),
+        '游离T3(FT3)' => array('1', '15'),
+        '游离T4(FT4)' => array('5', '40'),
+        '总T3(T3)' => array('0.5', '5'),
+        '总T4(T4)' => array('40', '250'),
+        '凝血酶原时间(PT)' => array('', '40'),
+        '活化部分凝血活酶时间(APTT)' => array('', '120'),
+        '凝血酶时间(TT)' => array('', '40'),
+        '纤维蛋白原(FIB)' => array('1', '8'),
+        'D-二聚蛋白(D-Dimer)' => array('', '3000'),
+        '血氨(AMM)' => array('', '120'),
+        '糖化血红蛋白(HbA1c)' => array('', '12'),
+        '同型半胱氨酸(Hcy)' => array('', '60'),
+        '心肌肌钙蛋白I(cTnI)' => array('', '0.1'),
+        '甲胎蛋白(AFP)' => array('', '400'),
+        '癌胚抗原(CEA)' => array('', '20'),
+        'CA19-9' => array('', '100'),
+        'CA125' => array('', '100'),
+        '类风湿因子(RF)' => array('', '100'),
+        '抗CCP抗体' => array('', '20'),
+        '免疫球蛋白G(IgG)' => array('5', '25'),
+        '免疫球蛋白A(IgA)' => array('', '7'),
+        '免疫球蛋白M(IgM)' => array('', '5'),
+        '总胆固醇(TC)' => array('', '10'),
+        '甘油三酯(TG)' => array('', '10'),
+        '肌酸激酶(CK)' => array('', '1000'),
+        '肌酸激酶同工酶(CKMB)' => array('', '50'),
+    ];
+
+    /** @var array 检验组合 [分类, 组合名称, 价格, [成员[名称, 单位, 价格, 正常范围]]]
+     *  成员单项缺失时自动创建（parent_id 挂到组合）；已存在的同名独立项原位挂入组合。 */
+    protected $combos = [
+        ['生化检验', '肝功能十项', 65, [
+            ['谷丙转氨酶(ALT)', 'U/L', 8, '7-40'],
+            ['谷草转氨酶(AST)', 'U/L', 8, '8-40'],
+            ['总胆红素(TBIL)', 'umol/L', 6, '3.4-17.1'],
+            ['直接胆红素(DBIL)', 'umol/L', 4, '0-6.8'],
+            ['间接胆红素(IBIL)', 'umol/L', 4, '0-17'],
+            ['总蛋白(TP)', 'g/L', 6, '60-80'],
+            ['白蛋白(ALB)', 'g/L', 6, '35-55'],
+            ['球蛋白(GLB)', 'g/L', 5, '20-30'],
+            ['谷氨酰转肽酶(GGT)', 'U/L', 8, '7-64'],
+            ['碱性磷酸酶(ALP)', 'U/L', 8, '53-128'],
+        ]],
+        ['生化检验', '肾功能三项', 45, [
+            ['尿素氮(BUN)', 'mmol/L', 10, '2.9-8.2'],
+            ['肌酐(CREA)', 'umol/L', 12, '57-97'],
+            ['尿酸(UA)', 'umol/L', 10, '208-428'],
+        ]],
+        ['生化检验', '电解质五项', 40, [
+            ['钾(K)', 'mmol/L', 6, '3.5-5.3'],
+            ['钠(NA)', 'mmol/L', 6, '137-147'],
+            ['氯(CL)', 'mmol/L', 5, '99-110'],
+            ['钙(CA)', 'mmol/L', 6, '2.08-2.6'],
+            ['磷(P)', 'mmol/L', 6, '0.96-1.62'],
+        ]],
+        ['血液检验', '血常规五项', 30, [
+            ['白细胞计数(WBC)', 'x10^9/L', 5, '3.5-9.5'],
+            ['红细胞计数(RBC)', 'x10^12/L', 5, '3.8-5.8'],
+            ['血红蛋白(HGB)', 'g/L', 8, '115-150'],
+            ['血小板计数(PLT)', 'x10^9/L', 6, '125-350'],
+            ['血沉(ESR)', 'mm/hr', 15, '0-20'],
+        ]],
+        ['凝血功能', '凝血功能四项', 85, [
+            ['凝血酶原时间(PT)', 'sec', 20, '9.4-12.6'],
+            ['活化部分凝血活酶时间(APTT)', 'sec', 22, '25.1-36.5'],
+            ['凝血酶时间(TT)', 'sec', 18, '14-21'],
+            ['纤维蛋白原(FIB)', 'g/L', 25, '2-4'],
+        ]],
+        ['免疫检验', '甲状腺功能五项', 150, [
+            ['促甲状腺激素(TSH)', 'uIU/ml', 40, '0.55-4.78'],
+            ['游离T3(FT3)', 'pmol/L', 35, '3.5-6.5'],
+            ['游离T4(FT4)', 'pmol/L', 30, '11.5-22.7'],
+            ['总T3(T3)', 'nmol/L', 20, '1.34-2.73'],
+            ['总T4(T4)', 'nmol/L', 20, '78.38-165.3'],
+        ]],
+        ['生化检验', '心肌酶谱五项', 70, [
+            ['肌酸激酶(CK)', 'U/L', 22, '38-174'],
+            ['肌酸激酶同工酶(CKMB)', 'U/L', 24, '0-24'],
+            ['乳酸脱氢酶(LDH)', 'U/L', 20, '109-245'],
+            ['α-羟丁酸脱氢酶(HBDH)', 'U/L', 22, '76-195'],
+            ['谷草转氨酶(AST)', 'U/L', 8, '8-40'],
+        ]],
+        ['生化检验', '肝肾综合五项', 95, [
+            ['谷丙转氨酶(ALT)', 'U/L', 8, '7-40'],
+            ['白蛋白(ALB)', 'g/L', 6, '35-55'],
+            ['肌酐(CREA)', 'umol/L', 12, '57-97'],
+            ['尿素氮(BUN)', 'mmol/L', 10, '2.9-8.2'],
+            ['血红蛋白(HGB)', 'g/L', 8, '115-150'],
+        ]],
+        ['微生物检验', '乙肝五项', 120, [
+            ['乙肝表面抗原(HBsAg)', '阴性', 25, '阴性'],
+            ['乙肝表面抗体(HBsAb)', 'IU/L', 28, ''],
+            ['乙肝e抗原(HBeAg)', '阴性', 22, '阴性'],
+            ['乙肝e抗体(HBeAb)', '阴性', 26, '阴性'],
+            ['乙肝核心抗体(HBcAb)', '阴性', 26, '阴性'],
+        ]],
+        ['免疫检验', '免疫球蛋白三项', 100, [
+            ['免疫球蛋白G(IgG)', 'g/L', 30, '7-16'],
+            ['免疫球蛋白A(IgA)', 'g/L', 28, '0.7-4.5'],
+            ['免疫球蛋白M(IgM)', 'g/L', 32, '0.5-2.5'],
+        ]],
+        ['生化检验', '血脂四项', 55, [
+            ['总胆固醇(TC)', 'mmol/L', 15, '0-5.2'],
+            ['甘油三酯(TG)', 'mmol/L', 12, '0.56-1.70'],
+            ['高密度脂蛋白(HDL-C)', 'mmol/L', 20, '0.8-2.0'],
+            ['低密度脂蛋白(LDL-C)', 'mmol/L', 20, '1.5-3.5'],
+        ]],
+        ['血液检验', '血常规二十项', 60, [
+            ['白细胞计数(WBC)', 'x10^9/L', 5, '3.5-9.5'],
+            ['红细胞计数(RBC)', 'x10^12/L', 5, '3.8-5.8'],
+            ['血红蛋白(HGB)', 'g/L', 8, '115-150'],
+            ['血小板计数(PLT)', 'x10^9/L', 6, '125-350'],
+            ['红细胞比积(HCT)', '%', 5, '0.35-0.50'],
+            ['平均红细胞体积(MCV)', 'fl', 6, '80-100'],
+            ['平均血红蛋白含量(MCH)', 'pg', 6, '27-34'],
+            ['平均血红蛋白浓度(MCHC)', 'g/L', 6, '316-354'],
+            ['中性粒细胞百分比(NEUT%)', '%', 5, '50-70'],
+            ['淋巴细胞百分比(LYMPH%)', '%', 5, '20-40'],
+            ['单核细胞百分比(MONO%)', '%', 5, '3-8'],
+            ['嗜酸性粒细胞百分比(EO%)', '%', 5, '0.4-8'],
+            ['嗜碱性粒细胞百分比(BASO%)', '%', 5, '0-1'],
+            ['中性粒细胞计数(NEUT#)', 'x10^9/L', 6, '1.8-6.3'],
+            ['淋巴细胞计数(LYMPH#)', 'x10^9/L', 6, '1.1-3.2'],
+            ['红细胞分布宽度(RDW)', '%', 5, '11.5-14.5'],
+        ]],
+        ['生化检验', '血糖血脂六项', 75, [
+            ['空腹血糖', 'mmol/L', 12, '3.9-6.1'],
+            ['总胆固醇(TC)', 'mmol/L', 15, '0-5.2'],
+            ['甘油三酯(TG)', 'mmol/L', 12, '0.56-1.70'],
+            ['高密度脂蛋白(HDL-C)', 'mmol/L', 20, '0.8-2.0'],
+            ['低密度脂蛋白(LDL-C)', 'mmol/L', 20, '1.5-3.5'],
+            ['同型半胱氨酸(Hcy)', 'umol/L', 35, '0-15'],
+        ]],
+        ['免疫检验', '肿瘤标志物五项', 320, [
+            ['甲胎蛋白(AFP)', 'ng/ml', 55, '0-7'],
+            ['癌胚抗原(CEA)', 'ng/ml', 55, '0-5'],
+            ['CA19-9', 'U/ml', 65, '0-37'],
+            ['CA125', 'U/ml', 65, '0-35'],
+            ['PSA(前列腺特异抗原)', 'ng/ml', 70, '0-4'],
+        ]],
+        ['生化检验', '心肌损伤标志物三项', 160, [
+            ['肌酸激酶(CK)', 'U/L', 22, '38-174'],
+            ['肌酸激酶同工酶(CKMB)', 'U/L', 24, '0-24'],
+            ['心肌肌钙蛋白I(cTnI)', 'ng/ml', 80, '0-0.04'],
+        ]],
+        ['微生物检验', '呼吸道病原体抗体四项', 200, [
+            ['肺炎支原体抗体', 'IU/L', 60, ''],
+            ['肺炎衣原体抗体', 'IU/L', 60, ''],
+            ['呼吸道合胞病毒抗体', '-', 40, '阴性'],
+            ['甲型流感病毒抗原', '-', 40, '阴性'],
+        ]],
+    ];
+
     public function run() {
         $created = 0;
         $stmt = $this->pdo->prepare('SELECT id FROM lab_items WHERE name=?');
@@ -146,9 +328,60 @@ class LabSeeder extends Seeder {
                 $created++;
             }
         }
+        // 危急值上下限回填：仅补全仍为空的危急值字段（不覆盖管理员手工维护值）
+        $critLo = $this->pdo->prepare('UPDATE lab_items SET critical_low=? WHERE name=? AND (critical_low IS NULL OR critical_low=?)');
+        $critHi = $this->pdo->prepare('UPDATE lab_items SET critical_high=? WHERE name=? AND (critical_high IS NULL OR critical_high=?)');
+        foreach ($this->critDefs as $name => $c) {
+            $critLo->execute(array($c[0], $name, ''));
+            $critHi->execute(array($c[1], $name, ''));
+        }
         $total = (int)$this->pdo->query("SELECT COUNT(*) FROM lab_items WHERE status='approved' AND is_group=0")->fetchColumn();
-        $this->out('新增 ' . $created . ' 项，共 ' . $total . ' 项检验项目');
-        return $created;
+        $this->out('新增 ' . $created . ' 项，共 ' . $total . ' 项检验项目（危急值上下限已回填）');
+        $groupCreated = 0;
+        $gStmt = $this->pdo->prepare('SELECT id FROM lab_items WHERE name=? AND is_group=1');
+        $gIns = $this->pdo->prepare('INSERT INTO lab_items(category,name,unit,price,normal_range,description,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,1,0)');
+        foreach ($this->combos as $C) {
+            $gStmt->execute(array($C[1]));
+            $gid = $gStmt->fetchColumn();
+            if (!$gid) {
+                $gIns->execute(array($C[0], $C[1], '项', $C[2], '', '含 ' . count($C[3]) . ' 项', 'approved', now_str()));
+                $gid = (int)$this->pdo->lastInsertId();
+                $groupCreated++;
+            }
+            if (!$gid) continue;
+            // 成员同步：确保定义内成员存在并挂入组合；移除不在定义中的旧成员
+            // （如旧版错名成员），组合成员列表收敛为当前定义（幂等可重复执行）
+            $memberIds = array();
+            foreach ($C[3] as $item) {
+                $stmt->execute(array($item[0]));
+                $itemId = $stmt->fetchColumn();
+                if (!$itemId) {
+                    // 组合成员缺失：创建成员单项（危急值映射同步回填）
+                    $this->pdo->prepare('INSERT INTO lab_items(category,name,unit,price,normal_range,critical_low,critical_high,status,created_at,is_group,parent_id) VALUES(?,?,?,?,?,?,?,?,?,0,?)')
+                        ->execute(array(
+                            $C[0], $item[0], $item[1], $item[2], $item[3],
+                            isset($this->critDefs[$item[0]]) ? $this->critDefs[$item[0]][0] : '',
+                            isset($this->critDefs[$item[0]]) ? $this->critDefs[$item[0]][1] : '',
+                            'approved', now_str(), $gid,
+                        ));
+                    $itemId = (int)$this->pdo->lastInsertId();
+                }
+                if ($itemId) {
+                    // 已存在的同名独立项原位挂入组合（parent_id 补挂）
+                    $this->pdo->prepare('UPDATE lab_items SET parent_id=? WHERE id=? AND parent_id=0')->execute(array($gid, (int)$itemId));
+                    $this->pdo->prepare('INSERT OR IGNORE INTO lab_group_members(group_id,item_id) VALUES(?,?)')->execute(array($gid, (int)$itemId));
+                    $memberIds[] = (int)$itemId;
+                }
+            }
+            if ($memberIds) {
+                $ph = implode(',', array_fill(0, count($memberIds), '?'));
+                $this->pdo->prepare("DELETE FROM lab_group_members WHERE group_id=? AND item_id NOT IN ($ph)")
+                    ->execute(array_merge(array($gid), $memberIds));
+            }
+        }
+        $groupTotal = (int)$this->pdo->query('SELECT COUNT(*) FROM lab_items WHERE is_group=1')->fetchColumn();
+        $this->out('新增 ' . $groupCreated . ' 组，共 ' . $groupTotal . ' 个检验组合');
+        return $created + $groupCreated;
     }
 }
 
