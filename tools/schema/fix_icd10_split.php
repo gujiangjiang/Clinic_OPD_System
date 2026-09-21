@@ -16,7 +16,7 @@
  *    原 code 作为亚目名尾段拼回 subcategory_name
  * 幂等：仅处理含空格/中文/名称开头带编码的行；修复后二次校验。
  * ============================================================ */
-require __DIR__ . '/../app/config/bootstrap.php';
+require __DIR__ . '/../../app/config/bootstrap.php';
 
 /** 从字符串提取尾部真正的 ICD 编码 */
 function fix_extract_code($s) {

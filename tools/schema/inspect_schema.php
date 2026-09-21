@@ -1,5 +1,5 @@
 <?php
-require __DIR__ . '/../app/config/bootstrap.php';
+require __DIR__ . '/../../app/config/bootstrap.php';
 DatabaseManager::initAll();
 $today = date('Y-m-d');
 echo "== 今日就诊状态 ==\n";

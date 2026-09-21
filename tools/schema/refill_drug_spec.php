@@ -19,7 +19,7 @@
  * 幂等：重复运行仅更新已有解析结果，不影响手工编辑过的药品。
  * 用法：~/.local/bin/frankenphp php-cli tools/refill_drug_spec.php
  * ============================================================ */
-require __DIR__ . '/../app/config/bootstrap.php';
+require __DIR__ . '/../../app/config/bootstrap.php';
 DatabaseManager::initAll();
 
 /** 解析规格文本：0.5g×24粒 → (0.5, g, 24, 粒)；250ml×1瓶 → (250, ml, 1, 瓶) */

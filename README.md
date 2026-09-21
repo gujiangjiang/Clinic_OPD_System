@@ -206,12 +206,10 @@
 │   └── session/               # Session 文件
 ├── tools/                     # 工具脚本（模块化造数架构，统一 CLI 入口）
 │   ├── bin/
-│   │   └── seed.php           # 统一造数 CLI：--all / --scene=demo|call|dept_call|doctor2001|doctor=工号|dept=类型 / --module=clinic|screen|drug|lab|exam|disposal
-│   ├── seeder/                # 单一职责数据工厂（Seeder 基类 / PreflightChecker / ClinicInfoSeeder / ScreenSeeder / DrugSeeder / LabSeeder / ExamSeeder / DisposalSeeder / VisitFlowEngine 等）
-│   ├── scenarios/             # 场景装配器（full / demo / call / dept_call / doctor2001 场景，统一走 VisitFlowEngine）
+│   │   └── seed.php           # 统一造数 CLI：--all / --scene=visit|call|dept_call|doctor=工号|dept=科室|类型 / --module=clinic|dept|user|screen|drug|lab|exam|disposal|package|template
+│   ├── seeder/                # 单一职责数据工厂（Seeder 基类 / DeptSeeder / UserSeeder / DrugSeeder / LabSeeder（含检验组合）/ ExamSeeder / DisposalSeeder / PackageSeeder / TemplateSeeder / VisitSeeder（就诊链）/ QueueSeeder（叫号队列）/ VisitFlowEngine / PreflightChecker）
 │   ├── lint/                  # php-lint.php（tokenizer 语法检查）/ ci-lint.php / jscheck.js
-│   ├── schema/                # inspect_schema.php / migrate_split_to_unified.php
-│   └── refill_drug_spec.php   # 药品规格结构化填充
+│   └── schema/                # 分散迁移与数据修复（inspect_schema.php / migrate_split_to_unified.php / fix_icd10_split.php / refill_drug_spec.php）
 ├── .github/workflows/         # GitHub Actions：PHP 7.2~8.5 语法兼容矩阵检查 + 检查报告
 ├── docs/                      # 文档归档
 │   ├── CHANGELOG.md           # 系统变更日志
