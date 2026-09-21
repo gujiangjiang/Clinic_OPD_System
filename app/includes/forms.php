@@ -188,7 +188,7 @@ function form_drug($id) {
             <span><b>允许拆零零售</b>（按最小单位如 支/粒/片 销售）</span>
         </label>
         <div class="fs-12 text-muted mt-4">开启后开方时可选【最小单位】销售（如注射剂按支卖），系统自动按 包装单价 ÷ 每包装数量 核算拆零单价。关闭则仅按整包装（盒/瓶）销售。</div>
-        <div id="split_box" style="' . ((int)$r['allow_split'] ? '' : 'display:none') . 'margin-top:10px;border:1px dashed var(--border);border-radius:8px;padding:10px">
+        <div id="split_box" style="' . ((int)$r['allow_split'] ? '' : 'display:none;') . 'margin-top:10px;border:1px dashed var(--border);border-radius:8px;padding:10px">
             <div class="fs-13 fw-600 mb-4">拆零参数（开启后必填完整）</div>
             <div class="flex gap-8 mb-4" style="flex-wrap:wrap;align-items:center;font-size:13px">
                 <span>包装单位：<b id="sp_pack_unit_name" style="color:var(--primary)">' . e($r['package_unit'] !== '' ? $r['package_unit'] : '—') . '</b></span>
