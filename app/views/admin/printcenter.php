@@ -34,7 +34,9 @@ Router::title('打印中心');
 </div>
 
 <style>
-.pc-layout { display: flex; gap: 14px; align-items: stretch; height: calc(100vh - 300px); min-height: 420px; }
+.pc-layout { display: flex; gap: 14px; align-items: stretch; }
+/* 覆盖 .card 全局 margin-bottom:16px：左右栏在 list-layout 内撑满剩余高度，下边缘与其它列表卡片对齐 */
+.pc-left, .pc-right { margin-bottom: 0; }
 .pc-left { width: 400px; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; padding: 0; }
 .pc-left-head {
     padding: 12px 14px; font-weight: 700; font-size: 14px;

@@ -988,6 +988,7 @@
 .qc-body > div { height: 100%; overflow: hidden; }
 /* 危急值列表：筛选卡固定，列表卡占满剩余并内部滚动 */
 #qcCritical { display: flex; flex-direction: column; }
+#qcCritical .card { margin-bottom: 0; }   /* 覆盖全局 .card margin-bottom:16px，撑满 qc-body 下边缘对齐 */
 #qcCritical .card:first-child { flex-shrink: 0; }
 #qcCritical .card:last-child {
     flex: 1;
