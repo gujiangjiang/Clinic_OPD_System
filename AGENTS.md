@@ -32,12 +32,19 @@
 
 ## Tools 与数据工厂架构（严禁单体脚本）
 
-- `tools/` 已重构为模块化架构：
-  - `tools/bin/`：统一 CLI 控制台调度入口（`php tools/bin/seed.php --all` / `--scene=demo|call|dept_call|doctor2001` / `--module=drug`）。
-  - `tools/seeder/`：单一职责数据工厂类（`Seeder` 基类、`DrugSeeder` 等）。
-  - `tools/scenarios/`：场景装配器（`full_seed`、`demo_seed`、`call_seed`、`dept_call_seed`、`doctor2001_seed`）。
-  - `tools/schema/` 与 `tools/lint/`：巡检与语法检查工具。
-- **开发铁律**：后续任何测试造数需求，严禁在 `tools/` 根目录随意新建孤立的 `seed_xxx.php` 脚本，必须在 `seeder/` 或 `scenarios/` 中扩展复用；造数一律通过统一 CLI 入口调度。
+- `tools/` 已重构为模块化架构（scenarios/ 场景脚本已全部拆分合并到 seeder/ 并删除）：
+  - `tools/bin/`：统一 CLI 控制台调度入口（`php tools/bin/seed.php --all` /
+    `--scene=visit|call|dept_call` / `--scene="doctor=工号"` / `--scene="dept=2,5"` / `--module=drug`）。
+  - `tools/seeder/`：单一职责数据工厂类（`Seeder` 基类、`DeptSeeder`/`UserSeeder`/
+    `DrugSeeder`/`LabSeeder`（含检验组合与危急值）/`ExamSeeder`/`DisposalSeeder`/
+    `PackageSeeder`/`TemplateSeeder`/`VisitSeeder`（患者就诊链，合并原
+    demo/doctor2001/full 三场景）/`QueueSeeder`（叫号队列，合并原 call/dept_call
+    两场景）/`VisitFlowEngine`/`PreflightChecker`）。
+  - `tools/schema/`：分散迁移与一次性数据修复脚本（inspect/migrate/fix/refill）。
+  - `tools/lint/`：语法检查工具。
+- **开发铁律**：后续任何测试造数需求，严禁在 `tools/` 根目录随意新建孤立的 `seed_xxx.php` 脚本，
+  必须在 `seeder/` 中扩展复用（场景通过 `tools/bin/seed.php` 组合调度）；
+  造数一律通过统一 CLI 入口调度。
 
 ## 会话管理（Session 多驱动架构铁律）
 
