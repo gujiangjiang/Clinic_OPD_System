@@ -41,7 +41,9 @@ Router::title('打印中心');
     border-bottom: 1px solid var(--border); flex-shrink: 0;
     display: flex; align-items: center; justify-content: space-between;
 }
-.pc-list { flex: 1; overflow-y: auto; padding: 10px 10px 18px; }
+.pc-list { flex: 1; overflow-y: auto; padding: 10px 10px 0; }
+/* 最后一条记录与卡片底边距统一 18px（由 .pc-item:last-child 的 margin 控制） */
+.pc-list .pc-item:last-child { margin-bottom: 18px; }
 .pc-item {
     border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
     margin-bottom: 8px; cursor: pointer; transition: border-color .12s, background .12s;
