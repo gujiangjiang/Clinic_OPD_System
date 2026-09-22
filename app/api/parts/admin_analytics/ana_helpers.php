@@ -7,7 +7,8 @@
  * ============================================================ */
 
 /** 校验并规范化日期范围（缺省=今天；start>end 自动交换）；
- *  用 req() 同时兼容 GET（前端 Clinic.get）与 POST 参数 */
+ *  用 req() 同时兼容 GET（前端 Clinic.get）与 POST 参数；
+ *  跨度上限统一走 date_span_clamp('ana')（366 天，与全站日期范围钳制同源） */
 function ana_range() {
     $tz = new DateTimeZone(date_default_timezone_get());
     $end = req('end', date('Y-m-d'));
@@ -15,12 +16,9 @@ function ana_range() {
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start)) $start = date('Y-m-d');
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $end)) $end = date('Y-m-d');
     if ($start > $end) { $t = $start; $start = $end; $end = $t; }
-    // 防御性上限：最多跨 366 天（自定义趋势图可读性 & 性能）
+    list($start, $end) = date_span_clamp('ana', $start, $end);
     try {
-        $ds = new DateTime($start, $tz); $de = new DateTime($end, $tz);
-        if ((int)$ds->diff($de)->format('%a') > 366) {
-            $start = $de->modify('-366 days')->format('Y-m-d');
-        }
+        $ds = new DateTime($start, $tz);
         return array($ds->format('Y-m-d'), $end);
     } catch (Exception $e) {
         return array(date('Y-m-d'), date('Y-m-d'));
