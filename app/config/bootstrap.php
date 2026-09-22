@@ -78,7 +78,6 @@ date_default_timezone_set('Asia/Shanghai');
 
 /* ---------- 引入辅助函数（helpers + 条形码生成，全站可用） ---------- */
 require_once __DIR__ . '/../core/helpers.php';
-require_once __DIR__ . '/../core/emr_rules.php';
 require_once __DIR__ . '/../core/barcode.php';
 
 /* ---------- 启动会话（Session 文件保存到 data/session，避开 Web 访问） ---------- */

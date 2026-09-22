@@ -82,18 +82,3 @@ function evid_http_call($endpoint, $apiToken, $payload) {
     if (is_array($decoded) && isset($decoded['token'])) return (string)$decoded['token'];
     return mb_substr($body, 0, 200);
 }
-
-/**
- * 校验存证指纹是否匹配（验真：重新计算文书摘要与存证哈希比对）
- * @param string $recordType 记录类型
- * @param string $recordNo   记录编号
- * @param string $content    文书正文
- * @param string $signer     签名人
- * @param string $time       存证时间
- * @param string $storedHash 库中存证哈希
- * @return bool
- */
-function evid_verify($recordType, $recordNo, $content, $signer, $time, $storedHash) {
-    if ($storedHash === '') return false;
-    return hash_equals($storedHash, evid_fingerprint($recordType, $recordNo, $content, $signer, $time));
-}

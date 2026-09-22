@@ -315,14 +315,6 @@ function snapshot_get($bizType, $bizId) {
     return $r;
 }
 
-/** 快照不存在时按患者现资料补齐（兼容存量单据：首次打印即固化） */
-function snapshot_get_or_live($bizType, $bizId, $patientNo, $extra = array()) {
-    $s = snapshot_get($bizType, $bizId);
-    if ($s) return $s;
-    snapshot_patient($bizType, $bizId, $patientNo, $extra);
-    return snapshot_get($bizType, $bizId);
-}
-
 /**
  * 打印时用单据快照覆盖患者资料（有快照才覆盖，无快照保持 live 兼容存量单据）。
  * 用于 print.php 各 case：拿到 get_visit_row 后调用，使历史单据打印
