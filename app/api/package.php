@@ -166,8 +166,7 @@ switch ($action) {
      */
     case 'list':
         $type = get('type', 'lab');
-        $page = max(1, (int)get('page', 1));
-        $pageSize = max(1, min(100, (int)get('size', 20)));
+        list($page, $pageSize) = paged_params(20);
         $kw = trim(get('kw', ''));
         $scope = trim(get('scope', ''));
         if (!pkg_type_allowed($u['role'], $type)) $type = 'lab';
@@ -201,7 +200,7 @@ switch ($action) {
         }
         $total = (int)OrderRepository::val("SELECT COUNT(*) FROM packages WHERE " . $where, $params);
         $rows = OrderRepository::q("SELECT * FROM packages WHERE " . $where . " ORDER BY id DESC LIMIT ? OFFSET ?",
-            array_merge($params, array($pageSize, ($page - 1) * $pageSize)));
+            paged_suffix($params, $page, $pageSize));
         $out = array();
         foreach ($rows as $t) {
             $deptNames = array();
@@ -233,7 +232,7 @@ switch ($action) {
             );
         }
         $thead = '<thead><tr><th>套餐名称</th><th>适用范围</th><th>项目 / 合计</th><th>创建人</th><th>审核状态</th><th>操作</th></tr></thead>';
-        json_ok(array('list' => $out, 'total' => $total, 'has_more' => ($page * $pageSize) < $total, 'thead' => $thead));
+        json_ok(array('list' => $out, 'total' => $total, 'has_more' => paged_has_more($page, $pageSize, $total), 'thead' => $thead));
         break;
 
     /* ==================== 单条套餐详情（编辑回填 / 应用加载） ==================== */
@@ -484,8 +483,7 @@ switch ($action) {
         $type = get('type', 'lab');
         if (!pkg_type_allowed($u['role'], $type)) $type = 'lab';
         pkg_assert_type($u, $type);
-        $page = max(1, (int)get('page', 1));
-        $pageSize = max(1, min(100, (int)get('size', 20)));
+        list($page, $pageSize) = paged_params(20);
         $opts = array(
             'kw' => get('kw', ''),
             'cat' => get('cat', ''),

@@ -9,8 +9,7 @@
 
 function admin_ana_disposition() {
     $type = trim((string)get('type', '全部'));
-    $page = max(1, (int)get('page', 1));
-    $pageSize = max(1, min(100, (int)get('size', 20)));
+    list($page, $pageSize) = paged_params(20);
     $kw = trim(get('kw', ''));
     $where = "r.status='finished' AND r.disposition<>''";
     $params = array();
@@ -33,10 +32,10 @@ function admin_ana_disposition() {
         'COALESCE(NULLIF(r.current_dept_name, \'\'), r.first_dept_name) AS dept_name, ' .
         'p.name AS pname, p.gender, p.birth_date, p.id_card ' .
         'FROM registrations r JOIN patients p ON p.patient_no=r.patient_no ' .
-        'WHERE ' . $where . ' ORDER BY r.id DESC LIMIT ' . $pageSize . ' OFFSET ' . (($page - 1) * $pageSize);
+        'WHERE ' . $where . ' ORDER BY r.id DESC LIMIT ? OFFSET ?';
     $rows = array();
     $vids = array();
-    foreach (AnalyticsRepository::q($sql, $params) as $r) {
+    foreach (AnalyticsRepository::q($sql, paged_suffix($params, $page, $pageSize)) as $r) {
         $r['doctor_name'] = '';
         $vids[] = (int)$r['visit_id'];
         $rows[] = $r;
@@ -85,7 +84,7 @@ function admin_ana_disposition() {
     json_ok(array(
         'list' => $rowsOut,
         'total' => $total,
-        'has_more' => ($page * $pageSize) < $total,
+        'has_more' => paged_has_more($page, $pageSize, $total),
         'thead' => $thead,
     ));
 }

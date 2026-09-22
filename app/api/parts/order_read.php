@@ -23,8 +23,7 @@ function order_part_read($action) {
         if (catalog_table_name($type) === '') $type = 'lab';
         // 分页：前端滚动分段加载（infiniteList），首屏 1 页，滚到底自动续加载；
         // 关键字搜索 / 检验筛选走服务端过滤（避免分页下仅过滤已加载页的旧问题）
-        $page = max(1, (int)get('page', 1));
-        $pageSize = max(1, min(100, (int)get('size', 20)));
+        list($page, $pageSize) = paged_params(20);
         // 共享目录查询（includes/catalog_query.php）：四类项目分页+搜索+筛选+行映射
         $opts = array(
             'kw' => get('kw', ''),
@@ -50,13 +49,13 @@ function order_part_read($action) {
                 if (!empty($it['skin_test_item_id'])) $skinIds[(int)$it['skin_test_item_id']] = true;
             }
             $dicts = catalog_link_dicts(true, $skinIds);
-            $resp = array('list' => $list, 'total' => $total, 'has_more' => ($page * $pageSize) < $total);
+            $resp = array('list' => $list, 'total' => $total, 'has_more' => paged_has_more($page, $pageSize, $total));
             if ($type === 'lab') $resp['lab_map'] = catalog_lab_map();
             $resp['link_dicts'] = $dicts;
             json_ok($resp);
             return;
         }
-        json_ok(array('list' => $list, 'total' => $total, 'has_more' => ($page * $pageSize) < $total));
+        json_ok(array('list' => $list, 'total' => $total, 'has_more' => paged_has_more($page, $pageSize, $total)));
         return;
     }
 

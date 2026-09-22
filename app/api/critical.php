@@ -196,9 +196,7 @@ switch ($action) {
     /* ==================== 医生分页搜索（发送危急值时选接收医生，无限滚动） ==================== */
     case 'doctor_search':
         $q = get('q', '');
-        $page = max(1, (int)get('page', 1));
-        // 每页条数：前端可传 size（医生搜索默认 10，诊断选人列表轻量分段加载）
-        $pageSize = max(1, min(100, (int)get('size', 10)));
+        list($page, $pageSize) = paged_params(10);   // 医生搜索默认 10，诊断选人列表轻量分段加载
         $where = "role='doctor' AND status=1";
         $params = array();
         if ($q !== '') {
@@ -207,8 +205,8 @@ switch ($action) {
             $params[] = $like; $params[] = $like; $params[] = $like;
         }
         $total = (int)DB::val("SELECT COUNT(*) FROM users WHERE $where", $params);
-        $rows = DB::q("SELECT id, name, emp_no, title FROM users WHERE $where ORDER BY emp_no, id LIMIT ? OFFSET ?", array_merge($params, array($pageSize, ($page - 1) * $pageSize)));
-        json_ok(array('list' => $rows, 'total' => $total, 'has_more' => ($page * $pageSize) < $total));
+        $rows = DB::q("SELECT id, name, emp_no, title FROM users WHERE $where ORDER BY emp_no, id LIMIT ? OFFSET ?", paged_suffix($params, $page, $pageSize));
+        json_ok(array('list' => $rows, 'total' => $total, 'has_more' => paged_has_more($page, $pageSize, $total)));
         break;
 
     /* ==================== 发送危急值（检验科自动检测 / 影像科手动上报） ==================== */
@@ -291,10 +289,9 @@ switch ($action) {
         $to = get('to');
         $status = get('status', '');
         $page = max(1, (int)get('page', 1));
-        $pageSize = 20;
+        $pageSize = 20;   // 固定每页 20 条（不支持前端传 size）
         $where = '1=1';
-        $params = array();
-        if ($u['role'] === 'doctor') {
+        $params = array();        if ($u['role'] === 'doctor') {
             $where .= ' AND to_doctor_id=?';
             $params[] = (int)$u['id'];
         } elseif ($u['role'] === 'lab') {
@@ -313,7 +310,7 @@ switch ($action) {
         if ($from !== '') { $where .= ' AND date(created_at)>=?'; $params[] = $from; }
         if ($to !== '') { $where .= ' AND date(created_at)<=?'; $params[] = $to; }
         $total = (int)DB::val("SELECT COUNT(*) FROM critical_values WHERE $where", $params);
-        $rows = DB::q("SELECT * FROM critical_values WHERE $where ORDER BY id DESC LIMIT ? OFFSET ?", array_merge($params, array($pageSize, ($page - 1) * $pageSize)));
+        $rows = DB::q("SELECT * FROM critical_values WHERE $where ORDER BY id DESC LIMIT ? OFFSET ?", paged_suffix($params, $page, $pageSize));
         $out = array();
         foreach ($rows as $cv) {
             $out[] = array(
@@ -334,7 +331,7 @@ switch ($action) {
                 'items' => json_decode((string)$cv['items_json'], true) ?: array(),
             );
         }
-        json_ok(array('list' => $out, 'total' => $total, 'has_more' => ($page * $pageSize) < $total));
+        json_ok(array('list' => $out, 'total' => $total, 'has_more' => paged_has_more($page, $pageSize, $total)));
         break;
 
     /* ==================== 医生处理危急值（符合/不符合病情 + 处理措施） ==================== */

@@ -167,9 +167,7 @@ function admin_part_settings($action) {
         $kw = trim(get('kw', ''));
         $from = get('from');                       // 开始日期（YYYY-MM-DD，登记时间筛选）
         $to = get('to');                           // 结束日期（YYYY-MM-DD）
-        $page = max(1, (int)get('page', 1));
-        // 每页条数：前端可传 size（打印中心就诊列表默认 20，可调 10-20 分段加载）
-        $pageSize = max(1, min(100, (int)get('size', 20)));
+        list($page, $pageSize) = paged_params(20);   // 打印中心就诊列表默认 20
         $where = '1=1';
         $params = array();
         if ($kw !== '') {
@@ -191,7 +189,7 @@ function admin_part_settings($action) {
              WHERE $where
              ORDER BY r.registered_at DESC, r.id DESC
              LIMIT ? OFFSET ?",
-            array_merge($params, array($pageSize, ($page - 1) * $pageSize))
+            paged_suffix($params, $page, $pageSize)
         );
         $list = array();
         foreach ($rows as $r) {
@@ -208,7 +206,7 @@ function admin_part_settings($action) {
                 'registered_at' => (string)$r['registered_at'],
             );
         }
-        json_ok(array('list' => $list, 'total' => $total, 'has_more' => ($page * $pageSize) < $total));
+        json_ok(array('list' => $list, 'total' => $total, 'has_more' => paged_has_more($page, $pageSize, $total)));
     }
 
     /* ==================== 打印中心：某就诊可打印单据（四子页签） ====================

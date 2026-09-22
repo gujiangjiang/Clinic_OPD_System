@@ -48,6 +48,30 @@ function today_str() {
     return date('Y-m-d');
 }
 
+/**
+ * 分页参数统一读取（GET/POST 兼容）：返回 [page, pageSize]。
+ * page 最小 1；size 钳制 1-100（默认 20）。
+ * 说明：全站 15+ 处 `$page = max(1, (int)get('page', 1));
+ * $pageSize = max(1, min(100, (int)get('size', 20)));` 手写样板统一收敛。
+ * @param int $defaultSize 每页条数默认值
+ * @return array [page, pageSize]
+ */
+function paged_params($defaultSize = 20) {
+    $page = max(1, (int)req('page', 1));
+    $pageSize = max(1, min(100, (int)req('size', $defaultSize)));
+    return array($page, $pageSize);
+}
+
+/** 分页绑定参数：LIMIT/OFFSET 追加到现有查询参数（统一参数绑定，杜绝字符串拼接 LIMIT） */
+function paged_suffix($params, $page, $pageSize) {
+    return array_merge($params, array($pageSize, ($page - 1) * $pageSize));
+}
+
+/** 分页响应：是否还有更多（统一计算口径） */
+function paged_has_more($page, $pageSize, $total) {
+    return ($page * $pageSize) < $total;
+}
+
 /* ============================================================
  * 日期范围跨度钳制（防全表扫描压力，按业务功能差异化限制）
  * ------------------------------------------------------------

@@ -72,13 +72,12 @@ function admin_part_item($action) {
             $list[] = $rowHtml;
         }
         $cats = array();
-        $page = max(1, (int)get('page', 1));
-        $pageSize = max(1, min(100, (int)get('size', 20)));
+        list($page, $pageSize) = paged_params(20);
         if ($page === 1) {
             foreach (OrderRepository::q("SELECT name FROM item_categories WHERE ctype=? ORDER BY sort, id", array($type)) as $c) $cats[] = $c['name'];
         }
         json_ok(array(
-            'list' => $list, 'total' => $total, 'has_more' => ($page * $pageSize) < $total, 'page' => $page, 'thead' => $thead,
+            'list' => $list, 'total' => $total, 'has_more' => paged_has_more($page, $pageSize, $total), 'page' => $page, 'thead' => $thead,
             'cats' => $cats,
             'count_text' => ($type === 'lab' ? '检验项目共 ' : '检查项目共 ') . $total . ' 项' . ($kw !== '' ? '（搜索「' . $kw . '」）' : ''),
         ));

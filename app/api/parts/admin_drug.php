@@ -94,8 +94,7 @@ function admin_part_drug($action) {
     /* ==================== 药品信息列表 ==================== */
     if ($action === 'drug_list') {
         // v8.17.3 统一分页：page/size/kw/cat 服务端过滤，无限滚动分段加载
-        $page = max(1, (int)get('page', 1));
-        $pageSize = max(1, min(100, (int)get('size', 20)));
+        list($page, $pageSize) = paged_params(20);
         $kw = trim(get('kw', ''));
         $cat = trim(get('cat', ''));
         $where = "1=1";
@@ -104,7 +103,7 @@ function admin_part_drug($action) {
         if ($kw !== '') { $where .= " AND (name LIKE ? OR generic_name LIKE ? OR vendor_short LIKE ?)"; $params[] = '%' . $kw . '%'; $params[] = '%' . $kw . '%'; $params[] = '%' . $kw . '%'; }
         $total = (int)DrugRepository::val("SELECT COUNT(*) FROM drugs WHERE $where", $params);
         $rows = DrugRepository::q("SELECT * FROM drugs WHERE $where ORDER BY category, id LIMIT ? OFFSET ?",
-            array_merge($params, array($pageSize, ($page - 1) * $pageSize)));
+            paged_suffix($params, $page, $pageSize));
         $thead = '<thead><tr>' .
             '<th>药品名称</th><th>通用名</th><th>厂家简称</th><th>分类</th><th>规格</th><th>剂型</th><th>频次</th><th>途径</th><th>库存</th><th>警戒</th><th>价格</th><th>状态</th><th>操作</th></tr></thead>';
         $list = array();
@@ -140,7 +139,7 @@ function admin_part_drug($action) {
         if ($page === 1) {
             foreach (DrugRepository::q("SELECT name FROM drug_settings WHERE stype='category' ORDER BY sort, id") as $c) $cats[] = $c['name'];
         }
-        json_ok(array('list' => $list, 'total' => $total, 'has_more' => ($page * $pageSize) < $total, 'page' => $page, 'thead' => $thead,
+        json_ok(array('list' => $list, 'total' => $total, 'has_more' => paged_has_more($page, $pageSize, $total), 'page' => $page, 'thead' => $thead,
             'cats' => $cats,
             'count_text' => ($cat !== '' ? '药品（' . $cat . '）共 ' : '共 ') . $total . ' 种药品' . ($kw !== '' ? '（搜索「' . $kw . '」）' : '')));
     }

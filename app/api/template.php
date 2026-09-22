@@ -140,7 +140,7 @@ switch ($action) {
         // 分页（仅显式传 page 时生效）：总数 + LIMIT/OFFSET + has_more
         if ($page > 0) {
             $total = (int)EmrRepository::val("SELECT COUNT(*) FROM emr_templates WHERE " . $whereSql, $params);
-            $rows = EmrRepository::q("SELECT * FROM emr_templates WHERE " . $whereSql . $orderSql . " LIMIT ? OFFSET ?", array_merge($params, array($pageSize, ($page - 1) * $pageSize)));
+            $rows = EmrRepository::q("SELECT * FROM emr_templates WHERE " . $whereSql . $orderSql . " LIMIT ? OFFSET ?", paged_suffix($params, $page, $pageSize));
             $hasMore = ($page * $pageSize) < $total;
         } else {
             $total = 0;

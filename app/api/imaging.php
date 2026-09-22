@@ -325,7 +325,7 @@ switch ($action) {
             'list' => $list,
             'total' => $total,
             'page' => $page,
-            'has_more' => ($page * $pageSize) < $total,
+            'has_more' => paged_has_more($page, $pageSize, $total),
         ));
         break;
 
@@ -418,9 +418,7 @@ switch ($action) {
         $kw = trim((string)get('kw', ''));
         $from = get('from');                       // 开始日期（YYYY-MM-DD，登记时间筛选）
         $to = get('to');                           // 结束日期（YYYY-MM-DD）
-        $page = max(1, (int)get('page', 1));
-        // 每页条数：前端可传 size（影像引用查询默认 20）
-        $pageSize = max(1, min(100, (int)get('size', 20)));
+        list($page, $pageSize) = paged_params(20);   // 每页条数：前端可传 size（影像引用查询默认 20）
         // 仅统计影像检查（imaging 订单）的引用——检验等非影像订单的引用不属于影像引用台账
         $where = "o.order_type='imaging'";
         $params = array();
@@ -447,7 +445,7 @@ switch ($action) {
              WHERE $where
              ORDER BY ir.created_at DESC, ir.id DESC
              LIMIT ? OFFSET ?",
-            array_merge($params, array($pageSize, ($page - 1) * $pageSize))
+            paged_suffix($params, $page, $pageSize)
         );
         $list = array();
         foreach ($rows as $r) {
@@ -468,7 +466,7 @@ switch ($action) {
                 'created_at' => (string)$r['created_at'],
             );
         }
-        json_ok(array('list' => $list, 'total' => $total, 'has_more' => ($page * $pageSize) < $total));
+        json_ok(array('list' => $list, 'total' => $total, 'has_more' => paged_has_more($page, $pageSize, $total)));
         break;
 
     default:
