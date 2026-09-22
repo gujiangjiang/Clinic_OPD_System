@@ -31,7 +31,7 @@ function loadReq() {
             var visitStatusMap = { pending: '待缴费', paid: '待就诊', visiting: '就诊中', finished: '已诊毕', refunded: '已退费', cancelled: '已取消' };
             // 患者信息
             var html =
-                '<div class="card" style="padding:14px;margin-bottom:12px">' +
+                '<div class="card">' +
                 '<div class="flex-between"><div class="fw-700 fs-16">' + Clinic.escHtml(r.patient.name) +
                 ' <span class="fs-12 text-muted fw-400">患者ID ' + Clinic.escHtml(r.patient.patient_no) + ' ｜ 流水号 ' + Clinic.escHtml(r.patient.flow_no) + '</span></div>' +
                 '<span class="badge badge-warning">' + (visitStatusMap[r.patient.visit_status] || r.patient.visit_status) + '</span></div>' +
@@ -42,7 +42,7 @@ function loadReq() {
                 (r.status === 'approved' ? '<span class="badge badge-success">已全部同意</span>' :
                     (r.status === 'rejected' ? '<span class="badge badge-danger">已拒绝</span>' : '<span class="badge badge-warning">待审批</span>')) + '</div></div>';
             // 审批进度
-            html += '<div class="card" style="padding:14px;margin-bottom:12px"><div class="fs-14 fw-700 mb-8">审批进度</div>';
+            html += '<div class="card"><div class="fs-14 fw-700 mb-8">审批进度</div>';
             approvals.forEach(function (a) {
                 var cls = a.verdict === 'approve' ? 'badge-success' : (a.verdict === 'reject' ? 'badge-danger' : 'badge-gray');
                 var txt = a.verdict === 'approve' ? '已同意' : (a.verdict === 'reject' ? '已拒绝' : '待审批');
@@ -53,7 +53,7 @@ function loadReq() {
             });
             html += '</div>';
             // 项目执行状态
-            html += '<div class="card" style="padding:14px;margin-bottom:12px"><div class="fs-14 fw-700 mb-8">项目执行状态</div>';
+            html += '<div class="card"><div class="fs-14 fw-700 mb-8">项目执行状态</div>';
             orders.forEach(function (o) {
                 html += '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">' +
                     '<div class="fs-13 fw-600">' + (typeNames[o.order_type] || '') + ' ' + Clinic.escHtml(o.order_no) +
@@ -82,7 +82,7 @@ function loadReq() {
             var myName = document.body.getAttribute('data-name') || '';
             var canAct = r.status === 'pending' && approvals.some(function (a) { return a.user_name === myName; });
             if (r.status === 'pending' && (canAct || MY_ROLE === 'admin')) {
-                html += '<div class="card" style="padding:14px">' +
+                html += '<div class="card">' +
                     '<div class="fs-14 fw-700 mb-8">我的审批</div>' +
                     '<div class="form-group"><label class="form-label">意见（可选）</label>' +
                     '<textarea class="textarea" id="apNote" rows="2" placeholder="如：患者已完成该检查，同意退费"></textarea></div>' +
@@ -92,7 +92,7 @@ function loadReq() {
                     (MY_ROLE === 'admin' ? '<div class="fs-12 text-muted mt-4">管理员代审</div>' : '') +
                     '</div>';
             } else if (r.status === 'pending') {
-                html += '<div class="card" style="padding:14px"><div class="fs-13 text-muted">您不是该申请的审批人，无法操作。</div></div>';
+                html += '<div class="card"><div class="fs-13 text-muted">您不是该申请的审批人，无法操作。</div></div>';
             }
             document.getElementById('reqBox').innerHTML = html;
         },

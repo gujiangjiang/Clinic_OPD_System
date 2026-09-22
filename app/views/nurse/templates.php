@@ -12,7 +12,7 @@ Router::title('护理模板管理');
     <div><div class="page-title">📋 护理模板管理</div><div class="page-desc">护理记录模板（个人免审；科室/全院需管理员审核，审核通过后生效，被驳回自动降级为个人）</div></div>
     <button class="btn btn-primary btn-sm" onclick="openNTplForm(0)">＋ 新建护理模板</button>
 </div>
-<div class="card" style="margin-bottom:12px">
+<div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
         <input class="input" id="ntplSearchKw" placeholder="🔍 搜索模板名称" style="width:220px" oninput="applyNTplFilter()">
         <span class="flex gap-4" id="ntplScopeTabs" style="flex-wrap:wrap">

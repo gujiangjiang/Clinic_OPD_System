@@ -17,23 +17,25 @@ Router::title('审核中心');
     <div><div class="page-title">✅ 审核中心</div><div class="page-desc">审核项目添加、模板与报告撤回申请</div></div>
 </div>
 
-<div class="flex gap-8 mb-12" style="flex-shrink:0;align-items:center;flex-wrap:wrap">
-    <button class="btn btn-primary btn-sm" data-tab="pending" onclick="switchTab('pending')">待审核</button>
-    <button class="btn btn-outline btn-sm" data-tab="handled" onclick="switchTab('handled')">已处理</button>
-    <select class="select" id="groupSelect" onchange="switchGroup()" style="width:auto">
-        <option value="">平铺列表</option>
-        <option value="user">按申请人分组</option>
-        <option value="type">按类型分组</option>
-    </select>
-    <button class="btn btn-success btn-sm" id="auditAllBtn" onclick="doAuditAll()">✅ 一键全部通过</button>
-    <span class="flex gap-8" style="align-items:center;margin-left:auto">
-        <input type="text" class="input" id="auditFrom" readonly placeholder="开始日期" style="width:140px;cursor:pointer;background:var(--bg)"
-            onclick="Clinic.datePicker.open(this,{maxToday:false,peer:'auditTo',maxSpan:365})">
-        <span class="text-muted">至</span>
-        <input type="text" class="input" id="auditTo" readonly placeholder="结束日期" style="width:140px;cursor:pointer;background:var(--bg)"
-            onclick="Clinic.datePicker.open(this,{maxToday:true,peer:'auditFrom',maxSpan:365})">
-        <button class="btn btn-outline btn-sm" onclick="resetAuditDates()">重置</button>
-    </span>
+<div class="card list-filter" style="flex-shrink:0">
+    <div class="flex-wrap-center">
+        <button class="btn btn-primary btn-sm" data-tab="pending" onclick="switchTab('pending')">待审核</button>
+        <button class="btn btn-outline btn-sm" data-tab="handled" onclick="switchTab('handled')">已处理</button>
+        <select class="select" id="groupSelect" onchange="switchGroup()" style="width:auto">
+            <option value="">平铺列表</option>
+            <option value="user">按申请人分组</option>
+            <option value="type">按类型分组</option>
+        </select>
+        <button class="btn btn-success btn-sm" id="auditAllBtn" onclick="doAuditAll()">✅ 一键全部通过</button>
+        <span class="flex gap-8" style="align-items:center;margin-left:auto">
+            <input type="text" class="input" id="auditFrom" readonly placeholder="开始日期" style="width:140px;cursor:pointer;background:var(--bg)"
+                onclick="Clinic.datePicker.open(this,{maxToday:false,peer:'auditTo',maxSpan:366})">
+            <span class="text-muted">至</span>
+            <input type="text" class="input" id="auditTo" readonly placeholder="结束日期" style="width:140px;cursor:pointer;background:var(--bg)"
+                onclick="Clinic.datePicker.open(this,{maxToday:true,peer:'auditFrom',maxSpan:366})">
+            <button class="btn btn-outline btn-sm" onclick="resetAuditDates()">重置</button>
+        </span>
+    </div>
 </div>
 
 <div class="card list-card" id="auditList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>

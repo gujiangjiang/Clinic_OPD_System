@@ -12,7 +12,7 @@ Router::title('影像模板管理');
     <div><div class="page-title">📋 影像模板管理</div><div class="page-desc">影像报告模板（影像所见 + 影像诊断；个人免审，科室/全院需管理员审核，被驳回自动降级为个人）</div></div>
     <button class="btn btn-primary btn-sm" onclick="openITplForm(0)">＋ 新建影像模板</button>
 </div>
-<div class="card" style="margin-bottom:12px">
+<div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
         <input class="input" id="itplSearchKw" placeholder="🔍 搜索模板名称" style="width:220px" oninput="applyITplFilter()">
         <span class="flex gap-4" id="itplScopeTabs" style="flex-wrap:wrap">

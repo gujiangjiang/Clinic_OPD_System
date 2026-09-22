@@ -19,7 +19,7 @@ Router::title('缴费管理');
     <div><div class="page-title">💳 缴费管理</div><div class="page-desc">按患者ID / 门诊流水号 / 身份证号查询并处理缴费退费</div></div>
 </div>
 
-<div class="card" style="margin-bottom:12px">
+<div class="card list-filter">
     <div class="flex gap-8">
         <input class="input" id="payKw" placeholder="输入患者ID / 门诊流水号 / 身份证号" style="flex:1" autocomplete="off" onkeydown="if(event.key==='Enter')searchVisits()">
         <button class="btn btn-primary btn-sm" onclick="searchVisits()">查询</button>

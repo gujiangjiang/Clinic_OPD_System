@@ -17,7 +17,7 @@ $depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type
 </div>
 
 <!-- 日期范围工具条 -->
-<div class="card" style="margin-bottom:16px">
+<div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
         <input type="text" class="input" id="anaStart" readonly placeholder="开始日期" style="width:150px;cursor:pointer;background:var(--bg)" onclick="Clinic.datePicker.open(this, { maxToday: false, peer: 'anaEnd', maxSpan: 366, onChange: function () { anaLoad(); } })">
         <span class="text-muted">至</span>
@@ -45,7 +45,7 @@ $depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type
 
 <!-- ============ 转归查询 ============ -->
 <div id="ana-pane-disposition" style="display:none">
-    <div class="card" style="margin-bottom:12px">
+    <div class="card list-filter">
         <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
             <div class="flex gap-8" id="dispFilters">
                 <button class="btn btn-primary btn-sm" data-disp="全部" onclick="dispFilter('全部')">全部</button>
@@ -119,7 +119,7 @@ $depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type
 
 <!-- ============ 自定义统计 ============ -->
 <div id="ana-pane-custom" style="display:none">
-    <div class="card" style="margin-bottom:16px">
+    <div class="card list-filter">
         <div class="flex gap-16" style="flex-wrap:wrap;align-items:flex-end">
             <div class="form-group" style="margin:0"><label class="form-label">维度</label>
                 <select class="select" id="cusGroup" style="width:auto">

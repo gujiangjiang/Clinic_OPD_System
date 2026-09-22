@@ -21,7 +21,7 @@ Router::title('挂号管理');
 <div class="page-head">
     <div><div class="page-title">📋 挂号管理</div><div class="page-desc">查询任意一天的挂号记录，支持补打凭条、退费/取消</div></div>
 </div>
-<div class="card" style="margin-bottom:12px">
+<div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
         <input type="text" class="input" id="regDate" value="<?php echo date('Y-m-d'); ?>" readonly placeholder="点击选择日期" style="width:150px;cursor:pointer" onclick="Clinic.datePicker.open(this, { maxToday: false })">
         <input class="input" id="regKw" placeholder="🔍 搜索 姓名 / 患者ID / 流水号" style="width:220px" onkeydown="if(event.key==='Enter')loadList()">

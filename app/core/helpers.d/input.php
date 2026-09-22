@@ -57,7 +57,7 @@ function today_str() {
  *   critical  31  天（1 个月）— 危急值为即时告警数据，超月无临床回溯价值
  *   print     92  天（3 个月）— 统一打印中心就诊记录量最大，补打集中近三月
  *   refs      183 天（6 个月）— 影像引用台账 PACS 调阅溯源周期较长
- *   audit     365 天（1 年）  — 审核事项量小，审计回溯周期最长
+ *   audit     366 天（1 年）  — 审核事项量小，审计回溯周期最长
  *   patient   366 天（1 年）  — 患者建档时间回溯（与运营分析同口径）
  *   ana       366 天（1 年）  — 运营分析趋势图（原有 366 天上限）
  * @param string $domain 功能域（见上表）
@@ -70,7 +70,7 @@ function date_span_clamp($domain, $from, $to) {
         'critical' => 31,
         'print'    => 92,
         'refs'     => 183,
-        'audit'    => 365,
+        'audit'    => 366,
         'patient'  => 366,
         'ana'      => 366,
     );
