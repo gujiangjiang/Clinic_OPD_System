@@ -19,9 +19,9 @@ $depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type
 <!-- 日期范围工具条 -->
 <div class="card" style="margin-bottom:16px">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input type="text" class="input" id="anaStart" readonly placeholder="开始日期" style="width:150px;cursor:pointer;background:var(--bg)" onclick="Clinic.datePicker.open(this, { maxToday: false, onChange: function () { anaLoad(); } })">
+        <input type="text" class="input" id="anaStart" readonly placeholder="开始日期" style="width:150px;cursor:pointer;background:var(--bg)" onclick="Clinic.datePicker.open(this, { maxToday: false, peer: 'anaEnd', maxSpan: 366, onChange: function () { anaLoad(); } })">
         <span class="text-muted">至</span>
-        <input type="text" class="input" id="anaEnd" readonly placeholder="结束日期" style="width:150px;cursor:pointer;background:var(--bg)" onclick="Clinic.datePicker.open(this, { maxToday: true, onChange: function () { anaLoad(); } })">
+        <input type="text" class="input" id="anaEnd" readonly placeholder="结束日期" style="width:150px;cursor:pointer;background:var(--bg)" onclick="Clinic.datePicker.open(this, { maxToday: true, peer: 'anaStart', maxSpan: 366, onChange: function () { anaLoad(); } })">
         <button class="btn btn-primary btn-sm" onclick="anaLoad()">查询</button>
         <span class="flex gap-4" style="flex-wrap:wrap">
             <button class="btn btn-primary btn-sm" data-ana-quick="today" onclick="anaQuick('today')">今日</button>

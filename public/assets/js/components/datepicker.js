@@ -1,12 +1,15 @@
 /**
  * ============================================================
- * datepicker.js v1.0.0 — 通用日期选择组件
+ * datepicker.js v1.1.0 — 通用日期选择组件
  * ============================================================
  * 说明：轻量日历弹层，用于出生日期等场景，拒绝手动输入避免格式错误。
  *
  * Clinic.datePicker.open(input, opts):
  *   input            只读文本框（点击弹出日历）
  *   opts.maxToday    不可选择未来日期（出生日期场景）
+ *   opts.peer        对端输入框 ID（日期范围筛选的另一端，如 结束日期）
+ *   opts.maxSpan     日期范围跨度上限（天，与 peer 配合：选定后与对端值
+ *                    跨度超限时自动调整到边界并提示，与后端钳制同口径）
  *   opts.onChange(v) 选定后回调（v = 'YYYY-MM-DD'）
  *
  * 交互：点击输入框弹出 → 点选日期回填；支持 年/月 翻转、
@@ -32,6 +35,43 @@ Clinic.datePicker = (function () {
         const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s || '');
         if (!m) return null;
         return [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10)];
+    }
+
+    /** 日期跨度（天）：a/b 均为 YYYY-MM-DD，非法返回 0 */
+    function spanDays(a, b) {
+        const pa = parse(a), pb = parse(b);
+        if (!pa || !pb) return 0;
+        const da = new Date(pa[0], pa[1] - 1, pa[2]);
+        const db = new Date(pb[0], pb[1] - 1, pb[2]);
+        return Math.round(Math.abs(db - da) / 86400000);
+    }
+
+    /**
+     * 跨度联动校验（与对端输入框配合，maxSpan 上限）：
+     * 选定值与对端值跨度超限时，自动调整到上限边界并提示。
+     * 调整方向：本框为范围起点（值 <= 对端值）→ 向后推；终点（值 > 对端值）→ 向前收。
+     * @param {HTMLElement} input 当前输入框
+     * @param {string} val 已选值（YYYY-MM-DD）
+     * @return {string} 调整后的值（未超限原样返回）
+     */
+    function clampToPeer(input, val) {
+        if (!opts.maxSpan || !opts.peer) return val;
+        const peerEl = document.getElementById(opts.peer);
+        if (!peerEl) return val;
+        const peerVal = (peerEl.value || '').trim();
+        if (!peerVal) return val;
+        if (spanDays(val, peerVal) <= opts.maxSpan) return val;
+        const pp = parse(peerVal);
+        const isEndSide = val > peerVal;   // 本框是较晚一侧（结束日期）
+        // 上限边界：晚侧锚定 → 早侧 = 晚侧前推 maxSpan 天
+        let d = new Date(pp[0], pp[1] - 1, pp[2]);
+        if (!isEndSide) d.setDate(d.getDate() + opts.maxSpan);
+        else d.setDate(d.getDate() - opts.maxSpan);
+        const clamped = fmt(d.getFullYear(), d.getMonth() + 1, d.getDate());
+        if (window.Clinic.toast && Clinic.toast.info) {
+            Clinic.toast.info('日期范围跨度不能超过 ' + opts.maxSpan + ' 天，已自动调整');
+        }
+        return clamped;
     }
 
     function close() {
@@ -104,7 +144,7 @@ Clinic.datePicker = (function () {
     /**
      * 打开日期选择弹层
      * @param {HTMLElement} input 只读输入框
-     * @param {object} o { maxToday, onChange }
+     * @param {object} o { maxToday, peer, maxSpan, onChange }
      */
     function open(input, o) {
         if (!input || input.disabled) return;
@@ -143,7 +183,7 @@ Clinic.datePicker = (function () {
             }
             const cell = e.target.closest ? e.target.closest('.date-cell:not(.blank):not(.disabled)') : null;
             if (cell) {
-                selDate = cell.getAttribute('data-v');
+                selDate = clampToPeer(input, cell.getAttribute('data-v'));
                 input.value = selDate;
                 close();
                 if (opts.onChange) opts.onChange(selDate);
@@ -161,7 +201,7 @@ Clinic.datePicker = (function () {
                 }
                 if (act === 'today') {
                     const t = new Date();
-                    selDate = fmt(t.getFullYear(), t.getMonth() + 1, t.getDate());
+                    selDate = clampToPeer(input, fmt(t.getFullYear(), t.getMonth() + 1, t.getDate()));
                     input.value = selDate;
                     close();
                     if (opts.onChange) opts.onChange(selDate);

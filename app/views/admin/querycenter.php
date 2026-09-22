@@ -25,10 +25,10 @@ Router::title('查询中心');
         <!-- 搜索工具条：与其他页面统一 padding（单层 18px，无自定义内边距），日期筛选与危急值/运营分析页一致 -->
         <div class="flex gap-8" style="align-items:center;flex-wrap:wrap;padding:18px">
             <input type="text" class="input" id="qcRefFrom" readonly placeholder="开始日期" style="width:150px;cursor:pointer;background:var(--bg)"
-                onclick="Clinic.datePicker.open(this,{maxToday:false})">
+                onclick="Clinic.datePicker.open(this,{maxToday:false,peer:'qcRefTo',maxSpan:183})">
             <span class="text-muted">至</span>
             <input type="text" class="input" id="qcRefTo" readonly placeholder="结束日期" style="width:150px;cursor:pointer;background:var(--bg)"
-                onclick="Clinic.datePicker.open(this,{maxToday:true})">
+                onclick="Clinic.datePicker.open(this,{maxToday:true,peer:'qcRefFrom',maxSpan:183})">
             <input class="input" id="qcRefKw" placeholder="🔍 检索：门诊流水号 / 患者编号 / 申请单号" style="flex:1;min-width:220px"
                 onkeydown="if(event.key==='Enter')searchRefs()">
             <button class="btn btn-primary btn-sm" onclick="searchRefs()">查询</button>
