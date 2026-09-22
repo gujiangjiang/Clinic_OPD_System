@@ -23,12 +23,16 @@ class PatientRepository extends BaseRepository {
         return self::one('SELECT * FROM patients WHERE id_card=? OR patient_no=?', array($kw, $kw));
     }
 
-    /** 模糊检索（患者编号/身份证/姓名），倒序限 20 条 */
-    public static function search($kw) {
+    /** 模糊检索（患者编号/身份证/姓名，可按建档日期范围筛选），倒序限 20 条 */
+    public static function search($kw, $from = '', $to = '') {
         $like = '%' . $kw . '%';
+        $where = 'patient_no LIKE ? OR id_card LIKE ? OR name LIKE ?';
+        $params = array($like, $like, $like);
+        if ($from !== '') { $where .= ' AND date(created_at)>=?'; $params[] = $from; }
+        if ($to !== '') { $where .= ' AND date(created_at)<=?'; $params[] = $to; }
         return self::q(
-            'SELECT * FROM patients WHERE patient_no LIKE ? OR id_card LIKE ? OR name LIKE ? ORDER BY id DESC LIMIT 20',
-            array($like, $like, $like)
+            "SELECT * FROM patients WHERE $where ORDER BY id DESC LIMIT 20",
+            $params
         );
     }
 

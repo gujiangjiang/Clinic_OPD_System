@@ -16,7 +16,8 @@ window.Clinic = window.Clinic || {};
 
 /**
  * 患者查询弹窗（医生工作站工具箱 / 医技工作台工具箱共用）。
- * 输入患者ID/身份证号/姓名 → /api/patient search → 点击条目查看全部就诊历史。
+ * 输入患者ID/身份证号/姓名（可按建档日期范围筛选，跨度上限 1 年，
+ * 超出自动调整）→ /api/patient search → 点击条目查看全部就诊历史。
  * @param {object} opts { idPrefix } 元素 ID 前缀（doctor_tools=ps / deptwork=dwPs）
  */
 Clinic.patientSearch = {
@@ -24,10 +25,20 @@ Clinic.patientSearch = {
         opts = opts || {};
         var prefix = opts.idPrefix || 'ps';
         var kwId = prefix + 'Kw';
+        var fromId = prefix + 'From';
+        var toId = prefix + 'To';
         Clinic.modal.open(
             '<div class="form-group"><label class="form-label">患者ID / 身份证号 / 姓名</label>' +
             '<input class="input" id="' + kwId + '" placeholder="请输入患者ID / 身份证号 / 姓名" ' +
             'onkeydown="if(event.key===\'Enter\')Clinic.patientSearch.doSearch(\'' + prefix + '\')"></div>' +
+            '<div class="form-group"><label class="form-label">建档日期范围（可选，跨度不超过 1 年）</label>' +
+            '<div class="flex gap-8" style="align-items:center">' +
+            '<input type="text" class="input" id="' + fromId + '" readonly placeholder="开始日期" style="width:130px;cursor:pointer;background:var(--bg)" ' +
+            'onclick="Clinic.datePicker.open(this,{maxToday:false,peer:\'' + toId + '\',maxSpan:366})">' +
+            '<span class="text-muted">至</span>' +
+            '<input type="text" class="input" id="' + toId + '" readonly placeholder="结束日期" style="width:130px;cursor:pointer;background:var(--bg)" ' +
+            'onclick="Clinic.datePicker.open(this,{maxToday:true,peer:\'' + fromId + '\',maxSpan:366})">' +
+            '</div></div>' +
             '<div id="' + prefix + 'Result" class="fs-13"></div>',
             {
                 title: opts.title || '患者查询',
@@ -48,10 +59,13 @@ Clinic.patientSearch = {
         var kwEl = document.getElementById(prefix + 'Kw');
         var kw = (kwEl ? kwEl.value : '').trim();
         if (!kw) { Clinic.toast.warning('请输入患者ID / 身份证号 / 姓名'); return; }
+        var from = ((document.getElementById(prefix + 'From') || {}).value || '');
+        var to = ((document.getElementById(prefix + 'To') || {}).value || '');
         var box = document.getElementById(prefix + 'Result');
         if (!box) return;
         box.innerHTML = '<div class="spinner" style="border-top-color:var(--primary);width:24px;height:24px;margin:10px auto"></div>';
-        Clinic.get('/api/patient?action=search&kw=' + encodeURIComponent(kw), null, {
+        Clinic.get('/api/patient?action=search&kw=' + encodeURIComponent(kw) +
+            '&from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to), null, {
             onSuccess: function (json) {
                 var list = json.data.list || [];
                 if (!list.length) { box.innerHTML = '<div class="text-muted">未检索到该患者</div>'; return; }

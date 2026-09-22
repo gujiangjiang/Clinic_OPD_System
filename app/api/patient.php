@@ -20,13 +20,17 @@ switch ($action) {
         json_ok(array('patient' => PatientRepository::byIdCard($idCard)));
         break;
 
-    /* ---------------- 患者查询（ID/身份证/姓名） ---------------- */
+    /* ---------------- 患者查询（ID/身份证/姓名 + 建档日期范围） ---------------- */
     case 'search':
         $kw = get('kw', '');
         if ($kw === '') {
             json_ok(array('list' => array()));
         }
-        json_ok(array('list' => PatientRepository::search($kw)));
+        // 建档日期范围筛选 + 跨度钳制（患者查询域上限 1 年，避免全表扫描）
+        $from = get('from');
+        $to = get('to');
+        list($from, $to) = date_span_clamp('patient', $from, $to);
+        json_ok(array('list' => PatientRepository::search($kw, $from, $to)));
         break;
 
     /* ---------------- 患者过敏史（唯一数据源：患者主表 allergy_history；
