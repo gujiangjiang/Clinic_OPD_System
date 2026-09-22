@@ -30,8 +30,9 @@ Clinic.push = (function () {
             : status === ST.DISCONNECTED ? 'push:disconnected'
             : status === ST.RECONNECTING ? 'push:reconnecting'
             : 'push:connecting';
-        if (window.Clinic && Clinic.eventbus && Clinic.eventbus.emit) {
-            Clinic.eventbus.emit(name, { status: status });
+        // eventbus 导出名为 Clinic.eventBus（大写 B，eventbus.js:15）
+        if (window.Clinic && Clinic.eventBus && Clinic.eventBus.emit) {
+            Clinic.eventBus.emit(name, { status: status });
         }
         try {
             document.dispatchEvent(new CustomEvent(name, { detail: { status: status } }));
