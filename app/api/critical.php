@@ -308,6 +308,8 @@ switch ($action) {
             $where .= ' AND status=?';
             $params[] = $status;
         }
+        // 日期范围筛选 + 跨度钳制（危急值域上限 1 个月，防全表扫描压力）
+        list($from, $to) = date_span_clamp('critical', $from, $to);
         if ($from !== '') { $where .= ' AND date(created_at)>=?'; $params[] = $from; }
         if ($to !== '') { $where .= ' AND date(created_at)<=?'; $params[] = $to; }
         $total = (int)DB::val("SELECT COUNT(*) FROM critical_values WHERE $where", $params);

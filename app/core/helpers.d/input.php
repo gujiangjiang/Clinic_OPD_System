@@ -48,6 +48,50 @@ function today_str() {
     return date('Y-m-d');
 }
 
+/* ============================================================
+ * 日期范围跨度钳制（防全表扫描压力，按业务功能差异化限制）
+ * ------------------------------------------------------------
+ * 各支持日期范围搜索的功能，开始/结束之间跨度不能超过该功能域
+ * 上限（天），超限时以结束日期为锚前推至上限边界。不同功能上限
+ * 按业务性质与数据量级分配：
+ *   critical  31  天（1 个月）— 危急值为即时告警数据，超月无临床回溯价值
+ *   print     92  天（3 个月）— 统一打印中心就诊记录量最大，补打集中近三月
+ *   refs      183 天（6 个月）— 影像引用台账 PACS 调阅溯源周期较长
+ *   audit     365 天（1 年）  — 审核事项量小，审计回溯周期最长
+ *   patient   366 天（1 年）  — 患者建档时间回溯（与运营分析同口径）
+ *   ana       366 天（1 年）  — 运营分析趋势图（原有 366 天上限）
+ * @param string $domain 功能域（见上表）
+ * @param string $from   开始日期（YYYY-MM-DD，空=不限，原样返回）
+ * @param string $to     结束日期（YYYY-MM-DD，空=不限，原样返回）
+ * @return array [from, to] 钳制后
+ * ============================================================ */
+function date_span_clamp($domain, $from, $to) {
+    static $limits = array(
+        'critical' => 31,
+        'print'    => 92,
+        'refs'     => 183,
+        'audit'    => 365,
+        'patient'  => 366,
+        'ana'      => 366,
+    );
+    if (!isset($limits[$domain])) return array($from, $to);
+    if ($from === '' || $to === '') return array($from, $to);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
+        return array($from, $to);
+    }
+    if ($from > $to) { $t = $from; $from = $to; $to = $t; }
+    try {
+        $ds = new DateTime($from);
+        $de = new DateTime($to);
+        if ((int)$ds->diff($de)->format('%a') > $limits[$domain]) {
+            $from = $de->modify('-' . $limits[$domain] . ' days')->format('Y-m-d');
+        }
+    } catch (Exception $e) {
+        return array($from, $to);
+    }
+    return array($from, $to);
+}
+
 /**
  * 判断数据库异常是否为「唯一约束冲突」（并发撞号用）
  * SQLite：SQLSTATE 23000 + driver code 19（UNIQUE constraint failed）

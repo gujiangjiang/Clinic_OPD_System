@@ -429,7 +429,8 @@ switch ($action) {
             $like = '%' . $kw . '%';
             $params = array($like, $like, $like);
         }
-        // 日期范围筛选（登记时间）：from/to 空字符串时跳过条件（全量查询）
+        // 日期范围筛选（登记时间）+ 跨度钳制（影像引用域上限 6 个月）
+        list($from, $to) = date_span_clamp('refs', $from, $to);
         if ($from !== '') { $where .= ' AND date(ir.created_at)>=?'; $params[] = $from; }
         if ($to !== '') { $where .= ' AND date(ir.created_at)<=?'; $params[] = $to; }
         $total = (int)OrderRepository::val(
