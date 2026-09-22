@@ -15,7 +15,7 @@ function pt_receipt($visit, $patient) {
     $html .= pt_ticket_row('年龄', pt_age_text($patient, $visit));
     $html .= pt_ticket_row('挂号科室', isset($visit['first_dept_name']) ? $visit['first_dept_name'] .
         (isset($visit['dept_type']) && $visit['dept_type'] === 'emergency' ? ' (急诊)' : '') : '');
-    $html .= pt_ticket_row('就诊序号', isset($visit['visit_seq']) ? str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) : '');
+    $html .= pt_ticket_row('就诊序号', isset($visit['visit_seq']) ? visit_seq_text($visit['visit_seq']) : '');
     $html .= pt_ticket_row('就诊日期', isset($visit['registered_at']) ? substr($visit['registered_at'], 0, 10) : '');
     $html .= pt_ticket_row('挂号时间', isset($visit['registered_at']) ? substr($visit['registered_at'], 0, 16) : '');
     $html .= pt_ticket_row('费用类别', isset($visit['fee_type']) ? $visit['fee_type'] : '');

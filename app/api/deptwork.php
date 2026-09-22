@@ -256,7 +256,7 @@ function deptwork_record_summary($visitId) {
  *  排序：按开单时间正序（最早开单在上、最新在下），药房/检验/影像按就诊先后顺序处理 */
 function deptwork_orders($visitId) {
     $orders = OrderRepository::q('SELECT * FROM orders WHERE visit_id=? ORDER BY id ASC', array((int)$visitId));
-    $typeNames = array('lab' => '检验', 'imaging' => '检查', 'procedure' => '处置', 'prescription' => '处方');
+    // 开单类型中文名统一走 order_type_name()（helpers.d/visit.php）
     $out = array();
     foreach ($orders as $o) {
         $items = array();
@@ -331,7 +331,7 @@ function deptwork_orders($visitId) {
             'order_id' => oid((int)$o['id']),
             'order_no' => $o['order_no'],
             'order_type' => $o['order_type'],
-            'type_name' => isset($typeNames[$o['order_type']]) ? $typeNames[$o['order_type']] : $o['order_type'],
+            'type_name' => order_type_name($o['order_type']),
             'doctor_name' => $o['doctor_name'],
             'dept_name' => $o['dept_name'],
             'created_at' => $o['created_at'],

@@ -34,7 +34,7 @@ Clinic.history = (function () {
 
     /* 左侧就诊条目：日期 时间 科室（序号）+ 状态 */
     function visitItemHtml(v) {
-        var seq = String(v.visit_seq).padStart(3, '0');
+        var seq = Clinic.pad3(v.visit_seq);
         var moved = v.current_dept_name && v.current_dept_name !== v.dept_name;
         return '<div class="hp-visit" id="hpV_' + v.code + '" onclick="Clinic.history.select(\'' + v.code + '\')">' +
             '<div class="fs-13 text-muted">' + escHtml(v.date) + ' ' + escHtml(v.time) + '</div>' +
@@ -118,7 +118,7 @@ Clinic.history = (function () {
     function renderRight() {
         var right = document.getElementById('hpRight');
         if (!right || !CUR) return;
-        var seq = String(CUR.visit_seq).padStart(3, '0');
+        var seq = Clinic.pad3(CUR.visit_seq);
         right.innerHTML =
             '<div class="hp-right-bar">' +
             '  <div class="fs-13 fw-600">' + escHtml(CUR.date) + ' ' + escHtml(CUR.time) + ' ｜ ' + escHtml(CUR.dept_name) + ' 第' + seq + '号</div>' +

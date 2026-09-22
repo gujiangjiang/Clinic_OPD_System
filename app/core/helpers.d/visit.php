@@ -114,6 +114,17 @@ function item_status_name($s) {
     return isset($map[$s]) ? $map[$s] : $s;
 }
 
+/** 就诊序号 3 位补零（如 003；全站 5 处 str_pad 手写收敛） */
+function visit_seq_text($seq) {
+    return str_pad((string)(int)$seq, 3, '0', STR_PAD_LEFT);
+}
+
+/** 开单类型中文名（检验/检查/处置/处方；全站 4 份 $typeNames 重复 map 收敛） */
+function order_type_name($t) {
+    $map = array('lab' => '检验', 'imaging' => '检查', 'procedure' => '处置', 'prescription' => '处方');
+    return isset($map[$t]) ? $map[$t] : (string)$t;
+}
+
 /** 计算订单聚合状态（open/paid/registered/in_progress/done/dispensed/refunded/cancelled/rejected） */
 function order_agg_status($orderType, $items) {
     $sts = array();

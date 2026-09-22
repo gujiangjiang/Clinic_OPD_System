@@ -146,7 +146,7 @@ Clinic.queuePanel = (function () {
     /* 单行患者条目（九列网格纵向对齐）：
        日期 时间 科室 号别 号源 姓名 性别 年龄 状态 */
     function rowHtml(r) {
-        var seq = String(r.visit_seq).padStart(3, '0');
+        var seq = Clinic.pad3(r.visit_seq);
         var cell = function (cls, text, title) {
             return '<span class="qp-cell ' + cls + '"' + (title ? ' title="' + escHtml(title) + '"' : '') + '>' + text + '</span>';
         };
@@ -194,10 +194,10 @@ Clinic.queuePanel = (function () {
             var hay;
             if (consult) {
                 // 会诊行字段与候诊行同构：name/dept_name/visit_seq/date
-                var seq2 = String(r.visit_seq).padStart(3, '0');
+                var seq2 = Clinic.pad3(r.visit_seq);
                 hay = (r.name || '') + '|' + (r.dept_name || '') + '|' + seq2 + '|' + r.date;
             } else {
-                var seq = String(r.visit_seq).padStart(3, '0');
+                var seq = Clinic.pad3(r.visit_seq);
                 hay = (r.name || '') + '|' + (r.dept_name || '') + '|' + seq + '|' + r.date;
             }
             return hay.toLowerCase().indexOf(KEYWORD.toLowerCase()) !== -1;

@@ -411,7 +411,7 @@ function admin_part_settings($action) {
 
         $html = '<div style="padding:4px 2px">' .
             '<div class="fw-700 fs-15">' . e($row['patient']['name']) . '（' . e($visit['flow_no']) . '）</div>' .
-            '<div class="fs-13 text-muted mt-4 mb-12">' . e($visit['first_dept_name']) . ' 第' . str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) . '号 ｜ ' . e(substr($visit['registered_at'], 0, 16)) . ' ｜ ' . e(visit_status_name($visit['status'])) . '</div>' .
+            '<div class="fs-13 text-muted mt-4 mb-12">' . e($visit['first_dept_name']) . ' 第' . visit_seq_text($visit['visit_seq']) . '号 ｜ ' . e(substr($visit['registered_at'], 0, 16)) . ' ｜ ' . e(visit_status_name($visit['status'])) . '</div>' .
             '<div class="pc-tabs">' . $tabBtns . '</div>' .
             $panes .
             '</div>';

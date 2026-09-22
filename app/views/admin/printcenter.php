@@ -110,7 +110,7 @@ function pcItemHtml(v) {
         '  ' + pcStatusBadge(v.status) +
         '</div>' +
         '<div class="pc-item-meta">' + Clinic.escHtml(v.flow_no || '') + ' ｜ ' + Clinic.escHtml(v.dept_name || '') +
-        ' 第' + String(v.visit_seq).padStart(3, '0') + '号 ｜ ' + Clinic.escHtml((v.registered_at || '').substring(0, 16)) + '</div>' +
+        ' 第' + Clinic.pad3(v.visit_seq) + '号 ｜ ' + Clinic.escHtml((v.registered_at || '').substring(0, 16)) + '</div>' +
         '</div>';
 }
 

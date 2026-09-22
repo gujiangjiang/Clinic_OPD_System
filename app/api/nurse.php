@@ -142,14 +142,14 @@ switch ($action) {
             '<div class="flex-between">' .
             '  <div><a href="javascript:void(0)" class="fw-700 fs-16" onclick="Clinic.patient.editModal(\'' . e($p['patient_no']) . '\')">' . e($p['name']) . '</a>' .
             '  <span class="text-muted fs-13"> ' . e($p['gender']) . ' / ' . age_format($p['birth_date'], $visit['registered_at']) . '</span>' .
-            '  <span class="badge badge-gray" style="margin-left:6px">' . e($visit['current_dept_name']) . ' 第' . str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) . '号</span>' .
+            '  <span class="badge badge-gray" style="margin-left:6px">' . e($visit['current_dept_name']) . ' 第' . visit_seq_text($visit['visit_seq']) . '号</span>' .
             badge_html('primary', $visit['flow_no']) . '</div>' .            '<div class="fs-12 text-muted mt-4">患者ID ' . e($visit['patient_no']) . ' ｜ 首次科室 ' . e($visit['first_dept_name']) . ' ｜ 挂号 ' . e(substr($visit['registered_at'], 0, 16)) . ' ｜ 状态 ' . e(visit_status_name($visit['status'])) . '</div>' .
             '<div class="flex gap-8 mt-8">' .
             '<button class="btn btn-outline btn-sm" onclick="openVitals(\'' . e(oid($visitId)) . '\')">🌡️ 生命体征</button>' .
             '<button class="btn btn-outline btn-sm" onclick="openNursing(\'' . e(oid($visitId)) . '\')">📝 护理记录</button></div></div>';
 
         $orders = OrderRepository::byVisit($visitId);
-        $typeNames = array('lab' => '检验', 'imaging' => '检查', 'procedure' => '处置', 'prescription' => '处方');
+        // 开单类型中文名统一走 order_type_name()（helpers.d/visit.php）
         $html .= '<div class="fs-14 fw-700 mb-8">医生开单（检验/检查/处置/处方）</div>';
         if (!$orders) {
             $html .= '<div class="fs-13 text-muted">暂无开单</div>';
@@ -157,7 +157,7 @@ switch ($action) {
         foreach ($orders as $o) {
             $items = OrderRepository::itemsByOrder($o['id']);
             $html .= '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:6px">' .
-                '<div class="flex-between fs-13"><span class="fw-600">' . e(isset($typeNames[$o['order_type']]) ? $typeNames[$o['order_type']] : $o['order_type']) . ' ' . e($o['order_no']) . '</span>' .
+                '<div class="flex-between fs-13"><span class="fw-600">' . e(order_type_name($o['order_type'])) . ' ' . e($o['order_no']) . '</span>' .
                 '<span class="fs-12 text-muted">' . e($o['doctor_name']) . ' ｜ ' . e(substr($o['created_at'], 5, 11)) . ' ｜ ' . e(order_agg_status($o['order_type'], $items)) . '</span></div>';
             foreach ($items as $it) {
                 $html .= '<div class="fs-12 text-muted">· ' . e($it['item_name']) .

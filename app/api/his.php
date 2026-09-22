@@ -95,14 +95,14 @@ switch ($action) {
         $visitId = (int)get('visit_id', 0);
         if ($visitId <= 0) json_fail('请提供 visit_id 参数');
         $orders = PatientRepository::q('SELECT * FROM orders WHERE visit_id=? ORDER BY id DESC', array($visitId));
-        $typeNames = array('lab' => '检验', 'imaging' => '检查', 'procedure' => '处置', 'prescription' => '处方');
+    // 开单类型中文名统一走 order_type_name()（helpers.d/visit.php）
         $out = array();
         foreach ($orders as $o) {
             $items = PatientRepository::q('SELECT item_name, price, quantity, single_dose, frequency, route, is_nurse, status FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
             $out[] = array(
                 'order_no' => $o['order_no'],
                 'order_type' => $o['order_type'],
-                'order_type_name' => isset($typeNames[$o['order_type']]) ? $typeNames[$o['order_type']] : $o['order_type'],
+                'order_type_name' => order_type_name($o['order_type']),
                 'doctor_name' => $o['doctor_name'],
                 'total_amount' => (float)$o['total_amount'],
                 'status' => $o['status'],

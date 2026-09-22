@@ -101,7 +101,7 @@ function cashier_part_read($action) {
                 $refundNote = ($r['status'] === 'refunded' && !empty($r['cancel_reason']))
                     ? '<div class="fs-12 text-danger" title="退费理由">退费：' . e($r['cancel_reason']) . '</div>' : '';
                 $html .= '<tr>' .
-                    '<td class="fw-700">' . e($r['first_dept_name']) . ' ' . str_pad((string)$r['visit_seq'], 3, '0', STR_PAD_LEFT) . '号</td>' .
+                    '<td class="fw-700">' . e($r['first_dept_name']) . ' ' . visit_seq_text($r['visit_seq']) . '号</td>' .
                     '<td><a href="javascript:void(0)" onclick="patientEdit(\'' . e($r['patient_no']) . '\')">' . e($r['pname']) . '</a></td>' .
                     '<td>' . e($r['patient_no']) . '</td>' .
                     '<td>' . e($r['flow_no']) . '</td>' .
@@ -148,7 +148,7 @@ function cashier_part_read($action) {
             '<span class="text-muted fs-13">' . e($patient['gender']) . ' / ' . age_format($patient['birth_date'], $visit['registered_at']) . '</span></div>' .
             badge_html('primary', $visit['flow_no']) . '</div>' .
             '<div class="fs-13 text-muted mt-4">患者ID ' . e($visit['patient_no']) . ' ｜ 首次科室 ' . e($visit['first_dept_name']) .
-            ' 第' . str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) . '号 ｜ 挂号 ' . e(substr($visit['registered_at'], 0, 16)) .
+            ' 第' . visit_seq_text($visit['visit_seq']) . '号 ｜ 挂号 ' . e(substr($visit['registered_at'], 0, 16)) .
             ' ｜ ' . badge_html('gray', visit_status_name($visit['status'])) . '</div></div>';
 
         // 批量查询开单明细（避免逐单 N+1）
@@ -162,7 +162,7 @@ function cashier_part_read($action) {
                 $itemsByOrder[(int)$it['order_id']][] = $it;
             }
         }
-        $typeNames = array('lab' => '检验', 'imaging' => '检查', 'procedure' => '处置', 'prescription' => '处方');
+        // 开单类型中文名统一走 order_type_name()（helpers.d/visit.php）
 
         // ===== 未缴费项目（挂号费 + open 开单）——仅在顶部简洁提示，明细走模态框 =====
         $unpaid = array();
@@ -177,7 +177,7 @@ function cashier_part_read($action) {
                 // 皮试钳制：含需皮试药品且本次就诊尚无阴性结果的正式处方/处置不可缴费（前端禁选 + 后端硬拦）
                 $locked = order_skin_locked($o, $items) ? 1 : 0;
                 $unpaid[] = array('kind' => 'order', 'oid' => oid($o['id']), 'order_no' => $o['order_no'],
-                    'name' => (isset($typeNames[$o['order_type']]) ? $typeNames[$o['order_type']] : '') . ' ' . $o['order_no'],
+                    'name' => (order_type_name($o['order_type'])) . ' ' . $o['order_no'],
                     'doctor' => $o['doctor_name'], 'amount' => (float)$o['total_amount'], 'items' => $items,
                     'locked' => $locked, 'locked_reason' => $locked ? '需先完成皮试且结果阴性后方可缴费' : '');
             }

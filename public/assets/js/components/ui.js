@@ -180,6 +180,11 @@ Clinic.visitStatusName = function (s, overrides) {
     if (overrides) { for (var k in overrides) map[k] = overrides[k]; }
     return map[s] || s || '';
 };
+/** 开单类型中文名（与后端 order_type_name 同 map，SSOT 单一数据源） */
+Clinic.orderTypeName = function (t) {
+    var map = { lab: '检验', imaging: '检查', procedure: '处置', prescription: '处方' };
+    return map[t] || t || '';
+};
 Clinic.money = function (n) {
     return '¥' + (parseFloat(n) || 0).toFixed(2);
 };
@@ -380,7 +385,6 @@ Clinic.refundApproval = {
      */
     refundDetailHtml: function (d) {
         var r = d.request || {}, approvals = d.approvals || [], orders = d.orders || [];
-        var typeNames = { lab: '检验', imaging: '检查', procedure: '处置', prescription: '处方' };
         var statusMap = {
             open: ['badge-warning', '待缴费'], paid: ['badge-primary', '已缴费'],
             reviewed: ['badge-warning', '审方通过待发药'], registered: ['badge-info', '已登记'], dispensing: ['badge-warning', '发药中'],
@@ -416,7 +420,7 @@ Clinic.refundApproval = {
         html += '<div class="card"><div class="fs-14 fw-700 mb-8">项目执行状态</div>';
         orders.forEach(function (o) {
             html += '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">' +
-                '<div class="fs-13 fw-600">' + (typeNames[o.order_type] || '') + ' ' + Clinic.escHtml(o.order_no) +
+                '<div class="fs-13 fw-600">' + (Clinic.orderTypeName(o.order_type)) + ' ' + Clinic.escHtml(o.order_no) +
                 ' ｜ 开单医生 ' + Clinic.escHtml(o.doctor_name) + '</div>';
             // 流程步骤：✓ 完成 / ○ 待执行 / ✕ 已退费或已驳回（红色）
             var steps = (o.flow || []).map(function (s) {

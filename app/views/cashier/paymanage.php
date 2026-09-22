@@ -63,7 +63,7 @@ function searchVisits(keepDetail) {
                         '<div class="flex-between">' +
                         '<span class="fw-600">' + (p ? Clinic.escHtml(p.name) : '') + ' <span class="fs-12 text-muted fw-400">' +
                         (p ? Clinic.escHtml(p.gender) + '/' + Clinic.escHtml(Clinic.validate.formatAge(p.birth_date)) : '') + '</span></span>' +
-                        '<span class="fs-12 text-muted">' + Clinic.escHtml(v.first_dept_name) + ' 第' + String(v.visit_seq).padStart(3, '0') + '号</span></div>' +
+                        '<span class="fs-12 text-muted">' + Clinic.escHtml(v.first_dept_name) + ' 第' + Clinic.pad3(v.visit_seq) + '号</span></div>' +
                         '<div class="fs-12 text-muted mt-4">患者ID ' + Clinic.escHtml(v.patient_no) + ' ｜ 流水号 ' + Clinic.escHtml(v.flow_no) + ' ｜ ' + Clinic.escHtml(v.registered_at) +
                         ' ｜ <span class="badge ' + (v.status === 'paid' ? 'badge-primary' : (v.status === 'finished' ? 'badge-success' : 'badge-gray')) + '">' + visitStatusName(v.status) + '</span></div></div>';
                 }).join('');
@@ -226,7 +226,6 @@ function showBatchDetail(paymentNo) {
             var head = d.head || {};
             var refund = d.refund || null;
             var rows = '';
-            var typeNames = { lab: '检验', imaging: '检查', procedure: '处置', prescription: '处方' };
             // 每项目独立进度渲染（只显示节点，不显示操作人姓名；退费节点红色）
             var flowText = function (flow) {
                 if (!flow || !flow.length) return '';
@@ -242,7 +241,7 @@ function showBatchDetail(paymentNo) {
             orders.forEach(function (o) {
                 rows += '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">' +
                     '<div class="flex-between">' +
-                    '<div class="fs-13 fw-600">' + (typeNames[o.order_type] || '') + ' ' + Clinic.escHtml(o.order_no) +
+                    '<div class="fs-13 fw-600">' + (Clinic.orderTypeName(o.order_type)) + ' ' + Clinic.escHtml(o.order_no) +
                     '<span class="fs-12 text-muted fw-400"> ｜ 开单医生 ' + Clinic.escHtml(o.doctor_name) + '</span></div>' +
                     '<span class="fs-13 fw-600">¥' + parseFloat(o.total).toFixed(2) + '</span></div>';
                 // 项目明细（每项目一行）：名称占左 2/3，进度靠右侧约 1/3 分隔线靠左对齐

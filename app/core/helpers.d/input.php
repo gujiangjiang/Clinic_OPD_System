@@ -281,8 +281,8 @@ function item_delete_check($itemType, $itemId) {
         elseif (in_array($r['status'], $pending, true)) $doing += (int)$r['c'];
     }
     if ($unpaid === 0 && $doing === 0) return array('ok' => true, 'msg' => '');
-    $typeName = array('lab' => '检验', 'imaging' => '检查', 'procedure' => '处置', 'prescription' => '处方');
-    $doLabel  = isset($typeName[$itemType]) ? '待' . $typeName[$itemType] : '待执行';
+    $tn = order_type_name($itemType);
+    $doLabel = $tn !== (string)$itemType ? '待' . $tn : '待执行';
     $parts = array();
     if ($unpaid > 0) $parts[] = $unpaid . ' 位未缴费';
     if ($doing  > 0) $parts[] = $doing . ' 位' . $doLabel;
