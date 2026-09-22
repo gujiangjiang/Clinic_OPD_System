@@ -1,66 +1,17 @@
 /**
- * admin_items.js v1.0.0 — 管理端项目列表公共组件
+ * admin_items.js v1.1.0 — 管理端项目列表公共组件
  * ============================================================
  * 说明：检验项目管理（labitems）、检查项目管理（examitems）、
- * 药品信息（drugs）三个列表页共用同一套「分类 tab + 关键字过滤 +
- * 计数」基础设施（此前三页各自实现，仅 id 前缀/文案不同）。
- * 差异经 cfg 注入；openItemForm/openDrugForm（字段采集差异大）保留各页。
+ * 药品信息（drugs）三个列表页共用：delItem（删除确认+ajax+刷新）、
+ * catMgr（分类管理弹窗）、pagedTable（服务端分页表格）。
+ * openItemForm/openDrugForm（字段采集差异大）保留各页。
+ * 旧版客户端过滤基础设施（buildCats/filterByCat/filterRows）已随
+ * v8.17.3 服务端分页改造被取代（0 调用），已删除。
  * 依赖：ajax.js / modal.js / toast.js
  * ============================================================ */
 window.Clinic = window.Clinic || {};
 
 Clinic.adminItems = {
-
-    /**
-     * 分类子 tab 动态构建（按列表数据生成）
-     * @param {object} cfg { listId, tabsId, current, tabFn }
-     *   listId  列表容器 id（tbody tr 含 data-cat）
-     *   tabsId  tab 容器 id
-     *   current 当前选中分类
-     *   tabFn   点击 tab 的全局函数名（接收 (btn, cat)）
-     */
-    buildCats: function (cfg) {
-        var cats = [];
-        document.querySelectorAll('#' + cfg.listId + ' tbody tr').forEach(function (tr) {
-            var c = tr.getAttribute('data-cat') || '';
-            if (c && cats.indexOf(c) === -1) cats.push(c);
-        });
-        var bar = document.getElementById(cfg.tabsId);
-        bar.innerHTML = '<button class="btn btn-sm ' + (cfg.current === '' ? 'btn-primary' : 'btn-outline') + '" data-cat="" onclick="' + cfg.tabFn + '(this,\'\')">全部</button>' +
-            cats.map(function (c) {
-                return '<button class="btn btn-sm ' + (cfg.current === c ? 'btn-primary' : 'btn-outline') + '" data-cat="' + c + '" onclick="' + cfg.tabFn + '(this,\'' + c + '\')">' + c + '</button>';
-            }).join('');
-    },
-
-    /**
-     * 分类过滤：高亮 tab + 重新应用搜索过滤
-     * @param {object} cfg { tabsId, setCat, apply }
-     */
-    filterByCat: function (cfg, c) {
-        cfg.setCat(c);
-        document.querySelectorAll('#' + cfg.tabsId + ' .btn').forEach(function (b) {
-            b.className = 'btn btn-sm ' + ((b.getAttribute('data-cat') || '') === c ? 'btn-primary' : 'btn-outline');
-        });
-        cfg.apply();
-    },
-
-    /**
-     * 关键字 + 分类组合过滤：行显隐 + 计数动态更新
-     * @param {object} cfg { listId, countId, getCat, getQuery, countText }
-     *   countText(cat, q, n) 各页计数文案格式
-     */
-    filterRows: function (cfg) {
-        var q = (cfg.getQuery() || '').trim().toLowerCase();
-        var n = 0;
-        document.querySelectorAll('#' + cfg.listId + ' tbody tr').forEach(function (tr) {
-            var hit = (cfg.getCat() === '' || tr.getAttribute('data-cat') === cfg.getCat()) &&
-                tr.textContent.toLowerCase().indexOf(q) !== -1;
-            tr.style.display = hit ? '' : 'none';
-            if (hit) n++;
-        });
-        var cnt = document.getElementById(cfg.countId);
-        if (cnt) cnt.textContent = cfg.countText(cfg.getCat(), q, n);
-    },
 
     /**
      * 删除项目（确认 + ajax + 刷新）
