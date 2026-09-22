@@ -30,6 +30,14 @@ function admin_part_audit($action) {
         $status = req('status', 'pending');
         $page = (int)get('page', 0);
         $pageSize = max(1, min(100, (int)get('size', 20)));
+        // 日期范围筛选（申请时间）+ 跨度钳制（审核中心域上限 1 年）
+        $from = get('from');
+        $to = get('to');
+        list($from, $to) = date_span_clamp('audit', $from, $to);
+        $dateCond = '';
+        $dateParams = array();
+        if ($from !== '') { $dateCond .= ' AND date(created_at)>=?'; $dateParams[] = $from; }
+        if ($to !== '') { $dateCond .= ' AND date(created_at)<=?'; $dateParams[] = $to; }
         if ($status === 'handled') {
             // 已处理页签：已通过 / 已驳回 / 已使用
             $statusCond = "status IN ('approved','rejected','used')";
@@ -39,6 +47,8 @@ function admin_part_audit($action) {
             $statusCond = 'status=?';
             $statusParams = array($status);
         }
+        $statusCond .= $dateCond;
+        $statusParams = array_merge($statusParams, $dateParams);
         // 分组维度：'' 平铺 / user 按申请人 / type 按事项类型
         $group = req('group', '');
         $group = ($group === 'user' || $group === 'type') ? $group : '';

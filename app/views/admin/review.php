@@ -17,15 +17,23 @@ Router::title('审核中心');
     <div><div class="page-title">✅ 审核中心</div><div class="page-desc">审核项目添加、模板与报告撤回申请</div></div>
 </div>
 
-<div class="flex gap-8 mb-12" style="flex-shrink:0">
+<div class="flex gap-8 mb-12" style="flex-shrink:0;align-items:center;flex-wrap:wrap">
     <button class="btn btn-primary btn-sm" data-tab="pending" onclick="switchTab('pending')">待审核</button>
     <button class="btn btn-outline btn-sm" data-tab="handled" onclick="switchTab('handled')">已处理</button>
-    <select class="select" id="groupSelect" onchange="switchGroup()" style="width:auto;margin-left:8px">
+    <select class="select" id="groupSelect" onchange="switchGroup()" style="width:auto">
         <option value="">平铺列表</option>
         <option value="user">按申请人分组</option>
         <option value="type">按类型分组</option>
     </select>
     <button class="btn btn-success btn-sm" id="auditAllBtn" onclick="doAuditAll()">✅ 一键全部通过</button>
+    <span class="flex gap-8" style="align-items:center;margin-left:auto">
+        <input type="text" class="input" id="auditFrom" readonly placeholder="开始日期" style="width:140px;cursor:pointer;background:var(--bg)"
+            onclick="Clinic.datePicker.open(this,{maxToday:false,peer:'auditTo',maxSpan:365})">
+        <span class="text-muted">至</span>
+        <input type="text" class="input" id="auditTo" readonly placeholder="结束日期" style="width:140px;cursor:pointer;background:var(--bg)"
+            onclick="Clinic.datePicker.open(this,{maxToday:true,peer:'auditFrom',maxSpan:365})">
+        <button class="btn btn-outline btn-sm" onclick="resetAuditDates()">重置</button>
+    </span>
 </div>
 
 <div class="card list-card" id="auditList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
@@ -51,9 +59,24 @@ function switchGroup() {
     loadAudits(getCurrentTab());
 }
 
+/** 读取日期范围（审核列表筛选，申请时间；跨度上限 1 年由前后端双重钳制） */
+function auditDateParams() {
+    return '&from=' + encodeURIComponent((document.getElementById('auditFrom') || {}).value || '') +
+        '&to=' + encodeURIComponent((document.getElementById('auditTo') || {}).value || '');
+}
+
+/** 重置日期范围回到全部 */
+function resetAuditDates() {
+    var f = document.getElementById('auditFrom');
+    var t = document.getElementById('auditTo');
+    if (f) f.value = '';
+    if (t) t.value = '';
+    loadAudits(getCurrentTab());
+}
+
 /** 平铺分页地址（滚动加载） */
 function auditListUrl(p, size, st) {
-    return '/api/admin?action=audit_list&status=' + st.status + '&group=&page=' + p + '&size=' + size;
+    return '/api/admin?action=audit_list&status=' + st.status + '&group=&page=' + p + '&size=' + size + auditDateParams();
 }
 
 function initAuditPaged() {
@@ -86,7 +109,7 @@ function loadAudits(status) {
     if (AUDIT_PAGED) { AUDIT_PAGED.stop(); AUDIT_PAGED = null; }
     var box = document.getElementById('auditList');
     if (box) box.innerHTML = '<div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div>';
-    Clinic.get('/api/admin?action=audit_list&status=' + status + '&group=' + group, null, {
+    Clinic.get('/api/admin?action=audit_list&status=' + status + '&group=' + group + auditDateParams(), null, {
         onSuccess: function (json) {
             document.getElementById('auditList').innerHTML = json.data.html;
             // 一键全部通过按钮：分组视图不显示（按类型分组支持，按申请人分组不支持）
