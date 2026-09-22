@@ -67,33 +67,19 @@ function admin_ana_custom() {
     }
     if ($groupBy === 'dept') {
         $rows = array();
-        $regs = AnalyticsRepository::q("SELECT current_dept_id AS d, COUNT(*) AS c, COALESCE(SUM(fee),0) AS f FROM registrations WHERE status IN ('paid','visiting','finished') AND paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ? GROUP BY current_dept_id", array($start, $end));
-        $deptNames = array();
-        foreach (AnalyticsRepository::q('SELECT id, name FROM departments') as $dd) $deptNames[(int)$dd['id']] = $dd['name'];
+        // 人次/挂号费与项目费按就诊科室归集（共享 SQL 收敛：ana_paid_regs/ana_order_fee_by_dept）
+        $regs = ana_paid_regs($start, $end);
+        $orderFee = ana_order_fee_by_dept($start, $end);
+        $deptNames = ana_dept_maps()['names'];
         $stat = array();
-        foreach ($regs as $r) {
-            $d = (int)$r['d'];
+        foreach ($regs as $d => $v) {
             if (!isset($stat[$d])) $stat[$d] = array('patients' => 0, 'reg_fee' => 0.0, 'drug' => 0.0, 'lab' => 0.0, 'imaging' => 0.0, 'procedure' => 0.0);
-            $stat[$d]['patients'] += (int)$r['c'];
-            $stat[$d]['reg_fee'] += (float)$r['f'];
+            $stat[$d]['patients'] += (int)$v['patients'];
+            $stat[$d]['reg_fee'] += (float)$v['reg_fee'];
         }
-        $vd = array(); $map = array();
-        foreach (AnalyticsRepository::q("SELECT visit_id, order_type, COALESCE(SUM(total_amount),0) AS s FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ? GROUP BY visit_id, order_type", array($start, $end)) as $r) { $vd[(int)$r['visit_id']] = true; $map[] = $r; }
-        $vdept = array();
-        if ($vd) {
-            $ids = array_keys($vd);
-            foreach (array_chunk($ids, 400) as $chunk) {
-                $ph = in_placeholders($chunk);
-                foreach (AnalyticsRepository::q("SELECT id, current_dept_id FROM registrations WHERE id IN ($ph)", $chunk) as $v3) $vdept[(int)$v3['id']] = (int)$v3['current_dept_id'];
-            }
-        }
-        $tk = array('prescription' => 'drug', 'lab' => 'lab', 'imaging' => 'imaging', 'procedure' => 'procedure');
-        foreach ($map as $r) {
-            $vid = (int)$r['visit_id'];
-            $d = isset($vdept[$vid]) ? $vdept[$vid] : 0;
+        foreach ($orderFee as $d => $v) {
             if (!isset($stat[$d])) $stat[$d] = array('patients' => 0, 'reg_fee' => 0.0, 'drug' => 0.0, 'lab' => 0.0, 'imaging' => 0.0, 'procedure' => 0.0);
-            $k = isset($tk[$r['order_type']]) ? $tk[$r['order_type']] : null;
-            if ($k) $stat[$d][$k] += (float)$r['s'];
+            foreach (array('drug', 'lab', 'imaging', 'procedure') as $k) $stat[$d][$k] += (float)$v[$k];
         }
         foreach ($stat as $d => $v) {
             $v['total'] = $v['reg_fee'] + $v['drug'] + $v['lab'] + $v['imaging'] + $v['procedure'];
