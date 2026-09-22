@@ -16,6 +16,7 @@
  * ============================================================ */
 require __DIR__ . '/_init.php';
 require_once APP_ROOT . '/app/includes/forms.php';
+require_once APP_ROOT . '/app/includes/catalog_query.php';
 
 $u = Auth::user();
 

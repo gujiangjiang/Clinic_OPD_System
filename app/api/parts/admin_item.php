@@ -26,20 +26,19 @@ function admin_part_item($action) {
         else $type = get('type', 'lab');
         $table = $type === 'lab' ? 'lab_items' : 'exam_items';
         $isAdmin = $u['role'] === 'admin';
-        // v8.17.3 统一分页：page/size/kw/cat 服务端过滤，无限滚动分段加载
-        $page = max(1, (int)get('page', 1));
-        $pageSize = max(1, min(100, (int)get('size', 20)));
+        // v8.17.3 统一分页：page/size/kw/cat 服务端过滤，无限滚动分段加载；
+        // 共享目录查询（includes/catalog_query.php）：管理端不过滤状态（含待审核/已禁用）
+        $r = catalog_paged_rows($type, array(
+            'kw' => get('kw', ''),
+            'cat' => get('cat', ''),
+            'is_group' => $type === 'lab' ? 0 : null,
+            'status_sql' => '',
+            'page' => get('page', 1),
+            'pageSize' => get('size', 20),
+        ));
+        $total = $r['total'];
+        $rows = $r['rows'];
         $kw = trim(get('kw', ''));
-        $cat = trim(get('cat', ''));
-        $like = $kw !== '' ? '%' . $kw . '%' : '';
-        $where = "1=1";
-        $params = array();
-        if ($type === 'lab') $where .= " AND is_group=0";
-        if ($cat !== '') { $where .= " AND category=?"; $params[] = $cat; }
-        if ($kw !== '') { $where .= " AND name LIKE ?"; $params[] = $like; }
-        $total = (int)OrderRepository::val("SELECT COUNT(*) FROM $table WHERE $where", $params);
-        $rows = OrderRepository::q("SELECT * FROM $table WHERE $where ORDER BY category, id LIMIT ? OFFSET ?",
-            array_merge($params, array($pageSize, ($page - 1) * $pageSize)));
         $thead = ($type === 'lab')
             ? '<thead><tr><th>名称</th><th>分类</th><th>价格</th><th>单位</th><th>正常范围</th><th>状态</th><th>操作</th></tr></thead>'
             : '<thead><tr><th>名称</th><th>分类</th><th>价格</th><th>描述</th><th>状态</th><th>操作</th></tr></thead>';
@@ -73,6 +72,8 @@ function admin_part_item($action) {
             $list[] = $rowHtml;
         }
         $cats = array();
+        $page = max(1, (int)get('page', 1));
+        $pageSize = max(1, min(100, (int)get('size', 20)));
         if ($page === 1) {
             foreach (OrderRepository::q("SELECT name FROM item_categories WHERE ctype=? ORDER BY sort, id", array($type)) as $c) $cats[] = $c['name'];
         }

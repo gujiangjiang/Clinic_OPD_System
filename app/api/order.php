@@ -10,6 +10,7 @@
  * ============================================================ */
 require __DIR__ . '/_init.php';
 require_once APP_ROOT . '/app/includes/print_templates.php';
+require_once APP_ROOT . '/app/includes/catalog_query.php';
 
 $u = Auth::user();
 

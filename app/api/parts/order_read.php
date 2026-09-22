@@ -20,162 +20,43 @@ function order_part_read($action) {
 
     if ($action === 'catalog') {
         $type = get('type', 'lab');
+        if (catalog_table_name($type) === '') $type = 'lab';
         // 分页：前端滚动分段加载（infiniteList），首屏 1 页，滚到底自动续加载；
         // 关键字搜索 / 检验筛选走服务端过滤（避免分页下仅过滤已加载页的旧问题）
         $page = max(1, (int)get('page', 1));
         $pageSize = max(1, min(100, (int)get('size', 20)));
-        $kw = trim(get('kw', ''));
-        $f = get('f', '');   // lab: single=单个 / group=组合（空=全部）
-        $like = $kw !== '' ? '%' . $kw . '%' : '';
-        // 处方快速筛选：药品分类（西药/中药/中成药，管理员自定义；空=全部）
-        $cat = trim(get('cat', ''));
-        $list = array();
-        $total = 0;
-        // 联动字典：皮试处置详情（id→名称/费用）+ 给药途径绑定计费处置（途径名→处置）
-        //           + 频次/途径选项列表（供已选列表下拉选择）
-        $dicts = array('skin_tests' => array(), 'route_bindings' => array(), 'frequencies' => array(), 'routes' => array(), 'categories' => array());
-        // 检验组合/成员关系全量映射（互斥/共享成员提醒用；分页下由首页随响应带回）
-        $labMap = array('groups' => array(), 'members' => array(), 'names' => array());
-
+        // 共享目录查询（includes/catalog_query.php）：四类项目分页+搜索+筛选+行映射
+        $opts = array(
+            'kw' => get('kw', ''),
+            'cat' => get('cat', ''),
+            'page' => $page,
+            'pageSize' => $pageSize,
+        );
         if ($type === 'lab') {
-            // 检验：全部单项（含被组合包含的成员，均可单独开具）+ 检验组合（按组价整体收费，可整体开组）
-            $where = "status='approved'";
-            $params = array();
-            if ($f === 'single') $where .= " AND is_group=0";
-            elseif ($f === 'group') $where .= " AND is_group=1";
-            if ($kw !== '') { $where .= " AND name LIKE ?"; $params[] = $like; }
-            $total = (int)OrderRepository::val("SELECT COUNT(*) FROM lab_items WHERE $where", $params);
-            $rows = OrderRepository::q("SELECT * FROM lab_items WHERE $where ORDER BY category, id LIMIT ? OFFSET ?",
-                array_merge($params, array($pageSize, ($page - 1) * $pageSize)));
-            foreach ($rows as $r) {
-                if (!(int)$r['is_group']) {
-                    $list[] = array(
-                        'id' => (int)$r['id'], 'name' => $r['name'], 'price' => (float)$r['price'],
-                        'unit' => $r['unit'], 'category_name' => $r['category'], 'spec' => '', 'stock' => 0,
-                        'is_group' => 0, 'members' => '',
-                    );
-                } else {
-                    $mNames = array();
-                    $mIds = array();
-                    foreach (OrderRepository::q('SELECT id, name FROM lab_items WHERE id IN (SELECT item_id FROM lab_group_members WHERE group_id=?) ORDER BY id', array($r['id'])) as $m) {
-                        $mNames[] = $m['name'];
-                        $mIds[] = (int)$m['id'];
-                    }
-                    $list[] = array(
-                        'id' => (int)$r['id'], 'name' => $r['name'], 'price' => (float)$r['price'],
-                        'unit' => '', 'category_name' => $r['category'],
-                        'spec' => implode('、', $mNames), 'stock' => 0,
-                        'is_group' => 1, 'members' => implode('、', $mNames),
-                        'member_ids' => implode(',', $mIds),   // 组合包含的单项 ID，供前端互斥判断
-                    );
-                }
-            }
-            foreach (OrderRepository::q("SELECT id, name FROM lab_items WHERE status='approved'") as $it) {
-                $labMap['names'][(int)$it['id']] = $it['name'];
-            }
-            foreach (OrderRepository::q("SELECT gm.group_id, gm.item_id FROM lab_group_members gm
-                JOIN lab_items g ON g.id = gm.group_id AND g.status='approved' AND g.is_group=1") as $m) {
-                $gid = (int)$m['group_id'];
-                $mid = (int)$m['item_id'];
-                $labMap['groups'][$gid][] = $mid;
-                $labMap['members'][$mid][] = $gid;
-            }
-        } elseif ($type === 'imaging') {
-            $where = "status='approved'";
-            $params = array();
-            if ($kw !== '') { $where .= " AND name LIKE ?"; $params[] = $like; }
-            $total = (int)OrderRepository::val("SELECT COUNT(*) FROM exam_items WHERE $where", $params);
-            $rows = OrderRepository::q("SELECT * FROM exam_items WHERE $where ORDER BY category, id LIMIT ? OFFSET ?",
-                array_merge($params, array($pageSize, ($page - 1) * $pageSize)));
-            foreach ($rows as $r) {
-                $list[] = array(
-                    'id' => (int)$r['id'], 'name' => $r['name'], 'price' => (float)$r['price'],
-                    'unit' => '', 'category_name' => $r['category'], 'spec' => '', 'stock' => 0,
-                );
-            }
-        } elseif ($type === 'procedure') {
-            $where = "status='approved'";
-            $params = array();
-            if ($kw !== '') { $where .= " AND name LIKE ?"; $params[] = $like; }
-            $total = (int)OrderRepository::val("SELECT COUNT(*) FROM disposal_items WHERE $where", $params);
-            $rows = OrderRepository::q("SELECT * FROM disposal_items WHERE $where ORDER BY id LIMIT ? OFFSET ?",
-                array_merge($params, array($pageSize, ($page - 1) * $pageSize)));
-            foreach ($rows as $r) {
-                $list[] = array(
-                    'id' => (int)$r['id'], 'name' => $r['name'], 'price' => (float)$r['fee'],
-                    'unit' => '次', 'category_name' => '', 'spec' => '', 'stock' => 0,
-                    'nurse_required' => (int)$r['is_nurse'],
-                );
-            }
+            $f = get('f', '');   // lab: single=单个 / group=组合（空=全部）
+            if ($f === 'single') $opts['is_group'] = 0;
+            elseif ($f === 'group') $opts['is_group'] = 1;
         } elseif ($type === 'prescription') {
             // 处方：库存为 0 的药品不显示（缺货不可开具，原前端过滤下沉到服务端）
-            $where = "status='approved' AND qty > 0";
-            $params = array();
-            if ($cat !== '') { $where .= " AND category=?"; $params[] = $cat; }
-            if ($kw !== '') { $where .= " AND (name LIKE ? OR vendor_short LIKE ?)"; $params[] = $like; $params[] = $like; }
-            $total = (int)OrderRepository::val("SELECT COUNT(*) FROM drugs WHERE $where", $params);
-            $rows = OrderRepository::q("SELECT * FROM drugs WHERE $where ORDER BY category, id LIMIT ? OFFSET ?",
-                array_merge($params, array($pageSize, ($page - 1) * $pageSize)));
-            foreach ($rows as $r) {
-                $list[] = array(
-                    'id' => (int)$r['id'], 'name' => $r['name'], 'price' => (float)$r['price'],
-                    'spec' => $r['spec'], 'unit' => $r['package_unit'],
-                    'company_short' => $r['vendor_short'], 'category_name' => $r['category'],
-                    'single_dose' => $r['single_dose'], 'frequency' => $r['frequency'],
-                    'route' => $r['route'], 'route_nurse_required' => (int)$r['is_nurse'],
-                    'stock' => (int)$r['qty'], 'nurse_required' => (int)$r['is_nurse'],
-                    // 规格结构化：单剂量值/单位 + 包装数量/单位 + 单次使用数量
-                    'spec_dose' => (float)$r['spec_dose'],
-                    'spec_dose_unit' => $r['spec_dose_unit'],
-                    'spec_pack_qty' => (int)$r['spec_pack_qty'],
-                    'spec_pack_unit' => $r['spec_pack_unit'],
-                    'single_use_qty' => (float)$r['single_use_qty'],
-                    // v8.17 拆零销售语义：allow_split 允许拆零；pack_unit 包装单位；min_unit 最小单位；
-                    // pack_size 每包装最小单位数；库存 drugs.qty 已统一为「最小单位」口径
-                    'allow_split' => (int)(isset($r['allow_split']) ? $r['allow_split'] : 0),
-                    'pack_unit' => $r['package_unit'],
-                    'min_unit' => $r['spec_pack_unit'],
-                    'pack_size' => max(1, (int)$r['spec_pack_qty']),
-                    'min_spec_amount' => (float)$r['spec_dose'],
-                    'min_spec_unit' => $r['spec_dose_unit'],
-                    // 皮试联动：开方时前端据此弹确认框并标注
-                    'is_skin_test' => (int)(isset($r['is_skin_test']) ? $r['is_skin_test'] : 0),
-                    'skin_test_item_id' => (int)(isset($r['skin_test_item_id']) ? $r['skin_test_item_id'] : 0),
-                );
-            }
+            $opts['status_sql'] = "status='approved' AND qty > 0";
         }
+        $r = catalog_paged_query($type, $opts);
+        $list = $r['list'];
+        $total = $r['total'];
         // 联动字典 / 组合映射：仅随首页返回（后续分页无需重复携带）
         if ($page <= 1) {
-            foreach (OrderRepository::q("SELECT name FROM drug_settings WHERE stype='freq' ORDER BY sort, id") as $fq) {
-                $dicts['frequencies'][] = $fq['name'];
-            }
-            foreach (OrderRepository::q("SELECT name FROM drug_settings WHERE stype='route' ORDER BY sort, id") as $rt) {
-                $dicts['routes'][] = $rt['name'];
-            }
-            foreach (OrderRepository::q("SELECT name FROM drug_settings WHERE stype='category' ORDER BY sort, id") as $cg) {
-                $dicts['categories'][] = $cg['name'];
-            }
-            $stIds = array();
+            $skinIds = array();
             foreach ($list as $it) {
-                if (!empty($it['skin_test_item_id'])) $stIds[(int)$it['skin_test_item_id']] = true;
+                if (!empty($it['skin_test_item_id'])) $skinIds[(int)$it['skin_test_item_id']] = true;
             }
-            if ($stIds) {
-                $ph = in_placeholders($stIds);
-                foreach (OrderRepository::q("SELECT id, name, fee FROM disposal_items WHERE id IN ($ph)", array_keys($stIds)) as $d) {
-                    $dicts['skin_tests'][(int)$d['id']] = array('name' => $d['name'], 'fee' => (float)$d['fee']);
-                }
-            }
-            foreach (OrderRepository::q("SELECT name, bind_disposal_item_id FROM drug_settings WHERE stype='route' AND bind_disposal_item_id > 0") as $rb) {
-                $dd = OrderRepository::one('SELECT id, name, fee FROM disposal_items WHERE id=?', array((int)$rb['bind_disposal_item_id']));
-                if ($dd) $dicts['route_bindings'][$rb['name']] = array('id' => (int)$dd['id'], 'name' => $dd['name'], 'fee' => (float)$dd['fee']);
-            }
-        }
-        $resp = array('list' => $list, 'total' => $total, 'has_more' => ($page * $pageSize) < $total);
-        if ($page <= 1) {
-            if ($type === 'lab') $resp['lab_map'] = $labMap;
+            $dicts = catalog_link_dicts(true, $skinIds);
+            $resp = array('list' => $list, 'total' => $total, 'has_more' => ($page * $pageSize) < $total);
+            if ($type === 'lab') $resp['lab_map'] = catalog_lab_map();
             $resp['link_dicts'] = $dicts;
+            json_ok($resp);
+            return;
         }
-        json_ok($resp);
+        json_ok(array('list' => $list, 'total' => $total, 'has_more' => ($page * $pageSize) < $total));
         return;
     }
 
