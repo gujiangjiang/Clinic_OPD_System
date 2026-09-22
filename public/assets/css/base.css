@@ -97,8 +97,12 @@ input[type="number"]::-webkit-outer-spin-button {
     --text-muted: #64748b;
     --text-invert: #e2e8f0;
     --border: #e2e8f0;
+    /* --muted：--text-muted 别名（22 处既有用法统一生效，降灰意图不再静默失效） */
+    --muted: #64748b;
     --primary: #0e7490;
     --primary-hover: #155e75;
+    /* 品牌色深阶（医生叫号悬浮窗标题栏渐变用，原未定义致渐变恒为蓝色 fallback） */
+    --primary-dark: #0c5f6e;
     --primary-soft: #cffafe;
     --accent: #0ea5e9;
     --success: #16a34a;
@@ -112,6 +116,8 @@ input[type="number"]::-webkit-outer-spin-button {
     --radius: 10px;
     --radius-sm: 6px;
     --shadow: 0 1px 3px rgba(15,23,42,.08);
+    /* 纸张级轻阴影（emr-doc 病历纸 / dw-nurse-doc 护理记录单，原未定义致阴影静默失效） */
+    --shadow-sm: 0 1px 2px rgba(15,23,42,.06);
     --shadow-lg: 0 12px 32px rgba(15,23,42,.14);
     --topbar-h: 60px;
     --sidebar-w: 208px;

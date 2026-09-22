@@ -14,10 +14,13 @@
     --bg-topbar: rgba(11,18,32,.92);
     --text: #e2e8f0;
     --text-muted: #8ea0b8;
+    /* --muted：--text-muted 别名（与 base.css 同步定义，暗色下降灰跟随主题） */
+    --muted: #8ea0b8;
     --text-invert: #0b1220;
     --border: #263449;
     --primary: #22b8cf;
     --primary-hover: #67e8f9;
+    --primary-dark: #0e7490;
     --primary-soft: #164e63;
     --accent: #38bdf8;
     --success: #4ade80;
@@ -29,6 +32,7 @@
     --indigo: #818cf8;
     --indigo-soft: #312e8a;
     --shadow: 0 1px 3px rgba(0,0,0,.4);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
     --shadow-lg: 0 12px 32px rgba(0,0,0,.5);
 }
 
