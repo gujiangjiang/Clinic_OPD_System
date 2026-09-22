@@ -132,6 +132,30 @@ function gen_unique_no($prefix, $table, $col) {
 }
 
 /**
+ * 唯一插入重试（防并发撞号统一收敛）：每次尝试先经 $genNo 生成单号并传入
+ * $insFn 插入；INSERT 触发唯一约束冲突（查重循环的 TOCTOU 窗口兜底）时
+ * 重新生成单号重试（最多 3 次），杜绝并发写入得到相同业务单号。
+ * 说明：最终单号需在插入后使用时（库存流水/存证/消息），由调用方在 $insFn
+ * 闭包内以引用捕获（use (&$no)）。
+ * @param callable $genNo function(): string 生成单号闭包
+ * @param callable $insFn function(string $no): int 插入闭包（返回插入 ID）
+ * @return int 插入 ID
+ */
+function insert_unique_retry($genNo, $insFn) {
+    $id = 0;
+    for ($attempt = 0; $attempt < 3; $attempt++) {
+        $no = $genNo();
+        try {
+            $id = (int)$insFn($no);
+            break;
+        } catch (Exception $ex) {
+            if (!is_unique_conflict($ex) || $attempt >= 2) throw $ex;
+        }
+    }
+    return $id;
+}
+
+/**
  * 生成报告编号（BG + 年月日 + 4 位序号，MAX+1 复用序号）
  * @param string $type 报告类型（lab/imaging，目前编号不含类型前缀）
  * @return string 报告编号

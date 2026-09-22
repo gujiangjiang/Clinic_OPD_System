@@ -49,25 +49,24 @@ function record_part_cert($action) {
         // 规则但前缀互不冲突；循环校验保证唯一。
         // 唯一索引兜底：INSERT 触发唯一冲突时重新生成证明号重试（最多 3 次），
         // 杜绝并发开具诊断证明得到相同证明号。
-        $certNo = gen_unique_no('ZM', 'certificates', 'cert_no');
+        // 证明号：唯一插入重试（insert_unique_retry），并发冲突时重新生成
+        // 证明号重试（最多 3 次），杜绝并发开具诊断证明得到相同证明号。
         // 病历摘要快照：开具瞬间以首诊文书为锚点固化主诉/现病史/初步诊断，
         // 证书内容从此不再随续写或后续修改变化（法律文书不可变性）
         $snap = cert_snapshot_summary($visitId);
         $createdAt = now_str();
-        $certId = 0;
-        for ($attempt = 0; $attempt < 3; $attempt++) {
-            if ($attempt > 0) $certNo = gen_unique_no('ZM', 'certificates', 'cert_no');
-            try {
-                $certId = EmrRepository::insertCertificate(array(
+        $certNo = '';
+        $certId = insert_unique_retry(
+            function () { return gen_unique_no('ZM', 'certificates', 'cert_no'); },
+            function ($no) use (&$certNo, $visitId, $row, $u, $curDeptId, $content, $createdAt, $snap) {
+                $certNo = $no;
+                return EmrRepository::insertCertificate(array(
                     'visit_id' => $visitId, 'patient_no' => $row['visit']['patient_no'], 'flow_no' => $row['visit']['flow_no'],
-                    'doctor_id' => $u['id'], 'doctor_name' => $u['name'], 'dept_id' => $curDeptId, 'content' => $content, 'created_at' => $createdAt, 'cert_no' => $certNo,
+                    'doctor_id' => $u['id'], 'doctor_name' => $u['name'], 'dept_id' => $curDeptId, 'content' => $content, 'created_at' => $createdAt, 'cert_no' => $no,
                     'chief_complaint' => $snap['chief_complaint'], 'present_illness' => $snap['present_illness'], 'preliminary_diagnosis' => $snap['preliminary_diagnosis'],
                 ));
-                break;
-            } catch (Exception $ex) {
-                if (!is_unique_conflict($ex) || $attempt >= 2) throw $ex;
             }
-        }
+        );
         // 存证：诊断证明开具后按接口管理配置的模式计算指纹/调用外部存证服务（失败不阻断开具）
         $evid = evid_sign('certificate', (string)$certNo, (string)$content, json_encode(array('visit_id' => $visitId), JSON_UNESCAPED_UNICODE));
         if ($evid && $certId > 0) {

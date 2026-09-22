@@ -413,23 +413,22 @@ function order_part_submit($u) {
         }
 
         $isSkin = (int)$g['is_skin_test'];
-        // 申请单号（JY/JC/CZ/CF/DD 前缀 + 时间戳 + 随机，循环查重防撞号）。
-        // 唯一索引兜底：并发下查重循环仍存在 TOCTOU 窗口，INSERT 触发唯一冲突时
-        // 重新生成单号重试（最多 3 次），杜绝并发开单得到相同申请单号。
-        $orderNo = gen_unique_no(isset($typeCode[$orderType]) ? $typeCode[$orderType] : 'DD', 'orders', 'order_no');
-        $orderId = 0;
-        for ($attempt = 0; $attempt < 3; $attempt++) {
-            if ($attempt > 0) $orderNo = gen_unique_no(isset($typeCode[$orderType]) ? $typeCode[$orderType] : 'DD', 'orders', 'order_no');
-            try {
-                $orderId = OrderRepository::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, is_skin_test) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
-                    $visitId, $visit['patient_no'], $visit['flow_no'], $orderType, $orderNo, $g['cat'],
+        // 申请单号：唯一插入重试（includes/input.php insert_unique_retry）——
+        // 并发下查重循环仍存在 TOCTOU 窗口，INSERT 触发唯一冲突时重新生成单号
+        // 重试（最多 3 次），杜绝并发开单得到相同申请单号。
+        $orderNo = '';
+        $orderId = insert_unique_retry(
+            function () use ($typeCode, $orderType) {
+                return gen_unique_no(isset($typeCode[$orderType]) ? $typeCode[$orderType] : 'DD', 'orders', 'order_no');
+            },
+            function ($no) use (&$orderNo, $visit, $orderType, $g, $u, $recId, $deptId, $deptName, $groupTotal, $isSkin) {
+                $orderNo = $no;
+                return OrderRepository::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, is_skin_test) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                    $visit['id'], $visit['patient_no'], $visit['flow_no'], $orderType, $no, $g['cat'],
                     $u['id'], $u['name'], $recId, $deptId, $deptName, $groupTotal, 'open', now_str(), $isSkin,
                 ));
-                break;
-            } catch (Exception $ex) {
-                if (!is_unique_conflict($ex) || $attempt >= 2) throw $ex;
             }
-        }
+        );
         foreach ($g['idx'] as $i) {
             $it = $orderItems[$i];
             $sub = (int)$it['sub_of'];
@@ -500,21 +499,18 @@ function order_part_submit($u) {
         if ($autoDispSkin) {
             $skinDispTotal = 0;
             foreach ($autoDispSkin as $d) { $skinDispTotal += (float)$d['fee'] * (int)$d['qty']; }
-            $skinDispNo = gen_unique_no('CZ', 'orders', 'order_no');
+            $skinDispNo = '';
             $srcSkin = $skinOrderId > 0 ? $skinOrderId : $mainOrderId;
-            $skinDispId = 0;
-            for ($attempt = 0; $attempt < 3; $attempt++) {
-                if ($attempt > 0) $skinDispNo = gen_unique_no('CZ', 'orders', 'order_no');
-                try {
-                    $skinDispId = OrderRepository::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, source_order_id, is_skin_test) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
-                        $visitId, $visit['patient_no'], $visit['flow_no'], 'procedure', $skinDispNo, '',
+            $skinDispId = insert_unique_retry(
+                function () { return gen_unique_no('CZ', 'orders', 'order_no'); },
+                function ($no) use (&$skinDispNo, $visit, $u, $recId, $deptId, $deptName, $skinDispTotal, $srcSkin) {
+                    $skinDispNo = $no;
+                    return OrderRepository::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, source_order_id, is_skin_test) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                        $visit['id'], $visit['patient_no'], $visit['flow_no'], 'procedure', $no, '',
                         $u['id'], $u['name'], $recId, $deptId, $deptName, $skinDispTotal, 'open', now_str(), $srcSkin, 1,
                     ));
-                    break;
-                } catch (Exception $ex) {
-                    if (!is_unique_conflict($ex) || $attempt >= 2) throw $ex;
                 }
-            }
+            );
             foreach ($autoDispSkin as $dispId => $d) {
                 OrderRepository::insert('INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, price, quantity, unit, is_nurse, sub_of, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                     $skinDispId, $visitId, $visit['patient_no'], $visit['flow_no'],
@@ -533,20 +529,17 @@ function order_part_submit($u) {
         if ($autoDispOther && $mainOrderId > 0) {
             $otherTotal = 0;
             foreach ($autoDispOther as $d) { $otherTotal += (float)$d['fee'] * (int)$d['qty']; }
-            $otherNo = gen_unique_no('CZ', 'orders', 'order_no');
-            $otherId = 0;
-            for ($attempt = 0; $attempt < 3; $attempt++) {
-                if ($attempt > 0) $otherNo = gen_unique_no('CZ', 'orders', 'order_no');
-                try {
-                    $otherId = OrderRepository::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, source_order_id, is_skin_test) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
-                        $visitId, $visit['patient_no'], $visit['flow_no'], 'procedure', $otherNo, '',
+            $otherNo = '';
+            $otherId = insert_unique_retry(
+                function () { return gen_unique_no('CZ', 'orders', 'order_no'); },
+                function ($no) use (&$otherNo, $visit, $u, $recId, $deptId, $deptName, $otherTotal, $mainOrderId) {
+                    $otherNo = $no;
+                    return OrderRepository::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, source_order_id, is_skin_test) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                        $visit['id'], $visit['patient_no'], $visit['flow_no'], 'procedure', $no, '',
                         $u['id'], $u['name'], $recId, $deptId, $deptName, $otherTotal, 'open', now_str(), $mainOrderId, 0,
                     ));
-                    break;
-                } catch (Exception $ex) {
-                    if (!is_unique_conflict($ex) || $attempt >= 2) throw $ex;
                 }
-            }
+            );
             foreach ($autoDispOther as $dispId => $d) {
                 OrderRepository::insert('INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, price, quantity, unit, is_nurse, sub_of, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                     $otherId, $visitId, $visit['patient_no'], $visit['flow_no'],
