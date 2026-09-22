@@ -34,7 +34,6 @@ function afterRxAction(orderId) {
     else { Clinic.deptwork.reloadPatient(); Clinic.deptwork.refreshQueue(); }
 }
 
-function esc(s) { return Clinic.escHtml(s); }
 function money(n) { return Clinic.money(n); }
 function orderStatusName(s) {
     // 药房审方/发药拆分上下文：待审方（paid）、待发药（reviewed）、已发药（dispensed）

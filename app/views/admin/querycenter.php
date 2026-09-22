@@ -46,7 +46,6 @@ Router::title('查询中心');
 </div>
 
 <script>
-function esc2(s) { return Clinic.escHtml(s == null ? '' : String(s)); }
 
 var refList = null;   // 当前渲染实例的无限列表句柄（SPA 重跑脚本时重置）
 
@@ -54,17 +53,17 @@ var refList = null;   // 当前渲染实例的无限列表句柄（SPA 重跑脚
 function refRowHtml(list, isFirst) {
     var rows = list.map(function (r) {
         return '<tr>' +
-            '<td class="fs-12">' + esc2(r.created_at ? r.created_at.substr(0, 16) : '') + '</td>' +
-            '<td class="fw-600 fs-13">' + esc2(r.patient_name) + ' <span class="fs-12 text-muted fw-400">' + esc2(r.gender) + '/' + esc2(r.age_fmt || '') + '</span></td>' +
-            '<td class="fs-12">' + esc2(r.flow_no) + '</td>' +
-            '<td class="fs-12">' + esc2(r.order_no || '—') + '</td>' +
-            '<td>' + esc2(r.item_name || '—') + '</td>' +
-            '<td><span class="badge badge-gray" style="font-size:11px">' + esc2(r.modality || 'OT') + '</span></td>' +
-            '<td class="fs-12" style="font-family:monospace;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc2(r.study_uid) + '">' + esc2(r.study_uid) + '</td>' +
-            '<td class="fs-12">' + esc2(r.region) + '</td>' +
-            '<td class="fs-12">' + esc2(r.created_by || '') + '</td>' +
+            '<td class="fs-12">' + escHtml(r.created_at ? r.created_at.substr(0, 16) : '') + '</td>' +
+            '<td class="fw-600 fs-13">' + escHtml(r.patient_name) + ' <span class="fs-12 text-muted fw-400">' + escHtml(r.gender) + '/' + escHtml(r.age_fmt || '') + '</span></td>' +
+            '<td class="fs-12">' + escHtml(r.flow_no) + '</td>' +
+            '<td class="fs-12">' + escHtml(r.order_no || '—') + '</td>' +
+            '<td>' + escHtml(r.item_name || '—') + '</td>' +
+            '<td><span class="badge badge-gray" style="font-size:11px">' + escHtml(r.modality || 'OT') + '</span></td>' +
+            '<td class="fs-12" style="font-family:monospace;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escHtml(r.study_uid) + '">' + escHtml(r.study_uid) + '</td>' +
+            '<td class="fs-12">' + escHtml(r.region) + '</td>' +
+            '<td class="fs-12">' + escHtml(r.created_by || '') + '</td>' +
             '<td>' + (window.__refViewerTpl
-                ? '<button class="btn btn-outline btn-sm" onclick="openRefViewer(\'' + esc2(r.study_uid) + '\')">🔍 调阅</button>'
+                ? '<button class="btn btn-outline btn-sm" onclick="openRefViewer(\'' + escHtml(r.study_uid) + '\')">🔍 调阅</button>'
                 : '<span class="fs-12 text-muted">—</span>') + '</td>' +
             '</tr>';
     }).join('');

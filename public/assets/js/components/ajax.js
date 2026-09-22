@@ -17,9 +17,14 @@ window.Clinic = window.Clinic || {};
  */
 Clinic.escHtml = function (s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c];
     });
 };
+// 全局函数别名（单一定义）：视图内联脚本直接调用 escHtml()/esc()，
+// 消除 8 个视图重复定义 function escHtml/esc 包装（原 Clinic.escHtml 仅
+// 为对象属性，视图不可直接以全局名引用）
+window.escHtml = Clinic.escHtml;
+window.esc = Clinic.escHtml;
 
 /**
  * HTML 字符串 → 纯文本（提取 textContent 并去除首尾空白）。

@@ -55,7 +55,6 @@ var TPL_STATE = { kw: '', cat: '' };   // 分页状态：kw=搜索词 / cat=范�
 var TPL_PAGED = null;                  // 模板列表 infiniteList
 
 /* HTML 转义（内联视图用，全局供模板列表渲染等） */
-function escHtml(s) { return Clinic.escHtml(s); }
 
 function setTplTypeSel() {
     TPL_TYPE = document.getElementById('tplTypeSel').value;

@@ -37,7 +37,6 @@ function afterLabAction(orderId) {
     else Clinic.deptwork.fetchPatient(function (data) { renderLabWork(data); Clinic.deptwork.refreshQueue(); });
 }
 
-function esc(s) { return Clinic.escHtml(s); }
 function itemStatusName(s) {
     var map = { open: '待缴费', paid: '待登记', registered: '检验中', done: '已完成', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
     return map[s] || s;

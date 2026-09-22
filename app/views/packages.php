@@ -117,7 +117,6 @@ var PKG_STATUS_NAMES = { published: '已发布', pending_review: '待审核', re
 var PKG_STATUS_CLS = { published: 'badge-success', pending_review: 'badge-warning', rejected: 'badge-gray' };
 
 /* HTML 转义（内联视图用，供套餐列表/弹窗渲染） */
-function escHtml(s) { return Clinic.escHtml(s); }
 
 function pkgChangeType() {
     PKG_TYPE = document.getElementById('pkgTypeSel').value;

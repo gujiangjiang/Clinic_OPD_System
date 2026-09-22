@@ -39,7 +39,6 @@ function afterImgAction(orderId) {
     else Clinic.deptwork.fetchPatient(function (data) { renderImgWork(data); Clinic.deptwork.refreshQueue(); });
 }
 
-function esc(s) { return Clinic.escHtml(s); }
 function nl2br(s) { return Clinic.nl2br(s); }
 function itemStatusName(s) {
     var map = { open: '待缴费', paid: '待登记', registered: '待出报告', done: '已完成', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };

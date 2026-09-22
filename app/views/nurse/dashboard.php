@@ -33,7 +33,6 @@ Clinic.deptwork.configure({
 
 var CUR_VISIT = '';   // 当前患者混淆码（体征/护理/处置操作回传）
 
-function esc(s) { return Clinic.escHtml(s); }
 function nl2br(s) { return Clinic.nl2br(s); }
 
 /* 联动执行 + 皮试结果（渲染时由 procSection/medSection 填充） */

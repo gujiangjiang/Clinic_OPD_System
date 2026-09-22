@@ -375,7 +375,6 @@ function makeReadonly(mask) {
 }
 
 /* 内联 HTML 转义（预览模板名称用） */
-function escHtml(s) { return Clinic.escHtml(s); }
 
 switchTab('pending');
 </script>
