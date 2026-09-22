@@ -99,11 +99,15 @@ function showSearchDrop() {
         onError: function () { diagLoading = false; },
     });
 }
-/* 滚动到底部自动加载下一页（无限滚动直至全部结果加载完成） */
-document.getElementById('searchDrop').addEventListener('scroll', function () {
-    var drop = this;
-    if (diagSearch.done || diagLoading) return;
-    if (drop.scrollTop + drop.clientHeight >= drop.scrollHeight - 8) showSearchDrop();
+/* 滚动到底部自动加载下一页（统一无限滚动封装 Clinic.infiniteScroll，替代手写滚动监听）；
+   不停止监听：新搜索（关键词变化）会重置 done，后续页仍需滚动加载 */
+Clinic.infiniteScroll({
+    el: document.getElementById('searchDrop'),
+    threshold: 8,
+    onNearBottom: function () {
+        if (diagSearch.done || diagLoading) return true;
+        showSearchDrop();
+    },
 });
 /* 点击搜索结果：关闭浮层 → 展开树到类目 → 右侧显示详情 → 高亮 */
 function onSearchPick(catCode, catName, secCode, chCode, diagCode, subCode) {
