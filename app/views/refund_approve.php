@@ -21,64 +21,9 @@ function loadReq() {
         onSuccess: function (json) {
             var d = json.data || {};
             var r = d.request || {}, approvals = d.approvals || [], orders = d.orders || [];
-            var typeNames = { lab: '检验', imaging: '检查', procedure: '处置', prescription: '处方' };
-            var statusMap = {
-                open: ['badge-warning', '待缴费'], paid: ['badge-primary', '已缴费'],
-                registered: ['badge-info', '已登记'], dispensing: ['badge-warning', '发药中'],
-                dispensed: ['badge-success', '已发药'], done: ['badge-success', '已完成'],
-                rejected: ['badge-danger', '已驳回'], refunded: ['badge-gray', '已退费'], cancelled: ['badge-gray', '已取消'],
-            };
-            // 就诊状态中文名统一走 Clinic.visitStatusName（与后端同 map）
-
-            // 患者信息
-            var html =
-                '<div class="card">' +
-                '<div class="flex-between"><div class="fw-700 fs-16">' + Clinic.escHtml(r.patient.name) +
-                ' <span class="fs-12 text-muted fw-400">患者ID ' + Clinic.escHtml(r.patient.patient_no) + ' ｜ 流水号 ' + Clinic.escHtml(r.patient.flow_no) + '</span></div>' +
-                '<span class="badge badge-warning">' + Clinic.visitStatusName(r.patient.visit_status) + '</span></div>' +
-                '<div class="fs-13 mt-4">缴费批次：' + Clinic.escHtml(r.payment_no) + '</div>' +
-                '<div class="fs-13 text-muted mt-4">申请时间：' + Clinic.escHtml(r.created_at) + '</div>' +
-                (r.reason ? '<div class="fs-13 mt-4">申请理由：' + Clinic.escHtml(r.reason) + '</div>' : '') +
-                '<div class="mt-4">状态：' +
-                (r.status === 'approved' ? '<span class="badge badge-success">已全部同意</span>' :
-                    (r.status === 'rejected' ? '<span class="badge badge-danger">已拒绝</span>' : '<span class="badge badge-warning">待审批</span>')) + '</div></div>';
-            // 审批进度
-            html += '<div class="card"><div class="fs-14 fw-700 mb-8">审批进度</div>';
-            approvals.forEach(function (a) {
-                var cls = a.verdict === 'approve' ? 'badge-success' : (a.verdict === 'reject' ? 'badge-danger' : 'badge-gray');
-                var txt = a.verdict === 'approve' ? '已同意' : (a.verdict === 'reject' ? '已拒绝' : '待审批');
-                html += '<div class="flex-between" style="padding:6px 0;border-top:1px dashed var(--border)">' +
-                    '<span class="fs-13">' + Clinic.escHtml(a.user_name) + ' <span class="fs-12 text-muted">（' + Clinic.escHtml(a.role) + '）</span>' +
-                    (a.note ? ' <span class="fs-12 text-muted">' + Clinic.escHtml(a.note) + '</span>' : '') + '</span>' +
-                    '<span><span class="badge ' + cls + '" style="font-size:11px">' + txt + '</span></span></div>';
-            });
-            html += '</div>';
-            // 项目执行状态
-            html += '<div class="card"><div class="fs-14 fw-700 mb-8">项目执行状态</div>';
-            orders.forEach(function (o) {
-                html += '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">' +
-                    '<div class="fs-13 fw-600">' + (typeNames[o.order_type] || '') + ' ' + Clinic.escHtml(o.order_no) +
-                    ' ｜ 开单医生 ' + Clinic.escHtml(o.doctor_name) + '</div>';
-                var steps = (o.flow || []).map(function (s) {
-                    var refund = s.refunded;
-                    var cls = refund ? 'var(--danger)' : (s.done ? 'var(--success)' : 'var(--border)');
-                    if (s.rejected) cls = 'var(--danger)';
-                    return '<span style="color:' + cls + ';font-size:12px;white-space:nowrap">' +
-                        (refund || s.rejected ? '✕ ' : (s.done ? '✓ ' : '○ ')) + Clinic.escHtml(s.label) + '</span>';
-                }).join('<span style="color:var(--border)"> → </span>');
-                html += '<div style="margin:6px 0;overflow-x:auto;white-space:nowrap">' + steps + '</div>';
-                (o.items || []).forEach(function (it) {
-                    var st = statusMap[it.status] || ['badge-gray', it.status || ''];
-                    // 退药数量带开立单位（2盒 / 3支），审批人核对拆零退药准确
-                    var itUnit = it.unit || '';
-                    html += '<div class="flex-between" style="padding:4px 0;border-top:1px dashed var(--border)">' +
-                        '<span class="fs-13">· ' + Clinic.escHtml(it.name) + ' ×' + it.quantity + itUnit + '</span>' +
-                        '<span><span class="badge ' + st[0] + '" style="font-size:11px">' + st[1] + '</span>' +
-                        (it.executed_by ? ' <span class="fs-12 text-muted">' + Clinic.escHtml(it.executed_by) + '</span>' : '') + '</span></div>';
-                });
-                html += '</div>';
-            });
-            html += '</div>';
+            // 患者信息 + 审批进度 + 项目执行状态（三张卡片）：统一走共享渲染
+            // （Clinic.refundDetailHtml，与站内消息弹窗同一实现，间距/流程步骤/退药单位口径一致）
+            var html = Clinic.refundDetailHtml(d);
             // 审批判定：审批人按 role+user 精确匹配（详情已返回 user_name，按当前登录名比对）
             var myName = document.body.getAttribute('data-name') || '';
             var canAct = r.status === 'pending' && approvals.some(function (a) { return a.user_name === myName; });
