@@ -71,9 +71,9 @@ function searchVisits(keepDetail) {
     });
 }
 
+/* 就诊状态中文名统一走 Clinic.visitStatusName（与后端同 map） */
 function visitStatusName(s) {
-    var map = { pending: '待缴费', paid: '待就诊', visiting: '就诊中', finished: '就诊完毕', refunded: '已退费', cancelled: '已取消' };
-    return map[s] || s;
+    return Clinic.visitStatusName(s);
 }
 
 /* ---------- 选中左侧就诊 → 加载右侧缴费视图 ---------- */

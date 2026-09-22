@@ -500,8 +500,8 @@ Clinic.deptwork = (function () {
     }
 
     function visitStatusName(s) {
-        var map = { pending: '待缴费', paid: '候诊', visiting: '就诊中', finished: '诊毕', refunded: '已退费', cancelled: '已取消' };
-        return map[s] || s;
+        // 候诊面板紧凑语义（paid=候诊 / finished=诊毕）经 overrides 注入公共函数
+        return Clinic.visitStatusName(s, { paid: '候诊', finished: '诊毕' });
     }
 
     /** 状态列徽章：按角色语义展示项目状态（待处置 / 待审方 / 待发药 / 完成…），

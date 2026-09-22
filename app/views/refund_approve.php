@@ -28,13 +28,14 @@ function loadReq() {
                 dispensed: ['badge-success', '已发药'], done: ['badge-success', '已完成'],
                 rejected: ['badge-danger', '已驳回'], refunded: ['badge-gray', '已退费'], cancelled: ['badge-gray', '已取消'],
             };
-            var visitStatusMap = { pending: '待缴费', paid: '待就诊', visiting: '就诊中', finished: '已诊毕', refunded: '已退费', cancelled: '已取消' };
+            // 就诊状态中文名统一走 Clinic.visitStatusName（与后端同 map）
+
             // 患者信息
             var html =
                 '<div class="card">' +
                 '<div class="flex-between"><div class="fw-700 fs-16">' + Clinic.escHtml(r.patient.name) +
                 ' <span class="fs-12 text-muted fw-400">患者ID ' + Clinic.escHtml(r.patient.patient_no) + ' ｜ 流水号 ' + Clinic.escHtml(r.patient.flow_no) + '</span></div>' +
-                '<span class="badge badge-warning">' + (visitStatusMap[r.patient.visit_status] || r.patient.visit_status) + '</span></div>' +
+                '<span class="badge badge-warning">' + Clinic.visitStatusName(r.patient.visit_status) + '</span></div>' +
                 '<div class="fs-13 mt-4">缴费批次：' + Clinic.escHtml(r.payment_no) + '</div>' +
                 '<div class="fs-13 text-muted mt-4">申请时间：' + Clinic.escHtml(r.created_at) + '</div>' +
                 (r.reason ? '<div class="fs-13 mt-4">申请理由：' + Clinic.escHtml(r.reason) + '</div>' : '') +

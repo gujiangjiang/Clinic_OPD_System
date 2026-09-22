@@ -97,9 +97,10 @@ var PC_SELECTED = '';
 var PC_LIST = null;   // 统一动态加载封装句柄
 
 function pcStatusBadge(s) {
-    var map = { pending: '未缴费', paid: '待就诊', visiting: '就诊中', finished: '就诊完毕', refunded: '已退费', cancelled: '已取消' };
+    // 就诊状态中文名统一走 Clinic.visitStatusName；打印中心「未缴费」语义经 overrides 注入
+    var txt = Clinic.visitStatusName(s, { pending: '未缴费' });
     var cls = s === 'finished' ? 'badge-success' : (s === 'visiting' ? 'badge-warning' : 'badge-gray');
-    return '<span class="badge ' + cls + '" style="font-size:11px">' + (map[s] || s) + '</span>';
+    return '<span class="badge ' + cls + ' badge-xs">' + txt + '</span>';
 }
 
 function pcItemHtml(v) {

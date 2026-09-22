@@ -167,6 +167,19 @@ Clinic.pad3 = function (n) {
     n = parseInt(n, 10) || 0;
     return n < 10 ? '00' + n : (n < 100 ? '0' + n : '' + n);
 };
+/**
+ * 就诊状态中文名（与后端 visit_status_name 同 map，SSOT 单一数据源）：
+ * pending=待缴费 / paid=待就诊 / visiting=就诊中 / finished=就诊完毕 /
+ * refunded=已退费 / cancelled=已取消。
+ * @param {string} s 状态值
+ * @param {object} overrides 可选文案覆盖（如打印中心 pending: '未缴费'、
+ *                           候诊面板 paid: '候诊'，紧凑/语义差异经此注入）
+ */
+Clinic.visitStatusName = function (s, overrides) {
+    var map = { pending: '待缴费', paid: '待就诊', visiting: '就诊中', finished: '就诊完毕', refunded: '已退费', cancelled: '已取消' };
+    if (overrides) { for (var k in overrides) map[k] = overrides[k]; }
+    return map[s] || s || '';
+};
 Clinic.money = function (n) {
     return '¥' + (parseFloat(n) || 0).toFixed(2);
 };
@@ -366,7 +379,6 @@ Clinic.refundApproval = {
             dispensed: ['badge-success', '已发药'], done: ['badge-success', '已完成'],
             rejected: ['badge-danger', '已驳回'], refunded: ['badge-gray', '已退费'], cancelled: ['badge-gray', '已取消'],
         };
-        var visitStatusMap = { pending: '待缴费', paid: '待就诊', visiting: '就诊中', finished: '已诊毕', refunded: '已退费', cancelled: '已取消' };
         var myName = document.body.getAttribute('data-name') || '';
         var myRole = document.body.getAttribute('data-role') || '';
 
@@ -374,7 +386,7 @@ Clinic.refundApproval = {
             '<div class="fs-15 fw-700">患者：' + Clinic.escHtml(r.patient.name) +
             ' <span class="fs-12 text-muted fw-400">' + Clinic.escHtml(r.patient.patient_no) + '</span></div>' +
             '<div class="fs-13 text-muted mt-2">就诊状态：<span class="badge badge-warning" style="font-size:11px">' +
-            (visitStatusMap[r.patient.visit_status] || r.patient.visit_status) + '</span> ｜ 缴费批次：' + Clinic.escHtml(r.payment_no) + '</div>' +
+            Clinic.visitStatusName(r.patient.visit_status) + '</span> ｜ 缴费批次：' + Clinic.escHtml(r.payment_no) + '</div>' +
             '<div class="fs-13 text-muted mt-2">申请时间：' + Clinic.escHtml(r.created_at) + '</div>' +
             (r.reason ? '<div class="fs-13 mt-2">申请理由：' + Clinic.escHtml(r.reason) + '</div>' : '') +
             '<div class="mt-2">状态：' +
