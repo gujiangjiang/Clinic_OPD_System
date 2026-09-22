@@ -988,11 +988,12 @@
 .qc-body > div { height: 100%; overflow: hidden; }
 /* 危急值列表：筛选卡固定，列表卡占满剩余并内部滚动 */
 #qcCritical { display: flex; flex-direction: column; }
-#qcCritical .card { margin-bottom: 0; }   /* 覆盖全局 .card margin-bottom:16px，撑满 qc-body 下边缘对齐 */
-#qcCritical .card:first-child { flex-shrink: 0; }
+/* 筛选卡与列表卡之间留白（与打印中心/科室管理等页面一致：卡片间 16px 间距） */
+#qcCritical .card:first-child { flex-shrink: 0; margin-bottom: 16px; }
 #qcCritical .card:last-child {
     flex: 1;
     min-height: 0;
+    margin-bottom: 0;   /* 列表卡占满 qc-body 下边缘，与其他列表卡片底部对齐 */
     display: flex;
     flex-direction: column;
 }
@@ -1002,8 +1003,13 @@
     max-height: none;
     overflow: auto;
 }
-/* 影像引用：覆盖旧式 calc(100vh-320px)，改占满 qc-body 剩余高度 */
-#qcRefs .qc-ref-card { height: 100%; }
+/* 影像引用：筛选卡 + 列表卡分离（与打印中心/科室管理一致），列表卡占满 qc-body 剩余高度 */
+#qcRefs { display: flex; flex-direction: column; }
+#qcRefs .qc-ref-list-card {
+    flex: 1;
+    min-height: 0;
+    margin-bottom: 0;   /* 列表卡占满 qc-body 下边缘，与其他列表卡片底部对齐 */
+}
 /* 查询中心「更多子项」占位卡：占满剩余高度，内容居中 */
 #qcMore .qc-more-card { height: 100%; }
 #qcMore .qc-more-empty {

@@ -411,7 +411,8 @@ switch ($action) {
         break;
 
     /* ==================== 影像引用查询（管理端/影像科，只存引用架构视图） ====================
-     * 排序：ir.id DESC（引用登记顺序倒序），最新登记的引用显示在最上面。 */
+     * 排序：ir.created_at DESC（登记时间倒序，最新登记的引用显示在最上面），
+     * id DESC 兜底（同秒登记时按写入顺序）。 */
     case 'refs_list':
         if (!in_array($u['role'], array('admin', 'imaging'), true)) json_fail('无权限查看影像引用');
         $kw = trim((string)get('kw', ''));
@@ -444,7 +445,7 @@ switch ($action) {
              LEFT JOIN order_items oi ON oi.id=ir.order_item_id
              LEFT JOIN patients p ON p.patient_no=ir.patient_no
              WHERE $where
-             ORDER BY ir.id DESC
+             ORDER BY ir.created_at DESC, ir.id DESC
              LIMIT ? OFFSET ?",
             array_merge($params, array($pageSize, ($page - 1) * $pageSize))
         );

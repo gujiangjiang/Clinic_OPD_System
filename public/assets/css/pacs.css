@@ -92,13 +92,12 @@
     font-size: 12px;
 }
 
-/* ---------- 查询中心：影像引用列表（与打印中心 .pc-list 同构：外层定高 + 列表 flex:1 内部滚动） ---------- */
-.qc-ref-card {
+/* ---------- 查询中心：影像引用列表（筛选卡 + 列表卡分离，列表卡内 flex:1 内部滚动） ---------- */
+.qc-ref-list-card {
     display: flex;
     flex-direction: column;
     padding: 0;
     overflow: hidden;
-    height: calc(100vh - 320px);
     min-height: 380px;
 }
 .qc-ref-list {

@@ -21,9 +21,9 @@ Router::title('查询中心');
 <div class="qc-body">
 <div id="qcCritical"></div>
 <div id="qcRefs" style="display:none">
-    <div class="card qc-ref-card">
-        <!-- 搜索工具条：与其他页面统一 padding（单层 18px，无自定义内边距），日期筛选与危急值/运营分析页一致 -->
-        <div class="flex gap-8" style="align-items:center;flex-wrap:wrap;padding:18px">
+    <!-- 搜索工具条：与打印中心/科室管理等页面统一（筛选卡片 + 列表卡片分离，卡片间 16px 间距） -->
+    <div class="card list-filter">
+        <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
             <input type="text" class="input" id="qcRefFrom" readonly placeholder="开始日期" style="width:150px;cursor:pointer;background:var(--bg)"
                 onclick="Clinic.datePicker.open(this,{maxToday:false,peer:'qcRefTo',maxSpan:183})">
             <span class="text-muted">至</span>
@@ -35,7 +35,9 @@ Router::title('查询中心');
             <button class="btn btn-outline btn-sm" onclick="resetRefs()">重置</button>
             <span class="fs-12 text-muted" id="qcRefTotal"></span>
         </div>
-        <!-- 列表独立滚动容器（与统一打印中心 .pc-list 同构：外层定高 + 列表 flex:1 内部滚动） -->
+    </div>
+    <!-- 列表卡片（独立滚动容器：外层占满剩余高度 + 列表 flex:1 内部滚动） -->
+    <div class="card qc-ref-list-card">
         <div class="qc-ref-list" id="qcRefTable"><div class="fs-13 text-muted text-center" style="padding:24px">加载中…</div></div>
     </div>
 </div>
