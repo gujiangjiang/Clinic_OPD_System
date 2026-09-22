@@ -165,6 +165,8 @@ function admin_part_settings($action) {
      * 按就诊时间倒序（最新在最上），分页返回供前端滚动分段加载。 */
     if ($action === 'print_visits') {
         $kw = trim(get('kw', ''));
+        $from = get('from');                       // 开始日期（YYYY-MM-DD，登记时间筛选）
+        $to = get('to');                           // 结束日期（YYYY-MM-DD）
         $page = max(1, (int)get('page', 1));
         // 每页条数：前端可传 size（打印中心就诊列表默认 20，可调 10-20 分段加载）
         $pageSize = max(1, min(100, (int)get('size', 20)));
@@ -175,6 +177,10 @@ function admin_part_settings($action) {
             $like = '%' . $kw . '%';
             $params = array($like, $like, $like, $like);
         }
+        // 日期范围筛选（登记时间）+ 跨度钳制（打印中心域上限 3 个月，减少扫描量）
+        list($from, $to) = date_span_clamp('print', $from, $to);
+        if ($from !== '') { $where .= ' AND date(r.registered_at)>=?'; $params[] = $from; }
+        if ($to !== '') { $where .= ' AND date(r.registered_at)<=?'; $params[] = $to; }
         $total = (int)AnalyticsRepository::val(
             "SELECT COUNT(*) FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no WHERE $where",
             $params

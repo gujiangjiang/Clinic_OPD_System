@@ -12,10 +12,15 @@ Router::title('打印中心');
     <div><div class="page-title">🖨️ 统一打印中心</div><div class="page-desc">集中补打挂号凭条 / 电子病历 / 申请单 / 处方 / 报告 / 诊断证明</div></div>
 </div>
 
-<!-- 检索工具条 -->
+<!-- 检索工具条（日期范围跨度上限 3 个月，超出自动调整） -->
 <div class="card list-filter">
-    <div class="flex gap-8">
-        <input class="input" id="pcKw" placeholder="输入患者姓名 / 患者ID / 门诊流水号 / 身份证号" style="flex:1" autocomplete="off" onkeydown="if(event.key==='Enter')pcSearch()">
+    <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
+        <input type="text" class="input" id="pcFrom" readonly placeholder="开始日期" style="width:150px;cursor:pointer;background:var(--bg)"
+            onclick="Clinic.datePicker.open(this,{maxToday:false,peer:'pcTo',maxSpan:92})">
+        <span class="text-muted">至</span>
+        <input type="text" class="input" id="pcTo" readonly placeholder="结束日期" style="width:150px;cursor:pointer;background:var(--bg)"
+            onclick="Clinic.datePicker.open(this,{maxToday:true,peer:'pcFrom',maxSpan:92})">
+        <input class="input" id="pcKw" placeholder="输入患者姓名 / 患者ID / 门诊流水号 / 身份证号" style="flex:1;min-width:200px" autocomplete="off" onkeydown="if(event.key==='Enter')pcSearch()">
         <button class="btn btn-primary btn-sm" onclick="pcSearch()">查询</button>
         <button class="btn btn-outline btn-sm" onclick="pcReset()">重置</button>
     </div>
@@ -122,7 +127,9 @@ function initPcList() {
         // 导致搜索后 reset() 仍用旧关键字（检索失效）
         url: function (p, size) {
             return '/api/admin?action=print_visits&page=' + p + '&size=' + size +
-                '&kw=' + encodeURIComponent((document.getElementById('pcKw') || {}).value || '');
+                '&kw=' + encodeURIComponent((document.getElementById('pcKw') || {}).value || '') +
+                '&from=' + encodeURIComponent((document.getElementById('pcFrom') || {}).value || '') +
+                '&to=' + encodeURIComponent((document.getElementById('pcTo') || {}).value || '');
         },
         render: function (list, isFirst) { return list.map(pcItemHtml).join(''); },
         onSuccess: function (json) {
@@ -143,9 +150,13 @@ function pcSearch() {
     else initPcList();
 }
 
-/** 重置：清空关键字回到全部列表 */
+/** 重置：清空日期范围与关键字回到全部列表 */
 function pcReset() {
     document.getElementById('pcKw').value = '';
+    var f = document.getElementById('pcFrom');
+    var t = document.getElementById('pcTo');
+    if (f) f.value = '';
+    if (t) t.value = '';
     PC_SELECTED = '';
     if (PC_LIST) PC_LIST.reset();
     else initPcList();
