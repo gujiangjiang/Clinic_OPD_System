@@ -161,7 +161,7 @@ function vitalsSection(data) {
     return '<div class="dw-nurse-sec" id="nurseSecVitals">' +
         '<div class="dw-nurse-sec-title"><span class="emoji">📈</span>生命体征趋势</div>' + trendHtml +
         '<div class="fs-13 fw-700 mt-8 mb-4">体征历史记录</div>' +
-        '<div style="max-height:180px;overflow-y:auto"><table class="table table-sm" style="font-size:12px"><thead><tr>' +
+        '<div style="max-height:180px;overflow-y:auto"><table class="table table-sm"><thead><tr>' +
         '<th>时间</th><th>血压</th><th>心率</th><th>脉搏</th><th>血氧</th><th>呼吸</th><th>录入人</th></tr></thead><tbody>' +
         histRows + '</tbody></table></div>' +
         '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" onclick="openVitalsPop(event)">🌡️ 录入生命体征</button></div>' +
@@ -386,7 +386,7 @@ function procSection(data) {
     return '<div class="dw-nurse-sec" id="nurseSecProc">' +
         '<div class="dw-nurse-sec-title"><span class="emoji">💉</span>处置项目</div>' +
         '<div class="fs-12 text-muted mb-4">点击医嘱单号可查看处置单预览；关联医嘱可联动一并执行。</div>' +
-        '<div class="table-wrap"><table class="table table-sm" style="font-size:12.5px"><thead><tr>' +
+        '<div class="table-wrap"><table class="table table-sm"><thead><tr>' +
         '<th>处置项目</th><th>医嘱单号</th><th>开单医生</th><th>开单时间</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
         rows + '</tbody></table></div></div>';
 }
@@ -449,7 +449,7 @@ function medSection(data) {
     return '<div class="dw-nurse-sec" id="nurseSecMed">' +
         '<div class="dw-nurse-sec-title"><span class="emoji">💊</span>待执行医嘱</div>' +
         '<div class="fs-12 text-muted mb-4">药房审方发药后方可执行；关联处置可联动一并执行。</div>' +
-        '<div class="table-wrap"><table class="table table-sm" style="font-size:12.5px"><thead><tr>' +
+        '<div class="table-wrap"><table class="table table-sm"><thead><tr>' +
         '<th>医嘱</th><th>处方号</th><th>开单医生</th><th>开单时间</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
         rows + '</tbody></table></div></div>';
 }

@@ -277,6 +277,10 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
     background: var(--bg-card);
     z-index: 1;
 }
+/* 紧凑表格（护士站仪表盘等密集列表，原未定义致 3 处内联 font-size 补偿） */
+.table-sm { font-size: 12px; }
+.table-sm th { padding: 6px 10px; }
+.table-sm td { padding: 5px 10px; }
 .table th {
     text-align: left;
     padding: 10px 12px;
