@@ -142,9 +142,8 @@ switch ($action) {
             '<div class="flex-between">' .
             '  <div><a href="javascript:void(0)" class="fw-700 fs-16" onclick="Clinic.patient.editModal(\'' . e($p['patient_no']) . '\')">' . e($p['name']) . '</a>' .
             '  <span class="text-muted fs-13"> ' . e($p['gender']) . ' / ' . age_format($p['birth_date'], $visit['registered_at']) . '</span>' .
-            '  <span class="badge badge-gray" style="margin-left:6px">' . e($visit['current_dept_name']) . ' 第' . str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) . '号</span></div>' .
-            '  <span class="badge badge-primary">' . e($visit['flow_no']) . '</span></div>' .
-            '<div class="fs-12 text-muted mt-4">患者ID ' . e($visit['patient_no']) . ' ｜ 首次科室 ' . e($visit['first_dept_name']) . ' ｜ 挂号 ' . e(substr($visit['registered_at'], 0, 16)) . ' ｜ 状态 ' . e(visit_status_name($visit['status'])) . '</div>' .
+            '  <span class="badge badge-gray" style="margin-left:6px">' . e($visit['current_dept_name']) . ' 第' . str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) . '号</span>' .
+            badge_html('primary', $visit['flow_no']) . '</div>' .            '<div class="fs-12 text-muted mt-4">患者ID ' . e($visit['patient_no']) . ' ｜ 首次科室 ' . e($visit['first_dept_name']) . ' ｜ 挂号 ' . e(substr($visit['registered_at'], 0, 16)) . ' ｜ 状态 ' . e(visit_status_name($visit['status'])) . '</div>' .
             '<div class="flex gap-8 mt-8">' .
             '<button class="btn btn-outline btn-sm" onclick="openVitals(\'' . e(oid($visitId)) . '\')">🌡️ 生命体征</button>' .
             '<button class="btn btn-outline btn-sm" onclick="openNursing(\'' . e(oid($visitId)) . '\')">📝 护理记录</button></div></div>';
@@ -193,8 +192,8 @@ switch ($action) {
                     '<td class="fs-12">' . e(substr($r['created_at'], 5, 11)) . '</td>' .
                     '<td>' .
                     ($r['status'] === 'paid'
-                        ? ($rxReady ? '<span class="badge badge-warning">待执行</span>' : '<span class="badge badge-gray">待药房发药</span>')
-                        : '<span class="badge badge-primary">执行中</span>') .
+                        ? ($rxReady ? badge_html('warning', '待执行') : badge_html('gray', '待药房发药'))
+                        : badge_html('primary', '执行中')) .
                     '</td>' .
                     '<td><div class="flex gap-4">' .
                     '<button class="btn btn-outline btn-sm" onclick="medDetail(\'' . e(oid($r['order_id'])) . '\')">详情</button>' .

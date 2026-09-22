@@ -36,8 +36,8 @@ function admin_part_drug($action) {
             }
             $html .= '<tr><td class="fw-600">' . e($r['name']) . '</td>' .
                 ($stype === 'route'
-                    ? '<td>' . ($r['is_nurse'] ? '<span class="badge badge-warning">是（护士站执行）</span>' : '<span class="badge badge-gray">否</span>') . '</td>'
-                      . '<td>' . ($bindName !== '' ? '<span class="badge badge-primary">' . e($bindName) . '</span>' : '<span class="badge badge-gray">未绑定</span>') . '</td>'
+                    ? '<td>' . ($r['is_nurse'] ? badge_html('warning', '是（护士站执行）') : badge_html('gray', '否')) . '</td>'
+                      . '<td>' . ($bindName !== '' ? badge_html('primary', '' . e($bindName) . '') : badge_html('gray', '未绑定')) . '</td>'
                     : '') .
                 '<td>' . (drug_can_manage($u)
                     ? '<div class="flex gap-4">' .
@@ -125,7 +125,7 @@ function admin_part_drug($action) {
                 '<td class="fs-12">' . e($r['frequency']) . '</td>' .
                 '<td class="fs-12">' . e($r['route']) . ($r['is_nurse'] ? '（护士站）' : '') . '</td>' .
                 // 库存展示：整包装为主 + 拆零余量（如 100盒 + 3粒）；低库存红色高亮
-                '<td class="' . ($low ? 'text-danger fw-700' : '') . '">' . e(drug_stock_text($r)) . ($low ? ' <span class="badge badge-danger" style="font-size:11px">低</span>' : '') . '</td>' .
+                '<td class="' . ($low ? 'text-danger fw-700' : '') . '">' . e(drug_stock_text($r)) . ($low ? ' ' . badge_html('danger', '低', true) : '') . '</td>' .
                 '<td class="fs-12 text-muted">' . ($warnBoxTxt === '—' ? '—' : '≤ ' . $warnBoxTxt . ' ' . e($r['package_unit'] !== '' ? $r['package_unit'] : '盒')) . '</td>' .
                 '<td>¥' . money($r['price']) . '</td>' .
                 '<td>' . item_status_badge((string)$r['status']) . '</td>' .

@@ -69,7 +69,7 @@ switch ($action) {
                     // 发药清单明确显示开立单位（2盒 / 2支），防止把支发成盒造成药损
                     $rxUnit = (isset($ri['unit']) && trim((string)$ri['unit']) !== '') ? trim((string)$ri['unit']) : '盒';
                     $names[] = e($ri['item_name']) . ' ×' . (int)$ri['quantity'] . $rxUnit .
-                        ($ri['is_nurse'] ? ' <span class="badge badge-warning" style="font-size:11px">护士站执行</span>' : '');
+                        ($ri['is_nurse'] ? ' ' . badge_html('warning', '护士站执行', true) : '');
                     $subs = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? AND group_no=? AND is_parent=0 ORDER BY id', array((int)$o['id'], (int)$ri['group_no']));
                     foreach ($subs as $s) $names[] = '　└ ' . e($s['item_name']) . ' ×' . (int)$s['quantity'] . (trim((string)$s['unit']) !== '' ? trim((string)$s['unit']) : '');
                 }
@@ -87,7 +87,7 @@ switch ($action) {
                             ? '<button class="btn btn-success btn-sm" onclick="dispenseRx(\'' . oid($o['id']) . '\')">发药</button>'
                             // 全部为护士站执行：无药房取药凭条，操作列显示「护士站执行」徽章（不可补打）
                             : ($allNurse
-                                ? '<span class="badge badge-warning">护士站执行</span>'
+                                ? badge_html('warning', '护士站执行')
                                 : '<button class="btn btn-outline btn-sm" onclick="reprintRxSlip(\'' . oid($o['id']) . '\')">🖨️ 处方提示</button>'))) .
                     '</td></tr>';
             }
@@ -267,9 +267,9 @@ switch ($action) {
                     '<td>' . e($r['category']) . '</td>' .
                     '<td>' . e(drug_spec_text($r)) . '</td>' .
                     '<td>' . e($packUnit) . '</td>' .
-                    '<td class="' . ($low ? 'text-danger fw-700' : '') . '">' . $stockTxt . ($low ? ' <span class="badge badge-danger" style="font-size:11px">低库存</span>' : '') . $warnTxt . '</td>' .
+                    '<td class="' . ($low ? 'text-danger fw-700' : '') . '">' . $stockTxt . ($low ? ' ' . badge_html('danger', '低库存', true) : '') . $warnTxt . '</td>' .
                     '<td>¥' . money($r['price']) . '</td>' .
-                    '<td>' . ($r['status'] === 'approved' ? '<span class="badge badge-success">可用</span>' : '<span class="badge badge-warning">待审核</span>') . '</td>' .
+                    '<td>' . ($r['status'] === 'approved' ? badge_html('success', '可用') : badge_html('warning', '待审核')) . '</td>' .
                     '<td><button class="btn btn-outline btn-sm" onclick="stockModal(' . (int)$r['id'] . ',\'' . e($r['name']) . '\',' . (int)$r['allow_split'] . ',' . $packQty . ',\'' . e($packUnit) . '\',\'' . e($minUnit) . '\',\'' . e((int)$r['qty']) . '\')">入库/出库</button></td></tr>';
             }
             $html .= '</tbody></table></div>';

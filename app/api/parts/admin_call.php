@@ -35,11 +35,11 @@ function admin_part_call($action) {
         foreach ($rows as $r) {
             $online = (!empty($r['screen_last_heartbeat']) && (time() - strtotime($r['screen_last_heartbeat'])) <= 30);
             $st = $online
-                ? '<span class="badge badge-success">🟢 在线运行中</span><div class="fs-12 text-muted mt-4">最后活跃 ' . e(substr((string)$r['screen_last_heartbeat'], 5, 16)) . '</div>'
-                : '<span class="badge badge-gray">⚫ 离线未连接</span>';
+                ? badge_html('success', '🟢 在线运行中') . '<div class="fs-12 text-muted mt-4">最后活跃 ' . e(substr((string)$r['screen_last_heartbeat'], 5, 16)) . '</div>'
+                : badge_html('gray', '⚫ 离线未连接');
             $bind = $r['current_doctor_id'] > 0
-                ? '<span class="badge badge-warning">' . e($r['current_doctor_name']) . ' 正在坐诊</span>'
-                : '<span class="badge badge-gray">空闲</span>';
+                ? badge_html('warning', '' . e($r['current_doctor_name']) . ' 正在坐诊')
+                : badge_html('gray', '空闲');
             $rowsHtml .= '<tr data-id="' . (int)$r['id'] . '" data-token="' . e($r['screen_token']) . '"' .
                 ' data-tips="' . e($r['screen_tips']) . '" data-interval="' . (int)$r['tip_interval'] . '"' .
                 ' data-room-name="' . e($r['room_name']) . '" data-room-type="' . e($r['room_type']) . '"' .

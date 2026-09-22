@@ -79,16 +79,16 @@ function admin_part_audit($action) {
             $rowHtml = function ($r, $showType = true, $showProposer = true) use ($typeNames, $previewableTypes) {
                 $h = '<tr>';
                 if ($showType) {
-                    $h .= '<td><span class="badge badge-primary">' . e(isset($typeNames[$r['type']]) ? $typeNames[$r['type']] : $r['type']) . '</span></td>';
+                    $h .= '<td>' . badge_html('primary', isset($typeNames[$r['type']]) ? $typeNames[$r['type']] : $r['type']) . '</td>';
                 }
                 $h .= '<td><div class="fw-600 fs-13">' . e($r['title']) . '</div><div class="fs-12 text-muted">' . e($r['content']) . '</div>' .
-                    (!empty($r['creation_source']) ? '<div class="fs-12 mt-4"><span class="badge badge-warning">来源：' . e($r['creation_source']) . '</span></div>' : '') .
+                    (!empty($r['creation_source']) ? '<div class="fs-12 mt-4">' . badge_html('warning', '来源：' . $r['creation_source']) . '</div>' : '') .
                     ($r['note'] ? '<div class="fs-12 mt-4" style="color:var(--danger)">驳回理由：' . e($r['note']) . '</div>' : '') . '</td>';
                 if ($showProposer) {
                     $h .= '<td>' . e($r['proposer']) . '</td>';
                 }
                 $h .= '<td class="fs-12">' . e(substr($r['created_at'], 0, 16)) . '</td>' .
-                    '<td>' . ($r['status'] === 'pending' ? '<span class="badge badge-warning">待审核</span>' : ($r['status'] === 'approved' ? '<span class="badge badge-success">已通过</span>' : ($r['status'] === 'used' ? '<span class="badge badge-gray">已使用</span>' : '<span class="badge badge-gray">已驳回</span>'))) . '</td>' .
+                    '<td>' . ($r['status'] === 'pending' ? badge_html('warning', '待审核') : ($r['status'] === 'approved' ? badge_html('success', '已通过') : ($r['status'] === 'used' ? badge_html('gray', '已使用') : badge_html('gray', '已驳回')))) . '</td>' .
                     '<td style="white-space:nowrap"><div class="flex gap-4" style="align-items:center">';
                 // 预览按钮（仅模态框表单类型可预览；其余置灰保持按钮一致）
                 if (in_array($r['type'], $previewableTypes, true)) {

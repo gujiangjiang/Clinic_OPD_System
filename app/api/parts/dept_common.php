@@ -68,7 +68,7 @@ function dept_queue($itemType, $emoji, $registerClick, $resultClick) {
                     $html .= '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' . e(oid($report['id'])) . '\',null)">查看报告</button> ' .
                         '<button class="btn btn-outline btn-sm" onclick="withdrawReport(\'' . e(oid($report['id'])) . '\')">申请撤回</button>';
                 } else {
-                    $html .= '<span class="badge badge-gray">撤回审核中</span>';
+                    $html .= badge_html('gray', '撤回审核中');
                 }
             }
             $html .= '</td></tr>';

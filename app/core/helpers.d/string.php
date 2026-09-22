@@ -51,9 +51,9 @@ function json_fail($msg) {
     json_response(false, $msg);
 }
 
-/** 统一徽章 HTML（减少各处重复的 span + e() 模式） */
-function badge_html($cls, $text) {
-    return '<span class="badge badge-' . $cls . '">' . e($text) . '</span>';
+/** 统一徽章 HTML（减少各处重复的 span + e() 模式）；$xs=true 特小徽章（列表行内密集场景） */
+function badge_html($cls, $text, $xs = false) {
+    return '<span class="badge badge-' . $cls . ($xs ? ' badge-xs' : '') . '">' . e($text) . '</span>';
 }
 
 /**

@@ -235,9 +235,9 @@ function admin_part_settings($action) {
         $pcRow = function ($title, $sub, $btnHtml, $dead = false, $deadText = '', $pending = false) {
             $badge = '';
             if ($dead) {
-                $badge = ' <span class="badge badge-danger" style="font-size:11px">' . e($deadText ?: '已退费') . '</span>';
+                $badge = ' ' . badge_html('danger', $deadText ?: '已退费', true);
             } elseif ($pending) {
-                $badge = ' <span class="badge badge-gray" style="font-size:11px">未缴费</span>';
+                $badge = ' ' . badge_html('gray', '未缴费', true);
             }
             $dim = $dead ? ' pc-dead' : ($pending ? ' pc-muted' : '');
             return '<div class="pc-row">' .

@@ -143,13 +143,13 @@ function cashier_part_read($action) {
         $html = '';
 
         // ===== 患者信息卡（姓名/年龄/性别/挂号科室/挂号时间/流水号） =====
-        $html .= '<div class="card" style="padding:14px;margin-bottom:12px" data-vid="' . e(oid($visitId)) . '">' .
+        $html .= '<div class="card" data-vid="' . e(oid($visitId)) . '">' .
             '<div class="flex-between"><div><span class="fw-700 fs-16">' . e($patient['name']) . '</span> ' .
             '<span class="text-muted fs-13">' . e($patient['gender']) . ' / ' . age_format($patient['birth_date'], $visit['registered_at']) . '</span></div>' .
-            '<span class="badge badge-primary">' . e($visit['flow_no']) . '</span></div>' .
+            badge_html('primary', $visit['flow_no']) . '</div>' .
             '<div class="fs-13 text-muted mt-4">患者ID ' . e($visit['patient_no']) . ' ｜ 首次科室 ' . e($visit['first_dept_name']) .
             ' 第' . str_pad((string)$visit['visit_seq'], 3, '0', STR_PAD_LEFT) . '号 ｜ 挂号 ' . e(substr($visit['registered_at'], 0, 16)) .
-            ' ｜ <span class="badge badge-gray">' . e(visit_status_name($visit['status'])) . '</span></div></div>';
+            ' ｜ ' . badge_html('gray', visit_status_name($visit['status'])) . '</div></div>';
 
         // 批量查询开单明细（避免逐单 N+1）
         $orders = CashierRepository::payableOrdersOfVisit($visitId);
@@ -220,7 +220,7 @@ function cashier_part_read($action) {
                 '<span class="fs-13 fw-600">¥' . money($visitPay['total']) . '</span></div>' .
                 // 优化8：挂号费凭条不显示流水号，仅 日期 时间 收费员
                 '<div class="fs-12 text-muted mt-4">' . e(substr($visitPay['created_at'], 0, 16)) . ' ｜ 收费员 ' . e($visitPay['cashier_name']) . ' ｜ ' . e($visitPay['method']) .
-                ($visitRefunded ? ' ｜ <span class="badge badge-gray">' . e(visit_status_name($visit['status'])) . '</span>' : '') . '</div>' .
+                ($visitRefunded ? ' ｜ ' . badge_html('gray', visit_status_name($visit['status'])) : '') . '</div>' .
                 '<div class="mt-8 flex gap-8">' .
                 ($visitRefunded
                     ? '<span class="fs-13 text-muted">该挂号已' . e(visit_status_name($visit['status'])) . '，不可补打凭条</span>'
@@ -251,7 +251,7 @@ function cashier_part_read($action) {
                 '<span class="fs-13 fw-600">🧾 缴费凭条 <span class="fs-12 text-muted fw-400">' . ($multi ? '（含' . count($g['orders']) . '张开单）' : '') . '</span></span>' .
                 '<span class="fs-13 fw-600">¥' . money($g['total']) . '</span></div>' .
                 '<div class="fs-12 text-muted mt-4">' . e(substr($g['created_at'], 0, 16)) . ' ｜ 流水号 ' . e($g['payment_no']) . ' ｜ 收费员 ' . e($g['cashier_name']) .
-                ($allRefunded ? ' ｜ <span class="badge badge-gray">已退费</span>' : '') . '</div>' .
+                ($allRefunded ? ' ｜ ' . badge_html('gray', '已退费') : '') . '</div>' .
                 '<div class="fs-12 text-muted mt-4" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' . $sumText . '</div>' .
                 '<div class="mt-8 flex gap-8">' .
                 // 整单已退费：凭条作废，不可补打、不可重复退费；但仍可查看详情（项目执行进度）
