@@ -21,7 +21,7 @@ function dept_visit_allowed($visit, $u) {
 
 /** 科室首页统计 */
 function dept_home_stats($itemType, $itemTable) {
-    $today = date('Y-m-d');
+    $today = today_str();
     $todayItems = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type=? AND date(created_at)=?", array($itemType, $today));
     $todayFee = (float)OrderRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type=? AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($itemType, $today));
     $pendingReg = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type=? AND status='paid'", array($itemType));

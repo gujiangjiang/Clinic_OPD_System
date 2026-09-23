@@ -1,7 +1,7 @@
 <?php
 require __DIR__ . '/../../app/config/bootstrap.php';
 DatabaseManager::initAll();
-$today = date('Y-m-d');
+$today = today_str();
 echo "== 今日就诊状态 ==\n";
 foreach (DB::q("SELECT status, COUNT(*) n FROM registrations WHERE substr(registered_at,1,10)=? GROUP BY status", array($today)) as $r) {
     echo $r['status'], ' x', $r['n'], "\n";

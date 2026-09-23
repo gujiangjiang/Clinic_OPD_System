@@ -14,7 +14,7 @@ function cashier_part_read($action) {
     Session::closeReadOnly();
 
     if ($action === 'home_stats') {
-        $today = date('Y-m-d');
+        $today = today_str();
         $regToday = (int)CashierRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=?", array($today));
         $regFeeToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total),0) FROM payments WHERE kind='visit' AND date(created_at)=?", array($today));
         $paidToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($today));

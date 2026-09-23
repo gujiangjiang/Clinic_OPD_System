@@ -11,17 +11,17 @@
  *  跨度上限统一走 date_span_clamp('ana')（366 天，与全站日期范围钳制同源） */
 function ana_range() {
     $tz = new DateTimeZone(date_default_timezone_get());
-    $end = req('end', date('Y-m-d'));
-    $start = req('start', date('Y-m-d'));
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start)) $start = date('Y-m-d');
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $end)) $end = date('Y-m-d');
+    $end = req('end', today_str());
+    $start = req('start', today_str());
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start)) $start = today_str();
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $end)) $end = today_str();
     if ($start > $end) { $t = $start; $start = $end; $end = $t; }
     list($start, $end) = date_span_clamp('ana', $start, $end);
     try {
         $ds = new DateTime($start, $tz);
         return array($ds->format('Y-m-d'), $end);
     } catch (Exception $e) {
-        return array(date('Y-m-d'), date('Y-m-d'));
+        return array(today_str(), today_str());
     }
 }
 

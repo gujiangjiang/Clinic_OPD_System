@@ -14,7 +14,7 @@ switch ($action) {
 
     /* ==================== 护士站首页统计 ==================== */
     case 'home_stats':
-        $today = date('Y-m-d');
+        $today = today_str();
         $todayDone = OrderRepository::todayDisposalDone($today);
         $pendingExec = OrderRepository::pendingDisposal();
         $todayFee = OrderRepository::todayDisposalFee($today);

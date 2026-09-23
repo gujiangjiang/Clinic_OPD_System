@@ -95,7 +95,7 @@ class QueueSeeder extends Seeder {
             ? array_values(array_filter(array_map('intval', explode(',', $this->opt['depts']))))
             : array(2, 5);
         $perDept = $this->opt['count'];
-        $today = date('Y-m-d');
+        $today = today_str();
         $dayPrefix = date('ymd');
 
         // 当天患者序号续接：patient_no 为字符串列，MAX 按字典序（99 > 100），

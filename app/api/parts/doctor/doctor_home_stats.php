@@ -10,7 +10,7 @@ function doctor_read_home_stats($u) {
     // 核心优化：医生首页统计只读接口，鉴权后立即释放 Session 锁
     Session::closeReadOnly();
     $uid = (int)$u['id'];
-    $today = date('Y-m-d');
+    $today = today_str();
     // 今日接诊人次（本人）
     $todayVisits = (int)EmrRepository::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND date(created_at)=?", array($uid, $today));
     // 今日开单金额（本人、已缴费、排除退费取消）

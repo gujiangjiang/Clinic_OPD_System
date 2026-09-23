@@ -23,7 +23,7 @@ Router::title('挂号管理');
 </div>
 <div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input type="text" class="input" id="regDate" value="<?php echo date('Y-m-d'); ?>" readonly placeholder="点击选择日期" style="width:150px;cursor:pointer" onclick="Clinic.datePicker.open(this, { maxToday: false })">
+        <input type="text" class="input" id="regDate" value="<?php echo today_str(); ?>" readonly placeholder="点击选择日期" style="width:150px;cursor:pointer" onclick="Clinic.datePicker.open(this, { maxToday: false })">
         <input class="input" id="regKw" placeholder="🔍 搜索 姓名 / 患者ID / 流水号" style="width:220px" onkeydown="if(event.key==='Enter')loadList()">
         <select class="select" id="regDeptType" style="width:110px" onchange="loadList()">
             <option value="">全部科室</option>
@@ -46,7 +46,7 @@ Router::title('挂号管理');
 
 <script>
 function loadList() {
-    var date = document.getElementById('regDate').value || '<?php echo date('Y-m-d'); ?>';
+    var date = document.getElementById('regDate').value || '<?php echo today_str(); ?>';
     var kw = document.getElementById('regKw').value.trim();
     var deptType = document.getElementById('regDeptType').value;
     var status = document.getElementById('regStatus').value;
