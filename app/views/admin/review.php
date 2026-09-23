@@ -181,145 +181,180 @@ function doAuditAll() {
 }
 
 /* ==================== 审核预览（只读展示提交内容，复用原模态框） ==================== */
+
+/** 模板只读预览渲染（快照或实时模板数据共用：t={title,type,scope,content}） */
+function renderTemplateSnapshot(t, modalTitle) {
+    if (!t) { Clinic.toast.warning('模板数据不存在'); return; }
+    var scopeNames = { personal: '个人', dept: '科室', hospital: '全院' };
+    var isConsent = t.type === 'consent';
+    var isNurse = t.type === 'nursing_record';
+    var isImg = t.type === 'imaging_report';
+    var isAdvice = t.type === 'order_note';
+    var textLabel = isConsent ? '知情同意书模板' : (isNurse ? '护理记录模板' : (isAdvice ? '病历嘱托模板' : '影像报告模板'));
+    // 知情同意/告知文书模板预览：告知内容 + 病历内容显示节（勾选状态）
+    var CONSENT_SEC_NAMES = { chief_complaint: '主诉', present_illness: '现病史', past_history: '既往史', allergy_history: '过敏史', main_symptoms: '主要症状', vitals: '生命体征', consciousness: '意识状态', physical_exam: '体格检查', preliminary_diagnosis: '初步诊断' };
+    var consentSecText = '';
+    if (isConsent) {
+        var secs = (t.content && t.content.sections) || [];
+        consentSecText = secs.length ? secs.map(function (k) { return CONSENT_SEC_NAMES[k] || k; }).join('、') : '（不显示病情介绍）';
+    }
+    var rightHtml = (isConsent || isNurse || isImg || isAdvice)
+        ? '<div class="card-title"><span>📝 ' + textLabel + '（只读）</span></div>' +
+          (isConsent
+              ? '<div class="form-group"><label class="form-label">病情介绍显示内容</label>' +
+                '<input class="input" value="' + escHtml(consentSecText) + '" readonly></div>' +
+                '<div class="form-group"><label class="form-label">正文内容</label>' +
+                '<textarea class="textarea" rows="12" readonly style="min-height:300px">' + escHtml((t.content && t.content.content) || '') + '</textarea></div>' +
+                '<div class="form-group"><label class="form-label">告知内容（签名区上方）</label>' +
+                '<textarea class="textarea" rows="3" readonly>' + escHtml((t.content && t.content.notice) || '') + '</textarea></div>'
+              : (isImg
+              ? '<div class="form-group"><label class="form-label">影像所见</label>' +
+                '<textarea class="textarea" rows="8" readonly>' + escHtml((t.content && t.content.findings) || '') + '</textarea></div>' +
+                '<div class="form-group"><label class="form-label">影像诊断</label>' +
+                '<textarea class="textarea" rows="5" readonly>' + escHtml((t.content && t.content.conclusion) || '') + '</textarea></div>'
+              : '<div class="form-group"><label class="form-label">' + (isNurse ? '护理记录内容' : (isAdvice ? '嘱托正文' : '知情同意内容')) + '</label>' +
+                '<textarea class="textarea" rows="14" readonly style="min-height:380px">' + escHtml((t.content && t.content.content) || '') + '</textarea></div>'))
+        : '<div class="card-title"><span>📝 模板正文（只读）</span></div>' +
+          '<div class="emr-doc"><div class="doc-body" id="previewTemplateEditor" style="border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;min-height:380px"></div></div>';
+    var html = '<div class="tpl-form">' +
+        '<div class="tpl-left">' +
+        '<div class="form-group"><label class="form-label">模板名称</label>' +
+        '<input class="input" value="' + escHtml(t.title) + '" readonly></div>' +
+        '<div class="form-group"><label class="form-label">适用范围</label>' +
+        '<input class="input" value="' + (scopeNames[t.scope] || t.scope) + '" readonly></div>' +
+        '</div>' +
+        '<div class="tpl-right">' + rightHtml + '</div></div>';
+    var mask = Clinic.modal.open(html, { title: isAdvice ? '预览 · 病历嘱托模板' : modalTitle, size: 'modal-xl' });
+    if (!isConsent && !isAdvice) {
+        var container = document.getElementById('previewTemplateEditor');
+        if (container && t.content) {
+            Clinic.emrEditor.render(container, t.content, { templateMode: true, readonly: true });
+        }
+    }
+    makeReadonly(mask);
+}
+
+/** 套餐只读预览渲染（快照或实时套餐数据共用：p={title,type,scope,items}） */
+function renderPackageSnapshot(p) {
+    if (!p) { Clinic.toast.warning('套餐数据不存在'); return; }
+    var pkgTypeNames = { lab: '检验套餐', imaging: '检查套餐', procedure: '处置套餐', prescription: '处方套餐' };
+    var pkgScopeNames = { personal: '个人', dept: '科室', hospital: '全院' };
+    var rows = (p.items || []).map(function (it) {
+        var dose = [it.single_dose, it.frequency, it.route].filter(function (x) { return x; }).join(' ｜ ');
+        var line = '<div class="flex-between" style="padding:5px 0;border-bottom:1px dashed var(--border)">' +
+            '<span class="fw-600 fs-13">' + escHtml(it.item_name || '') + '</span>' +
+            '<span class="fs-12 text-muted">' + (dose ? dose + ' ｜ ' : '') +
+            Clinic.money(((parseFloat(it.price) || 0) * (it.quantity || 1))) + '</span></div>';
+        if ((it.sub_of || 0) > 0) line = '<div style="padding:3px 0 3px 20px" class="fs-12 text-muted">└ 子医嘱：' +
+            escHtml(it.item_name || '') + (dose ? ' ｜ ' + dose : '') +
+            ' ｜ ' + Clinic.money(((parseFloat(it.price) || 0) * (it.quantity || 1))) + '</div>';
+        return line;
+    }).join('');
+    var html = '<div class="form-group"><label class="form-label">套餐名称</label>' +
+        '<input class="input" value="' + escHtml(p.title) + '" readonly></div>' +
+        '<div class="form-group"><label class="form-label">类型 / 适用范围</label>' +
+        '<input class="input" value="' + ((pkgTypeNames[p.type] || p.type) + ' / ' + (pkgScopeNames[p.scope] || p.scope)) + '" readonly></div>' +
+        '<div class="form-group"><label class="form-label">套餐内容（' + (p.items || []).length + ' 项）</label>' +
+        '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;max-height:380px;overflow-y:auto">' +
+        (rows || '<div class="empty">套餐暂无项目</div>') + '</div></div>';
+    var mask = Clinic.modal.open(html, { title: '预览 · ' + (pkgTypeNames[p.type] || '套餐'), size: 'modal-lg' });
+    makeReadonly(mask);
+}
+
 function previewAudit(btn) {
     var type = btn.getAttribute('data-type');
     var refId = parseInt(btn.getAttribute('data-ref'), 10) || 0;
     var auditId = parseInt(btn.getAttribute('data-id'), 10) || 0;
+    var status = btn.getAttribute('data-status') || 'pending';
+    var isHandled = status !== 'pending';
     var titleMap = {
         template: '预览 · 病历模板', nursing_template: '预览 · 护理记录模板', imaging_template: '预览 · 影像报告模板',
         item_lab: '预览 · 检验项目', item_exam: '预览 · 检查项目',
         item_drug: '预览 · 药品', item_disp: '预览 · 处置项目', drugsetting: '预览 · 药品设置',
     };
     var modalTitle = titleMap[type] || '预览';
-    // 模板/套餐预览：跳转到对应管理页，复用「添加/编辑模板/套餐」同一个模态框只读预览。
-    // 跳转前先校验存在性——审核项可能引用的模板/套餐已被删除，避免打开空模态框闪退。
+    // 模板/套餐：已处理记录优先用提交快照在当前页只读渲染（发起者删除后仍可追溯）；
+    // 待审核记录（项目必然存在）跳转管理页复用原只读预览
     var tplTypeMap = { template: 'medical_record', nursing_template: 'nursing_record', imaging_template: 'imaging_report' };
     if (tplTypeMap[type]) {
-        Clinic.get('/api/template?action=get&id=' + refId, null, {
-            onSuccess: function (j) {
-                if (j.data && j.data.template) {
-                    window.open('/admin/templates?preview=' + refId + '&type=' + tplTypeMap[type], '_blank');
-                } else {
-                    Clinic.toast.warning('该模板已被删除，无法预览');
-                }
-            },
-            onError: function () { Clinic.toast.warning('该模板已被删除，无法预览'); },
-        });
+        if (isHandled) {
+            Clinic.get('/api/admin?action=audit_preview&id=' + auditId, null, {
+                onSuccess: function (j) {
+                    if (j.data && j.data.template) { renderTemplateSnapshot(j.data.template, modalTitle); return; }
+                    openTemplateLive();
+                },
+                onError: function () { openTemplateLive(); },
+            });
+        } else {
+            openTemplateLive();
+        }
+        function openTemplateLive() {
+            Clinic.get('/api/template?action=get&id=' + refId, null, {
+                onSuccess: function (j) {
+                    if (j.data && j.data.template) {
+                        window.open('/admin/templates?preview=' + refId + '&type=' + tplTypeMap[type], '_blank');
+                    } else {
+                        Clinic.toast.warning('该模板已被删除，无法预览');
+                    }
+                },
+                onError: function () { Clinic.toast.warning('该模板已被删除，无法预览'); },
+            });
+        }
         return;
     }
     if (type === 'package') {
-        Clinic.get('/api/package?action=get&id=' + refId, null, {
-            onSuccess: function (j) {
-                if (j.data && j.data.package) {
-                    window.open('/admin/packages?preview=' + refId, '_blank');
-                } else {
-                    Clinic.toast.warning('该套餐已被删除，无法预览');
-                }
-            },
-            onError: function () { Clinic.toast.warning('该套餐已被删除，无法预览'); },
-        });
+        if (isHandled) {
+            Clinic.get('/api/admin?action=audit_preview&id=' + auditId, null, {
+                onSuccess: function (j) {
+                    if (j.data && j.data.package) { renderPackageSnapshot(j.data.package); return; }
+                    openPackageLive();
+                },
+                onError: function () { openPackageLive(); },
+            });
+        } else {
+            openPackageLive();
+        }
+        function openPackageLive() {
+            Clinic.get('/api/package?action=get&id=' + refId, null, {
+                onSuccess: function (j) {
+                    if (j.data && j.data.package) {
+                        window.open('/admin/packages?preview=' + refId, '_blank');
+                    } else {
+                        Clinic.toast.warning('该套餐已被删除，无法预览');
+                    }
+                },
+                onError: function () { Clinic.toast.warning('该套餐已被删除，无法预览'); },
+            });
+        }
         return;
     }
-    if (type === 'template' || type === 'nursing_template' || type === 'imaging_template') {
-        // 模板预览：病历模板 → emrEditor 只读；知情同意书/护理记录/影像报告 → 文本预览
-        Clinic.get('/api/template?action=get&id=' + refId, null, {
-            onSuccess: function (j) {
-                var t = j.data && j.data.template;
-                if (!t) { Clinic.toast.warning('模板数据不存在'); return; }
-                var scopeNames = { personal: '个人', dept: '科室', hospital: '全院' };
-                var isConsent = t.type === 'consent';
-                var isNurse = t.type === 'nursing_record';
-                var isImg = t.type === 'imaging_report';
-                var isAdvice = t.type === 'order_note';
-                var textLabel = isConsent ? '知情同意书模板' : (isNurse ? '护理记录模板' : (isAdvice ? '病历嘱托模板' : '影像报告模板'));
-                // 知情同意/告知文书模板预览：告知内容 + 病历内容显示节（勾选状态）
-                var CONSENT_SEC_NAMES = { chief_complaint: '主诉', present_illness: '现病史', past_history: '既往史', allergy_history: '过敏史', main_symptoms: '主要症状', vitals: '生命体征', consciousness: '意识状态', physical_exam: '体格检查', preliminary_diagnosis: '初步诊断' };
-                var consentSecText = '';
-                if (isConsent) {
-                    var secs = (t.content && t.content.sections) || [];
-                    consentSecText = secs.length ? secs.map(function (k) { return CONSENT_SEC_NAMES[k] || k; }).join('、') : '（不显示病情介绍）';
-                }
-                var rightHtml = (isConsent || isNurse || isImg || isAdvice)
-                    ? '<div class="card-title"><span>📝 ' + textLabel + '（只读）</span></div>' +
-                      (isConsent
-                          ? '<div class="form-group"><label class="form-label">病情介绍显示内容</label>' +
-                            '<input class="input" value="' + escHtml(consentSecText) + '" readonly></div>' +
-                            '<div class="form-group"><label class="form-label">正文内容</label>' +
-                            '<textarea class="textarea" rows="12" readonly style="min-height:300px">' + escHtml((t.content && t.content.content) || '') + '</textarea></div>' +
-                            '<div class="form-group"><label class="form-label">告知内容（签名区上方）</label>' +
-                            '<textarea class="textarea" rows="3" readonly>' + escHtml((t.content && t.content.notice) || '') + '</textarea></div>'
-                          : (isImg
-                          ? '<div class="form-group"><label class="form-label">影像所见</label>' +
-                            '<textarea class="textarea" rows="8" readonly>' + escHtml((t.content && t.content.findings) || '') + '</textarea></div>' +
-                            '<div class="form-group"><label class="form-label">影像诊断</label>' +
-                            '<textarea class="textarea" rows="5" readonly>' + escHtml((t.content && t.content.conclusion) || '') + '</textarea></div>'
-                          : '<div class="form-group"><label class="form-label">' + (isNurse ? '护理记录内容' : (isAdvice ? '嘱托正文' : '知情同意内容')) + '</label>' +
-                            '<textarea class="textarea" rows="14" readonly style="min-height:380px">' + escHtml((t.content && t.content.content) || '') + '</textarea></div>'))
-                    : '<div class="card-title"><span>📝 模板正文（只读）</span></div>' +
-                      '<div class="emr-doc"><div class="doc-body" id="previewTemplateEditor" style="border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;min-height:380px"></div></div>';
-                var html = '<div class="tpl-form">' +
-                    '<div class="tpl-left">' +
-                    '<div class="form-group"><label class="form-label">模板名称</label>' +
-                    '<input class="input" value="' + escHtml(t.title) + '" readonly></div>' +
-                    '<div class="form-group"><label class="form-label">适用范围</label>' +
-                    '<input class="input" value="' + (scopeNames[t.scope] || t.scope) + '" readonly></div>' +
-                    '</div>' +
-                    '<div class="tpl-right">' + rightHtml + '</div></div>';
-                var mask = Clinic.modal.open(html, { title: isAdvice ? '预览 · 病历嘱托模板' : modalTitle, size: 'modal-xl' });
-                if (!isConsent && !isAdvice) {
-                    var container = document.getElementById('previewTemplateEditor');
-                    if (container && t.content) {
-                        Clinic.emrEditor.render(container, t.content, { templateMode: true, readonly: true });
-                    }
-                }
-                makeReadonly(mask);
-            },
-        });
-    } else if (type === 'package') {
-        // 套餐预览：加载套餐内容只读展示（名称/适用范围/审核状态 + 项目明细）
-        var pkgTypeNames = { lab: '检验套餐', imaging: '检查套餐', procedure: '处置套餐', prescription: '处方套餐' };
-        var pkgScopeNames = { personal: '个人', dept: '科室', hospital: '全院' };
-        Clinic.get('/api/package?action=get&id=' + refId, null, {
-            onSuccess: function (j) {
-                var p = j.data && j.data.package;
-                if (!p) { Clinic.toast.warning('套餐数据不存在'); return; }
-                var isDrug = p.type === 'prescription';
-                var rows = (p.items || []).map(function (it, i) {
-                    var dose = [it.single_dose, it.frequency, it.route].filter(function (x) { return x; }).join(' ｜ ');
-                    var line = '<div class="flex-between" style="padding:5px 0;border-bottom:1px dashed var(--border)">' +
-                        '<span class="fw-600 fs-13">' + escHtml(it.item_name || '') + '</span>' +
-                        '<span class="fs-12 text-muted">' + (dose ? dose + ' ｜ ' : '') +
-                        Clinic.money(((parseFloat(it.price) || 0) * (it.quantity || 1))) + '</span></div>';
-                    if ((it.sub_of || 0) > 0) line = '<div style="padding:3px 0 3px 20px" class="fs-12 text-muted">└ 子医嘱：' +
-                        escHtml(it.item_name || '') + (dose ? ' ｜ ' + dose : '') +
-                        ' ｜ ' + Clinic.money(((parseFloat(it.price) || 0) * (it.quantity || 1))) + '</div>';
-                    return line;
-                }).join('');
-                var html = '<div class="form-group"><label class="form-label">套餐名称</label>' +
-                    '<input class="input" value="' + escHtml(p.title) + '" readonly></div>' +
-                    '<div class="form-group"><label class="form-label">类型 / 适用范围</label>' +
-                    '<input class="input" value="' + ((pkgTypeNames[p.type] || p.type) + ' / ' + (pkgScopeNames[p.scope] || p.scope)) + '" readonly></div>' +
-                    '<div class="form-group"><label class="form-label">套餐内容（' + (p.items || []).length + ' 项）</label>' +
-                    '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;max-height:380px;overflow-y:auto">' +
-                    (rows || '<div class="empty">套餐暂无项目</div>') + '</div></div>';
-                var mask = Clinic.modal.open(html, { title: '预览 · ' + (pkgTypeNames[p.type] || '套餐'), size: 'modal-lg' });
-                makeReadonly(mask);
-            },
-        });
-    } else {
-        // 检验/检查/药品/处置/药品设置：复用原表单接口，加载完成后统一只读化
-        var url = '/api/admin';
-        var params = {};
-        if (type === 'item_lab') { params = { action: 'item_form', type: 'lab', id: refId }; }
-        else if (type === 'item_exam') { params = { action: 'item_form', type: 'exam', id: refId }; }
-        else if (type === 'item_drug') { params = { action: 'drug_form', id: refId }; }
-        else if (type === 'item_disp') { params = { action: 'disposal_form', id: refId }; }
-        else if (type === 'drugsetting') { params = { action: 'audit_preview', id: auditId }; }
-        var mask = Clinic.modal.load(url, params, { title: modalTitle });
+    // 检验/检查/药品/处置/药品设置：
+    // 已处理记录优先用提交快照（audit_preview 返回只读表单，删除后仍可追溯），
+    // 无快照（历史数据）回退原表单接口；待审核记录直接读实时表单
+    var formParams = {
+        item_lab: { action: 'item_form', type: 'lab', id: refId },
+        item_exam: { action: 'item_form', type: 'exam', id: refId },
+        item_drug: { action: 'drug_form', id: refId },
+        item_disp: { action: 'disposal_form', id: refId },
+        drugsetting: { action: 'audit_preview', id: auditId },
+    };
+    var openForm = function () {
+        var mask = Clinic.modal.load('/api/admin', formParams[type] || { action: 'audit_preview', id: auditId }, { title: modalTitle });
         mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
             makeReadonly(mask);
         });
-    }
+    };
+    if (type === 'drugsetting' || !isHandled) { openForm(); return; }
+    Clinic.get('/api/admin?action=audit_preview&id=' + auditId, null, {
+        onSuccess: function (json) {
+            if (json.data && json.data.html) {
+                Clinic.modal.open(json.data.html, { title: modalTitle, size: 'modal-lg' });
+                return;
+            }
+            openForm();
+        },
+        onError: function () { openForm(); },
+    });
 }
 
 /* 通用只读化：禁用模态框内全部交互元素，仅保留滚动能力 */
