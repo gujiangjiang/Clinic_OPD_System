@@ -373,5 +373,15 @@ function makeReadonly(mask) {
 
 /* 内联 HTML 转义（预览模板名称用） */
 
+// 默认日期范围：最近一周（开始=6 天前，结束=今天），列表随之默认展示一周内审核，
+// 可手动调整（重置按钮可清空回全部）
+(function () {
+    var r = Clinic.datePicker.lastRange(6);
+    var f = document.getElementById('auditFrom');
+    var t = document.getElementById('auditTo');
+    if (f) f.value = r.from;
+    if (t) t.value = r.to;
+})();
+
 switchTab('pending');
 </script>
