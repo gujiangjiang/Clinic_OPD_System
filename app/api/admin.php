@@ -30,6 +30,7 @@ require __DIR__ . '/parts/admin_audit.php';
 require __DIR__ . '/parts/admin_call.php';
 require __DIR__ . '/parts/admin_analytics.php';
 require __DIR__ . '/parts/admin_import.php';
+require __DIR__ . '/parts/admin_sysinfo.php';
 
 // 科室角色（检验科/影像科/药房）仅开放与本职相关的只读接口与提交审核：
 // 其余管理操作（删除/分类/用户/科室/组合管理/设置等）仍仅限管理员。
@@ -165,6 +166,14 @@ switch ($action) {
     case 'import_preview':
     case 'import_confirm':
         admin_part_import($action);
+        break;
+
+    /* ---------------- 系统信息：数据库中心 / 缓存管理（仅管理员） ---------------- */
+    case 'db_status':
+    case 'db_table_data':
+    case 'cache_status':
+    case 'cache_flush':
+        admin_part_sysinfo($action);
         break;
 
     default:

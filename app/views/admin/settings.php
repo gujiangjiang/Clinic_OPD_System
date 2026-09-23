@@ -32,6 +32,17 @@ $dbType = strtoupper(DatabaseManager::driver());
     </div>
 </div>
 
+<!-- 多 Tab 导航 -->
+<div class="flex gap-8 mb-12" id="settingsTabs" style="flex-wrap:wrap">
+    <button type="button" class="btn btn-primary btn-sm" data-stab="clinic" onclick="settingsTab('clinic')">🏥 医院机构信息</button>
+    <button type="button" class="btn btn-outline btn-sm" data-stab="db" onclick="settingsTab('db')">🗄️ 数据库中心</button>
+    <button type="button" class="btn btn-outline btn-sm" data-stab="cache" onclick="settingsTab('cache')">⚡ 缓存与性能</button>
+    <button type="button" class="btn btn-outline btn-sm" data-stab="security" onclick="settingsTab('security')">🔐 安全与加密</button>
+    <button type="button" class="btn btn-outline btn-sm" data-stab="integration" onclick="settingsTab('integration')">🔌 外部集成与接口</button>
+</div>
+
+<!-- ============ Tab: 医院机构信息 ============ -->
+<div class="stab-pane" id="stab-clinic">
 <div class="setting-grid">
 
     <!-- ===== 医院信息（跨两列） ===== -->
@@ -90,6 +101,57 @@ $dbType = strtoupper(DatabaseManager::driver());
         <button class="btn btn-primary btn-sm" onclick="openWorkModal()">⏰ 设置作息时间</button>
     </div>
 
+</div>
+</div><!-- /stab-clinic -->
+
+<!-- ============ Tab: 数据库中心 ============ -->
+<div class="stab-pane" id="stab-db" style="display:none">
+    <div class="card setting-card">
+        <div class="card-title">🗄️ 当前数据库连接</div>
+        <div id="dbStatusBox" class="fs-13" style="line-height:2"><div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+        <div class="fs-12 text-muted mt-8">config.db 为基础设施配置库（主库驱动/连接凭证/缓存等）；主业务数据独立存放于主数据库，删除 config.db 仅重置配置，不会破坏业务数据。</div>
+    </div>
+    <div class="card setting-card">
+        <div class="card-title">📋 数据表浏览器</div>
+        <div class="fs-13 text-muted mb-8">点击任意表查看字段属性与分页行数据（只读），支持导出 CSV。</div>
+        <div id="dbTableList" class="fs-13" style="max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-md);padding:6px"><div class="text-muted">加载中…</div></div>
+        <div class="flex gap-8 mt-8">
+            <button class="btn btn-outline btn-sm" onclick="loadDbStatus()">🔄 刷新状态</button>
+            <button class="btn btn-outline btn-sm" onclick="exportDbTableCsv()">⬇️ 导出当前表 CSV</button>
+        </div>
+    </div>
+    <div class="card setting-card">
+        <div class="card-title">🔄 数据库迁移工具</div>
+        <div class="fs-13 text-muted mb-8">支持 SQLite ↔ MySQL 双向全量迁移（分批 Chunk 同步、外键约束临时关闭、自增序列校准）。迁移期间系统进入只读维护模式。</div>
+        <div class="flex gap-8">
+            <button class="btn btn-outline btn-sm" onclick="Clinic.toast.info('迁移引擎即将推出，敬请期待')">开始迁移</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ Tab: 缓存与性能 ============ -->
+<div class="stab-pane" id="stab-cache" style="display:none">
+    <div class="card setting-card">
+        <div class="card-title">⚡ 缓存状态</div>
+        <div id="cacheStatusBox" class="fs-13" style="line-height:2"><div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+    </div>
+    <div class="card setting-card">
+        <div class="card-title">🧹 模块化缓存刷新</div>
+        <div class="fs-13 text-muted mb-8">按模块清除缓存文件（系统配置 / ICD-10 与字典 / 排班叫号临时 / 全量）。</div>
+        <div class="flex gap-8" style="flex-wrap:wrap">
+            <button class="btn btn-outline btn-sm" onclick="flushCache('config')">刷新系统配置缓存</button>
+            <button class="btn btn-outline btn-sm" onclick="flushCache('dict')">刷新字典缓存</button>
+            <button class="btn btn-outline btn-sm" onclick="flushCache('call')">刷新排班叫号缓存</button>
+            <button class="btn btn-danger btn-sm" onclick="flushCache('all')">全量刷新</button>
+        </div>
+        <div class="fs-12 text-muted mt-8" id="cacheFlushMsg"></div>
+    </div>
+</div>
+
+<!-- ============ Tab: 安全与加密 ============ -->
+<div class="stab-pane" id="stab-security" style="display:none">
+<div class="setting-grid">
+
     <!-- ===== 安全设置 ===== -->
     <div class="card setting-card">
         <div class="card-title">🔐 安全设置</div>
@@ -114,6 +176,16 @@ $dbType = strtoupper(DatabaseManager::driver());
         <div class="fs-12 text-warning mt-8">⚠️ 重置后：此前生成/分享/收藏的所有带 ID 链接立即失效；系统功能不受影响（新链接按新密钥即时生成）。建议在怀疑链接泄露时重置。</div>
     </div>
 
+</div>
+</div><!-- /stab-security -->
+
+<!-- ============ Tab: 外部集成与接口 ============ -->
+<div class="stab-pane" id="stab-integration" style="display:none">
+    <div class="card setting-card">
+        <div class="card-title">🔌 外部集成与接口</div>
+        <div class="fs-13 mb-8">HIS / 支付 / 医保 / DICOM-PACS / HL7 v2.x / FHIR R4 / 存证·电子签名 等外部接口已统一迁移至接口管理页维护。</div>
+        <a class="btn btn-primary" href="/admin/integration">→ 前往接口管理</a>
+    </div>
 </div>
 
 <script>
@@ -347,5 +419,133 @@ function uploadLogo() {
             else Clinic.toast.error(json.msg || '上传失败');
         })
         .catch(function () { Clinic.toast.error('网络请求失败'); });
+}
+
+/* ---------- 系统设置多 Tab 切换 ---------- */
+function settingsTab(name) {
+    document.querySelectorAll('#settingsTabs [data-stab]').forEach(function (b) {
+        b.classList.toggle('btn-primary', b.getAttribute('data-stab') === name);
+        b.classList.toggle('btn-outline', b.getAttribute('data-stab') !== name);
+    });
+    document.querySelectorAll('.stab-pane').forEach(function (p) {
+        p.style.display = p.id === 'stab-' + name ? '' : 'none';
+    });
+    if (name === 'db') loadDbStatus();
+    if (name === 'cache') loadCacheStatus();
+}
+settingsTab('clinic');
+
+/* ---------- 数据库中心 ---------- */
+var DB_CUR_TABLE = '';
+function loadDbStatus() {
+    var box = document.getElementById('dbStatusBox');
+    Clinic.get('/api/admin?action=db_status', null, {
+        loading: false,
+        onSuccess: function (json) {
+            var d = json.data || {};
+            var cfg = d.config_available ? '✓ 有效（' + escHtml(d.config_path) + '）' : '（无 config.db，按默认配置运行）';
+            box.innerHTML =
+                '<div class="flex-between"><span class="text-muted">驱动类型</span><span class="fw-600">' + escHtml(d.driver_label) + '</span></div>' +
+                '<div class="flex-between"><span class="text-muted">连接延迟</span><span>' + d.delay_ms + ' ms</span></div>' +
+                '<div class="flex-between"><span class="text-muted">表数量</span><span>' + d.table_count + ' 张</span></div>' +
+                '<div class="flex-between"><span class="text-muted">总行数</span><span>' + d.total_rows + ' 行</span></div>' +
+                '<div class="flex-between"><span class="text-muted">库大小</span><span>' + escHtml(d.size_human) + '</span></div>' +
+                '<div class="flex-between"><span class="text-muted">配置库</span><span class="fs-12">' + cfg + '</span></div>';
+            var tl = document.getElementById('dbTableList');
+            tl.innerHTML = (d.tables || []).map(function (t) {
+                return '<div class="flex-between" style="padding:5px 8px;border-radius:6px;cursor:pointer" onmouseover="this.style.background=\'var(--bg-soft)\'" onmouseout="this.style.background=\'\'" onclick="openDbTable(\'' + escHtml(t.name) + '\')">' +
+                    '<span class="fw-600">' + escHtml(t.name) + '</span>' +
+                    '<span class="fs-12 text-muted">' + t.rows + ' 行</span></div>';
+            }).join('') || '<div class="text-muted">无表</div>';
+        },
+        onError: function () { box.innerHTML = '<span class="text-danger">数据库状态读取失败</span>'; },
+    });
+}
+
+var DB_TABLE_MODAL = null;
+function openDbTable(table) {
+    DB_CUR_TABLE = table;
+    Clinic.get('/api/admin?action=db_table_data&table=' + encodeURIComponent(table) + '&page=1&size=20', null, {
+        loading: false,
+        onSuccess: function (json) { renderDbTable(json.data); },
+        onError: function (x, j) { Clinic.toast.error((j && j.msg) || '读取失败'); },
+    });
+}
+function renderDbTable(d) {
+    var head = (d.cols || []).map(function (c) { return '<th>' + escHtml(c.name) + '</th>'; }).join('');
+    var body = (d.rows || []).map(function (r) {
+        return '<tr>' + (d.cols || []).map(function (c) {
+            var v = r[c.name] === null || r[c.name] === undefined ? '' : String(r[c.name]);
+            var full = v;
+            if (v.length > 60) v = v.substr(0, 60) + '…';
+            return '<td class="fs-12" title="' + escHtml(full) + '">' + escHtml(v) + '</td>';
+        }).join('') + '</tr>';
+    }).join('');
+    var html =
+        '<div class="flex-between mb-8"><span class="fw-600 fs-14">📋 ' + escHtml(d.table) + '（共 ' + d.total + ' 行）</span>' +
+        '<span class="flex gap-8">' +
+        '<button class="btn btn-outline btn-sm" onclick="exportDbTableCsv()">⬇️ CSV</button>' +
+        (d.page > 1 ? '<button class="btn btn-outline btn-sm" onclick="dbTablePage(' + (d.page - 1) + ')">← 上一页</button>' : '') +
+        (d.has_more ? '<button class="btn btn-outline btn-sm" onclick="dbTablePage(' + (d.page + 1) + ')">下一页 →</button>' : '') +
+        '</span></div>' +
+        '<div class="table-wrap" style="max-height:420px;overflow:auto"><table class="table"><thead><tr>' + head + '</tr></thead><tbody>' +
+        (body || '<tr><td colspan="99" class="text-muted">无数据</td></tr>') + '</tbody></table></div>';
+    if (DB_TABLE_MODAL) { DB_TABLE_MODAL.innerHTML = html; }
+    else { DB_TABLE_MODAL = Clinic.modal.open(html, { title: '数据表查看', size: 'modal-xl' }); }
+}
+function dbTablePage(p) {
+    Clinic.get('/api/admin?action=db_table_data&table=' + encodeURIComponent(DB_CUR_TABLE) + '&page=' + p + '&size=20', null, {
+        loading: false,
+        onSuccess: function (json) { renderDbTable(json.data); },
+    });
+}
+function exportDbTableCsv() {
+    if (!DB_CUR_TABLE) { Clinic.toast.warning('请先选择数据表'); return; }
+    Clinic.get('/api/admin?action=db_table_data&table=' + encodeURIComponent(DB_CUR_TABLE) + '&page=1&size=1000', null, {
+        loading: false,
+        onSuccess: function (json) {
+            var d = json.data;
+            var cols = (d.cols || []).map(function (c) { return c.name; });
+            var lines = [cols.join(',')];
+            (d.rows || []).forEach(function (r) {
+                lines.push(cols.map(function (c) {
+                    var v = r[c] === null || r[c] === undefined ? '' : String(r[c]);
+                    return '"' + v.replace(/"/g, '""') + '"';
+                }).join(','));
+            });
+            var blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = d.table + '.csv';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        },
+    });
+}
+
+/* ---------- 缓存与性能 ---------- */
+function loadCacheStatus() {
+    var box = document.getElementById('cacheStatusBox');
+    Clinic.get('/api/admin?action=cache_status', null, {
+        loading: false,
+        onSuccess: function (json) {
+            var d = json.data || {};
+            box.innerHTML =
+                '<div class="flex-between"><span class="text-muted">缓存驱动</span><span class="fw-600">' + escHtml(d.driver_label) + '</span></div>' +
+                '<div class="flex-between"><span class="text-muted">键数量</span><span>' + (d.keys || 0) + '</span></div>' +
+                (d.memory ? '<div class="flex-between"><span class="text-muted">占用内存</span><span>' + escHtml(d.memory) + '</span></div>' : '') +
+                ((d.notes || []).length ? d.notes.map(function (n) { return '<div class="fs-12 text-warning mt-4">⚠ ' + escHtml(n) + '</div>'; }).join('') : '');
+        },
+        onError: function () { box.innerHTML = '<span class="text-danger">缓存状态读取失败</span>'; },
+    });
+}
+function flushCache(scope) {
+    var msg = document.getElementById('cacheFlushMsg');
+    msg.textContent = '刷新中…';
+    Clinic.get('/api/admin?action=cache_flush&scope=' + encodeURIComponent(scope), null, {
+        loading: false,
+        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
+        onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '刷新失败') + '</span>'; },
+    });
 }
 </script>
