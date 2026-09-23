@@ -172,13 +172,10 @@ class Router {
         self::render($route[0]);
     }
 
-    /** 是否已安装（是否存在管理员用户） */
+    /** 是否已安装（config.db 存在且有效 → 以配置库中的主库为准；
+     * 无 config.db（旧版/首次）→ 回退查询默认驱动主库） */
     public static function installed() {
-        try {
-            return (int)DB::val('SELECT COUNT(*) FROM users') > 0;
-        } catch (Exception $ex) {
-            return false;
-        }
+        return ConfigStore::isSystemInstalled();
     }
 
     /** 无需局部刷新的独立页面（始终整页加载） */

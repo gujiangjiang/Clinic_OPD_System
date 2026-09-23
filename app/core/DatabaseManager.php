@@ -43,7 +43,7 @@ class DatabaseManager {
     /** 当前驱动名 */
     public static function driver() {
         if (self::$driver !== null) return self::$driver;
-        self::$driver = defined('DB_DRIVER') ? DB_DRIVER : 'sqlite';
+        self::$driver = ConfigStore::driver();   // 优先读 config.db，回退 DB_DRIVER 默认常量
         return self::$driver;
     }
 
@@ -64,16 +64,18 @@ class DatabaseManager {
         }
         $driver = self::driver();
         if ($driver === 'mysql') {
-            $dsn = 'mysql:host=' . MYSQL_HOST . ';port=' . MYSQL_PORT
-                 . ';dbname=' . MYSQL_DB_NAME . ';charset=utf8mb4';
-            $pdo = new PDO($dsn, MYSQL_USER, MYSQL_PASS, array(
+            $p = ConfigStore::dbParams();
+            $dsn = 'mysql:host=' . $p['host'] . ';port=' . $p['port']
+                 . ';dbname=' . $p['dbname'] . ';charset=utf8mb4';
+            $pdo = new PDO($dsn, $p['user'], $p['pass'], array(
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ));
         } elseif ($driver === 'pgsql') {
-            $dsn = 'pgsql:host=' . PGSQL_HOST . ';port=' . PGSQL_PORT
-                 . ';dbname=' . PGSQL_DB_NAME;
-            $pdo = new PDO($dsn, PGSQL_USER, PGSQL_PASS, array(
+            $p = ConfigStore::dbParams();
+            $dsn = 'pgsql:host=' . $p['host'] . ';port=' . $p['port']
+                 . ';dbname=' . $p['dbname'];
+            $pdo = new PDO($dsn, $p['user'], $p['pass'], array(
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ));

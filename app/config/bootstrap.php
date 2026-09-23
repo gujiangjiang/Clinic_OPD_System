@@ -85,6 +85,7 @@ require_once __DIR__ . '/../core/Session.php';
 Session::start();
 
 /* ---------- 引入核心类 ---------- */
+require_once __DIR__ . '/../core/ConfigStore.php';
 require_once __DIR__ . '/../core/DatabaseManager.php';
 require_once __DIR__ . '/../core/IdObfuscator.php';
 require_once __DIR__ . '/../core/DataExportImport.php';
