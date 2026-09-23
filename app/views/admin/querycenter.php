@@ -108,13 +108,14 @@ function searchRefs() {
     else initRefList();
 }
 
-/* 重置：清空日期范围与关键字回到全部列表 */
+/* 重置：恢复默认日期范围（最近一周）并清空关键字 */
 function resetRefs() {
+    var r = Clinic.datePicker.lastRange(6);
     var f = document.getElementById('qcRefFrom');
     var t = document.getElementById('qcRefTo');
     var kw = document.getElementById('qcRefKw');
-    if (f) f.value = '';
-    if (t) t.value = '';
+    if (f) f.value = r.from;
+    if (t) t.value = r.to;
     if (kw) kw.value = '';
     if (refList) refList.reset();
     else initRefList();

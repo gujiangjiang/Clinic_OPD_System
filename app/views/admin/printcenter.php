@@ -151,13 +151,14 @@ function pcSearch() {
     else initPcList();
 }
 
-/** 重置：清空日期范围与关键字回到全部列表 */
+/** 重置：恢复默认日期范围（最近一周）并清空关键字 */
 function pcReset() {
     document.getElementById('pcKw').value = '';
+    var r = Clinic.datePicker.lastRange(6);
     var f = document.getElementById('pcFrom');
     var t = document.getElementById('pcTo');
-    if (f) f.value = '';
-    if (t) t.value = '';
+    if (f) f.value = r.from;
+    if (t) t.value = r.to;
     PC_SELECTED = '';
     if (PC_LIST) PC_LIST.reset();
     else initPcList();
@@ -192,15 +193,6 @@ function pcTab(name) {
     });
 }
 
-/* 进入页面即加载最新就诊列表 */
-// 默认日期范围：最近一周（开始=6 天前，结束=今天），就诊列表随之默认展示一周内记录，
-// 可手动调整日期范围（重置按钮可清空回全部）
-(function () {
-    var r = Clinic.datePicker.lastRange(6);
-    var f = document.getElementById('pcFrom');
-    var t = document.getElementById('pcTo');
-    if (f) f.value = r.from;
-    if (t) t.value = r.to;
-})();
-initPcList();
+/* 进入页面：填充默认最近一周日期并加载列表（pcReset 已含刷新） */
+pcReset();
 </script>
