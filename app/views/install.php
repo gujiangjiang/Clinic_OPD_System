@@ -1,14 +1,16 @@
 <?php
 /**
- * install.php — 首次安装页
- * 说明：系统未创建管理员时全站强制跳转到本页：
- * 1. 管理员用户名固定 admin，密码由用户设置
- * 2. 设置医院名称/第二名称/时区（下拉选择，默认取创建管理员时的浏览器时区）
- * 3. 上传医院 LOGO（可选，同时用作 favicon）
- * 页脚版权信息无需手动设置：统一自动生成【© 年份 医院名称 版权所有】。
+ * install.php — 首次安装向导（5 步）
+ * ============================================================
+ * Step 1 欢迎与环境巡检：PHP 版本/扩展/目录权限
+ * Step 2 基础设施与数据库配置：驱动选择 + 全新/关联现有 + 缓存
+ * Step 3 医疗机构基础设置：机构/时区/就诊规则
+ * Step 4 创建超级管理员：账号/密码/邮箱
+ * Step 5 最终确认与安装执行
+ * ============================================================
  */
 
-/* 时区下拉数据源：直接调用服务器 PHP 的 timezone 列表，按区域分组 */
+/* 时区下拉数据源：按区域分组 */
 $tzGroups = array();
 foreach (DateTimeZone::listIdentifiers() as $tz) {
     $parts = explode('/', $tz, 2);
@@ -20,105 +22,351 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
     <div class="auth-title">🏥 门诊一体化系统</div>
     <div style="text-align:center;margin:-2px 0 12px">
         <span class="badge badge-primary" style="font-size:11px;letter-spacing:.04em" title="当前数据库驱动">🗄️ 数据库：<?php echo e(strtoupper(DatabaseManager::driver())); ?></span>
+        <span class="badge badge-outline" style="font-size:11px;letter-spacing:.04em" id="installBadge">准备安装</span>
     </div>
-    <div class="auth-sub">首次安装 · 创建系统管理员</div>
+    <div class="auth-sub" id="wizardSub">首次初始化向导 · 共 5 步</div>
 
-    <div class="step-dots"><span class="step-dot on"></span><span class="step-dot"></span><span class="step-dot"></span></div>
+    <!-- 步骤指示器 -->
+    <div class="step-dots" id="stepDots">
+        <span class="step-dot on" data-step="1"></span><span class="step-dot" data-step="2"></span><span class="step-dot" data-step="3"></span><span class="step-dot" data-step="4"></span><span class="step-dot" data-step="5"></span>
+    </div>
 
-    <div class="form-group">
-        <label class="form-label">管理员用户名 <span class="req">*</span></label>
-        <div class="input-wrap"><span class="input-icon">👤</span>
-            <input type="text" class="input" id="username" value="admin" placeholder="默认 admin，可修改" autocomplete="username"></div>
+    <!-- ============ Step 1: 环境巡检 ============ -->
+    <div class="wiz-step" data-step="1">
+        <div class="form-group"><label class="form-label">环境巡检</label>
+            <div class="card" style="padding:12px;max-height:280px;overflow-y:auto" id="preflightBox">
+                <div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div>正在检查环境…</div>
+            </div>
+        </div>
+        <div class="form-group" id="mainDbHint" style="display:none">
+            <div class="fs-13" style="background:var(--primary-soft);border-radius:var(--radius-md);padding:10px 12px">
+                <span id="mainDbHintText"></span>
+            </div>
+        </div>
     </div>
-    <div class="form-group">
-        <label class="form-label">管理员密码 <span class="req">*</span></label>
-        <div class="input-wrap"><span class="input-icon">🔑</span>
-            <input type="password" class="input" id="password" placeholder="至少6位" autocomplete="new-password"></div>
+
+    <!-- ============ Step 2: 数据库与缓存 ============ -->
+    <div class="wiz-step" data-step="2" style="display:none">
+        <div class="form-group"><label class="form-label">数据库驱动 <span class="req">*</span></label>
+            <select class="select" id="dbDriver">
+                <option value="sqlite" selected>SQLite（零配置，单文件，推荐中小门诊）</option>
+                <option value="mysql">MySQL / MariaDB</option>
+            </select>
+        </div>
+        <div id="sqliteOpts">
+            <div class="form-group"><label class="form-label">SQLite 数据库文件</label>
+                <input type="text" class="input" id="sqlitePath" placeholder="留空使用默认：data/db/clinic_main.db">
+                <div class="fs-12 text-muted mt-4">可指定已有数据库文件路径（需为 SQLite 格式），留空则自动创建。</div>
+            </div>
+        </div>
+        <div id="mysqlOpts" style="display:none">
+            <div class="form-row">
+                <div class="form-group"><label class="form-label">主机</label><input type="text" class="input" id="dbHost" value="127.0.0.1"></div>
+                <div class="form-group"><label class="form-label">端口</label><input type="text" class="input" id="dbPort" value="3306"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label class="form-label">数据库名</label><input type="text" class="input" id="dbName" value="his_main"></div>
+                <div class="form-group"><label class="form-label">用户名</label><input type="text" class="input" id="dbUser" value="root"></div>
+            </div>
+            <div class="form-group"><label class="form-label">密码</label><input type="password" class="input" id="dbPass" value=""></div>
+            <div class="flex gap-8">
+                <button type="button" class="btn btn-outline btn-sm" id="testDbBtn" onclick="testDb()">测试连接</button>
+                <span class="fs-13 text-muted" id="dbTestMsg"></span>
+            </div>
+        </div>
+        <div class="form-group"><label class="form-label">安装方式 <span class="req">*</span></label>
+            <div class="flex gap-8" style="flex-wrap:wrap">
+                <label class="flex gap-4" style="align-items:center;cursor:pointer"><input type="radio" name="installMode" value="fresh" checked> 全新安装（建库并导入基础字典）</label>
+                <label class="flex gap-4" style="align-items:center;cursor:pointer"><input type="radio" name="installMode" value="attach"> 关联现有数据库（保留已有数据）</label>
+            </div>
+            <div class="fs-12 text-muted mt-4">关联现有数据库：若之前已安装过（主库表结构完整），选择后仅重新绑定连接，不破坏任何已有数据。</div>
+        </div>
+        <div class="form-group"><label class="form-label">缓存驱动</label>
+            <select class="select" id="cacheDriver">
+                <option value="file" selected>File（本地文件，零依赖）</option>
+                <option value="apcu">APCu（内存，需 PHP 扩展）</option>
+                <option value="redis">Redis（需扩展与服务）</option>
+            </select>
+        </div>
+        <div id="redisOpts" style="display:none">
+            <div class="form-row">
+                <div class="form-group"><label class="form-label">主机</label><input type="text" class="input" id="redisHost" value="127.0.0.1"></div>
+                <div class="form-group"><label class="form-label">端口</label><input type="text" class="input" id="redisPort" value="6379"></div>
+            </div>
+            <div class="form-group"><label class="form-label">密码（可选）</label><input type="password" class="input" id="redisAuth" value=""></div>
+            <div class="flex gap-8">
+                <button type="button" class="btn btn-outline btn-sm" onclick="testRedis()">测试连接</button>
+                <span class="fs-13 text-muted" id="redisTestMsg"></span>
+            </div>
+        </div>
     </div>
-    <div class="form-group">
-        <label class="form-label">确认管理员密码 <span class="req">*</span></label>
-        <div class="input-wrap"><span class="input-icon">🔑</span>
-            <input type="password" class="input" id="password2" placeholder="再次输入密码" autocomplete="new-password"></div>
-    </div>
-    <div class="form-group">
-        <label class="form-label">医院名称 <span class="req">*</span></label>
-        <div class="input-wrap"><span class="input-icon">🏥</span>
+
+    <!-- ============ Step 3: 医疗机构 ============ -->
+    <div class="wiz-step" data-step="3" style="display:none">
+        <div class="form-group"><label class="form-label">医院名称 <span class="req">*</span></label>
             <input type="text" class="input" id="hospital_name" placeholder="如：XX市人民医院"></div>
-    </div>
-    <div class="form-group">
-        <label class="form-label">机构代码 <span class="req">*</span></label>
-        <div class="input-wrap"><span class="input-icon">🏛️</span>
+        <div class="form-group"><label class="form-label">机构代码 <span class="req">*</span></label>
             <input type="text" class="input" id="org_code" placeholder="如：410105001234（医保结算/监管报送唯一标识）"></div>
-    </div>
-    <div class="form-group">
-        <label class="form-label">医院第二名称（可选）</label>
-        <input type="text" class="input" id="hospital_name2" placeholder="如：XX医科大学附属医院">
-    </div>
-    <div class="form-group">
-        <label class="form-label">网站时区（默认选中您当前的浏览器时区，可修改）</label>
-        <select class="select" id="timezone" data-csd-search="1">
-            <?php foreach ($tzGroups as $group => $tzList): ?>
-            <optgroup label="<?php echo e($group); ?>">
-                <?php foreach ($tzList as $tz): ?>
-                <option value="<?php echo e($tz); ?>"><?php echo e($tz); ?></option>
+        <div class="form-group"><label class="form-label">医院第二名称（可选）</label>
+            <input type="text" class="input" id="hospital_name2" placeholder="如：XX医科大学附属医院"></div>
+        <div class="form-row">
+            <div class="form-group"><label class="form-label">联系电话</label><input type="text" class="input" id="contact_phone" placeholder="如：0371-12345678"></div>
+            <div class="form-group"><label class="form-label">联系地址</label><input type="text" class="input" id="contact_addr" placeholder="如：XX市XX区XX路1号"></div>
+        </div>
+        <div class="form-group"><label class="form-label">网站时区 <span class="req">*</span></label>
+            <select class="select" id="timezone" data-csd-search="1">
+                <?php foreach ($tzGroups as $group => $tzList): ?>
+                <optgroup label="<?php echo e($group); ?>">
+                    <?php foreach ($tzList as $tz): ?>
+                    <option value="<?php echo e($tz); ?>"><?php echo e($tz); ?></option>
+                    <?php endforeach; ?>
+                </optgroup>
                 <?php endforeach; ?>
-            </optgroup>
-            <?php endforeach; ?>
-        </select>
-    </div>
-    <div class="form-group">
-        <label class="form-label">医院 LOGO（可选，同时作为网站 favicon）</label>
-        <input type="file" class="input" id="logo" accept="image/*">
+            </select>
+        </div>
+        <div class="form-group"><label class="form-label">医院 LOGO（可选，同时作为网站 favicon）</label>
+            <input type="file" class="input" id="logo" accept="image/*"></div>
     </div>
 
-    <button type="button" class="btn btn-primary btn-lg btn-block" id="installBtn">完成安装</button>
-    <div class="auth-footer">安装完成后将自动跳转登录页</div>
+    <!-- ============ Step 4: 管理员 ============ -->
+    <div class="wiz-step" data-step="4" style="display:none">
+        <div class="form-group"><label class="form-label">管理员用户名 <span class="req">*</span></label>
+            <div class="input-wrap"><span class="input-icon">👤</span>
+                <input type="text" class="input" id="username" value="admin" placeholder="默认 admin，可修改" autocomplete="username"></div></div>
+        <div class="form-group"><label class="form-label">真实姓名</label>
+            <div class="input-wrap"><span class="input-icon">👨‍⚕️</span>
+                <input type="text" class="input" id="realname" value="系统管理员" placeholder="管理员真实姓名"></div></div>
+        <div class="form-group"><label class="form-label">管理员密码 <span class="req">*</span></label>
+            <div class="input-wrap"><span class="input-icon">🔑</span>
+                <input type="password" class="input" id="password" placeholder="至少 6 位，建议含大小写与数字" autocomplete="new-password"></div></div>
+        <div class="form-group"><label class="form-label">确认密码 <span class="req">*</span></label>
+            <div class="input-wrap"><span class="input-icon">🔑</span>
+                <input type="password" class="input" id="password2" placeholder="再次输入密码" autocomplete="new-password"></div></div>
+        <div class="form-group"><label class="form-label">安全邮箱（可选，用于密码找回）</label>
+            <div class="input-wrap"><span class="input-icon">📧</span>
+                <input type="email" class="input" id="admin_email" placeholder="如：admin@hospital.com"></div></div>
+        <div class="form-group" id="attachAdminHint" style="display:none">
+            <div class="fs-13" style="background:var(--primary-soft);border-radius:var(--radius-md);padding:10px 12px">已选择「关联现有数据库」，将保留原系统管理员账号，无需新建。</div>
+        </div>
+    </div>
+
+    <!-- ============ Step 5: 确认与执行 ============ -->
+    <div class="wiz-step" data-step="5" style="display:none">
+        <div class="form-group"><label class="form-label">安装信息确认</label>
+            <div class="card" style="padding:12px" id="confirmBox"></div>
+        </div>
+        <button type="button" class="btn btn-primary btn-lg btn-block" id="installBtn">🚀 完成安装</button>
+        <div class="auth-footer" id="installFoot">安装完成后将自动跳转登录页</div>
+    </div>
+
+    <!-- 导航按钮 -->
+    <div class="flex gap-8 mt-12" id="wizNav">
+        <button type="button" class="btn btn-outline btn-sm" id="prevBtn" style="display:none" onclick="wizPrev()">← 上一步</button>
+        <button type="button" class="btn btn-primary btn-sm" id="nextBtn" onclick="wizNext()">下一步 →</button>
+    </div>
 </div>
 
 <script>
-// 默认时区：优先取创建管理员时的浏览器时区（若不在服务器列表中则回退 Asia/Shanghai）
-(function () {
-    var tz = 'Asia/Shanghai';
-    try {
-        tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz;
-    } catch (e) {}
-    var sel = document.getElementById('timezone');
-    if (sel.querySelector('option[value="' + tz + '"]')) {
-        sel.value = tz;
-    } else {
-        sel.value = 'Asia/Shanghai';
-    }
-})();
+/* ==================== 5 步向导控制 ==================== */
+var WIZ = { step: 1, preflight: null, mode: 'fresh' };
 
+function wizGo(n, validate) {
+    if (validate && !wizValidate(WIZ.step)) return;
+    WIZ.step = n;
+    document.querySelectorAll('.wiz-step').forEach(function (s) { s.style.display = (+s.getAttribute('data-step')) === n ? '' : 'none'; });
+    document.querySelectorAll('#stepDots .step-dot').forEach(function (d) { d.classList.toggle('on', +d.getAttribute('data-step') === n); });
+    var subs = ['', '环境巡检', '数据库与缓存', '医疗机构信息', '创建管理员', '确认安装'];
+    document.getElementById('wizardSub').textContent = 'Step ' + n + ' · ' + subs[n];
+    document.getElementById('prevBtn').style.display = n === 1 ? 'none' : '';
+    document.getElementById('nextBtn').style.display = n === 5 ? 'none' : '';
+    if (n === 2) toggleDbMode();
+    if (n === 4) toggleAdminHint();
+    if (n === 5) renderConfirm();
+}
+
+function wizNext() {
+    if (WIZ.step === 2 && !testDbIfNeeded()) return;
+    wizGo(WIZ.step + 1, true);
+}
+function wizPrev() { wizGo(WIZ.step - 1, false); }
+
+function wizValidate(n) {
+    if (n === 2) {
+        if (document.getElementById('dbDriver').value === 'mysql') {
+            if (!document.getElementById('dbName').value.trim()) { Clinic.toast.warning('请填写数据库名'); return false; }
+        }
+    } else if (n === 3) {
+        if (!document.getElementById('hospital_name').value.trim()) { Clinic.toast.warning('请填写医院名称'); return false; }
+        if (!document.getElementById('org_code').value.trim()) { Clinic.toast.warning('请填写机构代码'); return false; }
+    } else if (n === 4) {
+        if (WIZ.mode !== 'attach') {
+            var u = document.getElementById('username').value.trim();
+            var p = document.getElementById('password').value;
+            var p2 = document.getElementById('password2').value;
+            if (!u || !/^[A-Za-z]/.test(u)) { Clinic.toast.warning('管理员用户名必须以英文字母开头'); return false; }
+            if (p.length < 6) { Clinic.toast.warning('管理员密码不能少于6位（当前 ' + p.length + ' 位）'); return false; }
+            if (p !== p2) { Clinic.toast.warning('两次输入的密码不一致'); return false; }
+        }
+    }
+    return true;
+}
+
+function toggleDbMode() {
+    var d = document.getElementById('dbDriver').value;
+    document.getElementById('sqliteOpts').style.display = d === 'sqlite' ? '' : 'none';
+    document.getElementById('mysqlOpts').style.display = d === 'mysql' ? '' : 'none';
+    var rd = document.querySelector('input[name="installMode"]:checked');
+    WIZ.mode = rd ? rd.value : 'fresh';
+}
+
+function toggleAdminHint() {
+    document.getElementById('attachAdminHint').style.display = WIZ.mode === 'attach' ? '' : 'none';
+    ['username', 'password', 'password2', 'admin_email'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.disabled = WIZ.mode === 'attach';
+    });
+}
+
+document.querySelectorAll('input[name="installMode"]').forEach(function (r) {
+    r.addEventListener('change', function () { toggleDbMode(); });
+});
+document.getElementById('dbDriver').addEventListener('change', function () { toggleDbMode(); });
+document.getElementById('cacheDriver').addEventListener('change', function () {
+    document.getElementById('redisOpts').style.display = this.value === 'redis' ? '' : 'none';
+});
+
+/* ==================== 环境巡检 ==================== */
+function loadPreflight() {
+    var box = document.getElementById('preflightBox');
+    Clinic.get('/api/install?action=preflight', null, {
+        loading: false,
+        onSuccess: function (json) {
+            WIZ.preflight = json.data || {};
+            var d = WIZ.preflight;
+            var html = '';
+            html += '<div class="flex-between mb-8"><span class="fw-600">PHP 版本</span><span>' + escHtml(d.php_version || '-') + '</span></div>';
+            var exts = (d.extensions || []);
+            html += '<div class="fw-600 mb-4">PHP 扩展</div>' + exts.map(function (e) {
+                return '<div class="flex-between"><span>' + escHtml(e.name) + '</span><span class="' + (e.ok ? 'text-success' : 'text-danger') + '">' + (e.ok ? '✓ 已安装' : '✗ 缺失') + '</span></div>';
+            }).join('');
+            var dirs = (d.dirs || []);
+            html += '<div class="fw-600 mt-8 mb-4">目录权限</div>' + dirs.map(function (x) {
+                return '<div class="flex-between"><span>' + escHtml(x.path) + '</span><span class="' + (x.ok ? 'text-success' : 'text-danger') + '">' + (x.ok ? '✓ 可写' : '✗ 不可写') + '</span></div>';
+            }).join('');
+            html += '<div class="fw-600 mt-8 mb-4">已有数据</div>';
+            html += '<div class="flex-between"><span>已安装检测</span><span>' + (d.existing_installed ? '<span class="text-success">检测到已安装系统（可关联现有库）</span>' : '<span class="text-muted">未检测到（全新安装）</span>') + '</span></div>';
+            html += '<div class="flex-between"><span>现有主库</span><span>' + escHtml(d.existing_main || '—') + '</span></div>';
+            box.innerHTML = html;
+            if (d.existing_installed) {
+                document.getElementById('mainDbHint').style.display = '';
+                document.getElementById('mainDbHintText').textContent = '检测到已安装的数据库（' + (d.existing_main || '未知位置') + '）。若需重置系统，请选择「关联现有数据库」以保留已有数据。';
+            }
+        },
+        onError: function () {
+            box.innerHTML = '<div class="text-danger">环境检查失败，请确认服务器环境后重试</div>';
+        },
+    });
+}
+
+/* ==================== 数据库/缓存连接测试 ==================== */
+function testDb() {
+    var btn = document.getElementById('testDbBtn');
+    var msg = document.getElementById('dbTestMsg');
+    msg.textContent = '测试中…';
+    btn.disabled = true;
+    Clinic.get('/api/install?action=test_db', {
+        driver: document.getElementById('dbDriver').value,
+        host: document.getElementById('dbHost').value,
+        port: document.getElementById('dbPort').value,
+        dbname: document.getElementById('dbName').value,
+        user: document.getElementById('dbUser').value,
+        pass: document.getElementById('dbPass').value,
+        path: document.getElementById('sqlitePath').value,
+    }, {
+        loading: false,
+        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
+        onError: function (x, json) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((json && json.msg) || '连接失败') + '</span>'; },
+        complete: function () { btn.disabled = false; },
+    });
+}
+function testDbIfNeeded() {
+    if (document.getElementById('dbDriver').value === 'mysql') {
+        return true;   // 连接在安装时再次校验，不强制预测试
+    }
+    return true;
+}
+function testRedis() {
+    var btn = event.target;
+    var msg = document.getElementById('redisTestMsg');
+    msg.textContent = '测试中…';
+    btn.disabled = true;
+    Clinic.get('/api/install?action=test_redis', {
+        host: document.getElementById('redisHost').value,
+        port: document.getElementById('redisPort').value,
+        auth: document.getElementById('redisAuth').value,
+    }, {
+        loading: false,
+        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
+        onError: function (x, json) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((json && json.msg) || '连接失败') + '</span>'; },
+        complete: function () { btn.disabled = false; },
+    });
+}
+
+/* ==================== 确认汇总 ==================== */
+function renderConfirm() {
+    var d = document.getElementById('dbDriver').value;
+    var box = document.getElementById('confirmBox');
+    var rows = [];
+    rows.push(['数据库驱动', d === 'sqlite' ? 'SQLite（' + (document.getElementById('sqlitePath').value.trim() || '默认 data/db/clinic_main.db') + '）' : 'MySQL：' + document.getElementById('dbHost').value + ':' + document.getElementById('dbPort').value + '/' + document.getElementById('dbName').value]);
+    rows.push(['安装方式', WIZ.mode === 'attach' ? '关联现有数据库（保留数据）' : '全新安装（建库并导入基础字典）']);
+    rows.push(['缓存驱动', document.getElementById('cacheDriver').value]);
+    rows.push(['医院名称', document.getElementById('hospital_name').value.trim()]);
+    rows.push(['机构代码', document.getElementById('org_code').value.trim()]);
+    if (WIZ.mode !== 'attach') {
+        rows.push(['管理员', document.getElementById('username').value.trim() + '（' + (document.getElementById('realname').value.trim() || '系统管理员') + '）']);
+    } else {
+        rows.push(['管理员', '保留现有系统管理员']);
+    }
+    box.innerHTML = rows.map(function (r) {
+        return '<div class="flex-between mb-4"><span class="text-muted">' + escHtml(r[0]) + '</span><span class="fw-600">' + escHtml(r[1]) + '</span></div>';
+    }).join('');
+}
+
+/* ==================== 执行安装 ==================== */
 document.getElementById('installBtn').addEventListener('click', function () {
     var btn = this;
-    var username = document.getElementById('username').value.trim();
-    var password = document.getElementById('password').value;
-    var password2 = document.getElementById('password2').value;
-    var hospital = document.getElementById('hospital_name').value.trim();
-    var orgCode = document.getElementById('org_code').value.trim();
-    // 校验时带上实际输入长度，便于用户发现输入法/自动填充导致的输入不完整
-    if (username === '' || !/^[A-Za-z]/.test(username)) { Clinic.toast.warning('管理员用户名必须以英文字母开头（默认 admin，可修改）'); return; }
-    if (password.length < 6) { Clinic.toast.warning('管理员密码不能少于6位（当前输入 ' + password.length + ' 位）'); return; }
-    if (password !== password2) { Clinic.toast.warning('两次输入的密码不一致'); return; }
-    if (!hospital) { Clinic.toast.warning('请填写医院名称'); return; }
-    if (!orgCode) { Clinic.toast.warning('请填写机构代码'); return; }
-
     var fd = new FormData();
     fd.append('csrf_token', document.body.getAttribute('data-csrf'));
     fd.append('action', 'save');
-    fd.append('username', username);
-    fd.append('password', password);
-    fd.append('password2', password2);
-    fd.append('hospital_name', hospital);
-    fd.append('org_code', orgCode);
+    fd.append('mode', WIZ.mode);
+    fd.append('db_driver', document.getElementById('dbDriver').value);
+    fd.append('sqlite_path', document.getElementById('sqlitePath').value.trim());
+    fd.append('db_host', document.getElementById('dbHost').value);
+    fd.append('db_port', document.getElementById('dbPort').value);
+    fd.append('db_name', document.getElementById('dbName').value);
+    fd.append('db_user', document.getElementById('dbUser').value);
+    fd.append('db_pass', document.getElementById('dbPass').value);
+    fd.append('cache_driver', document.getElementById('cacheDriver').value);
+    fd.append('redis_host', document.getElementById('redisHost').value);
+    fd.append('redis_port', document.getElementById('redisPort').value);
+    fd.append('redis_auth', document.getElementById('redisAuth').value);
+    fd.append('hospital_name', document.getElementById('hospital_name').value.trim());
+    fd.append('org_code', document.getElementById('org_code').value.trim());
     fd.append('hospital_name2', document.getElementById('hospital_name2').value.trim());
+    fd.append('contact_phone', document.getElementById('contact_phone').value.trim());
+    fd.append('contact_addr', document.getElementById('contact_addr').value.trim());
     fd.append('timezone', document.getElementById('timezone').value);
+    fd.append('username', document.getElementById('username').value.trim());
+    fd.append('realname', document.getElementById('realname').value.trim());
+    fd.append('password', document.getElementById('password').value);
+    fd.append('password2', document.getElementById('password2').value);
+    fd.append('admin_email', document.getElementById('admin_email').value.trim());
     var logoFile = document.getElementById('logo').files[0];
     if (logoFile) fd.append('logo', logoFile);
 
     btn.disabled = true;
     btn.textContent = '安装中…';
+    document.getElementById('installFoot').textContent = '正在执行安装，请勿关闭页面…';
     fetch('/api/install', { method: 'POST', body: fd })
         .then(function (r) { return r.json(); })
         .then(function (json) {
@@ -128,13 +376,24 @@ document.getElementById('installBtn').addEventListener('click', function () {
             } else {
                 Clinic.toast.error(json.msg || '安装失败');
                 btn.disabled = false;
-                btn.textContent = '完成安装';
+                btn.textContent = '🚀 完成安装';
+                document.getElementById('installFoot').textContent = '安装失败，请检查后重试';
             }
         })
         .catch(function () {
-            Clinic.toast.error('网络请求失败');
+            Clinic.toast.error('网络请求失败，请重试');
             btn.disabled = false;
-            btn.textContent = '完成安装';
+            btn.textContent = '🚀 完成安装';
         });
 });
+
+/* ==================== 初始化 ==================== */
+(function () {
+    // 默认时区：优先取浏览器时区
+    var tz = 'Asia/Shanghai';
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz; } catch (e) {}
+    var sel = document.getElementById('timezone');
+    if (sel.querySelector('option[value="' + tz + '"]')) sel.value = tz; else sel.value = 'Asia/Shanghai';
+    loadPreflight();
+})();
 </script>
