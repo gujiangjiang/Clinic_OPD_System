@@ -24,10 +24,10 @@ Router::title('查询中心');
     <!-- 搜索工具条：与打印中心/科室管理等页面统一（筛选卡片 + 列表卡片分离，卡片间 16px 间距） -->
     <div class="card list-filter">
         <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-            <input type="text" class="input" id="qcRefFrom" readonly placeholder="开始日期" style="width:150px;cursor:pointer;background:var(--bg)"
+            <input type="text" class="input input-date" id="qcRefFrom" readonly placeholder="开始日期" 
                 onclick="Clinic.datePicker.open(this,{maxToday:false,peer:'qcRefTo',maxSpan:183})">
             <span class="text-muted">至</span>
-            <input type="text" class="input" id="qcRefTo" readonly placeholder="结束日期" style="width:150px;cursor:pointer;background:var(--bg)"
+            <input type="text" class="input input-date" id="qcRefTo" readonly placeholder="结束日期" 
                 onclick="Clinic.datePicker.open(this,{maxToday:true,peer:'qcRefFrom',maxSpan:183})">
             <input class="input" id="qcRefKw" placeholder="🔍 检索：门诊流水号 / 患者编号 / 申请单号" style="flex:1;min-width:220px"
                 onkeydown="if(event.key==='Enter')searchRefs()">

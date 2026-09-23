@@ -15,10 +15,10 @@ Router::title('打印中心');
 <!-- 检索工具条（日期范围跨度上限 3 个月，超出自动调整） -->
 <div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input type="text" class="input" id="pcFrom" readonly placeholder="开始日期" style="width:150px;cursor:pointer;background:var(--bg)"
+        <input type="text" class="input input-date" id="pcFrom" readonly placeholder="开始日期" 
             onclick="Clinic.datePicker.open(this,{maxToday:false,peer:'pcTo',maxSpan:92})">
         <span class="text-muted">至</span>
-        <input type="text" class="input" id="pcTo" readonly placeholder="结束日期" style="width:150px;cursor:pointer;background:var(--bg)"
+        <input type="text" class="input input-date" id="pcTo" readonly placeholder="结束日期" 
             onclick="Clinic.datePicker.open(this,{maxToday:true,peer:'pcFrom',maxSpan:92})">
         <input class="input" id="pcKw" placeholder="输入患者姓名 / 患者ID / 门诊流水号 / 身份证号" style="flex:1;min-width:200px" autocomplete="off" onkeydown="if(event.key==='Enter')pcSearch()">
         <button class="btn btn-primary btn-sm" onclick="pcSearch()">查询</button>

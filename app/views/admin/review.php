@@ -28,10 +28,10 @@ Router::title('审核中心');
         </select>
         <button class="btn btn-success btn-sm" id="auditAllBtn" onclick="doAuditAll()">✅ 一键全部通过</button>
         <span class="flex gap-8" style="align-items:center;margin-left:auto">
-            <input type="text" class="input" id="auditFrom" readonly placeholder="开始日期" style="width:140px;cursor:pointer;background:var(--bg)"
+            <input type="text" class="input input-date" id="auditFrom" readonly placeholder="开始日期" 
                 onclick="Clinic.datePicker.open(this,{maxToday:false,peer:'auditTo',maxSpan:366})">
             <span class="text-muted">至</span>
-            <input type="text" class="input" id="auditTo" readonly placeholder="结束日期" style="width:140px;cursor:pointer;background:var(--bg)"
+            <input type="text" class="input input-date" id="auditTo" readonly placeholder="结束日期" 
                 onclick="Clinic.datePicker.open(this,{maxToday:true,peer:'auditFrom',maxSpan:366})">
             <button class="btn btn-outline btn-sm" onclick="resetAuditDates()">重置</button>
         </span>

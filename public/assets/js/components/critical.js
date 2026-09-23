@@ -587,9 +587,9 @@ Clinic.critical = (function () {
                 // + flex gap-8 单层 padding:18px，无内联 padding / form-group 标签）
                 '<div class="card list-filter">' +
                 '  <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">' +
-                '    <input type="text" class="input" id="critFrom" readonly placeholder="开始日期" style="width:150px;cursor:pointer;background:var(--bg)" onclick="Clinic.datePicker.open(this,{maxToday:false,peer:\'critTo\',maxSpan:31})">' +
+                '    <input type="text" class="input input-date" id="critFrom" readonly placeholder="开始日期"  onclick="Clinic.datePicker.open(this,{maxToday:false,peer:\'critTo\',maxSpan:31})">' +
                 '    <span class="text-muted">至</span>' +
-                '    <input type="text" class="input" id="critTo" readonly placeholder="结束日期" style="width:150px;cursor:pointer;background:var(--bg)" onclick="Clinic.datePicker.open(this,{maxToday:true,peer:\'critFrom\',maxSpan:31})">' +
+                '    <input type="text" class="input input-date" id="critTo" readonly placeholder="结束日期"  onclick="Clinic.datePicker.open(this,{maxToday:true,peer:\'critFrom\',maxSpan:31})">' +
                 '    <select class="select" id="critStatus" style="width:130px">' +
                 '      <option value="">全部状态</option>' +
                 '      <option value="pending">待处理</option>' +

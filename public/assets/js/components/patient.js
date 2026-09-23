@@ -33,10 +33,10 @@ Clinic.patientSearch = {
             'onkeydown="if(event.key===\'Enter\')Clinic.patientSearch.doSearch(\'' + prefix + '\')"></div>' +
             '<div class="form-group"><label class="form-label">建档日期范围（可选，跨度不超过 1 年）</label>' +
             '<div class="flex gap-8" style="align-items:center">' +
-            '<input type="text" class="input" id="' + fromId + '" readonly placeholder="开始日期" style="width:130px;cursor:pointer;background:var(--bg)" ' +
+            '<input type="text" class="input input-date" id="' + fromId + '" readonly placeholder="开始日期"  ' +
             'onclick="Clinic.datePicker.open(this,{maxToday:false,peer:\'' + toId + '\',maxSpan:366})">' +
             '<span class="text-muted">至</span>' +
-            '<input type="text" class="input" id="' + toId + '" readonly placeholder="结束日期" style="width:130px;cursor:pointer;background:var(--bg)" ' +
+            '<input type="text" class="input input-date" id="' + toId + '" readonly placeholder="结束日期"  ' +
             'onclick="Clinic.datePicker.open(this,{maxToday:true,peer:\'' + fromId + '\',maxSpan:366})">' +
             '</div></div>' +
             '<div id="' + prefix + 'Result" class="fs-13"></div>',
