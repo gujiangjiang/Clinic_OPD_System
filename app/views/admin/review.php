@@ -15,22 +15,27 @@ Router::title('审核中心');
 </div>
 
 <div class="card list-filter" style="flex-shrink:0">
-    <div class="flex-wrap-center">
-        <button class="btn btn-primary btn-sm" data-tab="pending" onclick="switchTab('pending')">待审核</button>
-        <button class="btn btn-outline btn-sm" data-tab="handled" onclick="switchTab('handled')">已处理</button>
-        <select class="select" id="groupSelect" onchange="switchGroup()" style="width:auto">
-            <option value="">平铺列表</option>
-            <option value="user">按申请人分组</option>
-            <option value="type">按类型分组</option>
-        </select>
-        <button class="btn btn-success btn-sm" id="auditAllBtn" onclick="doAuditAll()">✅ 一键全部通过</button>
-        <span class="flex gap-8" style="align-items:center;margin-left:auto">
+    <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
+        <!-- 日期范围组（靠左）：与其他页面日期筛选栏结构统一 -->
+        <span class="flex gap-8" style="align-items:center">
             <input type="text" class="input input-date" id="auditFrom" readonly placeholder="开始日期" 
                 onclick="Clinic.datePicker.open(this,{maxToday:false,peer:'auditTo',maxSpan:366})">
             <span class="text-muted">至</span>
             <input type="text" class="input input-date" id="auditTo" readonly placeholder="结束日期" 
                 onclick="Clinic.datePicker.open(this,{maxToday:true,peer:'auditFrom',maxSpan:366})">
+            <button class="btn btn-primary btn-sm" onclick="loadAudits(getCurrentTab())">查询</button>
             <button class="btn btn-outline btn-sm" onclick="resetAuditDates()">重置</button>
+        </span>
+        <!-- 页签 / 分组 / 一键通过（靠右） -->
+        <span class="flex gap-8" style="align-items:center;margin-left:auto">
+            <button class="btn btn-primary btn-sm" data-tab="pending" onclick="switchTab('pending')">待审核</button>
+            <button class="btn btn-outline btn-sm" data-tab="handled" onclick="switchTab('handled')">已处理</button>
+            <select class="select" id="groupSelect" onchange="switchGroup()" style="width:auto">
+                <option value="">平铺列表</option>
+                <option value="user">按申请人分组</option>
+                <option value="type">按类型分组</option>
+            </select>
+            <button class="btn btn-success btn-sm" id="auditAllBtn" onclick="doAuditAll()">✅ 一键全部通过</button>
         </span>
     </div>
 </div>
@@ -64,12 +69,13 @@ function auditDateParams() {
         '&to=' + encodeURIComponent((document.getElementById('auditTo') || {}).value || '');
 }
 
-/** 重置日期范围回到全部 */
+/** 重置日期范围：恢复默认最近一周（开始=6 天前，结束=今天）并刷新列表 */
 function resetAuditDates() {
+    var r = Clinic.datePicker.lastRange(6);
     var f = document.getElementById('auditFrom');
     var t = document.getElementById('auditTo');
-    if (f) f.value = '';
-    if (t) t.value = '';
+    if (f) f.value = r.from;
+    if (t) t.value = r.to;
     loadAudits(getCurrentTab());
 }
 
@@ -371,17 +377,6 @@ function makeReadonly(mask) {
     });
 }
 
-/* 内联 HTML 转义（预览模板名称用） */
-
-// 默认日期范围：最近一周（开始=6 天前，结束=今天），列表随之默认展示一周内审核，
-// 可手动调整（重置按钮可清空回全部）
-(function () {
-    var r = Clinic.datePicker.lastRange(6);
-    var f = document.getElementById('auditFrom');
-    var t = document.getElementById('auditTo');
-    if (f) f.value = r.from;
-    if (t) t.value = r.to;
-})();
-
-switchTab('pending');
+/* 进入页面：填充默认最近一周日期并加载列表（resetAuditDates 已含刷新） */
+resetAuditDates();
 </script>
