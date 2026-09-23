@@ -28,7 +28,7 @@ Router::title('药品设置');
 </div>
 
 <div class="card list-card">
-    <div id="dsList" class="list-scroll"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+    <div id="dsList" class="list-scroll"><div class="empty"><div class="spinner"></div></div></div>
 </div>
 </div>
 

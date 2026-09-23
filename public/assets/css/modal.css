@@ -371,6 +371,12 @@
     border-radius: 50%;
     animation: spin .8s linear infinite;
 }
+/* 列表加载占位（.empty 内 spinner 居中；17 处重复内联收敛） */
+.empty .spinner {
+    border: 3px solid var(--bg-soft);
+    border-top-color: var(--primary);
+    margin: 0 auto;
+}
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---------- 确认对话框 ---------- */

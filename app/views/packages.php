@@ -39,7 +39,7 @@ $isAdmin = $u['role'] === 'admin';
     </div>
 </div>
 <div class="card list-card" id="pkgList">
-    <div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div>
+    <div class="empty"><div class="spinner"></div></div>
 </div>
 </div>
 

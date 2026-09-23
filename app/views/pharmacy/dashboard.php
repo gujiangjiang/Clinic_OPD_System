@@ -282,7 +282,7 @@ function reprintRx(orderId) {
 /* ==================== 库存管理（顶栏「📦 库存」入口，保持原功能） ==================== */
 function openInventory() {
     var mask = Clinic.modal.open(
-        '<div id="invBody"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>',
+        '<div id="invBody"><div class="empty"><div class="spinner"></div></div></div>',
         { title: '📦 库存管理', size: 'modal-lg', buttons: [{ text: '关闭', cls: 'btn-outline' }] }
     );
     Clinic.get('/api/pharmacy?action=inventory', null, {

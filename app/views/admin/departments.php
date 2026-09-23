@@ -23,7 +23,7 @@ Router::title('科室管理');
         </span>
     </div>
 </div>
-<div class="card list-card" id="deptList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+<div class="card list-card" id="deptList"><div class="empty"><div class="spinner"></div></div></div>
 </div>
 
 <script>

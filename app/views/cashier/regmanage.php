@@ -42,7 +42,7 @@ Router::title('挂号管理');
         <button class="btn btn-primary btn-sm" onclick="loadList()">查询</button>
     </div>
 </div>
-<div id="regList" class="regm-fill"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+<div id="regList" class="regm-fill"><div class="empty"><div class="spinner"></div></div></div>
 
 <script>
 function loadList() {

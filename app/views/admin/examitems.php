@@ -25,7 +25,7 @@ $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
     </div>
 </div>
 
-<div class="card list-card" id="itemList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+<div class="card list-card" id="itemList"><div class="empty"><div class="spinner"></div></div></div>
 </div>
 
 <script>

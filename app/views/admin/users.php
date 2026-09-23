@@ -22,7 +22,7 @@ $editFromUrl = (int)get('edit_user_id', 0);
         <span class="flex gap-4" id="userRoleTabs" style="flex-wrap:wrap"></span>
     </div>
 </div>
-<div class="card list-card" id="userList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+<div class="card list-card" id="userList"><div class="empty"><div class="spinner"></div></div></div>
 </div>
 
 <script>

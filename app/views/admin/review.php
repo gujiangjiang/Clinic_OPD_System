@@ -38,7 +38,7 @@ Router::title('审核中心');
     </div>
 </div>
 
-<div class="card list-card" id="auditList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+<div class="card list-card" id="auditList"><div class="empty"><div class="spinner"></div></div></div>
 </div>
 
 <script>
@@ -110,7 +110,7 @@ function loadAudits(status) {
     // 分组：全量加载（服务端分组渲染）
     if (AUDIT_PAGED) { AUDIT_PAGED.stop(); AUDIT_PAGED = null; }
     var box = document.getElementById('auditList');
-    if (box) box.innerHTML = '<div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div>';
+    if (box) box.innerHTML = '<div class="empty"><div class="spinner"></div></div>';
     Clinic.get('/api/admin?action=audit_list&status=' + status + '&group=' + group + auditDateParams(), null, {
         onSuccess: function (json) {
             document.getElementById('auditList').innerHTML = json.data.html;

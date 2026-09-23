@@ -24,7 +24,7 @@ Router::title('影像模板管理');
     </div>
 </div>
 <div class="card" id="itplList">
-    <div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div>
+    <div class="empty"><div class="spinner"></div></div>
 </div>
 
 <style>

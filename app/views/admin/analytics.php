@@ -101,7 +101,7 @@ $depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type
                 <button class="btn btn-sm btn-outline" data-dtype="emergency" onclick="deptTypeFilter(this,'emergency')">急诊</button>
             </span>
         </div>
-        <div id="deptTable" class="ana-pane-table"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+        <div id="deptTable" class="ana-pane-table"><div class="empty"><div class="spinner"></div></div></div>
     </div>
 </div>
 
@@ -113,7 +113,7 @@ $depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type
             <select class="select" id="docDeptSel" onchange="loadDoctor()" style="width:auto"><option value="0">全部科室</option></select>
             <input class="input" id="docSearch" placeholder="🔍 搜索工号 / 姓名 / 职称" style="width:200px" oninput="renderDoctorTable()">
         </div>
-        <div id="doctorTable" class="ana-pane-table"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+        <div id="doctorTable" class="ana-pane-table"><div class="empty"><div class="spinner"></div></div></div>
     </div>
 </div>
 

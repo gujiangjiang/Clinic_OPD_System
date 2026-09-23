@@ -15,7 +15,7 @@ Router::title('站内消息');
         <button class="btn btn-outline btn-sm" onclick="loadMsgs()">刷新</button>
     </div>
 </div>
-<div class="card" id="msgBox"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+<div class="card" id="msgBox"><div class="empty"><div class="spinner"></div></div></div>
 
 <script>
 function loadMsgs() {

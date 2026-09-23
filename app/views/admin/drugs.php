@@ -27,7 +27,7 @@ $__canManage = $__isAdmin || $__isPharmacy;
         <span class="flex gap-4" id="drugCatTabs" style="flex-wrap:wrap"></span>
     </div>
 </div>
-<div class="card list-card" id="drugList"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+<div class="card list-card" id="drugList"><div class="empty"><div class="spinner"></div></div></div>
 </div>
 
 <script>

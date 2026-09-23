@@ -10,7 +10,7 @@ Router::title('退费申请审批');
 <div class="page-head">
     <div><div class="page-title">🧾 退费申请审批</div><div class="page-desc">核对患者与项目执行状态后确认是否同意退费</div></div>
 </div>
-<div id="reqBox"><div class="empty"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+<div id="reqBox"><div class="empty"><div class="spinner"></div></div></div>
 
 <script>
 var REQ_ID = new URLSearchParams(location.search).get('id') || '';
