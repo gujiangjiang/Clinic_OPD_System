@@ -374,7 +374,7 @@ class LabSeeder extends Seeder {
                 }
             }
             if ($memberIds) {
-                $ph = implode(',', array_fill(0, count($memberIds), '?'));
+                $ph = in_placeholders($memberIds);
                 $this->pdo->prepare("DELETE FROM lab_group_members WHERE group_id=? AND item_id NOT IN ($ph)")
                     ->execute(array_merge(array($gid), $memberIds));
             }

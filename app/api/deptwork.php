@@ -58,7 +58,7 @@ function deptwork_role_cfg($role) {
 /** 明细类型过滤 SQL（护士站仅纳入「护士站执行」的处置/处方） */
 function deptwork_type_where($cfg, $alias) {
     $types = $cfg['item_types'];
-    $ph = implode(',', array_fill(0, count($types), '?'));
+    $ph = in_placeholders($types);
     $sql = "$alias.item_type IN ($ph)";
     $params = $types;
     if (!empty($cfg['nurse_rx'])) {

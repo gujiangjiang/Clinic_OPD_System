@@ -18,24 +18,25 @@ $u = Auth::user();
 // 核心优化：站内消息轮询（铃铛心跳）只读接口，鉴权后立即释放 Session 锁
 Session::closeReadOnly();
 
+// 消息可见范围（to_user_id 本人 或 全员广播 to_role）：本文件各 action 共用
+$msgWhere = '(to_user_id=? OR (to_user_id=0 AND to_role=?))';
+$msgParams = array($u['id'], $u['role']);
+
 switch ($action) {
 
     /* ---------------- 未读消息数（铃铛角标）+ 最新未读消息ID（用于前端检测新消息） ---------------- */
     case 'unread_count':
-        $count = (int)CoreRepository::val('SELECT COUNT(*) FROM messages WHERE is_read=0 AND (to_user_id=? OR (to_user_id=0 AND to_role=?))',
-            array($u['id'], $u['role']));
+        $count = (int)CoreRepository::val('SELECT COUNT(*) FROM messages WHERE is_read=0 AND ' . $msgWhere, $msgParams);
         // latest_id：当前用户未读消息中的最大 ID（0 表示无未读）。
         // 前端轮询时比较该值是否增大，从而判断「是否有新消息到达」，
         // 比单纯比较数量更准确（避免多端已读导致的计数波动误判）。
-        $latestId = (int)CoreRepository::val('SELECT MAX(id) FROM messages WHERE is_read=0 AND (to_user_id=? OR (to_user_id=0 AND to_role=?))',
-            array($u['id'], $u['role']));
+        $latestId = (int)CoreRepository::val('SELECT MAX(id) FROM messages WHERE is_read=0 AND ' . $msgWhere, $msgParams);
         json_ok(array('count' => $count, 'latest_id' => $latestId));
         break;
 
     /* ---------------- 消息列表（最近50条，面板用） ---------------- */
     case 'list':
-        $list = CoreRepository::q('SELECT * FROM messages WHERE (to_user_id=? OR (to_user_id=0 AND to_role=?)) ORDER BY id DESC LIMIT 50',
-            array($u['id'], $u['role']));
+        $list = CoreRepository::q('SELECT * FROM messages WHERE ' . $msgWhere . ' ORDER BY id DESC LIMIT 50', $msgParams);
         obfList($list);
         json_ok(array('list' => $list));
         break;
@@ -43,14 +44,13 @@ switch ($action) {
     /* ---------------- 标记已读 ---------------- */
     case 'read':
         $id = (int)post('id');
-        CoreRepository::exec('UPDATE messages SET is_read=1 WHERE id=? AND (to_user_id=? OR (to_user_id=0 AND to_role=?))', array($id, $u['id'], $u['role']));
+        CoreRepository::exec('UPDATE messages SET is_read=1 WHERE id=? AND ' . $msgWhere, array_merge(array($id), $msgParams));
         json_ok();
         break;
 
     /* ---------------- 全部消息（消息中心页面） ---------------- */
     case 'all':
-        $list = CoreRepository::q('SELECT * FROM messages WHERE (to_user_id=? OR (to_user_id=0 AND to_role=?)) ORDER BY id DESC LIMIT 200',
-            array($u['id'], $u['role']));
+        $list = CoreRepository::q('SELECT * FROM messages WHERE ' . $msgWhere . ' ORDER BY id DESC LIMIT 200', $msgParams);
         obfList($list);
         json_ok(array('list' => $list));
         break;
@@ -58,20 +58,19 @@ switch ($action) {
     /* ---------------- 删除单条消息 ---------------- */
     case 'delete':
         $id = (int)post('id');
-        CoreRepository::exec('DELETE FROM messages WHERE id=? AND (to_user_id=? OR (to_user_id=0 AND to_role=?))', array($id, $u['id'], $u['role']));
+        CoreRepository::exec('DELETE FROM messages WHERE id=? AND ' . $msgWhere, array_merge(array($id), $msgParams));
         json_ok(array(), '消息已删除');
         break;
 
     /* ---------------- 一键清空所有消息 ---------------- */
     case 'clear_all':
-        CoreRepository::exec('DELETE FROM messages WHERE (to_user_id=? OR (to_user_id=0 AND to_role=?))', array($u['id'], $u['role']));
+        CoreRepository::exec('DELETE FROM messages WHERE ' . $msgWhere, $msgParams);
         json_ok(array(), '已清空所有消息');
         break;
 
     /* ---------------- 标记全部已读（一次性，避免前端逐个异步请求的竞态问题） ---------------- */
     case 'read_all':
-        CoreRepository::exec('UPDATE messages SET is_read=1 WHERE is_read=0 AND (to_user_id=? OR (to_user_id=0 AND to_role=?))',
-            array($u['id'], $u['role']));
+        CoreRepository::exec('UPDATE messages SET is_read=1 WHERE is_read=0 AND ' . $msgWhere, $msgParams);
         json_ok(array(), '已全部标记为已读');
         break;
 
