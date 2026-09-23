@@ -201,6 +201,29 @@ function admin_part_sysinfo($action) {
         }
     }
 
+    /* ==================== 缓存驱动切换（写入 config.db） ==================== */
+    if ($action === 'cache_driver_save') {
+        $driver = post('driver', '');
+        $driver = in_array($driver, array('file', 'apcu', 'redis'), true) ? $driver : '';
+        if ($driver === '') json_fail('请选择缓存驱动');
+        if ($driver === 'apcu' && !function_exists('apcu_fetch')) {
+            json_fail('当前 PHP 未安装 APCu 扩展，无法使用 APCu 缓存');
+        }
+        if ($driver === 'redis' && !extension_loaded('redis')) {
+            json_fail('当前 PHP 未安装 redis 扩展，无法使用 Redis 缓存');
+        }
+        ConfigStore::set('cache.driver', $driver);
+        if ($driver === 'redis') {
+            ConfigStore::set('cache.redis.host', post('redis_host', '127.0.0.1'));
+            ConfigStore::set('cache.redis.port', post('redis_port', '6379'));
+            ConfigStore::set('cache.redis.auth', post('redis_auth', ''));
+            ConfigStore::set('cache.redis.prefix', post('redis_prefix', 'clinic_sess:'));
+            ConfigStore::set('cache.redis.timeout', post('redis_timeout', '2.0'));
+        }
+        ConfigStore::resetCache();
+        json_ok(array('driver' => $driver), '缓存驱动已切换为 ' . strtoupper($driver) . '，会话驱动将同步生效');
+    }
+
     json_fail('未知操作');
 }
 

@@ -173,6 +173,7 @@ switch ($action) {
     case 'db_table_data':
     case 'cache_status':
     case 'cache_flush':
+    case 'cache_driver_save':
     case 'db_migrate':
         admin_part_sysinfo($action);
         break;

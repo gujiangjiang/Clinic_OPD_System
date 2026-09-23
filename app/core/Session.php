@@ -32,12 +32,16 @@ class Session {
         return ($v === null || $v === false) ? $default : (string)$v;
     }
 
-    /** 目标驱动：SESSION_DRIVER（默认 files） */
+    /** 目标驱动：显式 SESSION_DRIVER 优先；未配置时跟随 config.db 缓存驱动
+     * （安装向导可选 file/apcu/redis 并写入 config.db；仍可被环境变量覆盖） */
     public static function driver() {
         if (self::$driver !== null) {
             return self::$driver;
         }
-        $d = strtolower(trim(self::env('SESSION_DRIVER', 'files')));
+        $d = strtolower(trim(self::env('SESSION_DRIVER', '')));
+        if ($d === '') {
+            $d = ConfigStore::cacheDriver();
+        }
         self::$driver = in_array($d, array('files', 'redis', 'memcached'), true) ? $d : 'files';
         return self::$driver;
     }
@@ -49,13 +53,15 @@ class Session {
 
     /**
      * 配置 Redis DSN：tcp://HOST:PORT?auth=...&prefix=...&timeout=...
+     * 优先读 config.db 的 redis 连接参数（安装向导可配置），环境变量可覆盖
      */
     protected static function redisDsn() {
-        $host = self::env('REDIS_HOST', '127.0.0.1');
-        $port = self::env('REDIS_PORT', '6379');
-        $auth = self::env('REDIS_AUTH', '');
-        $prefix = self::env('REDIS_PREFIX', 'clinic_sess:');
-        $timeout = self::env('REDIS_TIMEOUT', '2.0');
+        $p = ConfigStore::redisParams();
+        $host = self::env('REDIS_HOST', $p['host']);
+        $port = self::env('REDIS_PORT', $p['port']);
+        $auth = self::env('REDIS_AUTH', $p['auth']);
+        $prefix = self::env('REDIS_PREFIX', $p['prefix']);
+        $timeout = self::env('REDIS_TIMEOUT', $p['timeout']);
         $dsn = 'tcp://' . $host . ':' . $port;
         $qs = array();
         if ($auth !== '') $qs[] = 'auth=' . rawurlencode($auth);

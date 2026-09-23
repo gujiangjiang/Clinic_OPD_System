@@ -155,6 +155,25 @@ $dbType = strtoupper(DatabaseManager::driver());
         <div id="cacheStatusBox" class="fs-13" style="line-height:2"><div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
     </div>
     <div class="card setting-card">
+        <div class="card-title">🔁 缓存驱动切换</div>
+        <div class="fs-13 text-muted mb-8">选择缓存/会话驱动（写入 config.db，会话驱动将同步生效）。Redis 需 PHP redis 扩展，APCu 需 PHP apcu 扩展。</div>
+        <div class="form-group"><label class="form-label">驱动</label>
+            <select class="select" id="cacheDriverSel" onchange="toggleCacheRedisOpts()">
+                <option value="file">File（本地文件，零依赖）</option>
+                <option value="apcu">APCu（内存）</option>
+                <option value="redis">Redis（需扩展与服务）</option>
+            </select></div>
+        <div id="cacheRedisOpts" style="display:none">
+            <div class="form-row">
+                <div class="form-group"><label class="form-label">主机</label><input class="input" id="cRedisHost" value="127.0.0.1"></div>
+                <div class="form-group"><label class="form-label">端口</label><input class="input" id="cRedisPort" value="6379"></div>
+            </div>
+            <div class="form-group"><label class="form-label">密码（可选）</label><input type="password" class="input" id="cRedisAuth" value=""></div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="saveCacheDriver()">保存缓存驱动</button>
+        <span class="fs-13 text-muted ml-8" id="cacheDriverMsg"></span>
+    </div>
+    <div class="card setting-card">
         <div class="card-title">🧹 模块化缓存刷新</div>
         <div class="fs-13 text-muted mb-8">按模块清除缓存文件（系统配置 / ICD-10 与字典 / 排班叫号临时 / 全量）。</div>
         <div class="flex gap-8" style="flex-wrap:wrap">
@@ -598,5 +617,25 @@ function startMigrate() {
             onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '迁移失败') + '</span>'; },
         });
     }, { title: '数据库迁移确认', okText: '开始迁移' });
+}
+
+/* ---------- 缓存驱动切换 ---------- */
+function toggleCacheRedisOpts() {
+    document.getElementById('cacheRedisOpts').style.display =
+        document.getElementById('cacheDriverSel').value === 'redis' ? '' : 'none';
+}
+function saveCacheDriver() {
+    var msg = document.getElementById('cacheDriverMsg');
+    msg.textContent = '保存中…';
+    Clinic.ajax('/api/admin', {
+        action: 'cache_driver_save',
+        driver: document.getElementById('cacheDriverSel').value,
+        redis_host: document.getElementById('cRedisHost').value,
+        redis_port: document.getElementById('cRedisPort').value,
+        redis_auth: document.getElementById('cRedisAuth').value,
+    }, {
+        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; loadCacheStatus(); },
+        onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '保存失败') + '</span>'; },
+    });
 }
 </script>

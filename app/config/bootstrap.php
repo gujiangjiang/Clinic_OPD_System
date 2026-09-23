@@ -80,12 +80,14 @@ date_default_timezone_set('Asia/Shanghai');
 require_once __DIR__ . '/../core/helpers.php';
 require_once __DIR__ . '/../core/barcode.php';
 
+/* ---------- 基础设施配置库（config.db）：Session/数据库驱动读取依赖，须先加载 ---------- */
+require_once __DIR__ . '/../core/ConfigStore.php';
+
 /* ---------- 启动会话（Session 文件保存到 data/session，避开 Web 访问） ---------- */
 require_once __DIR__ . '/../core/Session.php';
 Session::start();
 
 /* ---------- 引入核心类 ---------- */
-require_once __DIR__ . '/../core/ConfigStore.php';
 require_once __DIR__ . '/../core/DatabaseManager.php';
 require_once __DIR__ . '/../core/IdObfuscator.php';
 require_once __DIR__ . '/../core/DataExportImport.php';
