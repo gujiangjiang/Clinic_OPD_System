@@ -106,7 +106,7 @@ function openUnpaidModal() {
     var rows = UNPAID_DATA.map(function (u, i) {
         if (u.kind === 'visit') visitPending = true;
         var itemsTxt = (u.items || []).map(function (it) {
-            return '· ' + Clinic.escHtml(it.item_name) + (it.quantity > 1 ? ' ×' + it.quantity : '') + ' ￥' + parseFloat(it.price * it.quantity).toFixed(2);
+            return '· ' + Clinic.escHtml(it.item_name) + (it.quantity > 1 ? ' ×' + it.quantity : '') + ' ' + Clinic.money(parseFloat(it.price * it.quantity));
         }).join('<br>');
         // 皮试钳制：正式处方/处置在皮试阴性前不可缴费（checkbox 禁用 + 🔒 提示）
         var locked = u.kind === 'order' && u.locked;
@@ -118,7 +118,7 @@ function openUnpaidModal() {
             '<label class="flex gap-4 fs-13" style="cursor:pointer;flex:1;min-width:0">' +
             chk +
             '<span class="ellipsis">' + (u.kind === 'visit' ? '🎫 ' : '') + Clinic.escHtml(u.name) + (u.doctor ? ' <span class="fs-12 text-muted">｜ ' + Clinic.escHtml(u.doctor) + '</span>' : '') + '</span></label>' +
-            '<span class="fs-13 fw-600">¥' + parseFloat(u.amount).toFixed(2) + '</span></div>' +
+            '<span class="fs-13 fw-600">' + Clinic.money(parseFloat(u.amount)) + '</span></div>' +
             (itemsTxt ? '<div class="fs-12 text-muted mt-4" style="padding-left:24px">' + itemsTxt + '</div>' : '') +
             (locked ? '<div class="fs-12 mt-4" style="padding-left:24px;color:var(--danger)">🔒 ' + Clinic.escHtml(u.locked_reason || '待皮试结果后方可缴费') + '</div>' : '') +
             '</div>';
@@ -209,7 +209,7 @@ function doPay(ids, visitId, method) {
     Clinic.ajax('/api/cashier', { action: 'pay_orders', order_ids: JSON.stringify(ids), method: method }, {
         loading: true,
         onSuccess: function (json) {
-            Clinic.toast.success(json.msg + '，合计 ¥' + parseFloat(json.data.total).toFixed(2) + '（' + method + '）');
+            Clinic.toast.success(json.msg + '，合计 ' + Clinic.money(parseFloat(json.data.total)) + '（' + method + '）');
             // 批量缴费合并为一张凭条（同 payment_no，缴费流水号展示在凭条上）
             Clinic.print.load('/api/print?action=payment&payment_id=' + json.data.payment_id, null, 'ticket');
             loadDetail(visitId || CUR_VISIT);
@@ -243,7 +243,7 @@ function showBatchDetail(paymentNo) {
                     '<div class="flex-between">' +
                     '<div class="fs-13 fw-600">' + (Clinic.orderTypeName(o.order_type)) + ' ' + Clinic.escHtml(o.order_no) +
                     '<span class="fs-12 text-muted fw-400"> ｜ 开单医生 ' + Clinic.escHtml(o.doctor_name) + '</span></div>' +
-                    '<span class="fs-13 fw-600">¥' + parseFloat(o.total).toFixed(2) + '</span></div>';
+                    '<span class="fs-13 fw-600">' + Clinic.money(parseFloat(o.total)) + '</span></div>';
                 // 项目明细（每项目一行）：名称占左 2/3，进度靠右侧约 1/3 分隔线靠左对齐
                 (o.items || []).forEach(function (it) {
                     rows += '<div style="display:flex;padding:5px 0;border-top:1px dashed var(--border);align-items:center">' +

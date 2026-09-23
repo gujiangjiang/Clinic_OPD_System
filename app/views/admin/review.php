@@ -286,10 +286,10 @@ function previewAudit(btn) {
                     var line = '<div class="flex-between" style="padding:5px 0;border-bottom:1px dashed var(--border)">' +
                         '<span class="fw-600 fs-13">' + escHtml(it.item_name || '') + '</span>' +
                         '<span class="fs-12 text-muted">' + (dose ? dose + ' ｜ ' : '') +
-                        '¥' + ((parseFloat(it.price) || 0) * (it.quantity || 1)).toFixed(2) + '</span></div>';
+                        Clinic.money(((parseFloat(it.price) || 0) * (it.quantity || 1))) + '</span></div>';
                     if ((it.sub_of || 0) > 0) line = '<div style="padding:3px 0 3px 20px" class="fs-12 text-muted">└ 子医嘱：' +
                         escHtml(it.item_name || '') + (dose ? ' ｜ ' + dose : '') +
-                        ' ｜ ¥' + ((parseFloat(it.price) || 0) * (it.quantity || 1)).toFixed(2) + '</div>';
+                        ' ｜ ' + Clinic.money(((parseFloat(it.price) || 0) * (it.quantity || 1))) + '</div>';
                     return line;
                 }).join('');
                 var html = '<div class="form-group"><label class="form-label">套餐名称</label>' +

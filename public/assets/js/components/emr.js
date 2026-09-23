@@ -1494,10 +1494,10 @@ Clinic.emr = (function () {
                 rxOrders.push(o);
             }
         });
-        document.getElementById('sumImaging').textContent = buckets.imaging.length ? money2(sum.imaging) : '';
-        document.getElementById('sumLab').textContent = buckets.lab.length ? money2(sum.lab) : '';
-        document.getElementById('sumProc').textContent = buckets.procedure.length ? money2(sum.procedure) : '';
-        document.getElementById('sumRx').textContent = rxOrders.length ? money2(sum.prescription) : '';
+        document.getElementById('sumImaging').textContent = buckets.imaging.length ? Clinic.money(sum.imaging) : '';
+        document.getElementById('sumLab').textContent = buckets.lab.length ? Clinic.money(sum.lab) : '';
+        document.getElementById('sumProc').textContent = buckets.procedure.length ? Clinic.money(sum.procedure) : '';
+        document.getElementById('sumRx').textContent = rxOrders.length ? Clinic.money(sum.prescription) : '';
 
         // 分区标题项目数徽章：检查/检验/处置按明细项数；处方按处方单数量（0 隐藏）
         setNavCount('cntImaging', buckets.imaging.length);
@@ -1593,7 +1593,6 @@ Clinic.emr = (function () {
     }
 
     /** 处方金额显示（¥xx.xx，空单返回空串由标题隐藏） */
-    function money2(v) { return Clinic.money(v); }
 
     /** 分区标题项目数徽章：>0 显示数字，0 隐藏 */
     function setNavCount(id, n) {

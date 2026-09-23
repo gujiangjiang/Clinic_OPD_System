@@ -173,7 +173,7 @@ function pkgItemRow(t) {
     return '<tr>' +
         '<td class="fw-600">' + escHtml(t.title) + '</td>' +
         '<td>' + scopeBadge + ' ' + deptText + '</td>' +
-        '<td class="fs-12 text-muted">' + (t.item_count || 0) + ' 项 ｜ ¥' + parseFloat(t.total_price || 0).toFixed(2) + '</td>' +
+        '<td class="fs-12 text-muted">' + (t.item_count || 0) + ' 项 ｜ ' + Clinic.money(parseFloat(t.total_price || 0)) + '</td>' +
         '<td>' + escHtml(t.creator_name) + '</td>' +
         '<td>' + statusBadge + '</td>' +
         '<td><div class="flex gap-4">' + actions + '</div></td></tr>';
@@ -527,7 +527,7 @@ function pkgInitCatList() {
                     (it.category_name ? ' <span class="badge badge-gray fs-12">' + escHtml(it.category_name) + '</span>' : '') +
                     (it.company_short ? ' <span class="fs-12 text-muted">' + escHtml(it.company_short) + '</span>' : '') +
                     stockHtml +
-                    ' <span class="fs-12 text-muted">¥' + parseFloat(it.price || 0).toFixed(2) + '</span></div>';
+                    ' <span class="fs-12 text-muted">' + Clinic.money(parseFloat(it.price || 0)) + '</span></div>';
             }).join('');
         },
         onSuccess: function (json) {
@@ -708,7 +708,7 @@ function pkgRenderItems() {
         return t;
     }, 0);
     document.getElementById('pkgItemCount').textContent = PKG_ITEMS.length;
-    document.getElementById('pkgItemTotal').textContent = '¥' + total.toFixed(2);
+    document.getElementById('pkgItemTotal').textContent = '' + Clinic.money(total);
     box.innerHTML = PKG_ITEMS.map(function (s, i) {
         var isReadonly = PKG_READONLY;
         // 只读预览：保留与编辑一致的输入框/下拉样式（disabled），隐藏数量-+/护士/更换/✕
@@ -746,7 +746,7 @@ function pkgRenderItems() {
             (isDrug && s.route ? ' <span class="fs-12 text-muted">' + escHtml(s.route) + '</span>' : '') +
             (isDrug && s.sale_unit ? ' <span class="fs-12 text-muted">' + escHtml(s.quantity + ' ' + s.sale_unit) + '</span>' : '') +
             (s.quantity > 1 && !(isDrug && s.sale_unit) ? ' <span class="badge badge-primary fs-12">×' + s.quantity + '</span>' : '') +
-            '    <span class="pkg-item-price">¥' + ((s.price || 0) * s.quantity).toFixed(2) + '</span>' +
+            '    <span class="pkg-item-price">' + Clinic.money(((s.price || 0) * s.quantity)) + '</span>' +
             '  </div>' +
             '  <div class="actions">' +
             headActions +

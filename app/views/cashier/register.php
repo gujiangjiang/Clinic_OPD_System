@@ -355,7 +355,7 @@ function submitRegister(d, quick) {
                 '<tr><th>患者唯一ID</th><td class="fw-700">' + v.patient_no + '</td></tr>' +
                 '<tr><th>门诊流水号</th><td class="fw-700">' + v.flow_no + '</td></tr>' +
                 '<tr><th>就诊序号</th><td class="fw-700">' + v.dept_name + ' 第' + Clinic.pad3(v.visit_seq) + '号</td></tr>' +
-                '<tr><th>挂号费</th><td>¥' + parseFloat(v.fee).toFixed(2) + '</td></tr>' +
+                '<tr><th>挂号费</th><td>' + Clinic.money(parseFloat(v.fee)) + '</td></tr>' +
                 (v.is_extra ? '<tr><th>号源</th><td><span class="badge badge-warning">医生加号</span></td></tr>' : '') +
                 '</table></div>',
                 {

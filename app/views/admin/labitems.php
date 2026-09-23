@@ -112,7 +112,7 @@ function selectCombo(id) {
                 return '<tr>' +
                     '<td class="fw-600">' + m.name + '</td>' +
                     '<td class="fs-12">' + (m.category || '—') + '</td>' +
-                    '<td>¥' + parseFloat(m.price).toFixed(2) + '</td>' +
+                    '<td>' + Clinic.money(parseFloat(m.price)) + '</td>' +
                     '<td class="fs-12">' + (m.unit || '—') + '</td>' +
                     '<td style="white-space:nowrap">' + (IS_ADMIN
                     ? '<button class="btn btn-outline btn-sm" onclick="openItemForm(' + m.id + ')">编辑</button> ' +
@@ -136,7 +136,7 @@ function selectCombo(id) {
             '<div class="combo-right-bar">' + (IS_ADMIN
                 ? '<button class="btn btn-sm btn-outline" onclick="showAddItemPop()">＋ 添加项目</button>'
                 : '<span class="text-muted fs-12">只读</span>') +
-                '<span class="badge badge-warning" style="margin-left:8px;flex-shrink:0">项目合计 ¥' + memberFee.toFixed(2) + '</span></div>' +
+                '<span class="badge badge-warning" style="margin-left:8px;flex-shrink:0">项目合计 ' + Clinic.money(memberFee) + '</span></div>' +
             '<div class="combo-right-body">' +
             '  <div class="combo-members">' + memberRows + '</div>' +
             '</div>';
@@ -233,7 +233,7 @@ function showAddItemPop() {
         '<div class="fs-13 fw-700 mb-8" style="flex-shrink:0">添加项目到组合</div>' +
         '<input class="input" id="aiSearch" placeholder="🔍 搜索项目" autocomplete="off" oninput="filterAICands()" style="flex-shrink:0">' +
         '<div class="mt-8" id="aiList" style="flex:1;min-height:0;overflow-y:auto">' + (candidates.length ? candidates.map(function (c) {
-            return '<div class="combo-cand-item" onclick="addToCombo(' + c.id + ',\'' + jsE(c.name) + '\')">' + c.name + ' <span class="text-muted fs-12">¥' + parseFloat(c.price).toFixed(2) + ' ｜' + c.category + '</span></div>';
+            return '<div class="combo-cand-item" onclick="addToCombo(' + c.id + ',\'' + jsE(c.name) + '\')">' + c.name + ' <span class="text-muted fs-12">' + Clinic.money(parseFloat(c.price)) + ' ｜' + c.category + '</span></div>';
         }).join('') : '<div class="text-muted fs-12" style="padding:8px">无可用单独项目（所有项目已加入组合或不存在）</div>') + '</div>';
     document.body.appendChild(pop);
     var btn = document.querySelector('.combo-right-bar .btn-outline') || document.querySelector('.combo-right .btn-outline');
