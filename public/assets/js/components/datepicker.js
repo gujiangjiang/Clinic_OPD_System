@@ -47,15 +47,58 @@ Clinic.datePicker = (function () {
     }
 
     /**
-     * 计算最近 N 天（含今天）日期范围默认值
-     * @param {number} days 往前推的天数（不含今天，如 6 → 含今天共 7 天）
-     * @return {{from: string, to: string}} YYYY-MM-DD（to 恒为今天）
+     * 计算日期范围默认值（统一入口，适配各种跨度语义）
+     * @param {number|string} mode
+     *   数字：最近 N 天（含今天，如 6 → 近7天；2 → 近3天；29 → 近30天）
+     *   'today' / 'yesterday'：今日 / 昨日
+     *   'month' / 'year'：本月 / 本年（1 号起至今天）
+     * @return {{from: string, to: string}} YYYY-MM-DD
      */
-    function lastRange(days) {
-        const t = new Date();
-        const f = new Date();
-        f.setDate(f.getDate() - (typeof days === 'number' && days > 0 ? days : 6));
-        return { from: fmt(f.getFullYear(), f.getMonth() + 1, f.getDate()), to: fmt(t.getFullYear(), t.getMonth() + 1, t.getDate()) };
+    function lastRange(mode) {
+        const now = new Date();
+        const s = new Date(now), e = new Date(now);
+        if (typeof mode === 'number' && mode > 0) {
+            s.setDate(s.getDate() - mode);
+        } else if (mode === 'today') {
+            /* s=e=今天 */
+        } else if (mode === 'yesterday') {
+            s.setDate(s.getDate() - 1);
+            e = new Date(s);
+        } else if (mode === 'month') {
+            s = new Date(now.getFullYear(), now.getMonth(), 1);
+        } else if (mode === 'year') {
+            s = new Date(now.getFullYear(), 0, 1);
+        } else {
+            s.setDate(s.getDate() - 6);   // 默认近7天
+        }
+        return { from: fmt(s.getFullYear(), s.getMonth() + 1, s.getDate()), to: fmt(e.getFullYear(), e.getMonth() + 1, e.getDate()) };
+    }
+
+    /** 顺序校验：结束日期不得早于开始日期（对端自动同步）
+     * 约定：开始框 maxToday:false、结束框 maxToday:true（全站日期范围 UI 一致）
+     * @return {string} 调整后的值（原样返回；对端越界时自动同步到本值） */
+    function clampOrder(input, val) {
+        if (!opts.peer) return val;
+        const peerEl = document.getElementById(opts.peer);
+        if (!peerEl) return val;
+        const peerVal = (peerEl.value || '').trim();
+        if (!peerVal) return val;
+        if (val >= peerVal) return val;   // 顺序合法（结束≥开始）
+        // 顺序倒置：本框早于对端
+        if (opts.maxToday) {
+            // 本框是结束：结束早于开始 → 开始同步到所选结束
+            peerEl.value = val;
+            if (window.Clinic && Clinic.toast && Clinic.toast.info) {
+                Clinic.toast.info('结束日期不能早于开始日期，已自动同步开始日期');
+            }
+        } else {
+            // 本框是开始：开始晚于结束 → 结束同步到所选开始
+            peerEl.value = val;
+            if (window.Clinic && Clinic.toast && Clinic.toast.info) {
+                Clinic.toast.info('开始日期不能晚于结束日期，已自动同步结束日期');
+            }
+        }
+        return val;
     }
 
     /**
@@ -195,7 +238,8 @@ Clinic.datePicker = (function () {
             }
             const cell = e.target.closest ? e.target.closest('.date-cell:not(.blank):not(.disabled)') : null;
             if (cell) {
-                selDate = clampToPeer(input, cell.getAttribute('data-v'));
+                let v = clampOrder(input, cell.getAttribute('data-v'));   // 顺序校验（结束≥开始）
+                selDate = clampToPeer(input, v);                          // 跨度上限钳制
                 input.value = selDate;
                 close();
                 if (opts.onChange) opts.onChange(selDate);
@@ -213,7 +257,9 @@ Clinic.datePicker = (function () {
                 }
                 if (act === 'today') {
                     const t = new Date();
-                    selDate = clampToPeer(input, fmt(t.getFullYear(), t.getMonth() + 1, t.getDate()));
+                    const v = fmt(t.getFullYear(), t.getMonth() + 1, t.getDate());
+                    selDate = clampOrder(input, v);   // 顺序校验
+                    selDate = clampToPeer(input, selDate);
                     input.value = selDate;
                     close();
                     if (opts.onChange) opts.onChange(selDate);
