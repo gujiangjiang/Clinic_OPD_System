@@ -11,6 +11,16 @@
  * ============================================================ */
 window.Clinic = window.Clinic || {};
 
+/** 属性内联事件处理器安全转义：值经 HTML 解码后进入 JS 单引号字符串，
+ * 只需转义反斜杠与单引号即可（双引号不转义——属性分隔符在 HTML 解析层处理） */
+function aiJsStr(s) {
+    return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+/** 属性值安全转义（data-* 等双引号属性上下文） */
+function aiAttr(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+}
+
 Clinic.adminItems = {
 
     /**
@@ -197,12 +207,16 @@ Clinic.adminItems = {
                         hasCats = true;
                         var bar = document.getElementById(cfg.catsEl);
                         if (bar) {
-                            bar.innerHTML = '<button class="btn btn-sm ' + (state.cat === '' ? 'btn-primary' : 'btn-outline') + '" data-cat="" onclick="' +
-                                (cfg.onCat || 'Clinic.adminItems.pagedCat') + '(this,\'\',' + JSON.stringify(cfg.tableEl) + ')">全部</button>' +
-                                d.cats.map(function (c) {
-                                    return '<button class="btn btn-sm ' + (state.cat === c ? 'btn-primary' : 'btn-outline') + '" data-cat="' + c + '" onclick="' +
-                                        (cfg.onCat || 'Clinic.adminItems.pagedCat') + '(this,\'' + c + '\',' + JSON.stringify(cfg.tableEl) + ')">' + c + '</button>';
-                                }).join('');
+                            // onclick 内联处理器：第三参为 tableId 单引号字符串字面量
+                            // （不能用 JSON.stringify——双引号会截断 HTML 属性导致处理器编译失败）
+                            var makeCatBtn = function (cat) {
+                                var active = state.cat === cat;
+                                return '<button class="btn btn-sm ' + (active ? 'btn-primary' : 'btn-outline') +
+                                    '" data-cat="' + aiAttr(cat) + '" onclick="' +
+                                    (cfg.onCat || 'Clinic.adminItems.pagedCat') + '(this,\'' + aiJsStr(cat) +
+                                    '\',\'' + aiJsStr(cfg.tableEl) + '\')">' + (cat === '' ? '全部' : aiAttr(cat)) + '</button>';
+                            };
+                            bar.innerHTML = makeCatBtn('') + d.cats.map(makeCatBtn).join('');
                         }
                     }
                     if (typeof cfg.onSuccess === 'function') cfg.onSuccess(json);
