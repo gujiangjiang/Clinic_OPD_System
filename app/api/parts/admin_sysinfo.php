@@ -178,6 +178,29 @@ function admin_part_sysinfo($action) {
         json_ok(array('scope' => $scope, 'count' => $count), '已刷新缓存 ' . $count . ' 个文件');
     }
 
+    /* ==================== 数据库迁移（SQLite ↔ MySQL 双向） ==================== */
+    if ($action === 'db_migrate') {
+        $toDriver = post('to_driver', '');
+        $toDriver = in_array($toDriver, array('sqlite', 'mysql'), true) ? $toDriver : '';
+        if ($toDriver === '') json_fail('请选择目标数据库驱动');
+        $toParams = array(
+            'path' => post('to_sqlite_path', ''),
+            'host' => post('to_db_host', '127.0.0.1'),
+            'port' => post('to_db_port', '3306'),
+            'dbname' => post('to_db_name', ''),
+            'user' => post('to_db_user', ''),
+            'pass' => post('to_db_pass', ''),
+        );
+        require_once APP_ROOT . '/app/core/DatabaseMigrator.php';
+        try {
+            $r = DatabaseMigrator::migrate($toDriver, $toParams);
+            json_ok(array('tables' => $r['tables'], 'rows' => $r['rows'], 'target' => $r['target']),
+                '迁移完成：共 ' . count($r['tables']) . ' 张表、' . $r['rows'] . ' 行数据已同步到 ' . strtoupper($r['target']) . '，主库指针已更新');
+        } catch (Exception $ex) {
+            json_fail('迁移失败：' . $ex->getMessage());
+        }
+    }
+
     json_fail('未知操作');
 }
 

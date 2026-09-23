@@ -122,10 +122,29 @@ $dbType = strtoupper(DatabaseManager::driver());
     </div>
     <div class="card setting-card">
         <div class="card-title">🔄 数据库迁移工具</div>
-        <div class="fs-13 text-muted mb-8">支持 SQLite ↔ MySQL 双向全量迁移（分批 Chunk 同步、外键约束临时关闭、自增序列校准）。迁移期间系统进入只读维护模式。</div>
-        <div class="flex gap-8">
-            <button class="btn btn-outline btn-sm" onclick="Clinic.toast.info('迁移引擎即将推出，敬请期待')">开始迁移</button>
+        <div class="fs-13 text-muted mb-8">支持 SQLite ↔ MySQL 双向全量迁移（分批 Chunk 500 行同步、外键约束临时关闭、自增序列校准）。迁移期间系统进入只读维护模式，完成后自动将 config.db 主库指针更新为目标数据库。</div>
+        <div class="form-group"><label class="form-label">目标驱动 <span class="req">*</span></label>
+            <select class="select" id="migDriver" onchange="toggleMigOpts()">
+                <option value="mysql">MySQL / MariaDB（从当前库迁移到 MySQL）</option>
+                <option value="sqlite">SQLite（从当前库迁移到 SQLite 文件）</option>
+            </select></div>
+        <div id="migMysqlOpts">
+            <div class="form-row">
+                <div class="form-group"><label class="form-label">主机</label><input class="input" id="migHost" value="127.0.0.1"></div>
+                <div class="form-group"><label class="form-label">端口</label><input class="input" id="migPort" value="3306"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label class="form-label">数据库名</label><input class="input" id="migDbname" value="his_main"></div>
+                <div class="form-group"><label class="form-label">用户名</label><input class="input" id="migUser" value="root"></div>
+            </div>
+            <div class="form-group"><label class="form-label">密码</label><input type="password" class="input" id="migPass" value=""></div>
         </div>
+        <div id="migSqliteOpts" style="display:none">
+            <div class="form-group"><label class="form-label">目标 SQLite 文件</label>
+                <input class="input" id="migSqlitePath" placeholder="留空使用默认 data/db/clinic_main.db"></div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="startMigrate()">⚠️ 开始迁移（数据量大时请耐心等待）</button>
+        <div class="fs-13 mt-8" id="migMsg"></div>
     </div>
 </div>
 
@@ -547,5 +566,37 @@ function flushCache(scope) {
         onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
         onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '刷新失败') + '</span>'; },
     });
+}
+
+/* ---------- 数据库迁移 ---------- */
+function toggleMigOpts() {
+    var v = document.getElementById('migDriver').value;
+    document.getElementById('migMysqlOpts').style.display = v === 'mysql' ? '' : 'none';
+    document.getElementById('migSqliteOpts').style.display = v === 'sqlite' ? '' : 'none';
+}
+function startMigrate() {
+    var v = document.getElementById('migDriver').value;
+    var msg = document.getElementById('migMsg');
+    var p = v === 'mysql' ? '目标 MySQL 数据库将覆盖其中与业务表同名的表，迁移完成后主库切换到 MySQL' : '目标 SQLite 文件将写入全部业务数据，迁移完成后主库切换到 SQLite';
+    Clinic.modal.confirm('⚠️ 即将执行数据库迁移：\n' + p + '。\n迁移期间系统进入只读维护模式，请勿刷新页面。确定继续？', function () {
+        var btn = event.target;
+        msg.innerHTML = '<div class="flex gap-8" style="align-items:center"><div class="spinner" style="border-top-color:var(--primary);width:20px;height:20px;margin:0"></div>正在迁移，请勿关闭页面…</div>';
+        Clinic.ajax('/api/admin', {
+            action: 'db_migrate',
+            to_driver: v,
+            to_db_host: document.getElementById('migHost').value,
+            to_db_port: document.getElementById('migPort').value,
+            to_db_name: document.getElementById('migDbname').value,
+            to_db_user: document.getElementById('migUser').value,
+            to_db_pass: document.getElementById('migPass').value,
+            to_sqlite_path: document.getElementById('migSqlitePath').value.trim(),
+        }, {
+            onSuccess: function (json) {
+                msg.innerHTML = '<span class="text-success fw-600">✓ ' + escHtml(json.msg) + '</span>';
+                setTimeout(function () { location.reload(); }, 1500);
+            },
+            onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '迁移失败') + '</span>'; },
+        });
+    }, { title: '数据库迁移确认', okText: '开始迁移' });
 }
 </script>
