@@ -106,7 +106,7 @@ $dbType = strtoupper(DatabaseManager::driver());
         <button class="btn btn-primary btn-sm" onclick="saveSettings()">保存</button>
         <div class="setting-sec-title" style="margin-top:18px">URL 安全混淆密钥（防链接撞库）</div>
         <div class="fs-13 text-muted mb-8">用于加密就诊、申请单、报告等链接中的实体 ID，防止通过改数字遍历他人医疗数据。</div>
-        <div class="fs-12 mb-8" style="font-family:monospace;word-break:break-all;background:var(--bg-soft);border-radius:8px;padding:10px" id="obf_secret">加载中…</div>
+        <div class="fs-12 mb-8" style="font-family:monospace;word-break:break-all;background:var(--bg-soft);border-radius:var(--radius-md);padding:10px" id="obf_secret">加载中…</div>
         <div class="flex gap-8">
             <button class="btn btn-outline btn-sm" onclick="resetObfToken()">🔄 重置密钥</button>
             <button class="btn btn-outline btn-sm" onclick="copyObfSecret()">复制</button>

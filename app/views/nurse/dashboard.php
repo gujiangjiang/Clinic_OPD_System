@@ -144,7 +144,7 @@ function vitalsSection(data) {
             '<span class="dw-vital-val">' + vals[vals.length - 1] + cfg.unit + '</span></div>';
     });
     var trendHtml = chartHtml
-        ? '<div style="background:var(--bg-soft);border-radius:8px;padding:10px 12px">' + chartHtml + '</div>'
+        ? '<div style="background:var(--bg-soft);border-radius:var(--radius-md);padding:10px 12px">' + chartHtml + '</div>'
         : '<div class="fs-13 text-muted">暂无体征记录</div>';
 
     var histRows = hist.length ? hist.map(function (r) {
@@ -203,7 +203,7 @@ function openVitalsPop(ev) {
 function nursingSection(data) {
     var list = data.nursing || [];
     var rows = list.length ? list.map(function (r) {
-        return '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">' +
+        return '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:8px">' +
             '<div class="flex-between">' +
             '  <div class="fs-13" style="flex:1;min-width:0">' + nl2br(esc(r.content)) + '</div>' +
             '  <span class="fs-14" style="color:var(--danger);cursor:pointer;flex-shrink:0;margin-left:10px" title="删除该护理记录" onclick="delNursing(' + (r.id || 0) + ')">✕</span>' +
@@ -281,7 +281,7 @@ function nmRenderTpls() {
         return !kw || (t.title || '').toLowerCase().indexOf(kw) !== -1;
     });
     box.innerHTML = list.length ? list.map(function (t) {
-        return '<div class="dd-item" style="cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px" onclick="nmPickTpl(' + t.id + ')">' +
+        return '<div class="dd-item" style="cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:6px" onclick="nmPickTpl(' + t.id + ')">' +
             '<div class="fw-600 fs-13">' + esc(t.title) + '</div>' +
             '<div class="fs-12 text-muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + esc((t.content && t.content.content) || '') + '">' + esc((t.content && t.content.content) || '') + '</div></div>';
     }).join('') : '<div class="fs-12 text-muted">暂无护理模板（可自由输入）</div>';

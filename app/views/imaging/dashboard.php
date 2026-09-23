@@ -441,7 +441,7 @@ function imgWritePane(cur, data, idPrefix) {
     return '<div class="pacs-right-pane active' + (isPaid ? ' pacs-write-gated' : '') + '" data-pane="write" id="' + idPrefix + 'WritePane">' +
         '<div class="pacs-write-gate-inner">' +
         (isDone ?
-            '<div class="fs-12 mb-8" style="padding:6px 10px;border-radius:8px;background:var(--primary-soft,rgba(37,99,235,.08));color:var(--primary)">该报告已提交（报告号 ' + esc(cur.report_no || '—') + '），如需修改请先申请撤回</div>'
+            '<div class="fs-12 mb-8" style="padding:6px 10px;border-radius:var(--radius-md);background:var(--primary-soft,rgba(37,99,235,.08));color:var(--primary)">该报告已提交（报告号 ' + esc(cur.report_no || '—') + '），如需修改请先申请撤回</div>'
             : '') +
         '<div class="pacs-rep-block">' +
         '<div class="pacs-rep-label">报告模板' +

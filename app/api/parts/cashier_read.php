@@ -185,7 +185,7 @@ function cashier_part_read($action) {
         if ($unpaid) {
             $unpaidTotal = 0;
             foreach ($unpaid as $u) $unpaidTotal += $u['amount'];
-            $html .= '<div style="border:1px solid var(--warning,#f59e0b);background:var(--warning-soft,rgba(245,158,11,.06));border-radius:8px;padding:10px 12px;margin-bottom:12px" class="flex-between">' .
+            $html .= '<div style="border:1px solid var(--warning,#f59e0b);background:var(--warning-soft,rgba(245,158,11,.06));border-radius:var(--radius-md);padding:10px 12px;margin-bottom:12px" class="flex-between">' .
                 '<span class="fs-13">💡 <b>' . count($unpaid) . '</b> 项未缴费（合计 <b>¥' . money($unpaidTotal) . '</b>）</span>' .
                 '<button class="btn btn-warning btn-sm" onclick="openUnpaidModal()">💳 查看并缴费</button></div>';
         }
@@ -214,7 +214,7 @@ function cashier_part_read($action) {
         // 退费/取消后不再提供补打与退费按钮
         if ($visitPay) {
             $visitRefunded = in_array($visit['status'], array('refunded', 'cancelled'), true);
-            $html .= '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">' .
+            $html .= '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:8px">' .
                 '<div class="flex-between">' .
                 '<span class="fs-13 fw-600">🎫 挂号费凭条</span>' .
                 '<span class="fs-13 fw-600">¥' . money($visitPay['total']) . '</span></div>' .
@@ -246,7 +246,7 @@ function cashier_part_read($action) {
             // 项目摘要：最多显示 3 项，其余省略
             $showNames = array_slice($orderNames, 0, 3);
             $sumText = implode('、', array_map('e', $showNames)) . (count($orderNames) > 3 ? ' 等 ' . count($orderNames) . ' 项' : '');
-            $html .= '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">' .
+            $html .= '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:8px">' .
                 '<div class="flex-between">' .
                 '<span class="fs-13 fw-600">🧾 缴费凭条 <span class="fs-12 text-muted fw-400">' . ($multi ? '（含' . count($g['orders']) . '张开单）' : '') . '</span></span>' .
                 '<span class="fs-13 fw-600">¥' . money($g['total']) . '</span></div>' .

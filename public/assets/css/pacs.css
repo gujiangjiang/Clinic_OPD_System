@@ -47,7 +47,7 @@
     display: block;
     align-self: center;
     padding: 8px 10px;
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     background: var(--bg-soft, #f1f5f9);
     border: 1px solid var(--border);
     font-family: monospace;
@@ -68,7 +68,7 @@
     min-width: 0;
     display: block;
     padding: 8px 10px;
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     background: var(--bg-soft, #f1f5f9);
     border: 1px solid var(--border);
     font-family: monospace;
@@ -126,7 +126,7 @@
     margin-top: 8px;
     padding: 8px 10px;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     background: var(--bg-soft, #fafafa);
 }
 .itg-his-tlabel { font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
@@ -254,7 +254,7 @@
 }
 .pacs-series-item {
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     padding: 8px;
     cursor: pointer;
     display: flex;
@@ -497,7 +497,7 @@
 /* ---------- 历史报告调阅（任务3，右栏 Tab 内 + 模态框共用） ---------- */
 .pacs-hist-item {
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     margin-bottom: 8px;
     overflow: hidden;
 }

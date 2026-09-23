@@ -137,7 +137,7 @@ switch ($action) {
                 if ($m['critical_low'] !== '' || $m['critical_high'] !== '') {
                     $hint = '<div class="fs-12 text-warning mt-4">危急值：低 ' . e($m['critical_low']) . ' / 高 ' . e($m['critical_high']) . '，超出时请立即复核并通知医生</div>';
                 }
-                $html .= '<div class="form-group" style="background:var(--bg-soft);border-radius:8px;padding:10px 12px;margin-bottom:10px">' .
+                $html .= '<div class="form-group" style="background:var(--bg-soft);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:10px">' .
                     '<label class="form-label">' . e($m['name']) . '（单位：' . e($m['unit']) . '）</label>' .
                     '<input type="text" class="input" id="resValue_' . (int)$m['id'] . '" placeholder="请输入检验结果数值">' .
                     '<div class="fs-12 text-muted mt-4">正常范围：' . e($m['normal_range']) . '</div>' . $hint . '</div>';

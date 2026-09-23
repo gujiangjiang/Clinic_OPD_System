@@ -156,7 +156,7 @@ switch ($action) {
         }
         foreach ($orders as $o) {
             $items = OrderRepository::itemsByOrder($o['id']);
-            $html .= '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:6px">' .
+            $html .= '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;margin-bottom:6px">' .
                 '<div class="flex-between fs-13"><span class="fw-600">' . e(order_type_name($o['order_type'])) . ' ' . e($o['order_no']) . '</span>' .
                 '<span class="fs-12 text-muted">' . e($o['doctor_name']) . ' ｜ ' . e(substr($o['created_at'], 5, 11)) . ' ｜ ' . e(order_agg_status($o['order_type'], $items)) . '</span></div>';
             foreach ($items as $it) {
@@ -223,7 +223,7 @@ switch ($action) {
         foreach ($items as $it) {
             if ((int)$it['sub_of'] > 0) continue;
             $idx++;
-            $html .= '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:6px">' .
+            $html .= '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;margin-bottom:6px">' .
                 '<div class="fs-13 fw-600">' . e($it['item_name']) . ' ×' . (int)$it['quantity'] . '</div>' .
                 '<div class="fs-12 text-muted">剂量 ' . e($it['single_dose']) . ' ｜ 频次 ' . e($it['frequency']) . ' ｜ 途径 ' . e($it['route']) . '（护士站执行）</div>';
             foreach ($items as $sub) {
@@ -393,7 +393,7 @@ switch ($action) {
             $html = '<div class="text-muted fs-13">暂无护理记录</div>';
         }
         foreach ($rows as $r) {
-            $html .= '<div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px">' .
+            $html .= '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:10px;margin-bottom:8px">' .
                 '<div class="fs-13">' . nl2br(e($r['content'])) . '</div>' .
                 '<div class="fs-12 text-muted mt-4">' . e($r['operator']) . ' ｜ ' . e($r['created_at']) . '</div></div>';
         }

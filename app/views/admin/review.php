@@ -8,9 +8,6 @@ Router::title('审核中心');
 ?>
 <style>
 /* 模板预览与编辑保持同一版式：左右分栏（与 templates.php 一致） */
-.tpl-form { display: flex; gap: 14px; }
-.tpl-form .tpl-left { width: 320px; flex-shrink: 0; }
-.tpl-form .tpl-right { flex: 1; min-width: 0; }
 </style>
 <div class="list-layout">
 <div class="page-head">
@@ -253,7 +250,7 @@ function previewAudit(btn) {
                           : '<div class="form-group"><label class="form-label">' + (isNurse ? '护理记录内容' : (isAdvice ? '嘱托正文' : '知情同意内容')) + '</label>' +
                             '<textarea class="textarea" rows="14" readonly style="min-height:380px">' + escHtml((t.content && t.content.content) || '') + '</textarea></div>'))
                     : '<div class="card-title"><span>📝 模板正文（只读）</span></div>' +
-                      '<div class="emr-doc"><div class="doc-body" id="previewTemplateEditor" style="border:1px solid var(--border);border-radius:8px;padding:14px;min-height:380px"></div></div>';
+                      '<div class="emr-doc"><div class="doc-body" id="previewTemplateEditor" style="border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;min-height:380px"></div></div>';
                 var html = '<div class="tpl-form">' +
                     '<div class="tpl-left">' +
                     '<div class="form-group"><label class="form-label">模板名称</label>' +
@@ -297,7 +294,7 @@ function previewAudit(btn) {
                     '<div class="form-group"><label class="form-label">类型 / 适用范围</label>' +
                     '<input class="input" value="' + ((pkgTypeNames[p.type] || p.type) + ' / ' + (pkgScopeNames[p.scope] || p.scope)) + '" readonly></div>' +
                     '<div class="form-group"><label class="form-label">套餐内容（' + (p.items || []).length + ' 项）</label>' +
-                    '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;max-height:380px;overflow-y:auto">' +
+                    '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;max-height:380px;overflow-y:auto">' +
                     (rows || '<div class="empty">套餐暂无项目</div>') + '</div></div>';
                 var mask = Clinic.modal.open(html, { title: '预览 · ' + (pkgTypeNames[p.type] || '套餐'), size: 'modal-lg' });
                 makeReadonly(mask);

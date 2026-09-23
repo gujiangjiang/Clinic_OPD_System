@@ -18,7 +18,7 @@
     font-size: 30px;   /* 头像字号：与病历页患者信息头原样式一致，避免变小 */
     line-height: 1;
     cursor: pointer;
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     transition: transform .15s ease;
 }
 .emr-patient-avatar:hover { transform: scale(1.1); }
@@ -352,7 +352,7 @@
     padding: 8px 12px;
     background: var(--bg);
     border: 1px dashed var(--border);
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     font-size: 13px;
     color: var(--text-muted);
     user-select: none;

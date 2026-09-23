@@ -342,7 +342,7 @@ function previewRoom(id) {
             }).join('') +
         '</div>' +
         '<div class="pv-stage" id="pvStage">' +
-        '  <iframe id="pvFrame" src="/screen.php?token=' + token + '" style="border:0;border-radius:8px;background:#111"></iframe>' +
+        '  <iframe id="pvFrame" src="/screen.php?token=' + token + '" style="border:0;border-radius:var(--radius-md);background:#111"></iframe>' +
         '</div>',
         { title: '大屏预览', size: 'modal-lg', buttons: [{ text: '关闭', cls: 'btn-outline' }] }
     );

@@ -133,7 +133,7 @@ function admin_part_user($action) {
         $statusHtml = '<input type="hidden" id="f_enabled" value="' . $enabledVal . '">';
         $lockWarn = '';
         if ((int)$r['status'] !== 1 && (string)$r['lock_reason'] === 'password_error_locked') {
-            $lockWarn = '<div class="mb-12" style="background:var(--warning-soft,#fef3c7);border:1px solid var(--warning,#f59e0b);color:var(--warning,#b45309);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.8">' .
+            $lockWarn = '<div class="mb-12" style="background:var(--warning-soft,#fef3c7);border:1px solid var(--warning,#f59e0b);color:var(--warning,#b45309);border-radius:var(--radius-md);padding:10px 12px;font-size:13px;line-height:1.8">' .
                 '⚠️ 该账号于 <b>' . e((string)(isset($r['locked_at']) ? $r['locked_at'] : '-')) . '</b>' .
                 ' 因密码连续错误达 <b>' . (int)(isset($r['login_fail_count']) ? $r['login_fail_count'] : 0) . '</b> 次' .
                 '已被系统锁定，来源 IP: <b>' . e((string)(isset($r['lock_ip']) ? $r['lock_ip'] : '-')) . '</b><br>' .

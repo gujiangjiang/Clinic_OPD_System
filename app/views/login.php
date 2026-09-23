@@ -50,7 +50,7 @@ if ($next === '' || $next[0] !== '/') {
     align-items: center;
     height: 38px;               /* 与 .input 标准 38px 总高严格一致 */
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     background: var(--bg-card);
     overflow: hidden;           /* 图片贴右缘，随容器圆角裁切 */
     transition: border-color .2s ease, box-shadow .15s ease;

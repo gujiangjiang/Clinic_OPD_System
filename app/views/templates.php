@@ -44,9 +44,6 @@ $isAdmin = $u['role'] === 'admin';
 </div>
 
 <style>
-.tpl-form { display: flex; gap: 14px; }
-.tpl-form .tpl-left { width: 320px; flex-shrink: 0; }
-.tpl-form .tpl-right { flex: 1; min-width: 0; }
 </style>
 
 <script>
@@ -227,7 +224,7 @@ function buildTplForm(mask, tpl, readonly) {
               : '<div class="form-group"><label class="form-label">' + (isNurse ? '护理记录内容' : '嘱托正文') + ' <span class="req">*</span></label>' +
                 '<textarea class="textarea" id="tfCContent" rows="14" style="min-height:380px" placeholder="' + (isNurse ? '请输入护理记录模板正文内容…' : '请输入嘱托模板正文内容…') + '">' + escHtml((tpl && tpl.content && tpl.content.content) || '') + '</textarea></div>'))
         : '<div class="card-title"><span>📝 模板正文</span></div>' +
-          '<div class="emr-doc"><div class="doc-body" id="templateEditor" style="border:1px solid var(--border);border-radius:8px;padding:14px;min-height:380px"></div></div>';
+          '<div class="emr-doc"><div class="doc-body" id="templateEditor" style="border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;min-height:380px"></div></div>';
     var html =
         '<div class="tpl-form">' +
         '  <div class="tpl-left">' +

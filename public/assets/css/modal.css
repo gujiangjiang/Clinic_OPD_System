@@ -88,7 +88,7 @@
 }
 .toast {
     padding: 10px 20px;
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     font-size: 14px;
     color: #fff;
     box-shadow: var(--shadow-lg);
@@ -185,7 +185,7 @@
     max-height: 260px;
     overflow-y: auto;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     padding: 8px 10px;
 }
 .send-grp { margin-bottom: 4px; }
@@ -255,7 +255,7 @@
     max-height: 150px;
     overflow-y: auto;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     margin-top: 6px;
     background: var(--bg-card, #fff);
 }
@@ -279,7 +279,7 @@
 .combo-item {
     padding: 8px 10px;
     font-size: 13px;
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     cursor: pointer;
     border: 1px solid transparent;
 }
@@ -481,7 +481,7 @@
 }
 .hp-visit {
     padding: 8px 10px;
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     border: 1px solid transparent;
     cursor: pointer;
 }

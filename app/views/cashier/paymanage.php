@@ -113,7 +113,7 @@ function openUnpaidModal() {
         var chk = locked
             ? '<input type="checkbox" class="unpaidChk" value="' + u.oid + '" data-kind="' + u.kind + '" disabled onchange="updateUnpaidCount()">'
             : '<input type="checkbox" class="unpaidChk" value="' + (u.kind === 'visit' ? 'visit' : u.oid) + '" data-kind="' + u.kind + '" onchange="updateUnpaidCount()" checked>';
-        return '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:6px' + (locked ? ';opacity:.6;background:var(--bg-soft)' : '') + '">' +
+        return '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;margin-bottom:6px' + (locked ? ';opacity:.6;background:var(--bg-soft)' : '') + '">' +
             '<div class="flex-between">' +
             '<label class="flex gap-4 fs-13" style="cursor:pointer;flex:1;min-width:0">' +
             chk +
@@ -239,7 +239,7 @@ function showBatchDetail(paymentNo) {
                     '</span>';
             };
             orders.forEach(function (o) {
-                rows += '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">' +
+                rows += '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:8px">' +
                     '<div class="flex-between">' +
                     '<div class="fs-13 fw-600">' + (Clinic.orderTypeName(o.order_type)) + ' ' + Clinic.escHtml(o.order_no) +
                     '<span class="fs-12 text-muted fw-400"> ｜ 开单医生 ' + Clinic.escHtml(o.doctor_name) + '</span></div>' +
@@ -339,7 +339,7 @@ function refundBatch(paymentNo) {
                 return '· ' + Clinic.escHtml(b.name) + '（' + Clinic.escHtml(b.status) + '）';
             }).join('<br>');
             var html =
-                '<div class="fs-13" style="background:var(--danger-soft,rgba(239,68,68,.08));border:1px solid var(--danger,#ef4444);color:var(--danger,#ef4444);border-radius:8px;padding:10px 12px;margin-bottom:10px">' +
+                '<div class="fs-13" style="background:var(--danger-soft,rgba(239,68,68,.08));border:1px solid var(--danger,#ef4444);color:var(--danger,#ef4444);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:10px">' +
                 '⚠️ 该凭条存在已开始执行的项目，无法直接退费：<br>' + blocks +
                 '<div class="fs-12 mt-4" style="color:var(--text-muted)">将提交退费申请并通知开单医生/检验/影像/药房/护士站审批，全部同意后方可退费。</div></div>' +
                 '<div class="form-group"><label class="form-label">退费理由（可选）</label>' +

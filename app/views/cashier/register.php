@@ -171,7 +171,7 @@ function loadOverview() {
             var box = document.getElementById('slotBox');
             // 作息提示条（非放号时段展示原因）
             var banner = sch.msg
-                ? '<div class="mb-8" style="background:var(--warning-soft);color:var(--warning);border-radius:8px;padding:8px 12px;font-size:12px;line-height:1.6">⏰ ' + sch.msg + '</div>'
+                ? '<div class="mb-8" style="background:var(--warning-soft);color:var(--warning);border-radius:var(--radius-md);padding:8px 12px;font-size:12px;line-height:1.6">⏰ ' + sch.msg + '</div>'
                 : '';
             if (!list.length) {
                 box.innerHTML = banner + '<div class="text-muted">暂无科室数据</div>';

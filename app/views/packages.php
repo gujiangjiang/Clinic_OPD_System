@@ -56,7 +56,7 @@ $isAdmin = $u['role'] === 'admin';
 .pkg-cat-box { position: relative; }
 .pkg-cat-drop {
     display: none; position: absolute; top: 38px; left: 0; right: 0; z-index: 150;
-    background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius:var(--radius-md);
     box-shadow: var(--shadow-lg); max-height: 280px; overflow-y: auto; padding: 4px;
 }
 .pkg-cat-drop.open { display: block; }
@@ -65,7 +65,7 @@ $isAdmin = $u['role'] === 'admin';
 .pkg-cat-empty { padding: 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
 /* 套餐内容条目 */
 .pkg-item-card {
-    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 6px;
+    border: 1px solid var(--border); border-radius:var(--radius-md); padding: 8px 10px; margin-bottom: 6px;
     background: var(--bg-card);
 }
 .pkg-item-card .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -84,7 +84,7 @@ $isAdmin = $u['role'] === 'admin';
 /* 套餐应用弹窗：勾选条目 */
 .pkg-apply-scroll { max-height: 380px; overflow-y: auto; padding-right: 4px; }
 .pkg-apply-item {
-    border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; margin-bottom: 6px;
+    border: 1px solid var(--border); border-radius:var(--radius-md); padding: 6px 10px; margin-bottom: 6px;
     display: flex; align-items: center; gap: 10px; cursor: pointer; background: var(--bg-card);
 }
 .pkg-apply-item:hover { border-color: var(--primary); }
@@ -478,7 +478,7 @@ function ensurePkgCatDrop() {
     box = document.createElement('div');
     box.id = 'pkgCatDrop';
     box.className = 'pkg-cat-drop';
-    box.style.cssText = 'display:none;position:fixed;top:44px;left:0;right:0;z-index:3200;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);max-height:280px;overflow-y:auto;padding:4px';
+    box.style.cssText = 'display:none;position:fixed;top:44px;left:0;right:0;z-index:3200;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);max-height:280px;overflow-y:auto;padding:4px';
     document.body.appendChild(box);
     box.addEventListener('mousedown', function (e) {
         var el = e.target.closest ? e.target.closest('.dd-item') : null;

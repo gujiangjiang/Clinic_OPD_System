@@ -28,9 +28,6 @@ Router::title('影像模板管理');
 </div>
 
 <style>
-.tpl-form { display: flex; gap: 14px; }
-.tpl-form .tpl-left { width: 300px; flex-shrink: 0; }
-.tpl-form .tpl-right { flex: 1; min-width: 0; }
 </style>
 
 <script>

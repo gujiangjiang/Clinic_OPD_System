@@ -63,7 +63,7 @@
     gap: 10px;
     padding: 7px 10px;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     margin-bottom: 6px;
     background: var(--bg-card, #fff);
 }
@@ -83,7 +83,7 @@
     font-size: 12.5px;
     padding: 18px 0;
     border: 1px dashed var(--border);
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     margin-top: 4px;
 }
 
@@ -334,6 +334,11 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
 /* 特小徽章（列表行内密集场景，33 处内联 font-size:11px 收敛用） */
 .badge-xs { padding: 2px 8px; font-size: 11px; }
 
+/* ---------- 模板编辑/预览左右分栏（模板管理/审核中心/护理/影像模板 4 处重复收敛） ---------- */
+.tpl-form { display: flex; gap: 14px; }
+.tpl-form .tpl-left { width: 320px; flex-shrink: 0; }
+.tpl-form .tpl-right { flex: 1; min-width: 0; }
+
 /* ---------- 科室选择卡片（通用科室选择弹窗：挂号/医生选科/转科） ---------- */
 .dept-pick-grid {
     display: grid;
@@ -470,7 +475,7 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
 .date-cell {
     font-size: 13px;
     padding: 7px 0;
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     cursor: pointer;
     transition: background .12s ease;
 }
@@ -853,7 +858,7 @@ body.emr-readonly .emr-item-link,
 }
 .paymgr-item {
     border: 1px solid var(--border, #e5e7eb);
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     padding: 10px 12px;
     margin-bottom: 8px;
     cursor: pointer;
@@ -970,7 +975,7 @@ body.emr-readonly .emr-item-link,
 .doc-call-pop-body { padding: 8px 8px; display: flex; flex-direction: column; gap: 6px; }
 .doc-call-block {
     background: var(--bg-soft, #f3f5f9);
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     padding: 6px 8px;
 }
 .doc-call-label {
@@ -1026,7 +1031,7 @@ body.emr-readonly .emr-item-link,
     gap: 6px;
     font-size: 12px;
     background: var(--bg-soft, #f3f5f9);
-    border-radius: 8px;
+    border-radius:var(--radius-md);
     padding: 5px 7px;
     min-width: 0;          /* 允许内容收缩，配合下方 nowrap+ellipsis 不换行 */
 }
@@ -1061,7 +1066,7 @@ body.emr-readonly .emr-item-link,
 .dw-room-list-body { min-width: 240px; }
 .dw-room-bound {
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    background: var(--bg-soft); border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg-soft); border: 1px solid var(--border); border-radius:var(--radius-md);
     padding: 8px 10px; margin-bottom: 8px; font-size: 13px;
 }
 .dw-room-item {
@@ -1099,7 +1104,7 @@ body.emr-readonly .emr-item-link,
 .crit-match-options { display: flex; gap: 10px; margin-bottom: 14px; }
 .crit-opt {
     flex: 1; display: flex; align-items: center; gap: 6px; cursor: pointer;
-    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius:var(--radius-md); padding: 10px 12px;
     font-size: 14px; transition: border-color .15s;
 }
 .crit-opt:has(input:checked) { border-color: var(--primary, #2563eb); background: rgba(37, 99, 235, .05); }
@@ -1110,7 +1115,7 @@ body.emr-readonly .emr-item-link,
 .crit-send-info .crit-proc-row span { width: 70px; }
 .crit-send-det { margin-bottom: 14px; }
 .crit-doc-sel {
-    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius:var(--radius-md); padding: 10px 12px;
     cursor: pointer; display: flex; align-items: center; gap: 10px;
     background: var(--bg-soft);
 }
@@ -1133,7 +1138,7 @@ body.emr-readonly .emr-item-link,
 .dw-crit-queue-item {
     display: flex; align-items: center; gap: 8px; font-size: 13px;
     background: rgba(220, 38, 38, .05); border: 1px solid rgba(220, 38, 38, .25);
-    border-radius: 8px; padding: 6px 10px; margin-bottom: 6px;
+    border-radius:var(--radius-md); padding: 6px 10px; margin-bottom: 6px;
 }
 .dw-crit-queue-item .crit-q-name { font-weight: 600; color: var(--danger, #dc2626); }
 .crit-msg-dot { color: var(--danger, #dc2626); }

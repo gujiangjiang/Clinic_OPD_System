@@ -40,7 +40,7 @@ $showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
     </div>
 
     <?php if ($pending): ?>
-    <div class="mb-12" style="background:var(--warning-soft);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--warning)">
+    <div class="mb-12" style="background:var(--warning-soft);border-radius:var(--radius-md);padding:10px 14px;font-size:13px;color:var(--warning)">
         ⏳ 您已提交个人资料修改申请，<b>等待审核中，暂未生效</b>。审核通过后自动生效；结果将通过站内消息通知您。
     </div>
     <?php endif; ?>
