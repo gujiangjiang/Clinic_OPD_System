@@ -193,5 +193,14 @@ function pcTab(name) {
 }
 
 /* 进入页面即加载最新就诊列表 */
+// 默认日期范围：最近一周（开始=6 天前，结束=今天），就诊列表随之默认展示一周内记录，
+// 可手动调整日期范围（重置按钮可清空回全部）
+(function () {
+    var r = Clinic.datePicker.lastRange(6);
+    var f = document.getElementById('pcFrom');
+    var t = document.getElementById('pcTo');
+    if (f) f.value = r.from;
+    if (t) t.value = r.to;
+})();
 initPcList();
 </script>
