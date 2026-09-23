@@ -72,13 +72,14 @@ class VisitSeeder extends Seeder {
         array('腹部撞击伤后腹痛', '4', '小时', '伴腹胀', '4', '小时'),
     );
     private $piTails = array(
-        '无昏迷呕吐，无大小便失禁，伤后未行特殊处理，为求进一步诊治来院。',
-        '无寒战高热，无胸闷胸痛，饮食睡眠欠佳，二便正常。',
-        '伴乏力纳差，无恶心呕吐，睡眠可，小便正常，大便干结。',
-        '自服药物（具体不详）后症状缓解不明显，为求进一步诊治来院。',
-        '自行简单包扎后出血已止，局部肿胀明显，前来就诊。',
-        '外院初步处理后症状缓解不明显，今来我院求进一步诊治。',
-        '起病以来精神尚可，胃纳一般，睡眠欠佳，体重无明显变化。',
+        // 现病史结尾（无句号：渲染时后随固定逗号 + 来院途径）
+        '无昏迷呕吐，无大小便失禁，伤后未行特殊处理，为求进一步诊治',
+        '无寒战高热，无胸闷胸痛，饮食睡眠欠佳，二便正常',
+        '伴乏力纳差，无恶心呕吐，睡眠可，小便正常，大便干结',
+        '自服药物（具体不详）后症状缓解不明显，为求进一步诊治',
+        '自行简单包扎后出血已止，局部肿胀明显',
+        '外院初步处理后症状缓解不明显，为求进一步诊治',
+        '起病以来精神尚可，胃纳一般，睡眠欠佳，体重无明显变化',
     );
     private $pePool = array(
         '神志清楚，呼吸平稳，心律齐，未闻及杂音，腹平软，无压痛，肝脾肋下未及，双下肢无水肿。',
@@ -266,9 +267,11 @@ class VisitSeeder extends Seeder {
                 $ts = $now - mt_rand(1, $this->opt['days']) * 86400 - mt_rand(0, 6 * 3600);
                 if ($ts > $now) $ts = $now - mt_rand(600, 6 * 3600);
                 $this->makeVisit($this->nextPatient(), $deptId, $ts, 'finished', array(
-                    'multiDoc' => $i < 4,
-                    'consult' => ($i % 3) === 1,
-                    'cert' => $i === 5,
+                    // 覆盖续写/会诊/证明场景：约 2/3 有续写（同/跨医生随机）、
+                    // 约 1/2 有会诊、个别出诊断证明，便于观察续写病历与会诊流程
+                    'multiDoc' => mt_rand(1, 100) <= 65,
+                    'consult' => mt_rand(1, 100) <= 50,
+                    'cert' => mt_rand(1, 100) <= 20,
                 ));
                 $visitIdx++;
             }
@@ -479,15 +482,29 @@ class VisitSeeder extends Seeder {
         }
         $emr = emr_default_data(null);
         $emr['chief_complaint'] = array('symptom' => $ccRow[0], 'duration' => $ccRow[1], 'unit' => $ccRow[2], 'second_symptom' => $ccRow[3], 'second_duration' => $ccRow[4], 'second_unit' => $ccRow[5]);
+        // 现病史按结构化字段生成：供史者(informant) + 时间(duration) + 单位(unit) + 内容(content)。
+        // content 以「前」衔接前面的时间单位（渲染后为 患者自诉1天前…），末尾不带句号——
+        // 渲染时 emr_pi_text 会固定拼接「，来院途径」，避免句号/来院重复
+        $onset = preg_match('/伤|摔|切|撞|扭|压/', (string)$ccRow[0]) ? '不慎' : '无明显诱因出现';
+        $piContent = '前' . $onset . $ccRow[0] .
+            ($ccRow[3] !== '' ? '，' . $ccRow[3] . $ccRow[4] . $ccRow[5] : '') .
+            '，' . $this->pick($this->piTails);
         $emr['history_present'] = array(
-            'content' => '患者于' . $ccRow[1] . $ccRow[2] . '前' . $this->pick(array('不慎摔伤', '被重物砸伤', '切割伤', '无明显诱因出现', '外伤后出现')) . $ccRow[0] . '，' . $ccRow[3] . $ccRow[4] . $ccRow[5] . '，' . $this->pick($this->piTails),
             'informant' => '患者自诉',
+            'duration' => $ccRow[1],
+            'unit' => $ccRow[2],
+            'content' => $piContent,
             'arrival_way' => (string)$dept['type'] === 'emergency' ? $this->pick(array('120接入', '自行来院')) : '自行来院',
         );
         $phType = $this->pick(array('否认', '否认', '承认'));
         $emr['past_history'] = array('type' => $phType, 'detail' => $phType === '承认' ? $this->pick(array('高血压病史5年', '2型糖尿病史3年', '慢性胃炎病史')) : '');
         $emr['allergies'] = array('type' => $this->pick(array('否认', '否认', '承认')), 'detail' => '');
-        $emr['physical_exam'] = array('content' => $this->pick($this->pePool));
+        // 体格检查按结构化键存放：体检描述归入「其它体格检查」（emr_pe_text 输出「其它体格检查：xxx」，
+        // 此前误用 content 键导致显示为 content:xxx）
+        $emr['physical_exam'] = array(
+            '皮肤黏膜' => '', '头部' => '', '胸部' => '', '肺脏及胸膜' => '', '心脏' => '',
+            '腹部' => '', '神经反射' => '', '肌力及肌张力' => '', '其它体格检查' => $this->pick($this->pePool),
+        );
         $emr['diagnoses'] = $diagPick;
         $emr['advice'] = $this->pick($this->advicePool);
         $recCreated = date('Y-m-d H:i:s', $ts + mt_rand(600, 2700));
@@ -649,8 +666,8 @@ class VisitSeeder extends Seeder {
         $this->cnt['record']++;
         DB::insert('INSERT INTO records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, chief_complaint, present_illness, past_history, allergy_history, physical_exam, consciousness, preliminary_diagnosis, icd10_code, is_observation, visit_type, doctor_advice, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
             $visitId, $p['patient_no'], $flowNo, $deptId, $docId, $docName,
-            $ccRow[0], $emr['history_present']['content'], $emr['past_history']['detail'], '',
-            $emr['physical_exam']['content'], $consciousness, $diagText, (string)$diagPick[0]['code'],
+            $ccRow[0], emr_pi_text($emr['history_present']), $emr['past_history']['detail'], '',
+            $emr['physical_exam']['其它体格检查'], $consciousness, $diagText, (string)$diagPick[0]['code'],
             (string)$dept['type'] === 'emergency' ? 1 : 0, '初诊', $emr['advice'],
             $status === 'finished' ? 'done' : 'draft', $recCreated, $recUpdated,
         ));
@@ -685,10 +702,13 @@ class VisitSeeder extends Seeder {
             }
         }
 
-        /* ==================== 多名其他医生续写（诊毕 + 配额内） ==================== */
+        /* ==================== 多名其他医生续写（诊毕 + 配额内） ====================
+         * 续写医生池：默认其他医生；50% 概率将首诊医生也加入候选，
+         * 形成「同医生续写」与「跨医生续写」两类场景，便于测试续写病历功能 */
         if (!empty($opts['multiDoc'])) {
             $writers = array();
             foreach ($this->doctors as $d) { if ((int)$d['id'] !== $docId) $writers[] = $d; }
+            if (mt_rand(1, 100) <= 50) $writers[] = array('id' => $docId, 'name' => $docName);
             shuffle($writers);
             $nWriters = mt_rand(1, 2);
             $wCount = 0;
