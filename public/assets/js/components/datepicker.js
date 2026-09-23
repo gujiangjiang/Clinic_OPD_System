@@ -47,6 +47,18 @@ Clinic.datePicker = (function () {
     }
 
     /**
+     * 计算最近 N 天（含今天）日期范围默认值
+     * @param {number} days 往前推的天数（不含今天，如 6 → 含今天共 7 天）
+     * @return {{from: string, to: string}} YYYY-MM-DD（to 恒为今天）
+     */
+    function lastRange(days) {
+        const t = new Date();
+        const f = new Date();
+        f.setDate(f.getDate() - (typeof days === 'number' && days > 0 ? days : 6));
+        return { from: fmt(f.getFullYear(), f.getMonth() + 1, f.getDate()), to: fmt(t.getFullYear(), t.getMonth() + 1, t.getDate()) };
+    }
+
+    /**
      * 跨度联动校验（与对端输入框配合，maxSpan 上限）：
      * 选定值与对端值跨度超限时，自动调整到上限边界并提示。
      * 调整方向：本框为范围起点（值 <= 对端值）→ 向后推；终点（值 > 对端值）→ 向前收。
@@ -214,5 +226,5 @@ Clinic.datePicker = (function () {
         document.addEventListener('keydown', escHandler, true);
     }
 
-    return { open: open };
+    return { open: open, lastRange: lastRange };
 })();
