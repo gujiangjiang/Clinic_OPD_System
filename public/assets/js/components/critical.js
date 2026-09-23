@@ -475,21 +475,11 @@ Clinic.critical = (function () {
         var isDoctor = cfg.role === 'doctor';
         var isAdmin = cfg.role === 'admin';
 
-        /** 默认时间范围：最近 3 天（含今天），可手动修改；优先服务端站点时区日期 */
+        /** 默认时间范围：最近 3 天（含今天），可手动修改；统一走公共日期范围计算 */
         function setDefaultRange() {
-            var fmt = function (d) {
-                return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
-            };
-            if (cfg.defaultFrom && cfg.defaultTo) {
-                state.from = cfg.defaultFrom;
-                state.to = cfg.defaultTo;
-            } else {
-                var t = new Date();
-                var f = new Date();
-                f.setDate(t.getDate() - 2);
-                state.from = fmt(f);
-                state.to = fmt(t);
-            }
+            var r = Clinic.datePicker.lastRange(2);
+            state.from = r.from;
+            state.to = r.to;
             var fromEl = document.getElementById('critFrom');
             var toEl = document.getElementById('critTo');
             if (fromEl) fromEl.value = state.from;

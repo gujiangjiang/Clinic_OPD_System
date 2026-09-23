@@ -151,21 +151,13 @@ $depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type
 /* ==================== 工具 ==================== */
 function anaMoney(v) { return '¥' + Number(v || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function anaNum(v) { return Number(v || 0).toLocaleString('zh-CN'); }
-function anaPad(n) { return n < 10 ? '0' + n : '' + n; }
-function anaDate(d) { return d.getFullYear() + '-' + anaPad(d.getMonth() + 1) + '-' + anaPad(d.getDate()); }
 
-/* 快捷范围 */
+/* 快捷范围：统一走 Clinic.datePicker.lastRange（公共日期范围计算） */
 function anaQuick(k) {
-    var now = new Date();
-    var s = new Date(now), e = new Date(now);
-    if (k === 'today') { }
-    else if (k === 'yesterday') { s.setDate(s.getDate() - 1); e = new Date(s); }
-    else if (k === '7d') { s.setDate(s.getDate() - 6); }
-    else if (k === '30d') { s.setDate(s.getDate() - 29); }
-    else if (k === 'month') { s = new Date(now.getFullYear(), now.getMonth(), 1); }
-    else if (k === 'year') { s = new Date(now.getFullYear(), 0, 1); }
-    document.getElementById('anaStart').value = anaDate(s);
-    document.getElementById('anaEnd').value = anaDate(e);
+    var mode = { today: 'today', yesterday: 'yesterday', '7d': 6, '30d': 29, month: 'month', year: 'year' }[k] || 6;
+    var r = Clinic.datePicker.lastRange(mode);
+    document.getElementById('anaStart').value = r.from;
+    document.getElementById('anaEnd').value = r.to;
     // 快捷按钮激活态
     document.querySelectorAll('[data-ana-quick]').forEach(function (b) {
         b.className = 'btn btn-sm ' + (b.getAttribute('data-ana-quick') === k ? 'btn-primary' : 'btn-outline');
@@ -188,9 +180,10 @@ function anaTab(t) {
     anaLoad();
 }
 function anaRange() {
+    var today = Clinic.datePicker.lastRange('today');
     return {
-        start: document.getElementById('anaStart').value || anaDate(new Date()),
-        end: document.getElementById('anaEnd').value || anaDate(new Date()),
+        start: document.getElementById('anaStart').value || today.from,
+        end: document.getElementById('anaEnd').value || today.to,
     };
 }
 /* 统一入口：切 Tab / 点查询时刷新当前 Tab */
@@ -429,9 +422,10 @@ function loadCustom() {
 
 /* ==================== 初始化 ==================== */
 (function () {
-    var now = new Date();
-    document.getElementById('anaStart').value = anaDate(new Date(now.getFullYear(), now.getMonth(), 1));
-    document.getElementById('anaEnd').value = anaDate(now);
+    // 默认日期范围：本月（1 号至今天）
+    var r = Clinic.datePicker.lastRange('month');
+    document.getElementById('anaStart').value = r.from;
+    document.getElementById('anaEnd').value = r.to;
     // 医生统计科室筛选下拉
     var sel = document.getElementById('docDeptSel');
     <?php foreach ($depts as $d): ?>

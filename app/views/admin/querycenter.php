@@ -159,8 +159,6 @@ document.addEventListener('DOMContentLoaded', function () {
         listBody: 'critListBody',
         totalEl: 'critTotal',
         footEl: 'critMore',
-        defaultFrom: '<?php echo date('Y-m-d', strtotime('-2 days')); ?>',
-        defaultTo: '<?php echo today_str(); ?>',
     });
 });
 </script>
