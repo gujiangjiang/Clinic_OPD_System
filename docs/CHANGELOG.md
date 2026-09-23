@@ -13,6 +13,35 @@
 
 ---
 
+## [8.19.0] - 2026-09-22
+
+> 全项目代码冗余与样式统一性专项（扫描驱动，分 17 个提交推进）。
+
+### 修复
+- **push.js eventbus 引用命名错误**：`Clinic.eventbus`（小写 b）恒为 undefined，SSE 连接状态经 eventbus 广播的分支从不执行（CustomEvent 兜底仍在），改为 `Clinic.eventBus` 修复通道。
+- **escHtml 转义映射实体失效**：编辑过程中 `&`/`<`/`>`/`"` 被编码层剥离为原字符，XSS 防护失效，恢复正确映射（hexdump 逐字节验证）。
+- **三个 CSS 变量从未定义却被使用**（降灰/阴影/渐变意图静默失效）：`--muted`（22 处，base.css :root 与 dark.css 按 --text-muted 别名同步定义）、`--shadow-sm`（病历纸/护理记录单）、`--primary-dark`（医生叫号悬浮窗渐变，定义品牌 teal 深阶）；`--accent-soft` 同步补齐。
+- **未定义工具类补齐**：`fs-14`（22 处）/`fw-400`（14 处）/`mt-2`（12 处）/`mb-2`/`mb-6`/`table-sm`（护士站仪表盘 3 处内联补偿删除）。
+
+### 新增
+- **公共基础设施**：`badge-info`/`badge-xs` 徽章类、`.flex-wrap-center`/`.input-date`（宽度 150/140/130 三种口径统一 150px）工具类、`--radius-md: 8px` 变量（54 处内联第三种圆角口径收敛）、`.empty .spinner` 列表加载占位样式（19 处内联收敛）、`.tpl-form` 左右分栏（4 处重复本地样式块删除，300px 变体统一 320px）。
+- **PHP 共享模块与函数**：`includes/catalog_query.php`（四类项目目录分页查询，三处同构 ~230 行收敛，差异经参数注入）；`insert_unique_retry()`（唯一插入重试，5 处收敛）；`paged_params()/paged_suffix()/paged_has_more()`（分页样板，15+ 处收敛）；`visit_seq_text()`（5 处 str_pad 收敛）；`order_type_name()`（4 份 $typeNames 重复 map 收敛）；`ana_paid_regs()/ana_order_fee_by_dept()/ana_dept_maps()`（运营分析科室归集 SQL，~55 行收敛）；`Clinic.visitStatusName(s, overrides)`（JS 就诊状态 map，同一状态三种译法漂移收敛，6 处）；`Clinic.orderTypeName`；`Clinic.refundDetailHtml(d)`（退费详情 UI 双实现收敛，间距漂移归一，流程步骤/退药单位取较新口径）；`window.escHtml/window.esc` 全局别名（9 视图重复包装删除，132 处调用点无需改名）。
+- **诊断搜索下拉改用 `Clinic.infiniteScroll`** 统一封装（手写滚动监听/offset 状态机删除）。
+
+### 变更
+- **筛选条结构统一为 `card list-filter`**：review.php（裸 flex 无 card 包裹，mb-12 与布局 gap 叠加成 24px）、analytics.php（2 处内联 margin 冗余覆盖）、cashier/paymanage、cashier/regmanage、nurse/templates、imaging/templates（4 处 margin:12px 漂移）、refund_approve.php（5 处卡片内联 padding:14px 覆盖）。
+- **API 内徽章 span 收敛 `badge_html()`**（17 处，含 $xs 特小徽章扩展）；金额格式化统一 `Clinic.money()`（14 处 toFixed(2) 绕过收敛，全角￥归一，emr.js money2 别名删除）；`date('Y-m-d')` 统一 `today_str()`（19 处）；`in_placeholders()` 残留 2 处手写替换；message.php 可见范围 SQL 收敛（7 处）；`setting()` 增加请求级按 key 缓存（仿 work_schedule 模式）；ana_disposition 字符串拼接 LIMIT 改参数绑定。
+- **日期跨度「一年」口径统一为 366 天**（audit 域 365 → 366，与 ana/patient 一致）。
+
+### 移除
+- **JS 死代码**：`Clinic.selector` 搜索式下拉模块（~170 行，已被 dropdown.js 取代且 0 调用但被全站加载）；admin_items.js `buildCats/filterByCat/filterRows`（42 行，v8.17.3 服务端分页改造后 0 调用）。
+- **PHP 死代码**：`pinyin_initial`（90 行拼音映射表，0 调用点）、`evid_verify`、`snapshot_get_or_live`、`emr_rules.php` 整文件（v2 重构后仅剩 0 调用的兼容门面，核心判定唯一权威来源为 EmrContextResolver）。
+
+### 文档
+- **同步版本号至 v8.19.0**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json` + AGENTS.md 基准版本）。
+
+---
+
 ## [8.18.2] - 2026-09-22
 
 ### 修复
