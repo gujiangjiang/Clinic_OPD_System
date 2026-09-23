@@ -4,7 +4,7 @@
 
 ## 版本标识
 
-- 系统基准版本：**v8.19.3**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
+- 系统基准版本：**v8.20.0**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
 
 ## 本地运行环境（本机 macOS arm64）
 
@@ -17,12 +17,24 @@
   ```
 
   或 `npm run dev` / `npm run start`（默认端口 8000，可用 `PORT` 环境变量覆盖）。
-  首次访问 `http://localhost:8080` 会自动进入安装页。
+  首次访问 `http://localhost:8080` 会自动进入安装向导（5 步）。
 
 - 语法检查（不需要系统 php，用 tokenizer 校验全部 PHP 文件）：
   `npm run lint` 或 `~/.local/bin/frankenphp php-cli tools/lint/php-lint.php`。
 
 > 若本机安装系统 php 后可恢复 `php -S 0.0.0.0:8080 router.php` 方式。
+
+## 基础设施配置库（config.db，v8.20+ 架构铁律）
+
+- 基础设施配置（主库驱动/连接凭证、缓存驱动、App Key、维护模式）统一存放于
+  `data/config.db`（独立于主业务库），由 `app/core/ConfigStore.php` 读写。
+- 打开前必须校验 16 字节 Magic Header（`SQLite format 3\0`），损坏文件自动备份为
+  `config.db.corrupt.[timestamp]` 并优雅降级回退默认配置，**严禁抛 500**。
+- 主业务数据独立存放于主数据库；删除 config.db 仅重置配置不破坏业务数据
+  （安装向导可【关联现有数据库】重新绑定）。
+- 未生成 config.db 时系统按 bootstrap 默认常量运行（旧版向后兼容）。
+- 数据库迁移（SQLite↔MySQL）由 `app/core/DatabaseMigrator.php` 执行，迁移期间
+  进入只读维护模式（config.db `app.maintenance=1`），完成后自动更新主库指针。
 
 ## 药品与处方规则（v8.17 核心约束）
 

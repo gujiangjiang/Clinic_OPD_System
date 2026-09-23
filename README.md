@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v8.19.3-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v8.20.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -240,10 +240,18 @@ php -S 0.0.0.0:8080 router.php
 ~/.local/bin/frankenphp php-server --root public/ --listen 0.0.0.0:8080
 ```
 
-浏览器访问 `http://localhost:8080`，首次访问自动进入安装页。
+浏览器访问 `http://localhost:8080`，首次访问自动进入 5 步安装向导
+（环境巡检 → 数据库与缓存配置 → 医疗机构信息 → 创建管理员 → 确认执行）。
 
 > 语法检查可运行 `npm run lint`（内部用 `tools/lint/php-lint.php` 通过 tokenizer 校验全部 PHP 文件，无需系统 php）；
 > `npm run dev` / `npm run start` 默认端口 8000，可用 `PORT` 环境变量覆盖。
+
+### 基础设施配置库（config.db）
+
+系统基础设施配置（主库驱动与连接凭证、缓存驱动、App Key、维护模式）独立存放于
+`data/config.db`，与主业务库完全解耦：删除 `config.db` 仅重置配置、不破坏业务数据，
+安装向导提供【关联现有数据库】选项重新绑定已有主库。config.db 打开前校验 SQLite
+Magic Header，损坏文件自动备份并优雅降级，绝不因配置文件损坏导致服务器 500。
 
 ### 🧪 快速初始化与测试造数（统一 CLI）
 
