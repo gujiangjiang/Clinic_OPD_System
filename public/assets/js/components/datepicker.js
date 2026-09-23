@@ -56,7 +56,7 @@ Clinic.datePicker = (function () {
      */
     function lastRange(mode) {
         const now = new Date();
-        const s = new Date(now), e = new Date(now);
+        let s = new Date(now), e = new Date(now);
         if (typeof mode === 'number' && mode > 0) {
             s.setDate(s.getDate() - mode);
         } else if (mode === 'today') {
@@ -74,8 +74,9 @@ Clinic.datePicker = (function () {
         return { from: fmt(s.getFullYear(), s.getMonth() + 1, s.getDate()), to: fmt(e.getFullYear(), e.getMonth() + 1, e.getDate()) };
     }
 
-    /** 顺序校验：结束日期不得早于开始日期（对端自动同步）
+    /** 顺序校验：开始日期不得晚于结束日期（对端自动同步）
      * 约定：开始框 maxToday:false、结束框 maxToday:true（全站日期范围 UI 一致）
+     * 合法关系：开始 ≤ 结束。任一端越界时，对端自动同步到本值并提示。
      * @return {string} 调整后的值（原样返回；对端越界时自动同步到本值） */
     function clampOrder(input, val) {
         if (!opts.peer) return val;
@@ -83,16 +84,18 @@ Clinic.datePicker = (function () {
         if (!peerEl) return val;
         const peerVal = (peerEl.value || '').trim();
         if (!peerVal) return val;
-        if (val >= peerVal) return val;   // 顺序合法（结束≥开始）
-        // 顺序倒置：本框早于对端
         if (opts.maxToday) {
-            // 本框是结束：结束早于开始 → 开始同步到所选结束
+            // 本框是结束框：结束必须 ≥ 开始
+            if (val >= peerVal) return val;
+            // 结束 < 开始（顺序倒置）→ 开始同步到所选结束
             peerEl.value = val;
             if (window.Clinic && Clinic.toast && Clinic.toast.info) {
                 Clinic.toast.info('结束日期不能早于开始日期，已自动同步开始日期');
             }
         } else {
-            // 本框是开始：开始晚于结束 → 结束同步到所选开始
+            // 本框是开始框：开始必须 ≤ 结束
+            if (val <= peerVal) return val;
+            // 开始 > 结束（顺序倒置）→ 结束同步到所选开始
             peerEl.value = val;
             if (window.Clinic && Clinic.toast && Clinic.toast.info) {
                 Clinic.toast.info('开始日期不能晚于结束日期，已自动同步结束日期');
