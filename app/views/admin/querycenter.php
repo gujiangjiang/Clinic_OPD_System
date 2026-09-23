@@ -128,6 +128,16 @@ function openRefViewer(studyUid) {
 
 window.__refViewerTpl = <?php echo json_encode(trim((string)setting('pacs_viewer_url', ''))); ?>;
 
+// 影像引用查询默认日期范围：最近一周（开始=6 天前，结束=今天），
+// 列表随之默认展示一周内记录，可手动调整日期范围（重置按钮可清空回全部）
+(function () {
+    var r = Clinic.datePicker.lastRange(6);
+    var f = document.getElementById('qcRefFrom');
+    var t = document.getElementById('qcRefTo');
+    if (f) f.value = r.from;
+    if (t) t.value = r.to;
+})();
+
 function qcTab(tab) {
     // 子 Tab 按钮选中态切换（btn-primary 选中 / btn-outline 未选中）
     document.querySelectorAll('#qcTabsBar [data-qc-tab]').forEach(function (b) {
