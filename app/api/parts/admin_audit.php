@@ -93,7 +93,7 @@ function admin_part_audit($action) {
                 // 预览按钮（仅模态框表单类型可预览；其余置灰保持按钮一致）
                 if (in_array($r['type'], $previewableTypes, true)) {
                     $h .= '<button class="btn btn-outline btn-sm" title="预览提交内容（只读）" ' .
-                        'data-preview="1" data-type="' . e($r['type']) . '" data-id="' . (int)$r['id'] . '" data-ref="' . (int)$r['ref_id'] . '" ' .
+                        'data-preview="1" data-type="' . e($r['type']) . '" data-id="' . (int)$r['id'] . '" data-ref="' . (int)$r['ref_id'] . '" data-status="' . e($r['status']) . '" ' .
                         'onclick="previewAudit(this)">预览</button>';
                 } else {
                     $h .= '<button class="btn btn-outline btn-sm" disabled title="该事项无表单预览">预览</button>';
@@ -421,6 +421,75 @@ function admin_part_audit($action) {
                 '<input class="input" value="' . (!empty($d['is_nurse']) ? '是' : '否') . '" readonly></div>' .
                 '<div class="form-group"><label class="form-label">绑定处置项目</label>' .
                 '<input class="input" value="' . e($bindName ? $bindName : '无') . '" readonly></div>';
+        } elseif (in_array($type, array('item_lab', 'item_exam', 'item_drug', 'item_disp'), true)) {
+            // 检验/检查/药品/处置：优先用提交快照渲染只读表单（发起者删除项目后仍可追溯原始提交）；
+            // 历史无快照记录由前端回退原表单接口渲染
+            $d = json_decode((string)$a['data'], true);
+            if (!is_array($d)) json_fail('该类型由前端复用原表单渲染');
+            $addRow = function ($label, $val) use (&$rows) {
+                $rows .= '<div class="form-group"><label class="form-label">' . $label . '</label>' .
+                    '<input class="input" value="' . e((string)$val) . '" readonly></div>';
+            };
+            $rows = '';
+            if ($type === 'item_lab') {
+                $addRow('项目名称', isset($d['name']) ? $d['name'] : '');
+                $addRow('分类', isset($d['category']) ? $d['category'] : '');
+                $addRow('价格（元）', isset($d['price']) ? money($d['price']) : '');
+                $addRow('单位', isset($d['unit']) ? $d['unit'] : '');
+                $addRow('正常范围', isset($d['normal_range']) ? $d['normal_range'] : '');
+                $addRow('危急值下限', isset($d['critical_low']) ? $d['critical_low'] : '');
+                $addRow('危急值上限', isset($d['critical_high']) ? $d['critical_high'] : '');
+                $addRow('描述', isset($d['description']) ? $d['description'] : '');
+                $addRow('状态', (isset($d['status']) && $d['status'] === 'disabled') ? '禁用' : '待审核');
+            } elseif ($type === 'item_exam') {
+                $addRow('项目名称', isset($d['name']) ? $d['name'] : '');
+                $addRow('分类', isset($d['category']) ? $d['category'] : '');
+                $addRow('价格（元）', isset($d['price']) ? money($d['price']) : '');
+                $addRow('描述', isset($d['description']) ? $d['description'] : '');
+                $addRow('状态', (isset($d['status']) && $d['status'] === 'disabled') ? '禁用' : '待审核');
+            } elseif ($type === 'item_drug') {
+                $addRow('药品名称', isset($d['name']) ? $d['name'] : '');
+                $addRow('通用名', isset($d['generic_name']) ? $d['generic_name'] : '');
+                $addRow('分类', isset($d['category']) ? $d['category'] : '');
+                $addRow('厂家', isset($d['vendor']) ? $d['vendor'] : '');
+                $addRow('厂家简称', isset($d['vendor_short']) ? $d['vendor_short'] : '');
+                $addRow('包装单位', isset($d['package_unit']) ? $d['package_unit'] : '');
+                $addRow('规格', drug_spec_text($d));
+                $addRow('剂型', isset($d['form']) ? $d['form'] : '');
+                $addRow('频次', isset($d['frequency']) ? $d['frequency'] : '');
+                $addRow('途径', isset($d['route']) ? $d['route'] : '');
+                $addRow('单次剂量', isset($d['single_dose']) ? $d['single_dose'] : '');
+                $addRow('单价（元）', isset($d['price']) ? money($d['price']) : '');
+                $addRow('库存（最小单位）', isset($d['qty']) ? $d['qty'] : '');
+                $addRow('警戒库存（最小单位）', isset($d['warn_qty']) ? $d['warn_qty'] : '');
+                $addRow('备注', isset($d['note']) ? $d['note'] : '');
+                $addRow('状态', (isset($d['status']) && $d['status'] === 'disabled') ? '禁用' : '待审核');
+            } else {
+                $addRow('处置名称', isset($d['name']) ? $d['name'] : '');
+                $addRow('费用（元）', isset($d['fee']) ? money($d['fee']) : '');
+                $addRow('描述备注', isset($d['description']) ? $d['description'] : '');
+            }
+            $html = $rows;
+        } elseif ($type === 'template' || $type === 'nursing_template' || $type === 'imaging_template') {
+            // 模板快照：返回原始提交内容（title/type/scope/content），供前端 emrEditor/文本只读渲染
+            $d = json_decode((string)$a['data'], true);
+            if (!is_array($d)) json_fail('该类型由前端复用原表单渲染');
+            json_ok(array('type' => $type, 'template' => array(
+                'title' => isset($d['title']) ? $d['title'] : '',
+                'type' => isset($d['type']) ? $d['type'] : ($type === 'nursing_template' ? 'nursing_record' : ($type === 'imaging_template' ? 'imaging_report' : '')),
+                'scope' => isset($d['scope']) ? $d['scope'] : '',
+                'content' => isset($d['content']) ? $d['content'] : null,
+            )));
+        } elseif ($type === 'package') {
+            // 套餐快照：返回原始提交内容（title/type/scope/items），供前端只读渲染
+            $d = json_decode((string)$a['data'], true);
+            if (!is_array($d)) json_fail('该类型由前端复用原表单渲染');
+            json_ok(array('type' => $type, 'package' => array(
+                'title' => isset($d['title']) ? $d['title'] : '',
+                'type' => isset($d['type']) ? $d['type'] : 'lab',
+                'scope' => isset($d['scope']) ? $d['scope'] : '',
+                'items' => isset($d['items']) ? $d['items'] : array(),
+            )));
         } else {
             // 其余模态框类型由前端复用原表单接口渲染（item_form/drug_form/disposal_form）
             json_fail('该类型由前端复用原表单渲染');
