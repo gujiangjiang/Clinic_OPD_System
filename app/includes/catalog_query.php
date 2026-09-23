@@ -14,9 +14,17 @@
  *   $labMap = catalog_lab_map();             // 检验组合/成员关系全量映射
  * ============================================================ */
 
-/** 目录类型 → 数据表名（白名单，防注入） */
+/** 目录类型 → 数据表名（白名单，防注入）
+ * 检查项目存在两种类型名：业务/开单目录用 imaging（与角色名一致）、
+ * 管理端项目列表用 exam（表名 exam_items）——统一映射到同一张表 */
 function catalog_table_name($type) {
-    $map = array('lab' => 'lab_items', 'imaging' => 'exam_items', 'procedure' => 'disposal_items', 'prescription' => 'drugs');
+    $map = array(
+        'lab' => 'lab_items',
+        'imaging' => 'exam_items',
+        'exam' => 'exam_items',
+        'procedure' => 'disposal_items',
+        'prescription' => 'drugs',
+    );
     return isset($map[$type]) ? $map[$type] : '';
 }
 
@@ -100,7 +108,7 @@ function catalog_map_list($type, $rows, $opts = array()) {
                 if ($withMembers) $group['member_items'] = $mItems;
                 $list[] = $group;
             }
-        } elseif ($type === 'imaging') {
+        } elseif ($type === 'imaging' || $type === 'exam') {
             $list[] = array(
                 'id' => (int)$r['id'], 'name' => $r['name'], 'price' => (float)$r['price'],
                 'unit' => '', 'category_name' => $r['category'], 'spec' => '', 'stock' => 0,
