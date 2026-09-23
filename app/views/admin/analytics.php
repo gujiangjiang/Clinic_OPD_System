@@ -422,10 +422,13 @@ function loadCustom() {
 
 /* ==================== 初始化 ==================== */
 (function () {
-    // 默认日期范围：本月（1 号至今天）
+    // 默认日期范围：本月（1 号至今天），快捷按钮高亮与之一致（默认「本月」）
     var r = Clinic.datePicker.lastRange('month');
     document.getElementById('anaStart').value = r.from;
     document.getElementById('anaEnd').value = r.to;
+    document.querySelectorAll('[data-ana-quick]').forEach(function (b) {
+        b.className = 'btn btn-sm ' + (b.getAttribute('data-ana-quick') === 'month' ? 'btn-primary' : 'btn-outline');
+    });
     // 医生统计科室筛选下拉
     var sel = document.getElementById('docDeptSel');
     <?php foreach ($depts as $d): ?>
