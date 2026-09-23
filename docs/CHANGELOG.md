@@ -13,6 +13,24 @@
 
 ---
 
+## [8.19.1] - 2026-09-23
+
+> 管理端列表交互与日期筛选缺陷修复专项。
+
+### 修复
+- **管理端分页列表分类 tab 点击报 SyntaxError**：`admin_items.js` 分类 tab 的 onclick 内联处理器此前用 `JSON.stringify(tableEl)` 生成参数，产生双引号截断 HTML 属性，导致事件处理器编译失败（`SyntaxError: Unexpected end of input`）；改为单引号字符串字面量拼接，并新增 `aiJsStr`/`aiAttr` 转义助手（JS 字符串上下文与 data-* 属性上下文分别处理）。影响：药品信息 / 检验管理 / 检查管理 / 审核中心 / 处置管理 / 运营分析转归等所有使用 `Clinic.adminItems.pagedTable` 的分页列表页。
+- **检查项目管理列表查不到数据**：`catalog_table_name` 白名单映射仅有 `imaging`（开单目录用），缺少管理端项目列表使用的 `exam` 类型名，查询落到空表返回 0 条；新增 `exam => exam_items` 同表映射，`catalog_map_list` 同步兼容。
+- **日期选择栏竖向排列**：`.input-date` 单类选择器（width:150px）被后定义的 `.input` 通用规则 `width:100%` 覆盖（同特异性后定义者胜），flex-wrap 容器中每行仅能容纳一个元素导致起始日期/至/结束日期依次换行竖排；改为 `.input.input-date` 双类选择器提升特异性恢复单行排列。影响：运营分析 / 打印中心 / 影像引用 / 审核中心 / 危急值查询 / 患者查询弹窗 6 处日期范围 UI。
+
+### 新增
+- **`Clinic.datePicker.lastRange(days)` 公共助手**：计算含今天在内的最近 N 天日期范围 `{ from, to }`（YYYY-MM-DD），供日期筛选默认值复用。
+- **审核中心 / 统一打印中心 / 影像引用查询日期范围默认最近一周**：进入页面自动填充开始日期（6 天前）与结束日期（今天），列表默认展示一周内记录，可手动调整（重置按钮仍清空日期回全部列表）。
+
+### 文档
+- **同步版本号至 v8.19.1**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json` + AGENTS.md 基准版本）。
+
+---
+
 ## [8.19.0] - 2026-09-22
 
 > 全项目代码冗余与样式统一性专项（扫描驱动，分 17 个提交推进）。
