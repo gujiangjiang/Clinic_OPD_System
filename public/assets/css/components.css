@@ -91,8 +91,10 @@
 .form-group {
     margin-bottom: 14px;
 }
-/* 日期选择输入框（readonly + 点击弹日历；宽度/手型/底色 8 处重复内联收敛） */
-.input-date {
+/* 日期选择输入框（readonly + 点击弹日历；宽度/手型/底色 8 处重复内联收敛）
+   .input.input-date 双类特异性：覆盖 .input 的 width:100% 通用规则（后定义同特异性时后者胜，
+   单类 .input-date 会被 width:100% 覆盖导致 flex 布局每行仅容一个元素、日期栏竖排） */
+.input.input-date {
     width: 150px;
     cursor: pointer;
     background: var(--bg);
