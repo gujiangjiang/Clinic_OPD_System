@@ -264,6 +264,21 @@ function admin_part_item($action) {
             $finalStatus = $isAdmin ? 'approved' : 'pending';   // 非管理员提交需管理员审核
         }
         $content = '提交检验/检查项目：' . $name;
+        // 审核预览快照（audits.data）：保存提交时的完整字段，发起者删除项目后
+        // 已处理审核仍可在审核中心按原始内容预览追溯（audit_preview 优先用快照）
+        $snapJson = json_encode(array(
+            'type' => $type,
+            'name' => $name,
+            'category' => $category,
+            'price' => $price,
+            'unit' => post('unit'),
+            'normal_range' => post('normal_range'),
+            'critical_low' => post('critical_low'),
+            'critical_high' => post('critical_high'),
+            'description' => post('description'),
+            'enabled' => $enabled,
+            'status' => $finalStatus,
+        ), JSON_UNESCAPED_UNICODE);
         if ($id > 0) {
             // 管理员编辑保存即通过；非管理员保存置 pending 并提交审核
             if ($type === 'lab') {
@@ -279,7 +294,7 @@ function admin_part_item($action) {
             } else {
                 // 关闭旧审核（pending/rejected），提交新审核
                 OrderRepository::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type=? AND ref_id=? AND status IN ('pending','rejected')", array($u['name'], now_str(), $auditType, $id));
-                submit_audit($auditType, $id, '修改' . ($type === 'lab' ? '检验' : '检查') . '项目：' . $name, $content);
+                submit_audit($auditType, $id, '修改' . ($type === 'lab' ? '检验' : '检查') . '项目：' . $name, $content, array('data' => $snapJson));
                 send_msg('admin', 0, '待审核提醒', '有新的' . ($type === 'lab' ? '检验' : '检查') . '项目修改待审核：' . $name . '，请前往审核中心处理', '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
             }
             json_ok(array(), $isAdmin ? '项目已保存' : '修改已提交，待管理员审核');
@@ -295,7 +310,7 @@ function admin_part_item($action) {
                 ));
             }
             if (!$isAdmin) {
-                submit_audit($auditType, $newId, '新增' . ($type === 'lab' ? '检验' : '检查') . '项目：' . $name, $content);
+                submit_audit($auditType, $newId, '新增' . ($type === 'lab' ? '检验' : '检查') . '项目：' . $name, $content, array('data' => $snapJson));
                 send_msg('admin', 0, '待审核提醒', '有新的' . ($type === 'lab' ? '检验' : '检查') . '项目待审核：' . $name . '，请前往审核中心处理', '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
             }
             json_ok(array(), $isAdmin ? '项目已添加，可直接开单使用' : '项目已提交，待管理员审核');
@@ -318,6 +333,10 @@ function admin_part_item($action) {
             json_fail('该检验项目已加入检验组合，不能删除（可先移除组合成员）');
         }
         OrderRepository::exec("DELETE FROM $table WHERE id=?", array($id));
+        // 待审核的删除请求一并撤销（项目已不存在无需再审核）；
+        // 已处理（通过/驳回/使用）的审核记录保留，供追溯预览
+        $auditType = $type === 'lab' ? 'item_lab' : 'item_exam';
+        OrderRepository::exec("DELETE FROM audits WHERE type=? AND ref_id=? AND status='pending'", array($auditType, $id));
         json_ok(array(), '项目已删除');
     }
 

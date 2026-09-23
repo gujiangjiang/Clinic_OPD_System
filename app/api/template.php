@@ -339,8 +339,12 @@ switch ($action) {
         if ($status === 'pending_review') {
             $scopeName = $scope === 'hospital' ? '全院' : '科室';
             $existing = EmrRepository::one("SELECT id FROM audits WHERE type=? AND ref_id=? AND status='pending'", array($auditType, $tplId));
+            // 审核预览快照（audits.data）：保存提交时的完整内容（正文结构 + 适用范围），
+            // 已处理审核即使模板被删除仍可按原始内容预览追溯
             $auditData = json_encode(array(
-                'title' => $title, 'scope' => $scope, 'dept_ids' => $deptIds ? array_keys($deptIds) : array(),
+                'title' => $title, 'type' => $type, 'scope' => $scope,
+                'dept_ids' => $deptIds ? array_keys($deptIds) : array(),
+                'content' => $contentArr,
             ), JSON_UNESCAPED_UNICODE);
             if ($existing) {
                 EmrRepository::exec('UPDATE audits SET title=?, content=?, data=?, proposer=?, proposer_id=?, created_at=? WHERE id=?', array(

@@ -425,9 +425,12 @@ switch ($action) {
         if ($status === 'pending_review') {
             $scopeName = $scope === 'hospital' ? '全院' : '科室';
             $existing = OrderRepository::one("SELECT id FROM audits WHERE type=? AND ref_id=? AND status='pending'", array($auditType, $pkgId));
+            // 审核预览快照（audits.data）：保存提交时的完整内容（项目明细 + 适用范围），
+            // 已处理审核即使套餐被删除仍可按原始内容预览追溯
             $auditData = json_encode(array(
-                'title' => $title, 'scope' => $scope, 'dept_ids' => $deptIds ? array_keys($deptIds) : array(),
-                'type' => $type,
+                'title' => $title, 'type' => $type, 'scope' => $scope,
+                'dept_ids' => $deptIds ? array_keys($deptIds) : array(),
+                'items' => $clean,
             ), JSON_UNESCAPED_UNICODE);
             $typeLabel = pkg_type_label($type);
             if ($existing) {

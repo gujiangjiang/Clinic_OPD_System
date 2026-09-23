@@ -212,12 +212,15 @@ function admin_part_drug($action) {
             $set[] = 'status=?'; $params[] = $finalStatus;
             $params[] = $id;
             DrugRepository::exec('UPDATE drugs SET ' . implode(',', $set) . ' WHERE id=?', $params);
+            // 审核预览快照（audits.data）：保存提交时的完整字段，发起者删除药品后
+            // 已处理审核仍可按原始内容预览追溯
+            $snapJson = json_encode(array_merge(array('name' => $name), $data), JSON_UNESCAPED_UNICODE);
             if ($isAdmin) {
                 // 清理该药品的待审核记录（管理员保存即视为已通过）
                 DrugRepository::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_drug' AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
             } else {
                 DrugRepository::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_drug' AND ref_id=? AND status IN ('pending','rejected')", array($u['name'], now_str(), $id));
-                submit_audit('item_drug', $id, '修改药品：' . $name, '提交药品信息修改：' . $name);
+                submit_audit('item_drug', $id, '修改药品：' . $name, '提交药品信息修改：' . $name, array('data' => $snapJson));
                 send_msg('admin', 0, '待审核提醒', '有新的药品修改待审核：' . $name . '，请前往审核中心处理', '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
             }
             json_ok(array(), $isAdmin ? '药品已保存' : '修改已提交，待管理员审核');
@@ -228,7 +231,7 @@ function admin_part_drug($action) {
         $data['created_at'] = now_str();
         $newId = DrugRepository::create($data);
         if (!$isAdmin) {
-            submit_audit('item_drug', $newId, '新增药品：' . $name, '提交新增药品：' . $name);
+            submit_audit('item_drug', $newId, '新增药品：' . $name, '提交新增药品：' . $name, array('data' => json_encode($data, JSON_UNESCAPED_UNICODE)));
             send_msg('admin', 0, '待审核提醒', '有新的药品待审核：' . $name . '，请前往审核中心处理', '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
         }
         json_ok(array(), $isAdmin ? '药品已添加，可直接开方使用' : '药品已提交，待管理员审核');
@@ -246,6 +249,9 @@ function admin_part_drug($action) {
             json_fail('该药品已有库存流水记录，不能删除（可改为停用）');
         }
         DrugRepository::exec('DELETE FROM drugs WHERE id=?', array($id));
+        // 待审核的药品请求一并撤销（项目已不存在无需再审核）；
+        // 已处理（通过/驳回）的审核记录保留，供追溯预览
+        DrugRepository::exec("DELETE FROM audits WHERE type='item_drug' AND ref_id=? AND status='pending'", array($id));
         json_ok(array(), '药品已删除');
     }
 

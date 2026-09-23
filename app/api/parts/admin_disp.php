@@ -99,6 +99,9 @@ function admin_part_disp($action) {
             json_fail('该处置项目已被药品设置绑定计费，不能删除');
         }
         OrderRepository::exec('DELETE FROM disposal_items WHERE id=?', array($id));
+        // 待审核的处置请求一并撤销（项目已不存在无需再审核）；
+        // 已处理（通过/驳回）的审核记录保留，供追溯预览
+        OrderRepository::exec("DELETE FROM audits WHERE type='item_disp' AND ref_id=? AND status='pending'", array($id));
         json_ok(array(), '处置项目已删除');
     }
 
@@ -134,9 +137,16 @@ function admin_part_disp($action) {
         $newId = OrderRepository::insert('INSERT INTO disposal_items(name, fee, description, status, created_at) VALUES(?,?,?,?,?)',
             array($name, $fee, '【关联创建】' . ($source !== '' ? $source : '快捷创建'), $isAdmin ? 'approved' : 'pending', now_str()));
         if (!$isAdmin) {
+            // 审核预览快照（audits.data）：保存提交时的完整字段，发起者删除处置后
+            // 已处理审核仍可按原始内容预览追溯
+            $snapJson = json_encode(array(
+                'name' => $name, 'fee' => $fee,
+                'description' => '【关联创建】' . ($source !== '' ? $source : '快捷创建'),
+                'status' => 'pending',
+            ), JSON_UNESCAPED_UNICODE);
             submit_audit('item_disp', $newId, '快捷创建处置：' . $name,
                 ($source !== '' ? $source . '；' : '') . '费用 ' . money($fee) . ' 元',
-                array('creation_source' => $source));
+                array('creation_source' => $source, 'data' => $snapJson));
         }
         json_ok(array(
             'id' => $newId, 'name' => $name, 'fee' => $fee,
