@@ -12,6 +12,10 @@ Router::title('审核中心');
 <div class="list-layout">
 <div class="page-head">
     <div><div class="page-title">✅ 审核中心</div><div class="page-desc">审核项目添加、模板与报告撤回申请</div></div>
+    <!-- 一键全部通过固定在右上角（类似科室管理新增按钮），避免随页签切换显示/隐藏引起布局跳动 -->
+    <div class="flex gap-8">
+        <button class="btn btn-success btn-sm" id="auditAllBtn" onclick="doAuditAll()">✅ 一键全部通过</button>
+    </div>
 </div>
 
 <div class="card list-filter" style="flex-shrink:0">
@@ -26,7 +30,7 @@ Router::title('审核中心');
             <button class="btn btn-primary btn-sm" onclick="loadAudits(getCurrentTab())">查询</button>
             <button class="btn btn-outline btn-sm" onclick="resetAuditDates()">重置</button>
         </span>
-        <!-- 页签 / 分组 / 一键通过（靠右） -->
+        <!-- 页签 / 分组（靠右） -->
         <span class="flex gap-8" style="align-items:center;margin-left:auto">
             <button class="btn btn-primary btn-sm" data-tab="pending" onclick="switchTab('pending')">待审核</button>
             <button class="btn btn-outline btn-sm" data-tab="handled" onclick="switchTab('handled')">已处理</button>
@@ -35,7 +39,6 @@ Router::title('审核中心');
                 <option value="user">按申请人分组</option>
                 <option value="type">按类型分组</option>
             </select>
-            <button class="btn btn-success btn-sm" id="auditAllBtn" onclick="doAuditAll()">✅ 一键全部通过</button>
         </span>
     </div>
 </div>
