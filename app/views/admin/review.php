@@ -276,18 +276,31 @@ function previewAudit(btn) {
         item_drug: '预览 · 药品', item_disp: '预览 · 处置项目', drugsetting: '预览 · 药品设置',
     };
     var modalTitle = titleMap[type] || '预览';
-    // 模板/套餐：已处理记录优先用提交快照在当前页只读渲染（发起者删除后仍可追溯）；
-    // 待审核记录（项目必然存在）跳转管理页复用原只读预览
+    // 模板/套餐预览统一复用添加/编辑的原始模态框（跳管理页只读预览）：
+    // 实体仍存在 → 跳管理页原始弹窗（样式与编辑完全一致，仅只读）；
+    // 实体已删除 → 用提交快照渲染（保留原始内容可追溯）
     var tplTypeMap = { template: 'medical_record', nursing_template: 'nursing_record', imaging_template: 'imaging_report' };
     if (tplTypeMap[type]) {
         if (isHandled) {
-            Clinic.get('/api/admin?action=audit_preview&id=' + auditId, null, {
+            Clinic.get('/api/template?action=get&id=' + refId, null, {
                 onSuccess: function (j) {
-                    if (j.data && j.data.template) { renderTemplateSnapshot(j.data.template, modalTitle); return; }
-                    openTemplateLive();
+                    if (j.data && j.data.template) {
+                        window.open('/admin/templates?preview=' + refId + '&type=' + tplTypeMap[type], '_blank');
+                    } else {
+                        renderTemplateSnapshotFromAudit();
+                    }
                 },
-                onError: function () { openTemplateLive(); },
+                onError: function () { renderTemplateSnapshotFromAudit(); },
             });
+            function renderTemplateSnapshotFromAudit() {
+                Clinic.get('/api/admin?action=audit_preview&id=' + auditId, null, {
+                    onSuccess: function (j) {
+                        if (j.data && j.data.template) { renderTemplateSnapshot(j.data.template, modalTitle); return; }
+                        Clinic.toast.warning('该模板已被删除，且无快照可预览');
+                    },
+                    onError: function () { Clinic.toast.warning('该模板已被删除，且无快照可预览'); },
+                });
+            }
         } else {
             openTemplateLive();
         }
@@ -307,13 +320,25 @@ function previewAudit(btn) {
     }
     if (type === 'package') {
         if (isHandled) {
-            Clinic.get('/api/admin?action=audit_preview&id=' + auditId, null, {
+            Clinic.get('/api/package?action=get&id=' + refId, null, {
                 onSuccess: function (j) {
-                    if (j.data && j.data.package) { renderPackageSnapshot(j.data.package); return; }
-                    openPackageLive();
+                    if (j.data && j.data.package) {
+                        window.open('/admin/packages?preview=' + refId, '_blank');
+                    } else {
+                        renderPackageSnapshotFromAudit();
+                    }
                 },
-                onError: function () { openPackageLive(); },
+                onError: function () { renderPackageSnapshotFromAudit(); },
             });
+            function renderPackageSnapshotFromAudit() {
+                Clinic.get('/api/admin?action=audit_preview&id=' + auditId, null, {
+                    onSuccess: function (j) {
+                        if (j.data && j.data.package) { renderPackageSnapshot(j.data.package); return; }
+                        Clinic.toast.warning('该套餐已被删除，且无快照可预览');
+                    },
+                    onError: function () { Clinic.toast.warning('该套餐已被删除，且无快照可预览'); },
+                });
+            }
         } else {
             openPackageLive();
         }
@@ -348,10 +373,13 @@ function previewAudit(btn) {
         });
     };
     if (type === 'drugsetting' || !isHandled) { openForm(); return; }
+    // 已处理：优先用提交快照渲染【与添加/编辑完全一致的原始表单】并只读化
+    // （项目被删除后仍可预览提交时内容；快照缺失回退实时表单接口）
     Clinic.get('/api/admin?action=audit_preview&id=' + auditId, null, {
         onSuccess: function (json) {
             if (json.data && json.data.html) {
-                Clinic.modal.open(json.data.html, { title: modalTitle, size: 'modal-lg' });
+                var m = Clinic.modal.open(json.data.html, { title: modalTitle, size: 'modal-lg' });
+                makeReadonly(m);
                 return;
             }
             openForm();

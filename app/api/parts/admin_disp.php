@@ -49,18 +49,9 @@ function admin_part_disp($action) {
     /* ==================== 处置表单 ==================== */
     if ($action === 'disposal_form') {
         // 表单弹窗通过 POST 提交 id，必须用 req() 兼容读取（否则编辑弹窗空白）
+        // 渲染统一走 includes/forms.php（与处置列表/审核中心快照预览同源）
         $id = (int)req('id', 0);
-        $r = $id ? OrderRepository::one('SELECT * FROM disposal_items WHERE id=?', array($id)) : array('name' => '', 'fee' => '0', 'description' => '', 'is_nurse' => 0, 'status' => '');
-        $html = '<input type="hidden" id="f_id" value="' . (int)$id . '">
-        ' . form_enabled_switch(isset($r['status']) ? $r['status'] : '') . '
-        <div class="form-group"><label class="form-label">处置名称 <span class="req">*</span></label>
-            <input class="input" id="f_name" value="' . e($r['name']) . '" placeholder="如：清创缝合、换药"></div>
-        <div class="form-group"><label class="form-label">费用（元）</label>
-            <input class="input" type="number" step="0.01" min="0" id="f_fee" value="' . e($r['fee']) . '"></div>
-        <div class="form-group"><label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="f_nurse"' . ((int)$r['is_nurse'] === 1 ? ' checked' : '') . '> 需护士站处置（开单时默认勾选，医生可逐项修改）</label></div>
-        <div class="form-group"><label class="form-label">描述备注</label>
-            <textarea class="textarea" id="f_desc" rows="3">' . e($r['description']) . '</textarea></div>';
-        json_ok(array('html' => $html));
+        json_ok(array('html' => form_disposal($id)));
     }
 
     /* ==================== 保存处置 ==================== */

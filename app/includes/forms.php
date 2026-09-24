@@ -29,19 +29,35 @@ function form_enabled_switch($status) {
  * 检验/检查项目表单
  * @param string $type lab 检验 / imaging 检查
  * @param int    $id   项目ID（0 为新增）
+ * @param array  $snap 审核快照（可选）：项目被删除后用提交时数据回填，
+ *                     样式与编辑弹窗完全一致（审核中心预览用）
  * @return string 表单 HTML
  */
-function form_item($type, $id) {
+function form_item($type, $id, $snap = null) {
     $table = $type === 'lab' ? 'lab_items' : 'exam_items';
-    $r = $id > 0 ? DB::one("SELECT * FROM $table WHERE id=?", array((int)$id)) : array(
-        'category' => '', 'name' => '', 'unit' => '', 'price' => '0', 'normal_range' => '',
-        'critical_low' => '', 'critical_high' => '', 'description' => '', 'status' => '',
-    );
-    if (!$r) {
+    if (is_array($snap)) {
         $r = array(
+            'category' => isset($snap['category']) ? $snap['category'] : '',
+            'name' => isset($snap['name']) ? $snap['name'] : '',
+            'unit' => isset($snap['unit']) ? $snap['unit'] : '',
+            'price' => isset($snap['price']) ? $snap['price'] : '0',
+            'normal_range' => isset($snap['normal_range']) ? $snap['normal_range'] : '',
+            'critical_low' => isset($snap['critical_low']) ? $snap['critical_low'] : '',
+            'critical_high' => isset($snap['critical_high']) ? $snap['critical_high'] : '',
+            'description' => isset($snap['description']) ? $snap['description'] : '',
+            'status' => isset($snap['status']) ? $snap['status'] : '',
+        );
+    } else {
+        $r = $id > 0 ? DB::one("SELECT * FROM $table WHERE id=?", array((int)$id)) : array(
             'category' => '', 'name' => '', 'unit' => '', 'price' => '0', 'normal_range' => '',
             'critical_low' => '', 'critical_high' => '', 'description' => '', 'status' => '',
         );
+        if (!$r) {
+            $r = array(
+                'category' => '', 'name' => '', 'unit' => '', 'price' => '0', 'normal_range' => '',
+                'critical_low' => '', 'critical_high' => '', 'description' => '', 'status' => '',
+            );
+        }
     }
     $cats = DB::q("SELECT name FROM item_categories WHERE ctype=? ORDER BY sort, id", array($type));
     $catOpts = '<option value="">请选择/输入分类</option>';
@@ -89,21 +105,73 @@ function form_item($type, $id) {
 }
 
 /**
+ * 处置项目表单
+ * @param int   $id 处置ID（0 为新增）
+ * @param array $snap 审核快照（可选）：处置被删除后用提交时数据回填，
+ *                    样式与编辑弹窗完全一致（审核中心预览用）
+ * @return string 表单 HTML
+ */
+function form_disposal($id, $snap = null) {
+    if (is_array($snap)) {
+        $r = array(
+            'name' => isset($snap['name']) ? $snap['name'] : '',
+            'fee' => isset($snap['fee']) ? $snap['fee'] : '0',
+            'description' => isset($snap['description']) ? $snap['description'] : '',
+            'is_nurse' => isset($snap['is_nurse']) ? $snap['is_nurse'] : 0,
+            'status' => isset($snap['status']) ? $snap['status'] : '',
+        );
+    } else {
+        $r = $id ? DB::one('SELECT * FROM disposal_items WHERE id=?', array($id)) : array('name' => '', 'fee' => '0', 'description' => '', 'is_nurse' => 0, 'status' => '');
+        if (!$r) $r = array('name' => '', 'fee' => '0', 'description' => '', 'is_nurse' => 0, 'status' => '');
+    }
+    return '<input type="hidden" id="f_id" value="' . (int)$id . '">
+        ' . form_enabled_switch(isset($r['status']) ? $r['status'] : '') . '
+        <div class="form-group"><label class="form-label">处置名称 <span class="req">*</span></label>
+            <input class="input" id="f_name" value="' . e($r['name']) . '" placeholder="如：清创缝合、换药"></div>
+        <div class="form-group"><label class="form-label">费用（元）</label>
+            <input class="input" type="number" step="0.01" min="0" id="f_fee" value="' . e($r['fee']) . '"></div>
+        <div class="form-group"><label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="f_nurse"' . ((int)$r['is_nurse'] === 1 ? ' checked' : '') . '> 需护士站处置（开单时默认勾选，医生可逐项修改）</label></div>
+        <div class="form-group"><label class="form-label">描述备注</label>
+            <textarea class="textarea" id="f_desc" rows="3">' . e($r['description']) . '</textarea></div>';
+}
+
+/**
  * 药品表单
- * @param int $id 药品ID（0 为新增）
+ * @param int   $id 药品ID（0 为新增）
+ * @param array $snap 审核快照（可选）：药品被删除后用提交时数据回填，
+ *                    样式与编辑弹窗完全一致（审核中心预览用）
  * @return array ['html'=>表单HTML, 'route_nurse'=>途径→需护士站映射, 'is_nurse'=>当前值]
  */
-function form_drug($id) {
-    $r = $id > 0 ? DB::one('SELECT * FROM drugs WHERE id=?', array((int)$id)) : null;
-    if (!$r) {
-        $r = array(
-            'name' => '', 'generic_name' => '', 'category' => '', 'vendor' => '', 'vendor_short' => '',
-            'package_unit' => '', 'spec' => '', 'form' => '', 'single_dose' => '', 'frequency' => '',
-            'route' => '', 'price' => '0', 'qty' => '0', 'is_rx' => 0, 'is_limited' => 0, 'note' => '', 'is_nurse' => 0,
-            'spec_dose' => 0, 'spec_dose_unit' => '', 'spec_pack_qty' => 1, 'spec_pack_unit' => '', 'single_use_qty' => 1,
-            'allow_split' => 0, 'warn_qty' => 0,
-            'status' => '',
+function form_drug($id, $snap = null) {
+    if (is_array($snap)) {
+        $keys = array(
+            'name', 'generic_name', 'category', 'vendor', 'vendor_short',
+            'package_unit', 'spec', 'form', 'single_dose', 'frequency',
+            'route', 'price', 'qty', 'is_rx', 'is_limited', 'note', 'is_nurse',
+            'spec_dose', 'spec_dose_unit', 'spec_pack_qty', 'spec_pack_unit', 'single_use_qty',
+            'allow_split', 'warn_qty', 'status',
         );
+        $r = array();
+        foreach ($keys as $k) {
+            $r[$k] = isset($snap[$k]) ? $snap[$k] : '';
+        }
+        if (!isset($r['spec_dose'])) $r['spec_dose'] = 0;
+        if (!isset($r['spec_pack_qty'])) $r['spec_pack_qty'] = 1;
+        if (!isset($r['single_use_qty'])) $r['single_use_qty'] = 1;
+        if (!isset($r['allow_split'])) $r['allow_split'] = 0;
+        if (!isset($r['warn_qty'])) $r['warn_qty'] = 0;
+    } else {
+        $r = $id > 0 ? DB::one('SELECT * FROM drugs WHERE id=?', array((int)$id)) : null;
+        if (!$r) {
+            $r = array(
+                'name' => '', 'generic_name' => '', 'category' => '', 'vendor' => '', 'vendor_short' => '',
+                'package_unit' => '', 'spec' => '', 'form' => '', 'single_dose' => '', 'frequency' => '',
+                'route' => '', 'price' => '0', 'qty' => '0', 'is_rx' => 0, 'is_limited' => 0, 'note' => '', 'is_nurse' => 0,
+                'spec_dose' => 0, 'spec_dose_unit' => '', 'spec_pack_qty' => 1, 'spec_pack_unit' => '', 'single_use_qty' => 1,
+                'allow_split' => 0, 'warn_qty' => 0,
+                'status' => '',
+            );
+        }
     }
     // 规格结构化展示串：0.5g×24粒 / 100ml×1瓶 / 0.35g（统一走 drug_spec_text 动态拼接）
     $specShow = drug_spec_text($r);
