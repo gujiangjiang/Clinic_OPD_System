@@ -105,8 +105,10 @@ class Layout {
             $html .= '<div class="nav-group-title">' . e($group) . '</div>';
             foreach ($list as $it) {
                 // title：侧边栏缩小（仅图标）模式下的悬停名称提示
+                // 站内消息项附加未读数徽章（展开靠右、缩小图标角标）
+                $msgBadge = ($it[2] === '/messages') ? '<span class="badge badge-danger nav-msg-badge" data-nav-msg-badge style="display:none"></span>' : '';
                 $html .= '<a class="nav-item" data-href="' . e($it[2]) . '" href="' . e($it[2]) . '" title="' . e($it[0]) . '">' .
-                    '<span class="nav-ico">' . $it[1] . '</span><span>' . e($it[0]) . '</span></a>';
+                    '<span class="nav-ico">' . $it[1] . '</span><span class="nav-label">' . e($it[0]) . '</span>' . $msgBadge . '</a>';
             }
         }
         return $html;

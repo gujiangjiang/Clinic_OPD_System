@@ -101,6 +101,30 @@
     border-left-color: var(--accent);
 }
 .nav-item .nav-ico { width: 20px; text-align: center; font-size: 16px; }
+.nav-item { position: relative; }
+/* 站内消息未读数徽章：展开时靠右对齐；缩小时固定在图标右上角角标 */
+.nav-msg-badge {
+    margin-left: auto;
+    padding: 1px 6px;
+    font-size: 11px;
+    line-height: 1.5;
+    min-width: 18px;
+    text-align: center;
+    border-radius: 10px;
+}
+.app.sidebar-mini .nav-item .nav-msg-badge {
+    position: absolute;
+    top: 5px;
+    right: 6px;
+    margin-left: 0;
+    min-width: 16px;
+    padding: 0 4px;
+    font-size: 10px;
+    line-height: 1.6;
+    border-radius: 9px;
+    /* 显示/隐藏由 notify.js 内联 style 控制（有消息 inline-flex，无消息 none），
+       不受 .sidebar-mini 隐藏非图标 span 规则影响 */
+}
 .sidebar-footer {
     padding: 10px 14px;
     border-top: 1px solid rgba(255,255,255,.08);

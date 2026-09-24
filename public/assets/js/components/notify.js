@@ -17,6 +17,8 @@ Clinic.notify = (function () {
     let poller = null;
     /** 铃铛角标元素 */
     let badge = null;
+    /** 侧边栏站内消息徽章元素 */
+    let navBadge = null;
     /** 消息面板元素 */
     let panel = null;
     /** 上一次轮询时的最新未读消息 ID（用于检测新消息，避免重复提示） */
@@ -28,9 +30,10 @@ Clinic.notify = (function () {
      * 初始化消息中心
      * @param {string} badgeSel 角标选择器
      */
-    function init(badgeSel) {
+    function init(badgeSel, navBadgeSel) {
         badge = document.querySelector(badgeSel || '[data-msg-badge]');
-        if (!badge) return;
+        navBadge = document.querySelector(navBadgeSel || '[data-nav-msg-badge]');
+        if (!badge && !navBadge) return;
         // 防止重复 init 叠加多个轮询定时器（AJAX 局部刷新后重复初始化场景）
         if (timer) clearInterval(timer);
         // 立即查询一次，然后 SmartPoller 低频保底（推流健康 60s、断开应急 10s）
@@ -78,6 +81,10 @@ Clinic.notify = (function () {
                 if (badge) {
                     badge.textContent = n > 99 ? '99+' : n;
                     badge.style.display = n > 0 ? 'inline-flex' : 'none';
+                }
+                if (navBadge) {
+                    navBadge.textContent = n > 99 ? '99+' : n;
+                    navBadge.style.display = n > 0 ? 'inline-flex' : 'none';
                 }
                 // 新消息检测：latest_id 比上次增大 => 有新消息到达
                 const latestId = json.data && json.data.latest_id ? parseInt(json.data.latest_id, 10) : 0;

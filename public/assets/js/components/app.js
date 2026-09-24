@@ -119,7 +119,7 @@ function bindLogout() {
 function initMessageBell() {
     const bell = document.querySelector('[data-msg-bell]');
     if (!bell) return;
-    Clinic.notify.init('[data-msg-badge]');
+    Clinic.notify.init('[data-msg-badge]', '[data-nav-msg-badge]');
     bell.addEventListener('click', function (e) {
         e.stopPropagation();
         Clinic.notify.openPanel();
