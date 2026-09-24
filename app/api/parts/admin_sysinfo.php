@@ -261,6 +261,22 @@ function admin_part_sysinfo($action) {
         json_ok(array('driver' => $driver), '备份库配置已保存（' . strtoupper($driver) . '）' . ($hour !== '' ? '，定时备份：每天 ' . $hour : ''));
     }
 
+    /* ==================== 双向实时同步开关（RAID1 式双写，与备份分离） ==================== */
+    if ($action === 'dual_save') {
+        $enabled = post('dual_enabled', '') === '1' ? '1' : '0';
+        if ($enabled === '1') {
+            // 校验备份库配置有效且与当前主库同驱动（跨驱动双写不可靠）
+            $bd = ConfigStore::get('backup.driver', '');
+            if ($bd === '') json_fail('请先保存备份库配置（备份面板）');
+            if ($bd !== DatabaseManager::driver()) {
+                json_fail('双向实时同步仅支持与当前主库同驱动的备份库（当前主库 ' . strtoupper(DatabaseManager::driver()) . '，备份库 ' . strtoupper($bd) . '）。跨驱动请使用迁移或定时备份');
+            }
+        }
+        ConfigStore::set('dual_write.enabled', $enabled);
+        ConfigStore::resetCache();
+        json_ok(array('enabled' => $enabled), $enabled === '1' ? '双向实时同步已开启：每次写入实时镜像到备份库（失败自动降级，不影响主库体验）' : '双向实时同步已关闭');
+    }
+
     /* ==================== 执行备份（同步当前主库 → 备份库，不动主库指针） ==================== */
     if ($action === 'backup_run') {
         $driver = ConfigStore::get('backup.driver', '');

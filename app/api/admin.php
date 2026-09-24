@@ -178,6 +178,7 @@ switch ($action) {
     case 'db_switch':
     case 'backup_save':
     case 'backup_run':
+    case 'dual_save':
         admin_part_sysinfo($action);
         break;
 

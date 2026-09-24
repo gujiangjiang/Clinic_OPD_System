@@ -33,6 +33,10 @@ class DatabaseManager {
     /** 当前驱动名缓存（sqlite/mysql/pgsql） */
     private static $driver = null;
 
+    /** 双写备份库 PDO（RAID1 式实时镜像，同驱动可靠） */
+    private static $backupPdo = null;
+    private static $dualWrite = null;   // -1 未探测 / 0 关 / 1 开
+
     /** 旧分散库 key 白名单（兼容旧调用签名：DB::q(...)） */
     private static $legacyKeys = array(
         'core', 'user', 'dept', 'patient', 'order', 'drug', 'medical',
@@ -465,6 +469,65 @@ class DatabaseManager {
         self::upsertSetting($pdo, $key, $value);
     }
 
+    /* ==================== 双写镜像（RAID1 式实时同步，与备份功能分离） ==================== */
+
+    /** 双写是否开启（config.db dual_write.enabled=1 且备份库配置有效且同驱动） */
+    public static function dualWriteEnabled() {
+        if (self::$dualWrite !== null) return self::$dualWrite === 1;
+        $on = false;
+        try {
+            $on = ConfigStore::get('dual_write.enabled', '') === '1'
+                && ConfigStore::get('backup.driver', '') !== ''
+                && ConfigStore::driver() === ConfigStore::get('backup.driver', '');
+        } catch (Exception $ex) { $on = false; }
+        self::$dualWrite = $on ? 1 : 0;
+        return $on;
+    }
+
+    /** 双写备份库连接（复用 backup 配置；仅同驱动可靠） */
+    public static function getBackupPdo() {
+        if (self::$backupPdo !== null) return self::$backupPdo;
+        $driver = ConfigStore::get('backup.driver', '');
+        if ($driver === '' || $driver !== self::driver()) return null;
+        try {
+            if ($driver === 'mysql') {
+                $p = array('host' => ConfigStore::get('backup.mysql.host', '127.0.0.1'), 'port' => ConfigStore::get('backup.mysql.port', '3306'), 'dbname' => ConfigStore::get('backup.mysql.dbname', ''), 'user' => ConfigStore::get('backup.mysql.user', ''), 'pass' => ConfigStore::get('backup.mysql.pass', ''));
+                $dsn = 'mysql:host=' . $p['host'] . ';port=' . $p['port'] . ';dbname=' . $p['dbname'] . ';charset=utf8mb4';
+                self::$backupPdo = new PDO($dsn, $p['user'], $p['pass'], array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC));
+            } elseif ($driver === 'pgsql') {
+                $p = array('host' => ConfigStore::get('backup.pgsql.host', '127.0.0.1'), 'port' => ConfigStore::get('backup.pgsql.port', '5432'), 'dbname' => ConfigStore::get('backup.pgsql.dbname', ''), 'user' => ConfigStore::get('backup.pgsql.user', ''), 'pass' => ConfigStore::get('backup.pgsql.pass', ''));
+                $dsn = 'pgsql:host=' . $p['host'] . ';port=' . $p['port'] . ';dbname=' . $p['dbname'];
+                self::$backupPdo = new PDO($dsn, $p['user'], $p['pass'], array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC));
+            } else {
+                $path = ConfigStore::get('backup.sqlite.path', '');
+                if ($path === '') return null;
+                if ($path[0] !== '/' && $path[0] !== '.') $path = APP_ROOT . '/' . ltrim($path, '/');
+                // 镜像前置检查：文件不存在或非有效 SQLite 时不创建/不连接（避免空文件污染，
+                // 由 backup_run 负责建表初始化；双写在备份库未就绪时静默跳过）
+                if (!is_file($path) || !ConfigStore::isSqliteFile($path)) return null;
+                self::$backupPdo = new PDO('sqlite:' . $path, null, null, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
+                self::$backupPdo->exec('PRAGMA busy_timeout = 5000');
+            }
+        } catch (Exception $ex) {
+            error_log('[双写] 备份库连接失败：' . $ex->getMessage());
+            return null;
+        }
+        return self::$backupPdo;
+    }
+
+    /** 写操作镜像到备份库（RAID1 式实时同步；失败仅记日志，绝不影响主库体验） */
+    public static function mirrorWrite($sql, $params) {
+        if (!self::dualWriteEnabled()) return;
+        if (!preg_match('/^\s*(INSERT|UPDATE|DELETE|REPLACE)\b/i', $sql)) return;
+        try {
+            $bp = self::getBackupPdo();
+            if (!$bp) return;
+            $bp->prepare($sql)->execute($params);
+        } catch (Exception $ex) {
+            error_log('[双写] 备份库写入失败（不影响主库）：' . $ex->getMessage());
+        }
+    }
+
     /* ==================== 查询门面（预处理防注入） ==================== */
 
     /**
@@ -516,6 +579,7 @@ class DatabaseManager {
         list($pdo, $sql, $params) = self::resolve($a, $b, $c);
         $st = $pdo->prepare($sql);
         $st->execute($params);
+        self::mirrorWrite($sql, $params);   // RAID1 式实时双写（同驱动镜像，失败降级不影响主库）
         return $st->rowCount();
     }
 
@@ -523,7 +587,9 @@ class DatabaseManager {
     public static function insert($a, $b = array(), $c = null) {
         list($pdo, $sql, $params) = self::resolve($a, $b, $c);
         $pdo->prepare($sql)->execute($params);
-        return (int)$pdo->lastInsertId();
+        $id = (int)$pdo->lastInsertId();
+        self::mirrorWrite($sql, $params);   // RAID1 式实时双写（同驱动镜像，失败降级不影响主库）
+        return $id;
     }
 
     /** 别名（旧代码兼容） */

@@ -170,8 +170,8 @@ $dbType = strtoupper(DatabaseManager::driver());
             </div>
             <div class="db-pane" id="dbtab-backup" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title">💾 多数据库备份</div>
-                    <div class="fs-13 text-muted mb-8">配置备份库，将当前主库全部数据同步到备份库（不动主库指针，可反复备份）。支持立即备份与定时自动备份。</div>
+                    <div class="card-title">💾 多数据库备份 / 双向同步</div>
+                    <div class="fs-13 text-muted mb-8">配置备份库，将当前主库全部数据同步到备份库（不动主库指针）。<b>备份与双向是两个独立功能</b>：备份=手动/定时全量同步；双向=每次写入实时镜像到备份库（RAID1 式，仅同驱动可靠，失败自动降级不影响主库体验）。</div>
                     <div class="form-group"><label class="form-label">备份库驱动</label>
                         <select class="select" id="bkDriver" onchange="toggleBkOpts()"></select></div>
                     <div id="bkParamsBox"></div>
@@ -180,9 +180,14 @@ $dbType = strtoupper(DatabaseManager::driver());
                             <select class="select" id="bkHour" style="width:110px"></select>
                             <span class="text-muted fs-12">（每天该时刻自动备份，留空=关闭）</span>
                         </div></div>
-                    <div class="flex gap-8">
+                    <div class="form-group"><label class="form-label">双向实时同步（RAID1 式双写）</label>
+                        <label class="flex gap-4" style="align-items:center;cursor:pointer;font-size:13px">
+                            <input type="checkbox" id="dualEnabled" style="width:auto"> 开启双向实时同步（每次写入同时写入备份库）
+                        </label></div>
+                    <div class="flex gap-8" style="flex-wrap:wrap">
                         <button class="btn btn-primary btn-sm" onclick="saveBackupCfg()">保存备份库配置</button>
                         <button class="btn btn-danger btn-sm" onclick="runBackup()">立即备份</button>
+                        <button class="btn btn-outline btn-sm" onclick="saveDualMode()">保存双向同步设置</button>
                     </div>
                     <div class="fs-13 mt-8" id="bkMsg"></div>
                 </div>
@@ -819,6 +824,18 @@ function runBackup() {
             onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '备份失败') + '</span>'; },
         });
     }, { title: '执行数据库备份', okText: '开始备份' });
+}
+/* 双向实时同步开关（与备份分离：备份=手动/定时全量；双向=写入实时镜像） */
+function saveDualMode() {
+    var msg = document.getElementById('bkMsg');
+    msg.textContent = '保存中…';
+    Clinic.ajax('/api/admin', {
+        action: 'dual_save',
+        dual_enabled: document.getElementById('dualEnabled').checked ? '1' : '0',
+    }, {
+        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
+        onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '保存失败') + '</span>'; },
+    });
 }
 
 /* ---------- 缓存驱动切换 ---------- */

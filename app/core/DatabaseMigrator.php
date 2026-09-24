@@ -189,6 +189,8 @@ class DatabaseMigrator {
             $path = isset($toParams['path']) ? trim((string)$toParams['path']) : '';
             if ($path === '') throw new Exception('请指定备份库 SQLite 文件路径');
             if ($path[0] !== '/' && $path[0] !== '.') $path = APP_ROOT . '/' . ltrim($path, '/');
+            // 空文件（0 字节，镜像误建残留）视为无效：删除后由备份重建
+            if (is_file($path) && filesize($path) === 0) { @unlink($path); }
             if (is_file($path) && !ConfigStore::isSqliteFile($path)) {
                 throw new Exception('备份库文件不是有效 SQLite 数据库');
             }
