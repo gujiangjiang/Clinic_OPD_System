@@ -17,7 +17,7 @@
   ```
 
   或 `npm run dev` / `npm run start`（默认端口 8000，可用 `PORT` 环境变量覆盖）。
-  首次访问 `http://localhost:8080` 会自动进入安装向导（5 步）。
+  首次访问 `http://localhost:8080` 会自动进入安装向导（6 步）。
 
 - 语法检查（不需要系统 php，用 tokenizer 校验全部 PHP 文件）：
   `npm run lint` 或 `~/.local/bin/frankenphp php-cli tools/lint/php-lint.php`。

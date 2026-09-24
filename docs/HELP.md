@@ -25,7 +25,7 @@ php -S 0.0.0.0:8080 router.php
 ~/.local/bin/frankenphp php-server --root public/ --listen 0.0.0.0:8080
 ```
 
-浏览器访问 `http://localhost:8080`，首次访问自动进入 5 步安装向导
+浏览器访问 `http://localhost:8080`，首次访问自动进入 6 步安装向导
 （环境巡检 → 数据库与缓存配置 → 医疗机构信息 → 创建管理员 → 确认执行）。
 
 > 语法检查可运行 `npm run lint`（内部用 `tools/lint/php-lint.php` 通过 tokenizer 校验全部 PHP 文件，无需系统 php）；
