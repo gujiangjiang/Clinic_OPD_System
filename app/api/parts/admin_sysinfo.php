@@ -194,13 +194,79 @@ function admin_part_sysinfo($action) {
             'user' => post('to_db_user', ''),
             'pass' => post('to_db_pass', ''),
         );
+        // 后台任务启动（MigrationRunner）：迁移独立进程执行，刷新不中断；
+        // 全站锁定 + 进度条 + 管理员取消 + 成功确认切换
+        require_once APP_ROOT . '/app/core/MigrationRunner.php';
+        $cur = DatabaseManager::driver();
+        if ($cur === $toDriver) json_fail('目标驱动与当前驱动相同，无需迁移');
+        $r = MigrationRunner::start($cur, $toDriver, $toParams);
+        if (!$r['ok']) json_fail($r['msg']);
+        json_ok(array('token' => $r['token']), $r['msg']);
+    }
+
+    /* ==================== 直接切换主库（不迁移数据，目标库须已有完整数据） ==================== */
+    if ($action === 'db_switch') {
+        $toDriver = post('to_driver', '');
+        $toDriver = ConfigStore::dbDriverValid($toDriver) ? $toDriver : '';
+        if ($toDriver === '') json_fail('请选择目标数据库驱动');
+        $toParams = array(
+            'path' => post('to_sqlite_path', ''),
+            'host' => post('to_db_host', '127.0.0.1'),
+            'port' => post('to_db_port', $toDriver === 'pgsql' ? '5432' : '3306'),
+            'dbname' => post('to_db_name', ''),
+            'user' => post('to_db_user', ''),
+            'pass' => post('to_db_pass', ''),
+        );
+        $cur = DatabaseManager::driver();
+        if ($cur === $toDriver) json_fail('目标驱动与当前驱动相同');
+        require_once APP_ROOT . '/app/core/MigrationRunner.php';
+        $r = MigrationRunner::switchDirect($toDriver, $toParams);
+        if ($r['ok']) json_ok(array(), $r['msg']);
+        json_fail($r['msg']);
+    }
+
+    /* ==================== 备份库配置保存 ==================== */
+    if ($action === 'backup_save') {
+        $driver = post('backup_driver', '');
+        $driver = ConfigStore::dbDriverValid($driver) ? $driver : '';
+        if ($driver === '') json_fail('请选择备份库驱动');
+        $params = array(
+            'path' => post('backup_sqlite_path', ''),
+            'host' => post('backup_db_host', '127.0.0.1'),
+            'port' => post('backup_db_port', $driver === 'pgsql' ? '5432' : '3306'),
+            'dbname' => post('backup_db_name', ''),
+            'user' => post('backup_db_user', ''),
+            'pass' => post('backup_db_pass', ''),
+        );
+        ConfigStore::set('backup.driver', $driver);
+        foreach (array('path', 'host', 'port', 'dbname', 'user', 'pass') as $k) {
+            ConfigStore::set('backup.' . $driver . '.' . $k, isset($params[$k]) ? $params[$k] : '');
+        }
+        ConfigStore::set('backup.' . $driver . '.path', $params['path']);
+        ConfigStore::resetCache();
+        json_ok(array('driver' => $driver), '备份库配置已保存（' . strtoupper($driver) . '），可执行备份');
+    }
+
+    /* ==================== 执行备份（同步当前主库 → 备份库，不动主库指针） ==================== */
+    if ($action === 'backup_run') {
+        $driver = ConfigStore::get('backup.driver', '');
+        $driver = ConfigStore::dbDriverValid($driver) ? $driver : '';
+        if ($driver === '') json_fail('请先保存备份库配置');
+        $params = array(
+            'path' => ConfigStore::get('backup.' . $driver . '.path', ''),
+            'host' => ConfigStore::get('backup.' . $driver . '.host', '127.0.0.1'),
+            'port' => ConfigStore::get('backup.' . $driver . '.port', $driver === 'pgsql' ? '5432' : '3306'),
+            'dbname' => ConfigStore::get('backup.' . $driver . '.dbname', ''),
+            'user' => ConfigStore::get('backup.' . $driver . '.user', ''),
+            'pass' => ConfigStore::get('backup.' . $driver . '.pass', ''),
+        );
         require_once APP_ROOT . '/app/core/DatabaseMigrator.php';
         try {
-            $r = DatabaseMigrator::migrate($toDriver, $toParams);
-            json_ok(array('tables' => $r['tables'], 'rows' => $r['rows'], 'target' => $r['target']),
-                '迁移完成：共 ' . count($r['tables']) . ' 张表、' . $r['rows'] . ' 行数据已同步到 ' . strtoupper($r['target']) . '，主库指针已更新');
+            $r = DatabaseMigrator::backupTo($driver, $params);
+            json_ok(array('tables' => count($r['tables']), 'rows' => $r['rows'], 'driver' => $driver),
+                '备份完成：共 ' . count($r['tables']) . ' 张表、' . $r['rows'] . ' 行数据已同步到备份库（' . strtoupper($driver) . '）');
         } catch (Exception $ex) {
-            json_fail('迁移失败：' . $ex->getMessage());
+            json_fail('备份失败：' . $ex->getMessage());
         }
     }
 

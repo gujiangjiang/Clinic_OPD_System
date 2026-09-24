@@ -175,6 +175,9 @@ switch ($action) {
     case 'cache_flush':
     case 'cache_driver_save':
     case 'db_migrate':
+    case 'db_switch':
+    case 'backup_save':
+    case 'backup_run':
         admin_part_sysinfo($action);
         break;
 

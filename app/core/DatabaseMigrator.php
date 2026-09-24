@@ -22,11 +22,13 @@ class DatabaseMigrator {
 
     /**
      * 执行迁移
-     * @param string $toDriver 目标驱动 sqlite/mysql
-     * @param array  $toParams 目标连接参数（sqlite: path；mysql: host/port/dbname/user/pass）
+     * @param string   $toDriver 目标驱动 sqlite/mysql/pgsql
+     * @param array    $toParams 目标连接参数（sqlite: path；mysql/pgsql: host/port/dbname/user/pass）
+     * @param callable $onProgress 可选进度回调 function($table, $tableTotal, $doneRows, $currentTable)：
+     *                            每完成一张表调用一次；回调抛异常（如取消请求）将中止迁移
      * @return array { tables, rows, total, target }
      */
-    public static function migrate($toDriver, $toParams) {
+    public static function migrate($toDriver, $toParams, $onProgress = null) {
         $src = DatabaseManager::getMain();
         $srcDriver = DatabaseManager::driver();
 
@@ -95,6 +97,10 @@ class DatabaseMigrator {
                     $offset += self::CHUNK;
                 }
                 $migratedTables[] = array('table' => $table, 'rows' => $total);
+                // 进度回调（每表完成；回调抛异常（如取消请求）中止迁移）
+                if ($onProgress) {
+                    $onProgress($table, $total, $migratedRows);
+                }
             }
 
             // ===== 自增序列校准 =====
@@ -167,6 +173,54 @@ class DatabaseMigrator {
         $a = $src->query($sql)->fetchColumn();
         $b = $dst->query($sql)->fetchColumn();
         if ($a === $b) throw new Exception('目标与源为同一个数据库，请指定其他目标');
+    }
+
+    /**
+     * 备份：把当前主库全部数据同步到备份库（不动主库指针、不锁定、不设维护模式）
+     * @param string $toDriver 备份库驱动 sqlite/mysql/pgsql
+     * @param array  $toParams 备份库连接参数
+     * @return array { tables, rows }
+     */
+    public static function backupTo($toDriver, $toParams) {
+        $src = DatabaseManager::getMain();
+        $srcDriver = DatabaseManager::driver();
+        // 备份目标校验
+        if ($toDriver === 'sqlite') {
+            $path = isset($toParams['path']) ? trim((string)$toParams['path']) : '';
+            if ($path === '') throw new Exception('请指定备份库 SQLite 文件路径');
+            if ($path[0] !== '/' && $path[0] !== '.') $path = APP_ROOT . '/' . ltrim($path, '/');
+            if (is_file($path) && !ConfigStore::isSqliteFile($path)) {
+                throw new Exception('备份库文件不是有效 SQLite 数据库');
+            }
+            $toParams['path'] = $path;
+        } elseif ($toDriver !== 'mysql' && $toDriver !== 'pgsql') {
+            throw new Exception('不支持的备份驱动：' . $toDriver);
+        }
+        $dst = self::connect($toDriver, $toParams);
+        self::guardSameTarget($srcDriver, $toDriver, $src, $dst);
+        self::foreignKeys($dst, $toDriver, false);
+        $tables = self::sourceTables($src, $srcDriver);
+        $migrated = 0;
+        $list = array();
+        try {
+            foreach ($tables as $table) {
+                self::createTargetTable($src, $dst, $srcDriver, $toDriver, $table);
+                $total = (int)$src->query("SELECT COUNT(*) FROM " . $table)->fetchColumn();
+                $offset = 0;
+                while ($offset < $total) {
+                    $rows = $src->query("SELECT * FROM " . $table . " LIMIT " . self::CHUNK . " OFFSET " . $offset)->fetchAll(PDO::FETCH_ASSOC);
+                    if (!$rows) break;
+                    self::insertRows($dst, $toDriver, $table, $rows);
+                    $migrated += count($rows);
+                    $offset += self::CHUNK;
+                }
+                $list[] = array('table' => $table, 'rows' => $total);
+            }
+            self::resetSequences($dst, $toDriver, $tables);
+        } finally {
+            self::foreignKeys($dst, $toDriver, true);
+        }
+        return array('tables' => $list, 'rows' => $migrated);
     }
 
     /** 源表清单 */

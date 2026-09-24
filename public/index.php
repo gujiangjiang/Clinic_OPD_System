@@ -42,6 +42,13 @@ if ($uri === '/sw.js') {
 /* ---------- AJAX 接口分发 ---------- */
 if (preg_match('#^/api/([a-z0-9_]+)$#i', $uri, $m)) {
     $apiName = $m[1];
+    // 数据库迁移/切换锁定：除迁移状态接口外，全站 API 拦截至锁定页
+    // （running=迁移中 / done=迁移完成待确认切换）
+    require_once APP_ROOT . '/app/core/MigrationRunner.php';
+    if (MigrationRunner::isLocked() && $apiName !== 'migration') {
+        require APP_ROOT . '/app/includes/migrating_lock.php';
+        exit;
+    }
     $apiFile = API_PATH . '/' . $apiName . '.php';
     if (!is_file($apiFile)) {
         json_response(false, '接口不存在');
@@ -49,6 +56,13 @@ if (preg_match('#^/api/([a-z0-9_]+)$#i', $uri, $m)) {
     // 定义当前接口名，供 _init.php 权限校验使用
     define('CURRENT_API', $apiName);
     require $apiFile;
+    exit;
+}
+
+/* ---------- 数据库迁移/切换锁定：全站页面拦截 ---------- */
+require_once APP_ROOT . '/app/core/MigrationRunner.php';
+if (MigrationRunner::isLocked()) {
+    require APP_ROOT . '/app/includes/migrating_lock.php';
     exit;
 }
 

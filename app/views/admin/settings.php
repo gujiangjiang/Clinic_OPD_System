@@ -117,13 +117,28 @@ $dbType = strtoupper(DatabaseManager::driver());
     </div>
     <div class="card setting-card">
         <div class="card-title">🔄 数据库迁移工具</div>
-        <div class="fs-13 text-muted mb-8">支持 SQLite ↔ MySQL 双向全量迁移（分批 Chunk 500 行同步、外键约束临时关闭、自增序列校准）。迁移期间系统进入只读维护模式，完成后自动将 config.db 主库指针更新为目标数据库。</div>
+        <div class="fs-13 text-muted mb-8">支持 SQLite / MySQL / PostgreSQL 三驱动任意双向全量迁移（分批 Chunk 500 行同步、外键约束临时关闭、自增序列校准）。迁移以后台任务执行、刷新页面不中断；期间全站锁定并显示进度条，完成后由管理员确认是否将主库切换为目标数据库（取消/失败自动回退原库）。</div>
         <div class="form-group"><label class="form-label">目标驱动 <span class="req">*</span></label>
             <select class="select" id="migDriver" onchange="toggleMigOpts()"></select>
             <div class="fs-12 text-muted mt-4">选项来自系统驱动注册表（与安装向导一致）。</div></div>
         <div id="migParamsBox"></div>
-        <button class="btn btn-danger btn-sm" onclick="startMigrate()">⚠️ 开始迁移（数据量大时请耐心等待）</button>
+        <div class="flex gap-8" style="flex-wrap:wrap;align-items:center">
+            <button class="btn btn-danger btn-sm" onclick="startMigrate()">⚠️ 开始迁移（全站锁定+进度条）</button>
+            <button class="btn btn-outline btn-sm" onclick="switchMainDirect()">🔁 直接切换主库（不迁移数据）</button>
+        </div>
         <div class="fs-13 mt-8" id="migMsg"></div>
+    </div>
+    <div class="card setting-card">
+        <div class="card-title">💾 多数据库备份</div>
+        <div class="fs-13 text-muted mb-8">配置一个备份库，将当前主库全部数据同步到备份库（不动主库指针，可反复备份）。支持 SQLite / MySQL / PostgreSQL。</div>
+        <div class="form-group"><label class="form-label">备份库驱动</label>
+            <select class="select" id="bkDriver" onchange="toggleBkOpts()"></select></div>
+        <div id="bkParamsBox"></div>
+        <div class="flex gap-8">
+            <button class="btn btn-primary btn-sm" onclick="saveBackupCfg()">保存备份库配置</button>
+            <button class="btn btn-danger btn-sm" onclick="runBackup()">立即备份</button>
+        </div>
+        <div class="fs-13 mt-8" id="bkMsg"></div>
     </div>
 </div>
 
@@ -607,6 +622,15 @@ function renderSettingsDrivers(drivers) {
         }).join('');
         toggleMigOpts();
     }
+    // 备份库驱动下拉（全部驱动，备份可同驱动备份到另一文件/库）
+    var bkSel = document.getElementById('bkDriver');
+    if (bkSel) {
+        bkSel.innerHTML = Object.keys(drivers.db || {}).map(function (k) {
+            var d = drivers.db[k];
+            return '<option value="' + k + '"' + (k === 'sqlite' ? ' selected' : '') + '>' + escHtml(d.label) + (d.installed ? '' : '（未安装扩展）') + '</option>';
+        }).join('');
+        toggleBkOpts();
+    }
     // 缓存驱动下拉
     var cSel = document.getElementById('cacheDriverSel');
     if (cSel) {
@@ -645,12 +669,75 @@ function startMigrate() {
             to_sqlite_path: mp.path || '',
         }, {
             onSuccess: function (json) {
+                // 保存管理员取消令牌（锁定页据此显示取消按钮）
+                try { localStorage.setItem('migration_token', json.data.token || ''); } catch (e) {}
                 msg.innerHTML = '<span class="text-success fw-600">✓ ' + escHtml(json.msg) + '</span>';
-                setTimeout(function () { location.reload(); }, 1500);
+                setTimeout(function () { location.reload(); }, 1200);   // 刷新进入全站锁定页（进度条）
             },
-            onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '迁移失败') + '</span>'; },
+            onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '迁移启动失败') + '</span>'; },
         });
     }, { title: '数据库迁移确认', okText: '开始迁移' });
+}
+
+/* ---------- 直接切换主库（不迁移数据） ---------- */
+function switchMainDirect() {
+    var v = document.getElementById('migDriver').value;
+    var meta = settingsDriverMeta('db', v);
+    var mp = settingsCollectParams('db', v);
+    var p = '将直接切换主数据库到：' + (meta ? meta.label : v) + '。\n\n切换不迁移数据，目标库必须已存在完整业务数据（users 表非空）。\n切换将强制清除全部用户会话，所有用户需重新登录。\n\n确定继续？';
+    Clinic.modal.confirm(p, function () {
+        Clinic.ajax('/api/admin', {
+            action: 'db_switch',
+            to_driver: v,
+            to_db_host: mp.host || '',
+            to_db_port: mp.port || '',
+            to_db_name: mp.dbname || '',
+            to_db_user: mp.user || '',
+            to_db_pass: mp.pass || '',
+            to_sqlite_path: mp.path || '',
+        }, {
+            onSuccess: function (json) {
+                try { localStorage.removeItem('migration_token'); } catch (e) {}
+                alert(json.msg);
+                location.reload();
+            },
+            onError: function (x, j) { alert((j && j.msg) || '切换失败'); },
+        });
+    }, { title: '直接切换主库确认', okText: '切换' });
+}
+
+/* ---------- 多数据库备份 ---------- */
+function toggleBkOpts() {
+    settingsRenderParams('db', document.getElementById('bkDriver').value, 'bkParamsBox');
+}
+function saveBackupCfg() {
+    var msg = document.getElementById('bkMsg');
+    var k = document.getElementById('bkDriver').value;
+    var bp = settingsCollectParams('db', k);
+    msg.textContent = '保存中…';
+    Clinic.ajax('/api/admin', {
+        action: 'backup_save',
+        backup_driver: k,
+        backup_db_host: bp.host || '',
+        backup_db_port: bp.port || '',
+        backup_db_name: bp.dbname || '',
+        backup_db_user: bp.user || '',
+        backup_db_pass: bp.pass || '',
+        backup_sqlite_path: bp.path || '',
+    }, {
+        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
+        onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '保存失败') + '</span>'; },
+    });
+}
+function runBackup() {
+    var msg = document.getElementById('bkMsg');
+    Clinic.modal.confirm('即将把当前主库全部数据同步到备份库。\n备份期间建议避免大量写入操作，但系统可继续使用（不动主库指针）。\n确定执行备份？', function () {
+        msg.innerHTML = '<div class="flex gap-8" style="align-items:center"><div class="spinner" style="border-top-color:var(--primary);width:20px;height:20px;margin:0"></div>正在备份，请稍候…</div>';
+        Clinic.ajax('/api/admin', { action: 'backup_run' }, {
+            onSuccess: function (json) { msg.innerHTML = '<span class="text-success fw-600">✓ ' + escHtml(json.msg) + '</span>'; },
+            onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '备份失败') + '</span>'; },
+        });
+    }, { title: '执行数据库备份', okText: '开始备份' });
 }
 
 /* ---------- 缓存驱动切换 ---------- */
