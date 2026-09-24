@@ -52,13 +52,16 @@ $orgCode = trim((string)setting('org_code', ''));
 </div>
 
 <?php foreach ($groups as $gi => $g): ?>
-    <div class="card itg-pane" id="itgPane_<?php echo e($g['id']); ?>" data-tab="<?php echo e($g['id']); ?>"<?php echo $gi === 0 ? '' : ' style="display:none"'; ?>>
+    <?php $isHis = ($g['id'] === 'his'); ?>
+    <div class="<?php echo $isHis ? 'itg-pane' : 'card itg-pane'; ?>" id="itgPane_<?php echo e($g['id']); ?>" data-tab="<?php echo e($g['id']); ?>"<?php echo $gi === 0 ? '' : ' style="display:none"'; ?>>
+        <?php if (!$isHis): ?>
         <div class="card-title"><?php echo e($g['emoji'] . ' ' . $g['title']); ?></div>
         <?php if (!empty($g['desc'])): ?>
             <div class="fs-12 text-muted mb-12" style="margin-top:-8px"><?php echo e($g['desc']); ?></div>
         <?php endif; ?>
-        <?php if ($g['id'] === 'his'): ?>
-        <!-- HIS 接口：左右两栏（详情/配置/接口/测试/说明） -->
+        <?php endif; ?>
+        <?php if ($isHis): ?>
+        <!-- HIS 接口：左右两栏（详情/配置/接口/测试/说明），不套外层卡片 -->
         <div class="db-center" style="height:auto;align-items:flex-start">
             <div class="card db-sidebar">
                 <div class="db-nav active" data-histab="detail" onclick="hisTab('detail')">📊 详情</div>
@@ -166,6 +169,7 @@ $orgCode = trim((string)setting('org_code', ''));
                 </div>
             </div>
         </div>
+        </div><!-- /itg-pane(his) -->
         <?php else: ?>
         <?php foreach ($g['fields'] as $f): ?>
             <div class="form-group">
