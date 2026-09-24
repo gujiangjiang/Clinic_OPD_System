@@ -16,8 +16,12 @@
 /* ---------- 启动环境 ---------- */
 require dirname(__DIR__) . '/app/config/bootstrap.php';
 
-/* ---------- 自动创建数据库并执行迁移（幂等：仅应用未执行的迁移版本） ---------- */
-DatabaseManager::initAll();
+/* ---------- 自动创建数据库并执行迁移（幂等：仅应用未执行的迁移版本） ----------
+ * 仅在系统已安装时初始化主库：安装向导完成第 2 步（选择数据库）之前，
+ * 绝不因一次访问而自动创建 clinic_main.db。 */
+if (ConfigStore::isSystemInstalled()) {
+    DatabaseManager::initAll();
+}
 
 /* ---------- 解析请求路径 ---------- */
 $uri      = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);

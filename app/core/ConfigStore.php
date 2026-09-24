@@ -342,21 +342,44 @@ class ConfigStore {
         return (int)self::get('app.maintenance', 0) === 1;
     }
 
-    /** 系统是否已安装（config.db 存在且可用、主库有管理员）：
-     *  由 Router 调用。config.db 不可用时回退旧行为（直接查主库）。 */
+    /** 系统是否已安装（以 config.db 的安装完成标记为准；兼容旧库探测）：
+     *  由 Router / bootstrap 调用。核心约束：在用户尚未选择数据库（安装第 2 步）
+     *  之前，绝不能因为一次探测而自动创建 clinic_main.db——SQLite 主库仅在
+     *  核心路径被真正访问且已确认安装后才创建。 */
     public static function isSystemInstalled() {
         if (self::exists() && self::available()) {
-            // config.db 存在且有效：以主库管理员为准
-            try {
-                $main = DatabaseManager::getMain();
-                return (int)$main->query('SELECT COUNT(*) FROM users')->fetchColumn() > 0;
-            } catch (Exception $ex) {
-                return false;
-            }
+            // 安装完成标记（新版安装向导写入）：唯一权威依据
+            if (self::get('install.done', '') === '1') return true;
+            // 兼容旧库（升级前安装、无标记）：主库已存在且有管理员则视为已安装，
+            // 并补写标记，之后不再触发探测。
+            $ok = self::mainHasUsers();
+            if ($ok) self::set('install.done', '1');
+            return $ok;
         }
-        // 无 config.db（旧版/首次）：回退查询默认驱动主库
+        // 无 config.db（旧版/首次）：回退探测默认驱动主库（不创建 SQLite 文件）
+        return self::mainHasUsers();
+    }
+
+    /**
+     * 探测主库是否已有管理员（非破坏性：SQLite 主库文件不存在时直接返回 false，
+     * 绝不触发自动建库；远程库连接失败/无表同样返回 false）。
+     */
+    private static function mainHasUsers() {
         try {
-            return (int)DatabaseManager::val('SELECT COUNT(*) FROM users') > 0;
+            if (self::driver() === 'sqlite') {
+                $p = self::get('db.sqlite.path', '');
+                if ($p === '') {
+                    $p = DATA_DIR . '/db/clinic_main.db';
+                } elseif ($p[0] !== '/' && $p[0] !== '.') {
+                    $p = APP_ROOT . '/' . ltrim($p, '/');
+                }
+                if (!is_file($p) || !self::isSqliteFile($p)) return false;
+                $pdo = new PDO('sqlite:' . $p, null, null, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
+                return (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() > 0;
+            }
+            // 远程库：连接并查询（不会创建数据库本身）
+            $main = DatabaseManager::getMain();
+            return (int)$main->query('SELECT COUNT(*) FROM users')->fetchColumn() > 0;
         } catch (Exception $ex) {
             return false;
         }

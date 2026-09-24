@@ -15,6 +15,8 @@
  * 刷新缓存与作息缓存。
  * ============================================================ */
 function setting($key, $default = '') {
+    // 未安装（安装向导完成第 2 步之前）不触碰主库，避免自动创建 clinic_main.db
+    if (!ConfigStore::isSystemInstalled()) return $default;
     if (!isset($GLOBALS['__setting_cache'])) $GLOBALS['__setting_cache'] = array();
     if (array_key_exists($key, $GLOBALS['__setting_cache'])) {
         $v = $GLOBALS['__setting_cache'][$key];
