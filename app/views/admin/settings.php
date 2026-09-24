@@ -36,24 +36,6 @@ $dbType = strtoupper(DatabaseManager::driver());
     <button type="button" class="btn btn-outline btn-sm" data-stab="security" onclick="settingsTab('security')">🔐 安全与加密</button>
 </div>
 
-<style>
-    .db-center { display: flex; gap: 14px; align-items: flex-start; height: calc(100vh - var(--topbar-h) - 120px); }
-    .db-sidebar { width: 150px; flex-shrink: 0; padding: 10px; }
-    .db-nav {
-        display: block; width: 100%; text-align: left; padding: 9px 12px; margin-bottom: 4px;
-        border-radius: var(--radius-sm); border: 0; background: transparent; cursor: pointer;
-        font-size: 13px; color: var(--text); transition: background .15s, color .15s;
-    }
-    .db-nav:hover { background: var(--bg-soft); }
-    .db-nav.active { background: var(--primary); color: #fff; font-weight: 600; }
-    .db-main { flex: 1; min-width: 0; height: 100%; overflow-y: auto; padding-bottom: 18px; }
-    .db-pane .card.setting-card { margin-bottom: 14px; }
-    /* 数据表浏览器：列表延伸至页面底部（卡片占满高度，列表内部滚动） */
-    #dbtab-browse { height: 100%; display: flex; flex-direction: column; }
-    #dbtab-browse .card.setting-card { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-    #dbtab-browse #dbTableList { flex: 1; min-height: 0; overflow-y: auto; }
-</style>
-
 <!-- ============ Tab: 医院机构信息（左右两栏） ============ -->
 <div class="stab-pane" id="stab-clinic">
     <div class="db-center">
