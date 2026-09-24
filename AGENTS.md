@@ -4,7 +4,7 @@
 
 ## 版本标识
 
-- 系统基准版本：**v8.22.0**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
+- 系统基准版本：**v8.23.0**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
 
 ## 本地运行环境（本机 macOS arm64）
 
@@ -37,7 +37,10 @@
   经 `MigrationRunner` 以 nohup 后台 CLI 任务运行（`tools/cli/db_migrate_run.php`）：
   全站锁定（`app/includes/migrating_lock.php` 进度条 + 重新登录 + 管理员取消）、
   取消/失败自动回退原库、成功后由管理员确认再切换主库指针；迁移/切换启动时
-  强制清除全部用户会话。多库备份（backup_save/backup_run）同步主库到备份库不动指针。
+  强制清除全部用户会话。多库备份（backup_save/backup_run）同步主库到备份库不动指针，
+  支持定时自动备份（`tools/cli/db_backup_run.php`，页面调度到点后台执行、当日去重）；
+  双向实时同步（dual_save + DatabaseManager::mirrorWrite）为 RAID1 式写镜像，
+  仅同驱动可靠、失败静默降级，与备份功能分离。
 - 驱动选项（数据库 sqlite/mysql/pgsql、缓存 file/apcu/redis/memcached）统一注册在
   `app/config/drivers.php`（唯一数据源）：安装向导、系统设置、后端校验共用，
   新增驱动仅维护该文件一处，前端下拉与参数表单自动动态渲染。
