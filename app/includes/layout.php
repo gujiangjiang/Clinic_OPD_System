@@ -98,8 +98,7 @@ class Layout {
         }
         $items['通用'] = array(
             array('站内消息', '💬', '/messages'),
-            array('个人信息', '👤', '/profile'),
-            array('修改密码', '🔑', '/password'),
+            array('个人信息', '👤', '/profile'),   // 含密码修改（个人信息页内模态框）
         );
         $html = '';
         foreach ($items as $group => $list) {
