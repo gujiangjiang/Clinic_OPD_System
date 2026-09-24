@@ -80,6 +80,9 @@ function admin_part_sysinfo($action) {
             'drivers' => ConfigStore::driverOptionsPublic(),
             // 活动任务（迁移/切换/备份/双向同步，未启用则不返回）
             'active_tasks' => self_active_tasks(),
+            // 最近一次备份/同步时间
+            'last_backup_at' => ConfigStore::get('backup.last_at', ''),
+            'last_dual_at' => ConfigStore::get('dual.last_at', ''),
         ));
     }
 
@@ -232,7 +235,6 @@ function admin_part_sysinfo($action) {
             'pass' => post('to_db_pass', ''),
         );
         $cur = DatabaseManager::driver();
-        if ($cur === $toDriver) json_fail('目标驱动与当前驱动相同');
         require_once APP_ROOT . '/app/core/MigrationRunner.php';
         $r = MigrationRunner::switchDirect($toDriver, $toParams);
         if ($r['ok']) json_ok(array(), $r['msg']);

@@ -523,6 +523,13 @@ class DatabaseManager {
             $bp = self::getBackupPdo();
             if (!$bp) return;
             $bp->prepare($sql)->execute($params);
+            // 更新最近一次同步时间（30 秒节流，避免高频写 config.db）
+            try {
+                $lastDual = ConfigStore::get('dual.last_at', '');
+                if ($lastDual === '' || (time() - strtotime((string)$lastDual)) > 30) {
+                    ConfigStore::set('dual.last_at', now_str());
+                }
+            } catch (Exception $ex3) {}
         } catch (Exception $ex) {
             error_log('[双写] 备份库写入失败（不影响主库）：' . $ex->getMessage());
             try {
