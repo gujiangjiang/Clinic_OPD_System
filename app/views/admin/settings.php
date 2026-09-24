@@ -99,46 +99,95 @@ $dbType = strtoupper(DatabaseManager::driver());
 </div>
 </div><!-- /stab-clinic -->
 
-<!-- ============ Tab: 数据库中心 ============ -->
+<!-- ============ Tab: 数据库中心（左右两栏） ============ -->
 <div class="stab-pane" id="stab-db" style="display:none">
-    <div class="card setting-card">
-        <div class="card-title">🗄️ 当前数据库连接</div>
-        <div id="dbStatusBox" class="fs-13" style="line-height:2"><div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
-        <div class="fs-12 text-muted mt-8">config.db 为基础设施配置库（主库驱动/连接凭证/缓存等）；主业务数据独立存放于主数据库，删除 config.db 仅重置配置，不会破坏业务数据。</div>
-    </div>
-    <div class="card setting-card">
-        <div class="card-title">📋 数据表浏览器</div>
-        <div class="fs-13 text-muted mb-8">点击任意表查看字段属性与分页行数据（只读），支持导出 CSV。</div>
-        <div id="dbTableList" class="fs-13" style="max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-md);padding:6px"><div class="text-muted">加载中…</div></div>
-        <div class="flex gap-8 mt-8">
-            <button class="btn btn-outline btn-sm" onclick="loadDbStatus()">🔄 刷新状态</button>
-            <button class="btn btn-outline btn-sm" onclick="exportDbTableCsv()">⬇️ 导出当前表 CSV</button>
+    <style>
+        .db-center { display: flex; gap: 14px; align-items: flex-start; }
+        .db-sidebar { width: 150px; flex-shrink: 0; padding: 10px; }
+        .db-nav {
+            display: block; width: 100%; text-align: left; padding: 9px 12px; margin-bottom: 4px;
+            border-radius: var(--radius-sm); border: 0; background: transparent; cursor: pointer;
+            font-size: 13px; color: var(--text); transition: background .15s, color .15s;
+        }
+        .db-nav:hover { background: var(--bg-soft); }
+        .db-nav.active { background: var(--primary); color: #fff; font-weight: 600; }
+        .db-main { flex: 1; min-width: 0; }
+        .db-pane .card.setting-card { margin-bottom: 14px; }
+    </style>
+    <div class="db-center">
+        <!-- 左侧边栏 -->
+        <div class="card db-sidebar">
+            <div class="db-nav active" data-dbtab="detail" onclick="dbTab('detail')">📊 详情</div>
+            <div class="db-nav" data-dbtab="browse" onclick="dbTab('browse')">📋 浏览</div>
+            <div class="db-nav" data-dbtab="migrate" onclick="dbTab('migrate')">🔄 迁移</div>
+            <div class="db-nav" data-dbtab="switch" onclick="dbTab('switch')">🔁 切换</div>
+            <div class="db-nav" data-dbtab="backup" onclick="dbTab('backup')">💾 备份</div>
         </div>
-    </div>
-    <div class="card setting-card">
-        <div class="card-title">🔄 数据库迁移工具</div>
-        <div class="fs-13 text-muted mb-8">支持 SQLite / MySQL / PostgreSQL 三驱动任意双向全量迁移（分批 Chunk 500 行同步、外键约束临时关闭、自增序列校准）。迁移以后台任务执行、刷新页面不中断；期间全站锁定并显示进度条，完成后由管理员确认是否将主库切换为目标数据库（取消/失败自动回退原库）。</div>
-        <div class="form-group"><label class="form-label">目标驱动 <span class="req">*</span></label>
-            <select class="select" id="migDriver" onchange="toggleMigOpts()"></select>
-            <div class="fs-12 text-muted mt-4">选项来自系统驱动注册表（与安装向导一致）。</div></div>
-        <div id="migParamsBox"></div>
-        <div class="flex gap-8" style="flex-wrap:wrap;align-items:center">
-            <button class="btn btn-danger btn-sm" onclick="startMigrate()">⚠️ 开始迁移（全站锁定+进度条）</button>
-            <button class="btn btn-outline btn-sm" onclick="switchMainDirect()">🔁 直接切换主库（不迁移数据）</button>
+        <!-- 右侧内容 -->
+        <div class="db-main">
+            <div class="db-pane" id="dbtab-detail">
+                <div class="card setting-card">
+                    <div class="card-title">🗄️ 当前数据库连接</div>
+                    <div id="dbStatusBox" class="fs-13" style="line-height:2"><div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+                    <div class="fs-12 text-muted mt-8">config.db 为基础设施配置库（主库驱动/连接凭证/缓存等）；主业务数据独立存放于主数据库，删除 config.db 仅重置配置，不会破坏业务数据。</div>
+                </div>
+            </div>
+            <div class="db-pane" id="dbtab-browse" style="display:none">
+                <div class="card setting-card">
+                    <div class="card-title">📋 数据表浏览器</div>
+                    <div class="fs-13 text-muted mb-8">点击任意表查看字段属性与分页行数据（只读），支持导出 CSV；SQLite / MySQL / PostgreSQL 均支持。</div>
+                    <div id="dbTableList" class="fs-13" style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-md);padding:6px"><div class="text-muted">加载中…</div></div>
+                    <div class="flex gap-8 mt-8">
+                        <button class="btn btn-outline btn-sm" onclick="loadDbStatus()">🔄 刷新状态</button>
+                        <button class="btn btn-outline btn-sm" onclick="exportDbTableCsv()">⬇️ 导出当前表 CSV</button>
+                    </div>
+                </div>
+            </div>
+            <div class="db-pane" id="dbtab-migrate" style="display:none">
+                <div class="card setting-card">
+                    <div class="card-title">🔄 数据库迁移工具</div>
+                    <div class="fs-13 text-muted mb-8">支持 SQLite / MySQL / PostgreSQL 三驱动任意双向全量迁移（分批 Chunk 500 行同步、外键约束临时关闭、自增序列校准）。迁移以后台任务执行、刷新页面不中断；期间全站锁定并显示进度条，完成后由管理员确认是否将主库切换为目标数据库（取消/失败自动回退原库）。</div>
+                    <div class="form-group"><label class="form-label">目标驱动 <span class="req">*</span></label>
+                        <select class="select" id="migDriver" onchange="toggleMigOpts()"></select>
+                        <div class="fs-12 text-muted mt-4">选项来自系统驱动注册表（与安装向导一致），自动屏蔽当前驱动。</div></div>
+                    <div id="migParamsBox"></div>
+                    <div class="flex gap-8" style="flex-wrap:wrap;align-items:center">
+                        <button class="btn btn-danger btn-sm" onclick="startMigrate()">⚠️ 开始迁移（全站锁定+进度条）</button>
+                    </div>
+                    <div class="fs-13 mt-8" id="migMsg"></div>
+                </div>
+            </div>
+            <div class="db-pane" id="dbtab-switch" style="display:none">
+                <div class="card setting-card">
+                    <div class="card-title">🔁 直接切换主库（不迁移数据）</div>
+                    <div class="fs-13 text-muted mb-8">目标库须已存在完整业务数据（users 表非空）。切换强制清除全部用户会话并全站锁定，切换后所有用户重新登录。</div>
+                    <div class="form-group"><label class="form-label">目标驱动 <span class="req">*</span></label>
+                        <select class="select" id="swDriver" onchange="toggleSwOpts()"></select></div>
+                    <div id="swParamsBox"></div>
+                    <button class="btn btn-outline btn-sm" onclick="switchMainDirect()">🔁 切换到所选主库</button>
+                    <div class="fs-13 mt-8" id="swMsg"></div>
+                </div>
+            </div>
+            <div class="db-pane" id="dbtab-backup" style="display:none">
+                <div class="card setting-card">
+                    <div class="card-title">💾 多数据库备份</div>
+                    <div class="fs-13 text-muted mb-8">配置备份库，将当前主库全部数据同步到备份库（不动主库指针，可反复备份）。支持立即备份与定时自动备份。</div>
+                    <div class="form-group"><label class="form-label">备份库驱动</label>
+                        <select class="select" id="bkDriver" onchange="toggleBkOpts()"></select></div>
+                    <div id="bkParamsBox"></div>
+                    <div class="form-group"><label class="form-label">定时自动备份</label>
+                        <div class="flex gap-8" style="align-items:center">
+                            <select class="select" id="bkHour" style="width:110px"></select>
+                            <span class="text-muted fs-12">（每天该时刻自动备份，留空=关闭）</span>
+                        </div></div>
+                    <div class="flex gap-8">
+                        <button class="btn btn-primary btn-sm" onclick="saveBackupCfg()">保存备份库配置</button>
+                        <button class="btn btn-danger btn-sm" onclick="runBackup()">立即备份</button>
+                    </div>
+                    <div class="fs-13 mt-8" id="bkMsg"></div>
+                </div>
+            </div>
         </div>
-        <div class="fs-13 mt-8" id="migMsg"></div>
-    </div>
-    <div class="card setting-card">
-        <div class="card-title">💾 多数据库备份</div>
-        <div class="fs-13 text-muted mb-8">配置一个备份库，将当前主库全部数据同步到备份库（不动主库指针，可反复备份）。支持 SQLite / MySQL / PostgreSQL。</div>
-        <div class="form-group"><label class="form-label">备份库驱动</label>
-            <select class="select" id="bkDriver" onchange="toggleBkOpts()"></select></div>
-        <div id="bkParamsBox"></div>
-        <div class="flex gap-8">
-            <button class="btn btn-primary btn-sm" onclick="saveBackupCfg()">保存备份库配置</button>
-            <button class="btn btn-danger btn-sm" onclick="runBackup()">立即备份</button>
-        </div>
-        <div class="fs-13 mt-8" id="bkMsg"></div>
     </div>
 </div>
 
@@ -443,7 +492,7 @@ function settingsTab(name) {
     document.querySelectorAll('.stab-pane').forEach(function (p) {
         p.style.display = p.id === 'stab-' + name ? '' : 'none';
     });
-    if (name === 'db') loadDbStatus();
+    if (name === 'db') { dbTab('detail'); loadDbStatus(); }
     if (name === 'cache') { if (!SET_DRIVERS) loadDbStatus(); loadCacheStatus(); }
 }
 settingsTab('clinic');
@@ -572,6 +621,17 @@ function flushCache(scope) {
 /* ---------- 驱动选项动态渲染（注册表唯一数据源，与安装向导共用） ---------- */
 var SET_DRIVERS = null;
 var SET_CUR_DRIVER = '';   // 当前数据库驱动（迁移目标排除同驱动）
+
+/* ---------- 数据库中心左右两栏切换 ---------- */
+function dbTab(name) {
+    document.querySelectorAll('#stab-db .db-nav').forEach(function (n) {
+        n.classList.toggle('active', n.getAttribute('data-dbtab') === name);
+    });
+    document.querySelectorAll('#stab-db .db-pane').forEach(function (p) {
+        p.style.display = p.id === 'dbtab-' + name ? '' : 'none';
+    });
+    if (name === 'detail' || name === 'browse') loadDbStatus();
+}
 function settingsDriverMeta(kind, key) {
     var dr = SET_DRIVERS || { db: {}, cache: {} };
     return (dr[kind] && dr[kind][key]) ? dr[kind][key] : null;
@@ -631,6 +691,23 @@ function renderSettingsDrivers(drivers) {
         }).join('');
         toggleBkOpts();
     }
+    // 直接切换目标驱动下拉（排除当前驱动）
+    var swSel = document.getElementById('swDriver');
+    if (swSel) {
+        swSel.innerHTML = Object.keys(drivers.db || {}).map(function (k) {
+            if (k === SET_CUR_DRIVER) return '';
+            var d = drivers.db[k];
+            return '<option value="' + k + '">' + escHtml(d.label) + (d.installed ? '' : '（未安装扩展）') + '</option>';
+        }).join('');
+        toggleSwOpts();
+    }
+    // 定时备份小时下拉（0-23，留空=关闭）
+    var bhSel = document.getElementById('bkHour');
+    if (bhSel && !bhSel.options.length) {
+        var bhs = ['<option value="">关闭</option>'];
+        for (var h = 0; h <= 23; h++) bhs.push('<option value="' + ('0' + h).slice(-2) + ':00">' + ('0' + h).slice(-2) + ':00</option>');
+        bhSel.innerHTML = bhs.join('');
+    }
     // 缓存驱动下拉
     var cSel = document.getElementById('cacheDriverSel');
     if (cSel) {
@@ -680,8 +757,11 @@ function startMigrate() {
 }
 
 /* ---------- 直接切换主库（不迁移数据） ---------- */
+function toggleSwOpts() {
+    settingsRenderParams('db', document.getElementById('swDriver').value, 'swParamsBox');
+}
 function switchMainDirect() {
-    var v = document.getElementById('migDriver').value;
+    var v = document.getElementById('swDriver').value;
     var meta = settingsDriverMeta('db', v);
     var mp = settingsCollectParams('db', v);
     var p = '将直接切换主数据库到：' + (meta ? meta.label : v) + '。\n\n切换不迁移数据，目标库必须已存在完整业务数据（users 表非空）。\n切换将强制清除全部用户会话，所有用户需重新登录。\n\n确定继续？';
@@ -724,6 +804,7 @@ function saveBackupCfg() {
         backup_db_user: bp.user || '',
         backup_db_pass: bp.pass || '',
         backup_sqlite_path: bp.path || '',
+        backup_hour: document.getElementById('bkHour').value,
     }, {
         onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
         onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '保存失败') + '</span>'; },

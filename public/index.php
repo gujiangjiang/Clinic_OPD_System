@@ -66,5 +66,27 @@ if (MigrationRunner::isLocked()) {
     exit;
 }
 
+/* ---------- 定时自动备份调度（到点且当日未备份 → 后台启动，不阻塞页面） ---------- */
+(function () {
+    $hour = ConfigStore::get('backup.hour', '');
+    if ($hour === '') return;
+    if (date('H:i') < $hour) return;                       // 未到点
+    if (ConfigStore::get('backup.last_date', '') === date('Y-m-d')) return;   // 今日已备份
+    $script = APP_ROOT . '/tools/cli/db_backup_run.php';
+    if (!is_file($script)) return;
+    // 检查是否已有备份任务在跑（简单锁：backup.running 标记 + 5 分钟超时）
+    $lockAt = ConfigStore::get('backup.running', '');
+    if ($lockAt !== '' && (time() - (int)$lockAt) < 300) return;
+    ConfigStore::set('backup.running', (string)time());
+    $runner = '';
+    foreach (array('~/.local/bin/frankenphp', '/usr/local/bin/frankenphp', '/opt/homebrew/bin/frankenphp') as $p) {
+        $p = str_replace('~', isset($_SERVER['HOME']) ? $_SERVER['HOME'] : '', $p);
+        if (is_file($p)) { $runner = $p; break; }
+    }
+    if ($runner === '') $runner = 'frankenphp';
+    $cmd = 'nohup ' . $runner . ' php-cli ' . $script . ' > /dev/null 2>&1 &';
+    @pclose(@popen($cmd, 'r'));
+})();
+
 /* ---------- 页面路由分发 ---------- */
 Router::dispatch($uri);

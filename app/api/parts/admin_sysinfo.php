@@ -254,8 +254,11 @@ function admin_part_sysinfo($action) {
             ConfigStore::set('backup.' . $driver . '.' . $k, isset($params[$k]) ? $params[$k] : '');
         }
         ConfigStore::set('backup.' . $driver . '.path', $params['path']);
+        // 定时自动备份（每天 HH:MM，留空=关闭）
+        $hour = post('backup_hour', '');
+        ConfigStore::set('backup.hour', $hour);
         ConfigStore::resetCache();
-        json_ok(array('driver' => $driver), '备份库配置已保存（' . strtoupper($driver) . '），可执行备份');
+        json_ok(array('driver' => $driver), '备份库配置已保存（' . strtoupper($driver) . '）' . ($hour !== '' ? '，定时备份：每天 ' . $hour : ''));
     }
 
     /* ==================== 执行备份（同步当前主库 → 备份库，不动主库指针） ==================== */
