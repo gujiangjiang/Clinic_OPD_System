@@ -46,6 +46,10 @@ data/db/.*.db.
 data/db/.*.db-journal.
 !data/db/icd10.db
 !data/db/icd10.db-journal
+# 基础设施配置库（运行时生成，含连接凭证，禁止提交）
+data/config.db
+data/config.db-*
+data/config.db.corrupt.*
 data/session/*
 demo/**/*.db
 dist/
