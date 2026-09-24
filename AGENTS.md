@@ -27,7 +27,7 @@
 ## 基础设施配置库（config.db，v8.20+ 架构铁律）
 
 - 基础设施配置（主库驱动/连接凭证、缓存驱动、App Key、维护模式）统一存放于
-  `data/config.db`（独立于主业务库），由 `app/core/ConfigStore.php` 读写。
+  `data/db/config.db`（独立于主业务库），由 `app/core/ConfigStore.php` 读写。
 - 打开前必须校验 16 字节 Magic Header（`SQLite format 3\0`），损坏文件自动备份为
   `config.db.corrupt.[timestamp]` 并优雅降级回退默认配置，**严禁抛 500**。
 - 主业务数据独立存放于主数据库；删除 config.db 仅重置配置不破坏业务数据

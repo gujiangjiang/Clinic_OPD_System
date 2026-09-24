@@ -29,7 +29,8 @@ class ConfigStore {
 
     /** config.db 文件路径 */
     public static function path() {
-        return DATA_DIR . '/config.db';
+        // 基础设施配置库统一存放于 data/db/（与主库/Session 数据目录一致）
+        return DATA_DIR . '/db/config.db';
     }
 
     /** 校验文件头 16 字节是否为 SQLite Magic Header（"SQLite format 3\000"） */
@@ -176,6 +177,14 @@ class ConfigStore {
      * @return bool 是否可用
      */
     public static function ensure() {
+        // 兼容旧位置：早期版本 config.db 位于 data/config.db，自动迁移到 data/db/
+        $legacy = DATA_DIR . '/config.db';
+        $newPath = self::path();
+        if (is_file($legacy) && !is_file($newPath)) {
+            $dir = dirname($newPath);
+            if (!is_dir($dir)) { @mkdir($dir, 0777, true); }
+            @rename($legacy, $newPath);
+        }
         if (self::available()) return true;
         $path = self::path();
         $dir = dirname($path);

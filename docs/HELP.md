@@ -34,7 +34,7 @@ php -S 0.0.0.0:8080 router.php
 ### 基础设施配置库（config.db）
 
 系统基础设施配置（主库驱动与连接凭证、缓存驱动、App Key、维护模式）独立存放于
-`data/config.db`，与主业务库完全解耦：删除 `config.db` 仅重置配置、不破坏业务数据，
+`data/db/config.db`，与主业务库完全解耦：删除 `config.db` 仅重置配置、不破坏业务数据，
 安装向导提供【关联现有数据库】选项重新绑定已有主库。config.db 打开前校验 SQLite
 Magic Header，损坏文件自动备份并优雅降级，绝不因配置文件损坏导致服务器 500。
 
