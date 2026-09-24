@@ -219,8 +219,10 @@ function renderHisLive() {
     }
     var curlEl = document.getElementById('hisCurlDemo');
     if (curlEl) {
-        curlEl.textContent = 'curl -H "X-HIS-Key: ' + (key === '' ? '<密钥>' : key) + '" "' +
-            HIS_BASE + '?action=patient_get&id_card=110101199001011234"';
+        curlEl.textContent = key === ''
+            ? '请先填写接口密钥并保存，调用示例将自动生成'
+            : 'curl -H "X-HIS-Key: ' + key + '" "' +
+                HIS_BASE + '?action=patient_get&id_card=110101199001011234"';
     }
 }
 renderHisLive();   // 初始渲染（按当前已保存密钥）；密钥修改仅在保存后刷新

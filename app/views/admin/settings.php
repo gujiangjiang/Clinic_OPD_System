@@ -128,7 +128,7 @@ $dbType = strtoupper(DatabaseManager::driver());
             <div class="db-nav" data-dbtab="browse" onclick="dbTab('browse')">📋 浏览</div>
             <div class="db-nav" data-dbtab="migrate" onclick="dbTab('migrate')">🔄 迁移</div>
             <div class="db-nav" data-dbtab="switch" onclick="dbTab('switch')">🔁 切换</div>
-            <div class="db-nav" data-dbtab="backup" onclick="dbTab('backup')">💾 备份</div>
+            <div class="db-nav" data-dbtab="backup" onclick="dbTab('backup')">💾 备份/同步</div>
         </div>
         <!-- 右侧内容 -->
         <div class="db-main">

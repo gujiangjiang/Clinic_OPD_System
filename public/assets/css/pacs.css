@@ -55,8 +55,8 @@
     word-break: break-all;
     line-height: 1.7;
     color: var(--text);
-    cursor: pointer;                 /* 点击复制 */
-    user-select: all;                /* 单击全选便于复制 */
+    cursor: pointer;                 /* 点击复制（禁用文本 I-beam 光标，避免悬停闪烁） */
+    user-select: text;
     transition: border-color .15s, box-shadow .15s;
 }
 .itg-his-url:hover { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,.08); }
@@ -76,8 +76,8 @@
     line-height: 1.6;
     word-break: break-all;
     color: var(--text);
-    cursor: pointer;                 /* 点击复制 */
-    user-select: all;
+    cursor: pointer;                 /* 点击复制（禁用文本 I-beam 光标，避免悬停闪烁） */
+    user-select: text;
     transition: border-color .15s, box-shadow .15s;
 }
 .itg-his-curl code:hover { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,.08); }
