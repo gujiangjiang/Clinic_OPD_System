@@ -127,7 +127,8 @@ function admin_part_sysinfo($action) {
         json_ok(array(
             'table' => $table,
             'cols' => $cols,
-            'rows' => $rows,
+            'list' => $rows,          // 行数据（infiniteList 滚动加载约定字段名）
+            'rows' => $rows,          // 兼容旧调用（CSV 导出）
             'total' => $total,
             'page' => $page,
             'size' => $size,

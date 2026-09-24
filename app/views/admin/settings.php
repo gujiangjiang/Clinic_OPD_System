@@ -533,44 +533,49 @@ function loadDbStatus() {
 }
 
 var DB_TABLE_MODAL = null;
+var DB_INF = null;   // 数据表无限滚动句柄
 function openDbTable(table) {
     DB_CUR_TABLE = table;
-    Clinic.get('/api/admin?action=db_table_data&table=' + encodeURIComponent(table) + '&page=1&size=20', null, {
-        loading: false,
-        onSuccess: function (json) { renderDbTable(json.data); },
-        onError: function (x, j) { Clinic.toast.error((j && j.msg) || '读取失败'); },
-    });
-}
-function renderDbTable(d) {
-    var head = (d.cols || []).map(function (c) { return '<th>' + escHtml(c.name) + '</th>'; }).join('');
-    var body = (d.rows || []).map(function (r) {
-        return '<tr>' + (d.cols || []).map(function (c) {
-            var v = r[c.name] === null || r[c.name] === undefined ? '' : String(r[c.name]);
-            var full = v;
-            if (v.length > 60) v = v.substr(0, 60) + '…';
-            return '<td class="fs-12" title="' + escHtml(full) + '">' + escHtml(v) + '</td>';
-        }).join('') + '</tr>';
-    }).join('');
-    var html =
-        '<div class="flex-between mb-8"><span class="fw-600 fs-14">📋 ' + escHtml(d.table) + '（共 ' + d.total + ' 行）</span>' +
-        '<span class="flex gap-8">' +
-        '<button class="btn btn-outline btn-sm" onclick="exportDbTableCsv()">⬇️ CSV</button>' +
-        (d.page > 1 ? '<button class="btn btn-outline btn-sm" onclick="dbTablePage(' + (d.page - 1) + ')">← 上一页</button>' : '') +
-        (d.has_more ? '<button class="btn btn-outline btn-sm" onclick="dbTablePage(' + (d.page + 1) + ')">下一页 →</button>' : '') +
-        '</span></div>' +
-        '<div class="table-wrap" style="max-height:420px;overflow:auto"><table class="table"><thead><tr>' + head + '</tr></thead><tbody>' +
-        (body || '<tr><td colspan="99" class="text-muted">无数据</td></tr>') + '</tbody></table></div>';
+    if (DB_INF) { DB_INF.stop(); DB_INF = null; }
     if (DB_TABLE_MODAL) {
-        // 旧弹窗仍在文档中（翻页替换）→ 先关闭；已关闭（残留引用）→ 直接新建
         try { if (document.body.contains(DB_TABLE_MODAL)) Clinic.modal.close(); } catch (e) {}
         DB_TABLE_MODAL = null;
     }
-    DB_TABLE_MODAL = Clinic.modal.open(html, { title: '数据表查看', size: 'modal-xl' });
-}
-function dbTablePage(p) {
-    Clinic.get('/api/admin?action=db_table_data&table=' + encodeURIComponent(DB_CUR_TABLE) + '&page=' + p + '&size=20', null, {
-        loading: false,
-        onSuccess: function (json) { renderDbTable(json.data); },
+    var html =
+        '<div class="flex-between mb-8"><span class="fw-600 fs-14" id="dbTableTitle">📋 ' + escHtml(table) + '</span>' +
+        '<button class="btn btn-outline btn-sm" onclick="exportDbTableCsv()">⬇️ CSV</button></div>' +
+        '<div class="table-wrap" id="dbTableScroll" style="max-height:440px;overflow:auto"><table class="table"><thead id="dbTableHead"></thead><tbody id="dbTableBody"></tbody></table></div>';
+    DB_TABLE_MODAL = Clinic.modal.open(html, { title: '数据表查看（滚动加载）', size: 'modal-xl' });
+    DB_INF = Clinic.infiniteList({
+        el: document.getElementById('dbTableScroll'),
+        pageSize: 50,
+        threshold: 80,
+        emptyHtml: '<tr><td colspan="99" class="text-muted">无数据</td></tr>',
+        url: function (p, size) {
+            return '/api/admin?action=db_table_data&table=' + encodeURIComponent(DB_CUR_TABLE) + '&page=' + p + '&size=' + size;
+        },
+        render: function (list, isFirst, data) {
+            if (data && data.cols) {
+                var head = document.getElementById('dbTableHead');
+                if (head && isFirst) {
+                    head.innerHTML = '<tr>' + data.cols.map(function (c) { return '<th>' + escHtml(c.name) + '</th>'; }).join('') + '</tr>';
+                }
+                var title = document.getElementById('dbTableTitle');
+                if (title && isFirst) title.textContent = '📋 ' + data.table + '（共 ' + data.total + ' 行）';
+            }
+            return list.map(function (r) {
+                return '<tr>' + (data && data.cols ? data.cols : []).map(function (c) {
+                    var v = r[c.name] === null || r[c.name] === undefined ? '' : String(r[c.name]);
+                    var full = v;
+                    if (v.length > 60) v = v.substr(0, 60) + '…';
+                    return '<td class="fs-12" title="' + escHtml(full) + '">' + escHtml(v) + '</td>';
+                }).join('') + '</tr>';
+            }).join('');
+        },
+        append: function (el, html) {
+            var tb = document.getElementById('dbTableBody');
+            if (tb) tb.insertAdjacentHTML('beforeend', html);
+        },
     });
 }
 function exportDbTableCsv() {
