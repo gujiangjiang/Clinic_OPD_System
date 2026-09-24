@@ -586,39 +586,43 @@ function openDbTable(table) {
         try { if (document.body.contains(DB_TABLE_MODAL)) Clinic.modal.close(); } catch (e) {}
         DB_TABLE_MODAL = null;
     }
+    // 固定大小模态框（宽 modal-xl + 表格区固定高），数据过多时表格区内部滚动 + 滚动加载
     var html =
         '<div class="flex-between mb-8"><span class="fw-600 fs-14" id="dbTableTitle">📋 ' + escHtml(table) + '</span>' +
         '<button class="btn btn-outline btn-sm" onclick="exportDbTableCsv()">⬇️ CSV</button></div>' +
-        '<div class="table-wrap" id="dbTableScroll" style="max-height:440px;overflow:auto"><table class="table"><thead id="dbTableHead"></thead><tbody id="dbTableBody"></tbody></table></div>';
+        '<div class="table-wrap" id="dbTableScroll" style="height:440px;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-md)">' +
+        '<div class="text-muted text-center" style="padding:30px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>';
     DB_TABLE_MODAL = Clinic.modal.open(html, { title: '数据表查看（滚动加载）', size: 'modal-xl' });
+    var first = true;   // 首屏渲染完整表格，后续页仅插入行
     DB_INF = Clinic.infiniteList({
         el: document.getElementById('dbTableScroll'),
         pageSize: 50,
         threshold: 80,
-        emptyHtml: '<tr><td colspan="99" class="text-muted">无数据</td></tr>',
+        emptyHtml: '<div class="text-muted text-center" style="padding:30px">该表暂无数据</div>',
         url: function (p, size) {
             return '/api/admin?action=db_table_data&table=' + encodeURIComponent(DB_CUR_TABLE) + '&page=' + p + '&size=' + size;
         },
         render: function (list, isFirst, data) {
-            if (data && data.cols) {
-                var head = document.getElementById('dbTableHead');
-                if (head && isFirst) {
-                    head.innerHTML = '<tr>' + data.cols.map(function (c) { return '<th>' + escHtml(c.name) + '</th>'; }).join('') + '</tr>';
-                }
-                var title = document.getElementById('dbTableTitle');
-                if (title && isFirst) title.textContent = '📋 ' + data.table + '（共 ' + data.total + ' 行）';
-            }
-            return list.map(function (r) {
-                return '<tr>' + (data && data.cols ? data.cols : []).map(function (c) {
+            var cols = (data && data.cols) || [];
+            var headHtml = '<tr>' + cols.map(function (c) { return '<th>' + escHtml(c.name) + '</th>'; }).join('') + '</tr>';
+            var rowHtml = list.map(function (r) {
+                return '<tr>' + cols.map(function (c) {
                     var v = r[c.name] === null || r[c.name] === undefined ? '' : String(r[c.name]);
                     var full = v;
                     if (v.length > 60) v = v.substr(0, 60) + '…';
                     return '<td class="fs-12" title="' + escHtml(full) + '">' + escHtml(v) + '</td>';
                 }).join('') + '</tr>';
             }).join('');
+            var title = document.getElementById('dbTableTitle');
+            if (title && isFirst) title.textContent = '📋 ' + (data && data.table ? data.table : DB_CUR_TABLE) + '（共 ' + ((data && data.total) || 0) + ' 行）';
+            // 首屏返回完整表格结构，后续页仅返回行（由 append 插入 tbody）
+            return isFirst
+                ? '<table class="table"><thead>' + headHtml + '</thead><tbody>' + rowHtml + '</tbody></table>'
+                : rowHtml;
         },
         append: function (el, html) {
-            var tb = document.getElementById('dbTableBody');
+            if (first) { el.innerHTML = html; first = false; return; }
+            var tb = el.querySelector('tbody');
             if (tb) tb.insertAdjacentHTML('beforeend', html);
         },
     });
