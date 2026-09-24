@@ -159,23 +159,23 @@ function submitProfileAudit() {
 
 /* ==================== 修改密码（模态框，逻辑与原修改密码页一致） ==================== */
 function openPwdModal() {
-    Clinic.modal.open(
+    var mask = Clinic.modal.open(
         '<div class="form-group"><label class="form-label">原密码 <span class="req">*</span></label>' +
         '<input type="password" class="input" id="old_password" autocomplete="current-password"></div>' +
         '<div class="form-group"><label class="form-label">新密码（至少6位）<span class="req">*</span></label>' +
         '<input type="password" class="input" id="new_password" autocomplete="new-password"></div>' +
         '<div class="form-group"><label class="form-label">确认新密码 <span class="req">*</span></label>' +
-        '<input type="password" class="input" id="new_password2" autocomplete="new-password"></div>' +
-        '<div class="flex gap-8"><button type="button" class="btn btn-outline btn-sm" onclick="forgotPwd()">忘记密码？</button>' +
-        '<span class="fs-12 text-muted" style="line-height:1.6">忘记密码时提交申请，管理员审核通过后密码重置为初始密码。</span></div>',
-        {
-            title: '🔑 修改密码',
-            buttons: [
-                { text: '取消', cls: 'btn-outline' },
-                { text: '确认修改', cls: 'btn-primary', autoClose: false, onClick: savePwd },
-            ],
-        }
+        '<input type="password" class="input" id="new_password2" autocomplete="new-password"></div>',
+        { title: '🔑 修改密码' }
     );
+    // 底部按钮区：忘记密码靠左（outline），取消/确认修改靠右
+    mask.querySelector('.modal-foot').innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;width:100%">' +
+        '<button type="button" class="btn btn-outline" onclick="forgotPwd()">忘记密码？</button>' +
+        '<span class="flex gap-8"><button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+        '<button type="button" class="btn btn-primary" id="pwdSaveBtn">确认修改</button></span></div>';
+    document.getElementById('pwdSaveBtn').addEventListener('click', savePwd);
+    setTimeout(function () { document.getElementById('old_password').focus(); }, 80);
 }
 function savePwd() {
     var old = document.getElementById('old_password').value;
