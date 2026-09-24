@@ -41,9 +41,13 @@ function admin_part_sysinfo($action) {
                     $totalRows += $n;
                     $tables[] = array('name' => $t, 'rows' => $n, 'size' => self_table_size_sqlite($t));
                 }
-            } else {
+} else {
                 // MySQL/PostgreSQL：information_schema 取表与行数
-                $rows = $pdo->query('SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE() ORDER BY table_name')->fetchAll();
+                if ($driver === 'pgsql') {
+                    $rows = $pdo->query("SELECT table_name, 0 AS table_rows FROM information_schema.tables WHERE table_schema = current_schema() ORDER BY table_name")->fetchAll();
+                } else {
+                    $rows = $pdo->query('SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE() ORDER BY table_name')->fetchAll();
+                }
                 foreach ($rows as $r) {
                     $t = $r['table_name'];
                     $n = (int)$r['table_rows'];
@@ -93,6 +97,13 @@ function admin_part_sysinfo($action) {
             if ($driver === 'sqlite') {
                 foreach ($pdo->query("PRAGMA table_info(" . $table . ")") as $c) {
                     $cols[] = array('name' => $c['name'], 'type' => $c['type'], 'pk' => (int)$c['pk'] === 1, 'notnull' => (int)$c['notnull'] === 1, 'default' => $c['dflt_value']);
+                }
+            } elseif ($driver === 'pgsql') {
+                foreach ($pdo->query("SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_name='" . $table . "' ORDER BY ordinal_position") as $c) {
+                    $cols[] = array(
+                        'name' => $c['column_name'], 'type' => $c['data_type'],
+                        'pk' => false, 'notnull' => $c['is_nullable'] === 'NO', 'default' => $c['column_default'],
+                    );
                 }
             } else {
                 foreach ($pdo->query("SHOW FULL COLUMNS FROM " . $table) as $c) {
