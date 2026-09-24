@@ -36,88 +36,103 @@ $dbType = strtoupper(DatabaseManager::driver());
     <button type="button" class="btn btn-outline btn-sm" data-stab="security" onclick="settingsTab('security')">🔐 安全与加密</button>
 </div>
 
-<!-- ============ Tab: 医院机构信息 ============ -->
+<style>
+    .db-center { display: flex; gap: 14px; align-items: flex-start; height: calc(100vh - var(--topbar-h) - 120px); }
+    .db-sidebar { width: 150px; flex-shrink: 0; padding: 10px; }
+    .db-nav {
+        display: block; width: 100%; text-align: left; padding: 9px 12px; margin-bottom: 4px;
+        border-radius: var(--radius-sm); border: 0; background: transparent; cursor: pointer;
+        font-size: 13px; color: var(--text); transition: background .15s, color .15s;
+    }
+    .db-nav:hover { background: var(--bg-soft); }
+    .db-nav.active { background: var(--primary); color: #fff; font-weight: 600; }
+    .db-main { flex: 1; min-width: 0; height: 100%; overflow-y: auto; padding-bottom: 18px; }
+    .db-pane .card.setting-card { margin-bottom: 14px; }
+    /* 数据表浏览器：列表延伸至页面底部（卡片占满高度，列表内部滚动） */
+    #dbtab-browse { height: 100%; display: flex; flex-direction: column; }
+    #dbtab-browse .card.setting-card { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    #dbtab-browse #dbTableList { flex: 1; min-height: 0; overflow-y: auto; }
+</style>
+
+<!-- ============ Tab: 医院机构信息（左右两栏） ============ -->
 <div class="stab-pane" id="stab-clinic">
-<div class="setting-grid">
-
-    <!-- ===== 医院信息（跨两列） ===== -->
-    <div class="card setting-card setting-colspan-2">
-        <div class="card-title">🏥 医院信息</div>
-        <div class="form-group"><label class="form-label">医院名称 <span class="req">*</span></label>
-            <input class="input" id="s_hosp" value="<?php echo e(setting('hospital_name')); ?>"></div>
-        <div class="form-group"><label class="form-label">医疗机构代码 <span class="req">*</span></label>
-            <input class="input" id="s_org_code" value="<?php echo e(setting('org_code')); ?>" placeholder="如：410105001234">
-            <div class="fs-12 text-muted mt-4">医保结算、监管报送与接口对接的唯一标识。</div></div>
-        <div class="form-group"><label class="form-label">医院第二名称</label>
-            <input class="input" id="s_hosp2" value="<?php echo e(setting('hospital_name2')); ?>"></div>
-        <div class="form-group"><label class="form-label">机构简介</label>
-            <textarea class="textarea" id="s_intro" rows="4" placeholder="机构简介（选填），供对外展示与后续扩展使用"><?php echo e(setting('hospital_intro')); ?></textarea></div>
-        <div class="form-group"><label class="form-label">网站时区</label>
-            <select class="select" id="s_tz"><?php echo $tzOpts; ?></select></div>
-        <div class="fs-12 text-muted mb-12">页脚版权信息为固定格式，自动显示为【© <?php echo date('Y'); ?> <?php echo e(setting('hospital_name')); ?> 版权所有】。</div>
-        <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
-    </div>
-
-    <!-- ===== 品牌外观 ===== -->
-    <div class="card setting-card">
-        <div class="card-title">🎨 品牌外观</div>
-        <div class="flex gap-16" style="align-items:center">
-            <div class="fs-13 text-muted" style="flex:1;line-height:1.8">上传医院 LOGO，将作为登录页 / 系统侧边栏 / 浏览器图标（favicon）展示。<br>尚未上传 LOGO，网站将不显示 LOGO 与 favicon。</div>
-            <div style="flex-shrink:0;text-align:center">
-                <div class="logo-uploader" onclick="document.getElementById('s_logo').click()" title="点击更换 LOGO">
-                    <?php if ($logoData !== ''): ?>
-                        <img src="<?php echo e($logoData); ?>" alt="LOGO">
-                    <?php else: ?>
-                        <span class="logo-placeholder">🏥</span>
-                    <?php endif; ?>
-                    <span class="logo-upload-badge">📷</span>
+    <div class="db-center">
+        <div class="card db-sidebar">
+            <div class="db-nav active" data-cltab="info" onclick="clTab('info')">🏥 医院信息</div>
+            <div class="db-nav" data-cltab="brand" onclick="clTab('brand')">🎨 品牌外观</div>
+            <div class="db-nav" data-cltab="work" onclick="clTab('work')">⏰ 作息时间</div>
+            <div class="db-nav" data-cltab="tz" onclick="clTab('tz')">🌐 网站时区</div>
+        </div>
+        <div class="db-main">
+            <div class="db-pane" id="cltab-info">
+                <div class="card setting-card">
+                    <div class="card-title">🏥 医院信息</div>
+                    <div class="form-group"><label class="form-label">医院名称 <span class="req">*</span></label>
+                        <input class="input" id="s_hosp" value="<?php echo e(setting('hospital_name')); ?>"></div>
+                    <div class="form-group"><label class="form-label">医疗机构代码 <span class="req">*</span></label>
+                        <input class="input" id="s_org_code" value="<?php echo e(setting('org_code')); ?>" placeholder="如：410105001234">
+                        <div class="fs-12 text-muted mt-4">医保结算、监管报送与接口对接的唯一标识。</div></div>
+                    <div class="form-group"><label class="form-label">医院第二名称</label>
+                        <input class="input" id="s_hosp2" value="<?php echo e(setting('hospital_name2')); ?>"></div>
+                    <div class="form-group"><label class="form-label">机构简介</label>
+                        <textarea class="textarea" id="s_intro" rows="4" placeholder="机构简介（选填），供对外展示与后续扩展使用"><?php echo e(setting('hospital_intro')); ?></textarea></div>
+                    <div class="fs-12 text-muted mb-12">页脚版权信息为固定格式，自动显示为【© <?php echo date('Y'); ?> <?php echo e(setting('hospital_name')); ?> 版权所有】。</div>
+                    <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
                 </div>
-                <div class="fs-12 text-muted mt-4">点击更换</div>
+            </div>
+            <div class="db-pane" id="cltab-brand" style="display:none">
+                <div class="card setting-card">
+                    <div class="card-title">🎨 品牌外观</div>
+                    <div class="flex gap-16" style="align-items:center">
+                        <div class="fs-13 text-muted" style="flex:1;line-height:1.8">上传医院 LOGO，将作为登录页 / 系统侧边栏 / 浏览器图标（favicon）展示。<br>尚未上传 LOGO，网站将不显示 LOGO 与 favicon。</div>
+                        <div style="flex-shrink:0;text-align:center">
+                            <div class="logo-uploader" onclick="document.getElementById('s_logo').click()" title="点击更换 LOGO">
+                                <?php if ($logoData !== ''): ?>
+                                    <img src="<?php echo e($logoData); ?>" alt="LOGO">
+                                <?php else: ?>
+                                    <span class="logo-placeholder">🏥</span>
+                                <?php endif; ?>
+                                <span class="logo-upload-badge">📷</span>
+                            </div>
+                            <div class="fs-12 text-muted mt-4">点击更换</div>
+                        </div>
+                    </div>
+                    <input type="file" id="s_logo" accept="image/*" style="display:none" onchange="uploadLogo()">
+                </div>
+            </div>
+            <div class="db-pane" id="cltab-work" style="display:none">
+                <div class="card setting-card">
+                    <div class="card-title">⏰ 作息时间</div>
+                    <?php
+                    $ws = work_schedule();
+                    $wsState = work_session_now();
+                    $stateText = array('before' => '未上班', 'am' => '上午可挂号', 'noon' => '午休', 'pm' => '下午可挂号', 'after' => '已下班');
+                    ?>
+                    <div class="fs-13" style="line-height:2">
+                        上午：<b><?php echo e($ws['am_start'] . ' ~ ' . $ws['am_end']); ?></b><br>
+                        下午：<b><?php echo e($ws['pm_start'] . ' ~ ' . $ws['pm_end']); ?></b><br>
+                        夏令时：<b><?php echo $ws['dst_enabled'] === '1' ? '已开启（' . e($ws['dst_start']) . ' ~ ' . e($ws['dst_end']) . '）' : '关闭'; ?></b><?php echo $ws['is_dst'] === '1' ? ' <span class="badge badge-warning">当前生效中</span>' : ''; ?><br>
+                        当前状态：<span class="badge badge-<?php echo in_array($wsState, array('am', 'pm'), true) ? 'success' : 'gray'; ?>"><?php echo $stateText[$wsState]; ?></span>
+                    </div>
+                    <div class="fs-12 text-muted mt-8 mb-12">门诊号源仅在作息时段内开放；急诊 24 小时可挂，不受作息限制。</div>
+                    <button class="btn btn-primary btn-sm" onclick="openWorkModal()">⏰ 设置作息时间</button>
+                </div>
+            </div>
+            <div class="db-pane" id="cltab-tz" style="display:none">
+                <div class="card setting-card">
+                    <div class="card-title">🌐 网站时区</div>
+                    <div class="form-group"><label class="form-label">全站时区</label>
+                        <select class="select" id="s_tz"><?php echo $tzOpts; ?></select>
+                        <div class="fs-12 text-muted mt-4">默认取创建管理员时的浏览器时区，修改后保存设置即时生效。</div></div>
+                    <button class="btn btn-primary btn-sm" onclick="saveSettings()">保存设置</button>
+                </div>
             </div>
         </div>
-        <input type="file" id="s_logo" accept="image/*" style="display:none" onchange="uploadLogo()">
     </div>
-
-    <!-- ===== 作息时间 ===== -->
-    <div class="card setting-card">
-        <div class="card-title">⏰ 作息时间</div>
-        <?php
-        $ws = work_schedule();
-        $wsState = work_session_now();
-        $stateText = array('before' => '未上班', 'am' => '上午可挂号', 'noon' => '午休', 'pm' => '下午可挂号', 'after' => '已下班');
-        ?>
-        <div class="fs-13" style="line-height:2">
-            上午：<b><?php echo e($ws['am_start'] . ' ~ ' . $ws['am_end']); ?></b><br>
-            下午：<b><?php echo e($ws['pm_start'] . ' ~ ' . $ws['pm_end']); ?></b><br>
-            夏令时：<b><?php echo $ws['dst_enabled'] === '1' ? '已开启（' . e($ws['dst_start']) . ' ~ ' . e($ws['dst_end']) . '）' : '关闭'; ?></b><?php echo $ws['is_dst'] === '1' ? ' <span class="badge badge-warning">当前生效中</span>' : ''; ?><br>
-            当前状态：<span class="badge badge-<?php echo in_array($wsState, array('am', 'pm'), true) ? 'success' : 'gray'; ?>"><?php echo $stateText[$wsState]; ?></span>
-        </div>
-        <div class="fs-12 text-muted mt-8 mb-12">门诊号源仅在作息时段内开放；急诊 24 小时可挂，不受作息限制。</div>
-        <button class="btn btn-primary btn-sm" onclick="openWorkModal()">⏰ 设置作息时间</button>
-    </div>
-
-</div>
 </div><!-- /stab-clinic -->
 
 <!-- ============ Tab: 数据库中心（左右两栏） ============ -->
 <div class="stab-pane" id="stab-db" style="display:none">
-    <style>
-        .db-center { display: flex; gap: 14px; align-items: flex-start; height: calc(100vh - var(--topbar-h) - 120px); }
-        .db-sidebar { width: 150px; flex-shrink: 0; padding: 10px; }
-        .db-nav {
-            display: block; width: 100%; text-align: left; padding: 9px 12px; margin-bottom: 4px;
-            border-radius: var(--radius-sm); border: 0; background: transparent; cursor: pointer;
-            font-size: 13px; color: var(--text); transition: background .15s, color .15s;
-        }
-        .db-nav:hover { background: var(--bg-soft); }
-        .db-nav.active { background: var(--primary); color: #fff; font-weight: 600; }
-        .db-main { flex: 1; min-width: 0; height: 100%; overflow-y: auto; padding-bottom: 18px; }
-        .db-pane .card.setting-card { margin-bottom: 14px; }
-        /* 数据表浏览器：列表延伸至页面底部（卡片占满高度，列表内部滚动） */
-        #dbtab-browse { height: 100%; display: flex; flex-direction: column; }
-        #dbtab-browse .card.setting-card { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-        #dbtab-browse #dbTableList { flex: 1; min-height: 0; overflow-y: auto; }
-    </style>
     <div class="db-center">
         <!-- 左侧边栏 -->
         <div class="card db-sidebar">
@@ -220,61 +235,88 @@ $dbType = strtoupper(DatabaseManager::driver());
     </div>
 </div>
 
-<!-- ============ Tab: 缓存与性能 ============ -->
+<!-- ============ Tab: 缓存与性能（左右两栏） ============ -->
 <div class="stab-pane" id="stab-cache" style="display:none">
-    <div class="card setting-card">
-        <div class="card-title">⚡ 缓存状态</div>
-        <div id="cacheStatusBox" class="fs-13" style="line-height:2"><div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
-    </div>
-    <div class="card setting-card">
-        <div class="card-title">🔁 缓存驱动切换</div>
-        <div class="fs-13 text-muted mb-8">选择缓存/会话驱动（写入 config.db，会话驱动将同步生效）。选项来自系统驱动注册表（与安装向导一致），未安装扩展的驱动会标注。</div>
-        <div class="form-group"><label class="form-label">驱动</label>
-            <select class="select" id="cacheDriverSel" onchange="toggleCacheRedisOpts()"></select></div>
-        <div id="cacheParamsBox"></div>
-        <button class="btn btn-primary btn-sm" onclick="saveCacheDriver()">保存缓存驱动</button>
-        <span class="fs-13 text-muted ml-8" id="cacheDriverMsg"></span>
-    </div>
-    <div class="card setting-card">
-        <div class="card-title">🧹 模块化缓存刷新</div>
-        <div class="fs-13 text-muted mb-8">按模块清除缓存文件（系统配置 / ICD-10 与字典 / 排班叫号临时 / 全量）。</div>
-        <div class="flex gap-8" style="flex-wrap:wrap">
-            <button class="btn btn-outline btn-sm" onclick="flushCache('config')">刷新系统配置缓存</button>
-            <button class="btn btn-outline btn-sm" onclick="flushCache('dict')">刷新字典缓存</button>
-            <button class="btn btn-outline btn-sm" onclick="flushCache('call')">刷新排班叫号缓存</button>
-            <button class="btn btn-danger btn-sm" onclick="flushCache('all')">全量刷新</button>
+    <div class="db-center">
+        <div class="card db-sidebar">
+            <div class="db-nav active" data-catab="detail" onclick="cacheTab('detail')">📊 详情</div>
+            <div class="db-nav" data-catab="driver" onclick="cacheTab('driver')">🔁 驱动</div>
+            <div class="db-nav" data-catab="flush" onclick="cacheTab('flush')">🧹 刷新</div>
         </div>
-        <div class="fs-12 text-muted mt-8" id="cacheFlushMsg"></div>
+        <div class="db-main">
+            <div class="db-pane" id="catab-detail">
+                <div class="card setting-card">
+                    <div class="card-title">⚡ 缓存状态</div>
+                    <div id="cacheStatusBox" class="fs-13" style="line-height:2"><div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
+                </div>
+            </div>
+            <div class="db-pane" id="catab-driver" style="display:none">
+                <div class="card setting-card">
+                    <div class="card-title">🔁 缓存驱动切换</div>
+                    <div class="fs-13 text-muted mb-8">选择缓存/会话驱动（写入 config.db，会话驱动将同步生效）。选项来自系统驱动注册表（与安装向导一致），未安装扩展的驱动会标注。</div>
+                    <div class="form-group"><label class="form-label">驱动</label>
+                        <select class="select" id="cacheDriverSel" onchange="toggleCacheRedisOpts()"></select></div>
+                    <div id="cacheParamsBox"></div>
+                    <button class="btn btn-primary btn-sm" onclick="saveCacheDriver()">保存缓存驱动</button>
+                    <span class="fs-13 text-muted ml-8" id="cacheDriverMsg"></span>
+                </div>
+            </div>
+            <div class="db-pane" id="catab-flush" style="display:none">
+                <div class="card setting-card">
+                    <div class="card-title">🧹 模块化缓存刷新</div>
+                    <div class="fs-13 text-muted mb-8">按模块清除缓存文件（系统配置 / ICD-10 与字典 / 排班叫号临时 / 全量）。</div>
+                    <div class="flex gap-8" style="flex-wrap:wrap">
+                        <button class="btn btn-outline btn-sm" onclick="flushCache('config')">刷新系统配置缓存</button>
+                        <button class="btn btn-outline btn-sm" onclick="flushCache('dict')">刷新字典缓存</button>
+                        <button class="btn btn-outline btn-sm" onclick="flushCache('call')">刷新排班叫号缓存</button>
+                        <button class="btn btn-danger btn-sm" onclick="flushCache('all')">全量刷新</button>
+                    </div>
+                    <div class="fs-12 text-muted mt-8" id="cacheFlushMsg"></div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<!-- ============ Tab: 安全与加密 ============ -->
+<!-- ============ Tab: 安全与加密（左右两栏） ============ -->
 <div class="stab-pane" id="stab-security" style="display:none">
-    <div class="card setting-card">
-        <div class="card-title">🔐 登录安全与防爆破</div>
-        <div class="setting-sec-title" style="margin-top:0;padding-top:0;border-top:none">登录验证码与防爆破锁定</div>
-        <div class="form-row">
-            <div class="form-group"><label class="form-label">登录验证码启用模式</label>
-                <select class="select" id="s_captcha_mode">
-                    <option value="auto"<?php echo setting('login_captcha_mode', 'auto') === 'auto' ? ' selected' : ''; ?>>智能开启（默认：正常不显示，遇错误/风险自动弹出）</option>
-                    <option value="force"<?php echo setting('login_captcha_mode') === 'force' ? ' selected' : ''; ?>>强制开启（每次登录均要求验证码）</option>
-                    <option value="off"<?php echo setting('login_captcha_mode') === 'off' ? ' selected' : ''; ?>>不开启（完全不展示与校验验证码）</option>
-                </select></div>
-            <div class="form-group"><label class="form-label">密码连续错误锁定阈值（次）</label>
-                <input class="input" id="s_lock_count" type="number" min="3" max="10" value="<?php echo (int)setting('login_fail_lock_count', 5); ?>">
-                <div class="fs-12 text-muted mt-4">连续密码错误达到阈值后账号自动安全锁定（status=0），需管理员在【用户管理】中解锁；解锁时同步重置错误计数与锁定信息。</div></div>
+    <div class="db-center">
+        <div class="card db-sidebar">
+            <div class="db-nav active" data-sctab="login" onclick="secTab('login')">🔐 登录安全</div>
+            <div class="db-nav" data-sctab="obf" onclick="secTab('obf')">🔗 加密混淆</div>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="saveSettings()">保存安全设置</button>
-    </div>
-    <div class="card setting-card">
-        <div class="card-title">🔗 URL 安全混淆密钥（防链接撞库）</div>
-        <div class="fs-13 text-muted mb-8">用于加密就诊、申请单、报告等链接中的实体 ID，防止通过改数字遍历他人医疗数据。</div>
-        <div class="fs-12 mb-8" style="font-family:monospace;word-break:break-all;background:var(--bg-soft);border-radius:var(--radius-md);padding:10px" id="obf_secret">加载中…</div>
-        <div class="flex gap-8">
-            <button class="btn btn-outline btn-sm" onclick="resetObfToken()">🔄 重置密钥</button>
-            <button class="btn btn-outline btn-sm" onclick="copyObfSecret()">复制</button>
+        <div class="db-main">
+            <div class="db-pane" id="sctab-login">
+                <div class="card setting-card">
+                    <div class="card-title">🔐 登录安全与防爆破</div>
+                    <div class="setting-sec-title" style="margin-top:0;padding-top:0;border-top:none">登录验证码与防爆破锁定</div>
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">登录验证码启用模式</label>
+                            <select class="select" id="s_captcha_mode">
+                                <option value="auto"<?php echo setting('login_captcha_mode', 'auto') === 'auto' ? ' selected' : ''; ?>>智能开启（默认：正常不显示，遇错误/风险自动弹出）</option>
+                                <option value="force"<?php echo setting('login_captcha_mode') === 'force' ? ' selected' : ''; ?>>强制开启（每次登录均要求验证码）</option>
+                                <option value="off"<?php echo setting('login_captcha_mode') === 'off' ? ' selected' : ''; ?>>不开启（完全不展示与校验验证码）</option>
+                            </select></div>
+                        <div class="form-group"><label class="form-label">密码连续错误锁定阈值（次）</label>
+                            <input class="input" id="s_lock_count" type="number" min="3" max="10" value="<?php echo (int)setting('login_fail_lock_count', 5); ?>">
+                            <div class="fs-12 text-muted mt-4">连续密码错误达到阈值后账号自动安全锁定（status=0），需管理员在【用户管理】中解锁；解锁时同步重置错误计数与锁定信息。</div></div>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="saveSettings()">保存安全设置</button>
+                </div>
+            </div>
+            <div class="db-pane" id="sctab-obf" style="display:none">
+                <div class="card setting-card">
+                    <div class="card-title">🔗 URL 安全混淆密钥（防链接撞库）</div>
+                    <div class="fs-13 text-muted mb-8">用于加密就诊、申请单、报告等链接中的实体 ID，防止通过改数字遍历他人医疗数据。</div>
+                    <div class="fs-12 mb-8" style="font-family:monospace;word-break:break-all;background:var(--bg-soft);border-radius:var(--radius-md);padding:10px" id="obf_secret">加载中…</div>
+                    <div class="flex gap-8">
+                        <button class="btn btn-outline btn-sm" onclick="resetObfToken()">🔄 重置密钥</button>
+                        <button class="btn btn-outline btn-sm" onclick="copyObfSecret()">复制</button>
+                    </div>
+                    <div class="fs-12 text-warning mt-8">⚠️ 重置后：此前生成/分享/收藏的所有带 ID 链接立即失效；系统功能不受影响（新链接按新密钥即时生成）。建议在怀疑链接泄露时重置。</div>
+                </div>
+            </div>
         </div>
-        <div class="fs-12 text-warning mt-8">⚠️ 重置后：此前生成/分享/收藏的所有带 ID 链接立即失效；系统功能不受影响（新链接按新密钥即时生成）。建议在怀疑链接泄露时重置。</div>
     </div>
 </div><!-- /stab-security -->
 
@@ -520,10 +562,33 @@ function settingsTab(name) {
     document.querySelectorAll('.stab-pane').forEach(function (p) {
         p.style.display = p.id === 'stab-' + name ? '' : 'none';
     });
+    if (name === 'clinic') clTab('info');
     if (name === 'db') { dbTab('detail'); loadDbStatus(); }
-    if (name === 'cache') { if (!SET_DRIVERS) loadDbStatus(); loadCacheStatus(); }
+    if (name === 'cache') cacheTab('detail');
+    if (name === 'security') secTab('login');
 }
 settingsTab('clinic');
+
+/* ---------- 医院机构信息子 Tab（左右两栏） ---------- */
+function clTab(name) {
+    document.querySelectorAll('#stab-clinic .db-nav').forEach(function (n) { n.classList.toggle('active', n.getAttribute('data-cltab') === name); });
+    document.querySelectorAll('#stab-clinic .db-pane').forEach(function (p) { p.style.display = p.id === 'cltab-' + name ? '' : 'none'; });
+}
+
+/* ---------- 缓存与性能子 Tab（左右两栏） ---------- */
+function cacheTab(name) {
+    document.querySelectorAll('#stab-cache .db-nav').forEach(function (n) { n.classList.toggle('active', n.getAttribute('data-catab') === name); });
+    document.querySelectorAll('#stab-cache .db-pane').forEach(function (p) { p.style.display = p.id === 'catab-' + name ? '' : 'none'; });
+    if (name === 'detail') loadCacheStatus();
+    if (name === 'driver') { if (!SET_DRIVERS) loadDbStatus(); loadCacheStatus(); }
+}
+
+/* ---------- 安全与加密子 Tab（左右两栏） ---------- */
+function secTab(name) {
+    document.querySelectorAll('#stab-security .db-nav').forEach(function (n) { n.classList.toggle('active', n.getAttribute('data-sctab') === name); });
+    document.querySelectorAll('#stab-security .db-pane').forEach(function (p) { p.style.display = p.id === 'sctab-' + name ? '' : 'none'; });
+    if (name === 'obf') loadObfStatus();
+}
 
 /* ---------- 数据库中心 ---------- */
 var DB_CUR_TABLE = '';
