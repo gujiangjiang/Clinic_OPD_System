@@ -159,10 +159,11 @@ function openTplForm(id) {
  * 模板只读预览：复用「添加/编辑模板」同一个模态框（buildTplForm），
  * 打开后整框强制只读（emrEditor readonly + modalReadonly 禁用所有控件/拦截交互）。
  * 供「他人模板」预览与管理员审核统一调用。
- * @param {number} id     模板 ID
- * @param {string} [type] 模板类型（medical_record/consent/...），可选（用于从审核页跳转时切 Tab）
+ * @param {number} id      模板 ID
+ * @param {string} [type]  模板类型（medical_record/consent/...），可选（用于从审核页跳转时切 Tab）
+ * @param {number} [auditId] 审核记录 ID：实体已被删除时按审计快照渲染同一原始弹窗
  */
-function previewTpl(id, type) {
+function previewTpl(id, type, auditId) {
     if (type) {
         TPL_TYPE = type;
         var tsel = document.getElementById('tplTypeSel');
@@ -175,10 +176,29 @@ function previewTpl(id, type) {
         : '/api/template?action=get&id=' + id + '&for_apply=1';
     Clinic.get(url, null, {
         onSuccess: function (j) {
-            if (!(j.data && j.data.template)) { Clinic.toast.warning('该模板已被删除或不可见，无法预览'); return; }
-            var mask = Clinic.modal.open('<div id="tplFormContent"></div>', { title: '预览模板', size: 'modal-xl' });
-            buildTplForm(mask, j.data.template, true);
-            if (Clinic.modalReadonly) Clinic.modalReadonly(mask);
+            if (j.data && j.data.template) {
+                var mask = Clinic.modal.open('<div id="tplFormContent"></div>', { title: '预览模板', size: 'modal-xl' });
+                buildTplForm(mask, j.data.template, true);
+                if (Clinic.modalReadonly) Clinic.modalReadonly(mask);
+                return;
+            }
+            // 实体已被删除：按审计快照渲染同一原始弹窗（审核中心「预览」带 audit 参数）
+            if (auditId) {
+                Clinic.get('/api/admin?action=audit_preview&id=' + auditId, null, {
+                    onSuccess: function (j2) {
+                        if (j2.data && j2.data.template) {
+                            var m2 = Clinic.modal.open('<div id="tplFormContent"></div>', { title: '预览模板（已删除，按提交快照）', size: 'modal-xl' });
+                            buildTplForm(m2, j2.data.template, true);
+                            if (Clinic.modalReadonly) Clinic.modalReadonly(m2);
+                            return;
+                        }
+                        Clinic.toast.warning('该模板已被删除，且无快照可预览');
+                    },
+                    onError: function () { Clinic.toast.warning('该模板已被删除，且无快照可预览'); },
+                });
+                return;
+            }
+            Clinic.toast.warning('该模板已被删除或不可见，无法预览');
         },
         onError: function () { Clinic.toast.warning('该模板已被删除或不可见，无法预览'); },
     });
@@ -370,12 +390,13 @@ function delTpl(id) {
 
 initTplPaged();
 
-/* 审核中心跳转预览：?preview=ID&type=xxx 自动打开模板只读预览（复用编辑模态框） */
+/* 审核中心跳转预览：?preview=ID&type=xxx&audit=审核ID 自动打开模板只读预览（复用编辑模态框） */
 (function () {
     var m = (location.search.match(/[?&]preview=(\d+)/) || [])[1];
     if (m) {
         var pt = (location.search.match(/[?&]type=([^&]+)/) || [])[1];
-        setTimeout(function () { previewTpl(parseInt(m, 10), pt ? decodeURIComponent(pt) : undefined); }, 300);
+        var a = (location.search.match(/[?&]audit=(\d+)/) || [])[1];
+        setTimeout(function () { previewTpl(parseInt(m, 10), pt ? decodeURIComponent(pt) : undefined, a ? parseInt(a, 10) : 0); }, 300);
     }
 })();
 </script>

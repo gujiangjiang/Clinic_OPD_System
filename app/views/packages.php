@@ -439,7 +439,7 @@ function pkgBuildForm(mask, pkg, readonly) {
  * 打开后整框强制只读（modalReadonly 禁用所有控件/拦截交互）。
  * 供「他人套餐」预览与管理员审核统一调用。
  */
-function previewPkg(id) {
+function previewPkg(id, auditId) {
     if (PKG_CAT_LIST) { PKG_CAT_LIST.stop(); PKG_CAT_LIST = null; }
     if (PKG_SUB_LIST) { PKG_SUB_LIST.stop(); PKG_SUB_LIST = null; }
     PKG_TAB_GET = null;
@@ -454,11 +454,31 @@ function previewPkg(id) {
         : '/api/package?action=get&id=' + id + '&for_apply=1';
     Clinic.get(url, null, {
         onSuccess: function (j) {
-            if (!(j.data && j.data.package)) { Clinic.toast.warning('该套餐已被删除或不可见，无法预览'); return; }
-            var mask = Clinic.modal.open('<div id="pkgFormBox"></div>', { title: '预览套餐', size: 'modal-xl pkg-form-modal' });
-            if (j.data.lab_map) PKG_LAB_MAP = j.data.lab_map;
-            pkgBuildForm(mask, j.data.package, true);
-            if (Clinic.modalReadonly) Clinic.modalReadonly(mask);
+            if (j.data && j.data.package) {
+                var mask = Clinic.modal.open('<div id="pkgFormBox"></div>', { title: '预览套餐', size: 'modal-xl pkg-form-modal' });
+                if (j.data.lab_map) PKG_LAB_MAP = j.data.lab_map;
+                pkgBuildForm(mask, j.data.package, true);
+                if (Clinic.modalReadonly) Clinic.modalReadonly(mask);
+                return;
+            }
+            // 实体已被删除：按审计快照渲染同一原始弹窗（审核中心「预览」带 audit 参数）
+            if (auditId) {
+                Clinic.get('/api/admin?action=audit_preview&id=' + auditId, null, {
+                    onSuccess: function (j2) {
+                        if (j2.data && j2.data.package) {
+                            var m2 = Clinic.modal.open('<div id="pkgFormBox"></div>', { title: '预览套餐（已删除，按提交快照）', size: 'modal-xl pkg-form-modal' });
+                            if (j2.data.lab_map) PKG_LAB_MAP = j2.data.lab_map;
+                            pkgBuildForm(m2, j2.data.package, true);
+                            if (Clinic.modalReadonly) Clinic.modalReadonly(m2);
+                            return;
+                        }
+                        Clinic.toast.warning('该套餐已被删除，且无快照可预览');
+                    },
+                    onError: function () { Clinic.toast.warning('该套餐已被删除，且无快照可预览'); },
+                });
+                return;
+            }
+            Clinic.toast.warning('该套餐已被删除或不可见，无法预览');
         },
         onError: function () { Clinic.toast.warning('该套餐已被删除或不可见，无法预览'); },
     });
@@ -878,11 +898,12 @@ function pkgDel(id) {
 
 pkgInitList();
 
-/* 审核中心跳转预览：?preview=ID 自动打开套餐只读预览（复用编辑模态框） */
+/* 审核中心跳转预览：?preview=ID&audit=审核ID 自动打开套餐只读预览（复用编辑模态框） */
 (function () {
     var m = (location.search.match(/[?&]preview=(\d+)/) || [])[1];
     if (m) {
-        setTimeout(function () { previewPkg(parseInt(m, 10)); }, 300);
+        var a = (location.search.match(/[?&]audit=(\d+)/) || [])[1];
+        setTimeout(function () { previewPkg(parseInt(m, 10), a ? parseInt(a, 10) : 0); }, 300);
     }
 })();
 </script>
