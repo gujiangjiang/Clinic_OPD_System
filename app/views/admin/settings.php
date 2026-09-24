@@ -110,7 +110,7 @@ $dbType = strtoupper(DatabaseManager::driver());
                 <div class="card setting-card">
                     <div class="card-title">🌐 网站时区</div>
                     <div class="form-group"><label class="form-label">全站时区</label>
-                        <select class="select" id="s_tz"><?php echo $tzOpts; ?></select>
+                        <select class="select" id="s_tz" data-csd-search="1"><?php echo $tzOpts; ?></select>
                         <div class="fs-12 text-muted mt-4">默认取创建管理员时的浏览器时区，修改后保存设置即时生效。</div></div>
                     <button class="btn btn-primary btn-sm" onclick="saveSettings()">保存设置</button>
                 </div>
@@ -641,9 +641,10 @@ function loadDbStatus() {
 
 var DB_TABLE_MODAL = null;
 var DB_INF = null;   // 数据表无限滚动句柄
-/* 刷新当前数据表（重新打开加载） */
+/* 刷新当前数据表（原地重置无限列表加载，不重开弹窗，避免重复 ID/闪烁） */
 function refreshDbTable() {
-    if (DB_CUR_TABLE) openDbTable(DB_CUR_TABLE);
+    if (DB_INF) DB_INF.reset();
+    else if (DB_CUR_TABLE) openDbTable(DB_CUR_TABLE);
 }
 
 function openDbTable(table) {
@@ -661,7 +662,6 @@ function openDbTable(table) {
         '<div class="table-wrap" id="dbTableScroll" style="height:440px;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-md)">' +
         '<div class="text-muted text-center" style="padding:30px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>';
     DB_TABLE_MODAL = Clinic.modal.open(html, { title: '数据表查看', size: 'modal-xl' });
-    var first = true;   // 首屏渲染完整表格，后续页仅插入行
     DB_INF = Clinic.infiniteList({
         el: document.getElementById('dbTableScroll'),
         pageSize: 50,
@@ -689,7 +689,8 @@ function openDbTable(table) {
                 : rowHtml;
         },
         append: function (el, html) {
-            if (first) { el.innerHTML = html; first = false; return; }
+            // 容器尚无表格（首屏/重置后）→ 写入完整 table；已有表格 → 追加行到 tbody
+            if (!el.querySelector('table')) { el.innerHTML = html; return; }
             var tb = el.querySelector('tbody');
             if (tb) tb.insertAdjacentHTML('beforeend', html);
         },
