@@ -608,7 +608,7 @@ function openDbTable(table) {
         el: document.getElementById('dbTableScroll'),
         pageSize: 50,
         threshold: 80,
-        emptyHtml: '<div class="text-muted text-center" style="padding:30px">该表暂无数据</div>',
+        emptyHtml: '<div class="empty" style="padding:40px 0"><div class="empty-ico">📋</div>该表暂无数据</div>',
         url: function (p, size) {
             return '/api/admin?action=db_table_data&table=' + encodeURIComponent(DB_CUR_TABLE) + '&page=' + p + '&size=' + size;
         },
@@ -668,6 +668,12 @@ function loadCacheStatus() {
         loading: false,
         onSuccess: function (json) {
             var d = json.data || {};
+            // 缓存驱动切换下拉选中当前实际驱动
+            var csel = document.getElementById('cacheDriverSel');
+            if (csel && d.driver) {
+                csel.value = d.driver;
+                toggleCacheRedisOpts();
+            }
             box.innerHTML =
                 '<div class="flex-between"><span class="text-muted">缓存驱动</span><span class="fw-600">' + escHtml(d.driver_label) + '</span></div>' +
                 '<div class="flex-between"><span class="text-muted">键数量</span><span>' + (d.keys || 0) + '</span></div>' +
