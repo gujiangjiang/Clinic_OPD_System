@@ -277,11 +277,9 @@ function copyHisUrl() {
     copyText(hisUrlText(key));
 }
 function copyHisCurl() {
-    var el = document.getElementById('hisCurlDemo');
-    if (!el) return;
-    var t = el.textContent.trim();
-    if (t.indexOf('<密钥>') !== -1) { Clinic.toast.warning('请先填写或生成接口密钥并保存本组配置'); return; }
-    copyText(t);
+    var key = ((document.getElementById('itg_his_api_key') || {}).value || '').trim();
+    if (key === '') { Clinic.toast.warning('请先填写或生成接口密钥并保存本组配置'); return; }
+    copyText('curl -H "X-HIS-Key: ' + key + '" "' + HIS_BASE + '?action=patient_get&id_card=110101199001011234"');
 }
 
 /* ---------- HIS 接口连通性测试（请求头 + GET 参数两种方式） ---------- */
