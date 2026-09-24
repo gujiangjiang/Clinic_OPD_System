@@ -1,15 +1,16 @@
 <?php
 /**
  * ============================================================
- * install.php — 首次安装接口（5 步向导后端）
+ * install.php — 首次安装接口（6 步向导后端）
  * ============================================================
  * 说明：安装向导的后端支撑：
- * 1. preflight   环境巡检（PHP 版本/扩展/目录权限/已有数据检测）
- * 2. test_db     测试数据库连接（SQLite 文件有效性 / MySQL 连通性）
- * 3. test_redis  测试 Redis 连通性
- * 4. save        执行安装：写入 config.db（基础设施配置）→
+ * 1. preflight   环境巡检（PHP 版本/扩展/目录权限）
+ * 2. test_db     测试数据库连接（仅 MySQL/PostgreSQL；SQLite 无需测试）
+ * 3. check_db    数据库就绪校验（第 2 步下一步：必填+连接+重复安装检测）
+ * 4. test_redis  测试 Redis 连通性
+ * 5. save        执行安装：写入 config.db（基础设施配置）→
  *                全新安装建库建表种子 + 创建管理员；或关联现有库
- *                （仅重写配置，不破坏已有数据）
+ *                （仅重写配置，不破坏已有数据）；全新安装遇已有数据则清空重建
  * ============================================================ */
 
 $action = isset($_REQUEST['action']) ? trim((string)$_REQUEST['action']) : '';
@@ -42,82 +43,145 @@ if ($action === 'preflight') {
         if (!is_dir($d)) { @mkdir($d, 0777, true); }
         $dirs[] = array('path' => str_replace(APP_ROOT, '.', $d), 'ok' => is_dir($d) && is_writable($d));
     }
-    // 已有数据检测（默认驱动下主库是否存在且已有管理员）
-    $existingMain = '';
-    $existingInstalled = false;
-    try {
-        $mainFile = DATA_DIR . '/db/clinic_main.db';
-        if (is_file($mainFile) && ConfigStore::isSqliteFile($mainFile)) {
-            $existingMain = $mainFile;
-        }
-    } catch (Exception $ex) {}
-    try {
-        $existingInstalled = ConfigStore::isSystemInstalled();
-    } catch (Exception $ex) {}
     json_ok(array(
         'php_version' => $phpVersion,
         'extensions' => $extensions,
         'dirs' => $dirs,
-        'existing_main' => $existingMain,
-        'existing_installed' => $existingInstalled,
         // 驱动选项注册表（app/config/drivers.php 唯一数据源）：安装向导动态渲染下拉，
         // 与系统设置（数据库中心/缓存与性能）共用同一套选项
         'drivers' => ConfigStore::driverOptionsPublic(),
     ));
 }
 
-/* ==================== 数据库连接测试 ==================== */
+/* ==================== 安装向导辅助函数 ==================== */
+
+/**
+ * 解析 SQLite 数据库名称 → 统一存放于 data/db/ 的相对路径。
+ * 自动补全 .db 后缀（输入 123 或 123.db 均识别为 123.db）；禁止路径穿越。
+ * @return array [相对路径|null, 错误信息]
+ */
+function install_sqlite_name_path($name) {
+    $name = trim((string)$name);
+    if ($name === '') $name = 'clinic_main';
+    $name = basename(str_replace('\\', '/', $name));
+    if (!preg_match('/\.db$/i', $name)) $name .= '.db';
+    if (!preg_match('/^[A-Za-z0-9_\-\x{4e00}-\x{9fa5}]+\.db$/u', $name)) {
+        return array(null, '数据库名称仅允许字母、数字、下划线、中划线或中文');
+    }
+    return array('data/db/' . $name, '');
+}
+
+/**
+ * 建立 MySQL / PostgreSQL 连接并强校验必填项。
+ * @return array [PDO|null, 错误信息]
+ */
+function install_remote_pdo($driver, $host, $port, $dbname, $user, $pass, $timeout = 5) {
+    if (trim((string)$host) === '') return array(null, '请填写数据库主机');
+    if (trim((string)$port) === '') return array(null, '请填写数据库端口');
+    if (trim((string)$dbname) === '') return array(null, '请填写数据库名');
+    if (trim((string)$user) === '') return array(null, '请填写数据库用户名');
+    if ((string)$pass === '') return array(null, '请填写数据库密码');
+    try {
+        if ($driver === 'pgsql') {
+            $dsn = 'pgsql:host=' . $host . ';port=' . $port . ';dbname=' . $dbname;
+        } else {
+            $dsn = 'mysql:host=' . $host . ';port=' . $port . ';dbname=' . $dbname . ';charset=utf8mb4';
+        }
+        $pdo = new PDO($dsn, $user, $pass, array(
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_CONNECT_TIMEOUT => $timeout,
+        ));
+        return array($pdo, '');
+    } catch (Exception $ex) {
+        return array(null, strtoupper($driver) . ' 连接失败：' . $ex->getMessage());
+    }
+}
+
+/** 检测目标主库是否已安装（users 表存在且非空，即安装完成标记） */
+function install_db_installed($pdo) {
+    try {
+        return (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() > 0;
+    } catch (Exception $ex) {
+        return false;
+    }
+}
+
+/* ==================== 数据库连接测试（仅 MySQL/PostgreSQL） ==================== */
 if ($action === 'test_db') {
     $driver = req('driver', 'sqlite');
-    if ($driver === 'mysql' || $driver === 'pgsql') {
-        $host = req('host', '127.0.0.1');
-        $port = req('port', $driver === 'pgsql' ? '5432' : '3306');
-        $dbname = req('dbname', '');
-        $user = req('user', '');
-        $pass = req('pass', '');
-        if ($dbname === '') json_fail('请填写数据库名');
-        try {
-            if ($driver === 'pgsql') {
-                $dsn = 'pgsql:host=' . $host . ';port=' . $port . ';dbname=' . $dbname;
-            } else {
-                $dsn = 'mysql:host=' . $host . ';port=' . $port . ';dbname=' . $dbname . ';charset=utf8mb4';
-            }
-            $pdo = new PDO($dsn, $user, $pass, array(
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_CONNECT_TIMEOUT => 5,
-            ));
-            $ver = $driver === 'pgsql' ? $pdo->query('SELECT version()')->fetchColumn() : $pdo->query('SELECT VERSION()')->fetchColumn();
-            json_ok(array(), '连接成功（' . strtoupper($driver) . ' ' . $ver . '）');
-        } catch (Exception $ex) {
-            json_fail('连接失败：' . $ex->getMessage());
-        }
+    if ($driver === 'sqlite') {
+        json_fail('SQLite 为本地文件数据库，无需测试连接');
     }
-    // SQLite：校验文件头 + 打开
-    $path = req('path', '');
-    if ($path === '') {
-        $path = DATA_DIR . '/db/clinic_main.db';
-    }
-    // 规范化路径（相对项目根）
-    if ($path[0] !== '/' && $path[0] !== '.') {
-        $path = APP_ROOT . '/' . ltrim($path, '/');
-    }
-    if (!is_file($path)) {
-        // 文件不存在：检查父目录可写（安装时自动创建）
-        $dir = dirname($path);
-        if (!is_dir($dir)) { @mkdir($dir, 0777, true); }
-        if (!is_dir($dir) || !is_writable($dir)) json_fail('目录不可写：' . $dir);
-        json_ok(array(), '可用（目录可写，安装时将自动创建 SQLite 数据库）');
-    }
-    if (!ConfigStore::isSqliteFile($path)) {
-        json_fail('该文件不是有效的 SQLite 数据库（Magic Header 校验失败）');
-    }
+    if ($driver !== 'mysql' && $driver !== 'pgsql') json_fail('未知的数据库驱动');
+    list($pdo, $err) = install_remote_pdo(
+        $driver,
+        req('host', ''),
+        req('port', $driver === 'pgsql' ? '5432' : '3306'),
+        req('dbname', ''),
+        req('user', ''),
+        req('pass', ''),
+        5
+    );
+    if ($err !== '') json_fail($err);
     try {
-        $pdo = new PDO('sqlite:' . $path, null, null, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
-        $pdo->query('SELECT 1');
-        json_ok(array(), '连接成功（有效 SQLite 数据库）');
+        $ver = $driver === 'pgsql' ? $pdo->query('SELECT version()')->fetchColumn() : $pdo->query('SELECT VERSION()')->fetchColumn();
     } catch (Exception $ex) {
-        json_fail('连接失败：' . $ex->getMessage());
+        $ver = '-';
     }
+    json_ok(array(), '连接成功（' . strtoupper($driver) . ' ' . $ver . '）');
+}
+
+/* ==================== 数据库就绪校验（第 2 步「下一步」触发） ====================
+ * 职责：强校验必填项 + 验证连接/可用性；SQLite 选择后即创建空库文件；
+ *       检测目标库是否已存在安装完成标记（users 表非空），供前端弹窗决策。 */
+if ($action === 'check_db') {
+    $driver = req('driver', 'sqlite');
+    if (!ConfigStore::dbDriverValid($driver)) json_fail('未知的数据库驱动');
+    if ($driver === 'sqlite') {
+        list($rel, $err) = install_sqlite_name_path(req('name', ''));
+        if ($err !== '') json_fail($err);
+        $file = APP_ROOT . '/' . $rel;
+        $dir = dirname($file);
+        if (!is_dir($dir)) { @mkdir($dir, 0777, true); }
+        if (!is_dir($dir) || !is_writable($dir)) json_fail('目录不可写：' . str_replace(APP_ROOT, '.', $dir));
+        $created = false;
+        if (is_file($file)) {
+            if (!ConfigStore::isSqliteFile($file)) {
+                json_fail('该文件已存在且不是有效的 SQLite 数据库，请更换数据库名称');
+            }
+        } else {
+            // 用户已选择 SQLite：此处创建空库文件（建表在最终安装执行）
+            try {
+                $pdo = new PDO('sqlite:' . $file, null, null, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
+                // 写入 SQLite Magic Header（空文件不算有效数据库）
+                $pdo->exec('CREATE TABLE IF NOT EXISTS __install_probe(id INTEGER)');
+                $pdo->exec('DROP TABLE __install_probe');
+                unset($pdo);
+                $created = true;
+            } catch (Exception $ex) {
+                json_fail('创建 SQLite 数据库失败：' . $ex->getMessage());
+            }
+        }
+        $installed = false;
+        try {
+            $pdo = new PDO('sqlite:' . $file, null, null, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
+            $installed = install_db_installed($pdo);
+        } catch (Exception $ex) {}
+        json_ok(array('installed' => $installed, 'created' => $created, 'path' => $rel), '');
+    }
+    // MySQL / PostgreSQL
+    list($pdo, $err) = install_remote_pdo(
+        $driver,
+        req('host', ''),
+        req('port', $driver === 'pgsql' ? '5432' : '3306'),
+        req('dbname', ''),
+        req('user', ''),
+        req('pass', ''),
+        8
+    );
+    if ($err !== '') json_fail($err);
+    $installed = install_db_installed($pdo);
+    json_ok(array('installed' => $installed, 'created' => false), '');
 }
 
 /* ==================== Redis 连接测试 ==================== */
@@ -145,10 +209,6 @@ if ($action === 'test_redis') {
 /* ==================== 执行安装 ==================== */
 if ($action === 'save') {
     CSRF::check();
-    // 安装门：已安装（config.db 有效且主库有管理员）则拒绝
-    if (ConfigStore::exists() && ConfigStore::available() && ConfigStore::isSystemInstalled()) {
-        json_fail('系统已安装，无需重复初始化');
-    }
 
     $mode = post('mode', 'fresh');
     $mode = in_array($mode, array('fresh', 'attach'), true) ? $mode : 'fresh';
@@ -193,32 +253,25 @@ if ($action === 'save') {
     $sqlitePath = '';
     $dbParams = array('host' => '127.0.0.1', 'port' => '3306', 'dbname' => '', 'user' => '', 'pass' => '');
     if ($dbDriver === 'sqlite') {
-        $sqlitePath = trim((string)post('sqlite_path', ''));
-        if ($sqlitePath !== '' && !is_file($sqlitePath)) {
-            // 相对路径转绝对
-            if ($sqlitePath[0] !== '/' && $sqlitePath[0] !== '.') $sqlitePath = APP_ROOT . '/' . ltrim($sqlitePath, '/');
-        }
+        // 仅接收数据库名称，统一存放于 data/db/ 并自动补全 .db 后缀
+        list($sqlitePath, $err) = install_sqlite_name_path(post('sqlite_name', post('sqlite_path', '')));
+        if ($err !== '') json_fail($err);
     } else {
         $dbParams = array(
-            'host' => post('db_host', '127.0.0.1'),
+            'host' => post('db_host', ''),
             'port' => post('db_port', $dbDriver === 'pgsql' ? '5432' : '3306'),
             'dbname' => post('db_name', ''),
             'user' => post('db_user', ''),
             'pass' => post('db_pass', ''),
         );
-        if ($dbParams['dbname'] === '') json_fail('请填写数据库名');
-        // 安装前验证连通性（MySQL / PostgreSQL）
-        try {
-            if ($dbDriver === 'pgsql') {
-                $dsn = 'pgsql:host=' . $dbParams['host'] . ';port=' . $dbParams['port'] . ';dbname=' . $dbParams['dbname'];
-            } else {
-                $dsn = 'mysql:host=' . $dbParams['host'] . ';port=' . $dbParams['port'] . ';dbname=' . $dbParams['dbname'] . ';charset=utf8mb4';
-            }
-            $tp = new PDO($dsn, $dbParams['user'], $dbParams['pass'], array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_CONNECT_TIMEOUT => 8));
-        } catch (Exception $ex) {
-            json_fail(strtoupper($dbDriver) . ' 连接失败：' . $ex->getMessage());
-        }
+        // 安装前强校验必填项并验证连通性（MySQL / PostgreSQL）
+        list($tp, $err) = install_remote_pdo($dbDriver, $dbParams['host'], $dbParams['port'], $dbParams['dbname'], $dbParams['user'], $dbParams['pass'], 8);
+        if ($err !== '') json_fail($err);
     }
+
+    // ===== ICD-10 独立字典库名称（存 config.db，不写主库） =====
+    list($icd10Path, $icd10Err) = install_sqlite_name_path(post('icd10_name', 'icd10'));
+    if ($icd10Err !== '') json_fail('ICD-10 字典库名称无效：' . $icd10Err);
 
     // ===== 写入 config.db（基础设施配置库） =====
     $cfgPath = ConfigStore::path();
@@ -244,6 +297,8 @@ if ($action === 'save') {
     } else {
         ConfigStore::set('db.sqlite.path', $sqlitePath);
     }
+    // ICD-10 独立字典库路径（存 config.db，不写主业务库）
+    ConfigStore::set('db.icd10.path', $icd10Path);
     ConfigStore::set('cache.driver', $cacheDriver);
     if ($cacheDriver === 'redis') {
         ConfigStore::set('cache.redis.host', post('redis_host', '127.0.0.1'));
@@ -259,6 +314,36 @@ if ($action === 'save') {
         ConfigStore::set('app.key', bin2hex(random_bytes(32)));
     }
     ConfigStore::resetCache();
+
+    // ===== 安装模式决策：检测目标库是否已有安装完成标记 =====
+    // 关联现有库（attach）：必须检测到已安装数据，否则报错；
+    // 全新安装（fresh）但目标库已有数据：清空后重建（前端已弹窗确认）。
+    $preInstalled = false;
+    try {
+        if ($dbDriver === 'sqlite') {
+            $probeFile = APP_ROOT . '/' . $sqlitePath;
+            if (is_file($probeFile) && ConfigStore::isSqliteFile($probeFile)) {
+                $probe = new PDO('sqlite:' . $probeFile, null, null, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
+                $preInstalled = install_db_installed($probe);
+                unset($probe);
+            }
+        } else {
+            $preInstalled = install_db_installed($tp);
+        }
+    } catch (Exception $ex) {
+        $preInstalled = false;
+    }
+    if ($mode === 'attach' && !$preInstalled) {
+        json_fail('所选数据库不存在已安装的数据（未检测到安装完成标记）。若需全新安装请选择「全新安装」');
+    }
+    if ($mode === 'fresh' && $preInstalled) {
+        // 用户已确认全新安装：清空目标库后重建
+        try {
+            DatabaseManager::wipeMain();
+        } catch (Exception $ex) {
+            json_fail('清空原数据库失败：' . $ex->getMessage());
+        }
+    }
 
     // ===== 连接并初始化主库 =====
     try {
@@ -292,6 +377,7 @@ if ($action === 'save') {
         }
         if ($logo !== '') set_setting('logo', $logo);
         date_default_timezone_set($timezone);
+        ConfigStore::set('install.done', '1');
         json_ok(array('mode' => 'attach'), '已关联现有数据库，系统安装完成');
     }
 
@@ -324,6 +410,7 @@ if ($action === 'save') {
     set_setting('logo', $logo);
     set_setting('install_time', now_str());
     date_default_timezone_set($timezone);
+    ConfigStore::set('install.done', '1');
 
     json_ok(array('admin_id' => isset($adminId) ? $adminId : 0, 'mode' => 'fresh'), '系统安装成功，请使用管理员账号登录');
 }

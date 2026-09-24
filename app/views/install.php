@@ -1,12 +1,13 @@
 <?php
 /**
- * install.php — 首次安装向导（5 步）
+ * install.php — 首次安装向导（6 步）
  * ============================================================
- * Step 1 欢迎与环境巡检：PHP 版本/扩展/目录权限
- * Step 2 基础设施与数据库配置：驱动选择 + 全新/关联现有 + 缓存
- * Step 3 医疗机构基础设置：机构/时区/就诊规则
- * Step 4 创建超级管理员：账号/密码/邮箱
- * Step 5 最终确认与安装执行
+ * Step 1 环境巡检：PHP 版本/扩展/目录权限
+ * Step 2 数据库配置：驱动选择 + 连接校验 + ICD-10 字典库
+ * Step 3 缓存设置：缓存/会话驱动
+ * Step 4 医疗机构基础设置：机构/时区/就诊规则
+ * Step 5 创建超级管理员：账号/密码/邮箱
+ * Step 6 最终确认与安装执行
  * ============================================================
  */
 
@@ -23,41 +24,38 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
     <div style="text-align:center;margin:-2px 0 12px">
         <span class="badge badge-outline" style="font-size:11px;letter-spacing:.04em" id="installBadge">准备安装</span>
     </div>
-    <div class="auth-sub" id="wizardSub">首次初始化向导 · 共 5 步</div>
+    <div class="auth-sub" id="wizardSub">首次初始化向导 · 共 6 步</div>
 
     <!-- 步骤指示器 -->
     <div class="step-dots" id="stepDots">
-        <span class="step-dot on" data-step="1"></span><span class="step-dot" data-step="2"></span><span class="step-dot" data-step="3"></span><span class="step-dot" data-step="4"></span><span class="step-dot" data-step="5"></span>
+        <span class="step-dot on" data-step="1"></span><span class="step-dot" data-step="2"></span><span class="step-dot" data-step="3"></span><span class="step-dot" data-step="4"></span><span class="step-dot" data-step="5"></span><span class="step-dot" data-step="6"></span>
     </div>
 
     <!-- ============ Step 1: 环境巡检 ============ -->
     <div class="wiz-step" data-step="1">
-        <div class="form-group"><label class="form-label">环境巡检</label>
-            <div class="card" style="padding:12px;max-height:280px;overflow-y:auto" id="preflightBox">
+        <div class="form-group"><label class="form-label" style="display:flex;align-items:center;justify-content:space-between">环境巡检
+            <button type="button" class="btn btn-outline btn-sm" onclick="loadPreflight()">重新检测</button></label>
+            <div class="card" style="padding:12px;max-height:300px;overflow-y:auto" id="preflightBox">
                 <div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div>正在检查环境…</div>
-            </div>
-        </div>
-        <div class="form-group" id="mainDbHint" style="display:none">
-            <div class="fs-13" style="background:var(--primary-soft);border-radius:var(--radius-md);padding:10px 12px">
-                <span id="mainDbHintText"></span>
             </div>
         </div>
     </div>
 
-    <!-- ============ Step 2: 数据库与缓存 ============ -->
+    <!-- ============ Step 2: 数据库配置 ============ -->
     <div class="wiz-step" data-step="2" style="display:none">
         <div class="form-group"><label class="form-label">数据库驱动 <span class="req">*</span></label>
             <select class="select" id="dbDriver"></select>
             <div class="fs-12 text-muted mt-4">选项来自系统驱动注册表（与系统设置-数据库中心一致），未安装扩展的驱动会标注。</div>
         </div>
         <div id="dbParamsBox"></div>
-        <div class="form-group"><label class="form-label">安装方式 <span class="req">*</span></label>
-            <div class="flex gap-8" style="flex-wrap:wrap">
-                <label class="flex gap-4" style="align-items:center;cursor:pointer"><input type="radio" name="installMode" value="fresh" checked> 全新安装（建库并导入基础字典）</label>
-                <label class="flex gap-4" style="align-items:center;cursor:pointer"><input type="radio" name="installMode" value="attach"> 关联现有数据库（保留已有数据）</label>
-            </div>
-            <div class="fs-12 text-muted mt-4">关联现有数据库：若之前已安装过（主库表结构完整），选择后仅重新绑定连接，不破坏任何已有数据。</div>
+        <div class="form-group"><label class="form-label">ICD-10 诊断库名称</label>
+            <input type="text" class="input" id="icd10_name" value="icd10" placeholder="默认 icd10">
+            <div class="fs-12 text-muted mt-4">独立只读字典库，统一存放于 data/db/，可省略 .db 后缀。</div>
         </div>
+    </div>
+
+    <!-- ============ Step 3: 缓存设置 ============ -->
+    <div class="wiz-step" data-step="3" style="display:none">
         <div class="form-group"><label class="form-label">缓存驱动</label>
             <select class="select" id="cacheDriver"></select>
             <div class="fs-12 text-muted mt-4">缓存/会话驱动选项同样来自驱动注册表（与系统设置-缓存与性能一致）。</div>
@@ -65,8 +63,8 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
         <div id="cacheParamsBox"></div>
     </div>
 
-    <!-- ============ Step 3: 医疗机构 ============ -->
-    <div class="wiz-step" data-step="3" style="display:none">
+    <!-- ============ Step 4: 医疗机构 ============ -->
+    <div class="wiz-step" data-step="4" style="display:none">
         <div class="form-group"><label class="form-label">医院名称 <span class="req">*</span></label>
             <input type="text" class="input" id="hospital_name" placeholder="如：XX市人民医院"></div>
         <div class="form-group"><label class="form-label">机构代码 <span class="req">*</span></label>
@@ -92,8 +90,8 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
             <input type="file" class="input" id="logo" accept="image/*"></div>
     </div>
 
-    <!-- ============ Step 4: 管理员 ============ -->
-    <div class="wiz-step" data-step="4" style="display:none">
+    <!-- ============ Step 5: 管理员 ============ -->
+    <div class="wiz-step" data-step="5" style="display:none">
         <div class="form-group"><label class="form-label">管理员用户名 <span class="req">*</span></label>
             <div class="input-wrap"><span class="input-icon">👤</span>
                 <input type="text" class="input" id="username" value="admin" placeholder="默认 admin，可修改" autocomplete="username"></div></div>
@@ -114,8 +112,8 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
         </div>
     </div>
 
-    <!-- ============ Step 5: 确认与执行 ============ -->
-    <div class="wiz-step" data-step="5" style="display:none">
+    <!-- ============ Step 6: 确认与执行 ============ -->
+    <div class="wiz-step" data-step="6" style="display:none">
         <div class="form-group"><label class="form-label">安装信息确认</label>
             <div class="card" style="padding:12px" id="confirmBox"></div>
         </div>
@@ -123,48 +121,71 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
         <div class="auth-footer" id="installFoot">安装完成后将自动跳转登录页</div>
     </div>
 
-    <!-- 导航按钮 -->
-    <div class="flex gap-8 mt-12" id="wizNav">
-        <button type="button" class="btn btn-outline btn-sm" id="prevBtn" style="display:none" onclick="wizPrev()">← 上一步</button>
+    <!-- 导航按钮：上一步靠左、下一步靠右 -->
+    <div class="flex mt-12" id="wizNav" style="justify-content:space-between">
+        <button type="button" class="btn btn-outline btn-sm" id="prevBtn" style="visibility:hidden" onclick="wizPrev()">← 上一步</button>
         <button type="button" class="btn btn-primary btn-sm" id="nextBtn" onclick="wizNext()">下一步 →</button>
     </div>
 </div>
 
 <script>
-/* ==================== 5 步向导控制 ==================== */
-var WIZ = { step: 1, preflight: null, mode: 'fresh' };
+/* ==================== 6 步向导控制 ==================== */
+var WIZ = { step: 1, preflight: null, mode: 'fresh', dbInstalled: false };
+var WIZ_SUBS = ['', '环境巡检', '数据库配置', '缓存设置', '医疗机构信息', '创建管理员', '确认安装'];
 
 function wizGo(n, validate) {
     if (validate && !wizValidate(WIZ.step)) return;
     WIZ.step = n;
     document.querySelectorAll('.wiz-step').forEach(function (s) { s.style.display = (+s.getAttribute('data-step')) === n ? '' : 'none'; });
     document.querySelectorAll('#stepDots .step-dot').forEach(function (d) { d.classList.toggle('on', +d.getAttribute('data-step') === n); });
-    var subs = ['', '环境巡检', '数据库与缓存', '医疗机构信息', '创建管理员', '确认安装'];
-    document.getElementById('wizardSub').textContent = 'Step ' + n + ' · ' + subs[n];
-    document.getElementById('prevBtn').style.display = n === 1 ? 'none' : '';
-    document.getElementById('nextBtn').style.display = n === 5 ? 'none' : '';
-    if (n === 2) toggleDbMode();
-    if (n === 4) toggleAdminHint();
-    if (n === 5) renderConfirm();
+    document.getElementById('wizardSub').textContent = 'Step ' + n + ' · ' + WIZ_SUBS[n];
+    document.getElementById('prevBtn').style.visibility = n === 1 ? 'hidden' : 'visible';
+    document.getElementById('nextBtn').style.display = n === 6 ? 'none' : '';
+    if (n === 5) toggleAdminHint();
+    if (n === 6) renderConfirm();
 }
 
 function wizNext() {
-    if (WIZ.step === 2 && !testDbIfNeeded()) return;
+    if (WIZ.step === 2) { checkDbAndProceed(); return; }
     wizGo(WIZ.step + 1, true);
 }
 function wizPrev() { wizGo(WIZ.step - 1, false); }
 
+/* 当前数据库驱动与参数 */
+function dbDriverKey() { return document.getElementById('dbDriver').value; }
+function dbParams() {
+    var d = dbDriverKey();
+    if (d === 'sqlite') {
+        var el = document.getElementById('dbp_name');
+        return { name: el ? el.value.trim() : '' };
+    }
+    return collectParams('db', d);
+}
+/* 数据库必填校验（远程库：主机/端口/库名/用户名/密码） */
+function validateDbFields(quiet) {
+    var d = dbDriverKey();
+    if (d === 'sqlite') {
+        return true;
+    }
+    var p = dbParams();
+    var need = { host: '主机', port: '端口', dbname: '数据库名', user: '用户名', pass: '密码' };
+    var keys = Object.keys(need);
+    for (var i = 0; i < keys.length; i++) {
+        if (!String(p[keys[i]] || '').trim()) {
+            if (!quiet) Clinic.toast.warning('请填写数据库' + need[keys[i]]);
+            return false;
+        }
+    }
+    return true;
+}
+
 function wizValidate(n) {
     if (n === 2) {
-        var dp = collectParams('db', document.getElementById('dbDriver').value);
-        // sqlite 无 dbname 校验；mysql/pgsql 需数据库名
-        if (document.getElementById('dbDriver').value !== 'sqlite' && !(dp.dbname || '').trim()) {
-            Clinic.toast.warning('请填写数据库名'); return false;
-        }
-    } else if (n === 3) {
+        if (!validateDbFields(false)) return false;
+    } else if (n === 4) {
         if (!document.getElementById('hospital_name').value.trim()) { Clinic.toast.warning('请填写医院名称'); return false; }
         if (!document.getElementById('org_code').value.trim()) { Clinic.toast.warning('请填写机构代码'); return false; }
-    } else if (n === 4) {
+    } else if (n === 5) {
         if (WIZ.mode !== 'attach') {
             var u = document.getElementById('username').value.trim();
             var p = document.getElementById('password').value;
@@ -181,23 +202,6 @@ function wizValidate(n) {
 function driverMeta(kind, key) {
     var dr = (WIZ.preflight && WIZ.preflight.drivers) || { db: {}, cache: {} };
     return (dr[kind] && dr[kind][key]) ? dr[kind][key] : null;
-}
-function renderParamsBox(containerId, kind, driverKey) {
-    var box = document.getElementById(containerId);
-    var meta = driverMeta(kind, driverKey);
-    if (!box) return;
-    if (!meta || !meta.params || !Object.keys(meta.params).length) { box.innerHTML = ''; return; }
-    var rows = [];
-    var keys = Object.keys(meta.params);
-    // 两列布局（奇数个参数时最后单独一行）
-    for (var i = 0; i < keys.length; i += 2) {
-        var cell1 = paramInputHtml(kind, keys[i], meta.params[keys[i]]);
-        var cell2 = (i + 1 < keys.length) ? paramInputHtml(kind, keys[i + 1], meta.params[keys[i + 1]]) : '';
-        rows.push('<div class="form-row">' + cell1 + cell2 + '</div>');
-    }
-    box.innerHTML = rows.join('') +
-        '<div class="flex gap-8"><button type="button" class="btn btn-outline btn-sm" id="testDrvBtn" onclick="' + (kind === 'db' ? 'testDb()' : 'testRedis()') + '">测试连接</button>' +
-        '<span class="fs-13 text-muted" id="' + (kind === 'db' ? 'dbTestMsg' : 'redisTestMsg') + '"></span></div>';
 }
 function paramInputHtml(kind, key, p) {
     var id = (kind === 'db' ? 'dbp_' : 'cp_') + key;
@@ -219,32 +223,67 @@ function collectParams(kind, driverKey) {
     }
     return out;
 }
-function toggleDbMode() {
-    var d = document.getElementById('dbDriver').value;
-    renderParamsBox('dbParamsBox', 'db', d);
-    var rd = document.querySelector('input[name="installMode"]:checked');
-    WIZ.mode = rd ? rd.value : 'fresh';
+/* 数据库参数表单：SQLite 仅需「数据库名称」；远程库在密码栏右侧内嵌测试连接按钮 */
+function renderDbParams() {
+    var box = document.getElementById('dbParamsBox');
+    var d = dbDriverKey();
+    if (d === 'sqlite') {
+        box.innerHTML = '<div class="form-group"><label class="form-label">数据库名称 <span class="req">*</span></label>' +
+            '<input class="input" id="dbp_name" value="clinic_main" placeholder="如 clinic_main">' +
+            '<div class="fs-12 text-muted mt-4">统一存放于 data/db/，可省略 .db 后缀（如输入 123 与 123.db 均创建 123.db）。</div></div>';
+        return;
+    }
+    var meta = driverMeta('db', d);
+    if (!meta || !meta.params || !Object.keys(meta.params).length) { box.innerHTML = ''; return; }
+    var keys = Object.keys(meta.params);
+    var rows = [];
+    for (var i = 0; i < keys.length; i += 2) {
+        var cell1 = paramInputHtml('db', keys[i], meta.params[keys[i]]);
+        var cell2 = '';
+        if (i + 1 < keys.length) {
+            cell2 = paramInputHtml('db', keys[i + 1], meta.params[keys[i + 1]]);
+        } else if (/pass/i.test(keys[i])) {
+            // 密码栏右侧内嵌测试连接按钮
+            cell2 = '<div class="form-group"><label class="form-label">&nbsp;</label>' +
+                '<button type="button" class="btn btn-outline" id="dbTestBtn" style="width:100%" onclick="testDb()">测试连接</button></div>';
+        }
+        rows.push('<div class="form-row">' + cell1 + cell2 + '</div>');
+    }
+    box.innerHTML = rows.join('') +
+        '<div class="fs-13" id="dbTestMsg" style="min-height:20px"></div>';
 }
-function toggleCacheMode() {
-    renderParamsBox('cacheParamsBox', 'cache', document.getElementById('cacheDriver').value);
+/* 缓存参数表单 */
+function renderCacheParams() {
+    var box = document.getElementById('cacheParamsBox');
+    var key = document.getElementById('cacheDriver').value;
+    var meta = driverMeta('cache', key);
+    if (!meta || !meta.params || !Object.keys(meta.params).length) { box.innerHTML = ''; return; }
+    var keys = Object.keys(meta.params);
+    var rows = [];
+    for (var i = 0; i < keys.length; i += 2) {
+        var cell1 = paramInputHtml('cache', keys[i], meta.params[keys[i]]);
+        var cell2 = (i + 1 < keys.length) ? paramInputHtml('cache', keys[i + 1], meta.params[keys[i + 1]]) : '';
+        rows.push('<div class="form-row">' + cell1 + cell2 + '</div>');
+    }
+    box.innerHTML = rows.join('') +
+        '<div class="flex gap-8" style="align-items:center"><button type="button" class="btn btn-outline btn-sm" id="cacheTestBtn" onclick="testRedis()">测试连接</button>' +
+        '<span class="fs-13 text-muted" id="redisTestMsg"></span></div>';
 }
 function renderDrivers(drivers) {
     WIZ.preflight = WIZ.preflight || {};
     WIZ.preflight.drivers = drivers || { db: {}, cache: {} };
-    // 数据库驱动下拉
     var dbSel = document.getElementById('dbDriver');
     dbSel.innerHTML = Object.keys(drivers.db || {}).map(function (k) {
         var d = drivers.db[k];
         return '<option value="' + k + '"' + (k === 'sqlite' ? ' selected' : '') + '>' + escHtml(d.label) + (d.installed ? '' : '（未安装扩展）') + '</option>';
     }).join('');
-    // 缓存驱动下拉
     var cSel = document.getElementById('cacheDriver');
     cSel.innerHTML = Object.keys(drivers.cache || {}).map(function (k) {
         var d = drivers.cache[k];
         return '<option value="' + k + '"' + (k === 'file' ? ' selected' : '') + '>' + escHtml(d.label) + (d.installed ? '' : '（未安装扩展）') + '</option>';
     }).join('');
-    toggleDbMode();
-    toggleCacheMode();
+    renderDbParams();
+    renderCacheParams();
 }
 
 function toggleAdminHint() {
@@ -255,15 +294,13 @@ function toggleAdminHint() {
     });
 }
 
-document.querySelectorAll('input[name="installMode"]').forEach(function (r) {
-    r.addEventListener('change', function () { toggleDbMode(); });
-});
-document.getElementById('dbDriver').addEventListener('change', toggleDbMode);
-document.getElementById('cacheDriver').addEventListener('change', toggleCacheMode);
+document.getElementById('dbDriver').addEventListener('change', renderDbParams);
+document.getElementById('cacheDriver').addEventListener('change', renderCacheParams);
 
 /* ==================== 环境巡检 ==================== */
 function loadPreflight() {
     var box = document.getElementById('preflightBox');
+    box.innerHTML = '<div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div>正在检查环境…</div>';
     Clinic.get('/api/install?action=preflight', null, {
         loading: false,
         onSuccess: function (json) {
@@ -279,16 +316,8 @@ function loadPreflight() {
             html += '<div class="fw-600 mt-8 mb-4">目录权限</div>' + dirs.map(function (x) {
                 return '<div class="flex-between"><span>' + escHtml(x.path) + '</span><span class="' + (x.ok ? 'text-success' : 'text-danger') + '">' + (x.ok ? '✓ 可写' : '✗ 不可写') + '</span></div>';
             }).join('');
-            html += '<div class="fw-600 mt-8 mb-4">已有数据</div>';
-            html += '<div class="flex-between"><span>已安装检测</span><span>' + (d.existing_installed ? '<span class="text-success">检测到已安装系统（可关联现有库）</span>' : '<span class="text-muted">未检测到（全新安装）</span>') + '</span></div>';
-            html += '<div class="flex-between"><span>现有主库</span><span>' + escHtml(d.existing_main || '—') + '</span></div>';
             box.innerHTML = html;
-            // 驱动选项动态渲染（数据库/缓存下拉与参数表单，注册表唯一数据源）
             renderDrivers(d.drivers || { db: {}, cache: {} });
-            if (d.existing_installed) {
-                document.getElementById('mainDbHint').style.display = '';
-                document.getElementById('mainDbHintText').textContent = '检测到已安装的数据库（' + (d.existing_main || '未知位置') + '）。若需重置系统，请选择「关联现有数据库」以保留已有数据。';
-            }
         },
         onError: function () {
             box.innerHTML = '<div class="text-danger">环境检查失败，请确认服务器环境后重试</div>';
@@ -296,34 +325,40 @@ function loadPreflight() {
     });
 }
 
-/* ==================== 数据库/缓存连接测试 ==================== */
-function testDb() {
-    var btn = document.getElementById('testDrvBtn');
-    var msg = document.getElementById('dbTestMsg');
-    msg.textContent = '测试中…';
-    btn.disabled = true;
-    var p = collectParams('db', document.getElementById('dbDriver').value);
-    Clinic.get('/api/install?action=test_db', {
-        driver: document.getElementById('dbDriver').value,
+/* ==================== 数据库连接测试 ==================== */
+function dbQueryParams(extra) {
+    var d = dbDriverKey();
+    var p = dbParams();
+    var q = {
+        driver: d,
         host: p.host || '',
         port: p.port || '',
         dbname: p.dbname || '',
         user: p.user || '',
         pass: p.pass || '',
-        path: p.path || '',
-    }, {
+        name: p.name || '',
+    };
+    if (extra) Object.keys(extra).forEach(function (k) { q[k] = extra[k]; });
+    return q;
+}
+function testDb() {
+    if (!validateDbFields(false)) return;
+    var btn = document.getElementById('dbTestBtn');
+    var msg = document.getElementById('dbTestMsg');
+    msg.textContent = '测试中…';
+    if (btn) btn.disabled = true;
+    Clinic.get('/api/install?action=test_db', dbQueryParams(), {
         loading: false,
         onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
         onError: function (x, json) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((json && json.msg) || '连接失败') + '</span>'; },
-        complete: function () { btn.disabled = false; },
+        complete: function () { if (btn) btn.disabled = false; },
     });
 }
-function testDbIfNeeded() { return true; }   // 连接在安装执行时再次校验
 function testRedis() {
-    var btn = document.getElementById('testDrvBtn');
+    var btn = document.getElementById('cacheTestBtn');
     var msg = document.getElementById('redisTestMsg');
     msg.textContent = '测试中…';
-    btn.disabled = true;
+    if (btn) btn.disabled = true;
     var p = collectParams('cache', 'redis');
     Clinic.get('/api/install?action=test_redis', {
         host: p.host || '',
@@ -333,22 +368,61 @@ function testRedis() {
         loading: false,
         onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
         onError: function (x, json) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((json && json.msg) || '连接失败') + '</span>'; },
-        complete: function () { btn.disabled = false; },
+        complete: function () { if (btn) btn.disabled = false; },
+    });
+}
+
+/* ==================== 第 2 步校验并进入下一步 ==================== */
+function checkDbAndProceed() {
+    if (!wizValidate(2)) return;
+    var btn = document.getElementById('nextBtn');
+    btn.disabled = true;
+    Clinic.get('/api/install?action=check_db', dbQueryParams(), {
+        loading: true,
+        onSuccess: function (json) {
+            btn.disabled = false;
+            WIZ.dbInstalled = !!(json.data && json.data.installed);
+            if (WIZ.dbInstalled) { askInstallMode(); return; }
+            WIZ.mode = 'fresh';
+            wizGo(3, false);
+        },
+        onError: function (x, json) {
+            btn.disabled = false;
+            Clinic.toast.error((json && json.msg) || '数据库校验失败，请检查配置');
+        },
+    });
+}
+/* 检测到已有安装数据：弹出「关联现有 / 全新安装」决策对话框 */
+function askInstallMode() {
+    var html = '<div class="fs-14" style="line-height:1.9">检测到所选数据库已存在安装完成的数据。<br>请选择处理方式：</div>' +
+        '<div class="mt-12 fs-13" style="line-height:1.8">' +
+        '<div><b>关联现有数据库</b>：保留全部已有数据，仅重新绑定连接。</div>' +
+        '<div class="text-danger mt-4"><b>全新安装</b>：清空该数据库全部数据后重新创建。</div></div>';
+    Clinic.modal.open(html, {
+        title: '检测到已有数据库',
+        maskClose: false,
+        buttons: [
+            { text: '取消', cls: 'btn-outline', onClick: function () { Clinic.modal.close(); } },
+            { text: '全新安装', cls: 'btn-danger', onClick: function () { WIZ.mode = 'fresh'; Clinic.modal.close(); wizGo(3, false); } },
+            { text: '关联现有数据库', cls: 'btn-primary', onClick: function () { WIZ.mode = 'attach'; Clinic.modal.close(); wizGo(3, false); } },
+        ],
     });
 }
 
 /* ==================== 确认汇总 ==================== */
 function renderConfirm() {
     var box = document.getElementById('confirmBox');
-    var dbKey = document.getElementById('dbDriver').value;
+    var dbKey = dbDriverKey();
     var dbMeta = driverMeta('db', dbKey);
-    var dbParams = collectParams('db', dbKey);
+    var dbParams = dbParams();
     var rows = [];
     var dbDesc = dbKey === 'sqlite'
-        ? (dbParams.path || '默认 data/db/clinic_main.db')
+        ? ('data/db/' + (dbParams.name || 'clinic_main').replace(/\.db$/i, '') + '.db')
         : ((dbParams.host || '') + ':' + (dbParams.port || '') + '/' + (dbParams.dbname || ''));
     rows.push(['数据库驱动', (dbMeta ? dbMeta.label : dbKey) + '（' + dbDesc + '）']);
     rows.push(['安装方式', WIZ.mode === 'attach' ? '关联现有数据库（保留数据）' : '全新安装（建库并导入基础字典）']);
+    var icd10 = document.getElementById('icd10_name').value.trim() || 'icd10';
+    rows.push(['ICD-10 诊断库', 'data/db/' + icd10.replace(/\.db$/i, '') + '.db']);
     var cKey = document.getElementById('cacheDriver').value;
     var cMeta = driverMeta('cache', cKey);
     rows.push(['缓存驱动', cMeta ? cMeta.label : cKey]);
@@ -371,16 +445,16 @@ document.getElementById('installBtn').addEventListener('click', function () {
     fd.append('csrf_token', document.body.getAttribute('data-csrf'));
     fd.append('action', 'save');
     fd.append('mode', WIZ.mode);
-    // 数据库/缓存驱动参数按注册表动态收集（安装向导与系统设置共用同一套）
-    var dbKey = document.getElementById('dbDriver').value;
-    var dbp = collectParams('db', dbKey);
+    var dbKey = dbDriverKey();
+    var dbp = dbParams();
     fd.append('db_driver', dbKey);
     fd.append('db_host', dbp.host || '');
     fd.append('db_port', dbp.port || '');
     fd.append('db_name', dbp.dbname || '');
     fd.append('db_user', dbp.user || '');
     fd.append('db_pass', dbp.pass || '');
-    fd.append('sqlite_path', dbp.path || '');
+    fd.append('sqlite_name', dbKey === 'sqlite' ? (dbp.name || '') : '');
+    fd.append('icd10_name', document.getElementById('icd10_name').value.trim());
     var cKey = document.getElementById('cacheDriver').value;
     var cp = collectParams('cache', cKey);
     fd.append('cache_driver', cKey);

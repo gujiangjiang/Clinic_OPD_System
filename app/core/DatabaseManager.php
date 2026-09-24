@@ -51,6 +51,14 @@ class DatabaseManager {
         return self::$driver;
     }
 
+    /** 解析 SQLite 库文件路径（config.db 配置优先，相对路径按项目根补全） */
+    public static function sqlitePath($configKey, $defaultName) {
+        $p = ConfigStore::get($configKey, '');
+        if ($p === '') return DATA_DIR . '/db/' . $defaultName;
+        if ($p[0] !== '/' && $p[0] !== '.') $p = APP_ROOT . '/' . ltrim($p, '/');
+        return $p;
+    }
+
     /** 标识符加引号（MySQL/MariaDB 用反引号，PostgreSQL 用双引号，SQLite 原样） */
     private static function qi($id) {
         if (self::driver() === 'pgsql') return '"' . $id . '"';
@@ -85,11 +93,11 @@ class DatabaseManager {
             ));
         } else {
             // ===== SQLite 主库 =====
-            $dir = DATA_DIR . '/db';
+            $file = self::sqlitePath('db.sqlite.path', 'clinic_main.db');
+            $dir = dirname($file);
             if (!is_dir($dir)) {
                 @mkdir($dir, 0777, true);
             }
-            $file = $dir . '/clinic_main.db';
             $pdo = new PDO('sqlite:' . $file, null, null, array(
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -120,11 +128,11 @@ class DatabaseManager {
         if (self::$icd10 !== null) {
             return self::$icd10;
         }
-        $dir = DATA_DIR . '/db';
+        $file = self::sqlitePath('db.icd10.path', 'icd10.db');
+        $dir = dirname($file);
         if (!is_dir($dir)) {
             @mkdir($dir, 0777, true);
         }
-        $file = $dir . '/icd10.db';
         // 首次：文件不存在 → 读写模式建库建表种子
         if (!file_exists($file)) {
             $rw = new PDO('sqlite:' . $file, null, null, array(
@@ -151,6 +159,47 @@ class DatabaseManager {
     public static function initAll() {
         self::getMain();
         self::getIcd10();
+        self::seedAll();
+    }
+
+    /**
+     * 清空主库全部业务数据（安装向导「全新安装」确认后使用）：
+     *   - SQLite：直接删除库文件（含 -wal/-shm），下次 getMain 重新建库；
+     *   - MySQL/PostgreSQL：按 schema 逆序 DROP TABLE IF EXISTS（关闭外键约束）。
+     * 注意：仅清空主业务库，不动独立 ICD-10 字典库与 config.db。
+     */
+    public static function wipeMain() {
+        self::getMain();   // 确保主库可达并已知 schema
+        if (self::driver() === 'sqlite') {
+            $file = self::sqlitePath('db.sqlite.path', 'clinic_main.db');
+            self::$main = null;
+            @unlink($file);
+            @unlink($file . '-wal');
+            @unlink($file . '-shm');
+            return;
+        }
+        $def = self::mainSchema();
+        $pdo = self::getMain();
+        try {
+            if (self::driver() === 'mysql') {
+                $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
+            }
+        } catch (Exception $ex) {}
+        foreach (array_reverse(array_keys((array)$def['tables'])) as $table) {
+            try {
+                $sql = 'DROP TABLE IF EXISTS ' . self::qi($table);
+                if (self::driver() === 'pgsql') $sql .= ' CASCADE';
+                $pdo->exec($sql);
+            } catch (Exception $ex) {
+                if (DEBUG) error_log('[清空主库] 删除表失败 ' . $table . ': ' . $ex->getMessage());
+            }
+        }
+        try {
+            if (self::driver() === 'mysql') $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
+        } catch (Exception $ex) {}
+        // 重新建表迁移种子
+        self::createTables($pdo, $def);
+        self::migrate($pdo, $def);
         self::seedAll();
     }
 
