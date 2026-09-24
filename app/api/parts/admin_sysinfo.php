@@ -78,6 +78,8 @@ function admin_part_sysinfo($action) {
             'config_path' => ConfigStore::path(),
             // 驱动选项注册表（app/config/drivers.php 唯一数据源，与安装向导共用）
             'drivers' => ConfigStore::driverOptionsPublic(),
+            // 活动任务（迁移/切换/备份/双向同步，未启用则不返回）
+            'active_tasks' => self_active_tasks(),
         ));
     }
 
@@ -262,6 +264,28 @@ function admin_part_sysinfo($action) {
         json_ok(array('driver' => $driver), '备份库配置已保存（' . strtoupper($driver) . '）' . ($hour !== '' ? '，定时备份：每天 ' . $hour : ''));
     }
 
+    /* ==================== 备份/双向操作日志 ==================== */
+    if ($action === 'backup_logs') {
+        require_once APP_ROOT . '/app/core/MigrationRunner.php';
+        json_ok(array('lines' => MigrationRunner::logs(500)));
+    }
+    if ($action === 'backup_log_clear') {
+        require_once APP_ROOT . '/app/core/MigrationRunner.php';
+        MigrationRunner::clearLogs();
+        json_ok(array(), '日志已清空');
+    }
+    if ($action === 'backup_log_export') {
+        require_once APP_ROOT . '/app/core/MigrationRunner.php';
+        $f = MigrationRunner::logFile();
+        if (!is_file($f)) json_fail('暂无日志可导出');
+        // 导出 .log 文件（文件名带日期时间戳）
+        header('Content-Type: text/plain; charset=utf-8');
+        header('Content-Disposition: attachment; filename="db-operation-' . date('Ymd-His') . '.log"');
+        header('Content-Length: ' . filesize($f));
+        readfile($f);
+        exit;
+    }
+
     /* ==================== 双向实时同步开关（RAID1 式双写，与备份分离） ==================== */
     if ($action === 'dual_save') {
         $enabled = post('dual_enabled', '') === '1' ? '1' : '0';
@@ -275,6 +299,8 @@ function admin_part_sysinfo($action) {
         }
         ConfigStore::set('dual_write.enabled', $enabled);
         ConfigStore::resetCache();
+        require_once APP_ROOT . '/app/core/MigrationRunner.php';
+        MigrationRunner::log('dual', ($enabled === '1' ? '开启双向实时同步（RAID1 式双写，目标备份库 ' : '关闭双向实时同步（目标备份库 ') . strtoupper(ConfigStore::get('backup.driver', '')) . '）');
         json_ok(array('enabled' => $enabled), $enabled === '1' ? '双向实时同步已开启：每次写入实时镜像到备份库（失败自动降级，不影响主库体验）' : '双向实时同步已关闭');
     }
 
@@ -294,9 +320,13 @@ function admin_part_sysinfo($action) {
         require_once APP_ROOT . '/app/core/DatabaseMigrator.php';
         try {
             $r = DatabaseMigrator::backupTo($driver, $params);
+            require_once APP_ROOT . '/app/core/MigrationRunner.php';
+            MigrationRunner::log('backup', '备份成功：共 ' . count($r['tables']) . ' 张表、' . $r['rows'] . ' 行数据同步到备份库（' . strtoupper($driver) . '）');
             json_ok(array('tables' => count($r['tables']), 'rows' => $r['rows'], 'driver' => $driver),
                 '备份完成：共 ' . count($r['tables']) . ' 张表、' . $r['rows'] . ' 行数据已同步到备份库（' . strtoupper($driver) . '）');
         } catch (Exception $ex) {
+            require_once APP_ROOT . '/app/core/MigrationRunner.php';
+            MigrationRunner::log('backup', '备份失败：' . $ex->getMessage());
             json_fail('备份失败：' . $ex->getMessage());
         }
     }
@@ -328,6 +358,41 @@ function admin_part_sysinfo($action) {
     }
 
     json_fail('未知操作');
+}
+
+/** 数据库中心活动任务汇总（迁移/切换/备份/双向，未启用不返回） */
+function self_active_tasks() {
+    $out = array();
+    require_once APP_ROOT . '/app/core/MigrationRunner.php';
+    // 迁移/切换任务
+    $s = MigrationRunner::state();
+    if ($s['status'] !== 'idle') {
+        $out['migration'] = array(
+            'status' => $s['status'],
+            'from' => $s['from'],
+            'to' => $s['to'],
+            'done_tables' => (int)$s['done_tables'],
+            'total_tables' => (int)$s['total_tables'],
+            'error' => $s['error'],
+        );
+    }
+    // 双向实时同步
+    if (ConfigStore::get('dual_write.enabled', '') === '1') {
+        $out['dual_write'] = array(
+            'target' => ConfigStore::get('backup.driver', ''),
+            'target_path' => ConfigStore::get('backup.' . ConfigStore::get('backup.driver', '') . '.path', ''),
+        );
+    }
+    // 定时备份
+    $hour = ConfigStore::get('backup.hour', '');
+    if ($hour !== '') {
+        $out['backup_schedule'] = array(
+            'hour' => $hour,
+            'last_at' => ConfigStore::get('backup.last_at', ''),
+            'last_result' => ConfigStore::get('backup.last_result', ''),
+        );
+    }
+    return $out;
 }
 
 /** SQLite 单表占用估算（页数 × 页大小） */

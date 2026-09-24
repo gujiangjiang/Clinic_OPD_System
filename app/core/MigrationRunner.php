@@ -171,6 +171,34 @@ class MigrationRunner {
         ConfigStore::resetCache();
     }
 
+    /** 日志文件路径（备份/双向同步操作日志） */
+    public static function logFile() {
+        return DATA_DIR . '/logs/db.log';
+    }
+
+    /** 追加一条操作日志（备份/双向同步/迁移均记录） */
+    public static function log($type, $msg) {
+        $dir = dirname(self::logFile());
+        if (!is_dir($dir)) { @mkdir($dir, 0777, true); }
+        $line = '[' . date('Y-m-d H:i:s') . '] [' . $type . '] ' . $msg . "\n";
+        @file_put_contents(self::logFile(), $line, FILE_APPEND);
+    }
+
+    /** 读取日志（倒序，最近 500 条） */
+    public static function logs($limit = 500) {
+        $f = self::logFile();
+        if (!is_file($f)) return array();
+        $lines = array_filter(array_reverse(explode("\n", trim((string)file_get_contents($f)))));
+        return array_slice(array_values($lines), 0, (int)$limit);
+    }
+
+    /** 清空日志 */
+    public static function clearLogs() {
+        $f = self::logFile();
+        if (is_file($f)) @unlink($f);
+        return true;
+    }
+
     /** 清除全部用户会话（迁移/切换数据库时强制所有人重新登录，避免残留读写） */
     public static function clearAllSessions() {
         $dir = DATA_DIR . '/session';

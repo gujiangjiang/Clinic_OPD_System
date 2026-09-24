@@ -37,10 +37,14 @@ try {
     ConfigStore::set('backup.last_result', 'ok');
     ConfigStore::set('backup.running', '');
     ConfigStore::resetCache();
+    require_once APP_ROOT . '/app/core/MigrationRunner.php';
+    MigrationRunner::log('backup', '定时备份成功：共 ' . count($r['tables']) . ' 张表、' . $r['rows'] . ' 行数据同步到备份库（' . strtoupper($driver) . '）');
     exit('backup done:' . $r['rows']);
 } catch (Exception $ex) {
     ConfigStore::set('backup.last_result', 'fail');
     ConfigStore::set('backup.running', '');
     ConfigStore::resetCache();
+    require_once APP_ROOT . '/app/core/MigrationRunner.php';
+    MigrationRunner::log('backup', '定时备份失败：' . $ex->getMessage());
     exit('backup fail:' . $ex->getMessage());
 }

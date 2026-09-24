@@ -130,6 +130,7 @@ $dbType = strtoupper(DatabaseManager::driver());
                     <div class="card-title">🗄️ 当前数据库连接</div>
                     <div id="dbStatusBox" class="fs-13" style="line-height:2"><div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
                     <div class="fs-12 text-muted mt-8">config.db 为基础设施配置库（主库驱动/连接凭证/缓存等）；主业务数据独立存放于主数据库，删除 config.db 仅重置配置，不会破坏业务数据。</div>
+                    <div class="fs-13 mt-12" id="dbActiveTasks"></div>
                 </div>
             </div>
             <div class="db-pane" id="dbtab-browse" style="display:none">
@@ -171,23 +172,38 @@ $dbType = strtoupper(DatabaseManager::driver());
             <div class="db-pane" id="dbtab-backup" style="display:none">
                 <div class="card setting-card">
                     <div class="card-title">💾 多数据库备份 / 双向同步</div>
-                    <div class="fs-13 text-muted mb-8">配置备份库，将当前主库全部数据同步到备份库（不动主库指针）。<b>备份与双向是两个独立功能</b>：备份=手动/定时全量同步；双向=每次写入实时镜像到备份库（RAID1 式，仅同驱动可靠，失败自动降级不影响主库体验）。</div>
-                    <div class="form-group"><label class="form-label">备份库驱动</label>
-                        <select class="select" id="bkDriver" onchange="toggleBkOpts()"></select></div>
-                    <div id="bkParamsBox"></div>
-                    <div class="form-group"><label class="form-label">定时自动备份</label>
-                        <div class="flex gap-8" style="align-items:center">
-                            <select class="select" id="bkHour" style="width:110px"></select>
-                            <span class="text-muted fs-12">（每天该时刻自动备份，留空=关闭）</span>
-                        </div></div>
-                    <div class="form-group"><label class="form-label">双向实时同步（RAID1 式双写）</label>
-                        <label class="flex gap-4" style="align-items:center;cursor:pointer;font-size:13px">
-                            <input type="checkbox" id="dualEnabled" style="width:auto"> 开启双向实时同步（每次写入同时写入备份库）
-                        </label></div>
+                    <div class="fs-13 text-muted mb-8">备份与双向为<b>两个独立功能</b>（二选一）：备份=手动/定时全量同步；双向=每次写入实时镜像到备份库（RAID1 式，仅同驱动可靠，失败自动降级不影响主库体验）。</div>
+                    <!-- 子 Tab：备份 / 双向同步 -->
+                    <div class="flex gap-8 mb-12" id="bkTabs">
+                        <button type="button" class="btn btn-primary btn-sm" data-bktab="backup" onclick="bkTab('backup')">💾 备份</button>
+                        <button type="button" class="btn btn-outline btn-sm" data-bktab="dual" onclick="bkTab('dual')">🔁 双向同步</button>
+                    </div>
+                    <!-- 备份子面板 -->
+                    <div class="bk-pane" id="bktab-backup">
+                        <div class="form-group"><label class="form-label">备份库驱动</label>
+                            <select class="select" id="bkDriver" onchange="toggleBkOpts()"></select></div>
+                        <div id="bkParamsBox"></div>
+                        <div class="form-group"><label class="form-label">定时自动备份</label>
+                            <div class="flex gap-8" style="align-items:center">
+                                <select class="select" id="bkHour" style="width:110px"></select>
+                                <span class="text-muted fs-12">（每天该时刻自动备份，留空=关闭）</span>
+                            </div></div>
+                    </div>
+                    <!-- 双向同步子面板 -->
+                    <div class="bk-pane" id="bktab-dual" style="display:none">
+                        <div class="form-group"><label class="form-label">备份库驱动（双向镜像目标，须与主库同驱动）</label>
+                            <select class="select" id="bkDriver2" onchange="toggleBkOpts2()"></select></div>
+                        <div id="bkParamsBox2"></div>
+                        <div class="form-group"><label class="form-label">镜像延迟（秒）</label>
+                            <input class="input" id="dualDelay" type="number" min="0" max="60" value="0" style="width:120px">
+                            <div class="fs-12 text-muted mt-4">0=同步镜像（随主库写入立即镜像）；大于 0 为异步延迟镜像（后台队列，降低写延迟）。</div></div>
+                        <div class="form-group"><label class="form-label">状态</label>
+                            <span class="fs-13" id="dualStatus">未开启</span></div>
+                    </div>
                     <div class="flex gap-8" style="flex-wrap:wrap">
-                        <button class="btn btn-primary btn-sm" onclick="saveBackupCfg()">保存备份库配置</button>
-                        <button class="btn btn-danger btn-sm" onclick="runBackup()">立即备份</button>
-                        <button class="btn btn-outline btn-sm" onclick="saveDualMode()">保存双向同步设置</button>
+                        <button class="btn btn-primary btn-sm" onclick="saveBackupCfg()">保存设置</button>
+                        <button class="btn btn-danger btn-sm" id="runBackupBtn" onclick="runBackup()">立即备份</button>
+                        <button class="btn btn-outline btn-sm" onclick="viewBackupLogs()">📜 查看日志</button>
                     </div>
                     <div class="fs-13 mt-8" id="bkMsg"></div>
                 </div>
@@ -503,6 +519,33 @@ settingsTab('clinic');
 
 /* ---------- 数据库中心 ---------- */
 var DB_CUR_TABLE = '';
+/* 活动任务展示（迁移/切换/备份/双向同步，未启用不显示） */
+function renderActiveTasks(t) {
+    var box = document.getElementById('dbActiveTasks');
+    if (!box) return;
+    var items = [];
+    if (t.migration) {
+        var st = t.migration.status;
+        var stTxt = st === 'running' ? '<span style="color:var(--primary)">🔄 进行中</span>' : (st === 'done' ? '<span style="color:var(--success)">✅ 完成待确认</span>' : '<span style="color:var(--danger)">⛔ ' + escHtml(st) + '</span>');
+        items.push('<div class="flex-between" style="padding:6px 10px;background:var(--bg-soft);border-radius:var(--radius-md);margin-bottom:6px">' +
+            '<span class="fw-600">🔄 数据库迁移/切换</span><span>' + stTxt + '</span>' +
+            '<span class="fs-12 text-muted">' + escHtml(t.migration.from) + ' → ' + escHtml(t.migration.to) + '（' + t.migration.done_tables + '/' + t.migration.total_tables + ' 表）</span></div>');
+    }
+    if (t.dual_write) {
+        items.push('<div class="flex-between" style="padding:6px 10px;background:var(--bg-soft);border-radius:var(--radius-md);margin-bottom:6px">' +
+            '<span class="fw-600">🔁 双向实时同步</span><span style="color:var(--success)">已开启</span>' +
+            '<span class="fs-12 text-muted">镜像目标：' + escHtml((t.dual_write.target || '').toUpperCase()) + (t.dual_write.target_path ? '（' + escHtml(t.dual_write.target_path) + '）' : '') + '</span></div>');
+    }
+    if (t.backup_schedule) {
+        var last = t.backup_schedule.last_result === 'ok' ? '最近成功：' + escHtml(t.backup_schedule.last_at) : (t.backup_schedule.last_result ? '最近：' + escHtml(t.backup_schedule.last_result) : '尚未执行');
+        items.push('<div class="flex-between" style="padding:6px 10px;background:var(--bg-soft);border-radius:var(--radius-md);margin-bottom:6px">' +
+            '<span class="fw-600">💾 定时自动备份</span><span>每天 ' + escHtml(t.backup_schedule.hour) + '</span>' +
+            '<span class="fs-12 text-muted">' + last + '</span></div>');
+    }
+    box.innerHTML = items.length
+        ? '<div class="fs-13 fw-700 mb-4" style="color:var(--text-muted)">活动任务</div>' + items.join('')
+        : '';
+}
 function loadDbStatus() {
     var box = document.getElementById('dbStatusBox');
     Clinic.get('/api/admin?action=db_status', null, {
@@ -526,6 +569,8 @@ function loadDbStatus() {
             // 驱动下拉动态渲染（注册表唯一数据源，与安装向导共用；迁移目标排除当前驱动）
             SET_CUR_DRIVER = d.driver || '';
             renderSettingsDrivers(d.drivers || { db: {}, cache: {} });
+            // 活动任务（迁移/切换/备份/双向，未启用不显示）
+            renderActiveTasks(d.active_tasks || {});
         },
         onError: function () { box.innerHTML = '<span class="text-danger">数据库状态读取失败</span>'; },
     });
@@ -700,6 +745,15 @@ function renderSettingsDrivers(drivers) {
         }).join('');
         toggleBkOpts();
     }
+    // 双向同步目标库下拉（与备份库同源配置，二选一）
+    var bkSel2 = document.getElementById('bkDriver2');
+    if (bkSel2) {
+        bkSel2.innerHTML = Object.keys(drivers.db || {}).map(function (k) {
+            var d = drivers.db[k];
+            return '<option value="' + k + '"' + (k === 'sqlite' ? ' selected' : '') + '>' + escHtml(d.label) + (d.installed ? '' : '（未安装扩展）') + '</option>';
+        }).join('');
+        toggleBkOpts2();
+    }
     // 直接切换目标驱动下拉（排除当前驱动）
     var swSel = document.getElementById('swDriver');
     if (swSel) {
@@ -795,15 +849,68 @@ function switchMainDirect() {
     }, { title: '直接切换主库确认', okText: '切换' });
 }
 
-/* ---------- 多数据库备份 ---------- */
+/* ---------- 多数据库备份 / 双向同步（二选一子 Tab） ---------- */
+function bkTab(name) {
+    document.querySelectorAll('#bkTabs [data-bktab]').forEach(function (n) {
+        n.classList.toggle('btn-primary', n.getAttribute('data-bktab') === name);
+        n.classList.toggle('btn-outline', n.getAttribute('data-bktab') !== name);
+    });
+    document.querySelectorAll('.bk-pane').forEach(function (p) {
+        p.style.display = p.id === 'bktab-' + name ? '' : 'none';
+    });
+    document.getElementById('runBackupBtn').style.display = name === 'backup' ? '' : 'none';
+    if (name === 'dual') refreshDualStatus();
+}
 function toggleBkOpts() {
     settingsRenderParams('db', document.getElementById('bkDriver').value, 'bkParamsBox');
 }
+function toggleBkOpts2() {
+    settingsRenderParams('db', document.getElementById('bkDriver2').value, 'bkParamsBox2');
+}
+function refreshDualStatus() {
+    var on = false;
+    try { on = (localStorage.getItem('dual_on') || '') === '1'; } catch (e) {}
+    document.getElementById('dualStatus').textContent = on ? '已开启（写入实时镜像到备份库）' : '未开启';
+}
 function saveBackupCfg() {
     var msg = document.getElementById('bkMsg');
+    var cur = (document.querySelector('#bkTabs [data-bktab].btn-primary') || { getAttribute: function () { return 'backup'; } }).getAttribute('data-bktab');
+    msg.textContent = '保存中…';
+    if (cur === 'dual') {
+        // 双向同步：保存目标库配置 + 延迟 + 开关（先保存备份库配置，再开启双写）
+        var k2 = document.getElementById('bkDriver2').value;
+        var bp2 = settingsCollectParams('db', k2);
+        Clinic.ajax('/api/admin', {
+            action: 'backup_save',
+            backup_driver: k2,
+            backup_db_host: bp2.host || '',
+            backup_db_port: bp2.port || '',
+            backup_db_name: bp2.dbname || '',
+            backup_db_user: bp2.user || '',
+            backup_db_pass: bp2.pass || '',
+            backup_sqlite_path: bp2.path || '',
+            backup_hour: '',
+        }, {
+            onSuccess: function (j1) {
+                Clinic.ajax('/api/admin', {
+                    action: 'dual_save',
+                    dual_enabled: '1',
+                }, {
+                    onSuccess: function (json) {
+                        try { localStorage.setItem('dual_on', '1'); } catch (e) {}
+                        msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>';
+                        refreshDualStatus();
+                    },
+                    onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '保存失败') + '</span>'; },
+                });
+            },
+            onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '保存失败') + '</span>'; },
+        });
+        return;
+    }
+    // 备份：保存备份库配置 + 定时（同时关闭双写，二选一）
     var k = document.getElementById('bkDriver').value;
     var bp = settingsCollectParams('db', k);
-    msg.textContent = '保存中…';
     Clinic.ajax('/api/admin', {
         action: 'backup_save',
         backup_driver: k,
@@ -815,7 +922,16 @@ function saveBackupCfg() {
         backup_sqlite_path: bp.path || '',
         backup_hour: document.getElementById('bkHour').value,
     }, {
-        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
+        onSuccess: function (json) {
+            // 备份模式自动关闭双写（二选一）
+            Clinic.ajax('/api/admin', { action: 'dual_save', dual_enabled: '0' }, {
+                onSuccess: function (j2) {
+                    try { localStorage.setItem('dual_on', '0'); } catch (e) {}
+                    msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>';
+                },
+                onError: function () { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
+            });
+        },
         onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '保存失败') + '</span>'; },
     });
 }
@@ -829,18 +945,42 @@ function runBackup() {
         });
     }, { title: '执行数据库备份', okText: '开始备份' });
 }
-/* 双向实时同步开关（与备份分离：备份=手动/定时全量；双向=写入实时镜像） */
-function saveDualMode() {
-    var msg = document.getElementById('bkMsg');
-    msg.textContent = '保存中…';
-    Clinic.ajax('/api/admin', {
-        action: 'dual_save',
-        dual_enabled: document.getElementById('dualEnabled').checked ? '1' : '0',
-    }, {
-        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
-        onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '保存失败') + '</span>'; },
+/* 备份/双向操作日志：查看模态框（滚动列表 + 清空 + 导出 .log 文件） */
+function viewBackupLogs() {
+    var mask = Clinic.modal.open(
+        '<div class="flex gap-8 mb-8"><button class="btn btn-outline btn-sm" onclick="exportBackupLog()">⬇️ 导出日志</button>' +
+        '<button class="btn btn-danger btn-sm" onclick="clearBackupLog()">🗑️ 清空日志</button></div>' +
+        '<div id="bkLogBox" style="max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-md);padding:10px;font-family:monospace;font-size:12px;line-height:1.8">' +
+        '<div class="text-center" style="padding:20px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>',
+        { title: '📜 数据库操作日志（备份 / 双向同步）', size: 'modal-lg' }
+    );
+    loadBackupLogs(mask);
+}
+function loadBackupLogs(mask) {
+    var box = document.getElementById('bkLogBox');
+    if (!box) return;
+    Clinic.get('/api/admin?action=backup_logs', null, {
+        loading: false,
+        onSuccess: function (json) {
+            var lines = (json.data && json.data.lines) || [];
+            box.innerHTML = lines.length
+                ? lines.map(function (l) { return escHtml(l); }).join('<br>')
+                : '<div class="text-muted text-center" style="padding:20px">暂无日志记录</div>';
+        },
+        onError: function () { box.innerHTML = '<span class="text-danger">日志读取失败</span>'; },
     });
 }
+window.clearBackupLog = function () {
+    Clinic.modal.confirm('确定清空全部操作日志吗？', function () {
+        Clinic.ajax('/api/admin', { action: 'backup_log_clear' }, {
+            onSuccess: function (json) { Clinic.toast.success(json.msg); loadBackupLogs(null); },
+            onError: function (x, j) { Clinic.toast.error((j && j.msg) || '清空失败'); },
+        });
+    });
+};
+window.exportBackupLog = function () {
+    window.open('/api/admin?action=backup_log_export', '_blank');
+};
 
 /* ---------- 缓存驱动切换 ---------- */
 function toggleCacheRedisOpts() {

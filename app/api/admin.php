@@ -179,6 +179,9 @@ switch ($action) {
     case 'backup_save':
     case 'backup_run':
     case 'dual_save':
+    case 'backup_logs':
+    case 'backup_log_clear':
+    case 'backup_log_export':
         admin_part_sysinfo($action);
         break;
 
