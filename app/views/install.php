@@ -21,7 +21,6 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
 <div class="auth-card">
     <div class="auth-title">🏥 门诊一体化系统</div>
     <div style="text-align:center;margin:-2px 0 12px">
-        <span class="badge badge-primary" style="font-size:11px;letter-spacing:.04em" title="当前数据库驱动">🗄️ 数据库：<?php echo e(strtoupper(DatabaseManager::driver())); ?></span>
         <span class="badge badge-outline" style="font-size:11px;letter-spacing:.04em" id="installBadge">准备安装</span>
     </div>
     <div class="auth-sub" id="wizardSub">首次初始化向导 · 共 5 步</div>
@@ -428,12 +427,13 @@ document.getElementById('installBtn').addEventListener('click', function () {
 });
 
 /* ==================== 初始化 ==================== */
-(function () {
+// 页面内容先于 layout 末尾的 ajax.js 输出，须待 DOM 就绪（Clinic 已加载）后再初始化
+document.addEventListener('DOMContentLoaded', function () {
     // 默认时区：优先取浏览器时区
     var tz = 'Asia/Shanghai';
     try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz; } catch (e) {}
     var sel = document.getElementById('timezone');
     if (sel.querySelector('option[value="' + tz + '"]')) sel.value = tz; else sel.value = 'Asia/Shanghai';
     loadPreflight();
-})();
+});
 </script>
