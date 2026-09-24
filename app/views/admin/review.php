@@ -203,15 +203,15 @@ function previewAudit(btn) {
         item_drug: '预览 · 药品', item_disp: '预览 · 处置项目', drugsetting: '预览 · 药品设置',
     };
     var modalTitle = titleMap[type] || '预览';
-    // 模板：跳管理页原始弹窗（audit 参数供实体被删除时按快照渲染）
+    // 模板/套餐：SPA 全局局部刷新导航到管理页，管理页自动弹出【原始弹窗】只读预览
+    //（audit 参数供实体被删除时按审计快照渲染同一原始弹窗），不新开窗口
     var tplTypeMap = { template: 'medical_record', nursing_template: 'nursing_record', imaging_template: 'imaging_report' };
     if (tplTypeMap[type]) {
-        window.open('/admin/templates?preview=' + refId + '&type=' + tplTypeMap[type] + '&audit=' + auditId, '_blank');
+        Clinic.nav.go('/admin/templates?preview=' + refId + '&type=' + tplTypeMap[type] + '&audit=' + auditId);
         return;
     }
-    // 套餐：跳管理页原始弹窗（audit 参数同上）
     if (type === 'package') {
-        window.open('/admin/packages?preview=' + refId + '&audit=' + auditId, '_blank');
+        Clinic.nav.go('/admin/packages?preview=' + refId + '&audit=' + auditId);
         return;
     }
     // 检验/检查/药品/处置/药品设置：

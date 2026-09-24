@@ -182,25 +182,29 @@ function previewTpl(id, type, auditId) {
                 if (Clinic.modalReadonly) Clinic.modalReadonly(mask);
                 return;
             }
-            // 实体已被删除：按审计快照渲染同一原始弹窗（审核中心「预览」带 audit 参数）
-            if (auditId) {
-                Clinic.get('/api/admin?action=audit_preview&id=' + auditId, null, {
-                    onSuccess: function (j2) {
-                        if (j2.data && j2.data.template) {
-                            var m2 = Clinic.modal.open('<div id="tplFormContent"></div>', { title: '预览模板（已删除，按提交快照）', size: 'modal-xl' });
-                            buildTplForm(m2, j2.data.template, true);
-                            if (Clinic.modalReadonly) Clinic.modalReadonly(m2);
-                            return;
-                        }
-                        Clinic.toast.warning('该模板已被删除，且无快照可预览');
-                    },
-                    onError: function () { Clinic.toast.warning('该模板已被删除，且无快照可预览'); },
-                });
-                return;
-            }
+            // 实体不存在：有审计快照则按快照渲染原始弹窗；无快照统一单次提示
+            if (auditId) { tplFromAudit(auditId); return; }
             Clinic.toast.warning('该模板已被删除或不可见，无法预览');
         },
-        onError: function () { Clinic.toast.warning('该模板已被删除或不可见，无法预览'); },
+        onError: function () {
+            if (auditId) { tplFromAudit(auditId); return; }
+            Clinic.toast.warning('该模板已被删除或不可见，无法预览');
+        },
+    });
+}
+/* 实体已被删除：按审计快照渲染同一原始弹窗（无快照单次提示，不重复 toast） */
+function tplFromAudit(auditId) {
+    Clinic.get('/api/admin?action=audit_preview&id=' + auditId, null, {
+        onSuccess: function (j2) {
+            if (j2.data && j2.data.template) {
+                var m2 = Clinic.modal.open('<div id="tplFormContent"></div>', { title: '预览模板（已删除，按提交快照）', size: 'modal-xl' });
+                buildTplForm(m2, j2.data.template, true);
+                if (Clinic.modalReadonly) Clinic.modalReadonly(m2);
+                return;
+            }
+            Clinic.toast.warning('该模板已被删除，且无快照可预览');
+        },
+        onError: function () { Clinic.toast.warning('该模板已被删除，且无快照可预览'); },
     });
 }
 
