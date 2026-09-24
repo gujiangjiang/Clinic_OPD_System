@@ -253,14 +253,23 @@ function renderPackageSnapshot(p) {
             ' ｜ ' + Clinic.money(((parseFloat(it.price) || 0) * (it.quantity || 1))) + '</div>';
         return line;
     }).join('');
-    var html = '<div class="form-group"><label class="form-label">套餐名称</label>' +
-        '<input class="input" value="' + escHtml(p.title) + '" readonly></div>' +
-        '<div class="form-group"><label class="form-label">类型 / 适用范围</label>' +
-        '<input class="input" value="' + ((pkgTypeNames[p.type] || p.type) + ' / ' + (pkgScopeNames[p.scope] || p.scope)) + '" readonly></div>' +
-        '<div class="form-group"><label class="form-label">套餐内容（' + (p.items || []).length + ' 项）</label>' +
-        '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;max-height:380px;overflow-y:auto">' +
-        (rows || '<div class="empty">套餐暂无项目</div>') + '</div></div>';
-    var mask = Clinic.modal.open(html, { title: '预览 · ' + (pkgTypeNames[p.type] || '套餐'), size: 'modal-lg' });
+    // 与「添加/编辑套餐」原始弹窗同布局：左侧套餐名称/适用范围，右侧套餐内容（pkg-form 两栏）
+    var html =
+        '<div class="pkg-form">' +
+        '  <div class="pkg-left">' +
+        '    <div class="form-group"><label class="form-label">套餐名称</label>' +
+        '      <input class="input" value="' + escHtml(p.title || '') + '" readonly></div>' +
+        '    <div class="form-group"><label class="form-label">类型 / 适用范围</label>' +
+        '      <input class="input" value="' + ((pkgTypeNames[p.type] || p.type) + ' / ' + (pkgScopeNames[p.scope] || p.scope)) + '" readonly></div>' +
+        '  </div>' +
+        '  <div class="pkg-right">' +
+        '    <div class="fs-13 text-muted mb-4">套餐内容 <strong>' + (p.items || []).length + '</strong> 项</div>' +
+        '    <div id="pkgItems" style="flex:1;min-height:0;overflow-y:auto;padding-right:4px;border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 12px">' +
+        (rows || '<div class="text-muted fs-13 text-center" style="padding:30px">套餐暂无项目</div>') +
+        '    </div>' +
+        '  </div>' +
+        '</div>';
+    var mask = Clinic.modal.open(html, { title: '预览 · ' + (pkgTypeNames[p.type] || '套餐'), size: 'modal-xl pkg-form-modal' });
     makeReadonly(mask);
 }
 
@@ -373,18 +382,12 @@ function previewAudit(btn) {
         });
     };
     if (type === 'drugsetting' || !isHandled) { openForm(); return; }
-    // 已处理：优先用提交快照渲染【与添加/编辑完全一致的原始表单】并只读化
-    // （项目被删除后仍可预览提交时内容；快照缺失回退实时表单接口）
-    Clinic.get('/api/admin?action=audit_preview&id=' + auditId, null, {
-        onSuccess: function (json) {
-            if (json.data && json.data.html) {
-                var m = Clinic.modal.open(json.data.html, { title: modalTitle, size: 'modal-lg' });
-                makeReadonly(m);
-                return;
-            }
-            openForm();
-        },
-        onError: function () { openForm(); },
+    // 已处理：统一用【与添加/编辑完全相同的 modal.load】打开 audit_preview
+    //（audit_preview 返回 forms.php 同源原始表单：快照数据回填或实时数据，
+    //  弹窗尺寸/布局与编辑弹窗完全一致），仅加载后 makeReadonly 只读化
+    var mask = Clinic.modal.load('/api/admin', { action: 'audit_preview', id: auditId }, { title: modalTitle });
+    mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
+        makeReadonly(mask);
     });
 }
 

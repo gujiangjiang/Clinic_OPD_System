@@ -422,18 +422,18 @@ function admin_part_audit($action) {
                 '<div class="form-group"><label class="form-label">绑定处置项目</label>' .
                 '<input class="input" value="' . e($bindName ? $bindName : '无') . '" readonly></div>';
         } elseif (in_array($type, array('item_lab', 'item_exam', 'item_drug', 'item_disp'), true)) {
-            // 检验/检查/药品/处置：优先用提交快照渲染【与添加/编辑完全一致的原始表单】
-            // （项目被删除后仍可预览提交时内容），历史无快照记录由前端回退原表单接口
+            // 检验/检查/药品/处置：渲染【与添加/编辑完全一致的原始表单】（forms.php 同源）。
+            // 有快照（项目已删除）→ 快照数据回填；无快照 → 回退实时数据渲染。
+            // 弹窗统一由前端 modal.load 打开（与编辑弹窗同款尺寸/布局），仅只读化。
             $d = json_decode((string)$a['data'], true);
-            if (!is_array($d)) json_fail('该类型由前端复用原表单渲染');
-            // forms.php 表单函数支持快照回填：样式与编辑弹窗一致，仅值来自快照
             if ($type === 'item_drug') {
-                $f = form_drug(0, $d);
+                $f = is_array($d) ? form_drug(0, $d) : form_drug((int)$refId);
                 $html = is_array($f) ? $f['html'] : $f;
             } elseif ($type === 'item_disp') {
-                $html = form_disposal(0, $d);
+                $html = is_array($d) ? form_disposal(0, $d) : form_disposal((int)$refId);
             } else {
-                $html = form_item($type === 'item_lab' ? 'lab' : 'exam', 0, $d);
+                $t = $type === 'item_lab' ? 'lab' : 'exam';
+                $html = is_array($d) ? form_item($t, 0, $d) : form_item($t, (int)$refId);
             }
         } elseif ($type === 'template' || $type === 'nursing_template' || $type === 'imaging_template') {
             // 模板快照：返回原始提交内容（title/type/scope/content），供前端 emrEditor/文本只读渲染
