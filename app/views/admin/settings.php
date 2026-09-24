@@ -226,23 +226,24 @@ $dbType = strtoupper(DatabaseManager::driver());
 
 <!-- ============ Tab: 安全与加密 ============ -->
 <div class="stab-pane" id="stab-security" style="display:none">
-<div class="setting-grid">
-
-    <!-- ===== 安全设置 ===== -->
     <div class="card setting-card">
-        <div class="card-title">🔐 安全设置</div>
+        <div class="card-title">🔐 登录安全与防爆破</div>
         <div class="setting-sec-title" style="margin-top:0;padding-top:0;border-top:none">登录验证码与防爆破锁定</div>
-        <div class="form-group"><label class="form-label">登录验证码启用模式</label>
-            <select class="select" id="s_captcha_mode">
-                <option value="auto"<?php echo setting('login_captcha_mode', 'auto') === 'auto' ? ' selected' : ''; ?>>智能开启（默认：正常不显示，遇错误/风险自动弹出）</option>
-                <option value="force"<?php echo setting('login_captcha_mode') === 'force' ? ' selected' : ''; ?>>强制开启（每次登录均要求验证码）</option>
-                <option value="off"<?php echo setting('login_captcha_mode') === 'off' ? ' selected' : ''; ?>>不开启（完全不展示与校验验证码）</option>
-            </select></div>
-        <div class="form-group"><label class="form-label">密码连续错误锁定阈值（次）</label>
-            <input class="input" id="s_lock_count" type="number" min="3" max="10" value="<?php echo (int)setting('login_fail_lock_count', 5); ?>">
-            <div class="fs-12 text-muted mt-4">连续密码错误达到阈值后账号自动安全锁定（status=0），需管理员在【用户管理】中解锁；解锁时同步重置错误计数与锁定信息。</div></div>
-        <button class="btn btn-primary btn-sm" onclick="saveSettings()">保存</button>
-        <div class="setting-sec-title" style="margin-top:18px">URL 安全混淆密钥（防链接撞库）</div>
+        <div class="form-row">
+            <div class="form-group"><label class="form-label">登录验证码启用模式</label>
+                <select class="select" id="s_captcha_mode">
+                    <option value="auto"<?php echo setting('login_captcha_mode', 'auto') === 'auto' ? ' selected' : ''; ?>>智能开启（默认：正常不显示，遇错误/风险自动弹出）</option>
+                    <option value="force"<?php echo setting('login_captcha_mode') === 'force' ? ' selected' : ''; ?>>强制开启（每次登录均要求验证码）</option>
+                    <option value="off"<?php echo setting('login_captcha_mode') === 'off' ? ' selected' : ''; ?>>不开启（完全不展示与校验验证码）</option>
+                </select></div>
+            <div class="form-group"><label class="form-label">密码连续错误锁定阈值（次）</label>
+                <input class="input" id="s_lock_count" type="number" min="3" max="10" value="<?php echo (int)setting('login_fail_lock_count', 5); ?>">
+                <div class="fs-12 text-muted mt-4">连续密码错误达到阈值后账号自动安全锁定（status=0），需管理员在【用户管理】中解锁；解锁时同步重置错误计数与锁定信息。</div></div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="saveSettings()">保存安全设置</button>
+    </div>
+    <div class="card setting-card">
+        <div class="card-title">🔗 URL 安全混淆密钥（防链接撞库）</div>
         <div class="fs-13 text-muted mb-8">用于加密就诊、申请单、报告等链接中的实体 ID，防止通过改数字遍历他人医疗数据。</div>
         <div class="fs-12 mb-8" style="font-family:monospace;word-break:break-all;background:var(--bg-soft);border-radius:var(--radius-md);padding:10px" id="obf_secret">加载中…</div>
         <div class="flex gap-8">
@@ -251,8 +252,6 @@ $dbType = strtoupper(DatabaseManager::driver());
         </div>
         <div class="fs-12 text-warning mt-8">⚠️ 重置后：此前生成/分享/收藏的所有带 ID 链接立即失效；系统功能不受影响（新链接按新密钥即时生成）。建议在怀疑链接泄露时重置。</div>
     </div>
-
-</div>
 </div><!-- /stab-security -->
 
 <script>
