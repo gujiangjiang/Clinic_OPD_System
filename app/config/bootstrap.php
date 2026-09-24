@@ -82,6 +82,9 @@ require_once __DIR__ . '/../core/barcode.php';
 
 /* ---------- 基础设施配置库（config.db）：Session/数据库驱动读取依赖，须先加载 ---------- */
 require_once __DIR__ . '/../core/ConfigStore.php';
+// 强制确保 config.db 存在（缺失/损坏自动重建并回填默认配置），
+// 系统设置等所有配置写入均以 config.db 为唯一载体
+ConfigStore::ensure();
 
 /* ---------- 启动会话（Session 文件保存到 data/session，避开 Web 访问） ---------- */
 require_once __DIR__ . '/../core/Session.php';

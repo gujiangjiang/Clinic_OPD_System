@@ -169,6 +169,53 @@ class ConfigStore {
         return is_file(self::path());
     }
 
+    /**
+     * 强制确保 config.db 存在且可用（系统设置等写入配置的前置条件）：
+     * 缺失/损坏时自动创建并回填 bootstrap 默认常量配置（保证系统行为不变），
+     * 绝不出现「无处保存配置」的降级空转状态。
+     * @return bool 是否可用
+     */
+    public static function ensure() {
+        if (self::available()) return true;
+        $path = self::path();
+        $dir = dirname($path);
+        if (!is_dir($dir)) { @mkdir($dir, 0777, true); }
+        if (!is_file($path) || !self::isSqliteFile($path)) {
+            // 缺失或损坏（损坏文件已由 available 隔离备份）→ 新建
+            try {
+                $pdo = new PDO('sqlite:' . $path, null, null, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
+                $pdo->exec('CREATE TABLE IF NOT EXISTS config(ckey TEXT PRIMARY KEY, cvalue TEXT)');
+                unset($pdo);
+            } catch (Exception $ex) {
+                error_log('[ConfigStore] 创建 config.db 失败：' . $ex->getMessage());
+                return false;
+            }
+        }
+        ConfigStore::resetCache();
+        // 回填默认配置（从 bootstrap 常量），保证此后读写一致
+        if (ConfigStore::get('db.driver', '') === '') {
+            ConfigStore::set('db.driver', defined('DB_DRIVER') ? DB_DRIVER : 'sqlite');
+            if (defined('MYSQL_HOST')) {
+                ConfigStore::set('db.mysql.host', MYSQL_HOST);
+                ConfigStore::set('db.mysql.port', MYSQL_PORT);
+                ConfigStore::set('db.mysql.dbname', MYSQL_DB_NAME);
+                ConfigStore::set('db.mysql.user', MYSQL_USER);
+                ConfigStore::set('db.mysql.pass', MYSQL_PASS);
+            }
+            if (defined('PGSQL_HOST')) {
+                ConfigStore::set('db.pgsql.host', PGSQL_HOST);
+                ConfigStore::set('db.pgsql.port', PGSQL_PORT);
+                ConfigStore::set('db.pgsql.dbname', PGSQL_DB_NAME);
+                ConfigStore::set('db.pgsql.user', PGSQL_USER);
+                ConfigStore::set('db.pgsql.pass', PGSQL_PASS);
+            }
+            ConfigStore::set('db.sqlite.path', '');
+            ConfigStore::set('cache.driver', 'file');
+        }
+        ConfigStore::resetCache();
+        return self::available();
+    }
+
     /** 重置进程内探测缓存（外部改动 config.db 后强制重新探测） */
     public static function resetCache() {
         self::$available = -1;
