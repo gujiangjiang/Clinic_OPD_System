@@ -203,15 +203,35 @@ function previewAudit(btn) {
         item_drug: '预览 · 药品', item_disp: '预览 · 处置项目', drugsetting: '预览 · 药品设置',
     };
     var modalTitle = titleMap[type] || '预览';
-    // 模板/套餐：SPA 全局局部刷新导航到管理页，管理页自动弹出【原始弹窗】只读预览
-    //（audit 参数供实体被删除时按审计快照渲染同一原始弹窗），不新开窗口
+    // 模板/套餐：先预检实体是否存在；存在才 SPA 跳转管理页原始弹窗预览，
+    // 不存在（后台误删）→ 直接 toast 提示，绝不跳转页面
     var tplTypeMap = { template: 'medical_record', nursing_template: 'nursing_record', imaging_template: 'imaging_report' };
     if (tplTypeMap[type]) {
-        Clinic.nav.go('/admin/templates?preview=' + refId + '&type=' + tplTypeMap[type] + '&audit=' + auditId);
+        Clinic.get('/api/template?action=get&id=' + refId, null, {
+            loading: false,
+            onSuccess: function (j) {
+                if (j.data && j.data.template) {
+                    Clinic.nav.go('/admin/templates?preview=' + refId + '&type=' + tplTypeMap[type] + '&audit=' + auditId);
+                    return;
+                }
+                Clinic.toast.warning('该审核项目对应的模板已被删除，无法预览');
+            },
+            onError: function () { Clinic.toast.warning('该审核项目对应的模板已被删除，无法预览'); },
+        });
         return;
     }
     if (type === 'package') {
-        Clinic.nav.go('/admin/packages?preview=' + refId + '&audit=' + auditId);
+        Clinic.get('/api/package?action=get&id=' + refId, null, {
+            loading: false,
+            onSuccess: function (j) {
+                if (j.data && j.data.package) {
+                    Clinic.nav.go('/admin/packages?preview=' + refId + '&audit=' + auditId);
+                    return;
+                }
+                Clinic.toast.warning('该审核项目对应的套餐已被删除，无法预览');
+            },
+            onError: function () { Clinic.toast.warning('该审核项目对应的套餐已被删除，无法预览'); },
+        });
         return;
     }
     // 检验/检查/药品/处置/药品设置：
