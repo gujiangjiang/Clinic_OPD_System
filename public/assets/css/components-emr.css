@@ -230,11 +230,21 @@
     background: var(--primary-soft);
     border-bottom-color: var(--primary);
 }
-/* 整体换行字段（现病史具体内容等长文本）：内容不换行（nowrap），
-   字段宽度随内容增长（最短值由 JS 内联 minWidth 控制），
-   超过行宽时整个字段换到下一行，而非在字段内部折行 */
+/* 整体自适应字段（现病史具体内容等长文本）：宽度随内容增长（最短值由 JS
+   内联 minWidth 控制），内容超过可用行宽时在超出处自动断行到下一行继续书写
+   （自动分节），下一行再超再换行，最大宽度不超过容器（绝不横向溢出），
+   整体保持为一个字段；显示为多行段落，每行末尾自然断行 */
 .emr-doc .doc-body .ef-field.ef-field-nowrap {
-    white-space: nowrap;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-all;
+    /* 多行段落：以背景底线模拟病历横线，每行都有下划线边界（与单行虚线下划线呼应） */
+    background-image: linear-gradient(var(--border), var(--border));
+    background-position: left bottom;
+    background-repeat: no-repeat;
+    background-size: 100% 1px;
+    padding-bottom: 2px;
 }
 /* 只读（诊毕）：灰字、无光标、虚线弱化 */
 .emr-doc .doc-body .ef-field.readonly {

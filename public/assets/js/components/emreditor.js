@@ -107,11 +107,12 @@ Clinic.emrEditor = (function () {
     /* ==================== 字段 DOM 构建 ==================== */
 
     /** 可编辑占位字段：<span class="ef-field" contenteditable data-ph>
-     * @param {boolean} nowrap 内容不换行（white-space:nowrap）：
-     *   字段宽度随内容增长、超出行宽时整体换行到下一行（现病史具体内容等长文本字段） */
-    function textField(path, ph, width, nowrap) {
+     * @param {boolean} auto 内容自适应多行：宽度随内容增长（最短值 minWidth 控制），
+     *   超过可用行宽时在超出处自动断行到下一行继续书写（自动分节），
+     *   最大宽度不超过容器、绝不横向溢出（现病史具体内容等长文本字段） */
+    function textField(path, ph, width, auto) {
         var el = document.createElement('span');
-        el.className = 'ef-field' + (nowrap ? ' ef-field-nowrap' : '');
+        el.className = 'ef-field' + (auto ? ' ef-field-nowrap' : '');
         el.setAttribute('contenteditable', 'true');
         el.setAttribute('spellcheck', 'false');
         el.setAttribute('data-ph', ph);
@@ -273,8 +274,8 @@ Clinic.emrEditor = (function () {
         d.appendChild(selectField('history_present.informant', '供史者', INFORMANTS, { csdSearch: 1, csdClear: 1 }));
         d.appendChild(textField('history_present.duration', '时间', 36));
         d.appendChild(selectField('history_present.unit', '单位', UNITS, { csdSearch: 1, csdClear: 1 }));
-        // 现病史具体内容：整体换行（nowrap）——字段始终单行，宽度随内容增长，
-        // 过长时整行换到下一行（而非字段内部换行），最短保持 260px
+        // 现病史具体内容：自适应多行字段（宽度随内容增长，超行宽时在超出处自动
+        // 断行到下一行继续写，整体保持一个字段、绝不横向溢出）
         d.appendChild(textField('history_present.content', '现病史具体内容', 260, true));
         d.appendChild(staticText('，'));
         d.appendChild(selectField('history_present.arrival_way', '来院途径', ARRIVAL_WAYS, { csdSearch: 1, csdClear: 1 }));
