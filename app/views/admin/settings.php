@@ -955,35 +955,38 @@ function runBackup() {
         });
     }, { title: '执行数据库备份', okText: '开始备份' });
 }
-/* 备份/双向操作日志：查看模态框（滚动列表 + 清空 + 导出 .log 文件） */
+/* 备份/双向操作日志：查看模态框（固定大小 + 滚动动态加载 + 清空/导出） */
+var BK_LOG_INF = null;
 function viewBackupLogs() {
+    if (BK_LOG_INF) { BK_LOG_INF.stop(); BK_LOG_INF = null; }
     var mask = Clinic.modal.open(
         '<div class="flex gap-8 mb-8"><button class="btn btn-outline btn-sm" onclick="exportBackupLog()">⬇️ 导出日志</button>' +
-        '<button class="btn btn-danger btn-sm" onclick="clearBackupLog()">🗑️ 清空日志</button></div>' +
-        '<div id="bkLogBox" style="max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-md);padding:10px;font-family:monospace;font-size:12px;line-height:1.8">' +
-        '<div class="text-center" style="padding:20px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>',
-        { title: '📜 数据库操作日志（备份 / 双向同步）', size: 'modal-lg' }
+        '<button class="btn btn-danger btn-sm" onclick="clearBackupLog()">🗑️ 清空日志</button>' +
+        '<span class="fs-12 text-muted" id="bkLogTotal"></span></div>' +
+        '<div id="bkLogBox" style="height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-md);padding:10px;font-family:monospace;font-size:12px;line-height:1.8">' +
+        '<div class="text-muted text-center" style="padding:20px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>',
+        { title: '📜 数据库操作日志', size: 'modal-lg' }
     );
-    loadBackupLogs(mask);
-}
-function loadBackupLogs(mask) {
-    var box = document.getElementById('bkLogBox');
-    if (!box) return;
-    Clinic.get('/api/admin?action=backup_logs', null, {
-        loading: false,
-        onSuccess: function (json) {
-            var lines = (json.data && json.data.lines) || [];
-            box.innerHTML = lines.length
-                ? lines.map(function (l) { return escHtml(l); }).join('<br>')
-                : '<div class="text-muted text-center" style="padding:20px">暂无日志记录</div>';
+    BK_LOG_INF = Clinic.infiniteList({
+        el: document.getElementById('bkLogBox'),
+        pageSize: 100,
+        threshold: 60,
+        emptyHtml: '<div class="empty" style="padding:40px 0"><div class="empty-ico">📋</div>暂无日志记录</div>',
+        url: function (p, size) { return '/api/admin?action=backup_logs&page=' + p + '&size=' + size; },
+        render: function (list, isFirst, data) {
+            var total = document.getElementById('bkLogTotal');
+            if (total && isFirst && data) total.textContent = '共 ' + data.total + ' 条';
+            return list.map(function (l) { return escHtml(l); }).join('<br>');
         },
-        onError: function () { box.innerHTML = '<span class="text-danger">日志读取失败</span>'; },
     });
 }
 window.clearBackupLog = function () {
     Clinic.modal.confirm('确定清空全部操作日志吗？', function () {
         Clinic.ajax('/api/admin', { action: 'backup_log_clear' }, {
-            onSuccess: function (json) { Clinic.toast.success(json.msg); loadBackupLogs(null); },
+            onSuccess: function (json) {
+                Clinic.toast.success(json.msg);
+                if (BK_LOG_INF) BK_LOG_INF.reset();
+            },
             onError: function (x, j) { Clinic.toast.error((j && j.msg) || '清空失败'); },
         });
     });

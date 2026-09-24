@@ -269,7 +269,12 @@ function admin_part_sysinfo($action) {
     /* ==================== 备份/双向操作日志 ==================== */
     if ($action === 'backup_logs') {
         require_once APP_ROOT . '/app/core/MigrationRunner.php';
-        json_ok(array('lines' => MigrationRunner::logs(500)));
+        $page = max(1, (int)get('page', 1));
+        $size = min(200, max(10, (int)get('size', 100)));
+        $all = MigrationRunner::logs(5000);
+        $total = count($all);
+        $lines = array_slice($all, ($page - 1) * $size, $size);
+        json_ok(array('lines' => $lines, 'total' => $total));
     }
     if ($action === 'backup_log_clear') {
         require_once APP_ROOT . '/app/core/MigrationRunner.php';
