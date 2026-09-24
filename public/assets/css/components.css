@@ -131,12 +131,14 @@
     box-shadow: 0 0 0 3px var(--primary-soft);
 }
 .input:disabled, .select:disabled { background: var(--bg-soft); color: var(--text-muted); cursor: default; }
-/* 只读输入框/文本域：灰色底 + 默认箭头光标（禁止文本 I-beam 光标出现/闪烁） */
-.input[readonly], .textarea[readonly], textarea[readonly] {
+/* 只读输入框/文本域：灰色底 + 灰色文字 + 默认箭头光标（禁止文本 I-beam 光标）；
+   排除 .input-date（日期选择框虽 readonly 但可点击弹日历，保持其独立样式） */
+.input[readonly]:not(.input-date), .textarea[readonly] {
     background: var(--bg-soft);
+    color: var(--text-muted);
     cursor: default;
 }
-.input[readonly]:focus, .textarea[readonly]:focus { box-shadow: none; border-color: var(--border); }
+.input[readonly]:not(.input-date):focus, .textarea[readonly]:focus { box-shadow: none; border-color: var(--border); }
 .textarea { min-height: 80px; resize: vertical; }
 /* 文件选择按钮统一样式（导入 CSV / 安装页 LOGO 等） */
 input[type="file"] {
