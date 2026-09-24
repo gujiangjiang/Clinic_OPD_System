@@ -25,11 +25,7 @@ foreach ($commonTz as $t) {
 $dbType = strtoupper(DatabaseManager::driver());
 ?>
 <div class="page-head">
-    <div><div class="page-title">⚙️ 系统设置</div><div class="page-desc">按类别分区管理医院基础信息、品牌外观、作息时间与安全设置<br>
-    HIS / 支付 / 医保 / DICOM-PACS / HL7 / FHIR 等外部接口已迁移至 <a href="/admin/integration" style="color:var(--primary)">🔌 接口管理</a> 统一维护</div></div>
-    <div style="align-self:flex-start">
-        <span class="badge badge-primary" style="font-size:11.5px;letter-spacing:.04em" title="当前数据库驱动">🗄️ 数据库：<?php echo e($dbType); ?></span>
-    </div>
+    <div><div class="page-title">⚙️ 系统设置</div><div class="page-desc">按类别分区管理医院基础信息、品牌外观、作息时间与安全设置</div></div>
 </div>
 
 <!-- 多 Tab 导航 -->
@@ -38,7 +34,6 @@ $dbType = strtoupper(DatabaseManager::driver());
     <button type="button" class="btn btn-outline btn-sm" data-stab="db" onclick="settingsTab('db')">🗄️ 数据库中心</button>
     <button type="button" class="btn btn-outline btn-sm" data-stab="cache" onclick="settingsTab('cache')">⚡ 缓存与性能</button>
     <button type="button" class="btn btn-outline btn-sm" data-stab="security" onclick="settingsTab('security')">🔐 安全与加密</button>
-    <button type="button" class="btn btn-outline btn-sm" data-stab="integration" onclick="settingsTab('integration')">🔌 外部集成与接口</button>
 </div>
 
 <!-- ============ Tab: 医院机构信息 ============ -->
@@ -190,15 +185,6 @@ $dbType = strtoupper(DatabaseManager::driver());
 
 </div>
 </div><!-- /stab-security -->
-
-<!-- ============ Tab: 外部集成与接口 ============ -->
-<div class="stab-pane" id="stab-integration" style="display:none">
-    <div class="card setting-card">
-        <div class="card-title">🔌 外部集成与接口</div>
-        <div class="fs-13 mb-8">HIS / 支付 / 医保 / DICOM-PACS / HL7 v2.x / FHIR R4 / 存证·电子签名 等外部接口已统一迁移至接口管理页维护。</div>
-        <a class="btn btn-primary" href="/admin/integration">→ 前往接口管理</a>
-    </div>
-</div>
 
 <script>
 /* ---------- 作息时间设置模态框（含夏令时作息） ---------- */
@@ -469,7 +455,8 @@ function loadDbStatus() {
                     '<span class="fw-600">' + escHtml(t.name) + '</span>' +
                     '<span class="fs-12 text-muted">' + t.rows + ' 行</span></div>';
             }).join('') || '<div class="text-muted">无表</div>';
-            // 驱动下拉动态渲染（注册表唯一数据源，与安装向导共用）
+            // 驱动下拉动态渲染（注册表唯一数据源，与安装向导共用；迁移目标排除当前驱动）
+            SET_CUR_DRIVER = d.driver || '';
             renderSettingsDrivers(d.drivers || { db: {}, cache: {} });
         },
         onError: function () { box.innerHTML = '<span class="text-danger">数据库状态读取失败</span>'; },
@@ -504,8 +491,12 @@ function renderDbTable(d) {
         '</span></div>' +
         '<div class="table-wrap" style="max-height:420px;overflow:auto"><table class="table"><thead><tr>' + head + '</tr></thead><tbody>' +
         (body || '<tr><td colspan="99" class="text-muted">无数据</td></tr>') + '</tbody></table></div>';
-    if (DB_TABLE_MODAL) { DB_TABLE_MODAL.innerHTML = html; }
-    else { DB_TABLE_MODAL = Clinic.modal.open(html, { title: '数据表查看', size: 'modal-xl' }); }
+    if (DB_TABLE_MODAL) {
+        // 旧弹窗仍在文档中（翻页替换）→ 先关闭；已关闭（残留引用）→ 直接新建
+        try { if (document.body.contains(DB_TABLE_MODAL)) Clinic.modal.close(); } catch (e) {}
+        DB_TABLE_MODAL = null;
+    }
+    DB_TABLE_MODAL = Clinic.modal.open(html, { title: '数据表查看', size: 'modal-xl' });
 }
 function dbTablePage(p) {
     Clinic.get('/api/admin?action=db_table_data&table=' + encodeURIComponent(DB_CUR_TABLE) + '&page=' + p + '&size=20', null, {
@@ -565,6 +556,7 @@ function flushCache(scope) {
 
 /* ---------- 驱动选项动态渲染（注册表唯一数据源，与安装向导共用） ---------- */
 var SET_DRIVERS = null;
+var SET_CUR_DRIVER = '';   // 当前数据库驱动（迁移目标排除同驱动）
 function settingsDriverMeta(kind, key) {
     var dr = SET_DRIVERS || { db: {}, cache: {} };
     return (dr[kind] && dr[kind][key]) ? dr[kind][key] : null;
@@ -605,12 +597,13 @@ function settingsCollectParams(kind, driverKey) {
 }
 function renderSettingsDrivers(drivers) {
     SET_DRIVERS = drivers || { db: {}, cache: {} };
-    // 迁移目标驱动下拉
+    // 迁移目标驱动下拉：排除当前驱动（同格式迁移无意义）
     var migSel = document.getElementById('migDriver');
     if (migSel) {
         migSel.innerHTML = Object.keys(drivers.db || {}).map(function (k) {
+            if (k === SET_CUR_DRIVER) return '';   // 屏蔽当前驱动
             var d = drivers.db[k];
-            return '<option value="' + k + '"' + (k === 'mysql' ? ' selected' : '') + '>' + escHtml(d.label) + (d.installed ? '' : '（未安装扩展）') + '</option>';
+            return '<option value="' + k + '">' + escHtml(d.label) + (d.installed ? '' : '（未安装扩展）') + '</option>';
         }).join('');
         toggleMigOpts();
     }
