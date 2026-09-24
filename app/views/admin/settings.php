@@ -102,7 +102,7 @@ $dbType = strtoupper(DatabaseManager::driver());
 <!-- ============ Tab: 数据库中心（左右两栏） ============ -->
 <div class="stab-pane" id="stab-db" style="display:none">
     <style>
-        .db-center { display: flex; gap: 14px; align-items: flex-start; }
+        .db-center { display: flex; gap: 14px; align-items: flex-start; height: calc(100vh - var(--topbar-h) - 120px); }
         .db-sidebar { width: 150px; flex-shrink: 0; padding: 10px; }
         .db-nav {
             display: block; width: 100%; text-align: left; padding: 9px 12px; margin-bottom: 4px;
@@ -111,8 +111,12 @@ $dbType = strtoupper(DatabaseManager::driver());
         }
         .db-nav:hover { background: var(--bg-soft); }
         .db-nav.active { background: var(--primary); color: #fff; font-weight: 600; }
-        .db-main { flex: 1; min-width: 0; }
+        .db-main { flex: 1; min-width: 0; height: 100%; overflow-y: auto; padding-bottom: 18px; }
         .db-pane .card.setting-card { margin-bottom: 14px; }
+        /* 数据表浏览器：列表延伸至页面底部（卡片占满高度，列表内部滚动） */
+        #dbtab-browse { height: 100%; display: flex; flex-direction: column; }
+        #dbtab-browse .card.setting-card { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+        #dbtab-browse #dbTableList { flex: 1; min-height: 0; overflow-y: auto; }
     </style>
     <div class="db-center">
         <!-- 左侧边栏 -->
@@ -136,12 +140,9 @@ $dbType = strtoupper(DatabaseManager::driver());
             <div class="db-pane" id="dbtab-browse" style="display:none">
                 <div class="card setting-card">
                     <div class="card-title">📋 数据表浏览器</div>
-                    <div class="fs-13 text-muted mb-8">点击任意表查看字段属性与分页行数据（只读），支持导出 CSV；SQLite / MySQL / PostgreSQL 均支持。</div>
-                    <div id="dbTableList" class="fs-13" style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-md);padding:6px"><div class="text-muted">加载中…</div></div>
-                    <div class="flex gap-8 mt-8">
-                        <button class="btn btn-outline btn-sm" onclick="loadDbStatus()">🔄 刷新状态</button>
-                        <button class="btn btn-outline btn-sm" onclick="exportDbTableCsv()">⬇️ 导出当前表 CSV</button>
-                    </div>
+                    <div class="fs-13 text-muted mb-8">点击任意表查看字段属性与滚动加载行数据（只读，模态框内支持 CSV 导出）；SQLite / MySQL / PostgreSQL 均支持。</div>
+                    <div id="dbTableList" class="fs-13" style="border:1px solid var(--border);border-radius:var(--radius-md);padding:6px"><div class="text-muted">加载中…</div></div>
+                    <div class="mt-8"><button class="btn btn-outline btn-sm" onclick="loadDbStatus()">🔄 刷新表列表</button></div>
                 </div>
             </div>
             <div class="db-pane" id="dbtab-migrate" style="display:none">
