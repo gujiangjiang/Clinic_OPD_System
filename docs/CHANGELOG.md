@@ -13,6 +13,25 @@
 
 ---
 
+## [8.28.0] - 2026-09-24
+
+> 接口管理/数据表/系统设置缺陷修复与样式统一专项。
+
+### 修复
+- **接口管理非 HIS 标签全部空白**（严重）：HIS 左右栏重构时 itg-pane 容器 div 少闭合一个，导致支付/医保/PACS/HL7/FHIR 等 pane 全部嵌套在 itgPane_his 内，切换 tab 时父级 display:none 使子 pane 整体隐藏；补上闭合 div 恢复各 pane 为兄弟节点。
+- **数据表查看刷新后一直转圈**：刷新重开 modal 时 Clinic.modal.close 延迟移除旧弹窗，新旧 `#dbTableScroll` 重复 ID 导致数据写入被移除的旧元素；改为 `DB_INF.reset()` 原地重置（append 逻辑按容器是否已有 table 判断，不再依赖 first 标志）。
+- **网站时区选择框无搜索栏**：系统设置网站时区 select 补 `data-csd-search`（安装向导已含）；时区选项为 DateTimeZone 全量按区域分组。
+- **HIS 接口地址与调用示例文字样式不一致**：调用示例未配置密钥时改用灰色占位（与地址占位一致），两处等宽文本字号统一 12.5px。
+- **只读输入框光标闪烁**：全局 `.input[readonly]/.textarea[readonly]` 统一灰底 + cursor:default（禁止 I-beam 文本光标），聚焦不高亮。
+
+### 变更
+- **HIS 接口去掉外层卡片边框**：不再显示「🏥 HIS 接口 / 与院内 HIS 系统对接的基础配置」标题与说明框，直接左右双栏。
+
+### 文档
+- **同步版本号至 v8.28.0**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json` + AGENTS.md 基准版本）。
+
+---
+
 ## [8.27.0] - 2026-09-24
 
 > 系统设置/接口管理交互优化专项。
