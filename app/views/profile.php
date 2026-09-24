@@ -171,7 +171,7 @@ function openPwdModal() {
     // 底部按钮区：忘记密码靠左（outline），取消/确认修改靠右
     mask.querySelector('.modal-foot').innerHTML =
         '<div style="display:flex;justify-content:space-between;align-items:center;width:100%">' +
-        '<button type="button" class="btn btn-outline" onclick="forgotPwd()">忘记密码？</button>' +
+        '<button type="button" class="btn btn-danger" onclick="forgotPwd()">忘记密码？</button>' +
         '<span class="flex gap-8"><button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
         '<button type="button" class="btn btn-primary" id="pwdSaveBtn">确认修改</button></span></div>';
     document.getElementById('pwdSaveBtn').addEventListener('click', savePwd);

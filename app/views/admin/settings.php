@@ -602,7 +602,7 @@ function openDbTable(table) {
         '<button class="btn btn-outline btn-sm" onclick="exportDbTableCsv()">⬇️ CSV</button></div>' +
         '<div class="table-wrap" id="dbTableScroll" style="height:440px;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-md)">' +
         '<div class="text-muted text-center" style="padding:30px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>';
-    DB_TABLE_MODAL = Clinic.modal.open(html, { title: '数据表查看（滚动加载）', size: 'modal-xl' });
+    DB_TABLE_MODAL = Clinic.modal.open(html, { title: '数据表查看', size: 'modal-xl' });
     var first = true;   // 首屏渲染完整表格，后续页仅插入行
     DB_INF = Clinic.infiniteList({
         el: document.getElementById('dbTableScroll'),
