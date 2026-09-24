@@ -347,11 +347,11 @@ function testDb() {
     var msg = document.getElementById('dbTestMsg');
     msg.textContent = '测试中…';
     if (btn) btn.disabled = true;
+    function done() { if (btn) btn.disabled = false; }
     Clinic.get('/api/install?action=test_db', dbQueryParams(), {
         loading: false,
-        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
-        onError: function (x, json) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((json && json.msg) || '连接失败') + '</span>'; },
-        complete: function () { if (btn) btn.disabled = false; },
+        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; done(); },
+        onError: function (x, json) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((json && json.msg) || '连接失败') + '</span>'; done(); },
     });
 }
 function testRedis() {
@@ -359,6 +359,7 @@ function testRedis() {
     var msg = document.getElementById('redisTestMsg');
     msg.textContent = '测试中…';
     if (btn) btn.disabled = true;
+    function done() { if (btn) btn.disabled = false; }
     var p = collectParams('cache', 'redis');
     Clinic.get('/api/install?action=test_redis', {
         host: p.host || '',
@@ -366,9 +367,8 @@ function testRedis() {
         auth: p.auth || '',
     }, {
         loading: false,
-        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
-        onError: function (x, json) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((json && json.msg) || '连接失败') + '</span>'; },
-        complete: function () { if (btn) btn.disabled = false; },
+        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; done(); },
+        onError: function (x, json) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((json && json.msg) || '连接失败') + '</span>'; done(); },
     });
 }
 
@@ -377,36 +377,47 @@ function checkDbAndProceed() {
     if (!wizValidate(2)) return;
     var btn = document.getElementById('nextBtn');
     btn.disabled = true;
+    function done() { btn.disabled = false; }
     Clinic.get('/api/install?action=check_db', dbQueryParams(), {
         loading: true,
         onSuccess: function (json) {
-            btn.disabled = false;
+            done();
             WIZ.dbInstalled = !!(json.data && json.data.installed);
             if (WIZ.dbInstalled) { askInstallMode(); return; }
             WIZ.mode = 'fresh';
             wizGo(3, false);
         },
-        onError: function (x, json) {
-            btn.disabled = false;
-            Clinic.toast.error((json && json.msg) || '数据库校验失败，请检查配置');
-        },
+        onError: function () { done(); },
     });
 }
-/* 检测到已有安装数据：弹出「关联现有 / 全新安装」决策对话框 */
+/* 检测到已有安装数据：弹出「关联现有 / 全新安装」决策对话框
+ * （安装页为独立页，未加载 modal.js，此处用 modal.css 自建轻量对话框） */
 function askInstallMode() {
-    var html = '<div class="fs-14" style="line-height:1.9">检测到所选数据库已存在安装完成的数据。<br>请选择处理方式：</div>' +
-        '<div class="mt-12 fs-13" style="line-height:1.8">' +
-        '<div><b>关联现有数据库</b>：保留全部已有数据，仅重新绑定连接。</div>' +
-        '<div class="text-danger mt-4"><b>全新安装</b>：清空该数据库全部数据后重新创建。</div></div>';
-    Clinic.modal.open(html, {
-        title: '检测到已有数据库',
-        maskClose: false,
-        buttons: [
-            { text: '取消', cls: 'btn-outline', onClick: function () { Clinic.modal.close(); } },
-            { text: '全新安装', cls: 'btn-danger', onClick: function () { WIZ.mode = 'fresh'; Clinic.modal.close(); wizGo(3, false); } },
-            { text: '关联现有数据库', cls: 'btn-primary', onClick: function () { WIZ.mode = 'attach'; Clinic.modal.close(); wizGo(3, false); } },
-        ],
-    });
+    var mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    mask.innerHTML =
+        '<div class="modal modal-sm">' +
+        '  <div class="modal-head"><div class="modal-title">检测到已有数据库</div></div>' +
+        '  <div class="modal-body fs-13" style="line-height:1.9">' +
+        '    所选数据库已存在安装完成的数据，请选择处理方式：' +
+        '    <div class="mt-12"><b>关联现有数据库</b>：保留全部已有数据，仅重新绑定连接。</div>' +
+        '    <div class="mt-4 text-danger"><b>全新安装</b>：清空该数据库全部数据后重新创建。</div>' +
+        '  </div>' +
+        '  <div class="modal-foot" style="display:flex;justify-content:flex-end;gap:8px">' +
+        '    <button type="button" class="btn btn-outline btn-sm" data-act="cancel">取消</button>' +
+        '    <button type="button" class="btn btn-danger btn-sm" data-act="fresh">全新安装</button>' +
+        '    <button type="button" class="btn btn-primary btn-sm" data-act="attach">关联现有数据库</button>' +
+        '  </div>' +
+        '</div>';
+    document.body.appendChild(mask);
+    requestAnimationFrame(function () { mask.classList.add('show'); });
+    function close() {
+        mask.classList.remove('show');
+        setTimeout(function () { if (mask.parentNode) mask.parentNode.removeChild(mask); }, 200);
+    }
+    mask.querySelector('[data-act="cancel"]').addEventListener('click', close);
+    mask.querySelector('[data-act="fresh"]').addEventListener('click', function () { WIZ.mode = 'fresh'; close(); wizGo(3, false); });
+    mask.querySelector('[data-act="attach"]').addEventListener('click', function () { WIZ.mode = 'attach'; close(); wizGo(3, false); });
 }
 
 /* ==================== 确认汇总 ==================== */
