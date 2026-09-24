@@ -369,6 +369,7 @@ class DatabaseManager {
                 'login_fail_count' => 'INTEGER DEFAULT 0',
                 'login_locked_until' => 'TEXT',
                 'status'           => 'INTEGER DEFAULT 1',
+                'email'            => 'TEXT',
             ),
         );
         foreach ($need as $table => $cols) {

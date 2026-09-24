@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 39,
+    'version' => 40,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -93,6 +93,7 @@ return array(
             theme TEXT DEFAULT 'auto',
             sidebar TEXT DEFAULT 'expand',
             pwd_changed INTEGER DEFAULT 0,
+            email TEXT,
             status INTEGER DEFAULT 1,
             created_at TEXT,
             last_login TEXT,
@@ -1153,6 +1154,11 @@ return array(
         // 因单位混淆导致断货前夕才预警。
         39 => array(
             "ALTER TABLE drugs ADD COLUMN warn_qty INTEGER DEFAULT 0",
+        ),
+        // v40：用户邮箱（users.email）——安装向导管理员邮箱与后台用户管理
+        // 共用同一字段，保证登录后「我的资料 / 用户管理」与安装时填写一致。
+        40 => array(
+            "ALTER TABLE users ADD COLUMN email TEXT",
         ),
     ),
     'seed' => array(

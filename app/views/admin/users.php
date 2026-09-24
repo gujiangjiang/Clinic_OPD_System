@@ -212,6 +212,7 @@ function openUserForm(id) {
             fd.append('emp_no', document.getElementById('f_emp_no').value.trim());
             fd.append('username', document.getElementById('f_username').value.trim());
             fd.append('name', document.getElementById('f_name').value.trim());
+            fd.append('email', document.getElementById('f_email').value.trim());
             fd.append('role', document.getElementById('f_role').value);
             fd.append('password', document.getElementById('f_password').value);
             fd.append('education', document.getElementById('f_education').value);

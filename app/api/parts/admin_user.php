@@ -65,7 +65,7 @@ function admin_part_user($action) {
         $r = $id ? UserRepository::one('SELECT * FROM users WHERE id=?', array($id)) : array(
             'emp_no' => '', 'username' => '', 'name' => '', 'role' => 'doctor', 'dept_ids' => '',
             'education' => '', 'degree' => '', 'title' => '', 'position' => '', 'intro' => '', 'photo' => '', 'status' => 1,
-            'queue_days' => 3,
+            'queue_days' => 3, 'email' => '',
         );
         // 注意：包含 admin 选项，否则编辑管理员用户时角色会被错误替换
         $roles = array('admin' => '系统管理员', 'doctor' => '医生', 'nurse' => '护士', 'lab' => '检验技师', 'imaging' => '影像技师', 'pharmacy' => '药剂师', 'cashier' => '挂号收费员');
@@ -159,6 +159,7 @@ function admin_part_user($action) {
             <div class="form-group"><label class="form-label">姓名 <span class="req">*</span></label><input class="input" id="f_name" value="' . e($r['name']) . '"></div>
             ' . $roleField . '
         </div>
+        <div class="form-group"><label class="form-label">安全邮箱</label><input type="email" class="input" id="f_email" value="' . e(isset($r['email']) ? $r['email'] : '') . '" placeholder="用于密码找回与安全通知"></div>
         <div class="form-row">
             <div class="form-group"><label class="form-label">默认密码</label>
                 <input class="input" type="password" id="f_password" placeholder="' . ($id ? '留空表示不修改密码' : '默认密码 123456') . '"></div>' .
@@ -197,6 +198,8 @@ function admin_part_user($action) {
         $education = post('education');
         $degree = post('degree');
         $intro = post('intro');
+        $email = trim((string)post('email'));
+        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) json_fail('安全邮箱格式不正确');
         $status = (int)post('status', 1);
         $deptIds = post('dept_ids');
         // 科室关联仅允许临床科室（门诊/急诊）：医技/其他为叫号大屏专用，
@@ -261,8 +264,8 @@ function admin_part_user($action) {
             $photo = $res['path'];
         }
         if ($id > 0) {
-            $set = 'emp_no=?, username=?, name=?, role=?, dept_ids=?, education=?, degree=?, title=?, position=?, intro=?, queue_days=?, status=?';
-            $params = array($empNo, $username, $name, $role, $deptIds, $education, $degree, $title, $position, $intro, $queueDays, $status);
+            $set = 'emp_no=?, username=?, name=?, role=?, dept_ids=?, education=?, degree=?, title=?, position=?, intro=?, email=?, queue_days=?, status=?';
+            $params = array($empNo, $username, $name, $role, $deptIds, $education, $degree, $title, $position, $intro, $email, $queueDays, $status);
             if ($password !== '') {
                 $set .= ', password=?';
                 $params[] = password_hash($password, PASSWORD_DEFAULT);
@@ -296,9 +299,9 @@ function admin_part_user($action) {
                 }
             }
         } else {
-            UserRepository::insert('INSERT INTO users(emp_no, username, password, name, role, dept_ids, education, degree, title, position, intro, queue_days, photo, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+            UserRepository::insert('INSERT INTO users(emp_no, username, password, name, role, dept_ids, education, degree, title, position, intro, email, queue_days, photo, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                 $empNo, $username, password_hash($password !== '' ? $password : '123456', PASSWORD_DEFAULT),
-                $name, $role, $deptIds, $education, $degree, $title, $position, $intro, $queueDays, $photo, $status, now_str(),
+                $name, $role, $deptIds, $education, $degree, $title, $position, $intro, $email, $queueDays, $photo, $status, now_str(),
             ));
         }
         json_ok(array(), '用户已保存');

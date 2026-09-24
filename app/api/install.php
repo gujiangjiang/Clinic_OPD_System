@@ -307,12 +307,10 @@ if ($action === 'save') {
             $main->rollBack();
             json_fail('主数据库已存在管理员，请选择「关联现有数据库」');
         }
-        $adminId = UserRepository::insert('INSERT INTO users(emp_no, username, password, name, role, theme, status, created_at) VALUES(?,?,?,?,?,?,?,?)', array(
-            '0001', $username, password_hash($password, PASSWORD_DEFAULT), $realname !== '' ? $realname : '系统管理员', 'admin', 'auto', 1, now_str(),
+        $adminId = UserRepository::insert('INSERT INTO users(emp_no, username, password, name, role, email, theme, status, created_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
+            '0001', $username, password_hash($password, PASSWORD_DEFAULT), $realname !== '' ? $realname : '系统管理员', 'admin', $adminEmail, 'auto', 1, now_str(),
         ));
         $main->commit();
-        // 安全邮箱暂存 settings（users 表无 email 列，避免 schema 变更）
-        if ($adminEmail !== '') set_setting('admin_email', $adminEmail);
     } catch (Exception $ex) {
         if ($main->inTransaction()) $main->rollBack();
         json_fail('创建管理员失败：' . $ex->getMessage());
