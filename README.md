@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v8.20.1-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v8.21.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -252,6 +252,11 @@ php -S 0.0.0.0:8080 router.php
 `data/config.db`，与主业务库完全解耦：删除 `config.db` 仅重置配置、不破坏业务数据，
 安装向导提供【关联现有数据库】选项重新绑定已有主库。config.db 打开前校验 SQLite
 Magic Header，损坏文件自动备份并优雅降级，绝不因配置文件损坏导致服务器 500。
+
+驱动选项（数据库：SQLite / MySQL / PostgreSQL；缓存：File / APCu / Redis / Memcached）
+统一注册在 `app/config/drivers.php`（唯一数据源）——安装向导与系统设置-数据库中心/缓存
+与性能的驱动下拉及参数表单均按注册表动态渲染，后端校验共用同一白名单，新增驱动只需
+维护注册表一处。
 
 ### 🧪 快速初始化与测试造数（统一 CLI）
 

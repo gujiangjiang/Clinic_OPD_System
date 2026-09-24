@@ -13,6 +13,24 @@
 
 ---
 
+## [8.21.0] - 2026-09-24
+
+> 驱动体系扩展与安装/系统设置选项统一专项。
+
+### 新增
+- **统一驱动注册表（app/config/drivers.php）**：数据库与缓存驱动的唯一数据源，含 label/依赖扩展/参数定义；安装向导、系统设置（数据库中心/缓存与性能）、后端校验（install save / db_migrate / cache_driver_save）共用同一套白名单与扩展可用性校验，杜绝两处列表漂移。
+- **数据库迁移支持 PostgreSQL**：DatabaseMigrator 现支持 sqlite/mysql/pgsql 三驱动任意双向迁移（pgsql 目标建表方言转换、pgsql 源 information_schema 构造 CREATE、外键开关、序列校准 setval、防原地迁移 current_database）；db_migrate 接口与系统设置迁移工具目标下拉同步扩展。
+- **缓存驱动支持 Memcached**：ConfigStore 新增 memcached 参数（servers/prefix）；Session 的 memcached 可用性探测与 save_path/前缀联动 config.db；安装向导与系统设置缓存驱动下拉同步扩展。
+- **安装向导与系统设置选项动态渲染**：preflight/db_status 返回驱动注册表，前端下拉与参数表单按注册表动态生成（新增驱动无需改前端 HTML，仅维护 drivers.php 一处）。
+
+### 变更
+- ConfigStore 新增 `driverOptions`/`dbDriverValid`/`cacheDriverValid`/`driverOptionsPublic`/`memcachedParams`；install test_db 支持 PostgreSQL 连通性测试；install save 与 cache_driver_save 按注册表校验扩展可用性并落库 pgsql/memcached 参数。
+
+### 文档
+- **同步版本号至 v8.21.0**（README 徽章 + `bootstrap.php APP_VERSION` + `package.json` + AGENTS.md 基准版本）。
+
+---
+
 ## [8.20.1] - 2026-09-24
 
 > 病历编辑器长文本布局与审核中心预览一致性修复。

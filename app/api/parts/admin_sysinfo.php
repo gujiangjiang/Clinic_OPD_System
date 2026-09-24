@@ -72,6 +72,8 @@ function admin_part_sysinfo($action) {
             'config_exists' => ConfigStore::exists(),
             'config_available' => ConfigStore::available(),
             'config_path' => ConfigStore::path(),
+            // 驱动选项注册表（app/config/drivers.php 唯一数据源，与安装向导共用）
+            'drivers' => ConfigStore::driverOptionsPublic(),
         ));
     }
 
@@ -181,12 +183,13 @@ function admin_part_sysinfo($action) {
     /* ==================== 数据库迁移（SQLite ↔ MySQL 双向） ==================== */
     if ($action === 'db_migrate') {
         $toDriver = post('to_driver', '');
-        $toDriver = in_array($toDriver, array('sqlite', 'mysql'), true) ? $toDriver : '';
+        // 白名单统一走 ConfigStore 驱动注册表（sqlite/mysql/pgsql）
+        $toDriver = ConfigStore::dbDriverValid($toDriver) ? $toDriver : '';
         if ($toDriver === '') json_fail('请选择目标数据库驱动');
         $toParams = array(
             'path' => post('to_sqlite_path', ''),
             'host' => post('to_db_host', '127.0.0.1'),
-            'port' => post('to_db_port', '3306'),
+            'port' => post('to_db_port', $toDriver === 'pgsql' ? '5432' : '3306'),
             'dbname' => post('to_db_name', ''),
             'user' => post('to_db_user', ''),
             'pass' => post('to_db_pass', ''),
@@ -204,13 +207,13 @@ function admin_part_sysinfo($action) {
     /* ==================== 缓存驱动切换（写入 config.db） ==================== */
     if ($action === 'cache_driver_save') {
         $driver = post('driver', '');
-        $driver = in_array($driver, array('file', 'apcu', 'redis'), true) ? $driver : '';
+        // 白名单统一走 ConfigStore 驱动注册表（file/apcu/redis/memcached）
+        $driver = ConfigStore::cacheDriverValid($driver) ? $driver : '';
         if ($driver === '') json_fail('请选择缓存驱动');
-        if ($driver === 'apcu' && !function_exists('apcu_fetch')) {
-            json_fail('当前 PHP 未安装 APCu 扩展，无法使用 APCu 缓存');
-        }
-        if ($driver === 'redis' && !extension_loaded('redis')) {
-            json_fail('当前 PHP 未安装 redis 扩展，无法使用 Redis 缓存');
+        $opt = ConfigStore::driverOptions();
+        $needExt = $opt['cache'][$driver]['extension'];
+        if ($needExt !== '' && !extension_loaded($needExt)) {
+            json_fail('当前 PHP 未安装 ' . strtoupper($needExt) . ' 扩展，无法使用 ' . $opt['cache'][$driver]['label'] . ' 缓存');
         }
         ConfigStore::set('cache.driver', $driver);
         if ($driver === 'redis') {
@@ -219,6 +222,9 @@ function admin_part_sysinfo($action) {
             ConfigStore::set('cache.redis.auth', post('redis_auth', ''));
             ConfigStore::set('cache.redis.prefix', post('redis_prefix', 'clinic_sess:'));
             ConfigStore::set('cache.redis.timeout', post('redis_timeout', '2.0'));
+        } elseif ($driver === 'memcached') {
+            ConfigStore::set('cache.memcached.servers', post('memcached_servers', '127.0.0.1:11211'));
+            ConfigStore::set('cache.memcached.prefix', post('memcached_prefix', 'clinic_sess:'));
         }
         ConfigStore::resetCache();
         json_ok(array('driver' => $driver), '缓存驱动已切换为 ' . strtoupper($driver) . '，会话驱动将同步生效');

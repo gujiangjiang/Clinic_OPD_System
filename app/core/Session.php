@@ -94,13 +94,14 @@ class Session {
         return false;
     }
 
-    /** Memcached 可用性探测：扩展加载 + 连接可达 */
+    /** Memcached 可用性探测：扩展加载 + 连接可达（服务器参数优先读 config.db） */
     protected static function memcachedAvailable() {
         if (!extension_loaded('memcached')) return false;
         try {
+            $p = ConfigStore::memcachedParams();
             $m = new Memcached();
             $servers = array();
-            foreach (explode(',', self::env('MEMCACHED_SERVERS', '127.0.0.1:11211')) as $s) {
+            foreach (explode(',', self::env('MEMCACHED_SERVERS', $p['servers'])) as $s) {
                 $s = trim($s);
                 if ($s === '') continue;
                 $parts = explode(':', $s);
@@ -163,10 +164,11 @@ class Session {
         } elseif ($driver === 'memcached') {
             if (self::memcachedAvailable()) {
                 try {
+                    $p = ConfigStore::memcachedParams();
                     ini_set('session.save_handler', 'memcached');
-                    ini_set('session.save_path', self::env('MEMCACHED_SERVERS', '127.0.0.1:11211'));
+                    ini_set('session.save_path', self::env('MEMCACHED_SERVERS', $p['servers']));
                     // Memcached 会话关键选项：二进制协议、前缀、会话锁（保证一致性）
-                    @ini_set('memcached.sess_prefix', self::env('MEMCACHED_PREFIX', 'clinic_sess:'));
+                    @ini_set('memcached.sess_prefix', self::env('MEMCACHED_PREFIX', $p['prefix']));
                     @ini_set('memcached.sess_locking', '1');
                     @ini_set('memcached.sess_lock_wait', '2');
                     if (session_status() === PHP_SESSION_NONE) session_start();

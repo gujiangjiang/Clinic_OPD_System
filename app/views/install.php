@@ -48,32 +48,10 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
     <!-- ============ Step 2: 数据库与缓存 ============ -->
     <div class="wiz-step" data-step="2" style="display:none">
         <div class="form-group"><label class="form-label">数据库驱动 <span class="req">*</span></label>
-            <select class="select" id="dbDriver">
-                <option value="sqlite" selected>SQLite（零配置，单文件，推荐中小门诊）</option>
-                <option value="mysql">MySQL / MariaDB</option>
-            </select>
+            <select class="select" id="dbDriver"></select>
+            <div class="fs-12 text-muted mt-4">选项来自系统驱动注册表（与系统设置-数据库中心一致），未安装扩展的驱动会标注。</div>
         </div>
-        <div id="sqliteOpts">
-            <div class="form-group"><label class="form-label">SQLite 数据库文件</label>
-                <input type="text" class="input" id="sqlitePath" placeholder="留空使用默认：data/db/clinic_main.db">
-                <div class="fs-12 text-muted mt-4">可指定已有数据库文件路径（需为 SQLite 格式），留空则自动创建。</div>
-            </div>
-        </div>
-        <div id="mysqlOpts" style="display:none">
-            <div class="form-row">
-                <div class="form-group"><label class="form-label">主机</label><input type="text" class="input" id="dbHost" value="127.0.0.1"></div>
-                <div class="form-group"><label class="form-label">端口</label><input type="text" class="input" id="dbPort" value="3306"></div>
-            </div>
-            <div class="form-row">
-                <div class="form-group"><label class="form-label">数据库名</label><input type="text" class="input" id="dbName" value="his_main"></div>
-                <div class="form-group"><label class="form-label">用户名</label><input type="text" class="input" id="dbUser" value="root"></div>
-            </div>
-            <div class="form-group"><label class="form-label">密码</label><input type="password" class="input" id="dbPass" value=""></div>
-            <div class="flex gap-8">
-                <button type="button" class="btn btn-outline btn-sm" id="testDbBtn" onclick="testDb()">测试连接</button>
-                <span class="fs-13 text-muted" id="dbTestMsg"></span>
-            </div>
-        </div>
+        <div id="dbParamsBox"></div>
         <div class="form-group"><label class="form-label">安装方式 <span class="req">*</span></label>
             <div class="flex gap-8" style="flex-wrap:wrap">
                 <label class="flex gap-4" style="align-items:center;cursor:pointer"><input type="radio" name="installMode" value="fresh" checked> 全新安装（建库并导入基础字典）</label>
@@ -82,23 +60,10 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
             <div class="fs-12 text-muted mt-4">关联现有数据库：若之前已安装过（主库表结构完整），选择后仅重新绑定连接，不破坏任何已有数据。</div>
         </div>
         <div class="form-group"><label class="form-label">缓存驱动</label>
-            <select class="select" id="cacheDriver">
-                <option value="file" selected>File（本地文件，零依赖）</option>
-                <option value="apcu">APCu（内存，需 PHP 扩展）</option>
-                <option value="redis">Redis（需扩展与服务）</option>
-            </select>
+            <select class="select" id="cacheDriver"></select>
+            <div class="fs-12 text-muted mt-4">缓存/会话驱动选项同样来自驱动注册表（与系统设置-缓存与性能一致）。</div>
         </div>
-        <div id="redisOpts" style="display:none">
-            <div class="form-row">
-                <div class="form-group"><label class="form-label">主机</label><input type="text" class="input" id="redisHost" value="127.0.0.1"></div>
-                <div class="form-group"><label class="form-label">端口</label><input type="text" class="input" id="redisPort" value="6379"></div>
-            </div>
-            <div class="form-group"><label class="form-label">密码（可选）</label><input type="password" class="input" id="redisAuth" value=""></div>
-            <div class="flex gap-8">
-                <button type="button" class="btn btn-outline btn-sm" onclick="testRedis()">测试连接</button>
-                <span class="fs-13 text-muted" id="redisTestMsg"></span>
-            </div>
-        </div>
+        <div id="cacheParamsBox"></div>
     </div>
 
     <!-- ============ Step 3: 医疗机构 ============ -->
@@ -192,8 +157,10 @@ function wizPrev() { wizGo(WIZ.step - 1, false); }
 
 function wizValidate(n) {
     if (n === 2) {
-        if (document.getElementById('dbDriver').value === 'mysql') {
-            if (!document.getElementById('dbName').value.trim()) { Clinic.toast.warning('请填写数据库名'); return false; }
+        var dp = collectParams('db', document.getElementById('dbDriver').value);
+        // sqlite 无 dbname 校验；mysql/pgsql 需数据库名
+        if (document.getElementById('dbDriver').value !== 'sqlite' && !(dp.dbname || '').trim()) {
+            Clinic.toast.warning('请填写数据库名'); return false;
         }
     } else if (n === 3) {
         if (!document.getElementById('hospital_name').value.trim()) { Clinic.toast.warning('请填写医院名称'); return false; }
@@ -211,12 +178,74 @@ function wizValidate(n) {
     return true;
 }
 
+/* ==================== 驱动选项动态渲染（注册表唯一数据源） ==================== */
+function driverMeta(kind, key) {
+    var dr = (WIZ.preflight && WIZ.preflight.drivers) || { db: {}, cache: {} };
+    return (dr[kind] && dr[kind][key]) ? dr[kind][key] : null;
+}
+function renderParamsBox(containerId, kind, driverKey) {
+    var box = document.getElementById(containerId);
+    var meta = driverMeta(kind, driverKey);
+    if (!box) return;
+    if (!meta || !meta.params || !Object.keys(meta.params).length) { box.innerHTML = ''; return; }
+    var rows = [];
+    var keys = Object.keys(meta.params);
+    // 两列布局（奇数个参数时最后单独一行）
+    for (var i = 0; i < keys.length; i += 2) {
+        var cell1 = paramInputHtml(kind, keys[i], meta.params[keys[i]]);
+        var cell2 = (i + 1 < keys.length) ? paramInputHtml(kind, keys[i + 1], meta.params[keys[i + 1]]) : '';
+        rows.push('<div class="form-row">' + cell1 + cell2 + '</div>');
+    }
+    box.innerHTML = rows.join('') +
+        '<div class="flex gap-8"><button type="button" class="btn btn-outline btn-sm" id="testDrvBtn" onclick="' + (kind === 'db' ? 'testDb()' : 'testRedis()') + '">测试连接</button>' +
+        '<span class="fs-13 text-muted" id="' + (kind === 'db' ? 'dbTestMsg' : 'redisTestMsg') + '"></span></div>';
+}
+function paramInputHtml(kind, key, p) {
+    var id = (kind === 'db' ? 'dbp_' : 'cp_') + key;
+    var isPass = /pass|auth/i.test(key);
+    var val = p.default || '';
+    return '<div class="form-group"><label class="form-label">' + escHtml(p.label || key) + '</label>' +
+        '<input class="input" id="' + id + '" value="' + escHtml(val) + '"' +
+        (p.placeholder ? ' placeholder="' + escHtml(p.placeholder) + '"' : '') +
+        (isPass ? ' type="password"' : ' type="text"') + '></div>';
+}
+function collectParams(kind, driverKey) {
+    var meta = driverMeta(kind, driverKey);
+    var out = {};
+    if (meta && meta.params) {
+        Object.keys(meta.params).forEach(function (k) {
+            var el = document.getElementById((kind === 'db' ? 'dbp_' : 'cp_') + k);
+            out[k] = el ? el.value : (meta.params[k].default || '');
+        });
+    }
+    return out;
+}
 function toggleDbMode() {
     var d = document.getElementById('dbDriver').value;
-    document.getElementById('sqliteOpts').style.display = d === 'sqlite' ? '' : 'none';
-    document.getElementById('mysqlOpts').style.display = d === 'mysql' ? '' : 'none';
+    renderParamsBox('dbParamsBox', 'db', d);
     var rd = document.querySelector('input[name="installMode"]:checked');
     WIZ.mode = rd ? rd.value : 'fresh';
+}
+function toggleCacheMode() {
+    renderParamsBox('cacheParamsBox', 'cache', document.getElementById('cacheDriver').value);
+}
+function renderDrivers(drivers) {
+    WIZ.preflight = WIZ.preflight || {};
+    WIZ.preflight.drivers = drivers || { db: {}, cache: {} };
+    // 数据库驱动下拉
+    var dbSel = document.getElementById('dbDriver');
+    dbSel.innerHTML = Object.keys(drivers.db || {}).map(function (k) {
+        var d = drivers.db[k];
+        return '<option value="' + k + '"' + (k === 'sqlite' ? ' selected' : '') + '>' + escHtml(d.label) + (d.installed ? '' : '（未安装扩展）') + '</option>';
+    }).join('');
+    // 缓存驱动下拉
+    var cSel = document.getElementById('cacheDriver');
+    cSel.innerHTML = Object.keys(drivers.cache || {}).map(function (k) {
+        var d = drivers.cache[k];
+        return '<option value="' + k + '"' + (k === 'file' ? ' selected' : '') + '>' + escHtml(d.label) + (d.installed ? '' : '（未安装扩展）') + '</option>';
+    }).join('');
+    toggleDbMode();
+    toggleCacheMode();
 }
 
 function toggleAdminHint() {
@@ -230,10 +259,8 @@ function toggleAdminHint() {
 document.querySelectorAll('input[name="installMode"]').forEach(function (r) {
     r.addEventListener('change', function () { toggleDbMode(); });
 });
-document.getElementById('dbDriver').addEventListener('change', function () { toggleDbMode(); });
-document.getElementById('cacheDriver').addEventListener('change', function () {
-    document.getElementById('redisOpts').style.display = this.value === 'redis' ? '' : 'none';
-});
+document.getElementById('dbDriver').addEventListener('change', toggleDbMode);
+document.getElementById('cacheDriver').addEventListener('change', toggleCacheMode);
 
 /* ==================== 环境巡检 ==================== */
 function loadPreflight() {
@@ -257,6 +284,8 @@ function loadPreflight() {
             html += '<div class="flex-between"><span>已安装检测</span><span>' + (d.existing_installed ? '<span class="text-success">检测到已安装系统（可关联现有库）</span>' : '<span class="text-muted">未检测到（全新安装）</span>') + '</span></div>';
             html += '<div class="flex-between"><span>现有主库</span><span>' + escHtml(d.existing_main || '—') + '</span></div>';
             box.innerHTML = html;
+            // 驱动选项动态渲染（数据库/缓存下拉与参数表单，注册表唯一数据源）
+            renderDrivers(d.drivers || { db: {}, cache: {} });
             if (d.existing_installed) {
                 document.getElementById('mainDbHint').style.display = '';
                 document.getElementById('mainDbHintText').textContent = '检测到已安装的数据库（' + (d.existing_main || '未知位置') + '）。若需重置系统，请选择「关联现有数据库」以保留已有数据。';
@@ -270,18 +299,19 @@ function loadPreflight() {
 
 /* ==================== 数据库/缓存连接测试 ==================== */
 function testDb() {
-    var btn = document.getElementById('testDbBtn');
+    var btn = document.getElementById('testDrvBtn');
     var msg = document.getElementById('dbTestMsg');
     msg.textContent = '测试中…';
     btn.disabled = true;
+    var p = collectParams('db', document.getElementById('dbDriver').value);
     Clinic.get('/api/install?action=test_db', {
         driver: document.getElementById('dbDriver').value,
-        host: document.getElementById('dbHost').value,
-        port: document.getElementById('dbPort').value,
-        dbname: document.getElementById('dbName').value,
-        user: document.getElementById('dbUser').value,
-        pass: document.getElementById('dbPass').value,
-        path: document.getElementById('sqlitePath').value,
+        host: p.host || '',
+        port: p.port || '',
+        dbname: p.dbname || '',
+        user: p.user || '',
+        pass: p.pass || '',
+        path: p.path || '',
     }, {
         loading: false,
         onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
@@ -289,21 +319,17 @@ function testDb() {
         complete: function () { btn.disabled = false; },
     });
 }
-function testDbIfNeeded() {
-    if (document.getElementById('dbDriver').value === 'mysql') {
-        return true;   // 连接在安装时再次校验，不强制预测试
-    }
-    return true;
-}
+function testDbIfNeeded() { return true; }   // 连接在安装执行时再次校验
 function testRedis() {
-    var btn = event.target;
+    var btn = document.getElementById('testDrvBtn');
     var msg = document.getElementById('redisTestMsg');
     msg.textContent = '测试中…';
     btn.disabled = true;
+    var p = collectParams('cache', 'redis');
     Clinic.get('/api/install?action=test_redis', {
-        host: document.getElementById('redisHost').value,
-        port: document.getElementById('redisPort').value,
-        auth: document.getElementById('redisAuth').value,
+        host: p.host || '',
+        port: p.port || '',
+        auth: p.auth || '',
     }, {
         loading: false,
         onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
@@ -314,12 +340,19 @@ function testRedis() {
 
 /* ==================== 确认汇总 ==================== */
 function renderConfirm() {
-    var d = document.getElementById('dbDriver').value;
     var box = document.getElementById('confirmBox');
+    var dbKey = document.getElementById('dbDriver').value;
+    var dbMeta = driverMeta('db', dbKey);
+    var dbParams = collectParams('db', dbKey);
     var rows = [];
-    rows.push(['数据库驱动', d === 'sqlite' ? 'SQLite（' + (document.getElementById('sqlitePath').value.trim() || '默认 data/db/clinic_main.db') + '）' : 'MySQL：' + document.getElementById('dbHost').value + ':' + document.getElementById('dbPort').value + '/' + document.getElementById('dbName').value]);
+    var dbDesc = dbKey === 'sqlite'
+        ? (dbParams.path || '默认 data/db/clinic_main.db')
+        : ((dbParams.host || '') + ':' + (dbParams.port || '') + '/' + (dbParams.dbname || ''));
+    rows.push(['数据库驱动', (dbMeta ? dbMeta.label : dbKey) + '（' + dbDesc + '）']);
     rows.push(['安装方式', WIZ.mode === 'attach' ? '关联现有数据库（保留数据）' : '全新安装（建库并导入基础字典）']);
-    rows.push(['缓存驱动', document.getElementById('cacheDriver').value]);
+    var cKey = document.getElementById('cacheDriver').value;
+    var cMeta = driverMeta('cache', cKey);
+    rows.push(['缓存驱动', cMeta ? cMeta.label : cKey]);
     rows.push(['医院名称', document.getElementById('hospital_name').value.trim()]);
     rows.push(['机构代码', document.getElementById('org_code').value.trim()]);
     if (WIZ.mode !== 'attach') {
@@ -339,17 +372,24 @@ document.getElementById('installBtn').addEventListener('click', function () {
     fd.append('csrf_token', document.body.getAttribute('data-csrf'));
     fd.append('action', 'save');
     fd.append('mode', WIZ.mode);
-    fd.append('db_driver', document.getElementById('dbDriver').value);
-    fd.append('sqlite_path', document.getElementById('sqlitePath').value.trim());
-    fd.append('db_host', document.getElementById('dbHost').value);
-    fd.append('db_port', document.getElementById('dbPort').value);
-    fd.append('db_name', document.getElementById('dbName').value);
-    fd.append('db_user', document.getElementById('dbUser').value);
-    fd.append('db_pass', document.getElementById('dbPass').value);
-    fd.append('cache_driver', document.getElementById('cacheDriver').value);
-    fd.append('redis_host', document.getElementById('redisHost').value);
-    fd.append('redis_port', document.getElementById('redisPort').value);
-    fd.append('redis_auth', document.getElementById('redisAuth').value);
+    // 数据库/缓存驱动参数按注册表动态收集（安装向导与系统设置共用同一套）
+    var dbKey = document.getElementById('dbDriver').value;
+    var dbp = collectParams('db', dbKey);
+    fd.append('db_driver', dbKey);
+    fd.append('db_host', dbp.host || '');
+    fd.append('db_port', dbp.port || '');
+    fd.append('db_name', dbp.dbname || '');
+    fd.append('db_user', dbp.user || '');
+    fd.append('db_pass', dbp.pass || '');
+    fd.append('sqlite_path', dbp.path || '');
+    var cKey = document.getElementById('cacheDriver').value;
+    var cp = collectParams('cache', cKey);
+    fd.append('cache_driver', cKey);
+    fd.append('redis_host', cp.host || '');
+    fd.append('redis_port', cp.port || '');
+    fd.append('redis_auth', cp.auth || '');
+    fd.append('memcached_servers', cp.servers || '');
+    fd.append('memcached_prefix', cp.prefix || '');
     fd.append('hospital_name', document.getElementById('hospital_name').value.trim());
     fd.append('org_code', document.getElementById('org_code').value.trim());
     fd.append('hospital_name2', document.getElementById('hospital_name2').value.trim());

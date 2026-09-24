@@ -206,10 +206,55 @@ class ConfigStore {
         return array();
     }
 
-    /** 缓存驱动（file/apcu/redis，回退 file） */
+    /** 驱动选项注册表（唯一数据源：app/config/drivers.php，安装向导/系统设置/后端校验共用） */
+    public static function driverOptions() {
+        static $opts = null;
+        if ($opts === null) {
+            $opts = require APP_ROOT . '/app/config/drivers.php';
+        }
+        return $opts;
+    }
+
+    /** 数据库驱动是否受支持 */
+    public static function dbDriverValid($d) {
+        $o = self::driverOptions();
+        return isset($o['db'][$d]);
+    }
+
+    /** 缓存驱动是否受支持 */
+    public static function cacheDriverValid($d) {
+        $o = self::driverOptions();
+        return isset($o['cache'][$d]);
+    }
+
+    /** 驱动注册表（供前端动态渲染，含扩展可用性） */
+    public static function driverOptionsPublic() {
+        $o = self::driverOptions();
+        $out = array('db' => array(), 'cache' => array());
+        foreach ($o['db'] as $k => $v) {
+            $out['db'][$k] = array(
+                'label' => $v['label'],
+                'extension' => $v['extension'],
+                'installed' => $v['extension'] === '' || extension_loaded($v['extension']),
+                'params' => isset($v['params']) ? $v['params'] : array(),
+            );
+        }
+        foreach ($o['cache'] as $k => $v) {
+            $out['cache'][$k] = array(
+                'label' => $v['label'],
+                'extension' => $v['extension'],
+                'installed' => $v['extension'] === '' || extension_loaded($v['extension']),
+                'params' => isset($v['params']) ? $v['params'] : array(),
+            );
+        }
+        return $out;
+    }
+
+    /** 缓存驱动（file/apcu/redis/memcached，回退 file） */
     public static function cacheDriver() {
         $d = self::get('cache.driver', '');
-        return $d !== '' ? $d : 'file';
+        if ($d === '' || !self::cacheDriverValid($d)) return 'file';
+        return $d;
     }
 
     /** 缓存 Redis 连接参数 */
@@ -220,6 +265,14 @@ class ConfigStore {
             'auth' => self::get('cache.redis.auth', ''),
             'prefix' => self::get('cache.redis.prefix', 'clinic_sess:'),
             'timeout' => self::get('cache.redis.timeout', '2.0'),
+        );
+    }
+
+    /** 缓存 Memcached 连接参数 */
+    public static function memcachedParams() {
+        return array(
+            'servers' => self::get('cache.memcached.servers', '127.0.0.1:11211'),
+            'prefix' => self::get('cache.memcached.prefix', 'clinic_sess:'),
         );
     }
 

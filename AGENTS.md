@@ -4,7 +4,7 @@
 
 ## 版本标识
 
-- 系统基准版本：**v8.20.1**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
+- 系统基准版本：**v8.21.0**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
 
 ## 本地运行环境（本机 macOS arm64）
 
@@ -33,8 +33,11 @@
 - 主业务数据独立存放于主数据库；删除 config.db 仅重置配置不破坏业务数据
   （安装向导可【关联现有数据库】重新绑定）。
 - 未生成 config.db 时系统按 bootstrap 默认常量运行（旧版向后兼容）。
-- 数据库迁移（SQLite↔MySQL）由 `app/core/DatabaseMigrator.php` 执行，迁移期间
-  进入只读维护模式（config.db `app.maintenance=1`），完成后自动更新主库指针。
+- 数据库迁移（SQLite↔MySQL↔PostgreSQL）由 `app/core/DatabaseMigrator.php` 执行，
+  迁移期间进入只读维护模式（config.db `app.maintenance=1`），完成后自动更新主库指针。
+- 驱动选项（数据库 sqlite/mysql/pgsql、缓存 file/apcu/redis/memcached）统一注册在
+  `app/config/drivers.php`（唯一数据源）：安装向导、系统设置、后端校验共用，
+  新增驱动仅维护该文件一处，前端下拉与参数表单自动动态渲染。
 
 ## 药品与处方规则（v8.17 核心约束）
 

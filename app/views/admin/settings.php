@@ -124,25 +124,9 @@ $dbType = strtoupper(DatabaseManager::driver());
         <div class="card-title">🔄 数据库迁移工具</div>
         <div class="fs-13 text-muted mb-8">支持 SQLite ↔ MySQL 双向全量迁移（分批 Chunk 500 行同步、外键约束临时关闭、自增序列校准）。迁移期间系统进入只读维护模式，完成后自动将 config.db 主库指针更新为目标数据库。</div>
         <div class="form-group"><label class="form-label">目标驱动 <span class="req">*</span></label>
-            <select class="select" id="migDriver" onchange="toggleMigOpts()">
-                <option value="mysql">MySQL / MariaDB（从当前库迁移到 MySQL）</option>
-                <option value="sqlite">SQLite（从当前库迁移到 SQLite 文件）</option>
-            </select></div>
-        <div id="migMysqlOpts">
-            <div class="form-row">
-                <div class="form-group"><label class="form-label">主机</label><input class="input" id="migHost" value="127.0.0.1"></div>
-                <div class="form-group"><label class="form-label">端口</label><input class="input" id="migPort" value="3306"></div>
-            </div>
-            <div class="form-row">
-                <div class="form-group"><label class="form-label">数据库名</label><input class="input" id="migDbname" value="his_main"></div>
-                <div class="form-group"><label class="form-label">用户名</label><input class="input" id="migUser" value="root"></div>
-            </div>
-            <div class="form-group"><label class="form-label">密码</label><input type="password" class="input" id="migPass" value=""></div>
-        </div>
-        <div id="migSqliteOpts" style="display:none">
-            <div class="form-group"><label class="form-label">目标 SQLite 文件</label>
-                <input class="input" id="migSqlitePath" placeholder="留空使用默认 data/db/clinic_main.db"></div>
-        </div>
+            <select class="select" id="migDriver" onchange="toggleMigOpts()"></select>
+            <div class="fs-12 text-muted mt-4">选项来自系统驱动注册表（与安装向导一致）。</div></div>
+        <div id="migParamsBox"></div>
         <button class="btn btn-danger btn-sm" onclick="startMigrate()">⚠️ 开始迁移（数据量大时请耐心等待）</button>
         <div class="fs-13 mt-8" id="migMsg"></div>
     </div>
@@ -156,20 +140,10 @@ $dbType = strtoupper(DatabaseManager::driver());
     </div>
     <div class="card setting-card">
         <div class="card-title">🔁 缓存驱动切换</div>
-        <div class="fs-13 text-muted mb-8">选择缓存/会话驱动（写入 config.db，会话驱动将同步生效）。Redis 需 PHP redis 扩展，APCu 需 PHP apcu 扩展。</div>
+        <div class="fs-13 text-muted mb-8">选择缓存/会话驱动（写入 config.db，会话驱动将同步生效）。选项来自系统驱动注册表（与安装向导一致），未安装扩展的驱动会标注。</div>
         <div class="form-group"><label class="form-label">驱动</label>
-            <select class="select" id="cacheDriverSel" onchange="toggleCacheRedisOpts()">
-                <option value="file">File（本地文件，零依赖）</option>
-                <option value="apcu">APCu（内存）</option>
-                <option value="redis">Redis（需扩展与服务）</option>
-            </select></div>
-        <div id="cacheRedisOpts" style="display:none">
-            <div class="form-row">
-                <div class="form-group"><label class="form-label">主机</label><input class="input" id="cRedisHost" value="127.0.0.1"></div>
-                <div class="form-group"><label class="form-label">端口</label><input class="input" id="cRedisPort" value="6379"></div>
-            </div>
-            <div class="form-group"><label class="form-label">密码（可选）</label><input type="password" class="input" id="cRedisAuth" value=""></div>
-        </div>
+            <select class="select" id="cacheDriverSel" onchange="toggleCacheRedisOpts()"></select></div>
+        <div id="cacheParamsBox"></div>
         <button class="btn btn-primary btn-sm" onclick="saveCacheDriver()">保存缓存驱动</button>
         <span class="fs-13 text-muted ml-8" id="cacheDriverMsg"></span>
     </div>
@@ -469,7 +443,7 @@ function settingsTab(name) {
         p.style.display = p.id === 'stab-' + name ? '' : 'none';
     });
     if (name === 'db') loadDbStatus();
-    if (name === 'cache') loadCacheStatus();
+    if (name === 'cache') { if (!SET_DRIVERS) loadDbStatus(); loadCacheStatus(); }
 }
 settingsTab('clinic');
 
@@ -495,6 +469,8 @@ function loadDbStatus() {
                     '<span class="fw-600">' + escHtml(t.name) + '</span>' +
                     '<span class="fs-12 text-muted">' + t.rows + ' 行</span></div>';
             }).join('') || '<div class="text-muted">无表</div>';
+            // 驱动下拉动态渲染（注册表唯一数据源，与安装向导共用）
+            renderSettingsDrivers(d.drivers || { db: {}, cache: {} });
         },
         onError: function () { box.innerHTML = '<span class="text-danger">数据库状态读取失败</span>'; },
     });
@@ -587,28 +563,93 @@ function flushCache(scope) {
     });
 }
 
+/* ---------- 驱动选项动态渲染（注册表唯一数据源，与安装向导共用） ---------- */
+var SET_DRIVERS = null;
+function settingsDriverMeta(kind, key) {
+    var dr = SET_DRIVERS || { db: {}, cache: {} };
+    return (dr[kind] && dr[kind][key]) ? dr[kind][key] : null;
+}
+function settingsParamInput(kind, key, p) {
+    var id = (kind === 'db' ? 'migp_' : 'csp_') + key;
+    var isPass = /pass|auth/i.test(key);
+    var val = p.default || '';
+    return '<div class="form-group"><label class="form-label">' + escHtml(p.label || key) + '</label>' +
+        '<input class="input" id="' + id + '" value="' + escHtml(val) + '"' +
+        (p.placeholder ? ' placeholder="' + escHtml(p.placeholder) + '"' : '') +
+        (isPass ? ' type="password"' : ' type="text"') + '></div>';
+}
+function settingsRenderParams(kind, driverKey, containerId) {
+    var box = document.getElementById(containerId);
+    var meta = settingsDriverMeta(kind, driverKey);
+    if (!box) return;
+    if (!meta || !meta.params || !Object.keys(meta.params).length) { box.innerHTML = ''; return; }
+    var keys = Object.keys(meta.params);
+    var rows = [];
+    for (var i = 0; i < keys.length; i += 2) {
+        var c1 = settingsParamInput(kind, keys[i], meta.params[keys[i]]);
+        var c2 = (i + 1 < keys.length) ? settingsParamInput(kind, keys[i + 1], meta.params[keys[i + 1]]) : '';
+        rows.push('<div class="form-row">' + c1 + c2 + '</div>');
+    }
+    box.innerHTML = rows.join('');
+}
+function settingsCollectParams(kind, driverKey) {
+    var meta = settingsDriverMeta(kind, driverKey);
+    var out = {};
+    if (meta && meta.params) {
+        Object.keys(meta.params).forEach(function (k) {
+            var el = document.getElementById((kind === 'db' ? 'migp_' : 'csp_') + k);
+            out[k] = el ? el.value : (meta.params[k].default || '');
+        });
+    }
+    return out;
+}
+function renderSettingsDrivers(drivers) {
+    SET_DRIVERS = drivers || { db: {}, cache: {} };
+    // 迁移目标驱动下拉
+    var migSel = document.getElementById('migDriver');
+    if (migSel) {
+        migSel.innerHTML = Object.keys(drivers.db || {}).map(function (k) {
+            var d = drivers.db[k];
+            return '<option value="' + k + '"' + (k === 'mysql' ? ' selected' : '') + '>' + escHtml(d.label) + (d.installed ? '' : '（未安装扩展）') + '</option>';
+        }).join('');
+        toggleMigOpts();
+    }
+    // 缓存驱动下拉
+    var cSel = document.getElementById('cacheDriverSel');
+    if (cSel) {
+        cSel.innerHTML = Object.keys(drivers.cache || {}).map(function (k) {
+            var d = drivers.cache[k];
+            return '<option value="' + k + '"' + (k === 'file' ? ' selected' : '') + '>' + escHtml(d.label) + (d.installed ? '' : '（未安装扩展）') + '</option>';
+        }).join('');
+        toggleCacheRedisOpts();
+    }
+}
+
 /* ---------- 数据库迁移 ---------- */
 function toggleMigOpts() {
     var v = document.getElementById('migDriver').value;
-    document.getElementById('migMysqlOpts').style.display = v === 'mysql' ? '' : 'none';
-    document.getElementById('migSqliteOpts').style.display = v === 'sqlite' ? '' : 'none';
+    settingsRenderParams('db', v, 'migParamsBox');
 }
 function startMigrate() {
     var v = document.getElementById('migDriver').value;
+    var meta = settingsDriverMeta('db', v);
     var msg = document.getElementById('migMsg');
-    var p = v === 'mysql' ? '目标 MySQL 数据库将覆盖其中与业务表同名的表，迁移完成后主库切换到 MySQL' : '目标 SQLite 文件将写入全部业务数据，迁移完成后主库切换到 SQLite';
+    var p = v === 'sqlite'
+        ? '目标 SQLite 文件将写入全部业务数据，迁移完成后主库切换到 SQLite'
+        : '目标 ' + (meta ? meta.label : v) + ' 数据库将覆盖其中与业务表同名的表，迁移完成后主库切换';
+    var mp = settingsCollectParams('db', v);
     Clinic.modal.confirm('⚠️ 即将执行数据库迁移：\n' + p + '。\n迁移期间系统进入只读维护模式，请勿刷新页面。确定继续？', function () {
         var btn = event.target;
         msg.innerHTML = '<div class="flex gap-8" style="align-items:center"><div class="spinner" style="border-top-color:var(--primary);width:20px;height:20px;margin:0"></div>正在迁移，请勿关闭页面…</div>';
         Clinic.ajax('/api/admin', {
             action: 'db_migrate',
             to_driver: v,
-            to_db_host: document.getElementById('migHost').value,
-            to_db_port: document.getElementById('migPort').value,
-            to_db_name: document.getElementById('migDbname').value,
-            to_db_user: document.getElementById('migUser').value,
-            to_db_pass: document.getElementById('migPass').value,
-            to_sqlite_path: document.getElementById('migSqlitePath').value.trim(),
+            to_db_host: mp.host || '',
+            to_db_port: mp.port || '',
+            to_db_name: mp.dbname || '',
+            to_db_user: mp.user || '',
+            to_db_pass: mp.pass || '',
+            to_sqlite_path: mp.path || '',
         }, {
             onSuccess: function (json) {
                 msg.innerHTML = '<span class="text-success fw-600">✓ ' + escHtml(json.msg) + '</span>';
@@ -621,18 +662,23 @@ function startMigrate() {
 
 /* ---------- 缓存驱动切换 ---------- */
 function toggleCacheRedisOpts() {
-    document.getElementById('cacheRedisOpts').style.display =
-        document.getElementById('cacheDriverSel').value === 'redis' ? '' : 'none';
+    settingsRenderParams('cache', document.getElementById('cacheDriverSel').value, 'cacheParamsBox');
 }
 function saveCacheDriver() {
     var msg = document.getElementById('cacheDriverMsg');
+    var key = document.getElementById('cacheDriverSel').value;
+    var cp = settingsCollectParams('cache', key);
     msg.textContent = '保存中…';
     Clinic.ajax('/api/admin', {
         action: 'cache_driver_save',
-        driver: document.getElementById('cacheDriverSel').value,
-        redis_host: document.getElementById('cRedisHost').value,
-        redis_port: document.getElementById('cRedisPort').value,
-        redis_auth: document.getElementById('cRedisAuth').value,
+        driver: key,
+        redis_host: cp.host || '',
+        redis_port: cp.port || '',
+        redis_auth: cp.auth || '',
+        redis_prefix: cp.prefix || '',
+        redis_timeout: cp.timeout || '',
+        memcached_servers: cp.servers || '',
+        memcached_prefix: cp.prefix || '',
     }, {
         onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; loadCacheStatus(); },
         onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '保存失败') + '</span>'; },

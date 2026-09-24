@@ -60,27 +60,34 @@ if ($action === 'preflight') {
         'dirs' => $dirs,
         'existing_main' => $existingMain,
         'existing_installed' => $existingInstalled,
+        // 驱动选项注册表（app/config/drivers.php 唯一数据源）：安装向导动态渲染下拉，
+        // 与系统设置（数据库中心/缓存与性能）共用同一套选项
+        'drivers' => ConfigStore::driverOptionsPublic(),
     ));
 }
 
 /* ==================== 数据库连接测试 ==================== */
 if ($action === 'test_db') {
     $driver = req('driver', 'sqlite');
-    if ($driver === 'mysql') {
+    if ($driver === 'mysql' || $driver === 'pgsql') {
         $host = req('host', '127.0.0.1');
-        $port = req('port', '3306');
+        $port = req('port', $driver === 'pgsql' ? '5432' : '3306');
         $dbname = req('dbname', '');
         $user = req('user', '');
         $pass = req('pass', '');
         if ($dbname === '') json_fail('请填写数据库名');
         try {
-            $dsn = 'mysql:host=' . $host . ';port=' . $port . ';dbname=' . $dbname . ';charset=utf8mb4';
+            if ($driver === 'pgsql') {
+                $dsn = 'pgsql:host=' . $host . ';port=' . $port . ';dbname=' . $dbname;
+            } else {
+                $dsn = 'mysql:host=' . $host . ';port=' . $port . ';dbname=' . $dbname . ';charset=utf8mb4';
+            }
             $pdo = new PDO($dsn, $user, $pass, array(
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_CONNECT_TIMEOUT => 5,
             ));
-            $ver = $pdo->query('SELECT VERSION()')->fetchColumn();
-            json_ok(array(), '连接成功（MySQL ' . $ver . '）');
+            $ver = $driver === 'pgsql' ? $pdo->query('SELECT version()')->fetchColumn() : $pdo->query('SELECT VERSION()')->fetchColumn();
+            json_ok(array(), '连接成功（' . strtoupper($driver) . ' ' . $ver . '）');
         } catch (Exception $ex) {
             json_fail('连接失败：' . $ex->getMessage());
         }
@@ -145,10 +152,19 @@ if ($action === 'save') {
 
     $mode = post('mode', 'fresh');
     $mode = in_array($mode, array('fresh', 'attach'), true) ? $mode : 'fresh';
+    // 数据库/缓存驱动白名单统一走 ConfigStore 注册表（安装向导与系统设置共用）
     $dbDriver = post('db_driver', 'sqlite');
-    $dbDriver = in_array($dbDriver, array('sqlite', 'mysql'), true) ? $dbDriver : 'sqlite';
+    $dbDriver = ConfigStore::dbDriverValid($dbDriver) ? $dbDriver : 'sqlite';
     $cacheDriver = post('cache_driver', 'file');
-    $cacheDriver = in_array($cacheDriver, array('file', 'apcu', 'redis'), true) ? $cacheDriver : 'file';
+    $cacheDriver = ConfigStore::cacheDriverValid($cacheDriver) ? $cacheDriver : 'file';
+    // 扩展可用性校验（缺扩展的驱动拒绝安装选择）
+    $drvOpts = ConfigStore::driverOptions();
+    if ($dbDriver !== 'sqlite' && !empty($drvOpts['db'][$dbDriver]['extension']) && !extension_loaded($drvOpts['db'][$dbDriver]['extension'])) {
+        json_fail('当前 PHP 未安装 ' . strtoupper($drvOpts['db'][$dbDriver]['extension']) . ' 扩展，无法使用 ' . $drvOpts['db'][$dbDriver]['label']);
+    }
+    if ($cacheDriver !== 'file' && !empty($drvOpts['cache'][$cacheDriver]['extension']) && !extension_loaded($drvOpts['cache'][$cacheDriver]['extension'])) {
+        json_fail('当前 PHP 未安装 ' . strtoupper($drvOpts['cache'][$cacheDriver]['extension']) . ' 扩展，无法使用 ' . $drvOpts['cache'][$cacheDriver]['label'] . ' 缓存');
+    }
     $timezone = post('timezone', 'Asia/Shanghai');
     $tzList = DateTimeZone::listIdentifiers();
     if (!in_array($timezone, $tzList, true)) $timezone = 'Asia/Shanghai';
@@ -185,18 +201,22 @@ if ($action === 'save') {
     } else {
         $dbParams = array(
             'host' => post('db_host', '127.0.0.1'),
-            'port' => post('db_port', '3306'),
+            'port' => post('db_port', $dbDriver === 'pgsql' ? '5432' : '3306'),
             'dbname' => post('db_name', ''),
             'user' => post('db_user', ''),
             'pass' => post('db_pass', ''),
         );
         if ($dbParams['dbname'] === '') json_fail('请填写数据库名');
-        // 安装前验证 MySQL 连通性
+        // 安装前验证连通性（MySQL / PostgreSQL）
         try {
-            $dsn = 'mysql:host=' . $dbParams['host'] . ';port=' . $dbParams['port'] . ';dbname=' . $dbParams['dbname'] . ';charset=utf8mb4';
+            if ($dbDriver === 'pgsql') {
+                $dsn = 'pgsql:host=' . $dbParams['host'] . ';port=' . $dbParams['port'] . ';dbname=' . $dbParams['dbname'];
+            } else {
+                $dsn = 'mysql:host=' . $dbParams['host'] . ';port=' . $dbParams['port'] . ';dbname=' . $dbParams['dbname'] . ';charset=utf8mb4';
+            }
             $tp = new PDO($dsn, $dbParams['user'], $dbParams['pass'], array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_CONNECT_TIMEOUT => 8));
         } catch (Exception $ex) {
-            json_fail('MySQL 连接失败：' . $ex->getMessage());
+            json_fail(strtoupper($dbDriver) . ' 连接失败：' . $ex->getMessage());
         }
     }
 
@@ -214,20 +234,27 @@ if ($action === 'save') {
     }
     ConfigStore::resetCache();
     ConfigStore::set('db.driver', $dbDriver);
-    if ($dbDriver === 'mysql') {
-        ConfigStore::set('db.mysql.host', $dbParams['host']);
-        ConfigStore::set('db.mysql.port', $dbParams['port']);
-        ConfigStore::set('db.mysql.dbname', $dbParams['dbname']);
-        ConfigStore::set('db.mysql.user', $dbParams['user']);
-        ConfigStore::set('db.mysql.pass', $dbParams['pass']);
+    if ($dbDriver === 'mysql' || $dbDriver === 'pgsql') {
+        ConfigStore::set('db.' . $dbDriver . '.host', $dbParams['host']);
+        ConfigStore::set('db.' . $dbDriver . '.port', $dbParams['port']);
+        ConfigStore::set('db.' . $dbDriver . '.dbname', $dbParams['dbname']);
+        ConfigStore::set('db.' . $dbDriver . '.user', $dbParams['user']);
+        ConfigStore::set('db.' . $dbDriver . '.pass', $dbParams['pass']);
         ConfigStore::set('db.sqlite.path', '');
     } else {
         ConfigStore::set('db.sqlite.path', $sqlitePath);
     }
     ConfigStore::set('cache.driver', $cacheDriver);
-    ConfigStore::set('cache.redis.host', post('redis_host', '127.0.0.1'));
-    ConfigStore::set('cache.redis.port', post('redis_port', '6379'));
-    ConfigStore::set('cache.redis.auth', post('redis_auth', ''));
+    if ($cacheDriver === 'redis') {
+        ConfigStore::set('cache.redis.host', post('redis_host', '127.0.0.1'));
+        ConfigStore::set('cache.redis.port', post('redis_port', '6379'));
+        ConfigStore::set('cache.redis.auth', post('redis_auth', ''));
+        ConfigStore::set('cache.redis.prefix', post('redis_prefix', 'clinic_sess:'));
+        ConfigStore::set('cache.redis.timeout', post('redis_timeout', '2.0'));
+    } elseif ($cacheDriver === 'memcached') {
+        ConfigStore::set('cache.memcached.servers', post('memcached_servers', '127.0.0.1:11211'));
+        ConfigStore::set('cache.memcached.prefix', post('memcached_prefix', 'clinic_sess:'));
+    }
     if (ConfigStore::get('app.key', '') === '') {
         ConfigStore::set('app.key', bin2hex(random_bytes(32)));
     }
