@@ -53,6 +53,12 @@ Clinic.patientSearch = {
             var el = document.getElementById(kwId);
             if (el) el.focus();
         }, 80);
+        // 建档日期范围默认近 1 个月（可手动修改，跨度上限 1 年由 datePicker maxSpan 钳制）
+        var dft = Clinic.datePicker.lastRange(29);
+        var f = document.getElementById(fromId);
+        var t = document.getElementById(toId);
+        if (f) f.value = dft.from;
+        if (t) t.value = dft.to;
     },
 
     doSearch: function (prefix) {
