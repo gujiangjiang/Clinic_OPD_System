@@ -142,10 +142,9 @@ $dbType = strtoupper(DatabaseManager::driver());
             </div>
             <div class="db-pane" id="dbtab-browse" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between"><span>📋 数据表浏览器</span><span class="badge badge-primary" id="browseDriverBadge" style="font-size:11.5px">—</span></div>
+                    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between"><span>📋 数据表浏览器</span><span class="flex gap-8" style="align-items:center"><span class="badge badge-primary" id="browseDriverBadge" style="font-size:11.5px">—</span><button class="btn btn-outline btn-sm" onclick="loadDbStatus()">🔄 刷新</button></span></div>
                     <div class="fs-13 text-muted mb-8">点击任意表查看字段属性与滚动加载行数据（只读，模态框内支持 CSV 导出）；SQLite / MySQL / PostgreSQL 均支持。</div>
                     <div id="dbTableList" class="fs-13" style="border:1px solid var(--border);border-radius:var(--radius-md);padding:6px"><div class="text-muted">加载中…</div></div>
-                    <div class="mt-8"><button class="btn btn-outline btn-sm" onclick="loadDbStatus()">🔄 刷新表列表</button></div>
                 </div>
             </div>
             <div class="db-pane" id="dbtab-migrate" style="display:none">
@@ -642,6 +641,11 @@ function loadDbStatus() {
 
 var DB_TABLE_MODAL = null;
 var DB_INF = null;   // 数据表无限滚动句柄
+/* 刷新当前数据表（重新打开加载） */
+function refreshDbTable() {
+    if (DB_CUR_TABLE) openDbTable(DB_CUR_TABLE);
+}
+
 function openDbTable(table) {
     DB_CUR_TABLE = table;
     if (DB_INF) { DB_INF.stop(); DB_INF = null; }
@@ -652,7 +656,8 @@ function openDbTable(table) {
     // 固定大小模态框（宽 modal-xl + 表格区固定高），数据过多时表格区内部滚动 + 滚动加载
     var html =
         '<div class="flex-between mb-8"><span class="fw-600 fs-14" id="dbTableTitle">📋 ' + escHtml(table) + '</span>' +
-        '<button class="btn btn-outline btn-sm" onclick="exportDbTableCsv()">⬇️ CSV</button></div>' +
+        '<span class="flex gap-8"><button class="btn btn-outline btn-sm" onclick="exportDbTableCsv()">⬇️ CSV</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="refreshDbTable()">🔄 刷新</button></span></div>' +
         '<div class="table-wrap" id="dbTableScroll" style="height:440px;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-md)">' +
         '<div class="text-muted text-center" style="padding:30px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>';
     DB_TABLE_MODAL = Clinic.modal.open(html, { title: '数据表查看', size: 'modal-xl' });
@@ -728,7 +733,7 @@ function loadCacheStatus() {
                 toggleCacheRedisOpts();
             }
             box.innerHTML =
-                '<div class="flex-between"><span class="text-muted">缓存驱动</span><span class="fw-600">' + escHtml(d.driver_label) + '</span></div>' +
+                '<div class="flex-between"><span class="text-muted">缓存驱动</span><span class="badge badge-primary" style="font-size:11.5px">' + escHtml(d.driver_label) + '</span></div>' +
                 '<div class="flex-between"><span class="text-muted">键数量</span><span>' + (d.keys || 0) + '</span></div>' +
                 (d.memory ? '<div class="flex-between"><span class="text-muted">占用内存</span><span>' + escHtml(d.memory) + '</span></div>' : '') +
                 ((d.notes || []).length ? d.notes.map(function (n) { return '<div class="fs-12 text-warning mt-4">⚠ ' + escHtml(n) + '</div>'; }).join('') : '');
