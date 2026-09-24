@@ -126,7 +126,7 @@ $dbType = strtoupper(DatabaseManager::driver());
         <div class="card db-sidebar">
             <div class="db-nav active" data-dbtab="detail" onclick="dbTab('detail')">📊 详情</div>
             <div class="db-nav" data-dbtab="browse" onclick="dbTab('browse')">📋 浏览</div>
-            <div class="db-nav" data-dbtab="migrate" onclick="dbTab('migrate')">🔄 迁移</div>
+            <div class="db-nav" data-dbtab="migrate" onclick="dbTab('migrate')">➡️ 迁移</div>
             <div class="db-nav" data-dbtab="switch" onclick="dbTab('switch')">🔁 切换</div>
             <div class="db-nav" data-dbtab="backup" onclick="dbTab('backup')">💾 备份/同步</div>
         </div>
@@ -175,15 +175,14 @@ $dbType = strtoupper(DatabaseManager::driver());
             </div>
             <div class="db-pane" id="dbtab-backup" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title">💾 多数据库备份 / 双向同步</div>
+                    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between"><span>💾 多数据库备份 / 双向同步</span><span class="badge badge-gray" id="bkLastAtBadge" style="font-size:11.5px;font-weight:400">最近同步：—</span></div>
                     <div class="fs-13 text-muted mb-8">备份与双向为<b>两个独立功能</b>（二选一）：备份=手动/定时全量同步；双向=每次写入实时镜像到备份库（RAID1 式，仅同驱动可靠，失败自动降级不影响主库体验）。</div>
                     <!-- 共用：驱动选择 + 数据库配置 -->
                     <div class="form-group"><label class="form-label">备份/同步目标驱动</label>
                         <select class="select" id="bkDriver" onchange="toggleBkOpts()"></select>
                         <div class="fs-12 text-muted mt-4">驱动与连接配置为备份/同步共用；下方按钮切换备份或双向同步的特定内容。</div></div>
                     <div id="bkParamsBox"></div>
-                    <div class="fs-13 mt-8" id="bkLastAt" style="display:none"></div>
-                    <!-- 下方按钮：备份 / 同步 -->
+                    <div class="fs-13 mt-8" id="bkLastAt" style="display:none"></div>                    <!-- 下方按钮：备份 / 同步 -->
                     <div class="flex gap-8 mb-12 mt-12">
                         <button type="button" class="btn btn-primary btn-sm" id="bkModeBackup" onclick="bkMode('backup')">💾 备份</button>
                         <button type="button" class="btn btn-outline btn-sm" id="bkModeDual" onclick="bkMode('dual')">🔁 同步</button>
@@ -765,6 +764,7 @@ function dbTab(name) {
         p.style.display = p.id === 'dbtab-' + name ? '' : 'none';
     });
     if (name === 'detail' || name === 'browse') loadDbStatus();
+    if (name === 'backup') showBackupLastAt();
 }
 function settingsDriverMeta(kind, key) {
     var dr = SET_DRIVERS || { db: {}, cache: {} };
@@ -977,30 +977,28 @@ function saveBackupCfg() {
         onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '保存失败') + '</span>'; },
     });
 }
-/* 最近一次备份/同步时间显示（从 db_status 活动任务读取） */
+/* 最近一次备份/同步时间显示（标题右侧徽章） */
 function showBackupLastAt() {
-    var box = document.getElementById('bkLastAt');
-    if (!box) return;
+    var badge = document.getElementById('bkLastAtBadge');
+    if (!badge) return;
     Clinic.get('/api/admin?action=db_status', null, {
         loading: false,
         onSuccess: function (json) {
             var t = (json.data && json.data.active_tasks) || {};
-            var info = [];
-            if (t.backup_schedule) {
-                var last = t.backup_schedule.last_result === 'ok'
-                    ? '最近备份：' + (t.backup_schedule.last_at || '—')
-                    : (t.backup_schedule.last_result ? '最近备份：' + t.backup_schedule.last_result : '尚未备份');
-                info.push(last);
-            } else {
-                var lat = (json.data && json.data.last_backup_at) || '';
-                if (lat) info.push('最近备份：' + lat);
-            }
+            var txt = '';
             if (t.dual_write) {
                 var lat2 = (json.data && json.data.last_dual_at) || '';
-                info.push('双向同步：' + (lat2 ? '最近 ' + lat2 : '已开启（镜像中）'));
+                txt = '最近同步：' + (lat2 || '已开启（镜像中）');
+                badge.className = 'badge badge-success';
+            } else if (t.backup_schedule && t.backup_schedule.last_result === 'ok') {
+                txt = '最近备份：' + (t.backup_schedule.last_at || '—');
+                badge.className = 'badge badge-primary';
+            } else {
+                var lat = (json.data && json.data.last_backup_at) || '';
+                txt = '最近备份：' + (lat || '—');
+                badge.className = 'badge badge-gray';
             }
-            box.style.display = info.length ? '' : 'none';
-            box.innerHTML = '<span class="text-muted fs-12">' + info.join('　') + '</span>';
+            badge.textContent = txt;
         },
     });
 }
