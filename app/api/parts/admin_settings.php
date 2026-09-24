@@ -59,6 +59,8 @@ function admin_part_settings($action) {
         set_setting('org_code', $orgCode);
         set_setting('hospital_name2', post('hospital_name2'));
         set_setting('hospital_intro', post('hospital_intro'));
+        set_setting('contact_phone', post('contact_phone'));
+        set_setting('contact_addr', post('contact_addr'));
         // 页脚版权：固定格式自动生成【© 年份 医院名称 版权所有】，不再手动保存
         set_setting('timezone', $tz);
         // HIS 接口密钥已迁移至【接口管理】（action=integration_save）统一维护

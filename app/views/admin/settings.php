@@ -62,6 +62,12 @@ $dbType = strtoupper(DatabaseManager::driver());
                         <div class="fs-12 text-muted mt-4">医保结算、监管报送与接口对接的唯一标识。</div></div>
                     <div class="form-group"><label class="form-label">医院第二名称</label>
                         <input class="input" id="s_hosp2" value="<?php echo e(setting('hospital_name2')); ?>"></div>
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">联系电话</label>
+                            <input class="input" id="s_contact_phone" value="<?php echo e(setting('contact_phone')); ?>" placeholder="如：0371-12345678"></div>
+                        <div class="form-group"><label class="form-label">联系地址</label>
+                            <input class="input" id="s_contact_addr" value="<?php echo e(setting('contact_addr')); ?>" placeholder="如：XX市XX区XX路1号"></div>
+                    </div>
                     <div class="form-group"><label class="form-label">机构简介</label>
                         <textarea class="textarea" id="s_intro" rows="4" placeholder="机构简介（选填），供对外展示与后续扩展使用"><?php echo e(setting('hospital_intro')); ?></textarea></div>
                     <div class="fs-12 text-muted mb-12">页脚版权信息为固定格式，自动显示为【© <?php echo date('Y'); ?> <?php echo e(setting('hospital_name')); ?> 版权所有】。</div>
@@ -512,6 +518,8 @@ function saveSettings() {
         org_code: orgCode,
         hospital_name2: document.getElementById('s_hosp2').value.trim(),
         hospital_intro: document.getElementById('s_intro').value.trim(),
+        contact_phone: document.getElementById('s_contact_phone').value.trim(),
+        contact_addr: document.getElementById('s_contact_addr').value.trim(),
         timezone: document.getElementById('s_tz').value,
         login_captcha_mode: document.getElementById('s_captcha_mode').value,
         login_fail_lock_count: String(lockCount),
