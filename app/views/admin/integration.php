@@ -29,6 +29,8 @@ $hisApiScheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'ht
 $hisApiHost = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
 $hisApiBase = $hisApiScheme . '://' . $hisApiHost . '/api/his';
 $hisKeyNow = trim((string)setting('his_api_key', ''));
+// 医疗机构代码（org_code）：HIS 系统代码/医保机构编码自动引用
+$orgCode = trim((string)setting('org_code', ''));
 ?>
 <div class="page-head">
     <div><div class="page-title">🔌 接口管理</div>
@@ -85,6 +87,7 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
                         <div class="form-group">
                             <label class="form-label"><?php echo e($f['label']); ?>
                                 <?php if (!empty($f['monospace'])): ?><span class="fs-12 text-muted" style="font-weight:400">（建议保密，勿外传）</span><?php endif; ?>
+                                <?php if (!empty($f['source']) && $f['source'] === 'org_code'): ?><span class="fs-12 text-muted" style="font-weight:400">（自动引用医疗机构代码）</span><?php endif; ?>
                             </label>
                             <?php if ($f['type'] === 'select'): ?>
                                 <select class="select" id="itg_<?php echo e($f['key']); ?>">
@@ -94,12 +97,13 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
                                 </select>
                             <?php else: ?>
                                 <div class="flex" style="gap:8px">
-                                    <?php $isHisKey = ($f['key'] === 'his_api_key'); ?>
+                                    <?php $isHisKey = ($f['key'] === 'his_api_key'); $isOrgCode = !empty($f['source']) && $f['source'] === 'org_code'; ?>
                                     <input class="input" id="itg_<?php echo e($f['key']); ?>"
-                                        value="<?php echo e($vals[$f['key']]); ?>"
+                                        value="<?php echo e($isOrgCode ? $orgCode : $vals[$f['key']]); ?>"
                                         placeholder="<?php echo e($f['placeholder']); ?>"
                                         <?php if ($isHisKey): ?> disabled title="仅可通过随机生成，不支持手动输入"<?php endif; ?>
-                                        <?php if (!empty($f['monospace'])): ?> style="font-family:monospace"<?php endif; ?>>
+                                        <?php if (!empty($f['monospace'])): ?> style="font-family:monospace"<?php endif; ?>
+                                        <?php if ($isOrgCode): ?> readonly title="自动引用系统医疗机构代码（org_code），无需人工输入"<?php endif; ?>>
                                     <?php if ($isHisKey): ?>
                                         <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="genHisKey()">🔑 生成密钥</button>
                                         <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="clearHisKey()">🧹 清空密钥</button>
@@ -163,6 +167,31 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
             </div>
         </div>
         <?php else: ?>
+        <?php foreach ($g['fields'] as $f): ?>
+            <div class="form-group">
+                <label class="form-label"><?php echo e($f['label']); ?>
+                    <?php if (!empty($f['monospace'])): ?><span class="fs-12 text-muted" style="font-weight:400">（建议保密，勿外传）</span><?php endif; ?>
+                    <?php if (!empty($f['source']) && $f['source'] === 'org_code'): ?><span class="fs-12 text-muted" style="font-weight:400">（自动引用医疗机构代码）</span><?php endif; ?>
+                </label>
+                <?php if ($f['type'] === 'select'): ?>
+                    <select class="select" id="itg_<?php echo e($f['key']); ?>">
+                        <?php foreach ($f['options'] as $ov => $ot): ?>
+                            <option value="<?php echo e($ov); ?>"<?php echo $vals[$f['key']] === (string)$ov ? ' selected' : ''; ?>><?php echo e($ot); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                <?php else: ?>
+                    <?php $isOrgCode = !empty($f['source']) && $f['source'] === 'org_code'; ?>
+                    <input class="input" id="itg_<?php echo e($f['key']); ?>"
+                        value="<?php echo e($isOrgCode ? $orgCode : $vals[$f['key']]); ?>"
+                        placeholder="<?php echo e($f['placeholder']); ?>"
+                        <?php if (!empty($f['monospace'])): ?> style="font-family:monospace"<?php endif; ?>
+                        <?php if ($isOrgCode): ?> readonly title="自动引用系统医疗机构代码（org_code），无需人工输入"<?php endif; ?>>
+                <?php endif; ?>
+                <?php if (!empty($f['hint'])): ?>
+                    <div class="fs-12 text-muted mt-4"><?php echo e($f['hint']); ?></div>
+                <?php endif; ?>
+            </div>
+        <?php endforeach; ?>
         <?php if ($g['id'] === 'pacs'): ?>
             <div class="fs-12 text-muted mb-12">
                 Web 阅片器 URL 模板支持 <code>{study_uid}</code> 变量替换：书写阅片时系统会将当前检查对应的 Study UID 替换进模板打开阅片器。
