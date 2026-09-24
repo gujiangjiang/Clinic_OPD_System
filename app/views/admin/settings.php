@@ -12,20 +12,26 @@ Router::title('系统设置');
 $logo = setting('logo', '');
 $logoData = img_data($logo);
 $tz = setting('timezone', 'Asia/Shanghai');
-$commonTz = array('Asia/Shanghai', 'Asia/Hong_Kong', 'Asia/Macau', 'Asia/Taipei', 'Asia/Tokyo', 'Asia/Singapore',
-    'Asia/Seoul', 'Australia/Sydney', 'Europe/London', 'Europe/Paris', 'America/New_York', 'America/Los_Angeles', 'UTC');
-if (!in_array($tz, $commonTz, true)) {
-    $commonTz[] = $tz;
+// 完整时区列表（与安装向导一致）：系统底层 DateTimeZone 全量，按区域分组
+$tzGroups = array();
+foreach (DateTimeZone::listIdentifiers() as $tzName) {
+    $parts = explode('/', $tzName, 2);
+    $group = isset($parts[1]) ? $parts[0] : '其他';
+    $tzGroups[$group][] = $tzName;
 }
 $tzOpts = '';
-foreach ($commonTz as $t) {
-    $tzOpts .= '<option value="' . e($t) . '"' . ($tz === $t ? ' selected' : '') . '>' . e($t) . '</option>';
+foreach ($tzGroups as $group => $tzList) {
+    $tzOpts .= '<optgroup label="' . e($group) . '">';
+    foreach ($tzList as $tzName) {
+        $tzOpts .= '<option value="' . e($tzName) . '"' . ($tz === $tzName ? ' selected' : '') . '>' . e($tzName) . '</option>';
+    }
+    $tzOpts .= '</optgroup>';
 }
 // 当前数据库类型（SQLITE / MYSQL / PGSQL）：管理员直观查看当前驱动
 $dbType = strtoupper(DatabaseManager::driver());
 ?>
 <div class="page-head">
-    <div><div class="page-title">⚙️ 系统设置</div><div class="page-desc">按类别分区管理医院基础信息、品牌外观、作息时间与安全设置</div></div>
+    <div><div class="page-title">⚙️ 系统设置</div><div class="page-desc">按类别分区管理医院基础信息、医院标志、作息时间与安全设置</div></div>
 </div>
 
 <!-- 多 Tab 导航 -->
@@ -41,7 +47,7 @@ $dbType = strtoupper(DatabaseManager::driver());
     <div class="db-center">
         <div class="card db-sidebar">
             <div class="db-nav active" data-cltab="info" onclick="clTab('info')">🏥 医院信息</div>
-            <div class="db-nav" data-cltab="brand" onclick="clTab('brand')">🎨 品牌外观</div>
+            <div class="db-nav" data-cltab="brand" onclick="clTab('brand')">🎨 医院标志</div>
             <div class="db-nav" data-cltab="work" onclick="clTab('work')">⏰ 作息时间</div>
             <div class="db-nav" data-cltab="tz" onclick="clTab('tz')">🌐 网站时区</div>
         </div>
@@ -64,7 +70,7 @@ $dbType = strtoupper(DatabaseManager::driver());
             </div>
             <div class="db-pane" id="cltab-brand" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title">🎨 品牌外观</div>
+                    <div class="card-title">🎨 医院标志</div>
                     <div class="flex gap-16" style="align-items:center">
                         <div class="fs-13 text-muted" style="flex:1;line-height:1.8">上传医院 LOGO，将作为登录页 / 系统侧边栏 / 浏览器图标（favicon）展示。<br>尚未上传 LOGO，网站将不显示 LOGO 与 favicon。</div>
                         <div style="flex-shrink:0;text-align:center">
