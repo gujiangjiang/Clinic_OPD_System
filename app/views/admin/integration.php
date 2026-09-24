@@ -56,88 +56,112 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
             <div class="fs-12 text-muted mb-12" style="margin-top:-8px"><?php echo e($g['desc']); ?></div>
         <?php endif; ?>
         <?php if ($g['id'] === 'his'): ?>
-        <div class="itg-his-cols">
-            <div class="itg-his-left">
-                <div class="fw-600 fs-13 mb-8">⚙️ HIS 接口配置</div>
-        <?php endif; ?>
-        <?php foreach ($g['fields'] as $f): ?>
-            <div class="form-group">
-                <label class="form-label"><?php echo e($f['label']); ?>
-                    <?php if (!empty($f['monospace'])): ?><span class="fs-12 text-muted" style="font-weight:400">（建议保密，勿外传）</span><?php endif; ?>
-                </label>
-                <?php if ($f['type'] === 'select'): ?>
-                    <select class="select" id="itg_<?php echo e($f['key']); ?>">
-                        <?php foreach ($f['options'] as $ov => $ot): ?>
-                            <option value="<?php echo e($ov); ?>"<?php echo $vals[$f['key']] === (string)$ov ? ' selected' : ''; ?>><?php echo e($ot); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-<?php else: ?>
-                    <div class="flex" style="gap:8px">
-                        <?php $isHisKey = ($g['id'] === 'his' && $f['key'] === 'his_api_key'); ?>
-                        <input class="input" id="itg_<?php echo e($f['key']); ?>"
-                            value="<?php echo e($vals[$f['key']]); ?>"
-                            placeholder="<?php echo e($f['placeholder']); ?>"
-                            <?php if ($isHisKey): ?> disabled title="仅可通过随机生成，不支持手动输入"<?php endif; ?>
-                            <?php if (!empty($f['monospace'])): ?> style="font-family:monospace"<?php endif; ?>>
-                        <?php if ($isHisKey): ?>
-                            <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="genHisKey()">🔑 生成密钥</button>
-                            <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="clearHisKey()">🧹 清空密钥</button>
-                        <?php endif; ?>
-                    </div>
-                <?php endif; ?>
-                <?php if (!empty($f['hint'])): ?>
-                    <div class="fs-12 text-muted mt-4"><?php echo e($f['hint']); ?></div>
-                <?php endif; ?>
+        <!-- HIS 接口：左右两栏（详情/配置/接口/测试/说明） -->
+        <div class="db-center" style="height:auto;align-items:flex-start">
+            <div class="card db-sidebar">
+                <div class="db-nav active" data-histab="detail" onclick="hisTab('detail')">📊 详情</div>
+                <div class="db-nav" data-histab="config" onclick="hisTab('config')">⚙️ 配置</div>
+                <div class="db-nav" data-histab="api" onclick="hisTab('api')">🔗 接口</div>
+                <div class="db-nav" data-histab="test" onclick="hisTab('test')">🧪 测试</div>
+                <div class="db-nav" data-histab="docs" onclick="hisTab('docs')">📖 说明</div>
             </div>
-        <?php endforeach; ?>
-        <?php if ($g['id'] === 'his'): ?>
-                <div class="form-group">
-                    <label class="form-label">HIS 接口地址（自动生成，无需填写）
-                        <span class="fs-12 text-muted" style="font-weight:400">即外部 HIS 系统调用本系统的接口地址，按当前访问地址自动生成并附带密钥</span>
-                    </label>
-                    <div class="flex" style="gap:8px">
-                        <code class="itg-his-url" id="hisApiUrl" style="flex:1;margin:0" title="点击复制地址" onclick="copyHisUrl()"><?php
-                            if ($hisKeyNow !== '') { echo e($hisApiBase . '?action=ping&api_key=' . $hisKeyNow); }
-                            else { echo '<span class="itg-his-url-ph">请先填写接口密钥并保存，地址将自动生成</span>'; }
-                        ?></code>
+            <div class="db-main">
+                <div class="db-pane" id="histab-detail">
+                    <div class="card setting-card">
+                        <div class="card-title">📊 接口详情</div>
+                        <div class="fs-13" style="line-height:2.2">
+                            <div class="flex-between"><span class="text-muted">启用状态</span><span id="hisStatusBadge" class="badge badge-gray" style="font-size:11.5px">未启用</span></div>
+                            <div class="flex-between"><span class="text-muted">系统代码</span><span id="hisDetailSyscode">—</span></div>
+                            <div class="flex-between"><span class="text-muted">同步模式</span><span id="hisDetailMode">—</span></div>
+                            <div class="flex-between"><span class="text-muted">接口地址</span><code class="fs-12" id="hisDetailUrl" style="word-break:break-all">—</code></div>
+                        </div>
+                        <div class="fs-12 text-muted mt-8">接口密钥留空即关闭 HIS 外部只读查询；配置并保存后接口可用。</div>
                     </div>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="itgSave('his')">保存本组配置</button>
-            </div>
-            <div class="itg-his-right">
-                <div class="itg-his-test">
-                    <div class="fw-600 fs-13">🧪 接口连通性测试</div>
-                    <div class="fs-12 text-muted mt-2 mb-8">实际请求本系统 /api/his（需先保存密钥），分别验证「请求头 X-HIS-Key」与「GET 参数 api_key」两种认证方式：</div>
-                    <button type="button" class="btn btn-primary btn-sm" onclick="testHisApi()">▶ 开始测试</button>
-                    <div id="hisTestBox" class="itg-his-result">
-                        <div class="itg-his-empty">
-                            <div class="itg-his-empty-ico">🧪</div>
-                            <div class="itg-his-empty-title">尚未测试</div>
-                            <div class="itg-his-empty-sub">保存密钥后点击「开始测试」，将在此展示两种认证方式的测试结果</div>
+                <div class="db-pane" id="histab-config" style="display:none">
+                    <div class="card setting-card">
+                        <div class="card-title">⚙️ HIS 接口配置</div>
+                        <?php foreach ($g['fields'] as $f): ?>
+                        <div class="form-group">
+                            <label class="form-label"><?php echo e($f['label']); ?>
+                                <?php if (!empty($f['monospace'])): ?><span class="fs-12 text-muted" style="font-weight:400">（建议保密，勿外传）</span><?php endif; ?>
+                            </label>
+                            <?php if ($f['type'] === 'select'): ?>
+                                <select class="select" id="itg_<?php echo e($f['key']); ?>">
+                                    <?php foreach ($f['options'] as $ov => $ot): ?>
+                                        <option value="<?php echo e($ov); ?>"<?php echo $vals[$f['key']] === (string)$ov ? ' selected' : ''; ?>><?php echo e($ot); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            <?php else: ?>
+                                <div class="flex" style="gap:8px">
+                                    <?php $isHisKey = ($f['key'] === 'his_api_key'); ?>
+                                    <input class="input" id="itg_<?php echo e($f['key']); ?>"
+                                        value="<?php echo e($vals[$f['key']]); ?>"
+                                        placeholder="<?php echo e($f['placeholder']); ?>"
+                                        <?php if ($isHisKey): ?> disabled title="仅可通过随机生成，不支持手动输入"<?php endif; ?>
+                                        <?php if (!empty($f['monospace'])): ?> style="font-family:monospace"<?php endif; ?>>
+                                    <?php if ($isHisKey): ?>
+                                        <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="genHisKey()">🔑 生成密钥</button>
+                                        <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="clearHisKey()">🧹 清空密钥</button>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+                            <?php if (!empty($f['hint'])): ?>
+                                <div class="fs-12 text-muted mt-4"><?php echo e($f['hint']); ?></div>
+                            <?php endif; ?>
+                        </div>
+                        <?php endforeach; ?>
+                        <button class="btn btn-primary btn-sm" onclick="itgSave('his')">保存配置</button>
+                    </div>
+                </div>
+                <div class="db-pane" id="histab-api" style="display:none">
+                    <div class="card setting-card">
+                        <div class="card-title">🔗 接口地址与调用示例</div>
+                        <div class="form-group"><label class="form-label">HIS 接口地址（自动生成，供外部 HIS 系统调用）</label>
+                            <div class="flex" style="gap:8px">
+                                <code class="itg-his-url" id="hisApiUrl" style="flex:1;margin:0" title="点击复制地址" onclick="copyHisUrl()"><?php
+                                    if ($hisKeyNow !== '') { echo e($hisApiBase . '?action=ping&api_key=' . $hisKeyNow); }
+                                    else { echo '<span class="itg-his-url-ph">请先填写接口密钥并保存，地址将自动生成</span>'; }
+                                ?></code>
+                            </div></div>
+                        <div class="fs-12 text-muted mb-4">调用示例（GET，保存密钥后随地址一并刷新）：</div>
+                        <div class="itg-his-curl">
+                            <code id="hisCurlDemo" title="点击复制 curl 示例" onclick="copyHisCurl()"></code>
                         </div>
                     </div>
                 </div>
+                <div class="db-pane" id="histab-test" style="display:none">
+                    <div class="card setting-card">
+                        <div class="card-title">🧪 接口连通性测试</div>
+                        <div class="fs-12 text-muted mt-2 mb-8">实际请求本系统 /api/his（需先保存密钥），分别验证「请求头 X-HIS-Key」与「GET 参数 api_key」两种认证方式：</div>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="testHisApi()">▶ 开始测试</button>
+                        <div id="hisTestBox" class="itg-his-result">
+                            <div class="itg-his-empty">
+                                <div class="itg-his-empty-ico">🧪</div>
+                                <div class="itg-his-empty-title">尚未测试</div>
+                                <div class="itg-his-empty-sub">保存密钥后点击「开始测试」，将在此展示两种认证方式的测试结果</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="db-pane" id="histab-docs" style="display:none">
+                    <div class="card setting-card">
+                        <div class="card-title">📖 接口说明</div>
+                        <div class="table-wrap"><table class="table">
+                            <thead><tr><th>action</th><th>参数</th><th>说明</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>ping</code></td><td>无</td><td>连通性自检，返回系统标识、系统代码与服务器时间</td></tr>
+                                <tr><td><code>patient_get</code></td><td><code>id_card</code> 或 <code>patient_no</code></td><td>查询患者档案</td></tr>
+                                <tr><td><code>visit_list</code></td><td><code>patient_no</code></td><td>该患者全部就诊记录</td></tr>
+                                <tr><td><code>visit_status</code></td><td><code>flow_no</code></td><td>查询某次就诊状态</td></tr>
+                                <tr><td><code>order_list</code></td><td><code>visit_id</code></td><td>某次就诊的开单明细</td></tr>
+                                <tr><td><code>evidence_verify</code></td><td><code>record_id</code> 或 <code>cert_no</code></td><td>存证校验（病历/证明的哈希指纹与凭据验真）</td></tr>
+                            </tbody>
+                        </table></div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-    <div class="card itg-pane-docs" id="itgDocs_<?php echo e($g['id']); ?>" data-tab="<?php echo e($g['id']); ?>"<?php echo $gi === 0 ? '' : ' style="display:none"'; ?>>
-        <div class="card-title">📖 接口说明（外部系统调用）</div>
-        <div class="table-wrap"><table class="table">
-            <thead><tr><th>action</th><th>参数</th><th>说明</th></tr></thead>
-            <tbody>
-                <tr><td><code>ping</code></td><td>无</td><td>连通性自检，返回系统标识、系统代码与服务器时间</td></tr>
-                <tr><td><code>patient_get</code></td><td><code>id_card</code> 或 <code>patient_no</code></td><td>查询患者档案</td></tr>
-                <tr><td><code>visit_list</code></td><td><code>patient_no</code></td><td>该患者全部就诊记录</td></tr>
-                <tr><td><code>visit_status</code></td><td><code>flow_no</code></td><td>查询某次就诊状态</td></tr>
-                <tr><td><code>order_list</code></td><td><code>visit_id</code></td><td>某次就诊的开单明细</td></tr>
-                <tr><td><code>evidence_verify</code></td><td><code>record_id</code> 或 <code>cert_no</code></td><td>存证校验（病历/证明的哈希指纹与凭据验真）</td></tr>
-            </tbody>
-        </table></div>
-        <div class="fs-12 text-muted mt-8 mb-4">调用示例（GET，保存密钥后随地址一并刷新）：</div>
-        <div class="itg-his-curl">
-            <code id="hisCurlDemo" title="点击复制 curl 示例" onclick="copyHisCurl()"></code>
-        </div>
-    </div>
         <?php else: ?>
         <?php if ($g['id'] === 'pacs'): ?>
             <div class="fs-12 text-muted mb-12">
@@ -171,10 +195,10 @@ function renderHisLive() {
     }
 }
 renderHisLive();   // 初始渲染（按当前已保存密钥）；密钥修改仅在保存后刷新
-syncHisCols();     // 初始同步左右列高度（以左列高度为基准）
+renderHisDetail();
 window.addEventListener('resize', function () {
     var pane = document.getElementById('itgPane_his');
-    if (pane && pane.style.display !== 'none') syncHisCols();
+    if (pane && pane.style.display !== 'none') { if (document.getElementById('itgPane_his').style.display !== 'none') renderHisDetail(); }
 });
 
 /* ---------- 生成随机 HIS 接口密钥（一键生成后点击保存生效） ---------- */
@@ -257,13 +281,6 @@ function testHisApi() {
 }
 
 /* ---------- HIS 左右两列高度同步：以左列高度为基准，右列超高时内部滚动 ---------- */
-function syncHisCols() {
-    var left = document.querySelector('#itgPane_his .itg-his-left');
-    var right = document.querySelector('#itgPane_his .itg-his-right');
-    if (!left || !right) return;
-    right.style.maxHeight = left.offsetHeight + 'px';
-}
-
 /* ---------- Tab 选项卡切换 ---------- */
 function itgTab(id) {
     document.querySelectorAll('#itgTabs .itg-tab').forEach(function (t) {
@@ -275,7 +292,35 @@ function itgTab(id) {
     document.querySelectorAll('.itg-pane, .itg-pane-docs').forEach(function (p) {
         p.style.display = (p.getAttribute('data-tab') === id) ? '' : 'none';
     });
-    if (id === 'his') syncHisCols();
+    if (id === 'his') { hisTab('detail'); }
+}
+
+/* ---------- HIS 接口左右栏子导航（详情/配置/接口/测试/说明） ---------- */
+function hisTab(name) {
+    document.querySelectorAll('#itgPane_his .db-nav').forEach(function (n) { n.classList.toggle('active', n.getAttribute('data-histab') === name); });
+    document.querySelectorAll('#itgPane_his .db-pane').forEach(function (p) { p.style.display = p.id === 'histab-' + name ? '' : 'none'; });
+    if (name === 'detail') renderHisDetail();
+}
+
+/* 详情面板：展示当前配置值（密钥状态=是否启用、系统代码、同步模式、接口地址） */
+function renderHisDetail() {
+    var key = ((document.getElementById('itg_his_api_key') || {}).value || '').trim();
+    var badge = document.getElementById('hisStatusBadge');
+    if (badge) {
+        badge.textContent = key === '' ? '未启用（密钥为空）' : '已启用';
+        badge.className = 'badge ' + (key === '' ? 'badge-gray' : 'badge-success');
+        badge.style.fontSize = '11.5px';
+    }
+    var sys = document.getElementById('hisDetailSyscode');
+    if (sys) sys.textContent = ((document.getElementById('itg_his_system_code') || {}).value || '').trim() || '—';
+    var mode = document.getElementById('hisDetailMode');
+    if (mode) {
+        var sel = document.getElementById('itg_his_sync_mode');
+        mode.textContent = sel && sel.options && sel.selectedIndex >= 0
+            ? sel.options[sel.selectedIndex].text : '—';
+    }
+    var url = document.getElementById('hisDetailUrl');
+    if (url) url.textContent = key === '' ? '—（配置并保存密钥后生成）' : hisUrlText(key);
 }
 
 /* ---------- 分组保存（仅提交该组字段） ---------- */
@@ -299,8 +344,8 @@ function itgSave(groupId) {
             if (groupId === 'his') {
                 HIS_SAVED_KEY = ((document.getElementById('itg_his_api_key') || {}).value || '').trim();
                 renderHisLive();
+                renderHisDetail();
                 hisTestEmpty();
-                syncHisCols();
             }
         },
     });
