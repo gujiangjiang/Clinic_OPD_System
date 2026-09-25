@@ -227,14 +227,17 @@ function collectParams(kind, driverKey) {
 function renderDbParams() {
     var box = document.getElementById('dbParamsBox');
     var d = dbDriverKey();
+    var meta = driverMeta('db', d);
+    var extWarn = (meta && meta.installed === false)
+        ? '<div class="text-danger fs-13 mt-4">当前 PHP 未安装该驱动所需扩展（' + escHtml(meta.extension || '') + '），请先安装或更换驱动。</div>'
+        : '';
     if (d === 'sqlite') {
         box.innerHTML = '<div class="form-group"><label class="form-label">数据库名称 <span class="req">*</span></label>' +
             '<input class="input" id="dbp_name" value="clinic_main" placeholder="如 clinic_main">' +
-            '<div class="fs-12 text-muted mt-4">统一存放于 data/db/，可省略 .db 后缀（如输入 123 与 123.db 均创建 123.db）。</div></div>';
+            '<div class="fs-12 text-muted mt-4">统一存放于 data/db/，可省略 .db 后缀。</div></div>' + extWarn;
         return;
     }
-    var meta = driverMeta('db', d);
-    if (!meta || !meta.params || !Object.keys(meta.params).length) { box.innerHTML = ''; return; }
+    if (!meta || !meta.params || !Object.keys(meta.params).length) { box.innerHTML = extWarn; return; }
     var keys = Object.keys(meta.params);
     var rows = [];
     for (var i = 0; i < keys.length; i += 2) {
@@ -250,7 +253,7 @@ function renderDbParams() {
         rows.push('<div class="form-row">' + cell1 + cell2 + '</div>');
     }
     box.innerHTML = rows.join('') +
-        '<div class="fs-13" id="dbTestMsg" style="min-height:20px"></div>';
+        '<div class="fs-13" id="dbTestMsg" style="min-height:20px"></div>' + extWarn;
 }
 /* 缓存参数表单 */
 function renderCacheParams() {
@@ -301,7 +304,7 @@ document.getElementById('cacheDriver').addEventListener('change', renderCachePar
 function loadPreflight() {
     var box = document.getElementById('preflightBox');
     box.innerHTML = '<div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div>正在检查环境…</div>';
-    Clinic.get('/api/install?action=preflight', null, {
+    Clinic.get('/api/install', { action: 'preflight' }, {
         loading: false,
         onSuccess: function (json) {
             WIZ.preflight = json.data || {};
@@ -326,10 +329,11 @@ function loadPreflight() {
 }
 
 /* ==================== 数据库连接测试 ==================== */
-function dbQueryParams(extra) {
+function dbQueryParams(action) {
     var d = dbDriverKey();
     var p = dbParams();
     var q = {
+        action: action,
         driver: d,
         host: p.host || '',
         port: p.port || '',
@@ -338,7 +342,6 @@ function dbQueryParams(extra) {
         pass: p.pass || '',
         name: p.name || '',
     };
-    if (extra) Object.keys(extra).forEach(function (k) { q[k] = extra[k]; });
     return q;
 }
 function testDb() {
@@ -348,7 +351,7 @@ function testDb() {
     msg.textContent = '测试中…';
     if (btn) btn.disabled = true;
     function done() { if (btn) btn.disabled = false; }
-    Clinic.get('/api/install?action=test_db', dbQueryParams(), {
+    Clinic.get('/api/install', dbQueryParams('test_db'), {
         loading: false,
         onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; done(); },
         onError: function (x, json) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((json && json.msg) || '连接失败') + '</span>'; done(); },
@@ -361,7 +364,8 @@ function testRedis() {
     if (btn) btn.disabled = true;
     function done() { if (btn) btn.disabled = false; }
     var p = collectParams('cache', 'redis');
-    Clinic.get('/api/install?action=test_redis', {
+    Clinic.get('/api/install', {
+        action: 'test_redis',
         host: p.host || '',
         port: p.port || '',
         auth: p.auth || '',
@@ -378,17 +382,43 @@ function checkDbAndProceed() {
     var btn = document.getElementById('nextBtn');
     btn.disabled = true;
     function done() { btn.disabled = false; }
-    Clinic.get('/api/install?action=check_db', dbQueryParams(), {
+    Clinic.get('/api/install', dbQueryParams('check_db'), {
         loading: true,
         onSuccess: function (json) {
             done();
-            WIZ.dbInstalled = !!(json.data && json.data.installed);
+            var data = json.data || {};
+            WIZ.dbInstalled = !!data.installed;
             if (WIZ.dbInstalled) { askInstallMode(); return; }
+            if (data.foreign) { askForeignDb(); return; }
             WIZ.mode = 'fresh';
             wizGo(3, false);
         },
         onError: function () { done(); },
     });
+}
+/* 目标库非空但未检测到本系统数据：提示继续将在其中创建本系统表结构 */
+function askForeignDb() {
+    var mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    mask.innerHTML =
+        '<div class="modal modal-sm">' +
+        '  <div class="modal-head"><div class="modal-title">目标数据库非空</div></div>' +
+        '  <div class="modal-body fs-13" style="line-height:1.9">' +
+        '    所选数据库已存在数据表，但未检测到本系统的安装数据。继续安装将在该库中创建本系统表结构。' +
+        '  </div>' +
+        '  <div class="modal-foot" style="display:flex;justify-content:flex-end;gap:8px">' +
+        '    <button type="button" class="btn btn-outline btn-sm" data-act="cancel">取消</button>' +
+        '    <button type="button" class="btn btn-primary btn-sm" data-act="ok">继续安装</button>' +
+        '  </div>' +
+        '</div>';
+    document.body.appendChild(mask);
+    requestAnimationFrame(function () { mask.classList.add('show'); });
+    function close() {
+        mask.classList.remove('show');
+        setTimeout(function () { if (mask.parentNode) mask.parentNode.removeChild(mask); }, 200);
+    }
+    mask.querySelector('[data-act="cancel"]').addEventListener('click', close);
+    mask.querySelector('[data-act="ok"]').addEventListener('click', function () { WIZ.mode = 'fresh'; close(); wizGo(3, false); });
 }
 /* 检测到已有安装数据：弹出「关联现有 / 全新安装」决策对话框
  * （安装页为独立页，未加载 modal.js，此处用 modal.css 自建轻量对话框） */
@@ -432,6 +462,9 @@ function renderConfirm() {
         : ((dbParams.host || '') + ':' + (dbParams.port || '') + '/' + (dbParams.dbname || ''));
     rows.push(['数据库驱动', (dbMeta ? dbMeta.label : dbKey) + '（' + dbDesc + '）']);
     rows.push(['安装方式', WIZ.mode === 'attach' ? '关联现有数据库（保留数据）' : '全新安装（建库并导入基础字典）']);
+    if (WIZ.mode === 'fresh' && WIZ.dbInstalled) {
+        rows.push(['⚠️ 注意', '将清空目标数据库全部已有数据后重新创建']);
+    }
     var icd10 = document.getElementById('icd10_name').value.trim() || 'icd10';
     rows.push(['ICD-10 诊断库', 'data/db/' + icd10.replace(/\.db$/i, '') + '.db']);
     var cKey = document.getElementById('cacheDriver').value;
@@ -445,7 +478,8 @@ function renderConfirm() {
         rows.push(['管理员', '保留现有系统管理员']);
     }
     box.innerHTML = rows.map(function (r) {
-        return '<div class="flex-between mb-4"><span class="text-muted">' + escHtml(r[0]) + '</span><span class="fw-600">' + escHtml(r[1]) + '</span></div>';
+        var warn = r[0].indexOf('⚠️') === 0;
+        return '<div class="flex-between mb-4"><span class="' + (warn ? 'text-danger' : 'text-muted') + '">' + escHtml(r[0]) + '</span><span class="fw-600' + (warn ? ' text-danger' : '') + '">' + escHtml(r[1]) + '</span></div>';
     }).join('');
 }
 
