@@ -106,17 +106,25 @@ Clinic.emrEditor = (function () {
 
     /* ==================== 字段 DOM 构建 ==================== */
 
-    /** 可编辑占位字段：<span class="ef-field" contenteditable data-ph>
-     * @param {boolean} auto 内容自适应多行：宽度随内容增长（最短值 minWidth 控制），
+    /** 可编辑占位字段：<span class="ef-field emr-inline-fill" contenteditable tabindex data-ph data-placeholder>
+     * 流式行内编辑器（Inline Flow Editable）：字段以纯行内字符流渲染，到达行末
+     * 逐字符自然折行，后方文字紧随其后，绝无整块下坠。
+     * @param {boolean} auto      内容自适应多行：宽度随内容增长（最短值 minWidth 控制），
      *   超过可用行宽时在超出处自动断行到下一行继续书写（自动分节），
-     *   最大宽度不超过容器、绝不横向溢出（现病史具体内容等长文本字段） */
-    function textField(path, ph, width, auto) {
+     *   最大宽度不超过容器、绝不横向溢出（现病史具体内容等长文本字段）
+     * @param {boolean} multiline 大段落叙述字段（现病史详情/体检/处置/嘱托等）：
+     *   标记 data-multiline="true"，Enter 允许换行；单行字段 Enter 拦截换行并自动跳格下一字段 */
+    function textField(path, ph, width, auto, multiline) {
         var el = document.createElement('span');
-        el.className = 'ef-field' + (auto ? ' ef-field-nowrap' : '');
+        el.className = 'ef-field emr-inline-fill' + (auto ? ' ef-field-nowrap' : '');
         el.setAttribute('contenteditable', 'true');
         el.setAttribute('spellcheck', 'false');
+        el.setAttribute('tabindex', '0');
         el.setAttribute('data-ph', ph);
+        el.setAttribute('data-placeholder', ph);
+        el.setAttribute('data-field', path);
         el.setAttribute('data-k', path);
+        if (multiline) el.setAttribute('data-multiline', 'true');
         if (width) el.style.minWidth = width + 'px';
         bindFieldEvents(el);
         FIELDS.push({ path: path, type: 'text', el: el });
@@ -276,7 +284,7 @@ Clinic.emrEditor = (function () {
         d.appendChild(selectField('history_present.unit', '单位', UNITS, { csdSearch: 1, csdClear: 1 }));
         // 现病史具体内容：自适应多行字段（宽度随内容增长，超行宽时在超出处自动
         // 断行到下一行继续写，整体保持一个字段、绝不横向溢出）
-        d.appendChild(textField('history_present.content', '现病史具体内容', 260, true));
+        d.appendChild(textField('history_present.content', '现病史具体内容', 260, true, true));
         d.appendChild(staticText('，'));
         d.appendChild(selectField('history_present.arrival_way', '来院途径', ARRIVAL_WAYS, { csdSearch: 1, csdClear: 1 }));
         return d;
@@ -289,7 +297,7 @@ Clinic.emrEditor = (function () {
         d.appendChild(sel);
         var detailWrap = document.createElement('span');
         detailWrap.className = 'ef-cond';
-        detailWrap.appendChild(textField('past_history.detail', '请填写详细既往史', 220));
+        detailWrap.appendChild(textField('past_history.detail', '请填写详细既往史', 220, false, true));
         d.appendChild(detailWrap);
         var sync = function () {
             var v = sel.value;
@@ -312,7 +320,7 @@ Clinic.emrEditor = (function () {
         d.appendChild(sel);
         var detailWrap = document.createElement('span');
         detailWrap.className = 'ef-cond';
-        var tf = textField('allergies.detail', '请填写过敏史', 200);
+        var tf = textField('allergies.detail', '请填写过敏史', 200, false, true);
         tf.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden';
         detailWrap.appendChild(tf);
         d.appendChild(detailWrap);
@@ -468,7 +476,7 @@ Clinic.emrEditor = (function () {
         PE_CATS.forEach(function (cat, i) {
             if (i > 0) d.appendChild(staticText('　'));
             d.appendChild(staticText(cat + '：'));
-            d.appendChild(textField('physical_exam.' + cat, '请输入', 70));
+            d.appendChild(textField('physical_exam.' + cat, '请输入', 70, false, true));
         });
         return d;
     }
@@ -496,8 +504,8 @@ Clinic.emrEditor = (function () {
         auto.setAttribute('data-auto', 'aux_orders');
         auto.setAttribute('title', '开具检验/检查后自动显示');
         d.appendChild(auto);
-        d.appendChild(textField('aux_result', '请填写辅助检查结果', 130));
-        d.appendChild(textField('aux_external', '请填写外院辅助检查结果', 130));
+        d.appendChild(textField('aux_result', '请填写辅助检查结果', 130, false, true));
+        d.appendChild(textField('aux_external', '请填写外院辅助检查结果', 130, false, true));
         return d;
     }
 
@@ -515,7 +523,7 @@ Clinic.emrEditor = (function () {
         dispBox.setAttribute('data-auto', 'disp_items');
         box.appendChild(rxBox);
         box.appendChild(dispBox);
-        box.appendChild(textField('disposition_custom', '填写其他处置/治疗内容', 150));
+        box.appendChild(textField('disposition_custom', '填写其他处置/治疗内容', 150, false, true));
         d.appendChild(box);
         return d;
     }
@@ -530,14 +538,14 @@ Clinic.emrEditor = (function () {
     /** 嘱托 */
     function buildAdvice() {
         var d = secWrap('嘱托', false);
-        d.appendChild(textField('advice', '请输入嘱托', 320));
+        d.appendChild(textField('advice', '请输入嘱托', 320, false, true));
         return d;
     }
 
     /** 病历续写（progress 文书顶部必填项）：续写内容 + 「病史同上」快捷按钮 */
     function buildProg() {
         var d = secWrap('病历续写', true);
-        d.appendChild(textField('progress.content', '请输入病历续写内容', 300));
+        d.appendChild(textField('progress.content', '请输入病历续写内容', 300, false, true));
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'btn btn-outline btn-sm ef-prog-btn';
