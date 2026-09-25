@@ -12,6 +12,17 @@
  * ============================================================ */
 class Layout {
 
+    /**
+     * 资源版本参数：按文件修改时间戳做缓存失效（流式行内编辑器重构期间
+     * 防浏览器旧缓存，文件缺失时回退 APP_VERSION）。
+     * @param string $rel 相对 public/ 的路径，如 assets/css/components-emr.css
+     */
+    private static function assetVer($rel) {
+        $p = dirname(__DIR__, 2) . '/public/' . $rel;
+        $m = @filemtime($p);
+        return $m ? $m : APP_VERSION;
+    }
+
     /** 侧边栏菜单（按角色渲染） */
     private static function menu($role) {
         $items = array();
@@ -196,7 +207,7 @@ class Layout {
             ' . $favicon . $pwaHead . '
             <link rel="stylesheet" href="/assets/css/base.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/components.css?v=' . APP_VERSION . '">
-            <link rel="stylesheet" href="/assets/css/components-emr.css?v=' . APP_VERSION . '">
+            <link rel="stylesheet" href="/assets/css/components-emr.css?v=' . self::assetVer('assets/css/components-emr.css') . '">
             <link rel="stylesheet" href="/assets/css/modal.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/auth.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/dark.css?v=' . APP_VERSION . '">
@@ -283,10 +294,14 @@ class Layout {
         $uHasTitle = in_array($u['role'], array('doctor', 'nurse', 'lab', 'imaging', 'pharmacy'), true);
         $uRoleName = Auth::roleName($u['role']);
         // EMR 专用组件脚本（仅医生工作站/模板管理/审核预览需要，按页裁剪降低全站脚本体积）
+        // 流式行内编辑器重构期：emreditor/emr_template/emr_segments 按文件修改时间戳防缓存
         $emrScripts = '';
         if ($needEmr) {
             $emrScripts = implode("\n", array_map(function ($f) {
-                return '<script src="/assets/js/components/' . $f . '.js?v=' . APP_VERSION . '"></script>';
+                $ver = in_array($f, array('emreditor', 'emr_template', 'emr_segments'), true)
+                    ? self::assetVer('assets/js/components/' . $f . '.js')
+                    : APP_VERSION;
+                return '<script src="/assets/js/components/' . $f . '.js?v=' . $ver . '"></script>';
             }, array(
                 'queuepanel_core', 'order', 'emreditor', 'emr_ctxmenu', 'eventbus', 'emr', 'emr_diag', 'emr_cert', 'emr_consult', 'emr_rules', 'emr_format',
                 'emr_template', 'emr_fee', 'emr_patient', 'emr_orders', 'emr_segments', 'emr_consent', 'vitals', 'queuepanel',
@@ -340,7 +355,7 @@ class Layout {
             <link rel="apple-touch-icon" href="/pwa-icon.png?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/base.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/components.css?v=' . APP_VERSION . '">
-            <link rel="stylesheet" href="/assets/css/components-emr.css?v=' . APP_VERSION . '">
+            <link rel="stylesheet" href="/assets/css/components-emr.css?v=' . self::assetVer('assets/css/components-emr.css') . '">
             <link rel="stylesheet" href="/assets/css/modal.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/layout.css?v=' . APP_VERSION . '">
             <link rel="stylesheet" href="/assets/css/pacs.css?v=' . APP_VERSION . '">
