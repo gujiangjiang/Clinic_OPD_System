@@ -117,9 +117,13 @@ Clinic.emrMenu = (function () {
     }
 
     /** 光标处插入纯文本（contenteditable 用 execCommand insertText 以触发
-     *  既有输入事件；失败则手动插入文本节点兜底） */
+     *  既有输入事件；失败则手动插入文本节点兜底）。
+     *  先经编辑器粘贴格式化（单行压平换行/去除空行，多行保留段落），
+     *  保证菜单粘贴与 Ctrl+V 行为完全一致 */
     function insertPlain(el, text) {
-        text = String(text).replace(/[\r\n]+/g, '');
+        text = (window.Clinic && Clinic.emrEditor && Clinic.emrEditor.normalizePastedText)
+            ? Clinic.emrEditor.normalizePastedText(text, el.isContentEditable ? el.getAttribute('data-multiline') === 'true' : el.tagName === 'TEXTAREA')
+            : String(text).replace(/[\r\n]+/g, '');
         if (!el.isContentEditable) {
             var v = el.value;
             var s = el.selectionStart, e = el.selectionEnd;
@@ -207,6 +211,23 @@ Clinic.emrMenu = (function () {
         if (!el) return;
         clearField(el);
         focusField(el);
+    }
+
+    /** 全选输入框内全部文字（contenteditable 用 Range 全选，原生控件用 select） */
+    function doSelectAll(el) {
+        if (!el) return;
+        el.focus();
+        if (el.isContentEditable) {
+            var range = document.createRange();
+            range.selectNodeContents(el);
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        } else {
+            try { el.select(); } catch (e) {
+                try { el.setSelectionRange(0, el.value.length); } catch (e2) {}
+            }
+        }
     }
 
     /** 嘱托「模板」：打开嘱托模板选择模态框（左侧搜索+列表，右侧预览，覆盖/续写/关闭） */
@@ -346,6 +367,7 @@ Clinic.emrMenu = (function () {
             case 'cut': doCut(el); break;
             case 'paste': doPaste(el); break;
             case 'clear': doClear(el); break;
+            case 'select': doSelectAll(el); break;
             case 'template': doTemplate(el); break;
         }
     }
@@ -367,10 +389,10 @@ Clinic.emrMenu = (function () {
         menu.className = 'emr-ctxmenu';
         menu.setAttribute('role', 'menu');
         var html = '';
-        var labels = { undo: '撤销', copy: '复制', cut: '剪切', paste: '粘贴', clear: '清空' };
+        var labels = { undo: '撤销', copy: '复制', cut: '剪切', paste: '粘贴', clear: '清空', select: '全选' };
         // 撤销：仅当字段存在可回退的编辑历史时显示
         if (canUndo) html += '<div class="emr-ctxmenu-item" role="menuitem" data-act="undo">' + labels.undo + '</div>';
-        ['copy', 'cut', 'paste', 'clear'].forEach(function (act) {
+        ['copy', 'cut', 'paste', 'clear', 'select'].forEach(function (act) {
             html += '<div class="emr-ctxmenu-item" role="menuitem" data-act="' + act + '">' + labels[act] + '</div>';
         });
         if (isAdvice && !opts.hideTemplate) {
