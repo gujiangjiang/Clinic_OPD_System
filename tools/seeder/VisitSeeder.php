@@ -208,7 +208,7 @@ class VisitSeeder extends Seeder {
         $this->disps = array();
         foreach ($pdo->query("SELECT id, name, fee, is_nurse FROM disposal_items WHERE status='approved'") as $r) $this->disps[] = $r;
         $this->drugs = array();
-        foreach ($pdo->query("SELECT id, name, price, spec, package_unit, vendor_short, single_dose, frequency, route, is_nurse FROM drugs WHERE status='approved'") as $r) $this->drugs[] = $r;
+        foreach ($pdo->query("SELECT id, name, price, spec, package_unit, vendor_short, single_dose, frequency, route, is_nurse, spec_pack_qty, allow_split FROM drugs WHERE status='approved'") as $r) $this->drugs[] = $r;
         $this->diagPool = array();
         foreach (DatabaseManager::q('icd10', "SELECT diagnosis_code, diagnosis_name FROM icd10 WHERE subcategory_code<>'' AND diagnosis_code!='' ORDER BY RANDOM() LIMIT 80") as $r) {
             $this->diagPool[] = array('code' => $r['diagnosis_code'], 'name' => $r['diagnosis_name']);
@@ -564,6 +564,7 @@ class VisitSeeder extends Seeder {
                             'spec' => $it['spec'], 'unit' => $it['package_unit'], 'company_short' => $it['vendor_short'],
                             'single_dose' => $it['single_dose'], 'frequency' => $it['frequency'],
                             'route' => $it['route'], 'is_nurse' => $it['is_nurse'],
+                            'unit_type' => 'pack', 'pack_size' => max(1, (int)$it['spec_pack_qty']),
                         ),
                     );
                     $total += (float)$it['price'] * $qty;
@@ -578,18 +579,20 @@ class VisitSeeder extends Seeder {
             }
             $orderId = (int)DB::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, paid_at, refunded_at, done_by, dispensed_at, review_by, reviewed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                 $visitId, $p['patient_no'], $flowNo, $otype, $orderNo, '', $docId, $docName, 0, $deptId, $dept['name'],
-                $total, $ostatus, $created, $paidAt, '', $ostatus === 'done' ? $execBy : '',
+                $total, $ostatus, $created, $paidAt, '', ($ostatus === 'done' || $ostatus === 'dispensed') ? $execBy : '',
                 $ostatus === 'dispensed' ? $execAt : '',
                 $ostatus === 'dispensed' ? $this->staff['pharmacy'] : '',
-                $ostatus === 'dispensed' ? $execAt : '',
+                $ostatus === 'dispensed' ? date('Y-m-d H:i:s', strtotime($execAt) - mt_rand(300, 1800)) : '',
             ));
             $this->cnt['order']++;
             $itemIds = array();
             foreach ($itemRows as $ir) {
                 $ex = $ir['extra'];
-                $iid = (int)DB::insert('INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, spec, unit, company_short, price, quantity, single_dose, frequency, route, is_nurse, sub_of, group_no, is_parent, parent_item_id, status, doctor_id, doctor_name, executed_by, executed_at, result_id, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                $iid = (int)DB::insert('INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, spec, unit, unit_type, pack_size, company_short, price, quantity, single_dose, frequency, route, is_nurse, sub_of, group_no, is_parent, parent_item_id, status, doctor_id, doctor_name, executed_by, executed_at, result_id, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                     $orderId, $visitId, $p['patient_no'], $flowNo, $otype, $ir['item_id'], $ir['item_name'],
-                    isset($ex['spec']) ? $ex['spec'] : '', isset($ex['unit']) ? $ex['unit'] : '', isset($ex['company_short']) ? $ex['company_short'] : '',
+                    isset($ex['spec']) ? $ex['spec'] : '', isset($ex['unit']) ? $ex['unit'] : '',
+                    isset($ex['unit_type']) ? $ex['unit_type'] : '', isset($ex['pack_size']) ? (int)$ex['pack_size'] : 0,
+                    isset($ex['company_short']) ? $ex['company_short'] : '',
                     $ir['price'], $ir['qty'],
                     isset($ex['single_dose']) ? $ex['single_dose'] : '', isset($ex['frequency']) ? $ex['frequency'] : '', isset($ex['route']) ? $ex['route'] : '',
                     isset($ex['is_nurse']) ? $ex['is_nurse'] : 0,
@@ -600,6 +603,19 @@ class VisitSeeder extends Seeder {
                 ));
                 $itemIds[$ir['item_id']] = $iid;
                 $this->cnt['item']++;
+            }
+            // 处方开单即减库存（与正式开方链路一致：整盒售出扣减 数量×pack_size，
+            // 原子条件更新防库存为负；写库存流水便于药房/库存报表核对）
+            if ($otype === 'prescription') {
+                foreach ($itemRows as $ir2) {
+                    $factor = max(1, (int)(isset($ir2['extra']['pack_size']) ? $ir2['extra']['pack_size'] : 1));
+                    $deduct = max(1, (int)$ir2['qty']) * $factor;
+                    if (DB::exec('UPDATE drugs SET qty = qty - ? WHERE id=? AND qty >= ?', array($deduct, $ir2['item_id'], $deduct)) === 1) {
+                        DB::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
+                            $ir2['item_id'], -$deduct, 'order_out', $orderNo, $docName, $created,
+                        ));
+                    }
+                }
             }
             $visitOrders[] = array('id' => $orderId, 'type' => $otype, 'status' => $ostatus, 'itemIds' => $itemIds, 'paid_at' => $paidAt, 'category' => isset($itemRows[0]['category']) ? $itemRows[0]['category'] : '', 'item_name' => $itemRows[0]['item_name']);
 
@@ -658,7 +674,7 @@ class VisitSeeder extends Seeder {
         $diagText = emr_diag_text($diagPick);
         $initialId = (int)DB::insert('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, chief_complaint, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergy_history, is_leave_hospital, icd10_code, diagnosis_name, emr_data, emr_print_text, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
             $visitId, $p['patient_no'], $flowNo, $deptId, $docId, $docName,
-            'initial', 0, $ccRow[0], $ccRow[1], $ccRow[2], '患者自诉', $emr['history_present']['arrival_way'],
+            'initial', 0, $ccRow[0], $ccRow[1], $ccRow[2], $emr['history_present']['informant'], $emr['history_present']['arrival_way'],
             $emr['past_history']['type'], '', '否', (string)$diagPick[0]['code'], (string)$diagPick[0]['name'],
             json_encode($emr, JSON_UNESCAPED_UNICODE), $printText,
             $status === 'finished' ? 'done' : 'draft', $recCreated, $recUpdated,
@@ -743,7 +759,7 @@ class VisitSeeder extends Seeder {
                 $wDiagText = count($wDiags) ? emr_diag_text($wDiags) : '';
                 DB::insert('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, chief_complaint, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergy_history, is_leave_hospital, icd10_code, diagnosis_name, emr_data, emr_print_text, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                     $visitId, $p['patient_no'], $flowNo, $deptId, (int)$w['id'], (string)$w['name'],
-                    'progress', $parent, '', '', '', '患者自诉', '自行来院',
+                    'progress', $parent, '', '', '', $wEmr['history_present']['informant'], $wEmr['history_present']['arrival_way'],
                     '', '', '否',
                     count($wDiags) ? (string)$wDiags[0]['code'] : '',
                     count($wDiags) ? (string)$wDiags[0]['name'] : '',
