@@ -189,17 +189,21 @@ Clinic.emrEditor = (function () {
                 e.preventDefault();
                 return;
             }
-            // 禁止字段内回车换行 → 跳到下一个字段
+            // 回车分流：单行字段拦截换行并自动跳格下一字段；
+            // 大段落叙述字段（data-multiline）允许 Enter 正常换行
             if (e.key === 'Enter') {
-                e.preventDefault();
-                focusNext(el);
+                if (el.getAttribute('data-multiline') !== 'true') {
+                    e.preventDefault();
+                    focusNext(el);
+                }
             }
         });
-        // 粘贴转纯文本
+        // 粘贴转纯文本：单行字段压平换行为空格，多行字段保留 \n 段落换行
         el.addEventListener('paste', function (e) {
             e.preventDefault();
             var t = (e.clipboardData || window.clipboardData).getData('text/plain') || '';
-            document.execCommand('insertText', false, t.replace(/[\r\n]+/g, ''));
+            t = el.getAttribute('data-multiline') === 'true' ? t.replace(/\r\n?/g, '\n') : t.replace(/[\r\n]+/g, '');
+            document.execCommand('insertText', false, t);
         });
         // 聚焦：记录当前值作为撤销历史快照基线（聚焦期间持续输入时逐次压栈）
         el.addEventListener('focus', function () {
@@ -223,6 +227,7 @@ Clinic.emrEditor = (function () {
             if (cur.trim() === '' && el.innerHTML !== '') el.innerHTML = '';
             markDirty();
         });
+        el.__emrBound = true;   // 已绑定直接事件（委托层据此跳过，避免双重处理）
     }
 
     /** 读取字段当前文本（contenteditable 以 innerText 为准，规整不换行空格） */
