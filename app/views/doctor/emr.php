@@ -179,7 +179,9 @@ $patient = $row['patient'];
         <!-- 中间：病历编辑器 -->
         <div class="emr-main-editor-scroll">
             <!-- 所见即所得病历文档（emr.js 整体渲染：医院抬头/标题栏/患者信息两栏/病历内容/签名） -->
-            <div class="card" id="emrCard" style="padding:0;overflow:hidden">
+            <!-- 不再套 .card 外层（历史遗留双层边框/圆角：.card 10px + .emr-doc 12px），
+                 病历纸 .emr-doc 自带边框/圆角/阴影，仅保留底部间距（见 components-emr.css） -->
+            <div id="emrCard">
                 <div style="padding:18px 20px">
                     <div class="text-muted fs-13 mb-8">病历编辑器加载中…（医院名称与患者信息区域不可编辑）</div>
                 </div>

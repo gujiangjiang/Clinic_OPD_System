@@ -29,6 +29,11 @@
 .emr-patient-name:hover { color: var(--primary); }
 
 /* ---------- 病历文档（所见即所得，模拟纸质病历版式） ---------- */
+/* 文档容器：原 .card 外层为历史遗留（双层边框/10px与12px圆角叠加），
+   已移除后仅保留纸张下方间距（页脚徽章 docSavedBadge 呼吸空间） */
+#emrCard {
+    margin-bottom: 16px;
+}
 .emr-doc {
     position: relative;   /* 供右上角条形码绝对定位 */
     max-width: 860px;
