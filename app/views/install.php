@@ -141,12 +141,23 @@ function wizGo(n, validate) {
     document.getElementById('wizardSub').textContent = 'Step ' + n + ' · ' + WIZ_SUBS[n];
     document.getElementById('prevBtn').style.visibility = n === 1 ? 'hidden' : 'visible';
     document.getElementById('nextBtn').style.display = n === 6 ? 'none' : '';
+    if (n === 4) fillInstitution();
     if (n === 5) toggleAdminHint();
     if (n === 6) renderConfirm();
 }
 
 function wizNext() {
     if (WIZ.step === 2) { checkDbAndProceed(); return; }
+    if (WIZ.step === 4) {
+        if (!wizValidate(4)) return;
+        // 关联现有库且机构关键信息被修改 → 二次确认
+        if (WIZ.mode === 'attach' && attachInstitutionChanged()) {
+            askInstitutionChanged(function () { wizGo(5, false); });
+            return;
+        }
+        wizGo(5, false);
+        return;
+    }
     wizGo(WIZ.step + 1, true);
 }
 function wizPrev() { wizGo(WIZ.step - 1, false); }
@@ -378,7 +389,41 @@ function testRedis() {
     });
 }
 
-/* ==================== 第 2 步校验并进入下一步 ==================== */
+/* ==================== 轻量对话框队列（安装页未加载 modal.js） ====================
+ * 多个校验弹窗依次弹出：同一时刻仅显示一个，关闭动画结束后再弹下一个。 */
+var WIZ_DLG_QUEUE = [], WIZ_DLG_BUSY = false;
+function wizDialog(o) { WIZ_DLG_QUEUE.push(o); wizDlgPump(); }
+function wizDlgPump() {
+    if (WIZ_DLG_BUSY) return;
+    var o = WIZ_DLG_QUEUE.shift();
+    if (!o) return;
+    WIZ_DLG_BUSY = true;
+    var mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    var btns = (o.buttons || []).map(function (b, i) {
+        return '<button type="button" class="btn ' + (b.cls || 'btn-primary') + ' btn-sm" data-i="' + i + '">' + escHtml(b.text) + '</button>';
+    }).join('');
+    mask.innerHTML = '<div class="modal modal-sm">' +
+        '<div class="modal-head"><div class="modal-title">' + escHtml(o.title || '提示') + '</div></div>' +
+        '<div class="modal-body fs-13" style="line-height:1.9">' + (o.html || '') + '</div>' +
+        '<div class="modal-foot" style="display:flex;justify-content:flex-end;gap:8px">' + btns + '</div></div>';
+    document.body.appendChild(mask);
+    requestAnimationFrame(function () { mask.classList.add('show'); });
+    function close(cb) {
+        mask.classList.remove('show');
+        setTimeout(function () {
+            if (mask.parentNode) mask.parentNode.removeChild(mask);
+            WIZ_DLG_BUSY = false;
+            if (cb) cb();
+            wizDlgPump();
+        }, 200);
+    }
+    (o.buttons || []).forEach(function (b, i) {
+        mask.querySelector('[data-i="' + i + '"]').addEventListener('click', function () { close(b.onClick); });
+    });
+}
+
+/* ==================== 第 2 步校验并处理校验弹窗 ==================== */
 function checkDbAndProceed(createIcd10) {
     if (!wizValidate(2)) return;
     var btn = document.getElementById('nextBtn');
@@ -389,7 +434,7 @@ function checkDbAndProceed(createIcd10) {
         onSuccess: function (json) {
             done();
             var data = json.data || {};
-            // ICD-10 诊断库文件不存在：提示放入可用文件或创建空库
+            // 依次处理：ICD-10 缺失 → 已有安装 → 非本系统库，全部解决后才进入下一步
             if (data.icd10_missing) { askIcd10Missing(); return; }
             WIZ.dbInstalled = !!data.installed;
             if (WIZ.dbInstalled) { askInstallMode(); return; }
@@ -402,81 +447,89 @@ function checkDbAndProceed(createIcd10) {
 }
 /* ICD-10 诊断库文件不存在：提示放入可用文件或创建空库 */
 function askIcd10Missing() {
-    var mask = document.createElement('div');
-    mask.className = 'modal-mask';
-    mask.innerHTML =
-        '<div class="modal modal-sm">' +
-        '  <div class="modal-head"><div class="modal-title">ICD-10 诊断库不存在</div></div>' +
-        '  <div class="modal-body fs-13" style="line-height:1.9">' +
-        '    未找到 ICD-10 诊断库文件。请将可用的诊断库文件放入 <b>data/db/</b> 目录后重试，' +
-        '    或创建一个空的诊断数据库文件（仅含表结构）。' +
-        '  </div>' +
-        '  <div class="modal-foot" style="display:flex;justify-content:flex-end;gap:8px">' +
-        '    <button type="button" class="btn btn-outline btn-sm" data-act="cancel">取消</button>' +
-        '    <button type="button" class="btn btn-primary btn-sm" data-act="create">创建空数据库</button>' +
-        '  </div>' +
-        '</div>';
-    document.body.appendChild(mask);
-    requestAnimationFrame(function () { mask.classList.add('show'); });
-    function close() {
-        mask.classList.remove('show');
-        setTimeout(function () { if (mask.parentNode) mask.parentNode.removeChild(mask); }, 200);
-    }
-    mask.querySelector('[data-act="cancel"]').addEventListener('click', close);
-    mask.querySelector('[data-act="create"]').addEventListener('click', function () { close(); checkDbAndProceed(true); });
+    wizDialog({
+        title: 'ICD-10 诊断库不存在',
+        html: '未找到 ICD-10 诊断库文件。请将可用的诊断库文件放入 <b>data/db/</b> 目录后重试，' +
+              '或创建一个空的诊断数据库文件（仅含表结构）。',
+        buttons: [
+            { text: '取消', cls: 'btn-outline' },
+            { text: '创建空数据库', cls: 'btn-primary', onClick: function () { checkDbAndProceed(true); } },
+        ],
+    });
 }
 /* 目标库非空但未检测到本系统数据：提示继续将在其中创建本系统表结构 */
 function askForeignDb() {
-    var mask = document.createElement('div');
-    mask.className = 'modal-mask';
-    mask.innerHTML =
-        '<div class="modal modal-sm">' +
-        '  <div class="modal-head"><div class="modal-title">目标数据库非空</div></div>' +
-        '  <div class="modal-body fs-13" style="line-height:1.9">' +
-        '    所选数据库已存在数据表，但未检测到本系统的安装数据。继续安装将在该库中创建本系统表结构。' +
-        '  </div>' +
-        '  <div class="modal-foot" style="display:flex;justify-content:flex-end;gap:8px">' +
-        '    <button type="button" class="btn btn-outline btn-sm" data-act="cancel">取消</button>' +
-        '    <button type="button" class="btn btn-primary btn-sm" data-act="ok">继续安装</button>' +
-        '  </div>' +
-        '</div>';
-    document.body.appendChild(mask);
-    requestAnimationFrame(function () { mask.classList.add('show'); });
-    function close() {
-        mask.classList.remove('show');
-        setTimeout(function () { if (mask.parentNode) mask.parentNode.removeChild(mask); }, 200);
-    }
-    mask.querySelector('[data-act="cancel"]').addEventListener('click', close);
-    mask.querySelector('[data-act="ok"]').addEventListener('click', function () { WIZ.mode = 'fresh'; close(); wizGo(3, false); });
+    wizDialog({
+        title: '目标数据库非空',
+        html: '所选数据库已存在数据表，但未检测到本系统的安装数据。继续安装将在该库中创建本系统表结构。',
+        buttons: [
+            { text: '取消', cls: 'btn-outline' },
+            { text: '继续安装', cls: 'btn-primary', onClick: function () { WIZ.mode = 'fresh'; wizGo(3, false); } },
+        ],
+    });
 }
-/* 检测到已有安装数据：弹出「关联现有 / 全新安装」决策对话框
- * （安装页为独立页，未加载 modal.js，此处用 modal.css 自建轻量对话框） */
+/* 检测到已有安装数据：选择「关联现有 / 全新安装」 */
 function askInstallMode() {
-    var mask = document.createElement('div');
-    mask.className = 'modal-mask';
-    mask.innerHTML =
-        '<div class="modal modal-sm">' +
-        '  <div class="modal-head"><div class="modal-title">检测到已有数据库</div></div>' +
-        '  <div class="modal-body fs-13" style="line-height:1.9">' +
-        '    所选数据库已存在安装完成的数据，请选择处理方式：' +
-        '    <div class="mt-12"><b>关联现有数据库</b>：保留全部已有数据，仅重新绑定连接。</div>' +
-        '    <div class="mt-4 text-danger"><b>全新安装</b>：清空该数据库全部数据后重新创建。</div>' +
-        '  </div>' +
-        '  <div class="modal-foot" style="display:flex;justify-content:flex-end;gap:8px">' +
-        '    <button type="button" class="btn btn-outline btn-sm" data-act="cancel">取消</button>' +
-        '    <button type="button" class="btn btn-danger btn-sm" data-act="fresh">全新安装</button>' +
-        '    <button type="button" class="btn btn-primary btn-sm" data-act="attach">关联现有数据库</button>' +
-        '  </div>' +
-        '</div>';
-    document.body.appendChild(mask);
-    requestAnimationFrame(function () { mask.classList.add('show'); });
-    function close() {
-        mask.classList.remove('show');
-        setTimeout(function () { if (mask.parentNode) mask.parentNode.removeChild(mask); }, 200);
+    wizDialog({
+        title: '检测到已有数据库',
+        html: '所选数据库已存在安装完成的数据，请选择处理方式：' +
+              '<div class="mt-12"><b>关联现有数据库</b>：保留全部已有数据，仅重新绑定连接。</div>' +
+              '<div class="mt-4 text-danger"><b>全新安装</b>：清空该数据库全部数据后重新创建。</div>',
+        buttons: [
+            { text: '取消', cls: 'btn-outline' },
+            { text: '全新安装', cls: 'btn-danger', onClick: function () { WIZ.mode = 'fresh'; wizGo(3, false); } },
+            { text: '关联现有数据库', cls: 'btn-primary', onClick: function () { WIZ.mode = 'attach'; loadAttachInstitution(); } },
+        ],
+    });
+}
+/* 关联现有库：读取主库机构设置并预填 Step4 */
+function loadAttachInstitution() {
+    WIZ.attachPrefilled = false;
+    Clinic.get('/api/install', dbQueryParams('load_db_settings'), {
+        loading: true,
+        onSuccess: function (json) {
+            WIZ.attachInst = json.data || {};
+            wizGo(3, false);
+        },
+        onError: function () { wizGo(3, false); },
+    });
+}
+/* 进入 Step4 时用已有主库数据预填机构信息 */
+function fillInstitution() {
+    if (!WIZ.attachInst || WIZ.attachPrefilled) return;
+    WIZ.attachPrefilled = true;
+    var map = { hospital_name: 'hospital_name', org_code: 'org_code', hospital_name2: 'hospital_name2', contact_phone: 'contact_phone', contact_addr: 'contact_addr' };
+    Object.keys(map).forEach(function (k) {
+        var el = document.getElementById(map[k]);
+        if (el && typeof WIZ.attachInst[k] === 'string') el.value = WIZ.attachInst[k];
+    });
+    if (WIZ.attachInst.timezone) {
+        var tz = document.getElementById('timezone');
+        if (tz.querySelector('option[value="' + WIZ.attachInst.timezone + '"]')) tz.value = WIZ.attachInst.timezone;
     }
-    mask.querySelector('[data-act="cancel"]').addEventListener('click', close);
-    mask.querySelector('[data-act="fresh"]').addEventListener('click', function () { WIZ.mode = 'fresh'; close(); wizGo(3, false); });
-    mask.querySelector('[data-act="attach"]').addEventListener('click', function () { WIZ.mode = 'attach'; close(); wizGo(3, false); });
+    WIZ.attachOriginal = {
+        hospital_name: (WIZ.attachInst.hospital_name || '').trim(),
+        org_code: (WIZ.attachInst.org_code || '').trim(),
+        hospital_name2: (WIZ.attachInst.hospital_name2 || '').trim(),
+    };
+}
+/* 关联现有库时，机构关键信息若被修改则二次确认 */
+function attachInstitutionChanged() {
+    if (!WIZ.attachOriginal) return false;
+    var o = WIZ.attachOriginal;
+    return o.hospital_name !== document.getElementById('hospital_name').value.trim() ||
+           o.org_code !== document.getElementById('org_code').value.trim() ||
+           o.hospital_name2 !== document.getElementById('hospital_name2').value.trim();
+}
+function askInstitutionChanged(onOk) {
+    wizDialog({
+        title: '机构信息已修改',
+        html: '医院名称 / 机构代码 / 第二名称发生变化。修改已安装系统的机构信息可能导致历史单据、票据与报表口径不一致，请确认。',
+        buttons: [
+            { text: '取消', cls: 'btn-outline' },
+            { text: '确认修改', cls: 'btn-danger', onClick: onOk },
+        ],
+    });
 }
 
 /* ==================== 确认汇总 ==================== */
