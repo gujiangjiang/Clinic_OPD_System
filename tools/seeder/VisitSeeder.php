@@ -672,15 +672,23 @@ class VisitSeeder extends Seeder {
             $status === 'finished' ? 'done' : 'draft', $recCreated, $recUpdated,
         ));
 
-        /* ==================== 会诊（急诊↔门诊，配额内） ==================== */
+        /* ==================== 会诊（跨科室，配额内） ====================
+         * 目标科室必须为其他临床/急诊科室（严禁同科室会诊，且不向医技/药房发会诊）；
+         * 会诊医师从目标科室绑定医生中选取（无则退回其他医生），保证跨科接诊。 */
         if (!empty($opts['consult'])) {
             $cTs = strtotime($recCreated) + mt_rand(300, 1800);
-            $others = array();
-            foreach ($this->doctors as $d) { if ((int)$d['id'] !== $docId) $others[] = $d; }
-            if (count($others)) {
-                $cDoc = $this->pick($others);
-                $targetDept = (string)$dept['type'] === 'emergency' ? $this->pickClinicDept() : $this->pick(array_keys($this->depts));
-                $tDept = isset($this->depts[$targetDept]) ? $this->depts[$targetDept] : $dept;
+            $targetDept = $this->pickClinicDept((int)$deptId);
+            if ($targetDept) {
+                $tDept = $this->depts[$targetDept];
+                $cDocPool = array();
+                foreach ($this->doctors as $d) {
+                    if ((int)$d['id'] === $docId) continue;
+                    if (in_array((string)$targetDept, explode(',', (string)$d['dept_ids']))) $cDocPool[] = $d;
+                }
+                if (!count($cDocPool)) {
+                    foreach ($this->doctors as $d) { if ((int)$d['id'] !== $docId) $cDocPool[] = $d; }
+                }
+                $cDoc = $this->pick($cDocPool);
                 $consStatus = $status === 'finished' ? 'done' : $this->pick(array('pending', 'accepted'));
                 $acceptedBy = in_array($consStatus, array('accepted', 'done'), true) ? $cDoc['name'] : '';
                 $acceptedAt = $acceptedBy !== '' ? date('Y-m-d H:i:s', $cTs + mt_rand(600, 3600)) : '';
@@ -768,13 +776,15 @@ class VisitSeeder extends Seeder {
         return $visitId;
     }
 
-    /** 随机取一个临床科室（会诊目标，无临床科室时回退任一科室） */
-    private function pickClinicDept() {
+    /** 随机取一个其他临床/急诊科室（会诊目标，排除本科室；无可选时返回 0） */
+    private function pickClinicDept($excludeId = 0) {
         $clinic = array();
         foreach ($this->depts as $id => $d) {
-            if ((string)$d['type'] === 'clinic' || (string)$d['type'] === 'emergency') $clinic[] = (int)$id;
+            if ((string)$d['type'] !== 'clinic' && (string)$d['type'] !== 'emergency') continue;
+            if ((int)$id === (int)$excludeId) continue;
+            $clinic[] = (int)$id;
         }
-        return count($clinic) ? (int)$this->pick($clinic) : (int)$this->pick(array_keys($this->depts));
+        return count($clinic) ? (int)$this->pick($clinic) : 0;
     }
 }
 
