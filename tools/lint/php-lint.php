@@ -38,6 +38,29 @@ foreach ($files as $f) {
     }
 }
 
+// ---------- 版本管理守护：ICD-10 诊断字典库必须始终纳入版本控制 ----------
+// 该库在 .gitignore 中以 `!data/db/icd10.db` 显式反忽略并纳入版本管理，
+// 但工作区文件一旦被删除，`git add -A` 会把删除动作一并暂存（历史已发生过一次）。
+// 此处校验「文件存在 + 已被 git 跟踪」，任一不满足即让 lint 失败，杜绝再次丢失。
+$icd10Rel = 'data/db/icd10.db';
+$icd10Abs = $ROOT . '/' . $icd10Rel;
+$guards = array();
+if (!is_file($icd10Abs)) {
+    $guards[] = "$icd10Rel 不存在（ICD-10 诊断字典库被删除）";
+} else {
+    $gitVer = @shell_exec('git --version 2>/dev/null');
+    if ($gitVer !== null && strpos($gitVer, 'git version') !== false && is_dir($ROOT . '/.git')) {
+        $tracked = @shell_exec('git -C ' . escapeshellarg($ROOT) . ' ls-files --error-unmatch ' . escapeshellarg($icd10Rel) . ' 2>/dev/null');
+        if (trim((string)$tracked) === '') {
+            $guards[] = "$icd10Rel 未纳入版本控制（禁止 git rm 该文件，须恢复跟踪）";
+        }
+    }
+}
+foreach ($guards as $g) {
+    echo "Guard: " . $g . "\n";
+}
+$bad += count($guards);
+
 if ($bad === 0) {
     echo "All PHP files OK (" . count($files) . " files)\n";
     exit(0);

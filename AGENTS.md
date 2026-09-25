@@ -104,6 +104,10 @@
      `git commit -m "<标题>" -m "<正文多行细节>"`。
      GitHub 提交列表显示标题，展开详情页显示正文。
    - 禁止提交运行时数据（data/、public/uploads 内容已被 .gitignore 忽略）。
+     **例外铁律：`data/db/icd10.db`（ICD-10 诊断字典库）必须始终纳入版本管理**
+     （.gitignore 已用 `!data/db/icd10.db` 显式反忽略），严禁 `git rm` / `git rm --cached`
+     删除或在 `git add -A` 时遗漏该文件；提交前用 `npm run lint` 校验
+     （lint 内置守护：文件缺失或未被 git 跟踪即判失败）。
 
 ## 其他约定
 
