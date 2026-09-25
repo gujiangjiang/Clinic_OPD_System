@@ -139,6 +139,21 @@ function visit_dept_authorized($visit, $u) {
 }
 
 /**
+ * 会诊完毕只读放行：当前医生科室曾接收该就诊的会诊且已完毕（done）。
+ * 会诊结束后目标科室医生不可再处理/修改该就诊，仅可只读查看病历
+ * （打印/历史等只读动作使用，编辑类动作一律不走此放行）。
+ */
+function visit_consult_done_authorized($visit, $u) {
+    if ($u['role'] === 'admin') return true;
+    if ($u['role'] !== 'doctor') return false;
+    $docDept = current_dept_id($u);
+    if ($docDept <= 0) return false;
+    $visitId = (int)(isset($visit['id']) ? $visit['id'] : 0);
+    if ($visitId <= 0) return false;
+    return (int)DB::val("SELECT COUNT(*) FROM consultations WHERE visit_id=? AND target_dept_id=? AND status='done'", array($visitId, $docDept)) > 0;
+}
+
+/**
  * 病历可访问天数校验（防越权访问超期历史病历）：
  * 管理员放行；所有就诊（含待就诊/就诊中）均须在医生 queue_days
  * （2-7，默认 3）可查看天数内——门诊挂号一次管 N 天，过期即不可见。

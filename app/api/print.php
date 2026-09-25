@@ -208,7 +208,13 @@ switch ($action) {
     case 'record':
         $row = get_visit_row(did(get('visit_id')));
         if (!$row) json_fail('就诊记录不存在');
-        print_guard($row['visit'], array('doctor', 'nurse', 'lab', 'imaging', 'pharmacy'));
+        // 会诊完毕只读放行：目标科室医生查看已完毕会诊的只读病历
+        // （会诊结束不可再处理/修改，仅放行只读打印查看）
+        if (!visit_dept_authorized($row['visit'], $u) && visit_consult_done_authorized($row['visit'], $u)) {
+            // 放行（仅只读查看，不进入写操作权限路径）
+        } else {
+            print_guard($row['visit'], array('doctor', 'nurse', 'lab', 'imaging', 'pharmacy'));
+        }
         $visit = $row['visit'];
         $visit = decorate_visit_patient($visit, $row['patient']);
         $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));

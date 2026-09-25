@@ -299,10 +299,10 @@ Clinic.queuePanel = (function () {
                 var visitStatus = row.getAttribute('data-visit-status');
                 var consultCode = row.getAttribute('data-consult-code');
                 if (consult && consultCode) {
-                    // 就诊已诊毕：A 科诊毕后病历强制快照只读，B 科不可再处理该会诊
+                    // 就诊已诊毕：病历已归档只读，不可再处理该会诊，
+                    // 但可查看会诊详情并在同一模态框预览只读病历
                     if (visitStatus === 'finished') {
-                        closePanel();
-                        Clinic.toast.warning('该患者已诊毕，无法进行会诊（诊毕病历已归档锁定）');
+                        openConsultFromQueue(consultCode);
                         return;
                     }
                     var consultStatus = row.getAttribute('data-consult-status');

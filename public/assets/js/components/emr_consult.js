@@ -191,90 +191,127 @@ Clinic.emr.consult = (function () {
     }
 
     /** 会诊查询模态框：左=会诊单只读（主诉/现病史/体格检查/诊断/描述/目的），
-     *  右=会诊进度（发起会诊 → 正在会诊 → 会诊完毕，三状态圆点） */
+     *  右=会诊进度（发起会诊 → 正在会诊 → 会诊完毕，三状态圆点）；
+     *  会诊完毕或就诊已诊毕 → 底部「预览只读病历」在同一模态框内联展示只读病历。 */
     function openConsultDetail(id, withAccept) {
         Clinic.get('/api/consultation?action=detail&id=' + encodeURIComponent(id), null, {
             onSuccess: function (j) {
                 var c = j.data.consultation || {};
-                var s = c.snapshot || {};
-                var ro = function (label, val) {
-                    return '<div class="prev-sec" style="font-size:13px;line-height:1.9;margin-bottom:4px"><strong>' +
-                        escHtml(label) + '：</strong>' + (val && String(val).trim() ? escHtml(val) : '-') + '</div>';
-                };
-                var steps = [
-                    { label: '发起会诊', operator: (c.from_doctor_name || ''), time: (c.created_at || ''), done: true },
-                    { label: '正在会诊', operator: (c.status !== 'pending' ? (c.accepted_by || (c.record && c.record.doctor_name) || '') : ''), time: (c.status !== 'pending' ? (c.accepted_at || '') : ''), done: c.status !== 'pending' },
-                    { label: '会诊完毕', operator: (c.status === 'done' ? (c.finished_by || c.accepted_by || (c.record && c.record.doctor_name) || '') : ''), time: (c.finished_at || ''), done: c.status === 'done' },
-                ];
-                var stepHtml = ctx.flowColumnHtml(steps, -1, '会诊进度');
-                // 就诊已诊毕：病历强制快照只读，B 科不可再处理该会诊（提示 + 不显示确认会诊）
-                var visitFinished = c.visit_status === 'finished';
-                var finishedTip = visitFinished
-                    ? '<div class="fs-13" style="background:var(--danger-soft, rgba(239,68,68,.08));border:1px solid var(--danger, #ef4444);color:var(--danger, #ef4444);border-radius:8px;padding:10px 12px;margin-bottom:10px">⚠️ 该患者已诊毕，无法进行会诊（诊毕病历已归档锁定）</div>'
-                    : '';
-                var buttons = [
-                    { text: '关闭', cls: 'btn-outline' },
-                ];
-                // 「查看完整病历」入口：仅当从候诊列表【会诊】tab 进入（withAccept=true）
-                // 且会诊已完毕（done）时显示——进入病历页全只读查看（后端跨科室状态驱动只读）。
-                // 病历页右侧会诊列表/正文链接（withAccept=false/undefined）打开详情时不显示，
-                // 避免已在完整病历内再出现入口。用 withAccept 区分两个点击来源（组件级区分）。
-                if (withAccept && c.status === 'done') {
-                    buttons.push({
-                        text: '📋 查看完整病历', cls: 'btn-primary', autoClose: false,
-                        onClick: function () {
-                            Clinic.modal.close();
-                            Clinic.nav.go('/doctor/emr?visit_id=' + c.visit_code);
-                        },
-                    });
-                }
-                // 非确认会诊页（withAccept=false）→ 添加打印会诊单按钮
-                // 会诊科室点击确认会诊（withAccept=true）时不显示打印功能
-                if (!withAccept && c.consult_no) {
-                    buttons.push({
-                        text: '🖨️ 打印会诊单', cls: 'btn-outline', autoClose: false,
-                        onClick: function () {
-                            Clinic.print.load('/api/print?action=consultation&id=' + c.code, null, 'a5');
-                        },
-                    });
-                }
-                // 候诊入口（withAccept=true）且待会诊 → 底部「确认会诊」进入病历书写
-                // 就诊已诊毕时不显示（后端 accept 亦拦截）
-                if (withAccept && c.status === 'pending' && !visitFinished) {
-                    buttons.push({
-                        text: '✅ 确认会诊', cls: 'btn-primary', autoClose: false,
-                        onClick: function () {
-                            Clinic.ajax('/api/consultation', { action: 'accept', id: c.code }, {
-                                onSuccess: function (j2) {
-                                    Clinic.toast.success(j2.msg || '会诊已开始');
-                                    Clinic.modal.close();
-                                    // 进入病历书写页：URL 携带 consult=code，页面内进入会诊模式
-                                    Clinic.nav.go('/doctor/emr?visit_id=' + c.visit_code + '&consult=' + encodeURIComponent(c.code));
-                                },
-                            });
-                        },
-                    });
-                }
-                Clinic.modal.open(
-                    finishedTip +
-                    '<div class="flex gap-16" style="align-items:stretch">' +
-                    '  <div style="flex:1.4;min-width:0;border-right:1px solid var(--border);padding-right:14px">' +
-                    '    <div class="fs-13 fw-700 mb-8">' + escHtml(c.from_dept_name || '') + ' 请' + escHtml(c.target_dept_name || '') + '会诊</div>' +
-                    '    <div class="fs-12 text-muted mb-8">会诊单号：' + escHtml(c.consult_no || '') + '</div>' +
-                    '    <div style="background:var(--bg-soft);border-radius:10px;padding:10px">' +
-                    ro('主诉', s.chief_complaint) + ro('现病史', s.present_illness) +
-                    ro('体格检查', s.physical_exam) + ro('初步诊断', s.diagnoses) +
-                    '    </div>' +
-                    ro('会诊描述', c.description) + ro('会诊目的', c.purpose) +
-                    '  </div>' +
-                    '  <div style="width:190px;flex-shrink:0;padding-left:14px">' +
-                    '    ' + stepHtml +
-                    '  </div>' +
-                    '</div>',
-                    { title: '🤝 会诊详情', size: 'modal-lg', buttons: buttons }
-                );
+                Clinic.modal.open(detailBodyHtml(c), {
+                    title: '🤝 会诊详情',
+                    size: 'modal-lg',
+                    buttons: detailButtons(c, withAccept),
+                });
             },
         });
+    }
+
+    /** 会诊详情正文（打开 / 只读病历返回 共用） */
+    function detailBodyHtml(c) {
+        var s = c.snapshot || {};
+        var ro = function (label, val) {
+            return '<div class="prev-sec" style="font-size:13px;line-height:1.9;margin-bottom:4px"><strong>' +
+                escHtml(label) + '：</strong>' + (val && String(val).trim() ? escHtml(val) : '-') + '</div>';
+        };
+        var steps = [
+            { label: '发起会诊', operator: (c.from_doctor_name || ''), time: (c.created_at || ''), done: true },
+            { label: '正在会诊', operator: (c.status !== 'pending' ? (c.accepted_by || (c.record && c.record.doctor_name) || '') : ''), time: (c.status !== 'pending' ? (c.accepted_at || '') : ''), done: c.status !== 'pending' },
+            { label: '会诊完毕', operator: (c.status === 'done' ? (c.finished_by || c.accepted_by || (c.record && c.record.doctor_name) || '') : ''), time: (c.finished_at || ''), done: c.status === 'done' },
+        ];
+        var stepHtml = ctx.flowColumnHtml(steps, -1, '会诊进度');
+        // 就诊已诊毕：病历强制快照只读，B 科不可再处理该会诊（仅未完毕会诊提示）
+        var visitFinished = c.visit_status === 'finished';
+        var finishedTip = visitFinished && c.status !== 'done'
+            ? '<div class="fs-13" style="background:var(--danger-soft, rgba(239,68,68,.08));border:1px solid var(--danger, #ef4444);color:var(--danger, #ef4444);border-radius:8px;padding:10px 12px;margin-bottom:10px">⚠️ 该患者已诊毕，无法进行会诊（诊毕病历已归档锁定）</div>'
+            : '';
+        return finishedTip +
+            '<div class="flex gap-16" style="align-items:stretch">' +
+            '  <div style="flex:1.4;min-width:0;border-right:1px solid var(--border);padding-right:14px">' +
+            '    <div class="fs-13 fw-700 mb-8">' + escHtml(c.from_dept_name || '') + ' 请' + escHtml(c.target_dept_name || '') + '会诊</div>' +
+            '    <div class="fs-12 text-muted mb-8">会诊单号：' + escHtml(c.consult_no || '') + '</div>' +
+            '    <div style="background:var(--bg-soft);border-radius:10px;padding:10px">' +
+            ro('主诉', s.chief_complaint) + ro('现病史', s.present_illness) +
+            ro('体格检查', s.physical_exam) + ro('初步诊断', s.diagnoses) +
+            '    </div>' +
+            ro('会诊描述', c.description) + ro('会诊目的', c.purpose) +
+            '  </div>' +
+            '  <div style="width:190px;flex-shrink:0;padding-left:14px">' +
+            '    ' + stepHtml +
+            '  </div>' +
+            '</div>';
+    }
+
+    /** 会诊详情底部按钮（会诊完毕/诊毕 → 同一模态框内联预览只读病历；
+     *  非确认页可打印会诊单；待会诊可确认会诊进入书写） */
+    function detailButtons(c, withAccept) {
+        var visitFinished = c.visit_status === 'finished';
+        var buttons = [
+            { text: '关闭', cls: 'btn-outline' },
+        ];
+        // 会诊完毕或就诊已诊毕：病历已只读，同一模态框内联预览（不跳转整页）
+        if (c.status === 'done' || visitFinished) {
+            buttons.push({
+                text: '📋 预览只读病历', cls: 'btn-primary', autoClose: false,
+                onClick: function (mask) {
+                    var body = mask.querySelector('.modal-body');
+                    body.innerHTML = '<div class="hp-loading"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto 8px"></div>病历加载中…</div>';
+                    Clinic.get('/api/print?action=record&visit_id=' + c.visit_code, null, {
+                        onSuccess: function (jp) {
+                            var html = (jp.data && jp.data.html) || '';
+                            body.innerHTML =
+                                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' +
+                                '<button type="button" class="btn btn-outline btn-sm" id="consultDetailBack">← 返回会诊详情</button>' +
+                                '<span class="fs-12 text-muted">只读病历</span></div>' +
+                                '<div class="print-area">' + html + '</div>';
+                            // 只读文档防复制（与历史病历弹窗同策略）
+                            body.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+                            body.addEventListener('selectstart', function (e) { e.preventDefault(); });
+                            body.addEventListener('dragstart', function (e) { e.preventDefault(); });
+                            // 返回会诊详情：复用同一模态框，仅重渲染正文
+                            var backBtn = body.querySelector('#consultDetailBack');
+                            if (backBtn) backBtn.addEventListener('click', function () {
+                                Clinic.get('/api/consultation?action=detail&id=' + encodeURIComponent(c.code), null, {
+                                    onSuccess: function (j2) {
+                                        body.innerHTML = detailBodyHtml(j2.data.consultation || {});
+                                    },
+                                });
+                            });
+                        },
+                        onError: function () {
+                            body.innerHTML = '<div class="hp-empty">该次就诊暂无病历内容</div>';
+                        },
+                    });
+                },
+            });
+        }
+        // 非确认会诊页（withAccept=false）→ 添加打印会诊单按钮
+        // 会诊科室点击确认会诊（withAccept=true）时不显示打印功能
+        if (!withAccept && c.consult_no) {
+            buttons.push({
+                text: '🖨️ 打印会诊单', cls: 'btn-outline', autoClose: false,
+                onClick: function () {
+                    Clinic.print.load('/api/print?action=consultation&id=' + c.code, null, 'a5');
+                },
+            });
+        }
+        // 候诊入口（withAccept=true）且待会诊 → 底部「确认会诊」进入病历书写
+        // 就诊已诊毕时不显示（后端 accept 亦拦截）
+        if (withAccept && c.status === 'pending' && !visitFinished) {
+            buttons.push({
+                text: '✅ 确认会诊', cls: 'btn-primary', autoClose: false,
+                onClick: function () {
+                    Clinic.ajax('/api/consultation', { action: 'accept', id: c.code }, {
+                        onSuccess: function (j2) {
+                            Clinic.toast.success(j2.msg || '会诊已开始');
+                            Clinic.modal.close();
+                            // 进入病历书写页：URL 携带 consult=code，页面内进入会诊模式
+                            Clinic.nav.go('/doctor/emr?visit_id=' + c.visit_code + '&consult=' + encodeURIComponent(c.code));
+                        },
+                    });
+                },
+            });
+        }
+        return buttons;
     }
 
     /** 开始会诊：接受会诊（pending→doing）并进入会诊模式。
