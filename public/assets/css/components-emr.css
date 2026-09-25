@@ -497,3 +497,101 @@
     margin: 4px 6px;
     background: var(--border);
 }
+
+/* ============================================================
+ * 流式行内编辑器（Inline Flow Editable）v1
+ * 核心目标：解除父级 Flex 盒模型对断行的破坏，可编辑字段以纯行内
+ * 字符流渲染——长句到达行末仅超出字符自然折到下一行首，后方文字
+ * 与标点紧随其后，绝无整块下坠、多余空格或占位。
+ * 说明：优先级用 !important 压过历史 .doc-sec / .ef-field 规则，
+ * 不影响 .ef-diag 等非文本交互字段既有样式。
+ * ============================================================ */
+
+/* 1. 病历节容器：必须解除 Flex，恢复标准文本流（行内排版 + 字符级折行） */
+.emr-doc .doc-body .doc-sec,
+.doc-sec {
+    display: block !important;
+    white-space: normal !important;
+    word-break: break-all !important;
+    overflow-wrap: anywhere !important;
+    line-height: 1.8 !important;
+}
+
+/* 2. 行内可编辑 span：完全作为字符流渲染，禁止任何盒模型隔离 */
+.emr-inline-fill {
+    display: inline !important;
+    float: none !important;
+    min-width: 42px;
+    outline: none !important;
+    border-bottom: 1px dashed var(--border-color, #94a3b8) !important;
+    color: inherit !important;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    white-space: pre-wrap !important;
+    word-break: break-all !important;
+    overflow-wrap: anywhere !important;
+    padding: 0 4px !important;
+    vertical-align: baseline !important;
+    cursor: text;
+    margin: 0 2px !important;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+/* 历史 .ef-field-nowrap 的底部实线渐变与流式下划线重复，去除 */
+.emr-inline-fill.ef-field-nowrap {
+    background-image: none !important;
+}
+
+/* 3. 占位符提示（模拟原生 placeholder，:empty 依赖删空后清 <br>） */
+.emr-inline-fill:empty::before {
+    content: attr(data-placeholder) !important;
+    color: #94a3b8 !important;
+    font-weight: 400 !important;
+    pointer-events: none;
+    user-select: none;
+    white-space: pre-wrap;
+}
+
+/* 4. 聚焦交互高亮（主题主色淡底 + 主色下划线） */
+.emr-doc .doc-body .emr-inline-fill:focus,
+.emr-inline-fill:focus {
+    background-color: rgba(37, 99, 235, 0.08) !important;
+    border-bottom: 1px solid var(--primary-color, #2563eb) !important;
+    color: inherit !important;
+}
+
+/* 5. 悬停：轻淡提示但不抢文字颜色（保持病历正文外观一致） */
+.emr-doc .doc-body .emr-inline-fill:hover,
+.emr-inline-fill:hover {
+    background-color: rgba(37, 99, 235, 0.05) !important;
+    border-bottom-color: var(--primary-color, #2563eb) !important;
+    color: inherit !important;
+}
+
+/* 6. 只读/打印态：还原为病历正文文字，去掉输入框痕迹 */
+.emr-inline-fill[contenteditable="false"] {
+    border-bottom: none !important;
+    background: transparent !important;
+    color: var(--text) !important;
+    cursor: default !important;
+}
+.emr-inline-fill[contenteditable="false"]:empty::before {
+    content: none !important;
+}
+
+/* 7. 文本流间距补偿：Flex gap 移除后以行内边距保持字段间距与排版节奏 */
+.emr-doc .doc-body .doc-sec > .ef-label {
+    margin-right: 4px;
+    line-height: 1.8;
+}
+/* 门诊处置容器：原为 flex 子项（display:block 起块级换行），改回行内块与标签同行 */
+.emr-doc .doc-body .ef-disp-box {
+    display: inline-block !important;
+    vertical-align: top;
+    width: 100%;
+    max-width: 100%;
+}
+/* 无痕容器：display:contents 使既往史/过敏史条件字段直接参与父级文本流 */
+.emr-doc .doc-body .ef-cond {
+    display: contents;
+}
