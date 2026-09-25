@@ -341,7 +341,7 @@ function admin_part_audit($action) {
                         $set = array();
                         $params = array();
                         foreach ($upd as $k => $v) {
-                            if (in_array($k, array('education', 'degree', 'intro', 'photo'), true)) {
+                            if (in_array($k, array('education', 'degree', 'intro', 'photo', 'email'), true)) {
                                 $set[] = $k . '=?';
                                 $params[] = $v;
                             }
@@ -353,7 +353,7 @@ function admin_part_audit($action) {
                     }
                     if ($proposerId > 0) {
                         send_msg($target['role'], $proposerId, '个人资料修改审核结果',
-                            '您提交的个人资料修改申请已通过审核，学历/学位/个人介绍/头像已生效。', '', '');
+                            '您提交的个人资料修改申请已通过审核，学历/学位/安全邮箱/个人介绍/头像已生效。', '', '');
                     }
                 } elseif ($proposerId > 0) {
                     // 拒绝：若本次含新头像，删除已上传的待审文件（头像保持原样，自动还原）

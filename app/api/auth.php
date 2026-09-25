@@ -199,7 +199,7 @@ switch ($action) {
         // 收集需审核字段的新值（仅在提交了对应字段时才纳入，避免仅换头像时误清空其他字段）
         $updates = array();
         $titleParts = array();
-        $cur = UserRepository::one('SELECT education, degree, intro FROM users WHERE id=?', array($me['id']));
+        $cur = UserRepository::one('SELECT education, degree, intro, email FROM users WHERE id=?', array($me['id']));
         if (isset($_POST['education'])) {
             $edu = post('education', '');
             if (($cur && $cur['education'] !== $edu) || $edu !== '') {
@@ -219,6 +219,17 @@ switch ($action) {
             if (($cur && $cur['intro'] !== $intro) || $intro !== '') {
                 $updates['intro'] = $intro;
                 $titleParts[] = '个人介绍更新';
+            }
+        }
+        // 安全邮箱（与管理员用户管理同校验规则：可为空或合法邮箱格式）
+        if (isset($_POST['email'])) {
+            $email = trim((string)post('email'));
+            if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                json_fail('安全邮箱格式不正确');
+            }
+            if (($cur && $cur['email'] !== $email) || $email !== '') {
+                $updates['email'] = $email;
+                $titleParts[] = '安全邮箱→' . ($email !== '' ? $email : '（清除）');
             }
         }
         // 头像（可选）：上传后暂不入库，审核通过才写入 users.photo

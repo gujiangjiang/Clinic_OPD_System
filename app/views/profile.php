@@ -3,7 +3,7 @@
  * profile.php — 个人信息（GitHub 风格个人主页）
  * 说明：
  * 1. 左侧：头像、姓名、工号/用户名、角色；左下方：界面主题、打印偏好、密码修改
- * 2. 右侧：姓名/工号/职务（只读）+ 学历/学位/个人介绍（可编辑提交审核）
+ * 2. 右侧：姓名/工号/职务（只读）+ 学历/学位/安全邮箱/个人介绍（可编辑提交审核）
  * 3. 密码修改：点击左侧【修改密码】弹出模态框（内容与原修改密码页一致，校验/后端逻辑不变）
  */
 Router::title('个人信息');
@@ -83,12 +83,13 @@ $showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
             <div class="form-group"><label class="form-label">学历</label><select class="select" id="f_education" data-csd-search="1" data-csd-clear="1"<?php echo $pending ? ' disabled' : ''; ?>><?php echo opt_options('education', $pending && isset($pendingData['education']) ? $pendingData['education'] : $user['education']); ?></select></div>
             <div class="form-group"><label class="form-label">学位</label><select class="select" id="f_degree" data-csd-search="1" data-csd-clear="1"<?php echo $pending ? ' disabled' : ''; ?>><?php echo opt_options('degree', $pending && isset($pendingData['degree']) ? $pendingData['degree'] : $user['degree']); ?></select></div>
         </div>
+        <div class="form-group"><label class="form-label">安全邮箱</label><input type="email" class="input" id="f_email" placeholder="用于密码找回与安全通知" value="<?php echo e($pending && isset($pendingData['email']) ? $pendingData['email'] : $user['email']); ?>"<?php echo $pending ? ' disabled' : ''; ?>></div>
         <div class="form-group"><label class="form-label">个人介绍</label><textarea class="textarea" id="f_intro" rows="3"<?php echo $pending ? ' disabled' : ''; ?>><?php echo e($pending && isset($pendingData['intro']) ? $pendingData['intro'] : $user['intro']); ?></textarea></div>
         <?php if ($pending): ?>
         <div class="fs-12 text-muted mb-8">申请中（等待审核），审核通过后生效。</div>
         <button type="button" class="btn btn-outline" disabled>⏳ 提交审核（待审核）</button>
         <?php else: ?>
-        <div class="fs-12 text-muted mb-8">学历、学位、个人介绍修改需提交管理员审核，审核通过后才生效。</div>
+        <div class="fs-12 text-muted mb-8">学历、学位、安全邮箱、个人介绍修改需提交管理员审核，审核通过后才生效。</div>
         <button type="button" class="btn btn-primary" onclick="submitProfileAudit()">📨 提交审核</button>
         <?php endif; ?>
     </div>
@@ -140,13 +141,16 @@ function saveTheme() {
     Clinic.theme.save(document.getElementById('f_theme').value);
 }
 
-/* 提交需审核字段（学历/学位/介绍） */
+/* 提交需审核字段（学历/学位/安全邮箱/介绍） */
 function submitProfileAudit() {
-    Clinic.modal.confirm('确定提交学历、学位、个人介绍修改申请吗？审核通过后才生效。', function () {
+    var email = (document.getElementById('f_email').value || '').trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { Clinic.toast.warning('安全邮箱格式不正确'); return; }
+    Clinic.modal.confirm('确定提交学历、学位、安全邮箱、个人介绍修改申请吗？审核通过后才生效。', function () {
         Clinic.ajax('/api/auth', {
             action: 'profile_submit',
             education: document.getElementById('f_education').value,
             degree: document.getElementById('f_degree').value,
+            email: email,
             intro: document.getElementById('f_intro').value,
         }, {
             onSuccess: function (json) {
