@@ -579,6 +579,18 @@
     content: none !important;
 }
 
+/* 6b. 模板/套餐预览模态框内只读：保留蓝色填充与虚线下划线（预览可编辑字段形态），
+ *  与历史 .modal-mask 规则一致，不被上述诊毕只读还原规则覆盖 */
+.modal-mask .emr-inline-fill[contenteditable="false"] {
+    color: var(--primary) !important;
+    border-bottom: 1px dashed var(--border) !important;
+    background: transparent !important;
+}
+.modal-mask .emr-inline-fill[contenteditable="false"]:hover {
+    background-color: transparent !important;
+    border-bottom-color: var(--border) !important;
+}
+
 /* 7. 文本流间距补偿：Flex gap 移除后以行内边距保持字段间距与排版节奏 */
 .emr-doc .doc-body .doc-sec > .ef-label {
     margin-right: 4px;

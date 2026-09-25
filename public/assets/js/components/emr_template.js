@@ -233,6 +233,9 @@ Clinic.emr.template = (function () {
             }
         });
         Clinic.emrEditor.set(cur);
+        // 模板内容归一化兜底：导入科室/个人模板后确保病历书写区
+        // DOM 内绝无残留的 input/textarea（一律为行内可编辑 span）
+        if (Clinic.emrEditor.normalizeInlineFields) Clinic.emrEditor.normalizeInlineFields();
         Clinic.emrEditor.markDirty();
     }
 
