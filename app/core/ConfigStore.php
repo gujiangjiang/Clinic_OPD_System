@@ -36,6 +36,18 @@ class ConfigStore {
         return DATA_DIR . '/db/config.db';
     }
 
+    /** 兼容旧位置：早期版本 config.db 位于 data/config.db，存在则迁移到 data/db/。
+     *  仅迁移、绝不新建——无 config.db 表示尚未安装，由安装向导创建。 */
+    public static function migrateLegacy() {
+        $legacy = DATA_DIR . '/config.db';
+        $newPath = self::path();
+        if (is_file($legacy) && !is_file($newPath)) {
+            $dir = dirname($newPath);
+            if (!is_dir($dir)) { @mkdir($dir, 0777, true); }
+            @rename($legacy, $newPath);
+        }
+    }
+
     /** 校验文件头 16 字节是否为 SQLite Magic Header（"SQLite format 3\000"） */
     public static function isSqliteFile($path) {
         if (!is_file($path)) return false;
@@ -354,6 +366,12 @@ class ConfigStore {
      *      远程库连接失败/无表同样返回 false。 */
     public static function isSystemInstalled() {
         if (self::$installed !== -1) return self::$installed === 1;
+        // config.db 是连接配置的唯一载体：不存在/不可用/缺少数据库驱动设置
+        // 均视为未安装（否则无从得知该连接哪个数据库），进入安装向导。
+        if (!self::exists() || !self::available() || self::get('db.driver', '') === '') {
+            self::$installed = 0;
+            return false;
+        }
         self::$installed = self::mainInstalledMarker() ? 1 : 0;
         return self::$installed === 1;
     }
