@@ -693,12 +693,25 @@ Clinic.emr = (function () {
                             : '该病历书写科室与当前科室不一致，仅可查看（只读）。如需书写请在当前科室新建续写病历');
                     }
                 } else {
-                    // 会诊模式：就诊存在待处理/进行中的会诊 → 占位显示「确认会诊」
-                    // （仅按状态判定，不比较科室——会诊目标科室≠患者当前科室）
+                    // 占位横幅：仅【当前医生处于会诊模式】时才显示「确认会诊」引导，
+                    // 否则一律显示「病历续写」。会诊模式 = 本就诊存在发给本科室的
+                    // pending/doing 会诊（后端 consult_mode 权威判定，前端
+                    // __consult_mode 为 enterConsultMode 兜底）。
+                    // 原逻辑只按 status 取任意一条进行中会诊、不比对目标科室，
+                    // 导致 A 外科发起 → 急诊科的会诊，被同在外科的 B 医生看到
+                    // 「🤝 确认会诊」横幅（B 应正常续写，无须确认他科会诊）。
                     var myConsult = null;
-                    (d.consults || []).forEach(function (c) {
-                        if ((c.status === 'pending' || c.status === 'doing') && !myConsult) myConsult = c;
-                    });
+                    if (d.__consult_mode || d.consult_mode) {
+                        var consCode = String(d.__consult_id || d.consult_code || '');
+                        var firstCons = null;
+                        (d.consults || []).forEach(function (c) {
+                            if (c.status !== 'pending' && c.status !== 'doing') return;
+                            if (!firstCons) firstCons = c;
+                            // 精确匹配当前会诊单（consult_mode 对应的 code）
+                            if (consCode && String(c.code) === consCode) myConsult = c;
+                        });
+                        if (!myConsult) myConsult = firstCons;
+                    }
                     var phBody = document.getElementById('docBody');
                     if (phBody) {
                         if (myConsult) {
