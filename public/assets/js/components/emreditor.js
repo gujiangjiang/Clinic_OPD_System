@@ -257,6 +257,101 @@ Clinic.emrEditor = (function () {
         sel.addRange(range);
     }
 
+    /* ==================== 流式行内编辑器通用读写与事件委托 ==================== */
+
+    /** 兼容读取：contenteditable 以 innerText 为准，规整首尾空行与不换行空格 */
+    function getFieldValue(el) {
+        if (!el) return '';
+        if (el.isContentEditable) {
+            return String(el.innerText || '').replace(/^\n+|\n+$/g, '').replace(/\u00a0/g, ' ');
+        }
+        return el.value !== undefined ? el.value : '';
+    }
+
+    /** 兼容回显：contenteditable 以 innerText 写入（保留 \n 段落） */
+    function setFieldValue(el, val) {
+        if (!el) return;
+        val = val == null ? '' : String(val);
+        if (el.isContentEditable) {
+            el.innerText = val;
+        } else {
+            el.value = val;
+        }
+    }
+
+    /**
+     * 事件委托（容器级）：覆盖模板导入等动态生成的字段——
+     * 1) 纯文本粘贴保护（过滤外部富文本样式，单行压平换行/多行保留段落）
+     * 2) 单行字段回车跳格兜底（Tab/Shift+Tab 由 tabindex=0 原生连续跳格）
+     * 3) 删空后清残留 <br>，保证 :empty 伪元素（占位符）生效
+     * 已绑定直接事件的字段（__emrBound）跳过，避免双重处理。
+     */
+    function bindInlineFillEvents(container) {
+        var root = container || document;
+        if (root.__emrInlineBound) return;
+        root.__emrInlineBound = true;
+        // 1. 过滤外部样式：仅粘贴纯文本
+        root.addEventListener('paste', function (e) {
+            var target = e.target && e.target.closest ? e.target.closest('.emr-inline-fill') : null;
+            if (!target || target.__emrBound) return;
+            e.preventDefault();
+            var cd = e.clipboardData || window.clipboardData;
+            var text = cd && cd.getData ? (cd.getData('text/plain') || '') : '';
+            text = target.getAttribute('data-multiline') === 'true' ? text.replace(/\r\n?/g, '\n') : text.replace(/[\r\n]+/g, '');
+            document.execCommand('insertText', false, text);
+        });
+        // 2. 回车分流（动态字段兜底）：单行拦截换行并跳格下一可编辑控件
+        root.addEventListener('keydown', function (e) {
+            var target = e.target && e.target.closest ? e.target.closest('.emr-inline-fill') : null;
+            if (!target || target.__emrBound) return;
+            if (e.key === 'Enter' && target.getAttribute('data-multiline') !== 'true') {
+                e.preventDefault();
+                var focusables = Array.prototype.slice.call(document.querySelectorAll(
+                    '.emr-inline-fill:not([contenteditable="false"]), ' +
+                    'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])'));
+                var idx = focusables.indexOf(target);
+                if (idx > -1 && focusables[idx + 1]) focusables[idx + 1].focus();
+            }
+        });
+        // 3. 删空保护：清除孤立 <br>，保证 :empty 占位符生效
+        root.addEventListener('blur', function (e) {
+            var target = e.target && e.target.closest ? e.target.closest('.emr-inline-fill') : null;
+            if (!target) return;
+            if (!String(target.innerText || '').trim()) target.innerHTML = '';
+        }, true);
+    }
+
+    /** 防残留归一化：将容器内任何残留的文本输入控件（input[type=text]/textarea）
+     *  转换为行内可编辑 span——模板导入/宏替换等路径兜底，
+     *  保证病历书写区 DOM 内绝无新插入的 input/textarea */
+    function normalizeInlineFields(container) {
+        var c = container || ROOT;
+        if (!c) return;
+        var nodes = c.querySelectorAll('input[type="text"], input:not([type]), textarea');
+        Array.prototype.forEach.call(nodes, function (old) {
+            // 自定义下拉增强（dropdown.js）的搜索框等控件不属于病历文本字段，不转换
+            if (old.closest && old.closest('.ef-select-wrap, .csd-pop')) return;
+            var ph = old.getAttribute('placeholder') || '';
+            var path = old.getAttribute('data-k') || old.name || '';
+            var span = document.createElement('span');
+            span.className = 'ef-field emr-inline-fill';
+            span.setAttribute('contenteditable', 'true');
+            span.setAttribute('spellcheck', 'false');
+            span.setAttribute('tabindex', '0');
+            span.setAttribute('data-ph', ph);
+            span.setAttribute('data-placeholder', ph);
+            if (path) {
+                span.setAttribute('data-field', path);
+                span.setAttribute('data-k', path);
+            }
+            if (old.tagName === 'TEXTAREA') span.setAttribute('data-multiline', 'true');
+            span.innerText = old.value || '';
+            bindFieldEvents(span);
+            old.parentNode.replaceChild(span, old);
+            if (path) FIELDS.push({ path: path, type: 'text', el: span });
+        });
+    }
+
     /* ==================== 各节构建 ==================== */
 
     function secWrap(label, required, innerAttr) {
@@ -629,6 +724,10 @@ Clinic.emrEditor = (function () {
             ROOT.appendChild(buildAdvice());
         }
 
+        // 事件委托（模板导入等动态字段兜底，仅首次绑定）+ 残留输入控件归一化
+        bindInlineFillEvents(document);
+        normalizeInlineFields(ROOT);
+
         set(data || {});
 
         if (READONLY) setReadonly(true);
@@ -739,6 +838,11 @@ Clinic.emrEditor = (function () {
         setPrevDiagnoses: setPrevDiagnoses,
         findPrevDiag: findPrevDiag,
         markDirty: markDirty,
+        /** 兼容读写（contenteditable 与原生输入控件通用） */
+        getFieldValue: getFieldValue,
+        setFieldValue: setFieldValue,
+        /** 防残留归一化（模板应用路径兜底调用） */
+        normalizeInlineFields: normalizeInlineFields,
         /** 过敏史是否被模态框修改过（保存病历时的 allergy_modified 标志） */
         isAllergyModified: function () { return ALLERGY_MODIFIED; },
         /** 外部同步诊断列表（服务端已持久化，仅同步显示，不置脏标记） */
