@@ -183,6 +183,21 @@ Clinic.emrEditor = (function () {
             sel.removeAllRanges();
             sel.addRange(range);
         });
+        // 空字段点击：浏览器对无内容的行内 span 不自动放置光标（无法锁定输入），
+        // 点击后若光标未落入本字段则手动聚焦并定位到末尾
+        el.addEventListener('click', function () {
+            if (el.getAttribute('contenteditable') === 'false') return;
+            var sel = window.getSelection();
+            var inHere = sel.rangeCount > 0 && el.contains(sel.getRangeAt(0).commonAncestorContainer);
+            if (!inHere) {
+                el.focus();
+                var range = document.createRange();
+                range.selectNodeContents(el);
+                range.collapse(false);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+        });
         // 空字段退格：仅阻止，避免删除父级 DOM 结构
         el.addEventListener('keydown', function (e) {
             if (e.key === 'Backspace' && el.innerText.trim() === '') {
