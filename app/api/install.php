@@ -106,6 +106,47 @@ function install_db_installed($pdo) {
     }
 }
 
+/** 统计目标库已有业务表数量（排除 SQLite 系统表），用于识别「非本系统库」 */
+function install_db_table_count($pdo, $driver) {
+    try {
+        if ($driver === 'sqlite') {
+            return (int)$pdo->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")->fetchColumn();
+        }
+        if ($driver === 'pgsql') {
+            return (int)$pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'")->fetchColumn();
+        }
+        return (int)$pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()")->fetchColumn();
+    } catch (Exception $ex) {
+        return 0;
+    }
+}
+
+/**
+ * 校验 ICD-10 诊断库完整性（仅校验结构，不校验内容）：
+ * 文件不存在视为待创建（返回空串）；存在则必须为有效 SQLite 且 icd10 表字段齐全。
+ * @return string 错误信息（空串=通过）
+ */
+function install_validate_icd10($rel) {
+    $file = APP_ROOT . '/' . $rel;
+    if (!is_file($file)) return '';
+    if (!ConfigStore::isSqliteFile($file)) return 'ICD-10 诊断库文件不是有效的 SQLite 数据库';
+    $need = array('id', 'chapter_code_range', 'chapter_name', 'section_code_range', 'section_name',
+        'category_code', 'category_name', 'subcategory_code', 'subcategory_name',
+        'diagnosis_code', 'diagnosis_name', 'search_tags');
+    try {
+        $pdo = new PDO('sqlite:' . $file, null, null, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
+        $rows = $pdo->query("PRAGMA table_info('icd10')")->fetchAll(PDO::FETCH_ASSOC);
+        if (!count($rows)) return 'ICD-10 诊断库不完整：缺少 icd10 表';
+        $cols = array();
+        foreach ($rows as $r) { $cols[] = $r['name']; }
+        $missing = array_values(array_diff($need, $cols));
+        if ($missing) return 'ICD-10 诊断库字段不完整：缺少 ' . implode('、', $missing);
+    } catch (Exception $ex) {
+        return 'ICD-10 诊断库校验失败：' . $ex->getMessage();
+    }
+    return '';
+}
+
 /* ==================== 数据库连接测试（仅 MySQL/PostgreSQL） ==================== */
 if ($action === 'test_db') {
     $driver = req('driver', 'sqlite');
@@ -137,6 +178,11 @@ if ($action === 'test_db') {
 if ($action === 'check_db') {
     $driver = req('driver', 'sqlite');
     if (!ConfigStore::dbDriverValid($driver)) json_fail('未知的数据库驱动');
+    // ICD-10 诊断库完整性校验（结构校验：字段是否齐全）
+    list($icd10Rel, $icd10NameErr) = install_sqlite_name_path(req('icd10_name', 'icd10'));
+    if ($icd10NameErr !== '') json_fail('ICD-10 诊断库名称无效：' . $icd10NameErr);
+    $icd10Check = install_validate_icd10($icd10Rel);
+    if ($icd10Check !== '') json_fail($icd10Check);
     if ($driver === 'sqlite') {
         list($rel, $err) = install_sqlite_name_path(req('name', ''));
         if ($err !== '') json_fail($err);
@@ -163,11 +209,13 @@ if ($action === 'check_db') {
             }
         }
         $installed = false;
+        $foreign = false;
         try {
             $pdo = new PDO('sqlite:' . $file, null, null, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
             $installed = install_db_installed($pdo);
+            $foreign = !$installed && install_db_table_count($pdo, 'sqlite') > 0;
         } catch (Exception $ex) {}
-        json_ok(array('installed' => $installed, 'created' => $created, 'path' => $rel), '');
+        json_ok(array('installed' => $installed, 'foreign' => $foreign, 'created' => $created, 'path' => $rel), '');
     }
     // MySQL / PostgreSQL
     list($pdo, $err) = install_remote_pdo(
@@ -181,7 +229,8 @@ if ($action === 'check_db') {
     );
     if ($err !== '') json_fail($err);
     $installed = install_db_installed($pdo);
-    json_ok(array('installed' => $installed, 'created' => false), '');
+    $foreign = !$installed && install_db_table_count($pdo, $driver) > 0;
+    json_ok(array('installed' => $installed, 'foreign' => $foreign, 'created' => false), '');
 }
 
 /* ==================== Redis 连接测试 ==================== */
@@ -272,6 +321,8 @@ if ($action === 'save') {
     // ===== ICD-10 独立字典库名称（存 config.db，不写主库） =====
     list($icd10Path, $icd10Err) = install_sqlite_name_path(post('icd10_name', 'icd10'));
     if ($icd10Err !== '') json_fail('ICD-10 字典库名称无效：' . $icd10Err);
+    $icd10Check = install_validate_icd10($icd10Path);
+    if ($icd10Check !== '') json_fail($icd10Check);
 
     // ===== 写入 config.db（基础设施配置库） =====
     $cfgPath = ConfigStore::path();
