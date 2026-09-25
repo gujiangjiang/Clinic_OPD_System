@@ -271,6 +271,45 @@ if ($action === 'check_db') {
     json_ok(array('installed' => $installed, 'foreign' => $foreign, 'created' => false, 'icd10_missing' => $icd10Missing), '');
 }
 
+/* ==================== 读取已有数据库的机构设置（关联现有库时预填） ==================== */
+if ($action === 'load_db_settings') {
+    $driver = req('driver', 'sqlite');
+    if (!ConfigStore::dbDriverValid($driver)) json_fail('未知的数据库驱动');
+    if ($driver === 'sqlite') {
+        list($rel, $err) = install_sqlite_name_path(req('name', ''));
+        if ($err !== '') json_fail($err);
+        $file = APP_ROOT . '/' . $rel;
+        if (!is_file($file) || !ConfigStore::isSqliteFile($file)) json_fail('数据库不存在或不是有效的 SQLite 数据库');
+        try {
+            $pdo = new PDO('sqlite:' . $file, null, null, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
+        } catch (Exception $ex) {
+            json_fail('连接失败：' . $ex->getMessage());
+        }
+    } else {
+        list($pdo, $err) = install_remote_pdo(
+            $driver,
+            req('host', ''),
+            req('port', $driver === 'pgsql' ? '5432' : '3306'),
+            req('dbname', ''),
+            req('user', ''),
+            req('pass', ''),
+            8
+        );
+        if ($err !== '') json_fail($err);
+    }
+    $keys = array('hospital_name', 'org_code', 'hospital_name2', 'contact_phone', 'contact_addr', 'timezone');
+    $out = array();
+    try {
+        $ph = implode(',', array_fill(0, count($keys), '?'));
+        $st = $pdo->prepare("SELECT skey, svalue FROM settings WHERE skey IN ($ph)");
+        $st->execute($keys);
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $out[$r['skey']] = $r['svalue'];
+        }
+    } catch (Exception $ex) {}
+    json_ok($out);
+}
+
 /* ==================== Redis 连接测试 ==================== */
 if ($action === 'test_redis') {
     if (!extension_loaded('redis')) {
