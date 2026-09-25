@@ -499,12 +499,12 @@
 }
 
 /* ============================================================
- * 流式行内编辑器（Inline Flow Editable）v1
- * 核心目标：解除父级 Flex 盒模型对断行的破坏，可编辑字段以纯行内
- * 字符流渲染——长句到达行末仅超出字符自然折到下一行首，后方文字
- * 与标点紧随其后，绝无整块下坠、多余空格或占位。
- * 说明：优先级用 !important 压过历史 .doc-sec / .ef-field 规则，
- * 不影响 .ef-diag 等非文本交互字段既有样式。
+ * 流式行内编辑器（Inline Flow Editable）v2
+ * 外观铁律：与其余控件（选择框等）完全一致——主色文字、14px、600 字重、
+ * var(--border) 浅灰虚线、hover/focus 主色软底高亮；字段盒模型（字号/
+ * 行高/内边距/基线）与 .ef-select 完全同参，保证底部虚线与选择框
+ * 处于同一水平线，外观分毫不差。
+ * 排版：解除父级 Flex 盒模型，字段以纯行内字符流渲染，字符级自然折行。
  * ============================================================ */
 
 /* 1. 病历节容器：必须解除 Flex，恢复标准文本流（行内排版 + 字符级折行） */
@@ -517,70 +517,73 @@
     line-height: 1.8 !important;
 }
 
-/* 2. 行内可编辑 span：完全作为字符流渲染，禁止任何盒模型隔离 */
+/* 2. 行内可编辑 span：盒模型与 .ef-select 完全一致（同字号/行高/内边距/
+ * 基线对齐），保证底虚线与选择框同一水平线 */
 .emr-inline-fill {
     display: inline !important;
     float: none !important;
     min-width: 42px;
     outline: none !important;
-    border-bottom: 1px dashed var(--border-color, #94a3b8) !important;
-    color: inherit !important;
-    font-family: inherit;
-    font-size: inherit;
-    line-height: inherit;
+    padding: 1px 4px !important;
+    margin: 0 8px 0 1px !important;
+    border-bottom: 1px dashed var(--border) !important;
+    border-radius: 4px !important;
+    color: var(--primary) !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+    vertical-align: baseline !important;
+    background-color: transparent !important;
+    cursor: text;
     white-space: pre-wrap !important;
     word-break: break-all !important;
     overflow-wrap: anywhere !important;
-    padding: 0 4px !important;
-    vertical-align: baseline !important;
-    cursor: text;
-    margin: 0 2px !important;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
+    transition: background-color 0.15s ease-in-out, border-bottom-color 0.15s ease-in-out, color 0.15s ease-in-out;
 }
-/* 历史 .ef-field-nowrap 的底部实线渐变与流式下划线重复，去除 */
+/* 历史 .ef-field-nowrap 的底部实线渐变去除（行内元素折行后由 border-bottom
+ * 按行框分段绘制，天然形成逐行下划线，无需背景图模拟） */
 .emr-inline-fill.ef-field-nowrap {
     background-image: none !important;
 }
 
-/* 3. 占位符提示（模拟原生 placeholder，:empty 依赖删空后清 <br>） */
+/* 3. 占位符提示（与 .ef-field:empty::before 原始样式一致） */
 .emr-inline-fill:empty::before {
     content: attr(data-placeholder) !important;
-    color: #94a3b8 !important;
+    color: var(--text-muted) !important;
     font-weight: 400 !important;
     pointer-events: none;
     user-select: none;
     white-space: pre-wrap;
 }
 
-/* 4. 聚焦交互高亮（主题主色淡底 + 主色下划线） */
+/* 4. 悬停/聚焦（含 Tab 跳格）：与选择框 hover 完全一致的主色软底 + 主色下划线 */
+.emr-doc .doc-body .emr-inline-fill:hover,
+.emr-inline-fill:hover,
 .emr-doc .doc-body .emr-inline-fill:focus,
 .emr-inline-fill:focus {
-    background-color: rgba(37, 99, 235, 0.08) !important;
-    border-bottom: 1px solid var(--primary-color, #2563eb) !important;
-    color: inherit !important;
+    background-color: var(--primary-soft) !important;
+    border-bottom-color: var(--primary) !important;
+    color: var(--primary) !important;
+}
+/* 选择框同样提供 Tab 聚焦可视化（与 hover 同款高亮） */
+.emr-doc .doc-body .ef-select:focus {
+    background-color: var(--primary-soft);
+    border-bottom-color: var(--primary);
+    color: var(--primary);
 }
 
-/* 5. 悬停：轻淡提示但不抢文字颜色（保持病历正文外观一致） */
-.emr-doc .doc-body .emr-inline-fill:hover,
-.emr-inline-fill:hover {
-    background-color: rgba(37, 99, 235, 0.05) !important;
-    border-bottom-color: var(--primary-color, #2563eb) !important;
-    color: inherit !important;
-}
-
-/* 6. 只读/打印态：还原为病历正文文字，去掉输入框痕迹 */
+/* 5. 只读/打印态：还原为病历正文文字，去掉输入框痕迹 */
 .emr-inline-fill[contenteditable="false"] {
-    border-bottom: none !important;
-    background: transparent !important;
     color: var(--text) !important;
+    border-bottom-color: transparent !important;
+    background: transparent !important;
     cursor: default !important;
 }
 .emr-inline-fill[contenteditable="false"]:empty::before {
     content: none !important;
 }
 
-/* 6b. 模板/套餐预览模态框内只读：保留蓝色填充与虚线下划线（预览可编辑字段形态），
- *  与历史 .modal-mask 规则一致，不被上述诊毕只读还原规则覆盖 */
+/* 6. 模板/套餐预览模态框内只读：保留主色文字与虚线下划线（预览可编辑字段形态） */
 .modal-mask .emr-inline-fill[contenteditable="false"] {
     color: var(--primary) !important;
     border-bottom: 1px dashed var(--border) !important;
@@ -589,12 +592,22 @@
 .modal-mask .emr-inline-fill[contenteditable="false"]:hover {
     background-color: transparent !important;
     border-bottom-color: var(--border) !important;
+    color: var(--primary) !important;
 }
 
-/* 7. 文本流间距补偿：Flex gap 移除后以行内边距保持字段间距与排版节奏 */
-.emr-doc .doc-body .doc-sec > .ef-label {
-    margin-right: 4px;
-    line-height: 1.8;
+/* 7. 文本流间距：Flex gap 移除后以行内边距保持控件间距与排版节奏 */
+.emr-doc .doc-body .doc-sec > .ef-label,
+.emr-doc .doc-body .doc-sec > .doc-sec-label {
+    margin-right: 8px;
+}
+.emr-doc .doc-body .doc-sec .ef-auto {
+    margin-right: 8px;
+}
+.emr-doc .doc-body .doc-sec .ef-diag {
+    margin: 0 8px 0 1px;
+}
+.emr-doc .doc-body .doc-sec .ef-select-wrap .ef-select {
+    margin: 0 8px 0 1px;
 }
 /* 门诊处置容器：原为 flex 子项（display:block 起块级换行），改回行内块与标签同行 */
 .emr-doc .doc-body .ef-disp-box {
