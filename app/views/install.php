@@ -329,7 +329,7 @@ function loadPreflight() {
 }
 
 /* ==================== 数据库连接测试 ==================== */
-function dbQueryParams(action) {
+function dbQueryParams(action, extra) {
     var d = dbDriverKey();
     var p = dbParams();
     var q = {
@@ -341,7 +341,9 @@ function dbQueryParams(action) {
         user: p.user || '',
         pass: p.pass || '',
         name: p.name || '',
+        icd10_name: document.getElementById('icd10_name').value.trim() || 'icd10',
     };
+    if (extra) { Object.keys(extra).forEach(function (k) { q[k] = extra[k]; }); }
     return q;
 }
 function testDb() {
@@ -377,16 +379,18 @@ function testRedis() {
 }
 
 /* ==================== 第 2 步校验并进入下一步 ==================== */
-function checkDbAndProceed() {
+function checkDbAndProceed(createIcd10) {
     if (!wizValidate(2)) return;
     var btn = document.getElementById('nextBtn');
     btn.disabled = true;
     function done() { btn.disabled = false; }
-    Clinic.get('/api/install', dbQueryParams('check_db'), {
+    Clinic.get('/api/install', dbQueryParams('check_db', createIcd10 ? { create_icd10: '1' } : null), {
         loading: true,
         onSuccess: function (json) {
             done();
             var data = json.data || {};
+            // ICD-10 诊断库文件不存在：提示放入可用文件或创建空库
+            if (data.icd10_missing) { askIcd10Missing(); return; }
             WIZ.dbInstalled = !!data.installed;
             if (WIZ.dbInstalled) { askInstallMode(); return; }
             if (data.foreign) { askForeignDb(); return; }
@@ -395,6 +399,31 @@ function checkDbAndProceed() {
         },
         onError: function () { done(); },
     });
+}
+/* ICD-10 诊断库文件不存在：提示放入可用文件或创建空库 */
+function askIcd10Missing() {
+    var mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    mask.innerHTML =
+        '<div class="modal modal-sm">' +
+        '  <div class="modal-head"><div class="modal-title">ICD-10 诊断库不存在</div></div>' +
+        '  <div class="modal-body fs-13" style="line-height:1.9">' +
+        '    未找到 ICD-10 诊断库文件。请将可用的诊断库文件放入 <b>data/db/</b> 目录后重试，' +
+        '    或创建一个空的诊断数据库文件（仅含表结构）。' +
+        '  </div>' +
+        '  <div class="modal-foot" style="display:flex;justify-content:flex-end;gap:8px">' +
+        '    <button type="button" class="btn btn-outline btn-sm" data-act="cancel">取消</button>' +
+        '    <button type="button" class="btn btn-primary btn-sm" data-act="create">创建空数据库</button>' +
+        '  </div>' +
+        '</div>';
+    document.body.appendChild(mask);
+    requestAnimationFrame(function () { mask.classList.add('show'); });
+    function close() {
+        mask.classList.remove('show');
+        setTimeout(function () { if (mask.parentNode) mask.parentNode.removeChild(mask); }, 200);
+    }
+    mask.querySelector('[data-act="cancel"]').addEventListener('click', close);
+    mask.querySelector('[data-act="create"]').addEventListener('click', function () { close(); checkDbAndProceed(true); });
 }
 /* 目标库非空但未检测到本系统数据：提示继续将在其中创建本系统表结构 */
 function askForeignDb() {
@@ -455,11 +484,11 @@ function renderConfirm() {
     var box = document.getElementById('confirmBox');
     var dbKey = dbDriverKey();
     var dbMeta = driverMeta('db', dbKey);
-    var dbParams = dbParams();
+    var dbp = dbParams();
     var rows = [];
     var dbDesc = dbKey === 'sqlite'
-        ? ('data/db/' + (dbParams.name || 'clinic_main').replace(/\.db$/i, '') + '.db')
-        : ((dbParams.host || '') + ':' + (dbParams.port || '') + '/' + (dbParams.dbname || ''));
+        ? ('data/db/' + (dbp.name || 'clinic_main').replace(/\.db$/i, '') + '.db')
+        : ((dbp.host || '') + ':' + (dbp.port || '') + '/' + (dbp.dbname || ''));
     rows.push(['数据库驱动', (dbMeta ? dbMeta.label : dbKey) + '（' + dbDesc + '）']);
     rows.push(['安装方式', WIZ.mode === 'attach' ? '关联现有数据库（保留数据）' : '全新安装（建库并导入基础字典）']);
     if (WIZ.mode === 'fresh' && WIZ.dbInstalled) {
