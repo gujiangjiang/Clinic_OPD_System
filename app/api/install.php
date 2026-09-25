@@ -97,8 +97,12 @@ function install_remote_pdo($driver, $host, $port, $dbname, $user, $pass, $timeo
     }
 }
 
-/** 检测目标主库是否已安装（users 表存在且非空，即安装完成标记） */
+/** 检测目标主库是否已安装（主库 settings.install.done 标记，兼容 users 非空） */
 function install_db_installed($pdo) {
+    try {
+        $v = $pdo->query("SELECT svalue FROM settings WHERE skey='install.done'")->fetchColumn();
+        if ((string)$v === '1') return true;
+    } catch (Exception $ex) {}
     try {
         return (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() > 0;
     } catch (Exception $ex) {
@@ -119,6 +123,29 @@ function install_db_table_count($pdo, $driver) {
     } catch (Exception $ex) {
         return 0;
     }
+}
+
+/**
+ * 创建空的 ICD-10 诊断库（仅建表结构，无数据）。
+ * @return string 错误信息（空串=成功）
+ */
+function install_create_icd10($rel) {
+    $file = APP_ROOT . '/' . $rel;
+    $dir = dirname($file);
+    if (!is_dir($dir)) { @mkdir($dir, 0777, true); }
+    if (!is_dir($dir) || !is_writable($dir)) return '目录不可写：' . str_replace(APP_ROOT, '.', $dir);
+    try {
+        $def = require APP_ROOT . '/app/config/schema/icd10.php';
+        $pdo = new PDO('sqlite:' . $file, null, null, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
+        $pdo->exec('PRAGMA busy_timeout = 5000');
+        foreach ((array)$def['tables'] as $sql) {
+            $pdo->exec($sql);
+        }
+        unset($pdo);
+    } catch (Exception $ex) {
+        return '创建 ICD-10 诊断库失败：' . $ex->getMessage();
+    }
+    return '';
 }
 
 /**
@@ -178,11 +205,22 @@ if ($action === 'test_db') {
 if ($action === 'check_db') {
     $driver = req('driver', 'sqlite');
     if (!ConfigStore::dbDriverValid($driver)) json_fail('未知的数据库驱动');
-    // ICD-10 诊断库完整性校验（结构校验：字段是否齐全）
+    // ICD-10 诊断库校验：文件不存在→待创建（可由用户选择创建空库）；
+    // 文件存在→必须为有效 SQLite 且字段齐全，否则报错阻止下一步。
     list($icd10Rel, $icd10NameErr) = install_sqlite_name_path(req('icd10_name', 'icd10'));
     if ($icd10NameErr !== '') json_fail('ICD-10 诊断库名称无效：' . $icd10NameErr);
-    $icd10Check = install_validate_icd10($icd10Rel);
-    if ($icd10Check !== '') json_fail($icd10Check);
+    $icd10File = APP_ROOT . '/' . $icd10Rel;
+    $icd10Missing = !is_file($icd10File);
+    if ($icd10Missing) {
+        if (req('create_icd10') === '1') {
+            $mkErr = install_create_icd10($icd10Rel);
+            if ($mkErr !== '') json_fail($mkErr);
+            $icd10Missing = false;
+        }
+    } else {
+        $icd10Check = install_validate_icd10($icd10Rel);
+        if ($icd10Check !== '') json_fail($icd10Check);
+    }
     if ($driver === 'sqlite') {
         list($rel, $err) = install_sqlite_name_path(req('name', ''));
         if ($err !== '') json_fail($err);
@@ -215,7 +253,7 @@ if ($action === 'check_db') {
             $installed = install_db_installed($pdo);
             $foreign = !$installed && install_db_table_count($pdo, 'sqlite') > 0;
         } catch (Exception $ex) {}
-        json_ok(array('installed' => $installed, 'foreign' => $foreign, 'created' => $created, 'path' => $rel), '');
+        json_ok(array('installed' => $installed, 'foreign' => $foreign, 'created' => $created, 'path' => $rel, 'icd10_missing' => $icd10Missing), '');
     }
     // MySQL / PostgreSQL
     list($pdo, $err) = install_remote_pdo(
@@ -230,7 +268,7 @@ if ($action === 'check_db') {
     if ($err !== '') json_fail($err);
     $installed = install_db_installed($pdo);
     $foreign = !$installed && install_db_table_count($pdo, $driver) > 0;
-    json_ok(array('installed' => $installed, 'foreign' => $foreign, 'created' => false), '');
+    json_ok(array('installed' => $installed, 'foreign' => $foreign, 'created' => false, 'icd10_missing' => $icd10Missing), '');
 }
 
 /* ==================== Redis 连接测试 ==================== */
@@ -350,6 +388,8 @@ if ($action === 'save') {
     }
     // ICD-10 独立字典库路径（存 config.db，不写主业务库）
     ConfigStore::set('db.icd10.path', $icd10Path);
+    // 清理历史版本误写入 config.db 的安装标记（安装完成后标记只应存在于主库）
+    ConfigStore::set('install.done', '');
     ConfigStore::set('cache.driver', $cacheDriver);
     if ($cacheDriver === 'redis') {
         ConfigStore::set('cache.redis.host', post('redis_host', '127.0.0.1'));
@@ -428,7 +468,8 @@ if ($action === 'save') {
         }
         if ($logo !== '') set_setting('logo', $logo);
         date_default_timezone_set($timezone);
-        ConfigStore::set('install.done', '1');
+        // 安装完成标记写入【主数据库】settings 表（非 config.db）
+        set_setting('install.done', '1');
         json_ok(array('mode' => 'attach'), '已关联现有数据库，系统安装完成');
     }
 
@@ -461,7 +502,8 @@ if ($action === 'save') {
     set_setting('logo', $logo);
     set_setting('install_time', now_str());
     date_default_timezone_set($timezone);
-    ConfigStore::set('install.done', '1');
+    // 安装完成标记写入【主数据库】settings 表（非 config.db）
+    set_setting('install.done', '1');
 
     json_ok(array('admin_id' => isset($adminId) ? $adminId : 0, 'mode' => 'fresh'), '系统安装成功，请使用管理员账号登录');
 }
