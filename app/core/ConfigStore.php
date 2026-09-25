@@ -27,6 +27,9 @@ class ConfigStore {
     /** 可用性探测结果缓存（-1 未探测 / 0 不可用 / 1 可用） */
     private static $available = -1;
 
+    /** 安装状态探测结果缓存（-1 未探测 / 0 未安装 / 1 已安装） */
+    private static $installed = -1;
+
     /** config.db 文件路径 */
     public static function path() {
         // 基础设施配置库统一存放于 data/db/（与主库/Session 数据目录一致）
@@ -228,6 +231,7 @@ class ConfigStore {
     /** 重置进程内探测缓存（外部改动 config.db 后强制重新探测） */
     public static function resetCache() {
         self::$available = -1;
+        self::$installed = -1;
         self::$pdo = null;
         self::$cache = array();
     }
@@ -342,31 +346,26 @@ class ConfigStore {
         return (int)self::get('app.maintenance', 0) === 1;
     }
 
-    /** 系统是否已安装（以 config.db 的安装完成标记为准；兼容旧库探测）：
-     *  由 Router / bootstrap 调用。核心约束：在用户尚未选择数据库（安装第 2 步）
-     *  之前，绝不能因为一次探测而自动创建 clinic_main.db——SQLite 主库仅在
-     *  核心路径被真正访问且已确认安装后才创建。 */
+    /** 系统是否已安装（安装标记存于【主数据库】settings.install.done，兼容 users 非空）：
+     *  由 Router / bootstrap 调用。核心约束：
+     *   1. 安装状态必须在主数据库中判断，config.db 仅存连接配置——删除主库即视为
+     *      未安装并重新进入安装向导，绝不用 config.db 的标记制造「空壳已安装」；
+     *   2. 探测非破坏性：SQLite 主库文件不存在时直接返回 false，绝不自动建库；
+     *      远程库连接失败/无表同样返回 false。 */
     public static function isSystemInstalled() {
-        if (self::exists() && self::available()) {
-            // 安装完成标记（新版安装向导写入）：唯一权威依据
-            if (self::get('install.done', '') === '1') return true;
-            // 兼容旧库（升级前安装、无标记）：主库已存在且有管理员则视为已安装，
-            // 并补写标记，之后不再触发探测。
-            $ok = self::mainHasUsers();
-            if ($ok) self::set('install.done', '1');
-            return $ok;
-        }
-        // 无 config.db（旧版/首次）：回退探测默认驱动主库（不创建 SQLite 文件）
-        return self::mainHasUsers();
+        if (self::$installed !== -1) return self::$installed === 1;
+        self::$installed = self::mainInstalledMarker() ? 1 : 0;
+        return self::$installed === 1;
     }
 
     /**
-     * 探测主库是否已有管理员（非破坏性：SQLite 主库文件不存在时直接返回 false，
-     * 绝不触发自动建库；远程库连接失败/无表同样返回 false）。
+     * 探测主数据库中的安装完成标记（非破坏性）。
+     * 优先读 settings.install.done='1'；兼容旧库以 users 表非空判定。
      */
-    private static function mainHasUsers() {
+    private static function mainInstalledMarker() {
         try {
-            if (self::driver() === 'sqlite') {
+            $driver = self::driver();
+            if ($driver === 'sqlite') {
                 $p = self::get('db.sqlite.path', '');
                 if ($p === '') {
                     $p = DATA_DIR . '/db/clinic_main.db';
@@ -375,11 +374,28 @@ class ConfigStore {
                 }
                 if (!is_file($p) || !self::isSqliteFile($p)) return false;
                 $pdo = new PDO('sqlite:' . $p, null, null, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
-                return (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() > 0;
+            } else {
+                $params = self::dbParams();
+                if ($driver === 'mysql') {
+                    $dsn = 'mysql:host=' . $params['host'] . ';port=' . $params['port'] . ';dbname=' . $params['dbname'] . ';charset=utf8mb4';
+                } else {
+                    $dsn = 'pgsql:host=' . $params['host'] . ';port=' . $params['port'] . ';dbname=' . $params['dbname'];
+                }
+                $pdo = new PDO($dsn, $params['user'], $params['pass'], array(
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_CONNECT_TIMEOUT => 5,
+                ));
             }
-            // 远程库：连接并查询（不会创建数据库本身）
-            $main = DatabaseManager::getMain();
-            return (int)$main->query('SELECT COUNT(*) FROM users')->fetchColumn() > 0;
+            // 1) 安装完成标记
+            try {
+                $v = $pdo->query("SELECT svalue FROM settings WHERE skey='install.done'")->fetchColumn();
+                if ((string)$v === '1') return true;
+            } catch (Exception $ex) {}
+            // 2) 兼容旧库：已有管理员
+            try {
+                if ((int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() > 0) return true;
+            } catch (Exception $ex) {}
+            return false;
         } catch (Exception $ex) {
             return false;
         }
