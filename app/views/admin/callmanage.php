@@ -48,12 +48,16 @@ foreach ($depts as $d) {
 </div>
 
 <style>
-/* 大屏预览：尺寸切换工具条 + 舞台（iframe 按所选比例锁定显示；
-   舞台适当加高，保证 9:16 纵向画布显示更大、文字更清晰） */
-.pv-toolbar { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; }
+/* 大屏预览：尺寸切换工具条 + 舞台（iframe 按所选比例锁定显示）
+   弹窗高度锁定为可视区高度，舞台 flex 占满剩余空间 —— 画布随页面/窗口尺寸
+   动态缩放，窗口变小时不再出现内部滚动条 */
+.pv-toolbar { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; flex-shrink: 0; }
+.pv-modal { height: calc(100vh - 80px); max-height: calc(100vh - 80px); }
+.pv-modal .modal-body { overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 .pv-stage {
+    flex: 1;
+    min-height: 0;
     width: 100%;
-    height: min(72vh, 700px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -344,7 +348,7 @@ function previewRoom(id) {
         '<div class="pv-stage" id="pvStage">' +
         '  <iframe id="pvFrame" src="/screen.php?token=' + token + '" style="border:0;border-radius:var(--radius-md);background:#111"></iframe>' +
         '</div>',
-        { title: '大屏预览', size: 'modal-lg', buttons: [{ text: '关闭', cls: 'btn-outline' }] }
+        { title: '大屏预览', size: 'modal-lg pv-modal', buttons: [{ text: '关闭', cls: 'btn-outline' }] }
     );
     var stage = document.getElementById('pvStage');
     var frame = document.getElementById('pvFrame');
