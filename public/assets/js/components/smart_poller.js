@@ -66,7 +66,9 @@ Clinic.smartPoller = function (opts) {
             Clinic.get(url, null, { silent: true, onSuccess: ok, onError: err });
         };
         var url = typeof cfg.url === 'function' ? cfg.url() : cfg.url;
-        if (!url) { done(); return; }
+        // 纯 fetch 模式（调用方自带请求逻辑，如 refreshCallPanel）无需 url；
+        // 仅当既无 fetch 又无 url 时才放弃本次调度
+        if (!cfg.fetch && !url) { done(); return; }
         req(url, function (json) {
             if (cfg.onSuccess) { try { cfg.onSuccess(json); } catch (e) { console.error('[SmartPoller] onSuccess', e); } }
             done();
@@ -85,7 +87,9 @@ Clinic.smartPoller = function (opts) {
             Clinic.get(url, null, { silent: true, onSuccess: ok, onError: err });
         };
         var url = typeof cfg.url === 'function' ? cfg.url() : cfg.url;
-        if (!url) { done(); return; }
+        // 纯 fetch 模式（调用方自带请求逻辑，如 refreshCallPanel）无需 url；
+        // 仅当既无 fetch 又无 url 时才放弃本次调度
+        if (!cfg.fetch && !url) { done(); return; }
         req(url, function (json) {
             if (cfg.onSuccess) { try { cfg.onSuccess(json); } catch (e) {} }
             done();
