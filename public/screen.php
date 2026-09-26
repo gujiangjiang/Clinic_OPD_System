@@ -98,6 +98,7 @@ $isDoctor = $room['room_type'] === 'doctor';
 </div>
 
 <script src="/assets/js/components/push.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
+<script src="/assets/js/components/naming.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
 <script src="/assets/js/components/screen.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
 </body>
 </html>
