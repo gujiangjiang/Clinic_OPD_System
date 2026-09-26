@@ -620,13 +620,17 @@ function loadDbStatus() {
         onSuccess: function (json) {
             var d = json.data || {};
             var cfg = d.config_available ? '✓ 有效（' + escHtml(d.config_path) + '）' : '（无 config.db，按默认配置运行）';
+            var ok = d.status === 'ok';
+            var statusBadge = '<span class="badge ' + (ok ? 'badge-success' : 'badge-danger') + '" style="font-size:11.5px">' + (ok ? '🟢 ' : '🔴 ') + escHtml(d.status_text || (ok ? '正常' : '不可用')) + '</span>';
             box.innerHTML =
+                '<div class="flex-between"><span class="text-muted">连接状态</span><span>' + statusBadge + '</span></div>' +
                 '<div class="flex-between"><span class="text-muted">驱动类型</span><span class="badge badge-primary" style="font-size:11.5px">' + escHtml(d.driver_label) + '</span></div>' +
                 '<div class="flex-between"><span class="text-muted">连接延迟</span><span>' + d.delay_ms + ' ms</span></div>' +
                 '<div class="flex-between"><span class="text-muted">表数量</span><span>' + d.table_count + ' 张</span></div>' +
                 '<div class="flex-between"><span class="text-muted">总行数</span><span>' + d.total_rows + ' 行</span></div>' +
                 '<div class="flex-between"><span class="text-muted">库大小</span><span>' + escHtml(d.size_human) + '</span></div>' +
-                '<div class="flex-between"><span class="text-muted">配置库</span><span class="fs-12">' + cfg + '</span></div>';
+                '<div class="flex-between"><span class="text-muted">配置库</span><span class="fs-12">' + cfg + '</span></div>' +
+                (d.status === 'error' && d.error ? '<div class="fs-12 text-danger mt-4">✗ ' + escHtml(d.error) + '</div>' : '');
             var tl = document.getElementById('dbTableList');
             tl.innerHTML = (d.tables || []).map(function (t) {
                 return '<div class="flex-between" style="padding:5px 8px;border-radius:6px;cursor:pointer" onmouseover="this.style.background=\'var(--bg-soft)\'" onmouseout="this.style.background=\'\'" onclick="openDbTable(\'' + escHtml(t.name) + '\')">' +
@@ -734,13 +738,16 @@ function loadCacheStatus() {
         loading: false,
         onSuccess: function (json) {
             var d = json.data || {};
-            // 缓存驱动切换下拉选中当前实际驱动
+            // 缓存驱动切换下拉选中当前配置驱动（优先期望驱动）
             var csel = document.getElementById('cacheDriverSel');
-            if (csel && d.driver) {
-                csel.value = d.driver;
+            if (csel && (d.desired || d.driver)) {
+                csel.value = d.desired || d.driver;
                 toggleCacheRedisOpts();
             }
+            var ok = d.status === 'ok';
+            var statusBadge = '<span class="badge ' + (ok ? 'badge-success' : 'badge-danger') + '" style="font-size:11.5px">' + (ok ? '🟢 ' : '🔴 ') + escHtml(d.status_text || (ok ? '正常' : '不可用')) + '</span>';
             box.innerHTML =
+                '<div class="flex-between"><span class="text-muted">缓存状态</span><span>' + statusBadge + '</span></div>' +
                 '<div class="flex-between"><span class="text-muted">缓存驱动</span><span class="badge badge-primary" style="font-size:11.5px">' + escHtml(d.driver_label) + '</span></div>' +
                 '<div class="flex-between"><span class="text-muted">键数量</span><span>' + (d.keys || 0) + '</span></div>' +
                 (d.memory ? '<div class="flex-between"><span class="text-muted">占用内存</span><span>' + escHtml(d.memory) + '</span></div>' : '') +
@@ -778,8 +785,8 @@ function settingsDriverMeta(kind, key) {
     var dr = SET_DRIVERS || { db: {}, cache: {} };
     return (dr[kind] && dr[kind][key]) ? dr[kind][key] : null;
 }
-function settingsParamInput(kind, key, p) {
-    var id = (kind === 'db' ? 'migp_' : 'csp_') + key;
+function settingsParamInput(prefix, key, p) {
+    var id = prefix + key;
     var isPass = /pass|auth/i.test(key);
     var val = p.default || '';
     return '<div class="form-group"><label class="form-label">' + escHtml(p.label || key) + '</label>' +
@@ -787,26 +794,76 @@ function settingsParamInput(kind, key, p) {
         (p.placeholder ? ' placeholder="' + escHtml(p.placeholder) + '"' : '') +
         (isPass ? ' type="password"' : ' type="text"') + '></div>';
 }
+/* 将输入框包裹为「右端内嵌测试按钮」容器（与输入框融为一体） */
+function settingsAffixInput(inputHtml, btnId) {
+    return inputHtml.replace(/<input([^>]*)>/, function (m, attrs) {
+        return '<span class="input-affix"><input' + attrs + '>' + Clinic.connTest.affixBtn(btnId) + '</span>';
+    });
+}
+/* 各数据库面板的输入框 ID 前缀（避免迁移/切换/备份三面板 ID 冲突串值） */
+function settingsIdPrefix(containerId) {
+    return containerId === 'migParamsBox' ? 'migp_'
+        : containerId === 'swParamsBox' ? 'swp_'
+        : containerId === 'bkParamsBox' ? 'bkp_' : 'csp_';
+}
+function settingsTestBtnId(containerId) {
+    return containerId === 'migParamsBox' ? 'migpTest'
+        : containerId === 'swParamsBox' ? 'swpTest'
+        : containerId === 'bkParamsBox' ? 'bkpTest' : 'cspTest';
+}
 function settingsRenderParams(kind, driverKey, containerId) {
     var box = document.getElementById(containerId);
     var meta = settingsDriverMeta(kind, driverKey);
-    if (!box) return;
+    if (!box) { return; }
+    var prefix = settingsIdPrefix(containerId);
     if (!meta || !meta.params || !Object.keys(meta.params).length) { box.innerHTML = ''; return; }
     var keys = Object.keys(meta.params);
+    var lastKey = keys[keys.length - 1];
+    var isTestable = (kind === 'db') || (driverKey === 'redis' || driverKey === 'memcached');
     var rows = [];
     for (var i = 0; i < keys.length; i += 2) {
-        var c1 = settingsParamInput(kind, keys[i], meta.params[keys[i]]);
-        var c2 = (i + 1 < keys.length) ? settingsParamInput(kind, keys[i + 1], meta.params[keys[i + 1]]) : '';
+        var c1 = settingsParamInput(prefix, keys[i], meta.params[keys[i]]);
+        if (isTestable && keys[i] === lastKey) c1 = settingsAffixInput(c1, settingsTestBtnId(containerId));
+        var c2 = '';
+        if (i + 1 < keys.length) {
+            c2 = settingsParamInput(prefix, keys[i + 1], meta.params[keys[i + 1]]);
+            if (isTestable && keys[i + 1] === lastKey) c2 = settingsAffixInput(c2, settingsTestBtnId(containerId));
+        }
         rows.push('<div class="form-row">' + c1 + c2 + '</div>');
     }
-    box.innerHTML = rows.join('');
+    box.innerHTML = rows.join('') +
+        (isTestable ? '<div class="fs-13" id="' + settingsTestBtnId(containerId) + 'Msg" style="min-height:18px"></div>' : '');
+    if (isTestable) {
+        var btn = document.getElementById(settingsTestBtnId(containerId));
+        if (btn) btn.addEventListener('click', function () { settingsDoConnTest(kind, driverKey, containerId); });
+    }
 }
-function settingsCollectParams(kind, driverKey) {
+/* 连接测试：数据库走 db_test，缓存走 cache_test（后端统一 ConnectionTester） */
+function settingsDoConnTest(kind, driverKey, containerId) {
+    var prefix = settingsIdPrefix(containerId);
+    var p = settingsCollectParams(kind, driverKey, prefix);
+    var data = { driver: driverKey };
+    if (kind === 'db') {
+        data.action = 'db_test';
+        data.path = p.path || ''; data.host = p.host || ''; data.port = p.port || '';
+        data.dbname = p.dbname || ''; data.user = p.user || ''; data.pass = p.pass || '';
+    } else {
+        data.action = 'cache_test';
+        data.host = p.host || ''; data.port = p.port || ''; data.auth = p.auth || '';
+        data.prefix = p.prefix || ''; data.timeout = p.timeout || ''; data.servers = p.servers || '';
+    }
+    Clinic.connTest.run({
+        url: '/api/admin', data: data,
+        btnId: settingsTestBtnId(containerId),
+        msgId: settingsTestBtnId(containerId) + 'Msg',
+    });
+}
+function settingsCollectParams(kind, driverKey, prefix) {
     var meta = settingsDriverMeta(kind, driverKey);
     var out = {};
     if (meta && meta.params) {
         Object.keys(meta.params).forEach(function (k) {
-            var el = document.getElementById((kind === 'db' ? 'migp_' : 'csp_') + k);
+            var el = document.getElementById(prefix + k);
             out[k] = el ? el.value : (meta.params[k].default || '');
         });
     }
@@ -875,7 +932,7 @@ function startMigrate() {
     var p = v === 'sqlite'
         ? '目标 SQLite 文件将写入全部业务数据，迁移完成后主库切换到 SQLite'
         : '目标 ' + (meta ? meta.label : v) + ' 数据库将覆盖其中与业务表同名的表，迁移完成后主库切换';
-    var mp = settingsCollectParams('db', v);
+    var mp = settingsCollectParams('db', v, 'migp_');
     Clinic.modal.confirm('⚠️ 即将执行数据库迁移：\n' + p + '。\n迁移期间系统进入只读维护模式，请勿刷新页面。确定继续？', function () {
         var btn = event.target;
         msg.innerHTML = '<div class="flex gap-8" style="align-items:center"><div class="spinner" style="border-top-color:var(--primary);width:20px;height:20px;margin:0"></div>正在迁移，请勿关闭页面…</div>';
@@ -907,7 +964,7 @@ function toggleSwOpts() {
 function switchMainDirect() {
     var v = document.getElementById('swDriver').value;
     var meta = settingsDriverMeta('db', v);
-    var mp = settingsCollectParams('db', v);
+    var mp = settingsCollectParams('db', v, 'swp_');
     var p = '将直接切换主数据库到：' + (meta ? meta.label : v) + '。\n\n切换不迁移数据，目标库必须已存在完整业务数据（users 表非空）。\n切换将强制清除全部用户会话，所有用户需重新登录。\n\n确定继续？';
     Clinic.modal.confirm(p, function () {
         Clinic.ajax('/api/admin', {
@@ -952,7 +1009,7 @@ function refreshDualStatus() {
 function saveBackupCfg() {
     var msg = document.getElementById('bkMsg');
     var k = document.getElementById('bkDriver').value;
-    var bp = settingsCollectParams('db', k);
+    var bp = settingsCollectParams('db', k, 'bkp_');
     msg.textContent = '保存中…';
     // 共用驱动配置 + 备份配置
     var pay = {
@@ -1067,7 +1124,7 @@ function toggleCacheRedisOpts() {
 function saveCacheDriver() {
     var msg = document.getElementById('cacheDriverMsg');
     var key = document.getElementById('cacheDriverSel').value;
-    var cp = settingsCollectParams('cache', key);
+    var cp = settingsCollectParams('cache', key, 'csp_');
     msg.textContent = '保存中…';
     Clinic.ajax('/api/admin', {
         action: 'cache_driver_save',

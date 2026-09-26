@@ -168,6 +168,47 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
 .form-row { display: flex; gap: 12px; }
 .form-row > * { flex: 1; }
 
+/* ==================== 连接测试内嵌按钮（与输入框融为一体） ====================
+   用法：<span class="input-affix"><input class="input"> <button class="input-affix-btn">测试</button></span>
+   按钮贴合输入框右端内缘，不占额外布局空间、不显突兀；测试中显示转圈。 */
+.input-affix { position: relative; display: block; }
+.input-affix > .input { padding-right: 62px; width: 100%; box-sizing: border-box; }
+.input-affix-btn {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    height: 26px;
+    padding: 0 10px;
+    border: none;
+    border-radius: calc(var(--radius-sm, 8px) - 2px);
+    background: var(--primary-soft, #e0edff);
+    color: var(--primary, #2563eb);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+    white-space: nowrap;
+}
+.input-affix-btn:hover { background: var(--primary, #2563eb); color: #fff; }
+.input-affix-btn:disabled { cursor: default; opacity: .7; }
+.input-affix-btn.testing::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 4px;
+    vertical-align: -1px;
+    border: 2px solid rgba(37, 99, 235, .35);
+    border-top-color: var(--primary, #2563eb);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+}
+.input-affix-btn.testing { font-size: 0; }
+.input-affix-btn.testing::before { margin-right: 0; }
+@media (max-width: 520px) { .input-affix > .input { padding-right: 54px; } }
+
 /* 日期/时间选择器在 Chrome/Safari 的兼容处理 */
 .input[type="date"], .input[type="time"], .input[type="datetime-local"] {
     -webkit-appearance: none;

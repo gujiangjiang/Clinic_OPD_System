@@ -87,8 +87,8 @@ Clinic.ajax = function (url, data, opts) {
         .then(function (json) {
             if (opts.loading) Clinic.loading.hide();
             if (!json.ok) {
-                // 统一失败处理
-                Clinic.toast.error(json.msg || '操作失败');
+                // 统一失败处理（silent/noToast 时仅行内反馈，不弹全局 toast）
+                if (!opts.silent && !opts.noToast) Clinic.toast.error(json.msg || '操作失败');
                 if (opts.onError) opts.onError(json);
                 return json;
             }

@@ -234,7 +234,12 @@ function collectParams(kind, driverKey) {
     }
     return out;
 }
-/* 数据库参数表单：SQLite 仅需「数据库名称」；远程库在密码栏右侧内嵌测试连接按钮 */
+/* 数据库参数表单：SQLite 仅需「数据库名称」；远程库在密码栏内嵌测试连接按钮 */
+function affixInputHtml(html, btnId) {
+    return html.replace(/<input([^>]*)>/, function (m, attrs) {
+        return '<span class="input-affix"><input' + attrs + '>' + Clinic.connTest.affixBtn(btnId) + '</span>';
+    });
+}
 function renderDbParams() {
     var box = document.getElementById('dbParamsBox');
     var d = dbDriverKey();
@@ -250,38 +255,40 @@ function renderDbParams() {
     }
     if (!meta || !meta.params || !Object.keys(meta.params).length) { box.innerHTML = extWarn; return; }
     var keys = Object.keys(meta.params);
+    var lastKey = keys[keys.length - 1];
     var rows = [];
     for (var i = 0; i < keys.length; i += 2) {
         var cell1 = paramInputHtml('db', keys[i], meta.params[keys[i]]);
-        var cell2 = '';
-        if (i + 1 < keys.length) {
-            cell2 = paramInputHtml('db', keys[i + 1], meta.params[keys[i + 1]]);
-        } else if (/pass/i.test(keys[i])) {
-            // 密码栏右侧内嵌测试连接按钮
-            cell2 = '<div class="form-group"><label class="form-label">&nbsp;</label>' +
-                '<button type="button" class="btn btn-outline" id="dbTestBtn" style="width:100%" onclick="testDb()">测试连接</button></div>';
-        }
+        // 最后一个（密码）字段内嵌测试连接按钮
+        if (keys[i] === lastKey || /pass/i.test(keys[i])) cell1 = affixInputHtml(cell1, 'dbTestBtn');
+        var cell2 = (i + 1 < keys.length) ? paramInputHtml('db', keys[i + 1], meta.params[keys[i + 1]]) : '';
         rows.push('<div class="form-row">' + cell1 + cell2 + '</div>');
     }
     box.innerHTML = rows.join('') +
         '<div class="fs-13" id="dbTestMsg" style="min-height:20px"></div>' + extWarn;
+    var tb = document.getElementById('dbTestBtn');
+    if (tb) tb.addEventListener('click', testDb);
 }
-/* 缓存参数表单 */
+/* 缓存参数表单（Redis/Memcached：最后一个字段内嵌测试连接按钮） */
 function renderCacheParams() {
     var box = document.getElementById('cacheParamsBox');
     var key = document.getElementById('cacheDriver').value;
     var meta = driverMeta('cache', key);
     if (!meta || !meta.params || !Object.keys(meta.params).length) { box.innerHTML = ''; return; }
     var keys = Object.keys(meta.params);
+    var lastKey = keys[keys.length - 1];
     var rows = [];
     for (var i = 0; i < keys.length; i += 2) {
         var cell1 = paramInputHtml('cache', keys[i], meta.params[keys[i]]);
+        if (keys[i] === lastKey) cell1 = affixInputHtml(cell1, 'cacheTestBtn');
         var cell2 = (i + 1 < keys.length) ? paramInputHtml('cache', keys[i + 1], meta.params[keys[i + 1]]) : '';
+        if (i + 1 < keys.length && keys[i + 1] === lastKey) cell2 = affixInputHtml(cell2, 'cacheTestBtn');
         rows.push('<div class="form-row">' + cell1 + cell2 + '</div>');
     }
     box.innerHTML = rows.join('') +
-        '<div class="flex gap-8" style="align-items:center"><button type="button" class="btn btn-outline btn-sm" id="cacheTestBtn" onclick="testRedis()">测试连接</button>' +
-        '<span class="fs-13 text-muted" id="redisTestMsg"></span></div>';
+        '<div class="fs-13" id="redisTestMsg" style="min-height:20px"></div>';
+    var cb = document.getElementById('cacheTestBtn');
+    if (cb) cb.addEventListener('click', testCache);
 }
 function renderDrivers(drivers) {
     WIZ.preflight = WIZ.preflight || {};
@@ -359,33 +366,20 @@ function dbQueryParams(action, extra) {
 }
 function testDb() {
     if (!validateDbFields(false)) return;
-    var btn = document.getElementById('dbTestBtn');
-    var msg = document.getElementById('dbTestMsg');
-    msg.textContent = '测试中…';
-    if (btn) btn.disabled = true;
-    function done() { if (btn) btn.disabled = false; }
-    Clinic.get('/api/install', dbQueryParams('test_db'), {
-        loading: false,
-        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; done(); },
-        onError: function (x, json) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((json && json.msg) || '连接失败') + '</span>'; done(); },
-    });
+    Clinic.connTest.run({ url: '/api/install', data: dbQueryParams('test_db'), btnId: 'dbTestBtn', msgId: 'dbTestMsg' });
 }
-function testRedis() {
-    var btn = document.getElementById('cacheTestBtn');
-    var msg = document.getElementById('redisTestMsg');
-    msg.textContent = '测试中…';
-    if (btn) btn.disabled = true;
-    function done() { if (btn) btn.disabled = false; }
-    var p = collectParams('cache', 'redis');
-    Clinic.get('/api/install', {
-        action: 'test_redis',
-        host: p.host || '',
-        port: p.port || '',
-        auth: p.auth || '',
-    }, {
-        loading: false,
-        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; done(); },
-        onError: function (x, json) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((json && json.msg) || '连接失败') + '</span>'; done(); },
+function testCache() {
+    var key = document.getElementById('cacheDriver').value;
+    if (key !== 'redis' && key !== 'memcached') { return; }
+    var p = collectParams('cache', key);
+    Clinic.connTest.run({
+        url: '/api/install',
+        data: {
+            action: 'test_cache', driver: key,
+            host: p.host || '', port: p.port || '', auth: p.auth || '',
+            prefix: p.prefix || '', timeout: p.timeout || '', servers: p.servers || '',
+        },
+        btnId: 'cacheTestBtn', msgId: 'redisTestMsg',
     });
 }
 
