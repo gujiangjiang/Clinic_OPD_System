@@ -175,6 +175,23 @@ Clinic.emrEditor = (function () {
     /** 绑定字段交互事件（双击全选/退格保护/回车跳格/纯文本粘贴/撤销历史） */
     function bindFieldEvents(el) {
         el.__undoPrev = '';   // 撤销历史基线：新建字段从空值开始，set()/input 持续同步
+        // 空字段点击：浏览器对无内容的行内 contenteditable span 的默认 mousedown
+        // 处理会把焦点保留在上一字段（甚至把后续输入带过去）。空字段时
+        // 拦截默认处理并手动锁定焦点 + 光标到末尾；有内容时放行原生行为
+        //（点击定位光标/拖选均不受影响）。
+        el.addEventListener('mousedown', function (e) {
+            if (el.getAttribute('contenteditable') === 'false') return;
+            if (!String(el.innerText || '').trim()) {
+                e.preventDefault();
+                el.focus();
+                var range = document.createRange();
+                range.selectNodeContents(el);
+                range.collapse(false);
+                var sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+        });
         // 双击 → 全选该字段文字（单击仅正常定位光标，符合常规输入习惯）
         el.addEventListener('dblclick', function () {
             var range = document.createRange();
