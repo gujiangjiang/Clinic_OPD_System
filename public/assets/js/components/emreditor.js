@@ -113,8 +113,9 @@ Clinic.emrEditor = (function () {
      *   超过可用行宽时在超出处自动断行到下一行继续书写（自动分节），
      *   最大宽度不超过容器、绝不横向溢出（现病史具体内容等长文本字段）
      * @param {boolean} multiline 大段落叙述字段（现病史详情/体检/处置/嘱托等）：
-     *   标记 data-multiline="true"，Enter 允许换行；单行字段 Enter 拦截换行并自动跳格下一字段 */
-    function textField(path, ph, width, auto, multiline) {
+     *   标记 data-multiline="true"，Enter 允许换行；单行字段 Enter 拦截换行并自动跳格下一字段
+     * @param {boolean} digit 纯数字字段（主诉/现病史时间等）：实时拦截非数字输入并提示 */
+    function textField(path, ph, width, auto, multiline, digit) {
         var el = document.createElement('span');
         el.className = 'ef-field emr-inline-fill' + (auto ? ' ef-field-nowrap' : '');
         el.setAttribute('contenteditable', 'true');
@@ -125,6 +126,7 @@ Clinic.emrEditor = (function () {
         el.setAttribute('data-field', path);
         el.setAttribute('data-k', path);
         if (multiline) el.setAttribute('data-multiline', 'true');
+        if (digit) el.setAttribute('data-digit', 'true');
         if (width) el.style.minWidth = width + 'px';
         bindFieldEvents(el);
         FIELDS.push({ path: path, type: 'text', el: el });
@@ -170,6 +172,16 @@ Clinic.emrEditor = (function () {
         s.className = 'ef-label';
         s.textContent = t;
         return s;
+    }
+
+    /** 纯数字字段提示（800ms 节流，避免连按字符刷屏） */
+    var lastDigitToast = 0;
+    function toastDigitOnly() {
+        if (!window.Clinic || !Clinic.toast) return;
+        var now = Date.now();
+        if (now - lastDigitToast < 800) return;
+        lastDigitToast = now;
+        Clinic.toast.warning('该字段仅支持数字');
     }
 
     /** 绑定字段交互事件（双击全选/退格保护/回车跳格/纯文本粘贴/撤销历史） */
@@ -221,6 +233,13 @@ Clinic.emrEditor = (function () {
                 e.preventDefault();
                 return;
             }
+            // 纯数字字段：实时拦截非数字字符并提示（功能键/组合键放行）
+            if (el.getAttribute('data-digit') === 'true' && !e.ctrlKey && !e.metaKey && !e.altKey &&
+                e.key.length === 1 && !/^[0-9]$/.test(e.key)) {
+                e.preventDefault();
+                toastDigitOnly();
+                return;
+            }
             // 回车分流：单行字段拦截换行并自动跳格下一字段；
             // 大段落叙述字段（data-multiline）允许 Enter 正常换行
             if (e.key === 'Enter') {
@@ -231,10 +250,15 @@ Clinic.emrEditor = (function () {
             }
         });
         // 粘贴转纯文本：单行字段压平换行为连续文字、去除空行占位符；
-        // 多行叙述字段（仅嘱托）保留段落换行
+        // 多行叙述字段（仅嘱托）保留段落换行；纯数字字段过滤非数字并提示
         el.addEventListener('paste', function (e) {
             e.preventDefault();
             var t = (e.clipboardData || window.clipboardData).getData('text/plain') || '';
+            if (el.getAttribute('data-digit') === 'true') {
+                var clean = String(t).replace(/\D/g, '');
+                if (clean !== String(t)) toastDigitOnly();
+                t = clean;
+            }
             document.execCommand('insertText', false, normalizePastedText(t, el.getAttribute('data-multiline') === 'true'));
         });
         // 聚焦：记录当前值作为撤销历史快照基线（聚焦期间持续输入时逐次压栈）
@@ -252,6 +276,22 @@ Clinic.emrEditor = (function () {
             if (el.getAttribute('data-multiline') !== 'true' && /\n/.test(cur)) {
                 el.innerText = cur.replace(/\n+/g, '');
                 cur = textNow(el);
+            }
+            // 纯数字字段兜底清洗：IME 输入法等渠道混入的非数字字符即时剔除，
+            // 清洗后光标恢复到末尾（innerText 重写会重置光标到开头）
+            if (el.getAttribute('data-digit') === 'true') {
+                var dclean = cur.replace(/\D/g, '');
+                if (dclean !== cur) {
+                    el.innerText = dclean;
+                    cur = dclean;
+                    var dr = document.createRange();
+                    dr.selectNodeContents(el);
+                    dr.collapse(false);
+                    var dsel = window.getSelection();
+                    dsel.removeAllRanges();
+                    dsel.addRange(dr);
+                    toastDigitOnly();
+                }
             }
             var prev = el.__undoPrev;
             if (prev === undefined) prev = cur;   // 首次事件无基线：不压栈
@@ -418,11 +458,11 @@ Clinic.emrEditor = (function () {
     function buildCC() {
         var d = secWrap('主诉', true);
         d.appendChild(textField('chief_complaint.symptom', '主要症状', 90));
-        d.appendChild(textField('chief_complaint.duration', '时间', 36));
+        d.appendChild(textField('chief_complaint.duration', '时间', 36, false, false, true));
         // 单位下拉：搜索 + 清空 X，占位「单位」不进候选列表
         d.appendChild(selectField('chief_complaint.unit', '单位', UNITS, { csdSearch: 1, csdClear: 1 }));
         d.appendChild(textField('chief_complaint.second_symptom', '次要症状', 90));
-        d.appendChild(textField('chief_complaint.second_duration', '时间', 36));
+        d.appendChild(textField('chief_complaint.second_duration', '时间', 36, false, false, true));
         d.appendChild(selectField('chief_complaint.second_unit', '单位', UNITS, { csdSearch: 1, csdClear: 1 }));
         return d;
     }
@@ -431,7 +471,7 @@ Clinic.emrEditor = (function () {
     function buildPI() {
         var d = secWrap('现病史', true);
         d.appendChild(selectField('history_present.informant', '供史者', INFORMANTS, { csdSearch: 1, csdClear: 1 }));
-        d.appendChild(textField('history_present.duration', '时间', 36));
+        d.appendChild(textField('history_present.duration', '时间', 36, false, false, true));
         d.appendChild(selectField('history_present.unit', '单位', UNITS, { csdSearch: 1, csdClear: 1 }));
         // 现病史具体内容：自适应多行字段（宽度随内容增长，超行宽时在超出处自动
         // 断行到下一行继续写，整体保持一个字段、绝不横向溢出）
