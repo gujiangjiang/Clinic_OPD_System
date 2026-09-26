@@ -162,8 +162,16 @@ class Router {
             }
             // assertActive 可能已同步刷新会话快照中的角色/科室，重新读取以最新为准
             $u = Auth::user();
-            // ===== ③ 角色门：无关角色直接访问他人页面 → 403 =====
-            if (!in_array('user', $route[1], true) && !in_array($u['role'], $route[1], true) && $u['role'] !== 'admin') {
+            // ===== ③ 角色门：角色不匹配（含管理员访问其他角色页面）→
+            // 自动跳转回本角色工作台，严格隔离，杜绝通过 URL 越权访问他人页面/数据。
+            // 'user' 表示任意登录用户均可访问的公共页（消息/个人资料等）不拦截。
+            if (!in_array('user', $route[1], true) && !in_array($u['role'], $route[1], true)) {
+                $home = Auth::home();
+                // 兜底防重定向死循环：首页异常时回退 403
+                if ($home !== $uri && $home !== '/login') {
+                    header('Location: ' . $home);
+                    exit;
+                }
                 self::forbidden();
                 return;
             }
