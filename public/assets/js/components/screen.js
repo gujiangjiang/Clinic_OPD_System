@@ -15,6 +15,9 @@
     var voiceEnabled = true;
     var tipsTimer = null;
     var tipsIndex = 0;
+    var LAST_DATA = null;      // 最近一次渲染数据（窗口缩放/旋转后重排重裁）
+    var RENDER_SEQ = 0;        // 渲染序号：异步重裁时丢弃过期回调
+    var resizeTimer = null;
 
     /* ============ 屏型检测（三套布局自动切换） ============
        · 纵向（宽<高）：screen-portrait
@@ -34,7 +37,15 @@
         }
     }
     detectOrientation();
-    window.addEventListener('resize', detectOrientation);
+    /* 窗口缩放/屏幕旋转：屏型变化后按最新尺寸重排并重新裁剪等待列表
+       （防抖合并连续 resize；LAST_DATA 为空（未收到数据）时忽略） */
+    window.addEventListener('resize', function () {
+        detectOrientation();
+        if (resizeTimer) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function () {
+            if (LAST_DATA) render(LAST_DATA);
+        }, 120);
+    });
 
     /* ============ 时钟 ============ */
     function tickClock() {
@@ -287,7 +298,14 @@
                 '</div>';
         }
         // 动态裁剪等待就诊数量（放不下则减少，超长屏可多显示；过号恒居末尾）
+        var seq = ++RENDER_SEQ;
         fitWaitList(main, normalArr, missedArr, cols);
+        // 首帧布局/字体度量可能尚未稳定，下一帧以最终尺寸再裁一次（若期间已重渲染则丢弃）
+        var raf = window.requestAnimationFrame || function (cb) { return setTimeout(cb, 16); };
+        raf(function () {
+            if (seq !== RENDER_SEQ) return;
+            fitWaitList(main, normalArr, missedArr, cols);
+        });
     }
 
     /* 等待就诊单行 HTML */
@@ -340,12 +358,14 @@
             listEl.style.gridTemplateRows = 'repeat(' + maxRows + ', minmax(0, 1fr))';
             listEl.style.setProperty('--wait-rows', maxRows);   // 分隔线自第二列起
         } else {
-            var total = listEl.scrollHeight;
+            // 单列：以单行实际高度（内容高度，不受容器拉伸影响）整除可用高度，
+            // 避免用 scrollHeight/count 均值受末行/边框影响而少显示一行
+            var itemH = items[0].offsetHeight || (listEl.scrollHeight / count) || 1;
+            var total = itemH * count;
             if (total <= avail + 2) {
                 fitN = count;
             } else {
-                var itemH = total / count;
-                fitN = Math.max(1, Math.floor((avail - 4) / itemH));   // 预留余量避免末行裁切
+                fitN = Math.max(1, Math.floor((avail - 2) / itemH));   // 预留 2px 防末行裁切
             }
         }
         var showMissed = missedArr.slice(0, fitN);
@@ -389,7 +409,11 @@
         var ageText = longest(function (w) { return w.age_fmt || ''; });
         var probe = document.createElement('div');
         probe.className = 'screen-wait-item';
-        probe.style.cssText = 'position:absolute;visibility:hidden;top:0;left:0;pointer-events:none';
+        // 关键：内联 grid-template-columns 覆盖继承自 listEl 的 --wait-*-w 固定列宽，
+        // 强制按各列内容自然宽度测量；否则探针会沿用上一轮列宽并每轮 +4px 缓冲，
+        // 导致列宽逐轮膨胀、右侧年龄列被挤出面板。
+        probe.style.cssText = 'position:absolute;visibility:hidden;top:0;left:0;pointer-events:none;' +
+            'grid-template-columns:max-content max-content max-content max-content max-content';
         probe.innerHTML = '<span class="screen-wait-miss">过</span>' +
             '<span class="screen-wait-seq">' + seqText + '</span>' +
             '<span class="screen-wait-name">' + nameText + '</span>' +
@@ -493,6 +517,7 @@
     function render(d) {
         var main = document.getElementById('screenMain');
         if (!main) return;
+        LAST_DATA = d;   // 缓存最近数据：窗口缩放/旋转后据此重排重裁
         // 更新科室+诊室名称标题栏
         var deptName = d.room ? d.room.dept : '';
         var roomName = d.room ? d.room.name : '';
