@@ -270,8 +270,20 @@
     border-bottom-color: var(--border);
     background: transparent;
 }
+/* 模态框只读预览：禁用下拉的浏览器默认灰字（-webkit-text-fill-color）会覆盖
+   color，导致「患者自诉」等选择项偏淡、与文本输入框的主色不一致；
+   显式指定文字填充色，统一为与文本字段一致的主色（标准色，不暗淡） */
 .modal-mask .emr-doc .doc-body .ef-select:disabled {
     color: var(--primary);
+    -webkit-text-fill-color: var(--primary);
+    opacity: 1;
+}
+/* 模态框只读预览：空文本字段恢复占位提示（与编辑态一致），
+   从而产生行盒使灰色虚线下划线正常显示（体格检查等空字段不再丢下划线） */
+.modal-mask .emr-inline-fill[contenteditable="false"]:empty::before {
+    content: attr(data-placeholder) !important;
+    color: var(--text-muted) !important;
+    font-weight: 400 !important;
 }
 .emr-doc .doc-body .ef-select-wrap { display: inline-block; }
 .emr-doc .doc-body .ef-select {
