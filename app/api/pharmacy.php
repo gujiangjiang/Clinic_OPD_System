@@ -244,7 +244,7 @@ switch ($action) {
         $rows = DrugRepository::all();
         $html = '<div class="fs-13 text-muted mb-8">共 ' . count($rows) . ' 种药品</div>';
         if (!$rows) {
-            $html .= '<div class="empty"><div class="empty-ico">📦</div>暂无药品，请管理员先在【药品信息】中添加</div>';
+            $html .= '<div class="empty"><div class="empty-ico">📦</div>暂无药品，请管理员先在【药品目录】中添加</div>';
         } else {
             $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
                 '<th>药品</th><th>分类</th><th>规格</th><th>包装</th><th>库存</th><th>单价</th><th>状态</th><th>操作</th></tr></thead><tbody>';

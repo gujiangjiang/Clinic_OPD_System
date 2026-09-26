@@ -33,7 +33,7 @@ Router::title('首页');
             <a class="btn btn-outline btn-sm" href="/admin/users">👥 用户管理</a>
             <a class="btn btn-outline btn-sm" href="/admin/labitems">🧪 检验管理</a>
             <a class="btn btn-outline btn-sm" href="/admin/examitems">🩻 检查管理</a>
-            <a class="btn btn-outline btn-sm" href="/admin/drugs">💊 药品信息</a>
+            <a class="btn btn-outline btn-sm" href="/admin/drugs">💊 药品目录</a>
             <a class="btn btn-outline btn-sm" href="/admin/review">✅ 审核中心</a>
             <a class="btn btn-outline btn-sm" href="/admin/printcenter">🖨️ 打印中心</a>
             <a class="btn btn-outline btn-sm" href="/cashier/register">🎫 挂号收费（体验）</a>

@@ -7,14 +7,14 @@
  * 途径选中时自动按【给药途径设置】勾选【需护士站处理】。
  * 新增药品需在审核中心通过后方可开方。
  */
-Router::title('药品信息');
+Router::title('药品目录');
 $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
 $__isPharmacy = Auth::user() && Auth::user()['role'] === 'pharmacy';
 $__canManage = $__isAdmin || $__isPharmacy;
 ?>
 <div class="list-layout">
 <div class="page-head">
-    <div><div class="page-title">💊 药品信息</div><div class="page-desc">药品档案管理<?php echo $__canManage ? '' : '（新增药品需审核通过后可用）'; ?></div></div>
+    <div><div class="page-title">💊 药品目录</div><div class="page-desc">药品档案管理<?php echo $__canManage ? '' : '（新增药品需审核通过后可用）'; ?></div></div>
     <div class="flex gap-8">
         <span id="drugImportBtns" class="flex gap-8"></span>
         <button class="btn btn-primary btn-sm" onclick="openDrugForm(0)">＋ 新增药品</button>

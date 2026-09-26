@@ -30,31 +30,31 @@ class Layout {
             $items['首页'] = array(
                 array('首页', '🏠', '/admin/dashboard'),
             );
-            $items['医院管理'] = array(
+            $items['业务管理'] = array(
+                array('审核中心', '✅', '/admin/review'),
+                array('叫号管理', '🖥️', '/admin/callmanage'),
                 array('科室管理', '🏥', '/admin/departments'),
                 array('用户管理', '👥', '/admin/users'),
             );
-            $items['基础数据'] = array(
+            $items['基础字典'] = array(
                 array('检验管理', '🧪', '/admin/labitems'),
                 array('检查管理', '🩻', '/admin/examitems'),
-                array('药品信息', '💊', '/admin/drugs'),
+                array('药品目录', '💊', '/admin/drugs'),
                 array('药品设置', '📦', '/admin/drugsettings'),
                 array('处置项目', '🩹', '/admin/disposal'),
-                array('诊断管理', '📖', '/admin/diagnosis'),
+                array('诊断字典', '📖', '/admin/diagnosis'),
+            );
+            $items['模板与套餐'] = array(
                 array('模板管理', '📋', '/admin/templates'),
                 array('套餐管理', '🥡', '/admin/packages'),
             );
-            $items['运营管理'] = array(
-                array('审核中心', '✅', '/admin/review'),
+            $items['统计与查询'] = array(
                 array('运营分析', '📊', '/admin/analytics'),
                 array('查询中心', '🔍', '/admin/querycenter'),
                 array('打印中心', '🖨️', '/admin/printcenter'),
-                array('叫号管理', '🖥️', '/admin/callmanage'),
             );
-            $items['接口管理'] = array(
+            $items['系统设置'] = array(
                 array('接口管理', '🔌', '/admin/integration'),
-            );
-            $items['系统'] = array(
                 array('系统设置', '⚙️', '/admin/settings'),
             );
         } elseif ($role === 'cashier') {
@@ -103,7 +103,7 @@ class Layout {
                 array('药房工作台', '💊', '/pharmacy/dashboard'),
             );
             $items['管理'] = array(
-                array('药品信息', '💊', '/admin/drugs'),
+                array('药品目录', '💊', '/admin/drugs'),
                 array('药品设置', '📦', '/admin/drugsettings'),
             );
         }

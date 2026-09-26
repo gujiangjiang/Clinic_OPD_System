@@ -17,7 +17,7 @@ render_role_home(array(
     'chart' => array('title' => '近 7 天发药量趋势', 'name' => '发药量'),
     'links' => array(
         array('/pharmacy/dashboard', '💊 药房工作台'),
-        array('/admin/drugs', '📋 药品信息'),
+        array('/admin/drugs', '📋 药品目录'),
         array('/admin/drugsettings', '📦 药品设置'),
         array('/messages', '💬 站内消息'),
     ),

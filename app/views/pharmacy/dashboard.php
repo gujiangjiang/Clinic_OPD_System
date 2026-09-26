@@ -15,7 +15,7 @@ require APP_ROOT . '/app/includes/dept_workbench.php';
 dept_workbench(array(
     'role' => 'pharmacy',
     'title' => '药房工作台',
-    'desc' => '处方审方发药（药品信息请到「药品信息 / 药品设置」维护）',
+    'desc' => '处方审方发药（药品信息请到「药品目录 / 药品设置」维护）',
     'emoji' => '💊',
     'extra_actions' => '<button type="button" class="btn btn-outline btn-sm" id="dwInvBtn" title="库存管理（入库/出库）">📦 库存</button>',
 ));

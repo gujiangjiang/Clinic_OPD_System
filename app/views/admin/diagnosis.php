@@ -8,11 +8,11 @@
  *   右侧详情：选中类目 → 亚目列表（徽章）+ 诊断二级列表（子诊断可展开）
  * 左侧树复用 window.treeToggle 全局函数（app.js），与 depttree 同源交互。
  * ============================================================ */
-Router::title('诊断管理');
+Router::title('诊断字典');
 ?>
 <div class="list-layout">
 <div class="page-head">
-    <div><div class="page-title">📖 诊断管理</div><div class="page-desc">ICD10 标准编码库 · 四级分类树：章→节→类目→亚目→诊断</div></div>
+    <div><div class="page-title">📖 诊断字典</div><div class="page-desc">ICD10 标准编码库 · 四级分类树：章→节→类目→亚目→诊断</div></div>
 </div>
 <div class="card list-filter" style="position:relative">
     <input class="input" id="diagKw" placeholder="🔍 输入诊断码 / 名称 / 拼音首字母（实时检索）" autocomplete="off" oninput="diagSearchDebounced()" onfocus="showSearchDrop()">
