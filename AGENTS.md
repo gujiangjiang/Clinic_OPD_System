@@ -66,6 +66,11 @@
 - **开发铁律**：后续任何测试造数需求，严禁在 `tools/` 根目录随意新建孤立的 `seed_xxx.php` 脚本，
   必须在 `seeder/` 中扩展复用（场景通过 `tools/bin/seed.php` 组合调度）；
   造数一律通过统一 CLI 入口调度。
+- **测试造数不提交铁律**：为测试功能执行的全量/场景 seed（如 `php tools/bin/seed.php --all` 或
+  `--scene=...`）仅写入运行时数据库（`data/db/*.db`，已被 .gitignore 忽略），属于测试环境数据，
+  **严禁**：① 将 seed 执行过程/命令写入 docs/CHANGELOG.md；② 对 seed 产生的改动执行
+  `git add -A && git commit`；③ 以「造数/seed」为标题创建任何 commit。commit 只允许包含真实
+  代码/文档改动。测试造数前后用 `git status --short` 确认工作区无 seed 产生的文件污染。
 
 ## 会话管理（Session 多驱动架构铁律）
 
