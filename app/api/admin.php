@@ -170,8 +170,10 @@ switch ($action) {
 
     /* ---------------- 系统信息：数据库中心 / 缓存管理（仅管理员） ---------------- */
     case 'db_status':
+    case 'db_test':
     case 'db_table_data':
     case 'cache_status':
+    case 'cache_test':
     case 'cache_flush':
     case 'cache_driver_save':
     case 'db_migrate':

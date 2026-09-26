@@ -227,14 +227,24 @@ class Cache {
 
     /** 缓存状态（管理端 cache_status）：驱动 / 键数 / 内存 / 降级说明 */
     public static function stats() {
+        $want = ConfigStore::cacheDriver();
         $d = self::resolve();
         $out = array(
             'driver' => $d,
             'driver_label' => strtoupper($d),
+            'desired' => $want,
             'keys' => 0,
             'memory' => '',
             'notes' => array(),
         );
+        // 状态判定：期望驱动与实际生效驱动不一致（扩展缺失/连接失败自动降级）→ 不可用（已降级）
+        if ($want !== $d) {
+            $out['status'] = 'degraded';
+            $out['status_text'] = '不可用（已降级 ' . strtoupper($d) . '）';
+        } else {
+            $out['status'] = 'ok';
+            $out['status_text'] = '正常';
+        }
         if (self::$driverWhy !== '') $out['notes'][] = self::$driverWhy;
         try {
             if ($d === 'apcu' && function_exists('apcu_cache_info')) {

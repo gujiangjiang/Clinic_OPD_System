@@ -174,29 +174,21 @@ function install_validate_icd10($rel) {
     return '';
 }
 
-/* ==================== 数据库连接测试（仅 MySQL/PostgreSQL） ==================== */
+/* ==================== 数据库连接测试 ====================
+ * 统一走 ConnectionTester（安装向导 / 系统设置共用同一实现） */
 if ($action === 'test_db') {
     $driver = req('driver', 'sqlite');
-    if ($driver === 'sqlite') {
-        json_fail('SQLite 为本地文件数据库，无需测试连接');
-    }
-    if ($driver !== 'mysql' && $driver !== 'pgsql') json_fail('未知的数据库驱动');
-    list($pdo, $err) = install_remote_pdo(
-        $driver,
-        req('host', ''),
-        req('port', $driver === 'pgsql' ? '5432' : '3306'),
-        req('dbname', ''),
-        req('user', ''),
-        req('pass', ''),
-        5
-    );
-    if ($err !== '') json_fail($err);
-    try {
-        $ver = $driver === 'pgsql' ? $pdo->query('SELECT version()')->fetchColumn() : $pdo->query('SELECT VERSION()')->fetchColumn();
-    } catch (Exception $ex) {
-        $ver = '-';
-    }
-    json_ok(array(), '连接成功（' . strtoupper($driver) . ' ' . $ver . '）');
+    if (!ConfigStore::dbDriverValid($driver)) json_fail('未知的数据库驱动');
+    $r = ConnectionTester::db($driver, array(
+        'path'   => req('name', req('path', '')),
+        'host'   => req('host', ''),
+        'port'   => req('port', ''),
+        'dbname' => req('dbname', ''),
+        'user'   => req('user', ''),
+        'pass'   => req('pass', ''),
+    ));
+    if (!$r['ok']) json_fail($r['msg']);
+    json_ok(array(), $r['msg']);
 }
 
 /* ==================== 数据库就绪校验（第 2 步「下一步」触发） ====================
@@ -310,26 +302,21 @@ if ($action === 'load_db_settings') {
     json_ok($out);
 }
 
-/* ==================== Redis 连接测试 ==================== */
-if ($action === 'test_redis') {
-    if (!extension_loaded('redis')) {
-        json_fail('PHP 未安装 redis 扩展，请使用 File/APCu 缓存或在服务器安装扩展');
-    }
-    $host = req('host', '127.0.0.1');
-    $port = (int)req('port', 6379);
-    $auth = req('auth', '');
-    try {
-        $r = new Redis();
-        $r->connect($host, $port, 3.0);
-        if ($auth !== '') {
-            if (!$r->auth($auth)) json_fail('Redis 认证失败');
-        }
-        $pong = $r->ping();
-        $r->close();
-        json_ok(array(), 'Redis 连接成功（' . $pong . '）');
-    } catch (Exception $ex) {
-        json_fail('Redis 连接失败：' . $ex->getMessage());
-    }
+/* ==================== 缓存连接测试（统一走 ConnectionTester） ====================
+ * test_cache：driver=file/apcu/redis/memcached；test_redis 兼容旧调用 */
+if ($action === 'test_cache' || $action === 'test_redis') {
+    $driver = $action === 'test_redis' ? 'redis' : req('driver', 'redis');
+    if (!ConfigStore::cacheDriverValid($driver)) json_fail('未知的缓存驱动');
+    $r = ConnectionTester::cache($driver, array(
+        'host'    => req('host', ''),
+        'port'    => req('port', ''),
+        'auth'    => req('auth', ''),
+        'prefix'  => req('prefix', ''),
+        'timeout' => req('timeout', ''),
+        'servers' => req('servers', ''),
+    ));
+    if (!$r['ok']) json_fail($r['msg']);
+    json_ok(array(), $r['msg']);
 }
 
 /* ==================== 执行安装 ==================== */
@@ -351,6 +338,17 @@ if ($action === 'save') {
     if ($cacheDriver !== 'file' && !empty($drvOpts['cache'][$cacheDriver]['extension']) && !extension_loaded($drvOpts['cache'][$cacheDriver]['extension'])) {
         json_fail('当前 PHP 未安装 ' . strtoupper($drvOpts['cache'][$cacheDriver]['extension']) . ' 扩展，无法使用 ' . $drvOpts['cache'][$cacheDriver]['label'] . ' 缓存');
     }
+    // 安装前强校验缓存驱动可用性（file/apcu/redis/memcached 真实读写探测，统一走 ConnectionTester）
+    $cacheCheckParams = array(
+        'host'    => post('redis_host', ''),
+        'port'    => post('redis_port', ''),
+        'auth'    => post('redis_auth', ''),
+        'prefix'  => post('redis_prefix', ''),
+        'timeout' => post('redis_timeout', ''),
+        'servers' => post('memcached_servers', ''),
+    );
+    $cacheTest = ConnectionTester::cache($cacheDriver, $cacheCheckParams);
+    if (!$cacheTest['ok']) json_fail($cacheTest['msg']);
     $timezone = post('timezone', 'Asia/Shanghai');
     $tzList = DateTimeZone::listIdentifiers();
     if (!in_array($timezone, $tzList, true)) $timezone = 'Asia/Shanghai';
@@ -394,6 +392,9 @@ if ($action === 'save') {
         list($tp, $err) = install_remote_pdo($dbDriver, $dbParams['host'], $dbParams['port'], $dbParams['dbname'], $dbParams['user'], $dbParams['pass'], 8);
         if ($err !== '') json_fail($err);
     }
+    // 安装前强校验数据库可用性（统一走 ConnectionTester，安装向导/系统设置同源）
+    $dbTest = ConnectionTester::db($dbDriver, $dbDriver === 'sqlite' ? array('path' => $sqlitePath) : $dbParams);
+    if (!$dbTest['ok']) json_fail($dbTest['msg']);
 
     // ===== ICD-10 独立字典库名称（存 config.db，不写主库） =====
     list($icd10Path, $icd10Err) = install_sqlite_name_path(post('icd10_name', 'icd10'));

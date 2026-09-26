@@ -19,14 +19,26 @@ function admin_part_sysinfo($action) {
     /* ==================== 数据库连接状态 ==================== */
     if ($action === 'db_status') {
         $driver = DatabaseManager::driver();
-        // 连接延迟测试
+        // 连接延迟测试（失败不抛错：返回「不可用」状态供前端徽章展示）
         $delay = 0;
         try {
             $t0 = microtime(true);
             DatabaseManager::getMain()->query('SELECT 1');
             $delay = (int)round((microtime(true) - $t0) * 1000);
         } catch (Exception $ex) {
-            json_fail('主库连接失败：' . $ex->getMessage());
+            json_ok(array(
+                'status' => 'error', 'status_text' => '不可用', 'error' => $ex->getMessage(),
+                'driver' => $driver, 'driver_label' => strtoupper($driver),
+                'delay_ms' => 0, 'table_count' => 0, 'total_rows' => 0,
+                'size_bytes' => 0, 'size_human' => '—', 'tables' => array(),
+                'config_exists' => ConfigStore::exists(), 'config_available' => ConfigStore::available(),
+                'config_path' => ConfigStore::path(),
+                'drivers' => ConfigStore::driverOptionsPublic(),
+                'active_tasks' => array(),
+                'last_backup_at' => ConfigStore::get('backup.last_at', ''),
+                'last_dual_at' => ConfigStore::get('dual.last_at', ''),
+            ));
+            return;
         }
         $pdo = DatabaseManager::getMain();
         // 表清单 + 行数 + 大小
@@ -65,6 +77,8 @@ function admin_part_sysinfo($action) {
             if (is_file($f)) $sizeBytes = (int)filesize($f);
         }
         json_ok(array(
+            'status' => 'ok',
+            'status_text' => '正常',
             'driver' => $driver,
             'driver_label' => strtoupper($driver),
             'delay_ms' => $delay,
@@ -84,6 +98,40 @@ function admin_part_sysinfo($action) {
             'last_backup_at' => ConfigStore::get('backup.last_at', ''),
             'last_dual_at' => ConfigStore::get('dual.last_at', ''),
         ));
+    }
+
+    /* ==================== 数据库连接测试（统一走 ConnectionTester） ==================== */
+    if ($action === 'db_test') {
+        $driver = post('driver', '');
+        if (!ConfigStore::dbDriverValid($driver)) json_fail('未知的数据库驱动');
+        $params = array(
+            'path'   => post('path', ''),
+            'host'   => post('host', ''),
+            'port'   => post('port', ''),
+            'dbname' => post('dbname', ''),
+            'user'   => post('user', ''),
+            'pass'   => post('pass', ''),
+        );
+        $r = ConnectionTester::db($driver, $params);
+        if (!$r['ok']) json_fail($r['msg']);
+        json_ok(array(), $r['msg']);
+    }
+
+    /* ==================== 缓存连接测试（统一走 ConnectionTester） ==================== */
+    if ($action === 'cache_test') {
+        $driver = post('driver', '');
+        if (!ConfigStore::cacheDriverValid($driver)) json_fail('未知的缓存驱动');
+        $params = array(
+            'host'    => post('host', ''),
+            'port'    => post('port', ''),
+            'auth'    => post('auth', ''),
+            'prefix'  => post('prefix', ''),
+            'timeout' => post('timeout', ''),
+            'servers' => post('servers', ''),
+        );
+        $r = ConnectionTester::cache($driver, $params);
+        if (!$r['ok']) json_fail($r['msg']);
+        json_ok(array(), $r['msg']);
     }
 
     /* ==================== 数据表查看（字段 + 分页行） ==================== */
@@ -175,6 +223,9 @@ function admin_part_sysinfo($action) {
             'user' => post('to_db_user', ''),
             'pass' => post('to_db_pass', ''),
         );
+        // 开始前强校验目标库可用性（不可用则拒绝迁移）
+        $chk = ConnectionTester::db($toDriver, $toParams);
+        if (!$chk['ok']) json_fail('目标数据库不可用，已拒绝迁移：' . $chk['msg']);
         // 后台任务启动（MigrationRunner）：迁移独立进程执行，刷新不中断；
         // 全站锁定 + 进度条 + 管理员取消 + 成功确认切换
         require_once APP_ROOT . '/app/core/MigrationRunner.php';
@@ -199,6 +250,9 @@ function admin_part_sysinfo($action) {
             'pass' => post('to_db_pass', ''),
         );
         $cur = DatabaseManager::driver();
+        // 切换前强校验目标库可用性（不可用则拒绝切换）
+        $chk = ConnectionTester::db($toDriver, $toParams);
+        if (!$chk['ok']) json_fail('目标数据库不可用，已拒绝切换：' . $chk['msg']);
         require_once APP_ROOT . '/app/core/MigrationRunner.php';
         $r = MigrationRunner::switchDirect($toDriver, $toParams);
         if ($r['ok']) json_ok(array(), $r['msg']);
@@ -313,6 +367,17 @@ function admin_part_sysinfo($action) {
         if ($needExt !== '' && !extension_loaded($needExt)) {
             json_fail('当前 PHP 未安装 ' . strtoupper($needExt) . ' 扩展，无法使用 ' . $opt['cache'][$driver]['label'] . ' 缓存');
         }
+        // 应用前强校验：真实读写探测，不可用则拒绝保存并提示
+        $chkParams = array(
+            'host'    => post('redis_host', ''),
+            'port'    => post('redis_port', ''),
+            'auth'    => post('redis_auth', ''),
+            'prefix'  => post('redis_prefix', ''),
+            'timeout' => post('redis_timeout', ''),
+            'servers' => post('memcached_servers', ''),
+        );
+        $chk = ConnectionTester::cache($driver, $chkParams);
+        if (!$chk['ok']) json_fail('缓存驱动不可用，已拒绝保存：' . $chk['msg']);
         ConfigStore::set('cache.driver', $driver);
         if ($driver === 'redis') {
             ConfigStore::set('cache.redis.host', post('redis_host', '127.0.0.1'));

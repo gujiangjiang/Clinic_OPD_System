@@ -94,6 +94,7 @@ Session::start();
 require_once __DIR__ . '/../core/DatabaseManager.php';
 require_once __DIR__ . '/../core/IdObfuscator.php';
 require_once __DIR__ . '/../core/Cache.php';
+require_once __DIR__ . '/../core/ConnectionTester.php';
 require_once __DIR__ . '/../core/DataExportImport.php';
 require_once __DIR__ . '/../core/CSRF.php';
 require_once __DIR__ . '/../core/LoginSecurity.php';
