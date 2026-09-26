@@ -22,6 +22,7 @@ Clinic.docTools = (function () {
     var ROOM_DATA = [];    // 大屏列表缓存
     var CALL_POP_TIMER = null; // 叫号悬浮窗轮询定时器（无 SmartPoller 时旧兜底）
     var CALL_POP_POLLER = null; // 叫号悬浮窗 SmartPoller
+    var CALL_SUB_ROOM = 0;     // 叫号悬浮窗已订阅的实时推送诊室 ID（0=未订阅）
     var CALL_POOL_LIMIT = 20;  // 号源池已加载条数（滚动到末尾分段加载，上限 200）
     var LAST_PANEL = null;     // 最近一次悬浮窗数据（跨页面重建时先渲染缓存，减少闪烁）
 
@@ -362,6 +363,8 @@ Clinic.docTools = (function () {
                 if (box) box.style.display = 'none';
                 // 绑定成功后自动打开叫号悬浮窗
                 if (ROOM_BOUND && ROOM_BOUND.id) openCallPop();
+                // 已打开状态下切换诊室：换订阅到新诊室（openCallPop 会因已存在而提前返回）
+                if (ROOM_BOUND && ROOM_BOUND.id && callPopEl()) subscribeCallPush();
             },
             // 失败提示由 Clinic.ajax 统一 toast（此处不再重复弹出，避免双重提醒）
         });
@@ -433,6 +436,8 @@ Clinic.docTools = (function () {
         }) : null;
         if (CALL_POP_POLLER) CALL_POP_POLLER.start();
         else CALL_POP_TIMER = setInterval(refreshCallPanel, 10000);
+        // SSE 实时推送订阅：诊室叫号事件到达立即刷新当前就诊/下一位/候诊列表
+        subscribeCallPush();
     }
 
     /* 完整版悬浮窗 HTML（当前就诊/下一位/叫号按钮/完整号源列表/解绑） */
@@ -502,6 +507,8 @@ Clinic.docTools = (function () {
         if (pop) pop.remove();
         saveCallPopOpen(false);
         if (CALL_POP_TIMER) { clearInterval(CALL_POP_TIMER); CALL_POP_TIMER = null; }
+        if (CALL_POP_POLLER) { CALL_POP_POLLER.destroy(); CALL_POP_POLLER = null; }
+        unsubscribeCallPush();
         // 清理文档级拖动监听（与 bindCallPopDrag 成对），防止反复开关累积泄漏
         document.removeEventListener('mousemove', dragMoveHandler, true);
         document.removeEventListener('mouseup', dragUpHandler, true);
@@ -666,6 +673,23 @@ Clinic.docTools = (function () {
         Clinic.ajax('/api/doctor', { action: 'call_repeat', room_id: ROOM_BOUND.id }, {
             onSuccess: function (json) { Clinic.toast.success(json.msg); refreshCallPanel(); },
         });
+    }
+
+    /* 订阅当前诊室叫号实时推送（room:{id}）；绑定变更时自动换订阅，关闭悬浮窗时取消 */
+    function subscribeCallPush() {
+        if (!ROOM_BOUND || !ROOM_BOUND.id) return;
+        var rid = ROOM_BOUND.id;
+        if (CALL_SUB_ROOM === rid) return;
+        if (CALL_SUB_ROOM && window.Clinic && Clinic.push) Clinic.push.close('room:' + CALL_SUB_ROOM);
+        CALL_SUB_ROOM = rid;
+        if (window.Clinic && Clinic.push && Clinic.push.supported()) {
+            // 收到叫号事件立即刷新（大屏/其他入口叫号、过号、重呼均实时同步）
+            Clinic.push.subscribe('room:' + rid, function () { refreshCallPanel(); });
+        }
+    }
+    function unsubscribeCallPush() {
+        if (CALL_SUB_ROOM && window.Clinic && Clinic.push) Clinic.push.close('room:' + CALL_SUB_ROOM);
+        CALL_SUB_ROOM = 0;
     }
 
     /* 轮询刷新悬浮窗数据（每 10 秒 + 每次动作后；携带当前已加载条数） */

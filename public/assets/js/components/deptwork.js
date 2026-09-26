@@ -31,6 +31,7 @@ Clinic.deptwork = (function () {
     var QUEUE_POLLER = null;  // 候诊数据 SmartPoller
     var CALL_TIMER = null;    // 排队悬浮窗 10s 轮询（无 SmartPoller 时的旧兜底）
     var CALL_POLLER = null;   // 排队悬浮窗 SmartPoller
+    var CALL_SUB_ROOM = 0;    // 排队悬浮窗已订阅的实时推送诊室 ID（0=未订阅）
     var PANEL_OPEN = false;
     var PANEL_BIND = null;  // 面板外部点击/Esc 关闭解绑句柄（queuePanelCore.bindClose 返回）
     var CALL_CACHE = null;    // 最近一次排队数据缓存
@@ -773,6 +774,8 @@ Clinic.deptwork = (function () {
                 if (box) box.style.display = 'none';
                 // 绑定成功后自动打开叫号悬浮窗
                 if (currentRoom()) openCallPop();
+                // 已打开状态下切换诊室：换订阅到新诊室（openCallPop 会因已存在而提前返回）
+                if (currentRoom() && callPopEl()) subscribeCallPush();
             },
         });
     }
@@ -827,6 +830,8 @@ Clinic.deptwork = (function () {
         }) : null;
         if (CALL_POLLER) CALL_POLLER.start();
         else CALL_TIMER = setInterval(refreshCallPanel, 10000);
+        // SSE 实时推送订阅：诊室叫号事件到达立即刷新当前处理中/下一位/候诊队列
+        subscribeCallPush();
     }
 
     function dwFullPopHtml(r) {
@@ -887,6 +892,8 @@ Clinic.deptwork = (function () {
         var pop = callPopEl();
         if (pop) pop.remove();
         if (CALL_TIMER) { clearInterval(CALL_TIMER); CALL_TIMER = null; }
+        if (CALL_POLLER) { CALL_POLLER.destroy(); CALL_POLLER = null; }
+        unsubscribeCallPush();
         // 清理文档级拖动监听（与 bindCallPopDrag 成对），防止反复开关累积泄漏
         document.removeEventListener('mousemove', dragMoveHandler, true);
         document.removeEventListener('mouseup', dragUpHandler, true);
@@ -962,6 +969,24 @@ Clinic.deptwork = (function () {
                 refreshCallPanel();
             },
         });
+    }
+
+    /* 订阅当前诊室叫号实时推送（room:{id}）；绑定变更时自动换订阅，关闭悬浮窗时取消 */
+    function subscribeCallPush() {
+        var r = currentRoom();
+        if (!r || !r.room_id) return;
+        var rid = r.room_id;
+        if (CALL_SUB_ROOM === rid) return;
+        if (CALL_SUB_ROOM && window.Clinic && Clinic.push) Clinic.push.close('room:' + CALL_SUB_ROOM);
+        CALL_SUB_ROOM = rid;
+        if (window.Clinic && Clinic.push && Clinic.push.supported()) {
+            // 收到叫号事件立即刷新（大屏/其他入口叫号、过号、重呼均实时同步）
+            Clinic.push.subscribe('room:' + rid, function () { refreshCallPanel(); });
+        }
+    }
+    function unsubscribeCallPush() {
+        if (CALL_SUB_ROOM && window.Clinic && Clinic.push) Clinic.push.close('room:' + CALL_SUB_ROOM);
+        CALL_SUB_ROOM = 0;
     }
 
     function refreshCallPanel() {
