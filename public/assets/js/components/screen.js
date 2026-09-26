@@ -43,8 +43,11 @@
         var d = new Date();
         var pad = function (n) { return String(n).padStart(2, '0'); };
         var wd = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
-        el.textContent = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
-            ' 周' + wd + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+        var dateStr = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' 周' + wd;
+        var timeStr = pad(d.getHours()) + ':' + pad(d.getMinutes());
+        // 日期/时间分包：纵向屏下由 CSS 控制上下两行显示（避免挤占医院名称），横屏仍单行
+        el.innerHTML = '<span class="clock-date">' + dateStr + '</span>' +
+            '<span class="clock-time">' + timeStr + '</span>';
     }
     setInterval(tickClock, 1000);
     tickClock();

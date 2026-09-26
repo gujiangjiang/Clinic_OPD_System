@@ -77,6 +77,10 @@
     color: #ffd54f;
     letter-spacing: 1px;
     white-space: nowrap;
+    display: flex;
+    align-items: baseline;
+    gap: .5em;
+    flex-shrink: 0;
 }
 
 /* ---------- 中上方：科室 + 诊室名称条 ---------- */
@@ -779,7 +783,25 @@
 .call-body.screen-portrait .call-brand img { height: clamp(28px, 4.2cqmin, 72px); width: clamp(28px, 4.2cqmin, 72px); }
 .call-body.screen-portrait .call-hosp .hosp-main { font-size: clamp(16px, 2.6cqmin, 50px); }
 .call-body.screen-portrait .call-hosp .hosp-sub { font-size: clamp(11px, 1.6cqmin, 30px); }
-.call-body.screen-portrait .call-clock { font-size: clamp(15px, 2.4cqmin, 44px); }
+.call-body.screen-portrait .call-clock {
+    /* 纵向屏：日期在上、时间在下双行右对齐，避免单行时钟过宽挤占医院名称 */
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 0;
+    line-height: 1.15;
+    text-align: right;
+    font-size: clamp(14px, 2.2cqmin, 40px);
+}
+.call-body.screen-portrait .call-clock .clock-date {
+    font-size: .85em;
+    font-weight: 500;
+    color: #cfe4ff;
+}
+.call-body.screen-portrait .call-clock .clock-time {
+    font-size: 1.2em;
+    font-weight: 700;
+}
 .call-body.screen-portrait .call-dept { font-size: clamp(17px, 3cqmin, 56px); padding: 3px 14px; letter-spacing: 2px; }
 .call-body.screen-portrait .screen-main { padding: 6px 10px; }
 .call-body.screen-portrait .screen-doctor-grid {

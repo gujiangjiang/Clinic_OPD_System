@@ -49,7 +49,7 @@ $isDoctor = $room['room_type'] === 'doctor';
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo e($hosp); ?> · 叫号大屏</title>
     <?php echo $favicon; ?>
-    <link rel="stylesheet" href="/assets/css/call.css">
+    <link rel="stylesheet" href="/assets/css/call.css?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>">
     <style>
         body { background: linear-gradient(135deg,#0f2027,#203a43,#2c5364); color:#fff; }
         .apm-icon { animation: apm-breathe 1.8s ease-in-out infinite; }
@@ -98,6 +98,6 @@ $isDoctor = $room['room_type'] === 'doctor';
 </div>
 
 <script src="/assets/js/components/push.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
-<script src="/assets/js/components/screen.js"></script>
+<script src="/assets/js/components/screen.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
 </body>
 </html>
