@@ -38,6 +38,10 @@ class Icd10Repository extends BaseRepository {
         $limit = max(1, min(200, (int)$limit));
         $offset = max(0, (int)$offset);
         $kw = trim((string)$kw);
+        // 字典检索结果缓存（只读标准库，TTL 1 小时；同词重复检索直接命中）
+        $ckey = 'dict_icd10_search_' . md5($kw . '|' . $limit . '|' . $offset);
+        $hit = Cache::get($ckey, null);
+        if (is_array($hit)) return $hit;
         $contains = '%' . $kw . '%';
         $prefix = $kw . '%';
         $upperContains = '%' . strtoupper($kw) . '%';
@@ -58,7 +62,9 @@ class Icd10Repository extends BaseRepository {
              LIMIT $limit OFFSET $offset",
             array($contains, $contains, $upperContains, $kw, $prefix, $prefix, $upperContains)
         );
-        return array($rows, $total);
+        $out = array($rows, $total);
+        Cache::set($ckey, $out, 3600);
+        return $out;
     }
 
     /**
@@ -73,6 +79,10 @@ class Icd10Repository extends BaseRepository {
      * @return array [rows, total]
      */
     public static function paginate($kw, $limit, $offset, $chapter = '', $section = '', $category = '', $subcategory = '') {
+        // 管理端列表缓存（只读标准库，TTL 1 小时；分页浏览/过滤命中复用）
+        $ckey = 'dict_icd10_list_' . md5(trim((string)$kw) . '|' . $limit . '|' . $offset . '|' . $chapter . '|' . $section . '|' . $category . '|' . $subcategory);
+        $hit = Cache::get($ckey, null);
+        if (is_array($hit)) return $hit;
         $where = array();
         $params = array();
         $kw = trim((string)$kw);
@@ -103,43 +113,50 @@ class Icd10Repository extends BaseRepository {
             "SELECT " . self::cols() . " FROM icd10$whereSql$orderSql LIMIT $limit OFFSET $offset",
             $params
         );
-        return array($rows, $total);
+        $out = array($rows, $total);
+        Cache::set($ckey, $out, 3600);
+        return $out;
     }
 
     /* ==================== 层级树（章→节→类目→亚目） ==================== */
 
     /** 章列表 */
     public static function chapters() {
-        return self::icd10q(
+        return self::dictHierarchy('dict_icd10_chapters',
             "SELECT DISTINCT chapter_code_range, chapter_name
-             FROM icd10 WHERE chapter_code_range<>'' ORDER BY chapter_code_range"
-        );
+             FROM icd10 WHERE chapter_code_range<>'' ORDER BY chapter_code_range");
     }
 
     /** 某章下的节列表 */
     public static function sections($chapter) {
-        return self::icd10q(
+        return self::dictHierarchy('dict_icd10_sections_' . md5((string)$chapter),
             "SELECT DISTINCT section_code_range, section_name
              FROM icd10 WHERE chapter_code_range=? AND section_code_range<>'' ORDER BY section_code_range",
-            array($chapter)
-        );
+            array($chapter));
     }
 
     /** 某节下的类目列表 */
     public static function categories($section) {
-        return self::icd10q(
+        return self::dictHierarchy('dict_icd10_categories_' . md5((string)$section),
             "SELECT DISTINCT category_code, category_name
              FROM icd10 WHERE section_code_range=? AND category_code<>'' ORDER BY category_code",
-            array($section)
-        );
+            array($section));
     }
 
     /** 某类目下的亚目列表 */
     public static function subcategories($category) {
-        return self::icd10q(
+        return self::dictHierarchy('dict_icd10_subcategories_' . md5((string)$category),
             "SELECT DISTINCT subcategory_code, subcategory_name
              FROM icd10 WHERE category_code=? AND subcategory_code<>'' ORDER BY subcategory_code",
-            array($category)
-        );
+            array($category));
+    }
+
+    /** 层级列表通用缓存读取（只读标准库，TTL 1 小时） */
+    private static function dictHierarchy($ckey, $sql, $params = array()) {
+        $hit = Cache::get($ckey, null);
+        if (is_array($hit)) return $hit;
+        $rows = self::icd10q($sql, $params);
+        Cache::set($ckey, $rows, 3600);
+        return $rows;
     }
 }
