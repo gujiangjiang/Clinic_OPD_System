@@ -239,7 +239,13 @@ if ($action === 'heartbeat' || $action === 'data') {
         }
     }
     if ($action === 'heartbeat') {
+        // 离线→在线 转变检测：大屏重新上线时推送诊室事件，呼叫端叫号悬浮窗
+        // 即时解除离线蒙板恢复可用（SSE 实时）；若推送丢失，悬浮窗轮询亦会兜底自愈
+        $wasOnline = QueueRepository::screenOnline($room);
         QueueRepository::updateHeartbeat($room['id']);
+        if (!$wasOnline) {
+            push_room_event($room, array('action' => 'screen_online', 'room_id' => (int)$room['id'], 'screen_online' => true));
+        }
     }
     // 数据版本戳（房间叫号/绑定变更 updated_at + 本科室新挂号 registered_at）：
     // 前端轮询带 last_updated，无任何变化时返回轻量 changed:false，避免重复返回

@@ -67,7 +67,8 @@ function doctor_part_write($action) {
         // 绑定当前诊室：重新建立叫号会话日期（默认只叫当天号源；跨天规则见 roomQueueRefresh）
         EmrRepository::exec('UPDATE clinic_rooms SET current_doctor_id=?, current_doctor_name=?, doctor_heartbeat=?, call_session_date=?, updated_at=? WHERE id=?',
             array($u['id'], $u['name'], now_str(), today_str(), now_str(), $roomId));
-        json_ok(array('room_id' => $roomId, 'room_name' => $room['room_name']), '已绑定大屏「' . $room['room_name'] . '」');
+        $dept = EmrRepository::one('SELECT name FROM departments WHERE id=?', array((int)$room['dept_id']));
+        json_ok(array('room_id' => $roomId, 'room_name' => $room['room_name'], 'dept_name' => $dept ? $dept['name'] : ''), '已绑定大屏「' . $room['room_name'] . '」');
         return;
     }
 

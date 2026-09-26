@@ -32,6 +32,7 @@ function doctor_read_get_available_rooms($u) {
         );
     }
     $myBound = EmrRepository::one("SELECT * FROM clinic_rooms WHERE current_doctor_id=? ORDER BY id DESC LIMIT 1", array($u['id']));
-    json_ok(array('list' => $list, 'bound' => $myBound ? array('id' => (int)$myBound['id'], 'name' => $myBound['room_name']) : null));
+    $boundDept = $myBound ? EmrRepository::one('SELECT name FROM departments WHERE id=?', array((int)$myBound['dept_id'])) : null;
+    json_ok(array('list' => $list, 'bound' => $myBound ? array('id' => (int)$myBound['id'], 'name' => $myBound['room_name'], 'dept_name' => $boundDept ? $boundDept['name'] : '') : null));
     return;
 }

@@ -523,7 +523,8 @@ function deptwork_get_available_rooms($u) {
         $list[] = array('id' => (int)$room['id'], 'name' => $room['room_name'], 'status' => $status, 'status_text' => $text, 'selectable' => $sel);
     }
     $myBound = DB::one('SELECT * FROM clinic_rooms WHERE current_doctor_id=? ORDER BY id DESC LIMIT 1', array($u['id']));
-    json_ok(array('list' => $list, 'bound' => $myBound ? array('id' => (int)$myBound['id'], 'name' => $myBound['room_name']) : null));
+    $boundDept = $myBound ? DB::one('SELECT name FROM departments WHERE id=?', array((int)$myBound['dept_id'])) : null;
+    json_ok(array('list' => $list, 'bound' => $myBound ? array('id' => (int)$myBound['id'], 'name' => $myBound['room_name'], 'dept_name' => $boundDept ? $boundDept['name'] : '') : null));
 }
 
 /** 绑定大屏诊室 */
@@ -548,7 +549,8 @@ function deptwork_bind_room($u) {
     DB::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL WHERE current_doctor_id=?', array($u['id']));
     DB::exec('UPDATE clinic_rooms SET current_doctor_id=?, current_doctor_name=?, doctor_heartbeat=?, call_session_date=?, updated_at=? WHERE id=?',
         array($u['id'], $u['name'], now_str(), today_str(), now_str(), $roomId));
-    json_ok(array('room_id' => $roomId, 'room_name' => $room['room_name']), '已绑定大屏「' . $room['room_name'] . '」');
+    $dept = DB::one('SELECT name FROM departments WHERE id=?', array((int)$room['dept_id']));
+    json_ok(array('room_id' => $roomId, 'room_name' => $room['room_name'], 'dept_name' => $dept ? $dept['name'] : ''), '已绑定大屏「' . $room['room_name'] . '」');
 }
 
 /** 解绑大屏诊室 */
