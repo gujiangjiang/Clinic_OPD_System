@@ -36,12 +36,14 @@ class ScreenSeeder extends Seeder {
             $name = trim((string)$d['name']);
             $type = (string)$d['type'];
             if ($type === 'clinic' || $type === 'emergency') {
-                // 临床科室：动态生成 2 个诊室
-                $this->addRoom($id, $name . '1诊室', 'doctor');
-                $this->addRoom($id, $name . '2诊室', 'doctor');
+                // 临床科室：动态生成 2 个诊室（诊室名不含科室前缀，科室名由叫号时自动拼接）
+                // 急诊科默认允许跨天叫号（夜班场景）
+                $crossDay = ($type === 'emergency');
+                $this->addRoom($id, '1诊室', 'doctor', $crossDay);
+                $this->addRoom($id, '2诊室', 'doctor', $crossDay);
                 $count += 2;
             } elseif (mb_strpos($name, '检验') !== false) {
-                $this->addRoom($id, $name . '1号采血窗口', 'lab');
+                $this->addRoom($id, '1号采血窗口', 'lab');
                 $count++;
             } elseif (mb_strpos($name, '影像') !== false) {
                 // 影像科：读取管理员设置的检查分类（CT/DR/超声等）动态生成检查室
@@ -56,10 +58,10 @@ class ScreenSeeder extends Seeder {
                     $count++;
                 }
             } elseif (mb_strpos($name, '药') !== false) {
-                $this->addRoom($id, $name . '1号发药窗口', 'pharmacy');
+                $this->addRoom($id, '1号发药窗口', 'pharmacy');
                 $count++;
             } elseif (mb_strpos($name, '护士') !== false) {
-                $this->addRoom($id, $name . '输液室', 'nurse');
+                $this->addRoom($id, '输液室', 'nurse');
                 $count++;
             }
         }
@@ -70,11 +72,11 @@ class ScreenSeeder extends Seeder {
         return $count;
     }
 
-    /** 插入一块大屏（自动生成 Token） */
-    protected function addRoom($deptId, $roomName, $roomType) {
+    /** 插入一块大屏（自动生成 Token；默认开启脱敏；急诊等可传 allowCrossDay） */
+    protected function addRoom($deptId, $roomName, $roomType, $allowCrossDay = false) {
         $token = bin2hex(random_bytes(16));
-        $sql = 'INSERT INTO clinic_rooms(dept_id, room_name, room_type, screen_token, enable_voice, enable_mask, allow_cross_day, tip_interval, created_at, updated_at) VALUES(?,?,?,?,1,0,0,5,?,?)';
-        $this->pdo->prepare($sql)->execute(array($deptId, $roomName, $roomType, $token, now_str(), now_str()));
+        $sql = 'INSERT INTO clinic_rooms(dept_id, room_name, room_type, screen_token, enable_voice, enable_mask, allow_cross_day, tip_interval, created_at, updated_at) VALUES(?,?,?,?,1,1,?,5,?,?)';
+        $this->pdo->prepare($sql)->execute(array($deptId, $roomName, $roomType, $token, $allowCrossDay ? 1 : 0, now_str(), now_str()));
     }
 }
 
