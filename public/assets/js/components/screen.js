@@ -135,21 +135,26 @@
         if (tipsTimer) { clearInterval(tipsTimer); tipsTimer = null; }
         if (!tips || !tips.length) { inner.textContent = ''; return; }
 
-        function showTip(i) {
+        // animate=true 时以「上下翻页」动画切入新条目；仅一条时保持静态不动
+        function showTip(i, animate) {
             var t = tips[i % tips.length] || '';
+            var box = document.createElement('div');
+            box.className = 'call-tips-item' + (animate ? ' call-tips-flip' : '');
             // 如果文本超长（> 30 字），启用跑马灯
             if (t.length > 30) {
-                inner.innerHTML = '<div class="call-tips-marquee"><span>' + t + '</span></div>';
+                box.innerHTML = '<div class="call-tips-marquee"><span>' + t + '</span></div>';
             } else {
-                inner.textContent = t;
+                box.textContent = t;
             }
+            inner.innerHTML = '';
+            inner.appendChild(box);
         }
         tipsIndex = 0;
-        showTip(0);
+        showTip(0, false);
         if (tips.length > 1) {
             tipsTimer = setInterval(function () {
                 tipsIndex = (tipsIndex + 1) % tips.length;
-                showTip(tipsIndex);
+                showTip(tipsIndex, true);
             }, interval * 1000);
         }
     }

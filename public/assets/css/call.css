@@ -224,6 +224,13 @@
     text-align: center;
     white-space: nowrap;
 }
+/* 提示语条目：多条轮播时以「上下翻页」动画切入（单条保持静态不动） */
+.call-tips-item { display: block; }
+.call-tips-flip { animation: call-tips-flip .55s cubic-bezier(.4, 0, .2, 1); }
+@keyframes call-tips-flip {
+    0%   { transform: translateY(110%); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+}
 .call-tips-marquee {
     display: inline-block;
     white-space: nowrap;
