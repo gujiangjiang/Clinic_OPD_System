@@ -519,15 +519,17 @@
 
 /* 2. 行内可编辑 span：盒模型与 .ef-select 完全一致（同字号/行高/内边距/
  * 基线对齐），保证底虚线与选择框同一水平线。
- * 注意：行内元素的边框盒按内容区高度绘制（不含半行距），而选择框
- * （inline-block）按 line-height 绘制（含半行距）——实测同字号同行高下
- * 字段底线比选择框高约 3.4px，故 padding-bottom 补偿 4.4px 拉平底线。 */
+ * 注意：行内元素的边框盒按内容区高度绘制（不含半行距，盒高约 20px），
+ * 而选择框（inline-block）按 line-height 绘制（含半行距，盒高约 25.4px）。
+ * 实测同字号同行高下字段底线比选择框高约 3.4px、顶部高约 2px——
+ * padding-top 3px 补齐顶部（聚焦/悬停背景与选择框同高同顶），
+ * padding-bottom 4.4px 拉平底线，两者相加盒高 = 选择框盒高。 */
 .emr-inline-fill {
     display: inline !important;
     float: none !important;
     min-width: 42px;
     outline: none !important;
-    padding: 1px 4px 4.4px 4px !important;
+    padding: 3px 4px 4.4px 4px !important;
     margin: 0 8px 0 1px !important;
     border-bottom: 1px dashed var(--border) !important;
     border-radius: 4px !important;
