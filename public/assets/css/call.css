@@ -461,9 +461,9 @@
     border-left: 1px dashed rgba(255, 255, 255, .28);   /* 第二列显示纵向分隔线 */
     padding-left: clamp(8px, 1.2cqmin, 16px);
 }
-/* ===== 宽屏/超宽屏（≥16:10）：左 医生加宽(照片正常) | 中 就诊(保持) | 右 等待(压缩) ===== */
+/* ===== 宽屏/超宽屏（≥16:10）：左 医生加宽 | 中 就诊 | 右 等待（留足列宽避免年龄被裁） ===== */
 .call-body.screen-wide .screen-land-grid {
-    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 0.7fr);
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.85fr);
 }
 /* 宽屏医生照片：直接填满所在单元格（不限定正方形），图片保持原比例 */
 /* 主区（竖屏下方）：左右两列网格（左列 正在就诊+下一位，右列 等待就诊） */
@@ -542,11 +542,11 @@
     display: grid;
     /* 五列共享列宽（--wait-*-w 由 JS 按内容最大自然宽度测量，fallback=max-content 内容自适应）：
        各行 序号/姓名/性别/年龄 全部纵向对齐，且姓名后无超长空隙。
-       姓名列用 minmax(0, …)：空间不足时优先收缩姓名（省略号），
-       保证右侧固定列（性别/年龄）不被挤出面板。 */
-    grid-template-columns: var(--wait-miss-w, max-content) var(--wait-seq-w, max-content) minmax(0, var(--wait-name-w, max-content)) var(--wait-gender-w, max-content) var(--wait-age-w, max-content);
+       姓名列 minmax(3ch, …)：保证最少显示 3 个汉字宽度（超出省略号），
+       空间不足时优先收缩姓名，右侧固定列（性别/年龄）不被挤出面板。 */
+    grid-template-columns: var(--wait-miss-w, max-content) var(--wait-seq-w, max-content) minmax(3ch, var(--wait-name-w, max-content)) var(--wait-gender-w, max-content) var(--wait-age-w, max-content);
     align-items: center;
-    gap: 1.8cqmin;
+    gap: clamp(4px, 1.1cqmin, 18px);
     font-size: clamp(14px, 3cqmin, 44px);
     color: #e6f2ff;
     padding: 1.1cqmin 0.4cqmin 0.15cqmin;   /* 顶部略多：姓名视觉下移，底部不留大片空 */
