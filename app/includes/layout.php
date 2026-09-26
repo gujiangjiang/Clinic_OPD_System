@@ -392,6 +392,7 @@ class Layout {
             <script src="/assets/js/components/historypanel.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/patient.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/ui.js?v=' . APP_VERSION . '"></script>
+            <script src="/assets/js/components/naming.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/drugform.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/chart.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/critical.js?v=' . APP_VERSION . '"></script>

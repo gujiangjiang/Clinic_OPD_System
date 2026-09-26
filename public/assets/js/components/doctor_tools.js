@@ -60,6 +60,10 @@ Clinic.docTools = (function () {
         } catch (e) { /* 忽略 */ }
     }
     function pad3(n) { return Clinic.pad3(n); }
+    /* 诊室全称 = 科室名 + 诊室名（统一走 Clinic.deptRoomName，供按钮/标题复用） */
+    function fullRoomName(dept, room) {
+        return Clinic.deptRoomName ? Clinic.deptRoomName(dept, room) : (room || dept || '');
+    }
 
     /* ==================== 悬浮窗模式记忆（精简版/完整版，跟随医生本地持久化） ====================
        用 localStorage 按医生 uid 保存，退出登录/重启浏览器后仍记住所选版本 */
@@ -82,7 +86,7 @@ Clinic.docTools = (function () {
         // 恢复本次登录会话已绑定的大屏（sessionStorage），心跳由全局 room_heartbeat.js 维持
         var bound = (window.Clinic && Clinic.roomHeartbeat) ? Clinic.roomHeartbeat.current() : null;
         if (bound && bound.room_id) {
-            ROOM_BOUND = { id: bound.room_id, name: bound.room_name || '' };
+            ROOM_BOUND = { id: bound.room_id, name: bound.room_name || '', dept_name: bound.dept_name || '' };
         }
         loadDepts();
         bindOutsideClick();
@@ -271,7 +275,7 @@ Clinic.docTools = (function () {
         ROOM_DATA = list;
         var box = document.getElementById('docRoomList');
         var btn = document.getElementById('docCallName');
-        if (btn) btn.textContent = ROOM_BOUND ? '叫号：' + ROOM_BOUND.name : '叫号';
+        if (btn) btn.textContent = ROOM_BOUND ? '叫号：' + fullRoomName(ROOM_BOUND.dept_name, ROOM_BOUND.name) : '叫号';
         if (!box) return;
         if (!list.length) {
             box.innerHTML = '<div class="fs-13 text-muted text-center" style="padding:16px">该科室暂无大屏配置，请联系管理员在【叫号管理】中新建</div>';
@@ -352,10 +356,11 @@ Clinic.docTools = (function () {
                 Clinic.toast.success(json.msg);
                 var rid = json.data && json.data.room_id;
                 var rname = (json.data && json.data.room_name) || roomName || '';
-                ROOM_BOUND = rid ? { id: rid, name: rname } : null;
+                var rdname = (json.data && json.data.dept_name) || '';
+                ROOM_BOUND = rid ? { id: rid, name: rname, dept_name: rdname } : null;
                 // 绑定信息持久化到会话 + 启动全局心跳（离开工作站/刷新页面不自动解绑）
                 if (window.Clinic && Clinic.roomHeartbeat && rid) {
-                    Clinic.roomHeartbeat.remember(rid, rname);
+                    Clinic.roomHeartbeat.remember(rid, rname, rdname);
                 }
                 loadRoomList();
                 // 先收起绑定下拉，避免与叫号悬浮窗重叠
@@ -443,7 +448,7 @@ Clinic.docTools = (function () {
     /* 完整版悬浮窗 HTML（当前就诊/下一位/叫号按钮/完整号源列表/解绑） */
     function fullPopHtml() {
         return '<div class="doc-call-pop-head">' +
-            '  <span class="doc-call-pop-title">📢 叫号 · ' + Clinic.escHtml(ROOM_BOUND.name || '') + '</span>' +
+            '  <span class="doc-call-pop-title">📢 叫号 · ' + Clinic.escHtml(fullRoomName(ROOM_BOUND.dept_name, ROOM_BOUND.name)) + '</span>' +
             '  <span class="doc-call-pop-tools">' +
             '    <span class="doc-call-pop-x" data-act="mini" title="最小化（切换到精简版）">-</span>' +
             '    <span class="doc-call-pop-x" data-act="hide" title="关闭">x</span>' +
@@ -478,7 +483,7 @@ Clinic.docTools = (function () {
     /* 精简版悬浮窗 HTML：标题（解绑/最大化/关闭）+ 当前就诊 + 下一位 + 三个叫号按钮 */
     function miniPopHtml() {
         return '<div class="doc-call-pop-head">' +
-            '  <span class="doc-call-pop-title">📢 ' + Clinic.escHtml(ROOM_BOUND.name || '') + '</span>' +
+            '  <span class="doc-call-pop-title">📢 ' + Clinic.escHtml(fullRoomName(ROOM_BOUND.dept_name, ROOM_BOUND.name)) + '</span>' +
             '  <span class="doc-call-pop-tools">' +
             '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">⊘</span>' +
             '    <span class="doc-call-pop-x" data-act="restore" title="最大化（恢复完整版）">+</span>' +
@@ -704,18 +709,26 @@ Clinic.docTools = (function () {
         });
     }
 
-    /* 大屏离线蒙板：覆盖悬浮窗正文（头部关闭/解绑仍可用），半透明遮罩并拦截叫号点击 */
+    /* 大屏离线蒙板：覆盖悬浮窗正文（头部关闭/解绑仍可用），半透明遮罩并拦截叫号点击。
+       mini 版空间小，省略图标、精简文案；标准版保留下方「解绑」栏可操作 */
     function setCallPopOffline(pop, offline) {
         var body = pop.querySelector('.doc-call-pop-body');
         if (!body) return;
         var mask = body.querySelector('.doc-call-offline');
         if (!offline) { if (mask) mask.remove(); return; }
         if (mask) return;
+        var isMini = pop.classList.contains('doc-call-mini');
         mask = document.createElement('div');
         mask.className = 'doc-call-offline';
-        mask.innerHTML = '<div class="doc-call-offline-ico">📺</div>' +
-            '<div class="doc-call-offline-title">叫号大屏已离线</div>' +
-            '<div class="doc-call-offline-desc">大屏未连接，叫号暂不可用。<br>请检查大屏电源与网络，<br>或请管理员在「叫号管理」重置大屏链接。</div>';
+        mask.innerHTML = isMini
+            ? '<div class="doc-call-offline-title">大屏已离线</div>' +
+              '<div class="doc-call-offline-desc">叫号暂不可用，请联系管理员。</div>'
+            : '<div class="doc-call-offline-ico">📺</div>' +
+              '<div class="doc-call-offline-title">叫号大屏已离线</div>' +
+              '<div class="doc-call-offline-desc">大屏未连接，叫号暂不可用。<br>请检查大屏电源与网络，<br>或请管理员在「叫号管理」重置大屏链接。</div>';
+        // 标准版：蒙板底部留出「解绑」栏高度（离线时需手动解绑该大屏）
+        var foot = body.querySelector('.doc-call-foot');
+        if (foot) mask.style.bottom = (foot.offsetHeight + (parseFloat(getComputedStyle(body).paddingBottom) || 0)) + 'px';
         body.appendChild(mask);
     }
 
@@ -735,7 +748,7 @@ Clinic.docTools = (function () {
         var cur = d.current, next = d.next;
         var isMini = pop.classList.contains('doc-call-mini');
         var titleEl = pop.querySelector('.doc-call-pop-title');
-        if (titleEl) titleEl.textContent = (isMini ? '📢 ' : '📢 叫号 · ') + (d.room && d.room.name ? d.room.name : '');
+        if (titleEl) titleEl.textContent = (isMini ? '📢 ' : '📢 叫号 · ') + fullRoomName(d.room && d.room.dept_name, d.room && d.room.name);
         var curEl = pop.querySelector('#dcpCur');
         var curSubEl = pop.querySelector('#dcpCurSub');
         if (curEl) {

@@ -32,16 +32,21 @@ Clinic.roomHeartbeat = (function () {
         try {
             var sv = JSON.parse(sessionStorage.getItem('clinic_doc_room') || 'null');
             if (sv && String(sv.u) === memKey().u && String(sv.s) === memKey().s && sv.room_id) {
-                return { room_id: parseInt(sv.room_id, 10) || 0, room_name: sv.room_name || '' };
+                return {
+                    room_id: parseInt(sv.room_id, 10) || 0,
+                    room_name: sv.room_name || '',
+                    dept_name: sv.dept_name || '',
+                };
             }
         } catch (e) { /* 忽略 */ }
         return null;
     }
 
-    function saveBound(roomId, roomName) {
+    function saveBound(roomId, roomName, deptName) {
         try {
             sessionStorage.setItem('clinic_doc_room', JSON.stringify({
-                u: memKey().u, s: memKey().s, room_id: roomId, room_name: roomName || '',
+                u: memKey().u, s: memKey().s,
+                room_id: roomId, room_name: roomName || '', dept_name: deptName || '',
             }));
         } catch (e) { /* 忽略 */ }
     }
@@ -76,9 +81,9 @@ Clinic.roomHeartbeat = (function () {
     }
 
     /* ---------- 绑定/解绑（供 doctor_tools.js 调用） ---------- */
-    function remember(roomId, roomName) {
+    function remember(roomId, roomName, deptName) {
         if (!roomId) return;
-        saveBound(roomId, roomName);
+        saveBound(roomId, roomName, deptName);
         start();
     }
 

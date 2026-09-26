@@ -556,8 +556,13 @@
         var key = cur.flow_no + '|' + cur.called_at;
         if (key === lastCallKey) return;
         lastCallKey = key;
+        // 呼叫全称 = 科室名 + 诊室名（如 外科门诊1诊室），与顶栏按钮/悬浮窗标题统一拼接
+        var deptName = (d.room && d.room.dept) || '';
         var roomName = (d.room && d.room.name) || '';
-        var text = '请 ' + String(cur.visit_seq).padStart(3, '0') + ' 号 ' + (cur.raw_name || cur.name || '') + ' 到 ' + roomName + ' 就诊';
+        var fullName = (window.Clinic && Clinic.deptRoomName)
+            ? Clinic.deptRoomName(deptName, roomName)
+            : (roomName || deptName);
+        var text = '请 ' + String(cur.visit_seq).padStart(3, '0') + ' 号 ' + (cur.raw_name || cur.name || '') + ' 到 ' + fullName + ' 就诊';
         TTS.chime();
         TTS.speak(text, 2);
         TTS.resume();

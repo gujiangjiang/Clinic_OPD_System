@@ -961,6 +961,8 @@ body.emr-readonly .emr-item-link,
     font-size: 13px;
     letter-spacing: .5px;
     pointer-events: none;
+    flex: 1;
+    min-width: 0;          /* 允许收缩，超长诊室名以省略号截断 */
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -980,7 +982,7 @@ body.emr-readonly .emr-item-link,
     font-weight: 700;
 }
 .doc-call-pop-x:hover { background: rgba(255, 255, 255, .2); }
-.doc-call-pop-tools { display: flex; align-items: center; pointer-events: none; }
+.doc-call-pop-tools { display: flex; align-items: center; pointer-events: none; flex-shrink: 0; }
 .doc-call-pop-tools .doc-call-pop-x { pointer-events: auto; }
 .doc-call-pop-body { padding: 8px 8px; display: flex; flex-direction: column; gap: 6px; }
 .doc-call-block {
@@ -1063,7 +1065,7 @@ body.emr-readonly .emr-item-link,
     text-align: center;
     background: rgba(15, 23, 42, .62);
     backdrop-filter: blur(1.5px);
-    border-radius: 0 0 12px 12px;
+    border-radius: 0;
     color: #fff;
     cursor: not-allowed;
 }
