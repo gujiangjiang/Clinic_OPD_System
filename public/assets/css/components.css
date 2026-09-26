@@ -1008,7 +1008,9 @@ body.emr-readonly .emr-item-link,
 .doc-call-actions .btn { flex: 1; padding: 3px 2px; font-size: 11px; }
 .doc-call-pool { border-top: 1px dashed var(--border, #e5e7eb); padding-top: 6px; }
 .doc-call-pool-title { font-size: 11px; color: var(--muted, #6b7280); margin-bottom: 3px; }
-.doc-call-pool-list { max-height: 125px; overflow-y: auto; }
+/* 固定高度：约容纳 5 行号源，超出滚动 + 滚动到底分段加载；
+   高度恒定不随条目增减变化，避免叫号后面板收缩导致按钮下移 */
+.doc-call-pool-list { height: 90px; overflow-y: auto; }
 .doc-call-pool-item {
     display: flex;
     align-items: center;
