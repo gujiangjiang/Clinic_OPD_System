@@ -530,8 +530,10 @@
 .screen-wait-item {
     display: grid;
     /* 五列共享列宽（--wait-*-w 由 JS 按内容最大自然宽度测量，fallback=max-content 内容自适应）：
-       各行 序号/姓名/性别/年龄 全部纵向对齐，且姓名后无超长空隙 */
-    grid-template-columns: var(--wait-miss-w, max-content) var(--wait-seq-w, max-content) var(--wait-name-w, max-content) var(--wait-gender-w, max-content) var(--wait-age-w, max-content);
+       各行 序号/姓名/性别/年龄 全部纵向对齐，且姓名后无超长空隙。
+       姓名列用 minmax(0, …)：空间不足时优先收缩姓名（省略号），
+       保证右侧固定列（性别/年龄）不被挤出面板。 */
+    grid-template-columns: var(--wait-miss-w, max-content) var(--wait-seq-w, max-content) minmax(0, var(--wait-name-w, max-content)) var(--wait-gender-w, max-content) var(--wait-age-w, max-content);
     align-items: center;
     gap: 1.8cqmin;
     font-size: clamp(14px, 3cqmin, 44px);
