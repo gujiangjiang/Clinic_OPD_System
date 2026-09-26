@@ -143,58 +143,22 @@ function admin_part_sysinfo($action) {
 
     /* ==================== 缓存状态 ==================== */
     if ($action === 'cache_status') {
-        $driver = ConfigStore::cacheDriver();
-        $status = array('driver' => $driver, 'driver_label' => strtoupper($driver), 'keys' => 0, 'notes' => array());
-        if ($driver === 'apcu' && function_exists('apcu_cache_info')) {
-            try {
-                $info = apcu_cache_info(true);
-                $status['keys'] = isset($info['num_entries']) ? (int)$info['num_entries'] : 0;
-                $status['memory'] = isset($info['mem_size']) ? round($info['mem_size'] / 1048576, 2) . ' MB' : '—';
-            } catch (Exception $ex) {}
-        } elseif ($driver === 'redis' && extension_loaded('redis')) {
-            try {
-                $p = ConfigStore::redisParams();
-                $r = new Redis();
-                $r->connect($p['host'], (int)$p['port'], 2.0);
-                if ($p['auth'] !== '') $r->auth($p['auth']);
-                $info = $r->info();
-                $status['keys'] = isset($info['db0']['keys']) ? (int)$info['db0']['keys'] : 0;
-                $r->close();
-            } catch (Exception $ex) {
-                $status['notes'][] = 'Redis 连接失败：' . $ex->getMessage();
-            }
-        } else {
-            // File 驱动：统计 data/cache 目录键文件数
-            $cacheDir = DATA_DIR . '/cache';
-            if (is_dir($cacheDir)) {
-                $files = glob($cacheDir . '/*.cache');
-                $status['keys'] = $files === false ? 0 : count($files);
-            }
-            $status['notes'][] = 'File 驱动无命中率统计，仅显示键文件数';
-        }
-        json_ok($status);
+        // 统一走 Cache 实现：按当前驱动统计本系统键数（含降级说明）
+        json_ok(Cache::stats());
     }
 
     /* ==================== 模块化缓存刷新 ==================== */
     if ($action === 'cache_flush') {
         $scope = req('scope', 'all');
-        $cacheDir = DATA_DIR . '/cache';
-        if (!is_dir($cacheDir)) @mkdir($cacheDir, 0777, true);
-        $count = 0;
         $map = array(
-            'config' => 'cfg_*',        // 系统配置缓存（setting 请求级缓存 + 配置文件缓存）
-            'dict' => 'dict_*',         // ICD-10 与公共字典缓存
-            'call' => 'call_*',         // 排班叫号临时缓存
-            'all' => '*',
+            'config' => 'cfg_',   // 系统配置缓存（setting 整表快照）
+            'dict' => 'dict_',    // ICD-10 与公共字典缓存
+            'call' => 'call_',    // 排班叫号临时缓存
+            'all' => '',
         );
-        $pattern = isset($map[$scope]) ? $map[$scope] : '*';
-        $files = glob($cacheDir . '/' . $pattern);
-        if ($files === false) $files = array();
-        foreach ($files as $f) {
-            if (@unlink($f)) $count++;
-        }
-        // settings 请求级缓存标记清除（setting() 的静态缓存）
-        json_ok(array('scope' => $scope, 'count' => $count), '已刷新缓存 ' . $count . ' 个文件');
+        $prefix = isset($map[$scope]) ? $map[$scope] : '';
+        $count = Cache::flush($prefix);
+        json_ok(array('scope' => $scope, 'count' => $count), '已刷新缓存 ' . $count . ' 个键');
     }
 
     /* ==================== 数据库迁移（SQLite ↔ MySQL 双向） ==================== */
@@ -361,7 +325,7 @@ function admin_part_sysinfo($action) {
             ConfigStore::set('cache.memcached.prefix', post('memcached_prefix', 'clinic_sess:'));
         }
         ConfigStore::resetCache();
-        json_ok(array('driver' => $driver), '缓存驱动已切换为 ' . strtoupper($driver) . '，会话驱动将同步生效');
+        json_ok(array('driver' => $driver), '缓存驱动已切换为 ' . strtoupper($driver) . '，系统设置与字典缓存将按新驱动读写');
     }
 
     json_fail('未知操作');
