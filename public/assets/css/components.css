@@ -1031,6 +1031,56 @@ body.emr-readonly .emr-item-link,
     color: var(--muted, #9ca3af);
     padding: 5px 0;
 }
+/* 候诊号源空态：固定高度内居中显示（图标 + 文案），与整体风格统一 */
+.doc-call-pool-empty {
+    height: 100%;
+    min-height: 88px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    color: var(--muted, #9ca3af);
+    font-size: 12px;
+}
+.doc-call-pool-empty .doc-call-pool-empty-ico {
+    font-size: 22px;
+    line-height: 1;
+    opacity: .5;
+}
+/* 大屏离线蒙板：覆盖悬浮窗正文，半透明遮罩 + 居中提示；拦截点击使叫号按钮不可用 */
+.doc-call-pop-body { position: relative; }
+.doc-call-offline {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    text-align: center;
+    background: rgba(15, 23, 42, .62);
+    backdrop-filter: blur(1.5px);
+    border-radius: 0 0 12px 12px;
+    color: #fff;
+    cursor: not-allowed;
+}
+.doc-call-offline .doc-call-offline-ico {
+    font-size: 26px;
+    line-height: 1;
+}
+.doc-call-offline .doc-call-offline-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .5px;
+}
+.doc-call-offline .doc-call-offline-desc {
+    font-size: 11px;
+    line-height: 1.55;
+    color: #cbd5e1;
+}
 
 /* ==================== 精简版叫号悬浮窗（mini） ==================== */
 .doc-call-mini { width: 220px; }

@@ -1032,10 +1032,28 @@ Clinic.deptwork = (function () {
                     '<span class="doc-call-pool-seq">' + pad3(w.visit_seq) + '</span>' +
                     '<span>' + escHtml(w.name) + '</span></div>';
             });
-            listEl.innerHTML = items.join('') || '<div class="fs-12 text-muted">暂无候诊患者</div>';
+            listEl.innerHTML = items.join('') ||
+                '<div class="doc-call-pool-empty"><span class="doc-call-pool-empty-ico">🪑</span>暂无候诊患者</div>';
         }
+        // 大屏在线状态：离线时蒙板覆盖正文并禁用叫号（实时监测）
+        setCallPopOffline(pop, d.screen_online === false);
         var st = pop.querySelector('#dwcpStatus');
         if (st) st.textContent = d.dept_name || '';
+    }
+
+    /* 大屏离线蒙板：覆盖悬浮窗正文（头部关闭/解绑仍可用），半透明遮罩并拦截叫号点击 */
+    function setCallPopOffline(pop, offline) {
+        var body = pop.querySelector('.doc-call-pop-body');
+        if (!body) return;
+        var mask = body.querySelector('.doc-call-offline');
+        if (!offline) { if (mask) mask.remove(); return; }
+        if (mask) return;
+        mask = document.createElement('div');
+        mask.className = 'doc-call-offline';
+        mask.innerHTML = '<div class="doc-call-offline-ico">📺</div>' +
+            '<div class="doc-call-offline-title">叫号大屏已离线</div>' +
+            '<div class="doc-call-offline-desc">大屏未连接，叫号暂不可用。<br>请检查大屏电源与网络，<br>或请管理员在「叫号管理」重置大屏链接。</div>';
+        body.appendChild(mask);
     }
 
     /* ==================== 对外 ==================== */

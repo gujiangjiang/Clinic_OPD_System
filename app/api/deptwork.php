@@ -481,6 +481,8 @@ function deptwork_call_panel($u) {
     json_ok(array(
         'dept_name' => $title,
         'bound' => true,
+        // 大屏在线状态：悬浮窗据此在大屏离线时禁用叫号并提示
+        'screen_online' => QueueRepository::screenOnline(deptwork_bound_room($u)),
         'current' => $cur,
         'next' => $next,
         'waiting' => $list,

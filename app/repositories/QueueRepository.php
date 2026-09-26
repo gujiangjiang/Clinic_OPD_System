@@ -319,4 +319,16 @@ class QueueRepository extends BaseRepository {
         self::exec('UPDATE clinic_rooms SET screen_last_heartbeat=?, is_screen_online=1 WHERE id=?',
             array(now_str(), (int)$roomId));
     }
+
+    /**
+     * 大屏是否在线：屏幕心跳 30 秒内有更新（由 /api/screen heartbeat 维护）。
+     * 供叫号悬浮窗实时监测大屏在线状态，离线时禁用叫号并提示。
+     * @param array $room clinic_rooms 行
+     */
+    public static function screenOnline($room) {
+        $hb = is_array($room) && isset($room['screen_last_heartbeat']) ? (string)$room['screen_last_heartbeat'] : '';
+        if ($hb === '') return false;
+        $t = strtotime($hb);
+        return $t !== false && (time() - $t) <= 30;
+    }
 }

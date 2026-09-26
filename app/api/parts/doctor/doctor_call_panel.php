@@ -40,6 +40,7 @@ function doctor_read_call_panel($u) {
     if ($curFmt) $curFmt['called_at'] = (string)$room['current_called_at'];
     json_ok(array(
         'bound' => true,
+        'screen_online' => QueueRepository::screenOnline($room),
         'room' => array('id' => (int)$room['id'], 'name' => $room['room_name'], 'dept_id' => $deptId, 'dept_name' => $dept ? $dept['name'] : ''),
         'current' => $curFmt,
         'next' => $fmt($next),
