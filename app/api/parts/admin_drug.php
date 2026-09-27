@@ -200,6 +200,8 @@ function admin_part_drug($action) {
         } else {
             $data['allow_split'] = 0;
         }
+        // 服务端库存单位兜底：不可拆零药品库存必须为包装数量整数倍（防直连接口以盒数语义提交）
+        drug_assert_min_qty($id, (int)$data['qty'], (int)$data['spec_pack_qty'], (int)$data['allow_split']);
         if ((int)$data['is_skin_test'] === 1) {
             $stOk = DrugRepository::val("SELECT COUNT(*) FROM disposal_items WHERE id=? AND status='approved'", array($data['skin_test_item_id']));
             if (!$stOk) json_fail('请关联有效的皮试处置项目（需已通过审核）');

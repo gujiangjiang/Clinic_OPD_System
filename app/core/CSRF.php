@@ -31,7 +31,7 @@ class CSRF {
         $host = isset($_SERVER['HTTP_HOST']) ? (string)$_SERVER['HTTP_HOST'] : '';
         $scheme = self::isHttps() ? 'https' : 'http';
         $origin = isset($_SERVER['HTTP_ORIGIN']) ? (string)$_SERVER['HTTP_ORIGIN'] : '';
-        if ($origin !== '' && $origin !== $scheme . '://' . $host && $origin !== 'null') {
+        if ($origin !== '' && $origin !== $scheme . '://' . $host) {
             json_fail('安全校验失败，请刷新页面后重试');
         }
         if ($origin === '' && isset($_SERVER['HTTP_REFERER'])) {

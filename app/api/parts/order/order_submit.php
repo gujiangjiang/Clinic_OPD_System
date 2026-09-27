@@ -224,6 +224,14 @@ function order_part_submit($u) {
                 $doseVal = (float)(isset($it['dose']) ? $it['dose'] : 0);
                 $doseUnit = trim((string)(isset($it['dose_unit']) ? $it['dose_unit'] : ''));
                 $doseVal = round($doseVal, 4);
+                // 剂量有效性硬校验：0/负数/非数值一律拒绝（前端必填校验的后端兜底，
+                // 防恶意提交极小/零剂量绕过「开药总量覆盖单次剂量」底线）
+                if (!is_finite($doseVal) || $doseVal <= 0) {
+                    json_fail('处方【' . $rxName . '】剂量无效，请填写有效的单次剂量');
+                }
+                if ($doseUnit === '') {
+                    json_fail('处方【' . $rxName . '】请选择剂量单位');
+                }
                 if ($doseVal > 0) {
                     // 单位容量：盒=单盒总规格量（PackCap）；支=单最小单位规格量（MinCap）
                     $unitCap = $unitType === 'min' ? $sdose : drug_pack_cap($drug);

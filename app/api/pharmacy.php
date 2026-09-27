@@ -316,6 +316,8 @@ switch ($action) {
         } else {
             $data['allow_split'] = 0;
         }
+        // 服务端库存单位兜底：不可拆零药品库存必须为包装数量整数倍（防直连接口以盒数语义提交）
+        drug_assert_min_qty($id, (int)$data['qty'], (int)$data['spec_pack_qty'], (int)$data['allow_split']);
         if ($id > 0) {
             // 编辑已审核药品：置为待审核状态，重新走管理员审核（与管理员端/检验/检查口径一致），
             // 防止药房直接篡改已生效药品的价格/库存影响计费

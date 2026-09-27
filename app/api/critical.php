@@ -245,6 +245,13 @@ switch ($action) {
                 'conclusion' => $result ? (string)$result['conclusion'] : '',
             );
         }
+        // 发送幂等：同一报告同一接收医生的危急值仅可发送一次（无撤回流程，
+        // 重复发送会生成重复危急值记录与重复站内信；改派医生请选择其他接收人）
+        $dup = (int)DB::val(
+            "SELECT COUNT(*) FROM critical_values WHERE source=? AND report_id=? AND to_doctor_id=?",
+            array($source, $reportId, $toDoctorId)
+        );
+        if ($dup > 0) json_fail('该报告向此医生的危急值已发送，请勿重复发送');
         $cvId = crit_store_record($u, $source, $report, $display, $doc);
         $pName = $rv['patient'] ? (string)$rv['patient']['name'] : '';
         $kind = $source === 'lab' ? '检验' : '检查';

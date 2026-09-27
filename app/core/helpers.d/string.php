@@ -214,6 +214,31 @@ function drug_stock_factor($r, $unitType) {
 }
 
 /**
+ * 药品库存最小单位铁律兜底校验（服务端）：
+ * 不可拆零药品仅按整盒销售，库存必须为 盒数×pack_size 的整数倍——
+ * 前端提交已按最小单位换算，此处防直连接口以「盒数」语义提交破坏 unit 口径。
+ * 编辑时仅当库存数值实际改动才校验（兼容存量非整数倍历史数据）。
+ * 校验失败直接 json_fail 终止。
+ * @param int    $id       药品 ID（0=新建）
+ * @param int    $qty      提交的库存（最小单位）
+ * @param int    $pack     spec_pack_qty（每包装最小单位数）
+ * @param int    $allowSplit 是否允许拆零
+ */
+function drug_assert_min_qty($id, $qty, $pack, $allowSplit) {
+    $qty = (int)$qty;
+    if ((int)$allowSplit === 1) return;   // 拆零药品允许混合整数库存
+    $pack = max(1, (int)$pack);
+    if ($pack <= 1 || $qty <= 0) return;  // 单支包装无需校验；0=未入库存
+    if ((int)$id > 0) {
+        $cur = (int)DrugRepository::val('SELECT qty FROM drugs WHERE id=?', array((int)$id));
+        if ($cur === $qty) return;        // 编辑时未改动库存
+    }
+    if ($qty % $pack !== 0) {
+        json_fail('不可拆零药品的库存必须为包装数量的整数倍（每包 ' . $pack . ' 个最小单位），请按最小单位数量填写');
+    }
+}
+
+/**
  * 库存展示串（药品列表/库存列表共用，整包装为主 + 拆零余量）：
  * 例：0.3g×24粒 库存 2403 最小单位 → 「100盒 + 3粒」；250ml×1瓶 → 「120瓶」。
  * @param array $r 药品行（需含 qty/spec_pack_qty/package_unit/spec_pack_unit）
