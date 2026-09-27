@@ -200,9 +200,9 @@ function admin_part_import($action) {
                 BaseRepository::prepareExec($sql, $vals);
                 $inserted++;
             }
-            $pdo->commit();
+            DatabaseManager::commitTx();
         } catch (Exception $ex) {
-            if ($pdo->inTransaction()) $pdo->rollBack();
+            DatabaseManager::rollbackTx();
             json_fail('导入失败（已回滚）：' . $ex->getMessage());
         }
         unset($_SESSION['import_pending']);

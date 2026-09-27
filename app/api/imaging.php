@@ -215,9 +215,9 @@ switch ($action) {
                 ),
                 'created_by' => $u['name'],
             ));
-            $pdo->commit();
+            DatabaseManager::commitTx();
         } catch (Exception $ex) {
-            if ($pdo->inTransaction()) $pdo->rollBack();
+            DatabaseManager::rollbackTx();
             json_fail('保存失败：' . $ex->getMessage());
         }
         if ($it['doctor_id'] > 0) {

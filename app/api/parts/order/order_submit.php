@@ -456,7 +456,7 @@ function order_part_submit($u) {
                     $affected = OrderRepository::exec('UPDATE drugs SET qty = qty - ? WHERE id=? AND qty >= ?',
                         array($deduct, $it['item_id'], $deduct));
                     if ($affected === 0) {
-                        if ($pdo->inTransaction()) $pdo->rollBack();
+                        DatabaseManager::rollbackTx();
                         json_fail('药品【' . $it['item_name'] . '】库存不足（并发扣减），请重试');
                     }
                     OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
@@ -578,7 +578,7 @@ function order_part_submit($u) {
         if (defined('DEBUG') && DEBUG) error_log('[开单快照失败] ' . $ex->getMessage());
     }
 
-    $pdo->commit();
+    DatabaseManager::commitTx();
     json_ok(array(
         'order_id' => oid($createdIds[0]),
         'order_ids' => array_map('oid', $createdIds),
@@ -588,7 +588,7 @@ function order_part_submit($u) {
     ), count($createdIds) > 1 ? '已拆分为 ' . count($createdIds) . ' 张开单（' . implode(' / ', $createdNos) . '）' : '开单成功');
     return;
     } catch (Exception $ex) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
+        DatabaseManager::rollbackTx();
         json_fail('开单失败：' . $ex->getMessage());
     }
 }

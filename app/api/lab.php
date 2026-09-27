@@ -206,7 +206,7 @@ switch ($action) {
 
         // 复合写操作（results + order_items 回写 + reports + 状态）整体包事务保证原子性
         $failTx = function ($msg) {
-            if (DatabaseManager::getMain()->inTransaction()) DatabaseManager::getMain()->rollBack();
+            if (DatabaseManager::getMain()->inTransaction()) DatabaseManager::rollbackTx(DatabaseManager::getMain());
             json_fail($msg);
         };
         $pdo = DatabaseManager::getMain();
@@ -268,9 +268,9 @@ switch ($action) {
                     )),
             ));
             OrderRepository::exec("UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
-            $pdo->commit();
+            DatabaseManager::commitTx();
         } catch (Exception $ex) {
-            if ($pdo->inTransaction()) $pdo->rollBack();
+            DatabaseManager::rollbackTx();
             json_fail('保存失败：' . $ex->getMessage());
         }
         // 通知医生 + 打印提醒

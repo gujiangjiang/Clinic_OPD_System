@@ -83,9 +83,9 @@ function record_part_delete($action) {
                     EmrRepository::revertVisitStatus($visitId, 'paid');
                 }
             }
-            $pdo->commit();
+            DatabaseManager::commitTx();
         } catch (Exception $ex) {
-            if ($pdo->inTransaction()) $pdo->rollBack();
+            DatabaseManager::rollbackTx();
             json_fail('病历删除失败：' . $ex->getMessage());
         }
         $newStatus = (string)EmrRepository::val('SELECT status FROM registrations WHERE id=?', array($visitId));

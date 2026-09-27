@@ -50,26 +50,24 @@ switch ($action) {
 
         // 记录转科（附带原病历ID，供一键引用）+ 更新当前科室：
         // 复合写操作包裹事务，任一步失败即回滚，避免产生孤儿转诊记录
-        $pdo = DatabaseManager::getMain();
-        $pdo->beginTransaction();
         try {
-            // 记录转科（附带原病历ID，供一键引用）
-            $lastRecord = EmrRepository::one('SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
-            EmrRepository::insert('INSERT INTO referrals(visit_id, patient_no, flow_no, from_dept_id, from_dept_name, to_dept_id, to_dept_name, reason, ref_record_id, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', array(
-                $visitId, $visit['patient_no'], $visit['flow_no'],
-                $visit['current_dept_id'], $visit['current_dept_name'],
-                $targetDept, $dept['name'], post('reason', ''),
-                $lastRecord ? (int)$lastRecord['id'] : 0,
-                $u['id'], $u['name'], now_str(),
-            ));
+            DatabaseManager::tx(function () use ($visitId, $visit, $targetDept, $dept, $u) {
+                // 记录转科（附带原病历ID，供一键引用）
+                $lastRecord = EmrRepository::one('SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
+                EmrRepository::insert('INSERT INTO referrals(visit_id, patient_no, flow_no, from_dept_id, from_dept_name, to_dept_id, to_dept_name, reason, ref_record_id, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                    $visitId, $visit['patient_no'], $visit['flow_no'],
+                    $visit['current_dept_id'], $visit['current_dept_name'],
+                    $targetDept, $dept['name'], post('reason', ''),
+                    $lastRecord ? (int)$lastRecord['id'] : 0,
+                    $u['id'], $u['name'], now_str(),
+                ));
 
-            // 更新当前科室；就诊状态保持「就诊中」（患者持续接诊中，转科不回落候诊）
-            EmrRepository::exec('UPDATE registrations SET current_dept_id=?, current_dept_name=? WHERE id=?', array(
-                $targetDept, $dept['name'], $visitId,
-            ));
-            $pdo->commit();
+                // 更新当前科室；就诊状态保持「就诊中」（患者持续接诊中，转科不回落候诊）
+                EmrRepository::exec('UPDATE registrations SET current_dept_id=?, current_dept_name=? WHERE id=?', array(
+                    $targetDept, $dept['name'], $visitId,
+                ));
+            });
         } catch (Exception $ex) {
-            if ($pdo->inTransaction()) $pdo->rollBack();
             json_fail('转科失败：' . $ex->getMessage());
         }
         json_ok(array(), '已转往【' . $dept['name'] . '】，就诊序号与首次挂号科室保持不变');

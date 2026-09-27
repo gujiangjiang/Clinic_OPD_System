@@ -133,22 +133,21 @@ if ($action === 'apply') {
         return true;
     }));
     if (!$approvers) json_fail('未找到可审批的相关人员');
-    // 事务：创建申请 + 审批人记录 + 站内消息
-    $pdo = DatabaseManager::getMain();
-    $pdo->beginTransaction();
+    // 事务：创建申请 + 审批人记录（站内消息在提交后发送）
+    $reqId = 0;
     try {
-        $reqId = CoreRepository::insert('INSERT INTO refund_requests(visit_id, patient_no, flow_no, payment_no, order_ids, reason, status, created_by, created_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
-            $visitId, $patient ? $patient['patient_no'] : $pays[0]['patient_no'], $pays[0]['flow_no'],
-            $paymentNo, json_encode($orderIds), $reason, 'pending', (int)$u['id'], now_str(),
-        ));
-        foreach ($approvers as $a) {
-            CoreRepository::insert('INSERT INTO refund_approvals(request_id, role, user_id, user_name, verdict, note, decided_at) VALUES(?,?,?,?,?,?,?)', array(
-                $reqId, $a['role'], (int)$a['user_id'], $a['user_name'], 'pending', '', '',
+        DatabaseManager::tx(function () use ($visitId, $pays, $patient, $paymentNo, $orderIds, $reason, $u, $approvers, &$reqId) {
+            $reqId = CoreRepository::insert('INSERT INTO refund_requests(visit_id, patient_no, flow_no, payment_no, order_ids, reason, status, created_by, created_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
+                $visitId, $patient ? $patient['patient_no'] : $pays[0]['patient_no'], $pays[0]['flow_no'],
+                $paymentNo, json_encode($orderIds), $reason, 'pending', (int)$u['id'], now_str(),
             ));
-        }
-        $pdo->commit();
+            foreach ($approvers as $a) {
+                CoreRepository::insert('INSERT INTO refund_approvals(request_id, role, user_id, user_name, verdict, note, decided_at) VALUES(?,?,?,?,?,?,?)', array(
+                    $reqId, $a['role'], (int)$a['user_id'], $a['user_name'], 'pending', '', '',
+                ));
+            }
+        });
     } catch (Exception $ex) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
         json_fail('退费申请创建失败：' . $ex->getMessage());
     }
     // 站内消息通知各审批人（点击跳转审批页）

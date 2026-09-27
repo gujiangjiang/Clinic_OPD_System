@@ -63,7 +63,7 @@ function doctor_part_write($action) {
             json_fail('该大屏已被 ' . $room['current_doctor_name'] . ' 占用，无法绑定');
         }
         // 释放该医生此前绑定的其他诊室（一人一块屏）
-        EmrRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL WHERE current_doctor_id=?', array($u['id']));
+        EmrRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL WHERE current_doctor_id=?', array($u['id']));
         // 绑定当前诊室：重新建立叫号会话日期（默认只叫当天号源；跨天规则见 roomQueueRefresh）
         EmrRepository::exec('UPDATE clinic_rooms SET current_doctor_id=?, current_doctor_name=?, doctor_heartbeat=?, call_session_date=?, updated_at=? WHERE id=?',
             array($u['id'], $u['name'], now_str(), today_str(), now_str(), $roomId));
@@ -74,7 +74,7 @@ function doctor_part_write($action) {
 
     if ($action === 'unbind_room') {
         $roomId = (int)post('room_id');
-        EmrRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL, updated_at=? WHERE id=? AND current_doctor_id=?',
+        EmrRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL, updated_at=? WHERE id=? AND current_doctor_id=?',
             array(now_str(), $roomId, $u['id']));
         json_ok(array(), '已释放诊室');
         return;
@@ -101,9 +101,9 @@ function doctor_part_write($action) {
         try {
             $res = doctor_call_claim_next_tx($u, $room, $smart);
             if (isset($res['error'])) { $pdo->rollBack(); json_fail($res['error']); }
-            $pdo->commit();
+            DatabaseManager::commitTx();
         } catch (Exception $ex) {
-            if ($pdo->inTransaction()) $pdo->rollBack();
+            DatabaseManager::rollbackTx();
             json_fail('叫号失败：' . $ex->getMessage());
         }
         push_room_event($room, array('action' => 'call_next', 'room_id' => (int)$room['id']));
@@ -135,9 +135,9 @@ function doctor_part_write($action) {
         $pdo->beginTransaction();
         try {
             $res = doctor_call_recall_missed_tx($u, $room, $visit);
-            $pdo->commit();
+            DatabaseManager::commitTx();
         } catch (Exception $ex) {
-            if ($pdo->inTransaction()) $pdo->rollBack();
+            DatabaseManager::rollbackTx();
             json_fail('重呼失败：' . $ex->getMessage());
         }
         push_room_event($room, array('action' => 'recall_missed', 'room_id' => (int)$room['id']));
@@ -194,15 +194,15 @@ function doctor_part_write($action) {
                      last_call_action='miss', last_call_at=?, updated_at=? WHERE id=?",
                     array($now, $now, $now, (int)$room['id'])
                 );
-                $pdo->commit();
+                DatabaseManager::commitTx();
                 push_room_event($room, array('action' => 'call_miss', 'room_id' => (int)$room['id']));
                 json_ok(array('missed' => $cur['pname'], 'visit' => null),
                     '已过号 ' . $cur['pname'] . '，当前无候诊患者');
                 return;
             }
-            $pdo->commit();
+            DatabaseManager::commitTx();
         } catch (Exception $ex) {
-            if ($pdo->inTransaction()) $pdo->rollBack();
+            DatabaseManager::rollbackTx();
             json_fail('过号失败：' . $ex->getMessage());
         }
         push_room_event($room, array('action' => 'call_miss', 'room_id' => (int)$room['id']));

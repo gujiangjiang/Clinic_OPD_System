@@ -68,7 +68,7 @@ function order_part_delete($u) {
                 $aoItems = OrderRepository::q('SELECT * FROM order_items WHERE order_id=?', array($ao['id']));
                 foreach ($aoItems as $aoIt) {
                     if (!in_array($aoIt['status'], array('open', 'refunded'), true)) {
-                        $pdoDel->rollBack();
+                        DatabaseManager::rollbackTx();
                         json_fail('该处方的联动处置单已进入执行流程，不能自动删除（请先在收费处处理联动处置单）');
                     }
                 }
@@ -80,9 +80,9 @@ function order_part_delete($u) {
             OrderRepository::exec('DELETE FROM order_items WHERE order_id=?', array($ao['id']));
             OrderRepository::exec('DELETE FROM orders WHERE id=?', array($ao['id']));
         }
-        $pdoDel->commit();
+        DatabaseManager::commitTx();
     } catch (Exception $ex) {
-        if ($pdoDel->inTransaction()) $pdoDel->rollBack();
+        if ($pdoDel->inTransaction()) DatabaseManager::rollbackTx();
         json_fail('删除失败：' . $ex->getMessage());
     }
     json_ok(array(), '开单已删除' . ($order['order_type'] === 'prescription' ? '，药品库存已恢复' : '') . ($autoOrders ? '，联动处置单已同步删除' : ''));

@@ -82,7 +82,7 @@ function cashier_part_write($action) {
         // 重新生成编号，最多 3 次。加号标记已改为条件更新（used=0→1）防双发。
         // fail()：事务内业务校验失败先显式回滚再输出（兼容 MySQL 非持久连接）
         $fail = function ($msg) use (&$pdo) {
-            if ($pdo && $pdo->inTransaction()) $pdo->rollBack();
+            if ($pdo && $pdo->inTransaction()) DatabaseManager::rollbackTx();
             json_fail($msg);
         };
         $pdo = DatabaseManager::getMain();
@@ -159,7 +159,7 @@ function cashier_part_write($action) {
             'is_extra' => $isExtra,
         ));
 
-        $pdo->commit();
+        DatabaseManager::commitTx();
         json_ok(array(
             'visit_id' => oid($visitId),
             'patient_no' => $patientNo,
@@ -173,7 +173,7 @@ function cashier_part_write($action) {
         ), '挂号成功，请完成缴费');
         return;
         } catch (Exception $ex) {
-            if ($pdo->inTransaction()) $pdo->rollBack();
+            DatabaseManager::rollbackTx();
             // 唯一约束冲突（并发撞号）→ 重新生成编号重试；其余异常直接失败
             if ($attempt < $maxAttempts - 1 && is_unique_conflict($ex)) {
                 continue;
@@ -227,16 +227,16 @@ function cashier_part_write($action) {
                     array($reason, $visitId)
                 );
                 if ($affected === 0) {
-                    $pdo->rollBack();
+                    DatabaseManager::rollbackTx();
                     json_fail('当前状态不可退费（已退费/已就诊）');
                 }
                 CashierRepository::createRefund(array(
                     'visit_id' => $visitId, 'order_id' => 0, 'patient_no' => $visit['patient_no'], 'flow_no' => $visit['flow_no'],
                     'total' => (float)$visit['fee'], 'reason' => $reason, 'cashier_id' => $u['id'], 'cashier_name' => $u['name'],
                 ));
-                $pdo->commit();
+                DatabaseManager::commitTx();
             } catch (Exception $ex) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
+                DatabaseManager::rollbackTx();
                 json_fail('退费失败：' . $ex->getMessage());
             }
             json_ok(array(), '退费成功：挂号费已退回，可重新挂号');
@@ -264,7 +264,7 @@ function cashier_part_write($action) {
             if (!$allowExecuted) {
                 foreach ($items as $it) {
                     if ($it['status'] !== 'paid') {
-                        $pdo->rollBack();
+                        DatabaseManager::rollbackTx();
                         json_fail('存在已开始执行的项目（' . e($it['item_name']) . '），不可退费');
                     }
                 }
@@ -278,7 +278,7 @@ function cashier_part_write($action) {
                 array(now_str(), $orderId)
             );
             if ($affectedOrder === 0) {
-                $pdo->rollBack();
+                DatabaseManager::rollbackTx();
                 json_fail('当前订单状态不可退费（已退费/已取消/未缴费）');
             }
             // 明细置 refunded：审批通过退已执行项目时覆盖 paid/registered/done 等非 open/refunded/cancelled
@@ -294,13 +294,13 @@ function cashier_part_write($action) {
                 );
             }
             if ($affectedItems === 0) {
-                $pdo->rollBack();
+                DatabaseManager::rollbackTx();
                 json_fail('订单明细状态已变更，不可退费');
             }
             // 原子兜底：未审批退费要求全部明细都被成功置为 refunded——
             // 若明细数不一致，说明校验后又有明细被并发登记/发药（半退状态），整单回滚
             if (!$allowExecuted && $affectedItems !== count($items)) {
-                $pdo->rollBack();
+                DatabaseManager::rollbackTx();
                 json_fail('订单明细状态已变更，存在已开始执行的项目，不可退费');
             }
             CashierRepository::createRefund(array(
@@ -323,9 +323,9 @@ function cashier_part_write($action) {
                     }
                 }
             }
-            $pdo->commit();
+            DatabaseManager::commitTx();
         } catch (Exception $ex) {
-            if ($pdo->inTransaction()) $pdo->rollBack();
+            DatabaseManager::rollbackTx();
             json_fail('退费失败：' . $ex->getMessage());
         }
     };

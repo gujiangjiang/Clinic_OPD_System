@@ -37,6 +37,9 @@ class DatabaseManager {
     private static $backupPdo = null;
     private static $dualWrite = null;   // -1 未探测 / 0 关 / 1 开
 
+    /** 事务内待镜像写操作缓冲（提交后统一镜像；回滚则丢弃，杜绝主备分歧） */
+    private static $pendingMirror = null;
+
     /** 旧分散库 key 白名单（兼容旧调用签名：DB::q(...)） */
     private static $legacyKeys = array(
         'core', 'user', 'dept', 'patient', 'order', 'drug', 'medical',
@@ -450,7 +453,7 @@ class DatabaseManager {
             $pdo->beginTransaction();
             $n = (int)$pdo->query("SELECT COUNT(*) FROM settings WHERE skey='seed_done_v1'")->fetchColumn();
             if ($n > 0) {
-                $pdo->rollBack();
+                self::rollbackTx($pdo);
                 return;
             }
             $def = self::mainSchema();
@@ -462,9 +465,9 @@ class DatabaseManager {
                 }
             }
             self::setSettingRaw($pdo, $doneKey, '1');
-            $pdo->commit();
+            self::commitTx($pdo);
         } catch (Exception $ex) {
-            if ($pdo->inTransaction()) $pdo->rollBack();
+            self::rollbackTx($pdo);
             if (DEBUG) error_log('[种子异常] main: ' . $ex->getMessage());
         }
     }
@@ -640,7 +643,7 @@ class DatabaseManager {
         list($pdo, $sql, $params) = self::resolve($a, $b, $c);
         $st = $pdo->prepare($sql);
         $st->execute($params);
-        self::mirrorWrite($sql, $params);   // RAID1 式实时双写（同驱动镜像，失败降级不影响主库）
+        self::mirrorNowOrBuffer($pdo, $sql, $params);
         return $st->rowCount();
     }
 
@@ -649,8 +652,40 @@ class DatabaseManager {
         list($pdo, $sql, $params) = self::resolve($a, $b, $c);
         $pdo->prepare($sql)->execute($params);
         $id = (int)$pdo->lastInsertId();
-        self::mirrorWrite($sql, $params);   // RAID1 式实时双写（同驱动镜像，失败降级不影响主库）
+        self::mirrorNowOrBuffer($pdo, $sql, $params);
         return $id;
+    }
+
+    /** 事务内写操作先缓冲、事务外即时镜像（RAID1 式实时双写，失败降级不影响主库） */
+    private static function mirrorNowOrBuffer($pdo, $sql, $params) {
+        if ($pdo->inTransaction()) {
+            // 事务内写操作挂起，待 commitTx 提交后统一镜像——修复「事务未提交即镜像，
+            // 主库回滚后备份残留已修改数据」的主备分歧；json_fail 直接退出进程时
+            // 缓冲随进程销毁丢弃，与连接销毁自动回滚的主库保持一致
+            if (self::$pendingMirror === null) self::$pendingMirror = array();
+            self::$pendingMirror[] = array($sql, $params);
+        } else {
+            self::mirrorWrite($sql, $params);
+        }
+    }
+
+    /** 提交事务并刷缓冲镜像（事务内写操作仅在提交成功后镜像到备份库） */
+    public static function commitTx($pdo) {
+        $pdo->commit();
+        $buf = self::$pendingMirror;
+        self::$pendingMirror = null;
+        foreach ($buf as $m) self::mirrorWrite($m[0], $m[1]);
+    }
+
+    /** 回滚事务并丢弃缓冲镜像（主库回滚，备份不写入，保持主备一致） */
+    public static function rollbackTx($pdo) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        self::$pendingMirror = null;
+    }
+
+    /** 清空事务内挂起的镜像缓冲（json_fail 等退出路径调用） */
+    public static function clearPendingMirror() {
+        self::$pendingMirror = null;
     }
 
     /** 别名（旧代码兼容） */

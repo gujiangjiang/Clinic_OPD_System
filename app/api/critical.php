@@ -348,21 +348,19 @@ switch ($action) {
         }
         if ($cv['status'] === 'done') json_fail('该危急值已处理，不可重复处理');
         $matchText = $match === 'match' ? '符合病情' : '不符合病情';
-        $pdo = DatabaseManager::getMain();
-        $pdo->beginTransaction();
+        $recordId = 0;
         try {
-            // 条件更新防并发重复处理：仅待处理状态可推进
-            $n = DB::exec("UPDATE critical_values SET status='done', match_status=?, treatment=?, processed_by=?, processed_at=? WHERE id=? AND status='pending'",
-                array($matchText, $treatment, (int)$u['id'], now_str(), $id));
-            if ($n <= 0) {
-                $pdo->rollBack();
-                json_fail('该危急值已处理，不可重复处理');
-            }
-            $recordId = crit_insert_emr($cv, $u, $matchText, $treatment);
-            DB::exec('UPDATE critical_values SET record_id=? WHERE id=?', array($recordId, $id));
-            $pdo->commit();
+            DatabaseManager::tx(function () use ($cv, $u, $matchText, $treatment, $id, &$recordId) {
+                // 条件更新防并发重复处理：仅待处理状态可推进
+                $n = DB::exec("UPDATE critical_values SET status='done', match_status=?, treatment=?, processed_by=?, processed_at=? WHERE id=? AND status='pending'",
+                    array($matchText, $treatment, (int)$u['id'], now_str(), $id));
+                if ($n <= 0) {
+                    json_fail('该危急值已处理，不可重复处理');
+                }
+                $recordId = crit_insert_emr($cv, $u, $matchText, $treatment);
+                DB::exec('UPDATE critical_values SET record_id=? WHERE id=?', array($recordId, $id));
+            });
         } catch (Exception $ex) {
-            if ($pdo->inTransaction()) $pdo->rollBack();
             json_fail('处理失败：' . $ex->getMessage());
         }
         json_ok(array('id' => oid($id), 'record_id' => oid($recordId)), '危急值已处理，已写入病历「危急值记录」');

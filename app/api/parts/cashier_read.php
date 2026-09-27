@@ -376,22 +376,22 @@ function cashier_part_read($action) {
         foreach ($ids as $oidStr) {
             $oidNum = did($oidStr);
             if ($oidNum <= 0) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
+                DatabaseManager::rollbackTx();
                 json_fail('存在无效的开单标识，请刷新后重试');
             }
             $order = CashierRepository::order($oidNum);
             if (!$order) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
+                DatabaseManager::rollbackTx();
                 json_fail('开单不存在');
             }
             if ((int)$order['visit_id'] !== $batchVisitId) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
+                DatabaseManager::rollbackTx();
                 json_fail('同批次缴费的开单必须属于同一患者就诊，请分开缴费');
             }
             $items = CashierRepository::orderItems($order['id']);
             // 皮试钳制硬拦截：含需皮试药品且本次就诊尚无阴性结果 → 禁止缴费（后端兜底）
             if (order_skin_locked($order, $items)) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
+                DatabaseManager::rollbackTx();
                 json_fail('该开单含需皮试药品，请先完成皮试且结果阴性后方可缴费');
             }
             $items = CashierRepository::orderItems($order['id']);
@@ -401,7 +401,7 @@ function cashier_part_read($action) {
                 'order_id=? AND status=\'open\'', array($order['id'])
             );
             if ($paidRows === 0) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
+                DatabaseManager::rollbackTx();
                 json_fail('存在已缴费项目，请刷新后重试');
             }
             $orderAffected = CashierRepository::exec(
@@ -409,7 +409,7 @@ function cashier_part_read($action) {
                 array(now_str(), $order['id'])
             );
             if ($orderAffected === 0) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
+                DatabaseManager::rollbackTx();
                 json_fail('该开单已缴费，请刷新后重试');
             }
             // 处置（医生直接执行类）：缴费即视为已执行
@@ -427,11 +427,11 @@ function cashier_part_read($action) {
                 'cashier_id' => $u['id'], 'cashier_name' => $u['name'], 'payment_no' => $paymentNo, 'method' => $method,
             ));
         }
-        $pdo->commit();
+        DatabaseManager::commitTx();
         json_ok(array('payment_id' => oid($payId), 'payment_no' => $paymentNo, 'total' => $total), '缴费成功');
         return;
         } catch (Exception $ex) {
-            if ($pdo->inTransaction()) $pdo->rollBack();
+            DatabaseManager::rollbackTx();
             json_fail('缴费失败：' . $ex->getMessage());
         }
     }
