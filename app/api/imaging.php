@@ -14,14 +14,6 @@ require_once __DIR__ . '/parts/dept_common.php';
 
 $u = Auth::user();
 
-/**
- * 检查类型推导（DR/CT/US/MR，与前端 imgModality 口径一致）：
- * 供影像引用元数据（imaging_refs.modality）使用。
- */
-function img_ref_modality($name) {
-    return (string)$name;
-}
-
 switch ($action) {
 
     /* ==================== 影像科首页统计 ==================== */

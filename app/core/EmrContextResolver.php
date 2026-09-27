@@ -88,12 +88,8 @@ class EmrContextResolver {
             return self::frozen('others', '他人文书，只读展示');
         }
 
-        // 6) 医生当前科室判定
-        $docDept = (int)($u['current_dept_id'] ?? 0);
-        if ($docDept <= 0) {
-            $docRow = UserRepository::currentDept($uid);
-            $docDept = $docRow ? (int)$docRow['current_dept_id'] : 0;
-        }
+        // 6) 医生当前科室判定（复用公共 helper：会话快照优先 + 回库兜底）
+        $docDept = current_dept_id($u);
         // 医生当前科室 != 就诊当前科室 → 跨科室绝对只读
         if ($docDept <= 0 || $docDept !== (int)$visit['current_dept_id']) {
             return self::frozen('others', '跨科室病历，当前科室只读');

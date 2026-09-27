@@ -27,9 +27,6 @@ Router::title('影像模板管理');
     <div class="empty"><div class="spinner"></div></div>
 </div>
 
-<style>
-</style>
-
 <script>
 
 var ITPL_DATA = [];

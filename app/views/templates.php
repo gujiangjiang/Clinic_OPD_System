@@ -43,9 +43,6 @@ $isAdmin = $u['role'] === 'admin';
 </div>
 </div>
 
-<style>
-</style>
-
 <script>
 var TPL_TYPE = 'medical_record';
 var TPL_STATE = { kw: '', cat: '' };   // 分页状态：kw=搜索词 / cat=范围筛选（scope）

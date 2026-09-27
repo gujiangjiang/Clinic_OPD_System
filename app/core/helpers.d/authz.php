@@ -129,13 +129,21 @@ function visit_dept_authorized($visit, $u) {
         if ($n > 0) return true;
         // 会诊放行：该就诊有发给当前医生所在科室的进行中/待处理会诊 →
         // 会诊医生（仅需本科室权限）可查看该跨科室就诊并书写会诊病历
-        $docDept = current_dept_id($u);
-        if ($docDept > 0) {
-            $c = (int)DB::val("SELECT COUNT(*) FROM consultations WHERE visit_id=? AND target_dept_id=? AND status IN ('pending','doing')", array($visitId, $docDept));
-            if ($c > 0) return true;
-        }
+        if (visit_has_active_consult($visit, $u)) return true;
     }
     return false;
+}
+
+/**
+ * 会诊放行判断：该就诊是否有发给「当前医生所在科室」的进行中/待处理会诊
+ * （会诊目标科室医生可查看跨科室就诊并书写会诊病历，不受可见天数限制）
+ */
+function visit_has_active_consult($visit, $u) {
+    $visitId = (int)(isset($visit['id']) ? $visit['id'] : 0);
+    if ($visitId <= 0) return false;
+    $docDept = current_dept_id($u);
+    if ($docDept <= 0) return false;
+    return (int)DB::val("SELECT COUNT(*) FROM consultations WHERE visit_id=? AND target_dept_id=? AND status IN ('pending','doing')", array($visitId, $docDept)) > 0;
 }
 
 /**
@@ -168,13 +176,6 @@ function visit_access_allowed($visit, $u) {
     $since = date('Y-m-d', strtotime('-' . ($queueDays - 1) . ' days'));
     if (substr($regTime, 0, 10) >= $since) return true;
     // 会诊放行：进行中/待处理会诊（发给当前医生科室）不受可查看天数限制
-    $visitId = (int)(isset($visit['id']) ? $visit['id'] : 0);
-    if ($visitId > 0) {
-        $docDept = current_dept_id($u);
-        if ($docDept > 0) {
-            $c = (int)DB::val("SELECT COUNT(*) FROM consultations WHERE visit_id=? AND target_dept_id=? AND status IN ('pending','doing')", array($visitId, $docDept));
-            if ($c > 0) return true;
-        }
-    }
+    if (visit_has_active_consult($visit, $u)) return true;
     return false;
 }

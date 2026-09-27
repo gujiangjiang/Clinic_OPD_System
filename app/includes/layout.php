@@ -242,9 +242,8 @@ class Layout {
      * @param bool   $needEmr   是否需要 EMR 栈组件（医生工作站/模板/审核预览）
      * @param bool   $docTools  医生工作站（新）顶栏工具（工具箱/叫号/科室切换）
      * @param bool   $needDeptWork 是否需要科室工作台组件（护士站/检验/影像/药房工作台）
-     * @param bool   $needAdminItems 是否需要管理端项目列表组件（检验/检查/药品管理）
      */
-    public static function appPage($content, $title, $forceMini = false, $needEmr = false, $docTools = false, $needDeptWork = false, $needAdminItems = false) {
+    public static function appPage($content, $title, $forceMini = false, $needEmr = false, $docTools = false, $needDeptWork = false) {
         $u = Auth::user();
         if (!$u) {
             header('Location: /login');
@@ -309,7 +308,7 @@ class Layout {
             )));
         }
         // 医生工作站（新）顶栏工具：工具箱 / 叫号大屏绑定 / 科室切换（仅医生角色）
-        if ($docTools && $u['role'] === 'doctor') {
+        if ($docTools) {
             $emrScripts .= "\n" . '<script src="/assets/js/components/doctor_tools.js?v=' . APP_VERSION . '"></script>';
         }
         // 医生角色全局：诊室大屏绑定心跳保活（跨页面持续，离开工作站/刷新不自动解绑）

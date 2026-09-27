@@ -16,36 +16,6 @@ class QueueRepository extends BaseRepository {
     /** 按 id 查找叫号大屏 */
     public static function roomById($id) { return self::findById('clinic_rooms', $id); }
 
-    /** 按科室查找当前就诊中患者（最近一条） */
-    public static function currentVisit($deptId) {
-        return self::one(
-            "SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
-             FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-             WHERE r.current_dept_id=? AND r.status='visiting' ORDER BY r.id DESC LIMIT 1",
-            array((int)$deptId)
-        );
-    }
-
-    /** 按科室查找下一位候诊患者 */
-    public static function nextWaiting($deptId) {
-        return self::one(
-            "SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
-             FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-             WHERE r.current_dept_id=? AND r.status='paid' ORDER BY r.visit_seq, r.registered_at LIMIT 1",
-            array((int)$deptId)
-        );
-    }
-
-    /** 按科室查找候诊队列（前 N 位） */
-    public static function waitingList($deptId, $limit = 8) {
-        return self::q(
-            "SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
-             FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-             WHERE r.current_dept_id=? AND r.status='paid' ORDER BY r.visit_seq, r.registered_at LIMIT " . (int)$limit,
-            array((int)$deptId)
-        );
-    }
-
     /**
      * 科室动态号源池（未认领患者）——叫号大屏 / 医生叫号悬浮窗的数据源
      * 规则：
@@ -68,31 +38,12 @@ class QueueRepository extends BaseRepository {
         return self::q($sql, array((int)$deptId, (int)$deptId));
     }
 
-    /** 科室号源池首条（下一位） */
-    public static function deptPoolNext($deptId) {
-        $rows = self::deptPool($deptId, 1);
-        return $rows ? $rows[0] : null;
-    }
-
     /** 科室号源池总数 */
     public static function deptPoolCount($deptId) {
         return (int)self::val(
             "SELECT COUNT(*) FROM registrations r
              WHERE r.current_dept_id=? AND r.status='paid'
                AND NOT EXISTS (SELECT 1 FROM call_events ce WHERE ce.visit_id=r.id AND ce.action='call')",
-            array((int)$deptId)
-        );
-    }
-
-    /** 过号患者列表（最近 N 位，供大屏显示（过号）标记） */
-    public static function deptMissed($deptId, $limit = 8) {
-        return self::q(
-            "SELECT r.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
-             FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-             WHERE r.current_dept_id=? AND r.status='paid'
-               AND EXISTS (SELECT 1 FROM call_events ce WHERE ce.visit_id=r.id AND ce.action='miss')
-             ORDER BY (SELECT MAX(created_at) FROM call_events ce2 WHERE ce2.visit_id=r.id AND ce2.action='miss') DESC
-             LIMIT " . (int)$limit,
             array((int)$deptId)
         );
     }

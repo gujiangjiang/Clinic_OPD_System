@@ -27,9 +27,6 @@ Router::title('护理模板管理');
     <div class="empty"><div class="spinner"></div></div>
 </div>
 
-<style>
-</style>
-
 <script>
 
 var NTPL_DATA = [];
