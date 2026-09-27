@@ -120,10 +120,14 @@ function deptwork_queue_rows($u, $status, $today) {
     $todayWhere = $today ? " AND date(oi.created_at)=?" : '';
 
     // 可见天数过滤：每条明细按其开单医生的可见天数过滤；多医生开单以各自天数并集。
-    // 双驱动方言：SQLite 用日期修饰符 + 标量 MAX/MIN；MySQL 用 DATE_SUB + GREATEST/LEAST。
-    $queueDaysClause = (DB_DRIVER === 'mysql')
+    // 三驱动方言：SQLite 用日期修饰符 + 标量 MAX/MIN；MySQL 用 DATE_SUB + GREATEST/LEAST；
+    // PostgreSQL 用 CURRENT_DATE - INTERVAL。
+    $__drv = DatabaseManager::driver();
+    $queueDaysClause = ($__drv === 'mysql')
         ? "date(oi.created_at) >= DATE_SUB(CURDATE(), INTERVAL (GREATEST(2, LEAST(7, COALESCE(usr.queue_days,3))) - 1) DAY)"
-        : "date(oi.created_at) >= date('now','localtime','-' || (MAX(2, MIN(7, COALESCE(usr.queue_days,3))) - 1) || ' days')";
+        : (($__drv === 'pgsql')
+            ? "date(oi.created_at) >= CURRENT_DATE - (GREATEST(2, LEAST(7, COALESCE(usr.queue_days,3))) - 1)"
+            : "date(oi.created_at) >= date('now','localtime','-' || (MAX(2, MIN(7, COALESCE(usr.queue_days,3))) - 1) || ' days')");
 
     // 可见天数跟随开单医生权限（users.queue_days 2-7，默认 3）：
     // 每条明细按其开单医生的可见天数过滤；多医生开单以各自天数并集（取最长窗口）。
@@ -540,6 +544,11 @@ function deptwork_bind_room($u) {
     // 类型限定：仅可绑定本角色类型诊室（护士→nurse / 检验→lab / 影像→imaging / 药房→pharmacy）
     $cfg = deptwork_role_cfg($u['role']);
     if ($room['room_type'] !== $cfg['room_type']) json_fail('无权绑定该类型诊室');
+    // 科室归属校验：已绑定科室者仅可绑定本人所属科室的诊室（与医生端 doctor_write 口径一致）
+    $myDepts = user_dept_ids($u);
+    if ($myDepts && !in_array((int)$room['dept_id'], $myDepts, true)) {
+        json_fail('无权绑定其他科室的诊室');
+    }
     // 后端强拦截：大屏必须在线
     if (empty($room['screen_last_heartbeat']) || (time() - strtotime($room['screen_last_heartbeat'])) > 30) {
         json_fail('该大屏当前处于离线状态，无法绑定，请确保大屏已开启并在运行！');
@@ -549,7 +558,7 @@ function deptwork_bind_room($u) {
         json_fail('该大屏已被 ' . $room['current_doctor_name'] . ' 使用，无法绑定');
     }
     // 释放本人此前绑定的其他诊室（一人一块屏）
-    DB::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL WHERE current_doctor_id=?', array($u['id']));
+    DB::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL WHERE current_doctor_id=?', array($u['id']));
     DB::exec('UPDATE clinic_rooms SET current_doctor_id=?, current_doctor_name=?, doctor_heartbeat=?, call_session_date=?, updated_at=? WHERE id=?',
         array($u['id'], $u['name'], now_str(), today_str(), now_str(), $roomId));
     $dept = DB::one('SELECT name FROM departments WHERE id=?', array((int)$room['dept_id']));
@@ -559,7 +568,7 @@ function deptwork_bind_room($u) {
 /** 解绑大屏诊室 */
 function deptwork_unbind_room($u) {
     $roomId = (int)post('room_id');
-    DB::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL, current_visit_id=0, current_flow_no="", current_called_at="", last_call_action="", last_call_at="", updated_at=? WHERE id=? AND current_doctor_id=?',
+    DB::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL, current_visit_id=0, current_flow_no=\'\', current_called_at=\'\', last_call_action=\'\', last_call_at=\'\', updated_at=? WHERE id=? AND current_doctor_id=?',
         array(now_str(), $roomId, $u['id']));
     json_ok(array(), '已释放诊室');
 }
