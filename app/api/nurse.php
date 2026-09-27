@@ -313,6 +313,14 @@ switch ($action) {
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         if (!nurse_visit_allowed($row['visit'], $u)) json_fail('无权限记录该就诊的皮试结果');
+        // 药品归属校验：该药品必须属于本就诊的皮试单（is_skin_test=1），
+        // 防止任意护士对本就诊任意药品写入皮试结果并污染过敏史
+        $belongs = (int)OrderRepository::val(
+            "SELECT COUNT(*) FROM order_items oi JOIN orders o ON o.id=oi.order_id
+             WHERE o.visit_id=? AND o.is_skin_test=1 AND oi.item_id=?",
+            array($visitId, $drugId)
+        );
+        if ($belongs <= 0) json_fail('该药品不属于本就诊的皮试单，不可记录皮试结果');
         $drugName = trim((string)post('drug_name', ''));
         if ($drugName === '') {
             $d = OrderRepository::one('SELECT name FROM drugs WHERE id=?', array($drugId));
