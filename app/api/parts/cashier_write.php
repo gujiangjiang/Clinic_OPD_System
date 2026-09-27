@@ -269,10 +269,10 @@ function cashier_part_write($action) {
                     }
                 }
             }
-            // 订单状态迁移：未审批退费允许 paid / reviewed（审方通过未发药）；审批通过后
-            // （allowExecuted）再允许已发药（dispensed）订单退费——
-            // 修复「已发药处方退费死锁」：审批流放行而执行被状态硬拦
-            $orderWhere = $allowExecuted ? "status IN ('paid','reviewed','dispensed')" : "status IN ('paid','reviewed')";
+            // 订单状态迁移：审批通过退费（allowExecuted）放行 已发药（dispensed）/审方通过（reviewed）；
+            // 未审批退费仅允许 待执行（paid）——审方通过（reviewed）的药房处方须走退费申请审批流，
+            // 与 refund.php check 判定口径一致，堵住单单退费（refund_order）绕过审批的缺口
+            $orderWhere = $allowExecuted ? "status IN ('paid','reviewed','dispensed')" : "status IN ('paid')";
             $affectedOrder = CashierRepository::exec(
                 "UPDATE orders SET status='refunded', refunded_at=? WHERE id=? AND $orderWhere",
                 array(now_str(), $orderId)
