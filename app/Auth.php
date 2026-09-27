@@ -1,0 +1,52 @@
+<?php
+/**
+ * app/Auth.php — 独立登录认证（本工具自带 users 表 + Session）
+ */
+class PvAuth {
+
+    public static function login($username, $password) {
+        $u = PvDatabase::one("SELECT * FROM users WHERE username=? LIMIT 1", array($username));
+        if (!$u) return '用户名或密码错误';
+        if ((int)$u['status'] !== 1) return '该账号已被停用';
+        if (!password_verify((string)$password, (string)$u['password_hash'])) return '用户名或密码错误';
+        // 登录成功：重置会话
+        @session_regenerate_id(true);
+        $_SESSION['pv_uid'] = (int)$u['id'];
+        $_SESSION['pv_user'] = array(
+            'id' => (int)$u['id'],
+            'username' => $u['username'],
+            'display_name' => $u['display_name'],
+            'role' => $u['role'],
+        );
+        $_SESSION['pv_login_at'] = time();
+        return true;
+    }
+
+    public static function logout() {
+        $_SESSION = array();
+        if (session_status() === PHP_SESSION_ACTIVE) @session_destroy();
+    }
+
+    public static function user() {
+        if (empty($_SESSION['pv_uid'])) return null;
+        // 实时校验账号有效性（停用即失效）
+        $u = PvDatabase::one("SELECT id,username,display_name,role,status FROM users WHERE id=?", array((int)$_SESSION['pv_uid']));
+        if (!$u || (int)$u['status'] !== 1) { self::logout(); return null; }
+        return $u;
+    }
+
+    public static function check() { return self::user() !== null; }
+
+    public static function isAdmin() {
+        $u = self::user();
+        return $u && $u['role'] === 'admin';
+    }
+
+    public static function requireLogin() {
+        if (!self::check()) pvw_redirect(pvw_url('login'));
+    }
+    public static function requireAdmin() {
+        self::requireLogin();
+        if (!self::isAdmin()) pvw_json(403, '需要管理员权限');
+    }
+}
