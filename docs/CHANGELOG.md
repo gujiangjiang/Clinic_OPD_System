@@ -13,6 +13,51 @@
 
 ---
 
+## [8.37.0] - 2026-09-28
+
+> 全量代码复盘优化：修复一批高危逻辑缺陷与越权缺口、补齐 MySQL/PostgreSQL 多驱动兼容、
+> 事务双写镜像主备一致性加固、登录安全与健壮性提升，并完成低风险去重与死代码清理。
+
+### 修复
+- **打印快照更新分支占位符参数被丢弃（HY093 崩溃）**：`snapshot_patient()` 更新分支 `array_values($row) + array(...)` 的 `+` 运算丢弃补位 bizType/bizId，同单据二次保存/补打必抛异常；改为 `array_merge` 尾部追加（`app/core/helpers.d/input.php`）。
+- **药品规格整十/整百剂量显示截断**：`drug_spec_text()` 对 10mg/100mg 等整数剂量错误去除尾零显示为 1mg；仅当含小数点时去除小数尾零（`app/core/helpers.d/string.php`）。
+- **删单回补库存漏乘 pack_size**：整盒处方删除仅回补盒数未乘包装量，每删一单永久丢失库存；现与开单扣减同口径按最小单位回补（`order_delete.php`）。
+- **安装接口可未授权重装清库**：`/api/install?action=save` 无已安装守卫，访客仅凭 CSRF token 即可 POST mode=fresh 触发 wipeMain 清空主业务库；新增 `ConfigStore::isSystemInstalled()` 拦截（`install.php`）。
+- **医技工作台页签偏好写已关闭会话不持久化**：deptwork 顶部对所有 action 无条件 `Session::closeReadOnly()`，queue_pref 后写 `$_SESSION` 无效；仅只读轮询类 action 关闭会话（`deptwork.php`）。
+- **叫号大屏存储型 XSS**：医生诊室大屏模式患者姓名/医生信息/温馨提示等未转义直接拼 innerHTML；顶层统一 `esc()` 覆盖全部渲染点（`screen.js`）。
+- **多医生并发叫号 TOCTOU**：认领先查后插无行锁，并发下同一患者可被两医生重复叫号；认领/重呼前 `SELECT...FOR UPDATE` 锁定候选就诊行 + 锁内重查兜底，号源池排除已在任一诊室就诊中的患者（`doctor_call_actions.php` / `QueueRepository`）。
+- **套餐类型-角色鉴权形同虚设**：`pkg_type_allowed()` 未使用 $role 参数恒真；按路由门收敛为 admin/doctor 全类型、其余角色拒绝（`package.php`）。
+- **检验/影像登记与报告撤回缺科室归属校验**：`dept_register`/`dept_withdraw` 未做 `dept_visit_allowed`，可跨科室登记/撤回；按申请单就诊科室归属拦截（`dept_common.php`）。
+- **医技诊室绑定可跨科室**：`deptwork_bind_room` 未校验诊室科室归属，绑定科室者可绑其他科室大屏；补 `user_dept_ids` 校验（`deptwork.php`）。
+- **转科可转到非临床科室**：`transfer do` 目标科室未限定门诊/急诊类型；与 targets 列表口径对齐（`transfer.php`）。
+- **皮试结果可污染他人过敏史**：`nurse skin_result` 未校验药品归属本就诊皮试单；补订单/皮试单归属校验（`nurse.php`）。
+- **审方通过处方可未审批直连退费**：`refund_order` 未审批路径放行 reviewed，绕开退费审批流；未审批退费仅允许 paid（`cashier_write.php`）。
+- **迁移切换/保留无令牌鉴权**：`migration switch/done` 任何人可代切换主库指针；与 cancel 同源校验管理员令牌，锁定页同步携带（`migration.php` / `migrating_lock.php`）。
+- **推送订阅可窥探任意科室**：`push room:/dept:` 通道任意登录用户可订阅；按 user_dept_ids 归属校验（`push.php`）。
+
+### 变更
+- **多驱动兼容（MySQL/PostgreSQL）**：`DB_DRIVER` 常量误用统一改 `DatabaseManager::driver()`，QueueRepository 心跳判定与 deptwork 可见天数补 PostgreSQL 方言；SQL 双引号空串字面量改单引号；`push_emit/push_purge` 时间戳改参数绑定（SQLite 专有 datetime 语法跨驱动失效）；`is_unique_conflict` 以 SQLSTATE 23xxx 前缀统一覆盖三驱动（含 PG 23505）；`next_report_no` 的 CAST 按驱动切换 SIGNED/INTEGER。
+- **RAID1 双写镜像主备一致**：事务内写操作挂起镜像缓冲，`commitTx` 提交后统一镜像、`rollbackTx`/json_fail 回滚丢弃；全部 19 处事务调用点统一改为 `commitTx`/`rollbackTx`。
+- **备份同步幂等化**：`backupTo` 每表同步前清空目标表（外键已关闭），重复/中断重试不再主键冲突。
+- **退出登录与账号校验容错**：`Auth::logout` 诊室解绑 try/catch 不阻塞登出；`assertActive` 区分「账号失活」与「数据库不可用」，DB 抖动降级放行；theme 会话字段补 isset 保护。
+- **登录锁定临时化**：密码连续错误锁定由永久禁用改为 15 分钟临时锁定（写入 login_locked_until，到期自动解锁清零），消除锁死任意账号的 DoS 面；话术提示剩余解锁时间。
+- **迁移后台启动失败检测**：`popen` 返回 false 即明确失败并置 failed，修复「假启动」死分支（原前台兜底实际未执行脚本）。
+- **种子失败不再写完成标记**：`seedAll` 任一条种子失败即回滚不写 seed_done_v1，下次访问自动重试。
+- **CSRF Origin 加固**：移除 `Origin: null` 白名单，封堵沙箱 iframe/file 场景 POST 伪造。
+- **库存单位铁律服务端兜底**：药品保存新增 `drug_assert_min_qty`，不可拆零药品库存必须为包装数量整数倍（防直连接口以盒数语义提交）。
+- **开方剂量有效性硬校验**：0/负数/非数值剂量与剂量单位必填后端兜底，防恶意提交绕过覆盖性底线。
+- **危急值发送幂等**：同一报告同一接收医生仅可发送一次，防双击/重放生成重复危急值与重复站内信。
+- **跨天清库保留当天事件**：`roomQueueRefresh` 的 room_id 清库分支限定日期，避免误删当天叫号事件。
+- **药房工作台库存按钮恢复显示**：`dept_workbench` 骨架未输出 extra_actions（有 JS 绑定却从未渲染的隐藏缺陷）；顶栏输出额外按钮，药房「📦 库存」入口恢复。
+
+### 移除
+- **死代码清理**：QueueRepository 5 个无调用方法（currentVisit/nextWaiting/waitingList/deptPoolNext/deptMissed）、imaging.php 死函数 img_ref_modality、ui.js 全局 0 调用 loadModal、Layout::appPage 死参数 needAdminItems 与 docTools 冗余角色双判、三个视图空 `<style>` 块、helpers.d/push.php 恒假 function_exists 死分支。
+
+### 重构
+- **公共逻辑抽取复用**：authz 会诊放行判定提取 `visit_has_active_consult`（两处复用）；EmrContextResolver 内联科室判定改用公共 `current_dept_id`；print.php 五处重复「取就诊+补全 dept_type」抽取 `print_visit_header($row, $deptCol)`；事务提交/回滚统一 `DatabaseManager::commitTx/rollbackTx`。
+
+---
+
 ## [8.36.0] - 2026-09-26
 
 > 数据库/缓存连接测试统一化：应用前必测、连接状态可视化、测试按钮内嵌美化。
