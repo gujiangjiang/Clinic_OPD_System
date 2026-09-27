@@ -120,12 +120,16 @@ function date_span_clamp($domain, $from, $to) {
  * 判断数据库异常是否为「唯一约束冲突」（并发撞号用）
  * SQLite：SQLSTATE 23000 + driver code 19（UNIQUE constraint failed）
  * MySQL ：SQLSTATE 23000 + driver code 1062（Duplicate entry）
+ * PostgreSQL：SQLSTATE 23505（unique_violation），driver code 为 0
  * @param Exception $ex 捕获的异常
  * @return bool
  */
 function is_unique_conflict($ex) {
     if ($ex instanceof PDOException) {
         $info = $ex->errorInfo;
+        // SQLSTATE 23xxx = 完整性约束冲突，三驱动统一覆盖
+        $state = isset($info[0]) ? (string)$info[0] : '';
+        if (strlen($state) >= 2 && substr($state, 0, 2) === '23') return true;
         $code = isset($info[1]) ? (int)$info[1] : 0;
         return $code === 19 || $code === 1062;
     }
@@ -185,10 +189,12 @@ function insert_unique_retry($genNo, $insFn) {
  * @return string 报告编号
  */
 function next_report_no($type) {
-    $seq = (int)OrderRepository::val(
-        "SELECT MAX(CAST(substr(report_no, 11) AS INTEGER)) FROM reports WHERE substr(report_no,3,8)=?",
-        array(date('Ymd'))
-    ) + 1;
+    // 驱动方言：MySQL 的 CAST 目标类型须为 SIGNED/UNSIGNED，裸 INTEGER 不合法；
+    // SQLite/PostgreSQL 支持 INTEGER 或 ::int 风格
+    $seqSql = DatabaseManager::driver() === 'mysql'
+        ? "SELECT MAX(CAST(substr(report_no, 11) AS SIGNED)) FROM reports WHERE substr(report_no,3,8)=?"
+        : "SELECT MAX(CAST(substr(report_no, 11) AS INTEGER)) FROM reports WHERE substr(report_no,3,8)=?";
+    $seq = (int)OrderRepository::val($seqSql, array(date('Ymd'))) + 1;
     return 'BG' . date('Ymd') . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
 }
 
