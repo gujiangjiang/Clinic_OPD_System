@@ -529,15 +529,15 @@ if ($action === 'save') {
     try {
         $main->beginTransaction();
         if ((int)$main->query('SELECT COUNT(*) FROM users')->fetchColumn() > 0) {
-            DatabaseManager::rollbackTx();
+            DatabaseManager::rollbackTx($main);
             json_fail('主数据库已存在管理员，请选择「关联现有数据库」');
         }
         $adminId = UserRepository::insert('INSERT INTO users(emp_no, username, password, name, role, email, theme, status, created_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
             '0001', $username, password_hash($password, PASSWORD_DEFAULT), $realname !== '' ? $realname : '系统管理员', 'admin', $adminEmail, 'auto', 1, now_str(),
         ));
-        DatabaseManager::commitTx();
+        DatabaseManager::commitTx($main);
     } catch (Exception $ex) {
-        if ($main->inTransaction()) DatabaseManager::rollbackTx();
+        if ($main->inTransaction()) DatabaseManager::rollbackTx($main);
         json_fail('创建管理员失败：' . $ex->getMessage());
     }
     set_setting('hospital_name', $hospital);

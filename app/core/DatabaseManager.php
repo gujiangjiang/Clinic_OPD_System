@@ -683,11 +683,6 @@ class DatabaseManager {
         self::$pendingMirror = null;
     }
 
-    /** 清空事务内挂起的镜像缓冲（json_fail 等退出路径调用） */
-    public static function clearPendingMirror() {
-        self::$pendingMirror = null;
-    }
-
     /** 别名（旧代码兼容） */
     public static function query($a, $b = array(), $c = null) { return self::q($a, $b, $c); }
 }

@@ -100,10 +100,10 @@ function doctor_part_write($action) {
         $pdo->beginTransaction();
         try {
             $res = doctor_call_claim_next_tx($u, $room, $smart);
-            if (isset($res['error'])) { $pdo->rollBack(); json_fail($res['error']); }
-            DatabaseManager::commitTx();
+            if (isset($res['error'])) { DatabaseManager::rollbackTx($pdo); json_fail($res['error']); }
+            DatabaseManager::commitTx($pdo);
         } catch (Exception $ex) {
-            DatabaseManager::rollbackTx();
+            DatabaseManager::rollbackTx($pdo);
             json_fail('叫号失败：' . $ex->getMessage());
         }
         push_room_event($room, array('action' => 'call_next', 'room_id' => (int)$room['id']));
@@ -135,9 +135,9 @@ function doctor_part_write($action) {
         $pdo->beginTransaction();
         try {
             $res = doctor_call_recall_missed_tx($u, $room, $visit);
-            DatabaseManager::commitTx();
+            DatabaseManager::commitTx($pdo);
         } catch (Exception $ex) {
-            DatabaseManager::rollbackTx();
+            DatabaseManager::rollbackTx($pdo);
             json_fail('重呼失败：' . $ex->getMessage());
         }
         push_room_event($room, array('action' => 'recall_missed', 'room_id' => (int)$room['id']));
@@ -194,15 +194,15 @@ function doctor_part_write($action) {
                      last_call_action='miss', last_call_at=?, updated_at=? WHERE id=?",
                     array($now, $now, $now, (int)$room['id'])
                 );
-                DatabaseManager::commitTx();
+                DatabaseManager::commitTx($pdo);
                 push_room_event($room, array('action' => 'call_miss', 'room_id' => (int)$room['id']));
                 json_ok(array('missed' => $cur['pname'], 'visit' => null),
                     '已过号 ' . $cur['pname'] . '，当前无候诊患者');
                 return;
             }
-            DatabaseManager::commitTx();
+            DatabaseManager::commitTx($pdo);
         } catch (Exception $ex) {
-            DatabaseManager::rollbackTx();
+            DatabaseManager::rollbackTx($pdo);
             json_fail('过号失败：' . $ex->getMessage());
         }
         push_room_event($room, array('action' => 'call_miss', 'room_id' => (int)$room['id']));

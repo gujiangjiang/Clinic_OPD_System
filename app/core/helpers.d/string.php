@@ -43,9 +43,8 @@ function json_fail($msg) {
     try {
         $__db = DatabaseManager::getMain();
         if ($__db && $__db->inTransaction()) {
-            $__db->rollBack();
-            // 丢弃事务内挂起的镜像缓冲（进程即将退出，备份库不写入，保持主备一致）
-            DatabaseManager::clearPendingMirror();
+            // 自动回滚并丢弃事务内挂起的镜像缓冲（进程即将退出，备份库不写入）
+            DatabaseManager::rollbackTx($__db);
         }
     } catch (Exception $ex) {
         // 数据库连接不可用时跳过回滚（事务本就不存在）

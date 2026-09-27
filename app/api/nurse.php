@@ -108,9 +108,9 @@ switch ($action) {
                 if (!rx_dispensed((int)$lm['order_id'])) continue;
                 OrderRepository::updateItem($lid, array('status' => 'dispensed', 'executed_by' => $u['name'], 'executed_at' => now_str()));
             }
-            DatabaseManager::commitTx();
+            DatabaseManager::commitTx($pdo);
         } catch (Exception $ex) {
-            DatabaseManager::rollbackTx();
+            DatabaseManager::rollbackTx($pdo);
             json_fail('处置执行失败：' . $ex->getMessage());
         }
         if ($it['doctor_id'] > 0) {
@@ -285,9 +285,9 @@ switch ($action) {
                 if (!$lm || $lm['item_type'] !== 'procedure' || $lm['status'] !== 'paid') continue;
                 OrderRepository::updateItem($lid, array('status' => 'done', 'executed_by' => $u['name'], 'executed_at' => now_str()));
             }
-            DatabaseManager::commitTx();
+            DatabaseManager::commitTx($pdo);
         } catch (Exception $ex) {
-            DatabaseManager::rollbackTx();
+            DatabaseManager::rollbackTx($pdo);
             json_fail('医嘱执行失败：' . $ex->getMessage());
         }
         if ($it['doctor_id'] > 0) {

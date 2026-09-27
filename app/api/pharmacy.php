@@ -160,9 +160,9 @@ switch ($action) {
                 OrderRepository::exec("UPDATE order_items SET status='rejected', executed_by=?, executed_at=? WHERE order_id=? AND status='paid'", array($u['name'], now_str(), $orderId));
                 OrderRepository::exec('UPDATE orders SET status=? WHERE id=?', array('rejected', $orderId));
             }
-            DatabaseManager::commitTx();
+            DatabaseManager::commitTx($pdo);
         } catch (Exception $ex) {
-            DatabaseManager::rollbackTx();
+            DatabaseManager::rollbackTx($pdo);
             json_fail('审方失败：' . $ex->getMessage());
         }
         $pName = PatientRepository::byPatientNo($order['patient_no']);
@@ -199,9 +199,9 @@ switch ($action) {
                 OrderRepository::exec('UPDATE order_items SET status=?, executed_by=?, executed_at=? WHERE id=?', array($newStatus, $u['name'], now_str(), (int)$it['id']));
             }
             OrderRepository::exec('UPDATE orders SET status=?, done_by=?, dispensed_at=? WHERE id=?', array('dispensed', $u['name'], now_str(), $orderId));
-            DatabaseManager::commitTx();
+            DatabaseManager::commitTx($pdo);
         } catch (Exception $ex) {
-            DatabaseManager::rollbackTx();
+            DatabaseManager::rollbackTx($pdo);
             json_fail('发药失败：' . $ex->getMessage());
         }
         $pName = PatientRepository::byPatientNo($order['patient_no']);

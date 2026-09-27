@@ -363,19 +363,19 @@ function record_part_save($u) {
             $dispDetail = trim((string)post('disposition_detail', ''));
             $dispAllow = array('自主离院', '住院', '转院', '死亡', '其他');
             if (!in_array($disposition, $dispAllow, true)) {
-                DatabaseManager::rollbackTx();
+                DatabaseManager::rollbackTx($pdo);
                 json_fail('请选择离院方式（自主离院/住院/转院/死亡/其他）');
             }
             $dispNeed = array('住院' => '住院病区', '转院' => '接收医院名称', '死亡' => '死亡原因', '其他' => '其他转归情况');
             if ($disposition === '自主离院') {
                 $dispDetail = '';
             } elseif ($dispDetail === '') {
-                DatabaseManager::rollbackTx();
+                DatabaseManager::rollbackTx($pdo);
                 json_fail('请填写' . $dispNeed[$disposition]);
             }
             EmrRepository::exec('UPDATE registrations SET status=?, disposition=?, disposition_detail=?, finished_at=?, paid_at=COALESCE(paid_at,?) WHERE id=?',
                 array('finished', $disposition, $dispDetail, now_str(), now_str(), $visitId));
-            DatabaseManager::commitTx();
+            DatabaseManager::commitTx($pdo);
             // 诊毕快照（法律合规）：诊毕时固化患者资料与生命体征，
             // 诊毕后补打病历显示诊毕时刻信息（诊毕前打印仍显示最新，允许医生修正患者资料）
             try {
@@ -400,7 +400,7 @@ function record_part_save($u) {
             }
             json_ok(array('finished' => 1, 'record_id' => $recordId, 'dept_id' => (int)$recDeptId, 'dept_name' => $recDeptName), '病历已保存并诊毕');
         }
-        DatabaseManager::commitTx();
+        DatabaseManager::commitTx($pdo);
         // 存证：同诊毕路径
         $evid = evid_sign($recordType, (string)$recordId, (string)$printText, json_encode(array('visit_id' => $visitId, 'finished' => 0), JSON_UNESCAPED_UNICODE));
         if ($evid) {
@@ -409,7 +409,7 @@ function record_part_save($u) {
         }
         json_ok(array('finished' => 0, 'record_id' => $recordId, 'dept_id' => (int)$recDeptId, 'dept_name' => $recDeptName), '病历已保存');
     } catch (Exception $ex) {
-        DatabaseManager::rollbackTx();
+        DatabaseManager::rollbackTx($pdo);
         json_fail('病历保存失败：' . $ex->getMessage());
     }
     return;

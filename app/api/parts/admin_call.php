@@ -125,7 +125,7 @@ function admin_part_call($action) {
     /* ==================== 强制释放诊室绑定 ==================== */
     if ($action === 'room_release') {
         $id = (int)post('id');
-        DeptRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL, updated_at=? WHERE id=?', array(now_str(), $id));
+        DeptRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL, updated_at=? WHERE id=?', array(now_str(), $id));
         json_ok(array(), '诊室已强制释放');
     }
 
