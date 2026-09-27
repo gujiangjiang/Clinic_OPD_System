@@ -19,6 +19,14 @@
     var RENDER_SEQ = 0;        // 渲染序号：异步重裁时丢弃过期回调
     var resizeTimer = null;
 
+    /* ============ HTML 转义（大屏页仅加载 screen.js，无 Clinic） ============
+       姓名/医生简介/温馨提示等可控文本渲染前必须转义，防存储型 XSS */
+    var esc = function (s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    };
+
     /* ============ 屏型检测（三套布局自动切换） ============
        · 纵向（宽<高）：screen-portrait
        · 方屏/近方屏（1:1 ~ 16:10）：screen-landscape + screen-square（上 医生卡+就诊，下 等待双排）
@@ -153,7 +161,7 @@
             box.className = 'call-tips-item' + (animate ? ' call-tips-flip' : '');
             // 如果文本超长（> 30 字），启用跑马灯
             if (t.length > 30) {
-                box.innerHTML = '<div class="call-tips-marquee"><span>' + t + '</span></div>';
+                box.innerHTML = '<div class="call-tips-marquee"><span>' + esc(t) + '</span></div>';
             } else {
                 box.textContent = t;
             }
@@ -211,13 +219,10 @@
         if (introEl) introEl.style.fontSize = (fs * 0.46) + 'px';
     }
 
-    function maskName(n) { return n || ''; }
-
-    /* 就诊序号标签：转诊患者显示完整序号 +（转） */
     function seqLabel(r) {
         if (!r) return '';
         var s = String(r.visit_seq).padStart(3, '0') + ' 号';
-        if (r.is_transfer) s = (r.first_dept_name || '转科') + ' ' + s + '（转）';
+        if (r.is_transfer) s = esc(r.first_dept_name || '转科') + ' ' + s + '（转）';
         return s;
     }
 
@@ -236,25 +241,25 @@
         var candidates = normalArr.concat(missedArr).slice(0, 50);   // 超长屏可多显示
 
         var curCard = cur.name
-            ? '<div class="screen-cur-name">' + maskName(cur.name) + '</div>' +
+            ? '<div class="screen-cur-name">' + esc(cur.name) + '</div>' +
               '<div class="screen-cur-seq">' + seqLabel(cur) + '</div>'
             : '<div class="screen-empty-big">暂无就诊中患者</div>';
         var nextCard = next.name
-            ? '<div class="screen-next-name">' + maskName(next.name) + '</div>' +
+            ? '<div class="screen-next-name">' + esc(next.name) + '</div>' +
               '<div class="screen-next-seq">' + seqLabel(next) + '</div>'
             : '<div class="screen-empty">暂无候诊患者</div>';
 
         // 医生信息卡：左列照片（单元格内等比最大化），右列 7 行网格
         var docCard = doc.name
             ? '<div class="screen-doctor-card">' +
-              '<div class="screen-doc-photo' + (doc.photo ? ' has-img' : '') + '">' + (doc.photo ? '<img src="' + doc.photo + '">' : '👨‍⚕️') + '</div>' +
+              '<div class="screen-doc-photo' + (doc.photo ? ' has-img' : '') + '">' + (doc.photo ? '<img src="' + esc(doc.photo) + '">' : '👨‍⚕️') + '</div>' +
               '<div class="screen-doc-info">' +
               '<div class="screen-doc-head">' +
-              '<div class="screen-doc-name">' + doc.name + '</div>' +
-              (doc.title ? '<div class="screen-doc-title">' + doc.title + '</div>' : '') +
-              (doc.emp_no ? '<div class="screen-doc-emp">工号 ' + doc.emp_no + '</div>' : '') +
+              '<div class="screen-doc-name">' + esc(doc.name) + '</div>' +
+              (doc.title ? '<div class="screen-doc-title">' + esc(doc.title) + '</div>' : '') +
+              (doc.emp_no ? '<div class="screen-doc-emp">工号 ' + esc(doc.emp_no) + '</div>' : '') +
               '</div>' +
-              '<div class="screen-doc-intro' + (doc.intro ? '' : ' screen-doc-intro-empty') + '">' + (doc.intro || '暂无医生介绍') + '</div>' +
+              '<div class="screen-doc-intro' + (doc.intro ? '' : ' screen-doc-intro-empty') + '">' + (doc.intro ? esc(doc.intro) : '暂无医生介绍') + '</div>' +
               '</div></div>'
             : '<div class="screen-doctor-card screen-doctor-card-empty"><div class="screen-doc-photo">👨‍⚕️</div>' +
               '<div class="screen-doc-info"><div class="screen-doc-name">医生出诊中</div>' +
@@ -313,9 +318,9 @@
         return '<div class="screen-wait-item">' +
             (w.missed ? '<span class="screen-wait-miss">过</span>' : '<span class="screen-wait-miss screen-wait-miss-empty"></span>') +
             '<span class="screen-wait-seq">' + String(w.visit_seq).padStart(3, '0') + (w.is_transfer ? '★' : '') + '</span>' +
-            '<span class="screen-wait-name">' + maskName(w.name) + '</span>' +
-            '<span class="screen-wait-gender">' + (w.gender || '') + '</span>' +
-            '<span class="screen-wait-age">' + (w.age_fmt || '') + '</span></div>';
+            '<span class="screen-wait-name">' + esc(w.name) + '</span>' +
+            '<span class="screen-wait-gender">' + esc(w.gender || '') + '</span>' +
+            '<span class="screen-wait-age">' + esc(w.age_fmt || '') + '</span></div>';
     }
 
     /* 等待就诊面板 HTML（cols=1 单列 / cols=2 方屏双排），供 fitWaitList 动态裁剪 */
@@ -404,7 +409,7 @@
             return t;
         };
         var seqText = longest(function (w) { return String(w.visit_seq).padStart(3, '0') + (w.is_transfer ? '★' : ''); });
-        var nameText = longest(function (w) { return maskName(w.name); });
+        var nameText = longest(function (w) { return w.name || ''; });
         var genderText = longest(function (w) { return w.gender || ''; });
         var ageText = longest(function (w) { return w.age_fmt || ''; });
         var probe = document.createElement('div');
@@ -415,10 +420,10 @@
         probe.style.cssText = 'position:absolute;visibility:hidden;top:0;left:0;pointer-events:none;' +
             'grid-template-columns:max-content max-content max-content max-content max-content';
         probe.innerHTML = '<span class="screen-wait-miss">过</span>' +
-            '<span class="screen-wait-seq">' + seqText + '</span>' +
-            '<span class="screen-wait-name">' + nameText + '</span>' +
-            '<span class="screen-wait-gender">' + genderText + '</span>' +
-            '<span class="screen-wait-age">' + ageText + '</span>';
+            '<span class="screen-wait-seq">' + esc(seqText) + '</span>' +
+            '<span class="screen-wait-name">' + esc(nameText) + '</span>' +
+            '<span class="screen-wait-gender">' + esc(genderText) + '</span>' +
+            '<span class="screen-wait-age">' + esc(ageText) + '</span>';
         listEl.appendChild(probe);
         var missW = probe.children[0].getBoundingClientRect().width;
         var seqW = probe.children[1].getBoundingClientRect().width;
@@ -476,12 +481,6 @@
      * 宽屏：左侧 当前患者（标签+姓名换行），右侧一半 排队队列
      * 无患者/无队列时占位提示居中显示。 */
     function renderDeptMode(d) {
-        // 大屏页仅加载 screen.js（无 Clinic），就地定义 HTML 转义
-        var esc = function (s) {
-            return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-            });
-        };
         // 未绑定（bound=false）时后端已清空数据：此处照常渲染整体轮廓，
         // 患者区/排队区显示「暂无患者」占位，大屏始终面向患者展示
         var wait = d.waiting || [];
@@ -489,7 +488,7 @@
         var nowHtml;
         if (cur.name) {
             nowHtml = '<div class="dept-now-label">当前患者</div>' +
-                '<div class="dept-now-name">' + esc(maskName(cur.name)) + '</div>' +
+                '<div class="dept-now-name">' + esc(cur.name) + '</div>' +
                 '<div class="dept-now-sub">' + String(cur.visit_seq).padStart(3, '0') + ' 号' +
                 (cur.dept_name ? ' · ' + esc(cur.dept_name) : '') + '</div>';
         } else {
@@ -499,7 +498,7 @@
             ? wait.map(function (w) {
                 return '<div class="dept-wait-item">' +
                     '<span class="dept-wait-seq">' + String(w.visit_seq).padStart(3, '0') + '</span>' +
-                    '<span class="dept-wait-name">' + esc(maskName(w.name)) + '</span>' +
+                    '<span class="dept-wait-name">' + esc(w.name) + '</span>' +
                     '<span class="dept-wait-gender">' + esc(w.gender || '') + '</span>' +
                     '<span class="dept-wait-age">' + esc(w.age_fmt || '') + '</span>' +
                     '<span class="dept-wait-dept">' + esc(w.dept_name || '') + '</span></div>';
