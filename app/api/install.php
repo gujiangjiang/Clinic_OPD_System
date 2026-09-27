@@ -323,6 +323,13 @@ if ($action === 'test_cache' || $action === 'test_redis') {
 if ($action === 'save') {
     CSRF::check();
 
+    // 已安装守卫：安装完成后 API 仍可直连（/install 页面已被 Router 拦截），
+    // 未鉴权访客仅凭 CSRF token 即可 POST mode=fresh 触发 wipeMain 清空主业务库；
+    // 合法重装场景（删除 data/db 配置与主库后）此时 isSystemInstalled() 必为 false
+    if (ConfigStore::isSystemInstalled()) {
+        json_fail('系统已完成安装，如需重新安装请删除 data/db 配置与数据库文件后重新访问安装向导');
+    }
+
     $mode = post('mode', 'fresh');
     $mode = in_array($mode, array('fresh', 'attach'), true) ? $mode : 'fresh';
     // 数据库/缓存驱动白名单统一走 ConfigStore 注册表（安装向导与系统设置共用）
