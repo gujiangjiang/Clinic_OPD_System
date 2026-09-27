@@ -32,16 +32,28 @@ if (strpos($channel, 'scr:') === 0) {
     if (!$room) { http_response_code(403); exit; }
     $chan = 'scr:' . $token;
 } else {
-    // 其余通道：需登录会话；msg 通道仅限本人
+    // 其余通道：需登录会话；msg 通道仅限本人；room:/dept: 通道须属于该科室（admin 不限）
     if (!Auth::check()) { http_response_code(403); exit; }
+    $u = Auth::user();
     $uid = (int)Auth::id();
     if (strpos($channel, 'msg:') === 0 && $channel !== 'msg:' . $uid) { http_response_code(403); exit; }
+    $myDepts = user_dept_ids($u);
+    if (strpos($channel, 'room:') === 0) {
+        $rid = (int)substr($channel, 5);
+        $rrow = $rid > 0 ? QueueRepository::one('SELECT dept_id FROM clinic_rooms WHERE id=?', array($rid)) : null;
+        if (!$rrow || ($u['role'] !== 'admin' && $myDepts && !in_array((int)$rrow['dept_id'], $myDepts, true))) {
+            http_response_code(403); exit;
+        }
+    } elseif (strpos($channel, 'dept:') === 0) {
+        $did = (int)substr($channel, 5);
+        if ($u['role'] !== 'admin' && $myDepts && !in_array($did, $myDepts, true)) {
+            http_response_code(403); exit;
+        }
+    }
     $chan = $channel;
 }
 // 认证完成，释放会话锁（长连接期间不阻塞同用户并发请求）
-if (function_exists('Session::closeReadOnly')) { Session::closeReadOnly(); }
-if (function_exists('session_write_close')) { session_write_close(); }
-if (function_exists('session_abort')) { @session_abort(); }
+Session::closeReadOnly();
 
 /* ---------- SSE 流式输出 ---------- */
 set_time_limit(0);
