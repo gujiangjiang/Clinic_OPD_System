@@ -267,25 +267,26 @@ class QueueRepository extends BaseRepository {
     /** 大屏医生心跳保活检测：超过 300 秒未更新视为异常断开
      *  （医生端 room_heartbeat.js 全局每 30 秒心跳一次，跨页面持续；
      *   离开工作站/刷新页面均不会中断，仅真正退出登录或异常断开才解绑）
-     *  双驱动方言：SQLite 用 strftime 转 epoch；MySQL 用 UNIX_TIMESTAMP。 */
+     *  三驱动方言：SQLite 用 strftime 转 epoch；MySQL 用 UNIX_TIMESTAMP；
+     *  PostgreSQL 用 EXTRACT(EPOCH FROM ...)。 */
     public static function doctorHeartbeatStale($roomId) {
-        if (DB_DRIVER === 'mysql') {
-            return (int)self::val(
-                "SELECT COUNT(*) FROM clinic_rooms WHERE id=? AND (doctor_heartbeat IS NULL
-                 OR (UNIX_TIMESTAMP() - UNIX_TIMESTAMP(doctor_heartbeat)) > 300)",
-                array((int)$roomId)
-            ) > 0;
+        $drv = DatabaseManager::driver();
+        if ($drv === 'mysql') {
+            $cond = 'OR (UNIX_TIMESTAMP() - UNIX_TIMESTAMP(doctor_heartbeat)) > 300';
+        } elseif ($drv === 'pgsql') {
+            $cond = 'OR (EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM doctor_heartbeat)) > 300';
+        } else {
+            $cond = "OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat)) > 300";
         }
         return (int)self::val(
-            "SELECT COUNT(*) FROM clinic_rooms WHERE id=? AND (doctor_heartbeat IS NULL
-             OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat)) > 300)",
+            "SELECT COUNT(*) FROM clinic_rooms WHERE id=? AND (doctor_heartbeat IS NULL OR $cond)",
             array((int)$roomId)
         ) > 0;
     }
 
     /** 解除大屏与医生的绑定 */
     public static function unbindDoctor($roomId) {
-        self::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name="", doctor_heartbeat=NULL, updated_at=? WHERE id=?',
+        self::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL, updated_at=? WHERE id=?',
             array(now_str(), (int)$roomId));
     }
 
@@ -300,18 +301,21 @@ class QueueRepository extends BaseRepository {
      * @return int 本次释放的绑定数
      */
     public static function sweepStaleBindings() {
-        if (DB_DRIVER === 'mysql') {
-            return (int)self::exec(
-                "UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name='', doctor_heartbeat=NULL, updated_at=NOW()
+        $drv = DatabaseManager::driver();
+        if ($drv === 'mysql') {
+            $sql = "UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name='', doctor_heartbeat=NULL, updated_at=NOW()
                  WHERE current_doctor_id>0 AND (doctor_heartbeat IS NULL
-                 OR (UNIX_TIMESTAMP() - UNIX_TIMESTAMP(doctor_heartbeat)) > 300)"
-            );
+                 OR (UNIX_TIMESTAMP() - UNIX_TIMESTAMP(doctor_heartbeat)) > 300)";
+        } elseif ($drv === 'pgsql') {
+            $sql = "UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name='', doctor_heartbeat=NULL, updated_at=NOW()
+                 WHERE current_doctor_id>0 AND (doctor_heartbeat IS NULL
+                 OR (EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM doctor_heartbeat)) > 300)";
+        } else {
+            $sql = "UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name='', doctor_heartbeat=NULL, updated_at=datetime('now','localtime')
+                 WHERE current_doctor_id>0 AND (doctor_heartbeat IS NULL
+                 OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat)) > 300)";
         }
-        return (int)self::exec(
-            "UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name='', doctor_heartbeat=NULL, updated_at=datetime('now','localtime')
-             WHERE current_doctor_id>0 AND (doctor_heartbeat IS NULL
-             OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat)) > 300)"
-        );
+        return (int)self::exec($sql);
     }
 
     /** 更新大屏心跳 */
