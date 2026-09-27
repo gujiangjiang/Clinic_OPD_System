@@ -207,6 +207,8 @@ class DatabaseMigrator {
         try {
             foreach ($tables as $table) {
                 self::createTargetTable($src, $dst, $srcDriver, $toDriver, $table);
+                // 幂等：先清空目标表已有数据（外键检查已关闭），重复备份/中断重试不撞主键
+                self::clearTargetTable($dst, $toDriver, $table);
                 $total = (int)$src->query("SELECT COUNT(*) FROM " . $table)->fetchColumn();
                 $offset = 0;
                 while ($offset < $total) {
@@ -223,6 +225,12 @@ class DatabaseMigrator {
             self::foreignKeys($dst, $toDriver, true);
         }
         return array('tables' => $list, 'rows' => $migrated);
+    }
+
+    /** 清空目标表（幂等备份用：备份是全量同步，先清后插） */
+    private static function clearTargetTable($dst, $toDriver, $table) {
+        $name = ($toDriver === 'mysql') ? '`' . $table . '`' : '"' . $table . '"';
+        $dst->exec('DELETE FROM ' . $name);
     }
 
     /** 源表清单 */
