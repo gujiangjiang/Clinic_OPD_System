@@ -457,12 +457,20 @@ class DatabaseManager {
                 return;
             }
             $def = self::mainSchema();
+            $seedFail = 0;
             foreach ((array)$def['seed'] as $seedSql) {
                 try {
                     $pdo->exec(self::dialectSql($seedSql));
                 } catch (Exception $ex) {
+                    $seedFail++;
                     if (DEBUG) error_log('[种子失败] main: ' . $ex->getMessage());
                 }
+            }
+            // 任一种子失败则回滚不写完成标记：修复后下次访问自动重试（种子均为 INSERT OR IGNORE 幂等）
+            if ($seedFail > 0) {
+                self::rollbackTx($pdo);
+                if (DEBUG) error_log('[种子] main 有 ' . $seedFail . ' 条执行失败，未标记完成，下次访问重试');
+                return;
             }
             self::setSettingRaw($pdo, $doneKey, '1');
             self::commitTx($pdo);

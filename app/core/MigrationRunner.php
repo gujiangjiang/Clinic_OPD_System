@@ -96,12 +96,14 @@ class MigrationRunner {
         $runner = self::phpBinary();
         $args = array_merge(array($runner, 'php-cli', $script, escapeshellarg($token)));
         $cmd = 'nohup ' . implode(' ', $args) . ' > /dev/null 2>&1 &';
-        $ok = @pclose(@popen($cmd, 'r'));
-        if ($ok === false) {
-            // 后台启动失败：直接前台执行（仍可用，但请求会阻塞）
-            self::save($s);
-            return array('ok' => true, 'token' => $token, 'foreground' => true, 'msg' => '已启动迁移（前台模式）');
+        // 后台启动检测：popen 返回 false 即 fork 失败（nohup 不可用）——
+        // 原实现 pclose(false) 结果不可靠，且「前台执行」兜底分支实际未执行脚本属假启动
+        $fp = @popen($cmd, 'r');
+        if ($fp === false) {
+            self::fail($s, '后台迁移进程启动失败（nohup 不可用），请检查服务器环境后重试');
+            return array('ok' => false, 'msg' => '后台迁移进程启动失败，无法启动迁移');
         }
+        @pclose($fp);
         return array('ok' => true, 'token' => $token, 'msg' => '迁移已启动，全站将进入锁定维护');
     }
 
