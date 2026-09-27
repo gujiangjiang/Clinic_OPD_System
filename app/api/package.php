@@ -18,9 +18,13 @@ require_once APP_ROOT . '/app/includes/catalog_query.php';
 
 $u = Auth::user();
 
-/** 套餐类型-角色权限：医生可管理/使用全部四类；管理员全部 */
+/** 套餐类型-角色权限：医生可管理/使用全部四类；管理员全部；其余角色无权操作套餐 */
 function pkg_type_allowed($role, $type) {
-    return in_array($type, array('lab', 'imaging', 'procedure', 'prescription'), true);
+    $map = array(
+        'admin'  => array('lab', 'imaging', 'procedure', 'prescription'),
+        'doctor' => array('lab', 'imaging', 'procedure', 'prescription'),
+    );
+    return in_array($type, isset($map[$role]) ? $map[$role] : array(), true);
 }
 
 /** 套餐类型校验：不满足角色权限直接拒绝 */
