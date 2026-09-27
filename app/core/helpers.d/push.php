@@ -23,8 +23,10 @@
 function push_emit($channel, $payload) {
     try {
         $data = is_string($payload) ? $payload : json_encode($payload, JSON_UNESCAPED_UNICODE);
-        DB::insert('INSERT INTO push_events(channel, payload, created_at) VALUES(?,?,datetime(\'now\',\'localtime\'))',
-            array($channel, $data));
+        // created_at 用 now_str() 参数绑定（datetime('now','localtime') 为 SQLite 专有语法，
+        // MySQL/PG 驱动下直通底层会报错，推送队列静默写失败）
+        DB::insert('INSERT INTO push_events(channel, payload, created_at) VALUES(?,?,?)',
+            array($channel, $data, now_str()));
     } catch (Exception $ex) {
         if (defined('DEBUG') && DEBUG) error_log('[push_emit] ' . $ex->getMessage());
     }
@@ -52,7 +54,9 @@ function push_room_event($room, $payload) {
 function push_purge($keepHours = 24) {
     try {
         $keepHours = max(1, (int)$keepHours);
-        DB::exec("DELETE FROM push_events WHERE created_at < datetime('now','localtime','-" . $keepHours . " hours')");
+        // 清理阈值以 now_str() 参数绑定计算（datetime 修饰符为 SQLite 专有语法，跨驱动不兼容）
+        DB::exec('DELETE FROM push_events WHERE created_at < ?',
+            array(date('Y-m-d H:i:s', strtotime('-' . $keepHours . ' hours'))));
     } catch (Exception $ex) {
         if (defined('DEBUG') && DEBUG) error_log('[push_purge] ' . $ex->getMessage());
     }
