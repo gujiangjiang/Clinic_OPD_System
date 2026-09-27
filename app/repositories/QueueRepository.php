@@ -187,6 +187,7 @@ class QueueRepository extends BaseRepository {
              LEFT JOIN (SELECT visit_id, MAX(created_at) AS transfer_at FROM referrals WHERE to_dept_id=? GROUP BY visit_id) tr ON tr.visit_id=r.id
              WHERE r.current_dept_id=? AND r.status='paid' AND $dateCond
                AND NOT EXISTS (SELECT 1 FROM call_events ce WHERE ce.visit_id=r.id AND ce.action='call')
+               AND NOT EXISTS (SELECT 1 FROM clinic_rooms cr WHERE cr.current_visit_id = r.id)
              ORDER BY eff_time, r.registered_at, r.id";
         if ($limit > 0) {
             $sql .= ' LIMIT ' . (int)$limit;
@@ -210,7 +211,8 @@ class QueueRepository extends BaseRepository {
             "SELECT COUNT(*) FROM registrations r
              LEFT JOIN (SELECT visit_id, MAX(created_at) AS transfer_at FROM referrals WHERE to_dept_id=? GROUP BY visit_id) tr ON tr.visit_id=r.id
              WHERE r.current_dept_id=? AND r.status='paid' AND $dateCond
-               AND NOT EXISTS (SELECT 1 FROM call_events ce WHERE ce.visit_id=r.id AND ce.action='call')",
+               AND NOT EXISTS (SELECT 1 FROM call_events ce WHERE ce.visit_id=r.id AND ce.action='call')
+               AND NOT EXISTS (SELECT 1 FROM clinic_rooms cr WHERE cr.current_visit_id = r.id)",
             $params
         );
     }
