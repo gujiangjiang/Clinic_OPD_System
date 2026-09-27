@@ -42,7 +42,11 @@ class Auth {
         try {
             $row = DB::one('SELECT id, status, role, dept_ids FROM users WHERE id=?', array((int)$u['id']));
         } catch (Exception $ex) {
-            return false;
+            // 数据库不可用与「账号失活」是两类故障：此处仅当明确读到 status=0 才判定
+            // 停用登出；数据库抖动时降级放行（后续业务操作仍会因 DB 不可用而失败），
+            // 避免全站接口因 DB 抖动被误判「账号停用」强制登出
+            if (defined('DEBUG') && DEBUG) error_log('[assertActive] 数据库不可用，降级放行：' . $ex->getMessage());
+            return true;
         }
         if (!$row || (int)$row['status'] !== 1) {
             self::logout();
@@ -110,11 +114,27 @@ class Auth {
             return '用户名或密码错误';
         }
         if ((int)$u['status'] === 0) {
-            // 情况：账号不可用——按 lock_reason 精准区分话术（不比对密码、不计数）
-            if ((string)$u['lock_reason'] === 'password_error_locked') {
-                return '该账号因密码连续输入错误过多已被系统安全锁定，请联系管理员协助解锁';
+            // 安全锁定（密码错误自动锁定）且锁定窗口已过期 → 自动解锁后继续正常校验；
+            // 管理员停用（lock_reason 非 password_error_locked）永不自动解锁
+            if ((string)$u['lock_reason'] === 'password_error_locked' && isset($u['login_locked_until']) && $u['login_locked_until'] !== null && $u['login_locked_until'] !== '') {
+                $until = strtotime((string)$u['login_locked_until']);
+                if ($until > 0 && time() >= $until) {
+                    DB::exec("UPDATE users SET status=1, lock_reason='', login_fail_count=0, locked_at=NULL, lock_ip=NULL, login_locked_until=NULL WHERE id=?",
+                        array((int)$u['id']));
+                    $u = DB::one('SELECT * FROM users WHERE id=?', array((int)$u['id']));
+                }
             }
-            return '该账号已被管理员停用，无法登录';
+            if ((int)$u['status'] === 0) {
+                if ((string)$u['lock_reason'] === 'password_error_locked') {
+                    $untilTxt = isset($u['login_locked_until']) && $u['login_locked_until'] !== '' ? (string)$u['login_locked_until'] : '';
+                    if ($untilTxt !== '') {
+                        $remainMin = (int)ceil((strtotime($untilTxt) - time()) / 60);
+                        return '该账号因密码连续输入错误已被临时锁定，约 ' . max(1, $remainMin) . ' 分钟后自动解锁';
+                    }
+                    return '该账号因密码连续输入错误过多已被系统安全锁定，请联系管理员协助解锁';
+                }
+                return '该账号已被管理员停用，无法登录';
+            }
         }
 
         /* ==================== ③ 密码校验与防爆破 ==================== */
@@ -126,13 +146,15 @@ class Auth {
             $cnt = (int)DB::val('SELECT login_fail_count FROM users WHERE id=?', array((int)$u['id']));
             if ($cnt >= $threshold) {
                 // 达到阈值：自动安全锁定（条件更新仅首个请求锁定成功——
-                // 并发请求不会重复发送管理员告警站内信）
+                // 并发请求不会重复发送管理员告警站内信；临时锁定 15 分钟到期自动解锁，
+                // 兼顾防爆破与正常用户因误输入被永久锁死的 DoS 面）
                 $ip = LoginSecurity::clientIp();
                 $now = now_str();
+                $until = date('Y-m-d H:i:s', time() + LoginSecurity::LOCK_DURATION);
                 $locked = DB::exec(
-                    "UPDATE users SET status=0, lock_reason='password_error_locked', locked_at=?, lock_ip=?, login_locked_until=NULL
+                    "UPDATE users SET status=0, lock_reason='password_error_locked', locked_at=?, lock_ip=?, login_locked_until=?
                      WHERE id=? AND status=1",
-                    array($now, $ip, (int)$u['id'])
+                    array($now, $ip, $until, (int)$u['id'])
                 );
                 if ($locked) {
                     // 高优先级安全告警站内信 → 全体管理员（含直达解锁页面链接）
@@ -142,7 +164,7 @@ class Auth {
                         '。请核实后前往【用户管理】解锁。',
                         '', '', array('link_url' => '/admin/users?edit_user_id=' . (int)$u['id']));
                 }
-                return '密码连续错误已达上限，账号已自动锁定，请联系管理员解锁';
+                return '密码连续错误已达上限，账号已临时锁定 ' . (int)round(LoginSecurity::LOCK_DURATION / 60) . ' 分钟，到期自动解锁（如需立即解锁请联系管理员）';
             }
             // 未达阈值：提示剩余可尝试次数
             return '用户名或密码错误，还可尝试 ' . ($threshold - $cnt) . ' 次';
@@ -166,7 +188,7 @@ class Auth {
             'role'     => $u['role'],
             'dept_ids' => $u['dept_ids'],
             'photo'    => $u['photo'],
-            'theme'    => $u['theme'] ? $u['theme'] : 'auto',
+            'theme'    => isset($u['theme']) && $u['theme'] ? $u['theme'] : 'auto',
             'sidebar'  => isset($u['sidebar']) && $u['sidebar'] ? $u['sidebar'] : 'expand',
         );
         return true;
@@ -175,10 +197,15 @@ class Auth {
     /** 退出登录 */
     public static function logout() {
         // 退出前释放绑定的诊室大屏：医生退出登录后，叫号大屏自动取消关联
+        // DB 不可用时不阻塞登出（连接恢复后由心跳自愈清理过期绑定）
         $u = self::user();
         if ($u) {
-            DB::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL, updated_at=? WHERE current_doctor_id=?',
-                array(now_str(), (int)$u['id']));
+            try {
+                DB::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL, updated_at=? WHERE current_doctor_id=?',
+                    array(now_str(), (int)$u['id']));
+            } catch (Exception $ex) {
+                if (defined('DEBUG') && DEBUG) error_log('[logout] 诊室解绑失败（不影响登出）：' . $ex->getMessage());
+            }
         }
         unset($_SESSION['auth_user']);
         session_regenerate_id(true);

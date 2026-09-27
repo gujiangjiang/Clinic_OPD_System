@@ -25,6 +25,7 @@ class LoginSecurity {
     const CODE_LEN      = 4;                 // 验证码位数
     const IP_FAIL_TTL   = 1800;              // IP 失败计数窗口 30 分钟
     const CHECK_LIMIT   = 30;                // check_captcha 每分钟限次（防枚举）
+    const LOCK_DURATION = 900;               // 账号安全锁定窗口 15 分钟（到期自动解锁）
 
     /** 客户端 IP（反代兼容：优先 X-Forwarded-For 首个） */
     public static function clientIp() {
