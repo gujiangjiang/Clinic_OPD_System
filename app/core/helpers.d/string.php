@@ -129,7 +129,9 @@ function drug_spec_text($r) {
     $pq   = (int)(isset($r['spec_pack_qty']) ? $r['spec_pack_qty'] : 1);
     $pu   = trim((string)(isset($r['spec_pack_unit']) ? $r['spec_pack_unit'] : ''));
     if ($dose !== '' && $dose !== '0') {
-        $s = rtrim(rtrim($dose, '0'), '.') . $du;
+        // 仅去除小数点后的尾零：整十/整百剂量（如 10、100）不得被 rtrim 截断
+        if (strpos($dose, '.') !== false) $dose = rtrim(rtrim($dose, '0'), '.');
+        $s = $dose . $du;
         if ($pu !== '') $s .= '×' . $pq . $pu;
         if ($s !== '') return $s;
     }

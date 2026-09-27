@@ -323,7 +323,7 @@ function snapshot_patient($bizType, $bizId, $patientNo, $extra = array()) {
     $existed = (int)DB::val('SELECT COUNT(*) FROM print_snapshots WHERE biz_type=? AND biz_id=?', array($bizType, $bizId));
     if ($existed) {
         DB::exec('UPDATE print_snapshots SET patient_no=?, patient_name=?, gender=?, birth_date=?, id_card=?, ethnicity=?, job=?, marital=?, phone=?, extra=?, created_at=? WHERE biz_type=? AND biz_id=?',
-            array_values($row) + array($bizType, $bizId));
+            array_merge(array_values($row), array($bizType, $bizId)));
     } else {
         DB::insert('INSERT INTO print_snapshots(biz_type, biz_id, patient_no, patient_name, gender, birth_date, id_card, ethnicity, job, marital, phone, extra, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
             array_merge(array($bizType, $bizId), array_values($row)));
