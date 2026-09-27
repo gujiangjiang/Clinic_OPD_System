@@ -39,6 +39,20 @@ function print_guard($visit, $allowedRoles) {
     }
 }
 
+/**
+ * 打印公共头：decorate 患者资料 + 补全 dept_type（打印各 case 复用）
+ * @param array  $row     get_visit_row() 返回（含 visit + patient）
+ * @param string $deptCol 取科室 id 的列名（挂号凭条 first_dept_id / 其余单据 current_dept_id）
+ * @return array 补全 dept_type 后的 visit
+ */
+function print_visit_header($row, $deptCol = 'current_dept_id') {
+    $visit = $row['visit'];
+    $visit = decorate_visit_patient($visit, $row['patient']);
+    $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array((int)(isset($visit[$deptCol]) ? $visit[$deptCol] : 0)));
+    $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
+    return $visit;
+}
+
 switch ($action) {
 
     /* ---------------- 挂号凭条 ---------------- */
@@ -56,10 +70,7 @@ switch ($action) {
         if (in_array($row['visit']['status'], array('refunded', 'cancelled'), true)) {
             json_fail('该挂号已' . visit_status_name($row['visit']['status']) . '，凭条已作废，不可补打');
         }
-        $visit = $row['visit'];
-        $visit = decorate_visit_patient($visit, $row['patient']);
-        $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['first_dept_id']));
-        $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
+        $visit = print_visit_header($row, 'first_dept_id');
         $visit['status_name'] = visit_status_name($visit['status']);
         // 挂号凭条快照（法律合规）：挂号时刻患者资料优先，补打凭条不因事后改患者资料而变化
         snapshot_apply_patient($row, 'registration', (int)$visit['id']);
@@ -215,10 +226,7 @@ switch ($action) {
         } else {
             print_guard($row['visit'], array('doctor', 'nurse', 'lab', 'imaging', 'pharmacy'));
         }
-        $visit = $row['visit'];
-        $visit = decorate_visit_patient($visit, $row['patient']);
-        $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
-        $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
+        $visit = print_visit_header($row, 'current_dept_id');
         $vitals = EmrRepository::one('SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
         // 诊毕快照（法律合规）：诊毕后打印冻结为诊毕时刻的患者资料与生命体征；
         // 诊毕前打印使用最新（医生可修正患者资料），快照仅在诊毕时固化
@@ -285,10 +293,7 @@ switch ($action) {
         // 固化快照：证书存有开具时的病历摘要则原样使用（与 certificate_print
         // 同规则）——补打内容与开具时完全一致，不随后续续写漂移
         $record = cert_fallback_snapshot($record, $cert);
-        $visit = $row['visit'];
-        $visit = decorate_visit_patient($visit, $row['patient']);
-        $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
-        $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
+        $visit = print_visit_header($row, 'current_dept_id');
         // 诊断证明快照（法律合规）：开具时刻患者资料优先，补打不因事后改患者资料而变化
         snapshot_apply_patient($row, 'certificate', (int)$cert['id']);
         $certSnap = snapshot_get('certificate', (int)$cert['id']);
@@ -308,10 +313,7 @@ switch ($action) {
         if (!$row) json_fail('就诊记录不存在');
         print_guard($row['visit'], array('doctor'));
         $c['flow_no'] = $row['visit']['flow_no'];
-        $visit = $row['visit'];
-        $visit = decorate_visit_patient($visit, $row['patient']);
-        $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
-        $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
+        $visit = print_visit_header($row, 'current_dept_id');
         // 病历内容：优先用开具/编辑时固化的快照（emr_snapshot，后期病历修改不影响已开具文书）；
         // 旧数据无快照 → 回退实时投影（主诉/现病史/初步诊断，旧行为兼容）
         $snapshot = json_decode((string)(isset($c['emr_snapshot']) ? $c['emr_snapshot'] : ''), true);
@@ -359,10 +361,7 @@ switch ($action) {
         if ($isTarget && $cons['status'] === 'pending' && (string)$cons['accepted_by'] === '') {
             json_fail('请先确认会诊后再打印该会诊申请单');
         }
-        $visit = $row['visit'];
-        $visit = decorate_visit_patient($visit, $row['patient']);
-        $dept = EmrRepository::one('SELECT * FROM departments WHERE id=?', array($visit['current_dept_id']));
-        $visit['dept_type'] = $dept ? $dept['type'] : 'clinic';
+        $visit = print_visit_header($row, 'current_dept_id');
         // 病历快照：取发起科室医生的首诊文书（主诉/现病史/体格检查/初步诊断）
         $snap = array('chief_complaint' => '', 'present_illness' => '', 'physical_exam' => '', 'diagnoses' => '');
         $pr = EmrRepository::one("SELECT * FROM patient_records WHERE visit_id=? AND dept_id=? AND record_type='initial' ORDER BY id ASC LIMIT 1",
