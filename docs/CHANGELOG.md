@@ -42,3 +42,10 @@
 ### 安全
 - 登录 `password_hash` / `password_verify`；会话名独立（`PACSVIEWSID`），
   会话文件存放于组件自有 `data/session/`；全部写操作校验 CSRF 令牌。
+
+### 文档
+- `README.md` 移至仓库根目录，并以**独立项目原生形态**重写（Web 根为 `public/`，
+  不再以宿主 `tools/pacs_viewer/` 路径描述；补充「与主项目集成（git subtree）」章节）。
+- 新增 `AGENTS.md` / `CLAUDE.md` 开发约定（版本标识、目录分层、部署路径自适应
+  铁律、subtree 同步流程、安全与提交规范）。
+- `docs/HELP.md` 同步为原生项目视角（启动、部署 Nginx 示例、集成说明）。
