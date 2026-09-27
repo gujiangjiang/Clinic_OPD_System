@@ -40,14 +40,25 @@ if ($action === 'cancel') {
 }
 
 if ($action === 'switch') {
-    // 迁移成功后切换主库（config.db 指针更新到目标库），随后清除状态
+    // 迁移成功后切换主库（config.db 指针更新到目标库），随后清除状态；
+    // 切换会改变全站数据库指针，须持有管理员令牌（与 cancel 同源）
+    $token = req('token', '');
+    $s = MigrationRunner::state();
+    if ($s['token'] === '' || !hash_equals((string)$s['token'], (string)$token)) {
+        json_fail('管理员令牌无效或已过期，请重新发起迁移');
+    }
     $r = MigrationRunner::switchMain();
     if ($r['ok']) json_ok(array(), $r['msg']);
     json_fail($r['msg']);
 }
 
 if ($action === 'done') {
-    // 迁移成功但暂不切换：清除状态，继续使用原库
+    // 迁移成功但暂不切换：清除状态，继续使用原库；同样要求管理员令牌
+    $token = req('token', '');
+    $s = MigrationRunner::state();
+    if ($s['token'] === '' || !hash_equals((string)$s['token'], (string)$token)) {
+        json_fail('管理员令牌无效或已过期，请重新发起迁移');
+    }
     MigrationRunner::confirm();
     json_ok(array(), '已保留原数据库，未切换');
 }

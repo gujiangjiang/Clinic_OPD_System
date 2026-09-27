@@ -148,7 +148,7 @@ body {
     };
     window.switchMain = function () {
         if (!confirm('确定将主数据库切换为迁移后的数据库吗？切换后所有数据读写将指向目标数据库。')) return;
-        fetch('/api/migration?action=switch')
+        fetch('/api/migration?action=switch&token=' + encodeURIComponent(TOKEN))
             .then(function (r) { return r.json(); })
             .then(function (j) {
                 if (j.ok) {
@@ -159,7 +159,7 @@ body {
             });
     };
     window.keepOld = function () {
-        fetch('/api/migration?action=done')
+        fetch('/api/migration?action=done&token=' + encodeURIComponent(TOKEN))
             .then(function (r) { return r.json(); })
             .then(function (j) {
                 if (j.ok) { try { localStorage.removeItem('migration_token'); } catch (e) {} location.href = '/login'; }
