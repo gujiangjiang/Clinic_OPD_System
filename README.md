@@ -1,14 +1,18 @@
 # 模拟 Web PACS 影像浏览器
 
+![版本](https://img.shields.io/badge/版本-v0.1.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite-003B57) ![依赖](https://img.shields.io/badge/依赖-无第三方-brightgreen)
+
 > 一个**完全独立**的轻量级 PHP 网站，用于 DICOM / PACS 接口联调测试。
-> 拥有自己的代码库、数据库、账号与文档体系，与门诊一体化主系统零耦合。
+> 拥有自己的代码库、数据库、账号与文档体系，与任何宿主系统零耦合。
 
 ## 简介
 
-本组件用于在**没有真实 PACS 硬件**的环境下，验证 DICOM / PACS 接口的检索、
+本项目用于在**没有真实 PACS 硬件**的环境下，验证 DICOM / PACS 接口的检索、
 调阅与影像展示链路。所有患者、检查、医院名称等数据均通过 PACS 接口获取；
 未配置远程接口时，由内置模拟 PACS 服务返回「已开单、已缴费、已登记并完成检查」
 的确定性仿真数据。
+
+部署形态为标准 PHP 网站：Web 根指向本仓库的 `public/`，入口为 `public/index.php`。
 
 ## 功能
 
@@ -28,11 +32,12 @@
 ## 目录结构
 
 ```
-tools/pacs_viewer/
+.
 ├── README.md                 # 项目说明（本文件）
 ├── LICENSE                   # 开源许可
-├── index.php                 # 目录默认入口（/tools/pacs_viewer/ 命中）
-├── public/                   # Web 根（标准站点结构）
+├── AGENTS.md / CLAUDE.md      # 开发约定（AI / 协作者维护指南）
+├── index.php                 # 目录默认入口（以仓库根为站点时命中）
+├── public/                   # Web 根（部署时 Web 服务器指向这里）
 │   ├── index.php             #   唯一前端控制器（?r= 路由）
 │   └── assets/
 │       ├── css/              #   base / auth / search / viewer / admin
@@ -44,7 +49,7 @@ tools/pacs_viewer/
 │           └── modules/      #   render(虚拟影像) / osd(水印) / sidebar(序列栏)
 │                             #   / toolbar(工具栏) / measurements(测量)
 ├── app/                      # 后端
-│   ├── bootstrap.php         #   引导（路径自适应 / 会话 / 助手）
+│   ├── bootstrap.php         #   引导（部署路径自适应 / 会话 / 助手）
 │   ├── Database.php          #   自带 SQLite（建库建表播种）
 │   ├── Auth.php              #   独立登录认证
 │   ├── Settings.php          #   管理设置读写
@@ -59,19 +64,17 @@ tools/pacs_viewer/
 
 ## 启动
 
-本机无系统 PHP，统一使用 FrankenPHP。入口已做部署路径自适应：
+本机无系统 PHP，统一使用 FrankenPHP。Web 根指向 `public/`：
 
 ```bash
-# 方式 A：独立站点（Web 根指向本组件的 public）
-~/.local/bin/frankenphp php-server --root tools/pacs_viewer/public --listen 0.0.0.0:8090
+~/.local/bin/frankenphp php-server --root public --listen 0.0.0.0:8090
 # 浏览器访问 http://localhost:8090/
-
-# 方式 B：挂载于项目根下（得到 /tools/pacs_viewer/ 路径）
-~/.local/bin/frankenphp php-server --root /path/to/Clinic_OPD_System --listen 0.0.0.0:8080
-# 浏览器访问 http://localhost:8080/tools/pacs_viewer/
 ```
 
 首次访问自动创建 `data/pacs_viewer.db` 并播种账号与设置。
+
+> 入口已做部署路径自适应：若以仓库根或子目录方式挂载（如主项目的
+> `tools/pacs_viewer/`），页面 / 接口 / 静态资源链接会自动适配，无需改代码。
 
 ## 默认账号
 
@@ -99,6 +102,23 @@ GET {endpoint}?action=ping&key=APIKEY
 ```
 
 管理页【测试接口】按钮即调用 `ping`。留空 / 选择内置模式时使用模拟数据。
+
+## 与门诊一体化主项目集成（git subtree）
+
+本项目为**源仓库**；门诊一体化主项目（Clinic_OPD_System）通过 `git subtree`
+把它挂载在 `tools/pacs_viewer/`，主项目内不含独立实现。集成不影响本仓库
+以原生形态独立部署。
+
+更新流程（在本仓库提交推送后，到主项目目录执行同步）：
+
+```bash
+# 1) 本仓库：改完即提交并推送
+git push origin main
+
+# 2) 主项目：拉取本仓库最新内容到挂载点
+git subtree pull --prefix=tools/pacs_viewer \
+  https://github.com/gujiangjiang/pacs_viewer main
+```
 
 ## 更多文档
 

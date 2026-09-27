@@ -1,25 +1,22 @@
 # 📗 使用帮助（HELP）
 
-模拟 Web PACS 影像浏览器 · 独立测试组件
+模拟 Web PACS 影像浏览器 · 独立 PHP 网站
 
 ## 一、快速开始
 
-1. **启动服务**（本机使用 FrankenPHP）：
+1. **启动服务**（本机使用 FrankenPHP，Web 根指向 `public/`）：
 
    ```bash
-   # 独立站点
-   ~/.local/bin/frankenphp php-server --root tools/pacs_viewer/public --listen 0.0.0.0:8090
-   # 或挂载于项目根（得到 /tools/pacs_viewer/ 路径）
-   ~/.local/bin/frankenphp php-server --root /path/to/Clinic_OPD_System --listen 0.0.0.0:8080
+   ~/.local/bin/frankenphp php-server --root public --listen 0.0.0.0:8090
    ```
 
-2. **打开登录页**：`http://localhost:8090/` 或 `http://localhost:8080/tools/pacs_viewer/`。
+2. **打开登录页**：`http://localhost:8090/`。
 3. **登录**：默认 `admin / admin123`（管理员）或 `doctor / doctor123`（普通）。
 4. **检索**：输入姓名 / 患者号 / 检查号 / 门诊号 / 检查项目，回车或点【检索】。
 5. **调阅**：点击结果卡片进入阅片器。
 
-> 首次访问会在 `tools/pacs_viewer/data/` 自动生成 `pacs_viewer.db` 与 `session/`，
-> 均为运行时数据，不纳入版本管理。
+> 首次访问会在 `data/` 自动生成 `pacs_viewer.db` 与 `session/`，均为运行时数据，
+> 不纳入版本管理。
 
 ## 二、管理设置（DICOM / PACS 接口配置）
 
@@ -89,11 +86,34 @@ GET {endpoint}?action=ping&key=APIKEY
 | 【序列栏】 | 显示 / 隐藏左侧序列栏 |
 | 【清屏】/【适应窗口】/【1:1 原图】 | 清除标注 / 复位视图 |
 
-## 五、常见问题
+## 五、部署与集成
+
+- **独立部署**：Web 根指向 `public/`；Nginx 示例（`root …/public; index index.php;`）：
+
+  ```nginx
+  server {
+      listen 80;
+      server_name pacs.local;
+      root /path/to/pacs-viewer/public;
+      index index.php;
+      location / { try_files $uri $uri/ /index.php?$query_string; }
+      location ~ \.php$ {
+          include fastcgi_params;
+          fastcgi_pass 127.0.0.1:9000;
+          fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+      }
+  }
+  ```
+
+- **集成到门诊一体化主项目**：主项目以 `git subtree` 将本仓库挂载在
+  `tools/pacs_viewer/`，此时可通过 `http://<主项目>/tools/pacs_viewer/` 访问
+  （入口路径自适应，无需改代码）。更新同步命令见根目录 `README.md`。
+
+## 六、常见问题
 
 - **检索报「无法连接 PACS 接口」**：检查接口地址与网络可达性；本地演示请把
   查询模式切回「内置模拟数据」。
 - **登录后空白**：确认 `data/` 目录可写（用于建库与会话）。
 - **端口冲突**：更换 `--listen` 端口即可。
 - **忘记管理员密码**：删除 `data/pacs_viewer.db` 会重置为默认账号与设置
-  （仅本工具数据，不影响主系统）。
+  （仅本项目数据，不影响任何宿主系统）。
