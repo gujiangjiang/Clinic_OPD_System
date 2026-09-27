@@ -85,6 +85,10 @@ function dept_register($itemType) {
     if (!$it || $it['item_type'] !== $itemType || $it['status'] !== 'paid') {
         json_fail('项目不存在或状态异常');
     }
+    // 归属校验（与 register_order 口径一致：未绑定科室=全院放行）
+    $ord = OrderRepository::one('SELECT visit_id FROM orders WHERE id=?', array((int)$it['order_id']));
+    $rv = $ord ? get_visit_row((int)$ord['visit_id']) : null;
+    if (!$rv || !dept_visit_allowed($rv['visit'], Auth::user())) json_fail('该患者不属于当前科室，不可登记');
     OrderRepository::exec("UPDATE order_items SET status='registered', registered_at=? WHERE id=?", array(now_str(), $itemId));
     json_ok(array(), '登记成功');
 }
@@ -96,6 +100,11 @@ function dept_withdraw($deptNoun, $titleType) {
     if ($reason === '') json_fail('请填写撤回原因');
     $report = OrderRepository::one('SELECT * FROM reports WHERE id=?', array($reportId));
     if (!$report || $report['status'] !== 'done') json_fail('报告不存在或已撤回');
+    // 归属校验：报告关联检验/检查项目 → 申请单 → 就诊科室
+    $itm = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array((int)$report['result_id']));
+    $ord = $itm ? OrderRepository::one('SELECT visit_id FROM orders WHERE id=?', array((int)$itm['order_id'])) : null;
+    $rv = $ord ? get_visit_row((int)$ord['visit_id']) : null;
+    if (!$rv || !dept_visit_allowed($rv['visit'], Auth::user())) json_fail('该患者不属于当前科室，不可撤回');
     submit_audit('report_withdraw', $reportId,
         $titleType . '报告撤回申请：' . $report['report_no'],
         $deptNoun . '科 ' . Auth::user()['name'] . ' 申请撤回报告 ' . $report['report_no'] . '，原因：' . $reason,
