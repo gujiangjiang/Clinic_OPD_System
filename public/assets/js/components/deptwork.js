@@ -1041,7 +1041,7 @@ Clinic.deptwork = (function () {
                     '<span>' + escHtml(w.name) + '</span></div>';
             });
             listEl.innerHTML = items.join('') ||
-                '<div class="doc-call-pool-empty"><span class="doc-call-pool-empty-ico">🪑</span>暂无候诊患者</div>';
+                '<div class="doc-call-pool-empty"><span class="doc-call-pool-empty-ico">' + renderIconSvg('queue:waiting') + '</span>暂无候诊患者</div>';
         }
         // 大屏在线状态：离线时蒙板覆盖正文并禁用叫号（实时监测）
         setCallPopOffline(pop, d.screen_online === false);

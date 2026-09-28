@@ -206,7 +206,7 @@ Clinic.critical = (function () {
             q.map(function (x, i) {
                 return '<div class="dw-crit-queue-item">' +
                     '<span class="crit-q-name">' + esc(x.item) + '</span>' +
-                    '<span class="fs-12 text-muted">→ ' + esc(x.to_doctor_name || '') + '</span>' +
+                    '<span class="fs-12 text-muted">' + renderIconSvg('action:next') + ' ' + esc(x.to_doctor_name || '') + '</span>' +
                     '<button type="button" class="btn btn-outline btn-sm" style="margin-left:auto;padding:1px 8px" ' +
                     'onclick="Clinic.critical.removeFromPreview(' + i + ')" title="从暂存队列移除该项">' + renderIconSvg('action:close') + '</button></div>';
             }).join('') +

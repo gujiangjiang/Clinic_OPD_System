@@ -343,7 +343,7 @@ Clinic.refundApproval = {
                 if (s.rejected) cls = 'var(--danger)';
                 return '<span style="color:' + cls + ';font-size:12px;white-space:nowrap">' +
                     (refund || s.rejected ? renderIconSvg('action:close') + ' ' : (s.done ? renderIconSvg('action:check') + ' ' : '○ ')) + Clinic.escHtml(s.label) + '</span>';
-            }).join('<span style="color:var(--border)"> → </span>');
+            }).join('<span style="color:var(--border)"> ' + renderIconSvg('action:next') + ' </span>');
             html += '<div style="margin:6px 0;overflow-x:auto;white-space:nowrap">' + steps + '</div>';
             (o.items || []).forEach(function (it) {
                 var st = statusMap[it.status] || ['badge-gray', it.status || ''];

@@ -37,7 +37,7 @@ function openSpecEditor() {
         dl('se_pack_unit_list', window.__packUnits || [], punit) + '</div>' +
         '  </div>' +
         '</div>' +
-        '<div class="fs-12 text-muted">示例：0.35g×24粒 → 单剂量 0.35、单位 g、包装数量 24、单位 粒。</div>',
+        '<div class="fs-12 text-muted">示例：0.35g×24粒 ' + renderIconSvg('action:next') + ' 单剂量 0.35、单位 g、包装数量 24、单位 粒。</div>',
         {
             title: renderIconSvg('nav:pharmacy') + ' 规格编辑',
             size: 'modal-sm',

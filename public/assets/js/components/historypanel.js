@@ -39,7 +39,7 @@ Clinic.history = (function () {
         return '<div class="hp-visit" id="hpV_' + v.code + '" onclick="Clinic.history.select(\'' + v.code + '\')">' +
             '<div class="fs-13 text-muted">' + escHtml(v.date) + ' ' + escHtml(v.time) + '</div>' +
             '<div class="fs-13 fw-600">' + escHtml(v.dept_name) + '（' + seq + '）' +
-            (moved ? '<span class="fs-12 text-muted fw-400">→ ' + escHtml(v.current_dept_name) + '</span>' : '') + '</div>' +
+            (moved ? '<span class="fs-12 text-muted fw-400">' + renderIconSvg('action:next') + ' ' + escHtml(v.current_dept_name) + '</span>' : '') + '</div>' +
             '<div class="flex gap-4" style="margin-top:2px">' + statusBadge(v) +
             (v.has_cert ? '<span class="badge badge-gray" style="font-size:11px">证明</span>' : '') + '</div>' +
             '</div>';

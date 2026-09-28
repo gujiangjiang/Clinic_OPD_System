@@ -86,7 +86,7 @@ Clinic.emr.consult = (function () {
                     '<div class="form-group"><label class="form-label">会诊目的</label>' +
                     '<textarea class="textarea" id="consPurpose" rows="2" placeholder="如：协助明确诊断 / 指导下一步治疗方案…"></textarea></div>',
                     {
-                        title: renderIconSvg('action:handshake') + ' 发起会诊 → ' + dept.name,
+                        title: renderIconSvg('action:handshake') + ' 发起会诊 ' + renderIconSvg('action:next') + ' ' + dept.name,
                         size: 'modal-md',
                         buttons: [
                             { text: '取消', cls: 'btn-outline' },
@@ -260,7 +260,7 @@ Clinic.emr.consult = (function () {
                             var html = (jp.data && jp.data.html) || '';
                             body.innerHTML =
                                 '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' +
-                                '<button type="button" class="btn btn-outline btn-sm" id="consultDetailBack">← 返回会诊详情</button>' +
+                                '<button type="button" class="btn btn-outline btn-sm" id="consultDetailBack">' + renderIconSvg('action:prev') + ' 返回会诊详情</button>' +
                                 '<span class="fs-12 text-muted">只读病历</span></div>' +
                                 '<div class="print-area">' + html + '</div>';
                             // 只读文档防复制（与历史病历弹窗同策略）
@@ -367,7 +367,7 @@ Clinic.emr.consult = (function () {
         // 诊毕按钮 → 会诊完毕
         document.querySelectorAll('.emr-top-actions .emr-write').forEach(function (b) {
             if (b.getAttribute('onclick') && b.getAttribute('onclick').indexOf('confirmFinish') !== -1) {
-                b.innerHTML = '🏁 会诊完毕';
+                b.innerHTML = renderIconSvg('queue:done') + ' 会诊完毕';
                 b.classList.remove('btn-success');
                 b.classList.add('btn-warning');
             }
