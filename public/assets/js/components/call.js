@@ -58,7 +58,7 @@
             // 接口返回 base64 Data URI（data:image/...），不暴露文件 URL，直接使用
             photo.innerHTML = '<img src="' + doc.photo + '" alt="医生照片">';
         } else {
-            photo.textContent = '👨‍⚕️';
+            photo.innerHTML = renderIconSvg('nav:doctor');
         }
         document.getElementById('docName').textContent = doc ? (doc.name + (doc.emp_no ? '（' + doc.emp_no + '）' : '')) : '医生出诊中';
         document.getElementById('docTitle').textContent = doc ? (doc.title || '') : '';

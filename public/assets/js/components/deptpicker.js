@@ -89,12 +89,12 @@ Clinic.deptPicker = (function () {
                     '<div class="dept-pick-sub">挂号费 ¥' + d.fee.toFixed(2) + '</div>';
             }
         } else if (mode === 'select' || mode === 'call') {
-            // 大屏统计模式（叫号大屏选择科室用）：只显示 🖥️ 在线/总数，不显示 门诊/急诊 徽章
+            // 大屏统计模式（叫号大屏选择科室用）：只显示 🖥 在线/总数，不显示 门诊/急诊 徽章
             if (opts.showRoomStats) {
                 if (typeof d.room_count === 'number' && d.room_count > 0) {
                     extra = '<div class="dept-pick-tags">' +
                         '<span class="badge badge-' + (d.online_count > 0 ? 'success' : 'gray') + '">' +
-                        '🖥️ ' + d.online_count + '/' + d.room_count + ' 在线</span>' +
+                        renderIconSvg('nav:screen') + ' ' + d.online_count + '/' + d.room_count + ' 在线</span>' +
                         (d.id === opts.currentId ? '<span class="badge badge-success">当前</span>' : '') + '</div>';
                 } else {
                     extra = '<div class="dept-pick-tags">' +
@@ -171,10 +171,10 @@ Clinic.deptPicker = (function () {
             }
 
             var tabDefs = {
-                emergency: ['🚑 急诊', byType.emergency.length],
-                clinic: ['🏥 门诊', byType.clinic.length],
-                tech: ['🧪 医技', byType.tech.length],
-                other: ['📦 其他', byType.other.length],
+                emergency: [renderIconSvg('action:launch') + ' 急诊', byType.emergency.length],
+                clinic: [renderIconSvg('nav:hospital') + ' 门诊', byType.clinic.length],
+                tech: [renderIconSvg('nav:lab') + ' 医技', byType.tech.length],
+                other: [renderIconSvg('action:package') + ' 其他', byType.other.length],
             };
             var emptyText = { emergency: '暂无急诊科室', clinic: '暂无门诊科室', tech: '暂无医技科室', other: '暂无其他科室' };
 
@@ -182,7 +182,7 @@ Clinic.deptPicker = (function () {
                 '<div class="dept-tabs">' +
                 tabKeys.map(function (k) { return tabHtml(k, tabDefs[k][0], tabDefs[k][1]); }).join('') +
                 '</div>' +
-                (lockClinic ? '<div class="fs-12 text-warning mb-8">⚠️ 未填写身份证号码时仅可挂急诊科室（自费）；填写身份证后可挂全部门诊科室</div>' : '');
+                (lockClinic ? '<div class="fs-12 text-warning mb-8">' + renderIconSvg('alert:warning') + ' 未填写身份证号码时仅可挂急诊科室（自费）；填写身份证后可挂全部门诊科室</div>' : '');
 
             var grids = tabKeys.map(function (key) {
                 var cards = byType[key].map(function (d) { return cardHtml(d, opts, key); }).join('');

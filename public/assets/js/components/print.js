@@ -68,7 +68,7 @@ Clinic.print = (function () {
             '  <label class="print-auto" title="勾选后每次弹出预览会自动调起系统打印，打印后自动关闭本预览（偏好按账号记忆；如需关闭可在【个人信息】页的打印偏好中取消勾选）">' +
             '    <input type="checkbox" data-act="auto"> 自动打印</label>' +
             '  <button type="button" class="btn btn-outline" data-act="close">关闭</button>' +
-            '  <button type="button" class="btn btn-primary" data-act="do">🖨️ 打印</button>' +
+            '  <button type="button" class="btn btn-primary" data-act="do">' + renderIconSvg('action:print') + ' 打印</button>' +
             '</div>';
         document.body.appendChild(previewEl);
 

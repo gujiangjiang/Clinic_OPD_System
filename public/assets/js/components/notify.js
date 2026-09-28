@@ -93,7 +93,7 @@ Clinic.notify = (function () {
                     if (panelOpen) {
                         openPanel();
                     } else {
-                        Clinic.toast.info('💬 收到 ' + n + ' 条新消息', 3200);
+                        Clinic.toast.info(renderIconSvg('emr:consult') + ' 收到 ' + n + ' 条新消息', 3200);
                     }
                 }
                 lastLatestId = Math.max(lastLatestId, latestId);
@@ -148,7 +148,7 @@ Clinic.notify = (function () {
                     ? '<span class="msg-type msg-type-user">用户</span>'
                     : '<span class="msg-type msg-type-system">系统</span>'));
         const who = isPatient && m.patient_name
-            ? '<span class="msg-who">👤 ' + Clinic.escHtml(m.patient_name) + '</span>' : '';
+            ? '<span class="msg-who">' + renderIconSvg('nav:user') + ' ' + Clinic.escHtml(m.patient_name) + '</span>' : '';
         return '<div class="msg-item ' + (m.is_read ? '' : 'unread') +
             '" data-id="' + m.id + '" data-msg=\'' +
             JSON.stringify({ id: m.id, link_url: m.link_url || '', visit_id: m.visit_id || 0, print_url: m.print_url || '', msg_type: m.msg_type || '' }).replace(/'/g, '&#39;') +
@@ -185,7 +185,7 @@ Clinic.notify = (function () {
                 pop.className = 'dropdown-panel msg-panel';
                 pop.innerHTML =
                     '<div class="msg-panel-head">' +
-                    '<span class="msg-panel-title">🔔 消息通知</span>' +
+                    '<span class="msg-panel-title">' + renderIconSvg('action:bell') + ' 消息通知</span>' +
                     '<a class="fs-12" href="/messages" style="color:var(--primary)">查看全部</a>' +
                     '</div>' +
                     '<div class="msg-panel-body">' + bodyHtml + '</div>';

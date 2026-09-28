@@ -88,7 +88,7 @@ Clinic.emr.cert = (function () {
                                 { text: '关闭', cls: 'btn-outline' },
                                 {
                                     // 打印走 certificate_print：由服务器重新渲染存档数据
-                                    text: '🖨️ 打印', cls: 'btn-success',
+                                    text: renderIconSvg('action:print') + ' 打印', cls: 'btn-success',
                                     onClick: function () {
                                         Clinic.print.load('/api/record?action=certificate_print&visit_id=' + visitId, null, 'a5');
                                     },

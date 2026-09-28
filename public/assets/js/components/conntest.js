@@ -47,12 +47,12 @@ Clinic.connTest = (function () {
             silent: true,    // 网络层失败静默
             noToast: true,   // 业务失败也以行内提示为主（避免与行内提示重复）
             onSuccess: function (json) {
-                if (msg) msg.innerHTML = '<span class="text-success">✓ ' + Clinic.escHtml(json.msg || '连接成功') + '</span>';
+                if (msg) msg.innerHTML = '<span class="text-success">' + renderIconSvg('action:check') + ' ' + Clinic.escHtml(json.msg || '连接成功') + '</span>';
                 done();
             },
             onError: function (x, json) {
                 var m = (x && x.msg) || (json && json.msg) || '连接失败';
-                if (msg) msg.innerHTML = '<span class="text-danger">✗ ' + Clinic.escHtml(m) + '</span>';
+                if (msg) msg.innerHTML = '<span class="text-danger">' + renderIconSvg('action:close') + ' ' + Clinic.escHtml(m) + '</span>';
                 done();
             },
         });

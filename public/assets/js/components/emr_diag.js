@@ -137,7 +137,7 @@ Clinic.emr.diag = (function () {
         pop.innerHTML =
             '<div class="fs-13 mb-8" style="display:flex;justify-content:space-between;align-items:center">' +
             '<span>编辑：<span class="text-muted">' + escHtml(d.code || '') + '</span> <b>' + escHtml(d.name) + '</b></span>' +
-            '  <button type="button" class="btn btn-danger btn-sm" id="dpeDel" style="flex-shrink:0">🗑️ 删除</button>' +
+            '  <button type="button" class="btn btn-danger btn-sm" id="dpeDel" style="flex-shrink:0">' + renderIconSvg('action:delete') + ' 删除</button>' +
             '</div>' +
             '<div class="form-group"><label class="form-label">部位（选填）</label><input class="input" id="dpPart" value="' + escHtml(d.part || '') + '" placeholder="如：左侧、右上肢"></div>' +
             '<div class="form-group"><label class="form-label">备注（选填）</label><input class="input" id="dpNote" value="' + escHtml(d.note || '') + '" placeholder="如：中指挫擦伤"></div>' +
@@ -380,7 +380,7 @@ Clinic.emr.diag = (function () {
         pop.style.width = '150px';
         pop.innerHTML =
             '<div class="fs-13 mb-8" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b>' + escHtml(row.name) + '</b></div>' +
-            '<button type="button" class="btn btn-outline btn-sm btn-block" id="dopPrimary">⭐ 设为主诊断</button>' +
+            '<button type="button" class="btn btn-outline btn-sm btn-block" id="dopPrimary">' + renderIconSvg('action:star') + ' 设为主诊断</button>' +
             '<button type="button" class="btn btn-outline btn-sm btn-block mt-8" id="dopUp">↑ 上移</button>' +
             (isLast ? '' : '<button type="button" class="btn btn-outline btn-sm btn-block mt-8" id="dopDown">↓ 下移</button>');
         placeDiagPop(pop, ev);

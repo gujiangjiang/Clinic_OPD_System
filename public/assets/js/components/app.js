@@ -38,7 +38,7 @@ function renderEnabledToggle() {
     if (!h || !b) return;
     var on = h.value === '1';
     var isEdit = window.__enabledToggleIsEdit;
-    b.textContent = isEdit ? (on ? '✅ 已启用' : '⛔ 已禁用') : (on ? '✅ 启用' : '⛔ 禁用');
+    b.innerHTML = isEdit ? (on ? renderIconSvg('alert:success') + ' 已启用' : renderIconSvg('alert:blocked') + ' 已禁用') : (on ? renderIconSvg('alert:success') + ' 启用' : renderIconSvg('alert:blocked') + ' 禁用');
     // 与右侧取消/保存按钮同尺寸（btn-success/btn-danger，非 btn-sm）
     b.className = 'btn ' + (on ? 'btn-success' : 'btn-danger');
 }

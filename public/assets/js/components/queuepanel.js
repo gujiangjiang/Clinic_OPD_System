@@ -89,12 +89,12 @@ Clinic.queuePanel = (function () {
         var btn = document.getElementById('queueBtn');
         if (!btn) return;
         if (DEPT_ID <= 0) {
-            btn.innerHTML = '📋 候诊 -';
+            btn.innerHTML = renderIconSvg('emr:record') + ' 候诊 -';
             btn.title = '请先选择科室后开始接诊';
             return;
         }
         if (!DATA) return;
-        btn.innerHTML = '📋 候诊 <b>' + waitingCount() + '</b>';
+        btn.innerHTML = renderIconSvg('emr:record') + ' 候诊 <b>' + waitingCount() + '</b>';
         btn.title = '候诊 / 近3天患者列表';
     }
 
@@ -211,7 +211,7 @@ Clinic.queuePanel = (function () {
      * （避免系统 Alert 弹窗破坏使用一体性） */
     function jumpToPatient(code) {
         if (window.Clinic && Clinic.emr && Clinic.emr.isDirty && Clinic.emr.isDirty()) {
-            Clinic.toast.warning('当前病历有未保存的修改，请先点击「💾 保存」后再切换患者');
+            Clinic.toast.warning('当前病历有未保存的修改，请先点击「' + renderIconSvg('action:save') + ' 保存」后再切换患者');
             return;
         }
         closePanel();
@@ -354,7 +354,7 @@ Clinic.queuePanel = (function () {
         // 未选科室：面板显示提示，不加载数据
         if (DEPT_ID <= 0) {
             var p0 = Clinic.queuePanelCore.createPanel(btn, 'queuePanel');
-            p0.innerHTML = '<div class="qp-empty">🩺 请先选择科室后开始接诊<br><span class="fs-12">点击左上角「🏥 选择科室」按钮</span></div>';
+            p0.innerHTML = '<div class="qp-empty">' + renderIconSvg('clinical:stethoscope') + ' 请先选择科室后开始接诊<br><span class="fs-12">点击左上角「' + renderIconSvg('nav:hospital') + ' 选择科室」按钮</span></div>';
             PANEL_BIND = Clinic.queuePanelCore.bindClose(p0, closePanel);
             return;
         }
@@ -397,7 +397,7 @@ Clinic.queuePanel = (function () {
         btn.id = 'queueBtn';
         btn.style.flexShrink = '0';
         btn.title = '候诊 / 近3天患者列表';
-        btn.innerHTML = '📋 候诊 …';
+        btn.innerHTML = renderIconSvg('emr:record') + ' 候诊 …';
         btn.addEventListener('click', function () {
             if (panelEl()) closePanel(); else openPanel();
         });

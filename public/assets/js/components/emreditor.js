@@ -606,7 +606,7 @@ Clinic.emrEditor = (function () {
             '  <button type="button" class="btn btn-outline" style="flex:1" onclick="Clinic.modal.close()">取消</button>' +
             '  <button type="button" class="btn btn-primary" style="flex:1" id="alSave">保存</button>' +
             '</div>',
-            { title: '💊 过敏史', size: 'modal-sm', buttons: [] }
+            { title: renderIconSvg('nav:pharmacy') + ' 过敏史', size: 'modal-sm', buttons: [] }
         );
         var render = function () {
             var box = document.getElementById(listBox);
@@ -614,7 +614,7 @@ Clinic.emrEditor = (function () {
             box.innerHTML = items.length ? items.map(function (s, i) {
                 return '<div class="flex-between" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;margin-bottom:4px">' +
                     '<span style="font-size:13px">' + esc(s) + '</span>' +
-                    '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px" data-rm="' + i + '">✕</button></div>';
+                    '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px" data-rm="' + i + '">' + renderIconSvg('action:close') + '</button></div>';
             }).join('') : '<div class="text-muted fs-13 text-center" style="padding:10px">尚未添加过敏史</div>';
             box.querySelectorAll('[data-rm]').forEach(function (el) {
                 el.addEventListener('click', function () {

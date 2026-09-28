@@ -154,7 +154,7 @@ Clinic.deptTree = (function () {
             });
             ROOT.innerHTML =
                 '<div class="tree-box">' +
-                '  <input class="input tree-box-search" id="dtSearch" placeholder="🔍 搜索科室，可定位到列表" autocomplete="off">' +
+                '  <input class="input tree-box-search" id="dtSearch" placeholder="' + renderIconSvg('action:search') + ' 搜索科室，可定位到列表" autocomplete="off">' +
                 '  <div class="tree-search-res" id="dtRes" style="display:none"></div>' +
                 '  <div class="send-tree" id="' + treeId + '">' +
                 '    <div class="send-grp">' +

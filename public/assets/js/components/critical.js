@@ -50,7 +50,7 @@ Clinic.critical = (function () {
             '<div class="crit-patient-meta">' +
             (esc(cv.patient_gender || '') + (cv.patient_age ? ' / ' + esc(cv.patient_age) : '') + (cv.patient_birth ? ' ｜ 出生日期 ' + esc(cv.patient_birth) : '')).trim() +
             '</div></div>';
-        html += '<div class="crit-title crit-title-danger">⚠️ 危急值 ' + esc(kindName(cv.source)) + '结果</div>';
+        html += '<div class="crit-title crit-title-danger">' + renderIconSvg('alert:warning') + ' 危急值 ' + esc(kindName(cv.source)) + '结果</div>';
         if (critItems.length) {
             critItems.forEach(function (it) {
                 html += '<div class="crit-item">' + esc(it.name || cv.item_name) + '：<b class="crit-item-val">' + esc(it.value || '') + '</b>' +
@@ -145,7 +145,7 @@ Clinic.critical = (function () {
         DOC_Q = ''; DOC_PICK = onPick;
         var mask = Clinic.modal.open(
             '<div class="crit-doc-search">' +
-            '  <div class="form-group"><input class="input" id="critDocQ" placeholder="🔍 输入医生姓名 / 工号搜索" autocomplete="off" ' +
+            '  <div class="form-group"><input class="input" id="critDocQ" placeholder="' + renderIconSvg('action:search') + ' 输入医生姓名 / 工号搜索" autocomplete="off" ' +
             'oninput="Clinic.critical._docSearchInput(this.value)"></div>' +
             '  <div id="critDocList" class="crit-doc-list">' +
             '    <div class="crit-doc-tip">加载中…</div>' +
@@ -208,9 +208,9 @@ Clinic.critical = (function () {
                     '<span class="crit-q-name">' + esc(x.item) + '</span>' +
                     '<span class="fs-12 text-muted">→ ' + esc(x.to_doctor_name || '') + '</span>' +
                     '<button type="button" class="btn btn-outline btn-sm" style="margin-left:auto;padding:1px 8px" ' +
-                    'onclick="Clinic.critical.removeFromPreview(' + i + ')" title="从暂存队列移除该项">✕</button></div>';
+                    'onclick="Clinic.critical.removeFromPreview(' + i + ')" title="从暂存队列移除该项">' + renderIconSvg('action:close') + '</button></div>';
             }).join('') +
-            '<div class="fs-12 text-muted mt-4">以上危急值将在报告发布时一并发送，可点击 ✕ 移除。</div>';
+            '<div class="fs-12 text-muted mt-4">以上危急值将在报告发布时一并发送，可点击 ' + renderIconSvg('action:close') + ' 移除。</div>';
     }
 
     /** 刷新弹窗中部已添加列表（不关弹窗，实时反映添加/删除） */
@@ -247,7 +247,7 @@ Clinic.critical = (function () {
         var detHtml = '';
         if (opts.detected && opts.detected.length) {
             detHtml = '<div class="crit-send-det">' +
-                '<div class="crit-title crit-title-danger">⚠️ 检测到危急值</div>' +
+                '<div class="crit-title crit-title-danger">' + renderIconSvg('alert:warning') + ' 检测到危急值</div>' +
                 opts.detected.map(function (d) {
                     return '<div class="crit-item">' + esc(d.name) + '：<b class="crit-item-val">' + esc(d.value || '') + '</b>' +
                         (d.unit ? ' ' + esc(d.unit) : '') +
@@ -290,7 +290,7 @@ Clinic.critical = (function () {
             ]
             : [
                 { text: '取消', cls: 'btn-outline' },
-                { text: '🚨 发送危急值', cls: 'btn-danger', autoClose: false, onClick: sendCritical },
+                { text: renderIconSvg('alert:critical') + ' 发送危急值', cls: 'btn-danger', autoClose: false, onClick: sendCritical },
             ];
         Clinic.modal.open(html, {
             title: opts.mode === 'lab' ? '危急值通知' : '报危急值',
@@ -379,11 +379,11 @@ Clinic.critical = (function () {
                     '  </div>' +
                     '</div>';
                 Clinic.modal.open(html, {
-                    title: '⚠️ 危急值处理：' + cv.item_name,
+                    title: renderIconSvg('alert:warning') + ' 危急值处理：' + cv.item_name,
                     size: 'modal-lg',
                     buttons: [
                         { text: '取消', cls: 'btn-outline' },
-                        { text: '✅ 提交处理', cls: 'btn-primary', autoClose: false, onClick: function () { submitProcess(cv); } },
+                        { text: renderIconSvg('alert:success') + ' 提交处理', cls: 'btn-primary', autoClose: false, onClick: function () { submitProcess(cv); } },
                     ],
                 });
             },
@@ -532,7 +532,7 @@ Clinic.critical = (function () {
                         box.innerHTML = d.list.length
                             ? d.list.map(rowHtml).join('')
                             // 空态：无内联样式，由 CSS（.table tbody tr.empty-row）控制去线/居中/撑开
-                            : '<tr class="empty-row"><td colspan="9"><div class="empty" style="padding:20px 0"><div class="empty-ico">🚨</div>暂无危急值记录</div></td></tr>';
+                            : '<tr class="empty-row"><td colspan="9"><div class="empty" style="padding:20px 0"><div class="empty-ico">' + renderIconSvg('alert:critical') + '</div>暂无危急值记录</div></td></tr>';
                     } else {
                         box.insertAdjacentHTML('beforeend', d.list.map(rowHtml).join(''));
                     }

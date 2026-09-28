@@ -18,7 +18,7 @@ Clinic.importer = (function () {
             '<div id="impResult" class="fs-13"></div>' +
             '</div>',
             {
-                title: '📥 批量导入 · ' + (moduleTitle || moduleName),
+                title: renderIconSvg('action:import') + ' 批量导入 · ' + (moduleTitle || moduleName),
                 size: 'modal-md',
                 buttons: [
                     { text: '关闭', cls: 'btn-outline' },
@@ -76,7 +76,7 @@ Clinic.importer = (function () {
                 '<input type="radio" name="impStrategy" value="overwrite"> 覆盖更新（用导入数据更新已有记录）</label></div>';
             html += '<button type="button" class="btn btn-success btn-sm mt-8" onclick="Clinic.importer.confirmImport()">确认执行导入</button>';
         } else {
-            html += '<div class="fs-13 text-success mt-8">✅ 无冲突，可直接导入。</div>' +
+            html += '<div class="fs-13 text-success mt-8">' + renderIconSvg('alert:success') + ' 无冲突，可直接导入。</div>' +
                 '<button type="button" class="btn btn-success btn-sm mt-8" onclick="Clinic.importer.confirmImport()">确认执行导入</button>';
         }
         box.innerHTML = html;
@@ -111,11 +111,11 @@ Clinic.importer = (function () {
         if (!box) return;
         box.innerHTML =
             '<div class="dd-wrap">' +
-            '<button type="button" class="btn btn-outline btn-sm" onclick="Clinic.importer.toggleMenu(this)">📊 数据管理 ▾</button>' +
+            '<button type="button" class="btn btn-outline btn-sm" onclick="Clinic.importer.toggleMenu(this)">' + renderIconSvg('nav:chart') + ' 数据管理 ▾</button>' +
             '<div class="dd-menu">' +
-            '<div class="dd-item" onclick="Clinic.importer.downloadTemplate(\'' + moduleName + '\');Clinic.importer.toggleMenu(null)">📥 下载模板</div>' +
-            '<div class="dd-item" onclick="Clinic.importer.exportData(\'' + moduleName + '\');Clinic.importer.toggleMenu(null)">📤 导出全部</div>' +
-            '<div class="dd-item" onclick="Clinic.importer.openImport(\'' + moduleName + '\',\'' + (moduleTitle || '') + '\');Clinic.importer.toggleMenu(null)">📥 批量导入</div>' +
+            '<div class="dd-item" onclick="Clinic.importer.downloadTemplate(\'' + moduleName + '\');Clinic.importer.toggleMenu(null)">' + renderIconSvg('action:import') + ' 下载模板</div>' +
+            '<div class="dd-item" onclick="Clinic.importer.exportData(\'' + moduleName + '\');Clinic.importer.toggleMenu(null)">' + renderIconSvg('action:export') + ' 导出全部</div>' +
+            '<div class="dd-item" onclick="Clinic.importer.openImport(\'' + moduleName + '\',\'' + (moduleTitle || '') + '\');Clinic.importer.toggleMenu(null)">' + renderIconSvg('action:import') + ' 批量导入</div>' +
             '</div></div>';
     }
 

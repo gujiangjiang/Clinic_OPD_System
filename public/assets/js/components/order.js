@@ -394,8 +394,8 @@ Clinic.order = (function () {
                 // 左：搜索横条（上）+ 已选列表（下），下拉为浮层
                 '  <div style="flex:1;min-width:0;display:flex;flex-direction:column;position:relative">' +
 '    <div class="flex gap-8" style="align-items:center">' +
-                 '      <input type="text" class="input" id="rxKw" placeholder="🔍 点击搜索药品（名称 / 厂家简称），支持子医嘱" autocomplete="off" style="flex:1;min-width:0">' +
-                 '      <button type="button" class="btn btn-outline btn-sm" id="rxPkgBtn" title="快速选择套餐一键加入" style="flex-shrink:0">🥡 套餐</button>' +
+                 '      <input type="text" class="input" id="rxKw" placeholder="' + renderIconSvg('action:search') + ' 点击搜索药品（名称 / 厂家简称），支持子医嘱" autocomplete="off" style="flex:1;min-width:0">' +
+                 '      <button type="button" class="btn btn-outline btn-sm" id="rxPkgBtn" title="快速选择套餐一键加入" style="flex-shrink:0">' + renderIconSvg('emr:disposal') + ' 套餐</button>' +
                  '    </div>' +
                  '    <div class="fs-13 text-muted mb-8 mt-8">已选 <strong id="selCount">0</strong> 项</div>' +
                  '    <div id="selList" style="flex:1;min-height:0;overflow-y:auto;padding-right:4px"></div>' +
@@ -417,7 +417,7 @@ Clinic.order = (function () {
             '    <div class="flex gap-8" style="align-items:center">' +
             '      <input type="text" class="input" id="orderKw" placeholder="搜索' +
             (isDrug ? '药品名称/厂家简称' : '项目名称') + '" autocomplete="off" style="flex:1;min-width:0">' +
-            '      <button type="button" class="btn btn-outline btn-sm" id="orderPkgBtn" title="快速选择套餐一键加入" style="flex-shrink:0">🥡 套餐</button>' +
+            '      <button type="button" class="btn btn-outline btn-sm" id="orderPkgBtn" title="快速选择套餐一键加入" style="flex-shrink:0">' + renderIconSvg('emr:disposal') + ' 套餐</button>' +
             '    </div>' +
             (CUR_TYPE === 'lab' ? labFilterBar() : '') +
             '    <div class="order-catalog" id="orderCatalog" style="flex:1;min-height:0;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-top:8px">' +
@@ -467,7 +467,7 @@ Clinic.order = (function () {
         var info = '';
         if (it.is_group) {
             // 检验组合：显示组内成员，按组价整体收费
-            info = '<div class="fs-12 text-muted">🧩 组合项目 ｜ 含：' + Clinic.escHtml(it.members || it.spec || '') +
+            info = '<div class="fs-12 text-muted">' + renderIconSvg('emr:template') + ' 组合项目 ｜ 含：' + Clinic.escHtml(it.members || it.spec || '') +
                 '（按组价整体收费）</div>';
         }
         return '<div class="dd-item' + (sel ? ' dd-sel' : '') + '" data-id="' + it.id + '" ' +
@@ -720,12 +720,12 @@ Clinic.order = (function () {
         PKG_PICK_LIST = null;
         var html =
             '<div style="display:flex;flex-direction:column;gap:8px">' +
-            '  <input type="text" class="input" id="pkgPickKw" placeholder="🔍 搜索' + typeLabel + '套餐名称" autocomplete="off">' +
+            '  <input type="text" class="input" id="pkgPickKw" placeholder="' + renderIconSvg('action:search') + ' 搜索' + typeLabel + '套餐名称" autocomplete="off">' +
             '  <div id="pkgPickList" style="max-height:420px;min-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px"></div>' +
             '  <div class="fs-12 text-muted">点击套餐后弹出项目勾选，确认后一键加入已选列表</div>' +
             '</div>';
         Clinic.modal.open(html, {
-            title: '🥡 选择' + typeLabel + '套餐',
+            title: renderIconSvg('emr:disposal') + ' 选择' + typeLabel + '套餐',
             size: 'modal-md',
             buttons: [{ text: '关闭', cls: 'btn-outline' }],
         });
@@ -879,7 +879,7 @@ Clinic.order = (function () {
                     if (foot) {
                         foot.innerHTML =
                             '<div style="display:flex;align-items:center;justify-content:space-between;width:100%">' +
-                            '  <button type="button" class="btn btn-outline" style="padding:8px 16px" onclick="Clinic.order.pkgApplyToggleAll()">☑️ 全选</button>' +
+                            '  <button type="button" class="btn btn-outline" style="padding:8px 16px" onclick="Clinic.order.pkgApplyToggleAll()">' + renderIconSvg('action:check') + ' 全选</button>' +
                             '  <div class="flex gap-10" style="align-items:center">' +
                             '    <button type="button" class="btn btn-outline" style="padding:8px 16px" onclick="Clinic.modal.close()">取消</button>' +
                             '    <button type="button" class="btn btn-primary" style="padding:8px 16px" onclick="Clinic.order.pkgApplyConfirm()">确认添加</button>' +
@@ -1092,7 +1092,7 @@ Clinic.order = (function () {
         panel.__onPick = opts.onPick || null;
         panel.innerHTML =
             '<div style="padding:8px 10px;border-bottom:1px solid var(--border)">' +
-            '<input type="text" class="input" id="pickerKw" placeholder="' + (opts.placeholder || '🔍 搜索项目') + '" autocomplete="off" style="min-height:30px;padding:5px 10px">' +
+            '<input type="text" class="input" id="pickerKw" placeholder="' + (opts.placeholder || renderIconSvg('action:search') + ' 搜索项目') + '" autocomplete="off" style="min-height:30px;padding:5px 10px">' +
             '</div>' +
             '<div id="pickerList" style="max-height:260px;overflow-y:auto"><div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>';
         panel.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 388)) + 'px';
@@ -1134,7 +1134,7 @@ Clinic.order = (function () {
         openItemPicker({
             btn: btn,
             type: 'prescription',
-            placeholder: '🔍 搜索子医嘱药品（名称 / 厂家）',
+            placeholder: renderIconSvg('action:search') + ' 搜索子医嘱药品（名称 / 厂家）',
             url: function (p, size) {
                 var kw = encodeURIComponent((document.getElementById('pickerKw') || {}).value || '');
                 return '/api/order?action=catalog&type=prescription&page=' + p + '&size=' + size + '&kw=' + kw;
@@ -1259,7 +1259,7 @@ Clinic.order = (function () {
         openItemPicker({
             btn: btn,
             type: t,
-            placeholder: '🔍 搜索' + ({ lab: '检验', imaging: '检查', procedure: '处置', prescription: '药品' }[t] || '项目') + '（可输入名称搜索）',
+            placeholder: renderIconSvg('action:search') + ' 搜索' + ({ lab: '检验', imaging: '检查', procedure: '处置', prescription: '药品' }[t] || '项目') + '（可输入名称搜索）',
             url: url || function (p, size) {
                 var kw = encodeURIComponent((document.getElementById('pickerKw') || {}).value || '');
                 return '/api/order?action=catalog&type=' + t + '&page=' + p + '&size=' + size + '&kw=' + kw;
@@ -1765,7 +1765,7 @@ Clinic.order = (function () {
             '<button type="button" class="btn btn-outline btn-block" id="skinNo">无需皮试 / 免试</button>' +
             '</div>',
             {
-                title: '⚠️ 皮试确认',
+                title: renderIconSvg('alert:warning') + ' 皮试确认',
                 size: 'modal-sm',
                 buttons: [{ text: '取消添加', cls: 'btn-outline' }],
                 onClose: function () { if (typeof cb === 'function') cb('cancel'); },
@@ -1794,7 +1794,7 @@ Clinic.order = (function () {
         var bar = document.getElementById('prevConfirm');
         bar.style.display = 'block';
         bar.innerHTML =
-            '⚠️ 该患者曾在 <strong>' + prev.time + '</strong> 开具过「' + it.name +
+            renderIconSvg('alert:warning') + ' 该患者曾在 <strong>' + prev.time + '</strong> 开具过「' + it.name +
             '」（单号 ' + prev.order_no + '，含未缴费记录），是否再次开具？（如为复查可再次开具）' +
             '<div class="flex gap-8 mt-4">' +
             '  <button type="button" class="btn btn-primary btn-sm" onclick="Clinic.order.confirmPrev(1)">再次开具</button>' +
@@ -1846,7 +1846,7 @@ Clinic.order = (function () {
                         return '<span class="order-grp-mem">' + Clinic.escHtml(ID_NAMES[mid] || ('项目#' + mid)) + '</span>';
                     }).join('')
                     : Clinic.escHtml(s.spec || '');
-                groupInfo = '<div class="fs-12 text-muted mt-2 order-grp-info">🧩 组合项目（按组价整体收费），含：' +
+                groupInfo = '<div class="fs-12 text-muted mt-2 order-grp-info">' + renderIconSvg('emr:template') + ' 组合项目（按组价整体收费），含：' +
                     '<span class="order-grp-mems">' + memHtml + '</span></div>';
             }
             var head =
@@ -1869,7 +1869,7 @@ Clinic.order = (function () {
                 (isDrug ? '' : '<button type="button" class="btn btn-outline btn-sm" style="padding:1px 8px" ' +
                     'onclick="Clinic.order.openReplace(\'sel\',' + i + ',this)" title="快速更换为其他项目">更换</button>') +
                 '    <button type="button" class="btn btn-outline btn-sm" style="padding:1px 8px" ' +
-                'onclick="Clinic.order.removeItem(' + i + ')">✕</button>' +
+                'onclick="Clinic.order.removeItem(' + i + ')">' + renderIconSvg('action:close') + '</button>' +
                 '  </div>' +
                 '</div>';
             var extra = isDrug ? drugControls('sel', s, i) : '';
@@ -2047,7 +2047,7 @@ Clinic.order = (function () {
                     '<button type="button" class="btn btn-outline btn-sm" style="padding:0 7px"' + (dis ? ' disabled' : '') + ' ' +
                     'onclick="Clinic.order.rxCtx(\'' + key + '\',\'changeSubQty\',[' + i + ',' + si + ',1])">＋</button>' +
                     '<button type="button" class="btn btn-outline btn-sm" style="padding:0 8px"' + (dis ? ' disabled' : '') + ' ' +
-                    'onclick="Clinic.order.rxCtx(\'' + key + '\',\'removeSub\',[' + i + ',' + si + '])">✕</button>' +
+                    'onclick="Clinic.order.rxCtx(\'' + key + '\',\'removeSub\',[' + i + ',' + si + '])">' + renderIconSvg('action:close') + '</button>' +
                     '</span>' +
                     '</div>';
             }).join('') + '</div>';

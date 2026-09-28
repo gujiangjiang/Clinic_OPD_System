@@ -73,7 +73,7 @@ Clinic.modalReadonly = function (mask) {
     body.addEventListener('paste', function (e) { e.preventDefault(); }, true);
     var foot = mask.querySelector('.modal-foot');
     if (foot) {
-        foot.innerHTML = '<span class="fs-12 text-muted">🔒 只读预览 — 内容不可编辑、复制，可滚动查看</span>';
+        foot.innerHTML = '<span class="fs-12 text-muted">' + renderIconSvg('nav:lock') + ' 只读预览 — 内容不可编辑、复制，可滚动查看</span>';
     }
 };
 
@@ -230,10 +230,10 @@ Clinic.cashier = {
 Clinic.payMethod = {
     open: function (title, onDone) {
         var methods = [
-            { k: '现金', icon: '💵', name: '现金', desc: '现金支付（支持找零）', avail: 1 },
-            { k: '医保', icon: '🪪', name: '医保卡', desc: '医保卡实时结算', avail: 0 },
-            { k: 'bank', icon: '💳', name: '银行卡', desc: '银联 / VISA / MasterCard / AE', avail: 0 },
-            { k: 'scan', icon: '📱', name: '扫码支付', desc: '微信 / 支付宝 / 云闪付', avail: 0 },
+            { k: '现金', icon: renderIconSvg('action:money'), name: '现金', desc: '现金支付（支持找零）', avail: 1 },
+            { k: '医保', icon: renderIconSvg('action:id-card'), name: '医保卡', desc: '医保卡实时结算', avail: 0 },
+            { k: 'bank', icon: renderIconSvg('nav:card'), name: '银行卡', desc: '银联 / VISA / MasterCard / AE', avail: 0 },
+            { k: 'scan', icon: renderIconSvg('nav:mobile'), name: '扫码支付', desc: '微信 / 支付宝 / 云闪付', avail: 0 },
         ];
         Clinic.modal.open(
             '<div class="pay-methods">' + methods.map(function (m) {
@@ -342,7 +342,7 @@ Clinic.refundApproval = {
                 var cls = refund ? 'var(--danger)' : (s.done ? 'var(--success)' : 'var(--border)');
                 if (s.rejected) cls = 'var(--danger)';
                 return '<span style="color:' + cls + ';font-size:12px;white-space:nowrap">' +
-                    (refund || s.rejected ? '✕ ' : (s.done ? '✓ ' : '○ ')) + Clinic.escHtml(s.label) + '</span>';
+                    (refund || s.rejected ? renderIconSvg('action:close') + ' ' : (s.done ? renderIconSvg('action:check') + ' ' : '○ ')) + Clinic.escHtml(s.label) + '</span>';
             }).join('<span style="color:var(--border)"> → </span>');
             html += '<div style="margin:6px 0;overflow-x:auto;white-space:nowrap">' + steps + '</div>';
             (o.items || []).forEach(function (it) {
@@ -371,15 +371,15 @@ Clinic.refundApproval = {
             html += '<div class="form-group" style="margin-top:14px"><label class="form-label">意见（可选）</label>' +
                 '<textarea class="textarea" id="rapNote" rows="2" placeholder="如：患者已完成该检查，同意退费"></textarea></div>' +
                 '<div class="flex gap-8 mt-8">' +
-                '<button class="btn btn-danger" onclick="Clinic.refundApproval.vote(\'' + r.id + '\',\'reject\')">✕ 拒绝退费</button>' +
-                '<button class="btn btn-primary" onclick="Clinic.refundApproval.vote(\'' + r.id + '\',\'approve\')">✓ 同意退费</button></div>';
+                '<button class="btn btn-danger" onclick="Clinic.refundApproval.vote(\'' + r.id + '\',\'reject\')">' + renderIconSvg('action:close') + ' 拒绝退费</button>' +
+                '<button class="btn btn-primary" onclick="Clinic.refundApproval.vote(\'' + r.id + '\',\'approve\')">' + renderIconSvg('action:check') + ' 同意退费</button></div>';
         } else if (r.status === 'pending') {
             html += '<div class="fs-12 text-muted">您不是该申请的审批人，无法操作</div>';
         }
 
         Clinic.modal.open(
             '<div style="max-height:70vh;overflow-y:auto;padding-right:4px">' + html + '</div>',
-            { title: '🧾 退费申请审批', size: 'modal-lg' }
+            { title: renderIconSvg('emr:receipt') + ' 退费申请审批', size: 'modal-lg' }
         );
     },
 

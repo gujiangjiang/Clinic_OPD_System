@@ -258,7 +258,7 @@ Clinic.emrMenu = (function () {
             '<div class="flex" style="gap:14px;height:460px">' +
             '  <div style="width:300px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--border);padding-right:14px;min-height:0">' +
             '    <div class="form-group"><label class="form-label">嘱托模板</label>' +
-            '    <input class="input" id="atSearch" placeholder="🔍 搜索模板" autocomplete="off"></div>' +
+            '    <input class="input" id="atSearch" placeholder="' + renderIconSvg('action:search') + ' 搜索模板" autocomplete="off"></div>' +
             '    <div id="atTplList" style="flex:1;overflow-y:auto;min-height:0"></div>' +
             '  </div>' +
             '  <div style="flex:1;min-width:0;display:flex;flex-direction:column">' +
@@ -273,7 +273,7 @@ Clinic.emrMenu = (function () {
             '    </div>' +
             '  </div>' +
             '</div>',
-            { title: '📝 选择嘱托模板', size: 'modal-lg', buttons: [] }
+            { title: renderIconSvg('action:edit') + ' 选择嘱托模板', size: 'modal-lg', buttons: [] }
         );
         var search = document.getElementById('atSearch');
         var list = document.getElementById('atTplList');

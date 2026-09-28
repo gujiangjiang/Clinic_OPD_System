@@ -32,7 +32,7 @@ Clinic.universalSelector = (function () {
     /** 渲染结果列表 */
     function renderList(box, rows) {
         if (!rows || !rows.length) {
-            box.innerHTML = '<div class="empty"><div class="empty-ico">🔍</div>未找到匹配项目</div>';
+            box.innerHTML = '<div class="empty"><div class="empty-ico">' + renderIconSvg('action:search') + '</div>未找到匹配项目</div>';
             return;
         }
         box.innerHTML = rows.map(function (r) {

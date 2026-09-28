@@ -219,10 +219,10 @@ Clinic.emr = (function () {
                     wrap.className = 'card wb-empty';
                     wrap.style.cssText = 'padding:40px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center';
                     wrap.innerHTML =
-                        '<div style="font-size:64px;margin-bottom:16px">🔒</div>' +
+                        '<div style="font-size:64px;margin-bottom:16px">' + renderIconSvg('nav:lock') + '</div>' +
                         '<div class="fs-18 fw-600 text-muted">' + escHtml(j.msg || '无法加载病历') + '</div>' +
                         '<div class="fs-14 text-muted mt-4">该病历不在您的可查看时间范围内，请从候诊列表选择当前就诊患者</div>' +
-                        '<div class="fs-12 text-muted mt-8"><button class="btn btn-outline btn-sm mt-4" onclick="if(Clinic.queuePanel)Clinic.queuePanel.open()">📋 打开候诊列表</button></div>';
+                        '<div class="fs-12 text-muted mt-8"><button class="btn btn-outline btn-sm mt-4" onclick="if(Clinic.queuePanel)Clinic.queuePanel.open()">' + renderIconSvg('emr:record') + ' 打开候诊列表</button></div>';
                     card.parentNode.replaceChild(wrap, card);
                 }
                 // 隐藏保存/诊毕/转科/打印按钮（打印无 emr-write 类，整体隐藏顶栏操作组）
@@ -719,10 +719,10 @@ Clinic.emr = (function () {
                             // 会诊：默认只读展示原病历 + 引导点击「病历节点 ＋」创建会诊病历，
                             // 不自动新建续写。待会诊（pending）时可直接点击「确认会诊」开始。
                             var startBtn = (myConsult.status === 'pending')
-                                ? '<button class="btn btn-primary btn-sm mt-8" onclick="Clinic.emr.startConsult(\'' + escHtml(myConsult.code) + '\')">🤝 确认会诊</button>'
+                                ? '<button class="btn btn-primary btn-sm mt-8" onclick="Clinic.emr.startConsult(\'' + escHtml(myConsult.code) + '\')">' + renderIconSvg('action:handshake') + ' 确认会诊</button>'
                                 : '';
                             phBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
-                                '<div class="fs-14">🤝 ' + escHtml((myConsult.from_dept_name || '') + ' 会诊请求') +
+                                '<div class="fs-14">' + renderIconSvg('action:handshake') + ' ' + escHtml((myConsult.from_dept_name || '') + ' 会诊请求') +
                                 ' <span class="badge badge-warning">' + cStatus + '</span></div>' +
                                 '<div class="fs-12 text-muted mt-4">该患者已有保存的病历（上方只读展示）。' +
                                 '点击右侧「病历节点 ＋」开始创建会诊病历。</div>' +
@@ -730,7 +730,7 @@ Clinic.emr = (function () {
                                 '<div class="fs-12 text-muted mt-8">会诊病历创建后即可书写会诊记录，完成后点击右上「会诊完毕」结束本次会诊。</div></div>';
                         } else {
                             phBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
-                                '<div class="fs-14">📝 病历续写</div>' +
+                                '<div class="fs-14">' + renderIconSvg('action:edit') + ' 病历续写</div>' +
                                 '<div class="fs-12 text-muted mt-4">该患者已有保存的病历（上方只读展示）。' +
                                 '点击右侧「病历节点 ＋」开始书写续写病历。</div></div>';
                         }
@@ -743,9 +743,9 @@ Clinic.emr = (function () {
                 var eiBody = document.getElementById('docBody');
                 if (eiBody) {
                     eiBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
-                        '<div class="fs-14">📄 首张电子病历尚未创建</div>' +
+                        '<div class="fs-14">' + renderIconSvg('emr:document') + ' 首张电子病历尚未创建</div>' +
                         '<div class="fs-12 text-muted mt-4">正在为你弹出模板选择，也可点击下方按钮选择模板创建病历</div>' +
-                        '<button class="btn btn-primary btn-sm mt-8" onclick="Clinic.emr.openTemplates(event)">📋 选择病历模板</button></div>';
+                        '<button class="btn btn-primary btn-sm mt-8" onclick="Clinic.emr.openTemplates(event)">' + renderIconSvg('emr:record') + ' 选择病历模板</button></div>';
                 }
                 refreshReadOnlyBodies(d);
             } else {
@@ -1381,7 +1381,7 @@ Clinic.emr = (function () {
                 '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                 escHtml(dt) + ' ' + escHtml(r2.dept_name || '') + '</span>' +
                 '<span class="text-muted" style="flex-shrink:0;font-size:11px">' + typeName + '</span>' +
-                (canDel ? '<span class="ena-del" title="删除该病历记录" onclick="event.stopPropagation();Clinic.emr.deleteRecord(' + r2.id + ')">🗑️</span>' : '') +
+                (canDel ? '<span class="ena-del" title="删除该病历记录" onclick="event.stopPropagation();Clinic.emr.deleteRecord(' + r2.id + ')">' + renderIconSvg('action:delete') + '</span>' : '') +
                 '<span class="ena-sub">' + escHtml(r2.doctor_name) + '</span></div>';
         }).join('') : '';
         // 空时显示「暂无病历文书」，但若有未保存的编辑中占位则不显示
@@ -1393,8 +1393,8 @@ Clinic.emr = (function () {
         // 续写编辑中占位（未保存，保存/reload 后自动清除）；点击跳转到续写编辑器锚点；
         // 会诊模式下显示「会诊病历编辑中」
         var _pn = DATA.currentDoctorName || (DATA.record && DATA.record.doctor_name) || '';
-        var _del = '<span class="ena-del" title="删除未完成的病历" onclick="event.stopPropagation();Clinic.emr.cancelPendingRecord()">🗑️</span>';
-        var _pendingText = (DATA && DATA.__consult_mode) ? '🤝 会诊病历编辑中…（未保存）' : '📝 续写编辑中…（未保存）';
+        var _del = '<span class="ena-del" title="删除未完成的病历" onclick="event.stopPropagation();Clinic.emr.cancelPendingRecord()">' + renderIconSvg('action:delete') + '</span>';
+        var _pendingText = (DATA && DATA.__consult_mode) ? renderIconSvg('action:handshake') + ' 会诊病历编辑中…（未保存）' : renderIconSvg('action:edit') + ' 续写编辑中…（未保存）';
         if (DATA && DATA.__pending_progress && recEl) {
             recEl.insertAdjacentHTML('beforeend',
                 '<div class="ena-item" style="opacity:0.6;font-style:italic;cursor:pointer" ' +
@@ -1407,7 +1407,7 @@ Clinic.emr = (function () {
             recEl.insertAdjacentHTML('beforeend',
                 '<div class="ena-item" style="opacity:0.6;font-style:italic;cursor:pointer" ' +
                 'title="定位到首诊编辑区" onclick="Clinic.emr.scrollToPendingEditor()">' +
-                '<span>📝 首诊编辑中…（未保存）</span>' + _del +
+                '<span>' + renderIconSvg('action:edit') + ' 首诊编辑中…（未保存）</span>' + _del +
                 '<span class="ena-sub">' + escHtml(_pn) + '</span></div>');
         }
 
@@ -1475,7 +1475,7 @@ Clinic.emr = (function () {
             // 删除主诊断后第二位自动递补，无则主诊断置空）
             var diagReadOnlyFin = DATA && DATA.visit && DATA.visit.status === 'finished';
             var delBtn = (x.inCurrent && !diagReadOnlyFin)
-                ? '<span class="ena-del" title="删除本病历中的该诊断" onclick="Clinic.emr.delDiag(event,' + x.idx + ')">🗑️</span>'
+                ? '<span class="ena-del" title="删除本病历中的该诊断" onclick="Clinic.emr.delDiag(event,' + x.idx + ')">' + renderIconSvg('action:delete') + '</span>'
                 : '';
             var tail = x.idx === 0
                 ? '<span class="badge badge-primary" style="flex-shrink:0">主诊断</span>' + delBtn
@@ -1554,7 +1554,7 @@ Clinic.emr = (function () {
                     navDot(o.status) +
                     '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">处方' + (oi + 1) + skinTag + '</span>' +
                     '<span class="ena-sub">' + escHtml(o.doctor_name || '') + '</span>' +
-                    (canDel ? '<span class="ena-del" title="毁方" onclick="delOrderFlow(\'' + o.id + '\',\'毁方\');event.stopPropagation()">🗑️</span>' : '') +
+                    (canDel ? '<span class="ena-del" title="毁方" onclick="delOrderFlow(\'' + o.id + '\',\'毁方\');event.stopPropagation()">' + renderIconSvg('action:delete') + '</span>' : '') +
                     '</div>';
             }).join('');
         }
@@ -1580,7 +1580,7 @@ Clinic.emr = (function () {
                 '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                 escHtml(certTime) + ' ' + escHtml(certDept) + '</span>' +
                 '<span class="ena-sub">' + escHtml(cert.doctor_name || '') + '</span>' +
-                (canDelCert ? '<span class="ena-del" title="删除诊断证明" onclick="Clinic.emr.deleteCertificate(\'' + visitId.value + '\');event.stopPropagation()">🗑️</span>' : '') +
+                (canDelCert ? '<span class="ena-del" title="删除诊断证明" onclick="Clinic.emr.deleteCertificate(\'' + visitId.value + '\');event.stopPropagation()">' + renderIconSvg('action:delete') + '</span>' : '') +
                 '</div>';
         } else {
             // 未开具时不再放正文入口，统一走分区标题右侧「＋」（emrNavAdd('cert')）
@@ -1628,7 +1628,7 @@ Clinic.emr = (function () {
                 navDot(st) + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                 escHtml(x.it.item_name) + '</span>' +
                 '<span class="ena-sub">' + escHtml(x.order.doctor_name || '') + '</span>' +
-                (canDel ? '<span class="ena-del" title="删除该开单" onclick="delOrderFlow(\'' + x.order.id + '\',\'删除\');event.stopPropagation()">🗑️</span>' : '') +
+                (canDel ? '<span class="ena-del" title="删除该开单" onclick="delOrderFlow(\'' + x.order.id + '\',\'删除\');event.stopPropagation()">' + renderIconSvg('action:delete') + '</span>' : '') +
                 '</div>';
         }).join('');
     }
@@ -1846,7 +1846,7 @@ Clinic.emr = (function () {
         //    · 其余（无可编辑文书 / 已保存且无修改）→ 直接切换
         if (doctorId !== mineId) {
             if (DATA.record && DATA.record.record_id > 0 && EMR_DIRTY) {
-                Clinic.toast.warning('当前病历有未保存的修改，请先点击「💾 保存」后再切换病历节点');
+                Clinic.toast.warning('当前病历有未保存的修改，请先点击「' + renderIconSvg('action:save') + ' 保存」后再切换病历节点');
                 return;
             }
             if (!(DATA.record && DATA.record.record_id > 0)
@@ -1882,7 +1882,7 @@ Clinic.emr = (function () {
             }
         }
         if (EMR_DIRTY) {
-            Clinic.toast.warning('当前病历有未保存的修改，请先点击「💾 保存」后再切换病历节点');
+            Clinic.toast.warning('当前病历有未保存的修改，请先点击「' + renderIconSvg('action:save') + ' 保存」后再切换病历节点');
             return;
         }
         if (!isRecordComplete()) {
@@ -1951,7 +1951,7 @@ Clinic.emr = (function () {
                     // ===== 会诊模式：点击「病历节点 ＋」创建会诊病历编辑器 =====
                     if (DATA && DATA.__consult_mode && DATA.__consult_id) {
                         if (DATA.__pending_progress || DATA.__progress_new) {
-                            Clinic.toast.warning('当前会诊病历尚未保存，请先完善必填项并点击「💾 保存」后再续写');
+                            Clinic.toast.warning('当前会诊病历尚未保存，请先完善必填项并点击「' + renderIconSvg('action:save') + ' 保存」后再续写');
                             return;
                         }
                         // 已保存过会诊病历 → 直接定位到编辑器，不重复新建
@@ -1971,7 +1971,7 @@ Clinic.emr = (function () {
                     // 首诊编辑中（模板已选，未保存）→ 必须保存后才能续写
                     if (DATA.__pending_initial) {
                         if (EMR_DIRTY) {
-                            Clinic.toast.warning('当前首诊病历有修改未保存，请先点击「💾 保存」后再续写');
+                            Clinic.toast.warning('当前首诊病历有修改未保存，请先点击「' + renderIconSvg('action:save') + ' 保存」后再续写');
                             return;
                         }
                         // isRecordComplete 在 record_id=0 时返回 false，
@@ -1993,7 +1993,7 @@ Clinic.emr = (function () {
                     // 正在新建续写（未保存的续写编辑态）→ 提示先完成并保存当前续写，
                     // 避免再次点击「+」无反应
                     if (DATA.__pending_progress || DATA.__progress_new) {
-                        Clinic.toast.warning('当前续写病历尚未保存，请先完善必填项并点击「💾 保存」后再续写');
+                        Clinic.toast.warning('当前续写病历尚未保存，请先完善必填项并点击「' + renderIconSvg('action:save') + ' 保存」后再续写');
                         return;
                     }
                     // 本人已有保存文书 → 续写（不限次数，先校验必填）
@@ -2062,8 +2062,8 @@ Clinic.emr = (function () {
         if (it.report_id) {
             // 已出报告：打印预览按钮 + 报告文字结果内联展示（异步填充）
             html += '<button type="button" class="btn btn-primary btn-sm mt-12" ' +
-                'onclick="Clinic.print.load(\'/api/print?action=report&report_id=' + it.report_id + '\')">📄 查看报告（打印预览）</button>' +
-                '<div id="anaReportBox" class="mt-12 fs-13 text-muted">📄 报告结果加载中…</div>';
+                'onclick="Clinic.print.load(\'/api/print?action=report&report_id=' + it.report_id + '\')">' + renderIconSvg('emr:document') + ' 查看报告（打印预览）</button>' +
+                '<div id="anaReportBox" class="mt-12 fs-13 text-muted">' + renderIconSvg('emr:document') + ' 报告结果加载中…</div>';
         } else if (o.order_type !== 'procedure') {
             html += '<div class="fs-12 text-muted mt-8">报告尚未出具，出具后可在此直接查看</div>';
         }
@@ -2079,7 +2079,7 @@ Clinic.emr = (function () {
                     if (!box || !rj.data) return;
                     var d2 = rj.data, h2 = '';
                     if (d2.type === 'lab') {
-                        h2 = '<div class="fw-600 mb-4">🧾 检验指标明细</div>' +
+                        h2 = '<div class="fw-600 mb-4">' + renderIconSvg('emr:receipt') + ' 检验指标明细</div>' +
                             '<div class="table-wrap"><table class="table"><thead><tr>' +
                             '<th>项目</th><th>结果</th><th>单位</th><th>参考范围</th><th>危急值</th></tr></thead><tbody>' +
                             (d2.rows || []).map(function (r3) {
@@ -2091,7 +2091,7 @@ Clinic.emr = (function () {
                             }).join('') +
                             '</tbody></table></div>';
                     } else {
-                        h2 = '<div class="fw-600 mb-4">🩻 影像报告</div>' +
+                        h2 = '<div class="fw-600 mb-4">' + renderIconSvg('nav:imaging') + ' 影像报告</div>' +
                             '<div class="mb-4"><b>影像所见：</b>' + escHtml(d2.findings || '-') + '</div>' +
                             '<div><b>诊断结论：</b>' + escHtml(d2.conclusion || '-') + '</div>';
                     }
@@ -2113,15 +2113,15 @@ Clinic.emr = (function () {
         // 且病历ID强关联 + 当前可编辑（canDeleteOrder 统一校验）
         var delLabel = o.order_type === 'prescription' ? '毁方' : '删除';
         var delBtn2 = Clinic.emr.canDeleteOrder(o)
-            ? '<button type="button" class="btn btn-danger btn-sm" style="margin-left:8px" onclick="delOrderFlow(\'' + o.id + '\',\'' + delLabel + '\')">🗑️ ' + delLabel + '</button>'
+            ? '<button type="button" class="btn btn-danger btn-sm" style="margin-left:8px" onclick="delOrderFlow(\'' + o.id + '\',\'' + delLabel + '\')">' + renderIconSvg('action:delete') + ' ' + delLabel + '</button>'
             : '';
         html += '<div style="margin-top:12px">' +
             (it.report_id
                 ? '<button type="button" id="refResultBtn" class="btn btn-primary btn-sm" disabled style="margin-right:8px" ' +
-                'onclick="Clinic.emr.refResult(\'' + it.report_id + '\')">📋 引用结果</button>'
+                'onclick="Clinic.emr.refResult(\'' + it.report_id + '\')">' + renderIconSvg('emr:record') + ' 引用结果</button>'
                 : '') +
             '<button type="button" class="btn btn-outline btn-sm" ' +
-            'onclick="Clinic.print.load(\'/api/print?action=order&order_id=' + o.id + '\',null,\'a5\')">🖨️ 打印申请单</button>' +
+            'onclick="Clinic.print.load(\'/api/print?action=order&order_id=' + o.id + '\',null,\'a5\')">' + renderIconSvg('action:print') + ' 打印申请单</button>' +
             delBtn2 + '</div>';
         Clinic.modal.open(html, { title: typeNames[o.order_type] || '项目详情', size: 'modal-lg' });
     };
@@ -2174,7 +2174,7 @@ Clinic.emr = (function () {
         var rows = d.rows || [];
         if (!rows.length) { Clinic.toast.warning('该报告无指标明细可引用'); return; }
         var body = '<div class="mb-8" style="display:flex;align-items:center;gap:8px">' +
-            '<button type="button" class="btn btn-outline btn-sm" id="refSelAll" onclick="refToggleAll()">☑️ 全选</button>' +
+            '<button type="button" class="btn btn-outline btn-sm" id="refSelAll" onclick="refToggleAll()">' + renderIconSvg('action:check') + ' 全选</button>' +
             '<span class="fs-12 text-muted" id="refSelCount">已选 0 / ' + rows.length + ' 项</span></div>' +
             '<div class="table-wrap"><table class="table"><thead><tr>' +
             '<th style="width:36px"></th><th>项目</th><th>结果</th><th>单位</th><th>参考范围</th><th>危急值</th></tr></thead><tbody>' +
@@ -2189,7 +2189,7 @@ Clinic.emr = (function () {
             }).join('') +
             '</tbody></table></div>' +
             '<div class="mt-12" style="display:flex;gap:8px">' +
-            '<button type="button" class="btn btn-primary btn-sm" onclick="Clinic.emr.refLabPick(\'' + reportId + '\')">📋 引用</button>' +
+            '<button type="button" class="btn btn-primary btn-sm" onclick="Clinic.emr.refLabPick(\'' + reportId + '\')">' + renderIconSvg('emr:record') + ' 引用</button>' +
             '<button type="button" class="btn btn-outline btn-sm" onclick="Clinic.modal.close()">取消</button></div>';
         Clinic.modal.open('<div style="width:100%">' + body + '</div>', {
             title: '引用检验结果到病历', size: 'modal-lg',
@@ -2208,7 +2208,7 @@ Clinic.emr = (function () {
         for (var j = 0; j < cbs.length; j++) { cbs[j].checked = !allOn; }
         refCount();
         var btn = document.getElementById('refSelAll');
-        if (btn) btn.textContent = allOn ? '⬜ 取消全选' : '☑️ 全选';
+        if (btn) btn.innerHTML = allOn ? renderIconSvg('alert:dot-white') + ' 取消全选' : renderIconSvg('action:check') + ' 全选';
     };
 
     /** 点击检验结果行本身：切换该行复选框（checkbox 上点击由 stopPropagation 单独处理，不会双触发） */
@@ -2264,7 +2264,7 @@ Clinic.emr = (function () {
             return '<div class="flex gap-8" style="align-items:center">' +
                 '<div style="width:26px;height:26px;border-radius:50%;background:' + cls + ';' +
                 'display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;flex-shrink:0">' +
-                (refund || rej ? '✕' : (done ? '✓' : (i + 1))) + '</div>' +
+                (refund || rej ? renderIconSvg('action:close') : (done ? renderIconSvg('action:check') : (i + 1))) + '</div>' +
                 '<div class="fs-13" style="color:' + (refund || rej ? 'var(--danger)' : (done ? 'var(--text)' : 'var(--text-muted)')) + '">' +
                 '<div class="fw-600">' + escHtml(st.label) + '</div>' +
                 (info ? '<div class="fs-12 text-muted">' + info + '</div>' : '') + '</div></div>';
@@ -2316,11 +2316,11 @@ Clinic.emr = (function () {
             '<div class="flex-between mt-8"><span></span><span class="fw-600">合计：¥' + parseFloat(o.total_amount || 0).toFixed(2) + '</span></div>' +
             '<div style="margin-top:10px">' +
             '<button type="button" class="btn btn-outline btn-sm" ' +
-            'onclick="Clinic.print.load(\'/api/print?action=order&order_id=' + o.id + '\',null,\'a5\')">🖨️ 打印处方笺</button>';
+            'onclick="Clinic.print.load(\'/api/print?action=order&order_id=' + o.id + '\',null,\'a5\')">' + renderIconSvg('action:print') + ' 打印处方笺</button>';
         // 会诊期间：仅可删除【本记录名下】开单（本会诊期间开具的可删，历史单不可删）
         var rxCanDel = Clinic.emr.canDeleteOrder(o);
         if (rxCanDel) {
-            leftHtml += ' <button type="button" class="btn btn-danger btn-sm" style="margin-left:8px" onclick="delOrderFlow(\'' + o.id + '\',\'毁方\')">🗑️ 毁方</button>';
+            leftHtml += ' <button type="button" class="btn btn-danger btn-sm" style="margin-left:8px" onclick="delOrderFlow(\'' + o.id + '\',\'毁方\')">' + renderIconSvg('action:delete') + ' 毁方</button>';
         }
         leftHtml += '</div>' +   // 闭合「打印/毁方」按钮容器
             '</div>';            // 闭合左列容器（此前漏闭导致流程列被解析为其子元素、渲染到下方）
@@ -2719,7 +2719,7 @@ Clinic.emr = (function () {
     /** 病历有未保存修改时拦截并提示（开单 / 打印 / 开诊断证明前调用） */
     function requireSaved(label) {
         if (EMR_DIRTY) {
-            Clinic.toast.warning('病历有修改未保存，请先点击「💾 保存」后再' + label);
+            Clinic.toast.warning('病历有修改未保存，请先点击「' + renderIconSvg('action:save') + ' 保存」后再' + label);
             return false;
         }
         // 统一可编辑病历判定：无当前上下文可编辑病历 → 禁止开单/会诊/诊断证明
@@ -2754,7 +2754,7 @@ Clinic.emr = (function () {
         if (readOnlyContext) {
             // 有未保存修改先拦截（避免打印出未保存的内容）
             if (EMR_DIRTY) {
-                Clinic.toast.warning('病历有修改未保存，请先点击「💾 保存」后再打印病历');
+                Clinic.toast.warning('病历有修改未保存，请先点击「' + renderIconSvg('action:save') + ' 保存」后再打印病历');
                 return;
             }
             Clinic.print.load('/api/print?action=record&visit_id=' + visitIdP, null, 'a5');

@@ -120,7 +120,7 @@ Clinic.pacsHistory = (function () {
     /** 空态：居中提示语（图标 + 主文案 + 副文案） */
     function histEmptyHtml(text) {
         return '<div class="pacs-hist-empty">' +
-            '<div class="hist-empty-ico">🗂️</div>' +
+            '<div class="hist-empty-ico">' + renderIconSvg('emr:archive') + '</div>' +
             '<div class="hist-empty-title">' + esc(text) + '</div>' +
             '<div class="hist-empty-sub">历史检查完成后可在此调阅参考</div>' +
             '</div>';
@@ -169,7 +169,7 @@ Clinic.pacsHistory = (function () {
                 ? '<div class="hist-field"><div class="hist-field-label">影像调阅</div>' +
                   '<div class="hist-field-text" style="display:flex;align-items:center;gap:8px">' +
                   '<span class="fs-12 text-muted" style="font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1" title="' + esc(r.study_uid || '') + '">' + esc(r.study_uid || '—') + '</span>' +
-                  '<button type="button" class="btn btn-outline btn-sm pacs-hist-copy" data-view="' + esc(r.viewer_url) + '" title="在新窗口打开 Web 阅片器调阅该次影像">🔍 调阅影像</button>' +
+                  '<button type="button" class="btn btn-outline btn-sm pacs-hist-copy" data-view="' + esc(r.viewer_url) + '" title="在新窗口打开 Web 阅片器调阅该次影像">' + renderIconSvg('action:search') + ' 调阅影像</button>' +
                   '</div></div>'
                 : '') +
             copyField('影像表现', 'findings', r.findings, state) +
@@ -183,7 +183,7 @@ Clinic.pacsHistory = (function () {
     function copyField(label, kind, text, state) {
         var copyBtn = '';
         if (kind === 'findings' || kind === 'conclusion') {
-            copyBtn = '<button type="button" class="btn btn-outline btn-sm pacs-hist-copy">📋 复制到当前报告</button>';
+            copyBtn = '<button type="button" class="btn btn-outline btn-sm pacs-hist-copy">' + renderIconSvg('emr:record') + ' 复制到当前报告</button>';
         }
         var safe = text == null ? '' : String(text);
         return '<div class="hist-field"><div class="hist-field-label">' + esc(label) + copyBtn + '</div>' +

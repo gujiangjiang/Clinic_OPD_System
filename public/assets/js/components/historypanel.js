@@ -52,7 +52,7 @@ Clinic.history = (function () {
         var html =
             '<div class="hp-top">' +
             '  <div class="flex gap-12" style="align-items:center">' +
-            '    <div class="emr-patient-avatar">👤</div>' +
+            '    <div class="emr-patient-avatar">' + renderIconSvg('nav:user') + '</div>' +
             '    <div>' +
             '      <div class="fs-16 fw-700">' + escHtml(p.name) +
             '        <span class="badge badge-gray" style="margin-left:8px">' + escHtml(p.gender) + ' / ' + escHtml(p.age_fmt) + '</span></div>' +
@@ -63,14 +63,14 @@ Clinic.history = (function () {
             '</div>' +
             '<div class="hp-body">' +
             '  <div class="hp-left">' +
-            '    <input class="input" id="hpSearch" placeholder="🔍 搜索日期 / 科室" autocomplete="off" oninput="Clinic.history.filter()">' +
+            '    <input class="input" id="hpSearch" placeholder="' + renderIconSvg('action:search') + ' 搜索日期 / 科室" autocomplete="off" oninput="Clinic.history.filter()">' +
             '    <div class="hp-list" id="hpList">' + items + '</div>' +
             '  </div>' +
             '  <div class="hp-right" id="hpRight">' +
             '    <div class="hp-empty">点击左侧任一次就诊，查看只读病历<br><span class="fs-12">支持打印电子病历与诊断证明补开</span></div>' +
             '  </div>' +
             '</div>';
-        Clinic.modal.open(html, { title: '🗂️ 患者就诊历史', size: 'modal-xl' });
+        Clinic.modal.open(html, { title: renderIconSvg('emr:archive') + ' 患者就诊历史', size: 'modal-xl' });
     }
 
     /* 左侧搜索：按日期/科室过滤 */
@@ -107,12 +107,12 @@ Clinic.history = (function () {
      *  全局加载避免医生工作站等页面函数未定义） */
     function certBtnHtml() {
         if (CUR.has_cert) {
-            return '<button class="btn btn-outline btn-sm" onclick="printHistoryCertificate(\'' + CUR.code + '\')">📄 查看诊断证明</button>';
+            return '<button class="btn btn-outline btn-sm" onclick="printHistoryCertificate(\'' + CUR.code + '\')">' + renderIconSvg('emr:document') + ' 查看诊断证明</button>';
         }
         if (CUR.finished) {
-            return '<button class="btn btn-outline btn-sm" onclick="archiveCertificateConfirm(' + (CUR.treated ? 'true' : 'false') + ',\'' + CUR.code + '\')">📄 补开诊断证明</button>';
+            return '<button class="btn btn-outline btn-sm" onclick="archiveCertificateConfirm(' + (CUR.treated ? 'true' : 'false') + ',\'' + CUR.code + '\')">' + renderIconSvg('emr:document') + ' 补开诊断证明</button>';
         }
-        return '<button class="btn btn-outline btn-sm" onclick="openHistoryCertificate(\'' + CUR.code + '\')">📄 新增诊断证明</button>';
+        return '<button class="btn btn-outline btn-sm" onclick="openHistoryCertificate(\'' + CUR.code + '\')">' + renderIconSvg('emr:document') + ' 新增诊断证明</button>';
     }
 
     function renderRight() {
@@ -124,8 +124,8 @@ Clinic.history = (function () {
             '  <div class="fs-13 fw-600">' + escHtml(CUR.date) + ' ' + escHtml(CUR.time) + ' ｜ ' + escHtml(CUR.dept_name) + ' 第' + seq + '号</div>' +
             '  <div class="flex gap-8">' +
             (CUR.has_record
-                ? '<button class="btn btn-primary btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' + CUR.code + '\',null,\'a5\')">🖨️ 打印电子病历</button>'
-                : '<button class="btn btn-outline btn-sm" onclick="Clinic.toast.warning(\'该次就诊病历尚未保存\')">🖨️ 打印电子病历</button>') +
+                ? '<button class="btn btn-primary btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' + CUR.code + '\',null,\'a5\')">' + renderIconSvg('action:print') + ' 打印电子病历</button>'
+                : '<button class="btn btn-outline btn-sm" onclick="Clinic.toast.warning(\'该次就诊病历尚未保存\')">' + renderIconSvg('action:print') + ' 打印电子病历</button>') +
             '    ' + certBtnHtml() +
             '  </div>' +
             '</div>' +
@@ -207,7 +207,7 @@ function hpCertificateModal(visitId, title, warnOnIssued) {
                         buttons: [
                             { text: '关闭', cls: 'btn-outline' },
                             {
-                                text: '🖨️ 打印', cls: 'btn-success',
+                                text: renderIconSvg('action:print') + ' 打印', cls: 'btn-success',
                                 onClick: function () {
                                     Clinic.print.load('/api/record?action=certificate_print&visit_id=' + visitId, null, 'a5');
                                 },

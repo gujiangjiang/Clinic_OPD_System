@@ -27,7 +27,7 @@ Clinic.emr.consult = (function () {
             return;
         }
         if (window.Clinic && Clinic.emr.isDirty && Clinic.emr.isDirty()) {
-            Clinic.toast.warning('当前病历有未保存的修改，请先点击「💾 保存」后再发起会诊');
+            Clinic.toast.warning('当前病历有未保存的修改，请先点击「' + renderIconSvg('action:save') + ' 保存」后再发起会诊');
             return;
         }
         // 可编辑病历校验：无当前上下文可编辑病历（会诊处理中无会诊病历 /
@@ -86,7 +86,7 @@ Clinic.emr.consult = (function () {
                     '<div class="form-group"><label class="form-label">会诊目的</label>' +
                     '<textarea class="textarea" id="consPurpose" rows="2" placeholder="如：协助明确诊断 / 指导下一步治疗方案…"></textarea></div>',
                     {
-                        title: '🤝 发起会诊 → ' + dept.name,
+                        title: renderIconSvg('action:handshake') + ' 发起会诊 → ' + dept.name,
                         size: 'modal-md',
                         buttons: [
                             { text: '取消', cls: 'btn-outline' },
@@ -167,7 +167,7 @@ Clinic.emr.consult = (function () {
             // 删除按钮：仅发起人本人 + 会诊仍为待会诊（pending）时可删除；
             // 已在会诊中（doing/done）一律不显示删除按钮
             var delBtn = (c.from_doctor_id === myUid && c.status === 'pending')
-                ? '<span class="ena-del" title="删除会诊" onclick="event.stopPropagation();Clinic.emr.delConsult(\'' + c.code + '\')">🗑️</span>'
+                ? '<span class="ena-del" title="删除会诊" onclick="event.stopPropagation();Clinic.emr.delConsult(\'' + c.code + '\')">' + renderIconSvg('action:delete') + '</span>'
                 : '';
             return '<div class="ena-item" style="cursor:pointer" title="点击查看会诊详情" onclick="Clinic.emr.openConsultDetail(\'' + c.code + '\')">' +
                 dot(c.status) +
@@ -198,7 +198,7 @@ Clinic.emr.consult = (function () {
             onSuccess: function (j) {
                 var c = j.data.consultation || {};
                 Clinic.modal.open(detailBodyHtml(c), {
-                    title: '🤝 会诊详情',
+                    title: renderIconSvg('action:handshake') + ' 会诊详情',
                     size: 'modal-lg',
                     buttons: detailButtons(c, withAccept),
                 });
@@ -222,7 +222,7 @@ Clinic.emr.consult = (function () {
         // 就诊已诊毕：病历强制快照只读，B 科不可再处理该会诊（仅未完毕会诊提示）
         var visitFinished = c.visit_status === 'finished';
         var finishedTip = visitFinished && c.status !== 'done'
-            ? '<div class="fs-13" style="background:var(--danger-soft, rgba(239,68,68,.08));border:1px solid var(--danger, #ef4444);color:var(--danger, #ef4444);border-radius:8px;padding:10px 12px;margin-bottom:10px">⚠️ 该患者已诊毕，无法进行会诊（诊毕病历已归档锁定）</div>'
+            ? '<div class="fs-13" style="background:var(--danger-soft, rgba(239,68,68,.08));border:1px solid var(--danger, #ef4444);color:var(--danger, #ef4444);border-radius:8px;padding:10px 12px;margin-bottom:10px">' + renderIconSvg('alert:warning') + ' 该患者已诊毕，无法进行会诊（诊毕病历已归档锁定）</div>'
             : '';
         return finishedTip +
             '<div class="flex gap-16" style="align-items:stretch">' +
@@ -251,7 +251,7 @@ Clinic.emr.consult = (function () {
         // 会诊完毕或就诊已诊毕：病历已只读，同一模态框内联预览（不跳转整页）
         if (c.status === 'done' || visitFinished) {
             buttons.push({
-                text: '📋 预览只读病历', cls: 'btn-primary', autoClose: false,
+                text: renderIconSvg('emr:record') + ' 预览只读病历', cls: 'btn-primary', autoClose: false,
                 onClick: function (mask) {
                     var body = mask.querySelector('.modal-body');
                     body.innerHTML = '<div class="hp-loading"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto 8px"></div>病历加载中…</div>';
@@ -288,7 +288,7 @@ Clinic.emr.consult = (function () {
         // 会诊科室点击确认会诊（withAccept=true）时不显示打印功能
         if (!withAccept && c.consult_no) {
             buttons.push({
-                text: '🖨️ 打印会诊单', cls: 'btn-outline', autoClose: false,
+                text: renderIconSvg('action:print') + ' 打印会诊单', cls: 'btn-outline', autoClose: false,
                 onClick: function () {
                     Clinic.print.load('/api/print?action=consultation&id=' + c.code, null, 'a5');
                 },
@@ -298,7 +298,7 @@ Clinic.emr.consult = (function () {
         // 就诊已诊毕时不显示（后端 accept 亦拦截）
         if (withAccept && c.status === 'pending' && !visitFinished) {
             buttons.push({
-                text: '✅ 确认会诊', cls: 'btn-primary', autoClose: false,
+                text: renderIconSvg('alert:success') + ' 确认会诊', cls: 'btn-primary', autoClose: false,
                 onClick: function () {
                     Clinic.ajax('/api/consultation', { action: 'accept', id: c.code }, {
                         onSuccess: function (j2) {

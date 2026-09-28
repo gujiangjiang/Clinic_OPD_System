@@ -16,7 +16,7 @@ Clinic.emr.consent = (function () {
     function openPicker(ev) {
         Clinic.emr.template.openTemplatePicker(ev, {
             type: 'consent',
-            pickPlaceholder: '🔍 搜索知情同意/告知文书模板',
+            pickPlaceholder: renderIconSvg('action:search') + ' 搜索知情同意/告知文书模板',
             emptyText: '暂无可用的知情同意/告知文书模板，可前往「模板管理」创建',
             onApply: function (t) {
                 var c = t.content || {};
@@ -147,16 +147,16 @@ Clinic.emr.consent = (function () {
         var archived = isVisitFinished() || isReadonlyView();
         var foot = _mask.querySelector('.modal-foot');
         var delBtn = (!archived && _docId > 0 && _docId === myUid)
-            ? '<button type="button" class="btn btn-danger" onclick="Clinic.emr.consent.delFromView()">🗑️ 删除</button>'
+            ? '<button type="button" class="btn btn-danger" onclick="Clinic.emr.consent.delFromView()">' + renderIconSvg('action:delete') + ' 删除</button>'
             : '';
         var editBtn = !archived
-            ? '<button type="button" class="btn btn-primary" onclick="Clinic.emr.consent.enterEdit()">✏️ 编辑</button>'
+            ? '<button type="button" class="btn btn-primary" onclick="Clinic.emr.consent.enterEdit()">' + renderIconSvg('action:edit') + ' 编辑</button>'
             : '';
         foot.innerHTML =
             '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
             delBtn +
             editBtn +
-            '<button type="button" class="btn btn-success" onclick="Clinic.emr.consent.printCurrent()">🖨️ 打印</button>';
+            '<button type="button" class="btn btn-success" onclick="Clinic.emr.consent.printCurrent()">' + renderIconSvg('action:print') + ' 打印</button>';
     }
 
     /** 删除当前查看的知情同意书（本人创建），成功后关闭模态框并刷新列表 */
@@ -233,7 +233,7 @@ Clinic.emr.consent = (function () {
                 var archived = isVisitFinished() || isReadonlyView();
                 el.innerHTML = list.length ? list.map(function (c) {
                     var delBtn = (!archived && c.doctor_id && c.doctor_id === myUid)
-                        ? '<span class="ena-del" title="删除" onclick="event.stopPropagation();Clinic.emr.consent.del(' + c.id + ')">🗑️</span>'
+                        ? '<span class="ena-del" title="删除" onclick="event.stopPropagation();Clinic.emr.consent.del(' + c.id + ')">' + renderIconSvg('action:delete') + '</span>'
                         : '';
                     return '<div class="ena-item" style="cursor:pointer" title="点击查看" onclick="Clinic.emr.consent.edit(' + c.id + ')">' +
                         '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +

@@ -252,7 +252,7 @@
         // 医生信息卡：左列照片（单元格内等比最大化），右列 7 行网格
         var docCard = doc.name
             ? '<div class="screen-doctor-card">' +
-              '<div class="screen-doc-photo' + (doc.photo ? ' has-img' : '') + '">' + (doc.photo ? '<img src="' + esc(doc.photo) + '">' : '👨‍⚕️') + '</div>' +
+              '<div class="screen-doc-photo' + (doc.photo ? ' has-img' : '') + '">' + (doc.photo ? '<img src="' + esc(doc.photo) + '">' : renderIconSvg('nav:doctor')) + '</div>' +
               '<div class="screen-doc-info">' +
               '<div class="screen-doc-head">' +
               '<div class="screen-doc-name">' + esc(doc.name) + '</div>' +
@@ -261,7 +261,7 @@
               '</div>' +
               '<div class="screen-doc-intro' + (doc.intro ? '' : ' screen-doc-intro-empty') + '">' + (doc.intro ? esc(doc.intro) : '暂无医生介绍') + '</div>' +
               '</div></div>'
-            : '<div class="screen-doctor-card screen-doctor-card-empty"><div class="screen-doc-photo">👨‍⚕️</div>' +
+            : '<div class="screen-doctor-card screen-doctor-card-empty"><div class="screen-doc-photo">' + renderIconSvg('nav:doctor') + '</div>' +
               '<div class="screen-doc-info"><div class="screen-doc-name">医生出诊中</div>' +
               '<div class="screen-doc-intro screen-doc-intro-empty">暂无医生信息</div></div></div>';
 
@@ -317,7 +317,7 @@
     function waitItemHtml(w) {
         return '<div class="screen-wait-item">' +
             (w.missed ? '<span class="screen-wait-miss">过</span>' : '<span class="screen-wait-miss screen-wait-miss-empty"></span>') +
-            '<span class="screen-wait-seq">' + String(w.visit_seq).padStart(3, '0') + (w.is_transfer ? '★' : '') + '</span>' +
+            '<span class="screen-wait-seq">' + String(w.visit_seq).padStart(3, '0') + (w.is_transfer ? renderIconSvg('action:star') : '') + '</span>' +
             '<span class="screen-wait-name">' + esc(w.name) + '</span>' +
             '<span class="screen-wait-gender">' + esc(w.gender || '') + '</span>' +
             '<span class="screen-wait-age">' + esc(w.age_fmt || '') + '</span></div>';
@@ -408,7 +408,7 @@
             }
             return t;
         };
-        var seqText = longest(function (w) { return String(w.visit_seq).padStart(3, '0') + (w.is_transfer ? '★' : ''); });
+        var seqText = longest(function (w) { return String(w.visit_seq).padStart(3, '0') + (w.is_transfer ? renderIconSvg('action:star') : ''); });
         var nameText = longest(function (w) { return w.name || ''; });
         var genderText = longest(function (w) { return w.gender || ''; });
         var ageText = longest(function (w) { return w.age_fmt || ''; });
@@ -584,7 +584,7 @@
             })
             .catch(function () {
                 pollFails++;
-                if (pollFails >= 3) renderErr('⚠️ 连接中断，正在重试…');
+                if (pollFails >= 3) renderErr(renderIconSvg('alert:warning') + ' 连接中断，正在重试…');
             });
     }
 

@@ -109,13 +109,13 @@ Clinic.deptwork = (function () {
         var side = document.getElementById('dwSide');
         if (!side) return;
         var cfg = {
-            nurse: '📝 护理记录',
-            lab: '🧪 检验项目',
-            imaging: '🩻 检查项目',
-            pharmacy: '💊 处方',
-        }[ROLE] || '📋 项目';
+            nurse: renderIconSvg('action:edit') + ' 护理记录',
+            lab: renderIconSvg('nav:lab') + ' 检验项目',
+            imaging: renderIconSvg('nav:imaging') + ' 检查项目',
+            pharmacy: renderIconSvg('nav:pharmacy') + ' 处方',
+        }[ROLE] || renderIconSvg('emr:record') + ' 项目';
         side.innerHTML =
-            '<div class="ena-sec"><div class="ena-sec-title">📋 病历摘要</div>' +
+            '<div class="ena-sec"><div class="ena-sec-title">' + renderIconSvg('emr:record') + ' 病历摘要</div>' +
             '<div class="ena-empty">暂无病历</div></div>' +
             '<div class="ena-sec"><div class="ena-sec-title">' + cfg + '</div>' +
             '<div class="ena-empty">暂无患者，请从候诊列表选择</div></div>';
@@ -137,11 +137,11 @@ Clinic.deptwork = (function () {
     /* ==================== 关闭当前患者（返回空白工作台 + 自动弹出候诊列表） ==================== */
     function renderEmptyWork() {
         var conf = {
-            nurse: { emoji: '💉', title: '欢迎使用护士工作站' },
-            lab: { emoji: '🧪', title: '欢迎使用检验科工作台' },
-            imaging: { emoji: '🩻', title: '欢迎使用影像科工作台' },
-            pharmacy: { emoji: '💊', title: '欢迎使用药房工作台' },
-        }[ROLE] || { emoji: '🏥', title: '欢迎使用工作台' };
+            nurse: { emoji: renderIconSvg('clinical:injection'), title: '欢迎使用护士工作站' },
+            lab: { emoji: renderIconSvg('nav:lab'), title: '欢迎使用检验科工作台' },
+            imaging: { emoji: renderIconSvg('nav:imaging'), title: '欢迎使用影像科工作台' },
+            pharmacy: { emoji: renderIconSvg('nav:pharmacy'), title: '欢迎使用药房工作台' },
+        }[ROLE] || { emoji: renderIconSvg('nav:hospital'), title: '欢迎使用工作台' };
         var main = document.getElementById('dwMain');
         if (main) main.innerHTML = '<div class="card wb-empty" style="padding:40px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center">' +
             '<div style="font-size:72px;margin-bottom:16px">' + conf.emoji + '</div>' +
@@ -184,7 +184,7 @@ Clinic.deptwork = (function () {
 
     /* ==================== 患者查询（全部就诊历史，统一走 Clinic.patientSearch 公共组件） ==================== */
     function openPatientSearch() {
-        Clinic.patientSearch.open({ idPrefix: 'dwPs', title: '🔍 患者查询' });
+        Clinic.patientSearch.open({ idPrefix: 'dwPs', title: renderIconSvg('action:search') + ' 患者查询' });
     }
 
     function doPatientSearch() {
@@ -223,7 +223,7 @@ Clinic.deptwork = (function () {
                 if (callPopEl()) refreshCallPanel();
             },
             onError: function () {
-                if (main) main.innerHTML = '<div class="card"><div class="empty"><div class="empty-ico">⚠️</div>患者数据加载失败，请刷新重试</div></div>';
+                if (main) main.innerHTML = '<div class="card"><div class="empty"><div class="empty-ico">' + renderIconSvg('alert:warning') + '</div>患者数据加载失败，请刷新重试</div></div>';
                 setStatus('');
             },
         });
@@ -241,7 +241,7 @@ Clinic.deptwork = (function () {
         head.innerHTML =
             '<div class="flex-between">' +
             '  <div class="flex gap-12" style="align-items:center">' +
-            '    <div class="emr-patient-avatar" title="患者信息">👤</div>' +
+            '    <div class="emr-patient-avatar" title="患者信息">' + renderIconSvg('nav:user') + '</div>' +
             '    <div>' +
             '      <div class="fs-18 fw-700">' +
             '        <span class="emr-patient-name">' + escHtml(v.name) + '</span>' +
@@ -463,7 +463,7 @@ Clinic.deptwork = (function () {
         var btn = document.getElementById('queueBtn');
         if (!btn || !DATA) return;
         var n = DATA.list ? DATA.list.length : 0;
-        btn.innerHTML = '📋 候诊 <b>' + n + '</b>';
+        btn.innerHTML = renderIconSvg('emr:record') + ' 候诊 <b>' + n + '</b>';
         btn.title = '候诊 / 患者列表（' + (TAB_LABELS[STATUS] || STATUS) + (TODAY ? ' · 当日' : '') + '）';
     }
 
@@ -712,7 +712,7 @@ Clinic.deptwork = (function () {
                 }
                 // 数据驱动渲染（与医生工作站同款：状态图标 + 在线/占用/已绑定/离线）
                 var rows = list.map(function (r) {
-                    var icon = r.status === 'available' ? '🟢' : (r.status === 'bound' ? '🔵' : (r.status === 'occupied' ? '🟡' : '🔴'));
+                    var icon = r.status === 'available' ? renderIconSvg('alert:dot-green') : (r.status === 'bound' ? renderIconSvg('alert:dot-blue') : (r.status === 'occupied' ? renderIconSvg('alert:dot-yellow') : renderIconSvg('alert:dot-red')));
                     var disabled = !r.selectable;
                     var clickable = (r.status === 'bound' || r.status === 'available') && !disabled;
                     var attrs = clickable
@@ -842,7 +842,7 @@ Clinic.deptwork = (function () {
 
     function dwFullPopHtml(r) {
         return '<div class="doc-call-pop-head">' +
-            '  <span class="doc-call-pop-title">📢 叫号 · ' + escHtml(fullRoomName(r.dept_name, r.room_name)) + '</span>' +
+            '  <span class="doc-call-pop-title">' + renderIconSvg('action:announce') + ' 叫号 · ' + escHtml(fullRoomName(r.dept_name, r.room_name)) + '</span>' +
             '  <span class="doc-call-pop-tools">' +
             '    <span class="doc-call-pop-x" data-act="mini" title="最小化（切换到精简版）">-</span>' +
             '    <span class="doc-call-pop-x" data-act="hide" title="关闭">x</span>' +
@@ -859,8 +859,8 @@ Clinic.deptwork = (function () {
             '    <div class="doc-call-next-name" id="dwcpNext">—</div>' +
             '  </div>' +
             '  <div class="doc-call-actions">' +
-            '    <button type="button" class="btn btn-outline btn-sm" id="dwcpRepeat" title="重复呼叫当前患者">🔁 重呼</button>' +
-            '    <button type="button" class="btn btn-primary btn-sm" id="dwcpNextBtn" title="呼叫下一位患者到诊室大屏">📢 叫号下一位</button>' +
+            '    <button type="button" class="btn btn-outline btn-sm" id="dwcpRepeat" title="重复呼叫当前患者">' + renderIconSvg('action:refresh') + ' 重呼</button>' +
+            '    <button type="button" class="btn btn-primary btn-sm" id="dwcpNextBtn" title="呼叫下一位患者到诊室大屏">' + renderIconSvg('action:announce') + ' 叫号下一位</button>' +
             '  </div>' +
             '  <div class="doc-call-pool">' +
             '    <div class="doc-call-pool-title">候诊队列</div>' +
@@ -875,7 +875,7 @@ Clinic.deptwork = (function () {
 
     function dwMiniPopHtml(r) {
         return '<div class="doc-call-pop-head">' +
-            '  <span class="doc-call-pop-title">📢 ' + escHtml(fullRoomName(r.dept_name, r.room_name)) + '</span>' +
+            '  <span class="doc-call-pop-title">' + renderIconSvg('action:announce') + ' ' + escHtml(fullRoomName(r.dept_name, r.room_name)) + '</span>' +
             '  <span class="doc-call-pop-tools">' +
             '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">⊘</span>' +
             '    <span class="doc-call-pop-x" data-act="restore" title="最大化（恢复完整版）">+</span>' +
@@ -888,8 +888,8 @@ Clinic.deptwork = (function () {
             '  <div class="doc-call-mini-row"><span class="doc-call-mini-label">下一位</span>' +
             '    <span class="doc-call-mini-val" id="dwcpNext">—</span></div>' +
             '  <div class="doc-call-actions">' +
-            '    <button type="button" class="btn btn-outline btn-sm" id="dwcpRepeat">🔁 重呼</button>' +
-            '    <button type="button" class="btn btn-primary btn-sm" id="dwcpNextBtn">📢 下一位</button>' +
+            '    <button type="button" class="btn btn-outline btn-sm" id="dwcpRepeat">' + renderIconSvg('action:refresh') + ' 重呼</button>' +
+            '    <button type="button" class="btn btn-primary btn-sm" id="dwcpNextBtn">' + renderIconSvg('action:announce') + ' 下一位</button>' +
             '  </div>' +
             '</div>';
     }
@@ -1016,8 +1016,8 @@ Clinic.deptwork = (function () {
         if (title) {
             var r = currentRoom();
             var isMini = pop.classList.contains('doc-call-mini');
-            title.textContent = (isMini ? '📢 ' : '📢 叫号 · ') +
-                fullRoomName(d.dept_name || (r && r.dept_name), r && r.room_name);
+            title.innerHTML = (isMini ? renderIconSvg('action:announce') + ' ' : renderIconSvg('action:announce') + ' 叫号 · ') +
+                Clinic.escHtml(fullRoomName(d.dept_name || (r && r.dept_name), r && r.room_name));
         }
         var cur = d.current, next = d.next;
         var curEl = pop.querySelector('#dwcpCur');
@@ -1063,7 +1063,7 @@ Clinic.deptwork = (function () {
         mask.innerHTML = isMini
             ? '<div class="doc-call-offline-title">大屏已离线</div>' +
               '<div class="doc-call-offline-desc">叫号暂不可用，请联系管理员。</div>'
-            : '<div class="doc-call-offline-ico">📺</div>' +
+            : '<div class="doc-call-offline-ico">' + renderIconSvg('nav:screen') + '</div>' +
               '<div class="doc-call-offline-title">叫号大屏已离线</div>' +
               '<div class="doc-call-offline-desc">大屏未连接，叫号暂不可用。<br>请检查大屏电源与网络，<br>或请管理员在「叫号管理」重置大屏链接。</div>';
         // 标准版：蒙板底部留出「解绑」栏高度（离线时需手动解绑该大屏）

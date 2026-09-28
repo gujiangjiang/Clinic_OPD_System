@@ -284,7 +284,7 @@ Clinic.docTools = (function () {
         // 数据驱动渲染：不再内联 onclick（规避诊室名注入），改 data 属性 + 事件委托
         bindRoomListClick(box);
         var rows = list.map(function (r) {
-            var icon = r.status === 'available' ? '🟢' : (r.status === 'bound' ? '🔵' : (r.status === 'occupied' ? '🟡' : '🔴'));
+            var icon = r.status === 'available' ? renderIconSvg('alert:dot-green') : (r.status === 'bound' ? renderIconSvg('alert:dot-blue') : (r.status === 'occupied' ? renderIconSvg('alert:dot-yellow') : renderIconSvg('alert:dot-red')));
             var disabled = !r.selectable;
             var clickable = (r.status === 'bound' || r.status === 'available') && !disabled;
             var attrs = clickable
@@ -448,7 +448,7 @@ Clinic.docTools = (function () {
     /* 完整版悬浮窗 HTML（当前就诊/下一位/叫号按钮/完整号源列表/解绑） */
     function fullPopHtml() {
         return '<div class="doc-call-pop-head">' +
-            '  <span class="doc-call-pop-title">📢 叫号 · ' + Clinic.escHtml(fullRoomName(ROOM_BOUND.dept_name, ROOM_BOUND.name)) + '</span>' +
+            '  <span class="doc-call-pop-title">' + renderIconSvg('action:announce') + ' 叫号 · ' + Clinic.escHtml(fullRoomName(ROOM_BOUND.dept_name, ROOM_BOUND.name)) + '</span>' +
             '  <span class="doc-call-pop-tools">' +
             '    <span class="doc-call-pop-x" data-act="mini" title="最小化（切换到精简版）">-</span>' +
             '    <span class="doc-call-pop-x" data-act="hide" title="关闭">x</span>' +
@@ -465,9 +465,9 @@ Clinic.docTools = (function () {
             '    <div class="doc-call-next-name" id="dcpNext">—</div>' +
             '  </div>' +
             '  <div class="doc-call-actions">' +
-            '    <button type="button" class="btn btn-outline btn-sm" id="dcpRepeat" title="重复呼叫当前就诊患者（防止患者没听到）">🔁 重呼</button>' +
+            '    <button type="button" class="btn btn-outline btn-sm" id="dcpRepeat" title="重复呼叫当前就诊患者（防止患者没听到）">' + renderIconSvg('action:refresh') + ' 重呼</button>' +
             '    <button type="button" class="btn btn-warning btn-sm" id="dcpMiss" title="当前患者过号，自动呼叫下一位">⏭ 过号</button>' +
-            '    <button type="button" class="btn btn-primary btn-sm" id="dcpNextBtn" title="呼叫下一位患者并打开其病历">⬇ 下一位</button>' +
+            '    <button type="button" class="btn btn-primary btn-sm" id="dcpNextBtn" title="呼叫下一位患者并打开其病历">' + renderIconSvg('action:download') + ' 下一位</button>' +
             '  </div>' +
             '  <div class="doc-call-pool">' +
             '    <div class="doc-call-pool-title">候诊号源 <b id="dcpCount">0</b> 人</div>' +
@@ -483,7 +483,7 @@ Clinic.docTools = (function () {
     /* 精简版悬浮窗 HTML：标题（解绑/最大化/关闭）+ 当前就诊 + 下一位 + 三个叫号按钮 */
     function miniPopHtml() {
         return '<div class="doc-call-pop-head">' +
-            '  <span class="doc-call-pop-title">📢 ' + Clinic.escHtml(fullRoomName(ROOM_BOUND.dept_name, ROOM_BOUND.name)) + '</span>' +
+            '  <span class="doc-call-pop-title">' + renderIconSvg('action:announce') + ' ' + Clinic.escHtml(fullRoomName(ROOM_BOUND.dept_name, ROOM_BOUND.name)) + '</span>' +
             '  <span class="doc-call-pop-tools">' +
             '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">⊘</span>' +
             '    <span class="doc-call-pop-x" data-act="restore" title="最大化（恢复完整版）">+</span>' +
@@ -500,9 +500,9 @@ Clinic.docTools = (function () {
             '    <span class="doc-call-mini-val" id="dcpNext">—</span>' +
             '  </div>' +
             '  <div class="doc-call-actions">' +
-            '    <button type="button" class="btn btn-outline btn-sm" id="dcpRepeat" title="重复呼叫当前就诊患者">🔁 重呼</button>' +
+            '    <button type="button" class="btn btn-outline btn-sm" id="dcpRepeat" title="重复呼叫当前就诊患者">' + renderIconSvg('action:refresh') + ' 重呼</button>' +
             '    <button type="button" class="btn btn-warning btn-sm" id="dcpMiss" title="过号并自动呼叫下一位">⏭ 过号</button>' +
-            '    <button type="button" class="btn btn-primary btn-sm" id="dcpNextBtn" title="呼叫下一位患者并打开其病历">⬇ 下一位</button>' +
+            '    <button type="button" class="btn btn-primary btn-sm" id="dcpNextBtn" title="呼叫下一位患者并打开其病历">' + renderIconSvg('action:download') + ' 下一位</button>' +
             '  </div>' +
             '</div>';
     }
@@ -608,7 +608,7 @@ Clinic.docTools = (function () {
     /* 脏数据拦截：复用病历系统统一的「未保存修改」校验（打印/开单/切换患者同款逻辑） */
     function guardDirty() {
         if (window.Clinic && Clinic.emr && Clinic.emr.isDirty && Clinic.emr.isDirty()) {
-            Clinic.toast.warning('当前病历有未保存的修改，请先点击「💾 保存」后再叫号下一位');
+            Clinic.toast.warning('当前病历有未保存的修改，请先点击「' + renderIconSvg('action:save') + ' 保存」后再叫号下一位');
             return true;
         }
         return false;
@@ -723,7 +723,7 @@ Clinic.docTools = (function () {
         mask.innerHTML = isMini
             ? '<div class="doc-call-offline-title">大屏已离线</div>' +
               '<div class="doc-call-offline-desc">叫号暂不可用，请联系管理员。</div>'
-            : '<div class="doc-call-offline-ico">📺</div>' +
+            : '<div class="doc-call-offline-ico">' + renderIconSvg('nav:screen') + '</div>' +
               '<div class="doc-call-offline-title">叫号大屏已离线</div>' +
               '<div class="doc-call-offline-desc">大屏未连接，叫号暂不可用。<br>请检查大屏电源与网络，<br>或请管理员在「叫号管理」重置大屏链接。</div>';
         // 标准版：蒙板底部留出「解绑」栏高度（离线时需手动解绑该大屏）
@@ -748,7 +748,7 @@ Clinic.docTools = (function () {
         var cur = d.current, next = d.next;
         var isMini = pop.classList.contains('doc-call-mini');
         var titleEl = pop.querySelector('.doc-call-pop-title');
-        if (titleEl) titleEl.textContent = (isMini ? '📢 ' : '📢 叫号 · ') + fullRoomName(d.room && d.room.dept_name, d.room && d.room.name);
+        if (titleEl) titleEl.innerHTML = (isMini ? renderIconSvg('action:announce') + ' ' : renderIconSvg('action:announce') + ' 叫号 · ') + Clinic.escHtml(fullRoomName(d.room && d.room.dept_name, d.room && d.room.name));
         var curEl = pop.querySelector('#dcpCur');
         var curSubEl = pop.querySelector('#dcpCurSub');
         if (curEl) {
@@ -760,7 +760,7 @@ Clinic.docTools = (function () {
                 }
             } else {
                 curEl.textContent = '暂无';
-                if (curSubEl) curSubEl.textContent = '点击「⬇ 下一位」呼叫候诊患者';
+                if (curSubEl) curSubEl.innerHTML = '点击「' + renderIconSvg('action:download') + ' 下一位」呼叫候诊患者';
             }
         }
         var nextEl = pop.querySelector('#dcpNext');

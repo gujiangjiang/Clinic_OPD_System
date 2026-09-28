@@ -65,7 +65,7 @@ Clinic.dropdown = (function () {
                 var cx = document.createElement('span');
                 cx.className = 'csd-clear';
                 cx.title = '清除选择';
-                cx.textContent = '✕';
+                cx.innerHTML = renderIconSvg('action:close');
                 cx.addEventListener('mousedown', function (e) {
                     e.preventDefault();
                     e.stopPropagation();

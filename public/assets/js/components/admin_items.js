@@ -58,8 +58,8 @@ Clinic.adminItems = {
                             return '<div class="cat-mgr-row" data-id="' + c.id + '" data-name="' + Clinic.escHtml(c.name) + '">' +
                                 '<span class="cat-mgr-name">' + Clinic.escHtml(c.name) + '</span>' +
                                 '<span class="cat-mgr-actions">' +
-                                '<button type="button" class="btn btn-outline btn-sm" onclick="renCat(' + c.id + ')">✏️ 重命名</button>' +
-                                '<button type="button" class="btn btn-danger btn-sm" onclick="delCat(' + c.id + ')">🗑️ 删除</button>' +
+                                '<button type="button" class="btn btn-outline btn-sm" onclick="renCat(' + c.id + ')">' + renderIconSvg('action:edit') + ' 重命名</button>' +
+                                '<button type="button" class="btn btn-danger btn-sm" onclick="delCat(' + c.id + ')">' + renderIconSvg('action:delete') + ' 删除</button>' +
                                 '</span></div>';
                         }).join('')
                         : '<div class="cat-mgr-empty">暂无分类，请输入名称添加</div>';
