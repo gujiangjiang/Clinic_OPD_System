@@ -13,6 +13,8 @@
  * 本页面为独立全屏页，不套用系统框架布局。
  * ============================================================ */
 Router::title('叫号屏幕');
+// 独立整页：注入图标映射与 icons.js（bootstrap 已由 index 加载）
+require_once APP_ROOT . '/app/includes/icon_bridge.php';
 $hosp  = setting('hospital_name', '门诊一体化系统');
 $hosp2 = setting('hospital_name2', '');
 // LOGO 以 base64 Data URI 内联显示：不暴露文件 URL，且不受页面层级影响
@@ -66,7 +68,7 @@ $logoImg = $logoData !== '' ? '<img src="' . e($logoData) . '" alt="LOGO">' : ''
 
 <!-- ===== 下方：医生介绍 ===== -->
 <section class="call-doctor" id="callDoctor">
-    <div class="doc-photo" id="docPhoto">👨‍⚕️</div>
+    <div class="doc-photo" id="docPhoto"><?= render_icon('nav:doctor') ?></div>
     <div class="doc-info">
         <div class="doc-name" id="docName">—</div>
         <div class="doc-title" id="docTitle"></div>
@@ -76,10 +78,10 @@ $logoImg = $logoData !== '' ? '<img src="' . e($logoData) . '" alt="LOGO">' : ''
 
 <!-- ===== 最下方：温馨提示 ===== -->
 <footer class="call-tips">
-    <span>📢 请保持安静</span>
-    <span>🔢 请按序排队候诊</span>
-    <span>🚫 请主动拒绝医托，谨防上当受骗</span>
-    <span>🏥 祝您早日康复</span>
+    <span><?= render_icon('action:announce') ?> 请保持安静</span>
+    <span><?= render_icon('action:calc') ?> 请按序排队候诊</span>
+    <span><?= render_icon('alert:blocked') ?> 请主动拒绝医托，谨防上当受骗</span>
+    <span><?= render_icon('nav:hospital') ?> 祝您早日康复</span>
 </footer>
 
 <script src="/assets/js/components/ajax.js"></script>

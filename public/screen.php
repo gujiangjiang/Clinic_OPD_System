@@ -23,7 +23,7 @@ if ($pvW >= 100 && $pvH >= 100) {
 }
 $noToken = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">' .
     '<title>大屏链接无效</title><style>body{background:#111;color:#eee;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-size:24px}</style></head>' .
-    '<body><div>🔗 大屏链接无效或已失效，请联系管理员获取新的访问链接</div></body></html>';
+    '<body><div>' . render_icon('action:link') . ' 大屏链接无效或已失效，请联系管理员获取新的访问链接</div></body></html>';
 
 if ($token === '') { echo $noToken; exit; }
 
@@ -34,12 +34,14 @@ if (!$room) { echo $noToken; exit; }
 
 // 核心优化：大屏长驻轮询，页面渲染前立即释放 Session 锁，避免占用文件锁
 Session::closeReadOnly();
+// 独立整页：注入图标映射与 icons.js（layout 已自动注入，本页不经 layout）
+require_once APP_ROOT . '/app/includes/icon_bridge.php';
 
 $hosp  = setting('hospital_name', '门诊一体化系统');
 $hosp2 = setting('hospital_name2', '');
 $logoData = img_data(setting('logo', ''));
 $favicon = $logoData !== '' ? '<link rel="icon" href="' . e($logoData) . '">' : '';
-$logoImg = $logoData !== '' ? '<img src="' . e($logoData) . '" alt="LOGO">' : '<span style="font-size:28px">🏥</span>';
+$logoImg = $logoData !== '' ? '<img src="' . e($logoData) . '" alt="LOGO">' : '<span style="font-size:28px">' . render_icon('nav:hospital') . '</span>';
 $isDoctor = $room['room_type'] === 'doctor';
 ?>
 <!DOCTYPE html>
@@ -92,7 +94,7 @@ $isDoctor = $room['room_type'] === 'doctor';
 
 <!-- 自动播放解锁遮罩（提示语分段展示 + 字号随屏幕缩放，小尺寸屏幕不换行溢出） -->
 <div id="autoplayMask" style="position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(10px,4vh,26px);padding:clamp(16px,4vh,40px);text-align:center;cursor:pointer">
-    <div class="apm-icon" style="font-size:clamp(36px,12vh,84px);line-height:1">🔊</div>
+    <div class="apm-icon" style="font-size:clamp(36px,12vh,84px);line-height:1"><?= render_icon('action:vol') ?></div>
     <div style="font-size:clamp(16px,5vh,40px);font-weight:700;color:#fff;letter-spacing:3px;line-height:1.45;max-width:90%">点击屏幕<br>启动叫号语音大屏系统</div>
     <div style="font-size:clamp(12px,3.2vh,24px);color:#a8c8e8;letter-spacing:2px">点击后自动开始播报叫号</div>
 </div>
