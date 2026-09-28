@@ -3,7 +3,7 @@ require APP_ROOT . '/app/includes/role_home.php';
 render_role_home(array(
     'title' => '药房首页',
     'desc' => '今日发药与药品库存概览',
-    'cta' => array('/pharmacy/dashboard', '💊 进入药房工作台'),
+    'cta' => array('/pharmacy/dashboard', render_icon('nav:pharmacy') . ' 进入药房工作台'),
     'api' => '/api/pharmacy?action=home_stats',
     'stats' => array(
         array('drug_total', '药品总数'),
@@ -16,10 +16,10 @@ render_role_home(array(
     'colors' => array('low_stock' => 'var(--danger)'),
     'chart' => array('title' => '近 7 天发药量趋势', 'name' => '发药量'),
     'links' => array(
-        array('/pharmacy/dashboard', '💊 药房工作台'),
-        array('/admin/drugs', '📋 药品目录'),
-        array('/admin/drugsettings', '📦 药品设置'),
-        array('/messages', '💬 站内消息'),
+        array('/pharmacy/dashboard', render_icon('nav:pharmacy') . ' 药房工作台'),
+        array('/admin/drugs', render_icon('emr:record') . ' 药品目录'),
+        array('/admin/drugsettings', render_icon('action:package') . ' 药品设置'),
+        array('/messages', render_icon('emr:consult') . ' 站内消息'),
     ),
     'tips' => array(
         '1. 缴费后的处方在【药房工作台】→「待发药」中处理',

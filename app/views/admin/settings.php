@@ -31,30 +31,30 @@ foreach ($tzGroups as $group => $tzList) {
 $dbType = strtoupper(DatabaseManager::driver());
 ?>
 <div class="page-head">
-    <div><div class="page-title">⚙️ 系统设置</div><div class="page-desc">按类别分区管理医院基础信息、医院标志、作息时间与安全设置</div></div>
+    <div><div class="page-title"><?= render_icon('nav:settings') ?> 系统设置</div><div class="page-desc">按类别分区管理医院基础信息、医院标志、作息时间与安全设置</div></div>
 </div>
 
 <!-- 多 Tab 导航 -->
 <div class="flex gap-8 mb-12" id="settingsTabs" style="flex-wrap:wrap">
-    <button type="button" class="btn btn-primary btn-sm" data-stab="clinic" onclick="settingsTab('clinic')">🏥 医院机构信息</button>
-    <button type="button" class="btn btn-outline btn-sm" data-stab="db" onclick="settingsTab('db')">🗄️ 数据库中心</button>
-    <button type="button" class="btn btn-outline btn-sm" data-stab="cache" onclick="settingsTab('cache')">⚡ 缓存与性能</button>
-    <button type="button" class="btn btn-outline btn-sm" data-stab="security" onclick="settingsTab('security')">🔐 安全与加密</button>
+    <button type="button" class="btn btn-primary btn-sm" data-stab="clinic" onclick="settingsTab('clinic')"><?= render_icon('nav:hospital') ?> 医院机构信息</button>
+    <button type="button" class="btn btn-outline btn-sm" data-stab="db" onclick="settingsTab('db')"><?= render_icon('emr:archive') ?> 数据库中心</button>
+    <button type="button" class="btn btn-outline btn-sm" data-stab="cache" onclick="settingsTab('cache')"><?= render_icon('action:bolt') ?> 缓存与性能</button>
+    <button type="button" class="btn btn-outline btn-sm" data-stab="security" onclick="settingsTab('security')"><?= render_icon('nav:unlock') ?> 安全与加密</button>
 </div>
 
 <!-- ============ Tab: 医院机构信息（左右两栏） ============ -->
 <div class="stab-pane" id="stab-clinic">
     <div class="db-center">
         <div class="card db-sidebar">
-            <div class="db-nav active" data-cltab="info" onclick="clTab('info')">🏥 医院信息</div>
-            <div class="db-nav" data-cltab="brand" onclick="clTab('brand')">🎨 医院标志</div>
+            <div class="db-nav active" data-cltab="info" onclick="clTab('info')"><?= render_icon('nav:hospital') ?> 医院信息</div>
+            <div class="db-nav" data-cltab="brand" onclick="clTab('brand')"><?= render_icon('action:palette') ?> 医院标志</div>
             <div class="db-nav" data-cltab="work" onclick="clTab('work')">⏰ 作息时间</div>
-            <div class="db-nav" data-cltab="tz" onclick="clTab('tz')">🌐 网站时区</div>
+            <div class="db-nav" data-cltab="tz" onclick="clTab('tz')"><?= render_icon('nav:globe') ?> 网站时区</div>
         </div>
         <div class="db-main">
             <div class="db-pane" id="cltab-info">
                 <div class="card setting-card">
-                    <div class="card-title">🏥 医院信息</div>
+                    <div class="card-title"><?= render_icon('nav:hospital') ?> 医院信息</div>
                     <div class="form-group"><label class="form-label">医院名称 <span class="req">*</span></label>
                         <input class="input" id="s_hosp" value="<?php echo e(setting('hospital_name')); ?>"></div>
                     <div class="form-group"><label class="form-label">医疗机构代码 <span class="req">*</span></label>
@@ -76,7 +76,7 @@ $dbType = strtoupper(DatabaseManager::driver());
             </div>
             <div class="db-pane" id="cltab-brand" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title">🎨 医院标志</div>
+                    <div class="card-title"><?= render_icon('action:palette') ?> 医院标志</div>
                     <div class="flex gap-16" style="align-items:center">
                         <div class="fs-13 text-muted" style="flex:1;line-height:1.8">上传医院 LOGO，将作为登录页 / 系统侧边栏 / 浏览器图标（favicon）展示。<br>尚未上传 LOGO，网站将不显示 LOGO 与 favicon。</div>
                         <div style="flex-shrink:0;text-align:center">
@@ -84,9 +84,9 @@ $dbType = strtoupper(DatabaseManager::driver());
                                 <?php if ($logoData !== ''): ?>
                                     <img src="<?php echo e($logoData); ?>" alt="LOGO">
                                 <?php else: ?>
-                                    <span class="logo-placeholder">🏥</span>
+                                    <span class="logo-placeholder"><?= render_icon('nav:hospital') ?></span>
                                 <?php endif; ?>
-                                <span class="logo-upload-badge">📷</span>
+                                <span class="logo-upload-badge"><?= render_icon('action:camera') ?></span>
                             </div>
                             <div class="fs-12 text-muted mt-4">点击更换</div>
                         </div>
@@ -114,7 +114,7 @@ $dbType = strtoupper(DatabaseManager::driver());
             </div>
             <div class="db-pane" id="cltab-tz" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title">🌐 网站时区</div>
+                    <div class="card-title"><?= render_icon('nav:globe') ?> 网站时区</div>
                     <div class="form-group"><label class="form-label">全站时区</label>
                         <select class="select" id="s_tz" data-csd-search="1"><?php echo $tzOpts; ?></select>
                         <div class="fs-12 text-muted mt-4">默认取创建管理员时的浏览器时区，修改后保存设置即时生效。</div></div>
@@ -130,17 +130,17 @@ $dbType = strtoupper(DatabaseManager::driver());
     <div class="db-center">
         <!-- 左侧边栏 -->
         <div class="card db-sidebar">
-            <div class="db-nav active" data-dbtab="detail" onclick="dbTab('detail')">📊 详情</div>
-            <div class="db-nav" data-dbtab="browse" onclick="dbTab('browse')">📋 浏览</div>
-            <div class="db-nav" data-dbtab="migrate" onclick="dbTab('migrate')">➡️ 迁移</div>
-            <div class="db-nav" data-dbtab="switch" onclick="dbTab('switch')">🔁 切换</div>
-            <div class="db-nav" data-dbtab="backup" onclick="dbTab('backup')">💾 备份/同步</div>
+            <div class="db-nav active" data-dbtab="detail" onclick="dbTab('detail')"><?= render_icon('nav:chart') ?> 详情</div>
+            <div class="db-nav" data-dbtab="browse" onclick="dbTab('browse')"><?= render_icon('emr:record') ?> 浏览</div>
+            <div class="db-nav" data-dbtab="migrate" onclick="dbTab('migrate')"><?= render_icon('action:next') ?> 迁移</div>
+            <div class="db-nav" data-dbtab="switch" onclick="dbTab('switch')"><?= render_icon('action:refresh') ?> 切换</div>
+            <div class="db-nav" data-dbtab="backup" onclick="dbTab('backup')"><?= render_icon('action:save') ?> 备份/同步</div>
         </div>
         <!-- 右侧内容 -->
         <div class="db-main">
             <div class="db-pane" id="dbtab-detail">
                 <div class="card setting-card">
-                    <div class="card-title">🗄️ 当前数据库连接</div>
+                    <div class="card-title"><?= render_icon('emr:archive') ?> 当前数据库连接</div>
                     <div id="dbStatusBox" class="fs-13" style="line-height:2"><div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
                     <div class="fs-12 text-muted mt-8">config.db 为基础设施配置库（主库驱动/连接凭证/缓存等）；主业务数据独立存放于主数据库，删除 config.db 仅重置配置，不会破坏业务数据。</div>
                     <div class="fs-13 mt-12" id="dbActiveTasks"></div>
@@ -148,40 +148,40 @@ $dbType = strtoupper(DatabaseManager::driver());
             </div>
             <div class="db-pane" id="dbtab-browse" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between"><span>📋 数据表浏览器</span><span class="flex gap-8" style="align-items:center"><span class="badge badge-primary" id="browseDriverBadge" style="font-size:11.5px">—</span><button class="btn btn-outline btn-sm" onclick="loadDbStatus()">🔄 刷新</button></span></div>
+                    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between"><span><?= render_icon('emr:record') ?> 数据表浏览器</span><span class="flex gap-8" style="align-items:center"><span class="badge badge-primary" id="browseDriverBadge" style="font-size:11.5px">—</span><button class="btn btn-outline btn-sm" onclick="loadDbStatus()"><?= render_icon('action:refresh') ?> 刷新</button></span></div>
                     <div class="fs-13 text-muted mb-8">点击任意表查看字段属性与滚动加载行数据（只读，模态框内支持 CSV 导出）；SQLite / MySQL / PostgreSQL 均支持。</div>
                     <div id="dbTableList" class="fs-13" style="border:1px solid var(--border);border-radius:var(--radius-md);padding:6px"><div class="text-muted">加载中…</div></div>
                 </div>
             </div>
             <div class="db-pane" id="dbtab-migrate" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title">🔄 数据库迁移工具</div>
+                    <div class="card-title"><?= render_icon('action:refresh') ?> 数据库迁移工具</div>
                     <div class="fs-13 text-muted mb-8">支持 SQLite / MySQL / PostgreSQL 三驱动任意双向全量迁移（分批 Chunk 500 行同步、外键约束临时关闭、自增序列校准）。迁移以后台任务执行、刷新页面不中断；期间全站锁定并显示进度条，完成后由管理员确认是否将主库切换为目标数据库（取消/失败自动回退原库）。</div>
                     <div class="form-group"><label class="form-label">目标驱动 <span class="req">*</span></label>
                         <select class="select" id="migDriver" onchange="toggleMigOpts()"></select>
                         <div class="fs-12 text-muted mt-4">选项来自系统驱动注册表（与安装向导一致），自动屏蔽当前驱动。</div></div>
                     <div id="migParamsBox"></div>
                     <div class="flex gap-8" style="flex-wrap:wrap;align-items:center">
-                        <button class="btn btn-danger btn-sm" onclick="startMigrate()">⚠️ 开始迁移（全站锁定+进度条）</button>
+                        <button class="btn btn-danger btn-sm" onclick="startMigrate()"><?= render_icon('alert:warning') ?> 开始迁移（全站锁定+进度条）</button>
                     </div>
                     <div class="fs-13 mt-8" id="migMsg"></div>
                 </div>
             </div>
             <div class="db-pane" id="dbtab-switch" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title">🔁 直接切换主库（不迁移数据）</div>
+                    <div class="card-title"><?= render_icon('action:refresh') ?> 直接切换主库（不迁移数据）</div>
                     <div class="fs-13 text-muted mb-8">目标库须已存在完整业务数据（users 表非空）。切换强制清除全部用户会话并全站锁定，切换后所有用户重新登录。支持同驱动切换（如 MySQL → 另一 MySQL 库）。</div>
                     <div class="fs-13 mb-8">当前主库：<span class="badge badge-primary" id="swCurDriver" style="font-size:11.5px">—</span></div>
                     <div class="form-group"><label class="form-label">目标驱动 <span class="req">*</span></label>
                         <select class="select" id="swDriver" onchange="toggleSwOpts()"></select></div>
                     <div id="swParamsBox"></div>
-                    <button class="btn btn-outline btn-sm" onclick="switchMainDirect()">🔁 切换到所选主库</button>
+                    <button class="btn btn-outline btn-sm" onclick="switchMainDirect()"><?= render_icon('action:refresh') ?> 切换到所选主库</button>
                     <div class="fs-13 mt-8" id="swMsg"></div>
                 </div>
             </div>
             <div class="db-pane" id="dbtab-backup" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between"><span>💾 多数据库备份 / 双向同步</span><span class="badge badge-gray" id="bkLastAtBadge" style="font-size:11.5px;font-weight:400">最近同步：—</span></div>
+                    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between"><span><?= render_icon('action:save') ?> 多数据库备份 / 双向同步</span><span class="badge badge-gray" id="bkLastAtBadge" style="font-size:11.5px;font-weight:400">最近同步：—</span></div>
                     <div class="fs-13 text-muted mb-8">备份与双向为<b>两个独立功能</b>（二选一）：备份=手动/定时全量同步；双向=每次写入实时镜像到备份库（RAID1 式，仅同驱动可靠，失败自动降级不影响主库体验）。</div>
                     <!-- 共用：驱动选择 + 数据库配置 -->
                     <div class="form-group"><label class="form-label">备份/同步目标驱动</label>
@@ -190,8 +190,8 @@ $dbType = strtoupper(DatabaseManager::driver());
                     <div id="bkParamsBox"></div>
                     <div class="fs-13 mt-8" id="bkLastAt" style="display:none"></div>                    <!-- 下方按钮：备份 / 同步 -->
                     <div class="flex gap-8 mb-12 mt-12">
-                        <button type="button" class="btn btn-primary btn-sm" id="bkModeBackup" onclick="bkMode('backup')">💾 备份</button>
-                        <button type="button" class="btn btn-outline btn-sm" id="bkModeDual" onclick="bkMode('dual')">🔁 同步</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="bkModeBackup" onclick="bkMode('backup')"><?= render_icon('action:save') ?> 备份</button>
+                        <button type="button" class="btn btn-outline btn-sm" id="bkModeDual" onclick="bkMode('dual')"><?= render_icon('action:refresh') ?> 同步</button>
                     </div>
                     <!-- 备份特定内容 -->
                     <div class="bk-mode-pane" id="bkmode-backup">
@@ -203,7 +203,7 @@ $dbType = strtoupper(DatabaseManager::driver());
                         <div class="flex gap-8">
                             <button class="btn btn-primary btn-sm" onclick="saveBackupCfg()">保存设置</button>
                             <button class="btn btn-danger btn-sm" onclick="runBackup()">立即备份</button>
-                            <button class="btn btn-outline btn-sm" onclick="viewBackupLogs()">📜 查看日志</button>
+                            <button class="btn btn-outline btn-sm" onclick="viewBackupLogs()"><?= render_icon('emr:scroll') ?> 查看日志</button>
                         </div>
                     </div>
                     <!-- 双向同步特定内容 -->
@@ -217,7 +217,7 @@ $dbType = strtoupper(DatabaseManager::driver());
                         </div>
                         <div class="flex gap-8">
                             <button class="btn btn-primary btn-sm" onclick="saveBackupCfg()">保存设置</button>
-                            <button class="btn btn-outline btn-sm" onclick="viewBackupLogs()">📜 查看日志</button>
+                            <button class="btn btn-outline btn-sm" onclick="viewBackupLogs()"><?= render_icon('emr:scroll') ?> 查看日志</button>
                         </div>
                     </div>
                     <div class="fs-13 mt-8" id="bkMsg"></div>
@@ -231,20 +231,20 @@ $dbType = strtoupper(DatabaseManager::driver());
 <div class="stab-pane" id="stab-cache" style="display:none">
     <div class="db-center">
         <div class="card db-sidebar">
-            <div class="db-nav active" data-catab="detail" onclick="cacheTab('detail')">📊 详情</div>
-            <div class="db-nav" data-catab="driver" onclick="cacheTab('driver')">🔁 驱动</div>
-            <div class="db-nav" data-catab="flush" onclick="cacheTab('flush')">🧹 刷新</div>
+            <div class="db-nav active" data-catab="detail" onclick="cacheTab('detail')"><?= render_icon('nav:chart') ?> 详情</div>
+            <div class="db-nav" data-catab="driver" onclick="cacheTab('driver')"><?= render_icon('action:refresh') ?> 驱动</div>
+            <div class="db-nav" data-catab="flush" onclick="cacheTab('flush')"><?= render_icon('action:clean') ?> 刷新</div>
         </div>
         <div class="db-main">
             <div class="db-pane" id="catab-detail">
                 <div class="card setting-card">
-                    <div class="card-title">⚡ 缓存状态</div>
+                    <div class="card-title"><?= render_icon('action:bolt') ?> 缓存状态</div>
                     <div id="cacheStatusBox" class="fs-13" style="line-height:2"><div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>
                 </div>
             </div>
             <div class="db-pane" id="catab-driver" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title">🔁 缓存驱动切换</div>
+                    <div class="card-title"><?= render_icon('action:refresh') ?> 缓存驱动切换</div>
                     <div class="fs-13 text-muted mb-8">选择缓存/会话驱动（写入 config.db，会话驱动将同步生效）。选项来自系统驱动注册表（与安装向导一致），未安装扩展的驱动会标注。</div>
                     <div class="form-group"><label class="form-label">驱动</label>
                         <select class="select" id="cacheDriverSel" onchange="toggleCacheRedisOpts()"></select></div>
@@ -255,7 +255,7 @@ $dbType = strtoupper(DatabaseManager::driver());
             </div>
             <div class="db-pane" id="catab-flush" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title">🧹 模块化缓存刷新</div>
+                    <div class="card-title"><?= render_icon('action:clean') ?> 模块化缓存刷新</div>
                     <div class="fs-13 text-muted mb-8">按模块清除缓存文件（系统配置 / ICD-10 与字典 / 排班叫号临时 / 全量）。</div>
                     <div class="flex gap-8" style="flex-wrap:wrap">
                         <button class="btn btn-outline btn-sm" onclick="flushCache('config')">刷新系统配置缓存</button>
@@ -274,13 +274,13 @@ $dbType = strtoupper(DatabaseManager::driver());
 <div class="stab-pane" id="stab-security" style="display:none">
     <div class="db-center">
         <div class="card db-sidebar">
-            <div class="db-nav active" data-sctab="login" onclick="secTab('login')">🔐 登录安全</div>
-            <div class="db-nav" data-sctab="obf" onclick="secTab('obf')">🔗 加密混淆</div>
+            <div class="db-nav active" data-sctab="login" onclick="secTab('login')"><?= render_icon('nav:unlock') ?> 登录安全</div>
+            <div class="db-nav" data-sctab="obf" onclick="secTab('obf')"><?= render_icon('action:link') ?> 加密混淆</div>
         </div>
         <div class="db-main">
             <div class="db-pane" id="sctab-login">
                 <div class="card setting-card">
-                    <div class="card-title">🔐 登录安全与防爆破</div>
+                    <div class="card-title"><?= render_icon('nav:unlock') ?> 登录安全与防爆破</div>
                     <div class="setting-sec-title" style="margin-top:0;padding-top:0;border-top:none">登录验证码与防爆破锁定</div>
                     <div class="form-row">
                         <div class="form-group"><label class="form-label">登录验证码启用模式</label>
@@ -298,14 +298,14 @@ $dbType = strtoupper(DatabaseManager::driver());
             </div>
             <div class="db-pane" id="sctab-obf" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title">🔗 URL 安全混淆密钥（防链接撞库）</div>
+                    <div class="card-title"><?= render_icon('action:link') ?> URL 安全混淆密钥（防链接撞库）</div>
                     <div class="fs-13 text-muted mb-8">用于加密就诊、申请单、报告等链接中的实体 ID，防止通过改数字遍历他人医疗数据。</div>
                     <div class="fs-12 mb-8" style="font-family:monospace;word-break:break-all;background:var(--bg-soft);border-radius:var(--radius-md);padding:10px" id="obf_secret">加载中…</div>
                     <div class="flex gap-8">
-                        <button class="btn btn-outline btn-sm" onclick="resetObfToken()">🔄 重置密钥</button>
+                        <button class="btn btn-outline btn-sm" onclick="resetObfToken()"><?= render_icon('action:refresh') ?> 重置密钥</button>
                         <button class="btn btn-outline btn-sm" onclick="copyObfSecret()">复制</button>
                     </div>
-                    <div class="fs-12 text-warning mt-8">⚠️ 重置后：此前生成/分享/收藏的所有带 ID 链接立即失效；系统功能不受影响（新链接按新密钥即时生成）。建议在怀疑链接泄露时重置。</div>
+                    <div class="fs-12 text-warning mt-8"><?= render_icon('alert:warning') ?> 重置后：此前生成/分享/收藏的所有带 ID 链接立即失效；系统功能不受影响（新链接按新密钥即时生成）。建议在怀疑链接泄露时重置。</div>
                 </div>
             </div>
         </div>
@@ -361,7 +361,7 @@ function toggleTimePick(btn, id) {
 function dateInput(id, label, val) {
     return '<div class="form-group"><label class="form-label">' + label + '</label>' +
         '<div class="tp-wrap"><input class="input" id="' + id + '" value="' + (val || '') + '" placeholder="MM-DD，如 06-01">' +
-        '<button type="button" class="tp-btn" title="快捷选择日期" onclick="toggleDatePick(this,\'' + id + '\')">📅</button></div></div>';
+        '<button type="button" class="tp-btn" title="快捷选择日期" onclick="toggleDatePick(this,\'' + id + '\')">' . render_icon('action:calendar') . '</button></div></div>';
 }
 function toggleDatePick(btn, id) {
     var old = document.getElementById('dpPop');
@@ -473,7 +473,7 @@ function loadObfStatus() {
 function resetObfToken() {
     Clinic.modal.open(
         '<div class="fs-14" style="line-height:1.9">确定要<b>重置 URL 混淆密钥</b>吗？<br>' +
-        '<span class="text-warning fs-13">⚠️ 此前所有带 ID 的链接（打印链接、病历入口等）将立即失效；<br>系统功能不受影响，新链接会按新密钥即时生成。</span></div>',
+        '<span class="text-warning fs-13">' . render_icon('alert:warning') . ' 此前所有带 ID 的链接（打印链接、病历入口等）将立即失效；<br>系统功能不受影响，新链接会按新密钥即时生成。</span></div>',
         {
             title: '重置 URL 混淆密钥',
             size: 'modal-sm',
@@ -593,20 +593,20 @@ function renderActiveTasks(t) {
     var items = [];
     if (t.migration) {
         var st = t.migration.status;
-        var stTxt = st === 'running' ? '<span style="color:var(--primary)">🔄 进行中</span>' : (st === 'done' ? '<span style="color:var(--success)">✅ 完成待确认</span>' : '<span style="color:var(--danger)">⛔ ' + escHtml(st) + '</span>');
+        var stTxt = st === 'running' ? '<span style="color:var(--primary)">' . render_icon('action:refresh') . ' 进行中</span>' : (st === 'done' ? '<span style="color:var(--success)">' . render_icon('alert:success') . ' 完成待确认</span>' : '<span style="color:var(--danger)">' . render_icon('alert:blocked') . ' ' + escHtml(st) + '</span>');
         items.push('<div class="flex-between" style="padding:6px 10px;background:var(--bg-soft);border-radius:var(--radius-md);margin-bottom:6px">' +
-            '<span class="fw-600">🔄 数据库迁移/切换</span><span>' + stTxt + '</span>' +
+            '<span class="fw-600">' . render_icon('action:refresh') . ' 数据库迁移/切换</span><span>' + stTxt + '</span>' +
             '<span class="fs-12 text-muted">' + escHtml(t.migration.from) + ' → ' + escHtml(t.migration.to) + '（' + t.migration.done_tables + '/' + t.migration.total_tables + ' 表）</span></div>');
     }
     if (t.dual_write) {
         items.push('<div class="flex-between" style="padding:6px 10px;background:var(--bg-soft);border-radius:var(--radius-md);margin-bottom:6px">' +
-            '<span class="fw-600">🔁 双向实时同步</span><span style="color:var(--success)">已开启</span>' +
+            '<span class="fw-600">' . render_icon('action:refresh') . ' 双向实时同步</span><span style="color:var(--success)">已开启</span>' +
             '<span class="fs-12 text-muted">镜像目标：' + escHtml((t.dual_write.target || '').toUpperCase()) + (t.dual_write.target_path ? '（' + escHtml(t.dual_write.target_path) + '）' : '') + '</span></div>');
     }
     if (t.backup_schedule) {
         var last = t.backup_schedule.last_result === 'ok' ? '最近成功：' + escHtml(t.backup_schedule.last_at) : (t.backup_schedule.last_result ? '最近：' + escHtml(t.backup_schedule.last_result) : '尚未执行');
         items.push('<div class="flex-between" style="padding:6px 10px;background:var(--bg-soft);border-radius:var(--radius-md);margin-bottom:6px">' +
-            '<span class="fw-600">💾 定时自动备份</span><span>每天 ' + escHtml(t.backup_schedule.hour) + '</span>' +
+            '<span class="fw-600">' . render_icon('action:save') . ' 定时自动备份</span><span>每天 ' + escHtml(t.backup_schedule.hour) + '</span>' +
             '<span class="fs-12 text-muted">' + last + '</span></div>');
     }
     box.innerHTML = items.length
@@ -619,9 +619,9 @@ function loadDbStatus() {
         loading: false,
         onSuccess: function (json) {
             var d = json.data || {};
-            var cfg = d.config_available ? '✓ 有效（' + escHtml(d.config_path) + '）' : '（无 config.db，按默认配置运行）';
+            var cfg = d.config_available ? render_icon('action:check') . ' 有效（' + escHtml(d.config_path) + '）' : '（无 config.db，按默认配置运行）';
             var ok = d.status === 'ok';
-            var statusBadge = '<span class="badge ' + (ok ? 'badge-success' : 'badge-danger') + '" style="font-size:11.5px">' + (ok ? '🟢 ' : '🔴 ') + escHtml(d.status_text || (ok ? '正常' : '不可用')) + '</span>';
+            var statusBadge = '<span class="badge ' + (ok ? 'badge-success' : 'badge-danger') + '" style="font-size:11.5px">' + (ok ? render_icon('alert:dot-green') . ' ' : render_icon('alert:dot-red') . ' ') + escHtml(d.status_text || (ok ? '正常' : '不可用')) + '</span>';
             box.innerHTML =
                 '<div class="flex-between"><span class="text-muted">连接状态</span><span>' + statusBadge + '</span></div>' +
                 '<div class="flex-between"><span class="text-muted">驱动类型</span><span class="badge badge-primary" style="font-size:11.5px">' + escHtml(d.driver_label) + '</span></div>' +
@@ -630,7 +630,7 @@ function loadDbStatus() {
                 '<div class="flex-between"><span class="text-muted">总行数</span><span>' + d.total_rows + ' 行</span></div>' +
                 '<div class="flex-between"><span class="text-muted">库大小</span><span>' + escHtml(d.size_human) + '</span></div>' +
                 '<div class="flex-between"><span class="text-muted">配置库</span><span class="fs-12">' + cfg + '</span></div>' +
-                (d.status === 'error' && d.error ? '<div class="fs-12 text-danger mt-4">✗ ' + escHtml(d.error) + '</div>' : '');
+                (d.status === 'error' && d.error ? '<div class="fs-12 text-danger mt-4">' . render_icon('action:close') . ' ' + escHtml(d.error) + '</div>' : '');
             var tl = document.getElementById('dbTableList');
             tl.innerHTML = (d.tables || []).map(function (t) {
                 return '<div class="flex-between" style="padding:5px 8px;border-radius:6px;cursor:pointer" onmouseover="this.style.background=\'var(--bg-soft)\'" onmouseout="this.style.background=\'\'" onclick="openDbTable(\'' + escHtml(t.name) + '\')">' +
@@ -667,9 +667,9 @@ function openDbTable(table) {
     }
     // 固定大小模态框（宽 modal-xl + 表格区固定高），数据过多时表格区内部滚动 + 滚动加载
     var html =
-        '<div class="flex-between mb-8"><span class="fw-600 fs-14" id="dbTableTitle">📋 ' + escHtml(table) + '</span>' +
-        '<span class="flex gap-8"><button class="btn btn-outline btn-sm" onclick="exportDbTableCsv()">⬇️ CSV</button>' +
-        '<button class="btn btn-outline btn-sm" onclick="refreshDbTable()">🔄 刷新</button></span></div>' +
+        '<div class="flex-between mb-8"><span class="fw-600 fs-14" id="dbTableTitle">' . render_icon('emr:record') . ' ' + escHtml(table) + '</span>' +
+        '<span class="flex gap-8"><button class="btn btn-outline btn-sm" onclick="exportDbTableCsv()">' . render_icon('action:download') . ' CSV</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="refreshDbTable()">' . render_icon('action:refresh') . ' 刷新</button></span></div>' +
         '<div class="table-wrap" id="dbTableScroll" style="height:440px;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-md)">' +
         '<div class="text-muted text-center" style="padding:30px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>';
     DB_TABLE_MODAL = Clinic.modal.open(html, { title: '数据表查看', size: 'modal-xl' });
@@ -677,7 +677,7 @@ function openDbTable(table) {
         el: document.getElementById('dbTableScroll'),
         pageSize: 50,
         threshold: 80,
-        emptyHtml: '<div class="empty" style="padding:40px 0"><div class="empty-ico">📋</div>该表暂无数据</div>',
+        emptyHtml: '<div class="empty" style="padding:40px 0"><div class="empty-ico">' . render_icon('emr:record') . '</div>该表暂无数据</div>',
         url: function (p, size) {
             return '/api/admin?action=db_table_data&table=' + encodeURIComponent(DB_CUR_TABLE) + '&page=' + p + '&size=' + size;
         },
@@ -693,7 +693,7 @@ function openDbTable(table) {
                 }).join('') + '</tr>';
             }).join('');
             var title = document.getElementById('dbTableTitle');
-            if (title && isFirst) title.textContent = '📋 ' + (data && data.table ? data.table : DB_CUR_TABLE) + '（共 ' + ((data && data.total) || 0) + ' 行）';
+            if (title && isFirst) title.textContent = render_icon('emr:record') . ' ' + (data && data.table ? data.table : DB_CUR_TABLE) + '（共 ' + ((data && data.total) || 0) + ' 行）';
             // 首屏返回完整表格结构，后续页仅返回行（由 append 插入 tbody）
             return isFirst
                 ? '<table class="table"><thead>' + headHtml + '</thead><tbody>' + rowHtml + '</tbody></table>'
@@ -745,13 +745,13 @@ function loadCacheStatus() {
                 toggleCacheRedisOpts();
             }
             var ok = d.status === 'ok';
-            var statusBadge = '<span class="badge ' + (ok ? 'badge-success' : 'badge-danger') + '" style="font-size:11.5px">' + (ok ? '🟢 ' : '🔴 ') + escHtml(d.status_text || (ok ? '正常' : '不可用')) + '</span>';
+            var statusBadge = '<span class="badge ' + (ok ? 'badge-success' : 'badge-danger') + '" style="font-size:11.5px">' + (ok ? '<?= render_icon('alert:dot-green') ?> ' : '<?= render_icon('alert:dot-red') ?> ') + escHtml(d.status_text || (ok ? '正常' : '不可用')) + '</span>';
             box.innerHTML =
                 '<div class="flex-between"><span class="text-muted">缓存状态</span><span>' + statusBadge + '</span></div>' +
                 '<div class="flex-between"><span class="text-muted">缓存驱动</span><span class="badge badge-primary" style="font-size:11.5px">' + escHtml(d.driver_label) + '</span></div>' +
                 '<div class="flex-between"><span class="text-muted">键数量</span><span>' + (d.keys || 0) + '</span></div>' +
                 (d.memory ? '<div class="flex-between"><span class="text-muted">占用内存</span><span>' + escHtml(d.memory) + '</span></div>' : '') +
-                ((d.notes || []).length ? d.notes.map(function (n) { return '<div class="fs-12 text-warning mt-4">⚠ ' + escHtml(n) + '</div>'; }).join('') : '');
+                ((d.notes || []).length ? d.notes.map(function (n) { return '<div class="fs-12 text-warning mt-4"><?= render_icon('alert:warning') ?> ' + escHtml(n) + '</div>'; }).join('') : '');
         },
         onError: function () { box.innerHTML = '<span class="text-danger">缓存状态读取失败</span>'; },
     });
@@ -761,8 +761,8 @@ function flushCache(scope) {
     msg.textContent = '刷新中…';
     Clinic.get('/api/admin?action=cache_flush&scope=' + encodeURIComponent(scope), null, {
         loading: false,
-        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
-        onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '刷新失败') + '</span>'; },
+        onSuccess: function (json) { msg.innerHTML = '<span class="text-success"><?= render_icon('action:check') ?> ' + escHtml(json.msg) + '</span>'; },
+        onError: function (x, j) { msg.innerHTML = '<span class="text-danger"><?= render_icon('action:close') ?> ' + escHtml((j && j.msg) || '刷新失败') + '</span>'; },
     });
 }
 
@@ -933,7 +933,7 @@ function startMigrate() {
         ? '目标 SQLite 文件将写入全部业务数据，迁移完成后主库切换到 SQLite'
         : '目标 ' + (meta ? meta.label : v) + ' 数据库将覆盖其中与业务表同名的表，迁移完成后主库切换';
     var mp = settingsCollectParams('db', v, 'migp_');
-    Clinic.modal.confirm('⚠️ 即将执行数据库迁移：\n' + p + '。\n迁移期间系统进入只读维护模式，请勿刷新页面。确定继续？', function () {
+    Clinic.modal.confirm('<?= render_icon('alert:warning') ?> 即将执行数据库迁移：\n' + p + '。\n迁移期间系统进入只读维护模式，请勿刷新页面。确定继续？', function () {
         var btn = event.target;
         msg.innerHTML = '<div class="flex gap-8" style="align-items:center"><div class="spinner" style="border-top-color:var(--primary);width:20px;height:20px;margin:0"></div>正在迁移，请勿关闭页面…</div>';
         Clinic.ajax('/api/admin', {
@@ -949,10 +949,10 @@ function startMigrate() {
             onSuccess: function (json) {
                 // 保存管理员取消令牌（锁定页据此显示取消按钮）
                 try { localStorage.setItem('migration_token', json.data.token || ''); } catch (e) {}
-                msg.innerHTML = '<span class="text-success fw-600">✓ ' + escHtml(json.msg) + '</span>';
+                msg.innerHTML = '<span class="text-success fw-600"><?= render_icon('action:check') ?> ' + escHtml(json.msg) + '</span>';
                 setTimeout(function () { location.reload(); }, 1200);   // 刷新进入全站锁定页（进度条）
             },
-            onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '迁移启动失败') + '</span>'; },
+            onError: function (x, j) { msg.innerHTML = '<span class="text-danger"><?= render_icon('action:close') ?> ' + escHtml((j && j.msg) || '迁移启动失败') + '</span>'; },
         });
     }, { title: '数据库迁移确认', okText: '开始迁移' });
 }
@@ -1032,14 +1032,14 @@ function saveBackupCfg() {
             }, {
                 onSuccess: function (j2) {
                     try { localStorage.setItem('dual_on', BK_MODE === 'dual' ? '1' : '0'); } catch (e) {}
-                    msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '；' + escHtml(j2.msg) + '</span>';
+                    msg.innerHTML = '<span class="text-success"><?= render_icon('action:check') ?> ' + escHtml(json.msg) + '；' + escHtml(j2.msg) + '</span>';
                     if (BK_MODE === 'dual') refreshDualStatus();
                     showBackupLastAt();
                 },
-                onError: function () { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; },
+                onError: function () { msg.innerHTML = '<span class="text-success"><?= render_icon('action:check') ?> ' + escHtml(json.msg) + '</span>'; },
             });
         },
-        onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '保存失败') + '</span>'; },
+        onError: function (x, j) { msg.innerHTML = '<span class="text-danger"><?= render_icon('action:close') ?> ' + escHtml((j && j.msg) || '保存失败') + '</span>'; },
     });
 }
 /* 最近一次备份/同步时间显示（标题右侧徽章） */
@@ -1072,8 +1072,8 @@ function runBackup() {
     Clinic.modal.confirm('即将把当前主库全部数据同步到备份库。\n备份期间建议避免大量写入操作，但系统可继续使用（不动主库指针）。\n确定执行备份？', function () {
         msg.innerHTML = '<div class="flex gap-8" style="align-items:center"><div class="spinner" style="border-top-color:var(--primary);width:20px;height:20px;margin:0"></div>正在备份，请稍候…</div>';
         Clinic.ajax('/api/admin', { action: 'backup_run' }, {
-            onSuccess: function (json) { msg.innerHTML = '<span class="text-success fw-600">✓ ' + escHtml(json.msg) + '</span>'; },
-            onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '备份失败') + '</span>'; },
+            onSuccess: function (json) { msg.innerHTML = '<span class="text-success fw-600"><?= render_icon('action:check') ?> ' + escHtml(json.msg) + '</span>'; },
+            onError: function (x, j) { msg.innerHTML = '<span class="text-danger"><?= render_icon('action:close') ?> ' + escHtml((j && j.msg) || '备份失败') + '</span>'; },
         });
     }, { title: '执行数据库备份', okText: '开始备份' });
 }
@@ -1082,18 +1082,18 @@ var BK_LOG_INF = null;
 function viewBackupLogs() {
     if (BK_LOG_INF) { BK_LOG_INF.stop(); BK_LOG_INF = null; }
     var mask = Clinic.modal.open(
-        '<div class="flex gap-8 mb-8"><button class="btn btn-outline btn-sm" onclick="exportBackupLog()">⬇️ 导出日志</button>' +
-        '<button class="btn btn-danger btn-sm" onclick="clearBackupLog()">🗑️ 清空日志</button>' +
+        '<div class="flex gap-8 mb-8"><button class="btn btn-outline btn-sm" onclick="exportBackupLog()"><?= render_icon('action:download') ?> 导出日志</button>' +
+        '<button class="btn btn-danger btn-sm" onclick="clearBackupLog()"><?= render_icon('action:delete') ?> 清空日志</button>' +
         '<span class="fs-12 text-muted" id="bkLogTotal"></span></div>' +
         '<div id="bkLogBox" style="height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-md);padding:10px;font-family:monospace;font-size:12px;line-height:1.8">' +
         '<div class="text-muted text-center" style="padding:20px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>',
-        { title: '📜 数据库操作日志', size: 'modal-lg' }
+        { title: '<?= render_icon('emr:scroll') ?> 数据库操作日志', size: 'modal-lg' }
     );
     BK_LOG_INF = Clinic.infiniteList({
         el: document.getElementById('bkLogBox'),
         pageSize: 100,
         threshold: 60,
-        emptyHtml: '<div class="empty" style="padding:40px 0"><div class="empty-ico">📋</div>暂无日志记录</div>',
+        emptyHtml: '<div class="empty" style="padding:40px 0"><div class="empty-ico"><?= render_icon('emr:record') ?></div>暂无日志记录</div>',
         url: function (p, size) { return '/api/admin?action=backup_logs&page=' + p + '&size=' + size; },
         render: function (list, isFirst, data) {
             var total = document.getElementById('bkLogTotal');
@@ -1137,8 +1137,5 @@ function saveCacheDriver() {
         memcached_servers: cp.servers || '',
         memcached_prefix: cp.prefix || '',
     }, {
-        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">✓ ' + escHtml(json.msg) + '</span>'; loadCacheStatus(); },
-        onError: function (x, j) { msg.innerHTML = '<span class="text-danger">✗ ' + escHtml((j && j.msg) || '保存失败') + '</span>'; },
-    });
-}
-</script>
+        onSuccess: function (json) { msg.innerHTML = '<span class="text-success"><?= render_icon('action:check') ?> ' + escHtml(json.msg) + '</span>'; loadCacheStatus(); },
+        onError: function (x, j) { msg.innerHTML = '<span class="text-danger"><?= render_icon('action:close') ?> ' + escHtml((j && j.msg) || '保存失败') + '</span>

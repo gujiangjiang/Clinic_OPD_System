@@ -8,12 +8,12 @@ Router::title('科室管理');
 ?>
 <div class="list-layout">
 <div class="page-head">
-    <div><div class="page-title">🏥 科室管理</div><div class="page-desc">门诊科室需设置上午/下午号源数量，急诊科室无需号源</div></div>
+    <div><div class="page-title"><?= render_icon('nav:hospital') ?> 科室管理</div><div class="page-desc">门诊科室需设置上午/下午号源数量，急诊科室无需号源</div></div>
     <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openDeptForm(0)">＋ 新增科室</button></div>
 </div>
 <div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" id="deptSearchKw" placeholder="🔍 快速搜索科室" style="width:220px" oninput="applyDeptFilter()">
+        <input class="input" id="deptSearchKw" placeholder=render_icon('action:search') . " 快速搜索科室" style="width:220px" oninput="applyDeptFilter()">
         <span class="flex gap-4" id="deptTypeTabs" style="flex-wrap:wrap">
             <button class="btn btn-sm btn-primary" data-dtype="clinic,emergency" onclick="deptTypeFilter(this,'clinic,emergency')">临床</button>
             <button class="btn btn-sm btn-outline" data-dtype="clinic" onclick="deptTypeFilter(this,'clinic')">门诊</button>
@@ -72,7 +72,7 @@ function openDeptForm(id) {
     mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
         mask.querySelector('.modal-foot').innerHTML =
             '<div style="display:flex;justify-content:space-between;align-items:center;width:100%">' +
-            '<button type="button" id="enabledToggle" class="btn btn-success" onclick="toggleItemEnabled()">✅ 启用</button>' +
+            '<button type="button" id="enabledToggle" class="btn btn-success" onclick="toggleItemEnabled()">' . render_icon('alert:success') . ' 启用</button>' +
             '<span><button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
             '<button type="button" class="btn btn-primary" id="deptSave">保存</button></span></div>';
         initEnabledToggle(id > 0);

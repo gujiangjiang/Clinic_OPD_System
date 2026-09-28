@@ -8,10 +8,10 @@
 Router::title('站内消息');
 ?>
 <div class="page-head">
-    <div><div class="page-title">💬 站内消息</div><div class="page-desc">系统内所有业务提醒与打印提醒</div></div>
+    <div><div class="page-title"><?= render_icon('emr:consult') ?> 站内消息</div><div class="page-desc">系统内所有业务提醒与打印提醒</div></div>
     <div class="flex gap-8">
-        <button class="btn btn-primary btn-sm" onclick="openSendMsg()">✉️ 发送消息</button>
-        <button class="btn btn-outline btn-sm" onclick="openSent()">📤 已发送</button>
+        <button class="btn btn-primary btn-sm" onclick="openSendMsg()"><?= render_icon('action:mail') ?> 发送消息</button>
+        <button class="btn btn-outline btn-sm" onclick="openSent()"><?= render_icon('action:export') ?> 已发送</button>
         <button class="btn btn-outline btn-sm" onclick="loadMsgs()">刷新</button>
     </div>
 </div>
@@ -24,23 +24,23 @@ function loadMsgs() {
             var list = json.data.list || [];
             var box = document.getElementById('msgBox');
             if (!list.length) {
-                box.innerHTML = '<div class="empty"><div class="empty-ico">📭</div>暂无消息</div>';
+                box.innerHTML = '<div class="empty"><div class="empty-ico">' . render_icon('action:mail') . '</div>暂无消息</div>';
                 return;
             }
             box.innerHTML = '<div class="flex-between mb-12"><span class="fs-13 text-muted">共 ' + list.length + ' 条消息</span>' +
                 '<div class="flex gap-4">' +
                 '<button class="btn btn-outline btn-sm" onclick="markAll()">全部已读</button>' +
-                '<button class="btn btn-outline btn-sm" onclick="clearAll()">🗑 一键清空</button>' +
+                '<button class="btn btn-outline btn-sm" onclick="clearAll()">' . render_icon('action:delete') . ' 一键清空</button>' +
                 '</div></div>' +
                 list.map(function (m) {
                     var btn = '';
                     if (m.print_type === 'pwd_reset') {
                         // 密码重置：管理员审核通过后，无需原密码直接设置新密码
-                        btn = '<button class="btn btn-warning btn-sm" onclick="event.stopPropagation();openResetPwd()">🔑 设置新密码</button>';
+                        btn = '<button class="btn btn-warning btn-sm" onclick="event.stopPropagation();openResetPwd()">' . render_icon('nav:key') . ' 设置新密码</button>';
                     } else if (m.print_url) {
                         // 纸张路由：凭条类=窄条凭条纸，其余默认
                         var psheet = m.print_url.indexOf('action=receipt') !== -1 || m.print_url.indexOf('action=payment') !== -1 ? 'ticket' : '';
-                        btn = '<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();Clinic.print.load(\'' + m.print_url + '\',null,\'' + psheet + '\')">🖨️ 打印</button>';
+                        btn = '<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();Clinic.print.load(\'' + m.print_url + '\',null,\'' + psheet + '\')">' . render_icon('action:print') . ' 打印</button>';
                     }
                     var isPatient = m.msg_type === 'patient';
                     var typeBadge = m.msg_type === 'critical'
@@ -51,7 +51,7 @@ function loadMsgs() {
                                 ? '<span class="msg-type msg-type-user">用户</span>'
                                 : '<span class="msg-type msg-type-system">系统</span>'));
                     var who = isPatient && m.patient_name
-                        ? '<span class="msg-who">👤 ' + Clinic.escHtml(m.patient_name) + '</span>' : '';
+                        ? '<span class="msg-who">' . render_icon('nav:user') . ' ' + Clinic.escHtml(m.patient_name) + '</span>' : '';
                     var jump = '';
                     if (m.link_url) jump = m.link_url;
                     else if (m.visit_id) jump = '/doctor/emr?visit_id=' + encodeURIComponent(m.visit_id);
@@ -63,7 +63,7 @@ function loadMsgs() {
                         '  <div class="fs-12 text-muted mt-4">' + Clinic.escHtml(m.created_at) + ' ｜ 来自 ' + Clinic.escHtml(m.from_name) + '</div>' +
                         '</div>' +
                         '<div class="flex gap-4">' + btn +
-                        '<button class="btn btn-outline btn-sm" title="删除" onclick="event.stopPropagation();delMsg(' + m.id + ')">🗑</button>' +
+                        '<button class="btn btn-outline btn-sm" title="删除" onclick="event.stopPropagation();delMsg(' + m.id + ')">' . render_icon('action:delete') . '</button>' +
                         '</div></div>';
                 }).join('');
             box.querySelectorAll('.msg-item').forEach(function (el) {
@@ -213,7 +213,7 @@ function openSendMsg() {
                 '<div class="send-msg-box">' +
                 '  <div class="fs-13 text-muted mb-8">' + (SEND_ADMIN ? '可多选群发（全院 / 按角色 / 指定用户）' : '仅可发送给一位用户，两次发送间隔 30 秒') + '</div>' +
                 '  <div class="tree-box">' +
-                '    <input class="input tree-box-search" id="smSearch" placeholder="🔍 搜索用户 / 工号，可定位到列表" autocomplete="off">' +
+                '    <input class="input tree-box-search" id="smSearch" placeholder="' . render_icon('action:search') . ' 搜索用户 / 工号，可定位到列表" autocomplete="off">' +
                 '    <div id="smSearchRes" class="tree-search-res" style="display:none"></div>' +
                 '    <div class="send-tree" id="sendMsgTree">' + tree + '</div>' +
                 '  </div>' +
@@ -223,7 +223,7 @@ function openSendMsg() {
                 '    <textarea class="textarea" id="smContent" rows="4" maxlength="500" placeholder="请输入内容（500 字以内）"></textarea></div>' +
                 '</div>';
             Clinic.modal.open(html, {
-                title: '✉️ 发送消息',
+                title: render_icon('action:mail') . ' 发送消息',
                 size: 'modal-sm',
                 buttons: [
                     { text: '取消', cls: 'btn-outline' },
@@ -298,7 +298,7 @@ function openSent() {
             var list = json.data.list || [];
             var body = list.length
                 ? '<div class="flex-between mb-8"><span class="fs-13 text-muted">共 ' + list.length + ' 条发送记录</span>' +
-                  '<button class="btn btn-outline btn-sm" onclick="sentClear()">🗑 一键清空</button></div>' +
+                  '<button class="btn btn-outline btn-sm" onclick="sentClear()">' . render_icon('action:delete') . ' 一键清空</button></div>' +
                   list.map(function (m) {
                       return '<div class="sent-item" style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--border)">' +
                           '<input type="checkbox" class="sent-check" value="' + m.id + '">' +
@@ -309,13 +309,13 @@ function openSent() {
                           '  <div class="fs-12 text-muted mt-4">' + Clinic.escHtml(m.created_at) + '</div>' +
                           '</div></div>';
                   }).join('')
-                : '<div class="empty"><div class="empty-ico">📤</div>暂无发送记录</div>';
+                : '<div class="empty"><div class="empty-ico">' . render_icon('action:export') . '</div>暂无发送记录</div>';
             var foot = list.length
-                ? '<div class="flex gap-8 mt-12"><button class="btn btn-danger btn-sm" onclick="sentDelChecked()">🗑 删除选中</button></div>'
+                ? '<div class="flex gap-8 mt-12"><button class="btn btn-danger btn-sm" onclick="sentDelChecked()">' . render_icon('action:delete') . ' 删除选中</button></div>'
                 : '';
             Clinic.modal.open(
                 '<div class="sent-list-box">' + body + foot + '</div>',
-                { title: '📤 已发送的消息', size: 'modal-lg' }
+                { title: render_icon('action:export') . ' 已发送的消息', size: 'modal-lg' }
             );
         },
     });

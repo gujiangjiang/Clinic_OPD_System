@@ -29,13 +29,13 @@ foreach ($depts as $d) {
 ?>
 <div class="list-layout">
 <div class="page-head">
-    <div><div class="page-title">🖥️ 叫号管理</div><div class="page-desc">诊室 / 大屏配置、Token 与在线状态管理</div></div>
+    <div><div class="page-title"><?= render_icon('nav:screen') ?> 叫号管理</div><div class="page-desc">诊室 / 大屏配置、Token 与在线状态管理</div></div>
 </div>
 
 <div class="card list-filter">
     <div class="flex-between" style="flex-wrap:wrap;gap:12px">
         <div class="flex gap-8" style="align-items:center">
-            <button class="btn btn-primary" id="cmDeptBtn" onclick="openDeptPicker()">🏥 选择科室</button>
+            <button class="btn btn-primary" id="cmDeptBtn" onclick="openDeptPicker()"><?= render_icon('nav:hospital') ?> 选择科室</button>
             <span class="fs-14 fw-600" id="cmDeptLabel">未选择科室</span>
             <span class="fs-13 text-muted" id="cmDeptStats"></span>
         </div>
@@ -44,7 +44,7 @@ foreach ($depts as $d) {
     <div class="fs-12 text-muted mt-8">大屏在线状态以心跳为准（最近 30 秒内有心跳视为在线），页面每 10 秒自动刷新状态；重置 Token 后旧链接立即失效。</div>
 </div>
 
-<div class="card list-card"><div class="list-scroll" id="cmList"><div class="empty cm-empty"><div class="empty-ico">🏥</div>请先选择科室，查看该科室下的大屏配置<br><span class="fs-13 text-muted">点击上方「🏥 选择科室」按钮开始使用</span></div></div></div>
+<div class="card list-card"><div class="list-scroll" id="cmList"><div class="empty cm-empty"><div class="empty-ico"><?= render_icon('nav:hospital') ?></div>请先选择科室，查看该科室下的大屏配置<br><span class="fs-13 text-muted">点击上方「<?= render_icon('nav:hospital') ?> 选择科室」按钮开始使用</span></div></div></div>
 </div>
 
 <style>
@@ -90,7 +90,7 @@ function openPicker() {
         mode: 'call',
         depts: CM_DEPS,
         currentId: CM_DEPT,
-        // 叫号大屏场景：只显示大屏统计（🖥️ 在线/总数），不显示 门诊/急诊 徽章；
+        // 叫号大屏场景：只显示大屏统计（ 在线/总数），不显示 门诊/急诊 徽章；
         // 含 急诊/门诊/医技/其他 四个 Tab
         showRoomStats: true,
         onSelect: function (d) { pickDept(d.id); },
@@ -294,7 +294,7 @@ function editRoom(id, name, type, voice, mask, crossDay) {
         '<label class="flex gap-4 mb-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="erMask"' + (mask ? ' checked' : '') + '> 患者姓名脱敏（张*三）</label>' +
         '<label class="flex gap-4 mb-4" style="font-size:13px;cursor:pointer" title="默认只叫当天号源；开启后在一次登录（绑定）期间支持跨0点继续叫号（如急诊夜班）"><input type="checkbox" id="erCross"' + (crossDay ? ' checked' : '') + '> 允许跨天叫号（急诊夜班场景）</label>' +
         '<div class="fs-12 text-muted mb-8">跨天规则：不允许时跨天自动清空前一天所有叫号记录；允许时仅本次登录内跨0点延续，重新登录后仍只显示当天号源。</div>' +
-        '<div class="card-title mt-8"><span>💡 温馨提示</span></div>' +
+        '<div class="card-title mt-8"><span>' . render_icon('action:idea') . ' 温馨提示</span></div>' +
         '<div class="fs-12 text-muted mb-4">每行一条，留空则使用默认提示；多条提示自动轮播切换。</div>' +
         '<textarea class="textarea" id="erTips" rows="4" placeholder="请输入温馨提示，每行一条">' + Clinic.escHtml(tipsText) + '</textarea>' +
         '<div class="form-row mt-4"><div class="form-group"><label class="form-label">轮播间隔（秒）</label>' +

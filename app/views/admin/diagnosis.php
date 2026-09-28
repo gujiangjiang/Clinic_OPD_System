@@ -12,22 +12,22 @@ Router::title('诊断字典');
 ?>
 <div class="list-layout">
 <div class="page-head">
-    <div><div class="page-title">📖 诊断字典</div><div class="page-desc">ICD10 标准编码库 · 四级分类树：章→节→类目→亚目→诊断</div></div>
+    <div><div class="page-title"><?= render_icon('emr:book') ?> 诊断字典</div><div class="page-desc">ICD10 标准编码库 · 四级分类树：章→节→类目→亚目→诊断</div></div>
 </div>
 <div class="card list-filter" style="position:relative">
-    <input class="input" id="diagKw" placeholder="🔍 输入诊断码 / 名称 / 拼音首字母（实时检索）" autocomplete="off" oninput="diagSearchDebounced()" onfocus="showSearchDrop()">
+    <input class="input" id="diagKw" placeholder=render_icon('action:search') . " 输入诊断码 / 名称 / 拼音首字母（实时检索）" autocomplete="off" oninput="diagSearchDebounced()" onfocus="showSearchDrop()">
     <div id="searchDrop" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;max-height:350px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:0 0 8px 8px;box-shadow:0 8px 24px var(--shadow)"></div>
 </div>
 <div class="flex gap-16 diag-body" style="align-items:stretch">
     <div class="card" style="width:360px;flex-shrink:0;display:flex;flex-direction:column;padding:0;overflow:hidden" id="treeBox">
-        <div class="card-title" style="padding:14px 16px 0;margin-bottom:8px">📂 分类树</div>
+        <div class="card-title" style="padding:14px 16px 0;margin-bottom:8px"><?= render_icon('emr:folder') ?> 分类树</div>
         <div id="icdTree" style="flex:1;overflow-y:auto;padding:0 16px 16px"><div class="fs-13 text-muted">加载中…</div></div>
     </div>
     <div class="card" style="flex:1;min-width:0;display:flex;flex-direction:column;padding:0;overflow:hidden" id="detailBox">
         <div id="detailTitle" style="flex-shrink:0;padding:14px 16px 0;display:none"></div>
         <div id="detailContent" style="flex:1;overflow-y:auto;padding:12px 16px 16px;display:flex;align-items:center;justify-content:center">
             <div style="text-align:center">
-                <div style="font-size:48px;line-height:1;margin-bottom:12px">📖</div>
+                <div style="font-size:48px;line-height:1;margin-bottom:12px"><?= render_icon('emr:book') ?></div>
                 <div class="fw-600" style="font-size:16px;color:var(--text-muted)">选择左侧类目查看诊断详情</div>
                 <div class="fs-13 text-muted" style="margin-top:6px">点击左侧分类树中的类目节点，右侧将显示该类目下的所有诊断</div>
             </div>
@@ -227,7 +227,7 @@ function loadTree() {
         onSuccess: function (j) {
             var list = j.data.list || [];
             if (!list.length) {
-                document.getElementById('icdTree').innerHTML = '<div class="empty" style="padding:20px 0"><div class="empty-ico" style="font-size:32px">📂</div>暂无诊断数据</div>';
+                document.getElementById('icdTree').innerHTML = '<div class="empty" style="padding:20px 0"><div class="empty-ico" style="font-size:32px">' . render_icon('emr:folder') . '</div>暂无诊断数据</div>';
                 return;
             }
             document.getElementById('icdTree').innerHTML = list.map(function (ch) {
@@ -392,10 +392,4 @@ function toggleSubDiags(el, wrapId) {
         if (toggle) toggle.textContent = '+';
     } else {
         wrap.style.display = '';
-        if (toggle) toggle.textContent = '−';
-    }
-}
-
-/* ==================== 初始化 ==================== */
-loadTree();
-</script>
+        if (toggle) toggle.textContent = '−

@@ -8,7 +8,7 @@
 Router::title('退费申请审批');
 ?>
 <div class="page-head">
-    <div><div class="page-title">🧾 退费申请审批</div><div class="page-desc">核对患者与项目执行状态后确认是否同意退费</div></div>
+    <div><div class="page-title"><?= render_icon('emr:receipt') ?> 退费申请审批</div><div class="page-desc">核对患者与项目执行状态后确认是否同意退费</div></div>
 </div>
 <div id="reqBox"><div class="empty"><div class="spinner"></div></div></div>
 
@@ -33,8 +33,8 @@ function loadReq() {
                     '<div class="form-group"><label class="form-label">意见（可选）</label>' +
                     '<textarea class="textarea" id="apNote" rows="2" placeholder="如：患者已完成该检查，同意退费"></textarea></div>' +
                     '<div class="flex gap-8 mt-8">' +
-                    '<button class="btn btn-danger" onclick="doVote(\'reject\')">✕ 拒绝退费</button>' +
-                    '<button class="btn btn-primary" onclick="doVote(\'approve\')">✓ 同意退费</button></div>' +
+                    '<button class="btn btn-danger" onclick="doVote(\'reject\')">' . render_icon('action:close') . ' 拒绝退费</button>' +
+                    '<button class="btn btn-primary" onclick="doVote(\'approve\')">' . render_icon('action:check') . ' 同意退费</button></div>' +
                     (MY_ROLE === 'admin' ? '<div class="fs-12 text-muted mt-4">管理员代审</div>' : '') +
                     '</div>';
             } else if (r.status === 'pending') {
@@ -43,7 +43,7 @@ function loadReq() {
             document.getElementById('reqBox').innerHTML = html;
         },
         onError: function () {
-            document.getElementById('reqBox').innerHTML = '<div class="empty"><div class="empty-ico">🔍</div>退费申请不存在或已失效</div>';
+            document.getElementById('reqBox').innerHTML = '<div class="empty"><div class="empty-ico">' . render_icon('action:search') . '</div>退费申请不存在或已失效</div>';
         },
     });
 }

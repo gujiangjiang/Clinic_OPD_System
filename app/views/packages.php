@@ -15,7 +15,7 @@ $isAdmin = $u['role'] === 'admin';
 ?>
 <div class="list-layout">
 <div class="page-head">
-    <div><div class="page-title">🥡 套餐管理</div><div class="page-desc">快速开单套餐（检验 / 检查 / 处置 / 处方）</div></div>
+    <div><div class="page-title"><?= render_icon('emr:disposal') ?> 套餐管理</div><div class="page-desc">快速开单套餐（检验 / 检查 / 处置 / 处方）</div></div>
     <div class="flex gap-8">
         <select class="select" id="pkgTypeSel" style="width:170px;height:34px;font-size:13px" onchange="pkgChangeType()">
             <option value="lab">检验套餐</option>
@@ -28,7 +28,7 @@ $isAdmin = $u['role'] === 'admin';
 </div>
 <div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" id="pkgKw" placeholder="🔍 搜索套餐名称" style="width:220px">
+        <input class="input" id="pkgKw" placeholder=render_icon('action:search') . " 搜索套餐名称" style="width:220px">
         <span class="fs-13 text-muted" id="pkgCount"></span>
         <span class="flex gap-4" id="pkgScopeTabs" style="flex-wrap:wrap">
             <button class="btn btn-sm btn-primary" data-pscope="" onclick="pkgSetScope(this,'')">全部</button>
@@ -380,7 +380,7 @@ function pkgBuildForm(mask, pkg, readonly) {
         '  </div>' +
         '  <div class="pkg-right">' +
         '    <div class="pkg-cat-box">' +
-        '      <input type="text" class="input" id="pkgCatKw" placeholder="🔍 搜索' + (isDrug ? '药品（名称 / 厂家简称）' : '项目名称') + '，点击加入套餐" autocomplete="off" style="flex-shrink:0">' +
+        '      <input type="text" class="input" id="pkgCatKw" placeholder="' . render_icon('action:search') . ' 搜索' + (isDrug ? '药品（名称 / 厂家简称）' : '项目名称') + '，点击加入套餐" autocomplete="off" style="flex-shrink:0">' +
         '    </div>' +
         '    <div class="fs-13 text-muted mt-8 mb-4">套餐内容 <strong id="pkgItemCount">0</strong> 项 ｜ 合计 <strong id="pkgItemTotal" style="color:var(--danger)">¥0.00</strong></div>' +
         '    <div id="pkgItems" style="flex:1;min-height:0;overflow-y:auto;padding-right:4px">' +
@@ -426,7 +426,7 @@ function pkgBuildForm(mask, pkg, readonly) {
     pkgRenderItems();
     // 只读预览：底栏仅提示，不提供保存；编辑模式提供取消/保存
     mask.querySelector('.modal-foot').innerHTML = readonly
-        ? '<span class="fs-12 text-muted">🔒 只读预览 — 套餐内容不可编辑、不可保存</span>'
+        ? '<span class="fs-12 text-muted">' . render_icon('nav:lock') . ' 只读预览 — 套餐内容不可编辑、不可保存</span>'
         : '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
           '<button type="button" class="btn btn-primary" id="pkgSaveBtn">保存</button>';
     if (!readonly) {
@@ -681,7 +681,7 @@ function pkgGroupMemberNames(item) {
 }
 
 /** 只读预览：剂量/频次/途径/护士全部保留与编辑一致的输入框/下拉/勾选样式，但全部 disabled；
- * 仅隐藏数量-+/更换/✕（由 pkgRenderItems 只读分支负责不渲染 headActions/更换/✕） */
+ * 仅隐藏数量-+/更换/（由 pkgRenderItems 只读分支负责不渲染 headActions/更换/） */
 function pkgReadonlyControls(s) {
     // 剂量：优先展示含单位的单次剂量串（如「2 粒」），结构化规格 → disabled 按钮，否则 disabled 输入框
     var doseText = s.single_dose || (s.dose ? s.dose + (s.dose_unit || '') : '');
@@ -699,7 +699,7 @@ function pkgReadonlyControls(s) {
     return '<div class="flex gap-8 mt-4" style="flex-wrap:wrap;align-items:center">' + doseArea + freqSel + routeSel + nurseSel + '</div>';
 }
 
-/** 只读子医嘱：保留成组医嘱行（名称/规格 + 剂量 + 数量），控件 disabled，隐藏 -/+✕ */
+/** 只读子医嘱：保留成组医嘱行（名称/规格 + 剂量 + 数量），控件 disabled，隐藏 -/+ */
 function pkgReadonlySub(s) {
     return '<div class="fs-12 text-muted mt-2" style="margin:6px 0 0 20px;border-left:2px solid var(--warning);padding-left:10px">成组医嘱：' +
         s.sub_items.map(function (sub, si) {
@@ -735,7 +735,7 @@ function pkgRenderItems() {
     document.getElementById('pkgItemTotal').textContent = '' + Clinic.money(total);
     box.innerHTML = PKG_ITEMS.map(function (s, i) {
         var isReadonly = PKG_READONLY;
-        // 只读预览：保留与编辑一致的输入框/下拉样式（disabled），隐藏数量-+/护士/更换/✕
+        // 只读预览：保留与编辑一致的输入框/下拉样式（disabled），隐藏数量-+/护士/更换/
         var extra = '';
         var headActions = '';
         var replaceBtn = '';
@@ -757,7 +757,7 @@ function pkgRenderItems() {
             // 这是「更换」按钮的核心用途；非处方在删除左侧；处方靠右显示在头部下方
             replaceBtn = '<button type="button" class="btn btn-outline btn-sm" ' +
                 'onclick="Clinic.order.openReplace(\'pkg\',' + i + ',this,\'' + PKG_TYPE + '\',pkgReplaceUrl)" title="快速更换为其他项目">更换</button>';
-            delBtn = '<button type="button" class="btn btn-outline btn-sm" onclick="pkgRemoveItem(' + i + ')">✕</button>';
+            delBtn = '<button type="button" class="btn btn-outline btn-sm" onclick="pkgRemoveItem(' + i + ')">' . render_icon('action:close') . '</button>';
         }
         var head =
             '<div class="head">' +
@@ -783,7 +783,7 @@ function pkgRenderItems() {
             // 组合成员标签：按组合 ID 从 lab_map 权威解析（不依赖快照字段，避免保存后缺失）
             var memNames = pkgGroupMemberNames(s);
             if (memNames.length) {
-                groupInfo = '<div class="fs-12 text-muted mt-2 pkg-mem-info">🧩 组合项目（按组价整体收费），含：<span class="pkg-mem-mems">' +
+                groupInfo = '<div class="fs-12 text-muted mt-2 pkg-mem-info">' . render_icon('emr:template') . ' 组合项目（按组价整体收费），含：<span class="pkg-mem-mems">' +
                     memNames.map(function (m) { return '<span class="pkg-mem-chip">' + escHtml(m) + '</span>'; }).join('') +
                     '</span></div>';
             }

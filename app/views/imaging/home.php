@@ -3,7 +3,7 @@ require APP_ROOT . '/app/includes/role_home.php';
 render_role_home(array(
     'title' => '影像科首页',
     'desc' => '今日检查工作概览',
-    'cta' => array('/imaging/dashboard', '🩻 进入影像科工作台'),
+    'cta' => array('/imaging/dashboard', render_icon('nav:imaging') . ' 进入影像科工作台'),
     'api' => '/api/imaging?action=home_stats',
     'stats' => array(
         array('today_items', '今日检查量'),
@@ -15,9 +15,9 @@ render_role_home(array(
     ),
     'chart' => array('title' => '近 7 天检查量趋势', 'name' => '检查量'),
     'links' => array(
-        array('/imaging/dashboard', '🩻 影像科工作台'),
-        array('/admin/examitems', '📋 检查管理'),
-        array('/messages', '💬 站内消息'),
+        array('/imaging/dashboard', render_icon('nav:imaging') . ' 影像科工作台'),
+        array('/admin/examitems', render_icon('emr:record') . ' 检查管理'),
+        array('/messages', render_icon('emr:consult') . ' 站内消息'),
     ),
     'tips' => array(
         '1. 缴费后的检查项目在【影像科工作台】→「待登记」列表中',

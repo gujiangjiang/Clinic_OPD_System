@@ -12,7 +12,7 @@
  *   render_role_home(array(
  *       'title'  => '收费处首页',
  *       'desc'   => '今日挂号收费概览',
- *       'cta'    => array('/cashier/register', '{{ICON:emr:ticket}} 进入挂号收费'),
+ *       'cta'    => array('/cashier/register', ' 进入挂号收费'),
  *       'api'    => '/api/cashier?action=home_stats',
  *       'stats'  => array(
  *           array('reg_today', '今日挂号数'),
@@ -20,7 +20,7 @@
  *       ),
  *       'colors' => array('refund_today' => 'var(--danger)'), // 可选：特例颜色
  *       'chart'  => array('title' => '近 7 天缴费收入趋势', 'name' => '缴费收入'),
- *       'links'  => array(array('/cashier/register', '{{ICON:emr:ticket}} 挂号收费'), ...),
+ *       'links'  => array(array('/cashier/register', ' 挂号收费'), ...),
  *       'tips'   => array('1. ...', ...),
  *   ));
  * ============================================================ */

@@ -6,7 +6,7 @@
 Router::title('首页');
 ?>
 <div class="page-head">
-    <div><div class="page-title">🏠 首页</div><div class="page-desc">全站运营概览</div></div>
+    <div><div class="page-title"><?= render_icon('nav:home') ?> 首页</div><div class="page-desc">全站运营概览</div></div>
 </div>
 
 <div class="stat-grid" id="statsBox">
@@ -29,14 +29,14 @@ Router::title('首页');
     <div class="card" style="flex:1">
         <div class="card-title">快速入口</div>
         <div class="flex gap-8" style="flex-wrap:wrap">
-            <a class="btn btn-outline btn-sm" href="/admin/departments">🏥 科室管理</a>
-            <a class="btn btn-outline btn-sm" href="/admin/users">👥 用户管理</a>
-            <a class="btn btn-outline btn-sm" href="/admin/labitems">🧪 检验管理</a>
-            <a class="btn btn-outline btn-sm" href="/admin/examitems">🩻 检查管理</a>
-            <a class="btn btn-outline btn-sm" href="/admin/drugs">💊 药品目录</a>
-            <a class="btn btn-outline btn-sm" href="/admin/review">✅ 审核中心</a>
-            <a class="btn btn-outline btn-sm" href="/admin/printcenter">🖨️ 打印中心</a>
-            <a class="btn btn-outline btn-sm" href="/cashier/register">🎫 挂号收费（体验）</a>
+            <a class="btn btn-outline btn-sm" href="/admin/departments"><?= render_icon('nav:hospital') ?> 科室管理</a>
+            <a class="btn btn-outline btn-sm" href="/admin/users"><?= render_icon('nav:group') ?> 用户管理</a>
+            <a class="btn btn-outline btn-sm" href="/admin/labitems"><?= render_icon('nav:lab') ?> 检验管理</a>
+            <a class="btn btn-outline btn-sm" href="/admin/examitems"><?= render_icon('nav:imaging') ?> 检查管理</a>
+            <a class="btn btn-outline btn-sm" href="/admin/drugs"><?= render_icon('nav:pharmacy') ?> 药品目录</a>
+            <a class="btn btn-outline btn-sm" href="/admin/review"><?= render_icon('alert:success') ?> 审核中心</a>
+            <a class="btn btn-outline btn-sm" href="/admin/printcenter"><?= render_icon('action:print') ?> 打印中心</a>
+            <a class="btn btn-outline btn-sm" href="/cashier/register"><?= render_icon('emr:ticket') ?> 挂号收费（体验）</a>
         </div>
     </div>
     <div class="card" style="flex:1">

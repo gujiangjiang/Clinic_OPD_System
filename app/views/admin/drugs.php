@@ -14,7 +14,7 @@ $__canManage = $__isAdmin || $__isPharmacy;
 ?>
 <div class="list-layout">
 <div class="page-head">
-    <div><div class="page-title">💊 药品目录</div><div class="page-desc">药品档案管理<?php echo $__canManage ? '' : '（新增药品需审核通过后可用）'; ?></div></div>
+    <div><div class="page-title"><?= render_icon('nav:pharmacy') ?> 药品目录</div><div class="page-desc">药品档案管理<?php echo $__canManage ? '' : '（新增药品需审核通过后可用）'; ?></div></div>
     <div class="flex gap-8">
         <span id="drugImportBtns" class="flex gap-8"></span>
         <button class="btn btn-primary btn-sm" onclick="openDrugForm(0)">＋ 新增药品</button>
@@ -22,7 +22,7 @@ $__canManage = $__isAdmin || $__isPharmacy;
 </div>
 <div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" id="drugSearch" placeholder="🔍 快速搜索药品 / 通用名 / 厂家" style="width:220px">
+        <input class="input" id="drugSearch" placeholder=render_icon('action:search') . " 快速搜索药品 / 通用名 / 厂家" style="width:220px">
         <span class="fs-13 text-muted" id="drugCountDiv"></span>
         <span class="flex gap-4" id="drugCatTabs" style="flex-wrap:wrap"></span>
     </div>
@@ -89,7 +89,7 @@ function openDrugForm(id) {
 
         mask.querySelector('.modal-foot').innerHTML =
             '<div style="display:flex;justify-content:space-between;align-items:center;width:100%">' +
-            '<button type="button" id="enabledToggle" class="btn btn-sm btn-success" onclick="toggleItemEnabled()">✅ 启用</button>' +
+            '<button type="button" id="enabledToggle" class="btn btn-sm btn-success" onclick="toggleItemEnabled()">' . render_icon('alert:success') . ' 启用</button>' +
             '<span><button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
             '<button type="button" class="btn btn-primary" id="drugSave">保存</button></span></div>';
         initEnabledToggle(id > 0);

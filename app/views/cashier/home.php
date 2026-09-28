@@ -3,7 +3,7 @@ require APP_ROOT . '/app/includes/role_home.php';
 render_role_home(array(
     'title' => '收费处首页',
     'desc' => '今日挂号收费概览',
-    'cta' => array('/cashier/register', '🎫 进入挂号收费'),
+    'cta' => array('/cashier/register', render_icon('emr:ticket') . ' 进入挂号收费'),
     'api' => '/api/cashier?action=home_stats',
     'stats' => array(
         array('reg_today', '今日挂号数'),
@@ -15,10 +15,10 @@ render_role_home(array(
     'colors' => array('refund_today' => 'var(--danger)'),
     'chart' => array('title' => '近 7 天缴费收入趋势', 'name' => '缴费收入'),
     'links' => array(
-        array('/cashier/register', '🎫 挂号收费'),
-        array('/cashier/regmanage', '📋 挂号管理'),
-        array('/cashier/paymanage', '💳 缴费管理'),
-        array('/messages', '💬 站内消息'),
+        array('/cashier/register', render_icon('emr:ticket') . ' 挂号收费'),
+        array('/cashier/regmanage', render_icon('emr:record') . ' 挂号管理'),
+        array('/cashier/paymanage', render_icon('nav:card') . ' 缴费管理'),
+        array('/messages', render_icon('emr:consult') . ' 站内消息'),
     ),
     'tips' => array(
         '1. 【挂号收费】完成挂号并缴费，自动打印挂号凭条',

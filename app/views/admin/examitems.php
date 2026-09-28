@@ -10,16 +10,16 @@ $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
 ?>
 <div class="list-layout">
 <div class="page-head">
-    <div><div class="page-title">🩻 检查项目管理</div><div class="page-desc">检查项目与分类管理<?php echo $__isAdmin ? '' : '（新项目需审核通过后可用）'; ?></div></div>
+    <div><div class="page-title"><?= render_icon('nav:imaging') ?> 检查项目管理</div><div class="page-desc">检查项目与分类管理<?php echo $__isAdmin ? '' : '（新项目需审核通过后可用）'; ?></div></div>
     <div class="flex gap-8">
-        <button class="btn btn-outline btn-sm" id="examCatBtn" onclick="openCatMgr()">🗂️ 分类管理</button>
+        <button class="btn btn-outline btn-sm" id="examCatBtn" onclick="openCatMgr()"><?= render_icon('emr:archive') ?> 分类管理</button>
         <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openItemForm(0)">＋ 新增检查项目</button></div>
     </div>
 </div>
 
 <div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" id="examSearch" placeholder="🔍 快速搜索检查项目" style="width:220px">
+        <input class="input" id="examSearch" placeholder=render_icon('action:search') . " 快速搜索检查项目" style="width:220px">
         <span class="fs-13 text-muted" id="examCountDiv"></span>
         <span class="flex gap-4" id="examCatTabs" style="flex-wrap:wrap"></span>
     </div>
@@ -66,7 +66,7 @@ function openItemForm(id) {
     mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
         mask.querySelector('.modal-foot').innerHTML =
             '<div style="display:flex;justify-content:space-between;align-items:center;width:100%">' +
-            '<button type="button" id="enabledToggle" class="btn btn-sm btn-success" onclick="toggleItemEnabled()">✅ 启用</button>' +
+            '<button type="button" id="enabledToggle" class="btn btn-sm btn-success" onclick="toggleItemEnabled()">' . render_icon('alert:success') . ' 启用</button>' +
             '<span><button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
             '<button type="button" class="btn btn-primary" id="itemSave">保存</button></span></div>';
         initEnabledToggle(id > 0);

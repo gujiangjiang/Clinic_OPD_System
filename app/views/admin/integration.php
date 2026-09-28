@@ -33,7 +33,7 @@ $hisKeyNow = trim((string)setting('his_api_key', ''));
 $orgCode = trim((string)setting('org_code', ''));
 ?>
 <div class="page-head">
-    <div><div class="page-title">🔌 接口管理</div>
+    <div><div class="page-title"><?= render_icon('nav:plug') ?> 接口管理</div>
     <div class="page-desc">统一维护 HIS、支付、医保与医疗影像互联标准接口（DICOM/PACS · HL7 v2.x · FHIR R4）配置</div></div>
 </div>
 
@@ -64,16 +64,16 @@ $orgCode = trim((string)setting('org_code', ''));
         <!-- HIS 接口：左右两栏（详情/配置/接口/测试/说明），不套外层卡片 -->
         <div class="db-center" style="height:auto;align-items:flex-start">
             <div class="card db-sidebar">
-                <div class="db-nav active" data-histab="detail" onclick="hisTab('detail')">📊 详情</div>
-                <div class="db-nav" data-histab="config" onclick="hisTab('config')">⚙️ 配置</div>
-                <div class="db-nav" data-histab="api" onclick="hisTab('api')">🔗 接口</div>
-                <div class="db-nav" data-histab="test" onclick="hisTab('test')">🧪 测试</div>
-                <div class="db-nav" data-histab="docs" onclick="hisTab('docs')">📖 说明</div>
+                <div class="db-nav active" data-histab="detail" onclick="hisTab('detail')"><?= render_icon('nav:chart') ?> 详情</div>
+                <div class="db-nav" data-histab="config" onclick="hisTab('config')"><?= render_icon('nav:settings') ?> 配置</div>
+                <div class="db-nav" data-histab="api" onclick="hisTab('api')"><?= render_icon('action:link') ?> 接口</div>
+                <div class="db-nav" data-histab="test" onclick="hisTab('test')"><?= render_icon('nav:lab') ?> 测试</div>
+                <div class="db-nav" data-histab="docs" onclick="hisTab('docs')"><?= render_icon('emr:book') ?> 说明</div>
             </div>
             <div class="db-main">
                 <div class="db-pane" id="histab-detail">
                     <div class="card setting-card">
-                        <div class="card-title">📊 接口详情</div>
+                        <div class="card-title"><?= render_icon('nav:chart') ?> 接口详情</div>
                         <div class="fs-13" style="line-height:2.2">
                             <div class="flex-between"><span class="text-muted">启用状态</span><span id="hisStatusBadge" class="badge badge-gray" style="font-size:11.5px">未启用</span></div>
                             <div class="flex-between"><span class="text-muted">系统代码</span><span id="hisDetailSyscode">—</span></div>
@@ -85,7 +85,7 @@ $orgCode = trim((string)setting('org_code', ''));
                 </div>
                 <div class="db-pane" id="histab-config" style="display:none">
                     <div class="card setting-card">
-                        <div class="card-title">⚙️ HIS 接口配置</div>
+                        <div class="card-title"><?= render_icon('nav:settings') ?> HIS 接口配置</div>
                         <?php foreach ($g['fields'] as $f): ?>
                         <div class="form-group">
                             <label class="form-label"><?php echo e($f['label']); ?>
@@ -108,8 +108,8 @@ $orgCode = trim((string)setting('org_code', ''));
                                         <?php if (!empty($f['monospace'])): ?> style="font-family:monospace"<?php endif; ?>
                                         <?php if ($isOrgCode): ?> readonly title="自动引用系统医疗机构代码（org_code），无需人工输入"<?php endif; ?>>
                                     <?php if ($isHisKey): ?>
-                                        <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="genHisKey()">🔑 生成密钥</button>
-                                        <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="clearHisKey()">🧹 清空密钥</button>
+                                        <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="genHisKey()"><?= render_icon('nav:key') ?> 生成密钥</button>
+                                        <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="clearHisKey()"><?= render_icon('action:clean') ?> 清空密钥</button>
                                     <?php endif; ?>
                                 </div>
                             <?php endif; ?>
@@ -123,7 +123,7 @@ $orgCode = trim((string)setting('org_code', ''));
                 </div>
                 <div class="db-pane" id="histab-api" style="display:none">
                     <div class="card setting-card">
-                        <div class="card-title">🔗 接口地址与调用示例</div>
+                        <div class="card-title"><?= render_icon('action:link') ?> 接口地址与调用示例</div>
                         <div class="form-group"><label class="form-label">HIS 接口地址（自动生成，供外部 HIS 系统调用）</label>
                             <div class="flex" style="gap:8px">
                                 <code class="itg-his-url" id="hisApiUrl" style="flex:1;margin:0" title="点击复制地址" onclick="copyHisUrl()"><?php
@@ -139,12 +139,12 @@ $orgCode = trim((string)setting('org_code', ''));
                 </div>
                 <div class="db-pane" id="histab-test" style="display:none">
                     <div class="card setting-card">
-                        <div class="card-title">🧪 接口连通性测试</div>
+                        <div class="card-title"><?= render_icon('nav:lab') ?> 接口连通性测试</div>
                         <div class="fs-12 text-muted mt-2 mb-8">实际请求本系统 /api/his（需先保存密钥），分别验证「请求头 X-HIS-Key」与「GET 参数 api_key」两种认证方式：</div>
                         <button type="button" class="btn btn-primary btn-sm" onclick="testHisApi()">▶ 开始测试</button>
                         <div id="hisTestBox" class="itg-his-result">
                             <div class="itg-his-empty">
-                                <div class="itg-his-empty-ico">🧪</div>
+                                <div class="itg-his-empty-ico"><?= render_icon('nav:lab') ?></div>
                                 <div class="itg-his-empty-title">尚未测试</div>
                                 <div class="itg-his-empty-sub">保存密钥后点击「开始测试」，将在此展示两种认证方式的测试结果</div>
                             </div>
@@ -153,7 +153,7 @@ $orgCode = trim((string)setting('org_code', ''));
                 </div>
                 <div class="db-pane" id="histab-docs" style="display:none">
                     <div class="card setting-card">
-                        <div class="card-title">📖 接口说明</div>
+                        <div class="card-title"><?= render_icon('emr:book') ?> 接口说明</div>
                         <div class="table-wrap"><table class="table">
                             <thead><tr><th>action</th><th>参数</th><th>说明</th></tr></thead>
                             <tbody>
@@ -287,7 +287,7 @@ function hisTestEmpty() {
     var box = document.getElementById('hisTestBox');
     if (!box) return;
     box.innerHTML = '<div class="itg-his-empty">' +
-        '<div class="itg-his-empty-ico">🧪</div>' +
+        '<div class="itg-his-empty-ico">' . render_icon('nav:lab') . '</div>' +
         '<div class="itg-his-empty-title">尚未测试</div>' +
         '<div class="itg-his-empty-sub">保存密钥后点击「开始测试」，将在此展示两种认证方式的测试结果</div></div>';
 }
@@ -304,10 +304,10 @@ function testHisApi() {
             var ok = !!(j && j.ok && j.data && j.data.pong);
             var code = JSON.stringify(j, null, 2);
             box.innerHTML += '<div class="itg-his-titem">' +
-                '<div class="itg-his-tlabel"><span class="badge ' + (ok ? 'badge-success' : 'badge-danger') + '">' + (ok ? '✓ 通过' : '✕ 失败') + '</span> ' + label + '</div>' +
+                '<div class="itg-his-tlabel"><span class="badge ' + (ok ? 'badge-success' : 'badge-danger') + '">' + (ok ? render_icon('action:check') . ' 通过' : render_icon('action:close') . ' 失败') + '</span> ' + label + '</div>' +
                 '<code class="itg-his-tcode">' + Clinic.escHtml(code) + '</code></div>';
         }).catch(function () {
-            box.innerHTML += '<div class="itg-his-titem"><div class="itg-his-tlabel"><span class="badge badge-danger">✕ 请求失败</span> ' + label + '</div></div>';
+            box.innerHTML += '<div class="itg-his-titem"><div class="itg-his-tlabel"><span class="badge badge-danger">' . render_icon('action:close') . ' 请求失败</span> ' + label + '</div></div>';
         });
     };
     render('请求头 X-HIS-Key', base, { headers: { 'X-HIS-Key': key } });

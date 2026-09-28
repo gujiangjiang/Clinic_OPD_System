@@ -7,7 +7,7 @@ require APP_ROOT . '/app/includes/role_home.php';
 render_role_home(array(
     'title' => '医生首页',
     'desc' => '个人今日工作概览',
-    'cta' => array('/doctor/emr', '🩺 进入医生工作站'),
+    'cta' => array('/doctor/emr', render_icon('clinical:stethoscope') . ' 进入医生工作站'),
     'api' => '/api/doctor?action=home_stats',
     'stats' => array(
         array('today_visits', '今日接诊人次'),
@@ -21,11 +21,11 @@ render_role_home(array(
     ),
     'chart' => array('title' => '近 7 天接诊趋势', 'name' => '接诊人次'),
     'links' => array(
-        array('/doctor/emr', '🩺 医生工作站'),
-        array('/doctor/templates', '📋 模板管理'),
-        array('/doctor/packages', '🥡 套餐管理'),
-        array('/messages', '💬 站内消息'),
-        array('/profile', '👤 个人信息'),
+        array('/doctor/emr', render_icon('clinical:stethoscope') . ' 医生工作站'),
+        array('/doctor/templates', render_icon('emr:record') . ' 模板管理'),
+        array('/doctor/packages', render_icon('emr:disposal') . ' 套餐管理'),
+        array('/messages', render_icon('emr:consult') . ' 站内消息'),
+        array('/profile', render_icon('nav:user') . ' 个人信息'),
     ),
     'tips' => array(
         '1. 进入【医生工作站】后自动弹出候诊列表，选择患者即可开始书写病历',

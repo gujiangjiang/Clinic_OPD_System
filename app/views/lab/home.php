@@ -3,7 +3,7 @@ require APP_ROOT . '/app/includes/role_home.php';
 render_role_home(array(
     'title' => '检验科首页',
     'desc' => '今日检验工作概览',
-    'cta' => array('/lab/dashboard', '🧪 进入检验科工作台'),
+    'cta' => array('/lab/dashboard', render_icon('nav:lab') . ' 进入检验科工作台'),
     'api' => '/api/lab?action=home_stats',
     'stats' => array(
         array('today_items', '今日检验标本量'),
@@ -15,9 +15,9 @@ render_role_home(array(
     ),
     'chart' => array('title' => '近 7 天检验量趋势', 'name' => '检验量'),
     'links' => array(
-        array('/lab/dashboard', '🧪 检验科工作台'),
-        array('/admin/labitems', '📋 检验管理'),
-        array('/messages', '💬 站内消息'),
+        array('/lab/dashboard', render_icon('nav:lab') . ' 检验科工作台'),
+        array('/admin/labitems', render_icon('emr:record') . ' 检验管理'),
+        array('/messages', render_icon('emr:consult') . ' 站内消息'),
     ),
     'tips' => array(
         '1. 缴费后的检验项目在【检验科工作台】→「待登记」列表中',

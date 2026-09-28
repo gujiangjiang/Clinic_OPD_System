@@ -33,18 +33,18 @@ if ($visitId <= 0) {
     <div class="emr-body-layout">
         <div class="emr-main-editor-scroll">
             <div class="card wb-empty" style="padding:40px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center">
-                <div style="font-size:72px;margin-bottom:16px">🩺</div>
+                <div style="font-size:72px;margin-bottom:16px"><?= render_icon('clinical:stethoscope') ?></div>
                 <div class="fs-18 fw-600 text-muted">欢迎使用医生工作站</div>
                 <div class="fs-14 text-muted mt-4">请从左侧候诊列表选择患者开始就诊</div>
                 <div class="fs-12 text-muted mt-8">候诊列表已自动打开，点击患者即可进入病历书写</div>
             </div>
         </div>
         <aside class="emr-sidebar-left">
-            <div class="ena-sec"><div class="ena-sec-title">📋 病历节点</div><div class="ena-sec-body"><div class="ena-empty">暂无病历</div></div></div>
-            <div class="ena-sec"><div class="ena-sec-title">📝 初步诊断</div><div class="ena-sec-body"><div class="ena-empty">暂无诊断</div></div></div>
-            <div class="ena-sec"><div class="ena-sec-title">🩻 检查</div><div class="ena-sec-body"><div class="ena-empty">暂无检查</div></div></div>
-            <div class="ena-sec"><div class="ena-sec-title">🧪 检验</div><div class="ena-sec-body"><div class="ena-empty">暂无检验</div></div></div>
-            <div class="ena-sec"><div class="ena-sec-title">💊 处方</div><div class="ena-sec-body"><div class="ena-empty">暂无处方</div></div></div>
+            <div class="ena-sec"><div class="ena-sec-title"><?= render_icon('emr:record') ?> 病历节点</div><div class="ena-sec-body"><div class="ena-empty">暂无病历</div></div></div>
+            <div class="ena-sec"><div class="ena-sec-title"><?= render_icon('action:edit') ?> 初步诊断</div><div class="ena-sec-body"><div class="ena-empty">暂无诊断</div></div></div>
+            <div class="ena-sec"><div class="ena-sec-title"><?= render_icon('nav:imaging') ?> 检查</div><div class="ena-sec-body"><div class="ena-empty">暂无检查</div></div></div>
+            <div class="ena-sec"><div class="ena-sec-title"><?= render_icon('nav:lab') ?> 检验</div><div class="ena-sec-body"><div class="ena-empty">暂无检验</div></div></div>
+            <div class="ena-sec"><div class="ena-sec-title"><?= render_icon('nav:pharmacy') ?> 处方</div><div class="ena-sec-body"><div class="ena-empty">暂无处方</div></div></div>
         </aside>
     </div>
 </div>
@@ -83,7 +83,7 @@ function wbPickDept(id) {
         Clinic.docTools.syncDept(id);
     }
     // 更新空状态提示
-    document.querySelector('.wb-empty .fs-18').textContent = '🏥 已选择科室';
+    document.querySelector('.wb-empty .fs-18').textContent = render_icon('nav:hospital') . ' 已选择科室';
     document.querySelector('.wb-empty .fs-14').textContent = '候诊列表已打开，点击患者即可进入病历书写';
     document.querySelector('.wb-empty .fs-12').innerHTML = '';
     // 候诊面板按所选科室加载并自动弹出
@@ -102,7 +102,7 @@ function wbLoadDepts() {
         onSuccess: function (json) {
             WB_DEPT_LIST = json.data.list || [];
             if (!WB_DEPT_LIST.length) {
-                document.querySelector('.wb-empty .fs-18').textContent = '⚠️ 尚未关联科室';
+                document.querySelector('.wb-empty .fs-18').textContent = render_icon('alert:warning') . ' 尚未关联科室';
                 document.querySelector('.wb-empty .fs-14').textContent = '请联系管理员在【用户管理】中为您设置科室';
                 return;
             }
@@ -115,9 +115,9 @@ function wbLoadDepts() {
                 if (hasSaved) {
                     wbPickDept(saved);
                 } else {
-                    document.querySelector('.wb-empty .fs-18').textContent = '🩺 请先选择科室后开始接诊';
+                    document.querySelector('.wb-empty .fs-18').textContent = render_icon('clinical:stethoscope') . ' 请先选择科室后开始接诊';
                     document.querySelector('.wb-empty .fs-14').textContent = '正在为你弹出科室选择…';
-                    document.querySelector('.wb-empty .fs-12').innerHTML = '<button class="btn btn-primary btn-sm mt-8" onclick="wbOpenDeptPicker()">🏥 选择科室</button>';
+                    document.querySelector('.wb-empty .fs-12').innerHTML = '<button class="btn btn-primary btn-sm mt-8" onclick="wbOpenDeptPicker()">' . render_icon('nav:hospital') . ' 选择科室</button>';
                     // 主动弹出科室选择窗
                     wbOpenDeptPicker();
                 }
@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', wbLoadDepts);
 }
 $row = $visitId ? get_visit_row($visitId) : null;
 if (!$row) {
-    echo '<div class="card"><div class="empty"><div class="empty-ico">⚠️</div>就诊记录不存在<br><a href="/doctor/emr">返回医生工作站</a></div></div>';
+    echo '<div class="card"><div class="empty"><div class="empty-ico">' . render_icon('alert:warning') . '</div>就诊记录不存在<br><a href="/doctor/emr">返回医生工作站</a></div></div>';
     return;
 }
 $patient = $row['patient'];
@@ -166,10 +166,10 @@ $patient = $row['patient'];
         <div id="emrHeader"></div>
         <span class="fs-12 text-muted emr-top-status" id="saveStatus"></span>
         <div class="emr-top-actions">
-            <button class="btn btn-primary btn-sm emr-write" onclick="Clinic.emr.save(false)">💾 保存</button>
-            <button class="btn btn-success btn-sm emr-write" onclick="Clinic.emr.confirmFinish(this)">✅ 诊毕</button>
-            <button class="btn btn-outline btn-sm emr-write" onclick="openTransfer()">↔️ 转科</button>
-            <button class="btn btn-outline btn-sm" onclick="Clinic.emr.printRecord()">🖨️ 打印</button>
+            <button class="btn btn-primary btn-sm emr-write" onclick="Clinic.emr.save(false)"><?= render_icon('action:save') ?> 保存</button>
+            <button class="btn btn-success btn-sm emr-write" onclick="Clinic.emr.confirmFinish(this)"><?= render_icon('alert:success') ?> 诊毕</button>
+            <button class="btn btn-outline btn-sm emr-write" onclick="openTransfer()"><?= render_icon('emr:transfer') ?> 转科</button>
+            <button class="btn btn-outline btn-sm" onclick="Clinic.emr.printRecord()"><?= render_icon('action:print') ?> 打印</button>
         </div>
     </header>
 
@@ -193,41 +193,41 @@ $patient = $row['patient'];
         <!-- ===== 右侧：全景大纲栏（分区标题右侧「＋」为快捷添加入口，见 emrNavAdd） ===== -->
         <aside class="emr-sidebar-left">
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">📋 病历节点<span class="ena-add emr-write" title="添加病历" onclick="emrNavAdd('records');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)"><?= render_icon('emr:record') ?> 病历节点<span class="ena-add emr-write" title="添加病历" onclick="emrNavAdd('records');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navRecords"></div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">📝 知情同意书<span class="ena-add emr-write" id="consentAddBtn" title="添加知情同意书" onclick="emrNavAdd('consent',event);event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)"><?= render_icon('action:edit') ?> 知情同意书<span class="ena-add emr-write" id="consentAddBtn" title="添加知情同意书" onclick="emrNavAdd('consent',event);event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navConsent">
                 <div class="ena-empty">暂无知情同意书</div>
             </div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">🔎 初步诊断<span class="ena-add emr-write" id="diagsAddBtn" title="添加诊断" onclick="emrNavAdd('diags',event);event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)"><?= render_icon('action:search') ?> 初步诊断<span class="ena-add emr-write" id="diagsAddBtn" title="添加诊断" onclick="emrNavAdd('diags',event);event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navDiags"></div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">🩻 检查<span class="ena-count" id="cntImaging" style="display:none"></span><span class="ena-sum" id="sumImaging"></span><span class="ena-add emr-write" id="imgAddBtn" title="开具检查" onclick="emrNavAdd('imaging');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)"><?= render_icon('nav:imaging') ?> 检查<span class="ena-count" id="cntImaging" style="display:none"></span><span class="ena-sum" id="sumImaging"></span><span class="ena-add emr-write" id="imgAddBtn" title="开具检查" onclick="emrNavAdd('imaging');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navImaging"></div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">🧪 检验<span class="ena-count" id="cntLab" style="display:none"></span><span class="ena-sum" id="sumLab"></span><span class="ena-add emr-write" id="labAddBtn" title="开具检验" onclick="emrNavAdd('lab');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)"><?= render_icon('nav:lab') ?> 检验<span class="ena-count" id="cntLab" style="display:none"></span><span class="ena-sum" id="sumLab"></span><span class="ena-add emr-write" id="labAddBtn" title="开具检验" onclick="emrNavAdd('lab');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navLab"></div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">🩹 门诊处置<span class="ena-count" id="cntProc" style="display:none"></span><span class="ena-sum" id="sumProc"></span><span class="ena-add emr-write" id="procAddBtn" title="开具处置" onclick="emrNavAdd('procedure');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)"><?= render_icon('clinical:plaster') ?> 门诊处置<span class="ena-count" id="cntProc" style="display:none"></span><span class="ena-sum" id="sumProc"></span><span class="ena-add emr-write" id="procAddBtn" title="开具处置" onclick="emrNavAdd('procedure');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navProc"></div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">💊 处方<span class="ena-count" id="cntRx" style="display:none"></span><span class="ena-sum" id="sumRx"></span><span class="ena-add emr-write" id="rxAddBtn" title="开具处方" onclick="emrNavAdd('prescription');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)"><?= render_icon('nav:pharmacy') ?> 处方<span class="ena-count" id="cntRx" style="display:none"></span><span class="ena-sum" id="sumRx"></span><span class="ena-add emr-write" id="rxAddBtn" title="开具处方" onclick="emrNavAdd('prescription');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navRx"></div>
         </div>
         <div class="ena-sec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">🤝 会诊<span class="ena-add emr-write" id="consAddBtn" title="发起会诊" onclick="Clinic.emr.openConsultCreate(event);event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)"><?= render_icon('action:handshake') ?> 会诊<span class="ena-add emr-write" id="consAddBtn" title="发起会诊" onclick="Clinic.emr.openConsultCreate(event);event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navConsult"><div class="ena-empty">暂无会诊</div></div>
         </div>
         <div class="ena-sec" id="certSec">
-            <div class="ena-sec-title" onclick="toggleNavSec(this)">📄 诊断证明<span class="ena-add emr-write" id="certAddBtn" title="开具诊断证明" onclick="emrNavAdd('cert');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
+            <div class="ena-sec-title" onclick="toggleNavSec(this)"><?= render_icon('emr:document') ?> 诊断证明<span class="ena-add emr-write" id="certAddBtn" title="开具诊断证明" onclick="emrNavAdd('cert');event.stopPropagation()">+</span><span class="ena-arrow">▾</span></div>
             <div class="ena-sec-body" id="navCert"></div>
         </div>
     </aside>

@@ -8,12 +8,12 @@ $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
 ?>
 <div class="list-layout">
 <div class="page-head">
-    <div><div class="page-title">🩹 处置项目</div><div class="page-desc">处置项目与费用管理<?php echo $__isAdmin ? '' : '（新增需审核通过后可用）'; ?></div></div>
+    <div><div class="page-title"><?= render_icon('clinical:plaster') ?> 处置项目</div><div class="page-desc">处置项目与费用管理<?php echo $__isAdmin ? '' : '（新增需审核通过后可用）'; ?></div></div>
     <div class="flex gap-8"><span id="impBtns" class="flex gap-8"></span><button class="btn btn-primary btn-sm" onclick="openDisposalForm(0)">＋ 新增处置项目</button></div>
 </div>
 <div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" id="dispSearch" placeholder="🔍 快速搜索处置项目" style="width:220px">
+        <input class="input" id="dispSearch" placeholder=render_icon('action:search') . " 快速搜索处置项目" style="width:220px">
         <span class="fs-13 text-muted" id="dispCountDiv"></span>
     </div>
 </div>
@@ -50,7 +50,7 @@ function openDisposalForm(id) {
     mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
         mask.querySelector('.modal-foot').innerHTML =
             '<div style="display:flex;justify-content:space-between;align-items:center;width:100%">' +
-            '<button type="button" id="enabledToggle" class="btn btn-sm btn-success" onclick="toggleItemEnabled()">✅ 启用</button>' +
+            '<button type="button" id="enabledToggle" class="btn btn-sm btn-success" onclick="toggleItemEnabled()">' . render_icon('alert:success') . ' 启用</button>' +
             '<span><button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
             '<button type="button" class="btn btn-primary" id="dispSave">保存</button></span></div>';
         initEnabledToggle(id > 0);

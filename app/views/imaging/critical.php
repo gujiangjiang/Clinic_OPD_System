@@ -7,7 +7,7 @@
 Router::title('危急值管理');
 ?>
 <div class="page-head">
-    <div><div class="page-title">🚨 危急值管理</div><div class="page-desc">影像科已发送的危急值（处理情况可溯源）</div></div>
+    <div><div class="page-title"><?= render_icon('alert:critical') ?> 危急值管理</div><div class="page-desc">影像科已发送的危急值（处理情况可溯源）</div></div>
 </div>
 <div id="critPage"></div>
 

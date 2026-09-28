@@ -13,7 +13,7 @@ Router::title('运营分析');
 $depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type IN ('clinic','emergency') ORDER BY sort, id");
 ?>
 <div class="page-head">
-    <div><div class="page-title">📊 医院运营分析</div><div class="page-desc">多维度运营数据统计与趋势分析（口径：已缴费）</div></div>
+    <div><div class="page-title"><?= render_icon('nav:chart') ?> 医院运营分析</div><div class="page-desc">多维度运营数据统计与趋势分析（口径：已缴费）</div></div>
 </div>
 
 <!-- 日期范围工具条 -->
@@ -36,11 +36,11 @@ $depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type
 
 <!-- Tab 切换 -->
 <div class="flex gap-8 mb-12">
-    <button class="btn btn-primary btn-sm" data-ana-tab="overview" onclick="anaTab('overview')">📈 运营总览</button>
-    <button class="btn btn-outline btn-sm" data-ana-tab="dept" onclick="anaTab('dept')">🏥 科室统计</button>
-    <button class="btn btn-outline btn-sm" data-ana-tab="doctor" onclick="anaTab('doctor')">👨‍⚕️ 医生统计</button>
-    <button class="btn btn-outline btn-sm" data-ana-tab="custom" onclick="anaTab('custom')">🧮 自定义统计</button>
-    <button class="btn btn-outline btn-sm" data-ana-tab="disposition" onclick="anaTab('disposition')">🧭 转归查询</button>
+    <button class="btn btn-primary btn-sm" data-ana-tab="overview" onclick="anaTab('overview')"><?= render_icon('action:trend') ?> 运营总览</button>
+    <button class="btn btn-outline btn-sm" data-ana-tab="dept" onclick="anaTab('dept')"><?= render_icon('nav:hospital') ?> 科室统计</button>
+    <button class="btn btn-outline btn-sm" data-ana-tab="doctor" onclick="anaTab('doctor')"><?= render_icon('nav:doctor') ?> 医生统计</button>
+    <button class="btn btn-outline btn-sm" data-ana-tab="custom" onclick="anaTab('custom')"><?= render_icon('action:calc') ?> 自定义统计</button>
+    <button class="btn btn-outline btn-sm" data-ana-tab="disposition" onclick="anaTab('disposition')"><?= render_icon('action:compass') ?> 转归查询</button>
 </div>
 
 <!-- ============ 转归查询 ============ -->
@@ -55,7 +55,7 @@ $depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type
                 <button class="btn btn-outline btn-sm" data-disp="死亡" onclick="dispFilter('死亡')">死亡</button>
                 <button class="btn btn-outline btn-sm" data-disp="其他" onclick="dispFilter('其他')">其他</button>
             </div>
-            <input class="input" id="dispSearch" placeholder="🔍 搜索患者姓名 / 门诊号 / 身份证号" style="width:240px">
+            <input class="input" id="dispSearch" placeholder=render_icon('action:search') . " 搜索患者姓名 / 门诊号 / 身份证号" style="width:240px">
                 <span class="fs-13 text-muted" id="dispCount"></span>
         </div>
     </div>
@@ -94,7 +94,7 @@ $depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type
     </div>
     <div class="card" style="margin-top:16px">
         <div class="flex gap-8" style="align-items:center;flex-wrap:wrap;margin-bottom:10px">
-            <input class="input" id="deptSearch" placeholder="🔍 搜索科室" style="width:220px" oninput="renderDeptTable()">
+            <input class="input" id="deptSearch" placeholder=render_icon('action:search') . " 搜索科室" style="width:220px" oninput="renderDeptTable()">
             <span class="flex gap-4" id="deptTypeTabs" style="flex-wrap:wrap">
                 <button class="btn btn-sm btn-primary" data-dtype="" onclick="deptTypeFilter(this,'')">全部</button>
                 <button class="btn btn-sm btn-outline" data-dtype="clinic" onclick="deptTypeFilter(this,'clinic')">门诊</button>
@@ -111,7 +111,7 @@ $depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type
         <div class="flex gap-8" style="align-items:center;flex-wrap:wrap;margin-bottom:10px">
             <span class="fs-13 text-muted">科室筛选：</span>
             <select class="select" id="docDeptSel" onchange="loadDoctor()" style="width:auto"><option value="0">全部科室</option></select>
-            <input class="input" id="docSearch" placeholder="🔍 搜索工号 / 姓名 / 职称" style="width:200px" oninput="renderDoctorTable()">
+            <input class="input" id="docSearch" placeholder=render_icon('action:search') . " 搜索工号 / 姓名 / 职称" style="width:200px" oninput="renderDoctorTable()">
         </div>
         <div id="doctorTable" class="ana-pane-table"><div class="empty"><div class="spinner"></div></div></div>
     </div>

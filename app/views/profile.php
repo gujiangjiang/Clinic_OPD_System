@@ -16,7 +16,7 @@ $pendingPhoto = $pending && is_array($pendingData) && !empty($pendingData['photo
 $showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
 ?>
 <div class="page-head">
-    <div><div class="page-title">👤 个人信息</div><div class="page-desc">个人资料、界面偏好与账号安全</div></div>
+    <div><div class="page-title"><?= render_icon('nav:user') ?> 个人信息</div><div class="page-desc">个人资料、界面偏好与账号安全</div></div>
 </div>
 
 <div class="profile-layout" style="display:flex;gap:16px;align-items:flex-start">
@@ -25,7 +25,7 @@ $showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
         <div style="text-align:center;padding:10px 0 16px">
             <div class="avatar-picker" id="avatarPicker" onclick="pickAvatar()" style="justify-content:center">
                 <span class="avatar" id="avatarEl" style="width:88px;height:88px;font-size:34px">
-                    <?php if ($showPhoto && ($__ava = img_data($showPhoto)) !== ''): ?><img src="<?php echo e($__ava); ?>"><?php else: ?>👤<?php endif; ?>
+                    <?php if ($showPhoto && ($__ava = img_data($showPhoto)) !== ''): ?><img src="<?php echo e($__ava); ?>"><?php else: ?><?= render_icon('nav:user') ?><?php endif; ?>
                     <?php if ($pendingPhoto): ?><span class="avatar-review">审核中</span><?php endif; ?>
                 </span>
             </div>
@@ -36,7 +36,7 @@ $showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
             <?php if ($pendingPhoto): ?><div class="fs-12 text-muted mt-8">头像审核中，通过后生效</div><?php endif; ?>
         </div>
 
-        <div class="setting-sec-title" style="margin-top:0">🎨 界面主题</div>
+        <div class="setting-sec-title" style="margin-top:0"><?= render_icon('action:palette') ?> 界面主题</div>
         <div class="form-group" style="margin-bottom:10px">
             <select class="select" id="f_theme" onchange="saveTheme()">
                 <option value="auto"<?php echo $user['theme'] === 'auto' ? ' selected' : ''; ?>>自动模式</option>
@@ -45,15 +45,15 @@ $showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
             </select>
         </div>
 
-        <div class="setting-sec-title">🖨️ 打印偏好</div>
+        <div class="setting-sec-title"><?= render_icon('action:print') ?> 打印偏好</div>
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;user-select:none">
             <input type="checkbox" id="autoPrintChk"<?php echo !empty($user['print_auto']) ? ' checked' : ''; ?>>
             <span>自动打印</span>
         </label>
         <div class="fs-12 text-muted mt-4 mb-10">弹出打印预览后自动调起系统打印</div>
 
-        <div class="setting-sec-title">🔑 账号安全</div>
-        <button type="button" class="btn btn-outline btn-sm" style="width:100%" onclick="openPwdModal()">🔑 修改密码</button>
+        <div class="setting-sec-title"><?= render_icon('nav:key') ?> 账号安全</div>
+        <button type="button" class="btn btn-outline btn-sm" style="width:100%" onclick="openPwdModal()"><?= render_icon('nav:key') ?> 修改密码</button>
     </div>
 
     <!-- ===== 右侧：资料编辑 ===== -->
@@ -64,7 +64,7 @@ $showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
         </div>
         <?php endif; ?>
 
-        <div class="card-title"><span>📝 基本资料</span></div>
+        <div class="card-title"><span><?= render_icon('action:edit') ?> 基本资料</span></div>
         <div class="form-row">
             <div class="form-group"><label class="form-label">姓名</label><input class="input" value="<?php echo e($user['name']); ?>" disabled></div>
             <div class="form-group"><label class="form-label">工号</label><input class="input" value="<?php echo e($user['emp_no']); ?>" disabled></div>
@@ -78,7 +78,7 @@ $showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
         </div>
         <div class="fs-12 text-muted mb-12">如需修改姓名、职称、职务，请联系管理员在【用户管理】中调整。</div>
 
-        <div class="card-title"><span>🎓 学历 / 学位 / 介绍</span></div>
+        <div class="card-title"><span><?= render_icon('nav:grad') ?> 学历 / 学位 / 介绍</span></div>
         <div class="form-row">
             <div class="form-group"><label class="form-label">学历</label><select class="select" id="f_education" data-csd-search="1" data-csd-clear="1"<?php echo $pending ? ' disabled' : ''; ?>><?php echo opt_options('education', $pending && isset($pendingData['education']) ? $pendingData['education'] : $user['education']); ?></select></div>
             <div class="form-group"><label class="form-label">学位</label><select class="select" id="f_degree" data-csd-search="1" data-csd-clear="1"<?php echo $pending ? ' disabled' : ''; ?>><?php echo opt_options('degree', $pending && isset($pendingData['degree']) ? $pendingData['degree'] : $user['degree']); ?></select></div>
@@ -90,7 +90,7 @@ $showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
         <button type="button" class="btn btn-outline" disabled>⏳ 提交审核（待审核）</button>
         <?php else: ?>
         <div class="fs-12 text-muted mb-8">学历、学位、安全邮箱、个人介绍修改需提交管理员审核，审核通过后才生效。</div>
-        <button type="button" class="btn btn-primary" onclick="submitProfileAudit()">📨 提交审核</button>
+        <button type="button" class="btn btn-primary" onclick="submitProfileAudit()"><?= render_icon('action:send') ?> 提交审核</button>
         <?php endif; ?>
     </div>
 </div>
@@ -170,7 +170,7 @@ function openPwdModal() {
         '<input type="password" class="input" id="new_password" autocomplete="new-password"></div>' +
         '<div class="form-group"><label class="form-label">确认新密码 <span class="req">*</span></label>' +
         '<input type="password" class="input" id="new_password2" autocomplete="new-password"></div>',
-        { title: '🔑 修改密码' }
+        { title: render_icon('nav:key') . ' 修改密码' }
     );
     // 底部按钮区：忘记密码靠左（outline），取消/确认修改靠右
     mask.querySelector('.modal-foot').innerHTML =

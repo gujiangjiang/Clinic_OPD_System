@@ -9,13 +9,13 @@ Router::title('药品设置');
 ?>
 <div class="list-layout">
 <div class="page-head">
-    <div><div class="page-title">📦 药品设置</div><div class="page-desc">分类 / 包装单位 / 剂型 / 用药频次 / 给药途径</div></div>
+    <div><div class="page-title"><?= render_icon('action:package') ?> 药品设置</div><div class="page-desc">分类 / 包装单位 / 剂型 / 用药频次 / 给药途径</div></div>
     <button class="btn btn-primary btn-sm" id="dsAddBtn" onclick="openDsForm(0)">＋ 新增药品分类</button>
 </div>
 
 <div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" id="dsSearch" placeholder="🔍 快速搜索" style="width:220px" oninput="dsSearchDebounced()">
+        <input class="input" id="dsSearch" placeholder=render_icon('action:search') . " 快速搜索" style="width:220px" oninput="dsSearchDebounced()">
         <span class="fs-13 text-muted" id="dsHint"></span>
         <span class="flex gap-4" id="dsTabs" style="flex-wrap:wrap">
             <button class="btn btn-primary btn-sm" data-stype="category" onclick="switchDs('category')">药品分类</button>
@@ -48,7 +48,7 @@ function routeBindBox(name, id) {
     return '<input type="hidden" id="dsBind" value="' + (id || 0) + '">' +
         '<div class="form-group"><label class="form-label">绑定计费处置（开方时按数量自动联动）</label>' +
         '<div class="flex gap-8"><input class="input" id="dsBindName" value="' + (name || '') + '" readonly placeholder="点击右侧选择或新建">' +
-        '<button type="button" class="btn btn-outline btn-sm" id="dsBindPick">🔍 选择/新建</button>' +
+        '<button type="button" class="btn btn-outline btn-sm" id="dsBindPick">' . render_icon('action:search') . ' 选择/新建</button>' +
         '<button type="button" class="btn btn-outline btn-sm" id="dsBindClear">清除</button></div>' +
         '<div class="fs-12 text-muted mt-4">如：静脉输液 → 静脉输液费。开方时按数量自动生成处置。</div></div>';
 }

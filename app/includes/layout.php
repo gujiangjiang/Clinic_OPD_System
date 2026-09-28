@@ -177,7 +177,7 @@ class Layout {
         $hosp = setting('hospital_name', '');
         $hosp2 = setting('hospital_name2', '');
         // LOGO 以 base64 Data URI 内联显示：不暴露文件 URL，且不受页面层级影响；
-        // 未设置时显示默认 LOGO（与系统主布局一致的 {{ICON:nav:hospital}} 占位）
+        // 未设置时显示默认 LOGO（与系统主布局一致的  占位）
         $logoData = img_data(setting('logo', ''));
         $logoImg = $logoData !== ''
             ? '<img src="' . e($logoData) . '" alt="LOGO" class="auth-logo">'
@@ -256,7 +256,7 @@ class Layout {
         $logoData = img_data(setting('logo', ''));
         // 浏览器标签页图标：统一 /pwa-icon.png（有 LOGO 输出 LOGO，无则默认医疗十字图标），与 PWA 图标一致
         $favicon = '<link rel="icon" href="/pwa-icon.png">';
-        // 未设置 LOGO 时显示默认简易 LOGO（{{ICON:nav:hospital}}），避免侧边栏 mini 模式下顶部空白
+        // 未设置 LOGO 时显示默认简易 LOGO（），避免侧边栏 mini 模式下顶部空白
         $brandImg = $logoData !== ''
             ? '<img src="' . e($logoData) . '" alt="LOGO">'
             : '<span class="brand-default-logo">' . render_icon('nav:hospital') . '</span>';

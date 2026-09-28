@@ -11,10 +11,10 @@ Router::title('审核中心');
 </style>
 <div class="list-layout">
 <div class="page-head">
-    <div><div class="page-title">✅ 审核中心</div><div class="page-desc">审核项目添加、模板与报告撤回申请</div></div>
+    <div><div class="page-title"><?= render_icon('alert:success') ?> 审核中心</div><div class="page-desc">审核项目添加、模板与报告撤回申请</div></div>
     <!-- 一键全部通过固定在右上角（类似科室管理新增按钮），避免随页签切换显示/隐藏引起布局跳动 -->
     <div class="flex gap-8">
-        <button class="btn btn-success btn-sm" id="auditAllBtn" onclick="doAuditAll()">✅ 一键全部通过</button>
+        <button class="btn btn-success btn-sm" id="auditAllBtn" onclick="doAuditAll()"><?= render_icon('alert:success') ?> 一键全部通过</button>
     </div>
 </div>
 
@@ -299,7 +299,7 @@ function makeReadonly(mask) {
     // 视觉提示：模态框脚部隐藏 "保存" 按钮，改为只读提示
     var foot = mask.querySelector('.modal-foot');
     if (foot) {
-        foot.innerHTML = '<span class="fs-12 text-muted">🔒 只读预览 — 内容不可编辑、复制，可滚动查看</span>';
+        foot.innerHTML = '<span class="fs-12 text-muted">' . render_icon('nav:lock') . ' 只读预览 — 内容不可编辑、复制，可滚动查看</span>';
     }
     // 遮罩点击也可关闭
     mask.addEventListener('click', function (e) {

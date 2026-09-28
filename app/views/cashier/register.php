@@ -13,7 +13,7 @@
 Router::title('挂号收费');
 ?>
 <div class="page-head">
-    <div><div class="page-title">🎫 挂号收费</div><div class="page-desc">输入患者身份证信息完成挂号，缴费成功后自动打印挂号凭条</div></div>
+    <div><div class="page-title"><?= render_icon('emr:ticket') ?> 挂号收费</div><div class="page-desc">输入患者身份证信息完成挂号，缴费成功后自动打印挂号凭条</div></div>
 </div>
 
 <div class="flex gap-16" style="align-items:flex-start">
@@ -53,8 +53,8 @@ Router::title('挂号收费');
         </div>
 
         <div class="flex gap-8">
-            <button class="btn btn-primary btn-lg" id="btnNormal" style="flex:1;display:none" onclick="doRegister()" disabled>🎫 挂号（选择科室）</button>
-            <button class="btn btn-success btn-lg" id="btnQuick" style="flex:1" onclick="openQuickReg()">🚑 快速挂号（无名氏）</button>
+            <button class="btn btn-primary btn-lg" id="btnNormal" style="flex:1;display:none" onclick="doRegister()" disabled><?= render_icon('emr:ticket') ?> 挂号（选择科室）</button>
+            <button class="btn btn-success btn-lg" id="btnQuick" style="flex:1" onclick="openQuickReg()"><?= render_icon('action:launch') ?> 快速挂号（无名氏）</button>
         </div>
         <div class="fs-12 text-muted mt-4" id="regBtnTip">未填写身份证或姓名时无法实名挂号，可使用【快速挂号】：自动生成无名氏姓名，仅限 0 元挂号费科室</div>
     </div>
@@ -115,7 +115,7 @@ function onCardChange() {
         return;
     }
     REG.id_card = card;
-    msg.innerHTML = '<span class="text-success">✔ 身份证校验通过</span>';
+    msg.innerHTML = '<span class="text-success">' . render_icon('action:check') . ' 身份证校验通过</span>';
     feeType.disabled = false;
     // 自动计算并锁定（身份证计算出的出生日期/性别确保正确，年龄随出生日期联动）
     setDerivedLocked(true);
@@ -266,7 +266,7 @@ function openQuickReg() {
                 '<input class="input" id="q_birth" readonly placeholder="填写年龄后自动推算；也可点击手动选择" style="cursor:pointer;background:var(--bg-soft)">' +
                 '<div class="fs-12 text-muted mt-4">年龄与出生日期互相关联：修改年龄自动推算出生日期；手动选择出生日期则自动反算年龄</div></div>';
             Clinic.modal.open(html, {
-                title: '🚑 快速挂号（无名氏）',
+                title: render_icon('action:launch') . ' 快速挂号（无名氏）',
                 buttons: [
                     { text: '取消', cls: 'btn-outline' },
                     { text: '继续 → 选择科室', cls: 'btn-success', autoClose: false, onClick: quickNext },
@@ -362,7 +362,7 @@ function submitRegister(d, quick) {
                     title: '挂号确认',
                     buttons: [
                         { text: '取消挂号', cls: 'btn-outline', onClick: function () { Clinic.modal.close(); } },
-                        { text: '💳 缴费（模拟）', cls: 'btn-success', autoClose: false, onClick: payAndPrint },
+                        { text: render_icon('nav:card') . ' 缴费（模拟）', cls: 'btn-success', autoClose: false, onClick: payAndPrint },
                     ],
                 }
             );

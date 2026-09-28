@@ -20,7 +20,7 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
 }
 ?>
 <div class="auth-card">
-    <div class="auth-title">🏥 门诊一体化系统</div>
+    <div class="auth-title"><?= render_icon('nav:hospital') ?> 门诊一体化系统</div>
     <div style="text-align:center;margin:-2px 0 12px">
         <span class="badge badge-outline" style="font-size:11px;letter-spacing:.04em" id="installBadge">准备安装</span>
     </div>
@@ -93,19 +93,19 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
     <!-- ============ Step 5: 管理员 ============ -->
     <div class="wiz-step" data-step="5" style="display:none">
         <div class="form-group"><label class="form-label">管理员用户名 <span class="req">*</span></label>
-            <div class="input-wrap"><span class="input-icon">👤</span>
+            <div class="input-wrap"><span class="input-icon"><?= render_icon('nav:user') ?></span>
                 <input type="text" class="input" id="username" value="admin" placeholder="默认 admin，可修改" autocomplete="username"></div></div>
         <div class="form-group"><label class="form-label">真实姓名</label>
-            <div class="input-wrap"><span class="input-icon">👨‍⚕️</span>
+            <div class="input-wrap"><span class="input-icon"><?= render_icon('nav:doctor') ?></span>
                 <input type="text" class="input" id="realname" value="系统管理员" placeholder="管理员真实姓名"></div></div>
         <div class="form-group"><label class="form-label">管理员密码 <span class="req">*</span></label>
-            <div class="input-wrap"><span class="input-icon">🔑</span>
+            <div class="input-wrap"><span class="input-icon"><?= render_icon('nav:key') ?></span>
                 <input type="password" class="input" id="password" placeholder="至少 6 位，建议含大小写与数字" autocomplete="new-password"></div></div>
         <div class="form-group"><label class="form-label">确认密码 <span class="req">*</span></label>
-            <div class="input-wrap"><span class="input-icon">🔑</span>
+            <div class="input-wrap"><span class="input-icon"><?= render_icon('nav:key') ?></span>
                 <input type="password" class="input" id="password2" placeholder="再次输入密码" autocomplete="new-password"></div></div>
         <div class="form-group"><label class="form-label">安全邮箱（可选，用于密码找回）</label>
-            <div class="input-wrap"><span class="input-icon">📧</span>
+            <div class="input-wrap"><span class="input-icon"><?= render_icon('action:mail') ?></span>
                 <input type="email" class="input" id="admin_email" placeholder="如：admin@hospital.com"></div></div>
         <div class="form-group" id="attachAdminHint" style="display:none">
             <div class="fs-13" style="background:var(--primary-soft);border-radius:var(--radius-md);padding:10px 12px">已选择「关联现有数据库」，将保留原系统管理员账号，无需新建。</div>
@@ -117,7 +117,7 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
         <div class="form-group"><label class="form-label">安装信息确认</label>
             <div class="card" style="padding:12px" id="confirmBox"></div>
         </div>
-        <button type="button" class="btn btn-primary btn-lg btn-block" id="installBtn">🚀 完成安装</button>
+        <button type="button" class="btn btn-primary btn-lg btn-block" id="installBtn"><?= render_icon('action:launch') ?> 完成安装</button>
         <div class="auth-footer" id="installFoot">安装完成后将自动跳转登录页</div>
     </div>
 
@@ -331,11 +331,11 @@ function loadPreflight() {
             html += '<div class="flex-between mb-8"><span class="fw-600">PHP 版本</span><span>' + escHtml(d.php_version || '-') + '</span></div>';
             var exts = (d.extensions || []);
             html += '<div class="fw-600 mb-4">PHP 扩展</div>' + exts.map(function (e) {
-                return '<div class="flex-between"><span>' + escHtml(e.name) + '</span><span class="' + (e.ok ? 'text-success' : 'text-danger') + '">' + (e.ok ? '✓ 已安装' : '✗ 缺失') + '</span></div>';
+                return '<div class="flex-between"><span>' + escHtml(e.name) + '</span><span class="' + (e.ok ? 'text-success' : 'text-danger') + '">' + (e.ok ? render_icon('action:check') . ' 已安装' : render_icon('action:close') . ' 缺失') + '</span></div>';
             }).join('');
             var dirs = (d.dirs || []);
             html += '<div class="fw-600 mt-8 mb-4">目录权限</div>' + dirs.map(function (x) {
-                return '<div class="flex-between"><span>' + escHtml(x.path) + '</span><span class="' + (x.ok ? 'text-success' : 'text-danger') + '">' + (x.ok ? '✓ 可写' : '✗ 不可写') + '</span></div>';
+                return '<div class="flex-between"><span>' + escHtml(x.path) + '</span><span class="' + (x.ok ? 'text-success' : 'text-danger') + '">' + (x.ok ? render_icon('action:check') . ' 可写' : render_icon('action:close') . ' 不可写') + '</span></div>';
             }).join('');
             box.innerHTML = html;
             renderDrivers(d.drivers || { db: {}, cache: {} });
@@ -539,7 +539,7 @@ function renderConfirm() {
     rows.push(['数据库驱动', (dbMeta ? dbMeta.label : dbKey) + '（' + dbDesc + '）']);
     rows.push(['安装方式', WIZ.mode === 'attach' ? '关联现有数据库（保留数据）' : '全新安装（建库并导入基础字典）']);
     if (WIZ.mode === 'fresh' && WIZ.dbInstalled) {
-        rows.push(['⚠️ 注意', '将清空目标数据库全部已有数据后重新创建']);
+        rows.push([render_icon('alert:warning') . ' 注意', '将清空目标数据库全部已有数据后重新创建']);
     }
     var icd10 = document.getElementById('icd10_name').value.trim() || 'icd10';
     rows.push(['ICD-10 诊断库', 'data/db/' + icd10.replace(/\.db$/i, '') + '.db']);
@@ -554,7 +554,7 @@ function renderConfirm() {
         rows.push(['管理员', '保留现有系统管理员']);
     }
     box.innerHTML = rows.map(function (r) {
-        var warn = r[0].indexOf('⚠️') === 0;
+        var warn = r[0].indexOf(render_icon('alert:warning')) === 0;
         return '<div class="flex-between mb-4"><span class="' + (warn ? 'text-danger' : 'text-muted') + '">' + escHtml(r[0]) + '</span><span class="fw-600' + (warn ? ' text-danger' : '') + '">' + escHtml(r[1]) + '</span></div>';
     }).join('');
 }
@@ -610,14 +610,14 @@ document.getElementById('installBtn').addEventListener('click', function () {
             } else {
                 Clinic.toast.error(json.msg || '安装失败');
                 btn.disabled = false;
-                btn.textContent = '🚀 完成安装';
+                btn.textContent = render_icon('action:launch') . ' 完成安装';
                 document.getElementById('installFoot').textContent = '安装失败，请检查后重试';
             }
         })
         .catch(function () {
             Clinic.toast.error('网络请求失败，请重试');
             btn.disabled = false;
-            btn.textContent = '🚀 完成安装';
+            btn.textContent = render_icon('action:launch') . ' 完成安装';
         });
 });
 

@@ -9,7 +9,7 @@ Router::title('打印中心');
 ?>
 <div class="list-layout">
 <div class="page-head">
-    <div><div class="page-title">🖨️ 统一打印中心</div><div class="page-desc">集中补打挂号凭条 / 电子病历 / 申请单 / 处方 / 报告 / 诊断证明</div></div>
+    <div><div class="page-title"><?= render_icon('action:print') ?> 统一打印中心</div><div class="page-desc">集中补打挂号凭条 / 电子病历 / 申请单 / 处方 / 报告 / 诊断证明</div></div>
 </div>
 
 <!-- 检索工具条（日期范围跨度上限 3 个月，超出自动调整） -->
@@ -29,11 +29,11 @@ Router::title('打印中心');
 <!-- 左右两栏：左=就诊列表（分段加载） 右=可打印单据 -->
 <div class="pc-layout">
     <div class="card pc-left">
-        <div class="pc-left-head">📋 就诊记录 <span class="fs-12 text-muted" id="pcTotal"></span></div>
+        <div class="pc-left-head"><?= render_icon('emr:record') ?> 就诊记录 <span class="fs-12 text-muted" id="pcTotal"></span></div>
         <div class="pc-list" id="pcList"></div>
     </div>
     <div class="card pc-right" id="pcItems">
-        <div class="empty" style="padding:60px 0"><div class="empty-ico">🖨️</div>从左侧选择就诊记录，查看可打印单据</div>
+        <div class="empty" style="padding:60px 0"><div class="empty-ico"><?= render_icon('action:print') ?></div>从左侧选择就诊记录，查看可打印单据</div>
     </div>
 </div>
 </div>
@@ -123,7 +123,7 @@ function initPcList() {
         pageSize: 15,   // 就诊记录每页 15 条
         threshold: 40,
         totalEl: document.getElementById('pcTotal'),
-        emptyHtml: '<div class="empty" style="padding:30px 0"><div class="empty-ico">🔍</div>未检索到就诊记录</div>',
+        emptyHtml: '<div class="empty" style="padding:30px 0"><div class="empty-ico">' . render_icon('action:search') . '</div>未检索到就诊记录</div>',
         // url 用函数（每次加载读取当前检索值）：固定字符串会在 init 时求值，
         // 导致搜索后 reset() 仍用旧关键字（检索失效）
         url: function (p, size) {
