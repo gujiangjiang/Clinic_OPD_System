@@ -28,88 +28,88 @@ class Layout {
         $items = array();
         if ($role === 'admin') {
             $items['首页'] = array(
-                array('首页', '🏠', '/admin/dashboard'),
+                array('首页', render_icon('nav:home'), '/admin/dashboard'),
             );
             $items['业务管理'] = array(
-                array('审核中心', '✅', '/admin/review'),
-                array('叫号管理', '🖥️', '/admin/callmanage'),
-                array('科室管理', '🏥', '/admin/departments'),
-                array('用户管理', '👥', '/admin/users'),
+                array('审核中心', render_icon('alert:success'), '/admin/review'),
+                array('叫号管理', render_icon('nav:screen'), '/admin/callmanage'),
+                array('科室管理', render_icon('nav:hospital'), '/admin/departments'),
+                array('用户管理', render_icon('nav:group'), '/admin/users'),
             );
             $items['基础字典'] = array(
-                array('检验管理', '🧪', '/admin/labitems'),
-                array('检查管理', '🩻', '/admin/examitems'),
-                array('药品目录', '💊', '/admin/drugs'),
-                array('药品设置', '📦', '/admin/drugsettings'),
-                array('处置项目', '🩹', '/admin/disposal'),
-                array('诊断字典', '📖', '/admin/diagnosis'),
+                array('检验管理', render_icon('nav:lab'), '/admin/labitems'),
+                array('检查管理', render_icon('nav:imaging'), '/admin/examitems'),
+                array('药品目录', render_icon('nav:pharmacy'), '/admin/drugs'),
+                array('药品设置', render_icon('action:package'), '/admin/drugsettings'),
+                array('处置项目', render_icon('clinical:plaster'), '/admin/disposal'),
+                array('诊断字典', render_icon('emr:book'), '/admin/diagnosis'),
             );
             $items['模板与套餐'] = array(
-                array('模板管理', '📋', '/admin/templates'),
-                array('套餐管理', '🥡', '/admin/packages'),
+                array('模板管理', render_icon('emr:record'), '/admin/templates'),
+                array('套餐管理', render_icon('emr:disposal'), '/admin/packages'),
             );
             $items['统计与查询'] = array(
-                array('运营分析', '📊', '/admin/analytics'),
-                array('查询中心', '🔍', '/admin/querycenter'),
-                array('打印中心', '🖨️', '/admin/printcenter'),
+                array('运营分析', render_icon('nav:chart'), '/admin/analytics'),
+                array('查询中心', render_icon('action:search'), '/admin/querycenter'),
+                array('打印中心', render_icon('action:print'), '/admin/printcenter'),
             );
             $items['系统设置'] = array(
-                array('接口管理', '🔌', '/admin/integration'),
-                array('系统设置', '⚙️', '/admin/settings'),
+                array('接口管理', render_icon('nav:plug'), '/admin/integration'),
+                array('系统设置', render_icon('nav:settings'), '/admin/settings'),
             );
         } elseif ($role === 'cashier') {
             $items['挂号收费'] = array(
-                array('首页', '🏠', '/cashier/home'),
-                array('挂号收费', '🎫', '/cashier/register'),
-                array('挂号管理', '📋', '/cashier/regmanage'),
-                array('缴费管理', '💳', '/cashier/paymanage'),
+                array('首页', render_icon('nav:home'), '/cashier/home'),
+                array('挂号收费', render_icon('emr:ticket'), '/cashier/register'),
+                array('挂号管理', render_icon('emr:record'), '/cashier/regmanage'),
+                array('缴费管理', render_icon('nav:card'), '/cashier/paymanage'),
             );
         } elseif ($role === 'doctor') {
             $items['医生工作站'] = array(
-                array('首页', '🏠', '/doctor/home'),
-                array('医生工作站', '🩺', '/doctor/emr'),
-                array('危急值管理', '🚨', '/doctor/critical'),
-                array('模板管理', '📋', '/doctor/templates'),
-                array('套餐管理', '🥡', '/doctor/packages'),
+                array('首页', render_icon('nav:home'), '/doctor/home'),
+                array('医生工作站', render_icon('clinical:stethoscope'), '/doctor/emr'),
+                array('危急值管理', render_icon('alert:critical'), '/doctor/critical'),
+                array('模板管理', render_icon('emr:record'), '/doctor/templates'),
+                array('套餐管理', render_icon('emr:disposal'), '/doctor/packages'),
             );
         } elseif ($role === 'nurse') {
             $items['护士站'] = array(
-                array('首页', '🏠', '/nurse/home'),
-                array('护士工作站', '💉', '/nurse/dashboard'),
-                array('护理模板', '📋', '/nurse/templates'),
+                array('首页', render_icon('nav:home'), '/nurse/home'),
+                array('护士工作站', render_icon('clinical:injection'), '/nurse/dashboard'),
+                array('护理模板', render_icon('emr:record'), '/nurse/templates'),
             );
         } elseif ($role === 'lab') {
             $items['检验科'] = array(
-                array('首页', '🏠', '/lab/home'),
-                array('检验科工作台', '🧪', '/lab/dashboard'),
-                array('危急值管理', '🚨', '/lab/critical'),
+                array('首页', render_icon('nav:home'), '/lab/home'),
+                array('检验科工作台', render_icon('nav:lab'), '/lab/dashboard'),
+                array('危急值管理', render_icon('alert:critical'), '/lab/critical'),
             );
             $items['管理'] = array(
-                array('检验管理', '🧪', '/admin/labitems'),
+                array('检验管理', render_icon('nav:lab'), '/admin/labitems'),
             );
         } elseif ($role === 'imaging') {
             $items['影像科'] = array(
-                array('首页', '🏠', '/imaging/home'),
-                array('影像科工作台', '🩻', '/imaging/dashboard'),
-                array('危急值管理', '🚨', '/imaging/critical'),
-                array('影像模板', '📋', '/imaging/templates'),
+                array('首页', render_icon('nav:home'), '/imaging/home'),
+                array('影像科工作台', render_icon('nav:imaging'), '/imaging/dashboard'),
+                array('危急值管理', render_icon('alert:critical'), '/imaging/critical'),
+                array('影像模板', render_icon('emr:record'), '/imaging/templates'),
             );
             $items['管理'] = array(
-                array('检查管理', '🩻', '/admin/examitems'),
+                array('检查管理', render_icon('nav:imaging'), '/admin/examitems'),
             );
         } elseif ($role === 'pharmacy') {
             $items['药房'] = array(
-                array('首页', '🏠', '/pharmacy/home'),
-                array('药房工作台', '💊', '/pharmacy/dashboard'),
+                array('首页', render_icon('nav:home'), '/pharmacy/home'),
+                array('药房工作台', render_icon('nav:pharmacy'), '/pharmacy/dashboard'),
             );
             $items['管理'] = array(
-                array('药品目录', '💊', '/admin/drugs'),
-                array('药品设置', '📦', '/admin/drugsettings'),
+                array('药品目录', render_icon('nav:pharmacy'), '/admin/drugs'),
+                array('药品设置', render_icon('action:package'), '/admin/drugsettings'),
             );
         }
         $items['通用'] = array(
-            array('站内消息', '💬', '/messages'),
-            array('个人信息', '👤', '/profile'),   // 含密码修改（个人信息页内模态框）
+            array('站内消息', render_icon('emr:consult'), '/messages'),
+            array('个人信息', render_icon('nav:user'), '/profile'),   // 含密码修改（个人信息页内模态框）
         );
         $html = '';
         foreach ($items as $group => $list) {
@@ -133,17 +133,17 @@ class Layout {
     public static function docToolsBar() {
         return '<div data-topbar-doc-tools style="display:inline-flex;align-items:center;gap:12px">' .
             '<div style="position:relative">' .
-                '<button type="button" class="btn btn-outline btn-sm" id="docCallBtn" title="叫号大屏绑定" onclick="Clinic.docTools.toggleRoomList()">📢 <span id="docCallName">叫号</span></button>' .
+                '<button type="button" class="btn btn-outline btn-sm" id="docCallBtn" title="叫号大屏绑定" onclick="Clinic.docTools.toggleRoomList()">' . render_icon('action:announce') . ' <span id="docCallName">叫号</span></button>' .
                 '<div id="docRoomList" style="display:none;position:absolute;top:100%;right:0;min-width:300px;max-height:340px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:8px;z-index:100;box-shadow:0 8px 24px var(--shadow)"></div>' .
             '</div>' .
             '<div style="position:relative">' .
-                '<button type="button" class="btn btn-outline btn-sm" id="docToolboxBtn" title="工具箱" onclick="Clinic.docTools.toggleToolbox()">🧰 工具箱 ▾</button>' .
+                '<button type="button" class="btn btn-outline btn-sm" id="docToolboxBtn" title="工具箱" onclick="Clinic.docTools.toggleToolbox()">' . render_icon('nav:toolbox') . ' 工具箱 ▾</button>' .
                 '<div id="docToolbox" style="display:none;position:absolute;top:100%;right:0;min-width:170px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:100;box-shadow:0 8px 24px var(--shadow)">' .
                     '<div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openAddSlot()">＋ 加号</div>' .
-                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openDeptSwitch()">🏥 切换科室</div>' .
-                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openPatientSearch()">🔍 患者查询</div>' .
-                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.nav.go(\'/doctor/templates\')">📋 模板管理</div>' .
-                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.nav.go(\'/doctor/packages\')">🥡 套餐管理</div>' .
+                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openDeptSwitch()">' . render_icon('nav:hospital') . ' 切换科室</div>' .
+                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.docTools.openPatientSearch()">' . render_icon('action:search') . ' 患者查询</div>' .
+                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.nav.go(\'/doctor/templates\')">' . render_icon('emr:record') . ' 模板管理</div>' .
+                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.nav.go(\'/doctor/packages\')">' . render_icon('emr:disposal') . ' 套餐管理</div>' .
                 '</div>' .
             '</div>' .
         '</div>';
@@ -160,13 +160,13 @@ class Layout {
     public static function deptToolsBar() {
         return '<div data-topbar-dept-tools style="display:inline-flex;align-items:center;gap:12px">' .
             '<div style="position:relative">' .
-                '<button type="button" class="btn btn-outline btn-sm" id="dwCallBtn" title="叫号大屏绑定" onclick="Clinic.deptwork.toggleCallPop()">📢 <span id="dwCallName">叫号</span></button>' .
+                '<button type="button" class="btn btn-outline btn-sm" id="dwCallBtn" title="叫号大屏绑定" onclick="Clinic.deptwork.toggleCallPop()">' . render_icon('action:announce') . ' <span id="dwCallName">叫号</span></button>' .
                 '<div id="dwRoomList" style="display:none;position:absolute;top:100%;right:0;min-width:300px;max-height:340px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:8px;z-index:100;box-shadow:0 8px 24px var(--shadow)"></div>' .
             '</div>' .
             '<div style="position:relative">' .
-                '<button type="button" class="btn btn-outline btn-sm" id="dwToolboxBtn" title="工具箱" onclick="Clinic.deptwork.toggleToolbox()">🧰 工具箱 ▾</button>' .
+                '<button type="button" class="btn btn-outline btn-sm" id="dwToolboxBtn" title="工具箱" onclick="Clinic.deptwork.toggleToolbox()">' . render_icon('nav:toolbox') . ' 工具箱 ▾</button>' .
                 '<div id="dwToolbox" style="display:none;position:absolute;top:100%;right:0;min-width:170px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:100;box-shadow:0 8px 24px var(--shadow)">' .
-                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.deptwork.openPatientSearch()">🔍 患者查询</div>' .
+                    '<div class="dd-item" style="cursor:pointer" onclick="Clinic.deptwork.openPatientSearch()">' . render_icon('action:search') . ' 患者查询</div>' .
                 '</div>' .
             '</div>' .
         '</div>';
@@ -177,11 +177,11 @@ class Layout {
         $hosp = setting('hospital_name', '');
         $hosp2 = setting('hospital_name2', '');
         // LOGO 以 base64 Data URI 内联显示：不暴露文件 URL，且不受页面层级影响；
-        // 未设置时显示默认 LOGO（与系统主布局一致的 🏥 占位）
+        // 未设置时显示默认 LOGO（与系统主布局一致的 {{ICON:nav:hospital}} 占位）
         $logoData = img_data(setting('logo', ''));
         $logoImg = $logoData !== ''
             ? '<img src="' . e($logoData) . '" alt="LOGO" class="auth-logo">'
-            : '<span class="brand-default-logo">🏥</span>';
+            : '<span class="brand-default-logo">' . render_icon('nav:hospital') . '</span>';
         // 品牌区：LOGO + 医院名称（第一名称大字/第二名称小字，两行左右两端对齐）
         $brandNames = '';
         if ($hosp !== '') $brandNames .= '<div class="brand-name">' . e($hosp) . '</div>';
@@ -256,10 +256,10 @@ class Layout {
         $logoData = img_data(setting('logo', ''));
         // 浏览器标签页图标：统一 /pwa-icon.png（有 LOGO 输出 LOGO，无则默认医疗十字图标），与 PWA 图标一致
         $favicon = '<link rel="icon" href="/pwa-icon.png">';
-        // 未设置 LOGO 时显示默认简易 LOGO（🏥），避免侧边栏 mini 模式下顶部空白
+        // 未设置 LOGO 时显示默认简易 LOGO（{{ICON:nav:hospital}}），避免侧边栏 mini 模式下顶部空白
         $brandImg = $logoData !== ''
             ? '<img src="' . e($logoData) . '" alt="LOGO">'
-            : '<span class="brand-default-logo">🏥</span>';
+            : '<span class="brand-default-logo">' . render_icon('nav:hospital') . '</span>';
         // 页脚版权：固定格式自动生成【© 年份 医院名称 版权所有】，无需手动配置
         $footer = '© ' . date('Y') . ' ' . ($hosp !== '' ? $hosp : '门诊一体化信息系统') . ' 版权所有';
         $theme = $u['theme'] ? $u['theme'] : 'auto';
@@ -274,7 +274,7 @@ class Layout {
         // 且不受页面层级影响（二级路径页不会解析成 /admin/uploads/... 404）。
         $avatar = !empty($u['photo']) && ($__ava = img_data($u['photo'])) !== ''
             ? '<img src="' . e($__ava) . '" alt="头像">'
-            : '👤';
+            : render_icon('nav:user');
 
         // 右上角悬浮窗数据：工号 + 职称（session 不包含，需查库；医务人员才有职称）
         // print_auto 一并查库取实时值：打印预览「自动打印」偏好的服务端初始态
@@ -286,7 +286,7 @@ class Layout {
             $u['photo'] = $uFull['photo'];
             $avatar = !empty($u['photo']) && ($__ava = img_data($u['photo'])) !== ''
                 ? '<img src="' . e($__ava) . '" alt="头像">'
-                : '👤';
+                : render_icon('nav:user');
         }
         $uDeptId = $uFull && isset($uFull['current_dept_id']) ? (int)$uFull['current_dept_id'] : (isset($u['current_dept_id']) ? (int)$u['current_dept_id'] : 0);
         $uEmpNo = $uFull && $uFull['emp_no'] !== '' ? $uFull['emp_no'] : '—';
@@ -428,7 +428,7 @@ class Layout {
                 <div class="main">
                     <header class="topbar">
                         <div class="flex gap-12" style="align-items:center">
-                            <button type="button" class="btn btn-outline btn-sm" data-sidebar-toggle style="padding:4px 10px">☰</button>
+                            <button type="button" class="btn btn-outline btn-sm" data-sidebar-toggle style="padding:4px 10px">' . render_icon('nav:menu') . '</button>
                             ' . ($docTools
                                 ? self::docWorkTitle($title !== '' ? $title : $hosp)
                                 : '<div class="topbar-title">' . e($title !== '' ? $title : $hosp) . '</div>') . '
@@ -440,7 +440,7 @@ class Layout {
                                 <span class="theme-label">' . ($theme === 'auto' ? '自动模式' : ($theme === 'dark' ? '夜间模式' : '明亮模式')) . '</span>
                             </button>
                             <div style="position:relative">
-                                <button type="button" class="btn btn-outline btn-sm" data-msg-bell title="站内消息">💬
+                                <button type="button" class="btn btn-outline btn-sm" data-msg-bell title="站内消息">' . render_icon('emr:consult') . '
                                     <span class="badge badge-danger" data-msg-badge style="display:none;margin-left:2px;padding:0 6px"></span>
                                 </button>
                             </div>

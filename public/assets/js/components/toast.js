@@ -33,7 +33,20 @@ Clinic.toast = (function () {
     function show(msg, type, ms) {
         const el = document.createElement('div');
         el.className = 'toast toast-' + (type || 'info');
-        el.textContent = msg;
+        const m = String(msg == null ? '' : msg);
+        // 图标+文本分段渲染：消息以受控 SVG 图标开头时，图标经 innerHTML、
+        // 其余文本走 textNode（避免用户内容被当 HTML 解析的 XSS 面）
+        if (m.indexOf('<svg') === 0) {
+            const end = m.indexOf('</svg>');
+            if (end !== -1) {
+                el.innerHTML = m.substring(0, end + 6);
+                el.appendChild(document.createTextNode(m.substring(end + 6)));
+            } else {
+                el.textContent = m;
+            }
+        } else {
+            el.textContent = m;
+        }
         ensureWrap().appendChild(el);
         // 强制回流后显示动画
         requestAnimationFrame(function () {
