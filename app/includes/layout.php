@@ -400,6 +400,8 @@ class Layout {
             <script src="/assets/js/components/authsync.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/app.js?v=' . APP_VERSION . '"></script>
             <script src="/assets/js/components/nav.js?v=' . APP_VERSION . '"></script>
+            <script>window.OPD_ICON_SVGS=' . json_encode(IconHelper::allSvg()) . ';</script>
+            <script src="/assets/js/components/icons.js?v=' . APP_VERSION . '"></script>
             <script>
             if ("serviceWorker" in navigator) {
                 window.addEventListener("load", function () {

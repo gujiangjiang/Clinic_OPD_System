@@ -80,6 +80,9 @@ date_default_timezone_set('Asia/Shanghai');
 require_once __DIR__ . '/../core/helpers.php';
 require_once __DIR__ . '/../core/barcode.php';
 
+/* ---------- 图标库（内联 SVG 组件，render_icon 全局函数） ---------- */
+require_once APP_ROOT . '/app/includes/icons/IconHelper.php';
+
 /* ---------- 基础设施配置库（config.db）：Session/数据库驱动读取依赖，须先加载 ----------
  * 仅迁移旧位置 config.db，不自动新建——config.db 不存在即表示尚未安装，
  * 由安装向导在选定数据库后写入，避免在用户选择数据库前臆测连接目标。 */
