@@ -12,7 +12,7 @@
  *   render_role_home(array(
  *       'title'  => '收费处首页',
  *       'desc'   => '今日挂号收费概览',
- *       'cta'    => array('/cashier/register', '🎫 进入挂号收费'),
+ *       'cta'    => array('/cashier/register', '{{ICON:emr:ticket}} 进入挂号收费'),
  *       'api'    => '/api/cashier?action=home_stats',
  *       'stats'  => array(
  *           array('reg_today', '今日挂号数'),
@@ -20,7 +20,7 @@
  *       ),
  *       'colors' => array('refund_today' => 'var(--danger)'), // 可选：特例颜色
  *       'chart'  => array('title' => '近 7 天缴费收入趋势', 'name' => '缴费收入'),
- *       'links'  => array(array('/cashier/register', '🎫 挂号收费'), ...),
+ *       'links'  => array(array('/cashier/register', '{{ICON:emr:ticket}} 挂号收费'), ...),
  *       'tips'   => array('1. ...', ...),
  *   ));
  * ============================================================ */
@@ -30,7 +30,7 @@ function render_role_home($cfg) {
     $cta = $cfg['cta'];
     ?>
 <div class="page-head">
-    <div><div class="page-title">🏠 <?php echo e($cfg['title']); ?></div><div class="page-desc"><?php echo e($cfg['desc']); ?></div></div>
+    <div><div class="page-title"><?= render_icon('nav:home') ?> <?php echo e($cfg['title']); ?></div><div class="page-desc"><?php echo e($cfg['desc']); ?></div></div>
     <div class="flex gap-8"><a class="btn btn-primary btn-sm" href="<?php echo e($cta[0]); ?>"><?php echo $cta[1]; ?></a></div>
 </div>
 <div class="stat-grid" id="statsBox">

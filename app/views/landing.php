@@ -74,12 +74,12 @@ $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
             <p>各角色登录后仅可见自己的工作台，权限互不越界</p>
         </div>
         <div class="feature-grid">
-            <div class="feature-card"><div class="ico">🎫</div><h3>挂号收费处</h3><p>身份证自动校验与既往登记回填，号源实时展示，挂号缴费后一键打印凭条，支持退费与补打。</p></div>
-            <div class="feature-card"><div class="ico">🩺</div><h3>医生工作站</h3><p>所见即所得电子病历，ICD10 诊断联动，检验/检查/处置/处方开单，科室间会诊、知情同意书、诊断证明，流程进度一目了然。</p></div>
-            <div class="feature-card"><div class="ico">💉</div><h3>护士站</h3><p>护士站处置执行、生命体征录入（与医生站双向同步）、护理记录管理。</p></div>
-            <div class="feature-card"><div class="ico">🧪</div><h3>检验科</h3><p>检验登记、结果录入（正常范围与危急值提示）、报告自动生成与打印、支持申请撤回。</p></div>
-            <div class="feature-card"><div class="ico">🩻</div><h3>影像科</h3><p>检查登记与报告书写（影像所见 + 结论），报告一键打印，与医生实时联动。</p></div>
-            <div class="feature-card"><div class="ico">💊</div><h3>药房</h3><p>处方发药队列、库存管理（入库/出库/低库存预警），开方自动减库存、退费自动恢复。</p></div>
+            <div class="feature-card"><div class="ico"><?= render_icon('emr:ticket') ?></div><h3>挂号收费处</h3><p>身份证自动校验与既往登记回填，号源实时展示，挂号缴费后一键打印凭条，支持退费与补打。</p></div>
+            <div class="feature-card"><div class="ico"><?= render_icon('clinical:stethoscope') ?></div><h3>医生工作站</h3><p>所见即所得电子病历，ICD10 诊断联动，检验/检查/处置/处方开单，科室间会诊、知情同意书、诊断证明，流程进度一目了然。</p></div>
+            <div class="feature-card"><div class="ico"><?= render_icon('clinical:injection') ?></div><h3>护士站</h3><p>护士站处置执行、生命体征录入（与医生站双向同步）、护理记录管理。</p></div>
+            <div class="feature-card"><div class="ico"><?= render_icon('nav:lab') ?></div><h3>检验科</h3><p>检验登记、结果录入（正常范围与危急值提示）、报告自动生成与打印、支持申请撤回。</p></div>
+            <div class="feature-card"><div class="ico"><?= render_icon('nav:imaging') ?></div><h3>影像科</h3><p>检查登记与报告书写（影像所见 + 结论），报告一键打印，与医生实时联动。</p></div>
+            <div class="feature-card"><div class="ico"><?= render_icon('nav:pharmacy') ?></div><h3>药房</h3><p>处方发药队列、库存管理（入库/出库/低库存预警），开方自动减库存、退费自动恢复。</p></div>
         </div>
     </section>
 

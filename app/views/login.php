@@ -20,12 +20,12 @@ if ($next === '' || $next[0] !== '/') {
 
     <div class="form-group">
         <label class="form-label">用户名 / 工号</label>
-        <div class="input-wrap"><span class="input-icon">👤</span>
+        <div class="input-wrap"><span class="input-icon"><?= render_icon('nav:user') ?></span>
             <input type="text" class="input" id="username" placeholder="请输入用户名或工号" autocomplete="username"></div>
     </div>
     <div class="form-group">
         <label class="form-label">密码</label>
-        <div class="input-wrap"><span class="input-icon">🔒</span>
+        <div class="input-wrap"><span class="input-icon"><?= render_icon('nav:lock') ?></span>
             <input type="password" class="input" id="password" placeholder="请输入密码" autocomplete="current-password"></div>
     </div>
     <div class="form-group login-captcha-group" id="captchaGroup" style="display:none">

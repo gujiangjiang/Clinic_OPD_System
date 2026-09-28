@@ -281,7 +281,7 @@ function form_drug($id, $snap = null) {
         <input type="hidden" id="f_skin_item" value="' . (int)$r['skin_test_item_id'] . '">
         <div class="flex gap-8">
             <input class="input" id="f_skin_item_name" value="' . e($skinName) . '" readonly placeholder="点击右侧按钮选择或新建">
-            <button type="button" class="btn btn-outline btn-sm" onclick="pickSkinDisposal()">🔍 选择/新建</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="pickSkinDisposal()">' . render_icon('action:search') . ' 选择/新建</button>
             <button type="button" class="btn btn-outline btn-sm" onclick="clearSkinDisposal()">清除</button>
         </div>
         <div class="fs-12 text-muted mt-4">如：青霉素皮试、头孢菌素类皮试。可在弹窗中检索已有处置，或就地快捷创建' . (Auth::user() && Auth::user()['role'] === 'admin' ? '。' : '（非管理员提交需审核）。') . '</div>

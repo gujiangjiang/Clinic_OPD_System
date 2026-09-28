@@ -7,7 +7,7 @@ Router::title('修改密码');
 $u = Auth::user();
 ?>
 <div class="page-head">
-    <div><div class="page-title">🔑 修改密码</div><div class="page-desc">为保障账号安全，请定期修改密码</div></div>
+    <div><div class="page-title"><?= render_icon('nav:key') ?> 修改密码</div><div class="page-desc">为保障账号安全，请定期修改密码</div></div>
 </div>
 <div class="card" style="max-width:520px">
     <div class="form-group">

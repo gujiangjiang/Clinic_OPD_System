@@ -22,19 +22,19 @@ function dept_workbench($cfg) {
     $role = isset($cfg['role']) ? $cfg['role'] : '';
     $title = isset($cfg['title']) ? $cfg['title'] : '工作台';
     $desc = isset($cfg['desc']) ? $cfg['desc'] : '';
-    $emoji = isset($cfg['emoji']) ? $cfg['emoji'] : '🏥';
+    $emoji = isset($cfg['emoji']) ? $cfg['emoji'] : render_icon('nav:hospital');
     $extraActions = isset($cfg['extra_actions']) ? $cfg['extra_actions'] : '';
     Router::title($title);
     ?>
 <div class="emr-workspace-layout">
     <header class="emr-top-bar">
-        <button type="button" class="btn btn-outline btn-sm" id="queueBtn" style="flex-shrink:0" title="候诊 / 患者列表">📋 候诊 …</button>
+        <button type="button" class="btn btn-outline btn-sm" id="queueBtn" style="flex-shrink:0" title="候诊 / 患者列表"><?= render_icon('emr:record') ?> 候诊 …</button>
         <div id="dwHeader"></div>
         <span class="fs-12 text-muted emr-top-status" id="dwStatus"></span>
         <div class="emr-top-actions">
             <?php if ($extraActions !== '') echo $extraActions; ?>
-            <button type="button" class="btn btn-outline btn-sm" id="dwRecordBtn" title="预览该患者完整病历（弹出打印预览）" style="display:none">📋 病历</button>
-            <button type="button" class="btn btn-outline btn-sm" id="dwHomeBtn" title="关闭护理记录单，返回候诊列表" style="display:none">✕ 关闭</button>
+            <button type="button" class="btn btn-outline btn-sm" id="dwRecordBtn" title="预览该患者完整病历（弹出打印预览）" style="display:none"><?= render_icon('emr:record') ?> 病历</button>
+            <button type="button" class="btn btn-outline btn-sm" id="dwHomeBtn" title="关闭护理记录单，返回候诊列表" style="display:none"><?= render_icon('action:close') ?> 关闭</button>
         </div>
     </header>
     <div class="emr-body-layout">
