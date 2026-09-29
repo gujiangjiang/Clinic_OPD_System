@@ -13,6 +13,46 @@
 
 ---
 
+## [8.37.2] - 2026-09-29
+
+> 修复「图标被当纯文本显示为原始 `<svg>` 源码」的一类问题：所有**文本型挂载点**
+> （toast 消息、模态标题、模态按钮文案、表标题、工作台欢迎屏）此前只处理「图标在首位」
+> 或直接走 `textContent` / `e()`，图标夹在文字中间、含多个图标、或按钮带图标时
+> 会把 SVG 标记当纯文本渲染。
+
+### 新增
+- **`iconSafeHtml()` 图标安全渲染助手**（`icons.js`）：字符串中的受控图标标记
+  `<svg class="opd-svg-icon">…</svg>` 先占位保留，其余文本统一经 `Clinic.escHtml`
+  转义后回填，返回可安全 `innerHTML` 的 HTML——既让图标正常显示，
+  又不扩大 XSS 面（消息/标题/按钮文案可能拼入用户数据）。
+
+### 修复
+- **toast 提息夹图标显示为原始 SVG**：`toast.js` 原仅当消息以 `<svg` 开头时分段渲染，
+  11 处「请点击「<svg> 保存」后再…」类提示整条走 `textContent`；现含图标即走
+  `iconSafeHtml`，图标模块未注入时保留旧首段分段策略。
+- **模态标题夹图标显示为原始 SVG**：`modal.js` 原只处理标题开头的图标，
+  「发起会诊 → 科室」等含两个图标的标题第二个图标会外露；现统一走 `iconSafeHtml`。
+- **模态底部按钮文案显示为原始 SVG**（用户反馈的挂号流程缺陷）：
+  `btn.text` 原走 `textContent`，收费【快速挂号】弹窗「继续 → 选择科室」、
+  「<svg> 缴费（模拟）」等 12 处按钮（收费/护士站/药房/检验/危急值/会诊/打印）
+  全部显示 SVG 源码；现含图标经 `iconSafeHtml` 渲染，纯文本按钮行为不变
+  （`modal.js`）。
+- **数据库浏览表标题图标外露**：`admin/settings.php` 的 `#dbTableTitle`
+  原 `textContent = renderIconSvg(...) + 表名…`；改走 `iconSafeHtml`。
+- **科室工作台欢迎屏图标被转义**：`dept_workbench.php` 的 `e($emoji)`
+  把 `render_icon()` 输出转义成 `&lt;svg&gt;` 文本，护士站/检验/影像/药房
+  工作台欢迎屏大图标异常；改为直接输出受控 SVG。
+
+### 验证
+- 静态复核：全项目无「图标表达式 → `textContent`/`innerText`/`e()`/`htmlspecialchars()`/
+  `title=` 属性」残留。
+- headless Chrome 组件级实测：模态标题 2 枚图标、按钮图标、中间夹图标的 toast
+  均渲染正常且 `textContent` 不含 `<svg`；`<script>`/`<img onerror>` 注入被转义不执行。
+- 49 条路由全量爬取：`&lt;svg` 计数 0、无图标落入 HTML 属性；
+  四角色工作台欢迎屏实测渲染 `<svg>`。
+
+---
+
 ## [8.37.1] - 2026-09-29
 
 > 图标体系收口：清理全项目残留 emoji（含服务端拼接 HTML 的 API 片段与代码注释），
