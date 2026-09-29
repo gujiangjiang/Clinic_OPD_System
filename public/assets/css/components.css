@@ -749,6 +749,8 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
     overflow: hidden;
     flex-shrink: 0;
 }
+/* 头像内默认 SVG 图标按容器自适应（emoji 清理后固定 16px 在 72/88px 头像中过小） */
+.avatar > .opd-svg-icon { width: 56%; height: 56%; }
 
 /* ---------- 头像上传控件（点击头像上传照片） ---------- */
 .avatar-picker {

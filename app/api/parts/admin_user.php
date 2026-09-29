@@ -134,17 +134,17 @@ function admin_part_user($action) {
         $lockWarn = '';
         if ((int)$r['status'] !== 1 && (string)$r['lock_reason'] === 'password_error_locked') {
             $lockWarn = '<div class="mb-12" style="background:var(--warning-soft,#fef3c7);border:1px solid var(--warning,#f59e0b);color:var(--warning,#b45309);border-radius:var(--radius-md);padding:10px 12px;font-size:13px;line-height:1.8">' .
-                '⚠️ 该账号于 <b>' . e((string)(isset($r['locked_at']) ? $r['locked_at'] : '-')) . '</b>' .
+                render_icon('alert:warning') . ' 该账号于 <b>' . e((string)(isset($r['locked_at']) ? $r['locked_at'] : '-')) . '</b>' .
                 ' 因密码连续错误达 <b>' . (int)(isset($r['login_fail_count']) ? $r['login_fail_count'] : 0) . '</b> 次' .
                 '已被系统锁定，来源 IP: <b>' . e((string)(isset($r['lock_ip']) ? $r['lock_ip'] : '-')) . '</b><br>' .
-                '<button type="button" class="btn btn-warning btn-sm" style="margin-top:6px" onclick="unlockUser()">🔓 解除锁定并启用</button>' .
+                '<button type="button" class="btn btn-warning btn-sm" style="margin-top:6px" onclick="unlockUser()">' . render_icon('nav:unlock') . ' 解除锁定并启用</button>' .
                 '</div>';
         }
         $html = $lockWarn . '<div class="flex" style="justify-content:center;margin-bottom:12px">
             <div class="avatar-picker" onclick="document.getElementById(\'f_photo\').click()">
                 <span class="avatar" id="avatarPreview">' .
-                ($r['photo'] && ($__ava = img_data($r['photo'])) !== '' ? '<img src="' . e($__ava) . '">' : '👤') . '
-                <span class="avatar-badge">📷</span>
+                ($r['photo'] && ($__ava = img_data($r['photo'])) !== '' ? '<img src="' . e($__ava) . '">' : render_icon('nav:user', array('size' => 32))) . '
+                <span class="avatar-badge">' . render_icon('action:camera') . '</span>
                 </span>
                 <span class="avatar-picker-tip">点击头像上传照片</span>
             </div>
@@ -175,7 +175,7 @@ function admin_part_user($action) {
         </div>
         <div class="form-group" id="deptWrap" style="display:none"><label class="form-label">所属科室（医生可选多个，支持按全院 / 门诊 / 急诊快速勾选）</label>
             <div class="tree-box">
-                <input class="input tree-box-search" id="deptSearchQ" placeholder="🔍 搜索科室，可定位到列表" autocomplete="off">
+                <input class="input tree-box-search" id="deptSearchQ" placeholder="搜索科室，可定位到列表" autocomplete="off">
                 <div id="deptSearchRes" class="tree-search-res" style="display:none"></div>
                 <div class="send-tree" id="deptTreeBox" style="max-height:220px">' . $deptBox . '</div>
             </div></div>
