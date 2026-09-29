@@ -734,6 +734,11 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
     color: var(--text-muted);
 }
 .empty .empty-ico { font-size: 40px; margin-bottom: 10px; opacity: .5; }
+/* 空态 SVG 图标跟随容器 font-size 缩放（emoji 清理后固定 16px 远小于 40px 版位） */
+.empty-ico .opd-svg-icon,
+.hist-empty-ico .opd-svg-icon,
+.itg-his-empty-ico .opd-svg-icon,
+.doc-call-pool-empty-ico .opd-svg-icon { width: 1em; height: 1em; }
 
 /* ---------- 头像 ---------- */
 .avatar {
