@@ -693,7 +693,11 @@ function openDbTable(table) {
                 }).join('') + '</tr>';
             }).join('');
             var title = document.getElementById('dbTableTitle');
-            if (title && isFirst) title.textContent = renderIconSvg('emr:record') + ' ' + (data && data.table ? data.table : DB_CUR_TABLE) + '（共 ' + ((data && data.total) || 0) + ' 行）';
+            if (title && isFirst) {
+                var titleText = renderIconSvg('emr:record') + ' ' + (data && data.table ? data.table : DB_CUR_TABLE) + '（共 ' + ((data && data.total) || 0) + ' 行）';
+                // 文本型挂载点：图标经 iconSafeHtml 放行、表名等文本转义（原 textContent 会把 SVG 当纯文本）
+                title.innerHTML = window.iconSafeHtml ? iconSafeHtml(titleText) : escHtml(titleText);
+            }
             // 首屏返回完整表格结构，后续页仅返回行（由 append 插入 tbody）
             return isFirst
                 ? '<table class="table"><thead>' + headHtml + '</thead><tbody>' + rowHtml + '</tbody></table>'
