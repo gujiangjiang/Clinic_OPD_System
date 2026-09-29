@@ -13,6 +13,71 @@
 
 ---
 
+## [8.37.1] - 2026-09-29
+
+> 图标体系收口：清理全项目残留 emoji（含服务端拼接 HTML 的 API 片段与代码注释），
+> 统一改为内联 SVG 图标；补修 emoji→SVG 转换遗留的空态占位与被误转的箭头字符；
+> 未设置医院 LOGO 时品牌区/标签页默认图标改用 PWA 默认图标。
+
+### 新增
+- **图标库新增 4 枚基础图标**：静音 `action:mute`、实名 `action:eye`、
+  脱敏 `action:eye-off`、跨天 `action:moon`（`app/includes/icons/ActionIcons.php`），
+  支撑叫号管理设置列图标替换。
+
+### 修复
+- **用户编辑表单头像区 emoji**：表单头像 👤 / 拍照 📷 / 上传提示 ⚠️ / 解锁 🔓 / 搜索 🔍
+  改为 `nav:user`、`action:camera`、`alert:warning`、`nav:unlock`，并删除多余占位
+  emoji（`admin_user.php` + `.avatar > .opd-svg-icon` 尺寸规则）。
+- **打印中心补打/查看按钮 emoji**：🖨️ / 🔍 改为 `action:print` SVG 图标，禁用态同步补图标
+  （`admin_settings.php`）。
+- **叫号管理设置列 emoji**：🟢 在线 / ⚫ 离线（手写灰色徽章）、🔊 喇叭 / 🔇 静音，
+  并为新增的「实名 / 脱敏 / 跨天」补 SVG 图标（`admin_call.php`）。
+- **emoji→SVG 转换丢失的空态占位**：4 处 `.empty-ico` 为空容器（挂号收款、退费审批、
+  打印中心、患者选择器），补 `action:search` 图标（`paymanage.php`、`refund_approve.php`、
+  `admin/printcenter.php`、`selector.js`）。
+- **注释中被转换成占位符的箭头**：`{{ICON:action:next}}` 还原为 `→` 纯文本
+  （`cashier/register.php` 16 处、`profile.php` 1 处）。
+- **后端拼接 HTML 的 API 片段残留 emoji**（此前清理未覆盖）：
+  - 护士站：空态 ✅ `alert:success`、💉 `clinical:injection`，患者卡 🌡️ 生命体征
+    `clinical:temperature`、📝 护理记录 `emr:record`（`nurse.php`）。
+  - 药房：空态 💊 `nav:pharmacy`，操作列 🖨️ 处方提示 `action:print`（`pharmacy.php`）。
+  - 收费/挂号：🗓️ 空态、💡 未缴费提示、💳 查看并缴费、🎫 挂号费凭条、🧾 缴费凭条、
+    🖨️ 补打凭条（2 处）、📋 详情（2 处）（`cashier_read.php`）。
+  - 审核中心：空态 📋 `emr:document`、分组卡 👤 `nav:user`、📂 `emr:folder`
+    （`admin_audit.php`）。
+  - 危急值：站内信标题去掉 ⚠️ 前缀（title 经 `escHtml` 转义，无法内联 SVG，
+    `critical.php`）。
+- **代码注释残留 emoji**：11 处注释中的 ✕ / ✓ / 📋 / 📤📥 / 🤝 / ⭐ / 🖥 / ☰ 等
+  改为对应图标名或纯文本，与实际渲染保持一致（`ui.js`、`emr.js`、`emr_diag.js`、
+  `deptwork.js`、`deptpicker.js`、`queuepanel.js`、`critical.js`、`import.js`、
+  `dropdown.js`、`layout.css`、`helpers.d/visit.php`）。
+
+### 变更
+- **空态图标 SVG 跟随容器缩放**：`.empty-ico` 等 4 处空态图标容器内的 SVG 改为
+  `width/height:1em`，随 `font-size` 变化，视觉尺寸与原 emoji 版一致
+  （`components.css`）。
+- **未设置医院 LOGO 时默认图标**：独立页/侧边栏品牌区、系统设置 LOGO 预览、叫号大屏、
+  落地页、医生诊室改用 `/pwa-icon.png`（新增 `default_logo_img()` 辅助函数，
+  GD 不可用时回退 `nav:hospital` SVG；`upload.php` / `layout.php` /
+  `admin/settings.php` / `screen.php` / `landing.php` / `doctor/call.php`，
+  并移除无引用的 `.logo-placeholder` 规则）。
+- **favicon 统一**：落地页、叫号屏、医生诊室、全站统一输出
+  `/pwa-icon.png?v=APP_VERSION`，强刷版本更新（`landing.php`、`screen.php`、
+  `doctor/call.php`、`layout.php`）。
+
+### 移除
+- 删除图标转换管线遗留的已跟踪临时副本 `app/views/admin/diagnosis.php.new.final`，
+  `.gitignore` 增加 `*.new.*` 规则。
+
+### 验证
+- 全项目 emoji 复扫（按码位区间过滤 `app`/`public`/`tools`）：仅剩 `tools/` CLI 控制台
+  与 CI 报告的终端字符、以及 CSS `content:'✓'` 单色字形（非 emoji），运行时 UI 零 emoji。
+- 83 处 `render_icon`/`renderIconSvg` 图标名全部命中注册表且渲染非空；
+  实测登录后 10 个页面（admin/nurse/pharmacy/cashier 各角色）与 8 个 API 片段
+  emoji=0、SVG 正常渲染。
+
+---
+
 ## [8.37.0] - 2026-09-28
 
 > 全量代码复盘优化：修复一批高危逻辑缺陷与越权缺口、补齐 MySQL/PostgreSQL 多驱动兼容、
