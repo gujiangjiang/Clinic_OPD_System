@@ -19,7 +19,7 @@ $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
 
 <div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" id="examSearch" placeholder="<?= render_icon('action:search') ?> 快速搜索检查项目" style="width:220px">
+        <input class="input" id="examSearch" placeholder="快速搜索检查项目" style="width:220px">
         <span class="fs-13 text-muted" id="examCountDiv"></span>
         <span class="flex gap-4" id="examCatTabs" style="flex-wrap:wrap"></span>
     </div>
@@ -66,7 +66,7 @@ function openItemForm(id) {
     mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
         mask.querySelector('.modal-foot').innerHTML =
             '<div style="display:flex;justify-content:space-between;align-items:center;width:100%">' +
-            '<button type="button" id="enabledToggle" class="btn btn-sm btn-success" onclick="toggleItemEnabled()">' . renderIconSvg('alert:success')+' 启用</button>' +
+            '<button type="button" id="enabledToggle" class="btn btn-sm btn-success" onclick="toggleItemEnabled()">'+renderIconSvg('alert:success')+' 启用</button>' +
             '<span><button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
             '<button type="button" class="btn btn-primary" id="itemSave">保存</button></span></div>';
         initEnabledToggle(id > 0);

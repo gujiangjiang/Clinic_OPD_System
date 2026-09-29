@@ -59,11 +59,11 @@ function confirmLinked(opts, onLink, onAlone) {
 /* 皮试结果弹窗（皮试处置/皮试医嘱执行完成后弹出） */
 function openSkinResultModal(drugId, drugName) {
     Clinic.modal.open(
-        '<div class="fs-13 fw-700 mb-8">' . renderIconSvg('nav:lab')+' 记录皮试结果</div>' +
+        '<div class="fs-13 fw-700 mb-8">'+renderIconSvg('nav:lab')+' 记录皮试结果</div>' +
         '<div class="fs-13 mb-8">药品：<b>' + esc(drugName || '') + '</b></div>' +
         '<div class="flex gap-8">' +
-        '<button type="button" class="btn btn-danger" style="flex:1" onclick="submitSkinResult(' + (drugId || 0) + ',\'positive\')">' . renderIconSvg('alert:dot-red')+' 阳性</button>' +
-        '<button type="button" class="btn btn-success" style="flex:1" onclick="submitSkinResult(' + (drugId || 0) + ',\'negative\')">' . renderIconSvg('alert:dot-green')+' 阴性</button>' +
+        '<button type="button" class="btn btn-danger" style="flex:1" onclick="submitSkinResult(' + (drugId || 0) + ',\'positive\')">'+renderIconSvg('alert:dot-red')+' 阳性</button>' +
+        '<button type="button" class="btn btn-success" style="flex:1" onclick="submitSkinResult(' + (drugId || 0) + ',\'negative\')">'+renderIconSvg('alert:dot-green')+' 阴性</button>' +
         '</div>' +
         '<div class="fs-12 text-muted mt-8">阴性：解锁正式处方/处置缴费资格；阳性：自动加入患者过敏史，禁用该药。</div>',
         { title: '皮试结果', size: 'modal-sm', buttons: [{ text: '取消', cls: 'btn-outline' }] }
@@ -158,12 +158,12 @@ function vitalsSection(data) {
     }).join('') : '<tr><td colspan="7" class="text-muted text-center">暂无记录</td></tr>';
 
     return '<div class="dw-nurse-sec" id="nurseSecVitals">' +
-        '<div class="dw-nurse-sec-title"><span class="emoji">' . renderIconSvg('action:trend')+'</span>生命体征趋势</div>' + trendHtml +
+        '<div class="dw-nurse-sec-title"><span class="emoji">'+renderIconSvg('action:trend')+'</span>生命体征趋势</div>' + trendHtml +
         '<div class="fs-13 fw-700 mt-8 mb-4">体征历史记录</div>' +
         '<div style="max-height:180px;overflow-y:auto"><table class="table table-sm"><thead><tr>' +
         '<th>时间</th><th>血压</th><th>心率</th><th>脉搏</th><th>血氧</th><th>呼吸</th><th>录入人</th></tr></thead><tbody>' +
         histRows + '</tbody></table></div>' +
-        '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" onclick="openVitalsPop(event)">' . renderIconSvg('clinical:temperature')+' 录入生命体征</button></div>' +
+        '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" onclick="openVitalsPop(event)">'+renderIconSvg('clinical:temperature')+' 录入生命体征</button></div>' +
         '</div>';
 }
 
@@ -206,13 +206,13 @@ function nursingSection(data) {
         return '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:8px">' +
             '<div class="flex-between">' +
             '  <div class="fs-13" style="flex:1;min-width:0">' + nl2br(esc(r.content)) + '</div>' +
-            '  <span class="fs-14" style="color:var(--danger);cursor:pointer;flex-shrink:0;margin-left:10px" title="删除该护理记录" onclick="delNursing(' + (r.id || 0) + ')">' . renderIconSvg('action:close')+'</span>' +
+            '  <span class="fs-14" style="color:var(--danger);cursor:pointer;flex-shrink:0;margin-left:10px" title="删除该护理记录" onclick="delNursing(' + (r.id || 0) + ')">'+renderIconSvg('action:close')+'</span>' +
             '</div>' +
             '<div class="fs-12 text-muted mt-4">' + esc(r.operator) + ' ｜ ' + esc(r.created_at) + '</div></div>';
     }).join('') : '<div class="fs-13 text-muted">暂无护理记录</div>';
     return '<div class="dw-nurse-sec" id="nurseSecNursing">' +
-        '<div class="dw-nurse-sec-title"><span class="emoji">' . renderIconSvg('action:edit')+'</span>护理记录</div>' + rows +
-        '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" onclick="openNursingModal()">' . renderIconSvg('action:add')+' 添加护理记录</button></div>' +
+        '<div class="dw-nurse-sec-title"><span class="emoji">'+renderIconSvg('action:edit')+'</span>护理记录</div>' + rows +
+        '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" onclick="openNursingModal()">'+renderIconSvg('action:add')+' 添加护理记录</button></div>' +
         '</div>';
 }
 
@@ -236,7 +236,7 @@ function openNursingModal() {
         '<div class="flex" style="gap:14px;height:460px">' +
         '  <div style="width:300px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--border);padding-right:14px;min-height:0">' +
         '    <div class="form-group"><label class="form-label">护理模板</label>' +
-        '    <input class="input" id="nmSearch" placeholder="' . renderIconSvg('action:search')+' 搜索模板" oninput="nmRenderTpls()"></div>' +
+        '    <input class="input" id="nmSearch" placeholder="'+renderIconSvg('action:search')+' 搜索模板" oninput="nmRenderTpls()"></div>' +
         '    <div id="nmTplList" style="flex:1;overflow-y:auto;min-height:0"></div>' +
         '  </div>' +
         '  <div style="flex:1;min-width:0;display:flex;flex-direction:column">' +
@@ -331,7 +331,7 @@ function summarySection(data) {
         return '<div class="item"><span class="label">' + label + '</span><span class="value">' + (value ? esc(value) : '—') + '</span></div>';
     };
     return '<div class="dw-nurse-sec" id="nurseSecSummary">' +
-        '<div class="dw-nurse-sec-title"><span class="emoji">' . renderIconSvg('emr:record')+'</span>病历摘要</div>' +
+        '<div class="dw-nurse-sec-title"><span class="emoji">'+renderIconSvg('emr:record')+'</span>病历摘要</div>' +
         '<div class="dw-nurse-vert">' +
         grid('主诉', s.chief_complaint) +
         grid('现病史', s.present_illness) +
@@ -383,7 +383,7 @@ function procSection(data) {
     });
     if (!rows) rows = '<tr><td colspan="6" class="text-muted text-center">暂无处置项目</td></tr>';
     return '<div class="dw-nurse-sec" id="nurseSecProc">' +
-        '<div class="dw-nurse-sec-title"><span class="emoji">' . renderIconSvg('clinical:injection')+'</span>处置项目</div>' +
+        '<div class="dw-nurse-sec-title"><span class="emoji">'+renderIconSvg('clinical:injection')+'</span>处置项目</div>' +
         '<div class="fs-12 text-muted mb-4">点击医嘱单号可查看处置单预览；关联医嘱可联动一并执行。</div>' +
         '<div class="table-wrap"><table class="table table-sm"><thead><tr>' +
         '<th>处置项目</th><th>医嘱单号</th><th>开单医生</th><th>开单时间</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
@@ -446,7 +446,7 @@ function medSection(data) {
     });
     if (!rows) rows = '<tr><td colspan="6" class="text-muted text-center">暂无待执行医嘱</td></tr>';
     return '<div class="dw-nurse-sec" id="nurseSecMed">' +
-        '<div class="dw-nurse-sec-title"><span class="emoji">' . renderIconSvg('nav:pharmacy')+'</span>待执行医嘱</div>' +
+        '<div class="dw-nurse-sec-title"><span class="emoji">'+renderIconSvg('nav:pharmacy')+'</span>待执行医嘱</div>' +
         '<div class="fs-12 text-muted mb-4">药房审方发药后方可执行；关联处置可联动一并执行。</div>' +
         '<div class="table-wrap"><table class="table table-sm"><thead><tr>' +
         '<th>医嘱</th><th>处方号</th><th>开单医生</th><th>开单时间</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
@@ -558,13 +558,13 @@ function renderNurseSide(data) {
         });
     });
     document.getElementById('dwSide').innerHTML =
-        '<div class="dw-side-sec"><div class="dw-side-title">' . renderIconSvg('emr:record')+' 病历摘要</div>' +
+        '<div class="dw-side-sec"><div class="dw-side-title">'+renderIconSvg('emr:record')+' 病历摘要</div>' +
         '<div class="dw-side-item" onclick="scrollToSec(\'nurseSecSummary\')">主诉 / 现病史 / 诊断</div></div>' +
-        '<div class="dw-side-sec"><div class="dw-side-title">' . renderIconSvg('action:edit')+' 护理记录</div>' +
+        '<div class="dw-side-sec"><div class="dw-side-title">'+renderIconSvg('action:edit')+' 护理记录</div>' +
         '<div class="dw-side-item" onclick="scrollToSec(\'nurseSecNursing\')">护理记录 / 添加 / 删除</div></div>' +
-        '<div class="dw-side-sec"><div class="dw-side-title">' . renderIconSvg('action:trend')+' 生命体征</div>' +
+        '<div class="dw-side-sec"><div class="dw-side-title">'+renderIconSvg('action:trend')+' 生命体征</div>' +
         '<div class="dw-side-item" onclick="scrollToSec(\'nurseSecVitals\')">趋势图 / 录入</div></div>' +
-        '<div class="dw-side-sec"><div class="dw-side-title">' . renderIconSvg('clinical:injection')+' 待办事项</div>' +
+        '<div class="dw-side-sec"><div class="dw-side-title">'+renderIconSvg('clinical:injection')+' 待办事项</div>' +
         '<div class="dw-side-item" onclick="scrollToSec(\'nurseSecProc\')">待处置 ' + procCnt + ' 项</div>' +
         '<div class="dw-side-item" onclick="scrollToSec(\'nurseSecMed\')">待执行医嘱 ' + medCnt + ' 项</div></div>';
 }

@@ -18,7 +18,7 @@ $editFromUrl = (int)get('edit_user_id', 0);
 </div>
 <div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" id="userSearch" placeholder="<?= render_icon('action:search') ?> 快速搜索用户 / 工号 / 角色" style="width:220px" oninput="applyUserFilter()">
+        <input class="input" id="userSearch" placeholder="快速搜索用户 / 工号 / 角色" style="width:220px" oninput="applyUserFilter()">
         <span class="flex gap-4" id="userRoleTabs" style="flex-wrap:wrap"></span>
     </div>
 </div>
@@ -187,13 +187,13 @@ function openUserForm(id) {
                 if (img) {
                     img.src = URL.createObjectURL(f);
                 } else {
-                    preview.innerHTML = '<img src="' + URL.createObjectURL(f) + '"><span class="avatar-badge">' . renderIconSvg('action:camera')+'</span>';
+                    preview.innerHTML = '<img src="' + URL.createObjectURL(f) + '"><span class="avatar-badge">'+renderIconSvg('action:camera')+'</span>';
                 }
             });
         }
         mask.querySelector('.modal-foot').innerHTML =
             '<div style="display:flex;justify-content:space-between;align-items:center;width:100%">' +
-            '<button type="button" id="enabledToggle" class="btn btn-success" onclick="toggleItemEnabled()">' . renderIconSvg('alert:success')+' 启用</button>' +
+            '<button type="button" id="enabledToggle" class="btn btn-success" onclick="toggleItemEnabled()">'+renderIconSvg('alert:success')+' 启用</button>' +
             '<span><button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
             '<button type="button" class="btn btn-primary" id="userSave">保存</button></span></div>';
         // 按钮就绪后按当前角色同步禁用态：管理员强制启用且按钮禁用（不可自停用）

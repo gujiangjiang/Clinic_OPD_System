@@ -115,7 +115,7 @@ function onCardChange() {
         return;
     }
     REG.id_card = card;
-    msg.innerHTML = '<span class="text-success">' . renderIconSvg('action:check')+' 身份证校验通过</span>';
+    msg.innerHTML = '<span class="text-success">'+renderIconSvg('action:check')+' 身份证校验通过</span>';
     feeType.disabled = false;
     // 自动计算并锁定（身份证计算出的出生日期/性别确保正确，年龄随出生日期联动）
     setDerivedLocked(true);

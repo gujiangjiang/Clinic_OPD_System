@@ -117,7 +117,7 @@ function wbLoadDepts() {
                 } else {
                     document.querySelector('.wb-empty .fs-18').textContent = renderIconSvg('clinical:stethoscope')+' 请先选择科室后开始接诊';
                     document.querySelector('.wb-empty .fs-14').textContent = '正在为你弹出科室选择…';
-                    document.querySelector('.wb-empty .fs-12').innerHTML = '<button class="btn btn-primary btn-sm mt-8" onclick="wbOpenDeptPicker()">' . renderIconSvg('nav:hospital')+' 选择科室</button>';
+                    document.querySelector('.wb-empty .fs-12').innerHTML = '<button class="btn btn-primary btn-sm mt-8" onclick="wbOpenDeptPicker()">'+renderIconSvg('nav:hospital')+' 选择科室</button>';
                     // 主动弹出科室选择窗
                     wbOpenDeptPicker();
                 }

@@ -24,7 +24,7 @@ Router::title('挂号管理');
 <div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
         <input type="text" class="input" id="regDate" value="<?php echo today_str(); ?>" readonly placeholder="点击选择日期" style="width:150px;cursor:pointer" onclick="Clinic.datePicker.open(this, { maxToday: false })">
-        <input class="input" id="regKw" placeholder="<?= render_icon('action:search') ?> 搜索 姓名 / 患者ID / 流水号" style="width:220px" onkeydown="if(event.key==='Enter')loadList()">
+        <input class="input" id="regKw" placeholder="搜索 姓名 / 患者ID / 流水号" style="width:220px" onkeydown="if(event.key==='Enter')loadList()">
         <select class="select" id="regDeptType" style="width:110px" onchange="loadList()">
             <option value="">全部科室</option>
             <option value="clinic">门诊</option>

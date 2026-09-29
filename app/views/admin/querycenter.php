@@ -29,7 +29,7 @@ Router::title('查询中心');
             <span class="text-muted">至</span>
             <input type="text" class="input input-date" id="qcRefTo" readonly placeholder="结束日期" 
                 onclick="Clinic.datePicker.open(this,{maxToday:true,peer:'qcRefFrom',maxSpan:183})">
-            <input class="input" id="qcRefKw" placeholder="<?= render_icon('action:search') ?> 检索：门诊流水号 / 患者编号 / 申请单号" style="flex:1;min-width:220px"
+            <input class="input" id="qcRefKw" placeholder="检索：门诊流水号 / 患者编号 / 申请单号" style="flex:1;min-width:220px"
                 onkeydown="if(event.key==='Enter')searchRefs()">
             <button class="btn btn-primary btn-sm" onclick="searchRefs()">查询</button>
             <button class="btn btn-outline btn-sm" onclick="resetRefs()">重置</button>
@@ -63,7 +63,7 @@ function refRowHtml(list, isFirst) {
             '<td class="fs-12">' + escHtml(r.region) + '</td>' +
             '<td class="fs-12">' + escHtml(r.created_by || '') + '</td>' +
             '<td>' + (window.__refViewerTpl
-                ? '<button class="btn btn-outline btn-sm" onclick="openRefViewer(\'' + escHtml(r.study_uid) + '\')">' . renderIconSvg('action:search')+' 调阅</button>'
+                ? '<button class="btn btn-outline btn-sm" onclick="openRefViewer(\'' + escHtml(r.study_uid) + '\')">'+renderIconSvg('action:search')+' 调阅</button>'
                 : '<span class="fs-12 text-muted">—</span>') + '</td>' +
             '</tr>';
     }).join('');
@@ -83,7 +83,7 @@ function initRefList() {
         pageSize: 20,   // 影像引用每页 20 条
         threshold: 40,
         totalEl: document.getElementById('qcRefTotal'),
-        emptyHtml: '<div class="empty" style="padding:30px 0"><div class="empty-ico">' . renderIconSvg('nav:imaging')+'</div>暂无影像引用（报告出具后自动登记）</div>',
+        emptyHtml: '<div class="empty" style="padding:30px 0"><div class="empty-ico">'+renderIconSvg('nav:imaging')+'</div>暂无影像引用（报告出具后自动登记）</div>',
         // url 用函数（每次加载读取当前检索值）：关键字 + 日期范围均为动态条件；
         // 后端按 ir.id DESC 倒序返回（最新登记在最上面）
         url: function (p, size) {

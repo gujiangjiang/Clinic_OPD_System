@@ -287,7 +287,7 @@ function hisTestEmpty() {
     var box = document.getElementById('hisTestBox');
     if (!box) return;
     box.innerHTML = '<div class="itg-his-empty">' +
-        '<div class="itg-his-empty-ico">' . renderIconSvg('nav:lab')+'</div>' +
+        '<div class="itg-his-empty-ico">'+renderIconSvg('nav:lab')+'</div>' +
         '<div class="itg-his-empty-title">尚未测试</div>' +
         '<div class="itg-his-empty-sub">保存密钥后点击「开始测试」，将在此展示两种认证方式的测试结果</div></div>';
 }
@@ -307,7 +307,7 @@ function testHisApi() {
                 '<div class="itg-his-tlabel"><span class="badge ' + (ok ? 'badge-success' : 'badge-danger') + '">' + (ok ? renderIconSvg('action:check')+' 通过' : renderIconSvg('action:close')+' 失败') + '</span> ' + label + '</div>' +
                 '<code class="itg-his-tcode">' + Clinic.escHtml(code) + '</code></div>';
         }).catch(function () {
-            box.innerHTML += '<div class="itg-his-titem"><div class="itg-his-tlabel"><span class="badge badge-danger">' . renderIconSvg('action:close')+' 请求失败</span> ' + label + '</div></div>';
+            box.innerHTML += '<div class="itg-his-titem"><div class="itg-his-tlabel"><span class="badge badge-danger">'+renderIconSvg('action:close')+' 请求失败</span> ' + label + '</div></div>';
         });
     };
     render('请求头 X-HIS-Key', base, { headers: { 'X-HIS-Key': key } });
