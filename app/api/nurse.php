@@ -62,7 +62,7 @@ switch ($action) {
         $rows = OrderRepository::nurseTreatments(100, user_dept_ids($u));
         $html = '';
         if (!$rows) {
-            $html = '<div class="empty"><div class="empty-ico">✅</div>暂无待处置项目</div>';
+            $html = '<div class="empty"><div class="empty-ico">' . render_icon('alert:success') . '</div>暂无待处置项目</div>';
         } else {
             $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
                 '<th>患者</th><th>处置项目</th><th>流水号</th><th>科室</th><th>开单医生</th><th>开单时间</th><th>操作</th></tr></thead><tbody>';
@@ -145,8 +145,8 @@ switch ($action) {
             '  <span class="badge badge-gray" style="margin-left:6px">' . e($visit['current_dept_name']) . ' 第' . visit_seq_text($visit['visit_seq']) . '号</span>' .
             badge_html('primary', $visit['flow_no']) . '</div>' .            '<div class="fs-12 text-muted mt-4">患者ID ' . e($visit['patient_no']) . ' ｜ 首次科室 ' . e($visit['first_dept_name']) . ' ｜ 挂号 ' . e(substr($visit['registered_at'], 0, 16)) . ' ｜ 状态 ' . e(visit_status_name($visit['status'])) . '</div>' .
             '<div class="flex gap-8 mt-8">' .
-            '<button class="btn btn-outline btn-sm" onclick="openVitals(\'' . e(oid($visitId)) . '\')">🌡️ 生命体征</button>' .
-            '<button class="btn btn-outline btn-sm" onclick="openNursing(\'' . e(oid($visitId)) . '\')">📝 护理记录</button></div></div>';
+            '<button class="btn btn-outline btn-sm" onclick="openVitals(\'' . e(oid($visitId)) . '\')">' . render_icon('clinical:temperature') . ' 生命体征</button>' .
+            '<button class="btn btn-outline btn-sm" onclick="openNursing(\'' . e(oid($visitId)) . '\')">' . render_icon('emr:record') . ' 护理记录</button></div></div>';
 
         $orders = OrderRepository::byVisit($visitId);
         // 开单类型中文名统一走 order_type_name()（helpers.d/visit.php）
@@ -174,7 +174,7 @@ switch ($action) {
         $rows = OrderRepository::nurseMedOrders(100, user_dept_ids($u));
         $html = '<div class="fs-13 text-muted mb-8">待执行医嘱：' . count($rows) . ' 项</div>';
         if (!$rows) {
-            $html .= '<div class="empty"><div class="empty-ico">💉</div>暂无待执行医嘱</div>';
+            $html .= '<div class="empty"><div class="empty-ico">' . render_icon('clinical:injection') . '</div>暂无待执行医嘱</div>';
         } else {
             $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
                 '<th>患者</th><th>医嘱</th><th>流水号</th><th>开单医生</th><th>开单时间</th><th>状态</th><th>操作</th></tr></thead><tbody>';

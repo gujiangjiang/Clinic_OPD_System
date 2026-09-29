@@ -256,7 +256,7 @@ switch ($action) {
         $pName = $rv['patient'] ? (string)$rv['patient']['name'] : '';
         $kind = $source === 'lab' ? '检验' : '检查';
         send_msg('doctor', $toDoctorId,
-            '⚠️ 危急值通知：' . $display['item_name'],
+            '危急值通知：' . $display['item_name'],
             '患者「' . $pName . '」（' . $report['patient_no'] . '）的' . $kind . '结果报危急值，请及时处理',
             'report', '/api/print?action=report&report_id=' . oid($reportId),
             array('msg_type' => 'critical', 'patient_name' => $pName, 'visit_id' => (int)$report['visit_id'], 'link_url' => '/critical_value/' . oid($cvId)));

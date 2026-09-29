@@ -62,7 +62,7 @@ function admin_part_audit($action) {
         $html = '<div class="fs-13 text-muted mb-8">' . ($status === 'pending' ? '待审核' : '已处理') . '：' . count($rows) . ' 条' .
             ($group ? '（按' . ($group === 'user' ? '申请人' : '类型') . '分组）' : '') . '</div>';
         if (!$pagedFlat && !$rows) {
-            $html .= '<div class="empty"><div class="empty-ico">📋</div>暂无待审核事项</div>';
+            $html .= '<div class="empty"><div class="empty-ico">' . render_icon('emr:document') . '</div>暂无待审核事项</div>';
         } else {
             $typeNames = array(
                 'template' => '病历模板', 'item_lab' => '检验项目添加', 'item_exam' => '检查项目添加',
@@ -134,7 +134,7 @@ function admin_part_audit($action) {
                 $html .= '<div class="flex-col gap-8">';
                 foreach ($groups as $proposer => $list) {
                     $html .= '<div class="card"><div class="card-title" style="padding:10px 14px;border-bottom:1px solid var(--border)">' .
-                        '👤 ' . e($proposer) . '<span class="fs-12 text-muted ml-8">' . count($list) . ' 条</span></div>' .
+                        render_icon('nav:user') . ' ' . e($proposer) . '<span class="fs-12 text-muted ml-8">' . count($list) . ' 条</span></div>' .
                         '<div class="table-wrap" style="border:none"><table class="table"><thead><tr>' .
                         '<th>类型</th><th>事项</th><th>申请时间</th><th>状态</th><th>操作</th></tr></thead><tbody>';
                     foreach ($list as $r) {
@@ -153,7 +153,7 @@ function admin_part_audit($action) {
                 $html .= '<div class="flex-col gap-8">';
                 foreach ($groups as $typeName => $list) {
                     $html .= '<div class="card"><div class="card-title" style="padding:10px 14px;border-bottom:1px solid var(--border)">' .
-                        '📂 ' . e($typeName) . '<span class="fs-12 text-muted ml-8">' . count($list) . ' 条</span></div>' .
+                        render_icon('emr:folder') . ' ' . e($typeName) . '<span class="fs-12 text-muted ml-8">' . count($list) . ' 条</span></div>' .
                         '<div class="table-wrap" style="border:none"><table class="table"><thead><tr>' .
                         '<th>事项</th><th>申请人</th><th>申请时间</th><th>状态</th><th>操作</th></tr></thead><tbody>';
                     foreach ($list as $r) {

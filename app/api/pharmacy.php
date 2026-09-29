@@ -55,7 +55,7 @@ switch ($action) {
         $label = isset($statusMap[$status]) ? $statusMap[$status] : '待审方';
         $html = '<div class="fs-13 text-muted mb-8">共 ' . count($rows) . ' 张' . $label . '处方</div>';
         if (!$rows) {
-            $html .= '<div class="empty"><div class="empty-ico">💊</div>暂无' . $label . '处方</div>';
+            $html .= '<div class="empty"><div class="empty-ico">' . render_icon('nav:pharmacy') . '</div>暂无' . $label . '处方</div>';
         } else {
             $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
                 '<th>患者</th><th>处方号</th><th>药品明细</th>' .
@@ -88,7 +88,7 @@ switch ($action) {
                             // 全部为护士站执行：无药房取药凭条，操作列显示「护士站执行」徽章（不可补打）
                             : ($allNurse
                                 ? badge_html('warning', '护士站执行')
-                                : '<button class="btn btn-outline btn-sm" onclick="reprintRxSlip(\'' . oid($o['id']) . '\')">🖨️ 处方提示</button>'))) .
+                                : '<button class="btn btn-outline btn-sm" onclick="reprintRxSlip(\'' . oid($o['id']) . '\')">' . render_icon('action:print') . ' 处方提示</button>'))) .
                     '</td></tr>';
             }
             $html .= '</tbody></table></div>';
@@ -244,7 +244,7 @@ switch ($action) {
         $rows = DrugRepository::all();
         $html = '<div class="fs-13 text-muted mb-8">共 ' . count($rows) . ' 种药品</div>';
         if (!$rows) {
-            $html .= '<div class="empty"><div class="empty-ico">📦</div>暂无药品，请管理员先在【药品目录】中添加</div>';
+            $html .= '<div class="empty"><div class="empty-ico">' . render_icon('action:package') . '</div>暂无药品，请管理员先在【药品目录】中添加</div>';
         } else {
             $html .= '<div class="table-wrap"><table class="table"><thead><tr>' .
                 '<th>药品</th><th>分类</th><th>规格</th><th>包装</th><th>库存</th><th>单价</th><th>状态</th><th>操作</th></tr></thead><tbody>';
