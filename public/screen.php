@@ -65,7 +65,8 @@ $isDoctor = $room['room_type'] === 'doctor';
 </head>
 <body class="call-body<?php echo $pvClass; ?>" data-token="<?php echo e($token); ?>" data-roomtype="<?php echo e($room['room_type']); ?>"
       data-csrf="<?php echo e(CSRF::token()); ?>" data-hosp="<?php echo e($hosp); ?>" data-hosp2="<?php echo e($hosp2); ?>"
-      style="<?php echo trim($pvStyle); ?>">
+       data-hosp="<?php echo e($hosp2); ?>" data-voice="<?= (int)$room['enable_voice']; ?>" data-mask="<?= (int)$room['enable_mask']; ?>" data-cross="<?= (int)$room['allow_cross_day']; ?>"
+       style="<?php echo trim($pvStyle); ?>">
 
 <!-- 顶部抬头：LOGO + 医院名 + 时钟（紧凑单行，不做大字号，语音开关由管理员在设置页控制） -->
 <header class="call-top">
@@ -95,9 +96,9 @@ $isDoctor = $room['room_type'] === 'doctor';
 
 <!-- 自动播放解锁遮罩（提示语分段展示 + 字号随屏幕缩放，小尺寸屏幕不换行溢出） -->
 <div id="autoplayMask" style="position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(10px,4vh,26px);padding:clamp(16px,4vh,40px);text-align:center;cursor:pointer">
-    <div class="apm-icon" style="font-size:clamp(36px,12vh,84px);line-height:1"><?= render_icon('action:vol') ?></div>
-    <div style="font-size:clamp(16px,5vh,40px);font-weight:700;color:#fff;letter-spacing:3px;line-height:1.45;max-width:90%">点击屏幕<br>启动叫号语音大屏系统</div>
-    <div style="font-size:clamp(12px,3.2vh,24px);color:#a8c8e8;letter-spacing:2px">点击后自动开始播报叫号</div>
+    <div class="apm-icon" id="apmIcon" style="font-size:clamp(48px,16vh,120px);line-height:1"><?= render_icon('action:vol') ?></div>
+    <div style="font-size:clamp(16px,5vh,40px);font-weight:700;color:#fff;letter-spacing:3px;line-height:1.45;max-width:90%" id="apmText">点击屏幕<br>启动叫号大屏系统</div>
+    <div style="font-size:clamp(12px,3.2vh,24px);color:#a8c8e8;letter-spacing:2px" id="apmSub"></div>
 </div>
 
 <script src="/assets/js/components/push.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>

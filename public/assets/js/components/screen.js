@@ -135,7 +135,58 @@
     }
 
     /* ============ 自动播放解锁 ============ */
+    var VOICE_ENABLED = document.body.getAttribute('data-voice') === '1';
+    var MASK_ENABLED = document.body.getAttribute('data-mask') === '1';
+    var CROSS_ENABLED = document.body.getAttribute('data-cross') === '1';
     var mask = document.getElementById('autoplayMask');
+    /* 根据设置动态显示图标 + 提示语 */
+    (function setupApmMask() {
+        if (!mask) return;
+        var iconEl = document.getElementById('apmIcon');
+        var textEl = document.getElementById('apmText');
+        var subEl = document.getElementById('apmSub');
+        var icons = [];
+        var texts = [];
+        if (VOICE_ENABLED) {
+            icons.push(renderIconSvg('action:vol'));
+            texts.push('语音播报');
+        }
+        if (MASK_ENABLED) {
+            icons.push(renderIconSvg('action:eye-off'));
+            texts.push('姓名脱敏');
+        }
+        if (CROSS_ENABLED) {
+            icons.push(renderIconSvg('action:moon'));
+            texts.push('跨天叫号');
+        }
+        /* 图标：多个时横排；单个居中 */
+        if (iconEl) {
+            if (icons.length > 1) {
+                iconEl.innerHTML = icons.join(' ');
+                iconEl.style.display = 'flex';
+                iconEl.style.gap = 'clamp(10px,4vw,24px)';
+                iconEl.style.justifyContent = 'center';
+                iconEl.style.alignItems = 'center';
+            } else if (icons.length === 1) {
+                iconEl.innerHTML = icons[0];
+            } else {
+                iconEl.innerHTML = renderIconSvg('screen:call');
+            }
+        }
+        /* 主提示语：根据设置动态拼接，避免冗余重复 */
+        if (textEl) {
+            var mainText = VOICE_ENABLED ? '点击屏幕<br>启动叫号语音大屏系统' : '点击屏幕<br>启动叫号大屏系统';
+            textEl.innerHTML = mainText;
+        }
+        /* 副提示语：列出已启用功能，用逗号分隔 */
+        if (subEl) {
+            if (texts.length) {
+                subEl.textContent = '已启用：' + texts.join('、');
+            } else {
+                subEl.textContent = '点击后开始叫号';
+            }
+        }
+    })();
     function unlockAutoplay() {
         if (!mask) return;
         mask.style.display = 'none';
