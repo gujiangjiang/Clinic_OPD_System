@@ -40,7 +40,7 @@ function dept_workbench($cfg) {
     <div class="emr-body-layout">
         <div class="emr-main-editor-scroll" id="dwMain">
             <div class="card wb-empty" style="padding:40px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center">
-                <div style="font-size:72px;margin-bottom:16px"><?php echo e($emoji); ?></div>
+                <div style="font-size:72px;margin-bottom:16px"><?php echo $emoji; ?></div>
                 <div class="fs-18 fw-600 text-muted">欢迎使用<?php echo e($title); ?></div>
                 <div class="fs-14 text-muted mt-4"><?php echo e($desc); ?></div>
                 <div class="fs-12 text-muted mt-8">候诊列表已自动打开，点击患者即可进入工作台</div>
