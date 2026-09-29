@@ -42,7 +42,7 @@ $hosp  = setting('hospital_name', '门诊一体化系统');
 $hosp2 = setting('hospital_name2', '');
 $logoData = img_data(setting('logo', ''));
 $favicon = $logoData !== '' ? '<link rel="icon" href="' . e($logoData) . '">' : '';
-$logoImg = $logoData !== '' ? '<img src="' . e($logoData) . '" alt="LOGO">' : '<span style="font-size:28px">' . render_icon('nav:hospital') . '</span>';
+$logoImg = $logoData !== '' ? '<img src="' . e($logoData) . '" alt="LOGO">' : default_logo_img();
 $isDoctor = $room['room_type'] === 'doctor';
 ?>
 <!DOCTYPE html>

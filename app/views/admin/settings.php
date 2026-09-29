@@ -78,13 +78,13 @@ $dbType = strtoupper(DatabaseManager::driver());
                 <div class="card setting-card">
                     <div class="card-title"><?= render_icon('action:palette') ?> 医院标志</div>
                     <div class="flex gap-16" style="align-items:center">
-                        <div class="fs-13 text-muted" style="flex:1;line-height:1.8">上传医院 LOGO，将作为登录页 / 系统侧边栏 / 浏览器图标（favicon）展示。<br>尚未上传 LOGO，网站将不显示 LOGO 与 favicon。</div>
+                        <div class="fs-13 text-muted" style="flex:1;line-height:1.8">上传医院 LOGO，将作为登录页 / 系统侧边栏 / 浏览器图标（favicon）展示。<br>尚未上传 LOGO 时，站内占位与标签页图标统一显示系统默认图标。</div>
                         <div style="flex-shrink:0;text-align:center">
                             <div class="logo-uploader" onclick="document.getElementById('s_logo').click()" title="点击更换 LOGO">
                                 <?php if ($logoData !== ''): ?>
                                     <img src="<?php echo e($logoData); ?>" alt="LOGO">
                                 <?php else: ?>
-                                    <span class="logo-placeholder"><?= render_icon('nav:hospital') ?></span>
+                                    <?php echo default_logo_img(); ?>
                                 <?php endif; ?>
                                 <span class="logo-upload-badge"><?= render_icon('action:camera') ?></span>
                             </div>

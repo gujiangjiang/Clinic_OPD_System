@@ -41,3 +41,21 @@ function img_data($path) {
     }
     return 'data:' . $info['mime'] . ';base64,' . base64_encode($bin);
 }
+
+
+/**
+ * 未设置医院 LOGO 时的默认 LOGO 图标（<img>）。
+ * 说明：复用浏览器标签页 / PWA 图标路由 /pwa-icon.png——该路由有 LOGO 时输出医院
+ * LOGO、无 LOGO 时输出「透明底 + 白圆 + 红十字」默认图，与标签页/PWA 图标完全一致，
+ * 比内联 SVG 医院图形更接近成品图标。
+ * GD 扩展缺失（该路由降级为 1x1 透明图）时回退内联 SVG 医院图标，避免占位空白。
+ * @param string $class <img> 追加样式类（空串则不输出 class）
+ * @return string
+ */
+function default_logo_img($class = '') {
+    if (!function_exists('imagecreatetruecolor')) {
+        return render_icon('nav:hospital', array('size' => 32, 'class' => $class));
+    }
+    return '<img src="/pwa-icon.png?v=' . e(APP_VERSION) . '" alt="LOGO"' .
+        (trim((string)$class) !== '' ? ' class="' . e($class) . '"' : '') . '>';
+}
