@@ -84,9 +84,9 @@ $logoImg = $logoData !== '' ? '<img src="' . e($logoData) . '" alt="LOGO">' : de
     <span><?= render_icon('nav:hospital') ?> 祝您早日康复</span>
 </footer>
 
-<script src="/assets/js/components/ajax.js"></script>
-<script src="/assets/js/components/toast.js"></script>
-<script src="/assets/js/components/datetime.js"></script>
-<script src="/assets/js/components/call.js"></script>
+<script src="/assets/js/components/ajax.js?v=<?php echo APP_VERSION; ?>"></script>
+<script src="/assets/js/components/toast.js?v=<?php echo APP_VERSION; ?>"></script>
+<script src="/assets/js/components/datetime.js?v=<?php echo APP_VERSION; ?>"></script>
+<script src="/assets/js/components/call.js?v=<?php echo APP_VERSION; ?>"></script>
 </body>
 </html>
