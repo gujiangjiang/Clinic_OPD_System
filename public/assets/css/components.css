@@ -985,7 +985,7 @@ body.emr-readonly .emr-item-link,
     z-index: 800;   /* 高于页面下拉(100)但低于模态框遮罩(1000)，解绑确认弹窗不被遮挡 */
     width: 220px;
     background: var(--bg-card, #fff);
-    border: 2px solid var(--primary, #2563eb);
+    border: none;
     border-radius: 12px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, .18);
     font-size: 12px;
