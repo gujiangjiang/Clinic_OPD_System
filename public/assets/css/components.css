@@ -1031,6 +1031,16 @@ body.emr-readonly .emr-item-link,
 /* 图标按钮：统一尺寸 + 居中 */
 .doc-call-pop-x svg { display: inline-block; vertical-align: middle; }
 .doc-call-pop-x:hover { background: rgba(255, 255, 255, .2); }
+/* 叫号悬浮窗诊室列表状态点图标：改为 flex 布局确保图标与文字完美居中 */
+#docRoomList [data-room-id] > span:first-child,
+#dwRoomList [data-room-id] > span:first-child {
+    display: inline-flex;
+    align-items: center;
+}
+#docRoomList [data-room-id] > span:first-child .opd-svg-icon,
+#dwRoomList [data-room-id] > span:first-child .opd-svg-icon {
+    vertical-align: baseline;
+}
 .doc-call-pop-tools { display: flex; align-items: center; pointer-events: none; flex-shrink: 0; }
 .doc-call-pop-tools .doc-call-pop-x { pointer-events: auto; }
 .doc-call-pop-body { padding: 8px 8px; display: flex; flex-direction: column; gap: 6px; }
