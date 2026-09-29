@@ -51,8 +51,8 @@ function admin_part_call($action) {
                 '<td>' . $bind . '</td>' .
                 '<td>' .
                     '<span class="fs-12">' . render_icon($r['enable_voice'] ? 'action:vol' : 'action:mute') .
-                    ' ' . render_icon($r['enable_mask'] ? 'action:eye-off' : 'action:eye') . ' ' . ($r['enable_mask'] ? '脱敏' : '实名') .
-                    ((int)$r['allow_cross_day'] === 1 ? ' ' . render_icon('action:moon') . '跨天' : '') . '</span></td>' .
+                    ' ' . render_icon($r['enable_mask'] ? 'action:eye-off' : 'action:eye') .
+                    ((int)$r['allow_cross_day'] === 1 ? ' ' . render_icon('action:moon') : '') . '</span></td>' .
                 // 操作按钮改为事件委托（data-room-id）：用户可控名称/Token 不再嵌入 onclick
                 // 字符串，杜绝引号/HTML 注入（原 e() 转义在属性值解码后无法覆盖单引号截断）
                 '<td><div class="flex gap-4">' .
