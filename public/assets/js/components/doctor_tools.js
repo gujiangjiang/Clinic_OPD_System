@@ -466,7 +466,7 @@ Clinic.docTools = (function () {
             '  </div>' +
             '  <div class="doc-call-actions">' +
             '    <button type="button" class="btn btn-outline btn-sm" id="dcpRepeat" title="重复呼叫当前就诊患者（防止患者没听到）">' + renderIconSvg('action:refresh') + ' 重呼</button>' +
-            '    <button type="button" class="btn btn-warning btn-sm" id="dcpMiss" title="当前患者过号，自动呼叫下一位">⏭ 过号</button>' +
+            '    <button type="button" class="btn btn-warning btn-sm" id="dcpMiss" title="当前患者过号，自动呼叫下一位">' + renderIconSvg('queue:next') + ' 过号</button>' +
             '    <button type="button" class="btn btn-primary btn-sm" id="dcpNextBtn" title="呼叫下一位患者并打开其病历">' + renderIconSvg('action:download') + ' 下一位</button>' +
             '  </div>' +
             '  <div class="doc-call-pool">' +
@@ -485,7 +485,7 @@ Clinic.docTools = (function () {
         return '<div class="doc-call-pop-head">' +
             '  <span class="doc-call-pop-title">' + renderIconSvg('action:announce') + ' ' + Clinic.escHtml(fullRoomName(ROOM_BOUND.dept_name, ROOM_BOUND.name)) + '</span>' +
             '  <span class="doc-call-pop-tools">' +
-            '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">⊘</span>' +
+            '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">' + renderIconSvg('action:close') + '</span>' +
             '    <span class="doc-call-pop-x" data-act="restore" title="最大化（恢复完整版）">+</span>' +
             '    <span class="doc-call-pop-x" data-act="hide" title="关闭">x</span>' +
             '  </span>' +
@@ -501,7 +501,7 @@ Clinic.docTools = (function () {
             '  </div>' +
             '  <div class="doc-call-actions">' +
             '    <button type="button" class="btn btn-outline btn-sm" id="dcpRepeat" title="重复呼叫当前就诊患者">' + renderIconSvg('action:refresh') + ' 重呼</button>' +
-            '    <button type="button" class="btn btn-warning btn-sm" id="dcpMiss" title="过号并自动呼叫下一位">⏭ 过号</button>' +
+            '    <button type="button" class="btn btn-warning btn-sm" id="dcpMiss" title="过号并自动呼叫下一位">' + renderIconSvg('queue:next') + ' 过号</button>' +
             '    <button type="button" class="btn btn-primary btn-sm" id="dcpNextBtn" title="呼叫下一位患者并打开其病历">' + renderIconSvg('action:download') + ' 下一位</button>' +
             '  </div>' +
             '</div>';

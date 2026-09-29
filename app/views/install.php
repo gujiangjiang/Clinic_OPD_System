@@ -610,14 +610,14 @@ document.getElementById('installBtn').addEventListener('click', function () {
             } else {
                 Clinic.toast.error(json.msg || '安装失败');
                 btn.disabled = false;
-                btn.textContent = renderIconSvg('action:launch')+' 完成安装';
+                btn.innerHTML = renderIconSvg('action:launch')+' 完成安装';
                 document.getElementById('installFoot').textContent = '安装失败，请检查后重试';
             }
         })
         .catch(function () {
             Clinic.toast.error('网络请求失败，请重试');
             btn.disabled = false;
-            btn.textContent = renderIconSvg('action:launch')+' 完成安装';
+            btn.innerHTML = renderIconSvg('action:launch')+' 完成安装';
         });
 });
 

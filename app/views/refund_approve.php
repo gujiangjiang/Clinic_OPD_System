@@ -43,7 +43,7 @@ function loadReq() {
             document.getElementById('reqBox').innerHTML = html;
         },
         onError: function () {
-            document.getElementById('reqBox').innerHTML = '<div class="empty"><div class="empty-ico">'+renderIconSvg('action:search')+'</div>退费申请不存在或已失效</div>';
+            document.getElementById('reqBox').innerHTML = '<div class="empty"><div class="empty-ico">'+'</div>退费申请不存在或已失效</div>';
         },
     });
 }

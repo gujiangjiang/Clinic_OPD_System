@@ -63,7 +63,7 @@ Clinic.history = (function () {
             '</div>' +
             '<div class="hp-body">' +
             '  <div class="hp-left">' +
-            '    <input class="input" id="hpSearch" placeholder="' + renderIconSvg('action:search') + ' 搜索日期 / 科室" autocomplete="off" oninput="Clinic.history.filter()">' +
+            '    <input class="input" id="hpSearch" placeholder="搜索日期 / 科室" autocomplete="off" oninput="Clinic.history.filter()">' +
             '    <div class="hp-list" id="hpList">' + items + '</div>' +
             '  </div>' +
             '  <div class="hp-right" id="hpRight">' +

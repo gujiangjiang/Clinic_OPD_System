@@ -25,7 +25,7 @@ switch ($action) {
 
     /* ==================== 队列列表（HTML） ==================== */
     case 'queue':
-        dept_queue('lab', '🧪', 'labRegister', 'labResultForm');
+        dept_queue('lab', render_icon('nav:lab'), 'labRegister', 'labResultForm');
         break;
 
     /* ==================== 新增检验项目（需求19：提交后需管理员审核） ==================== */

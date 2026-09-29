@@ -184,7 +184,7 @@ Clinic.deptwork = (function () {
 
     /* ==================== 患者查询（全部就诊历史，统一走 Clinic.patientSearch 公共组件） ==================== */
     function openPatientSearch() {
-        Clinic.patientSearch.open({ idPrefix: 'dwPs', title: renderIconSvg('action:search') + ' 患者查询' });
+        Clinic.patientSearch.open({ idPrefix: 'dwPs', title: ' 患者查询' });
     }
 
     function doPatientSearch() {
@@ -877,7 +877,7 @@ Clinic.deptwork = (function () {
         return '<div class="doc-call-pop-head">' +
             '  <span class="doc-call-pop-title">' + renderIconSvg('action:announce') + ' ' + escHtml(fullRoomName(r.dept_name, r.room_name)) + '</span>' +
             '  <span class="doc-call-pop-tools">' +
-            '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">⊘</span>' +
+            '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">' + renderIconSvg('action:close') + '</span>' +
             '    <span class="doc-call-pop-x" data-act="restore" title="最大化（恢复完整版）">+</span>' +
             '    <span class="doc-call-pop-x" data-act="hide" title="关闭">x</span>' +
             '  </span>' +

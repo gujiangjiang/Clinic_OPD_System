@@ -145,7 +145,7 @@ Clinic.critical = (function () {
         DOC_Q = ''; DOC_PICK = onPick;
         var mask = Clinic.modal.open(
             '<div class="crit-doc-search">' +
-            '  <div class="form-group"><input class="input" id="critDocQ" placeholder="' + renderIconSvg('action:search') + ' 输入医生姓名 / 工号搜索" autocomplete="off" ' +
+            '  <div class="form-group"><input class="input" id="critDocQ" placeholder="输入医生姓名 / 工号搜索" autocomplete="off" ' +
             'oninput="Clinic.critical._docSearchInput(this.value)"></div>' +
             '  <div id="critDocList" class="crit-doc-list">' +
             '    <div class="crit-doc-tip">加载中…</div>' +

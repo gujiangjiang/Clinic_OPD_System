@@ -96,7 +96,7 @@ body {
             document.getElementById('doneBox').classList.add('hidden');
             document.getElementById('switchBtn').classList.add('hidden');
             document.getElementById('keepBtn').classList.add('hidden');
-            document.getElementById('ico').textContent = renderIconSvg('action:refresh');
+            document.getElementById('ico').innerHTML = renderIconSvg('action:refresh');
         } else if (s.status === 'done') {
             document.getElementById('lockTitle').textContent = '数据库迁移完成';
             document.getElementById('lockSub').textContent = '';
@@ -105,7 +105,7 @@ body {
             document.getElementById('cancelBtn').classList.add('hidden');
             document.getElementById('switchBtn').classList.remove('hidden');
             document.getElementById('keepBtn').classList.remove('hidden');
-            document.getElementById('ico').textContent = renderIconSvg('alert:success');
+            document.getElementById('ico').innerHTML = renderIconSvg('alert:success');
         } else if (s.status === 'cancelled') {
             document.getElementById('lockTitle').textContent = '迁移已取消';
             document.getElementById('lockSub').textContent = '迁移已取消，主数据库保持原库，数据未受影响。请重新登录。';
@@ -114,7 +114,7 @@ body {
             document.getElementById('cancelBtn').classList.add('hidden');
             document.getElementById('switchBtn').classList.add('hidden');
             document.getElementById('keepBtn').classList.add('hidden');
-            document.getElementById('ico').textContent = renderIconSvg('alert:warning');
+            document.getElementById('ico').innerHTML = renderIconSvg('alert:warning');
         } else if (s.status === 'failed') {
             document.getElementById('lockTitle').textContent = '迁移失败';
             document.getElementById('lockSub').textContent = '迁移过程中发生错误，主数据库保持原库。请重新登录后重试。';
@@ -125,7 +125,7 @@ body {
             document.getElementById('keepBtn').classList.add('hidden');
             document.getElementById('errBox').classList.remove('hidden');
             document.getElementById('errBox').textContent = '错误信息：' + (s.error || '未知错误');
-            document.getElementById('ico').textContent = renderIconSvg('alert:blocked');
+            document.getElementById('ico').innerHTML = renderIconSvg('alert:blocked');
         } else {
             location.href = '/login';   // idle：迁移已结束
         }

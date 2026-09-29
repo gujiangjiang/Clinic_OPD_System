@@ -209,8 +209,12 @@ function dispFilter(t) {
 }
 
 function dispListUrl(p, size, st) {
+    var dStart = document.getElementById('anaStart');
+    var dEnd = document.getElementById('anaEnd');
     return '/api/admin?action=ana_disposition&type=' + encodeURIComponent(st.type) +
-        '&page=' + p + '&size=' + size + '&kw=' + encodeURIComponent(st.kw);
+        '&page=' + p + '&size=' + size + '&kw=' + encodeURIComponent(st.kw) +
+        '&start=' + encodeURIComponent(dStart ? dStart.value : '') +
+        '&end=' + encodeURIComponent(dEnd ? dEnd.value : '');
 }
 
 /** 单行转归 HTML（服务端对象 → 行；补充信息列随类型动态显隐） */

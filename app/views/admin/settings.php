@@ -48,7 +48,7 @@ $dbType = strtoupper(DatabaseManager::driver());
         <div class="card db-sidebar">
             <div class="db-nav active" data-cltab="info" onclick="clTab('info')"><?= render_icon('nav:hospital') ?> 医院信息</div>
             <div class="db-nav" data-cltab="brand" onclick="clTab('brand')"><?= render_icon('action:palette') ?> 医院标志</div>
-            <div class="db-nav" data-cltab="work" onclick="clTab('work')">⏰ 作息时间</div>
+            <div class="db-nav" data-cltab="work" onclick="clTab('work')"><?= render_icon('action:clock') ?> 作息时间</div>
             <div class="db-nav" data-cltab="tz" onclick="clTab('tz')"><?= render_icon('nav:globe') ?> 网站时区</div>
         </div>
         <div class="db-main">
@@ -96,7 +96,7 @@ $dbType = strtoupper(DatabaseManager::driver());
             </div>
             <div class="db-pane" id="cltab-work" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title">⏰ 作息时间</div>
+                    <div class="card-title"><?= render_icon('action:clock') ?> 作息时间</div>
                     <?php
                     $ws = work_schedule();
                     $wsState = work_session_now();
@@ -109,7 +109,7 @@ $dbType = strtoupper(DatabaseManager::driver());
                         当前状态：<span class="badge badge-<?php echo in_array($wsState, array('am', 'pm'), true) ? 'success' : 'gray'; ?>"><?php echo $stateText[$wsState]; ?></span>
                     </div>
                     <div class="fs-12 text-muted mt-8 mb-12">门诊号源仅在作息时段内开放；急诊 24 小时可挂，不受作息限制。</div>
-                    <button class="btn btn-primary btn-sm" onclick="openWorkModal()">⏰ 设置作息时间</button>
+                    <button class="btn btn-primary btn-sm" onclick="openWorkModal()"><?= render_icon('action:clock') ?> 设置作息时间</button>
                 </div>
             </div>
             <div class="db-pane" id="cltab-tz" style="display:none">
@@ -170,7 +170,7 @@ $dbType = strtoupper(DatabaseManager::driver());
             <div class="db-pane" id="dbtab-switch" style="display:none">
                 <div class="card setting-card">
                     <div class="card-title"><?= render_icon('action:refresh') ?> 直接切换主库（不迁移数据）</div>
-                    <div class="fs-13 text-muted mb-8">目标库须已存在完整业务数据（users 表非空）。切换强制清除全部用户会话并全站锁定，切换后所有用户重新登录。支持同驱动切换（如 MySQL → 另一 MySQL 库）。</div>
+                    <div class="fs-13 text-muted mb-8">目标库须已存在完整业务数据（users 表非空）。切换强制清除全部用户会话并全站锁定，切换后所有用户重新登录。支持同驱动切换（如 MySQL <?= render_icon('action:next') ?> 另一 MySQL 库）。</div>
                     <div class="fs-13 mb-8">当前主库：<span class="badge badge-primary" id="swCurDriver" style="font-size:11.5px">—</span></div>
                     <div class="form-group"><label class="form-label">目标驱动 <span class="req">*</span></label>
                         <select class="select" id="swDriver" onchange="toggleSwOpts()"></select></div>
@@ -419,7 +419,7 @@ function openWorkModal() {
         '<div class="form-row">' + timeInput('w_dst_am_start', '夏令时上午上班', WS.dst_am_start) + timeInput('w_dst_am_end', '夏令时上午下班', WS.dst_am_end) + '</div>' +
         '<div class="form-row">' + timeInput('w_dst_pm_start', '夏令时下午上班', WS.dst_pm_start) + timeInput('w_dst_pm_end', '夏令时下午下班', WS.dst_pm_end) + '</div></div>';
     Clinic.modal.open(html, {
-        title: '⏰ 作息时间设置',
+        title: render_icon('action:clock') . ' 作息时间设置',
         buttons: [
             { text: '取消', cls: 'btn-outline' },
             { text: '保存', cls: 'btn-primary', autoClose: false, onClick: saveWork },
@@ -596,7 +596,7 @@ function renderActiveTasks(t) {
         var stTxt = st === 'running' ? '<span style="color:var(--primary)">' . render_icon('action:refresh') . ' 进行中</span>' : (st === 'done' ? '<span style="color:var(--success)">' . render_icon('alert:success') . ' 完成待确认</span>' : '<span style="color:var(--danger)">' . render_icon('alert:blocked') . ' ' + escHtml(st) + '</span>');
         items.push('<div class="flex-between" style="padding:6px 10px;background:var(--bg-soft);border-radius:var(--radius-md);margin-bottom:6px">' +
             '<span class="fw-600">' . render_icon('action:refresh') . ' 数据库迁移/切换</span><span>' + stTxt + '</span>' +
-            '<span class="fs-12 text-muted">' + escHtml(t.migration.from) + ' → ' + escHtml(t.migration.to) + '（' + t.migration.done_tables + '/' + t.migration.total_tables + ' 表）</span></div>');
+            '<span class="fs-12 text-muted">' + escHtml(t.migration.from) + ' ' . render_icon('action:next') . ' ' + escHtml(t.migration.to) + '（' + t.migration.done_tables + '/' + t.migration.total_tables + ' 表）</span></div>');
     }
     if (t.dual_write) {
         items.push('<div class="flex-between" style="padding:6px 10px;background:var(--bg-soft);border-radius:var(--radius-md);margin-bottom:6px">' +
@@ -700,7 +700,7 @@ function openDbTable(table) {
                 : rowHtml;
         },
         append: function (el, html) {
-            // 容器尚无表格（首屏/重置后）→ 写入完整 table；已有表格 → 追加行到 tbody
+            // 容器尚无表格（首屏/重置后）{{ICON:action:next}} 写入完整 table；已有表格 {{ICON:action:next}} 追加行到 tbody
             if (!el.querySelector('table')) { el.innerHTML = html; return; }
             var tb = el.querySelector('tbody');
             if (tb) tb.insertAdjacentHTML('beforeend', html);
@@ -890,7 +890,7 @@ function renderSettingsDrivers(drivers) {
         }).join('');
         toggleBkOpts();
     }
-    // 直接切换目标驱动下拉（允许同驱动切换，如 MySQL → 另一 MySQL 库）
+    // 直接切换目标驱动下拉（允许同驱动切换，如 MySQL ' . render_icon('action:next') . ' 另一 MySQL 库）
     var swSel = document.getElementById('swDriver');
     if (swSel) {
         swSel.innerHTML = Object.keys(drivers.db || {}).map(function (k) {

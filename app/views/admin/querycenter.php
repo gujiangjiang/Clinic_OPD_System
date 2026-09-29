@@ -63,7 +63,7 @@ function refRowHtml(list, isFirst) {
             '<td class="fs-12">' + escHtml(r.region) + '</td>' +
             '<td class="fs-12">' + escHtml(r.created_by || '') + '</td>' +
             '<td>' + (window.__refViewerTpl
-                ? '<button class="btn btn-outline btn-sm" onclick="openRefViewer(\'' + escHtml(r.study_uid) + '\')">'+renderIconSvg('action:search')+' 调阅</button>'
+                ? '<button class="btn btn-outline btn-sm" onclick="openRefViewer(\'' + escHtml(r.study_uid) + '\')">'+' 调阅</button>'
                 : '<span class="fs-12 text-muted">—</span>') + '</td>' +
             '</tr>';
     }).join('');

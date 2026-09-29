@@ -394,7 +394,7 @@ Clinic.order = (function () {
                 // 左：搜索横条（上）+ 已选列表（下），下拉为浮层
                 '  <div style="flex:1;min-width:0;display:flex;flex-direction:column;position:relative">' +
 '    <div class="flex gap-8" style="align-items:center">' +
-                 '      <input type="text" class="input" id="rxKw" placeholder="' + renderIconSvg('action:search') + ' 点击搜索药品（名称 / 厂家简称），支持子医嘱" autocomplete="off" style="flex:1;min-width:0">' +
+                 '      <input type="text" class="input" id="rxKw" placeholder="点击搜索药品（名称 / 厂家简称），支持子医嘱" autocomplete="off" style="flex:1;min-width:0">' +
                  '      <button type="button" class="btn btn-outline btn-sm" id="rxPkgBtn" title="快速选择套餐一键加入" style="flex-shrink:0">' + renderIconSvg('emr:disposal') + ' 套餐</button>' +
                  '    </div>' +
                  '    <div class="fs-13 text-muted mb-8 mt-8">已选 <strong id="selCount">0</strong> 项</div>' +
@@ -720,7 +720,7 @@ Clinic.order = (function () {
         PKG_PICK_LIST = null;
         var html =
             '<div style="display:flex;flex-direction:column;gap:8px">' +
-            '  <input type="text" class="input" id="pkgPickKw" placeholder="' + renderIconSvg('action:search') + ' 搜索' + typeLabel + '套餐名称" autocomplete="off">' +
+            '  <input type="text" class="input" id="pkgPickKw" placeholder="搜索' + typeLabel + '套餐名称" autocomplete="off">' +
             '  <div id="pkgPickList" style="max-height:420px;min-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px"></div>' +
             '  <div class="fs-12 text-muted">点击套餐后弹出项目勾选，确认后一键加入已选列表</div>' +
             '</div>';
@@ -1092,7 +1092,7 @@ Clinic.order = (function () {
         panel.__onPick = opts.onPick || null;
         panel.innerHTML =
             '<div style="padding:8px 10px;border-bottom:1px solid var(--border)">' +
-            '<input type="text" class="input" id="pickerKw" placeholder="' + (opts.placeholder || renderIconSvg('action:search') + ' 搜索项目') + '" autocomplete="off" style="min-height:30px;padding:5px 10px">' +
+            '<input type="text" class="input" id="pickerKw" placeholder="' + (opts.placeholder || ' 搜索项目') + '" autocomplete="off" style="min-height:30px;padding:5px 10px">' +
             '</div>' +
             '<div id="pickerList" style="max-height:260px;overflow-y:auto"><div class="text-center" style="padding:18px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>';
         panel.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 388)) + 'px';
@@ -1134,7 +1134,7 @@ Clinic.order = (function () {
         openItemPicker({
             btn: btn,
             type: 'prescription',
-            placeholder: renderIconSvg('action:search') + ' 搜索子医嘱药品（名称 / 厂家）',
+            placeholder: ' 搜索子医嘱药品（名称 / 厂家）',
             url: function (p, size) {
                 var kw = encodeURIComponent((document.getElementById('pickerKw') || {}).value || '');
                 return '/api/order?action=catalog&type=prescription&page=' + p + '&size=' + size + '&kw=' + kw;
@@ -1259,7 +1259,7 @@ Clinic.order = (function () {
         openItemPicker({
             btn: btn,
             type: t,
-            placeholder: renderIconSvg('action:search') + ' 搜索' + ({ lab: '检验', imaging: '检查', procedure: '处置', prescription: '药品' }[t] || '项目') + '（可输入名称搜索）',
+            placeholder: ' 搜索' + ({ lab: '检验', imaging: '检查', procedure: '处置', prescription: '药品' }[t] || '项目') + '（可输入名称搜索）',
             url: url || function (p, size) {
                 var kw = encodeURIComponent((document.getElementById('pickerKw') || {}).value || '');
                 return '/api/order?action=catalog&type=' + t + '&page=' + p + '&size=' + size + '&kw=' + kw;

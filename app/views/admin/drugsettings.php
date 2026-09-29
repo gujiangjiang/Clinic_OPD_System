@@ -48,7 +48,7 @@ function routeBindBox(name, id) {
     return '<input type="hidden" id="dsBind" value="' + (id || 0) + '">' +
         '<div class="form-group"><label class="form-label">绑定计费处置（开方时按数量自动联动）</label>' +
         '<div class="flex gap-8"><input class="input" id="dsBindName" value="' + (name || '') + '" readonly placeholder="点击右侧选择或新建">' +
-        '<button type="button" class="btn btn-outline btn-sm" id="dsBindPick">'+renderIconSvg('action:search')+' 选择/新建</button>' +
+        '<button type="button" class="btn btn-outline btn-sm" id="dsBindPick">'+' 选择/新建</button>' +
         '<button type="button" class="btn btn-outline btn-sm" id="dsBindClear">清除</button></div>' +
         '<div class="fs-12 text-muted mt-4">如：静脉输液 → 静脉输液费。开方时按数量自动生成处置。</div></div>';
 }

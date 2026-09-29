@@ -33,7 +33,7 @@ Clinic.emr.template = (function () {
     function openTemplatePicker(ev, opts) {
         opts = opts || {};
         var tplType = opts.type || 'medical_record';
-        var pickPh = opts.pickPlaceholder || renderIconSvg('action:search') + ' 搜索病历模板';
+        var pickPh = opts.pickPlaceholder || ' 搜索病历模板';
         var emptyTxt = opts.emptyText || '暂无可用的病历模板，可前往「模板管理」创建';
         var onApply = opts.onApply || null;
         _onApply = onApply;

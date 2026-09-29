@@ -34,22 +34,22 @@ if (!in_array($role, array('nurse', 'lab', 'imaging', 'pharmacy'), true)) {
 function deptwork_role_cfg($role) {
     $map = array(
         'nurse' => array(
-            'emoji' => '💉', 'room_type' => 'nurse',
+            'emoji' => render_icon('clinical:injection'), 'room_type' => 'nurse',
             'item_types' => array('procedure', 'prescription'), 'nurse_rx' => true,
             'tabs' => array('doing' => '待处置', 'done' => '完成', 'today' => '当日'),
         ),
         'lab' => array(
-            'emoji' => '🧪', 'room_type' => 'lab',
+            'emoji' => render_icon('nav:lab'), 'room_type' => 'lab',
             'item_types' => array('lab'), 'nurse_rx' => false,
             'tabs' => array('doing' => '检验中', 'done' => '完成', 'today' => '当日'),
         ),
         'imaging' => array(
-            'emoji' => '🩻', 'room_type' => 'imaging',
+            'emoji' => render_icon('nav:imaging'), 'room_type' => 'imaging',
             'item_types' => array('imaging'), 'nurse_rx' => false,
             'tabs' => array('doing' => '检查中', 'done' => '完成', 'today' => '当日'),
         ),
         'pharmacy' => array(
-            'emoji' => '💊', 'room_type' => 'pharmacy',
+            'emoji' => render_icon('nav:pharmacy'), 'room_type' => 'pharmacy',
             'item_types' => array('prescription'), 'nurse_rx' => false,
             // 审方/发药拆分：待审方（doing）→ 待发药（reviewed）→ 已发药（done）+ 当日叠加
             'tabs' => array('doing' => '待审方', 'reviewed' => '待发药', 'done' => '已发药', 'today' => '当日'),

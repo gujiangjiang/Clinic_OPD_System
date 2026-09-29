@@ -213,7 +213,7 @@ function openSendMsg() {
                 '<div class="send-msg-box">' +
                 '  <div class="fs-13 text-muted mb-8">' + (SEND_ADMIN ? '可多选群发（全院 / 按角色 / 指定用户）' : '仅可发送给一位用户，两次发送间隔 30 秒') + '</div>' +
                 '  <div class="tree-box">' +
-                '    <input class="input tree-box-search" id="smSearch" placeholder="'+renderIconSvg('action:search')+' 搜索用户 / 工号，可定位到列表" autocomplete="off">' +
+                '    <input class="input tree-box-search" id="smSearch" placeholder="搜索用户 / 工号，可定位到列表" autocomplete="off">' +
                 '    <div id="smSearchRes" class="tree-search-res" style="display:none"></div>' +
                 '    <div class="send-tree" id="sendMsgTree">' + tree + '</div>' +
                 '  </div>' +

@@ -83,7 +83,7 @@ function wbPickDept(id) {
         Clinic.docTools.syncDept(id);
     }
     // 更新空状态提示
-    document.querySelector('.wb-empty .fs-18').textContent = renderIconSvg('nav:hospital')+' 已选择科室';
+    document.querySelector('.wb-empty .fs-18').innerHTML = renderIconSvg('nav:hospital')+' 已选择科室';
     document.querySelector('.wb-empty .fs-14').textContent = '候诊列表已打开，点击患者即可进入病历书写';
     document.querySelector('.wb-empty .fs-12').innerHTML = '';
     // 候诊面板按所选科室加载并自动弹出
@@ -102,7 +102,7 @@ function wbLoadDepts() {
         onSuccess: function (json) {
             WB_DEPT_LIST = json.data.list || [];
             if (!WB_DEPT_LIST.length) {
-                document.querySelector('.wb-empty .fs-18').textContent = renderIconSvg('alert:warning')+' 尚未关联科室';
+                document.querySelector('.wb-empty .fs-18').innerHTML = renderIconSvg('alert:warning')+' 尚未关联科室';
                 document.querySelector('.wb-empty .fs-14').textContent = '请联系管理员在【用户管理】中为您设置科室';
                 return;
             }
@@ -115,7 +115,7 @@ function wbLoadDepts() {
                 if (hasSaved) {
                     wbPickDept(saved);
                 } else {
-                    document.querySelector('.wb-empty .fs-18').textContent = renderIconSvg('clinical:stethoscope')+' 请先选择科室后开始接诊';
+                    document.querySelector('.wb-empty .fs-18').innerHTML = renderIconSvg('clinical:stethoscope')+' 请先选择科室后开始接诊';
                     document.querySelector('.wb-empty .fs-14').textContent = '正在为你弹出科室选择…';
                     document.querySelector('.wb-empty .fs-12').innerHTML = '<button class="btn btn-primary btn-sm mt-8" onclick="wbOpenDeptPicker()">'+renderIconSvg('nav:hospital')+' 选择科室</button>';
                     // 主动弹出科室选择窗

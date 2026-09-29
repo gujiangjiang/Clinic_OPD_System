@@ -36,7 +36,19 @@ Clinic.modal = (function () {
         masks.push(mask);
 
         // 标题与内容
-        mask.querySelector('.modal-title').textContent = opts.title || '提示';
+        var _tt = String(opts.title == null ? '' : opts.title);
+        // 标题以受控 SVG 图标开头时：图标 innerHTML + 其余文本 textNode/转义，避免纯文本展示标记
+        if (_tt.indexOf('<svg') === 0) {
+            var _te = _tt.indexOf('</svg>');
+            if (_te !== -1) {
+                var _mt = mask.querySelector('.modal-title');
+                _mt.innerHTML = _tt.substring(0, _te + 6);
+                var _rest = _tt.substring(_te + 6);
+                if (_rest) _mt.appendChild(document.createTextNode(_rest));
+                return;
+            }
+        }
+        mask.querySelector('.modal-title').textContent = _tt;
         mask.querySelector('.modal-body').innerHTML = html;
 
         // 底部按钮

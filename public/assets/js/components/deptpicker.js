@@ -141,7 +141,7 @@ Clinic.deptPicker = (function () {
             window.__deptPickStateText = '停挂';
             var notice = '';
             if (opts.mode === 'register' && schedule && schedule.msg) {
-                notice = '<div class="mb-8" style="background:var(--warning-soft);color:var(--warning);border-radius:8px;padding:8px 12px;font-size:12px">⏰ ' + schedule.msg + '</div>';
+                notice = '<div class="mb-8" style="background:var(--warning-soft);color:var(--warning);border-radius:8px;padding:8px 12px;font-size:12px">' + renderIconSvg('action:clock') + ' ' + schedule.msg + '</div>';
                 if (schedule.state === 'noon') window.__deptPickStateText = '午休';
                 else if (schedule.state === 'after') window.__deptPickStateText = '已下班';
                 else if (schedule.state === 'before') window.__deptPickStateText = '未开放';

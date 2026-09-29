@@ -380,7 +380,7 @@ function pkgBuildForm(mask, pkg, readonly) {
         '  </div>' +
         '  <div class="pkg-right">' +
         '    <div class="pkg-cat-box">' +
-        '      <input type="text" class="input" id="pkgCatKw" placeholder="'+renderIconSvg('action:search')+' 搜索' + (isDrug ? '药品（名称 / 厂家简称）' : '项目名称') + '，点击加入套餐" autocomplete="off" style="flex-shrink:0">' +
+        '      <input type="text" class="input" id="pkgCatKw" placeholder="搜索' + (isDrug ? '药品（名称 / 厂家简称）' : '项目名称') + '，点击加入套餐" autocomplete="off" style="flex-shrink:0">' +
         '    </div>' +
         '    <div class="fs-13 text-muted mt-8 mb-4">套餐内容 <strong id="pkgItemCount">0</strong> 项 ｜ 合计 <strong id="pkgItemTotal" style="color:var(--danger)">¥0.00</strong></div>' +
         '    <div id="pkgItems" style="flex:1;min-height:0;overflow-y:auto;padding-right:4px">' +

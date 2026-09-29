@@ -139,8 +139,8 @@ function renderImgIntegrated(data) {
         /* 中栏：读片核心视窗（专业深色） */
         '<div class="pacs-viewer">' +
         '  <div class="pacs-viewer-toolbar">' +
-        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'窗宽窗位\')">◐ 窗宽窗位</button>' +
-        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'缩放\')">'+renderIconSvg('action:search')+' 缩放</button>' +
+        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'窗宽窗位\')">'+renderIconSvg('action:refresh')+' 窗宽窗位</button>' +
+        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'缩放\')">'+' 缩放</button>' +
         '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'平移\')">'+renderIconSvg('action:star')+' 平移</button>' +
         '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'测量标注\')">'+renderIconSvg('clinical:ruler')+' 测量标注</button>' +
         '    <span class="pacs-tool-sep"></span>' +

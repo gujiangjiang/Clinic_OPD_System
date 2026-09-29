@@ -60,7 +60,7 @@ $showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
     <div class="card" style="flex:1;min-width:0">
         <?php if ($pending): ?>
         <div class="mb-12" style="background:var(--warning-soft);border-radius:var(--radius-md);padding:10px 14px;font-size:13px;color:var(--warning)">
-            ⏳ 您已提交个人资料修改申请，<b>等待审核中，暂未生效</b>。审核通过后自动生效；结果将通过站内消息通知您。
+            <?= render_icon('alert:loading') ?> 您已提交个人资料修改申请，<b>等待审核中，暂未生效</b>。审核通过后自动生效；结果将通过站内消息通知您。
         </div>
         <?php endif; ?>
 
@@ -87,7 +87,7 @@ $showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
         <div class="form-group"><label class="form-label">个人介绍</label><textarea class="textarea" id="f_intro" rows="3"<?php echo $pending ? ' disabled' : ''; ?>><?php echo e($pending && isset($pendingData['intro']) ? $pendingData['intro'] : $user['intro']); ?></textarea></div>
         <?php if ($pending): ?>
         <div class="fs-12 text-muted mb-8">申请中（等待审核），审核通过后生效。</div>
-        <button type="button" class="btn btn-outline" disabled>⏳ 提交审核（待审核）</button>
+        <button type="button" class="btn btn-outline" disabled><?= render_icon('alert:loading') ?> 提交审核（待审核）</button>
         <?php else: ?>
         <div class="fs-12 text-muted mb-8">学历、学位、安全邮箱、个人介绍修改需提交管理员审核，审核通过后才生效。</div>
         <button type="button" class="btn btn-primary" onclick="submitProfileAudit()"><?= render_icon('action:send') ?> 提交审核</button>
@@ -108,7 +108,7 @@ $showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
     });
 })();
 
-/* 点击头像 → 触发文件选择 */
+/* 点击头像 {{ICON:action:next}} 触发文件选择 */
 function pickAvatar() {
     var pending = document.querySelector('#avatarEl .avatar-review');
     if (pending) { Clinic.toast.warning('头像审核中，请等待管理员审核'); return; }

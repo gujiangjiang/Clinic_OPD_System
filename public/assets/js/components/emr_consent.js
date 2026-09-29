@@ -16,7 +16,7 @@ Clinic.emr.consent = (function () {
     function openPicker(ev) {
         Clinic.emr.template.openTemplatePicker(ev, {
             type: 'consent',
-            pickPlaceholder: renderIconSvg('action:search') + ' 搜索知情同意/告知文书模板',
+            pickPlaceholder: ' 搜索知情同意/告知文书模板',
             emptyText: '暂无可用的知情同意/告知文书模板，可前往「模板管理」创建',
             onApply: function (t) {
                 var c = t.content || {};

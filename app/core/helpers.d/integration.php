@@ -20,7 +20,7 @@
 function integration_field_groups() {
     return array(
         array(
-            'id' => 'his', 'emoji' => '🏥', 'title' => 'HIS 接口',
+            'id' => 'his', 'emoji' => render_icon('nav:hospital'), 'title' => 'HIS 接口',
             'desc' => '与院内 HIS 系统对接的基础配置（预留接口，密钥留空则关闭外部只读查询）',
             'fields' => array(
                 array('key' => 'his_system_code', 'label' => '系统代码', 'type' => 'input',
@@ -38,7 +38,7 @@ function integration_field_groups() {
             ),
         ),
         array(
-            'id' => 'pay', 'emoji' => '💳', 'title' => '支付接口',
+            'id' => 'pay', 'emoji' => render_icon('nav:card'), 'title' => '支付接口',
             'desc' => '移动支付与聚合收单配置（占位预留，需接入支付能力后填写）',
             'fields' => array(
                 array('key' => 'pay_wechat_mchid', 'label' => '微信支付商户号', 'type' => 'input',
@@ -57,7 +57,7 @@ function integration_field_groups() {
             ),
         ),
         array(
-            'id' => 'yibao', 'emoji' => '🪪', 'title' => '医保接口',
+            'id' => 'yibao', 'emoji' => render_icon('action:id-card'), 'title' => '医保接口',
             'desc' => '国家医保/地方医保前置机接入配置（医保结算上线前由管理员填写）',
             'fields' => array(
                 array('key' => 'yibao_endpoint', 'label' => '医保前置机地址', 'type' => 'input',
@@ -77,7 +77,7 @@ function integration_field_groups() {
             ),
         ),
         array(
-            'id' => 'pacs', 'emoji' => '🩻', 'title' => 'DICOM / PACS 接口',
+            'id' => 'pacs', 'emoji' => render_icon('nav:imaging'), 'title' => 'DICOM / PACS 接口',
             'desc' => '医疗影像工作站核心配置：PACS 服务器、DICOMweb 服务与 Web 阅片器（影像科阅片模式使用）',
             'fields' => array(
                 array('key' => 'pacs_server_host', 'label' => 'PACS 服务器 IP / 主机名', 'type' => 'input',
@@ -95,7 +95,7 @@ function integration_field_groups() {
             ),
         ),
         array(
-            'id' => 'hl7', 'emoji' => '📡', 'title' => 'HL7 v2.x 接口',
+            'id' => 'hl7', 'emoji' => render_icon('nav:plug'), 'title' => 'HL7 v2.x 接口',
             'desc' => 'HL7 v2.x 消息通道配置（MLLP/HTTP 接收与消息路由标识）',
             'fields' => array(
                 array('key' => 'hl7_transport', 'label' => '传输方式', 'type' => 'select',
@@ -113,7 +113,7 @@ function integration_field_groups() {
             ),
         ),
         array(
-            'id' => 'fhir', 'emoji' => '🔗', 'title' => 'FHIR 接口',
+            'id' => 'fhir', 'emoji' => render_icon('action:link'), 'title' => 'FHIR 接口',
             'desc' => 'FHIR R4 互操作性服务接入配置（Patient/ImagingStudy/DiagnosticReport 资源交换）',
             'fields' => array(
                 array('key' => 'fhir_endpoint', 'label' => 'FHIR R4 Endpoint 地址', 'type' => 'input',
@@ -129,7 +129,7 @@ function integration_field_groups() {
             ),
         ),
         array(
-            'id' => 'evid', 'emoji' => '🖋️', 'title' => '存证 / 电子签名',
+            'id' => 'evid', 'emoji' => render_icon('action:edit'), 'title' => '存证 / 电子签名',
             'desc' => '电子病历与诊断证明的存证扩展接口（时间戳 + 数字证书/CA 对接，正式医疗机构使用）',
             'fields' => array(
                 array('key' => 'evid_mode', 'label' => '存证模式', 'type' => 'select',

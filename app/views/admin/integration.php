@@ -141,7 +141,7 @@ $orgCode = trim((string)setting('org_code', ''));
                     <div class="card setting-card">
                         <div class="card-title"><?= render_icon('nav:lab') ?> 接口连通性测试</div>
                         <div class="fs-12 text-muted mt-2 mb-8">实际请求本系统 /api/his（需先保存密钥），分别验证「请求头 X-HIS-Key」与「GET 参数 api_key」两种认证方式：</div>
-                        <button type="button" class="btn btn-primary btn-sm" onclick="testHisApi()">▶ 开始测试</button>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="testHisApi()"><?= render_icon('action:next') ?> 开始测试</button>
                         <div id="hisTestBox" class="itg-his-result">
                             <div class="itg-his-empty">
                                 <div class="itg-his-empty-ico"><?= render_icon('nav:lab') ?></div>
@@ -298,7 +298,7 @@ function testHisApi() {
     if (key === '') { Clinic.toast.warning('请先填写或生成接口密钥并保存本组配置'); return; }
     if (key !== HIS_SAVED_KEY) { Clinic.toast.warning('密钥已修改但尚未保存，请先点击【保存本组配置】再测试'); return; }
     var base = location.protocol + '//' + location.host + '/api/his?action=ping';
-    box.innerHTML = '<div class="fs-12 text-muted" style="padding:10px 2px">⏳ 测试中，请稍候…</div>';
+    box.innerHTML = '<div class="fs-12 text-muted" style="padding:10px 2px">'+renderIconSvg('alert:loading')+' 测试中，请稍候…</div>';
     var render = function (label, url, init) {
         fetch(url, init).then(function (r) { return r.json(); }).then(function (j) {
             var ok = !!(j && j.ok && j.data && j.data.pong);

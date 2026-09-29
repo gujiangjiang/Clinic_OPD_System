@@ -23,7 +23,7 @@ switch ($action) {
 
     /* ==================== 队列列表（HTML） ==================== */
     case 'queue':
-        dept_queue('imaging', '🩻', 'imgRegister', 'imgResultForm');
+        dept_queue('imaging', render_icon('nav:imaging'), 'imgRegister', 'imgResultForm');
         break;
 
     /* ==================== 新增检查项目（需求19：提交后需管理员审核） ==================== */

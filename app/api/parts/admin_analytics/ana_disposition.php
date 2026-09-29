@@ -11,8 +11,15 @@ function admin_ana_disposition() {
     $type = trim((string)get('type', '全部'));
     list($page, $pageSize) = paged_params(20);
     $kw = trim(get('kw', ''));
+    // 日期范围（与其他运营分析接口同源：缺省=今天，超 366 天自动钳制）
+    list($start, $end) = ana_range();
     $where = "r.status='finished' AND r.disposition<>''";
     $params = array();
+    if ($start !== '' && $end !== '') {
+        $where .= ' AND date(r.registered_at) BETWEEN ? AND ?';
+        $params[] = $start;
+        $params[] = $end;
+    }
     if ($type !== '' && $type !== '全部') {
         $where .= ' AND r.disposition=?';
         $params[] = $type;

@@ -12,9 +12,9 @@ class EmrIcons {
         return array(
             // 病历/记录（写字板）
             'emr:record' =>
-                '<rect x="8.5" y="3" width="7" height="18" rx="1.5"/>' .
-                '<path d="M10 3V1.8h4V3"/>' .
-                '<path d="M11 8.5h2M11 12h2M11 15.5h2"/>',
+                '<rect x="7" y="3.5" width="10" height="17" rx="2"/>' .
+                '<path d="M10 1.5h4v3.5h-4z"/>' .
+                '<path d="M9.5 9h5M9.5 12.5h5M9.5 16h3.5"/>',
             // 文书/文档（文件）
             'emr:document' =>
                 '<path d="M6 2.5h7l5 5v14H6z"/>' .

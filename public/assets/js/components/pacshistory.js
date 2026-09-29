@@ -169,7 +169,7 @@ Clinic.pacsHistory = (function () {
                 ? '<div class="hist-field"><div class="hist-field-label">影像调阅</div>' +
                   '<div class="hist-field-text" style="display:flex;align-items:center;gap:8px">' +
                   '<span class="fs-12 text-muted" style="font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1" title="' + esc(r.study_uid || '') + '">' + esc(r.study_uid || '—') + '</span>' +
-                  '<button type="button" class="btn btn-outline btn-sm pacs-hist-copy" data-view="' + esc(r.viewer_url) + '" title="在新窗口打开 Web 阅片器调阅该次影像">' + renderIconSvg('action:search') + ' 调阅影像</button>' +
+                  '<button type="button" class="btn btn-outline btn-sm pacs-hist-copy" data-view="' + esc(r.viewer_url) + '" title="在新窗口打开 Web 阅片器调阅该次影像">' + ' 调阅影像</button>' +
                   '</div></div>'
                 : '') +
             copyField('影像表现', 'findings', r.findings, state) +

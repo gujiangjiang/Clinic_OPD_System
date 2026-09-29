@@ -51,7 +51,7 @@ function searchVisits(keepDetail) {
                 document.getElementById('visitDetail').innerHTML = '<div class="paymgr-empty">'+renderIconSvg('action:prev')+' 点击左侧就诊记录，查看该次就诊的缴费明细与退费操作</div>';
             }
             if (!list.length) {
-                box.innerHTML = '<div class="empty"><div class="empty-ico">'+renderIconSvg('action:search')+'</div>未检索到就诊记录</div>';
+                box.innerHTML = '<div class="empty"><div class="empty-ico">'+'</div>未检索到就诊记录</div>';
                 return;
             }
             // 保持当前选中项高亮（退费后刷新左侧时选中态不丢失）
