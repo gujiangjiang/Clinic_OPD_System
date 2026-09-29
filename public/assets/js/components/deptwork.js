@@ -733,7 +733,7 @@ Clinic.deptwork = (function () {
                     var cls = r.status === 'bound' ? 'style="background:var(--primary-soft);border-radius:6px"' : '';
                     var hint = r.status === 'bound' ? '<span class="fs-12 text-primary">（点击解绑）</span>' : '';
                     return '<div class="fs-13 flex-between" style="padding:8px 10px;cursor:' + (disabled ? 'not-allowed' : 'pointer') + ';opacity:' + (disabled ? '.55' : '1') + ';border-radius:6px"' + cls + ' ' + attrs + '>' +
-                        '<span>' + icon + ' ' + escHtml(r.name || '') + '</span>' +
+                        '<span class="room-name-cell" style="display:inline-flex;align-items:center;gap:4px">' + icon + escHtml(r.name || '') + '</span>' +
                         '<span class="fs-12" style="color:' + (r.status === 'offline' ? 'var(--danger)' : 'var(--text-muted)') + '">' + escHtml(r.status_text || '') + ' ' + hint + '</span></div>';
                 }).join('');
                 box.innerHTML = rows;
