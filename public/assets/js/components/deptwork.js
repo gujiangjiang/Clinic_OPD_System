@@ -137,14 +137,14 @@ Clinic.deptwork = (function () {
     /* ==================== 关闭当前患者（返回空白工作台 + 自动弹出候诊列表） ==================== */
     function renderEmptyWork() {
         var conf = {
-            nurse: { emoji: renderIconSvg('clinical:injection'), title: '欢迎使用护士工作站' },
-            lab: { emoji: renderIconSvg('nav:lab'), title: '欢迎使用检验科工作台' },
-            imaging: { emoji: renderIconSvg('nav:imaging'), title: '欢迎使用影像科工作台' },
-            pharmacy: { emoji: renderIconSvg('nav:pharmacy'), title: '欢迎使用药房工作台' },
-        }[ROLE] || { emoji: renderIconSvg('nav:hospital'), title: '欢迎使用工作台' };
+            nurse: { emoji: renderIconSvg('clinical:injection', 64), title: '欢迎使用护士工作站' },
+            lab: { emoji: renderIconSvg('nav:lab', 64), title: '欢迎使用检验科工作台' },
+            imaging: { emoji: renderIconSvg('nav:imaging', 64), title: '欢迎使用影像科工作台' },
+            pharmacy: { emoji: renderIconSvg('nav:pharmacy', 64), title: '欢迎使用药房工作台' },
+        }[ROLE] || { emoji: renderIconSvg('nav:hospital', 64), title: '欢迎使用工作台' };
         var main = document.getElementById('dwMain');
         if (main) main.innerHTML = '<div class="card wb-empty" style="padding:40px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center">' +
-            '<div style="font-size:72px;margin-bottom:16px">' + conf.emoji + '</div>' +
+            '<div class="wb-empty-icon">' + conf.emoji + '</div>' +
             '<div class="fs-18 fw-600 text-muted">' + conf.title + '</div>' +
             '<div class="fs-12 text-muted mt-8">候诊列表已自动打开，点击患者即可进入工作台</div></div>';
         var side = document.getElementById('dwSide');
@@ -223,7 +223,7 @@ Clinic.deptwork = (function () {
                 if (callPopEl()) refreshCallPanel();
             },
             onError: function () {
-                if (main) main.innerHTML = '<div class="card"><div class="empty"><div class="empty-ico">' + renderIconSvg('alert:warning') + '</div>患者数据加载失败，请刷新重试</div></div>';
+                if (main) main.innerHTML = '<div class="card"><div class="empty"><div class="empty-ico">' + renderIconSvg('alert:warning', 44) + '</div>患者数据加载失败，请刷新重试</div></div>';
                 setStatus('');
             },
         });
@@ -1041,7 +1041,7 @@ Clinic.deptwork = (function () {
                     '<span>' + escHtml(w.name) + '</span></div>';
             });
             listEl.innerHTML = items.join('') ||
-                '<div class="doc-call-pool-empty"><span class="doc-call-pool-empty-ico">' + renderIconSvg('queue:waiting') + '</span>暂无候诊患者</div>';
+                '<div class="doc-call-pool-empty"><span class="doc-call-pool-empty-ico">' + renderIconSvg('queue:waiting', 40) + '</span>暂无候诊患者</div>';
         }
         // 大屏在线状态：离线时蒙板覆盖正文并禁用叫号（实时监测）
         setCallPopOffline(pop, d.screen_online === false);

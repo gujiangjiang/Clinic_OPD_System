@@ -71,7 +71,7 @@ function renderLabWork(data) {
     var head = labHeadHtml(data);
     var body = '';
     if (!orders.length) {
-        body = '<div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">'+renderIconSvg('nav:lab')+'</div>本次就诊暂无检验项目</div></div>';
+        body = '<div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">'+renderIconSvg('nav:lab', 44)+'</div>本次就诊暂无检验项目</div></div>';
     } else {
         orders.forEach(function (o) { body += labOrderHtml(o); });
     }

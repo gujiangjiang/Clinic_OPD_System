@@ -55,7 +55,7 @@ function renderRxWork(data) {
     var head = rxHeadHtml(data);
     var body = '';
     if (!orders.length) {
-        body = '<div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">'+renderIconSvg('nav:pharmacy')+'</div>本次就诊暂无处方</div></div>';
+        body = '<div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">'+renderIconSvg('nav:pharmacy', 44)+'</div>本次就诊暂无处方</div></div>';
     } else {
         orders.forEach(function (o) { body += rxOrderHtml(o); });
     }

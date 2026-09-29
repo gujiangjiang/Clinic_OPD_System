@@ -732,7 +732,7 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
     padding: 48px 20px;
     color: var(--text-muted);
 }
-.empty .empty-ico { font-size: 40px; margin-bottom: 10px; opacity: .5; }
+.empty .empty-ico { font-size: 36px; margin-bottom: 12px; opacity: .7; }
 /* 空态 SVG 图标跟随容器 font-size 缩放（emoji 清理后固定 16px 远小于 40px 版位） */
 .empty-ico .opd-svg-icon,
 .hist-empty-ico .opd-svg-icon,
@@ -1093,9 +1093,9 @@ body.emr-readonly .emr-item-link,
     font-size: 12px;
 }
 .doc-call-pool-empty .doc-call-pool-empty-ico {
-    font-size: 22px;
+    font-size: 40px;
     line-height: 1;
-    opacity: .5;
+    opacity: .6;
 }
 /* 大屏离线蒙板：覆盖悬浮窗正文，半透明遮罩 + 居中提示；拦截点击使叫号按钮不可用 */
 .doc-call-pop-body { position: relative; }

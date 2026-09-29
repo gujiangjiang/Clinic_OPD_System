@@ -33,7 +33,7 @@ if ($visitId <= 0) {
     <div class="emr-body-layout">
         <div class="emr-main-editor-scroll">
             <div class="card wb-empty" style="padding:40px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center">
-                <div style="font-size:72px;margin-bottom:16px"><?= render_icon('clinical:stethoscope') ?></div>
+                <div class="wb-empty-icon"><?= render_icon('clinical:stethoscope') ?></div>
                 <div class="fs-18 fw-600 text-muted">欢迎使用医生工作站</div>
                 <div class="fs-14 text-muted mt-4">请从左侧候诊列表选择患者开始就诊</div>
                 <div class="fs-12 text-muted mt-8">候诊列表已自动打开，点击患者即可进入病历书写</div>
@@ -83,7 +83,8 @@ function wbPickDept(id) {
         Clinic.docTools.syncDept(id);
     }
     // 更新空状态提示
-    document.querySelector('.wb-empty .fs-18').innerHTML = renderIconSvg('nav:hospital')+' 已选择科室';
+    document.querySelector('.wb-empty .wb-empty-icon').innerHTML = renderIconSvg('nav:hospital', 64);
+    document.querySelector('.wb-empty .fs-18').textContent = '已选择科室';
     document.querySelector('.wb-empty .fs-14').textContent = '候诊列表已打开，点击患者即可进入病历书写';
     document.querySelector('.wb-empty .fs-12').innerHTML = '';
     // 候诊面板按所选科室加载并自动弹出
@@ -102,7 +103,8 @@ function wbLoadDepts() {
         onSuccess: function (json) {
             WB_DEPT_LIST = json.data.list || [];
             if (!WB_DEPT_LIST.length) {
-                document.querySelector('.wb-empty .fs-18').innerHTML = renderIconSvg('alert:warning')+' 尚未关联科室';
+                document.querySelector('.wb-empty .wb-empty-icon').innerHTML = renderIconSvg('alert:warning', 64);
+                document.querySelector('.wb-empty .fs-18').textContent = '尚未关联科室';
                 document.querySelector('.wb-empty .fs-14').textContent = '请联系管理员在【用户管理】中为您设置科室';
                 return;
             }
@@ -115,7 +117,8 @@ function wbLoadDepts() {
                 if (hasSaved) {
                     wbPickDept(saved);
                 } else {
-                    document.querySelector('.wb-empty .fs-18').innerHTML = renderIconSvg('clinical:stethoscope')+' 请先选择科室后开始接诊';
+                    document.querySelector('.wb-empty .wb-empty-icon').innerHTML = renderIconSvg('clinical:stethoscope', 64);
+                    document.querySelector('.wb-empty .fs-18').textContent = '请先选择科室后开始接诊';
                     document.querySelector('.wb-empty .fs-14').textContent = '正在为你弹出科室选择…';
                     document.querySelector('.wb-empty .fs-12').innerHTML = '<button class="btn btn-primary btn-sm mt-8" onclick="wbOpenDeptPicker()">'+renderIconSvg('nav:hospital')+' 选择科室</button>';
                     // 主动弹出科室选择窗
@@ -142,7 +145,7 @@ document.addEventListener('DOMContentLoaded', wbLoadDepts);
 }
 $row = $visitId ? get_visit_row($visitId) : null;
 if (!$row) {
-    echo '<div class="card"><div class="empty"><div class="empty-ico">' . render_icon('alert:warning') . '</div>就诊记录不存在<br><a href="/doctor/emr">返回医生工作站</a></div></div>';
+    echo '<div class="card"><div class="empty"><div class="empty-ico">' . render_icon('alert:warning', array('size' => 44)) . '</div>就诊记录不存在<br><a href="/doctor/emr">返回医生工作站</a></div></div>';
     return;
 }
 $patient = $row['patient'];

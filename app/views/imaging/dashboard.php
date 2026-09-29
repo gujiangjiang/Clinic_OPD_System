@@ -76,7 +76,7 @@ function renderImgWork(data) {
     var head = imgHeadHtml(data);
     var body = '';
     if (!orders.length) {
-        body = '<div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">'+renderIconSvg('nav:imaging')+'</div>本次就诊暂无检查项目</div></div>';
+        body = '<div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">'+renderIconSvg('nav:imaging', 44)+'</div>本次就诊暂无检查项目</div></div>';
     } else {
         orders.forEach(function (o) { body += imgOrderHtml(o); });
     }

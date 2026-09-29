@@ -965,6 +965,16 @@
     box-sizing: border-box;
     overflow: hidden;
 }
+/* 医生工作站空态图标：随容器 font-size 缩放，提升可见度 */
+.wb-empty .opd-svg-icon {
+    width: 1em !important;
+    height: 1em !important;
+}
+.wb-empty .wb-empty-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    opacity: .7;
+}
 
 /* ============================================================
    固定高度列表布局（v8.17.10）
