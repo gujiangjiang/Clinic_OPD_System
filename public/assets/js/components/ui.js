@@ -292,7 +292,7 @@ Clinic.refundApproval = {
     /**
      * 退费申请详情 HTML（共享渲染：站内消息弹窗 / 独立审批页两处复用）：
      * 三张卡片（患者信息 / 审批进度 / 项目执行状态；原两份实现的间距漂移
-     * 收敛为一份；流程步骤含已退费/已驳回 ✕ 标记、退药数量带开立单位——
+     * 收敛为一份；流程步骤含已退费/已驳回关闭图标标记、退药数量带开立单位——
      * 取较新实现口径）。
      * @param {object} d { request, approvals, orders }
      * @returns {string}
@@ -336,7 +336,7 @@ Clinic.refundApproval = {
             html += '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">' +
                 '<div class="fs-13 fw-600">' + (Clinic.orderTypeName(o.order_type)) + ' ' + Clinic.escHtml(o.order_no) +
                 ' ｜ 开单医生 ' + Clinic.escHtml(o.doctor_name) + '</div>';
-            // 流程步骤：✓ 完成 / ○ 待执行 / ✕ 已退费或已驳回（红色）
+            // 流程步骤：action:check 完成 / ○ 待执行 / action:close 已退费或已驳回（红色）
             var steps = (o.flow || []).map(function (s) {
                 var refund = s.refunded;
                 var cls = refund ? 'var(--danger)' : (s.done ? 'var(--success)' : 'var(--border)');

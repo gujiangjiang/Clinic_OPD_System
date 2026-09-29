@@ -275,7 +275,7 @@
     overflow-y: auto;
 }
 
-/* ---------- 侧边栏缩小模式（顶栏 ☰ 按钮，宽屏可用） ----------
+/* ---------- 侧边栏缩小模式（顶栏菜单按钮，宽屏可用） ----------
  * 展开：默认状态，图标 + 文字（宽 --sidebar-w）
  * 缩小：.app.sidebar-mini，仅保留图标窄条（宽 --sidebar-w-mini），
  *       隐藏文字/分组标题/页脚，偏好跟随用户保存
@@ -362,7 +362,7 @@
     align-items: center;
 }
 .emr-top-bar #emrHeader > .flex-between { width: 100%; }
-/* 科室工作台横条：患者信息占满弹性空间，使「✕ 关闭」靠右对齐 */
+/* 科室工作台横条：患者信息占满弹性空间，使「关闭」按钮靠右对齐 */
 .emr-top-bar #dwHeader {
     flex: 1;
     min-width: 0;

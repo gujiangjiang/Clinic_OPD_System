@@ -335,7 +335,7 @@ Clinic.critical = (function () {
         Clinic.toast.success('已保存，发布报告时一并发送');
     }
 
-    /** 从影像科暂存队列移除一项（弹窗内 ✕）：
+    /** 从影像科暂存队列移除一项（弹窗内移除按钮）：
         回调 onRemove 同步队列 → 重开弹窗展示最新列表 */
     function removeFromPreview(i) {
         // 删除前确认（避免误操作）：确认后同步队列并在原弹窗内就地刷新列表

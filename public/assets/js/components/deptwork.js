@@ -93,7 +93,7 @@ Clinic.deptwork = (function () {
         var btn = document.getElementById('dwHomeBtn');
         if (btn) btn.style.display = show ? '' : 'none';
     }
-    /* 顶栏「📋 病历」按钮（四医技角色共用）：打开患者时显示，关闭/无患者时隐藏 */
+    /* 顶栏「病历」按钮（四医技角色共用）：打开患者时显示，关闭/无患者时隐藏 */
     function setRecordBtn(show) {
         var btn = document.getElementById('dwRecordBtn');
         if (btn) btn.style.display = show ? '' : 'none';

@@ -699,7 +699,7 @@ Clinic.emr = (function () {
                     // __consult_mode 为 enterConsultMode 兜底）。
                     // 原逻辑只按 status 取任意一条进行中会诊、不比对目标科室，
                     // 导致 A 外科发起 → 急诊科的会诊，被同在外科的 B 医生看到
-                    // 「🤝 确认会诊」横幅（B 应正常续写，无须确认他科会诊）。
+                    // 「确认会诊」横幅（B 应正常续写，无须确认他科会诊）。
                     var myConsult = null;
                     if (d.__consult_mode || d.consult_mode) {
                         var consCode = String(d.__consult_id || d.consult_code || '');
@@ -2248,8 +2248,8 @@ Clinic.emr = (function () {
 
     /**
      * 闭环追踪流程列（统一样式）：steps=[{label, operator, time, done}]。
-     * 圆形步骤节点（完成✓/未完成序号）+ 操作人/时间——开单详情与会诊进度共用。
-     * 已退费节点（st.refunded）：红色 ✕，label 显示「已退费」。
+     * 圆形步骤节点（完成 action:check / 未完成序号）+ 操作人/时间——开单详情与会诊进度共用。
+     * 已退费节点（st.refunded）：红色 action:close，label 显示「已退费」。
      * @param {number} curIdx -1 时以 steps[].done 判定完成状态
      * @param {string} title   标题（默认「流程进度」，会诊传「会诊进度」）
      */

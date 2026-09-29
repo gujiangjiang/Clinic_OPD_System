@@ -5,7 +5,7 @@
  * Clinic.importer —— 为管理端各模块列表页提供统一操作：
  *   .attach(moduleName, buttonsId)  在容器中注入三个按钮并绑定逻辑
  *   .openImport(moduleName)         打开导入模态框（上传→预检→冲突确认→落库）
- * 按钮：📥 下载模板 / 📤 导出全部 / 📥 批量导入
+ * 按钮：下载模板 / 导出全部 / 批量导入
  * ============================================================ */
 window.Clinic = window.Clinic || {};
 Clinic.importer = (function () {

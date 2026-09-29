@@ -89,7 +89,7 @@ Clinic.deptPicker = (function () {
                     '<div class="dept-pick-sub">挂号费 ¥' + d.fee.toFixed(2) + '</div>';
             }
         } else if (mode === 'select' || mode === 'call') {
-            // 大屏统计模式（叫号大屏选择科室用）：只显示 🖥 在线/总数，不显示 门诊/急诊 徽章
+            // 大屏统计模式（叫号大屏选择科室用）：只显示 nav:screen 在线/总数，不显示 门诊/急诊 徽章
             if (opts.showRoomStats) {
                 if (typeof d.room_count === 'number' && d.room_count > 0) {
                     extra = '<div class="dept-pick-tags">' +
