@@ -36,7 +36,6 @@ Router::title('首页');
             <a class="btn btn-outline btn-sm" href="/admin/drugs"><?= render_icon('nav:pharmacy') ?> 药品目录</a>
             <a class="btn btn-outline btn-sm" href="/admin/review"><?= render_icon('alert:success') ?> 审核中心</a>
             <a class="btn btn-outline btn-sm" href="/admin/printcenter"><?= render_icon('action:print') ?> 打印中心</a>
-            <a class="btn btn-outline btn-sm" href="/cashier/register"><?= render_icon('emr:ticket') ?> 挂号收费（体验）</a>
         </div>
     </div>
     <div class="card" style="flex:1">
