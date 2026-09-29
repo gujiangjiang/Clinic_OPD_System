@@ -254,8 +254,9 @@ class Layout {
         // LOGO 以 base64 Data URI 内联显示：不暴露文件 URL，且不受页面层级影响
         // （修复：原相对路径在 /admin/* 等二级路径页被解析为 /admin/uploads/... 导致 404）
         $logoData = img_data(setting('logo', ''));
-        // 浏览器标签页图标：统一 /pwa-icon.png（有 LOGO 输出 LOGO，无则默认医疗十字图标），与 PWA 图标一致
-        $favicon = '<link rel="icon" href="/pwa-icon.png">';
+        // 浏览器标签页图标：统一 /pwa-icon.png（有 LOGO 输出 LOGO，无则默认医疗十字图标），与 PWA 图标一致；
+        // ?v= 版本参数让图标内容更新后浏览器缓存自动失效
+        $favicon = '<link rel="icon" href="/pwa-icon.png?v=' . APP_VERSION . '">';
         // 未设置 LOGO 时显示默认 LOGO（复用 /pwa-icon.png 默认图标），避免侧边栏 mini 模式下顶部空白
         $brandImg = $logoData !== ''
             ? '<img src="' . e($logoData) . '" alt="LOGO">'

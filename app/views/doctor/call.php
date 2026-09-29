@@ -19,7 +19,7 @@ $hosp  = setting('hospital_name', '门诊一体化系统');
 $hosp2 = setting('hospital_name2', '');
 // LOGO 以 base64 Data URI 内联显示：不暴露文件 URL，且不受页面层级影响
 $logoData = img_data(setting('logo', ''));
-$favicon = $logoData !== '' ? '<link rel="icon" href="' . e($logoData) . '">' : '';
+$favicon = '<link rel="icon" href="/pwa-icon.png?v=' . APP_VERSION . '>';
 $logoImg = $logoData !== '' ? '<img src="' . e($logoData) . '" alt="LOGO">' : default_logo_img();
 ?>
 <!DOCTYPE html>
