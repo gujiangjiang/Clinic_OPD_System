@@ -82,7 +82,7 @@ function renderComboMgr() {
         '  <div class="combo-left">' +
         '    <div class="combo-head-fixed">' +
         (IS_ADMIN ? '      <button class="btn btn-primary btn-sm btn-block" onclick="newComboPop(event)">＋ 新增检验组合</button>' : '') +
-        '      <input class="input mt-8" id="comboSearch" placeholder="' + renderIconSvg('action:search') + ' 搜索组合" autocomplete="off" oninput="filterCombos()">' +
+        '      <div class="input-wrap mt-8"><span class="input-icon">' + renderIconSvg('action:search') + '</span><input class="input" id="comboSearch" placeholder="搜索组合" autocomplete="off" oninput="filterCombos()"></div>' +
         '    </div>' +
         '    <div class="combo-list" id="comboList">' + leftList + '</div>' +
         '  </div>' +
@@ -231,7 +231,7 @@ function showAddItemPop() {
     pop.id = 'addItemPop'; pop.className = 'finish-pop'; pop.style.cssText = 'width:320px;position:fixed;z-index:3200;height:360px;display:flex;flex-direction:column';
     pop.innerHTML =
         '<div class="fs-13 fw-700 mb-8" style="flex-shrink:0">添加项目到组合</div>' +
-        '<input class="input" id="aiSearch" placeholder="' + renderIconSvg('action:search') + ' 搜索项目" autocomplete="off" oninput="filterAICands()" style="flex-shrink:0">' +
+        '<div class="input-wrap" style="flex-shrink:0"><span class="input-icon">' + renderIconSvg('action:search') + '</span><input class="input" id="aiSearch" placeholder="搜索项目" autocomplete="off" oninput="filterAICands()"></div>' +
         '<div class="mt-8" id="aiList" style="flex:1;min-height:0;overflow-y:auto">' + (candidates.length ? candidates.map(function (c) {
             return '<div class="combo-cand-item" onclick="addToCombo(' + c.id + ',\'' + jsE(c.name) + '\')">' + c.name + ' <span class="text-muted fs-12">' + Clinic.money(parseFloat(c.price)) + ' ｜' + c.category + '</span></div>';
         }).join('') : '<div class="text-muted fs-12" style="padding:8px">无可用单独项目（所有项目已加入组合或不存在）</div>') + '</div>';
