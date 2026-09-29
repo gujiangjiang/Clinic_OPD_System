@@ -15,7 +15,7 @@ $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
 
 <div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" id="labSearch" placeholder=render_icon('action:search')" 快速搜索检验项目" style="width:220px">
+        <input class="input" id="labSearch" placeholder="快速搜索检验项目" style="width:220px">
         <span class="fs-13 text-muted" id="labCountDiv"></span>
         <span class="flex gap-4" id="labCatTabs" style="flex-wrap:wrap"></span>
     </div>

@@ -42,7 +42,7 @@ $orgCode = trim((string)setting('org_code', ''));
         <?php foreach ($groups as $gi => $g): ?>
             <button type="button" class="itg-tab btn btn-sm<?php echo $gi === 0 ? ' btn-primary' : ' btn-outline'; ?>"
                 data-tab="<?php echo e($g['id']); ?>" onclick="itgTab('<?php echo e($g['id']); ?>')">
-                <?php echo e($g['emoji'] . ' ' . $g['title']); ?>
+                <?php echo $g['emoji'] . ' ' . e($g['title']); ?>
             </button>
         <?php endforeach; ?>
     </div>
@@ -55,7 +55,7 @@ $orgCode = trim((string)setting('org_code', ''));
     <?php $isHis = ($g['id'] === 'his'); ?>
     <div class="<?php echo $isHis ? 'itg-pane' : 'card itg-pane'; ?>" id="itgPane_<?php echo e($g['id']); ?>" data-tab="<?php echo e($g['id']); ?>"<?php echo $gi === 0 ? '' : ' style="display:none"'; ?>>
         <?php if (!$isHis): ?>
-        <div class="card-title"><?php echo e($g['emoji'] . ' ' . $g['title']); ?></div>
+        <div class="card-title"><?php echo $g['emoji'] . ' ' . e($g['title']); ?></div>
         <?php if (!empty($g['desc'])): ?>
             <div class="fs-12 text-muted mb-12" style="margin-top:-8px"><?php echo e($g['desc']); ?></div>
         <?php endif; ?>

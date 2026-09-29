@@ -15,7 +15,7 @@ Router::title('诊断字典');
     <div><div class="page-title"><?= render_icon('emr:book') ?> 诊断字典</div><div class="page-desc">ICD10 标准编码库 · 四级分类树：章<?= render_icon('action:next') ?>节<?= render_icon('action:next') ?>类目<?= render_icon('action:next') ?>亚目<?= render_icon('action:next') ?>诊断</div></div>
 </div>
 <div class="card list-filter" style="position:relative">
-    <input class="input" id="diagKw" placeholder=render_icon('action:search')" 输入诊断码 / 名称 / 拼音首字母（实时检索）" autocomplete="off" oninput="diagSearchDebounced()" onfocus="showSearchDrop()">
+    <input class="input" id="diagKw" placeholder="输入诊断码 / 名称 / 拼音首字母（实时检索）" autocomplete="off" oninput="diagSearchDebounced()" onfocus="showSearchDrop()">
     <div id="searchDrop" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;max-height:350px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:0 0 8px 8px;box-shadow:0 8px 24px var(--shadow)"></div>
 </div>
 <div class="flex gap-16 diag-body" style="align-items:stretch">
