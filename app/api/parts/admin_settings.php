@@ -253,9 +253,9 @@ function admin_part_settings($action) {
         // 由 print.js 依据内容 .lr-doc/.imr-doc 自动识别，误传 a5 会先按
         // 竖版分页破坏报告版式））
         $pcBtn = function ($label, $url, $sheet = 'a5', $dead = false) {
-            if ($dead) return '<button class="btn btn-outline btn-sm" disabled title="已退费作废，不可补打">补打</button>';
+            if ($dead) return '<button class="btn btn-outline btn-sm" disabled title="已退费作废，不可补打">' . render_icon('action:print') . ' 补打</button>';
             $sheetArg = ($sheet !== '') ? (',null,\'' . $sheet . '\'') : ',null';
-            return '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'' . $url . '\'' . $sheetArg . ')">🖨️ 补打</button>';
+            return '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'' . $url . '\'' . $sheetArg . ')">' . render_icon('action:print') . ' 补打</button>';
         };
         // 组间/项间虚线分隔
         $pcSep = function () { return '<div class="pc-sep"></div>'; };
@@ -383,7 +383,7 @@ function admin_part_settings($action) {
                 ($t === 'lab' ? '检验报告' : '检查报告') . ' · ' . $itemName,
                 $sub,
                 $withdrawn
-                    ? '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' . e(oid((int)$rp['id'])) . '\',null)">🖨️ 查看</button>'
+                    ? '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' . e(oid((int)$rp['id'])) . '\',null)">' . render_icon('action:print') . ' 查看</button>'
                     : $pcBtn('补打', '/api/print?action=report&report_id=' . e(oid((int)$rp['id'])), ''),
                 $withdrawn, '已撤回');
         }
