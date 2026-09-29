@@ -361,7 +361,7 @@ function toggleTimePick(btn, id) {
 function dateInput(id, label, val) {
     return '<div class="form-group"><label class="form-label">' + label + '</label>' +
         '<div class="tp-wrap"><input class="input" id="' + id + '" value="' + (val || '') + '" placeholder="MM-DD，如 06-01">' +
-        '<button type="button" class="tp-btn" title="快捷选择日期" onclick="toggleDatePick(this,\'' + id + '\')">' . render_icon('action:calendar') . '</button></div></div>';
+        '<button type="button" class="tp-btn" title="快捷选择日期" onclick="toggleDatePick(this,\'' + id + '\')">' + renderIconSvg('action:calendar') + '</button></div></div>';
 }
 function toggleDatePick(btn, id) {
     var old = document.getElementById('dpPop');
@@ -419,7 +419,7 @@ function openWorkModal() {
         '<div class="form-row">' + timeInput('w_dst_am_start', '夏令时上午上班', WS.dst_am_start) + timeInput('w_dst_am_end', '夏令时上午下班', WS.dst_am_end) + '</div>' +
         '<div class="form-row">' + timeInput('w_dst_pm_start', '夏令时下午上班', WS.dst_pm_start) + timeInput('w_dst_pm_end', '夏令时下午下班', WS.dst_pm_end) + '</div></div>';
     Clinic.modal.open(html, {
-        title: render_icon('action:clock') . ' 作息时间设置',
+        title: renderIconSvg('action:clock') + ' 作息时间设置',
         buttons: [
             { text: '取消', cls: 'btn-outline' },
             { text: '保存', cls: 'btn-primary', autoClose: false, onClick: saveWork },
@@ -473,7 +473,7 @@ function loadObfStatus() {
 function resetObfToken() {
     Clinic.modal.open(
         '<div class="fs-14" style="line-height:1.9">确定要<b>重置 URL 混淆密钥</b>吗？<br>' +
-        '<span class="text-warning fs-13">' . render_icon('alert:warning') . ' 此前所有带 ID 的链接（打印链接、病历入口等）将立即失效；<br>系统功能不受影响，新链接会按新密钥即时生成。</span></div>',
+        '<span class="text-warning fs-13">' + renderIconSvg('alert:warning') + ' 此前所有带 ID 的链接（打印链接、病历入口等）将立即失效；<br>系统功能不受影响，新链接会按新密钥即时生成。</span></div>',
         {
             title: '重置 URL 混淆密钥',
             size: 'modal-sm',
@@ -593,20 +593,20 @@ function renderActiveTasks(t) {
     var items = [];
     if (t.migration) {
         var st = t.migration.status;
-        var stTxt = st === 'running' ? '<span style="color:var(--primary)">' . render_icon('action:refresh') . ' 进行中</span>' : (st === 'done' ? '<span style="color:var(--success)">' . render_icon('alert:success') . ' 完成待确认</span>' : '<span style="color:var(--danger)">' . render_icon('alert:blocked') . ' ' + escHtml(st) + '</span>');
+        var stTxt = st === 'running' ? '<span style="color:var(--primary)">' + renderIconSvg('action:refresh') + ' 进行中</span>' : (st === 'done' ? '<span style="color:var(--success)">' + renderIconSvg('alert:success') + ' 完成待确认</span>' : '<span style="color:var(--danger)">' + renderIconSvg('alert:blocked') + ' ' + escHtml(st) + '</span>');
         items.push('<div class="flex-between" style="padding:6px 10px;background:var(--bg-soft);border-radius:var(--radius-md);margin-bottom:6px">' +
-            '<span class="fw-600">' . render_icon('action:refresh') . ' 数据库迁移/切换</span><span>' + stTxt + '</span>' +
-            '<span class="fs-12 text-muted">' + escHtml(t.migration.from) + ' ' . render_icon('action:next') . ' ' + escHtml(t.migration.to) + '（' + t.migration.done_tables + '/' + t.migration.total_tables + ' 表）</span></div>');
+            '<span class="fw-600">' + renderIconSvg('action:refresh') + ' 数据库迁移/切换</span><span>' + stTxt + '</span>' +
+            '<span class="fs-12 text-muted">' + escHtml(t.migration.from) + ' ' + renderIconSvg('action:next') + ' ' + escHtml(t.migration.to) + '（' + t.migration.done_tables + '/' + t.migration.total_tables + ' 表）</span></div>');
     }
     if (t.dual_write) {
         items.push('<div class="flex-between" style="padding:6px 10px;background:var(--bg-soft);border-radius:var(--radius-md);margin-bottom:6px">' +
-            '<span class="fw-600">' . render_icon('action:refresh') . ' 双向实时同步</span><span style="color:var(--success)">已开启</span>' +
+            '<span class="fw-600">' + renderIconSvg('action:refresh') + ' 双向实时同步</span><span style="color:var(--success)">已开启</span>' +
             '<span class="fs-12 text-muted">镜像目标：' + escHtml((t.dual_write.target || '').toUpperCase()) + (t.dual_write.target_path ? '（' + escHtml(t.dual_write.target_path) + '）' : '') + '</span></div>');
     }
     if (t.backup_schedule) {
         var last = t.backup_schedule.last_result === 'ok' ? '最近成功：' + escHtml(t.backup_schedule.last_at) : (t.backup_schedule.last_result ? '最近：' + escHtml(t.backup_schedule.last_result) : '尚未执行');
         items.push('<div class="flex-between" style="padding:6px 10px;background:var(--bg-soft);border-radius:var(--radius-md);margin-bottom:6px">' +
-            '<span class="fw-600">' . render_icon('action:save') . ' 定时自动备份</span><span>每天 ' + escHtml(t.backup_schedule.hour) + '</span>' +
+            '<span class="fw-600">' + renderIconSvg('action:save') + ' 定时自动备份</span><span>每天 ' + escHtml(t.backup_schedule.hour) + '</span>' +
             '<span class="fs-12 text-muted">' + last + '</span></div>');
     }
     box.innerHTML = items.length
@@ -619,9 +619,9 @@ function loadDbStatus() {
         loading: false,
         onSuccess: function (json) {
             var d = json.data || {};
-            var cfg = d.config_available ? render_icon('action:check') . ' 有效（' + escHtml(d.config_path) + '）' : '（无 config.db，按默认配置运行）';
+            var cfg = d.config_available ? renderIconSvg('action:check') + ' 有效（' + escHtml(d.config_path) + '）' : '（无 config.db，按默认配置运行）';
             var ok = d.status === 'ok';
-            var statusBadge = '<span class="badge ' + (ok ? 'badge-success' : 'badge-danger') + '" style="font-size:11.5px">' + (ok ? render_icon('alert:dot-green') . ' ' : render_icon('alert:dot-red') . ' ') + escHtml(d.status_text || (ok ? '正常' : '不可用')) + '</span>';
+            var statusBadge = '<span class="badge ' + (ok ? 'badge-success' : 'badge-danger') + '" style="font-size:11.5px">' + (ok ? renderIconSvg('alert:dot-green') + ' ' : renderIconSvg('alert:dot-red') + ' ') + escHtml(d.status_text || (ok ? '正常' : '不可用')) + '</span>';
             box.innerHTML =
                 '<div class="flex-between"><span class="text-muted">连接状态</span><span>' + statusBadge + '</span></div>' +
                 '<div class="flex-between"><span class="text-muted">驱动类型</span><span class="badge badge-primary" style="font-size:11.5px">' + escHtml(d.driver_label) + '</span></div>' +
@@ -630,7 +630,7 @@ function loadDbStatus() {
                 '<div class="flex-between"><span class="text-muted">总行数</span><span>' + d.total_rows + ' 行</span></div>' +
                 '<div class="flex-between"><span class="text-muted">库大小</span><span>' + escHtml(d.size_human) + '</span></div>' +
                 '<div class="flex-between"><span class="text-muted">配置库</span><span class="fs-12">' + cfg + '</span></div>' +
-                (d.status === 'error' && d.error ? '<div class="fs-12 text-danger mt-4">' . render_icon('action:close') . ' ' + escHtml(d.error) + '</div>' : '');
+                (d.status === 'error' && d.error ? '<div class="fs-12 text-danger mt-4">' + renderIconSvg('action:close') + ' ' + escHtml(d.error) + '</div>' : '');
             var tl = document.getElementById('dbTableList');
             tl.innerHTML = (d.tables || []).map(function (t) {
                 return '<div class="flex-between" style="padding:5px 8px;border-radius:6px;cursor:pointer" onmouseover="this.style.background=\'var(--bg-soft)\'" onmouseout="this.style.background=\'\'" onclick="openDbTable(\'' + escHtml(t.name) + '\')">' +
@@ -667,9 +667,9 @@ function openDbTable(table) {
     }
     // 固定大小模态框（宽 modal-xl + 表格区固定高），数据过多时表格区内部滚动 + 滚动加载
     var html =
-        '<div class="flex-between mb-8"><span class="fw-600 fs-14" id="dbTableTitle">' . render_icon('emr:record') . ' ' + escHtml(table) + '</span>' +
-        '<span class="flex gap-8"><button class="btn btn-outline btn-sm" onclick="exportDbTableCsv()">' . render_icon('action:download') . ' CSV</button>' +
-        '<button class="btn btn-outline btn-sm" onclick="refreshDbTable()">' . render_icon('action:refresh') . ' 刷新</button></span></div>' +
+        '<div class="flex-between mb-8"><span class="fw-600 fs-14" id="dbTableTitle">' + renderIconSvg('emr:record') + ' ' + escHtml(table) + '</span>' +
+        '<span class="flex gap-8"><button class="btn btn-outline btn-sm" onclick="exportDbTableCsv()">' + renderIconSvg('action:download') + ' CSV</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="refreshDbTable()">' + renderIconSvg('action:refresh') + ' 刷新</button></span></div>' +
         '<div class="table-wrap" id="dbTableScroll" style="height:440px;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-md)">' +
         '<div class="text-muted text-center" style="padding:30px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>';
     DB_TABLE_MODAL = Clinic.modal.open(html, { title: '数据表查看', size: 'modal-xl' });
@@ -677,7 +677,7 @@ function openDbTable(table) {
         el: document.getElementById('dbTableScroll'),
         pageSize: 50,
         threshold: 80,
-        emptyHtml: '<div class="empty" style="padding:40px 0"><div class="empty-ico">' . render_icon('emr:record') . '</div>该表暂无数据</div>',
+        emptyHtml: '<div class="empty" style="padding:40px 0"><div class="empty-ico">' + renderIconSvg('emr:record') + '</div>该表暂无数据</div>',
         url: function (p, size) {
             return '/api/admin?action=db_table_data&table=' + encodeURIComponent(DB_CUR_TABLE) + '&page=' + p + '&size=' + size;
         },
@@ -693,14 +693,14 @@ function openDbTable(table) {
                 }).join('') + '</tr>';
             }).join('');
             var title = document.getElementById('dbTableTitle');
-            if (title && isFirst) title.textContent = render_icon('emr:record') . ' ' + (data && data.table ? data.table : DB_CUR_TABLE) + '（共 ' + ((data && data.total) || 0) + ' 行）';
+            if (title && isFirst) title.textContent = renderIconSvg('emr:record') + ' ' + (data && data.table ? data.table : DB_CUR_TABLE) + '（共 ' + ((data && data.total) || 0) + ' 行）';
             // 首屏返回完整表格结构，后续页仅返回行（由 append 插入 tbody）
             return isFirst
                 ? '<table class="table"><thead>' + headHtml + '</thead><tbody>' + rowHtml + '</tbody></table>'
                 : rowHtml;
         },
         append: function (el, html) {
-            // 容器尚无表格（首屏/重置后）{{ICON:action:next}} 写入完整 table；已有表格 {{ICON:action:next}} 追加行到 tbody
+            // 容器尚无表格（首屏/重置后）→ 写入完整 table；已有表格 → 追加行到 tbody
             if (!el.querySelector('table')) { el.innerHTML = html; return; }
             var tb = el.querySelector('tbody');
             if (tb) tb.insertAdjacentHTML('beforeend', html);
@@ -745,13 +745,13 @@ function loadCacheStatus() {
                 toggleCacheRedisOpts();
             }
             var ok = d.status === 'ok';
-            var statusBadge = '<span class="badge ' + (ok ? 'badge-success' : 'badge-danger') + '" style="font-size:11.5px">' + (ok ? '<?= render_icon('alert:dot-green') ?> ' : '<?= render_icon('alert:dot-red') ?> ') + escHtml(d.status_text || (ok ? '正常' : '不可用')) + '</span>';
+            var statusBadge = '<span class="badge ' + (ok ? 'badge-success' : 'badge-danger') + '" style="font-size:11.5px">' + (ok ? renderIconSvg('alert:dot-green') + ' ' : renderIconSvg('alert:dot-red') + ' ') + escHtml(d.status_text || (ok ? '正常' : '不可用')) + '</span>';
             box.innerHTML =
                 '<div class="flex-between"><span class="text-muted">缓存状态</span><span>' + statusBadge + '</span></div>' +
                 '<div class="flex-between"><span class="text-muted">缓存驱动</span><span class="badge badge-primary" style="font-size:11.5px">' + escHtml(d.driver_label) + '</span></div>' +
                 '<div class="flex-between"><span class="text-muted">键数量</span><span>' + (d.keys || 0) + '</span></div>' +
                 (d.memory ? '<div class="flex-between"><span class="text-muted">占用内存</span><span>' + escHtml(d.memory) + '</span></div>' : '') +
-                ((d.notes || []).length ? d.notes.map(function (n) { return '<div class="fs-12 text-warning mt-4"><?= render_icon('alert:warning') ?> ' + escHtml(n) + '</div>'; }).join('') : '');
+                ((d.notes || []).length ? d.notes.map(function (n) { return '<div class="fs-12 text-warning mt-4">' + renderIconSvg('alert:warning') + ' ' + escHtml(n) + '</div>'; }).join('') : '');
         },
         onError: function () { box.innerHTML = '<span class="text-danger">缓存状态读取失败</span>'; },
     });
@@ -761,8 +761,8 @@ function flushCache(scope) {
     msg.textContent = '刷新中…';
     Clinic.get('/api/admin?action=cache_flush&scope=' + encodeURIComponent(scope), null, {
         loading: false,
-        onSuccess: function (json) { msg.innerHTML = '<span class="text-success"><?= render_icon('action:check') ?> ' + escHtml(json.msg) + '</span>'; },
-        onError: function (x, j) { msg.innerHTML = '<span class="text-danger"><?= render_icon('action:close') ?> ' + escHtml((j && j.msg) || '刷新失败') + '</span>'; },
+        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">' + renderIconSvg('action:check') + ' ' + escHtml(json.msg) + '</span>'; },
+        onError: function (x, j) { msg.innerHTML = '<span class="text-danger">' + renderIconSvg('action:close') + ' ' + escHtml((j && j.msg) || '刷新失败') + '</span>'; },
     });
 }
 
@@ -890,7 +890,7 @@ function renderSettingsDrivers(drivers) {
         }).join('');
         toggleBkOpts();
     }
-    // 直接切换目标驱动下拉（允许同驱动切换，如 MySQL ' . render_icon('action:next') . ' 另一 MySQL 库）
+    // 直接切换目标驱动下拉（允许同驱动切换，如 MySQL → 另一 MySQL 库）
     var swSel = document.getElementById('swDriver');
     if (swSel) {
         swSel.innerHTML = Object.keys(drivers.db || {}).map(function (k) {
@@ -933,7 +933,7 @@ function startMigrate() {
         ? '目标 SQLite 文件将写入全部业务数据，迁移完成后主库切换到 SQLite'
         : '目标 ' + (meta ? meta.label : v) + ' 数据库将覆盖其中与业务表同名的表，迁移完成后主库切换';
     var mp = settingsCollectParams('db', v, 'migp_');
-    Clinic.modal.confirm('<?= render_icon('alert:warning') ?> 即将执行数据库迁移：\n' + p + '。\n迁移期间系统进入只读维护模式，请勿刷新页面。确定继续？', function () {
+    Clinic.modal.confirm(renderIconSvg('alert:warning') + ' 即将执行数据库迁移：\n' + p + '。\n迁移期间系统进入只读维护模式，请勿刷新页面。确定继续？', function () {
         var btn = event.target;
         msg.innerHTML = '<div class="flex gap-8" style="align-items:center"><div class="spinner" style="border-top-color:var(--primary);width:20px;height:20px;margin:0"></div>正在迁移，请勿关闭页面…</div>';
         Clinic.ajax('/api/admin', {
@@ -949,10 +949,10 @@ function startMigrate() {
             onSuccess: function (json) {
                 // 保存管理员取消令牌（锁定页据此显示取消按钮）
                 try { localStorage.setItem('migration_token', json.data.token || ''); } catch (e) {}
-                msg.innerHTML = '<span class="text-success fw-600"><?= render_icon('action:check') ?> ' + escHtml(json.msg) + '</span>';
+                msg.innerHTML = '<span class="text-success fw-600">' + renderIconSvg('action:check') + ' ' + escHtml(json.msg) + '</span>';
                 setTimeout(function () { location.reload(); }, 1200);   // 刷新进入全站锁定页（进度条）
             },
-            onError: function (x, j) { msg.innerHTML = '<span class="text-danger"><?= render_icon('action:close') ?> ' + escHtml((j && j.msg) || '迁移启动失败') + '</span>'; },
+            onError: function (x, j) { msg.innerHTML = '<span class="text-danger">' + renderIconSvg('action:close') + ' ' + escHtml((j && j.msg) || '迁移启动失败') + '</span>'; },
         });
     }, { title: '数据库迁移确认', okText: '开始迁移' });
 }
@@ -1032,14 +1032,14 @@ function saveBackupCfg() {
             }, {
                 onSuccess: function (j2) {
                     try { localStorage.setItem('dual_on', BK_MODE === 'dual' ? '1' : '0'); } catch (e) {}
-                    msg.innerHTML = '<span class="text-success"><?= render_icon('action:check') ?> ' + escHtml(json.msg) + '；' + escHtml(j2.msg) + '</span>';
+                    msg.innerHTML = '<span class="text-success">' + renderIconSvg('action:check') + ' ' + escHtml(json.msg) + '；' + escHtml(j2.msg) + '</span>';
                     if (BK_MODE === 'dual') refreshDualStatus();
                     showBackupLastAt();
                 },
-                onError: function () { msg.innerHTML = '<span class="text-success"><?= render_icon('action:check') ?> ' + escHtml(json.msg) + '</span>'; },
+                onError: function () { msg.innerHTML = '<span class="text-success">' + renderIconSvg('action:check') + ' ' + escHtml(json.msg) + '</span>'; },
             });
         },
-        onError: function (x, j) { msg.innerHTML = '<span class="text-danger"><?= render_icon('action:close') ?> ' + escHtml((j && j.msg) || '保存失败') + '</span>'; },
+        onError: function (x, j) { msg.innerHTML = '<span class="text-danger">' + renderIconSvg('action:close') + ' ' + escHtml((j && j.msg) || '保存失败') + '</span>'; },
     });
 }
 /* 最近一次备份/同步时间显示（标题右侧徽章） */
@@ -1072,8 +1072,8 @@ function runBackup() {
     Clinic.modal.confirm('即将把当前主库全部数据同步到备份库。\n备份期间建议避免大量写入操作，但系统可继续使用（不动主库指针）。\n确定执行备份？', function () {
         msg.innerHTML = '<div class="flex gap-8" style="align-items:center"><div class="spinner" style="border-top-color:var(--primary);width:20px;height:20px;margin:0"></div>正在备份，请稍候…</div>';
         Clinic.ajax('/api/admin', { action: 'backup_run' }, {
-            onSuccess: function (json) { msg.innerHTML = '<span class="text-success fw-600"><?= render_icon('action:check') ?> ' + escHtml(json.msg) + '</span>'; },
-            onError: function (x, j) { msg.innerHTML = '<span class="text-danger"><?= render_icon('action:close') ?> ' + escHtml((j && j.msg) || '备份失败') + '</span>'; },
+            onSuccess: function (json) { msg.innerHTML = '<span class="text-success fw-600">' + renderIconSvg('action:check') + ' ' + escHtml(json.msg) + '</span>'; },
+            onError: function (x, j) { msg.innerHTML = '<span class="text-danger">' + renderIconSvg('action:close') + ' ' + escHtml((j && j.msg) || '备份失败') + '</span>'; },
         });
     }, { title: '执行数据库备份', okText: '开始备份' });
 }
@@ -1082,18 +1082,18 @@ var BK_LOG_INF = null;
 function viewBackupLogs() {
     if (BK_LOG_INF) { BK_LOG_INF.stop(); BK_LOG_INF = null; }
     var mask = Clinic.modal.open(
-        '<div class="flex gap-8 mb-8"><button class="btn btn-outline btn-sm" onclick="exportBackupLog()"><?= render_icon('action:download') ?> 导出日志</button>' +
-        '<button class="btn btn-danger btn-sm" onclick="clearBackupLog()"><?= render_icon('action:delete') ?> 清空日志</button>' +
+        '<div class="flex gap-8 mb-8"><button class="btn btn-outline btn-sm" onclick="exportBackupLog()">' + renderIconSvg('action:download') + ' 导出日志</button>' +
+        '<button class="btn btn-danger btn-sm" onclick="clearBackupLog()">' + renderIconSvg('action:delete') + ' 清空日志</button>' +
         '<span class="fs-12 text-muted" id="bkLogTotal"></span></div>' +
         '<div id="bkLogBox" style="height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-md);padding:10px;font-family:monospace;font-size:12px;line-height:1.8">' +
         '<div class="text-muted text-center" style="padding:20px"><div class="spinner" style="border-top-color:var(--primary);margin:0 auto"></div></div></div>',
-        { title: '<?= render_icon('emr:scroll') ?> 数据库操作日志', size: 'modal-lg' }
+        { title: renderIconSvg('emr:scroll') + ' 数据库操作日志', size: 'modal-lg' }
     );
     BK_LOG_INF = Clinic.infiniteList({
         el: document.getElementById('bkLogBox'),
         pageSize: 100,
         threshold: 60,
-        emptyHtml: '<div class="empty" style="padding:40px 0"><div class="empty-ico"><?= render_icon('emr:record') ?></div>暂无日志记录</div>',
+        emptyHtml: '<div class="empty" style="padding:40px 0"><div class="empty-ico">' + renderIconSvg('emr:record') + '</div>暂无日志记录</div>',
         url: function (p, size) { return '/api/admin?action=backup_logs&page=' + p + '&size=' + size; },
         render: function (list, isFirst, data) {
             var total = document.getElementById('bkLogTotal');
@@ -1137,5 +1137,8 @@ function saveCacheDriver() {
         memcached_servers: cp.servers || '',
         memcached_prefix: cp.prefix || '',
     }, {
-        onSuccess: function (json) { msg.innerHTML = '<span class="text-success"><?= render_icon('action:check') ?> ' + escHtml(json.msg) + '</span>'; loadCacheStatus(); },
-        onError: function (x, j) { msg.innerHTML = '<span class="text-danger"><?= render_icon('action:close') ?> ' + escHtml((j && j.msg) || '保存失败') + '</span>
+        onSuccess: function (json) { msg.innerHTML = '<span class="text-success">' + renderIconSvg('action:check') + ' ' + escHtml(json.msg) + '</span>'; loadCacheStatus(); },
+        onError: function (x, j) { msg.innerHTML = '<span class="text-danger">' + renderIconSvg('action:close') + ' ' + escHtml((j && j.msg) || '保存失败') + '</span>'; },
+    });
+}
+</script>

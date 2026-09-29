@@ -123,8 +123,8 @@ foreach (DateTimeZone::listIdentifiers() as $tz) {
 
     <!-- 导航按钮：上一步靠左、下一步靠右 -->
     <div class="flex mt-12" id="wizNav" style="justify-content:space-between">
-        <button type="button" class="btn btn-outline btn-sm" id="prevBtn" style="visibility:hidden" onclick="wizPrev()">← 上一步</button>
-        <button type="button" class="btn btn-primary btn-sm" id="nextBtn" onclick="wizNext()">下一步 →</button>
+        <button type="button" class="btn btn-outline btn-sm" id="prevBtn" style="visibility:hidden" onclick="wizPrev()"><?= render_icon('action:prev') ?> 上一步</button>
+        <button type="button" class="btn btn-primary btn-sm" id="nextBtn" onclick="wizNext()">下一步 <?= render_icon('action:next') ?></button>
     </div>
 </div>
 

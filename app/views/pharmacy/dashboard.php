@@ -187,7 +187,7 @@ function rxProgressHtml(o) {
     }
     var html = '';
     steps.forEach(function (x, i) {
-        if (i) html += '<span class="dw-rx-arrow">→</span>';
+        if (i) html += '<span class="dw-rx-arrow">' + renderIconSvg('action:next') + '</span>';
         var cls = x[1] === 1 ? 'done' : (x[1] === -1 ? 'rejected' : 'current');
         var lbl = x[0];
         if (x[1] === 0 && x[0] === '审方') lbl = '审方中';

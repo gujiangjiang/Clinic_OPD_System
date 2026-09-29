@@ -50,7 +50,7 @@ function routeBindBox(name, id) {
         '<div class="flex gap-8"><input class="input" id="dsBindName" value="' + (name || '') + '" readonly placeholder="点击右侧选择或新建">' +
         '<button type="button" class="btn btn-outline btn-sm" id="dsBindPick">'+' 选择/新建</button>' +
         '<button type="button" class="btn btn-outline btn-sm" id="dsBindClear">清除</button></div>' +
-        '<div class="fs-12 text-muted mt-4">如：静脉输液 → 静脉输液费。开方时按数量自动生成处置。</div></div>';
+        '<div class="fs-12 text-muted mt-4">如：静脉输液 ' + renderIconSvg('action:next') + ' 静脉输液费。开方时按数量自动生成处置。</div></div>';
 }
 function pickRouteDisposal() {
     Clinic.universalSelector.open({

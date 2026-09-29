@@ -4,8 +4,8 @@
  * admin/diagnosis.php v2.2.0 — 诊断管理（树形浏览）
  * ============================================================
  * 说明：ICD-10 完整标准编码库树形浏览：
- *   左侧三级树：章(chapter) → 节(section) → 类目(category)
- *   右侧详情：选中类目 → 亚目列表（徽章）+ 诊断二级列表（子诊断可展开）
+ *   左侧三级树：章(chapter) {{ICON:action:next}} 节(section) {{ICON:action:next}} 类目(category)
+ *   右侧详情：选中类目 {{ICON:action:next}} 亚目列表（徽章）+ 诊断二级列表（子诊断可展开）
  * 左侧树复用 window.treeToggle 全局函数（app.js），与 depttree 同源交互。
  * ============================================================ */
 Router::title('诊断字典');
@@ -15,7 +15,7 @@ Router::title('诊断字典');
     <div><div class="page-title"><?= render_icon('emr:book') ?> 诊断字典</div><div class="page-desc">ICD10 标准编码库 · 四级分类树：章<?= render_icon('action:next') ?>节<?= render_icon('action:next') ?>类目<?= render_icon('action:next') ?>亚目<?= render_icon('action:next') ?>诊断</div></div>
 </div>
 <div class="card list-filter" style="position:relative">
-    <input class="input" id="diagKw" placeholder=render_icon('action:search')" 输入诊断码 / 名称 / 拼音首字母（实时检索）" autocomplete="off" oninput="diagSearchDebounced()" onfocus="showSearchDrop()">
+    <input class="input" id="diagKw" placeholder=render_icon('action:search') . " 输入诊断码 / 名称 / 拼音首字母（实时检索）" autocomplete="off" oninput="diagSearchDebounced()" onfocus="showSearchDrop()">
     <div id="searchDrop" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;max-height:350px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:0 0 8px 8px;box-shadow:0 8px 24px var(--shadow)"></div>
 </div>
 <div class="flex gap-16 diag-body" style="align-items:stretch">
@@ -57,7 +57,7 @@ function diagRowHtml(d) {
     return '<div class="dd-item" style="padding:7px 14px;cursor:pointer;border-bottom:1px solid var(--border)" ' +
         'onclick="onSearchPick(\'' + d.category_code + '\',\'' + (d.category_name || '').replace(/'/g, "\\'") + '\',\'' + d.section_code_range + '\',\'' + d.chapter_code_range + '\',\'' + d.icd10_code + '\',\'' + (d.subcategory_code || '').replace(/'/g, "\\'") + '\')">' +
         '<div class="fw-600" style="font-size:13px"><span style="font-family:monospace">' + d.icd10_code + '</span> ' + d.diagnosis_name + '</div>' +
-        '<div class="fs-12 text-muted ellipsis">' + chain.join(' ' + renderIconSvg('action:next') + ' ') + '</div></div>';
+        '<div class="fs-12 text-muted ellipsis">' + chain.join(' ' . render_icon('action:next') . ' ') + '</div></div>';
 }
 
 function showSearchDrop() {
@@ -109,7 +109,7 @@ Clinic.infiniteScroll({
         showSearchDrop();
     },
 });
-/* 点击搜索结果：关闭浮层 → 展开树到类目 → 右侧显示详情 → 高亮 */
+/* 点击搜索结果：关闭浮层 {{ICON:action:next}} 展开树到类目 {{ICON:action:next}} 右侧显示详情 {{ICON:action:next}} 高亮 */
 function onSearchPick(catCode, catName, secCode, chCode, diagCode, subCode) {
     SEARCH_HIGHLIGHT_CODE = diagCode;
     document.getElementById('searchDrop').style.display = 'none';
@@ -150,7 +150,7 @@ function expandTreeToCategory(chapter, section, category, catName, callback) {
                     break;
                 }
             }
-            // 未找到类目（树未加载出该节点）→ 直接显示右侧详情兜底
+            // 未找到类目（树未加载出该节点）{{ICON:action:next}} 直接显示右侧详情兜底
             if (!clicked) showCategoryDetail(category, catName);
             if (callback) callback();
         });
@@ -227,7 +227,7 @@ function loadTree() {
         onSuccess: function (j) {
             var list = j.data.list || [];
             if (!list.length) {
-                document.getElementById('icdTree').innerHTML = '<div class="empty" style="padding:20px 0"><div class="empty-ico" style="font-size:32px">' + renderIconSvg('emr:folder') + '</div>暂无诊断数据</div>';
+                document.getElementById('icdTree').innerHTML = '<div class="empty" style="padding:20px 0"><div class="empty-ico" style="font-size:32px">' . render_icon('emr:folder') . '</div>暂无诊断数据</div>';
                 return;
             }
             document.getElementById('icdTree').innerHTML = list.map(function (ch) {
@@ -294,7 +294,7 @@ function toggleSection(el) {
     });
 }
 
-/* 点击树类目：清除旧高亮 → 高亮当前项 → 显示右侧详情 */
+/* 点击树类目：清除旧高亮 ' . render_icon('action:next') . ' 高亮当前项 {{ICON:action:next}} 显示右侧详情 */
 function pickTreeCategory(el, code, name) {
     document.querySelectorAll('#icdTree .tree-cat-highlight').forEach(function (x) {
         x.classList.remove('tree-cat-highlight');
@@ -392,10 +392,4 @@ function toggleSubDiags(el, wrapId) {
         if (toggle) toggle.textContent = '+';
     } else {
         wrap.style.display = '';
-        if (toggle) toggle.textContent = '−';
-    }
-}
-
-/* ==================== 初始化 ==================== */
-loadTree();
-</script>
+        if (toggle) toggle.textContent = '−

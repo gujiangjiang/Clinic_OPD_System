@@ -15,7 +15,7 @@ $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
 
 <div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" id="labSearch" placeholder="快速搜索检验项目" style="width:220px">
+        <input class="input" id="labSearch" placeholder=render_icon('action:search')" 快速搜索检验项目" style="width:220px">
         <span class="fs-13 text-muted" id="labCountDiv"></span>
         <span class="flex gap-4" id="labCatTabs" style="flex-wrap:wrap"></span>
     </div>
@@ -82,7 +82,7 @@ function renderComboMgr() {
         '  <div class="combo-left">' +
         '    <div class="combo-head-fixed">' +
         (IS_ADMIN ? '      <button class="btn btn-primary btn-sm btn-block" onclick="newComboPop(event)">＋ 新增检验组合</button>' : '') +
-        '      <input class="input mt-8" id="comboSearch" placeholder="' . render_icon('action:search') . ' 搜索组合" autocomplete="off" oninput="filterCombos()">' +
+        '      <input class="input mt-8" id="comboSearch" placeholder="' + renderIconSvg('action:search') + ' 搜索组合" autocomplete="off" oninput="filterCombos()">' +
         '    </div>' +
         '    <div class="combo-list" id="comboList">' + leftList + '</div>' +
         '  </div>' +
@@ -90,7 +90,7 @@ function renderComboMgr() {
         '    <div class="text-muted" style="padding:20px;text-align:center">选择一个检验组合查看或编辑，或新建一个组合<br><span class="fs-12">左侧列表点击组合即可查看与编辑</span></div>' +
         '  </div>' +
         '</div>';
-    Clinic.modal.open(html, { title: render_icon('emr:template') . ' 检验组合管理', size: 'modal-xl' });
+    Clinic.modal.open(html, { title: renderIconSvg('emr:template') + ' 检验组合管理', size: 'modal-xl' });
 }
 function filterCombos() {
     var q = document.getElementById('comboSearch').value.trim().toLowerCase();
@@ -129,8 +129,8 @@ function selectCombo(id) {
             '  <div class="form-group"><label>组合价格</label><input class="input" type="number" step="0.01" id="cgPrice" value="' + parseFloat(CUR_COMBO.price).toFixed(2) + '"></div>' +
             '  <div class="form-group"><label>分类</label><input class="input" id="cgCat" value="' + jsE(CUR_COMBO.category || '') + '"></div></div>' +
             '  <div class="flex gap-4 mt-4">' + (IS_ADMIN
-                ? '<button class="btn btn-primary btn-sm" onclick="saveComboInfo()">' . render_icon('action:save') . ' 保存组合</button>' +
-                  '<button class="btn btn-danger btn-sm" onclick="delCombo(' + CUR_COMBO.id + ')">' . render_icon('action:delete') . ' 删除组合</button>'
+                ? '<button class="btn btn-primary btn-sm" onclick="saveComboInfo()">' + renderIconSvg('action:save') + ' 保存组合</button>' +
+                  '<button class="btn btn-danger btn-sm" onclick="delCombo(' + CUR_COMBO.id + ')">' + renderIconSvg('action:delete') + ' 删除组合</button>'
                 : '<span class="text-muted fs-12">只读模式（修改需管理员审核）</span>') + '</div>' +
             '</div>' +
             '<div class="combo-right-bar">' + (IS_ADMIN
@@ -231,7 +231,7 @@ function showAddItemPop() {
     pop.id = 'addItemPop'; pop.className = 'finish-pop'; pop.style.cssText = 'width:320px;position:fixed;z-index:3200;height:360px;display:flex;flex-direction:column';
     pop.innerHTML =
         '<div class="fs-13 fw-700 mb-8" style="flex-shrink:0">添加项目到组合</div>' +
-        '<input class="input" id="aiSearch" placeholder="' . render_icon('action:search') . ' 搜索项目" autocomplete="off" oninput="filterAICands()" style="flex-shrink:0">' +
+        '<input class="input" id="aiSearch" placeholder="' + renderIconSvg('action:search') + ' 搜索项目" autocomplete="off" oninput="filterAICands()" style="flex-shrink:0">' +
         '<div class="mt-8" id="aiList" style="flex:1;min-height:0;overflow-y:auto">' + (candidates.length ? candidates.map(function (c) {
             return '<div class="combo-cand-item" onclick="addToCombo(' + c.id + ',\'' + jsE(c.name) + '\')">' + c.name + ' <span class="text-muted fs-12">' + Clinic.money(parseFloat(c.price)) + ' ｜' + c.category + '</span></div>';
         }).join('') : '<div class="text-muted fs-12" style="padding:8px">无可用单独项目（所有项目已加入组合或不存在）</div>') + '</div>';
@@ -296,6 +296,21 @@ function openItemForm(id) { /* same as before, reused for single item edit */
     mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
         mask.querySelector('.modal-foot').innerHTML =
             '<div style="display:flex;justify-content:space-between;align-items:center;width:100%">' +
-            '<button type="button" id="enabledToggle" class="btn btn-sm btn-success" onclick="toggleItemEnabled()">" . render_icon('alert:success') . " 启用</button>' +
+            '<button type="button" id="enabledToggle" class="btn btn-sm btn-success" onclick="toggleItemEnabled()">' + renderIconSvg('alert:success') + ' 启用</button>' +
             '<span><button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
-            '<button type="button" class="btn btn-primary" id="itemSave
+            '<button type="button" class="btn btn-primary" id="itemSave">保存</button></span></div>';
+        initEnabledToggle(id > 0);
+        document.getElementById('itemSave').addEventListener('click', function () {
+            Clinic.ajax('/api/admin', { action: 'item_save', type: 'lab', id: id || 0, name: document.getElementById('f_name').value.trim(), category: document.getElementById('f_category').value, price: document.getElementById('f_price').value, unit: document.getElementById('f_unit') ? document.getElementById('f_unit').value : '', normal_range: document.getElementById('f_normal') ? document.getElementById('f_normal').value : '', critical_low: document.getElementById('f_clow') ? document.getElementById('f_clow').value : '', critical_high: document.getElementById('f_chigh') ? document.getElementById('f_chigh').value : '', description: document.getElementById('f_desc').value, enabled: document.getElementById('f_enabled').value }, {
+                onSuccess: function (json) { Clinic.toast.success(json.msg); Clinic.modal.close(); loadItemList(); },
+            });
+        });
+    });
+}
+function delItem(type, id) {
+    Clinic.adminItems.delItem({ confirm: '确定删除该检验项目？', url: '/api/admin', action: 'item_delete', params: { type: type }, reload: loadItemList }, id);
+}
+loadItemList();
+/* 驳回后点击站内消息跳回：自动打开编辑表单并回填原提交内容（?edit=ID） */
+Clinic.adminItems.bindEditDeepLink(function (id) { openItemForm(id); });
+</script>

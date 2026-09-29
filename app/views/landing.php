@@ -57,7 +57,7 @@ $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
                 统一业务主库（SQLite/MySQL/PostgreSQL 三驱动）+ 明亮 / 夜间 / 自动主题，即装即用。
             </p>
             <div class="hero-ctas">
-                <a class="btn-hero primary" href="/login">进入系统 →</a>
+                <a class="btn-hero primary" href="/login">进入系统 <?= render_icon('action:next') ?></a>
             </div>
             <div class="hero-stats">
                 <div class="stat"><div class="num">6+</div><div class="lbl">科室工作站</div></div>
@@ -122,14 +122,14 @@ $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : '';
     <section class="landing-cta">
         <h2>准备开始？</h2>
         <p><?php echo e($hosp); ?>，随时开诊。</p>
-        <a class="btn-hero primary" href="/login">登录系统 →</a>
+        <a class="btn-hero primary" href="/login">登录系统 <?= render_icon('action:next') ?></a>
     </section>
 </main>
 
 <!-- ===== 页脚 ===== -->
 <footer class="landing-footer"><?php echo e($footer); ?></footer>
 
-<script src="/assets/js/components/theme.js?v=<?php echo APP_VERSION; ?>"></script>
+<script src="/assets/js/components/theme.js?v=<?php echo APP_VERSION; ?>></script>
 <script>document.addEventListener('DOMContentLoaded', function () { Clinic.theme.init(); });</script>
 </body>
 </html>

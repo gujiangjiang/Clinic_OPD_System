@@ -10,6 +10,8 @@
  *   模式 B（lab/imaging/pharmacy/nurse 医技）：列表看板——队列 + 当前呼叫高亮。
  * ============================================================ */
 $token = isset($_GET['token']) ? trim($_GET['token']) : '';
+// 独立整页：bootstrap 须先加载（render_icon / DB / Session 依赖），再构造 noToken
+require_once __DIR__ . '/../app/config/bootstrap.php';
 // 预览模式锁定：管理端预览 iframe 传入 pv_w/pv_h。
 // 页面直接以「显示出来的画布尺寸」为基准排版（body 锁定为该尺寸 + container-type 统一
 // cqmin 基准），不再用大设计尺寸 + transform 缩放，避免小画布下文字过小/偏移。
@@ -28,7 +30,6 @@ $noToken = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta 
 if ($token === '') { echo $noToken; exit; }
 
 // 校验 token 存在（免登，仅做存在性校验；实时数据由接口轮询）
-require_once __DIR__ . '/../app/config/bootstrap.php';
 $room = DB::one('clinic_rooms', 'SELECT * FROM clinic_rooms WHERE screen_token=?', array($token));
 if (!$room) { echo $noToken; exit; }
 
