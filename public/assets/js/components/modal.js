@@ -37,7 +37,7 @@ Clinic.modal = (function () {
 
         // 标题与内容
         var _tt = String(opts.title == null ? '' : opts.title);
-        // 标题以受控 SVG 图标开头时：图标 innerHTML + 其余文本 textNode/转义，避免纯文本展示标记
+        // 标题以受控 SVG 图标开头时：图标 innerHTML + 其余文本 textNode，避免纯文本展示标记
         if (_tt.indexOf('<svg') === 0) {
             var _te = _tt.indexOf('</svg>');
             if (_te !== -1) {
@@ -45,10 +45,12 @@ Clinic.modal = (function () {
                 _mt.innerHTML = _tt.substring(0, _te + 6);
                 var _rest = _tt.substring(_te + 6);
                 if (_rest) _mt.appendChild(document.createTextNode(_rest));
-                return;
+            } else {
+                mask.querySelector('.modal-title').textContent = _tt;
             }
+        } else {
+            mask.querySelector('.modal-title').textContent = _tt;
         }
-        mask.querySelector('.modal-title').textContent = _tt;
         mask.querySelector('.modal-body').innerHTML = html;
 
         // 底部按钮
