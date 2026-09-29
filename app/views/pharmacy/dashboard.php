@@ -55,7 +55,7 @@ function renderRxWork(data) {
     var head = rxHeadHtml(data);
     var body = '';
     if (!orders.length) {
-        body = '<div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">' . render_icon('nav:pharmacy') . '</div>本次就诊暂无处方</div></div>';
+        body = '<div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">' . renderIconSvg('nav:pharmacy')+'</div>本次就诊暂无处方</div></div>';
     } else {
         orders.forEach(function (o) { body += rxOrderHtml(o); });
     }
@@ -68,7 +68,7 @@ function renderRxWork(data) {
 function renderRxSide(data) {
     var orders = (data.orders || []).filter(function (o) { return o.order_type === 'prescription'; });
     Clinic.deptwork.renderOrderSide(orders, {
-        emoji: render_icon('nav:pharmacy'), title: '本次处方', empty: '暂无处方',
+        emoji: renderIconSvg('nav:pharmacy'), title: '本次处方', empty: '暂无处方',
         pending: function (o) { return o.status === 'paid' || o.status === 'reviewed'; },
         subItems: function (o) { return o.items.filter(function (it) { return it.sub_of === 0; }); },
         subDot: function () { return 'done'; },
@@ -123,21 +123,21 @@ function rxOrderHtml(o) {
     if (o.status === 'paid') {
         // 待审方：审方 / 拒绝（审方通过仅置待发药，不发药、不打印凭条）
         actions = '<div class="dw-report-actions">' +
-            '<button class="btn btn-primary btn-sm" id="rxPass_' + esc(o.order_id) + '">' . render_icon('alert:success') . ' 审方</button>' +
-            '<button class="btn btn-danger btn-sm" id="rxReject_' + esc(o.order_id) + '">' . render_icon('alert:error') . ' 拒绝</button>' +
+            '<button class="btn btn-primary btn-sm" id="rxPass_' + esc(o.order_id) + '">' . renderIconSvg('alert:success')+' 审方</button>' +
+            '<button class="btn btn-danger btn-sm" id="rxReject_' + esc(o.order_id) + '">' . renderIconSvg('alert:error')+' 拒绝</button>' +
             '</div>' +
             '<div class="fs-12 text-muted mt-4">审方通过后进入「待发药」；取药凭条在发药完成后才打印。拒绝需填写理由并通知开单医生，库存自动恢复。</div>';
     } else if (o.status === 'reviewed') {
         // 待发药：仅发药（审方人与发药人可为同一人，也可不同）
         actions = '<div class="dw-report-actions">' +
-            '<button class="btn btn-success btn-sm" id="rxDispense_' + esc(o.order_id) + '">' . render_icon('nav:pharmacy') . ' 发药</button>' +
+            '<button class="btn btn-success btn-sm" id="rxDispense_' + esc(o.order_id) + '">' . renderIconSvg('nav:pharmacy')+' 发药</button>' +
             '</div>' +
             '<div class="fs-12 text-muted mt-4">审方已通过，点击发药后生成取药凭条并通知开单医生。</div>';
     } else if (o.status === 'dispensed') {
         actions = '<div class="dw-report-actions">' +
             (allNurse
                 ? '<span class="badge badge-warning">全部护士站执行</span>'
-                : '<button class="btn btn-outline btn-sm" onclick="reprintRx(\'' + esc(o.order_id) + '\')">' . render_icon('action:print') . ' 处方提示</button>') +
+                : '<button class="btn btn-outline btn-sm" onclick="reprintRx(\'' + esc(o.order_id) + '\')">' . renderIconSvg('action:print')+' 处方提示</button>') +
             '</div>';
     }
     // 签名：开单医生 + 审方药师（如有）+ 发药药师（如有）；同人时仅显示一次
@@ -154,7 +154,7 @@ function rxOrderHtml(o) {
     }
     return '<div class="card dw-rx-card" id="rxSec_' + esc(o.order_id) + '" style="margin-bottom:14px">' +
         '<div class="dw-rx-head">' +
-        '  <span class="fw-700">' . render_icon('nav:pharmacy') . ' 处方</span>' +
+        '  <span class="fw-700">' . renderIconSvg('nav:pharmacy')+' 处方</span>' +
         '  <a href="javascript:void(0)" style="color:var(--primary);cursor:pointer;text-decoration:underline;margin-left:10px" ' +
         'onclick="previewRx(\'' + esc(o.order_id) + '\',\'' + esc(o.order_no) + '\')">' + esc(o.order_no) + '</a>' +
         '  <span class="fs-12 text-muted" style="margin-left:10px">开单医生：' + esc(o.doctor_name || '') + ' ｜ ' + esc((o.created_at || '').substr(0, 16)) + '</span>' +
@@ -252,7 +252,7 @@ function doRxReject(o) {
         '<textarea class="textarea" id="rxRejectReason" rows="3" placeholder="如：剂量超限 / 配伍禁忌 / 库存不足"></textarea></div>' +
         '<div class="fs-12 text-muted">拒绝后该处方全部明细置为已拒绝、库存自动恢复，并通知开单医生。</div>',
         {
-            title: render_icon('alert:error') . ' 拒绝处方 ' + o.order_no,
+            title: renderIconSvg('alert:error')+' 拒绝处方 ' + o.order_no,
             size: 'modal-sm',
             buttons: [
                 { text: '取消', cls: 'btn-outline' },
@@ -283,7 +283,7 @@ function reprintRx(orderId) {
 function openInventory() {
     var mask = Clinic.modal.open(
         '<div id="invBody"><div class="empty"><div class="spinner"></div></div></div>',
-        { title: render_icon('action:package') . ' 库存管理', size: 'modal-lg', buttons: [{ text: '关闭', cls: 'btn-outline' }] }
+        { title: renderIconSvg('action:package')+' 库存管理', size: 'modal-lg', buttons: [{ text: '关闭', cls: 'btn-outline' }] }
     );
     Clinic.get('/api/pharmacy?action=inventory', null, {
         onSuccess: function (json) {

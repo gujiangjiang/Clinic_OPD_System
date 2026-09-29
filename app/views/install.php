@@ -331,11 +331,11 @@ function loadPreflight() {
             html += '<div class="flex-between mb-8"><span class="fw-600">PHP 版本</span><span>' + escHtml(d.php_version || '-') + '</span></div>';
             var exts = (d.extensions || []);
             html += '<div class="fw-600 mb-4">PHP 扩展</div>' + exts.map(function (e) {
-                return '<div class="flex-between"><span>' + escHtml(e.name) + '</span><span class="' + (e.ok ? 'text-success' : 'text-danger') + '">' + (e.ok ? render_icon('action:check') . ' 已安装' : render_icon('action:close') . ' 缺失') + '</span></div>';
+                return '<div class="flex-between"><span>' + escHtml(e.name) + '</span><span class="' + (e.ok ? 'text-success' : 'text-danger') + '">' + (e.ok ? renderIconSvg('action:check')+' 已安装' : renderIconSvg('action:close')+' 缺失') + '</span></div>';
             }).join('');
             var dirs = (d.dirs || []);
             html += '<div class="fw-600 mt-8 mb-4">目录权限</div>' + dirs.map(function (x) {
-                return '<div class="flex-between"><span>' + escHtml(x.path) + '</span><span class="' + (x.ok ? 'text-success' : 'text-danger') + '">' + (x.ok ? render_icon('action:check') . ' 可写' : render_icon('action:close') . ' 不可写') + '</span></div>';
+                return '<div class="flex-between"><span>' + escHtml(x.path) + '</span><span class="' + (x.ok ? 'text-success' : 'text-danger') + '">' + (x.ok ? renderIconSvg('action:check')+' 可写' : renderIconSvg('action:close')+' 不可写') + '</span></div>';
             }).join('');
             box.innerHTML = html;
             renderDrivers(d.drivers || { db: {}, cache: {} });
@@ -539,7 +539,7 @@ function renderConfirm() {
     rows.push(['数据库驱动', (dbMeta ? dbMeta.label : dbKey) + '（' + dbDesc + '）']);
     rows.push(['安装方式', WIZ.mode === 'attach' ? '关联现有数据库（保留数据）' : '全新安装（建库并导入基础字典）']);
     if (WIZ.mode === 'fresh' && WIZ.dbInstalled) {
-        rows.push([render_icon('alert:warning') . ' 注意', '将清空目标数据库全部已有数据后重新创建']);
+        rows.push([renderIconSvg('alert:warning')+' 注意', '将清空目标数据库全部已有数据后重新创建']);
     }
     var icd10 = document.getElementById('icd10_name').value.trim() || 'icd10';
     rows.push(['ICD-10 诊断库', 'data/db/' + icd10.replace(/\.db$/i, '') + '.db']);
@@ -554,7 +554,7 @@ function renderConfirm() {
         rows.push(['管理员', '保留现有系统管理员']);
     }
     box.innerHTML = rows.map(function (r) {
-        var warn = r[0].indexOf(render_icon('alert:warning')) === 0;
+        var warn = r[0].indexOf(renderIconSvg('alert:warning')) === 0;
         return '<div class="flex-between mb-4"><span class="' + (warn ? 'text-danger' : 'text-muted') + '">' + escHtml(r[0]) + '</span><span class="fw-600' + (warn ? ' text-danger' : '') + '">' + escHtml(r[1]) + '</span></div>';
     }).join('');
 }
@@ -610,14 +610,14 @@ document.getElementById('installBtn').addEventListener('click', function () {
             } else {
                 Clinic.toast.error(json.msg || '安装失败');
                 btn.disabled = false;
-                btn.textContent = render_icon('action:launch') . ' 完成安装';
+                btn.textContent = renderIconSvg('action:launch')+' 完成安装';
                 document.getElementById('installFoot').textContent = '安装失败，请检查后重试';
             }
         })
         .catch(function () {
             Clinic.toast.error('网络请求失败，请重试');
             btn.disabled = false;
-            btn.textContent = render_icon('action:launch') . ' 完成安装';
+            btn.textContent = renderIconSvg('action:launch')+' 完成安装';
         });
 });
 

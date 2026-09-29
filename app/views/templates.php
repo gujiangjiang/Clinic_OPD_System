@@ -28,7 +28,7 @@ $isAdmin = $u['role'] === 'admin';
 </div>
 <div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" id="tplSearchKw" placeholder=render_icon('action:search') . " 搜索模板名称" style="width:220px">
+        <input class="input" id="tplSearchKw" placeholder="<?= render_icon('action:search') ?> 搜索模板名称" style="width:220px">
         <span class="fs-13 text-muted" id="tplCount"></span>
         <span class="flex gap-4" id="tplScopeTabs" style="flex-wrap:wrap">
             <button class="btn btn-sm btn-primary" data-tscope="" onclick="setTplScope(this,'')">全部</button>
@@ -244,7 +244,7 @@ function buildTplForm(mask, tpl, readonly) {
                 '<textarea class="textarea" id="tfConclusion" rows="5" placeholder="请输入影像诊断（检查结论）…">' + escHtml((tpl && tpl.content && tpl.content.conclusion) || '') + '</textarea></div>'
               : '<div class="form-group"><label class="form-label">' + (isNurse ? '护理记录内容' : '嘱托正文') + ' <span class="req">*</span></label>' +
                 '<textarea class="textarea" id="tfCContent" rows="14" style="min-height:380px" placeholder="' + (isNurse ? '请输入护理记录模板正文内容…' : '请输入嘱托模板正文内容…') + '">' + escHtml((tpl && tpl.content && tpl.content.content) || '') + '</textarea></div>'))
-        : '<div class="card-title"><span>' . render_icon('action:edit') . ' 模板正文</span></div>' +
+        : '<div class="card-title"><span>' . renderIconSvg('action:edit')+' 模板正文</span></div>' +
           '<div class="emr-doc"><div class="doc-body" id="templateEditor" style="min-height:380px"></div></div>';
     var html =
         '<div class="tpl-form">' +
@@ -252,7 +252,7 @@ function buildTplForm(mask, tpl, readonly) {
         '    <div class="form-group"><label class="form-label">模板名称 <span class="req">*</span></label>' +
         '      <input class="input" id="tfTitle" value="' + escHtml(tpl ? tpl.title : '') + '" placeholder="如：骨科门诊病历模板">' +
         (isConsent
-            ? '<div class="fs-12 text-muted mt-4">' . render_icon('alert:warning') . ' 该名称将作为文书抬头完全自定义（如：门诊告知书 / 病重通知书 / 手术知情同意书），开具后按原文显示</div>'
+            ? '<div class="fs-12 text-muted mt-4">' . renderIconSvg('alert:warning')+' 该名称将作为文书抬头完全自定义（如：门诊告知书 / 病重通知书 / 手术知情同意书），开具后按原文显示</div>'
             : '') +
         '    </div>' +
         '    <div class="form-group"><label class="form-label">适用范围</label>' +
@@ -309,7 +309,7 @@ function buildTplForm(mask, tpl, readonly) {
     onTplScopeChange();
     // 只读预览：底栏仅提示，不提供保存；编辑模式提供取消/保存
     mask.querySelector('.modal-foot').innerHTML = readonly
-        ? '<span class="fs-12 text-muted">' . render_icon('nav:lock') . ' 只读预览 — 模板内容不可编辑、不可保存</span>'
+        ? '<span class="fs-12 text-muted">' . renderIconSvg('nav:lock')+' 只读预览 — 模板内容不可编辑、不可保存</span>'
         : '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
           '<button type="button" class="btn btn-primary" id="tplSaveBtn">保存</button>';
     if (!readonly) {

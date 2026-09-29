@@ -170,7 +170,7 @@ function openPwdModal() {
         '<input type="password" class="input" id="new_password" autocomplete="new-password"></div>' +
         '<div class="form-group"><label class="form-label">确认新密码 <span class="req">*</span></label>' +
         '<input type="password" class="input" id="new_password2" autocomplete="new-password"></div>',
-        { title: render_icon('nav:key') . ' 修改密码' }
+        { title: renderIconSvg('nav:key')+' 修改密码' }
     );
     // 底部按钮区：忘记密码靠左（outline），取消/确认修改靠右
     mask.querySelector('.modal-foot').innerHTML =

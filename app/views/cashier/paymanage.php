@@ -48,10 +48,10 @@ function searchVisits(keepDetail) {
             var box = document.getElementById('visitList');
             // 仅首次查询/主动搜索时重置右侧空态；keepDetail=true（退费后刷新）保留右侧
             if (!keepDetail) {
-                document.getElementById('visitDetail').innerHTML = '<div class="paymgr-empty">' . render_icon('action:prev') . ' 点击左侧就诊记录，查看该次就诊的缴费明细与退费操作</div>';
+                document.getElementById('visitDetail').innerHTML = '<div class="paymgr-empty">' . renderIconSvg('action:prev')+' 点击左侧就诊记录，查看该次就诊的缴费明细与退费操作</div>';
             }
             if (!list.length) {
-                box.innerHTML = '<div class="empty"><div class="empty-ico">' . render_icon('action:search') . '</div>未检索到就诊记录</div>';
+                box.innerHTML = '<div class="empty"><div class="empty-ico">' . renderIconSvg('action:search')+'</div>未检索到就诊记录</div>';
                 return;
             }
             // 保持当前选中项高亮（退费后刷新左侧时选中态不丢失）
@@ -117,10 +117,10 @@ function openUnpaidModal() {
             '<div class="flex-between">' +
             '<label class="flex gap-4 fs-13" style="cursor:pointer;flex:1;min-width:0">' +
             chk +
-            '<span class="ellipsis">' + (u.kind === 'visit' ? render_icon('emr:ticket') . ' ' : '') + Clinic.escHtml(u.name) + (u.doctor ? ' <span class="fs-12 text-muted">｜ ' + Clinic.escHtml(u.doctor) + '</span>' : '') + '</span></label>' +
+            '<span class="ellipsis">' + (u.kind === 'visit' ? renderIconSvg('emr:ticket')+' ' : '') + Clinic.escHtml(u.name) + (u.doctor ? ' <span class="fs-12 text-muted">｜ ' + Clinic.escHtml(u.doctor) + '</span>' : '') + '</span></label>' +
             '<span class="fs-13 fw-600">' + Clinic.money(parseFloat(u.amount)) + '</span></div>' +
             (itemsTxt ? '<div class="fs-12 text-muted mt-4" style="padding-left:24px">' + itemsTxt + '</div>' : '') +
-            (locked ? '<div class="fs-12 mt-4" style="padding-left:24px;color:var(--danger)">' . render_icon('nav:lock') . ' ' + Clinic.escHtml(u.locked_reason || '待皮试结果后方可缴费') + '</div>' : '') +
+            (locked ? '<div class="fs-12 mt-4" style="padding-left:24px;color:var(--danger)">' . renderIconSvg('nav:lock')+' ' + Clinic.escHtml(u.locked_reason || '待皮试结果后方可缴费') + '</div>' : '') +
             '</div>';
     }).join('');
     var body =
@@ -131,10 +131,10 @@ function openUnpaidModal() {
         '<span class="fs-12 text-muted">合计 <b class="fs-14">¥<span id="unpaidTotal">' + total.toFixed(2) + '</span></b></span></div>' +
         '<div class="flex gap-8 mt-8">' +
         '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
-        '<button type="button" class="btn btn-warning" id="unpaidPayAll" onclick="submitUnpaidPay(\'all\')">' . render_icon('action:money') . ' 一键全部缴费</button>' +
+        '<button type="button" class="btn btn-warning" id="unpaidPayAll" onclick="submitUnpaidPay(\'all\')">' . renderIconSvg('action:money')+' 一键全部缴费</button>' +
         '<button type="button" class="btn btn-success" id="unpaidPayChecked" onclick="submitUnpaidPay(\'checked\')">批量缴费（已选 <span id="unpaidCount">0</span>）</button>' +
         '</div>';
-    Clinic.modal.open(body, { title: render_icon('nav:card') . ' 未缴费项目（' + UNPAID_DATA.length + ' 项）', size: 'modal-md' });
+    Clinic.modal.open(body, { title: renderIconSvg('nav:card')+' 未缴费项目（' + UNPAID_DATA.length + ' 项）', size: 'modal-md' });
     updateUnpaidCount();
 }
 
@@ -234,8 +234,8 @@ function showBatchDetail(paymentNo) {
                         var color = s.refunded ? 'var(--danger)' : (s.done ? 'var(--success)' : 'var(--border)');
                         if (s.rejected) color = 'var(--danger)';
                         return '<span style="color:' + color + '">' +
-                            (s.refunded ? render_icon('action:close') : (s.done ? render_icon('action:check') : '○')) + ' ' + Clinic.escHtml(s.label) + '</span>';
-                    }).join('<span style="color:var(--border)"> ' . render_icon('action:next') . ' </span>') +
+                            (s.refunded ? renderIconSvg('action:close') : (s.done ? renderIconSvg('action:check') : '○')) + ' ' + Clinic.escHtml(s.label) + '</span>';
+                    }).join('<span style="color:var(--border)"> ' . renderIconSvg('action:next')+' </span>') +
                     '</span>';
             };
             orders.forEach(function (o) {
@@ -258,12 +258,12 @@ function showBatchDetail(paymentNo) {
                 '<div class="fs-12 text-muted mb-1">收费时间 ' + Clinic.escHtml((head.created_at || '').substring(0, 19)) +
                 ' ｜ 收费方式 ' + Clinic.escHtml(head.method || '现金') + ' ｜ 收费员 ' + Clinic.escHtml(head.cashier_name || '') + '</div>' +
                 (refund
-                    ? '<div class="fs-12 mb-1" style="color:var(--danger)">' . render_icon('action:close') . ' 退费时间 ' + Clinic.escHtml((refund.created_at || '').substring(0, 19)) +
+                    ? '<div class="fs-12 mb-1" style="color:var(--danger)">' . renderIconSvg('action:close')+' 退费时间 ' + Clinic.escHtml((refund.created_at || '').substring(0, 19)) +
                     ' ｜ 退费员 ' + Clinic.escHtml(refund.cashier_name || '') +
                     (refund.reason ? ' ｜ 理由 ' + Clinic.escHtml(refund.reason) : '') + '</div>'
                     : '') +
                 '<div class="fs-12 text-muted mb-6">共 ' + orders.length + ' 张开单，以下为全部缴费项目与各自执行进度</div>';
-            Clinic.modal.open(headHtml + rows, { title: render_icon('emr:receipt') . ' 缴费凭条详情', size: 'modal-lg' });
+            Clinic.modal.open(headHtml + rows, { title: renderIconSvg('emr:receipt')+' 缴费凭条详情', size: 'modal-lg' });
         },
     });
 }
@@ -340,7 +340,7 @@ function refundBatch(paymentNo) {
             }).join('<br>');
             var html =
                 '<div class="fs-13" style="background:var(--danger-soft,rgba(239,68,68,.08));border:1px solid var(--danger,#ef4444);color:var(--danger,#ef4444);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:10px">' +
-                render_icon('alert:warning') . ' 该凭条存在已开始执行的项目，无法直接退费：<br>' + blocks +
+                renderIconSvg('alert:warning')+' 该凭条存在已开始执行的项目，无法直接退费：<br>' + blocks +
                 '<div class="fs-12 mt-4" style="color:var(--text-muted)">将提交退费申请并通知开单医生/检验/影像/药房/护士站审批，全部同意后方可退费。</div></div>' +
                 '<div class="form-group"><label class="form-label">退费理由（可选）</label>' +
                 '<textarea class="textarea" id="rfReason" rows="2" placeholder="如：患者需转院，已执行的检查项目申请退费"></textarea></div>';
@@ -350,7 +350,7 @@ function refundBatch(paymentNo) {
                 buttons: [
                     { text: '取消', cls: 'btn-outline' },
                     {
-                        text: render_icon('action:send') . ' 提交退费申请', cls: 'btn-primary', autoClose: false,
+                        text: renderIconSvg('action:send')+' 提交退费申请', cls: 'btn-primary', autoClose: false,
                         onClick: function () {
                             var reason = (document.getElementById('rfReason') || {}).value || '';
                             Clinic.ajax('/api/refund', { action: 'apply', payment_no: paymentNo, reason: reason.trim() }, {

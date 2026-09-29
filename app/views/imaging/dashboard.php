@@ -76,7 +76,7 @@ function renderImgWork(data) {
     var head = imgHeadHtml(data);
     var body = '';
     if (!orders.length) {
-        body = '<div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">' . render_icon('nav:imaging') . '</div>本次就诊暂无检查项目</div></div>';
+        body = '<div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">' . renderIconSvg('nav:imaging')+'</div>本次就诊暂无检查项目</div></div>';
     } else {
         orders.forEach(function (o) { body += imgOrderHtml(o); });
     }
@@ -128,11 +128,11 @@ function renderImgIntegrated(data) {
         /* 左栏：序列缩略图（上）+ 检查信息（下，精简版随所选序列动态更新） */
         '<div class="pacs-left">' +
         '  <div class="pacs-series-card">' +
-        '    <div class="pacs-info-title">' . render_icon('emr:record') . ' 序列 / Series</div>' +
+        '    <div class="pacs-info-title">' . renderIconSvg('emr:record')+' 序列 / Series</div>' +
         '    <div class="pacs-series-list" id="pacsSeriesList">' + pacsSeriesHtml(imgItems) + '</div>' +
         '  </div>' +
         '  <div class="pacs-info-card">' +
-        '    <div class="pacs-info-title">' . render_icon('emr:archive') . ' 检查信息</div>' +
+        '    <div class="pacs-info-title">' . renderIconSvg('emr:archive')+' 检查信息</div>' +
         '    <div id="pacsInfoCard">' + imgInfoCardInner(cur) + '</div>' +
         '  </div>' +
         '</div>' +
@@ -140,9 +140,9 @@ function renderImgIntegrated(data) {
         '<div class="pacs-viewer">' +
         '  <div class="pacs-viewer-toolbar">' +
         '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'窗宽窗位\')">◐ 窗宽窗位</button>' +
-        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'缩放\')">' . render_icon('action:search') . ' 缩放</button>' +
-        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'平移\')">' . render_icon('action:star') . ' 平移</button>' +
-        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'测量标注\')">' . render_icon('clinical:ruler') . ' 测量标注</button>' +
+        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'缩放\')">' . renderIconSvg('action:search')+' 缩放</button>' +
+        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'平移\')">' . renderIconSvg('action:star')+' 平移</button>' +
+        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'测量标注\')">' . renderIconSvg('clinical:ruler')+' 测量标注</button>' +
         '    <span class="pacs-tool-sep"></span>' +
         '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'旋转\')">↻ 旋转</button>' +
         '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'翻转\')">⇋ 翻转</button>' +
@@ -152,7 +152,7 @@ function renderImgIntegrated(data) {
         '  <div class="pacs-viewer-stage">' +
         '    <div class="pacs-viewer-mount" id="pacsViewerMount"></div>' +
         '    <div class="pacs-viewer-placeholder" id="pacsViewerPh">' +
-        '      <div class="ph-ico">' . render_icon('nav:imaging') . '</div>' +
+        '      <div class="ph-ico">' . renderIconSvg('nav:imaging')+'</div>' +
         '      <div class="ph-main">影像阅片视窗</div>' +
         '      <div class="ph-sub">选中左侧序列后自动调阅</div>' +
         '    </div>' +
@@ -238,7 +238,7 @@ function pacsSeriesHtml(items) {
         }
         var st = it.status === 'done' ? 'ok' : (it.status === 'registered' ? 'pending' : 'done');
         html += '<div class="pacs-series-item' + (it.id === active ? ' active' : '') + '" data-item="' + esc(it.id) + '" onclick="pacsPickSeries(this,\'' + esc(it.id) + '\')">' +
-            '<div class="pacs-thumb">' . render_icon('nav:imaging') . '<span class="pacs-thumb-size">512×512</span></div>' +
+            '<div class="pacs-thumb">' . renderIconSvg('nav:imaging')+'<span class="pacs-thumb-size">512×512</span></div>' +
             '<div class="pacs-series-meta">' +
             '<div class="pacs-series-name">' + esc(it.item_name) + '</div>' +
             '<div class="pacs-series-sub">Series ' + (i + 1) + ' · <span class="dot ' + st + '"></span> ' + itemStatusName(it.status) + '</div>' +
@@ -332,7 +332,7 @@ function pacsAutoEmbed(itemId) {
     var tagL = document.getElementById('pacsTagL');
     if (!mount) return;
     // 加载提示层（iframe 就绪前展示）
-    mount.innerHTML = '<div class="pacs-viewer-loading" id="pacsViewerLoading">' . render_icon('nav:globe') . ' 正在连接 Web 阅片器…（地址需院内网络可达）</div>';
+    mount.innerHTML = '<div class="pacs-viewer-loading" id="pacsViewerLoading">' . renderIconSvg('nav:globe')+' 正在连接 Web 阅片器…（地址需院内网络可达）</div>';
     fetch('/api/imaging?action=viewer_url&item_id=' + encodeURIComponent(itemId), {
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
     }).then(function (r) {
@@ -372,10 +372,10 @@ function pacsShowViewerHint(ph, mount, msg) {
     if (mount) mount.innerHTML = '';
     if (ph) {
         ph.style.display = '';
-        ph.innerHTML = '<div class="ph-ico">' . render_icon('nav:imaging') . '</div>' +
+        ph.innerHTML = '<div class="ph-ico">' . renderIconSvg('nav:imaging')+'</div>' +
             '<div class="ph-main">影像阅片视窗</div>' +
             '<div class="ph-sub">' + esc(msg) +
-            '，请联系管理员在【接口管理 ' . render_icon('action:next') . ' DICOM/PACS】配置 Web 阅片器地址后自动调阅</div>';
+            '，请联系管理员在【接口管理 ' . renderIconSvg('action:next')+' DICOM/PACS】配置 Web 阅片器地址后自动调阅</div>';
     }
 }
 
@@ -400,7 +400,7 @@ function imgClinPane(data, idPrefix, standalone) {
     // standalone=true（经典模态框）：脱离一体化右栏页签体系，直接可见
     var paneCls = standalone ? 'pacs-right-pane active pacs-clin-standalone' : 'pacs-right-pane';
     return '<div class="' + paneCls + '" data-pane="clin" id="' + idPrefix + 'ClinPane">' +
-        (standalone ? '<div class="fs-13 fw-700" style="margin-bottom:8px">' . render_icon('nav:doctor') . ' 临床信息</div>' : '') +
+        (standalone ? '<div class="fs-13 fw-700" style="margin-bottom:8px">' . renderIconSvg('nav:doctor')+' 临床信息</div>' : '') +
         '<div class="pacs-info-card" style="border:none;padding:0 0 10px">' +
         line('门诊号', v.visit_no) + line('姓名', v.name) + line('性别', v.gender) +
         line('年龄', v.age_fmt) + line('出生日期', p.birth_date) + line('患者ID', p.patient_id) +
@@ -471,10 +471,10 @@ function imgWritePane(cur, data, idPrefix) {
             // 登记门禁遮罩：整pane absolute inset:0 覆盖（模糊背景 + 居中提示 + 登记按钮）
             '<div class="pacs-reg-gate-overlay" onclick="doImgRegisterOrderGate(\'' + esc(order ? order.order_id : '') + '\')">' +
             '<div class="pacs-reg-gate">' +
-            '  <div class="reg-gate-ico">' . render_icon('emr:archive') . '</div>' +
+            '  <div class="reg-gate-ico">' . renderIconSvg('emr:archive')+'</div>' +
             '  <div class="reg-gate-title">患者尚未登记</div>' +
             '  <div class="reg-gate-sub">该项目已缴费，需先登记检查方可书写报告<br>（整张申请单统一登记），点击登记后解锁撰写</div>' +
-            '  <button type="button" class="btn btn-primary reg-gate-btn" onclick="event.stopPropagation();doImgRegisterOrderGate(\'' + esc(order ? order.order_id : '') + '\')">' . render_icon('action:edit') . ' 登记患者</button>' +
+            '  <button type="button" class="btn btn-primary reg-gate-btn" onclick="event.stopPropagation();doImgRegisterOrderGate(\'' + esc(order ? order.order_id : '') + '\')">' . renderIconSvg('action:edit')+' 登记患者</button>' +
             '</div></div>'
             : '') +
         '</div>';
@@ -663,18 +663,18 @@ function pacsQuickInsert(textareaId, el) {
 function imgFootBar(cur) {
     if (cur && cur.status === 'done') {
         return (cur.report_id
-            ? '<button type="button" class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' + esc(cur.report_id) + '\',null)">' . render_icon('action:print') . ' 打印报告</button>'
+            ? '<button type="button" class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' + esc(cur.report_id) + '\',null)">' . renderIconSvg('action:print')+' 打印报告</button>'
             : '') +
-            '<button type="button" class="btn btn-outline btn-sm" onclick="imgWithdrawReq()">' . render_icon('action:edit') . ' 申请修改</button>';
+            '<button type="button" class="btn btn-outline btn-sm" onclick="imgWithdrawReq()">' . renderIconSvg('action:edit')+' 申请修改</button>';
     }
     if (cur && cur.status === 'paid') {
         // 未登记：操作栏仅保留登记入口（与撰写区遮罩联动）
         var order = imgItemOrder(cur);
-        return '<button type="button" class="btn btn-primary btn-sm" onclick="doImgRegisterOrderGate(\'' + esc(order ? order.order_id : '') + '\')">' . render_icon('action:edit') . ' 登记患者</button>';
+        return '<button type="button" class="btn btn-primary btn-sm" onclick="doImgRegisterOrderGate(\'' + esc(order ? order.order_id : '') + '\')">' . renderIconSvg('action:edit')+' 登记患者</button>';
     }
-    return '<button type="button" class="btn btn-outline btn-sm" onclick="imgDraftSave()">' . render_icon('action:save') . ' 保存草稿</button>' +
-        '<button type="button" class="btn btn-primary btn-sm" onclick="imgPublish()">' . render_icon('action:export') . ' 提交审核</button>' +
-        '<button type="button" class="btn btn-outline btn-sm pacs-crit-btn" onclick="openImgCritSend()">' . render_icon('alert:critical') . ' 报危急值 <span class="pacs-crit-num" id="pacsCritBtnCount"></span></button>' +
+    return '<button type="button" class="btn btn-outline btn-sm" onclick="imgDraftSave()">' . renderIconSvg('action:save')+' 保存草稿</button>' +
+        '<button type="button" class="btn btn-primary btn-sm" onclick="imgPublish()">' . renderIconSvg('action:export')+' 提交审核</button>' +
+        '<button type="button" class="btn btn-outline btn-sm pacs-crit-btn" onclick="openImgCritSend()">' . renderIconSvg('alert:critical')+' 报危急值 <span class="pacs-crit-num" id="pacsCritBtnCount"></span></button>' +
         '<button type="button" class="btn btn-outline btn-sm" onclick="imgRejectBack()">↩ 退回修改</button>';
 }
 
@@ -717,7 +717,7 @@ function imgRejectBack() {
 function renderImgSide(data) {
     var orders = (data.orders || []).filter(function (o) { return o.order_type === 'imaging'; });
     Clinic.deptwork.renderOrderSide(orders, {
-        emoji: render_icon('nav:imaging'), title: '检查申请单', empty: '暂无检查项目',
+        emoji: renderIconSvg('nav:imaging'), title: '检查申请单', empty: '暂无检查项目',
         pending: function (o) { return o.items.some(function (it) { return it.status === 'paid' || it.status === 'registered'; }); },
         subDot: function (it) { return it.status === 'done' ? 'ok' : (it.status === 'registered' ? 'pending' : 'done'); },
     });
@@ -779,18 +779,18 @@ function imgOrderHtml(o) {
         ? '<span class="badge badge-warning" style="font-size:11px">检查中</span>'
         : '<span class="badge badge-success" style="font-size:11px">已完成</span>';
     var regBtn = hasPaid
-        ? '<button class="btn btn-primary btn-sm" style="margin-left:12px" onclick="doImgRegisterOrder(\'' + esc(o.order_id) + '\')">' . render_icon('action:edit') . ' 登记</button>'
+        ? '<button class="btn btn-primary btn-sm" style="margin-left:12px" onclick="doImgRegisterOrder(\'' + esc(o.order_id) + '\')">' . renderIconSvg('action:edit')+' 登记</button>'
         : '';
     // 阅片视窗按钮（患者行级，任务2 模式 B）
     var soloBtn = '<button class="btn btn-outline btn-sm pacs-openwin-btn" style="margin-left:auto" ' +
-        'onclick="imgOpenSoloWindow()" title="弹出独立无工具栏阅片窗口（多显示器全屏阅片）">' . render_icon('nav:screen') . ' 阅片视窗</button>';
+        'onclick="imgOpenSoloWindow()" title="弹出独立无工具栏阅片窗口（多显示器全屏阅片）">' . renderIconSvg('nav:screen')+' 阅片视窗</button>';
     var itemsHtml = o.items.map(imgItemHtml).join('');
     // 头部右侧操作组（徽章+登记+独立视窗）：整体靠右，与左侧申请单信息分离
     var headActions = '<div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">' +
         badge + regBtn + soloBtn + '</div>';
     return '<div class="card dw-lab-order" id="imgSec_' + esc(o.order_id) + '" style="margin-bottom:14px">' +
         '<div class="dw-lab-order-head">' +
-        '  <span class="fw-700">' . render_icon('nav:imaging') . ' 检查申请单</span>' +
+        '  <span class="fw-700">' . renderIconSvg('nav:imaging')+' 检查申请单</span>' +
         '  <a href="javascript:void(0)" style="color:var(--primary);cursor:pointer;text-decoration:underline;margin-left:10px" ' +
         'onclick="previewImgOrder(\'' + esc(o.order_id) + '\',\'' + esc(o.order_no) + '\')">' + esc(o.order_no) + '</a>' +
         '  <span class="fs-12 text-muted" style="margin-left:10px">开单医生：' + esc(o.doctor_name || '') + ' ｜ ' + esc((o.created_at || '').substr(0, 16)) + '</span>' +
@@ -855,7 +855,7 @@ function imgItemHtml(it) {
     } else if (it.status === 'registered') {
         inner =
             '<div class="fs-13 text-muted">该项目已登记，请点击「去写报告」书写影像所见与影像诊断（或切换到一体化阅片模式撰写）。</div>' +
-            '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" onclick="openImgReportModal(\'' + id + '\')">' . render_icon('action:edit') . ' 去写报告</button></div>';
+            '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" onclick="openImgReportModal(\'' + id + '\')">' . renderIconSvg('action:edit')+' 去写报告</button></div>';
     } else {
         inner =
             '<div class="dw-report-sec-label">影像所见</div>' +
@@ -865,7 +865,7 @@ function imgItemHtml(it) {
             '<div class="dw-report-foot"><span>报告医生：' + esc(it.executed_by || it.doctor_name || '') + '</span>' +
             '<span>报告编号：' + esc(it.report_no || '—') + '</span><span>' + esc((it.executed_at || '').substr(0, 16)) + '</span></div>' +
             '<div class="dw-report-actions">' +
-            (it.report_id ? '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' + esc(it.report_id) + '\',null)">' . render_icon('action:print') . ' 查看报告</button>' : '') +
+            (it.report_id ? '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' + esc(it.report_id) + '\',null)">' . renderIconSvg('action:print')+' 查看报告</button>' : '') +
             (it.report_id ? '<button class="btn btn-outline btn-sm" onclick="imgWithdraw(\'' + esc(it.report_id) + '\')">申请撤回</button>' : '') +
             '</div>';
     }
@@ -898,13 +898,13 @@ function openImgReportModal(id) {
         imgWritePane(it, data, 'imgm') +
         '  </div>' +
         '  <div style="width:240px;flex-shrink:0;border-left:1px solid var(--border);padding-left:12px;min-height:0;display:flex;flex-direction:column">' +
-        '    <div class="fs-13 fw-700" style="margin-bottom:8px">' . render_icon('action:clock') . ' 历史报告</div>' +
+        '    <div class="fs-13 fw-700" style="margin-bottom:8px">' . renderIconSvg('action:clock')+' 历史报告</div>' +
         '    <div id="imgmHistPane" style="flex:1;min-height:0;overflow-y:auto">' +
         (p.patient_id ? '<div class="fs-12 text-muted">加载中…</div>' : '<div class="fs-12 text-muted">缺少患者唯一标识</div>') +
         '    </div>' +
         '  </div>' +
         '</div>',
-        { title: render_icon('action:edit') . ' 书写检查报告：' + it.item_name, size: 'modal-lg', buttons: [] }
+        { title: renderIconSvg('action:edit')+' 书写检查报告：' + it.item_name, size: 'modal-lg', buttons: [] }
     );
     // 同步阅片视窗：经典模式点击【去写报告】才广播该申请单对应影像（优化项3）
     broadcastImgContext(it);
@@ -913,10 +913,10 @@ function openImgReportModal(id) {
     // 历史报告调阅（模态框）：按 patient_id 检索，复制目标为模态框撰写区
     if (p.patient_id) mountImgHistory(p, 'imgm');
     mask.querySelector('.modal-foot').innerHTML =
-        '<button type="button" class="btn btn-outline btn-sm pacs-crit-btn" style="margin-right:auto" onclick="openImgCritSend()">' . render_icon('alert:critical') . ' 报危急值 <span class="pacs-crit-num" id="imgmCritBtnCount"></span></button>' +
-        '<button type="button" class="btn btn-outline" onclick="imgmDraftSave()">' . render_icon('action:save') . ' 保存草稿</button>' +
+        '<button type="button" class="btn btn-outline btn-sm pacs-crit-btn" style="margin-right:auto" onclick="openImgCritSend()">' . renderIconSvg('alert:critical')+' 报危急值 <span class="pacs-crit-num" id="imgmCritBtnCount"></span></button>' +
+        '<button type="button" class="btn btn-outline" onclick="imgmDraftSave()">' . renderIconSvg('action:save')+' 保存草稿</button>' +
         '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
-        '<button type="button" class="btn btn-primary" onclick="imgModalSave()">' . render_icon('action:save') . ' 提交并打印报告</button>';
+        '<button type="button" class="btn btn-primary" onclick="imgModalSave()">' . renderIconSvg('action:save')+' 提交并打印报告</button>';
     // 危急值暂存队列回显（必须在 footer 就绪后调用，否则徽标停留在初始 0 不更新）
     renderImgCritQueue();
 }
@@ -961,7 +961,7 @@ function imgCritClear() {
  * 说明（优化项1）：暂存队列不再单独占用撰写区空间——数量收敛到按钮徽标，
  * 点击按钮在报危急值模态框内查看/删除已添加项。 */
 function imgCritBtnLabel(prefix) {
-    return '<button type="button" class="btn btn-outline btn-sm pacs-crit-btn" onclick="openImgCritSend()">' . render_icon('alert:critical') . ' 报危急值 <span class="pacs-crit-num" id="' + prefix + 'CritBtnCount">0</span></button>';
+    return '<button type="button" class="btn btn-outline btn-sm pacs-crit-btn" onclick="openImgCritSend()">' . renderIconSvg('alert:critical')+' 报危急值 <span class="pacs-crit-num" id="' + prefix + 'CritBtnCount">0</span></button>';
 }
 
 function openImgCritSend() {
@@ -1004,8 +1004,8 @@ function renderImgCritQueue() {
                 ? q.map(function (x, i) {
                     return '<div class="dw-crit-queue-item">' +
                         '<span class="crit-q-name">' + esc(x.item) + '</span>' +
-                        '<span class="fs-12 text-muted">' . render_icon('action:next') . ' ' + esc(x.to_doctor_name) + '</span>' +
-                        '<button type="button" class="btn btn-outline btn-sm" style="margin-left:auto;padding:1px 8px" onclick="imgCritRemove(' + i + ')">' . render_icon('action:close') . '</button></div>';
+                        '<span class="fs-12 text-muted">' . renderIconSvg('action:next')+' ' + esc(x.to_doctor_name) + '</span>' +
+                        '<button type="button" class="btn btn-outline btn-sm" style="margin-left:auto;padding:1px 8px" onclick="imgCritRemove(' + i + ')">' . renderIconSvg('action:close')+'</button></div>';
                 }).join('')
                 : '<div class="fs-12 text-muted">暂无危急值（点击上方按钮手动上报）</div>';
         }
@@ -1122,15 +1122,15 @@ function imgWithdraw(reportId) {
     var sw = document.createElement('div');
     sw.className = 'pacs-mode-switch';
     sw.innerHTML =
-        '<button type="button" class="pms-btn" data-mode="classic" onclick="imgSwitchMode(\'classic\')">' . render_icon('nav:screen') . ' 经典双屏分屏</button>' +
-        '<button type="button" class="pms-btn" data-mode="integrated" onclick="imgSwitchMode(\'integrated\')">' . render_icon('nav:imaging') . ' 一体化阅片</button>';
+        '<button type="button" class="pms-btn" data-mode="classic" onclick="imgSwitchMode(\'classic\')">' . renderIconSvg('nav:screen')+' 经典双屏分屏</button>' +
+        '<button type="button" class="pms-btn" data-mode="integrated" onclick="imgSwitchMode(\'integrated\')">' . renderIconSvg('nav:imaging')+' 一体化阅片</button>';
     actions.insertBefore(sw, actions.firstChild);
     // 独立视窗按钮（顶部工具栏级入口）
     var solo = document.createElement('button');
     solo.type = 'button';
     solo.className = 'btn btn-outline btn-sm pacs-openwin-btn';
     solo.title = '弹出独立无工具栏阅片窗口（多显示器全屏阅片）';
-    solo.innerHTML = render_icon('nav:screen') . ' 阅片视窗';
+    solo.innerHTML = renderIconSvg('nav:screen')+' 阅片视窗';
     solo.addEventListener('click', imgOpenSoloWindow);
     actions.insertBefore(solo, sw.nextSibling);
     var mode = imgReadMode();

@@ -123,7 +123,7 @@ function initPcList() {
         pageSize: 15,   // 就诊记录每页 15 条
         threshold: 40,
         totalEl: document.getElementById('pcTotal'),
-        emptyHtml: '<div class="empty" style="padding:30px 0"><div class="empty-ico">' . render_icon('action:search') . '</div>未检索到就诊记录</div>',
+        emptyHtml: '<div class="empty" style="padding:30px 0"><div class="empty-ico">' . renderIconSvg('action:search')+'</div>未检索到就诊记录</div>',
         // url 用函数（每次加载读取当前检索值）：固定字符串会在 init 时求值，
         // 导致搜索后 reset() 仍用旧关键字（检索失效）
         url: function (p, size) {

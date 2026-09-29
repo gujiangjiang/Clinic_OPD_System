@@ -96,7 +96,7 @@ body {
             document.getElementById('doneBox').classList.add('hidden');
             document.getElementById('switchBtn').classList.add('hidden');
             document.getElementById('keepBtn').classList.add('hidden');
-            document.getElementById('ico').textContent = render_icon('action:refresh');
+            document.getElementById('ico').textContent = renderIconSvg('action:refresh');
         } else if (s.status === 'done') {
             document.getElementById('lockTitle').textContent = '数据库迁移完成';
             document.getElementById('lockSub').textContent = '';
@@ -105,7 +105,7 @@ body {
             document.getElementById('cancelBtn').classList.add('hidden');
             document.getElementById('switchBtn').classList.remove('hidden');
             document.getElementById('keepBtn').classList.remove('hidden');
-            document.getElementById('ico').textContent = render_icon('alert:success');
+            document.getElementById('ico').textContent = renderIconSvg('alert:success');
         } else if (s.status === 'cancelled') {
             document.getElementById('lockTitle').textContent = '迁移已取消';
             document.getElementById('lockSub').textContent = '迁移已取消，主数据库保持原库，数据未受影响。请重新登录。';
@@ -114,7 +114,7 @@ body {
             document.getElementById('cancelBtn').classList.add('hidden');
             document.getElementById('switchBtn').classList.add('hidden');
             document.getElementById('keepBtn').classList.add('hidden');
-            document.getElementById('ico').textContent = render_icon('alert:warning');
+            document.getElementById('ico').textContent = renderIconSvg('alert:warning');
         } else if (s.status === 'failed') {
             document.getElementById('lockTitle').textContent = '迁移失败';
             document.getElementById('lockSub').textContent = '迁移过程中发生错误，主数据库保持原库。请重新登录后重试。';
@@ -125,7 +125,7 @@ body {
             document.getElementById('keepBtn').classList.add('hidden');
             document.getElementById('errBox').classList.remove('hidden');
             document.getElementById('errBox').textContent = '错误信息：' + (s.error || '未知错误');
-            document.getElementById('ico').textContent = render_icon('alert:blocked');
+            document.getElementById('ico').textContent = renderIconSvg('alert:blocked');
         } else {
             location.href = '/login';   // idle：迁移已结束
         }
@@ -138,7 +138,7 @@ body {
             .catch(function () { setTimeout(poll, 3000); });
     }
     window.cancelMig = function () {
-        if (!confirm(render_icon('alert:warning') . ' 确定取消迁移吗？\n\n当前已完成部分数据将丢弃，主数据库保持原库。取消后请重新登录。')) return;
+        if (!confirm(renderIconSvg('alert:warning')+' 确定取消迁移吗？\n\n当前已完成部分数据将丢弃，主数据库保持原库。取消后请重新登录。')) return;
         fetch('/api/migration?action=cancel&token=' + encodeURIComponent(TOKEN))
             .then(function (r) { return r.json(); })
             .then(function (j) {

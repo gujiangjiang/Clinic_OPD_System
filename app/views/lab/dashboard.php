@@ -71,7 +71,7 @@ function renderLabWork(data) {
     var head = labHeadHtml(data);
     var body = '';
     if (!orders.length) {
-        body = '<div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">' . render_icon('nav:lab') . '</div>本次就诊暂无检验项目</div></div>';
+        body = '<div class="card"><div class="empty" style="padding:40px 0"><div class="empty-ico">' . renderIconSvg('nav:lab')+'</div>本次就诊暂无检验项目</div></div>';
     } else {
         orders.forEach(function (o) { body += labOrderHtml(o); });
     }
@@ -90,7 +90,7 @@ function renderLabWork(data) {
 function renderLabSide(data) {
     var orders = (data.orders || []).filter(function (o) { return o.order_type === 'lab'; });
     Clinic.deptwork.renderOrderSide(orders, {
-        emoji: render_icon('nav:lab'), title: '检验申请单', empty: '暂无检验项目',
+        emoji: renderIconSvg('nav:lab'), title: '检验申请单', empty: '暂无检验项目',
         pending: function (o) { return o.items.some(function (it) { return it.status === 'paid' || it.status === 'registered'; }); },
         subDot: function (it) { return it.status === 'done' ? 'ok' : (it.status === 'registered' ? 'pending' : 'done'); },
     });
@@ -139,12 +139,12 @@ function labOrderHtml(o) {
         ? '<span class="badge badge-warning" style="font-size:11px">检验中</span>'
         : '<span class="badge badge-success" style="font-size:11px">已完成</span>';
     var regBtn = hasPaid
-        ? '<button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="doLabRegisterOrder(\'' + esc(o.order_id) + '\')">' . render_icon('action:edit') . ' 登记</button>'
+        ? '<button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="doLabRegisterOrder(\'' + esc(o.order_id) + '\')">' . renderIconSvg('action:edit')+' 登记</button>'
         : '';
     var itemsHtml = o.items.map(labItemHtml).join('');
     return '<div class="card dw-lab-order" id="labSec_' + esc(o.order_id) + '" style="margin-bottom:14px">' +
         '<div class="dw-lab-order-head">' +
-        '  <span class="fw-700">' . render_icon('nav:lab') . ' 检验申请单</span>' +
+        '  <span class="fw-700">' . renderIconSvg('nav:lab')+' 检验申请单</span>' +
         '  <a href="javascript:void(0)" style="color:var(--primary);cursor:pointer;text-decoration:underline;margin-left:10px" ' +
         'onclick="previewLabOrder(\'' + esc(o.order_id) + '\',\'' + esc(o.order_no) + '\')">' + esc(o.order_no) + '</a>' +
         '  <span class="fs-12 text-muted" style="margin-left:10px">开单医生：' + esc(o.doctor_name || '') + ' ｜ ' + esc((o.created_at || '').substr(0, 16)) + '</span>' +
@@ -172,7 +172,7 @@ function previewLabOrder(orderId, orderNo) {
 function critHint(cf, member) {
     var m = member || cf;
     if ((m.critical_low || '') === '' && (m.critical_high || '') === '') return '';
-    return '<div class="dw-lab-crit">' . render_icon('alert:warning') . ' 危急值：低 ' + esc(m.critical_low || '—') + ' / 高 ' + esc(m.critical_high || '—') + '，超出时请立即复核并通知医生</div>';
+    return '<div class="dw-lab-crit">' . renderIconSvg('alert:warning')+' 危急值：低 ' + esc(m.critical_low || '—') + ' / 高 ' + esc(m.critical_high || '—') + '，超出时请立即复核并通知医生</div>';
 }
 
 function labItemHtml(it) {
@@ -216,7 +216,7 @@ function labItemHtml(it) {
         }
         inner = inner +
             '<div class="fs-12 text-muted mt-4">输入后失焦自动临时保存（刷新不丢失），提交后生成正式报告。</div>' +
-            '<div class="dw-report-actions"><button class="btn btn-success btn-sm" id="labSave_' + id + '">' . render_icon('action:save') . ' 提交并打印报告</button></div>';
+            '<div class="dw-report-actions"><button class="btn btn-success btn-sm" id="labSave_' + id + '">' . renderIconSvg('action:save')+' 提交并打印报告</button></div>';
     } else {
         var val = parseLabValues(it);
         var shown = '';
@@ -232,7 +232,7 @@ function labItemHtml(it) {
             '<div class="dw-report-foot"><span>检验技师：' + esc(it.executed_by || it.doctor_name || '') + '</span>' +
             '<span>报告编号：' + esc(it.report_no || '—') + '</span><span>' + esc((it.executed_at || '').substr(0, 16)) + '</span></div>' +
             '<div class="dw-report-actions">' +
-            (it.report_id ? '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' + esc(it.report_id) + '\',null)">' . render_icon('action:print') . ' 查看报告</button>' : '') +
+            (it.report_id ? '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' + esc(it.report_id) + '\',null)">' . renderIconSvg('action:print')+' 查看报告</button>' : '') +
             (it.report_id ? '<button class="btn btn-outline btn-sm" onclick="labWithdraw(\'' + esc(it.report_id) + '\')">申请撤回</button>' : '') +
             '</div>';
     }
@@ -300,7 +300,7 @@ function doLabSave(it) {
             buttons: [
                 { text: '取消', cls: 'btn-outline' },
                 {
-                    text: render_icon('action:save') . ' 确认提交', cls: 'btn-primary', autoClose: false,
+                    text: renderIconSvg('action:save')+' 确认提交', cls: 'btn-primary', autoClose: false,
                     onClick: function () {
                         var note = (document.getElementById('labNote') || {}).value || '';
                         submitLabResult(it, value, isGroup, note.trim());

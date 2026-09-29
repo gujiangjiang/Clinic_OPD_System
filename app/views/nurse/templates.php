@@ -14,7 +14,7 @@ Router::title('护理模板管理');
 </div>
 <div class="card list-filter">
     <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
-        <input class="input" id="ntplSearchKw" placeholder=render_icon('action:search') . " 搜索模板名称" style="width:220px" oninput="applyNTplFilter()">
+        <input class="input" id="ntplSearchKw" placeholder="<?= render_icon('action:search') ?> 搜索模板名称" style="width:220px" oninput="applyNTplFilter()">
         <span class="flex gap-4" id="ntplScopeTabs" style="flex-wrap:wrap">
             <button class="btn btn-sm btn-primary" data-tscope="" onclick="setNTplScope(this,'')">全部</button>
             <button class="btn btn-sm btn-outline" data-tscope="personal" onclick="setNTplScope(this,'personal')">个人</button>
@@ -153,7 +153,7 @@ function buildNTplForm(mask, tpl, readonly) {
     if (treeBox) Clinic.deptTree.build(treeBox, { selected: (tpl && tpl.dept_ids) || [] });
     onNTplScopeChange();
     mask.querySelector('.modal-foot').innerHTML = readonly
-        ? '<span class="fs-12 text-muted">' . render_icon('nav:lock') . ' 只读预览 — 模板内容不可编辑、不可保存</span>'
+        ? '<span class="fs-12 text-muted">' . renderIconSvg('nav:lock')+' 只读预览 — 模板内容不可编辑、不可保存</span>'
         : '<button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
           '<button type="button" class="btn btn-primary" id="ntplSaveBtn">保存</button>';
     if (!readonly) document.getElementById('ntplSaveBtn').addEventListener('click', function () { saveNTplForm(tpl ? tpl.id : 0); });

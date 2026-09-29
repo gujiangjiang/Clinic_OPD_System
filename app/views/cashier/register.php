@@ -115,7 +115,7 @@ function onCardChange() {
         return;
     }
     REG.id_card = card;
-    msg.innerHTML = '<span class="text-success">' . render_icon('action:check') . ' 身份证校验通过</span>';
+    msg.innerHTML = '<span class="text-success">' . renderIconSvg('action:check')+' 身份证校验通过</span>';
     feeType.disabled = false;
     // 自动计算并锁定（身份证计算出的出生日期/性别确保正确，年龄随出生日期联动）
     setDerivedLocked(true);
@@ -266,7 +266,7 @@ function openQuickReg() {
                 '<input class="input" id="q_birth" readonly placeholder="填写年龄后自动推算；也可点击手动选择" style="cursor:pointer;background:var(--bg-soft)">' +
                 '<div class="fs-12 text-muted mt-4">年龄与出生日期互相关联：修改年龄自动推算出生日期；手动选择出生日期则自动反算年龄</div></div>';
             Clinic.modal.open(html, {
-                title: render_icon('action:launch') . ' 快速挂号（无名氏）',
+                title: renderIconSvg('action:launch')+' 快速挂号（无名氏）',
                 buttons: [
                     { text: '取消', cls: 'btn-outline' },
                     { text: '继续 → 选择科室', cls: 'btn-success', autoClose: false, onClick: quickNext },
@@ -362,7 +362,7 @@ function submitRegister(d, quick) {
                     title: '挂号确认',
                     buttons: [
                         { text: '取消挂号', cls: 'btn-outline', onClick: function () { Clinic.modal.close(); } },
-                        { text: render_icon('nav:card') . ' 缴费（模拟）', cls: 'btn-success', autoClose: false, onClick: payAndPrint },
+                        { text: renderIconSvg('nav:card')+' 缴费（模拟）', cls: 'btn-success', autoClose: false, onClick: payAndPrint },
                     ],
                 }
             );
