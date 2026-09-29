@@ -197,6 +197,12 @@ class ActionIcons {
             // 最大化/恢复
             'action:maximize' =>
                 '<path d="M4 14h9V5l7 7-7 7v-9H4"/>',
+            // 最小化（减号）
+            'action:minus' =>
+                '<path d="M5 12h14"/>',
+            // 方框/恢复
+            'action:square' =>
+                '<rect x="4" y="4" width="16" height="16" rx="1"/>',
         );
     }
 }

@@ -857,7 +857,7 @@ Clinic.deptwork = (function () {
         return '<div class="doc-call-pop-head">' +
             '  <span class="doc-call-pop-title">' + renderIconSvg('action:announce') + ' 叫号 · ' + escHtml(fullRoomName(r.dept_name, r.room_name)) + '</span>' +
             '  <span class="doc-call-pop-tools">' +
-            '    <span class="doc-call-pop-x" data-act="mini" title="最小化（切换到精简版)">' + renderIconSvg('action:arrow-down', btnSize) + '</span>' +
+            '    <span class="doc-call-pop-x" data-act="mini" title="最小化（切换到精简版)">' + renderIconSvg('action:minus', btnSize) + '</span>' +
             '    <span class="doc-call-pop-x" data-act="hide" title="关闭">' + renderIconSvg('action:close', btnSize) + '</span>' +
             '  </span>' +
             '</div>' +
@@ -892,7 +892,7 @@ Clinic.deptwork = (function () {
             '  <span class="doc-call-pop-title">' + renderIconSvg('action:announce') + ' ' + escHtml(fullRoomName(r.dept_name, r.room_name)) + '</span>' +
             '  <span class="doc-call-pop-tools">' +
             '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">' + renderIconSvg('action:unlink', btnSize) + '</span>' +
-            '    <span class="doc-call-pop-x" data-act="restore" title="最大化（恢复完整版）">' + renderIconSvg('action:maximize', btnSize) + '</span>' +
+            '    <span class="doc-call-pop-x" data-act="restore" title="恢复完整版">' + renderIconSvg('action:square', btnSize) + '</span>' +
             '    <span class="doc-call-pop-x" data-act="hide" title="关闭">' + renderIconSvg('action:close', btnSize) + '</span>' +
             '  </span>' +
             '</div>' +

@@ -1135,9 +1135,10 @@ body.emr-readonly .emr-item-link,
 
 /* ==================== 精简版叫号悬浮窗（mini） ==================== */
 .doc-call-mini { width: 220px; }
-.doc-call-mini .doc-call-pop-head { padding: 7px 10px; }
+.doc-call-mini .doc-call-pop-head { padding: 5px 8px; }
 .doc-call-mini .doc-call-pop-title { font-size: 12px; }
-.doc-call-mini-body { padding: 7px 8px; gap: 5px; }
+.doc-call-mini .doc-call-pop-tools { gap: 2px; }
+.doc-call-mini-body { padding: 6px 8px; gap: 4px; }
 .doc-call-mini-row {
     display: flex;
     align-items: center;
@@ -1165,8 +1166,10 @@ body.emr-readonly .emr-item-link,
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.doc-call-mini .doc-call-actions { gap: 3px; }
-.doc-call-mini .doc-call-actions .btn { padding: 2px 2px; font-size: 10px; }
+.doc-call-mini .doc-call-actions { gap: 2px; }
+.doc-call-mini .doc-call-actions .btn { padding: 1px 2px; font-size: 10px; }
+/* mini 模式下按钮尺寸稍小 */
+.doc-call-mini .doc-call-pop-x { width: 24px; height: 24px; font-size: 12px; }
 .doc-call-foot {
     display: flex;
     align-items: center;
