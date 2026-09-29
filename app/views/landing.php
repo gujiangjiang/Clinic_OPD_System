@@ -15,7 +15,7 @@ $hosp2 = setting('hospital_name2', '');
 $logo  = setting('logo', '');
 // 页脚版权：固定格式自动生成【© 年份 医院名称 版权所有】
 $footer = '© ' . date('Y') . ' ' . ($hosp !== '' ? $hosp : '门诊一体化信息系统') . ' 版权所有';
-$favicon = '<link rel="icon" href="/pwa-icon.png?v=' . APP_VERSION . '>';
+$favicon = '<link rel="icon" href="/pwa-icon.png?v=' . APP_VERSION . '">';
 $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : default_logo_img();
 ?>
 <!DOCTYPE html>

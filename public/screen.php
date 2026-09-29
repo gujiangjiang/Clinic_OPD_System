@@ -41,7 +41,7 @@ require_once APP_ROOT . '/app/includes/icon_bridge.php';
 $hosp  = setting('hospital_name', '门诊一体化系统');
 $hosp2 = setting('hospital_name2', '');
 $logoData = img_data(setting('logo', ''));
-$favicon = '<link rel="icon" href="/pwa-icon.png?v=' . APP_VERSION . '>';
+$favicon = '<link rel="icon" href="/pwa-icon.png?v=' . APP_VERSION . '">';
 $logoImg = $logoData !== '' ? '<img src="' . e($logoData) . '" alt="LOGO">' : default_logo_img();
 $isDoctor = $room['room_type'] === 'doctor';
 ?>
