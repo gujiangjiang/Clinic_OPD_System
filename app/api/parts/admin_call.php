@@ -35,8 +35,8 @@ function admin_part_call($action) {
         foreach ($rows as $r) {
             $online = (!empty($r['screen_last_heartbeat']) && (time() - strtotime($r['screen_last_heartbeat'])) <= 30);
             $st = $online
-                ? badge_html('success', '🟢 在线运行中') . '<div class="fs-12 text-muted mt-4">最后活跃 ' . e(substr((string)$r['screen_last_heartbeat'], 5, 16)) . '</div>'
-                : badge_html('gray', '⚫ 离线未连接');
+                ? '<span class="badge badge-success">' . render_icon('alert:dot-green') . ' 在线运行中</span>' . '<div class="fs-12 text-muted mt-4">最后活跃 ' . e(substr((string)$r['screen_last_heartbeat'], 5, 16)) . '</div>'
+                : '<span class="badge badge-gray">' . render_icon('alert:dot-gray') . ' 离线未连接</span>';
             $bind = $r['current_doctor_id'] > 0
                 ? badge_html('warning', '' . e($r['current_doctor_name']) . ' 正在坐诊')
                 : badge_html('gray', '空闲');
@@ -50,8 +50,9 @@ function admin_part_call($action) {
                 '<td>' . $st . '</td>' .
                 '<td>' . $bind . '</td>' .
                 '<td>' .
-                    '<span class="fs-12">' . ($r['enable_voice'] ? '🔊' : '🔇') . ' ' . ($r['enable_mask'] ? '脱敏' : '实名') .
-                    ' ' . ((int)$r['allow_cross_day'] === 1 ? '🌙跨天' : '') . '</span></td>' .
+                    '<span class="fs-12">' . render_icon($r['enable_voice'] ? 'action:vol' : 'action:mute') .
+                    ' ' . render_icon($r['enable_mask'] ? 'action:eye-off' : 'action:eye') . ' ' . ($r['enable_mask'] ? '脱敏' : '实名') .
+                    ((int)$r['allow_cross_day'] === 1 ? ' ' . render_icon('action:moon') . '跨天' : '') . '</span></td>' .
                 // 操作按钮改为事件委托（data-room-id）：用户可控名称/Token 不再嵌入 onclick
                 // 字符串，杜绝引号/HTML 注入（原 e() 转义在属性值解码后无法覆盖单引号截断）
                 '<td><div class="flex gap-4">' .
