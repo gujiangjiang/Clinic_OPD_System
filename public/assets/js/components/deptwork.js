@@ -711,8 +711,20 @@ Clinic.deptwork = (function () {
                     return;
                 }
                 // 数据驱动渲染（与医生工作站同款：状态图标 + 在线/占用/已绑定/离线）
+                var dotSize = 20;
                 var rows = list.map(function (r) {
-                    var icon = r.status === 'available' ? renderIconSvg('alert:dot-green') : (r.status === 'bound' ? renderIconSvg('alert:dot-blue') : (r.status === 'occupied' ? renderIconSvg('alert:dot-yellow') : renderIconSvg('alert:dot-red')));
+                    var icon, dotSizeVal = 20;
+                    if (r.status === 'available') {
+                        icon = renderIconSvg('alert:dot-green', dotSize, '#52c41a');
+                    } else if (r.status === 'bound') {
+                        icon = renderIconSvg('alert:dot-blue', dotSize, '#1890ff');
+                    } else if (r.status === 'occupied') {
+                        icon = renderIconSvg('alert:dot-yellow', dotSize, '#f5a623');
+                    } else if (r.status === 'offline') {
+                        icon = renderIconSvg('alert:dot-red', dotSize, '#ff4d4f');
+                    } else {
+                        icon = renderIconSvg('alert:dot-gray', dotSize, '#9ca3af');
+                    }
                     var disabled = !r.selectable;
                     var clickable = (r.status === 'bound' || r.status === 'available') && !disabled;
                     var attrs = clickable
@@ -841,11 +853,12 @@ Clinic.deptwork = (function () {
     }
 
     function dwFullPopHtml(r) {
+        var btnSize = 20;
         return '<div class="doc-call-pop-head">' +
             '  <span class="doc-call-pop-title">' + renderIconSvg('action:announce') + ' 叫号 · ' + escHtml(fullRoomName(r.dept_name, r.room_name)) + '</span>' +
             '  <span class="doc-call-pop-tools">' +
-            '    <span class="doc-call-pop-x" data-act="mini" title="最小化（切换到精简版）">-</span>' +
-            '    <span class="doc-call-pop-x" data-act="hide" title="关闭">x</span>' +
+            '    <span class="doc-call-pop-x" data-act="mini" title="最小化（切换到精简版)">' + renderIconSvg('action:arrow-down', btnSize) + '</span>' +
+            '    <span class="doc-call-pop-x" data-act="hide" title="关闭">' + renderIconSvg('action:close', btnSize) + '</span>' +
             '  </span>' +
             '</div>' +
             '<div class="doc-call-pop-body">' +
@@ -874,12 +887,13 @@ Clinic.deptwork = (function () {
     }
 
     function dwMiniPopHtml(r) {
+        var btnSize = 20;
         return '<div class="doc-call-pop-head">' +
             '  <span class="doc-call-pop-title">' + renderIconSvg('action:announce') + ' ' + escHtml(fullRoomName(r.dept_name, r.room_name)) + '</span>' +
             '  <span class="doc-call-pop-tools">' +
-            '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">' + renderIconSvg('action:close') + '</span>' +
-            '    <span class="doc-call-pop-x" data-act="restore" title="最大化（恢复完整版）">+</span>' +
-            '    <span class="doc-call-pop-x" data-act="hide" title="关闭">x</span>' +
+            '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">' + renderIconSvg('action:unlink', btnSize) + '</span>' +
+            '    <span class="doc-call-pop-x" data-act="restore" title="最大化（恢复完整版）">' + renderIconSvg('action:maximize', btnSize) + '</span>' +
+            '    <span class="doc-call-pop-x" data-act="hide" title="关闭">' + renderIconSvg('action:close', btnSize) + '</span>' +
             '  </span>' +
             '</div>' +
             '<div class="doc-call-pop-body doc-call-mini-body">' +

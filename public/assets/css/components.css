@@ -1014,13 +1014,13 @@ body.emr-readonly .emr-item-link,
     white-space: nowrap;
     text-overflow: ellipsis;
 }
-/* 标题栏按钮：统一大小（等宽正方形）、统一字符标志（解 / + / - / x） */
+/* 标题栏按钮：统一大小（等宽正方形）、统一图标风格 */
 .doc-call-pop-x {
     cursor: pointer;
     font-size: 14px;
     line-height: 1;
-    width: 20px;
-    height: 20px;
+    width: 28px;
+    height: 28px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1028,6 +1028,8 @@ body.emr-readonly .emr-item-link,
     pointer-events: auto;
     font-weight: 700;
 }
+/* 图标按钮：统一尺寸 + 居中 */
+.doc-call-pop-x svg { display: inline-block; vertical-align: middle; }
 .doc-call-pop-x:hover { background: rgba(255, 255, 255, .2); }
 .doc-call-pop-tools { display: flex; align-items: center; pointer-events: none; flex-shrink: 0; }
 .doc-call-pop-tools .doc-call-pop-x { pointer-events: auto; }

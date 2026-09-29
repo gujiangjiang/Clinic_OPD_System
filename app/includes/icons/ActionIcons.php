@@ -191,6 +191,12 @@ class ActionIcons {
             // 月亮（跨天）
             'action:moon' =>
                 '<path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1z"/>',
+            // 解绑/断开链接
+            'action:unlink' =>
+                '<path d="M18 6L6 18M18 18L6 6"/>',
+            // 最大化/恢复
+            'action:maximize' =>
+                '<path d="M4 14h9V5l7 7-7 7v-9H4"/>',
         );
     }
 }

@@ -284,7 +284,18 @@ Clinic.docTools = (function () {
         // 数据驱动渲染：不再内联 onclick（规避诊室名注入），改 data 属性 + 事件委托
         bindRoomListClick(box);
         var rows = list.map(function (r) {
-            var icon = r.status === 'available' ? renderIconSvg('alert:dot-green') : (r.status === 'bound' ? renderIconSvg('alert:dot-blue') : (r.status === 'occupied' ? renderIconSvg('alert:dot-yellow') : renderIconSvg('alert:dot-red')));
+            var icon, dotSize = 20;
+            if (r.status === 'available') {
+                icon = renderIconSvg('alert:dot-green', dotSize, '#52c41a');
+            } else if (r.status === 'bound') {
+                icon = renderIconSvg('alert:dot-blue', dotSize, '#1890ff');
+            } else if (r.status === 'occupied') {
+                icon = renderIconSvg('alert:dot-yellow', dotSize, '#f5a623');
+            } else if (r.status === 'offline') {
+                icon = renderIconSvg('alert:dot-red', dotSize, '#ff4d4f');
+            } else {
+                icon = renderIconSvg('alert:dot-gray', dotSize, '#9ca3af');
+            }
             var disabled = !r.selectable;
             var clickable = (r.status === 'bound' || r.status === 'available') && !disabled;
             var attrs = clickable
@@ -447,11 +458,12 @@ Clinic.docTools = (function () {
 
     /* 完整版悬浮窗 HTML（当前就诊/下一位/叫号按钮/完整号源列表/解绑） */
     function fullPopHtml() {
+        var btnSize = 20;
         return '<div class="doc-call-pop-head">' +
             '  <span class="doc-call-pop-title">' + renderIconSvg('action:announce') + ' 叫号 · ' + Clinic.escHtml(fullRoomName(ROOM_BOUND.dept_name, ROOM_BOUND.name)) + '</span>' +
             '  <span class="doc-call-pop-tools">' +
-            '    <span class="doc-call-pop-x" data-act="mini" title="最小化（切换到精简版）">-</span>' +
-            '    <span class="doc-call-pop-x" data-act="hide" title="关闭">x</span>' +
+            '    <span class="doc-call-pop-x" data-act="mini" title="最小化（切换到精简版）">' + renderIconSvg('action:arrow-down', btnSize) + '</span>' +
+            '    <span class="doc-call-pop-x" data-act="hide" title="关闭">' + renderIconSvg('action:close', btnSize) + '</span>' +
             '  </span>' +
             '</div>' +
             '<div class="doc-call-pop-body">' +
@@ -482,12 +494,13 @@ Clinic.docTools = (function () {
 
     /* 精简版悬浮窗 HTML：标题（解绑/最大化/关闭）+ 当前就诊 + 下一位 + 三个叫号按钮 */
     function miniPopHtml() {
+        var btnSize = 20;
         return '<div class="doc-call-pop-head">' +
             '  <span class="doc-call-pop-title">' + renderIconSvg('action:announce') + ' ' + Clinic.escHtml(fullRoomName(ROOM_BOUND.dept_name, ROOM_BOUND.name)) + '</span>' +
             '  <span class="doc-call-pop-tools">' +
-            '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">' + renderIconSvg('action:close') + '</span>' +
-            '    <span class="doc-call-pop-x" data-act="restore" title="最大化（恢复完整版）">+</span>' +
-            '    <span class="doc-call-pop-x" data-act="hide" title="关闭">x</span>' +
+            '    <span class="doc-call-pop-x" data-act="unbind" title="解绑大屏">' + renderIconSvg('action:unlink', btnSize) + '</span>' +
+            '    <span class="doc-call-pop-x" data-act="restore" title="最大化（恢复完整版）">' + renderIconSvg('action:maximize', btnSize) + '</span>' +
+            '    <span class="doc-call-pop-x" data-act="hide" title="关闭">' + renderIconSvg('action:close', btnSize) + '</span>' +
             '  </span>' +
             '</div>' +
             '<div class="doc-call-pop-body doc-call-mini-body">' +
