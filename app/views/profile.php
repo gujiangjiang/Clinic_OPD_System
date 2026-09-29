@@ -108,7 +108,7 @@ $showPhoto = $pendingPhoto ? $pendingData['photo'] : $user['photo'];
     });
 })();
 
-/* 点击头像 {{ICON:action:next}} 触发文件选择 */
+/* 点击头像 → 触发文件选择 */
 function pickAvatar() {
     var pending = document.querySelector('#avatarEl .avatar-review');
     if (pending) { Clinic.toast.warning('头像审核中，请等待管理员审核'); return; }

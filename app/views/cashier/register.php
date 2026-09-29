@@ -2,13 +2,13 @@
 /**
  * cashier/register.php — 挂号收费
  * 说明：
- * 1. 输入身份证 {{ICON:action:next}} 自动校验（18位含校验码）{{ICON:action:next}} 自动计算并锁定
+ * 1. 输入身份证 → 自动校验（18位含校验码）→ 自动计算并锁定
  *    出生日期/年龄/性别；有既往登记自动填充可修改信息
  * 2. 未填写身份证：仅可挂急诊科室、费用类别锁定自费
  * 3. 右侧「今日号源」为纯展示总览（全部科室余号，不随身份证变化）
  * 4. 姓名/性别/出生日期必填；出生日期点击弹出日历选择，年龄自动计算
  * 5. 点击【挂号】弹出通用科室选择弹窗（急诊/门诊 Tab + 余号/费用）
- *    {{ICON:action:next}} 选定科室挂号成功 {{ICON:action:next}} 确认框核对信息 {{ICON:action:next}} 缴费（模拟）{{ICON:action:next}} 自动打印凭条
+ *    → 选定科室挂号成功 → 确认框核对信息 → 缴费（模拟）→ 自动打印凭条
  */
 Router::title('挂号收费');
 ?>
@@ -194,8 +194,8 @@ function loadOverview() {
 }
 
 /* ---------- 挂号按钮双状态（严格按需求） ----------
- * 无任何输入（身份证、姓名均空）{{ICON:action:next}} 绿色【快速挂号（无名氏）】可点击
- * 一旦检测到任意输入 {{ICON:action:next}} 切换为【挂号】按钮；
+ * 无任何输入（身份证、姓名均空）→ 绿色【快速挂号（无名氏）】可点击
+ * 一旦检测到任意输入 → 切换为【挂号】按钮；
  * 姓名、性别、出生日期三个必填项全部有值才可点击
  * （输入身份证后性别/出生日期自动生成，视为已填写） */
 function refreshRegState() {
@@ -214,7 +214,7 @@ function refreshRegState() {
                  : '请完善' + (name === '' ? '姓名' : '') + (name === '' && (gender === '' || birth === '') ? '、' : '') + (gender === '' ? '性别' : '') + (gender === '' && birth === '' ? '、' : '') + (birth === '' ? '出生日期' : '') + '后即可挂号');
 }
 
-/* ---------- 提交挂号：校验必填 {{ICON:action:next}} 弹出通用科室选择框 ---------- */
+/* ---------- 提交挂号：校验必填 → 弹出通用科室选择框 ---------- */
 function doRegister() {
     var card = document.getElementById('idCard').value.trim().toUpperCase();
     var name = document.getElementById('name').value.trim();
@@ -240,7 +240,7 @@ function doRegister() {
  * 场景：危重症无家属/昏迷患者，无法提供身份信息。
  * 姓名：系统按患者编号自动生成（无名氏+编号，只读不可改）；
  * 年龄必填（目测估算），出生日期选填——两者双向联动：
- * 改年龄 {{ICON:action:next}} 自动推算出生日期（今天 − 年龄）；手选出生日期 {{ICON:action:next}} 自动反算年龄。
+ * 改年龄 → 自动推算出生日期（今天 − 年龄）；手选出生日期 → 自动反算年龄。
  * 仅可挂 0 元挂号费科室。 */
 var QUICK = { name: '', gender: '男', birth: '', age: 0 };
 
@@ -272,12 +272,12 @@ function openQuickReg() {
                     { text: '继续 '+renderIconSvg('action:next')+' 选择科室', cls: 'btn-success', autoClose: false, onClick: quickNext },
                 ],
             });
-            /* 年龄 {{ICON:action:next}} 出生日期 */
+            /* 年龄 → 出生日期 */
             document.getElementById('q_age').addEventListener('input', function () {
                 var a = parseInt(this.value, 10);
                 if (a >= 1 && a <= 130) document.getElementById('q_birth').value = yearsAgoStr(a);
             });
-            /* 出生日期 {{ICON:action:next}} 年龄 */
+            /* 出生日期 → 年龄 */
             document.getElementById('q_birth').addEventListener('click', function () {
                 var el = this;
                 Clinic.datePicker.open(el, { maxToday: true, onChange: function (v) {
@@ -306,7 +306,7 @@ function quickNext() {
     });
 }
 
-/* 选定科室 {{ICON:action:next}} 调用挂号接口 {{ICON:action:next}} 弹出确认框（患者基本信息 + 就诊序号 + 费用）
+/* 选定科室 → 调用挂号接口 → 弹出确认框（患者基本信息 + 就诊序号 + 费用）
  * quick=true 时使用快速挂号数据（无名氏），否则读取页面表单 */
 function submitRegister(d, quick) {
     var card, name, gender, birth, age, feeType;
@@ -370,7 +370,7 @@ function submitRegister(d, quick) {
     });
 }
 
-/* ---------- 缴费（模拟）{{ICON:action:next}} 自动弹出挂号凭条打印 ---------- */
+/* ---------- 缴费（模拟）→ 自动弹出挂号凭条打印 ---------- */
 function payAndPrint() {
     // 优化6：缴费前选择支付方式（现金可用，其余提示开发中）
     Clinic.payMethod.open('挂号费缴费', function (method) {
