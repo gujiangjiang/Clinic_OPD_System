@@ -34,9 +34,13 @@ Clinic.toast = (function () {
         const el = document.createElement('div');
         el.className = 'toast toast-' + (type || 'info');
         const m = String(msg == null ? '' : msg);
-        // 图标+文本分段渲染：消息以受控 SVG 图标开头时，图标经 innerHTML、
-        // 其余文本走 textNode（避免用户内容被当 HTML 解析的 XSS 面）
-        if (m.indexOf('<svg') === 0) {
+        // 图标+文本分段渲染：消息含受控 SVG 图标（无论位于开头还是中间）时，
+        // 整体经 iconSafeHtml 转义后渲染——图标放行、其余文本走转义，
+        // 避免用户内容被当 HTML 解析的 XSS 面，也避免图标被当纯文本显示；
+        // 图标模块未注入时退回「首段 SVG 直出 + 其余文本节点」的旧策略
+        if (m.indexOf('<svg') !== -1 && window.iconSafeHtml) {
+            el.innerHTML = iconSafeHtml(m);
+        } else if (m.indexOf('<svg') === 0) {
             const end = m.indexOf('</svg>');
             if (end !== -1) {
                 el.innerHTML = m.substring(0, end + 6);

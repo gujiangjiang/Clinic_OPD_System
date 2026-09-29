@@ -37,19 +37,23 @@ Clinic.modal = (function () {
 
         // 标题与内容
         var _tt = String(opts.title == null ? '' : opts.title);
-        // 标题以受控 SVG 图标开头时：图标 innerHTML + 其余文本 textNode，避免纯文本展示标记
-        if (_tt.indexOf('<svg') === 0) {
+        var _mt = mask.querySelector('.modal-title');
+        // 标题含受控 SVG 图标（开头/中间/多处均可）时整体经 iconSafeHtml 转义渲染，
+        // 图标放行、其余文本转义，避免图标被当纯文本展示（XSS 面不变）
+        if (_tt.indexOf('<svg') !== -1 && window.iconSafeHtml) {
+            _mt.innerHTML = iconSafeHtml(_tt);
+        } else if (_tt.indexOf('<svg') === 0) {
+            // 图标模块未注入时：首段 SVG 直出 + 其余文本 textNode（旧策略）
             var _te = _tt.indexOf('</svg>');
             if (_te !== -1) {
-                var _mt = mask.querySelector('.modal-title');
                 _mt.innerHTML = _tt.substring(0, _te + 6);
                 var _rest = _tt.substring(_te + 6);
                 if (_rest) _mt.appendChild(document.createTextNode(_rest));
             } else {
-                mask.querySelector('.modal-title').textContent = _tt;
+                _mt.textContent = _tt;
             }
         } else {
-            mask.querySelector('.modal-title').textContent = _tt;
+            _mt.textContent = _tt;
         }
         mask.querySelector('.modal-body').innerHTML = html;
 
@@ -60,7 +64,10 @@ Clinic.modal = (function () {
                 const b = document.createElement('button');
                 b.type = 'button';
                 b.className = 'btn ' + (btn.cls || 'btn-primary');
-                b.textContent = btn.text || '确定';
+                const bt = String(btn.text || '确定');
+                // 按钮文案含图标时经 iconSafeHtml 渲染（原 textContent 会把 SVG 当纯文本）
+                if (bt.indexOf('<svg') !== -1 && window.iconSafeHtml) b.innerHTML = iconSafeHtml(bt);
+                else b.textContent = bt;
                 b.addEventListener('click', function () {
                     if (btn.onClick) btn.onClick(mask);
                     else if (btn.autoClose !== false) Clinic.modal.close();
