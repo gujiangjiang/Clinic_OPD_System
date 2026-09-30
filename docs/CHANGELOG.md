@@ -15,18 +15,27 @@
 
 ## [8.39.0] - 2026-09-30
 
+### 修复
+- **运营分析趋势查询 500**：`ana_trend.php` 挂号费日序列仍引用旧列 `SUM(total)`，已改为 `SUM(total_amount)`（字段改名遗漏点）。
+- **缴费凭条金额恒为 0**：`print.php` 挂号费凭条金额改读 `payments.total_amount`（字段改名遗漏点）。
+- **登录验证码 off 模式误弹**：登录页初始展示条件在 off 模式下仍会被本地失败标记（LocalStorage）触发，改为 force 常显、auto 才看本地标记、off 永不展示。
+- **日期选择器跨度超限调整方向颠倒**：`datepicker.js` clampToPeer 两分支写反（选开始框误从结束向后加、选结束框误从开始向前减），导致调整后开始晚于结束；已互换分支并对齐后端 `date_span_clamp` 口径。
+- **接口管理配置保存失败**：PHP 表单解析把带点键名转下划线（`integration.inbound.his.token` → `integration_inbound_his_token`），`integration_save` 全部带点配置（HIS/FHIR/HL7/LIS 出向入向字段）保存为空；已新增下划线键双路径回退读取，HIS 入向 Token 保存与连通性测试恢复正常。
+- **诊断搜索计数提示随列表滚动**：诊断页搜索浮层改为固定计数头 + 独立滚动结果区，【检索到 x 条诊断】不再随结果滚动。
+
 ### 重构
 - **外部集成入向逻辑收口 services/his**：`app/api/his.php` 只读查询（ping/patient_get/visit_list/visit_status/order_list/evidence_verify）下沉 `services/his/HisInboundRead.php`；`app/api/external.php` 内联的 HIS 患者建档与字典同步函数下沉 `services/his/HisInboundSync.php`（DB 直连改经 Repository）；两个接口文件瘦身为纯路由壳，URL 契约与鉴权不变。
 - **app/api 目录按域归类**：29 个顶层接口文件按 admin/clinic/integration/system 四域归类，`public/index.php` 新增 `api_route_file()` 路由映射（URL 契约不变），`parts/` 共享接口片段库保持原位。
 - **app/views 根目录视图归类**：散落根目录的 10 个视图按 auth/account/system/shared/refund 归类，`refund_approve.php` 更名 `refund/approve.php`，Router 路由表与渲染判断同步更新。
 - **新增 12 个业务领域 Repository**：CriticalValue / Message / Consent / Referral / Refund / Push / PrintSnapshot / EmrTemplate / Package / Integration / Audit / SkinTest，并全站收口 DB 直连（api/services/helpers/includes/views 共 90+ 处 DB:: 改经 Repository，新模块接口从空壳门面迁至专属仓库）。
+- **HIS 只读查询统一并入 `/api/external/his/read`**：删除旧版 `/api/his` 端点（无旧版包袱，不需要兼容），只读查询与患者建档/字典同步同入口同鉴权（X-HIS-Token 头 / Bearer / ?token=）；`app/api/integration/his.php` 移除，逻辑复用 `services/his/HisInboundRead`；FHIR 保留独立 `/api/fhir/r4/...`（外部标准协议端点，`fhir.php` 即 `FhirService` 的路由壳）。
 
 ### 变更
 - **数据库字段命名统一**：时间统一 `*_at`（users.last_login_at、clinic_rooms 三个心跳列、reports.applied_at/registered_at）；布尔统一 `is_*`（extra_slots.is_used）；金额统一 `price`/`total_amount`（disposal_items.price、payments.total_amount、refunds.total_amount）；JSON 统一 `*_json`（audits.data_json、print_snapshots.extra_json）；执行人统一 `executed_by`（orders/results）；人名/科室快照统一 `*_name`（reports.doctor_name/apply_dept_name/apply_doctor_name、critical_values.from_dept_name/from_user_name）；字典列含义明晰（diag_orders.order_keys、inventory_trans.ref_no、inbound_events.is_success/payload）。存量开发库经一次性临时迁移脚本 ALTER RENAME 完成（脚本执行后已删除）。
 - **修复打印快照读取**：`print_common.php` 报告快照字段读取由失效的 camelCase 键改为规范化列名（applied_at/registered_at/apply_dept_name/apply_doctor_name/clinical_diagnosis），申请科室/医生/时间/诊断快照恢复生效。
 
 ### 文档 / 工具
-- README 目录结构同步 app/api 归类与新增 Repository；tools/seeder 种子脚本同步新列名。
+- README 目录结构同步 app/api 归类与新增 Repository；docs/HELP.md HIS 只读接口说明同步新地址与新鉴权头；tools/seeder 种子脚本同步新列名。
 
 ---
 
