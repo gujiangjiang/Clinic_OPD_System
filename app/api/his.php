@@ -1,16 +1,12 @@
 <?php
 /**
  * ============================================================
- * his.php v2.0.0 — HIS 入向只读查询接口（供外部 HIS/医保/BI 调用）
+ * his.php — HIS 入向只读查询接口（外部 HIS/医保/BI 调用）
  * ============================================================
- * 说明：旧版预留只读数据接口（向后兼容保留），鉴权密钥统一迁移到
- * 新命名空间 integration.inbound.his.token（旧键 his_api_key 自动回退）：
- *   1. 通过入向 Token 认证（为空时接口关闭）
- *   2. 只读查询：连通性自检 / 患者档案 / 就诊记录 / 就诊状态 / 开单明细
- *   3. 接口均返回统一 JSON 格式 { ok, msg, data }
- * 认证方式：推荐请求头 X-HIS-Key: xxxx（密钥不进 URL，避免进入 Web 日志/浏览器历史/Referer）；
- * 兼容 GET 参数 api_key 方式（会进入访问日志，风险由管理员评估）。
- * 本接口不依赖登录会话，供外部系统（住院HIS、医保、BI等）调用。
+ * 说明：本文件仅为路由壳：Token 鉴权 + 动作分发。
+ * 全部查询逻辑已下沉至 services/his/HisInboundRead.php
+ * （业务逻辑与数据访问一律收口服务层/仓库层，本文件不再内联 SQL）。
+ * 鉴权密钥统一为 integration.inbound.his.token（旧键 his_api_key 自动回退）；
  * 入向推送（患者/字典）与出向同步（Outbox）见 /api/external 与 services/his。
  * ============================================================ */
 
@@ -31,125 +27,24 @@ $action = isset($_REQUEST['action']) ? trim((string)$_REQUEST['action']) : '';
 integration_log_inbound('his', 'read', true, '只读查询：' . $action, '');
 
 switch ($action) {
-
-    /* ---------------- 连通性自检（接口管理页测试按钮使用，无需业务参数） ---------------- */
     case 'ping':
-        // 医疗机构代码（org_code，安装/系统设置配置的医保结算/监管报送唯一标识）
-        // 随自检返回，供外部系统（HIS/医保/BI）联调确认机构归属
-        json_ok(array(
-            'pong' => true,
-            'system' => 'Clinic OPD System',
-            'system_code' => (string)integration_cfg('outbound.his.hospital_code', '', 'his_system_code'),
-            'org_code' => (string)setting('org_code', ''),
-            'server_time' => now_str(),
-        ));
+        json_ok(HisInboundRead::ping());
         break;
-
-    /* ---------------- 患者档案查询（按身份证 / 患者ID） ---------------- */
     case 'patient_get':
-        $idCard = strtoupper(get('id_card', ''));
-        $patientNo = get('patient_no', '');
-        if ($idCard === '' && $patientNo === '') {
-            json_fail('请提供 id_card 或 patient_no 参数');
-        }
-        $p = $idCard !== ''
-            ? PatientRepository::one('SELECT * FROM patients WHERE id_card=?', array($idCard))
-            : PatientRepository::one('SELECT * FROM patients WHERE patient_no=?', array($patientNo));
-        if (!$p) json_fail('未检索到患者');
-        unset($p['id']);
-        json_ok(array('patient' => $p));
+        json_ok(HisInboundRead::patientGet(get('id_card', ''), get('patient_no', '')));
         break;
-
-    /* ---------------- 就诊记录列表（按患者ID） ---------------- */
     case 'visit_list':
-        $patientNo = get('patient_no', '');
-        if ($patientNo === '') json_fail('请提供 patient_no 参数');
-        $visits = PatientRepository::q('SELECT * FROM registrations WHERE patient_no=? ORDER BY id DESC', array($patientNo));
-        $out = array();
-        foreach ($visits as $v) {
-            unset($v['id']);
-            $out[] = $v;
-        }
-        json_ok(array('visits' => $out));
+        json_ok(HisInboundRead::visitList(get('patient_no', '')));
         break;
-
-    /* ---------------- 就诊状态查询（按门诊流水号） ---------------- */
     case 'visit_status':
-        $flowNo = get('flow_no', '');
-        if ($flowNo === '') json_fail('请提供 flow_no 参数');
-        $v = PatientRepository::one('SELECT * FROM registrations WHERE flow_no=?', array($flowNo));
-        if (!$v) json_fail('未检索到该就诊记录');
-        $p = PatientRepository::one('SELECT name, gender, age FROM patients WHERE patient_no=?', array($v['patient_no']));
-        json_ok(array(
-            'flow_no' => $v['flow_no'],
-            'patient_no' => $v['patient_no'],
-            'patient_name' => $p ? $p['name'] : '',
-            'first_dept' => $v['first_dept_name'],
-            'current_dept' => $v['current_dept_name'],
-            'visit_seq' => (int)$v['visit_seq'],
-            'status' => $v['status'],
-            'status_name' => visit_status_name($v['status']),
-            'registered_at' => $v['registered_at'],
-        ));
+        json_ok(HisInboundRead::visitStatus(get('flow_no', '')));
         break;
-
-    /* ---------------- 开单明细（按就诊ID） ---------------- */
     case 'order_list':
-        $visitId = (int)get('visit_id', 0);
-        if ($visitId <= 0) json_fail('请提供 visit_id 参数');
-        $orders = PatientRepository::q('SELECT * FROM orders WHERE visit_id=? ORDER BY id DESC', array($visitId));
-    // 开单类型中文名统一走 order_type_name()（helpers.d/visit.php）
-        $out = array();
-        foreach ($orders as $o) {
-            $items = PatientRepository::q('SELECT item_name, price, quantity, single_dose, frequency, route, is_nurse, status FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
-            $out[] = array(
-                'order_no' => $o['order_no'],
-                'order_type' => $o['order_type'],
-                'order_type_name' => order_type_name($o['order_type']),
-                'doctor_name' => $o['doctor_name'],
-                'total_amount' => (float)$o['total_amount'],
-                'status' => $o['status'],
-                'created_at' => $o['created_at'],
-                'paid_at' => $o['paid_at'],
-                'items' => $items,
-            );
-        }
-        json_ok(array('orders' => $out));
+        json_ok(HisInboundRead::orderList(get('visit_id', 0)));
         break;
-
-    /* ---------------- 存证校验（按记录ID/证明号核验指纹与凭据，外部机构验真用） ---------------- */
     case 'evidence_verify':
-        $recId = (int)get('record_id', 0);
-        $certNo = trim((string)get('cert_no', ''));
-        if ($recId > 0) {
-            $r = EmrRepository::one(
-                "SELECT id AS rid, visit_id, patient_no, flow_no, record_type, evid_hash, evid_algo, evid_token, evid_signer, evid_time, created_at
-                 FROM patient_records WHERE id=?", array($recId));
-            if (!$r) json_fail('未检索到该病历存证记录');
-            json_ok(array(
-                'type' => 'record', 'record_id' => $recId, 'patient_no' => $r['patient_no'], 'flow_no' => $r['flow_no'],
-                'record_type' => $r['record_type'], 'evid_hash' => $r['evid_hash'], 'evid_algo' => $r['evid_algo'],
-                'evid_token' => $r['evid_token'], 'evid_signer' => $r['evid_signer'], 'evid_time' => $r['evid_time'],
-                'created_at' => $r['created_at'],
-            ));
-            break;
-        }
-        if ($certNo !== '') {
-            $r = EmrRepository::one(
-                "SELECT id, visit_id, patient_no, flow_no, cert_no, content, evid_hash, evid_algo, evid_token, evid_signer, evid_time, created_at
-                 FROM certificates WHERE cert_no=?", array($certNo));
-            if (!$r) json_fail('未检索到该证明的存证记录');
-            json_ok(array(
-                'type' => 'certificate', 'cert_no' => $certNo, 'patient_no' => $r['patient_no'], 'flow_no' => $r['flow_no'],
-                'content' => $r['content'], 'evid_hash' => $r['evid_hash'], 'evid_algo' => $r['evid_algo'],
-                'evid_token' => $r['evid_token'], 'evid_signer' => $r['evid_signer'], 'evid_time' => $r['evid_time'],
-                'created_at' => $r['created_at'],
-            ));
-            break;
-        }
-        json_fail('请提供 record_id 或 cert_no 参数');
+        json_ok(HisInboundRead::evidenceVerify(get('record_id', 0), get('cert_no', '')));
         break;
-
     default:
         json_fail('未知操作（可用：ping / patient_get / visit_list / visit_status / order_list / evidence_verify）');
 }
