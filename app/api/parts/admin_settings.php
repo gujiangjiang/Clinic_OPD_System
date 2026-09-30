@@ -263,12 +263,12 @@ function admin_part_settings($action) {
                 '<div class="pc-row-actions">' . $btnHtml . $badge . '</div>' .
                 '</div>';
         };
-        // 打印按钮（$dead=true → 禁用态占位，保留版面；$sheet 纸张路由：
-        // 'a5'=病历纸竖版 / 'ticket'=窄条凭条 / ''=不传（检验横版A5、检查A4
+        // 打印按钮（$dead=true → 不渲染补打按钮，仅由 $pcRow 保留 已退费/已取消/已撤回 徽章；
+        // $sheet 纸张路由：'a5'=病历纸竖版 / 'ticket'=窄条凭条 / ''=不传（检验横版A5、检查A4
         // 由 print.js 依据内容 .lr-doc/.imr-doc 自动识别，误传 a5 会先按
         // 竖版分页破坏报告版式））
         $pcBtn = function ($label, $url, $sheet = 'a5', $dead = false) {
-            if ($dead) return '<button class="btn btn-outline btn-sm" disabled title="已退费作废，不可补打">' . render_icon('action:print') . ' 补打</button>';
+            if ($dead) return '';
             $sheetArg = ($sheet !== '') ? (',null,\'' . $sheet . '\'') : ',null';
             return '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'' . $url . '\'' . $sheetArg . ')">' . render_icon('action:print') . ' 补打</button>';
         };
