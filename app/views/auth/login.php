@@ -162,9 +162,9 @@ document.getElementById('username').addEventListener('input', function () {
 });
 document.getElementById('password').addEventListener('focus', probeCaptcha);
 
-/* 初始展示：force 常显；auto/force 模式下本地失败标记优先展示（轨道1，
- * 不等服务端嗅探）；off 模式永不展示 */
-if (CAPTCHA_MODE === 'force' || lsGet(CAPTCHA_KEY) === '1') showCaptcha();
+/* 初始展示：force 常显；auto 模式本地失败标记优先展示（轨道1，不等服务端嗅探）；
+ * off 模式永不展示（本地失败标记同样忽略） */
+if (CAPTCHA_MODE === 'force' || (CAPTCHA_MODE !== 'off' && lsGet(CAPTCHA_KEY) === '1')) showCaptcha();
 
 /* 验证码图片点击刷新（重新 fetch blob） */
 document.getElementById('captchaImg').addEventListener('click', function () {
