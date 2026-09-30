@@ -26,12 +26,12 @@ class Router {
      * roles 取值：'guest' 未登录 / 'user' 任意登录用户 / 具体角色名
      */
     public static $routes = array(
-        '/install'           => array('install.php',            array('guest')),
-        '/login'             => array('login.php',              array('guest')),
-        '/logout'            => array('logout.php',             array('user')),
-        '/messages'          => array('messages.php',           array('user')),
-        '/password'          => array('password.php',           array('user')),
-        '/profile'           => array('profile.php',            array('user')),
+        '/install'           => array('system/install.php',     array('guest')),
+        '/login'             => array('auth/login.php',         array('guest')),
+        '/logout'            => array('auth/logout.php',        array('user')),
+        '/messages'          => array('account/messages.php',   array('user')),
+        '/password'          => array('auth/password.php',      array('user')),
+        '/profile'           => array('account/profile.php',    array('user')),
         // ===== 管理员 =====
         '/admin/dashboard'   => array('admin/dashboard.php',    array('admin')),
         '/admin/settings'    => array('admin/settings.php',     array('admin')),
@@ -57,17 +57,17 @@ class Router {
         '/lab/critical'      => array('lab/critical.php',       array('lab')),
         '/imaging/critical'  => array('imaging/critical.php',   array('imaging')),
         // ===== 模板管理（管理员/医生共用视图，按角色渲染） =====
-        '/admin/templates'   => array('templates.php',          array('admin')),
-        '/admin/packages'    => array('packages.php',          array('admin')),
-        '/doctor/templates'  => array('templates.php',          array('doctor')),
-        '/doctor/packages'   => array('packages.php',          array('doctor')),
+        '/admin/templates'   => array('shared/templates.php',   array('admin')),
+        '/admin/packages'    => array('shared/packages.php',    array('admin')),
+        '/doctor/templates'  => array('shared/templates.php',   array('doctor')),
+        '/doctor/packages'   => array('shared/packages.php',    array('doctor')),
         // ===== 挂号收费处 =====
         '/cashier/register'  => array('cashier/register.php',   array('cashier')),
         '/cashier/home'      => array('cashier/home.php',       array('cashier')),
         '/cashier/regmanage' => array('cashier/regmanage.php',  array('cashier')),
         '/cashier/paymanage' => array('cashier/paymanage.php',  array('cashier')),
         // ===== 退费审批页（收费员/医生/检验/影像/药房/护士站 均可访问） =====
-        '/refund/approve'  => array('refund_approve.php',    array('user')),
+        '/refund/approve'  => array('refund/approve.php',    array('user')),
 
         // ===== 医生工作站 =====
         '/doctor/home'       => array('doctor/home.php',        array('doctor')),
@@ -117,7 +117,7 @@ class Router {
                 header('Location: ' . Auth::home());
                 exit;
             }
-            self::render('landing.php');
+            self::render('auth/landing.php');
             return;
         }
 
@@ -134,7 +134,7 @@ class Router {
                 header('Location: /install');
                 exit;
             }
-            self::render('install.php');
+            self::render('system/install.php');
             return;
         }
         if ($uri === '/install') {
@@ -187,7 +187,7 @@ class Router {
     }
 
     /** 无需局部刷新的独立页面（始终整页加载） */
-    public static $fullPages = array('login.php', 'install.php', 'landing.php', 'logout.php', 'doctor/call.php');
+    public static $fullPages = array('auth/login.php', 'system/install.php', 'auth/landing.php', 'auth/logout.php', 'doctor/call.php');
 
     /**
      * 是否局部刷新请求（SPA 导航）
@@ -223,7 +223,7 @@ class Router {
                 // 顶栏工具补丁：SPA 局部导航下顶栏常驻，进入病历页时由 nav.js
                 // 将工具组注入顶栏、离开时移除（仅病历页显示）
                 $topbarPatch = '<div class="view-topbar-patch" style="display:none">' . Layout::docToolsBar() . '</div>';
-            } elseif ($view === 'templates.php' || $view === 'packages.php' || $view === 'admin/review.php') {
+            } elseif ($view === 'shared/templates.php' || $view === 'shared/packages.php' || $view === 'admin/review.php') {
                 $needs[] = 'emr';
             } elseif (in_array($view, array('nurse/dashboard.php', 'lab/dashboard.php', 'imaging/dashboard.php', 'pharmacy/dashboard.php'), true)) {
                 $needs[] = 'deptwork';
@@ -240,20 +240,20 @@ class Router {
             return;
         }
 
-        $standalone = ($view === 'login.php' || $view === 'install.php' || $view === 'landing.php' || $view === 'doctor/call.php');
+        $standalone = ($view === 'auth/login.php' || $view === 'system/install.php' || $view === 'auth/landing.php' || $view === 'doctor/call.php');
         // 需要 EMR 栈（emr.js + emr_* + order + queuepanel 等）的页面：
         // 医生工作站、模板管理、审核中心（模板预览）
-        $needEmr = ($view === 'doctor/emr.php' || $view === 'templates.php' || $view === 'packages.php' || $view === 'admin/review.php');
+        $needEmr = ($view === 'doctor/emr.php' || $view === 'shared/templates.php' || $view === 'shared/packages.php' || $view === 'admin/review.php');
         // 需要科室工作台组件（deptwork.js）的页面：护士站/检验/影像/药房工作台
         $needDeptWork = in_array($view, array('nurse/dashboard.php', 'lab/dashboard.php', 'imaging/dashboard.php', 'pharmacy/dashboard.php'), true);
-        if ($view === 'landing.php' || $view === 'doctor/call.php') {
+        if ($view === 'auth/landing.php' || $view === 'doctor/call.php') {
             // 落地页 / 叫号屏自带完整 HTML，直接输出捕获内容即可
             echo $content;
             return;
         }
         if ($standalone) {
             // 首次安装页隐藏品牌区（未配置医院信息、默认图标无意义），安装框居中
-            $hideBrand = ($view === 'install.php');
+            $hideBrand = ($view === 'system/install.php');
             echo Layout::authPage($content, $hideBrand);
         } else {
             // 病历书写页强制缩小侧边栏，为书写区提供足够空间（忽略用户偏好）
