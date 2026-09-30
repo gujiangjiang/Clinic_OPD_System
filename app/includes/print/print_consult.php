@@ -16,9 +16,9 @@ function pt_consult($visit, $patient, $cons, $snap) {
     // 患者信息：姓名/性别/出生日期/年龄 + 患者ID/流水号/申请科室（无临床诊断）
     $applyDept = (string)$cons['from_dept_name'];
     if ($applyDept === '') {
-        $docU = DB::one('SELECT current_dept_id FROM users WHERE id=?', array((int)$cons['from_doctor_id']));
+        $docU = UserRepository::one('SELECT current_dept_id FROM users WHERE id=?', array((int)$cons['from_doctor_id']));
         if ($docU && (int)$docU['current_dept_id'] > 0) {
-            $dp = DB::one('SELECT name FROM departments WHERE id=?', array((int)$docU['current_dept_id']));
+            $dp = DeptRepository::one('SELECT name FROM departments WHERE id=?', array((int)$docU['current_dept_id']));
             if ($dp) $applyDept = (string)$dp['name'];
         }
     }

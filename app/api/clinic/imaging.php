@@ -397,7 +397,7 @@ switch ($action) {
     case 'draft_clear':
         $itemId = did(post('item_id'));
         if ($itemId > 0) {
-            DB::exec('DELETE FROM settings WHERE skey=?', array('img_draft_' . (int)$u['id'] . '_' . $itemId));
+            CoreRepository::exec('DELETE FROM settings WHERE skey=?', array('img_draft_' . (int)$u['id'] . '_' . $itemId));
         }
         json_ok(array(), '草稿已清除');
         break;

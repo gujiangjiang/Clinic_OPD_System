@@ -58,7 +58,7 @@ function pt_order($order, $items, $title, $opts = array()) {
     $html .= pt_barcode($displayNo);
 
     // 患者信息：开单时快照优先（法律合规），无快照兼容旧数据回退现患者表
-    $patient = DB::one('SELECT * FROM patients WHERE patient_no=?', array($order['patient_no']));
+    $patient = PatientRepository::one('SELECT * FROM patients WHERE patient_no=?', array($order['patient_no']));
     $orderSnap = snapshot_get('order', (int)$order['id']);
     if ($orderSnap) {
         $patient = array_merge($patient ? $patient : array(), array(
@@ -73,7 +73,7 @@ function pt_order($order, $items, $title, $opts = array()) {
         $diagText = trim((string)$orderSnap['extra']['clinical_diag']);
     }
     if ($diagText === '') {
-        $pr = DB::one('SELECT emr_data FROM patient_records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($order['visit_id']));
+        $pr = EmrRepository::one('SELECT emr_data FROM patient_records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($order['visit_id']));
         if ($pr && !empty($pr['emr_data'])) {
             $emr = json_decode($pr['emr_data'], true);
             if (is_array($emr) && !empty($emr['diagnoses'])) {
@@ -82,7 +82,7 @@ function pt_order($order, $items, $title, $opts = array()) {
         }
     }
     if ($diagText === '') {
-        $oldRec = DB::one('SELECT preliminary_diagnosis FROM records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($order['visit_id']));
+        $oldRec = EmrRepository::one('SELECT preliminary_diagnosis FROM records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($order['visit_id']));
         if ($oldRec && trim((string)$oldRec['preliminary_diagnosis']) !== '') {
             $diagText = trim((string)$oldRec['preliminary_diagnosis']);
         }
@@ -94,14 +94,14 @@ function pt_order($order, $items, $title, $opts = array()) {
     // 旧数据无 dept_name 时回退取开单医生当前科室，再兜底就诊当前科室
     $deptName = isset($order['dept_name']) && $order['dept_name'] !== '' ? $order['dept_name'] : '';
     if ($deptName === '') {
-        $docU = DB::one('SELECT current_dept_id FROM users WHERE id=?', array((int)$order['doctor_id']));
+        $docU = UserRepository::one('SELECT current_dept_id FROM users WHERE id=?', array((int)$order['doctor_id']));
         if ($docU && (int)$docU['current_dept_id'] > 0) {
-            $dp = DB::one('SELECT name FROM departments WHERE id=?', array((int)$docU['current_dept_id']));
+            $dp = DeptRepository::one('SELECT name FROM departments WHERE id=?', array((int)$docU['current_dept_id']));
             if ($dp) $deptName = $dp['name'];
         }
     }
     if ($deptName === '') {
-        $ordVisit = DB::one('SELECT current_dept_name FROM registrations WHERE id=?', array((int)$order['visit_id']));
+        $ordVisit = PatientRepository::one('SELECT current_dept_name FROM registrations WHERE id=?', array((int)$order['visit_id']));
         if ($ordVisit) $deptName = $ordVisit['current_dept_name'];
     }
     // 患者信息：第一行 姓名/性别/出生日期/年龄，第二行 患者ID/流水号/开单科室，第三行 临床诊断

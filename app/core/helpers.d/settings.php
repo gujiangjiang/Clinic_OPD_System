@@ -21,7 +21,7 @@ function setting($key, $default = '') {
         $all = Cache::get('cfg_settings', null);
         if (!is_array($all)) {
             $all = array();
-            foreach (DB::q('SELECT skey, svalue FROM settings') as $r) {
+            foreach (CoreRepository::q('SELECT skey, svalue FROM settings') as $r) {
                 $all[$r['skey']] = $r['svalue'];
             }
             Cache::set('cfg_settings', $all, 300);

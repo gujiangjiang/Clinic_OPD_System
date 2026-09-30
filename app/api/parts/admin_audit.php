@@ -53,12 +53,12 @@ function admin_part_audit($action) {
         $group = req('group', '');
         $group = ($group === 'user' || $group === 'type') ? $group : '';
         // 可一键通过的常规待审核事项数（密码重置 / 报告撤回不纳入一键通过）
-        $pendingCount = (int)CoreRepository::val("SELECT COUNT(*) FROM audits WHERE status='pending' AND type NOT IN ('pwd_reset','report_withdraw')", array());
+        $pendingCount = (int)AuditRepository::val("SELECT COUNT(*) FROM audits WHERE status='pending' AND type NOT IN ('pwd_reset','report_withdraw')", array());
         // 平铺分页模式（审核中心列表滚动加载）：group='' 且显式传 page 时按页返回
         $pagedFlat = ($group === '' && $page > 0);
         $rows = $pagedFlat
             ? array()
-            : CoreRepository::q("SELECT * FROM audits WHERE $statusCond ORDER BY id DESC", $statusParams);
+            : AuditRepository::q("SELECT * FROM audits WHERE $statusCond ORDER BY id DESC", $statusParams);
         $html = '<div class="fs-13 text-muted mb-8">' . ($status === 'pending' ? '待审核' : '已处理') . '：' . count($rows) . ' 条' .
             ($group ? '（按' . ($group === 'user' ? '申请人' : '类型') . '分组）' : '') . '</div>';
         if (!$pagedFlat && !$rows) {
@@ -109,8 +109,8 @@ function admin_part_audit($action) {
             };
             // —— 平铺分页模式（group='' 且传 page>0）：返回 thead + 行数组 + has_more，供无限滚动列表使用 ——
             if ($pagedFlat) {
-                $total = (int)CoreRepository::val("SELECT COUNT(*) FROM audits WHERE $statusCond", $statusParams);
-                $rows = CoreRepository::q("SELECT * FROM audits WHERE $statusCond ORDER BY id DESC LIMIT ? OFFSET ?",
+                $total = (int)AuditRepository::val("SELECT COUNT(*) FROM audits WHERE $statusCond", $statusParams);
+                $rows = AuditRepository::q("SELECT * FROM audits WHERE $statusCond ORDER BY id DESC LIMIT ? OFFSET ?",
                     array_merge($statusParams, array($pageSize, ($page - 1) * $pageSize)));
                 $thead = '<thead><tr><th>类型</th><th>事项</th><th>申请人</th><th>申请时间</th><th>状态</th><th>操作</th></tr></thead>';
                 $list = array();
@@ -176,13 +176,13 @@ function admin_part_audit($action) {
     function audit_apply($audit, $approve, $note = '') {
         $u = Auth::user();
         $newStatus = $approve ? 'approved' : 'rejected';
-        CoreRepository::exec('UPDATE audits SET status=?, handled_by=?, handled_at=?, note=? WHERE id=?', array($newStatus, $u['name'], now_str(), $note, (int)$audit['id']));
+        AuditRepository::exec('UPDATE audits SET status=?, handled_by=?, handled_at=?, note=? WHERE id=?', array($newStatus, $u['name'], now_str(), $note, (int)$audit['id']));
         $refId = (int)$audit['ref_id'];
         $proposerId = (int)$audit['proposer_id'];
         // 提交者角色（决定消息跳转链接指向哪个页面）
         $proposerRole = '';
         if ($proposerId > 0) {
-            $pr = CoreRepository::one('SELECT role FROM users WHERE id=?', array($proposerId));
+            $pr = AuditRepository::one('SELECT role FROM users WHERE id=?', array($proposerId));
             $proposerRole = $pr ? $pr['role'] : '';
         }
         // 被驳回项目的回填页面链接（管理员在后台，检验/影像/药房在自己工作站）
@@ -219,10 +219,10 @@ function admin_part_audit($action) {
             case 'package':
                 // 套餐审核：通过发布为对应范围；驳回降级为个人（个人依然可用）
                 $pkgStatus = $approve ? 'published' : 'rejected';
-                CoreRepository::exec('UPDATE packages SET status=?, updated_at=? WHERE id=?', array($pkgStatus, now_str(), $refId));
+                AuditRepository::exec('UPDATE packages SET status=?, updated_at=? WHERE id=?', array($pkgStatus, now_str(), $refId));
                 if (!$approve) {
-                    CoreRepository::exec('UPDATE packages SET scope=? WHERE id=?', array('personal', $refId));
-                    CoreRepository::exec('DELETE FROM package_depts WHERE package_id=?', array($refId));
+                    AuditRepository::exec('UPDATE packages SET scope=? WHERE id=?', array('personal', $refId));
+                    AuditRepository::exec('DELETE FROM package_depts WHERE package_id=?', array($refId));
                 }
                 if ($proposerId > 0) {
                     $pkgData = json_decode((string)$audit['data'], true);
@@ -238,16 +238,16 @@ function admin_part_audit($action) {
             case 'nursing_template':
             case 'imaging_template':
                 $tplStatus = $approve ? 'published' : 'rejected';
-                CoreRepository::exec('UPDATE emr_templates SET status=?, updated_at=? WHERE id=?', array($tplStatus, now_str(), $refId));
+                AuditRepository::exec('UPDATE emr_templates SET status=?, updated_at=? WHERE id=?', array($tplStatus, now_str(), $refId));
                 // 驳回时降级为个人模板（仅自己可见可用）
                 if (!$approve) {
-                    CoreRepository::exec('UPDATE emr_templates SET scope=? WHERE id=?', array('personal', $refId));
+                    AuditRepository::exec('UPDATE emr_templates SET scope=? WHERE id=?', array('personal', $refId));
                 }
                 if ($proposerId > 0) {
                     // 模板结果标签按实际类型区分（template 审核类型覆盖 病历/知情同意书/病历嘱托）
                     $tplLabel = '病历模板';
                     if ($audit['type'] === 'template') {
-                        $tplType = CoreRepository::val('SELECT type FROM emr_templates WHERE id=?', array($refId));
+                        $tplType = AuditRepository::val('SELECT type FROM emr_templates WHERE id=?', array($refId));
                         if ($tplType === 'order_note') $tplLabel = '病历嘱托模板';
                         elseif ($tplType === 'consent') $tplLabel = '知情同意书模板';
                     } elseif ($audit['type'] === 'nursing_template') {
@@ -269,7 +269,7 @@ function admin_part_audit($action) {
             case 'item_disp':
                 // 项目类审核统一处理：状态流转 + 通知提交者（差异来自 $itemAuditTypes 映射）
                 $itCfg = $itemAuditTypes[$audit['type']];
-                CoreRepository::exec('UPDATE ' . $itCfg['table'] . ' SET status=? WHERE id=?', array($newStatus, $refId));
+                AuditRepository::exec('UPDATE ' . $itCfg['table'] . ' SET status=? WHERE id=?', array($newStatus, $refId));
                 if ($proposerId > 0) {
                     send_msg($proposerRole !== '' ? $proposerRole : 'doctor', $proposerId, $itCfg['name'] . '审核结果',
                         '您提交的' . $itCfg['name'] . '「' . $audit['title'] . '」' . ($approve ? '已通过审核，可以' . $itCfg['verb'] . '使用' : '未通过审核，理由：' . $note . '（点击本消息回到添加页修改后重新提交）'),
@@ -285,9 +285,9 @@ function admin_part_audit($action) {
                         $nn = (int)(isset($d['is_nurse']) ? $d['is_nurse'] : 0);
                         $bd = (int)(isset($d['bind_disposal_item_id']) ? $d['bind_disposal_item_id'] : 0);
                         if ($sId > 0) {
-                            CoreRepository::exec('UPDATE drug_settings SET name=?, is_nurse=?, bind_disposal_item_id=? WHERE id=?', array($d['name'], $nn, $bd, $sId));
+                            AuditRepository::exec('UPDATE drug_settings SET name=?, is_nurse=?, bind_disposal_item_id=? WHERE id=?', array($d['name'], $nn, $bd, $sId));
                         } else {
-                            CoreRepository::insert('INSERT INTO drug_settings(stype, name, is_nurse, bind_disposal_item_id, sort) VALUES(?,?,?,?,0)', array($d['stype'], $d['name'], $nn, $bd));
+                            AuditRepository::insert('INSERT INTO drug_settings(stype, name, is_nurse, bind_disposal_item_id, sort) VALUES(?,?,?,?,0)', array($d['stype'], $d['name'], $nn, $bd));
                         }
                     }
                 }
@@ -302,13 +302,13 @@ function admin_part_audit($action) {
                     // 批准撤回：报告作废，结果回到草稿，检验/检查项目回到已登记可重新录入
                     // 注意：分散式数据库下 results（lab 库）与 order_items（order 库）不可跨库子查询，
                     // 必须先从 results 取出 order_item_id，再更新 order 库
-                    $report = CoreRepository::one('SELECT * FROM reports WHERE id=?', array($refId));
+                    $report = AuditRepository::one('SELECT * FROM reports WHERE id=?', array($refId));
                     if ($report) {
-                        CoreRepository::exec("UPDATE reports SET status='withdrawn', withdraw_reason=?, withdraw_by=?, withdraw_at=? WHERE id=?", array($audit['content'], $u['name'], now_str(), $refId));
-                        CoreRepository::exec("UPDATE results SET status='draft' WHERE id=?", array($report['result_id']));
-                        $result = CoreRepository::one('SELECT order_item_id FROM results WHERE id=?', array($report['result_id']));
+                        AuditRepository::exec("UPDATE reports SET status='withdrawn', withdraw_reason=?, withdraw_by=?, withdraw_at=? WHERE id=?", array($audit['content'], $u['name'], now_str(), $refId));
+                        AuditRepository::exec("UPDATE results SET status='draft' WHERE id=?", array($report['result_id']));
+                        $result = AuditRepository::one('SELECT order_item_id FROM results WHERE id=?', array($report['result_id']));
                         if ($result && (int)$result['order_item_id'] > 0) {
-                            CoreRepository::exec("UPDATE order_items SET status='registered' WHERE id=?", array((int)$result['order_item_id']));
+                            AuditRepository::exec("UPDATE order_items SET status='registered' WHERE id=?", array((int)$result['order_item_id']));
                         }
                     }
                 }
@@ -316,15 +316,15 @@ function admin_part_audit($action) {
             case 'pwd_reset':
                 // 忘记密码：审核通过后重置为初始密码，并通知用户重新设置
                 if ($approve) {
-                    $target = CoreRepository::one('SELECT * FROM users WHERE id=?', array($refId));
+                    $target = AuditRepository::one('SELECT * FROM users WHERE id=?', array($refId));
                     if ($target) {
-                        CoreRepository::exec("UPDATE users SET password=?, pwd_changed=0 WHERE id=?", array(password_hash('123456', PASSWORD_DEFAULT), $refId));
+                        AuditRepository::exec("UPDATE users SET password=?, pwd_changed=0 WHERE id=?", array(password_hash('123456', PASSWORD_DEFAULT), $refId));
                         send_msg($target['role'], $refId, '密码重置申请已通过',
                             '您申请的密码重置已通过管理员审核，密码已重置为初始密码，请点击下方【设置新密码】重新设置您的登录密码',
                             'pwd_reset', '');
                     }
                 } else {
-                    $target = CoreRepository::one('SELECT name FROM users WHERE id=?', array($refId));
+                    $target = AuditRepository::one('SELECT name FROM users WHERE id=?', array($refId));
                     if ($target) {
                         send_msg($target['role'], $refId, '密码重置申请未通过',
                             '您申请的密码重置未通过管理员审核，理由：' . ($note !== '' ? $note : '未说明') . '，如有疑问请联系管理员。', '', '');
@@ -334,7 +334,7 @@ function admin_part_audit($action) {
 
             case 'profile_update':
                 // 个人资料修改（学历/学位/介绍/头像）：通过则应用新值，拒绝/通过均站内消息通知
-                $target = CoreRepository::one('SELECT * FROM users WHERE id=?', array($refId));
+                $target = AuditRepository::one('SELECT * FROM users WHERE id=?', array($refId));
                 if ($approve && $target) {
                     $upd = json_decode($audit['data'], true);
                     if (is_array($upd)) {
@@ -348,7 +348,7 @@ function admin_part_audit($action) {
                         }
                         if ($set) {
                             $params[] = $refId;
-                            CoreRepository::exec('UPDATE users SET ' . implode(',', $set) . ' WHERE id=?', $params);
+                            AuditRepository::exec('UPDATE users SET ' . implode(',', $set) . ' WHERE id=?', $params);
                         }
                     }
                     if ($proposerId > 0) {
@@ -378,7 +378,7 @@ function admin_part_audit($action) {
         $note = post('note', '');
         // 驳回必须填写理由
         if (!$approve && trim($note) === '') json_fail('请填写驳回理由，便于提交者修改后重新提交');
-        $audit = CoreRepository::one('SELECT * FROM audits WHERE id=? AND status=?', array($id, 'pending'));
+        $audit = AuditRepository::one('SELECT * FROM audits WHERE id=? AND status=?', array($id, 'pending'));
         if (!$audit) json_fail('审核事项不存在或已处理');
         audit_apply($audit, $approve, trim($note));
         json_ok(array(), $approve ? '已通过审核' : '已驳回（已通知提交者）');
@@ -388,7 +388,7 @@ function admin_part_audit($action) {
     // 说明：逐条复用单条通过逻辑；密码重置（pwd_reset）与报告撤回（report_withdraw）
     // 涉及账号安全/报告作废，不纳入一键通过，需逐条人工审核。
     if ($action === 'audit_all') {
-        $rows = CoreRepository::q("SELECT * FROM audits WHERE status='pending' AND type NOT IN ('pwd_reset','report_withdraw') ORDER BY id DESC", array());
+        $rows = AuditRepository::q("SELECT * FROM audits WHERE status='pending' AND type NOT IN ('pwd_reset','report_withdraw') ORDER BY id DESC", array());
         if (!$rows) json_fail('当前没有可一键通过的事项');
         foreach ($rows as $a) {
             audit_apply($a, 1, '');
@@ -401,7 +401,7 @@ function admin_part_audit($action) {
      * 前端在 modal 加载后统一调用 makeReadonly 兜底禁用全部输入。 */
     if ($action === 'audit_preview') {
         $id = (int)req('id');
-        $a = CoreRepository::one('SELECT * FROM audits WHERE id=?', array($id));
+        $a = AuditRepository::one('SELECT * FROM audits WHERE id=?', array($id));
         if (!$a) json_fail('审核事项不存在');
         $type = (string)$a['type'];
         $html = '';
@@ -412,7 +412,7 @@ function admin_part_audit($action) {
             $stype = isset($d['stype']) ? (string)$d['stype'] : '';
             $bindName = '';
             if (!empty($d['bind_disposal_item_id'])) {
-                $bindName = (string)CoreRepository::val('SELECT name FROM disposal_items WHERE id=?', array((int)$d['bind_disposal_item_id']));
+                $bindName = (string)AuditRepository::val('SELECT name FROM disposal_items WHERE id=?', array((int)$d['bind_disposal_item_id']));
             }
             $html = '<div class="fs-13 text-muted mb-8">类型：' . e(isset($stypeNames[$stype]) ? $stypeNames[$stype] : $stype) . '（新增/修改药品设置项）</div>' .
                 '<div class="form-group"><label class="form-label">设置项名称</label>' .
@@ -442,7 +442,7 @@ function admin_part_audit($action) {
             $content = isset($d['content']) ? $d['content'] : null;
             // 历史快照缺 content（旧版本提交时未存）：实体仍存在则回退读当前模板内容
             if (!$content) {
-                $t = EmrRepository::one('SELECT content_json FROM emr_templates WHERE id=?', array($refId));
+                $t = EmrTemplateRepository::one('SELECT content_json FROM emr_templates WHERE id=?', array($refId));
                 if ($t) $content = json_decode((string)$t['content_json'], true) ?: null;
             }
             json_ok(array('type' => $type, 'template' => array(
@@ -458,7 +458,7 @@ function admin_part_audit($action) {
             $items = isset($d['items']) && is_array($d['items']) ? $d['items'] : array();
             // 历史快照缺 items（旧版本提交时未存）：实体仍存在则回退读当前项目明细
             if (!$items) {
-                $t = OrderRepository::one('SELECT content_json FROM packages WHERE id=?', array($refId));
+                $t = PackageRepository::one('SELECT content_json FROM packages WHERE id=?', array($refId));
                 if ($t) {
                     $c = json_decode((string)$t['content_json'], true) ?: array();
                     $items = isset($c['items']) && is_array($c['items']) ? $c['items'] : array();

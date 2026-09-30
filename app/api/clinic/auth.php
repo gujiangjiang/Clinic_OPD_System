@@ -34,8 +34,8 @@ if ($__act === 'check_captcha') {
     $mode = LoginSecurity::mode();
     $userFail = 0;
     if ($mode === 'auto' && $username !== '') {
-        $probe = DB::one('SELECT login_fail_count FROM users WHERE username=?', array($username));
-        if (!$probe) $probe = DB::one('SELECT login_fail_count FROM users WHERE emp_no=?', array($username));
+        $probe = UserRepository::one('SELECT login_fail_count FROM users WHERE username=?', array($username));
+        if (!$probe) $probe = UserRepository::one('SELECT login_fail_count FROM users WHERE emp_no=?', array($username));
         $userFail = $probe ? (int)$probe['login_fail_count'] : 0;
     }
     json_ok(array('require_captcha' => LoginSecurity::needCaptcha($mode, $flag, $userFail)));

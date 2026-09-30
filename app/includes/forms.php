@@ -48,7 +48,7 @@ function form_item($type, $id, $snap = null) {
             'status' => isset($snap['status']) ? $snap['status'] : '',
         );
     } else {
-        $r = $id > 0 ? DB::one("SELECT * FROM $table WHERE id=?", array((int)$id)) : array(
+        $r = $id > 0 ? OrderRepository::one("SELECT * FROM $table WHERE id=?", array((int)$id)) : array(
             'category' => '', 'name' => '', 'unit' => '', 'price' => '0', 'normal_range' => '',
             'critical_low' => '', 'critical_high' => '', 'description' => '', 'status' => '',
         );
@@ -59,7 +59,7 @@ function form_item($type, $id, $snap = null) {
             );
         }
     }
-    $cats = DB::q("SELECT name FROM item_categories WHERE ctype=? ORDER BY sort, id", array($type));
+    $cats = OrderRepository::q("SELECT name FROM item_categories WHERE ctype=? ORDER BY sort, id", array($type));
     $catOpts = '<option value="">请选择/输入分类</option>';
     foreach ($cats as $c) {
         $catOpts .= '<option value="' . e($c['name']) . '"' . ($r['category'] === $c['name'] ? ' selected' : '') . '>' . e($c['name']) . '</option>';
@@ -70,7 +70,7 @@ function form_item($type, $id, $snap = null) {
     if ($type === 'lab') {
         $unitDl = '';
         $unitOpts = '';
-        foreach (DB::q("SELECT DISTINCT unit FROM lab_items WHERE unit IS NOT NULL AND unit<>'' ORDER BY unit") as $uu) {
+        foreach (OrderRepository::q("SELECT DISTINCT unit FROM lab_items WHERE unit IS NOT NULL AND unit<>'' ORDER BY unit") as $uu) {
             $unitOpts .= '<option value="' . e($uu['unit']) . '">';
         }
         if ($unitOpts !== '') {
@@ -121,7 +121,7 @@ function form_disposal($id, $snap = null) {
             'status' => isset($snap['status']) ? $snap['status'] : '',
         );
     } else {
-        $r = $id ? DB::one('SELECT * FROM disposal_items WHERE id=?', array($id)) : array('name' => '', 'fee' => '0', 'description' => '', 'is_nurse' => 0, 'status' => '');
+        $r = $id ? OrderRepository::one('SELECT * FROM disposal_items WHERE id=?', array($id)) : array('name' => '', 'fee' => '0', 'description' => '', 'is_nurse' => 0, 'status' => '');
         if (!$r) $r = array('name' => '', 'fee' => '0', 'description' => '', 'is_nurse' => 0, 'status' => '');
     }
     return '<input type="hidden" id="f_id" value="' . (int)$id . '">
@@ -161,7 +161,7 @@ function form_drug($id, $snap = null) {
         if (!isset($r['allow_split'])) $r['allow_split'] = 0;
         if (!isset($r['warn_qty'])) $r['warn_qty'] = 0;
     } else {
-        $r = $id > 0 ? DB::one('SELECT * FROM drugs WHERE id=?', array((int)$id)) : null;
+        $r = $id > 0 ? DrugRepository::one('SELECT * FROM drugs WHERE id=?', array((int)$id)) : null;
         if (!$r) {
             $r = array(
                 'name' => '', 'generic_name' => '', 'category' => '', 'vendor' => '', 'vendor_short' => '',
@@ -187,7 +187,7 @@ function form_drug($id, $snap = null) {
     $warnBoxInit = ((int)$r['warn_qty'] > 0 && $packQtyN > 1) ? floor((int)$r['warn_qty'] / $packQtyN) : (int)$r['warn_qty'];
     // 药品设置字典：一次查出全部，按 stype 分组复用（避免每个下拉框重复查库）
     $dict = array();
-    foreach (DB::q('SELECT * FROM drug_settings ORDER BY sort, id') as $__d) {
+    foreach (OrderRepository::q('SELECT * FROM drug_settings ORDER BY sort, id') as $__d) {
         $dict[$__d['stype']][] = $__d['name'];
     }
     $sel = function ($stype, $cur) use ($dict) {
@@ -200,7 +200,7 @@ function form_drug($id, $snap = null) {
     // 皮试关联处置名称（表单回显：必须在拼接 HTML 之前计算）
     $skinName = '';
     if (!empty($r['skin_test_item_id'])) {
-        $sn = DB::val('SELECT name FROM disposal_items WHERE id=?', array((int)$r['skin_test_item_id']));
+        $sn = OrderRepository::val('SELECT name FROM disposal_items WHERE id=?', array((int)$r['skin_test_item_id']));
         $skinName = (string)$sn;
     }
     $html = '<input type="hidden" id="f_id" value="' . (int)$id . '">
@@ -289,16 +289,16 @@ function form_drug($id, $snap = null) {
     <div class="form-group"><label class="form-label">备注</label><textarea class="textarea" id="f_note" rows="2">' . e($r['note']) . '</textarea></div>';
     // 给药途径 → 是否需护士站处理 映射（供前端自动勾选）
     $routeMap = array();
-    foreach (DB::q("SELECT name, is_nurse FROM drug_settings WHERE stype='route'") as $rt) {
+    foreach (OrderRepository::q("SELECT name, is_nurse FROM drug_settings WHERE stype='route'") as $rt) {
         $routeMap[$rt['name']] = (int)$rt['is_nurse'];
     }
     // 规格结构化编辑用：已有单位列表（历史去重，供 datalist 组合框下拉选择/直接输入）
     $doseUnits = array();
-    foreach (DB::q("SELECT DISTINCT spec_dose_unit FROM drugs WHERE spec_dose_unit IS NOT NULL AND spec_dose_unit<>'' ORDER BY spec_dose_unit") as $du) {
+    foreach (DrugRepository::q("SELECT DISTINCT spec_dose_unit FROM drugs WHERE spec_dose_unit IS NOT NULL AND spec_dose_unit<>'' ORDER BY spec_dose_unit") as $du) {
         $doseUnits[] = $du['spec_dose_unit'];
     }
     $packUnits = array();
-    foreach (DB::q("SELECT DISTINCT spec_pack_unit FROM drugs WHERE spec_pack_unit IS NOT NULL AND spec_pack_unit<>'' ORDER BY spec_pack_unit") as $pu) {
+    foreach (DrugRepository::q("SELECT DISTINCT spec_pack_unit FROM drugs WHERE spec_pack_unit IS NOT NULL AND spec_pack_unit<>'' ORDER BY spec_pack_unit") as $pu) {
         $packUnits[] = $pu['spec_pack_unit'];
     }
     return array('html' => $html, 'route_nurse' => $routeMap, 'is_nurse' => (int)$r['is_nurse'],

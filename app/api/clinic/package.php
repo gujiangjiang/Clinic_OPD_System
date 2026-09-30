@@ -72,7 +72,7 @@ function pkg_validate_items($type, $items) {
             if ($type === 'prescription') {
                 $sel .= ", spec, vendor_short AS company_short, single_dose, frequency, route, qty, spec_dose, spec_dose_unit, spec_pack_qty, spec_pack_unit, single_use_qty, package_unit, allow_split";
             }
-            foreach (OrderRepository::q("SELECT $sel FROM $table WHERE id IN ($ph)", array_keys($mainIds)) as $row) {
+            foreach (PackageRepository::q("SELECT $sel FROM $table WHERE id IN ($ph)", array_keys($mainIds)) as $row) {
                 $current[(int)$row['id']] = $row;
             }
         }
@@ -202,18 +202,18 @@ switch ($action) {
             $where .= " AND title LIKE ?";
             $params[] = $like;
         }
-        $total = (int)OrderRepository::val("SELECT COUNT(*) FROM packages WHERE " . $where, $params);
-        $rows = OrderRepository::q("SELECT * FROM packages WHERE " . $where . " ORDER BY id DESC LIMIT ? OFFSET ?",
+        $total = (int)PackageRepository::val("SELECT COUNT(*) FROM packages WHERE " . $where, $params);
+        $rows = PackageRepository::q("SELECT * FROM packages WHERE " . $where . " ORDER BY id DESC LIMIT ? OFFSET ?",
             paged_suffix($params, $page, $pageSize));
         $out = array();
         foreach ($rows as $t) {
             $deptNames = array();
-            $links = OrderRepository::q('SELECT dept_id FROM package_depts WHERE package_id=?', array((int)$t['id']));
+            $links = PackageRepository::q('SELECT dept_id FROM package_depts WHERE package_id=?', array((int)$t['id']));
             if ($links) {
                 $dids = array();
                 foreach ($links as $l) $dids[] = (int)$l['dept_id'];
                 $ph2 = in_placeholders($dids);
-                foreach (OrderRepository::q("SELECT id, name FROM departments WHERE id IN ($ph2)", $dids) as $dn) {
+                foreach (PackageRepository::q("SELECT id, name FROM departments WHERE id IN ($ph2)", $dids) as $dn) {
                     $deptNames[] = $dn['name'];
                 }
             }
@@ -243,7 +243,7 @@ switch ($action) {
     case 'get':
         // 兼容 GET（编辑回填 Clinic.modal.load）/ POST（开单应用 Clinic.ajax）两种调用
         $id = (int)req('id');
-        $t = OrderRepository::one('SELECT * FROM packages WHERE id=?', array($id));
+        $t = PackageRepository::one('SELECT * FROM packages WHERE id=?', array($id));
         if (!$t) json_fail('套餐不存在');
         pkg_assert_type($u, (string)$t['type']);
         $forApply = (int)req('for_apply', 0);
@@ -257,7 +257,7 @@ switch ($action) {
             elseif ($t['scope'] === 'hospital' && $t['status'] === 'published') $isVisible = true;
             elseif ($t['scope'] === 'dept' && $t['status'] === 'published' && $myDepts) {
                 $ph = in_placeholders($myDepts);
-                $cnt = (int)OrderRepository::val("SELECT COUNT(*) FROM package_depts WHERE package_id=? AND dept_id IN ($ph)", array_merge(array($id), $myDepts));
+                $cnt = (int)PackageRepository::val("SELECT COUNT(*) FROM package_depts WHERE package_id=? AND dept_id IN ($ph)", array_merge(array($id), $myDepts));
                 if ($cnt > 0) $isVisible = true;
             }
             if (!$isVisible) json_fail('无权使用该套餐');
@@ -266,7 +266,7 @@ switch ($action) {
                 json_fail('无权编辑该套餐');
             }
         }
-        $links = OrderRepository::q('SELECT dept_id FROM package_depts WHERE package_id=?', array($id));
+        $links = PackageRepository::q('SELECT dept_id FROM package_depts WHERE package_id=?', array($id));
         $deptIds = array();
         foreach ($links as $l) $deptIds[] = (int)$l['dept_id'];
         $content = json_decode((string)$t['content_json'], true) ?: array();
@@ -288,10 +288,10 @@ switch ($action) {
         // 检验套餐：随响应返回组合/成员映射，前端按 ID 解析组合显示（不依赖快照字段）
         if ((string)$t['type'] === 'lab') {
             $labMap = array('groups' => array(), 'members' => array(), 'names' => array());
-            foreach (OrderRepository::q("SELECT id, name FROM lab_items WHERE status='approved'") as $it) {
+            foreach (PackageRepository::q("SELECT id, name FROM lab_items WHERE status='approved'") as $it) {
                 $labMap['names'][(int)$it['id']] = $it['name'];
             }
-            foreach (OrderRepository::q("SELECT gm.group_id, gm.item_id FROM lab_group_members gm
+            foreach (PackageRepository::q("SELECT gm.group_id, gm.item_id FROM lab_group_members gm
                 JOIN lab_items g ON g.id = gm.group_id AND g.status='approved' AND g.is_group=1") as $m) {
                 $labMap['groups'][(int)$m['group_id']][] = (int)$m['item_id'];
                 $labMap['members'][(int)$m['item_id']][] = (int)$m['group_id'];
@@ -313,7 +313,7 @@ switch ($action) {
         if (!in_array($scope, array('personal', 'dept', 'hospital'), true)) $scope = 'personal';
         if ($title === '') json_fail('请填写套餐名称');
         // 名称重复校验：同类型下不允许同名套餐
-        $dupPkg = OrderRepository::one('SELECT id FROM packages WHERE type=? AND title=? AND id<>?', array($type, $title, (int)$id));
+        $dupPkg = PackageRepository::one('SELECT id FROM packages WHERE type=? AND title=? AND id<>?', array($type, $title, (int)$id));
         if ($dupPkg) json_fail('已存在同名套餐「' . $title . '」，请更换名称');
         $itemsArr = json_decode((string)$items, true);
         if (!is_array($itemsArr)) $itemsArr = array();
@@ -391,7 +391,7 @@ switch ($action) {
         $status = $isAdmin ? 'published' : ($scope === 'personal' ? 'published' : 'pending_review');
         // 编辑：越权防护
         if ($id > 0) {
-            $old = OrderRepository::one('SELECT * FROM packages WHERE id=?', array($id));
+            $old = PackageRepository::one('SELECT * FROM packages WHERE id=?', array($id));
             if (!$old) json_fail('套餐不存在');
             if ((int)$old['creator_id'] !== (int)$u['id'] && !$isAdmin) json_fail('无权修改该套餐');
             if ($old['status'] === 'pending_review') json_fail('套餐正在审核中，审核通过或驳回后方可修改');
@@ -400,18 +400,18 @@ switch ($action) {
             $oldScope = (string)$old['scope'];
             // 驳回后个人可继续编辑：保持驳回状态，重新保存后再进审核
             if ($old['status'] === 'rejected') $status = ($scope === 'personal') ? 'published' : 'pending_review';
-            OrderRepository::exec('UPDATE packages SET title=?, type=?, scope=?, status=?, content_json=?, updated_at=? WHERE id=?',
+            PackageRepository::exec('UPDATE packages SET title=?, type=?, scope=?, status=?, content_json=?, updated_at=? WHERE id=?',
                 array($title, $type, $scope, $status, json_encode(array('items' => $clean), JSON_UNESCAPED_UNICODE), now_str(), $id));
             $pkgId = $id;
         } else {
-            $pkgId = OrderRepository::insert('INSERT INTO packages(title, type, scope, creator_id, creator_name, status, content_json, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
+            $pkgId = PackageRepository::create('INSERT INTO packages(title, type, scope, creator_id, creator_name, status, content_json, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
                 $title, $type, $scope, $u['id'], $u['name'], $status,
                 json_encode(array('items' => $clean), JSON_UNESCAPED_UNICODE), now_str(), now_str(),
             ));
         }
         // 科室关联（仅 dept 范围）
         $deptIds = array();
-        OrderRepository::exec('DELETE FROM package_depts WHERE package_id=?', array($pkgId));
+        PackageRepository::exec('DELETE FROM package_depts WHERE package_id=?', array($pkgId));
         if ($scope === 'dept') {
             foreach (explode(',', (string)post('dept_ids', '')) as $d) {
                 $d = (int)$d;
@@ -419,8 +419,8 @@ switch ($action) {
             }
             if ($deptIds) {
                 $ph = in_placeholders($deptIds);
-                foreach (OrderRepository::q("SELECT id FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph)", array_keys($deptIds)) as $dd) {
-                    OrderRepository::insert('INSERT OR IGNORE INTO package_depts(package_id, dept_id) VALUES(?,?)', array($pkgId, (int)$dd['id']));
+                foreach (PackageRepository::q("SELECT id FROM departments WHERE status=1 AND type IN ('clinic','emergency') AND id IN ($ph)", array_keys($deptIds)) as $dd) {
+                    PackageRepository::create('INSERT OR IGNORE INTO package_depts(package_id, dept_id) VALUES(?,?)', array($pkgId, (int)$dd['id']));
                 }
             }
         }
@@ -428,7 +428,7 @@ switch ($action) {
         $auditType = 'package';
         if ($status === 'pending_review') {
             $scopeName = $scope === 'hospital' ? '全院' : '科室';
-            $existing = OrderRepository::one("SELECT id FROM audits WHERE type=? AND ref_id=? AND status='pending'", array($auditType, $pkgId));
+            $existing = PackageRepository::one("SELECT id FROM audits WHERE type=? AND ref_id=? AND status='pending'", array($auditType, $pkgId));
             // 审核预览快照（audits.data）：保存提交时的完整内容（项目明细 + 适用范围），
             // 已处理审核即使套餐被删除仍可按原始内容预览追溯
             $auditData = json_encode(array(
@@ -438,7 +438,7 @@ switch ($action) {
             ), JSON_UNESCAPED_UNICODE);
             $typeLabel = pkg_type_label($type);
             if ($existing) {
-                OrderRepository::exec('UPDATE audits SET title=?, content=?, data=?, proposer=?, proposer_id=?, created_at=? WHERE id=?', array(
+                PackageRepository::exec('UPDATE audits SET title=?, content=?, data=?, proposer=?, proposer_id=?, created_at=? WHERE id=?', array(
                     $typeLabel . '待审核：' . $title, '提交' . $scopeName . $typeLabel . '「' . $title . '」，请在审核中心查看详情并审核', $auditData, $u['name'], $u['id'], now_str(), (int)$existing['id'],
                 ));
             } else {
@@ -450,7 +450,7 @@ switch ($action) {
                 '医生 ' . $u['name'] . ' 提交了' . $scopeName . $typeLabel . '「' . $title . '」待审核，请前往审核中心处理',
                 '', '', array('msg_type' => 'system', 'link_url' => '/admin/review'));
         } else {
-            OrderRepository::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type=? AND ref_id=? AND status='pending'", array($u['name'], now_str(), $auditType, $pkgId));
+            PackageRepository::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type=? AND ref_id=? AND status='pending'", array($u['name'], now_str(), $auditType, $pkgId));
         }
         // 管理员编辑他人套餐：站内信告知原作者（含适用范围变更说明）
         if ($isAdmin && $authorId > 0 && $authorId !== (int)$u['id']) {
@@ -470,13 +470,13 @@ switch ($action) {
     /* ==================== 删除套餐（越权防护） ==================== */
     case 'delete':
         $id = (int)post('id');
-        $t = OrderRepository::one('SELECT * FROM packages WHERE id=?', array($id));
+        $t = PackageRepository::one('SELECT * FROM packages WHERE id=?', array($id));
         if (!$t) json_fail('套餐不存在');
         pkg_assert_type($u, (string)$t['type']);
         if ((int)$t['creator_id'] !== (int)$u['id'] && $u['role'] !== 'admin') json_fail('无权删除该套餐');
         if ($t['status'] === 'pending_review') json_fail('套餐正在审核中，审核通过或驳回后方可删除');
-        OrderRepository::exec('DELETE FROM packages WHERE id=?', array($id));
-        OrderRepository::exec('DELETE FROM package_depts WHERE package_id=?', array($id));
+        PackageRepository::exec('DELETE FROM packages WHERE id=?', array($id));
+        PackageRepository::exec('DELETE FROM package_depts WHERE package_id=?', array($id));
         json_ok(array(), '套餐已删除');
         break;
 

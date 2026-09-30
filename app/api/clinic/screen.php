@@ -160,7 +160,7 @@ function screen_payload($room) {
     }
     // 被叫号患者若不在队列前 N 位（队列过长被截断）：单独回查，保证大屏始终显示当前叫号患者
     if (!$current && $pushedId > 0) {
-        $pushed = DB::one(
+        $pushed = PatientRepository::one(
             "SELECT r.id AS visit_id, r.visit_seq, r.flow_no, r.registered_at, r.first_dept_name, r.current_dept_name,
                     p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
              FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
@@ -201,7 +201,7 @@ function tech_dept_queue($roomType, $limit) {
         default:
             return array();
     }
-    return DB::q(
+    return PatientRepository::q(
         "SELECT r.id AS visit_id, r.visit_seq, r.flow_no, r.registered_at, r.first_dept_name, r.current_dept_name,
                 p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth,
                 MAX(o.dept_name) AS order_dept_name

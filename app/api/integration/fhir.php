@@ -68,7 +68,7 @@ if ($__seg0 === 'patient') {
     }
     // 兼容 patient-{patient_no} 与裸患者编号两种 id 形态
     $__pno = (strpos($__id, 'patient-') === 0) ? substr($__id, 8) : $__id;
-    $__patient = DB::one('SELECT * FROM patients WHERE patient_no=?', array($__pno));
+    $__patient = PatientRepository::one('SELECT * FROM patients WHERE patient_no=?', array($__pno));
     if (!$__patient) {
         integration_log_inbound('fhir', 'r4', false, 'Patient 未找到：' . $__id, '');
         fhir_json(array('resourceType' => 'OperationOutcome', 'issue' => array(array(

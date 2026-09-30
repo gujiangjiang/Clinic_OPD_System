@@ -123,7 +123,7 @@ foreach (glob(__DIR__ . '/../services/*/*.php') ?: array() as $__svcFile) {
  * 仅在系统已安装时才查询主库设置：避免安装向导完成第 2 步（选择数据库）
  * 之前因读取时区而触发 SQLite 主库自动建库。 */
 if (ConfigStore::isSystemInstalled()) {
-    $__tz = DB::val('core', "SELECT svalue FROM settings WHERE skey='timezone'");
+    $__tz = CoreRepository::val("SELECT svalue FROM settings WHERE skey='timezone'");
     if ($__tz) {
         date_default_timezone_set($__tz);
     }

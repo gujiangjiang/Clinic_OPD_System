@@ -155,7 +155,7 @@ function gen_unique_no($prefix, $table, $col) {
     }
     do {
         $no = $prefix . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
-    } while ((int)DB::val("SELECT COUNT(*) FROM $table WHERE $col=?", array($no)) > 0);
+    } while ((int)CoreRepository::val("SELECT COUNT(*) FROM $table WHERE $col=?", array($no)) > 0);
     return $no;
 }
 
@@ -312,7 +312,7 @@ function snapshot_patient($bizType, $bizId, $patientNo, $extra = array()) {
     $bizId = (int)$bizId;
     if ($bizId <= 0 || $bizType === '') return;
     $p = $patientNo !== ''
-        ? DB::one('SELECT patient_no, name, gender, birth_date, id_card, ethnicity, occupation, marital, phone FROM patients WHERE patient_no=?', array($patientNo))
+        ? PatientRepository::one('SELECT patient_no, name, gender, birth_date, id_card, ethnicity, occupation, marital, phone FROM patients WHERE patient_no=?', array($patientNo))
         : null;
     $row = array(
         'patient_no' => $p ? $p['patient_no'] : (string)$patientNo,
@@ -327,19 +327,16 @@ function snapshot_patient($bizType, $bizId, $patientNo, $extra = array()) {
         'extra' => json_encode(is_array($extra) ? $extra : array(), JSON_UNESCAPED_UNICODE),
         'created_at' => now_str(),
     );
-    $existed = (int)DB::val('SELECT COUNT(*) FROM print_snapshots WHERE biz_type=? AND biz_id=?', array($bizType, $bizId));
-    if ($existed) {
-        DB::exec('UPDATE print_snapshots SET patient_no=?, patient_name=?, gender=?, birth_date=?, id_card=?, ethnicity=?, job=?, marital=?, phone=?, extra=?, created_at=? WHERE biz_type=? AND biz_id=?',
-            array_merge(array_values($row), array($bizType, $bizId)));
+    if (PrintSnapshotRepository::exists($bizType, $bizId)) {
+        PrintSnapshotRepository::update($bizType, $bizId, $row);
     } else {
-        DB::insert('INSERT INTO print_snapshots(biz_type, biz_id, patient_no, patient_name, gender, birth_date, id_card, ethnicity, job, marital, phone, extra, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
-            array_merge(array($bizType, $bizId), array_values($row)));
+        PrintSnapshotRepository::create(array_merge(array('biz_type' => $bizType, 'biz_id' => $bizId), $row));
     }
 }
 
 /** 读取单据快照；无快照返回 null。extra 自动 JSON 解码为数组。 */
 function snapshot_get($bizType, $bizId) {
-    $r = DB::one('SELECT * FROM print_snapshots WHERE biz_type=? AND biz_id=?', array((string)$bizType, (int)$bizId));
+    $r = PrintSnapshotRepository::byBiz($bizType, $bizId);
     if (!$r) return null;
     $r['extra'] = json_decode((string)$r['extra'], true);
     if (!is_array($r['extra'])) $r['extra'] = array();

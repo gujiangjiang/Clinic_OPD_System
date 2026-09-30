@@ -72,7 +72,7 @@ $lastHeartbeat = time();
 $loops = 0;
 while (time() < $deadline) {
     try {
-        $rows = DB::q('SELECT id, payload FROM push_events WHERE channel=? AND id>? ORDER BY id ASC LIMIT 20', array($chan, $last));
+        $rows = PushRepository::poll($chan, $last, 20);
         foreach ($rows as $r) {
             $last = (int)$r['id'];
             echo 'id: ' . $last . "\n";

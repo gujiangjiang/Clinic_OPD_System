@@ -8,8 +8,8 @@
  */
 Router::title('个人信息');
 $u = Auth::user();
-$user = DB::one('user', 'SELECT * FROM users WHERE id=?', array($u['id']));
-$pendingAudit = DB::one('core', "SELECT * FROM audits WHERE type='profile_update' AND ref_id=? AND status='pending' ORDER BY id DESC LIMIT 1", array($u['id']));
+$user = UserRepository::one('SELECT * FROM users WHERE id=?', array($u['id']));
+$pendingAudit = AuditRepository::one("SELECT * FROM audits WHERE type='profile_update' AND ref_id=? AND status='pending' ORDER BY id DESC LIMIT 1", array($u['id']));
 $pending = $pendingAudit ? true : false;
 $pendingData = $pendingAudit ? json_decode($pendingAudit['data'], true) : null;
 $pendingPhoto = $pending && is_array($pendingData) && !empty($pendingData['photo']);

@@ -9,15 +9,15 @@
 Router::title('叫号管理');
 
 // 科室数据（含大屏统计：total 总数 / online 在线数，在线按心跳 30 秒判定）
-$depts = DB::q('dept', 'SELECT * FROM departments WHERE status=1 ORDER BY sort, id');
+$depts = DeptRepository::q('SELECT * FROM departments WHERE status=1 ORDER BY sort, id');
 $deptOpts = '<option value="">请选择科室</option>';
 foreach ($depts as $d) {
     $deptOpts .= '<option value="' . (int)$d['id'] . '">' . e($d['name']) . '</option>';
 }
 $deptPickerData = array();
 foreach ($depts as $d) {
-    $total = (int)DB::val('clinic_rooms', 'SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=?', array((int)$d['id']));
-    $online = (int)DB::val('clinic_rooms', "SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat IS NOT NULL AND (strftime('%s','now','localtime') - strftime('%s',screen_last_heartbeat)) <= 30", array((int)$d['id']));
+    $total = (int)QueueRepository::val('SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=?', array((int)$d['id']));
+    $online = (int)QueueRepository::val("SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat IS NOT NULL AND (strftime('%s','now','localtime') - strftime('%s',screen_last_heartbeat)) <= 30", array((int)$d['id']));
     $deptPickerData[] = array(
         'id' => (int)$d['id'],
         'name' => $d['name'],

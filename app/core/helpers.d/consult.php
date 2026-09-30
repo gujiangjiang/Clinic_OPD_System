@@ -12,7 +12,7 @@ function consult_ensure_no($c) {
     $no = trim((string)(isset($c['consult_no']) ? $c['consult_no'] : ''));
     if ($no === '') {
         $no = gen_unique_no('HZ', 'consultations', 'consult_no');
-        DB::exec('UPDATE consultations SET consult_no=? WHERE id=?', array($no, (int)$c['id']));
+        ConsultationRepository::exec('UPDATE consultations SET consult_no=? WHERE id=?', array($no, (int)$c['id']));
         $c['consult_no'] = $no;
     }
     return $c;
@@ -31,7 +31,7 @@ function get_consult_context($visit, $u) {
     // 医生当前所在科室（会话 auth_user 不含 current_dept_id，须从 user 库读取）
     $myDept = current_dept_id($u);
     if ($myDept <= 0) return null;
-    return DB::one(        "SELECT * FROM consultations WHERE visit_id=? AND target_dept_id=? AND status IN ('pending','doing') ORDER BY id DESC LIMIT 1",
+    return ConsultationRepository::one("SELECT * FROM consultations WHERE visit_id=? AND target_dept_id=? AND status IN ('pending','doing') ORDER BY id DESC LIMIT 1",
         array($visitId, $myDept));
 }
 
@@ -52,7 +52,7 @@ function get_editable_record($visit, $u) {
     // 会诊处理中：只有会诊病历可编辑（未创建会诊病历 → 无可编辑病历）
     $cons = get_consult_context($visit, $u);
     if ($cons) {
-        return DB::one(            'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id=? ORDER BY id DESC LIMIT 1',
+        return EmrRepository::one('SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND consultation_id=? ORDER BY id DESC LIMIT 1',
             array($visitId, $uid, (int)$cons['id']));
     }
     // 普通模式：书写科室 == 就诊当前科室，且医生当前科室 == 就诊当前科室
@@ -67,6 +67,6 @@ function get_editable_record($visit, $u) {
     // 排除会诊病历（consultation_id>0）——已完结会诊的病历 dept_id 与就诊当前科室一致，
     // 若不排除会被误判为可编辑，与 EmrContextResolver 的 consult_done 只读熔断矛盾；
     // 排除危急值记录（is_critical=1）——系统自动插入，全局只读，不抢占医生编辑位
-    return DB::one(        'SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND dept_id=? AND (consultation_id IS NULL OR consultation_id=0) AND (is_critical IS NULL OR is_critical=0) ORDER BY id DESC LIMIT 1',
+    return EmrRepository::one('SELECT * FROM patient_records WHERE visit_id=? AND doctor_id=? AND dept_id=? AND (consultation_id IS NULL OR consultation_id=0) AND (is_critical IS NULL OR is_critical=0) ORDER BY id DESC LIMIT 1',
         array($visitId, $uid, $visitDept));
 }

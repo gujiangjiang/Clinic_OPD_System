@@ -82,7 +82,7 @@ class RestHisDriver implements HisDriverInterface {
             case 'his_registration':
                 $vid = (int)self::pv($payload, 'visit_id');
                 if ($vid <= 0) return null;
-                $v = DB::one('SELECT * FROM registrations WHERE id=?', array($vid));
+                $v = PatientRepository::one('SELECT * FROM registrations WHERE id=?', array($vid));
                 if (!$v) return null;
                 return array(
                     'visit_id' => (int)$v['id'],
@@ -100,7 +100,7 @@ class RestHisDriver implements HisDriverInterface {
             case 'his_settlement':
                 $pid = (int)self::pv($payload, 'payment_id');
                 if ($pid <= 0) return null;
-                $p = DB::one('SELECT * FROM payments WHERE id=?', array($pid));
+                $p = CashierRepository::one('SELECT * FROM payments WHERE id=?', array($pid));
                 if (!$p) return null;
                 return array(
                     'payment_id' => (int)$p['id'],
@@ -117,9 +117,9 @@ class RestHisDriver implements HisDriverInterface {
             case 'his_prescription':
                 $oid = (int)self::pv($payload, 'order_id');
                 if ($oid <= 0) return null;
-                $o = DB::one('SELECT * FROM orders WHERE id=?', array($oid));
+                $o = OrderRepository::one('SELECT * FROM orders WHERE id=?', array($oid));
                 if (!$o) return null;
-                $items = DB::q("SELECT item_id, item_name, price, quantity, single_dose, frequency, route, status FROM order_items WHERE order_id=? ORDER BY id", array($oid));
+                $items = OrderRepository::q("SELECT item_id, item_name, price, quantity, single_dose, frequency, route, status FROM order_items WHERE order_id=? ORDER BY id", array($oid));
                 return array(
                     'order_id' => (int)$o['id'],
                     'order_no' => $o['order_no'],

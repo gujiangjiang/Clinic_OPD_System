@@ -33,7 +33,7 @@ function pt_receipt($visit, $patient) {
 
 function pt_payment($pay, $items) {
     // 缴费凭条快照（法律合规）：缴费时刻患者姓名优先，无快照兼容旧数据回退现患者表
-    $pName = isset($pay['patient_no']) ? DB::val('SELECT name FROM patients WHERE patient_no=?', array($pay['patient_no'])) : '';
+    $pName = isset($pay['patient_no']) ? PatientRepository::val('SELECT name FROM patients WHERE patient_no=?', array($pay['patient_no'])) : '';
     $paySnap = isset($pay['id']) ? snapshot_get('payment', (int)$pay['id']) : null;
     if ($paySnap && $paySnap['patient_name'] !== '') $pName = $paySnap['patient_name'];
     $code = isset($pay['flow_no']) && $pay['flow_no'] !== '' ? $pay['flow_no'] : (isset($pay['patient_no']) ? $pay['patient_no'] : '');

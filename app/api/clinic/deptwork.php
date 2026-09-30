@@ -515,7 +515,7 @@ function deptwork_get_available_rooms($u) {
         $where .= ' AND dept_id IN (' . in_placeholders($myDepts) . ')';
         $params = array_merge($params, $myDepts);
     }
-    $rows = DB::q("SELECT * FROM clinic_rooms WHERE $where ORDER BY id", $params);
+    $rows = QueueRepository::q("SELECT * FROM clinic_rooms WHERE $where ORDER BY id", $params);
     $list = array();
     foreach ($rows as $room) {
         $isOnline = (!empty($room['screen_last_heartbeat']) && (time() - strtotime($room['screen_last_heartbeat'])) <= 30);
@@ -529,8 +529,8 @@ function deptwork_get_available_rooms($u) {
         }
         $list[] = array('id' => (int)$room['id'], 'name' => $room['room_name'], 'status' => $status, 'status_text' => $text, 'selectable' => $sel);
     }
-    $myBound = DB::one('SELECT * FROM clinic_rooms WHERE current_doctor_id=? ORDER BY id DESC LIMIT 1', array($u['id']));
-    $boundDept = $myBound ? DB::one('SELECT name FROM departments WHERE id=?', array((int)$myBound['dept_id'])) : null;
+    $myBound = QueueRepository::one('SELECT * FROM clinic_rooms WHERE current_doctor_id=? ORDER BY id DESC LIMIT 1', array($u['id']));
+    $boundDept = $myBound ? DeptRepository::one('SELECT name FROM departments WHERE id=?', array((int)$myBound['dept_id'])) : null;
     json_ok(array('list' => $list, 'bound' => $myBound ? array('id' => (int)$myBound['id'], 'name' => $myBound['room_name'], 'dept_name' => $boundDept ? $boundDept['name'] : '') : null));
 }
 
@@ -539,7 +539,7 @@ function deptwork_bind_room($u) {
     // 惰性自愈：先清理过期绑定，再判占用（被关闭浏览器离开的人占用的诊室可直接绑）
     QueueRepository::sweepStaleBindings();
     $roomId = (int)post('room_id');
-    $room = DB::one('SELECT * FROM clinic_rooms WHERE id=?', array($roomId));
+    $room = QueueRepository::one('SELECT * FROM clinic_rooms WHERE id=?', array($roomId));
     if (!$room) json_fail('诊室不存在');
     // 类型限定：仅可绑定本角色类型诊室（护士→nurse / 检验→lab / 影像→imaging / 药房→pharmacy）
     $cfg = deptwork_role_cfg($u['role']);
@@ -558,17 +558,17 @@ function deptwork_bind_room($u) {
         json_fail('该大屏已被 ' . $room['current_doctor_name'] . ' 使用，无法绑定');
     }
     // 释放本人此前绑定的其他诊室（一人一块屏）
-    DB::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL WHERE current_doctor_id=?', array($u['id']));
-    DB::exec('UPDATE clinic_rooms SET current_doctor_id=?, current_doctor_name=?, doctor_heartbeat=?, call_session_date=?, updated_at=? WHERE id=?',
+    QueueRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL WHERE current_doctor_id=?', array($u['id']));
+    QueueRepository::exec('UPDATE clinic_rooms SET current_doctor_id=?, current_doctor_name=?, doctor_heartbeat=?, call_session_date=?, updated_at=? WHERE id=?',
         array($u['id'], $u['name'], now_str(), today_str(), now_str(), $roomId));
-    $dept = DB::one('SELECT name FROM departments WHERE id=?', array((int)$room['dept_id']));
+    $dept = DeptRepository::one('SELECT name FROM departments WHERE id=?', array((int)$room['dept_id']));
     json_ok(array('room_id' => $roomId, 'room_name' => $room['room_name'], 'dept_name' => $dept ? $dept['name'] : ''), '已绑定大屏「' . $room['room_name'] . '」');
 }
 
 /** 解绑大屏诊室 */
 function deptwork_unbind_room($u) {
     $roomId = (int)post('room_id');
-    DB::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL, current_visit_id=0, current_flow_no=\'\', current_called_at=\'\', last_call_action=\'\', last_call_at=\'\', updated_at=? WHERE id=? AND current_doctor_id=?',
+    QueueRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL, current_visit_id=0, current_flow_no=\'\', current_called_at=\'\', last_call_action=\'\', last_call_at=\'\', updated_at=? WHERE id=? AND current_doctor_id=?',
         array(now_str(), $roomId, $u['id']));
     json_ok(array(), '已释放诊室');
 }
@@ -576,14 +576,14 @@ function deptwork_unbind_room($u) {
 /** 绑定心跳保活 */
 function deptwork_room_heartbeat($u) {
     $roomId = (int)post('room_id');
-    DB::exec('UPDATE clinic_rooms SET doctor_heartbeat=?, updated_at=? WHERE id=? AND current_doctor_id=?',
+    QueueRepository::exec('UPDATE clinic_rooms SET doctor_heartbeat=?, updated_at=? WHERE id=? AND current_doctor_id=?',
         array(now_str(), now_str(), $roomId, $u['id']));
     json_ok(array());
 }
 
 /** 当前绑定诊室（无则 null） */
 function deptwork_bound_room($u) {
-    return DB::one('SELECT * FROM clinic_rooms WHERE current_doctor_id=? ORDER BY id DESC LIMIT 1', array($u['id']));
+    return QueueRepository::one('SELECT * FROM clinic_rooms WHERE current_doctor_id=? ORDER BY id DESC LIMIT 1', array($u['id']));
 }
 
 /** 医技叫号下一位：把在办队列中的下一位患者推送到大屏（当前处理中之后或队首） */
@@ -605,9 +605,9 @@ function deptwork_call_next($u) {
     if (!$next) $next = $rows[0];
     $visitId = (int)$next['visit_id'];
     $now = now_str();
-    DB::exec('UPDATE clinic_rooms SET current_visit_id=?, current_flow_no=?, current_called_at=?, last_call_action=?, last_call_at=?, updated_at=? WHERE id=?',
+    QueueRepository::exec('UPDATE clinic_rooms SET current_visit_id=?, current_flow_no=?, current_called_at=?, last_call_action=?, last_call_at=?, updated_at=? WHERE id=?',
         array($visitId, $next['flow_no'], $now, 'call', $now, $now, (int)$room['id']));
-    DB::insert('INSERT INTO call_events(visit_id, flow_no, patient_no, dept_id, room_id, doctor_id, doctor_name, action, created_at) VALUES(?,?,?,?,?,?,?,?,?)',
+    QueueRepository::insert('INSERT INTO call_events(visit_id, flow_no, patient_no, dept_id, room_id, doctor_id, doctor_name, action, created_at) VALUES(?,?,?,?,?,?,?,?,?)',
         array($visitId, $next['flow_no'], $next['patient_no'], (int)$room['dept_id'], (int)$room['id'], (int)$u['id'], $u['name'], 'call', $now));
     push_room_event($room, array('action' => 'call_next', 'room_id' => (int)$room['id']));
     json_ok(array('visit_id' => oid($visitId), 'name' => $next['pname'], 'flow_no' => $next['flow_no']), '已呼叫 ' . $next['pname']);
@@ -619,9 +619,9 @@ function deptwork_call_repeat($u) {
     if (!$room) json_fail('请先绑定大屏诊室');
     if ((int)$room['current_visit_id'] <= 0) json_fail('当前无正在呼叫的患者');
     $now = now_str();
-    DB::exec('UPDATE clinic_rooms SET current_called_at=?, last_call_action=?, last_call_at=?, updated_at=? WHERE id=?',
+    QueueRepository::exec('UPDATE clinic_rooms SET current_called_at=?, last_call_action=?, last_call_at=?, updated_at=? WHERE id=?',
         array($now, 'repeat_call', $now, $now, (int)$room['id']));
-    DB::insert('INSERT INTO call_events(visit_id, flow_no, patient_no, dept_id, room_id, doctor_id, doctor_name, action, created_at) VALUES(?,?,?,?,?,?,?,?,?)',
+    QueueRepository::insert('INSERT INTO call_events(visit_id, flow_no, patient_no, dept_id, room_id, doctor_id, doctor_name, action, created_at) VALUES(?,?,?,?,?,?,?,?,?)',
         array((int)$room['current_visit_id'], $room['current_flow_no'], '', (int)$room['dept_id'], (int)$room['id'], (int)$u['id'], $u['name'], 'repeat_call', $now));
     push_room_event($room, array('action' => 'repeat_call', 'room_id' => (int)$room['id']));
     json_ok(array(), '已再次呼叫');

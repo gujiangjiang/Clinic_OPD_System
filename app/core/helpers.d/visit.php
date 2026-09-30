@@ -14,11 +14,11 @@
 
 /** 按就诊ID联查 挂号记录 + 患者档案 */
 function get_visit_row($visitId) {
-    $v = DB::one('SELECT * FROM registrations WHERE id=?', array((int)$visitId));
+    $v = PatientRepository::one('SELECT * FROM registrations WHERE id=?', array((int)$visitId));
     if (!$v) {
         return null;
     }
-    $p = DB::one('SELECT * FROM patients WHERE patient_no=?', array($v['patient_no']));
+    $p = PatientRepository::one('SELECT * FROM patients WHERE patient_no=?', array($v['patient_no']));
     return array('visit' => $v, 'patient' => $p);
 }
 

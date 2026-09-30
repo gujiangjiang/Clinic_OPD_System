@@ -107,7 +107,7 @@ function submit_audit($type, $refId, $title, $content, $extra = array()) {
     $cols = 'type, ref_id, title, content, status, proposer, proposer_id, created_at';
     if ($data !== null) { $cols .= ', data'; $params[] = $data; }
     if ($source !== '') { $cols .= ', creation_source'; $params[] = $source; }
-    return DB::insert('INSERT INTO audits(' . $cols . ') VALUES(' . in_placeholders($params) . ')', $params);
+    return AuditRepository::insert('INSERT INTO audits(' . $cols . ') VALUES(' . in_placeholders($params) . ')', $params);
 }
 
 /** 金额格式化：保留两位小数 */

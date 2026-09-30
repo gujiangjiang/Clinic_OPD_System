@@ -41,7 +41,7 @@ class HL7MessageBuilder {
 
     /** 患者资料行（patients 表） */
     public static function patientByNo($patientNo) {
-        return $patientNo !== '' ? DB::one('SELECT * FROM patients WHERE patient_no=?', array($patientNo)) : null;
+        return $patientNo !== '' ? PatientRepository::one('SELECT * FROM patients WHERE patient_no=?', array($patientNo)) : null;
     }
 
     /**
@@ -54,7 +54,7 @@ class HL7MessageBuilder {
         if ($businessType === 'hl7_adt') {
             $visitId = isset($payload['visit_id']) ? (int)$payload['visit_id'] : 0;
             if ($visitId <= 0) return '';
-            $visit = DB::one('SELECT * FROM registrations WHERE id=?', array($visitId));
+            $visit = PatientRepository::one('SELECT * FROM registrations WHERE id=?', array($visitId));
             if (!$visit) return '';
             $patient = self::patientByNo((string)$visit['patient_no']);
             return self::adtA04($visit, $patient);
@@ -62,11 +62,11 @@ class HL7MessageBuilder {
         if ($businessType === 'hl7_orm') {
             $orderId = isset($payload['order_id']) ? (int)$payload['order_id'] : 0;
             if ($orderId <= 0) return '';
-            $order = DB::one('SELECT * FROM orders WHERE id=?', array($orderId));
+            $order = OrderRepository::one('SELECT * FROM orders WHERE id=?', array($orderId));
             if (!$order) return '';
-            $visit = DB::one('SELECT * FROM registrations WHERE id=?', array((int)$order['visit_id']));
+            $visit = PatientRepository::one('SELECT * FROM registrations WHERE id=?', array((int)$order['visit_id']));
             $patient = self::patientByNo((string)$order['patient_no']);
-            $items = DB::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($orderId));
+            $items = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($orderId));
             return self::ormO01($order, $items, $visit, $patient);
         }
         return '';

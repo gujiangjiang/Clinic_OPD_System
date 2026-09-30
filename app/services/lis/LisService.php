@@ -32,10 +32,10 @@ class LisService {
         if ($url === '') {
             throw new Exception('LIS 申请接口未配置（integration.outbound.lis.order_url）');
         }
-        $order = DB::one('SELECT * FROM orders WHERE id=?', array((int)$orderId));
+        $order = OrderRepository::one('SELECT * FROM orders WHERE id=?', array((int)$orderId));
         if (!$order) throw new Exception('检验申请单不存在：' . (int)$orderId);
-        $patient = DB::one('SELECT name, gender, birth_date, id_card, phone FROM patients WHERE patient_no=?', array($order['patient_no']));
-        $items = DB::q("SELECT item_id, item_name, price FROM order_items
+        $patient = PatientRepository::one('SELECT name, gender, birth_date, id_card, phone FROM patients WHERE patient_no=?', array($order['patient_no']));
+        $items = OrderRepository::q("SELECT item_id, item_name, price FROM order_items
             WHERE order_id=? AND item_type='lab' AND item_id>0 ORDER BY id", array((int)$orderId));
         $payload = array(
             'order_no' => $order['order_no'],
@@ -97,10 +97,10 @@ class LisService {
         if ($orderNo === '') {
             throw new Exception('缺少申请单号');
         }
-        $order = DB::one('SELECT * FROM orders WHERE order_no=?', array($orderNo));
+        $order = OrderRepository::one('SELECT * FROM orders WHERE order_no=?', array($orderNo));
         if (!$order) {
             // 兼容以就诊流水号作为申请单号的下发
-            $order = DB::one('SELECT * FROM orders WHERE flow_no=? ORDER BY id DESC LIMIT 1', array($orderNo));
+            $order = OrderRepository::one('SELECT * FROM orders WHERE flow_no=? ORDER BY id DESC LIMIT 1', array($orderNo));
         }
         if (!$order) {
             throw new Exception('申请单不存在：' . $orderNo);
@@ -119,7 +119,7 @@ class LisService {
         }
 
         // 申请单下所有检验明细（order_items）与项目字典
-        $orderItems = DB::q("SELECT oi.*, li.name AS dict_name, li.unit AS dict_unit, li.normal_range AS dict_range,
+        $orderItems = OrderRepository::q("SELECT oi.*, li.name AS dict_name, li.unit AS dict_unit, li.normal_range AS dict_range,
             li.is_group AS dict_group, li.parent_id AS dict_parent
             FROM order_items oi LEFT JOIN lab_items li ON li.id=oi.item_id
             WHERE oi.order_id=? AND oi.item_type='lab' ORDER BY oi.id", array($orderId));
@@ -134,7 +134,7 @@ class LisService {
             $name = trim((string)($oi['dict_name'] !== '' ? $oi['dict_name'] : $oi['item_name']));
             if ($name !== '') $byName[$name] = $oi;
             if ((int)$oi['dict_group'] === 1) {
-                $members = DB::q('SELECT id, name FROM lab_items WHERE parent_id=? AND is_group=0', array((int)$oi['item_id']));
+                $members = OrderRepository::q('SELECT id, name FROM lab_items WHERE parent_id=? AND is_group=0', array((int)$oi['item_id']));
                 foreach ($members as $m) {
                     $groupByMember[trim((string)$m['name'])] = array('group_oi' => $oi, 'member_id' => (int)$m['id']);
                 }
@@ -167,7 +167,7 @@ class LisService {
             $orderItemId = (int)$target['id'];
             $isGroup = (int)$target['dict_group'] === 1;
 
-            $result = DB::one('SELECT * FROM results WHERE order_item_id=?', array($orderItemId));
+            $result = OrderRepository::one('SELECT * FROM results WHERE order_item_id=?', array($orderItemId));
             if ($isGroup) {
                 // 组结果：values 按成员 id 合并（覆盖性更新），meta 附加异常标志
                 $vals = $result ? (array)(json_decode((string)$result['values_json'], true)) : array('group' => 1, 'values' => array());
@@ -182,18 +182,18 @@ class LisService {
             }
 
             if ($result) {
-                DB::exec("UPDATE results SET values_json=?, status='done', executor=?, updated_at=? WHERE id=?",
+                OrderRepository::exec("UPDATE results SET values_json=?, status='done', executor=?, updated_at=? WHERE id=?",
                     array($valuesJson, $reportDoctor !== '' ? $reportDoctor : 'LIS', now_str(), (int)$result['id']));
                 $resultId = (int)$result['id'];
             } else {
-                $resultId = DB::insert(
+                $resultId = OrderRepository::insert(
                     'INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, values_json, executor, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
                     array($itemId, $orderItemId, $visitId, $patientNo, $flowNo, 'lab', $valuesJson,
                         $reportDoctor !== '' ? $reportDoctor : 'LIS', 'done', now_str(), now_str())
                 );
             }
             // 回写 order_items.result_id（检验完成队列据此关联报告）
-            DB::exec('UPDATE order_items SET result_id=? WHERE id=?', array($resultId, $orderItemId));
+            OrderRepository::exec('UPDATE order_items SET result_id=? WHERE id=?', array($resultId, $orderItemId));
             $resultIds[$resultId] = $resultId;
             $updated++;
         }
@@ -222,11 +222,11 @@ class LisService {
         $flowNo = (string)$order['flow_no'];
         $report = null;
         if ($reportNo !== '') {
-            $report = DB::one('SELECT * FROM reports WHERE report_no=?', array($reportNo));
+            $report = OrderRepository::one('SELECT * FROM reports WHERE report_no=?', array($reportNo));
         }
         if (!$report && $resultIds) {
             $rid = (int)reset($resultIds);
-            $report = DB::one('SELECT * FROM reports WHERE result_id=? AND type=? ORDER BY id LIMIT 1', array($rid, 'lab'));
+            $report = OrderRepository::one('SELECT * FROM reports WHERE result_id=? AND type=? ORDER BY id LIMIT 1', array($rid, 'lab'));
         }
         $fields = array(
             'doctor' => $reportDoctor !== '' ? $reportDoctor : 'LIS',
@@ -241,7 +241,7 @@ class LisService {
                 $params[] = $v;
             }
             $params[] = (int)$report['id'];
-            DB::exec('UPDATE reports SET ' . implode(',', $set) . ' WHERE id=?', $params);
+            OrderRepository::exec('UPDATE reports SET ' . implode(',', $set) . ' WHERE id=?', $params);
             return (int)$report['id'];
         }
         $no = $reportNo !== '' ? $reportNo : next_report_no('lab');

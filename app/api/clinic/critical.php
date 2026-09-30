@@ -31,7 +31,7 @@ function crit_lab_snapshot($result, $item) {
     if (!is_array($values)) $values = array();
     $rows = array();
     if ($isGroup) {
-        $members = DB::q("SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id", array((int)$item['id']));
+        $members = CriticalValueRepository::groupItems((int)$item['id']);
         $map = (isset($values['values']) && is_array($values['values'])) ? $values['values'] : array();
         foreach ($members as $m) {
             $rows[] = array(
@@ -85,7 +85,7 @@ function crit_store_record($u, $source, $report, $display, $doc) {
     $rv = get_visit_row((int)$report['visit_id']);
     if (!$rv) json_fail('就诊记录不存在');
     $patient = $rv['patient'];
-    $deptRow = DB::one('SELECT name FROM departments WHERE id=?', array(current_dept_id($u)));
+    $deptRow = CriticalValueRepository::deptName(current_dept_id($u));
     $fromDept = $deptRow ? (string)$deptRow['name'] : ($source === 'lab' ? '检验科' : '影像科');
     $snapshot = array(
         'item_name' => $display['item_name'],
@@ -93,23 +93,20 @@ function crit_store_record($u, $source, $report, $display, $doc) {
         'findings' => isset($display['findings']) ? $display['findings'] : '',
         'conclusion' => isset($display['conclusion']) ? $display['conclusion'] : '',
     );
-    return (int)DB::insert(
-        'INSERT INTO critical_values(source, report_id, result_id, visit_id, patient_no, flow_no, patient_name, patient_gender, patient_birth, patient_age, item_name, items_json, snapshot_json, from_dept, from_user_id, from_name, to_doctor_id, to_doctor_name, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        array(
-            $source, (int)$report['id'], (int)$report['result_id'], (int)$report['visit_id'],
-            (string)$report['patient_no'], (string)$report['flow_no'],
-            $patient ? (string)$patient['name'] : '',
-            $patient ? (string)$patient['gender'] : '',
-            $patient ? (string)$patient['birth_date'] : '',
-            $patient ? age_format($patient['birth_date']) : '',
-            (string)$display['item_name'],
-            json_encode($display['critical_items'], JSON_UNESCAPED_UNICODE),
-            json_encode($snapshot, JSON_UNESCAPED_UNICODE),
-            $fromDept, (int)$u['id'], (string)$u['name'],
-            (int)$doc['id'], (string)$doc['name'],
-            'pending', now_str(),
-        )
-    );
+    return (int)CriticalValueRepository::create(array(
+        'source' => $source, 'report_id' => (int)$report['id'], 'result_id' => (int)$report['result_id'], 'visit_id' => (int)$report['visit_id'],
+        'patient_no' => (string)$report['patient_no'], 'flow_no' => (string)$report['flow_no'],
+        'patient_name' => $patient ? (string)$patient['name'] : '',
+        'patient_gender' => $patient ? (string)$patient['gender'] : '',
+        'patient_birth' => $patient ? (string)$patient['birth_date'] : '',
+        'patient_age' => $patient ? age_format($patient['birth_date']) : '',
+        'item_name' => (string)$display['item_name'],
+        'items_json' => json_encode($display['critical_items'], JSON_UNESCAPED_UNICODE),
+        'snapshot_json' => json_encode($snapshot, JSON_UNESCAPED_UNICODE),
+        'from_dept' => $fromDept, 'from_user_id' => (int)$u['id'], 'from_name' => (string)$u['name'],
+        'to_doctor_id' => (int)$doc['id'], 'to_doctor_name' => (string)$doc['name'],
+        'status' => 'pending', 'created_at' => now_str(),
+    ));
 }
 
 /** 危急值病历续写一句话（EMR 危急值记录节点文案） */
@@ -143,19 +140,19 @@ function crit_sentence($cv, $matchText, $treatment) {
  * 记录医生/时间由服务端写入（同病历保存逻辑），文书文字 = 危急值记录一句话。
  */
 function crit_insert_emr($cv, $u, $matchText, $treatment) {
-    $visit = DB::one('SELECT * FROM registrations WHERE id=?', array((int)$cv['visit_id']));
+    $visit = CriticalValueRepository::visitById((int)$cv['visit_id']);
     if (!$visit) json_fail('就诊记录不存在');
     $now = now_str();
     $emr = emr_default_data(null);
     $sentence = crit_sentence($cv, $matchText, $treatment);
     $emr['progress']['content'] = $sentence;
     // 续写父记录：处理医生本人最近一条文书，无则取本就诊最近一条
-    $parent = DB::one('SELECT id FROM patient_records WHERE visit_id=? AND doctor_id=? ORDER BY id DESC LIMIT 1', array((int)$cv['visit_id'], (int)$u['id']));
+    $parent = CriticalValueRepository::latestRecordByVisitDoctor((int)$cv['visit_id'], (int)$u['id']);
     if (!$parent) {
-        $parent = DB::one('SELECT id FROM patient_records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array((int)$cv['visit_id']));
+        $parent = CriticalValueRepository::latestRecordByVisit((int)$cv['visit_id']);
     }
     $parentId = $parent ? (int)$parent['id'] : 0;
-    $recordId = (int)DB::insert(
+    $recordId = (int)EmrRepository::insert(
         'INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, chief_complaint, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergy_history, is_leave_hospital, icd10_code, diagnosis_name, emr_data, emr_print_text, status, created_at, updated_at, consultation_id, is_critical) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         array(
             (int)$cv['visit_id'], (string)$visit['patient_no'], (string)$visit['flow_no'],
@@ -187,7 +184,7 @@ function crit_insert_emr($cv, $u, $matchText, $treatment) {
         (int)$visit['current_dept_id'], (int)$u['id'], (string)$u['name'], $recordId);
     foreach ($mirror as $v) $params[] = $v;
     $params[] = $now;
-    DB::insert("INSERT INTO records($cols) VALUES($marks)", $params);
+    EmrRepository::insert("INSERT INTO records($cols) VALUES($marks)", $params);
     return $recordId;
 }
 
@@ -204,8 +201,8 @@ switch ($action) {
             $like = '%' . $q . '%';
             $params[] = $like; $params[] = $like; $params[] = $like;
         }
-        $total = (int)DB::val("SELECT COUNT(*) FROM users WHERE $where", $params);
-        $rows = DB::q("SELECT id, name, emp_no, title FROM users WHERE $where ORDER BY emp_no, id LIMIT ? OFFSET ?", paged_suffix($params, $page, $pageSize));
+        $total = CriticalValueRepository::countDoctors($where, $params);
+        $rows = CriticalValueRepository::listDoctors($where, $params, $page, $pageSize);
         json_ok(array('list' => $rows, 'total' => $total, 'has_more' => paged_has_more($page, $pageSize, $total)));
         break;
 
@@ -216,18 +213,18 @@ switch ($action) {
         $reportId = did(post('report_id'));
         $toDoctorId = (int)post('to_doctor_id');
         if ($toDoctorId <= 0) json_fail('请选择接收医生');
-        $doc = DB::one("SELECT id, name, emp_no FROM users WHERE id=? AND role='doctor' AND status=1", array($toDoctorId));
+        $doc = CriticalValueRepository::doctorActiveById($toDoctorId);
         if (!$doc) json_fail('接收医生不存在或已停用');
-        $report = DB::one('SELECT * FROM reports WHERE id=? AND type=?', array($reportId, $source));
+        $report = CriticalValueRepository::reportById($reportId, $source);
         if (!$report) json_fail('报告不存在');
-        $result = DB::one('SELECT * FROM results WHERE id=?', array((int)$report['result_id']));
+        $result = CriticalValueRepository::resultById((int)$report['result_id']);
         $rv = get_visit_row((int)$report['visit_id']);
         if (!$rv) json_fail('就诊记录不存在');
         if ($u['role'] !== 'admin' && !dept_visit_allowed($rv['visit'], $u)) {
             json_fail('无权限发送该就诊的危急值');
         }
         if ($source === 'lab') {
-            $item = DB::one('SELECT * FROM lab_items WHERE id=?', array($result ? (int)$result['item_id'] : 0));
+            $item = CriticalValueRepository::labItemById($result ? (int)$result['item_id'] : 0);
             if (!$item) json_fail('检验项目不存在');
             $snap = crit_lab_snapshot($result, $item);
             $critItems = array();
@@ -247,10 +244,7 @@ switch ($action) {
         }
         // 发送幂等：同一报告同一接收医生的危急值仅可发送一次（无撤回流程，
         // 重复发送会生成重复危急值记录与重复站内信；改派医生请选择其他接收人）
-        $dup = (int)DB::val(
-            "SELECT COUNT(*) FROM critical_values WHERE source=? AND report_id=? AND to_doctor_id=?",
-            array($source, $reportId, $toDoctorId)
-        );
+        $dup = CriticalValueRepository::countRows('source=? AND report_id=? AND to_doctor_id=?', array($source, $reportId, $toDoctorId));
         if ($dup > 0) json_fail('该报告向此医生的危急值已发送，请勿重复发送');
         $cvId = crit_store_record($u, $source, $report, $display, $doc);
         $pName = $rv['patient'] ? (string)$rv['patient']['name'] : '';
@@ -266,7 +260,7 @@ switch ($action) {
     /* ==================== 危急值详情（处理弹窗 / 只读查看） ==================== */
     case 'detail':
         $id = did(get('id'));
-        $cv = DB::one('SELECT * FROM critical_values WHERE id=?', array($id));
+        $cv = CriticalValueRepository::byId($id);
         if (!$cv) json_fail('危急值记录不存在');
         $isDoctor = $u['role'] === 'doctor' && (int)$cv['to_doctor_id'] === (int)$u['id'];
         $isSender = (int)$cv['from_user_id'] === (int)$u['id'];
@@ -283,7 +277,7 @@ switch ($action) {
         $cv['duration'] = crit_duration_text((string)$cv['created_at'], (string)$cv['processed_at']);
         $cv['processed_by_name'] = '';
         if ((int)$cv['processed_by'] > 0) {
-            $pb = DB::one('SELECT name FROM users WHERE id=?', array((int)$cv['processed_by']));
+            $pb = CriticalValueRepository::userName((int)$cv['processed_by']);
             $cv['processed_by_name'] = $pb ? (string)$pb['name'] : '';
         }
         unset($cv['items_json'], $cv['snapshot_json']);
@@ -316,8 +310,8 @@ switch ($action) {
         list($from, $to) = date_span_clamp('critical', $from, $to);
         if ($from !== '') { $where .= ' AND date(created_at)>=?'; $params[] = $from; }
         if ($to !== '') { $where .= ' AND date(created_at)<=?'; $params[] = $to; }
-        $total = (int)DB::val("SELECT COUNT(*) FROM critical_values WHERE $where", $params);
-        $rows = DB::q("SELECT * FROM critical_values WHERE $where ORDER BY id DESC LIMIT ? OFFSET ?", paged_suffix($params, $page, $pageSize));
+        $total = CriticalValueRepository::countRows($where, $params);
+        $rows = CriticalValueRepository::paginate($where, $params, $page, $pageSize);
         $out = array();
         foreach ($rows as $cv) {
             $out[] = array(
@@ -348,7 +342,7 @@ switch ($action) {
         $treatment = post('treatment');
         if (!in_array($match, array('match', 'mismatch'), true)) json_fail('请选择是否符合病情');
         if ($treatment === '') json_fail('请填写处理措施');
-        $cv = DB::one('SELECT * FROM critical_values WHERE id=?', array($id));
+        $cv = CriticalValueRepository::byId($id);
         if (!$cv) json_fail('危急值记录不存在');
         if ($u['role'] !== 'admin' && (int)$cv['to_doctor_id'] !== (int)$u['id']) {
             json_fail('您不是该危急值的接收医生');
@@ -359,13 +353,12 @@ switch ($action) {
         try {
             DatabaseManager::tx(function () use ($cv, $u, $matchText, $treatment, $id, &$recordId) {
                 // 条件更新防并发重复处理：仅待处理状态可推进
-                $n = DB::exec("UPDATE critical_values SET status='done', match_status=?, treatment=?, processed_by=?, processed_at=? WHERE id=? AND status='pending'",
-                    array($matchText, $treatment, (int)$u['id'], now_str(), $id));
+                $n = CriticalValueRepository::process($id, $matchText, $treatment, (int)$u['id']);
                 if ($n <= 0) {
                     json_fail('该危急值已处理，不可重复处理');
                 }
                 $recordId = crit_insert_emr($cv, $u, $matchText, $treatment);
-                DB::exec('UPDATE critical_values SET record_id=? WHERE id=?', array($recordId, $id));
+                CriticalValueRepository::attachRecord($id, $recordId);
             });
         } catch (Exception $ex) {
             json_fail('处理失败：' . $ex->getMessage());

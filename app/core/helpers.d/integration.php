@@ -365,10 +365,7 @@ function integration_inbound_endpoints() {
 function integration_log_inbound($endpoint, $provider, $ok, $summary, $body = '') {
     try {
         $ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
-        DB::insert(
-            'INSERT INTO inbound_events(endpoint, provider, ok, summary, body, remote_ip, created_at) VALUES(?,?,?,?,?,?,?)',
-            array($endpoint, $provider, $ok ? 1 : 0, (string)$summary, substr((string)$body, 0, 8000), $ip, now_str())
-        );
+        IntegrationRepository::logInbound($endpoint, $provider, $ok, $summary, $body, $ip);
     } catch (Exception $ex) {
         if (defined('DEBUG') && DEBUG) error_log('[inbound_events 落账失败] ' . $ex->getMessage());
     }

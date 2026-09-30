@@ -142,11 +142,11 @@ class FhirService {
 
     /** 按患者编号检索 Encounter（入向：Encounter?patient=） */
     public static function encountersOfPatient($patientNo) {
-        $patient = DB::one('SELECT * FROM patients WHERE patient_no=?', array($patientNo));
+        $patient = PatientRepository::one('SELECT * FROM patients WHERE patient_no=?', array($patientNo));
         if (!$patient) {
             return self::bundle(array(), 0);
         }
-        $visits = DB::q('SELECT * FROM registrations WHERE patient_no=? ORDER BY id DESC', array($patientNo));
+        $visits = PatientRepository::q('SELECT * FROM registrations WHERE patient_no=? ORDER BY id DESC', array($patientNo));
         $entries = array(array('resource' => self::patientResource($patient)));
         foreach ($visits as $v) {
             $entries[] = array('resource' => self::encounterResource($v, $patient));
@@ -177,9 +177,9 @@ class FhirService {
         if ($endpoint === '') {
             throw new Exception('FHIR 目标地址未配置（integration.outbound.fhir.remote_endpoint）');
         }
-        $visit = DB::one('SELECT * FROM registrations WHERE id=?', array((int)$visitId));
+        $visit = PatientRepository::one('SELECT * FROM registrations WHERE id=?', array((int)$visitId));
         if (!$visit) throw new Exception('就诊记录不存在：' . (int)$visitId);
-        $patient = DB::one('SELECT * FROM patients WHERE patient_no=?', array($visit['patient_no']));
+        $patient = PatientRepository::one('SELECT * FROM patients WHERE patient_no=?', array($visit['patient_no']));
         $bundle = self::buildVisitBundle($visit, $patient);
         $authType = (string)setting('integration.outbound.fhir.auth_type', 'none');
         $token = trim((string)setting('integration.outbound.fhir.client_token', ''));
@@ -214,7 +214,7 @@ class FhirService {
         $patientNo = (string)(isset($visit['patient_no']) ? $visit['patient_no'] : '');
 
         // Condition：本次就诊诊断（病历 icd10_code/diagnosis_name）
-        $diags = DB::q("SELECT icd10_code, diagnosis_name, created_at FROM patient_records
+        $diags = EmrRepository::q("SELECT icd10_code, diagnosis_name, created_at FROM patient_records
             WHERE visit_id=? AND icd10_code!='' ORDER BY id LIMIT 10", array($visitId));
         $ci = 0;
         foreach ($diags as $d) {
@@ -234,7 +234,7 @@ class FhirService {
         }
 
         // MedicationRequest：处方明细
-        $rxItems = DB::q("SELECT oi.* FROM order_items oi JOIN orders o ON o.id=oi.order_id
+        $rxItems = OrderRepository::q("SELECT oi.* FROM order_items oi JOIN orders o ON o.id=oi.order_id
             WHERE o.visit_id=? AND o.order_type='prescription' AND oi.item_type='prescription'
             ORDER BY oi.id", array($visitId));
         foreach ($rxItems as $it) {

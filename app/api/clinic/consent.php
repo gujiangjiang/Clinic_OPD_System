@@ -40,7 +40,7 @@ switch ($action) {
         // 新建前置：无已保存首诊病历 → 禁止创建知情同意书
         // （同意书需有首诊病历支撑；与前端 syncNavAdds 隐藏「＋」同规则）
         if ($id <= 0) {
-            $hasInitial = EmrRepository::one("SELECT id FROM patient_records WHERE visit_id=? AND record_type='initial' LIMIT 1", array($visitId));
+            $hasInitial = ConsentRepository::one("SELECT id FROM patient_records WHERE visit_id=? AND record_type='initial' LIMIT 1", array($visitId));
             if (!$hasInitial) json_fail('请先书写并保存首诊病历后再创建知情同意书');
         }
         // 跨科室只读锁定：医生当前科室 != 就诊当前科室（非会诊处理中）→ 绝对只读，
@@ -56,9 +56,9 @@ switch ($action) {
         $snapshotJson = json_encode(consent_emr_snapshot($visitId, $sections), JSON_UNESCAPED_UNICODE);
         if ($id > 0) {
             // 编辑：更新 内容/告知内容/勾选节 + 重新快照（随当前病历更新），标题保持原值
-            $old = EmrRepository::one('SELECT * FROM consents WHERE id=? AND doctor_id=?', array($id, $u['id']));
+            $old = ConsentRepository::one('SELECT * FROM consents WHERE id=? AND doctor_id=?', array($id, $u['id']));
             if (!$old) json_fail('知情同意书不存在或无权修改');
-            EmrRepository::exec('UPDATE consents SET content=?, notice=?, emr_snapshot=?, updated_at=? WHERE id=?',
+            ConsentRepository::exec('UPDATE consents SET content=?, notice=?, emr_snapshot=?, updated_at=? WHERE id=?',
                 array($content, $notice, $snapshotJson, $now, $id));
         } else {
             // 标题推导（完全自定义抬头）：模板名称即文书标题（门诊告知书/病重通知书/
@@ -66,14 +66,14 @@ switch ($action) {
             $tplId = (int)post('template_id', 0);
             $title = '';
             if ($tplId > 0) {
-                $tpl = EmrRepository::one('SELECT title FROM emr_templates WHERE id=?', array($tplId));
+                $tpl = ConsentRepository::one('SELECT title FROM emr_templates WHERE id=?', array($tplId));
                 if ($tpl) $title = trim((string)$tpl['title']);
             }
             if ($title === '') json_fail('请从有效的知情同意书模板创建');
             // 开具科室固化：就诊当前科室（创建时确定，转科/会诊后不再变化）
             $deptId = (int)$visit['current_dept_id'];
             $deptName = (string)$visit['current_dept_name'];
-            $id = EmrRepository::insert('INSERT INTO consents(visit_id, patient_no, flow_no, title, content, notice, emr_snapshot, doctor_id, doctor_name, dept_id, dept_name, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+            $id = ConsentRepository::create('INSERT INTO consents(visit_id, patient_no, flow_no, title, content, notice, emr_snapshot, doctor_id, doctor_name, dept_id, dept_name, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                 $visitId, $patient['patient_no'], $visit['flow_no'], $title, $content, $notice, $snapshotJson, $u['id'], $u['name'], $deptId, $deptName, $now, $now,
             ));
         }
@@ -87,7 +87,7 @@ switch ($action) {
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         if (!visit_dept_authorized($row['visit'], $u)) json_fail('无权限查看该就诊的知情同意书');
-        $rows = EmrRepository::q('SELECT * FROM consents WHERE visit_id=? ORDER BY id ASC', array($visitId));
+        $rows = ConsentRepository::q('SELECT * FROM consents WHERE visit_id=? ORDER BY id ASC', array($visitId));
         $list = array();
         foreach ($rows as $r) {
             $list[] = array(
@@ -105,7 +105,7 @@ switch ($action) {
     /* ==================== 获取单条知情同意书 ==================== */
     case 'get':
         $id = (int)get('id', 0);
-        $r = EmrRepository::one('SELECT * FROM consents WHERE id=?', array($id));
+        $r = ConsentRepository::one('SELECT * FROM consents WHERE id=?', array($id));
         if (!$r) json_fail('知情同意书不存在');
         $vRow = get_visit_row((int)$r['visit_id']);
         if ($vRow && !visit_dept_authorized($vRow['visit'], $u)) json_fail('无权限查看');
@@ -134,7 +134,7 @@ switch ($action) {
     /* ==================== 删除知情同意书（仅本人创建） ==================== */
     case 'delete':
         $id = (int)post('id', 0);
-        $c = EmrRepository::one('SELECT * FROM consents WHERE id=?', array($id));
+        $c = ConsentRepository::one('SELECT * FROM consents WHERE id=?', array($id));
         if (!$c) json_fail('知情同意书不存在');
         if ((int)$c['doctor_id'] !== (int)$u['id']) json_fail('仅可删除本人创建的知情同意书');
         $row = get_visit_row($c['visit_id']);
@@ -147,7 +147,7 @@ switch ($action) {
         if ($row && !get_editable_record($row['visit'], $u)) {
             json_fail('跨科室病历仅只读，当前科室不可删除知情同意书');
         }
-        EmrRepository::exec('DELETE FROM consents WHERE id=?', array($id));
+        ConsentRepository::exec('DELETE FROM consents WHERE id=?', array($id));
         json_ok(array(), '知情同意书已删除');
         break;
 

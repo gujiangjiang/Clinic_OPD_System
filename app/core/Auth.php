@@ -40,7 +40,7 @@ class Auth {
         $u = self::user();
         if (!$u) return false;
         try {
-            $row = DB::one('SELECT id, status, role, dept_ids FROM users WHERE id=?', array((int)$u['id']));
+            $row = UserRepository::one('SELECT id, status, role, dept_ids FROM users WHERE id=?', array((int)$u['id']));
         } catch (Exception $ex) {
             // 数据库不可用与「账号失活」是两类故障：此处仅当明确读到 status=0 才判定
             // 停用登出；数据库抖动时降级放行（后续业务操作仍会因 DB 不可用而失败），
@@ -86,8 +86,8 @@ class Auth {
         $mode = LoginSecurity::mode();
         $userFail = 0;
         if ($mode === 'auto') {
-            $probe = DB::one('SELECT login_fail_count FROM users WHERE username=?', array($account));
-            if (!$probe) $probe = DB::one('SELECT login_fail_count FROM users WHERE emp_no=?', array($account));
+            $probe = UserRepository::one('SELECT login_fail_count FROM users WHERE username=?', array($account));
+            if (!$probe) $probe = UserRepository::one('SELECT login_fail_count FROM users WHERE emp_no=?', array($account));
             $userFail = $probe ? (int)$probe['login_fail_count'] : 0;
         }
         if (LoginSecurity::needCaptcha($mode, $captchaFlag, $userFail)) {
@@ -104,9 +104,9 @@ class Auth {
         // 用户名强制英文字母开头（见用户管理保存校验），与纯数字工号天然不冲突。
         // 注意：不再按 status=1 过滤——停用/锁定用户必须走精准话术拦截（③前阻断），
         // 且不进行密码比对、不累加错误次数（安全锁定/停用账号不是有效爆破目标）。
-        $u = DB::one('SELECT * FROM users WHERE username=?', array($account));
+        $u = UserRepository::one('SELECT * FROM users WHERE username=?', array($account));
         if (!$u) {
-            $u = DB::one('SELECT * FROM users WHERE emp_no=?', array($account));
+            $u = UserRepository::one('SELECT * FROM users WHERE emp_no=?', array($account));
         }
         if (!$u) {
             // 情况 A：工号/用户名不存在——仅记录 IP/Session 失败频次，用户表无行可计
@@ -119,9 +119,9 @@ class Auth {
             if ((string)$u['lock_reason'] === 'password_error_locked' && isset($u['login_locked_until']) && $u['login_locked_until'] !== null && $u['login_locked_until'] !== '') {
                 $until = strtotime((string)$u['login_locked_until']);
                 if ($until > 0 && time() >= $until) {
-                    DB::exec("UPDATE users SET status=1, lock_reason='', login_fail_count=0, locked_at=NULL, lock_ip=NULL, login_locked_until=NULL WHERE id=?",
+                    UserRepository::exec("UPDATE users SET status=1, lock_reason='', login_fail_count=0, locked_at=NULL, lock_ip=NULL, login_locked_until=NULL WHERE id=?",
                         array((int)$u['id']));
-                    $u = DB::one('SELECT * FROM users WHERE id=?', array((int)$u['id']));
+                    $u = UserRepository::one('SELECT * FROM users WHERE id=?', array((int)$u['id']));
                 }
             }
             if ((int)$u['status'] === 0) {
@@ -142,8 +142,8 @@ class Auth {
             LoginSecurity::ipFailRecord();
             $threshold = LoginSecurity::lockCount();
             // 原子递增失败计数（避免并发登录请求的 read-modify-write 竞态覆盖计数）
-            DB::exec('UPDATE users SET login_fail_count = login_fail_count + 1 WHERE id=?', array((int)$u['id']));
-            $cnt = (int)DB::val('SELECT login_fail_count FROM users WHERE id=?', array((int)$u['id']));
+            UserRepository::exec('UPDATE users SET login_fail_count = login_fail_count + 1 WHERE id=?', array((int)$u['id']));
+            $cnt = (int)UserRepository::val('SELECT login_fail_count FROM users WHERE id=?', array((int)$u['id']));
             if ($cnt >= $threshold) {
                 // 达到阈值：自动安全锁定（条件更新仅首个请求锁定成功——
                 // 并发请求不会重复发送管理员告警站内信；临时锁定 15 分钟到期自动解锁，
@@ -151,7 +151,7 @@ class Auth {
                 $ip = LoginSecurity::clientIp();
                 $now = now_str();
                 $until = date('Y-m-d H:i:s', time() + LoginSecurity::LOCK_DURATION);
-                $locked = DB::exec(
+                $locked = UserRepository::exec(
                     "UPDATE users SET status=0, lock_reason='password_error_locked', locked_at=?, lock_ip=?, login_locked_until=?
                      WHERE id=? AND status=1",
                     array($now, $ip, $until, (int)$u['id'])
@@ -172,7 +172,7 @@ class Auth {
 
         /* ==================== ④ 登录成功处理 ==================== */
         // 清零失败计数与锁定归因字段（历史 login_locked_until 一并失效）
-        DB::exec(
+        UserRepository::exec(
             'UPDATE users SET login_fail_count=0, login_locked_until=NULL, lock_reason=NULL, locked_at=NULL, last_login=? WHERE id=?',
             array(now_str(), (int)$u['id'])
         );
@@ -201,7 +201,7 @@ class Auth {
         $u = self::user();
         if ($u) {
             try {
-                DB::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL, updated_at=? WHERE current_doctor_id=?',
+                QueueRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL, updated_at=? WHERE current_doctor_id=?',
                     array(now_str(), (int)$u['id']));
             } catch (Exception $ex) {
                 if (defined('DEBUG') && DEBUG) error_log('[logout] 诊室解绑失败（不影响登出）：' . $ex->getMessage());

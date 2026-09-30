@@ -14,7 +14,7 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
         // 科室：续写/会诊记录使用本记录自身的书写科室，而非就诊当前科室（转科/会诊后不同）
         $contDept = '';
         if (!empty($record['dept_id'])) {
-            $dn = DB::one('SELECT name FROM departments WHERE id=?', array((int)$record['dept_id']));
+            $dn = DeptRepository::one('SELECT name FROM departments WHERE id=?', array((int)$record['dept_id']));
             if ($dn) $contDept = (string)$dn['name'];
         }
         if ($contDept === '') $contDept = $visit['current_dept_name'] ?? '';
@@ -170,9 +170,9 @@ $info = '<div class="print-info-lines">' .
     $orderSql .= " AND (record_id=? OR record_id=0)";
     $orderParams[] = $recPrintId;
     $orderSql .= ' ORDER BY id ASC';
-    $orders = DB::q($orderSql, $orderParams);
+    $orders = OrderRepository::q($orderSql, $orderParams);
     foreach ($orders as $o) {
-        $its = DB::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
+        $its = OrderRepository::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($o['id']));
         foreach ($its as $it) {
             if ($it['item_name'] === '' || $it['item_name'] === null) continue; // 防空名明细
             if ($o['order_type'] === 'lab' || $o['order_type'] === 'imaging') {
@@ -188,7 +188,7 @@ $info = '<div class="print-info-lines">' .
     }
     // 会诊：本人发起的会诊在门诊处置中显示「请X科会诊」（与病历编辑页一致）
     // 会诊与病历强关联：仅打印本记录（record_id）发起的会诊；旧数据（record_id=0）回退按医生归属
-    $consRows = DB::q("SELECT target_dept_name, record_id FROM consultations WHERE visit_id=? AND from_doctor_id=? ORDER BY id ASC", array($visit['id'], (int)$record['doctor_id']));
+    $consRows = ConsultationRepository::q("SELECT target_dept_name, record_id FROM consultations WHERE visit_id=? AND from_doctor_id=? ORDER BY id ASC", array($visit['id'], (int)$record['doctor_id']));
     foreach ($consRows as $cr) {
         $crRec = (int)(isset($cr['record_id']) ? $cr['record_id'] : 0);
         if ($recPrintId > 0 && $crRec > 0 && $crRec !== $recPrintId) continue;

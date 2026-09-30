@@ -10,7 +10,7 @@
  */
 Router::title('运营分析');
 // 科室选项（医生统计筛选 / 自定义统计维度）——仅临床科室，医技/其他无就诊数据
-$depts = DB::q('dept', "SELECT id, name FROM departments WHERE status=1 AND type IN ('clinic','emergency') ORDER BY sort, id");
+$depts = DeptRepository::q("SELECT id, name FROM departments WHERE status=1 AND type IN ('clinic','emergency') ORDER BY sort, id");
 ?>
 <div class="page-head">
     <div><div class="page-title"><?= render_icon('nav:chart') ?> 医院运营分析</div><div class="page-desc">多维度运营数据统计与趋势分析（口径：已缴费）</div></div>

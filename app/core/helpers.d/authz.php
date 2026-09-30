@@ -85,7 +85,7 @@ function user_queue_days($u) {
     if (isset($u['queue_days']) && (int)$u['queue_days'] >= 2 && (int)$u['queue_days'] <= 7) {
         return (int)$u['queue_days'];
     }
-    $ud = DB::one('SELECT queue_days FROM users WHERE id=?', array((int)$u['id']));
+    $ud = UserRepository::one('SELECT queue_days FROM users WHERE id=?', array((int)$u['id']));
     if ($ud && (int)$ud['queue_days'] >= 2 && (int)$ud['queue_days'] <= 7) return (int)$ud['queue_days'];
     return 3;
 }
@@ -125,7 +125,7 @@ function visit_dept_authorized($visit, $u) {
     if (in_array($curDept, $myDepts, true)) return true;
     $visitId = (int)(isset($visit['id']) ? $visit['id'] : 0);
     if ($visitId > 0) {
-        $n = (int)DB::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array($visitId, (int)$u['id']));
+        $n = (int)EmrRepository::val('SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?', array($visitId, (int)$u['id']));
         if ($n > 0) return true;
         // 会诊放行：该就诊有发给当前医生所在科室的进行中/待处理会诊 →
         // 会诊医生（仅需本科室权限）可查看该跨科室就诊并书写会诊病历
@@ -143,7 +143,7 @@ function visit_has_active_consult($visit, $u) {
     if ($visitId <= 0) return false;
     $docDept = current_dept_id($u);
     if ($docDept <= 0) return false;
-    return (int)DB::val("SELECT COUNT(*) FROM consultations WHERE visit_id=? AND target_dept_id=? AND status IN ('pending','doing')", array($visitId, $docDept)) > 0;
+    return (int)ConsultationRepository::val("SELECT COUNT(*) FROM consultations WHERE visit_id=? AND target_dept_id=? AND status IN ('pending','doing')", array($visitId, $docDept)) > 0;
 }
 
 /**
@@ -158,7 +158,7 @@ function visit_consult_done_authorized($visit, $u) {
     if ($docDept <= 0) return false;
     $visitId = (int)(isset($visit['id']) ? $visit['id'] : 0);
     if ($visitId <= 0) return false;
-    return (int)DB::val("SELECT COUNT(*) FROM consultations WHERE visit_id=? AND target_dept_id=? AND status='done'", array($visitId, $docDept)) > 0;
+    return (int)ConsultationRepository::val("SELECT COUNT(*) FROM consultations WHERE visit_id=? AND target_dept_id=? AND status='done'", array($visitId, $docDept)) > 0;
 }
 
 /**

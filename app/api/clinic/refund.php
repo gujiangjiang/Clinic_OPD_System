@@ -25,14 +25,14 @@ if ($action === 'check') {
     // 存在 registered/done/dispensed 等已执行状态 → 需走退费申请审批流
     $paymentNo = trim((string)get('payment_no', ''));
     if ($paymentNo === '') json_fail('缺少缴费批次号');
-    $pays = CoreRepository::q("SELECT * FROM payments WHERE payment_no=? AND kind='order' ORDER BY id ASC", array($paymentNo));
+    $pays = RefundRepository::q("SELECT * FROM payments WHERE payment_no=? AND kind='order' ORDER BY id ASC", array($paymentNo));
     if (!$pays) json_fail('未找到该缴费批次');
     $orderIds = array();
     foreach ($pays as $p) $orderIds[] = (int)$p['order_id'];
     $blocked = array();   // 存在已执行状态的项目
     $allPaid = true;
     foreach ($orderIds as $oid) {
-        $o = CoreRepository::one('SELECT * FROM orders WHERE id=?', array($oid));
+        $o = RefundRepository::one('SELECT * FROM orders WHERE id=?', array($oid));
         if (!$o) continue;
         // 审方/发药拆分：审方通过未发药（reviewed）的药房处方视为已介入，需走审批
         if ($o['order_type'] === 'prescription' && $o['status'] === 'reviewed') {
@@ -40,7 +40,7 @@ if ($action === 'check') {
             $blocked[] = array('name' => '处方（审方通过待发药）', 'status' => 'reviewed', 'executed_by' => $o['review_by']);
             continue;
         }
-        $its = CoreRepository::q('SELECT * FROM order_items WHERE order_id=?', array($oid));
+        $its = RefundRepository::q('SELECT * FROM order_items WHERE order_id=?', array($oid));
         foreach ($its as $it) {
             if ($it['status'] === 'paid') continue;
             if ($it['status'] !== 'open' && $it['status'] !== 'refunded' && $it['status'] !== 'cancelled') {
@@ -50,8 +50,8 @@ if ($action === 'check') {
         }
     }
     // 是否已有进行中的退费申请
-    $pendingReq = CoreRepository::one("SELECT id, status FROM refund_requests WHERE payment_no=? AND status='pending' ORDER BY id DESC LIMIT 1", array($paymentNo));
-    $approvedReq = CoreRepository::one("SELECT id FROM refund_requests WHERE payment_no=? AND status='approved' ORDER BY id DESC LIMIT 1", array($paymentNo));
+    $pendingReq = RefundRepository::one("SELECT id, status FROM refund_requests WHERE payment_no=? AND status='pending' ORDER BY id DESC LIMIT 1", array($paymentNo));
+    $approvedReq = RefundRepository::one("SELECT id FROM refund_requests WHERE payment_no=? AND status='approved' ORDER BY id DESC LIMIT 1", array($paymentNo));
     json_ok(array(
         'all_paid' => $allPaid ? 1 : 0,
         'blocked' => $blocked,
@@ -69,7 +69,7 @@ if ($action === 'apply') {
     $reason = trim((string)post('reason', ''));
     if ($paymentNo === '') json_fail('缺少缴费批次号');
     // 校验该批次属于本人收费范围（收费员不限科室）
-    $pays = CoreRepository::q("SELECT * FROM payments WHERE payment_no=? AND kind='order' ORDER BY id ASC", array($paymentNo));
+    $pays = RefundRepository::q("SELECT * FROM payments WHERE payment_no=? AND kind='order' ORDER BY id ASC", array($paymentNo));
     if (!$pays) json_fail('未找到该缴费批次');
     $visitId = (int)$pays[0]['visit_id'];
     $orderIds = array();
@@ -84,12 +84,12 @@ if ($action === 'apply') {
     $needLab = $needImaging = $needPharmacy = $needNurse = false;
     $allPaid = true;
     foreach ($orderIds as $oid) {
-        $o = CoreRepository::one('SELECT * FROM orders WHERE id=?', array($oid));
+        $o = RefundRepository::one('SELECT * FROM orders WHERE id=?', array($oid));
         if (!$o) continue;
         if ((int)$o['doctor_id'] > 0) $doctors[(int)$o['doctor_id']] = $o['doctor_name'];
         // 审方/发药拆分：审方通过未发药（reviewed）视为已介入，不可直接退费
         if ($o['order_type'] === 'prescription' && $o['status'] === 'reviewed') $allPaid = false;
-        $its = CoreRepository::q('SELECT * FROM order_items WHERE order_id=?', array($oid));
+        $its = RefundRepository::q('SELECT * FROM order_items WHERE order_id=?', array($oid));
         foreach ($its as $it) {
             if ($it['status'] !== 'paid' && $it['status'] !== 'open') $allPaid = false;
             if ($o['order_type'] === 'lab' && in_array($it['status'], array('registered', 'done'), true)) $needLab = true;
@@ -106,7 +106,7 @@ if ($action === 'apply') {
     }
     // 科室角色各取一个在职用户（开单医生已含则不重复角色，科室用户首条）
     $roleUser = function ($role) {
-        return CoreRepository::one("SELECT id, name FROM users WHERE role=? AND status=1 ORDER BY id LIMIT 1", array($role));
+        return RefundRepository::one("SELECT id, name FROM users WHERE role=? AND status=1 ORDER BY id LIMIT 1", array($role));
     };
     if ($needLab) {
         $ru = $roleUser('lab');
@@ -137,12 +137,12 @@ if ($action === 'apply') {
     $reqId = 0;
     try {
         DatabaseManager::tx(function () use ($visitId, $pays, $patient, $paymentNo, $orderIds, $reason, $u, $approvers, &$reqId) {
-            $reqId = CoreRepository::insert('INSERT INTO refund_requests(visit_id, patient_no, flow_no, payment_no, order_ids, reason, status, created_by, created_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
+            $reqId = RefundRepository::insert('INSERT INTO refund_requests(visit_id, patient_no, flow_no, payment_no, order_ids, reason, status, created_by, created_at) VALUES(?,?,?,?,?,?,?,?,?)', array(
                 $visitId, $patient ? $patient['patient_no'] : $pays[0]['patient_no'], $pays[0]['flow_no'],
                 $paymentNo, json_encode($orderIds), $reason, 'pending', (int)$u['id'], now_str(),
             ));
             foreach ($approvers as $a) {
-                CoreRepository::insert('INSERT INTO refund_approvals(request_id, role, user_id, user_name, verdict, note, decided_at) VALUES(?,?,?,?,?,?,?)', array(
+                RefundRepository::insert('INSERT INTO refund_approvals(request_id, role, user_id, user_name, verdict, note, decided_at) VALUES(?,?,?,?,?,?,?)', array(
                     $reqId, $a['role'], (int)$a['user_id'], $a['user_name'], 'pending', '', '',
                 ));
             }
@@ -168,20 +168,20 @@ if ($action === 'apply') {
 /* ==================== 申请详情（审批页/收费员查看） ==================== */
 if ($action === 'detail') {
     $reqId = did(get('id'));
-    $req = CoreRepository::one('SELECT * FROM refund_requests WHERE id=?', array($reqId));
+    $req = RefundRepository::one('SELECT * FROM refund_requests WHERE id=?', array($reqId));
     if (!$req) json_fail('退费申请不存在');
     // 归属校验：仅申请发起人、关联审批人、管理员可查看（防 IDOR 枚举他人退费申请）
     $isCreator = (int)$req['created_by'] === (int)$u['id'];
-    $isApprover = (int)CoreRepository::val('SELECT COUNT(*) FROM refund_approvals WHERE request_id=? AND user_id=?', array($reqId, (int)$u['id'])) > 0;
+    $isApprover = (int)RefundRepository::val('SELECT COUNT(*) FROM refund_approvals WHERE request_id=? AND user_id=?', array($reqId, (int)$u['id'])) > 0;
     if ($u['role'] !== 'admin' && !$isCreator && !$isApprover) json_fail('无权限查看该退费申请');
-    $approvals = CoreRepository::q('SELECT * FROM refund_approvals WHERE request_id=? ORDER BY id ASC', array($reqId));
+    $approvals = RefundRepository::q('SELECT * FROM refund_approvals WHERE request_id=? ORDER BY id ASC', array($reqId));
     // 项目执行状态
     $orderIds = json_decode($req['order_ids'], true);
     $orders = array();
     foreach ($orderIds as $oid) {
-        $o = CoreRepository::one('SELECT * FROM orders WHERE id=?', array($oid));
+        $o = RefundRepository::one('SELECT * FROM orders WHERE id=?', array($oid));
         if (!$o) continue;
-        $items = CoreRepository::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($oid));
+        $items = RefundRepository::q('SELECT * FROM order_items WHERE order_id=? ORDER BY id', array($oid));
         $orders[] = array(
             'order_no' => $o['order_no'],
             'order_type' => $o['order_type'],
@@ -221,23 +221,23 @@ if ($action === 'approve') {
     $verdict = post('verdict', '');   // approve / reject
     $note = trim((string)post('note', ''));
     if (!in_array($verdict, array('approve', 'reject'), true)) json_fail('审批指令无效');
-    $req = CoreRepository::one('SELECT * FROM refund_requests WHERE id=?', array($reqId));
+    $req = RefundRepository::one('SELECT * FROM refund_requests WHERE id=?', array($reqId));
     if (!$req) json_fail('退费申请不存在');
     if ($req['status'] !== 'pending') json_fail('该申请已完结，不可再审批');
     // 仅申请关联的审批人可审批（管理员可代审批）
-    $myApproval = CoreRepository::one('SELECT * FROM refund_approvals WHERE request_id=? AND user_id=?', array($reqId, (int)$u['id']));
+    $myApproval = RefundRepository::one('SELECT * FROM refund_approvals WHERE request_id=? AND user_id=?', array($reqId, (int)$u['id']));
     if (!$myApproval && $u['role'] !== 'admin') json_fail('您不是该申请的审批人');
     // 记录审批：本人审批行写入意见；管理员代审批时对其余全部待审行统一生效
     // （修复：管理员非审批人时 UPDATE 影响 0 行，意见被静默丢弃，申请永远 pending）
     if ($myApproval) {
-        CoreRepository::exec("UPDATE refund_approvals SET verdict=?, note=?, decided_at=? WHERE request_id=? AND user_id=?",
+        RefundRepository::exec("UPDATE refund_approvals SET verdict=?, note=?, decided_at=? WHERE request_id=? AND user_id=?",
             array($verdict, $note, now_str(), $reqId, (int)$u['id']));
     } else {
-        CoreRepository::exec("UPDATE refund_approvals SET verdict=?, note=?, decided_at=? WHERE request_id=? AND verdict='pending'",
+        RefundRepository::exec("UPDATE refund_approvals SET verdict=?, note=?, decided_at=? WHERE request_id=? AND verdict='pending'",
             array($verdict, $note, now_str(), $reqId));
     }
     // 汇总：全部同意 → approved；任一拒绝 → rejected
-    $all = CoreRepository::q('SELECT verdict FROM refund_approvals WHERE request_id=?', array($reqId));
+    $all = RefundRepository::q('SELECT verdict FROM refund_approvals WHERE request_id=?', array($reqId));
     $allApprove = true;
     $anyReject = false;
     foreach ($all as $a) {
@@ -246,7 +246,7 @@ if ($action === 'approve') {
     }
     $newStatus = $anyReject ? 'rejected' : ($allApprove ? 'approved' : 'pending');
     if ($newStatus !== 'pending') {
-        CoreRepository::exec("UPDATE refund_requests SET status=? WHERE id=?", array($newStatus, $reqId));
+        RefundRepository::exec("UPDATE refund_requests SET status=? WHERE id=?", array($newStatus, $reqId));
         // 通知收费处
         send_msg('cashier', 0,
             '退费申请' . ($newStatus === 'approved' ? '已全部同意' : '被拒绝'),

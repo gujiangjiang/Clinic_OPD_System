@@ -15,15 +15,19 @@ function send_msg($toRole, $toUserId, $title, $content = '', $printType = '', $p
     //   visit_id     关联就诊ID（点击可跳转到该次病历）
     //   link_url     自定义跳转链接（如审核驳回后跳回添加页回填重提）
     $extra = is_array($extra) ? $extra : array();
-    DB::insert('INSERT INTO messages(from_name, from_user_id, to_role, to_user_id, title, content, print_type, print_url, is_read, msg_type, patient_name, visit_id, link_url, created_at) VALUES(?,?,?,?,?,?,?,?,0,?,?,?,?,?)', array(
-        isset($_SESSION['auth_user']['name']) ? $_SESSION['auth_user']['name'] : '系统',
-        isset($_SESSION['auth_user']['id']) ? (int)$_SESSION['auth_user']['id'] : 0,
-        $toRole, (int)$toUserId, $title, $content, $printType, $printUrl,
-        isset($extra['msg_type']) ? $extra['msg_type'] : 'system',
-        isset($extra['patient_name']) ? $extra['patient_name'] : '',
-        isset($extra['visit_id']) ? (int)$extra['visit_id'] : 0,
-        isset($extra['link_url']) ? $extra['link_url'] : '',
-        now_str(),
+    MessageRepository::send(array(
+        'from_name' => isset($_SESSION['auth_user']['name']) ? $_SESSION['auth_user']['name'] : '系统',
+        'from_user_id' => isset($_SESSION['auth_user']['id']) ? (int)$_SESSION['auth_user']['id'] : 0,
+        'to_role' => $toRole,
+        'to_user_id' => (int)$toUserId,
+        'title' => $title,
+        'content' => $content,
+        'print_type' => $printType,
+        'print_url' => $printUrl,
+        'msg_type' => isset($extra['msg_type']) ? $extra['msg_type'] : 'system',
+        'patient_name' => isset($extra['patient_name']) ? $extra['patient_name'] : '',
+        'visit_id' => isset($extra['visit_id']) ? (int)$extra['visit_id'] : 0,
+        'link_url' => isset($extra['link_url']) ? $extra['link_url'] : '',
     ));
     // 实时推送：通知收件人秒级感知新消息（站内消息/危急值提醒等走同一通道）
     push_emit('msg:' . (int)$toUserId, array('type' => 'message', 'role' => $toRole));

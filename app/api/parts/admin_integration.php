@@ -90,11 +90,9 @@ function admin_part_integration($action) {
             $like = '%' . $kw . '%';
             $params = array_merge($params, array($like, $like, $like));
         }
-        $total = (int)DB::val('SELECT COUNT(*) FROM inbound_events WHERE ' . $where, $params);
-        $rows = DB::q(
-            'SELECT * FROM inbound_events WHERE ' . $where . ' ORDER BY id DESC LIMIT ? OFFSET ?',
-            array_merge($params, array($pageSize, ($page - 1) * $pageSize))
-        );
+        $res = IntegrationRepository::inboundPaginate($where, $params, $page, $pageSize);
+        $total = $res['total'];
+        $rows = $res['list'];
         $list = array();
         foreach ($rows as $r) {
             $list[] = array(
