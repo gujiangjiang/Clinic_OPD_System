@@ -431,9 +431,9 @@ function order_part_submit($u) {
             },
             function ($no) use (&$orderNo, $visit, $orderType, $g, $u, $recId, $deptId, $deptName, $groupTotal, $isSkin) {
                 $orderNo = $no;
-                return OrderRepository::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, is_skin_test) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                return OrderRepository::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, hospital_name, hospital_name2, total_amount, status, created_at, is_skin_test) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                     $visit['id'], $visit['patient_no'], $visit['flow_no'], $orderType, $no, $g['cat'],
-                    $u['id'], $u['name'], $recId, $deptId, $deptName, $groupTotal, 'open', now_str(), $isSkin,
+                    $u['id'], $u['name'], $recId, $deptId, $deptName, setting('hospital_name', ''), setting('hospital_name2', ''), $groupTotal, 'open', now_str(), $isSkin,
                 ));
             }
         );
@@ -513,9 +513,9 @@ function order_part_submit($u) {
                 function () { return gen_unique_no('CZ', 'orders', 'order_no'); },
                 function ($no) use (&$skinDispNo, $visit, $u, $recId, $deptId, $deptName, $skinDispTotal, $srcSkin) {
                     $skinDispNo = $no;
-                    return OrderRepository::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, source_order_id, is_skin_test) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                    return OrderRepository::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, hospital_name, hospital_name2, total_amount, status, created_at, source_order_id, is_skin_test) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                         $visit['id'], $visit['patient_no'], $visit['flow_no'], 'procedure', $no, '',
-                        $u['id'], $u['name'], $recId, $deptId, $deptName, $skinDispTotal, 'open', now_str(), $srcSkin, 1,
+                        $u['id'], $u['name'], $recId, $deptId, $deptName, setting('hospital_name', ''), setting('hospital_name2', ''), $skinDispTotal, 'open', now_str(), $srcSkin, 1,
                     ));
                 }
             );
@@ -542,9 +542,9 @@ function order_part_submit($u) {
                 function () { return gen_unique_no('CZ', 'orders', 'order_no'); },
                 function ($no) use (&$otherNo, $visit, $u, $recId, $deptId, $deptName, $otherTotal, $mainOrderId) {
                     $otherNo = $no;
-                    return OrderRepository::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, source_order_id, is_skin_test) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                    return OrderRepository::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, hospital_name, hospital_name2, total_amount, status, created_at, source_order_id, is_skin_test) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                         $visit['id'], $visit['patient_no'], $visit['flow_no'], 'procedure', $no, '',
-                        $u['id'], $u['name'], $recId, $deptId, $deptName, $otherTotal, 'open', now_str(), $mainOrderId, 0,
+                        $u['id'], $u['name'], $recId, $deptId, $deptName, setting('hospital_name', ''), setting('hospital_name2', ''), $otherTotal, 'open', now_str(), $mainOrderId, 0,
                     ));
                 }
             );

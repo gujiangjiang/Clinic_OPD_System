@@ -73,8 +73,8 @@ switch ($action) {
             // 开具科室固化：就诊当前科室（创建时确定，转科/会诊后不再变化）
             $deptId = (int)$visit['current_dept_id'];
             $deptName = (string)$visit['current_dept_name'];
-            $id = ConsentRepository::create('INSERT INTO consents(visit_id, patient_no, flow_no, title, content, notice, emr_snapshot, doctor_id, doctor_name, dept_id, dept_name, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
-                $visitId, $patient['patient_no'], $visit['flow_no'], $title, $content, $notice, $snapshotJson, $u['id'], $u['name'], $deptId, $deptName, $now, $now,
+            $id = ConsentRepository::create('INSERT INTO consents(visit_id, patient_no, flow_no, title, content, notice, emr_snapshot, doctor_id, doctor_name, dept_id, dept_name, hospital_name, hospital_name2, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                $visitId, $patient['patient_no'], $visit['flow_no'], $title, $content, $notice, $snapshotJson, $u['id'], $u['name'], $deptId, $deptName, setting('hospital_name', ''), setting('hospital_name2', ''), $now, $now,
             ));
         }
         json_ok(array('id' => $id), '知情同意书已保存');

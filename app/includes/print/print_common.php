@@ -1,9 +1,27 @@
 <?php
 /** print/print_common.php — 统一打印模板：公共小票/页头/患者信息 helper */
 
-function pt_ticket_header($title) {
-    $hosp = setting('hospital_name', '');
-    $hosp2 = setting('hospital_name2', '');
+/** 医院名称读取：优先归档行内快照（hospital_name），无快照回退当前系统设置 */
+function pt_hosp($row = null) {
+    if (is_array($row) && !empty($row['hospital_name'])) return (string)$row['hospital_name'];
+    return setting('hospital_name', '');
+}
+
+/** 医院第二名称读取：优先归档行内快照（hospital_name2），无快照回退当前系统设置 */
+function pt_hosp2($row = null) {
+    if (is_array($row) && !empty($row['hospital_name2'])) return (string)$row['hospital_name2'];
+    return setting('hospital_name2', '');
+}
+
+/** 归档科室名称读取：优先归档行内快照（dept_name/dept_id→名字由调用方处理），无快照回退设置 */
+function pt_dept_name($row = null) {
+    if (is_array($row) && !empty($row['dept_name'])) return (string)$row['dept_name'];
+    return '';
+}
+
+function pt_ticket_header($title, $ctx = null) {
+    $hosp = pt_hosp($ctx);
+    $hosp2 = pt_hosp2($ctx);
     $h = '<div class="ticket-hosp">' . e($hosp) . '</div>';
     if ($hosp2 !== '') {
         $h .= '<div class="ticket-hosp2">' . e($hosp2) . '</div>';
@@ -16,9 +34,9 @@ function pt_ticket_row($label, $value) {
     return '<div class="ticket-row"><span>' . e($label) . '</span><span class="ticket-val">' . e($value) . '</span></div>';
 }
 
-function pt_header($title) {
-    $hosp = setting('hospital_name', '');
-    $hosp2 = setting('hospital_name2', '');
+function pt_header($title, $ctx = null) {
+    $hosp = pt_hosp($ctx);
+    $hosp2 = pt_hosp2($ctx);
     // 抬头块：以第一名称长度为标准宽度，第二名称（若存在）左右两端与第一名称对齐
     $h = '<div class="print-hosp-block">';
     if ($hosp !== '') {

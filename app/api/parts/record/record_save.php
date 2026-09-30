@@ -253,12 +253,13 @@ function record_part_save($u) {
             $pr = null;   // 无既有记录 → 新建
         }
         if ($pr && !$progressNew) {
-            EmrRepository::prepareExec('UPDATE patient_records SET chief_complaint=?, symptom_duration=?, symptom_unit=?, informant=?, arrival_way=?, has_past_history=?, allergy_history=?, is_leave_hospital=?, icd10_code=?, diagnosis_name=?, emr_data=?, emr_print_text=?, status=?, updated_at=? WHERE id=?', array(
+            EmrRepository::prepareExec('UPDATE patient_records SET dept_name=?, hospital_name=?, hospital_name2=?, chief_complaint=?, symptom_duration=?, symptom_unit=?, informant=?, arrival_way=?, has_past_history=?, allergy_history=?, is_leave_hospital=?, icd10_code=?, diagnosis_name=?, emr_data=?, emr_print_text=?, status=?, updated_at=? WHERE id=?', array(
+                $recDeptName, setting('hospital_name', ''), setting('hospital_name2', ''),
                 $mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $pr['id']));
             $recordId = (int)$pr['id'];
         } else {
-            $recordId = EmrRepository::prepareInsert('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, chief_complaint, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergy_history, is_leave_hospital, icd10_code, diagnosis_name, emr_data, emr_print_text, status, created_at, updated_at, consultation_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
-                $visitId, $visit['patient_no'], $visit['flow_no'], $recDeptId, $u['id'], $u['name'], $recordType, $parentRecordId, $mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $now, $consultationId));
+            $recordId = EmrRepository::prepareInsert('INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, dept_name, hospital_name, hospital_name2, record_type, parent_record_id, chief_complaint, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergy_history, is_leave_hospital, icd10_code, diagnosis_name, emr_data, emr_print_text, status, created_at, updated_at, consultation_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                $visitId, $visit['patient_no'], $visit['flow_no'], $recDeptId, $u['id'], $u['name'], $recDeptName, setting('hospital_name', ''), setting('hospital_name2', ''), $recordType, $parentRecordId, $mainSymptom, $symptomDuration, $symptomUnit, $informant, $arrivalWay, $hasPastHistory, $allergies, $isLeaveHospital, $primaryIcd10, $primaryDiagnosis, $cleanJson, $printText, $finish ? 'done' : 'draft', $now, $now, $consultationId));
             // 体征记录回填：新病历保存前若以 record_id=0 录入过体征（未保存时的
             // 录入），关联到本次新建病历，保证该病历内后续修改体征为更新而非新增。
             EmrRepository::exec('UPDATE vitals SET record_id=? WHERE visit_id=? AND operator=? AND record_id=0', array($recordId, $visitId, $u['name']));
@@ -271,6 +272,9 @@ function record_part_save($u) {
         if ($piMirror === '' && $recordType === 'progress') $piMirror = $emr['progress']['content'];
         $mirror = array(
             'patient_record_id' => $recordId,
+            'dept_name' => $recDeptName,
+            'hospital_name' => setting('hospital_name', ''),
+            'hospital_name2' => setting('hospital_name2', ''),
             'chief_complaint' => emr_cc_text($emr['chief_complaint']),
             'present_illness' => $piMirror,
             'past_history' => emr_ph_text($emr['past_history']),

@@ -10,7 +10,7 @@
  */
 function pt_rx_slip($order, $mainItems, $patient) {
     $html = '<div class="print-ticket">';
-    $html .= pt_ticket_header('处方提示');
+    $html .= pt_ticket_header('处方提示', $order);
     $html .= '<div class="ticket-divider"></div>';
     $html .= pt_ticket_row('患者姓名', $patient ? $patient['name'] : '');
     $html .= pt_ticket_row('患者ID', isset($order['patient_no']) ? $order['patient_no'] : '');
@@ -52,7 +52,7 @@ function pt_order($order, $items, $title, $opts = array()) {
     $noteType = isset($opts['note_type']) ? $opts['note_type'] : 'pharm';
     // 复用病历文档容器：A5 版式、医院名称/第二名称与电子病历完全一致
     $html = '<div class="print-record-doc">';
-    $html .= pt_header($title);
+    $html .= pt_header($title, $order);
 
     // 右上角条形码：处方单号/申请单号（输液笺用派生单号，与原处方单区分）
     $html .= pt_barcode($displayNo);

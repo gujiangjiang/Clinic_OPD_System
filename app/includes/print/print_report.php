@@ -134,7 +134,7 @@ function pt_imaging_report($report, $result, $item) {
         $catName = trim((string)$item['category']);
     }
     $title = $catName !== '' ? $catName . '检查报告单' : '检查报告单';
-    $html .= pt_header($title);
+    $html .= pt_header($title, $report);
     // 项目：该申请单全部检查项目逗号连接
     $itemNames = array();
     if ($order) {
@@ -188,7 +188,7 @@ function pt_report($report, $result, $item) {
     if ($result['type'] === 'imaging') {
         return pt_imaging_report($report, $result, $item);
     }
-    $html = pt_header($title);
+    $html = pt_header($title, $report);
     $html .= '<div class="print-info">
         <span><strong>患者ID</strong>：' . e($report['patient_no']) . '</span>
         <span><strong>流水号</strong>：' . e($report['flow_no']) . '</span>

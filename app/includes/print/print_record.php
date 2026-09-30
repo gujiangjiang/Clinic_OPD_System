@@ -11,9 +11,11 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
         // 危急值记录」、右端「科室」，随后直接接「病历续写：……」等续写正文
         $isConsultRec = (int)(isset($record['consultation_id']) ? $record['consultation_id'] : 0) > 0;
         $isCritRec = (int)(isset($record['is_critical']) ? $record['is_critical'] : 0) === 1;
-        // 科室：续写/会诊记录使用本记录自身的书写科室，而非就诊当前科室（转科/会诊后不同）
+        // 科室：优先归档快照 dept_name（科室改名不回溯历史文书），无快照回退实时查询
         $contDept = '';
-        if (!empty($record['dept_id'])) {
+        if (!empty($record['dept_name'])) {
+            $contDept = (string)$record['dept_name'];
+        } elseif (!empty($record['dept_id'])) {
             $dn = DeptRepository::one('SELECT name FROM departments WHERE id=?', array((int)$record['dept_id']));
             if ($dn) $contDept = (string)$dn['name'];
         }
@@ -25,7 +27,7 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
             '<span class="prc-dept">' . e($contDept) . '</span>' .
             '</div>';
     } else {
-        $html .= pt_header($title);
+        $html .= pt_header($title, $record);
 
         // 右上角条形码（与挂号凭条一致：门诊号 flow_no，方便患者扫码缴费/打印报告）
         $code = isset($visit['flow_no']) && $visit['flow_no'] !== '' ? $visit['flow_no'] : (isset($patient['patient_no']) ? $patient['patient_no'] : '');

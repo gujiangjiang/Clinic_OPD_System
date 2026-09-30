@@ -215,9 +215,9 @@ function insert_report($data) {
         }
         try {
             $repId = OrderRepository::insert(
-                'INSERT INTO reports(result_id, report_no, visit_id, patient_no, flow_no, type, doctor_name, status, content, apply_dept_name, apply_doctor_name, clinical_diagnosis, applied_at, registered_at, category_name, pdf_url, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                'INSERT INTO reports(result_id, report_no, visit_id, patient_no, flow_no, type, doctor_name, hospital_name, hospital_name2, status, content, apply_dept_name, apply_doctor_name, clinical_diagnosis, applied_at, registered_at, category_name, pdf_url, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 array($data['result_id'], $data['report_no'], $data['visit_id'], $data['patient_no'], $data['flow_no'],
-                    $data['type'], $data['doctor'], $data['status'],
+                    $data['type'], $data['doctor'], setting('hospital_name', ''), setting('hospital_name2', ''), $data['status'],
                     isset($data['content']) ? (string)$data['content'] : '',
                     isset($data['apply_dept_name']) ? (string)$data['apply_dept_name'] : '',
                     isset($data['apply_doctor_name']) ? (string)$data['apply_doctor_name'] : '',

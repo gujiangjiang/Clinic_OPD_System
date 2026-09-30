@@ -30,7 +30,7 @@ function consent_underline_line($label, $width = '') {
 function pt_consent($visit, $patient, $consent, $doctorName) {
     $html = '<div class="print-record-doc">';
     // ===== 页眉（每页重复） =====
-    $html .= pt_header($consent['title']);   // 医院名称 + 第二名称 + 自定义文书标题
+    $html .= pt_header($consent['title'], $consent);   // 医院名称 + 第二名称 + 自定义文书标题
     $name = isset($visit['name']) ? $visit['name'] : (isset($patient['name']) ? $patient['name'] : '');
     $gender = isset($visit['gender']) ? $visit['gender'] : '';
     $age = pt_age_text($patient, $visit);

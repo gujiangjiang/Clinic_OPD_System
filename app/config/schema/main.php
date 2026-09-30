@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 43,
+    'version' => 44,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -167,6 +167,8 @@ return array(
             session TEXT,
             fee_type TEXT,
             fee REAL DEFAULT 0,
+            hospital_name TEXT DEFAULT '',
+            hospital_name2 TEXT DEFAULT '',
             status TEXT DEFAULT 'pending',
             paid_at TEXT,
             cashier_id INTEGER,
@@ -1240,6 +1242,11 @@ return array(
             "ALTER TABLE payments ADD COLUMN hospital_name2 TEXT DEFAULT ''",
             "ALTER TABLE refunds ADD COLUMN hospital_name TEXT DEFAULT ''",
             "ALTER TABLE refunds ADD COLUMN hospital_name2 TEXT DEFAULT ''",
+        ),
+        // v44：挂号记录医院名称快照（挂号凭条补打沿用挂号时医院名称）
+        44 => array(
+            "ALTER TABLE registrations ADD COLUMN hospital_name TEXT DEFAULT ''",
+            "ALTER TABLE registrations ADD COLUMN hospital_name2 TEXT DEFAULT ''",
         ),
     ),
     'seed' => array(

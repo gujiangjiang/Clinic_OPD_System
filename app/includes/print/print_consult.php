@@ -7,7 +7,7 @@
 
 function pt_consult($visit, $patient, $cons, $snap) {
     $html = '<div class="print-record-doc">';
-    $html .= pt_header('会诊申请单');
+    $html .= pt_header('会诊申请单', $cons);
 
     // 右上角条形码 + 会诊单号
     $displayNo = isset($cons['consult_no']) && $cons['consult_no'] !== '' ? $cons['consult_no'] : (string)$cons['id'];

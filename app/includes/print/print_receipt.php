@@ -5,7 +5,7 @@ function pt_receipt($visit, $patient) {
     $code = isset($visit['flow_no']) && $visit['flow_no'] !== '' ? $visit['flow_no'] : (isset($patient['patient_no']) ? $patient['patient_no'] : '');
     $paid = in_array(isset($visit['status']) ? $visit['status'] : '', array('paid', 'visiting', 'finished'), true);
     $html = '<div class="print-ticket">';
-    $html .= pt_ticket_header('挂号凭条');
+    $html .= pt_ticket_header('挂号凭条', $visit);
     $html .= '<div class="ticket-divider"></div>';
     $html .= pt_ticket_row('患者姓名', isset($visit['name']) ? $visit['name'] : '');
     $html .= pt_ticket_row('患者ID', isset($patient['patient_no']) ? $patient['patient_no'] : '');
@@ -40,7 +40,7 @@ function pt_payment($pay, $items) {
     // 缴费流水号：批量缴费同批次共享同一编号（凭条一致性，退费按整单处理）
     $payNo = isset($pay['payment_no']) && $pay['payment_no'] !== '' ? $pay['payment_no'] : '';
     $html = '<div class="print-ticket">';
-    $html .= pt_ticket_header('缴费凭条');
+    $html .= pt_ticket_header('缴费凭条', $pay);
     $html .= '<div class="ticket-divider"></div>';
     $html .= pt_ticket_row('患者姓名', $pName);
     $html .= pt_ticket_row('患者ID', isset($pay['patient_no']) ? $pay['patient_no'] : '');

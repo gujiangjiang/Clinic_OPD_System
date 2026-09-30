@@ -5,7 +5,7 @@ function pt_certificate($visit, $patient, $record, $cert, $doctorName) {
     $certNo = isset($cert['cert_no']) ? $cert['cert_no'] : '';
     // 文档容器：与病历/申请单共用 .print-record-doc 版式（A5 + 分页器）
     $html = '<div class="print-record-doc">';
-    $html .= pt_header('诊断证明书');
+    $html .= pt_header('诊断证明书', $cert);
 
     // 右上角条形码：证明号
     $html .= pt_barcode($certNo);

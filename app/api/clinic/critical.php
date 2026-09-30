@@ -153,10 +153,11 @@ function crit_insert_emr($cv, $u, $matchText, $treatment) {
     }
     $parentId = $parent ? (int)$parent['id'] : 0;
     $recordId = (int)EmrRepository::insert(
-        'INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, record_type, parent_record_id, chief_complaint, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergy_history, is_leave_hospital, icd10_code, diagnosis_name, emr_data, emr_print_text, status, created_at, updated_at, consultation_id, is_critical) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'INSERT INTO patient_records(visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, dept_name, hospital_name, hospital_name2, record_type, parent_record_id, chief_complaint, symptom_duration, symptom_unit, informant, arrival_way, has_past_history, allergy_history, is_leave_hospital, icd10_code, diagnosis_name, emr_data, emr_print_text, status, created_at, updated_at, consultation_id, is_critical) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         array(
             (int)$cv['visit_id'], (string)$visit['patient_no'], (string)$visit['flow_no'],
             (int)$visit['current_dept_id'], (int)$u['id'], (string)$u['name'],
+            (string)$visit['current_dept_name'], setting('hospital_name', ''), setting('hospital_name2', ''),
             'progress', $parentId, '', '', '', '', '', '否', '', '否', '', '危急值记录',
             json_encode($emr, JSON_UNESCAPED_UNICODE), $sentence,
             'done', $now, $now, 0, 1,
@@ -164,6 +165,9 @@ function crit_insert_emr($cv, $u, $matchText, $treatment) {
     );
     // 旧 records 扁平镜像（兼容就诊历史列表等既有消费方）
     $mirror = array(
+        'dept_name' => (string)$visit['current_dept_name'],
+        'hospital_name' => setting('hospital_name', ''),
+        'hospital_name2' => setting('hospital_name2', ''),
         'chief_complaint' => '',
         'present_illness' => $sentence,
         'past_history' => '',

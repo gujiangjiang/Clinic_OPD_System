@@ -101,12 +101,12 @@ switch ($action) {
             function () { return gen_unique_no('HZ', 'consultations', 'consult_no'); },
             function ($no) use (&$consultNo, $visit, $u, $targetDept, $description, $purpose, $consRecId, $now) {
                 $consultNo = $no;
-                return ConsultationRepository::insert('INSERT INTO consultations(visit_id, patient_no, flow_no, consult_no, from_dept_id, from_dept_name, from_doctor_id, from_doctor_name, target_dept_id, target_dept_name, description, purpose, status, record_id, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                return ConsultationRepository::insert('INSERT INTO consultations(visit_id, patient_no, flow_no, consult_no, from_dept_id, from_dept_name, from_doctor_id, from_doctor_name, target_dept_id, target_dept_name, description, purpose, hospital_name, hospital_name2, status, record_id, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                     $visit['id'], $visit['patient_no'], $visit['flow_no'], $no,
                     (int)$visit['current_dept_id'], (string)$visit['current_dept_name'],
                     $u['id'], $u['name'],
                     (int)$targetDept['id'], (string)$targetDept['name'],
-                    $description, $purpose, 'pending', $consRecId, $now,
+                    $description, $purpose, setting('hospital_name', ''), setting('hospital_name2', ''), 'pending', $consRecId, $now,
                 ));
             }
         );
