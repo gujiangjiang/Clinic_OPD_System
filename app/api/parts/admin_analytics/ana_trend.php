@@ -38,7 +38,7 @@ function admin_ana_trend() {
         $series['total'][$i] += round((float)$r['s'], 2);
     }
     // 挂号费日序列（并入 total，不单列折线避免过密）
-    foreach (AnalyticsRepository::q("SELECT strftime('%Y-%m-%d', created_at) AS g, COALESCE(SUM(total),0) AS s
+    foreach (AnalyticsRepository::q("SELECT strftime('%Y-%m-%d', created_at) AS g, COALESCE(SUM(total_amount),0) AS s
         FROM payments WHERE kind='visit' AND date(created_at) BETWEEN ? AND ? GROUP BY g", array($start, $end)) as $r) {
         if (!isset($days[$r['g']])) continue;
         $series['total'][$days[$r['g']]] += round((float)$r['s'], 2);
