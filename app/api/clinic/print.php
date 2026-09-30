@@ -110,7 +110,7 @@ switch ($action) {
             if ($bp['kind'] === 'visit') {
                 // 挂号费缴费：项目为挂号费
                 $visit = EmrRepository::one('SELECT * FROM registrations WHERE id=?', array($bp['visit_id']));
-                $items[] = array('name' => '挂号费（' . ($visit ? $visit['first_dept_name'] : '') . '）', 'quantity' => 1, 'price' => $bp['total']);
+                $items[] = array('name' => '挂号费（' . ($visit ? $visit['first_dept_name'] : '') . '）', 'quantity' => 1, 'price' => $bp['total_amount']);
             } else {
                 $rows = EmrRepository::q('SELECT * FROM order_items WHERE order_id=?', array($bp['order_id']));
                 foreach ($rows as $r) {
