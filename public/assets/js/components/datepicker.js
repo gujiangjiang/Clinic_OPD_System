@@ -121,9 +121,10 @@ Clinic.datePicker = (function () {
         if (spanDays(val, peerVal) <= opts.maxSpan) return val;
         const pp = parse(peerVal);
         const isEndSide = val > peerVal;   // 本框是较晚一侧（结束日期）
-        // 上限边界：晚侧锚定 → 早侧 = 晚侧前推 maxSpan 天
+        // 上限边界：锚定对端（未选的那一侧），本侧收回到对端 +- maxSpan 天——
+        // 开始框（早侧）：开始 = 结束 - maxSpan；结束框（晚侧）：结束 = 开始 + maxSpan
         let d = new Date(pp[0], pp[1] - 1, pp[2]);
-        if (!isEndSide) d.setDate(d.getDate() + opts.maxSpan);
+        if (isEndSide) d.setDate(d.getDate() + opts.maxSpan);
         else d.setDate(d.getDate() - opts.maxSpan);
         const clamped = fmt(d.getFullYear(), d.getMonth() + 1, d.getDate());
         if (window.Clinic.toast && Clinic.toast.info) {
