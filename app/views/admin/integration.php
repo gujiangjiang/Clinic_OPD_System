@@ -25,6 +25,79 @@ foreach ($groups as $g) {
 $baseHost = integration_host_base();
 $endpoints = integration_inbound_endpoints();
 $orgCode = trim((string)setting('org_code', ''));
+
+/* 每个接口子模块的左侧导航（仅渲染该模块实际拥有的配置区） */
+$itgNav = array(
+    'fhir'       => array('overview' => '状态总览', 'outbound' => '出向上报', 'inbound' => '入向开放', 'common' => '公共配置'),
+    'pacs'       => array('overview' => '状态总览', 'outbound' => '出向调阅 / 上传', 'inbound' => '入向接收', 'common' => '协议通道'),
+    'hl7'        => array('overview' => '状态总览', 'outbound' => '出向发送', 'inbound' => '入向接收', 'common' => '公共配置'),
+    'lis'        => array('overview' => '状态总览', 'outbound' => '出向申请下发', 'inbound' => '入向报告回调', 'common' => '公共配置'),
+    'his'        => array('overview' => '状态总览', 'outbound' => '出向同步', 'inbound' => '入向开放', 'common' => '公共配置', 'monitor' => '同步与审计监控'),
+    'insurance'  => array('overview' => '状态总览', 'outbound' => '医保前置机', 'inbound' => '入向回调', 'common' => '聚合支付配置'),
+    'evid'       => array('overview' => '状态总览', 'common' => '存证配置'),
+);
+
+/**
+ * 接口状态总览行（快速一览：开关/模式/关键地址/凭证/端点数）
+ * @param array $g    接口分组定义
+ * @param array $vals 当前配置值表
+ * @return array [label, value, cls(badge class)]
+ */
+function itg_status_rows($g, $vals) {
+    $rows = array();
+    $get = function ($k) use ($vals) { return isset($vals[$k]) ? trim((string)$vals[$k]) : ''; };
+    $on = function ($k) use ($vals, $get) { return $get($k) === '1'; };
+    $badge = function ($k) use ($vals, $get) { return $get($k) !== ''; };
+    // 开关（rule=bool 或 key 以 .enabled 结尾）：出向/入向启用状态
+    foreach ($g['fields'] as $f) {
+        $k = $f['key'];
+        $isBool = (isset($f['rule']) && $f['rule'] === 'bool') || substr($k, -8) === '.enabled';
+        if ($isBool) {
+            $rows[] = array('label' => $f['label'], 'value' => $on($k) ? '已启用' : '未启用', 'cls' => $on($k) ? 'success' : 'muted');
+        }
+    }
+    // 模式/通道/传输 select：展示当前选择（.enabled 开关已在上面以徽章展示，跳过避免重复）
+    foreach ($g['fields'] as $f) {
+        if (isset($f['type']) && $f['type'] === 'select' && substr($f['key'], -8) !== '.enabled') {
+            $cur = $get($f['key']);
+            if ($cur !== '') {
+                $opts = isset($f['options']) ? $f['options'] : array();
+                $rows[] = array('label' => $f['label'], 'value' => isset($opts[$cur]) ? $opts[$cur] : $cur, 'cls' => 'primary');
+            }
+        }
+    }
+    // 首个网关/地址字段（rule=url）：展示或标记未配置
+    $urlShown = false;
+    foreach ($g['fields'] as $f) {
+        $k = $f['key'];
+        if (isset($f['rule']) && $f['rule'] === 'url' && !$urlShown) {
+            $v = $get($k);
+            $rows[] = array('label' => $f['label'], 'value' => $v !== '' ? $v : '未配置', 'cls' => $v !== '' ? 'info' : 'muted');
+            $urlShown = true;
+        }
+    }
+    // 凭证类字段：优先入向 token（.token 结尾），其次 webhook_secret / secret_key / app_secret
+    $tokKey = '';
+    foreach ($g['fields'] as $f) {
+        $k = $f['key'];
+        if (preg_match('/(\.token|token|webhook_secret|secret_key|app_secret)$/', $k)) {
+            $tokKey = $k;
+            if (substr($k, -6) === '.token') break;   // 入向鉴权 token 优先展示
+        }
+    }
+    if ($tokKey !== '') {
+        $label = '凭证';
+        foreach ($g['fields'] as $f) { if ($f['key'] === $tokKey) { $label = $f['label']; break; } }
+        $rows[] = array('label' => $label, 'value' => $badge($tokKey) ? '已配置' : '未配置', 'cls' => $badge($tokKey) ? 'success' : 'muted');
+    }
+    // 入向开放端点数
+    if (!empty($g['endpoints'])) {
+        $cnt = 0;
+        foreach ($g['endpoints'] as $ep) { if (!empty($ep['path'])) $cnt++; }
+        $rows[] = array('label' => '入向开放端点', 'value' => $cnt . ' 个', 'cls' => 'info');
+    }
+    return $rows;
+}
 ?>
 <div class="page-head">
     <div><div class="page-title"><?= render_icon('nav:plug') ?> 接口管理</div>
@@ -58,116 +131,164 @@ $orgCode = trim((string)setting('org_code', ''));
     }
     $hasEndpoints = !empty($g['endpoints']);
 ?>
-<div class="card itg-pane" id="itgPane_<?php echo e($g['id']); ?>" data-tab="<?php echo e($g['id']); ?>"<?php echo $gi === 0 ? '' : ' style="display:none"'; ?>>
-    <div class="card-title"><?php echo $g['emoji'] . ' ' . e($g['title']); ?></div>
-    <?php if (!empty($g['desc'])): ?>
-        <div class="fs-12 text-muted mb-12" style="margin-top:-8px"><?php echo e($g['desc']); ?></div>
-    <?php endif; ?>
-
-    <?php if ($fieldsPub): ?>
-    <div class="itg-zone">
-        <div class="itg-zone-title">公共配置</div>
-        <?php foreach ($fieldsPub as $f): ?>
-            <?php render_itg_field($f, $vals); ?>
-        <?php endforeach; ?>
-    </div>
-    <?php endif; ?>
-
-    <?php if ($fieldsOut): ?>
-    <div class="itg-zone">
-        <div class="itg-zone-title"><span class="itg-zone-arrow">→</span> 出向集成（Outbound · 本系统调用外部）</div>
-        <?php foreach ($fieldsOut as $f): ?>
-            <?php render_itg_field($f, $vals); ?>
-        <?php endforeach; ?>
-    </div>
-    <?php endif; ?>
-
-    <?php if ($fieldsIn || $hasEndpoints): ?>
-    <div class="itg-zone">
-        <div class="itg-zone-title"><span class="itg-zone-arrow">←</span> 入向开放（Inbound · 外部调用本系统）</div>
-        <?php if ($hasEndpoints): ?>
-        <div class="form-group">
-            <label class="form-label">对外暴露端点（只读，点击复制）</label>
-            <?php foreach ($g['endpoints'] as $ep): ?>
-                <?php if (!empty($ep['path'])): ?>
-                <div class="itg-ep">
-                    <div class="itg-ep-head">
-                        <?php if (!empty($ep['method'])): ?><span class="badge badge-success"><?php echo e($ep['method']); ?></span><?php endif; ?>
-                        <span class="fs-13 fw-600"><?php echo e($ep['label']); ?></span>
-                    </div>
-                    <div class="flex" style="gap:8px">
-                        <code class="itg-ep-url" title="点击复制" style="cursor:pointer" onclick="itgCopy(this.textContent.trim())"><?php echo e($baseHost . $ep['path']); ?></code>
-                        <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="itgCopy('<?php echo e($baseHost . $ep['path']); ?>')">复制</button>
-                    </div>
-                    <div class="fs-12 text-muted mt-4"><?php echo e($ep['note']); ?></div>
-                    <?php if (!empty($ep['example'])): ?>
-                        <div class="itg-ep-example fs-12 mt-4"><?php echo e($ep['example']); ?></div>
-                    <?php endif; ?>
-                </div>
-                <?php else: ?>
-                <div class="itg-ep">
-                    <div class="itg-ep-head"><span class="fs-13 fw-600"><?php echo e($ep['label']); ?></span></div>
-                    <div class="fs-12 text-muted mt-4"><?php echo e($ep['note']); ?></div>
-                </div>
-                <?php endif; ?>
-            <?php endforeach; ?>
+<div class="itg-pane" id="itgPane_<?php echo e($g['id']); ?>" data-tab="<?php echo e($g['id']); ?>"<?php echo $gi === 0 ? '' : ' style="display:none"'; ?>>
+    <div class="db-center itg-center">
+        <div class="card db-sidebar itg-sidenav" id="itgNav_<?php echo e($g['id']); ?>">
+            <div class="db-nav active" data-itgpan="overview" onclick="itgSideTab('<?php echo e($g['id']); ?>','overview')"><?= render_icon('action:eye') ?> <?php echo e(isset($itgNav[$g['id']]['overview']) ? $itgNav[$g['id']]['overview'] : '状态总览'); ?></div>
+            <?php if ($fieldsPub): ?>
+            <div class="db-nav" data-itgpan="common" onclick="itgSideTab('<?php echo e($g['id']); ?>','common')"><?= render_icon('nav:settings') ?> <?php echo e(isset($itgNav[$g['id']]['common']) ? $itgNav[$g['id']]['common'] : '公共配置'); ?></div>
+            <?php endif; ?>
+            <?php if ($fieldsOut): ?>
+            <div class="db-nav" data-itgpan="outbound" onclick="itgSideTab('<?php echo e($g['id']); ?>','outbound')"><?= render_icon('action:next') ?> <?php echo e(isset($itgNav[$g['id']]['outbound']) ? $itgNav[$g['id']]['outbound'] : '出向集成'); ?></div>
+            <?php endif; ?>
+            <?php if ($fieldsIn || $hasEndpoints): ?>
+            <div class="db-nav" data-itgpan="inbound" onclick="itgSideTab('<?php echo e($g['id']); ?>','inbound')"><?= render_icon('action:link') ?> <?php echo e(isset($itgNav[$g['id']]['inbound']) ? $itgNav[$g['id']]['inbound'] : '入向开放'); ?></div>
+            <?php endif; ?>
+            <?php if ($g['id'] === 'his'): ?>
+            <div class="db-nav" data-itgpan="monitor" onclick="itgSideTab('<?php echo e($g['id']); ?>','monitor')"><?= render_icon('nav:chart') ?> <?php echo e($itgNav[$g['id']]['monitor']); ?></div>
+            <?php endif; ?>
         </div>
-        <?php endif; ?>
-        <?php foreach ($fieldsIn as $f): ?>
-            <?php render_itg_field($f, $vals); ?>
-        <?php endforeach; ?>
-        <?php if ($g['id'] === 'his'): ?>
-            <div class="flex" style="gap:8px;margin-top:2px">
-                <button type="button" class="btn btn-outline btn-sm" onclick="genHisToken()"><?= render_icon('nav:key') ?> 生成 Token</button>
-                <button type="button" class="btn btn-outline btn-sm" onclick="testHisApi()"><?= render_icon('action:next') ?> 连通性测试</button>
+        <div class="db-main">
+
+            <!-- ===== 状态总览 ===== -->
+            <div class="db-pane" id="itgpan_<?php echo e($g['id']); ?>_overview">
+                <div class="card setting-card">
+                    <div class="card-title"><?= render_icon('action:eye') ?> 状态总览</div>
+                    <div class="fs-12 text-muted mb-12" style="margin-top:-4px"><?php echo e($g['desc']); ?></div>
+                    <div class="itg-status">
+                        <?php foreach (itg_status_rows($g, $vals) as $sr): ?>
+                        <div class="itg-status-row">
+                            <span class="itg-status-label"><?php echo e($sr['label']); ?></span>
+                            <span class="badge badge-<?php echo $sr['cls']; ?>"><?php echo e($sr['value']); ?></span>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <div class="flex" style="gap:8px;margin-top:14px">
+                        <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>')">保存本组配置</button>
+                    </div>
+                </div>
             </div>
-            <div id="hisTestBox" class="itg-his-result" style="display:none"></div>
-        <?php endif; ?>
-    </div>
-    <?php endif; ?>
 
-    <?php if ($g['id'] === 'his'): ?>
-    <!-- HIS 同步与对账监控面板（Outbox 任务补偿 + 入向审计） -->
-    <div class="itg-zone">
-        <div class="itg-zone-title"><?= render_icon('nav:chart') ?> HIS 同步与对账监控</div>
-        <div class="fs-12 text-muted mb-8">出向任务（his_sync_tasks）：挂号/结算/发药本地事务提交后异步入队，失败自动累计重试次数，可一键重试。</div>
-        <div class="itg-mon-row" id="itgMonStats"></div>
-        <div class="flex" style="gap:8px;margin:10px 0 12px">
-            <button type="button" class="btn btn-primary btn-sm" onclick="itgMonRun()"><?= render_icon('action:next') ?> 执行待办</button>
-            <button type="button" class="btn btn-outline btn-sm" onclick="itgMonRetryAll()">重试全部失败</button>
-            <button type="button" class="btn btn-outline btn-sm" onclick="itgMonClear()">清空历史</button>
-        </div>
-        <div class="flex" style="gap:8px;margin-bottom:10px">
-            <select class="select" id="itgMonStatus" style="width:130px">
-                <option value="">全部状态</option>
-                <option value="pending">待处理</option>
-                <option value="success">成功</option>
-                <option value="failed">失败</option>
-            </select>
-            <input class="input" id="itgMonKw" placeholder="业务类型 / 业务ID / 载荷关键字" style="max-width:260px">
-            <button type="button" class="btn btn-outline btn-sm" onclick="itgMonLoad(1)">查询</button>
-        </div>
-        <div class="table-wrap"><table class="table">
-            <thead><tr><th>ID</th><th>业务类型</th><th>业务ID</th><th>状态</th><th>重试</th><th>错误 / 载荷</th><th>更新时间</th><th></th></tr></thead>
-            <tbody id="itgMonBody"></tbody>
-        </table></div>
-        <div id="itgMonMore" class="flex-center" style="padding:8px"></div>
-        <div class="itg-zone-sub-title mt-16">入向调用审计（inbound_events，全部开放端点接收记录）</div>
-        <div class="flex" style="gap:8px;margin:8px 0">
-            <input class="input" id="itgInboundKw" placeholder="端点 / 提供方 / 摘要" style="max-width:260px">
-            <label class="checkbox" style="align-items:center"><input type="checkbox" id="itgInboundFail"> 仅看失败</label>
-            <button type="button" class="btn btn-outline btn-sm" onclick="itgInboundLoad(1)">查询</button>
-        </div>
-        <div class="table-wrap"><table class="table">
-            <thead><tr><th>ID</th><th>端点</th><th>结果</th><th>摘要</th><th>来源 IP</th><th>时间</th></tr></thead>
-            <tbody id="itgInboundBody"></tbody>
-        </table></div>
-        <div id="itgInboundMore" class="flex-center" style="padding:8px"></div>
-    </div>
-    <?php endif; ?>
+            <?php if ($fieldsPub): ?>
+            <div class="db-pane" id="itgpan_<?php echo e($g['id']); ?>_common" style="display:none">
+                <div class="card setting-card">
+                    <div class="card-title"><?= render_icon('nav:settings') ?> 公共配置</div>
+                    <?php foreach ($fieldsPub as $f): ?>
+                        <?php render_itg_field($f, $vals); ?>
+                    <?php endforeach; ?>
+                    <div class="flex" style="gap:8px">
+                        <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>')">保存本组配置</button>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
 
-    <div class="flex" style="gap:8px;margin-top:6px">
-        <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>')">保存本组配置</button>
+            <?php if ($fieldsOut): ?>
+            <div class="db-pane" id="itgpan_<?php echo e($g['id']); ?>_outbound" style="display:none">
+                <div class="card setting-card">
+                    <div class="card-title"><?= render_icon('action:next') ?> 出向集成（本系统调用外部）</div>
+                    <div class="fs-12 text-muted mb-12" style="margin-top:-4px">配置网关地址、认证凭证、超时与触发时机；保存后由对应服务引擎按此参数调用外部系统。</div>
+                    <?php foreach ($fieldsOut as $f): ?>
+                        <?php render_itg_field($f, $vals); ?>
+                    <?php endforeach; ?>
+                    <div class="flex" style="gap:8px">
+                        <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>')">保存本组配置</button>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($fieldsIn || $hasEndpoints): ?>
+            <div class="db-pane" id="itgpan_<?php echo e($g['id']); ?>_inbound" style="display:none">
+                <div class="card setting-card">
+                    <div class="card-title"><?= render_icon('action:link') ?> 入向开放（外部调用本系统）</div>
+                    <?php if ($hasEndpoints): ?>
+                    <div class="form-group">
+                        <label class="form-label">对外暴露端点（只读，点击复制）</label>
+                        <?php foreach ($g['endpoints'] as $ep): ?>
+                            <?php if (!empty($ep['path'])): ?>
+                            <div class="itg-ep">
+                                <div class="itg-ep-head">
+                                    <?php if (!empty($ep['method'])): ?><span class="badge badge-success"><?php echo e($ep['method']); ?></span><?php endif; ?>
+                                    <span class="fs-13 fw-600"><?php echo e($ep['label']); ?></span>
+                                </div>
+                                <div class="flex" style="gap:8px">
+                                    <code class="itg-ep-url" title="点击复制" style="cursor:pointer" onclick="itgCopy(this.textContent.trim())"><?php echo e($baseHost . $ep['path']); ?></code>
+                                    <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="itgCopy('<?php echo e($baseHost . $ep['path']); ?>')">复制</button>
+                                </div>
+                                <div class="fs-12 text-muted mt-4"><?php echo e($ep['note']); ?></div>
+                                <?php if (!empty($ep['example'])): ?>
+                                    <div class="itg-ep-example fs-12 mt-4"><?php echo e($ep['example']); ?></div>
+                                <?php endif; ?>
+                            </div>
+                            <?php else: ?>
+                            <div class="itg-ep">
+                                <div class="itg-ep-head"><span class="fs-13 fw-600"><?php echo e($ep['label']); ?></span></div>
+                                <div class="fs-12 text-muted mt-4"><?php echo e($ep['note']); ?></div>
+                            </div>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+                    <?php foreach ($fieldsIn as $f): ?>
+                        <?php render_itg_field($f, $vals); ?>
+                    <?php endforeach; ?>
+                    <?php if ($g['id'] === 'his'): ?>
+                        <div class="flex" style="gap:8px;margin-top:2px">
+                            <button type="button" class="btn btn-outline btn-sm" onclick="genHisToken()"><?= render_icon('nav:key') ?> 生成 Token</button>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="testHisApi()"><?= render_icon('action:next') ?> 连通性测试</button>
+                        </div>
+                        <div id="hisTestBox" class="itg-his-result" style="display:none"></div>
+                    <?php endif; ?>
+                    <div class="flex" style="gap:8px;margin-top:14px">
+                        <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>')">保存本组配置</button>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($g['id'] === 'his'): ?>
+            <div class="db-pane" id="itgpan_his_monitor" style="display:none">
+                <div class="card setting-card">
+                    <div class="card-title"><?= render_icon('nav:chart') ?> HIS 同步与对账监控</div>
+                    <div class="fs-12 text-muted mb-8">出向任务（his_sync_tasks）：挂号/结算/发药本地事务提交后异步入队，失败自动累计重试次数，可一键重试。</div>
+                    <div class="itg-mon-row" id="itgMonStats"></div>
+                    <div class="flex" style="gap:8px;margin:10px 0 12px">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="itgMonRun()"><?= render_icon('action:next') ?> 执行待办</button>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="itgMonRetryAll()">重试全部失败</button>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="itgMonClear()">清空历史</button>
+                    </div>
+                    <div class="flex" style="gap:8px;margin-bottom:10px">
+                        <select class="select" id="itgMonStatus" style="width:130px">
+                            <option value="">全部状态</option>
+                            <option value="pending">待处理</option>
+                            <option value="success">成功</option>
+                            <option value="failed">失败</option>
+                        </select>
+                        <input class="input" id="itgMonKw" placeholder="业务类型 / 业务ID / 载荷关键字" style="max-width:260px">
+                        <button type="button" class="btn btn-outline btn-sm" onclick="itgMonLoad(1)">查询</button>
+                    </div>
+                    <div class="table-wrap"><table class="table">
+                        <thead><tr><th>ID</th><th>业务类型</th><th>业务ID</th><th>状态</th><th>重试</th><th>错误 / 载荷</th><th>更新时间</th><th></th></tr></thead>
+                        <tbody id="itgMonBody"></tbody>
+                    </table></div>
+                    <div id="itgMonMore" class="flex-center" style="padding:8px"></div>
+                    <div class="itg-zone-sub-title mt-16">入向调用审计（inbound_events，全部开放端点接收记录）</div>
+                    <div class="flex" style="gap:8px;margin:8px 0">
+                        <input class="input" id="itgInboundKw" placeholder="端点 / 提供方 / 摘要" style="max-width:260px">
+                        <label class="checkbox" style="align-items:center"><input type="checkbox" id="itgInboundFail"> 仅看失败</label>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="itgInboundLoad(1)">查询</button>
+                    </div>
+                    <div class="table-wrap"><table class="table">
+                        <thead><tr><th>ID</th><th>端点</th><th>结果</th><th>摘要</th><th>来源 IP</th><th>时间</th></tr></thead>
+                        <tbody id="itgInboundBody"></tbody>
+                    </table></div>
+                    <div id="itgInboundMore" class="flex-center" style="padding:8px"></div>
+                </div>
+            </div>
+            <?php endif; ?>
+
+        </div>
     </div>
 </div>
 <?php endforeach; ?>
@@ -223,6 +344,21 @@ function itgTab(id) {
         p.style.display = (p.getAttribute('data-tab') === id) ? '' : 'none';
     });
     if (id === 'his') itgMonLoad(1);
+}
+
+/* ---------- 子模块左右分栏：左侧导航切换右侧内容区 ---------- */
+function itgSideTab(groupId, paneId) {
+    var nav = document.getElementById('itgNav_' + groupId);
+    if (nav) {
+        nav.querySelectorAll('.db-nav').forEach(function (n) {
+            n.classList.toggle('active', n.getAttribute('data-itgpan') === paneId);
+        });
+    }
+    document.querySelectorAll('.itg-pane[data-tab="' + groupId + '"] .db-pane').forEach(function (p) {
+        p.style.display = (p.id === 'itgpan_' + groupId + '_' + paneId) ? '' : 'none';
+    });
+    // 监控面板：进入时刷新数据
+    if (groupId === 'his' && paneId === 'monitor') itgMonLoad(1);
 }
 
 /* ---------- 联动显隐（PACS 协议模式等） ---------- */
