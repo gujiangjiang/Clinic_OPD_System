@@ -21,7 +21,9 @@
 - **登录验证码 off 模式误弹**：登录页初始展示条件在 off 模式下仍会被本地失败标记（LocalStorage）触发，改为 force 常显、auto 才看本地标记、off 永不展示。
 - **日期选择器跨度超限调整方向颠倒**：`datepicker.js` clampToPeer 两分支写反（选开始框误从结束向后加、选结束框误从开始向前减），导致调整后开始晚于结束；已互换分支并对齐后端 `date_span_clamp` 口径。
 - **接口管理配置保存失败**：PHP 表单解析把带点键名转下划线（`integration.inbound.his.token` → `integration_inbound_his_token`），`integration_save` 全部带点配置（HIS/FHIR/HL7/LIS 出向入向字段）保存为空；已新增下划线键双路径回退读取，HIS 入向 Token 保存与连通性测试恢复正常。
-- **诊断搜索计数提示固定不随列表滚动**：检索计数【检索到 x 条诊断】内嵌搜索输入框右侧固定显示；下拉列表恢复单一滚动容器（max-height 350px + 无限滚动分页加载），不再随结果滚走。
+- **诊断搜索计数提示固定不随列表滚动**：检索计数【检索到 x 条诊断】内嵌搜索输入框右侧固定显示；下拉列表恢复单一滚动容器（max-height 350px + 无限滚动分页加载），不再随结果滚走；无结果时搜索栏右侧显示红色徽章【未检索到匹配诊断】。
+- **接口管理复制功能修复**：对外暴露端点 URL 可点击复制（原只有提示无事件）；剪贴板 API 被拒绝/非安全上下文时自动降级 textarea+execCommand 兜底，失败有提示。
+- **接口管理子模块左右分栏重构**：7 个子 Tab（FHIR/PACS/HL7/LIS/HIS/医保/存证）全部改为左右分栏（参考系统设置），左侧按模块分类导航（状态总览/协议通道/出向/入向/同步监控），右侧对应内容区；状态总览快速一览启用开关/模式/地址/凭证/端点数；HIS 同步与审计监控独立导航项。
 
 ### 重构
 - **外部集成入向逻辑收口 services/his**：`app/api/his.php` 只读查询（ping/patient_get/visit_list/visit_status/order_list/evidence_verify）下沉 `services/his/HisInboundRead.php`；`app/api/external.php` 内联的 HIS 患者建档与字典同步函数下沉 `services/his/HisInboundSync.php`（DB 直连改经 Repository）；两个接口文件瘦身为纯路由壳，URL 契约与鉴权不变。
