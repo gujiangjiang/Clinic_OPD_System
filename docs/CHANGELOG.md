@@ -13,6 +13,31 @@
 
 ---
 
+## [8.38.0] - 2026-09-30
+
+### 新增
+- **外部接口/系统集成全量重构（双向两舱架构）**：接口管理页彻底摒弃平铺结构，按系统划分子模块（FHIR R4 / DICOM-PACS / HL7 v2 / LIS / HIS / 医保与支付 / 存证签名），每个模块强制划分【出向集成 Outbound（本系统调用外部）】与【入向开放 Inbound（外部调用本系统，只读端点 + 一键复制 + 认证规则/IP 白名单/签名说明）】两舱。
+- **FHIR R4 资源互联引擎**：出向按 Bundle（Patient/Encounter/Condition/MedicationRequest）异向上报目标 FHIR Server（none/basic/bearer/oauth2 认证）；入向按 CapabilityStatement 规范暴露 `GET /api/fhir/r4/metadata`、`GET /api/fhir/r4/Patient/{patient_no}`、`GET /api/fhir/r4/Encounter?patient=…`，多组 Token 列表 + IP 白名单鉴权。
+- **DICOM/PACS 影像互联引擎**：协议通道双选（DICOMweb：QIDO/WADO/STOW + HTTP 鉴权头；DIMSE：SCU 出向 AE/主机/端口 + SCP 入向本地 AE/监听端口），与 Web 阅片器模板 `{study_uid}` 联动。
+- **HL7 v2.x 消息通信引擎**：出向按 MLLP over TCP（双闭环 ACK）或 HTTP POST 发送 ADT^A04/A08 与 ORM^O01，强校验 MSA 应答（AA 成功、AE/AR 报错入日志）；入向提供 MLLP 守护进程（`tools/cli/hl7_mllp_server.php`）与 HTTP 代理端点双选项，解析 ORU^R01 观察结果（OBR+OBX）按申请单号自动回填并严格回传 MSA 应答。
+- **LIS 实验室检验双向闭环**：出向检验申请下发（order_url + token）；入向 Webhook（`POST /api/external/lis/callback`，X-LIS-Token 验签 + IP 白名单）解析报告 JSON 幂等回填检验明细/异常标志/报告医生/PDF 附件（已审核报告再次推送覆盖更新而非重复插入）。
+- **医院 HIS 接口双向与可靠性加固**：出向协议适配器双驱动（REST/JSON 与 SOAP/XML，`HisDriverInterface` + `RestHisDriver` + `SoapHisDriver` 平滑切换，HMAC-SHA256 签名）；挂号/结算/发药三类业务开关；**Outbox 补偿机制**（`his_sync_tasks` 任务表：本地事务提交后异步入队，500/超时记录失败与重试次数，后台 worker `tools/cli/integration_outbox_run.php` 投递，不阻塞本地主事务）；入向接收 HIS 患者建档（`/api/external/his/sync-patient`）与基础字典同步（`/api/external/his/sync-catalog`）。
+- **医保与支付**：医保前置机纯出向配置（gateway_url/fixmedins_code/secret_key）；支付回调入向端点 `POST /api/cashier/pay-notify/{provider}`（微信/支付宝/银联，应答规范兼容）。
+- **接口管理监控面板（HIS 同步与对账）**：出向任务统计（待处理/成功/失败）、任务列表（载荷/错误预览、一键重试单条或全部失败、清空历史、触发后台执行）；入向调用审计表（inbound_events）全端点落账溯源。
+- **入向安全中间件 `InboundGuard`**：启用开关 + IP 白名单（单 IP/CIDR）+ Token 校验（Bearer 头/X-*-Token 头/?token= 参数，hash_equals 防时序）统一鉴权全部入向端点。
+- **配置迁移脚本**：`tools/schema/migrate_integration_keys.php` 将历史平铺键（his_/pacs_/hl7_/fhir_/yibao_）幂等迁移到 `integration.outbound.*` / `integration.inbound.*` 命名空间，旧键保留向后兼容。
+- **新服务层**：`app/services/` 按子目录组织（http/HttpClient、external/InboundGuard、his/ 驱动与 Outbox、hl7/ 构建解析客户端、fhir/FhirService、lis/LisService），bootstrap 自动加载。
+
+### 变更
+- **his.php 升级 v2.0.0**：HIS 入向只读查询接口鉴权迁移到 `integration.inbound.his.token`（旧键 `his_api_key` 自动回退），自检回显机构代码改读 `integration.outbound.his.hospital_code`。
+- **接口管理后端保存**：`integration_save` 按字段字典 rule 校验（port 端口/int 整数/bool 开关/url 地址/timeout 超时秒），字段字典改为 `integration.outbound.*` / `integration.inbound.*` 命名空间。
+- **报告表新增 pdf_url 列**：schema v41 迁移，LIS/ORU 回传的 PDF 附件地址落库展示。
+
+### 安全
+- 所有入向端点（FHIR/HL7/LIS/HIS/支付回调）统一走 `InboundGuard` 中间件，未启用模块 / 白名单外 IP / 无效 Token 一律拒绝并落审计。
+
+---
+
 ## [8.37.5] - 2026-09-30
 
 ### 修复
