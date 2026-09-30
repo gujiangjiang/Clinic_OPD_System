@@ -29,11 +29,11 @@ $orgCode = trim((string)setting('org_code', ''));
 /* 每个接口子模块的左侧导航（仅渲染该模块实际拥有的配置区） */
 $itgNav = array(
     'fhir'       => array('overview' => '状态总览', 'outbound' => '出向上报', 'inbound' => '入向开放', 'common' => '公共配置'),
-    'pacs'       => array('overview' => '状态总览', 'outbound' => '出向调阅 / 上传', 'inbound' => '入向接收', 'common' => '协议通道'),
+    'pacs'       => array('overview' => '状态总览', 'outbound' => '出向调阅', 'inbound' => '入向接收', 'common' => '协议通道'),
     'hl7'        => array('overview' => '状态总览', 'outbound' => '出向发送', 'inbound' => '入向接收', 'common' => '公共配置'),
-    'lis'        => array('overview' => '状态总览', 'outbound' => '出向申请下发', 'inbound' => '入向报告回调', 'common' => '公共配置'),
-    'his'        => array('overview' => '状态总览', 'outbound' => '出向同步', 'inbound' => '入向开放', 'common' => '公共配置', 'monitor' => '同步与审计监控'),
-    'insurance'  => array('overview' => '状态总览', 'outbound' => '医保前置机', 'inbound' => '入向回调', 'common' => '聚合支付配置'),
+    'lis'        => array('overview' => '状态总览', 'outbound' => '申请下发', 'inbound' => '入向回调', 'common' => '公共配置'),
+    'his'        => array('overview' => '状态总览', 'outbound' => '出向同步', 'inbound' => '入向开放', 'common' => '公共配置', 'monitor' => '同步监控'),
+    'insurance'  => array('overview' => '状态总览', 'outbound' => '医保前置机', 'inbound' => '入向回调', 'common' => '支付配置'),
     'evid'       => array('overview' => '状态总览', 'common' => '存证配置'),
 );
 

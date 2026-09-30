@@ -784,11 +784,17 @@
 /* ============ 接口管理：子模块左右分栏 ============ */
 .itg-pane { margin-top: 14px; }
 .itg-center {
-    align-items: stretch;
-    height: calc(100vh - var(--topbar-h) - 150px);
-    min-height: 420px;
+    align-items: flex-start;   /* 左侧栏按项目数自适应高度，不撑满视口 */
+    height: auto;
+    min-height: 0;
 }
-.itg-sidenav .db-nav { font-size: 13px; }
+.itg-center .db-main {
+    height: auto;              /* 覆盖 db-center 100% 高度：仅内容区内部滚动 */
+    max-height: calc(100vh - var(--topbar-h) - 150px);
+    min-height: 0;
+}
+.itg-sidenav { width: 132px; }
+.itg-sidenav .db-nav { font-size: 13px; white-space: nowrap; }
 .itg-status {
     display: flex;
     flex-direction: column;
