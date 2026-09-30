@@ -283,12 +283,23 @@ switch ($action) {
 
     /* ---------------- 诊断证明（补打） ---------------- */
     case 'certificate':
+        // 支持指定证明（cert_id，多张证明逐张补打）；未指定则按就诊取最新一张
+        $certId = (int)did(get('cert_id', 0));
         $visitId = did(get('visit_id'));
+        if ($certId > 0) {
+            $cert = EmrRepository::one('SELECT * FROM certificates WHERE id=?', array($certId));
+            if (!$cert) json_fail('诊断证明不存在');
+            $visitId = (int)$cert['visit_id'];
+        } else {
+            $row = get_visit_row($visitId);
+            if (!$row) json_fail('就诊记录不存在');
+            print_guard($row['visit'], array('doctor'));
+            $cert = EmrRepository::one('SELECT * FROM certificates WHERE visit_id=? ORDER BY id DESC', array($visitId));
+            if (!$cert) json_fail('该就诊未开具诊断证明');
+        }
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         print_guard($row['visit'], array('doctor'));
-        $cert = EmrRepository::one('SELECT * FROM certificates WHERE visit_id=?', array($visitId));
-        if (!$cert) json_fail('该就诊未开具诊断证明');
         $record = EmrRepository::one('SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visitId));
         // 固化快照：证书存有开具时的病历摘要则原样使用（与 certificate_print
         // 同规则）——补打内容与开具时完全一致，不随后续续写漂移

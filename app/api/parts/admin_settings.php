@@ -289,9 +289,13 @@ function admin_part_settings($action) {
                 $pcBtn('补打', '/api/print?action=record&visit_id=' . e($vOid), 'a5'));
         }
         if ($hasCert) {
-            $cert = AnalyticsRepository::one('SELECT cert_no, created_at FROM certificates WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($visitId));
-            $visitRows[] = $pcRow('诊断证明', $cert ? '证明号 ' . e($cert['cert_no']) . ' ｜ ' . e(substr((string)$cert['created_at'], 0, 16)) : '',
-                $pcBtn('补打', '/api/print?action=certificate&visit_id=' . e($vOid), 'a5'));
+            // 诊断证明：逐张列出（多次补开的证明均可单独补打）
+            $certs = AnalyticsRepository::q('SELECT id, cert_no, created_at FROM certificates WHERE visit_id=? ORDER BY id ASC', array($visitId));
+            foreach ($certs as $cert) {
+                $visitRows[] = $pcRow('诊断证明' . (count($certs) > 1 ? '（' . e(substr((string)$cert['cert_no'], -4)) . '）' : ''),
+                    '证明号 ' . e($cert['cert_no']) . ' ｜ ' . e(substr((string)$cert['created_at'], 0, 16)),
+                    $pcBtn('补打', '/api/print?action=certificate&cert_id=' . e(oid((int)$cert['id'])), 'a5'));
+            }
         }
         $paneVisit = implode($pcSep(), $visitRows);
 
