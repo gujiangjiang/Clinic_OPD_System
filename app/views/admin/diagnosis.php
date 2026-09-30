@@ -15,11 +15,11 @@ Router::title('诊断字典');
     <div><div class="page-title"><?= render_icon('emr:book') ?> 诊断字典</div><div class="page-desc">ICD10 标准编码库 · 四级分类树：章<?= render_icon('action:next') ?>节<?= render_icon('action:next') ?>类目<?= render_icon('action:next') ?>亚目<?= render_icon('action:next') ?>诊断</div></div>
 </div>
 <div class="card list-filter" style="position:relative">
-    <input class="input" id="diagKw" placeholder="输入诊断码 / 名称 / 拼音首字母（实时检索）" autocomplete="off" oninput="diagSearchDebounced()" onfocus="showSearchDrop()">
-    <div id="searchDrop" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:0 0 8px 8px;box-shadow:0 8px 24px var(--shadow);flex-direction:column">
-        <div id="searchDropHead" style="position:sticky;top:0;z-index:1;flex-shrink:0"></div>
-        <div id="searchDropList" style="max-height:350px;overflow-y:auto"></div>
+    <div style="position:relative">
+        <input class="input" id="diagKw" style="padding-right:130px" placeholder="输入诊断码 / 名称 / 拼音首字母（实时检索）" autocomplete="off" oninput="diagSearchDebounced()" onfocus="showSearchDrop()">
+        <span id="diagCount" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--text-muted);pointer-events:none;white-space:nowrap;z-index:2">检索到 0 条诊断</span>
     </div>
+    <div id="searchDrop" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;max-height:350px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:0 0 8px 8px;box-shadow:0 8px 24px var(--shadow)"></div>
 </div>
 <div class="flex gap-16 diag-body" style="align-items:stretch">
     <div class="card" style="width:360px;flex-shrink:0;display:flex;flex-direction:column;padding:0;overflow:hidden" id="treeBox">
@@ -66,7 +66,8 @@ function diagRowHtml(d) {
 function showSearchDrop() {
     var kw = document.getElementById('diagKw').value.trim();
     var drop = document.getElementById('searchDrop');
-    if (!kw) { drop.style.display = 'none'; diagSearch.done = true; return; }
+    var countEl = document.getElementById('diagCount');
+    if (!kw) { drop.style.display = 'none'; countEl.style.display = 'none'; diagSearch.done = true; return; }
     if (diagLoading) return;
     diagLoading = true;
     // 首次（关键词变化）重置分页；继续加载（滚动触发）沿用当前 offset
@@ -81,27 +82,28 @@ function showSearchDrop() {
             if (!list.length) {
                 if (first) {
                     drop.innerHTML = '<div class="fs-12 text-muted" style="padding:10px 14px">未检索到匹配诊断</div>';
+                    countEl.style.display = 'none';
                 }
                 diagSearch.done = true;
-                drop.style.display = 'flex';
+                drop.style.display = '';
                 return;
             }
             if (first) {
-                // 计数行固定在浮层顶部（sticky），结果区独立滚动
-                drop.innerHTML = '<div id="searchDropHead" style="position:sticky;top:0;z-index:1;padding:6px 14px;border-bottom:1px solid var(--border)"><div class="fs-12 text-muted">检索到 ' + total + ' 条诊断</div></div>' +
-                    '<div id="searchDropList">' + list.map(diagRowHtml).join('') + '</div>';
+                // 计数移入搜索栏内部靠右显示，列表恢复单一滚动容器
+                drop.innerHTML = list.map(diagRowHtml).join('');
+                countEl.textContent = '检索到 ' + total + ' 条诊断';
+                countEl.style.display = '';
             } else {
-                // 追加下一页（计数行固定在顶部不动）
+                // 追加下一页（列表继续滚动加载）
                 var frag = document.createElement('div');
                 frag.innerHTML = list.map(diagRowHtml).join('');
-                while (frag.firstChild) document.getElementById('searchDropList').appendChild(frag.firstChild);
+                while (frag.firstChild) drop.appendChild(frag.firstChild);
             }
             diagSearch.offset += list.length;
             diagSearch.done = diagSearch.offset >= total;
-            drop.style.display = 'flex';
+            drop.style.display = '';
             // 若本页未填满浮层且仍有更多，自动继续加载（一次性显示完全部结果）
-            var listEl = document.getElementById('searchDropList');
-            if (!diagSearch.done && listEl && listEl.scrollHeight <= listEl.clientHeight) showSearchDrop();
+            if (!diagSearch.done && drop.scrollHeight <= drop.clientHeight) showSearchDrop();
         },
         onError: function () { diagLoading = false; },
     });
@@ -109,7 +111,7 @@ function showSearchDrop() {
 /* 滚动到底部自动加载下一页（统一无限滚动封装 Clinic.infiniteScroll，替代手写滚动监听）；
    不停止监听：新搜索（关键词变化）会重置 done，后续页仍需滚动加载 */
 Clinic.infiniteScroll({
-    el: document.getElementById('searchDropList'),
+    el: document.getElementById('searchDrop'),
     threshold: 8,
     onNearBottom: function () {
         if (diagSearch.done || diagLoading) return true;
@@ -120,6 +122,7 @@ Clinic.infiniteScroll({
 function onSearchPick(catCode, catName, secCode, chCode, diagCode, subCode) {
     SEARCH_HIGHLIGHT_CODE = diagCode;
     document.getElementById('searchDrop').style.display = 'none';
+    document.getElementById('diagCount').style.display = 'none';
     document.getElementById('diagKw').value = '';
     // 展开左侧树到目标类目（类目节点点击会自动触发 showCategoryDetail 并高亮）
     expandTreeToCategory(chCode, secCode, catCode, catName);
@@ -130,6 +133,7 @@ document.addEventListener('click', function (e) {
     var input = document.getElementById('diagKw');
     if (drop && drop.style.display !== 'none' && !e.target.closest('#searchDrop') && e.target !== input) {
         drop.style.display = 'none';
+        document.getElementById('diagCount').style.display = 'none';
     }
 });
 
@@ -318,6 +322,7 @@ var CURRENT_CATEGORY = '';
 function showCategoryDetail(code, name) {
     CURRENT_CATEGORY = code;
     document.getElementById('diagKw').value = '';
+    document.getElementById('diagCount').style.display = 'none';
     // 类目标题：编码 + 名称整体放入徽章，醒目
     document.getElementById('detailTitle').style.display = '';
     document.getElementById('detailTitle').innerHTML =
