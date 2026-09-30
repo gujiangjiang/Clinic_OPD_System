@@ -9,7 +9,28 @@
  *   parts/cashier_write.php 写入（quick_name/register/pay_visit/
  *                           cancel_visit/refund_order）
  * 本文件保留公共引导、编号规则共享函数与动作分发。
+ * 另承接支付结果回调入向端点（POST /api/cashier/pay-notify/{provider}），
+ * 不依赖登录会话，先于 _init.php 鉴权处理。
  * ============================================================ */
+
+/* ==================== 支付结果回调（入向，微信/支付宝/银联聚合） ====================
+ * 说明：第三方支付平台按各自规范向本端点推送支付结果。生产环境接入时必须
+ * 按各平台规范验签（微信商户密钥 / 支付宝公钥 / 银联证书），本实现先落审计
+ * 并应答成功，后续扩展验签与入账闭环。 */
+if (defined('CURRENT_API_SUB') && strpos((string)CURRENT_API_SUB, 'pay-notify/') === 0) {
+    $__provider = strtolower(substr((string)CURRENT_API_SUB, 11));
+    $__raw = file_get_contents('php://input');
+    $__body = ($__raw === false) ? '' : (string)$__raw;
+    integration_log_inbound('cashier', 'pay-notify/' . $__provider, true, '支付结果回调接收（待验签接入）', $__body);
+    header('Content-Type: application/json; charset=utf-8');
+    if ($__provider === 'wechat') {
+        echo json_encode(array('code' => 'SUCCESS', 'message' => 'OK'), JSON_UNESCAPED_UNICODE);
+    } else {
+        echo json_encode(array('success' => true), JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+}
+
 require __DIR__ . '/_init.php';
 
 $u = Auth::user();

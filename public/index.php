@@ -43,9 +43,15 @@ if ($uri === '/sw.js') {
     exit;
 }
 
-/* ---------- AJAX 接口分发 ---------- */
-if (preg_match('#^/api/([a-z0-9_]+)$#i', $uri, $m)) {
+/* ---------- AJAX 接口分发 ----------
+ * 支持子路径：/api/{name}[/{sub...}]——旧接口（/api/his?action=x）不变；
+ * 外部集成入向路由（无登录会话，由 InboundGuard 自行鉴权）：
+ *  - /api/fhir/r4/...            FHIR R4 Provider（metadata/Patient/Encounter）
+ *  - /api/external/{mod}/{act}   LIS 回调 / HL7 接收 / HIS 推送
+ *  - /api/cashier/pay-notify/..  支付结果回调 */
+if (preg_match('#^/api/([a-z0-9_]+)(/.*)?$#i', $uri, $m)) {
     $apiName = $m[1];
+    $apiSub = isset($m[2]) ? ltrim($m[2], '/') : '';
     // 数据库迁移/切换锁定：除迁移状态接口外，全站 API 拦截至锁定页
     // （running=迁移中 / done=迁移完成待确认切换）
     require_once APP_ROOT . '/app/core/MigrationRunner.php';
@@ -57,8 +63,9 @@ if (preg_match('#^/api/([a-z0-9_]+)$#i', $uri, $m)) {
     if (!is_file($apiFile)) {
         json_response(false, '接口不存在');
     }
-    // 定义当前接口名，供 _init.php 权限校验使用
+    // 定义当前接口名与子路径，供 _init.php 权限校验 / 入向控制器分发使用
     define('CURRENT_API', $apiName);
+    define('CURRENT_API_SUB', $apiSub);
     require $apiFile;
     exit;
 }

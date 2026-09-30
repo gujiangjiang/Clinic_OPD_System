@@ -1,31 +1,34 @@
 <?php
 /**
  * ============================================================
- * his.php v1.1.0 — 预留 HIS 对接 API（需求23）
+ * his.php v2.0.0 — HIS 入向只读查询接口（供外部 HIS/医保/BI 调用）
  * ============================================================
- * 说明：为未来扩展住院 HIS 等系统预留的只读数据接口：
- *   1. 通过 API 密钥认证（接口管理 → HIS 接口密钥，为空时接口关闭）
+ * 说明：旧版预留只读数据接口（向后兼容保留），鉴权密钥统一迁移到
+ * 新命名空间 integration.inbound.his.token（旧键 his_api_key 自动回退）：
+ *   1. 通过入向 Token 认证（为空时接口关闭）
  *   2. 只读查询：连通性自检 / 患者档案 / 就诊记录 / 就诊状态 / 开单明细
  *   3. 接口均返回统一 JSON 格式 { ok, msg, data }
  * 认证方式：推荐请求头 X-HIS-Key: xxxx（密钥不进 URL，避免进入 Web 日志/浏览器历史/Referer）；
  * 兼容 GET 参数 api_key 方式（会进入访问日志，风险由管理员评估）。
- * 说明：本接口不依赖登录会话，供外部系统（住院HIS、医保、BI等）调用。
+ * 本接口不依赖登录会话，供外部系统（住院HIS、医保、BI等）调用。
+ * 入向推送（患者/字典）与出向同步（Outbox）见 /api/external 与 services/his。
  * ============================================================ */
 
-/* ---------- API 密钥认证 ---------- */
-$hisKey = (string)setting('his_api_key', '');
+/* ---------- 入向 Token 认证（新键优先，旧键 his_api_key 回退） ---------- */
+$hisKey = (string)integration_cfg('inbound.his.token', '', 'his_api_key');
 if ($hisKey === '') {
-    json_fail('HIS 接口未启用（请在系统设置中配置 HIS 接口密钥）');
+    json_fail('HIS 接口未启用（请在接口管理 → HIS 接口配置入向 Token）');
 }
 // 密钥传递：推荐请求头 X-HIS-Key（不进日志/浏览器历史）；兼容仅 GET 参数方式的
 // 外部 HIS 系统，也接受 api_key 参数（会进入访问日志，风险由管理员自行评估）。
 $given = isset($_SERVER['HTTP_X_HIS_KEY']) ? trim((string)$_SERVER['HTTP_X_HIS_KEY']) : '';
 if ($given === '') $given = trim((string)get('api_key', ''));
 if ($given === '' || !hash_equals($hisKey, $given)) {
+    integration_log_inbound('his', 'read', false, '只读查询 Token 校验失败', '');
     json_fail('HIS API 密钥无效');
 }
-
 $action = isset($_REQUEST['action']) ? trim((string)$_REQUEST['action']) : '';
+integration_log_inbound('his', 'read', true, '只读查询：' . $action, '');
 
 switch ($action) {
 
@@ -36,7 +39,7 @@ switch ($action) {
         json_ok(array(
             'pong' => true,
             'system' => 'Clinic OPD System',
-            'system_code' => (string)setting('his_system_code', ''),
+            'system_code' => (string)integration_cfg('outbound.his.hospital_code', '', 'his_system_code'),
             'org_code' => (string)setting('org_code', ''),
             'server_time' => now_str(),
         ));
