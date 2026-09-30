@@ -16,7 +16,7 @@ define('DATA_DIR', APP_ROOT . '/data');               // 数据目录（统一�
 define('UPLOAD_DIR', APP_ROOT . '/public/uploads');   // 上传目录（public 内，可被 Web 访问）
 define('API_PATH', APP_ROOT . '/app/api');            // AJAX 接口目录
 define('VIEW_PATH', APP_ROOT . '/app/views');         // 页面视图目录
-define("APP_VERSION", "8.37.5");
+define("APP_VERSION", "8.38.0");
 
 /* ============================================================
  * 数据库驱动配置（多驱动一键切换）
@@ -111,6 +111,12 @@ require_once __DIR__ . '/../repositories/BaseRepository.php';
 foreach (glob(__DIR__ . '/../repositories/*.php') ?: array() as $__repoFile) {
     if (basename($__repoFile) === 'BaseRepository.php') continue;
     require_once $__repoFile;
+}
+
+/* ---------- 引入服务层（外部集成驱动：HIS/FHIR/HL7/LIS + HTTP + 入向守卫，
+ * 按子目录自动加载，供业务钩子 / 后台 worker / 入向控制器共用） ---------- */
+foreach (glob(__DIR__ . '/../services/*/*.php') ?: array() as $__svcFile) {
+    require_once $__svcFile;
 }
 
 /* ---------- 站点时区（管理员设置，默认取创建管理员时的浏览器时区） ----------

@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 40,
+    'version' => 41,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -593,6 +593,7 @@ return array(
             withdraw_by TEXT,
             withdraw_at TEXT,
             category_name TEXT,
+            pdf_url TEXT DEFAULT '',
             created_at TEXT
         )",
 
@@ -1159,6 +1160,41 @@ return array(
         // 共用同一字段，保证登录后「我的资料 / 用户管理」与安装时填写一致。
         40 => array(
             "ALTER TABLE users ADD COLUMN email TEXT",
+        ),
+        // v41：外部接口/系统集成双向架构——
+        //  · his_sync_tasks 出向同步任务补偿表（Outbox）：挂号/收费结算/开单/发药
+        //    等业务提交后异步入队，后台任务调用 HIS/FHIR/HL7/LIS 驱动投递；
+        //    500/超时等异常保留失败状态供监控面板一键重试。UNIQUE(business_type,
+        //    business_id) 保证同业务只保留一条任务（重复入队幂等合并）。
+        //  · inbound_events 入向调用审计表：FHIR/HL7/LIS/HIS/支付回调等所有
+        //    对外暴露端点接收的请求统一落账，供监控面板溯源与排障。
+        //  · reports.pdf_url 检验报告 PDF 附件地址（LIS 报告回传/自动回填）。
+        41 => array(
+            "CREATE TABLE IF NOT EXISTS his_sync_tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                business_type TEXT NOT NULL,
+                business_id INTEGER NOT NULL DEFAULT 0,
+                payload TEXT NOT NULL DEFAULT '{}',
+                status TEXT NOT NULL DEFAULT 'pending',
+                retry_count INTEGER NOT NULL DEFAULT 0,
+                last_error TEXT DEFAULT '',
+                created_at TEXT,
+                updated_at TEXT,
+                UNIQUE(business_type, business_id)
+            )",
+            "CREATE INDEX IF NOT EXISTS idx_his_sync_tasks_status ON his_sync_tasks(status, updated_at)",
+            "CREATE TABLE IF NOT EXISTS inbound_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                endpoint TEXT NOT NULL DEFAULT '',
+                provider TEXT NOT NULL DEFAULT '',
+                ok INTEGER NOT NULL DEFAULT 1,
+                summary TEXT DEFAULT '',
+                body TEXT DEFAULT '',
+                remote_ip TEXT DEFAULT '',
+                created_at TEXT
+            )",
+            "CREATE INDEX IF NOT EXISTS idx_inbound_events_created ON inbound_events(created_at)",
+            "ALTER TABLE reports ADD COLUMN pdf_url TEXT DEFAULT ''",
         ),
     ),
     'seed' => array(
