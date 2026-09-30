@@ -49,8 +49,10 @@ var diagSearch = { kw: '', offset: 0, total: 0, done: false };   // 分段加载
 
 /* 隐藏搜索栏右侧状态（计数/无结果徽章，搜索结束统一收拢） */
 function hideDiagStatus() {
-    document.getElementById('diagCount').style.display = 'none';
-    document.getElementById('diagEmpty').style.display = 'none';
+    var c = document.getElementById('diagCount');
+    var e = document.getElementById('diagEmpty');
+    if (c) c.style.display = 'none';
+    if (e) e.style.display = 'none';
 }
 
 function diagSearchDebounced() {
@@ -131,9 +133,11 @@ Clinic.infiniteScroll({
 /* 点击搜索结果：关闭浮层 → 展开树到类目 → 右侧显示详情 → 高亮 */
 function onSearchPick(catCode, catName, secCode, chCode, diagCode, subCode) {
     SEARCH_HIGHLIGHT_CODE = diagCode;
-    document.getElementById('searchDrop').style.display = 'none';
+    var drop = document.getElementById('searchDrop');
+    var input = document.getElementById('diagKw');
+    if (drop) drop.style.display = 'none';
     hideDiagStatus();
-    document.getElementById('diagKw').value = '';
+    if (input) input.value = '';
     // 展开左侧树到目标类目（类目节点点击会自动触发 showCategoryDetail 并高亮）
     expandTreeToCategory(chCode, secCode, catCode, catName);
 }
@@ -331,7 +335,11 @@ var CURRENT_CATEGORY = '';
 
 function showCategoryDetail(code, name) {
     CURRENT_CATEGORY = code;
-    document.getElementById('diagKw').value = '';
+    // SPA 局部导航/树加载延时回调可能在本页已离开后触发：关键元素缺失时安全返回
+    var kwEl = document.getElementById('diagKw');
+    var detailEl = document.getElementById('detailContent');
+    if (!kwEl || !detailEl) return;
+    kwEl.value = '';
     hideDiagStatus();
     // 类目标题：编码 + 名称整体放入徽章，醒目
     document.getElementById('detailTitle').style.display = '';
