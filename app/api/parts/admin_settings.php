@@ -121,7 +121,8 @@ function admin_part_settings($action) {
      * 说明：字段字典统一由 integration_field_groups() 提供（视图渲染与
      * 保存白名单共用同一数据源，杜绝两处维护漂移）；原系统设置中的
      * HIS 密钥（his_api_key）随迁移一并由本入口维护。
-     * key 白名单 = 当前分组字典字段；未在字典中的提交字段一律丢弃。 */
+     * key 白名单 = 当前分组字典字段；未在字典中的提交字段一律丢弃；
+     * 字段 rule 校验：port 端口 / int 整数 / bool 开关 / url 地址 / timeout 超时秒。 */
     if ($action === 'integration_save') {
         $group = integration_group(post('group', ''));
         if (!$group) json_fail('未知的接口分组');
@@ -130,9 +131,21 @@ function admin_part_settings($action) {
             $raw = post($f['key'], null);
             if ($raw === null) continue;   // 未提交的字段不覆盖（分组保存互不干扰）
             $val = trim((string)$raw);
-            // 端口类字段仅允许数字
-            if ($f['key'] === 'pacs_server_port' && $val !== '' && !preg_match('/^\d{1,5}$/', $val)) {
-                json_fail('PACS 端口格式不正确（1-65535 数字）');
+            $rule = isset($f['rule']) ? $f['rule'] : '';
+            if ($rule === 'port' && $val !== '' && !preg_match('/^\d{1,5}$/', $val)) {
+                json_fail($f['label'] . '格式不正确（1-65535 数字）');
+            }
+            if ($rule === 'int' && $val !== '' && !preg_match('/^\d+$/', $val)) {
+                json_fail($f['label'] . '必须为整数');
+            }
+            if ($rule === 'timeout' && $val !== '' && (!preg_match('/^\d+$/', $val) || (int)$val < 1 || (int)$val > 300)) {
+                json_fail($f['label'] . '必须为 1-300 的整数秒');
+            }
+            if ($rule === 'url' && $val !== '' && !preg_match('#^https?://#i', $val)) {
+                json_fail($f['label'] . '必须以 http:// 或 https:// 开头');
+            }
+            if ($rule === 'bool') {
+                $val = ($val === '1' || $val === 'on') ? '1' : '0';
             }
             set_setting($f['key'], $val);
             $saved[] = $f['key'];
