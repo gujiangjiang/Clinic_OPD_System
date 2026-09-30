@@ -128,12 +128,12 @@ switch ($action) {
         try {
             $result = OrderRepository::one('SELECT * FROM results WHERE order_item_id=?', array($itemId));
             if ($result) {
-                OrderRepository::exec("UPDATE results SET findings=?, conclusion=?, status='done', executor=?, updated_at=? WHERE id=?", array(
+                OrderRepository::exec("UPDATE results SET findings=?, conclusion=?, status='done', executed_by=?, updated_at=? WHERE id=?", array(
                     $findings, $conclusion, $u['name'], now_str(), $result['id'],
                 ));
                 $resultId = $result['id'];
             } else {
-                $resultId = OrderRepository::insert("INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, findings, conclusion, executor, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", array(
+                $resultId = OrderRepository::insert("INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, findings, conclusion, executed_by, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", array(
                     $it['item_id'], $itemId, $it['visit_id'], $it['patient_no'], $it['flow_no'], 'imaging',
                     $findings, $conclusion, $u['name'], 'done', now_str(), now_str(),
                 ));
@@ -171,11 +171,11 @@ switch ($action) {
                 'result_id' => $resultId, 'report_no' => $reportNo,
                 'visit_id' => $it['visit_id'], 'patient_no' => $it['patient_no'], 'flow_no' => $it['flow_no'],
                 'type' => 'imaging', 'doctor' => $u['name'], 'status' => 'done',
-                'apply_dept' => $snapOrder ? (string)$snapOrder['dept_name'] : '',
-                'apply_doctor' => $snapOrder ? (string)$snapOrder['doctor_name'] : '',
-                'clinical_diag' => $diag,
-                'apply_time' => $snapOrder ? (string)$snapOrder['created_at'] : '',
-                'reg_time' => (string)$it['registered_at'],
+                'apply_dept_name' => $snapOrder ? (string)$snapOrder['dept_name'] : '',
+                'apply_doctor_name' => $snapOrder ? (string)$snapOrder['doctor_name'] : '',
+                'clinical_diagnosis' => $diag,
+                'applied_at' => $snapOrder ? (string)$snapOrder['created_at'] : '',
+                'registered_at' => (string)$it['registered_at'],
                 'category_name' => $catName,
                 // 检查项目字典快照（出具时刻）：后续字典改名/改类不影响历史报告
                 'item_meta' => array('group' => false, 'item' => array(
@@ -203,7 +203,7 @@ switch ($action) {
                 'meta' => array(
                     'report_id' => $reportId,
                     'report_no' => $reportNo,
-                    'clinical_diag' => $diag,
+                    'clinical_diagnosis' => $diag,
                 ),
                 'created_by' => $u['name'],
             ));
@@ -291,20 +291,20 @@ switch ($action) {
                 'report_no' => (string)$r['report_no'],
                 'item_name' => $itemName !== '' ? $itemName : '影像检查',
                 'visit_code' => oid((int)$r['visit_id']),
-                'check_time' => (string)$r['reg_time'],
+                'check_time' => (string)$r['registered_at'],
                 'report_time' => (string)$r['created_at'],
                 'report_doctor' => (string)$r['doctor'],
                 'audit_doctor' => '',   // 审核流未上线：预留字段，历史调阅展示为 —
                 'status' => (string)$r['status'],
                 'status_name' => $statusName,
-                'apply_dept' => (string)$r['apply_dept'],
+                'apply_dept_name' => (string)$r['apply_dept_name'],
                 // 影像调阅（第13项：只存引用 → 阅片器直链）
                 'study_uid' => $studyUid,
                 'viewer_url' => $viewerUrl,
                 // 报告详情（只读；仅以下两字段允许前端提供复制到当前报告）
                 'findings' => $findings,
                 'conclusion' => $conclusion,
-                'clinical_diag' => (string)$r['clinical_diag'],
+                'clinical_diagnosis' => (string)$r['clinical_diagnosis'],
             );
         }
         json_ok(array(

@@ -344,9 +344,9 @@ function consent_emr_snapshot($visitId, $sections) {
 
 /** 诊断聚合显示顺序键（visit+医生维度，跨医生排序载体；无记录返回空数组） */
 function diag_order_keys($visitId, $doctorId) {
-    $row = EmrRepository::one('SELECT ord_keys FROM diag_orders WHERE visit_id=? AND doctor_id=?', array($visitId, $doctorId));
-    if (!$row || trim((string)$row['ord_keys']) === '') return array();
-    $keys = explode("\n", (string)$row['ord_keys']);
+    $row = EmrRepository::one('SELECT order_keys FROM diag_orders WHERE visit_id=? AND doctor_id=?', array($visitId, $doctorId));
+    if (!$row || trim((string)$row['order_keys']) === '') return array();
+    $keys = explode("\n", (string)$row['order_keys']);
     $out = array();
     foreach ($keys as $k) {
         $k = trim($k);

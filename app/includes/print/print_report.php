@@ -56,8 +56,8 @@ function pt_lab_report($report, $result, $item) {
         // 组内成员快照优先（出具时刻定格）：字典改名/改范围不影响历史报告
         $snapMembers = null;
         $snapM = isset($report['id']) ? snapshot_get('report', (int)$report['id']) : null;
-        if ($snapM && isset($snapM['extra']['item_meta']['members']) && is_array($snapM['extra']['item_meta']['members'])) {
-            $snapMembers = $snapM['extra']['item_meta']['members'];
+        if ($snapM && isset($snapM['extra_json']['item_meta']['members']) && is_array($snapM['extra_json']['item_meta']['members'])) {
+            $snapMembers = $snapM['extra_json']['item_meta']['members'];
         }
         if ($snapMembers) $members = $snapMembers;
         foreach ($members as $m) {
@@ -95,7 +95,7 @@ function pt_lab_report($report, $result, $item) {
         $fc('申请时间：', $applyTimeD) . $fc('检验时间：', $regTimeD) .
         $fc('报告时间：', $repTime) .
         $fc('申请医生：', $applyDoctor) .
-        $fc('检验者：', $report['doctor']) .
+        $fc('检验者：', $report) .
         '<span class="lr-fcell"><b>审核者：</b><span class="lr-audit"></span></span>' .
         '<span class="lr-fcell lr-fspan">检验结果仅供临床诊疗参考，仅对送检标本负责！</span>' .
         '<span class="lr-fcell lr-fright">第 <span class="lr-page">1</span> / <span class="lr-total">1</span> 页</span>' .
@@ -168,7 +168,7 @@ function pt_imaging_report($report, $result, $item) {
     $fc = function ($label, $val) { return '<span class="imr-cell"><b>' . $label . '</b>' . e($val) . '</span>'; };
     $html .= '<div class="imr-footgrid">' .
         $fc('申请医生：', $applyDoctor) .
-        $fc('报告医生：', $report['doctor']) .
+        $fc('报告医生：', $report) .
         '<span class="imr-cell"><b>审核医生：</b><span class="imr-audit"></span></span>' .
         $fc('申请时间：', $applyTimeD) . $fc('检查时间：', $regTimeD) . $fc('报告时间：', $repTime) .
         '<span class="imr-cell imr-foot-tip">仅供医师诊断参考，不做其他用途</span>' .
@@ -194,7 +194,7 @@ function pt_report($report, $result, $item) {
         <span><strong>流水号</strong>：' . e($report['flow_no']) . '</span>
         <span><strong>报告编号</strong>：' . e($report['report_no']) . '</span>
         <span><strong>项目</strong>：' . e(isset($item['name']) ? $item['name'] : '') . '</span>
-        <span><strong>执行人</strong>：' . e($report['doctor']) . '</span>
+        <span><strong>执行人</strong>：' . e($report) . '</span>
         <span><strong>报告时间</strong>：' . e($report['created_at']) . '</span>
     </div><div class="print-line"></div>';
 
@@ -210,8 +210,8 @@ function pt_report($report, $result, $item) {
             }
             // 组内成员快照优先（出具时刻定格）：字典改名/改范围不影响历史报告
             $snapM2 = isset($report['id']) ? snapshot_get('report', (int)$report['id']) : null;
-            if ($snapM2 && isset($snapM2['extra']['item_meta']['members']) && is_array($snapM2['extra']['item_meta']['members'])) {
-                $members = $snapM2['extra']['item_meta']['members'];
+            if ($snapM2 && isset($snapM2['extra_json']['item_meta']['members']) && is_array($snapM2['extra_json']['item_meta']['members'])) {
+                $members = $snapM2['extra_json']['item_meta']['members'];
             }
             foreach ($members as $m) {
                 $v = isset($values['values'][(string)$m['id']]) ? $values['values'][(string)$m['id']] : '';
@@ -236,6 +236,6 @@ function pt_report($report, $result, $item) {
         $html .= '<div class="record-section"><div class="sec-label">检查结论</div><div class="sec-body">' .
             nl2br(e(isset($result['conclusion']) ? $result['conclusion'] : '')) . '</div></div>';
     }
-    $html .= '<div class="print-footer"><span>报告人：' . e($report['doctor']) . '</span><span>打印时间：' . now_str() . '</span></div>';
+    $html .= '<div class="print-footer"><span>报告人：' . e($report) . '</span><span>打印时间：' . now_str() . '</span></div>';
     return $html;
 }

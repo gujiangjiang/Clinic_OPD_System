@@ -48,7 +48,7 @@ function admin_ana_custom() {
             }
         }
         if (in_array('reg_fee', $metrics, true)) {
-            foreach (AnalyticsRepository::q("SELECT $tePay AS g, COALESCE(SUM(total),0) AS s FROM payments WHERE kind='visit' AND date(created_at) BETWEEN ? AND ? GROUP BY g", array($start, $end)) as $r) {
+            foreach (AnalyticsRepository::q("SELECT $tePay AS g, COALESCE(SUM(total_amount),0) AS s FROM payments WHERE kind='visit' AND date(created_at) BETWEEN ? AND ? GROUP BY g", array($start, $end)) as $r) {
                 $add('reg_fee', $r['g'], (float)$r['s']);
             }
         }

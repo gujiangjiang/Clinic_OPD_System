@@ -154,14 +154,14 @@ class HisInboundSync {
                 if ($name === '') continue;
                 $exist = OrderRepository::one('SELECT * FROM disposal_items WHERE name=?', array($name));
                 if ($exist) {
-                    OrderRepository::exec('UPDATE disposal_items SET fee=?, description=? WHERE id=?',
-                        array((float)(isset($di['fee']) ? $di['fee'] : $exist['fee']),
+                    OrderRepository::exec('UPDATE disposal_items SET price=?, description=? WHERE id=?',
+                        array((float)(isset($di['price']) ? $di['price'] : $exist['price']),
                             (string)(isset($di['description']) ? $di['description'] : $exist['description']),
                             (int)$exist['id']));
                 } else {
                     OrderRepository::insert(
-                        'INSERT INTO disposal_items(name, fee, description, status, created_at) VALUES(?,?,?,?,?)',
-                        array($name, (float)(isset($di['fee']) ? $di['fee'] : 0),
+                        'INSERT INTO disposal_items(name, price, description, status, created_at) VALUES(?,?,?,?,?)',
+                        array($name, (float)(isset($di['price']) ? $di['price'] : 0),
                             (string)(isset($di['description']) ? $di['description'] : ''), 'pending', now_str())
                     );
                 }

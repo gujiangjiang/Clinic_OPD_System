@@ -78,7 +78,7 @@ switch ($action) {
                     '<td>' . e($o['order_no']) . '</td>' .
                     '<td class="fs-12">' . implode('<br>', $names) . '</td>';
                 if ($status === 'dispensed') {
-                    $html .= '<td>' . e($o['done_by'] ? $o['done_by'] : '') . '</td><td class="fs-12">' . e(substr((string)$o['dispensed_at'], 5, 11)) . '</td>';
+                    $html .= '<td>' . e($o['executed_by'] ? $o['executed_by'] : '') . '</td><td class="fs-12">' . e(substr((string)$o['dispensed_at'], 5, 11)) . '</td>';
                 }
                 $html .= '<td>' .
                     ($status === 'paid'
@@ -153,7 +153,7 @@ switch ($action) {
                     $factor = ($it['unit_type'] === 'min') ? 1 : max(1, (int)(isset($it['pack_size']) ? $it['pack_size'] : 1));
                     $restore = max(1, (int)$it['quantity']) * $factor;
                     OrderRepository::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array($restore, $it['item_id']));
-                    OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
+                    OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref_no, operator, created_at) VALUES(?,?,?,?,?,?)', array(
                         $it['item_id'], $restore, 'order_reject', $order['order_no'], $u['name'], now_str(),
                     ));
                 }
@@ -198,7 +198,7 @@ switch ($action) {
                 $newStatus = ((int)$it['is_nurse'] === 1) ? 'dispensing' : 'dispensed';
                 OrderRepository::exec('UPDATE order_items SET status=?, executed_by=?, executed_at=? WHERE id=?', array($newStatus, $u['name'], now_str(), (int)$it['id']));
             }
-            OrderRepository::exec('UPDATE orders SET status=?, done_by=?, dispensed_at=? WHERE id=?', array('dispensed', $u['name'], now_str(), $orderId));
+            OrderRepository::exec('UPDATE orders SET status=?, executed_by=?, dispensed_at=? WHERE id=?', array('dispensed', $u['name'], now_str(), $orderId));
             DatabaseManager::commitTx($pdo);
         } catch (Exception $ex) {
             DatabaseManager::rollbackTx($pdo);

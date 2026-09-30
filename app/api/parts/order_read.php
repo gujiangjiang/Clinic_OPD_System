@@ -142,7 +142,7 @@ function order_part_read($action) {
                 // 开单科室固化快照（打印/展示不随转科漂移）
                 'dept_id' => (int)(isset($o['dept_id']) ? $o['dept_id'] : 0),
                 'dept_name' => (string)(isset($o['dept_name']) ? $o['dept_name'] : ''),
-                'created_at' => $o['created_at'], 'done_by' => $doneBy,
+                'created_at' => $o['created_at'], 'executed_by' => $doneBy,
                 // 流程节点（操作人+时间）：开单/缴费/登记/发药(或执行完成)
                 'flow' => order_flow_steps($o, $items),
                 'items' => array_map(function ($it) use ($reportMap) {

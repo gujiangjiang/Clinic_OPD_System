@@ -13,7 +13,7 @@ class IntegrationRepository extends BaseRepository {
     /** 入向调用落账（审计表，监控面板溯源） */
     public static function logInbound($endpoint, $provider, $ok, $summary, $body, $ip) {
         return self::insert(
-            'INSERT INTO inbound_events(endpoint, provider, ok, summary, body, remote_ip, created_at) VALUES(?,?,?,?,?,?,?)',
+            'INSERT INTO inbound_events(endpoint, provider, is_success, summary, payload, remote_ip, created_at) VALUES(?,?,?,?,?,?,?)',
             array($endpoint, $provider, $ok ? 1 : 0, (string)$summary, substr((string)$body, 0, 8000), $ip, now_str())
         );
     }

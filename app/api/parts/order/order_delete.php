@@ -54,7 +54,7 @@ function order_part_delete($u) {
                     $factor = ((isset($it['unit_type']) ? $it['unit_type'] : 'pack') === 'min') ? 1 : max(1, (int)(isset($it['pack_size']) ? $it['pack_size'] : 1));
                     $restore = max(1, (int)$it['quantity']) * $factor;
                     OrderRepository::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array($restore, $it['item_id']));
-                    OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
+                    OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref_no, operator, created_at) VALUES(?,?,?,?,?,?)', array(
                         $it['item_id'], $restore, 'order_restore', $order['order_no'], $u['name'], now_str(),
                     ));
                 }

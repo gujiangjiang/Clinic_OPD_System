@@ -15,10 +15,10 @@ window.Clinic = window.Clinic || {};
  *   searchAction: 'disposal_search',      // 数据源 action（GET，参数 kw）
  *   allowCreate: true,                    // false 时彻底隐藏"+ 新建"入口
  *   createForm: function(){ return html } // 快建表单 HTML（allowCreate=true 时必传）
- *   createCollect: function(){ return {name:..., fee:..., creation_source:...} },
+ *   createCollect: function(){ return {name:..., price:..., creation_source:...} },
  *   createAction: 'disposal_quick_create',// 快建提交 action（POST）
  *   createContext: '在维护药品[青霉素]时快捷创建', // 审计追溯文案
- *   onSelect: function(item){}            // item = {id, name, fee, ...}
+ *   onSelect: function(item){}            // item = {id, name, price, ...}
  * });
  */
 Clinic.universalSelector = (function () {
@@ -37,13 +37,13 @@ Clinic.universalSelector = (function () {
         }
         box.innerHTML = rows.map(function (r) {
             return '<div class="us-item" data-id="' + r.id + '" data-name="' + Clinic.escHtml(r.name || '') + '"' +
-                ' data-fee="' + (r.fee || 0) + '" style="padding:10px 14px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer">' +
+                ' data-price="' + (r.price || 0) + '" style="padding:10px 14px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer">' +
                 '<div class="flex-between"><span class="fw-600">' + Clinic.escHtml(r.name || '') + '</span>' +
-                '<span class="fs-12 text-muted">¥' + Number(r.fee || 0).toFixed(2) + '</span></div></div>';
+                '<span class="fs-12 text-muted">¥' + Number(r.price || 0).toFixed(2) + '</span></div></div>';
         }).join('');
         box.querySelectorAll('.us-item').forEach(function (el) {
             el.addEventListener('click', function () {
-                const item = { id: el.getAttribute('data-id'), name: el.getAttribute('data-name'), fee: parseFloat(el.getAttribute('data-fee')) || 0 };
+                const item = { id: el.getAttribute('data-id'), name: el.getAttribute('data-name'), price: parseFloat(el.getAttribute('data-price')) || 0 };
                 Clinic.modal.close();
                 if (CFG && typeof CFG.onSelect === 'function') CFG.onSelect(item);
             });
@@ -117,7 +117,7 @@ Clinic.universalSelector = (function () {
             '<div class="form-group"><label class="form-label">项目名称 <span class="req">*</span></label>' +
             '<input class="input" id="usc_name" placeholder="如：青霉素皮试"></div>' +
             '<div class="form-group"><label class="form-label">费用（元）</label>' +
-            '<input class="input" type="number" step="0.01" min="0" id="usc_fee" value="0"></div>' +
+            '<input class="input" type="number" step="0.01" min="0" id="usc_price" value="0"></div>' +
             '<div class="flex gap-8">' +
             '<button type="button" class="btn btn-primary btn-sm" id="usc_submit">提交</button>' +
             '<button type="button" class="btn btn-outline btn-sm" id="usc_back">返回检索</button></div>' +
@@ -134,7 +134,7 @@ Clinic.universalSelector = (function () {
             if (!name) { Clinic.toast.warning('请填写项目名称'); return; }
             const payload = CFG.createCollect ? CFG.createCollect() : {};
             payload.name = name;
-            payload.fee = parseFloat(document.getElementById('usc_fee').value) || 0;
+            payload.price = parseFloat(document.getElementById('usc_price').value) || 0;
             payload.creation_source = CFG.createContext || '快捷创建';
             payload.action = CFG.createAction;
             Clinic.ajax('/api/admin', payload, {
@@ -148,7 +148,7 @@ Clinic.universalSelector = (function () {
                     Clinic.toast.success(json.msg);
                     Clinic.modal.close();
                     if (typeof CFG.onSelect === 'function') {
-                        CFG.onSelect({ id: d.id, name: d.name, fee: d.fee });
+                        CFG.onSelect({ id: d.id, name: d.name, price: d.price });
                     }
                 },
             });

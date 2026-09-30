@@ -206,7 +206,7 @@ class VisitSeeder extends Seeder {
         $this->exams = array();
         foreach ($pdo->query("SELECT id, name, price, category FROM exam_items WHERE status='approved'") as $r) $this->exams[] = $r;
         $this->disps = array();
-        foreach ($pdo->query("SELECT id, name, fee, is_nurse FROM disposal_items WHERE status='approved'") as $r) $this->disps[] = $r;
+        foreach ($pdo->query("SELECT id, name, price, is_nurse FROM disposal_items WHERE status='approved'") as $r) $this->disps[] = $r;
         $this->drugs = array();
         foreach ($pdo->query("SELECT id, name, price, spec, package_unit, vendor_short, single_dose, frequency, route, is_nurse, spec_pack_qty, allow_split FROM drugs WHERE status='approved'") as $r) $this->drugs[] = $r;
         $this->diagPool = array();
@@ -547,8 +547,8 @@ class VisitSeeder extends Seeder {
                     if (isset($used2[$it['id']])) continue;
                     $used2[$it['id']] = 1;
                     $qty = mt_rand(1, 2);
-                    $itemRows[] = array('item_id' => $it['id'], 'item_name' => $it['name'], 'price' => $it['fee'], 'qty' => $qty, 'extra' => array('is_nurse' => $it['is_nurse']));
-                    $total += (float)$it['fee'] * $qty;
+                    $itemRows[] = array('item_id' => $it['id'], 'item_name' => $it['name'], 'price' => $it['price'], 'qty' => $qty, 'extra' => array('is_nurse' => $it['is_nurse']));
+                    $total += (float)$it['price'] * $qty;
                     $dispItems[] = array('name' => $it['name'], 'qty' => $qty);
                 }
             } else {
@@ -577,7 +577,7 @@ class VisitSeeder extends Seeder {
             while (DB::one('SELECT id FROM orders WHERE order_no=?', array($orderNo))) {
                 $orderNo = $prefix[$otype] . date('YmdHis', strtotime($created)) . sprintf('%02d', mt_rand(0, 99));
             }
-            $orderId = (int)DB::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, paid_at, refunded_at, done_by, dispensed_at, review_by, reviewed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+            $orderId = (int)DB::insert('INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, paid_at, refunded_at, executed_by, dispensed_at, review_by, reviewed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                 $visitId, $p['patient_no'], $flowNo, $otype, $orderNo, '', $docId, $docName, 0, $deptId, $dept['name'],
                 $total, $ostatus, $created, $paidAt, '', ($ostatus === 'done' || $ostatus === 'dispensed') ? $execBy : '',
                 $ostatus === 'dispensed' ? $execAt : '',
@@ -611,7 +611,7 @@ class VisitSeeder extends Seeder {
                     $factor = max(1, (int)(isset($ir2['extra']['pack_size']) ? $ir2['extra']['pack_size'] : 1));
                     $deduct = max(1, (int)$ir2['qty']) * $factor;
                     if (DB::exec('UPDATE drugs SET qty = qty - ? WHERE id=? AND qty >= ?', array($deduct, $ir2['item_id'], $deduct)) === 1) {
-                        DB::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
+                        DB::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref_no, operator, created_at) VALUES(?,?,?,?,?,?)', array(
                             $ir2['item_id'], -$deduct, 'order_out', $orderNo, $docName, $created,
                         ));
                     }
@@ -636,13 +636,13 @@ class VisitSeeder extends Seeder {
                     $resTs = strtotime($execAt) + mt_rand(600, 3600);
                     $findings = $otype === 'imaging' ? $this->pick(array('所见骨质结构完整，未见明显骨折征象。', '双肺纹理增粗，余未见明显异常。', '软组织肿胀，未见明显异物存留。', '未见明显异常。')) : '';
                     $conclusion = $otype === 'imaging' ? $this->pick(array('符合临床诊断，请结合病史。', '未见明显异常，建议必要时复查。', '软组织损伤表现，请结合临床。')) : '';
-                    $resultId = (int)DB::insert('INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, values_json, findings, conclusion, executor, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                    $resultId = (int)DB::insert('INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, values_json, findings, conclusion, executed_by, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                         $itemId, $iid, $visitId, $p['patient_no'], $flowNo, $otype, $valuesJson,
                         $findings, $conclusion, $execBy, 'done', date('Y-m-d H:i:s', $resTs), date('Y-m-d H:i:s', $resTs),
                     ));
                     $dayKey = date('Ymd', $resTs);
                     $this->reportSeq[$dayKey] = (isset($this->reportSeq[$dayKey]) ? $this->reportSeq[$dayKey] : 0) + 1;
-                    DB::insert('INSERT INTO reports(result_id, report_no, visit_id, patient_no, flow_no, type, content, doctor, status, apply_dept, apply_doctor, clinical_diag, apply_time, reg_time, category_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                    DB::insert('INSERT INTO reports(result_id, report_no, visit_id, patient_no, flow_no, type, content, doctor_name, status, apply_dept_name, apply_doctor_name, clinical_diagnosis, applied_at, registered_at, category_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                         $resultId, 'BG' . $dayKey . sprintf('%04d', $this->reportSeq[$dayKey]),
                         $visitId, $p['patient_no'], $flowNo, $otype, '',
                         $execBy, 'done', $dept['name'], $docName, $diagPick[0]['name'],

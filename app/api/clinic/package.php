@@ -438,7 +438,7 @@ switch ($action) {
             ), JSON_UNESCAPED_UNICODE);
             $typeLabel = pkg_type_label($type);
             if ($existing) {
-                PackageRepository::exec('UPDATE audits SET title=?, content=?, data=?, proposer=?, proposer_id=?, created_at=? WHERE id=?', array(
+                PackageRepository::exec('UPDATE audits SET title=?, content=?, data_json=?, proposer=?, proposer_id=?, created_at=? WHERE id=?', array(
                     $typeLabel . '待审核：' . $title, '提交' . $scopeName . $typeLabel . '「' . $title . '」，请在审核中心查看详情并审核', $auditData, $u['name'], $u['id'], now_str(), (int)$existing['id'],
                 ));
             } else {

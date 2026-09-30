@@ -178,7 +178,7 @@ class PackageSeeder extends Seeder {
         return array(
             'item_id' => (int)$row['id'], 'sub_of' => 0, 'item_name' => $row['name'],
             'spec' => '', 'unit' => '次', 'company_short' => '',
-            'price' => (float)$row['fee'], 'pack_price' => (float)$row['fee'],
+            'price' => (float)$row['price'], 'pack_price' => (float)$row['price'],
             'quantity' => max(1, (int)$qty), 'single_dose' => '', 'frequency' => '', 'route' => '',
             'nurse_required' => (int)$row['is_nurse'], 'is_skin_test' => 0, 'skin_test_item_id' => 0,
             'spec_dose' => 0, 'spec_dose_unit' => '', 'spec_pack_qty' => 1, 'spec_pack_unit' => '',

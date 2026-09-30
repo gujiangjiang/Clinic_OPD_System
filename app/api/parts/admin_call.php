@@ -33,9 +33,9 @@ function admin_part_call($action) {
         $rowsHtml = '<thead><tr>' .
             '<th>诊室/窗口</th><th>类型</th><th>大屏状态</th><th>绑定</th><th>设置</th><th>操作</th></tr></thead><tbody>';
         foreach ($rows as $r) {
-            $online = (!empty($r['screen_last_heartbeat']) && (time() - strtotime($r['screen_last_heartbeat'])) <= 30);
+            $online = (!empty($r['screen_last_heartbeat_at']) && (time() - strtotime($r['screen_last_heartbeat_at'])) <= 30);
             $st = $online
-                ? '<span class="badge badge-success">' . render_icon('alert:dot-green') . ' 在线运行中</span>' . '<div class="fs-12 text-muted mt-4">最后活跃 ' . e(substr((string)$r['screen_last_heartbeat'], 5, 16)) . '</div>'
+                ? '<span class="badge badge-success">' . render_icon('alert:dot-green') . ' 在线运行中</span>' . '<div class="fs-12 text-muted mt-4">最后活跃 ' . e(substr((string)$r['screen_last_heartbeat_at'], 5, 16)) . '</div>'
                 : '<span class="badge badge-gray">' . render_icon('alert:dot-gray') . ' 离线未连接</span>';
             $bind = $r['current_doctor_id'] > 0
                 ? badge_html('warning', '' . e($r['current_doctor_name']) . ' 正在坐诊')
@@ -68,7 +68,7 @@ function admin_part_call($action) {
         $html = render_list_wrapper('「' . e($dept['name']) . '」共 ' . count($rows) . ' 块大屏', '暂无大屏配置，请先新建', $rowsHtml);
         json_ok(array('html' => $html, 'dept_name' => $dept['name'],
             'total_count' => count($rows),
-            'online_count' => (int)DeptRepository::val("SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat IS NOT NULL AND (strftime('%s','now','localtime') - strftime('%s',screen_last_heartbeat)) <= 30", array($deptId))));
+            'online_count' => (int)DeptRepository::val("SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat_at IS NOT NULL AND (strftime('%s','now','localtime') - strftime('%s',screen_last_heartbeat_at)) <= 30", array($deptId))));
     }
 
     /* ==================== 全科室大屏统计（选择科室模态框实时数据源） ==================== */
@@ -77,7 +77,7 @@ function admin_part_call($action) {
         $stats = array();
         foreach ($depts as $d) {
             $total = (int)DeptRepository::val('SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=?', array((int)$d['id']));
-            $online = (int)DeptRepository::val("SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat IS NOT NULL AND (strftime('%s','now','localtime') - strftime('%s',screen_last_heartbeat)) <= 30", array((int)$d['id']));
+            $online = (int)DeptRepository::val("SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat_at IS NOT NULL AND (strftime('%s','now','localtime') - strftime('%s',screen_last_heartbeat_at)) <= 30", array((int)$d['id']));
             $stats[] = array('id' => (int)$d['id'], 'room_count' => $total, 'online_count' => $online);
         }
         json_ok(array('list' => $stats));
@@ -126,7 +126,7 @@ function admin_part_call($action) {
     /* ==================== 强制释放诊室绑定 ==================== */
     if ($action === 'room_release') {
         $id = (int)post('id');
-        DeptRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL, updated_at=? WHERE id=?', array(now_str(), $id));
+        DeptRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat_at=NULL, updated_at=? WHERE id=?', array(now_str(), $id));
         json_ok(array(), '诊室已强制释放');
     }
 

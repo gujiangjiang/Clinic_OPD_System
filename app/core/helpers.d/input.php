@@ -215,15 +215,15 @@ function insert_report($data) {
         }
         try {
             $repId = OrderRepository::insert(
-                'INSERT INTO reports(result_id, report_no, visit_id, patient_no, flow_no, type, doctor, status, content, apply_dept, apply_doctor, clinical_diag, apply_time, reg_time, category_name, pdf_url, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                'INSERT INTO reports(result_id, report_no, visit_id, patient_no, flow_no, type, doctor_name, status, content, apply_dept_name, apply_doctor_name, clinical_diagnosis, applied_at, registered_at, category_name, pdf_url, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 array($data['result_id'], $data['report_no'], $data['visit_id'], $data['patient_no'], $data['flow_no'],
                     $data['type'], $data['doctor'], $data['status'],
                     isset($data['content']) ? (string)$data['content'] : '',
-                    isset($data['apply_dept']) ? (string)$data['apply_dept'] : '',
-                    isset($data['apply_doctor']) ? (string)$data['apply_doctor'] : '',
-                    isset($data['clinical_diag']) ? (string)$data['clinical_diag'] : '',
-                    isset($data['apply_time']) ? (string)$data['apply_time'] : '',
-                    isset($data['reg_time']) ? (string)$data['reg_time'] : '',
+                    isset($data['apply_dept_name']) ? (string)$data['apply_dept_name'] : '',
+                    isset($data['apply_doctor_name']) ? (string)$data['apply_doctor_name'] : '',
+                    isset($data['clinical_diagnosis']) ? (string)$data['clinical_diagnosis'] : '',
+                    isset($data['applied_at']) ? (string)$data['applied_at'] : '',
+                    isset($data['registered_at']) ? (string)$data['registered_at'] : '',
                     isset($data['category_name']) ? (string)$data['category_name'] : '',
                     isset($data['pdf_url']) ? (string)$data['pdf_url'] : '',
                     now_str())
@@ -324,7 +324,7 @@ function snapshot_patient($bizType, $bizId, $patientNo, $extra = array()) {
         'job' => $p ? $p['occupation'] : '',
         'marital' => $p ? $p['marital'] : '',
         'phone' => $p ? $p['phone'] : '',
-        'extra' => json_encode(is_array($extra) ? $extra : array(), JSON_UNESCAPED_UNICODE),
+        'extra_json' => json_encode(is_array($extra) ? $extra : array(), JSON_UNESCAPED_UNICODE),
         'created_at' => now_str(),
     );
     if (PrintSnapshotRepository::exists($bizType, $bizId)) {
@@ -338,8 +338,8 @@ function snapshot_patient($bizType, $bizId, $patientNo, $extra = array()) {
 function snapshot_get($bizType, $bizId) {
     $r = PrintSnapshotRepository::byBiz($bizType, $bizId);
     if (!$r) return null;
-    $r['extra'] = json_decode((string)$r['extra'], true);
-    if (!is_array($r['extra'])) $r['extra'] = array();
+    $r['extra_json'] = json_decode((string)$r['extra_json'], true);
+    if (!is_array($r['extra_json'])) $r['extra_json'] = array();
     return $r;
 }
 

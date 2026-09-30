@@ -22,8 +22,8 @@ function doctor_read_report_detail($u) {
     // 报告快照（法律合规）：出具时刻项目字典元数据优先，事后改名/改范围不影响历史报告查看
     $snapMeta = null;
     $snapRep = snapshot_get('report', (int)$report['id']);
-    if ($snapRep && isset($snapRep['extra']['item_meta']) && is_array($snapRep['extra']['item_meta'])) {
-        $snapMeta = $snapRep['extra']['item_meta'];
+    if ($snapRep && isset($snapRep['extra_json']['item_meta']) && is_array($snapRep['extra_json']['item_meta'])) {
+        $snapMeta = $snapRep['extra_json']['item_meta'];
     }
     $snapItem = ($snapMeta && empty($snapMeta['group']) && isset($snapMeta['item']) && is_array($snapMeta['item'])) ? $snapMeta['item'] : null;
     $snapMembers = ($snapMeta && !empty($snapMeta['group']) && isset($snapMeta['members']) && is_array($snapMeta['members'])) ? $snapMeta['members'] : null;
@@ -71,7 +71,7 @@ function doctor_read_report_detail($u) {
         'rows' => $rows,
         'findings' => $findings,
         'conclusion' => $conclusion,
-        'executor' => $report['doctor'],
+        'executed_by' => $report['doctor'],
         'time' => $report['created_at'],
     ));
     return;

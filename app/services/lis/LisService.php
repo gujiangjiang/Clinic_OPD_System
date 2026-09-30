@@ -182,12 +182,12 @@ class LisService {
             }
 
             if ($result) {
-                OrderRepository::exec("UPDATE results SET values_json=?, status='done', executor=?, updated_at=? WHERE id=?",
+                OrderRepository::exec("UPDATE results SET values_json=?, status='done', executed_by=?, updated_at=? WHERE id=?",
                     array($valuesJson, $reportDoctor !== '' ? $reportDoctor : 'LIS', now_str(), (int)$result['id']));
                 $resultId = (int)$result['id'];
             } else {
                 $resultId = OrderRepository::insert(
-                    'INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, values_json, executor, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+                    'INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, values_json, executed_by, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
                     array($itemId, $orderItemId, $visitId, $patientNo, $flowNo, 'lab', $valuesJson,
                         $reportDoctor !== '' ? $reportDoctor : 'LIS', 'done', now_str(), now_str())
                 );
@@ -229,7 +229,7 @@ class LisService {
             $report = OrderRepository::one('SELECT * FROM reports WHERE result_id=? AND type=? ORDER BY id LIMIT 1', array($rid, 'lab'));
         }
         $fields = array(
-            'doctor' => $reportDoctor !== '' ? $reportDoctor : 'LIS',
+            'doctor_name' => $reportDoctor !== '' ? $reportDoctor : 'LIS',
             'pdf_url' => $pdfUrl,
             'status' => 'done',
         );
@@ -249,11 +249,11 @@ class LisService {
             'result_id' => $resultIds ? (int)reset($resultIds) : 0,
             'report_no' => $no,
             'visit_id' => $visitId, 'patient_no' => $patientNo, 'flow_no' => $flowNo,
-            'type' => 'lab', 'doctor' => $reportDoctor !== '' ? $reportDoctor : 'LIS', 'status' => 'done',
+            'type' => 'lab', 'doctor_name' => $reportDoctor !== '' ? $reportDoctor : 'LIS', 'status' => 'done',
             'pdf_url' => $pdfUrl,
-            'apply_dept' => (string)$order['dept_name'],
-            'apply_doctor' => (string)$order['doctor_name'],
-            'apply_time' => (string)$order['created_at'],
+            'apply_dept_name' => (string)$order['dept_name'],
+            'apply_doctor_name' => (string)$order['doctor_name'],
+            'applied_at' => (string)$order['created_at'],
         ));
     }
 }

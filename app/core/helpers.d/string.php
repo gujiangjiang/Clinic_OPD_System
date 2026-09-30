@@ -105,7 +105,7 @@ function submit_audit($type, $refId, $title, $content, $extra = array()) {
     $source = isset($extra['creation_source']) ? $extra['creation_source'] : '';
     $params = array($type, (int)$refId, $title, $content, 'pending', $proposer, $proposerId, now_str());
     $cols = 'type, ref_id, title, content, status, proposer, proposer_id, created_at';
-    if ($data !== null) { $cols .= ', data'; $params[] = $data; }
+    if ($data !== null) { $cols .= ', data_json'; $params[] = $data; }
     if ($source !== '') { $cols .= ', creation_source'; $params[] = $source; }
     return AuditRepository::insert('INSERT INTO audits(' . $cols . ') VALUES(' . in_placeholders($params) . ')', $params);
 }

@@ -82,7 +82,7 @@ function pt_sec($label, $body) {
  * 快照优先（生成时定格）：申请科室/申请医生/临床诊断/申请时间/登记时间，
  * 旧报告（未快照）回退实时查询 orders/order_items，诊断再回退结构化病历
  * 首诊断（不含 ICD10）与旧镜像表 preliminary_diagnosis。
- * @param array $report reports 行（含快照字段 apply_dept 等，可缺失）
+ * @param array $report reports 行（含快照字段 apply_dept_name 等，可缺失）
  * @param array $result results 行（含 order_item_id / type）
  * @return array  ctx：row/pname/pgender/pbirth/page/applyDept/applyDoctor/diag/
  *                applyTime/regTime/order/orderItem
@@ -108,8 +108,14 @@ function pt_report_context($report, $result) {
             $ctx['page'] = age_format($snap['birth_date'], $row && $row['visit'] ? $row['visit']['registered_at'] : '');
         }
     }
-    foreach (array('applyDept', 'applyDoctor', 'diag', 'applyTime', 'regTime') as $k) {
-        if (isset($report[$k])) $ctx[$k] = trim((string)$report[$k]);
+    // 快照字段读取（reports 行键为规范化列名：applied_at / registered_at /
+    // apply_dept_name / apply_doctor_name / clinical_diagnosis）
+    $reportFieldMap = array('applyDept' => 'apply_dept_name', 'applyDoctor' => 'apply_doctor_name',
+        'diag' => 'clinical_diagnosis', 'applyTime' => 'applied_at', 'regTime' => 'registered_at');
+    foreach ($reportFieldMap as $ctxKey => $col) {
+        if (isset($report[$col]) && $report[$col] !== '' && $report[$col] !== null) {
+            $ctx[$ctxKey] = trim((string)$report[$col]);
+        }
     }
     // 旧报告（未快照）回退实时查询
     $orderItem = null;

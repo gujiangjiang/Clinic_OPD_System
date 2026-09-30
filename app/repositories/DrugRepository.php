@@ -39,7 +39,7 @@ class DrugRepository extends BaseRepository {
 
     /** 库存流水 */
     public static function createInventoryTrans($drugId, $qtyChange, $type, $ref, $operator) {
-        return self::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)',
+        return self::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref_no, operator, created_at) VALUES(?,?,?,?,?,?)',
             array((int)$drugId, (int)$qtyChange, $type, $ref, $operator, now_str()));
     }
 

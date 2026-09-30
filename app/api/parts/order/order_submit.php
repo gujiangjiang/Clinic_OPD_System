@@ -32,7 +32,7 @@ function order_part_submit($u) {
     // 皮试判定结果（与 items 下标对齐）：yes=需要皮试 / no=免试 / 空=非皮试药品
     $skinChoices = json_decode(post('skin_choices', '[]'), true);
     if (!is_array($skinChoices)) $skinChoices = array();
-    // 联动处置聚合容器：disposal_id => [name, fee, qty]
+    // 联动处置聚合容器：disposal_id => [name, price, qty]
     // 皮试处置（autoDispSkin）与途径绑定处置（autoDispOther）分开，独立处置申请单
     $autoDisp = array();
     $autoDispSkin = array();
@@ -162,17 +162,17 @@ function order_part_submit($u) {
                 if ($skinChoice === 'yes' && (int)$drug['skin_test_item_id'] > 0) {
                     $stId = (int)$drug['skin_test_item_id'];
                     if (!isset($autoDispSkin[$stId])) {
-                        $stInfo = OrderRepository::one('SELECT name, fee FROM disposal_items WHERE id=?', array($stId));
+                        $stInfo = OrderRepository::one('SELECT name, price FROM disposal_items WHERE id=?', array($stId));
                         if (!$stInfo) json_fail('皮试处置项目不存在：#' . $stId);
-                        $autoDispSkin[$stId] = array('name' => $stInfo['name'], 'fee' => (float)$stInfo['fee'], 'qty' => 0);
+                        $autoDispSkin[$stId] = array('name' => $stInfo['name'], 'price' => (float)$stInfo['price'], 'qty' => 0);
                     }
                     $autoDispSkin[$stId]['qty'] += 1;
                 }
                 if ($routeBindId > 0) {
                     if (!isset($autoDispOther[$routeBindId])) {
-                        $rbInfo = OrderRepository::one('SELECT name, fee FROM disposal_items WHERE id=?', array($routeBindId));
+                        $rbInfo = OrderRepository::one('SELECT name, price FROM disposal_items WHERE id=?', array($routeBindId));
                         if (!$rbInfo) json_fail('途径绑定处置不存在：#' . $routeBindId);
-                        $autoDispOther[$routeBindId] = array('name' => $rbInfo['name'], 'fee' => (float)$rbInfo['fee'], 'qty' => 0);
+                        $autoDispOther[$routeBindId] = array('name' => $rbInfo['name'], 'price' => (float)$rbInfo['price'], 'qty' => 0);
                     }
                     // 按组数核算（1.9.0）：一个主药 = 一个组，同组内子药不叠加——
                     // 同一瓶液体加入多种药只产生 1 次注射/输液处置费
@@ -188,7 +188,7 @@ function order_part_submit($u) {
             $catTable = array(
                 'lab' => array('lab_items', 'price'),
                 'imaging' => array('exam_items', 'price'),
-                'procedure' => array('disposal_items', 'fee'),
+                'procedure' => array('disposal_items', 'price'),
             );
             if (isset($catTable[$orderType])) {
                 $itemRow = OrderRepository::one(
@@ -467,7 +467,7 @@ function order_part_submit($u) {
                         DatabaseManager::rollbackTx($pdo);
                         json_fail('药品【' . $it['item_name'] . '】库存不足（并发扣减），请重试');
                     }
-                    OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref, operator, created_at) VALUES(?,?,?,?,?,?)', array(
+                    OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref_no, operator, created_at) VALUES(?,?,?,?,?,?)', array(
                         $it['item_id'], -$deduct, 'order_out', $orderNo, $u['name'], now_str(),
                     ));
                 }
@@ -506,7 +506,7 @@ function order_part_submit($u) {
     if ($orderType === 'prescription') {
         if ($autoDispSkin) {
             $skinDispTotal = 0;
-            foreach ($autoDispSkin as $d) { $skinDispTotal += (float)$d['fee'] * (int)$d['qty']; }
+            foreach ($autoDispSkin as $d) { $skinDispTotal += (float)$d['price'] * (int)$d['qty']; }
             $skinDispNo = '';
             $srcSkin = $skinOrderId > 0 ? $skinOrderId : $mainOrderId;
             $skinDispId = insert_unique_retry(
@@ -522,7 +522,7 @@ function order_part_submit($u) {
             foreach ($autoDispSkin as $dispId => $d) {
                 OrderRepository::insert('INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, price, quantity, unit, is_nurse, sub_of, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                     $skinDispId, $visitId, $visit['patient_no'], $visit['flow_no'],
-                    'procedure', $dispId, $d['name'], (float)$d['fee'], (int)$d['qty'],
+                    'procedure', $dispId, $d['name'], (float)$d['price'], (int)$d['qty'],
                     '次', 1, 0, 'open', $u['id'], $u['name'], now_str()));
             }
             send_msg('nurse', 0,
@@ -536,7 +536,7 @@ function order_part_submit($u) {
         }
         if ($autoDispOther && $mainOrderId > 0) {
             $otherTotal = 0;
-            foreach ($autoDispOther as $d) { $otherTotal += (float)$d['fee'] * (int)$d['qty']; }
+            foreach ($autoDispOther as $d) { $otherTotal += (float)$d['price'] * (int)$d['qty']; }
             $otherNo = '';
             $otherId = insert_unique_retry(
                 function () { return gen_unique_no('CZ', 'orders', 'order_no'); },
@@ -551,7 +551,7 @@ function order_part_submit($u) {
             foreach ($autoDispOther as $dispId => $d) {
                 OrderRepository::insert('INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, price, quantity, unit, is_nurse, sub_of, status, doctor_id, doctor_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                     $otherId, $visitId, $visit['patient_no'], $visit['flow_no'],
-                    'procedure', $dispId, $d['name'], (float)$d['fee'], (int)$d['qty'],
+                    'procedure', $dispId, $d['name'], (float)$d['price'], (int)$d['qty'],
                     '次', 1, 0, 'open', $u['id'], $u['name'], now_str()));
             }
             send_msg('nurse', 0,
@@ -580,7 +580,7 @@ function order_part_submit($u) {
             if ($snapMir) $snapDiag = (string)$snapMir['preliminary_diagnosis'];
         }
         foreach ($createdIds as $ci) {
-            snapshot_patient('order', (int)$ci, (string)$visit['patient_no'], array('clinical_diag' => $snapDiag, 'order_type' => $orderType));
+            snapshot_patient('order', (int)$ci, (string)$visit['patient_no'], array('clinical_diagnosis' => $snapDiag, 'order_type' => $orderType));
         }
     } catch (Exception $ex) {
         if (defined('DEBUG') && DEBUG) error_log('[开单快照失败] ' . $ex->getMessage());

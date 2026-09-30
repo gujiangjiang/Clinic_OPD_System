@@ -110,7 +110,7 @@ class RestHisDriver implements HisDriverInterface {
                     'patient_no' => $p['patient_no'],
                     'flow_no' => $p['flow_no'],
                     'kind' => $p['kind'],
-                    'total' => (float)$p['total'],
+                    'total' => (float)$p['total_amount'],
                     'method' => $p['method'],
                     'created_at' => $p['created_at'],
                 );

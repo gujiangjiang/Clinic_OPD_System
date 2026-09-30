@@ -192,7 +192,7 @@ class QueueSeeder extends Seeder {
             'lab'          => array('lab',          'lab',          $labItem,  $labItem  ? (float)$labItem['price']  : 0, array()),
             'imaging'      => array('imaging',      'imaging',      $examItem, $examItem ? (float)$examItem['price'] : 0, array()),
             'prescription' => array('prescription', 'prescription', $drugItem, $drugItem ? (float)$drugItem['price'] : 0, array()),
-            'procedure'    => array('procedure',    'procedure',    $procItem, $procItem ? (float)$procItem['fee']   : 0, array('is_nurse' => 1)),
+            'procedure'    => array('procedure',    'procedure',    $procItem, $procItem ? (float)$procItem['price']   : 0, array('is_nurse' => 1)),
         );
         $cnt = array('lab' => 0, 'imaging' => 0, 'prescription' => 0, 'procedure' => 0);
         // 每类各挑「尚无该类型待办单」的待就诊/就诊中患者（保证队列新增 N 位新患者）

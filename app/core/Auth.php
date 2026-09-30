@@ -116,17 +116,17 @@ class Auth {
         if ((int)$u['status'] === 0) {
             // 安全锁定（密码错误自动锁定）且锁定窗口已过期 → 自动解锁后继续正常校验；
             // 管理员停用（lock_reason 非 password_error_locked）永不自动解锁
-            if ((string)$u['lock_reason'] === 'password_error_locked' && isset($u['login_locked_until']) && $u['login_locked_until'] !== null && $u['login_locked_until'] !== '') {
-                $until = strtotime((string)$u['login_locked_until']);
+            if ((string)$u['lock_reason'] === 'password_error_locked' && isset($u['locked_until']) && $u['locked_until'] !== null && $u['locked_until'] !== '') {
+                $until = strtotime((string)$u['locked_until']);
                 if ($until > 0 && time() >= $until) {
-                    UserRepository::exec("UPDATE users SET status=1, lock_reason='', login_fail_count=0, locked_at=NULL, lock_ip=NULL, login_locked_until=NULL WHERE id=?",
+                    UserRepository::exec("UPDATE users SET status=1, lock_reason='', login_fail_count=0, locked_at=NULL, lock_ip=NULL, locked_until=NULL WHERE id=?",
                         array((int)$u['id']));
                     $u = UserRepository::one('SELECT * FROM users WHERE id=?', array((int)$u['id']));
                 }
             }
             if ((int)$u['status'] === 0) {
                 if ((string)$u['lock_reason'] === 'password_error_locked') {
-                    $untilTxt = isset($u['login_locked_until']) && $u['login_locked_until'] !== '' ? (string)$u['login_locked_until'] : '';
+                    $untilTxt = isset($u['locked_until']) && $u['locked_until'] !== '' ? (string)$u['locked_until'] : '';
                     if ($untilTxt !== '') {
                         $remainMin = (int)ceil((strtotime($untilTxt) - time()) / 60);
                         return '该账号因密码连续输入错误已被临时锁定，约 ' . max(1, $remainMin) . ' 分钟后自动解锁';
@@ -152,7 +152,7 @@ class Auth {
                 $now = now_str();
                 $until = date('Y-m-d H:i:s', time() + LoginSecurity::LOCK_DURATION);
                 $locked = UserRepository::exec(
-                    "UPDATE users SET status=0, lock_reason='password_error_locked', locked_at=?, lock_ip=?, login_locked_until=?
+                    "UPDATE users SET status=0, lock_reason='password_error_locked', locked_at=?, lock_ip=?, locked_until=?
                      WHERE id=? AND status=1",
                     array($now, $ip, $until, (int)$u['id'])
                 );
@@ -171,9 +171,9 @@ class Auth {
         }
 
         /* ==================== ④ 登录成功处理 ==================== */
-        // 清零失败计数与锁定归因字段（历史 login_locked_until 一并失效）
+        // 清零失败计数与锁定归因字段（历史 locked_until 一并失效）
         UserRepository::exec(
-            'UPDATE users SET login_fail_count=0, login_locked_until=NULL, lock_reason=NULL, locked_at=NULL, last_login=? WHERE id=?',
+            'UPDATE users SET login_fail_count=0, locked_until=NULL, lock_reason=NULL, locked_at=NULL, last_login_at=? WHERE id=?',
             array(now_str(), (int)$u['id'])
         );
         // 清除当前客户端 IP/Session 的失败频次与验证码状态
@@ -201,7 +201,7 @@ class Auth {
         $u = self::user();
         if ($u) {
             try {
-                QueueRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL, updated_at=? WHERE current_doctor_id=?',
+                QueueRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat_at=NULL, updated_at=? WHERE current_doctor_id=?',
                     array(now_str(), (int)$u['id']));
             } catch (Exception $ex) {
                 if (defined('DEBUG') && DEBUG) error_log('[logout] 诊室解绑失败（不影响登出）：' . $ex->getMessage());

@@ -283,7 +283,7 @@ function admin_part_user($action) {
                 // 启用（含一键解锁）：重置锁定归因三件套 + 失败计数——
                 // 该用户即可恢复无障碍正常登录，无需任何二次繁琐操作
                 UserRepository::exec(
-                    'UPDATE users SET lock_reason=NULL, locked_at=NULL, lock_ip=?, login_fail_count=0, login_locked_until=NULL WHERE id=?',
+                    'UPDATE users SET lock_reason=NULL, locked_at=NULL, lock_ip=?, login_fail_count=0, locked_until=NULL WHERE id=?',
                     array('', $id)
                 );
                 if ($wasLocked) {

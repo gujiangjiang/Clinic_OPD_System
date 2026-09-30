@@ -344,7 +344,7 @@ function deptwork_orders($visitId) {
             'created_at' => $o['created_at'],
             'total_amount' => (float)$o['total_amount'],
             'status' => $o['status'],
-            'done_by' => isset($o['done_by']) ? $o['done_by'] : '',
+            'executed_by' => isset($o['executed_by']) ? $o['executed_by'] : '',
             'dispensed_at' => isset($o['dispensed_at']) ? $o['dispensed_at'] : '',
             'review_by' => isset($o['review_by']) ? $o['review_by'] : '',
             'reviewed_at' => isset($o['reviewed_at']) ? $o['reviewed_at'] : '',
@@ -518,7 +518,7 @@ function deptwork_get_available_rooms($u) {
     $rows = QueueRepository::q("SELECT * FROM clinic_rooms WHERE $where ORDER BY id", $params);
     $list = array();
     foreach ($rows as $room) {
-        $isOnline = (!empty($room['screen_last_heartbeat']) && (time() - strtotime($room['screen_last_heartbeat'])) <= 30);
+        $isOnline = (!empty($room['screen_last_heartbeat_at']) && (time() - strtotime($room['screen_last_heartbeat_at'])) <= 30);
         if (!$isOnline) {
             $status = 'offline'; $text = '大屏离线，请联系管理员'; $sel = false;
         } elseif ($room['current_doctor_id'] > 0 && (int)$room['current_doctor_id'] !== (int)$u['id']) {
@@ -550,7 +550,7 @@ function deptwork_bind_room($u) {
         json_fail('无权绑定其他科室的诊室');
     }
     // 后端强拦截：大屏必须在线
-    if (empty($room['screen_last_heartbeat']) || (time() - strtotime($room['screen_last_heartbeat'])) > 30) {
+    if (empty($room['screen_last_heartbeat_at']) || (time() - strtotime($room['screen_last_heartbeat_at'])) > 30) {
         json_fail('该大屏当前处于离线状态，无法绑定，请确保大屏已开启并在运行！');
     }
     // 已被他人占用 → 拒绝
@@ -558,8 +558,8 @@ function deptwork_bind_room($u) {
         json_fail('该大屏已被 ' . $room['current_doctor_name'] . ' 使用，无法绑定');
     }
     // 释放本人此前绑定的其他诊室（一人一块屏）
-    QueueRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL WHERE current_doctor_id=?', array($u['id']));
-    QueueRepository::exec('UPDATE clinic_rooms SET current_doctor_id=?, current_doctor_name=?, doctor_heartbeat=?, call_session_date=?, updated_at=? WHERE id=?',
+    QueueRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat_at=NULL WHERE current_doctor_id=?', array($u['id']));
+    QueueRepository::exec('UPDATE clinic_rooms SET current_doctor_id=?, current_doctor_name=?, doctor_heartbeat_at=?, call_session_date=?, updated_at=? WHERE id=?',
         array($u['id'], $u['name'], now_str(), today_str(), now_str(), $roomId));
     $dept = DeptRepository::one('SELECT name FROM departments WHERE id=?', array((int)$room['dept_id']));
     json_ok(array('room_id' => $roomId, 'room_name' => $room['room_name'], 'dept_name' => $dept ? $dept['name'] : ''), '已绑定大屏「' . $room['room_name'] . '」');
@@ -568,7 +568,7 @@ function deptwork_bind_room($u) {
 /** 解绑大屏诊室 */
 function deptwork_unbind_room($u) {
     $roomId = (int)post('room_id');
-    QueueRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL, current_visit_id=0, current_flow_no=\'\', current_called_at=\'\', last_call_action=\'\', last_call_at=\'\', updated_at=? WHERE id=? AND current_doctor_id=?',
+    QueueRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat_at=NULL, current_visit_id=0, current_flow_no=\'\', current_called_at=\'\', last_call_action=\'\', last_call_at=\'\', updated_at=? WHERE id=? AND current_doctor_id=?',
         array(now_str(), $roomId, $u['id']));
     json_ok(array(), '已释放诊室');
 }
@@ -576,7 +576,7 @@ function deptwork_unbind_room($u) {
 /** 绑定心跳保活 */
 function deptwork_room_heartbeat($u) {
     $roomId = (int)post('room_id');
-    QueueRepository::exec('UPDATE clinic_rooms SET doctor_heartbeat=?, updated_at=? WHERE id=? AND current_doctor_id=?',
+    QueueRepository::exec('UPDATE clinic_rooms SET doctor_heartbeat_at=?, updated_at=? WHERE id=? AND current_doctor_id=?',
         array(now_str(), now_str(), $roomId, $u['id']));
     json_ok(array());
 }

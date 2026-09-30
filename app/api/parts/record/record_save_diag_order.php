@@ -28,7 +28,7 @@ function record_part_save_diag_order($u) {
     if (!get_editable_record($rowOrder['visit'], $u)) {
         json_fail('当前无可编辑的病历，无法调整诊断顺序');
     }
-    $keys = json_decode((string)post('ord_keys', '[]'), true);
+    $keys = json_decode((string)post('order_keys', '[]'), true);
     if (!is_array($keys)) json_fail('排序数据无效');
     $clean = array();
     foreach ($keys as $k) {
@@ -37,9 +37,9 @@ function record_part_save_diag_order($u) {
     }
     $exist = (int)EmrRepository::val('SELECT id FROM diag_orders WHERE visit_id=? AND doctor_id=?', array($visitId, $u['id']));
     if ($exist > 0) {
-        EmrRepository::prepareExec('UPDATE diag_orders SET ord_keys=?, updated_at=? WHERE id=?', array(implode("\n", $clean), now_str(), $exist));
+        EmrRepository::prepareExec('UPDATE diag_orders SET order_keys=?, updated_at=? WHERE id=?', array(implode("\n", $clean), now_str(), $exist));
     } else {
-        EmrRepository::insert('INSERT INTO diag_orders(visit_id, doctor_id, ord_keys, updated_at) VALUES(?,?,?,?)', array(
+        EmrRepository::insert('INSERT INTO diag_orders(visit_id, doctor_id, order_keys, updated_at) VALUES(?,?,?,?)', array(
             $visitId, $u['id'], implode("\n", $clean), now_str(),
         ));
     }

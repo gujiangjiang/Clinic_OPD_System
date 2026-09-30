@@ -17,7 +17,7 @@ function doctor_read_get_available_rooms($u) {
     $rows = EmrRepository::q("SELECT * FROM clinic_rooms WHERE dept_id=? AND room_type='doctor' ORDER BY id", array($deptId));
     $list = array();
     foreach ($rows as $room) {
-        $isOnline = (!empty($room['screen_last_heartbeat']) && (time() - strtotime($room['screen_last_heartbeat'])) <= 30);
+        $isOnline = (!empty($room['screen_last_heartbeat_at']) && (time() - strtotime($room['screen_last_heartbeat_at'])) <= 30);
         if (!$isOnline) {
             $status = 'offline'; $text = '大屏离线，请联系管理员'; $sel = false;
         } elseif ($room['current_doctor_id'] > 0 && (int)$room['current_doctor_id'] !== (int)$u['id']) {

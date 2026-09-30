@@ -102,11 +102,11 @@ switch ($action) {
         }
         $result = OrderRepository::one('SELECT * FROM results WHERE order_item_id=?', array($itemId));
         if ($result) {
-            OrderRepository::exec("UPDATE results SET values_json=?, status='draft', executor=?, updated_at=? WHERE id=?", array(
+            OrderRepository::exec("UPDATE results SET values_json=?, status='draft', executed_by=?, updated_at=? WHERE id=?", array(
                 $valuesJson, $u['name'], now_str(), $result['id'],
             ));
         } else {
-            OrderRepository::insert("INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, values_json, executor, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)", array(
+            OrderRepository::insert("INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, values_json, executed_by, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)", array(
                 $it['item_id'], $itemId, $it['visit_id'], $it['patient_no'], $it['flow_no'], 'lab',
                 $valuesJson, $u['name'], 'draft', now_str(), now_str(),
             ));
@@ -215,12 +215,12 @@ switch ($action) {
             // 写入结果（撤回后重填时更新原结果）
             $result = OrderRepository::one('SELECT * FROM results WHERE order_item_id=?', array($itemId));
             if ($result) {
-                OrderRepository::exec("UPDATE results SET values_json=?, status='done', executor=?, updated_at=? WHERE id=?", array(
+                OrderRepository::exec("UPDATE results SET values_json=?, status='done', executed_by=?, updated_at=? WHERE id=?", array(
                     $valuesJson, $u['name'], now_str(), $result['id'],
                 ));
                 $resultId = $result['id'];
             } else {
-                $resultId = OrderRepository::insert("INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, values_json, executor, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)", array(
+                $resultId = OrderRepository::insert("INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, values_json, executed_by, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)", array(
                     $it['item_id'], $itemId, $it['visit_id'], $it['patient_no'], $it['flow_no'], 'lab',
                     $valuesJson, $u['name'], 'done', now_str(), now_str(),
                 ));
@@ -250,11 +250,11 @@ switch ($action) {
                 'type' => 'lab', 'doctor' => $u['name'], 'status' => 'done',
                 // 检验备注：报告单页脚展示（提交时可选填写）
                 'content' => trim((string)post('note', '')),
-                'apply_dept' => $snapOrder ? (string)$snapOrder['dept_name'] : '',
-                'apply_doctor' => $snapOrder ? (string)$snapOrder['doctor_name'] : '',
-                'clinical_diag' => $diag,
-                'apply_time' => $snapOrder ? (string)$snapOrder['created_at'] : '',
-                'reg_time' => (string)$it['registered_at'],
+                'apply_dept_name' => $snapOrder ? (string)$snapOrder['dept_name'] : '',
+                'apply_doctor_name' => $snapOrder ? (string)$snapOrder['doctor_name'] : '',
+                'clinical_diagnosis' => $diag,
+                'applied_at' => $snapOrder ? (string)$snapOrder['created_at'] : '',
+                'registered_at' => (string)$it['registered_at'],
                 // 项目字典快照（出具时刻）：检验组=成员明细；单项=项目本身——后续字典改名/改范围不影响历史报告
                 'item_meta' => $isGroup
                     ? array('group' => true, 'item_name' => (string)$item['name'], 'members' => array_map(function ($mm) {

@@ -26,13 +26,13 @@ class CashierRepository extends BaseRepository {
 
     /** 查加号记录（指定科室+日期+身份证，未使用） */
     public static function unusedSlot($deptId, $idCard) {
-        return self::one('SELECT id FROM extra_slots WHERE dept_id=? AND reg_date=? AND id_card=? AND used=0',
+        return self::one('SELECT id FROM extra_slots WHERE dept_id=? AND reg_date=? AND id_card=? AND is_used=0',
             array((int)$deptId, today_str(), $idCard));
     }
 
     /** 标记加号已使用（条件更新防并发双发：仅 used=0 可置为 1，返回影响行数） */
     public static function markSlotUsed($slotId) {
-        return self::exec('UPDATE extra_slots SET used=1 WHERE id=? AND used=0', array((int)$slotId));
+        return self::exec('UPDATE extra_slots SET is_used=1 WHERE id=? AND is_used=0', array((int)$slotId));
     }
 
     /* ---------------- 患者 ---------------- */
@@ -134,10 +134,10 @@ class CashierRepository extends BaseRepository {
     /** 新增缴费流水，返回自增 id */
     public static function createPayment($data) {
         $pid = self::insert(
-            'INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total, item_count, cashier_id, cashier_name, created_at, payment_no, method) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+            'INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total_amount, item_count, cashier_id, cashier_name, created_at, payment_no, method) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
             array(
                 (int)$data['visit_id'], (int)$data['order_id'], $data['patient_no'], $data['flow_no'],
-                $data['kind'], (float)$data['total'], (int)$data['item_count'],
+                $data['kind'], (float)$data['total_amount'], (int)$data['item_count'],
                 (int)$data['cashier_id'], $data['cashier_name'], now_str(),
                 isset($data['payment_no']) ? $data['payment_no'] : '',
                 isset($data['method']) ? $data['method'] : '现金',
@@ -164,10 +164,10 @@ class CashierRepository extends BaseRepository {
     /** 新增退费流水 */
     public static function createRefund($data) {
         return self::insert(
-            'INSERT INTO refunds(visit_id, order_id, patient_no, flow_no, total, reason, cashier_id, cashier_name, created_at, payment_no, method) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+            'INSERT INTO refunds(visit_id, order_id, patient_no, flow_no, total_amount, reason, cashier_id, cashier_name, created_at, payment_no, method) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
             array(
                 (int)$data['visit_id'], (int)$data['order_id'], $data['patient_no'], $data['flow_no'],
-                (float)$data['total'], $data['reason'], (int)$data['cashier_id'], $data['cashier_name'], now_str(),
+                (float)$data['total_amount'], $data['reason'], (int)$data['cashier_id'], $data['cashier_name'], now_str(),
                 isset($data['payment_no']) ? $data['payment_no'] : '',
                 isset($data['method']) ? $data['method'] : '现金',
             )

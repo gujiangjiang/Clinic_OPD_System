@@ -115,21 +115,21 @@ function form_disposal($id, $snap = null) {
     if (is_array($snap)) {
         $r = array(
             'name' => isset($snap['name']) ? $snap['name'] : '',
-            'fee' => isset($snap['fee']) ? $snap['fee'] : '0',
+            'price' => isset($snap['price']) ? $snap['price'] : '0',
             'description' => isset($snap['description']) ? $snap['description'] : '',
             'is_nurse' => isset($snap['is_nurse']) ? $snap['is_nurse'] : 0,
             'status' => isset($snap['status']) ? $snap['status'] : '',
         );
     } else {
-        $r = $id ? OrderRepository::one('SELECT * FROM disposal_items WHERE id=?', array($id)) : array('name' => '', 'fee' => '0', 'description' => '', 'is_nurse' => 0, 'status' => '');
-        if (!$r) $r = array('name' => '', 'fee' => '0', 'description' => '', 'is_nurse' => 0, 'status' => '');
+        $r = $id ? OrderRepository::one('SELECT * FROM disposal_items WHERE id=?', array($id)) : array('name' => '', 'price' => '0', 'description' => '', 'is_nurse' => 0, 'status' => '');
+        if (!$r) $r = array('name' => '', 'price' => '0', 'description' => '', 'is_nurse' => 0, 'status' => '');
     }
     return '<input type="hidden" id="f_id" value="' . (int)$id . '">
         ' . form_enabled_switch(isset($r['status']) ? $r['status'] : '') . '
         <div class="form-group"><label class="form-label">处置名称 <span class="req">*</span></label>
             <input class="input" id="f_name" value="' . e($r['name']) . '" placeholder="如：清创缝合、换药"></div>
         <div class="form-group"><label class="form-label">费用（元）</label>
-            <input class="input" type="number" step="0.01" min="0" id="f_fee" value="' . e($r['fee']) . '"></div>
+            <input class="input" type="number" step="0.01" min="0" id="f_price" value="' . e($r['price']) . '"></div>
         <div class="form-group"><label class="flex gap-4" style="font-size:13px;cursor:pointer"><input type="checkbox" id="f_nurse"' . ((int)$r['is_nurse'] === 1 ? ' checked' : '') . '> 需护士站处置（开单时默认勾选，医生可逐项修改）</label></div>
         <div class="form-group"><label class="form-label">描述备注</label>
             <textarea class="textarea" id="f_desc" rows="3">' . e($r['description']) . '</textarea></div>';

@@ -143,13 +143,13 @@ function rxOrderHtml(o) {
     // 签名：开单医生 + 审方药师（如有）+ 发药药师（如有）；同人时仅显示一次
     var sign = '<span>开单医生：' + esc(o.doctor_name || '') + '</span>';
     if (o.review_by) sign += '<span>审方药师：' + esc(o.review_by) + '</span>';
-    if (o.done_by) {
-        if (o.review_by === o.done_by) {
+    if (o.executed_by) {
+        if (o.review_by === o.executed_by) {
             // 审方发药同一人：合并显示
             sign = '<span>开单医生：' + esc(o.doctor_name || '') + '</span>' +
-                '<span>审方发药：' + esc(o.done_by) + '</span>';
+                '<span>审方发药：' + esc(o.executed_by) + '</span>';
         } else {
-            sign += '<span>发药药师：' + esc(o.done_by) + '</span>';
+            sign += '<span>发药药师：' + esc(o.executed_by) + '</span>';
         }
     }
     return '<div class="card dw-rx-card" id="rxSec_' + esc(o.order_id) + '" style="margin-bottom:14px">' +
@@ -165,7 +165,7 @@ function rxOrderHtml(o) {
         rows + '</tbody></table>' +
         '<div class="flex-between mt-8"><span class="fs-13">共 ' + o.items.length + ' 项</span>' +
         '<span class="fw-600">合计：' + money(o.total_amount) + '</span></div>' +
-        ((o.review_by || o.done_by) ? '<div class="dw-rx-sign">' + sign + '</div>' : '') +
+        ((o.review_by || o.executed_by) ? '<div class="dw-rx-sign">' + sign + '</div>' : '') +
         actions + '</div>';
 }
 

@@ -13,7 +13,7 @@ function admin_ana_overview() {
     $patients = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations
         WHERE status IN ('paid','visiting','finished') AND paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ?",
         array($start, $end));
-    $regFee = (float)AnalyticsRepository::val("SELECT COALESCE(SUM(total),0) FROM payments WHERE kind='visit' AND date(created_at) BETWEEN ? AND ?", array($start, $end));
+    $regFee = (float)AnalyticsRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM payments WHERE kind='visit' AND date(created_at) BETWEEN ? AND ?", array($start, $end));
 
     // 四类项目费 + 合计
     $sums = array('prescription' => 0, 'lab' => 0, 'imaging' => 0, 'procedure' => 0);

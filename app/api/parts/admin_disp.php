@@ -33,7 +33,7 @@ function admin_part_disp($action) {
             '<th>处置名称</th><th>费用</th><th>需护士站处置</th><th>描述备注</th><th>状态</th><th>操作</th></tr></thead>';
         $list = array();
         foreach ($rows as $r) {
-            $list[] = '<tr><td class="fw-600">' . e($r['name']) . '</td><td>¥' . money($r['fee']) . '</td>' .
+            $list[] = '<tr><td class="fw-600">' . e($r['name']) . '</td><td>¥' . money($r['price']) . '</td>' .
                 '<td>' . ((int)$r['is_nurse'] === 1 ? badge_html('warning', '是') : badge_html('gray', '否')) . '</td>' .
                 '<td class="fs-12 text-muted">' . e($r['description']) . '</td>' .
                 '<td>' . item_status_badge((string)$r['status']) . '</td>' .
@@ -58,7 +58,7 @@ function admin_part_disp($action) {
     if ($action === 'disposal_save') {
         $id = (int)post('id');
         $name = post('name');
-        $fee = (float)post('fee', 0);
+        $price = (float)post('price', 0);
         $desc = post('description');
         $needNurse = (int)post('is_nurse', 0);
         $enabled = (int)post('enabled', 1);
@@ -66,13 +66,13 @@ function admin_part_disp($action) {
         // 启用开关：未勾选=禁用（开单列表不显示，已开单流程不受影响）；勾选按原审核规则
         $saveStatus = $enabled ? 'approved' : 'disabled';
         if ($id > 0) {
-            OrderRepository::exec('UPDATE disposal_items SET name=?, fee=?, description=?, is_nurse=?, status=? WHERE id=?', array($name, $fee, $desc, $needNurse, $saveStatus, $id));
+            OrderRepository::exec('UPDATE disposal_items SET name=?, price=?, description=?, is_nurse=?, status=? WHERE id=?', array($name, $price, $desc, $needNurse, $saveStatus, $id));
             // 清理该处置的待审核记录（管理员保存即视为已通过）
             OrderRepository::exec("UPDATE audits SET status='handled', handled_by=?, handled_at=? WHERE type='item_disp' AND ref_id=? AND status='pending'", array($u['name'], now_str(), $id));
             json_ok(array(), '处置项目已保存');
         }
         // 管理员添加的处置免审核：直接可用，无需创建审核记录
-        $newId = OrderRepository::insert('INSERT INTO disposal_items(name, fee, description, is_nurse, status, created_at) VALUES(?,?,?,?,?,?)', array($name, $fee, $desc, $needNurse, $saveStatus, now_str()));
+        $newId = OrderRepository::insert('INSERT INTO disposal_items(name, price, description, is_nurse, status, created_at) VALUES(?,?,?,?,?,?)', array($name, $price, $desc, $needNurse, $saveStatus, now_str()));
         json_ok(array(), $enabled ? '处置项目已添加，可直接开单使用' : '处置项目已添加（当前禁用，医生开单列表不显示）');
     }
 
@@ -101,7 +101,7 @@ function admin_part_disp($action) {
     /* ==================== 通用检索：处置项目（供通用选择器组件调用） ==================== */
     if ($action === 'disposal_search') {
         $kw = trim(get('kw', ''));
-        $rows = OrderRepository::q("SELECT id, name, fee FROM disposal_items WHERE status='approved'" .
+        $rows = OrderRepository::q("SELECT id, name, price FROM disposal_items WHERE status='approved'" .
             ($kw !== '' ? ' AND name LIKE ?' : '') . ' ORDER BY id DESC LIMIT 20',
             $kw !== '' ? array('%' . $kw . '%') : array());
         json_ok(array('list' => $rows));
@@ -112,7 +112,7 @@ function admin_part_disp($action) {
      * creation_source 强制记录创建场景，审核中心据此高亮展示。 */
     if ($action === 'disposal_quick_create') {
         $name = trim(post('name'));
-        $fee = (float)post('fee', 0);
+        $price = (float)post('price', 0);
         $source = trim(post('creation_source', ''));
         if ($name === '') json_fail('请填写处置名称');
         if (mb_strlen($name) > 50) json_fail('处置名称过长');
@@ -121,26 +121,26 @@ function admin_part_disp($action) {
         if ($exId > 0) {
             $exStatus = (string)OrderRepository::val('SELECT status FROM disposal_items WHERE id=?', array($exId));
             json_ok(array('id' => $exId, 'name' => $name,
-                'fee' => (float)OrderRepository::val('SELECT fee FROM disposal_items WHERE id=?', array($exId)),
+                'price' => (float)OrderRepository::val('SELECT price FROM disposal_items WHERE id=?', array($exId)),
                 'status' => $exStatus, 'existed' => true), '已存在同名处置，已直接关联');
         }
         $isAdmin = $u['role'] === 'admin';
-        $newId = OrderRepository::insert('INSERT INTO disposal_items(name, fee, description, status, created_at) VALUES(?,?,?,?,?)',
-            array($name, $fee, '【关联创建】' . ($source !== '' ? $source : '快捷创建'), $isAdmin ? 'approved' : 'pending', now_str()));
+        $newId = OrderRepository::insert('INSERT INTO disposal_items(name, price, description, status, created_at) VALUES(?,?,?,?,?)',
+            array($name, $price, '【关联创建】' . ($source !== '' ? $source : '快捷创建'), $isAdmin ? 'approved' : 'pending', now_str()));
         if (!$isAdmin) {
             // 审核预览快照（audits.data）：保存提交时的完整字段，发起者删除处置后
             // 已处理审核仍可按原始内容预览追溯
             $snapJson = json_encode(array(
-                'name' => $name, 'fee' => $fee,
+                'name' => $name, 'price' => $price,
                 'description' => '【关联创建】' . ($source !== '' ? $source : '快捷创建'),
                 'status' => 'pending',
             ), JSON_UNESCAPED_UNICODE);
             submit_audit('item_disp', $newId, '快捷创建处置：' . $name,
-                ($source !== '' ? $source . '；' : '') . '费用 ' . money($fee) . ' 元',
+                ($source !== '' ? $source . '；' : '') . '费用 ' . money($price) . ' 元',
                 array('creation_source' => $source, 'data' => $snapJson));
         }
         json_ok(array(
-            'id' => $newId, 'name' => $name, 'fee' => $fee,
+            'id' => $newId, 'name' => $name, 'price' => $price,
             'status' => $isAdmin ? 'approved' : 'pending',
             'pending' => !$isAdmin,
             'creation_source' => $source,

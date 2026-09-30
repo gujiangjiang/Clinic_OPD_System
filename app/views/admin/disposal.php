@@ -59,7 +59,7 @@ function openDisposalForm(id) {
                 action: 'disposal_save',
                 id: id || 0,
                 name: document.getElementById('f_name').value.trim(),
-                fee: document.getElementById('f_fee').value,
+                price: document.getElementById('f_price').value,
                 description: document.getElementById('f_desc').value.trim(),
                 is_nurse: document.getElementById('f_nurse').checked ? 1 : 0,
                 enabled: document.getElementById('f_enabled').value,

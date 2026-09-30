@@ -16,11 +16,11 @@ function cashier_part_read($action) {
     if ($action === 'home_stats') {
         $today = today_str();
         $regToday = (int)CashierRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=?", array($today));
-        $regFeeToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total),0) FROM payments WHERE kind='visit' AND date(created_at)=?", array($today));
+        $regFeeToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM payments WHERE kind='visit' AND date(created_at)=?", array($today));
         $paidToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($today));
         // 今日退费：refunds 表为挂号退费与订单退费统一流水（orders.refunded_at 只覆盖订单退费，
         // 挂号退费 cancel_visit 仅写 refunds + registrations.status=refunded，不落 orders）
-        $refundToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total),0) FROM refunds WHERE date(created_at)=?", array($today));
+        $refundToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM refunds WHERE date(created_at)=?", array($today));
         $waiting = (int)CashierRepository::val("SELECT COUNT(*) FROM registrations WHERE status='paid' AND date(registered_at)=?", array($today));
         $trend = trend_7_days(function ($day) {
             return (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($day));
@@ -48,7 +48,7 @@ function cashier_part_read($action) {
             $quota = ($d['type'] === 'clinic') ? ($session === 'am' ? (int)$d['am_quota'] : (int)$d['pm_quota']) : 0;
             $extra = 0;
             if ($idCard !== '' && $used >= $quota && $quota > 0) {
-                $extra = (int)CashierRepository::val('SELECT COUNT(*) FROM extra_slots WHERE dept_id=? AND reg_date=? AND id_card=? AND used=0', array($d['id'], today_str(), $idCard));
+                $extra = (int)CashierRepository::val('SELECT COUNT(*) FROM extra_slots WHERE dept_id=? AND reg_date=? AND id_card=? AND is_used=0', array($d['id'], today_str(), $idCard));
             }
             $isClinic = $d['type'] === 'clinic';
             $list[] = array(
@@ -202,8 +202,8 @@ function cashier_part_read($action) {
             }
             $no = (!empty($p['payment_no'])) ? $p['payment_no'] : ('P' . $p['id']);
             if (!isset($groups[$no])) $groups[$no] = array('payment_no' => $no, 'pay_id' => $p['id'], 'created_at' => $p['created_at'],
-                'cashier_name' => $p['cashier_name'], 'method' => $p['method'], 'total' => 0, 'orders' => array());
-            $groups[$no]['total'] += (float)$p['total'];
+                'cashier_name' => $p['cashier_name'], 'method' => $p['method'], 'total_amount' => 0, 'orders' => array());
+            $groups[$no]['total_amount'] += (float)$p['total_amount'];
             $groups[$no]['orders'][] = $p['order_id'];
         }
         $html .= '<div class="fs-14 fw-700 mb-8 mt-16">缴费凭条 <span class="fs-12 text-muted fw-400">（同批次共享一张凭条与流水号，不可单独退费）</span></div>';
@@ -217,7 +217,7 @@ function cashier_part_read($action) {
             $html .= '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:8px">' .
                 '<div class="flex-between">' .
                 '<span class="fs-13 fw-600">' . render_icon('emr:ticket') . ' 挂号费凭条</span>' .
-                '<span class="fs-13 fw-600">¥' . money($visitPay['total']) . '</span></div>' .
+                '<span class="fs-13 fw-600">¥' . money($visitPay['total_amount']) . '</span></div>' .
                 // 优化8：挂号费凭条不显示流水号，仅 日期 时间 收费员
                 '<div class="fs-12 text-muted mt-4">' . e(substr($visitPay['created_at'], 0, 16)) . ' ｜ 收费员 ' . e($visitPay['cashier_name']) . ' ｜ ' . e($visitPay['method']) .
                 ($visitRefunded ? ' ｜ ' . badge_html('gray', visit_status_name($visit['status'])) : '') . '</div>' .
@@ -249,7 +249,7 @@ function cashier_part_read($action) {
             $html .= '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:8px">' .
                 '<div class="flex-between">' .
                 '<span class="fs-13 fw-600">' . render_icon('emr:receipt') . ' 缴费凭条 <span class="fs-12 text-muted fw-400">' . ($multi ? '（含' . count($g['orders']) . '张开单）' : '') . '</span></span>' .
-                '<span class="fs-13 fw-600">¥' . money($g['total']) . '</span></div>' .
+                '<span class="fs-13 fw-600">¥' . money($g['total_amount']) . '</span></div>' .
                 '<div class="fs-12 text-muted mt-4">' . e(substr($g['created_at'], 0, 16)) . ' ｜ 流水号 ' . e($g['payment_no']) . ' ｜ 收费员 ' . e($g['cashier_name']) .
                 ($allRefunded ? ' ｜ ' . badge_html('gray', '已退费') : '') . '</div>' .
                 '<div class="fs-12 text-muted mt-4" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' . $sumText . '</div>' .

@@ -35,9 +35,9 @@ function doctor_part_write($action) {
         // 不限号科室无需加号（仅限号科室提供医生加号功能）
         if (!dept_is_limited($dept)) json_fail('该科室为不限号科室，无需加号');
         // 同一患者当日同科室已有加号未使用时，不重复添加
-        $exists = EmrRepository::one("SELECT id FROM extra_slots WHERE dept_id=? AND reg_date=? AND id_card=? AND used=0", array($deptId, today_str(), $idCard));
+        $exists = EmrRepository::one("SELECT id FROM extra_slots WHERE dept_id=? AND reg_date=? AND id_card=? AND is_used=0", array($deptId, today_str(), $idCard));
         if ($exists) json_fail('该患者今日已存在未使用的加号');
-        EmrRepository::insert('INSERT INTO extra_slots(dept_id, reg_date, id_card, name, doctor_id, doctor_name, used, created_at) VALUES(?,?,?,?,?,?,0,?)', array(
+        EmrRepository::insert('INSERT INTO extra_slots(dept_id, reg_date, id_card, name, doctor_id, doctor_name, is_used, created_at) VALUES(?,?,?,?,?,?,0,?)', array(
             $deptId, today_str(), $idCard, $name, $u['id'], $u['name'], now_str(),
         ));
         json_ok(array(), '加号成功：患者凭本人身份证至挂号处挂号即可');
@@ -55,7 +55,7 @@ function doctor_part_write($action) {
             json_fail('无权绑定该科室诊室');
         }
         // 后端强拦截：大屏必须在线
-        if (empty($room['screen_last_heartbeat']) || (time() - strtotime($room['screen_last_heartbeat'])) > 30) {
+        if (empty($room['screen_last_heartbeat_at']) || (time() - strtotime($room['screen_last_heartbeat_at'])) > 30) {
             json_fail('该大屏当前处于离线状态，无法绑定，请确保大屏已开启并在运行！');
         }
         // 已被其他医生占用 → 拒绝
@@ -63,9 +63,9 @@ function doctor_part_write($action) {
             json_fail('该大屏已被 ' . $room['current_doctor_name'] . ' 占用，无法绑定');
         }
         // 释放该医生此前绑定的其他诊室（一人一块屏）
-        EmrRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL WHERE current_doctor_id=?', array($u['id']));
+        EmrRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat_at=NULL WHERE current_doctor_id=?', array($u['id']));
         // 绑定当前诊室：重新建立叫号会话日期（默认只叫当天号源；跨天规则见 roomQueueRefresh）
-        EmrRepository::exec('UPDATE clinic_rooms SET current_doctor_id=?, current_doctor_name=?, doctor_heartbeat=?, call_session_date=?, updated_at=? WHERE id=?',
+        EmrRepository::exec('UPDATE clinic_rooms SET current_doctor_id=?, current_doctor_name=?, doctor_heartbeat_at=?, call_session_date=?, updated_at=? WHERE id=?',
             array($u['id'], $u['name'], now_str(), today_str(), now_str(), $roomId));
         $dept = EmrRepository::one('SELECT name FROM departments WHERE id=?', array((int)$room['dept_id']));
         json_ok(array('room_id' => $roomId, 'room_name' => $room['room_name'], 'dept_name' => $dept ? $dept['name'] : ''), '已绑定大屏「' . $room['room_name'] . '」');
@@ -74,7 +74,7 @@ function doctor_part_write($action) {
 
     if ($action === 'unbind_room') {
         $roomId = (int)post('room_id');
-        EmrRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL, updated_at=? WHERE id=? AND current_doctor_id=?',
+        EmrRepository::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat_at=NULL, updated_at=? WHERE id=? AND current_doctor_id=?',
             array(now_str(), $roomId, $u['id']));
         json_ok(array(), '已释放诊室');
         return;
@@ -82,7 +82,7 @@ function doctor_part_write($action) {
 
     if ($action === 'room_heartbeat') {
         $roomId = (int)post('room_id');
-        EmrRepository::exec('UPDATE clinic_rooms SET doctor_heartbeat=?, updated_at=? WHERE id=? AND current_doctor_id=?',
+        EmrRepository::exec('UPDATE clinic_rooms SET doctor_heartbeat_at=?, updated_at=? WHERE id=? AND current_doctor_id=?',
             array(now_str(), now_str(), $roomId, $u['id']));
         json_ok(array());
         return;

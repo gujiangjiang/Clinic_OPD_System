@@ -224,21 +224,21 @@ class QueueRepository extends BaseRepository {
     public static function doctorHeartbeatStale($roomId) {
         $drv = DatabaseManager::driver();
         if ($drv === 'mysql') {
-            $cond = 'OR (UNIX_TIMESTAMP() - UNIX_TIMESTAMP(doctor_heartbeat)) > 300';
+            $cond = 'OR (UNIX_TIMESTAMP() - UNIX_TIMESTAMP(doctor_heartbeat_at)) > 300';
         } elseif ($drv === 'pgsql') {
-            $cond = 'OR (EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM doctor_heartbeat)) > 300';
+            $cond = 'OR (EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM doctor_heartbeat_at)) > 300';
         } else {
-            $cond = "OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat)) > 300";
+            $cond = "OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat_at)) > 300";
         }
         return (int)self::val(
-            "SELECT COUNT(*) FROM clinic_rooms WHERE id=? AND (doctor_heartbeat IS NULL OR $cond)",
+            "SELECT COUNT(*) FROM clinic_rooms WHERE id=? AND (doctor_heartbeat_at IS NULL OR $cond)",
             array((int)$roomId)
         ) > 0;
     }
 
     /** 解除大屏与医生的绑定 */
     public static function unbindDoctor($roomId) {
-        self::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat=NULL, updated_at=? WHERE id=?',
+        self::exec('UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat_at=NULL, updated_at=? WHERE id=?',
             array(now_str(), (int)$roomId));
     }
 
@@ -255,17 +255,17 @@ class QueueRepository extends BaseRepository {
     public static function sweepStaleBindings() {
         $drv = DatabaseManager::driver();
         if ($drv === 'mysql') {
-            $sql = "UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name='', doctor_heartbeat=NULL, updated_at=NOW()
-                 WHERE current_doctor_id>0 AND (doctor_heartbeat IS NULL
-                 OR (UNIX_TIMESTAMP() - UNIX_TIMESTAMP(doctor_heartbeat)) > 300)";
+            $sql = "UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name='', doctor_heartbeat_at=NULL, updated_at=NOW()
+                 WHERE current_doctor_id>0 AND (doctor_heartbeat_at IS NULL
+                 OR (UNIX_TIMESTAMP() - UNIX_TIMESTAMP(doctor_heartbeat_at)) > 300)";
         } elseif ($drv === 'pgsql') {
-            $sql = "UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name='', doctor_heartbeat=NULL, updated_at=NOW()
-                 WHERE current_doctor_id>0 AND (doctor_heartbeat IS NULL
-                 OR (EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM doctor_heartbeat)) > 300)";
+            $sql = "UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name='', doctor_heartbeat_at=NULL, updated_at=NOW()
+                 WHERE current_doctor_id>0 AND (doctor_heartbeat_at IS NULL
+                 OR (EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM doctor_heartbeat_at)) > 300)";
         } else {
-            $sql = "UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name='', doctor_heartbeat=NULL, updated_at=datetime('now','localtime')
-                 WHERE current_doctor_id>0 AND (doctor_heartbeat IS NULL
-                 OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat)) > 300)";
+            $sql = "UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name='', doctor_heartbeat_at=NULL, updated_at=datetime('now','localtime')
+                 WHERE current_doctor_id>0 AND (doctor_heartbeat_at IS NULL
+                 OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat_at)) > 300)";
         }
         return (int)self::exec($sql);
     }
@@ -274,7 +274,7 @@ class QueueRepository extends BaseRepository {
     public static function updateHeartbeat($roomId) {
         // 不更新 updated_at：心跳仅维护在线租约，不构成业务数据变更，
         // 避免大屏轻量轮询（版本戳 = updated_at）每次心跳都判定为有变化
-        self::exec('UPDATE clinic_rooms SET screen_last_heartbeat=?, is_screen_online=1 WHERE id=?',
+        self::exec('UPDATE clinic_rooms SET screen_last_heartbeat_at=?, is_screen_online=1 WHERE id=?',
             array(now_str(), (int)$roomId));
     }
 
@@ -284,7 +284,7 @@ class QueueRepository extends BaseRepository {
      * @param array $room clinic_rooms 行
      */
     public static function screenOnline($room) {
-        $hb = is_array($room) && isset($room['screen_last_heartbeat']) ? (string)$room['screen_last_heartbeat'] : '';
+        $hb = is_array($room) && isset($room['screen_last_heartbeat_at']) ? (string)$room['screen_last_heartbeat_at'] : '';
         if ($hb === '') return false;
         $t = strtotime($hb);
         return $t !== false && (time() - $t) <= 30;

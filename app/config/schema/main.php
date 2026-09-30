@@ -63,7 +63,6 @@ return array(
             ref_id INTEGER,
             title TEXT,
             content TEXT,
-            data TEXT,
             status TEXT DEFAULT 'pending',
             proposer TEXT,
             proposer_id INTEGER,
@@ -71,6 +70,7 @@ return array(
             handled_by TEXT,
             handled_at TEXT,
             note TEXT,
+            data_json TEXT DEFAULT '',
             creation_source TEXT DEFAULT ''
         )",
 
@@ -96,12 +96,12 @@ return array(
             email TEXT,
             status INTEGER DEFAULT 1,
             created_at TEXT,
-            last_login TEXT,
+            last_login_at TEXT,
             current_dept_id INTEGER DEFAULT 0,
             print_auto INTEGER DEFAULT 0,
             queue_days INTEGER DEFAULT 3,
             login_fail_count INTEGER DEFAULT 0,
-            login_locked_until TEXT,
+            locked_until TEXT,
             lock_reason TEXT DEFAULT NULL,
             locked_at TEXT DEFAULT NULL,
             lock_ip TEXT DEFAULT ''
@@ -129,7 +129,7 @@ return array(
             name TEXT,
             doctor_id INTEGER,
             doctor_name TEXT,
-            used INTEGER DEFAULT 0,
+            is_used INTEGER DEFAULT 0,
             created_at TEXT
         )",
 
@@ -198,7 +198,7 @@ return array(
             created_at TEXT,
             paid_at TEXT,
             refunded_at TEXT,
-            done_by TEXT,
+            executed_by TEXT,
             category_name TEXT DEFAULT '',
             source_order_id INTEGER DEFAULT 0,
             review_by TEXT,
@@ -244,7 +244,7 @@ return array(
             patient_no TEXT,
             flow_no TEXT,
             kind TEXT DEFAULT 'visit',
-            total REAL DEFAULT 0,
+            total_amount REAL DEFAULT 0,
             item_count INTEGER DEFAULT 0,
             cashier_id INTEGER,
             cashier_name TEXT,
@@ -257,7 +257,7 @@ return array(
             order_id INTEGER,
             patient_no TEXT,
             flow_no TEXT,
-            total REAL DEFAULT 0,
+            total_amount REAL DEFAULT 0,
             reason TEXT,
             cashier_id INTEGER,
             cashier_name TEXT,
@@ -295,7 +295,7 @@ return array(
             drug_id INTEGER,
             qty_change INTEGER,
             type TEXT,
-            ref TEXT,
+            ref_no TEXT,
             operator TEXT,
             created_at TEXT
         )",
@@ -455,7 +455,7 @@ return array(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             visit_id INTEGER,
             doctor_id INTEGER,
-            ord_keys TEXT DEFAULT '',
+            order_keys TEXT DEFAULT '',
             updated_at TEXT,
             UNIQUE(visit_id, doctor_id)
         )",
@@ -572,7 +572,7 @@ return array(
             values_json TEXT,
             findings TEXT,
             conclusion TEXT,
-            executor TEXT,
+            executed_by TEXT,
             status TEXT DEFAULT 'draft',
             created_at TEXT,
             updated_at TEXT
@@ -587,7 +587,7 @@ return array(
             flow_no TEXT,
             type TEXT,
             content TEXT,
-            doctor TEXT,
+            doctor_name TEXT,
             status TEXT DEFAULT 'done',
             withdraw_reason TEXT,
             withdraw_by TEXT,
@@ -602,7 +602,7 @@ return array(
         'disposal_items' => "CREATE TABLE IF NOT EXISTS disposal_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
-            fee REAL DEFAULT 0,
+            price REAL DEFAULT 0,
             description TEXT,
             status TEXT DEFAULT 'pending',
             is_nurse INTEGER DEFAULT 0,
@@ -664,10 +664,10 @@ return array(
             screen_token VARCHAR(64) UNIQUE NOT NULL,
             current_doctor_id INTEGER DEFAULT 0,
             current_doctor_name VARCHAR(50) DEFAULT '',
-            last_heartbeat DATETIME,
-            screen_last_heartbeat DATETIME,
+            last_heartbeat_at DATETIME,
+            screen_last_heartbeat_at DATETIME,
             is_screen_online TINYINT DEFAULT 0,
-            doctor_heartbeat DATETIME,
+            doctor_heartbeat_at DATETIME,
             enable_voice TINYINT DEFAULT 1,
             enable_mask TINYINT DEFAULT 1,
             screen_tips TEXT DEFAULT '',
@@ -735,14 +735,14 @@ return array(
             flow_no TEXT,
             patient_name TEXT,
             patient_gender TEXT,
-            patient_birth TEXT,
+            birth_date TEXT,
             patient_age TEXT,
             item_name TEXT,                   -- 展示标题：检验项目名 / 影像手输危急值项目名
             items_json TEXT,                  -- 危急值明细 JSON（检验=检出危急值项目；影像=手输项目）
             snapshot_json TEXT,               -- 报告完整快照（检验=全部检验结果；影像=所见+结论）
-            from_dept TEXT,                   -- 发起科室
+            from_dept_name TEXT,              -- 发起科室
             from_user_id INTEGER DEFAULT 0,   -- 发起人（检验技师/影像技师）
-            from_name TEXT,
+            from_user_name TEXT,
             to_doctor_id INTEGER DEFAULT 0,   -- 接收医生
             to_doctor_name TEXT,
             status TEXT DEFAULT 'pending',    -- 'pending' 待处理 / 'done' 已处理
@@ -782,7 +782,7 @@ return array(
             job TEXT DEFAULT '',
             marital TEXT DEFAULT '',
             phone TEXT DEFAULT '',
-            extra TEXT DEFAULT '{}',
+            extra_json TEXT DEFAULT '{}',
             created_at TEXT
         )",
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_print_snapshot_biz ON print_snapshots(biz_type, biz_id)",
@@ -911,11 +911,11 @@ return array(
         // v21：检验报告快照固化（生成时定格申请科室/医生/临床诊断/申请时间/检验时间，
         // 后期调阅不受病历/转科等后续变化影响）
         21 => array(
-            "ALTER TABLE reports ADD COLUMN apply_dept TEXT",
-            "ALTER TABLE reports ADD COLUMN apply_doctor TEXT",
-            "ALTER TABLE reports ADD COLUMN clinical_diag TEXT",
-            "ALTER TABLE reports ADD COLUMN apply_time TEXT",
-            "ALTER TABLE reports ADD COLUMN reg_time TEXT",
+            "ALTER TABLE reports ADD COLUMN apply_dept_name TEXT",
+            "ALTER TABLE reports ADD COLUMN apply_doctor_name TEXT",
+            "ALTER TABLE reports ADD COLUMN clinical_diagnosis TEXT",
+            "ALTER TABLE reports ADD COLUMN applied_at TEXT",
+            "ALTER TABLE reports ADD COLUMN registered_at TEXT",
         ),
         // v22：报告检查分类快照（CT/DR/超声…）——检查报告单标题动态前缀
         22 => array(
@@ -1031,14 +1031,14 @@ return array(
                 flow_no TEXT,
                 patient_name TEXT,
                 patient_gender TEXT,
-                patient_birth TEXT,
+                birth_date TEXT,
                 patient_age TEXT,
                 item_name TEXT,
                 items_json TEXT,
                 snapshot_json TEXT,
-                from_dept TEXT,
+                from_dept_name TEXT,
                 from_user_id INTEGER DEFAULT 0,
-                from_name TEXT,
+                from_user_name TEXT,
                 to_doctor_id INTEGER DEFAULT 0,
                 to_doctor_name TEXT,
                 status TEXT DEFAULT 'pending',
@@ -1127,7 +1127,7 @@ return array(
                 job TEXT DEFAULT '',
                 marital TEXT DEFAULT '',
                 phone TEXT DEFAULT '',
-                extra TEXT DEFAULT '{}',
+                extra_json TEXT DEFAULT '{}',
                 created_at TEXT
             )",
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_print_snapshot_biz ON print_snapshots(biz_type, biz_id)",
@@ -1187,9 +1187,9 @@ return array(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 endpoint TEXT NOT NULL DEFAULT '',
                 provider TEXT NOT NULL DEFAULT '',
-                ok INTEGER NOT NULL DEFAULT 1,
+                is_success INTEGER NOT NULL DEFAULT 1,
                 summary TEXT DEFAULT '',
-                body TEXT DEFAULT '',
+                payload TEXT DEFAULT '',
                 remote_ip TEXT DEFAULT '',
                 created_at TEXT
             )",

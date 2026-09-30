@@ -22,7 +22,7 @@ function admin_part_settings($action) {
         $today = today_str();
         $regToday = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=? AND status IN ('paid','visiting','finished')", array($today));
         $waiting = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=? AND status='paid'", array($today));
-        $revenue = (float)AnalyticsRepository::val("SELECT COALESCE(SUM(total),0) FROM payments WHERE date(created_at)=?", array($today));
+        $revenue = (float)AnalyticsRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM payments WHERE date(created_at)=?", array($today));
         $pendingAudits = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM audits WHERE status='pending'");
         $lowStock = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty<=10");
         $deptCount = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM departments WHERE status=1 AND type IN ('clinic','emergency')");
@@ -34,7 +34,7 @@ function admin_part_settings($action) {
                 return (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=? AND status IN ('paid','visiting','finished')", array($day));
             },
             'rev' => function ($day) {
-                return round((float)AnalyticsRepository::val("SELECT COALESCE(SUM(total),0) FROM payments WHERE date(created_at)=?", array($day)), 2);
+                return round((float)AnalyticsRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM payments WHERE date(created_at)=?", array($day)), 2);
             },
         ));
         json_ok(array(
@@ -341,7 +341,7 @@ function admin_part_settings($action) {
                 elseif ($batchAlive < $batchAll) $partial = true;
             }
             $title = '开单缴费凭条';
-            $sub = '¥' . money($pay['total']) . ' ｜ ' . e(substr((string)$pay['created_at'], 0, 16)) . ' ｜ 收费员 ' . e((string)$pay['cashier_name']) .
+            $sub = '¥' . money($pay['total_amount']) . ' ｜ ' . e(substr((string)$pay['created_at'], 0, 16)) . ' ｜ 收费员 ' . e((string)$pay['cashier_name']) .
                 ((int)$pay['item_count'] > 0 ? ' ｜ ' . (int)$pay['item_count'] . ' 项' : '');
             if ($partial) $sub .= '（部分退费）';
             $payRows[] = $pcRow($title, $sub,

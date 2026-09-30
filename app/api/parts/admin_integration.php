@@ -84,7 +84,7 @@ function admin_part_integration($action) {
         list($page, $pageSize) = paged_params(20);
         $where = '1=1';
         $params = array();
-        if ($onlyFail) { $where .= ' AND ok=0'; }
+        if ($onlyFail) { $where .= ' AND is_success=0'; }
         if ($kw !== '') {
             $where .= ' AND (endpoint LIKE ? OR provider LIKE ? OR summary LIKE ?)';
             $like = '%' . $kw . '%';
@@ -99,9 +99,9 @@ function admin_part_integration($action) {
                 'id' => (int)$r['id'],
                 'endpoint' => (string)$r['endpoint'],
                 'provider' => (string)$r['provider'],
-                'ok' => (int)$r['ok'] === 1,
+                'ok' => (int)$r['is_success'] === 1,
                 'summary' => (string)$r['summary'],
-                'body' => (string)$r['body'],
+                'body' => (string)$r['payload'],
                 'remote_ip' => (string)$r['remote_ip'],
                 'created_at' => (string)$r['created_at'],
             );

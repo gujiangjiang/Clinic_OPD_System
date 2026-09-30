@@ -244,7 +244,7 @@ switch ($action) {
         }
         // 写入审核池：data 存新值 JSON，ref_id=用户ID
         $dataJson = json_encode($updates, JSON_UNESCAPED_UNICODE);
-        UserRepository::insert("INSERT INTO audits(type, ref_id, title, content, data, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?,?)", array(
+        UserRepository::insert("INSERT INTO audits(type, ref_id, title, content, data_json, status, proposer, proposer_id, created_at) VALUES(?,?,?,?,?,?,?,?,?)", array(
             'profile_update', (int)$me['id'],
             '个人资料修改申请：' . $me['name'],
             implode('；', $titleParts),

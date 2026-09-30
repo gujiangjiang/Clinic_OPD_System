@@ -69,8 +69,8 @@ function pt_order($order, $items, $title, $opts = array()) {
     }
     // 临床诊断：开单时快照优先（开单时刻的首诊断），无快照回退旧逻辑
     $diagText = '';
-    if ($orderSnap && isset($orderSnap['extra']['clinical_diag']) && trim((string)$orderSnap['extra']['clinical_diag']) !== '') {
-        $diagText = trim((string)$orderSnap['extra']['clinical_diag']);
+    if ($orderSnap && isset($orderSnap['extra_json']['clinical_diagnosis']) && trim((string)$orderSnap['extra_json']['clinical_diagnosis']) !== '') {
+        $diagText = trim((string)$orderSnap['extra_json']['clinical_diagnosis']);
     }
     if ($diagText === '') {
         $pr = EmrRepository::one('SELECT emr_data FROM patient_records WHERE visit_id=? ORDER BY id DESC LIMIT 1', array($order['visit_id']));

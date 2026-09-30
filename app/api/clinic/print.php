@@ -241,8 +241,8 @@ switch ($action) {
             if ($recSnap['job'] !== '') $row['patient']['job'] = $recSnap['job'];
             if ($recSnap['marital'] !== '') $row['patient']['marital'] = $recSnap['marital'];
             if ($recSnap['ethnicity'] !== '') $row['patient']['ethnicity'] = $recSnap['ethnicity'];
-            if (isset($recSnap['extra']['vitals']) && is_array($recSnap['extra']['vitals'])) {
-                $vitals = $recSnap['extra']['vitals'];
+            if (isset($recSnap['extra_json']['vitals']) && is_array($recSnap['extra_json']['vitals'])) {
+                $vitals = $recSnap['extra_json']['vitals'];
             }
             $visit = decorate_visit_patient($visit, $row['patient']);
         }
@@ -297,8 +297,8 @@ switch ($action) {
         // 诊断证明快照（法律合规）：开具时刻患者资料优先，补打不因事后改患者资料而变化
         snapshot_apply_patient($row, 'certificate', (int)$cert['id']);
         $certSnap = snapshot_get('certificate', (int)$cert['id']);
-        if ($certSnap && isset($certSnap['extra']['dept_name']) && trim((string)$certSnap['extra']['dept_name']) !== '') {
-            $visit['current_dept_name'] = trim((string)$certSnap['extra']['dept_name']);
+        if ($certSnap && isset($certSnap['extra_json']['dept_name']) && trim((string)$certSnap['extra_json']['dept_name']) !== '') {
+            $visit['current_dept_name'] = trim((string)$certSnap['extra_json']['dept_name']);
         }
         $visit = decorate_visit_patient($visit, $row['patient']);
         json_ok(array('html' => pt_certificate($visit, $row['patient'], $record, $cert, $cert['doctor_name'])));
@@ -392,8 +392,8 @@ switch ($action) {
         // 事后改患者资料/检验检查字典不影响历史报告
         snapshot_apply_patient($row, 'report', (int)$report['id']);
         $snap = snapshot_get('report', (int)$report['id']);
-        if ($snap && isset($snap['extra']['item_meta']) && is_array($snap['extra']['item_meta'])) {
-            $im = $snap['extra']['item_meta'];
+        if ($snap && isset($snap['extra_json']['item_meta']) && is_array($snap['extra_json']['item_meta'])) {
+            $im = $snap['extra_json']['item_meta'];
             if (empty($im['group']) && isset($im['item']) && is_array($im['item'])) {
                 $item = $im['item'];   // 快照优先：报告出具时项目名/单位/范围/结论等
             }

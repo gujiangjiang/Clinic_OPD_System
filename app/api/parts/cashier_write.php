@@ -201,7 +201,7 @@ function cashier_part_write($action) {
         $paymentNo = next_payment_no($visit['flow_no']);
         $payId = CashierRepository::createPayment(array(
             'visit_id' => $visitId, 'order_id' => 0, 'patient_no' => $visit['patient_no'], 'flow_no' => $visit['flow_no'],
-            'kind' => 'visit', 'total' => (float)$visit['fee'], 'item_count' => 1,
+            'kind' => 'visit', 'total_amount' => (float)$visit['fee'], 'item_count' => 1,
             'cashier_id' => $u['id'], 'cashier_name' => $u['name'], 'payment_no' => $paymentNo, 'method' => $method,
         ));
         // HIS 结算同步：本地事务提交后异步入队（Outbox 补偿）
@@ -236,7 +236,7 @@ function cashier_part_write($action) {
                 }
                 CashierRepository::createRefund(array(
                     'visit_id' => $visitId, 'order_id' => 0, 'patient_no' => $visit['patient_no'], 'flow_no' => $visit['flow_no'],
-                    'total' => (float)$visit['fee'], 'reason' => $reason, 'cashier_id' => $u['id'], 'cashier_name' => $u['name'],
+                    'total_amount' => (float)$visit['fee'], 'reason' => $reason, 'cashier_id' => $u['id'], 'cashier_name' => $u['name'],
                 ));
                 DatabaseManager::commitTx($pdo);
             } catch (Exception $ex) {

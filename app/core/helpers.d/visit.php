@@ -263,12 +263,12 @@ function order_flow_steps($o, $items) {
             'done' => ($disp || in_array($o['status'], array('done'), true)) ? 1 : 0);
     } elseif ($o['order_type'] === 'prescription') {
         // 处方进度按整单审方流转（审方/发药拆分）：审方通过（reviewed）→ 发药完成（dispensed）
-        // 审方人 review_by 与发药人 done_by 可为不同人，各自节点显示各自操作人
+        // 审方人 review_by 与发药人 executed_by 可为不同人，各自节点显示各自操作人
         $rxDisp = !empty($o['dispensed_at']) ? $o['dispensed_at'] : (!empty($o['reviewed_at']) ? $o['reviewed_at'] : ($disp ? $disp['time'] : ''));
         $reviewed = $o['status'] === 'reviewed' || $o['status'] === 'dispensed';
         $dispensed = $o['status'] === 'dispensed';
-        $reviewer = !empty($o['review_by']) ? $o['review_by'] : ($o['done_by'] ? $o['done_by'] : ($reg ? $reg['operator'] : ''));
-        $dispenser = $o['done_by'] ? $o['done_by'] : ($disp ? $disp['operator'] : '');
+        $reviewer = !empty($o['review_by']) ? $o['review_by'] : ($o['executed_by'] ? $o['executed_by'] : ($reg ? $reg['operator'] : ''));
+        $dispenser = $o['executed_by'] ? $o['executed_by'] : ($disp ? $disp['operator'] : '');
         $flow[] = array('label' => '审方通过',
             'operator' => $reviewed ? $reviewer : '',
             'time' => $reviewed ? (!empty($o['reviewed_at']) ? $o['reviewed_at'] : $rxDisp) : '',

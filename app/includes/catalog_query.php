@@ -115,7 +115,7 @@ function catalog_map_list($type, $rows, $opts = array()) {
             );
         } elseif ($type === 'procedure') {
             $list[] = array(
-                'id' => (int)$r['id'], 'name' => $r['name'], 'price' => (float)$r['fee'],
+                'id' => (int)$r['id'], 'name' => $r['name'], 'price' => (float)$r['price'],
                 'unit' => '次', 'category_name' => '', 'spec' => '', 'stock' => 0,
                 'nurse_required' => (int)$r['is_nurse'],
             );
@@ -176,14 +176,14 @@ function catalog_link_dicts($withSkin = false, $skinIds = array()) {
     }
     if ($withSkin && $skinIds) {
         $ph = in_placeholders($skinIds);
-        foreach (OrderRepository::q("SELECT id, name, fee FROM disposal_items WHERE id IN ($ph)", array_values($skinIds)) as $d) {
-            $dicts['skin_tests'][(int)$d['id']] = array('name' => $d['name'], 'fee' => (float)$d['fee']);
+        foreach (OrderRepository::q("SELECT id, name, price FROM disposal_items WHERE id IN ($ph)", array_values($skinIds)) as $d) {
+            $dicts['skin_tests'][(int)$d['id']] = array('name' => $d['name'], 'fee' => (float)$d['price']);
         }
     }
     if ($withSkin) {
         foreach (OrderRepository::q("SELECT name, bind_disposal_item_id FROM drug_settings WHERE stype='route' AND bind_disposal_item_id > 0") as $rb) {
-            $dd = OrderRepository::one('SELECT id, name, fee FROM disposal_items WHERE id=?', array((int)$rb['bind_disposal_item_id']));
-            if ($dd) $dicts['route_bindings'][$rb['name']] = array('id' => (int)$dd['id'], 'name' => $dd['name'], 'fee' => (float)$dd['fee']);
+            $dd = OrderRepository::one('SELECT id, name, price FROM disposal_items WHERE id=?', array((int)$rb['bind_disposal_item_id']));
+            if ($dd) $dicts['route_bindings'][$rb['name']] = array('id' => (int)$dd['id'], 'name' => $dd['name'], 'fee' => (float)$dd['price']);
         }
     }
     return $dicts;
