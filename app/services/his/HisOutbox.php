@@ -1,0 +1,190 @@
+<?php
+/**
+ * ============================================================
+ * services/his/HisOutbox.php — 出向同步任务补偿表（Outbox）
+ * ============================================================
+ * 说明：挂号/收费结算/开单/发药等本地事务提交后异步入队本表，
+ * 由后台 worker（tools/cli/integration_outbox_run.php）或监控面板
+ * 手动触发投递。职责：
+ *  - 不因外部 HIS/HIS 网络波动阻塞本地数据库主事务；
+ *  - 500/超时等异常记录失败状态与重试次数，支持一键重试；
+ *  - 同业务（business_type+business_id）重复入队幂等合并。
+ * 任务状态：pending 待处理 / success 成功 / failed 失败（可重试）。
+ * ============================================================ */
+class HisOutbox {
+
+    /** 失败最大重试次数（超过后不再自动重试，保留供人工处理） */
+    const MAX_RETRY = 5;
+
+    /** 后台 worker 并发互斥锁窗口（秒） */
+    const LOCK_WINDOW = 60;
+
+    /**
+     * 任务入队（幂等合并）
+     * @param string $businessType
+     * @param int    $businessId
+     * @param array  $payload
+     */
+    public static function enqueue($businessType, $businessId, $payload = array()) {
+        $now = now_str();
+        $payloadJson = json_encode((array)$payload, JSON_UNESCAPED_UNICODE);
+        $row = DB::one('SELECT * FROM his_sync_tasks WHERE business_type=? AND business_id=?', array($businessType, (int)$businessId));
+        if ($row) {
+            if ($row['status'] === 'success') return;   // 已成功：不再重复投递
+            // 合并入队：刷新 payload 并回到待处理（保留历史重试次数与错误）
+            DB::exec('UPDATE his_sync_tasks SET payload=?, status=?, updated_at=? WHERE id=?',
+                array($payloadJson, 'pending', $now, (int)$row['id']));
+            return;
+        }
+        DB::insert(
+            'INSERT INTO his_sync_tasks(business_type, business_id, payload, status, retry_count, last_error, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?)',
+            array($businessType, (int)$businessId, $payloadJson, 'pending', 0, '', $now, $now)
+        );
+    }
+
+    /** 统计（监控面板） */
+    public static function stats() {
+        $rows = DB::q('SELECT status, COUNT(*) AS cnt FROM his_sync_tasks GROUP BY status');
+        $out = array('pending' => 0, 'success' => 0, 'failed' => 0);
+        foreach ($rows as $r) {
+            $out[$r['status']] = (int)$r['cnt'];
+        }
+        return $out;
+    }
+
+    /** 任务列表（监控面板） */
+    public static function listTasks($status = '', $kw = '', $page = 1, $pageSize = 20) {
+        $where = '1=1';
+        $params = array();
+        if (in_array($status, array('pending', 'success', 'failed'), true)) {
+            $where .= ' AND status=?';
+            $params[] = $status;
+        }
+        if ($kw !== '') {
+            $where .= ' AND (business_type LIKE ? OR CAST(business_id AS TEXT) LIKE ? OR payload LIKE ?)';
+            $like = '%' . $kw . '%';
+            $params = array_merge($params, array($like, $like, $like));
+        }
+        $page = max(1, (int)$page);
+        $pageSize = min(50, max(10, (int)$pageSize));
+        $total = (int)DB::val('SELECT COUNT(*) FROM his_sync_tasks WHERE ' . $where, $params);
+        $rows = DB::q(
+            'SELECT * FROM his_sync_tasks WHERE ' . $where . ' ORDER BY id DESC LIMIT ? OFFSET ?',
+            array_merge($params, array($pageSize, ($page - 1) * $pageSize))
+        );
+        return array('list' => $rows, 'total' => $total, 'page' => $page, 'page_size' => $pageSize);
+    }
+
+    /**
+     * 处理待办任务（worker / 监控面板"立即执行"调用）
+     * @param int $limit 本次处理上限
+     * @return array { processed:int, success:int, failed:int }
+     */
+    public static function processPending($limit = 20) {
+        // 并发互斥：worker 已在运行则跳过（60 秒窗口）
+        $lockAt = (int)ConfigStore::get('integration.outbox.lock', '0');
+        if ($lockAt > 0 && (time() - $lockAt) < self::LOCK_WINDOW) {
+            return array('processed' => 0, 'success' => 0, 'failed' => 0, 'locked' => true);
+        }
+        ConfigStore::set('integration.outbox.lock', (string)time());
+        $limit = min(100, max(1, (int)$limit));
+        $tasks = DB::q(
+            "SELECT * FROM his_sync_tasks
+             WHERE status='pending' OR (status='failed' AND retry_count<?)
+             ORDER BY updated_at ASC LIMIT ?",
+            array(self::MAX_RETRY, $limit)
+        );
+        $processed = 0;
+        $success = 0;
+        $failed = 0;
+        foreach ($tasks as $task) {
+            $processed++;
+            try {
+                $res = self::dispatchTask($task);
+                if ($res['ok']) {
+                    $success++;
+                    DB::exec('UPDATE his_sync_tasks SET status=?, last_error=?, updated_at=? WHERE id=?',
+                        array('success', '', now_str(), (int)$task['id']));
+                } else {
+                    $failed++;
+                    DB::exec('UPDATE his_sync_tasks SET status=?, retry_count=retry_count+1, last_error=?, updated_at=? WHERE id=?',
+                        array('failed', (string)$res['error'], now_str(), (int)$task['id']));
+                }
+            } catch (Exception $ex) {
+                $failed++;
+                DB::exec('UPDATE his_sync_tasks SET status=?, retry_count=retry_count+1, last_error=?, updated_at=? WHERE id=?',
+                    array('failed', $ex->getMessage(), now_str(), (int)$task['id']));
+            }
+        }
+        ConfigStore::set('integration.outbox.lock', '0');
+        return array('processed' => $processed, 'success' => $success, 'failed' => $failed);
+    }
+
+    /** 按业务类型分发到对应驱动 */
+    public static function dispatchTask($task) {
+        $businessType = (string)$task['business_type'];
+        $payload = json_decode((string)$task['payload'], true);
+        if (!is_array($payload)) $payload = array();
+
+        switch (true) {
+            case strpos($businessType, 'his_') === 0:
+                $driver = RestHisDriver::make();
+                return $driver->send($businessType, $payload);
+
+            case $businessType === 'hl7_adt' || $businessType === 'hl7_orm':
+                return self::dispatchHl7($businessType, $payload);
+
+            case $businessType === 'fhir_bundle':
+                $visitId = isset($payload['visit_id']) ? (int)$payload['visit_id'] : 0;
+                if ($visitId <= 0) return array('ok' => false, 'error' => 'visit_id 缺失');
+                FhirService::pushVisitBundle($visitId);
+                return array('ok' => true, 'error' => '');
+
+            case $businessType === 'lis_order':
+                $orderId = isset($payload['order_id']) ? (int)$payload['order_id'] : 0;
+                if ($orderId <= 0) return array('ok' => false, 'error' => 'order_id 缺失');
+                LisService::sendOrder($orderId);
+                return array('ok' => true, 'error' => '');
+
+            default:
+                return array('ok' => false, 'error' => '未知业务类型：' . $businessType);
+        }
+    }
+
+    /** HL7 消息发送（构建 + 传输 + MSA 校验） */
+    private static function dispatchHl7($businessType, $payload) {
+        $msg = HL7MessageBuilder::forBusiness($businessType, $payload);
+        if ($msg === '') {
+            return array('ok' => false, 'error' => 'HL7 消息构建失败（业务数据缺失）');
+        }
+        $res = HL7Client::send($msg);
+        if (!$res['ok']) {
+            return array('ok' => false, 'error' => $res['error']);
+        }
+        // 强校验 MSA 段：AA 成功；AE/AR 视为失败入日志
+        if ($res['msa_code'] !== '' && $res['msa_code'] !== 'AA') {
+            return array('ok' => false, 'error' => 'HL7 ACK 非成功（MSA-' . $res['msa_code'] . '）：' . $res['ack_text']);
+        }
+        return array('ok' => true, 'error' => '');
+    }
+
+    /** 监控面板：重试单条任务 */
+    public static function retryTask($id) {
+        $row = DB::one('SELECT * FROM his_sync_tasks WHERE id=?', array((int)$id));
+        if (!$row) return false;
+        if ($row['status'] === 'pending') return true;
+        DB::exec('UPDATE his_sync_tasks SET status=?, retry_count=retry_count+1, updated_at=? WHERE id=?',
+            array('pending', now_str(), (int)$row['id']));
+        return true;
+    }
+
+    /** 监控面板：全部失败任务重置为待处理 */
+    public static function retryFailed() {
+        return DB::exec("UPDATE his_sync_tasks SET status='pending', updated_at=? WHERE status='failed'", array(now_str()));
+    }
+
+    /** 监控面板：清空历史（保留失败记录） */
+    public static function clearHistory() {
+        return DB::exec("DELETE FROM his_sync_tasks WHERE status IN ('success','failed')");
+    }
+}
