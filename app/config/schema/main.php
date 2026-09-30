@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 41,
+    'version' => 43,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -193,6 +193,8 @@ return array(
             record_id INTEGER DEFAULT 0,
             dept_id INTEGER DEFAULT 0,
             dept_name TEXT DEFAULT '',
+            hospital_name TEXT DEFAULT '',
+            hospital_name2 TEXT DEFAULT '',
             total_amount REAL DEFAULT 0,
             status TEXT DEFAULT 'open',
             created_at TEXT,
@@ -248,6 +250,8 @@ return array(
             item_count INTEGER DEFAULT 0,
             cashier_id INTEGER,
             cashier_name TEXT,
+            hospital_name TEXT DEFAULT '',
+            hospital_name2 TEXT DEFAULT '',
             created_at TEXT
         )",
 
@@ -261,6 +265,8 @@ return array(
             reason TEXT,
             cashier_id INTEGER,
             cashier_name TEXT,
+            hospital_name TEXT DEFAULT '',
+            hospital_name2 TEXT DEFAULT '',
             created_at TEXT,
             payment_no TEXT,
             method TEXT
@@ -353,6 +359,9 @@ return array(
             dept_id INTEGER,
             doctor_id INTEGER,
             doctor_name TEXT,
+            dept_name TEXT DEFAULT '',
+            hospital_name TEXT DEFAULT '',
+            hospital_name2 TEXT DEFAULT '',
             chief_complaint TEXT,
             present_illness TEXT,
             past_history TEXT,
@@ -378,6 +387,9 @@ return array(
             dept_id INTEGER,
             doctor_id INTEGER,
             doctor_name TEXT,
+            dept_name TEXT DEFAULT '',
+            hospital_name TEXT DEFAULT '',
+            hospital_name2 TEXT DEFAULT '',
             record_type TEXT DEFAULT 'initial',
             parent_record_id INTEGER DEFAULT 0,
             chief_complaint TEXT,
@@ -422,6 +434,8 @@ return array(
             doctor_id INTEGER,
             doctor_name TEXT,
             dept_id INTEGER DEFAULT 0,
+            hospital_name TEXT DEFAULT '',
+            hospital_name2 TEXT DEFAULT '',
             content TEXT,
             created_at TEXT,
             cert_no TEXT DEFAULT '',
@@ -473,6 +487,8 @@ return array(
             doctor_name TEXT,
             dept_id INTEGER DEFAULT 0,
             dept_name TEXT,
+            hospital_name TEXT DEFAULT '',
+            hospital_name2 TEXT DEFAULT '',
             created_at TEXT,
             updated_at TEXT
         )",
@@ -588,6 +604,8 @@ return array(
             type TEXT,
             content TEXT,
             doctor_name TEXT,
+            hospital_name TEXT DEFAULT '',
+            hospital_name2 TEXT DEFAULT '',
             status TEXT DEFAULT 'done',
             withdraw_reason TEXT,
             withdraw_by TEXT,
@@ -714,6 +732,8 @@ return array(
             target_dept_name TEXT,
             description TEXT,
             purpose TEXT,
+            hospital_name TEXT DEFAULT '',
+            hospital_name2 TEXT DEFAULT '',
             status TEXT DEFAULT 'pending',
             accepted_by TEXT,
             accepted_at TEXT,
@@ -1195,6 +1215,31 @@ return array(
             )",
             "CREATE INDEX IF NOT EXISTS idx_inbound_events_created ON inbound_events(created_at)",
             "ALTER TABLE reports ADD COLUMN pdf_url TEXT DEFAULT ''",
+        ),
+        // v42：归档单据医院名称快照——医院改名后，历史归档的
+        // 病历/申请单/证明/报告/同意书/会诊/缴费凭条/退费仍显示开具时医院名称；
+        // 病历另固化 dept_name（科室改名/撤并不影响已归档文书展示）。
+        43 => array(
+            "ALTER TABLE patient_records ADD COLUMN hospital_name TEXT DEFAULT ''",
+            "ALTER TABLE patient_records ADD COLUMN hospital_name2 TEXT DEFAULT ''",
+            "ALTER TABLE patient_records ADD COLUMN dept_name TEXT DEFAULT ''",
+            "ALTER TABLE records ADD COLUMN hospital_name TEXT DEFAULT ''",
+            "ALTER TABLE records ADD COLUMN hospital_name2 TEXT DEFAULT ''",
+            "ALTER TABLE records ADD COLUMN dept_name TEXT DEFAULT ''",
+            "ALTER TABLE orders ADD COLUMN hospital_name TEXT DEFAULT ''",
+            "ALTER TABLE orders ADD COLUMN hospital_name2 TEXT DEFAULT ''",
+            "ALTER TABLE certificates ADD COLUMN hospital_name TEXT DEFAULT ''",
+            "ALTER TABLE certificates ADD COLUMN hospital_name2 TEXT DEFAULT ''",
+            "ALTER TABLE reports ADD COLUMN hospital_name TEXT DEFAULT ''",
+            "ALTER TABLE reports ADD COLUMN hospital_name2 TEXT DEFAULT ''",
+            "ALTER TABLE consents ADD COLUMN hospital_name TEXT DEFAULT ''",
+            "ALTER TABLE consents ADD COLUMN hospital_name2 TEXT DEFAULT ''",
+            "ALTER TABLE consultations ADD COLUMN hospital_name TEXT DEFAULT ''",
+            "ALTER TABLE consultations ADD COLUMN hospital_name2 TEXT DEFAULT ''",
+            "ALTER TABLE payments ADD COLUMN hospital_name TEXT DEFAULT ''",
+            "ALTER TABLE payments ADD COLUMN hospital_name2 TEXT DEFAULT ''",
+            "ALTER TABLE refunds ADD COLUMN hospital_name TEXT DEFAULT ''",
+            "ALTER TABLE refunds ADD COLUMN hospital_name2 TEXT DEFAULT ''",
         ),
     ),
     'seed' => array(
