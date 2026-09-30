@@ -16,7 +16,10 @@ Router::title('诊断字典');
 </div>
 <div class="card list-filter" style="position:relative">
     <input class="input" id="diagKw" placeholder="输入诊断码 / 名称 / 拼音首字母（实时检索）" autocomplete="off" oninput="diagSearchDebounced()" onfocus="showSearchDrop()">
-    <div id="searchDrop" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;max-height:350px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:0 0 8px 8px;box-shadow:0 8px 24px var(--shadow)"></div>
+    <div id="searchDrop" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:0 0 8px 8px;box-shadow:0 8px 24px var(--shadow);flex-direction:column">
+        <div id="searchDropHead" style="position:sticky;top:0;z-index:1;flex-shrink:0"></div>
+        <div id="searchDropList" style="max-height:350px;overflow-y:auto"></div>
+    </div>
 </div>
 <div class="flex gap-16 diag-body" style="align-items:stretch">
     <div class="card" style="width:360px;flex-shrink:0;display:flex;flex-direction:column;padding:0;overflow:hidden" id="treeBox">
@@ -76,25 +79,29 @@ function showSearchDrop() {
             var total = json.data.total || 0;
             diagSearch.total = total;
             if (!list.length) {
-                if (first) drop.innerHTML = '<div class="fs-12 text-muted" style="padding:10px 14px">未检索到匹配诊断</div>';
+                if (first) {
+                    drop.innerHTML = '<div class="fs-12 text-muted" style="padding:10px 14px">未检索到匹配诊断</div>';
+                }
                 diagSearch.done = true;
-                drop.style.display = '';
+                drop.style.display = 'flex';
                 return;
             }
             if (first) {
-                drop.innerHTML = '<div class="fs-12 text-muted" style="padding:6px 14px;border-bottom:1px solid var(--border)">检索到 ' + total + ' 条诊断</div>' +
-                    list.map(diagRowHtml).join('');
+                // 计数行固定在浮层顶部（sticky），结果区独立滚动
+                drop.innerHTML = '<div id="searchDropHead" style="position:sticky;top:0;z-index:1;padding:6px 14px;border-bottom:1px solid var(--border)"><div class="fs-12 text-muted">检索到 ' + total + ' 条诊断</div></div>' +
+                    '<div id="searchDropList">' + list.map(diagRowHtml).join('') + '</div>';
             } else {
-                // 追加下一页（保留顶部计数行）
+                // 追加下一页（计数行固定在顶部不动）
                 var frag = document.createElement('div');
                 frag.innerHTML = list.map(diagRowHtml).join('');
-                while (frag.firstChild) drop.insertBefore(frag.firstChild, null);
+                while (frag.firstChild) document.getElementById('searchDropList').appendChild(frag.firstChild);
             }
             diagSearch.offset += list.length;
             diagSearch.done = diagSearch.offset >= total;
-            drop.style.display = '';
+            drop.style.display = 'flex';
             // 若本页未填满浮层且仍有更多，自动继续加载（一次性显示完全部结果）
-            if (!diagSearch.done && drop.scrollHeight <= drop.clientHeight) showSearchDrop();
+            var listEl = document.getElementById('searchDropList');
+            if (!diagSearch.done && listEl && listEl.scrollHeight <= listEl.clientHeight) showSearchDrop();
         },
         onError: function () { diagLoading = false; },
     });
@@ -102,7 +109,7 @@ function showSearchDrop() {
 /* 滚动到底部自动加载下一页（统一无限滚动封装 Clinic.infiniteScroll，替代手写滚动监听）；
    不停止监听：新搜索（关键词变化）会重置 done，后续页仍需滚动加载 */
 Clinic.infiniteScroll({
-    el: document.getElementById('searchDrop'),
+    el: document.getElementById('searchDropList'),
     threshold: 8,
     onNearBottom: function () {
         if (diagSearch.done || diagLoading) return true;
