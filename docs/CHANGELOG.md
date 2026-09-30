@@ -36,6 +36,10 @@
 ### 安全
 - 所有入向端点（FHIR/HL7/LIS/HIS/支付回调）统一走 `InboundGuard` 中间件，未启用模块 / 白名单外 IP / 无效 Token 一律拒绝并落审计。
 
+### 文档 / 工具
+- **AGENTS.md 新增任务收尾铁律**：每完成一个任务/修复、提交前必须执行 `npm run server:ensure` 监测开发服务器，已挂自动重启并验证恢复；严禁用 `pkill -f frankenphp` 清理测试进程（会误杀开发服务器），须按端口精准匹配清理。
+- **新增开发服务器自愈脚本 `tools/lint/php-server-check.php`**：探测默认 8000 端口（PORT 环境变量可覆盖，8080 回退），已挂则 nohup 后台重启并轮询验证（最多 10 秒），package.json 增加 `server:ensure` 快捷命令。
+
 ---
 
 ## [8.37.5] - 2026-09-30
