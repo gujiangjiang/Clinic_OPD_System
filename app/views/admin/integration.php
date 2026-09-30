@@ -96,7 +96,7 @@ $orgCode = trim((string)setting('org_code', ''));
                         <span class="fs-13 fw-600"><?php echo e($ep['label']); ?></span>
                     </div>
                     <div class="flex" style="gap:8px">
-                        <code class="itg-ep-url" title="点击复制"><?php echo e($baseHost . $ep['path']); ?></code>
+                        <code class="itg-ep-url" title="点击复制" style="cursor:pointer" onclick="itgCopy(this.textContent.trim())"><?php echo e($baseHost . $ep['path']); ?></code>
                         <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="itgCopy('<?php echo e($baseHost . $ep['path']); ?>')">复制</button>
                     </div>
                     <div class="fs-12 text-muted mt-4"><?php echo e($ep['note']); ?></div>
@@ -241,16 +241,29 @@ itgSyncShowIf();
 
 /* ---------- 复制 ---------- */
 function itgCopy(t) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(t).then(function () { Clinic.toast.success('已复制到剪贴板'); });
-    } else {
+    var done = function () { Clinic.toast.success('已复制到剪贴板'); };
+    var fallback = function () {
+        // 兼容非安全上下文 / 剪贴板 API 被拒绝：textarea + execCommand 兜底
         var ta = document.createElement('textarea');
         ta.value = t;
+        ta.style.position = 'fixed';
+        ta.style.top = '0';
+        ta.style.opacity = '0';
         document.body.appendChild(ta);
+        ta.focus();
         ta.select();
-        document.execCommand('copy');
+        try {
+            document.execCommand('copy');
+            done();
+        } catch (e) {
+            Clinic.toast.warning('复制失败，请手动选择复制');
+        }
         ta.remove();
-        Clinic.toast.success('已复制到剪贴板');
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(t).then(done).catch(fallback);
+    } else {
+        fallback();
     }
 }
 
