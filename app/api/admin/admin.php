@@ -62,8 +62,9 @@ switch ($action) {
     case 'stats':
     case 'settings':
     case 'work_save':
-    // 接口管理（HIS/支付/医保/PACS/HL7/FHIR 分组保存）
+    // 接口管理（HIS/支付/医保/PACS/HL7/FHIR 分组保存 + 连通性测试）
     case 'integration_save':
+    case 'integration_test':
     case 'upload_logo':
     case 'print_items':
     case 'print_visits':

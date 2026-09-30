@@ -164,7 +164,7 @@ function itg_status_rows($g, $vals) {
                         <?php endforeach; ?>
                     </div>
                     <div class="flex" style="gap:8px;margin-top:14px">
-                        <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>')">保存本组配置</button>
+                        <button class="btn btn-primary btn-sm" onclick="itgTest('<?php echo e($g['id']); ?>')"><?= render_icon('action:bolt') ?> 连通性测试</button>
                     </div>
                 </div>
             </div>
@@ -329,7 +329,9 @@ function render_itg_field($f, $vals) {
 
 <script>
 var ITG_GROUPS = <?php echo json_encode(array_map(function ($g) {
-    return array('id' => $g['id'], 'title' => $g['title'], 'keys' => array_map(function ($f) { return $f['key']; }, $g['fields']));
+    return array('id' => $g['id'], 'title' => $g['title'],
+        'keys' => array_map(function ($f) { return $f['key']; }, $g['fields']),
+        'labels' => array_map(function ($f) { return $f['label']; }, $g['fields']));
 }, $groups), JSON_UNESCAPED_UNICODE); ?>;
 
 /* ---------- Tab 切换 ---------- */
@@ -401,6 +403,63 @@ function itgCopy(t) {
     } else {
         fallback();
     }
+}
+
+/* ---------- 通用连通性测试（入向本地服务 + 出向远端服务器，无需保存即可测试） ---------- */
+function itgTest(groupId) {
+    var group = null;
+    ITG_GROUPS.forEach(function (g) { if (g.id === groupId) group = g; });
+    if (!group) return;
+    var fieldsHtml = group.keys.map(function (k, i) {
+        var el = document.getElementById('itg_' + k);
+        var val = el ? el.value : '';
+        return '<div class="form-group"><label class="form-label">' + Clinic.escHtml(group.labels[i] || k) + '</label>' +
+            '<input class="input" id="itgtest_' + groupId + '_' + i + '" value="' + Clinic.escHtml(val) + '"></div>';
+    }).join('');
+    Clinic.modal.open(
+        '<div class="fs-12 text-muted mb-12">按当前表单值逐条探测入向本地服务与出向远端服务器，无需保存即可测试。</div>' +
+        '<div style="max-height:280px;overflow-y:auto">' + fieldsHtml + '</div>' +
+        '<div id="itgTestResult" class="mt-12"></div>',
+        {
+            title: '连通性测试：' + group.title,
+            size: 'modal-lg',
+            buttons: [
+                { text: '关闭', cls: 'btn-outline' },
+                { text: '开始测试', cls: 'btn-primary', onClick: function () { itgTestRun(groupId); } },
+            ],
+        });
+}
+
+function itgTestRun(groupId) {
+    var group = null;
+    ITG_GROUPS.forEach(function (g) { if (g.id === groupId) group = g; });
+    if (!group) return;
+    var data = { action: 'integration_test', group: groupId };
+    group.keys.forEach(function (k, i) {
+        var el = document.getElementById('itgtest_' + groupId + '_' + i);
+        if (el) data[k] = el.value.trim();
+    });
+    var box = document.getElementById('itgTestResult');
+    if (!box) return;
+    box.innerHTML = '<div class="spinner" style="border-top-color:var(--primary);width:22px;height:22px;margin:0 auto"></div>';
+    Clinic.ajax('/api/admin', data, {
+        onSuccess: function (json) {
+            var d = json.data || {};
+            var items = d.items || [];
+            box.innerHTML = items.map(function (it) {
+                var okCls = it.ok ? 'badge-success' : (it.blocking ? 'badge-danger' : 'badge-warning');
+                var okTxt = it.ok ? '通过' : (it.blocking ? '失败' : '提示');
+                return '<div class="itg-test-item" style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px">' +
+                    '<div class="flex-between"><span class="fs-13 fw-600">' + Clinic.escHtml(it.name || '') + '</span>' +
+                    '<span class="badge ' + okCls + '">' + okTxt + '</span></div>' +
+                    '<div class="fs-12 text-muted" style="margin-top:4px;word-break:break-all">' + Clinic.escHtml(it.detail || '') + '</div>' +
+                    '</div>';
+            }).join('') || '<div class="fs-12 text-muted">无探测项</div>';
+        },
+        onError: function (j) {
+            box.innerHTML = '<div class="fs-12" style="color:var(--danger,#dc2626)">' + Clinic.escHtml((j && j.msg) || '测试请求失败') + '</div>';
+        },
+    });
 }
 
 /* ---------- 分组保存（仅提交该组字段） ---------- */

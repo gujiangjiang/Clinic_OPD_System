@@ -127,6 +127,7 @@ function admin_part_settings($action) {
         $group = integration_group(post('group', ''));
         if (!$group) json_fail('未知的接口分组');
         $saved = array();
+        $testVals = array();
         foreach ($group['fields'] as $f) {
             // PHP 表单解析会把查询串中的点转为下划线（parse_str），带点键名需双路径读取
             $raw = post($f['key'], null);
@@ -150,9 +151,38 @@ function admin_part_settings($action) {
                 $val = ($val === '1' || $val === 'on') ? '1' : '0';
             }
             set_setting($f['key'], $val);
+            $testVals[$f['key']] = $val;
             $saved[] = $f['key'];
         }
-        json_ok(array('saved' => $saved), '「' . $group['title'] . '」配置已保存');
+        // 保存前自动连通性测试：存在阻断项（已启用但探测失败）则拒绝保存；
+        // 未启用/未配置等提示项不阻断保存（界面测试模态框会明确提示补齐）
+        $res = ConnectivityTester::test($group['id'], $testVals);
+        $blocked = array();
+        foreach ($res['items'] as $it) {
+            if (!empty($it['blocking'])) $blocked[] = $it['name'];
+        }
+        if ($blocked) {
+            json_fail('保存失败：连通性测试未通过（' . implode('、', $blocked) . '），请先修正配置后再保存');
+        }
+        json_ok(array('saved' => $saved), '「' . $group['title'] . '」配置已保存（连通性测试通过）');
+    }
+
+    /* ==================== 接口管理：连通性测试（保存前测试，不落库） ====================
+     * 说明：按当前表单值（可未保存）逐条探测入向本地服务与出向远端服务器，
+     * 返回详细日志；保存配置时后台也会自动调用一次，失败则拒绝保存。 */
+    if ($action === 'integration_test') {
+        $group = integration_group(post('group', ''));
+        if (!$group) json_fail('未知的接口分组');
+        $vals = array();
+        foreach ($group['fields'] as $f) {
+            // 与 integration_save 相同：PHP 表单点号键转下划线，双路径读取
+            $raw = post($f['key'], null);
+            if ($raw === null) $raw = post(str_replace('.', '_', $f['key']), null);
+            if ($raw === null) continue;
+            $vals[$f['key']] = trim((string)$raw);
+        }
+        $res = ConnectivityTester::test($group['id'], $vals);
+        json_ok($res, $res['ok'] ? '连通性测试通过' : '连通性测试存在未通过项');
     }
 
     /* ==================== 上传医院 LOGO（同时作为 favicon） ==================== */

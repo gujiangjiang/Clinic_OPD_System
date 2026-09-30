@@ -115,6 +115,9 @@ foreach (glob(__DIR__ . '/../repositories/*.php') ?: array() as $__repoFile) {
 
 /* ---------- 引入服务层（外部集成驱动：HIS/FHIR/HL7/LIS + HTTP + 入向守卫，
  * 按子目录自动加载，供业务钩子 / 后台 worker / 入向控制器共用） ---------- */
+foreach (glob(__DIR__ . '/../services/*.php') ?: array() as $__svcTop) {
+    require_once $__svcTop;
+}
 foreach (glob(__DIR__ . '/../services/*/*.php') ?: array() as $__svcFile) {
     require_once $__svcFile;
 }
