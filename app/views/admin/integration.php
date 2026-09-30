@@ -299,7 +299,7 @@ function testHisApi() {
     if (key === '') { Clinic.toast.warning('请先填写或生成入向 Token 并保存本组配置'); return; }
     box.style.display = '';
     box.innerHTML = '<div class="fs-12 text-muted" style="padding:10px 2px">测试中，请稍候…</div>';
-    var base = location.protocol + '//' + location.host + '/api/his?action=ping';
+    var base = location.protocol + '//' + location.host + '/api/external/his/read?action=ping';
     var render = function (label, url, init) {
         fetch(url, init).then(function (r) { return r.json(); }).then(function (j) {
             var ok = !!(j && j.ok && j.data && j.data.pong);
@@ -310,7 +310,7 @@ function testHisApi() {
             box.innerHTML += '<div class="itg-his-titem"><div class="itg-his-tlabel"><span class="badge badge-danger">请求失败</span> ' + label + '</div></div>';
         });
     };
-    render('请求头 X-HIS-Key', base, { headers: { 'X-HIS-Key': key } });
+    render('请求头 X-HIS-Token', base, { headers: { 'X-HIS-Token': key } });
     render('GET 参数 token', base + '&token=' + encodeURIComponent(key), {});
 }
 

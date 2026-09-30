@@ -160,21 +160,21 @@ server {
 
 ## 🔌 HIS 预留接口
 
-系统内置只读 HIS 对接接口（`/api/his`），为未来扩展住院 HIS、医保、BI 等系统提供数据支持。
+系统内置只读 HIS 对接接口（`/api/external/his/read`），为未来扩展住院 HIS、医保、BI 等系统提供数据支持。
 
-在【接口管理】（/admin/integration）中配置「HIS 接口密钥」（留空则接口关闭；系统代码/同步模式等亦在该页维护）。页面要点：
+在【接口管理】（/admin/integration）中配置「HIS 入向鉴权 Token」（留空则接口关闭；系统代码/同步模式等亦在该页维护）。页面要点：
 
-- **HIS API 地址为自动生成、无需人工填写**：即本系统对外提供服务的接口地址（当前访问地址 + `/api/his`），页面实时展示并附带密钥、一键复制；未填密钥时显示提示占位。
-- **接口连通性测试**：右侧面板内置【▶ 开始测试】，实际请求 `/api/his` 的 `ping` 自检，分别验证「X-HIS-Key 请求头」与「GET 参数 api_key」两种认证方式并展示返回 JSON。
+- **HIS API 地址为自动生成、无需人工填写**：即本系统对外提供服务的接口地址（当前访问地址 + `/api/external/his/read`），页面实时展示并附带密钥、一键复制；未填密钥时显示提示占位。
+- **接口连通性测试**：右侧面板内置【▶ 开始测试】，实际请求 `/api/external/his/read?action=ping` 自检，分别验证「X-HIS-Token 请求头」与「GET 参数 token」两种认证方式并展示返回 JSON。
 - **系统代码**：由 HIS 侧分配、用于在 HIS 方标识本系统的编码（预留字段，认证仅依赖密钥；`ping` 返回中回显）。
 
 外部 HIS 系统需能访问该地址并携带密钥调用：
 
 ```bash
 # 推荐：请求头方式（密钥不进 URL / 访问日志）
-curl -H "X-HIS-Key: 你的密钥" "http://your-domain/api/his?action=patient_get&id_card=110101199001011234"
+curl -H "X-HIS-Token: 你的密钥" "http://your-domain/api/external/his/read?action=patient_get&id_card=110101199001011234"
 # 兼容方式：GET 参数（会进入访问日志，请自行评估风险）
-curl "http://your-domain/api/his?action=patient_get&id_card=110101199001011234&api_key=你的密钥"
+curl "http://your-domain/api/external/his/read?action=patient_get&id_card=110101199001011234&token=你的密钥"
 ```
 
 | action | 参数 | 说明 |

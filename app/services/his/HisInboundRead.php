@@ -4,10 +4,7 @@
  * services/his/HisInboundRead.php — HIS 入向只读查询服务
  * ============================================================
  * 说明：供外部 HIS/医保/BI 调用的只读查询端点业务逻辑
- * （原 app/api/his.php 内联逻辑下沉至此，api/his.php 仅保留
- *  Token 鉴权与分发壳）。鉴权密钥统一为 integration.inbound.his.token
- *  （旧键 his_api_key 自动回退）。接口均返回统一 JSON { ok, msg, data }。
- * 入向推送（患者/字典）见 HisInboundSync；出向同步（Outbox）见 HisOutbox。
+ * （原 app/api/his.php 内联逻辑下沉至此，统一由 /api/external/his/read 路由调用）。
  * ============================================================ */
 class HisInboundRead {
 

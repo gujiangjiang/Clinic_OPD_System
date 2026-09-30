@@ -135,6 +135,34 @@ switch ($__mod) {
     /* ==================== HIS 患者预约/建档推送 ==================== */
     case 'his':
         InboundGuard::check('his', '', 'integration.inbound.his.token', 'integration.inbound.his.ip_whitelist', 'his_api_key');
+        // 只读查询（统一入口，原 /api/his 旧版兼容端点已并入）：GET /api/external/his/read?action=ping
+        if ($__act === 'read') {
+            $q = trim((string)get('action', ''));
+            integration_log_inbound('his', 'read', true, '只读查询：' . $q, '');
+            switch ($q) {
+                case 'ping':
+                    json_ok(HisInboundRead::ping());
+                    break;
+                case 'patient_get':
+                    json_ok(HisInboundRead::patientGet(get('id_card', ''), get('patient_no', '')));
+                    break;
+                case 'visit_list':
+                    json_ok(HisInboundRead::visitList(get('patient_no', '')));
+                    break;
+                case 'visit_status':
+                    json_ok(HisInboundRead::visitStatus(get('flow_no', '')));
+                    break;
+                case 'order_list':
+                    json_ok(HisInboundRead::orderList(get('visit_id', 0)));
+                    break;
+                case 'evidence_verify':
+                    json_ok(HisInboundRead::evidenceVerify(get('record_id', 0), get('cert_no', '')));
+                    break;
+                default:
+                    json_fail('未知操作（可用：ping / patient_get / visit_list / visit_status / order_list / evidence_verify）');
+            }
+            break;
+        }
         if ($__act === 'sync-patient') {
             $p = external_json();
             if ($p === null && !empty($_POST)) $p = $_POST;

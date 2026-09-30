@@ -191,7 +191,7 @@ function integration_field_groups() {
             'endpoints' => array(
                 array('label' => '患者预约/建档推送', 'method' => 'POST', 'path' => '/api/external/his/sync-patient', 'note' => 'HIS 推送患者主数据，按身份证号幂等建档。携带 X-HIS-Token 头或 ?token='),
                 array('label' => '基础字典同步', 'method' => 'POST', 'path' => '/api/external/his/sync-catalog', 'note' => '药品/耗材/价表数据同步，按内部编码幂等更新。携带 X-HIS-Token 头或 ?token='),
-                array('label' => '历史只读查询接口（旧版兼容）', 'method' => 'GET', 'path' => '/api/his?action=ping', 'note' => '旧版外部只读查询：ping / patient_get / visit_list / visit_status / order_list / evidence_verify，鉴权同入向 Token'),
+                array('label' => '只读查询（统一入口）', 'method' => 'GET', 'path' => '/api/external/his/read?action=ping', 'note' => '外部只读查询：ping / patient_get / visit_list / visit_status / order_list / evidence_verify，鉴权同入向 Token'),
             ),
             'fields' => array(
                 // ---------- 出向：协议适配器与连接认证 ----------

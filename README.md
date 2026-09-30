@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v8.38.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v8.39.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -187,7 +187,7 @@
 │   │   ├── bootstrap.php      # 启动引导（常量、Session、时区、类加载、DB_DRIVER 驱动配置）
 │   │   ├── options_data.php   # 公共字典（统一数据源）
 │   │   └── schema/            # 数据库表结构定义
-│   │       ├── main.php       # 统一业务主库 schema（42 张表，SQLite/MySQL/PostgreSQL 三驱动兼容）
+│   │       ├── main.php       # 统一业务主库 schema（49 张表，SQLite/MySQL/PostgreSQL 三驱动兼容）
 │   │       ├── icd10.php      # ICD-10 独立字典库 schema
 │   │       └── legacy/        # 旧分散式 schema 归档（供迁移工具引用）
 │   ├── core/                  # 核心类
@@ -200,16 +200,20 @@
 │   ├── repositories/          # 数据访问层（Repository 数据仓库模式，业务与 SQL 解耦）
 │   │   └── BaseRepository.php（通用 CRUD 助手）+ 各业务域仓库：
 │   │       Icd10 / Patient / Queue / Cashier / Emr / Drug / Order /
-│   │       User / Dept / Analytics / Consultation / Core
-│   ├── api/                   # AJAX 接口（按功能拆分，含角色权限校验；不含原生 SQL，
+│   │       User / Dept / Analytics / Consultation / Core /
+│   │       CriticalValue / Message / Consent / Referral / Refund / Push /
+│   │       PrintSnapshot / EmrTemplate / Package / Integration / Audit / SkinTest
+│   ├── api/                   # AJAX 接口（按域归类，含角色权限校验；不含原生 SQL，
 │   │   │                      # 统一调用对应 Repository）
 │   │   ├── _init.php          # 接口公共入口（CSRF + 登录 + 角色校验）
-│   │   ├── parts/             # 接口按功能拆分（settings/dept/user/item/drug/disp/audit/call；
-│   │   │   │                  # record_write/order_write/doctor_read 再按动作拆分到各自子目录）
-│   │   ├── auth.php install.php message.php icd10.php patient.php print.php his.php
-│   │   ├── admin.php cashier.php doctor.php record.php order.php
-│   │   ├── template.php transfer.php nurse.php lab.php imaging.php pharmacy.php
-│   │   ├── deptwork.php       # 医技科室工作台共用接口（候诊队列/患者工作台/排队悬浮窗）
+│   │   ├── parts/             # 接口片段库（按功能拆分，各域接口共用）
+│   │   ├── admin/             # 管理端接口（admin.php）
+│   │   ├── clinic/            # 门诊业务接口（auth/cashier/doctor/nurse/lab/imaging/
+│   │   │   │                  # pharmacy/deptwork/record/order/consent/consultation/
+│   │   │   │                  # template/package/transfer/critical/refund/print/message/
+│   │   │   │                  # push/screen/icd10）
+│   │   ├── integration/       # 外部集成入向（external.php / fhir.php / his.php）
+│   │   └── system/            # 系统级接口（install.php / migration.php）
 │   ├── includes/              # 公共模块
 │   │   ├── layout.php         # 统一布局（侧边栏/顶栏/主题/消息铃铛/CSRF/favicon）
 │   │   ├── dept_workbench.php # 医技科室工作台公共骨架（护士站/检验/影像/药房）

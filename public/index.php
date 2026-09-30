@@ -44,10 +44,10 @@ if ($uri === '/sw.js') {
 }
 
 /* ---------- AJAX 接口分发 ----------
- * 支持子路径：/api/{name}[/{sub...}]——旧接口（/api/his?action=x）不变；
- * 外部集成入向路由（无登录会话，由 InboundGuard 自行鉴权）：
+ * 支持子路径：/api/{name}[/{sub...}]——外部集成入向路由（无登录会话，
+ * 由 InboundGuard 自行鉴权）：
  *  - /api/fhir/r4/...            FHIR R4 Provider（metadata/Patient/Encounter）
- *  - /api/external/{mod}/{act}   LIS 回调 / HL7 接收 / HIS 推送
+ *  - /api/external/{mod}/{act}   LIS 回调 / HL7 接收 / HIS 只读查询与推送
  *  - /api/cashier/pay-notify/..  支付结果回调 */
 if (preg_match('#^/api/([a-z0-9_]+)(/.*)?$#i', $uri, $m)) {
     $apiName = $m[1];
@@ -110,7 +110,6 @@ function api_route_file($apiName) {
         // 外部集成入向
         'external' => 'integration/external.php',
         'fhir' => 'integration/fhir.php',
-        'his' => 'integration/his.php',
         // 系统级
         'install' => 'system/install.php',
         'migration' => 'system/migration.php',
