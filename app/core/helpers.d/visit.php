@@ -374,3 +374,48 @@ function patient_allergy_append($patientNo, $drugName) {
     if (!in_array($drugName, $items, true)) $items[] = $drugName;
     OrderRepository::exec('UPDATE patients SET allergy_history=? WHERE patient_no=?', array(implode('、', $items), $patientNo));
 }
+/**
+ * 诊毕后置工作（共享）：就诊状态置 finished + 诊毕快照 + 存证。
+ * 供医生保存诊毕与「病历超时自动归档」共用同一套逻辑。
+ * @param int    $visitId     就诊记录 id
+ * @param int    $recordId    已保存的病历记录 id（须已置 status=done）
+ * @param string $recordType  病历类型（initial/progress，存证用）
+ * @param string $printText   病历打印文本（存证用）
+ * @param string $disposition 离院方式（默认 其他）
+ * @param string $dispDetail  转归补充说明
+ */
+function finish_visit($visitId, $recordId, $recordType = 'initial', $printText = '', $disposition = '其他', $dispDetail = '') {
+    $visitId = (int)$visitId;
+    $recordId = (int)$recordId;
+    if ($visitId <= 0 || $recordId <= 0) return false;
+    // 就诊状态置 finished（条件更新防并发重复诊毕；已退费/取消等终态不覆盖）
+    $n = EmrRepository::exec(
+        'UPDATE registrations SET status=?, disposition=?, disposition_detail=?, finished_at=?, paid_at=COALESCE(paid_at,?) WHERE id=? AND status IN (?,?,?)',
+        array('finished', $disposition, $dispDetail, now_str(), now_str(), $visitId, 'pending', 'paid', 'visiting')
+    );
+    if ($n <= 0) return false;
+    // 诊毕快照（法律合规）：诊毕时固化患者资料与生命体征，
+    // 诊毕后补打病历显示诊毕时刻信息（诊毕前打印仍显示最新，允许医生修正患者资料）
+    $visit = EmrRepository::one('SELECT patient_no FROM registrations WHERE id=?', array($visitId));
+    try {
+        $snapV = EmrRepository::one('SELECT * FROM vitals WHERE visit_id=? ORDER BY id DESC', array($visitId));
+        snapshot_patient('record', $recordId, $visit ? (string)$visit['patient_no'] : '', array(
+            'visit_id' => $visitId,
+            'finished' => 1,
+            'vitals' => $snapV ? array(
+                'vital_sbp' => $snapV['vital_sbp'], 'vital_dbp' => $snapV['vital_dbp'],
+                'vital_heart_rate' => $snapV['vital_heart_rate'], 'vital_pulse' => $snapV['vital_pulse'],
+                'vital_spo2' => $snapV['vital_spo2'], 'vital_respiration' => $snapV['vital_respiration'],
+            ) : array(),
+        ));
+    } catch (Exception $ex) {
+        if (defined('DEBUG') && DEBUG) error_log('[诊毕快照失败] ' . $ex->getMessage());
+    }
+    // 存证：按接口管理配置的模式计算指纹/调用外部存证服务，落库保存凭据（失败不阻断保存）
+    $evid = evid_sign($recordType, (string)$recordId, (string)$printText, json_encode(array('visit_id' => $visitId, 'finished' => 1), JSON_UNESCAPED_UNICODE));
+    if ($evid) {
+        EmrRepository::exec('UPDATE patient_records SET evid_hash=?, evid_algo=?, evid_token=?, evid_signer=?, evid_time=? WHERE id=?',
+            array($evid['hash'], $evid['algo'], $evid['token'], $evid['signer'], $evid['time'], $recordId));
+    }
+    return true;
+}

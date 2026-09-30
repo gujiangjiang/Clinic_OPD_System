@@ -146,5 +146,22 @@ if (MigrationRunner::isLocked()) {
     @pclose(@popen($cmd, 'r'));
 })();
 
+/* ---------- 病历超时自动归档调度（每日 02:00 后首次访问触发一次，后台执行不阻塞页面） ---------- */
+(function () {
+    if (date('H:i') < '02:00') return;                       // 未到点
+    if (ConfigStore::get('auto_finish.last_date', '') === date('Y-m-d')) return;   // 今日已执行
+    $script = APP_ROOT . '/tools/cli/auto_finish_records.php';
+    if (!is_file($script)) return;
+    ConfigStore::set('auto_finish.last_date', date('Y-m-d'));
+    $runner = '';
+    foreach (array('~/.local/bin/frankenphp', '/usr/local/bin/frankenphp', '/opt/homebrew/bin/frankenphp') as $p) {
+        $p = str_replace('~', isset($_SERVER['HOME']) ? $_SERVER['HOME'] : '', $p);
+        if (is_file($p)) { $runner = $p; break; }
+    }
+    if ($runner === '') $runner = 'frankenphp';
+    $cmd = 'nohup ' . $runner . ' php-cli ' . $script . ' > /dev/null 2>&1 &';
+    @pclose(@popen($cmd, 'r'));
+})();
+
 /* ---------- 页面路由分发 ---------- */
 Router::dispatch($uri);
