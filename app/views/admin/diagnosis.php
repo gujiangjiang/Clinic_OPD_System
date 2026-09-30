@@ -16,8 +16,9 @@ Router::title('诊断字典');
 </div>
 <div class="card list-filter" style="position:relative">
     <div style="position:relative">
-        <input class="input" id="diagKw" style="padding-right:130px" placeholder="输入诊断码 / 名称 / 拼音首字母（实时检索）" autocomplete="off" oninput="diagSearchDebounced()" onfocus="showSearchDrop()">
+        <input class="input" id="diagKw" style="padding-right:150px" placeholder="输入诊断码 / 名称 / 拼音首字母（实时检索）" autocomplete="off" oninput="diagSearchDebounced()" onfocus="showSearchDrop()">
         <span id="diagCount" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--text-muted);pointer-events:none;white-space:nowrap;z-index:2">检索到 0 条诊断</span>
+        <span id="diagEmpty" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:12px;color:#c0392b;background:rgba(220,60,40,.12);padding:2px 10px;border-radius:999px;pointer-events:none;white-space:nowrap;z-index:2">未检索到匹配诊断</span>
     </div>
     <div id="searchDrop" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;max-height:350px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:0 0 8px 8px;box-shadow:0 8px 24px var(--shadow)"></div>
 </div>
@@ -46,6 +47,12 @@ var diagLoading = false;
 var SEARCH_HIGHLIGHT_CODE = '';   // 当前搜索高亮的诊断码
 var diagSearch = { kw: '', offset: 0, total: 0, done: false };   // 分段加载状态
 
+/* 隐藏搜索栏右侧状态（计数/无结果徽章，搜索结束统一收拢） */
+function hideDiagStatus() {
+    document.getElementById('diagCount').style.display = 'none';
+    document.getElementById('diagEmpty').style.display = 'none';
+}
+
 function diagSearchDebounced() {
     if (diagDebounce) clearTimeout(diagDebounce);
     diagDebounce = setTimeout(function () { showSearchDrop(); }, 300);
@@ -67,7 +74,8 @@ function showSearchDrop() {
     var kw = document.getElementById('diagKw').value.trim();
     var drop = document.getElementById('searchDrop');
     var countEl = document.getElementById('diagCount');
-    if (!kw) { drop.style.display = 'none'; countEl.style.display = 'none'; diagSearch.done = true; return; }
+    var emptyEl = document.getElementById('diagEmpty');
+    if (!kw) { drop.style.display = 'none'; countEl.style.display = 'none'; emptyEl.style.display = 'none'; diagSearch.done = true; return; }
     if (diagLoading) return;
     diagLoading = true;
     // 首次（关键词变化）重置分页；继续加载（滚动触发）沿用当前 offset
@@ -81,11 +89,12 @@ function showSearchDrop() {
             diagSearch.total = total;
             if (!list.length) {
                 if (first) {
-                    drop.innerHTML = '<div class="fs-12 text-muted" style="padding:10px 14px">未检索到匹配诊断</div>';
+                    // 无结果：下拉收起，红色徽章内嵌搜索栏右侧提示
+                    drop.style.display = 'none';
                     countEl.style.display = 'none';
+                    emptyEl.style.display = '';
                 }
                 diagSearch.done = true;
-                drop.style.display = '';
                 return;
             }
             if (first) {
@@ -93,6 +102,7 @@ function showSearchDrop() {
                 drop.innerHTML = list.map(diagRowHtml).join('');
                 countEl.textContent = '检索到 ' + total + ' 条诊断';
                 countEl.style.display = '';
+                emptyEl.style.display = 'none';
             } else {
                 // 追加下一页（列表继续滚动加载）
                 var frag = document.createElement('div');
@@ -122,7 +132,7 @@ Clinic.infiniteScroll({
 function onSearchPick(catCode, catName, secCode, chCode, diagCode, subCode) {
     SEARCH_HIGHLIGHT_CODE = diagCode;
     document.getElementById('searchDrop').style.display = 'none';
-    document.getElementById('diagCount').style.display = 'none';
+    hideDiagStatus();
     document.getElementById('diagKw').value = '';
     // 展开左侧树到目标类目（类目节点点击会自动触发 showCategoryDetail 并高亮）
     expandTreeToCategory(chCode, secCode, catCode, catName);
@@ -133,7 +143,7 @@ document.addEventListener('click', function (e) {
     var input = document.getElementById('diagKw');
     if (drop && drop.style.display !== 'none' && !e.target.closest('#searchDrop') && e.target !== input) {
         drop.style.display = 'none';
-        document.getElementById('diagCount').style.display = 'none';
+        hideDiagStatus();
     }
 });
 
@@ -322,7 +332,7 @@ var CURRENT_CATEGORY = '';
 function showCategoryDetail(code, name) {
     CURRENT_CATEGORY = code;
     document.getElementById('diagKw').value = '';
-    document.getElementById('diagCount').style.display = 'none';
+    hideDiagStatus();
     // 类目标题：编码 + 名称整体放入徽章，醒目
     document.getElementById('detailTitle').style.display = '';
     document.getElementById('detailTitle').innerHTML =
