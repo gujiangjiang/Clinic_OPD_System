@@ -128,7 +128,9 @@ function admin_part_settings($action) {
         if (!$group) json_fail('未知的接口分组');
         $saved = array();
         foreach ($group['fields'] as $f) {
+            // PHP 表单解析会把查询串中的点转为下划线（parse_str），带点键名需双路径读取
             $raw = post($f['key'], null);
+            if ($raw === null) $raw = post(str_replace('.', '_', $f['key']), null);
             if ($raw === null) continue;   // 未提交的字段不覆盖（分组保存互不干扰）
             $val = trim((string)$raw);
             $rule = isset($f['rule']) ? $f['rule'] : '';
