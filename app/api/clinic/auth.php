@@ -86,7 +86,7 @@ if ($__act === 'login' || $__act === 'logout_page') {
     exit;
 }
 
-require __DIR__ . '/_init.php';
+require __DIR__ . '/../_init.php';
 
 switch ($action) {
 

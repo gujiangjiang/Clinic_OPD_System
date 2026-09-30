@@ -59,7 +59,7 @@ if (preg_match('#^/api/([a-z0-9_]+)(/.*)?$#i', $uri, $m)) {
         require APP_ROOT . '/app/includes/migrating_lock.php';
         exit;
     }
-    $apiFile = API_PATH . '/' . $apiName . '.php';
+    $apiFile = API_PATH . '/' . api_route_file($apiName);
     if (!is_file($apiFile)) {
         json_response(false, '接口不存在');
     }
@@ -68,6 +68,54 @@ if (preg_match('#^/api/([a-z0-9_]+)(/.*)?$#i', $uri, $m)) {
     define('CURRENT_API_SUB', $apiSub);
     require $apiFile;
     exit;
+}
+
+/**
+ * API 路由映射：URL 名 → app/api 下物理文件路径（按域归类的目录结构）。
+ * 说明：接口 URL 契约不变（/api/{name}），仅物理文件按域归类：
+ *  - admin/      管理端接口
+ *  - clinic/     门诊业务接口（挂号/医生/医技/药房/病历/打印等）
+ *  - integration/外部集成入向（FHIR / external / HIS 只读）
+ *  - system/     系统级接口（安装向导 / 迁移锁定）
+ * 未映射的名字回退为 app/api/{name}.php（单层）。
+ */
+function api_route_file($apiName) {
+    $map = array(
+        // 管理端
+        'admin' => 'admin/admin.php',
+        // 门诊业务
+        'auth' => 'clinic/auth.php',
+        'cashier' => 'clinic/cashier.php',
+        'consent' => 'clinic/consent.php',
+        'consultation' => 'clinic/consultation.php',
+        'critical' => 'clinic/critical.php',
+        'deptwork' => 'clinic/deptwork.php',
+        'doctor' => 'clinic/doctor.php',
+        'icd10' => 'clinic/icd10.php',
+        'imaging' => 'clinic/imaging.php',
+        'lab' => 'clinic/lab.php',
+        'message' => 'clinic/message.php',
+        'nurse' => 'clinic/nurse.php',
+        'order' => 'clinic/order.php',
+        'package' => 'clinic/package.php',
+        'patient' => 'clinic/patient.php',
+        'pharmacy' => 'clinic/pharmacy.php',
+        'print' => 'clinic/print.php',
+        'push' => 'clinic/push.php',
+        'record' => 'clinic/record.php',
+        'refund' => 'clinic/refund.php',
+        'screen' => 'clinic/screen.php',
+        'template' => 'clinic/template.php',
+        'transfer' => 'clinic/transfer.php',
+        // 外部集成入向
+        'external' => 'integration/external.php',
+        'fhir' => 'integration/fhir.php',
+        'his' => 'integration/his.php',
+        // 系统级
+        'install' => 'system/install.php',
+        'migration' => 'system/migration.php',
+    );
+    return isset($map[$apiName]) ? $map[$apiName] : $apiName . '.php';
 }
 
 /* ---------- 数据库迁移/切换锁定：全站页面拦截 ---------- */

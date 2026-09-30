@@ -10,7 +10,7 @@
  * 4. 患者全部就诊历史（病历+开单情况）
  * 数据访问统一委托 PatientRepository，本文件不含原生 SQL。
  * ============================================================ */
-require __DIR__ . '/_init.php';
+require __DIR__ . '/../_init.php';
 
 switch ($action) {
 

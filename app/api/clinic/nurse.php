@@ -6,7 +6,7 @@
  * 数据访问统一委托 EmrRepository / OrderRepository / PatientRepository
  * / QueueRepository，本文件不含原生 SQL。
  * ============================================================ */
-require __DIR__ . '/_init.php';
+require __DIR__ . '/../_init.php';
 
 $u = Auth::user();
 

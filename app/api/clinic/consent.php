@@ -8,7 +8,7 @@
  * 2. list   获取某就诊的全部知情同意书列表
  * 3. get    获取单条知情同意书详情
  * ============================================================ */
-require __DIR__ . '/_init.php';
+require __DIR__ . '/../_init.php';
 // 病历内容快照投影（emr_*_text / consent_emr_snapshot / 默认话术）由 emr_formatter 提供
 require_once APP_ROOT . '/app/includes/emr_formatter.php';
 

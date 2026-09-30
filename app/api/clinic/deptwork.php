@@ -14,9 +14,9 @@
  * 各角色既有接口（lab.php / imaging.php / pharmacy.php / nurse.php）。
  * 数据访问统一委托各 Repository，本文件不含原生 SQL 拼装注入风险。
  * ============================================================ */
-require __DIR__ . '/_init.php';
+require __DIR__ . '/../_init.php';
 require_once APP_ROOT . '/app/includes/emr_formatter.php';
-require_once __DIR__ . '/parts/dept_common.php';
+require_once __DIR__ . '/../parts/dept_common.php';
 
 $u = Auth::user();
 $role = $u['role'];

@@ -13,7 +13,7 @@
  * 3. 鉴权：is_system=1 模板严禁修改/删除；非本人且非管理员
  *    严禁修改/删除。
  * ============================================================ */
-require __DIR__ . '/_init.php';
+require __DIR__ . '/../_init.php';
 // 知情同意/告知文书：默认话术与勾选节白名单（consent_default_notice/consent_section_filter）
 require_once APP_ROOT . '/app/includes/emr_formatter.php';
 

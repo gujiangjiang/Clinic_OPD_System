@@ -9,10 +9,10 @@
  *    提交自动生成报告并打印 → 移入【已完成】
  * 2. 已完成报告可查看/申请撤回（管理员批准后可重新编辑）
  * ============================================================ */
-require __DIR__ . '/_init.php';
+require __DIR__ . '/../_init.php';
 require_once APP_ROOT . '/app/includes/forms.php';
 require_once APP_ROOT . '/app/includes/emr_formatter.php';
-require_once __DIR__ . '/parts/dept_common.php';
+require_once __DIR__ . '/../parts/dept_common.php';
 
 $u = Auth::user();
 

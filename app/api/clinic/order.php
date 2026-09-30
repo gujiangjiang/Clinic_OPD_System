@@ -8,14 +8,14 @@
  *   parts/order_write.php 写入（submit 提交开单 / delete 删除）
  * 本文件保留公共引导与动作分发。
  * ============================================================ */
-require __DIR__ . '/_init.php';
+require __DIR__ . '/../_init.php';
 require_once APP_ROOT . '/app/includes/print_templates.php';
 require_once APP_ROOT . '/app/includes/catalog_query.php';
 
 $u = Auth::user();
 
-require __DIR__ . '/parts/order_read.php';
-require __DIR__ . '/parts/order_write.php';
+require __DIR__ . '/../parts/order_read.php';
+require __DIR__ . '/../parts/order_write.php';
 
 switch ($action) {
     case 'catalog':

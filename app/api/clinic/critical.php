@@ -12,9 +12,9 @@
  *    process 仅推进状态字段；报告快照独立固化在 snapshot_json，
  *    检验科后期撤回/修改数据不影响已归档危急值展示。
  * ============================================================ */
-require __DIR__ . '/_init.php';
+require __DIR__ . '/../_init.php';
 require_once APP_ROOT . '/app/includes/emr_formatter.php';
-require_once __DIR__ . '/parts/dept_common.php';
+require_once __DIR__ . '/../parts/dept_common.php';
 
 $u = Auth::user();
 // 核心优化：危急值轮询/列表等只读接口，鉴权后立即释放 Session 锁（写操作不依赖会话）

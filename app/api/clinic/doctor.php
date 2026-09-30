@@ -11,7 +11,7 @@
  *                          unbind_room/room_heartbeat）
  * 本文件保留公共引导、共享函数与动作分发。
  * ============================================================ */
-require __DIR__ . '/_init.php';
+require __DIR__ . '/../_init.php';
 
 $u = Auth::user();
 
@@ -20,8 +20,8 @@ function dept_is_limited($d) {
     return $d['type'] === 'clinic' && ((int)$d['am_quota'] > 0 || (int)$d['pm_quota'] > 0);
 }
 
-require __DIR__ . '/parts/doctor_read.php';
-require __DIR__ . '/parts/doctor_write.php';
+require __DIR__ . '/../parts/doctor_read.php';
+require __DIR__ . '/../parts/doctor_write.php';
 
 switch ($action) {
     case 'home_stats':

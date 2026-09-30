@@ -7,7 +7,7 @@
  * 检验检查报告/诊断证明/电子病历）统一由本接口提供 HTML，
  * 前端 print.js 渲染后打印。管理员【打印中心】及各科室补打均调用本接口。
  * ============================================================ */
-require __DIR__ . '/_init.php';
+require __DIR__ . '/../_init.php';
 require_once APP_ROOT . '/app/includes/print_templates.php';
 
 $u = Auth::user();

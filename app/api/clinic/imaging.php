@@ -7,10 +7,10 @@
  * 患者缴费后检查项目进入【待登记】→ 登记 → 【报告录入】→
  * 填写影像所见与结论 → 提交自动生成报告并打印 → 移入【已完成】
  * ============================================================ */
-require __DIR__ . '/_init.php';
+require __DIR__ . '/../_init.php';
 require_once APP_ROOT . '/app/includes/forms.php';
 require_once APP_ROOT . '/app/includes/emr_formatter.php';
-require_once __DIR__ . '/parts/dept_common.php';
+require_once __DIR__ . '/../parts/dept_common.php';
 
 $u = Auth::user();
 

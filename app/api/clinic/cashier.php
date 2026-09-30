@@ -31,7 +31,7 @@ if (defined('CURRENT_API_SUB') && strpos((string)CURRENT_API_SUB, 'pay-notify/')
     exit;
 }
 
-require __DIR__ . '/_init.php';
+require __DIR__ . '/../_init.php';
 
 $u = Auth::user();
 
@@ -73,8 +73,8 @@ function dept_used_count($deptId, $session) {
     return CashierRepository::deptUsed($deptId, $session);
 }
 
-require __DIR__ . '/parts/cashier_read.php';
-require __DIR__ . '/parts/cashier_write.php';
+require __DIR__ . '/../parts/cashier_read.php';
+require __DIR__ . '/../parts/cashier_write.php';
 
 switch ($action) {
     case 'home_stats':

@@ -13,7 +13,7 @@
  *    - 处方：含剂量/频次/途径/子医嘱（sub_items）
  * 4. 鉴权：非本人且非管理员严禁修改/删除。
  * ============================================================ */
-require __DIR__ . '/_init.php';
+require __DIR__ . '/../_init.php';
 require_once APP_ROOT . '/app/includes/catalog_query.php';
 
 $u = Auth::user();
