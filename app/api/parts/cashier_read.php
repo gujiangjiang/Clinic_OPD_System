@@ -428,6 +428,8 @@ function cashier_part_read($action) {
             ));
         }
         DatabaseManager::commitTx($pdo);
+        // HIS 结算同步：本地事务成功后异步入队（Outbox 补偿，失败不阻塞缴费）
+        integration_after_settlement((int)$payId);
         json_ok(array('payment_id' => oid($payId), 'payment_no' => $paymentNo, 'total' => $total), '缴费成功');
         return;
         } catch (Exception $ex) {

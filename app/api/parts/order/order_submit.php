@@ -587,6 +587,10 @@ function order_part_submit($u) {
     }
 
     DatabaseManager::commitTx($pdo);
+    // 外部集成：处方/检查下达后异步入队（FHIR Bundle 推送 / HL7 ORM^O01 / LIS 申请下发）
+    if (!empty($createdIds)) {
+        integration_after_order((int)$createdIds[0]);
+    }
     json_ok(array(
         'order_id' => oid($createdIds[0]),
         'order_ids' => array_map('oid', $createdIds),

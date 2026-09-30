@@ -160,6 +160,8 @@ function cashier_part_write($action) {
         ));
 
         DatabaseManager::commitTx($pdo);
+        // HIS/HL7 同步：本地事务提交后异步入队（Outbox 补偿，失败不阻塞挂号）
+        integration_after_registration((int)$visitId);
         json_ok(array(
             'visit_id' => oid($visitId),
             'patient_no' => $patientNo,
@@ -202,6 +204,8 @@ function cashier_part_write($action) {
             'kind' => 'visit', 'total' => (float)$visit['fee'], 'item_count' => 1,
             'cashier_id' => $u['id'], 'cashier_name' => $u['name'], 'payment_no' => $paymentNo, 'method' => $method,
         ));
+        // HIS 结算同步：本地事务提交后异步入队（Outbox 补偿）
+        integration_after_settlement((int)$payId);
         json_ok(array('payment_id' => oid($payId), 'payment_no' => $paymentNo), '缴费成功');
         return;
     }

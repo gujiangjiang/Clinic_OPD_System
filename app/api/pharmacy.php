@@ -204,6 +204,8 @@ switch ($action) {
             DatabaseManager::rollbackTx($pdo);
             json_fail('发药失败：' . $ex->getMessage());
         }
+        // HIS 发药/库存核减同步：本地事务提交后异步入队（Outbox 补偿）
+        integration_after_dispense($orderId);
         $pName = PatientRepository::byPatientNo($order['patient_no']);
         $pNameStr = $pName ? $pName['name'] : '';
         if ((int)$order['doctor_id'] > 0) {
