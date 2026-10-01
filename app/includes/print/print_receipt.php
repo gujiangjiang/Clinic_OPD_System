@@ -49,6 +49,7 @@ function pt_payment($pay, $items) {
         $html .= pt_ticket_row('缴费流水号', $payNo);
     }
     $html .= pt_ticket_row('缴费时间', isset($pay['created_at']) ? substr($pay['created_at'], 0, 16) : '');
+    $html .= pt_ticket_row('支付方式', isset($pay['method']) && $pay['method'] !== '' ? $pay['method'] : '现金');
     $html .= pt_ticket_row('收费员', isset($pay['cashier_name']) ? $pay['cashier_name'] : '');
     $html .= '<div class="ticket-divider"></div>';
     $html .= '<div class="ticket-section-title">收费项目</div>';

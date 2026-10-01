@@ -188,6 +188,7 @@ function cashier_part_write($action) {
     if ($action === 'pay_visit') {
         $visitId = did(post('visit_id'));
         $method = post('method', '现金');
+        if (!pay_method_allowed($method)) json_fail('该支付方式未开通（请在接口管理→医保与支付中启用聚合支付模式）');
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];

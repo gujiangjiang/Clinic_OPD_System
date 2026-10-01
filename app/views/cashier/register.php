@@ -372,7 +372,7 @@ function submitRegister(d, quick) {
 
 /* ---------- 缴费（模拟）→ 自动弹出挂号凭条打印 ---------- */
 function payAndPrint() {
-    // 优化6：缴费前选择支付方式（现金可用，其余提示开发中）
+    // 优化6：缴费前选择支付方式（现金恒可用，微信/支付宝按接口管理聚合支付模式启用）
     Clinic.payMethod.open('挂号费缴费', function (method) {
         Clinic.ajax('/api/cashier', { action: 'pay_visit', visit_id: REG.visit_id, method: method }, {
             onSuccess: function (json) {

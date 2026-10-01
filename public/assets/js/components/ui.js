@@ -222,18 +222,22 @@ Clinic.cashier = {
 
 /**
  * 支付方式选择模态框（挂号缴费 / 缴费管理共用，优化6）
- * 说明：现金完整可用（选择后回调继续缴费并打印凭条）；
- * 医保卡/银行卡/扫码支付演示环境未开通，选择时提示开发中。
+ * 说明：现金始终可用；微信/支付宝按接口管理「聚合支付模式」（pay_aggregate_mode：
+ * wechat/alipay/both）动态启用，未配置则灰色不可用；医保卡/银行卡需独立接入，未开通。
  * @param {string}   title  弹窗标题（如「挂号费缴费」「批量缴费」）
- * @param {function} onDone 选择有效支付方式后的回调（当前仅现金）
+ * @param {function} onDone 选择有效支付方式后的回调（method = 现金/微信/支付宝）
  */
 Clinic.payMethod = {
     open: function (title, onDone) {
+        var mode = String((document.body.getAttribute('data-paymode') || 'off')).toLowerCase();
+        var canWechat = (mode === 'wechat' || mode === 'both');
+        var canAlipay = (mode === 'alipay' || mode === 'both');
         var methods = [
             { k: '现金', icon: renderIconSvg('action:money'), name: '现金', desc: '现金支付（支持找零）', avail: 1 },
-            { k: '医保', icon: renderIconSvg('action:id-card'), name: '医保卡', desc: '医保卡实时结算', avail: 0 },
-            { k: 'bank', icon: renderIconSvg('nav:card'), name: '银行卡', desc: '银联 / VISA / MasterCard / AE', avail: 0 },
-            { k: 'scan', icon: renderIconSvg('nav:mobile'), name: '扫码支付', desc: '微信 / 支付宝 / 云闪付', avail: 0 },
+            { k: '医保卡', icon: renderIconSvg('action:id-card'), name: '医保卡', desc: '医保卡实时结算', avail: 0 },
+            { k: '微信', icon: renderIconSvg('nav:mobile'), name: '微信支付', desc: '微信扫码支付', avail: canWechat ? 1 : 0 },
+            { k: '支付宝', icon: renderIconSvg('nav:card'), name: '支付宝', desc: '支付宝扫码支付', avail: canAlipay ? 1 : 0 },
+            { k: '银行卡', icon: renderIconSvg('nav:card'), name: '银行卡', desc: '银联 / VISA / MasterCard / AE', avail: 0 },
         ];
         Clinic.modal.open(
             '<div class="pay-methods">' + methods.map(function (m) {
@@ -241,19 +245,21 @@ Clinic.payMethod = {
                     '<div class="pay-method-icon">' + m.icon + '</div>' +
                     '<div class="pay-method-name">' + m.name + '</div>' +
                     '<div class="pay-method-desc">' + m.desc + '</div></div>';
-            }).join('') + '</div>' +
-            '<div class="fs-12 text-muted mt-8">当前演示环境仅支持现金支付，其余支付方式即将上线。</div>',
+            }).join('') + '</div>',
             { title: title + ' · 选择支付方式', size: 'modal-md', buttons: [{ text: '取消', cls: 'btn-outline' }] }
         );
         document.querySelectorAll('.pay-method').forEach(function (el) {
             el.addEventListener('click', function () {
                 var k = el.getAttribute('data-k');
                 if (el.classList.contains('disabled')) {
-                    Clinic.toast.info('「' + k + '」支付方式正在开发中，请选择现金');
+                    var tip = (k === '医保卡' || k === '银行卡')
+                        ? '「' + k + '」未开通（需独立接入，暂不可用）'
+                        : '「' + k + '」未配置（请在接口管理→医保与支付中启用聚合支付模式）';
+                    Clinic.toast.info(tip);
                     return;
                 }
                 Clinic.modal.close();
-                if (onDone) onDone('现金');
+                if (onDone) onDone(k);
             });
         });
     },

@@ -213,7 +213,7 @@ class Layout {
             <link rel="stylesheet" href="/assets/css/dark.css?v=' . self::assetVer('assets/css/dark.css') . '">
         </head>
         <body class="auth-body" data-csrf="' . e(CSRF::token()) . '" data-theme-pref="' . e($theme) . '" data-theme="light"
-            data-hosp="' . e($hosp) . '" data-hosp2="' . e(setting('hospital_name2', '')) . '">
+            data-hosp="' . e($hosp) . '" data-hosp2="' . e(setting('hospital_name2', '')) . '" data-paymode="' . e(setting('pay_aggregate_mode', 'off')) . '">
             ' . $brandHtml . '
             ' . $content . '
             <script src="/assets/js/components/ajax.js?v=' . self::assetVer('assets/js/components/ajax.js') . '"></script>
@@ -366,7 +366,7 @@ class Layout {
         <body data-csrf="' . e(CSRF::token()) . '" data-theme-pref="' . e($theme) . '" data-theme="light"
             data-sidebar-pref="' . e($sidebar) . '"' . ($forceMini ? ' data-sidebar-force="1"' : '') . '
             data-role="' . e($u['role']) . '" data-uid="' . (int)$u['id'] . '" data-name="' . e($u['name']) . '" data-dept="' . (int)$uDeptId . '" data-sid="' . session_id() . '" data-print-auto="' . (!empty($uFull['print_auto']) ? '1' : '0') . '"
-            data-hosp="' . e($hosp) . '" data-hosp2="' . e($hosp2) . '" data-ver="' . e(APP_VERSION) . '">
+            data-hosp="' . e($hosp) . '" data-hosp2="' . e($hosp2) . '" data-paymode="' . e(setting('pay_aggregate_mode', 'off')) . '" data-ver="' . e(APP_VERSION) . '">
             <!-- 关键：公共 JS 库必须在视图内容之前加载！
                  视图内联脚本（如 loadDeptList() / loadUserList()）在页面解析时立即执行，
                  若 Clinic 库尚未加载，Clinic.get() 会抛 TypeError，
