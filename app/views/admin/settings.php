@@ -613,6 +613,10 @@ function renderActiveTasks(t) {
         ? '<div class="fs-13 fw-700 mb-4" style="color:var(--text-muted)">活动任务</div>' + items.join('')
         : '';
 }
+/* 状态行（与接口管理「状态总览」同款样式：软底圆角行 + 右侧徽章/值） */
+function stRow(label, valueHtml) {
+    return '<div class="itg-status-row"><span class="itg-status-label">' + label + '</span><span>' + valueHtml + '</span></div>';
+}
 function loadDbStatus() {
     var box = document.getElementById('dbStatusBox');
     Clinic.get('/api/admin?action=db_status', null, {
@@ -623,14 +627,16 @@ function loadDbStatus() {
             var ok = d.status === 'ok';
             var statusBadge = '<span class="badge ' + (ok ? 'badge-success' : 'badge-danger') + '" style="font-size:11.5px">' + (ok ? renderIconSvg('alert:dot-green') + ' ' : renderIconSvg('alert:dot-red') + ' ') + escHtml(d.status_text || (ok ? '正常' : '不可用')) + '</span>';
             box.innerHTML =
-                '<div class="flex-between"><span class="text-muted">连接状态</span><span>' + statusBadge + '</span></div>' +
-                '<div class="flex-between"><span class="text-muted">驱动类型</span><span class="badge badge-primary" style="font-size:11.5px">' + escHtml(d.driver_label) + '</span></div>' +
-                '<div class="flex-between"><span class="text-muted">连接延迟</span><span>' + d.delay_ms + ' ms</span></div>' +
-                '<div class="flex-between"><span class="text-muted">表数量</span><span>' + d.table_count + ' 张</span></div>' +
-                '<div class="flex-between"><span class="text-muted">总行数</span><span>' + d.total_rows + ' 行</span></div>' +
-                '<div class="flex-between"><span class="text-muted">库大小</span><span>' + escHtml(d.size_human) + '</span></div>' +
-                '<div class="flex-between"><span class="text-muted">配置库</span><span class="fs-12">' + cfg + '</span></div>' +
-                (d.status === 'error' && d.error ? '<div class="fs-12 text-danger mt-4">' + renderIconSvg('action:close') + ' ' + escHtml(d.error) + '</div>' : '');
+                '<div class="itg-status">' +
+                stRow('连接状态', statusBadge) +
+                stRow('驱动类型', '<span class="badge badge-primary" style="font-size:11.5px">' + escHtml(d.driver_label) + '</span>') +
+                stRow('连接延迟', '<span class="fs-13">' + d.delay_ms + ' ms</span>') +
+                stRow('表数量', '<span class="fs-13">' + d.table_count + ' 张</span>') +
+                stRow('总行数', '<span class="fs-13">' + d.total_rows + ' 行</span>') +
+                stRow('库大小', '<span class="fs-13">' + escHtml(d.size_human) + '</span>') +
+                stRow('配置库', '<span class="fs-12">' + cfg + '</span>') +
+                '</div>' +
+                (d.status === 'error' && d.error ? '<div class="fs-12 text-danger mt-8">' + renderIconSvg('action:close') + ' ' + escHtml(d.error) + '</div>' : '');
             var tl = document.getElementById('dbTableList');
             tl.innerHTML = (d.tables || []).map(function (t) {
                 return '<div class="flex-between" style="padding:5px 8px;border-radius:6px;cursor:pointer" onmouseover="this.style.background=\'var(--bg-soft)\'" onmouseout="this.style.background=\'\'" onclick="openDbTable(\'' + escHtml(t.name) + '\')">' +
@@ -751,11 +757,13 @@ function loadCacheStatus() {
             var ok = d.status === 'ok';
             var statusBadge = '<span class="badge ' + (ok ? 'badge-success' : 'badge-danger') + '" style="font-size:11.5px">' + (ok ? renderIconSvg('alert:dot-green') + ' ' : renderIconSvg('alert:dot-red') + ' ') + escHtml(d.status_text || (ok ? '正常' : '不可用')) + '</span>';
             box.innerHTML =
-                '<div class="flex-between"><span class="text-muted">缓存状态</span><span>' + statusBadge + '</span></div>' +
-                '<div class="flex-between"><span class="text-muted">缓存驱动</span><span class="badge badge-primary" style="font-size:11.5px">' + escHtml(d.driver_label) + '</span></div>' +
-                '<div class="flex-between"><span class="text-muted">键数量</span><span>' + (d.keys || 0) + '</span></div>' +
-                (d.memory ? '<div class="flex-between"><span class="text-muted">占用内存</span><span>' + escHtml(d.memory) + '</span></div>' : '') +
-                ((d.notes || []).length ? d.notes.map(function (n) { return '<div class="fs-12 text-warning mt-4">' + renderIconSvg('alert:warning') + ' ' + escHtml(n) + '</div>'; }).join('') : '');
+                '<div class="itg-status">' +
+                stRow('缓存状态', statusBadge) +
+                stRow('缓存驱动', '<span class="badge badge-primary" style="font-size:11.5px">' + escHtml(d.driver_label) + '</span>') +
+                stRow('键数量', '<span class="fs-13">' + (d.keys || 0) + '</span>') +
+                (d.memory ? stRow('占用内存', '<span class="fs-13">' + escHtml(d.memory) + '</span>') : '') +
+                '</div>' +
+                ((d.notes || []).length ? d.notes.map(function (n) { return '<div class="fs-12 text-warning mt-8">' + renderIconSvg('alert:warning') + ' ' + escHtml(n) + '</div>'; }).join('') : '');
         },
         onError: function () { box.innerHTML = '<span class="text-danger">缓存状态读取失败</span>'; },
     });
