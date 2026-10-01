@@ -164,7 +164,7 @@ function admin_part_settings($action) {
         if ($blocked) {
             json_fail('保存失败：连通性测试未通过（' . implode('、', $blocked) . '），请先修正配置后再保存');
         }
-        json_ok(array('saved' => $saved), '「' . $group['title'] . '」配置已保存（连通性测试通过）');
+        json_ok(array('saved' => $saved), '「' . $group['title'] . '」配置已保存');
     }
 
     /* ==================== 接口管理：连通性测试（保存前测试，不落库） ====================

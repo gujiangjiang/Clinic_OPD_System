@@ -42,7 +42,7 @@ class ConnectivityTester {
                 if ($on('integration.inbound.fhir.enabled')) {
                     $tok = self::firstToken($get('integration.inbound.fhir.allowed_tokens'));
                     if ($tok === '') {
-                        $items[] = self::skip('入向 FHIR 授权 Token', '已启用但未配置授权 Token 列表');
+                        $items[] = array('name' => '入向 FHIR 授权 Token', 'ok' => false, 'blocking' => true, 'detail' => '已启用但未配置授权 Token 列表');
                     } else {
                         $items[] = self::localGetCheck('入向 FHIR 元数据端点', '/api/fhir/r4/metadata', $tok, function ($json) {
                             return isset($json['resourceType']) && $json['resourceType'] === 'CapabilityStatement';
@@ -56,9 +56,10 @@ class ConnectivityTester {
             case 'pacs':
                 $mode = $get('integration.pacs.protocol_mode');
                 if ($mode === 'dicomweb') {
-                    $items[] = self::httpCheck('QIDO-RS 检索端点', $get('integration.outbound.pacs.qido_url'), 'GET', true);
-                    $items[] = self::httpCheck('WADO-RS 调阅端点', $get('integration.outbound.pacs.wado_url'), 'GET', true);
-                    $items[] = self::httpCheck('STOW-RS 上传端点', $get('integration.outbound.pacs.stow_url'), 'GET', true);
+                    // PACS 无启用开关：未配置地址视为未使用（提示不阻断），已配置不可达也仅提示
+                    $items[] = self::httpCheck('QIDO-RS 检索端点', $get('integration.outbound.pacs.qido_url'), 'GET', false);
+                    $items[] = self::httpCheck('WADO-RS 调阅端点', $get('integration.outbound.pacs.wado_url'), 'GET', false);
+                    $items[] = self::httpCheck('STOW-RS 上传端点', $get('integration.outbound.pacs.stow_url'), 'GET', false);
                 } else {
                     $host = $get('integration.outbound.pacs.remote_host');
                     $port = $get('integration.outbound.pacs.remote_port');
@@ -78,7 +79,7 @@ class ConnectivityTester {
                     $host = $get('integration.outbound.hl7.remote_host');
                     $port = $get('integration.outbound.hl7.remote_port');
                     if ($host === '' || $port === '') {
-                        $items[] = self::skip('出向 HL7 远端', '未配置主机或端口');
+                        $items[] = array('name' => '出向 HL7 远端', 'ok' => false, 'blocking' => true, 'detail' => '已启用但未配置主机或端口');
                     } elseif (integration_hl7_transport() === 'mllp_tcp') {
                         $items[] = self::tcpCheck('MLLP 远端端口', $host, $port);
                     } else {
@@ -125,7 +126,7 @@ class ConnectivityTester {
 
             case 'insurance':
                 $url = $get('integration.outbound.insurance.gateway_url');
-                $items[] = $url !== '' ? self::httpCheck('医保前置机', $url, 'POST', true) : self::skip('医保前置机', '未配置网关地址');
+                $items[] = $url !== '' ? self::httpCheck('医保前置机', $url, 'POST', false) : self::skip('医保前置机', '未配置网关地址');
                 $mode = $get('pay_aggregate_mode');
                 if (in_array($mode, array('wechat', 'alipay', 'both'), true)) {
                     $items[] = array('name' => '聚合支付模式', 'ok' => true, 'blocking' => false, 'detail' => '已启用（支付回调端点对外可用）');
@@ -140,7 +141,7 @@ class ConnectivityTester {
                 if ($mode === 'hash') {
                     $items[] = array('name' => '存证模式', 'ok' => true, 'blocking' => false, 'detail' => '本地哈希指纹（SHA-256），无需外部服务');
                 } elseif ($mode === 'http') {
-                    $items[] = self::httpCheck('外部存证服务', $get('evid_endpoint'), 'POST', true);
+                    $items[] = self::httpCheck('外部存证服务', $get('evid_endpoint'), 'POST', false);
                 } else {
                     $items[] = self::skip('存证模式', '关闭（不进行存证，无需连通性测试）');
                 }
@@ -168,7 +169,8 @@ class ConnectivityTester {
     /** 出向 HTTP 探测（GET/POST 到目标地址，2xx/3xx 视为可达） */
     private static function httpCheck($name, $url, $method = 'GET', $blocking = true) {
         if ($url === '') {
-            return self::skip($name, '未配置地址');
+            // 已启用但未配置地址 = 阻断项（保存拦截）；未启用场景由调用方先走 skip
+            return array('name' => $name, 'ok' => false, 'blocking' => $blocking, 'detail' => '未配置地址');
         }
         try {
             $resp = HttpClient::request($method, $url, array('timeout' => self::TIMEOUT, 'headers' => array('X-Connectivity-Probe: 1')));
