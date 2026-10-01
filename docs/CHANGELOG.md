@@ -24,6 +24,19 @@
 - **诊断搜索计数提示固定不随列表滚动**：检索计数【检索到 x 条诊断】内嵌搜索输入框右侧固定显示；下拉列表恢复单一滚动容器（max-height 350px + 无限滚动分页加载），不再随结果滚走；无结果时搜索栏右侧显示红色徽章【未检索到匹配诊断】。
 - **接口管理复制功能修复**：对外暴露端点 URL 可点击复制（原只有提示无事件）；剪贴板 API 被拒绝/非安全上下文时自动降级 textarea+execCommand 兜底，失败有提示。
 - **接口管理子模块左右分栏重构**：7 个子 Tab（FHIR/PACS/HL7/LIS/HIS/医保/存证）全部改为左右分栏（参考系统设置），左侧按模块分类导航（状态总览/协议通道/出向/入向/同步监控），右侧对应内容区；状态总览快速一览启用开关/模式/地址/凭证/端点数；HIS 同步与审计监控独立导航项。
+- **诊断页 SPA 离开后树加载回调空指针**：`waitLoaded` 的 setInterval/setTimeout 在本页经 SPA 导航离开后仍会触发 `showCategoryDetail`，此时 `diagKw`/`detailContent` 等元素已不存在报 `Cannot set properties of null`；已对全部页内元素访问做空值防护。
+- **接口管理左侧栏标签压缩与高度自适应**：左侧导航长文案压缩至 6 字以内（【出向调阅 / 上传】→【出向调阅】、【同步与审计监控】→【同步监控】等）并 `white-space:nowrap` 防换行；侧栏改为按项目数自适应高度（不再撑满视口），仅右侧内容区内部滚动。
+- **系统设置数据库中心/缓存状态详情样式统一**：db_status 与 cache_status 渲染改用与接口管理「状态总览」同款软底圆角行样式（新增 stRow 助手）。
+- **通用空态组件**：新增 PHP `empty_state($text,$icon,$colspan)` 与 pagedTable `emptyText/emptyIcon`（支持函数按状态取文案），空列表统一图标+文案+保留表头展示，审核中心平铺/分组空态均已应用。
+
+### 新增
+- **归档单据医院名称/科室名称快照固化（schema v43/v44）**：病历（patient_records + records 镜像，含危急值续写）、申请单（orders）、报告（reports）、诊断证明（certificates）、知情同意（consents）、会诊（consultations）、挂号（registrations）、缴费/退费（payments/refunds）均新增 `hospital_name`/`hospital_name2` 快照列，病历另固化 `dept_name`；保存/开单/出具时写入当刻医院名称，医院改名不影响历史归档文书，诊毕后彻底固化；打印侧 `pt_hosp/pt_hosp2/pt_dept_name` 优先读归档行快照、无快照回退当前设置，病历打印科室名不再实时 JOIN 科室表。
+- **病历超时自动诊毕**：`tools/cli/auto_finish_records.php` 每日 02:00 后调度一次（public/index.php 触发），超过 7 天（可参数覆盖）未诊毕且病历完整（主诉/现病史/诊断齐备）自动调用共享 `finish_visit()` 诊毕逻辑归档（离院方式=其他、备注=病历超时自动归档），病历不完整自动跳过；医生诊毕保存与自动归档共用同一套逻辑。
+- **打印中心就诊页签逐张列出诊断证明**：多张诊断证明逐行列出（后四位证明号区分）可分别补打；打印端点新增 `cert_id` 支持指定打印某一张，未指定回退按就诊取最新一张。
+- **接口管理通用连通性测试组件**：`services/ConnectivityTester.php` 覆盖 7 个子模块——入向验证本地服务完整启用（开关/凭证/本地端点携带凭证自检），出向验证远端服务器可达且响应正确（HTTP/TCP 探测）；每个模块状态总览新增【连通性测试】按钮弹出模态框（按当前表单值、无需保存即可测试）展示逐条日志（通过/失败/提示三态）；`integration_save` 保存前自动连通性测试，存在阻断项（已启用但探测失败）拒绝保存并 toast 提示，未启用/未配置等提示项不阻断；bootstrap 服务层加载扩展支持 services 顶层文件。
+
+### 变更
+- **打印中心死态单据不再显示补打按钮**：已取消/已退费/已撤回单据仅保留徽章（已取消/已退费/已撤回），不再渲染禁用的【补打】按钮；未缴费原本即隐藏。
 
 ### 重构
 - **外部集成入向逻辑收口 services/his**：`app/api/his.php` 只读查询（ping/patient_get/visit_list/visit_status/order_list/evidence_verify）下沉 `services/his/HisInboundRead.php`；`app/api/external.php` 内联的 HIS 患者建档与字典同步函数下沉 `services/his/HisInboundSync.php`（DB 直连改经 Repository）；两个接口文件瘦身为纯路由壳，URL 契约与鉴权不变。
