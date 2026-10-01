@@ -63,6 +63,13 @@ class ImagingStudyAdapter extends FhirAdapter {
         return $out;
     }
 
+    /** 检查项目名（StudyDescription）：开单明细 order_items.item_name */
+    private static function orderItemName($ref) {
+        if (empty($ref['order_item_id'])) return '';
+        $it = PatientRepository::one('SELECT item_name FROM order_items WHERE id=?', array((int)$ref['order_item_id']));
+        return ($it && isset($it['item_name'])) ? trim((string)$it['item_name']) : '';
+    }
+
     /** 关联报告（按 order_item.result_id → reports.result_id） */
     private static function reportOf($ref) {
         if (empty($ref['order_item_id'])) return null;
@@ -130,13 +137,16 @@ class ImagingStudyAdapter extends FhirAdapter {
         }
         if ($seriesOut) $res['series'] = $seriesOut;
 
-        // 影像报告所见/结论（供 Viewer/报告联调）
+        // 检查项目（StudyDescription，R4 语义）：开单明细项目名，如「头颅MRI平扫」
+        $itemName = self::orderItemName($ref);
+        if ($itemName !== '') $res['description'] = $itemName;
+
+        // 影像报告所见/结论（供 Viewer/报告联调）：放 note，不再占用 description
         $report = self::reportOf($ref);
         if ($report) {
             if (!empty($report['report_no'])) {
                 $res['identifier'][] = self::identifier('urn:clinic:identifier:report', (string)$report['report_no'], 'ACSN', 'Accession ID');
             }
-            if (!empty($report['content'])) $res['description'] = (string)$report['content'];
             $res['note'] = array(array('text' => trim(
                 (string)(isset($report['content']) ? $report['content'] : '')
                 . (isset($report['clinical_diagnosis']) && $report['clinical_diagnosis'] !== '' ? '｜临床诊断：' . $report['clinical_diagnosis'] : '')
