@@ -205,13 +205,6 @@ function itg_status_rows($g, $vals) {
                     <?php foreach ($zoneFields[$zKey] as $f): ?>
                         <?php render_itg_field($f, $vals); ?>
                     <?php endforeach; ?>
-                    <?php if ($g['id'] === 'his' && $zKey === 'inbound'): ?>
-                        <div class="flex" style="gap:8px;margin-top:2px">
-                            <button type="button" class="btn btn-outline btn-sm" onclick="genHisToken()"><?= render_icon('nav:key') ?> 生成 Token</button>
-                            <button type="button" class="btn btn-outline btn-sm" onclick="testHisApi()"><?= render_icon('action:next') ?> 连通性测试</button>
-                        </div>
-                        <div id="hisTestBox" class="itg-his-result" style="display:none"></div>
-                    <?php endif; ?>
                     <div class="flex" style="gap:8px;margin-top:14px">
                         <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>','<?php echo e($paneSuffix); ?>')">保存<?php echo e($znav($z)); ?></button>
                     </div>
@@ -322,11 +315,26 @@ function render_itg_field($f, $vals) {
         }
         echo '</select>';
     } elseif (isset($f['type']) && $f['type'] === 'textarea') {
-        echo '<textarea class="input" id="itg_' . e($key) . '" rows="3" placeholder="' . e(isset($f['placeholder']) ? $f['placeholder'] : '') . '"' . $mono . '>' . e($val) . '</textarea>';
+        $gen = isset($f['gen']) ? $f['gen'] : '';
+        $genBtn = $gen !== '' ? '<button type="button" class="btn btn-outline btn-sm itg-gen-btn" onclick="itgGen(\'itg_' . e($key) . '\',\'' . e($gen) . '\')">' . render_icon('nav:key') . ' ' . ($gen === 'tokenline' ? '追加 Token' : '生成') . '</button>' : '';
+        echo '<div style="position:relative">';
+        echo '<textarea class="input" id="itg_' . e($key) . '" rows="3" placeholder="' . e(isset($f['placeholder']) ? $f['placeholder'] : '') . '" style="font-family:monospace;padding-right:' . ($gen !== '' ? '110px' : '0') . '">' . e($val) . '</textarea>';
+        if ($genBtn !== '') echo '<span style="position:absolute;right:6px;top:6px">' . $genBtn . '</span>';
+        echo '</div>';
     } else {
         $inputType = $isPort ? 'number' : 'text';
-        echo '<input class="input" id="itg_' . e($key) . '" type="' . $inputType . '" value="' . e($val) . '"' . $mono .
-            ' placeholder="' . e(isset($f['placeholder']) ? $f['placeholder'] : '') . '">';
+        $gen = isset($f['gen']) ? $f['gen'] : '';
+        if ($gen !== '') {
+            $genTxt = ($gen === 'secret') ? '生成密钥' : '生成 Token';
+            echo '<div style="position:relative">';
+            echo '<input class="input" id="itg_' . e($key) . '" type="' . $inputType . '" value="' . e($val) . '" style="font-family:monospace;padding-right:104px"' .
+                ' placeholder="' . e(isset($f['placeholder']) ? $f['placeholder'] : '') . '">';
+            echo '<button type="button" class="btn btn-outline btn-sm itg-gen-btn" style="position:absolute;right:6px;top:50%;transform:translateY(-50%)" onclick="itgGen(\'itg_' . e($key) . '\',\'' . e($gen) . '\')">' . render_icon('nav:key') . ' ' . $genTxt . '</button>';
+            echo '</div>';
+        } else {
+            echo '<input class="input" id="itg_' . e($key) . '" type="' . $inputType . '" value="' . e($val) . '"' . $mono .
+                ' placeholder="' . e(isset($f['placeholder']) ? $f['placeholder'] : '') . '">';
+        }
     }
     if (!empty($f['hint'])) echo '<div class="fs-12 text-muted mt-4">' . e($f['hint']) . '</div>';
     echo '</div>';
@@ -491,15 +499,25 @@ function itgSave(groupId, paneId) {
     });
 }
 
-/* ---------- HIS 入向 Token 生成 / 连通性测试 ---------- */
-function genHisToken() {
-    var arr = new Uint8Array(16);
-    (window.crypto || window.msCrypto).getRandomValues(arr);
-    var key = Array.prototype.map.call(arr, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
-    var el = document.getElementById('itg_integration.inbound.his.token');
-    if (el) el.value = key;
-    renderHisTokenLive();
-    Clinic.toast.success('已生成 Token，请点击【保存本组配置】生效');
+/* ---------- 随机凭证生成（Token / 密钥 / Token 列表追加） ---------- */
+function itgGen(fieldId, type) {
+    var el = document.getElementById(fieldId);
+    if (!el) return;
+    var rnd = function (bytes) {
+        var arr = new Uint8Array(bytes);
+        (window.crypto || window.msCrypto).getRandomValues(arr);
+        return Array.prototype.map.call(arr, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+    };
+    if (type === 'tokenline') {
+        // Token 列表：追加一行「调用方名称,随机Token」
+        var cnt = (el.value || '').split('\n').filter(function (l) { return l.trim() !== ''; }).length + 1;
+        var line = '调用方' + cnt + ',' + rnd(16);
+        el.value = ((el.value || '').replace(/\s+$/, '') === '' ? '' : el.value.replace(/\s+$/, '') + '\n') + line;
+    } else {
+        el.value = rnd(16);
+    }
+    if (fieldId === 'itg_integration.inbound.his.token') renderHisTokenLive();
+    Clinic.toast.success('已生成，请保存本组配置生效');
 }
 function renderHisTokenLive() {
     var el = document.getElementById('itg_integration.inbound.his.token');
@@ -509,28 +527,6 @@ function renderHisTokenLive() {
         var base = c.textContent;
         if (base.indexOf('?') >= 0) c.textContent = key ? base + '&token=' + key : base;
     });
-}
-function testHisApi() {
-    var el = document.getElementById('itg_integration.inbound.his.token');
-    var key = el ? (el.value || '').trim() : '';
-    var box = document.getElementById('hisTestBox');
-    if (!box) return;
-    if (key === '') { Clinic.toast.warning('请先填写或生成入向 Token 并保存本组配置'); return; }
-    box.style.display = '';
-    box.innerHTML = '<div class="fs-12 text-muted" style="padding:10px 2px">测试中，请稍候…</div>';
-    var base = location.protocol + '//' + location.host + '/api/external/his/read?action=ping';
-    var render = function (label, url, init) {
-        fetch(url, init).then(function (r) { return r.json(); }).then(function (j) {
-            var ok = !!(j && j.ok && j.data && j.data.pong);
-            box.innerHTML += '<div class="itg-his-titem">' +
-                '<div class="itg-his-tlabel"><span class="badge ' + (ok ? 'badge-success' : 'badge-danger') + '">' + (ok ? '通过' : '失败') + '</span> ' + label + '</div>' +
-                '<code class="itg-his-tcode">' + Clinic.escHtml(JSON.stringify(j, null, 2)) + '</code></div>';
-        }).catch(function () {
-            box.innerHTML += '<div class="itg-his-titem"><div class="itg-his-tlabel"><span class="badge badge-danger">请求失败</span> ' + label + '</div></div>';
-        });
-    };
-    render('请求头 X-HIS-Token', base, { headers: { 'X-HIS-Token': key } });
-    render('GET 参数 token', base + '&token=' + encodeURIComponent(key), {});
 }
 
 /* ---------- HIS 同步与对账监控 ---------- */

@@ -60,7 +60,7 @@ function integration_field_groups() {
                     'label' => '启用入向开放', 'default' => '0', 'options' => array('0' => '关闭（默认）', '1' => '启用'),
                     'hint' => '启用后下方 FHIR Base URL / metadata 端点对外可访问。'),
                 array('key' => 'integration.inbound.fhir.allowed_tokens', 'zone' => 'inbound', 'type' => 'textarea',
-                    'label' => '授权调用方 Token 列表', 'placeholder' => '每行一组：调用方名称,Token', 'default' => '', 'monospace' => true,
+                    'label' => '授权调用方 Token 列表', 'placeholder' => '每行一组：调用方名称,Token', 'default' => '', 'monospace' => true, 'gen' => 'tokenline',
                     'hint' => '格式：每行「调用方名,Token」（半角逗号分隔）。调用方以 Bearer Token 访问；留空 = 拒绝全部。'),
                 array('key' => 'integration.inbound.fhir.ip_whitelist', 'zone' => 'inbound', 'type' => 'textarea',
                     'label' => 'IP 白名单', 'placeholder' => '每行一个 IP 或 CIDR 网段（如 10.0.0.0/8）', 'default' => '', 'monospace' => true,
@@ -177,7 +177,7 @@ function integration_field_groups() {
                     'label' => '调用凭证 Token', 'placeholder' => 'LIS 分配的调用令牌', 'default' => '', 'monospace' => true),
                 // ---------- 入向：报告回调 ----------
                 array('key' => 'integration.inbound.lis.webhook_secret', 'zone' => 'inbound', 'type' => 'input',
-                    'label' => 'Webhook 验签密钥', 'placeholder' => '回调方须携带 X-LIS-Token 头', 'default' => '', 'monospace' => true,
+                    'label' => 'Webhook 验签密钥', 'placeholder' => '回调方须携带 X-LIS-Token 头', 'default' => '', 'monospace' => true, 'gen' => 'secret',
                     'hint' => '留空 = 拒绝全部回调；配置后回调方以 X-LIS-Token 或 ?token= 携带本密钥验签。'),
                 array('key' => 'integration.inbound.lis.ip_whitelist', 'zone' => 'inbound', 'type' => 'textarea',
                     'label' => 'IP 白名单', 'placeholder' => '每行一个 IP 或 CIDR 网段（建议限定检验中心出口）', 'default' => '', 'monospace' => true),
@@ -220,7 +220,7 @@ function integration_field_groups() {
                     'label' => '发药与库存核减', 'default' => '0', 'options' => array('0' => '关闭', '1' => '启用')),
                 // ---------- 入向：接收 HIS 推送 ----------
                 array('key' => 'integration.inbound.his.token', 'zone' => 'inbound', 'type' => 'input',
-                    'label' => '入向鉴权 Token', 'placeholder' => '留空 = 拒绝 HIS 推送', 'default' => '', 'monospace' => true,
+                    'label' => '入向鉴权 Token', 'placeholder' => '留空 = 拒绝 HIS 推送', 'default' => '', 'monospace' => true, 'gen' => 'token',
                     'hint' => 'HIS 推送/查询携带 X-HIS-Token 头或 ?token=；旧版 his_api_key 自动迁移为本值。'),
                 array('key' => 'integration.inbound.his.ip_whitelist', 'zone' => 'inbound', 'type' => 'textarea',
                     'label' => 'IP 白名单', 'placeholder' => '每行一个 IP 或 CIDR 网段（建议限定 HIS 出口）', 'default' => '', 'monospace' => true),
