@@ -256,6 +256,14 @@ function integration_field_groups() {
                         'alipay' => '仅支付宝',
                         'both' => '微信 + 支付宝聚合',
                     )),
+                // ---------- 银行卡刷卡（演示模式：配置后收费端可选用银行卡支付） ----------
+                array('key' => 'pay_bankcard_enabled', 'type' => 'select',
+                    'label' => '银行卡刷卡支付', 'default' => '0', 'options' => array('0' => '关闭（默认）', '1' => '启用（演示刷卡）')),
+                array('key' => 'pay_bankcard_terminal', 'type' => 'input',
+                    'label' => 'POS 终端编号', 'placeholder' => '如 00112233', 'default' => '', 'monospace' => true,
+                    'hint' => '演示模式：仅作记录，不影响刷卡流程。'),
+                array('key' => 'pay_bankcard_merchant', 'type' => 'input',
+                    'label' => '收单商户号', 'placeholder' => '银行卡收单商户号', 'default' => '', 'monospace' => true),
             ),
         ),
 

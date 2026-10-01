@@ -221,41 +221,87 @@ Clinic.cashier = {
 };
 
 /**
- * 支付方式选择模态框（挂号缴费 / 缴费管理共用，优化6）
- * 说明：现金始终可用；微信/支付宝按接口管理「聚合支付模式」（pay_aggregate_mode：
- * wechat/alipay/both）动态启用，未配置则灰色不可用；医保卡/银行卡需独立接入，未开通。
+ * 支付方式选择模态框（挂号缴费 / 缴费管理共用）
+ * 说明：现金始终可用；「移动支付」为微信/支付宝的统一入口，二者任一启用即可点击，
+ * 点击后弹二级模态框选择微信/支付宝（仅列已启用项）；「银行卡」按接口管理
+ * 银行卡刷卡配置启用（演示刷卡流程）；医保卡需独立接入，未开通。
  * @param {string}   title  弹窗标题（如「挂号费缴费」「批量缴费」）
- * @param {function} onDone 选择有效支付方式后的回调（method = 现金/微信/支付宝）
+ * @param {function} onDone 选择有效支付方式后的回调（method = 现金/微信/支付宝/银行卡）
  */
 Clinic.payMethod = {
     open: function (title, onDone) {
         var mode = String((document.body.getAttribute('data-paymode') || 'off')).toLowerCase();
         var canWechat = (mode === 'wechat' || mode === 'both');
         var canAlipay = (mode === 'alipay' || mode === 'both');
+        var canBank = document.body.getAttribute('data-paybank') === '1';
         var methods = [
             { k: '现金', icon: renderIconSvg('action:money'), name: '现金', desc: '现金支付（支持找零）', avail: 1 },
+            { k: 'mobile', icon: renderIconSvg('nav:mobile'), name: '移动支付', desc: '微信 / 支付宝扫码', avail: (canWechat || canAlipay) ? 1 : 0 },
+            { k: '银行卡', icon: renderIconSvg('nav:card'), name: '银行卡', desc: '刷卡 / 插卡（POS）', avail: canBank ? 1 : 0 },
             { k: '医保卡', icon: renderIconSvg('action:id-card'), name: '医保卡', desc: '医保卡实时结算', avail: 0 },
-            { k: '微信', icon: renderIconSvg('nav:mobile'), name: '微信支付', desc: '微信扫码支付', avail: canWechat ? 1 : 0 },
-            { k: '支付宝', icon: renderIconSvg('nav:card'), name: '支付宝', desc: '支付宝扫码支付', avail: canAlipay ? 1 : 0 },
-            { k: '银行卡', icon: renderIconSvg('nav:card'), name: '银行卡', desc: '银联 / VISA / MasterCard / AE', avail: 0 },
         ];
-        Clinic.modal.open(
-            '<div class="pay-methods">' + methods.map(function (m) {
+        var render = function (list) {
+            return '<div class="pay-methods">' + list.map(function (m) {
                 return '<div class="pay-method' + (m.avail ? '' : ' disabled') + '" data-k="' + m.k + '">' +
                     '<div class="pay-method-icon">' + m.icon + '</div>' +
                     '<div class="pay-method-name">' + m.name + '</div>' +
                     '<div class="pay-method-desc">' + m.desc + '</div></div>';
-            }).join('') + '</div>',
+            }).join('') + '</div>';
+        };
+        Clinic.modal.open(render(methods),
             { title: title + ' · 选择支付方式', size: 'modal-md', buttons: [{ text: '取消', cls: 'btn-outline' }] }
         );
         document.querySelectorAll('.pay-method').forEach(function (el) {
             el.addEventListener('click', function () {
                 var k = el.getAttribute('data-k');
                 if (el.classList.contains('disabled')) {
-                    var tip = (k === '医保卡' || k === '银行卡')
-                        ? '「' + k + '」未开通（需独立接入，暂不可用）'
-                        : '「' + k + '」未配置（请在接口管理→医保与支付中启用聚合支付模式）';
+                    var tip = (k === '移动支付')
+                        ? '「移动支付」未启用（请在接口管理→医保与支付中启用微信/支付宝支付）'
+                        : (k === '银行卡'
+                            ? '「银行卡」未开通（请在接口管理→医保与支付中启用银行卡刷卡支付）'
+                            : '「' + k + '」未开通（需独立接入，暂不可用）');
                     Clinic.toast.info(tip);
+                    return;
+                }
+                if (k === 'mobile') {
+                    // 二级模态框：仅列已启用的移动支付渠道
+                    var subs = [];
+                    if (canWechat) subs.push({ k: '微信', icon: renderIconSvg('nav:mobile'), name: '微信支付', desc: '微信扫码支付', avail: 1 });
+                    if (canAlipay) subs.push({ k: '支付宝', icon: renderIconSvg('nav:card'), name: '支付宝', desc: '支付宝扫码支付', avail: 1 });
+                    Clinic.modal.open(render(subs),
+                        { title: '移动支付 · 选择渠道', size: 'modal-md', buttons: [{ text: '返回', cls: 'btn-outline' }] }
+                    );
+                    document.querySelectorAll('.pay-method').forEach(function (s) {
+                        s.addEventListener('click', function () {
+                            Clinic.modal.close();
+                            if (onDone) onDone(s.getAttribute('data-k'));
+                        });
+                    });
+                    return;
+                }
+                if (k === '银行卡') {
+                    // 刷卡演示：输入卡号模拟刷卡
+                    Clinic.modal.open(
+                        '<div class="form-group"><label class="form-label">银行卡号 <span class="req">*</span></label>' +
+                        '<input class="input" id="bankCardNo" placeholder="请输入/刷卡读取卡号" autocomplete="off" style="font-family:monospace"></div>' +
+                        '<div class="fs-12 text-muted">演示模式：录入卡号后确认即完成刷卡支付。</div>',
+                        {
+                            title: '银行卡刷卡',
+                            size: 'modal-sm',
+                            buttons: [
+                                { text: '返回', cls: 'btn-outline' },
+                                {
+                                    text: '确认刷卡', cls: 'btn-primary',
+                                    onClick: function () {
+                                        var no = (document.getElementById('bankCardNo') || {}).value || '';
+                                        no = no.replace(/\s+/g, '');
+                                        if (!/^\d{12,19}$/.test(no)) { Clinic.toast.warning('请输入有效的银行卡号（12-19 位数字）'); return; }
+                                        Clinic.modal.close();
+                                        if (onDone) onDone('银行卡');
+                                    },
+                                },
+                            ],
+                        });
                     return;
                 }
                 Clinic.modal.close();

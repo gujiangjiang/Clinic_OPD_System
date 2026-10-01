@@ -135,15 +135,19 @@ class ConnectivityTester {
                 $items[] = $url !== '' ? self::httpCheck('医保前置机', $url, 'POST', false) : self::skip('医保前置机', '未配置网关地址');
                 $mode = $get('pay_aggregate_mode');
                 if (in_array($mode, array('wechat', 'alipay', 'both'), true)) {
-                    $items[] = array('name' => '聚合支付模式', 'ok' => true, 'blocking' => false, 'detail' => '已启用（支付回调端点对外可用）');
+                    $items[] = array('name' => '移动支付', 'ok' => true, 'blocking' => false, 'detail' => '已启用（微信/支付宝扫码支付对外可用）');
                     if ($probeLocal) {
                         $items[] = self::localGetCheck('入向支付回调端点', '/api/cashier/pay-notify/' . ($mode === 'wechat' ? 'wechat' : ($mode === 'alipay' ? 'alipay' : 'wechat')), '', null, 'POST');
                     } else {
                         $items[] = self::skip('入向支付回调端点', '保存时不做本地端点探测（保存后可在状态总览重新测试）');
                     }
                 } else {
-                    $items[] = self::skip('聚合支付模式', '未启用（仅现金/线下收费，无需支付回调）');
+                    $items[] = self::skip('移动支付', '未启用（仅现金/线下收费）');
                 }
+                $bankOn = $get('pay_bankcard_enabled') === '1';
+                $items[] = $bankOn
+                    ? array('name' => '银行卡刷卡', 'ok' => true, 'blocking' => false, 'detail' => '已启用（演示刷卡；终端 ' . ($get('pay_bankcard_terminal') !== '' ? $get('pay_bankcard_terminal') : '未填') . '）')
+                    : self::skip('银行卡刷卡', '未启用（关闭后收费端银行卡不可选）');
                 break;
 
             case 'evid':

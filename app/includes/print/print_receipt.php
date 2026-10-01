@@ -18,6 +18,7 @@ function pt_receipt($visit, $patient) {
     $html .= pt_ticket_row('就诊序号', isset($visit['visit_seq']) ? visit_seq_text($visit['visit_seq']) : '');
     $html .= pt_ticket_row('就诊日期', isset($visit['registered_at']) ? substr($visit['registered_at'], 0, 10) : '');
     $html .= pt_ticket_row('挂号时间', isset($visit['registered_at']) ? substr($visit['registered_at'], 0, 16) : '');
+    $html .= pt_ticket_row('支付方式', isset($visit['pay_method']) && $visit['pay_method'] !== '' ? $visit['pay_method'] : '现金');
     $html .= pt_ticket_row('费用类别', isset($visit['fee_type']) ? $visit['fee_type'] : '');
     $html .= '<div class="ticket-divider"></div>';
     $html .= '<div class="ticket-row"><span>挂号费</span><span class="ticket-val">' . money(isset($visit['fee']) ? $visit['fee'] : 0) . ' 元</span></div>';

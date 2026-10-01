@@ -420,12 +420,14 @@ function finish_visit($visitId, $recordId, $recordType = 'initial', $printText =
     return true;
 }
 
-/** 支付方式是否已启用（按接口管理「聚合支付模式」校验；现金恒可用，医保卡/银行卡未接入） */
+/** 支付方式是否已启用（按接口管理支付配置校验：现金恒可用；移动支付按聚合收单模式；
+ * 银行卡按 pay_bankcard_enabled 开关；医保卡未接入） */
 function pay_method_allowed($method) {
     $method = trim((string)$method);
     if ($method === '' || $method === '现金') return true;
     $mode = setting('pay_aggregate_mode', 'off');
     if ($method === '微信') return $mode === 'wechat' || $mode === 'both';
     if ($method === '支付宝') return $mode === 'alipay' || $mode === 'both';
+    if ($method === '银行卡') return setting('pay_bankcard_enabled', '0') === '1';
     return false;
 }

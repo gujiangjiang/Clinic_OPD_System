@@ -72,6 +72,9 @@ switch ($action) {
         }
         $visit = print_visit_header($row, 'first_dept_id');
         $visit['status_name'] = visit_status_name($visit['status']);
+        // 挂号凭条支付方式：取该就诊挂号费缴费记录（补打沿用缴费时刻方式）
+        $visitPay = EmrRepository::one("SELECT method FROM payments WHERE visit_id=? AND kind='visit' ORDER BY id DESC LIMIT 1", array($vid));
+        if ($visitPay) $visit['pay_method'] = $visitPay['method'];
         // 挂号凭条快照（法律合规）：挂号时刻患者资料优先，补打凭条不因事后改患者资料而变化
         snapshot_apply_patient($row, 'registration', (int)$visit['id']);
         $visit = decorate_visit_patient($visit, $row['patient']);
