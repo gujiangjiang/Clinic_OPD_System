@@ -126,9 +126,14 @@ function admin_part_settings($action) {
     if ($action === 'integration_save') {
         $group = integration_group(post('group', ''));
         if (!$group) json_fail('未知的接口分组');
+        // 按子页签（zone）独立保存：outbound / inbound / 公共（空串）互不干扰
+        $zone = trim((string)post('zone', ''));
+        if (!in_array($zone, array('', 'outbound', 'inbound'), true)) $zone = '';
         $saved = array();
         $testVals = array();
         foreach ($group['fields'] as $f) {
+            $fZone = isset($f['zone']) ? $f['zone'] : '';
+            if ($fZone !== $zone) continue;   // 仅处理当前页签字段
             // PHP 表单解析会把查询串中的点转为下划线（parse_str），带点键名需双路径读取
             $raw = post($f['key'], null);
             if ($raw === null) $raw = post(str_replace('.', '_', $f['key']), null);
@@ -154,9 +159,10 @@ function admin_part_settings($action) {
             $testVals[$f['key']] = $val;
             $saved[] = $f['key'];
         }
-        // 保存前自动连通性测试：存在阻断项（已启用但探测失败）则拒绝保存；
-        // 未启用/未配置等提示项不阻断保存（界面测试模态框会明确提示补齐）
-        $res = ConnectivityTester::test($group['id'], $testVals);
+        // 保存前自动连通性测试：存在阻断项（已启用但必填缺失/远端不可达）则拒绝保存；
+        // 保存时不做入向本地端点探测（凭证尚未落库，探测结果不可信，保存后可在状态总览重新测试）；
+        // 未启用/未配置等提示项不阻断保存
+        $res = ConnectivityTester::test($group['id'], $testVals, false);
         $blocked = array();
         foreach ($res['items'] as $it) {
             if (!empty($it['blocking'])) $blocked[] = $it['name'];

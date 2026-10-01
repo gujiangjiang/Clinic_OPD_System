@@ -27,7 +27,7 @@ class ConnectivityTester {
      *   ok=false 表示存在阻断项（已启用但探测失败）；
      *   items[].blocking=true 的项为阻断项，其余为提示/跳过项。
      */
-    public static function test($groupId, $vals) {
+    public static function test($groupId, $vals, $probeLocal = true) {
         $get = function ($k) use ($vals) { return isset($vals[$k]) ? trim((string)$vals[$k]) : ''; };
         $on = function ($k) use ($get) { return $get($k) === '1'; };
         $items = array();
@@ -43,6 +43,8 @@ class ConnectivityTester {
                     $tok = self::firstToken($get('integration.inbound.fhir.allowed_tokens'));
                     if ($tok === '') {
                         $items[] = array('name' => '入向 FHIR 授权 Token', 'ok' => false, 'blocking' => true, 'detail' => '已启用但未配置授权 Token 列表');
+                    } elseif (!$probeLocal) {
+                        $items[] = self::skip('入向 FHIR 元数据端点', '保存时不做本地端点探测（保存后可在状态总览重新测试）');
                     } else {
                         $items[] = self::localGetCheck('入向 FHIR 元数据端点', '/api/fhir/r4/metadata', $tok, function ($json) {
                             return isset($json['resourceType']) && $json['resourceType'] === 'CapabilityStatement';
@@ -102,6 +104,8 @@ class ConnectivityTester {
                 if ($secret === '') {
                     $items[] = self::skip('入向 Webhook 验签密钥', '未配置（回调会被拒绝，如需接收请配置）');
                     $items[] = self::skip('入向 LIS 回调端点', '跳过（未配置验签密钥）');
+                } elseif (!$probeLocal) {
+                    $items[] = self::skip('入向 LIS 回调端点', '保存时不做本地端点探测（保存后可在状态总览重新测试）');
                 } else {
                     $items[] = self::localGetCheck('入向 LIS 回调端点', '/api/external/lis/callback', $secret, null, 'POST');
                 }
@@ -117,6 +121,8 @@ class ConnectivityTester {
                 if ($tok === '') {
                     $items[] = self::skip('入向鉴权 Token', '未配置（只读查询与推送将被拒绝，如需入向请生成并保存 Token）');
                     $items[] = self::skip('入向只读端点自检', '跳过（未配置 Token）');
+                } elseif (!$probeLocal) {
+                    $items[] = self::skip('入向只读端点自检', '保存时不做本地端点探测（保存后可在状态总览重新测试）');
                 } else {
                     $items[] = self::localGetCheck('入向只读端点自检', '/api/external/his/read?action=ping', $tok, function ($json) {
                         return !empty($json['data']['pong']);
@@ -130,7 +136,11 @@ class ConnectivityTester {
                 $mode = $get('pay_aggregate_mode');
                 if (in_array($mode, array('wechat', 'alipay', 'both'), true)) {
                     $items[] = array('name' => '聚合支付模式', 'ok' => true, 'blocking' => false, 'detail' => '已启用（支付回调端点对外可用）');
-                    $items[] = self::localGetCheck('入向支付回调端点', '/api/cashier/pay-notify/' . ($mode === 'wechat' ? 'wechat' : ($mode === 'alipay' ? 'alipay' : 'wechat')), '', null, 'POST');
+                    if ($probeLocal) {
+                        $items[] = self::localGetCheck('入向支付回调端点', '/api/cashier/pay-notify/' . ($mode === 'wechat' ? 'wechat' : ($mode === 'alipay' ? 'alipay' : 'wechat')), '', null, 'POST');
+                    } else {
+                        $items[] = self::skip('入向支付回调端点', '保存时不做本地端点探测（保存后可在状态总览重新测试）');
+                    }
                 } else {
                     $items[] = self::skip('聚合支付模式', '未启用（仅现金/线下收费，无需支付回调）');
                 }

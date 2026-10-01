@@ -177,7 +177,7 @@ function itg_status_rows($g, $vals) {
                         <?php render_itg_field($f, $vals); ?>
                     <?php endforeach; ?>
                     <div class="flex" style="gap:8px">
-                        <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>')">保存本组配置</button>
+                        <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>','common')">保存公共配置</button>
                     </div>
                 </div>
             </div>
@@ -192,7 +192,7 @@ function itg_status_rows($g, $vals) {
                         <?php render_itg_field($f, $vals); ?>
                     <?php endforeach; ?>
                     <div class="flex" style="gap:8px">
-                        <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>')">保存本组配置</button>
+                        <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>','outbound')">保存出向配置</button>
                     </div>
                 </div>
             </div>
@@ -241,7 +241,7 @@ function itg_status_rows($g, $vals) {
                         <div id="hisTestBox" class="itg-his-result" style="display:none"></div>
                     <?php endif; ?>
                     <div class="flex" style="gap:8px;margin-top:14px">
-                        <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>')">保存本组配置</button>
+                        <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>','inbound')">保存入向配置</button>
                     </div>
                 </div>
             </div>
@@ -331,7 +331,8 @@ function render_itg_field($f, $vals) {
 var ITG_GROUPS = <?php echo json_encode(array_map(function ($g) {
     return array('id' => $g['id'], 'title' => $g['title'],
         'keys' => array_map(function ($f) { return $f['key']; }, $g['fields']),
-        'labels' => array_map(function ($f) { return $f['label']; }, $g['fields']));
+        'labels' => array_map(function ($f) { return $f['label']; }, $g['fields']),
+        'zones' => array_map(function ($f) { return isset($f['zone']) ? $f['zone'] : ''; }, $g['fields']));
 }, $groups), JSON_UNESCAPED_UNICODE); ?>;
 
 /* ---------- Tab 切换 ---------- */
@@ -462,20 +463,23 @@ function itgTestRun(groupId) {
     });
 }
 
-/* ---------- 分组保存（仅提交该组字段） ---------- */
-function itgSave(groupId) {
+/* ---------- 分组保存（按子页签 zone 独立提交：仅收集当前页签字段，互不干扰） ---------- */
+function itgSave(groupId, paneId) {
     var group = null;
     ITG_GROUPS.forEach(function (g) { if (g.id === groupId) group = g; });
     if (!group) return;
-    var data = { action: 'integration_save', group: groupId };
-    group.keys.forEach(function (k) {
+    paneId = paneId || '';
+    var data = { action: 'integration_save', group: groupId, zone: paneId };
+    group.keys.forEach(function (k, i) {
+        // 仅收集当前页签（zone）字段：outbound/inbound 对应 zone；公共配置 zone 为空串
+        if ((group.zones[i] || '') !== paneId) return;
         var el = document.getElementById('itg_' + k);
         if (el) data[k] = el.value.trim();
     });
     Clinic.ajax('/api/admin', data, {
         onSuccess: function (json) {
             Clinic.toast.success(json.msg);
-            if (groupId === 'his') { renderHisTokenLive(); }
+            if (groupId === 'his' && paneId === 'inbound') { renderHisTokenLive(); }
         },
     });
 }
