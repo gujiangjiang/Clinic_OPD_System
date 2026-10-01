@@ -62,7 +62,7 @@ function admin_part_audit($action) {
         $html = '<div class="fs-13 text-muted mb-8">' . ($status === 'pending' ? '待审核' : '已处理') . '：' . count($rows) . ' 条' .
             ($group ? '（按' . ($group === 'user' ? '申请人' : '类型') . '分组）' : '') . '</div>';
         if (!$pagedFlat && !$rows) {
-            $html .= '<div class="empty"><div class="empty-ico">' . render_icon('emr:document') . '</div>暂无待审核事项</div>';
+            $html .= empty_state($status === 'pending' ? '暂无待审核记录' : '暂无已处理记录', 'emr:document');
         } else {
             $typeNames = array(
                 'template' => '病历模板', 'item_lab' => '检验项目添加', 'item_exam' => '检查项目添加',

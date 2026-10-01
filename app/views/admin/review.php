@@ -91,11 +91,14 @@ function initAuditPaged() {
     var box = document.getElementById('auditList');
     if (!box) return;
     if (AUDIT_PAGED) { AUDIT_PAGED.reset(); return; }
-    box.innerHTML = '<div class="table-wrap"><table class="table" id="auditTable"><tbody></tbody></table></div>';
+    // 表头静态保留（空态时也显示），空数据行用统一空态组件
+    box.innerHTML = '<div class="table-wrap"><table class="table" id="auditTable"><thead><tr><th>类型</th><th>事项</th><th>申请人</th><th>申请时间</th><th>状态</th><th>操作</th></tr></thead><tbody></tbody></table></div>';
     AUDIT_PAGED = Clinic.adminItems.pagedTable({
         tableEl: 'auditTable',
         state: AUDIT_STATE,
         url: auditListUrl,
+        emptyText: function () { return AUDIT_STATE.status === 'pending' ? '暂无待审核记录' : '暂无已处理记录'; },
+        emptyIcon: 'emr:document',
         onSuccess: function (json) {
             // 一键全部通过按钮：仅【待审核】页签、平铺、且有可一键通过的常规事项时显示
             var cnt = json.data && json.data.pending_count ? json.data.pending_count : 0;

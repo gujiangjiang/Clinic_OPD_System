@@ -171,11 +171,14 @@ Clinic.adminItems = {
                 };
         function init() {
             if (LIST) LIST.stop();
+            // 空态统一组件：图标 + 文案（可传函数按当前状态动态取文案，如 暂无待审核记录/暂无已处理记录）
+            var emptyText = (typeof cfg.emptyText === 'function') ? cfg.emptyText() : (cfg.emptyText || '暂无数据');
+            var emptyHtml = cfg.emptyHtml || '<tbody><tr><td colspan="99" class="empty-cell"><div class="empty" style="padding:28px 0"><div class="empty-ico">' + renderIconSvg(cfg.emptyIcon || 'action:search') + '</div>' + Clinic.escHtml(emptyText) + '</div></td></tr></tbody>';
             LIST = Clinic.infiniteList({
                 el: tableEl,
                 pageSize: 20,
                 threshold: 60,
-                emptyHtml: '<tbody><tr><td colspan="99" style="text-align:center;color:var(--text-muted);padding:24px">暂无数据</td></tr></tbody>',
+                emptyHtml: emptyHtml,
                 url: buildUrl,
                 render: function (list, isFirst, data) {
                     if (data && data.thead) thead = data.thead;

@@ -348,3 +348,17 @@ function crit_trend_mark($value, $normalRange, $criticalLow = '', $criticalHigh 
     if ($n > $hi) return '↑';
     return '';
 }
+/**
+ * 通用空状态（列表/表格无数据时统一展示：图标 + 简短文案，居中）
+ * @param string $text    空态文案（如 暂无待审核记录）
+ * @param string $icon    图标名（render_icon 键，默认 action:search）
+ * @param int    $colspan 表格列数（>0 时输出 <tbody><tr><td> 结构供表格体使用）
+ * @return string
+ */
+function empty_state($text, $icon = 'action:search', $colspan = 0) {
+    $inner = '<div class="empty" style="padding:28px 0"><div class="empty-ico">' . render_icon($icon) . '</div>' . e($text) . '</div>';
+    if ($colspan > 0) {
+        return '<tbody><tr><td colspan="' . (int)$colspan . '" class="empty-cell">' . $inner . '</td></tr></tbody>';
+    }
+    return $inner;
+}
