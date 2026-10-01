@@ -126,9 +126,14 @@ function admin_part_settings($action) {
     if ($action === 'integration_save') {
         $group = integration_group(post('group', ''));
         if (!$group) json_fail('未知的接口分组');
-        // 按子页签（zone）独立保存：outbound / inbound / 公共（空串）互不干扰
+        // 按子页签（zone）独立保存：出向/入向/公共及各支付小类互不干扰
         $zone = trim((string)post('zone', ''));
-        if (!in_array($zone, array('', 'outbound', 'inbound'), true)) $zone = '';
+        // zone 白名单 = 本分组字段实际存在的 zone（含空串=公共），防任意 zone 注入
+        $validZones = array('');
+        foreach ($group['fields'] as $f) {
+            $validZones[] = isset($f['zone']) ? $f['zone'] : '';
+        }
+        if (!in_array($zone, $validZones, true)) $zone = '';
         $saved = array();
         $testVals = array();
         foreach ($group['fields'] as $f) {
@@ -158,6 +163,28 @@ function admin_part_settings($action) {
             set_setting($f['key'], $val);
             $testVals[$f['key']] = $val;
             $saved[] = $f['key'];
+        }
+        // 完整度校验：本页签启用了开关（enabled=1）则其内容字段必须填写完整，避免空白保存成功
+        $zoneFieldsSave = array();
+        foreach ($group['fields'] as $zf) {
+            if ((isset($zf['zone']) ? $zf['zone'] : '') === $zone) $zoneFieldsSave[] = $zf;
+        }
+        $enabledField = '';
+        foreach ($zoneFieldsSave as $zf) {
+            if (substr($zf['key'], -8) === '_enabled') { $enabledField = $zf['key']; break; }
+        }
+        if ($enabledField !== '' && isset($testVals[$enabledField]) && $testVals[$enabledField] === '1') {
+            $missing = array();
+            foreach ($zoneFieldsSave as $zf) {
+                if ($zf['key'] === $enabledField) continue;
+                if (isset($zf['type']) && $zf['type'] === 'select') continue;
+                if (!isset($testVals[$zf['key']]) || trim((string)$testVals[$zf['key']]) === '') {
+                    $missing[] = $zf['label'];
+                }
+            }
+            if ($missing) {
+                json_fail('保存失败：已启用但必填项为空（' . implode('、', $missing) . '），请填写完整后再保存');
+            }
         }
         // 保存前自动连通性测试：存在阻断项（已启用但必填缺失/远端不可达）则拒绝保存；
         // 保存时不做入向本地端点探测（凭证尚未落库，探测结果不可信，保存后可在状态总览重新测试）；

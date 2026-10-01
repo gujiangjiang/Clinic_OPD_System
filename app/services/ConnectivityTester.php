@@ -132,22 +132,27 @@ class ConnectivityTester {
 
             case 'insurance':
                 $url = $get('integration.outbound.insurance.gateway_url');
-                $items[] = $url !== '' ? self::httpCheck('医保前置机', $url, 'POST', false) : self::skip('医保前置机', '未配置网关地址');
-                $mode = $get('pay_aggregate_mode');
-                if (in_array($mode, array('wechat', 'alipay', 'both'), true)) {
-                    $items[] = array('name' => '移动支付', 'ok' => true, 'blocking' => false, 'detail' => '已启用（微信/支付宝扫码支付对外可用）');
+                $medOn = $get('pay_medicare_enabled') === '1';
+                $items[] = $medOn
+                    ? self::httpCheck('医保前置机', $url, 'POST', true)
+                    : self::skip('医保卡支付', '未启用');
+                $wxOn = $get('pay_wechat_enabled') === '1';
+                $alOn = $get('pay_alipay_enabled') === '1';
+                if ($wxOn || $alOn) {
+                    $items[] = array('name' => '移动支付', 'ok' => true, 'blocking' => false,
+                        'detail' => '已启用（' . ($wxOn ? '微信' : '') . ($wxOn && $alOn ? ' + ' : '') . ($alOn ? '支付宝' : '') . '）');
                     if ($probeLocal) {
-                        $items[] = self::localGetCheck('入向支付回调端点', '/api/cashier/pay-notify/' . ($mode === 'wechat' ? 'wechat' : ($mode === 'alipay' ? 'alipay' : 'wechat')), '', null, 'POST');
+                        $items[] = self::localGetCheck('入向支付回调端点', '/api/cashier/pay-notify/' . ($wxOn ? 'wechat' : 'alipay'), '', null, 'POST');
                     } else {
                         $items[] = self::skip('入向支付回调端点', '保存时不做本地端点探测（保存后可在状态总览重新测试）');
                     }
                 } else {
-                    $items[] = self::skip('移动支付', '未启用（仅现金/线下收费）');
+                    $items[] = self::skip('移动支付', '未启用（微信/支付宝均关闭，收费端移动支付置灰）');
                 }
                 $bankOn = $get('pay_bankcard_enabled') === '1';
                 $items[] = $bankOn
-                    ? array('name' => '银行卡刷卡', 'ok' => true, 'blocking' => false, 'detail' => '已启用（演示刷卡；终端 ' . ($get('pay_bankcard_terminal') !== '' ? $get('pay_bankcard_terminal') : '未填') . '）')
-                    : self::skip('银行卡刷卡', '未启用（关闭后收费端银行卡不可选）');
+                    ? array('name' => '银行卡', 'ok' => true, 'blocking' => false, 'detail' => '已启用（演示刷卡；终端 ' . ($get('pay_bankcard_terminal') !== '' ? $get('pay_bankcard_terminal') : '未填') . '）')
+                    : self::skip('银行卡', '未启用（关闭后收费端银行卡不可选）');
                 break;
 
             case 'evid':

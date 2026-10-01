@@ -230,15 +230,16 @@ Clinic.cashier = {
  */
 Clinic.payMethod = {
     open: function (title, onDone) {
-        var mode = String((document.body.getAttribute('data-paymode') || 'off')).toLowerCase();
-        var canWechat = (mode === 'wechat' || mode === 'both');
-        var canAlipay = (mode === 'alipay' || mode === 'both');
-        var canBank = document.body.getAttribute('data-paybank') === '1';
+        var bd = document.body;
+        var canWechat = bd.getAttribute('data-paywechat') === '1';
+        var canAlipay = bd.getAttribute('data-payalipay') === '1';
+        var canBank = bd.getAttribute('data-paybank') === '1';
+        var canMedicare = bd.getAttribute('data-paymedicare') === '1';
         var methods = [
             { k: '现金', icon: renderIconSvg('action:money'), name: '现金', desc: '现金支付（支持找零）', avail: 1 },
             { k: 'mobile', icon: renderIconSvg('nav:mobile'), name: '移动支付', desc: '微信 / 支付宝扫码', avail: (canWechat || canAlipay) ? 1 : 0 },
             { k: '银行卡', icon: renderIconSvg('nav:card'), name: '银行卡', desc: '刷卡 / 插卡（POS）', avail: canBank ? 1 : 0 },
-            { k: '医保卡', icon: renderIconSvg('action:id-card'), name: '医保卡', desc: '医保卡实时结算', avail: 0 },
+            { k: '医保卡', icon: renderIconSvg('action:id-card'), name: '医保卡', desc: '医保卡实时结算', avail: canMedicare ? 1 : 0 },
         ];
         var render = function (list) {
             return '<div class="pay-methods">' + list.map(function (m) {
@@ -256,10 +257,12 @@ Clinic.payMethod = {
                 var k = el.getAttribute('data-k');
                 if (el.classList.contains('disabled')) {
                     var tip = (k === '移动支付')
-                        ? '「移动支付」未启用（请在接口管理→医保与支付中启用微信/支付宝支付）'
+                        ? '「移动支付」未启用（请在接口管理→医保与支付中启用微信或支付宝支付）'
                         : (k === '银行卡'
                             ? '「银行卡」未开通（请在接口管理→医保与支付中启用银行卡刷卡支付）'
-                            : '「' + k + '」未开通（需独立接入，暂不可用）');
+                            : (k === '医保卡'
+                                ? '「医保卡」未开通（请在接口管理→医保与支付中启用医保卡支付）'
+                                : '「' + k + '」未开通（需独立接入，暂不可用）'));
                     Clinic.toast.info(tip);
                     return;
                 }

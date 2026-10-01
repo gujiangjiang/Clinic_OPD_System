@@ -33,8 +33,22 @@ $itgNav = array(
     'hl7'        => array('overview' => '状态总览', 'outbound' => '出向发送', 'inbound' => '入向接收', 'common' => '公共配置'),
     'lis'        => array('overview' => '状态总览', 'outbound' => '申请下发', 'inbound' => '入向回调', 'common' => '公共配置'),
     'his'        => array('overview' => '状态总览', 'outbound' => '出向同步', 'inbound' => '入向开放', 'common' => '公共配置', 'monitor' => '同步监控'),
-    'insurance'  => array('overview' => '状态总览', 'outbound' => '医保前置机', 'inbound' => '入向回调', 'common' => '支付配置'),
+    'insurance'  => array('overview' => '状态总览', 'medicare' => '医保卡', 'wechat' => '微信支付', 'alipay' => '支付宝', 'bank' => '银行卡', 'inbound' => '入向回调'),
     'evid'       => array('overview' => '状态总览', 'common' => '存证配置'),
+);
+/* 分组内页签（zone）顺序与图标 */
+$zoneSeq = array(
+    'fhir'      => array('outbound', 'inbound', 'common'),
+    'pacs'      => array('common', 'outbound', 'inbound'),
+    'hl7'       => array('outbound', 'inbound', 'common'),
+    'lis'       => array('outbound', 'inbound', 'common'),
+    'his'       => array('outbound', 'inbound', 'common'),
+    'insurance' => array('medicare', 'wechat', 'alipay', 'bank', 'inbound'),
+    'evid'      => array('common'),
+);
+$zoneIcon = array(
+    'common' => 'nav:settings', 'outbound' => 'action:next', 'inbound' => 'action:link',
+    'medicare' => 'action:id-card', 'wechat' => 'nav:mobile', 'alipay' => 'action:handshake', 'bank' => 'nav:card',
 );
 
 /**
@@ -48,6 +62,23 @@ function itg_status_rows($g, $vals) {
     $get = function ($k) use ($vals) { return isset($vals[$k]) ? trim((string)$vals[$k]) : ''; };
     $on = function ($k) use ($vals, $get) { return $get($k) === '1'; };
     $badge = function ($k) use ($vals, $get) { return $get($k) !== ''; };
+    // 医保/支付分组：状态总览直接列出各支付方式（微信/支付宝/银行卡/医保卡）开关状态
+    if ($g['id'] === 'insurance') {
+        $payModes = array(
+            array('label' => '微信支付', 'key' => 'pay_wechat_enabled'),
+            array('label' => '支付宝', 'key' => 'pay_alipay_enabled'),
+            array('label' => '银行卡', 'key' => 'pay_bankcard_enabled'),
+            array('label' => '医保卡', 'key' => 'pay_medicare_enabled'),
+        );
+        foreach ($payModes as $pm) {
+            $rows[] = array('label' => $pm['label'], 'value' => $on($pm['key']) ? '已启用' : '未启用', 'cls' => $on($pm['key']) ? 'success' : 'muted');
+        }
+        // 医保前置机关键配置
+        $gw = $get('integration.outbound.insurance.gateway_url');
+        $rows[] = array('label' => '医保前置机地址', 'value' => $gw !== '' ? $gw : '未配置', 'cls' => $gw !== '' ? 'info' : 'muted');
+        $rows[] = array('label' => '支付结果回调', 'value' => '端点已暴露', 'cls' => 'info');
+        return $rows;
+    }
     // 开关（rule=bool 或 key 以 .enabled 结尾）：出向/入向启用状态
     foreach ($g['fields'] as $f) {
         $k = $f['key'];
@@ -120,32 +151,30 @@ function itg_status_rows($g, $vals) {
 
 <?php foreach ($groups as $gi => $g): ?>
 <?php
-    $fieldsOut = array();
-    $fieldsIn = array();
-    $fieldsPub = array();
+    // 字段按 zone 分组（zone 即左侧导航页签；insurance 分组按 支付小类 分列独立保存）
+    $zoneFields = array();
     foreach ($g['fields'] as $f) {
-        $zone = isset($f['zone']) ? $f['zone'] : '';
-        if ($zone === 'outbound') $fieldsOut[] = $f;
-        elseif ($zone === 'inbound') $fieldsIn[] = $f;
-        else $fieldsPub[] = $f;
+        $z = isset($f['zone']) ? $f['zone'] : '';
+        if (!isset($zoneFields[$z])) $zoneFields[$z] = array();
+        $zoneFields[$z][] = $f;
     }
+    $zones = isset($zoneSeq[$g['id']]) ? $zoneSeq[$g['id']] : array_keys($zoneFields);
     $hasEndpoints = !empty($g['endpoints']);
+    $znav = function ($z) use ($g) { return isset($itgNav[$g['id']][$z]) ? $itgNav[$g['id']][$z] : $z; };
+    $zico = function ($z) use ($zoneIcon) { return isset($zoneIcon[$z]) ? $zoneIcon[$z] : 'nav:settings'; };
 ?>
 <div class="itg-pane" id="itgPane_<?php echo e($g['id']); ?>" data-tab="<?php echo e($g['id']); ?>"<?php echo $gi === 0 ? '' : ' style="display:none"'; ?>>
     <div class="db-center itg-center">
         <div class="card db-sidebar itg-sidenav" id="itgNav_<?php echo e($g['id']); ?>">
-            <div class="db-nav active" data-itgpan="overview" onclick="itgSideTab('<?php echo e($g['id']); ?>','overview')"><?= render_icon('action:eye') ?> <?php echo e(isset($itgNav[$g['id']]['overview']) ? $itgNav[$g['id']]['overview'] : '状态总览'); ?></div>
-            <?php if ($fieldsPub): ?>
-            <div class="db-nav" data-itgpan="common" onclick="itgSideTab('<?php echo e($g['id']); ?>','common')"><?= render_icon('nav:settings') ?> <?php echo e(isset($itgNav[$g['id']]['common']) ? $itgNav[$g['id']]['common'] : '公共配置'); ?></div>
-            <?php endif; ?>
-            <?php if ($fieldsOut): ?>
-            <div class="db-nav" data-itgpan="outbound" onclick="itgSideTab('<?php echo e($g['id']); ?>','outbound')"><?= render_icon('action:next') ?> <?php echo e(isset($itgNav[$g['id']]['outbound']) ? $itgNav[$g['id']]['outbound'] : '出向集成'); ?></div>
-            <?php endif; ?>
-            <?php if ($fieldsIn || $hasEndpoints): ?>
-            <div class="db-nav" data-itgpan="inbound" onclick="itgSideTab('<?php echo e($g['id']); ?>','inbound')"><?= render_icon('action:link') ?> <?php echo e(isset($itgNav[$g['id']]['inbound']) ? $itgNav[$g['id']]['inbound'] : '入向开放'); ?></div>
+            <div class="db-nav active" data-itgpan="overview" onclick="itgSideTab('<?php echo e($g['id']); ?>','overview')"><?= render_icon('action:eye') ?> <?php echo e($znav('overview')); ?></div>
+            <?php foreach ($zones as $z): if (!isset($zoneFields[$z])) continue; ?>
+            <div class="db-nav" data-itgpan="<?php echo e($z); ?>" onclick="itgSideTab('<?php echo e($g['id']); ?>','<?php echo e($z); ?>')"><?= render_icon($zico($z)) ?> <?php echo e($znav($z)); ?></div>
+            <?php endforeach; ?>
+            <?php if ($hasEndpoints && !isset($zoneFields['inbound'])): ?>
+            <div class="db-nav" data-itgpan="inbound" onclick="itgSideTab('<?php echo e($g['id']); ?>','inbound')"><?= render_icon('action:link') ?> <?php echo e($znav('inbound')); ?></div>
             <?php endif; ?>
             <?php if ($g['id'] === 'his'): ?>
-            <div class="db-nav" data-itgpan="monitor" onclick="itgSideTab('<?php echo e($g['id']); ?>','monitor')"><?= render_icon('nav:chart') ?> <?php echo e($itgNav[$g['id']]['monitor']); ?></div>
+            <div class="db-nav" data-itgpan="monitor" onclick="itgSideTab('<?php echo e($g['id']); ?>','monitor')"><?= render_icon('nav:chart') ?> <?php echo e($znav('monitor')); ?></div>
             <?php endif; ?>
         </div>
         <div class="db-main">
@@ -169,40 +198,31 @@ function itg_status_rows($g, $vals) {
                 </div>
             </div>
 
-            <?php if ($fieldsPub): ?>
-            <div class="db-pane" id="itgpan_<?php echo e($g['id']); ?>_common" style="display:none">
+            <?php foreach ($zones as $z): if (!isset($zoneFields[$z])) continue; $paneSuffix = ($z === '') ? 'common' : $z; ?>
+            <div class="db-pane" id="itgpan_<?php echo e($g['id']); ?>_<?php echo e($paneSuffix); ?>" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title"><?= render_icon('nav:settings') ?> 公共配置</div>
-                    <?php foreach ($fieldsPub as $f): ?>
+                    <div class="card-title"><?= render_icon($zico($z)) ?> <?php echo e($znav($z)); ?></div>
+                    <?php foreach ($zoneFields[$z] as $f): ?>
                         <?php render_itg_field($f, $vals); ?>
                     <?php endforeach; ?>
-                    <div class="flex" style="gap:8px">
-                        <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>','common')">保存公共配置</button>
+                    <?php if ($g['id'] === 'his' && $z === 'inbound'): ?>
+                        <div class="flex" style="gap:8px;margin-top:2px">
+                            <button type="button" class="btn btn-outline btn-sm" onclick="genHisToken()"><?= render_icon('nav:key') ?> 生成 Token</button>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="testHisApi()"><?= render_icon('action:next') ?> 连通性测试</button>
+                        </div>
+                        <div id="hisTestBox" class="itg-his-result" style="display:none"></div>
+                    <?php endif; ?>
+                    <div class="flex" style="gap:8px;margin-top:14px">
+                        <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>','<?php echo e($paneSuffix); ?>')">保存<?php echo e($znav($z)); ?></button>
                     </div>
                 </div>
             </div>
-            <?php endif; ?>
+            <?php endforeach; ?>
 
-            <?php if ($fieldsOut): ?>
-            <div class="db-pane" id="itgpan_<?php echo e($g['id']); ?>_outbound" style="display:none">
-                <div class="card setting-card">
-                    <div class="card-title"><?= render_icon('action:next') ?> 出向集成（本系统调用外部）</div>
-                    <div class="fs-12 text-muted mb-12" style="margin-top:-4px">配置网关地址、认证凭证、超时与触发时机；保存后由对应服务引擎按此参数调用外部系统。</div>
-                    <?php foreach ($fieldsOut as $f): ?>
-                        <?php render_itg_field($f, $vals); ?>
-                    <?php endforeach; ?>
-                    <div class="flex" style="gap:8px">
-                        <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>','outbound')">保存出向配置</button>
-                    </div>
-                </div>
-            </div>
-            <?php endif; ?>
-
-            <?php if ($fieldsIn || $hasEndpoints): ?>
+            <?php if ($hasEndpoints && !isset($zoneFields['inbound'])): ?>
             <div class="db-pane" id="itgpan_<?php echo e($g['id']); ?>_inbound" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title"><?= render_icon('action:link') ?> 入向开放（外部调用本系统）</div>
-                    <?php if ($hasEndpoints): ?>
+                    <div class="card-title"><?= render_icon('action:link') ?> <?php echo e($znav('inbound')); ?></div>
                     <div class="form-group">
                         <label class="form-label">对外暴露端点（只读，点击复制）</label>
                         <?php foreach ($g['endpoints'] as $ep): ?>
@@ -228,20 +248,6 @@ function itg_status_rows($g, $vals) {
                             </div>
                             <?php endif; ?>
                         <?php endforeach; ?>
-                    </div>
-                    <?php endif; ?>
-                    <?php foreach ($fieldsIn as $f): ?>
-                        <?php render_itg_field($f, $vals); ?>
-                    <?php endforeach; ?>
-                    <?php if ($g['id'] === 'his'): ?>
-                        <div class="flex" style="gap:8px;margin-top:2px">
-                            <button type="button" class="btn btn-outline btn-sm" onclick="genHisToken()"><?= render_icon('nav:key') ?> 生成 Token</button>
-                            <button type="button" class="btn btn-outline btn-sm" onclick="testHisApi()"><?= render_icon('action:next') ?> 连通性测试</button>
-                        </div>
-                        <div id="hisTestBox" class="itg-his-result" style="display:none"></div>
-                    <?php endif; ?>
-                    <div class="flex" style="gap:8px;margin-top:14px">
-                        <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>','inbound')">保存入向配置</button>
                     </div>
                 </div>
             </div>
@@ -469,10 +475,11 @@ function itgSave(groupId, paneId) {
     ITG_GROUPS.forEach(function (g) { if (g.id === groupId) group = g; });
     if (!group) return;
     paneId = paneId || '';
-    var data = { action: 'integration_save', group: groupId, zone: paneId };
+    // 公共配置页签（paneId='common'）对应无 zone 字段（zone 为空串）
+    var zone = (paneId === 'common') ? '' : paneId;
+    var data = { action: 'integration_save', group: groupId, zone: zone };
     group.keys.forEach(function (k, i) {
-        // 仅收集当前页签（zone）字段：outbound/inbound 对应 zone；公共配置 zone 为空串
-        if ((group.zones[i] || '') !== paneId) return;
+        if ((group.zones[i] || '') !== zone) return;
         var el = document.getElementById('itg_' + k);
         if (el) data[k] = el.value.trim();
     });
