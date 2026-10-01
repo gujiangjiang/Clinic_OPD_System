@@ -5,9 +5,11 @@
  * ============================================================
  * 说明：本系统作为 HL7 消息接收方（Inbound），监听 TCP 端口接收外部
  * 设备/系统（HIS/LIS/区域平台）以 MLLP 帧（0x0B…0x1C0x0D）推送的消息：
- *  - ORU^R01：观察结果回传——按 OBR 申请单号自动回填检验结果并出报告；
+ *  - ORU^R01：观察结果回传——解析 MSH/PID/PV1/OBR/OBX，按 OBR 申请单号
+ *    自动回填检验结果并出报告；检测 OBX-8 异常标志（HH/LL/CRIT/PANIC）
+ *    或危急值阈值命中时，自动写入 critical_values 流水并通知接诊医生；
  *  - 其他消息（ADT 等）：应答 AA 接收确认（业务处理预留扩展）；
- *  - 严格按请求消息 MSH-10 回传 MSA|AA|... 应答报文。
+ *  - 严格按请求消息 MSH-10 回传标准 ACK（MSA|AA/AE/AR + ERR 段）。
  * 监听端口取 integration.inbound.hl7.local_port（默认 2575），
  * IP 白名单（integration.inbound.hl7.ip_whitelist）与 HTTP 代理共用。
  * 启动：~/.local/bin/frankenphp php-cli tools/cli/hl7_mllp_server.php
@@ -47,6 +49,47 @@ $ipAllowed = function ($ip) {
     return false;
 };
 
+/**
+ * 处理单条 MLLP 帧载荷，返回应回传的 ACK 文本。
+ * 全程捕获异常：解析/落库失败 → AE + ERR；非法消息 → AR。
+ * @param string $frame 去除帧头帧尾后的 HL7 消息
+ * @param string $tag   对端标识（日志用）
+ * @return string ACK 报文
+ */
+function mllp_handle($frame, $tag) {
+    $msg = str_replace(array("\r\n", "\n"), "\r", (string)$frame);
+    if (trim($msg) === '') {
+        echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' 空帧，拒绝' . "\n";
+        return HL7MessageBuilder::ack('', 'AR', '空消息帧');
+    }
+    $parsed = array();
+    try {
+        $parsed = HL7MessageParser::parse($msg);
+        $msgType = isset($parsed['msh']['type']) ? $parsed['msh']['type'] : '';
+        if ($msgType === '') {
+            echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' 缺少 MSH 段，拒绝' . "\n";
+            return HL7MessageBuilder::ack($msg, 'AR', '无法解析 HL7 消息（缺少 MSH 段）');
+        }
+        if (strpos($msgType, 'ORU') === 0) {
+            $oru = HL7MessageParser::oruExtract($parsed);
+            if (!$oru['ok']) {
+                echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' ORU 解析失败（缺 OBR 申请单号）' . "\n";
+                return HL7MessageBuilder::ack($msg, 'AE', 'ORU 消息缺少 OBR 申请单号');
+            }
+            $res = HL7InboundService::applyOru($oru);
+            echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' ORU^R01 ' . $res['msg']
+                . ($res['critical'] > 0 ? '【危急值 ' . $res['critical'] . ' 条】' : '') . "\n";
+            return HL7MessageBuilder::ack($msg, 'AA', $res['msg']);
+        }
+        // ADT 及其他消息：接收确认（业务处理预留扩展）
+        echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' 接收确认 ' . $msgType . "\n";
+        return HL7MessageBuilder::ack($msg, 'AA', 'received:' . $msgType);
+    } catch (Exception $ex) {
+        echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' 处理失败：' . $ex->getMessage() . "\n";
+        return HL7MessageBuilder::ack($msg, 'AE', $ex->getMessage());
+    }
+}
+
 while (true) {
     $conn = @stream_socket_accept($server, -1);
     if (!$conn) continue;
@@ -54,73 +97,37 @@ while (true) {
     $peerIp = ($pos = strrpos($peer, ':')) !== false ? substr($peer, 0, $pos) : $peer;
     $tag = $peerIp;
     if (!$ipAllowed($peerIp)) {
+        echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' IP 白名单拒绝，断开' . "\n";
         fclose($conn);
         continue;
     }
-    // 读取 MLLP 帧：0x0B 起始 … 0x1C 0x0D 帧尾
+    // 读取 MLLP 帧：0x0B 起始 … 0x1C 0x0D 帧尾（单连接可连发多帧）
     $frame = '';
     $inFrame = false;
-    $started = null;
     while (!feof($conn)) {
         $chunk = fread($conn, 4096);
         if ($chunk === false || $chunk === '') break;
-        for ($i = 0; $i < strlen($chunk); $i++) {
+        $len = strlen($chunk);
+        for ($i = 0; $i < $len; $i++) {
             $byte = $chunk[$i];
             if (!$inFrame && $byte === chr(0x0B)) {
                 $inFrame = true;
                 $frame = '';
-                $started = microtime(true);
                 continue;
             }
             if ($inFrame) {
-                if ($byte === chr(0x1C) && isset($chunk[$i + 1]) && $chunk[$i + 1] === chr(0x0D)) {
-                    // 帧尾：解析并应答
-                    $i++;   // 跳过 0x0D
-                    $ackCode = 'AA';
-                    $ackText = '';
-                    $msg = str_replace("\r\n", "\r", $frame);
-                    try {
-                        $parsed = HL7MessageParser::parse($msg);
-                        $msgType = isset($parsed['msh']['type']) ? $parsed['msh']['type'] : '';
-                        if (strpos($msgType, 'ORU') === 0) {
-                            $oru = HL7MessageParser::oruExtract($parsed);
-                            if ($oru['ok']) {
-                                $obs = array();
-                                foreach ($oru['observations'] as $o) {
-                                    $obs[] = array(
-                                        'name' => $o['item_name'] !== '' ? $o['item_name'] : $o['item_code'],
-                                        'value' => $o['value'],
-                                        'unit' => $o['unit'],
-                                        'ref_range' => $o['ref_range'],
-                                        'flag' => $o['flag'],
-                                    );
-                                }
-                                $res = LisService::applyObservationReport($oru['order_no'], $obs, '', '', '');
-                                $ackText = $res['msg'];
-                                echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' ORU^R01 ' . $res['msg'] . "\n";
-                            } else {
-                                throw new Exception('ORU 消息缺少 OBR 申请单号');
-                            }
-                        } else {
-                            $ackText = 'received:' . ($msgType !== '' ? $msgType : 'unknown');
-                            echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' 接收确认 ' . ($msgType !== '' ? $msgType : 'unknown') . "\n";
-                        }
-                    } catch (Exception $ex) {
-                        $ackCode = 'AE';
-                        $ackText = $ex->getMessage();
-                        echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' 处理失败：' . $ex->getMessage() . "\n";
-                    }
-                    $ack = HL7MessageBuilder::ack($msg, $ackCode, $ackText !== '' ? $ackText : 'received');
+                if ($byte === chr(0x1C)) {
+                    // 帧尾：可选 0x0D；解析并回传 ACK，随后继续等待下一帧
+                    if (isset($chunk[$i + 1]) && $chunk[$i + 1] === chr(0x0D)) $i++;
+                    $ack = mllp_handle($frame, $tag);
                     fwrite($conn, chr(0x0B) . $ack . chr(0x1C) . chr(0x0D));
-                    fclose($conn);
+                    $frame = '';
                     $inFrame = false;
-                    break 2;
+                    continue;
                 }
                 $frame .= $byte;
             }
         }
     }
-    if (isset($conn) && is_resource($conn) && !feof($conn) && $inFrame) {
-        fclose($conn);
-    }
+    if (is_resource($conn)) fclose($conn);
 }

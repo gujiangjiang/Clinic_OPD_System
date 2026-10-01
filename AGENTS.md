@@ -4,7 +4,7 @@
 
 ## 版本标识
 
-- 系统基准版本：**v8.40.0**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
+- 系统基准版本：**v8.42.0**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
 
 ## 本地运行环境（本机 macOS arm64）
 
@@ -60,7 +60,8 @@
     `DrugSeeder`/`LabSeeder`（含检验组合与危急值）/`ExamSeeder`/`DisposalSeeder`/
     `PackageSeeder`/`TemplateSeeder`/`VisitSeeder`（患者就诊链，合并原
     demo/doctor2001/full 三场景）/`QueueSeeder`（叫号队列，合并原 call/dept_call
-    两场景）/`VisitFlowEngine`/`PreflightChecker`）。
+    两场景）/`FhirDemoSeeder`（FHIR/HL7 全链路验证数据：3 套旅程 + DICOM UID/Series
+    + 危急值，`--module=fhir` / `--scene=fhir`）/`VisitFlowEngine`/`PreflightChecker`）。
   - `tools/schema/`：分散迁移与一次性数据修复脚本（inspect/migrate/fix/refill）。
   - `tools/lint/`：语法检查工具。
 - **开发铁律**：后续任何测试造数需求，严禁在 `tools/` 根目录随意新建孤立的 `seed_xxx.php` 脚本，

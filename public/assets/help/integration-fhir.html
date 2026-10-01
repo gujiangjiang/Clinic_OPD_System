@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FHIR R4 接口帮助</title>
+<link rel="stylesheet" href="/assets/help/help.css">
+</head>
+<body>
+<h1>FHIR R4 资源互联引擎 <span class="badge">接口帮助</span></h1>
+<div class="lead">HL7 FHIR R4（4.0.1）标准互操作接口：本系统既可作为 Client 出向上报，也可作为 Server 入向开放资源调阅。</div>
+
+<div class="toc">
+  <a href="#intro">1. 介绍与作用</a>
+  <a href="#concepts">2. 出向 / 入向</a>
+  <a href="#config">3. 参数配置</a>
+  <a href="#auth">4. 鉴权</a>
+  <a href="#api">5. 接口清单</a>
+  <a href="#test">6. 测试方法</a>
+  <a href="#errors">7. 错误码</a>
+</div>
+
+<h2 id="intro">1. 介绍与作用</h2>
+<p>FHIR（Fast Healthcare Interoperability Resources）是 HL7 组织发布的医疗数据交换标准。本模块让门诊系统与区域平台、上级医院、第三方应用以标准资源（Patient / Encounter / Condition / Observation / MedicationRequest / ImagingStudy）交换数据，是系统对外互联的核心通道。</p>
+
+<h2 id="concepts">2. 出向 / 入向</h2>
+<table>
+<tr><th>方向</th><th>说明</th></tr>
+<tr><td>出向（Outbound）</td><td>本系统作为 Client，把挂号、诊断、医嘱等组装为 FHIR Bundle 异步 POST 到目标 FHIR Server。</td></tr>
+<tr><td>入向（Inbound）</td><td>本系统作为 Server，对外暴露 <code>/api/fhir/r4/*</code>，供外部按标准读取资源。</td></tr>
+</table>
+
+<h2 id="config">3. 参数配置</h2>
+<h3>入向开放</h3>
+<ul>
+<li><b>启用入向开放</b>：总开关。开启后受保护资源端点才可访问（<code>/metadata</code> 与 <code>/oauth/token</code> 免认证）。</li>
+<li><b>长期静态 Token / API Key 列表</b>（可选）：离线联调用。每行 5 段 <code>名称,Token,过期时间,启用,Scope</code>，后 3 段可省略。点「追加 Token」自动生成一行。</li>
+<li><b>OAuth2 客户端列表</b>（可选）：标准 <code>client_credentials</code> 客户端。每行 <code>client_id,client_secret,Scope</code>（Scope 省略默认 <code>system/*.read</code>）。点「追加客户端」自动生成一行。</li>
+<li><b>令牌签名密钥</b>（可选）：服务端签发自包含令牌的 HMAC-SHA256 密钥。可点「生成密钥」手工生成，留空则首次颁发令牌时自动生成并保存。</li>
+<li><b>IP 白名单</b>（可选）：留空不限来源；配置后仅白名单（支持单 IP 与 CIDR）可访问受保护端点。</li>
+</ul>
+<div class="tip">出向与入向至少配置一种入向凭证（静态 Token 或 OAuth2 客户端），否则入向数据端点将全部拒绝访问。</div>
+
+<h2 id="auth">4. 鉴权（SMART-on-FHIR / OAuth2）</h2>
+<p>受保护端点在请求头携带凭证，两种方式任选：</p>
+<pre><code>Authorization: Bearer &lt;access_token&gt;
+X-API-Key: &lt;token&gt;</code></pre>
+<p><b>方式一：OAuth2 取令牌</b>（推荐，令牌有效期 7200 秒）</p>
+<pre><code>curl -X POST http://127.0.0.1:8000/api/fhir/oauth/token \
+  -d "grant_type=client_credentials" \
+  -d "client_id=pacs" \
+  -d "client_secret=PacsSecret123" \
+  -d "scope=system/ImagingStudy.read system/Patient.read"</code></pre>
+<p>返回：</p>
+<pre><code>{ "access_token": "...", "token_type": "Bearer", "expires_in": 7200, "scope": "..." }</code></pre>
+<p><b>方式二：静态 Token</b>：直接把「长期静态 Token 列表」中的 Token 原文作为 <code>X-API-Key</code> 或 <code>Bearer</code> 值。</p>
+<div class="tip">只填 Token 原文即可，<b>不要</b>带 <code>Bearer </code> 前缀或 <code>X-API-Key:</code> 头名，系统会自动识别。</div>
+
+<h3>Scope 规则</h3>
+<ul>
+<li>读取某资源需 <code>system/&lt;资源名&gt;.read</code>，如 <code>system/Patient.read</code>。</li>
+<li><code>system/*.read</code> 放行全部资源读取；<code>*</code> 放行一切。</li>
+<li>Scope 不足返回 <code>403 forbidden</code>。</li>
+</ul>
+
+<h2 id="api">5. 接口清单（入向）</h2>
+<table>
+<tr><th>方法</th><th>路径</th><th>说明</th></tr>
+<tr><td>GET</td><td><code>/api/fhir/r4/metadata</code></td><td>CapabilityStatement（免认证）</td></tr>
+<tr><td>POST</td><td><code>/api/fhir/oauth/token</code></td><td>OAuth2 令牌（免认证）</td></tr>
+<tr><td>GET</td><td><code>/api/fhir/r4/Patient/{id}</code></td><td>患者资源（id = patient-{门诊号}）</td></tr>
+<tr><td>GET</td><td><code>/api/fhir/r4/Encounter?patient={门诊号}</code></td><td>就诊检索，支持 <code>_include=Encounter:patient</code></td></tr>
+<tr><td>GET</td><td><code>/api/fhir/r4/Condition?patient=</code></td><td>诊断（ICD-10）</td></tr>
+<tr><td>GET</td><td><code>/api/fhir/r4/Observation?patient=</code></td><td>检验结果 / 生命体征（<code>category=laboratory|vital-signs</code>）</td></tr>
+<tr><td>GET</td><td><code>/api/fhir/r4/MedicationRequest?patient=</code></td><td>处方医嘱</td></tr>
+<tr><td>GET</td><td><code>/api/fhir/r4/ImagingStudy?patient=</code></td><td>影像检查（支持 DICOM UID / modality / started）</td></tr>
+</table>
+<p class="muted">通用检索参数：<code>_count</code>（默认 20，上限 200）、<code>_page</code>/<code>_offset</code>、<code>_sort</code>、<code>_include</code>；未识别参数静默忽略。返回 <code>Bundle(searchset)</code>，含 <code>total</code> 与 <code>link[self|next]</code>。</p>
+
+<h2 id="test">6. 测试方法</h2>
+<p><b>① 免认证元数据：</b></p>
+<pre><code>curl http://127.0.0.1:8000/api/fhir/r4/metadata</code></pre>
+<p><b>② 静态 Token 检索：</b></p>
+<pre><code>curl -H "X-API-Key: &lt;你的Token&gt;" \
+  "http://127.0.0.1:8000/api/fhir/r4/Patient?_count=5"</code></pre>
+<p><b>③ OAuth2 令牌 + 带 _include 检索：</b></p>
+<pre><code>TOKEN=$(curl -s -X POST http://127.0.0.1:8000/api/fhir/oauth/token \
+  -d "grant_type=client_credentials&client_id=pacs&client_secret=PacsSecret123" \
+  | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8000/api/fhir/r4/ImagingStudy?patient=FHD0001&_include=ImagingStudy:patient"</code></pre>
+<p>也可在「状态总览 → 连通性测试」中按当前表单值一键探测入向本地端点。</p>
+
+<h2 id="errors">7. 错误码与排查</h2>
+<table>
+<tr><th>状态</th><th>含义</th><th>处理</th></tr>
+<tr><td>401</td><td>Token 缺失/无效/过期</td><td>检查凭证是否正确、是否过期；响应头 <code>WWW-Authenticate</code> 会提示</td></tr>
+<tr><td>403</td><td>未启用 / IP 不在白名单 / Scope 不足 / 凭证禁用</td><td>核对开关、白名单与 Scope</td></tr>
+<tr><td>404</td><td>资源不存在或不支持的资源类型</td><td>核对资源名与 id</td></tr>
+<tr><td>400</td><td>参数非法</td><td>核对必填参数</td></tr>
+<tr><td>500</td><td>服务器内部错误</td><td>查看接口管理 → HIS/同步监控的入向审计日志</td></tr>
+</table>
+<div class="warn">所有错误均返回标准 <code>OperationOutcome</code> 资源，<code>issue[].code</code> 为 <code>security</code>/<code>forbidden</code>/<code>not-found</code>/<code>invalid</code> 等标准值。</div>
+</body>
+</html>

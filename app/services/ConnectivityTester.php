@@ -41,11 +41,13 @@ class ConnectivityTester {
                 }
                 if ($on('integration.inbound.fhir.enabled')) {
                     $tok = self::firstToken($get('integration.inbound.fhir.allowed_tokens'));
-                    if ($tok === '') {
-                        $items[] = array('name' => '入向 FHIR 授权 Token', 'ok' => false, 'blocking' => true, 'detail' => '已启用但未配置授权 Token 列表');
+                    $hasOauth = trim((string)$get('integration.inbound.fhir.oauth_clients')) !== '';
+                    if ($tok === '' && !$hasOauth) {
+                        $items[] = array('name' => '入向 FHIR 授权凭证', 'ok' => false, 'blocking' => true, 'detail' => '已启用但未配置任何凭证（长期静态 Token 或 OAuth2 客户端）');
                     } elseif (!$probeLocal) {
                         $items[] = self::skip('入向 FHIR 元数据端点', '保存时不做本地端点探测（保存后可在状态总览重新测试）');
                     } else {
+                        // /metadata 免认证，用作本地服务存活探测
                         $items[] = self::localGetCheck('入向 FHIR 元数据端点', '/api/fhir/r4/metadata', $tok, function ($json) {
                             return isset($json['resourceType']) && $json['resourceType'] === 'CapabilityStatement';
                         });
@@ -58,16 +60,33 @@ class ConnectivityTester {
             case 'pacs':
                 $mode = $get('integration.pacs.protocol_mode');
                 if ($mode === 'dicomweb') {
+                    // 出向鉴权头按「鉴权方式 + 值」自动拼装（无需手写 Bearer/X-API-Key 前缀）
+                    $authHeaders = self::composeAuthHeader($get('integration.outbound.pacs.auth_scheme'), $get('integration.outbound.pacs.auth_value'));
                     // PACS 无启用开关：未配置地址视为未使用（提示不阻断），已配置不可达也仅提示
-                    $items[] = self::httpCheck('QIDO-RS 检索端点', $get('integration.outbound.pacs.qido_url'), 'GET', false);
-                    $items[] = self::httpCheck('WADO-RS 调阅端点', $get('integration.outbound.pacs.wado_url'), 'GET', false);
-                    $items[] = self::httpCheck('STOW-RS 上传端点', $get('integration.outbound.pacs.stow_url'), 'GET', false);
+                    $items[] = self::httpCheck('QIDO-RS 检索端点', $get('integration.outbound.pacs.qido_url'), 'GET', false, $authHeaders);
+                    $items[] = self::httpCheck('WADO-RS 调阅端点', $get('integration.outbound.pacs.wado_url'), 'GET', false, $authHeaders);
+                    $items[] = self::httpCheck('STOW-RS 上传端点', $get('integration.outbound.pacs.stow_url'), 'GET', false, $authHeaders);
                 } else {
                     $host = $get('integration.outbound.pacs.remote_host');
                     $port = $get('integration.outbound.pacs.remote_port');
                     $items[] = ($host !== '' && $port !== '')
                         ? self::tcpCheck('DIMSE 远端主机', $host, $port)
                         : self::skip('DIMSE 远端主机', '未配置主机或端口');
+                }
+                // 入向 DICOMweb（QIDO/WADO）自检
+                if ($on('integration.inbound.pacs.enabled')) {
+                    $dtok = $get('integration.inbound.pacs.token');
+                    if ($dtok === '') {
+                        $items[] = array('name' => '入向 DICOMweb Token', 'ok' => false, 'blocking' => true, 'detail' => '已启用但未配置入向调用 Token');
+                    } elseif (!$probeLocal) {
+                        $items[] = self::skip('入向 DICOMweb 端点', '保存时不做本地端点探测（保存后可在状态总览重新测试）');
+                    } else {
+                        $items[] = self::localGetCheck('入向 DICOMweb 端点', '/api/dicomweb/studies?limit=1', $dtok, function ($json) {
+                            return is_array($json);
+                        });
+                    }
+                } else {
+                    $items[] = self::skip('入向 DICOMweb', '未启用（启用入向 DICOMweb 后自动测试）');
                 }
                 $ae = $get('integration.inbound.pacs.local_ae_title');
                 $lp = $get('integration.inbound.pacs.local_port');
@@ -186,13 +205,14 @@ class ConnectivityTester {
     }
 
     /** 出向 HTTP 探测（GET/POST 到目标地址，2xx/3xx 视为可达） */
-    private static function httpCheck($name, $url, $method = 'GET', $blocking = true) {
+    private static function httpCheck($name, $url, $method = 'GET', $blocking = true, $extraHeaders = array()) {
         if ($url === '') {
             // 已启用但未配置地址 = 阻断项（保存拦截）；未启用场景由调用方先走 skip
             return array('name' => $name, 'ok' => false, 'blocking' => $blocking, 'detail' => '未配置地址');
         }
         try {
-            $resp = HttpClient::request($method, $url, array('timeout' => self::TIMEOUT, 'headers' => array('X-Connectivity-Probe: 1')));
+            $headers = array_merge(array('X-Connectivity-Probe: 1'), (array)$extraHeaders);
+            $resp = HttpClient::request($method, $url, array('timeout' => self::TIMEOUT, 'headers' => $headers));
             $status = (int)$resp['status'];
             $ok = ($status >= 200 && $status < 400);
             return array('name' => $name, 'ok' => $ok, 'blocking' => $blocking && !$ok,
@@ -245,6 +265,23 @@ class ConnectivityTester {
         } catch (Exception $ex) {
             return array('name' => $name, 'ok' => false, 'blocking' => true, 'detail' => '本地端点请求失败：' . $ex->getMessage());
         }
+    }
+
+    /**
+     * 按「鉴权方式 + 值」拼装 DICOMweb 出向请求头（避免手写前缀出错）
+     * @param string $scheme none/bearer/x-api-key/basic/custom
+     * @param string $value  Bearer/API-Key 填 Token 原文；Basic 填 用户名:密码；custom 填 头名: 头值
+     * @return array 请求头行数组
+     */
+    private static function composeAuthHeader($scheme, $value) {
+        $scheme = strtolower(trim((string)$scheme));
+        $value = trim((string)$value);
+        if ($scheme === '' || $scheme === 'none' || $value === '') return array();
+        if ($scheme === 'bearer') return array('Authorization: Bearer ' . $value);
+        if ($scheme === 'x-api-key') return array('X-API-Key: ' . $value);
+        if ($scheme === 'basic') return array('Authorization: Basic ' . base64_encode($value));
+        if ($scheme === 'custom') return array($value);
+        return array();
     }
 
     /** 多组 Token 列表首行 Token（每行「调用方名,Token」） */

@@ -16,7 +16,7 @@ define('DATA_DIR', APP_ROOT . '/data');               // 数据目录（统一�
 define('UPLOAD_DIR', APP_ROOT . '/public/uploads');   // 上传目录（public 内，可被 Web 访问）
 define('API_PATH', APP_ROOT . '/app/api');            // AJAX 接口目录
 define('VIEW_PATH', APP_ROOT . '/app/views');         // 页面视图目录
-define("APP_VERSION", "8.40.0");
+define("APP_VERSION", "8.42.0");
 
 /* ============================================================
  * 数据库驱动配置（多驱动一键切换）
@@ -119,6 +119,14 @@ foreach (glob(__DIR__ . '/../services/*.php') ?: array() as $__svcTop) {
     require_once $__svcTop;
 }
 foreach (glob(__DIR__ . '/../services/*/*.php') ?: array() as $__svcFile) {
+    require_once $__svcFile;
+}
+/* 三级服务子目录（如 services/fhir/adapters/*.php 单资源适配器分治）：
+ * 基类 FhirAdapter 须先加载，再加载各单资源适配器 */
+$__fhirBase = __DIR__ . '/../services/fhir/adapters/FhirAdapter.php';
+if (is_file($__fhirBase)) require_once $__fhirBase;
+foreach (glob(__DIR__ . '/../services/*/*/*.php') ?: array() as $__svcFile) {
+    if ($__svcFile === $__fhirBase) continue;
     require_once $__svcFile;
 }
 

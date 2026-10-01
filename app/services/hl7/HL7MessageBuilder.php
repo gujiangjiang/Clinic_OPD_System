@@ -228,6 +228,11 @@ class HL7MessageBuilder {
         $msa = array('MSA', $ackCode, $ctrl);
         if ($text !== '') $msa[] = $text;
         $ack[] = implode('|', $msa);
+        // 处理失败（AE/AR）附 ERR 段：ERR|^^^<error code>|<error text>
+        if ($ackCode !== 'AA') {
+            $errCode = ($ackCode === 'AR') ? '100' : '207';   // 100=拒绝 207=应用内部错误
+            $ack[] = 'ERR|^^^' . $errCode . '|' . str_replace(array("\r", "\n", '|'), ' ', (string)$text);
+        }
         return implode("\r", $ack);
     }
 }

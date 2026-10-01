@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v8.40.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v8.42.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -113,13 +113,14 @@
 - 医院运营分析（KPI 总览/收入趋势/科室医生统计/自定义维度/转归查询）、查询中心（危急值查询/影像引用查询）、叫号大屏管理
 - **日期范围搜索与跨度钳制**：打印中心/审核中心/危急值/影像引用/患者查询/运营分析均支持日期范围筛选，跨度按业务差异化钳制（危急值 1 个月/打印中心 3 个月/影像引用 6 个月/审核中心与患者查询 1 年/运营分析 1 年），前后端双重防护（超限自动调整并提示）
 - **接口管理（外部集成中心 · 双向两舱架构 v8.38+）**：按系统划分子模块（FHIR R4 / DICOM-PACS / HL7 v2.x / LIS / HIS / 医保·支付 / 存证·签名），每个模块强制划分【出向集成 Outbound（本系统调用外部）】与【入向开放 Inbound（外部调用本系统：只读端点 + 一键复制 + Token/IP 白名单认证）】两舱
-  - **FHIR R4**：出向 Bundle（Patient/Encounter/Condition/MedicationRequest）异向上报（none/basic/bearer/oauth2）；入向 CapabilityStatement / Patient / Encounter 规范调阅（`/api/fhir/r4/*`）
-  - **DICOM/PACS**：DICOMweb（QIDO/WADO/STOW）与 DIMSE（SCU 出向 / SCP 入向监听）双通道 + Web 阅片器模板 `{study_uid}` 变量替换
-  - **HL7 v2.x**：出向 MLLP/HTTP 发送 ADT^A04/A08 与 ORM^O01 并强校验 MSA ACK；入向 MLLP 守护进程（`tools/cli/hl7_mllp_server.php`）与 HTTP 代理接收，解析 ORU^R01 自动回填结果
+  - **FHIR R4**：出向 Bundle（Patient/Encounter/Condition/MedicationRequest）异向上报（none/basic/bearer/oauth2）；入向 CapabilityStatement / Patient / Encounter / Condition / Observation / MedicationRequest / ImagingStudy 规范调阅（`/api/fhir/r4/*`，OAuth2 client_credentials + 静态 Token、Bundle 分页/排序/`_include`、OperationOutcome 错误模型）；资源组装由 `app/services/fhir/adapters/` 单资源适配器分治。联调验证见 [docs/FHIR_HL7_INTEGRATION.md](./docs/FHIR_HL7_INTEGRATION.md)
+  - **DICOM/PACS**：DICOMweb（QIDO/WADO/STOW）与 DIMSE（SCU 出向 / SCP 入向监听）双通道 + Web 阅片器模板 `{study_uid}` 变量替换；入向提供 QIDO-RS / WADO-RS 元数据服务（`/api/dicomweb/*`，Token + IP 白名单 + `pacs:read` Scope）；出向鉴权拆分为「方式（Bearer/API Key/Basic/自定义）+ 值」自动拼装请求头
+  - **HL7 v2.x**：出向 MLLP/HTTP 发送 ADT^A04/A08 与 ORM^O01 并强校验 MSA ACK；入向 MLLP 守护进程（`tools/cli/hl7_mllp_server.php`）与 HTTP 代理接收，解析 ORU^R01（MSH/PID/PV1/OBR/OBX）自动回填结果；命中 OBX-8 异常标志（HH/LL/CRIT/PANIC）或危急值阈值自动写入 `critical_values` 并通知医生，失败回执 `MSA|AE/AR` 附 ERR 段
   - **LIS**：出向检验申请下发；入向 Webhook 验签回调幂等回填（明细/异常标志/报告医生/PDF 附件）
   - **HIS**：出向 REST/SOAP 双驱动适配器 + Outbox 补偿表（`his_sync_tasks` 异步重试，监控面板一键重试与对账）；入向患者建档/基础字典同步
   - **医保·支付**：医保前置机纯出向 + 支付回调入向端点（`/api/cashier/pay-notify/{provider}`）
   - 历史平铺配置键经 `tools/schema/migrate_integration_keys.php` 幂等迁移到 `integration.outbound.*` / `integration.inbound.*` 命名空间，旧键保留向后兼容
+  - **每个接口子 Tab 内置「帮助」教程**：侧边栏底部帮助入口以模态浏览器内嵌打开独立 HTML 教程页（介绍/功能/参数/使用方法/测试/错误码），静态页位于 `public/assets/help/`
 
 ### 诊毕转归与运营分析
 - 诊毕时选择离院方式（自主离院/住院/转院/死亡/其他），非自主离院需填写补充信息（住院病区/接收医院/死亡原因/其他转归），前后端双重校验

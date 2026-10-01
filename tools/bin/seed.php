@@ -75,6 +75,7 @@ function seed_usage() {
   php tools/bin/seed.php --scene="call=2,5:10"       门诊叫号（指定科室与每科室人数）
   php tools/bin/seed.php --scene=dept_call           医技叫号专项（既有就诊开已缴费单）
   php tools/bin/seed.php --scene="dept=lab"          医技精细模式：仅开检验单（lab/exam/prescription/disposal 可组合）
+  php tools/bin/seed.php --scene=fhir                 FHIR/HL7 全链路验证数据（字典 + 3 套旅程）
 
 基础字典模块（可多选，逗号/空格分隔）：
   php tools/bin/seed.php --module=clinic             仅重置机构信息（医院名称/必填机构代码/简介）
@@ -87,6 +88,7 @@ function seed_usage() {
   php tools/bin/seed.php --module=disposal           仅重置处置项目
   php tools/bin/seed.php --module=package            仅重置全院公共套餐（9 组）
   php tools/bin/seed.php --module=template           仅重置全院模板（病历/知情同意书/护理/嘱托/影像报告）
+  php tools/bin/seed.php --module=fhir               FHIR/HL7 全链路验证数据（3 套旅程 + DICOM UID/Series + 危急值）
 
 TXT;
 }
@@ -107,6 +109,7 @@ $moduleMap = array(
     'package'   => array('seeder/PackageSeeder.php',    '全院公共套餐'),
     'template'  => array('seeder/TemplateSeeder.php',   '全院模板'),
     'visit'     => array('seeder/VisitSeeder.php',      '患者就诊链'),
+    'fhir'      => array('seeder/FhirDemoSeeder.php',   'FHIR/HL7 全链路验证数据'),
 );
 if ($modules) {
     $code = 0;
@@ -170,9 +173,10 @@ if (strpos($scene, '=') !== false) {
 }
 
 $scenes = array(
-    'full'        => array('dict+visit',  '完整测试数据（字典 + 患者就诊链）'),
-    'demo'        => array('dict+visit',  '演示环境数据（字典 + 患者就诊链）'),
+    'full'        => array('dict+visit',  '完整测试数据（字典 + 患者就诊链 + FHIR 全链路）'),
+    'demo'        => array('dict+visit',  '演示环境数据（字典 + 患者就诊链 + FHIR 全链路）'),
     'visit'       => array('visit',       '患者就诊链专项'),
+    'fhir'        => array('dict+fhir',   'FHIR/HL7 全链路验证数据（字典 + 3 套旅程）'),
     'call'        => array('queue_visit', '门诊叫号大屏专项'),
     'dept_call'   => array('queue_tech',  '医技叫号专项'),
     'queue_visit' => array('queue_visit', '门诊叫号大屏专项'),
@@ -188,19 +192,26 @@ echo "== 场景：{$scenes[$scene][1]}（{$scene}）==\n";
 list($mode) = $scenes[$scene];
 
 // 全量造数前先做数据库依赖先验探测，缺失时终止避免写入脏数据
-if ($mode === 'dict+visit') {
+if ($mode === 'dict+visit' || $mode === 'dict+fhir') {
     $pfCode = seed_run_script($root . '/seeder/PreflightChecker.php', array('--all'));
     if ($pfCode !== 0) exit($pfCode);
 }
 
 // 字典模块全量（clinic → dept → user → screen → drug → lab → exam → disposal → package → template）
-if ($mode === 'dict+visit') {
+if ($mode === 'dict+visit' || $mode === 'dict+fhir') {
     foreach ($dictModules as $m) {
         echo "== 模块：{$m} ==\n";
         $c = seed_run_script($root . '/' . $moduleMap[$m][0]);
         if ($c !== 0) exit($c);
     }
-    exit(seed_run_script($root . '/seeder/VisitSeeder.php', array('clean', 'days=15')));
+}
+if ($mode === 'dict+visit') {
+    $c = seed_run_script($root . '/seeder/VisitSeeder.php', array('clean', 'days=15'));
+    if ($c !== 0) exit($c);
+    exit(seed_run_script($root . '/seeder/FhirDemoSeeder.php'));
+}
+if ($mode === 'dict+fhir') {
+    exit(seed_run_script($root . '/seeder/FhirDemoSeeder.php'));
 }
 if ($mode === 'visit') {
     exit(seed_run_script($root . '/seeder/VisitSeeder.php', $extraArgs));

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>医保 / 支付 接口帮助</title>
+<link rel="stylesheet" href="/assets/help/help.css">
+</head>
+<body>
+<h1>国家医保 / 聚合支付 <span class="badge">接口帮助</span></h1>
+<div class="lead">医保前置机为纯出向结算接口；支付按小类（微信/支付宝/银行卡/医保卡）独立开关，支付结果回调为入向端点。</div>
+
+<h2>1. 支付小类</h2>
+<table>
+<tr><th>小类</th><th>方向</th><th>关键配置</th></tr>
+<tr><td>医保卡</td><td>出向</td><td>医保前置机地址、定点机构编号、接口密钥</td></tr>
+<tr><td>微信支付</td><td>出向 + 回调</td><td>商户号、AppID、API 密钥</td></tr>
+<tr><td>支付宝</td><td>出向 + 回调</td><td>AppID、应用私钥、支付宝公钥</td></tr>
+<tr><td>银行卡</td><td>演示</td><td>POS 终端号、收单商户号</td></tr>
+</table>
+<div class="tip">各小类独立保存、互不影响；收费端未启用的支付方式自动置灰。</div>
+
+<h2>2. 支付结果回调（入向）</h2>
+<p>端点：<code>POST /api/cashier/pay-notify/{provider}</code>（provider = <code>wechat</code> / <code>alipay</code> / <code>unionpay</code>），由支付平台验签后应答。</p>
+
+<h2>3. 测试方法</h2>
+<p>在「状态总览 → 连通性测试」按当前表单值探测医保前置机可达性与回调端点。医保卡支付需在收费端选择「医保卡」完成结算。</p>
+<div class="warn">医保/支付涉及资金，正式环境请使用平台正式密钥并在专用网络内运行。</div>
+</body>
+</html>

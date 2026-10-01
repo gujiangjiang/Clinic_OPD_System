@@ -178,12 +178,23 @@ function admin_part_settings($action) {
             foreach ($zoneFieldsSave as $zf) {
                 if ($zf['key'] === $enabledField) continue;
                 if (isset($zf['type']) && $zf['type'] === 'select') continue;
+                if (!empty($zf['optional'])) continue;   // 标记可选的字段不参与必填校验
                 if (!isset($testVals[$zf['key']]) || trim((string)$testVals[$zf['key']]) === '') {
                     $missing[] = $zf['label'];
                 }
             }
             if ($missing) {
                 json_fail('保存失败：已启用但必填项为空（' . implode('、', $missing) . '），请填写完整后再保存');
+            }
+        }
+        // 分组专项校验：启用入向开放时至少需配置一种凭证（长期静态 Token 或 OAuth2 客户端），
+        // 否则受保护端点将无法鉴权（杜绝误存为无凭证开放）。
+        if ($group['id'] === 'fhir' && $zone === 'inbound'
+            && isset($testVals['integration.inbound.fhir.enabled']) && $testVals['integration.inbound.fhir.enabled'] === '1') {
+            $hasStatic = isset($testVals['integration.inbound.fhir.allowed_tokens']) && trim((string)$testVals['integration.inbound.fhir.allowed_tokens']) !== '';
+            $hasOauth = isset($testVals['integration.inbound.fhir.oauth_clients']) && trim((string)$testVals['integration.inbound.fhir.oauth_clients']) !== '';
+            if (!$hasStatic && !$hasOauth) {
+                json_fail('保存失败：启用入向开放后，请至少配置一种凭证（长期静态 Token 或 OAuth2 客户端）');
             }
         }
         // 保存前自动连通性测试：存在阻断项（已启用但必填缺失/远端不可达）则拒绝保存；

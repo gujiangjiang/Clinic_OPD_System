@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LIS 检验接口帮助</title>
+<link rel="stylesheet" href="/assets/help/help.css">
+</head>
+<body>
+<h1>LIS 实验室检验双向闭环 <span class="badge">接口帮助</span></h1>
+<div class="lead">出向下发检验申请；入向接收检验中心异步 Webhook 报告回调，验签后按申请单号幂等回填明细与报告。</div>
+
+<div class="toc"><a href="#out">1. 出向申请下发</a><a href="#in">2. 入向报告回调</a><a href="#test">3. 测试</a></div>
+
+<h2 id="out">1. 出向申请下发</h2>
+<ul>
+<li><b>启用申请下发</b>：开启后检验开单自动推送。</li>
+<li><b>LIS 接收申请 API</b>：目标地址；<b>调用凭证 Token</b>：请求携带 <code>X-LIS-Token</code>。</li>
+</ul>
+
+<h2 id="in">2. 入向报告回调</h2>
+<ul>
+<li><b>Webhook 验签密钥</b>：回调方须携带 <code>X-LIS-Token: &lt;密钥&gt;</code>（或 <code>?token=</code>）。点「生成密钥」自动生成。留空 = 拒绝全部回调。</li>
+<li><b>验签密钥过期时间 / 状态 / Scope</b>：生命周期与权限控制（Scope 需包含 <code>report:write</code>）。</li>
+<li><b>IP 白名单</b>：建议限定检验中心出口 IP。</li>
+</ul>
+<p>回调 JSON：</p>
+<pre><code>{
+  "order_no": "JY2026100114224692",
+  "report_doctor": "李检验",
+  "pdf_url": "http://lis/reports/1.pdf",
+  "items": [
+    { "name": "白细胞计数(WBC)", "value": "12.3", "unit": "10^9/L", "ref_range": "3.5-9.5", "flag": "H" }
+  ]
+}</code></pre>
+
+<h2 id="test">3. 测试方法</h2>
+<pre><code>curl -X POST http://127.0.0.1:8000/api/external/lis/callback \
+  -H "X-LIS-Token: &lt;验签密钥&gt;" -H "Content-Type: application/json" \
+  -d '{"order_no":"JY2026100114224692","items":[{"name":"白细胞计数(WBC)","value":"12.3","unit":"10^9/L","ref_range":"3.5-9.5","flag":"H"}]}'</code></pre>
+<p>成功返回 <code>{"ok":true,...}</code>；Token 无效返回 401；缺少 Scope 返回 403。</p>
+<div class="tip">同一报告重复推送执行覆盖性更新（幂等），不会重复插入。</div>
+</body>
+</html>

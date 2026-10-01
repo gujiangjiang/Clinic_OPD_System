@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HL7 v2 接口帮助</title>
+<link rel="stylesheet" href="/assets/help/help.css">
+</head>
+<body>
+<h1>HL7 v2.x 消息通信 <span class="badge">接口帮助</span></h1>
+<div class="lead">HL7 v2.x 消息通道：出向发送 ADT/ORM 并校验 ACK；入向通过 MLLP 守护进程或 HTTP 代理接收 ORU^R01 结果并自动回填。</div>
+
+<div class="toc">
+  <a href="#intro">1. 介绍</a>
+  <a href="#out">2. 出向</a>
+  <a href="#in">3. 入向</a>
+  <a href="#oru">4. ORU 报文与危急值</a>
+  <a href="#test">5. 测试</a>
+</div>
+
+<h2 id="intro">1. 介绍</h2>
+<p>HL7 v2 是检验/检查设备与 HIS/LIS 之间最常用的消息标准。本系统入向解析后自动把结果写入检验报告，并对危急值触发闭环。</p>
+<table>
+<tr><th>消息</th><th>方向</th><th>用途</th></tr>
+<tr><td>ADT^A04 / A08</td><td>出向</td><td>患者建档 / 信息更新</td></tr>
+<tr><td>ORM^O01</td><td>出向</td><td>处方 / 检查 / 检验开单</td></tr>
+<tr><td>ORU^R01</td><td>入向</td><td>观察结果回传（检验报告）</td></tr>
+<tr><td>ACK</td><td>入向应答</td><td>MSA|AA 成功 / AE 应用错误 / AR 拒绝（附 ERR）</td></tr>
+</table>
+
+<h2 id="out">2. 出向配置</h2>
+<ul>
+<li><b>传输通道</b>：MLLP over TCP（默认，双闭环 ACK）或 HTTP(S) POST。</li>
+<li><b>远端主机 / 端口 / 超时</b>：目标 HL7 服务地址。</li>
+<li><b>MSH-3 ~ MSH-6</b>：发送应用/机构、接收应用/机构。</li>
+</ul>
+
+<h2 id="in">3. 入向配置</h2>
+<ul>
+<li><b>MLLP 本地监听端口</b>：守护进程 <code>tools/cli/hl7_mllp_server.php</code> 监听端口（默认 2575）。启动：<code>php tools/cli/hl7_mllp_server.php</code>。</li>
+<li><b>HTTP 代理鉴权 Token</b>（可选）：HTTP 代理端点 <code>POST /api/external/hl7/receiver</code> 的 Token；留空则仅校验 IP 白名单。Token 原文作为 <code>X-HL7-Token</code> 或 <code>Bearer</code>。</li>
+<li><b>IP 白名单</b>：MLLP 与 HTTP 代理共用。</li>
+</ul>
+
+<h2 id="oru">4. ORU^R01 报文与危急值闭环</h2>
+<p>报文段：<code>MSH</code>、<code>PID</code>、<code>PV1</code>、<code>OBR</code>（申请单）、<code>OBX</code>（结果项）。系统按 <code>OBR-2</code> 申请单号回填结果；当 <code>OBX-8</code> 异常标志为 <code>HH/LL/CRIT/PANIC</code> 或数值越过项目危急值上下限时，自动写入危急值流水并通知接诊医生。</p>
+
+<h2 id="test">5. 测试方法</h2>
+<p><b>MLLP（nc / netcat）：</b>（帧以 0x0B 起、0x1C 0x0D 止）</p>
+<pre><code>{
+  printf '\x0B'
+  printf 'MSH|^~\\&|LIS|LAB|CLINIC|HOSP|20261001150000||ORU^R01|MSG00042|P|2.4\r'
+  printf 'PID|1||FHD0002||李娜||19860322|F\r'
+  printf 'OBR|1|JY2026100114224692|9001|肝功能^肝功能\r'
+  printf 'OBX|1|NM|ALT^谷丙转氨酶(ALT)||500|U/L|7-40|HH|||F\r'
+  printf '\x1C\x0D'
+} | nc 127.0.0.1 2575</code></pre>
+<p>预期 ACK：<code>MSA|AA|MSG00042|已回填 1 项检验结果；已触发 1 条危急值流转</code></p>
+<p><b>HTTP 代理：</b></p>
+<pre><code>curl -X POST http://127.0.0.1:8000/api/external/hl7/receiver \
+  -H "X-HL7-Token: &lt;Token&gt;" -H "Content-Type: text/plain" \
+  --data-binary $'MSH|^~\\&|LIS|LAB|CLINIC|HOSP|20261001150000||ORU^R01|M1|P|2.4\rPID|1||FHD0002\rOBR|1|JY...\rOBX|1|NM|ALT^谷丙转氨酶(ALT)||500|U/L|7-40|HH|||F'</code></pre>
+<div class="tip">失败时返回 <code>MSA|AE|...</code>（应用错误）或 <code>MSA|AR|...</code>（缺 MSH 等拒绝），并附 <code>ERR</code> 段说明原因。</div>
+</body>
+</html>

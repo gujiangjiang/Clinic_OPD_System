@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DICOM / PACS 接口帮助</title>
+<link rel="stylesheet" href="/assets/help/help.css">
+</head>
+<body>
+<h1>DICOM / PACS 影像互联 <span class="badge">接口帮助</span></h1>
+<div class="lead">支持两种通道：DICOMweb（HTTP RESTful，推荐）与传统 DIMSE（TCP）。本系统可出向调阅 PACS，也可入向作为轻量 DICOMweb 服务供 PACS 浏览器联调。</div>
+
+<div class="toc">
+  <a href="#intro">1. 介绍</a>
+  <a href="#out">2. 出向配置</a>
+  <a href="#auth">3. 鉴权怎么填</a>
+  <a href="#in">4. 入向 DICOMweb</a>
+  <a href="#test">5. 测试方法</a>
+  <a href="#faq">6. 常见问题</a>
+</div>
+
+<h2 id="intro">1. 介绍</h2>
+<table>
+<tr><th>协议</th><th>特点</th></tr>
+<tr><td>DICOMweb</td><td>基于 HTTP 的 DICOM：QIDO-RS 检索、WADO-RS 调阅、STOW-RS 上传，便于与 Web 阅片器/云 PACS 集成。</td></tr>
+<tr><td>DIMSE</td><td>传统 TCP DICOM（C-STORE / C-MOVE），通常由 PACS 前置网关承载监听端口。</td></tr>
+</table>
+<div class="tip">本系统只存储影像「引用与元数据」（Study/Series UID、modality、张数、存储区 region），不存影像二进制。</div>
+
+<h2 id="out">2. 出向配置（本系统调阅外部 PACS）</h2>
+<ul>
+<li><b>协议通道</b>：选择 DICOMweb 或 DIMSE。</li>
+<li><b>QIDO-RS 检索端点</b>：如 <code>http://pacs.hospital.local/dicomweb/studies</code></li>
+<li><b>WADO-RS 调阅端点</b>：如 <code>.../dicomweb/studies/{study_uid}/series</code></li>
+<li><b>STOW-RS 上传端点</b>：如 <code>.../dicomweb/studies</code></li>
+<li><b>Web 阅片器 URL 模板</b>：支持 <code>{study_uid}</code> 变量，如 <code>https://viewer/viewer?study={study_uid}</code></li>
+</ul>
+
+<h2 id="auth">3. 鉴权怎么填（重点）</h2>
+<p>出向 DICOMweb 的鉴权拆成两部分，避免手写请求头出错：</p>
+<ul>
+<li><b>鉴权方式（下拉）</b>：无鉴权 / Bearer Token / API Key / Basic Auth / 自定义头。</li>
+<li><b>鉴权值（输入框）</b>：只填「值」，系统自动拼装为正确请求头。</li>
+</ul>
+<table>
+<tr><th>鉴权方式</th><th>鉴权值填什么</th><th>实际发出的请求头</th></tr>
+<tr><td>Bearer Token</td><td>Token 原文，如 <code>304f90c69fae2b47</code></td><td><code>Authorization: Bearer 304f90c69fae2b47</code></td></tr>
+<tr><td>API Key</td><td>Key 原文，如 <code>304f90c69fae2b47</code></td><td><code>X-API-Key: 304f90c69fae2b47</code></td></tr>
+<tr><td>Basic Auth</td><td><code>用户名:密码</code></td><td><code>Authorization: Basic &lt;base64(用户名:密码)&gt;</code></td></tr>
+<tr><td>自定义头</td><td><code>头名: 头值</code></td><td>原样发送该头</td></tr>
+</table>
+<div class="warn">不要再填 <code>Bearer: xxx</code>、<code>X-API-Key: xxx</code>（带冒号）或带前缀的整段字符串——这些都是错误的；只在下拉里选择方式、在输入框里填纯值即可。</div>
+
+<h2 id="in">4. 入向 DICOMweb（供 PACS 浏览器调阅本系统）</h2>
+<p>开启「启用入向 DICOMweb」并配置 Token 后，本系统对外提供：</p>
+<table>
+<tr><th>方法</th><th>路径</th><th>说明</th></tr>
+<tr><td>GET</td><td><code>/api/dicomweb/studies</code></td><td>QIDO-RS 检查检索，参数 <code>PatientID</code> / <code>StudyInstanceUID</code> / <code>Modality</code> / <code>StudyDate</code></td></tr>
+<tr><td>GET</td><td><code>/api/dicomweb/studies/{studyUID}/series</code></td><td>序列检索</td></tr>
+<tr><td>GET</td><td><code>/api/dicomweb/studies/{studyUID}/metadata</code></td><td>WADO-RS 实例元数据（DICOM JSON，不含像素）</td></tr>
+</table>
+<p>入向 Token 与 FHIR 一致：请求头 <code>X-API-Key: &lt;Token&gt;</code> 或 <code>Authorization: Bearer &lt;Token&gt;</code>，只填纯 Token。</p>
+
+<h2 id="test">5. 测试方法</h2>
+<pre><code># 出向：在「状态总览 → 连通性测试」按当前配置探测 QIDO/WADO/STOW 可达性
+
+# 入向 QIDO-RS 检索
+curl -H "X-API-Key: &lt;你的入向Token&gt;" \
+  "http://127.0.0.1:8000/api/dicomweb/studies?PatientID=FHD0001"
+
+# 入向 序列检索（先从上一步取 StudyInstanceUID）
+curl -H "X-API-Key: &lt;你的入向Token&gt;" \
+  "http://127.0.0.1:8000/api/dicomweb/studies/&lt;StudyUID&gt;/series"
+
+# 入向 元数据
+curl -H "Authorization: Bearer &lt;你的入向Token&gt;" \
+  "http://127.0.0.1:8000/api/dicomweb/studies/&lt;StudyUID&gt;/metadata"</code></pre>
+<div class="ok">若使用本项目的「模拟 Web PACS 影像浏览器」，可在其数据源配置里填写本系统的 QIDO/WADO 地址与入向 Token 完成联调。</div>
+
+<h2 id="faq">6. 常见问题</h2>
+<ul>
+<li><b>一直提示 token 错误</b>：确认是「值」而不是整段头；确认 Token 与系统配置一致；确认来源 IP 在白名单内。</li>
+<li><b>QIDO 无结果</b>：确认该患者已登记影像引用（检查报告出具后自动登记）；</li>
+<li><b>DIMSE 端口连不上</b>：本系统不直接起 TCP 监听，需由 Orthanc/dcm4chee 等前置网关承载。</li>
+</ul>
+</body>
+</html>

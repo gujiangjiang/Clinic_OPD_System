@@ -176,6 +176,7 @@ function itg_status_rows($g, $vals) {
             <?php if ($g['id'] === 'his'): ?>
             <div class="db-nav" data-itgpan="monitor" onclick="itgSideTab('<?php echo e($g['id']); ?>','monitor')"><?= render_icon('nav:chart') ?> <?php echo e($znav('monitor')); ?></div>
             <?php endif; ?>
+            <div class="db-nav itg-nav-help" data-itgpan="help" onclick="itgHelp('<?php echo e($g['id']); ?>')"><?= render_icon('action:idea') ?> 帮助</div>
         </div>
         <div class="db-main">
 
@@ -205,6 +206,9 @@ function itg_status_rows($g, $vals) {
                     <?php foreach ($zoneFields[$zKey] as $f): ?>
                         <?php render_itg_field($f, $vals); ?>
                     <?php endforeach; ?>
+                    <?php if ($paneSuffix === 'inbound' && $hasEndpoints): ?>
+                        <?php render_itg_endpoints($g, $baseHost); ?>
+                    <?php endif; ?>
                     <div class="flex" style="gap:8px;margin-top:14px">
                         <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>','<?php echo e($paneSuffix); ?>')">保存<?php echo e($znav($z)); ?></button>
                     </div>
@@ -216,32 +220,7 @@ function itg_status_rows($g, $vals) {
             <div class="db-pane" id="itgpan_<?php echo e($g['id']); ?>_inbound" style="display:none">
                 <div class="card setting-card">
                     <div class="card-title"><?= render_icon('action:link') ?> <?php echo e($znav('inbound')); ?></div>
-                    <div class="form-group">
-                        <label class="form-label">对外暴露端点（只读，点击复制）</label>
-                        <?php foreach ($g['endpoints'] as $ep): ?>
-                            <?php if (!empty($ep['path'])): ?>
-                            <div class="itg-ep">
-                                <div class="itg-ep-head">
-                                    <?php if (!empty($ep['method'])): ?><span class="badge badge-success"><?php echo e($ep['method']); ?></span><?php endif; ?>
-                                    <span class="fs-13 fw-600"><?php echo e($ep['label']); ?></span>
-                                </div>
-                                <div class="flex" style="gap:8px">
-                                    <code class="itg-ep-url" title="点击复制" style="cursor:pointer" onclick="itgCopy(this.textContent.trim())"><?php echo e($baseHost . $ep['path']); ?></code>
-                                    <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="itgCopy('<?php echo e($baseHost . $ep['path']); ?>')">复制</button>
-                                </div>
-                                <div class="fs-12 text-muted mt-4"><?php echo e($ep['note']); ?></div>
-                                <?php if (!empty($ep['example'])): ?>
-                                    <div class="itg-ep-example fs-12 mt-4"><?php echo e($ep['example']); ?></div>
-                                <?php endif; ?>
-                            </div>
-                            <?php else: ?>
-                            <div class="itg-ep">
-                                <div class="itg-ep-head"><span class="fs-13 fw-600"><?php echo e($ep['label']); ?></span></div>
-                                <div class="fs-12 text-muted mt-4"><?php echo e($ep['note']); ?></div>
-                            </div>
-                            <?php endif; ?>
-                        <?php endforeach; ?>
-                    </div>
+                    <?php render_itg_endpoints($g, $baseHost); ?>
                 </div>
             </div>
             <?php endif; ?>
@@ -294,6 +273,40 @@ function itg_status_rows($g, $vals) {
 
 <?php
 /**
+ * 对外暴露端点渲染（只读 + 一键复制完整 URL；含方法徽章/说明/示例）
+ * @param array  $g        接口分组定义
+ * @param string $baseHost 站点基地址
+ */
+function render_itg_endpoints($g, $baseHost) {
+    if (empty($g['endpoints'])) return;
+    echo '<div class="itg-ep-block">';
+    echo '<div class="itg-ep-block-title">' . render_icon('action:link') . ' 对外暴露端点（只读，点击链接或「复制」按钮复制完整地址）</div>';
+    foreach ($g['endpoints'] as $ep) {
+        if (!empty($ep['path'])) {
+            $full = $baseHost . $ep['path'];
+            echo '<div class="itg-ep">';
+            echo '<div class="itg-ep-head">';
+            if (!empty($ep['method'])) echo '<span class="badge badge-success">' . e($ep['method']) . '</span>';
+            echo '<span class="fs-13 fw-600">' . e($ep['label']) . '</span>';
+            echo '</div>';
+            echo '<div class="flex" style="gap:8px">';
+            echo '<code class="itg-ep-url" title="点击复制" style="cursor:pointer" onclick="itgCopy(this.textContent.trim())">' . e($full) . '</code>';
+            echo '<button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="itgCopy(' . "'" . e($full) . "'" . ')">' . render_icon('action:check') . ' 复制</button>';
+            echo '</div>';
+            if (!empty($ep['note'])) echo '<div class="fs-12 text-muted mt-4">' . e($ep['note']) . '</div>';
+            if (!empty($ep['example'])) echo '<div class="itg-ep-example fs-12 mt-4">' . e($ep['example']) . '</div>';
+            echo '</div>';
+        } else {
+            echo '<div class="itg-ep">';
+            echo '<div class="itg-ep-head"><span class="fs-13 fw-600">' . e($ep['label']) . '</span></div>';
+            if (!empty($ep['note'])) echo '<div class="fs-12 text-muted mt-4">' . e($ep['note']) . '</div>';
+            echo '</div>';
+        }
+    }
+    echo '</div>';
+}
+
+/**
  * 字段渲染助手（input / select / textarea + show_if 联动）
  * @param array $f    字段定义
  * @param array $vals 当前值表
@@ -306,7 +319,8 @@ function render_itg_field($f, $vals) {
     $isPort = isset($f['rule']) && $f['rule'] === 'port';
     echo '<div class="form-group"' . $showIf . '>';
     echo '<label class="form-label">' . e($f['label']);
-    if (!empty($f['monospace'])) echo ' <span class="fs-12 text-muted" style="font-weight:400">（建议保密，勿外传）</span>';
+    if (!empty($f['optional'])) echo ' <span class="fs-12 text-muted" style="font-weight:400">（可选）</span>';
+    elseif (!empty($f['monospace'])) echo ' <span class="fs-12 text-muted" style="font-weight:400">（建议保密，勿外传）</span>';
     echo '</label>';
     if (isset($f['type']) && $f['type'] === 'select') {
         echo '<select class="select" id="itg_' . e($key) . '">';
@@ -316,7 +330,8 @@ function render_itg_field($f, $vals) {
         echo '</select>';
     } elseif (isset($f['type']) && $f['type'] === 'textarea') {
         $gen = isset($f['gen']) ? $f['gen'] : '';
-        $genBtn = $gen !== '' ? '<button type="button" class="btn btn-outline btn-sm itg-gen-btn" onclick="itgGen(\'itg_' . e($key) . '\',\'' . e($gen) . '\')">' . render_icon('nav:key') . ' ' . ($gen === 'tokenline' ? '追加 Token' : '生成') . '</button>' : '';
+        $genLabel = ($gen === 'oauthclient') ? '追加客户端' : '追加 Token';
+        $genBtn = $gen !== '' ? '<button type="button" class="btn btn-outline btn-sm itg-gen-btn" onclick="itgGen(\'itg_' . e($key) . '\',\'' . e($gen) . '\')">' . render_icon('nav:key') . ' ' . $genLabel . '</button>' : '';
         echo '<div style="position:relative">';
         echo '<textarea class="input" id="itg_' . e($key) . '" rows="3" placeholder="' . e(isset($f['placeholder']) ? $f['placeholder'] : '') . '" style="font-family:monospace;padding-right:' . ($gen !== '' ? '110px' : '0') . '">' . e($val) . '</textarea>';
         if ($genBtn !== '') echo '<span style="position:absolute;right:6px;top:6px">' . $genBtn . '</span>';
@@ -508,16 +523,42 @@ function itgGen(fieldId, type) {
         (window.crypto || window.msCrypto).getRandomValues(arr);
         return Array.prototype.map.call(arr, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
     };
+    var appendLine = function (line) {
+        var cur = (el.value || '').replace(/\s+$/, '');
+        el.value = (cur === '' ? '' : cur + '\n') + line;
+    };
     if (type === 'tokenline') {
-        // Token 列表：追加一行「调用方名称,随机Token」
-        var cnt = (el.value || '').split('\n').filter(function (l) { return l.trim() !== ''; }).length + 1;
-        var line = '调用方' + cnt + ',' + rnd(16);
-        el.value = ((el.value || '').replace(/\s+$/, '') === '' ? '' : el.value.replace(/\s+$/, '') + '\n') + line;
+        // 长期静态 Token 列表：追加一行完整 5 段「名称,Token,,1,system/*.read」
+        var n1 = (el.value || '').split('\n').filter(function (l) { return l.trim() !== ''; }).length + 1;
+        appendLine('调用方' + n1 + ',' + rnd(16) + ',,1,system/*.read');
+    } else if (type === 'oauthclient') {
+        // OAuth2 客户端列表：追加一行「clientN,Secret,Scope」
+        var n2 = (el.value || '').split('\n').filter(function (l) { return l.trim() !== ''; }).length + 1;
+        appendLine('client' + n2 + ',' + rnd(16) + ',system/*.read');
     } else {
-        el.value = rnd(16);
+        el.value = rnd(32);
     }
     if (fieldId === 'itg_integration.inbound.his.token') renderHisTokenLive();
     Clinic.toast.success('已生成，请保存本组配置生效');
+}
+
+/* ---------- 帮助浏览器（每个接口子模块独立 HTML 帮助页，iframe 内嵌查看） ---------- */
+var ITG_HELP_TITLE = { fhir: 'FHIR R4', pacs: 'DICOM / PACS', hl7: 'HL7 v2', lis: 'LIS 检验', his: 'HIS 接口', insurance: '医保 / 支付', evid: '存证 / 签名' };
+function itgHelp(groupId) {
+    var url = '/assets/help/integration-' + groupId + '.html';
+    var title = '接口帮助：' + (ITG_HELP_TITLE[groupId] || groupId);
+    var html = '<div class="itg-help-bar">' +
+        '<span>帮助文档</span>' +
+        '<span class="itg-help-url">' + url + '</span>' +
+        '<button type="button" class="btn btn-outline btn-sm" onclick="window.open(\'' + url + '\',\'' + '_blank' + '\')"><?= render_icon("action:launch") ?> 新窗口打开</button>' +
+        '</div>' +
+        '<iframe class="itg-help-frame" src="' + url + '" loading="lazy"></iframe>';
+    Clinic.modal.open(html, {
+        title: title,
+        size: 'modal-xl',
+        buttons: [{ text: '关闭', cls: 'btn-outline' }],
+    });
+    // 帮助为只读查看项：不切换导航高亮（保留当前页签）
 }
 function renderHisTokenLive() {
     var el = document.getElementById('itg_integration.inbound.his.token');

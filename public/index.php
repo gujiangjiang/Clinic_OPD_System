@@ -110,6 +110,7 @@ function api_route_file($apiName) {
         // 外部集成入向
         'external' => 'integration/external.php',
         'fhir' => 'integration/fhir.php',
+        'dicomweb' => 'integration/dicomweb.php',
         // 系统级
         'install' => 'system/install.php',
         'migration' => 'system/migration.php',

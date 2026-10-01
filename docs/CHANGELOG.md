@@ -13,6 +13,53 @@
 
 ---
 
+## [8.42.0] - 2026-10-01
+
+### 新增
+- **DICOMweb 入向服务（QIDO-RS / WADO-RS 元数据）**：新增 `app/api/integration/dicomweb.php`，路由 `/api/dicomweb/*`——`GET /studies`（QIDO-RS 检查检索，支持 PatientID/StudyInstanceUID/Modality/StudyDate/limit/offset）、`/studies/{uid}`、`/studies/{uid}/series`、`/studies/{uid}/series/{uid}`、`/studies/{uid}/metadata`（WADO-RS 实例元数据，DICOM JSON），数据源为 `imaging_refs`（三单匹配影像引用）；鉴权经 InboundGuard（启用开关 + Token + IP 白名单 + `pacs:read` Scope）；响应 `application/dicom+json`。供 PACS 浏览器/区域影像平台直接调阅。
+- **接口管理每个子模块独立帮助页**：7 个接口子 Tab（FHIR/DICOM-PACS/HL7/LIS/HIS/医保支付/存证）侧边栏底部新增「帮助」入口，点击以模态「浏览器」内嵌查看对应独立 HTML 教程页（介绍/功能/参数/使用方法/测试方法/错误码），并支持新窗口打开。帮助页位于 `public/assets/help/integration-*.html`（共享 `help.css`）。
+- **DICOMweb 出向鉴权拆分为「方式 + 值」**：PACS 出向 DICOMweb 由原单一 `http_auth_header` 重构为「鉴权方式」下拉（无鉴权/Bearer/API Key/Basic/自定义头）+「鉴权值」输入框，系统按方式自动拼装正确请求头（连接性测试同步携带），杜绝手写 `Bearer:`/`X-API-Key:` 前缀出错。
+- **接口管理帮助文档与端点一键复制补全**：修复入向页签端点在「存在 inbound 配置区」时不再渲染的问题，所有模块（FHIR/PACS/HL7/LIS/HIS/医保）的对外暴露端点均在同一入向页内完整展示并可一键复制完整 URL；补齐 DICOMweb 三端点与 FHIR 全资源端点说明。
+
+### 修复
+- **FHIR 入向 IP 白名单未生效**：`fhir.php` 受保护资源端点补齐 IP 白名单校验（配置后仅白名单来源可访问；`/metadata`、`/oauth/token` 维持免认证）。
+- **X-API-Key 请求头未被识别**：`InboundGuard::providedToken()` 补齐 `X-API-Key` 解析，FHIR/DICOMweb/HIS 等入向端点现同时支持 `Authorization: Bearer` 与 `X-API-Key`（此前仅 Bearer / `X-*-Token` 生效）。
+- **入向凭证生成语义与格式矫正**：静态 Token 列表「追加 Token」生成完整 5 段（名称,Token,,1,system/*.read）；OAuth2 客户端列表「追加客户端」生成（client_id,client_secret,system/*.read）；令牌签名密钥新增「生成密钥」按钮并注明留空时自动生成。
+- **启用即必填导致无法保存**：为 FHIR OAuth 客户端/签名密钥/静态 Token/IP 白名单、PACS 鉴权值/过期时间/Scope 等可选字段新增 `optional` 标记，不再被「已启用必填」校验阻断；改为专项校验「启用入向开放时至少配置一种入向凭证」。
+- **连通性测试**：FHIR 入向凭证校验改为「静态 Token 或 OAuth2 客户端至少其一」，PACS 增加 DICOMweb 入向本地端点自检与出向鉴权头携带。
+
+### 变更
+- **接口管理字段字典**：PACS 新增入向 DICOMweb 开关/Token/过期/状态/Scope/IP 白名单字段与三端点；FHIR 入向静态 Token、OAuth2 客户端、签名密钥、IP 白名单标注为可选并完善提示。
+- **状态总览**：正确反映 PACS 入向 DICOMweb 启用状态与凭证配置情况。
+
+### 文档
+- 新增 7 份接口帮助页（`public/assets/help/`）；README 徽章、`bootstrap.php APP_VERSION`、`package.json`、`AGENTS.md` 基准版本同步至 v8.42.0。
+
+---
+
+## [8.41.0] - 2026-10-01
+
+### 新增
+- **FHIR R4 资源适配器分治体系（`app/services/fhir/adapters/`）**：新增 `FhirAdapter` 基类（Identifier/Coding/时间 ISO8601/分页排序/`_include` 解析等公共工具，全部空值容错）与 6 个单资源适配器：`PatientAdapter`、`EncounterAdapter`、`ConditionAdapter`、`ObservationAdapter`、`MedicationRequestAdapter`、`ImagingStudyAdapter`；`FhirService` 退化为调度层（CapabilityStatement/单资源 read/集合 search/OperationOutcome/OAuth2 令牌），不再堆积资源转换逻辑。
+- **ImagingStudy 资源与 PACS 联调**：映射 `imaging_refs` + 影像报告，支持 `_id`/`patient`/`subject`/`identifier`（DICOM StudyInstanceUID，`system=urn:dicom:uid`）/`modality`/`started` 检索；输出 `status`/`subject`/`modality`/`numberOfSeries`/`numberOfInstances`/`series[]`（Series UID + modality + description）/可选 `endpoint` 及所见结论。
+- **FHIR 标准行为补齐**：统一 `Content-Type: application/fhir+json; charset=utf-8` 与 CORS 头（`Access-Control-Allow-Origin` / `Allow-Headers`）；集合检索返回 `searchset` Bundle（`total`/`link[self|next]`/`entry`），支持 `_count`（默认 20/上限 200）、`_page`/`_offset`、`_sort`、`_include`（Encounter:patient / ImagingStudy:patient 合并患者）；未识别查询参数静默忽略；非 2xx 统一 `OperationOutcome`（invalid/not-found/forbidden/security/exception）。
+- **FHIR OAuth2 / SMART-on-FHIR 鉴权**：新增 `POST /api/fhir/oauth/token`（`grant_type=client_credentials`，HMAC-SHA256 自包含令牌，`expires_in=7200`，返回 `scope`）；受保护端点同时支持 `Authorization: Bearer` 与 `X-API-Key`，并兼容系统设置的长期静态 Token；缺少/无效返回 401 + `WWW-Authenticate: Bearer error="invalid_token"`，Scope 不足返回 403。`CapabilityStatement`（`/metadata` 免认证）如实声明资源/交互/搜索参数，`security` 节点含 SMART-on-FHIR 扩展与 Token 端点。
+- **HL7 MLLP 结果与危急值闭环**：`HL7MessageParser::oruExtract` 完整解析 MSH/PID/PV1/OBR/OBX（数值/单位/参考范围/OBX-8 异常标志/OBX-11 状态）；新增 `HL7InboundService`（HTTP 代理与 MLLP 守护进程共用）按申请单号幂等回填检验结果并出报告，命中 OBX-8 `HH/LL/CRIT/PANIC` 或 `lab_items` 危急值阈值时自动写入 `critical_values` 流水并通知接诊医生；失败回执 `MSA|AE/AR` 附 `ERR` 段。
+- **开放网关安全加固（InboundGuard）**：`authorize()` 统一收口启用开关 → IP 白名单（CIDR）→ API Key/Secret 生命周期（过期时间 `_expires_at` / 启用状态 `_enabled` / 列表行扩展字段）→ 粒度化 Scope 隔离（`patient:read`、`patient:sync`、`report:query`、`report:write`、`catalog:sync` 等，通配 `*` / `system/*.read`），`external.php` 全部接口经网关校验，无权限统一 403、无效凭证 401，杜绝单一密钥全接口越权。
+- **FHIR/HL7 全链路验证种子**：新增 `tools/seeder/FhirDemoSeeder.php`（`--module=fhir` / `--scene=fhir`，并纳入 `--all`），生成 3 套确定性、幂等可重跑的完整门诊旅程：患者建档 → 挂号接诊 Encounter → ICD-10 诊断 Condition → 处方 MedicationRequest → 影像检查报告 + 真实 DICOM StudyInstanceUID/Series 明细 ImagingStudy → 检验结果 Observation（含 2 套危急值 `critical_values`），并自动写入演示 OAuth/静态 Token 与各模块 Scope 凭证。
+- **验证手册**：新增 `docs/FHIR_HL7_INTEGRATION.md`，提供 OAuth2 取令牌、Patient/ImagingStudy/Encounter/Observation 读取与多条件检索（含 `_include`）、ORU^R01 MLLP 测试命令、401/403 异常拦截验证用例。
+
+### 变更
+- **`integration_field_groups()` FHIR/HL7 字段与端点**：FHIR 入向新增 OAuth2 客户端列表、令牌签名密钥，静态 Token 列表扩展为「名称,Token,过期时间,启用,Scope」；HL7 入向新增 HTTP 代理鉴权 Token；LIS/HIS 入向新增凭证过期时间/启用状态/Scope 元数据字段。
+
+### 安全
+- **入向凭证生命周期与最小权限**：API Key/Secret 支持过期与禁用即时生效；各开放接口按 Scope 最小化授权，未授权访问返回 403 并写入 `inbound_events` 审计。
+
+### 文档
+- README 徽章、`bootstrap.php APP_VERSION`、`package.json` 同步至 v8.41.0；新增《FHIR/HL7 集成验证手册》。
+
+---
+
 ## [8.40.0] - 2026-10-01
 
 ### 新增

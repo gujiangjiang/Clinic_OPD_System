@@ -4,19 +4,22 @@
  * services/hl7/HL7MessageParser.php — HL7 v2.x 消息解析器
  * ============================================================
  * 说明：解析标准 HL7 消息：
- *  - parse()：按 \r 分段、| 分字段，提取 MSH（消息类型/控制 ID/收发应用）
- *  - oruExtract()：从 ORU^R01 提取 OBR（申请单识别）与 OBX 观察结果明细
- *  - 兼容 \n 换行（部分网关以 \n 结尾）
+ *  - parse()：按 \r/\n 分段、| 分字段，提取 MSH（消息类型/控制 ID/收发应用）
+ *  - oruExtract()：从 ORU^R01 提取 MSH、PID、PV1、OBR（申请项目/申请医生）
+ *    与 OBX 观察结果明细（数值/单位/参考范围/异常标志 OBX-8/状态 OBX-11）
+ *  - 兼容 \n 换行（部分网关以 \n 结尾）与 MLLP 帧内残留
  * ============================================================ */
 class HL7MessageParser {
 
     /**
      * 解析 HL7 消息为段结构
      * @param string $raw
-     * @return array { raw, msh:{type, control_id, sending_app, receiving_app}, segments:[[名称, 字段...]] }
+     * @return array { raw, msh:{type, control_id, sending_app, receiving_app,...}, segments:[[名称, 字段...]] }
      */
     public static function parse($raw) {
         $raw = trim((string)$raw);
+        // 去除 MLLP 帧字符（0x0B 起始 / 0x1C0x0D 结束）
+        $raw = str_replace(array(chr(0x0B), chr(0x1C)), '', $raw);
         $result = array('raw' => $raw, 'msh' => array(), 'segments' => array());
         if ($raw === '') return $result;
         $lines = preg_split('/\r\n|\r|\n/', $raw) ?: array();
@@ -35,63 +38,85 @@ class HL7MessageParser {
                     'sending_facility' => isset($fields[2]) ? $fields[2] : '',
                     'receiving_app' => isset($fields[3]) ? $fields[3] : '',
                     'receiving_facility' => isset($fields[4]) ? $fields[4] : '',
+                    'version' => isset($fields[10]) ? $fields[10] : '',
                 );
             }
         }
         return $result;
     }
 
+    /** 取组件首段（"A^B^C" → "A"） */
+    private static function comp1($v) {
+        $v = (string)$v;
+        if ($v === '') return '';
+        $parts = explode('^', $v);
+        return trim($parts[0]);
+    }
+
+    /** 取组件第 n 段（0 基） */
+    private static function compN($v, $n) {
+        $parts = explode('^', (string)$v);
+        return isset($parts[$n]) ? trim($parts[$n]) : '';
+    }
+
     /**
      * 提取 ORU^R01 观察结果
      * @param array $parsed parse() 结果
-     * @return array { ok:bool, msg_type:string, control_id:string, order_no:string,
-     *                 patient_no:string, observations:[] }
+     * @return array { ok:bool, msg_type, control_id, order_no, filler_no,
+     *                 patient_no, patient_name, observations:[] }
      * observations 项：{ item_code, item_name, value, unit, ref_range, flag, abnormal, status }
      */
     public static function oruExtract($parsed) {
         $out = array(
-            'ok' => false, 'msg_type' => '', 'control_id' => '', 'order_no' => '',
-            'patient_no' => '', 'observations' => array(),
+            'ok' => false, 'msg_type' => '', 'control_id' => '', 'order_no' => '', 'filler_no' => '',
+            'patient_no' => '', 'patient_name' => '', 'observations' => array(),
         );
         if (!$parsed || empty($parsed['msh'])) return $out;
         $msh = $parsed['msh'];
-        $out['msg_type'] = $msh['type'];
-        $out['control_id'] = $msh['control_id'];
-        if (strpos($msh['type'], 'ORU^') !== 0 && strpos($msh['type'], 'ORU') !== 0) {
+        $out['msg_type'] = isset($msh['type']) ? $msh['type'] : '';
+        $out['control_id'] = isset($msh['control_id']) ? $msh['control_id'] : '';
+        if (strpos($out['msg_type'], 'ORU^') !== 0 && strpos($out['msg_type'], 'ORU') !== 0) {
             return $out;
         }
         $orderNo = '';
-        $patientNo = '';
-        $obs = array();
+        $fillerNo = '';
         foreach ($parsed['segments'] as $seg) {
             $name = $seg[0];
             $f = $seg[1];
             if ($name === 'PID') {
-                $patientNo = isset($f[2]) ? $f[2] : (isset($f[3]) ? $f[3] : '');
+                // PID-3 患者标识（可能为重复列表 ~）；PID-5 姓名；PID-8 性别；PID-7 出生日期
+                $pid3 = isset($f[2]) ? (string)$f[2] : '';
+                if (strpos($pid3, '~') !== false) $pid3 = explode('~', $pid3);
+                else $pid3 = array($pid3);
+                $out['patient_no'] = self::comp1($pid3[0]);
+                $out['patient_name'] = isset($f[4]) ? self::compN($f[4], 1) : '';
+                if ($out['patient_name'] === '' && isset($f[4])) $out['patient_name'] = self::comp1($f[4]);
             } elseif ($name === 'OBR') {
-                $orderNo = isset($f[1]) ? $f[1] : '';
-                if ($orderNo === '' && isset($f[2])) $orderNo = $f[2];
+                // OBR-2 申请单号（Placer）/ OBR-3 执行单号（Filler）；OBR-16 申请医生
+                if ($orderNo === '' && isset($f[1]) && trim((string)$f[1]) !== '') $orderNo = self::comp1($f[1]);
+                if (isset($f[2]) && trim((string)$f[2]) !== '') $fillerNo = self::comp1($f[2]);
+                if ($orderNo === '' && $fillerNo !== '') $orderNo = $fillerNo;
             } elseif ($name === 'OBX') {
-                $comp = function ($v) { return strpos($v, '^') !== false ? explode('^', $v) : array($v, $v); };
-                $itemId = isset($f[2]) ? $f[2] : '';
-                $idc = $comp($itemId);
-                $obs[] = array(
-                    'item_code' => isset($idc[0]) ? trim($idc[0]) : '',
-                    'item_name' => isset($idc[1]) ? trim($idc[1]) : '',
-                    'value' => isset($f[4]) ? $f[4] : '',
-                    'unit' => isset($f[5]) ? trim($f[5]) : '',
-                    'ref_range' => isset($f[6]) ? $f[6] : '',
-                    'flag' => isset($f[7]) ? $f[7] : '',
-                    'abnormal' => isset($f[7]) ? $f[7] : '',
-                    'status' => isset($f[10]) ? $f[10] : 'F',
+                $itemId = isset($f[2]) ? (string)$f[2] : '';
+                $flag = isset($f[7]) ? trim((string)$f[7]) : '';
+                $value = isset($f[4]) ? (string)$f[4] : '';
+                // OBX-5 可能为组件式（值^单位），保留首组件作为数值，单位仍取 OBX-6
+                $out['observations'][] = array(
+                    'item_code' => self::comp1($itemId),
+                    'item_name' => self::compN($itemId, 1) !== '' ? self::compN($itemId, 1) : self::comp1($itemId),
+                    'value' => self::comp1($value),
+                    'unit' => isset($f[5]) ? trim((string)$f[5]) : '',
+                    'ref_range' => isset($f[6]) ? (string)$f[6] : '',
+                    'flag' => $flag,
+                    'abnormal' => $flag,
+                    'status' => isset($f[10]) && trim((string)$f[10]) !== '' ? trim((string)$f[10]) : 'F',
                 );
             }
         }
         if ($orderNo === '') return $out;
         $out['ok'] = true;
         $out['order_no'] = $orderNo;
-        $out['patient_no'] = $patientNo;
-        $out['observations'] = $obs;
+        $out['filler_no'] = $fillerNo;
         return $out;
     }
 

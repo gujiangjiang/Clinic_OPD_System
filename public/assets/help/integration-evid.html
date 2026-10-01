@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>存证 / 签名 接口帮助</title>
+<link rel="stylesheet" href="/assets/help/help.css">
+</head>
+<body>
+<h1>存证 / 电子签名 <span class="badge">接口帮助</span></h1>
+<div class="lead">为电子病历、诊断证明提供内容完整性与签名存证能力，可选本地哈希或对接外部 CA / 时间戳服务。</div>
+
+<h2>1. 存证模式</h2>
+<table>
+<tr><th>模式</th><th>说明</th></tr>
+<tr><td>关闭</td><td>不进行存证。</td></tr>
+<tr><td>本地哈希指纹</td><td>保存/开具时计算 SHA-256 摘要入库，自证内容未被篡改，无需外部服务。</td></tr>
+<tr><td>外部存证服务</td><td>调用自定义 HTTP 接口对接 CA / 时间戳服务，保存返回的存证凭据（token/signer/time）。</td></tr>
+</table>
+
+<h2>2. 参数</h2>
+<ul>
+<li><b>外部存证/签名服务接口地址</b>：HTTP 端点。</li>
+<li><b>存证服务认证令牌</b>：调用外部服务时携带。</li>
+<li><b>电子签名人（印章信息）</b>：写入病历/证明的签名人展示。</li>
+</ul>
+
+<h2>3. 验真</h2>
+<p>外部机构可通过 HIS 入向只读接口 <code>action=evidence_verify</code> 按 <code>record_id</code> 或 <code>cert_no</code> 核验存证指纹与凭据。</p>
+<pre><code>curl "http://127.0.0.1:8000/api/external/his/read?action=evidence_verify&cert_no=ZM..." \
+  -H "X-HIS-Token: &lt;Token&gt;"</code></pre>
+<p class="muted">哈希模式无需连通性测试；外部服务模式可在「状态总览 → 连通性测试」探测。</p>
+</body>
+</html>

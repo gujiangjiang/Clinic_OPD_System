@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HIS 接口帮助</title>
+<link rel="stylesheet" href="/assets/help/help.css">
+</head>
+<body>
+<h1>医院 HIS 双向接口 <span class="badge">接口帮助</span></h1>
+<div class="lead">出向按 REST/JSON 或 SOAP/XML 上报挂号/结算/发药（Outbox 补偿 + 重试监控）；入向接收 HIS 推送的患者主数据与基础字典。</div>
+
+<div class="toc"><a href="#out">1. 出向同步</a><a href="#in">2. 入向开放</a><a href="#scope">3. Scope 隔离</a><a href="#test">4. 测试</a></div>
+
+<h2 id="out">1. 出向同步</h2>
+<ul>
+<li><b>协议适配器</b>：REST/JSON 或 SOAP/XML。</li>
+<li><b>网关地址、机构代码、AppID/AppSecret</b>：对接凭证（请求签名 HMAC-SHA256）。</li>
+<li><b>实时同步开关</b>：挂号 / 结算 / 发药；任务写入 <code>his_sync_tasks</code> 异步入队，失败可重试。</li>
+</ul>
+
+<h2 id="in">2. 入向开放</h2>
+<ul>
+<li><b>入向鉴权 Token</b>：外部携带 <code>X-HIS-Token: &lt;Token&gt;</code>（或 <code>Bearer</code> / <code>?token=</code>）。</li>
+<li><b>Token 过期时间 / 状态 / 授权 Scope</b>：生命周期与最小权限。</li>
+<li><b>IP 白名单</b>：建议限定 HIS 出口。</li>
+</ul>
+<table>
+<tr><th>方法</th><th>路径</th><th>说明</th></tr>
+<tr><td>GET</td><td><code>/api/external/his/read?action=ping</code></td><td>连通性自检</td></tr>
+<tr><td>GET</td><td><code>/api/external/his/read?action=patient_get</code></td><td>患者查询（id_card / patient_no）</td></tr>
+<tr><td>GET</td><td><code>/api/external/his/read?action=visit_list</code></td><td>就诊列表</td></tr>
+<tr><td>GET</td><td><code>/api/external/his/read?action=visit_status</code></td><td>就诊状态</td></tr>
+<tr><td>GET</td><td><code>/api/external/his/read?action=order_list</code></td><td>开单明细</td></tr>
+<tr><td>POST</td><td><code>/api/external/his/sync-patient</code></td><td>患者预约/建档推送</td></tr>
+<tr><td>POST</td><td><code>/api/external/his/sync-catalog</code></td><td>基础字典同步</td></tr>
+</table>
+
+<h2 id="scope">3. Scope 隔离</h2>
+<table>
+<tr><th>接口</th><th>所需 Scope</th></tr>
+<tr><td>ping</td><td>（无）</td></tr>
+<tr><td>patient_get / visit_list / visit_status</td><td><code>patient:read</code></td></tr>
+<tr><td>order_list / evidence_verify</td><td><code>report:query</code></td></tr>
+<tr><td>sync-patient</td><td><code>patient:sync</code></td></tr>
+<tr><td>sync-catalog</td><td><code>catalog:sync</code></td></tr>
+</table>
+<p class="muted">Scope 在「授权 Scope」中以空格分隔填写；留空默认 <code>*</code>（全部）。缺少 Scope 返回 403。</p>
+
+<h2 id="test">4. 测试方法</h2>
+<pre><code># 自检
+curl "http://127.0.0.1:8000/api/external/his/read?action=ping" -H "X-HIS-Token: &lt;Token&gt;"
+
+# 患者查询
+curl "http://127.0.0.1:8000/api/external/his/read?action=patient_get&patient_no=FHD0001" \
+  -H "X-HIS-Token: &lt;Token&gt;"
+
+# 建档推送
+curl -X POST http://127.0.0.1:8000/api/external/his/sync-patient \
+  -H "X-HIS-Token: &lt;Token&gt;" -H "Content-Type: application/json" \
+  -d '{"id_card":"320102198001150011","name":"张三","gender":"男"}'</code></pre>
+<p>Token 无效返回 401；Scope 不足返回 403（均可在「同步监控 → 入向调用审计」中溯源）。</p>
+</body>
+</html>
