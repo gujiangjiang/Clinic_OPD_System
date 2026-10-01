@@ -255,8 +255,8 @@ Clinic.payMethod = {
         document.querySelectorAll('.pay-method').forEach(function (el) {
             el.addEventListener('click', function () {
                 var k = el.getAttribute('data-k');
-                if (el.classList.contains('disabled')) {
-                    var tip = (k === '移动支付')
+if (el.classList.contains('disabled')) {
+                    var tip = (k === 'mobile')
                         ? '「移动支付」未启用（请在接口管理→医保与支付中启用微信或支付宝支付）'
                         : (k === '银行卡'
                             ? '「银行卡」未开通（请在接口管理→医保与支付中启用银行卡刷卡支付）'

@@ -160,15 +160,15 @@ function itg_status_rows($g, $vals) {
     }
     $zones = isset($zoneSeq[$g['id']]) ? $zoneSeq[$g['id']] : array_keys($zoneFields);
     $hasEndpoints = !empty($g['endpoints']);
-    $znav = function ($z) use ($g) { return isset($itgNav[$g['id']][$z]) ? $itgNav[$g['id']][$z] : $z; };
+    $znav = function ($z) use ($g, $itgNav) { return isset($itgNav[$g['id']][$z]) ? $itgNav[$g['id']][$z] : $z; };
     $zico = function ($z) use ($zoneIcon) { return isset($zoneIcon[$z]) ? $zoneIcon[$z] : 'nav:settings'; };
 ?>
 <div class="itg-pane" id="itgPane_<?php echo e($g['id']); ?>" data-tab="<?php echo e($g['id']); ?>"<?php echo $gi === 0 ? '' : ' style="display:none"'; ?>>
     <div class="db-center itg-center">
         <div class="card db-sidebar itg-sidenav" id="itgNav_<?php echo e($g['id']); ?>">
             <div class="db-nav active" data-itgpan="overview" onclick="itgSideTab('<?php echo e($g['id']); ?>','overview')"><?= render_icon('action:eye') ?> <?php echo e($znav('overview')); ?></div>
-            <?php foreach ($zones as $z): if (!isset($zoneFields[$z])) continue; ?>
-            <div class="db-nav" data-itgpan="<?php echo e($z); ?>" onclick="itgSideTab('<?php echo e($g['id']); ?>','<?php echo e($z); ?>')"><?= render_icon($zico($z)) ?> <?php echo e($znav($z)); ?></div>
+            <?php foreach ($zones as $z): $zKey = ($z === 'common') ? '' : $z; if (!isset($zoneFields[$zKey])) continue; ?>
+            <div class="db-nav" data-itgpan="<?php echo e($zKey === '' ? 'common' : $zKey); ?>" onclick="itgSideTab('<?php echo e($g['id']); ?>','<?php echo e($zKey === '' ? 'common' : $zKey); ?>')"><?= render_icon($zico($zKey)) ?> <?php echo e($znav($z)); ?></div>
             <?php endforeach; ?>
             <?php if ($hasEndpoints && !isset($zoneFields['inbound'])): ?>
             <div class="db-nav" data-itgpan="inbound" onclick="itgSideTab('<?php echo e($g['id']); ?>','inbound')"><?= render_icon('action:link') ?> <?php echo e($znav('inbound')); ?></div>
@@ -198,14 +198,14 @@ function itg_status_rows($g, $vals) {
                 </div>
             </div>
 
-            <?php foreach ($zones as $z): if (!isset($zoneFields[$z])) continue; $paneSuffix = ($z === '') ? 'common' : $z; ?>
+            <?php foreach ($zones as $z): $zKey = ($z === 'common') ? '' : $z; if (!isset($zoneFields[$zKey])) continue; $paneSuffix = ($zKey === '') ? 'common' : $zKey; ?>
             <div class="db-pane" id="itgpan_<?php echo e($g['id']); ?>_<?php echo e($paneSuffix); ?>" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title"><?= render_icon($zico($z)) ?> <?php echo e($znav($z)); ?></div>
-                    <?php foreach ($zoneFields[$z] as $f): ?>
+                    <div class="card-title"><?= render_icon($zico($zKey)) ?> <?php echo e($znav($z)); ?></div>
+                    <?php foreach ($zoneFields[$zKey] as $f): ?>
                         <?php render_itg_field($f, $vals); ?>
                     <?php endforeach; ?>
-                    <?php if ($g['id'] === 'his' && $z === 'inbound'): ?>
+                    <?php if ($g['id'] === 'his' && $zKey === 'inbound'): ?>
                         <div class="flex" style="gap:8px;margin-top:2px">
                             <button type="button" class="btn btn-outline btn-sm" onclick="genHisToken()"><?= render_icon('nav:key') ?> 生成 Token</button>
                             <button type="button" class="btn btn-outline btn-sm" onclick="testHisApi()"><?= render_icon('action:next') ?> 连通性测试</button>
