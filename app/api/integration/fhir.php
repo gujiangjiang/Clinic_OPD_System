@@ -55,8 +55,8 @@ function fhir_oauth_json($data, $status = 200) {
 /** FhirError → RFC 6749 error code */
 function fhir_oauth_error_code($issueCode, $message) {
     $m = strtolower((string)$message);
-    if (strpos($m, 'grant_type') !== false) return 'unsupported_grant_type';
     if (strpos($m, 'scope') !== false) return 'invalid_scope';
+    if (strpos($m, '不支持') !== false || strpos($m, 'unsupported') !== false) return 'unsupported_grant_type';
     if (strpos($m, 'client') !== false || $issueCode === 'security') return 'invalid_client';
     return 'invalid_request';
 }
@@ -80,10 +80,10 @@ $__seg0 = strtolower(isset($__parts[0]) ? $__parts[0] : '');
 if ($__seg0 === 'oauth') {
     $__act = strtolower(isset($__parts[1]) ? $__parts[1] : '');
     if ($__act !== 'token') {
-        fhir_error(404, 'not-supported', '不支持的 OAuth 端点（仅 /api/fhir/oauth/token）');
+        fhir_oauth_json(array('error' => 'invalid_request', 'error_description' => '不支持的 OAuth 端点（仅 /api/fhir/oauth/token）'), 404);
     }
     if (strtoupper(isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : 'GET') !== 'POST') {
-        fhir_error(400, 'invalid', '令牌端点仅支持 POST');
+        fhir_oauth_json(array('error' => 'invalid_request', 'error_description' => '令牌端点仅支持 POST'), 400);
     }
     // 解析表单或 JSON 载荷
     $raw = file_get_contents('php://input');
@@ -94,6 +94,17 @@ if ($__seg0 === 'oauth') {
         else { parse_str($raw, $in); }
     }
     if (!empty($_POST)) $in = array_merge($in, $_POST);
+    // RFC 6749 §2.3.1：支持 client_secret_basic（Authorization: Basic base64(client_id:client_secret)）
+    $__basic = false;
+    if (isset($_SERVER['HTTP_AUTHORIZATION']) && stripos((string)$_SERVER['HTTP_AUTHORIZATION'], 'Basic ') === 0) {
+        $decoded = base64_decode(substr(trim((string)$_SERVER['HTTP_AUTHORIZATION']), 6));
+        if ($decoded !== false && strpos($decoded, ':') !== false) {
+            list($__cid, $__csec) = explode(':', $decoded, 2);
+            if (!isset($in['client_id']) || $in['client_id'] === '') $in['client_id'] = urldecode($__cid);
+            if (!isset($in['client_secret']) || $in['client_secret'] === '') $in['client_secret'] = urldecode($__csec);
+            $__basic = true;
+        }
+    }
     try {
         $resp = FhirService::issueToken(
             isset($in['grant_type']) ? (string)$in['grant_type'] : '',
@@ -106,10 +117,16 @@ if ($__seg0 === 'oauth') {
     } catch (FhirError $ex) {
         integration_log_inbound('fhir', 'oauth/token', false, $ex->getMessage(), '');
         // RFC 6749 §5.2：错误以 application/json + {error,error_description} 返回
+        $err = fhir_oauth_error_code($ex->issueCode, $ex->getMessage());
+        $status = (int)$ex->httpStatus;
+        if ($err === 'invalid_client') {
+            if ($__basic) { $status = 401; header('WWW-Authenticate: Basic realm="FHIR"'); }
+            else { $status = 400; }   // 凭证在请求体 → 400
+        }
         fhir_oauth_json(array(
-            'error' => fhir_oauth_error_code($ex->issueCode, $ex->getMessage()),
+            'error' => $err,
             'error_description' => $ex->getMessage(),
-        ), $ex->httpStatus);
+        ), $status);
     } catch (Exception $ex) {
         fhir_oauth_json(array('error' => 'server_error', 'error_description' => '令牌颁发失败'), 500);
     }
@@ -189,6 +206,9 @@ if (!FhirService::scopeAllows($__scope, $__required)) {
 /* ---------- 单资源读取 / 集合检索 ---------- */
 $__id = isset($__parts[1]) ? urldecode((string)$__parts[1]) : '';
 $__selfUrl = integration_host_base() . (isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : FhirAdapter::BASE_PATH);
+// 剔除 URL 中的凭证，避免经分页链接 / 日志泄露
+$__selfUrl = preg_replace('/([?&])(token|api_key)=[^&]*/', '', $__selfUrl);
+$__selfUrl = rtrim(str_replace(array('?&', '&&'), array('?', '&'), $__selfUrl), '?&');
 try {
     if ($__id !== '') {
         $__res = FhirService::read($__resourceInput, $__id);

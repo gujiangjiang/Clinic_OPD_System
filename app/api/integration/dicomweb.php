@@ -197,8 +197,9 @@ function dw_study_obj($ref, $patient) {
         '00101010' => dw_tag('AS', $page),                              // 年龄
         '0020000D' => dw_tag('UI', dw_uid($studyUid)),                  // 合法 DICOM UID
         '00201208' => dw_tag('IS', (string)(int)$ref['instance_count']),// 检查相关实例数
-        '00201209' => dw_tag('IS', (string)$seriesCnt),                 // 检查相关序列数
+        '00201206' => dw_tag('IS', (string)$seriesCnt),                 // NumberOfStudyRelatedSeries（原误用 00201209）
     );
+    if ($pname === '') unset($obj['00100010']);   // 无姓名时不输出空 PN
     return $obj;
 }
 
@@ -247,7 +248,10 @@ if (count($__segs) === 1) {
     $sdate = isset($_GET['StudyDate']) ? trim((string)$_GET['StudyDate']) : '';
 
     if ($pid !== '') { $where[] = 'patient_no=?'; $args[] = $pid; }
-    if ($acc !== '') { $where[] = 'flow_no=?'; $args[] = $acc; }   // 尽力：就诊号
+    if ($acc !== '') {   // 与返回的 0008,0050 一致：按申请单号（orders.order_no）匹配
+        $where[] = 'order_id IN (SELECT id FROM orders WHERE order_no=?)';
+        $args[] = $acc;
+    }
     if ($mod !== '') {
         $mods = array_values(array_filter(array_map('dw_modality', explode(',', $mod)), 'strlen'));
         if ($mods) {
@@ -380,6 +384,7 @@ if ($sub === 'metadata') {
                 '00200011' => dw_tag('IS', (string)$n),
                 '00200013' => dw_tag('IS', (string)$i),
             );
+            if ($pname === '') unset($item['00100010']);   // 无姓名时不输出空 PN
             if ($studyDesc !== '') $item['00081030'] = dw_tag('LO', $studyDesc);   // StudyDescription
             if ($s['description'] !== '') $item['0008103E'] = dw_tag('LO', $s['description']);
             $out[] = $item;

@@ -93,6 +93,8 @@ function mllp_handle($frame, $tag) {
 while (true) {
     $conn = @stream_socket_accept($server, -1);
     if (!$conn) continue;
+    // 单连接空闲超时，防止半开/静默连接阻塞整个监听
+    @stream_set_timeout($conn, 30);
     $peer = stream_socket_get_name($conn, true);
     $peerIp = ($pos = strrpos($peer, ':')) !== false ? substr($peer, 0, $pos) : $peer;
     $tag = $peerIp;

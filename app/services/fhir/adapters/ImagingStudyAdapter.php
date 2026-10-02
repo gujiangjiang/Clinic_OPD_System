@@ -209,7 +209,7 @@ class ImagingStudyAdapter extends FhirAdapter {
     public static function search($params) {
         // 仅影像类检查属于 ImagingStudy（检验属于 Observation）——关联申请单强约束
         $from = "FROM imaging_refs ir JOIN orders o ON o.id = ir.order_id";
-        $where = array("ir.study_uid<>''", "o.order_type='imaging'");
+        $where = array("ir.study_uid<>''", "o.order_type='imaging'", "ir.patient_no<>''");   // subject 为 1..1
         $args = array();
 
         if (isset($params['_id']) && trim((string)$params['_id']) !== '') {

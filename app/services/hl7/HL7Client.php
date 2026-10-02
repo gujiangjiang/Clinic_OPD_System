@@ -73,6 +73,10 @@ class HL7Client {
             if ($code === '') {
                 return array('ok' => false, 'msa_code' => '', 'ack_text' => $ackClean, 'error' => '应答缺少 MSA 段');
             }
+            $mismatch = self::controlMismatch($message, $parsed);
+            if ($code === 'AA' && $mismatch !== '') {
+                return array('ok' => false, 'msa_code' => $code, 'ack_text' => $ackClean, 'error' => $mismatch);
+            }
             $ok = ($code === 'AA');
             return array('ok' => $ok, 'msa_code' => $code, 'ack_text' => $ackClean, 'error' => $ok ? '' : 'HL7 应答 MSA-' . $code);
         } finally {
@@ -105,10 +109,25 @@ class HL7Client {
                 $ok = $resp['status'] >= 200 && $resp['status'] < 300;
                 return array('ok' => $ok, 'msa_code' => '', 'ack_text' => $resp['body'], 'error' => $ok ? '' : 'HTTP ' . $resp['status']);
             }
+            $mismatch = self::controlMismatch($message, $parsed);
+            if ($code === 'AA' && $mismatch !== '') {
+                return array('ok' => false, 'msa_code' => $code, 'ack_text' => $resp['body'], 'error' => $mismatch);
+            }
             $ok = ($code === 'AA');
             return array('ok' => $ok, 'msa_code' => $code, 'ack_text' => $resp['body'], 'error' => $ok ? '' : 'HL7 应答 MSA-' . $code);
         } catch (Exception $ex) {
             return array('ok' => false, 'msa_code' => '', 'ack_text' => '', 'error' => $ex->getMessage());
         }
+    }
+
+    /** 校验 ACK 的 MSA-2 是否回显我方 MSH-10；不一致返回错误文本，正常返回 '' */
+    private static function controlMismatch($sentMessage, $ackParsed) {
+        $sent = HL7MessageParser::parse((string)$sentMessage);
+        $sentCtrl = isset($sent['msh']['control_id']) ? (string)$sent['msh']['control_id'] : '';
+        $ackCtrl = HL7MessageParser::msaControl($ackParsed);
+        if ($sentCtrl !== '' && $ackCtrl !== '' && $ackCtrl !== $sentCtrl) {
+            return 'ACK MSA-2（' . $ackCtrl . '）与原消息控制 ID 不一致';
+        }
+        return '';
     }
 }

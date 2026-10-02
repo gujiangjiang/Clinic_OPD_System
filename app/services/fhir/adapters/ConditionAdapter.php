@@ -32,14 +32,15 @@ class ConditionAdapter extends FhirAdapter {
         $code = isset($r['icd10_code']) ? trim((string)$r['icd10_code']) : '';
         $name = isset($r['diagnosis_name']) ? trim((string)$r['diagnosis_name']) : '';
         if ($code !== '' || $name !== '') {
-            $res['code'] = array(
-                'coding' => array(array(
+            $res['code'] = array();
+            if ($code !== '') {   // 仅在编码非空时提供 coding（FHIR code 不可为空）
+                $res['code']['coding'] = array(array(
                     'system' => 'http://hl7.org/fhir/sid/icd-10-cn',
                     'code' => $code,
                     'display' => $name,
-                )),
-                'text' => $name !== '' ? $name : $code,
-            );
+                ));
+            }
+            $res['code']['text'] = $name !== '' ? $name : $code;
         }
         $subj = self::patientRef(isset($r['patient_no']) ? $r['patient_no'] : '');
         if ($subj) $res['subject'] = $subj;

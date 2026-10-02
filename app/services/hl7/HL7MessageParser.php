@@ -154,4 +154,15 @@ class HL7MessageParser {
         }
         return '';
     }
+
+    /** 从 MSA 段提取 MSA-2（应答对应的原消息控制 ID MSH-10） */
+    public static function msaControl($parsed) {
+        if (!$parsed || empty($parsed['segments'])) return '';
+        foreach ($parsed['segments'] as $seg) {
+            if ($seg[0] === 'MSA' && isset($seg[1][1])) {
+                return trim($seg[1][1]);
+            }
+        }
+        return '';
+    }
 }

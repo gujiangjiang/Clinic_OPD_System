@@ -312,6 +312,9 @@ class FhirService {
      * @throws FhirError 400 invalid_client / 400 unsupported_grant_type
      */
     public static function issueToken($grantType, $clientId, $clientSecret, $requestedScope = '') {
+        if (trim((string)$grantType) === '') {
+            throw new FhirError(400, 'invalid', '缺少 grant_type（仅支持 client_credentials）');
+        }
         if ($grantType !== 'client_credentials') {
             throw new FhirError(400, 'invalid', '不支持的 grant_type（仅支持 client_credentials）');
         }
@@ -319,7 +322,20 @@ class FhirService {
         if (!isset($clients[$clientId]) || !hash_equals((string)$clients[$clientId]['secret'], (string)$clientSecret)) {
             throw new FhirError(401, 'security', 'client_id 或 client_secret 无效');
         }
-        $scope = $requestedScope !== '' ? $requestedScope : $clients[$clientId]['scopes'];
+        // 请求的 Scope 必须是已注册 Scope 的子集（RFC 6749 §3.3：否则 invalid_scope）
+        $registered = $clients[$clientId]['scopes'];
+        $scope = $registered;
+        $req = trim((string)$requestedScope);
+        if ($req !== '') {
+            $allowed = array();
+            foreach (preg_split('/[\s,]+/', $req, -1, PREG_SPLIT_NO_EMPTY) as $atom) {
+                if (self::scopeAllows($registered, $atom)) $allowed[] = $atom;
+            }
+            if (!$allowed) {
+                throw new FhirError(400, 'invalid', '请求的 Scope 超出客户端授权范围（invalid_scope）');
+            }
+            $scope = implode(' ', array_unique($allowed));
+        }
         $issuedAt = time();
         $expiresIn = 7200;
         $payload = array(
@@ -419,32 +435,47 @@ class FhirService {
         } elseif (($authType === 'bearer' || $authType === 'oauth2') && $token !== '') {
             $opts['bearer'] = $token;
         }
-        $resp = HttpClient::request('POST', rtrim($endpoint, '/') . '/Bundle', $opts);
+        // FHIR transaction：POST 到服务基地址（而非 /Bundle）
+        $resp = HttpClient::request('POST', rtrim($endpoint, '/'), $opts);
         if ($resp['status'] < 200 || $resp['status'] >= 300) {
             throw new Exception('FHIR 推送失败（HTTP ' . $resp['status'] . '）：' . $resp['body']);
         }
+    }
+
+    /** 事务 Bundle 条目：补 fullUrl 与 request（R4 transaction 必须） */
+    private static function bundleEntry($resource) {
+        $rt = isset($resource['resourceType']) ? (string)$resource['resourceType'] : 'Resource';
+        $id = isset($resource['id']) ? (string)$resource['id'] : '';
+        $entry = array('resource' => $resource);
+        if ($id !== '') {
+            $entry['fullUrl'] = FhirAdapter::baseUrl() . '/' . $rt . '/' . $id;
+            $entry['request'] = array('method' => 'PUT', 'url' => $rt . '/' . $id);   // 幂等 upsert
+        } else {
+            $entry['request'] = array('method' => 'POST', 'url' => $rt);
+        }
+        return $entry;
     }
 
     /** 组装就诊事务 Bundle（Patient + Encounter + Condition + MedicationRequest） */
     public static function buildVisitBundle($visit, $patient) {
         $entries = array();
         if ($patient) {
-            $entries[] = array('resource' => PatientAdapter::toResource($patient));
+            $entries[] = self::bundleEntry(PatientAdapter::toResource($patient));
         }
         if ($visit) {
-            $entries[] = array('resource' => EncounterAdapter::toResource($visit));
+            $entries[] = self::bundleEntry(EncounterAdapter::toResource($visit));
         }
         $visitId = (int)(isset($visit['id']) ? $visit['id'] : 0);
         $diags = EmrRepository::q("SELECT * FROM patient_records WHERE visit_id=? AND icd10_code!='' ORDER BY id LIMIT 10", array($visitId));
         foreach ($diags as $d) {
-            $entries[] = array('resource' => ConditionAdapter::toResource($d));
+            $entries[] = self::bundleEntry(ConditionAdapter::toResource($d));
         }
         $rxItems = OrderRepository::q("SELECT oi.*, o.order_no AS __order_no, o.doctor_name AS __doc
             FROM order_items oi JOIN orders o ON o.id=oi.order_id
             WHERE o.visit_id=? AND o.order_type='prescription' AND oi.item_type='prescription'
             ORDER BY oi.id", array($visitId));
         foreach ($rxItems as $it) {
-            $entries[] = array('resource' => MedicationRequestAdapter::toResource($it));
+            $entries[] = self::bundleEntry(MedicationRequestAdapter::toResource($it));
         }
         return array(
             'resourceType' => 'Bundle',

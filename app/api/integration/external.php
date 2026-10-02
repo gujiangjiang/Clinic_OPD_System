@@ -137,7 +137,7 @@ switch ($__mod) {
                 throw new Exception('无法解析 HL7 消息（缺少 MSH 段）');
             }
         } catch (Exception $ex) {
-            $ackCode = 'AE';
+            if ($ackCode === 'AA') $ackCode = 'AE';   // 保留上一段设置的 AR（拒绝）
             $ackText = $ex->getMessage();
             integration_log_inbound('hl7', 'receiver', false, $ex->getMessage(), $raw);
         }

@@ -209,10 +209,21 @@ class ObservationAdapter extends FhirAdapter {
         foreach ($idx as $it) { $sorted[] = $entries[$it['i']]; $sortedRefs[] = $refs[$it['i']]; }
         list($count, $offset) = self::paging($params);
         return array(
-            'total' => count($sorted),
+            'total' => self::countAll($params),   // 真实匹配总数（检验+体征）
             'entries' => array_slice($sorted, $offset, $count),
             'patientRefs' => array_slice($sortedRefs, $offset, $count),
         );
+    }
+
+    /** 无 category 时检验 + 体征的真实匹配总数（Bundle.total 语义） */
+    private static function countAll($params) {
+        $wl = array("type='lab'"); $al = array();
+        self::patientFilter($wl, $al, $params); self::dateFilter($wl, $al, $params);
+        $labs = (int)PatientRepository::val('SELECT COUNT(*) FROM results WHERE ' . implode(' AND ', $wl), $al);
+        $wv = array('1=1'); $av = array();
+        self::patientFilter($wv, $av, $params); self::dateFilter($wv, $av, $params);
+        $vitals = (int)PatientRepository::val('SELECT COUNT(*) FROM vitals WHERE ' . implode(' AND ', $wv), $av);
+        return $labs + $vitals;
     }
 
     private static function patientFilter(&$where, &$args, $params) {
@@ -277,8 +288,7 @@ class ObservationAdapter extends FhirAdapter {
             foreach (explode(',', (string)$params['_id']) as $v) {
                 $v = trim($v);
                 if ($v === '') continue;
-                if (strpos($v, 'observation-vital-') === 0) $v = substr($v, 18);
-                if (strpos($v, 'observation-') === 0) $v = substr($v, 12);
+                if (strpos($v, 'observation-vital-') === 0) $v = substr($v, 18);   // 仅剥体征前缀，避免与检验 id 混淆
                 if (ctype_digit($v)) $ids[] = (int)$v;
             }
             if ($ids) { $where[] = 'id IN (' . in_placeholders($ids) . ')'; $args = array_merge($args, $ids); }

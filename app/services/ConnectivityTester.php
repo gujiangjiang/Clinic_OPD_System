@@ -35,7 +35,13 @@ class ConnectivityTester {
         switch ($groupId) {
             case 'fhir':
                 if ($on('integration.outbound.fhir.enabled')) {
-                    $items[] = self::httpCheck('出向 FHIR Server', $get('integration.outbound.fhir.remote_endpoint'), 'GET', true);
+                    $ftype = strtolower($get('integration.outbound.fhir.auth_type'));
+                    $ftok = $get('integration.outbound.fhir.client_token');
+                    $fhirAuth = array();
+                    if ($ftok !== '' && $ftype === 'bearer') $fhirAuth[] = 'Authorization: Bearer ' . $ftok;
+                    elseif ($ftok !== '' && $ftype === 'basic') $fhirAuth[] = 'Authorization: Basic ' . base64_encode($ftok);
+                    // 出向可达性不阻断保存（对端可能需要凭证/路径）
+                    $items[] = self::httpCheck('出向 FHIR Server', $get('integration.outbound.fhir.remote_endpoint'), 'GET', false, $fhirAuth);
                 } else {
                     $items[] = self::skip('出向 FHIR 上报', '未启用（启用出向上报后自动测试）');
                 }
@@ -50,7 +56,7 @@ class ConnectivityTester {
                         // /metadata 免认证，用作本地服务存活探测
                         $items[] = self::localGetCheck('入向 FHIR 元数据端点', '/api/fhir/r4/metadata', $tok, function ($json) {
                             return isset($json['resourceType']) && $json['resourceType'] === 'CapabilityStatement';
-                        });
+                        }, 'GET', 'X-API-Key');
                     }
                 } else {
                     $items[] = self::skip('入向 FHIR 开放', '未启用（启用入向开放后自动测试）');
@@ -65,7 +71,8 @@ class ConnectivityTester {
                     // PACS 无启用开关：未配置地址视为未使用（提示不阻断），已配置不可达也仅提示
                     $items[] = self::httpCheck('QIDO-RS 检索端点', $get('integration.outbound.pacs.qido_url'), 'GET', false, $authHeaders);
                     $items[] = self::httpCheck('WADO-RS 调阅端点', $get('integration.outbound.pacs.wado_url'), 'GET', false, $authHeaders);
-                    $items[] = self::httpCheck('STOW-RS 上传端点', $get('integration.outbound.pacs.stow_url'), 'GET', false, $authHeaders);
+                    // STOW-RS 为 POST（上传）；GET 会 405，故按 POST 探测（不阻断保存）
+                    $items[] = self::httpCheck('STOW-RS 上传端点', $get('integration.outbound.pacs.stow_url'), 'POST', false, $authHeaders);
                 } else {
                     $host = $get('integration.outbound.pacs.remote_host');
                     $port = $get('integration.outbound.pacs.remote_port');
@@ -83,7 +90,7 @@ class ConnectivityTester {
                     } else {
                         $items[] = self::localGetCheck('入向 DICOMweb 端点', '/api/dicomweb/studies?limit=1', $dtok, function ($json) {
                             return is_array($json);
-                        });
+                        }, 'GET', 'X-API-Key');
                     }
                 } else {
                     $items[] = self::skip('入向 DICOMweb', '未启用（启用入向 DICOMweb 后自动测试）');
@@ -104,7 +111,7 @@ class ConnectivityTester {
                     } elseif (integration_hl7_transport() === 'mllp_tcp') {
                         $items[] = self::tcpCheck('MLLP 远端端口', $host, $port);
                     } else {
-                        $items[] = self::httpCheck('HTTP 推送端点', $host . ':' . $port, 'POST', true);
+                        $items[] = self::httpCheck('HTTP 推送端点', $host . ':' . $port, 'POST', false);
                     }
                 } else {
                     $items[] = self::skip('出向 HL7 发送', '未启用（启用出向发送后自动测试）');
@@ -115,7 +122,9 @@ class ConnectivityTester {
 
             case 'lis':
                 if ($on('integration.outbound.lis.enabled')) {
-                    $items[] = self::httpCheck('出向检验申请接口', $get('integration.outbound.lis.order_url'), 'POST', true);
+                    $ltok = $get('integration.outbound.lis.auth_token');
+                    $lisAuth = $ltok !== '' ? array('X-LIS-Token: ' . $ltok) : array();
+                    $items[] = self::httpCheck('出向检验申请接口', $get('integration.outbound.lis.order_url'), 'POST', false, $lisAuth);
                 } else {
                     $items[] = self::skip('出向 LIS 申请下发', '未启用（启用申请下发后自动测试）');
                 }
@@ -126,13 +135,14 @@ class ConnectivityTester {
                 } elseif (!$probeLocal) {
                     $items[] = self::skip('入向 LIS 回调端点', '保存时不做本地端点探测（保存后可在状态总览重新测试）');
                 } else {
-                    $items[] = self::localGetCheck('入向 LIS 回调端点', '/api/external/lis/callback', $secret, null, 'POST');
+                    // 空载荷会被业务层判 400（缺 JSON），但鉴权已通过 → 视为可达
+                    $items[] = self::localGetCheck('入向 LIS 回调端点', '/api/external/lis/callback', $secret, null, 'POST', 'X-LIS-Token', array(200, 400));
                 }
                 break;
 
             case 'his':
                 if ($on('integration.outbound.his.enabled')) {
-                    $items[] = self::httpCheck('出向 HIS 网关', $get('integration.outbound.his.gateway_url'), 'POST', true);
+                    $items[] = self::httpCheck('出向 HIS 网关', $get('integration.outbound.his.gateway_url'), 'POST', false);
                 } else {
                     $items[] = self::skip('出向 HIS 同步', '未启用（启用出向同步后自动测试）');
                 }
@@ -145,7 +155,7 @@ class ConnectivityTester {
                 } else {
                     $items[] = self::localGetCheck('入向只读端点自检', '/api/external/his/read?action=ping', $tok, function ($json) {
                         return !empty($json['data']['pong']);
-                    });
+                    }, 'GET', 'X-API-Key');
                 }
                 break;
 
@@ -153,7 +163,7 @@ class ConnectivityTester {
                 $url = $get('integration.outbound.insurance.gateway_url');
                 $medOn = $get('pay_medicare_enabled') === '1';
                 $items[] = $medOn
-                    ? self::httpCheck('医保前置机', $url, 'POST', true)
+                    ? self::httpCheck('医保前置机', $url, 'POST', false)
                     : self::skip('医保卡支付', '未启用');
                 $wxOn = $get('pay_wechat_enabled') === '1';
                 $alOn = $get('pay_alipay_enabled') === '1';
@@ -245,18 +255,22 @@ class ConnectivityTester {
         return array('name' => $name, 'ok' => true, 'blocking' => false, 'detail' => '端口 ' . $port . ' 未探测到本机监听（由外部前置承载时属正常）');
     }
 
-    /** 入向本地 HTTP 端点自检（携带凭证请求本地端点，校验响应/预期结果） */
-    private static function localGetCheck($name, $path, $token = '', $verify = null, $method = 'GET') {
+    /**
+     * 入向本地 HTTP 端点自检（携带模块对应凭证请求本地端点）。
+     * @param string $headerName 模块约定的鉴权头（FHIR/DICOMweb/HIS 用 X-API-Key，LIS 用 X-LIS-Token）
+     * @param array|null $okStatuses 视为“可达/鉴权通过”的状态码（默认任意 2xx）；如 LIS 无载荷 400 也算通过
+     */
+    private static function localGetCheck($name, $path, $token = '', $verify = null, $method = 'GET', $headerName = 'X-API-Key', $okStatuses = null) {
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '127.0.0.1';
         $url = $scheme . '://' . $host . $path;
         $headers = array('X-Requested-With: XMLHttpRequest');
-        if ($token !== '') $headers[] = 'X-HIS-Token: ' . $token;
+        if ($token !== '') $headers[] = (string)$headerName . ': ' . $token;
         try {
             $resp = HttpClient::request($method, $url, array('timeout' => self::TIMEOUT, 'headers' => $headers));
             $status = (int)$resp['status'];
             $json = json_decode((string)$resp['body'], true);
-            $ok = ($status === 200);
+            $ok = ($okStatuses === null) ? ($status >= 200 && $status < 300) : in_array($status, (array)$okStatuses, true);
             if ($ok && is_callable($verify)) {
                 $ok = (bool)$verify($json);
             }

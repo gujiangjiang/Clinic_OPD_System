@@ -40,6 +40,7 @@ class RestHisDriver implements HisDriverInterface {
             $ts = (string)time();
             $nonce = bin2hex(random_bytes(8));
             $sign = hash_hmac('sha256', $appId . $ts . $nonce . $body, $secret);
+            $idem = self::idempotencyKey($businessType, $payload);
             $resp = HttpClient::request('POST', $gateway . self::pathFor($businessType), array(
                 'body' => $body,
                 'timeout' => $timeout,
@@ -49,6 +50,7 @@ class RestHisDriver implements HisDriverInterface {
                     'X-Timestamp: ' . $ts,
                     'X-Nonce: ' . $nonce,
                     'X-Sign: ' . $sign,
+                    'Idempotency-Key: ' . $idem,   // 重试去重
                 ),
             ));
             // HTTP 2xx 仅代表传输层成功；还需解析网关业务码，避免业务失败被记为成功
@@ -87,6 +89,10 @@ class RestHisDriver implements HisDriverInterface {
         }
         if (isset($j['success'])) return array('ok' => (bool)$j['success'], 'msg' => $msg);
         if (isset($j['ok'])) return array('ok' => (bool)$j['ok'], 'msg' => $msg);
+        // 仅含错误指示字段（无成功标记）→ 判失败，避免故障被记为成功
+        if (isset($j['error']) || isset($j['error_description'])) {
+            return array('ok' => false, 'msg' => ($msg !== '' ? $msg : 'HIS 网关返回错误'));
+        }
         return array('ok' => true, 'msg' => $msg);
     }
 
@@ -171,6 +177,16 @@ class RestHisDriver implements HisDriverInterface {
     /** 取 payload 值 */
     private static function pv($payload, $key) {
         return isset($payload[$key]) ? $payload[$key] : 0;
+    }
+
+    /** 幂等键：业务类型 + 业务主键（重试同一业务返回相同键，供网关去重） */
+    public static function idempotencyKey($businessType, $payload) {
+        $id = '';
+        foreach (array('visit_id', 'payment_id', 'order_id', 'business_id') as $k) {
+            if (!empty($payload[$k])) { $id = (string)$payload[$k]; break; }
+        }
+        if ($id === '') $id = substr(sha1(json_encode($payload)), 0, 16);
+        return $businessType . ':' . $id;
     }
 
     /** 工厂：按配置返回 REST 或 SOAP 驱动 */

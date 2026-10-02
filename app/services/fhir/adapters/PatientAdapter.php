@@ -32,7 +32,8 @@ class PatientAdapter extends FhirAdapter {
             ),
         );
         if (!empty($p['id_card'])) {
-            $res['identifier'][] = self::identifier('urn:oid:2.16.840.1.113883.4.3.10', (string)$p['id_card'], 'NI', 'National Identifier');
+            // 中国居民身份证号：使用本地 system（原误用美国 SSN 的 OID）
+            $res['identifier'][] = self::identifier('urn:clinic:identifier:idcard', (string)$p['id_card'], 'NI', 'National Identifier');
         }
         $name = isset($p['name']) ? trim((string)$p['name']) : '';
         if ($name !== '') {

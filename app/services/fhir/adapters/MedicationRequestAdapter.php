@@ -5,7 +5,7 @@
  * ============================================================
  * 映射处方开单明细（order_items，item_type=prescription）。
  * 搜索参数：_id、patient/subject、encounter、status。
- * id 规则：medrequest-{order_items.id}。
+ * id 规则：medicationrequest-{order_items.id}。
  * ============================================================ */
 class MedicationRequestAdapter extends FhirAdapter {
 
@@ -32,7 +32,7 @@ class MedicationRequestAdapter extends FhirAdapter {
         $r = is_array($row) ? $row : array();
         $res = array(
             'resourceType' => 'MedicationRequest',
-            'id' => 'medrequest-' . (int)(isset($r['id']) ? $r['id'] : 0),
+            'id' => 'medicationrequest-' . (int)(isset($r['id']) ? $r['id'] : 0),
             'status' => self::mapStatus(isset($r['status']) ? $r['status'] : ''),
             'intent' => 'order',
         );
@@ -71,7 +71,7 @@ class MedicationRequestAdapter extends FhirAdapter {
             foreach (explode(',', (string)$params['_id']) as $v) {
                 $v = trim($v);
                 if ($v === '') continue;
-                if (strpos($v, 'medrequest-') === 0) $v = substr($v, 11);
+                if (strpos($v, 'medicationrequest-') === 0) $v = substr($v, 18);
                 if (ctype_digit($v)) $ids[] = (int)$v;
             }
             if ($ids) { $where[] = 'oi.id IN (' . in_placeholders($ids) . ')'; $args = array_merge($args, $ids); }

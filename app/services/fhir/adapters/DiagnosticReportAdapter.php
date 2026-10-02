@@ -91,7 +91,8 @@ class DiagnosticReportAdapter extends FhirAdapter {
 
         $res['category'] = array(self::codeable('http://terminology.hl7.org/CodeSystem/v2-0074', 'RAD', 'Radiology'));
         $itemName = !empty($r['__item_name']) ? (string)$r['__item_name'] : (string)(isset($r['category_name']) ? $r['category_name'] : '');
-        if ($itemName !== '') $res['code'] = array('text' => $itemName);
+        // code 为 1..1：始终提供（无项目名时给通用文本）
+        $res['code'] = array('text' => ($itemName !== '' ? $itemName : '影像报告'));
 
         $subj = self::patientRef(isset($r['patient_no']) ? $r['patient_no'] : '');
         if ($subj) $res['subject'] = $subj;

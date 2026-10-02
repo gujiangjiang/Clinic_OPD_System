@@ -48,6 +48,7 @@ class SoapHisDriver implements HisDriverInterface {
                     'X-Timestamp: ' . $ts,
                     'X-Nonce: ' . $nonce,
                     'X-Sign: ' . $sign,
+                    'Idempotency-Key: ' . RestHisDriver::idempotencyKey($businessType, $payload),
                 ),
             ));
             $httpOk = $resp['status'] >= 200 && $resp['status'] < 300;
@@ -75,7 +76,7 @@ class SoapHisDriver implements HisDriverInterface {
         $loaded = $doc->loadXML($xml);
         libxml_clear_errors();
         libxml_use_internal_errors($prev);
-        if (!$loaded) return array('ok' => true, 'msg' => '');
+        if (!$loaded) return array('ok' => false, 'msg' => 'SOAP 响应非 XML（HTTP 200 但内容异常）');
         $xp = new DOMXPath($doc);
         $faults = $xp->query('//*[local-name()="Fault"]');
         if ($faults->length > 0) {

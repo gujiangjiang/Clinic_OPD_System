@@ -12,27 +12,31 @@
  * ============================================================ */
 class HL7MessageBuilder {
 
-    /** 组装 MSH 段 */
-    public static function msh($msgType, $msgControlId = '', $version = '2.4') {
+    /**
+     * 组装 MSH 段。
+     * @param string|null $sendingApp / $sendingFac / $recvApp / $recvFac 传入则覆盖配置
+     *        （ACK 应答需交换收发双方）。
+     */
+    public static function msh($msgType, $msgControlId = '', $version = '2.4', $sendingApp = null, $sendingFac = null, $recvApp = null, $recvFac = null) {
         $now = now_str();
         $dt = substr($now, 0, 4) . substr($now, 5, 2) . substr($now, 8, 2) . substr($now, 11, 2) . substr($now, 14, 2);
         if ($msgControlId === '') $msgControlId = self::controlId();
         if ($version === '') $version = '2.4';
-        $f = array(
-            'MSH',
-            '^~\&',
-            integration_cfg('outbound.hl7.sending_app', 'CLINIC_OPD', 'hl7_sending_app'),
-            integration_cfg('outbound.hl7.sending_facility', ''),
-            integration_cfg('outbound.hl7.receiving_app', '', 'hl7_receiving_app'),
-            integration_cfg('outbound.hl7.receiving_facility', ''),
-            $dt,
-            '',
-            $msgType,
-            $msgControlId,
-            'P',
-            $version,
-        );
-        return implode('|', $f);
+        $f = array();
+        $f[0] = 'MSH';
+        $f[1] = '^~\&';                       // MSH-2 编码字符
+        $f[2] = $sendingApp !== null ? (string)$sendingApp : integration_cfg('outbound.hl7.sending_app', 'CLINIC_OPD', 'hl7_sending_app');
+        $f[3] = $sendingFac !== null ? (string)$sendingFac : integration_cfg('outbound.hl7.sending_facility', '');
+        $f[4] = $recvApp !== null ? (string)$recvApp : integration_cfg('outbound.hl7.receiving_app', '', 'hl7_receiving_app');
+        $f[5] = $recvFac !== null ? (string)$recvFac : integration_cfg('outbound.hl7.receiving_facility', '');
+        $f[6] = $dt;                          // MSH-7
+        $f[7] = '';                           // MSH-8
+        $f[8] = $msgType;                     // MSH-9
+        $f[9] = $msgControlId;                // MSH-10
+        $f[10] = 'P';                         // MSH-11
+        $f[11] = $version;                    // MSH-12
+        $f[17] = 'UTF-8';                     // MSH-18 字符集（中文姓名）
+        return self::join($f);
     }
 
     /** 生成唯一消息控制 ID（时间 + 随机，降低同秒碰撞） */
@@ -113,12 +117,12 @@ class HL7MessageBuilder {
 
     /** ADT^A04：患者入院/挂号建档 */
     public static function adtA04($visit, $patient) {
-        return self::adt($visit, $patient, 'ADT^A04');
+        return self::adt($visit, $patient, 'ADT^A04^ADT_A01');
     }
 
     /** ADT^A08：患者信息更新 */
     public static function adtA08($visit, $patient) {
-        return self::adt($visit, $patient, 'ADT^A08');
+        return self::adt($visit, $patient, 'ADT^A08^ADT_A01');
     }
 
     /** ADT 组装（EVN + PID + PV1） */
@@ -180,17 +184,18 @@ class HL7MessageBuilder {
     /** ORM^O01：处方/检查/检验开单 */
     public static function ormO01($order, $items, $visit = null, $patient = null) {
         $lines = array();
-        $lines[] = self::msh('ORM^O01');
+        $lines[] = self::msh('ORM^O01^ORM_O01');
         if ($patient) $lines[] = self::pid($patient, 1);
         if ($visit) $lines[] = self::pv1($visit, 1);
         $orderNo = (string)(isset($order['order_no']) ? $order['order_no'] : '');
         $doctor = (string)(isset($order['doctor_name']) ? $order['doctor_name'] : '');
         $createdAt = (string)(isset($order['created_at']) ? $order['created_at'] : '');
         $isRx = (string)(isset($order['order_type']) ? $order['order_type'] : '') === 'prescription';
+        // 标准 ORM：一个 ORC 订单头，后接各明细段（OBR/RXE）
+        $lines[] = self::orc($orderNo, $doctor, $createdAt);
         $setId = 0;
         foreach ((array)$items as $it) {
             $setId++;
-            $lines[] = self::orc($orderNo, $doctor, $createdAt);
             if ($isRx) {
                 $lines[] = self::rxe($it, $setId);
                 $rxr = self::rxr($it);
@@ -212,8 +217,8 @@ class HL7MessageBuilder {
         $f[3] = $orderNo;  // ORC-3 执行单号（Filler）
         $f[4] = '';        // ORC-4 Placer Group Number
         $f[5] = 'SC';      // ORC-5 订单状态：SC=Scheduled（此前误置于 ORC-4）
-        $f[8] = $dt;       // ORC-9 事务时间
-        $f[11] = $doctor;  // ORC-12 申请医生
+        $f[9] = $dt;      // ORC-9 事务时间（index=字段号）
+        $f[12] = $doctor; // ORC-12 申请医生
         return self::join($f);
     }
 
@@ -229,7 +234,7 @@ class HL7MessageBuilder {
         $f[4] = $itemName;        // OBR-4 通用服务标识（项目名）
         $f[6] = $dt;              // OBR-6 申请时间
         $f[7] = $dt;              // OBR-7 观察/执行时间
-        $f[15] = $doctor;         // OBR-16 申请医生
+        $f[16] = $doctor;         // OBR-16 申请医生
         return self::join($f);
     }
 
@@ -276,7 +281,12 @@ class HL7MessageBuilder {
         $ackType = (isset($tp[1]) && $tp[1] !== '') ? ('ACK^' . $tp[1] . '^ACK') : 'ACK';
         $version = isset($msh['version']) && $msh['version'] !== '' ? (string)$msh['version'] : '2.4';
         $ack = array();
-        $ack[] = self::msh($ackType, self::controlId(), $version);
+        // ACK 的收发双方与原消息互换
+        $ack[] = self::msh($ackType, self::controlId(), $version,
+            isset($msh['receiving_app']) ? $msh['receiving_app'] : null,
+            isset($msh['receiving_facility']) ? $msh['receiving_facility'] : null,
+            isset($msh['sending_app']) ? $msh['sending_app'] : null,
+            isset($msh['sending_facility']) ? $msh['sending_facility'] : null);
         $msa = array('MSA', $ackCode, $ctrl);
         if ($text !== '') $msa[] = $text;
         $ack[] = implode('|', $msa);
@@ -284,7 +294,7 @@ class HL7MessageBuilder {
         if ($ackCode !== 'AA') {
             $errCode = ($ackCode === 'AR') ? '200' : '207';   // 200=不支持的消息类型 207=应用内部错误
             $errText = str_replace(array("\r", "\n", '|', '^'), ' ', (string)$text);
-            $ack[] = 'ERR|^^^' . $errCode . '^' . $errText;
+            $ack[] = 'ERR|^^^' . $errCode . '&' . $errText;   // ELD-4 为 CE（码&文本）
         }
         return implode("\r", $ack);
     }
