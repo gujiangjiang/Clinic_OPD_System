@@ -91,7 +91,7 @@ function lockViewer() {
     LOCKED = true;
     document.getElementById('soloLockMask').classList.add('show');
     var ph = document.getElementById('soloPlaceholder');
-    if (ph) ph.innerHTML = '<div class="ph-ico">' . render_icon('nav:lock') . '</div><div class="ph-main" style="color:#ef4444">阅片工作站已锁定</div>';
+    if (ph) ph.innerHTML = '<div class="ph-ico">' + renderIconSvg('nav:lock') + '</div><div class="ph-main" style="color:#ef4444">阅片工作站已锁定</div>';
     var tags = [document.getElementById('soloTagL'), document.getElementById('soloTagR')];
     tags.forEach(function (t) { if (t) t.textContent = ''; });
     if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
@@ -185,7 +185,7 @@ function paintTag(label) {
 
 function loadSoloPatient(code) {
     var ph = document.getElementById('soloPlaceholder');
-    if (ph) ph.innerHTML = '<div class="ph-ico">" . render_icon('nav:imaging') . "</div><div class="ph-main">正在同步患者…</div>';
+    if (ph) ph.innerHTML = '<div class="ph-ico">' + renderIconSvg('nav:imaging') + '</div><div class="ph-main">正在同步患者…</div>';
     fetch('/api/deptwork?action=patient&visit_id=' + encodeURIComponent(code), {
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
     }).then(function (r) {
@@ -193,7 +193,7 @@ function loadSoloPatient(code) {
         return r.json();
     }).then(function (j) {
         if (!j || !j.ok) {
-            if (ph) ph.innerHTML = '<div class="ph-ico">" . render_icon('alert:warning') . "</div><div class="ph-main">' + ((j && j.msg) || '患者数据加载失败') + '</div>';
+            if (ph) ph.innerHTML = '<div class="ph-ico">' + renderIconSvg('alert:warning') + '</div><div class="ph-main">' + ((j && j.msg) || '患者数据加载失败') + '</div>';
             return;
         }
         var v = j.data.visit || {}, p = j.data.patient || {};
@@ -202,7 +202,7 @@ function loadSoloPatient(code) {
         var tr = document.getElementById('soloTagR');
         if (tr) tr.textContent = '患者ID ' + (p.patient_id || '—') + ' ｜ ' + (v.visit_no || '');
         ph.innerHTML =
-            '<div class="ph-ico">" . render_icon('nav:imaging') . "</div>' +
+            '<div class="ph-ico">' + renderIconSvg('nav:imaging') + '</div>' +
             '<div class="ph-main">' + ((v.name || '') + ' · ' + (v.visit_no || '')) + '</div>' +
             '<div class="ph-sub">' + (CURRENT.label ? CURRENT.label + '<br>' : '') +
             '该患者影像序列将随主系统选择实时同步<br>DICOMweb 接入后影像自动挂载</div>';
@@ -220,6 +220,43 @@ function resetSolo() {
     if (ph) {
         ph.style.display = '';
         ph.innerHTML =
-            '<div class="ph-ico">" . render_icon('nav:imaging') . "</div>' +
+            '<div class="ph-ico">' + renderIconSvg('nav:imaging') + '</div>' +
             '<div class="ph-main">等待选择患者影像</div>' +
-            '<div class="ph-sub
+            '<div class="ph-sub">请在影像科工作台中选择患者或序列后实时同步显示<br>' +
+            '经典模式：点击【去写报告】后同步该申请单影像；<br>' +
+            '一体化模式：点击左侧序列后同步显示对应影像</div>';
+    }
+    var sp = document.getElementById('soloPatient');
+    if (sp) sp.textContent = '等待主系统选择患者…';
+    var tags = [document.getElementById('soloTagL'), document.getElementById('soloTagR')];
+    tags.forEach(function (t) { if (t) t.textContent = ''; });
+}
+
+/* ---------- 会话握手（优化项2）：主窗口打开视窗前写入 pending_ctx，
+   视窗加载后读取（sid 绑定校验，防跨会话/链接直查）并应用，读后清除 ---------- */
+(function () {
+    var pending = null;
+    try { pending = JSON.parse(localStorage.getItem('clinic_viewer_pending_ctx') || 'null'); } catch (e) {}
+    if (pending && pending.sid && pending.sid === document.body.getAttribute('data-sid')) {
+        localStorage.removeItem('clinic_viewer_pending_ctx');
+        if (pending.visit) {
+            CURRENT.visit = pending.visit;
+            CURRENT.item = pending.item || '';
+            CURRENT.label = pending.label || '';
+            loadSoloPatient(pending.visit);
+            // 会话握手中若携带序列（一体化模式选中序列后打开视窗）：自动挂载阅片器
+            if (CURRENT.item) soloEmbed(true);
+        }
+    }
+})();
+
+/* ---------- 占位交互（DICOM Viewer 接入前的友好交互占位） ---------- */
+function soloFit() { if (LOCKED) return; soloTag('⤢ 适应窗口'); }
+function soloReset() { if (LOCKED) return; soloTag('↺ 已重置视窗'); }
+function soloTag(txt) {
+    var el = document.getElementById('soloTagL');
+    if (el) el.textContent = '> ' + txt + ' @ ' + new Date().toLocaleTimeString();
+}
+</script>
+</body>
+</html>
