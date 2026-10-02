@@ -13,6 +13,21 @@
 
 ---
 
+## [8.42.4] - 2026-10-01
+
+### 新增
+- **FHIR `DiagnosticReport` 影像报告接口**：新增
+  `app/services/fhir/adapters/DiagnosticReportAdapter.php`，路由
+  `GET /api/fhir/r4/DiagnosticReport?imagingStudy=|patient=|encounter=|identifier=`，
+  供 PACS 浏览器「查看影像报告」。字段：
+  `identifier`（报告号 + 检查号）、`status`、`category=RAD`、`code`（检查项目）、
+  `subject`、`encounter`、`imagingStudy`、`basedOn`、`issued`、`performer`（报告医生）、
+  `conclusion`（检查诊断）、`presentedForm`（PDF，如有）；核心元素未覆盖的
+  检查所见 / 临床诊断 / 开单医生 / 开单科室以标准 extension 提供。
+  搜索范围仅影像报告（`reports.type='imaging'`）。
+
+---
+
 ## [8.42.3] - 2026-10-01
 
 ### 修复（资源划分与标识归位：检验↔影像、患者号/门诊号/检查号/报告号）
