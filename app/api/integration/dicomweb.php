@@ -102,14 +102,26 @@ function dw_sop_class($modality) {
     return isset($map[$m]) ? $map[$m] : '1.2.840.10008.5.1.4.1.1.7';   // Secondary Capture
 }
 
-/** 检查号（0008,0050 AccessionNumber）：优先后端登记/报告号，回退就诊号 */
+/**
+ * 检查号（0008,0050 AccessionNumber）：申请单号 orders.order_no（如 JC…），
+ * 回退就诊号。注意不是报告号（BG…），也不是就诊号（flow_no）。
+ */
 function dw_accession($ref) {
-    $meta = json_decode((string)$ref['meta_json'], true);
-    if (is_array($meta)) {
-        if (!empty($meta['report_no'])) return (string)$meta['report_no'];
-        if (!empty($meta['accession'])) return (string)$meta['accession'];
+    if (!empty($ref['order_id'])) {
+        $o = PatientRepository::one('SELECT order_no FROM orders WHERE id=?', array((int)$ref['order_id']));
+        if ($o && !empty($o['order_no'])) return (string)$o['order_no'];
     }
     return (string)$ref['flow_no'];
+}
+
+/** 患者年龄 → DICOM AS（如 062Y）；无法计算返回空 */
+function dw_age($birth) {
+    $d = preg_replace('/\D/', '', (string)$birth);
+    if (strlen($d) < 8) return '';
+    $ts = strtotime(substr($d, 0, 4) . '-' . substr($d, 4, 2) . '-' . substr($d, 6, 2));
+    if (!$ts) return '';
+    $y = (int)floor((time() - $ts) / (365.25 * 86400));
+    return ($y > 0 && $y < 130) ? str_pad((string)$y, 3, '0', STR_PAD_LEFT) . 'Y' : '';
 }
 
 /** 取检查日期/时间（DICOM DA/TM） */
@@ -170,15 +182,22 @@ function dw_study_obj($ref, $patient) {
         $seriesCnt = is_array($uids) ? count($uids) : 0;
     }
     $pname = $patient ? (string)$patient['name'] : '';
+    $pbirth = ($patient && !empty($patient['birth_date'])) ? dw_date($patient['birth_date']) : '';
+    $psex = ($patient && isset($patient['gender'])) ? (($patient['gender'] === '男') ? 'M' : (($patient['gender'] === '女') ? 'F' : 'O')) : '';
+    $page = dw_age($patient && isset($patient['birth_date']) ? $patient['birth_date'] : '');
     $mod = dw_modality((string)$ref['modality']);
     $obj = array(
         '00080020' => dw_tag('DA', dw_date($ref['created_at'])),
         '00080030' => dw_tag('TM', dw_time($ref['created_at'])),
-        '00080050' => dw_tag('SH', dw_accession($ref)),                 // AccessionNumber（非就诊号）
+        '00080050' => dw_tag('SH', dw_accession($ref)),                 // 检查号=申请单号
         '00080060' => dw_tag('CS', $mod),                               // Modality
         '00080061' => dw_tag('CS', $mod),                               // ModalitiesInStudy
         '00100010' => dw_tag('PN', array('Alphabetic' => $pname)),
-        '00100020' => dw_tag('LO', (string)$ref['patient_no']),
+        '00100020' => dw_tag('LO', (string)$ref['patient_no']),         // 患者号
+        '00100030' => dw_tag('DA', $pbirth),
+        '00100040' => dw_tag('CS', $psex),
+        '00101000' => dw_tag('LO', (string)$ref['flow_no']),            // 门诊号（本服务约定）
+        '00101010' => dw_tag('AS', $page),                              // 年龄
         '0020000D' => dw_tag('UI', dw_uid($studyUid)),                  // 合法 DICOM UID
         '00201208' => dw_tag('IS', (string)(int)$ref['instance_count']),// 检查相关实例数
         '00201209' => dw_tag('IS', (string)$seriesCnt),                 // 检查相关序列数
@@ -265,7 +284,7 @@ if (count($__segs) === 1) {
     $rows = array_slice($rows, $offset, $limit);
     $out = array();
     foreach ($rows as $r) {
-        $p = PatientRepository::one('SELECT name FROM patients WHERE patient_no=?', array((string)$r['patient_no']));
+        $p = PatientRepository::one('SELECT * FROM patients WHERE patient_no=?', array((string)$r['patient_no']));
         $out[] = dw_study_obj($r, $p);
     }
     integration_log_inbound('dicomweb', 'qido/studies', true, '返回 ' . count($out) . ' 条检查', '');
@@ -281,7 +300,7 @@ if (!$ref) {   // 回退：按归一化 UID 匹配
     }
 }
 if (!$ref) dw_error(404, '未找到检查：' . $studyUid);
-$patient = PatientRepository::one('SELECT name FROM patients WHERE patient_no=?', array((string)$ref['patient_no']));
+$patient = PatientRepository::one('SELECT * FROM patients WHERE patient_no=?', array((string)$ref['patient_no']));
 
 // GET /studies/{uid}
 if (count($__segs) === 2) {
@@ -333,6 +352,7 @@ if ($sub === 'metadata') {
     $prow = PatientRepository::one('SELECT * FROM patients WHERE patient_no=?', array((string)$ref['patient_no']));
     $psex = ($prow && isset($prow['gender'])) ? (($prow['gender'] === '男') ? 'M' : (($prow['gender'] === '女') ? 'F' : 'O')) : '';
     $pbirth = ($prow && !empty($prow['birth_date'])) ? dw_date($prow['birth_date']) : '';
+    $page = ($prow && !empty($prow['birth_date'])) ? dw_age($prow['birth_date']) : '';
     $meta = json_decode((string)$ref['meta_json'], true);
     $studyDesc = (is_array($meta) && !empty($meta['item_name'])) ? (string)$meta['item_name'] : '';
     $out = array();
@@ -349,11 +369,14 @@ if ($sub === 'metadata') {
                 '00080018' => dw_tag('UI', $seUid . '.' . $i),             // SOP Instance UID
                 '00080020' => dw_tag('DA', dw_date($ref['created_at'])),
                 '00080030' => dw_tag('TM', dw_time($ref['created_at'])),
+                '00080050' => dw_tag('SH', dw_accession($ref)),            // 检查号=申请单号
                 '00080060' => dw_tag('CS', $s['modality']),
                 '00100010' => dw_tag('PN', array('Alphabetic' => $pname)),
                 '00100020' => dw_tag('LO', (string)$ref['patient_no']),
                 '00100030' => dw_tag('DA', $pbirth),
                 '00100040' => dw_tag('CS', $psex),
+                '00101000' => dw_tag('LO', (string)$ref['flow_no']),       // 门诊号
+                '00101010' => dw_tag('AS', $page),                         // 年龄
                 '0020000D' => dw_tag('UI', $normStudy),
                 '0020000E' => dw_tag('UI', $seUid),
                 '00200011' => dw_tag('IS', (string)$n),

@@ -60,6 +60,7 @@
 <tr><td>GET</td><td><code>/api/dicomweb/studies/{studyUID}/metadata</code></td><td>WADO-RS 实例元数据（DICOM JSON，不含像素）</td></tr>
 </table>
 <p>入向 Token 与 FHIR 一致：请求头 <code>X-API-Key: &lt;Token&gt;</code> 或 <code>Authorization: Bearer &lt;Token&gt;</code>，只填纯 Token。</p>
+<div class="tip"><b>标签约定</b>：<code>PatientID(0010,0020)</code>=患者号；<code>OtherPatientIDs(0010,1000)</code>=<b>门诊号</b>（就诊流水号，本服务约定）；<code>AccessionNumber(0008,0050)</code>=<b>检查号</b>（申请单号 JC…，非报告号）；<code>PatientAge(0010,1010)</code>=年龄、<code>PatientBirthDate(0010,0030)</code>/<code>PatientSex(0010,0040)</code>。仅影像检查（<code>orders.order_type=imaging</code>）出现在 DICOMweb/ImagingStudy 中。</div>
 
 <h2 id="test">5. 测试方法</h2>
 <pre><code># 出向：在「状态总览 → 连通性测试」按当前配置探测 QIDO/WADO/STOW 可达性
