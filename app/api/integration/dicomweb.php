@@ -286,6 +286,7 @@ if (count($__segs) <= 1) {
     $args = array();
     $pid = isset($_GET['PatientID']) ? trim((string)$_GET['PatientID']) : '';
     $pname = isset($_GET['PatientName']) ? trim((string)$_GET['PatientName']) : '';
+    $psex = strtoupper(trim((string)(isset($_GET['PatientSex']) ? $_GET['PatientSex'] : '')));
     $suid = isset($_GET['StudyInstanceUID']) ? trim((string)$_GET['StudyInstanceUID']) : '';
     $acc = isset($_GET['AccessionNumber']) ? trim((string)$_GET['AccessionNumber']) : '';
     $mod = '';
@@ -318,6 +319,18 @@ if (count($__segs) <= 1) {
         $like = str_replace(array('*', '?'), array('%', '_'), $pname);
         $where[] = 'patient_no IN (SELECT patient_no FROM patients WHERE name LIKE ?)';
         $args[] = $like;
+    }
+    if ($psex !== '') {   // 性别筛选：M/F 精确匹配；O 表示非男非女
+        if ($psex === 'M') {
+            $where[] = 'patient_no IN (SELECT patient_no FROM patients WHERE gender=?)';
+            $args[] = '男';
+        } elseif ($psex === 'F') {
+            $where[] = 'patient_no IN (SELECT patient_no FROM patients WHERE gender=?)';
+            $args[] = '女';
+        } elseif ($psex === 'O') {
+            $where[] = 'patient_no IN (SELECT patient_no FROM patients WHERE gender NOT IN (?,?))';
+            $args[] = '男'; $args[] = '女';
+        }
     }
     if ($sdate !== '') {
         if (preg_match('/^(\d{8})-(\d{8})$/', $sdate, $m)) {       // 日期范围
