@@ -241,7 +241,7 @@ Clinic.deptwork = (function () {
         head.innerHTML =
             '<div class="flex-between">' +
             '  <div class="flex gap-12" style="align-items:center">' +
-            '    <div class="emr-patient-avatar" title="患者信息">' + renderIconSvg('nav:user') + '</div>' +
+            '    <div class="emr-patient-avatar" title="患者信息"><span class="avatar">' + renderIconSvg('nav:user') + '</span></div>' +
             '    <div>' +
             '      <div class="fs-18 fw-700">' +
             '        <span class="emr-patient-name">' + escHtml(v.name) + '</span>' +

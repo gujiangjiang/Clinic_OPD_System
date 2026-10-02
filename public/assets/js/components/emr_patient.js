@@ -20,7 +20,7 @@ Clinic.emr.patient = (function () {
         document.getElementById('emrHeader').innerHTML =
             '<div class="flex-between">' +
             '  <div class="flex gap-12" style="align-items:center">' +
-            '    <div class="emr-patient-avatar" onclick="' + historyModal + '" title="点击查看就诊历史">' + renderIconSvg('nav:user') + '</div>' +
+            '    <div class="emr-patient-avatar" onclick="' + historyModal + '" title="点击查看就诊历史"><span class="avatar">' + renderIconSvg('nav:user') + '</span></div>' +
             '    <div>' +
             '      <div class="fs-18 fw-700">' +
             '        <span class="emr-patient-name" onclick="' + editModal + '" title="点击修改患者信息">' + escHtml(v.name) + '</span>' +
