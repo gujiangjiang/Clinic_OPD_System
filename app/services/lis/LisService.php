@@ -68,13 +68,24 @@ class LisService {
             throw new Exception('载荷必须为 JSON 对象');
         }
         $orderNo = trim((string)(isset($payload['order_no']) ? $payload['order_no'] : ''));
+        if ($orderNo === '' && isset($payload['flow_no'])) {
+            $orderNo = trim((string)$payload['flow_no']);   // 兼容以就诊流水号作为定位键
+        }
         if ($orderNo === '') {
-            throw new Exception('缺少 order_no 申请单号');
+            throw new Exception('缺少 order_no 申请单号（或 flow_no 就诊流水号）');
+        }
+        // 观察明细：items（首选）或 results（别名）
+        $items = array();
+        if (isset($payload['items']) && is_array($payload['items'])) $items = $payload['items'];
+        elseif (isset($payload['results']) && is_array($payload['results'])) $items = $payload['results'];
+        $doctor = '';
+        foreach (array('report_doctor', 'review_doctor', 'doctor_name') as $k) {
+            if (!empty($payload[$k])) { $doctor = trim((string)$payload[$k]); break; }
         }
         return self::applyObservationReport(
             $orderNo,
-            isset($payload['items']) && is_array($payload['items']) ? $payload['items'] : array(),
-            trim((string)(isset($payload['report_doctor']) ? $payload['report_doctor'] : '')),
+            $items,
+            $doctor,
             trim((string)(isset($payload['pdf_url']) ? $payload['pdf_url'] : '')),
             trim((string)(isset($payload['report_no']) ? $payload['report_no'] : ''))
         );

@@ -27,12 +27,14 @@
 <p>回调 JSON：</p>
 <pre><code>{
   "order_no": "JY2026100114224692",
+  "report_no": "BG202610010001",
   "report_doctor": "李检验",
   "pdf_url": "http://lis/reports/1.pdf",
   "items": [
     { "name": "白细胞计数(WBC)", "value": "12.3", "unit": "10^9/L", "ref_range": "3.5-9.5", "flag": "H" }
   ]
 }</code></pre>
+<div class="tip">定位键 <code>order_no</code> 可用就诊流水号 <code>flow_no</code> 代替；观察明细可用 <code>results</code> 作为 <code>items</code> 的别名；<code>report_no</code>（外部报告号）与 <code>report_doctor</code> 可选。</div>
 
 <h2 id="test">3. 测试方法</h2>
 <pre><code>curl -X POST http://127.0.0.1:8000/api/external/lis/callback \
