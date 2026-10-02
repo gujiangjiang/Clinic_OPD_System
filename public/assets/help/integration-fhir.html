@@ -74,6 +74,7 @@ X-API-Key: &lt;token&gt;</code></pre>
 <tr><td>GET</td><td><code>/api/fhir/r4/Observation?patient=</code></td><td>检验结果 / 生命体征（<code>category=laboratory|vital-signs</code>）</td></tr>
 <tr><td>GET</td><td><code>/api/fhir/r4/MedicationRequest?patient=</code></td><td>处方医嘱</td></tr>
 <tr><td>GET</td><td><code>/api/fhir/r4/ImagingStudy?patient=</code></td><td>影像检查（支持 DICOM UID / modality / started）</td></tr>
+<tr><td>GET</td><td><code>/api/fhir/r4/DiagnosticReport?imagingStudy=|patient=</code></td><td>影像报告（<code>conclusion</code> 检查诊断、<code>performer</code> 报告医生；检查所见/临床诊断/开单信息见 extension）</td></tr>
 </table>
 <p class="muted">通用检索参数：<code>_count</code>（默认 20，上限 200）、<code>_page</code>/<code>_offset</code>、<code>_sort</code>、<code>_include</code>；未识别参数静默忽略。返回 <code>Bundle(searchset)</code>，含 <code>total</code> 与 <code>link[self|next]</code>。</p>
 <div class="tip"><b>资源划分与标识约定</b>：检验结果仅以 <code>Observation</code> 暴露，影像检查仅以 <code>ImagingStudy</code> 暴露（互不混淆）。<code>ImagingStudy.identifier</code>：<code>urn:dicom:uid</code>=StudyInstanceUID、<code>ACSN</code>=<b>检查号</b>（申请单号 JC…）、<code>VN</code>=<b>门诊号</b>（就诊流水号）；报告号以独立 system <code>urn:clinic:identifier:report</code> 提供（非检查号）。<code>Patient.identifier</code>：<code>MR</code>=<b>患者号</b>（patient_no）、<code>NI</code>=身份证号。<code>Observation</code> 不带 <code>category</code> 时返回检验+体征全部。</div>
