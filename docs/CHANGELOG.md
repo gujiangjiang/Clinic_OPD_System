@@ -13,6 +13,32 @@
 
 ---
 
+## [8.42.3] - 2026-10-01
+
+### 修复（资源划分与标识归位：检验↔影像、患者号/门诊号/检查号/报告号）
+- **FHIR ImagingStudy 标识归位**：`ACSN` 改为携带**检查号** `orders.order_no`（JC…）；
+  `VN` 携带**门诊号**（就诊流水号）；报告号改为独立 system `urn:clinic:identifier:report`
+  且不再授予 ACSN 类型——此前把报告号当作检查号暴露。`basedOn` 亦改用申请单号。
+- **FHIR ImagingStudy 仅返回影像检查**：检索强制 `JOIN orders ... order_type='imaging'`，
+  检验/其它申请单不再出现在 ImagingStudy（检验由 `Observation` 承载）。
+- **FHIR Observation 无 `category` 合并返回**：未指定分类时返回检验 + 生命体征全部
+  （此前默认只查 laboratory，漏掉体征）。
+- **OAuth2 令牌端点符合 RFC 6749**：成功/失败均以 `application/json` 返回，错误体为
+  `{error,error_description}`（invalid_client / unsupported_grant_type / invalid_scope），
+  并加 `Cache-Control: no-store` + `Pragma: no-cache`。
+- **DICOMweb 标签归位**：`AccessionNumber(0008,0050)`=检查号（申请单号），不再取报告号/就诊号；
+  `OtherPatientIDs(0010,1000)` 承载门诊号；新增 `PatientAge(0010,1010)`；QIDO/metadata 同步。
+- **HIS 出向健壮性**：REST/SOAP 驱动解析网关业务码（code/resultCode/success/ok）判定成败，
+  不再仅以 HTTP 2xx 记为成功；SOAP Fault 改为命名空间无关识别（soap:Fault / SOAP-ENV:Fault）；
+  业务路径支持配置覆盖；SOAP 补充 nonce 并纳入签名。
+- **LIS 回调兼容**：接受 `results` 作为 `items` 别名、`flow_no` 作为定位键、
+  `review_doctor`/`doctor_name` 作为报告医生；帮助页补 `report_no` 说明。
+- **种子数据纠正**：VisitSeeder 仅对影像申请单登记 `imaging_refs`（此前 lab 也登记，导致检验混入影像），
+  并使用合法 DICOM UID；新增 `tools/cli/imaging_refs_cleanup.php` 清理历史混入
+  （本次已清理 71 条非影像引用）。
+
+---
+
 ## [8.42.2] - 2026-10-01
 
 ### 修复（接口标准化专项：对照 FHIR R4 / DICOMweb PS3.18 / HL7 v2.4 官方规范）
