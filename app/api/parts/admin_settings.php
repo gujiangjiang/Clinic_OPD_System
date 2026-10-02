@@ -136,6 +136,20 @@ function admin_part_settings($action) {
         if (!in_array($zone, $validZones, true)) $zone = '';
         $saved = array();
         $testVals = array();
+        // IP / CIDR 校验（IP 白名单字段）
+        $validIp = function ($s) {
+            $s = trim((string)$s);
+            if ($s === '') return true;
+            if (strpos($s, '/') !== false) {
+                list($ip, $bits) = array_pad(explode('/', $s, 2), 2, '');
+                if (!filter_var($ip, FILTER_VALIDATE_IP)) return false;
+                if (!ctype_digit((string)$bits)) return false;
+                $max = (strpos($ip, ':') !== false) ? 128 : 32;
+                $b = (int)$bits;
+                return $b >= 0 && $b <= $max;
+            }
+            return (bool)filter_var($s, FILTER_VALIDATE_IP);
+        };
         foreach ($group['fields'] as $f) {
             $fZone = isset($f['zone']) ? $f['zone'] : '';
             if ($fZone !== $zone) continue;   // 仅处理当前页签字段
@@ -145,8 +159,15 @@ function admin_part_settings($action) {
             if ($raw === null) continue;   // 未提交的字段不覆盖（分组保存互不干扰）
             $val = trim((string)$raw);
             $rule = isset($f['rule']) ? $f['rule'] : '';
-            if ($rule === 'port' && $val !== '' && !preg_match('/^\d{1,5}$/', $val)) {
+            if ($rule === 'port' && $val !== '' && (!preg_match('/^\d{1,5}$/', $val) || (int)$val < 1 || (int)$val > 65535)) {
                 json_fail($f['label'] . '格式不正确（1-65535 数字）');
+            }
+            if (substr($f['key'], -12) === 'ip_whitelist' && $val !== '') {
+                foreach (preg_split('/[\r\n,;]+/', $val) as $one) {
+                    if (trim($one) !== '' && !$validIp($one)) {
+                        json_fail($f['label'] . ' 含非法 IP/CIDR：' . trim($one));
+                    }
+                }
             }
             if ($rule === 'int' && $val !== '' && !preg_match('/^\d+$/', $val)) {
                 json_fail($f['label'] . '必须为整数');
@@ -171,7 +192,8 @@ function admin_part_settings($action) {
         }
         $enabledField = '';
         foreach ($zoneFieldsSave as $zf) {
-            if (substr($zf['key'], -8) === '_enabled') { $enabledField = $zf['key']; break; }
+            // 兼容 `pay_*_enabled` 与 `integration.*.enabled` 两种命名
+            if (preg_match('/[._]enabled$/', $zf['key'])) { $enabledField = $zf['key']; break; }
         }
         if ($enabledField !== '' && isset($testVals[$enabledField]) && $testVals[$enabledField] === '1') {
             $missing = array();

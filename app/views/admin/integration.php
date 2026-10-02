@@ -76,7 +76,8 @@ function itg_status_rows($g, $vals) {
         // 医保前置机关键配置
         $gw = $get('integration.outbound.insurance.gateway_url');
         $rows[] = array('label' => '医保前置机地址', 'value' => $gw !== '' ? $gw : '未配置', 'cls' => $gw !== '' ? 'info' : 'muted');
-        $rows[] = array('label' => '支付结果回调', 'value' => '端点已暴露', 'cls' => 'info');
+        $anyPay = $on('pay_wechat_enabled') || $on('pay_alipay_enabled');
+        $rows[] = array('label' => '支付结果回调', 'value' => $anyPay ? '端点已暴露（待接入验签）' : '未启用', 'cls' => $anyPay ? 'info' : 'muted');
         return $rows;
     }
     // 开关（rule=bool 或 key 以 .enabled 结尾）：出向/入向启用状态
@@ -111,7 +112,7 @@ function itg_status_rows($g, $vals) {
     $tokKey = '';
     foreach ($g['fields'] as $f) {
         $k = $f['key'];
-        if (preg_match('/(\.token|token|webhook_secret|secret_key|app_secret)$/', $k)) {
+        if (preg_match('/(\.token|token|webhook_secret|secret_key|app_secret|allowed_tokens|oauth_clients|oauth_secret)$/', $k)) {
             $tokKey = $k;
             if (substr($k, -6) === '.token') break;   // 入向鉴权 token 优先展示
         }
@@ -228,8 +229,8 @@ function itg_status_rows($g, $vals) {
             <?php if ($g['id'] === 'his'): ?>
             <div class="db-pane" id="itgpan_his_monitor" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title"><?= render_icon('nav:chart') ?> HIS 同步与对账监控</div>
-                    <div class="fs-12 text-muted mb-8">出向任务（his_sync_tasks）：挂号/结算/发药本地事务提交后异步入队，失败自动累计重试次数，可一键重试。</div>
+                    <div class="card-title"><?= render_icon('nav:chart') ?> 外部集成同步与对账监控</div>
+                    <div class="fs-12 text-muted mb-8">出向任务（HIS 挂号/结算/发药 · FHIR Bundle · HL7 · LIS 申请）：本地事务提交后异步入队，失败自动累计重试次数，可一键重试；下方为入向调用审计。</div>
                     <div class="itg-mon-row" id="itgMonStats"></div>
                     <div class="flex" style="gap:8px;margin:10px 0 12px">
                         <button type="button" class="btn btn-primary btn-sm" onclick="itgMonRun()"><?= render_icon('action:next') ?> 执行待办</button>
@@ -291,7 +292,7 @@ function render_itg_endpoints($g, $baseHost) {
             echo '</div>';
             echo '<div class="flex" style="gap:8px">';
             echo '<code class="itg-ep-url" title="点击复制" style="cursor:pointer" onclick="itgCopy(this.textContent.trim())">' . e($full) . '</code>';
-            echo '<button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="itgCopy(' . "'" . e($full) . "'" . ')">' . render_icon('action:check') . ' 复制</button>';
+            echo '<button type="button" class="btn btn-outline btn-sm itg-copy-btn" style="flex-shrink:0" data-copy="' . e($full) . '">' . render_icon('action:check') . ' 复制</button>';
             echo '</div>';
             if (!empty($ep['note'])) echo '<div class="fs-12 text-muted mt-4">' . e($ep['note']) . '</div>';
             if (!empty($ep['example'])) echo '<div class="itg-ep-example fs-12 mt-4">' . e($ep['example']) . '</div>';
@@ -337,19 +338,27 @@ function render_itg_field($f, $vals) {
         if ($genBtn !== '') echo '<span style="position:absolute;right:6px;top:6px">' . $genBtn . '</span>';
         echo '</div>';
     } else {
-        $inputType = $isPort ? 'number' : 'text';
+        // 密钥/Token 类字段默认掩码显示（type=password），附「👁」显示切换，避免明文暴露
+        $isSecret = (bool)preg_match('/(secret|token|api_key|password|private_key)$/i', $key) && stripos($key, 'public') === false;
+        $inputType = $isPort ? 'number' : ($isSecret ? 'password' : 'text');
         $gen = isset($f['gen']) ? $f['gen'] : '';
+        $pad = 6;
+        if ($isSecret) $pad += 36;
+        if ($gen !== '') $pad += ($gen === 'secret' ? 100 : 88);
+        echo '<div style="position:relative">';
+        echo '<input class="input' . ($isSecret ? ' itg-secret' : '') . '" id="itg_' . e($key) . '" type="' . $inputType . '" value="' . e($val) . '"' .
+            (($isSecret || $gen !== '') ? ' style="font-family:monospace;padding-right:' . $pad . 'px"' : $mono) .
+            ' autocomplete="off" placeholder="' . e(isset($f['placeholder']) ? $f['placeholder'] : '') . '">';
+        $right = 6;
+        if ($isSecret) {
+            echo '<button type="button" class="btn btn-outline btn-sm itg-eye" style="position:absolute;right:' . $right . 'px;top:50%;transform:translateY(-50%);padding:2px 7px" title="显示 / 隐藏">👁</button>';
+            $right += 36;
+        }
         if ($gen !== '') {
             $genTxt = ($gen === 'secret') ? '生成密钥' : '生成 Token';
-            echo '<div style="position:relative">';
-            echo '<input class="input" id="itg_' . e($key) . '" type="' . $inputType . '" value="' . e($val) . '" style="font-family:monospace;padding-right:104px"' .
-                ' placeholder="' . e(isset($f['placeholder']) ? $f['placeholder'] : '') . '">';
-            echo '<button type="button" class="btn btn-outline btn-sm itg-gen-btn" style="position:absolute;right:6px;top:50%;transform:translateY(-50%)" onclick="itgGen(\'itg_' . e($key) . '\',\'' . e($gen) . '\')">' . render_icon('nav:key') . ' ' . $genTxt . '</button>';
-            echo '</div>';
-        } else {
-            echo '<input class="input" id="itg_' . e($key) . '" type="' . $inputType . '" value="' . e($val) . '"' . $mono .
-                ' placeholder="' . e(isset($f['placeholder']) ? $f['placeholder'] : '') . '">';
+            echo '<button type="button" class="btn btn-outline btn-sm itg-gen-btn" style="position:absolute;right:' . $right . 'px;top:50%;transform:translateY(-50%)" onclick="itgGen(\'itg_' . e($key) . '\',\'' . e($gen) . '\')">' . render_icon('nav:key') . ' ' . $genTxt . '</button>';
         }
+        echo '</div>';
     }
     if (!empty($f['hint'])) echo '<div class="fs-12 text-muted mt-4">' . e($f['hint']) . '</div>';
     echo '</div>';
@@ -518,6 +527,8 @@ function itgSave(groupId, paneId) {
 function itgGen(fieldId, type) {
     var el = document.getElementById(fieldId);
     if (!el) return;
+    if ((type === 'secret' || type === 'token') && (el.value || '').trim() !== '' &&
+        !confirm('将覆盖现有密钥/Token（旧值立即失效），确认重新生成？')) return;
     var rnd = function (bytes) {
         var arr = new Uint8Array(bytes);
         (window.crypto || window.msCrypto).getRandomValues(arr);
@@ -561,13 +572,7 @@ function itgHelp(groupId) {
     // 帮助为只读查看项：不切换导航高亮（保留当前页签）
 }
 function renderHisTokenLive() {
-    var el = document.getElementById('itg_integration.inbound.his.token');
-    var key = el ? (el.value || '').trim() : '';
-    document.querySelectorAll('#itgPane_his .itg-ep-url').forEach(function (c) {
-        if (c.getAttribute('data-no-token')) return;
-        var base = c.textContent;
-        if (base.indexOf('?') >= 0) c.textContent = key ? base + '&token=' + key : base;
-    });
+    // 安全：端点 URL 不拼接明文 Token（避免复制/截图泄露）；调用方应经请求头 X-API-Key / Bearer 携带（见帮助页）。
 }
 
 /* ---------- HIS 同步与对账监控 ---------- */
@@ -633,10 +638,23 @@ function itgMonRun() {
     });
 }
 function itgMonClear() {
+    if (!confirm('确认清空同步历史？失败记录也会一并清空，且不可恢复。')) return;
     Clinic.ajax('/api/admin', { action: 'integration_outbox_clear' }, {
         onSuccess: function (json) { Clinic.toast.success(json.msg); itgMonLoad(1); },
     });
 }
+
+/* ---------- 密钥显示切换 / 端点复制（事件委托，避免内联注入） ---------- */
+document.addEventListener('click', function (e) {
+    var eye = e.target && e.target.closest ? e.target.closest('.itg-eye') : null;
+    if (eye) {
+        var inp = eye.parentNode ? eye.parentNode.querySelector('input') : null;
+        if (inp) inp.type = (inp.type === 'password') ? 'text' : 'password';
+        return;
+    }
+    var cp = e.target && e.target.closest ? e.target.closest('.itg-copy-btn') : null;
+    if (cp) itgCopy(cp.getAttribute('data-copy') || '');
+});
 
 /* ---------- 入向调用审计 ---------- */
 var itgInboundPage = 1;

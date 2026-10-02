@@ -20,8 +20,8 @@
 
 <h2 id="in">2. 入向报告回调</h2>
 <ul>
-<li><b>Webhook 验签密钥</b>：回调方须携带 <code>X-LIS-Token: &lt;密钥&gt;</code>（或 <code>?token=</code>）。点「生成密钥」自动生成。留空 = 拒绝全部回调。</li>
-<li><b>验签密钥过期时间 / 状态 / Scope</b>：生命周期与权限控制（Scope 需包含 <code>report:write</code>）。</li>
+<li><b>Webhook 共享密钥 Token</b>：回调方须携带 <code>X-LIS-Token: &lt;密钥&gt;</code>（或 <code>?token=</code>）。点「生成密钥」自动生成。留空 = 拒绝全部回调。</li>
+<li><b>共享密钥过期时间 / 状态 / Scope</b>：生命周期与权限控制（Scope 需包含 <code>report:write</code>）。</li>
 <li><b>IP 白名单</b>：建议限定检验中心出口 IP。</li>
 </ul>
 <p>回调 JSON：</p>
@@ -38,7 +38,7 @@
 
 <h2 id="test">3. 测试方法</h2>
 <pre><code>curl -X POST http://127.0.0.1:8000/api/external/lis/callback \
-  -H "X-LIS-Token: &lt;验签密钥&gt;" -H "Content-Type: application/json" \
+  -H "X-LIS-Token: &lt;共享密钥&gt;" -H "Content-Type: application/json" \
   -d '{"order_no":"JY2026100114224692","items":[{"name":"白细胞计数(WBC)","value":"12.3","unit":"10^9/L","ref_range":"3.5-9.5","flag":"H"}]}'</code></pre>
 <p>成功返回 <code>{"ok":true,...}</code>；Token 无效返回 401；缺少 Scope 返回 403。</p>
 <div class="tip">同一报告重复推送执行覆盖性更新（幂等），不会重复插入。</div>
