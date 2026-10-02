@@ -51,23 +51,54 @@ class RestHisDriver implements HisDriverInterface {
                     'X-Sign: ' . $sign,
                 ),
             ));
-            return array('ok' => $resp['status'] >= 200 && $resp['status'] < 300, 'resp' => $resp['body'], 'error' => '');
+            // HTTP 2xx 仅代表传输层成功；还需解析网关业务码，避免业务失败被记为成功
+            $httpOk = $resp['status'] >= 200 && $resp['status'] < 300;
+            $biz = self::parseBusinessResult($resp['body']);
+            $ok = $httpOk && $biz['ok'];
+            $err = '';
+            if (!$httpOk) $err = 'HIS 网关 HTTP ' . $resp['status'];
+            elseif (!$biz['ok']) $err = $biz['msg'] !== '' ? $biz['msg'] : 'HIS 网关返回业务失败';
+            return array('ok' => $ok, 'resp' => $resp['body'], 'error' => $err);
         } catch (Exception $ex) {
             return array('ok' => false, 'resp' => '', 'error' => $ex->getMessage());
         }
     }
 
-    /** 业务路径映射 */
+    /**
+     * 解析 HIS 网关业务返回：兼容 {code}/{resultCode}/{status}/{retCode} 与
+     * {success}/{ok} 布尔约定；无法识别时按成功处理（回退 HTTP 状态）。
+     * @return array { ok:bool, msg:string }
+     */
+    public static function parseBusinessResult($body) {
+        $body = (string)$body;
+        if ($body === '') return array('ok' => true, 'msg' => '');
+        $j = json_decode($body, true);
+        if (!is_array($j)) return array('ok' => true, 'msg' => '');
+        $msg = '';
+        foreach (array('msg', 'message', 'resultMsg', 'retMsg', 'error_description', 'error') as $k) {
+            if (isset($j[$k]) && is_string($j[$k]) && $j[$k] !== '') { $msg = $j[$k]; break; }
+        }
+        foreach (array('code', 'resultCode', 'status', 'retCode', 'errCode') as $k) {
+            if (isset($j[$k])) {
+                $cs = strtolower(trim((string)$j[$k]));
+                $ok = in_array($cs, array('0', '200', 'success', 'ok', 'true', 's', '0000', '00000'), true);
+                return array('ok' => $ok, 'msg' => $msg);
+            }
+        }
+        if (isset($j['success'])) return array('ok' => (bool)$j['success'], 'msg' => $msg);
+        if (isset($j['ok'])) return array('ok' => (bool)$j['ok'], 'msg' => $msg);
+        return array('ok' => true, 'msg' => $msg);
+    }
+
+    /** 业务路径映射（支持按业务类型配置覆盖，未配置用默认） */
     private static function pathFor($businessType) {
+        $p = trim((string)integration_cfg('outbound.his.path_' . $businessType, '', ''));
+        if ($p !== '') return $p;
         switch ($businessType) {
-            case 'his_registration':
-                return '/registration';
-            case 'his_settlement':
-                return '/settlement';
-            case 'his_prescription':
-                return '/prescription';
-            default:
-                return '/sync';
+            case 'his_registration': return '/registration';
+            case 'his_settlement':   return '/settlement';
+            case 'his_prescription': return '/prescription';
+            default:                 return '/sync';
         }
     }
 

@@ -36,7 +36,8 @@ class SoapHisDriver implements HisDriverInterface {
             $hospitalCode = (string)setting('integration.outbound.his.hospital_code', '');
             $body = $this->soapEnvelope($businessType, $hospitalCode, $data);
             $ts = (string)time();
-            $sign = hash_hmac('sha256', $appId . $ts . $body, $secret);
+            $nonce = bin2hex(random_bytes(8));
+            $sign = hash_hmac('sha256', $appId . $ts . $nonce . $body, $secret);
             $resp = HttpClient::request('POST', $gateway, array(
                 'body' => $body,
                 'timeout' => $timeout,
@@ -45,14 +46,55 @@ class SoapHisDriver implements HisDriverInterface {
                     'SOAPAction: "urn:his#' . $businessType . '"',
                     'X-App-Id: ' . $appId,
                     'X-Timestamp: ' . $ts,
+                    'X-Nonce: ' . $nonce,
                     'X-Sign: ' . $sign,
                 ),
             ));
-            $ok = $resp['status'] >= 200 && $resp['status'] < 300 && stripos($resp['body'], '<fault') === false;
-            return array('ok' => $ok, 'resp' => $resp['body'], 'error' => '');
+            $httpOk = $resp['status'] >= 200 && $resp['status'] < 300;
+            $biz = self::parseSoapResult($resp['body']);
+            $ok = $httpOk && $biz['ok'];
+            $err = '';
+            if (!$httpOk) $err = 'HIS 网关 HTTP ' . $resp['status'];
+            elseif (!$biz['ok']) $err = $biz['msg'] !== '' ? $biz['msg'] : 'SOAP 返回故障';
+            return array('ok' => $ok, 'resp' => $resp['body'], 'error' => $err);
         } catch (Exception $ex) {
             return array('ok' => false, 'resp' => '', 'error' => $ex->getMessage());
         }
+    }
+
+    /**
+     * 解析 SOAP 返回：命名空间无关地识别 Fault（soap:Fault / SOAP-ENV:Fault），
+     * 并尝试读取常见业务码节点（resultCode/code/status）。非 XML 时按成功回退。
+     * @return array { ok:bool, msg:string }
+     */
+    public static function parseSoapResult($xml) {
+        $xml = trim((string)$xml);
+        if ($xml === '') return array('ok' => true, 'msg' => '');
+        $prev = libxml_use_internal_errors(true);
+        $doc = new DOMDocument();
+        $loaded = $doc->loadXML($xml);
+        libxml_clear_errors();
+        libxml_use_internal_errors($prev);
+        if (!$loaded) return array('ok' => true, 'msg' => '');
+        $xp = new DOMXPath($doc);
+        $faults = $xp->query('//*[local-name()="Fault"]');
+        if ($faults->length > 0) {
+            $msg = '';
+            foreach (array('faultstring', 'Reason', 'faultcode', 'detail') as $n) {
+                $nodes = $xp->query('.//*[local-name()="' . $n . '"]', $faults->item(0));
+                if ($nodes->length > 0) { $msg = trim($nodes->item(0)->textContent); if ($msg !== '') break; }
+            }
+            return array('ok' => false, 'msg' => $msg !== '' ? $msg : 'SOAP Fault');
+        }
+        foreach (array('resultCode', 'code', 'status', 'retCode') as $n) {
+            $nodes = $xp->query('//*[local-name()="' . $n . '"]');
+            if ($nodes->length > 0) {
+                $cs = strtolower(trim($nodes->item(0)->textContent));
+                $ok = in_array($cs, array('0', '200', 'success', 'ok', 'true', 's', '0000', '00000'), true);
+                return array('ok' => $ok, 'msg' => $ok ? '' : ('SOAP 业务失败（code=' . $cs . '）'));
+            }
+        }
+        return array('ok' => true, 'msg' => '');
     }
 
     /** SOAP 1.1 Envelope 组装（data 数组递归转 XML） */
