@@ -13,6 +13,21 @@
 
 ---
 
+## [8.42.14] - 2026-10-01
+
+### 新增（DICOM/PACS 入向对象补齐，与模拟服务器对外对象对齐）
+- **WADO-RS 实例列表**：`GET /api/dicomweb/studies/{studyUID}/series/{seriesUID}/instances`
+  （DICOM JSON，含 SOPClassUID / SOPInstanceUID / NumberOfFrames / 窗宽窗位等）。
+- **WADO-RS 实例取像**：`GET .../instances/{sopUID}`，实例字节流（`application/dicom`）；
+  本系统仅存引用，取像经【出向 DICOM/PACS】配置的区域 PACS **代理回源**。
+- **WADO-RS 渲染图**：`GET .../instances/{sopUID}/rendered`，同样经出向区域 PACS 代理回源。
+- **根地址** `GET /api/dicomweb`（含尾斜杠）亦视为 QIDO 检查检索，便于客户端直接以根地址连通性测试。
+- 对外暴露端点列表同步补齐「实例列表 / 实例取像 / 渲染图」。
+
+> 说明：检验结果不属于 DICOMweb 对象，已由 FHIR（`Observation`）/ HL7 ORU / LIS 承载，无需在此重复。
+
+---
+
 ## [8.42.13] - 2026-10-01
 
 ### 修复
