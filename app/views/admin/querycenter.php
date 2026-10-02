@@ -127,7 +127,7 @@ function openRefViewer(studyUid) {
     if (url) window.open(url, '_blank', 'noopener');
 }
 
-window.__refViewerTpl = <?php echo json_encode(trim((string)setting('pacs_viewer_url', ''))); ?>;
+window.__refViewerTpl = <?php echo json_encode(trim((string)integration_cfg('outbound.pacs.viewer_url', '', 'pacs_viewer_url'))); ?>;
 
 // 影像引用查询默认日期范围：最近一周（开始=6 天前，结束=今天），
 // 列表随之默认展示一周内记录，可手动调整日期范围（重置按钮可清空回全部）
