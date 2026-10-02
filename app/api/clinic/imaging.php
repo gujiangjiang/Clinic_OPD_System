@@ -286,7 +286,7 @@ switch ($action) {
                 if ($ref) $studyUid = (string)$ref['study_uid'];
             }
             if ($studyUid === '') $studyUid = (string)$r['report_no'];   // 占位回退（报告号）
-            $tpl = trim((string)integration_cfg('outbound.pacs.viewer_url', '', 'pacs_viewer_url'));
+            $tpl = trim((string)integration_cfg('outbound.pacs.viewer_url'));
             $viewerUrl = $tpl !== '' ? str_replace('{study_uid}', rawurlencode($studyUid), $tpl) : '';
             $list[] = array(
                 // 报告基本信息（只读）
@@ -331,7 +331,7 @@ switch ($action) {
      * 自身提供）通过 WADO-RS/DICOMweb 拉取影像，热数据调阅由 region 存储保障。 */
     case 'viewer_url':
         $itemId = did(get('item_id'));
-        $tpl = trim((string)integration_cfg('outbound.pacs.viewer_url', '', 'pacs_viewer_url'));
+        $tpl = trim((string)integration_cfg('outbound.pacs.viewer_url'));
         if ($tpl === '') json_fail('未配置 Web 阅片器 URL 模板，请管理员在【接口管理 → DICOM/PACS】中配置');
         $it = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['item_type'] !== 'imaging') json_fail('检查项目不存在');
