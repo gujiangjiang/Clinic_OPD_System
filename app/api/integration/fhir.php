@@ -41,6 +41,26 @@ function fhir_error($status, $code, $diagnostics, $extraHeaders = array()) {
     fhir_json(FhirService::operationOutcome($code, $diagnostics), $status, $extraHeaders);
 }
 
+/** OAuth2 令牌响应（RFC 6749：application/json + 禁止缓存） */
+function fhir_oauth_json($data, $status = 200) {
+    http_response_code($status);
+    fhir_cors();
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    header('Pragma: no-cache');
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+/** FhirError → RFC 6749 error code */
+function fhir_oauth_error_code($issueCode, $message) {
+    $m = strtolower((string)$message);
+    if (strpos($m, 'grant_type') !== false) return 'unsupported_grant_type';
+    if (strpos($m, 'scope') !== false) return 'invalid_scope';
+    if (strpos($m, 'client') !== false || $issueCode === 'security') return 'invalid_client';
+    return 'invalid_request';
+}
+
 /* ---------- 预检请求 ---------- */
 if (isset($_SERVER['REQUEST_METHOD']) && strtoupper($_SERVER['REQUEST_METHOD']) === 'OPTIONS') {
     fhir_cors();
@@ -82,12 +102,16 @@ if ($__seg0 === 'oauth') {
             isset($in['scope']) ? (string)$in['scope'] : ''
         );
         integration_log_inbound('fhir', 'oauth/token', true, '颁发令牌：' . (isset($in['client_id']) ? $in['client_id'] : ''), '');
-        fhir_json($resp, 200);
+        fhir_oauth_json($resp, 200);
     } catch (FhirError $ex) {
         integration_log_inbound('fhir', 'oauth/token', false, $ex->getMessage(), '');
-        fhir_error($ex->httpStatus, $ex->issueCode, $ex->getMessage());
+        // RFC 6749 §5.2：错误以 application/json + {error,error_description} 返回
+        fhir_oauth_json(array(
+            'error' => fhir_oauth_error_code($ex->issueCode, $ex->getMessage()),
+            'error_description' => $ex->getMessage(),
+        ), $ex->httpStatus);
     } catch (Exception $ex) {
-        fhir_error(500, 'exception', '令牌颁发失败：' . $ex->getMessage());
+        fhir_oauth_json(array('error' => 'server_error', 'error_description' => '令牌颁发失败'), 500);
     }
 }
 
