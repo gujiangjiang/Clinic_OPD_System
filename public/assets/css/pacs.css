@@ -783,19 +783,9 @@
 
 /* ============ 接口管理：子模块左右分栏 ============ */
 .itg-pane { margin-top: 14px; }
-.itg-center {
-    align-items: flex-start;   /* 左侧栏按项目数自适应高度，不撑满视口 */
-    height: auto;
-    min-height: 0;
-}
-.itg-center .db-main {
-    height: auto;              /* 覆盖 db-center 100% 高度：仅内容区内部滚动 */
-    max-height: calc(100vh - var(--topbar-h) - 150px);
-    min-height: 0;
-    overflow: auto;            /* 右侧内容固定高度内滚动，不撑大页面 */
-}
-/* 固定高度的滚动列表（变更记录等） */
-.itg-fixed-scroll { max-height: calc(100vh - var(--topbar-h) - 260px); overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+.itg-center { align-items: flex-start; }   /* 沿用基础 .db-center 固定高度，右侧内容在框内滚动，不拉伸页面 */
+/* 变更记录等表格：随右侧面板一起滚动，不再单独限高（避免双重滚动条） */
+.itg-fixed-scroll { border: 1px solid var(--border); border-radius: 8px; }
 .itg-sidenav { width: 132px; }
 .itg-sidenav .db-nav { font-size: 13px; white-space: nowrap; }
 /* 标签页健康指示点 */
@@ -807,7 +797,8 @@
     .itg-center { display: block; }
     .itg-sidenav { width: auto; display: flex; flex-direction: row; overflow-x: auto; margin-bottom: 10px; }
     .itg-sidenav .db-nav { white-space: nowrap; }
-    .itg-center .db-main { max-height: none; }
+    .itg-center { height: auto; }
+    .itg-center .db-main { height: auto; overflow: visible; }
     .itg-tabs { overflow-x: auto; flex-wrap: nowrap; }
 }
 .itg-status {
