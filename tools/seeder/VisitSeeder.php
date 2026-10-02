@@ -642,20 +642,26 @@ class VisitSeeder extends Seeder {
                     ));
                     $dayKey = date('Ymd', $resTs);
                     $this->reportSeq[$dayKey] = (isset($this->reportSeq[$dayKey]) ? $this->reportSeq[$dayKey] : 0) + 1;
+                    $reportNo = 'BG' . $dayKey . sprintf('%04d', $this->reportSeq[$dayKey]);
                     DB::insert('INSERT INTO reports(result_id, report_no, visit_id, patient_no, flow_no, type, content, doctor_name, status, apply_dept_name, apply_doctor_name, clinical_diagnosis, applied_at, registered_at, category_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
-                        $resultId, 'BG' . $dayKey . sprintf('%04d', $this->reportSeq[$dayKey]),
+                        $resultId, $reportNo,
                         $visitId, $p['patient_no'], $flowNo, $otype, '',
                         $execBy, 'done', $dept['name'], $docName, $diagPick[0]['name'],
                         $created, $execAt, $otype === 'imaging' ? $visitOrders[count($visitOrders) - 1]['category'] : '', date('Y-m-d H:i:s', $resTs),
                     ));
                     DB::exec('UPDATE order_items SET result_id=? WHERE id=?', array($resultId, $iid));
-                    // 影像引用登记（三单匹配链路，报告出具后自动登记）
-                    DB::insert('INSERT INTO imaging_refs(order_item_id, order_id, visit_id, patient_no, flow_no, study_uid, series_uids, instance_count, modality, region, meta_json, created_by, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
-                        $iid, $orderId, $visitId, $p['patient_no'], $flowNo,
-                        'BG' . $dayKey . sprintf('%04d', $this->reportSeq[$dayKey]), '[]', 0,
-                        (strpos($itemRows[0]['item_name'], 'CT') !== false) ? 'CT' : ((strpos($itemRows[0]['item_name'], 'DR') !== false || strpos($itemRows[0]['item_name'], 'X线') !== false) ? 'DR' : ((strpos($itemRows[0]['item_name'], '超声') !== false || strpos($itemRows[0]['item_name'], '彩超') !== false) ? 'US' : 'OT')),
-                        'region-pacs', '{}', $execBy, date('Y-m-d H:i:s', $resTs), date('Y-m-d H:i:s', $resTs),
-                    ));
+                    // 影像引用登记：仅影像检查属于 ImagingStudy（检验属于 Observation，不登记引用）
+                    if ($otype === 'imaging') {
+                        $mod = (strpos($itemRows[0]['item_name'], 'CT') !== false) ? 'CT'
+                            : ((strpos($itemRows[0]['item_name'], 'DR') !== false || strpos($itemRows[0]['item_name'], 'X线') !== false) ? 'DR'
+                            : ((strpos($itemRows[0]['item_name'], '超声') !== false || strpos($itemRows[0]['item_name'], '彩超') !== false) ? 'US' : 'OT'));
+                        DB::insert('INSERT INTO imaging_refs(order_item_id, order_id, visit_id, patient_no, flow_no, study_uid, series_uids, instance_count, modality, region, meta_json, created_by, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                            $iid, $orderId, $visitId, $p['patient_no'], $flowNo,
+                            self::dicomUid($p['patient_no'] . '-' . $orderNo . '-' . $iid), '[]', 0,
+                            $mod, 'region-pacs', json_encode(array('report_no' => $reportNo, 'accession' => $orderNo), JSON_UNESCAPED_UNICODE),
+                            $execBy, date('Y-m-d H:i:s', $resTs), date('Y-m-d H:i:s', $resTs),
+                        ));
+                    }
                     $this->cnt['result']++;
                 }
             }
@@ -790,6 +796,13 @@ class VisitSeeder extends Seeder {
             $this->cnt['cert']++;
         }
         return $visitId;
+    }
+
+    /** 生成合法 DICOM UID（仅数字与点），由种子确定性派生（供影像引用 study_uid） */
+    private static function dicomUid($seed) {
+        $a = sprintf('%u', crc32('study|' . $seed));
+        $b = sprintf('%u', crc32('series|' . $seed));
+        return '1.2.826.0.1.3680043.8.498.' . $a . '.' . $b;
     }
 
     /** 随机取一个其他临床/急诊科室（会诊目标，排除本科室；无可选时返回 0） */
