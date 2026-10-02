@@ -258,27 +258,42 @@ Clinic.deptwork = (function () {
         bindFeeBadge(d);
     }
 
-    /* ==================== 总费用徽章 + 悬浮明细（参照医生工作站横条） ==================== */
+    /* ==================== 总费用徽章 + 悬浮明细（按费用分类，参照医生工作站横条） ==================== */
     var feePopTimer = null;
-    function feeRows(d) {
-        var rows = [];
-        var total = 0;
+    var FEE_CAT_ORDER = ['reg', 'lab', 'imaging', 'procedure', 'prescription', 'other'];
+    var FEE_CAT_TITLE = { reg: '挂号费', lab: '检验费', imaging: '检查费', procedure: '处置费', prescription: '处方费', other: '其他费用' };
+    var FEE_TYPE_CAT = { lab: 'lab', imaging: 'imaging', procedure: 'procedure', prescription: 'prescription' };
+
+    function feeGroups(d) {
+        var groups = {}, total = 0;
         var regFee = (d.visit && d.visit.fee) ? parseFloat(d.visit.fee) : 0;
         var regSt = (d.visit && d.visit.status === 'finished') ? 'done' : 'paid';
         var regDept = (d.visit && d.visit.first_dept_name) || '';
-        if (regFee > 0) rows.push({ st: regSt, name: regDept ? ('挂号费（' + regDept + '）') : '挂号费', amt: regFee });
+        if (regFee > 0) {
+            groups.reg = { key: 'reg', title: FEE_CAT_TITLE.reg, rows: [{ st: regSt, name: regDept ? ('挂号费（' + regDept + '）') : '挂号费', amt: regFee }] };
+            total += regFee;
+        }
         (d.orders || []).forEach(function (o) {
             if (o.status === 'refunded' || o.status === 'cancelled') return;
+            var cat = FEE_TYPE_CAT[o.order_type] || 'other';
+            if (!groups[cat]) groups[cat] = { key: cat, title: FEE_CAT_TITLE[cat], rows: [] };
             (o.items || []).forEach(function (i2) {
                 var amt = (parseFloat(i2.price) || 0) * (parseFloat(i2.quantity) || 1);
                 total += amt;
                 var st = (i2.status === 'done' || i2.status === 'dispensed') ? 'done'
                     : ((i2.status === 'dispensing' || i2.status === 'registered') ? 'yellow' : 'red');
-                rows.push({ st: st, name: i2.item_name, amt: amt });
+                groups[cat].rows.push({ st: st, name: i2.item_name, amt: amt });
             });
         });
-        total += regFee;
-        return { rows: rows, total: total };
+        var list = [];
+        FEE_CAT_ORDER.forEach(function (k) { if (groups[k] && groups[k].rows.length) list.push(groups[k]); });
+        return { groups: list, total: total };
+    }
+    /** 兼容：扁平费用行 */
+    function feeRows(d) {
+        var g = feeGroups(d), rows = [];
+        g.groups.forEach(function (grp) { grp.rows.forEach(function (r) { rows.push(r); }); });
+        return { rows: rows, total: g.total };
     }
     function feeStatusDot(st) {
         var cls = st === 'done' ? 'green' : (st === 'yellow' ? 'yellow' : (st === 'paid' ? 'red' : (st === 'gray' ? 'gray' : 'red')));
@@ -289,18 +304,22 @@ Clinic.deptwork = (function () {
         if (feePopTimer) { clearTimeout(feePopTimer); feePopTimer = null; }
         var stale = document.getElementById('feePop');
         if (stale) stale.remove();
-        var fr = feeRows(d);
-        if (!fr.rows.length) return;
+        var fg = feeGroups(d);
+        if (!fg.groups.length) return;
         var pop = document.createElement('div');
         pop.id = 'feePop';
         pop.className = 'fee-pop';
-        pop.innerHTML = fr.rows.map(function (r) {
-            return '<div class="fee-pop-row">' +
-                feeStatusDot(r.st) +
-                '<span class="fee-pop-name" title="' + escHtml(r.name) + '">' + escHtml(r.name) + '</span>' +
-                '<span class="fee-pop-amt">¥' + r.amt.toFixed(2) + '</span></div>';
+        pop.innerHTML = fg.groups.map(function (grp) {
+            var head = '<div class="fee-pop-cat"><span>' + escHtml(grp.title) + '</span></div>';
+            var body = grp.rows.map(function (r) {
+                return '<div class="fee-pop-row">' +
+                    feeStatusDot(r.st) +
+                    '<span class="fee-pop-name" title="' + escHtml(r.name) + '">' + escHtml(r.name) + '</span>' +
+                    '<span class="fee-pop-amt">¥' + r.amt.toFixed(2) + '</span></div>';
+            }).join('');
+            return head + body;
         }).join('') +
-            '<div class="fee-pop-total"><span>合计</span><span>¥' + fr.total.toFixed(2) + '</span></div>';
+            '<div class="fee-pop-total"><span>合计</span><span>¥' + fg.total.toFixed(2) + '</span></div>';
         document.body.appendChild(pop);
         var rect = anchor.getBoundingClientRect();
         pop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
