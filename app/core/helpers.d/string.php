@@ -13,7 +13,9 @@ function e($s) {
 }
 
 /**
- * 统一 JSON 响应格式：{ ok, msg, data }
+ * 统一 JSON 响应格式：{ ok, code, msg, data }
+ * - 保留布尔 ok（既有前端兼容）；同时提供 code（200 成功 / 400 失败），
+ *   便于外部集成方按 {code,msg,data} 通用约定解析。
  * @param bool   $ok   是否成功
  * @param string $msg  提示信息
  * @param mixed  $data 业务数据
@@ -22,6 +24,7 @@ function json_response($ok, $msg = '', $data = null) {
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode(array(
         'ok'   => (bool)$ok,
+        'code' => (bool)$ok ? 200 : 400,
         'msg'  => (string)$msg,
         'data' => $data,
     ), JSON_UNESCAPED_UNICODE);
