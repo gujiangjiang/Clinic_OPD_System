@@ -13,6 +13,37 @@
 
 ---
 
+## [8.42.7] - 2026-10-01
+
+### 修复（接口标准合规 + 接口管理优化专项）
+- **FHIR R4**：
+  - `MedicationRequest` 可正常按 id 读取（id 前缀由 `medrequest-` 校正为 `medicationrequest-`）。
+  - 出向事务 `Bundle` 条目补齐 `fullUrl` 与 `request`（PUT 幂等），并 POST 到服务基地址（原误 POST `/Bundle`）。
+  - `ImagingStudy.subject`（1..1）无患者号的记录不再输出；`DiagnosticReport.code`（1..1）始终提供；
+    `Condition` 仅在编码非空时输出 `coding`（避免空 `code`）。
+  - OAuth2：请求 Scope 必须是已注册 Scope 子集（否则 `invalid_scope`）；支持
+    `client_secret_basic`；错误码按 RFC 6749 细分（缺失参数 `invalid_request`、不支持 `unsupported_grant_type`），
+    体凭证返回 400 / Basic 返回 401+`WWW-Authenticate`。
+  - 无 `category` 的 `Observation` 检索返回检验+体征的**真实总数**；身份证 `system` 由美国 SSN OID
+    改为本地 `urn:clinic:identifier:idcard`；分页 `self/next` 链接剔除 URL 中的凭证。
+- **HL7 v2.4**：`ORC-9/ORC-12`、`OBR-16` 字段位置归位；`MSH-9` 补第三段结构（如 `ADT^A04^ADT_A01`）；
+  补 `MSH-18=UTF-8`；HTTP 入向无法解析时返回 `AR`（不再被覆盖为 AE）；ACK 收发双方互换、`ERR` 用
+  `码&文本`；客户端校验 `MSA-2` 回显；MLLP 增加读超时；ORM 每个订单仅一个 `ORC`。
+- **DICOMweb**：`AccessionNumber` 检索与返回一致（按申请单号）；检查级序列数改用
+  `(0020,1206)`（原误用 `(0020,1209)`）；无姓名时不输出空 `PN`。
+- **HIS 出向**：仅含错误字段的响应判失败；SOAP 非 XML 响应判失败；新增 `Idempotency-Key` 便于重试去重。
+- **连通性测试**：STOW-RS 改 POST；出向探针不再阻断保存；入向探针按模块发送正确鉴权头
+  （FHIR/DICOMweb/HIS 用 `X-API-Key`、LIS 用 `X-LIS-Token`）；LIS 空载荷 400 视为可达；接受 2xx。
+
+### 变更（接口管理）
+- **安全**：密钥/Token 字段默认掩码显示（附「👁」切换）；修复端点复制按钮的 Host 头注入；
+  端点 URL 不再拼接明文 Token；IP 白名单保存时校验 IP/CIDR；生成密钥/清空历史增加二次确认。
+- **准确**：修复「启用即必填」校验对所有 `.enabled` 开关失效的问题；端口范围严格 1-65535；
+  状态总览补充 FHIR 凭证识别；支付回调文案与实际一致（待接入验签）。
+- **帮助**：修正 LIS「验签密钥」为共享密钥 Token、保险回调待验签、FHIR 文案等表述。
+
+---
+
 ## [8.42.6] - 2026-10-01
 
 ### 修复
