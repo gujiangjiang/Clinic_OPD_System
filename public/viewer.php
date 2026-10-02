@@ -107,12 +107,7 @@ function sessionProbe() {
             if (r.status === 401) { lockViewer(); return null; }
             return r.json();
         })
-        .then(function (j) {
-            if (j && j.ok) {
-                var st = document.getElementById('soloSyncState');
-                if (st) st.textContent = '会话正常 · ' + new Date().toLocaleTimeString();
-            }
-        })
+        .then(function () { /* 会话正常：不显示状态文案，仅在失效时由锁屏遮罩提示 */ })
         .catch(function () { /* 网络抖动不锁定，等下一轮心跳 */ });
 }
 
@@ -162,8 +157,7 @@ function soloEmbed(silent) {
         }
         var ph = document.getElementById('soloPlaceholder');
         if (ph) ph.style.display = 'none';
-        var tl = document.getElementById('soloTagL');
-        if (tl) tl.textContent = '> 阅片器已挂载 · Study ' + (d.study_uid || '');
+        soloTag('> 阅片器已挂载 · Study ' + (d.study_uid || ''));
     }).catch(function () { /* 网络失败保持占位 */ });
 }
 
@@ -177,8 +171,7 @@ function escHtmlAttr(s) {
 }
 
 function paintTag(label) {
-    var tl = document.getElementById('soloTagL');
-    if (tl) tl.textContent = '> ' + label;
+    soloTag('> ' + label);
     var main = document.getElementById('phMain');
     if (main && label) main.textContent = label;
 }
@@ -206,8 +199,7 @@ function loadSoloPatient(code) {
             '<div class="ph-main">' + ((v.name || '') + ' · ' + (v.visit_no || '')) + '</div>' +
             '<div class="ph-sub">' + (CURRENT.label ? CURRENT.label + '<br>' : '') +
             '该患者影像序列将随主系统选择实时同步<br>DICOMweb 接入后影像自动挂载</div>';
-        var tl = document.getElementById('soloTagL');
-        if (tl) tl.textContent = CURRENT.label ? ('> ' + CURRENT.label) : ('> ' + (v.name || ''));
+        soloTag(CURRENT.label ? CURRENT.label : (v.name || ''));
     }).catch(function () { /* 锁定时静默 */ });
 }
 
@@ -250,12 +242,34 @@ function resetSolo() {
     }
 })();
 
-/* ---------- 占位交互（DICOM Viewer 接入前的友好交互占位） ---------- */
-function soloFit() { if (LOCKED) return; soloTag('⤢ 适应窗口'); }
-function soloReset() { if (LOCKED) return; soloTag('↺ 已重置视窗'); }
+/* ---------- 视窗工具栏：向内嵌 Web 阅片器发送指令（postMessage） ---------- */
+function soloViewerFrame() {
+    var m = document.getElementById('soloMount');
+    return m ? m.querySelector('iframe') : null;
+}
+function soloViewerPost(cmd, value) {
+    var f = soloViewerFrame();
+    if (!f || !f.contentWindow) return false;
+    try {
+        f.contentWindow.postMessage({ type: 'pv-command', command: cmd, value: value || '', tool: (cmd === 'tool' ? (value || '') : '') }, '*');
+        return true;
+    } catch (e) { return false; }
+}
+function soloFit() { if (LOCKED) return; soloTag(soloViewerPost('fit') ? '⤢ 适应窗口' : '阅片器未就绪'); }
+function soloReset() { if (LOCKED) return; soloTag(soloViewerPost('reset') ? '↺ 已重置视图' : '阅片器未就绪'); }
+
+/* 角标提示：显示后 4 秒自动消失，避免长期遮挡影像 */
+var SOLO_TAG_TIMER = null;
 function soloTag(txt) {
     var el = document.getElementById('soloTagL');
-    if (el) el.textContent = '> ' + txt + ' @ ' + new Date().toLocaleTimeString();
+    if (!el) return;
+    el.textContent = txt ? ('> ' + txt) : '';
+    if (SOLO_TAG_TIMER) clearTimeout(SOLO_TAG_TIMER);
+    SOLO_TAG_TIMER = setTimeout(function () {
+        SOLO_TAG_TIMER = null;
+        var e2 = document.getElementById('soloTagL');
+        if (e2) e2.textContent = '';
+    }, 4000);
 }
 </script>
 </body>

@@ -324,6 +324,9 @@
     flex-wrap: wrap;
 }
 .pacs-tool-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     border: 1px solid var(--border);
     background: var(--bg-card, #fff);
     color: var(--text);
@@ -334,6 +337,7 @@
     white-space: nowrap;
     transition: background .15s, border-color .15s;
 }
+.pacs-tool-btn svg { width: 14px; height: 14px; display: block; flex: 0 0 auto; }
 .pacs-tool-btn:hover { background: var(--primary-soft, rgba(37,99,235,.08)); border-color: var(--primary); }
 .pacs-tool-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
 

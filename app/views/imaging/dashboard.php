@@ -139,15 +139,16 @@ function renderImgIntegrated(data) {
         /* 中栏：读片核心视窗（专业深色） */
         '<div class="pacs-viewer">' +
         '  <div class="pacs-viewer-toolbar">' +
-        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'窗宽窗位\')">'+renderIconSvg('action:refresh')+' 窗宽窗位</button>' +
-        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'缩放\')">'+' 缩放</button>' +
-        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'平移\')">'+renderIconSvg('action:star')+' 平移</button>' +
-        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'测量标注\')">'+renderIconSvg('clinical:ruler')+' 测量标注</button>' +
+        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'tool\',\'wl\')">'+renderIconSvg('action:refresh')+' 窗宽窗位</button>' +
+        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'tool\',\'zoom\')"> 缩放</button>' +
+        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'tool\',\'pan\')">'+renderIconSvg('action:star')+' 平移</button>' +
+        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'tool\',\'length\')">'+renderIconSvg('clinical:ruler')+' 测量标注</button>' +
         '    <span class="pacs-tool-sep"></span>' +
-        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'旋转\')">↻ 旋转</button>' +
-        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'翻转\')">⇋ 翻转</button>' +
+        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'rotate\')">↻ 旋转</button>' +
+        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'flip\')">⇋ 翻转</button>' +
         '    <span class="pacs-tool-sep"></span>' +
-        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'重置\')">↺ 重置</button>' +
+        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'fit\')">'+renderIconSvg('action:refresh')+' 适应窗口</button>' +
+        '    <button type="button" class="pacs-tool-btn" onclick="pacsTool(\'reset\')">↺ 重置</button>' +
         '  </div>' +
         '  <div class="pacs-viewer-stage">' +
         '    <div class="pacs-viewer-mount" id="pacsViewerMount"></div>' +
@@ -176,9 +177,8 @@ function renderImgIntegrated(data) {
         '</div>' +
         '</div>';
 
-    // 视窗左上角标签：当前患者/项目信息（专业阅片习惯）
-    var tl = document.getElementById('pacsTagL');
-    if (tl) tl.textContent = '> ' + (cur ? cur.item_name : '未选择检查项目') + ' ｜ ' + v.name;
+    // 视窗左上角标签：当前患者/项目信息（专业阅片习惯；作为持久角标）
+    setPacsTagPersist('> ' + (cur ? cur.item_name : '未选择检查项目') + ' ｜ ' + v.name);
     var tr = document.getElementById('pacsTagR');
     if (tr) tr.textContent = v.visit_no || '';
 
@@ -252,8 +252,7 @@ function pacsPickSeries(el, itemId) {
     el.classList.add('active');
     var it = null;
     (window.__imgItems || []).forEach(function (x) { if (x.id === itemId) it = x; });
-    var tl = document.getElementById('pacsTagL');
-    if (tl && it) tl.textContent = '> ' + it.item_name + ' ｜ 序列已选中';
+    if (it) setPacsTagPersist('> ' + it.item_name + ' ｜ 序列已选中');
     // 同步阅片视窗 + 左下角检查信息动态更新（优化项7/12）
     window.__imgCurItem = it;
     window.__imgCurActive = itemId;
@@ -314,9 +313,40 @@ function imgInfoCardInner(it) {
         line('检查状态', it ? itemStatusName(it.status) : '—');
 }
 
-function pacsTool(name) {
+/* 阅片视窗角标：持久信息（患者/序列）+ 瞬时提示（工具/挂载，几秒后自动消失） */
+var PACS_TAG_TIMER = null;
+function setPacsTagPersist(text) {
+    window.__pacsTagPersist = text || '';
+    if (PACS_TAG_TIMER) return;   // 正在显示瞬时提示时不打断
     var tl = document.getElementById('pacsTagL');
-    if (tl) tl.textContent = '> 工具：' + name + '（占位交互，Viewer 接入后生效）';
+    if (tl) tl.textContent = window.__pacsTagPersist;
+}
+function flashPacsTag(text, ms) {
+    var tl = document.getElementById('pacsTagL');
+    if (!tl) return;
+    tl.textContent = text;
+    if (PACS_TAG_TIMER) clearTimeout(PACS_TAG_TIMER);
+    PACS_TAG_TIMER = setTimeout(function () {
+        PACS_TAG_TIMER = null;
+        var el = document.getElementById('pacsTagL');
+        if (el) el.textContent = window.__pacsTagPersist || '';
+    }, ms || 4000);
+}
+/* 向内嵌 Web 阅片器发送指令（跨域 iframe 通过 postMessage 驱动其工具/视图） */
+function pacsViewerPost(cmd, value) {
+    var f = document.getElementById('pacsViewerFrame');
+    if (!f || !f.contentWindow) return false;
+    try {
+        f.contentWindow.postMessage({ type: 'pv-command', command: cmd, value: value || '', tool: (cmd === 'tool' ? (value || '') : '') }, '*');
+        return true;
+    } catch (e) { return false; }
+}
+function pacsTool(cmd, value) {
+    var names = { tool: '', rotate: '旋转', flip: '翻转', reset: '重置', fit: '适应窗口', oneone: '原始比例' };
+    var toolNames = { wl: '窗宽窗位', zoom: '缩放', pan: '平移', length: '测量标注', angle: '测角', rect: '矩形 ROI', ellipse: '椭圆 ROI' };
+    var ok = pacsViewerPost(cmd, value);
+    var label = cmd === 'tool' ? (toolNames[value] || '工具') : (names[cmd] || cmd);
+    flashPacsTag(ok ? ('> ' + label + '：请在影像上操作') : ('> ' + label + '：阅片器未就绪'));
 }
 
 /* 内嵌 Web 阅片器（优化项3）：按当前序列取阅片器地址（影像引用优先），
@@ -356,7 +386,7 @@ function pacsAutoEmbed(itemId) {
         if (frame) {
             frame.addEventListener('load', function () {
                 frame.style.opacity = '1';
-                if (tagL) tagL.textContent = '> 阅片器已挂载 · Study ' + Clinic.escHtml(d.study_uid || '');
+                if (tagL) flashPacsTag('> 阅片器已挂载 · Study ' + Clinic.escHtml(d.study_uid || ''));
             });
         }
         if (ph) ph.style.display = 'none';
