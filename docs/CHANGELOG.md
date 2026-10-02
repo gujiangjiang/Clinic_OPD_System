@@ -13,6 +13,27 @@
 
 ---
 
+## [8.42.15] - 2026-10-02
+
+### 修复
+- **DICOMweb 实例取像/渲染图 Accept 约束**：WADO-RS 实例字节流（`application/dicom`）与
+  渲染图（`image/png`）此前被统一的「仅支持 application/dicom+json」Accept 协商拦截返回 406，
+  导致区域 PACS 代理取像链路失败（PACS 浏览器表现为取像请求风暴、图像停在「正在解码图像」）。
+  现字节流端点跳过 JSON Accept 约束，仅 QIDO / metadata 端点保留。
+- **Web 阅片器 URL 模板读取键不匹配**：管理端保存于 `integration.outbound.pacs.viewer_url`，
+  而 imaging 接口与影像引用查询仍读取旧键 `pacs_viewer_url`，导致影像科工作台始终提示
+  「未配置 Web 阅片器 URL 模板」。现统一经 `integration_cfg()` 读取（兼容旧键回退）。
+- **阅片视窗脚本损坏**：`public/viewer.php` 内联脚本误用 PHP 的 `render_icon` 且文件尾部被截断，
+  造成脚本语法错误、主窗口选择患者/序列后视窗始终停在「等待选择患者影像」。现改用前端
+  `renderIconSvg` 并补回被截断的复位 / 会话握手 / 占位交互逻辑。
+
+### 移除
+- **删除 `tools/pacs_viewer/`**：该模拟 PACS 浏览器已是完全独立的仓库
+  （https://github.com/gujiangjiang/pacs_viewer），移除主项目内的 git subtree 副本，
+  并清理 README / HELP / AGENTS.md 中的相关指引。
+
+---
+
 ## [8.42.14] - 2026-10-01
 
 ### 新增（DICOM/PACS 入向对象补齐，与模拟服务器对外对象对齐）
