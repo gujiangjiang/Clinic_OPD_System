@@ -50,13 +50,24 @@ class HL7MessageParser {
         $v = (string)$v;
         if ($v === '') return '';
         $parts = explode('^', $v);
-        return trim($parts[0]);
+        return self::unescape(trim($parts[0]));
     }
 
     /** 取组件第 n 段（0 基） */
     private static function compN($v, $n) {
         $parts = explode('^', (string)$v);
-        return isset($parts[$n]) ? trim($parts[$n]) : '';
+        return isset($parts[$n]) ? self::unescape(trim($parts[$n])) : '';
+    }
+
+    /** HL7 转义序列解码（\F\ \S\ \T\ \R\ \E\ \.br\ 等） */
+    private static function unescape($s) {
+        $s = (string)$s;
+        if ($s === '' || strpos($s, '\\') === false) return $s;
+        return str_replace(
+            array('\\F\\', '\\S\\', '\\T\\', '\\R\\', '\\E\\', '\\.br\\', '\\.sp\\'),
+            array('|', '^', '&', '~', '\\', "\n", ' '),
+            $s
+        );
     }
 
     /**

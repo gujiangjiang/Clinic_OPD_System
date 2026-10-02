@@ -54,18 +54,29 @@ class HL7MessageBuilder {
         return implode('|', $f);
     }
 
+    /** HL7 转义：字段/组件/子组件/重复/转义符（\F\ \S\ \T\ \R\ \E\） */
+    public static function hl7Escape($v) {
+        $v = (string)$v;
+        if ($v === '') return '';
+        return str_replace(
+            array('\\', '|', '^', '&', '~'),
+            array('\\E\\', '\\F\\', '\\S\\', '\\T\\', '\\R\\'),
+            $v
+        );
+    }
+
     /** 姓名 → XPN 的 姓^名（中文按首字为姓；含空格按空格拆分；无法拆分则整名置于姓） */
     public static function xpn($name) {
         $name = trim((string)$name);
         if ($name === '') return '';
         if (strpos($name, ' ') !== false) {
             $parts = preg_split('/\s+/', $name);
-            return array_shift($parts) . '^' . implode('', $parts);
+            return self::hl7Escape(array_shift($parts)) . '^' . self::hl7Escape(implode('', $parts));
         }
         if (preg_match('/^[\x{4e00}-\x{9fa5}]{2,}$/u', $name)) {
-            return mb_substr($name, 0, 1, 'UTF-8') . '^' . mb_substr($name, 1, null, 'UTF-8');
+            return self::hl7Escape(mb_substr($name, 0, 1, 'UTF-8')) . '^' . self::hl7Escape(mb_substr($name, 1, null, 'UTF-8'));
         }
-        return $name;
+        return self::hl7Escape($name);
     }
 
     /** 日期 → HL7 DTM（YYYYMMDD，去掉分隔符） */
@@ -158,7 +169,7 @@ class HL7MessageBuilder {
         $f[10] = '';                            // PID-10 种族
         // PID-11 地址（组件：街道^其他^市^省^…）
         $addr = (string)(isset($p['address']) ? $p['address'] : '');
-        $f[11] = $addr !== '' ? $addr . '^' : '';
+        $f[11] = $addr !== '' ? self::hl7Escape($addr) . '^' : '';
         $f[12] = '';                            // PID-12 县区码
         $f[13] = (string)(isset($p['phone']) ? $p['phone'] : '');   // PID-13 电话
         return self::join($f);
@@ -171,7 +182,7 @@ class HL7MessageBuilder {
         $f[0] = 'PV1';
         $f[1] = (string)$setId;                          // PV1-1 Set ID
         $f[2] = 'O';                                     // PV1-2 患者类别：O=门诊
-        $f[3] = (string)(isset($v['current_dept_name']) ? $v['current_dept_name'] : '');  // PV1-3 就诊科室(PV1-3 PL)
+        $f[3] = self::hl7Escape((string)(isset($v['current_dept_name']) ? $v['current_dept_name'] : ''));  // PV1-3 就诊科室
         // PV1-19 就诊号（Visit Number）：放在正确字段
         $f[19] = (string)(isset($v['flow_no']) ? $v['flow_no'] : '');
         // PV1-44 入院时间（Admit Date/Time）：完整 DTM
@@ -218,14 +229,14 @@ class HL7MessageBuilder {
         $f[4] = '';        // ORC-4 Placer Group Number
         $f[5] = 'SC';      // ORC-5 订单状态：SC=Scheduled（此前误置于 ORC-4）
         $f[9] = $dt;      // ORC-9 事务时间（index=字段号）
-        $f[12] = $doctor; // ORC-12 申请医生
+        $f[12] = self::hl7Escape($doctor); // ORC-12 申请医生
         return self::join($f);
     }
 
     /** OBR 段（检验/检查申请） */
     public static function obr($item, $orderNo, $doctor, $createdAt, $setId) {
         $dt = substr(str_replace(array('-', ' ', ':'), '', $createdAt), 0, 14);
-        $itemName = (string)(isset($item['item_name']) ? $item['item_name'] : '');
+        $itemName = self::hl7Escape((string)(isset($item['item_name']) ? $item['item_name'] : ''));
         $f = array();
         $f[0] = 'OBR';
         $f[1] = (string)$setId;   // OBR-1 Set ID
@@ -234,13 +245,13 @@ class HL7MessageBuilder {
         $f[4] = $itemName;        // OBR-4 通用服务标识（项目名）
         $f[6] = $dt;              // OBR-6 申请时间
         $f[7] = $dt;              // OBR-7 观察/执行时间
-        $f[16] = $doctor;         // OBR-16 申请医生
+        $f[16] = self::hl7Escape($doctor);         // OBR-16 申请医生
         return self::join($f);
     }
 
     /** RXE 段（处方明细） */
     public static function rxe($item, $setId = 1) {
-        $itemName = (string)(isset($item['item_name']) ? $item['item_name'] : '');
+        $itemName = self::hl7Escape((string)(isset($item['item_name']) ? $item['item_name'] : ''));
         $qty = (string)(isset($item['quantity']) ? $item['quantity'] : '');
         $unit = (string)(isset($item['unit']) ? $item['unit'] : '');
         $dose = (string)(isset($item['single_dose']) ? $item['single_dose'] : '');

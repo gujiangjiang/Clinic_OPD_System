@@ -167,6 +167,19 @@ if ($__seg0 !== 'studies') {
     dw_error(404, '不支持的 DICOMweb 路径：' . $__sub);
 }
 
+/* ---------- Accept 协商：本服务仅输出 DICOM JSON，显式要求其它媒体类型时返回 406 ---------- */
+$__accept = isset($_SERVER['HTTP_ACCEPT']) ? trim((string)$_SERVER['HTTP_ACCEPT']) : '';
+if ($__accept !== '') {
+    $__okType = false;
+    foreach (explode(',', $__accept) as $__part) {
+        $__t = strtolower(trim(explode(';', $__part)[0]));
+        if ($__t === '*/*' || $__t === 'application/*' || $__t === 'application/dicom+json' || $__t === 'application/json') {
+            $__okType = true; break;
+        }
+    }
+    if (!$__okType) dw_error(406, '本服务仅支持 Accept: application/dicom+json');
+}
+
 /** 单条 imaging_ref → DICOM JSON 检查对象 */
 function dw_study_obj($ref, $patient) {
     $studyUid = (string)$ref['study_uid'];
@@ -247,7 +260,15 @@ if (count($__segs) === 1) {
     }
     $sdate = isset($_GET['StudyDate']) ? trim((string)$_GET['StudyDate']) : '';
 
-    if ($pid !== '') { $where[] = 'patient_no=?'; $args[] = $pid; }
+    if ($pid !== '') {   // PatientID 支持 QIDO 通配：* → %，? → _
+        if (strpos($pid, '*') !== false || strpos($pid, '?') !== false) {
+            $where[] = 'patient_no LIKE ?';
+            $args[] = str_replace(array('*', '?'), array('%', '_'), $pid);
+        } else {
+            $where[] = 'patient_no=?';
+            $args[] = $pid;
+        }
+    }
     if ($acc !== '') {   // 与返回的 0008,0050 一致：按申请单号（orders.order_no）匹配
         $where[] = 'order_id IN (SELECT id FROM orders WHERE order_no=?)';
         $args[] = $acc;

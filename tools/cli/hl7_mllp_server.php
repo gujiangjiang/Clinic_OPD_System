@@ -103,32 +103,25 @@ while (true) {
         fclose($conn);
         continue;
     }
-    // 读取 MLLP 帧：0x0B 起始 … 0x1C 0x0D 帧尾（单连接可连发多帧）
-    $frame = '';
-    $inFrame = false;
+    // 读取 MLLP 帧：0x0B 起始 … 严格帧尾 0x1C 0x0D（单连接可连发多帧；跨读取块自动拼接）
+    $buf = '';
     while (!feof($conn)) {
         $chunk = fread($conn, 4096);
-        if ($chunk === false || $chunk === '') break;
-        $len = strlen($chunk);
-        for ($i = 0; $i < $len; $i++) {
-            $byte = $chunk[$i];
-            if (!$inFrame && $byte === chr(0x0B)) {
-                $inFrame = true;
-                $frame = '';
-                continue;
-            }
-            if ($inFrame) {
-                if ($byte === chr(0x1C)) {
-                    // 帧尾：可选 0x0D；解析并回传 ACK，随后继续等待下一帧
-                    if (isset($chunk[$i + 1]) && $chunk[$i + 1] === chr(0x0D)) $i++;
-                    $ack = mllp_handle($frame, $tag);
-                    fwrite($conn, chr(0x0B) . $ack . chr(0x1C) . chr(0x0D));
-                    $frame = '';
-                    $inFrame = false;
-                    continue;
-                }
-                $frame .= $byte;
-            }
+        if ($chunk === false || $chunk === '') {
+            $meta = stream_get_meta_data($conn);
+            if (!empty($meta['timed_out'])) break;   // 空闲超时断开
+            continue;
+        }
+        $buf .= $chunk;
+        while (true) {
+            $start = strpos($buf, chr(0x0B));
+            if ($start === false) { $buf = ''; break; }           // 丢弃帧外字节
+            $end = strpos($buf, chr(0x1C) . chr(0x0D), $start + 1);
+            if ($end === false) { $buf = substr($buf, $start); break; }   // 等待完整帧尾
+            $frame = substr($buf, $start + 1, $end - $start - 1);
+            $buf = substr($buf, $end + 2);
+            $ack = mllp_handle($frame, $tag);
+            fwrite($conn, chr(0x0B) . $ack . chr(0x1C) . chr(0x0D));
         }
     }
     if (is_resource($conn)) fclose($conn);

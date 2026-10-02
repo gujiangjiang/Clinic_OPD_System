@@ -64,7 +64,7 @@ class FhirService {
             'interaction' => array(),
         );
         // 支持 _include=:patient 的资源（其 search 会回传 patientRefs）
-        $includeMap = array('Encounter', 'Condition', 'Observation', 'MedicationRequest', 'ImagingStudy');
+        $includeMap = array('Encounter', 'Condition', 'Observation', 'MedicationRequest', 'ImagingStudy', 'DiagnosticReport');
         $res = array();
         foreach (self::adapterMap() as $key => $class) {
             if (!class_exists($class)) continue;

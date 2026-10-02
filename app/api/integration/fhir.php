@@ -132,6 +132,21 @@ if ($__seg0 === 'oauth') {
     }
 }
 
+/* ---------- Accept 协商：本服务为 JSON-only 实现，显式请求 XML 时返回 406 ---------- */
+$__accept = isset($_SERVER['HTTP_ACCEPT']) ? (string)$_SERVER['HTTP_ACCEPT'] : '';
+if ($__accept !== '') {
+    $__okType = false;
+    foreach (explode(',', $__accept) as $__part) {
+        $__t = strtolower(trim(explode(';', $__part)[0]));
+        if ($__t === '*/*' || $__t === 'application/*' || $__t === 'application/fhir+json' || $__t === 'application/json') {
+            $__okType = true; break;
+        }
+    }
+    if (!$__okType) {
+        fhir_error(406, 'not-supported', '本服务仅支持 application/fhir+json（JSON-only 实现，不支持 XML）');
+    }
+}
+
 /* ============================================================
  * ② CapabilityStatement（免认证）
  * ============================================================ */

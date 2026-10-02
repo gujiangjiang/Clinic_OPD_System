@@ -184,26 +184,22 @@ class ImagingStudyAdapter extends FhirAdapter {
             )));
         }
 
-        // endpoint（可选）：配置了 PACS/WADO/Viewer 地址时输出引用提示
-        $ep = self::endpointRef();
-        if ($ep) $res['endpoint'] = array($ep);
+        // PACS 端点（可选）：以本地扩展暴露地址，避免悬空 Reference（未提供 Endpoint 资源）
+        $epUrl = self::pacsEndpointUrl();
+        if ($epUrl !== '') {
+            $res['extension'][] = array('url' => 'urn:clinic:extension:pacs-endpoint', 'valueUri' => $epUrl);
+        }
 
         return $res;
     }
 
-    /** PACS 端点引用（integration.outbound.pacs.*） */
-    private static function endpointRef() {
-        $url = '';
+    /** PACS / 阅片器端点地址（integration.outbound.pacs.*） */
+    private static function pacsEndpointUrl() {
         foreach (array('integration.outbound.pacs.wado_url', 'integration.outbound.pacs.qido_url', 'integration.outbound.pacs.viewer_url') as $k) {
             $v = trim((string)setting($k, ''));
-            if ($v !== '') { $url = $v; break; }
+            if ($v !== '') return $v;
         }
-        if ($url === '') return null;
-        return array(
-            'type' => 'Endpoint',
-            'display' => 'PACS',
-            'identifier' => array(array('system' => 'urn:ietf:rfc:3986', 'value' => $url)),
-        );
+        return '';
     }
 
     public static function search($params) {
@@ -239,12 +235,14 @@ class ImagingStudyAdapter extends FhirAdapter {
 
         if (isset($params['identifier']) && trim((string)$params['identifier']) !== '') {
             $idv = trim((string)$params['identifier']);
-            // 支持 urn:dicom:uid|urn:oid:1.2.3 / StudyInstanceUID 裸值
+            // 支持 urn:dicom:uid|urn:oid:1.2.3 / StudyInstanceUID 裸值；也匹配检查号与报告号
             if (strpos($idv, '|') !== false) { list(, $idv) = explode('|', $idv, 2); }
             $idv = trim($idv);
             if (strpos($idv, 'urn:oid:') === 0) $idv = substr($idv, 8);
-            $where[] = 'ir.study_uid=?';
-            $args[] = $idv;
+            $where[] = '(ir.study_uid=? OR o.order_no=? OR EXISTS('
+                . 'SELECT 1 FROM results rs JOIN reports rp ON rp.result_id=rs.id '
+                . 'WHERE rs.order_item_id=ir.order_item_id AND rp.report_no=?))';
+            $args[] = $idv; $args[] = $idv; $args[] = $idv;
         }
 
         if (isset($params['modality']) && trim((string)$params['modality']) !== '') {
