@@ -62,8 +62,8 @@ function refRowHtml(list, isFirst) {
             '<td class="fs-12" style="font-family:monospace;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escHtml(r.study_uid) + '">' + escHtml(r.study_uid) + '</td>' +
             '<td class="fs-12">' + escHtml(r.region) + '</td>' +
             '<td class="fs-12">' + escHtml(r.created_by || '') + '</td>' +
-            '<td>' + (window.__refViewerTpl
-                ? '<button class="btn btn-outline btn-sm" onclick="openRefViewer(\'' + escHtml(r.study_uid) + '\')">'+' 调阅</button>'
+            '<td>' + (r.order_item_id
+                ? '<button class="btn btn-outline btn-sm" onclick="openRefViewer(\'' + escHtml(r.visit_code || '') + '\',\'' + escHtml(r.order_item_id) + '\',\'' + escHtml(r.item_name || '') + '\')">'+' 调阅</button>'
                 : '<span class="fs-12 text-muted">—</span>') + '</td>' +
             '</tr>';
     }).join('');
@@ -121,13 +121,17 @@ function resetRefs() {
     else initRefList();
 }
 
-/* 阅片器直链（模板服务端注入，JS 端 {study_uid} 替换后新窗口打开） */
-function openRefViewer(studyUid) {
-    var url = String(window.__refViewerTpl || '').replace('{study_uid}', encodeURIComponent(studyUid));
-    if (url) window.open(url, '_blank', 'noopener');
+/* 调阅影像：打开本系统阅片视窗 /viewer.php（会话握手传递就诊/项目上下文），
+   不暴露、不外跳 Web 阅片器直链地址 */
+function openRefViewer(visitCode, itemId, label) {
+    if (!visitCode) { if (window.Clinic && Clinic.toast) Clinic.toast.warning('缺少就诊信息，无法调阅影像'); return; }
+    var sid = document.body.getAttribute('data-sid') || '';
+    var ctx = { sid: sid, visit: visitCode, item: itemId || '', label: label || '' };
+    try { localStorage.setItem('clinic_viewer_pending_ctx', JSON.stringify(ctx)); } catch (e) { /* 忽略 */ }
+    try { if (window.Clinic && Clinic.authSync && Clinic.authSync.broadcastContext) Clinic.authSync.broadcastContext(ctx); } catch (e) { /* 忽略 */ }
+    window.open('/viewer.php', 'clinic_img_viewer',
+        'width=1280,height=800,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=no');
 }
-
-window.__refViewerTpl = <?php echo json_encode(trim((string)integration_cfg('outbound.pacs.viewer_url'))); ?>;
 
 // 影像引用查询默认日期范围：最近一周（开始=6 天前，结束=今天），
 // 列表随之默认展示一周内记录，可手动调整日期范围（重置按钮可清空回全部）

@@ -448,6 +448,8 @@ switch ($action) {
             $list[] = array(
                 'id' => oid((int)$r['id']),
                 'flow_no' => (string)$r['flow_no'],
+                'visit_code' => ((int)$r['visit_id'] > 0 ? oid((int)$r['visit_id']) : ''),
+                'order_item_id' => ((int)$r['order_item_id'] > 0 ? oid((int)$r['order_item_id']) : ''),
                 'patient_no' => (string)$r['patient_no'],
                 'patient_name' => (string)$r['pname'],
                 'gender' => (string)$r['pgender'],
