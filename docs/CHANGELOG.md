@@ -13,6 +13,49 @@
 
 ---
 
+## [8.42.2] - 2026-10-01
+
+### 修复（接口标准化专项：对照 FHIR R4 / DICOMweb PS3.18 / HL7 v2.4 官方规范）
+- **FHIR ImagingStudy 字段类型错位**：
+  - `ImagingStudy.modality` 由 `CodeableConcept` 改为 R4 规定的 `0..* Coding`；
+    `series.modality` 改为 `1..1 Coding` 且在缺失时回退 `OT`（此前可能整项缺失）。
+  - `series.numberOfInstances` 未知（≤0）时不再虚报 `0`，改为省略；`numberOfSeries`
+    以实际输出的序列数为准。
+- **FHIR Patient 标识与姓名**：`identifier.type` 由不存在的 v2-0203 码 `OP` 改为有效码
+  `MR`（Medical Record Number）；`name` 不再把整名塞进 `family`，无法可靠拆分时仅给 `text`。
+- **FHIR CapabilityStatement**：移除非法的系统级交互 `read`（SystemRestfulInteraction
+  无此码）与未实现的 `search-system`；为 Encounter/Condition/Observation/
+  MedicationRequest/ImagingStudy 声明 `searchInclude`；`_include` 严格匹配
+  `{资源}:patient`（此前任何含 `:patient` 的令牌都会误触发）。
+- **DICOMweb（QIDO-RS / WADO-RS metadata）**：
+  - **PN 编码修复**：`PatientName(0010,0010)` 现按 DICOM JSON 模型输出
+    `{"Alphabetic":...}`（此前被 `array_values` 破坏为裸字符串，标准客户端无法解析）。
+  - **UID 合法化**：`StudyInstanceUID/SeriesInstanceUID/SOPInstanceUID` 归一化为合法
+    `UI`（报告号占位符确定性派生为合法 OID），并支持按原始或归一化 UID 检索。
+  - **模态合法化**：`0008,0060/0061` 输出合法 `CS`（中文分类名尽力映射，否则 `OT`）。
+  - **检查号归位**：`0008,0050 AccessionNumber` 取自报告/登记号（`meta.accession`），
+    不再误填就诊号；SOP Class UID 按模态映射（CT/MR/US/CR/DX/MG/NM/PT）。
+  - **QIDO 检索增强**：支持 `PatientName`（`*`/`?` 通配）、`ModalitiesInStudy`、
+    `StudyDate` 日期范围；`/series` 补 `StudyInstanceUID`，metadata 补 StudyTime/
+    SeriesNumber/SeriesDescription/StudyDescription/出生日期/性别。
+  - **协议合规**：仅允许 GET（其余 405 + `Allow`）；OPTIONS 预检免鉴权返回 204 + CORS；
+    401 挑战改为 `Bearer`；错误响应用 `text/plain`（不再污染 `application/dicom+json`）。
+- **HL7 v2 段字段归位**：
+  - PID：`PID-5` 姓名输出 `姓^名`（中文按首字拆姓）；`PID-7` 出生日期转 `YYYYMMDD`；
+    `PID-8` 性别转表 0001（M/F/O/U）；`PID-4` 不再与 `PID-3` 重复。
+  - PV1：就诊号归位 `PV1-19`（Visit Number）、入院时间归位 `PV1-44`（此前错置于
+    PV1-17/PV1-19）；去除 PV1-6 重复科室。
+  - ORC：订单状态 `SC` 归位 `ORC-5`（此前误置于 ORC-4）；补齐执行单号 `ORC-3`。
+  - OBR：执行单号归位 `OBR-3`、观察时间归位 `OBR-7`，去除 OBR-18 重复。
+  - RXE：按 v2.3.1 重排给药代码/剂量/单位/频次/发药量；新增 `RXR` 承载用药途径。
+  - ADT 增加 `EVN` 段；ACK 的 MSH-9 为 `ACK^<触发>^ACK` 并回填对端版本，
+    `ERR` 段按 v2.4 ELD 结构输出；消息控制 ID 随机化降低碰撞。
+  - 解析：PID-5 不再丢失姓氏；OBX 依 `OBX-2` 值类型解析 `OBX-5`（SN/CQ/CWE 等）。
+- **通用 JSON 响应**：`{ok,msg,data}` 增补 `code`（200/400），兼容外部
+  `{code,msg,data}` 解析约定（保留 `ok` 不破坏既有前端）。
+
+---
+
 ## [8.42.1] - 2026-10-01
 
 ### 修复
