@@ -51,85 +51,6 @@ $zoneIcon = array(
     'medicare' => 'action:id-card', 'wechat' => 'nav:mobile', 'alipay' => 'action:handshake', 'bank' => 'nav:card',
 );
 
-/**
- * 接口状态总览行（快速一览：开关/模式/关键地址/凭证/端点数）
- * @param array $g    接口分组定义
- * @param array $vals 当前配置值表
- * @return array [label, value, cls(badge class)]
- */
-function itg_status_rows($g, $vals) {
-    $rows = array();
-    $get = function ($k) use ($vals) { return isset($vals[$k]) ? trim((string)$vals[$k]) : ''; };
-    $on = function ($k) use ($vals, $get) { return $get($k) === '1'; };
-    $badge = function ($k) use ($vals, $get) { return $get($k) !== ''; };
-    // 医保/支付分组：状态总览直接列出各支付方式（微信/支付宝/银行卡/医保卡）开关状态
-    if ($g['id'] === 'insurance') {
-        $payModes = array(
-            array('label' => '微信支付', 'key' => 'pay_wechat_enabled'),
-            array('label' => '支付宝', 'key' => 'pay_alipay_enabled'),
-            array('label' => '银行卡', 'key' => 'pay_bankcard_enabled'),
-            array('label' => '医保卡', 'key' => 'pay_medicare_enabled'),
-        );
-        foreach ($payModes as $pm) {
-            $rows[] = array('label' => $pm['label'], 'value' => $on($pm['key']) ? '已启用' : '未启用', 'cls' => $on($pm['key']) ? 'success' : 'muted');
-        }
-        // 医保前置机关键配置
-        $gw = $get('integration.outbound.insurance.gateway_url');
-        $rows[] = array('label' => '医保前置机地址', 'value' => $gw !== '' ? $gw : '未配置', 'cls' => $gw !== '' ? 'info' : 'muted');
-        $anyPay = $on('pay_wechat_enabled') || $on('pay_alipay_enabled');
-        $rows[] = array('label' => '支付结果回调', 'value' => $anyPay ? '端点已暴露（待接入验签）' : '未启用', 'cls' => $anyPay ? 'info' : 'muted');
-        return $rows;
-    }
-    // 开关（rule=bool 或 key 以 .enabled 结尾）：出向/入向启用状态
-    foreach ($g['fields'] as $f) {
-        $k = $f['key'];
-        $isBool = (isset($f['rule']) && $f['rule'] === 'bool') || substr($k, -8) === '.enabled';
-        if ($isBool) {
-            $rows[] = array('label' => $f['label'], 'value' => $on($k) ? '已启用' : '未启用', 'cls' => $on($k) ? 'success' : 'muted');
-        }
-    }
-    // 模式/通道/传输 select：展示当前选择（.enabled 开关已在上面以徽章展示，跳过避免重复）
-    foreach ($g['fields'] as $f) {
-        if (isset($f['type']) && $f['type'] === 'select' && substr($f['key'], -8) !== '.enabled') {
-            $cur = $get($f['key']);
-            if ($cur !== '') {
-                $opts = isset($f['options']) ? $f['options'] : array();
-                $rows[] = array('label' => $f['label'], 'value' => isset($opts[$cur]) ? $opts[$cur] : $cur, 'cls' => 'primary');
-            }
-        }
-    }
-    // 首个网关/地址字段（rule=url）：展示或标记未配置
-    $urlShown = false;
-    foreach ($g['fields'] as $f) {
-        $k = $f['key'];
-        if (isset($f['rule']) && $f['rule'] === 'url' && !$urlShown) {
-            $v = $get($k);
-            $rows[] = array('label' => $f['label'], 'value' => $v !== '' ? $v : '未配置', 'cls' => $v !== '' ? 'info' : 'muted');
-            $urlShown = true;
-        }
-    }
-    // 凭证类字段：优先入向 token（.token 结尾），其次 webhook_secret / secret_key / app_secret
-    $tokKey = '';
-    foreach ($g['fields'] as $f) {
-        $k = $f['key'];
-        if (preg_match('/(\.token|token|webhook_secret|secret_key|app_secret|allowed_tokens|oauth_clients|oauth_secret)$/', $k)) {
-            $tokKey = $k;
-            if (substr($k, -6) === '.token') break;   // 入向鉴权 token 优先展示
-        }
-    }
-    if ($tokKey !== '') {
-        $label = '凭证';
-        foreach ($g['fields'] as $f) { if ($f['key'] === $tokKey) { $label = $f['label']; break; } }
-        $rows[] = array('label' => $label, 'value' => $badge($tokKey) ? '已配置' : '未配置', 'cls' => $badge($tokKey) ? 'success' : 'muted');
-    }
-    // 入向开放端点数
-    if (!empty($g['endpoints'])) {
-        $cnt = 0;
-        foreach ($g['endpoints'] as $ep) { if (!empty($ep['path'])) $cnt++; }
-        $rows[] = array('label' => '入向开放端点', 'value' => $cnt . ' 个', 'cls' => 'info');
-    }
-    return $rows;
-}
 ?>
 <div class="page-head">
     <div><div class="page-title"><?= render_icon('nav:plug') ?> 接口管理</div>
@@ -196,8 +117,8 @@ function itg_status_rows($g, $vals) {
                 <div class="card setting-card">
                     <div class="card-title"><?= render_icon('action:eye') ?> 状态总览</div>
                     <div class="fs-12 text-muted mb-12" style="margin-top:-4px"><?php echo e($g['desc']); ?></div>
-                    <div class="itg-status">
-                        <?php foreach (itg_status_rows($g, $vals) as $sr): ?>
+                    <div class="itg-status" id="itgStatus_<?php echo e($g['id']); ?>">
+                        <?php foreach (IntegrationStatus::rows($g, $vals) as $sr): ?>
                         <div class="itg-status-row">
                             <span class="itg-status-label"><?php echo e($sr['label']); ?></span>
                             <span class="badge badge-<?php echo $sr['cls']; ?>"><?php echo e($sr['value']); ?></span>
@@ -545,7 +466,28 @@ function itgSave(groupId, paneId) {
     Clinic.ajax('/api/admin', data, {
         onSuccess: function (json) {
             Clinic.toast.success(json.msg);
+            refreshItgStatus(groupId);   // 状态总览实时刷新（无需整页重载）
             if (groupId === 'his' && paneId === 'inbound') { renderHisTokenLive(); }
+        },
+    });
+}
+
+/* 保存后按已存配置重算「状态总览」并按启用状态刷新页签健康点 */
+function refreshItgStatus(groupId) {
+    Clinic.ajax('/api/admin', { action: 'integration_status', group: groupId }, {
+        onSuccess: function (json) {
+            var d = (json && json.data) || {};
+            var box = document.getElementById('itgStatus_' + groupId);
+            if (box && d.items) {
+                box.innerHTML = d.items.map(function (it) {
+                    return '<div class="itg-status-row"><span class="itg-status-label">' + Clinic.escHtml(it.label) + '</span>' +
+                        '<span class="badge badge-' + it.cls + '">' + Clinic.escHtml(it.value) + '</span></div>';
+                }).join('');
+            }
+            var on = false;
+            (d.items || []).forEach(function (it) { if (it.value === '已启用') on = true; });
+            var dot = document.querySelector('#itgTabs .itg-tab[data-tab="' + groupId + '"] .itg-tab-dot');
+            if (dot) dot.classList.toggle('on', on);
         },
     });
 }

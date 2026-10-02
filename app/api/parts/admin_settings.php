@@ -259,6 +259,16 @@ function admin_part_settings($action) {
         json_ok($res, $res['ok'] ? '连通性测试通过' : '连通性测试存在未通过项');
     }
 
+    /* ==================== 接口管理：状态总览实时刷新（保存后按已存配置重算） ==================== */
+    if ($action === 'integration_status') {
+        $group = integration_group(post('group', ''));
+        if (!$group) json_fail('未知的接口分组');
+        json_ok(array(
+            'items' => IntegrationStatus::rowsForGroup($group),
+            'title' => $group['title'],
+        ));
+    }
+
     /* ==================== 上传医院 LOGO（同时作为 favicon） ==================== */
     if ($action === 'upload_logo') {
         $res = Upload::save('logo', 'logo', array('jpg', 'jpeg', 'png', 'gif', 'webp'), 2097152);
