@@ -13,6 +13,24 @@
 
 ---
 
+## [8.42.9] - 2026-10-01
+
+### 修复
+- **检查时间 / 报告时间错位**：此前 `ImagingStudy.started` 直接取 `imaging_refs.created_at`（其语义不稳定，
+  有时为登记、有时为报告时间），而 `DiagnosticReport.issued` 取 `reports.registered_at`（实为检查执行时间），
+  导致「检查时间」与「报告时间」时而正确、时而互换。现统一：
+  - **检查时间**（`ImagingStudy.started` / `DiagnosticReport.effectiveDateTime` / DICOMweb
+    `StudyDate/Time`）= 开单明细**登记时间** → **执行时间** → 申请单**开单时间**；
+  - **报告时间**（`DiagnosticReport.issued`）= 报告创建时间。
+- **ImagingStudy 列表默认排序**改为按检查时间倒序（最新检查在前）。
+
+### 变更
+- **接口管理状态总览保存后实时刷新**：保存某分组配置后，前端按已存配置重新计算并更新
+  「状态总览」徽章与页签健康点，无需整页刷新（新增 `integration_status` 动作与
+  `IntegrationStatus` 服务，与页面渲染共用同一逻辑）。
+
+---
+
 ## [8.42.8] - 2026-10-01
 
 ### 新增
