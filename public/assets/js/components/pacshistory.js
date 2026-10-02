@@ -164,12 +164,15 @@ Clinic.pacsHistory = (function () {
             '<div class="hist-field-text">' + esc(r.audit_doctor || '—') + '</div></div>' +
             '<div class="hist-field"><div class="hist-field-label">报告状态</div>' +
             '<div class="hist-field-text">' + esc(r.status_name || '—') + '</div></div>' +
-            // 影像调阅直链（引用架构：跳 Web 阅片器查看历史影像）
-            (r.viewer_url
+            // 影像调阅：打开本系统阅片视窗（/viewer.php）挂载影像，不暴露/外跳 Web 阅片器地址
+            (r.order_item_id
                 ? '<div class="hist-field"><div class="hist-field-label">影像调阅</div>' +
-                  '<div class="hist-field-text" style="display:flex;align-items:center;gap:8px">' +
-                  '<span class="fs-12 text-muted" style="font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1" title="' + esc(r.study_uid || '') + '">' + esc(r.study_uid || '—') + '</span>' +
-                  '<button type="button" class="btn btn-outline btn-sm pacs-hist-copy" data-view="' + esc(r.viewer_url) + '" title="在新窗口打开 Web 阅片器调阅该次影像">' + ' 调阅影像</button>' +
+                  '<div class="hist-field-text">' +
+                  '<button type="button" class="btn btn-outline btn-sm pacs-hist-view"' +
+                  ' data-visit="' + esc(r.visit_code || '') + '"' +
+                  ' data-item="' + esc(r.order_item_id) + '"' +
+                  ' data-label="' + esc((r.item_name || '') + ' ｜ ' + (r.report_no || '')) + '"' +
+                  ' title="在本系统阅片视窗中调阅该次影像">' + renderIconSvg('nav:screen') + ' 调阅影像</button>' +
                   '</div></div>'
                 : '') +
             copyField('影像表现', 'findings', r.findings, state) +
@@ -190,11 +193,26 @@ Clinic.pacsHistory = (function () {
             '<div class="hist-field-text">' + esc(safe !== '' ? safe : '—') + '</div></div>';
     }
 
+    /* 影像调阅：打开本系统阅片视窗（会话握手传递上下文，地址栏不暴露影像地址） */
+    function openViewer(visitId, itemId, label) {
+        if (!visitId) { if (Clinic.toast) Clinic.toast.warning('缺少就诊信息，无法调阅影像'); return; }
+        var sid = document.body.getAttribute('data-sid') || '';
+        var ctx = { sid: sid, visit: visitId, item: itemId || '', label: label || '' };
+        try { localStorage.setItem('clinic_viewer_pending_ctx', JSON.stringify(ctx)); } catch (e) { /* 忽略 */ }
+        try { if (window.Clinic && Clinic.authSync && Clinic.authSync.broadcastContext) Clinic.authSync.broadcastContext(ctx); } catch (e) { /* 忽略 */ }
+        window.open('/viewer.php', 'clinic_img_viewer',
+            'width=1280,height=800,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=no');
+    }
+
     /* 一键复制 / 影像调阅：事件委托（按钮动态生成，统一在容器上委托） */
     document.addEventListener('click', function (e) {
+        var viewBtn = e.target.closest ? e.target.closest('.pacs-hist-view') : null;
+        if (viewBtn) {
+            openViewer(viewBtn.getAttribute('data-visit'), viewBtn.getAttribute('data-item'), viewBtn.getAttribute('data-label'));
+            return;
+        }
         var btn = e.target.closest ? e.target.closest('.pacs-hist-copy') : null;
         if (!btn) return;
-        // 影像调阅直链：新窗口打开 Web 阅片器
         if (btn.hasAttribute('data-view')) {
             window.open(btn.getAttribute('data-view'), '_blank', 'noopener');
             return;
@@ -233,6 +251,7 @@ Clinic.pacsHistory = (function () {
 
     return {
         mount: mount,
+        openViewer: openViewer,
         /** 保存患者头信息（首屏展示检索标识用） */
         setPatient: function (p) { ST.__patient = p || null; },
     };

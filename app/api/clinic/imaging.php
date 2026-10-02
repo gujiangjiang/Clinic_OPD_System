@@ -294,6 +294,7 @@ switch ($action) {
                 'report_no' => (string)$r['report_no'],
                 'item_name' => $itemName !== '' ? $itemName : '影像检查',
                 'visit_code' => oid((int)$r['visit_id']),
+                'order_item_id' => ((int)$r['order_item_id'] > 0 ? oid((int)$r['order_item_id']) : ''),
                 'check_time' => (string)$r['registered_at'],
                 'report_time' => (string)$r['created_at'],
                 'report_doctor' => (string)$r['doctor'],

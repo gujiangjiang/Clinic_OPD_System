@@ -128,7 +128,7 @@ function renderImgIntegrated(data) {
         /* 左栏：序列缩略图（上）+ 检查信息（下，精简版随所选序列动态更新） */
         '<div class="pacs-left">' +
         '  <div class="pacs-series-card">' +
-        '    <div class="pacs-info-title">'+renderIconSvg('emr:record')+' 序列 / Series</div>' +
+        '    <div class="pacs-info-title">'+renderIconSvg('emr:record')+' 检查项目</div>' +
         '    <div class="pacs-series-list" id="pacsSeriesList">' + pacsSeriesHtml(imgItems) + '</div>' +
         '  </div>' +
         '  <div class="pacs-info-card">' +
@@ -241,7 +241,7 @@ function pacsSeriesHtml(items) {
             '<div class="pacs-thumb">'+renderIconSvg('nav:imaging')+'<span class="pacs-thumb-size">512×512</span></div>' +
             '<div class="pacs-series-meta">' +
             '<div class="pacs-series-name">' + esc(it.item_name) + '</div>' +
-            '<div class="pacs-series-sub">Series ' + (i + 1) + ' · <span class="dot ' + st + '"></span> ' + itemStatusName(it.status) + '</div>' +
+            '<div class="pacs-series-sub">第 ' + (i + 1) + ' 项 · <span class="dot ' + st + '"></span> ' + itemStatusName(it.status) + '</div>' +
             '</div></div>';
     });
     return html;
@@ -591,6 +591,8 @@ function mountImgHistory(p, idPrefix) {
             if (!text) { Clinic.toast.warning('该历史报告字段为空，无可复制内容'); return; }
             var el = document.getElementById(idPrefix + (kind === 'findings' ? 'Findings' : 'Conclusion'));
             if (!el) { Clinic.toast.warning('请先切换到「报告撰写」页签'); return; }
+            // 只读（已提交）报告：拒绝任何形式的写入（含脚本赋值），不仅限于输入框表面限制
+            if (el.readOnly || el.disabled) { Clinic.toast.warning('该报告已提交为只读状态，不可复制写入'); return; }
             el.value = el.value.trim()
                 ? el.value.replace(/\s*$/, '') + '\n' + text
                 : text;
