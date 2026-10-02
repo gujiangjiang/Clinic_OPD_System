@@ -92,7 +92,15 @@ class ImagingStudyAdapter extends FhirAdapter {
             foreach ($series as $s) $instances += (int)$s['instances'];
         }
         $studyUid = isset($ref['study_uid']) ? (string)$ref['study_uid'] : '';
-        $modality = isset($ref['modality']) ? (string)$ref['modality'] : '';
+        $itemName = self::orderItemName($ref);   // 检查项目（兼作分类识别与 procedureCode）
+        // 模态码标准化：存储码 → 项目名 → 分类名，未识别回退 OT（避免 MRI 被误判为 OT）
+        $modality = imaging_modality_code(isset($ref['modality']) ? $ref['modality'] : '');
+        if ($modality === '' || $modality === 'OT') {
+            $byName = imaging_modality_code($itemName);
+            if ($byName !== '') $modality = $byName;
+        }
+        if ($modality === '') $modality = imaging_modality_code(isset($ref['category_name']) ? $ref['category_name'] : '');
+        if ($modality === '') $modality = 'OT';
         $started = self::isoDateTime(isset($ref['created_at']) ? $ref['created_at'] : '');
 
         $res = array(
@@ -131,10 +139,10 @@ class ImagingStudyAdapter extends FhirAdapter {
             ));
         }
         if ($started !== null) $res['started'] = $started;
-        if ($modality !== '') {
-            // R4：modality 为 0..* Coding（非 CodeableConcept）
-            $res['modality'] = array(self::coding('http://dicom.nema.org/resources/ontology/DCM', $modality, $modality));
-        }
+        // R4：modality 为 0..* Coding（AcquisitionModality）
+        $res['modality'] = array(self::coding('http://dicom.nema.org/resources/ontology/DCM', $modality, $modality));
+        // 检查分类/项目（作为 performed procedure code）
+        if ($itemName !== '') $res['procedureCode'] = array(array('text' => $itemName));
         $res['numberOfInstances'] = $instances;
         $seriesOut = array();
         $n = 0;
@@ -148,8 +156,8 @@ class ImagingStudyAdapter extends FhirAdapter {
                 // series.modality 为 1..1 Coding：缺失时按 DICOM 惯例回退 OT
                 'modality' => self::coding(
                     'http://dicom.nema.org/resources/ontology/DCM',
-                    $s['modality'] !== '' ? $s['modality'] : 'OT',
-                    $s['modality'] !== '' ? $s['modality'] : 'OT'
+                    (imaging_modality_code($s['modality']) !== '' ? imaging_modality_code($s['modality']) : 'OT'),
+                    (imaging_modality_code($s['modality']) !== '' ? imaging_modality_code($s['modality']) : 'OT')
                 ),
             );
             // numberOfInstances 为 0..1：未知（<=0）时不虚报 0，直接省略
@@ -161,7 +169,6 @@ class ImagingStudyAdapter extends FhirAdapter {
         $res['numberOfSeries'] = count($seriesOut);
 
         // 检查项目（StudyDescription，R4 语义）：开单明细项目名，如「头颅MRI平扫」
-        $itemName = self::orderItemName($ref);
         if ($itemName !== '') $res['description'] = $itemName;
 
         // 影像报告所见/结论（供 Viewer/报告联调）：放 note，不再占用 description

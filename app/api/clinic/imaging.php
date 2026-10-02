@@ -198,7 +198,10 @@ switch ($action) {
                 'study_uid' => $reportNo,
                 'series_uids' => array(),
                 'instance_count' => 0,
-                'modality' => $catName !== '' ? $catName : (string)$it['item_name'],
+                // 模态码标准化：分类 → 项目名，未识别回退 OT
+                'modality' => (imaging_modality_code($catName) !== ''
+                    ? imaging_modality_code($catName)
+                    : (imaging_modality_code($it['item_name']) !== '' ? imaging_modality_code($it['item_name']) : 'OT')),
                 'region' => 'region-pacs',
                 'meta' => array(
                     'report_id' => $reportId,

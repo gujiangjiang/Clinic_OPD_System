@@ -540,3 +540,28 @@ function integration_after_dispense($orderId) {
         integration_enqueue('his_prescription', $orderId, array('order_id' => $orderId));
     }
 }
+/**
+ * 文本（检查项目名 / 分类）→ DICOM 模态码（AcquisitionModality）。
+ * 规则：已是合法模态码原样返回；识别中英文模态关键词映射（如 MRI/磁共振→MR、
+ * 超声/彩超→US、X线→DX 等）；未识别返回空串（由调用方决定回退 OT）。
+ * 供影像引用登记、DICOMweb、FHIR ImagingStudy 统一使用，避免分类张冠李戴。
+ */
+function imaging_modality_code($text) {
+    $raw = trim((string)$text);
+    if ($raw === '') return '';
+    $u = strtoupper($raw);
+    $known = array('CT', 'MR', 'US', 'DR', 'CR', 'DX', 'MG', 'NM', 'PT', 'XA', 'RF',
+        'OT', 'SR', 'DOC', 'BI', 'ES', 'XC', 'GM', 'SM', 'IO', 'PX', 'KO', 'SEG', 'PR', 'SC');
+    if (in_array($u, $known, true)) return $u;
+    $map = array(
+        'MRI' => 'MR', 'MRA' => 'MR', '磁共振' => 'MR', '核磁' => 'MR',
+        'CTA' => 'CT', 'CT' => 'CT',
+        'DR' => 'DR', 'CR' => 'CR', 'X线' => 'DX', 'X射线' => 'DX', '拍片' => 'DX', '平片' => 'DX',
+        '超声' => 'US', '彩超' => 'US', 'B超' => 'US', '多普勒' => 'US',
+        '钼靶' => 'MG', '核医学' => 'NM', 'PET' => 'PT', 'DSA' => 'XA', '造影' => 'XA',
+    );
+    foreach ($map as $k => $v) {
+        if (mb_stripos($raw, $k, 0, 'UTF-8') !== false) return $v;
+    }
+    return '';
+}

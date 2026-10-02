@@ -652,9 +652,9 @@ class VisitSeeder extends Seeder {
                     DB::exec('UPDATE order_items SET result_id=? WHERE id=?', array($resultId, $iid));
                     // 影像引用登记：仅影像检查属于 ImagingStudy（检验属于 Observation，不登记引用）
                     if ($otype === 'imaging') {
-                        $mod = (strpos($itemRows[0]['item_name'], 'CT') !== false) ? 'CT'
-                            : ((strpos($itemRows[0]['item_name'], 'DR') !== false || strpos($itemRows[0]['item_name'], 'X线') !== false) ? 'DR'
-                            : ((strpos($itemRows[0]['item_name'], '超声') !== false || strpos($itemRows[0]['item_name'], '彩超') !== false) ? 'US' : 'OT'));
+                        // 统一由项目名识别模态码（含 MRI/磁共振→MR 等），未识别回退 OT
+                        $mod = imaging_modality_code($itemRows[0]['item_name']);
+                        if ($mod === '') $mod = 'OT';
                         DB::insert('INSERT INTO imaging_refs(order_item_id, order_id, visit_id, patient_no, flow_no, study_uid, series_uids, instance_count, modality, region, meta_json, created_by, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                             $iid, $orderId, $visitId, $p['patient_no'], $flowNo,
                             self::dicomUid($p['patient_no'] . '-' . $orderNo . '-' . $iid), '[]', 0,

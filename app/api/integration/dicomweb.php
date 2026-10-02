@@ -68,22 +68,12 @@ function dw_uid($s) {
     return '1.2.826.0.1.3680043.8.498.' . $a . '.' . $b;
 }
 
-/** 归一化为合法 DICOM 模态码（VR=CS，表 0008,0060）；非码值（如中文分类名）→ 尽力映射，否则 OT */
+/** 归一化为合法 DICOM 模态码（VR=CS，表 0008,0060）：统一走 imaging_modality_code，未识别回退 OT */
 function dw_modality($s) {
-    $s = trim((string)$s);
-    if ($s === '') return 'OT';
-    $u = strtoupper($s);
-    if (preg_match('/^[A-Z0-9_ ]+$/', $u)) return $u;
-    $map = array(
-        'MRI' => 'MR', '磁共振' => 'MR', '核磁' => 'MR',
-        'CT' => 'CT', '超声' => 'US', '彩超' => 'US', 'B超' => 'US',
-        'DR' => 'DR', 'CR' => 'CR', 'X线' => 'DX', 'X射线' => 'DX',
-        '钼靶' => 'MG', '核医学' => 'NM', 'PET' => 'PT',
-    );
-    foreach ($map as $k => $v) {
-        if (mb_stripos($s, $k, 0, 'UTF-8') !== false) return $v;
-    }
-    return 'OT';
+    $code = imaging_modality_code($s);
+    if ($code !== '') return $code;
+    $u = strtoupper(trim((string)$s));
+    return preg_match('/^[A-Z0-9_ ]+$/', $u) ? $u : 'OT';
 }
 
 /** 模态 → SOP Class UID（缺省回退 CT/Secondary Capture） */
