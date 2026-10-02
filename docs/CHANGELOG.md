@@ -13,6 +13,19 @@
 
 ---
 
+## [8.42.6] - 2026-10-01
+
+### 修复
+- **影像模态分类错误（如 MRI 被误判为 OT）**：新增统一映射
+  `imaging_modality_code()`（MRI/磁共振→MR、超声→US、X线→DX、CTA→CT 等），
+  FHIR `ImagingStudy.modality` 按「存储码 → 项目名 → 分类名」标准化，未识别回退 OT；
+  `DICOMweb` 模态、`VisitSeeder` 与报告登记链路统一改用该映射。
+- **FHIR ImagingStudy 传递检查分类/项目**：新增 `procedureCode`（CodeableConcept，
+  文本为检查项目名，如「肘关节MRI平扫」），供外部系统识别检查分类。
+- 新增 `tools/cli/imaging_modality_fix.php` 回填历史脏数据（本次已修正 13 条 MRI→MR）。
+
+---
+
 ## [8.42.5] - 2026-10-01
 
 ### 新增
