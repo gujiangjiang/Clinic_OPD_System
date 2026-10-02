@@ -196,9 +196,13 @@ if ($__seg0 !== '' && $__seg0 !== 'studies') {
     dw_error(404, '不支持的 DICOMweb 路径：' . $__sub);
 }
 
-/* ---------- Accept 协商：本服务仅输出 DICOM JSON，显式要求其它媒体类型时返回 406 ---------- */
+/* ---------- Accept 协商：JSON 端点仅输出 DICOM JSON；字节流端点（取像 / 渲染图）跳过 ----------
+ * 实例取像返回 application/dicom、渲染图返回 image/png，标准 WADO-RS 客户端会发送
+ * Accept: application/dicom 等，不应按 JSON 约束拒绝（否则代理取像链路 406）。 */
 $__accept = isset($_SERVER['HTTP_ACCEPT']) ? trim((string)$_SERVER['HTTP_ACCEPT']) : '';
-if ($__accept !== '') {
+$__isBytes = (count($__segs) === 6 && strtolower($__segs[2]) === 'series' && $__segs[4] === 'instances')
+    || (count($__segs) === 7 && strtolower($__segs[2]) === 'series' && $__segs[4] === 'instances' && $__segs[6] === 'rendered');
+if (!$__isBytes && $__accept !== '') {
     $__okType = false;
     foreach (explode(',', $__accept) as $__part) {
         $__t = strtolower(trim(explode(';', $__part)[0]));
