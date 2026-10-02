@@ -90,15 +90,28 @@ function auditListUrl(p, size, st) {
 function initAuditPaged() {
     var box = document.getElementById('auditList');
     if (!box) return;
-    if (AUDIT_PAGED) { AUDIT_PAGED.reset(); return; }
-    // 表头静态保留（空态时也显示），空数据行用统一空态组件
-    box.innerHTML = '<div class="table-wrap"><table class="table" id="auditTable"><thead><tr><th>类型</th><th>事项</th><th>申请人</th><th>申请时间</th><th>状态</th><th>操作</th></tr></thead><tbody></tbody></table></div>';
-    AUDIT_PAGED = Clinic.adminItems.pagedTable({
-        tableEl: 'auditTable',
-        state: AUDIT_STATE,
-        url: auditListUrl,
-        emptyText: function () { return AUDIT_STATE.status === 'pending' ? '暂无待审核记录' : '暂无已处理记录'; },
-        emptyIcon: 'emr:document',
+    box.innerHTML = '';
+    // 空态不包裹在 tr 中：与查询中心一致，在空白区域居中显示（div 空态）
+    var emptyText = AUDIT_STATE.status === 'pending' ? '暂无待审核记录' : '暂无已处理记录';
+    AUDIT_PAGED = Clinic.infiniteList({
+        el: box,
+        pageSize: 20,
+        threshold: 60,
+        emptyHtml: '<div class="empty" style="padding:48px 0"><div class="empty-ico">' + renderIconSvg('emr:document') + '</div>' + emptyText + '</div>',
+        url: function (p, size) { return auditListUrl(p, size, AUDIT_STATE); },
+        // 首屏返回完整表格（表头 + 行）；后续页仅返回行，追加到已有 tbody
+        render: function (list, isFirst, data) {
+            if (isFirst) {
+                var head = (data && data.thead) ? data.thead : '';
+                return '<div class="table-wrap"><table class="table"><thead>' + head + '</thead><tbody>' + list.join('') + '</tbody></table></div>';
+            }
+            return list.join('');
+        },
+        append: function (el, html) {
+            var tb = el.querySelector('table tbody');
+            if (tb) tb.insertAdjacentHTML('beforeend', html);
+            else el.insertAdjacentHTML('beforeend', html);
+        },
         onSuccess: function (json) {
             // 一键全部通过按钮：仅【待审核】页签、平铺、且有可一键通过的常规事项时显示
             var cnt = json.data && json.data.pending_count ? json.data.pending_count : 0;
@@ -111,9 +124,10 @@ function initAuditPaged() {
 function loadAudits(status) {
     var group = document.getElementById('groupSelect').value;
     if (group === '') {
-        // 平铺：分页无限滚动
+        // 平铺：分页无限滚动（页签切换重建，保证空态文案随页签更新）
         AUDIT_STATE.status = status;
-        if (AUDIT_PAGED) AUDIT_PAGED.reset(); else initAuditPaged();
+        if (AUDIT_PAGED) { AUDIT_PAGED.stop(); AUDIT_PAGED = null; }
+        initAuditPaged();
         return;
     }
     // 分组：全量加载（服务端分组渲染）
