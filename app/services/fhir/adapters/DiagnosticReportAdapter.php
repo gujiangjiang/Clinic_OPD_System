@@ -46,7 +46,9 @@ class DiagnosticReportAdapter extends FhirAdapter {
     }
     private static function cols() {
         return 'rp.*, rs.findings AS __findings, rs.conclusion AS __conclusion, oi.item_name AS __item_name,'
-            . ' o.order_no AS __order_no, o.dept_name AS __dept_name, ' . self::refIdExpr() . ' AS __ref_id';
+            . ' oi.registered_at AS __registered_at, oi.executed_at AS __executed_at,'
+            . ' o.order_no AS __order_no, o.dept_name AS __dept_name, o.created_at AS __order_created, '
+            . self::refIdExpr() . ' AS __ref_id';
     }
 
     protected static function findRowByBareId($bareId) {
@@ -106,9 +108,14 @@ class DiagnosticReportAdapter extends FhirAdapter {
             $res['basedOn'] = array(array('identifier' => self::identifier('urn:clinic:identifier:order', $orderNo, 'PLAC', 'Placer Order Number')));
         }
 
-        $eff = self::isoDateTime(!empty($r['applied_at']) ? $r['applied_at'] : (isset($r['registered_at']) ? $r['registered_at'] : ''));
+        // 检查时间（effective）：开单明细 登记/执行，回退申请单开单时间（不使用 reports.registered_at）
+        $exam = !empty($r['__registered_at']) ? (string)$r['__registered_at'] : '';
+        if ($exam === '') $exam = !empty($r['__executed_at']) ? (string)$r['__executed_at'] : '';
+        if ($exam === '') $exam = !empty($r['__order_created']) ? (string)$r['__order_created'] : (isset($r['applied_at']) ? (string)$r['applied_at'] : '');
+        $eff = self::isoDateTime($exam);
         if ($eff !== null) $res['effectiveDateTime'] = $eff;
-        $issued = self::isoDateTime(!empty($r['registered_at']) ? $r['registered_at'] : (isset($r['created_at']) ? $r['created_at'] : ''));
+        // 报告时间（issued）：报告创建时间
+        $issued = self::isoDateTime(isset($r['created_at']) ? $r['created_at'] : '');
         if ($issued !== null) $res['issued'] = $issued;
 
         $doctor = trim((string)(isset($r['doctor_name']) ? $r['doctor_name'] : ''));

@@ -70,6 +70,27 @@ class ImagingStudyAdapter extends FhirAdapter {
         return ($it && isset($it['item_name'])) ? trim((string)$it['item_name']) : '';
     }
 
+    /**
+     * 检查时间（ImagingStudy.started）：优先开单明细「登记时间」，其次「执行时间」，
+     * 最后回退申请单「开单时间」。避免使用 imaging_refs.created_at（其语义不稳定）。
+     */
+    private static function examTime($ref) {
+        $reg = !empty($ref['__registered_at']) ? (string)$ref['__registered_at'] : '';
+        $exe = !empty($ref['__executed_at']) ? (string)$ref['__executed_at'] : '';
+        if (($reg === '' || $exe === '') && !empty($ref['order_item_id'])) {
+            $oi = PatientRepository::one('SELECT registered_at, executed_at FROM order_items WHERE id=?', array((int)$ref['order_item_id']));
+            if ($oi) {
+                if ($reg === '') $reg = (string)$oi['registered_at'];
+                if ($exe === '') $exe = (string)$oi['executed_at'];
+            }
+        }
+        if ($reg !== '') return $reg;
+        if ($exe !== '') return $exe;
+        $order = self::orderOf($ref);
+        if ($order && !empty($order['created_at'])) return (string)$order['created_at'];
+        return isset($ref['created_at']) ? (string)$ref['created_at'] : '';
+    }
+
     /** 关联申请单（取 orders.order_no = 检查号/Accession Number） */
     private static function orderOf($ref) {
         if (empty($ref['order_id'])) return null;
@@ -101,7 +122,7 @@ class ImagingStudyAdapter extends FhirAdapter {
         }
         if ($modality === '') $modality = imaging_modality_code(isset($ref['category_name']) ? $ref['category_name'] : '');
         if ($modality === '') $modality = 'OT';
-        $started = self::isoDateTime(isset($ref['created_at']) ? $ref['created_at'] : '');
+        $started = self::isoDateTime(self::examTime($ref));   // 检查时间=登记/执行，回退开单
 
         $res = array(
             'resourceType' => 'ImagingStudy',
@@ -204,7 +225,7 @@ class ImagingStudyAdapter extends FhirAdapter {
 
     public static function search($params) {
         // 仅影像类检查属于 ImagingStudy（检验属于 Observation）——关联申请单强约束
-        $from = "FROM imaging_refs ir JOIN orders o ON o.id = ir.order_id";
+        $from = "FROM imaging_refs ir JOIN orders o ON o.id = ir.order_id LEFT JOIN order_items oi ON oi.id = ir.order_item_id";
         $where = array("ir.study_uid<>''", "o.order_type='imaging'", "ir.patient_no<>''");   // subject 为 1..1
         $args = array();
 
@@ -269,9 +290,16 @@ class ImagingStudyAdapter extends FhirAdapter {
         $sqlWhere = 'WHERE ' . implode(' AND ', $where);
         $total = (int)PatientRepository::val('SELECT COUNT(*) ' . $from . ' ' . $sqlWhere, $args);
         list($count, $offset) = self::paging($params);
-        $order = self::sortClause($params, array('_lastUpdated' => 'ir.id', 'started' => 'ir.created_at'), 'ir.id DESC');
+        // 默认按检查时间（登记/执行，回退开单）倒序：最新检查在最前
+        $order = self::sortClause(
+            $params,
+            array('_lastUpdated' => 'ir.id', 'started' => "COALESCE(NULLIF(oi.registered_at,''), NULLIF(oi.executed_at,''), o.created_at)"),
+            "COALESCE(NULLIF(oi.registered_at,''), NULLIF(oi.executed_at,''), o.created_at) DESC, ir.id DESC"
+        );
         $rows = PatientRepository::q(
-            'SELECT ir.*, o.order_no, o.category_name ' . $from . ' ' . $sqlWhere . ' ORDER BY ' . $order . ' LIMIT ' . (int)$count . ' OFFSET ' . (int)$offset,
+            'SELECT ir.*, o.order_no, o.category_name, o.created_at AS __order_created, '
+            . 'oi.registered_at AS __registered_at, oi.executed_at AS __executed_at '
+            . $from . ' ' . $sqlWhere . ' ORDER BY ' . $order . ' LIMIT ' . (int)$count . ' OFFSET ' . (int)$offset,
             $args
         );
         $entries = array();

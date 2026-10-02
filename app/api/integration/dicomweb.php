@@ -104,6 +104,24 @@ function dw_accession($ref) {
     return (string)$ref['flow_no'];
 }
 
+/** 检查时间（StudyDate/Time）：开单明细 登记/执行，回退申请单开单时间 */
+function dw_exam_dt($ref) {
+    $dt = '';
+    if (!empty($ref['order_item_id'])) {
+        $oi = PatientRepository::one('SELECT registered_at, executed_at FROM order_items WHERE id=?', array((int)$ref['order_item_id']));
+        if ($oi) {
+            if (!empty($oi['registered_at'])) $dt = (string)$oi['registered_at'];
+            elseif (!empty($oi['executed_at'])) $dt = (string)$oi['executed_at'];
+        }
+    }
+    if ($dt === '' && !empty($ref['order_id'])) {
+        $o = PatientRepository::one('SELECT created_at FROM orders WHERE id=?', array((int)$ref['order_id']));
+        if ($o && !empty($o['created_at'])) $dt = (string)$o['created_at'];
+    }
+    if ($dt === '') $dt = (string)$ref['created_at'];
+    return $dt;
+}
+
 /** 机构名称（InstitutionName 0008,0080）：系统设置 hospital_name */
 function dw_institution() {
     $h = trim((string)setting('hospital_name', ''));
@@ -196,8 +214,8 @@ function dw_study_obj($ref, $patient) {
     $page = dw_age($patient && isset($patient['birth_date']) ? $patient['birth_date'] : '');
     $mod = dw_modality((string)$ref['modality']);
     $obj = array(
-        '00080020' => dw_tag('DA', dw_date($ref['created_at'])),
-        '00080030' => dw_tag('TM', dw_time($ref['created_at'])),
+        '00080020' => dw_tag('DA', dw_date(dw_exam_dt($ref))),
+        '00080030' => dw_tag('TM', dw_time(dw_exam_dt($ref))),
         '00080050' => dw_tag('SH', dw_accession($ref)),                 // 检查号=申请单号
         '00080060' => dw_tag('CS', $mod),                               // Modality
         '00080061' => dw_tag('CS', $mod),                               // ModalitiesInStudy
@@ -389,8 +407,8 @@ if ($sub === 'metadata') {
             $item = array(
                 '00080016' => dw_tag('UI', $sopClass),                     // SOP Class UID（按模态）
                 '00080018' => dw_tag('UI', $seUid . '.' . $i),             // SOP Instance UID
-                '00080020' => dw_tag('DA', dw_date($ref['created_at'])),
-                '00080030' => dw_tag('TM', dw_time($ref['created_at'])),
+                '00080020' => dw_tag('DA', dw_date(dw_exam_dt($ref))),
+                '00080030' => dw_tag('TM', dw_time(dw_exam_dt($ref))),
                 '00080050' => dw_tag('SH', dw_accession($ref)),            // 检查号=申请单号
                 '00080060' => dw_tag('CS', $s['modality']),
                 '00080080' => dw_tag('LO', dw_institution()),              // InstitutionName 机构名
