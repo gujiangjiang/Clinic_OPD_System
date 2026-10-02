@@ -13,6 +13,18 @@
 
 ---
 
+## [8.42.5] - 2026-10-01
+
+### 新增
+- **FHIR `Organization` 机构（医院）接口**：新增
+  `app/services/fhir/adapters/OrganizationAdapter.php`，`GET /api/fhir/r4/Organization`
+  返回本院机构名称（`name`，取系统设置 hospital_name，id=organization-main），
+  供 PACS 浏览器等外部系统获取并展示医院名称。
+- **DICOMweb `InstitutionName(0008,0080)`**：QIDO-RS 检查对象与 WADO-RS metadata
+  补充机构名称标签，与 FHIR Organization 对应，均为标准字段。
+
+---
+
 ## [8.42.4] - 2026-10-01
 
 ### 新增
