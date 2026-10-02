@@ -229,8 +229,6 @@
 │   │   └── seed.php           # 统一造数 CLI：--all / --scene=visit|call|dept_call|doctor=工号|dept=科室|类型 / --module=clinic|dept|user|screen|drug|lab|exam|disposal|package|template
 │   ├── seeder/                # 单一职责数据工厂（Seeder 基类 / DeptSeeder / UserSeeder / DrugSeeder / LabSeeder（含检验组合）/ ExamSeeder / DisposalSeeder / PackageSeeder / TemplateSeeder / VisitSeeder（就诊链）/ QueueSeeder（叫号队列）/ VisitFlowEngine / PreflightChecker）
 │   ├── lint/                  # php-lint.php（tokenizer 语法检查）/ ci-lint.php / jscheck.js
-│   ├── pacs_viewer/           # 独立「模拟 Web PACS 影像浏览器」测试组件（独立仓库经 git subtree 挂载，
-│   │                          #   与主系统零耦合；文档见 tools/pacs_viewer/README.md）
 │   └── schema/                # 分散迁移与数据修复（inspect_schema.php / migrate_split_to_unified.php / fix_icd10_split.php / refill_drug_spec.php）
 ├── .github/workflows/         # GitHub Actions：PHP 7.2~8.5 语法兼容矩阵检查 + 检查报告
 ├── docs/                      # 文档归档
@@ -239,14 +237,6 @@
 └── router.php                 # 本地开发路由（php -S）
 ```
 
-
-## 🩻 独立测试组件：模拟 Web PACS 影像浏览器
-
-> `tools/pacs_viewer/` 是一个**完全独立**于本系统的小型 PHP 网站（独立代码库，
-> 经 `git subtree` 挂载），用于在没有真实 PACS 硬件的环境下联调 DICOM / PACS
-> 接口：自带登录、研究检索、多序列阅片器（窗宽窗位 / 测量 / OSD 水印）与管理设置。
-> 它不读写本系统的任何文件、数据库或配置；使用说明见
-> [tools/pacs_viewer/README.md](./tools/pacs_viewer/README.md)。
 
 ## 📖 使用帮助
 

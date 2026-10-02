@@ -233,21 +233,4 @@ curl "http://your-domain/api/external/his/read?action=patient_get&id_card=110101
 > 迁移/切换期间全站锁定：所有用户界面显示半透明遮罩 + 进度条，可点【重新登录】退出；
 > 管理员额外显示【取消迁移】按钮；迁移成功后询问是否切换主库。
 
-## 🩻 独立测试组件：模拟 Web PACS 影像浏览器
-
-> `tools/pacs_viewer/` 是一个**完全独立**于本系统的小型 PHP 网站（独立代码库，
-> 经 `git subtree` 挂载），用于在没有真实 PACS 硬件的环境下联调 DICOM / PACS
-> 接口。它自带登录、研究检索、多序列阅片器与管理设置，不读写本系统任何数据。
-> 启动方式：
->
-> ```bash
-> # 独立站点
-> ~/.local/bin/frankenphp php-server --root tools/pacs_viewer/public --listen 0.0.0.0:8090
-> # 或挂载于项目根（得到 /tools/pacs_viewer/ 路径）
-> ~/.local/bin/frankenphp php-server --root . --listen 0.0.0.0:8080
-> ```
->
-> 默认账号 `admin / admin123`。完整文档见
-> [tools/pacs_viewer/README.md](../tools/pacs_viewer/README.md)
-> 与 [tools/pacs_viewer/docs/HELP.md](../tools/pacs_viewer/docs/HELP.md)。
 

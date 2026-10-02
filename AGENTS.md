@@ -73,25 +73,6 @@
   `git add -A && git commit`；③ 以「造数/seed」为标题创建任何 commit。commit 只允许包含真实
   代码/文档改动。测试造数前后用 `git status --short` 确认工作区无 seed 产生的文件污染。
 
-## 独立子项目 tools/pacs_viewer（git subtree 铁律）
-
-- `tools/pacs_viewer/` 是**完全独立**的「模拟 Web PACS 影像浏览器」：它有自己的
-  代码库（https://github.com/gujiangjiang/pacs_viewer）、数据库、账号与文档
-  （`README.md` 在仓库根、`docs/CHANGELOG.md`、`docs/HELP.md`、`AGENTS.md`），
-  与本门诊系统**零耦合**（不读写本系统的任何文件 / 数据库 / 配置）。
-- 该目录通过 **`git subtree` 挂载**，源仓库为独立项目；
-  **严禁在主项目中直接编辑 `tools/pacs_viewer/` 内的源码**（会造成两处历史分叉）。
-- **修改与同步流程**：
-  1. 在独立仓库 `../pacs-viewer` 修改、提交并推送；
-  2. 回到主项目执行 subtree 拉取：
-     ```bash
-     git subtree pull --prefix=tools/pacs_viewer \
-       https://github.com/gujiangjiang/pacs_viewer main
-     ```
-  3. 主项目侧如需版本 / 日志，按「文档」条目处理，不为该子项目改主项目版本号
-     （其版本号在 `tools/pacs_viewer/app/bootstrap.php PV_VERSION` 独立计算）。
-- 主项目 `README.md` / `docs/HELP.md` 仅保留**指引**，指向该子项目文档。
-
 ## 会话管理（Session 多驱动架构铁律）
 
 - 会话统一由 `app/core/Session.php` 驱动分发（`files` / `redis` / `memcached` 多驱动，环境变量 `SESSION_DRIVER` 切换，默认 `files` 零依赖），**严禁在业务逻辑中直接编写 `ini_set('session.*')` 或直接 `session_start()`**。
