@@ -795,6 +795,18 @@
 }
 .itg-sidenav { width: 132px; }
 .itg-sidenav .db-nav { font-size: 13px; white-space: nowrap; }
+/* 标签页健康指示点 */
+.itg-tab { display: inline-flex; align-items: center; gap: 6px; }
+.itg-tab-dot { width: 7px; height: 7px; border-radius: 50%; background: #94a3b8; flex: 0 0 auto; }
+.itg-tab-dot.on { background: #34d399; box-shadow: 0 0 0 2px rgba(52, 211, 153, .22); }
+/* 移动端：子模块侧栏改为顶部横向滚动，内容区不再内部限高 */
+@media (max-width: 768px) {
+    .itg-center { display: block; }
+    .itg-sidenav { width: auto; display: flex; flex-direction: row; overflow-x: auto; margin-bottom: 10px; }
+    .itg-sidenav .db-nav { white-space: nowrap; }
+    .itg-center .db-main { max-height: none; }
+    .itg-tabs { overflow-x: auto; flex-wrap: nowrap; }
+}
 .itg-status {
     display: flex;
     flex-direction: column;

@@ -105,7 +105,7 @@ function integration_field_groups() {
                     'rule' => 'url', 'show_if' => array('key' => 'integration.pacs.protocol_mode', 'value' => 'dicomweb')),
                 array('key' => 'integration.outbound.pacs.stow_url', 'zone' => 'outbound', 'type' => 'input', 'optional' => true,
                     'label' => 'STOW-RS 上传端点', 'placeholder' => '如 http://pacs.hospital.local/dicomweb/studies', 'default' => '', 'monospace' => true,
-                    'rule' => 'url', 'show_if' => array('key' => 'integration.pacs.protocol_mode', 'value' => 'dicomweb')),
+                    'rule' => 'url', 'hint' => '预留：当前版本仅用于连通性测试，尚未用于出向上传（STOW-RS）。', 'show_if' => array('key' => 'integration.pacs.protocol_mode', 'value' => 'dicomweb')),
                 array('key' => 'integration.outbound.pacs.auth_scheme', 'zone' => 'outbound', 'type' => 'select',
                     'label' => '鉴权方式', 'default' => 'none', 'options' => array(
                         'none' => '无鉴权',
@@ -121,9 +121,11 @@ function integration_field_groups() {
                 // ---------- 出向：DIMSE（本系统作 SCU） ----------
                 array('key' => 'integration.outbound.pacs.remote_ae_title', 'zone' => 'outbound', 'type' => 'input', 'optional' => true,
                     'label' => '远端 AE Title', 'placeholder' => '如 ORTHANC', 'default' => '', 'monospace' => true,
+                    'hint' => '预留：DIMSE（SCU）网络身份，当前版本仅用于连通性测试（浏览器不能直连 DIMSE）。',
                     'show_if' => array('key' => 'integration.pacs.protocol_mode', 'value' => 'dimse')),
                 array('key' => 'integration.outbound.pacs.remote_host', 'zone' => 'outbound', 'type' => 'input', 'optional' => true,
                     'label' => '远端主机', 'placeholder' => '如 192.168.1.60', 'default' => '', 'monospace' => true,
+                    'hint' => '预留：DIMSE 远端主机，当前版本仅用于连通性测试。',
                     'show_if' => array('key' => 'integration.pacs.protocol_mode', 'value' => 'dimse')),
                 array('key' => 'integration.outbound.pacs.remote_port', 'zone' => 'outbound', 'type' => 'input', 'optional' => true,
                     'label' => '远端端口', 'placeholder' => '如 104 / 11112', 'default' => '', 'monospace' => true, 'rule' => 'port',
@@ -307,6 +309,9 @@ function integration_field_groups() {
                     'label' => '微信 AppID', 'placeholder' => '公众号/小程序 AppID', 'default' => '', 'monospace' => true),
                 array('key' => 'pay_wechat_secret', 'zone' => 'wechat', 'type' => 'input',
                     'label' => '微信 API 密钥', 'placeholder' => '商户平台 API 密钥（32 位）', 'default' => '', 'monospace' => true),
+                array('key' => 'pay_wechat_notify_secret', 'zone' => 'wechat', 'type' => 'input',
+                    'label' => '回调验签密钥', 'placeholder' => '留空则不验签', 'default' => '', 'monospace' => true,
+                    'hint' => '支付结果回调以 X-Pay-Sign = HMAC-SHA256(body, 本密钥) 验签；留空仅记录不验签。'),
                 // ---------- 支付宝（zone: alipay，独立开关） ----------
                 array('key' => 'pay_alipay_enabled', 'zone' => 'alipay', 'type' => 'select',
                     'label' => '支付宝', 'default' => '0', 'options' => array('0' => '关闭（默认）', '1' => '启用')),
@@ -316,6 +321,9 @@ function integration_field_groups() {
                     'label' => '应用私钥', 'placeholder' => 'RSA2 应用私钥（建议保密）', 'default' => '', 'monospace' => true),
                 array('key' => 'pay_alipay_public_key', 'zone' => 'alipay', 'type' => 'textarea',
                     'label' => '支付宝公钥', 'placeholder' => '支付宝平台公钥', 'default' => '', 'monospace' => true),
+                array('key' => 'pay_alipay_notify_secret', 'zone' => 'alipay', 'type' => 'input',
+                    'label' => '回调验签密钥', 'placeholder' => '留空则不验签', 'default' => '', 'monospace' => true,
+                    'hint' => '支付结果回调以 X-Pay-Sign = HMAC-SHA256(body, 本密钥) 验签；留空仅记录不验签。'),
                 // ---------- 银行卡刷卡（zone: bank，独立开关） ----------
                 array('key' => 'pay_bankcard_enabled', 'zone' => 'bank', 'type' => 'select',
                     'label' => '银行卡刷卡', 'default' => '0', 'options' => array('0' => '关闭（默认）', '1' => '启用（演示刷卡）')),
@@ -324,6 +332,9 @@ function integration_field_groups() {
                     'hint' => '演示模式：仅作记录，不影响刷卡流程。'),
                 array('key' => 'pay_bankcard_merchant', 'zone' => 'bank', 'type' => 'input',
                     'label' => '收单商户号', 'placeholder' => '银行卡收单商户号', 'default' => '', 'monospace' => true),
+                array('key' => 'pay_bankcard_notify_secret', 'zone' => 'bank', 'type' => 'input',
+                    'label' => '回调验签密钥（银联）', 'placeholder' => '留空则不验签', 'default' => '', 'monospace' => true,
+                    'hint' => 'provider=unionpay 回调验签密钥（X-Pay-Sign）；留空仅记录不验签。'),
             ),
         ),
 

@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 44,
+    'version' => 45,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -26,6 +26,17 @@ return array(
         'settings' => "CREATE TABLE IF NOT EXISTS settings (
             skey TEXT PRIMARY KEY,
             svalue TEXT
+        )",
+
+        // 接口/配置变更审计（记录管理员调整的键与区域，便于溯源；不记录密钥明文）
+        'config_audit' => "CREATE TABLE IF NOT EXISTS config_audit (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            actor TEXT,
+            area TEXT,
+            keys_changed TEXT,
+            detail TEXT,
+            ip TEXT,
+            created_at TEXT
         )",
 
         'messages' => "CREATE TABLE IF NOT EXISTS messages (

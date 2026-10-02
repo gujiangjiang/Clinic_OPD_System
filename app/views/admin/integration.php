@@ -139,8 +139,18 @@ function itg_status_rows($g, $vals) {
 <div class="card" style="padding-bottom:6px">
     <div class="itg-tabs" id="itgTabs">
         <?php foreach ($groups as $gi => $g): ?>
+            <?php
+            // 健康指示：本模块任一启用开关为 1 即点亮
+            $gEnabled = false;
+            foreach ($g['fields'] as $gf) {
+                if ((isset($gf['rule']) && $gf['rule'] === 'bool') || preg_match('/\.enabled$/', $gf['key'])) {
+                    if ((isset($vals[$gf['key']]) ? (string)$vals[$gf['key']] : '') === '1') { $gEnabled = true; break; }
+                }
+            }
+            ?>
             <button type="button" class="itg-tab btn btn-sm<?php echo $gi === 0 ? ' btn-primary' : ' btn-outline'; ?>"
                 data-tab="<?php echo e($g['id']); ?>" onclick="itgTab('<?php echo e($g['id']); ?>')">
+                <span class="itg-tab-dot<?php echo $gEnabled ? ' on' : ''; ?>" title="<?php echo $gEnabled ? '已启用' : '未启用'; ?>"></span>
                 <?php echo $g['emoji'] . ' ' . e($g['title']); ?>
             </button>
         <?php endforeach; ?>
@@ -197,6 +207,23 @@ function itg_status_rows($g, $vals) {
                     <div class="flex" style="gap:8px;margin-top:14px">
                         <button class="btn btn-primary btn-sm" onclick="itgTest('<?php echo e($g['id']); ?>')"><?= render_icon('action:bolt') ?> 连通性测试</button>
                     </div>
+                    <?php $audits = ConfigAudit::byAreaPrefix('integration:' . $g['id'], 8); if ($audits): ?>
+                    <div class="fs-12 text-muted" style="margin-top:18px">最近配置变更</div>
+                    <div class="table-wrap" style="margin-top:6px"><table class="table">
+                        <thead><tr><th>时间</th><th>操作人</th><th>区域</th><th>变更项</th><th>IP</th></tr></thead>
+                        <tbody>
+                        <?php foreach ($audits as $a): ?>
+                            <tr>
+                                <td class="fs-12"><?php echo e($a['created_at']); ?></td>
+                                <td class="fs-12"><?php echo e($a['actor']); ?></td>
+                                <td class="fs-12"><?php echo e($a['detail']); ?></td>
+                                <td class="fs-12" style="max-width:340px;word-break:break-all"><?php echo e($a['keys_changed']); ?></td>
+                                <td class="fs-12"><?php echo e($a['ip']); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table></div>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -351,7 +378,7 @@ function render_itg_field($f, $vals) {
             ' autocomplete="off" placeholder="' . e(isset($f['placeholder']) ? $f['placeholder'] : '') . '">';
         $right = 6;
         if ($isSecret) {
-            echo '<button type="button" class="btn btn-outline btn-sm itg-eye" style="position:absolute;right:' . $right . 'px;top:50%;transform:translateY(-50%);padding:2px 7px" title="显示 / 隐藏">👁</button>';
+            echo '<button type="button" class="btn btn-outline btn-sm itg-eye" style="position:absolute;right:' . $right . 'px;top:50%;transform:translateY(-50%);padding:2px 7px" title="显示 / 隐藏">' . render_icon('action:eye') . '</button>';
             $right += 36;
         }
         if ($gen !== '') {

@@ -18,16 +18,42 @@
  * 按各平台规范验签（微信商户密钥 / 支付宝公钥 / 银联证书），本实现先落审计
  * 并应答成功，后续扩展验签与入账闭环。 */
 if (defined('CURRENT_API_SUB') && strpos((string)CURRENT_API_SUB, 'pay-notify/') === 0) {
-    $__provider = strtolower(substr((string)CURRENT_API_SUB, 11));
+    $__provider = strtolower(preg_replace('/[^a-z0-9_]/', '', substr((string)CURRENT_API_SUB, 11)));
     $__raw = file_get_contents('php://input');
     $__body = ($__raw === false) ? '' : (string)$__raw;
-    integration_log_inbound('cashier', 'pay-notify/' . $__provider, true, '支付结果回调接收（待验签接入）', $__body);
     header('Content-Type: application/json; charset=utf-8');
-    if ($__provider === 'wechat') {
-        echo json_encode(array('code' => 'SUCCESS', 'message' => 'OK'), JSON_UNESCAPED_UNICODE);
-    } else {
-        echo json_encode(array('success' => true), JSON_UNESCAPED_UNICODE);
+    $__enabledKey = array('wechat' => 'pay_wechat_enabled', 'alipay' => 'pay_alipay_enabled', 'unionpay' => 'pay_bankcard_enabled');
+    // ① provider 合法性 + 启用校验
+    if (!isset($__enabledKey[$__provider])) {
+        http_response_code(404);
+        echo json_encode(array('success' => false, 'message' => '未知支付渠道'), JSON_UNESCAPED_UNICODE);
+        exit;
     }
+    if ((string)setting($__enabledKey[$__provider], '0') !== '1') {
+        integration_log_inbound('cashier', 'pay-notify/' . $__provider, false, '该支付方式未启用', $__body);
+        http_response_code(403);
+        echo json_encode(array('success' => false, 'message' => '支付方式未启用'), JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    // ② 验签：配置了回调密钥则强制校验 X-Pay-Sign（HMAC-SHA256 十六进制），未配置则仅记录
+    $__secret = trim((string)setting('pay_' . $__provider . '_notify_secret', ''));
+    if ($__secret !== '') {
+        $__sig = isset($_SERVER['HTTP_X_PAY_SIGN']) ? trim((string)$_SERVER['HTTP_X_PAY_SIGN']) : '';
+        if ($__sig === '' && isset($_GET['sign'])) $__sig = trim((string)$_GET['sign']);
+        $__expect = hash_hmac('sha256', $__body, $__secret);
+        if ($__sig === '' || !hash_equals($__expect, strtolower($__sig))) {
+            integration_log_inbound('cashier', 'pay-notify/' . $__provider, false, '支付回调验签失败', $__body);
+            http_response_code(401);
+            echo json_encode(array('success' => false, 'message' => '签名校验失败'), JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        integration_log_inbound('cashier', 'pay-notify/' . $__provider, true, '支付结果回调接收（已验签）', $__body);
+    } else {
+        integration_log_inbound('cashier', 'pay-notify/' . $__provider, true, '支付结果回调接收（未配置验签密钥）', $__body);
+    }
+    echo ($__provider === 'wechat')
+        ? json_encode(array('code' => 'SUCCESS', 'message' => 'OK'), JSON_UNESCAPED_UNICODE)
+        : json_encode(array('success' => true), JSON_UNESCAPED_UNICODE);
     exit;
 }
 

@@ -230,6 +230,14 @@ function admin_part_settings($action) {
         if ($blocked) {
             json_fail('保存失败：连通性测试未通过（' . implode('、', $blocked) . '），请先修正配置后再保存');
         }
+        // 配置变更审计（仅记录键名，不含密钥明文）
+        if ($saved) {
+            ConfigAudit::record(
+                'integration:' . $group['id'] . ':' . $zone,
+                $saved,
+                $group['title'] . ' / ' . ($zone === '' ? '公共' : $zone)
+            );
+        }
         json_ok(array('saved' => $saved), '「' . $group['title'] . '」配置已保存');
     }
 
