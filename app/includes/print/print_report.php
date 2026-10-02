@@ -38,7 +38,8 @@ function pt_lab_report($report, $result, $item) {
     // 第二行 患者ID 申请科室 临床诊断 报告单号）
     $html .= '<div class="lr-patgrid">' .
         $li('姓名', $pname) . $li('性别', $pgender) . $li('年龄', $page) . $li('出生日期', $pbirth) .
-        $li('患者ID', $report['patient_no']) . $li('申请科室', $applyDept) . $li('临床诊断', $diag) .
+        $li('患者ID', $report['patient_no']) . $li('申请科室', $applyDept) .
+        '<span class="lr-pcell lr-pcell-diag"><b>临床诊断：</b>' . e($diag) . '</span>' .
         '<span class="lr-pcell lr-pcell-no"><b>报告单号：</b><span class="lr-reportno">' . e($report['report_no']) . '</span></span>' .
         '</div>';
 
@@ -148,7 +149,8 @@ function pt_imaging_report($report, $result, $item) {
     $pc = function ($label, $val) { return pt_cell($label, $val, 'imr-cell'); };
     $html .= '<div class="imr-patgrid">' .
         $pc('姓名', $pname) . $pc('性别', $pgender) . $pc('年龄', $page) . $pc('出生日期', $pbirth) .
-        $pc('患者ID', $report['patient_no']) . $pc('申请科室', $applyDept) . $pc('临床诊断', $diag) .
+        $pc('患者ID', $report['patient_no']) . $pc('申请科室', $applyDept) .
+        '<span class="imr-cell imr-cell-diag"><b>临床诊断：</b>' . e($diag) . '</span>' .
         '<span class="imr-cell imr-cell-no"><b>报告单号：</b><span class="imr-reportno">' . e($report['report_no']) . '</span></span>' .
         '<span class="imr-cell imr-cell-proj"><b>检查项目：</b>' . e($itemsStr) . '</span>' .
         '</div>';

@@ -824,12 +824,13 @@
 .lr-patgrid .lr-pcell {
     text-align: left;
     line-height: 1.9;
-    /* 单行显示，超长省略：避免临床诊断等长文本换行破坏排版 */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-all;
     min-width: 0;
 }
+/* 仅临床诊断单行省略（不影响报告单号等其它字段的显示） */
+.lr-patgrid .lr-pcell-diag { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lr-patgrid .lr-pcell b { font-weight: 600; }
 /* 报告单号：单行显示，超出时由 JS 自动缩放字号（始终一行内） */
 .lr-patgrid .lr-pcell-no { white-space: nowrap; }
@@ -929,11 +930,12 @@
     text-align: left;
     line-height: 1.9;
     min-width: 0;
-    /* 单行显示，超长省略：避免临床诊断等长文本换行破坏排版 */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-all;
 }
+/* 仅临床诊断单行省略（不影响报告单号等其它字段的显示） */
+.imr-patgrid .imr-cell-diag { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .imr-patgrid .imr-cell b { font-weight: 600; }
 .imr-patgrid .imr-cell-no { white-space: nowrap; }
 .imr-patgrid .imr-reportno { display: inline-block; white-space: nowrap; font-size: 13px; }
