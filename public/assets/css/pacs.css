@@ -783,7 +783,7 @@
 
 /* ============ 接口管理：子模块左右分栏 ============ */
 .itg-pane { margin-top: 14px; }
-.itg-center { align-items: flex-start; }   /* 沿用基础 .db-center 固定高度，右侧内容在框内滚动，不拉伸页面 */
+.itg-center { align-items: flex-start; height: auto; }   /* 高度由 JS 精确填充视口剩余空间（见 itgFitHeight） */
 /* 变更记录等表格：随右侧面板一起滚动，不再单独限高（避免双重滚动条） */
 .itg-fixed-scroll { border: 1px solid var(--border); border-radius: 8px; }
 .itg-sidenav { width: 132px; }

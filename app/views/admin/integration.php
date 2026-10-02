@@ -351,7 +351,23 @@ function itgTab(id) {
         p.style.display = (p.getAttribute('data-tab') === id) ? '' : 'none';
     });
     if (id === 'his') itgMonLoad(1);
+    itgFitHeight();
 }
+
+/* 右侧两栏高度：精确填满视口剩余空间，内容在框内滚动，整页不滚动 */
+function itgFitHeight() {
+    document.querySelectorAll('.itg-pane').forEach(function (pane) {
+        if (pane.style.display === 'none') return;
+        var center = pane.querySelector('.itg-center');
+        if (!center) return;
+        var top = center.getBoundingClientRect().top;
+        var h = window.innerHeight - top - 18;   // 底部留 18px，与其它管理页一致
+        if (h < 260) h = 260;
+        center.style.height = h + 'px';
+    });
+}
+window.addEventListener('resize', itgFitHeight);
+window.addEventListener('load', itgFitHeight);
 
 /* ---------- 子模块左右分栏：左侧导航切换右侧内容区 ---------- */
 function itgSideTab(groupId, paneId) {
@@ -710,4 +726,5 @@ function itgEndpoints(groupId) {
     });
 }
 itgSyncEpButtons();
+itgFitHeight();
 </script>
