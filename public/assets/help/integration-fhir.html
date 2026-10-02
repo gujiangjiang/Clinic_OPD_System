@@ -68,6 +68,7 @@ X-API-Key: &lt;token&gt;</code></pre>
 <tr><th>方法</th><th>路径</th><th>说明</th></tr>
 <tr><td>GET</td><td><code>/api/fhir/r4/metadata</code></td><td>CapabilityStatement（免认证）</td></tr>
 <tr><td>POST</td><td><code>/api/fhir/oauth/token</code></td><td>OAuth2 令牌（免认证）</td></tr>
+<tr><td>GET</td><td><code>/api/fhir/r4/Organization</code></td><td>机构（医院名称，<code>name</code>）</td></tr>
 <tr><td>GET</td><td><code>/api/fhir/r4/Patient/{id}</code></td><td>患者资源（id = patient-{门诊号}）</td></tr>
 <tr><td>GET</td><td><code>/api/fhir/r4/Encounter?patient={门诊号}</code></td><td>就诊检索，支持 <code>_include=Encounter:patient</code></td></tr>
 <tr><td>GET</td><td><code>/api/fhir/r4/Condition?patient=</code></td><td>诊断（ICD-10）</td></tr>

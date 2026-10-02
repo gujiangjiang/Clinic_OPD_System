@@ -114,6 +114,12 @@ function dw_accession($ref) {
     return (string)$ref['flow_no'];
 }
 
+/** 机构名称（InstitutionName 0008,0080）：系统设置 hospital_name */
+function dw_institution() {
+    $h = trim((string)setting('hospital_name', ''));
+    return $h !== '' ? $h : '';
+}
+
 /** 患者年龄 → DICOM AS（如 062Y）；无法计算返回空 */
 function dw_age($birth) {
     $d = preg_replace('/\D/', '', (string)$birth);
@@ -192,6 +198,7 @@ function dw_study_obj($ref, $patient) {
         '00080050' => dw_tag('SH', dw_accession($ref)),                 // 检查号=申请单号
         '00080060' => dw_tag('CS', $mod),                               // Modality
         '00080061' => dw_tag('CS', $mod),                               // ModalitiesInStudy
+        '00080080' => dw_tag('LO', dw_institution()),                   // InstitutionName 机构名
         '00100010' => dw_tag('PN', array('Alphabetic' => $pname)),
         '00100020' => dw_tag('LO', (string)$ref['patient_no']),         // 患者号
         '00100030' => dw_tag('DA', $pbirth),
@@ -371,6 +378,7 @@ if ($sub === 'metadata') {
                 '00080030' => dw_tag('TM', dw_time($ref['created_at'])),
                 '00080050' => dw_tag('SH', dw_accession($ref)),            // 检查号=申请单号
                 '00080060' => dw_tag('CS', $s['modality']),
+                '00080080' => dw_tag('LO', dw_institution()),              // InstitutionName 机构名
                 '00100010' => dw_tag('PN', array('Alphabetic' => $pname)),
                 '00100020' => dw_tag('LO', (string)$ref['patient_no']),
                 '00100030' => dw_tag('DA', $pbirth),

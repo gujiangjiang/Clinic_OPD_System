@@ -23,6 +23,7 @@ class FhirService {
             'medicationrequest' => 'MedicationRequestAdapter',
             'imagingstudy' => 'ImagingStudyAdapter',
             'diagnosticreport' => 'DiagnosticReportAdapter',
+            'organization' => 'OrganizationAdapter',
         );
     }
 
