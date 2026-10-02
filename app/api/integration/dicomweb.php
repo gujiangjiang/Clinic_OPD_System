@@ -228,6 +228,13 @@ function dw_study_obj($ref, $patient) {
     $psex = ($patient && isset($patient['gender'])) ? (($patient['gender'] === '男') ? 'M' : (($patient['gender'] === '女') ? 'F' : 'O')) : '';
     $page = dw_age($patient && isset($patient['birth_date']) ? $patient['birth_date'] : '');
     $mod = dw_modality((string)$ref['modality']);
+    // 本地无实例数（仅存引用）时回源区域 PACS：据检查号解析真实影像数量，
+    // 使客户端正确识别「有影像」，并在 WADO 阶段按真实 UID 回源取像。
+    $instCnt = (int)$ref['instance_count'];
+    if ($instCnt <= 0) {
+        $reg = dw_region_study($ref);
+        if ($reg) { $instCnt = max(1, (int)$reg['instances']); $seriesCnt = max($seriesCnt, (int)$reg['series']); }
+    }
     $obj = array(
         '00080020' => dw_tag('DA', dw_date(dw_exam_dt($ref))),
         '00080030' => dw_tag('TM', dw_time(dw_exam_dt($ref))),
@@ -243,7 +250,7 @@ function dw_study_obj($ref, $patient) {
         '00101000' => dw_tag('LO', (string)$ref['flow_no']),            // 门诊号（本服务约定）
         '00101010' => dw_tag('AS', $page),                              // 年龄
         '0020000D' => dw_tag('UI', dw_uid($studyUid)),                  // 合法 DICOM UID
-        '00201208' => dw_tag('IS', (string)(int)$ref['instance_count']),// 检查相关实例数
+        '00201208' => dw_tag('IS', (string)$instCnt),                   // 检查相关实例数（本地无则回源区域 PACS）
         '00201206' => dw_tag('IS', (string)$seriesCnt),                 // NumberOfStudyRelatedSeries（原误用 00201209）
     );
     if ($pname === '') unset($obj['00100010']);   // 无姓名时不输出空 PN
@@ -420,14 +427,17 @@ function dw_instance_obj($ref, $s, $n, $seUid, $i, $normStudy, $pname, $psex, $p
     return $item;
 }
 
-/** WADO-RS 取像代理：本系统仅存引用，实例字节流/渲染图经出向区域 PACS 取回 */
-function dw_proxy_pacs($subpath) {
+/** 出向区域 PACS 基地址（去掉 {study_uid} 模板与结尾 /studies） */
+function dw_outbound_base() {
     $base = trim((string)setting('integration.outbound.pacs.qido_url', ''));
     if ($base === '') $base = trim((string)setting('integration.outbound.pacs.wado_url', ''));
-    if ($base === '') dw_error(404, '影像本体由区域 PACS 承载，未配置出向 PACS 地址（外部接口 → DICOM/PACS 出向）');
+    if ($base === '') return '';
     $base = preg_replace('#/\{?(study_uid|studyUID)\}.*$#i', '', $base);   // 去掉 {study_uid} 模板
-    $base = rtrim(preg_replace('#/studies/?$#i', '', rtrim($base, '/')), '/');
-    $url = $base . $subpath;
+    return rtrim(preg_replace('#/studies/?$#i', '', rtrim($base, '/')), '/');
+}
+
+/** 出向区域 PACS 鉴权请求头 */
+function dw_outbound_headers() {
     $headers = array();
     $scheme = strtolower(trim((string)setting('integration.outbound.pacs.auth_scheme', 'none')));
     $val = trim((string)setting('integration.outbound.pacs.auth_value', ''));
@@ -437,11 +447,63 @@ function dw_proxy_pacs($subpath) {
         elseif ($scheme === 'basic') $headers[] = 'Authorization: Basic ' . base64_encode($val);
         elseif ($scheme === 'custom') $headers[] = $val;
     }
+    return $headers;
+}
+
+/** 出向区域 PACS GET（失败返回 null） */
+function dw_outbound_get($path) {
+    $base = dw_outbound_base();
+    if ($base === '') return null;
     try {
-        $resp = HttpClient::request('GET', $url, array('timeout' => 15, 'headers' => $headers));
-    } catch (Exception $e) {
-        dw_error(502, '代理取像失败：' . $e->getMessage());
+        return HttpClient::request('GET', $base . $path, array('timeout' => 15, 'headers' => dw_outbound_headers()));
+    } catch (Exception $e) { return null; }
+}
+
+/**
+ * 区域 PACS 检查索引：一次 QIDO 拉取全部检查，按「检查号(申请单号)」建索引。
+ * 本系统仅存引用（本地无真实 UID / 序列元数据）时，据此回源区域 PACS 解析真实 UID 与影像数量。
+ */
+function dw_region_index() {
+    static $idx = null;
+    if ($idx !== null) return $idx;
+    $idx = array();
+    $resp = dw_outbound_get('/studies?' . http_build_query(array('includefield' => 'all', 'limit' => 2000)));
+    if ($resp && (int)$resp['status'] >= 200 && (int)$resp['status'] < 300) {
+        $arr = json_decode((string)$resp['body'], true);
+        if (is_array($arr)) {
+            foreach ($arr as $s) {
+                if (!is_array($s)) continue;
+                $acc = isset($s['00080050']['Value'][0]) ? (string)$s['00080050']['Value'][0] : '';
+                $uid = isset($s['0020000D']['Value'][0]) ? (string)$s['0020000D']['Value'][0] : '';
+                if ($acc === '' || $uid === '') continue;
+                $se = 0;
+                foreach (array('00201206', '00201209') as $t) {
+                    if (!empty($s[$t]['Value'][0])) { $se = (int)$s[$t]['Value'][0]; break; }
+                }
+                $inst = !empty($s['00201208']['Value'][0]) ? (int)$s['00201208']['Value'][0] : ($se > 0 ? 1 : 0);
+                $idx[$acc] = array('uid' => $uid, 'series' => $se, 'instances' => $inst);
+            }
+        }
     }
+    return $idx;
+}
+
+/** 按检查号在区域 PACS 索引中解析该检查（返回 uid/series/instances 或 null） */
+function dw_region_study($ref) {
+    if (!$ref) return null;
+    $acc = dw_accession($ref);
+    if ($acc === '') return null;
+    $idx = dw_region_index();
+    return isset($idx[$acc]) ? $idx[$acc] : null;
+}
+
+/** WADO-RS 取像代理：本系统仅存引用，实例字节流/渲染图经出向区域 PACS 取回 */
+function dw_proxy_pacs($subpath) {
+    $base = dw_outbound_base();
+    if ($base === '') dw_error(404, '影像本体由区域 PACS 承载，未配置出向 PACS 地址（外部接口 → DICOM/PACS 出向）');
+    $url = $base . $subpath;
+    $resp = dw_outbound_get($subpath);
+    if ($resp === null) dw_error(502, '代理取像失败：无法连接区域 PACS');
     if ((int)$resp['status'] < 200 || (int)$resp['status'] >= 300) {
         dw_error(502, '区域 PACS 取像失败（HTTP ' . (int)$resp['status'] . '）');
     }
@@ -457,6 +519,10 @@ if ($sub === 'series' && count($__segs) === 3) {
     $out = array();
     $n = 0;
     foreach ($seriesList as $s) { $n++; $out[] = dw_series_obj($s, $normStudy, $n); }
+    if (!$out) {   // 本地无序列元数据：回源区域 PACS（按检查号解析真实 UID）
+        $reg = dw_region_study($ref);
+        if ($reg) dw_proxy_pacs('/studies/' . rawurlencode($reg['uid']) . '/series');
+    }
     dw_json($out);
 }
 
@@ -500,17 +566,23 @@ if ($sub === 'series' && count($__segs) === 5 && $__segs[4] === 'instances') {
         integration_log_inbound('dicomweb', 'wado/instances', true, '返回 ' . count($out) . ' 个实例', '');
         dw_json($out);
     }
+    $reg = dw_region_study($ref);   // 本地无该序列：回源区域 PACS
+    if ($reg) dw_proxy_pacs('/studies/' . rawurlencode($reg['uid']) . '/series/' . rawurlencode($seriesUid) . '/instances');
     dw_error(404, '未找到序列：' . $seriesUid);
 }
 
 // GET /studies/{uid}/series/{seriesUID}/instances/{sopUID}（WADO-RS 实例字节流，经区域 PACS 代理）
 if ($sub === 'series' && count($__segs) === 6 && $__segs[4] === 'instances') {
-    dw_proxy_pacs('/studies/' . rawurlencode($__segs[1]) . '/series/' . rawurlencode($__segs[3]) . '/instances/' . rawurlencode($__segs[5]));
+    $fwStudy = $__segs[1];
+    if (!$seriesList) { $reg = dw_region_study($ref); if ($reg) $fwStudy = $reg['uid']; }   // 仅有引用：按真实 UID 回源
+    dw_proxy_pacs('/studies/' . rawurlencode($fwStudy) . '/series/' . rawurlencode($__segs[3]) . '/instances/' . rawurlencode($__segs[5]));
 }
 
 // GET /studies/{uid}/series/{seriesUID}/instances/{sopUID}/rendered（渲染图，经区域 PACS 代理）
 if ($sub === 'series' && count($__segs) === 7 && $__segs[4] === 'instances' && $__segs[6] === 'rendered') {
-    dw_proxy_pacs('/studies/' . rawurlencode($__segs[1]) . '/series/' . rawurlencode($__segs[3]) . '/instances/' . rawurlencode($__segs[5]) . '/rendered');
+    $fwStudy = $__segs[1];
+    if (!$seriesList) { $reg = dw_region_study($ref); if ($reg) $fwStudy = $reg['uid']; }
+    dw_proxy_pacs('/studies/' . rawurlencode($fwStudy) . '/series/' . rawurlencode($__segs[3]) . '/instances/' . rawurlencode($__segs[5]) . '/rendered');
 }
 
 // GET /studies/{uid}/metadata —— WADO-RS 实例元数据（不含像素）
@@ -526,6 +598,10 @@ if ($sub === 'metadata') {
         for ($i = 1; $i <= $count; $i++) {
             $out[] = dw_instance_obj($ref, $s, $n, $seUid, $i, $normStudy, $pname, $psex, $pbirth, $page, $studyDesc);
         }
+    }
+    if (!$out) {   // 本地无元数据：回源区域 PACS
+        $reg = dw_region_study($ref);
+        if ($reg) dw_proxy_pacs('/studies/' . rawurlencode($reg['uid']) . '/metadata');
     }
     integration_log_inbound('dicomweb', 'wado/metadata', true, '返回 ' . count($out) . ' 个实例元数据', '');
     dw_json($out);
