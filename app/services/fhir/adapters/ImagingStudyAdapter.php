@@ -21,11 +21,11 @@ class ImagingStudyAdapter extends FhirAdapter {
     protected static function findRowByBareId($bareId) {
         $bareId = (string)$bareId;
         if (ctype_digit($bareId)) {
-            $row = PatientRepository::one('SELECT * FROM imaging_refs WHERE id=?', array((int)$bareId));
+            $row = PatientRepository::one('SELECT ir.*, o.order_no, o.category_name FROM imaging_refs ir JOIN orders o ON o.id=ir.order_id WHERE ir.id=? AND o.order_type=\'imaging\'', array((int)$bareId));
             if ($row) return $row;
         }
-        // 兼容按 DICOM StudyInstanceUID 直读
-        return PatientRepository::one('SELECT * FROM imaging_refs WHERE study_uid=?', array($bareId));
+        // 兼容按 DICOM StudyInstanceUID 直读（仅影像检查）
+        return PatientRepository::one('SELECT ir.*, o.order_no, o.category_name FROM imaging_refs ir JOIN orders o ON o.id=ir.order_id WHERE ir.study_uid=? AND o.order_type=\'imaging\'', array($bareId));
     }
 
     /** 解析 series 明细：优先 meta_json.series（对象数组），回退 series_uids（字符串数组） */
@@ -70,6 +70,12 @@ class ImagingStudyAdapter extends FhirAdapter {
         return ($it && isset($it['item_name'])) ? trim((string)$it['item_name']) : '';
     }
 
+    /** 关联申请单（取 orders.order_no = 检查号/Accession Number） */
+    private static function orderOf($ref) {
+        if (empty($ref['order_id'])) return null;
+        return PatientRepository::one('SELECT * FROM orders WHERE id=?', array((int)$ref['order_id']));
+    }
+
     /** 关联报告（按 order_item.result_id → reports.result_id） */
     private static function reportOf($ref) {
         if (empty($ref['order_item_id'])) return null;
@@ -94,12 +100,22 @@ class ImagingStudyAdapter extends FhirAdapter {
             'id' => self::resourceId(isset($ref['id']) ? $ref['id'] : 0),
             'status' => $instances > 0 ? 'available' : 'registered',
         );
+        $orderNo = !empty($ref['order_no']) ? (string)$ref['order_no'] : '';
+        if ($orderNo === '') {
+            $order = self::orderOf($ref);
+            $orderNo = ($order && !empty($order['order_no'])) ? (string)$order['order_no'] : '';
+        }
         $ident = array();
         if ($studyUid !== '') {
             // DICOM StudyInstanceUID：FHIR 规范 system=urn:dicom:uid，value=urn:oid:{uid}
             $ident[] = array('system' => 'urn:dicom:uid', 'value' => 'urn:oid:' . $studyUid);
         }
+        if ($orderNo !== '') {
+            // 检查号（Accession Number）= 申请单号 orders.order_no
+            $ident[] = self::identifier('urn:clinic:identifier:order', $orderNo, 'ACSN', 'Accession ID');
+        }
         if (!empty($ref['flow_no'])) {
+            // 门诊号（就诊流水号）
             $ident[] = self::identifier('urn:clinic:identifier:visit', (string)$ref['flow_no'], 'VN', 'Visit Number');
         }
         if ($ident) $res['identifier'] = $ident;
@@ -109,9 +125,9 @@ class ImagingStudyAdapter extends FhirAdapter {
         if (!empty($ref['visit_id'])) {
             $res['encounter'] = array('reference' => 'Encounter/encounter-' . (int)$ref['visit_id']);
         }
-        if (!empty($ref['order_id']) || !empty($ref['order_item_id'])) {
+        if ($orderNo !== '') {
             $res['basedOn'] = array(array(
-                'identifier' => self::identifier('urn:clinic:identifier:order', (string)(isset($ref['order_item_id']) ? $ref['order_item_id'] : $ref['order_id']), 'PLAC', 'Placer Order Number'),
+                'identifier' => self::identifier('urn:clinic:identifier:order', $orderNo, 'PLAC', 'Placer Order Number'),
             ));
         }
         if ($started !== null) $res['started'] = $started;
@@ -152,7 +168,8 @@ class ImagingStudyAdapter extends FhirAdapter {
         $report = self::reportOf($ref);
         if ($report) {
             if (!empty($report['report_no'])) {
-                $res['identifier'][] = self::identifier('urn:clinic:identifier:report', (string)$report['report_no'], 'ACSN', 'Accession ID');
+                // 报告号：独立 system，不授予 ACSN/PLAC/VN 类型，避免被误当作检查号
+                $res['identifier'][] = self::identifier('urn:clinic:identifier:report', (string)$report['report_no']);
             }
             $res['note'] = array(array('text' => trim(
                 (string)(isset($report['content']) ? $report['content'] : '')
@@ -183,7 +200,9 @@ class ImagingStudyAdapter extends FhirAdapter {
     }
 
     public static function search($params) {
-        $where = array('1=1');
+        // 仅影像类检查属于 ImagingStudy（检验属于 Observation）——关联申请单强约束
+        $from = "FROM imaging_refs ir JOIN orders o ON o.id = ir.order_id";
+        $where = array("ir.study_uid<>''", "o.order_type='imaging'");
         $args = array();
 
         if (isset($params['_id']) && trim((string)$params['_id']) !== '') {
@@ -197,8 +216,8 @@ class ImagingStudyAdapter extends FhirAdapter {
                 else $uids[] = $v;
             }
             $ors = array();
-            if ($ids) { $ors[] = 'id IN (' . in_placeholders($ids) . ')'; $args = array_merge($args, $ids); }
-            if ($uids) { $ors[] = 'study_uid IN (' . in_placeholders($uids) . ')'; $args = array_merge($args, $uids); }
+            if ($ids) { $ors[] = 'ir.id IN (' . in_placeholders($ids) . ')'; $args = array_merge($args, $ids); }
+            if ($uids) { $ors[] = 'ir.study_uid IN (' . in_placeholders($uids) . ')'; $args = array_merge($args, $uids); }
             if ($ors) $where[] = '(' . implode(' OR ', $ors) . ')';
         }
 
@@ -207,7 +226,7 @@ class ImagingStudyAdapter extends FhirAdapter {
         if ($pno !== '') {
             if (strpos($pno, 'Patient/') === 0) $pno = substr($pno, 8);
             if (strpos($pno, 'patient-') === 0) $pno = substr($pno, 8);
-            $where[] = 'patient_no=?';
+            $where[] = 'ir.patient_no=?';
             $args[] = $pno;
         }
 
@@ -217,7 +236,7 @@ class ImagingStudyAdapter extends FhirAdapter {
             if (strpos($idv, '|') !== false) { list(, $idv) = explode('|', $idv, 2); }
             $idv = trim($idv);
             if (strpos($idv, 'urn:oid:') === 0) $idv = substr($idv, 8);
-            $where[] = 'study_uid=?';
+            $where[] = 'ir.study_uid=?';
             $args[] = $idv;
         }
 
@@ -227,7 +246,7 @@ class ImagingStudyAdapter extends FhirAdapter {
                 $m = trim($m);
                 if ($m !== '') $mods[] = $m;
             }
-            if ($mods) { $where[] = 'modality IN (' . in_placeholders($mods) . ')'; $args = array_merge($args, $mods); }
+            if ($mods) { $where[] = 'ir.modality IN (' . in_placeholders($mods) . ')'; $args = array_merge($args, $mods); }
         }
 
         if (isset($params['started']) && trim((string)$params['started']) !== '') {
@@ -237,17 +256,17 @@ class ImagingStudyAdapter extends FhirAdapter {
             foreach ($st as $one) {
                 $one = trim($one);
                 if ($one === '') continue;
-                if (strlen($one) === 10) { $where[] = 'date(created_at)=?'; $args[] = $one; }
-                elseif (strlen($one) === 7) { $where[] = 'substr(created_at,1,7)=?'; $args[] = $one; }
+                if (strlen($one) === 10) { $where[] = 'date(ir.created_at)=?'; $args[] = $one; }
+                elseif (strlen($one) === 7) { $where[] = 'substr(ir.created_at,1,7)=?'; $args[] = $one; }
             }
         }
 
         $sqlWhere = 'WHERE ' . implode(' AND ', $where);
-        $total = (int)PatientRepository::val('SELECT COUNT(*) FROM imaging_refs ' . $sqlWhere, $args);
+        $total = (int)PatientRepository::val('SELECT COUNT(*) ' . $from . ' ' . $sqlWhere, $args);
         list($count, $offset) = self::paging($params);
-        $order = self::sortClause($params, array('_lastUpdated' => 'id', 'started' => 'created_at'), 'id DESC');
+        $order = self::sortClause($params, array('_lastUpdated' => 'ir.id', 'started' => 'ir.created_at'), 'ir.id DESC');
         $rows = PatientRepository::q(
-            'SELECT * FROM imaging_refs ' . $sqlWhere . ' ORDER BY ' . $order . ' LIMIT ' . (int)$count . ' OFFSET ' . (int)$offset,
+            'SELECT ir.*, o.order_no, o.category_name ' . $from . ' ' . $sqlWhere . ' ORDER BY ' . $order . ' LIMIT ' . (int)$count . ' OFFSET ' . (int)$offset,
             $args
         );
         $entries = array();

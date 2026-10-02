@@ -177,11 +177,42 @@ class ObservationAdapter extends FhirAdapter {
     }
 
     public static function search($params) {
-        $category = isset($params['category']) ? strtolower(trim((string)$params['category'])) : 'laboratory';
-        if ($category === '' ) $category = 'laboratory';
-        return $category === 'vital-signs' || $category === 'vital-signs,laboratory'
-            ? self::searchVitals($params)
-            : self::searchLabs($params);
+        $category = isset($params['category']) ? strtolower(trim((string)$params['category'])) : '';
+        // 标准语义：未指定 category 时返回全部 Observation（检验 + 体征），不默认只查实验室
+        if ($category === '') return self::searchAll($params);
+        if (strpos($category, 'vital') !== false) return self::searchVitals($params);
+        if (strpos($category, 'laboratory') !== false) return self::searchLabs($params);
+        return self::searchAll($params);
+    }
+
+    /**
+     * 无 category：合并检验（results）+ 生命体征（vitals），按时间倒序后统一分页。
+     * 说明：两源各自最多取 200 条再合并分页（门诊量级足够；如需超大数据集再升级为 SQL UNION）。
+     */
+    private static function searchAll($params) {
+        $p = $params;
+        $p['_count'] = 200;
+        unset($p['_page'], $p['_offset']);
+        $labs = self::searchLabs($p);
+        $vitals = self::searchVitals($p);
+        $entries = array_merge($labs['entries'], $vitals['entries']);
+        $refs = array_merge($labs['patientRefs'], $vitals['patientRefs']);
+        // 按 effectiveDateTime 倒序
+        $idx = array();
+        foreach ($entries as $i => $e) {
+            $t = isset($e['effectiveDateTime']) ? strtotime($e['effectiveDateTime']) : 0;
+            $idx[] = array('i' => $i, 't' => $t ? $t : 0);
+        }
+        usort($idx, function ($a, $b) { return $b['t'] - $a['t']; });
+        $sorted = array();
+        $sortedRefs = array();
+        foreach ($idx as $it) { $sorted[] = $entries[$it['i']]; $sortedRefs[] = $refs[$it['i']]; }
+        list($count, $offset) = self::paging($params);
+        return array(
+            'total' => count($sorted),
+            'entries' => array_slice($sorted, $offset, $count),
+            'patientRefs' => array_slice($sortedRefs, $offset, $count),
+        );
     }
 
     private static function patientFilter(&$where, &$args, $params) {
