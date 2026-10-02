@@ -192,7 +192,7 @@ if (!$__auth['ok']) {
     dw_error($__auth['http'], $__auth['msg']);
 }
 
-if ($__seg0 !== 'studies') {
+if ($__seg0 !== '' && $__seg0 !== 'studies') {
     dw_error(404, '不支持的 DICOMweb 路径：' . $__sub);
 }
 
@@ -276,8 +276,8 @@ function dw_series_list($ref) {
     return $out;
 }
 
-/* ---------- GET /studies（QIDO-RS 检查检索） ---------- */
-if (count($__segs) === 1) {
+/* ---------- GET /studies（QIDO-RS 检查检索）；根地址 /api/dicomweb 亦视为检索 ---------- */
+if (count($__segs) <= 1) {
     $where = array("study_uid<>''");
     $args = array();
     $pid = isset($_GET['PatientID']) ? trim((string)$_GET['PatientID']) : '';
@@ -376,6 +376,65 @@ function dw_series_obj($s, $normStudy, $n) {
     );
 }
 
+/** 单实例 DICOM JSON（metadata 与 instances 共用） */
+function dw_instance_obj($ref, $s, $n, $seUid, $i, $normStudy, $pname, $psex, $pbirth, $page, $studyDesc) {
+    $item = array(
+        '00080016' => dw_tag('UI', dw_sop_class($s['modality'])),   // SOP Class UID（按模态）
+        '00080018' => dw_tag('UI', $seUid . '.' . $i),              // SOP Instance UID
+        '00080020' => dw_tag('DA', dw_date(dw_exam_dt($ref))),
+        '00080030' => dw_tag('TM', dw_time(dw_exam_dt($ref))),
+        '00080050' => dw_tag('SH', dw_accession($ref)),
+        '00080060' => dw_tag('CS', $s['modality']),
+        '00080080' => dw_tag('LO', dw_institution()),
+        '00100010' => dw_tag('PN', array('Alphabetic' => $pname)),
+        '00100020' => dw_tag('LO', (string)$ref['patient_no']),
+        '00100030' => dw_tag('DA', $pbirth),
+        '00100040' => dw_tag('CS', $psex),
+        '00101000' => dw_tag('LO', (string)$ref['flow_no']),
+        '00101010' => dw_tag('AS', $page),
+        '0020000D' => dw_tag('UI', $normStudy),
+        '0020000E' => dw_tag('UI', $seUid),
+        '00200011' => dw_tag('IS', (string)$n),
+        '00200013' => dw_tag('IS', (string)$i),
+    );
+    if ($pname === '') unset($item['00100010']);
+    if ($studyDesc !== '') $item['00081030'] = dw_tag('LO', $studyDesc);
+    if ($s['description'] !== '') $item['0008103E'] = dw_tag('LO', $s['description']);
+    return $item;
+}
+
+/** WADO-RS 取像代理：本系统仅存引用，实例字节流/渲染图经出向区域 PACS 取回 */
+function dw_proxy_pacs($subpath) {
+    $base = trim((string)setting('integration.outbound.pacs.qido_url', ''));
+    if ($base === '') $base = trim((string)setting('integration.outbound.pacs.wado_url', ''));
+    if ($base === '') dw_error(404, '影像本体由区域 PACS 承载，未配置出向 PACS 地址（外部接口 → DICOM/PACS 出向）');
+    $base = preg_replace('#/\{?(study_uid|studyUID)\}.*$#i', '', $base);   // 去掉 {study_uid} 模板
+    $base = rtrim(preg_replace('#/studies/?$#i', '', rtrim($base, '/')), '/');
+    $url = $base . $subpath;
+    $headers = array();
+    $scheme = strtolower(trim((string)setting('integration.outbound.pacs.auth_scheme', 'none')));
+    $val = trim((string)setting('integration.outbound.pacs.auth_value', ''));
+    if ($val !== '') {
+        if ($scheme === 'bearer') $headers[] = 'Authorization: Bearer ' . $val;
+        elseif ($scheme === 'x-api-key') $headers[] = 'X-API-Key: ' . $val;
+        elseif ($scheme === 'basic') $headers[] = 'Authorization: Basic ' . base64_encode($val);
+        elseif ($scheme === 'custom') $headers[] = $val;
+    }
+    try {
+        $resp = HttpClient::request('GET', $url, array('timeout' => 15, 'headers' => $headers));
+    } catch (Exception $e) {
+        dw_error(502, '代理取像失败：' . $e->getMessage());
+    }
+    if ((int)$resp['status'] < 200 || (int)$resp['status'] >= 300) {
+        dw_error(502, '区域 PACS 取像失败（HTTP ' . (int)$resp['status'] . '）');
+    }
+    $ct = 'application/dicom';
+    if (preg_match('/content-type:\s*([^\r\n]+)/i', (string)$resp['headers'], $m)) $ct = trim($m[1]);
+    if (!headers_sent()) { header('Content-Type: ' . $ct); header('Content-Length: ' . strlen((string)$resp['body'])); }
+    echo (string)$resp['body'];
+    exit;
+}
+
 // GET /studies/{uid}/series（QIDO-RS 序列检索）
 if ($sub === 'series' && count($__segs) === 3) {
     $out = array();
@@ -398,15 +457,48 @@ if ($sub === 'series' && count($__segs) === 4) {
     dw_error(404, '未找到序列：' . $seriesUid);
 }
 
-// GET /studies/{uid}/metadata —— WADO-RS 实例元数据（不含像素）
-if ($sub === 'metadata') {
-    $pname = $patient ? (string)$patient['name'] : '';
+/** 读取患者展示字段（姓名/性别/出生/年龄/检查项目） */
+function dw_patient_ctx($ref) {
     $prow = PatientRepository::one('SELECT * FROM patients WHERE patient_no=?', array((string)$ref['patient_no']));
+    $pname = $prow ? (string)$prow['name'] : '';
     $psex = ($prow && isset($prow['gender'])) ? (($prow['gender'] === '男') ? 'M' : (($prow['gender'] === '女') ? 'F' : 'O')) : '';
     $pbirth = ($prow && !empty($prow['birth_date'])) ? dw_date($prow['birth_date']) : '';
     $page = ($prow && !empty($prow['birth_date'])) ? dw_age($prow['birth_date']) : '';
-    $meta = json_decode((string)$ref['meta_json'], true);
-    $studyDesc = (is_array($meta) && !empty($meta['item_name'])) ? (string)$meta['item_name'] : '';
+    return array($pname, $psex, $pbirth, $page, dw_study_desc($ref));
+}
+
+// GET /studies/{uid}/series/{seriesUID}/instances（WADO-RS 实例列表）
+if ($sub === 'series' && count($__segs) === 5 && $__segs[4] === 'instances') {
+    $seriesUid = $__segs[3];
+    list($pname, $psex, $pbirth, $page, $studyDesc) = dw_patient_ctx($ref);
+    $out = array(); $n = 0;
+    foreach ($seriesList as $s) {
+        $n++;
+        $seUid = $s['uid'] !== '' ? dw_uid((string)$s['uid']) : ($normStudy . '.' . $n);
+        if ($seUid !== $seriesUid && (string)$s['uid'] !== $seriesUid) continue;
+        $count = max(0, (int)$s['instances']);
+        for ($i = 1; $i <= $count; $i++) {
+            $out[] = dw_instance_obj($ref, $s, $n, $seUid, $i, $normStudy, $pname, $psex, $pbirth, $page, $studyDesc);
+        }
+        integration_log_inbound('dicomweb', 'wado/instances', true, '返回 ' . count($out) . ' 个实例', '');
+        dw_json($out);
+    }
+    dw_error(404, '未找到序列：' . $seriesUid);
+}
+
+// GET /studies/{uid}/series/{seriesUID}/instances/{sopUID}（WADO-RS 实例字节流，经区域 PACS 代理）
+if ($sub === 'series' && count($__segs) === 6 && $__segs[4] === 'instances') {
+    dw_proxy_pacs('/studies/' . rawurlencode($__segs[1]) . '/series/' . rawurlencode($__segs[3]) . '/instances/' . rawurlencode($__segs[5]));
+}
+
+// GET /studies/{uid}/series/{seriesUID}/instances/{sopUID}/rendered（渲染图，经区域 PACS 代理）
+if ($sub === 'series' && count($__segs) === 7 && $__segs[4] === 'instances' && $__segs[6] === 'rendered') {
+    dw_proxy_pacs('/studies/' . rawurlencode($__segs[1]) . '/series/' . rawurlencode($__segs[3]) . '/instances/' . rawurlencode($__segs[5]) . '/rendered');
+}
+
+// GET /studies/{uid}/metadata —— WADO-RS 实例元数据（不含像素）
+if ($sub === 'metadata') {
+    list($pname, $psex, $pbirth, $page, $studyDesc) = dw_patient_ctx($ref);
     $out = array();
     $n = 0;
     foreach ($seriesList as $s) {
@@ -414,31 +506,8 @@ if ($sub === 'metadata') {
         $count = (int)$s['instances'];
         if ($count <= 0) continue;   // 未知实例数不虚报
         $seUid = $s['uid'] !== '' ? dw_uid((string)$s['uid']) : ($normStudy . '.' . $n);
-        $sopClass = dw_sop_class($s['modality']);
         for ($i = 1; $i <= $count; $i++) {
-            $item = array(
-                '00080016' => dw_tag('UI', $sopClass),                     // SOP Class UID（按模态）
-                '00080018' => dw_tag('UI', $seUid . '.' . $i),             // SOP Instance UID
-                '00080020' => dw_tag('DA', dw_date(dw_exam_dt($ref))),
-                '00080030' => dw_tag('TM', dw_time(dw_exam_dt($ref))),
-                '00080050' => dw_tag('SH', dw_accession($ref)),            // 检查号=申请单号
-                '00080060' => dw_tag('CS', $s['modality']),
-                '00080080' => dw_tag('LO', dw_institution()),              // InstitutionName 机构名
-                '00100010' => dw_tag('PN', array('Alphabetic' => $pname)),
-                '00100020' => dw_tag('LO', (string)$ref['patient_no']),
-                '00100030' => dw_tag('DA', $pbirth),
-                '00100040' => dw_tag('CS', $psex),
-                '00101000' => dw_tag('LO', (string)$ref['flow_no']),       // 门诊号
-                '00101010' => dw_tag('AS', $page),                         // 年龄
-                '0020000D' => dw_tag('UI', $normStudy),
-                '0020000E' => dw_tag('UI', $seUid),
-                '00200011' => dw_tag('IS', (string)$n),
-                '00200013' => dw_tag('IS', (string)$i),
-            );
-            if ($pname === '') unset($item['00100010']);   // 无姓名时不输出空 PN
-            if ($studyDesc !== '') $item['00081030'] = dw_tag('LO', $studyDesc);   // StudyDescription
-            if ($s['description'] !== '') $item['0008103E'] = dw_tag('LO', $s['description']);
-            $out[] = $item;
+            $out[] = dw_instance_obj($ref, $s, $n, $seUid, $i, $normStudy, $pname, $psex, $pbirth, $page, $studyDesc);
         }
     }
     integration_log_inbound('dicomweb', 'wado/metadata', true, '返回 ' . count($out) . ' 个实例元数据', '');

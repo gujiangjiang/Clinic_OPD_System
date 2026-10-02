@@ -88,6 +88,9 @@ function integration_field_groups() {
                 array('label' => 'QIDO-RS 检查检索', 'method' => 'GET', 'path' => '/api/dicomweb/studies', 'note' => '按 PatientID / StudyInstanceUID / Modality / StudyDate 检索本系统影像引用，返回 DICOM JSON（携带 X-API-Key 或 Authorization: Bearer）', 'example' => 'curl -H "X-API-Key: <token>" "http://127.0.0.1:8000/api/dicomweb/studies?PatientID=FHD0001"'),
                 array('label' => 'QIDO-RS 序列检索', 'method' => 'GET', 'path' => '/api/dicomweb/studies/{studyUID}/series', 'note' => '按 StudyInstanceUID 检索序列列表（DICOM JSON）'),
                 array('label' => 'WADO-RS 元数据', 'method' => 'GET', 'path' => '/api/dicomweb/studies/{studyUID}/metadata', 'note' => '返回该检查的实例元数据（DICOM JSON，不含像素数据）；影像本体由区域影像存储承载'),
+                array('label' => 'WADO-RS 实例列表', 'method' => 'GET', 'path' => '/api/dicomweb/studies/{studyUID}/series/{seriesUID}/instances', 'note' => '实例列表（DICOM JSON，含 SOPClassUID / NumberOfFrames 等），供标准客户端遍历实例'),
+                array('label' => 'WADO-RS 实例取像', 'method' => 'GET', 'path' => '/api/dicomweb/studies/{studyUID}/series/{seriesUID}/instances/{sopUID}', 'note' => '实例字节流（application/dicom）；本系统仅存引用，取像经【出向 DICOM/PACS】配置的区域 PACS 代理回源'),
+                array('label' => 'WADO-RS 渲染图', 'method' => 'GET', 'path' => '/api/dicomweb/studies/{studyUID}/series/{seriesUID}/instances/{sopUID}/rendered', 'note' => '渲染图（缩略图 image/png 等），同样经出向区域 PACS 代理回源'),
                 array('label' => '入向 DIMSE 说明', 'method' => '', 'path' => '', 'note' => '本系统作为 SCP 接收设备直推时，请在 PACS 前置网关（如 Orthanc / dcm4chee）注册下方本地 AE Title 与监听端口，由网关承载 TCP 监听并回写本系统影像引用表', 'placeholder_endpoint' => true),
             ),
             'fields' => array(
