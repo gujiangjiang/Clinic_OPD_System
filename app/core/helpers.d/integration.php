@@ -84,6 +84,7 @@ function integration_field_groups() {
             'id' => 'pacs', 'emoji' => render_icon('nav:imaging'), 'title' => 'DICOM / PACS',
             'desc' => '影像互联双通道：DICOMweb（QIDO/WADO/STOW，HTTP RESTful）或传统 DIMSE（TCP C-STORE/C-MOVE）。本系统可作 SCU 出向调阅/上传，亦可作 SCP 入向接收设备直推',
             'endpoints' => array(
+                array('label' => 'DICOMweb 根地址', 'method' => 'GET', 'path' => '/api/dicomweb', 'note' => 'DICOMweb 服务根地址（以 /dicomweb 结尾）；QIDO / WADO 均以此为前缀，如 {根}/studies、{根}/studies/{studyUID}/series，供 PACS 客户端配置'),
                 array('label' => 'QIDO-RS 检查检索', 'method' => 'GET', 'path' => '/api/dicomweb/studies', 'note' => '按 PatientID / StudyInstanceUID / Modality / StudyDate 检索本系统影像引用，返回 DICOM JSON（携带 X-API-Key 或 Authorization: Bearer）', 'example' => 'curl -H "X-API-Key: <token>" "http://127.0.0.1:8000/api/dicomweb/studies?PatientID=FHD0001"'),
                 array('label' => 'QIDO-RS 序列检索', 'method' => 'GET', 'path' => '/api/dicomweb/studies/{studyUID}/series', 'note' => '按 StudyInstanceUID 检索序列列表（DICOM JSON）'),
                 array('label' => 'WADO-RS 元数据', 'method' => 'GET', 'path' => '/api/dicomweb/studies/{studyUID}/metadata', 'note' => '返回该检查的实例元数据（DICOM JSON，不含像素数据）；影像本体由区域影像存储承载'),

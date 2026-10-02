@@ -104,6 +104,17 @@ function dw_accession($ref) {
     return (string)$ref['flow_no'];
 }
 
+/** 检查项目（StudyDescription 0008,1030）：开单明细项目名，回退 meta.item_name */
+function dw_study_desc($ref) {
+    if (!empty($ref['order_item_id'])) {
+        $oi = PatientRepository::one('SELECT item_name FROM order_items WHERE id=?', array((int)$ref['order_item_id']));
+        if ($oi && !empty($oi['item_name'])) return (string)$oi['item_name'];
+    }
+    $meta = json_decode((string)$ref['meta_json'], true);
+    if (is_array($meta) && !empty($meta['item_name'])) return (string)$meta['item_name'];
+    return '';
+}
+
 /** 检查时间（StudyDate/Time）：开单明细 登记/执行，回退申请单开单时间 */
 function dw_exam_dt($ref) {
     $dt = '';
@@ -220,6 +231,7 @@ function dw_study_obj($ref, $patient) {
         '00080060' => dw_tag('CS', $mod),                               // Modality
         '00080061' => dw_tag('CS', $mod),                               // ModalitiesInStudy
         '00080080' => dw_tag('LO', dw_institution()),                   // InstitutionName 机构名
+        '00081030' => dw_tag('LO', dw_study_desc($ref)),                // StudyDescription 检查项目
         '00100010' => dw_tag('PN', array('Alphabetic' => $pname)),
         '00100020' => dw_tag('LO', (string)$ref['patient_no']),         // 患者号
         '00100030' => dw_tag('DA', $pbirth),
