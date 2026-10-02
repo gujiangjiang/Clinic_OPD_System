@@ -89,8 +89,16 @@ class HL7MessageParser {
                 if (strpos($pid3, '~') !== false) $pid3 = explode('~', $pid3);
                 else $pid3 = array($pid3);
                 $out['patient_no'] = self::comp1($pid3[0]);
-                $out['patient_name'] = isset($f[4]) ? self::compN($f[4], 1) : '';
-                if ($out['patient_name'] === '' && isset($f[4])) $out['patient_name'] = self::comp1($f[4]);
+                // PID-5 姓名：XPN.1 姓 + XPN.2 名（此前仅取名会丢失姓氏）
+                if (isset($f[4])) {
+                    $family = self::compN($f[4], 0);
+                    $given = self::compN($f[4], 1);
+                    if ($family !== '' && $given !== '' && preg_match('/^[\x00-\x7F]+$/', $family . $given)) {
+                        $out['patient_name'] = $family . ' ' . $given;   // 西文姓名以空格连接
+                    } else {
+                        $out['patient_name'] = $family . $given;         // 中文姓名直接相连
+                    }
+                }
             } elseif ($name === 'OBR') {
                 // OBR-2 申请单号（Placer）/ OBR-3 执行单号（Filler）；OBR-16 申请医生
                 if ($orderNo === '' && isset($f[1]) && trim((string)$f[1]) !== '') $orderNo = self::comp1($f[1]);
@@ -100,11 +108,23 @@ class HL7MessageParser {
                 $itemId = isset($f[2]) ? (string)$f[2] : '';
                 $flag = isset($f[7]) ? trim((string)$f[7]) : '';
                 $value = isset($f[4]) ? (string)$f[4] : '';
-                // OBX-5 可能为组件式（值^单位），保留首组件作为数值，单位仍取 OBX-6
+                $vtype = isset($f[1]) ? strtoupper(trim((string)$f[1])) : '';
+                // 依 OBX-2 值类型解析 OBX-5（单位一律取 OBX-6，参考范围取 OBX-7）
+                if ($vtype === 'SN') {                 // 结构化数值：比较符^值1^分隔^值2
+                    $n1 = self::compN($value, 1);
+                    $n2 = self::compN($value, 3);
+                    $value = self::compN($value, 0) . $n1 . ($n2 !== '' ? ' - ' . $n2 : '');
+                } elseif ($vtype === 'CQ') {           // 复合量：数值（单位见 OBX-6）
+                    $value = self::compN($value, 0);
+                } elseif (in_array($vtype, array('CWE', 'CE', 'CN'), true)) {   // 编码型：取文本
+                    $value = self::compN($value, 1) !== '' ? self::compN($value, 1) : self::comp1($value);
+                } else {
+                    $value = trim($value);
+                }
                 $out['observations'][] = array(
                     'item_code' => self::comp1($itemId),
                     'item_name' => self::compN($itemId, 1) !== '' ? self::compN($itemId, 1) : self::comp1($itemId),
-                    'value' => self::comp1($value),
+                    'value' => $value,
                     'unit' => isset($f[5]) ? trim((string)$f[5]) : '',
                     'ref_range' => isset($f[6]) ? (string)$f[6] : '',
                     'flag' => $flag,
