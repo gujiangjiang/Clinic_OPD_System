@@ -84,7 +84,7 @@ Clinic.pacsHistory = (function () {
         if (more) more.parentNode.removeChild(more);
         if (foot) foot.parentNode.removeChild(foot);
 
-        if (!box.children.length) {
+        if (!list.length) {
             var p = (jsonPatient()) || null;
             var head = '';
             if (p) {
