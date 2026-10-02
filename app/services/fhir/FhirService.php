@@ -52,23 +52,27 @@ class FhirService {
                 ),
                 'extension' => array(array(
                     'url' => 'http://fhir-registry.smarthealthit.org/StructureDefinition/oauth-uris',
+                    // 仅实现 client_credentials 令牌端点，不提供 authorize（授权码）流程
                     'extension' => array(
                         array('url' => 'token', 'valueUri' => $base . '/oauth/token'),
-                        array('url' => 'authorize', 'valueUri' => $base . '/oauth/authorize'),
                     ),
                 )),
             ),
-            'interaction' => array(array('code' => 'search-system'), array('code' => 'read')),
+            // 系统级交互：仅实现了按资源检索/读取，未提供系统级 search/transaction
+            'interaction' => array(),
         );
+        // 支持 _include=:patient 的资源（其 search 会回传 patientRefs）
+        $includeMap = array('Encounter', 'Condition', 'Observation', 'MedicationRequest', 'ImagingStudy');
         $res = array();
         foreach (self::adapterMap() as $key => $class) {
             if (!class_exists($class)) continue;
+            $type = $class::resourceType();
             $params = array();
             foreach ($class::searchParams() as $p) {
                 $params[] = array('name' => $p['name'], 'type' => $p['type']);
             }
-            $res[] = array(
-                'type' => $class::resourceType(),
+            $item = array(
+                'type' => $type,
                 'interaction' => array(
                     array('code' => 'read'),
                     array('code' => 'search-type'),
@@ -77,6 +81,10 @@ class FhirService {
                 'readHistory' => false,
                 'searchParam' => $params,
             );
+            if (in_array($type, $includeMap, true)) {
+                $item['searchInclude'] = array($type . ':patient');
+            }
+            $res[] = $item;
         }
         $rest['resource'] = $res;
         return array(

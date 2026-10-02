@@ -116,26 +116,33 @@ class ImagingStudyAdapter extends FhirAdapter {
         }
         if ($started !== null) $res['started'] = $started;
         if ($modality !== '') {
-            $res['modality'] = array(self::codeable('http://dicom.nema.org/resources/ontology/DCM', $modality, $modality));
+            // R4：modality 为 0..* Coding（非 CodeableConcept）
+            $res['modality'] = array(self::coding('http://dicom.nema.org/resources/ontology/DCM', $modality, $modality));
         }
-        $res['numberOfSeries'] = count($series);
         $res['numberOfInstances'] = $instances;
         $seriesOut = array();
         $n = 0;
         foreach ($series as $s) {
             $n++;
+            $serUid = $s['uid'] !== '' ? $s['uid'] : ($studyUid !== '' ? $studyUid . '.' . $n : '');
+            if ($serUid === '') continue;   // 无有效 UID 时不输出该序列（series.uid 为 1..1）
             $item = array(
-                'uid' => $s['uid'] !== '' ? $s['uid'] : ($studyUid . '.' . $n),
+                'uid' => $serUid,
                 'number' => $n,
-                'numberOfInstances' => (int)$s['instances'],
+                // series.modality 为 1..1 Coding：缺失时按 DICOM 惯例回退 OT
+                'modality' => self::coding(
+                    'http://dicom.nema.org/resources/ontology/DCM',
+                    $s['modality'] !== '' ? $s['modality'] : 'OT',
+                    $s['modality'] !== '' ? $s['modality'] : 'OT'
+                ),
             );
-            if ($s['modality'] !== '') {
-                $item['modality'] = self::codeable('http://dicom.nema.org/resources/ontology/DCM', $s['modality'], $s['modality']);
-            }
+            // numberOfInstances 为 0..1：未知（<=0）时不虚报 0，直接省略
+            if ((int)$s['instances'] > 0) $item['numberOfInstances'] = (int)$s['instances'];
             if ($s['description'] !== '') $item['description'] = $s['description'];
             $seriesOut[] = $item;
         }
-        if ($seriesOut) $res['series'] = $seriesOut;
+        if ($seriesOut) { $res['series'] = $seriesOut; }
+        $res['numberOfSeries'] = count($seriesOut);
 
         // 检查项目（StudyDescription，R4 语义）：开单明细项目名，如「头颅MRI平扫」
         $itemName = self::orderItemName($ref);

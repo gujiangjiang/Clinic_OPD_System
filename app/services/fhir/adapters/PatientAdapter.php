@@ -27,7 +27,8 @@ class PatientAdapter extends FhirAdapter {
             'resourceType' => 'Patient',
             'id' => self::resourceId($pno),
             'identifier' => array(
-                self::identifier('urn:clinic:identifier:op', $pno, 'OP', 'Outpatient Number'),
+                // 门诊号：本地 system 标识来源；type 使用 v2-0203 有效码 MR（此前误用不存在的 OP）
+                self::identifier('urn:clinic:identifier:op', $pno, 'MR', 'Medical Record Number'),
             ),
         );
         if (!empty($p['id_card'])) {
@@ -35,7 +36,9 @@ class PatientAdapter extends FhirAdapter {
         }
         $name = isset($p['name']) ? trim((string)$p['name']) : '';
         if ($name !== '') {
-            $res['name'] = array(array('use' => 'official', 'text' => $name, 'family' => $name));
+            // HumanName：中文姓名无法可靠拆分 family/given 时，仅提供 text（完整姓名），
+            // 不再把整名塞进 family（语义错位）
+            $res['name'] = array(array('use' => 'official', 'text' => $name));
         }
         if (isset($p['gender']) && $p['gender'] !== '') {
             $res['gender'] = self::gender($p['gender']);

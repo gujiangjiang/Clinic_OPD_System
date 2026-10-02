@@ -97,6 +97,13 @@ abstract class FhirAdapter {
         return $id;
     }
 
+    /** Coding 组装（用于 0..1 Coding 元素，如 ImagingStudy.modality） */
+    protected static function coding($system, $code, $display = '') {
+        $c = array('system' => (string)$system, 'code' => (string)$code);
+        if ($display !== '') $c['display'] = (string)$display;
+        return $c;
+    }
+
     /** CodeableConcept 组装 */
     protected static function codeable($system, $code, $display = '') {
         $c = array('coding' => array(array('system' => (string)$system, 'code' => (string)$code)));
@@ -179,11 +186,11 @@ abstract class FhirAdapter {
     public static function wantsInclude($params, $resourceType) {
         if (!isset($params['_include'])) return false;
         $inc = trim((string)$params['_include']);
-        if ($inc === '' || $inc === '*') return $inc !== '';
+        if ($inc === '') return false;
+        if ($inc === '*') return true;
         foreach (explode(',', $inc) as $token) {
             $token = trim($token);
             if ($token === $resourceType . ':patient') return true;
-            if (stripos($token, ':patient') !== false) return true;
         }
         return false;
     }
