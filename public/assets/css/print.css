@@ -824,9 +824,10 @@
 .lr-patgrid .lr-pcell {
     text-align: left;
     line-height: 1.9;
-    white-space: normal;
-    overflow-wrap: break-word;
-    word-break: break-all;
+    /* 单行显示，超长省略：避免临床诊断等长文本换行破坏排版 */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     min-width: 0;
 }
 .lr-patgrid .lr-pcell b { font-weight: 600; }
@@ -928,9 +929,10 @@
     text-align: left;
     line-height: 1.9;
     min-width: 0;
-    white-space: normal;
-    overflow-wrap: break-word;
-    word-break: break-all;
+    /* 单行显示，超长省略：避免临床诊断等长文本换行破坏排版 */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .imr-patgrid .imr-cell b { font-weight: 600; }
 .imr-patgrid .imr-cell-no { white-space: nowrap; }
