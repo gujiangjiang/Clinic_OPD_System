@@ -77,7 +77,7 @@ $zoneIcon = array(
         <?php endforeach; ?>
     </div>
     <div class="fs-12 text-muted" style="padding:10px 14px 12px">
-        出向 = 本系统调用外部（Client）；入向 = 外部调用本系统（Server，端点只读展示、一键复制）。配置仅保存在本系统数据库，各接口行为由对应服务引擎实现。
+        出向 = 本系统调用外部（Client）；入向 = 外部调用本系统（Server）。配置仅保存在本系统数据库，各接口行为由对应服务引擎实现。
     </div>
 </div>
 
@@ -94,6 +94,13 @@ $zoneIcon = array(
     $hasEndpoints = !empty($g['endpoints']);
     $znav = function ($z) use ($g, $itgNav) { return isset($itgNav[$g['id']][$z]) ? $itgNav[$g['id']][$z] : $z; };
     $zico = function ($z) use ($zoneIcon) { return isset($zoneIcon[$z]) ? $zoneIcon[$z] : 'nav:settings'; };
+    // 入向启用开关键（用于「对外暴露端点」按钮显隐与后端拒绝）
+    $inboundEnabledKey = '';
+    foreach ($g['fields'] as $gf) {
+        if ((isset($gf['zone']) ? $gf['zone'] : '') === 'inbound' && preg_match('/[._]enabled$/', $gf['key'])) { $inboundEnabledKey = $gf['key']; break; }
+    }
+    // 除医保/支付外，入向端点统一以模态框呈现
+    $useEndpointModal = ($hasEndpoints && $g['id'] !== 'insurance');
 ?>
 <div class="itg-pane" id="itgPane_<?php echo e($g['id']); ?>" data-tab="<?php echo e($g['id']); ?>"<?php echo $gi === 0 ? '' : ' style="display:none"'; ?>>
     <div class="db-center itg-center">
@@ -108,6 +115,7 @@ $zoneIcon = array(
             <?php if ($g['id'] === 'his'): ?>
             <div class="db-nav" data-itgpan="monitor" onclick="itgSideTab('<?php echo e($g['id']); ?>','monitor')"><?= render_icon('nav:chart') ?> <?php echo e($znav('monitor')); ?></div>
             <?php endif; ?>
+            <div class="db-nav" data-itgpan="audit" onclick="itgSideTab('<?php echo e($g['id']); ?>','audit')"><?= render_icon('nav:chart') ?> 变更记录</div>
             <div class="db-nav itg-nav-help" data-itgpan="help" onclick="itgHelp('<?php echo e($g['id']); ?>')"><?= render_icon('action:idea') ?> 帮助</div>
         </div>
         <div class="db-main">
@@ -128,23 +136,30 @@ $zoneIcon = array(
                     <div class="flex" style="gap:8px;margin-top:14px">
                         <button class="btn btn-primary btn-sm" onclick="itgTest('<?php echo e($g['id']); ?>')"><?= render_icon('action:bolt') ?> 连通性测试</button>
                     </div>
-                    <?php $audits = ConfigAudit::byAreaPrefix('integration:' . $g['id'], 8); if ($audits): ?>
-                    <div class="fs-12 text-muted" style="margin-top:18px">最近配置变更</div>
-                    <div class="table-wrap" style="margin-top:6px"><table class="table">
+                </div>
+            </div>
+
+            <!-- ===== 变更记录 ===== -->
+            <div class="db-pane" id="itgpan_<?php echo e($g['id']); ?>_audit" style="display:none">
+                <div class="card setting-card">
+                    <div class="card-title"><?= render_icon('nav:chart') ?> 最近配置变更</div>
+                    <?php $audits = ConfigAudit::byAreaPrefix('integration:' . $g['id'], 50); ?>
+                    <div class="table-wrap itg-fixed-scroll"><table class="table">
                         <thead><tr><th>时间</th><th>操作人</th><th>区域</th><th>变更项</th><th>IP</th></tr></thead>
                         <tbody>
-                        <?php foreach ($audits as $a): ?>
+                        <?php if (!$audits): ?>
+                            <tr><td colspan="5" class="text-center text-muted fs-12" style="padding:20px">暂无配置变更记录</td></tr>
+                        <?php else: foreach ($audits as $a): ?>
                             <tr>
                                 <td class="fs-12"><?php echo e($a['created_at']); ?></td>
                                 <td class="fs-12"><?php echo e($a['actor']); ?></td>
                                 <td class="fs-12"><?php echo e($a['detail']); ?></td>
-                                <td class="fs-12" style="max-width:340px;word-break:break-all"><?php echo e($a['keys_changed']); ?></td>
+                                <td class="fs-12" style="max-width:380px;word-break:break-all"><?php echo e($a['keys_changed']); ?></td>
                                 <td class="fs-12"><?php echo e($a['ip']); ?></td>
                             </tr>
-                        <?php endforeach; ?>
+                        <?php endforeach; endif; ?>
                         </tbody>
                     </table></div>
-                    <?php endif; ?>
                 </div>
             </div>
 
@@ -155,11 +170,14 @@ $zoneIcon = array(
                     <?php foreach ($zoneFields[$zKey] as $f): ?>
                         <?php render_itg_field($f, $vals); ?>
                     <?php endforeach; ?>
-                    <?php if ($paneSuffix === 'inbound' && $hasEndpoints): ?>
+                    <?php if ($paneSuffix === 'inbound' && $hasEndpoints && !$useEndpointModal): ?>
                         <?php render_itg_endpoints($g, $baseHost); ?>
                     <?php endif; ?>
                     <div class="flex" style="gap:8px;margin-top:14px">
                         <button class="btn btn-primary btn-sm" onclick="itgSave('<?php echo e($g['id']); ?>','<?php echo e($paneSuffix); ?>')">保存<?php echo e($znav($z)); ?></button>
+                        <?php if ($paneSuffix === 'inbound' && $useEndpointModal && $inboundEnabledKey !== ''): ?>
+                        <button type="button" class="btn btn-outline btn-sm itg-ep-btn" data-group="<?php echo e($g['id']); ?>" data-enabled-key="<?php echo e($inboundEnabledKey); ?>" onclick="itgEndpoints('<?php echo e($g['id']); ?>')" style="display:none"><?= render_icon('action:link') ?> 对外暴露端点</button>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -655,4 +673,41 @@ function itgInboundLoad(page) {
         },
     });
 }
+
+/* ---------- 对外暴露端点（模态框，入向未启用则隐藏且后端拒绝） ---------- */
+function itgSyncEpButtons() {
+    document.querySelectorAll('.itg-ep-btn').forEach(function (btn) {
+        var key = btn.getAttribute('data-enabled-key') || '';
+        var sel = key ? document.getElementById('itg_' + key) : null;
+        if (!sel) { btn.style.display = 'none'; return; }
+        btn.style.display = (sel.value === '1') ? '' : 'none';
+        if (!btn._epBound) {
+            btn._epBound = true;
+            sel.addEventListener('change', function () { btn.style.display = (sel.value === '1') ? '' : 'none'; });
+        }
+    });
+}
+function itgEndpoints(groupId) {
+    Clinic.ajax('/api/admin', { action: 'integration_endpoints', group: groupId }, {
+        onSuccess: function (json) {
+            var d = (json && json.data) || {};
+            var items = d.items || [];
+            var html = '<div class="fs-12 text-muted mb-8">以下为本系统「' + Clinic.escHtml(d.title || '') + '」对外暴露的入向端点（只读，点击可复制）。调用请携带对应鉴权头。</div>';
+            if (!items.length) html += '<div class="fs-12 text-muted">暂无对外端点</div>';
+            items.forEach(function (ep) {
+                html += '<div class="itg-ep">' +
+                    '<div class="itg-ep-head">' + (ep.method ? '<span class="badge badge-success">' + Clinic.escHtml(ep.method) + '</span>' : '') +
+                    '<span class="fs-13 fw-600">' + Clinic.escHtml(ep.label || '') + '</span></div>' +
+                    '<div class="flex" style="gap:8px"><code class="itg-ep-url" style="cursor:pointer" onclick="itgCopy(this.textContent.trim())">' + Clinic.escHtml(ep.url) + '</code>' +
+                    '<button type="button" class="btn btn-outline btn-sm itg-copy-btn" data-copy="' + Clinic.escHtml(ep.url) + '" style="flex-shrink:0">复制</button></div>' +
+                    (ep.note ? '<div class="fs-12 text-muted mt-4">' + Clinic.escHtml(ep.note) + '</div>' : '') +
+                    (ep.example ? '<div class="itg-ep-example fs-12 mt-4">' + Clinic.escHtml(ep.example) + '</div>' : '') +
+                    '</div>';
+            });
+            Clinic.modal.open(html, { title: '对外暴露端点：' + (d.title || ''), size: 'modal-lg', buttons: [{ text: '关闭', cls: 'btn-outline' }] });
+        },
+        onError: function (j) { Clinic.toast.error((j && j.msg) || '端点加载失败'); },
+    });
+}
+itgSyncEpButtons();
 </script>

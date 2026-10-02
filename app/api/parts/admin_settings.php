@@ -269,6 +269,33 @@ function admin_part_settings($action) {
         ));
     }
 
+    /* ==================== 接口管理：对外暴露端点（入向未启用则拒绝） ==================== */
+    if ($action === 'integration_endpoints') {
+        $group = integration_group(post('group', ''));
+        if (!$group) json_fail('未知的接口分组');
+        // 入向启用开关键：关闭则后端拒绝显示
+        $enabledKey = '';
+        foreach ($group['fields'] as $f) {
+            if ((isset($f['zone']) ? $f['zone'] : '') === 'inbound' && preg_match('/[._]enabled$/', $f['key'])) { $enabledKey = $f['key']; break; }
+        }
+        if ($enabledKey !== '' && (string)setting($enabledKey, '0') !== '1') {
+            json_fail('入向未启用，对外端点未开放');
+        }
+        $base = integration_host_base();
+        $items = array();
+        foreach ((array)$group['endpoints'] as $ep) {
+            if (empty($ep['path'])) continue;
+            $items[] = array(
+                'label'   => isset($ep['label']) ? (string)$ep['label'] : '',
+                'method'  => isset($ep['method']) ? (string)$ep['method'] : '',
+                'url'     => $base . (string)$ep['path'],
+                'note'    => isset($ep['note']) ? (string)$ep['note'] : '',
+                'example' => isset($ep['example']) ? (string)$ep['example'] : '',
+            );
+        }
+        json_ok(array('items' => $items, 'title' => $group['title']), '端点已加载');
+    }
+
     /* ==================== 上传医院 LOGO（同时作为 favicon） ==================== */
     if ($action === 'upload_logo') {
         $res = Upload::save('logo', 'logo', array('jpg', 'jpeg', 'png', 'gif', 'webp'), 2097152);

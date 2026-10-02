@@ -66,6 +66,7 @@ switch ($action) {
     case 'integration_save':
     case 'integration_test':
     case 'integration_status':
+    case 'integration_endpoints':
     case 'upload_logo':
     case 'print_items':
     case 'print_visits':

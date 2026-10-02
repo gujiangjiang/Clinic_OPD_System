@@ -792,7 +792,10 @@
     height: auto;              /* 覆盖 db-center 100% 高度：仅内容区内部滚动 */
     max-height: calc(100vh - var(--topbar-h) - 150px);
     min-height: 0;
+    overflow: auto;            /* 右侧内容固定高度内滚动，不撑大页面 */
 }
+/* 固定高度的滚动列表（变更记录等） */
+.itg-fixed-scroll { max-height: calc(100vh - var(--topbar-h) - 260px); overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
 .itg-sidenav { width: 132px; }
 .itg-sidenav .db-nav { font-size: 13px; white-space: nowrap; }
 /* 标签页健康指示点 */
