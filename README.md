@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v8.42.28-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v9.0.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -121,6 +121,10 @@
   - **医保·支付**：医保前置机纯出向 + 支付回调入向端点（`/api/cashier/pay-notify/{provider}`）
   - 历史平铺配置键经 `tools/schema/migrate_integration_keys.php` 幂等迁移到 `integration.outbound.*` / `integration.inbound.*` 命名空间，旧键保留向后兼容
   - **每个接口子 Tab 内置「帮助」教程**：侧边栏底部帮助入口以模态浏览器内嵌打开独立 HTML 教程页（介绍/功能/参数/使用方法/测试/错误码），静态页位于 `public/assets/help/`
+- **日志中心（v9.0.0+）**：子 Tab 区分服务器日志 / 操作日志 / 接口日志，左侧分类 + 右侧现代日志浏览器（受控高度、默认最新、上滑滚动加载更旧、实时刷新、一键清空）；右上角「日志管理」配置日志开关、分类级别、行数上限、记录天数与外部服务器日志路径
+  - **服务器日志**：直读应用日志 `data/logs/app.log`（应用 `error_log` 统一落盘）与可配置的外部 PHP/Web 服务器 error_log
+  - **操作日志**：登录日志（登录/退出）+ 账号变更（改密码/改资料/用户增删改/解除锁定）
+  - **接口日志**：FHIR / DICOM / HL7 / LIS / HIS / 医保·支付 / 存证·签名，含入向与出向完整报文
 
 ### 诊毕转归与运营分析
 - 诊毕时选择离院方式（自主离院/住院/转院/死亡/其他），非自主离院需填写补充信息（住院病区/接收医院/死亡原因/其他转归），前后端双重校验
@@ -223,6 +227,7 @@
 │   └── views/                 # 页面视图（按角色/模块分子目录）
 ├── data/                      # 运行时数据目录（Web 无法访问，首次访问自动创建）
 │   ├── db/                    # SQLite 数据库（clinic_main.db 统一主库 + icd10.db 完整标准编码库，纳入版本管理）
+│   ├── logs/                  # 运行期日志（app.log，日志中心「服务器日志」直读）
 │   └── session/               # Session 文件
 ├── tools/                     # 工具脚本（模块化造数架构，统一 CLI 入口）
 │   ├── bin/
