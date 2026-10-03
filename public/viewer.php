@@ -158,7 +158,12 @@ function soloEmbed(silent) {
         var d = j.data || {};
         var mount = document.getElementById('soloMount');
         if (mount) {
-            mount.innerHTML = '<iframe src="' + escHtmlAttr(d.url) + '" style="width:100%;height:100%;border:0" title="Web 阅片器" allow="fullscreen"></iframe>';
+            // 显式向阅片器下发宿主来源（?host=），使其指令桥的严格来源校验可通过
+            var u = d.url || '';
+            if (u !== '' && window.location.origin) {
+                u += (u.indexOf('?') === -1 ? '?' : '&') + 'host=' + encodeURIComponent(window.location.origin);
+            }
+            mount.innerHTML = '<iframe src="' + escHtmlAttr(u) + '" style="width:100%;height:100%;border:0" title="Web 阅片器" allow="fullscreen"></iframe>';
         }
         var ph = document.getElementById('soloPlaceholder');
         if (ph) ph.style.display = 'none';
