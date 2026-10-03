@@ -38,6 +38,7 @@ function admin_part_log($action) {
             'category'  => trim((string)get('category', '')),
             'direction' => trim((string)get('direction', '')),
             'level'     => trim((string)get('level', '')),
+            'date'      => trim((string)get('date', '')),
             'kw'        => trim((string)get('kw', '')),
             'before_id' => (int)get('before_id', 0),
         );
@@ -57,6 +58,7 @@ function admin_part_log($action) {
             'category'  => trim((string)get('category', '')),
             'direction' => trim((string)get('direction', '')),
             'level'     => trim((string)get('level', '')),
+            'date'      => trim((string)get('date', '')),
             'kw'        => trim((string)get('kw', '')),
         );
         $rows = LogService::latest($channel, (int)get('after_id', 0), (int)get('limit', 100), $filter);
@@ -76,7 +78,8 @@ function admin_part_log($action) {
         $limit = (int)get('limit', 200);
         $level = trim((string)get('level', ''));
         $kw = trim((string)get('kw', ''));
-        $res = LogService::readServer($source, $offset, $limit, $level, $kw);
+        $date = trim((string)get('date', ''));
+        $res = LogService::readServer($source, $offset, $limit, $level, $kw, $date);
         json_ok(array(
             'list'     => $res['list'],
             'has_more' => $res['has_more'],
@@ -117,6 +120,12 @@ function admin_part_log($action) {
 
     /* ==================== 日志管理配置保存 ==================== */
     if ($action === 'log_settings_save') {
+        // 总开关关闭时锁定其余设置：仅允许「重新开启」，拒绝任何修改（防绕过前端）
+        $currentlyEnabled = LogService::cfg('log.enabled', '1') === '1';
+        $wantEnabled = ((string)post('enabled', '1') === '1');
+        if (!$currentlyEnabled && !$wantEnabled) {
+            json_fail('日志记录已禁用，无法修改日志设置，请先开启日志记录');
+        }
         $bool = function ($v) { return ((string)$v === '1') ? '1' : '0'; };
         set_setting('log.enabled', $bool(post('enabled', '1')));
         set_setting('log.channel.operation', $bool(post('channel_operation', '1')));
