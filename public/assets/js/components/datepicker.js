@@ -106,11 +106,11 @@ Clinic.datePicker = (function () {
 
     /**
      * 跨度联动校验（与对端输入框配合，maxSpan 上限）：
-     * 选定值与对端值跨度超限时，自动调整到上限边界并提示。
-     * 调整方向：本框为范围起点（值 <= 对端值）→ 向后推；终点（值 > 对端值）→ 向前收。
+     * 用户刚选定的日期是「意图值」，必须保留；超限时改为调整**对端（另一侧）**以配合本值。
+     * 例：上限 30 天，开始选 1 个月前 → 保留开始日期，把结束日期调为 开始 + 30 天。
      * @param {HTMLElement} input 当前输入框
-     * @param {string} val 已选值（YYYY-MM-DD）
-     * @return {string} 调整后的值（未超限原样返回）
+     * @param {string} val 已选值（YYYY-MM-DD，保留）
+     * @return {string} 本框值（原样返回，不变）
      */
     function clampToPeer(input, val) {
         if (!opts.maxSpan || !opts.peer) return val;
@@ -119,18 +119,19 @@ Clinic.datePicker = (function () {
         const peerVal = (peerEl.value || '').trim();
         if (!peerVal) return val;
         if (spanDays(val, peerVal) <= opts.maxSpan) return val;
-        const pp = parse(peerVal);
+        const pv = parse(val);
         const isEndSide = val > peerVal;   // 本框是较晚一侧（结束日期）
-        // 上限边界：锚定对端（未选的那一侧），本侧收回到对端 +- maxSpan 天——
-        // 开始框（早侧）：开始 = 结束 - maxSpan；结束框（晚侧）：结束 = 开始 + maxSpan
-        let d = new Date(pp[0], pp[1] - 1, pp[2]);
-        if (isEndSide) d.setDate(d.getDate() + opts.maxSpan);
-        else d.setDate(d.getDate() - opts.maxSpan);
-        const clamped = fmt(d.getFullYear(), d.getMonth() + 1, d.getDate());
+        // 保留本框所选值，调整对端：本框为结束 → 对端(开始)=本值-maxSpan；本框为开始 → 对端(结束)=本值+maxSpan
+        const d = new Date(pv[0], pv[1] - 1, pv[2]);
+        if (isEndSide) d.setDate(d.getDate() - opts.maxSpan);
+        else d.setDate(d.getDate() + opts.maxSpan);
+        const adjusted = fmt(d.getFullYear(), d.getMonth() + 1, d.getDate());
+        peerEl.value = adjusted;
         if (window.Clinic.toast && Clinic.toast.info) {
-            Clinic.toast.info('日期范围跨度不能超过 ' + opts.maxSpan + ' 天，已自动调整');
+            Clinic.toast.info('日期范围跨度不能超过 ' + opts.maxSpan + ' 天，已保留所选日期并将' +
+                (isEndSide ? '开始' : '结束') + '日期调整为 ' + adjusted);
         }
-        return clamped;
+        return val;
     }
 
     function close() {
