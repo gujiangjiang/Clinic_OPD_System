@@ -175,10 +175,15 @@ Clinic.deptwork = (function () {
     }
     document.addEventListener('click', function (e) {
         var box = document.getElementById('dwToolbox');
-        var btn = document.getElementById('dwToolboxBtn');
-        if (!box || box.style.display === 'none') return;
-        if (!e.target.closest('#dwToolboxBtn') && !e.target.closest('#dwToolbox')) {
+        if (box && box.style.display !== 'none'
+            && !e.target.closest('#dwToolboxBtn') && !e.target.closest('#dwToolbox')) {
             box.style.display = 'none';
+        }
+        // 叫号诊室选择悬浮窗：点击窗外任意区域自动收起（此前需再次点击叫号按钮）
+        var room = document.getElementById('dwRoomList');
+        if (room && room.style.display !== 'none'
+            && !e.target.closest('#dwCallBtn') && !e.target.closest('#dwRoomList')) {
+            room.style.display = 'none';
         }
     });
 
