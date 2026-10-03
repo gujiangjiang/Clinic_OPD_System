@@ -332,6 +332,13 @@ function deptwork_orders($visitId) {
                     $row['report_status'] = $report['status'];
                 }
             }
+            // 影像项目：是否已获取影像（真实合规 StudyInstanceUID），供书写报告前提示
+            if ($it['item_type'] === 'imaging') {
+                $ref = ImagingRepository::refByItem((int)$it['id']);
+                $row['has_image'] = ($ref && class_exists('ImagingRegionResolver')
+                    ? ImagingRegionResolver::isRealUid($ref['study_uid']) : false);
+                $row['study_uid'] = $ref ? (string)$ref['study_uid'] : '';
+            }
             $items[] = $row;
         }
         $out[] = array(

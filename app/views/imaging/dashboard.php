@@ -466,12 +466,17 @@ function imgWritePane(cur, data, idPrefix) {
     var lock = isDone || isPaid;
     var ro = lock ? ' readonly' : '';
     var roStyle = lock ? 'background:var(--bg-soft);cursor:default;' : '';
+    // 未获取到影像（无合规 StudyInstanceUID）：书写前提示，但不阻断（医生可能已在其它 PACS 阅片）
+    var noImg = cur && cur.has_image === false && !isDone && !isPaid;
     // 登记门禁（paid）：整 pane 模糊遮罩 + 居中提示 + 登记按钮（前后端双重拦截）
     var order = isPaid ? imgItemOrder(cur) : null;
     return '<div class="pacs-right-pane active' + (isPaid ? ' pacs-write-gated' : '') + '" data-pane="write" id="' + idPrefix + 'WritePane">' +
         '<div class="pacs-write-gate-inner">' +
         (isDone ?
             '<div class="fs-12 mb-8" style="padding:6px 10px;border-radius:var(--radius-md);background:var(--primary-soft,rgba(37,99,235,.08));color:var(--primary)">该报告已提交（报告号 ' + esc(cur.report_no || '—') + '），如需修改请先申请撤回</div>'
+            : '') +
+        (noImg ?
+            '<div class="fs-12 mb-8" style="padding:6px 10px;border-radius:var(--radius-md);background:rgba(245,158,11,.12);color:#b45309">' + renderIconSvg('alert:warning') + ' 未获取到影像（StudyInstanceUID）：如已在其它 PACS 阅片，可继续书写报告；否则请确认检查已完成并上传、区域 PACS 可查询</div>'
             : '') +
         '<div class="pacs-rep-block">' +
         '<div class="pacs-rep-label">报告模板' +

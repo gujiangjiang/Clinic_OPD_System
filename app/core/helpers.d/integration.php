@@ -561,6 +561,28 @@ function integration_after_dispense($orderId) {
  * 超声/彩超→US、X线→DX 等）；未识别返回空串（由调用方决定回退 OT）。
  * 供影像引用登记、DICOMweb、FHIR ImagingStudy 统一使用，避免分类张冠李戴。
  */
+/**
+ * 是否标准 DICOM UID（VR=UI）：仅数字与点、至少两段、每段无前导零、≤64 字符。
+ * 注意：纯数字无点（如 202609240006）、含前导零段（如 .001）均不合规。
+ */
+function imaging_is_standard_uid($uid) {
+    $u = trim((string)$uid);
+    if ($u === '' || strlen($u) > 64) return false;
+    return (bool)preg_match('/^(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))+$/', $u);
+}
+
+/**
+ * 由稳定种子确定性派生标准 DICOM UID（VR=UI）。
+ * 命名空间根：1.2.826.0.1.3680043.8.498（本系统私有空间）。
+ * 用途：设备 / 区域 PACS 未给出合规 StudyInstanceUID 时，由本系统作为命名权威生成，
+ * 并经 FHIR（urn:dicom:uid）对外发布，保证全链路一致且合规。
+ */
+function imaging_uid_from_seed($seed) {
+    $a = sprintf('%u', crc32('uid|' . (string)$seed . '|a'));
+    $b = sprintf('%u', crc32('uid|' . (string)$seed . '|b'));
+    return '1.2.826.0.1.3680043.8.498.' . $a . '.' . $b;
+}
+
 function imaging_modality_code($text) {
     $raw = trim((string)$text);
     if ($raw === '') return '';

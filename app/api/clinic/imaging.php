@@ -193,26 +193,23 @@ switch ($action) {
                 )),
             ));
             OrderRepository::exec("UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
-            // 报告前置铁律：先有影像（真实 StudyInstanceUID）才能出具报告。
-            // 登记时若未解析成功（如当时 PACS 尚未可查），此处按检查号兜底再解析一次；
-            // 仍无真实 UID → 回滚，不产生报告、不使用任何占位 UID 伪造引用。
+            // 影像引用：报告不以「是否有影像」为硬前提（医生可能已在其它 PACS 阅片），
+            // 但登记时若未解析成功，此处按检查号兜底再解析一次；有合规引用则并入报告信息，
+            // 未获取到影像也不阻断出具（前端在书写前提示）。绝不使用占位/伪造 UID。
             $ref = ImagingRepository::refByItem($itemId);
             if (!ImagingRegionResolver::isRealUid($ref ? $ref['study_uid'] : '')) {
                 try { ImagingRegionResolver::registerForItem($itemId); } catch (Exception $e) { /* 解析失败按无影像处理 */ }
                 $ref = ImagingRepository::refByItem($itemId);
             }
-            if (!$ref || !ImagingRegionResolver::isRealUid($ref['study_uid'])) {
-                DatabaseManager::rollbackTx($pdo);
-                json_fail('尚未获取到影像（StudyInstanceUID）：请确认检查已完成并上传、区域 PACS 可查询后再书写报告');
+            if ($ref) {
+                $refMeta = json_decode((string)$ref['meta_json'], true);
+                if (!is_array($refMeta)) $refMeta = array();
+                $refMeta['report_id'] = (int)$reportId;
+                $refMeta['report_no'] = $reportNo;
+                $refMeta['clinical_diagnosis'] = $diag;
+                ImagingRepository::exec('UPDATE imaging_refs SET meta_json=?, updated_at=? WHERE id=?',
+                    array(json_encode($refMeta, JSON_UNESCAPED_UNICODE), now_str(), (int)$ref['id']));
             }
-            // 报告信息并入引用元数据（保留真实 UID 与序列，不覆盖）
-            $refMeta = json_decode((string)$ref['meta_json'], true);
-            if (!is_array($refMeta)) $refMeta = array();
-            $refMeta['report_id'] = (int)$reportId;
-            $refMeta['report_no'] = $reportNo;
-            $refMeta['clinical_diagnosis'] = $diag;
-            ImagingRepository::exec('UPDATE imaging_refs SET meta_json=?, updated_at=? WHERE id=?',
-                array(json_encode($refMeta, JSON_UNESCAPED_UNICODE), now_str(), (int)$ref['id']));
             DatabaseManager::commitTx($pdo);
         } catch (Exception $ex) {
             DatabaseManager::rollbackTx($pdo);

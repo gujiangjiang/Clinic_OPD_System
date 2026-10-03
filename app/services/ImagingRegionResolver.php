@@ -53,9 +53,11 @@ class ImagingRegionResolver {
         return (isset($obj[$t]['Value'][0]) && !is_array($obj[$t]['Value'][0])) ? (string)$obj[$t]['Value'][0] : '';
     }
 
-    /** 是否合法 DICOM UID（仅数字与点；允许单段纯数字，如区域 PACS 的 202609240006） */
+    /** 是否标准 DICOM UID（数字与点、至少两段、无前导零、≤64）；见 imaging_is_standard_uid */
     public static function isRealUid($uid) {
-        return (bool)preg_match('/^[0-9]+(\.[0-9]+)*$/', trim((string)$uid));
+        return function_exists('imaging_is_standard_uid')
+            ? imaging_is_standard_uid($uid)
+            : (bool)preg_match('/^(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))+$/', trim((string)$uid));
     }
 
     /**
@@ -105,22 +107,43 @@ class ImagingRegionResolver {
         $mod = imaging_modality_code($cat) !== '' ? imaging_modality_code($cat) : imaging_modality_code((string)$it['item_name']);
         if ($mod === '' && isset($r['series'][0]['modality'])) $mod = strtoupper((string)$r['series'][0]['modality']);
         if ($mod === '') $mod = 'OT';
-        $u = Auth::user();
-        $seriesUids = array();
-        foreach ($r['series'] as $s) $seriesUids[] = $s['uid'];
 
+        // UID 规范化：区域给出的 StudyInstanceUID 若合规则沿用；否则由本系统按检查号
+        // 确定性派生标准 UID（根 1.2.826.0.1.3680043.8.498），并经 FHIR 对外发布，
+        // 保证 Study/Series/SOP 全链路为合规 DICOM UID 且各系统一致。
+        $studyUid = self::isRealUid($r['uid']) ? (string)$r['uid'] : imaging_uid_from_seed('study|' . (string)$order['order_no']);
+        $series = array(); $seriesUids = array(); $total = 0; $i = 0;
+        foreach ($r['series'] as $s) {
+            $i++;
+            $seUid = self::isRealUid($s['uid']) ? (string)$s['uid'] : ($studyUid . '.' . $i);
+            $n = max(0, (int)$s['instances']);
+            $series[] = array(
+                'uid' => $seUid,
+                'description' => (string)$s['description'],
+                'modality' => (string)$s['modality'],
+                'instances' => $n,
+            );
+            $seriesUids[] = $seUid;
+            $total += $n;
+        }
+        if (!$series) {   // 区域无序列明细：至少给出一个合规序列 UID
+            $series[] = array('uid' => $studyUid . '.1', 'description' => '', 'modality' => $mod, 'instances' => 0);
+            $seriesUids[] = $studyUid . '.1';
+        }
+
+        $u = Auth::user();
         self::upsertRef(array(
             'order_item_id' => (int)$itemId,
             'order_id' => (int)$it['order_id'],
             'visit_id' => (int)$it['visit_id'],
             'patient_no' => (string)$it['patient_no'],
             'flow_no' => (string)$it['flow_no'],
-            'study_uid' => (string)$r['uid'],
+            'study_uid' => $studyUid,
             'series_uids' => $seriesUids,
-            'instance_count' => (int)$r['instance_count'],
+            'instance_count' => $total,
             'modality' => $mod,
             'region' => 'region-pacs',
-            'meta' => array('series' => $r['series'], 'source' => 'region-pacs'),
+            'meta' => array('series' => $series, 'source' => 'region-pacs'),
             'created_by' => $u ? (string)$u['name'] : '',
         ));
         return ImagingRepository::refByItem((int)$itemId);
