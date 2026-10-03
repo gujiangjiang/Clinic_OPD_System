@@ -19,6 +19,16 @@ $opCats = array('' => array('title' => '全部')) + $opCats;
 $ifCats = array('' => '全部') + $ifCats;
 $sources = LogService::serverSources();
 $levels = array('' => '全部', 'normal' => '正常', 'info' => '提示', 'warning' => '警告', 'error' => '错误');
+// 各通道开关状态（总开关关闭则全部为关）：用于子 Tab 状态圆点
+$logCh = array(
+    'server'    => LogService::channelEnabled('server'),
+    'operation' => LogService::channelEnabled('operation'),
+    'interface' => LogService::channelEnabled('interface'),
+);
+$logDot = function ($key) use ($logCh) {
+    $on = !empty($logCh[$key]);
+    return '<span class="log-tab-dot' . ($on ? ' on' : '') . '" data-logdot="' . e($key) . '" title="' . ($on ? '已开启' : '已关闭') . '"></span>';
+};
 ?>
 <div class="list-layout log-layout">
 <div class="page-head">
@@ -31,9 +41,9 @@ $levels = array('' => '全部', 'normal' => '正常', 'info' => '提示', 'warni
 
 <div class="card" style="padding-bottom:6px;margin-bottom:0">
     <div class="itg-tabs" id="logTabs">
-        <button type="button" class="btn btn-sm btn-primary log-tab" data-tab="server" onclick="LogCenter.tab('server')"><?= render_icon('nav:hospital') ?> 服务器日志</button>
-        <button type="button" class="btn btn-sm btn-outline log-tab" data-tab="operation" onclick="LogCenter.tab('operation')"><?= render_icon('nav:user') ?> 操作日志</button>
-        <button type="button" class="btn btn-sm btn-outline log-tab" data-tab="interface" onclick="LogCenter.tab('interface')"><?= render_icon('nav:plug') ?> 接口日志</button>
+        <button type="button" class="btn btn-sm btn-primary log-tab" data-tab="server" onclick="LogCenter.tab('server')"><?= $logDot('server') ?> 服务器日志</button>
+        <button type="button" class="btn btn-sm btn-outline log-tab" data-tab="operation" onclick="LogCenter.tab('operation')"><?= $logDot('operation') ?> 操作日志</button>
+        <button type="button" class="btn btn-sm btn-outline log-tab" data-tab="interface" onclick="LogCenter.tab('interface')"><?= $logDot('interface') ?> 接口日志</button>
     </div>
     <div class="fs-12 text-muted" id="logTabDesc" style="padding:10px 14px 12px"></div>
 </div>
@@ -44,9 +54,10 @@ $renderNav = function ($items) {
     $h = '';
     foreach ($items as $key => $it) {
         $title = is_array($it) ? (isset($it['title']) ? $it['title'] : $key) : $it;
+        $count = (is_array($it) && !empty($it['count'])) ? (int)$it['count'] : '';
         $h .= '<div class="db-nav log-nav-item" data-cat="' . e($key) . '" onclick="LogCenter.selectCat(this)">' .
             '<span>' . e($title) . '</span>' .
-            '<span class="log-nav-count" data-cat-count="' . e($key) . '"></span></div>';
+            '<span class="log-nav-count" data-cat-count="' . e($key) . '">' . ($count !== '' ? e($count) : '') . '</span></div>';
     }
     return $h;
 };
@@ -60,6 +71,7 @@ $renderToolbar = function ($pane, $withDirection) use ($levels) {
     foreach ($levels as $k => $v) $h .= '<option value="' . e($k) . '">' . e($v) . '</option>';
     $h .= '</select>';
     $h .= '<input class="input log-kw" id="logKw_' . $pane . '" placeholder="搜索日志" autocomplete="off" onkeydown="if(event.key===\'Enter\')LogCenter.onFilter(\'' . $pane . '\')">';
+    $h .= '<input class="input input-date log-date" id="logDate_' . $pane . '" readonly placeholder="选择日期" onclick="Clinic.datePicker.open(this,{maxToday:false,onChange:function(){LogCenter.onFilter(\'' . $pane . '\')}})">';
     $h .= '<label class="log-live"><input type="checkbox" id="logLive_' . $pane . '" checked onchange="LogCenter.toggleLive(\'' . $pane . '\')"> 实时</label>';
     $h .= '<span class="log-status" id="logStatus_' . $pane . '"></span>';
     $h .= '<button type="button" class="btn btn-outline btn-sm" onclick="LogCenter.clearPane(\'' . $pane . '\')">' . render_icon('action:clean') . ' 清空</button>';
@@ -71,7 +83,7 @@ $renderToolbar = function ($pane, $withDirection) use ($levels) {
 <!-- ==================== 服务器日志 ==================== -->
 <?php
 $serverItems = array();
-foreach ($sources as $s) $serverItems[$s['id']] = array('title' => $s['title']);
+foreach ($sources as $s) $serverItems[$s['id']] = array('title' => $s['title'], 'count' => isset($s['lines']) ? $s['lines'] : 0);
 ?>
 <div class="log-pane" id="logPane_server" data-pane="server">
     <div class="db-center log-center">
@@ -143,6 +155,7 @@ window.LogCenter = (function () {
             category: '',
             level: '',
             direction: '',
+            date: '',
             kw: '',
             inited: false
         };
@@ -243,9 +256,11 @@ window.LogCenter = (function () {
         var lv = el('logLevel_' + name);
         var kw = el('logKw_' + name);
         var dir = el('logDir_' + name);
+        var dt = el('logDate_' + name);
         st.level = lv ? lv.value : '';
         st.kw = kw ? kw.value.trim() : '';
         st.direction = dir ? dir.value : '';
+        st.date = dt ? dt.value.trim() : '';
     }
 
     function onFilter(name) {
@@ -261,7 +276,7 @@ window.LogCenter = (function () {
         if (st.kind === 'server') {
             Clinic.get('/api/admin', {
                 action: 'log_server_list', source: st.category || 'app',
-                offset: 0, limit: PAGE_SIZE, level: st.level, kw: st.kw
+                offset: 0, limit: PAGE_SIZE, level: st.level, kw: st.kw, date: st.date
             }, {
                 silent: true,
                 onSuccess: function (json) {
@@ -287,7 +302,7 @@ window.LogCenter = (function () {
         Clinic.get('/api/admin', {
             action: 'log_list', channel: name,
             category: st.category, direction: st.direction,
-            level: st.level, kw: st.kw, limit: PAGE_SIZE
+            level: st.level, kw: st.kw, date: st.date, limit: PAGE_SIZE
         }, {
             silent: true,
             onSuccess: function (json) {
@@ -317,7 +332,7 @@ window.LogCenter = (function () {
         if (st.kind === 'server') {
             Clinic.get('/api/admin', {
                 action: 'log_server_list', source: st.category || 'app',
-                offset: st.offset, limit: PAGE_SIZE, level: st.level, kw: st.kw
+                offset: st.offset, limit: PAGE_SIZE, level: st.level, kw: st.kw, date: st.date
             }, {
                 silent: true,
                 onSuccess: function (json) {
@@ -338,7 +353,7 @@ window.LogCenter = (function () {
         Clinic.get('/api/admin', {
             action: 'log_list', channel: name,
             category: st.category, direction: st.direction,
-            level: st.level, kw: st.kw, before_id: st.beforeId, limit: PAGE_SIZE
+            level: st.level, kw: st.kw, date: st.date, before_id: st.beforeId, limit: PAGE_SIZE
         }, {
             silent: true,
             onSuccess: function (json) {
@@ -365,7 +380,7 @@ window.LogCenter = (function () {
         if (st.kind === 'server') {
             Clinic.get('/api/admin', {
                 action: 'log_server_list', source: st.category || 'app',
-                offset: 0, limit: 50, level: st.level, kw: st.kw
+                offset: 0, limit: 50, level: st.level, kw: st.kw, date: st.date
             }, {
                 silent: true,
                 onSuccess: function (json) {
@@ -393,7 +408,7 @@ window.LogCenter = (function () {
         Clinic.get('/api/admin', {
             action: 'log_latest', channel: name, after_id: st.afterId,
             category: st.category, direction: st.direction,
-            level: st.level, kw: st.kw, limit: 100
+            level: st.level, kw: st.kw, date: st.date, limit: 100
         }, {
             silent: true,
             onSuccess: function (json) {
@@ -444,6 +459,7 @@ window.LogCenter = (function () {
         var meta = [];
         if (e.username) meta.push(esc(e.username));
         if (e.remote_ip) meta.push(esc(e.remote_ip));
+        var metaHtml = meta.length ? '<div class="log-meta">' + meta.join(' · ') + '</div>' : '';
         var dirName = e.direction === 'inbound' ? '入向' : (e.direction === 'outbound' ? '出向' : '');
         var h = '<div class="log-item log-lv-' + esc(e.level) + '">' +
             '<div class="log-item-head">' +
@@ -451,11 +467,15 @@ window.LogCenter = (function () {
                 (dirName ? '<span class="badge badge-outline">' + dirName + '</span>' : '') +
                 '<span class="log-time">' + esc(e.created_at) + '</span>' +
                 (e.action ? '<span class="log-action">' + esc(e.action) + '</span>' : '') +
-            '</div>' +
-            '<div class="log-summary">' + esc(e.summary) + '</div>' +
-            (e.detail ? '<div class="log-detail">' + esc(e.detail) + '</div>' : '') +
-            (meta.length ? '<div class="log-meta">' + meta.join(' · ') + '</div>' : '') +
-            (e.payload ? '<details class="log-payload-wrap"><summary>查看报文</summary><pre class="log-payload">' + esc(e.payload) + '</pre></details>' : '') +
+            '</div>';
+        // 除摘要外的明细与操作人/IP 同行：明细左、来源信息右对齐，节省纵向空间
+        if (e.detail) {
+            h += '<div class="log-summary">' + esc(e.summary) + '</div>' +
+                '<div class="log-line"><div class="log-line-main">' + esc(e.detail) + '</div>' + metaHtml + '</div>';
+        } else {
+            h += '<div class="log-line"><div class="log-line-main log-summary">' + esc(e.summary) + '</div>' + metaHtml + '</div>';
+        }
+        h += (e.payload ? '<details class="log-payload-wrap"><summary>查看报文</summary><pre class="log-payload">' + esc(e.payload) + '</pre></details>' : '') +
             '</div>';
         return h;
     }
@@ -466,14 +486,12 @@ window.LogCenter = (function () {
         var st = S[name];
         if (!st.entries.length) {
             v.innerHTML = '<div class="empty"><div class="empty-ico">' + renderIconSvg('emr:scroll') + '</div>暂无日志</div>';
-            setStatus(name, '0 条');
             return;
         }
         var html = '';
         var more = st.hasMore ? '<div class="log-more" id="logMore_' + name + '">上滑加载更旧日志</div>' : '<div class="log-more">已加载全部</div>';
         for (var i = 0; i < st.entries.length; i++) html += entryHtml(st.entries[i], st.kind);
         v.innerHTML = more + html;
-        setStatus(name, st.entries.length + ' 条' + (st.hasMore ? ' · 上滑加载更旧' : ' · 已到顶部'));
     }
 
     function appendEntries(name, list) {
@@ -485,19 +503,14 @@ window.LogCenter = (function () {
         for (var i = 0; i < list.length; i++) frag.innerHTML += entryHtml(list[i], st.kind);
         // 追加到视窗末尾（保留顶部加载提示）
         while (frag.firstChild) v.appendChild(frag.firstChild);
-        setStatus(name, st.entries.length + ' 条' + (st.hasMore ? ' · 上滑加载更旧' : ' · 已到顶部'));
     }
 
-    function setStatus(name, text) {
-        var s = el('logStatus_' + name);
-        if (s) s.textContent = text;
-    }
     function setServerStatus(name, d) {
         var s = el('logStatus_' + name);
         if (!s) return;
+        s.textContent = '';
         if (d.disabled) { s.textContent = '已关闭'; return; }
         if (!d.exists) { s.textContent = '日志文件不存在'; return; }
-        s.textContent = (d.list ? d.list.length : 0) + ' 行' + (d.has_more ? ' · 上滑加载更旧' : '');
     }
 
     function applyCounts(name, counts) {
@@ -544,34 +557,45 @@ window.LogCenter = (function () {
         Clinic.get('/api/admin', { action: 'log_settings_get' }, {
             onSuccess: function (json) {
                 var d = json.data || {};
-                var cb = function (name, on) {
-                    return '<label class="log-switch"><input type="checkbox" id="' + name + '"' + (on === '1' ? ' checked' : '') + '> </label>';
+                var on = (d['log.enabled'] === '1');
+                var cb = function (name, v) {
+                    return '<label class="log-switch"><input type="checkbox" id="' + name + '"' + (v === '1' ? ' checked' : '') + '> </label>';
                 };
                 var html =
-                    '<div class="log-set-grid">' +
-                        '<div class="log-set-card"><div class="log-set-title">日志开关</div>' +
-                            '<div class="log-set-row"><span>启用日志记录</span>' + cb('ls_enabled', d['log.enabled']) + '</div>' +
-                            '<div class="log-set-row"><span>操作日志</span>' + cb('ls_channel_operation', d['log.channel.operation']) + '</div>' +
-                            '<div class="log-set-row"><span>接口日志</span>' + cb('ls_channel_interface', d['log.channel.interface']) + '</div>' +
-                            '<div class="log-set-row"><span>服务器日志</span>' + cb('ls_channel_server', d['log.channel.server']) + '</div>' +
-                            '<div class="log-set-hint">「启用日志记录」为总开关，关闭后不再记录操作日志与接口日志（服务器日志由 PHP 自行写入文件，不受此开关影响）；各子项可分别关闭。</div>' +
+                    // 总开关：胶囊开关，独立置顶
+                    '<div class="log-master">' +
+                        '<span class="log-master-label">' + renderIconSvg('emr:scroll') + ' 启用日志记录</span>' +
+                        '<label class="log-pill"><input type="checkbox" id="ls_enabled"' + (on ? ' checked' : '') +
+                            ' onchange="document.getElementById(\'logSetBody\').classList.toggle(\'disabled\', !this.checked)"><span class="log-pill-track"></span></label>' +
+                        '<span class="log-set-hint" style="margin:0 0 0 auto">总开关：关闭后停止记录日志并锁定以下全部设置。</span>' +
+                    '</div>' +
+                    '<div class="log-set-body' + (on ? '' : ' disabled') + '" id="logSetBody">' +
+                        '<div class="log-set-grid">' +
+                            '<div class="log-set-card"><div class="log-set-title">日志通道</div>' +
+                                '<div class="log-set-row"><span>操作日志</span>' + cb('ls_channel_operation', d['log.channel.operation']) + '</div>' +
+                                '<div class="log-set-row"><span>接口日志</span>' + cb('ls_channel_interface', d['log.channel.interface']) + '</div>' +
+                                '<div class="log-set-row"><span>服务器日志</span>' + cb('ls_channel_server', d['log.channel.server']) + '</div>' +
+                                '<div class="log-set-hint">分别控制操作日志、接口日志是否记录；服务器日志表示日志中心是否可读取服务器日志文件。</div>' +
+                            '</div>' +
+                            '<div class="log-set-card"><div class="log-set-title">记录级别</div>' +
+                                '<div class="log-set-row"><span>正常</span>' + cb('ls_level_normal', d['log.level.normal']) + '</div>' +
+                                '<div class="log-set-row"><span>提示</span>' + cb('ls_level_info', d['log.level.info']) + '</div>' +
+                                '<div class="log-set-row"><span>警告</span>' + cb('ls_level_warning', d['log.level.warning']) + '</div>' +
+                                '<div class="log-set-row"><span>错误</span>' + cb('ls_level_error', d['log.level.error']) + '</div>' +
+                                '<div class="log-set-hint">未勾选的级别不会被记录（如取消「正常」后，正常级别的日志不再写入）。服务器日志由 PHP 直接写文件，不受此处影响。</div>' +
+                            '</div>' +
+                            '<div class="log-set-card"><div class="log-set-title">容量与保留</div>' +
+                                '<div class="log-set-row"><span>日志行数上限</span><input class="input" id="ls_max_rows" type="number" min="100" value="' + esc(d['log.max_rows']) + '"></div>' +
+                                '<div class="log-set-row"><span>日志记录天数</span><input class="input" id="ls_retention" type="number" min="0" value="' + esc(d['log.retention_days']) + '"></div>' +
+                                '<div class="log-set-hint">超过行数上限自动清理最旧记录；超过记录天数自动清空（0 = 不限制）。</div>' +
+                            '</div>' +
+                            '<div class="log-set-card"><div class="log-set-title">服务器日志</div>' +
+                                '<div class="log-set-row"><span>读取上限 (KB)</span><input class="input" id="ls_max_kb" type="number" min="64" value="' + esc(d['log.server.max_kb']) + '"></div>' +
+                                '<div class="log-set-row log-set-col"><span>外部服务器日志路径</span><input class="input" id="ls_ext_path" value="' + esc(d['log.server.external_path']) + '" placeholder="如 /var/log/php_errors.log"></div>' +
+                                '<div class="log-set-hint">留空则仅显示应用日志（data/logs/app.log）。</div>' +
+                            '</div>' +
                         '</div>' +
-                        '<div class="log-set-card"><div class="log-set-title">日志分类（级别）</div>' +
-                            '<div class="log-set-row"><span>正常</span>' + cb('ls_level_normal', d['log.level.normal']) + '</div>' +
-                            '<div class="log-set-row"><span>提示</span>' + cb('ls_level_info', d['log.level.info']) + '</div>' +
-                            '<div class="log-set-row"><span>警告</span>' + cb('ls_level_warning', d['log.level.warning']) + '</div>' +
-                            '<div class="log-set-row"><span>错误</span>' + cb('ls_level_error', d['log.level.error']) + '</div>' +
-                        '</div>' +
-                        '<div class="log-set-card"><div class="log-set-title">容量与保留</div>' +
-                            '<div class="log-set-row"><span>日志行数上限</span><input class="input" id="ls_max_rows" type="number" min="100" value="' + esc(d['log.max_rows']) + '"></div>' +
-                            '<div class="log-set-row"><span>日志记录天数</span><input class="input" id="ls_retention" type="number" min="0" value="' + esc(d['log.retention_days']) + '"></div>' +
-                            '<div class="log-set-hint">超过行数上限自动清理最旧记录；超过记录天数自动清空（0 = 不限制）。</div>' +
-                        '</div>' +
-                        '<div class="log-set-card"><div class="log-set-title">服务器日志</div>' +
-                            '<div class="log-set-row"><span>读取上限 (KB)</span><input class="input" id="ls_max_kb" type="number" min="64" value="' + esc(d['log.server.max_kb']) + '"></div>' +
-                            '<div class="log-set-row log-set-col"><span>外部服务器日志路径</span><input class="input" id="ls_ext_path" value="' + esc(d['log.server.external_path']) + '" placeholder="如 /var/log/php_errors.log"></div>' +
-                            '<div class="log-set-hint">留空则仅显示应用日志（data/logs/app.log）。</div>' +
-                        '</div>' +
+                        '<div class="log-set-overlay"><div class="log-set-overlay-msg">已禁用日志记录</div></div>' +
                     '</div>';
                 Clinic.modal.open(html, {
                     title: '日志管理',
@@ -582,6 +606,15 @@ window.LogCenter = (function () {
                     ]
                 });
             }
+        });
+    }
+
+    /** 更新子 Tab 状态圆点 */
+    function applyTabDots(ch) {
+        document.querySelectorAll('#logTabs [data-logdot]').forEach(function (d) {
+            var on = !!ch[d.getAttribute('data-logdot')];
+            d.classList.toggle('on', on);
+            d.title = on ? '已开启' : '已关闭';
         });
     }
 
@@ -605,6 +638,12 @@ window.LogCenter = (function () {
             server_external_path: val('ls_ext_path')
         }, {
             onSuccess: function (json) {
+                var master = chk('ls_enabled') === '1';
+                applyTabDots({
+                    server: master && chk('ls_channel_server') === '1',
+                    operation: master && chk('ls_channel_operation') === '1',
+                    interface: master && chk('ls_channel_interface') === '1'
+                });
                 Clinic.toast.success(json.msg || '已保存');
                 Clinic.modal.close();
             }

@@ -950,3 +950,43 @@
     .log-main { height: 60vh; }
     .log-set-grid { grid-template-columns: 1fr; }
 }
+
+/* 日志中心：子 Tab 状态圆点（随日志管理开关） */
+.log-tab-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: #94a3b8;
+    display: inline-block; margin-right: 5px; vertical-align: middle; flex: 0 0 auto;
+}
+.log-tab-dot.on { background: #34d399; box-shadow: 0 0 0 2px rgba(52,211,153,.22); }
+
+/* 日志列表：明细 + 来源信息同行，来源右对齐（节省纵向空间） */
+.log-line { display: flex; align-items: baseline; gap: 12px; }
+.log-line-main { flex: 1; min-width: 0; }
+.log-line .log-meta { flex: 0 0 auto; margin: 0; white-space: nowrap; }
+.log-toolbar .log-date { width: 132px; flex: 0 0 auto; }
+
+/* 日志管理：总开关胶囊 + 关闭遮罩 */
+.log-master {
+    display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+    border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 14px;
+}
+.log-master-label { font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+.log-pill { position: relative; display: inline-block; width: 46px; height: 26px; flex: 0 0 auto; }
+.log-pill input { opacity: 0; width: 0; height: 0; }
+.log-pill-track {
+    position: absolute; inset: 0; background: #cbd5e1; border-radius: 999px;
+    transition: background .2s; cursor: pointer;
+}
+.log-pill-track::before {
+    content: ''; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px;
+    background: #fff; border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3);
+}
+.log-pill input:checked + .log-pill-track { background: var(--primary); }
+.log-pill input:checked + .log-pill-track::before { transform: translateX(20px); }
+.log-set-body { position: relative; }
+.log-set-body.disabled .log-set-grid { filter: blur(3px); opacity: .5; pointer-events: none; user-select: none; }
+.log-set-overlay { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; z-index: 3; }
+.log-set-body.disabled .log-set-overlay { display: flex; }
+.log-set-overlay-msg {
+    padding: 10px 20px; border-radius: 999px; background: rgba(15,23,42,.78);
+    color: #fff; font-size: 14px; font-weight: 600;
+}
