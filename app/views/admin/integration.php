@@ -215,7 +215,7 @@ $itgTabDesc = array(
                         <button type="button" class="btn btn-outline btn-sm" onclick="itgMonClear()">清空历史</button>
                     </div>
                     <div class="flex" style="gap:8px;margin-bottom:10px">
-                        <select class="select" id="itgMonStatus" style="width:130px">
+                        <select class="select" id="itgMonStatus" style="width:130px" data-csd-keepempty="1">
                             <option value="">全部状态</option>
                             <option value="pending">待处理</option>
                             <option value="success">成功</option>

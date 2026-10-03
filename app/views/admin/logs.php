@@ -53,10 +53,10 @@ $renderNav = function ($items) {
 $renderToolbar = function ($pane, $withDirection) use ($levels) {
     $h = '<div class="log-toolbar">';
     if ($withDirection) {
-        $h .= '<select class="select" id="logDir_' . $pane . '" onchange="LogCenter.onFilter(\'' . $pane . '\')">' .
+        $h .= '<select class="select" id="logDir_' . $pane . '" data-csd-keepempty="1" onchange="LogCenter.onFilter(\'' . $pane . '\')">' .
             '<option value="">全部方向</option><option value="inbound">入向</option><option value="outbound">出向</option></select>';
     }
-    $h .= '<select class="select" id="logLevel_' . $pane . '" onchange="LogCenter.onFilter(\'' . $pane . '\')">';
+    $h .= '<select class="select" id="logLevel_' . $pane . '" data-csd-keepempty="1" onchange="LogCenter.onFilter(\'' . $pane . '\')">';
     foreach ($levels as $k => $v) $h .= '<option value="' . e($k) . '">' . e($v) . '</option>';
     $h .= '</select>';
     $h .= '<input class="input log-kw" id="logKw_' . $pane . '" placeholder="搜索日志" autocomplete="off" onkeydown="if(event.key===\'Enter\')LogCenter.onFilter(\'' . $pane . '\')">';
