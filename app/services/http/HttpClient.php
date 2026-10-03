@@ -68,17 +68,30 @@ class HttpClient {
         if ($resp === false) {
             $err = curl_error($ch);
             $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
+            self::closeCurl($ch);
             throw new Exception('HTTP 请求失败：' . $err . ' (HTTP ' . $code . ')');
         }
         $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $hdrLen = (int)curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-        curl_close($ch);
+        self::closeCurl($ch);
         return array(
             'status' => $code,
             'headers' => substr($resp, 0, $hdrLen),
             'body' => substr($resp, $hdrLen),
         );
+    }
+
+    /**
+     * 关闭 cURL 句柄
+     * 说明：PHP 8.0+ 中 curl_close 已无实际作用，PHP 8.5 起标记为 Deprecated
+     * （会写入告警日志）。此处按版本判断——仅 PHP < 8.5 调用，兼容 PHP 7.x
+     * 释放句柄的同时，避免 PHP 8.5+ 产生 Deprecated 警告。
+     * @param resource|CurlHandle $ch
+     */
+    private static function closeCurl($ch) {
+        if (PHP_VERSION_ID < 80500) {
+            curl_close($ch);
+        }
     }
 
     /** cURL 缺失时回退流式读取（http/https 包装头） */
