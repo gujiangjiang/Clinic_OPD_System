@@ -644,6 +644,10 @@
     font-weight: 700;
 }
 .pacs-solo-head .solo-sub { color: #94a3b8; font-size: 12px; font-weight: 400; margin-left: auto; }
+/* 标题图标与文字垂直居中对齐（此前 SVG 基线偏上） */
+.pacs-solo-head > span { display: inline-flex; align-items: center; gap: 8px; }
+.pacs-solo-head .opd-svg-icon { display: inline-flex; align-items: center; }
+.pacs-solo-head svg { width: 18px; height: 18px; display: block; }
 .pacs-solo-stage {
     flex: 1;
     min-height: 0;

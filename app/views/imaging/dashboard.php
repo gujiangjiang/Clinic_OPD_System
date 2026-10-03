@@ -315,23 +315,20 @@ function imgInfoCardInner(it) {
 
 /* 阅片视窗角标：持久信息（患者/序列）+ 瞬时提示（工具/挂载，几秒后自动消失） */
 var PACS_TAG_TIMER = null;
-function setPacsTagPersist(text) {
-    window.__pacsTagPersist = text || '';
-    if (PACS_TAG_TIMER) return;   // 正在显示瞬时提示时不打断
-    var tl = document.getElementById('pacsTagL');
-    if (tl) tl.textContent = window.__pacsTagPersist;
-}
+/** 阅片视窗左上角提示：统一自动消失（与分屏阅片视窗一致），不长期遮挡影像 */
 function flashPacsTag(text, ms) {
     var tl = document.getElementById('pacsTagL');
     if (!tl) return;
-    tl.textContent = text;
+    tl.textContent = text || '';
     if (PACS_TAG_TIMER) clearTimeout(PACS_TAG_TIMER);
     PACS_TAG_TIMER = setTimeout(function () {
         PACS_TAG_TIMER = null;
         var el = document.getElementById('pacsTagL');
-        if (el) el.textContent = window.__pacsTagPersist || '';
+        if (el) el.textContent = '';
     }, ms || 4000);
 }
+/* 兼容旧调用点：统一按「自动消失」处理 */
+function setPacsTagPersist(text) { flashPacsTag(text); }
 /* 向内嵌 Web 阅片器发送指令（跨域 iframe 通过 postMessage 驱动其工具/视图） */
 function pacsViewerPost(cmd, value) {
     var f = document.getElementById('pacsViewerFrame');

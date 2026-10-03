@@ -1025,6 +1025,15 @@
     display: flex;
     flex-direction: column;
 }
+/* 列表卡内空态（如审核中心「暂无待审核记录」）：占满剩余高度并上下居中显示 */
+.list-card > .empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
 /* 列表滚动区：占满 list-card 剩余高度，内部纵向滚动；覆盖全局 max-height:60vh */
 .list-card .table-wrap {
     flex: 1;
