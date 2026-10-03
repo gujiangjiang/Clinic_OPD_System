@@ -55,6 +55,16 @@ if (DEBUG) {
     ini_set('log_errors', '1');
 }
 
+/* ---------- 服务器日志统一落盘（日志中心「服务器日志」直读该文件） ----------
+ * 应用内 error_log() 与 PHP 运行期错误统一写入 data/logs/app.log；
+ * 目录不可写时静默降级（保留 PHP 默认 error_log 目标），绝不因日志导致启动失败。 */
+define('LOG_DIR', DATA_DIR . '/logs');
+if (!is_dir(LOG_DIR)) @mkdir(LOG_DIR, 0777, true);
+if (is_dir(LOG_DIR) && is_writable(LOG_DIR)) {
+    ini_set('log_errors', '1');
+    ini_set('error_log', LOG_DIR . '/app.log');
+}
+
 /* ============================================================
  * AJAX 接口错误输出控制（防止污染 JSON 响应）
  * ------------------------------------------------------------

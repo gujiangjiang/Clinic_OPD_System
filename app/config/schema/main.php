@@ -18,7 +18,7 @@
  * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
-    'version' => 45,
+    'version' => 46,
     'tables' => array(
 
         /* ---------------- 系统设置 / 消息 / 审核 ---------------- */
@@ -36,6 +36,27 @@ return array(
             keys_changed TEXT,
             detail TEXT,
             ip TEXT,
+            created_at TEXT
+        )",
+
+        // 统一系统日志表（日志中心）：操作日志 + 接口日志统一落库；
+        // 服务器日志直读 PHP 日志文件，不入本表。详见 migrations[46] 注释。
+        'system_logs' => "CREATE TABLE IF NOT EXISTS system_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            channel TEXT NOT NULL DEFAULT 'operation',
+            category TEXT NOT NULL DEFAULT '',
+            direction TEXT NOT NULL DEFAULT '',
+            action TEXT NOT NULL DEFAULT '',
+            level TEXT NOT NULL DEFAULT 'info',
+            summary TEXT NOT NULL DEFAULT '',
+            detail TEXT NOT NULL DEFAULT '',
+            payload TEXT NOT NULL DEFAULT '',
+            user_id INTEGER NOT NULL DEFAULT 0,
+            username TEXT NOT NULL DEFAULT '',
+            role TEXT NOT NULL DEFAULT '',
+            target TEXT NOT NULL DEFAULT '',
+            remote_ip TEXT NOT NULL DEFAULT '',
+            user_agent TEXT NOT NULL DEFAULT '',
             created_at TEXT
         )",
 
@@ -1255,9 +1276,39 @@ return array(
             "ALTER TABLE refunds ADD COLUMN hospital_name2 TEXT DEFAULT ''",
         ),
         // v44：挂号记录医院名称快照（挂号凭条补打沿用挂号时医院名称）
-        44 => array(
+            44 => array(
             "ALTER TABLE registrations ADD COLUMN hospital_name TEXT DEFAULT ''",
             "ALTER TABLE registrations ADD COLUMN hospital_name2 TEXT DEFAULT ''",
+        ),
+        // v46：统一系统日志表（日志中心）——
+        // 操作日志（登录/退出/改密/改资料等）与接口日志（FHIR/DICOM/HL7/LIS/HIS/
+        // 医保支付/存证签名，含入向/出向）统一落库，由 LogService 读写；
+        // 服务器日志直接读取 PHP 日志文件，不入本表。
+        //  - channel   operation 操作 // interface 接口
+        //  - category  operation: login/account；interface: fhir/dicom/hl7/lis/his/insurance/evid
+        //  - direction interface: inbound 入向 / outbound 出向
+        //  - level     normal 正常 / info 提示 / warning 警告 / error 错误
+        46 => array(
+            "CREATE TABLE IF NOT EXISTS system_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                channel TEXT NOT NULL DEFAULT 'operation',
+                category TEXT NOT NULL DEFAULT '',
+                direction TEXT NOT NULL DEFAULT '',
+                action TEXT NOT NULL DEFAULT '',
+                level TEXT NOT NULL DEFAULT 'info',
+                summary TEXT NOT NULL DEFAULT '',
+                detail TEXT NOT NULL DEFAULT '',
+                payload TEXT NOT NULL DEFAULT '',
+                user_id INTEGER NOT NULL DEFAULT 0,
+                username TEXT NOT NULL DEFAULT '',
+                role TEXT NOT NULL DEFAULT '',
+                target TEXT NOT NULL DEFAULT '',
+                remote_ip TEXT NOT NULL DEFAULT '',
+                user_agent TEXT NOT NULL DEFAULT '',
+                created_at TEXT
+            )",
+            "CREATE INDEX IF NOT EXISTS idx_system_logs_channel ON system_logs(channel, category, id)",
+            "CREATE INDEX IF NOT EXISTS idx_system_logs_created ON system_logs(created_at)",
         ),
     ),
     'seed' => array(

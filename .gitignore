@@ -65,3 +65,6 @@ tmp/**/*.db
 yarn-debug.log*
 yarn-error.log*
 ~$*
+
+# 运行期日志（日志中心「服务器日志」直读 data/logs/app.log，禁止提交）
+data/logs/
