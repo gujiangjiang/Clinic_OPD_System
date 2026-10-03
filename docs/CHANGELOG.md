@@ -13,6 +13,16 @@
 
 ---
 
+## [9.0.3] - 2026-10-04
+
+### 修复
+- **应用日志持续出现 `curl_close()` 弃用告警**：PHP 8.5 起 `curl_close()` 被标记为
+  Deprecated（自 PHP 8.0 起已无实际作用），`HttpClient` 每次 HTTP 调用都会写入一条
+  「Function curl_close() is deprecated」。现按 `PHP_VERSION_ID` 判断，仅 PHP < 8.5
+  调用 `curl_close()`（兼容 PHP 7.x 释放句柄），PHP 8.5+ 跳过，日志不再刷屏。
+
+---
+
 ## [9.0.2] - 2026-10-03
 
 ### 修复
