@@ -155,6 +155,16 @@ case 'emr_diag': return !!(Clinic.emr && Clinic.emr.diag);
         this.load(href);
     },
 
+    /** 软刷新当前页面：重新拉取并安装当前页 partial 内容（侧边栏品牌点击） */
+    refresh: function () {
+        var href = this.current || window.location.pathname;
+        if (window.location.search && href.indexOf('?') === -1) href += window.location.search;
+        this.lastUrl = '';
+        this._busy = false;
+        if (window.Clinic && Clinic.modal && Clinic.modal.close) Clinic.modal.close();
+        this.load(href);
+    },
+
     /** 拉取并安装目标页 partial 内容 */
     load: function (href) {
         if (this._busy) return;

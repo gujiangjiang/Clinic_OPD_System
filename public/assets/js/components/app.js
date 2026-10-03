@@ -57,7 +57,30 @@ Clinic.init = function () {
     initMessageBell();
     bindThemeSwitcher();
     bindNavActive();
+    bindBrandRefresh();
 };
+
+/**
+ * 侧边栏品牌（LOGO + 医院名称）作为整体：
+ * 点击软刷新当前页面；禁用文本选择与右键菜单（CSS 另行限制子元素光标）。
+ */
+function bindBrandRefresh() {
+    const brand = document.querySelector('[data-brand-refresh]');
+    if (!brand) return;
+    const doRefresh = function () {
+        if (window.Clinic && Clinic.nav && Clinic.nav.refresh) {
+            Clinic.nav.refresh();
+        } else {
+            window.location.reload();
+        }
+    };
+    brand.addEventListener('click', function (e) { e.preventDefault(); doRefresh(); });
+    brand.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); doRefresh(); }
+    });
+    // 右键菜单禁用（CSS pointer-events 已拦截子元素，这里兜底整体）
+    brand.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+}
 
 /**
  * 侧边栏切换（展开 ⇄ 缩小）：

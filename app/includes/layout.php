@@ -417,7 +417,7 @@ class Layout {
             <div class="' . $appClass . '">
                 <!-- ===== 侧边栏 ===== -->
                 <aside class="sidebar">
-                    <div class="sidebar-brand">
+                    <div class="sidebar-brand" data-brand-refresh role="button" tabindex="0" title="刷新页面" oncontextmenu="return false">
                         ' . $brandImg . '
                         <div class="brand-names">
                             <div class="brand-name">' . e($hosp) . '</div>' .

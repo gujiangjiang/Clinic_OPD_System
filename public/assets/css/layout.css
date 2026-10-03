@@ -1166,3 +1166,14 @@
     overflow: visible;
     border-radius: 0;
 }
+
+/* ============================================================
+ * 侧边栏品牌（LOGO + 医院名称）：作为整体可点击，点击软刷新当前页
+ * - 禁用文本选择/光标 I-beam（子元素 pointer-events:none，事件统一由品牌容器处理）
+ * - 禁用图片拖拽与右键菜单
+ * - 展开态与缩小态（仅图标）均为一个整体
+ * ============================================================ */
+.sidebar-brand { cursor: pointer; user-select: none; -webkit-user-select: none; }
+.sidebar-brand * { pointer-events: none; -webkit-user-drag: none; user-select: none; }
+.sidebar-brand:active { opacity: .85; }
+.sidebar-brand:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; border-radius: var(--radius-sm); }
