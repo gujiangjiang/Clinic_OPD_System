@@ -144,7 +144,7 @@ class QueueSeeder extends Seeder {
                     mt_rand(8, 15) < 12 ? 'am' : 'pm', $this->pick(array('自费', '居民医保', '职工医保')), $fee,
                     'paid', $payTime, 2, '收款员', $regTime, '', 0, '', '', '',
                 ));
-                DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
+                DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total_amount, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
                     $visitId, 0, $patientNo, $flowNo, 'visit', $fee, 1, 2, '收款员', $payTime,
                 ));
                 $created++;

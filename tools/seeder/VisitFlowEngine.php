@@ -84,7 +84,7 @@ class VisitFlowEngine {
                 'paid', $docId, $docName, $now,
             ));
             $this->pdo->prepare(
-                'INSERT INTO payments(order_id, visit_id, patient_no, flow_no, total, item_count, cashier_id, cashier_name, kind, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)'
+                'INSERT INTO payments(order_id, visit_id, patient_no, flow_no, total_amount, item_count, cashier_id, cashier_name, kind, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)'
             )->execute(array($orderId, $visitId, $visit['patient_no'], $visit['flow_no'], $price, 1, 2, '收款员', 'order', $now));
             $this->pdo->commit();
         } catch (Exception $ex) {

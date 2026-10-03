@@ -31,7 +31,7 @@ class DrugSeeder extends Seeder {
             $st->execute(array($si[0]));
             $id = $st->fetchColumn();
             if (!$id) {
-                $pdo->prepare("INSERT INTO disposal_items(name,fee,is_nurse,status,created_at) VALUES(?,?,0,?,?)")->execute(array($si[0], $si[1], 'approved', now_str()));
+                $pdo->prepare("INSERT INTO disposal_items(name,price,is_nurse,status,created_at) VALUES(?,?,0,?,?)")->execute(array($si[0], $si[1], 'approved', now_str()));
                 $id = (int)$pdo->lastInsertId();
             }
             $skinMap[$si[0]] = (int)$id;

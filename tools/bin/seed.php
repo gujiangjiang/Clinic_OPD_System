@@ -50,6 +50,28 @@ function seed_php_bin() {
         : escapeshellarg($bin);
 }
 
+/**
+ * 造数前自动备份主库（防止「全量场景」清空旧业务数据造成不可逆损失），
+ * 备份至 data/db/backups/clinic_main.<时间戳>.db，仅保留最近 10 份。
+ */
+function seed_backup_db() {
+    $db = dirname(dirname(dirname(__FILE__))) . '/data/db/clinic_main.db';
+    if (!is_file($db)) return;
+    $dir = dirname($db) . '/backups';
+    if (!is_dir($dir)) @mkdir($dir, 0775, true);
+    $dst = $dir . '/clinic_main.' . date('Ymd_His') . '.db';
+    if (@copy($db, $dst)) {
+        echo "== 已自动备份主库 → data/db/backups/" . basename($dst) . " ==\n";
+        $list = glob($dir . '/clinic_main.*.db');
+        if (is_array($list)) {
+            sort($list);
+            while (count($list) > 10) { @unlink(array_shift($list)); }
+        }
+    } else {
+        fwrite(STDERR, "警告：主库备份失败（$db），继续造数有清空风险\n");
+    }
+}
+
 /** 子进程执行造数脚本（隔离运行，逐行输出） */
 function seed_run_script($script, $extraArgs = array()) {
     if (!is_file($script)) {
@@ -193,6 +215,8 @@ list($mode) = $scenes[$scene];
 
 // 全量造数前先做数据库依赖先验探测，缺失时终止避免写入脏数据
 if ($mode === 'dict+visit' || $mode === 'dict+fhir') {
+    // 全量场景会清空旧业务数据：运行前自动备份主库
+    seed_backup_db();
     $pfCode = seed_run_script($root . '/seeder/PreflightChecker.php', array('--all'));
     if ($pfCode !== 0) exit($pfCode);
 }

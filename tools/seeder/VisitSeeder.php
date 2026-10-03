@@ -445,7 +445,7 @@ class VisitSeeder extends Seeder {
         $this->cnt['visit']++;
 
         if ($paid) {
-            DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
+            DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total_amount, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
                 $visitId, 0, $p['patient_no'], $flowNo, 'visit', $fee, 1, 2, $this->staff['cashier'], $payTime,
             ));
         }
@@ -670,7 +670,7 @@ class VisitSeeder extends Seeder {
         // 缴费流水（开单缴费 kind=order）
         foreach ($visitOrders as $vo) {
             $orderTotal = (float)DB::val('SELECT total_amount FROM orders WHERE id=?', array($vo['id']));
-            DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
+            DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total_amount, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
                 $visitId, $vo['id'], $p['patient_no'], $flowNo, 'order', $orderTotal, 1, 2, $this->staff['cashier'], $vo['paid_at'],
             ));
         }

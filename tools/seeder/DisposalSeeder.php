@@ -82,7 +82,7 @@ class DisposalSeeder extends Seeder {
     public function run() {
         $created = 0;
         $stmt = $this->pdo->prepare('SELECT id FROM disposal_items WHERE name=?');
-        $ins = $this->pdo->prepare('INSERT INTO disposal_items(name,fee,is_nurse,description,status,created_at) VALUES(?,?,?,?,?,?)');
+        $ins = $this->pdo->prepare('INSERT INTO disposal_items(name,price,is_nurse,description,status,created_at) VALUES(?,?,?,?,?,?)');
         foreach ($this->defs as $row) {
             $stmt->execute(array($row[0]));
             if (!$stmt->fetchColumn()) {
