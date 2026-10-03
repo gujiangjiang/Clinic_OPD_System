@@ -25,7 +25,7 @@
 <tr><td>DICOMweb</td><td>基于 HTTP 的 DICOM：QIDO-RS 检索、WADO-RS 调阅、STOW-RS 上传，便于与 Web 阅片器/云 PACS 集成。</td></tr>
 <tr><td>DIMSE</td><td>传统 TCP DICOM（C-STORE / C-MOVE），通常由 PACS 前置网关承载监听端口。</td></tr>
 </table>
-<div class="tip">本系统只存储影像「引用与元数据」（Study/Series UID、modality、张数、存储区 region），不存影像二进制。</div>
+<div class="tip">本系统只存储影像「引用与元数据」（Study/Series UID、modality、张数、存储区 region 等），<b>不存影像二进制</b>；影像本体由区域 PACS 承载，入向取像会经出向区域 PACS <b>代理回源</b>。</div>
 
 <h2 id="out">2. 出向配置（本系统调阅外部 PACS）</h2>
 <ul>
@@ -55,12 +55,19 @@
 <p>开启「启用入向 DICOMweb」并配置 Token 后，本系统对外提供：</p>
 <table>
 <tr><th>方法</th><th>路径</th><th>说明</th></tr>
-<tr><td>GET</td><td><code>/api/dicomweb/studies</code></td><td>QIDO-RS 检查检索，参数 <code>PatientID</code> / <code>StudyInstanceUID</code> / <code>Modality</code> / <code>StudyDate</code></td></tr>
-<tr><td>GET</td><td><code>/api/dicomweb/studies/{studyUID}/series</code></td><td>序列检索</td></tr>
-<tr><td>GET</td><td><code>/api/dicomweb/studies/{studyUID}/metadata</code></td><td>WADO-RS 实例元数据（DICOM JSON，不含像素）</td></tr>
+<tr><td>GET</td><td><code>/api/dicomweb</code> · <code>/studies</code></td><td>QIDO-RS 检查检索，参数 <code>PatientID</code> / <code>PatientName</code> / <code>PatientSex</code> / <code>StudyInstanceUID</code> / <code>AccessionNumber</code> / <code>Modality</code> / <code>StudyDate</code></td></tr>
+<tr><td>GET</td><td><code>/studies/{studyUID}</code></td><td>单个检查（DICOM JSON）</td></tr>
+<tr><td>GET</td><td><code>/studies/{studyUID}/series</code></td><td>序列检索</td></tr>
+<tr><td>GET</td><td><code>/studies/{studyUID}/series/{seriesUID}/instances</code></td><td>WADO-RS 实例列表（含 SOPClassUID / NumberOfFrames / 窗宽窗位 / 像素间距等）</td></tr>
+<tr><td>GET</td><td><code>/studies/{studyUID}/series/{seriesUID}/instances/{sopUID}</code></td><td><b>实例取像</b>（<code>application/dicom</code>）——本系统仅存引用，经出向区域 PACS 代理回源</td></tr>
+<tr><td>GET</td><td><code>/studies/{studyUID}/series/{seriesUID}/instances/{sopUID}/rendered</code></td><td><b>渲染图</b>（缩略图 image/png），同样经区域 PACS 代理回源</td></tr>
+<tr><td>GET</td><td><code>/studies/{studyUID}/metadata</code></td><td>WADO-RS 实例元数据（DICOM JSON，不含像素）</td></tr>
 </table>
 <p>入向 Token 与 FHIR 一致：请求头 <code>X-API-Key: &lt;Token&gt;</code> 或 <code>Authorization: Bearer &lt;Token&gt;</code>，只填纯 Token。</p>
-<div class="tip"><b>标签约定</b>：<code>PatientID(0010,0020)</code>=患者号；<code>OtherPatientIDs(0010,1000)</code>=<b>门诊号</b>（就诊流水号，本服务约定）；<code>AccessionNumber(0008,0050)</code>=<b>检查号</b>（申请单号 JC…，非报告号）；<code>PatientAge(0010,1010)</code>=年龄、<code>PatientBirthDate(0010,0030)</code>/<code>PatientSex(0010,0040)</code>。仅影像检查（<code>orders.order_type=imaging</code>）出现在 DICOMweb/ImagingStudy 中。</div>
+<div class="tip"><b>Accept 约定</b>：QIDO / metadata 端点要求 <code>Accept: application/dicom+json</code>；<b>取像 / 渲染图端点</b>返回 <code>application/dicom</code> / <code>image/png</code>，按标准 WADO-RS 客户端发送对应 Accept 即可，不受 JSON 约束限制。</div>
+<div class="tip"><b>代理回源与真实 UID</b>：本地仅存占位 StudyInstanceUID 或无序列元数据时，本系统会按<b>检查号（申请单号）</b>向出向区域 PACS 解析<b>真实 DICOM UID</b> 与序列/实例元数据（含设备名 StationName、机构名 InstitutionName、窗宽窗位、像素间距、矩阵、方位等），并据此代理序列/实例/取像；未连接区域 PACS 时不产生任何占位 UID。</div>
+<div class="tip"><b>标签约定</b>：<code>PatientID(0010,0020)</code>=患者号；<code>OtherPatientIDs(0010,1000)</code>=<b>门诊号</b>（就诊流水号，本服务约定）；<code>AccessionNumber(0008,0050)</code>=<b>检查号</b>（申请单号 JC…，非报告号）；<code>StationName(0008,1010)</code>=<b>设备名</b>；<code>InstitutionName(0008,0080)</code>=机构名；<code>PatientAge(0010,1010)</code>=年龄、<code>PatientBirthDate(0010,0030)</code>/<code>PatientSex(0010,0040)</code>。仅影像检查（<code>orders.order_type=imaging</code>）出现在 DICOMweb/ImagingStudy 中。</div>
+<div class="tip"><b>阅片视窗</b>：标准 PACS 浏览器可用直链 <code>/viewer.php?uid=&lt;StudyUID&gt;</code> 打开本系统阅片视窗；若被一体化工作台内嵌，使用 <code>/viewer.php?embed=1</code> 可隐藏工作站外壳（仅影像区域），避免冗余。</div>
 
 <h2 id="test">5. 测试方法</h2>
 <pre><code># 出向：在「状态总览 → 连通性测试」按当前配置探测 QIDO/WADO/STOW 可达性
