@@ -1033,6 +1033,16 @@
     align-items: center;
     justify-content: center;
 }
+/* 审核中心空白态：提升优先级并给最小高度，确保始终上下居中（不包裹在表格行内） */
+#auditList.list-card { display: flex; flex-direction: column; }
+#auditList > .empty {
+    flex: 1;
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
 
 /* 列表滚动区：占满 list-card 剩余高度，内部纵向滚动；覆盖全局 max-height:60vh */
 .list-card .table-wrap {

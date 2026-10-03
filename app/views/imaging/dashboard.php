@@ -315,6 +315,7 @@ function imgInfoCardInner(it) {
 
 /* 阅片视窗角标：持久信息（患者/序列）+ 瞬时提示（工具/挂载，几秒后自动消失） */
 var PACS_TAG_TIMER = null;
+var PACS_TAG_LAST = '', PACS_TAG_AT = 0;
 /** 阅片视窗左上角提示：统一自动消失（与分屏阅片视窗一致），不长期遮挡影像 */
 function flashPacsTag(text, ms) {
     var tl = document.getElementById('pacsTagL');
@@ -327,8 +328,13 @@ function flashPacsTag(text, ms) {
         if (el) el.textContent = '';
     }, ms || 4000);
 }
-/* 兼容旧调用点：统一按「自动消失」处理 */
-function setPacsTagPersist(text) { flashPacsTag(text); }
+/* 周期性重渲染的当前检查标签：同一内容 10s 内不重复弹出，避免「一直显示」的错觉 */
+function setPacsTagPersist(text) {
+    var now = Date.now();
+    if (text === PACS_TAG_LAST && (now - PACS_TAG_AT) < 10000) return;
+    PACS_TAG_LAST = text; PACS_TAG_AT = now;
+    flashPacsTag(text);
+}
 /* 向内嵌 Web 阅片器发送指令（跨域 iframe 通过 postMessage 驱动其工具/视图） */
 function pacsViewerPost(cmd, value) {
     var f = document.getElementById('pacsViewerFrame');
