@@ -258,84 +258,9 @@ Clinic.deptwork = (function () {
         bindFeeBadge(d);
     }
 
-    /* ==================== 总费用徽章 + 悬浮明细（按费用分类，参照医生工作站横条） ==================== */
-    var feePopTimer = null;
-    var FEE_CAT_ORDER = ['reg', 'lab', 'imaging', 'procedure', 'prescription', 'other'];
-    var FEE_CAT_TITLE = { reg: '挂号费', lab: '检验费', imaging: '检查费', procedure: '处置费', prescription: '处方费', other: '其他费用' };
-    var FEE_TYPE_CAT = { lab: 'lab', imaging: 'imaging', procedure: 'procedure', prescription: 'prescription' };
-
-    function feeGroups(d) {
-        var groups = {}, total = 0;
-        var regFee = (d.visit && d.visit.fee) ? parseFloat(d.visit.fee) : 0;
-        var regSt = (d.visit && d.visit.status === 'finished') ? 'done' : 'paid';
-        var regDept = (d.visit && d.visit.first_dept_name) || '';
-        if (regFee > 0) {
-            groups.reg = { key: 'reg', title: FEE_CAT_TITLE.reg, rows: [{ st: regSt, name: regDept ? ('挂号费（' + regDept + '）') : '挂号费', amt: regFee }] };
-            total += regFee;
-        }
-        (d.orders || []).forEach(function (o) {
-            if (o.status === 'refunded' || o.status === 'cancelled') return;
-            var cat = FEE_TYPE_CAT[o.order_type] || 'other';
-            if (!groups[cat]) groups[cat] = { key: cat, title: FEE_CAT_TITLE[cat], rows: [] };
-            (o.items || []).forEach(function (i2) {
-                var amt = (parseFloat(i2.price) || 0) * (parseFloat(i2.quantity) || 1);
-                total += amt;
-                var st = (i2.status === 'done' || i2.status === 'dispensed') ? 'done'
-                    : ((i2.status === 'dispensing' || i2.status === 'registered') ? 'yellow' : 'red');
-                groups[cat].rows.push({ st: st, name: i2.item_name, amt: amt });
-            });
-        });
-        var list = [];
-        FEE_CAT_ORDER.forEach(function (k) { if (groups[k] && groups[k].rows.length) list.push(groups[k]); });
-        return { groups: list, total: total };
-    }
-    /** 兼容：扁平费用行 */
-    function feeRows(d) {
-        var g = feeGroups(d), rows = [];
-        g.groups.forEach(function (grp) { grp.rows.forEach(function (r) { rows.push(r); }); });
-        return { rows: rows, total: g.total };
-    }
-    function feeStatusDot(st) {
-        var cls = st === 'done' ? 'green' : (st === 'yellow' ? 'yellow' : (st === 'paid' ? 'red' : (st === 'gray' ? 'gray' : 'red')));
-        var txt = st === 'done' ? '已完成' : (st === 'yellow' ? '进行中' : (st === 'gray' ? '未缴费' : '待完成'));
-        return '<span class="status-indicator ' + cls + '" title="' + txt + '"></span>';
-    }
-    function showFeePop(anchor, d) {
-        if (feePopTimer) { clearTimeout(feePopTimer); feePopTimer = null; }
-        var stale = document.getElementById('feePop');
-        if (stale) stale.remove();
-        var fg = feeGroups(d);
-        if (!fg.groups.length) return;
-        var pop = document.createElement('div');
-        pop.id = 'feePop';
-        pop.className = 'fee-pop';
-        pop.innerHTML = fg.groups.map(function (grp) {
-            var head = '<div class="fee-pop-cat"><span>' + escHtml(grp.title) + '</span></div>';
-            var body = grp.rows.map(function (r) {
-                return '<div class="fee-pop-row">' +
-                    feeStatusDot(r.st) +
-                    '<span class="fee-pop-name" title="' + escHtml(r.name) + '">' + escHtml(r.name) + '</span>' +
-                    '<span class="fee-pop-amt">¥' + r.amt.toFixed(2) + '</span></div>';
-            }).join('');
-            return head + body;
-        }).join('') +
-            '<div class="fee-pop-total"><span>合计</span><span>¥' + fg.total.toFixed(2) + '</span></div>';
-        document.body.appendChild(pop);
-        var rect = anchor.getBoundingClientRect();
-        pop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
-        pop.style.left = Math.max(8, rect.right + window.scrollX - 270) + 'px';
-        pop.addEventListener('mouseenter', function () { if (feePopTimer) { clearTimeout(feePopTimer); feePopTimer = null; } });
-        pop.addEventListener('mouseleave', hideFeePop);
-    }
-    function hideFeePop() {
-        if (feePopTimer) clearTimeout(feePopTimer);
-        feePopTimer = setTimeout(function () {
-            var pop = document.getElementById('feePop');
-            if (pop) pop.remove();
-        }, 180);
-    }
+    /* ==================== 总费用徽章 + 悬浮明细（统一走 Clinic.feePop，临床/医技同一套代码） ==================== */
     function bindFeeBadge(d) {
-        var total = feeRows(d).total;
+        var total = (Clinic.feePop ? Clinic.feePop.groups(d).total : 0);
         var el = document.getElementById('hdrTotal');
         if (!el) return;
         if (total > 0) {
@@ -343,8 +268,8 @@ Clinic.deptwork = (function () {
             el.style.display = '';
             if (!el._feeHover) {
                 el._feeHover = true;
-                el.addEventListener('mouseenter', function () { showFeePop(el, d); });
-                el.addEventListener('mouseleave', hideFeePop);
+                el.addEventListener('mouseenter', function () { Clinic.feePop.show(el, d); });
+                el.addEventListener('mouseleave', function () { Clinic.feePop.hide(); });
             }
         } else {
             el.style.display = 'none';

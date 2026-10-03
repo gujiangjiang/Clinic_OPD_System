@@ -378,6 +378,7 @@ class Layout {
             <script src="/assets/js/components/deptpicker.js?v=' . self::assetVer('assets/js/components/deptpicker.js') . '"></script>
             <script src="/assets/js/components/depttree.js?v=' . self::assetVer('assets/js/components/depttree.js') . '"></script>
             <script src="/assets/js/components/toast.js?v=' . self::assetVer('assets/js/components/toast.js') . '"></script>
+            <script src="/assets/js/components/feepop.js?v=' . self::assetVer('assets/js/components/feepop.js') . '"></script>
             <script src="/assets/js/components/push.js?v=' . self::assetVer('assets/js/components/push.js') . '"></script>
             <script src="/assets/js/components/smart_poller.js?v=' . self::assetVer('assets/js/components/smart_poller.js') . '"></script>
             <script src="/assets/js/components/infinite.js?v=' . self::assetVer('assets/js/components/infinite.js') . '"></script>
