@@ -27,11 +27,14 @@ if (php_sapi_name() !== 'cli') {
 }
 
 /* ---------------- 参数解析 ---------------- */
-$opts = array('scene' => '', 'module' => '');
+$opts = array('scene' => '', 'module' => '', 'clean' => false, 'append' => false, 'yes' => false);
 foreach (array_slice($argv, 1) as $a) {
     if ($a === '--all') { $opts['scene'] = 'full'; }
     elseif (strpos($a, '--scene=') === 0) { $opts['scene'] = substr($a, 8); }
     elseif (strpos($a, '--module=') === 0) { $opts['module'] = substr($a, 9); }
+    elseif ($a === '--clean') { $opts['clean'] = true; }
+    elseif ($a === '--append' || $a === '--no-clean') { $opts['append'] = true; }
+    elseif ($a === '--yes' || $a === '-y') { $opts['yes'] = true; }
     elseif ($a === '-h' || $a === '--help') { seed_usage(); exit(0); }
 }
 
@@ -70,6 +73,23 @@ function seed_backup_db() {
     } else {
         fwrite(STDERR, "警告：主库备份失败（$db），继续造数有清空风险\n");
     }
+}
+
+/**
+ * 清空重建前的交互确认（`--yes` 跳过）。
+ * 非交互环境（无 TTY）且未加 --yes 时中止，避免脚本被误清空数据。
+ */
+function seed_confirm_clean($yes) {
+    if ($yes) return true;
+    $isTty = function_exists('posix_isatty') ? @posix_isatty(STDIN) : true;
+    if (!$isTty) {
+        fwrite(STDERR, "检测到将【清空旧业务数据并重建】，但当前为非交互环境且未指定 --yes，已中止。\n"
+            . "如需继续请追加 --yes；如需追加式造数请改用 --append。\n");
+        return false;
+    }
+    fwrite(STDOUT, "⚠ 将清空旧业务数据并重建（已自动备份主库），是否继续？(yes/N): ");
+    $line = trim((string)fgets(STDIN));
+    return in_array(strtolower($line), array('y', 'yes'), true);
 }
 
 /** 子进程执行造数脚本（隔离运行，逐行输出） */
@@ -112,10 +132,21 @@ function seed_usage() {
   php tools/bin/seed.php --module=template           仅重置全院模板（病历/知情同意书/护理/嘱托/影像报告）
   php tools/bin/seed.php --module=fhir               FHIR/HL7 全链路验证数据（3 套旅程 + DICOM UID/Series + 危急值）
 
+可选修饰参数：
+  --append            追加式：保留旧业务数据（--all/--scene=demo 默认清空重建，加此参数改为追加）
+  --clean             清空重建（--scene=visit 默认追加，加此参数改为先清空重建）
+  --yes / -y          清空重建免二次确认（非交互环境必须显式指定，否则中止）
+  说明：任何造数操作前都会自动备份主库到 data/db/backups/（保留最近 10 份）；
+        词典型数据（科室/用户/药品/检验/检查/处置/套餐/模板）按唯一键幂等去重，
+        追加不会产生重复。
+
 TXT;
 }
 
 $root = dirname(__DIR__);
+
+// 无论追加还是清空，操作前统一自动备份主库（保留最近 10 份）
+seed_backup_db();
 
 /* ---------------- 模块分发（支持逗号/空格分隔多选） ---------------- */
 $modules = preg_split('/[\s,]+/', trim($opts['module']), -1, PREG_SPLIT_NO_EMPTY);
@@ -215,8 +246,6 @@ list($mode) = $scenes[$scene];
 
 // 全量造数前先做数据库依赖先验探测，缺失时终止避免写入脏数据
 if ($mode === 'dict+visit' || $mode === 'dict+fhir') {
-    // 全量场景会清空旧业务数据：运行前自动备份主库
-    seed_backup_db();
     $pfCode = seed_run_script($root . '/seeder/PreflightChecker.php', array('--all'));
     if ($pfCode !== 0) exit($pfCode);
 }
@@ -230,7 +259,13 @@ if ($mode === 'dict+visit' || $mode === 'dict+fhir') {
     }
 }
 if ($mode === 'dict+visit') {
-    $c = seed_run_script($root . '/seeder/VisitSeeder.php', array('clean', 'days=15'));
+    // 全量场景默认「清空重建」；加 --append 改为追加（不清空旧业务数据）
+    $clean = !$opts['append'];
+    echo $clean ? "== 模式：清空重建（默认；如需追加请加 --append）==\n" : "== 模式：追加（保留旧业务数据）==\n";
+    if ($clean && !seed_confirm_clean($opts['yes'])) exit(1);
+    $args = array('days=15');
+    if ($clean) array_unshift($args, 'clean');
+    $c = seed_run_script($root . '/seeder/VisitSeeder.php', $args);
     if ($c !== 0) exit($c);
     exit(seed_run_script($root . '/seeder/FhirDemoSeeder.php'));
 }
@@ -238,7 +273,13 @@ if ($mode === 'dict+fhir') {
     exit(seed_run_script($root . '/seeder/FhirDemoSeeder.php'));
 }
 if ($mode === 'visit') {
-    exit(seed_run_script($root . '/seeder/VisitSeeder.php', $extraArgs));
+    // 专项就诊链默认「追加」；加 --clean 改为先清空重建
+    $clean = $opts['clean'] && !$opts['append'];
+    echo $clean ? "== 模式：清空重建（--clean）==\n" : "== 模式：追加（默认；如需清空请加 --clean --yes）==\n";
+    if ($clean && !seed_confirm_clean($opts['yes'])) exit(1);
+    $args = $extraArgs;
+    if ($clean) array_unshift($args, 'clean');
+    exit(seed_run_script($root . '/seeder/VisitSeeder.php', $args));
 }
 if ($mode === 'queue_visit') {
     exit(seed_run_script($root . '/seeder/QueueSeeder.php', array_merge(array('mode=visit'), $extraArgs)));
