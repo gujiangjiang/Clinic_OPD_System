@@ -13,6 +13,18 @@
 
 ---
 
+## [9.0.2] - 2026-10-03
+
+### 修复
+- **DICOMweb 检索设备名（StationName）为空**：本地 `imaging_refs` 引用（历史 / 播种数据）
+  的 `meta_json` 未记录设备名时，检查对象 `0008,1010` 输出空值，导致对接的 PACS 浏览器
+  检索列表「设备」显示为「-」。现于 `dw_study_obj` 中回退到出向区域 PACS 索引
+  （QIDO 的 StationName / InstitutionName），保证设备名正确展示。
+- **区域 PACS 索引重复回源**：`dw_region_index` 增加短时缓存（120s），避免每次检索都
+  回源区域 PACS 造成额外延迟。
+
+---
+
 ## [9.0.1] - 2026-10-03
 
 ### 修复
