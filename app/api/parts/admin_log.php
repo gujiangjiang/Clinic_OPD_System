@@ -69,6 +69,8 @@ function admin_part_log($action) {
     /* ==================== 服务器日志（文件尾部读取） ==================== */
     if ($action === 'log_server_list') {
         $source = get('source', 'app');
+        // 每日一次按容量与保留设置维护应用日志文件（外部日志只读不动）
+        LogService::maintainServerFiles();
         // 服务器日志已在日志管理中关闭：不再读取，前端提示
         if (!LogService::channelEnabled('server')) {
             json_ok(array('list' => array(), 'has_more' => false, 'exists' => false,

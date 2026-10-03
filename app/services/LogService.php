@@ -143,7 +143,7 @@ class LogService {
                 (string)$row['user_agent'],
                 now_str(),
             ));
-            self::maintain();
+            self::maintain($channel, isset($row['category']) ? (string)$row['category'] : '');
             return true;
         } catch (Exception $ex) {
             if (defined('DEBUG') && DEBUG) error_log('[LogService] 写入失败：' . $ex->getMessage());
@@ -183,28 +183,111 @@ class LogService {
      * 容量与保留期维护（行数上限 + 超期清理）
      * ============================================================ */
 
-    /** 行数上限 + 保留天数维护 */
-    private static function maintain() {
-        // 每日一次的保留期清理（超过记录天数的日志自动清空）
+    /** 行数上限 + 保留天数维护（按左侧各子分类独立限行） */
+    private static function maintain($channel, $category) {
+        // 每日一次：超期清理 + 服务器日志文件维护
         $today = date('Y-m-d');
         if (ConfigStore::get('log.last_purge', '') !== $today) {
             ConfigStore::set('log.last_purge', $today);
             self::purgeExpired();
         }
-        // 行数上限：每次写入按 id 差值裁剪（O(1) 取 MAX(id)，保证始终不超过上限）。
-        // 历史实现按 1/50 概率检查，存在上限被短暂突破的问题，此处改为实时裁剪。
+        self::maintainServerFiles();
+        // 行数上限：按 channel+category 独立裁剪（每个子分类各自不超过上限，
+        // 而非全站共享——例如接口日志大量写入不会挤掉操作日志）。
         $max = (int)self::cfg('log.max_rows', '5000');
         if ($max < 100) return;
         try {
             $pdo = DatabaseManager::getMain();
-            $maxId = (int)$pdo->query('SELECT MAX(id) FROM system_logs')->fetchColumn();
-            $threshold = $maxId - $max;
-            if ($threshold > 0) {
-                $pdo->exec('DELETE FROM system_logs WHERE id <= ' . $threshold);
+            $stmt = $pdo->prepare('SELECT COUNT(*) FROM system_logs WHERE channel=? AND category=?');
+            $stmt->execute(array($channel, $category));
+            $count = (int)$stmt->fetchColumn();
+            if ($count <= $max) return;
+            $excess = $count - $max;
+            $cut = $pdo->query('SELECT id FROM system_logs WHERE channel=' . $pdo->quote($channel)
+                . ' AND category=' . $pdo->quote($category)
+                . ' ORDER BY id ASC LIMIT 1 OFFSET ' . (int)($excess - 1))->fetchColumn();
+            if ($cut !== false) {
+                $pdo->prepare('DELETE FROM system_logs WHERE channel=? AND category=? AND id <= ?')
+                    ->execute(array($channel, $category, (int)$cut));
             }
         } catch (Exception $ex) {
             if (defined('DEBUG') && DEBUG) error_log('[LogService] 行数清理失败：' . $ex->getMessage());
         }
+    }
+
+    /* ============================================================
+     * 服务器日志文件维护（应用日志遵循容量与保留设置，外部日志只读不动）
+     * ============================================================ */
+
+    /** 每日一次按容量（行数上限）与保留天数维护应用日志文件 */
+    public static function maintainServerFiles() {
+        $today = date('Y-m-d');
+        if (ConfigStore::get('log.server_maintain_date', '') === $today) return;
+        ConfigStore::set('log.server_maintain_date', $today);
+        self::trimServerFile(self::appLogPath(), (int)self::cfg('log.max_rows', '5000'), (int)self::cfg('log.retention_days', '30'));
+    }
+
+    /**
+     * 裁剪日志文件：保留天数内的行 + 末尾不超过 maxLines 行
+     * @param string $path
+     * @param int    $maxLines 0 = 不限
+     * @param int    $days     0 = 不限
+     */
+    public static function trimServerFile($path, $maxLines, $days) {
+        if ($path === '' || !is_file($path) || !is_writable($path)) return;
+        $size = (int)@filesize($path);
+        if ($size <= 0) return;
+        $cap = 16 * 1024 * 1024;   // 单次最多处理 16MB（超出只取尾部）
+        if ($size > $cap) {
+            $fh = @fopen($path, 'rb');
+            if (!$fh) return;
+            fseek($fh, $size - $cap);
+            $raw = fread($fh, $cap);
+            fclose($fh);
+            $truncated = true;
+        } else {
+            $raw = @file_get_contents($path);
+            $truncated = false;
+        }
+        if ($raw === false || $raw === '') return;
+        $raw = str_replace("\r\n", "\n", $raw);
+        $lines = explode("\n", $raw);
+        if ($truncated && count($lines)) array_shift($lines);   // 首行可能被截断
+        while (count($lines) && trim($lines[count($lines) - 1]) === '') array_pop($lines);
+
+        $drop = 0;
+        // 保留天数：按每行时间解析，丢弃 cutoff 之前的最旧行（无法解析的行不用于判定）
+        if ($days > 0) {
+            $cutoff = time() - $days * 86400;
+            for ($i = 0; $i < count($lines); $i++) {
+                $ts = self::lineTimestamp($lines[$i]);
+                if ($ts === null) continue;
+                if ($ts >= $cutoff) { $drop = $i; break; }
+                $drop = $i + 1;
+            }
+        }
+        $keep = $drop > 0 ? array_slice($lines, $drop) : $lines;
+        $changed = ($drop > 0);
+        // 行数上限：保留末尾 maxLines 行
+        if ($maxLines > 0 && count($keep) > $maxLines) {
+            $keep = array_slice($keep, -$maxLines);
+            $changed = true;
+        }
+        if (!$changed || !$keep) return;
+        @file_put_contents($path, implode("\n", $keep) . "\n", LOCK_EX);
+    }
+
+    /** 解析日志行首时间戳（[..] 或 Y-m-d H:i:s），失败返回 null */
+    private static function lineTimestamp($line) {
+        if (preg_match('/^\[([^\]]+)\]/', $line, $m)) {
+            $ts = strtotime($m[1]);
+            return $ts ? $ts : null;
+        }
+        if (preg_match('/^(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})/', $line, $m)) {
+            $ts = strtotime($m[1]);
+            return $ts ? $ts : null;
+        }
+        return null;
     }
 
     /** 删除超过保留天数的日志 */
