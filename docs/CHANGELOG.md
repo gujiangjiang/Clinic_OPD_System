@@ -13,6 +13,24 @@
 
 ---
 
+## [8.42.24] - 2026-10-03
+
+### 修复
+- **DICOMweb 入向完整透传像素 / 几何元数据**：此前仅透传检查 / 序列基础字段，实例级
+  `NumberOfFrames / Rows / Columns / BitsAllocated / BitsStored / PixelRepresentation /
+  WindowCenter / WindowWidth / RescaleIntercept / RescaleSlope / PixelSpacing /
+  SliceThickness / ImageOrientationPatient / SOPClassUID` 均未输出，导致 PACS 浏览器
+  经门诊 DICOMweb 接入时缺窗宽窗位、像素间距、矩阵、方位等（此前只能从取回的 DICOM
+  文件临时推断，测量像素间距不准）。现登记解析时从区域 PACS 首个实例采集并入库，
+  实例列表 / metadata 端点据此输出；历史 65 条引用已回填。
+
+### 新增
+- **影像科「查询中心」**：影像科左侧导航新增「查询中心」，仅开放「影像引用查询」子项
+  （去掉危急值查询 / 更多子项），支持日期 / 关键字检索与 `/viewer.php` 调阅；
+  页面提示语按角色优化。影像科工作台原有「危急值管理」为管理性质，保持不变。
+
+---
+
 ## [8.42.23] - 2026-10-03
 
 ### 修复
