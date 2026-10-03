@@ -52,9 +52,9 @@ class Layout {
                 array('运营分析', render_icon('nav:chart'), '/admin/analytics'),
                 array('查询中心', render_icon('action:search'), '/admin/querycenter'),
                 array('打印中心', render_icon('action:print'), '/admin/printcenter'),
+                array('日志中心', render_icon('emr:scroll'), '/admin/logs'),
             );
             $items['系统设置'] = array(
-                array('日志中心', render_icon('emr:scroll'), '/admin/logs'),
                 array('接口管理', render_icon('nav:plug'), '/admin/integration'),
                 array('系统设置', render_icon('nav:settings'), '/admin/settings'),
             );
