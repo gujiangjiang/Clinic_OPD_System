@@ -72,6 +72,13 @@ switch ($action) {
         if (!dept_visit_allowed($rv['visit'], $u)) json_fail('无权限登记该申请单');
         $n = (int)OrderRepository::exec("UPDATE order_items SET status='registered', registered_at=? WHERE order_id=? AND item_type='imaging' AND status='paid'", array(now_str(), $orderId));
         if ($n <= 0) json_fail('该申请单暂无待登记项目');
+        // 登记=开始拍片：连接区域 PACS 时按检查号解析并登记真实 StudyInstanceUID（未连接则不产生 UID）
+        if (class_exists('ImagingRegionResolver')) {
+            $registeredIds = OrderRepository::q("SELECT id FROM order_items WHERE order_id=? AND item_type='imaging' AND status='registered'", array($orderId));
+            foreach ($registeredIds as $row) {
+                try { ImagingRegionResolver::registerForItem((int)$row['id']); } catch (Exception $e) { /* 解析失败不影响登记 */ }
+            }
+        }
         json_ok(array(), '已登记该申请单 ' . $n . ' 个检查项目');
         break;
 
@@ -186,30 +193,26 @@ switch ($action) {
                 )),
             ));
             OrderRepository::exec("UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
-            // 影像引用登记（优化项1/2：三单匹配 + 只存引用）——报告出具即注册引用，
-            // study_uid 以报告号占位（PACS 网关接入后替换为真实 DICOM UID）；
-            // 三单匹配失败将抛异常回滚整个事务（硬拦截防张冠李戴）
-            ImagingRepository::putRef(array(
-                'order_item_id' => (int)$itemId,
-                'order_id' => (int)$it['order_id'],
-                'visit_id' => (int)$it['visit_id'],
-                'patient_no' => (string)$it['patient_no'],
-                'flow_no' => (string)$it['flow_no'],
-                'study_uid' => $reportNo,
-                'series_uids' => array(),
-                'instance_count' => 0,
-                // 模态码标准化：分类 → 项目名，未识别回退 OT
-                'modality' => (imaging_modality_code($catName) !== ''
-                    ? imaging_modality_code($catName)
-                    : (imaging_modality_code($it['item_name']) !== '' ? imaging_modality_code($it['item_name']) : 'OT')),
-                'region' => 'region-pacs',
-                'meta' => array(
-                    'report_id' => $reportId,
-                    'report_no' => $reportNo,
-                    'clinical_diagnosis' => $diag,
-                ),
-                'created_by' => $u['name'],
-            ));
+            // 报告前置铁律：先有影像（真实 StudyInstanceUID）才能出具报告。
+            // 登记时若未解析成功（如当时 PACS 尚未可查），此处按检查号兜底再解析一次；
+            // 仍无真实 UID → 回滚，不产生报告、不使用任何占位 UID 伪造引用。
+            $ref = ImagingRepository::refByItem($itemId);
+            if (!ImagingRegionResolver::isRealUid($ref ? $ref['study_uid'] : '')) {
+                try { ImagingRegionResolver::registerForItem($itemId); } catch (Exception $e) { /* 解析失败按无影像处理 */ }
+                $ref = ImagingRepository::refByItem($itemId);
+            }
+            if (!$ref || !ImagingRegionResolver::isRealUid($ref['study_uid'])) {
+                DatabaseManager::rollbackTx($pdo);
+                json_fail('尚未获取到影像（StudyInstanceUID）：请确认检查已完成并上传、区域 PACS 可查询后再书写报告');
+            }
+            // 报告信息并入引用元数据（保留真实 UID 与序列，不覆盖）
+            $refMeta = json_decode((string)$ref['meta_json'], true);
+            if (!is_array($refMeta)) $refMeta = array();
+            $refMeta['report_id'] = (int)$reportId;
+            $refMeta['report_no'] = $reportNo;
+            $refMeta['clinical_diagnosis'] = $diag;
+            ImagingRepository::exec('UPDATE imaging_refs SET meta_json=?, updated_at=? WHERE id=?',
+                array(json_encode($refMeta, JSON_UNESCAPED_UNICODE), now_str(), (int)$ref['id']));
             DatabaseManager::commitTx($pdo);
         } catch (Exception $ex) {
             DatabaseManager::rollbackTx($pdo);
