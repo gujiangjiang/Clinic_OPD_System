@@ -200,7 +200,12 @@ class LogService {
             $count = (int)$pdo->query('SELECT COUNT(*) FROM system_logs')->fetchColumn();
             if ($count > $max) {
                 $excess = $count - $max;
-                $pdo->exec('DELETE FROM system_logs WHERE id IN (SELECT id FROM system_logs ORDER BY id ASC LIMIT ' . (int)$excess . ')');
+                // 先取第 excess 条（ASC）的 id 作为截止点，再按 id 删除——
+                // 避免 MySQL「DELETE ... WHERE id IN (SELECT ... 同表)」的 1093 限制
+                $cut = $pdo->query('SELECT id FROM system_logs ORDER BY id ASC LIMIT 1 OFFSET ' . (int)($excess - 1))->fetchColumn();
+                if ($cut !== false) {
+                    $pdo->exec('DELETE FROM system_logs WHERE id <= ' . (int)$cut);
+                }
             }
         } catch (Exception $ex) {
             if (defined('DEBUG') && DEBUG) error_log('[LogService] 行数清理失败：' . $ex->getMessage());

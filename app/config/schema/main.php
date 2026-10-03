@@ -59,6 +59,9 @@ return array(
             user_agent TEXT NOT NULL DEFAULT '',
             created_at TEXT
         )",
+        // system_logs 索引（createTables 幂等执行；键名仅作占位，值才是 SQL）
+        'system_logs_idx_channel' => "CREATE INDEX IF NOT EXISTS idx_system_logs_channel ON system_logs(channel, category, id)",
+        'system_logs_idx_created' => "CREATE INDEX IF NOT EXISTS idx_system_logs_created ON system_logs(created_at)",
 
         'messages' => "CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
