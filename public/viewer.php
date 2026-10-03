@@ -43,7 +43,7 @@ $hosp = setting('hospital_name', '门诊一体化系统');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo e($hosp); ?> · 阅片工作站</title>
-    <link rel="stylesheet" href="/assets/css/pacs.css">
+    <link rel="stylesheet" href="/assets/css/pacs.css?v=<?php echo e(APP_VERSION); ?>">
 </head>
 <body class="pacs-solo-body" data-sid="<?php echo e(session_id()); ?>" data-uid="<?php echo (int)$u['id']; ?>">
 <div class="pacs-solo">
@@ -80,7 +80,7 @@ $hosp = setting('hospital_name', '门诊一体化系统');
     </div>
 </div>
 
-<script src="/assets/js/components/authsync.js"></script>
+<script src="/assets/js/components/authsync.js?v=<?php echo e(APP_VERSION); ?>"></script>
 <script>
 var LOCKED = false;
 var CURRENT = { visit: '', item: '', label: '' };
