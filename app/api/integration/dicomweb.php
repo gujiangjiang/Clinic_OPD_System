@@ -235,13 +235,20 @@ function dw_study_obj($ref, $patient) {
         $reg = dw_region_study($ref);
         if ($reg) { $instCnt = max(1, (int)$reg['instances']); $seriesCnt = max($seriesCnt, (int)$reg['series']); }
     }
+    // 设备名 / 机构名：登记解析时由区域 PACS QIDO 写入 meta（StationName/InstitutionName），
+    // 与模拟服务器对外对象保持一致（避免链路中丢失设备名）。
+    $refMeta = json_decode((string)$ref['meta_json'], true);
+    if (!is_array($refMeta)) $refMeta = array();
+    $station = isset($refMeta['station_name']) ? (string)$refMeta['station_name'] : '';
+    $instName = !empty($refMeta['region_name']) ? (string)$refMeta['region_name'] : dw_institution();
     $obj = array(
         '00080020' => dw_tag('DA', dw_date(dw_exam_dt($ref))),
         '00080030' => dw_tag('TM', dw_time(dw_exam_dt($ref))),
         '00080050' => dw_tag('SH', dw_accession($ref)),                 // 检查号=申请单号
         '00080060' => dw_tag('CS', $mod),                               // Modality
         '00080061' => dw_tag('CS', $mod),                               // ModalitiesInStudy
-        '00080080' => dw_tag('LO', dw_institution()),                   // InstitutionName 机构名
+        '00080080' => dw_tag('LO', $instName),                          // InstitutionName 机构名
+        '00081010' => dw_tag('SH', $station),                           // StationName 设备名
         '00081030' => dw_tag('LO', dw_study_desc($ref)),                // StudyDescription 检查项目
         '00100010' => dw_tag('PN', array('Alphabetic' => $pname)),
         '00100020' => dw_tag('LO', (string)$ref['patient_no']),         // 患者号

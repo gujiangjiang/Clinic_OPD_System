@@ -72,6 +72,7 @@ class ImagingRegionResolver {
         $uid = self::tag($arr[0], '0020000D');
         if ($uid === '') return null;
         $institution = self::tag($arr[0], '00080080');   // 区域 PACS 机构名（InstitutionName）
+        $station = self::tag($arr[0], '00081010');       // 设备名（StationName）
         $seriesRes = self::getJson('/studies/' . rawurlencode($uid) . '/series');
         $series = array(); $total = 0;
         foreach ((array)$seriesRes as $s) {
@@ -88,7 +89,8 @@ class ImagingRegionResolver {
             );
             $total += $n;
         }
-        return array('uid' => $uid, 'series' => $series, 'instance_count' => $total, 'institution' => $institution);
+        return array('uid' => $uid, 'series' => $series, 'instance_count' => $total,
+            'institution' => $institution, 'station' => $station);
     }
 
     /**
@@ -144,9 +146,10 @@ class ImagingRegionResolver {
             'instance_count' => $total,
             'modality' => $mod,
             'region' => 'region-pacs',
-            // region_name：区域影像存储 / PACS 的机构名（QIDO InstitutionName），供应引用查询展示
+            // region_name：区域影像存储 / PACS 的机构名（QIDO InstitutionName）；station_name：设备名（StationName）
             'meta' => array('series' => $series, 'source' => 'region-pacs',
-                'region_name' => (string)(isset($r['institution']) ? $r['institution'] : '')),
+                'region_name' => (string)(isset($r['institution']) ? $r['institution'] : ''),
+                'station_name' => (string)(isset($r['station']) ? $r['station'] : '')),
             'created_by' => $u ? (string)$u['name'] : '',
         ));
         return ImagingRepository::refByItem((int)$itemId);

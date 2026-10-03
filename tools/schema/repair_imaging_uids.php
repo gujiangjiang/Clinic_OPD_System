@@ -29,8 +29,8 @@ $upgraded = 0; $refreshed = 0; $already = 0; $unresolved = 0; $deleted = 0; $det
 foreach ($rows as $r) {
     $uid = (string)$r['study_uid'];
     $meta = json_decode((string)$r['meta_json'], true);
-    $needRegion = !(is_array($meta) && !empty($meta['region_name']));
-    if (ImagingRegionResolver::isRealUid($uid) && !$needRegion) { $already++; continue; }
+    $needMeta = !(is_array($meta) && !empty($meta['region_name']) && !empty($meta['station_name']));
+    if (ImagingRegionResolver::isRealUid($uid) && !$needMeta) { $already++; continue; }
     $itemId = (int)$r['order_item_id'];
     $resolved = null;
     if ($itemId > 0) {
@@ -53,6 +53,6 @@ foreach ($rows as $r) {
 echo "影像引用 UID 修复完成：\n";
 echo '  已是真实 UID：' . $already . " 条\n";
 echo '  升级为真实 UID：' . $upgraded . " 条\n";
-echo '  补充区域名称（区域 PACS 机构名）：' . $refreshed . " 条\n";
+echo '  补充区域机构名 / 设备名（区域 PACS）：' . $refreshed . " 条\n";
 echo '  区域 PACS 无法解析：' . $unresolved . " 条" . ($deleteUnresolved ? "（已删除 $deleted 条占位引用）" : "（保留；可加 --delete-unresolved 删除）") . "\n";
 foreach ($details as $d) echo $d . "\n";
