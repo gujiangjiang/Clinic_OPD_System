@@ -183,29 +183,24 @@ class LogService {
      * 容量与保留期维护（行数上限 + 超期清理）
      * ============================================================ */
 
-    /** 行数上限 + 保留天数维护（大概率短路，避免每次写入都统计） */
+    /** 行数上限 + 保留天数维护 */
     private static function maintain() {
-        // 每日一次的保留期清理
+        // 每日一次的保留期清理（超过记录天数的日志自动清空）
         $today = date('Y-m-d');
         if (ConfigStore::get('log.last_purge', '') !== $today) {
             ConfigStore::set('log.last_purge', $today);
             self::purgeExpired();
         }
-        // 行数上限：低频执行（约每 1/50 次写入检查一次），按 id 差值清理最旧记录
-        if (mt_rand(1, 50) !== 1) return;
+        // 行数上限：每次写入按 id 差值裁剪（O(1) 取 MAX(id)，保证始终不超过上限）。
+        // 历史实现按 1/50 概率检查，存在上限被短暂突破的问题，此处改为实时裁剪。
         $max = (int)self::cfg('log.max_rows', '5000');
         if ($max < 100) return;
         try {
             $pdo = DatabaseManager::getMain();
-            $count = (int)$pdo->query('SELECT COUNT(*) FROM system_logs')->fetchColumn();
-            if ($count > $max) {
-                $excess = $count - $max;
-                // 先取第 excess 条（ASC）的 id 作为截止点，再按 id 删除——
-                // 避免 MySQL「DELETE ... WHERE id IN (SELECT ... 同表)」的 1093 限制
-                $cut = $pdo->query('SELECT id FROM system_logs ORDER BY id ASC LIMIT 1 OFFSET ' . (int)($excess - 1))->fetchColumn();
-                if ($cut !== false) {
-                    $pdo->exec('DELETE FROM system_logs WHERE id <= ' . (int)$cut);
-                }
+            $maxId = (int)$pdo->query('SELECT MAX(id) FROM system_logs')->fetchColumn();
+            $threshold = $maxId - $max;
+            if ($threshold > 0) {
+                $pdo->exec('DELETE FROM system_logs WHERE id <= ' . $threshold);
             }
         } catch (Exception $ex) {
             if (defined('DEBUG') && DEBUG) error_log('[LogService] 行数清理失败：' . $ex->getMessage());
@@ -245,6 +240,7 @@ class LogService {
         if (!empty($filter['category'])) { $where .= ' AND category = ?'; $params[] = $filter['category']; }
         if (!empty($filter['direction'])) { $where .= ' AND direction = ?'; $params[] = $filter['direction']; }
         if (!empty($filter['level'])) { $where .= ' AND level = ?'; $params[] = $filter['level']; }
+        if (!empty($filter['date'])) { $where .= ' AND created_at LIKE ?'; $params[] = $filter['date'] . '%'; }
         if (!empty($filter['kw'])) {
             $where .= ' AND (summary LIKE ? OR detail LIKE ? OR action LIKE ? OR username LIKE ? OR target LIKE ?)';
             $like = '%' . $filter['kw'] . '%';
@@ -277,6 +273,7 @@ class LogService {
         if (!empty($filter['category'])) { $where .= ' AND category = ?'; $params[] = $filter['category']; }
         if (!empty($filter['direction'])) { $where .= ' AND direction = ?'; $params[] = $filter['direction']; }
         if (!empty($filter['level'])) { $where .= ' AND level = ?'; $params[] = $filter['level']; }
+        if (!empty($filter['date'])) { $where .= ' AND created_at LIKE ?'; $params[] = $filter['date'] . '%'; }
         if (!empty($filter['kw'])) {
             $where .= ' AND (summary LIKE ? OR detail LIKE ? OR action LIKE ? OR username LIKE ? OR target LIKE ?)';
             $like = '%' . $filter['kw'] . '%';
@@ -351,15 +348,38 @@ class LogService {
         $list[] = array(
             'id' => 'app', 'title' => '应用日志', 'path' => $app,
             'exists' => is_file($app), 'size' => is_file($app) ? (int)filesize($app) : 0,
+            'lines' => self::countLines($app),
         );
         $ext = trim((string)self::cfg('log.server.external_path', ''));
         if ($ext !== '') {
             $list[] = array(
                 'id' => 'external', 'title' => '服务器日志', 'path' => $ext,
                 'exists' => is_file($ext), 'size' => is_file($ext) ? (int)filesize($ext) : 0,
+                'lines' => self::countLines($ext),
             );
         }
         return $list;
+    }
+
+    /** 统计文件行数（分块流式读取，避免一次性载入大文件内存） */
+    public static function countLines($path) {
+        if ($path === '' || !is_file($path) || !is_readable($path)) return 0;
+        $fh = @fopen($path, 'rb');
+        if (!$fh) return 0;
+        $count = 0;
+        while (!feof($fh)) {
+            $chunk = fread($fh, 262144);
+            if ($chunk === false || $chunk === '') break;
+            $count += substr_count($chunk, "\n");
+        }
+        fclose($fh);
+        // 末行无换行符时补 1
+        $size = (int)@filesize($path);
+        if ($size > 0) {
+            $last = @file_get_contents($path, false, null, max(0, $size - 1), 1);
+            if ($last !== "\n") $count++;
+        }
+        return $count;
     }
 
     /** 解析服务器日志来源路径（id: app/external） */
@@ -375,22 +395,29 @@ class LogService {
      * @param int    $limit    本次读取行数
      * @param string $level    级别过滤（空=全部）
      * @param string $kw       关键字过滤
+     * @param string $date     单日过滤（YYYY-MM-DD，空=全部）
      * @return array { list, has_more, path, exists }
      */
-    public static function readServer($sourceId, $offset = 0, $limit = 200, $level = '', $kw = '') {
+    public static function readServer($sourceId, $offset = 0, $limit = 200, $level = '', $kw = '', $date = '') {
         $path = self::serverPath($sourceId);
         if ($path === '' || !is_file($path) || !is_readable($path)) {
             return array('list' => array(), 'has_more' => false, 'path' => $path, 'exists' => false);
         }
         $maxBytes = max(64, (int)self::cfg('log.server.max_kb', '1024')) * 1024;
         $lines = self::tailLines($path, $maxBytes);
-        $total = count($lines);
-        // 过滤（按级别/关键字）后按尾部偏移切片
+        // 单日过滤：兼容 PHP error_log 的「d-M-Y」与常见「Y-m-d」两种时间格式
+        $dateAlt = '';
+        if ($date !== '') {
+            $ts = strtotime($date);
+            if ($ts) $dateAlt = date('d-M-Y', $ts);
+        }
+        // 过滤（按级别/关键字/日期）后按尾部偏移切片
         $filtered = array();
         foreach ($lines as $ln) {
             $parsed = self::parseServerLine($ln);
             if ($level !== '' && $parsed['level'] !== $level) continue;
             if ($kw !== '' && mb_stripos($ln, $kw) === false) continue;
+            if ($date !== '' && strpos($ln, $date) === false && ($dateAlt === '' || strpos($ln, $dateAlt) === false)) continue;
             $filtered[] = $parsed;
         }
         $total = count($filtered);
