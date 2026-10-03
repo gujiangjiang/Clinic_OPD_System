@@ -8,8 +8,8 @@
  *   【出向集成 Outbound】本系统作为 Client 调用外部（配置网关、凭证、超时、触发时机）
  *   【入向开放 Inbound】本系统作为 Server 对外暴露（只读展示端点 + 一键复制 +
  *                        认证规则 / IP 白名单 / 签名说明）
- * HIS 模块另附「同步与对账监控」面板（his_sync_tasks Outbox 任务重试 +
- * 入向调用审计），支撑财务单边账补偿与排障溯源。
+ * HIS 模块另附「同步与对账监控」面板（his_sync_tasks Outbox 任务重试），
+ * 支撑财务单边账补偿与排障溯源；入向/出向调用明细统一在【日志中心 → 接口日志】查看。
  * 数据存储：settings 键值对（integration.outbound.* / integration.inbound.*
  * 命名空间，旧键自动迁移），由 /api/admin action=integration_save 读写。
  * ============================================================ */
@@ -76,10 +76,21 @@ $zoneIcon = array(
             </button>
         <?php endforeach; ?>
     </div>
-    <div class="fs-12 text-muted" style="padding:10px 14px 12px">
-        出向 = 本系统调用外部（Client）；入向 = 外部调用本系统（Server）。配置仅保存在本系统数据库，各接口行为由对应服务引擎实现。
-    </div>
+    <div class="fs-12 text-muted" id="itgTabDesc" style="padding:10px 14px 12px"></div>
 </div>
+
+<?php
+/* 各接口子 Tab 的简短描述（点击切换时在 Tab 下方显示） */
+$itgTabDesc = array(
+    'fhir'      => 'FHIR R4 资源出向上报与入向调阅',
+    'pacs'      => 'DICOM/PACS 出向调阅与入向接收',
+    'hl7'       => 'HL7 v2.x 出向发送与入向接收',
+    'lis'       => 'LIS 检验申请下发与结果回调',
+    'his'       => 'HIS 出向同步与入向开放（含同步监控）',
+    'insurance' => '医保·支付出向与支付结果回调',
+    'evid'      => '电子存证 / 签名的调用与配置',
+);
+?>
 
 <?php foreach ($groups as $gi => $g): ?>
 <?php
@@ -196,7 +207,7 @@ $zoneIcon = array(
             <div class="db-pane" id="itgpan_his_monitor" style="display:none">
                 <div class="card setting-card">
                     <div class="card-title"><?= render_icon('nav:chart') ?> 外部集成同步与对账监控</div>
-                    <div class="fs-12 text-muted mb-8">出向任务（HIS 挂号/结算/发药 · FHIR Bundle · HL7 · LIS 申请）：本地事务提交后异步入队，失败自动累计重试次数，可一键重试；下方为入向调用审计。</div>
+                    <div class="fs-12 text-muted mb-8">出向任务（HIS 挂号/结算/发药 · FHIR Bundle · HL7 · LIS 申请）：本地事务提交后异步入队，失败自动累计重试次数，可一键重试。入向调用记录见【日志中心 → 接口日志】。</div>
                     <div class="itg-mon-row" id="itgMonStats"></div>
                     <div class="flex" style="gap:8px;margin:10px 0 12px">
                         <button type="button" class="btn btn-primary btn-sm" onclick="itgMonRun()"><?= render_icon('action:next') ?> 执行待办</button>
@@ -218,17 +229,6 @@ $zoneIcon = array(
                         <tbody id="itgMonBody"></tbody>
                     </table></div>
                     <div id="itgMonMore" class="flex-center" style="padding:8px"></div>
-                    <div class="itg-zone-sub-title mt-16">入向调用审计（inbound_events，全部开放端点接收记录）</div>
-                    <div class="flex" style="gap:8px;margin:8px 0">
-                        <input class="input" id="itgInboundKw" placeholder="端点 / 提供方 / 摘要" style="max-width:260px">
-                        <label class="checkbox" style="align-items:center"><input type="checkbox" id="itgInboundFail"> 仅看失败</label>
-                        <button type="button" class="btn btn-outline btn-sm" onclick="itgInboundLoad(1)">查询</button>
-                    </div>
-                    <div class="table-wrap"><table class="table">
-                        <thead><tr><th>ID</th><th>端点</th><th>结果</th><th>摘要</th><th>来源 IP</th><th>时间</th></tr></thead>
-                        <tbody id="itgInboundBody"></tbody>
-                    </table></div>
-                    <div id="itgInboundMore" class="flex-center" style="padding:8px"></div>
                 </div>
             </div>
             <?php endif; ?>
@@ -338,6 +338,7 @@ var ITG_GROUPS = <?php echo json_encode(array_map(function ($g) {
         'labels' => array_map(function ($f) { return $f['label']; }, $g['fields']),
         'zones' => array_map(function ($f) { return isset($f['zone']) ? $f['zone'] : ''; }, $g['fields']));
 }, $groups), JSON_UNESCAPED_UNICODE); ?>;
+var ITG_TAB_DESC = <?php echo json_encode($itgTabDesc, JSON_UNESCAPED_UNICODE); ?>;
 
 /* ---------- Tab 切换 ---------- */
 function itgTab(id) {
@@ -350,6 +351,8 @@ function itgTab(id) {
     document.querySelectorAll('.itg-pane').forEach(function (p) {
         p.style.display = (p.getAttribute('data-tab') === id) ? '' : 'none';
     });
+    var desc = document.getElementById('itgTabDesc');
+    if (desc) desc.textContent = ITG_TAB_DESC[id] || '';
     if (id === 'his') itgMonLoad(1);
     itgFitHeight();
 }
@@ -659,37 +662,6 @@ document.addEventListener('click', function (e) {
     if (cp) itgCopy(cp.getAttribute('data-copy') || '');
 });
 
-/* ---------- 入向调用审计 ---------- */
-var itgInboundPage = 1;
-function itgInboundLoad(page) {
-    itgInboundPage = page || 1;
-    var kw = document.getElementById('itgInboundKw').value.trim();
-    var fail = document.getElementById('itgInboundFail').checked ? 1 : 0;
-    Clinic.ajax('/api/admin', { action: 'integration_inbound_list', kw: kw, fail: fail, page: itgInboundPage, page_size: 20 }, {
-        onSuccess: function (json) {
-            var d = json.data;
-            var body = document.getElementById('itgInboundBody');
-            if (!d.list.length) {
-                body.innerHTML = '<tr><td colspan="6" class="text-center text-muted fs-12" style="padding:20px">暂无入向调用记录</td></tr>';
-            } else {
-                body.innerHTML = d.list.map(function (r) {
-                    return '<tr>' +
-                        '<td class="fs-12">' + r.id + '</td>' +
-                        '<td class="fs-12">' + Clinic.escHtml(r.endpoint) + '/' + Clinic.escHtml(r.provider) + '</td>' +
-                        '<td>' + (r.ok ? '<span class="badge badge-success">成功</span>' : '<span class="badge badge-danger">失败</span>') + '</td>' +
-                        '<td class="fs-12"><div class="itg-mon-err" title="' + Clinic.escHtml(r.body || '') + '">' + Clinic.escHtml(r.summary) + '</div></td>' +
-                        '<td class="fs-12">' + Clinic.escHtml(r.remote_ip) + '</td>' +
-                        '<td class="fs-12">' + Clinic.escHtml(r.created_at) + '</td>' +
-                        '</tr>';
-                }).join('');
-            }
-            document.getElementById('itgInboundMore').innerHTML = d.has_more
-                ? '<button class="btn btn-outline btn-sm" onclick="itgInboundLoad(' + (itgInboundPage + 1) + ')">加载更多</button>'
-                : (d.total > 20 ? '<span class="fs-12 text-muted">共 ' + d.total + ' 条</span>' : '');
-        },
-    });
-}
-
 /* ---------- 对外暴露端点（模态框，入向未启用则隐藏且后端拒绝） ---------- */
 function itgSyncEpButtons() {
     document.querySelectorAll('.itg-ep-btn').forEach(function (btn) {
@@ -726,5 +698,10 @@ function itgEndpoints(groupId) {
     });
 }
 itgSyncEpButtons();
+/* 初始子 Tab 描述（首个分组） */
+(function () {
+    var desc = document.getElementById('itgTabDesc');
+    if (desc && ITG_GROUPS.length) desc.textContent = ITG_TAB_DESC[ITG_GROUPS[0].id] || '';
+})();
 itgFitHeight();
 </script>

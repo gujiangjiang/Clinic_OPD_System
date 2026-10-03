@@ -35,11 +35,14 @@ $dbType = strtoupper(DatabaseManager::driver());
 </div>
 
 <!-- 多 Tab 导航 -->
-<div class="flex gap-8 mb-12" id="settingsTabs" style="flex-wrap:wrap">
-    <button type="button" class="btn btn-primary btn-sm" data-stab="clinic" onclick="settingsTab('clinic')"><?= render_icon('nav:hospital') ?> 医院机构信息</button>
-    <button type="button" class="btn btn-outline btn-sm" data-stab="db" onclick="settingsTab('db')"><?= render_icon('emr:archive') ?> 数据库中心</button>
-    <button type="button" class="btn btn-outline btn-sm" data-stab="cache" onclick="settingsTab('cache')"><?= render_icon('action:bolt') ?> 缓存与性能</button>
-    <button type="button" class="btn btn-outline btn-sm" data-stab="security" onclick="settingsTab('security')"><?= render_icon('nav:unlock') ?> 安全与加密</button>
+<div class="card" style="padding-bottom:6px;margin-bottom:16px">
+    <div class="itg-tabs" id="settingsTabs">
+        <button type="button" class="stab-tab btn btn-sm btn-primary" data-stab="clinic" onclick="settingsTab('clinic')"><?= render_icon('nav:hospital') ?> 医院机构信息</button>
+        <button type="button" class="stab-tab btn btn-sm btn-outline" data-stab="db" onclick="settingsTab('db')"><?= render_icon('emr:archive') ?> 数据库中心</button>
+        <button type="button" class="stab-tab btn btn-sm btn-outline" data-stab="cache" onclick="settingsTab('cache')"><?= render_icon('action:bolt') ?> 缓存与性能</button>
+        <button type="button" class="stab-tab btn btn-sm btn-outline" data-stab="security" onclick="settingsTab('security')"><?= render_icon('nav:unlock') ?> 安全与加密</button>
+    </div>
+    <div class="fs-12 text-muted" id="settingsTabDesc" style="padding:10px 14px 12px"></div>
 </div>
 
 <!-- ============ Tab: 医院机构信息（左右两栏） ============ -->
@@ -548,6 +551,12 @@ function uploadLogo() {
 }
 
 /* ---------- 系统设置多 Tab 切换 ---------- */
+var SETTINGS_TAB_DESC = {
+    clinic: '医院名称、医院标志、作息时间与网站时区等基础信息',
+    db: '数据库连接状态、数据表浏览、后台迁移切换与多库备份',
+    cache: '缓存驱动选择、连接状态与缓存清理等性能管理',
+    security: '登录验证码、防爆破锁定策略与 URL 混淆密钥管理'
+};
 function settingsTab(name) {
     document.querySelectorAll('#settingsTabs [data-stab]').forEach(function (b) {
         b.classList.toggle('btn-primary', b.getAttribute('data-stab') === name);
@@ -556,6 +565,8 @@ function settingsTab(name) {
     document.querySelectorAll('.stab-pane').forEach(function (p) {
         p.style.display = p.id === 'stab-' + name ? '' : 'none';
     });
+    var desc = document.getElementById('settingsTabDesc');
+    if (desc) desc.textContent = SETTINGS_TAB_DESC[name] || '';
     if (name === 'clinic') clTab('info');
     if (name === 'db') { dbTab('detail'); loadDbStatus(); }
     if (name === 'cache') cacheTab('detail');
