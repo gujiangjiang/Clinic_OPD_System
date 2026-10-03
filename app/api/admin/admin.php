@@ -32,6 +32,7 @@ require __DIR__ . '/../parts/admin_analytics.php';
 require __DIR__ . '/../parts/admin_import.php';
 require __DIR__ . '/../parts/admin_sysinfo.php';
 require __DIR__ . '/../parts/admin_integration.php';
+require __DIR__ . '/../parts/admin_log.php';
 
 // 科室角色（检验科/影像科/药房）仅开放与本职相关的只读接口与提交审核：
 // 其余管理操作（删除/分类/用户/科室/组合管理/设置等）仍仅限管理员。
@@ -84,6 +85,17 @@ switch ($action) {
     case 'integration_outbox_run':
     case 'integration_inbound_list':
         admin_part_integration($action);
+        break;
+
+    /* ---------------- 日志中心（服务器/操作/接口日志 + 日志管理） ---------------- */
+    case 'log_meta':
+    case 'log_list':
+    case 'log_latest':
+    case 'log_server_list':
+    case 'log_clear':
+    case 'log_settings_get':
+    case 'log_settings_save':
+        admin_part_log($action);
         break;
 
     /* ---------------- 科室管理 ---------------- */

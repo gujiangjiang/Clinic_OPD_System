@@ -1,0 +1,629 @@
+<?php
+/**
+ * ============================================================
+ * admin/logs.php — 日志中心
+ * ============================================================
+ * 说明：管理员统一日志浏览与运维面板，子 Tab 区分三类日志：
+ *  1. 服务器日志 server   —— 直读 PHP 日志文件（应用日志 + 外部配置路径）
+ *  2. 操作日志 operation —— 登录日志 / 账号变更（左右分栏，左分类右记录）
+ *  3. 接口日志 interface —— FHIR/DICOM/HL7/LIS/HIS/医保支付/存证签名
+ * 右侧为现代日志浏览器：受控高度、默认定位最新、上滑加载更旧、
+ * 支持实时刷新与一键清空；右上角「日志管理」配置开关/行数/级别/保留天数。
+ * ============================================================ */
+Router::title('日志中心');
+
+$opCats = LogService::operationCategories();
+$ifCats = LogService::interfaceCategories();
+$sources = LogService::serverSources();
+$levels = array('' => '全部级别', 'normal' => '正常', 'info' => '提示', 'warning' => '警告', 'error' => '错误');
+?>
+<div class="page-head">
+    <div><div class="page-title"><?= render_icon('emr:scroll') ?> 日志中心</div>
+    <div class="page-desc">统一查看服务器日志、操作日志与接口日志，支持实时刷新、滚动加载与一键清空</div></div>
+    <div class="flex gap-8">
+        <button type="button" class="btn btn-outline btn-sm" onclick="LogCenter.openSettings()"><?= render_icon('nav:settings') ?> 日志管理</button>
+    </div>
+</div>
+
+<div class="card" style="padding-bottom:6px">
+    <div class="itg-tabs" id="logTabs">
+        <button type="button" class="btn btn-sm btn-primary log-tab" data-tab="server" onclick="LogCenter.tab('server')"><?= render_icon('nav:hospital') ?> 服务器日志</button>
+        <button type="button" class="btn btn-sm btn-outline log-tab" data-tab="operation" onclick="LogCenter.tab('operation')"><?= render_icon('nav:user') ?> 操作日志</button>
+        <button type="button" class="btn btn-sm btn-outline log-tab" data-tab="interface" onclick="LogCenter.tab('interface')"><?= render_icon('nav:plug') ?> 接口日志</button>
+    </div>
+</div>
+
+<?php
+/* 左右分栏面板通用片段：左侧分类项由 $navItems 渲染，右侧工具栏 + 日志视窗 */
+$renderNav = function ($items) {
+    $h = '';
+    foreach ($items as $key => $it) {
+        $title = is_array($it) ? (isset($it['title']) ? $it['title'] : $key) : $it;
+        $h .= '<div class="db-nav log-nav-item" data-cat="' . e($key) . '" onclick="LogCenter.selectCat(this)">' .
+            '<span>' . e($title) . '</span>' .
+            '<span class="log-nav-count" data-cat-count="' . e($key) . '"></span></div>';
+    }
+    return $h;
+};
+$renderToolbar = function ($pane, $withDirection) use ($levels) {
+    $h = '<div class="log-toolbar">';
+    if ($withDirection) {
+        $h .= '<select class="select" id="logDir_' . $pane . '" onchange="LogCenter.onFilter(\'' . $pane . '\')">' .
+            '<option value="">全部方向</option><option value="inbound">入向</option><option value="outbound">出向</option></select>';
+    }
+    $h .= '<select class="select" id="logLevel_' . $pane . '" onchange="LogCenter.onFilter(\'' . $pane . '\')">';
+    foreach ($levels as $k => $v) $h .= '<option value="' . e($k) . '">' . e($v) . '</option>';
+    $h .= '</select>';
+    $h .= '<input class="input log-kw" id="logKw_' . $pane . '" placeholder="搜索日志" autocomplete="off" onkeydown="if(event.key===\'Enter\')LogCenter.onFilter(\'' . $pane . '\')">';
+    $h .= '<label class="log-live"><input type="checkbox" id="logLive_' . $pane . '" checked onchange="LogCenter.toggleLive(\'' . $pane . '\')"> 实时</label>';
+    $h .= '<span class="log-status" id="logStatus_' . $pane . '"></span>';
+    $h .= '<button type="button" class="btn btn-outline btn-sm" onclick="LogCenter.clearPane(\'' . $pane . '\')">' . render_icon('action:clean') . ' 清空</button>';
+    $h .= '</div>';
+    return $h;
+};
+?>
+
+<!-- ==================== 服务器日志 ==================== -->
+<?php
+$serverItems = array();
+foreach ($sources as $s) $serverItems[$s['id']] = array('title' => $s['title']);
+?>
+<div class="log-pane" id="logPane_server" data-pane="server">
+    <div class="db-center log-center">
+        <div class="card db-sidebar log-nav" id="logNav_server"><?= $renderNav($serverItems) ?></div>
+        <div class="log-main">
+            <?= $renderToolbar('server', false) ?>
+            <div class="log-view" id="logView_server"><div class="empty"><div class="spinner"></div></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== 操作日志 ==================== -->
+<div class="log-pane" id="logPane_operation" data-pane="operation" style="display:none">
+    <div class="db-center log-center">
+        <div class="card db-sidebar log-nav" id="logNav_operation"><?= $renderNav($opCats) ?></div>
+        <div class="log-main">
+            <?= $renderToolbar('operation', false) ?>
+            <div class="log-view" id="logView_operation"><div class="empty"><div class="spinner"></div></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== 接口日志 ==================== -->
+<div class="log-pane" id="logPane_interface" data-pane="interface" style="display:none">
+    <div class="db-center log-center">
+        <div class="card db-sidebar log-nav" id="logNav_interface"><?= $renderNav($ifCats) ?></div>
+        <div class="log-main">
+            <?= $renderToolbar('interface', true) ?>
+            <div class="log-view" id="logView_interface"><div class="empty"><div class="spinner"></div></div></div>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ============================================================
+ * 日志中心前端控制器
+ * ------------------------------------------------------------
+ * 设计：单一全局单例 window.LogCenter，页面视图内联执行；
+ *  - SPA 局部导航重复进入时以 reinit 覆盖并清理旧定时器
+ *  - 服务器日志走文件尾部游标（offset），系统日志走 id 游标（before_id）
+ *  - 默认加载最新并定位到底部，上滑加载更旧，实时轮询追加最新
+ * ============================================================ */
+window.LogCenter = (function () {
+    var PAGE_SIZE = 60;
+    var POLL_MS = 3000;
+
+    var LEVELS = { normal: '正常', info: '提示', warning: '警告', error: '错误' };
+
+    /* 每个面板的运行时状态 */
+    function newState(kind) {
+        return {
+            kind: kind,                 // server / db
+            offset: 0,                  // 服务器：已加载行数
+            beforeId: 0,                // 系统：最旧已加载 id（加载更旧游标）
+            afterId: 0,                 // 系统：最新已加载 id（实时游标）
+            lastRaw: '',                // 服务器：最新一行原文（实时去重）
+            entries: [],                // {id/raw,...} 已渲染顺序（旧→新）
+            hasMore: false,
+            loading: false,
+            live: true,
+            category: '',
+            level: '',
+            direction: '',
+            kw: '',
+            inited: false
+        };
+    }
+
+    var S = {
+        tab: 'server',
+        server: newState('server'),
+        operation: newState('db'),
+        interface: newState('db'),
+        meta: null
+    };
+
+    /* ---------- 通用工具 ---------- */
+    function el(id) { return document.getElementById(id); }
+    function paneEl(pane) { return el('logPane_' + pane); }
+    function viewEl(pane) { return el('logView_' + pane); }
+
+    function esc(s) { return Clinic.escHtml(s == null ? '' : s); }
+
+    function levelBadge(level) {
+        var cls = { error: 'danger', warning: 'warning', info: 'info', normal: 'success' }[level] || 'info';
+        var name = LEVELS[level] || level || '正常';
+        return '<span class="badge badge-' + cls + ' log-lv">' + esc(name) + '</span>';
+    }
+
+    function nearBottom(v) {
+        return v.scrollHeight - v.scrollTop - v.clientHeight < 60;
+    }
+
+    /* ---------- 标签切换 ---------- */
+    function tab(name) {
+        S.tab = name;
+        document.querySelectorAll('#logTabs .log-tab').forEach(function (t) {
+            var on = t.getAttribute('data-tab') === name;
+            t.classList.toggle('active', on);
+            t.classList.toggle('btn-primary', on);
+            t.classList.toggle('btn-outline', !on);
+        });
+        document.querySelectorAll('.log-pane').forEach(function (p) {
+            p.style.display = (p.getAttribute('data-pane') === name) ? '' : 'none';
+        });
+        fitHeight();
+        if (!S[name].inited) initPane(name);
+        startPolling();
+    }
+
+    /* ---------- 左侧分类选择 ---------- */
+    function selectCat(node) {
+        var pane = node.closest('.log-pane');
+        if (!pane) return;
+        var name = pane.getAttribute('data-pane');
+        pane.querySelectorAll('.log-nav-item').forEach(function (n) { n.classList.remove('active'); });
+        node.classList.add('active');
+        S[name].category = node.getAttribute('data-cat') || '';
+        resetPane(name);
+    }
+
+    /* ---------- 初始化面板（默认选中左侧第一项） ---------- */
+    function initPane(name) {
+        var nav = el('logNav_' + name);
+        if (nav) {
+            var first = nav.querySelector('.log-nav-item');
+            if (first && !nav.querySelector('.log-nav-item.active')) {
+                first.classList.add('active');
+                S[name].category = first.getAttribute('data-cat') || '';
+            }
+        }
+        S[name].inited = true;
+        loadNewest(name);
+        // 滚动到顶部加载更旧（仅绑定一次，防 SPA 重复进入叠加）
+        var v = viewEl(name);
+        if (v && !v.__logScrollBound) {
+            v.__logScrollBound = true;
+            v.addEventListener('scroll', function () {
+                if (v.scrollTop <= 6) loadOlder(name);
+            });
+        }
+    }
+
+    /* ---------- 重置并加载最新 ---------- */
+    function resetPane(name) {
+        var st = S[name];
+        st.entries = [];
+        st.offset = 0;
+        st.beforeId = 0;
+        st.afterId = 0;
+        st.lastRaw = '';
+        st.hasMore = false;
+        var v = viewEl(name);
+        if (v) v.innerHTML = '<div class="empty"><div class="spinner"></div></div>';
+        loadNewest(name);
+    }
+
+    function readFilters(name) {
+        var st = S[name];
+        var lv = el('logLevel_' + name);
+        var kw = el('logKw_' + name);
+        var dir = el('logDir_' + name);
+        st.level = lv ? lv.value : '';
+        st.kw = kw ? kw.value.trim() : '';
+        st.direction = dir ? dir.value : '';
+    }
+
+    function onFilter(name) {
+        readFilters(name);
+        resetPane(name);
+    }
+
+    /* ---------- 加载最新一屏 ---------- */
+    function loadNewest(name) {
+        var st = S[name];
+        if (st.loading) return;
+        st.loading = true;
+        if (st.kind === 'server') {
+            Clinic.get('/api/admin', {
+                action: 'log_server_list', source: st.category || 'app',
+                offset: 0, limit: PAGE_SIZE, level: st.level, kw: st.kw
+            }, {
+                silent: true,
+                onSuccess: function (json) {
+                    st.loading = false;
+                    var d = json.data;
+                    setServerStatus(name, d);
+                    st.entries = d.list || [];
+                    st.offset = st.entries.length;
+                    st.hasMore = d.has_more;
+                    render(name, false);
+                    if (st.entries.length) { st.lastRaw = st.entries[st.entries.length - 1].raw || ''; }
+                    scrollBottom(name);
+                },
+                onError: function () { st.loading = false; }
+            });
+            return;
+        }
+        Clinic.get('/api/admin', {
+            action: 'log_list', channel: name,
+            category: st.category, direction: st.direction,
+            level: st.level, kw: st.kw, limit: PAGE_SIZE
+        }, {
+            silent: true,
+            onSuccess: function (json) {
+                st.loading = false;
+                var d = json.data;
+                applyCounts(name, d.counts);
+                st.entries = (d.list || []).slice().reverse();   // 旧→新
+                st.hasMore = d.has_more;
+                if (st.entries.length) {
+                    st.beforeId = st.entries[0].id;
+                    st.afterId = st.entries[st.entries.length - 1].id;
+                }
+                render(name, false);
+                scrollBottom(name);
+            },
+            onError: function () { st.loading = false; }
+        });
+    }
+
+    /* ---------- 加载更旧一屏（顶部） ---------- */
+    function loadOlder(name) {
+        var st = S[name];
+        if (st.loading || !st.hasMore) return;
+        st.loading = true;
+        var v = viewEl(name);
+        var prevH = v ? v.scrollHeight : 0;
+        if (st.kind === 'server') {
+            Clinic.get('/api/admin', {
+                action: 'log_server_list', source: st.category || 'app',
+                offset: st.offset, limit: PAGE_SIZE, level: st.level, kw: st.kw
+            }, {
+                silent: true,
+                onSuccess: function (json) {
+                    st.loading = false;
+                    var d = json.data;
+                    var older = d.list || [];
+                    st.entries = older.concat(st.entries);
+                    st.offset += older.length;
+                    st.hasMore = d.has_more;
+                    render(name, false);
+                    if (v) v.scrollTop = v.scrollHeight - prevH;
+                },
+                onError: function () { st.loading = false; }
+            });
+            return;
+        }
+        if (!st.beforeId) { st.hasMore = false; st.loading = false; return; }
+        Clinic.get('/api/admin', {
+            action: 'log_list', channel: name,
+            category: st.category, direction: st.direction,
+            level: st.level, kw: st.kw, before_id: st.beforeId, limit: PAGE_SIZE
+        }, {
+            silent: true,
+            onSuccess: function (json) {
+                st.loading = false;
+                var d = json.data;
+                applyCounts(name, d.counts);
+                var older = (d.list || []).slice().reverse();
+                if (older.length) st.beforeId = older[0].id;
+                st.entries = older.concat(st.entries);
+                st.hasMore = d.has_more;
+                render(name, false);
+                if (v) v.scrollTop = v.scrollHeight - prevH;
+            },
+            onError: function () { st.loading = false; }
+        });
+    }
+
+    /* ---------- 实时轮询（仅当前 Tab） ---------- */
+    function poll() {
+        var name = S.tab;
+        var st = S[name];
+        if (!st || !st.inited || !st.live || st.loading) return;
+        if (!paneEl(name) || paneEl(name).style.display === 'none') return;
+        if (st.kind === 'server') {
+            Clinic.get('/api/admin', {
+                action: 'log_server_list', source: st.category || 'app',
+                offset: 0, limit: 50, level: st.level, kw: st.kw
+            }, {
+                silent: true,
+                onSuccess: function (json) {
+                    var d = json.data;
+                    var list = d.list || [];
+                    if (!list.length) return;
+                    var lastRaw = st.lastRaw;
+                    var idx = -1;
+                    for (var i = list.length - 1; i >= 0; i--) {
+                        if ((list[i].raw || '') === lastRaw) { idx = i; break; }
+                    }
+                    var fresh = (lastRaw === '') ? list : list.slice(idx + 1);
+                    if (!fresh.length) return;
+                    st.lastRaw = fresh[fresh.length - 1].raw || lastRaw;
+                    st.entries = st.entries.concat(fresh);
+                    st.offset += fresh.length;
+                    var v = viewEl(name);
+                    var stick = v && nearBottom(v);
+                    appendEntries(name, fresh);
+                    if (stick) scrollBottom(name);
+                }
+            });
+            return;
+        }
+        Clinic.get('/api/admin', {
+            action: 'log_latest', channel: name, after_id: st.afterId,
+            category: st.category, direction: st.direction,
+            level: st.level, kw: st.kw, limit: 100
+        }, {
+            silent: true,
+            onSuccess: function (json) {
+                var list = (json.data && json.data.list) || [];
+                if (!list.length) return;
+                st.afterId = list[list.length - 1].id;
+                st.entries = st.entries.concat(list);
+                var v = viewEl(name);
+                var stick = v && nearBottom(v);
+                appendEntries(name, list);
+                if (stick) scrollBottom(name);
+            }
+        });
+    }
+
+    /* 轮询定时器挂到 window：SPA 重复进入时可在 reinit 清理旧实例 */
+    function startPolling() {
+        if (window.__logPollTimer) return;
+        window.__logPollTimer = setInterval(function () {
+            if (!document.getElementById('logPane_server')) {
+                clearInterval(window.__logPollTimer);
+                window.__logPollTimer = null;
+                return;
+            }
+            poll();
+        }, POLL_MS);
+    }
+
+    function toggleLive(name) {
+        var c = el('logLive_' + name);
+        S[name].live = c ? c.checked : true;
+    }
+
+    /* ---------- 渲染 ---------- */
+    function entryHtml(e, kind) {
+        if (kind === 'server') {
+            return '<div class="log-item log-lv-' + esc(e.level) + '">' +
+                '<div class="log-item-head">' +
+                    levelBadge(e.level) +
+                    (e.time ? '<span class="log-time">' + esc(e.time) + '</span>' : '') +
+                '</div>' +
+                '<div class="log-text">' + esc(e.text) + '</div>' +
+                '</div>';
+        }
+        var meta = [];
+        if (e.username) meta.push(esc(e.username));
+        if (e.remote_ip) meta.push(esc(e.remote_ip));
+        var dirName = e.direction === 'inbound' ? '入向' : (e.direction === 'outbound' ? '出向' : '');
+        var h = '<div class="log-item log-lv-' + esc(e.level) + '">' +
+            '<div class="log-item-head">' +
+                levelBadge(e.level) +
+                (dirName ? '<span class="badge badge-outline">' + dirName + '</span>' : '') +
+                '<span class="log-time">' + esc(e.created_at) + '</span>' +
+                (e.action ? '<span class="log-action">' + esc(e.action) + '</span>' : '') +
+            '</div>' +
+            '<div class="log-summary">' + esc(e.summary) + '</div>' +
+            (e.detail ? '<div class="log-detail">' + esc(e.detail) + '</div>' : '') +
+            (meta.length ? '<div class="log-meta">' + meta.join(' · ') + '</div>' : '') +
+            (e.payload ? '<details class="log-payload-wrap"><summary>查看报文</summary><pre class="log-payload">' + esc(e.payload) + '</pre></details>' : '') +
+            '</div>';
+        return h;
+    }
+
+    function render(name, onlyNew) {
+        var v = viewEl(name);
+        if (!v) return;
+        var st = S[name];
+        if (!st.entries.length) {
+            v.innerHTML = '<div class="empty"><div class="empty-ico">' + renderIconSvg('emr:scroll') + '</div>暂无日志</div>';
+            setStatus(name, '0 条');
+            return;
+        }
+        var html = '';
+        var more = st.hasMore ? '<div class="log-more" id="logMore_' + name + '">上滑加载更旧日志</div>' : '<div class="log-more">已加载全部</div>';
+        for (var i = 0; i < st.entries.length; i++) html += entryHtml(st.entries[i], st.kind);
+        v.innerHTML = more + html;
+        setStatus(name, st.entries.length + ' 条' + (st.hasMore ? ' · 上滑加载更旧' : ' · 已到顶部'));
+    }
+
+    function appendEntries(name, list) {
+        var v = viewEl(name);
+        if (!v) return;
+        var st = S[name];
+        if (!st.entries.length || v.querySelector('.empty')) { render(name, false); return; }
+        var frag = document.createElement('div');
+        for (var i = 0; i < list.length; i++) frag.innerHTML += entryHtml(list[i], st.kind);
+        // 追加到视窗末尾（保留顶部加载提示）
+        while (frag.firstChild) v.appendChild(frag.firstChild);
+        setStatus(name, st.entries.length + ' 条' + (st.hasMore ? ' · 上滑加载更旧' : ' · 已到顶部'));
+    }
+
+    function setStatus(name, text) {
+        var s = el('logStatus_' + name);
+        if (s) s.textContent = text;
+    }
+    function setServerStatus(name, d) {
+        var s = el('logStatus_' + name);
+        if (!s) return;
+        if (!d.exists) { s.textContent = '日志文件不存在'; return; }
+        s.textContent = (d.list ? d.list.length : 0) + ' 行' + (d.has_more ? ' · 上滑加载更旧' : '');
+    }
+
+    function applyCounts(name, counts) {
+        if (!counts) return;
+        Object.keys(counts).forEach(function (cat) {
+            var n = document.querySelector('[data-cat-count="' + cat + '"]');
+            if (n) n.textContent = counts[cat] > 0 ? counts[cat] : '';
+        });
+    }
+
+    function scrollBottom(name) {
+        var v = viewEl(name);
+        if (v) v.scrollTop = v.scrollHeight;
+    }
+
+    /* ---------- 高度自适应（与其它管理页一致：底部留 18px） ---------- */
+    function fitHeight() {
+        document.querySelectorAll('.log-pane').forEach(function (p) {
+            if (p.style.display === 'none') return;
+            var center = p.querySelector('.log-center');
+            if (!center) return;
+            var top = center.getBoundingClientRect().top;
+            var h = window.innerHeight - top - 18;
+            if (h < 260) h = 260;
+            center.style.height = h + 'px';
+        });
+    }
+
+    /* ---------- 清空 ---------- */
+    function clearPane(name) {
+        var st = S[name];
+        var title = st.kind === 'server' ? '确认清空该服务器日志文件？' : '确认清空当前分类的全部日志？';
+        Clinic.modal.confirm(title + '此操作不可恢复。', function () {
+            var data = { action: 'log_clear' };
+            if (st.kind === 'server') {
+                data.source = st.category || 'app';
+            } else {
+                data.channel = name;
+                data.category = st.category || '';
+            }
+            Clinic.ajax('/api/admin', data, {
+                onSuccess: function (json) {
+                    Clinic.toast.success(json.msg || '已清空');
+                    resetPane(name);
+                }
+            });
+        });
+    }
+
+    /* ---------- 日志管理（右上角） ---------- */
+    function openSettings() {
+        Clinic.get('/api/admin', { action: 'log_settings_get' }, {
+            onSuccess: function (json) {
+                var d = json.data || {};
+                var cb = function (name, on) {
+                    return '<label class="log-switch"><input type="checkbox" id="' + name + '"' + (on === '1' ? ' checked' : '') + '> </label>';
+                };
+                var html =
+                    '<div class="log-set-grid">' +
+                        '<div class="log-set-card"><div class="log-set-title">日志开关</div>' +
+                            '<div class="log-set-row"><span>启用日志中心</span>' + cb('ls_enabled', d['log.enabled']) + '</div>' +
+                            '<div class="log-set-row"><span>操作日志</span>' + cb('ls_channel_operation', d['log.channel.operation']) + '</div>' +
+                            '<div class="log-set-row"><span>接口日志</span>' + cb('ls_channel_interface', d['log.channel.interface']) + '</div>' +
+                            '<div class="log-set-row"><span>服务器日志</span>' + cb('ls_channel_server', d['log.channel.server']) + '</div>' +
+                        '</div>' +
+                        '<div class="log-set-card"><div class="log-set-title">日志分类（级别）</div>' +
+                            '<div class="log-set-row"><span>正常</span>' + cb('ls_level_normal', d['log.level.normal']) + '</div>' +
+                            '<div class="log-set-row"><span>提示</span>' + cb('ls_level_info', d['log.level.info']) + '</div>' +
+                            '<div class="log-set-row"><span>警告</span>' + cb('ls_level_warning', d['log.level.warning']) + '</div>' +
+                            '<div class="log-set-row"><span>错误</span>' + cb('ls_level_error', d['log.level.error']) + '</div>' +
+                        '</div>' +
+                        '<div class="log-set-card"><div class="log-set-title">容量与保留</div>' +
+                            '<div class="log-set-row"><span>日志行数上限</span><input class="input" id="ls_max_rows" type="number" min="100" value="' + esc(d['log.max_rows']) + '"></div>' +
+                            '<div class="log-set-row"><span>日志记录天数</span><input class="input" id="ls_retention" type="number" min="0" value="' + esc(d['log.retention_days']) + '"></div>' +
+                            '<div class="log-set-hint">超过行数上限自动清理最旧记录；超过记录天数自动清空（0 = 不限制）。</div>' +
+                        '</div>' +
+                        '<div class="log-set-card"><div class="log-set-title">服务器日志</div>' +
+                            '<div class="log-set-row"><span>读取上限 (KB)</span><input class="input" id="ls_max_kb" type="number" min="64" value="' + esc(d['log.server.max_kb']) + '"></div>' +
+                            '<div class="log-set-row log-set-col"><span>外部服务器日志路径</span><input class="input" id="ls_ext_path" value="' + esc(d['log.server.external_path']) + '" placeholder="如 /var/log/php_errors.log"></div>' +
+                            '<div class="log-set-hint">留空则仅显示应用日志（data/logs/app.log）。</div>' +
+                        '</div>' +
+                    '</div>';
+                Clinic.modal.open(html, {
+                    title: '日志管理',
+                    size: 'modal-lg',
+                    buttons: [
+                        { text: '取消', cls: 'btn-outline' },
+                        { text: '保存', cls: 'btn-primary', onClick: saveSettings }
+                    ]
+                });
+            }
+        });
+    }
+
+    function chk(id) { var e = el(id); return e && e.checked ? '1' : '0'; }
+    function val(id) { var e = el(id); return e ? e.value : ''; }
+
+    function saveSettings() {
+        Clinic.ajax('/api/admin', {
+            action: 'log_settings_save',
+            enabled: chk('ls_enabled'),
+            channel_operation: chk('ls_channel_operation'),
+            channel_interface: chk('ls_channel_interface'),
+            channel_server: chk('ls_channel_server'),
+            level_normal: chk('ls_level_normal'),
+            level_info: chk('ls_level_info'),
+            level_warning: chk('ls_level_warning'),
+            level_error: chk('ls_level_error'),
+            max_rows: val('ls_max_rows'),
+            retention_days: val('ls_retention'),
+            server_max_kb: val('ls_max_kb'),
+            server_external_path: val('ls_ext_path')
+        }, {
+            onSuccess: function (json) {
+                Clinic.toast.success(json.msg || '已保存');
+                Clinic.modal.close();
+            }
+        });
+    }
+
+    /* ---------- 初始化 ---------- */
+    function reinit() {
+        // 清理旧轮询（SPA 重复进入时）
+        if (window.__logPollTimer) { clearInterval(window.__logPollTimer); window.__logPollTimer = null; }
+        S.server = newState('server');
+        S.operation = newState('db');
+        S.interface = newState('db');
+        tab('server');
+    }
+
+    // resize 监听仅绑定一次（SPA 重复进入不重复叠加）
+    if (!window.__logFitBound) {
+        window.__logFitBound = true;
+        window.addEventListener('resize', function () { if (window.LogCenter) LogCenter.fitHeight(); });
+    }
+
+    return {
+        reinit: reinit,
+        tab: tab,
+        selectCat: selectCat,
+        onFilter: onFilter,
+        toggleLive: toggleLive,
+        clearPane: clearPane,
+        openSettings: openSettings,
+        fitHeight: fitHeight
+    };
+})();
+
+/* 全页直接执行一次；SPA 局部导航由 nav.js 重执行本内联脚本后，
+   DOMContentLoaded 回调会被捕获并触发 reinit（见 nav.js execScripts） */
+if (document.readyState !== 'loading') LogCenter.reinit(); else document.addEventListener('DOMContentLoaded', function () { LogCenter.reinit(); });
+</script>

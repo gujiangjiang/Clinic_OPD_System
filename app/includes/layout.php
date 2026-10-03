@@ -54,6 +54,7 @@ class Layout {
                 array('打印中心', render_icon('action:print'), '/admin/printcenter'),
             );
             $items['系统设置'] = array(
+                array('日志中心', render_icon('emr:scroll'), '/admin/logs'),
                 array('接口管理', render_icon('nav:plug'), '/admin/integration'),
                 array('系统设置', render_icon('nav:settings'), '/admin/settings'),
             );

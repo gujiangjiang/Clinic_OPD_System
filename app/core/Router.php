@@ -35,6 +35,7 @@ class Router {
         // ===== 管理员 =====
         '/admin/dashboard'   => array('admin/dashboard.php',    array('admin')),
         '/admin/settings'    => array('admin/settings.php',     array('admin')),
+        '/admin/logs'        => array('admin/logs.php',         array('admin')),
         '/admin/integration' => array('admin/integration.php',  array('admin')),
         '/admin/imagerefs'   => array('admin/imagerefs.php',    array('admin', 'imaging')),
         '/admin/departments' => array('admin/departments.php',  array('admin')),

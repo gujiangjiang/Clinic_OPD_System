@@ -877,3 +877,75 @@
 .pacs-solo-embed .pacs-solo-foot,
 .pacs-solo-embed .pacs-viewer-tag { display: none !important; }
 .pacs-solo-embed .pacs-solo { padding: 0; gap: 0; }
+
+/* ============================================================
+ * 日志中心（Log Center）
+ * ============================================================ */
+.log-center { align-items: stretch; }
+.log-nav { width: 168px; }
+.log-nav .log-nav-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.log-nav-count {
+    font-size: 11px; color: var(--text-muted); background: var(--bg-soft);
+    border-radius: 10px; padding: 0 7px; min-width: 18px; text-align: center; flex: 0 0 auto;
+}
+.log-nav-item.active .log-nav-count { color: #fff; background: rgba(255,255,255,.25); }
+
+.log-main {
+    flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius-md); overflow: hidden;
+}
+.log-toolbar {
+    display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+    border-bottom: 1px solid var(--border); background: var(--bg-soft); flex-shrink: 0;
+}
+.log-toolbar .select { width: auto; min-width: 96px; }
+.log-toolbar .log-kw { flex: 1; min-width: 120px; }
+.log-live { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.log-status { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+
+.log-view { flex: 1; min-height: 0; overflow-y: auto; padding: 6px 0; background: var(--bg-card); }
+.log-view .empty { padding: 60px 0; }
+.log-more { text-align: center; font-size: 12px; color: var(--text-muted); padding: 8px 0; }
+
+.log-item { padding: 9px 14px; border-bottom: 1px solid var(--border); border-left: 3px solid transparent; }
+.log-item:hover { background: var(--bg-soft); }
+.log-item.log-lv-error { border-left-color: #ef4444; }
+.log-item.log-lv-warning { border-left-color: #f59e0b; }
+.log-item.log-lv-info { border-left-color: #3b82f6; }
+.log-item.log-lv-normal { border-left-color: #10b981; }
+.log-item-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 3px; }
+.log-time { font-size: 12px; color: var(--text-muted); font-family: ui-monospace, Menlo, Consolas, monospace; }
+.log-action { font-size: 12px; color: var(--text-muted); }
+.log-lv { font-size: 11px; }
+.log-summary { font-size: 13px; font-weight: 600; color: var(--text); }
+.log-detail { font-size: 12px; color: var(--text-muted); margin-top: 2px; line-height: 1.6; word-break: break-word; }
+.log-meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+.log-text {
+    font-size: 12.5px; font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--text);
+    word-break: break-word; white-space: pre-wrap; line-height: 1.55;
+}
+.log-payload-wrap { margin-top: 6px; }
+.log-payload-wrap > summary { font-size: 12px; color: var(--primary); cursor: pointer; }
+.log-payload {
+    margin: 6px 0 0; padding: 10px; background: var(--bg-soft); border-radius: var(--radius-sm);
+    font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace;
+    white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow: auto;
+}
+
+/* 日志管理弹窗 */
+.log-set-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.log-set-card { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 14px; }
+.log-set-title { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.log-set-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; font-size: 13px; }
+.log-set-row .input { width: 140px; }
+.log-set-col { flex-direction: column; align-items: stretch; }
+.log-set-col .input { width: 100%; }
+.log-set-hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; line-height: 1.6; }
+
+@media (max-width: 768px) {
+    .log-center { display: block; height: auto !important; }
+    .log-nav { width: auto; display: flex; flex-direction: row; overflow-x: auto; margin-bottom: 10px; }
+    .log-main { height: 60vh; }
+    .log-set-grid { grid-template-columns: 1fr; }
+}
