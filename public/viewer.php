@@ -132,6 +132,7 @@ function applyContext(ctx) {
     CURRENT = { visit: ctx.visit || '', item: ctx.item || '', label: ctx.label || '' };
     // 主窗口未选中患者（关闭患者/首次进入）→ 视窗复位空白提示
     if (!CURRENT.visit) { resetSolo(); return; }
+    setSoloHeader(CURRENT.label);   // 立即反映当前检查，避免仍显示「等待主系统选择患者…」
     if (changedVisit) loadSoloPatient(CURRENT.visit);
     else if (CURRENT.label) paintTag(CURRENT.label);
     // 序列切换 → 自动重挂阅片器（已配置 pacs_viewer_url 时；优化项12）
@@ -174,6 +175,12 @@ function paintTag(label) {
     soloTag('> ' + label);
     var main = document.getElementById('phMain');
     if (main && label) main.textContent = label;
+}
+
+/** 顶部检查/患者标识：立即反映上下文（非影像科场景如影像引用查询打开也能正确显示） */
+function setSoloHeader(text) {
+    var el = document.getElementById('soloPatient');
+    if (el && text) el.textContent = text;
 }
 
 function loadSoloPatient(code) {
@@ -235,6 +242,7 @@ function resetSolo() {
             CURRENT.visit = pending.visit;
             CURRENT.item = pending.item || '';
             CURRENT.label = pending.label || '';
+            setSoloHeader(CURRENT.label);   // 立即显示当前检查（非影像科场景同样正确）
             loadSoloPatient(pending.visit);
             // 会话握手中若携带序列（一体化模式选中序列后打开视窗）：自动挂载阅片器
             if (CURRENT.item) soloEmbed(true);
