@@ -445,6 +445,12 @@ switch ($action) {
         );
         $list = array();
         foreach ($rows as $r) {
+            // 区域影像存储 / PACS 机构名（登记解析时由 QIDO InstitutionName 写入 meta）
+            $irm = json_decode((string)$r['meta_json'], true);
+            $regionName = (is_array($irm) && !empty($irm['region_name'])) ? (string)$irm['region_name'] : '';
+            if ($regionName === '') $regionName = '区域影像存储';
+            $hasImage = class_exists('ImagingRegionResolver')
+                ? ImagingRegionResolver::isRealUid((string)$r['study_uid']) : ((string)$r['study_uid'] !== '');
             $list[] = array(
                 'id' => oid((int)$r['id']),
                 'flow_no' => (string)$r['flow_no'],
@@ -459,6 +465,8 @@ switch ($action) {
                 'study_uid' => (string)$r['study_uid'],
                 'modality' => (string)$r['modality'],
                 'region' => (string)$r['region'],
+                'region_name' => $regionName,
+                'has_image' => $hasImage,
                 'instance_count' => (int)$r['instance_count'],
                 'created_by' => (string)$r['created_by'],
                 'created_at' => (string)$r['created_at'],

@@ -60,11 +60,11 @@ function refRowHtml(list, isFirst) {
             '<td>' + escHtml(r.item_name || '—') + '</td>' +
             '<td><span class="badge badge-gray" style="font-size:11px">' + escHtml(r.modality || 'OT') + '</span></td>' +
             '<td class="fs-12" style="font-family:monospace;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escHtml(r.study_uid) + '">' + escHtml(r.study_uid) + '</td>' +
-            '<td class="fs-12">' + escHtml(r.region) + '</td>' +
+            '<td class="fs-12">' + escHtml(r.region_name || r.region || '—') + '</td>' +
             '<td class="fs-12">' + escHtml(r.created_by || '') + '</td>' +
-            '<td>' + (r.order_item_id
+            '<td>' + ((r.has_image && r.order_item_id)
                 ? '<button class="btn btn-outline btn-sm" onclick="openRefViewer(\'' + escHtml(r.visit_code || '') + '\',\'' + escHtml(r.order_item_id) + '\',\'' + escHtml(r.item_name || '') + '\')">'+' 调阅</button>'
-                : '<span class="fs-12 text-muted">—</span>') + '</td>' +
+                : '<span class="fs-12 text-muted">无影像</span>') + '</td>' +
             '</tr>';
     }).join('');
     if (!isFirst) return rows;   // 后续页：仅返回行，由 append 插入已有表格 tbody
