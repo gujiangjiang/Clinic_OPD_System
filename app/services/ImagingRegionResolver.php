@@ -25,6 +25,15 @@ class ImagingRegionResolver {
 
     public static function configured() { return self::base() !== ''; }
 
+    /** 区域 PACS 中是否存在该 StudyInstanceUID（轻量 QIDO 探针） */
+    public static function studyExists($uid) {
+        $uid = trim((string)$uid);
+        if ($uid === '' || !self::configured()) return false;
+        $arr = self::getJson('/studies?' . http_build_query(array('StudyInstanceUID' => $uid, 'includefield' => 'StudyInstanceUID')));
+        if (!is_array($arr) || !count($arr)) return false;
+        return self::tag($arr[0], '0020000D') !== '';
+    }
+
     private static function headers() {
         $headers = array();
         $scheme = strtolower(trim((string)setting('integration.outbound.pacs.auth_scheme', 'none')));

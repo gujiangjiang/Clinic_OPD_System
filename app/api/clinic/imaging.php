@@ -297,7 +297,7 @@ switch ($action) {
                 'order_item_id' => ((int)$r['order_item_id'] > 0 ? oid((int)$r['order_item_id']) : ''),
                 'check_time' => (string)$r['registered_at'],
                 'report_time' => (string)$r['created_at'],
-                'report_doctor' => (string)$r['doctor'],
+                'report_doctor' => (string)(isset($r['doctor_name']) ? $r['doctor_name'] : ''),
                 'audit_doctor' => '',   // 审核流未上线：预留字段，历史调阅展示为 —
                 'status' => (string)$r['status'],
                 'status_name' => $statusName,
@@ -344,6 +344,18 @@ switch ($action) {
         if ($ref) {
             $studyUid = (string)$ref['study_uid'];
             $region = (string)$ref['region'];
+            // 自愈：区域 PACS 中已不存在该 study_uid（历史/种子数据 UID 失配）时，
+            // 按申请单号（AccessionNumber）重新解析并回写引用，避免阅片器右窗加载失败
+            if ($region === 'region-pacs' && ImagingRegionResolver::configured() && !ImagingRegionResolver::studyExists($studyUid)) {
+                $o = OrderRepository::one('SELECT order_no FROM orders WHERE id=?', array((int)$it['order_id']));
+                if ($o) {
+                    $fresh = ImagingRegionResolver::registerForItem($itemId);
+                    if ($fresh) {
+                        $ref = $fresh;
+                        $studyUid = (string)$fresh['study_uid'];
+                    }
+                }
+            }
             $series = json_decode((string)$ref['series_uids'], true);
             $seriesCount = is_array($series) ? count($series) : 0;
         } else {
