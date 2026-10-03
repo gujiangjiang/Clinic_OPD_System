@@ -93,6 +93,7 @@ class Layout {
                 array('影像科工作台', render_icon('nav:imaging'), '/imaging/dashboard'),
                 array('危急值管理', render_icon('alert:critical'), '/imaging/critical'),
                 array('影像模板', render_icon('emr:record'), '/imaging/templates'),
+                array('查询中心', render_icon('action:search'), '/admin/querycenter'),
             );
             $items['管理'] = array(
                 array('检查管理', render_icon('nav:imaging'), '/admin/examitems'),

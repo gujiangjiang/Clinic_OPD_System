@@ -51,7 +51,7 @@ class Router {
         '/admin/printcenter' => array('admin/printcenter.php',  array('admin')),
         '/admin/callmanage'  => array('admin/callmanage.php',   array('admin')),
         '/admin/analytics'   => array('admin/analytics.php',    array('admin')),
-        '/admin/querycenter' => array('admin/querycenter.php',  array('admin')),
+        '/admin/querycenter' => array('admin/querycenter.php',  array('admin', 'imaging')),
         // ===== 危急值管理 =====
         '/doctor/critical'   => array('doctor/critical.php',    array('doctor')),
         '/lab/critical'      => array('lab/critical.php',       array('lab')),

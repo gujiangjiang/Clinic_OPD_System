@@ -6,21 +6,30 @@
  * 点击 → 只读详情查看完整处理过程；后续可在此扩展更多查询子项。
  */
 Router::title('查询中心');
+$__roleName = (Auth::user() && isset(Auth::user()['role'])) ? (string)Auth::user()['role'] : '';
+$__imaging = ($__roleName === 'imaging');   // 影像科：仅开放「影像引用查询」子项
 ?>
 <div class="list-layout">
 <div class="page-head">
-    <div><div class="page-title"><?= render_icon('action:search') ?> 查询中心</div><div class="page-desc">全院业务数据查询与溯源（危急值 / 影像引用 / 更多子项）</div></div>
+    <div><div class="page-title"><?= render_icon('action:search') ?> 查询中心</div>
+    <div class="page-desc"><?= $__imaging
+        ? '影像检查登记与影像引用查询，支持按日期 / 关键字检索并调阅影像（只读）'
+        : '全院业务数据查询与溯源（危急值查询 / 影像引用查询等）' ?></div></div>
 </div>
 
 <div class="flex gap-8 mb-12" id="qcTabsBar">
+    <?php if (!$__imaging) { ?>
     <button type="button" class="btn btn-primary btn-sm" data-qc-tab="critical" onclick="qcTab('critical')"><?= render_icon('alert:critical') ?> 危急值查询</button>
-    <button type="button" class="btn btn-outline btn-sm" data-qc-tab="refs" onclick="qcTab('refs')"><?= render_icon('nav:imaging') ?> 影像引用查询</button>
+    <?php } ?>
+    <button type="button" class="btn <?= $__imaging ? 'btn-primary' : 'btn-outline' ?> btn-sm" data-qc-tab="refs" onclick="qcTab('refs')"><?= render_icon('nav:imaging') ?> 影像引用查询</button>
+    <?php if (!$__imaging) { ?>
     <button type="button" class="btn btn-outline btn-sm" data-qc-tab="more" onclick="qcTab('more')">更多子项（规划中）</button>
+    <?php } ?>
 </div>
 
 <div class="qc-body">
-<div id="qcCritical"></div>
-<div id="qcRefs" style="display:none">
+<?php if (!$__imaging) { ?><div id="qcCritical"></div><?php } ?>
+<div id="qcRefs" <?= $__imaging ? '' : 'style="display:none"' ?>>
     <!-- 搜索工具条：与打印中心/科室管理等页面统一（筛选卡片 + 列表卡片分离，卡片间 16px 间距） -->
     <div class="card list-filter">
         <div class="flex gap-8" style="align-items:center;flex-wrap:wrap">
@@ -150,19 +159,23 @@ function qcTab(tab) {
         b.classList.toggle('btn-primary', on);
         b.classList.toggle('btn-outline', !on);
     });
-    document.getElementById('qcCritical').style.display = tab === 'critical' ? '' : 'none';
-    document.getElementById('qcRefs').style.display = tab === 'refs' ? '' : 'none';
-    document.getElementById('qcMore').style.display = tab === 'more' ? '' : 'none';
+    var c = document.getElementById('qcCritical'); if (c) c.style.display = tab === 'critical' ? '' : 'none';
+    var r = document.getElementById('qcRefs'); if (r) r.style.display = tab === 'refs' ? '' : 'none';
+    var m = document.getElementById('qcMore'); if (m) m.style.display = tab === 'more' ? '' : 'none';
     if (tab === 'refs') initRefList();   // 首次进入初始化；SPA 重进 refList 为 null 重新绑定
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    Clinic.critical.initListPage({
-        role: 'admin',
-        container: 'qcCritical',
-        listBody: 'critListBody',
-        totalEl: 'critTotal',
-        footEl: 'critMore',
-    });
+    if (document.getElementById('qcCritical')) {
+        Clinic.critical.initListPage({
+            role: 'admin',
+            container: 'qcCritical',
+            listBody: 'critListBody',
+            totalEl: 'critTotal',
+            footEl: 'critMore',
+        });
+    } else {
+        qcTab('refs');   // 影像科：仅影像引用查询，直接进入
+    }
 });
 </script>
