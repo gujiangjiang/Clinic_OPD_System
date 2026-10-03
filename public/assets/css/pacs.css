@@ -882,7 +882,7 @@
  * 日志中心（Log Center）
  * ============================================================ */
 .log-center { align-items: stretch; }
-.log-nav { width: 168px; }
+.log-nav { width: 168px; margin-bottom: 0; }
 .log-nav .log-nav-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .log-nav-count {
     font-size: 11px; color: var(--text-muted); background: var(--bg-soft);

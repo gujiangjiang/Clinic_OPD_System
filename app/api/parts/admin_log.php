@@ -66,6 +66,11 @@ function admin_part_log($action) {
     /* ==================== 服务器日志（文件尾部读取） ==================== */
     if ($action === 'log_server_list') {
         $source = get('source', 'app');
+        // 服务器日志已在日志管理中关闭：不再读取，前端提示
+        if (!LogService::channelEnabled('server')) {
+            json_ok(array('list' => array(), 'has_more' => false, 'exists' => false,
+                'path' => '', 'source' => $source, 'disabled' => true));
+        }
         $offset = (int)get('offset', 0);
         $limit = (int)get('limit', 200);
         $level = trim((string)get('level', ''));

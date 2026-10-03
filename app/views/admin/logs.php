@@ -14,6 +14,9 @@ Router::title('日志中心');
 
 $opCats = LogService::operationCategories();
 $ifCats = LogService::interfaceCategories();
+// 左侧分类首项统一为「全部」（category 传空即不过滤）
+$opCats = array('' => array('title' => '全部')) + $opCats;
+$ifCats = array('' => '全部') + $ifCats;
 $sources = LogService::serverSources();
 $levels = array('' => '全部级别', 'normal' => '正常', 'info' => '提示', 'warning' => '警告', 'error' => '错误');
 ?>
@@ -31,6 +34,7 @@ $levels = array('' => '全部级别', 'normal' => '正常', 'info' => '提示', 
         <button type="button" class="btn btn-sm btn-outline log-tab" data-tab="operation" onclick="LogCenter.tab('operation')"><?= render_icon('nav:user') ?> 操作日志</button>
         <button type="button" class="btn btn-sm btn-outline log-tab" data-tab="interface" onclick="LogCenter.tab('interface')"><?= render_icon('nav:plug') ?> 接口日志</button>
     </div>
+    <div class="fs-12 text-muted" id="logTabDesc" style="padding:10px 14px 12px"></div>
 </div>
 
 <?php
@@ -115,6 +119,13 @@ window.LogCenter = (function () {
 
     var LEVELS = { normal: '正常', info: '提示', warning: '警告', error: '错误' };
 
+    /* 子 Tab 介绍文字 */
+    var TAB_DESC = {
+        server: '直接读取应用日志（data/logs/app.log）与管理员配置的外部 PHP / Web 服务器日志文件，含运行时错误、异常与告警。',
+        operation: '记录用户登录、退出以及账号变更（修改密码、重置密码、个人资料、账号新增修改删除、解除锁定等）操作。',
+        interface: '记录本系统与外部系统（FHIR / DICOM / HL7 / LIS / HIS / 医保支付 / 存证签名）的入向与出向接口调用及报文。'
+    };
+
     /* 每个面板的运行时状态 */
     function newState(kind) {
         return {
@@ -172,6 +183,8 @@ window.LogCenter = (function () {
         document.querySelectorAll('.log-pane').forEach(function (p) {
             p.style.display = (p.getAttribute('data-pane') === name) ? '' : 'none';
         });
+        var desc = document.getElementById('logTabDesc');
+        if (desc) desc.textContent = TAB_DESC[name] || '';
         fitHeight();
         if (!S[name].inited) initPane(name);
         startPolling();
@@ -254,6 +267,11 @@ window.LogCenter = (function () {
                     st.loading = false;
                     var d = json.data;
                     setServerStatus(name, d);
+                    if (d.disabled) {
+                        var v = viewEl(name);
+                        if (v) v.innerHTML = '<div class="empty"><div class="empty-ico">' + renderIconSvg('alert:info') + '</div>服务器日志已在日志管理中关闭</div>';
+                        return;
+                    }
                     st.entries = d.list || [];
                     st.offset = st.entries.length;
                     st.hasMore = d.has_more;
@@ -473,16 +491,22 @@ window.LogCenter = (function () {
     function setServerStatus(name, d) {
         var s = el('logStatus_' + name);
         if (!s) return;
+        if (d.disabled) { s.textContent = '已关闭'; return; }
         if (!d.exists) { s.textContent = '日志文件不存在'; return; }
         s.textContent = (d.list ? d.list.length : 0) + ' 行' + (d.has_more ? ' · 上滑加载更旧' : '');
     }
 
     function applyCounts(name, counts) {
-        if (!counts) return;
+        var nav = el('logNav_' + name);
+        if (!nav || !counts) return;
+        var sum = 0;
         Object.keys(counts).forEach(function (cat) {
-            var n = document.querySelector('[data-cat-count="' + cat + '"]');
+            sum += counts[cat];
+            var n = nav.querySelector('[data-cat-count="' + cat + '"]');
             if (n) n.textContent = counts[cat] > 0 ? counts[cat] : '';
         });
+        var all = nav.querySelector('[data-cat-count=""]');
+        if (all) all.textContent = sum > 0 ? sum : '';
     }
 
     function scrollBottom(name) {
@@ -535,10 +559,11 @@ window.LogCenter = (function () {
                 var html =
                     '<div class="log-set-grid">' +
                         '<div class="log-set-card"><div class="log-set-title">日志开关</div>' +
-                            '<div class="log-set-row"><span>启用日志中心</span>' + cb('ls_enabled', d['log.enabled']) + '</div>' +
+                            '<div class="log-set-row"><span>启用日志记录</span>' + cb('ls_enabled', d['log.enabled']) + '</div>' +
                             '<div class="log-set-row"><span>操作日志</span>' + cb('ls_channel_operation', d['log.channel.operation']) + '</div>' +
                             '<div class="log-set-row"><span>接口日志</span>' + cb('ls_channel_interface', d['log.channel.interface']) + '</div>' +
                             '<div class="log-set-row"><span>服务器日志</span>' + cb('ls_channel_server', d['log.channel.server']) + '</div>' +
+                            '<div class="log-set-hint">「启用日志记录」为总开关，关闭后不再记录操作日志与接口日志（服务器日志由 PHP 自行写入文件，不受此开关影响）；各子项可分别关闭。</div>' +
                         '</div>' +
                         '<div class="log-set-card"><div class="log-set-title">日志分类（级别）</div>' +
                             '<div class="log-set-row"><span>正常</span>' + cb('ls_level_normal', d['log.level.normal']) + '</div>' +
