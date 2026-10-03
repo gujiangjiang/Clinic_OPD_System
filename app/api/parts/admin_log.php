@@ -60,7 +60,8 @@ function admin_part_log($action) {
             'kw'        => trim((string)get('kw', '')),
         );
         $rows = LogService::latest($channel, (int)get('after_id', 0), (int)get('limit', 100), $filter);
-        json_ok(array('list' => array_map('log_row_out', $rows)));
+        // 同步返回分类计数：供前端实时刷新左侧栏数量
+        json_ok(array('list' => array_map('log_row_out', $rows), 'counts' => LogService::counts($channel)));
     }
 
     /* ==================== 服务器日志（文件尾部读取） ==================== */

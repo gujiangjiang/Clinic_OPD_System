@@ -881,7 +881,8 @@
 /* ============================================================
  * 日志中心（Log Center）
  * ============================================================ */
-.log-center { align-items: stretch; }
+.log-layout > .log-pane { flex: 1; min-height: 0; }
+.log-center { align-items: flex-start; height: 100%; }
 .log-nav { width: 168px; margin-bottom: 0; }
 .log-nav .log-nav-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .log-nav-count {

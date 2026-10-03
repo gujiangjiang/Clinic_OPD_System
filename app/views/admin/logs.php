@@ -18,8 +18,9 @@ $ifCats = LogService::interfaceCategories();
 $opCats = array('' => array('title' => '全部')) + $opCats;
 $ifCats = array('' => '全部') + $ifCats;
 $sources = LogService::serverSources();
-$levels = array('' => '全部级别', 'normal' => '正常', 'info' => '提示', 'warning' => '警告', 'error' => '错误');
+$levels = array('' => '全部', 'normal' => '正常', 'info' => '提示', 'warning' => '警告', 'error' => '错误');
 ?>
+<div class="list-layout log-layout">
 <div class="page-head">
     <div><div class="page-title"><?= render_icon('emr:scroll') ?> 日志中心</div>
     <div class="page-desc">统一查看服务器日志、操作日志与接口日志，支持实时刷新、滚动加载与一键清空</div></div>
@@ -28,7 +29,7 @@ $levels = array('' => '全部级别', 'normal' => '正常', 'info' => '提示', 
     </div>
 </div>
 
-<div class="card" style="padding-bottom:6px">
+<div class="card" style="padding-bottom:6px;margin-bottom:0">
     <div class="itg-tabs" id="logTabs">
         <button type="button" class="btn btn-sm btn-primary log-tab" data-tab="server" onclick="LogCenter.tab('server')"><?= render_icon('nav:hospital') ?> 服务器日志</button>
         <button type="button" class="btn btn-sm btn-outline log-tab" data-tab="operation" onclick="LogCenter.tab('operation')"><?= render_icon('nav:user') ?> 操作日志</button>
@@ -103,6 +104,7 @@ foreach ($sources as $s) $serverItems[$s['id']] = array('title' => $s['title']);
         </div>
     </div>
 </div>
+</div><!-- /.list-layout -->
 
 <script>
 /* ============================================================
@@ -185,7 +187,6 @@ window.LogCenter = (function () {
         });
         var desc = document.getElementById('logTabDesc');
         if (desc) desc.textContent = TAB_DESC[name] || '';
-        fitHeight();
         if (!S[name].inited) initPane(name);
         startPolling();
     }
@@ -396,7 +397,10 @@ window.LogCenter = (function () {
         }, {
             silent: true,
             onSuccess: function (json) {
-                var list = (json.data && json.data.list) || [];
+                var d = json.data || {};
+                // 实时刷新左侧分类计数（即使本次无新日志，计数也可能变化）
+                applyCounts(name, d.counts);
+                var list = d.list || [];
                 if (!list.length) return;
                 st.afterId = list[list.length - 1].id;
                 st.entries = st.entries.concat(list);
@@ -514,19 +518,6 @@ window.LogCenter = (function () {
         if (v) v.scrollTop = v.scrollHeight;
     }
 
-    /* ---------- 高度自适应（与其它管理页一致：底部留 18px） ---------- */
-    function fitHeight() {
-        document.querySelectorAll('.log-pane').forEach(function (p) {
-            if (p.style.display === 'none') return;
-            var center = p.querySelector('.log-center');
-            if (!center) return;
-            var top = center.getBoundingClientRect().top;
-            var h = window.innerHeight - top - 18;
-            if (h < 260) h = 260;
-            center.style.height = h + 'px';
-        });
-    }
-
     /* ---------- 清空 ---------- */
     function clearPane(name) {
         var st = S[name];
@@ -630,12 +621,6 @@ window.LogCenter = (function () {
         tab('server');
     }
 
-    // resize 监听仅绑定一次（SPA 重复进入不重复叠加）
-    if (!window.__logFitBound) {
-        window.__logFitBound = true;
-        window.addEventListener('resize', function () { if (window.LogCenter) LogCenter.fitHeight(); });
-    }
-
     return {
         reinit: reinit,
         tab: tab,
@@ -643,8 +628,7 @@ window.LogCenter = (function () {
         onFilter: onFilter,
         toggleLive: toggleLive,
         clearPane: clearPane,
-        openSettings: openSettings,
-        fitHeight: fitHeight
+        openSettings: openSettings
     };
 })();
 
