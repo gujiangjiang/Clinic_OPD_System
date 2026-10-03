@@ -18,7 +18,7 @@ $ifCats = LogService::interfaceCategories();
 $opCats = array('' => array('title' => '全部')) + $opCats;
 $ifCats = array('' => '全部') + $ifCats;
 $sources = LogService::serverSources();
-$levels = array('' => '全部', 'normal' => '正常', 'info' => '提示', 'warning' => '警告', 'error' => '错误');
+$levels = array('' => '全部日志', 'normal' => '正常', 'info' => '提示', 'warning' => '警告', 'error' => '错误');
 // 各通道开关状态（总开关关闭则全部为关）：用于子 Tab 状态圆点
 $logCh = array(
     'server'    => LogService::channelEnabled('server'),
@@ -572,10 +572,10 @@ window.LogCenter = (function () {
                     '<div class="log-set-body' + (on ? '' : ' disabled') + '" id="logSetBody">' +
                         '<div class="log-set-grid">' +
                             '<div class="log-set-card"><div class="log-set-title">日志通道</div>' +
+                                '<div class="log-set-row"><span>服务器日志</span>' + cb('ls_channel_server', d['log.channel.server']) + '</div>' +
                                 '<div class="log-set-row"><span>操作日志</span>' + cb('ls_channel_operation', d['log.channel.operation']) + '</div>' +
                                 '<div class="log-set-row"><span>接口日志</span>' + cb('ls_channel_interface', d['log.channel.interface']) + '</div>' +
-                                '<div class="log-set-row"><span>服务器日志</span>' + cb('ls_channel_server', d['log.channel.server']) + '</div>' +
-                                '<div class="log-set-hint">分别控制操作日志、接口日志是否记录；服务器日志表示日志中心是否可读取服务器日志文件。</div>' +
+                                '<div class="log-set-hint">分别控制服务器日志是否可读、操作日志与接口日志是否记录。</div>' +
                             '</div>' +
                             '<div class="log-set-card"><div class="log-set-title">记录级别</div>' +
                                 '<div class="log-set-row"><span>正常</span>' + cb('ls_level_normal', d['log.level.normal']) + '</div>' +
