@@ -2070,8 +2070,9 @@ Clinic.emr = (function () {
         // 检查项目且已登记（已拍片）：提供【调阅影像】——打开本系统阅片视窗加载影像
         if (o.order_type === 'imaging' && ['registered', 'in_progress', 'done'].indexOf(it.status) !== -1) {
             var vid = (document.getElementById('visitId') || {}).value || '';
+            var pn = (DATA && DATA.patient && DATA.patient.name) ? (DATA.patient.name + ' ｜ ') : '';
             html += '<button type="button" class="btn btn-outline btn-sm mt-12" style="margin-left:8px" ' +
-                'onclick="Clinic.pacsHistory && Clinic.pacsHistory.openViewer(\'' + escHtml(vid) + '\',\'' + escHtml(it.id) + '\',\'' + escHtml(it.item_name) + '\')">' +
+                'onclick="Clinic.pacsHistory && Clinic.pacsHistory.openViewer(\'' + escHtml(vid) + '\',\'' + escHtml(it.id) + '\',\'' + escHtml(pn + it.item_name) + '\')">' +
                 renderIconSvg('nav:screen') + ' 调阅影像</button>';
         }
         html += '</div>';

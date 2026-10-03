@@ -36,6 +36,9 @@ if (!in_array($u['role'], array('imaging', 'admin'), true)) {
 }
 
 $hosp = setting('hospital_name', '门诊一体化系统');
+// embed=1：被一体化阅片工作台内嵌调用——隐藏「阅片工作站」外壳（顶栏/底栏/角标），
+// 仅保留影像区域，避免外层再套一层外壳的冗余；独立打开（含历史调阅等）则显示完整外壳。
+$isEmbed = !empty($_GET['embed']);
 ?>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -45,7 +48,7 @@ $hosp = setting('hospital_name', '门诊一体化系统');
     <title><?php echo e($hosp); ?> · 阅片工作站</title>
     <link rel="stylesheet" href="/assets/css/pacs.css?v=<?php echo e(APP_VERSION); ?>">
 </head>
-<body class="pacs-solo-body" data-sid="<?php echo e(session_id()); ?>" data-uid="<?php echo (int)$u['id']; ?>">
+<body class="pacs-solo-body<?php echo $isEmbed ? ' pacs-solo-embed' : ''; ?>" data-sid="<?php echo e(session_id()); ?>" data-uid="<?php echo (int)$u['id']; ?>">
 <div class="pacs-solo">
     <div class="pacs-solo-head">
         <span><?= render_icon('nav:imaging') ?> 阅片工作站</span>
@@ -129,10 +132,11 @@ function applyContext(ctx) {
     if (!ctx) return;
     var changedVisit = ctx.visit !== CURRENT.visit;
     var changedItem = ctx.item && ctx.item !== CURRENT.item;
-    CURRENT = { visit: ctx.visit || '', item: ctx.item || '', label: ctx.label || '' };
+    CURRENT = { visit: ctx.visit || '', item: ctx.item || '', label: ctx.label || '', sub: ctx.sub || '' };
     // 主窗口未选中患者（关闭患者/首次进入）→ 视窗复位空白提示
     if (!CURRENT.visit) { resetSolo(); return; }
     setSoloHeader(CURRENT.label);   // 立即反映当前检查，避免仍显示「等待主系统选择患者…」
+    setSoloSub(CURRENT.sub);        // 右上角同步患者标识（所有入口一致）
     if (changedVisit) loadSoloPatient(CURRENT.visit);
     else if (CURRENT.label) paintTag(CURRENT.label);
     // 序列切换 → 自动重挂阅片器（已配置 pacs_viewer_url 时；优化项12）
@@ -182,6 +186,11 @@ function setSoloHeader(text) {
     var el = document.getElementById('soloPatient');
     if (el && text) el.textContent = text;
 }
+/** 右上角患者标识（患者ID / 就诊号）：所有入口统一由上下文下发 */
+function setSoloSub(text) {
+    var el = document.getElementById('soloTagR');
+    if (el && text) el.textContent = text;
+}
 
 function loadSoloPatient(code) {
     var ph = document.getElementById('soloPlaceholder');
@@ -197,8 +206,9 @@ function loadSoloPatient(code) {
             return;
         }
         var v = j.data.visit || {}, p = j.data.patient || {};
+        // 顶部标识统一由上下文（label）决定；仅在未携带时回退为患者姓名
         var el = document.getElementById('soloPatient');
-        if (el) el.textContent = v.name + ' ｜ ' + v.gender + ' / ' + (v.age_fmt || '') + ' ｜ ' + (v.visit_no || '');
+        if (el && !CURRENT.label) el.textContent = v.name + ' ｜ ' + v.gender + ' / ' + (v.age_fmt || '');
         var tr = document.getElementById('soloTagR');
         if (tr) tr.textContent = '患者ID ' + (p.patient_id || '—') + ' ｜ ' + (v.visit_no || '');
         ph.innerHTML =
@@ -242,7 +252,9 @@ function resetSolo() {
             CURRENT.visit = pending.visit;
             CURRENT.item = pending.item || '';
             CURRENT.label = pending.label || '';
+            CURRENT.sub = pending.sub || '';
             setSoloHeader(CURRENT.label);   // 立即显示当前检查（非影像科场景同样正确）
+            setSoloSub(CURRENT.sub);        // 右上角患者标识
             loadSoloPatient(pending.visit);
             // 会话握手中若携带序列（一体化模式选中序列后打开视窗）：自动挂载阅片器
             if (CURRENT.item) soloEmbed(true);
@@ -263,6 +275,15 @@ function soloViewerPost(cmd, value) {
         return true;
     } catch (e) { return false; }
 }
+/* embed 模式：转发宿主（一体化阅片工作台）的指令到内嵌 Web 阅片器，
+   使工作台工具栏按钮在「包裹转发」后依然生效 */
+window.addEventListener('message', function (e) {
+    var d = e && e.data;
+    if (!d || d.type !== 'pv-command') return;
+    var f = soloViewerFrame();
+    if (f && f.contentWindow) { try { f.contentWindow.postMessage(d, '*'); } catch (err) { /* 忽略 */ } }
+});
+
 function soloFit() { if (LOCKED) return; soloTag(soloViewerPost('fit') ? '⤢ 适应窗口' : '阅片器未就绪'); }
 function soloReset() { if (LOCKED) return; soloTag(soloViewerPost('reset') ? '↺ 已重置视图' : '阅片器未就绪'); }
 

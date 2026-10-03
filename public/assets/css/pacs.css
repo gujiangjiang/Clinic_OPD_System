@@ -871,3 +871,9 @@
     padding: 6px 10px;
     word-break: break-all;
 }
+
+/* ---------- embed 模式：一体化阅片工作台内嵌时隐藏「阅片工作站」外壳 ---------- */
+.pacs-solo-embed .pacs-solo-head,
+.pacs-solo-embed .pacs-solo-foot,
+.pacs-solo-embed .pacs-viewer-tag { display: none !important; }
+.pacs-solo-embed .pacs-solo { padding: 0; gap: 0; }

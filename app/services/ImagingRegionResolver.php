@@ -191,8 +191,10 @@ class ImagingRegionResolver {
 
     /** 以 order_item_id 为准 upsert 引用（可把占位 UID 升级为真实 UID，避免重复行） */
     public static function upsertRef($ref) {
-        $existing = ImagingRepository::one('SELECT id FROM imaging_refs WHERE order_item_id=? ORDER BY id DESC LIMIT 1', array((int)$ref['order_item_id']));
+        $existing = ImagingRepository::one('SELECT id, created_by FROM imaging_refs WHERE order_item_id=? ORDER BY id DESC LIMIT 1', array((int)$ref['order_item_id']));
         if ($existing) {
+            // 登记人保留：无当前登录用户（如批处理）时沿用原值，避免覆盖为空
+            $createdBy = (string)$ref['created_by'] !== '' ? (string)$ref['created_by'] : (string)$existing['created_by'];
             ImagingRepository::exec(
                 'UPDATE imaging_refs SET study_uid=?, series_uids=?, instance_count=?, modality=?, region=?, meta_json=?, created_by=?, updated_at=? WHERE id=?',
                 array(
@@ -202,7 +204,7 @@ class ImagingRegionResolver {
                     (string)$ref['modality'],
                     (string)$ref['region'],
                     json_encode($ref['meta'], JSON_UNESCAPED_UNICODE),
-                    (string)$ref['created_by'],
+                    $createdBy,
                     now_str(),
                     (int)$existing['id'],
                 )

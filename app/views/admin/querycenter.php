@@ -72,7 +72,7 @@ function refRowHtml(list, isFirst) {
             '<td class="fs-12">' + escHtml(r.region_name || r.region || '—') + '</td>' +
             '<td class="fs-12">' + escHtml(r.created_by || '') + '</td>' +
             '<td>' + ((r.has_image && r.order_item_id)
-                ? '<button class="btn btn-outline btn-sm" onclick="openRefViewer(\'' + escHtml(r.visit_code || '') + '\',\'' + escHtml(r.order_item_id) + '\',\'' + escHtml(r.item_name || '') + '\')">'+' 调阅</button>'
+                ? '<button class="btn btn-outline btn-sm" onclick="openRefViewer(\'' + escHtml(r.visit_code || '') + '\',\'' + escHtml(r.order_item_id) + '\',\'' + escHtml((r.patient_name || '') + ' ｜ ' + (r.item_name || '')) + '\',\'' + escHtml('患者ID ' + (r.patient_no || '—') + ' ｜ ' + (r.flow_no || '')) + '\')">'+' 调阅</button>'
                 : '<span class="fs-12 text-muted">无影像</span>') + '</td>' +
             '</tr>';
     }).join('');
@@ -132,10 +132,10 @@ function resetRefs() {
 
 /* 调阅影像：打开本系统阅片视窗 /viewer.php（会话握手传递就诊/项目上下文），
    不暴露、不外跳 Web 阅片器直链地址 */
-function openRefViewer(visitCode, itemId, label) {
+function openRefViewer(visitCode, itemId, label, sub) {
     if (!visitCode) { if (window.Clinic && Clinic.toast) Clinic.toast.warning('缺少就诊信息，无法调阅影像'); return; }
     var sid = document.body.getAttribute('data-sid') || '';
-    var ctx = { sid: sid, visit: visitCode, item: itemId || '', label: label || '' };
+    var ctx = { sid: sid, visit: visitCode, item: itemId || '', label: label || '', sub: sub || '' };
     try { localStorage.setItem('clinic_viewer_pending_ctx', JSON.stringify(ctx)); } catch (e) { /* 忽略 */ }
     try { if (window.Clinic && Clinic.authSync && Clinic.authSync.broadcastContext) Clinic.authSync.broadcastContext(ctx); } catch (e) { /* 忽略 */ }
     window.open('/viewer.php', 'clinic_img_viewer',

@@ -64,6 +64,7 @@ Clinic.pacsHistory = (function () {
             onSuccess: function (json) {
                 state.loading = false;
                 var d = json.data || {};
+                if (d.patient) ST.__patient = d.patient;   // 保存患者信息（调阅标识用）
                 state.page = d.page || nextPage;
                 state.hasMore = !!d.has_more;
                 render(box, state, d.list || []);
@@ -171,7 +172,7 @@ Clinic.pacsHistory = (function () {
                   '<button type="button" class="btn btn-outline btn-sm pacs-hist-view"' +
                   ' data-visit="' + esc(r.visit_code || '') + '"' +
                   ' data-item="' + esc(r.order_item_id) + '"' +
-                  ' data-label="' + esc((r.item_name || '') + ' ｜ ' + (r.report_no || '')) + '"' +
+                  ' data-label="' + esc(((jsonPatient() && jsonPatient().name) ? (jsonPatient().name + ' ｜ ') : '') + (r.item_name || '')) + '"' +
                   ' title="在本系统阅片视窗中调阅该次影像">' + renderIconSvg('nav:screen') + ' 调阅影像</button>' +
                   '</div></div>'
                 : '') +
@@ -197,7 +198,9 @@ Clinic.pacsHistory = (function () {
     function openViewer(visitId, itemId, label) {
         if (!visitId) { if (Clinic.toast) Clinic.toast.warning('缺少就诊信息，无法调阅影像'); return; }
         var sid = document.body.getAttribute('data-sid') || '';
-        var ctx = { sid: sid, visit: visitId, item: itemId || '', label: label || '' };
+        var p = jsonPatient() || {};
+        var ctx = { sid: sid, visit: visitId, item: itemId || '', label: label || '',
+            sub: '患者ID ' + (p.patient_id || '—') };
         try { localStorage.setItem('clinic_viewer_pending_ctx', JSON.stringify(ctx)); } catch (e) { /* 忽略 */ }
         try { if (window.Clinic && Clinic.authSync && Clinic.authSync.broadcastContext) Clinic.authSync.broadcastContext(ctx); } catch (e) { /* 忽略 */ }
         window.open('/viewer.php', 'clinic_img_viewer',

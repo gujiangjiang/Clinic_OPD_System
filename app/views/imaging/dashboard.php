@@ -203,10 +203,14 @@ function renderImgIntegrated(data) {
 function broadcastImgContext(item) {
     if (!window.Clinic || !Clinic.authSync) return;
     var v = (window.__imgData || {}).visit || {};
+    var p = (window.__imgData || {}).patient || {};
+    // 顶部标识统一格式：患者姓名 ｜ 检查项目；右上角：患者ID ｜ 就诊号
+    var name = v.name || '';
     Clinic.authSync.broadcastContext({
         visit: v.code || Clinic.deptwork.currentVisit() || '',
         item: item ? item.id : '',
-        label: item ? (item.item_name + ' ｜ ' + imgModality(item)) : '',
+        label: item ? ((name ? name + ' ｜ ' : '') + item.item_name) : name,
+        sub: '患者ID ' + (p.patient_id || '—') + ' ｜ ' + (v.visit_no || v.code || ''),
     });
 }
 
@@ -364,40 +368,34 @@ function pacsAutoEmbed(itemId) {
     var ph = document.getElementById('pacsViewerPh');
     var tagL = document.getElementById('pacsTagL');
     if (!mount) return;
-    // 加载提示层（iframe 就绪前展示）
-    mount.innerHTML = '<div class="pacs-viewer-loading" id="pacsViewerLoading">'+renderIconSvg('nav:globe')+' 正在连接 Web 阅片器…（地址需院内网络可达）</div>';
-    fetch('/api/imaging?action=viewer_url&item_id=' + encodeURIComponent(itemId), {
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-    }).then(function (r) {
-        if (r.status === 401) {
-            if (window.Clinic && Clinic.authSync) Clinic.authSync.broadcastLogout();
-            return null;
-        }
-        return r.json();
-    }).then(function (json) {
+    var it = null;
+    (window.__imgItems || []).forEach(function (x) { if (x.id === itemId) it = x; });
+    var v = (window.__imgData || {}).visit || {};
+    var p = (window.__imgData || {}).patient || {};
+    // 通过本系统阅片视窗「转发」内嵌（embed=1 隐藏外壳），不直接对外暴露 PACS 直链
+    var ctx = {
+        sid: document.body.getAttribute('data-sid') || '',
+        visit: Clinic.deptwork.currentVisit() || '',
+        item: itemId,
+        label: it ? ((v.name ? v.name + ' ｜ ' : '') + it.item_name) : (v.name || ''),
+        sub: '患者ID ' + (p.patient_id || '—') + ' ｜ ' + (v.visit_no || ''),
+    };
+    try { localStorage.setItem('clinic_viewer_pending_ctx', JSON.stringify(ctx)); } catch (e) { /* 忽略 */ }
+    mount.innerHTML = '<div class="pacs-viewer-loading" id="pacsViewerLoading">' + renderIconSvg('nav:globe') + ' 正在连接 Web 阅片器…（地址需院内网络可达）</div>';
+    var frame = document.createElement('iframe');
+    frame.id = 'pacsViewerFrame';
+    frame.title = 'Web 阅片器';
+    frame.setAttribute('allow', 'fullscreen');
+    frame.style.cssText = 'width:100%;height:100%;border:0;border-radius:10px;opacity:0;transition:opacity .3s';
+    frame.src = '/viewer.php?embed=1';
+    frame.addEventListener('load', function () {
         var loading = document.getElementById('pacsViewerLoading');
         if (loading) loading.remove();
-        if (!json || !json.ok) {
-            // 未配置/异常：视窗内提示
-            pacsShowViewerHint(ph, mount, (json && json.msg) || '阅片器连接失败');
-            return;
-        }
-        var d = json.data || {};
-        var escU = Clinic.escHtml(d.url);
-        mount.innerHTML = '<iframe id="pacsViewerFrame" src="' + escU + '" style="width:100%;height:100%;border:0;border-radius:10px;opacity:0;transition:opacity .3s" title="Web 阅片器" allow="fullscreen"></iframe>';
-        var frame = document.getElementById('pacsViewerFrame');
-        if (frame) {
-            frame.addEventListener('load', function () {
-                frame.style.opacity = '1';
-                if (tagL) flashPacsTag('> 阅片器已挂载 · Study ' + Clinic.escHtml(d.study_uid || ''));
-            });
-        }
-        if (ph) ph.style.display = 'none';
-    }).catch(function () {
-        var loading = document.getElementById('pacsViewerLoading');
-        if (loading) loading.remove();
-        pacsShowViewerHint(ph, mount, '网络请求失败，请检查连接');
+        frame.style.opacity = '1';
+        if (tagL) flashPacsTag('> 阅片器已挂载');
     });
+    mount.appendChild(frame);
+    if (ph) ph.style.display = 'none';
 }
 
 /* 阅片视窗内居中提示（未配置阅片器/连接失败时） */
@@ -796,11 +794,14 @@ function imgOpenSoloWindow() {
     // 传递给独立视窗；视窗端仍走登录 Session 鉴权 + 科室归属校验，双保险。
     var cur = window.__imgCurItem || null;
     var v = (window.__imgData || {}).visit || {};
+    var p = (window.__imgData || {}).patient || {};
     var ctx = {
         sid: document.body.getAttribute('data-sid') || '',
         visit: Clinic.deptwork.currentVisit() || '',
         item: cur ? cur.id : '',
-        label: cur ? (cur.item_name + ' ｜ ' + imgModality(cur)) : (v.name ? (v.name + ' ｜ ' + (v.visit_no || '')) : ''),
+        // 顶部标识统一：患者姓名 ｜ 检查项目；右上角：患者ID ｜ 就诊号
+        label: cur ? (((v.name ? v.name + ' ｜ ' : '')) + cur.item_name) : (v.name || ''),
+        sub: '患者ID ' + (p.patient_id || '—') + ' ｜ ' + (v.visit_no || ''),
     };
     try { localStorage.setItem('clinic_viewer_pending_ctx', JSON.stringify(ctx)); } catch (e) { /* 忽略 */ }
     // 独立无工具栏窗口（多显示器全屏拖拽阅片）：与主窗口共享登录 Session，
