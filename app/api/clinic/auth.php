@@ -54,6 +54,10 @@ if ($__act === 'login' || $__act === 'logout_page') {
         $captchaFlag = post('need_captcha') === '1';
         $res = Auth::login($username, $password, $captcha, $captchaFlag);
         if ($res !== true) {
+            // 日志中心·操作日志：记录登录失败
+            log_operation('login', 'login_fail', '登录失败',
+                '账号「' . $username . '」登录失败：' . $res, 'warning', '',
+                array('username' => (string)$username));
             // 锁定/停用场景按需求返回 403（话术区分安全锁定与管理员停用）
             if (strpos($res, '已被系统安全锁定') !== false || strpos($res, '已被管理员停用') !== false) {
                 http_response_code(403);
@@ -125,6 +129,9 @@ switch ($action) {
         // 通知管理员
         send_msg('admin', 0, '密码重置申请',
             '用户「' . $row['name'] . '」忘记密码，已提交重置申请，请在【审核中心】处理', '', '');
+        // 日志中心·操作日志：记录密码重置申请
+        log_operation('account', 'password_reset_apply', '提交密码重置申请',
+            '用户「' . $row['name'] . '」（工号 ' . $row['emp_no'] . '）忘记密码，提交重置申请', 'warning', (string)$row['id']);
         json_ok(array(), '已通知管理员，审核通过后将为您重置密码为初始密码');
         break;
 
@@ -137,6 +144,9 @@ switch ($action) {
         if (!$appr) json_fail('没有已通过审核的密码重置申请，请先在【修改密码】页提交申请');
         UserRepository::exec('UPDATE users SET password=?, pwd_changed=1 WHERE id=?', array(password_hash($new, PASSWORD_DEFAULT), Auth::id()));
         UserRepository::exec("UPDATE audits SET status='used', note=? WHERE id=?", array('用户已设置新密码', $appr['id']));
+        // 日志中心·操作日志：记录密码重置
+        log_operation('account', 'password_reset', '重置登录密码',
+            '用户「' . Auth::user()['name'] . '」通过审核后重置登录密码', 'warning', (string)Auth::id());
         json_ok(array(), '密码修改成功');
         break;
 
@@ -182,6 +192,9 @@ switch ($action) {
             json_fail('原密码不正确');
         }
         UserRepository::exec('UPDATE users SET password=?, pwd_changed=1 WHERE id=?', array(password_hash($new, PASSWORD_DEFAULT), Auth::id()));
+        // 日志中心·操作日志：记录修改密码
+        log_operation('account', 'password_change', '修改登录密码',
+            '用户「' . Auth::user()['name'] . '」修改了登录密码', 'warning', (string)Auth::id());
         json_ok(array(), '密码修改成功');
         break;
 
@@ -255,6 +268,10 @@ switch ($action) {
         send_msg('admin', 0, '个人资料审核申请',
             '用户「' . $me['name'] . '」（工号 ' . ($meRow ? $meRow['emp_no'] : '') . '）申请修改个人资料：' . implode('；', $titleParts) .
             '，请在【审核中心】处理', '', '');
+        // 日志中心·操作日志：记录个人资料修改申请
+        log_operation('account', 'profile_update_apply', '提交个人资料修改申请',
+            '用户「' . $me['name'] . '」（工号 ' . ($meRow ? $meRow['emp_no'] : '') . '）申请修改：' . implode('；', $titleParts),
+            'info', (string)$me['id']);
         json_ok(array(), '已提交审核，审核通过后生效');
         break;
 

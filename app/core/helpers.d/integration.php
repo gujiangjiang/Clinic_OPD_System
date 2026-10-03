@@ -449,9 +449,36 @@ function integration_log_inbound($endpoint, $provider, $ok, $summary, $body = ''
     try {
         $ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
         IntegrationRepository::logInbound($endpoint, $provider, $ok, $summary, $body, $ip);
+        // 日志中心·接口日志：统一入向落账（按外部系统分类，便于集中浏览）
+        if (function_exists('log_interface')) {
+            log_interface(integration_inbound_module($endpoint, $provider), 'inbound',
+                (string)$endpoint . ((string)$provider !== '' ? '/' . $provider : ''),
+                $ok, (string)$summary, (string)$body);
+        }
     } catch (Exception $ex) {
         if (defined('DEBUG') && DEBUG) error_log('[inbound_events 落账失败] ' . $ex->getMessage());
     }
+}
+
+/**
+ * 入向调用归类到日志中心接口子分类
+ * @param string $endpoint 端点族（fhir/dicomweb/hl7/lis/his/cashier/inbound…）
+ * @param string $provider 提供方/子动作（r4/callback/pay-notify/wechat…）
+ * @return string fhir|dicom|hl7|lis|his|insurance|evid
+ */
+function integration_inbound_module($endpoint, $provider) {
+    $e = strtolower((string)$endpoint);
+    $p = strtolower((string)$provider);
+    if (strpos($p, 'pay-notify') !== false || $e === 'cashier') return 'insurance';
+    $map = array(
+        'fhir' => 'fhir', 'dicomweb' => 'dicom', 'dicom' => 'dicom',
+        'hl7' => 'hl7', 'lis' => 'lis', 'his' => 'his', 'evid' => 'evid',
+    );
+    if (isset($map[$e])) return $map[$e];
+    if ($e === 'inbound' && class_exists('LogService') && in_array($p, LogService::IF_CATEGORIES, true)) {
+        return $p;
+    }
+    return 'his';
 }
 
 /* ============================================================

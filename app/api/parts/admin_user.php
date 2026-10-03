@@ -296,13 +296,24 @@ function admin_part_user($action) {
                         '用户「' . $name . '」（工号 ' . $empNo . '）因密码连续错误达 ' . $failCnt . ' 次被系统安全锁定，管理员已手动解锁并启用',
                         'approved', $u['name'], (int)$u['id'], $u['name'], now_str(), '解锁后 login_fail_count 已清零', now_str(),
                     ));
+                    // 日志中心·操作日志：记录账号解锁
+                    log_operation('account', 'user_unlock', '解除账号安全锁定',
+                        '管理员「' . $u['name'] . '」解锁并启用用户「' . $name . '」（工号 ' . $empNo . '）', 'warning', (string)$id);
                 }
             }
         } else {
-            UserRepository::insert('INSERT INTO users(emp_no, username, password, name, role, dept_ids, education, degree, title, position, intro, email, queue_days, photo, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+            $newId = (int)UserRepository::insert('INSERT INTO users(emp_no, username, password, name, role, dept_ids, education, degree, title, position, intro, email, queue_days, photo, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                 $empNo, $username, password_hash($password !== '' ? $password : '123456', PASSWORD_DEFAULT),
                 $name, $role, $deptIds, $education, $degree, $title, $position, $intro, $email, $queueDays, $photo, $status, now_str(),
             ));
+            // 日志中心·操作日志：记录新增用户
+            log_operation('account', 'user_create', '新增用户',
+                '管理员「' . $u['name'] . '」新增用户「' . $name . '」（工号 ' . $empNo . '，' . Auth::roleName($role) . '）', 'info', (string)$newId);
+        }
+        if ($id > 0) {
+            // 日志中心·操作日志：记录修改用户资料
+            log_operation('account', 'user_update', '修改用户资料',
+                '管理员「' . $u['name'] . '」修改用户「' . $name . '」（工号 ' . $empNo . '，' . Auth::roleName($role) . '）资料', 'info', (string)$id);
         }
         json_ok(array(), '用户已保存');
     }
@@ -311,7 +322,13 @@ function admin_part_user($action) {
     if ($action === 'user_delete') {
         $id = (int)post('id');
         if ($id === Auth::id()) json_fail('不能删除当前登录用户');
+        $target = UserRepository::one('SELECT name, emp_no, role FROM users WHERE id=?', array($id));
         UserRepository::exec('DELETE FROM users WHERE id=? AND role<>?', array($id, 'admin'));
+        if ($target) {
+            // 日志中心·操作日志：记录删除用户
+            log_operation('account', 'user_delete', '删除用户',
+                '管理员「' . $u['name'] . '」删除用户「' . $target['name'] . '」（工号 ' . $target['emp_no'] . '）', 'warning', (string)$id);
+        }
         json_ok(array(), '用户已删除');
     }
 

@@ -54,6 +54,12 @@ function evid_sign($recordType, $recordNo, $content, $extraMeta = '') {
                 'time' => $time,
                 'meta' => $extraMeta,
             ));
+            // 日志中心·接口日志：外部存证/签名服务出向调用
+            if (function_exists('log_interface')) {
+                log_interface('evid', 'outbound', 'sign', $token !== '',
+                    $token !== '' ? '存证签名成功' : '存证签名失败（未获取凭据）',
+                    '记录类型 ' . $recordType . '，编号 ' . $recordNo . '，指纹 ' . $hash);
+            }
         }
     }
     return array('mode' => $mode, 'hash' => $hash, 'algo' => $algo, 'token' => $token, 'signer' => $signer, 'time' => $time);

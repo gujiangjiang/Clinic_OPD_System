@@ -191,6 +191,12 @@ class Auth {
             'theme'    => isset($u['theme']) && $u['theme'] ? $u['theme'] : 'auto',
             'sidebar'  => isset($u['sidebar']) && $u['sidebar'] ? $u['sidebar'] : 'expand',
         );
+        // 日志中心·操作日志：记录登录成功
+        if (function_exists('log_operation')) {
+            log_operation('login', 'login', '用户登录成功',
+                '用户「' . $u['name'] . '」（工号 ' . $u['emp_no'] . '，' . self::roleName($u['role']) . '）登录成功',
+                'info', (string)$u['id']);
+        }
         return true;
     }
 
@@ -205,6 +211,11 @@ class Auth {
                     array(now_str(), (int)$u['id']));
             } catch (Exception $ex) {
                 if (defined('DEBUG') && DEBUG) error_log('[logout] 诊室解绑失败（不影响登出）：' . $ex->getMessage());
+            }
+            // 日志中心·操作日志：记录退出登录
+            if (function_exists('log_operation')) {
+                log_operation('login', 'logout', '用户退出登录',
+                    '用户「' . $u['name'] . '」退出登录', 'info', (string)$u['id']);
             }
         }
         unset($_SESSION['auth_user']);

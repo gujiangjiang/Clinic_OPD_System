@@ -75,6 +75,14 @@ class HisOutbox {
             $processed++;
             try {
                 $res = self::dispatchTask($task);
+                // 日志中心·接口日志：出向调用统一落账（HIS/HL7/FHIR/LIS）
+                if (function_exists('log_interface')) {
+                    log_interface(self::moduleOf((string)$task['business_type']), 'outbound',
+                        (string)$task['business_type'],
+                        !empty($res['ok']),
+                        !empty($res['ok']) ? '出向调用成功' : ('出向调用失败：' . (isset($res['error']) ? $res['error'] : '未知错误')),
+                        (string)$task['payload']);
+                }
                 if ($res['ok']) {
                     $success++;
                     IntegrationRepository::updateTaskStatus((int)$task['id'], 'success');
@@ -84,11 +92,27 @@ class HisOutbox {
                 }
             } catch (Exception $ex) {
                 $failed++;
+                if (function_exists('log_interface')) {
+                    log_interface(self::moduleOf((string)$task['business_type']), 'outbound',
+                        (string)$task['business_type'], false, '出向调用异常：' . $ex->getMessage(), (string)$task['payload']);
+                }
                 IntegrationRepository::failTask((int)$task['id'], $ex->getMessage());
             }
         }
         ConfigStore::set('integration.outbox.lock', '0');
         return array('processed' => $processed, 'success' => $success, 'failed' => $failed);
+    }
+
+    /** 业务类型 → 日志中心接口子分类 */
+    public static function moduleOf($businessType) {
+        $b = (string)$businessType;
+        if (strpos($b, 'his_') === 0) return 'his';
+        if (strpos($b, 'hl7_') === 0) return 'hl7';
+        if (strpos($b, 'fhir_') === 0) return 'fhir';
+        if (strpos($b, 'lis_') === 0) return 'lis';
+        if (strpos($b, 'dicom') === 0) return 'dicom';
+        if (strpos($b, 'evid') === 0) return 'evid';
+        return 'his';
     }
 
     /** 按业务类型分发到对应驱动 */
