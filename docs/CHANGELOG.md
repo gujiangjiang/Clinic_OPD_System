@@ -13,6 +13,24 @@
 
 ---
 
+## [8.42.27] - 2026-10-03
+
+### 修复
+- **测试造数 CLI 字段错位**（导致 `--all` 中途崩溃）：
+  - `disposal_items` 费用列 `fee` → `price`（DisposalSeeder / DrugSeeder 皮试处置项）；
+  - `payments` 金额列 `total` → `total_amount`（VisitSeeder / QueueSeeder / VisitFlowEngine）；
+  - FHIR 演示种子挂号 `visit_seq` 改为按科室当日最大序号 +1，避免与既有就诊链
+    触发唯一索引 `idx_registrations_dept_date_seq` 冲突。
+
+### 新增
+- **造数前自动备份主库**：`--all` / `--scene=demo` / `--scene=fhir` 等会清空旧业务数据的
+  全量场景，运行前自动将 `data/db/clinic_main.db` 备份到 `data/db/backups/`（保留最近 10 份），
+  防止误清空造成不可逆损失；`.gitignore` 同步忽略该备份目录。
+
+> 说明：本次已用修复后的 CLI 重新生成完整测试数据集（字典 + 就诊链 + FHIR 三套旅程）。
+
+---
+
 ## [8.42.26] - 2026-10-03
 
 ### 修复
