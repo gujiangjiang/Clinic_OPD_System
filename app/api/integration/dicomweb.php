@@ -271,12 +271,13 @@ function dw_series_list($ref) {
         $out = array();
         foreach ($meta['series'] as $s) {
             if (!is_array($s)) continue;
-            $out[] = array(
-                'uid' => isset($s['uid']) ? (string)$s['uid'] : '',
-                'modality' => dw_modality(isset($s['modality']) && $s['modality'] !== '' ? $s['modality'] : (string)$ref['modality']),
-                'description' => isset($s['description']) ? (string)$s['description'] : '',
-                'instances' => isset($s['instances']) ? (int)$s['instances'] : 0,
-            );
+            // 完整透传区域 PACS 的序列元数据（含像素 / 窗宽窗位 / 几何参数），
+            // 供实例列表与 metadata 端点输出，避免客户端缺失这些字段。
+            $s['uid'] = isset($s['uid']) ? (string)$s['uid'] : '';
+            $s['modality'] = dw_modality(isset($s['modality']) && $s['modality'] !== '' ? $s['modality'] : (string)$ref['modality']);
+            $s['description'] = isset($s['description']) ? (string)$s['description'] : '';
+            $s['instances'] = isset($s['instances']) ? (int)$s['instances'] : 0;
+            $out[] = $s;
         }
         if ($out) return $out;
     }
@@ -410,7 +411,8 @@ function dw_series_obj($s, $normStudy, $n) {
 /** 单实例 DICOM JSON（metadata 与 instances 共用） */
 function dw_instance_obj($ref, $s, $n, $seUid, $i, $normStudy, $pname, $psex, $pbirth, $page, $studyDesc) {
     $item = array(
-        '00080016' => dw_tag('UI', dw_sop_class($s['modality'])),   // SOP Class UID（按模态）
+        // SOP Class UID：优先区域 PACS 透传，缺省按模态推导
+        '00080016' => dw_tag('UI', !empty($s['sop_class_uid']) ? (string)$s['sop_class_uid'] : dw_sop_class($s['modality'])),
         '00080018' => dw_tag('UI', $seUid . '.' . $i),              // SOP Instance UID
         '00080020' => dw_tag('DA', dw_date(dw_exam_dt($ref))),
         '00080030' => dw_tag('TM', dw_time(dw_exam_dt($ref))),
@@ -431,6 +433,22 @@ function dw_instance_obj($ref, $s, $n, $seUid, $i, $normStudy, $pname, $psex, $p
     if ($pname === '') unset($item['00100010']);
     if ($studyDesc !== '') $item['00081030'] = dw_tag('LO', $studyDesc);
     if ($s['description'] !== '') $item['0008103E'] = dw_tag('LO', $s['description']);
+
+    // ---- 像素 / 几何元数据透传（区域 PACS 登记时采集，客户端据此渲染 / 测量，无需再推断）----
+    $has = function ($k) use ($s) { return isset($s[$k]) && $s[$k] !== '' && $s[$k] !== 0 && $s[$k] !== '0'; };
+    if ($has('frames_per_instance')) $item['00280008'] = dw_tag('IS', (string)max(1, (int)$s['frames_per_instance']));
+    if ($has('rows')) $item['00280010'] = dw_tag('US', (string)(int)$s['rows']);
+    if ($has('columns')) $item['00280011'] = dw_tag('US', (string)(int)$s['columns']);
+    if ($has('bits_allocated')) $item['00280100'] = dw_tag('US', (string)(int)$s['bits_allocated']);
+    if ($has('bits_stored')) $item['00280101'] = dw_tag('US', (string)(int)$s['bits_stored']);
+    if (isset($s['pixel_representation'])) $item['00280103'] = dw_tag('US', (string)(int)$s['pixel_representation']);
+    if ($has('window_center')) $item['00281050'] = dw_tag('DS', (string)$s['window_center']);
+    if ($has('window_width')) $item['00281051'] = dw_tag('DS', (string)$s['window_width']);
+    if (isset($s['rescale_intercept'])) $item['00281052'] = dw_tag('DS', (string)$s['rescale_intercept']);
+    if (isset($s['rescale_slope'])) $item['00281053'] = dw_tag('DS', (string)$s['rescale_slope']);
+    if ($has('pixel_spacing')) $item['00280030'] = dw_tag('DS', (string)$s['pixel_spacing']);
+    if ($has('slice_thickness')) $item['00180050'] = dw_tag('DS', (string)$s['slice_thickness']);
+    if ($has('orientation')) $item['00200037'] = dw_tag('DS', (string)$s['orientation']);
     return $item;
 }
 

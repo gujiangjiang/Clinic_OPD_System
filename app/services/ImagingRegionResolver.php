@@ -53,6 +53,42 @@ class ImagingRegionResolver {
         return (isset($obj[$t]['Value'][0]) && !is_array($obj[$t]['Value'][0])) ? (string)$obj[$t]['Value'][0] : '';
     }
 
+    /** 取数值型标签（DS/IS/US），无值返回 0 */
+    private static function num($obj, $t) {
+        $s = self::tag($obj, $t);
+        if ($s === '') return 0;
+        $f = (float)$s;
+        return is_finite($f) ? $f : 0;
+    }
+
+    /**
+     * 取区域 PACS 某序列首个实例的像素 / 几何元数据（仅取 1 条，轻量）。
+     * 用于把模拟器 / 区域 PACS 的窗宽窗位、像素间距、矩阵等透传给客户端，
+     * 避免「只存引用」导致检查对象缺失这些字段（客户端不必再从 DICOM 文件推断）。
+     */
+    private static function firstInstanceMeta($studyUid, $seUid) {
+        if ($seUid === '') return array();
+        $res = self::getJson('/studies/' . rawurlencode($studyUid) . '/series/' . rawurlencode($seUid) . '/instances', array('limit' => 1));
+        $o = (is_array($res) && isset($res[0]) && is_array($res[0])) ? $res[0] : array();
+        if (!$o) return array();
+        return array(
+            'frames_per_instance' => max(1, (int)self::num($o, '00280008')),
+            'rows' => (int)self::num($o, '00280010'),
+            'columns' => (int)self::num($o, '00280011'),
+            'bits_allocated' => (int)self::num($o, '00280100'),
+            'bits_stored' => (int)self::num($o, '00280101'),
+            'pixel_representation' => (int)self::num($o, '00280103'),
+            'window_center' => self::num($o, '00281050'),
+            'window_width' => self::num($o, '00281051'),
+            'rescale_intercept' => self::num($o, '00281052'),
+            'rescale_slope' => self::num($o, '00281053'),
+            'pixel_spacing' => self::num($o, '00280030'),
+            'slice_thickness' => self::num($o, '00180050'),
+            'orientation' => self::tag($o, '00200037'),
+            'sop_class_uid' => self::tag($o, '00080016'),
+        );
+    }
+
     /** 是否标准 DICOM UID（数字与点、至少两段、无前导零、≤64）；见 imaging_is_standard_uid */
     public static function isRealUid($uid) {
         return function_exists('imaging_is_standard_uid')
@@ -81,12 +117,14 @@ class ImagingRegionResolver {
             if ($seUid === '') continue;
             $n = (int)self::tag($s, '00201209');
             if ($n < 0) $n = 0;
-            $series[] = array(
+            // 透传像素 / 几何元数据（窗宽窗位、像素间距、矩阵、层厚、方位等）
+            $pix = ($n > 0) ? self::firstInstanceMeta($uid, $seUid) : array();
+            $series[] = array_merge(array(
                 'uid' => $seUid,
                 'description' => self::tag($s, '0008103E'),
                 'modality' => self::tag($s, '00080060'),
                 'instances' => $n,
-            );
+            ), $pix);
             $total += $n;
         }
         return array('uid' => $uid, 'series' => $series, 'instance_count' => $total,
@@ -120,12 +158,8 @@ class ImagingRegionResolver {
             $i++;
             $seUid = self::isRealUid($s['uid']) ? (string)$s['uid'] : ($studyUid . '.' . $i);
             $n = max(0, (int)$s['instances']);
-            $series[] = array(
-                'uid' => $seUid,
-                'description' => (string)$s['description'],
-                'modality' => (string)$s['modality'],
-                'instances' => $n,
-            );
+            // 保留区域透传的像素 / 几何元数据，仅规范化 UID 与实例数
+            $series[] = array_merge($s, array('uid' => $seUid, 'instances' => $n));
             $seriesUids[] = $seUid;
             $total += $n;
         }

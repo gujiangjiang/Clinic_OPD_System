@@ -29,7 +29,9 @@ $upgraded = 0; $refreshed = 0; $already = 0; $unresolved = 0; $deleted = 0; $det
 foreach ($rows as $r) {
     $uid = (string)$r['study_uid'];
     $meta = json_decode((string)$r['meta_json'], true);
-    $needMeta = !(is_array($meta) && !empty($meta['region_name']) && !empty($meta['station_name']));
+    $hasPix = is_array($meta) && !empty($meta['series']) && is_array($meta['series'])
+        && isset($meta['series'][0]['rows']) && (int)$meta['series'][0]['rows'] > 0;
+    $needMeta = !(is_array($meta) && !empty($meta['region_name']) && !empty($meta['station_name']) && $hasPix);
     if (ImagingRegionResolver::isRealUid($uid) && !$needMeta) { $already++; continue; }
     $itemId = (int)$r['order_item_id'];
     $resolved = null;
