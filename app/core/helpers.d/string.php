@@ -9,6 +9,10 @@
 
 /** HTML 输出转义（防止 XSS，所有动态内容输出前必须经过 e()） */
 function e($s) {
+    // 容错：数组/对象先转 JSON，避免“Array to string conversion”警告（如误将数组传入）
+    if (is_array($s) || is_object($s)) {
+        $s = json_encode($s, JSON_UNESCAPED_UNICODE);
+    }
     return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 }
 
