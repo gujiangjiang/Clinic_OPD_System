@@ -231,16 +231,22 @@ function dw_study_obj($ref, $patient) {
     // 本地无实例数（仅存引用）时回源区域 PACS：据检查号解析真实影像数量，
     // 使客户端正确识别「有影像」，并在 WADO 阶段按真实 UID 回源取像。
     $instCnt = (int)$ref['instance_count'];
+    $reg = null;
     if ($instCnt <= 0) {
         $reg = dw_region_study($ref);
         if ($reg) { $instCnt = max(1, (int)$reg['instances']); $seriesCnt = max($seriesCnt, (int)$reg['series']); }
     }
-    // 设备名 / 机构名：登记解析时由区域 PACS QIDO 写入 meta（StationName/InstitutionName），
-    // 与模拟服务器对外对象保持一致（避免链路中丢失设备名）。
+    // 设备名 / 机构名：登记解析时由区域 PACS QIDO 写入 meta（StationName/InstitutionName）；
+    // 本地引用缺失（如历史数据 / 数据播种）时，回退到区域 PACS 索引，避免链路中丢失设备名。
     $refMeta = json_decode((string)$ref['meta_json'], true);
     if (!is_array($refMeta)) $refMeta = array();
     $station = isset($refMeta['station_name']) ? (string)$refMeta['station_name'] : '';
     $instName = !empty($refMeta['region_name']) ? (string)$refMeta['region_name'] : dw_institution();
+    if ($station === '' && $reg === null) $reg = dw_region_study($ref);
+    if ($reg) {
+        if ($station === '' && !empty($reg['station'])) $station = (string)$reg['station'];
+        if (empty($refMeta['region_name']) && !empty($reg['institution'])) $instName = (string)$reg['institution'];
+    }
     $obj = array(
         '00080020' => dw_tag('DA', dw_date(dw_exam_dt($ref))),
         '00080030' => dw_tag('TM', dw_time(dw_exam_dt($ref))),
@@ -491,6 +497,11 @@ function dw_outbound_get($path) {
 function dw_region_index() {
     static $idx = null;
     if ($idx !== null) return $idx;
+    $ck = 'call:region_index_' . md5(dw_outbound_base());
+    if (class_exists('Cache')) {
+        $c = Cache::get($ck, null);
+        if (is_array($c)) { $idx = $c; return $idx; }
+    }
     $idx = array();
     $resp = dw_outbound_get('/studies?' . http_build_query(array('includefield' => 'all', 'limit' => 2000)));
     if ($resp && (int)$resp['status'] >= 200 && (int)$resp['status'] < 300) {
@@ -506,10 +517,15 @@ function dw_region_index() {
                     if (!empty($s[$t]['Value'][0])) { $se = (int)$s[$t]['Value'][0]; break; }
                 }
                 $inst = !empty($s['00201208']['Value'][0]) ? (int)$s['00201208']['Value'][0] : ($se > 0 ? 1 : 0);
-                $idx[$acc] = array('uid' => $uid, 'series' => $se, 'instances' => $inst);
+                // 设备名 / 机构名：区域 PACS QIDO 的 StationName / InstitutionName（供本地引用缺失时回退展示）
+                $station = !empty($s['00081010']['Value'][0]) ? (string)$s['00081010']['Value'][0] : '';
+                $instName = !empty($s['00080080']['Value'][0]) ? (string)$s['00080080']['Value'][0] : '';
+                $idx[$acc] = array('uid' => $uid, 'series' => $se, 'instances' => $inst,
+                    'station' => $station, 'institution' => $instName);
             }
         }
     }
+    if (class_exists('Cache') && $idx) Cache::set($ck, $idx, 120);   // 短时缓存，避免每次检索都回源区域 PACS
     return $idx;
 }
 
