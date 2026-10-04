@@ -26,6 +26,8 @@ $__isAdmin = Auth::user() && Auth::user()['role'] === 'admin';
 
 <script>
 var LAB_CAT = '';
+/* HTML 转义：项目/组合/分类/单位名称可经 HIS 目录同步写入，输出前必须转义（防存储型 XSS） */
+function labEsc(s) { return Clinic.escHtml(s == null ? '' : String(s)); }
 var IS_ADMIN = document.body.getAttribute('data-role') === 'admin';
 if (!IS_ADMIN) {
     var cb = document.getElementById('labComboBtn'); if (cb) cb.style.display = 'none';
@@ -75,7 +77,7 @@ function openComboMgr() {
 function renderComboMgr() {
     var leftList = COMBOS.map(function (c) {
         return '<div class="combo-item" onclick="selectCombo(' + c.id + ')" id="comboRow_' + c.id + '">' +
-            c.name + ' <span class="text-muted fs-12">（' + (c.member_count || 0) + ' 项）</span></div>';
+            labEsc(c.name) + ' <span class="text-muted fs-12">（' + (c.member_count || 0) + ' 项）</span></div>';
     }).join('') || '<div class="text-muted fs-13" style="padding:10px">暂无检验组合</div>';
     var html =
         '<div class="combo-mgr">' +
@@ -110,10 +112,10 @@ function selectCombo(id) {
             '<th>项目名称</th><th>分类</th><th>价格</th><th>单位</th><th>操作</th>' +
             '</tr></thead><tbody>' + members.map(function (m) {
                 return '<tr>' +
-                    '<td class="fw-600">' + m.name + '</td>' +
-                    '<td class="fs-12">' + (m.category || '—') + '</td>' +
+                    '<td class="fw-600">' + labEsc(m.name) + '</td>' +
+                    '<td class="fs-12">' + (m.category ? labEsc(m.category) : '—') + '</td>' +
                     '<td>' + Clinic.money(parseFloat(m.price)) + '</td>' +
-                    '<td class="fs-12">' + (m.unit || '—') + '</td>' +
+                    '<td class="fs-12">' + (m.unit ? labEsc(m.unit) : '—') + '</td>' +
                     '<td style="white-space:nowrap">' + (IS_ADMIN
                     ? '<button class="btn btn-outline btn-sm" onclick="openItemForm(' + m.id + ')">编辑</button> ' +
                       '<button class="btn btn-outline btn-sm" onclick="removeFromCombo(' + m.id + ')">移除</button>'
@@ -125,9 +127,9 @@ function selectCombo(id) {
         (members || []).forEach(function (mm) { memberFee += parseFloat(mm.price) || 0; });
         document.getElementById('comboRight').innerHTML =
             '<div class="combo-right-head">' +
-            '  <div class="form-row"><div class="form-group"><label>组合名称</label><input class="input" id="cgName" value="' + jsE(CUR_COMBO.name) + '"></div>' +
+            '  <div class="form-row"><div class="form-group"><label>组合名称</label><input class="input" id="cgName" value="' + labEsc(CUR_COMBO.name) + '"></div>' +
             '  <div class="form-group"><label>组合价格</label><input class="input" type="number" step="0.01" id="cgPrice" value="' + parseFloat(CUR_COMBO.price).toFixed(2) + '"></div>' +
-            '  <div class="form-group"><label>分类</label><input class="input" id="cgCat" value="' + jsE(CUR_COMBO.category || '') + '"></div></div>' +
+            '  <div class="form-group"><label>分类</label><input class="input" id="cgCat" value="' + labEsc(CUR_COMBO.category || '') + '"></div></div>' +
             '  <div class="flex gap-4 mt-4">' + (IS_ADMIN
                 ? '<button class="btn btn-primary btn-sm" onclick="saveComboInfo()">' + renderIconSvg('action:save') + ' 保存组合</button>' +
                   '<button class="btn btn-danger btn-sm" onclick="delCombo(' + CUR_COMBO.id + ')">' + renderIconSvg('action:delete') + ' 删除组合</button>'
@@ -154,7 +156,7 @@ function saveComboInfo() {
             Clinic.get('/api/admin?action=lab_groups', null, { onSuccess: function (j2) {
                 COMBOS = j2.data.list || [];
                 var list = document.getElementById('comboList');
-                list.innerHTML = COMBOS.map(function (c) { return '<div class="combo-item" onclick="selectCombo(' + c.id + ')" id="comboRow_' + c.id + '">' + c.name + ' <span class="text-muted fs-12">（' + (c.member_count || 0) + ' 项）</span></div>'; }).join('');
+                list.innerHTML = COMBOS.map(function (c) { return '<div class="combo-item" onclick="selectCombo(' + c.id + ')" id="comboRow_' + c.id + '">' + labEsc(c.name) + ' <span class="text-muted fs-12">（' + (c.member_count || 0) + ' 项）</span></div>'; }).join('');
                 selectCombo(CUR_COMBO.id);
             } });
         },
@@ -198,7 +200,7 @@ function doNewCombo() {
             Clinic.get('/api/admin?action=lab_groups', null, { onSuccess: function (j2) {
                 COMBOS = j2.data.list || [];
                 var list = document.getElementById('comboList');
-                list.innerHTML = COMBOS.map(function (c) { return '<div class="combo-item" onclick="selectCombo(' + c.id + ')" id="comboRow_' + c.id + '">' + c.name + ' <span class="text-muted fs-12">（' + (c.member_count || 0) + ' 项）</span></div>'; }).join('');
+                list.innerHTML = COMBOS.map(function (c) { return '<div class="combo-item" onclick="selectCombo(' + c.id + ')" id="comboRow_' + c.id + '">' + labEsc(c.name) + ' <span class="text-muted fs-12">（' + (c.member_count || 0) + ' 项）</span></div>'; }).join('');
                 selectCombo(j.data.id);
             } });
         },
@@ -211,7 +213,7 @@ function delCombo(id) {
                 Clinic.toast.success(j.msg);
                 Clinic.get('/api/admin?action=lab_groups', null, { onSuccess: function (j2) {
                     COMBOS = j2.data.list || [];
-                    document.getElementById('comboList').innerHTML = COMBOS.map(function (c) { return '<div class="combo-item" onclick="selectCombo(' + c.id + ')" id="comboRow_' + c.id + '">' + c.name + ' <span class="text-muted fs-12">（' + (c.member_count || 0) + ' 项）</span></div>'; }).join('');
+                    document.getElementById('comboList').innerHTML = COMBOS.map(function (c) { return '<div class="combo-item" onclick="selectCombo(' + c.id + ')" id="comboRow_' + c.id + '">' + labEsc(c.name) + ' <span class="text-muted fs-12">（' + (c.member_count || 0) + ' 项）</span></div>'; }).join('');
                     document.getElementById('comboRight').innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">选择一个检验组合</div>';
                 } });
             },
@@ -233,9 +235,18 @@ function showAddItemPop() {
         '<div class="fs-13 fw-700 mb-8" style="flex-shrink:0">添加项目到组合</div>' +
         '<div class="input-wrap" style="flex-shrink:0"><span class="input-icon">' + renderIconSvg('action:search') + '</span><input class="input" id="aiSearch" placeholder="搜索项目" autocomplete="off" oninput="filterAICands()"></div>' +
         '<div class="mt-8" id="aiList" style="flex:1;min-height:0;overflow-y:auto">' + (candidates.length ? candidates.map(function (c) {
-            return '<div class="combo-cand-item" onclick="addToCombo(' + c.id + ',\'' + jsE(c.name) + '\')">' + c.name + ' <span class="text-muted fs-12">' + Clinic.money(parseFloat(c.price)) + ' ｜' + c.category + '</span></div>';
+            return '<div class="combo-cand-item" data-add="' + c.id + '">' + labEsc(c.name) + ' <span class="text-muted fs-12">' + Clinic.money(parseFloat(c.price)) + ' ｜' + labEsc(c.category) + '</span></div>';
         }).join('') : '<div class="text-muted fs-12" style="padding:8px">无可用单独项目（所有项目已加入组合或不存在）</div>') + '</div>';
     document.body.appendChild(pop);
+    /* 候选项目点击：事件委托（data-add 传 id，避免内联 onclick 拼串注入） */
+    document.getElementById('aiList').addEventListener('click', function (e) {
+        var el = e.target.closest('.combo-cand-item[data-add]');
+        if (!el) return;
+        var id = parseInt(el.getAttribute('data-add'), 10);
+        var cand = null;
+        for (var i = 0; i < COMBO_CANDS.length; i++) { if (COMBO_CANDS[i].id === id) { cand = COMBO_CANDS[i]; break; } }
+        if (cand) addToCombo(id, cand.name);
+    });
     var btn = document.querySelector('.combo-right-bar .btn-outline') || document.querySelector('.combo-right .btn-outline');
     var rect = btn.getBoundingClientRect();
     pop.style.top = Math.min(rect.bottom + 8, window.innerHeight - 380) + 'px';
@@ -278,14 +289,13 @@ function refreshComboCounts() {
                 var el = document.getElementById('comboRow_' + c.id);
                 if (el) {
                     var active = el.classList.contains('active');
-                    el.innerHTML = c.name + ' <span class="text-muted fs-12">（' + (c.member_count || 0) + ' 项）</span>';
+                    el.innerHTML = labEsc(c.name) + ' <span class="text-muted fs-12">（' + (c.member_count || 0) + ' 项）</span>';
                     if (active) el.classList.add('active');
                 }
             });
         },
     });
 }
-function jsE(s) { return String(s || '').replace(/&/g, '&amp;').replace(/'/g, '\\\'').replace(/"/g, '&quot;'); }
 
 /* 分类管理（统一走 Clinic.adminItems 公共组件） */
 function openCatMgr() {
