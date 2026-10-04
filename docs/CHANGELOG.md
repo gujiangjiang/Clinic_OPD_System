@@ -13,6 +13,16 @@
 
 ---
 
+## [9.0.11] - 2026-10-04
+
+### 安全
+- **退出登录会话未彻底销毁**：`Auth::logout()` 原先仅 `unset($_SESSION['auth_user'])`
+  并 `session_regenerate_id(true)`，csrf/验证码/迁移令牌等会话状态仍残留在共享或远程
+  （redis/memcached）后端。现新增 `Session::destroy()`（清空会话数据 → 失效 Cookie →
+  `session_destroy()`，驱动无关），登出即彻底销毁会话。
+
+---
+
 ## [9.0.10] - 2026-10-04
 
 ### 修复

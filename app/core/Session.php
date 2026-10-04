@@ -204,4 +204,30 @@ class Session {
             session_write_close();
         }
     }
+
+    /**
+     * 彻底销毁当前会话（登出专用）：
+     * 清空会话数据 → 失效会话 Cookie → session_destroy()。
+     * 驱动无关：files 删除会话文件，redis/memcached 通知对应 handler 删除，
+     * 避免仅 unset 单项导致残留状态在共享/远程后端仍然可用。
+     */
+    public static function destroy() {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return;
+        }
+        $_SESSION = array();
+        if (ini_get('session.use_cookies')) {
+            $p = session_get_cookie_params();
+            setcookie(
+                session_name(),
+                '',
+                time() - 42000,
+                isset($p['path']) ? $p['path'] : '/',
+                isset($p['domain']) ? $p['domain'] : '',
+                !empty($p['secure']),
+                !empty($p['httponly'])
+            );
+        }
+        session_destroy();
+    }
 }

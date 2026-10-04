@@ -218,8 +218,9 @@ class Auth {
                     '用户「' . $u['name'] . '」退出登录', 'info', (string)$u['id']);
             }
         }
-        unset($_SESSION['auth_user']);
-        session_regenerate_id(true);
+        // 彻底销毁会话（清空全部会话数据 + 失效 Cookie），避免仅清 auth_user 后
+        // csrf/验证码/迁移令牌等残留状态在共享或远程会话后端继续可用
+        Session::destroy();
     }
 
     /** 是否具备指定角色（admin 拥有全部角色权限，可访问所有功能） */
