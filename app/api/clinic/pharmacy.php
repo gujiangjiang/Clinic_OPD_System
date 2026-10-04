@@ -153,8 +153,7 @@ switch ($action) {
                 $affected = OrderRepository::exec("UPDATE orders SET status='rejected' WHERE id=? AND status='paid'", array($orderId));
                 if ($affected === 0) { DatabaseManager::rollbackTx($pdo); json_fail('该处方已被处理，请刷新后重试'); }
                 foreach ($allRxItems as $it) {
-                    $factor = ($it['unit_type'] === 'min') ? 1 : max(1, (int)(isset($it['pack_size']) ? $it['pack_size'] : 1));
-                    $restore = max(1, (int)$it['quantity']) * $factor;
+                    $restore = order_item_stock_qty($it);
                     OrderRepository::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array($restore, $it['item_id']));
                     OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref_no, operator, created_at) VALUES(?,?,?,?,?,?)', array(
                         $it['item_id'], $restore, 'order_reject', $order['order_no'], $u['name'], now_str(),

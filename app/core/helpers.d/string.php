@@ -232,6 +232,20 @@ function drug_stock_factor($r, $unitType) {
 }
 
 /**
+ * 开单明细库存折算（最小单位）：拆零（unit_type=min）→ 数量；整包装（pack）→ 数量 × pack_size。
+ * 开单扣减 / 删除回补 / 退费恢复 / 审方驳回恢复统一口径，杜绝单位混淆导致的错扣/漏扣。
+ * @param array $it order_items 行（需含 unit_type/pack_size/quantity）
+ * @return int 最小单位数量（至少 1）
+ */
+function order_item_stock_qty($it) {
+    $it = is_array($it) ? $it : array();
+    $unitType = isset($it['unit_type']) ? $it['unit_type'] : 'pack';
+    $factor = ($unitType === 'min') ? 1 : max(1, (int)(isset($it['pack_size']) ? $it['pack_size'] : 1));
+    $qty = (int)(isset($it['quantity']) ? $it['quantity'] : 1);
+    return max(1, $qty) * $factor;
+}
+
+/**
  * 药品库存最小单位铁律兜底校验（服务端）：
  * 不可拆零药品仅按整盒销售，库存必须为 盒数×pack_size 的整数倍——
  * 前端提交已按最小单位换算，此处防直连接口以「盒数」语义提交破坏 unit 口径。

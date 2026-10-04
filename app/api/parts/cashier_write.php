@@ -332,8 +332,7 @@ function cashier_part_write($action) {
             if ($order['order_type'] === 'prescription') {
                 foreach ($items as $it) {
                     if ($it['item_id'] > 0 && in_array($it['status'], array('paid', 'dispensing', 'dispensed'), true)) {
-                        $factor = ($it['unit_type'] === 'min') ? 1 : max(1, (int)(isset($it['pack_size']) ? $it['pack_size'] : 1));
-                        $restore = max(1, (int)$it['quantity']) * $factor;
+                        $restore = order_item_stock_qty($it);
                         CashierRepository::restoreDrugStock($it['item_id'], $restore);
                         CashierRepository::createInventoryTrans((int)$it['item_id'], $restore, 'refund', $order['order_no'], $u['name']);
                     }

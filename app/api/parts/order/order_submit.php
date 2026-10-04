@@ -457,8 +457,7 @@ function order_part_submit($u) {
                 $it = $orderItems[$i];
                 if ((int)$it['item_id'] > 0) {
                     // 库存统一为最小单位口径：整盒售出扣减 数量×pack_size，拆零按实际支/粒数（系数1）
-                    $factor = ($it['unit_type'] === 'min') ? 1 : max(1, (int)$it['pack_size']);
-                    $deduct = max(1, (int)$it['quantity']) * $factor;
+                    $deduct = order_item_stock_qty($it);
                     // 原子条件更新：仅当库存充足时扣减，避免 TOCTOU 竞态
                     // 预检（line 前段）仅作快速提示，此处才是最终校验
                     $affected = OrderRepository::exec('UPDATE drugs SET qty = qty - ? WHERE id=? AND qty >= ?',

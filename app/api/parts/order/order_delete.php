@@ -51,8 +51,7 @@ function order_part_delete($u) {
             foreach ($items as $it) {
                 if ($it['item_id'] > 0 && $it['status'] === 'open') {
                     // 回补口径与开单扣减一致：整盒按 数量×pack_size、拆零按实际数量（最小单位）
-                    $factor = ((isset($it['unit_type']) ? $it['unit_type'] : 'pack') === 'min') ? 1 : max(1, (int)(isset($it['pack_size']) ? $it['pack_size'] : 1));
-                    $restore = max(1, (int)$it['quantity']) * $factor;
+                    $restore = order_item_stock_qty($it);
                     OrderRepository::exec('UPDATE drugs SET qty = qty + ? WHERE id=?', array($restore, $it['item_id']));
                     OrderRepository::insert('INSERT INTO inventory_trans(drug_id, qty_change, type, ref_no, operator, created_at) VALUES(?,?,?,?,?,?)', array(
                         $it['item_id'], $restore, 'order_restore', $order['order_no'], $u['name'], now_str(),
