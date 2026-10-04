@@ -174,6 +174,16 @@ function install_validate_icd10($rel) {
     return '';
 }
 
+/* ==================== 已安装守卫（探测类接口） ====================
+ * 系统安装完成后，安装向导页面已被 Router 拦截，但 API 可被直接调用：
+ * test_db/check_db/load_db_settings/test_cache 会连接任意远程库、读取机构设置
+ * 或创建 SQLite 文件，属未鉴权探测面。此处统一关闭（安装期间 isSystemInstalled()
+ * 为 false，向导行为不受影响）。 */
+if (in_array($action, array('test_db', 'check_db', 'load_db_settings', 'test_cache', 'test_redis'), true)
+    && ConfigStore::isSystemInstalled()) {
+    json_fail('系统已安装，安装接口已关闭');
+}
+
 /* ==================== 数据库连接测试 ====================
  * 统一走 ConnectionTester（安装向导 / 系统设置共用同一实现） */
 if ($action === 'test_db') {
