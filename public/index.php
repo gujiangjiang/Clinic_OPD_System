@@ -54,7 +54,7 @@ if (preg_match('#^/api/([a-z0-9_]+)(/.*)?$#i', $uri, $m)) {
     $apiSub = isset($m[2]) ? ltrim($m[2], '/') : '';
     // 数据库迁移/切换锁定：除迁移状态接口外，全站 API 拦截至锁定页
     // （running=迁移中 / done=迁移完成待确认切换）
-    require_once APP_ROOT . '/app/core/MigrationRunner.php';
+    require_once APP_ROOT . '/app/core/db/MigrationRunner.php';
     if (MigrationRunner::isLocked() && $apiName !== 'migration') {
         require APP_ROOT . '/app/includes/migrating_lock.php';
         exit;
@@ -119,7 +119,7 @@ function api_route_file($apiName) {
 }
 
 /* ---------- 数据库迁移/切换锁定：全站页面拦截 ---------- */
-require_once APP_ROOT . '/app/core/MigrationRunner.php';
+require_once APP_ROOT . '/app/core/db/MigrationRunner.php';
 if (MigrationRunner::isLocked()) {
     require APP_ROOT . '/app/includes/migrating_lock.php';
     exit;

@@ -11,7 +11,7 @@
  *   4. done     迁移结果已处理（暂不切换，清除状态）
  * ============================================================ */
 
-require_once APP_ROOT . '/app/core/MigrationRunner.php';
+require_once APP_ROOT . '/app/core/db/MigrationRunner.php';
 
 $action = isset($_REQUEST['action']) ? trim((string)$_REQUEST['action']) : '';
 

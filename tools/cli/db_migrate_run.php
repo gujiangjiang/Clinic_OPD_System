@@ -17,8 +17,8 @@ ini_set('display_errors', '0');
 define('APP_ROOT', dirname(dirname(__DIR__)));
 require APP_ROOT . '/app/config/bootstrap.php';
 
-require_once APP_ROOT . '/app/core/MigrationRunner.php';
-require_once APP_ROOT . '/app/core/DatabaseMigrator.php';
+require_once APP_ROOT . '/app/core/db/MigrationRunner.php';
+require_once APP_ROOT . '/app/core/db/DatabaseMigrator.php';
 
 $token = isset($argv[1]) ? trim((string)$argv[1]) : '';
 $state = MigrationRunner::state();

@@ -228,7 +228,7 @@ function admin_part_sysinfo($action) {
         if (!$chk['ok']) json_fail('目标数据库不可用，已拒绝迁移：' . $chk['msg']);
         // 后台任务启动（MigrationRunner）：迁移独立进程执行，刷新不中断；
         // 全站锁定 + 进度条 + 管理员取消 + 成功确认切换
-        require_once APP_ROOT . '/app/core/MigrationRunner.php';
+        require_once APP_ROOT . '/app/core/db/MigrationRunner.php';
         $cur = DatabaseManager::driver();
         if ($cur === $toDriver) json_fail('目标驱动与当前驱动相同，无需迁移');
         $r = MigrationRunner::start($cur, $toDriver, $toParams);
@@ -253,7 +253,7 @@ function admin_part_sysinfo($action) {
         // 切换前强校验目标库可用性（不可用则拒绝切换）
         $chk = ConnectionTester::db($toDriver, $toParams);
         if (!$chk['ok']) json_fail('目标数据库不可用，已拒绝切换：' . $chk['msg']);
-        require_once APP_ROOT . '/app/core/MigrationRunner.php';
+        require_once APP_ROOT . '/app/core/db/MigrationRunner.php';
         $r = MigrationRunner::switchDirect($toDriver, $toParams);
         if ($r['ok']) json_ok(array(), $r['msg']);
         json_fail($r['msg']);
@@ -286,7 +286,7 @@ function admin_part_sysinfo($action) {
 
     /* ==================== 备份/双向操作日志 ==================== */
     if ($action === 'backup_logs') {
-        require_once APP_ROOT . '/app/core/MigrationRunner.php';
+        require_once APP_ROOT . '/app/core/db/MigrationRunner.php';
         $page = max(1, (int)get('page', 1));
         $size = min(200, max(10, (int)get('size', 100)));
         $all = MigrationRunner::logs(5000);
@@ -295,12 +295,12 @@ function admin_part_sysinfo($action) {
         json_ok(array('lines' => $lines, 'total' => $total));
     }
     if ($action === 'backup_log_clear') {
-        require_once APP_ROOT . '/app/core/MigrationRunner.php';
+        require_once APP_ROOT . '/app/core/db/MigrationRunner.php';
         MigrationRunner::clearLogs();
         json_ok(array(), '日志已清空');
     }
     if ($action === 'backup_log_export') {
-        require_once APP_ROOT . '/app/core/MigrationRunner.php';
+        require_once APP_ROOT . '/app/core/db/MigrationRunner.php';
         $f = MigrationRunner::logFile();
         if (!is_file($f)) json_fail('暂无日志可导出');
         // 导出 .log 文件（文件名带日期时间戳）
@@ -324,7 +324,7 @@ function admin_part_sysinfo($action) {
         }
         ConfigStore::set('dual_write.enabled', $enabled);
         ConfigStore::resetCache();
-        require_once APP_ROOT . '/app/core/MigrationRunner.php';
+        require_once APP_ROOT . '/app/core/db/MigrationRunner.php';
         MigrationRunner::log('dual', ($enabled === '1' ? '开启双向实时同步（RAID1 式双写，目标备份库 ' : '关闭双向实时同步（目标备份库 ') . strtoupper(ConfigStore::get('backup.driver', '')) . '）');
         json_ok(array('enabled' => $enabled), $enabled === '1' ? '双向实时同步已开启：每次写入实时镜像到备份库（失败自动降级，不影响主库体验）' : '双向实时同步已关闭');
     }
@@ -342,15 +342,15 @@ function admin_part_sysinfo($action) {
             'user' => ConfigStore::get('backup.' . $driver . '.user', ''),
             'pass' => ConfigStore::get('backup.' . $driver . '.pass', ''),
         );
-        require_once APP_ROOT . '/app/core/DatabaseMigrator.php';
+        require_once APP_ROOT . '/app/core/db/DatabaseMigrator.php';
         try {
             $r = DatabaseMigrator::backupTo($driver, $params);
-            require_once APP_ROOT . '/app/core/MigrationRunner.php';
+            require_once APP_ROOT . '/app/core/db/MigrationRunner.php';
             MigrationRunner::log('backup', '备份成功：共 ' . count($r['tables']) . ' 张表、' . $r['rows'] . ' 行数据同步到备份库（' . strtoupper($driver) . '）');
             json_ok(array('tables' => count($r['tables']), 'rows' => $r['rows'], 'driver' => $driver),
                 '备份完成：共 ' . count($r['tables']) . ' 张表、' . $r['rows'] . ' 行数据已同步到备份库（' . strtoupper($driver) . '）');
         } catch (Exception $ex) {
-            require_once APP_ROOT . '/app/core/MigrationRunner.php';
+            require_once APP_ROOT . '/app/core/db/MigrationRunner.php';
             MigrationRunner::log('backup', '备份失败：' . $ex->getMessage());
             json_fail('备份失败：' . $ex->getMessage());
         }
@@ -399,7 +399,7 @@ function admin_part_sysinfo($action) {
 /** 数据库中心活动任务汇总（迁移/切换/备份/双向，未启用不返回） */
 function self_active_tasks() {
     $out = array();
-    require_once APP_ROOT . '/app/core/MigrationRunner.php';
+    require_once APP_ROOT . '/app/core/db/MigrationRunner.php';
     // 迁移/切换任务
     $s = MigrationRunner::state();
     if ($s['status'] !== 'idle') {

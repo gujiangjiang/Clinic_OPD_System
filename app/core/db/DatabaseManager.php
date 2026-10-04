@@ -555,7 +555,7 @@ class DatabaseManager {
         } catch (Exception $ex) {
             error_log('[双写] 备份库写入失败（不影响主库）：' . $ex->getMessage());
             try {
-                require_once APP_ROOT . '/app/core/MigrationRunner.php';
+                require_once APP_ROOT . '/app/core/db/MigrationRunner.php';
                 MigrationRunner::log('dual', '镜像写入失败（不影响主库）：' . $ex->getMessage() . ' SQL=' . substr($sql, 0, 80));
             } catch (Exception $ex2) {}
         }

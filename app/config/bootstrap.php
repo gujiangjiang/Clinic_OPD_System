@@ -96,22 +96,22 @@ require_once APP_ROOT . '/app/includes/icons/IconHelper.php';
 /* ---------- 基础设施配置库（config.db）：Session/数据库驱动读取依赖，须先加载 ----------
  * 仅迁移旧位置 config.db，不自动新建——config.db 不存在即表示尚未安装，
  * 由安装向导在选定数据库后写入，避免在用户选择数据库前臆测连接目标。 */
-require_once __DIR__ . '/../core/ConfigStore.php';
+require_once __DIR__ . '/../core/db/ConfigStore.php';
 ConfigStore::migrateLegacy();
 
 /* ---------- 启动会话（Session 文件保存到 data/session，避开 Web 访问） ---------- */
-require_once __DIR__ . '/../core/Session.php';
+require_once __DIR__ . '/../core/auth/Session.php';
 Session::start();
 
 /* ---------- 引入核心类 ---------- */
-require_once __DIR__ . '/../core/DatabaseManager.php';
+require_once __DIR__ . '/../core/db/DatabaseManager.php';
 require_once __DIR__ . '/../core/IdObfuscator.php';
 require_once __DIR__ . '/../core/Cache.php';
-require_once __DIR__ . '/../core/ConnectionTester.php';
+require_once __DIR__ . '/../core/db/ConnectionTester.php';
 require_once __DIR__ . '/../core/DataExportImport.php';
-require_once __DIR__ . '/../core/CSRF.php';
-require_once __DIR__ . '/../core/LoginSecurity.php';
-require_once __DIR__ . '/../core/Auth.php';
+require_once __DIR__ . '/../core/auth/CSRF.php';
+require_once __DIR__ . '/../core/auth/LoginSecurity.php';
+require_once __DIR__ . '/../core/auth/Auth.php';
 require_once __DIR__ . '/../core/Upload.php';
 require_once __DIR__ . '/../core/Router.php';
 require_once __DIR__ . '/../core/EmrContextResolver.php';
