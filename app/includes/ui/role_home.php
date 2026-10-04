@@ -8,7 +8,7 @@
  * 仅配置不同。本文件统一渲染，消除 6 份重复模板。
  *
  * 调用方式（各角色 home.php）：
- *   require APP_ROOT . '/app/includes/role_home.php';
+ *   require APP_ROOT . '/app/includes/ui/role_home.php';
  *   render_role_home(array(
  *       'title'  => '收费处首页',
  *       'desc'   => '今日挂号收费概览',

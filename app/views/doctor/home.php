@@ -3,7 +3,7 @@
  * doctor/home.php — 医生首页
  * 展示个人今日接诊、开单收入、待办与近7天接诊趋势。
  */
-require APP_ROOT . '/app/includes/role_home.php';
+require APP_ROOT . '/app/includes/ui/role_home.php';
 render_role_home(array(
     'title' => '医生首页',
     'desc' => '个人今日工作概览',

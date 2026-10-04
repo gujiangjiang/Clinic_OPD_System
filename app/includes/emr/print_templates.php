@@ -16,18 +16,18 @@
  *   print/print_record.php  电子病历
  *   print/print_cert.php    诊断证明
  * ============================================================ */
-require_once APP_ROOT . '/app/includes/emr_formatter.php';
+require_once APP_ROOT . '/app/includes/emr/emr_formatter.php';
 
 /**
  * 条形码生成已独立到 app/core/barcode.php（barcode128_svg，纯 PHP Code 128 / SVG），
  * 由 bootstrap.php 全站加载，本文件直接调用即可。
  */
 
-require_once __DIR__ . '/print/print_common.php';
-require_once __DIR__ . '/print/print_receipt.php';
-require_once __DIR__ . '/print/print_order.php';
-require_once __DIR__ . '/print/print_report.php';
-require_once __DIR__ . '/print/print_record.php';
-require_once __DIR__ . '/print/print_cert.php';
-require_once __DIR__ . '/print/print_consent.php';
-require_once __DIR__ . '/print/print_consult.php';
+require_once __DIR__ . '/../print/print_common.php';
+require_once __DIR__ . '/../print/print_receipt.php';
+require_once __DIR__ . '/../print/print_order.php';
+require_once __DIR__ . '/../print/print_report.php';
+require_once __DIR__ . '/../print/print_record.php';
+require_once __DIR__ . '/../print/print_cert.php';
+require_once __DIR__ . '/../print/print_consent.php';
+require_once __DIR__ . '/../print/print_consult.php';

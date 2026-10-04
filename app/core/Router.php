@@ -205,7 +205,7 @@ class Router {
             self::notFound();
             return;
         }
-        require_once APP_ROOT . '/app/includes/layout.php';
+        require_once APP_ROOT . '/app/includes/ui/layout.php';
         ob_start();
         require $viewFile;
         $content = ob_get_clean();
@@ -269,7 +269,7 @@ class Router {
     /** 404 页面 */
     public static function notFound() {
         http_response_code(404);
-        require_once APP_ROOT . '/app/includes/layout.php';
+        require_once APP_ROOT . '/app/includes/ui/layout.php';
         echo Layout::authPage('<div class="auth-card"><div class="auth-title">404</div><div class="auth-sub">页面不存在或已被移除</div><p class="text-center"><a href="/">返回首页</a></p></div>');
         exit;
     }
@@ -277,7 +277,7 @@ class Router {
     /** 403 无权限页面 */
     public static function forbidden() {
         http_response_code(403);
-        require_once APP_ROOT . '/app/includes/layout.php';
+        require_once APP_ROOT . '/app/includes/ui/layout.php';
         echo Layout::authPage('<div class="auth-card"><div class="auth-title">403</div><div class="auth-sub">您没有权限访问该页面<br>请通过左侧菜单进入您的工作台</div><p class="text-center"><a href="' . Auth::home() . '">返回我的工作台</a></p></div>');
         exit;
     }

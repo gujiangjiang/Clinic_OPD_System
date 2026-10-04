@@ -4,7 +4,7 @@
  * lab/dashboard.php — 检验科工作台（新）
  * ============================================================
  * 说明：采用与医生工作站一致的「顶部患者信息横条 + 左侧候诊列表 +
- * 主工作区」布局（公共骨架见 app/includes/dept_workbench.php，
+ * 主工作区」布局（公共骨架见 app/includes/ui/dept_workbench.php，
  * 公共交互见 deptwork.js）：
  *   候诊列表页签：检验中 / 完成 / 当日；点击患者弹出检验报告单页：
  *   抬头（医院名称+第二名称+检验报告单+患者信息两行）→ 按申请单号
@@ -14,7 +14,7 @@
  * 数据接口：/api/deptwork（queue/patient）+ /api/lab（register_order/
  * save_draft、save_result、withdraw）。
  * ============================================================ */
-require APP_ROOT . '/app/includes/dept_workbench.php';
+require APP_ROOT . '/app/includes/ui/dept_workbench.php';
 dept_workbench(array(
     'role' => 'lab',
     'title' => '检验科工作台',

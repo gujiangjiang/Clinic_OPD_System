@@ -14,7 +14,7 @@
  * ============================================================ */
 Router::title('叫号屏幕');
 // 独立整页：注入图标映射与 icons.js（bootstrap 已由 index 加载）
-require_once APP_ROOT . '/app/includes/icon_bridge.php';
+require_once APP_ROOT . '/app/includes/ui/icon_bridge.php';
 $hosp  = setting('hospital_name', '门诊一体化系统');
 $hosp2 = setting('hospital_name2', '');
 // LOGO 以 base64 Data URI 内联显示：不暴露文件 URL，且不受页面层级影响

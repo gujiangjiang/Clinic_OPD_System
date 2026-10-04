@@ -13,7 +13,7 @@
  *    检验科后期撤回/修改数据不影响已归档危急值展示。
  * ============================================================ */
 require __DIR__ . '/../_init.php';
-require_once APP_ROOT . '/app/includes/emr_formatter.php';
+require_once APP_ROOT . '/app/includes/emr/emr_formatter.php';
 require_once __DIR__ . '/../parts/dept_common.php';
 
 $u = Auth::user();

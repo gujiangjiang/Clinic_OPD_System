@@ -9,7 +9,7 @@
  * ============================================================ */
 require __DIR__ . '/../_init.php';
 require_once APP_ROOT . '/app/includes/forms.php';
-require_once APP_ROOT . '/app/includes/emr_formatter.php';
+require_once APP_ROOT . '/app/includes/emr/emr_formatter.php';
 require_once __DIR__ . '/../parts/dept_common.php';
 
 $u = Auth::user();

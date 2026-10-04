@@ -15,7 +15,7 @@
  * ============================================================ */
 require __DIR__ . '/../_init.php';
 // 知情同意/告知文书：默认话术与勾选节白名单（consent_default_notice/consent_section_filter）
-require_once APP_ROOT . '/app/includes/emr_formatter.php';
+require_once APP_ROOT . '/app/includes/emr/emr_formatter.php';
 
 $u = Auth::user();
 

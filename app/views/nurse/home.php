@@ -1,5 +1,5 @@
 <?php
-require APP_ROOT . '/app/includes/role_home.php';
+require APP_ROOT . '/app/includes/ui/role_home.php';
 render_role_home(array(
     'title' => '护士站首页',
     'desc' => '今日处置执行概览',

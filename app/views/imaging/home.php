@@ -1,5 +1,5 @@
 <?php
-require APP_ROOT . '/app/includes/role_home.php';
+require APP_ROOT . '/app/includes/ui/role_home.php';
 render_role_home(array(
     'title' => '影像科首页',
     'desc' => '今日检查工作概览',

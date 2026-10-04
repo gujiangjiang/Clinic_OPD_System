@@ -19,7 +19,7 @@
  * ============================================================ */
 require_once __DIR__ . '/../app/config/bootstrap.php';
 // 独立整页：注入图标映射与 icons.js
-require_once APP_ROOT . '/app/includes/icon_bridge.php';
+require_once APP_ROOT . '/app/includes/ui/icon_bridge.php';
 
 /* ---------- 登录门 + 角色门（仅影像科/管理员） ---------- */
 $u = Auth::user();

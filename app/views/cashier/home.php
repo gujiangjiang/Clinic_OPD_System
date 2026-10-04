@@ -1,5 +1,5 @@
 <?php
-require APP_ROOT . '/app/includes/role_home.php';
+require APP_ROOT . '/app/includes/ui/role_home.php';
 render_role_home(array(
     'title' => '收费处首页',
     'desc' => '今日挂号收费概览',

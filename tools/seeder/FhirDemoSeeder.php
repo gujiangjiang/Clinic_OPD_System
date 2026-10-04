@@ -26,7 +26,7 @@ if (!defined('APP_ROOT')) {
     require dirname(__DIR__) . '/../app/config/bootstrap.php';
 }
 DatabaseManager::initAll();
-require_once APP_ROOT . '/app/includes/emr_formatter.php';
+require_once APP_ROOT . '/app/includes/emr/emr_formatter.php';
 require __DIR__ . '/Seeder.php';
 
 class FhirDemoSeeder extends Seeder {

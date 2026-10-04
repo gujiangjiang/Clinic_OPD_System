@@ -4,14 +4,14 @@
  * pharmacy/dashboard.php — 药房工作台（新）
  * ============================================================
  * 说明：采用与医生工作站一致的「顶部患者信息横条 + 左侧候诊列表 +
- * 主工作区」布局（公共骨架见 app/includes/dept_workbench.php，
+ * 主工作区」布局（公共骨架见 app/includes/ui/dept_workbench.php，
  * 公共交互见 deptwork.js）：
  *   候诊列表页签：待发药 / 完成 / 当日；点击患者弹出门诊处方笺页：
  *   抬头（医院名称+第二名称+门诊处方笺+患者信息两行，参照急诊病历版式）
  *   → 按处方号组合的处方卡片（一张处方一个整体，审方中 → 通过发药/拒绝）。
  * 数据接口：/api/deptwork（queue/patient）+ /api/pharmacy（audit/rx_slip）。
  * ============================================================ */
-require APP_ROOT . '/app/includes/dept_workbench.php';
+require APP_ROOT . '/app/includes/ui/dept_workbench.php';
 dept_workbench(array(
     'role' => 'pharmacy',
     'title' => '药房工作台',

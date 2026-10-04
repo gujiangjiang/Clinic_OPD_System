@@ -4,7 +4,7 @@
  * nurse/dashboard.php — 护士站工作台（新）
  * ============================================================
  * 说明：采用与医生工作站一致的「顶部患者信息横条 + 左侧候诊列表 +
- * 主工作区」布局（公共骨架见 app/includes/dept_workbench.php，
+ * 主工作区」布局（公共骨架见 app/includes/ui/dept_workbench.php，
  * 公共交互见 deptwork.js）：
  *   候诊列表页签：待处置 / 完成（互斥单选）+ 当日（叠加）；点击患者
  *   弹出护理记录单页面：① 护理记录 ② 病历摘要（只读 + 查看完整病历
@@ -15,7 +15,7 @@
  * nursing_add、vitals、save_vitals、complete、med_start、med_done）
  * + /api/print（record/order 只读预览）。
  * ============================================================ */
-require APP_ROOT . '/app/includes/dept_workbench.php';
+require APP_ROOT . '/app/includes/ui/dept_workbench.php';
 dept_workbench(array(
     'role' => 'nurse',
     'title' => '护士工作站',

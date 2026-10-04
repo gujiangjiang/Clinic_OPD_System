@@ -16,7 +16,7 @@
  * 数据接口：/api/deptwork（queue/patient）+ /api/imaging（register_order/
  * save_result/withdraw/history_reports/viewer_url）。
  * ============================================================ */
-require APP_ROOT . '/app/includes/dept_workbench.php';
+require APP_ROOT . '/app/includes/ui/dept_workbench.php';
 dept_workbench(array(
     'role' => 'imaging',
     'title' => '影像科工作台',
