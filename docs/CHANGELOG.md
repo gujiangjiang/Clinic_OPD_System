@@ -13,6 +13,31 @@
 
 ---
 
+## [9.5.0] - 2026-10-04
+
+### 新增
+- **前端资源集中登记 `app/includes/Assets.php`**：公共 CSS/JS、各页面额外资源与
+  Service Worker 预缓存清单统一登记（唯一数据源），`layout.php` 据此生成标签；
+  SW 经 `postMessage` 接收预缓存清单（缓存版本 v4）。AGENTS.md 增补「前端模块须在
+  Assets.php 登记」约定。
+
+### 修复
+- **影像报告医生显示为 JSON**：`print_report.php` 误将整行 `$report` 数组传入 `e()`
+  （检验者/报告医生/执行人/报告人四处），改取 `doctor_name`。
+- **经典双屏【阅片视窗】加载上一患者影像**：经典模式 `__imgCurItem` 残留上一患者，
+  现阅片视窗按钮按申请单首选序列传参并在当前患者池内校验归属。
+- **日志中心左侧计数不实时**：服务器日志来源计数原仅在页面渲染时生成，清空/增量后
+  不刷新；现 `log_server_list` 返回各来源行数，前端实时更新（操作/接口日志计数沿用
+  原有实时通道）。
+
+### 变更
+- **`app/services` 目录归类**：根目录 `LogService`/`ConnectivityTester`/`ConfigAudit`/
+  `IntegrationStatus` 移入 `services/system/`，`ImagingRegionResolver` 移入
+  `services/imaging/`，根目录不再散落 PHP 文件。
+- README 数据库徽章改为 `SQLite/MySQL/PostgreSQL` 多驱动。
+
+---
+
 ## [9.4.0] - 2026-10-04
 
 ### 变更
