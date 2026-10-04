@@ -143,12 +143,15 @@ switch ($action) {
             if ($verdict === 'pass') {
                 // 审方通过：仅置待发药（orders.status='reviewed' + 审方人/时间），
                 // 不移动明细、不发药、不打印凭条——发药由 dispense 动作单独完成，
-                // 审方人与发药人可为同一人，也可不同人。
-                OrderRepository::exec("UPDATE orders SET status='reviewed', review_by=?, reviewed_at=? WHERE id=?", array($u['name'], now_str(), $orderId));
+                // 审方人与发药人可为同一人，也可不同人。条件更新防并发重复审方。
+                $affected = OrderRepository::exec("UPDATE orders SET status='reviewed', review_by=?, reviewed_at=? WHERE id=? AND status='paid'", array($u['name'], now_str(), $orderId));
+                if ($affected === 0) { DatabaseManager::rollbackTx($pdo); json_fail('该处方已被处理，请刷新后重试'); }
             }
             if ($verdict === 'reject') {
-                // 拒绝：恢复库存（开方时主药+子药均已减库存，按开立单位折算最小单位）
+                // 拒绝：条件迁移订单状态防并发重复处理，成功后才恢复库存（开方时主药+子药均已减库存）
                 // + 全部明细置 rejected
+                $affected = OrderRepository::exec("UPDATE orders SET status='rejected' WHERE id=? AND status='paid'", array($orderId));
+                if ($affected === 0) { DatabaseManager::rollbackTx($pdo); json_fail('该处方已被处理，请刷新后重试'); }
                 foreach ($allRxItems as $it) {
                     $factor = ($it['unit_type'] === 'min') ? 1 : max(1, (int)(isset($it['pack_size']) ? $it['pack_size'] : 1));
                     $restore = max(1, (int)$it['quantity']) * $factor;
@@ -158,7 +161,6 @@ switch ($action) {
                     ));
                 }
                 OrderRepository::exec("UPDATE order_items SET status='rejected', executed_by=?, executed_at=? WHERE order_id=? AND status='paid'", array($u['name'], now_str(), $orderId));
-                OrderRepository::exec('UPDATE orders SET status=? WHERE id=?', array('rejected', $orderId));
             }
             DatabaseManager::commitTx($pdo);
         } catch (Exception $ex) {
@@ -196,9 +198,11 @@ switch ($action) {
         try {
             foreach ($allRxItems as $it) {
                 $newStatus = ((int)$it['is_nurse'] === 1) ? 'dispensing' : 'dispensed';
-                OrderRepository::exec('UPDATE order_items SET status=?, executed_by=?, executed_at=? WHERE id=?', array($newStatus, $u['name'], now_str(), (int)$it['id']));
+                OrderRepository::exec('UPDATE order_items SET status=?, executed_by=?, executed_at=? WHERE id=? AND status=?', array($newStatus, $u['name'], now_str(), (int)$it['id'], 'paid'));
             }
-            OrderRepository::exec('UPDATE orders SET status=?, executed_by=?, dispensed_at=? WHERE id=?', array('dispensed', $u['name'], now_str(), $orderId));
+            // 条件更新防并发重复发药：仅 reviewed 可转 dispensed
+            $affected = OrderRepository::exec('UPDATE orders SET status=?, executed_by=?, dispensed_at=? WHERE id=? AND status=?', array('dispensed', $u['name'], now_str(), $orderId, 'reviewed'));
+            if ($affected === 0) { DatabaseManager::rollbackTx($pdo); json_fail('该处方状态已变更，请刷新后重试'); }
             DatabaseManager::commitTx($pdo);
         } catch (Exception $ex) {
             DatabaseManager::rollbackTx($pdo);

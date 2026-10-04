@@ -98,7 +98,9 @@ switch ($action) {
         $pdo = DatabaseManager::getMain();
         $pdo->beginTransaction();
         try {
-            OrderRepository::updateItem($itemId, array('status' => 'done', 'executed_by' => $u['name'], 'executed_at' => now_str()));
+            // 条件更新防并发重复完成（仅 paid 可转 done）
+            $affected = OrderRepository::exec('UPDATE order_items SET status=?, executed_by=?, executed_at=? WHERE id=? AND status=?', array('done', $u['name'], now_str(), $itemId, 'paid'));
+            if ($affected === 0) { DatabaseManager::rollbackTx($pdo); json_fail('该处置已被执行，请刷新后重试'); }
             // 联动医嘱一并执行完成（仅药房已发药（rx_dispensed）的护士站医嘱可直接完成）
             foreach ((array)$linkedIds as $lid) {
                 $lid = did($lid);
@@ -253,7 +255,8 @@ switch ($action) {
         if (!rx_dispensed($it['order_id'])) {
             json_fail('该药品尚未发药，请先到药房领取药品后再执行（药房审方通过后自动开放执行）');
         }
-        OrderRepository::updateItem($itemId, array('status' => 'dispensing'));
+        $affectedStart = OrderRepository::exec('UPDATE order_items SET status=? WHERE id=? AND status=?', array('dispensing', $itemId, 'paid'));
+        if ($affectedStart === 0) json_fail('该医嘱状态已变更，请刷新后重试');
         json_ok(array(), '已标记为等待执行，执行完成后请点击【执行完成】');
         break;
 
@@ -278,7 +281,9 @@ switch ($action) {
         $pdo = DatabaseManager::getMain();
         $pdo->beginTransaction();
         try {
-            OrderRepository::updateItem($itemId, array('status' => 'dispensed', 'executed_by' => $u['name'], 'executed_at' => now_str()));
+            // 条件更新防并发重复完成（仅 dispensing 可转 dispensed）
+            $affectedDone = OrderRepository::exec('UPDATE order_items SET status=?, executed_by=?, executed_at=? WHERE id=? AND status=?', array('dispensed', $u['name'], now_str(), $itemId, 'dispensing'));
+            if ($affectedDone === 0) { DatabaseManager::rollbackTx($pdo); json_fail('该医嘱已被执行，请刷新后重试'); }
             // 联动处置一并执行完成（仅 paid 处置）
             foreach ((array)$linkedIds as $lid) {
                 $lid = did($lid);

@@ -21,7 +21,7 @@ class CriticalValueRepository extends BaseRepository {
 
     /** 科室待处理/处理中患者数（上报时给医生看科室负荷，禁止夜间脱岗） */
     public static function deptPendingCount($deptId) {
-        return (int)self::val("SELECT COUNT(*) FROM registrations WHERE first_dept_id=? AND status IN ('pending','visiting') AND date(registered_at)=date('now','localtime')", array((int)$deptId));
+        return (int)self::val("SELECT COUNT(*) FROM registrations WHERE first_dept_id=? AND status IN ('pending','visiting') AND date(registered_at)=?", array((int)$deptId, today_str()));
     }
 
     /** 就诊记录（快照生成时取患者/科室上下文） */

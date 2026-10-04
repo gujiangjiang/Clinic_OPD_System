@@ -176,7 +176,8 @@ function admin_part_audit($action) {
     function audit_apply($audit, $approve, $note = '') {
         $u = Auth::user();
         $newStatus = $approve ? 'approved' : 'rejected';
-        AuditRepository::exec('UPDATE audits SET status=?, handled_by=?, handled_at=?, note=? WHERE id=?', array($newStatus, $u['name'], now_str(), $note, (int)$audit['id']));
+        $affectedAudit = AuditRepository::exec('UPDATE audits SET status=?, handled_by=?, handled_at=?, note=? WHERE id=? AND status=?', array($newStatus, $u['name'], now_str(), $note, (int)$audit['id'], 'pending'));
+        if ($affectedAudit === 0) return false;
         $refId = (int)$audit['ref_id'];
         $proposerId = (int)$audit['proposer_id'];
         // 提交者角色（决定消息跳转链接指向哪个页面）
@@ -369,6 +370,7 @@ function admin_part_audit($action) {
                 }
                 break;
         }
+        return true;
     }
 
     /* ==================== 执行单条审核 ==================== */
@@ -380,7 +382,7 @@ function admin_part_audit($action) {
         if (!$approve && trim($note) === '') json_fail('请填写驳回理由，便于提交者修改后重新提交');
         $audit = AuditRepository::one('SELECT * FROM audits WHERE id=? AND status=?', array($id, 'pending'));
         if (!$audit) json_fail('审核事项不存在或已处理');
-        audit_apply($audit, $approve, trim($note));
+        if (audit_apply($audit, $approve, trim($note)) === false) json_fail('该审核事项已被其他管理员处理，请刷新后重试');
         json_ok(array(), $approve ? '已通过审核' : '已驳回（已通知提交者）');
     }
 
@@ -390,10 +392,11 @@ function admin_part_audit($action) {
     if ($action === 'audit_all') {
         $rows = AuditRepository::q("SELECT * FROM audits WHERE status='pending' AND type NOT IN ('pwd_reset','report_withdraw') ORDER BY id DESC", array());
         if (!$rows) json_fail('当前没有可一键通过的事项');
+        $okCount = 0;
         foreach ($rows as $a) {
-            audit_apply($a, 1, '');
+            if (audit_apply($a, 1, '') !== false) $okCount++;
         }
-        json_ok(array('count' => count($rows)), '已一键通过 ' . count($rows) . ' 条事项');
+        json_ok(array('count' => $okCount), '已一键通过 ' . $okCount . ' 条事项');
     }
 
     /* ==================== 审核预览（只读展示提交内容） ====================

@@ -13,6 +13,22 @@
 
 ---
 
+## [9.2.1] - 2026-10-04
+
+### 修复
+- **并发重复处理（check-then-update）**：为状态迁移补条件谓词，避免两窗口同时操作：
+  - 药房 `audit`（审方通过/驳回）、`dispense`（发药）改为 `WHERE ... AND status=?` 并校验影响行数。
+  - 护士 `complete` / `med_start` / `med_done` 改为条件更新（paid→done、paid→dispensing、
+    dispensing→dispensed），冲突时拒绝。
+  - 审核中心 `audit_apply` 改为 `WHERE status='pending'` 并返回是否成功，单条/一键通过据此防重复。
+- **跨驱动 SQL 隐患**：
+  - `CriticalValueRepository::deptPendingCount` 去掉 SQLite 专属 `date('now','localtime')`，
+    改用绑定参数 `today_str()`。
+  - `EmrTemplateRepository::replaceDepts` / `PackageRepository::replaceDepts` 去掉
+    `INSERT OR IGNORE`（MySQL/PG 不兼容），改为 PHP 去重后普通 `INSERT`。
+
+---
+
 ## [9.2.0] - 2026-10-04
 
 ### 变更

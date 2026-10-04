@@ -53,10 +53,12 @@ class EmrTemplateRepository extends BaseRepository {
     /** 重置适用范围并批量写入 */
     public static function replaceDepts($templateId, $deptIds) {
         self::exec('DELETE FROM emr_template_depts WHERE template_id=?', array((int)$templateId));
+        $seen = array();
         foreach ((array)$deptIds as $deptId) {
             $deptId = (int)$deptId;
-            if ($deptId <= 0) continue;
-            self::insert('INSERT OR IGNORE INTO emr_template_depts(template_id, dept_id) VALUES(?,?)', array((int)$templateId, $deptId));
+            if ($deptId <= 0 || isset($seen[$deptId])) continue;
+            $seen[$deptId] = true;
+            self::insert('INSERT INTO emr_template_depts(template_id, dept_id) VALUES(?,?)', array((int)$templateId, $deptId));
         }
     }
 }

@@ -48,10 +48,12 @@ class PackageRepository extends BaseRepository {
     /** 重置适用范围并批量写入 */
     public static function replaceDepts($packageId, $deptIds) {
         self::exec('DELETE FROM package_depts WHERE package_id=?', array((int)$packageId));
+        $seen = array();
         foreach ((array)$deptIds as $deptId) {
             $deptId = (int)$deptId;
-            if ($deptId <= 0) continue;
-            self::insert('INSERT OR IGNORE INTO package_depts(package_id, dept_id) VALUES(?,?)', array((int)$packageId, $deptId));
+            if ($deptId <= 0 || isset($seen[$deptId])) continue;
+            $seen[$deptId] = true;
+            self::insert('INSERT INTO package_depts(package_id, dept_id) VALUES(?,?)', array((int)$packageId, $deptId));
         }
     }
 }
