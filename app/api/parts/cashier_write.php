@@ -192,19 +192,28 @@ function cashier_part_write($action) {
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
-        // 原子条件更新防并发重复缴费（仅 pending 可转 paid）
-        $affectedPay = CashierRepository::exec(
-            "UPDATE registrations SET status='paid', paid_at=? WHERE id=? AND status='pending'",
-            array(now_str(), $visitId)
-        );
-        if ($affectedPay === 0) json_fail('当前状态不可缴费');
-        // 缴费流水号：与挂号流水号关联（JF + 流水号 + 时间戳 + 随机），长位数防重复
-        $paymentNo = next_payment_no($visit['flow_no']);
-        $payId = CashierRepository::createPayment(array(
-            'visit_id' => $visitId, 'order_id' => 0, 'patient_no' => $visit['patient_no'], 'flow_no' => $visit['flow_no'],
-            'kind' => 'visit', 'total_amount' => (float)$visit['fee'], 'item_count' => 1,
-            'cashier_id' => $u['id'], 'cashier_name' => $u['name'], 'payment_no' => $paymentNo, 'method' => $method,
-        ));
+        // 状态迁移 + 缴费流水整体事务：避免「已缴费但无流水」的半写状态
+        $pdo = DatabaseManager::getMain();
+        $pdo->beginTransaction();
+        try {
+            // 原子条件更新防并发重复缴费（仅 pending 可转 paid）
+            $affectedPay = CashierRepository::exec(
+                "UPDATE registrations SET status='paid', paid_at=? WHERE id=? AND status='pending'",
+                array(now_str(), $visitId)
+            );
+            if ($affectedPay === 0) json_fail('当前状态不可缴费');
+            // 缴费流水号：与挂号流水号关联（JF + 流水号 + 时间戳 + 随机），长位数防重复
+            $paymentNo = next_payment_no($visit['flow_no']);
+            $payId = CashierRepository::createPayment(array(
+                'visit_id' => $visitId, 'order_id' => 0, 'patient_no' => $visit['patient_no'], 'flow_no' => $visit['flow_no'],
+                'kind' => 'visit', 'total_amount' => (float)$visit['fee'], 'item_count' => 1,
+                'cashier_id' => $u['id'], 'cashier_name' => $u['name'], 'payment_no' => $paymentNo, 'method' => $method,
+            ));
+            DatabaseManager::commitTx($pdo);
+        } catch (Exception $ex) {
+            DatabaseManager::rollbackTx($pdo);
+            json_fail('缴费失败：' . $ex->getMessage());
+        }
         // HIS 结算同步：本地事务提交后异步入队（Outbox 补偿）
         integration_after_settlement((int)$payId);
         json_ok(array('payment_id' => oid($payId), 'payment_no' => $paymentNo), '缴费成功');
@@ -258,7 +267,9 @@ function cashier_part_write($action) {
     $refundOne = function ($u, $order, $reason, $paymentNo, $method, $allowExecuted = false) {
         $orderId = (int)$order['id'];
         $pdo = DatabaseManager::getMain();
-        $pdo->beginTransaction();
+        // 支持被 refund_batch 包裹在外部事务中执行：仅在无活跃事务时自开/自提交
+        $ownTx = !$pdo->inTransaction();
+        if ($ownTx) $pdo->beginTransaction();
         try {
             // 事务内重新读取明细并校验退费资格：资格判定与状态迁移同处一个事务，
             // 杜绝「校验通过后、状态迁移前」检验科/药房并发登记/发药导致的半退状态
@@ -328,7 +339,7 @@ function cashier_part_write($action) {
                     }
                 }
             }
-            DatabaseManager::commitTx($pdo);
+            if ($ownTx) DatabaseManager::commitTx($pdo);
         } catch (Exception $ex) {
             DatabaseManager::rollbackTx($pdo);
             json_fail('退费失败：' . $ex->getMessage());
@@ -399,9 +410,13 @@ function cashier_part_write($action) {
         $method = post('method', '现金');
         // 存在已执行项目且申请已审批通过 → 允许退已执行项目（allowExecuted）
         $allowExecuted = $hasExecuted;
+        // 整批放入同一事务：任一单失败则整体回滚，杜绝「部分退费」
+        $pdo = DatabaseManager::getMain();
+        $pdo->beginTransaction();
         foreach ($orders as $o) {
             $refundOne($u, $o, $reason, $paymentNo, $method, $allowExecuted);
         }
+        DatabaseManager::commitTx($pdo);
         json_ok(array(), '已整单退费 ' . count($orders) . ' 张开单');
         return;
     }
