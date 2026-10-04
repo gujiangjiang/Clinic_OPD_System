@@ -4,13 +4,13 @@
  * admin.php v1.1.0 — 管理端接口（分发入口）
  * ============================================================
  * 说明：为避免单文件过大，管理端接口按功能拆分到 parts/ 子目录：
- *   parts/admin_settings.php   系统设置/统计/打印中心
- *   parts/admin_dept.php       科室管理
- *   parts/admin_user.php       用户管理
- *   parts/admin_item.php       检验/检查项目与分类
- *   parts/admin_drug.php       药品设置与药品信息
- *   parts/admin_disp.php       处置项目
- *   parts/admin_audit.php      审核中心（含密码重置审核）
+ *   parts/admin/settings.php   系统设置/统计/打印中心
+ *   parts/admin/dept.php       科室管理
+ *   parts/admin/user.php       用户管理
+ *   parts/admin/item.php       检验/检查项目与分类
+ *   parts/admin/drug.php       药品设置与药品信息
+ *   parts/admin/disp.php       处置项目
+ *   parts/admin/audit.php      审核中心（含密码重置审核）
  * 项目/药品表单统一由 includes/forms.php 渲染（检验科/影像科/药房共用）。
  * 本文件仅负责按 action 分发到对应子模块。
  * ============================================================ */
@@ -20,19 +20,19 @@ require_once APP_ROOT . '/app/includes/catalog_query.php';
 
 $u = Auth::user();
 
-require __DIR__ . '/../parts/admin_settings.php';
-require __DIR__ . '/../parts/admin_dept.php';
-require __DIR__ . '/../parts/admin_user.php';
-require __DIR__ . '/../parts/admin_item.php';
-require __DIR__ . '/../parts/admin_drug.php';
-require __DIR__ . '/../parts/admin_disp.php';
-require __DIR__ . '/../parts/admin_audit.php';
-require __DIR__ . '/../parts/admin_call.php';
-require __DIR__ . '/../parts/admin_analytics.php';
-require __DIR__ . '/../parts/admin_import.php';
-require __DIR__ . '/../parts/admin_sysinfo.php';
-require __DIR__ . '/../parts/admin_integration.php';
-require __DIR__ . '/../parts/admin_log.php';
+require __DIR__ . '/../parts/admin/settings.php';
+require __DIR__ . '/../parts/admin/dept.php';
+require __DIR__ . '/../parts/admin/user.php';
+require __DIR__ . '/../parts/admin/item.php';
+require __DIR__ . '/../parts/admin/drug.php';
+require __DIR__ . '/../parts/admin/disp.php';
+require __DIR__ . '/../parts/admin/audit.php';
+require __DIR__ . '/../parts/admin/call.php';
+require __DIR__ . '/../parts/admin/analytics.php';
+require __DIR__ . '/../parts/admin/import.php';
+require __DIR__ . '/../parts/admin/sysinfo.php';
+require __DIR__ . '/../parts/admin/integration.php';
+require __DIR__ . '/../parts/admin/log.php';
 
 // 科室角色（检验科/影像科/药房）仅开放与本职相关的只读接口与提交审核：
 // 其余管理操作（删除/分类/用户/科室/组合管理/设置等）仍仅限管理员。

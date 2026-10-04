@@ -13,13 +13,13 @@
  * 逻辑与拆分前完全一致。
  * ============================================================ */
 
-require __DIR__ . '/admin_analytics/ana_helpers.php';
-require __DIR__ . '/admin_analytics/ana_overview.php';
-require __DIR__ . '/admin_analytics/ana_trend.php';
-require __DIR__ . '/admin_analytics/ana_dept.php';
-require __DIR__ . '/admin_analytics/ana_doctor.php';
-require __DIR__ . '/admin_analytics/ana_custom.php';
-require __DIR__ . '/admin_analytics/ana_disposition.php';
+require __DIR__ . '/analytics/ana_helpers.php';
+require __DIR__ . '/analytics/ana_overview.php';
+require __DIR__ . '/analytics/ana_trend.php';
+require __DIR__ . '/analytics/ana_dept.php';
+require __DIR__ . '/analytics/ana_doctor.php';
+require __DIR__ . '/analytics/ana_custom.php';
+require __DIR__ . '/analytics/ana_disposition.php';
 
 /**
  * 处理运营分析动作
