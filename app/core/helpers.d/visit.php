@@ -324,8 +324,9 @@ function visit_skin_negative($visitId, $drugId) {
  * @param array $items order_items 行（可空，自动查询）
  * @return bool
  */
-function order_skin_locked($order, $items = null) {
+function order_skin_locked($order, $items = null, $depth = 0) {
     if (!$order) return false;
+    if ($depth > 10) return false;   // 防御 source_order_id 成环/超深链导致无限递归
     if (!empty($order['is_skin_test'])) return false;   // 皮试单放行
     $orderType = isset($order['order_type']) ? $order['order_type'] : '';
     if ($orderType !== 'prescription' && $orderType !== 'procedure') return false;
@@ -342,7 +343,7 @@ function order_skin_locked($order, $items = null) {
     if (!$drugIds && !empty($order['source_order_id'])) {
         $srcOrder = OrderRepository::one('SELECT * FROM orders WHERE id=?', array((int)$order['source_order_id']));
         if ($srcOrder) {
-            return order_skin_locked($srcOrder);
+            return order_skin_locked($srcOrder, null, $depth + 1);
         }
         return false;
     }
