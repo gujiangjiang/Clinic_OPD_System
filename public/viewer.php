@@ -46,7 +46,7 @@ $isEmbed = !empty($_GET['embed']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo e($hosp); ?> · 阅片工作站</title>
-    <link rel="stylesheet" href="/assets/css/pacs.css?v=<?php echo e(APP_VERSION); ?>">
+    <link rel="stylesheet" href="/assets/css/pages/pacs.css?v=<?php echo e(APP_VERSION); ?>">
 </head>
 <body class="pacs-solo-body<?php echo $isEmbed ? ' pacs-solo-embed' : ''; ?>" data-sid="<?php echo e(session_id()); ?>" data-uid="<?php echo (int)$u['id']; ?>">
 <div class="pacs-solo">

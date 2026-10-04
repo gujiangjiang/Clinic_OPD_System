@@ -16,24 +16,24 @@ class Assets {
 
     /** 全站公共 CSS（按级联顺序） */
     const CSS_CORE = array(
-        'assets/css/base.css',
-        'assets/css/components.css',
-        'assets/css/components-emr.css',
-        'assets/css/modal.css',
-        'assets/css/layout.css',
-        'assets/css/pacs.css',
-        'assets/css/dark.css',
-        'assets/css/print.css',
+        'assets/css/core/base.css',
+        'assets/css/core/components.css',
+        'assets/css/core/components-emr.css',
+        'assets/css/core/modal.css',
+        'assets/css/core/layout.css',
+        'assets/css/pages/pacs.css',
+        'assets/css/core/dark.css',
+        'assets/css/core/print.css',
     );
 
     /** 沉浸式页面（登录/安装/403/404）CSS */
     const CSS_AUTH = array(
-        'assets/css/base.css',
-        'assets/css/components.css',
-        'assets/css/components-emr.css',
-        'assets/css/modal.css',
-        'assets/css/auth.css',
-        'assets/css/dark.css',
+        'assets/css/core/base.css',
+        'assets/css/core/components.css',
+        'assets/css/core/components-emr.css',
+        'assets/css/core/modal.css',
+        'assets/css/pages/auth.css',
+        'assets/css/core/dark.css',
     );
 
     /** 全站公共 JS（按依赖顺序，须在视图内联脚本之前加载） */

@@ -30,7 +30,7 @@ $logoImg = $logoData !== '' ? '<img src="' . e($logoData) . '" alt="LOGO">' : de
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo e($hosp); ?> · 叫号屏幕</title>
     <?php echo $favicon; ?>
-    <link rel="stylesheet" href="/assets/css/call.css">
+    <link rel="stylesheet" href="/assets/css/pages/call.css">
 </head>
 <body class="call-body" data-csrf="<?php echo e(CSRF::token()); ?>" data-hosp="<?php echo e($hosp); ?>" data-hosp2="<?php echo e($hosp2); ?>">
 

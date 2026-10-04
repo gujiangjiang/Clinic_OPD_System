@@ -25,10 +25,10 @@ $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : default_lo
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo e($hosp); ?> · 门诊一体化信息系统</title>
     <?php echo $favicon; ?>
-    <link rel="stylesheet" href="/assets/css/base.css">
-    <link rel="stylesheet" href="/assets/css/components.css">
-    <link rel="stylesheet" href="/assets/css/dark.css">
-    <link rel="stylesheet" href="/assets/css/landing.css">
+    <link rel="stylesheet" href="/assets/css/core/base.css">
+    <link rel="stylesheet" href="/assets/css/core/components.css">
+    <link rel="stylesheet" href="/assets/css/core/dark.css">
+    <link rel="stylesheet" href="/assets/css/pages/landing.css">
 </head>
 <body class="landing-body" data-theme-pref="<?php echo e(Auth::theme()); ?>" data-theme="light"
       data-hosp="<?php echo e($hosp); ?>" data-hosp2="<?php echo e($hosp2); ?>">
