@@ -13,6 +13,19 @@
 
 ---
 
+## [9.0.6] - 2026-10-04
+
+### 修复
+- **日志裁剪高并发锁告警**：FHIR 入向洪峰下，按子分类裁剪的 `COUNT+SELECT+DELETE`
+  多语句易触发 `SQLITE_BUSY / database is locked`。改为**单条 DELETE + 派生表边界**
+  （保留最新 N 条），最小化锁窗口并兼容 SQLite/MySQL/PostgreSQL；锁竞争短暂退避后重试，
+  仍失败交下次写入处理且不写告警。写入与超期清理的锁竞争错误同样静默。
+
+> 说明：先前出现的 `Undefined variable $category`（LogService.php:146）已在 9.0.5 修复，
+> 属历史日志；`Array to string conversion` 亦已在 9.0.5 由 `e()` 容错修复。
+
+---
+
 ## [9.0.5] - 2026-10-04
 
 ### 新增
