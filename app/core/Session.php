@@ -192,6 +192,46 @@ class Session {
                 session_start();
             }
         }
+        self::enforceEpoch();
+    }
+
+    /**
+     * 会话纪元校验：ConfigStore 的 session.epoch 变更（迁移/切换/强制全员登出）
+     * 时清空当前会话，驱动无关（files/redis/memcached 一并生效）。
+     * 纪元值本请求缓存，无额外显著开销。
+     */
+    protected static function enforceEpoch() {
+        if (session_status() !== PHP_SESSION_ACTIVE) return;
+        $epoch = (string)ConfigStore::get('session.epoch', '0');
+        if (!isset($_SESSION['__epoch'])) {
+            $_SESSION['__epoch'] = $epoch;
+            return;
+        }
+        if ((string)$_SESSION['__epoch'] !== $epoch) {
+            // 纪元不一致 = 会话已被全局失效，仅保留新纪元标记
+            $_SESSION = array('__epoch' => $epoch);
+        }
+    }
+
+    /**
+     * 使全部用户会话失效（迁移/切换数据库时强制所有人重新登录）。
+     * 通过递增 session.epoch 实现驱动无关的全局登出，并顺手清理 files 驱动
+     * 的会话文件（立即释放磁盘；redis/memcached 由纪元校验即时失效）。
+     */
+    public static function invalidateAll() {
+        $epoch = (string)((int)ConfigStore::get('session.epoch', '0') + 1);
+        ConfigStore::set('session.epoch', $epoch);
+        // 若当前请求已激活会话，保持本会话与当前纪元一致，避免管理操作自身被误登出
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $_SESSION['__epoch'] = $epoch;
+        }
+        $dir = DATA_DIR . '/session';
+        if (is_dir($dir)) {
+            foreach (glob($dir . '/sess_*') ?: array() as $f) {
+                @unlink($f);
+            }
+        }
+        return true;
     }
 
     /**

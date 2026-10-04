@@ -13,6 +13,16 @@
 
 ---
 
+## [9.0.20] - 2026-10-04
+
+### 修复
+- **迁移/切换数据库时全站登出对 redis/memcached 无效**：`MigrationRunner::clearAllSessions()`
+  原先仅删除 `data/session/sess_*`，远程会话驱动下不生效。现新增驱动无关的**会话纪元**机制：
+  `Session::invalidateAll()` 递增 config.db 的 `session.epoch`，`Session::start()` 每次启动校验
+  纪元不一致即清空会话，files/redis/memcached 一律即时失效。
+
+---
+
 ## [9.0.19] - 2026-10-04
 
 ### 修复

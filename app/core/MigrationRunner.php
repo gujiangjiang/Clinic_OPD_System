@@ -201,15 +201,10 @@ class MigrationRunner {
         return true;
     }
 
-    /** 清除全部用户会话（迁移/切换数据库时强制所有人重新登录，避免残留读写） */
+    /** 清除全部用户会话（迁移/切换数据库时强制所有人重新登录，避免残留读写）。
+     *  委托 Session::invalidateAll()：递增会话纪元，files/redis/memcached 驱动一律即时失效。 */
     public static function clearAllSessions() {
-        $dir = DATA_DIR . '/session';
-        if (!is_dir($dir)) return 0;
-        $n = 0;
-        foreach (glob($dir . '/sess_*') ?: array() as $f) {
-            if (@unlink($f)) $n++;
-        }
-        return $n;
+        return Session::invalidateAll();
     }
 
     /**
