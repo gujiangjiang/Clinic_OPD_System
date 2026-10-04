@@ -246,10 +246,10 @@ class Session {
     }
 
     /**
-     * 彻底销毁当前会话（登出专用）：
-     * 清空会话数据 → 失效会话 Cookie → session_destroy()。
-     * 驱动无关：files 删除会话文件，redis/memcached 通知对应 handler 删除，
-     * 避免仅 unset 单项导致残留状态在共享/远程后端仍然可用。
+     * 彻底销毁当前会话（清空会话数据 → 失效 Cookie → session_destroy()）。
+     * 驱动无关：files 删除会话文件，redis/memcached 通知对应 handler 删除。
+     * 说明：登出**不再**调用本方法（登出保留 CSRF 令牌，避免浏览器复用旧登录页时
+     * 再次登录校验失败）；本方法供需要强制移除全部会话数据的场景使用。
      */
     public static function destroy() {
         if (session_status() !== PHP_SESSION_ACTIVE) {

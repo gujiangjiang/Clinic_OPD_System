@@ -218,9 +218,17 @@ class Auth {
                     '用户「' . $u['name'] . '」退出登录', 'info', (string)$u['id']);
             }
         }
-        // 彻底销毁会话（清空全部会话数据 + 失效 Cookie），避免仅清 auth_user 后
-        // csrf/验证码/迁移令牌等残留状态在共享或远程会话后端继续可用
-        Session::destroy();
+        // 清除认证与敏感残留状态（auth_user / 验证码 / 迁移令牌 / IP 失败计数等），
+        // 但**保留 CSRF 令牌**：登出后浏览器可能复用登出前的登录页（其 data-csrf 为
+        // 旧值），若连同令牌一并销毁，会导致再次登录时 CSRF 校验失败需手动刷新。
+        // 令牌本身不含特权（登出后所有写操作仍需登录），保留无安全风险。
+        $csrf = isset($_SESSION['csrf']) ? (string)$_SESSION['csrf'] : '';
+        $_SESSION = array();
+        if ($csrf !== '') {
+            $_SESSION['csrf'] = $csrf;
+        }
+        // 防会话固定：登出后重置会话 ID（保留已筛选的会话数据）
+        session_regenerate_id(true);
     }
 
     /** 是否具备指定角色（admin 拥有全部角色权限，可访问所有功能） */
