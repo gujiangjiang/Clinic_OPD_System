@@ -13,6 +13,18 @@
 
 ---
 
+## [9.0.17] - 2026-10-04
+
+### 修复
+- **HIS 建档患者编号并发撞号**：`HisInboundSync::syncPatient()` 的 `COUNT+1` 编号在并发
+  推送下会触发 `patients.patient_no` 唯一冲突并 500。现改用既有 `insert_unique_retry()`
+  冲突自动重试（最多 3 次）。
+- **Outbox worker 互斥锁不健壮**：`HisOutbox::processPending()` 原先用配置项
+  `integration.outbox.lock` 做读-改-写加锁（非原子，且异常路径不释放）。现改用
+  `data/logs/.outbox.lock` 的 `flock` 非阻塞独占锁，跨进程原子且进程终止自动释放。
+
+---
+
 ## [9.0.16] - 2026-10-04
 
 ### 修复

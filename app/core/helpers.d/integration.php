@@ -492,7 +492,7 @@ function integration_inbound_module($endpoint, $provider) {
 
 /** 触发后台 worker（fire-and-forget；失败仅日志，任务保持 pending 由定时/手动重试）
  *  节流：短时间内重复入队（批量挂号/开单等）不再重复派生进程，避免进程风暴；
- *  worker 内部另有 integration.outbox.lock 做 60 秒运行期互斥。 */
+ *  worker 内部另有文件锁（data/logs/.outbox.lock）做运行期互斥。 */
 function integration_spawn_worker() {
     $script = APP_ROOT . '/tools/cli/integration_outbox_run.php';
     if (!is_file($script)) return;

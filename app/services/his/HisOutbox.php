@@ -16,9 +16,6 @@ class HisOutbox {
     /** 失败最大重试次数（超过后不再自动重试，保留供人工处理） */
     const MAX_RETRY = 5;
 
-    /** 后台 worker 并发互斥锁窗口（秒） */
-    const LOCK_WINDOW = 60;
-
     /**
      * 任务入队（幂等合并）
      * @param string $businessType
@@ -60,12 +57,18 @@ class HisOutbox {
      * @return array { processed:int, success:int, failed:int }
      */
     public static function processPending($limit = 20) {
-        // 并发互斥：worker 已在运行则跳过（60 秒窗口）
-        $lockAt = (int)ConfigStore::get('integration.outbox.lock', '0');
-        if ($lockAt > 0 && (time() - $lockAt) < self::LOCK_WINDOW) {
+        // 原子互斥：flock 独占锁文件（非阻塞）；已在运行则跳过。
+        // 文件锁跨进程天然原子，且进程异常终止时由内核自动释放（避免锁悬挂）。
+        $lockFile = DATA_DIR . '/logs/.outbox.lock';
+        $lockFp = @fopen($lockFile, 'c');
+        if (!$lockFp) {
             return array('processed' => 0, 'success' => 0, 'failed' => 0, 'locked' => true);
         }
-        ConfigStore::set('integration.outbox.lock', (string)time());
+        if (!@flock($lockFp, LOCK_EX | LOCK_NB)) {
+            @fclose($lockFp);
+            return array('processed' => 0, 'success' => 0, 'failed' => 0, 'locked' => true);
+        }
+        try {
         $limit = min(100, max(1, (int)$limit));
         $tasks = IntegrationRepository::pendingTasks(self::MAX_RETRY, $limit);
         $processed = 0;
@@ -99,8 +102,11 @@ class HisOutbox {
                 IntegrationRepository::failTask((int)$task['id'], $ex->getMessage());
             }
         }
-        ConfigStore::set('integration.outbox.lock', '0');
         return array('processed' => $processed, 'success' => $success, 'failed' => $failed);
+        } finally {
+            @flock($lockFp, LOCK_UN);
+            @fclose($lockFp);
+        }
     }
 
     /** 业务类型 → 日志中心接口子分类 */

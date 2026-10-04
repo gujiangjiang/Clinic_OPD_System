@@ -37,23 +37,30 @@ class HisInboundSync {
             );
             return array('patient_no' => $patient['patient_no'], 'created' => false);
         }
-        $patientNo = self::nextPatientNo();
         $age = 0;
         $birth = (string)(isset($p['birth_date']) ? $p['birth_date'] : '');
         if ($birth !== '') {
             $age = (int)floor((time() - strtotime($birth)) / 31536000);
         }
-        PatientRepository::insert(
-            'INSERT INTO patients(patient_no, id_card, name, gender, birth_date, age, ethnicity, marital, occupation, work_unit, address, phone, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
-            array($patientNo, $idCard, $name,
-                (string)(isset($p['gender']) ? $p['gender'] : ''), $birth, $age,
-                (string)(isset($p['ethnicity']) ? $p['ethnicity'] : ''),
-                (string)(isset($p['marital']) ? $p['marital'] : ''),
-                (string)(isset($p['occupation']) ? $p['occupation'] : ''),
-                (string)(isset($p['work_unit']) ? $p['work_unit'] : ''),
-                (string)(isset($p['address']) ? $p['address'] : ''),
-                (string)(isset($p['phone']) ? $p['phone'] : ''),
-                now_str())
+        // 并发撞号兜底：insert_unique_retry 冲突即重试（nextPatientNo 基于当日计数，冲突后计数已增）
+        $patientNo = '';
+        insert_unique_retry(
+            function () { return self::nextPatientNo(); },
+            function ($no) use (&$patientNo, $idCard, $name, $p, $birth, $age) {
+                $patientNo = $no;
+                return PatientRepository::insert(
+                    'INSERT INTO patients(patient_no, id_card, name, gender, birth_date, age, ethnicity, marital, occupation, work_unit, address, phone, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                    array($no, $idCard, $name,
+                        (string)(isset($p['gender']) ? $p['gender'] : ''), $birth, $age,
+                        (string)(isset($p['ethnicity']) ? $p['ethnicity'] : ''),
+                        (string)(isset($p['marital']) ? $p['marital'] : ''),
+                        (string)(isset($p['occupation']) ? $p['occupation'] : ''),
+                        (string)(isset($p['work_unit']) ? $p['work_unit'] : ''),
+                        (string)(isset($p['address']) ? $p['address'] : ''),
+                        (string)(isset($p['phone']) ? $p['phone'] : ''),
+                        now_str())
+                );
+            }
         );
         return array('patient_no' => $patientNo, 'created' => true);
     }
