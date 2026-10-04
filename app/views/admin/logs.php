@@ -600,7 +600,8 @@ window.LogCenter = (function () {
                             '<div class="log-set-card"><div class="log-set-title">容量与保留</div>' +
                                 '<div class="log-set-row"><span>日志行数上限</span><input class="input" id="ls_max_rows" type="number" min="100" value="' + esc(d['log.max_rows']) + '"></div>' +
                                 '<div class="log-set-row"><span>日志记录天数</span><input class="input" id="ls_retention" type="number" min="0" value="' + esc(d['log.retention_days']) + '"></div>' +
-                                '<div class="log-set-hint">超过行数上限自动清理最旧记录；超过记录天数自动清空（0 = 不限制）。</div>' +
+                                '<div class="log-set-row"><span>检索默认天数</span><input class="input" id="ls_query_days" type="number" min="0" max="365" value="' + esc(d['log.query.default_days']) + '"></div>' +
+                                '<div class="log-set-hint">超过行数上限自动清理最旧记录；超过记录天数自动清空（0 = 不限制）。检索默认天数：未选日期时仅查最近 N 天（0 = 不限），用于强制走时间索引收敛。</div>' +
                             '</div>' +
                             '<div class="log-set-card"><div class="log-set-title">服务器日志</div>' +
                                 '<div class="log-set-row"><span>读取上限 (KB)</span><input class="input" id="ls_max_kb" type="number" min="64" value="' + esc(d['log.server.max_kb']) + '"></div>' +
@@ -647,6 +648,7 @@ window.LogCenter = (function () {
             level_error: chk('ls_level_error'),
             max_rows: val('ls_max_rows'),
             retention_days: val('ls_retention'),
+            query_default_days: val('ls_query_days'),
             server_max_kb: val('ls_max_kb'),
             server_external_path: val('ls_ext_path')
         }, {

@@ -55,9 +55,22 @@ class LogService {
             'log.channel.server'       => '1',
             'log.max_rows'             => '5000',
             'log.retention_days'       => '30',
+            'log.query.default_days'   => '3',
             'log.server.external_path' => '',
             'log.server.max_kb'        => '1024',
         );
+    }
+
+    /**
+     * 日志检索默认时间下界（防御性收敛）：未显式指定日期时，回退最近 N 天
+     * （设置 log.query.default_days，0=不限制）。确保所有查询先经 created_at
+     * 范围索引收敛数据量，再执行文本模糊比对，杜绝无界全表扫描。
+     * @return string 'Y-m-d H:i:s'；不限制时返回空串
+     */
+    public static function queryDefaultFrom() {
+        $days = (int)self::cfg('log.query.default_days', '3');
+        if ($days <= 0) return '';
+        return date('Y-m-d 00:00:00', strtotime('-' . ($days - 1) . ' days'));
     }
 
     /** 读取配置（未设置的级别开关默认开启） */
@@ -338,7 +351,13 @@ class LogService {
         if (!empty($filter['category'])) { $where .= ' AND category = ?'; $params[] = $filter['category']; }
         if (!empty($filter['direction'])) { $where .= ' AND direction = ?'; $params[] = $filter['direction']; }
         if (!empty($filter['level'])) { $where .= ' AND level = ?'; $params[] = $filter['level']; }
-        if (!empty($filter['date'])) { $where .= ' AND created_at LIKE ?'; $params[] = $filter['date'] . '%'; }
+        if (!empty($filter['date'])) {
+            $where .= ' AND created_at LIKE ?'; $params[] = $filter['date'] . '%';
+        } else {
+            // 防御性时间收敛：未指定日期时回退最近 N 天，先经 created_at 索引收窄
+            $from = self::queryDefaultFrom();
+            if ($from !== '') { $where .= ' AND created_at >= ?'; $params[] = $from; }
+        }
         if (!empty($filter['kw'])) {
             $where .= ' AND (summary LIKE ? OR detail LIKE ? OR action LIKE ? OR username LIKE ? OR target LIKE ?)';
             $like = '%' . $filter['kw'] . '%';
@@ -371,7 +390,12 @@ class LogService {
         if (!empty($filter['category'])) { $where .= ' AND category = ?'; $params[] = $filter['category']; }
         if (!empty($filter['direction'])) { $where .= ' AND direction = ?'; $params[] = $filter['direction']; }
         if (!empty($filter['level'])) { $where .= ' AND level = ?'; $params[] = $filter['level']; }
-        if (!empty($filter['date'])) { $where .= ' AND created_at LIKE ?'; $params[] = $filter['date'] . '%'; }
+        if (!empty($filter['date'])) {
+            $where .= ' AND created_at LIKE ?'; $params[] = $filter['date'] . '%';
+        } else {
+            $from = self::queryDefaultFrom();
+            if ($from !== '') { $where .= ' AND created_at >= ?'; $params[] = $from; }
+        }
         if (!empty($filter['kw'])) {
             $where .= ' AND (summary LIKE ? OR detail LIKE ? OR action LIKE ? OR username LIKE ? OR target LIKE ?)';
             $like = '%' . $filter['kw'] . '%';

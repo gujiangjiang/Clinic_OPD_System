@@ -13,6 +13,32 @@
 
 ---
 
+## [9.7.0] - 2026-10-04
+
+### 新增
+- **日志滑动窗口归档（三库自适应）**：新增 `app/services/system/LogArchiver.php` 与
+  `tools/cli/log_archive_run.php`（`--days/--batch/--table/--dry-run`）。各驱动最低成本策略：
+  MySQL 优先 `DROP PARTITION`（无分区则行级分批）、PostgreSQL `ctid` 分批删除、SQLite 事务分批
+  `DELETE ... rowid IN (... LIMIT n)` + `PRAGMA incremental_vacuum`；不改变表逻辑结构，不触碰自增。
+- **日志检索防御性时间收敛**：`LogService::queryDefaultFrom()` 在未选日期时回退最近 N 天
+  （设置 `log.query.default_days`，默认 3，0=不限），强制先经 `created_at` 索引收敛再文本模糊比对；
+  日志管理弹窗新增「检索默认天数」配置项。
+
+### 变更
+- **跨库互迁索引重建**：`DatabaseMigrator` 迁移期仅建"纯表 + 主键"，剥离内联二级索引/外键
+  （`stripInlineSecondaryKeys`），数据全部导入后由 `createIndexes()` 批量重建（SQLite/MySQL/PG 方言感知），
+  全量同步提速并规避 SQLite 无法解析 MySQL 内联 `KEY`、PG 不接受 `KEY` 定义的方言冲突。
+- **源表枚举驱动感知**：`sourceTables()` 按驱动查询（修正 PG 误用 MySQL `DATABASE()`）；
+  PostgreSQL 显式排除声明式分区子表（`relispartition=false`），杜绝跨库反射出虚影子表。
+- 日志表 `system_logs` 新增 `idx_system_logs_user_created(user_id, created_at)`（schema v47），
+  与 `created_at` 索引共同支撑按操作人审计；渠道列表索引保留（后台唯一高频读取路径）。
+
+### 文档
+- AGENTS.md 新增「日志与审计（三库互迁零破坏 + 生命周期归档）」铁律：单列自增主键、
+  禁止 PG 声明式分区、精简二级索引、滑动归档与迁移期索引重建约定。
+
+---
+
 ## [9.6.1] - 2026-10-04
 
 ### 修复

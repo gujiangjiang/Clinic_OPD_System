@@ -144,6 +144,11 @@ function admin_part_log($action) {
         $days = (int)post('retention_days', 30);
         if ($days < 0) $days = 0;
         set_setting('log.retention_days', (string)$days);
+        // 检索默认时间范围（天）：0=不限制；防止无日期条件下全表扫描
+        $qdays = (int)post('query_default_days', 3);
+        if ($qdays < 0) $qdays = 0;
+        if ($qdays > 365) $qdays = 365;
+        set_setting('log.query.default_days', (string)$qdays);
         $maxKb = (int)post('server_max_kb', 1024);
         if ($maxKb < 64) $maxKb = 64;
         set_setting('log.server.max_kb', (string)$maxKb);

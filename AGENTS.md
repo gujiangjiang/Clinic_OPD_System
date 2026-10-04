@@ -4,7 +4,7 @@
 
 ## 版本标识
 
-- 系统基准版本：**v9.6.1**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
+- 系统基准版本：**v9.7.0**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
 
 ## 本地运行环境（本机 macOS arm64）
 
@@ -63,6 +63,8 @@
     两场景）/`FhirDemoSeeder`（FHIR/HL7 全链路验证数据：3 套旅程 + DICOM UID/Series
     + 危急值，`--module=fhir` / `--scene=fhir`）/`VisitFlowEngine`/`PreflightChecker`）。
   - `tools/lint/`：语法检查工具（原 `tools/schema/` 一次性迁移/修复脚本已于本次复盘清理移除）。
+  - `tools/cli/`：后台/定时任务（`db_migrate_run.php` 迁移、`db_backup_run.php` 备份、
+    `integration_outbox_run.php` 出向同步、`log_archive_run.php` 日志滑动归档、`hl7_mllp_server.php` 等）。
 - **开发铁律**：后续任何测试造数需求，严禁在 `tools/` 根目录随意新建孤立的 `seed_xxx.php` 脚本，
   必须在 `seeder/` 中扩展复用（场景通过 `tools/bin/seed.php` 组合调度）；
   造数一律通过统一 CLI 入口调度。
@@ -77,6 +79,22 @@
 - 会话统一由 `app/core/auth/Session.php` 驱动分发（`files` / `redis` / `memcached` 多驱动，环境变量 `SESSION_DRIVER` 切换，默认 `files` 零依赖），**严禁在业务逻辑中直接编写 `ini_set('session.*')` 或直接 `session_start()`**。
 - 配置 redis/memcached 但扩展缺失或连接失败 → `Session::start()` 自动 `error_log` 告警并平滑降级 files，绝不白屏。
 - **任何新增的纯只读、高频轮询类接口（大屏/心跳/队列/危急值/站内消息/待办统计等），在鉴权完成后必须调用 `Session::closeReadOnly()` 立即释放 Session 独占锁**，根除并发串行排队。
+
+## 日志与审计（三库互迁零破坏 + 生命周期归档）
+
+- 追加写日志表：`system_logs`（操作/接口日志，见 `app/config/schema/main/01_system.php`）、
+  `inbound_events`（入向审计，见 `24_integration.php`）。审核审批流表 `audits`（`03_audits.php`）为低写量业务表，二者职责不同。
+- **主键铁律**：日志表 `id` 必须为单列自增主键（SQLite `INTEGER PRIMARY KEY AUTOINCREMENT` /
+  MySQL `AUTO_INCREMENT` / PG `SERIAL|IDENTITY`），**严禁复合主键**（破坏 SQLite 自增与三库同步）。
+- **PG 分区铁律**：严禁对日志表使用 PostgreSQL 声明式分区（物理子表会被跨库反射误识别为业务表）；
+  `DatabaseMigrator::sourceTables()` 已显式排除分区子表（`relispartition=false`）。
+- **索引铁律**：日志表二级索引精简（写入放大），仅保留 `created_at`、`(user_id, created_at)` 与
+  渠道列表所需索引；**严禁**在 `detail`/`payload` 等长文本或 JSON 列建常规索引。检索必须先经
+  `created_at` 范围收敛（`LogService::queryDefaultFrom()`，设置 `log.query.default_days`，默认 3 天，0=不限）。
+- **滑动归档**：`tools/cli/log_archive_run.php`（`LogArchiver`）按保留天数淘汰超期日志，各驱动最低成本：
+  MySQL 分区裁剪优先/否则行级分批、PG `ctid` 分批、SQLite 事务分批 + `incremental_vacuum`；不改变表逻辑结构。
+- **跨库互迁**：`DatabaseMigrator` 迁移期仅建"纯表 + 主键"，数据导入完成后由
+  `createIndexes()` 批量重建二级索引（提速 + 规避方言冲突）；导入导出不得携带任何单库专用 DDL。
 
 ## 每次修改必须执行的自动化步骤
 

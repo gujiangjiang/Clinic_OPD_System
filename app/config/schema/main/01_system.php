@@ -42,9 +42,15 @@ return array(
             user_agent TEXT NOT NULL DEFAULT '',
             created_at TEXT
         )",
-        // system_logs 索引（createTables 幂等执行；键名仅作占位，值才是 SQL）
+        // system_logs 索引策略（追加写表，严格精简二级索引以降低写入放大）：
+        //  - idx_system_logs_created (created_at)：全局时间段收敛 + 超期归档定位（核心）
+        //  - idx_system_logs_user_created (user_id, created_at)：按操作人审计（行为溯源）
+        //  - idx_system_logs_channel (channel, category, id)：日志中心左侧分类列表/计数路径
+        //    （保留：后台唯一高频读取路径；三库均可用）
+        // 严禁在 detail/payload 等长文本列建常规索引（前置模糊查询无法命中 B-Tree）。
         'system_logs_idx_channel' => "CREATE INDEX IF NOT EXISTS idx_system_logs_channel ON system_logs(channel, category, id)",
         'system_logs_idx_created' => "CREATE INDEX IF NOT EXISTS idx_system_logs_created ON system_logs(created_at)",
+        'system_logs_idx_user_created' => "CREATE INDEX IF NOT EXISTS idx_system_logs_user_created ON system_logs(user_id, created_at)",
     ),
     'migrations' => array(
         // v46：统一系统日志表（日志中心）——
@@ -76,6 +82,11 @@ return array(
             )",
             "CREATE INDEX IF NOT EXISTS idx_system_logs_channel ON system_logs(channel, category, id)",
             "CREATE INDEX IF NOT EXISTS idx_system_logs_created ON system_logs(created_at)",
+        ),
+        // v47：日志表按操作人审计的通用复合索引（user_id, created_at）。
+        // 追加写表仅补此一条高价值索引，不在 detail/payload 长文本列建索引。
+        47 => array(
+            "CREATE INDEX IF NOT EXISTS idx_system_logs_user_created ON system_logs(user_id, created_at)",
         ),
     ),
 );

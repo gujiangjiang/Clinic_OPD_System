@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v9.6.1-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL%2FPostgreSQL-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v9.7.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL%2FPostgreSQL-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -239,6 +239,7 @@
 │   ├── bin/
 │   │   └── seed.php           # 统一造数 CLI：--all / --scene=visit|call|dept_call|doctor=工号|dept=科室|类型 / --module=clinic|dept|user|screen|drug|lab|exam|disposal|package|template
 │   ├── seeder/                # 单一职责数据工厂（Seeder 基类 / DeptSeeder / UserSeeder / DrugSeeder / LabSeeder（含检验组合）/ ExamSeeder / DisposalSeeder / PackageSeeder / TemplateSeeder / VisitSeeder（就诊链）/ QueueSeeder（叫号队列）/ VisitFlowEngine / PreflightChecker）
+│   ├── cli/                   # 后台/定时任务（db_migrate_run / db_backup_run / integration_outbox_run / log_archive_run / hl7_mllp_server 等）
 │   └── lint/                  # php-lint.php（tokenizer 语法检查）/ ci-lint.php / jscheck.js
 ├── .github/workflows/         # GitHub Actions：PHP 7.2~8.5 语法兼容矩阵检查 + 检查报告
 ├── docs/                      # 文档归档
