@@ -4,7 +4,7 @@
 
 ## 版本标识
 
-- 系统基准版本：**v9.5.0**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
+- 系统基准版本：**v9.6.0**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
 
 ## 本地运行环境（本机 macOS arm64）
 
@@ -27,13 +27,13 @@
 ## 基础设施配置库（config.db，v8.20+ 架构铁律）
 
 - 基础设施配置（主库驱动/连接凭证、缓存驱动、App Key、维护模式）统一存放于
-  `data/db/config.db`（独立于主业务库），由 `app/core/ConfigStore.php` 读写。
+  `data/db/config.db`（独立于主业务库），由 `app/core/db/ConfigStore.php` 读写。
 - 打开前必须校验 16 字节 Magic Header（`SQLite format 3\0`），损坏文件自动备份为
   `config.db.corrupt.[timestamp]` 并优雅降级回退默认配置，**严禁抛 500**。
 - 主业务数据独立存放于主数据库；删除 config.db 仅重置配置不破坏业务数据
   （安装向导可【关联现有数据库】重新绑定）。
 - 未生成 config.db 时系统按 bootstrap 默认常量运行（旧版向后兼容）。
-- 数据库迁移（SQLite↔MySQL↔PostgreSQL）由 `app/core/DatabaseMigrator.php` 执行，
+- 数据库迁移（SQLite↔MySQL↔PostgreSQL）由 `app/core/db/DatabaseMigrator.php` 执行，
   经 `MigrationRunner` 以 nohup 后台 CLI 任务运行（`tools/cli/db_migrate_run.php`）：
   全站锁定（`app/includes/migrating_lock.php` 进度条 + 重新登录 + 管理员取消）、
   取消/失败自动回退原库、成功后由管理员确认再切换主库指针；迁移/切换启动时
@@ -74,7 +74,7 @@
 
 ## 会话管理（Session 多驱动架构铁律）
 
-- 会话统一由 `app/core/Session.php` 驱动分发（`files` / `redis` / `memcached` 多驱动，环境变量 `SESSION_DRIVER` 切换，默认 `files` 零依赖），**严禁在业务逻辑中直接编写 `ini_set('session.*')` 或直接 `session_start()`**。
+- 会话统一由 `app/core/auth/Session.php` 驱动分发（`files` / `redis` / `memcached` 多驱动，环境变量 `SESSION_DRIVER` 切换，默认 `files` 零依赖），**严禁在业务逻辑中直接编写 `ini_set('session.*')` 或直接 `session_start()`**。
 - 配置 redis/memcached 但扩展缺失或连接失败 → `Session::start()` 自动 `error_log` 告警并平滑降级 files，绝不白屏。
 - **任何新增的纯只读、高频轮询类接口（大屏/心跳/队列/危急值/站内消息/待办统计等），在鉴权完成后必须调用 `Session::closeReadOnly()` 立即释放 Session 独占锁**，根除并发串行排队。
 
@@ -126,7 +126,7 @@
 ## 前端资源登记（Assets.php 铁律）
 
 - 全站公共 CSS/JS、各页面额外资源与 Service Worker 预缓存清单统一登记于
-  `app/includes/Assets.php`（`CSS_CORE` / `JS_CORE` / `JS_EMR` / `JS_DEPT_WORK` …
+  `app/includes/ui/Assets.php`（`CSS_CORE` / `JS_CORE` / `JS_EMR` / `JS_DEPT_WORK` …
   常量 + `precache()`），由 `layout.php` 据此生成 `<link>/<script>` 标签。
 - **任何新增前端模块（css/js）必须在 `Assets.php` 登记**，页面通过
   `Assets::cssTags()/jsTags()/emrTags()` 输出；严禁在 `layout.php`、`Router` 或

@@ -13,6 +13,24 @@
 
 ---
 
+## [9.6.0] - 2026-10-04
+
+### 变更
+- **目录结构整理（分类清晰化，零功能变更）**：
+  - `app/core/`：数据库类归入 `db/`（DatabaseManager/DatabaseMigrator/MigrationRunner/
+    ConfigStore/ConnectionTester），认证会话类归入 `auth/`（Auth/CSRF/LoginSecurity/Session）。
+  - `app/repositories/`：按业务域拆分 `clinical/`、`billing/`、`catalog/`、`system/`，
+    `BaseRepository` 保留根目录；bootstrap 自动加载增加一级子目录。
+  - `app/includes/`：布局与前端资源归入 `ui/`（layout/Assets/role_home/dept_workbench/
+    icon_bridge），病历格式化与打印模板归入 `emr/`（emr_formatter/print_templates）。
+  - `app/api/parts/`：管理端分片归入 `admin/`（去冗余 `admin_` 前缀），分析子目录同步。
+  - `public/assets/js/components/`：56 个组件按职责归入 `core/`（26）、`emr/`（20）、
+    `dept/`（7）、`admin/`（3）；`nav.js` SPA 按需加载补充分组路径解析。
+  - `public/assets/css/`：归入 `core/`（基础通用）与 `pages/`（页面专属）。
+- 同步更新 README 目录树、AGENTS.md、docs/HELP.md 路径说明与 `Assets.php` 资源清单。
+
+---
+
 ## [9.5.0] - 2026-10-04
 
 ### 新增

@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v9.5.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL%2FPostgreSQL-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v9.6.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL%2FPostgreSQL-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -176,54 +176,60 @@
 ├── public/                    # Web 唯一入口目录（Nginx root 指向这里）
 │   ├── index.php              # 单入口：页面路由 + /api/{接口} 分发
 │   ├── assets/
-│   │   ├── css/               # 样式拆分：base / components / modal / layout / dark / print / auth / landing
-│   │   └── js/components/     # 组件拆分：ajax / modal / print / theme / notify / selector /
-│   │                          #           validation / datetime / datepicker / order / drugform /
-│   │                          #           emreditor / emr_ctxmenu / emr / emr_cert / emr_consent /
-│   │                          #           emr_consult / emr_diag / emr_fee / emr_orders / emr_patient /
-│   │                          #           emr_rules / emr_segments / emr_template / queuepanel /
-│   │                          #           queuepanel_core / historypanel / depttree / deptpicker /
-│   │                          #           patient / ui / toast / app / deptwork / doctor_tools /
-│   │                          #           vitals / room_heartbeat / eventbus / import / admin_items /
-│   │                          #           dropdown / call / chart / screen / critical
+│   │   ├── css/
+│   │   │   ├── core/          # 基础与通用样式：base / layout / components / components-emr / modal / dark / print
+│   │   │   └── pages/         # 页面专属样式：auth / landing / call / pacs
+│   │   └── js/components/
+│   │       ├── core/          # 通用组件：ajax / modal / app / nav / ui / toast / theme / dropdown / datetime / …
+│   │       ├── emr/           # 电子病历栈：emr / emreditor / order / queuepanel / vitals / 模板与片段…
+│   │       ├── dept/          # 科室工作台：deptwork / doctor_tools / room_heartbeat / pacshistory / screen / call / critical
+│   │       └── admin/         # 管理端：admin_items / import / chart
 │   └── uploads/               # 上传文件：logo/、user/{角色}/——运行时生成，不提交
 ├── app/                       # 业务代码（Web 无法访问）
 │   ├── config/
 │   │   ├── bootstrap.php      # 启动引导（常量、Session、时区、类加载、DB_DRIVER 驱动配置）
 │   │   ├── options_data.php   # 公共字典（统一数据源）
+│   │   ├── drivers.php        # 驱动选项注册表（数据库/缓存，唯一数据源）
 │   │   └── schema/            # 数据库表结构定义
 │   │       ├── main.php       # 主库 schema 聚合入口（按模块合并 tables/migrations/seed）
 │   │       ├── main/          # 主库 schema 分模块定义（各模块建表/迁移/种子内聚，便于维护排查）
 │   │       └── icd10.php      # ICD-10 独立字典库 schema
-│   ├── core/                  # 核心类
-│   │   ├── DatabaseManager.php（getMain/getIcd10 双连接 + 方言辅助 + 运行时列自愈）
-│   │   │   Auth.php（登录/会话/角色）LoginSecurity.php（验证码 + IP 频控 + 防爆破）
-│   │   │   Session.php CSRF.php Upload.php Router.php IdObfuscator.php（URL 混淆）
-│   │   │   EmrContextResolver.php（病历上下文 SSOT）barcode.php（Code128 条形码）
-│   │   │   DataExportImport.php emr_rules.php helpers.php（加载 helpers.d/*.php）
-│   │   └── helpers.d/         # 辅助函数按域拆分（13 个文件：string/input/upload/idcard/pinyin/settings/work/oid/visit/trend/consult/authz/message）
-│   ├── repositories/          # 数据访问层（Repository 数据仓库模式，业务与 SQL 解耦）
-│   │   └── BaseRepository.php（通用 CRUD 助手）+ 各业务域仓库：
-│   │       Icd10 / Patient / Queue / Cashier / Emr / Drug / Order /
-│   │       User / Dept / Analytics / Consultation / Core /
-│   │       CriticalValue / Message / Consent / Referral / Refund / Push /
-│   │       PrintSnapshot / EmrTemplate / Package / Integration / Audit / SkinTest
+│   ├── core/                  # 核心框架类
+│   │   ├── db/                # 数据基础设施：DatabaseManager / DatabaseMigrator / MigrationRunner /
+│   │   │                      #   ConfigStore（config.db 读写）/ ConnectionTester
+│   │   ├── auth/              # 认证与会话：Auth / CSRF / LoginSecurity / Session
+│   │   ├── Router.php Upload.php IdObfuscator.php（URL 混淆）barcode.php（Code128 条形码）
+│   │   ├── Cache.php DataExportImport.php EmrContextResolver.php（病历上下文 SSOT）
+│   │   ├── helpers.php        # 加载 helpers.d/*.php
+│   │   └── helpers.d/         # 辅助函数按域拆分（string/input/upload/idcard/pinyin/settings/work/oid/visit/trend/consult/authz/message）
+│   ├── repositories/          # 数据访问层（按业务域分目录）
+│   │   ├── BaseRepository.php # 通用 CRUD 助手
+│   │   ├── clinical/          # Order / Emr / EmrTemplate / Consent / Consultation / Referral /
+│   │   │                      #   CriticalValue / SkinTest / Imaging / PrintSnapshot / Package / Patient
+│   │   ├── billing/           # Cashier / Refund
+│   │   ├── catalog/           # Drug / Icd10
+│   │   └── system/            # User / Dept / Audit / Analytics / Core / Integration / Message / Queue / Push
+│   ├── services/              # 服务层（按集成域分目录）
+│   │   ├── system/            # LogService / ConnectivityTester / ConfigAudit / IntegrationStatus
+│   │   ├── imaging/           # ImagingRegionResolver
+│   │   ├── his/ hl7/ lis/ fhir/ external/ http/
 │   ├── api/                   # AJAX 接口（按域归类，含角色权限校验；不含原生 SQL，
 │   │   │                      # 统一调用对应 Repository）
 │   │   ├── _init.php          # 接口公共入口（CSRF + 登录 + 角色校验）
-│   │   ├── parts/             # 接口片段库（按功能拆分，各域接口共用）
+│   │   ├── parts/             # 接口片段库（doctor/ order/ record/ + admin/ 管理端分片）
 │   │   ├── admin/             # 管理端接口（admin.php）
 │   │   ├── clinic/            # 门诊业务接口（auth/cashier/doctor/nurse/lab/imaging/
 │   │   │   │                  # pharmacy/deptwork/record/order/consent/consultation/
 │   │   │   │                  # template/package/transfer/critical/refund/print/message/
 │   │   │   │                  # push/screen/icd10）
-│   │   ├── integration/       # 外部集成入向（external.php / fhir.php / his.php）
+│   │   ├── integration/       # 外部集成入向（external.php / fhir.php / dicomweb.php）
 │   │   └── system/            # 系统级接口（install.php / migration.php）
 │   ├── includes/              # 公共模块
-│   │   ├── layout.php         # 统一布局（侧边栏/顶栏/主题/消息铃铛/CSRF/favicon）
-│   │   ├── dept_workbench.php # 医技科室工作台公共骨架（护士站/检验/影像/药房）
-│   │   ├── forms.php          # 共享表单（检验/检查项目、药品）
-│   │   └── print_templates.php# 统一打印模板
+│   │   ├── ui/                # layout.php（统一布局）/ Assets.php（前端资源登记）/ role_home.php /
+│   │   │                      #   dept_workbench.php（医技工作台骨架）/ icon_bridge.php
+│   │   ├── emr/               # emr_formatter.php（病历格式化）/ print_templates.php（打印模板聚合）
+│   │   ├── icons/ print/      # 图标库 / 打印模板实现
+│   │   └── forms.php catalog_query.php pwa.php migrating_lock.php
 │   └── views/                 # 页面视图（按角色/模块分子目录）
 ├── data/                      # 运行时数据目录（Web 无法访问，首次访问自动创建）
 │   ├── db/                    # SQLite 数据库（clinic_main.db 统一主库 + icd10.db 完整标准编码库，纳入版本管理）
