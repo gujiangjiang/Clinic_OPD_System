@@ -116,10 +116,14 @@ require_once __DIR__ . '/../core/Upload.php';
 require_once __DIR__ . '/../core/Router.php';
 require_once __DIR__ . '/../core/EmrContextResolver.php';
 
-/* ---------- 引入数据访问层（Repository 自动加载：BaseRepository 先加载） ---------- */
+/* ---------- 引入数据访问层（Repository 自动加载：BaseRepository 先加载；
+ * 按业务域分目录 clinical/ billing/ catalog/ system/） ---------- */
 require_once __DIR__ . '/../repositories/BaseRepository.php';
 foreach (glob(__DIR__ . '/../repositories/*.php') ?: array() as $__repoFile) {
     if (basename($__repoFile) === 'BaseRepository.php') continue;
+    require_once $__repoFile;
+}
+foreach (glob(__DIR__ . '/../repositories/*/*.php') ?: array() as $__repoFile) {
     require_once $__repoFile;
 }
 
