@@ -9,10 +9,23 @@
  *    实时性要求高，避免陈旧数据）。
  * ============================================================ */
 
-var CACHE = 'clinic-opd-v3';
+var CACHE = 'clinic-opd-v4';
 
 self.addEventListener('install', function () {
     self.skipWaiting();
+});
+
+/* 预缓存清单由页面（layout.php → Assets::precache()）经 postMessage 下发，
+   与页面实际加载的公共 CSS/JS 保持单一数据源；失败静默（不强阻断） */
+self.addEventListener('message', function (event) {
+    var d = event.data || {};
+    if (d.type === 'precache' && d.urls && d.urls.length) {
+        event.waitUntil(
+            caches.open(CACHE).then(function (cache) {
+                return cache.addAll(d.urls).catch(function () { /* 忽略个别失败 */ });
+            })
+        );
+    }
 });
 
 self.addEventListener('activate', function (e) {

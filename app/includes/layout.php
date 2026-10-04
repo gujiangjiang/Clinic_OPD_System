@@ -10,17 +10,29 @@
  *    侧边栏：按角色渲染菜单（无关角色看不到其他科室入口）
  * 3. 向页面注入：CSRF 令牌、主题偏好、医院名称（打印用）、favicon
  * ============================================================ */
+require_once __DIR__ . '/Assets.php';
+
 class Layout {
 
-    /**
-     * 资源版本参数：按文件修改时间戳做缓存失效（流式行内编辑器重构期间
-     * 防浏览器旧缓存，文件缺失时回退 APP_VERSION）。
-     * @param string $rel 相对 public/ 的路径，如 assets/css/components-emr.css
-     */
+    /** 资源版本参数：委托 Assets（按文件修改时间戳，缺失回退 APP_VERSION） */
     private static function assetVer($rel) {
-        $p = dirname(__DIR__, 2) . '/public/' . $rel;
-        $m = @filemtime($p);
-        return $m ? $m : APP_VERSION;
+        return Assets::mtimeVer($rel);
+    }
+
+    /** Service Worker 注册脚本 + 预缓存清单注入（清单见 Assets::precache()） */
+    private static function serviceWorkerScript() {
+        return '<script>window.OPD_SW_PRECACHE=' . json_script(Assets::precache()) . ';</script>' . "\n" .
+            '<script>
+            if ("serviceWorker" in navigator) {
+                window.addEventListener("load", function () {
+                    navigator.serviceWorker.register("/sw.js?v=' . APP_VERSION . '").then(function () {
+                        return navigator.serviceWorker.ready;
+                    }).then(function (reg) {
+                        if (reg && reg.active) reg.active.postMessage({ type: "precache", urls: window.OPD_SW_PRECACHE || [] });
+                    }).catch(function () {});
+                });
+            }
+            </script>';
     }
 
     /** 侧边栏菜单（按角色渲染） */
@@ -120,7 +132,7 @@ class Layout {
                 // title：侧边栏缩小（仅图标）模式下的悬停名称提示
                 // 站内消息项附加未读数徽章（展开靠右、缩小图标角标）
                 $msgBadge = ($it[2] === '/messages') ? '<span class="badge badge-danger nav-msg-badge" data-nav-msg-badge style="display:none"></span>' : '';
-                $html .= '<a class="nav-item" data-href="' . e($it[2]) . '" href="' . e($it[2]) . '" title="' . e($it[0]) . '">' .
+                $html .= '<a class="nav-item" draggable="false" ondragstart="return false" data-href="' . e($it[2]) . '" href="' . e($it[2]) . '" title="' . e($it[0]) . '">' .
                     '<span class="nav-ico">' . $it[1] . '</span><span class="nav-label">' . e($it[0]) . '</span>' . $msgBadge . '</a>';
             }
         }
@@ -207,31 +219,14 @@ class Layout {
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>' . e($hosp !== '' ? $hosp . ' - 门诊一体化系统' : '门诊一体化系统') . '</title>
             ' . $favicon . $pwaHead . '
-            <link rel="stylesheet" href="/assets/css/base.css?v=' . self::assetVer('assets/css/base.css') . '">
-            <link rel="stylesheet" href="/assets/css/components.css?v=' . self::assetVer('assets/css/components.css') . '">
-            <link rel="stylesheet" href="/assets/css/components-emr.css?v=' . self::assetVer('assets/css/components-emr.css') . '">
-            <link rel="stylesheet" href="/assets/css/modal.css?v=' . self::assetVer('assets/css/modal.css') . '">
-            <link rel="stylesheet" href="/assets/css/auth.css?v=' . self::assetVer('assets/css/auth.css') . '">
-            <link rel="stylesheet" href="/assets/css/dark.css?v=' . self::assetVer('assets/css/dark.css') . '">
+            ' . Assets::cssTags(Assets::CSS_AUTH) . '
         </head>
         <body class="auth-body" data-csrf="' . e(CSRF::token()) . '" data-theme-pref="' . e($theme) . '" data-theme="light"
             data-hosp="' . e($hosp) . '" data-hosp2="' . e(setting('hospital_name2', '')) . '" data-paywechat="' . e(setting('pay_wechat_enabled', '0')) . '" data-payalipay="' . e(setting('pay_alipay_enabled', '0')) . '" data-paybank="' . e(setting('pay_bankcard_enabled', '0')) . '" data-paymedicare="' . e(setting('pay_medicare_enabled', '0')) . '">
             ' . $brandHtml . '
             ' . $content . '
-            <script src="/assets/js/components/ajax.js?v=' . self::assetVer('assets/js/components/ajax.js') . '"></script>
-            <script src="/assets/js/components/conntest.js?v=' . self::assetVer('assets/js/components/conntest.js') . '"></script>
-            <script src="/assets/js/components/toast.js?v=' . self::assetVer('assets/js/components/toast.js') . '"></script>
-            <script src="/assets/js/components/theme.js?v=' . self::assetVer('assets/js/components/theme.js') . '"></script>
-            <script src="/assets/js/components/dropdown.js?v=' . self::assetVer('assets/js/components/dropdown.js') . '"></script>
-            <script src="/assets/js/components/authsync.js?v=' . self::assetVer('assets/js/components/authsync.js') . '"></script>
-            <script src="/assets/js/components/validation.js?v=' . self::assetVer('assets/js/components/validation.js') . '"></script>
-            <script>
-            if ("serviceWorker" in navigator) {
-                window.addEventListener("load", function () {
-                    navigator.serviceWorker.register("/sw.js").catch(function () {});
-                });
-            }
-            </script>
+            ' . Assets::jsTags(Assets::JS_AUTH) . '
+            ' . self::serviceWorkerScript() . '
         </body></html>';
         return $html;
     }
@@ -300,38 +295,27 @@ class Layout {
         // 流式行内编辑器重构期：emreditor/emr_template/emr_segments 按文件修改时间戳防缓存
         $emrScripts = '';
         if ($needEmr) {
-            $emrScripts = implode("\n", array_map(function ($f) {
-                $ver = in_array($f, array('emreditor', 'emr_template', 'emr_segments'), true)
-                    ? self::assetVer('assets/js/components/' . $f . '.js')
-                    : APP_VERSION;
-                return '<script src="/assets/js/components/' . $f . '.js?v=' . $ver . '"></script>';
-            }, array(
-                'queuepanel_core', 'order', 'emreditor', 'emr_ctxmenu', 'eventbus', 'emr', 'emr_diag', 'emr_cert', 'emr_consult', 'emr_rules', 'emr_format',
-                'emr_template', 'emr_fee', 'emr_patient', 'emr_orders', 'emr_segments', 'emr_consent', 'vitals', 'queuepanel',
-            )));
+            $emrScripts = Assets::emrTags();
         }
         // 医生工作站（新）顶栏工具：工具箱 / 叫号大屏绑定 / 科室切换（仅医生角色）
         if ($docTools) {
-            $emrScripts .= "\n" . '<script src="/assets/js/components/doctor_tools.js?v=' . self::assetVer('assets/js/components/doctor_tools.js') . '"></script>';
+            $emrScripts .= "\n" . Assets::jsTags(Assets::JS_DOC_TOOLS);
         }
         // 医生角色全局：诊室大屏绑定心跳保活（跨页面持续，离开工作站/刷新不自动解绑）
         // 医技四科室（护士/检验/影像/药房）：大屏绑定心跳同样跨页面保活（room_heartbeat
         // 按 data-role 自动路由到 /api/deptwork）
         if (in_array($u['role'], array('doctor', 'nurse', 'lab', 'imaging', 'pharmacy'), true)) {
-            $emrScripts .= "\n" . '<script src="/assets/js/components/room_heartbeat.js?v=' . self::assetVer('assets/js/components/room_heartbeat.js') . '"></script>';
+            $emrScripts .= "\n" . Assets::jsTags(Assets::JS_ROOM_HEARTBEAT);
         }
-        // 科室工作台（护士站/检验/影像/药房）共用组件 + 候诊面板核心 + 生命体征悬浮窗组件
+        // 科室工作台（护士站/检验/影像/药房）共用组件 + 候诊面板核心 + 生命体征悬浮窗 +
+        // 历史报告调阅组件（检验科加载无害，仅影像科视图调用）
         if ($needDeptWork) {
-            $emrScripts .= "\n" . '<script src="/assets/js/components/queuepanel_core.js?v=' . self::assetVer('assets/js/components/queuepanel_core.js') . '"></script>';
-            $emrScripts .= "\n" . '<script src="/assets/js/components/deptwork.js?v=' . self::assetVer('assets/js/components/deptwork.js') . '"></script>';
-            $emrScripts .= "\n" . '<script src="/assets/js/components/vitals.js?v=' . self::assetVer('assets/js/components/vitals.js') . '"></script>';
-            // 影像科专属：历史报告调阅组件（检验科加载无害，仅影像科视图调用）
-            $emrScripts .= "\n" . '<script src="/assets/js/components/pacshistory.js?v=' . self::assetVer('assets/js/components/pacshistory.js') . '"></script>';
+            $emrScripts .= "\n" . Assets::jsTags(Assets::JS_DEPT_WORK);
         }
         // 管理端项目列表（检验/检查/药品/处置/模板/套餐/审核/分析）共用组件：
         // 全局加载（SPA 局部导航不重载 layout，条件加载会导致从非分页页
         // 导航到分页页时 Clinic.adminItems 未定义，列表报 pagedTable 错误）
-        $emrScripts .= "\n" . '<script src="/assets/js/components/admin_items.js?v=' . self::assetVer('assets/js/components/admin_items.js') . '"></script>';
+        $emrScripts .= "\n" . Assets::jsTags(Assets::JS_ADMIN_ITEMS);
         $uPop = '<div class="user-pop">' .
             '<div class="user-pop-head">' .
             '<span class="avatar" style="width:38px;height:38px;font-size:15px">' . $avatar . '</span>' .
@@ -356,14 +340,7 @@ class Layout {
             <meta name="mobile-web-app-capable" content="yes">
             <meta name="apple-mobile-web-app-title" content="' . e($hosp !== '' ? $hosp : '门诊一体化系统') . '">
             <link rel="apple-touch-icon" href="/pwa-icon.png?v=' . APP_VERSION . '">
-            <link rel="stylesheet" href="/assets/css/base.css?v=' . self::assetVer('assets/css/base.css') . '">
-            <link rel="stylesheet" href="/assets/css/components.css?v=' . self::assetVer('assets/css/components.css') . '">
-            <link rel="stylesheet" href="/assets/css/components-emr.css?v=' . self::assetVer('assets/css/components-emr.css') . '">
-            <link rel="stylesheet" href="/assets/css/modal.css?v=' . self::assetVer('assets/css/modal.css') . '">
-            <link rel="stylesheet" href="/assets/css/layout.css?v=' . self::assetVer('assets/css/layout.css') . '">
-            <link rel="stylesheet" href="/assets/css/pacs.css?v=' . self::assetVer('assets/css/pacs.css') . '">
-            <link rel="stylesheet" href="/assets/css/dark.css?v=' . self::assetVer('assets/css/dark.css') . '">
-            <link rel="stylesheet" href="/assets/css/print.css?v=' . self::assetVer('assets/css/print.css') . '">
+            ' . Assets::cssTags(Assets::CSS_CORE) . '
         </head>
         <body data-csrf="' . e(CSRF::token()) . '" data-theme-pref="' . e($theme) . '" data-theme="light"
             data-sidebar-pref="' . e($sidebar) . '"' . ($forceMini ? ' data-sidebar-force="1"' : '') . '
@@ -375,48 +352,14 @@ class Layout {
                  导致列表区域永远停留在加载转圈状态（历史 bug）。
 因此脚本放在内容区之前，保证内联脚本执行时 Clinic 已就绪。 -->
             <!-- 核心通用组件（所有页面加载） -->
-            <script src="/assets/js/components/ajax.js?v=' . self::assetVer('assets/js/components/ajax.js') . '"></script>
-            <script src="/assets/js/components/modal.js?v=' . self::assetVer('assets/js/components/modal.js') . '"></script>
-            <script src="/assets/js/components/deptpicker.js?v=' . self::assetVer('assets/js/components/deptpicker.js') . '"></script>
-            <script src="/assets/js/components/depttree.js?v=' . self::assetVer('assets/js/components/depttree.js') . '"></script>
-            <script src="/assets/js/components/toast.js?v=' . self::assetVer('assets/js/components/toast.js') . '"></script>
-            <script src="/assets/js/components/feepop.js?v=' . self::assetVer('assets/js/components/feepop.js') . '"></script>
-            <script src="/assets/js/components/push.js?v=' . self::assetVer('assets/js/components/push.js') . '"></script>
-            <script src="/assets/js/components/smart_poller.js?v=' . self::assetVer('assets/js/components/smart_poller.js') . '"></script>
-            <script src="/assets/js/components/infinite.js?v=' . self::assetVer('assets/js/components/infinite.js') . '"></script>
-            <script src="/assets/js/components/print.js?v=' . self::assetVer('assets/js/components/print.js') . '"></script>
-            <script src="/assets/js/components/theme.js?v=' . self::assetVer('assets/js/components/theme.js') . '"></script>
-            <script src="/assets/js/components/dropdown.js?v=' . self::assetVer('assets/js/components/dropdown.js') . '"></script>
-            <script src="/assets/js/components/notify.js?v=' . self::assetVer('assets/js/components/notify.js') . '"></script>
-            <script src="/assets/js/components/import.js?v=' . self::assetVer('assets/js/components/import.js') . '"></script>
-            <script src="/assets/js/components/selector.js?v=' . self::assetVer('assets/js/components/selector.js') . '"></script>
-            <script src="/assets/js/components/validation.js?v=' . self::assetVer('assets/js/components/validation.js') . '"></script>
-            <script src="/assets/js/components/datetime.js?v=' . self::assetVer('assets/js/components/datetime.js') . '"></script>
-            <script src="/assets/js/components/datepicker.js?v=' . self::assetVer('assets/js/components/datepicker.js') . '"></script>
-            <script src="/assets/js/components/historypanel.js?v=' . self::assetVer('assets/js/components/historypanel.js') . '"></script>
-            <script src="/assets/js/components/patient.js?v=' . self::assetVer('assets/js/components/patient.js') . '"></script>
-            <script src="/assets/js/components/ui.js?v=' . self::assetVer('assets/js/components/ui.js') . '"></script>
-            <script src="/assets/js/components/naming.js?v=' . self::assetVer('assets/js/components/naming.js') . '"></script>
-            <script src="/assets/js/components/conntest.js?v=' . self::assetVer('assets/js/components/conntest.js') . '"></script>
-            <script src="/assets/js/components/drugform.js?v=' . self::assetVer('assets/js/components/drugform.js') . '"></script>
-            <script src="/assets/js/components/chart.js?v=' . self::assetVer('assets/js/components/chart.js') . '"></script>
-            <script src="/assets/js/components/critical.js?v=' . self::assetVer('assets/js/components/critical.js') . '"></script>
-            <script src="/assets/js/components/authsync.js?v=' . self::assetVer('assets/js/components/authsync.js') . '"></script>
-            <script src="/assets/js/components/app.js?v=' . self::assetVer('assets/js/components/app.js') . '"></script>
-            <script src="/assets/js/components/nav.js?v=' . self::assetVer('assets/js/components/nav.js') . '"></script>
+            ' . Assets::jsTags(Assets::JS_CORE) . '
             <script>window.OPD_ICON_SVGS=' . json_encode(IconHelper::allSvg()) . ';</script>
-            <script src="/assets/js/components/icons.js?v=' . self::assetVer('assets/js/components/icons.js') . '"></script>
-            <script>
-            if ("serviceWorker" in navigator) {
-                window.addEventListener("load", function () {
-                    navigator.serviceWorker.register("/sw.js").catch(function () {});
-                });
-            }
-            </script>
+            ' . Assets::jsTag('assets/js/components/icons.js') . '
+            ' . self::serviceWorkerScript() . '
             ' . $emrScripts . '
             <div class="' . $appClass . '">
                 <!-- ===== 侧边栏 ===== -->
-                <aside class="sidebar">
+                <aside class="sidebar" oncontextmenu="return false">
                     <div class="sidebar-brand" data-brand-refresh role="button" tabindex="0" title="刷新页面" oncontextmenu="return false">
                         ' . $brandImg . '
                         <div class="brand-names">

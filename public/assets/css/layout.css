@@ -1177,3 +1177,19 @@
 .sidebar-brand * { pointer-events: none; -webkit-user-drag: none; user-select: none; }
 .sidebar-brand:active { opacity: .85; }
 .sidebar-brand:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; border-radius: var(--radius-sm); }
+
+/* 侧边栏导航项：本质为按钮，禁止拖拽/选中/右击触发的原生行为
+   （避免按住鼠标把“标题+链接”拖出，或弹出浏览器上下文菜单） */
+.sidebar-nav .nav-item {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+.sidebar-nav .nav-item * {
+    -webkit-user-drag: none;
+    user-drag: none;
+    user-select: none;
+    -webkit-user-select: none;
+}

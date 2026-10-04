@@ -123,6 +123,16 @@
      删除或在 `git add -A` 时遗漏该文件；提交前用 `npm run lint` 校验
      （lint 内置守护：文件缺失或未被 git 跟踪即判失败）。
 
+## 前端资源登记（Assets.php 铁律）
+
+- 全站公共 CSS/JS、各页面额外资源与 Service Worker 预缓存清单统一登记于
+  `app/includes/Assets.php`（`CSS_CORE` / `JS_CORE` / `JS_EMR` / `JS_DEPT_WORK` …
+  常量 + `precache()`），由 `layout.php` 据此生成 `<link>/<script>` 标签。
+- **任何新增前端模块（css/js）必须在 `Assets.php` 登记**，页面通过
+  `Assets::cssTags()/jsTags()/emrTags()` 输出；严禁在 `layout.php`、`Router` 或
+  业务视图中硬编码资源路径，避免版本参数不一致、SW 预缓存清单漂移与按需加载失效。
+- 资源版本参数默认按文件 mtime（`Assets::mtimeVer()`），缺失回退 `APP_VERSION`。
+
 ## 其他约定
 
 - 遵循 README「开发约定」：单文件小、职责单一；公共字典统一维护；数据库分散迁移；接口与页面分离。
