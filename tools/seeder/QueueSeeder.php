@@ -108,7 +108,18 @@ class QueueSeeder extends Seeder {
             $dept = DB::one('SELECT * FROM departments WHERE id=?', array($deptId));
             if (!$dept) { echo "跳过：科室 {$deptId} 不存在\n"; continue; }
             $seq = (int)DB::val('SELECT MAX(visit_seq) FROM registrations WHERE first_dept_id=? AND date(registered_at)=?', array($deptId, $today));
+            // 按挂号时间递增分配 visit_seq（001、002…）；起始时间取「当日 08:00」与
+            // 「该科室当日已有最晚挂号时间」中较晚者，保证新号晚于既有号，避免追加后倒挂
+            $baseTs = mktime(8, 0, 0, (int)date('m'), (int)date('d'), (int)date('Y'));
+            $maxReg = (string)DB::val('SELECT MAX(registered_at) FROM registrations WHERE first_dept_id=? AND date(registered_at)=?', array($deptId, $today));
+            if ($maxReg !== '' && ($mt = strtotime($maxReg)) && $mt >= $baseTs) $baseTs = $mt + 60;
+            $times = array();
+            $t = $baseTs;
             for ($i = 0; $i < $perDept; $i++) {
+                $t += mt_rand(60, 900);
+                $times[] = date('Y-m-d H:i:s', $t);
+            }
+            foreach ($times as $regTime) {
                 $patientSeq++;
                 $flowMax++;
                 $seq++;
@@ -137,11 +148,10 @@ class QueueSeeder extends Seeder {
                 }
                 $flowNo = $dayPrefix . sprintf('%04d', $flowMax);
                 $fee = (string)$dept['type'] === 'emergency' ? 50 : 20;
-                $regTime = date('Y-m-d H:i:s', mktime(mt_rand(8, 15), mt_rand(0, 59), mt_rand(0, 59), (int)date('m'), (int)date('d'), (int)date('Y')));
                 $payTime = date('Y-m-d H:i:s', strtotime($regTime) + mt_rand(120, 900));
                 $visitId = (int)DB::insert('INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, paid_at, cashier_id, cashier_name, registered_at, cancel_reason, is_extra, disposition, disposition_detail, finished_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                     $patientNo, $flowNo, $seq, $deptId, $dept['name'], $deptId, $dept['name'],
-                    mt_rand(8, 15) < 12 ? 'am' : 'pm', $this->pick(array('自费', '居民医保', '职工医保')), $fee,
+                    ((int)substr($regTime, 11, 2) < 12 ? 'am' : 'pm'), $this->pick(array('自费', '居民医保', '职工医保')), $fee,
                     'paid', $payTime, 2, '收款员', $regTime, '', 0, '', '', '',
                 ));
                 DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total_amount, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(

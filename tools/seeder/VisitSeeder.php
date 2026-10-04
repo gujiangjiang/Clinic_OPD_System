@@ -261,69 +261,70 @@ class VisitSeeder extends Seeder {
             'paid_recent' => 4,
             'visiting_recent' => 2,
         );
-        $visitIdx = 0;
+        // 先收集全部就诊计划，再按挂号时间升序统一生成——保证同一科室同一天的
+        // visit_seq（就诊序号）严格随挂号时间递增（001、002…），不再因生成顺序
+        // 与挂号时间不一致而出现「序号倒挂 / 混乱」。
+        $plan = array();
         foreach (array_keys($this->depts) as $deptId) {
             for ($i = 0; $i < $quota['finished_recent']; $i++) {
                 $ts = $now - mt_rand(1, $this->opt['days']) * 86400 - mt_rand(0, 6 * 3600);
                 if ($ts > $now) $ts = $now - mt_rand(600, 6 * 3600);
-                $this->makeVisit($this->nextPatient(), $deptId, $ts, 'finished', array(
+                $plan[] = array($this->nextPatient(), $deptId, $ts, 'finished', array(
                     // 覆盖续写/会诊/证明场景：约 2/3 有续写（同/跨医生随机）、
                     // 约 1/2 有会诊、个别出诊断证明，便于观察续写病历与会诊流程
                     'multiDoc' => mt_rand(1, 100) <= 65,
                     'consult' => mt_rand(1, 100) <= 50,
                     'cert' => mt_rand(1, 100) <= 20,
                 ));
-                $visitIdx++;
             }
             for ($i = 0; $i < $quota['finished_far']; $i++) {
-                $this->makeVisit($this->nextPatient(), $deptId, $now - mt_rand(60, 150) * 86400, 'finished', array());
-                $visitIdx++;
+                $plan[] = array($this->nextPatient(), $deptId, $now - mt_rand(60, 150) * 86400, 'finished', array());
             }
             for ($i = 0; $i < $quota['paid_today']; $i++) {
                 $ts = $now - mt_rand(600, 4 * 3600);
                 if ($ts > $now) $ts = $now - 600;
-                $this->makeVisit($this->nextPatient(), $deptId, $ts, 'paid');
-                $visitIdx++;
+                $plan[] = array($this->nextPatient(), $deptId, $ts, 'paid', array());
             }
             for ($i = 0; $i < $quota['visiting_today']; $i++) {
                 $ts = $now - mt_rand(1200, 5 * 3600);
                 if ($ts > $now) $ts = $now - 1200;
-                $this->makeVisit($this->nextPatient(), $deptId, $ts, 'visiting', array('consult' => $i === 0));
-                $visitIdx++;
+                $plan[] = array($this->nextPatient(), $deptId, $ts, 'visiting', array('consult' => $i === 0));
             }
             for ($i = 0; $i < $quota['pending_today']; $i++) {
                 $ts = $now - mt_rand(300, 1200);
                 if ($ts > $now) $ts = $now - 300;
-                $this->makeVisit($this->nextPatient(), $deptId, $ts, 'pending');
-                $visitIdx++;
+                $plan[] = array($this->nextPatient(), $deptId, $ts, 'pending', array());
             }
             for ($i = 0; $i < $quota['refunded_recent']; $i++) {
-                $this->makeVisit($this->nextPatient(), $deptId, $now - mt_rand(1, 5) * 86400 - mt_rand(0, 4 * 3600), 'refunded');
-                $visitIdx++;
+                $plan[] = array($this->nextPatient(), $deptId, $now - mt_rand(1, 5) * 86400 - mt_rand(0, 4 * 3600), 'refunded', array());
             }
             for ($i = 0; $i < $quota['cancelled_today']; $i++) {
                 $ts = $now - mt_rand(1800, 6 * 3600);
                 if ($ts > $now) $ts = $now - 1800;
-                $this->makeVisit($this->nextPatient(), $deptId, $ts, 'cancelled');
-                $visitIdx++;
+                $plan[] = array($this->nextPatient(), $deptId, $ts, 'cancelled', array());
             }
             for ($i = 0; $i < $quota['paid_recent']; $i++) {
-                $this->makeVisit($this->nextPatient(), $deptId, $now - mt_rand(1, 3) * 86400 - mt_rand(0, 5 * 3600), 'paid');
-                $visitIdx++;
+                $plan[] = array($this->nextPatient(), $deptId, $now - mt_rand(1, 3) * 86400 - mt_rand(0, 5 * 3600), 'paid', array());
             }
             for ($i = 0; $i < $quota['visiting_recent']; $i++) {
-                $this->makeVisit($this->nextPatient(), $deptId, $now - mt_rand(1, 2) * 86400 - mt_rand(0, 4 * 3600), 'visiting');
-                $visitIdx++;
+                $plan[] = array($this->nextPatient(), $deptId, $now - mt_rand(1, 2) * 86400 - mt_rand(0, 4 * 3600), 'visiting', array());
             }
-            echo "    ↳ 科室 {$deptId}（{$this->depts[$deptId]['name']}）+{$visitIdx} 条就诊\n";
         }
-
         // 新建患者补充：前 20 个新建患者再造 1 次更早的既往诊毕就诊（历史调阅素材）
         $extra = 0;
         foreach (array_slice($newPatients, 0, 20) as $p) {
-            $deptId = $this->pickDeptId();
-            $this->makeVisit($p, $deptId, $now - mt_rand(100, 200) * 86400, 'finished', array());
+            $plan[] = array($p, $this->pickDeptId(), $now - mt_rand(100, 200) * 86400, 'finished', array());
             $extra++;
+        }
+        // 按挂号时间升序执行（visit_seq 与 flow_no 均随时间递增）
+        usort($plan, function ($a, $b) { return $a[2] <=> $b[2]; });
+        $deptCount = array();
+        foreach ($plan as $v) {
+            $this->makeVisit($v[0], $v[1], $v[2], $v[3], $v[4]);
+            $deptCount[$v[1]] = (isset($deptCount[$v[1]]) ? $deptCount[$v[1]] : 0) + 1;
+        }
+        foreach ($deptCount as $dId => $dc) {
+            echo "    ↳ 科室 {$dId}（{$this->depts[$dId]['name']}）+{$dc} 条就诊\n";
         }
 
         $c = $this->cnt;
