@@ -296,6 +296,14 @@ function admin_part_settings($action) {
         json_ok(array('items' => $items, 'title' => $group['title']), '端点已加载');
     }
 
+    /* ==================== 接口管理：清空当前模块变更记录 ==================== */
+    if ($action === 'integration_audit_clear') {
+        $group = integration_group(post('group', ''));
+        if (!$group) json_fail('未知的接口分组');
+        $n = ConfigAudit::clearByAreaPrefix('integration:' . $group['id']);
+        json_ok(array('cleared' => $n), '已清空 ' . $n . ' 条变更记录');
+    }
+
     /* ==================== 上传医院 LOGO（同时作为 favicon） ==================== */
     if ($action === 'upload_logo') {
         $res = Upload::save('logo', 'logo', array('jpg', 'jpeg', 'png', 'gif', 'webp'), 2097152);

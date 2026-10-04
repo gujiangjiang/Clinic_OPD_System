@@ -153,11 +153,14 @@ $itgTabDesc = array(
             <!-- ===== 变更记录 ===== -->
             <div class="db-pane" id="itgpan_<?php echo e($g['id']); ?>_audit" style="display:none">
                 <div class="card setting-card">
-                    <div class="card-title"><?= render_icon('nav:chart') ?> 最近配置变更</div>
+                    <div class="card-title">
+                        <span><?= render_icon('nav:chart') ?> 最近配置变更</span>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="itgAuditClear('<?php echo e($g['id']); ?>')"><?= render_icon('action:clean') ?> 清空</button>
+                    </div>
                     <?php $audits = ConfigAudit::byAreaPrefix('integration:' . $g['id'], 50); ?>
                     <div class="table-wrap itg-fixed-scroll"><table class="table">
                         <thead><tr><th>时间</th><th>操作人</th><th>区域</th><th>变更项</th><th>IP</th></tr></thead>
-                        <tbody>
+                        <tbody id="itgAuditBody_<?php echo e($g['id']); ?>">
                         <?php if (!$audits): ?>
                             <tr><td colspan="5" class="text-center text-muted fs-12" style="padding:20px">暂无配置变更记录</td></tr>
                         <?php else: foreach ($audits as $a): ?>
@@ -385,6 +388,19 @@ function itgSideTab(groupId, paneId) {
     });
     // 监控面板：进入时刷新数据
     if (groupId === 'his' && paneId === 'monitor') itgMonLoad(1);
+}
+
+/* ---------- 变更记录：一键清空当前模块 ---------- */
+function itgAuditClear(groupId) {
+    Clinic.modal.confirm('确认清空该模块的全部配置变更记录？此操作不可恢复。', function () {
+        Clinic.ajax('/api/admin', { action: 'integration_audit_clear', group: groupId }, {
+            onSuccess: function (json) {
+                Clinic.toast.success(json.msg || '已清空');
+                var b = document.getElementById('itgAuditBody_' + groupId);
+                if (b) b.innerHTML = '<tr><td colspan="5" class="text-center text-muted fs-12" style="padding:20px">暂无配置变更记录</td></tr>';
+            },
+        });
+    });
 }
 
 /* ---------- 联动显隐（PACS 协议模式等） ---------- */

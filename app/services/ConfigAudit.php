@@ -40,4 +40,20 @@ class ConfigAudit {
             return array();
         }
     }
+
+    /**
+     * 清空某模块的变更记录
+     * @param string $prefix area 前缀（如 integration:fhir）
+     * @return int 删除行数
+     */
+    public static function clearByAreaPrefix($prefix) {
+        try {
+            return (int)PatientRepository::exec(
+                'DELETE FROM config_audit WHERE area LIKE ?',
+                array((string)$prefix . '%')
+            );
+        } catch (Exception $e) {
+            return 0;
+        }
+    }
 }
