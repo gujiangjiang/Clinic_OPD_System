@@ -207,7 +207,7 @@ function loadSoloPatient(code) {
         return r.json();
     }).then(function (j) {
         if (!j || !j.ok) {
-            if (ph) ph.innerHTML = '<div class="ph-ico">' + renderIconSvg('alert:warning') + '</div><div class="ph-main">' + ((j && j.msg) || '患者数据加载失败') + '</div>';
+            if (ph) ph.innerHTML = '<div class="ph-ico">' + renderIconSvg('alert:warning') + '</div><div class="ph-main">' + escHtmlAttr((j && j.msg) || '患者数据加载失败') + '</div>';
             return;
         }
         var v = j.data.visit || {}, p = j.data.patient || {};
@@ -218,8 +218,8 @@ function loadSoloPatient(code) {
         if (tr) tr.textContent = '患者ID ' + (p.patient_id || '—') + ' ｜ ' + (v.visit_no || '');
         ph.innerHTML =
             '<div class="ph-ico">' + renderIconSvg('nav:imaging') + '</div>' +
-            '<div class="ph-main">' + ((v.name || '') + ' · ' + (v.visit_no || '')) + '</div>' +
-            '<div class="ph-sub">' + (CURRENT.label ? CURRENT.label + '<br>' : '') +
+            '<div class="ph-main">' + escHtmlAttr((v.name || '') + ' · ' + (v.visit_no || '')) + '</div>' +
+            '<div class="ph-sub">' + (CURRENT.label ? escHtmlAttr(CURRENT.label) + '<br>' : '') +
             '该患者影像序列将随主系统选择实时同步<br>DICOMweb 接入后影像自动挂载</div>';
         soloTag(CURRENT.label ? CURRENT.label : (v.name || ''));
     }).catch(function () { /* 锁定时静默 */ });

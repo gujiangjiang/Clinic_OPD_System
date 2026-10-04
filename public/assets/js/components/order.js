@@ -550,28 +550,28 @@ Clinic.order = (function () {
             ? '<span class="fs-12 text-muted" style="margin-left:6px;flex-shrink:0">' + Clinic.escHtml(it.company_short) + '</span>'
             : '';
         var parts = [];
-        if (it.category_name) parts.push(it.category_name);
-        if (it.spec) parts.push('规格 ' + it.spec);
+        if (it.category_name) parts.push(Clinic.escHtml(it.category_name));
+        if (it.spec) parts.push('规格 ' + Clinic.escHtml(it.spec));
         if (showRx) {
-            if (it.frequency) parts.push('频次 ' + it.frequency);
-            if (it.route) parts.push('途径 ' + it.route);
+            if (it.frequency) parts.push('频次 ' + Clinic.escHtml(it.frequency));
+            if (it.route) parts.push('途径 ' + Clinic.escHtml(it.route));
         }
-        parts.push('库存 ' + (it.allow_split ? stockText(it, 'min') : stockText(it, 'pack')));
+        parts.push('库存 ' + Clinic.escHtml(it.allow_split ? stockText(it, 'min') : stockText(it, 'pack')));
         return '<div class="rx-drop-item" data-id="' + it.id + '" ' +
-            'data-price="' + (it.price || 0) + '" data-name="' + (it.name || '').replace(/"/g, '&quot;') + '"' +
-            ' data-spec="' + (it.spec || '') + '" data-unit="' + (it.unit || '') + '"' +
-            ' data-company="' + (it.company_short || '') + '"' +
-            ' data-dose="' + (it.single_dose || '') + '"' +
-            ' data-freq="' + (it.frequency || '') + '"' +
-            ' data-route="' + (it.route || '') + '"' +
+            'data-price="' + (it.price || 0) + '" data-name="' + Clinic.escHtml(it.name || '') + '"' +
+            ' data-spec="' + Clinic.escHtml(it.spec || '') + '" data-unit="' + Clinic.escHtml(it.unit || '') + '"' +
+            ' data-company="' + Clinic.escHtml(it.company_short || '') + '"' +
+            ' data-dose="' + Clinic.escHtml(it.single_dose || '') + '"' +
+            ' data-freq="' + Clinic.escHtml(it.frequency || '') + '"' +
+            ' data-route="' + Clinic.escHtml(it.route || '') + '"' +
             ' data-route-nurse="' + (it.route_nurse_required || 0) + '"' +
             ' data-stock="' + (it.stock || 0) + '"' +
             ' data-nurse-req="' + (it.nurse_required || 0) + '"' +
             ' data-need-skin-test="' + (it.is_skin_test || 0) + '"' +
 ' data-spec-dose="' + (it.spec_dose || 0) + '"' +
-             ' data-spec-dose-unit="' + (it.spec_dose_unit || '') + '"' +
+             ' data-spec-dose-unit="' + Clinic.escHtml(it.spec_dose_unit || '') + '"' +
              ' data-spec-pack-qty="' + (it.spec_pack_qty || 1) + '"' +
-             ' data-spec-pack-unit="' + (it.spec_pack_unit || '') + '"' +
+             ' data-spec-pack-unit="' + Clinic.escHtml(it.spec_pack_unit || '') + '"' +
              ' data-single-use-qty="' + (it.single_use_qty || 1) + '"' +
              ' data-allow-split="' + (it.allow_split || 0) + '"' +
              ' data-is-group="0">' +
