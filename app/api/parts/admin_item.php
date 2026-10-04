@@ -353,7 +353,10 @@ function admin_part_item($action) {
     }
 
     if ($action === 'cat_add') {
-        $type = post('type', 'lab');
+        // 角色锁定 type：检验科=lab、影像科=exam（仅 admin 自由选择），杜绝跨科室建分类
+        if ($u['role'] === 'lab') $type = 'lab';
+        elseif ($u['role'] === 'imaging') $type = 'exam';
+        else $type = post('type', 'lab');
         $name = trim((string)post('name', ''));
         if ($name === '') json_fail('请输入分类名称');
         $dup = (int)OrderRepository::val('SELECT COUNT(*) FROM item_categories WHERE ctype=? AND name=?', array($type, $name));
@@ -369,6 +372,10 @@ function admin_part_item($action) {
         if ($name === '') json_fail('请输入分类名称');
         $cat = OrderRepository::one('SELECT * FROM item_categories WHERE id=?', array($id));
         if (!$cat) json_fail('分类不存在');
+        // 角色锁定：检验科只能改 lab 分类、影像科只能改 exam 分类
+        if (($u['role'] === 'lab' && $cat['ctype'] !== 'lab') || ($u['role'] === 'imaging' && $cat['ctype'] !== 'exam')) {
+            json_fail('无权限操作该分类');
+        }
         $dup = (int)OrderRepository::val('SELECT COUNT(*) FROM item_categories WHERE ctype=? AND name=? AND id<>?', array($cat['ctype'], $name, $id));
         if ($dup > 0) json_fail('该分类已存在');
         $old = (string)$cat['name'];
@@ -386,6 +393,10 @@ function admin_part_item($action) {
         $id = (int)post('id');
         $cat = OrderRepository::one('SELECT * FROM item_categories WHERE id=?', array($id));
         if (!$cat) json_fail('分类不存在');
+        // 角色锁定：检验科只能删 lab 分类、影像科只能删 exam 分类
+        if (($u['role'] === 'lab' && $cat['ctype'] !== 'lab') || ($u['role'] === 'imaging' && $cat['ctype'] !== 'exam')) {
+            json_fail('无权限操作该分类');
+        }
         $name = (string)$cat['name'];
         $table = $cat['ctype'] === 'exam' ? 'exam_items' : 'lab_items';
         $itemType = $cat['ctype'] === 'exam' ? 'imaging' : 'lab';

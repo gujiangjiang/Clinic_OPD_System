@@ -13,6 +13,16 @@
 
 ---
 
+## [9.0.13] - 2026-10-04
+
+### 安全
+- **项目分类跨科室篡改**：`admin_item.php` 的 `cat_add`/`cat_rename`/`cat_delete` 原先
+  `type` 取自请求或行记录，未按角色锁定。检验科可新增/改名/删除影像（exam）分类，
+  反之亦然。现与 `item_save`/`cat_list` 一致：**非管理员强制按角色推导 type**
+  （lab→lab、imaging→exam），rename/delete 额外校验分类 `ctype` 与角色匹配。
+
+---
+
 ## [9.0.12] - 2026-10-04
 
 ### 安全
