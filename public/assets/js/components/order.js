@@ -1772,11 +1772,11 @@ Clinic.order = (function () {
             }
         );
         document.getElementById('skinYes').addEventListener('click', function () {
-            Clinic.modal.close();
+            Clinic.modal.close(true);   // 跳过 onClose，避免重复回调 cancel
             if (typeof cb === 'function') cb('yes');
         });
         document.getElementById('skinNo').addEventListener('click', function () {
-            Clinic.modal.close();
+            Clinic.modal.close(true);
             if (typeof cb === 'function') cb('no');
         });
     }

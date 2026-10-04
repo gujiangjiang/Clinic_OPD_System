@@ -448,6 +448,7 @@ Clinic.docTools = (function () {
         CALL_POP_POLLER = window.Clinic && Clinic.smartPoller ? Clinic.smartPoller({
             interval: 30000,
             emergencyInterval: 8000,
+            stopWhen: function () { return !document.getElementById('docCallPop'); },
             fetch: function (url, ok, err) { refreshCallPanel(); ok(); },
         }) : null;
         if (CALL_POP_POLLER) CALL_POP_POLLER.start();

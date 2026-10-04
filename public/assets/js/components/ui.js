@@ -448,3 +448,28 @@ Clinic.refundApproval = {
         });
     },
 };
+
+/**
+ * 浮层视口夹取：把已插入 DOM 的浮层限制在视口内，避免溢出底部/右侧。
+ * 兼容 absolute/fixed 定位（基于当前内联 left/top 施加偏移量）。
+ * 供 feepop / vitals / dropdown / datepicker 等浮层统一复用。
+ * @param {HTMLElement} el 浮层元素
+ * @param {number} [pad=8] 视口边距
+ */
+Clinic.clampPop = function (el, pad) {
+    if (!el) return;
+    pad = (pad == null) ? 8 : pad;
+    var r = el.getBoundingClientRect();
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var dx = 0, dy = 0;
+    if (r.right > vw - pad) dx = (vw - pad) - r.right;
+    if (r.left + dx < pad) dx = pad - r.left;
+    if (r.bottom > vh - pad) dy = (vh - pad) - r.bottom;
+    if (r.top + dy < pad) dy = pad - r.top;
+    if (dx || dy) {
+        var curLeft = parseFloat(el.style.left) || 0;
+        var curTop = parseFloat(el.style.top) || 0;
+        el.style.left = (curLeft + dx) + 'px';
+        el.style.top = (curTop + dy) + 'px';
+    }
+};

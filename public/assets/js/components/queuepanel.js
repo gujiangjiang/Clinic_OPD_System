@@ -416,6 +416,7 @@ Clinic.queuePanel = (function () {
         POLLER = window.Clinic && Clinic.smartPoller ? Clinic.smartPoller({
             interval: 30000,
             emergencyInterval: 8000,
+            stopWhen: function () { return !document.getElementById('queueBtn'); },
             fetch: function (url, ok, err) {
                 if (!document.getElementById('queueBtn')) { err(); return; }
                 load(true, ok);

@@ -34,6 +34,8 @@ Clinic.modal = (function () {
             '</div>';
         document.body.appendChild(mask);
         masks.push(mask);
+        mask.__opts = opts;
+        mask.__onCloseFired = false;
 
         // 标题与内容
         var _tt = String(opts.title == null ? '' : opts.title);
@@ -140,12 +142,18 @@ Clinic.modal = (function () {
      * 关闭栈顶模态框
      * 说明：模态框支持层叠（如 诊断选择弹窗 → 二级编辑弹窗），
      * close 只弹出栈顶；下层弹窗保持可见可交互。
+     * @param {boolean} skipOnClose 传 true 时跳过 opts.onClose（用于按钮已自行回调的场景）
      */
-    function close() {
+    function close(skipOnClose) {
         if (!masks.length) return;
         const el = masks.pop();
         el.classList.remove('show');
         syncEsc();
+        // 关闭回调：仅触发一次（取消/遮罩/Esc/关闭按钮）；按钮已自行处理时用 skipOnClose 跳过
+        if (!skipOnClose && el.__opts && typeof el.__opts.onClose === 'function' && !el.__onCloseFired) {
+            el.__onCloseFired = true;
+            try { el.__opts.onClose(); } catch (e) { /* 回调异常不影响关闭 */ }
+        }
         setTimeout(function () {
             el.remove();
         }, 180);
@@ -155,7 +163,7 @@ Clinic.modal = (function () {
      * 确认对话框
      * @param {string}   msg    提示内容
      * @param {Function} onOk   确认回调
-     * @param {object}   opts   { title, okText }
+     * @param {object}   opts   { title, okText, cls }
      */
     function confirm(msg, onOk, opts) {
         opts = opts || {};
@@ -168,13 +176,13 @@ Clinic.modal = (function () {
             title: opts.title || '操作确认',
             size: 'modal-sm',
             buttons: [
-                { text: '取消', cls: 'btn-outline', onClick: close },
+                { text: '取消', cls: 'btn-outline', onClick: function () { close(); } },
                 {
                     text: opts.okText || '确定',
-                    cls: 'btn-primary',
+                    cls: opts.cls || 'btn-primary',
                     autoClose: false,
                     onClick: function () {
-                        close();
+                        close(true);
                         if (onOk) onOk();
                     },
                 },
@@ -214,7 +222,7 @@ Clinic.modal = (function () {
             title: opts.title || '请输入',
             size: opts.size || 'modal-sm',
             buttons: [
-                { text: opts.cancelText || '取消', cls: 'btn-outline', onClick: close },
+                { text: opts.cancelText || '取消', cls: 'btn-outline', onClick: function () { close(); } },
                 {
                     text: opts.okText || '确定',
                     cls: 'btn-primary',

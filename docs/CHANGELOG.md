@@ -13,6 +13,22 @@
 
 ---
 
+## [9.3.1] - 2026-10-04
+
+### 修复
+- **前端交互与资源健壮性**：
+  - `modal.js`：`Clinic.modal.open` 新增支持 `opts.onClose`（关闭/取消/遮罩/Esc 时触发一次），
+    修复套餐应用流程中皮试确认取消回调失效导致后续皮试项丢失；`confirm` 支持 `opts.cls`；
+    `close(skipOnClose)` 供按钮已自行回调时跳过，避免重复回调。
+  - `ui.js`：新增公共 `Clinic.clampPop()`，修复 `feepop.js` 调用了不存在函数导致费用浮层溢出视口。
+  - `push.js`：连接状态由单一全局值改为**按通道聚合**（任一通道 CONNECTED 即视为健康），
+    消除单通道抖动串扰全局轮询频率。
+  - `smart_poller.js`：新增 `stopWhen` 判定，宿主页面锚点被 SPA 局部刷新移除后自动 `destroy()`，
+    杜绝孤儿轮询持续空转；`queuepanel.js`/`doctor_tools.js`/`deptwork.js` 三处叫号轮询已接入。
+  - `screen.php`：移除重复的 `data-hosp` 属性（第二个覆盖第一个导致医院名取值错误）。
+
+---
+
 ## [9.3.0] - 2026-10-04
 
 ### 变更

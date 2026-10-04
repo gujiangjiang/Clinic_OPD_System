@@ -65,7 +65,7 @@ $isDoctor = $room['room_type'] === 'doctor';
 </head>
 <body class="call-body<?php echo $pvClass; ?>" data-token="<?php echo e($token); ?>" data-roomtype="<?php echo e($room['room_type']); ?>"
       data-csrf="<?php echo e(CSRF::token()); ?>" data-hosp="<?php echo e($hosp); ?>" data-hosp2="<?php echo e($hosp2); ?>"
-       data-hosp="<?php echo e($hosp2); ?>" data-voice="<?= (int)$room['enable_voice']; ?>" data-mask="<?= (int)$room['enable_mask']; ?>" data-cross="<?= (int)$room['allow_cross_day']; ?>"
+       data-voice="<?= (int)$room['enable_voice']; ?>" data-mask="<?= (int)$room['enable_mask']; ?>" data-cross="<?= (int)$room['allow_cross_day']; ?>"
        style="<?php echo trim($pvStyle); ?>">
 
 <!-- 顶部抬头：LOGO + 医院名 + 时钟（紧凑单行，不做大字号，语音开关由管理员在设置页控制） -->

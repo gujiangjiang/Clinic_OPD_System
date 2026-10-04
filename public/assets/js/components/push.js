@@ -21,6 +21,8 @@ Clinic.push = (function () {
     var status = supported ? ST.CONNECTING : ST.DISCONNECTED;
     /** 通道订阅表：channel -> { onEvent, es, lastId, retry, lastActivity, watch, __rt } */
     var subs = {};
+    /** 每通道连接状态：避免单通道抖动串扰全局轮询频率 */
+    var chanStatus = {};
     var WATCH_INTERVAL = 5000;   // 假死检测轮询间隔
     var STALE_MS = 35000;        // 超时判定假死（服务端心跳 20s，留 15s 余量）
 
@@ -39,10 +41,28 @@ Clinic.push = (function () {
         } catch (e) {}
     }
 
-    function setStatus(s) {
-        if (s === status) return;
-        status = s;
-        broadcast();
+    /** 由各通道状态聚合出全局状态：任一 CONNECTED 视为已连接，其次 RECONNECTING/CONNECTING */
+    function recomputeStatus() {
+        var vals = [];
+        for (var k in chanStatus) { if (chanStatus.hasOwnProperty(k)) vals.push(chanStatus[k]); }
+        var s;
+        if (!vals.length) {
+            s = supported ? ST.CONNECTING : ST.DISCONNECTED;
+        } else if (vals.indexOf(ST.CONNECTED) !== -1) {
+            s = ST.CONNECTED;
+        } else if (vals.indexOf(ST.RECONNECTING) !== -1) {
+            s = ST.RECONNECTING;
+        } else if (vals.indexOf(ST.CONNECTING) !== -1) {
+            s = ST.CONNECTING;
+        } else {
+            s = ST.DISCONNECTED;
+        }
+        if (s !== status) { status = s; broadcast(); }
+    }
+
+    function setStatusFor(channel, s) {
+        chanStatus[channel] = s;
+        recomputeStatus();
     }
 
     /** 指数退避延迟（2s → 4s → 8s → … 上限 30s） */
@@ -55,7 +75,7 @@ Clinic.push = (function () {
         var s = subs[channel];
         if (!s) return;
         if (s.es) { try { s.es.close(); } catch (e) {} }
-        setStatus(ST.CONNECTING);
+        setStatusFor(channel, ST.CONNECTING);
         var es = new EventSource('/api/push?channel=' + encodeURIComponent(channel) + '&cursor=' + (s.lastId || 0));
         s.es = es;
         s.lastActivity = Date.now();
@@ -63,7 +83,7 @@ Clinic.push = (function () {
         es.onopen = function () {
             s.lastActivity = Date.now();
             s.retry = 0;              // 重连成功：退避归零
-            setStatus(ST.CONNECTED);
+            setStatusFor(channel, ST.CONNECTED);
         };
         es.onmessage = function (ev) {
             s.lastActivity = Date.now();   // 收到心跳/业务事件均视为存活
@@ -80,7 +100,7 @@ Clinic.push = (function () {
                 try { es.close(); } catch (e) {}
                 subs[channel].es = null;
             }
-            setStatus(ST.RECONNECTING);
+            setStatusFor(channel, ST.RECONNECTING);
             s.retry = (s.retry || 0) + 1;
             clearTimeout(s.__rt);
             s.__rt = setTimeout(function () {
@@ -95,7 +115,7 @@ Clinic.push = (function () {
             if (Date.now() - cur.lastActivity > STALE_MS) {
                 clearInterval(s.watch);
                 s.watch = null;
-                setStatus(ST.RECONNECTING);
+                setStatusFor(channel, ST.RECONNECTING);
                 s.retry = (s.retry || 0) + 1;
                 try { es.close(); } catch (e) {}
                 cur.es = null;
@@ -132,6 +152,8 @@ Clinic.push = (function () {
             if (s.es) { try { s.es.close(); } catch (e) {} }
             delete subs[channel];
         }
+        delete chanStatus[channel];
+        recomputeStatus();
     }
 
     /** 是否支持 SSE */

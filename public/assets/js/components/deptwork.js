@@ -793,6 +793,7 @@ Clinic.deptwork = (function () {
         CALL_POLLER = window.Clinic && Clinic.smartPoller ? Clinic.smartPoller({
             interval: 30000,
             emergencyInterval: 8000,
+            stopWhen: function () { return !document.getElementById('dwCallPop'); },
             fetch: function (url, ok, err) { refreshCallPanel(); ok(); },
         }) : null;
         if (CALL_POLLER) CALL_POLLER.start();

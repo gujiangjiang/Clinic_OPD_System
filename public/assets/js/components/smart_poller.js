@@ -33,6 +33,7 @@ Clinic.smartPoller = function (opts) {
         onSuccess: opts.onSuccess || null,
         onError: opts.onError || null,
         immediate: opts.immediate !== false,   // start 时立即执行一次
+        stopWhen: typeof opts.stopWhen === 'function' ? opts.stopWhen : null,  // 返回 true 时自毁（页面已离开）
     };
     var running = false;
     var inFlight = false;
@@ -56,6 +57,7 @@ Clinic.smartPoller = function (opts) {
 
     /** 执行一次拉取（成功/失败/并发抑制统一收敛到 done） */
     function tick() {
+        if (cfg.stopWhen && cfg.stopWhen()) { api.destroy(); return; }   // 宿主页面已移除 → 自毁，杜绝孤儿轮询
         if (!running || inFlight) { schedule(); return; }   // 并发抑制
         inFlight = true;
         var done = function () {
@@ -80,6 +82,7 @@ Clinic.smartPoller = function (opts) {
 
     /** 立即静默同步（visible 恢复 / 手动触发），不重置计时器逻辑 */
     function sync() {
+        if (cfg.stopWhen && cfg.stopWhen()) { api.destroy(); return; }
         if (!running || inFlight) return;
         inFlight = true;
         var done = function () { inFlight = false; schedule(); };
@@ -118,7 +121,7 @@ Clinic.smartPoller = function (opts) {
         }
     }
 
-    return {
+    var api = {
         start: function () {
             if (running) return;
             running = true;
@@ -141,4 +144,5 @@ Clinic.smartPoller = function (opts) {
             document.removeEventListener('push:reconnecting', onPushStatus);
         },
     };
+    return api;
 };
