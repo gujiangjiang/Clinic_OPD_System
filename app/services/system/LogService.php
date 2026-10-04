@@ -459,6 +459,15 @@ class LogService {
         return $list;
     }
 
+    /** 服务器日志来源行数（id => 行数），供前端左侧计数实时刷新 */
+    public static function serverSourceLines() {
+        $out = array();
+        foreach (self::serverSources() as $s) {
+            $out[$s['id']] = (int)(isset($s['lines']) ? $s['lines'] : 0);
+        }
+        return $out;
+    }
+
     /** 统计文件行数（分块流式读取，避免一次性载入大文件内存） */
     public static function countLines($path) {
         if ($path === '' || !is_file($path) || !is_readable($path)) return 0;

@@ -283,6 +283,7 @@ window.LogCenter = (function () {
                     st.loading = false;
                     var d = json.data;
                     setServerStatus(name, d);
+                    applyServerCounts(d.counts);
                     if (d.disabled) {
                         var v = viewEl(name);
                         if (v) v.innerHTML = '<div class="empty"><div class="empty-ico">' + renderIconSvg('alert:info') + '</div>服务器日志已在日志管理中关闭</div>';
@@ -385,6 +386,7 @@ window.LogCenter = (function () {
                 silent: true,
                 onSuccess: function (json) {
                     var d = json.data;
+                    applyServerCounts(d.counts);
                     var list = d.list || [];
                     if (!list.length) return;
                     var lastRaw = st.lastRaw;
@@ -524,6 +526,17 @@ window.LogCenter = (function () {
         });
         var all = nav.querySelector('[data-cat-count=""]');
         if (all) all.textContent = sum > 0 ? sum : '';
+    }
+
+    /* 服务器日志左侧计数：按来源行数实时刷新（id => 行数） */
+    function applyServerCounts(counts) {
+        if (!counts) return;
+        var nav = el('logNav_server');
+        if (!nav) return;
+        Object.keys(counts).forEach(function (id) {
+            var n = nav.querySelector('[data-cat-count="' + id + '"]');
+            if (n) n.textContent = counts[id] > 0 ? counts[id] : '';
+        });
     }
 
     function scrollBottom(name) {

@@ -88,6 +88,8 @@ function admin_part_log($action) {
             'exists'   => $res['exists'],
             'path'     => $res['path'],
             'source'   => $source,
+            // 各服务器日志来源行数：供前端左侧栏计数实时刷新（清空/增量后同步）
+            'counts'   => LogService::serverSourceLines(),
         ));
     }
 
