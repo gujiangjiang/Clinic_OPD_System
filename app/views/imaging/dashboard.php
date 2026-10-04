@@ -73,6 +73,9 @@ function renderImgWork(data) {
     renderImgSide(data);
     // 说明：阅片视窗不随患者切换自动刷新——经典模式仅当点击
     // 【去写报告】打开书写报告模态框时，才广播该申请单对应影像（优化项3）
+    // 同时清空上一患者残留的已选序列，避免【阅片视窗】误用旧影像
+    window.__imgCurItem = null;
+    window.__imgCurActive = '';
     var head = imgHeadHtml(data);
     var body = '';
     if (!orders.length) {
@@ -788,11 +791,35 @@ function imgHeadHtml(data) {
 }
 
 /* ==================== 模式 B：阅片视窗（跨窗口 Session 联动） ==================== */
-function imgOpenSoloWindow() {
+/* 从当前患者的检查项目池中选取用于阅片视窗的序列：
+   优先显式传入 itemId（同患者）→ 已选 __imgCurItem（须属当前池）→
+   已登记 → 已完成 → 已缴费 → 池首项。杜绝复用上一患者的序列。 */
+function imgPickSoloItem(itemId) {
+    var items = window.__imgItems || [];
+    var cur = null;
+    if (itemId && typeof itemId === 'string') {
+        items.forEach(function (x) { if (!cur && String(x.id) === itemId) cur = x; });
+    }
+    if (!cur && window.__imgCurItem) {
+        items.forEach(function (x) { if (!cur && x.id === window.__imgCurItem.id) cur = x; });
+    }
+    if (!cur) {
+        ['registered', 'done', 'paid'].forEach(function (st) {
+            if (cur) return;
+            items.forEach(function (x) { if (!cur && x.status === st) cur = x; });
+        });
+    }
+    return cur || items[0] || null;
+}
+
+function imgOpenSoloWindow(itemId) {
     // 隐私安全（优化项2）：地址栏绝不携带 visit 参数（防链接外泄被他人直接查看）。
     // 当前选中上下文改由「localStorage 会话握手（sid 绑定）+ BroadcastChannel 广播」
     // 传递给独立视窗；视窗端仍走登录 Session 鉴权 + 科室归属校验，双保险。
-    var cur = window.__imgCurItem || null;
+    // 修复：经典模式下 __imgCurItem 可能为上一患者残留，统一从当前患者池重取。
+    var cur = imgPickSoloItem(itemId);
+    window.__imgCurItem = cur;
+    window.__imgCurActive = cur ? cur.id : '';
     var v = (window.__imgData || {}).visit || {};
     var p = (window.__imgData || {}).patient || {};
     var ctx = {
@@ -822,9 +849,16 @@ function imgOrderHtml(o) {
     var regBtn = hasPaid
         ? '<button class="btn btn-primary btn-sm" style="margin-left:12px" onclick="doImgRegisterOrder(\'' + esc(o.order_id) + '\')">'+renderIconSvg('action:edit')+' 登记</button>'
         : '';
-    // 阅片视窗按钮（患者行级，任务2 模式 B）
+    // 阅片视窗按钮（患者行级，任务2 模式 B）：传入该申请单首选序列，
+    // 避免经典模式复用上一患者的已选序列（修复点击后仍加载旧影像）
+    var soloPick = null;
+    ['registered', 'done', 'paid'].forEach(function (st) {
+        if (soloPick) return;
+        (o.items || []).forEach(function (x) { if (!soloPick && x.status === st) soloPick = x; });
+    });
+    if (!soloPick) soloPick = (o.items || [])[0] || null;
     var soloBtn = '<button class="btn btn-outline btn-sm pacs-openwin-btn" style="margin-left:auto" ' +
-        'onclick="imgOpenSoloWindow()" title="弹出独立无工具栏阅片窗口（多显示器全屏阅片）">'+renderIconSvg('nav:screen')+' 阅片视窗</button>';
+        'onclick="imgOpenSoloWindow(\'' + (soloPick ? esc(soloPick.id) : '') + '\')" title="弹出独立无工具栏阅片窗口（多显示器全屏阅片）">'+renderIconSvg('nav:screen')+' 阅片视窗</button>';
     var itemsHtml = o.items.map(imgItemHtml).join('');
     // 头部右侧操作组（徽章+登记+独立视窗）：整体靠右，与左侧申请单信息分离
     var headActions = '<div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">' +
