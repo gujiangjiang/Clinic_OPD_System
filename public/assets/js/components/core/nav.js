@@ -61,6 +61,22 @@ Clinic.nav = {
         adminItems: ['admin_items'],
     },
 
+    /** 组件名 → 子目录分组（与 app/includes/ui/Assets.php 的资源登记保持一致） */
+    scriptDirs: {
+        emr: ['queuepanel_core', 'order', 'emreditor', 'emr_ctxmenu', 'emr', 'emr_diag', 'emr_cert', 'emr_consult', 'emr_rules', 'emr_format', 'emr_template', 'emr_fee', 'emr_patient', 'emr_orders', 'emr_segments', 'emr_consent', 'vitals', 'queuepanel', 'historypanel', 'patient'],
+        core: ['eventbus'],
+        dept: ['room_heartbeat', 'doctor_tools', 'deptwork', 'pacshistory'],
+        admin: ['admin_items'],
+    },
+
+    /** 组件名 → 资源相对路径 */
+    scriptPath: function (name) {
+        for (var d in this.scriptDirs) {
+            if (this.scriptDirs[d].indexOf(name) !== -1) return 'assets/js/components/' + d + '/' + name + '.js';
+        }
+        return 'assets/js/components/' + name + '.js';
+    },
+
     /** 判断组件是否已加载（按全局命名空间标记） */
     isLoaded: function (name) {
         if (!window.Clinic) return false;
@@ -117,7 +133,7 @@ case 'emr_diag': return !!(Clinic.emr && Clinic.emr.diag);
             chain = chain.then(function () {
                 return new Promise(function (resolve, reject) {
                     var s = document.createElement('script');
-                    s.src = '/assets/js/components/' + name + '.js?v=' + ver;
+                    s.src = '/' + Clinic.nav.scriptPath(name) + '?v=' + ver;
                     s.onload = resolve;
                     s.onerror = function () { reject(new Error('script load failed: ' + name)); };
                     document.head.appendChild(s);
