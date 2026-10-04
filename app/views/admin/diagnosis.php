@@ -47,6 +47,14 @@ var diagLoading = false;
 var SEARCH_HIGHLIGHT_CODE = '';   // 当前搜索高亮的诊断码
 var diagSearch = { kw: '', offset: 0, total: 0, done: false };   // 分段加载状态
 
+/* HTML 转义：诊断字典内容可经导入写入，所有动态值输出前必须经此转义（防存储型 XSS） */
+function diagEsc(s) {
+    if (window.Clinic && Clinic.escHtml) return Clinic.escHtml(s == null ? '' : String(s));
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+}
+
 /* 隐藏搜索栏右侧状态（计数/无结果徽章，搜索结束统一收拢） */
 function hideDiagStatus() {
     var c = document.getElementById('diagCount');
@@ -66,11 +74,32 @@ function diagRowHtml(d) {
     if (d.section_name) chain.push(d.section_name);
     if (d.category_name) chain.push(d.category_name);
     if (d.subcategory_name) chain.push(d.subcategory_name);
-    return '<div class="dd-item" style="padding:7px 14px;cursor:pointer;border-bottom:1px solid var(--border)" ' +
-        'onclick="onSearchPick(\'' + d.category_code + '\',\'' + (d.category_name || '').replace(/'/g, "\\'") + '\',\'' + d.section_code_range + '\',\'' + d.chapter_code_range + '\',\'' + d.icd10_code + '\',\'' + (d.subcategory_code || '').replace(/'/g, "\\'") + '\')">' +
-        '<div class="fw-600" style="font-size:13px"><span style="font-family:monospace">' + d.icd10_code + '</span> ' + d.diagnosis_name + '</div>' +
-        '<div class="fs-12 text-muted ellipsis">' + chain.join(' ' + renderIconSvg('action:next') + ' ') + '</div></div>';
+    var chainHtml = chain.map(diagEsc).join(' ' + renderIconSvg('action:next') + ' ');
+    return '<div class="dd-item" data-pick="1" style="padding:7px 14px;cursor:pointer;border-bottom:1px solid var(--border)" ' +
+        'data-cat="' + diagEsc(d.category_code) + '" data-catname="' + diagEsc(d.category_name || '') + '" ' +
+        'data-sec="' + diagEsc(d.section_code_range) + '" data-ch="' + diagEsc(d.chapter_code_range) + '" ' +
+        'data-diag="' + diagEsc(d.icd10_code) + '" data-sub="' + diagEsc(d.subcategory_code || '') + '">' +
+        '<div class="fw-600" style="font-size:13px"><span style="font-family:monospace">' + diagEsc(d.icd10_code) + '</span> ' + diagEsc(d.diagnosis_name) + '</div>' +
+        '<div class="fs-12 text-muted ellipsis">' + chainHtml + '</div></div>';
 }
+
+/* 搜索结果点击：事件委托（避免内联 onclick 拼串注入） */
+document.getElementById('searchDrop').addEventListener('click', function (e) {
+    var el = e.target.closest('.dd-item[data-pick]');
+    if (!el) return;
+    onSearchPick(
+        el.getAttribute('data-cat'), el.getAttribute('data-catname'),
+        el.getAttribute('data-sec'), el.getAttribute('data-ch'),
+        el.getAttribute('data-diag'), el.getAttribute('data-sub')
+    );
+});
+
+/* 分类树类目点击：事件委托（data-* 参数，避免内联 onclick 拼串注入） */
+document.getElementById('icdTree').addEventListener('click', function (e) {
+    var el = e.target.closest('[data-cat-pick]');
+    if (!el) return;
+    pickTreeCategory(el, el.getAttribute('data-code'), el.getAttribute('data-name'));
+});
 
 function showSearchDrop() {
     var kw = document.getElementById('diagKw').value.trim();
@@ -260,7 +289,7 @@ function loadTree() {
                 return '<div class="send-grp">' +
                     '  <div class="send-grp-head-row">' +
                     '    <button type="button" class="tree-toggle" data-toggle="' + id + '" onclick="toggleChapter(this)">+</button>' +
-                    '    <b class="fs-13" style="cursor:pointer" onclick="toggleChapter(this)">' + ch.code + '  ' + ch.name + '</b>' +
+                    '    <b class="fs-13" style="cursor:pointer" onclick="toggleChapter(this)">' + diagEsc(ch.code) + '  ' + diagEsc(ch.name) + '</b>' +
                     '  </div>' +
                     '  <div class="send-grp-children" id="' + id + '" style="display:none">' +
                     '    <div class="fs-12 text-muted" style="padding:4px 8px">加载中…</div>' +
@@ -287,7 +316,7 @@ function toggleChapter(el) {
                 return '<div class="send-grp" style="margin-left:12px">' +
                     '  <div class="send-grp-head-row">' +
                     '    <button type="button" class="tree-toggle" data-toggle="' + sid + '" onclick="toggleSection(this)">+</button>' +
-                    '    <span class="fs-12" style="cursor:pointer" onclick="toggleSection(this)">' + sec.code + '  ' + sec.name + '</span>' +
+                    '    <span class="fs-12" style="cursor:pointer" onclick="toggleSection(this)">' + diagEsc(sec.code) + '  ' + diagEsc(sec.name) + '</span>' +
                     '  </div>' +
                     '  <div class="send-grp-children" id="' + sid + '" style="display:none">' +
                     '    <div class="fs-12 text-muted" style="padding:4px 8px">加载中…</div>' +
@@ -310,9 +339,8 @@ function toggleSection(el) {
     Clinic.get('/api/icd10?action=tree&level=categories&parent=' + encodeURIComponent(code), null, {
         onSuccess: function (j) {
             target.innerHTML = (j.data.list || []).map(function (cat) {
-                var cid = 'cat_' + cat.code.replace(/[^A-Z0-9]/g, '_');
-                return '<div class="dd-item" style="font-size:12px;padding:4px 8px;cursor:pointer;margin-left:12px;border-radius:4px" onclick="pickTreeCategory(this,\'' + cat.code + '\',\'' + (cat.name || '').replace(/'/g, "\\'") + '\')">' +
-                    '<span class="fw-600">' + cat.code + '</span>  ' + cat.name + '</div>';
+                return '<div class="dd-item" data-cat-pick="1" data-code="' + diagEsc(cat.code) + '" data-name="' + diagEsc(cat.name || '') + '" style="font-size:12px;padding:4px 8px;cursor:pointer;margin-left:12px;border-radius:4px">' +
+                    '<span class="fw-600">' + diagEsc(cat.code) + '</span>  ' + diagEsc(cat.name) + '</div>';
             }).join('');
             target.setAttribute('data-loaded', '1');
         },
@@ -345,7 +373,7 @@ function showCategoryDetail(code, name) {
     document.getElementById('detailTitle').style.display = '';
     document.getElementById('detailTitle').innerHTML =
         '<div style="display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);padding-bottom:10px">' +
-        '<span class="badge badge-primary" style="font-family:monospace;font-weight:700;font-size:15px;padding:6px 14px">' + code + ' ' + name + '</span>' +
+        '<span class="badge badge-primary" style="font-family:monospace;font-weight:700;font-size:15px;padding:6px 14px">' + diagEsc(code) + ' ' + diagEsc(name) + '</span>' +
         '</div>';
     var content = document.getElementById('detailContent');
     // 从居中引导态切换为普通内容区
@@ -390,23 +418,23 @@ function buildDiagListHtml(diags) {
         if (hasSub) {
             html += '<div class="dd-item" style="display:flex;align-items:center;padding:5px 8px;cursor:pointer;border-bottom:1px solid var(--border)" onclick="toggleSubDiags(this, \'' + wrapId + '\')">' +
                 toggleCell +
-                '<span class="fw-600" style="font-family:monospace;font-size:13px">' + first.icd10_code + '</span>' +
-                ' <span class="fs-13">' + first.diagnosis_name + '</span>' +
+                '<span class="fw-600" style="font-family:monospace;font-size:13px">' + diagEsc(first.icd10_code) + '</span>' +
+                ' <span class="fs-13">' + diagEsc(first.diagnosis_name) + '</span>' +
                 '<span class="fs-12 text-muted" style="margin-left:8px">（' + items.length + '）</span></div>' +
                 '<div id="' + wrapId + '" style="display:none;padding-left:30px">' +
                 items.slice(1).map(function (it) {
                     return '<div class="dd-item" style="display:flex;align-items:center;padding:3px 8px;font-size:12px;border-bottom:1px dashed var(--border)">' +
                         '<span style="width:16px;flex-shrink:0;margin-right:6px;display:inline-block">&nbsp;</span>' +
-                        '<span class="fw-600" style="font-family:monospace">' + it.icd10_code + '</span> ' + it.diagnosis_name +
-                        '<span class="fs-12 text-muted" style="margin-left:6px">' + (it.pinyin || '') + '</span></div>';
+                        '<span class="fw-600" style="font-family:monospace">' + diagEsc(it.icd10_code) + '</span> ' + diagEsc(it.diagnosis_name) +
+                        '<span class="fs-12 text-muted" style="margin-left:6px">' + diagEsc(it.pinyin || '') + '</span></div>';
                 }).join('') +
                 '</div>';
         } else {
             html += '<div class="dd-item" style="display:flex;align-items:center;padding:5px 8px;border-bottom:1px solid var(--border)">' +
                 toggleCell +
-                '<span class="fw-600" style="font-family:monospace;font-size:13px">' + first.icd10_code + '</span> ' +
-                '<span class="fs-13">' + first.diagnosis_name + '</span>' +
-                '<span class="fs-12 text-muted" style="margin-left:6px">' + (first.pinyin || '') + '</span></div>';
+                '<span class="fw-600" style="font-family:monospace;font-size:13px">' + diagEsc(first.icd10_code) + '</span> ' +
+                '<span class="fs-13">' + diagEsc(first.diagnosis_name) + '</span>' +
+                '<span class="fs-12 text-muted" style="margin-left:6px">' + diagEsc(first.pinyin || '') + '</span></div>';
         }
     });
     return html || '<div class="fs-12 text-muted">无诊断数据</div>';
