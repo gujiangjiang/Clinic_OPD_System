@@ -101,8 +101,8 @@ $isDoctor = $room['room_type'] === 'doctor';
     <div style="font-size:clamp(12px,3.2vh,24px);color:#a8c8e8;letter-spacing:2px" id="apmSub"></div>
 </div>
 
-<script src="/assets/js/components/push.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
-<script src="/assets/js/components/naming.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
-<script src="/assets/js/components/screen.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
+<script src="/assets/js/components/core/push.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
+<script src="/assets/js/components/core/naming.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
+<script src="/assets/js/components/dept/screen.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
 </body>
 </html>

@@ -83,7 +83,7 @@ $isEmbed = !empty($_GET['embed']);
     </div>
 </div>
 
-<script src="/assets/js/components/authsync.js?v=<?php echo e(APP_VERSION); ?>"></script>
+<script src="/assets/js/components/core/authsync.js?v=<?php echo e(APP_VERSION); ?>"></script>
 <script>
 var LOCKED = false;
 var CURRENT = { visit: '', item: '', label: '' };

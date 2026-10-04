@@ -354,7 +354,7 @@ class Layout {
             <!-- 核心通用组件（所有页面加载） -->
             ' . Assets::jsTags(Assets::JS_CORE) . '
             <script>window.OPD_ICON_SVGS=' . json_encode(IconHelper::allSvg()) . ';</script>
-            ' . Assets::jsTag('assets/js/components/icons.js') . '
+            ' . Assets::jsTag('assets/js/components/core/icons.js') . '
             ' . self::serviceWorkerScript() . '
             ' . $emrScripts . '
             <div class="' . $appClass . '">

@@ -129,7 +129,7 @@ $logoImg = $logo !== '' ? '<img src="' . e($logo) . '" alt="LOGO">' : default_lo
 <!-- ===== 页脚 ===== -->
 <footer class="landing-footer"><?php echo e($footer); ?></footer>
 
-<script src="/assets/js/components/theme.js?v=<?php echo APP_VERSION; ?>></script>
+<script src="/assets/js/components/core/theme.js?v=<?php echo APP_VERSION; ?>"></script>
 <script>document.addEventListener('DOMContentLoaded', function () { Clinic.theme.init(); });</script>
 </body>
 </html>

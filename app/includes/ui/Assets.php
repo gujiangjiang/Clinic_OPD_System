@@ -38,68 +38,94 @@ class Assets {
 
     /** 全站公共 JS（按依赖顺序，须在视图内联脚本之前加载） */
     const JS_CORE = array(
-        'assets/js/components/ajax.js',
-        'assets/js/components/modal.js',
-        'assets/js/components/deptpicker.js',
-        'assets/js/components/depttree.js',
-        'assets/js/components/toast.js',
-        'assets/js/components/feepop.js',
-        'assets/js/components/push.js',
-        'assets/js/components/smart_poller.js',
-        'assets/js/components/infinite.js',
-        'assets/js/components/print.js',
-        'assets/js/components/theme.js',
-        'assets/js/components/dropdown.js',
-        'assets/js/components/notify.js',
-        'assets/js/components/import.js',
-        'assets/js/components/selector.js',
-        'assets/js/components/validation.js',
-        'assets/js/components/datetime.js',
-        'assets/js/components/datepicker.js',
-        'assets/js/components/historypanel.js',
-        'assets/js/components/patient.js',
-        'assets/js/components/ui.js',
-        'assets/js/components/naming.js',
-        'assets/js/components/conntest.js',
-        'assets/js/components/drugform.js',
-        'assets/js/components/chart.js',
-        'assets/js/components/critical.js',
-        'assets/js/components/authsync.js',
-        'assets/js/components/app.js',
-        'assets/js/components/nav.js',
+        'assets/js/components/core/ajax.js',
+        'assets/js/components/core/modal.js',
+        'assets/js/components/core/deptpicker.js',
+        'assets/js/components/core/depttree.js',
+        'assets/js/components/core/toast.js',
+        'assets/js/components/core/feepop.js',
+        'assets/js/components/core/push.js',
+        'assets/js/components/core/smart_poller.js',
+        'assets/js/components/core/infinite.js',
+        'assets/js/components/core/print.js',
+        'assets/js/components/core/theme.js',
+        'assets/js/components/core/dropdown.js',
+        'assets/js/components/core/notify.js',
+        'assets/js/components/admin/import.js',
+        'assets/js/components/core/selector.js',
+        'assets/js/components/core/validation.js',
+        'assets/js/components/core/datetime.js',
+        'assets/js/components/core/datepicker.js',
+        'assets/js/components/emr/historypanel.js',
+        'assets/js/components/emr/patient.js',
+        'assets/js/components/core/ui.js',
+        'assets/js/components/core/naming.js',
+        'assets/js/components/core/conntest.js',
+        'assets/js/components/core/drugform.js',
+        'assets/js/components/admin/chart.js',
+        'assets/js/components/dept/critical.js',
+        'assets/js/components/core/authsync.js',
+        'assets/js/components/core/app.js',
+        'assets/js/components/core/nav.js',
     );
 
     /** 沉浸式页面 JS */
     const JS_AUTH = array(
-        'assets/js/components/ajax.js',
-        'assets/js/components/conntest.js',
-        'assets/js/components/toast.js',
-        'assets/js/components/theme.js',
-        'assets/js/components/dropdown.js',
-        'assets/js/components/authsync.js',
-        'assets/js/components/validation.js',
+        'assets/js/components/core/ajax.js',
+        'assets/js/components/core/conntest.js',
+        'assets/js/components/core/toast.js',
+        'assets/js/components/core/theme.js',
+        'assets/js/components/core/dropdown.js',
+        'assets/js/components/core/authsync.js',
+        'assets/js/components/core/validation.js',
     );
 
     /** 电子病历栈组件（EMR 相关页面按需加载） */
     const JS_EMR = array(
-        'queuepanel_core', 'order', 'emreditor', 'emr_ctxmenu', 'eventbus', 'emr', 'emr_diag', 'emr_cert', 'emr_consult', 'emr_rules', 'emr_format',
-        'emr_template', 'emr_fee', 'emr_patient', 'emr_orders', 'emr_segments', 'emr_consent', 'vitals', 'queuepanel',
+        'assets/js/components/emr/queuepanel_core.js',
+        'assets/js/components/emr/order.js',
+        'assets/js/components/emr/emreditor.js',
+        'assets/js/components/emr/emr_ctxmenu.js',
+        'assets/js/components/core/eventbus.js',
+        'assets/js/components/emr/emr.js',
+        'assets/js/components/emr/emr_diag.js',
+        'assets/js/components/emr/emr_cert.js',
+        'assets/js/components/emr/emr_consult.js',
+        'assets/js/components/emr/emr_rules.js',
+        'assets/js/components/emr/emr_format.js',
+        'assets/js/components/emr/emr_template.js',
+        'assets/js/components/emr/emr_fee.js',
+        'assets/js/components/emr/emr_patient.js',
+        'assets/js/components/emr/emr_orders.js',
+        'assets/js/components/emr/emr_segments.js',
+        'assets/js/components/emr/emr_consent.js',
+        'assets/js/components/emr/vitals.js',
+        'assets/js/components/emr/queuepanel.js',
     );
 
     /** EMR 栈中需按文件 mtime 防缓存的组件（重构期高频改动） */
-    const JS_EMR_MTIME = array('emreditor', 'emr_template', 'emr_segments');
+    const JS_EMR_MTIME = array(
+        'assets/js/components/emr/emreditor.js',
+        'assets/js/components/emr/emr_template.js',
+        'assets/js/components/emr/emr_segments.js',
+    );
 
     /** 医生工作站顶栏工具 */
-    const JS_DOC_TOOLS = array('doctor_tools');
+    const JS_DOC_TOOLS = array('assets/js/components/dept/doctor_tools.js');
 
     /** 科室工作台（护士/检验/影像/药房）共用组件 */
-    const JS_DEPT_WORK = array('queuepanel_core', 'deptwork', 'vitals', 'pacshistory');
+    const JS_DEPT_WORK = array(
+        'assets/js/components/emr/queuepanel_core.js',
+        'assets/js/components/dept/deptwork.js',
+        'assets/js/components/emr/vitals.js',
+        'assets/js/components/dept/pacshistory.js',
+    );
 
     /** 诊室大屏绑定心跳（跨页面保活） */
-    const JS_ROOM_HEARTBEAT = array('room_heartbeat');
+    const JS_ROOM_HEARTBEAT = array('assets/js/components/dept/room_heartbeat.js');
 
     /** 管理端项目列表公共组件 */
-    const JS_ADMIN_ITEMS = array('admin_items');
+    const JS_ADMIN_ITEMS = array('assets/js/components/admin/admin_items.js');
 
     /** 按文件修改时间戳生成版本参数（缺失回退 APP_VERSION） */
     public static function mtimeVer($rel) {

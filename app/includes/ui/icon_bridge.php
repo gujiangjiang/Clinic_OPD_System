@@ -9,4 +9,4 @@
  * ============================================================ */
 ?>
 <script>window.OPD_ICON_SVGS=<?php echo json_encode(IconHelper::allSvg()); ?>;</script>
-<script src="/assets/js/components/icons.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
+<script src="/assets/js/components/core/icons.js?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '1'; ?>"></script>
