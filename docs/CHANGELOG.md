@@ -13,6 +13,18 @@
 
 ---
 
+## [9.1.5] - 2026-10-04
+
+### 安全
+- **视图残留 XSS 清理**：
+  - `imaging/dashboard.php` 现病史 `present_illness` 补转义。
+  - `pharmacy/dashboard.php` 药品名入弹窗补转义。
+  - `admin/drugsettings.php` 绑定处置名 / 设置名输入框 `value` 补转义。
+  - `account/messages.php` 打印按钮内联 `onclick` 改为 `data-*` + `msgPrint()`。
+  - `admin/analytics.php` 科室下拉由 PHP 循环拼接改为 `json_script` 注入 + 客户端转义渲染。
+
+---
+
 ## [9.1.4] - 2026-10-04
 
 ### 安全

@@ -301,7 +301,7 @@ function stockModal(drugId, drugName, allowSplit, packSize, packUnit, minUnit, c
     // 3.6.1 出入库单位：入库默认包装单位；出库默认按是否拆零（允许拆零→最小单位 / 否则包装单位）
     var inUnit = 'pack', outUnit = allowSplit === 1 ? 'min' : 'pack';
     Clinic.modal.open(
-        '<div class="fs-13 text-muted mb-8">药品：' + drugName + '</div>' +
+        '<div class="fs-13 text-muted mb-8">药品：' + esc(drugName) + '</div>' +
         '<div class="fs-12 text-muted mb-8" id="smCurStock" style="color:var(--primary)">当前库存：' + curQtyMin + ' ' + minUnit +
             (packSize > 1 ? '（' + Math.floor(curQtyMin / packSize) + ' ' + packUnit + (curQtyMin % packSize ? ' + ' + (curQtyMin % packSize) + ' ' + minUnit : '') + '）' : '') + '</div>' +
         '<div class="form-row">' +

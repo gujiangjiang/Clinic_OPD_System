@@ -47,7 +47,7 @@ function routeBindBox(name, id) {
     }, 50);
     return '<input type="hidden" id="dsBind" value="' + (id || 0) + '">' +
         '<div class="form-group"><label class="form-label">绑定计费处置（开方时按数量自动联动）</label>' +
-        '<div class="flex gap-8"><input class="input" id="dsBindName" value="' + (name || '') + '" readonly placeholder="点击右侧选择或新建">' +
+        '<div class="flex gap-8"><input class="input" id="dsBindName" value="' + escHtml(name || '') + '" readonly placeholder="点击右侧选择或新建">' +
         '<button type="button" class="btn btn-outline btn-sm" id="dsBindPick">'+' 选择/新建</button>' +
         '<button type="button" class="btn btn-outline btn-sm" id="dsBindClear">清除</button></div>' +
         '<div class="fs-12 text-muted mt-4">如：静脉输液 ' + renderIconSvg('action:next') + ' 静脉输液费。开方时按数量自动生成处置。</div></div>';
@@ -158,7 +158,7 @@ function editDrugSetting(stype, id, name, needNurse, bindId, bindName) {
     Clinic.modal.open(
         '<input type="hidden" id="dsId" value="' + id + '">' +
         '<div class="form-group"><label class="form-label">' + DS_NAMES[stype] + '名称 <span class="req">*</span></label>' +
-        '<input class="input" id="dsName" value="' + name + '"></div>' + nurseBox,
+        '<input class="input" id="dsName" value="' + escHtml(name) + '"></div>' + nurseBox,
         {
             title: '编辑' + DS_NAMES[stype],
             size: 'modal-sm',

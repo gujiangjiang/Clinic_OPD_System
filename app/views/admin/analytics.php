@@ -433,11 +433,12 @@ function loadCustom() {
     document.querySelectorAll('[data-ana-quick]').forEach(function (b) {
         b.className = 'btn btn-sm ' + (b.getAttribute('data-ana-quick') === 'month' ? 'btn-primary' : 'btn-outline');
     });
-    // 医生统计科室筛选下拉
+    // 医生统计科室筛选下拉（服务端数据经 json_script 安全注入后由客户端渲染，防 JS 注入）
     var sel = document.getElementById('docDeptSel');
-    <?php foreach ($depts as $d): ?>
-    sel.innerHTML += '<option value="<?php echo (int)$d['id']; ?>"><?php echo e($d['name']); ?></option>';
-    <?php endforeach; ?>
+    var ANA_DEPTS = <?php echo json_script(isset($depts) ? $depts : array()); ?>;
+    ANA_DEPTS.forEach(function (d) {
+        sel.innerHTML += '<option value="' + parseInt(d.id, 10) + '">' + Clinic.escHtml(d.name) + '</option>';
+    });
     loadOverview(anaRange());
 })();
 </script>

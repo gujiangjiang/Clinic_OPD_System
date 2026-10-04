@@ -438,7 +438,7 @@ function imgClinPane(data, idPrefix, standalone) {
         '</div>' +
         '<div class="pacs-rep-label">主诉 / 现病史</div>' +
         '<div class="pacs-hist-detail open" style="margin-top:6px"><div class="hist-field-text">' + esc(s.chief_complaint || '—') +
-        (s.present_illness ? '\n' + s.present_illness : '') + '</div></div>' +
+        (s.present_illness ? '\n' + esc(s.present_illness) : '') + '</div></div>' +
         '<div class="pacs-rep-label" style="margin-top:12px">临床初步诊断</div>' +
         '<div class="pacs-hist-detail open" style="margin-top:6px"><div class="hist-field-text">' + esc(s.diagnosis || '—') + '</div></div>' +
         '</div>';

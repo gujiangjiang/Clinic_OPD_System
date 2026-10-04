@@ -40,7 +40,7 @@ function loadMsgs() {
                     } else if (m.print_url) {
                         // 纸张路由：凭条类=窄条凭条纸，其余默认
                         var psheet = m.print_url.indexOf('action=receipt') !== -1 || m.print_url.indexOf('action=payment') !== -1 ? 'ticket' : '';
-                        btn = '<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();Clinic.print.load(\'' + m.print_url + '\',null,\'' + psheet + '\')">'+renderIconSvg('action:print')+' 打印</button>';
+                        btn = '<button class="btn btn-outline btn-sm" data-print-url="' + escHtml(m.print_url) + '" data-print-sheet="' + psheet + '" onclick="event.stopPropagation();msgPrint(this)">'+renderIconSvg('action:print')+' 打印</button>';
                     }
                     var isPatient = m.msg_type === 'patient';
                     var typeBadge = m.msg_type === 'critical'
@@ -84,6 +84,12 @@ function loadMsgs() {
             });
         },
     });
+}
+/* 打印路由（data-* 读取，避免内联 onclick 拼串注入） */
+function msgPrint(el) {
+    var url = el.getAttribute('data-print-url') || '';
+    if (!url) return;
+    Clinic.print.load(url, null, el.getAttribute('data-print-sheet') || '');
 }
 /* 密码重置：无需验证原密码，直接设置新密码 */
 function openResetPwd() {
