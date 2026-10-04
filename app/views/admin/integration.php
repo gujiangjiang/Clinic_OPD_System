@@ -335,13 +335,13 @@ function render_itg_field($f, $vals) {
 ?>
 
 <script>
-var ITG_GROUPS = <?php echo json_encode(array_map(function ($g) {
+var ITG_GROUPS = <?php echo json_script(array_map(function ($g) {
     return array('id' => $g['id'], 'title' => $g['title'],
         'keys' => array_map(function ($f) { return $f['key']; }, $g['fields']),
         'labels' => array_map(function ($f) { return $f['label']; }, $g['fields']),
         'zones' => array_map(function ($f) { return isset($f['zone']) ? $f['zone'] : ''; }, $g['fields']));
-}, $groups), JSON_UNESCAPED_UNICODE); ?>;
-var ITG_TAB_DESC = <?php echo json_encode($itgTabDesc, JSON_UNESCAPED_UNICODE); ?>;
+}, $groups)); ?>;
+var ITG_TAB_DESC = <?php echo json_script($itgTabDesc); ?>;
 
 /* ---------- Tab 切换 ---------- */
 function itgTab(id) {

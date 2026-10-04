@@ -68,7 +68,7 @@ foreach ($depts as $d) {
 </style>
 <script>
 var CM_DEPT = 0;
-var CM_DEPS = <?php echo json_encode($deptPickerData); ?>;
+var CM_DEPS = <?php echo json_script($deptPickerData); ?>;
 var CM_TIMER = null;
 
 /* 科室选择模态框（复用通用组件） */

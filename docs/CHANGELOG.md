@@ -13,6 +13,16 @@
 
 ---
 
+## [9.1.4] - 2026-10-04
+
+### 安全
+- **内联 `<script>` JSON 断出 XSS**：新增公共辅助 `json_script()`（追加 `JSON_HEX_TAG/AMP/
+  APOS/QUOT`），并将 `admin/settings.php`、`admin/callmanage.php`、`admin/integration.php`、
+  `admin/users.php` 中直接 `json_encode` 写入 `<script>` 的 5 处改为 `json_script()`，
+  防止数据含 `</script>` 时断出脚本标签。
+
+---
+
 ## [9.1.3] - 2026-10-04
 
 ### 安全

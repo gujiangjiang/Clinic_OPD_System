@@ -317,7 +317,7 @@ $dbType = strtoupper(DatabaseManager::driver());
 
 <script>
 /* ---------- 作息时间设置模态框（含夏令时作息） ---------- */
-var WS = <?php echo json_encode($ws); ?>;
+var WS = <?php echo json_script($ws); ?>;
 
 /* 快捷时间选择：输入框 + ▾ 弹层点选常用时段（可手动输入覆盖） */
 function timeInput(id, label, val) {

@@ -116,10 +116,10 @@ function loadUserList() {
 
 /* 职称选项（按角色，来自 options_data.php；无职称角色隐藏） */
 var TITLE_SETS = {
-    doctor: <?php echo json_encode(opt_list('title_doctor'), JSON_UNESCAPED_UNICODE); ?>,
-    nurse: <?php echo json_encode(opt_list('title_nurse'), JSON_UNESCAPED_UNICODE); ?>,
-    lab: <?php echo json_encode(opt_list('title_lab'), JSON_UNESCAPED_UNICODE); ?>,
-    imaging: <?php echo json_encode(opt_list('title_imaging'), JSON_UNESCAPED_UNICODE); ?>,
+    doctor: <?php echo json_script(opt_list('title_doctor')); ?>,
+    nurse: <?php echo json_script(opt_list('title_nurse')); ?>,
+    lab: <?php echo json_script(opt_list('title_lab')); ?>,
+    imaging: <?php echo json_script(opt_list('title_imaging')); ?>,
 };
 
 function onRoleChange() {

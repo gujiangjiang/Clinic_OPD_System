@@ -41,6 +41,17 @@ function json_ok($data = array(), $msg = '操作成功') {
 }
 
 /**
+ * 内联 <script> 安全 JSON 编码：
+ * 追加 JSON_HEX_* 将 < > & ' " 转义为 \uXXXX，防止数据中的 `</script>` 断出脚本标签
+ * 造成 XSS。凡将服务端数据写入 <script> 的场景一律使用本函数。
+ * @param mixed $data
+ * @return string
+ */
+function json_script($data) {
+    return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+}
+
+/**
  * 失败响应快捷方式
  * 说明：事务内调用时先自动回滚再输出——历史调用点已手动回滚的
  * 不受影响（inTransaction() 为 false 时跳过），为未来新增的事务内
