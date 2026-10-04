@@ -13,6 +13,21 @@
 
 ---
 
+## [9.2.2] - 2026-10-04
+
+### 移除
+- **旧分散式 schema 归档清理**：移除 `app/config/schema/legacy/`（14 个文件），
+  `main.php` + `icd10.php` 成为唯一 schema 来源；`DatabaseManager` 去除
+  `aggregateLegacySchema()` 与 legacy 回退分支（main.php 缺失时显式报错），
+  消除双份 DDL 维护与潜在漂移。
+- **一次性迁移/修复脚本清理**：移除 `tools/schema/`（inspect_schema /
+  migrate_split_to_unified / fix_icd10_split / refill_drug_spec / repair_imaging_uids /
+  migrate_integration_keys）及 `tools/cli/` 的 `imaging_modality_fix.php`、
+  `imaging_refs_cleanup.php`（均已一次性完成或自引用死脚本）；保留 `seeder/` 等非一次性脚本。
+- 同步更新 README 目录树、AGENTS tools 说明与 `main.php` 头注。
+
+---
+
 ## [9.2.1] - 2026-10-04
 
 ### 修复

@@ -13,9 +13,6 @@
  * - 布尔统一 INTEGER 0/1（MySQL 兼容 TINYINT）
  * - 种子用 INSERT OR IGNORE（MySQL 自动转为 INSERT IGNORE）
  * - 时间默认 datetime('now','localtime')（MySQL 自动转为 NOW()）
- *
- * 旧分散式 schema 归档于 app/config/schema/legacy/，供数据迁移工具
- * （tools/migrate_split_to_unified.php）引用旧字段名与建表语句。
  * ============================================================ */
 return array(
     'version' => 46,
@@ -1253,7 +1250,7 @@ return array(
             "CREATE INDEX IF NOT EXISTS idx_inbound_events_created ON inbound_events(created_at)",
             "ALTER TABLE reports ADD COLUMN pdf_url TEXT DEFAULT ''",
         ),
-        // v42：归档单据医院名称快照——医院改名后，历史归档的
+        // v43：归档单据医院名称快照——医院改名后，历史归档的
         // 病历/申请单/证明/报告/同意书/会诊/缴费凭条/退费仍显示开具时医院名称；
         // 病历另固化 dept_name（科室改名/撤并不影响已归档文书展示）。
         43 => array(

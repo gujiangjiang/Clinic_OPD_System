@@ -14,8 +14,8 @@
  * 3. 多驱动一键切换：DB_DRIVER='sqlite'|'mysql'|'pgsql'，全量 SQL 遵循
  *    ANSI 标准，自增主键 / 布尔 / 时间 / upsert / 列存在检测由方言翻译层
  *    （dialectSql / upsertSetting / columnExists）按驱动统一处理。
- * 4. schema 定义：app/config/schema/main.php（主库）+ icd10.php（字典库）；
- *    旧分散式 schema 归档于 app/config/schema/legacy/。
+ * 4. schema 定义：app/config/schema/main.php（主库唯一来源）+ icd10.php（字典库）；
+ *    旧分散式 schema（legacy/）已移除。
  * 5. 兼容旧调用：DB::pdo($key)/DB::q($key,...) 等旧分散库签名仍可用。
  * 6. 所有 SQL 一律使用 PDO 预处理语句，防止 SQL 注入。
  * ============================================================ */
@@ -215,33 +215,26 @@ class DatabaseManager {
 
     /* ==================== Schema 加载 ==================== */
 
-    /** 主库 schema 定义：优先 main.php，缺失时聚合 legacy（兼容过渡） */
+    /** 主库 schema 定义：main.php 为唯一来源，缺失即显式报错（旧 legacy 已归档移除） */
     private static function mainSchema() {
         static $def = null;
         if ($def !== null) return $def;
         $file = APP_ROOT . '/app/config/schema/main.php';
-        if (is_file($file)) {
-            $def = require $file;
-            $def['key'] = 'main';
-            return $def;
+        if (!is_file($file)) {
+            throw new Exception('主库 schema 缺失：' . $file);
         }
-        $def = self::aggregateLegacySchema();
+        $def = require $file;
+        $def['key'] = 'main';
         return $def;
     }
 
-    /** ICD-10 字典库 schema 定义：优先 icd10.php，缺失时用 legacy 011 */
+    /** ICD-10 字典库 schema 定义：优先 icd10.php，缺失时用极简兜底表 */
     private static function icd10Schema() {
         static $def = null;
         if ($def !== null) return $def;
         $file = APP_ROOT . '/app/config/schema/icd10.php';
         if (is_file($file)) {
             $def = require $file;
-            $def['key'] = 'icd10';
-            return $def;
-        }
-        $legacy = APP_ROOT . '/app/config/schema/legacy/011_icd10.php';
-        if (is_file($legacy)) {
-            $def = require $legacy;
             $def['key'] = 'icd10';
             return $def;
         }
@@ -258,40 +251,6 @@ class DatabaseManager {
             'seed' => array(),
         );
         return $def;
-    }
-
-    /**
-     * 聚合旧分散式 schema（legacy/*.php）为统一主库定义（过渡期/迁移工具用）
-     * 跳过 icd10（独立字典库）；迁移 SQL 重新连续编号；
-     * 各表以 CREATE TABLE IF NOT EXISTS 合并（幂等）。
-     */
-    private static function aggregateLegacySchema() {
-        $dir = APP_ROOT . '/app/config/schema/legacy';
-        $files = glob($dir . '/*.php');
-        if ($files === false) $files = array();
-        sort($files);
-        $tables = array();
-        $migrations = array();
-        $seed = array();
-        $ver = 0;
-        foreach ($files as $f) {
-            $key = preg_replace('/^\d+_/', '', basename($f, '.php'));
-            if ($key === 'icd10') continue; // 独立字典库
-            $d = require $f;
-            foreach ((array)$d['tables'] as $t => $sql) {
-                $tables[$t] = $sql;
-            }
-            foreach ((array)$d['migrations'] as $mv => $sqls) {
-                foreach ((array)$sqls as $sql) {
-                    $ver++;
-                    $migrations[$ver] = array($sql);
-                }
-            }
-            foreach ((array)$d['seed'] as $s) {
-                $seed[] = $s;
-            }
-        }
-        return array('key' => 'main', 'version' => $ver, 'tables' => $tables, 'migrations' => $migrations, 'seed' => $seed);
     }
 
     /* ==================== 建表 / 迁移 / 种子 ==================== */

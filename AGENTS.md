@@ -62,8 +62,7 @@
     demo/doctor2001/full 三场景）/`QueueSeeder`（叫号队列，合并原 call/dept_call
     两场景）/`FhirDemoSeeder`（FHIR/HL7 全链路验证数据：3 套旅程 + DICOM UID/Series
     + 危急值，`--module=fhir` / `--scene=fhir`）/`VisitFlowEngine`/`PreflightChecker`）。
-  - `tools/schema/`：分散迁移与一次性数据修复脚本（inspect/migrate/fix/refill）。
-  - `tools/lint/`：语法检查工具。
+  - `tools/lint/`：语法检查工具（原 `tools/schema/` 一次性迁移/修复脚本已于本次复盘清理移除）。
 - **开发铁律**：后续任何测试造数需求，严禁在 `tools/` 根目录随意新建孤立的 `seed_xxx.php` 脚本，
   必须在 `seeder/` 中扩展复用（场景通过 `tools/bin/seed.php` 组合调度）；
   造数一律通过统一 CLI 入口调度。

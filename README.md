@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v9.2.1-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v9.2.2-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL双驱动-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -193,8 +193,7 @@
 │   │   ├── options_data.php   # 公共字典（统一数据源）
 │   │   └── schema/            # 数据库表结构定义
 │   │       ├── main.php       # 统一业务主库 schema（49 张表，SQLite/MySQL/PostgreSQL 三驱动兼容）
-│   │       ├── icd10.php      # ICD-10 独立字典库 schema
-│   │       └── legacy/        # 旧分散式 schema 归档（供迁移工具引用）
+│   │       └── icd10.php      # ICD-10 独立字典库 schema
 │   ├── core/                  # 核心类
 │   │   ├── DatabaseManager.php（getMain/getIcd10 双连接 + 方言辅助 + 运行时列自愈）
 │   │   │   Auth.php（登录/会话/角色）LoginSecurity.php（验证码 + IP 频控 + 防爆破）
@@ -233,8 +232,7 @@
 │   ├── bin/
 │   │   └── seed.php           # 统一造数 CLI：--all / --scene=visit|call|dept_call|doctor=工号|dept=科室|类型 / --module=clinic|dept|user|screen|drug|lab|exam|disposal|package|template
 │   ├── seeder/                # 单一职责数据工厂（Seeder 基类 / DeptSeeder / UserSeeder / DrugSeeder / LabSeeder（含检验组合）/ ExamSeeder / DisposalSeeder / PackageSeeder / TemplateSeeder / VisitSeeder（就诊链）/ QueueSeeder（叫号队列）/ VisitFlowEngine / PreflightChecker）
-│   ├── lint/                  # php-lint.php（tokenizer 语法检查）/ ci-lint.php / jscheck.js
-│   └── schema/                # 分散迁移与数据修复（inspect_schema.php / migrate_split_to_unified.php / fix_icd10_split.php / refill_drug_spec.php）
+│   └── lint/                  # php-lint.php（tokenizer 语法检查）/ ci-lint.php / jscheck.js
 ├── .github/workflows/         # GitHub Actions：PHP 7.2~8.5 语法兼容矩阵检查 + 检查报告
 ├── docs/                      # 文档归档
 │   ├── CHANGELOG.md           # 系统变更日志
