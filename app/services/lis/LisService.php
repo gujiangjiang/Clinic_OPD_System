@@ -152,6 +152,10 @@ class LisService {
             }
         }
 
+        // 结果回填 + order_items 回写 + 报告 upsert 整体事务：避免部分回填/半写状态
+        $pdo = DatabaseManager::getMain();
+        $pdo->beginTransaction();
+        try {
         $updated = 0;
         $resultIds = array();
         foreach ($items as $obs) {
@@ -214,6 +218,11 @@ class LisService {
         }
 
         $reportId = self::upsertReport($order, $reportNo, $reportDoctor, $pdfUrl, $resultIds);
+        DatabaseManager::commitTx($pdo);
+        } catch (Exception $ex) {
+            DatabaseManager::rollbackTx($pdo);
+            throw $ex;
+        }
         return array('updated' => $updated, 'report_id' => $reportId, 'msg' => '已回填 ' . $updated . ' 项检验结果');
     }
 

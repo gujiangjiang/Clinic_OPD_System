@@ -138,9 +138,15 @@ class HL7InboundService {
         }
         if (!$doctor) return 0;
 
-        // 幂等：同一报告 + 同一接收医生的危急值仅生成一次
+        // 幂等 + 原子性：写入危急值流水与推送消息同一事务；同报告同医生在事务内复核
+        $pdo = DatabaseManager::getMain();
+        $pdo->beginTransaction();
+        try {
         $dup = CriticalValueRepository::countRows('source=? AND report_id=? AND to_doctor_id=?', array('lab', (int)$reportId, (int)$doctor['id']));
-        if ($dup > 0) return 0;
+        if ($dup > 0) {
+            DatabaseManager::rollbackTx($pdo);
+            return 0;
+        }
 
         $itemName = isset($criticalItems[0]['name']) ? (string)$criticalItems[0]['name'] : '检验危急值';
         $snapshot = array(
@@ -181,6 +187,11 @@ class HL7InboundService {
             '患者「' . $pName . '」（' . $order['patient_no'] . '）的检验结果报危急值，请及时处理',
             'report', '/api/print?action=report&report_id=' . oid($reportId),
             array('msg_type' => 'critical', 'patient_name' => $pName, 'visit_id' => (int)$order['visit_id'], 'link_url' => '/critical_value/' . oid($cvId)));
+        DatabaseManager::commitTx($pdo);
+        } catch (Exception $ex) {
+            DatabaseManager::rollbackTx($pdo);
+            throw $ex;
+        }
         return 1;
     }
 }

@@ -13,6 +13,18 @@
 
 ---
 
+## [9.0.16] - 2026-10-04
+
+### 修复
+- **LIS 结果回填半写**：`LisService::applyObservationReport()` 原对 `results` 写入、
+  `order_items.result_id` 回写与报告 upsert 未包事务，失败会留下部分回填。现整体事务化，
+  异常回滚后原样抛出。
+- **HL7 危急值流转非原子 / TOCTOU**：`HL7InboundService::raiseCritical()` 的幂等检查、
+  `critical_values` 写入与站内消息推送原不在同一事务，去重存在检查-写入竞态。现整体事务化，
+  同报告同医生在事务内复核后写入。
+
+---
+
 ## [9.0.15] - 2026-10-04
 
 ### 修复
