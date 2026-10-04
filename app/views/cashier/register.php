@@ -171,7 +171,7 @@ function loadOverview() {
             var box = document.getElementById('slotBox');
             // 作息提示条（非放号时段展示原因）
             var banner = sch.msg
-                ? '<div class="mb-8" style="background:var(--warning-soft);color:var(--warning);border-radius:var(--radius-md);padding:8px 12px;font-size:12px;line-height:1.6">'+renderIconSvg('action:clock')+' ' + sch.msg + '</div>'
+                ? '<div class="mb-8" style="background:var(--warning-soft);color:var(--warning);border-radius:var(--radius-md);padding:8px 12px;font-size:12px;line-height:1.6">'+renderIconSvg('action:clock')+' ' + Clinic.escHtml(sch.msg) + '</div>'
                 : '';
             if (!list.length) {
                 box.innerHTML = banner + '<div class="text-muted">暂无科室数据</div>';
@@ -187,7 +187,7 @@ function loadOverview() {
                     info = d.full ? '<span class="badge badge-danger">已满号</span>' : '<span class="badge badge-success">余' + d.remaining + '号</span>';
                 }
                 return '<div class="flex-between" style="padding:6px 0;border-bottom:1px solid var(--border)">' +
-                    '<span>' + d.name + '</span>' + info + '</div>';
+                    '<span>' + Clinic.escHtml(d.name) + '</span>' + info + '</div>';
             }).join('');
         },
     });
@@ -255,7 +255,7 @@ function openQuickReg() {
         onSuccess: function (json) {
             var html = '<div class="form-group">' +
                 '<label class="form-label">姓名（系统自动生成，不可修改）</label>' +
-                '<input class="input" id="q_name" value="' + json.data.name + '" readonly style="background:var(--bg-soft);color:var(--text-muted);cursor:default">' +
+                '<input class="input" id="q_name" value="' + Clinic.escHtml(json.data.name) + '" readonly style="background:var(--bg-soft);color:var(--text-muted);cursor:default">' +
                 '<div class="fs-12 text-muted mt-4">以挂号患者编号动态生成：全局唯一、不与实名患者冲突，「无名氏」前缀便于识别区分</div></div>' +
                 '<div class="form-row">' +
                 '<div class="form-group"><label class="form-label">性别</label>' +
@@ -348,13 +348,13 @@ function submitRegister(d, quick) {
             Clinic.modal.open(
                 '<div class="fs-13 text-muted mb-12">挂号成功！请核对以下信息后点击【缴费】完成挂号：</div>' +
                 '<div class="table-wrap"><table class="table">' +
-                '<tr><th>姓名</th><td class="fw-700">' + (v.name || name) + '</td></tr>' +
-                '<tr><th>性别</th><td>' + gender + '</td></tr>' +
-                '<tr><th>费用类别</th><td>' + feeType + '</td></tr>' +
-                '<tr><th>ID号（身份证）</th><td>' + (v.id_card || '—') + '</td></tr>' +
-                '<tr><th>患者唯一ID</th><td class="fw-700">' + v.patient_no + '</td></tr>' +
-                '<tr><th>门诊流水号</th><td class="fw-700">' + v.flow_no + '</td></tr>' +
-                '<tr><th>就诊序号</th><td class="fw-700">' + v.dept_name + ' 第' + Clinic.pad3(v.visit_seq) + '号</td></tr>' +
+                '<tr><th>姓名</th><td class="fw-700">' + Clinic.escHtml(v.name || name) + '</td></tr>' +
+                '<tr><th>性别</th><td>' + Clinic.escHtml(gender) + '</td></tr>' +
+                '<tr><th>费用类别</th><td>' + Clinic.escHtml(feeType) + '</td></tr>' +
+                '<tr><th>ID号（身份证）</th><td>' + Clinic.escHtml(v.id_card || '—') + '</td></tr>' +
+                '<tr><th>患者唯一ID</th><td class="fw-700">' + Clinic.escHtml(v.patient_no) + '</td></tr>' +
+                '<tr><th>门诊流水号</th><td class="fw-700">' + Clinic.escHtml(v.flow_no) + '</td></tr>' +
+                '<tr><th>就诊序号</th><td class="fw-700">' + Clinic.escHtml(v.dept_name) + ' 第' + Clinic.pad3(v.visit_seq) + '号</td></tr>' +
                 '<tr><th>挂号费</th><td>' + Clinic.money(parseFloat(v.fee)) + '</td></tr>' +
                 (v.is_extra ? '<tr><th>号源</th><td><span class="badge badge-warning">医生加号</span></td></tr>' : '') +
                 '</table></div>',
