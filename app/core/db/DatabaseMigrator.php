@@ -82,9 +82,12 @@ class DatabaseMigrator {
             $tables = self::sourceTables($src, $srcDriver);
             if (!$tables) throw new Exception('源库未发现业务表');
 
+            $pendingIndexes = array();
             foreach ($tables as $table) {
                 if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) continue;
-                // 目标库建表（方言转换）
+                // 先读取源表二级索引规格（导入期不建索引，导入后统一重建）
+                $specs = self::indexSpecs($src, $srcDriver, $table);
+                // 目标库建表（方言转换；仅表结构与主键）
                 self::createTargetTable($src, $dst, $srcDriver, $toDriver, $table);
                 // 分批同步数据
                 $total = (int)$src->query("SELECT COUNT(*) FROM " . $table)->fetchColumn();
@@ -97,10 +100,16 @@ class DatabaseMigrator {
                     $offset += self::CHUNK;
                 }
                 $migratedTables[] = array('table' => $table, 'rows' => $total);
+                if ($specs) $pendingIndexes[$table] = $specs;
                 // 进度回调（每表完成；回调抛异常（如取消请求）中止迁移）
                 if ($onProgress) {
                     $onProgress($table, $total, $migratedRows);
                 }
+            }
+
+            // ===== 数据导入完成后批量重建二级索引（导入期不建 → 全量同步提速） =====
+            foreach ($pendingIndexes as $table => $specs) {
+                self::createIndexes($dst, $toDriver, $table, $specs);
             }
 
             // ===== 自增序列校准 =====
@@ -204,8 +213,10 @@ class DatabaseMigrator {
         $tables = self::sourceTables($src, $srcDriver);
         $migrated = 0;
         $list = array();
+        $pendingIndexes = array();
         try {
             foreach ($tables as $table) {
+                $specs = self::indexSpecs($src, $srcDriver, $table);
                 self::createTargetTable($src, $dst, $srcDriver, $toDriver, $table);
                 // 幂等：先清空目标表已有数据（外键检查已关闭），重复备份/中断重试不撞主键
                 self::clearTargetTable($dst, $toDriver, $table);
@@ -218,7 +229,12 @@ class DatabaseMigrator {
                     $migrated += count($rows);
                     $offset += self::CHUNK;
                 }
+                if ($specs) $pendingIndexes[$table] = $specs;
                 $list[] = array('table' => $table, 'rows' => $total);
+            }
+            // 数据导入完成后批量重建二级索引
+            foreach ($pendingIndexes as $table => $specs) {
+                self::createIndexes($dst, $toDriver, $table, $specs);
             }
             self::resetSequences($dst, $toDriver, $tables);
         } finally {
@@ -233,19 +249,129 @@ class DatabaseMigrator {
         $dst->exec('DELETE FROM ' . $name);
     }
 
-    /** 源表清单 */
+    /** 源表清单（驱动感知；PG 明确排除分区子表，避免跨库反射误识别为业务表） */
     private static function sourceTables($src, $driver) {
         $tables = array();
         if ($driver === 'sqlite') {
             foreach ($src->query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name") as $r) {
                 $tables[] = $r['name'];
             }
-        } else {
-            foreach ($src->query('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() ORDER BY table_name') as $r) {
+        } elseif ($driver === 'mysql') {
+            // MySQL 分区不产生独立 table 行（information_schema.tables 仅列基表），无需特殊排除
+            foreach ($src->query("SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE' ORDER BY table_name") as $r) {
                 $tables[] = $r['table_name'];
+            }
+        } else {
+            // PostgreSQL：仅实体表（relkind='r'），显式排除声明式分区子表（relispartition=false），
+            // 否则物理子表会被跨库反射误识别为独立业务表，导出到 SQLite 时重名/重复数据。
+            foreach ($src->query(
+                "SELECT c.relname AS t FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+                . "WHERE c.relkind = 'r' AND c.relispartition = false "
+                . "AND n.nspname = current_schema() AND c.relname NOT LIKE 'pg_%' ORDER BY c.relname"
+            ) as $r) {
+                $tables[] = $r['t'];
             }
         }
         return $tables;
+    }
+
+    /**
+     * 剥离内联二级索引与外键约束（MySQL SHOW CREATE TABLE 的 KEY/UNIQUE KEY/
+     * FULLTEXT/SPATIAL/CONSTRAINT FOREIGN KEY 行）。迁移期先建"纯表结构 + 主键"，
+     * 数据全部导入后再批量重建二级索引（全量同步提速），同时规避方言冲突：
+     * SQLite 无法解析内联 KEY 语法、PostgreSQL 不接受 KEY 定义。
+     */
+    private static function stripInlineSecondaryKeys($sql) {
+        $sql = preg_replace('/^[ \t]*(UNIQUE\s+KEY|FULLTEXT\s+KEY|SPATIAL\s+KEY|KEY)\b[^\n]*\n?/im', '', $sql);
+        $sql = preg_replace('/^[ \t]*CONSTRAINT\b[^\n]*FOREIGN\s+KEY\b[^\n]*\n?/im', '', $sql);
+        $sql = preg_replace('/^[ \t]*FOREIGN\s+KEY\b[^\n]*\n?/im', '', $sql);
+        // 清理因删行产生的悬空逗号
+        $sql = preg_replace('/,\s*,/', ',', $sql);
+        $sql = preg_replace('/,\s*\)/', ')', $sql);
+        return $sql;
+    }
+
+    /** 读取表二级索引规格（仅简单列索引；表达式/部分索引跳过），供导入后重建 */
+    private static function indexSpecs($src, $driver, $table) {
+        $specs = array();
+        try {
+            if ($driver === 'sqlite') {
+                foreach ($src->query("SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='" . $table . "' AND sql IS NOT NULL") as $r) {
+                    $def = (string)$r['sql'];
+                    if (stripos($def, 'WHERE') !== false) continue;   // 部分索引跳过
+                    if (preg_match('/CREATE\s+(UNIQUE\s+)?INDEX\s+[^(]+\((.+)\)\s*$/is', $def, $m)) {
+                        $cols = self::splitIndexCols($m[2]);
+                        if ($cols) $specs[] = array('name' => $r['name'], 'unique' => (bool)trim($m[1]), 'cols' => $cols);
+                    }
+                }
+            } elseif ($driver === 'mysql') {
+                $row = $src->query('SHOW CREATE TABLE `' . $table . '`')->fetch(PDO::FETCH_NUM);
+                $create = isset($row[1]) ? (string)$row[1] : '';
+                foreach (explode("\n", $create) as $line) {
+                    $t = rtrim(trim($line), ',');
+                    if (preg_match('/^UNIQUE\s+KEY\s+`?([a-zA-Z0-9_]+)`?\s*\((.+)\)$/i', $t, $m)) {
+                        $cols = self::splitIndexCols($m[2]);
+                        if ($cols) $specs[] = array('name' => $m[1], 'unique' => true, 'cols' => $cols);
+                    } elseif (preg_match('/^KEY\s+`?([a-zA-Z0-9_]+)`?\s*\((.+)\)$/i', $t, $m)) {
+                        $cols = self::splitIndexCols($m[2]);
+                        if ($cols) $specs[] = array('name' => $m[1], 'unique' => false, 'cols' => $cols);
+                    }
+                }
+            } else { // pgsql
+                foreach ($src->query("SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = current_schema() AND tablename = '" . $table . "'") as $r) {
+                    $def = (string)$r['indexdef'];
+                    if (stripos($def, 'WHERE') !== false) continue;   // 部分索引跳过
+                    if (preg_match('/CREATE\s+(UNIQUE\s+)?INDEX\s+.+?\s+ON\s+\S+\s*(?:USING\s+\w+\s*)?\(([^)]+)\)/is', $def, $m)) {
+                        $cols = self::splitIndexCols($m[2]);
+                        if ($cols) $specs[] = array('name' => $r['indexname'], 'unique' => (bool)trim($m[1]), 'cols' => $cols);
+                    }
+                }
+            }
+        } catch (Exception $ex) {
+            // 索引读取失败不阻断迁移（仅少建索引）
+            if (defined('DEBUG') && DEBUG) error_log('[迁移] 读取索引失败 ' . $table . '：' . $ex->getMessage());
+        }
+        return $specs;
+    }
+
+    /** 解析索引列串 → 列名数组；含表达式/函数索引时返回空数组（整体跳过） */
+    private static function splitIndexCols($s) {
+        $out = array();
+        foreach (explode(',', (string)$s) as $c) {
+            $c = trim($c);
+            if ($c === '') continue;
+            $c = preg_replace('/^(?:`|")([^`"]+)(?:`|")/', '$1', $c);                 // 去标识符引号
+            $c = preg_replace('/^([a-zA-Z0-9_]+)\s*\(\s*\d+\s*\)/', '$1', $c);         // 去前缀长度 col(255)
+            $c = preg_replace('/\s+(ASC|DESC)\b.*$/i', '', $c);                        // 去排序方向
+            $c = trim($c, "`\" \t");
+            if ($c === '' || strpos($c, '(') !== false || !preg_match('/^[a-zA-Z0-9_]+$/', $c)) {
+                return array();   // 表达式索引 → 整体跳过
+            }
+            $out[] = $c;
+        }
+        return $out;
+    }
+
+    /** 数据导入完成后批量重建二级索引（方言感知；MySQL 不支持 CREATE INDEX IF NOT EXISTS） */
+    private static function createIndexes($dst, $toDriver, $table, $specs) {
+        $q = function ($n) use ($toDriver) { return $toDriver === 'mysql' ? '`' . $n . '`' : '"' . $n . '"'; };
+        foreach ((array)$specs as $s) {
+            if (!isset($s['name']) || !preg_match('/^[a-zA-Z0-9_]+$/', $s['name'])) continue;
+            $cols = array();
+            foreach ((array)$s['cols'] as $c) {
+                if (!preg_match('/^[a-zA-Z0-9_]+$/', $c)) { $cols = array(); break; }
+                $cols[] = $q($c);
+            }
+            if (!$cols) continue;
+            $ine = ($toDriver === 'mysql') ? '' : 'IF NOT EXISTS ';
+            $sql = 'CREATE ' . (!empty($s['unique']) ? 'UNIQUE ' : '') . 'INDEX ' . $ine
+                . $q($s['name']) . ' ON ' . $q($table) . ' (' . implode(',', $cols) . ')';
+            try {
+                $dst->exec($sql);
+            } catch (Exception $ex) {
+                if (defined('DEBUG') && DEBUG) error_log('[迁移] 重建索引失败 ' . $table . '.' . $s['name'] . '：' . $ex->getMessage());
+            }
+        }
     }
 
     /** 目标建表（从源 CREATE 语句翻译方言；pgsql 源从 information_schema 构造） */
@@ -273,6 +399,8 @@ class DatabaseMigrator {
         if ($createSql === '') throw new Exception('读取表结构失败：' . $table);
         // 移除建表语句中的尾分号，改为 IF NOT EXISTS 幂等
         $createSql = rtrim(trim($createSql), "; \t\n");
+        // 剥离内联二级索引/外键：导入期只建"纯表 + 主键"，导入后统一重建（提速 + 规避方言冲突）
+        $createSql = self::stripInlineSecondaryKeys($createSql);
         if ($toDriver === 'sqlite') {
             // 目标 SQLite：MySQL/PG 方言 → 基础转换（AUTO_INCREMENT → AUTOINCREMENT，反引号去除）
             $createSql = preg_replace('/`/s', '"', $createSql);
