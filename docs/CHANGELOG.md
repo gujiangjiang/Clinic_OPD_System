@@ -13,6 +13,16 @@
 
 ---
 
+## [9.0.9] - 2026-10-04
+
+### 修复
+- **npm 脚本无法执行**：`package.json` 的 `dev`/`start`/`lint`/`server:ensure` 原先直接调用裸
+  `frankenphp`，而本机二进制位于 `~/.local/bin/frankenphp`（不在 PATH），导致所有脚本
+  报 `command not found`。现统一改为 `${FRANKENPHP:-$HOME/.local/bin/frankenphp}` 解析，
+  支持 `FRANKENPHP` 环境变量覆盖，本地与 CI 均可用。
+
+---
+
 ## [9.0.8] - 2026-10-04
 
 ### 修复
