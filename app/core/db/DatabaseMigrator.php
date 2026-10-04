@@ -352,6 +352,33 @@ class DatabaseMigrator {
         return $out;
     }
 
+    /**
+     * 规范化 SQLite 自增：MySQL/PG 源建表 DDL 经方言翻译后，
+     * 将表级单列主键内联到该 INTEGER 列并恢复 AUTOINCREMENT，保证：
+     *   1. 不出现非法位置的 AUTOINCREMENT（SQLite 仅允许 `INTEGER PRIMARY KEY AUTOINCREMENT`）；
+     *   2. 单列 INTEGER 主键成为 rowid 别名，自增行为与原生建库一致。
+     * 复合主键保持表级 PRIMARY KEY（SQLite 合法，不做自增内联）。
+     */
+    private static function sqliteNormalizeAutoincrement($sql) {
+        // 先移除散落的 AUTOINCREMENT（避免出现于非 PRIMARY KEY 位置）
+        $sql = preg_replace('/\bAUTOINCREMENT\b/i', '', $sql);
+        if (preg_match('/PRIMARY\s+KEY\s*\(\s*["`]?([a-zA-Z0-9_]+)["`]?\s*\)/i', $sql, $m)) {
+            $pk = $m[1];
+            // 仅当该列为 INTEGER 时内联（复合/非整型主键不处理）
+            if (preg_match('/["`]?' . preg_quote($pk, '/') . '["`]?\s+INTEGER\b/i', $sql)) {
+                $sql = preg_replace(
+                    '/(["`]?' . preg_quote($pk, '/') . '["`]?\s+INTEGER\b)([^,]*?)(,)/i',
+                    '$1 PRIMARY KEY AUTOINCREMENT$2$3',
+                    $sql,
+                    1
+                );
+                $sql = preg_replace('/,?\s*PRIMARY\s+KEY\s*\(\s*["`]?' . preg_quote($pk, '/') . '["`]?\s*\)/i', '', $sql);
+                $sql = preg_replace('/,\s*\)/', ')', $sql);
+            }
+        }
+        return $sql;
+    }
+
     /** 数据导入完成后批量重建二级索引（方言感知；MySQL 不支持 CREATE INDEX IF NOT EXISTS） */
     private static function createIndexes($dst, $toDriver, $table, $specs) {
         $q = function ($n) use ($toDriver) { return $toDriver === 'mysql' ? '`' . $n . '`' : '"' . $n . '"'; };
@@ -423,6 +450,10 @@ class DatabaseMigrator {
             $createSql = preg_replace('/\bNUMERIC\s*\([^)]*\)/i', 'REAL', $createSql);
             $createSql = preg_replace('/\bBOOLEAN\b/i', 'INTEGER', $createSql);
             $createSql = preg_replace('/\bSERIAL\s+PRIMARY\s+KEY\b/i', 'INTEGER PRIMARY KEY AUTOINCREMENT', $createSql);
+            // MySQL/PG 源：把表级单列主键内联到 INTEGER 列并恢复 AUTOINCREMENT。
+            // 否则 MySQL 的 `id int NOT NULL AUTO_INCREMENT` + 独立 `PRIMARY KEY(id)` 翻译后
+            // 会得到非法 SQLite 语法（散落 AUTOINCREMENT 且非 rowid 别名），破坏自增。
+            if ($srcDriver !== 'sqlite') $createSql = self::sqliteNormalizeAutoincrement($createSql);
         } elseif ($toDriver === 'pgsql') {
             // 目标 PostgreSQL：双引号标识符 + SERIAL 自增
             $createSql = preg_replace('/`/s', '"', $createSql);
