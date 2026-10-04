@@ -38,15 +38,17 @@ if (strpos($channel, 'scr:') === 0) {
     $uid = (int)Auth::id();
     if (strpos($channel, 'msg:') === 0 && $channel !== 'msg:' . $uid) { http_response_code(403); exit; }
     $myDepts = user_dept_ids($u);
+    if (!is_array($myDepts)) $myDepts = array();
     if (strpos($channel, 'room:') === 0) {
         $rid = (int)substr($channel, 5);
         $rrow = $rid > 0 ? QueueRepository::one('SELECT dept_id FROM clinic_rooms WHERE id=?', array($rid)) : null;
-        if (!$rrow || ($u['role'] !== 'admin' && $myDepts && !in_array((int)$rrow['dept_id'], $myDepts, true))) {
+        // 非管理员必须且仅能订阅本人所属科室的诊室；未绑定科室一律拒绝
+        if (!$rrow || ($u['role'] !== 'admin' && !in_array((int)$rrow['dept_id'], $myDepts, true))) {
             http_response_code(403); exit;
         }
     } elseif (strpos($channel, 'dept:') === 0) {
         $did = (int)substr($channel, 5);
-        if ($u['role'] !== 'admin' && $myDepts && !in_array($did, $myDepts, true)) {
+        if ($u['role'] !== 'admin' && !in_array($did, $myDepts, true)) {
             http_response_code(403); exit;
         }
     }
