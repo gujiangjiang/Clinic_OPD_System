@@ -13,6 +13,22 @@
 
 ---
 
+## [9.1.7] - 2026-10-04
+
+### 安全
+- **通用 CRUD 列名注入防护**：`BaseRepository::insertRow/updateRow/updateWhere` 的列名原先
+  直接拼入 SQL（仅表名白名单），现统一经 `assertCol()` 校验（仅字母数字下划线）。
+- **CSRF Referer 精确匹配**：`CSRF::check()` 原 Referer 前缀匹配可被 `example.com.evil.com`
+  绕过，改为 `parse_url` 解析 scheme/host/port 精确比对。
+- **HTTP 头注入过滤**：`HttpClient::request()` 剥离头值中的 CR/LF；CSV 下载文件名剥离
+  CR/LF/引号。
+- **SVG 同源脚本风险**：`pwa.php` 图标输出禁止 `image/svg+xml` 并补 `X-Content-Type-Options: nosniff`。
+- **入站 IP 白名单 IPv6**：`InboundGuard::ipInCidr()` 改用 `inet_pton` 位运算，支持 IPv4/IPv6 CIDR。
+- **客户端 IP 伪造**：`LoginSecurity::clientIp()` 仅当直连对端为内网/回环（反向代理）时才采信
+  `X-Forwarded-For`，公网直连一律用 `REMOTE_ADDR`。
+
+---
+
 ## [9.1.6] - 2026-10-04
 
 ### 安全

@@ -27,16 +27,25 @@ class LoginSecurity {
     const CHECK_LIMIT   = 30;                // check_captcha 每分钟限次（防枚举）
     const LOCK_DURATION = 900;               // 账号安全锁定窗口 15 分钟（到期自动解锁）
 
-    /** 客户端 IP（反代兼容：优先 X-Forwarded-For 首个） */
+    /** 客户端 IP（反代兼容：仅当直连对端为内网/回环时才信任 X-Forwarded-For） */
     public static function clientIp() {
-        $keys = array('HTTP_X_FORWARDED_FOR', 'HTTP_CLIENT_IP', 'REMOTE_ADDR');
-        foreach ($keys as $k) {
-            if (!empty($_SERVER[$k])) {
-                $ip = trim(explode(',', (string)$_SERVER[$k])[0]);
-                if ($ip !== '') return $ip;
+        $remote = isset($_SERVER['REMOTE_ADDR']) ? trim((string)$_SERVER['REMOTE_ADDR']) : '';
+        // 直连对端为公网 IP 时一律使用 REMOTE_ADDR，杜绝客户端伪造 X-Forwarded-For
+        // 污染锁定/IP 失败计数/取证；对端为内网或回环（通常为反向代理）才采纳转发头。
+        $trustProxy = false;
+        if ($remote !== '' && filter_var($remote, FILTER_VALIDATE_IP)) {
+            $isPublic = filter_var($remote, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false;
+            $trustProxy = !$isPublic;
+        }
+        if ($trustProxy) {
+            foreach (array('HTTP_X_FORWARDED_FOR', 'HTTP_CLIENT_IP') as $k) {
+                if (!empty($_SERVER[$k])) {
+                    $ip = trim(explode(',', (string)$_SERVER[$k])[0]);
+                    if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP)) return $ip;
+                }
             }
         }
-        return '0.0.0.0';
+        return $remote !== '' ? $remote : '0.0.0.0';
     }
 
     /** 全局验证码模式（off/auto/force，非法值回落 auto） */

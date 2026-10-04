@@ -54,8 +54,10 @@ if ($__pwaUri === '/pwa-icon.png') {
             $file = realpath(APP_ROOT . '/public/' . $lp);
             if ($base && $file && strpos($file, $base . DIRECTORY_SEPARATOR) === 0) {
                 $info = @getimagesize($file);
-                if ($info && !empty($info['mime']) && strpos($info['mime'], 'image/') === 0) {
+                // 禁止 SVG（同源可执行脚本）；补 nosniff 防类型嗅探
+                if ($info && !empty($info['mime']) && strpos($info['mime'], 'image/') === 0 && $info['mime'] !== 'image/svg+xml') {
                     header('Content-Type: ' . $info['mime']);
+                    header('X-Content-Type-Options: nosniff');
                     header('Cache-Control: public, max-age=86400');
                     header('Content-Length: ' . (string)filesize($file));
                     readfile($file);

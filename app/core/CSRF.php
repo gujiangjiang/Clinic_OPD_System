@@ -36,8 +36,18 @@ class CSRF {
         }
         if ($origin === '' && isset($_SERVER['HTTP_REFERER'])) {
             $ref = (string)$_SERVER['HTTP_REFERER'];
-            if ($ref !== '' && stripos($ref, $scheme . '://' . $host) !== 0) {
-                json_fail('安全校验失败，请刷新页面后重试');
+            if ($ref !== '') {
+                // 精确解析 Referer 的 scheme/host/port，杜绝 example.com.evil.com 前缀绕过
+                $rp = parse_url($ref);
+                $refHost = isset($rp['host']) ? (string)$rp['host'] : '';
+                $refScheme = isset($rp['scheme']) ? (string)$rp['scheme'] : '';
+                $refPort = isset($rp['port']) ? (int)$rp['port'] : null;
+                $hostOnly = preg_replace('/:\d+$/', '', $host);
+                $hostPort = preg_match('/:(\d+)$/', $host, $m) ? (int)$m[1] : null;
+                if ($refHost === '' || strcasecmp($refHost, $hostOnly) !== 0
+                    || strcasecmp($refScheme, $scheme) !== 0 || $refPort !== $hostPort) {
+                    json_fail('安全校验失败，请刷新页面后重试');
+                }
             }
         }
         $token = isset($_POST['csrf_token']) ? (string)$_POST['csrf_token'] : '';

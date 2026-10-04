@@ -41,6 +41,11 @@ class HttpClient {
             $headers[] = 'Authorization: Bearer ' . $opts['bearer'];
         }
 
+        // 防 HTTP 头注入：头值可来自管理员配置（令牌/自定义头），剥离 CR/LF
+        foreach ($headers as $i => $h) {
+            $headers[$i] = str_replace(array("\r", "\n"), '', (string)$h);
+        }
+
         if (function_exists('curl_init')) {
             return self::viaCurl($method, $url, $headers, $body, $timeout, $sslVerify);
         }

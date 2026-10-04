@@ -118,6 +118,7 @@ class BaseRepository {
      */
     protected static function insertRow($table, $data) {
         self::assertTable($table);
+        foreach (array_keys($data) as $c) self::assertCol($c);
         $cols = implode(',', array_keys($data));
         $phs = in_placeholders($data);
         return self::insert('INSERT INTO ' . self::qt($table) . "($cols) VALUES($phs)", array_values($data));
@@ -133,7 +134,7 @@ class BaseRepository {
         self::assertTable($table);
         $set = array();
         $params = array();
-        foreach ($data as $k => $v) { $set[] = "$k=?"; $params[] = $v; }
+        foreach ($data as $k => $v) { self::assertCol($k); $set[] = "$k=?"; $params[] = $v; }
         $params[] = (int)$id;
         return self::exec('UPDATE ' . self::qt($table) . ' SET ' . implode(',', $set) . ' WHERE id=?', $params);
     }
@@ -151,7 +152,7 @@ class BaseRepository {
         self::assertTable($table);
         $set = array();
         $params = array();
-        foreach ($data as $k => $v) { $set[] = "$k=?"; $params[] = $v; }
+        foreach ($data as $k => $v) { self::assertCol($k); $set[] = "$k=?"; $params[] = $v; }
         $params = array_merge($params, $whereParams);
         return self::exec('UPDATE ' . self::qt($table) . ' SET ' . implode(',', $set) . " WHERE $where", $params);
     }
@@ -160,6 +161,13 @@ class BaseRepository {
     private static function assertTable($table) {
         if (!preg_match('/^[a-zA-Z0-9_]+$/', (string)$table)) {
             throw new Exception('非法表名: ' . $table);
+        }
+    }
+
+    /** 列名白名单校验（防注入：通用 CRUD 的动态列名仅允许字母数字下划线） */
+    private static function assertCol($col) {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', (string)$col)) {
+            throw new Exception('非法列名: ' . $col);
         }
     }
 

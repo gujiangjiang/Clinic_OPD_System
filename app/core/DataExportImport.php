@@ -132,6 +132,8 @@ class DataExportImport {
      * @param string $filename 下载文件名
      */
     public static function download($headers, $rows, $filename) {
+        // 防响应头注入：文件名剥离 CR/LF 与路径
+        $filename = str_replace(array("\r", "\n", '"'), '', basename((string)$filename));
         header('Content-Type: text/csv; charset=UTF-8');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         echo "\xEF\xBB\xBF";  // BOM

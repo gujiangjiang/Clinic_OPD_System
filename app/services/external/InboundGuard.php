@@ -229,18 +229,29 @@ class InboundGuard {
         return false;
     }
 
-    /** IP 是否命中单 IP 或 CIDR 网段 */
+    /** IP 是否命中单 IP 或 CIDR 网段（支持 IPv4 与 IPv6） */
     public static function ipInCidr($ip, $cidr) {
         if (strpos($cidr, '/') === false) {
             return $ip === $cidr;
         }
         list($net, $bits) = explode('/', $cidr, 2);
         $bits = (int)$bits;
-        $ipLong = ip2long($ip);
-        $netLong = ip2long($net);
-        if ($ipLong === false || $netLong === false) return false;
-        $mask = $bits === 0 ? 0 : (~0 << (32 - $bits)) & 0xFFFFFFFF;
-        return ($ipLong & $mask) === ($netLong & $mask);
+        $ipBin = @inet_pton($ip);
+        $netBin = @inet_pton($net);
+        if ($ipBin === false || $netBin === false || strlen($ipBin) !== strlen($netBin)) return false;
+        $len = strlen($ipBin);
+        $maxBits = $len * 8;
+        if ($bits < 0 || $bits > $maxBits) return false;
+        $fullBytes = intdiv($bits, 8);
+        $rem = $bits % 8;
+        for ($i = 0; $i < $fullBytes; $i++) {
+            if ($ipBin[$i] !== $netBin[$i]) return false;
+        }
+        if ($rem > 0 && $fullBytes < $len) {
+            $mask = (0xFF << (8 - $rem)) & 0xFF;
+            if ((ord($ipBin[$fullBytes]) & $mask) !== (ord($netBin[$fullBytes]) & $mask)) return false;
+        }
+        return true;
     }
 
     /**
