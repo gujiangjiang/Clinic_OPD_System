@@ -173,6 +173,8 @@ class DatabaseManager {
      */
     public static function wipeMain() {
         self::getMain();   // 确保主库可达并已知 schema
+        // 清空后需重新播种：重置「本请求已播种」标记，否则紧随其后的 seedAll() 会直接跳过
+        self::$seeded = false;
         if (self::driver() === 'sqlite') {
             $file = self::sqlitePath('db.sqlite.path', 'clinic_main.db');
             self::$main = null;
