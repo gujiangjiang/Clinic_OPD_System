@@ -13,6 +13,17 @@
 
 ---
 
+## [9.0.10] - 2026-10-04
+
+### 修复
+- **出向同步 worker 进程风暴**：`integration_spawn_worker()` 原先依赖一个从未被赋值的
+  配置项 `integration.outbox.spawning` 做守卫（恒为假），导致每次业务入队都 `nohup`
+  派生一个 PHP 进程。现改为**文件级 5 秒节流**（`data/logs/.outbox.spawn` 的 mtime），
+  批量挂号/开单时不再重复派生；worker 运行期仍由 `HisOutbox::processPending()` 的
+  `integration.outbox.lock`（60 秒窗口）互斥。业务入队与投递行为不变。
+
+---
+
 ## [9.0.9] - 2026-10-04
 
 ### 修复

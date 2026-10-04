@@ -490,11 +490,17 @@ function integration_inbound_module($endpoint, $provider) {
  * 全部调用包裹 try/catch——Outbox 写入失败仅记录日志，不阻塞业务。
  * ============================================================ */
 
-/** 触发后台 worker（fire-and-forget；失败仅日志，任务保持 pending 由定时/手动重试） */
+/** 触发后台 worker（fire-and-forget；失败仅日志，任务保持 pending 由定时/手动重试）
+ *  节流：短时间内重复入队（批量挂号/开单等）不再重复派生进程，避免进程风暴；
+ *  worker 内部另有 integration.outbox.lock 做 60 秒运行期互斥。 */
 function integration_spawn_worker() {
-    if (ConfigStore::get('integration.outbox.spawning', '') === '1') return;
     $script = APP_ROOT . '/tools/cli/integration_outbox_run.php';
     if (!is_file($script)) return;
+    // 文件级节流（5 秒窗口）：不写库、不阻塞业务
+    $stamp = DATA_DIR . '/logs/.outbox.spawn';
+    $now = time();
+    if (is_file($stamp) && ($now - (int)@filemtime($stamp)) < 5) return;
+    @touch($stamp);
     $runner = '';
     foreach (array('~/.local/bin/frankenphp', '/usr/local/bin/frankenphp', '/opt/homebrew/bin/frankenphp') as $p) {
         $p = str_replace('~', isset($_SERVER['HOME']) ? $_SERVER['HOME'] : '', $p);
