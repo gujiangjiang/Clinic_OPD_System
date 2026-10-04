@@ -146,7 +146,11 @@ class LogService {
             self::maintain($channel, isset($row['category']) ? (string)$row['category'] : '');
             return true;
         } catch (Exception $ex) {
-            if (defined('DEBUG') && DEBUG) error_log('[LogService] 写入失败：' . $ex->getMessage());
+            $msg = $ex->getMessage();
+            // 锁竞争为瞬时错误：不写告警（写日志失败不影响业务，后续写入会继续）
+            if (defined('DEBUG') && DEBUG && stripos($msg, 'locked') === false && stripos($msg, 'busy') === false) {
+                error_log('[LogService] 写入失败：' . $msg);
+            }
             return false;
         }
     }
@@ -194,24 +198,31 @@ class LogService {
         self::maintainServerFiles();
         // 行数上限：按 channel+category 独立裁剪（每个子分类各自不超过上限，
         // 而非全站共享——例如接口日志大量写入不会挤掉操作日志）。
+        // 采用单条 DELETE + 派生表边界（保留最新 max 条），最小化锁窗口；
+        // 派生表写法同时兼容 SQLite / MySQL（规避 1093 同表限制）/ PostgreSQL。
         $max = (int)self::cfg('log.max_rows', '5000');
         if ($max < 100) return;
-        try {
-            $pdo = DatabaseManager::getMain();
-            $stmt = $pdo->prepare('SELECT COUNT(*) FROM system_logs WHERE channel=? AND category=?');
-            $stmt->execute(array($channel, $category));
-            $count = (int)$stmt->fetchColumn();
-            if ($count <= $max) return;
-            $excess = $count - $max;
-            $cut = $pdo->query('SELECT id FROM system_logs WHERE channel=' . $pdo->quote($channel)
-                . ' AND category=' . $pdo->quote($category)
-                . ' ORDER BY id ASC LIMIT 1 OFFSET ' . (int)($excess - 1))->fetchColumn();
-            if ($cut !== false) {
-                $pdo->prepare('DELETE FROM system_logs WHERE channel=? AND category=? AND id <= ?')
-                    ->execute(array($channel, $category, (int)$cut));
+        $sql = 'DELETE FROM system_logs WHERE channel=? AND category=? AND id <= ('
+             . ' SELECT keep_id FROM ('
+             . '   SELECT id AS keep_id FROM system_logs WHERE channel=? AND category=?'
+             . '   ORDER BY id DESC LIMIT 1 OFFSET ' . (int)$max
+             . ' ) __keep)';
+        // 高并发下偶发 SQLITE_BUSY / database is locked：短暂退避后重试一次，
+        // 仍失败则交下一次写入处理（不写入告警，避免刷屏）。
+        for ($try = 0; $try < 2; $try++) {
+            try {
+                DatabaseManager::getMain()->prepare($sql)
+                    ->execute(array($channel, $category, $channel, $category));
+                return;
+            } catch (Exception $ex) {
+                $msg = $ex->getMessage();
+                if (stripos($msg, 'locked') !== false || stripos($msg, 'busy') !== false) {
+                    usleep(60000);   // 退避 60ms
+                    continue;
+                }
+                if (defined('DEBUG') && DEBUG) error_log('[LogService] 行数清理失败：' . $msg);
+                return;
             }
-        } catch (Exception $ex) {
-            if (defined('DEBUG') && DEBUG) error_log('[LogService] 行数清理失败：' . $ex->getMessage());
         }
     }
 
@@ -300,7 +311,11 @@ class LogService {
             $stmt->execute(array($cutoff));
             return $stmt->rowCount();
         } catch (Exception $ex) {
-            if (defined('DEBUG') && DEBUG) error_log('[LogService] 超期清理失败：' . $ex->getMessage());
+            $msg = $ex->getMessage();
+            // 锁竞争为瞬时错误：不写告警（下次触发自动重试）
+            if (defined('DEBUG') && DEBUG && stripos($msg, 'locked') === false && stripos($msg, 'busy') === false) {
+                error_log('[LogService] 超期清理失败：' . $msg);
+            }
             return 0;
         }
     }
