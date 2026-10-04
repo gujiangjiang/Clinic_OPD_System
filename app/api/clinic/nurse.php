@@ -137,6 +137,8 @@ switch ($action) {
         $row = get_visit_row($visitId);
         if (!$row) json_fail('就诊记录不存在');
         $visit = $row['visit'];
+        // 科室归属校验（宽松版，与其它护士操作口径一致）
+        if (!nurse_visit_allowed($visit, $u)) json_fail('无权限查看该就诊');
         $p = $row['patient'];
         $html = '<div class="card" style="padding:14px;margin-bottom:12px">' .
             '<div class="flex-between">' .

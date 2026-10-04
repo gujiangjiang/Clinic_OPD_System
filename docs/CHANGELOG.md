@@ -13,6 +13,20 @@
 
 ---
 
+## [9.0.14] - 2026-10-04
+
+### 安全
+- **医技科室读接口越权（IDOR）**：以下只读接口原先仅按角色放行、缺少科室归属校验，
+  已绑定科室的检验/影像/护士可越科读取他人申请单、报告、阅片地址与就诊详情：
+  - `imaging.php`：`result_form`（报告录入表单）、`viewer_url`（阅片地址）、
+    `history_reports`（患者影像历史，按该患者是否存在本科室/未指定科室的就诊判定）。
+  - `lab.php`：`result_form`（检验录入表单）。
+  - `nurse.php`：`visit_detail`（就诊详情）。
+  - 统一复用既有宽松版 `dept_visit_allowed()` / `nurse_visit_allowed()`（未绑定科室=全院放行），
+    与 `save_result`/`dept_register` 口径一致，不影响正常业务。
+
+---
+
 ## [9.0.13] - 2026-10-04
 
 ### 安全

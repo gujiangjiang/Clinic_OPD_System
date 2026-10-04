@@ -120,6 +120,9 @@ switch ($action) {
         $itemId = did(req('item_id'));
         $it = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['item_type'] !== 'lab') json_fail('项目不存在');
+        // 科室归属校验（与 save_result 口径一致）：防越科读取他人申请单
+        $rvForm = get_visit_row((int)$it['visit_id']);
+        if (!$rvForm || !dept_visit_allowed($rvForm['visit'], $u)) json_fail('无权限查看该申请单');
         $item = OrderRepository::one('SELECT * FROM lab_items WHERE id=?', array($it['item_id']));
         $itemName = $item ? $item['name'] : $it['item_name'];
         $html = '<div class="form-group">

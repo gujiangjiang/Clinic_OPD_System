@@ -87,6 +87,9 @@ switch ($action) {
         $itemId = did(req('item_id'));
         $it = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['item_type'] !== 'imaging') json_fail('项目不存在');
+        // 科室归属校验（与 save_result 口径一致）：防越科读取他人申请单
+        $rvForm = get_visit_row((int)$it['visit_id']);
+        if (!$rvForm || !dept_visit_allowed($rvForm['visit'], $u)) json_fail('无权限查看该申请单');
         $item = OrderRepository::one('SELECT * FROM exam_items WHERE id=?', array($it['item_id']));
         $html = '<div class="form-group">
             <label class="form-label">检查项目</label>
@@ -246,6 +249,16 @@ switch ($action) {
         $pageSize = 5;   // 分段加载：首屏最近 5 次
         $patient = OrderRepository::one('SELECT * FROM patients WHERE patient_no=?', array($patientNo));
         if (!$patient) json_fail('患者不存在');
+        // 科室数据隔离：非管理员且已绑定科室者，仅当该患者有「本科室或未指定科室」的就诊时方可调阅
+        $myDepts = user_dept_ids($u);
+        if ($u['role'] !== 'admin' && $myDepts) {
+            $ph = implode(',', array_fill(0, count($myDepts), '?'));
+            $accessible = (int)OrderRepository::val(
+                'SELECT COUNT(*) FROM registrations WHERE patient_no=? AND (current_dept_id IS NULL OR current_dept_id<=0 OR current_dept_id IN (' . $ph . '))',
+                array_merge(array($patientNo), $myDepts)
+            );
+            if ($accessible <= 0) json_fail('无权限查看该患者影像历史');
+        }
 
         // 总数（含已撤回——历史调阅需完整溯源，展示时标记状态）
         $total = (int)OrderRepository::val(
@@ -336,6 +349,9 @@ switch ($action) {
         if ($tpl === '') json_fail('未配置 Web 阅片器 URL 模板，请管理员在【接口管理 → DICOM/PACS】中配置');
         $it = OrderRepository::one('SELECT * FROM order_items WHERE id=?', array($itemId));
         if (!$it || $it['item_type'] !== 'imaging') json_fail('检查项目不存在');
+        // 科室归属校验：防越科获取他人影像阅片地址
+        $rvView = get_visit_row((int)$it['visit_id']);
+        if (!$rvView || !dept_visit_allowed($rvView['visit'], $u)) json_fail('无权限查看该检查');
         // 影像引用优先（只存引用架构：study_uid 唯一 + region 指向区域存储）
         $studyUid = '';
         $region = '';
