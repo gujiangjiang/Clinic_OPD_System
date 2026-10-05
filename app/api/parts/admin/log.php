@@ -138,10 +138,10 @@ function admin_part_log($action) {
         foreach (LogService::LEVELS as $lv) {
             set_setting('log.level.' . $lv, $bool(post('level_' . $lv, '1')));
         }
-        $maxRows = (int)post('max_rows', 5000);
+        $maxRows = (int)post('max_rows', 500);
         if ($maxRows < 100) $maxRows = 100;
         set_setting('log.max_rows', (string)$maxRows);
-        $days = (int)post('retention_days', 30);
+        $days = (int)post('retention_days', 7);
         if ($days < 0) $days = 0;
         set_setting('log.retention_days', (string)$days);
         // 检索默认时间范围（天）：0=不限制；防止无日期条件下全表扫描

@@ -88,5 +88,14 @@ return array(
         47 => array(
             "CREATE INDEX IF NOT EXISTS idx_system_logs_user_created ON system_logs(user_id, created_at)",
         ),
+        // v49：日志容量与保留默认值调整（行数上限 500 / 保留 7 天，检索默认 3 天）。
+        // 仅当现存值仍为旧默认（5000/30）时归一为新默认，避免覆盖管理员自定义值；
+        // 键缺失时补默认，保证升级库与新装库配置一致。
+        49 => array(
+            "UPDATE settings SET svalue='500' WHERE skey='log.max_rows' AND svalue='5000'",
+            "UPDATE settings SET svalue='7' WHERE skey='log.retention_days' AND svalue='30'",
+            "INSERT OR IGNORE INTO settings(skey, svalue) VALUES('log.max_rows','500')",
+            "INSERT OR IGNORE INTO settings(skey, svalue) VALUES('log.retention_days','7')",
+        ),
     ),
 );

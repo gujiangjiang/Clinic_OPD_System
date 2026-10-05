@@ -7,5 +7,5 @@
  * 拆分至 app/config/schema/main/，本文件仅声明版本，由 main.php 聚合。
  * ============================================================ */
 return array(
-    'version' => 48,
+    'version' => 49,
 );

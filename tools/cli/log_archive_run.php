@@ -13,7 +13,7 @@
  *   <php-runner> php-cli tools/cli/log_archive_run.php --table=system_logs --dry-run
  *
  * 参数：
- *   --days=N      保留天数（默认取设置 log.retention_days，再默认 30；0=不按时间清理）
+ *   --days=N      保留天数（默认取设置 log.retention_days，再默认 7；0=不按时间清理）
  *   --batch=N     单批删除行数（默认 1000）
  *   --table=a,b   指定表（仅允许 system_logs,inbound_events；缺省全部）
  *   --dry-run     仅统计待清理行数，不删除
@@ -40,7 +40,7 @@ foreach (array_slice($argv, 1) as $arg) {
 }
 // 未指定天数：取日志保留设置（默认 30）
 if ($opts['days'] === null) {
-    $opts['days'] = (int)LogService::cfg('log.retention_days', '30');
+    $opts['days'] = (int)LogService::cfg('log.retention_days', '7');
 }
 
 $res = LogArchiver::archive($opts['days'], $opts['batch'], $opts['dry_run'], $opts['table']);

@@ -53,8 +53,8 @@ class LogService {
             'log.channel.operation'    => '1',
             'log.channel.interface'    => '1',
             'log.channel.server'       => '1',
-            'log.max_rows'             => '5000',
-            'log.retention_days'       => '30',
+            'log.max_rows'             => '500',
+            'log.retention_days'       => '7',
             'log.query.default_days'   => '3',
             'log.server.external_path' => '',
             'log.server.max_kb'        => '1024',
@@ -215,7 +215,7 @@ class LogService {
         // 而非全站共享——例如接口日志大量写入不会挤掉操作日志）。
         // 采用单条 DELETE + 派生表边界（保留最新 max 条），最小化锁窗口；
         // 派生表写法同时兼容 SQLite / MySQL（规避 1093 同表限制）/ PostgreSQL。
-        $max = (int)self::cfg('log.max_rows', '5000');
+        $max = (int)self::cfg('log.max_rows', '500');
         if ($max < 100) return;
         $sql = 'DELETE FROM system_logs WHERE channel=? AND category=? AND id <= ('
              . ' SELECT keep_id FROM ('
@@ -250,7 +250,7 @@ class LogService {
         $today = date('Y-m-d');
         if (ConfigStore::get('log.server_maintain_date', '') === $today) return;
         ConfigStore::set('log.server_maintain_date', $today);
-        self::trimServerFile(self::appLogPath(), (int)self::cfg('log.max_rows', '5000'), (int)self::cfg('log.retention_days', '30'));
+        self::trimServerFile(self::appLogPath(), (int)self::cfg('log.max_rows', '500'), (int)self::cfg('log.retention_days', '7'));
     }
 
     /**
@@ -318,7 +318,7 @@ class LogService {
 
     /** 删除超过保留天数的日志 */
     public static function purgeExpired() {
-        $days = (int)self::cfg('log.retention_days', '30');
+        $days = (int)self::cfg('log.retention_days', '7');
         if ($days <= 0) return 0;
         $cutoff = date('Y-m-d H:i:s', time() - $days * 86400);
         try {
