@@ -68,9 +68,12 @@ class ImagingRegionResolver {
     private static function logOutbound($path, $status, $ok, $base) {
         if (!function_exists('log_interface')) return;
         $p = strtok((string)$path, '?');
+        // 逐序列元数据探针（firstInstanceMeta）不单独落账，避免登记时刷屏
+        if (preg_match('#/series/[^/]+/instances#', $p)) return;
         $st = $status === 0 ? '连接失败' : ('HTTP ' . $status);
-        log_interface('dicom', 'outbound', 'qido' . $p, $ok,
-            '区域 PACS QIDO ' . $p . '（' . $st . '）', '', '', $base);
+        $action = (strpos($p, '/series') !== false) ? 'qido/series' : 'qido/studies';
+        log_interface('dicom', 'outbound', $action, $ok,
+            '区域 PACS 检查检索（' . $st . '）', (string)$path, '', $base);
     }
 
     private static function tag($obj, $t) {

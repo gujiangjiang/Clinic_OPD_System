@@ -495,20 +495,25 @@ function dw_outbound_get($path, $log = true) {
     return $resp;
 }
 
-/** 出向区域 PACS 调用落账（日志中心·接口日志 DICOM/PACS · 出向；目标=对方系统地址） */
+/** 出向区域 PACS 调用落账（日志中心·接口日志 DICOM/PACS · 出向；目标=对方系统地址）
+ *  为保持日志简洁，动作名只取“操作类别”（不内嵌超长 UID）；完整路径放入可折叠报文。 */
 function dw_log_outbound($path, $resp, $base) {
     if (!function_exists('log_interface')) return;
     $ok = ($resp !== null) && (int)$resp['status'] >= 200 && (int)$resp['status'] < 300;
     $status = ($resp === null) ? '连接失败' : ('HTTP ' . (int)$resp['status']);
+    $q = strpos((string)$path, '?') !== false;
     $p = strtok((string)$path, '?');
-    log_interface('dicom', 'outbound', 'wado' . $p, $ok,
-        '区域 PACS WADO ' . $p . '（' . $status . '）', '', '', $base);
+    // 归为检索（QIDO，带 ? 查询）或取像（WADO）
+    $action = ($q && $p === '/studies') ? 'qido/studies' : 'wado/retrieve';
+    $label  = ($q && $p === '/studies') ? '检查检索' : '影像取像';
+    log_interface('dicom', 'outbound', $action, $ok,
+        '区域 PACS ' . $label . '（' . $status . '）', (string)$path, '', $base);
 }
 
-/** 逐实例取像落账去重：按 study/series 维度 60 秒内至多落一条（避免整序列刷屏） */
-function dw_log_leaf_once($subpath) {
+/** 取像落账去重：同一 Study 60 秒内至多落一条（一次阅片会产生大量逐序列/逐实例取像，避免刷屏） */
+function dw_log_study_once($subpath) {
     if (!class_exists('Cache')) return true;
-    if (!preg_match('#^(/studies/[^/]+/series/[^/]+)#', (string)$subpath, $m)) return true;
+    if (!preg_match('#/studies/([^/]+)#', (string)$subpath, $m)) return true;   // 无具体 Study（如索引检索）不按 Study 去重
     $key = 'call:dwlog_' . md5($m[1]);
     if (Cache::get($key, null)) return false;
     Cache::set($key, 1, 60);
@@ -568,12 +573,8 @@ function dw_proxy_pacs($subpath) {
     $base = dw_outbound_base();
     if ($base === '') dw_error(404, '影像本体由区域 PACS 承载，未配置出向 PACS 地址（外部接口 → DICOM/PACS 出向）');
     $url = $base . $subpath;
-    // 逐实例字节流 / 渲染图 取像量大：按 study/series 维度 60 秒去重落账（每序列每分钟至多一条）；
-    // study/series/metadata 等结构性取数始终落账
-    $log = true;
-    if (preg_match('#/instances/[^/]+(/.*)?$#', (string)$subpath)) {
-        $log = dw_log_leaf_once($subpath);
-    }
+    // 一次阅片会逐序列/逐实例取像（量极大）：按 Study 维度 60 秒去重落账（每个检查每分钟至多一条）
+    $log = dw_log_study_once($subpath);
     $resp = dw_outbound_get($subpath, $log);
     if ($resp === null) dw_error(502, '代理取像失败：无法连接区域 PACS');
     if ((int)$resp['status'] < 200 || (int)$resp['status'] >= 300) {
