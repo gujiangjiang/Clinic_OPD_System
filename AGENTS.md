@@ -4,7 +4,7 @@
 
 ## 版本标识
 
-- 系统基准版本：**v9.8.0**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
+- 系统基准版本：**v9.9.0**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
 
 ## 本地运行环境（本机 macOS arm64）
 
@@ -96,6 +96,10 @@
   MySQL 分区裁剪优先/否则行级分批、PG `ctid` 分批、SQLite 事务分批 + `incremental_vacuum`；不改变表逻辑结构。
 - **跨库互迁**：`DatabaseMigrator` 迁移期仅建"纯表 + 主键"，数据导入完成后由
   `createIndexes()` 批量重建二级索引（提速 + 规避方言冲突）；导入导出不得携带任何单库专用 DDL。
+- **入向/出向语义**：`system_logs.remote_ip` 记录**触发者 IP**（入向=外部调用方；出向=触发该调用的
+  本机/用户，反代场景取真实客户端）；出向日志另用 `target` 记录**对方系统地址**（被调用方 URL）。
+  **任何外部调用（含 PACS/DICOM 出向、HIS/FHIR/HL7/LIS、存证签名）都必须 `log_interface()` 落账**；
+  高频逐帧/逐实例取像按 study/series 维度做短时去重，避免刷屏。
 
 ## 每次修改必须执行的自动化步骤
 

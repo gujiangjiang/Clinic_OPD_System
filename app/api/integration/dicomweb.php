@@ -481,13 +481,38 @@ function dw_outbound_headers() {
     return $headers;
 }
 
-/** 出向区域 PACS GET（失败返回 null） */
-function dw_outbound_get($path) {
+/** 出向区域 PACS GET（失败返回 null）；$log=true 时落账接口日志·出向（目标=对方系统地址） */
+function dw_outbound_get($path, $log = true) {
     $base = dw_outbound_base();
     if ($base === '') return null;
     try {
-        return HttpClient::request('GET', $base . $path, array('timeout' => 15, 'headers' => dw_outbound_headers()));
-    } catch (Exception $e) { return null; }
+        $resp = HttpClient::request('GET', $base . $path, array('timeout' => 15, 'headers' => dw_outbound_headers()));
+    } catch (Exception $e) {
+        if ($log) dw_log_outbound($path, null, $base);
+        return null;
+    }
+    if ($log) dw_log_outbound($path, $resp, $base);
+    return $resp;
+}
+
+/** 出向区域 PACS 调用落账（日志中心·接口日志 DICOM/PACS · 出向；目标=对方系统地址） */
+function dw_log_outbound($path, $resp, $base) {
+    if (!function_exists('log_interface')) return;
+    $ok = ($resp !== null) && (int)$resp['status'] >= 200 && (int)$resp['status'] < 300;
+    $status = ($resp === null) ? '连接失败' : ('HTTP ' . (int)$resp['status']);
+    $p = strtok((string)$path, '?');
+    log_interface('dicom', 'outbound', 'wado' . $p, $ok,
+        '区域 PACS WADO ' . $p . '（' . $status . '）', '', '', $base);
+}
+
+/** 逐实例取像落账去重：按 study/series 维度 60 秒内至多落一条（避免整序列刷屏） */
+function dw_log_leaf_once($subpath) {
+    if (!class_exists('Cache')) return true;
+    if (!preg_match('#^(/studies/[^/]+/series/[^/]+)#', (string)$subpath, $m)) return true;
+    $key = 'call:dwlog_' . md5($m[1]);
+    if (Cache::get($key, null)) return false;
+    Cache::set($key, 1, 60);
+    return true;
 }
 
 /**
@@ -543,7 +568,13 @@ function dw_proxy_pacs($subpath) {
     $base = dw_outbound_base();
     if ($base === '') dw_error(404, '影像本体由区域 PACS 承载，未配置出向 PACS 地址（外部接口 → DICOM/PACS 出向）');
     $url = $base . $subpath;
-    $resp = dw_outbound_get($subpath);
+    // 逐实例字节流 / 渲染图 取像量大：按 study/series 维度 60 秒去重落账（每序列每分钟至多一条）；
+    // study/series/metadata 等结构性取数始终落账
+    $log = true;
+    if (preg_match('#/instances/[^/]+(/.*)?$#', (string)$subpath)) {
+        $log = dw_log_leaf_once($subpath);
+    }
+    $resp = dw_outbound_get($subpath, $log);
     if ($resp === null) dw_error(502, '代理取像失败：无法连接区域 PACS');
     if ((int)$resp['status'] < 200 || (int)$resp['status'] >= 300) {
         dw_error(502, '区域 PACS 取像失败（HTTP ' . (int)$resp['status'] . '）');

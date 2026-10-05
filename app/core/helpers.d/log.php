@@ -49,12 +49,13 @@ function log_operation($category, $action, $summary, $detail = '', $level = 'inf
  * @param string $summary   摘要
  * @param string $payload   原始报文
  * @param string $detail    详情
+ * @param string $target    出向目标系统地址（对方系统 URL；入向可空）
  * @return bool
  */
-function log_interface($category, $direction, $endpoint, $ok, $summary = '', $payload = '', $detail = '') {
+function log_interface($category, $direction, $endpoint, $ok, $summary = '', $payload = '', $detail = '', $target = '') {
     try {
         if (!class_exists('LogService')) return false;
-        return LogService::interfaceLog($category, $direction, $endpoint, $ok, $summary, $payload, $detail);
+        return LogService::interfaceLog($category, $direction, $endpoint, $ok, $summary, $payload, $detail, $target);
     } catch (Exception $ex) {
         if (defined('DEBUG') && DEBUG) error_log('[log_interface] ' . $ex->getMessage());
         return false;

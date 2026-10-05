@@ -52,10 +52,25 @@ class ImagingRegionResolver {
         if ($base === '') return null;
         try {
             $resp = HttpClient::request('GET', $base . $path, array('timeout' => 12, 'headers' => self::headers()));
-        } catch (Exception $e) { return null; }
-        if ((int)$resp['status'] < 200 || (int)$resp['status'] >= 300) return null;
+        } catch (Exception $e) {
+            self::logOutbound($path, 0, false, $base);
+            return null;
+        }
+        $status = (int)$resp['status'];
+        $ok = $status >= 200 && $status < 300;
+        self::logOutbound($path, $status, $ok, $base);
+        if (!$ok) return null;
         $j = json_decode((string)$resp['body'], true);
         return is_array($j) ? $j : null;
+    }
+
+    /** 出向区域 PACS QIDO 调用落账（日志中心·接口日志 DICOM/PACS · 出向；目标=对方系统地址） */
+    private static function logOutbound($path, $status, $ok, $base) {
+        if (!function_exists('log_interface')) return;
+        $p = strtok((string)$path, '?');
+        $st = $status === 0 ? '连接失败' : ('HTTP ' . $status);
+        log_interface('dicom', 'outbound', 'qido' . $p, $ok,
+            '区域 PACS QIDO ' . $p . '（' . $st . '）', '', '', $base);
     }
 
     private static function tag($obj, $t) {

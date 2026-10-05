@@ -182,7 +182,7 @@ class LogService {
     }
 
     /** 接口日志便捷写入 */
-    public static function interfaceLog($category, $direction, $endpoint, $ok, $summary = '', $payload = '', $detail = '') {
+    public static function interfaceLog($category, $direction, $endpoint, $ok, $summary = '', $payload = '', $detail = '', $target = '') {
         $category = in_array($category, self::IF_CATEGORIES, true) ? $category : 'his';
         return self::write(array(
             'channel'   => self::CH_INTERFACE,
@@ -193,6 +193,8 @@ class LogService {
             'summary'   => $summary,
             'detail'    => $detail,
             'payload'   => $payload,
+            // 出向目标系统地址（对方系统 URL）；入向为空
+            'target'    => (string)$target,
         ));
     }
 

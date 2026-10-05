@@ -13,6 +13,25 @@
 
 ---
 
+## [9.9.0] - 2026-10-04
+
+### 修复
+- **影像科调阅（DICOM/PACS 出向）无任何出向日志**：区域 PACS 出向调用（`ImagingRegionResolver`
+  的 QIDO 解析、`dicomweb.php` 的 WADO 代理）此前未接入日志中心。现已落账到
+  接口日志 `dicom/outbound`，含「目标」对方系统地址与触发者 IP。
+
+### 新增
+- `log_interface()` / `LogService::interfaceLog()` 新增 `target` 参数（出向目标系统地址）；
+  日志中心出向接口日志展示 `目标`（对方系统地址），与 `操作人`/`来源`（触发者 IP）并列。
+- 逐实例字节流 / 渲染图取像按 **study/series 维度 60 秒去重**落账，避免整序列取像刷屏；
+  study/series/metadata 等结构性取数始终落账。
+
+### 文档
+- AGENTS.md「日志与审计」补充入向/出向语义：`remote_ip`=触发者 IP，`target`=对方系统地址；
+  任何外部调用必须 `log_interface()` 落账。
+
+---
+
 ## [9.8.0] - 2026-10-04
 
 ### 移除
