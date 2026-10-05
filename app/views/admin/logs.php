@@ -518,12 +518,18 @@ window.LogCenter = (function () {
 
     function applyCounts(name, counts) {
         var nav = el('logNav_' + name);
-        if (!nav || !counts) return;
+        if (!nav) return;
+        counts = counts || {};
+        // 以导航内全部分类计数节点为全集：响应中缺失的类目视为 0。
+        // 清空某通道后 counts 为空对象，若只遍历 counts 键，则仅“全部”刷新、
+        // 其余分类残留旧值——故此处遍历节点、缺失归零。
         var sum = 0;
-        Object.keys(counts).forEach(function (cat) {
-            sum += counts[cat];
-            var n = nav.querySelector('[data-cat-count="' + cat + '"]');
-            if (n) n.textContent = counts[cat] > 0 ? counts[cat] : '';
+        nav.querySelectorAll('[data-cat-count]').forEach(function (n) {
+            var cat = n.getAttribute('data-cat-count');
+            if (cat === '') return;                 // “全部”在下方按合计统一刷新
+            var c = counts[cat] ? counts[cat] : 0;
+            sum += c;
+            n.textContent = c > 0 ? c : '';
         });
         var all = nav.querySelector('[data-cat-count=""]');
         if (all) all.textContent = sum > 0 ? sum : '';
