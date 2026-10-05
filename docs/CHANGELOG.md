@@ -13,6 +13,27 @@
 
 ---
 
+## [9.8.0] - 2026-10-04
+
+### 移除
+- **下线冗余的入向审计表 `inbound_events`**（schema v48）：入向调用原为"双写"（既写
+  `inbound_events`，又写日志中心·接口日志 `system_logs`），且接口管理面板的入向审计板块早已
+  移除，该表成为无 UI 读取、无保留策略的重复数据源（实测 63 万+ 行）。现：
+  - `integration_log_inbound()` 只落账到日志中心·接口日志（来源 IP 由 `LogService::write()`
+    自动补 `clientIp()`，反代场景比旧表裸 `REMOTE_ADDR` 更准确；原始报文存 payload 可展开）；
+  - 移除死端点 `integration_inbound_list` 及 `IntegrationRepository::logInbound/inboundPaginate`；
+  - 迁移 v48 `DROP TABLE IF EXISTS inbound_events` 回收空间（`his_sync_tasks` 保留）。
+
+### 变更
+- **日志中心接口日志展示完善**：操作人 / 来源 IP 增加文字标签（`.log-meta-k`），与级别徽章、
+  入向/出向徽章、时间、动作、摘要及可展开「查看报文」共同构成完整溯源视图；入向审计能力
+  （来源 IP + 原始报文）在日志中心一处齐备。
+
+### 文档
+- AGENTS.md「日志与审计」更新：入向审计统一到 `system_logs`，严禁再新增入向审计孤表。
+
+---
+
 ## [9.7.0] - 2026-10-04
 
 ### 新增

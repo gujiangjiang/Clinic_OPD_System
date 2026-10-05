@@ -4,7 +4,7 @@
 
 ## 版本标识
 
-- 系统基准版本：**v9.7.0**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
+- 系统基准版本：**v9.8.0**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
 
 ## 本地运行环境（本机 macOS arm64）
 
@@ -82,8 +82,9 @@
 
 ## 日志与审计（三库互迁零破坏 + 生命周期归档）
 
-- 追加写日志表：`system_logs`（操作/接口日志，见 `app/config/schema/main/01_system.php`）、
-  `inbound_events`（入向审计，见 `24_integration.php`）。审核审批流表 `audits`（`03_audits.php`）为低写量业务表，二者职责不同。
+- 追加写日志表：`system_logs`（操作/接口日志统一表，见 `app/config/schema/main/01_system.php`）。
+  入向调用审计已统一到此表 interface 通道（含来源 IP + 原始报文），旧 `inbound_events` 表已于 v48 下线，
+  **严禁再新增入向审计孤表**。审核审批流表 `audits`（`03_audits.php`）为低写量业务表，职责不同。
 - **主键铁律**：日志表 `id` 必须为单列自增主键（SQLite `INTEGER PRIMARY KEY AUTOINCREMENT` /
   MySQL `AUTO_INCREMENT` / PG `SERIAL|IDENTITY`），**严禁复合主键**（破坏 SQLite 自增与三库同步）。
 - **PG 分区铁律**：严禁对日志表使用 PostgreSQL 声明式分区（物理子表会被跨库反射误识别为业务表）；

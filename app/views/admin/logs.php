@@ -459,8 +459,8 @@ window.LogCenter = (function () {
                 '</div>';
         }
         var meta = [];
-        if (e.username) meta.push(esc(e.username));
-        if (e.remote_ip) meta.push(esc(e.remote_ip));
+        if (e.username) meta.push('<span class="log-meta-k">操作人</span>' + esc(e.username));
+        if (e.remote_ip) meta.push('<span class="log-meta-k">来源</span>' + esc(e.remote_ip));
         var metaHtml = meta.length ? '<div class="log-meta">' + meta.join(' · ') + '</div>' : '';
         var dirName = e.direction === 'inbound' ? '入向' : (e.direction === 'outbound' ? '出向' : '');
         var h = '<div class="log-item log-lv-' + esc(e.level) + '">' +

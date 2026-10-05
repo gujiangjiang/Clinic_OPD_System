@@ -84,7 +84,6 @@ switch ($action) {
     case 'integration_outbox_retry':
     case 'integration_outbox_clear':
     case 'integration_outbox_run':
-    case 'integration_inbound_list':
         admin_part_integration($action);
         break;
 

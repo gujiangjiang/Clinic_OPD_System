@@ -9,7 +9,8 @@
  *  2. integration_cfg()：新命名空间 integration.outbound.* / integration.inbound.*
  *     读取，并回退历史平铺键（pacs_/hl7_/fhir_/his_/yibao_）保证向后兼容。
  *  3. integration_inbound_endpoints()：入向开放端点只读列表（UI 一键复制）。
- *  4. integration_log_inbound()：入向调用审计落账（inbound_events 表）。
+ *  4. integration_log_inbound()：入向调用统一落账到日志中心·接口日志
+ *     （channel=interface，按外部系统分类，含来源 IP 与原始报文）。
  *  5. integration_after_*()：业务触发钩子——挂号/开单/缴费/发药本地事务提交后
  *     向 his_sync_tasks 异步入队，由后台 worker（tools/cli/integration_outbox_run.php）
  *     调用 HIS/FHIR/HL7/LIS 驱动投递，杜绝外部网络波动阻塞本地主事务。
@@ -443,20 +444,20 @@ function integration_inbound_endpoints() {
 }
 
 /* ============================================================
- * 入向调用审计落账（inbound_events 表，监控面板溯源用）
+ * 入向调用统一落账（日志中心·接口日志）
+ * 说明：入向审计已统一到 system_logs 的 interface 通道（旧 inbound_events
+ * 表已下线），来源 IP 由 LogService::write() 自动补 clientIp()，原始报文存于
+ * payload（≤8000），日志中心可展开查看，与操作/出向接口日志集中浏览。
  * ============================================================ */
 function integration_log_inbound($endpoint, $provider, $ok, $summary, $body = '') {
     try {
-        $ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
-        IntegrationRepository::logInbound($endpoint, $provider, $ok, $summary, $body, $ip);
-        // 日志中心·接口日志：统一入向落账（按外部系统分类，便于集中浏览）
         if (function_exists('log_interface')) {
             log_interface(integration_inbound_module($endpoint, $provider), 'inbound',
                 (string)$endpoint . ((string)$provider !== '' ? '/' . $provider : ''),
                 $ok, (string)$summary, (string)$body);
         }
     } catch (Exception $ex) {
-        if (defined('DEBUG') && DEBUG) error_log('[inbound_events 落账失败] ' . $ex->getMessage());
+        if (defined('DEBUG') && DEBUG) error_log('[接口日志入向落账失败] ' . $ex->getMessage());
     }
 }
 

@@ -22,8 +22,7 @@ class LogArchiver {
 
     /** 登记可归档的日志表 → 时间列（白名单，防注入/误删业务表） */
     const TABLES = array(
-        'system_logs'    => 'created_at',
-        'inbound_events' => 'created_at',
+        'system_logs' => 'created_at',
     );
 
     /** 单批删除行数（兼顾锁窗口与吞吐） */

@@ -9,7 +9,7 @@
  *   integration_outbox_retry   一键重试（单条 / 全部失败）
  *   integration_outbox_clear   清空历史（保留失败记录）
  *   integration_outbox_run     触发后台 worker 立即执行待办
- *   integration_inbound_list   入向调用记录（审计，倒序分页）
+ * （入向调用审计已统一到日志中心·接口日志，原 integration_inbound_list 已移除）
  * ============================================================ */
 
 /** 处理外部集成监控相关动作 */
@@ -75,44 +75,6 @@ function admin_part_integration($action) {
     if ($action === 'integration_outbox_run') {
         integration_spawn_worker();
         json_ok(array(), '已触发后台执行，请稍候刷新查看结果');
-    }
-
-    /* ==================== 入向调用审计列表 ==================== */
-    if ($action === 'integration_inbound_list') {
-        $kw = trim(get('kw', ''));
-        $onlyFail = (int)get('fail', 0) === 1;
-        list($page, $pageSize) = paged_params(20);
-        $where = '1=1';
-        $params = array();
-        if ($onlyFail) { $where .= ' AND is_success=0'; }
-        if ($kw !== '') {
-            $where .= ' AND (endpoint LIKE ? OR provider LIKE ? OR summary LIKE ?)';
-            $like = '%' . $kw . '%';
-            $params = array_merge($params, array($like, $like, $like));
-        }
-        $res = IntegrationRepository::inboundPaginate($where, $params, $page, $pageSize);
-        $total = $res['total'];
-        $rows = $res['list'];
-        $list = array();
-        foreach ($rows as $r) {
-            $list[] = array(
-                'id' => (int)$r['id'],
-                'endpoint' => (string)$r['endpoint'],
-                'provider' => (string)$r['provider'],
-                'ok' => (int)$r['is_success'] === 1,
-                'summary' => (string)$r['summary'],
-                'body' => (string)$r['payload'],
-                'remote_ip' => (string)$r['remote_ip'],
-                'created_at' => (string)$r['created_at'],
-            );
-        }
-        json_ok(array(
-            'list' => $list,
-            'total' => $total,
-            'page' => $page,
-            'page_size' => $pageSize,
-            'has_more' => paged_has_more($page, $pageSize, $total),
-        ));
     }
 
     json_fail('未知操作');

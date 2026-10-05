@@ -922,6 +922,10 @@
 .log-summary { font-size: 13px; font-weight: 600; color: var(--text); }
 .log-detail { font-size: 12px; color: var(--text-muted); margin-top: 2px; line-height: 1.6; word-break: break-word; }
 .log-meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+.log-meta-k {
+    display: inline-block; font-size: 10px; line-height: 1.5; padding: 0 4px; margin-right: 4px;
+    color: var(--text-muted); border: 1px solid var(--border); border-radius: 3px;
+}
 .log-text {
     font-size: 12.5px; font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--text);
     word-break: break-word; white-space: pre-wrap; line-height: 1.55;

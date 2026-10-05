@@ -3,30 +3,12 @@
  * ============================================================
  * IntegrationRepository.php — 外部集成数据仓库
  * ============================================================
- * 说明：封装外部接口双向数据表：
- *  - inbound_events   入向调用审计表（FHIR/HL7/LIS/HIS/支付回调统一落账）
+ * 说明：封装外部集成出向数据表：
  *  - his_sync_tasks   出向同步任务补偿表（Outbox：挂号/结算/开单/发药异步入队）
+ * 入向调用审计已统一到日志中心·接口日志（system_logs），本仓库不再涉及入向。
  * 统一经主库 DatabaseManager::getMain() 预编译参数绑定。
  * ============================================================ */
 class IntegrationRepository extends BaseRepository {
-
-    /** 入向调用落账（审计表，监控面板溯源） */
-    public static function logInbound($endpoint, $provider, $ok, $summary, $body, $ip) {
-        return self::insert(
-            'INSERT INTO inbound_events(endpoint, provider, is_success, summary, payload, remote_ip, created_at) VALUES(?,?,?,?,?,?,?)',
-            array($endpoint, $provider, $ok ? 1 : 0, (string)$summary, substr((string)$body, 0, 8000), $ip, now_str())
-        );
-    }
-
-    /** 入向审计分页（监控面板，按状态/关键字过滤） */
-    public static function inboundPaginate($where, $params, $page, $pageSize) {
-        $total = (int)self::val('SELECT COUNT(*) FROM inbound_events WHERE ' . $where, $params);
-        $rows = self::q(
-            'SELECT * FROM inbound_events WHERE ' . $where . ' ORDER BY id DESC LIMIT ? OFFSET ?',
-            array_merge($params, array($pageSize, ($page - 1) * $pageSize))
-        );
-        return array('list' => $rows, 'total' => $total);
-    }
 
     /** Outbox 入队（幂等合并：同业务仅一条任务） */
     public static function enqueueTask($businessType, $businessId, $payloadJson) {

@@ -12,7 +12,7 @@
  *   GET  /api/external/his/read?action=…      HIS 只读查询（基础信息调阅）     [patient:read|report:query]
  *   POST /api/external/his/sync-patient       HIS 患者预约/建档推送           [patient:sync]
  *   POST /api/external/his/sync-catalog       HIS 基础字典同步                [catalog:sync]
- * 业务逻辑全部委派 services 层；调用一律写入 inbound_events 审计表。
+ * 业务逻辑全部委派 services 层；调用一律落账到日志中心·接口日志（含来源 IP）。
  * ============================================================ */
 
 require_once APP_ROOT . '/app/config/bootstrap.php';
