@@ -4,7 +4,7 @@
 
 ## 版本标识
 
-- 系统基准版本：**v9.9.3**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
+- 系统基准版本：**v9.9.4**（`bootstrap.php APP_VERSION`、README 徽章、`package.json` 三者必须同步）。
 
 ## 本地运行环境（本机 macOS arm64）
 

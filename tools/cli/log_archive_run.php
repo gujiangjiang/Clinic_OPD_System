@@ -38,7 +38,7 @@ foreach (array_slice($argv, 1) as $arg) {
     if (strpos($arg, '--batch=') === 0) { $opts['batch'] = (int)substr($arg, 8); continue; }
     if (strpos($arg, '--table=') === 0) { $opts['table'] = substr($arg, 8); continue; }
 }
-// 未指定天数：取日志保留设置（默认 30）
+// 未指定天数：取日志保留设置（默认 7）
 if ($opts['days'] === null) {
     $opts['days'] = (int)LogService::cfg('log.retention_days', '7');
 }

@@ -388,6 +388,31 @@ function itgSideTab(groupId, paneId) {
     });
     // 监控面板：进入时刷新数据
     if (groupId === 'his' && paneId === 'monitor') itgMonLoad(1);
+    // 变更记录：进入时实时刷新（避免显示页面渲染时的旧内容）
+    if (paneId === 'audit') itgAuditLoad(groupId);
+}
+
+/* ---------- 变更记录：按模块实时加载（进入页签 / 保存后调用） ---------- */
+function itgAuditLoad(groupId) {
+    Clinic.ajax('/api/admin', { action: 'integration_audit_list', group: groupId }, {
+        onSuccess: function (json) {
+            var b = document.getElementById('itgAuditBody_' + groupId);
+            if (!b) return;
+            var list = (json.data && json.data.list) || [];
+            if (!list.length) {
+                b.innerHTML = '<tr><td colspan="5" class="text-center text-muted fs-12" style="padding:20px">暂无配置变更记录</td></tr>';
+                return;
+            }
+            b.innerHTML = list.map(function (a) {
+                return '<tr>' +
+                    '<td class="fs-12">' + Clinic.escHtml(a.created_at) + '</td>' +
+                    '<td class="fs-12">' + Clinic.escHtml(a.actor) + '</td>' +
+                    '<td class="fs-12">' + Clinic.escHtml(a.detail) + '</td>' +
+                    '<td class="fs-12" style="max-width:380px;word-break:break-all">' + Clinic.escHtml(a.keys_changed) + '</td>' +
+                    '<td class="fs-12">' + Clinic.escHtml(a.ip) + '</td></tr>';
+            }).join('');
+        },
+    });
 }
 
 /* ---------- 变更记录：一键清空当前模块 ---------- */
@@ -520,6 +545,7 @@ function itgSave(groupId, paneId) {
         onSuccess: function (json) {
             Clinic.toast.success(json.msg);
             refreshItgStatus(groupId);   // 状态总览实时刷新（无需整页重载）
+            itgAuditLoad(groupId);       // 变更记录实时刷新（内容未变则本就不产生记录）
             if (groupId === 'his' && paneId === 'inbound') { renderHisTokenLive(); }
         },
     });

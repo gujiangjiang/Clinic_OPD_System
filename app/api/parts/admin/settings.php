@@ -135,6 +135,7 @@ function admin_part_settings($action) {
         }
         if (!in_array($zone, $validZones, true)) $zone = '';
         $saved = array();
+        $changed = array();   // 实际发生变化的键（内容未变不产生变更记录）
         $testVals = array();
         // IP / CIDR 校验（IP 白名单字段）
         $validIp = function ($s) {
@@ -181,9 +182,13 @@ function admin_part_settings($action) {
             if ($rule === 'bool') {
                 $val = ($val === '1' || $val === 'on') ? '1' : '0';
             }
+            // 变更判定：旧值与新值比对（bool 归一，'' 视同 '0'），仅记录真正改动的键
+            $oldVal = (string)setting($f['key'], '');
+            if ($rule === 'bool') $oldVal = ($oldVal === '1' || $oldVal === 'on') ? '1' : '0';
             set_setting($f['key'], $val);
             $testVals[$f['key']] = $val;
             $saved[] = $f['key'];
+            if ($oldVal !== (string)$val) $changed[] = $f['key'];
         }
         // 完整度校验：本页签启用了开关（enabled=1）则其内容字段必须填写完整，避免空白保存成功
         $zoneFieldsSave = array();
@@ -230,11 +235,11 @@ function admin_part_settings($action) {
         if ($blocked) {
             json_fail('保存失败：连通性测试未通过（' . implode('、', $blocked) . '），请先修正配置后再保存');
         }
-        // 配置变更审计（仅记录键名，不含密钥明文）
-        if ($saved) {
+        // 配置变更审计：仅记录实际发生变化的键（内容未变则完全不产生记录，避免"仅保存"误报）
+        if ($changed) {
             ConfigAudit::record(
                 'integration:' . $group['id'] . ':' . $zone,
-                $saved,
+                $changed,
                 $group['title'] . ' / ' . ($zone === '' ? '公共' : $zone)
             );
         }
@@ -302,6 +307,24 @@ function admin_part_settings($action) {
         if (!$group) json_fail('未知的接口分组');
         $n = ConfigAudit::clearByAreaPrefix('integration:' . $group['id']);
         json_ok(array('cleared' => $n), '已清空 ' . $n . ' 条变更记录');
+    }
+
+    /* ==================== 接口管理：变更记录列表（进入/保存后实时刷新） ==================== */
+    if ($action === 'integration_audit_list') {
+        $group = integration_group(post('group', ''));
+        if (!$group) json_fail('未知的接口分组');
+        $rows = ConfigAudit::byAreaPrefix('integration:' . $group['id'], 50);
+        $list = array();
+        foreach ($rows as $a) {
+            $list[] = array(
+                'created_at'   => (string)$a['created_at'],
+                'actor'        => (string)$a['actor'],
+                'detail'       => (string)$a['detail'],
+                'keys_changed' => (string)$a['keys_changed'],
+                'ip'           => (string)$a['ip'],
+            );
+        }
+        json_ok(array('list' => $list));
     }
 
     /* ==================== 上传医院 LOGO（同时作为 favicon） ==================== */
