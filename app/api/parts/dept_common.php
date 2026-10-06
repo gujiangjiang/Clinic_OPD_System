@@ -59,7 +59,12 @@ function dept_queue($itemType, $emoji, $registerClick, $resultClick) {
                 '<td class="fs-12">' . e(substr($r['created_at'], 5, 11)) . '</td>' .
                 '<td>';
             if ($status === 'paid') {
-                $html .= '<button class="btn btn-primary btn-sm" onclick="' . $registerClick . '(\'' . e(oid($r['id'])) . '\')">登记</button>';
+                if ($registerClick !== '') {
+                    $html .= '<button class="btn btn-primary btn-sm" onclick="' . $registerClick . '(\'' . e(oid($r['id'])) . '\')">登记</button>';
+                } else {
+                    // 无门诊侧登记入口（如影像：登记 / 摄片由 PACS 侧负责）
+                    $html .= '<span class="fs-12 text-muted">待执行（PACS）</span>';
+                }
             } elseif ($status === 'registered') {
                 $html .= '<button class="btn btn-success btn-sm" onclick="' . $resultClick . '(\'' . e(oid($r['id'])) . '\')">' . ($itemType === 'lab' ? '录入结果' : '录入报告') . '</button>';
             } else {

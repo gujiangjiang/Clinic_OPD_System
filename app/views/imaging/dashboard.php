@@ -13,14 +13,14 @@
  *      左（检查信息 + 序列缩略图占位）/ 中（专业深色读片视窗 + 工具栏
  *      占位 + DICOMweb 挂载能力）/ 右（临床信息 / 报告撰写 / 历史报告
  *      Tab 区），并隐藏系统默认右侧大纲栏保证工作空间。
- * 数据接口：/api/deptwork（queue/patient）+ /api/imaging（register_order/
- * save_result/withdraw/history_reports/viewer_url）。
+ * 数据接口：/api/deptwork（queue/patient）+ /api/imaging（save_result/withdraw/
+ * history_reports/viewer_url；影像登记 / 摄片由 PACS 侧负责，可经标准 FHIR 回写）。
  * ============================================================ */
 require APP_ROOT . '/app/includes/ui/dept_workbench.php';
 dept_workbench(array(
     'role' => 'imaging',
     'title' => '影像科工作台',
-    'desc' => '检查登记、报告书写与报告管理（检查项目请到「检查管理」维护）',
+    'desc' => '影像报告书写与报告管理（登记 / 摄片由 PACS 侧负责；检查项目请到「检查管理」维护）',
     'emoji' => render_icon('nav:imaging'),
 ));
 ?>
@@ -33,7 +33,7 @@ Clinic.deptwork.configure({
 });
 
 function afterImgAction(orderId) {
-    // 局部刷新：登记/提交报告（已知申请单）仅重建该区块保持滚动位置；
+    // 局部刷新：提交报告（已知申请单）仅重建该区块保持滚动位置；
     // 撤回等无法定位申请单的场景轻量重渲染（fetchPatient 无加载遮罩，不整页刷新）
     if (orderId) refreshImgSec(orderId);
     else Clinic.deptwork.fetchPatient(function (data) { renderImgWork(data); Clinic.deptwork.refreshQueue(); });
@@ -41,7 +41,7 @@ function afterImgAction(orderId) {
 
 function nl2br(s) { return Clinic.nl2br(s); }
 function itemStatusName(s) {
-    var map = { open: '待缴费', paid: '待登记', registered: '待出报告', done: '已完成', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
+    var map = { open: '待缴费', paid: '待摄片', registered: '待写报告', done: '已完成', rejected: '已拒绝', refunded: '已退费', cancelled: '已取消' };
     return map[s] || s;
 }
 function imgStatusBadge(s) {
@@ -111,8 +111,8 @@ function renderImgIntegrated(data) {
     orders.forEach(function (o) { imgItems = imgItems.concat(o.items); });
     window.__imgItems = imgItems;
 
-    // 当前展示项目：优先保持用户已选中的序列（登记后刷新不跳项），
-    // 未选中时按 已登记  已完成  已缴费未登记 顺序取首项
+    // 当前展示项目：优先保持用户已选中的序列（刷新不跳项），
+    // 未选中时按 已登记 → 已完成 → 待摄片 顺序取首项
     var cur = null;
     var activeId = window.__imgCurActive || '';
     if (activeId) {
@@ -449,7 +449,7 @@ function imgClinPane(data, idPrefix, standalone) {
 
 /* 报告撰写页签：模板下拉 + 常用语快捷插入 + 危急值按钮 + 表现/诊断双区
    状态一致性（优化项5/6）：
-   - 已登记（待书写）：可编辑 + 草稿自动回填（localStorage 刷新不丢）；
+   - 已登记 / 待摄片（待书写）：可编辑 + 草稿自动回填（localStorage 刷新不丢）；
    - 已完成（已提交）：回显已提交的报告内容（只读），底部操作栏切换为
      打印报告 / 申请修改——与双屏分屏模式展示口径一致。
    idPrefix（优化项10）：一体化右栏与经典模态框共用本渲染（前缀区分 DOM id），
@@ -516,14 +516,6 @@ function imgItemOrder(it) {
         (o.items || []).forEach(function (x) { if (it && x.id === it.id) found = o; });
     });
     return found;
-}
-
-/* 登记门禁：点击遮罩/按钮  整张申请单登记（成功后 fetchPatient 局部刷新解锁） */
-function doImgRegisterOrderGate(orderId) {
-    if (!orderId) { Clinic.toast.warning('未找到所属申请单，请从候诊列表重新进入'); return; }
-    Clinic.modal.confirm('将对整张检查申请单进行统一登记，登记后即可书写报告。确认登记？', function () {
-        doImgRegisterOrder(orderId);
-    }, { title: '登记检查', okText: '确认登记' });
 }
 
 /* 草稿读写（服务端同步为主 + localStorage 兜底；提交成功即清除）
@@ -829,13 +821,13 @@ function imgOpenSoloWindow(itemId) {
 /* ==================== 单张申请单区块（模式 B 主布局） ==================== */
 function imgOrderHtml(o) {
     var hasPaid = o.items.some(function (it) { return it.status === 'paid'; });
-    var pending = hasPaid || o.items.some(function (it) { return it.status === 'registered'; });
-    var badge = pending
-        ? '<span class="badge badge-warning" style="font-size:11px">检查中</span>'
-        : '<span class="badge badge-success" style="font-size:11px">已完成</span>';
-    var regBtn = hasPaid
-        ? '<button class="btn btn-primary btn-sm" style="margin-left:12px" onclick="doImgRegisterOrder(\'' + esc(o.order_id) + '\')">'+renderIconSvg('action:edit')+' 登记</button>'
-        : '';
+    var hasReg = o.items.some(function (it) { return it.status === 'registered'; });
+    var badge = hasPaid
+        ? '<span class="badge badge-warning" style="font-size:11px">待摄片</span>'
+        : (hasReg
+            ? '<span class="badge badge-warning" style="font-size:11px">待写报告</span>'
+            : '<span class="badge badge-success" style="font-size:11px">已完成</span>');
+    // 影像登记 / 摄片由 PACS 侧负责，门诊侧不再提供「登记」入口
     // 阅片视窗按钮（患者行级，任务2 模式 B）：传入该申请单首选序列，
     // 避免经典模式复用上一患者的已选序列（修复点击后仍加载旧影像）
     var soloPick = null;
@@ -847,9 +839,9 @@ function imgOrderHtml(o) {
     var soloBtn = '<button class="btn btn-outline btn-sm pacs-openwin-btn" style="margin-left:auto" ' +
         'onclick="imgOpenSoloWindow(\'' + (soloPick ? esc(soloPick.id) : '') + '\')" title="弹出独立无工具栏阅片窗口（多显示器全屏阅片）">'+renderIconSvg('nav:screen')+' 阅片视窗</button>';
     var itemsHtml = o.items.map(imgItemHtml).join('');
-    // 头部右侧操作组（徽章+登记+独立视窗）：整体靠右，与左侧申请单信息分离
+    // 头部右侧操作组（徽章+独立视窗）：整体靠右，与左侧申请单信息分离
     var headActions = '<div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">' +
-        badge + regBtn + soloBtn + '</div>';
+        badge + soloBtn + '</div>';
     return '<div class="card dw-lab-order" id="imgSec_' + esc(o.order_id) + '" style="margin-bottom:14px">' +
         '<div class="dw-lab-order-head">' +
         '  <span class="fw-700">'+renderIconSvg('nav:imaging')+' 检查申请单</span>' +
@@ -858,46 +850,6 @@ function imgOrderHtml(o) {
         '  <span class="fs-12 text-muted" style="margin-left:10px">开单医生：' + esc(o.doctor_name || '') + ' ｜ ' + esc((o.created_at || '').substr(0, 16)) + '</span>' +
         headActions +
         '</div>' + itemsHtml + '</div>';
-}
-
-/* 整张申请单统一登记 */
-function doImgRegisterOrder(orderId) {
-    Clinic.ajax('/api/imaging', { action: 'register_order', order_id: orderId }, {
-        onSuccess: function (json) {
-            Clinic.toast.success(json.msg);
-            // 登记成功：经典模态框若正打开该申请单的项目  重建其撰写区（解除遮罩/只读残留）
-            if (CUR_IMG_ITEM && CUR_IMG_ITEM.order_id === orderId) {
-                refreshOpenImgModal(orderId);
-                return;
-            }
-            afterImgAction(orderId);
-        },
-    });
-}
-
-/* 登记成功后重建打开中的写报告模态框内容（fetchPatient 最新数据重新渲染三栏） */
-function refreshOpenImgModal(orderId) {
-    Clinic.deptwork.fetchPatient(function (data) {
-        var it = null;
-        (data.orders || []).forEach(function (o) {
-            if (o.order_id !== orderId) return;
-            (o.items || []).forEach(function (x) {
-                if (CUR_IMG_ITEM && x.id === CUR_IMG_ITEM.id) it = x;
-            });
-        });
-        if (!it) { afterImgAction(orderId); return; }
-        CUR_IMG_ITEM = it;
-        // 中栏撰写区替换（imgm 前缀）
-        var host = document.getElementById('imgmWritePane');
-        if (host) {
-            host.outerHTML = imgWritePane(it, data, 'imgm');
-            loadPacsTpls('imgm');
-            imgDraftRemoteFill(it, 'imgm');
-            Clinic.toast.success('登记完成，撰写区已解锁');
-        } else {
-            afterImgAction(orderId);
-        }
-    });
 }
 
 function previewImgOrder(orderId, orderNo) {
@@ -911,9 +863,12 @@ function imgItemHtml(it) {
     var inner;
     if (it.status === 'open') {
         // 未缴费项目：不落入「已完成」展示，提示待缴费
-        inner = '<div class="fs-13 text-muted">该项目尚未缴费，缴费后进入影像科待登记队列。</div>';
+        inner = '<div class="fs-13 text-muted">该项目尚未缴费，缴费后进入影像待摄片队列。</div>';
     } else if (it.status === 'paid') {
-        inner = '<div class="fs-13 text-muted">该项目已缴费，尚未登记检查（整张申请单统一登记）。</div>';
+        // 已缴费未摄片：影像由 PACS 侧产生；如无影像仍可直接书写（提交时确认）
+        inner =
+            '<div class="fs-13 text-muted">该项目已缴费，等待 PACS 摄片（登记 / 摄片由 PACS 侧负责）。如已可阅片或需先书写，可直接「去写报告」。</div>' +
+            '<div class="dw-report-actions"><button class="btn btn-primary btn-sm" onclick="openImgReportModal(\'' + id + '\')">'+renderIconSvg('action:edit')+' 去写报告</button></div>';
     } else if (it.status === 'registered') {
         inner =
             '<div class="fs-13 text-muted">该项目已登记，请点击「去写报告」书写影像所见与影像诊断（或切换到一体化阅片模式撰写）。</div>' +
@@ -989,7 +944,7 @@ function imgmDraftSave() {
     var f = document.getElementById('imgmFindings');
     var c = document.getElementById('imgmConclusion');
     if (!f || !c) { Clinic.toast.warning('暂无可保存的报告内容'); return; }
-    if (CUR_IMG_ITEM.status !== 'registered') { Clinic.toast.warning('已提交报告以库内正式内容为准，不支持草稿'); return; }
+    if (CUR_IMG_ITEM.status !== 'registered' && CUR_IMG_ITEM.status !== 'paid') { Clinic.toast.warning('已提交报告以库内正式内容为准，不支持草稿'); return; }
     imgDraftWrite(CUR_IMG_ITEM, f.value, c.value);
     Clinic.toast.success('草稿已保存（服务端同步，跨设备保留）');
 }
