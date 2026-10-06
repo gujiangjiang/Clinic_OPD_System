@@ -144,6 +144,37 @@ curl -s --get "http://127.0.0.1:8000/api/fhir/r4/ImagingStudy" \
 预期：返回 `resourceType=Bundle`、`type=searchset`、含 `total` 与
 `link[relation=self|next]`；`_include` 时 Bundle 中同时出现 `mode=include` 的 Patient。
 
+### 4.9 ServiceRequest（影像医嘱）与 Task（检查工作项）
+
+```bash
+# 摄片登记工作列表：已缴费可执行的影像医嘱
+curl -s "http://127.0.0.1:8000/api/fhir/r4/ServiceRequest?status=active&_include=ServiceRequest:patient" \
+  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+
+# 工作项：待登记 / 已登记待摄片 / 摄片中（含患者、检查号与服务请求引用）
+curl -s "http://127.0.0.1:8000/api/fhir/r4/Task?status=requested,accepted,in-progress&_include=Task:patient" \
+  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+```
+
+- 状态机（对齐 IHE Scheduled Workflow / MPPS）：`requested`（待登记）→
+  `accepted`（已登记待摄片）→ `in-progress`（摄片中）→ `completed`（已摄片）；`cancelled`（退费/取消）。
+- `ImagingStudy` 仅在**摄片完成后**出现（`status=available`）。
+
+### 4.10 工作项回写（PACS → 门诊，标准 FHIR 写入）
+
+```bash
+# PACS 侧登记：PUT Task 置 accepted（需 system/Task.write Scope）
+curl -s -X PUT "http://127.0.0.1:8000/api/fhir/r4/Task/task-{order_item_id}" \
+  -H "Authorization: Bearer $WRITE_TOKEN" -H "Content-Type: application/fhir+json" \
+  -d '{"resourceType":"Task","status":"accepted","businessStatus":{"text":"已登记待摄片"},"owner":{"display":"PACS"},"executionPeriod":{"start":"2026-10-07T10:00:00+08:00"}}' \
+  | python3 -m json.tool
+```
+
+- 写权限：令牌 Scope 需含 `system/Task.write`（登记/摄片回写）、`system/ServiceRequest.read`
+  与 `system/Task.read`（读工作列表）；读接口仍需 `system/*.read`。
+- 副作用：登记 / 摄片回写 `accepted/in-progress/completed` 时，若开单明细仍为 `paid` 会推进为
+  `registered`；回写 `cancelled` 联动为 `refunded`。
+
 ---
 
 ## 5. HL7 MLLP `ORU^R01` 测试与危急值闭环
