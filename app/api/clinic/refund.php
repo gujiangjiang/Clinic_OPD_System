@@ -16,6 +16,20 @@ require __DIR__ . '/../_init.php';
 
 $u = Auth::user();
 
+/**
+ * 影像检查是否已进入执行（PACS 已登记/摄片，或已产生影像引用）。
+ * 用于退费门禁：登记搬至 PACS 后，仅凭 order_items.status 不足以判定，
+ * 需结合 imaging_tasks（工作项）与 imaging_refs（影像引用）双源判定。
+ */
+function refund_imaging_executed($itemId) {
+    $itemId = (int)$itemId;
+    if ($itemId <= 0) return false;
+    $task = RefundRepository::val("SELECT status FROM imaging_tasks WHERE order_item_id=? ORDER BY id DESC LIMIT 1", array($itemId));
+    if ($task !== null && $task !== '' && $task !== 'requested' && $task !== 'draft') return true;
+    $ref = (int)RefundRepository::val("SELECT COUNT(*) FROM imaging_refs WHERE order_item_id=? AND study_uid<>''", array($itemId));
+    return $ref > 0;
+}
+
 /* ==================== 退费前置检测（收费员） ==================== */
 if ($action === 'check') {
     // 仅收费员/管理员可发起退费检测（退费由收费处负责）
@@ -42,6 +56,12 @@ if ($action === 'check') {
         }
         $its = RefundRepository::q('SELECT * FROM order_items WHERE order_id=?', array($oid));
         foreach ($its as $it) {
+            // 影像：即使开单明细仍为 paid，只要 PACS 已登记/摄片（工作项或影像引用）即视为已执行
+            if ($it['item_type'] === 'imaging' && $it['status'] === 'paid' && refund_imaging_executed($it['id'])) {
+                $allPaid = false;
+                $blocked[] = array('name' => $it['item_name'], 'status' => 'imaging', 'executed_by' => '');
+                continue;
+            }
             if ($it['status'] === 'paid') continue;
             if ($it['status'] !== 'open' && $it['status'] !== 'refunded' && $it['status'] !== 'cancelled') {
                 $allPaid = false;
@@ -93,7 +113,13 @@ if ($action === 'apply') {
         foreach ($its as $it) {
             if ($it['status'] !== 'paid' && $it['status'] !== 'open') $allPaid = false;
             if ($o['order_type'] === 'lab' && in_array($it['status'], array('registered', 'done'), true)) $needLab = true;
-            if ($o['order_type'] === 'imaging' && in_array($it['status'], array('registered', 'done'), true)) $needImaging = true;
+            if ($o['order_type'] === 'imaging') {
+                if (in_array($it['status'], array('registered', 'done'), true)
+                    || ($it['status'] === 'paid' && refund_imaging_executed($it['id']))) {
+                    $allPaid = false;
+                    $needImaging = true;
+                }
+            }
             // 药房涉及：已审方（reviewed）或已发药（dispensed）均视为药房已介入，需药房审批
             if ($o['order_type'] === 'prescription' && in_array($o['status'], array('reviewed', 'dispensed'), true)) $needPharmacy = true;
             if ($o['order_type'] === 'procedure' && in_array($it['status'], array('done', 'dispensing', 'dispensed'), true)) $needNurse = true;

@@ -73,6 +73,12 @@ class TaskAdapter extends FhirAdapter {
         );
         $res['basedOn'] = array(array('reference' => 'ServiceRequest/servicerequest-' . $itemId));
         $res['focus'] = array('reference' => 'ServiceRequest/servicerequest-' . $itemId);
+        $orderNo = !empty($r['__order_no']) ? (string)$r['__order_no'] : (string)(isset($r['order_no']) ? $r['order_no'] : '');
+        if ($orderNo !== '') {
+            $res['identifier'] = array(self::identifier('urn:clinic:identifier:order', $orderNo, 'ACSN', 'Accession ID'));
+        }
+        $itemName = trim((string)(isset($r['item_name']) ? $r['item_name'] : ''));
+        if ($itemName !== '') $res['description'] = $itemName;
         $subj = self::patientRef(isset($r['patient_no']) ? $r['patient_no'] : '');
         if ($subj) $res['for'] = $subj;
         if (!empty($r['visit_id'])) $res['encounter'] = array('reference' => 'Encounter/encounter-' . (int)$r['visit_id']);

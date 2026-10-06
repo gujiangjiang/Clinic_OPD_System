@@ -462,25 +462,24 @@ function imgWritePane(cur, data, idPrefix) {
     var findings0 = cur ? (cur.findings || '') : '';
     var conclusion0 = cur ? (cur.conclusion || '') : '';
     // 草稿回填：仅未提交项目（已提交以库内正式报告为准）
-    var draft = (isDone || isPaid) ? null : imgDraftRead(cur);
+    var draft = isDone ? null : imgDraftRead(cur);
     if (draft) {
         if (draft.findings) findings0 = draft.findings;
         if (draft.conclusion) conclusion0 = draft.conclusion;
     }
-    var lock = isDone || isPaid;
+    // 撰写区可编辑门槛：仅「已提交」锁定；「已缴费未摄片」为软提示，医生可直接书写
+    var lock = isDone;
     var ro = lock ? ' readonly' : '';
     var roStyle = lock ? 'background:var(--bg-soft);cursor:default;' : '';
-    // 未获取到影像（无合规 StudyInstanceUID）：书写前提示，但不阻断（医生可能已在其它 PACS 阅片）
-    var noImg = cur && cur.has_image === false && !isDone && !isPaid;
-    // 登记门禁（paid）：整 pane 模糊遮罩 + 居中提示 + 登记按钮（前后端双重拦截）
-    var order = isPaid ? imgItemOrder(cur) : null;
-    return '<div class="pacs-right-pane active' + (isPaid ? ' pacs-write-gated' : '') + '" data-pane="write" id="' + idPrefix + 'WritePane">' +
+    // 暂无影像（未摄片 / 未获取到 StudyInstanceUID）：软提示，不阻断（医生可能已在其它 PACS 阅片）
+    var noImg = cur && (cur.has_image === false || isPaid) && !isDone;
+    return '<div class="pacs-right-pane active" data-pane="write" id="' + idPrefix + 'WritePane">' +
         '<div class="pacs-write-gate-inner">' +
         (isDone ?
             '<div class="fs-12 mb-8" style="padding:6px 10px;border-radius:var(--radius-md);background:var(--primary-soft,rgba(37,99,235,.08));color:var(--primary)">该报告已提交（报告号 ' + esc(cur.report_no || '—') + '），如需修改请先申请撤回</div>'
             : '') +
         (noImg ?
-            '<div class="fs-12 mb-8" style="padding:6px 10px;border-radius:var(--radius-md);background:rgba(245,158,11,.12);color:#b45309">' + renderIconSvg('alert:warning') + ' 未获取到影像（StudyInstanceUID）：如已在其它 PACS 阅片，可继续书写报告；否则请确认检查已完成并上传、区域 PACS 可查询</div>'
+            '<div class="fs-12 mb-8" style="padding:6px 10px;border-radius:var(--radius-md);background:rgba(245,158,11,.12);color:#b45309">' + renderIconSvg('alert:warning') + ' 暂无影像：该检查尚未摄片或未获取到影像（StudyInstanceUID）。如已在其它 PACS 阅片，可继续书写；提交时将再次确认。</div>'
             : '') +
         '<div class="pacs-rep-block">' +
         '<div class="pacs-rep-label">报告模板' +
@@ -506,16 +505,6 @@ function imgWritePane(cur, data, idPrefix) {
         '</div>') +
         '</div>' +
         '</div>' +
-        (isPaid ?
-            // 登记门禁遮罩：整pane absolute inset:0 覆盖（模糊背景 + 居中提示 + 登记按钮）
-            '<div class="pacs-reg-gate-overlay" onclick="doImgRegisterOrderGate(\'' + esc(order ? order.order_id : '') + '\')">' +
-            '<div class="pacs-reg-gate">' +
-            '  <div class="reg-gate-ico">'+renderIconSvg('emr:archive')+'</div>' +
-            '  <div class="reg-gate-title">患者尚未登记</div>' +
-            '  <div class="reg-gate-sub">该项目已缴费，需先登记检查方可书写报告<br>（整张申请单统一登记），点击登记后解锁撰写</div>' +
-            '  <button type="button" class="btn btn-primary reg-gate-btn" onclick="event.stopPropagation();doImgRegisterOrderGate(\'' + esc(order ? order.order_id : '') + '\')">'+renderIconSvg('action:edit')+' 登记患者</button>' +
-            '</div></div>'
-            : '') +
         '</div>';
 }
 
@@ -709,9 +698,8 @@ function imgFootBar(cur) {
             '<button type="button" class="btn btn-outline btn-sm" onclick="imgWithdrawReq()">'+renderIconSvg('action:edit')+' 申请修改</button>';
     }
     if (cur && cur.status === 'paid') {
-        // 未登记：操作栏仅保留登记入口（与撰写区遮罩联动）
-        var order = imgItemOrder(cur);
-        return '<button type="button" class="btn btn-primary btn-sm" onclick="doImgRegisterOrderGate(\'' + esc(order ? order.order_id : '') + '\')">'+renderIconSvg('action:edit')+' 登记患者</button>';
+        // 已缴费未摄片：软允许书写（提交时确认），操作栏与已登记一致
+        // （不再提供门诊侧「登记」入口——登记 / 摄片由 PACS 侧负责）
     }
     return '<button type="button" class="btn btn-outline btn-sm" onclick="imgDraftSave()">'+renderIconSvg('action:save')+' 保存草稿</button>' +
         '<button type="button" class="btn btn-primary btn-sm" onclick="imgPublish()">'+renderIconSvg('action:export')+' 提交审核</button>' +
@@ -733,8 +721,7 @@ function imgDraftSave() {
     var c = document.getElementById('pacsConclusion');
     if (!cur || !f || !c) { Clinic.toast.warning('暂无可保存的报告内容'); return; }
     if (cur.status === 'done') { Clinic.toast.warning('该报告已提交，库内正式内容为准，如需修改请先申请撤回'); return; }
-    if (cur.status === 'paid') { Clinic.toast.warning('该检查项目尚未登记，请先登记后再书写报告'); return; }
-    if (cur.status !== 'registered') { Clinic.toast.warning('当前项目状态（' + itemStatusName(cur.status) + '）暂不支持草稿'); return; }
+    if (cur.status !== 'registered' && cur.status !== 'paid') { Clinic.toast.warning('当前项目状态（' + itemStatusName(cur.status) + '）暂不支持草稿'); return; }
     imgDraftWrite(cur, f.value, c.value);
     Clinic.toast.success('草稿已保存（服务端同步，跨设备保留）');
 }
@@ -1109,20 +1096,29 @@ function finishImgPublish(json) {
  * @param idPrefix   输入区前缀（pacs 一体化 / imgm 模态框）
  * @param statusCheck 是否前置状态校验（一体化保留 paid/done 拦截；模态框仅 registered 可开）
  */
-function imgSubmitReport(it, idPrefix, statusCheck) {
+function imgSubmitReport(it, idPrefix, statusCheck, noImageConfirmed) {
     if (!it) return;
     if (IMG_SUBMITTING) return;
     if (statusCheck) {
-        if (it.status === 'paid') { Clinic.toast.warning('该检查项目尚未登记，请先登记后再书写报告'); return; }
         if (it.status === 'done') { Clinic.toast.warning('该报告已提交，如需修改请先申请撤回'); return; }
-        if (it.status !== 'registered') { Clinic.toast.warning('当前项目状态（' + itemStatusName(it.status) + '）不支持提交报告'); return; }
+        // 已缴费未摄片 / 暂无影像：软提示，经医生确认后放行（不再硬拦，登记由 PACS 侧负责）
+        if (it.status === 'paid' && !noImageConfirmed) {
+            Clinic.modal.confirm('该检查项目暂无影像（尚未摄片或未获取到影像）。确认仍要书写并提交报告？', function () {
+                imgSubmitReport(it, idPrefix, statusCheck, true);
+            }, { title: '暂无影像', okText: '确认提交' });
+            return;
+        }
+        if (it.status !== 'registered' && it.status !== 'paid') { Clinic.toast.warning('当前项目状态（' + itemStatusName(it.status) + '）不支持提交报告'); return; }
     }
     var findings = ((document.getElementById(idPrefix + 'Findings') || {}).value || '').trim();
     var conclusion = ((document.getElementById(idPrefix + 'Conclusion') || {}).value || '').trim();
     if (!findings) { Clinic.toast.warning('请填写影像所见'); return; }
     if (!conclusion) { Clinic.toast.warning('请填写影像诊断'); return; }
     IMG_SUBMITTING = true;
-    Clinic.ajax('/api/imaging', { action: 'save_result', item_id: it.id, findings: findings, conclusion: conclusion }, {
+    Clinic.ajax('/api/imaging', {
+        action: 'save_result', item_id: it.id, findings: findings, conclusion: conclusion,
+        confirm_no_image: (it.status === 'paid') ? 1 : 0,
+    }, {
         loading: true,
         onSuccess: function (json) {
             IMG_SUBMITTING = false;

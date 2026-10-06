@@ -90,10 +90,8 @@ function dept_register($itemType) {
     $rv = $ord ? get_visit_row((int)$ord['visit_id']) : null;
     if (!$rv || !dept_visit_allowed($rv['visit'], Auth::user())) json_fail('该患者不属于当前科室，不可登记');
     OrderRepository::exec("UPDATE order_items SET status='registered', registered_at=? WHERE id=?", array(now_str(), $itemId));
-    // 影像登记=开始拍片：连接区域 PACS 时解析并登记真实 StudyInstanceUID（未连接则不产生 UID）
-    if ($itemType === 'imaging' && class_exists('ImagingRegionResolver')) {
-        try { ImagingRegionResolver::registerForItem((int)$itemId); } catch (Exception $e) { /* 解析失败不影响登记本身 */ }
-    }
+    // 说明（流程解耦）：影像登记仅标记「已缴费→已登记」，不解析 / 不产生 StudyInstanceUID；
+    // 摄片与影像由 PACS 侧负责，影像引用在调阅 / 书写报告时按检查号从区域 PACS 解析。
     json_ok(array(), '登记成功');
 }
 

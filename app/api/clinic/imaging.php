@@ -72,13 +72,8 @@ switch ($action) {
         if (!dept_visit_allowed($rv['visit'], $u)) json_fail('无权限登记该申请单');
         $n = (int)OrderRepository::exec("UPDATE order_items SET status='registered', registered_at=? WHERE order_id=? AND item_type='imaging' AND status='paid'", array(now_str(), $orderId));
         if ($n <= 0) json_fail('该申请单暂无待登记项目');
-        // 登记=开始拍片：连接区域 PACS 时按检查号解析并登记真实 StudyInstanceUID（未连接则不产生 UID）
-        if (class_exists('ImagingRegionResolver')) {
-            $registeredIds = OrderRepository::q("SELECT id FROM order_items WHERE order_id=? AND item_type='imaging' AND status='registered'", array($orderId));
-            foreach ($registeredIds as $row) {
-                try { ImagingRegionResolver::registerForItem((int)$row['id']); } catch (Exception $e) { /* 解析失败不影响登记 */ }
-            }
-        }
+        // 说明（流程解耦）：登记仅标记「已缴费→已登记」，不解析 / 不产生 StudyInstanceUID。
+        // 摄片与影像由 PACS 侧负责；影像引用在医生调阅 / 书写报告时按检查号从区域 PACS 解析。
         json_ok(array(), '已登记该申请单 ' . $n . ' 个检查项目');
         break;
 
@@ -117,9 +112,14 @@ switch ($action) {
         if (!$it || $it['item_type'] !== 'imaging') {
             json_fail('项目不存在或状态异常');
         }
-        // 登记状态硬拦截（防未登记先写报告）：未缴费/已缴费未登记一律拒绝
+        // 登记状态门禁（软）：未登记/未摄片时经医生确认「暂无影像，仍书写报告」方放行
+        $confirmNoImage = ((int)post('confirm_no_image', 0)) === 1;
         if (!in_array($it['status'], array('registered', 'done'), true)) {
-            json_fail($it['status'] === 'paid' ? '该检查项目尚未登记，请先登记后再书写报告' : '项目不存在或状态异常');
+            if ($it['status'] === 'paid' && $confirmNoImage) {
+                /* 允许：暂无影像，医生已确认书写报告（不硬拦） */
+            } else {
+                json_fail($it['status'] === 'paid' ? '该项目暂无影像或尚未登记，如需书写请确认' : '项目不存在或状态异常');
+            }
         }
         // 医护角色归属校验（与 register_order 口径一致）
         $rv = get_visit_row((int)$it['visit_id']);
