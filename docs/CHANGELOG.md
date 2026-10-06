@@ -13,6 +13,26 @@
 
 ---
 
+## [9.10.0] - 2026-10-07
+
+> 影像检查工作流标准化（与 PACS 浏览器 v1.3.0 配套）：登记与摄片职责分离，
+> 标准 FHIR 医嘱 / 工作项贯穿流程。
+
+### 新增
+- **FHIR 影像医嘱与工作项**：`ServiceRequest`（影像医嘱）+ `Task`（检查工作项，
+  `requested→accepted→in-progress→completed`，对齐 IHE Scheduled Workflow / MPPS）；
+  新增 `imaging_tasks` 表（schema v50）与 CapabilityStatement 声明。
+- **FHIR 写入**：`/api/fhir/r4/{Resource}` 支持 PUT/PATCH/POST（当前 Task），
+  写权限走 `system/{Resource}.write`；PACS 侧登记 / 摄片经此回写状态。
+
+### 变更
+- **登记与摄片解耦**：影像「登记」只标记已缴费→已登记，不再解析 / 产生 StudyInstanceUID；
+  摄片与影像由 PACS 负责。
+- **报告入口软门禁**：已缴费未摄片可书写报告，提交时确认（`confirm_no_image`），不再强制登记。
+- **退费门禁增强**：结合 `imaging_tasks` / `imaging_refs` 判定影像是否已执行，须走退费审批。
+
+---
+
 ## [9.9.6] - 2026-10-07
 
 ### 变更
