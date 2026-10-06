@@ -24,6 +24,8 @@ class FhirService {
             'imagingstudy' => 'ImagingStudyAdapter',
             'diagnosticreport' => 'DiagnosticReportAdapter',
             'organization' => 'OrganizationAdapter',
+            'servicerequest' => 'ServiceRequestAdapter',
+            'task' => 'TaskAdapter',
         );
     }
 
@@ -34,6 +36,29 @@ class FhirService {
         if (!isset($map[$key])) return null;
         $class = $map[$key];
         return class_exists($class) ? $class : null;
+    }
+
+    /** 资源是否支持写入（适配器实现 applyWrite） */
+    public static function supportsWrite($type) {
+        $class = self::adapterFor($type);
+        return $class ? method_exists($class, 'applyWrite') : false;
+    }
+
+    /**
+     * 写入资源（PACS 侧工作流回写：Task 登记 / 摄片状态）。
+     * @param string $type    资源类型
+     * @param string $id      资源 id（含 task- 前缀）
+     * @param array  $resource FHIR 资源体
+     * @return array 更新后的资源
+     * @throws FhirError
+     */
+    public static function write($type, $id, array $resource) {
+        $class = self::adapterFor($type);
+        if (!$class) throw new FhirError(404, 'not-supported', '不支持的 FHIR 资源类型：' . $type);
+        if (!method_exists($class, 'applyWrite')) {
+            throw new FhirError(405, 'not-supported', $class::resourceType() . ' 资源不支持写入');
+        }
+        return $class::applyWrite($id, $resource);
     }
 
     /* ============================================================
@@ -64,7 +89,7 @@ class FhirService {
             'interaction' => array(),
         );
         // 支持 _include=:patient 的资源（其 search 会回传 patientRefs）
-        $includeMap = array('Encounter', 'Condition', 'Observation', 'MedicationRequest', 'ImagingStudy', 'DiagnosticReport');
+        $includeMap = array('Encounter', 'Condition', 'Observation', 'MedicationRequest', 'ImagingStudy', 'DiagnosticReport', 'ServiceRequest', 'Task');
         $res = array();
         foreach (self::adapterMap() as $key => $class) {
             if (!class_exists($class)) continue;
@@ -83,6 +108,10 @@ class FhirService {
                 'readHistory' => false,
                 'searchParam' => $params,
             );
+            if (method_exists($class, 'applyWrite')) {
+                $item['interaction'][] = array('code' => 'update');
+                $item['interaction'][] = array('code' => 'patch');
+            }
             if (in_array($type, $includeMap, true)) {
                 $item['searchInclude'] = array($type . ':patient');
             }

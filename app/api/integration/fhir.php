@@ -24,7 +24,7 @@ require_once APP_ROOT . '/app/config/bootstrap.php';
 function fhir_cors() {
     header('Access-Control-Allow-Origin: *');
     header('Access-Control-Allow-Headers: Authorization, Content-Type, X-API-Key');
-    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, OPTIONS');
 }
 
 function fhir_json($data, $status = 200, $extraHeaders = array()) {
@@ -210,8 +210,42 @@ if (!$__authorized) {
     fhir_error(401, 'security', '鉴权失败：Token 无效或缺失', array('WWW-Authenticate: Bearer error="invalid_token"'));
 }
 
-// Scope 校验：system/{Resource}.read（支持 system/*.read 等通配）
+// Scope 校验：GET 读 system/{Resource}.read；写入 system/{Resource}.write
 $__resourceType = $__adapter::resourceType();
+$__httpMethod = strtoupper(isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : 'GET');
+$__isWrite = in_array($__httpMethod, array('PUT', 'PATCH', 'POST'), true);
+
+/* ---------- 写入（PACS 侧工作流回写：Task 登记 / 摄片） ---------- */
+if ($__isWrite) {
+    if (!FhirService::supportsWrite($__resourceInput)) {
+        fhir_error(405, 'not-supported', $__resourceType . ' 资源不支持写入');
+    }
+    $__required = 'system/' . $__resourceType . '.write';
+    if (!FhirService::scopeAllows($__scope, $__required)) {
+        integration_log_inbound('fhir', 'r4/write', false, '缺少 Scope：' . $__required, '');
+        fhir_error(403, 'forbidden', '无权限写入该资源（缺少 Scope：' . $__required . '）');
+    }
+    $__rawBody = file_get_contents('php://input');
+    $__body = json_decode((string)$__rawBody, true);
+    if (!is_array($__body)) fhir_error(400, 'invalid', '请求体非合法 FHIR JSON');
+    $__wid = isset($__parts[1]) ? urldecode((string)$__parts[1]) : '';
+    if ($__wid === '' && isset($__body['id'])) $__wid = (string)$__body['id'];
+    if ($__wid === '') fhir_error(400, 'invalid', '写入需要资源 id（如 task-{编号}）');
+    $__bareId = FhirService::stripTypePrefix($__resourceInput, $__wid);
+    try {
+        $__out = FhirService::write($__resourceInput, $__bareId, $__body);
+        integration_log_inbound('fhir', 'r4/write', true, $__resourceType . ' 写入：' . $__wid, '');
+        fhir_json($__out);
+    } catch (FhirError $ex) {
+        integration_log_inbound('fhir', 'r4/write', false, $ex->getMessage(), '');
+        fhir_error($ex->httpStatus, $ex->issueCode, $ex->getMessage());
+    } catch (Exception $ex) {
+        integration_log_inbound('fhir', 'r4/write', false, '服务器内部错误：' . $ex->getMessage(), '');
+        fhir_error(500, 'exception', '服务器内部错误：' . $ex->getMessage());
+    }
+}
+
+// Scope 校验（读）：system/{Resource}.read（支持 system/*.read 等通配）
 $__required = 'system/' . $__resourceType . '.read';
 if (!FhirService::scopeAllows($__scope, $__required)) {
     integration_log_inbound('fhir', 'r4', false, '缺少 Scope：' . $__required, '');

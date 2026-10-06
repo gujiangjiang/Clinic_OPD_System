@@ -13,6 +13,20 @@
 
 ---
 
+## [9.9.5] - 2026-10-07
+
+### 新增
+- **FHIR 影像医嘱与工作项**：新增 `ServiceRequestAdapter`（影像医嘱，摄片登记工作
+  列表的数据源）与 `TaskAdapter`（检查工作项，对齐 IHE Scheduled Workflow / MPPS 的
+  `requested → accepted → in-progress → completed` 状态机）；CapabilityStatement 自动纳入。
+- **FHIR 写入能力**：`/api/fhir/r4/{Resource}` 支持 `PUT/PATCH/POST`（当前 Task），
+  鉴权走 `system/{Resource}.write` Scope；新增 `imaging_tasks` 表（schema v50）持久化
+  PACS 侧登记 / 摄片回写状态；`FhirService::write` / `supportsWrite` 统一调度。
+- **工作项回写联动**：登记 / 摄片回写 `accepted/in-progress/completed` 时，若开单明细仍为
+  `paid` 则推进为 `registered`；回写 `cancelled` 时联动为 `refunded`。
+
+---
+
 ## [9.9.4] - 2026-10-04
 
 ### 修复
