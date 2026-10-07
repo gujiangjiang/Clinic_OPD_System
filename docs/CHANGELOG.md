@@ -13,6 +13,16 @@
 
 ---
 
+## [9.10.2] - 2026-10-07
+
+### 修复
+- **摄片后门诊侧检索不到影像**：PACS 回写 `Task=completed` 时，门诊按检查号从区域 PACS
+  解析并登记影像引用（`ImagingRegionResolver::registerForItem`），使影像在门诊 FHIR
+  `ImagingStudy` / DICOMweb `/studies` 立即可见，打通「登记 → 摄片 → 检索 → 写报告 → 调阅」
+  全链路（此前仅在打开报告 / 调阅时惰性解析，导致摄片后即时检索为空）。
+
+---
+
 ## [9.10.1] - 2026-10-07
 
 ### 变更

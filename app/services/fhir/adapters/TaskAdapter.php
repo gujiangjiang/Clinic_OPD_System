@@ -244,6 +244,12 @@ class TaskAdapter extends FhirAdapter {
             PatientRepository::exec("UPDATE order_items SET status='refunded' WHERE id=?", array($itemId));
         }
 
+        // 摄片完成：按检查号从区域 PACS 解析并登记影像引用（使影像在门诊侧立即可见，
+        // 支撑报告入口「有影像」判定与影像引用台账、PACS 检索闭环）。
+        if ($status === 'completed' && class_exists('ImagingRegionResolver')) {
+            try { ImagingRegionResolver::registerForItem($itemId); } catch (Exception $e) { /* 区域 PACS 不可达时留待调阅时自愈 */ }
+        }
+
         $row = self::findRowByBareId($bareId);
         return self::toResource($row);
     }

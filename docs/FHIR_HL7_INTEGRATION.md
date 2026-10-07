@@ -173,7 +173,8 @@ curl -s -X PUT "http://127.0.0.1:8000/api/fhir/r4/Task/task-{order_item_id}" \
 - 写权限：令牌 Scope 需含 `system/Task.write`（登记/摄片回写）、`system/ServiceRequest.read`
   与 `system/Task.read`（读工作列表）；读接口仍需 `system/*.read`。
 - 副作用：登记 / 摄片回写 `accepted/in-progress/completed` 时，若开单明细仍为 `paid` 会推进为
-  `registered`；回写 `cancelled` 联动为 `refunded`。
+  `registered`；**回写 `completed` 会按检查号从区域 PACS 解析并登记影像引用**，使影像在
+  `ImagingStudy` / DICOMweb `/studies` 立即可见；回写 `cancelled` 联动为 `refunded`。
 
 ---
 
