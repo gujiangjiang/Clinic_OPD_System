@@ -361,45 +361,49 @@ switch ($action) {
         // 科室归属校验：防越科获取他人影像阅片地址
         $rvView = get_visit_row((int)$it['visit_id']);
         if (!$rvView || !dept_visit_allowed($rvView['visit'], $u)) json_fail('无权限查看该检查');
-        // 影像引用优先（只存引用架构：study_uid 唯一 + region 指向区域存储）
-        $studyUid = '';
+        // A2：报告与影像按【申请单】——取该申请单全部 Study 引用（可能 N 个）
+        $orderId = (int)$it['order_id'];
+        $o = OrderRepository::one('SELECT * FROM orders WHERE id=?', array($orderId));
+        $orderNo = $o ? (string)$o['order_no'] : '';
         $region = '';
+        $studyUids = array();
         $seriesCount = 0;
-        $ref = ImagingRepository::refByItem($itemId);
-        if ($ref) {
-            $studyUid = (string)$ref['study_uid'];
-            $region = (string)$ref['region'];
-            // 自愈：区域 PACS 中已不存在该 study_uid（历史/种子数据 UID 失配）时，
-            // 按申请单号（AccessionNumber）重新解析并回写引用，避免阅片器右窗加载失败
-            if ($region === 'region-pacs' && ImagingRegionResolver::configured() && !ImagingRegionResolver::studyExists($studyUid)) {
-                $o = OrderRepository::one('SELECT order_no FROM orders WHERE id=?', array((int)$it['order_id']));
-                if ($o) {
-                    $fresh = ImagingRegionResolver::registerForItem($itemId);
-                    if ($fresh) {
-                        $ref = $fresh;
-                        $studyUid = (string)$fresh['study_uid'];
-                    }
-                }
-            }
-            $series = json_decode((string)$ref['series_uids'], true);
-            $seriesCount = is_array($series) ? count($series) : 0;
-        } else {
-            // 回退占位：优先报告号（报告即一次完整检查的出具单元），回退申请单号
-            if ((int)$it['result_id'] > 0) {
-                $rep = OrderRepository::one("SELECT report_no FROM reports WHERE result_id=? AND status<>'withdrawn' ORDER BY id DESC LIMIT 1", array((int)$it['result_id']));
-                if ($rep) $studyUid = (string)$rep['report_no'];
-            }
-            if ($studyUid === '') {
-                $o = OrderRepository::one('SELECT order_no FROM orders WHERE id=?', array((int)$it['order_id']));
-                $studyUid = $o ? (string)$o['order_no'] : (string)$it['id'];
+        $refs = class_exists('ImagingRegionResolver') ? ImagingRegionResolver::refsByOrder($orderId) : array();
+        if (!$refs && ImagingRegionResolver::configured()) {
+            try { $refs = ImagingRegionResolver::registerForOrder($orderId); } catch (Exception $e) { $refs = array(); }
+        }
+        foreach ($refs as $ref) {
+            if (ImagingRegionResolver::isRealUid((string)$ref['study_uid'])) {
+                $studyUids[] = (string)$ref['study_uid'];
+                if ($region === '') $region = (string)$ref['region'];
+                $se = json_decode((string)$ref['series_uids'], true);
+                $seriesCount += is_array($se) ? count($se) : 0;
             }
         }
+        // 直链：模板含 {accession} 用申请单（打开该单全部 Study）；否则单 Study 用 {study_uid}
+        if (strpos($tpl, '{accession}') !== false && $orderNo !== '') {
+            $url = str_replace('{accession}', rawurlencode($orderNo), $tpl);
+        } elseif ($studyUids) {
+            $url = str_replace('{study_uid}', rawurlencode($studyUids[0]), $tpl);
+        } else {
+            // 无影像占位回退：报告号 → 申请单号 → 明细 id（不伪造 UID）
+            $placeholder = '';
+            if ((int)$it['result_id'] > 0) {
+                $rep = OrderRepository::one("SELECT report_no FROM reports WHERE result_id=? AND status<>'withdrawn' ORDER BY id DESC LIMIT 1", array((int)$it['result_id']));
+                if ($rep) $placeholder = (string)$rep['report_no'];
+            }
+            if ($placeholder === '') $placeholder = $orderNo !== '' ? $orderNo : (string)$it['id'];
+            $url = str_replace('{study_uid}', rawurlencode($placeholder), $tpl);
+        }
         json_ok(array(
-            'url' => str_replace('{study_uid}', rawurlencode($studyUid), $tpl),
-            'study_uid' => $studyUid,
+            'url' => $url,
+            'study_uid' => $studyUids ? $studyUids[0] : '',
+            'study_uids' => $studyUids,
+            'study_count' => count($studyUids),
+            'accession' => $orderNo,
             'region' => $region,
             'series_count' => $seriesCount,
-            'from_ref' => (bool)$ref,
+            'from_ref' => (bool)$refs,
         ));
         break;
 
