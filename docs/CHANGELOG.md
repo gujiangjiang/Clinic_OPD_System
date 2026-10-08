@@ -13,6 +13,17 @@
 
 ---
 
+## [9.11.1] - 2026-10-09
+
+### 修复
+- **FHIR `_id` 过滤失效**：`ServiceRequestAdapter` 解析 `_id=servicerequest-{n}` 前缀截断
+  偏移错误（应为 15），导致按 id 过滤不生效返回全量；`TaskAdapter` 的 `basedOn=servicerequest-{n}`
+  同步修正。
+- **影像报告修订失败**：报告修订（撤回后重写）SQL 误引用不存在的 `reports.item_meta` 列
+  （项目快照实存于 `print_snapshots`）；改为更新报告后经 `snapshot_patient` 刷新快照，并清空撤回标记。
+
+---
+
 ## [9.11.0] - 2026-10-09
 
 > A2 影像工作流（一申请单 N Study，报告合并）门诊侧集成版本（配套 PACS 浏览器 v1.4.0）。

@@ -90,7 +90,7 @@ class ServiceRequestAdapter extends FhirAdapter {
             $ids = array();
             foreach (explode(',', (string)$params['_id']) as $v) {
                 $v = trim($v);
-                if (strpos($v, 'servicerequest-') === 0) $v = substr($v, 14);
+                if (strpos($v, 'servicerequest-') === 0) $v = substr($v, 15);
                 if (ctype_digit($v)) $ids[] = (int)$v;
             }
             if ($ids) { $where[] = 'oi.id IN (' . in_placeholders($ids) . ')'; $args = array_merge($args, $ids); }

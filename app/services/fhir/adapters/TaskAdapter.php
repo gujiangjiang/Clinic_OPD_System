@@ -136,7 +136,7 @@ class TaskAdapter extends FhirAdapter {
         if (isset($params['basedOn']) && trim((string)$params['basedOn']) !== '') {
             $b = trim((string)$params['basedOn']);
             if (strpos($b, 'ServiceRequest/') === 0) $b = substr($b, 15);
-            if (strpos($b, 'servicerequest-') === 0) $b = substr($b, 14);
+            if (strpos($b, 'servicerequest-') === 0) $b = substr($b, 15);
             if (ctype_digit($b)) { $where[] = 'oi.id=?'; $args[] = (int)$b; }
         }
 

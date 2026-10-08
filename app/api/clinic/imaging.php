@@ -190,9 +190,10 @@ switch ($action) {
                 OrderRepository::insert("INSERT INTO report_versions(report_id, report_no, version, findings, conclusion, doctor_name, status, reason, created_by, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)", array(
                     $reportId, $reportNo, (int)$prevReport['version'], $oldFindings, $oldConclusion,
                     (string)$prevReport['doctor_name'], (string)$prevReport['status'], '修订前版本', (string)$u['name'], now_str()));
-                OrderRepository::exec("UPDATE reports SET result_id=?, order_id=?, version=?, doctor_name=?, status='done', clinical_diagnosis=?, item_meta=?, created_at=? WHERE id=?", array(
-                    $resultId, $orderId, $version, $u['name'], $diag,
-                    json_encode($itemMeta, JSON_UNESCAPED_UNICODE), now_str(), $reportId));
+                OrderRepository::exec("UPDATE reports SET result_id=?, order_id=?, version=?, doctor_name=?, status='done', clinical_diagnosis=?, withdraw_reason='', withdraw_by='', withdraw_at='', created_at=? WHERE id=?", array(
+                    $resultId, $orderId, $version, $u['name'], $diag, now_str(), $reportId));
+                // 报告打印快照同步刷新（item_meta 存于快照，非 reports 列）
+                try { snapshot_patient('report', $reportId, (string)$it['patient_no'], array('report_type' => 'imaging', 'item_meta' => $itemMeta)); } catch (Exception $e) {}
             } else {
                 $reportNo = next_report_no('imaging');
                 $reportId = insert_report(array(
