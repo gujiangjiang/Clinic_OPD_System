@@ -113,10 +113,15 @@ class QueueSeeder extends Seeder {
             $baseTs = mktime(8, 0, 0, (int)date('m'), (int)date('d'), (int)date('Y'));
             $maxReg = (string)DB::val('SELECT MAX(registered_at) FROM registrations WHERE first_dept_id=? AND date(registered_at)=?', array($deptId, $today));
             if ($maxReg !== '' && ($mt = strtotime($maxReg)) && $mt >= $baseTs) $baseTs = $mt + 60;
+            // 不生成未来挂号时间（凌晨运行时「当日 08:00」尚未到来会越过当前时刻，
+            // 未来时间戳会干扰按时间戳判断变化的功能，如叫号大屏版本戳）
+            $nowTs = time();
+            if ($baseTs > $nowTs) $baseTs = $nowTs - 60;
             $times = array();
             $t = $baseTs;
             for ($i = 0; $i < $perDept; $i++) {
                 $t += mt_rand(60, 900);
+                if ($t > $nowTs) $t = $nowTs;
                 $times[] = date('Y-m-d H:i:s', $t);
             }
             foreach ($times as $regTime) {
