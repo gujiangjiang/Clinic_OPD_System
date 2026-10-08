@@ -285,6 +285,54 @@ function pacsPickSeries(el, itemId) {
     renderImgCritQueue();
     // 自动内嵌阅片器：选中序列即调阅该序列影像（未配置阅片器时视窗内提示）
     pacsAutoEmbed(it.id);
+    // 尚无影像 / 待摄片：异步刷新该检查状态，摄片完成后「暂无影像」提示即时消失
+    if (it && (it.has_image === false || it.status === 'paid')) {
+        imgRefreshItem(itemId, function (fresh, data) {
+            if (!fresh) return;
+            var changed = (fresh.has_image !== it.has_image) || (fresh.status !== it.status) || ((fresh.study_uid || '') !== (it.study_uid || ''));
+            if (changed) imgApplyToIntegrated(fresh, data);
+        });
+    }
+}
+
+/* 异步刷新当前患者数据（不整页刷新）；回调 (data, items) */
+function imgRefreshData(cb) {
+    if (!Clinic.deptwork || typeof Clinic.deptwork.fetchPatient !== 'function') { if (cb) cb(null, []); return; }
+    Clinic.deptwork.fetchPatient(function (data) {
+        data = data || {};
+        window.__imgData = data;
+        var items = [];
+        (data.orders || []).forEach(function (o) { if (o.order_type === 'imaging') items = items.concat(o.items || []); });
+        window.__imgItems = items;
+        if (cb) cb(data, items);
+    });
+}
+
+/* 刷新指定检查项目的最新数据，回调 (freshItem, data) */
+function imgRefreshItem(itemId, cb) {
+    imgRefreshData(function (data, items) {
+        var fresh = null;
+        items.forEach(function (x) { if (String(x.id) === String(itemId)) fresh = x; });
+        if (cb) cb(fresh, data);
+    });
+}
+
+/* 用最新数据就地更新一体化右栏（左序列列表 + 撰写区 + 操作栏），保持当前选中 */
+function imgApplyToIntegrated(fresh, data) {
+    window.__imgCurItem = fresh;
+    var list = document.getElementById('pacsSeriesList');
+    if (list && window.__imgItems) {
+        list.innerHTML = pacsSeriesHtml(window.__imgItems);
+        var sel = document.querySelector('.pacs-series-item[data-item="' + fresh.id + '"]');
+        if (sel) sel.classList.add('active');
+    }
+    var body = document.querySelector('.pacs-right-body');
+    var wp = body && body.querySelector('[data-pane="write"]');
+    if (wp) wp.outerHTML = imgWritePane(fresh, data || window.__imgData || {});
+    var foot = document.getElementById('pacsRightFoot');
+    if (foot) foot.innerHTML = imgFootBar(fresh);
+    loadPacsTpls();
+    imgDraftRemoteFill(fresh);
 }
 
 /* 左下角检查信息卡（动态更新，优化项7） */
@@ -936,6 +984,19 @@ function openImgReportModal(id) {
         '<button type="button" class="btn btn-primary" onclick="imgModalSave()">'+renderIconSvg('action:save')+' 提交并打印报告</button>';
     // 危急值暂存队列回显（必须在 footer 就绪后调用，否则徽标停留在初始 0 不更新）
     renderImgCritQueue();
+    // 尚无影像 / 待摄片：异步刷新该检查状态，摄片完成后「暂无影像」提示即时消失
+    if (it.has_image === false || it.status === 'paid') {
+        imgRefreshItem(id, function (fresh, data) {
+            if (!fresh) return;
+            var changed = (fresh.has_image !== it.has_image) || (fresh.status !== it.status) || ((fresh.study_uid || '') !== (it.study_uid || ''));
+            if (!changed) return;
+            CUR_IMG_ITEM = fresh;
+            var host = document.getElementById('imgmWritePane');
+            if (host) host.outerHTML = imgWritePane(fresh, data || window.__imgData || {}, 'imgm');
+            loadPacsTpls('imgm');
+            imgDraftRemoteFill(fresh, 'imgm');
+        });
+    }
 }
 
 /* 经典模态框保存草稿（与一体化 imgDraftSave 同一数据源/同一存储） */
