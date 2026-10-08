@@ -66,8 +66,10 @@ Clinic.order = (function () {
     var CUR_TYPE = 'lab';
     /** 提交防重入锁：请求发出至返回期间阻止重复提交（弹窗按钮 autoClose:false 双击会重复建单） */
     var SUBMITTING = false;
-    /** 检验筛选：single=单个 / group=组合 */
+    /** 检验筛选：single=单个 / group=组合（非搜索态） */
     var LAB_FILTER = 'single';
+    /** 检验搜索态筛选：''=全部 / single / group（搜索框有内容时生效；进入搜索默认全部） */
+    var LAB_SEARCH_FILTER = '';
     /** 子医嘱面板外部点击监听是否已注册 */
     var SUB_OUTER_BOUND = false;
     /** 剂量悬浮窗外部点击监听是否已注册 */
@@ -296,6 +298,7 @@ Clinic.order = (function () {
         CUR_TYPE = type;
         SELECTED = [];
         LAB_FILTER = 'single';
+        LAB_SEARCH_FILTER = '';
         RX_FREQS = [];
         RX_ROUTES = [];
         PREV_ITEMS = {};
@@ -452,12 +455,22 @@ Clinic.order = (function () {
             }).join('') + '</div>';
     }
 
-    /** 检验筛选徽章 UI 与「搜索中取消勾选」联动：搜索时全部取消，清空后恢复 LAB_FILTER 选中 */
+    /** 关键字搜索是否激活（trim 后非空） */
+    function orderIsSearching() {
+        var el = document.getElementById('orderKw');
+        return !!el && (el.value || '').trim() !== '';
+    }
+
+    /** 当前生效的检验筛选：搜索态用搜索筛选，非搜索态用常驻筛选（''=全部） */
+    function labActiveFilter() {
+        return orderIsSearching() ? LAB_SEARCH_FILTER : LAB_FILTER;
+    }
+
+    /** 检验筛选徽章 UI：高亮当前生效筛选（搜索态默认全部=均不勾选） */
     function updateLabFilterUI() {
-        var isSearching = ((document.getElementById('orderKw') || {}).value || '').trim() !== '';
+        var active = labActiveFilter();
         document.querySelectorAll('#labFilterBar .qp-chip').forEach(function (c) {
-            var on = !isSearching && LAB_FILTER === c.getAttribute('data-f');
-            c.classList.toggle('active', on);
+            c.classList.toggle('active', active === c.getAttribute('data-f'));
         });
     }
 
@@ -495,12 +508,10 @@ Clinic.order = (function () {
             '</div>';
     }
 
-    /** 目录分页接口地址（搜索关键字 / 检验筛选实时参与拼接；搜索时忽略单个/组合筛选） */
+    /** 目录分页接口地址（搜索关键字 / 检验筛选实时参与拼接；搜索态使用搜索筛选） */
     function catalogUrl(p, size) {
         var kw = encodeURIComponent((document.getElementById('orderKw') || {}).value || '');
-        // 搜索时自动取消单个/组合筛选（全量搜索）；清空后恢复筛选
-        var isSearching = (document.getElementById('orderKw') || {}).value ? ((document.getElementById('orderKw') || {}).value || '').trim() !== '' : false;
-        var f = CUR_TYPE === 'lab' ? (isSearching ? '' : LAB_FILTER) : '';
+        var f = CUR_TYPE === 'lab' ? labActiveFilter() : '';
         return '/api/order?action=catalog&type=' + CUR_TYPE + '&page=' + p + '&size=' + size + '&kw=' + kw + '&f=' + f;
     }
 
@@ -1440,6 +1451,9 @@ Clinic.order = (function () {
         var kw = document.getElementById('orderKw');
         if (kw) {
             kw.addEventListener('input', function () {
+                var searching = (kw.value || '').trim() !== '';
+                if (searching && !kw.__searching) LAB_SEARCH_FILTER = ''; // 进入搜索：默认全部（不筛选）
+                kw.__searching = searching;
                 clearTimeout(kw.__t);
                 kw.__t = setTimeout(function () { catalogReset(); }, 300);
                 updateLabFilterUI();
@@ -1459,10 +1473,15 @@ Clinic.order = (function () {
         // 检验筛选徽章（单个/组合）：切换后重新分页检索
         document.querySelectorAll('#labFilterBar .qp-chip').forEach(function (chip) {
             chip.addEventListener('click', function () {
-                LAB_FILTER = chip.getAttribute('data-f');
-                document.querySelectorAll('#labFilterBar .qp-chip').forEach(function (c) {
-                    c.classList.toggle('active', c === chip);
-                });
+                var f = chip.getAttribute('data-f');
+                if (orderIsSearching()) {
+                    // 搜索态：点击即应用该筛选，再次点击同一项取消 → 全部
+                    LAB_SEARCH_FILTER = (LAB_SEARCH_FILTER === f) ? '' : f;
+                } else {
+                    // 非搜索态：单选（保持既有行为）
+                    LAB_FILTER = f;
+                }
+                updateLabFilterUI();
                 catalogReset();
             });
         });
