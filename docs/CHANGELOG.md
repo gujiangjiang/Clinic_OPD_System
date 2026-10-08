@@ -13,6 +13,21 @@
 
 ---
 
+## [9.10.8] - 2026-10-08
+
+### 修复
+- **医生叫号「下一位 / 重呼过号」报 `near "FOR": syntax error`（SQLite）**：
+  `doctor_call_claim_next_tx()` / `doctor_call_recall_missed_tx()` 直接下发
+  `SELECT id FROM registrations WHERE id=? FOR UPDATE`，而本项目以 SQLite 为源方言、
+  仅经 `DatabaseManager::dialectSql()` 单向翻译，`FOR UPDATE` 无对应 SQLite 写法，
+  导致 SQLite 解析失败（`near "FOR": syntax error`）。新增
+  `QueueRepository::lockRegistration()`：仅 MySQL/PostgreSQL 下发悲观行锁，
+  SQLite 单写者、事务天然串行，不下发该语句。两处叫号认领改为调用该 helper。
+- 同步核验医技叫号 `deptwork_call_next()`（不含 `FOR UPDATE`，不受影响）及
+  `sweepStaleBindings()`（写法正确）；断言 SQLite 下认领 / 重呼路径均通过并已回滚验证。
+
+---
+
 ## [9.10.7] - 2026-10-08
 
 ### 修复
