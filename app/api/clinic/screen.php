@@ -247,11 +247,21 @@ if ($action === 'heartbeat' || $action === 'data') {
             push_room_event($room, array('action' => 'screen_online', 'room_id' => (int)$room['id'], 'screen_online' => true));
         }
     }
-    // 数据版本戳（房间叫号/绑定变更 updated_at + 本科室新挂号 registered_at）：
-    // 前端轮询带 last_updated，无任何变化时返回轻量 changed:false，避免重复返回
-    // 完整 payload 与重复渲染，降低大屏常驻轮询的带宽与解析开销。
-    $maxReg = QueueRepository::val("SELECT MAX(registered_at) FROM registrations WHERE current_dept_id=?", array((int)$room['dept_id']));
-    $version = max((int)strtotime((string)$room['updated_at']), $maxReg ? (int)strtotime((string)$maxReg) : 0);
+    // 数据版本戳 = 影响大屏显示的状态摘要哈希（房间叫号/绑定字段 + 本科室最新挂号 +
+    // 待叫号数）。前端轮询带 last_updated，摘要一致时返回轻量 changed:false。
+    // 注意：不可用 max(updated_at, MAX(registered_at)) 这类「取最大时间戳」写法——一旦
+    // 存在未来时间的挂号（测试造数/时区偏差等），版本会被钉死在未来，叫号后大屏收到
+    // changed:false 而永久不刷新（表现为「点下一位/重呼大屏没反应」）。
+    $maxReg = (string)QueueRepository::val("SELECT MAX(registered_at) FROM registrations WHERE current_dept_id=?", array((int)$room['dept_id']));
+    $pendingCnt = (int)QueueRepository::val("SELECT COUNT(*) FROM registrations WHERE current_dept_id=? AND status IN ('paid','visiting')", array((int)$room['dept_id']));
+    $sig = implode('|', array(
+        (string)$room['updated_at'], (string)$room['current_visit_id'], (string)$room['current_flow_no'],
+        (string)$room['current_called_at'], (string)$room['current_doctor_id'], (string)$room['last_call_action'],
+        (string)$room['last_call_at'], (string)$room['enable_voice'], (string)$room['enable_mask'],
+        (string)$room['allow_cross_day'], (string)$room['room_name'], (string)$room['screen_tips'],
+        (string)$room['tip_interval'], $maxReg, (string)$pendingCnt,
+    ));
+    $version = crc32($sig) & 0x7FFFFFFF;
     $lastUpdated = (int)get('last_updated', 0);
     if ($lastUpdated > 0 && $lastUpdated === $version) {
         json_response(true, 'ok', array('changed' => false, 'updated_at' => $version));
