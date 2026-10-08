@@ -477,6 +477,9 @@ switch ($action) {
             if ($regionName === '') $regionName = '区域影像存储';
             $hasImage = class_exists('ImagingRegionResolver')
                 ? ImagingRegionResolver::isRealUid((string)$r['study_uid']) : ((string)$r['study_uid'] !== '');
+            // 登记人：PACS 侧登记 / 摄片（无门诊操作人）时回退展示为「PACS」
+            $registrar = trim((string)$r['created_by']);
+            if ($registrar === '') $registrar = 'PACS';
             $list[] = array(
                 'id' => oid((int)$r['id']),
                 'flow_no' => (string)$r['flow_no'],
@@ -494,7 +497,7 @@ switch ($action) {
                 'region_name' => $regionName,
                 'has_image' => $hasImage,
                 'instance_count' => (int)$r['instance_count'],
-                'created_by' => (string)$r['created_by'],
+                'created_by' => $registrar,
                 'created_at' => (string)$r['created_at'],
             );
         }

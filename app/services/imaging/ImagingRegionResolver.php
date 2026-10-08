@@ -211,7 +211,7 @@ class ImagingRegionResolver {
             'meta' => array('series' => $series, 'source' => 'region-pacs',
                 'region_name' => (string)(isset($r['institution']) ? $r['institution'] : ''),
                 'station_name' => (string)(isset($r['station']) ? $r['station'] : '')),
-            'created_by' => $u ? (string)$u['name'] : '',
+            'created_by' => $u ? (string)$u['name'] : 'PACS',
         ));
         return ImagingRepository::refByItem((int)$itemId);
     }
