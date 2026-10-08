@@ -73,27 +73,37 @@
 
     /* ============ 语音播报（TTS 队列） ============ */
     var TTS = {
-        queue: [], speaking: false,
+        queue: [], speaking: false, _wd: null,
         pickVoice: function () {
             var voices = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+            var fallback = null;
             for (var i = 0; i < voices.length; i++) {
                 var v = voices[i].lang || '';
-                if (v.indexOf('zh-CN') === 0 || v.indexOf('zh_CN') === 0) return voices[i];
+                if (v.indexOf('zh-CN') === 0 || v.indexOf('zh_CN') === 0) {
+                    // 优先本地语音：网络语音在离线/受限环境下会静默无声（有本地则必有声）
+                    if (voices[i].localService) return voices[i];
+                    if (!fallback) fallback = voices[i];
+                }
             }
-            return null;
+            return fallback;
         },
         speak: function (text, repeat) {
-            if (muted || !voiceEnabled) return;
+            if (muted || !voiceEnabled || !text) return;
+            if (!window.speechSynthesis) return;
             repeat = repeat || 2;
             for (var i = 0; i < repeat; i++) this.queue.push(text);
             this.pump();
         },
-        chime: function () {
-            if (muted || !voiceEnabled) return;
+        chime: function (onDone) {
+            // 提示音与语音串行：回调 onDone 后再播报，避免 Web Audio 抢占音频会话
+            var done = false;
+            var fire = function () { if (!done) { done = true; if (typeof onDone === 'function') onDone(); } };
+            if (muted || !voiceEnabled) { fire(); return; }
+            var ctx = null;
             try {
                 var AC = window.AudioContext || window.webkitAudioContext;
-                if (!AC) return;
-                var ctx = TTS._actx || (TTS._actx = new AC());
+                if (!AC) { fire(); return; }
+                ctx = TTS._actx || (TTS._actx = new AC());
                 if (ctx.state === 'suspended') ctx.resume();
                 var now = ctx.currentTime;
                 [880, 1174.66].forEach(function (f, i) {
@@ -106,11 +116,19 @@
                     o.connect(g); g.connect(ctx.destination);
                     o.start(now + i * 0.12); o.stop(now + i * 0.12 + 0.4);
                 });
-            } catch (e) { }
+            } catch (e) { fire(); return; }
+            // 提示音总时长约 0.56s：结束后挂起 AudioContext 释放音频会话，再播报语音。
+            // （iOS/Safari 及部分 TV/Android 浏览器中，Web Audio 与 speechSynthesis
+            //   并发会独占音频通道，导致「只有提示音、无姓名播报」。）
+            setTimeout(function () {
+                try { if (ctx.state === 'running') ctx.suspend(); } catch (e) {}
+                fire();
+            }, 560);
         },
         pump: function () {
             var self = this;
             if (this.speaking || !this.queue.length) return;
+            if (!window.speechSynthesis) { this.queue = []; return; }
             this.speaking = true;
             var text = this.queue.shift();
             var u = new SpeechSynthesisUtterance(text);
@@ -118,12 +136,20 @@
             u.rate = 0.9; u.pitch = 1.0; u.volume = 1.0;
             var v = this.pickVoice();
             if (v) u.voice = v;
-            u.onend = function () {
+            var next = function () {
+                if (self._wd) { clearTimeout(self._wd); self._wd = null; }
                 self.speaking = false;
                 setTimeout(function () { self.pump(); }, 300);
             };
-            u.onerror = function () { self.speaking = false; setTimeout(function () { self.pump(); }, 300); };
-            window.speechSynthesis.speak(u);
+            u.onend = next;
+            u.onerror = next;
+            try {
+                if (speechSynthesis.paused) speechSynthesis.resume();
+                speechSynthesis.speak(u);
+            } catch (e) { next(); return; }
+            // 看门狗：个别浏览器 onend/onerror 不触发会永久卡死队列，超时强制复位续播
+            if (this._wd) clearTimeout(this._wd);
+            this._wd = setTimeout(function () { self.speaking = false; self._wd = null; self.pump(); }, 12000);
         },
         resume: function () {
             if (window.speechSynthesis && window.speechSynthesis.paused) window.speechSynthesis.resume();
@@ -190,11 +216,25 @@
     function unlockAutoplay() {
         if (!mask) return;
         mask.style.display = 'none';
+        // 语音合成热身：用户手势内说一句静音短句，解锁后续自动播报；
+        // 先 cancel 清空可能卡死的旧队列（部分浏览器不触发 onend 会永久阻塞）
         if (window.speechSynthesis) {
-            var u = new SpeechSynthesisUtterance('');
-            u.volume = 0;
-            speechSynthesis.speak(u);
+            try {
+                speechSynthesis.cancel();
+                var u = new SpeechSynthesisUtterance('准备就绪');
+                u.volume = 0; u.lang = 'zh-CN'; u.rate = 2;
+                speechSynthesis.speak(u);
+                speechSynthesis.resume();
+            } catch (e) { }
         }
+        // 同步解锁 Web Audio（提示音）；后续由 chime 结束定时器挂起，不与语音并发
+        try {
+            var AC = window.AudioContext || window.webkitAudioContext;
+            if (AC) {
+                TTS._actx = TTS._actx || new AC();
+                if (TTS._actx.state === 'suspended') TTS._actx.resume();
+            }
+        } catch (e) { }
     }
     if (mask) mask.addEventListener('click', unlockAutoplay);
 
@@ -613,9 +653,11 @@
             ? Clinic.deptRoomName(deptName, roomName)
             : (roomName || deptName);
         var text = '请 ' + String(cur.visit_seq).padStart(3, '0') + ' 号 ' + (cur.raw_name || cur.name || '') + ' 到 ' + fullName + ' 就诊';
-        TTS.chime();
-        TTS.speak(text, 2);
-        TTS.resume();
+        // 提示音结束后再播报语音（串行，避免 Web Audio 与语音抢占音频会话导致后者无声）
+        TTS.chime(function () {
+            TTS.speak(text, 2);
+            TTS.resume();
+        });
     }
 
     /* ============ 轮询心跳 + 数据（SmartPoller 弹性兜底） ============ */
