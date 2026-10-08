@@ -380,21 +380,25 @@ switch ($action) {
                 $seriesCount += is_array($se) ? count($se) : 0;
             }
         }
-        // 直链：模板含 {accession} 用申请单（打开该单全部 Study）；否则单 Study 用 {study_uid}
-        if (strpos($tpl, '{accession}') !== false && $orderNo !== '') {
-            $url = str_replace('{accession}', rawurlencode($orderNo), $tpl);
-        } elseif ($studyUids) {
-            $url = str_replace('{study_uid}', rawurlencode($studyUids[0]), $tpl);
-        } else {
-            // 无影像占位回退：报告号 → 申请单号 → 明细 id（不伪造 UID）
-            $placeholder = '';
+        // 直链：同时填充 {study_uid}（首 Study，标准单 Study）/{uids}（整单全部 Study）/
+        // {accession}（申请单号，供按申请单打开的阅片器）；无影像时占位回退（不伪造 UID）
+        $placeholder = '';
+        if (!$studyUids) {
             if ((int)$it['result_id'] > 0) {
                 $rep = OrderRepository::one("SELECT report_no FROM reports WHERE result_id=? AND status<>'withdrawn' ORDER BY id DESC LIMIT 1", array((int)$it['result_id']));
                 if ($rep) $placeholder = (string)$rep['report_no'];
             }
             if ($placeholder === '') $placeholder = $orderNo !== '' ? $orderNo : (string)$it['id'];
-            $url = str_replace('{study_uid}', rawurlencode($placeholder), $tpl);
         }
+        $url = str_replace(
+            array('{study_uid}', '{uids}', '{accession}'),
+            array(
+                rawurlencode($studyUids ? $studyUids[0] : $placeholder),
+                rawurlencode(implode(',', $studyUids)),
+                rawurlencode($orderNo),
+            ),
+            $tpl
+        );
         json_ok(array(
             'url' => $url,
             'study_uid' => $studyUids ? $studyUids[0] : '',
