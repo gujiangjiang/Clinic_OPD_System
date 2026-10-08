@@ -13,6 +13,19 @@
 
 ---
 
+## [9.10.7] - 2026-10-08
+
+### 修复
+- **叫号大屏绑定医生后显示「连接中断，正在重试…」（接口 HTTP 500）**：
+  `QueueRepository::doctorHeartbeatStale()` 的三驱动方言条件 `$cond` 已自带前缀 `OR`，
+  而查询又拼成 `doctor_heartbeat_at IS NULL OR $cond`，最终生成
+  `... IS NULL OR OR (...)`，SQLite 抛 `near "OR": syntax error`。
+  该保活检测仅在诊室已绑定医生（`current_doctor_id>0`）时触发，未绑定时提前返回空占位，
+  故表现为「大屏未绑定正常、一旦绑定即断连」。修正三驱动 `$cond` 去掉重复 `OR`，
+  恢复医生 / 医技大屏心跳与惰性过期解绑（`sweepStaleBindings` 原写法正确，未受影响）。
+
+---
+
 ## [9.10.6] - 2026-10-08
 
 ### 修复
