@@ -1043,10 +1043,38 @@ function imgCritBtnLabel(prefix) {
 }
 
 function openImgCritSend() {
-    if (!window.__imgCurItem && !CUR_IMG_ITEM) return;
     var cur = window.__imgCurItem || CUR_IMG_ITEM;
+    if (!cur) return;
+    var order = imgItemOrder(cur);
+    var items = (order && order.items) ? order.items : [];
+    if (items.length > 1) {
+        // A2：一张申请单多个检查项目——报危急值先多选具体检查项目（单选则免选）
+        var body = '<div class="fs-13 mb-8">请选择报危急值的检查项目（可多选）：</div>';
+        items.forEach(function (x) {
+            body += '<label style="display:block;margin:6px 0"><input type="checkbox" class="imgCritPickBox" value="' + esc(x.item_name) + '" checked> ' + esc(x.item_name) + '</label>';
+        });
+        Clinic.modal.open(body, {
+            title: '选择检查项目',
+            buttons: [
+                { text: '取消', cls: 'btn-outline' },
+                { text: '确定', cls: 'btn-primary', onClick: function () {
+                    var sel = [];
+                    Array.prototype.forEach.call(document.querySelectorAll('.imgCritPickBox'), function (b) { if (b.checked) sel.push(b.value); });
+                    if (!sel.length) { Clinic.toast.warning('请至少选择一个检查项目'); return; }
+                    Clinic.modal.close();
+                    doOpenImgCritSend(cur, sel);
+                } }
+            ]
+        });
+        return;
+    }
+    doOpenImgCritSend(cur, items.length === 1 ? [items[0].item_name] : []);
+}
+
+/* 打开危急值发送弹窗；selectedNames 为本次报危急值关联的检查项目（多选结果） */
+function doOpenImgCritSend(cur, selectedNames) {
     var q = imgCritLoad();
-    // 将已添加的危急值预览回传弹窗：再次点开可看到已填内容并可删除，避免误以为丢失
+    var prefix = (selectedNames && selectedNames.length) ? (selectedNames.join('、') + '：') : '';
     Clinic.critical.openSend({
         source: 'imaging',
         report_id: '',
@@ -1055,11 +1083,11 @@ function openImgCritSend() {
         doctor_name: cur.doctor_name || '',
         existing: q,
         onAdd: function (cv) {
+            if (prefix && cv && cv.item && String(cv.item).indexOf(prefix) !== 0) cv.item = prefix + cv.item;
             q.push(cv);
             imgCritSave(q);
             renderImgCritQueue();
         },
-        // 删除已添加项（critical.js 弹窗内逐条提供 ，同步回写队列）
         onRemove: function (i) {
             q.splice(i, 1);
             imgCritSave(q);
