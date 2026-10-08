@@ -224,11 +224,11 @@ class QueueRepository extends BaseRepository {
     public static function doctorHeartbeatStale($roomId) {
         $drv = DatabaseManager::driver();
         if ($drv === 'mysql') {
-            $cond = 'OR (UNIX_TIMESTAMP() - UNIX_TIMESTAMP(doctor_heartbeat_at)) > 300';
+            $cond = '(UNIX_TIMESTAMP() - UNIX_TIMESTAMP(doctor_heartbeat_at)) > 300';
         } elseif ($drv === 'pgsql') {
-            $cond = 'OR (EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM doctor_heartbeat_at)) > 300';
+            $cond = '(EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM doctor_heartbeat_at)) > 300';
         } else {
-            $cond = "OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat_at)) > 300";
+            $cond = "(strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat_at)) > 300";
         }
         return (int)self::val(
             "SELECT COUNT(*) FROM clinic_rooms WHERE id=? AND (doctor_heartbeat_at IS NULL OR $cond)",
