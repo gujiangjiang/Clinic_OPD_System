@@ -68,7 +68,7 @@ function refRowHtml(list, isFirst) {
             '<td class="fs-12">' + escHtml(r.order_no || '—') + '</td>' +
             '<td>' + escHtml(r.item_name || '—') + '</td>' +
             '<td><span class="badge badge-gray" style="font-size:11px">' + escHtml(r.modality || 'OT') + '</span></td>' +
-            '<td class="fs-12" style="font-family:monospace;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escHtml(r.study_uid) + '">' + escHtml(r.study_uid) + '</td>' +
+            '<td class="fs-12" style="font-family:monospace;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escHtml((r.study_uids && r.study_uids.length) ? r.study_uids.join('\n') : (r.study_uid || '')) + '">' + escHtml((r.study_count > 1) ? (r.study_count + ' 个 Study') : (r.study_uid || '—')) + '</td>' +
             '<td class="fs-12">' + escHtml(r.region_name || r.region || '—') + '</td>' +
             '<td class="fs-12">' + escHtml(r.created_by || '') + '</td>' +
             '<td>' + ((r.has_image && r.order_item_id)

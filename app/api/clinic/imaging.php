@@ -469,51 +469,64 @@ switch ($action) {
         list($from, $to) = date_span_clamp('refs', $from, $to);
         if ($from !== '') { $where .= ' AND date(ir.created_at)>=?'; $params[] = $from; }
         if ($to !== '') { $where .= ' AND date(ir.created_at)<=?'; $params[] = $to; }
+        // A2：按申请单聚合（一张申请单可含多个 Study）——计数与分页均以申请单为单位
         $total = (int)OrderRepository::val(
-            "SELECT COUNT(*) FROM imaging_refs ir LEFT JOIN orders o ON o.id=ir.order_id WHERE $where",
+            "SELECT COUNT(DISTINCT o.id) FROM imaging_refs ir JOIN orders o ON o.id=ir.order_id WHERE $where",
             $params
         );
-        $rows = OrderRepository::q(
-            "SELECT ir.*, o.order_no, o.category_name, oi.item_name, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
-             FROM imaging_refs ir
-             LEFT JOIN orders o ON o.id=ir.order_id
-             LEFT JOIN order_items oi ON oi.id=ir.order_item_id
-             LEFT JOIN patients p ON p.patient_no=ir.patient_no
-             WHERE $where
-             ORDER BY ir.created_at DESC, ir.id DESC
-             LIMIT ? OFFSET ?",
+        $orderRows = OrderRepository::q(
+            "SELECT o.id, MAX(ir.created_at) AS last_at FROM imaging_refs ir JOIN orders o ON o.id=ir.order_id
+             WHERE $where GROUP BY o.id ORDER BY last_at DESC, o.id DESC LIMIT ? OFFSET ?",
             paged_suffix($params, $page, $pageSize)
         );
         $list = array();
-        foreach ($rows as $r) {
-            // 区域影像存储 / PACS 机构名（登记解析时由 QIDO InstitutionName 写入 meta）
-            $irm = json_decode((string)$r['meta_json'], true);
-            $regionName = (is_array($irm) && !empty($irm['region_name'])) ? (string)$irm['region_name'] : '';
-            if ($regionName === '') $regionName = '区域影像存储';
-            $hasImage = class_exists('ImagingRegionResolver')
-                ? ImagingRegionResolver::isRealUid((string)$r['study_uid']) : ((string)$r['study_uid'] !== '');
-            // 登记人：PACS 侧登记 / 摄片（无门诊操作人）时回退展示为「PACS」
-            $registrar = trim((string)$r['created_by']);
+        foreach ($orderRows as $orr) {
+            $orderId = (int)$orr['id'];
+            $o = OrderRepository::one('SELECT o.*, p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth FROM orders o LEFT JOIN patients p ON p.patient_no=o.patient_no WHERE o.id=?', array($orderId));
+            if (!$o) continue;
+            $refs = OrderRepository::q("SELECT * FROM imaging_refs WHERE order_id=? ORDER BY id", array($orderId));
+            $items = OrderRepository::q("SELECT item_name FROM order_items WHERE order_id=? AND item_type='imaging' ORDER BY id", array($orderId));
+            $itemNames = array();
+            foreach ($items as $x) { $n = trim((string)$x['item_name']); if ($n !== '') $itemNames[] = $n; }
+            $studyUids = array(); $instTotal = 0; $mods = array(); $regionName = ''; $registrar = ''; $hasImage = false; $createdAt = ''; $firstItemId = 0;
+            foreach ($refs as $r) {
+                $uid = (string)$r['study_uid'];
+                $isReal = class_exists('ImagingRegionResolver') ? ImagingRegionResolver::isRealUid($uid) : ($uid !== '');
+                if ($isReal) { $studyUids[] = $uid; $hasImage = true; }
+                $instTotal += (int)$r['instance_count'];
+                $m = trim((string)$r['modality']); if ($m !== '') $mods[$m] = 1;
+                if ($firstItemId === 0 && (int)$r['order_item_id'] > 0) $firstItemId = (int)$r['order_item_id'];
+                $irm = json_decode((string)$r['meta_json'], true);
+                if (is_array($irm)) {
+                    if ($regionName === '' && !empty($irm['region_name'])) $regionName = (string)$irm['region_name'];
+                    if (!empty($irm['item_name'])) { $n = trim((string)$irm['item_name']); if ($n !== '' && !in_array($n, $itemNames, true)) $itemNames[] = $n; }
+                }
+                if ($registrar === '' && trim((string)$r['created_by']) !== '') $registrar = trim((string)$r['created_by']);
+                if ((string)$r['created_at'] > $createdAt) $createdAt = (string)$r['created_at'];
+            }
             if ($registrar === '') $registrar = 'PACS';
+            if ($regionName === '') $regionName = '区域影像存储';
             $list[] = array(
-                'id' => oid((int)$r['id']),
-                'flow_no' => (string)$r['flow_no'],
-                'visit_code' => ((int)$r['visit_id'] > 0 ? oid((int)$r['visit_id']) : ''),
-                'order_item_id' => ((int)$r['order_item_id'] > 0 ? oid((int)$r['order_item_id']) : ''),
-                'patient_no' => (string)$r['patient_no'],
-                'patient_name' => (string)$r['pname'],
-                'gender' => (string)$r['pgender'],
-                'age_fmt' => age_format($r['pbirth']),
-                'order_no' => (string)$r['order_no'],
-                'item_name' => (string)$r['item_name'],
-                'study_uid' => (string)$r['study_uid'],
-                'modality' => (string)$r['modality'],
-                'region' => (string)$r['region'],
+                'id' => oid($orderId),
+                'order_no' => (string)$o['order_no'],
+                'flow_no' => (string)$o['flow_no'],
+                'visit_code' => ((int)$o['visit_id'] > 0 ? oid((int)$o['visit_id']) : ''),
+                'order_item_id' => ($firstItemId > 0 ? oid($firstItemId) : ''),
+                'patient_no' => (string)$o['patient_no'],
+                'patient_name' => (string)$o['pname'],
+                'gender' => (string)$o['pgender'],
+                'age_fmt' => age_format($o['pbirth']),
+                'item_name' => implode('、', $itemNames),
+                'modality' => implode('/', array_keys($mods)),
+                'study_uid' => (count($studyUids) === 1 ? $studyUids[0] : ''),
+                'study_uids' => $studyUids,
+                'study_count' => count($studyUids),
+                'region' => 'region-pacs',
                 'region_name' => $regionName,
                 'has_image' => $hasImage,
-                'instance_count' => (int)$r['instance_count'],
+                'instance_count' => $instTotal,
                 'created_by' => $registrar,
-                'created_at' => (string)$r['created_at'],
+                'created_at' => $createdAt,
             );
         }
         json_ok(array('list' => $list, 'total' => $total, 'has_more' => paged_has_more($page, $pageSize, $total)));
