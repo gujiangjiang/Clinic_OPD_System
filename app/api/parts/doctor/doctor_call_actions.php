@@ -43,8 +43,8 @@ function doctor_call_claim_next_tx($u, $room, $autoRecall = false) {
     if (!$next) return array('error' => '暂无候诊患者，请稍候');
     $visitId = (int)$next['id'];
     // 认领前锁定候选就诊行（MySQL/PG 并发下第二个事务在此阻塞，锁释放后重读
-    // 可见首个事务已写入的 call 事件，双保险真正生效；SQLite 单写者天然串行）
-    QueueRepository::exec('SELECT id FROM registrations WHERE id=? FOR UPDATE', array($visitId));
+    // 可见首个事务已写入的 call 事件，双保险真正生效；SQLite 单写者天然串行、不下发 FOR UPDATE）
+    QueueRepository::lockRegistration($visitId);
     // 锁内重查：该就诊若已被其他医生认领，拒绝重复叫号
     $claimed = (int)QueueRepository::val("SELECT COUNT(*) FROM call_events WHERE visit_id=? AND action='call'", array($visitId));
     if ($claimed > 0) return array('error' => '该患者已被其他医生叫号，队列已刷新');
@@ -78,7 +78,7 @@ function doctor_call_claim_next_tx($u, $room, $autoRecall = false) {
 function doctor_call_recall_missed_tx($u, $room, $visit) {
     $visitId = (int)$visit['id'];
     // 认领前锁定就诊行：并发下另一医生可能已呼叫/重呼该患者，锁内重查兜底
-    QueueRepository::exec('SELECT id FROM registrations WHERE id=? FOR UPDATE', array($visitId));
+    QueueRepository::lockRegistration($visitId);
     $claimed = (int)QueueRepository::val("SELECT COUNT(*) FROM call_events WHERE visit_id=? AND action='call'", array($visitId));
     if ($claimed > 0) return array('error' => '该患者已被其他医生叫号，请刷新后再操作');
     $isMissed = (int)QueueRepository::val("SELECT COUNT(*) FROM call_events WHERE visit_id=? AND action='miss'", array($visitId));

@@ -289,4 +289,18 @@ class QueueRepository extends BaseRepository {
         $t = strtotime($hb);
         return $t !== false && (time() - $t) <= 30;
     }
+
+    /**
+     * 事务内锁定就诊行（悲观行锁）：
+     * 仅 MySQL / PostgreSQL 支持 `SELECT ... FOR UPDATE`；SQLite 为单写者、
+     * 事务本身即串行，无需亦不支持该语法（直接下发会报 near "FOR": syntax error）。
+     * 调用方需已开启事务（认领号源前的并发双保险）。
+     * @param int $visitId 就诊（registrations）ID
+     */
+    public static function lockRegistration($visitId) {
+        $drv = DatabaseManager::driver();
+        if ($drv === 'mysql' || $drv === 'pgsql') {
+            self::exec('SELECT id FROM registrations WHERE id=? FOR UPDATE', array((int)$visitId));
+        }
+    }
 }
