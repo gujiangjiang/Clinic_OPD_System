@@ -159,6 +159,136 @@ class ImagingRegionResolver {
     }
 
     /**
+     * 按检查号解析区域 PACS 的【全部】检查（A2：一申请单可能对应多个 Study）。
+     * @return array 每项 {uid, description, series:[...], instance_count, institution, station}
+     */
+    public static function resolveAllByAccession($accession) {
+        $accession = trim((string)$accession);
+        if ($accession === '' || !self::configured()) return array();
+        $arr = self::getJson('/studies?' . http_build_query(array('AccessionNumber' => $accession, 'includefield' => 'all')));
+        if (!is_array($arr) || !count($arr)) return array();
+        $out = array();
+        foreach ($arr as $st) {
+            if (!is_array($st)) continue;
+            $uid = self::tag($st, '0020000D');
+            if ($uid === '') continue;
+            $institution = self::tag($st, '00080080');
+            $station = self::tag($st, '00081010');
+            $desc = self::tag($st, '00081030');
+            $seriesRes = self::getJson('/studies/' . rawurlencode($uid) . '/series');
+            $series = array(); $total = 0;
+            foreach ((array)$seriesRes as $s) {
+                if (!is_array($s)) continue;
+                $seUid = self::tag($s, '0020000E');
+                if ($seUid === '') continue;
+                $n = (int)self::tag($s, '00201209');
+                if ($n < 0) $n = 0;
+                $pix = ($n > 0) ? self::firstInstanceMeta($uid, $seUid) : array();
+                $series[] = array_merge(array(
+                    'uid' => $seUid,
+                    'description' => self::tag($s, '0008103E'),
+                    'modality' => self::tag($s, '00080060'),
+                    'instances' => $n,
+                ), $pix);
+                $total += $n;
+            }
+            $out[] = array('uid' => $uid, 'description' => $desc, 'series' => $series, 'instance_count' => $total,
+                'institution' => $institution, 'station' => $station);
+        }
+        return $out;
+    }
+
+    /**
+     * 为整张申请单解析并登记影像引用（A2：一申请单 N Study，各登记一条引用，归属申请单）。
+     * @return array 该申请单的影像引用行列表
+     */
+    public static function registerForOrder($orderId) {
+        if (!self::configured()) return array();
+        $orderId = (int)$orderId;
+        $order = OrderRepository::one('SELECT * FROM orders WHERE id=?', array($orderId));
+        if (!$order) return array();
+        $items = OrderRepository::q("SELECT * FROM order_items WHERE order_id=? AND item_type='imaging' ORDER BY id", array($orderId));
+        $studies = self::resolveAllByAccession((string)$order['order_no']);
+        if (!$studies) return array();
+        $u = Auth::user();
+        foreach ($studies as $idx => $r) {
+            $studyUid = self::isRealUid($r['uid']) ? (string)$r['uid'] : imaging_uid_from_seed('study|' . (string)$order['order_no'] . '|' . $idx);
+            $desc = isset($r['description']) ? (string)$r['description'] : '';
+            $matched = self::matchItem($items, $desc, $idx);
+            $mod = '';
+            if (!empty($r['series'][0]['modality'])) $mod = strtoupper((string)$r['series'][0]['modality']);
+            if ($mod === '' && $matched) $mod = imaging_modality_code((string)$matched['item_name']);
+            if ($mod === '') $mod = 'OT';
+            $series = array(); $seriesUids = array(); $total = 0; $i = 0;
+            foreach ($r['series'] as $s) {
+                $i++;
+                $seUid = self::isRealUid($s['uid']) ? (string)$s['uid'] : ($studyUid . '.' . $i);
+                $n = max(0, (int)$s['instances']);
+                $series[] = array_merge($s, array('uid' => $seUid, 'instances' => $n));
+                $seriesUids[] = $seUid;
+                $total += $n;
+            }
+            if (!$series) {
+                $series[] = array('uid' => $studyUid . '.1', 'description' => '', 'modality' => $mod, 'instances' => 0);
+                $seriesUids[] = $studyUid . '.1';
+            }
+            self::upsertRefByUid(array(
+                'order_id' => $orderId,
+                'order_item_id' => $matched ? (int)$matched['id'] : 0,
+                'visit_id' => (int)$order['visit_id'],
+                'patient_no' => (string)$order['patient_no'],
+                'flow_no' => (string)$order['flow_no'],
+                'study_uid' => $studyUid,
+                'series_uids' => $seriesUids,
+                'instance_count' => $total,
+                'modality' => $mod,
+                'region' => 'region-pacs',
+                'meta' => array('series' => $series, 'source' => 'region-pacs', 'item_name' => $desc,
+                    'order_no' => (string)$order['order_no'],
+                    'region_name' => (string)(isset($r['institution']) ? $r['institution'] : ''),
+                    'station_name' => (string)(isset($r['station']) ? $r['station'] : '')),
+                'created_by' => $u ? (string)$u['name'] : 'PACS',
+            ));
+        }
+        return self::refsByOrder($orderId);
+    }
+
+    /** 按 StudyDescription 匹配开单明细（失败回退第 $idx 项，再回退首项） */
+    private static function matchItem($items, $desc, $idx) {
+        $desc = trim((string)$desc);
+        if ($desc !== '') {
+            foreach ($items as $it) {
+                $n = trim((string)$it['item_name']);
+                if ($n !== '' && (stripos($n, $desc) !== false || stripos($desc, $n) !== false)) return $it;
+            }
+        }
+        if (isset($items[$idx])) return $items[$idx];
+        return isset($items[0]) ? $items[0] : null;
+    }
+
+    /** 按 study_uid 幂等 upsert 影像引用（A2：一申请单多条引用，UNIQUE(study_uid)） */
+    public static function upsertRefByUid($ref) {
+        $uid = (string)$ref['study_uid'];
+        $existing = ImagingRepository::one('SELECT id, created_by FROM imaging_refs WHERE study_uid=? ORDER BY id DESC LIMIT 1', array($uid));
+        if ($existing) {
+            $createdBy = (string)$ref['created_by'] !== '' ? (string)$ref['created_by'] : (string)$existing['created_by'];
+            ImagingRepository::exec(
+                'UPDATE imaging_refs SET order_id=?, order_item_id=?, visit_id=?, patient_no=?, flow_no=?, series_uids=?, instance_count=?, modality=?, region=?, meta_json=?, created_by=?, updated_at=? WHERE id=?',
+                array((int)$ref['order_id'], (int)$ref['order_item_id'], (int)$ref['visit_id'], (string)$ref['patient_no'], (string)$ref['flow_no'],
+                    json_encode($ref['series_uids'], JSON_UNESCAPED_UNICODE), (int)$ref['instance_count'], (string)$ref['modality'], (string)$ref['region'],
+                    json_encode($ref['meta'], JSON_UNESCAPED_UNICODE), $createdBy, now_str(), (int)$existing['id'])
+            );
+            return (int)$existing['id'];
+        }
+        return ImagingRepository::putRef($ref);
+    }
+
+    /** 申请单下的全部影像引用（按 id 升序） */
+    public static function refsByOrder($orderId) {
+        return OrderRepository::q('SELECT * FROM imaging_refs WHERE order_id=? ORDER BY id', array((int)$orderId));
+    }
+
+    /**
      * 为该检查明细解析并登记影像引用（未连 PACS / 无匹配返回 null，不产生占位 UID）。
      * @return array|null 影像引用行
      */

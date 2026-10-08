@@ -13,6 +13,15 @@
 
 ---
 
+## [9.10.12] - 2026-10-09
+
+### 变更
+- **影像引用按申请单登记（A2）**：新增 `ImagingRegionResolver::resolveAllByAccession`（按检查号
+  解析全部 Study）与 `registerForOrder`（为申请单登记 N 条影像引用，按 `study_uid` 幂等、
+  归属 `order_id`）；`Task=completed` 回写改为按**申请单**解析登记该单全部 Study。
+
+---
+
 ## [9.10.11] - 2026-10-09
 
 ### 变更
