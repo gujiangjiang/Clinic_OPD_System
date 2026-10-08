@@ -87,7 +87,7 @@ class DataExportImport {
                 'key'   => 'name',
                 'fields' => array(
                     array('项目名称', 'name', true, '胸部正位X线(DR)'),
-                    array('分类', 'category', false, 'DR（数字化X线）'),
+                    array('分类', 'category', false, 'DR'),
                     array('价格(元)', 'price', false, '80'),
                 ),
             ),

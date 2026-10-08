@@ -26,7 +26,7 @@ class DrugSeeder extends Seeder {
 
         // 皮试处置项目（需皮试药品关联）
         $skinMap = array();
-        foreach (array(array('青霉素皮试', 6), array('头孢菌素类皮试', 6), array('碳霉酸类皮试', 6)) as $si) {
+        foreach (array(array('青霉素皮试', 6), array('头孢菌素类皮试', 6), array('碳青霉烯类皮试', 6)) as $si) {
             $st = $pdo->prepare("SELECT id FROM disposal_items WHERE name=?");
             $st->execute(array($si[0]));
             $id = $st->fetchColumn();
@@ -38,7 +38,7 @@ class DrugSeeder extends Seeder {
         }
         $skinTestPenicillinId = $skinMap['青霉素皮试'];
         $skinTestCephaloId = $skinMap['头孢菌素类皮试'];
-        $skinTestCarbaId = $skinMap['碳霉酸类皮试'];
+        $skinTestCarbaId = $skinMap['碳青霉烯类皮试'];
 
         /* ---- 规格解析/剂型/通用名/护士执行辅助（与 full_seed 场景一致） ---- */
         $parseSpec = function ($spec) {
