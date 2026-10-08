@@ -13,6 +13,29 @@
 
 ---
 
+## [9.11.0] - 2026-10-09
+
+> A2 影像工作流（一申请单 N Study，报告合并）门诊侧集成版本（配套 PACS 浏览器 v1.4.0）。
+
+### 新增
+- **影像报告按申请单**：结果/报告以申请单为单位（`order_id`），报告号与检查号 **1:1**；
+  该单全部检查明细整体推进状态。
+- **报告修订同号版本化**：撤回后重写沿用原报告号、`version+1`，历史版本存入 `report_versions`。
+- **影像引用按申请单解析 N Study**：`registerForOrder` 按检查号解析区域 PACS 全部 Study，
+  按 `study_uid` 幂等登记并归属申请单；引用查询按申请单聚合。
+- **阅片直链整单 Study**：`viewer_url` 返回 `{study_uid}/{uids}/{accession}`。
+- **危急值按检查项目多选**。
+
+### 变更
+- 数据模型 schema v51（`results/reports.order_id`、`reports.version`、`report_versions`、
+  `critical_values.order_id`）。
+- 标准映射文档 `docs/IMAGING_WORKFLOW_STANDARD.md`。
+
+### 修复
+- 「有影像」判定、工作台结果展示按申请单聚合，避免多检查项目只显示被选中项。
+
+---
+
 ## [9.10.18] - 2026-10-09
 
 ### 变更
