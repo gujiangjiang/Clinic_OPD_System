@@ -123,35 +123,39 @@ switch ($action) {
         $rv = get_visit_row((int)$it['visit_id']);
         if (!$rv) json_fail('就诊记录不存在');
         if (!dept_visit_allowed($rv['visit'], $u)) json_fail('无权限提交该就诊的检查报告');
-        // done 状态拦截：已生成非撤回报告的项目不可重复提交（防重复报告）；
-        // 需重新录入须先走撤回流程（撤回后状态回到 registered）
-        if ($it['status'] === 'done' && (int)$it['result_id'] > 0) {
-            $hasActive = (int)OrderRepository::val("SELECT COUNT(*) FROM reports WHERE result_id=? AND status<>'withdrawn'", array((int)$it['result_id']));
-            if ($hasActive > 0) json_fail('该检查项目已生成报告，如需修改请先申请撤回');
+        // 申请单级校验：报告号与检查号 1:1（该申请单已有有效报告则拒绝重复提交）
+        $orderId = (int)$it['order_id'];
+        $items = OrderRepository::q("SELECT * FROM order_items WHERE order_id=? AND item_type='imaging' ORDER BY id", array($orderId));
+        $prevReport = OrderRepository::one("SELECT * FROM reports WHERE order_id=? AND type='imaging' ORDER BY id DESC LIMIT 1", array($orderId));
+        if ($prevReport && (string)$prevReport['status'] !== 'withdrawn') {
+            json_fail('该申请单已生成报告，如需修改请先申请撤回');
         }
 
-        // 复合写操作（results + order_items 回写 + reports + 状态）整体包事务保证原子性
+        // 复合写操作（results + 明细回写 + reports + 引用）整体包事务保证原子性
         $pdo = DatabaseManager::getMain();
         $pdo->beginTransaction();
         try {
-            $result = OrderRepository::one('SELECT * FROM results WHERE order_item_id=?', array($itemId));
+            // 申请单级结果（一份）：影像所见 / 结论为该申请单整体书写
+            $result = OrderRepository::one("SELECT * FROM results WHERE order_id=? AND type='imaging' ORDER BY id DESC LIMIT 1", array($orderId));
             if ($result) {
+                $oldFindings = (string)$result['findings'];
+                $oldConclusion = (string)$result['conclusion'];
                 OrderRepository::exec("UPDATE results SET findings=?, conclusion=?, status='done', executed_by=?, updated_at=? WHERE id=?", array(
-                    $findings, $conclusion, $u['name'], now_str(), $result['id'],
+                    $findings, $conclusion, $u['name'], now_str(), (int)$result['id'],
                 ));
-                $resultId = $result['id'];
+                $resultId = (int)$result['id'];
             } else {
-                $resultId = OrderRepository::insert("INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, findings, conclusion, executed_by, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", array(
-                    $it['item_id'], $itemId, $it['visit_id'], $it['patient_no'], $it['flow_no'], 'imaging',
+                $oldFindings = ''; $oldConclusion = '';
+                $resultId = OrderRepository::insert("INSERT INTO results(item_id, order_item_id, order_id, visit_id, patient_no, flow_no, type, findings, conclusion, executed_by, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", array(
+                    (int)$it['item_id'], $itemId, $orderId, $it['visit_id'], $it['patient_no'], $it['flow_no'], 'imaging',
                     $findings, $conclusion, $u['name'], 'done', now_str(), now_str(),
                 ));
             }
-            OrderRepository::exec('UPDATE order_items SET result_id=? WHERE id=?', array($resultId, $itemId));
+            // 该申请单全部检查明细指向同一结果并整体置为已完成
+            OrderRepository::exec("UPDATE order_items SET result_id=?, status='done', executed_by=?, executed_at=? WHERE order_id=? AND item_type='imaging'", array($resultId, $u['name'], now_str(), $orderId));
 
-            // 报告（insert_report：MAX+1 生成 + 唯一索引并发撞号重试，杜绝重复报告号）
-            $reportNo = next_report_no('imaging');
-            // 快照固化：申请科室/申请医生/临床诊断（首诊断不含 ICD10）/申请时间/检查登记时间
-            $snapOrder = OrderRepository::one('SELECT * FROM orders WHERE id=?', array((int)$it['order_id']));
+            // 快照固化：申请科室/申请医生/临床诊断/申请时间/登记时间
+            $snapOrder = OrderRepository::one('SELECT * FROM orders WHERE id=?', array($orderId));
             $diag = '';
             $prDiag = OrderRepository::one("SELECT emr_data FROM patient_records WHERE visit_id=? AND emr_data IS NOT NULL AND emr_data!='' ORDER BY id ASC LIMIT 1", array((int)$it['visit_id']));
             if ($prDiag) {
@@ -163,46 +167,53 @@ switch ($action) {
                 $mirrorD = OrderRepository::one("SELECT preliminary_diagnosis FROM records WHERE visit_id=? AND preliminary_diagnosis IS NOT NULL AND preliminary_diagnosis!='' ORDER BY id ASC LIMIT 1", array((int)$it['visit_id']));
                 if ($mirrorD) $diag = (string)$mirrorD['preliminary_diagnosis'];
             }
-            // 检查分类快照（标题前缀）：申请单 category_name，空则回退检查项目分类
             $catName = '';
-            if ($snapOrder && !empty($snapOrder['category_name'])) {
-                $catName = trim((string)$snapOrder['category_name']);
-            }
+            if ($snapOrder && !empty($snapOrder['category_name'])) $catName = trim((string)$snapOrder['category_name']);
             if ($catName === '' && (int)$it['item_id'] > 0) {
                 $catItem = OrderRepository::one('SELECT category FROM exam_items WHERE id=?', array((int)$it['item_id']));
-                if ($catItem) {
-                    $c2 = trim((string)$catItem['category']);
-                    if ($c2 !== '' && $c2 !== '检查') $catName = $c2;
-                }
+                if ($catItem) { $c2 = trim((string)$catItem['category']); if ($c2 !== '' && $c2 !== '检查') $catName = $c2; }
             }
-            $reportId = insert_report(array(
-                'result_id' => $resultId, 'report_no' => $reportNo,
-                'visit_id' => $it['visit_id'], 'patient_no' => $it['patient_no'], 'flow_no' => $it['flow_no'],
-                'type' => 'imaging', 'doctor' => $u['name'], 'status' => 'done',
-                'apply_dept_name' => $snapOrder ? (string)$snapOrder['dept_name'] : '',
-                'apply_doctor_name' => $snapOrder ? (string)$snapOrder['doctor_name'] : '',
-                'clinical_diagnosis' => $diag,
-                'applied_at' => $snapOrder ? (string)$snapOrder['created_at'] : '',
-                'registered_at' => (string)$it['registered_at'],
-                'category_name' => $catName,
-                // 检查项目字典快照（出具时刻）：后续字典改名/改类不影响历史报告
-                'item_meta' => array('group' => false, 'item' => array(
-                    'name' => (string)$it['item_name'],
-                    'category' => $catName,
-                    'findings' => (string)$findings,
-                    'conclusion' => (string)$conclusion,
-                )),
-            ));
-            OrderRepository::exec("UPDATE order_items SET status='done', executed_by=?, executed_at=? WHERE id=?", array($u['name'], now_str(), $itemId));
-            // 影像引用：报告不以「是否有影像」为硬前提（医生可能已在其它 PACS 阅片），
-            // 但登记时若未解析成功，此处按检查号兜底再解析一次；有合规引用则并入报告信息，
-            // 未获取到影像也不阻断出具（前端在书写前提示）。绝不使用占位/伪造 UID。
-            $ref = ImagingRepository::refByItem($itemId);
-            if (!ImagingRegionResolver::isRealUid($ref ? $ref['study_uid'] : '')) {
-                try { ImagingRegionResolver::registerForItem($itemId); } catch (Exception $e) { /* 解析失败按无影像处理 */ }
-                $ref = ImagingRepository::refByItem($itemId);
+            // 检查项目快照（该申请单全部明细）：后出报告头/历史可列出全部项目
+            $itemList = array();
+            foreach ($items as $x) $itemList[] = array('id' => (int)$x['id'], 'name' => (string)$x['item_name']);
+            $itemsLabel = implode('、', array_map(function ($x) { return (string)$x['name']; }, $itemList));
+            $itemMeta = array('group' => false,
+                'item' => array('name' => (string)$it['item_name'], 'category' => $catName, 'findings' => (string)$findings, 'conclusion' => (string)$conclusion),
+                'items' => $itemList);
+
+            // 报告号 1:1：新出用 next_report_no；修订（原报告已撤回）沿用原号 + 版本 +1
+            $version = 1;
+            if ($prevReport) {
+                $reportNo = (string)$prevReport['report_no'];
+                $version = (int)$prevReport['version'] + 1;
+                $reportId = (int)$prevReport['id'];
+                OrderRepository::insert("INSERT INTO report_versions(report_id, report_no, version, findings, conclusion, doctor_name, status, reason, created_by, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)", array(
+                    $reportId, $reportNo, (int)$prevReport['version'], $oldFindings, $oldConclusion,
+                    (string)$prevReport['doctor_name'], (string)$prevReport['status'], '修订前版本', (string)$u['name'], now_str()));
+                OrderRepository::exec("UPDATE reports SET result_id=?, order_id=?, version=?, doctor_name=?, status='done', clinical_diagnosis=?, item_meta=?, created_at=? WHERE id=?", array(
+                    $resultId, $orderId, $version, $u['name'], $diag,
+                    json_encode($itemMeta, JSON_UNESCAPED_UNICODE), now_str(), $reportId));
+            } else {
+                $reportNo = next_report_no('imaging');
+                $reportId = insert_report(array(
+                    'result_id' => $resultId, 'report_no' => $reportNo,
+                    'visit_id' => $it['visit_id'], 'patient_no' => $it['patient_no'], 'flow_no' => $it['flow_no'],
+                    'type' => 'imaging', 'doctor' => $u['name'], 'status' => 'done',
+                    'apply_dept_name' => $snapOrder ? (string)$snapOrder['dept_name'] : '',
+                    'apply_doctor_name' => $snapOrder ? (string)$snapOrder['doctor_name'] : '',
+                    'clinical_diagnosis' => $diag,
+                    'applied_at' => $snapOrder ? (string)$snapOrder['created_at'] : '',
+                    'registered_at' => (string)$it['registered_at'],
+                    'category_name' => $catName,
+                    'item_meta' => $itemMeta,
+                ));
+                OrderRepository::exec("UPDATE reports SET order_id=?, version=1 WHERE id=?", array($orderId, $reportId));
             }
-            if ($ref) {
+
+            // 影像引用：为申请单解析登记全部 Study（A2），并把报告信息回写到该单每条引用
+            try { ImagingRegionResolver::registerForOrder($orderId); } catch (Exception $e) { /* 区域 PACS 不可达时留待调阅自愈 */ }
+            $refs = ImagingRegionResolver::refsByOrder($orderId);
+            foreach ($refs as $ref) {
                 $refMeta = json_decode((string)$ref['meta_json'], true);
                 if (!is_array($refMeta)) $refMeta = array();
                 $refMeta['report_id'] = (int)$reportId;
@@ -219,12 +230,12 @@ switch ($action) {
         if ($it['doctor_id'] > 0) {
             $pName = OrderRepository::val('SELECT name FROM patients WHERE patient_no=?', array($it['patient_no']));
             send_msg('doctor', $it['doctor_id'],
-                '检查报告已出：' . $it['item_name'],
-                '患者「' . $pName . '」（' . $it['patient_no'] . '）的检查「' . $it['item_name'] . '」报告已出具，报告编号 ' . $reportNo,
+                '检查报告已出：' . ($itemsLabel !== '' ? $itemsLabel : $it['item_name']),
+                '患者「' . $pName . '」（' . $it['patient_no'] . '）的检查申请单（' . ($snapOrder ? $snapOrder['order_no'] : '') . '）报告已出具，报告编号 ' . (isset($reportNo) ? $reportNo : ''),
                 'report', '/api/print?action=report&report_id=' . oid($reportId),
                 array('msg_type' => 'patient', 'patient_name' => $pName, 'visit_id' => (int)$it['visit_id']));
         }
-        json_ok(array('report_id' => oid($reportId)), '报告已生成并提交');
+        json_ok(array('report_id' => oid($reportId), 'report_no' => (isset($reportNo) ? $reportNo : ''), 'version' => (isset($version) ? $version : 1)), '报告已生成并提交');
         break;
 
     /* ==================== 申请撤回报告 ==================== */

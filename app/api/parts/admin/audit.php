@@ -307,9 +307,16 @@ function admin_part_audit($action) {
                     if ($report) {
                         AuditRepository::exec("UPDATE reports SET status='withdrawn', withdraw_reason=?, withdraw_by=?, withdraw_at=? WHERE id=?", array($audit['content'], $u['name'], now_str(), $refId));
                         AuditRepository::exec("UPDATE results SET status='draft' WHERE id=?", array($report['result_id']));
-                        $result = AuditRepository::one('SELECT order_item_id FROM results WHERE id=?', array($report['result_id']));
-                        if ($result && (int)$result['order_item_id'] > 0) {
-                            AuditRepository::exec("UPDATE order_items SET status='registered' WHERE id=?", array((int)$result['order_item_id']));
+                        // 报告按申请单（A2）：撤回后该申请单全部检查明细回到「已登记」可重新录入
+                        $orderId = (int)$report['order_id'];
+                        if ($orderId > 0) {
+                            AuditRepository::exec("UPDATE order_items SET status='registered' WHERE order_id=? AND item_type='imaging'", array($orderId));
+                        } else {
+                            // 兼容历史（明细级报告）：按结果关联的单个检查明细回退
+                            $result = AuditRepository::one('SELECT order_item_id FROM results WHERE id=?', array($report['result_id']));
+                            if ($result && (int)$result['order_item_id'] > 0) {
+                                AuditRepository::exec("UPDATE order_items SET status='registered' WHERE id=?", array((int)$result['order_item_id']));
+                            }
                         }
                     }
                 }
