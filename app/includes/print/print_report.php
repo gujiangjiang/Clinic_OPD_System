@@ -52,7 +52,7 @@ function pt_lab_report($report, $result, $item) {
     $values = json_decode((string)$result['values_json'], true);
     if (is_array($values) && !empty($values['group'])) {
         // 检验组：按组内成员逐行显示结果（组合项目按组价收费，成员结果分别出具）
-        $members = OrderRepository::q('SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array((int)$item['id']));
+        $members = OrderRepository::q('SELECT * FROM lab_items WHERE is_group=0 AND id IN (SELECT item_id FROM lab_group_members WHERE group_id=?) ORDER BY id', array((int)$item['id']));
         if (!$members) $members = array();
         // 组内成员快照优先（出具时刻定格）：字典改名/改范围不影响历史报告
         $snapMembers = null;
@@ -206,7 +206,7 @@ function pt_report($report, $result, $item) {
             <tr><th style="width:25%">项目名称</th><th style="width:20%">结果</th><th style="width:15%">单位</th><th style="width:20%">正常范围</th><th style="width:20%">危急值</th></tr>';
         if (is_array($values) && !empty($values['group'])) {
             // 检验组：按组内成员逐行显示结果（组合项目按组价收费，成员结果分别出具）
-            $members = OrderRepository::q('SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array(isset($item['id']) ? (int)$item['id'] : 0));
+            $members = OrderRepository::q('SELECT * FROM lab_items WHERE is_group=0 AND id IN (SELECT item_id FROM lab_group_members WHERE group_id=?) ORDER BY id', array(isset($item['id']) ? (int)$item['id'] : 0));
             if (!$members) {
                 $members = array();
             }

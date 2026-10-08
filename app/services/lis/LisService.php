@@ -145,7 +145,7 @@ class LisService {
             $name = trim((string)($oi['dict_name'] !== '' ? $oi['dict_name'] : $oi['item_name']));
             if ($name !== '') $byName[$name] = $oi;
             if ((int)$oi['dict_group'] === 1) {
-                $members = OrderRepository::q('SELECT id, name FROM lab_items WHERE parent_id=? AND is_group=0', array((int)$oi['item_id']));
+                $members = OrderRepository::q('SELECT id, name FROM lab_items WHERE is_group=0 AND id IN (SELECT item_id FROM lab_group_members WHERE group_id=?)', array((int)$oi['item_id']));
                 foreach ($members as $m) {
                     $groupByMember[trim((string)$m['name'])] = array('group_oi' => $oi, 'member_id' => (int)$m['id']);
                 }

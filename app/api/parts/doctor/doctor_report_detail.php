@@ -35,7 +35,7 @@ function doctor_read_report_detail($u) {
             // 组内成员：快照优先（出具时刻定格）
             $members = $snapMembers;
             if (!$members) {
-                $members = EmrRepository::q('SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array((int)$result['item_id']));
+                $members = EmrRepository::q('SELECT * FROM lab_items WHERE is_group=0 AND id IN (SELECT item_id FROM lab_group_members WHERE group_id=?) ORDER BY id', array((int)$result['item_id']));
             }
             foreach ($members as $m) {
                 $v = isset($values['values'][(string)$m['id']]) ? $values['values'][(string)$m['id']] : '';

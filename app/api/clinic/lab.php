@@ -131,7 +131,7 @@ switch ($action) {
         </div>';
         // 检验组：显示组内每个成员一行输入框（组价开单，成员结果分别录入）
         if ($item && (int)$item['is_group'] === 1) {
-            $members = OrderRepository::q("SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id", array($item['id']));
+            $members = OrderRepository::q("SELECT * FROM lab_items WHERE is_group=0 AND id IN (SELECT item_id FROM lab_group_members WHERE group_id=?) ORDER BY id", array($item['id']));
             if (!$members) {
                 $members = array();
             }
@@ -186,7 +186,7 @@ switch ($action) {
         if ($isGroup) {
             $vals = json_decode($value, true);
             if (!is_array($vals) || !$vals) json_fail('请输入组内各项检验结果');
-            $members = OrderRepository::q("SELECT id FROM lab_items WHERE parent_id=? AND is_group=0", array($it['item_id']));
+            $members = OrderRepository::q("SELECT id FROM lab_items WHERE is_group=0 AND id IN (SELECT item_id FROM lab_group_members WHERE group_id=?)", array($it['item_id']));
             $need = array();
             foreach ($members as $m) $need[(int)$m['id']] = true;
             $filled = array();
@@ -289,7 +289,7 @@ switch ($action) {
         $critItems = array();
         if ($item) {
             if ($isGroup) {
-                $members = OrderRepository::q("SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id", array($it['item_id']));
+                $members = OrderRepository::q("SELECT * FROM lab_items WHERE is_group=0 AND id IN (SELECT item_id FROM lab_group_members WHERE group_id=?) ORDER BY id", array($it['item_id']));
                 foreach ($members as $m) {
                     $v = isset($filled[(int)$m['id']]) ? $filled[(int)$m['id']] : '';
                     if (crit_row_hit($v, $m['critical_low'], $m['critical_high'])) {

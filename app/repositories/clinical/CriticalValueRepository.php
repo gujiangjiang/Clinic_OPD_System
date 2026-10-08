@@ -11,7 +11,7 @@ class CriticalValueRepository extends BaseRepository {
 
     /** 检验组合的子项目明细（危急值展示用） */
     public static function groupItems($itemId) {
-        return self::q('SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array((int)$itemId));
+        return self::q('SELECT * FROM lab_items WHERE is_group=0 AND id IN (SELECT item_id FROM lab_group_members WHERE group_id=?) ORDER BY id', array((int)$itemId));
     }
 
     /** 科室名（当前医生科室 / 发起科室展示用） */

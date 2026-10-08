@@ -151,11 +151,11 @@ function admin_part_item($action) {
         foreach ($cats as $c) {
             $catOpts .= '<option value="' . e($c['name']) . '"' . ($r['category'] === $c['name'] ? ' selected' : '') . '>' . e($c['name']) . '</option>';
         }
-        // 可选成员：独立检验项目（未被其他组占用）+ 本组当前成员
-        $cands = OrderRepository::q('SELECT * FROM lab_items WHERE is_group=0 AND (parent_id=0 OR parent_id=?) ORDER BY category, id', array($id));
+        // 可选成员：全部独立检验项目（组合为多对多，同一项目可属于多个组合）
+        $cands = OrderRepository::q('SELECT * FROM lab_items WHERE is_group=0 ORDER BY category, id');
         $sel = array();
         if ($id) {
-            foreach (OrderRepository::q('SELECT id FROM lab_items WHERE parent_id=?', array($id)) as $m) $sel[] = (int)$m['id'];
+            foreach (OrderRepository::q('SELECT item_id FROM lab_group_members WHERE group_id=?', array($id)) as $m) $sel[] = (int)$m['item_id'];
         }
         $memberBox = '';
         foreach ($cands as $c) {

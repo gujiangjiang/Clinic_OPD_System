@@ -312,7 +312,7 @@ function deptwork_orders($visitId) {
                                 'normal_range' => $m['normal_range'],
                                 'critical_low' => $m['critical_low'], 'critical_high' => $m['critical_high'],
                             );
-                        }, OrderRepository::q("SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id", array((int)$lm['id'])));
+                        }, OrderRepository::q("SELECT * FROM lab_items WHERE is_group=0 AND id IN (SELECT item_id FROM lab_group_members WHERE group_id=?) ORDER BY id", array((int)$lm['id'])));
                     }
                 }
             }

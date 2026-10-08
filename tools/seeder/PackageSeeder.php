@@ -35,7 +35,7 @@ class PackageSeeder extends Seeder {
             array('drugs', '地塞米松磷酸钠注射液', 1, 'min'),
         ]],
         ['血常规及感染筛查套餐', 'lab', [
-            array('lab_items', '血常规二十项', 1, ''),
+            array('lab_items', '血常规十六项', 1, ''),
             array('lab_items', 'C反应蛋白(CRP)', 1, ''),
             array('lab_items', '降钙素原(PCT)', 1, ''),
         ]],

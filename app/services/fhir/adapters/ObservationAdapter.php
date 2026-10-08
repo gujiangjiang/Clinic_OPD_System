@@ -61,7 +61,7 @@ class ObservationAdapter extends FhirAdapter {
         if (!empty($values['group'])) {
             $members = array();
             if ($item) {
-                $members = PatientRepository::q('SELECT * FROM lab_items WHERE parent_id=? AND is_group=0 ORDER BY id', array((int)$item['id']));
+                $members = PatientRepository::q('SELECT * FROM lab_items WHERE is_group=0 AND id IN (SELECT item_id FROM lab_group_members WHERE group_id=?) ORDER BY id', array((int)$item['id']));
             }
             $map = isset($values['values']) && is_array($values['values']) ? $values['values'] : array();
             $meta = isset($values['meta']) && is_array($values['meta']) ? $values['meta'] : array();
