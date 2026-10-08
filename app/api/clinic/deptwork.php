@@ -317,7 +317,11 @@ function deptwork_orders($visitId) {
                 }
             }
             // 结果数据：检验结果值 / 影像所见与结论
-            $result = OrderRepository::one('SELECT * FROM results WHERE order_item_id=?', array((int)$it['id']));
+            // 结果：影像报告按申请单（A2），优先按 order_id 取该单结果；回退历史按明细
+            $result = ($it['item_type'] === 'imaging')
+                ? OrderRepository::one("SELECT * FROM results WHERE order_id=? AND type='imaging' ORDER BY id DESC LIMIT 1", array((int)$o['id']))
+                : null;
+            if (!$result) $result = OrderRepository::one('SELECT * FROM results WHERE order_item_id=?', array((int)$it['id']));
             if ($result) {
                 $row['values_json'] = (string)$result['values_json'];
                 $row['findings'] = (string)$result['findings'];
@@ -332,12 +336,15 @@ function deptwork_orders($visitId) {
                     $row['report_status'] = $report['status'];
                 }
             }
-            // 影像项目：是否已获取影像（真实合规 StudyInstanceUID），供书写报告前提示
+            // 影像项目：是否已获取影像（真实合规 StudyInstanceUID）——按申请单（A2）判定该单任一 Study
             if ($it['item_type'] === 'imaging') {
-                $ref = ImagingRepository::refByItem((int)$it['id']);
-                $row['has_image'] = ($ref && class_exists('ImagingRegionResolver')
-                    ? ImagingRegionResolver::isRealUid($ref['study_uid']) : false);
-                $row['study_uid'] = $ref ? (string)$ref['study_uid'] : '';
+                $refs = class_exists('ImagingRegionResolver') ? ImagingRegionResolver::refsByOrder((int)$o['id']) : array();
+                $real = null;
+                foreach ($refs as $rf) {
+                    if (ImagingRegionResolver::isRealUid($rf['study_uid'])) { $real = $rf; break; }
+                }
+                $row['has_image'] = ($real !== null);
+                $row['study_uid'] = $real ? (string)$real['study_uid'] : '';
             }
             $items[] = $row;
         }
