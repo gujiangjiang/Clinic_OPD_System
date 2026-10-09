@@ -172,14 +172,13 @@ class BaseRepository {
     }
 
     /**
-     * 表名标识符引用（反引号）。
-     * 说明：SQLite 与 MySQL 均接受反引号标识符（MySQL 默认 sql_mode 下
-     * 双引号会被当作字符串字面量，`FROM "drugs"` 会语法错误），统一用反引号
-     * 保证双驱动一键切换在通用 CRUD 链路上成立。
+     * 表名标识符引用：SQLite/MySQL 用反引号，PostgreSQL 用双引号。
+     * 说明：MySQL 默认 sql_mode 下双引号被当作字符串字面量，故 MySQL 必须反引号；
+     * PG 不接受反引号。按当前驱动选择，保证通用 CRUD 链路三库可用。
      * @param string $table 表名（须先经 assertTable 白名单校验）
      * @return string
      */
     private static function qt($table) {
-        return '`' . $table . '`';
+        return DatabaseManager::driver() === 'pgsql' ? '"' . $table . '"' : '`' . $table . '`';
     }
 }

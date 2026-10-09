@@ -8,6 +8,9 @@
 
 function admin_ana_trend() {
     list($start, $end) = ana_range();
+    $dPaid = sql_date_part('paid_at');
+    $dCreated = sql_date_part('created_at');
+    $gCreated = sql_date_group('created_at');
     // 日期轴（含无数据日补零）
     $labels = array();
     $days = array();
@@ -28,7 +31,7 @@ function admin_ana_trend() {
         'imaging' => $blank, 'procedure' => $blank, 'patients' => $blank,
     );
     // 项目费日序列
-    foreach (ana_order_sums($start, $end, '', array(), "strftime('%Y-%m-%d', paid_at)") as $r) {
+    foreach (ana_order_sums($start, $end, '', array(), sql_date_group('paid_at')) as $r) {
         $g = $r['g']; if (!isset($days[$g])) continue;
         $i = $days[$g];
         if ($r['t'] === 'prescription') $series['drug'][$i] += round((float)$r['s'], 2);
@@ -38,14 +41,14 @@ function admin_ana_trend() {
         $series['total'][$i] += round((float)$r['s'], 2);
     }
     // 挂号费日序列（并入 total，不单列折线避免过密）
-    foreach (AnalyticsRepository::q("SELECT strftime('%Y-%m-%d', created_at) AS g, COALESCE(SUM(total_amount),0) AS s
-        FROM payments WHERE kind='visit' AND date(created_at) BETWEEN ? AND ? GROUP BY g", array($start, $end)) as $r) {
+    foreach (AnalyticsRepository::q("SELECT $gCreated AS g, COALESCE(SUM(total_amount),0) AS s
+        FROM payments WHERE kind='visit' AND $dCreated BETWEEN ? AND ? GROUP BY g", array($start, $end)) as $r) {
         if (!isset($days[$r['g']])) continue;
         $series['total'][$days[$r['g']]] += round((float)$r['s'], 2);
     }
     // 人次日序列
-    foreach (AnalyticsRepository::q("SELECT date(paid_at) AS g, COUNT(*) AS c FROM registrations
-        WHERE status IN ('paid','visiting','finished') AND paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ? GROUP BY g",
+    foreach (AnalyticsRepository::q("SELECT $dPaid AS g, COUNT(*) AS c FROM registrations
+        WHERE status IN ('paid','visiting','finished') AND paid_at IS NOT NULL AND $dPaid BETWEEN ? AND ? GROUP BY g",
         array($start, $end)) as $r) {
         if (!isset($days[$r['g']])) continue;
         $series['patients'][$days[$r['g']]] = (int)$r['c'];

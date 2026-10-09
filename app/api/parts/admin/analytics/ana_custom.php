@@ -12,19 +12,19 @@ function admin_ana_custom() {
     $allow = array('patients', 'reg_fee', 'drug', 'lab', 'imaging', 'procedure', 'total');
     $metrics = array_values(array_intersect($allow, array_map('trim', $metricList)));
     if (!$metrics) $metrics = array('patients', 'total');
-    $fmtMap = array('day' => '%Y-%m-%d', 'month' => '%Y-%m', 'year' => '%Y');
-    $timeExpr = function ($col) use ($fmtMap, $groupBy) {
-        $fmt = $fmtMap[$groupBy];
-        return "strftime('$fmt', $col)";
+    $timeExpr = function ($col) use ($groupBy) {
+        return sql_date_group($col, $groupBy);
     };
+    $dPaid = sql_date_part('paid_at');
+    $dCreated = sql_date_part('created_at');
     if ($groupBy === 'day' || $groupBy === 'month' || $groupBy === 'year') {
         $tePaid = $timeExpr('paid_at');
         $tePay = $timeExpr('created_at');
         $teReg = $timeExpr('paid_at');
         $labelSet = array();
-        foreach (AnalyticsRepository::q("SELECT DISTINCT $tePaid AS g FROM orders WHERE paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ?", array($start, $end)) as $r) $labelSet[$r['g']] = true;
-        foreach (AnalyticsRepository::q("SELECT DISTINCT $tePay AS g FROM payments WHERE kind='visit' AND date(created_at) BETWEEN ? AND ?", array($start, $end)) as $r) $labelSet[$r['g']] = true;
-        foreach (AnalyticsRepository::q("SELECT DISTINCT $teReg AS g FROM registrations WHERE paid_at IS NOT NULL AND status IN ('paid','visiting','finished') AND date(paid_at) BETWEEN ? AND ?", array($start, $end)) as $r) $labelSet[$r['g']] = true;
+        foreach (AnalyticsRepository::q("SELECT DISTINCT $tePaid AS g FROM orders WHERE paid_at IS NOT NULL AND $dPaid BETWEEN ? AND ?", array($start, $end)) as $r) $labelSet[$r['g']] = true;
+        foreach (AnalyticsRepository::q("SELECT DISTINCT $tePay AS g FROM payments WHERE kind='visit' AND $dCreated BETWEEN ? AND ?", array($start, $end)) as $r) $labelSet[$r['g']] = true;
+        foreach (AnalyticsRepository::q("SELECT DISTINCT $teReg AS g FROM registrations WHERE paid_at IS NOT NULL AND status IN ('paid','visiting','finished') AND $dPaid BETWEEN ? AND ?", array($start, $end)) as $r) $labelSet[$r['g']] = true;
         ksort($labelSet);
         $labels = array_keys($labelSet);
         $idx = array_flip($labels);
@@ -38,7 +38,7 @@ function admin_ana_custom() {
         if ($needOrder) {
             $ge = $timeExpr('paid_at');
             foreach (AnalyticsRepository::q("SELECT order_type AS t, $ge AS g, COALESCE(SUM(total_amount),0) AS s FROM orders
-                WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ? GROUP BY t, g",
+                WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND $dPaid BETWEEN ? AND ? GROUP BY t, g",
                 array($start, $end)) as $r) {
                 $k = array('prescription' => 'drug', 'lab' => 'lab', 'imaging' => 'imaging', 'procedure' => 'procedure');
                 $tk = isset($k[$r['t']]) ? $k[$r['t']] : null;
@@ -48,12 +48,12 @@ function admin_ana_custom() {
             }
         }
         if (in_array('reg_fee', $metrics, true)) {
-            foreach (AnalyticsRepository::q("SELECT $tePay AS g, COALESCE(SUM(total_amount),0) AS s FROM payments WHERE kind='visit' AND date(created_at) BETWEEN ? AND ? GROUP BY g", array($start, $end)) as $r) {
+            foreach (AnalyticsRepository::q("SELECT $tePay AS g, COALESCE(SUM(total_amount),0) AS s FROM payments WHERE kind='visit' AND $dCreated BETWEEN ? AND ? GROUP BY g", array($start, $end)) as $r) {
                 $add('reg_fee', $r['g'], (float)$r['s']);
             }
         }
         if (in_array('patients', $metrics, true)) {
-            foreach (AnalyticsRepository::q("SELECT $teReg AS g, COUNT(*) AS c FROM registrations WHERE paid_at IS NOT NULL AND status IN ('paid','visiting','finished') AND date(paid_at) BETWEEN ? AND ? GROUP BY g", array($start, $end)) as $r) {
+            foreach (AnalyticsRepository::q("SELECT $teReg AS g, COUNT(*) AS c FROM registrations WHERE paid_at IS NOT NULL AND status IN ('paid','visiting','finished') AND $dPaid BETWEEN ? AND ? GROUP BY g", array($start, $end)) as $r) {
                 $add('patients', $r['g'], (int)$r['c']);
             }
         }
@@ -91,7 +91,7 @@ function admin_ana_custom() {
         json_ok(array('range' => array('start' => $start, 'end' => $end), 'group_by' => $groupBy, 'metrics' => $metrics, 'rows' => $rows));
     }
     $rows = array();
-    foreach (AnalyticsRepository::q("SELECT doctor_id, doctor_name, COUNT(*) AS c FROM patient_records WHERE date(created_at) BETWEEN ? AND ? GROUP BY doctor_id, doctor_name", array($start, $end)) as $r) {
+    foreach (AnalyticsRepository::q("SELECT doctor_id, doctor_name, COUNT(*) AS c FROM patient_records WHERE $dCreated BETWEEN ? AND ? GROUP BY doctor_id, doctor_name", array($start, $end)) as $r) {
         $rows[(int)$r['doctor_id']] = array('label' => $r['doctor_name'], 'patients' => (int)$r['c'], 'reg_fee' => 0.0, 'drug' => 0.0, 'lab' => 0.0, 'imaging' => 0.0, 'procedure' => 0.0, 'total' => 0.0);
     }
     foreach (ana_order_sums($start, $end, 'doctor_id > 0', array(), 'doctor_id') as $r) {

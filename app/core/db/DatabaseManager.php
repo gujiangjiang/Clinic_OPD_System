@@ -742,9 +742,14 @@ class DatabaseManager {
         return $st->rowCount();
     }
 
-    /** 插入并返回自增主键 */
+    /** 插入并返回自增主键（INSERT OR IGNORE 自动做跨库方言翻译） */
     public static function insert($a, $b = array(), $c = null) {
         list($pdo, $sql, $params) = self::resolve($a, $b, $c);
+        // 运行时幂等插入：SQLite 的 INSERT OR IGNORE 在 MySQL/PG 需方言转换
+        // （MySQL→INSERT IGNORE；PG→INSERT ... ON CONFLICT DO NOTHING）
+        if (stripos($sql, 'INSERT OR IGNORE') !== false && self::driver() !== 'sqlite') {
+            $sql = self::dialectSqlFor(self::driver(), $sql);
+        }
         $pdo->prepare($sql)->execute($params);
         $id = (int)$pdo->lastInsertId();
         self::mirrorNowOrBuffer($pdo, $sql, $params);

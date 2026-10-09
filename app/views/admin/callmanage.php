@@ -17,7 +17,7 @@ foreach ($depts as $d) {
 $deptPickerData = array();
 foreach ($depts as $d) {
     $total = (int)QueueRepository::val('SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=?', array((int)$d['id']));
-    $online = (int)QueueRepository::val("SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat_at IS NOT NULL AND (strftime('%s','now','localtime') - strftime('%s',screen_last_heartbeat_at)) <= 30", array((int)$d['id']));
+    $online = (int)QueueRepository::val("SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat_at IS NOT NULL AND " . sql_seconds_since('screen_last_heartbeat_at') . " <= 30", array((int)$d['id']));
     $deptPickerData[] = array(
         'id' => (int)$d['id'],
         'name' => $d['name'],

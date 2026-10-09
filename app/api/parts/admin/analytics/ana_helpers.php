@@ -27,10 +27,11 @@ function ana_range() {
 
 /** 项目费按类型汇总（SQL 片段复用）：返回 [type => SUM] */
 function ana_order_sums($start, $end, $extraWhere = '', $extraParams = array(), $groupExpr = '') {
+    $dPaid = sql_date_part('paid_at');
     $sql = "SELECT order_type AS t" . ($groupExpr !== '' ? ',' . $groupExpr . ' AS g' : '') .
         ", COALESCE(SUM(total_amount),0) AS s FROM orders
           WHERE status NOT IN ('refunded','cancelled')
-          AND paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ?" .
+          AND paid_at IS NOT NULL AND $dPaid BETWEEN ? AND ?" .
           ($extraWhere !== '' ? ' AND ' . $extraWhere : '');
     $sql .= ' GROUP BY order_type' . ($groupExpr !== '' ? ',' . $groupExpr : '');
     $rows = AnalyticsRepository::q($sql, array_merge(array($start, $end), $extraParams));

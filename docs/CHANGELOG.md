@@ -38,6 +38,12 @@
   表达式索引 IMMUTABLE 要求）；迁移表数统计 `db_migrate_run.php` 的 `DATABASE()`
   按驱动分支（PG 用 `current_schema()`）；`DatabaseMigrator` PG 列反射限定当前 schema；
   跨库迁移目标 MySQL 的列级 `TEXT UNIQUE` 自动提升 `VARCHAR(191)`。
+- **运行时 SQL 三库方言统一**：新增 `app/core/helpers.d/sql.php`
+  （`sql_date_group` / `sql_date_part` / `sql_seconds_since`）；运营分析（日/月/年分组、
+  日期过滤）与大屏心跳在线统计（`parts/admin/call.php`、`admin/callmanage` 视图）
+  改走方言 helper，消除 SQLite 专有 `strftime/date()` 在 MySQL/PG 下的 500；
+  `DatabaseManager::insert()` 对 `INSERT OR IGNORE` 自动跨库翻译（运行时 4 处幂等插入）；
+  `BaseRepository` 表名标识符引用按驱动选择（PG 双引号，其余反引号）。
 
 ---
 

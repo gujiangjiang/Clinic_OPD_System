@@ -68,7 +68,7 @@ function admin_part_call($action) {
         $html = render_list_wrapper('「' . e($dept['name']) . '」共 ' . count($rows) . ' 块大屏', '暂无大屏配置，请先新建', $rowsHtml);
         json_ok(array('html' => $html, 'dept_name' => $dept['name'],
             'total_count' => count($rows),
-            'online_count' => (int)DeptRepository::val("SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat_at IS NOT NULL AND (strftime('%s','now','localtime') - strftime('%s',screen_last_heartbeat_at)) <= 30", array($deptId))));
+            'online_count' => (int)DeptRepository::val("SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat_at IS NOT NULL AND " . sql_seconds_since('screen_last_heartbeat_at') . " <= 30", array($deptId))));
     }
 
     /* ==================== 全科室大屏统计（选择科室模态框实时数据源） ==================== */
@@ -77,7 +77,7 @@ function admin_part_call($action) {
         $stats = array();
         foreach ($depts as $d) {
             $total = (int)DeptRepository::val('SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=?', array((int)$d['id']));
-            $online = (int)DeptRepository::val("SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat_at IS NOT NULL AND (strftime('%s','now','localtime') - strftime('%s',screen_last_heartbeat_at)) <= 30", array((int)$d['id']));
+            $online = (int)DeptRepository::val("SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat_at IS NOT NULL AND " . sql_seconds_since('screen_last_heartbeat_at') . " <= 30", array((int)$d['id']));
             $stats[] = array('id' => (int)$d['id'], 'room_count' => $total, 'online_count' => $online);
         }
         json_ok(array('list' => $stats));
