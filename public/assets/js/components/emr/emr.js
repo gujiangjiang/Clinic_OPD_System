@@ -16,6 +16,8 @@ window.Clinic = window.Clinic || {};
 Clinic.emr = (function () {
     /** 当前就诊数据缓存 */
     var DATA = null;
+    // 就诊加载代际：快速切换患者时旧响应一律丢弃，防「B 患者页面显示 A 数据」竞态
+    var LOAD_SEQ = 0;
 
     // 病历脏标记：编辑器 onChange 置位，保存成功/诊毕清除；
     // beforeunload 据此拦截未保存关闭/跳转，防止数据丢失
@@ -125,8 +127,10 @@ Clinic.emr = (function () {
      * 加载病历数据
      */
     function loadData(visitId) {
+        var seq = ++LOAD_SEQ;
         Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
             onSuccess: function (j) {
+                if (seq !== LOAD_SEQ) return;   // 已切换到其他患者：丢弃旧响应
                 DATA = j.data;
                 DATA.__readonly_view = !!(j.data.readonly_view);
                 // 记录登录医生的身份信息（不受 switchToRecord 影响，用于判定
@@ -211,6 +215,7 @@ Clinic.emr = (function () {
                 }
             },
             onError: function (j) {
+                if (seq !== LOAD_SEQ) return;   // 已切换到其他患者：旧错误不再改写页面
                 // 病历加载失败（如超期历史病历拦截）→ 直接替换 #emrCard 为
                 // 与医生工作站欢迎页同款 .wb-empty 空态（同结构、同尺寸、复用同一 CSS）
                 var card = document.getElementById('emrCard');
@@ -1280,8 +1285,10 @@ Clinic.emr = (function () {
         // 未显式传参（如左栏 30 秒刷新总线）时回退页面隐藏域，
         // 避免 visit_id=undefined 拉到空列表覆盖左栏数据
         var vid = visitId || (document.getElementById('visitId') || {}).value || '';
+        var seq = LOAD_SEQ;   // 与当前就诊绑定：切换患者后旧响应丢弃
         Clinic.get('/api/order?action=visit_orders&visit_id=' + vid, null, {
             onSuccess: function (j) {
+                if (seq !== LOAD_SEQ) return;   // 已切换到其他患者：丢弃旧开单数据
                 ORDERS = j.data.list || [];
                 renderDocOrders();
                 // 已开项目就绪后刷新他人文书只读段：辅助检查、门诊处置

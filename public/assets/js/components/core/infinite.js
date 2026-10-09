@@ -130,17 +130,20 @@ Clinic.infiniteList = function (opts) {
     var loading = false;
     var hasMore = true;
     var stopFn = null;
+    var gen = 0;   // 请求代际：reset 后旧响应一律丢弃（防旧搜索词/旧条件结果污染新列表）
 
     function loadPage(p) {
         if (loading || !el) return;
         loading = true;
         page = p;
+        var myGen = gen;
         // url 支持字符串（自动拼 page/size）或函数（返回完整地址，自行拼参）
         var url;
         if (typeof opts.url === 'function') url = opts.url(p, pageSize);
         else url = opts.url + (opts.url.indexOf('?') === -1 ? '?' : '&') + 'page=' + p + '&size=' + pageSize;
         Clinic.get(url, null, {
             onSuccess: function (json) {
+                if (myGen !== gen) return;   // 已被 reset 取代：丢弃旧响应
                 loading = false;
                 var d = json.data || {};
                 var list = d.list || [];
@@ -164,7 +167,11 @@ Clinic.infiniteList = function (opts) {
                 if (totalEl) totalEl.textContent = '共 ' + (d.total || 0) + ' 条';
                 if (onSuccess) onSuccess(json, p);
             },
-            onError: function () { loading = false; if (opts.onError) opts.onError(); },
+            onError: function () {
+                if (myGen !== gen) return;   // 旧请求失败无需处理
+                loading = false;
+                if (opts.onError) opts.onError();
+            },
         });
     }
 
@@ -184,8 +191,10 @@ Clinic.infiniteList = function (opts) {
     loadPage(1);   // 首屏加载第一页
 
     return {
-        /** 重置到第一页（搜索条件变化时调用） */
+        /** 重置到第一页（搜索条件变化时调用；旧在途请求作废，立即发起新查询） */
         reset: function () {
+            gen++;            // 旧请求响应将按代际丢弃
+            loading = false;  // 解除在途锁，保证 reset 不被静默吞掉
             page = 0; hasMore = true;
             loadPage(1);
         },

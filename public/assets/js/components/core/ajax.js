@@ -103,10 +103,20 @@ Clinic.ajax = function (url, data, opts) {
             if (!json.ok) {
                 // 统一失败处理（silent/noToast 时仅行内反馈，不弹全局 toast）
                 if (!opts.silent && !opts.noToast) Clinic.toast.error(json.msg || '操作失败');
-                if (opts.onError) opts.onError(json);
+                if (opts.onError) {
+                    try { opts.onError(json); } catch (e) {
+                        if (window.console && console.error) console.error('[AJAX onError 异常] ' + url, e);
+                    }
+                }
                 return json;
             }
-            if (opts.onSuccess) opts.onSuccess(json);
+            if (opts.onSuccess) {
+                // 回调异常与网络异常隔离：避免回调内 TypeError 被链尾 catch 误判为
+                // 「网络请求失败」并重复 hide loading / 二次触发 onError
+                try { opts.onSuccess(json); } catch (e) {
+                    if (window.console && console.error) console.error('[AJAX onSuccess 异常] ' + url, e);
+                }
+            }
             return json;
         })
         .catch(function (err) {

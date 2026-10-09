@@ -54,6 +54,10 @@
   安装向导 `check_db` 创建 ICD-10 分支同样强制 POST，杜绝跨站触发缓存清空/建库。
 
 ### 修复
+- **前端竞态与异常隔离**：`Clinic.ajax` 的 onSuccess/onError 回调异常与网络异常隔离
+  （回调 TypeError 不再误报「网络请求失败」、不再重复 hide loading）；`infiniteList`
+  引入请求代际，`reset()` 不再被在途请求吞掉、旧响应不污染新结果；EMR 病历/开单加载
+  引入就诊代际，快速切换患者时旧响应丢弃，杜绝「B 患者页面显示 A 数据」。
 - **会话失效不返回 401**：`app/api/_init.php` 未登录/账号停用改为 HTTP 401
   （响应体结构与文案不变），阅片视窗与前端 `Clinic.authSync` 据此识别会话失效并锁定 PHI。
 - **路径穿越（本地预览路由）**：`router.php` 静态资源分支改为 `realpath` 归一化 +
