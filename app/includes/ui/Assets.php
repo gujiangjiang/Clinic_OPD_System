@@ -56,6 +56,7 @@ class Assets {
         'assets/js/components/core/validation.js',
         'assets/js/components/core/datetime.js',
         'assets/js/components/core/datepicker.js',
+        'assets/js/components/core/certificate.js',
         'assets/js/components/emr/historypanel.js',
         'assets/js/components/emr/patient.js',
         'assets/js/components/core/ui.js',

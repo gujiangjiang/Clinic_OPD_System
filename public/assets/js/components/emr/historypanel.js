@@ -153,106 +153,11 @@ function showPatientHistory(patientNo) {
 
 /* ============================================================
  * 诊断证明补开/查看（就诊历史弹窗内按钮调用）
- * 原实现位于 emr.js（仅 EMR 页面加载），导致医生工作站等页面
- * 「补开诊断证明」报 archiveCertificateConfirm is not defined。
- * 迁至全局加载的 historypanel.js：若当前页面已加载 Clinic.emr
- * （病历编辑页），复用其 certificateModal；否则用内置实现，
- * 两者行为一致（已开具=查看/打印，未开具=编辑/开具并打印）。
+ * 弹窗主体统一走全站公共模块 core/certificate.js（Clinic.certificateModal，
+ * 随 JS_CORE 全站加载，原 emr_cert.js 的私有实现已下沉收敛）。
  * ============================================================ */
 function hpCertificateModal(visitId, title, warnOnIssued) {
-    if (window.Clinic && Clinic.emr && typeof Clinic.emr.certificateModal === 'function') {
-        Clinic.emr.certificateModal(visitId, title, null, !!warnOnIssued);
-        return;
-    }
-    var esc = function (s) {
-        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    };
-    var text = Clinic.textOf;
-    Clinic.get('/api/record?action=get&visit_id=' + visitId, null, {
-        onSuccess: function (j) {
-            var r = j.data.record || {};
-            var issued = !!j.data.has_certificate;
-            var cert = j.data.certificate || {};
-            var cs = j.data.certificate || {};
-            var cs2 = j.data.cert_summary || {};
-            var pick = function (a, b, c) { return (a && String(a).trim()) || (b && String(b).trim()) || c || ''; };
-            var cc = text(pick(cs.chief_complaint, cs2.chief_complaint, r.chief_complaint));
-            var pi = text(pick(cs.present_illness, cs2.present_illness, r.present_illness));
-            var diag = pick(cs.preliminary_diagnosis, cs2.preliminary_diagnosis, r.preliminary_diagnosis);
-
-            var rows = [];
-            if (issued) {
-                rows.push('<div><strong>证明号：</strong>' + esc(cert.cert_no || '') + '</div>');
-                rows.push('<div class="mt-4"><strong>开具时间：</strong>' + esc(cert.created_at || '') + '</div>');
-            }
-            rows.push('<div' + (rows.length ? ' class="mt-4"' : '') + '><strong>主诉：</strong>' + esc(cc) + '</div>');
-            rows.push('<div class="mt-4"><strong>现病史：</strong>' + esc(pi) + '</div>');
-            rows.push('<div class="mt-4"><strong>初步诊断：</strong>' + esc(diag) + '</div>');
-            var summary =
-                '<div class="fs-13 mb-8" style="border:1px solid var(--border);border-radius:8px;padding:10px">' +
-                rows.join('') + '</div>';
-
-            if (issued) {
-                if (warnOnIssued) Clinic.toast.warning('该次就诊已开具过诊断证明');
-                Clinic.modal.open(
-                    summary +
-                    '<div class="form-group"><label class="form-label">医生建议</label>' +
-                    '<textarea class="textarea" rows="3" disabled ' +
-                    'style="background:var(--bg);cursor:default;resize:none;">' +
-                    esc(cert.content || '') + '</textarea></div>',
-                    {
-                        title: title,
-                        size: 'modal-sm',
-                        buttons: [
-                            { text: '关闭', cls: 'btn-outline' },
-                            {
-                                text: renderIconSvg('action:print') + ' 打印', cls: 'btn-success',
-                                onClick: function () {
-                                    Clinic.print.load('/api/record?action=certificate_print&visit_id=' + visitId, null, 'a5');
-                                },
-                            },
-                        ],
-                    }
-                );
-                return;
-            }
-
-            if (!cc || !pi || !diag) {
-                Clinic.toast.warning('该次就诊病历不完整（缺少主诉/现病史/初步诊断），无法开具诊断证明');
-                return;
-            }
-            Clinic.modal.open(
-                '<div class="fs-13 text-muted mb-8">将自动引用该次就诊病历，医生建议请手动填写：</div>' +
-                summary +
-                '<div class="form-group"><label class="form-label">医生建议</label>' +
-                '<textarea class="textarea" id="certContent" rows="3" placeholder="如：建议休息3天，清淡饮食，不适随诊"></textarea></div>',
-                {
-                    title: title,
-                    size: 'modal-sm',
-                    buttons: [
-                        { text: '取消', cls: 'btn-outline' },
-                        {
-                            text: '开具并打印', cls: 'btn-success', autoClose: false,
-                            onClick: function () {
-                                var content = document.getElementById('certContent').value.trim();
-                                if (!content) { Clinic.toast.warning('请填写医生建议'); return; }
-                                Clinic.ajax('/api/record', {
-                                    action: 'certificate', visit_id: visitId, content: content,
-                                }, {
-                                    onSuccess: function () {
-                                        Clinic.toast.success('诊断证明已开具');
-                                        Clinic.modal.close();
-                                        Clinic.print.load('/api/record?action=certificate_print&visit_id=' + visitId, null, 'a5');
-                                    },
-                                });
-                            },
-                        },
-                    ],
-                }
-            );
-        },
-    });
+    Clinic.certificateModal(visitId, title, { warnOnIssued: !!warnOnIssued });
 }
 
 /* 全局：归档病历补开诊断证明确认（就诊历史「补开」按钮调用）

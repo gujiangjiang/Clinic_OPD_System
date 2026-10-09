@@ -16,6 +16,10 @@
 ## [9.12.0] - 待发布
 
 ### 变更
+- **诊断证明弹窗收敛**：新增全站公共 `core/certificate.js`（`Clinic.certificateModal`，
+  已登记 `Assets::JS_CORE` 与 Service Worker 预缓存）；删除 `historypanel.js` 中逐字
+  重复的兜底实现（约 90 行），`emr_cert.js` 缩为 EMR 适配层（仅保留开具成功后的
+  本地 DATA 同步、左栏刷新与完整性校验），三处入口行为不变。
 - **前端金额格式化收敛**：开单、费用明细弹层、科室选择、部门工作台、项目选择器、
   药品表单共 16 处 `'¥' + x.toFixed(2)` 统一改用 `Clinic.money()`（输出逐字一致）；
   各科室状态文案映射差异属业务语义，按零回退原则不做强制合并。
