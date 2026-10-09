@@ -85,17 +85,13 @@ class DatabaseManager {
         $driver = self::driver();
         if ($driver === 'mysql') {
             $p = ConfigStore::dbParams();
-            $dsn = 'mysql:host=' . $p['host'] . ';port=' . $p['port']
-                 . ';dbname=' . $p['dbname'] . ';charset=utf8mb4';
-            $pdo = new PDO($dsn, $p['user'], $p['pass'], array(
+            $pdo = new PDO(ConnectionFactory::dsn('mysql', $p), $p['user'], $p['pass'], array(
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ));
         } elseif ($driver === 'pgsql') {
             $p = ConfigStore::dbParams();
-            $dsn = 'pgsql:host=' . $p['host'] . ';port=' . $p['port']
-                 . ';dbname=' . $p['dbname'];
-            $pdo = new PDO($dsn, $p['user'], $p['pass'], array(
+            $pdo = new PDO(ConnectionFactory::dsn('pgsql', $p), $p['user'], $p['pass'], array(
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ));
@@ -640,12 +636,10 @@ class DatabaseManager {
         try {
             if ($driver === 'mysql') {
                 $p = array('host' => ConfigStore::get('backup.mysql.host', '127.0.0.1'), 'port' => ConfigStore::get('backup.mysql.port', '3306'), 'dbname' => ConfigStore::get('backup.mysql.dbname', ''), 'user' => ConfigStore::get('backup.mysql.user', ''), 'pass' => ConfigStore::get('backup.mysql.pass', ''));
-                $dsn = 'mysql:host=' . $p['host'] . ';port=' . $p['port'] . ';dbname=' . $p['dbname'] . ';charset=utf8mb4';
-                self::$backupPdo = new PDO($dsn, $p['user'], $p['pass'], array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC));
+                self::$backupPdo = new PDO(ConnectionFactory::dsn('mysql', $p), $p['user'], $p['pass'], array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC));
             } elseif ($driver === 'pgsql') {
                 $p = array('host' => ConfigStore::get('backup.pgsql.host', '127.0.0.1'), 'port' => ConfigStore::get('backup.pgsql.port', '5432'), 'dbname' => ConfigStore::get('backup.pgsql.dbname', ''), 'user' => ConfigStore::get('backup.pgsql.user', ''), 'pass' => ConfigStore::get('backup.pgsql.pass', ''));
-                $dsn = 'pgsql:host=' . $p['host'] . ';port=' . $p['port'] . ';dbname=' . $p['dbname'];
-                self::$backupPdo = new PDO($dsn, $p['user'], $p['pass'], array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC));
+                self::$backupPdo = new PDO(ConnectionFactory::dsn('pgsql', $p), $p['user'], $p['pass'], array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC));
             } else {
                 $path = ConfigStore::get('backup.sqlite.path', '');
                 if ($path === '') return null;

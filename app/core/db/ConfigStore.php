@@ -394,12 +394,7 @@ class ConfigStore {
                 $pdo = new PDO('sqlite:' . $p, null, null, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
             } else {
                 $params = self::dbParams();
-                if ($driver === 'mysql') {
-                    $dsn = 'mysql:host=' . $params['host'] . ';port=' . $params['port'] . ';dbname=' . $params['dbname'] . ';charset=utf8mb4';
-                } else {
-                    $dsn = 'pgsql:host=' . $params['host'] . ';port=' . $params['port'] . ';dbname=' . $params['dbname'];
-                }
-                $pdo = new PDO($dsn, $params['user'], $params['pass'], array(
+                $pdo = new PDO(ConnectionFactory::dsn($driver, $params), $params['user'], $params['pass'], array(
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_CONNECT_TIMEOUT => 5,
                 ));

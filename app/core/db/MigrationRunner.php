@@ -250,15 +250,10 @@ class MigrationRunner {
         return array('ok' => true, 'msg' => '主库已切换到 ' . strtoupper($toDriver) . '，已强制清除全部会话，请重新登录');
     }
 
-    /** 目标连接（切换校验用，独立连接） */
+    /** 目标连接（切换校验用，独立连接；DSN 统一走 ConnectionFactory） */
     private static function connectForCheck($driver, $p) {
-        if ($driver === 'mysql') {
-            $dsn = 'mysql:host=' . $p['host'] . ';port=' . $p['port'] . ';dbname=' . $p['dbname'] . ';charset=utf8mb4';
-            return new PDO($dsn, $p['user'], $p['pass'], array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_CONNECT_TIMEOUT => 5));
-        }
-        if ($driver === 'pgsql') {
-            $dsn = 'pgsql:host=' . $p['host'] . ';port=' . $p['port'] . ';dbname=' . $p['dbname'];
-            return new PDO($dsn, $p['user'], $p['pass'], array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_CONNECT_TIMEOUT => 5));
+        if ($driver === 'mysql' || $driver === 'pgsql') {
+            return new PDO(ConnectionFactory::dsn($driver, $p), $p['user'], $p['pass'], array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_CONNECT_TIMEOUT => 5));
         }
         $path = isset($p['path']) && $p['path'] !== '' ? $p['path'] : DATA_DIR . '/db/clinic_main.db';
         return new PDO('sqlite:' . $path, null, null, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));

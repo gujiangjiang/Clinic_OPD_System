@@ -82,12 +82,7 @@ function install_remote_pdo($driver, $host, $port, $dbname, $user, $pass, $timeo
     if (trim((string)$user) === '') return array(null, '请填写数据库用户名');
     if ((string)$pass === '') return array(null, '请填写数据库密码');
     try {
-        if ($driver === 'pgsql') {
-            $dsn = 'pgsql:host=' . $host . ';port=' . $port . ';dbname=' . $dbname;
-        } else {
-            $dsn = 'mysql:host=' . $host . ';port=' . $port . ';dbname=' . $dbname . ';charset=utf8mb4';
-        }
-        $pdo = new PDO($dsn, $user, $pass, array(
+        $pdo = new PDO(ConnectionFactory::dsn($driver, array('host' => $host, 'port' => $port, 'dbname' => $dbname)), $user, $pass, array(
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_CONNECT_TIMEOUT => $timeout,
         ));

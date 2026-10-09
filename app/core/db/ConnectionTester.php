@@ -35,10 +35,7 @@ class ConnectionTester {
         if ($user === '') return self::fail('请填写数据库用户名');
         if ($pass === '') return self::fail('请填写数据库密码');
         try {
-            $dsn = $driver === 'pgsql'
-                ? 'pgsql:host=' . $host . ';port=' . $port . ';dbname=' . $dbname
-                : 'mysql:host=' . $host . ';port=' . $port . ';dbname=' . $dbname . ';charset=utf8mb4';
-            $pdo = new PDO($dsn, $user, $pass, array(
+            $pdo = new PDO(ConnectionFactory::dsn($driver, array('host' => $host, 'port' => $port, 'dbname' => $dbname)), $user, $pass, array(
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_CONNECT_TIMEOUT => 5,
             ));
