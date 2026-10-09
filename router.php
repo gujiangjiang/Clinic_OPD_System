@@ -27,36 +27,36 @@ if (strpos($path, '/uploads/logo/') === 0) {
 
 $isStatic = strpos($path, '/assets/') === 0 || strpos($path, '/uploads/') === 0;
 if ($isStatic) {
-    // 依次在 public 目录与根目录查找真实文件
-    $candidates = array(
-        __DIR__ . '/public' . $path,
-        __DIR__ . $path,
-    );
-    foreach ($candidates as $file) {
-        if (is_file($file)) {
-            // 根据扩展名返回正确的 Content-Type（避免浏览器将 JS/CSS 当文本下载）
-            $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-            $mimes = array(
-                'css'  => 'text/css; charset=utf-8',
-                'js'   => 'application/javascript; charset=utf-8',
-                'json' => 'application/json; charset=utf-8',
-                'png'  => 'image/png',
-                'jpg'  => 'image/jpeg', 'jpeg' => 'image/jpeg',
-                'gif'  => 'image/gif',
-                'svg'  => 'image/svg+xml',
-                'webp' => 'image/webp',
-                'ico'  => 'image/x-icon',
-                'woff' => 'font/woff', 'woff2' => 'font/woff2', 'ttf' => 'font/ttf',
-            );
-            $ct = isset($mimes[$ext]) ? $mimes[$ext] : 'application/octet-stream';
-            // 缓存资源，避免每次请求都重新读取
-            header('Content-Type: ' . $ct);
-            header('Cache-Control: public, max-age=3600');
-            readfile($file);
-            return true;
-        }
+    // 仅从 public/ 真实路径下取文件：realpath 归一化 .. 并强制前缀校验，
+    // 杜绝 /assets/../../data/db/config.db 之类路径穿越读取敏感文件。
+    // （根目录直挂资源已废弃：public/ 为唯一 Web 根，与生产 Nginx 配置一致）
+    $root = realpath(__DIR__ . '/public');
+    $file = realpath(__DIR__ . '/public' . $path);
+    if ($root !== false && $file !== false
+        && strpos($file, $root . DIRECTORY_SEPARATOR) === 0
+        && is_file($file)) {
+        // 根据扩展名返回正确的 Content-Type（避免浏览器将 JS/CSS 当文本下载）
+        $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+        $mimes = array(
+            'css'  => 'text/css; charset=utf-8',
+            'js'   => 'application/javascript; charset=utf-8',
+            'json' => 'application/json; charset=utf-8',
+            'png'  => 'image/png',
+            'jpg'  => 'image/jpeg', 'jpeg' => 'image/jpeg',
+            'gif'  => 'image/gif',
+            'svg'  => 'image/svg+xml',
+            'webp' => 'image/webp',
+            'ico'  => 'image/x-icon',
+            'woff' => 'font/woff', 'woff2' => 'font/woff2', 'ttf' => 'font/ttf',
+        );
+        $ct = isset($mimes[$ext]) ? $mimes[$ext] : 'application/octet-stream';
+        // 缓存资源，避免每次请求都重新读取
+        header('Content-Type: ' . $ct);
+        header('Cache-Control: public, max-age=3600');
+        readfile($file);
+        return true;
     }
-    // 静态路径但文件不存在 → 404
+    // 静态路径但文件不存在（或越界）→ 404
     http_response_code(404);
     echo 'Not Found';
     return true;
