@@ -307,14 +307,27 @@ class FhirService {
      *   （integration.inbound.fhir.allowed_tokens，由 InboundGuard 校验）。
      * ============================================================ */
 
-    /** 令牌签名密钥（未配置时自动生成并持久化） */
+    /** 令牌签名密钥（未配置时自动生成并持久化；并发首用时原子抢占，先写者生效） */
     public static function tokenSecret() {
-        $s = trim((string)setting('integration.inbound.fhir.oauth_secret', ''));
-        if ($s === '') {
-            $s = bin2hex(function_exists('random_bytes') ? random_bytes(32) : openssl_random_pseudo_bytes(32));
-            try { set_setting('integration.inbound.fhir.oauth_secret', $s); } catch (Exception $ex) {}
+        $key = 'integration.inbound.fhir.oauth_secret';
+        $s = trim((string)setting($key, ''));
+        if ($s !== '') return $s;
+        $candidate = bin2hex(function_exists('random_bytes') ? random_bytes(32) : openssl_random_pseudo_bytes(32));
+        try {
+            // 原子抢占：仅当键为空时写入候选密钥（并发场景下后到者 UPDATE 命中 0 行，不会覆盖）
+            CoreRepository::exec("UPDATE settings SET svalue=? WHERE skey=? AND (svalue IS NULL OR svalue='')", array($candidate, $key));
+            // 键不存在时补插（INSERT OR IGNORE：并发已插入则不覆盖）
+            DatabaseManager::insert('INSERT OR IGNORE INTO settings(skey,svalue) VALUES(?,?)', array($key, $candidate));
+            // 丢弃请求级/跨请求快照，读取数据库权威值（并发下返回先写者的密钥）
+            Cache::del('cfg_settings');
+            unset($GLOBALS['__setting_table']);
+            $stored = trim((string)setting($key, ''));
+            return $stored !== '' ? $stored : $candidate;
+        } catch (Exception $ex) {
+            // 持久化失败必须留痕；仍返回本次生成值保证颁发可用（既有行为）
+            error_log('[FHIR] OAuth 签名密钥持久化失败：' . $ex->getMessage());
+            return $candidate;
         }
-        return $s;
     }
 
     /** 列出 OAuth 客户端 [client_id => [secret, scopes]] */
