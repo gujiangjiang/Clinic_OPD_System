@@ -17,9 +17,12 @@ CSRF::check();
 // （避免停用用户继续通过接口操作全部功能）；assertActive 会同步刷新
 // 会话快照中的角色/科室，须在其后重新读取登录用户
 if (!Auth::user()) {
+    // HTTP 401：阅片视窗/前端 authSync 以真实状态码识别会话失效并锁定 PHI
+    http_response_code(401);
     json_fail('请先登录');
 }
 if (!Auth::assertActive()) {
+    http_response_code(401);
     json_fail('账号已停用或不存在，请重新登录');
 }
 $__u = Auth::user();
