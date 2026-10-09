@@ -184,14 +184,22 @@ if (in_array($action, array('test_db', 'check_db', 'load_db_settings', 'test_cac
 if ($action === 'test_db') {
     $driver = req('driver', 'sqlite');
     if (!ConfigStore::dbDriverValid($driver)) json_fail('未知的数据库驱动');
-    $r = ConnectionTester::db($driver, array(
-        'path'   => req('name', req('path', '')),
+    // SQLite 测试路径与 check_db/save 同源收敛：仅允许 data/db/ 下的库名（basename 防穿越），
+    // 不再把请求参数原样当路径（避免任意目录/绝对路径创建数据库文件）
+    $testParams = array(
+        'path'   => '',
         'host'   => req('host', ''),
         'port'   => req('port', ''),
         'dbname' => req('dbname', ''),
         'user'   => req('user', ''),
         'pass'   => req('pass', ''),
-    ));
+    );
+    if ($driver === 'sqlite') {
+        list($rel, $nameErr) = install_sqlite_name_path(req('name', req('path', '')));
+        if ($nameErr !== '') json_fail('数据库名称无效：' . $nameErr);
+        $testParams['path'] = APP_ROOT . '/' . $rel;
+    }
+    $r = ConnectionTester::db($driver, $testParams);
     if (!$r['ok']) json_fail($r['msg']);
     json_ok(array(), $r['msg']);
 }
