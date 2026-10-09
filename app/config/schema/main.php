@@ -16,9 +16,13 @@
  * 多驱动兼容：
  * - 主键统一 INTEGER PRIMARY KEY AUTOINCREMENT（MySQL 由 DatabaseManager
  *   方言层自动转换为 AUTO_INCREMENT）
- * - 布尔统一 INTEGER 0/1（MySQL 兼容 TINYINT）
- * - 种子用 INSERT OR IGNORE（MySQL 自动转为 INSERT IGNORE）
+ * - 参与主键/唯一约束的标识列统一 VARCHAR(191)（MySQL 对 TEXT 键要求前缀长度；
+ *   SQLite/PostgreSQL 对该类型无差异）；普通长文本列保持 TEXT
+ * - 布尔统一 INTEGER 0/1（PostgreSQL 由方言层转 SMALLINT）
  * - 时间默认 datetime('now','localtime')（MySQL 自动转为 NOW()）
+ * - 种子用 INSERT OR IGNORE（MySQL 自动转为 INSERT IGNORE）
+ * - CREATE INDEX IF NOT EXISTS：MySQL/MariaDB 由 DatabaseManager 先做存在性检查，
+ *   TEXT/BLOB 列索引自动补 (191) 前缀；函数键部件 date(col) 需 MySQL 8.0.13+
  * ============================================================ */
 $__schemaDir = __DIR__ . '/main';
 $__def = array(

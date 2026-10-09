@@ -265,7 +265,7 @@ class DatabaseManager {
         if (empty($def['tables'])) return;
         foreach ($def['tables'] as $sql) {
             try {
-                $pdo->exec(self::dialectSql($sql));
+                self::execSchemaSql($pdo, $sql);
             } catch (Exception $ex) {
                 if (DEBUG) error_log('[DB建表失败] ' . $def['key'] . ': ' . $ex->getMessage());
             }
@@ -286,13 +286,13 @@ class DatabaseManager {
             $failed = false;
             foreach ($sqls as $sql) {
                 try {
-                    $sql = self::dialectSql($sql);
-                    if (preg_match('/^ALTER TABLE\s+(\S+)\s+ADD\s+COLUMN\s+(\S+)/i', trim($sql), $mm)) {
+                    $checkSql = self::dialectSqlFor(self::driver(), $sql);
+                    if (preg_match('/^ALTER TABLE\s+(\S+)\s+ADD\s+COLUMN\s+(\S+)/i', trim($checkSql), $mm)) {
                         if (self::columnExists($pdo, $mm[1], $mm[2])) {
                             continue;
                         }
                     }
-                    $pdo->exec($sql);
+                    self::execSchemaSql($pdo, $sql);
                 } catch (Exception $ex) {
                     $failed = true;
                     if (DEBUG) error_log('[迁移失败] ' . $def['key'] . ' v' . $next . ': ' . $ex->getMessage());
@@ -426,7 +426,7 @@ class DatabaseManager {
             $seedFail = 0;
             foreach ((array)$def['seed'] as $seedSql) {
                 try {
-                    $pdo->exec(self::dialectSql($seedSql));
+                    self::execSchemaSql($pdo, $seedSql);
                 } catch (Exception $ex) {
                     $seedFail++;
                     if (DEBUG) error_log('[种子失败] main: ' . $ex->getMessage());
@@ -450,7 +450,7 @@ class DatabaseManager {
     private static function seedIcd10($pdo, $def) {
         foreach ((array)$def['seed'] as $seedSql) {
             try {
-                $pdo->exec(self::dialectSql($seedSql));
+                self::execSchemaSql($pdo, $seedSql);
             } catch (Exception $ex) {
                 if (DEBUG) error_log('[ICD10种子失败]: ' . $ex->getMessage());
             }
@@ -460,28 +460,41 @@ class DatabaseManager {
     /* ==================== 方言辅助 ==================== */
 
     /**
-     * SQL 方言翻译（SQLite 源 → MySQL/MariaDB / PostgreSQL 通用写法）：
-     * 仅在有目标驱动（非 sqlite）时执行，覆盖：
-     *  - 时间函数：datetime('now','localtime') → NOW()；strftime epoch/日期 → EXTRACT/TO_CHAR
-     *  - 自增主键：AUTOINCREMENT → AUTO_INCREMENT / SERIAL
+     * SQL 方言翻译（SQLite 源 → MySQL/MariaDB / PostgreSQL），纯函数便于复用与测试：
+     *  - 时间函数：datetime('now','localtime') → NOW()；strftime → 各驱动等价函数
+     *  - 自增主键：AUTOINCREMENT → AUTO_INCREMENT / SERIAL PRIMARY KEY
      *  - 幂等插入：INSERT OR IGNORE → INSERT IGNORE / INSERT ... ON CONFLICT DO NOTHING
-     *  - 替换插入：INSERT OR REPLACE → REPLACE INTO（MySQL；settings 键值由 upsertSetting 按 PG 处理）
+     *  - 替换插入：INSERT OR REPLACE → REPLACE（MySQL；PG 的 settings 由 upsertSetting 处理）
+     *  - PG 类型：DATETIME → TIMESTAMP、TINYINT → SMALLINT
+     *  - MySQL 函数索引：CREATE INDEX 内 date(col) → (date(col))（MySQL 8.0.13+ 函数键部件）
+     * @param string $driver sqlite|mysql|pgsql
+     * @param string $sql
+     * @return string
      */
-    private static function dialectSql($sql) {
-        $driver = self::driver();
+    public static function dialectSqlFor($driver, $sql) {
         if ($driver === 'sqlite') return $sql;
-        $sql = str_replace("datetime('now','localtime')", 'NOW()', $sql);
-        $sql = str_replace("strftime('%s','now','localtime')", 'EXTRACT(EPOCH FROM now())', $sql);
-        $sql = preg_replace("/strftime\('%s',\s*([a-zA-Z0-9_\.]+)\)/i", 'EXTRACT(EPOCH FROM $1)', $sql);
-        $sql = preg_replace("/strftime\('%Y-%m-%d',\s*([a-zA-Z0-9_\.]+)\)/i", "TO_CHAR($1, 'YYYY-MM-DD')", $sql);
         if ($driver === 'mysql') {
             $sql = str_replace('AUTOINCREMENT', 'AUTO_INCREMENT', $sql);
+            $sql = str_replace("datetime('now','localtime')", 'NOW()', $sql);
+            $sql = str_replace("strftime('%s','now','localtime')", 'UNIX_TIMESTAMP()', $sql);
+            $sql = preg_replace("/strftime\('%s',\s*([a-zA-Z0-9_\.]+)\)/i", 'UNIX_TIMESTAMP($1)', $sql);
+            $sql = preg_replace("/strftime\('%Y-%m-%d',\s*([a-zA-Z0-9_\.]+)\)/i", "DATE_FORMAT($1, '%Y-%m-%d')", $sql);
+            // 函数索引（仅 CREATE INDEX 语句）：date(col) → (date(col))
+            if (preg_match('/^\s*CREATE\s+(?:UNIQUE\s+)?INDEX\b/i', $sql)) {
+                $sql = preg_replace('/\bdate\(([a-zA-Z0-9_]+)\)/i', '(date($1))', $sql);
+            }
             $sql = preg_replace('/\bINSERT\s+OR\s+IGNORE\b/i', 'INSERT IGNORE', $sql);
             $sql = preg_replace('/\bINSERT\s+OR\s+REPLACE\b(?=\s)/i', 'REPLACE', $sql);
             return $sql;
         }
         // PostgreSQL
         $sql = preg_replace('/INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT/i', 'SERIAL PRIMARY KEY', $sql);
+        $sql = str_replace('DATETIME', 'TIMESTAMP', $sql);
+        $sql = str_replace('TINYINT', 'SMALLINT', $sql);
+        $sql = str_replace("datetime('now','localtime')", 'NOW()', $sql);
+        $sql = str_replace("strftime('%s','now','localtime')", 'EXTRACT(EPOCH FROM now())', $sql);
+        $sql = preg_replace("/strftime\('%s',\s*([a-zA-Z0-9_\.]+)\)/i", 'EXTRACT(EPOCH FROM $1)', $sql);
+        $sql = preg_replace("/strftime\('%Y-%m-%d',\s*([a-zA-Z0-9_\.]+)\)/i", "TO_CHAR($1, 'YYYY-MM-DD')", $sql);
         $wasIgnore = (bool)preg_match('/\bINSERT\s+OR\s+IGNORE\b/i', $sql);
         $sql = preg_replace('/\bINSERT\s+OR\s+IGNORE\b/i', 'INSERT', $sql);
         if ($wasIgnore) {
@@ -489,6 +502,76 @@ class DatabaseManager {
             $sql .= ' ON CONFLICT DO NOTHING;';
         }
         return $sql;
+    }
+
+    /**
+     * 执行 schema DDL（建表 / 迁移 / 种子共用）：
+     * 1. 方言翻译；
+     * 2. MySQL/MariaDB 索引幂等：CREATE INDEX 的存在性检查 + 剥离 IF NOT EXISTS；
+     * 3. MySQL TEXT/BLOB 列索引自动补前缀长度 (191)（MySQL 要求键前缀；
+     *    不把长文本列整体改为 VARCHAR，避免限制业务数据长度）。
+     * 失败原样抛出，由调用方决定记录或中断。
+     */
+    private static function execSchemaSql($pdo, $sql) {
+        $driver = self::driver();
+        $sql = self::dialectSqlFor($driver, $sql);
+        if ($driver === 'mysql' && preg_match('/^\s*CREATE\s+(?:UNIQUE\s+)?INDEX\b/i', $sql)) {
+            $sql = self::mysqlIndexSql($pdo, $sql);
+            if ($sql === null) return;   // 索引已存在：幂等跳过
+        }
+        $pdo->exec($sql);
+    }
+
+    /**
+     * MySQL 索引语句规整：存在同名索引返回 null（幂等跳过）；TEXT/BLOB 简单列补 (191)
+     * 前缀；保留函数键部件（如 (date(col))）。解析失败原样返回交由数据库报错。
+     */
+    private static function mysqlIndexSql($pdo, $sql) {
+        if (!preg_match('/^\s*CREATE\s+(UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-zA-Z0-9_]+)\s+ON\s+([a-zA-Z0-9_]+)\s*\((.+)\)\s*$/is', $sql, $m)) {
+            return $sql;
+        }
+        $unique = $m[1] !== '';
+        $index  = $m[2];
+        $table  = $m[3];
+        $cols   = $m[4];
+        // 索引已存在则跳过（MySQL/MariaDB 的 CREATE INDEX 无统一 IF NOT EXISTS）
+        try {
+            $st = $pdo->prepare('SHOW INDEX FROM `' . $table . '` WHERE Key_name = ?');
+            $st->execute(array($index));
+            if ($st->fetch(PDO::FETCH_ASSOC) !== false) return null;
+        } catch (Exception $ex) {
+            // 表不存在等异常交由下方执行时暴露
+        }
+        // 拆分列（跳过括号内逗号）
+        $parts = array();
+        $depth = 0;
+        $cur = '';
+        $len = strlen($cols);
+        for ($i = 0; $i < $len; $i++) {
+            $ch = $cols[$i];
+            if ($ch === '(') $depth++;
+            elseif ($ch === ')') $depth--;
+            if ($ch === ',' && $depth === 0) { $parts[] = trim($cur); $cur = ''; continue; }
+            $cur .= $ch;
+        }
+        if (trim($cur) !== '') $parts[] = trim($cur);
+        $out = array();
+        foreach ($parts as $part) {
+            if (preg_match('/^[a-zA-Z0-9_]+$/', $part)) {
+                $type = '';
+                try {
+                    $st = $pdo->query("SELECT DATA_TYPE FROM information_schema.columns
+                        WHERE table_schema = DATABASE() AND table_name = '" . $table . "'
+                          AND column_name = '" . $part . "'");
+                    $type = strtolower((string)$st->fetchColumn());
+                } catch (Exception $ex) {}
+                if (in_array($type, array('text', 'tinytext', 'mediumtext', 'longtext', 'blob', 'tinyblob', 'mediumblob', 'longblob'), true)) {
+                    $part .= '(191)';
+                }
+            }
+            $out[] = $part;
+        }
+        return 'CREATE ' . ($unique ? 'UNIQUE ' : '') . 'INDEX `' . $index . '` ON `' . $table . '` (' . implode(', ', $out) . ')';
     }
 
     /** 主库原始写设置（种子标记用，不依赖 helpers） */

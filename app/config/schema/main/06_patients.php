@@ -8,8 +8,8 @@ return array(
 
         'patients' => "CREATE TABLE IF NOT EXISTS patients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            patient_no TEXT UNIQUE,
-            id_card TEXT UNIQUE,
+            patient_no VARCHAR(191) UNIQUE,
+            id_card VARCHAR(191) UNIQUE,
             name TEXT,
             gender TEXT,
             birth_date TEXT,
@@ -29,7 +29,7 @@ return array(
         'registrations' => "CREATE TABLE IF NOT EXISTS registrations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             patient_no TEXT,
-            flow_no TEXT UNIQUE,
+            flow_no VARCHAR(191) UNIQUE,
             visit_seq INTEGER DEFAULT 0,
             first_dept_id INTEGER,
             first_dept_name TEXT,

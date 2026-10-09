@@ -9,7 +9,7 @@ return array(
         'users' => "CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             emp_no TEXT,
-            username TEXT UNIQUE,
+            username VARCHAR(191) UNIQUE,
             password TEXT,
             name TEXT,
             role TEXT,

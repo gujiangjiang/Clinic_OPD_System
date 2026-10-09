@@ -25,6 +25,13 @@
 - **安装向导校验失败提前建库 / 生产错误信息泄露**：`json_fail()` 改为仅在主库已初始化时
   回滚（新增 `DatabaseManager::mainOrNull()`，不触发懒加载建库），杜绝安装第 2 步前
   因接口失败提前创建 `clinic_main.db`；`DEBUG` 默认关闭，本地开发可用 `APP_DEBUG=1` 开启。
+- **MySQL/MariaDB 主库无法建立**：参与主键/唯一约束的标识列由 `TEXT` 改为 `VARCHAR(191)`
+  （MySQL 要求索引键长度；SQLite/PG 无差异）；`CREATE INDEX IF NOT EXISTS` 在 MySQL 由
+  `execSchemaSql()` 先做存在性检查并剥离该子句，TEXT/BLOB 列索引自动补 `(191)` 前缀；
+  函数键部件 `date(col)` 转为 MySQL 8.0.13+ 函数索引写法。
+- **PostgreSQL 建表/迁移方言**：`DATETIME→TIMESTAMP`、`TINYINT→SMALLINT` 自动映射；
+  修复 MySQL 分支误执行 PG 专用 `TO_CHAR/EXTRACT` 转换的顺序缺陷（方言翻译重构为
+  可复用的纯函数 `DatabaseManager::dialectSqlFor()`）。
 
 ---
 

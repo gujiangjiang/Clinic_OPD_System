@@ -7,7 +7,7 @@ return array(
     'tables' => array(
 
         'settings' => "CREATE TABLE IF NOT EXISTS settings (
-            skey TEXT PRIMARY KEY,
+            skey VARCHAR(191) PRIMARY KEY,
             svalue TEXT
         )",
 
