@@ -34,6 +34,9 @@ try {
     $pdo = DatabaseManager::getMain();
     if ($srcDriver === 'sqlite') {
         $totalTables = (int)$pdo->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")->fetchColumn();
+    } elseif ($srcDriver === 'pgsql') {
+        // PostgreSQL 无 DATABASE() 函数；限定当前 schema 且仅统计基表（排除视图/分区子表）
+        $totalTables = (int)$pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE'")->fetchColumn();
     } else {
         $totalTables = (int)$pdo->query('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()')->fetchColumn();
     }

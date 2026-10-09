@@ -412,7 +412,7 @@ class DatabaseMigrator {
         } else {
             // PostgreSQL 源：information_schema 构造 CREATE TABLE（列 + 主键）
             $cols = array();
-            foreach ($src->query("SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_name='" . $table . "' ORDER BY ordinal_position") as $c) {
+            foreach ($src->query("SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = current_schema() AND table_name='" . $table . "' ORDER BY ordinal_position") as $c) {
                 $def = '"' . $c['column_name'] . '" ' . strtoupper((string)$c['data_type']);
                 $isSeq = strpos((string)$c['column_default'], 'nextval') !== false;
                 if ($c['is_nullable'] === 'NO' && !$isSeq) $def .= ' NOT NULL';
@@ -473,6 +473,8 @@ class DatabaseMigrator {
             $createSql = str_replace('AUTOINCREMENT', 'AUTO_INCREMENT', $createSql);
             $createSql = str_replace('SERIAL', 'INT AUTO_INCREMENT', $createSql);
             $createSql = preg_replace('/\bINTEGER\s+PRIMARY\s+KEY\s+AUTO_INCREMENT\b/i', 'INT AUTO_INCREMENT PRIMARY KEY', $createSql);
+            // 列级 UNIQUE 作用于 TEXT 时，MySQL 要求键长度：提升为 VARCHAR(191) UNIQUE
+            $createSql = preg_replace('/\bTEXT\b(\s+UNIQUE\b)/i', 'VARCHAR(191)$1', $createSql);
         }
         $createSql = str_ireplace('CREATE TABLE', 'CREATE TABLE IF NOT EXISTS', $createSql);
         // 去尾部注释

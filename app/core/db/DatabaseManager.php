@@ -485,7 +485,7 @@ class DatabaseManager {
             }
             $sql = preg_replace('/\bINSERT\s+OR\s+IGNORE\b/i', 'INSERT IGNORE', $sql);
             $sql = preg_replace('/\bINSERT\s+OR\s+REPLACE\b(?=\s)/i', 'REPLACE', $sql);
-            return $sql;
+            return self::mysqlLegacyRewrite($sql);
         }
         // PostgreSQL
         $sql = preg_replace('/INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT/i', 'SERIAL PRIMARY KEY', $sql);
@@ -495,12 +495,50 @@ class DatabaseManager {
         $sql = str_replace("strftime('%s','now','localtime')", 'EXTRACT(EPOCH FROM now())', $sql);
         $sql = preg_replace("/strftime\('%s',\s*([a-zA-Z0-9_\.]+)\)/i", 'EXTRACT(EPOCH FROM $1)', $sql);
         $sql = preg_replace("/strftime\('%Y-%m-%d',\s*([a-zA-Z0-9_\.]+)\)/i", "TO_CHAR($1, 'YYYY-MM-DD')", $sql);
+        $sql = self::pgsqlLegacyRewrite($sql);
         $wasIgnore = (bool)preg_match('/\bINSERT\s+OR\s+IGNORE\b/i', $sql);
         $sql = preg_replace('/\bINSERT\s+OR\s+IGNORE\b/i', 'INSERT', $sql);
         if ($wasIgnore) {
             $sql = rtrim($sql, ";\s ");
             $sql .= ' ON CONFLICT DO NOTHING;';
         }
+        return $sql;
+    }
+
+    /**
+     * MySQL 历史迁移兼容改写（仅命中固定语句，避免通用表达式解析的误伤）：
+     * SQLite `||` 拼接 → CONCAT；`substr('0000' || id, -4, 4)` → LPAD 补零。
+     */
+    private static function mysqlLegacyRewrite($sql) {
+        if (strpos($sql, '||') === false && strpos($sql, 'substr') === false) return $sql;
+        return str_replace(array(
+            "order_no = order_no || '_' || id",
+            "cert_no = cert_no || '_' || id",
+            "consult_no = consult_no || '_' || id",
+            "cert_no = 'ZM' || replace(substr(created_at,1,10),'-','') || substr('0000' || id, -4, 4)",
+        ), array(
+            "order_no = CONCAT(order_no, '_', id)",
+            "cert_no = CONCAT(cert_no, '_', id)",
+            "consult_no = CONCAT(consult_no, '_', id)",
+            "cert_no = CONCAT('ZM', REPLACE(SUBSTR(created_at,1,10),'-',''), LPAD(id, 4, '0'))",
+        ), $sql);
+    }
+
+    /**
+     * PostgreSQL 历史迁移兼容改写：
+     * - `date(col)` → `((col)::timestamp)::date`（PG 无 date(text) 函数，且表达式索引要求 IMMUTABLE）；
+     * - `json_remove/json_extract` → jsonb 运算符；
+     * - 证明号补零 `substr('0000' || id, -4, 4)` → `lpad`（PG substr 不支持负起始位置）。
+     */
+    private static function pgsqlLegacyRewrite($sql) {
+        $sql = str_replace(
+            "cert_no = 'ZM' || replace(substr(created_at,1,10),'-','') || substr('0000' || id, -4, 4)",
+            "cert_no = 'ZM' || replace(substr(created_at,1,10),'-','') || lpad(id::text, 4, '0')",
+            $sql
+        );
+        $sql = str_replace("json_remove(content_json, '$.name')", "(content_json::jsonb - 'name')::text", $sql);
+        $sql = str_replace("json_extract(content_json, '$.name')", "(content_json::jsonb ->> 'name')", $sql);
+        $sql = preg_replace('/\bdate\(([a-zA-Z0-9_.]+)\)/i', '(($1)::timestamp)::date', $sql);
         return $sql;
     }
 

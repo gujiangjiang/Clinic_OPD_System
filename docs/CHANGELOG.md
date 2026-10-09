@@ -32,6 +32,12 @@
 - **PostgreSQL 建表/迁移方言**：`DATETIME→TIMESTAMP`、`TINYINT→SMALLINT` 自动映射；
   修复 MySQL 分支误执行 PG 专用 `TO_CHAR/EXTRACT` 转换的顺序缺陷（方言翻译重构为
   可复用的纯函数 `DatabaseManager::dialectSqlFor()`）。
+- **MySQL/PostgreSQL 迁移链中断**：历史迁移中的 SQLite 专有写法完成跨库翻译——
+  `v9/v27` 字符串拼接 `||`（MySQL 转 `CONCAT`）、`v30` `json_remove/json_extract`
+  （PG 转 jsonb 运算符）、`v8/v25/v26` `date(col)`（PG 转 `::timestamp::date` 且满足
+  表达式索引 IMMUTABLE 要求）；迁移表数统计 `db_migrate_run.php` 的 `DATABASE()`
+  按驱动分支（PG 用 `current_schema()`）；`DatabaseMigrator` PG 列反射限定当前 schema；
+  跨库迁移目标 MySQL 的列级 `TEXT UNIQUE` 自动提升 `VARCHAR(191)`。
 
 ---
 
