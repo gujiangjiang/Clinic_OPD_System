@@ -81,6 +81,10 @@
   安装向导 `check_db` 创建 ICD-10 分支同样强制 POST，杜绝跨站触发缓存清空/建库。
 
 ### 修复
+- **套餐加入药品库存显示错误**：套餐快照不含 `stock` 字段，应用套餐时药品库存恒显示
+  「0 盒 / 99 盒」漂移；服务端 `pkg_validate_items()` 现回填实时库存（`drugs.qty`，
+  最小单位）供展示与数量上限使用，并改为按「主药 + 子医嘱」全量 id 取目录行，
+  修复子医嘱不在主药集合时被误判「已不存在/失效」。
 - **CLI 退出码恒 0 / 归档白名单旁路**：`log_archive_run.php`、`db_backup_run.php`、
   `VisitSeeder`、`FhirDemoSeeder` 失败路径统一 `STDERR + exit(1)`（FhirDemoSeeder
   旅程部分失败也置非 0）；`LogArchiver::resolveTables()` 指定未知表名直接报错，

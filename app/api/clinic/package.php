@@ -50,16 +50,15 @@ function pkg_type_label($type) {
 function pkg_validate_items($type, $items) {
     if (!is_array($items)) return array();
     $type = (string)$type;
-    // 批量取主药（sub_of=0）当前行：id → 行
-    $mainIds = array();
+    // 批量取当前目录行（主药 + 子医嘱统一）：id → 行
+    $allIds = array();
     foreach ($items as $it) {
-        if ((int)(isset($it['sub_of']) ? $it['sub_of'] : 0) === 0) {
-            $mainIds[(int)(isset($it['item_id']) ? $it['item_id'] : 0)] = 1;
-        }
+        $iid = (int)(isset($it['item_id']) ? $it['item_id'] : 0);
+        if ($iid > 0) $allIds[$iid] = 1;
     }
     $current = array();
-    if ($mainIds) {
-        $ph = in_placeholders(array_keys($mainIds));
+    if ($allIds) {
+        $ph = in_placeholders(array_keys($allIds));
         $tables = array(
             'lab' => array('lab_items', 'name'),
             'imaging' => array('exam_items', 'name'),
@@ -72,7 +71,7 @@ function pkg_validate_items($type, $items) {
             if ($type === 'prescription') {
                 $sel .= ", spec, vendor_short AS company_short, single_dose, frequency, route, qty, spec_dose, spec_dose_unit, spec_pack_qty, spec_pack_unit, single_use_qty, package_unit, allow_split";
             }
-            foreach (PackageRepository::q("SELECT $sel FROM $table WHERE id IN ($ph)", array_keys($mainIds)) as $row) {
+            foreach (PackageRepository::q("SELECT $sel FROM $table WHERE id IN ($ph)", array_keys($allIds)) as $row) {
                 $current[(int)$row['id']] = $row;
             }
         }
@@ -90,8 +89,13 @@ function pkg_validate_items($type, $items) {
             $subRow = isset($current[$id]) ? $current[$id] : null;
             if (!$subRow) {
                 $item['valid'] = 0; $item['invalid_reason'] = '子医嘱项目已不存在或未通过审核';
-            } elseif ($type === 'prescription' && (int)$subRow['qty'] <= 0) {
-                $item['valid'] = 0; $item['invalid_reason'] = '子医嘱药品已缺货';
+            } else {
+                // 处方：回填实时库存（最小单位），覆盖套餐快照中的历史值，
+                // 避免应用时展示「99 盒 / 0 盒」等与真实库存不符
+                if ($type === 'prescription') $item['stock'] = (int)$subRow['qty'];
+                if ((int)$subRow['qty'] <= 0) {
+                    $item['valid'] = 0; $item['invalid_reason'] = '子医嘱药品已缺货';
+                }
             }
             $out[] = $item;
             continue;
@@ -103,6 +107,8 @@ function pkg_validate_items($type, $items) {
             $out[] = $item;
             continue;
         }
+        // 处方：回填实时库存（最小单位），覆盖套餐快照中的历史值（展示与数量上限均以实时库存为准）
+        if ($type === 'prescription') $item['stock'] = (int)$row['qty'];
         if ($row['status'] !== 'approved') {
             $item['valid'] = 0;
             $item['invalid_reason'] = '项目已未通过审核';
