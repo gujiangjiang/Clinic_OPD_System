@@ -30,7 +30,14 @@ $params = array(
     'pass' => ConfigStore::get('backup.' . $driver . '.pass', ''),
 );
 try {
-    $r = DatabaseMigrator::backupTo($driver, $params);
+    // 与手动备份（管理端同步触发）共用同一把 flock：并发时直接跳过，避免备份库互相覆盖
+    $r = null;
+    $locked = with_exclusive_lock('backup', function () use ($driver, $params, &$r) {
+        $r = DatabaseMigrator::backupTo($driver, $params);
+    });
+    if (!$locked) {
+        exit('backup skipped: locked');
+    }
     // 写入备份时间戳（定时调度去重：当日已备份不再重复触发）
     ConfigStore::set('backup.last_at', now_str());
     ConfigStore::set('backup.last_date', date('Y-m-d'));

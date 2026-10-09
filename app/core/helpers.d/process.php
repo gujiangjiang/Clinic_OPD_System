@@ -40,3 +40,30 @@ function spawn_background($script, $args = array()) {
     @pclose($fp);
     return true;
 }
+
+/**
+ * 以非阻塞文件锁执行临界区（跨进程互斥，进程异常退出由内核自动释放）
+ * 说明：备份等重任务的手动触发（Web 同步）与定时触发（CLI 后台）共用同一把锁，
+ * 避免并发执行导致备份库互相覆盖。
+ * @param string   $name 锁名（映射 data/logs/.<name>.lock）
+ * @param callable $fn   临界区回调（异常原样向上抛出，锁在 finally 释放）
+ * @return bool 是否获得锁并执行（未获得返回 false）
+ */
+function with_exclusive_lock($name, $fn) {
+    if (!preg_match('/^[a-z0-9_\-]+$/i', (string)$name)) return false;
+    $dir = DATA_DIR . '/logs';
+    if (!is_dir($dir)) @mkdir($dir, 0777, true);
+    $fp = @fopen($dir . '/.' . $name . '.lock', 'c');
+    if (!$fp) return false;
+    if (!@flock($fp, LOCK_EX | LOCK_NB)) {
+        @fclose($fp);
+        return false;
+    }
+    try {
+        call_user_func($fn);
+        return true;
+    } finally {
+        @flock($fp, LOCK_UN);
+        @fclose($fp);
+    }
+}

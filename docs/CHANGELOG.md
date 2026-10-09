@@ -57,6 +57,9 @@
   安装向导 `check_db` 创建 ICD-10 分支同样强制 POST，杜绝跨站触发缓存清空/建库。
 
 ### 修复
+- **备份并发竞态**：新增 `with_exclusive_lock()`（非阻塞 flock），管理端手动备份与
+  定时备份 CLI 共用同一把 `backup` 锁——并发触发时手动侧提示稍后重试、CLI 侧跳过，
+  避免两个 `backupTo` 同时清库/写入导致备份库互相覆盖。
 - **存证调用“假成功”**：`evid_http_call()` 仅在 HTTP 2xx 且响应 JSON 携带非空 `token`
   时视为成功（错误页/非 JSON 正文不再被当作凭据）；失败写 error_log 留痕；
   出向接口日志补 `target`（存证服务地址）。

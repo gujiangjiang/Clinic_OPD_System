@@ -347,7 +347,13 @@ function admin_part_sysinfo($action) {
         );
         require_once APP_ROOT . '/app/core/db/DatabaseMigrator.php';
         try {
-            $r = DatabaseMigrator::backupTo($driver, $params);
+            // 与定时备份 CLI 共用同一把 flock：已有备份在执行则拒绝并发触发，
+            // 避免两个 backupTo 同时清库/写入导致备份库数据互相覆盖
+            $r = null;
+            $locked = with_exclusive_lock('backup', function () use ($driver, $params, &$r) {
+                $r = DatabaseMigrator::backupTo($driver, $params);
+            });
+            if (!$locked) json_fail('已有备份任务正在执行，请稍后重试');
             require_once APP_ROOT . '/app/core/db/MigrationRunner.php';
             MigrationRunner::log('backup', '备份成功：共 ' . count($r['tables']) . ' 张表、' . $r['rows'] . ' 行数据同步到备份库（' . strtoupper($driver) . '）');
             json_ok(array('tables' => count($r['tables']), 'rows' => $r['rows'], 'driver' => $driver),
