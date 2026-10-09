@@ -59,6 +59,9 @@
   安装向导 `check_db` 创建 ICD-10 分支同样强制 POST，杜绝跨站触发缓存清空/建库。
 
 ### 修复
+- **事务异常捕获未覆盖 Error**：LIS 结果回填事务与退费/转科/危急值处理接口的
+  `catch (Exception)` 统一改为 `catch (Throwable)`，PHP 7 的 `Error/TypeError`
+  不再逃逸导致事务悬挂或原始 500；FHIR 影像引用登记失败补 error_log 留痕。
 - **备份并发竞态**：新增 `with_exclusive_lock()`（非阻塞 flock），管理端手动备份与
   定时备份 CLI 共用同一把 `backup` 锁——并发触发时手动侧提示稍后重试、CLI 侧跳过，
   避免两个 `backupTo` 同时清库/写入导致备份库互相覆盖。

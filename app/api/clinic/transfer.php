@@ -67,7 +67,7 @@ switch ($action) {
                     $targetDept, $dept['name'], $visitId,
                 ));
             });
-        } catch (Exception $ex) {
+        } catch (Throwable $ex) {
             json_fail('转科失败：' . $ex->getMessage());
         }
         json_ok(array(), '已转往【' . $dept['name'] . '】，就诊序号与首次挂号科室保持不变');

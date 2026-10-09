@@ -368,7 +368,7 @@ switch ($action) {
                 $recordId = crit_insert_emr($cv, $u, $matchText, $treatment);
                 CriticalValueRepository::attachRecord($id, $recordId);
             });
-        } catch (Exception $ex) {
+        } catch (Throwable $ex) {
             json_fail('处理失败：' . $ex->getMessage());
         }
         json_ok(array('id' => oid($id), 'record_id' => oid($recordId)), '危急值已处理，已写入病历「危急值记录」');

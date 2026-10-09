@@ -247,7 +247,12 @@ class TaskAdapter extends FhirAdapter {
         // 摄片完成：按检查号从区域 PACS 解析并登记【该申请单全部 Study】的影像引用
         // （A2：一申请单 N Study；使影像在门诊侧立即可见，支撑检索闭环）。
         if ($status === 'completed' && class_exists('ImagingRegionResolver')) {
-            try { ImagingRegionResolver::registerForOrder((int)$it['order_id']); } catch (Exception $e) { /* 区域 PACS 不可达时留待调阅时自愈 */ }
+            try {
+                ImagingRegionResolver::registerForOrder((int)$it['order_id']);
+            } catch (Throwable $e) {
+                // 区域 PACS 不可达时留待调阅时自愈，但必须留痕便于排查
+                error_log('[FHIR] 影像引用登记失败（待自愈）：' . $e->getMessage());
+            }
         }
 
         $row = self::findRowByBareId($bareId);

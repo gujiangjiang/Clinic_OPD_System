@@ -219,7 +219,7 @@ class LisService {
 
         $reportId = self::upsertReport($order, $reportNo, $reportDoctor, $pdfUrl, $resultIds);
         DatabaseManager::commitTx($pdo);
-        } catch (Exception $ex) {
+        } catch (Throwable $ex) {
             DatabaseManager::rollbackTx($pdo);
             throw $ex;
         }

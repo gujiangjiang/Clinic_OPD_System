@@ -173,7 +173,7 @@ if ($action === 'apply') {
                 ));
             }
         });
-    } catch (Exception $ex) {
+    } catch (Throwable $ex) {
         json_fail('退费申请创建失败：' . $ex->getMessage());
     }
     // 站内消息通知各审批人（点击跳转审批页）
