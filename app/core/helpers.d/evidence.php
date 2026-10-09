@@ -54,11 +54,11 @@ function evid_sign($recordType, $recordNo, $content, $extraMeta = '') {
                 'time' => $time,
                 'meta' => $extraMeta,
             ));
-            // 日志中心·接口日志：外部存证/签名服务出向调用
+            // 日志中心·接口日志：外部存证/签名服务出向调用（target=对方系统地址）
             if (function_exists('log_interface')) {
                 log_interface('evid', 'outbound', 'sign', $token !== '',
                     $token !== '' ? '存证签名成功' : '存证签名失败（未获取凭据）',
-                    '记录类型 ' . $recordType . '，编号 ' . $recordNo . '，指纹 ' . $hash);
+                    '记录类型 ' . $recordType . '，编号 ' . $recordNo . '，指纹 ' . $hash, '', $endpoint);
             }
         }
     }
@@ -67,10 +67,11 @@ function evid_sign($recordType, $recordNo, $content, $extraMeta = '') {
 
 /**
  * 调用外部存证/签名服务（POST JSON，Bearer 令牌；失败返回空串不阻断主流程）
+ * 成功判定：HTTP 2xx 且响应 JSON 携带非空 token 字段；非 JSON/错误页一律视为失败。
  * @param string $endpoint 服务地址
  * @param string $apiToken 服务令牌
  * @param array  $payload  提交数据
- * @return string 服务返回的存证凭据 token（解析响应 JSON 的 token 字段）
+ * @return string 服务返回的存证凭据 token（失败返回空串）
  */
 function evid_http_call($endpoint, $apiToken, $payload) {
     $ctx = stream_context_create(array('http' => array(
@@ -83,8 +84,23 @@ function evid_http_call($endpoint, $apiToken, $payload) {
         'ignore_errors' => true,
     )));
     $body = @file_get_contents($endpoint, false, $ctx);
-    if ($body === false || $body === '') return '';
+    if ($body === false || $body === '') {
+        error_log('[存证] 调用失败（无响应）：' . $endpoint);
+        return '';
+    }
+    // HTTP 状态校验：ignore_errors=true 时 4xx/5xx 正文仍会返回，不能按正文判成功
+    $status = 0;
+    if (isset($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m)) {
+        $status = (int)$m[1];
+    }
+    if ($status < 200 || $status >= 300) {
+        error_log('[存证] 服务返回 HTTP ' . $status . '：' . $endpoint);
+        return '';
+    }
     $decoded = json_decode($body, true);
-    if (is_array($decoded) && isset($decoded['token'])) return (string)$decoded['token'];
-    return mb_substr($body, 0, 200);
+    if (is_array($decoded) && isset($decoded['token']) && (string)$decoded['token'] !== '') {
+        return (string)$decoded['token'];
+    }
+    error_log('[存证] 响应缺少 token 字段：' . $endpoint . ' body=' . mb_substr($body, 0, 200));
+    return '';
 }

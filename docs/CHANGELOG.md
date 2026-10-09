@@ -54,6 +54,9 @@
   安装向导 `check_db` 创建 ICD-10 分支同样强制 POST，杜绝跨站触发缓存清空/建库。
 
 ### 修复
+- **存证调用“假成功”**：`evid_http_call()` 仅在 HTTP 2xx 且响应 JSON 携带非空 `token`
+  时视为成功（错误页/非 JSON 正文不再被当作凭据）；失败写 error_log 留痕；
+  出向接口日志补 `target`（存证服务地址）。
 - **FHIR OAuth 签名密钥并发生成竞态**：`tokenSecret()` 改为「条件 UPDATE 原子抢占 +
   `INSERT OR IGNORE` 补插 + 清快照重读权威值」，并发首用时全局仅一个有效密钥；
   持久化失败写 error_log 并仍返回生成值（不阻断颁发）。
