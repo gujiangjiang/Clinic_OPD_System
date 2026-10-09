@@ -505,14 +505,7 @@ function integration_spawn_worker() {
     $now = time();
     if (is_file($stamp) && ($now - (int)@filemtime($stamp)) < 5) return;
     @touch($stamp);
-    $runner = '';
-    foreach (array('~/.local/bin/frankenphp', '/usr/local/bin/frankenphp', '/opt/homebrew/bin/frankenphp') as $p) {
-        $p = str_replace('~', isset($_SERVER['HOME']) ? $_SERVER['HOME'] : '', $p);
-        if (is_file($p)) { $runner = $p; break; }
-    }
-    if ($runner === '') $runner = 'frankenphp';
-    $cmd = 'nohup ' . $runner . ' php-cli ' . $script . ' > /dev/null 2>&1 &';
-    @pclose(@popen($cmd, 'r'));
+    spawn_background($script);
 }
 
 /** 入队封装（重复业务合并为同一条任务；成功后不再重发） */

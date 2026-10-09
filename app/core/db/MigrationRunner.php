@@ -87,23 +87,17 @@ class MigrationRunner {
         // 强制清除全部用户会话（迁移期间避免任何残留读写）
         self::clearAllSessions();
 
-        // 后台启动 CLI 迁移脚本（nohup 分离，不等待）
+        // 后台启动 CLI 迁移脚本（nohup 分离，不等待；统一走 spawn_background）
+        // 返回 false 即 fork 失败（nohup 不可用）——原实现 pclose(false) 结果不可靠
         $script = APP_ROOT . '/tools/cli/db_migrate_run.php';
         if (!is_file($script)) {
-            self::fail('迁移脚本缺失：' . $script);
+            self::fail($s, '迁移脚本缺失：' . $script);
             return array('ok' => false, 'msg' => '迁移脚本缺失，无法启动');
         }
-        $runner = self::phpBinary();
-        $args = array_merge(array($runner, 'php-cli', $script, escapeshellarg($token)));
-        $cmd = 'nohup ' . implode(' ', $args) . ' > /dev/null 2>&1 &';
-        // 后台启动检测：popen 返回 false 即 fork 失败（nohup 不可用）——
-        // 原实现 pclose(false) 结果不可靠，且「前台执行」兜底分支实际未执行脚本属假启动
-        $fp = @popen($cmd, 'r');
-        if ($fp === false) {
+        if (!spawn_background($script, array($token))) {
             self::fail($s, '后台迁移进程启动失败（nohup 不可用），请检查服务器环境后重试');
             return array('ok' => false, 'msg' => '后台迁移进程启动失败，无法启动迁移');
         }
-        @pclose($fp);
         return array('ok' => true, 'token' => $token, 'msg' => '迁移已启动，全站将进入锁定维护');
     }
 
@@ -257,14 +251,5 @@ class MigrationRunner {
         }
         $path = isset($p['path']) && $p['path'] !== '' ? $p['path'] : DATA_DIR . '/db/clinic_main.db';
         return new PDO('sqlite:' . $path, null, null, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
-    }
-
-    /** PHP 运行器（frankenphp php-cli 优先，回退系统 php） */
-    private static function phpBinary() {
-        foreach (array('~/.local/bin/frankenphp', '/usr/local/bin/frankenphp', '/opt/homebrew/bin/frankenphp') as $p) {
-            $p = str_replace('~', isset($_SERVER['HOME']) ? $_SERVER['HOME'] : '', $p);
-            if (is_file($p)) return $p;
-        }
-        return 'frankenphp';   // PATH 回退
     }
 }

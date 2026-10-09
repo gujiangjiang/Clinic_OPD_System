@@ -16,6 +16,9 @@
 ## [9.12.0] - 待发布
 
 ### 变更
+- **后台进程拉起统一**：新增 `helpers.d/process.php`（`php_cli_runner()` /
+  `spawn_background()`），定时备份、病历自动归档、Outbox worker、数据库迁移共
+  4 处「解析 frankenphp + nohup + popen」模板收敛为单一实现。
 - **数据库连接工厂**：新增 `app/core/db/ConnectionFactory.php` 统一 MySQL/PG/SQLite 的
   DSN 与 PDO 构建，替换主库 / 备份库 / 迁移源与目标 / 配置安装探测 / 迁移守卫等
   10+ 处散落拼接（连接串逐字一致，零行为变化）。
