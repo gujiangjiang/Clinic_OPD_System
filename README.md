@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v9.11.1-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL%2FPostgreSQL-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v9.12.0-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL%2FPostgreSQL-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -180,9 +180,9 @@
 │   │   │   ├── core/          # 基础与通用样式：base / layout / components / components-emr / modal / dark / print
 │   │   │   └── pages/         # 页面专属样式：auth / landing / call / pacs
 │   │   └── js/components/
-│   │       ├── core/          # 通用组件：ajax / modal / app / nav / ui / toast / theme / dropdown / datetime / …
+│   │       ├── core/          # 通用组件：ajax / modal / app / nav / ui / toast / theme / dropdown / datetime / certificate / …
 │   │       ├── emr/           # 电子病历栈：emr / emreditor / order / queuepanel / vitals / 模板与片段…
-│   │       ├── dept/          # 科室工作台：deptwork / doctor_tools / room_heartbeat / pacshistory / screen / call / critical
+│   │       ├── dept/          # 科室工作台：deptwork / doctor_tools / callpop_common / room_heartbeat / pacshistory / screen / call / critical
 │   │       └── admin/         # 管理端：admin_items / import / chart
 │   └── uploads/               # 上传文件：logo/、user/{角色}/——运行时生成，不提交
 ├── app/                       # 业务代码（Web 无法访问）
@@ -196,12 +196,12 @@
 │   │       └── icd10.php      # ICD-10 独立字典库 schema
 │   ├── core/                  # 核心框架类
 │   │   ├── db/                # 数据基础设施：DatabaseManager / DatabaseMigrator / MigrationRunner /
-│   │   │                      #   ConfigStore（config.db 读写）/ ConnectionTester
+│   │   │                      #   ConnectionFactory（DSN 统一构建）/ ConfigStore（config.db 读写）/ ConnectionTester
 │   │   ├── auth/              # 认证与会话：Auth / CSRF / LoginSecurity / Session
 │   │   ├── Router.php Upload.php IdObfuscator.php（URL 混淆）barcode.php（Code128 条形码）
 │   │   ├── Cache.php DataExportImport.php EmrContextResolver.php（病历上下文 SSOT）
 │   │   ├── helpers.php        # 加载 helpers.d/*.php
-│   │   └── helpers.d/         # 辅助函数按域拆分（string/input/upload/idcard/pinyin/settings/work/oid/visit/trend/consult/authz/message）
+│   │   └── helpers.d/         # 辅助函数按域拆分（string/input/upload/idcard/pinyin/settings/work/sql/process/oid/visit/trend/consult/authz/message）
 │   ├── repositories/          # 数据访问层（按业务域分目录）
 │   │   ├── BaseRepository.php # 通用 CRUD 助手
 │   │   ├── clinical/          # Order / Emr / EmrTemplate / Consent / Consultation / Referral /
@@ -211,7 +211,7 @@
 │   │   └── system/            # User / Dept / Audit / Analytics / Core / Integration / Message / Queue / Push
 │   ├── services/              # 服务层（按集成域分目录）
 │   │   ├── system/            # LogService / ConnectivityTester / ConfigAudit / IntegrationStatus
-│   │   ├── imaging/           # ImagingRegionResolver
+│   │   ├── imaging/           # ImagingRegionResolver / PacsAuth（出向鉴权与基地址统一）
 │   │   ├── his/ hl7/ lis/ fhir/ external/ http/
 │   ├── api/                   # AJAX 接口（按域归类，含角色权限校验；不含原生 SQL，
 │   │   │                      # 统一调用对应 Repository）
