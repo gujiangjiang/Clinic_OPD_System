@@ -44,8 +44,8 @@ define('PGSQL_DB_NAME', 'his_main');    // PostgreSQL 统一主库名
 define('PGSQL_USER', 'postgres');
 define('PGSQL_PASS', '');
 
-/* 调试模式：正式部署请改为 false（关闭页面错误输出，仅记录日志） */
-define('DEBUG', true);
+/* 调试模式：默认关闭（错误仅记录日志，不向页面输出）；本地开发可设环境变量 APP_DEBUG=1 开启 */
+define('DEBUG', getenv('APP_DEBUG') === '1');
 
 if (DEBUG) {
     error_reporting(E_ALL);

@@ -59,7 +59,9 @@ function json_script($data) {
  */
 function json_fail($msg) {
     try {
-        $__db = DatabaseManager::getMain();
+        // 仅回滚「已初始化」的连接：安装向导阶段主库尚未初始化（用户还未选库），
+        // 此处若调用 getMain() 会提前创建 clinic_main.db 并播种，破坏「选库前不建库」不变量
+        $__db = DatabaseManager::mainOrNull();
         if ($__db && $__db->inTransaction()) {
             // 自动回滚并丢弃事务内挂起的镜像缓冲（进程即将退出，备份库不写入）
             DatabaseManager::rollbackTx($__db);

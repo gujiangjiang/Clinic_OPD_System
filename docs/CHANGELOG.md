@@ -22,6 +22,9 @@
 - **审核通过“通过但未生效”**：审核中心读取列名由不存在的 `audits.data` 更正为
   `data_json`（`audit_apply` 药品设置/个人资料落库、`audit_preview` 只读预览、
   个人信息页待审头像回显），并补正预览分支未定义变量 `$refId`（改用 `ref_id`）。
+- **安装向导校验失败提前建库 / 生产错误信息泄露**：`json_fail()` 改为仅在主库已初始化时
+  回滚（新增 `DatabaseManager::mainOrNull()`，不触发懒加载建库），杜绝安装第 2 步前
+  因接口失败提前创建 `clinic_main.db`；`DEBUG` 默认关闭，本地开发可用 `APP_DEBUG=1` 开启。
 
 ---
 

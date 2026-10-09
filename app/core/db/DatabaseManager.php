@@ -69,6 +69,11 @@ class DatabaseManager {
         return $id;
     }
 
+    /** 已初始化的主库连接（未初始化返回 null，不触发建库）——供回滚/探测路径使用 */
+    public static function mainOrNull() {
+        return self::$main;
+    }
+
     /**
      * 获取统一业务主库 PDO 连接（懒加载：首次访问自动建库建表迁移种子）
      * 多驱动：sqlite 打开 clinic_main.db，mysql 连接 MYSQL_* 库，pgsql 连接 PGSQL_* 库
