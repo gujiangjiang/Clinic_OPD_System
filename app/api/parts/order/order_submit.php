@@ -116,6 +116,11 @@ function order_part_submit($u) {
         if ($qty > $qtyCap) json_fail('单项数量不能超过 ' . $qtyCap);
         $price = 0;
         $subOf = (int)(isset($it['sub_of']) ? $it['sub_of'] : 0);
+        // 子项为处方专属结构（前端仅子医嘱生成 sub_of>0）：非处方单出现子项
+        // 视为伪造（可借此绕过目录存在性校验与权威核价），直接拒绝
+        if ($orderType !== 'prescription' && $subOf > 0) {
+            json_fail('非处方单不支持子项目，请刷新后重试');
+        }
         $needNurse = 0;
         $skinChoice = '';
         $routeBindId = 0;
