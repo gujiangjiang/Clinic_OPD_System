@@ -191,7 +191,9 @@ class InboundGuard {
         }
         $expires = isset($entry['expires']) ? trim((string)$entry['expires']) : '';
         if ($expires !== '' && $expires !== '0') {
-            $ts = ctype_digit($expires) ? (int)$expires : (strtotime($expires) ?: 0);
+            $ts = ctype_digit($expires) ? (int)$expires : strtotime($expires);
+            // 无法解析的过期时间按「已过期」处理（fail-closed），避免格式错误被当作永不过期
+            if ($ts === false) return 'expired';
             if ($ts > 0 && $ts < time()) return 'expired';
         }
         return 'ok';

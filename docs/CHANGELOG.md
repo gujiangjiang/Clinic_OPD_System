@@ -32,6 +32,10 @@
   10+ 处散落拼接（连接串逐字一致，零行为变化）。
 
 ### 安全
+- **入向凭证过期时间解析 fail-open**：`InboundGuard::entryState()` 对无法解析的过期时间
+  按「已过期」处理（fail-closed），不再被当作永不过期。
+- **本地自检信任 Host 头**：`ConnectivityTester::localGetCheck()` 改用固定回环
+  `127.0.0.1:SERVER_PORT`，防 Host 注入把模块鉴权 Token 带到外部地址。
 - **开单子项绕过目录与核价**：`order_submit` 拒绝非处方单提交 `sub_of>0` 明细
   （子项为处方专属结构，前端仅子医嘱生成），封堵伪造子项以 0 元/自定义名称入库。
 - **安装探测可写任意路径**：`test_db` 的 SQLite 测试路径改为与 `check_db`/保存同源的

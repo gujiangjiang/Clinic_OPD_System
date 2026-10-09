@@ -262,7 +262,10 @@ class ConnectivityTester {
      */
     private static function localGetCheck($name, $path, $token = '', $verify = null, $method = 'GET', $headerName = 'X-API-Key', $okStatuses = null) {
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '127.0.0.1';
+        // 固定回环地址自检：不信任客户端可控的 Host 头，防 Host 注入把
+        // 模块鉴权 Token 随自检请求带到外部地址（SSRF / 凭证外泄）
+        $port = isset($_SERVER['SERVER_PORT']) ? (int)$_SERVER['SERVER_PORT'] : 0;
+        $host = '127.0.0.1' . ($port > 0 ? ':' . $port : '');
         $url = $scheme . '://' . $host . $path;
         $headers = array('X-Requested-With: XMLHttpRequest');
         if ($token !== '') $headers[] = (string)$headerName . ': ' . $token;
