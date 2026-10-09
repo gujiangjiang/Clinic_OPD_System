@@ -153,10 +153,22 @@ function gen_unique_no($prefix, $table, $col) {
     if (!preg_match('/^[a-z0-9_]+$/', $table) || !preg_match('/^[a-z0-9_]+$/', $col)) {
         throw new Exception('非法查重表/列名');
     }
-    do {
-        $no = $prefix . date('YmdHis') . str_pad((string)rand(0, 99), 2, '0', STR_PAD_LEFT);
-    } while ((int)CoreRepository::val("SELECT COUNT(*) FROM $table WHERE $col=?", array($no)) > 0);
-    return $no;
+    $stamp = date('YmdHis');
+    // 常规号段：2 位随机（同秒 100 个取值），最多尝试 20 次防死循环
+    for ($i = 0; $i < 20; $i++) {
+        $no = $prefix . $stamp . str_pad((string)random_int(0, 99), 2, '0', STR_PAD_LEFT);
+        if ((int)CoreRepository::val("SELECT COUNT(*) FROM $table WHERE $col=?", array($no)) === 0) {
+            return $no;
+        }
+    }
+    // 极端批量（同秒 ≥100 条）：扩展随机段至 6 位，保持「前缀+时间戳」可读结构
+    for ($i = 0; $i < 20; $i++) {
+        $no = $prefix . $stamp . str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        if ((int)CoreRepository::val("SELECT COUNT(*) FROM $table WHERE $col=?", array($no)) === 0) {
+            return $no;
+        }
+    }
+    throw new Exception('业务单号生成失败：' . $prefix . ' 号段耗尽，请重试');
 }
 
 /**

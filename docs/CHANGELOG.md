@@ -44,6 +44,9 @@
   改走方言 helper，消除 SQLite 专有 `strftime/date()` 在 MySQL/PG 下的 500；
   `DatabaseManager::insert()` 对 `INSERT OR IGNORE` 自动跨库翻译（运行时 4 处幂等插入）；
   `BaseRepository` 表名标识符引用按驱动选择（PG 双引号，其余反引号）。
+- **业务单号生成死循环风险**：`gen_unique_no()` 由无限查重循环改为「常规 2 位随机
+  最多 20 次 + 极端批量扩展 6 位随机段」的有界重试，耗尽时抛异常而非永久卡死；
+  随机源换用 `random_int()`。
 
 ---
 
