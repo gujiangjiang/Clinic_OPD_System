@@ -16,6 +16,9 @@
 ## [9.12.0] - 待发布
 
 ### 变更
+- **模态框页脚收敛**：`modal.js` 新增 `Clinic.modal.itemFootHtml(saveId, small)`，
+  检验/检查/药品/处置/科室 5 处逐字重复的「启用 / 取消 / 保存」页脚收敛为单一生成器
+  （输出逐字一致；科室弹窗的小尺寸启用按钮通过参数保留）。
 - **叫号悬浮窗公共交互收敛**：新增 `dept/callpop_common.js`
   （`Clinic.callPop.bindDrag/unbindDrag/setOffline`，已登记 JS_CORE 与预缓存），
   医生工作站与科室工作站两份逐字重复的标题栏拖动/离线蒙板实现（约 90 行）收敛为单一实现；

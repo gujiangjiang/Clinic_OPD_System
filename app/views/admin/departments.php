@@ -70,11 +70,7 @@ function loadDeptList() {
 function openDeptForm(id) {
     var mask = Clinic.modal.load('/api/admin', { action: 'dept_form', id: id || 0 }, { title: id ? '编辑科室' : '新增科室' });
     mask.querySelector('.modal-body').addEventListener('modal:loaded', function () {
-        mask.querySelector('.modal-foot').innerHTML =
-            '<div style="display:flex;justify-content:space-between;align-items:center;width:100%">' +
-            '<button type="button" id="enabledToggle" class="btn btn-success" onclick="toggleItemEnabled()">'+renderIconSvg('alert:success')+' 启用</button>' +
-            '<span><button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
-            '<button type="button" class="btn btn-primary" id="deptSave">保存</button></span></div>';
+        mask.querySelector('.modal-foot').innerHTML = Clinic.modal.itemFootHtml('deptSave', false);
         initEnabledToggle(id > 0);
         document.getElementById('deptSave').addEventListener('click', function () {
             Clinic.ajax('/api/admin', {

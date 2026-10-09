@@ -256,3 +256,19 @@ Clinic.modal = (function () {
 
     return { open: open, load: load, close: close, closeAll: closeAll, confirm: confirm, prompt: prompt };
 })();
+
+/**
+ * 项目类编辑弹窗公共页脚（启用 / 取消 / 保存）
+ * 说明：检验/检查/药品/处置/科室等编辑弹窗页脚逐字重复，统一由此生成；
+ * 保存按钮 id 由调用方指定（其事件绑定仍保留在各页面）。
+ * @param {string} saveId 保存按钮 id（如 itemSave / drugSave / dispSave / deptSave）
+ * @param {boolean} small 启用按钮是否小尺寸（默认 true；科室弹窗为 false）
+ * @returns {string}
+ */
+Clinic.modal.itemFootHtml = function (saveId, small) {
+    var cls = (small === false) ? 'btn btn-success' : 'btn btn-sm btn-success';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;width:100%">' +
+        '<button type="button" id="enabledToggle" class="' + cls + '" onclick="toggleItemEnabled()">' + renderIconSvg('alert:success') + ' 启用</button>' +
+        '<span><button type="button" class="btn btn-outline" onclick="Clinic.modal.close()">取消</button>' +
+        '<button type="button" class="btn btn-primary" id="' + saveId + '">保存</button></span></div>';
+};
