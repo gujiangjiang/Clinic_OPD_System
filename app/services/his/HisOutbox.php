@@ -84,7 +84,7 @@ class HisOutbox {
                         (string)$task['business_type'],
                         !empty($res['ok']),
                         !empty($res['ok']) ? '出向调用成功' : ('出向调用失败：' . (isset($res['error']) ? $res['error'] : '未知错误')),
-                        (string)$task['payload']);
+                        (string)$task['payload'], '', self::targetOf((string)$task['business_type']));
                 }
                 if ($res['ok']) {
                     $success++;
@@ -97,7 +97,8 @@ class HisOutbox {
                 $failed++;
                 if (function_exists('log_interface')) {
                     log_interface(self::moduleOf((string)$task['business_type']), 'outbound',
-                        (string)$task['business_type'], false, '出向调用异常：' . $ex->getMessage(), (string)$task['payload']);
+                        (string)$task['business_type'], false, '出向调用异常：' . $ex->getMessage(),
+                        (string)$task['payload'], '', self::targetOf((string)$task['business_type']));
                 }
                 IntegrationRepository::failTask((int)$task['id'], $ex->getMessage());
             }
@@ -119,6 +120,29 @@ class HisOutbox {
         if (strpos($b, 'dicom') === 0) return 'dicom';
         if (strpos($b, 'evid') === 0) return 'evid';
         return 'his';
+    }
+
+    /** 业务类型 → 出向目标系统地址（接口日志 target 列；未配置返回空串） */
+    public static function targetOf($businessType) {
+        $b = (string)$businessType;
+        if (strpos($b, 'his_') === 0) {
+            return trim((string)setting('integration.outbound.his.gateway_url', ''));
+        }
+        if (strpos($b, 'hl7_') === 0) {
+            $host = (string)integration_cfg('outbound.hl7.remote_host', '', 'hl7_receiver_url');
+            if (trim($host) === '') return '';
+            $port = (string)integration_cfg('outbound.hl7.remote_port', '0', 'hl7_receiver_port');
+            $transport = function_exists('integration_hl7_transport') ? integration_hl7_transport() : 'mllp_tcp';
+            $scheme = ($transport === 'http_post') ? 'http://' : 'mllp://';
+            return $scheme . trim($host) . ((int)$port > 0 ? ':' . (int)$port : '');
+        }
+        if ($b === 'fhir_bundle') {
+            return trim((string)setting('integration.outbound.fhir.remote_endpoint', ''));
+        }
+        if ($b === 'lis_order') {
+            return trim((string)setting('integration.outbound.lis.order_url', ''));
+        }
+        return '';
     }
 
     /** 按业务类型分发到对应驱动 */

@@ -458,27 +458,14 @@ function dw_instance_obj($ref, $s, $n, $seUid, $i, $normStudy, $pname, $psex, $p
     return $item;
 }
 
-/** 出向区域 PACS 基地址（去掉 {study_uid} 模板与结尾 /studies） */
+/** 出向区域 PACS 基地址（统一走 PacsAuth） */
 function dw_outbound_base() {
-    $base = trim((string)setting('integration.outbound.pacs.qido_url', ''));
-    if ($base === '') $base = trim((string)setting('integration.outbound.pacs.wado_url', ''));
-    if ($base === '') return '';
-    $base = preg_replace('#/\{?(study_uid|studyUID)\}.*$#i', '', $base);   // 去掉 {study_uid} 模板
-    return rtrim(preg_replace('#/studies/?$#i', '', rtrim($base, '/')), '/');
+    return PacsAuth::base();
 }
 
-/** 出向区域 PACS 鉴权请求头 */
+/** 出向区域 PACS 鉴权请求头（统一走 PacsAuth） */
 function dw_outbound_headers() {
-    $headers = array();
-    $scheme = strtolower(trim((string)setting('integration.outbound.pacs.auth_scheme', 'none')));
-    $val = trim((string)setting('integration.outbound.pacs.auth_value', ''));
-    if ($val !== '') {
-        if ($scheme === 'bearer') $headers[] = 'Authorization: Bearer ' . $val;
-        elseif ($scheme === 'x-api-key') $headers[] = 'X-API-Key: ' . $val;
-        elseif ($scheme === 'basic') $headers[] = 'Authorization: Basic ' . base64_encode($val);
-        elseif ($scheme === 'custom') $headers[] = $val;
-    }
-    return $headers;
+    return PacsAuth::headers();
 }
 
 /** 出向区域 PACS GET（失败返回 null）；$log=true 时落账接口日志·出向（目标=对方系统地址） */

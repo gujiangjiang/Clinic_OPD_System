@@ -16,6 +16,11 @@
 ## [9.12.0] - 待发布
 
 ### 变更
+- **PACS 出向鉴权统一**：新增 `services/imaging/PacsAuth.php`（`base()`/`headers()`），
+  DICOMweb 出向、区域 UID 解析、连通性测试三处重复的基地址解析与
+  bearer/x-api-key/basic/custom 头构造收敛为唯一实现。
+- **Outbox 出向审计补全**：`HisOutbox` 出向日志补充 `target`（HIS 网关 / HL7
+  MLLP 或 HTTP 地址 / FHIR 端点 / LIS 下单地址），满足出向审计铁律。
 - **后台进程拉起统一**：新增 `helpers.d/process.php`（`php_cli_runner()` /
   `spawn_background()`），定时备份、病历自动归档、Outbox worker、数据库迁移共
   4 处「解析 frankenphp + nohup + popen」模板收敛为单一实现。

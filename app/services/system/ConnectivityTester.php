@@ -288,14 +288,7 @@ class ConnectivityTester {
      * @return array 请求头行数组
      */
     private static function composeAuthHeader($scheme, $value) {
-        $scheme = strtolower(trim((string)$scheme));
-        $value = trim((string)$value);
-        if ($scheme === '' || $scheme === 'none' || $value === '') return array();
-        if ($scheme === 'bearer') return array('Authorization: Bearer ' . $value);
-        if ($scheme === 'x-api-key') return array('X-API-Key: ' . $value);
-        if ($scheme === 'basic') return array('Authorization: Basic ' . base64_encode($value));
-        if ($scheme === 'custom') return array($value);
-        return array();
+        return PacsAuth::headers($scheme, $value);
     }
 
     /** 多组 Token 列表首行 Token（每行「调用方名,Token」） */
