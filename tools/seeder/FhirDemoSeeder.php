@@ -108,30 +108,36 @@ class FhirDemoSeeder extends Seeder {
         $docCount = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role='doctor' AND status=1")->fetchColumn();
         if ($deptCount === 0 || $docCount === 0) {
             fwrite(STDERR, "缺少科室/医生字典，请先执行：--module=\"dept user\"\n");
-            return 0;
+            exit(1);
         }
         if (!(int)$pdo->query('SELECT COUNT(*) FROM lab_items')->fetchColumn()) {
             fwrite(STDERR, "缺少检验字典，请先执行：--module=lab\n");
-            return 0;
+            exit(1);
         }
         if (!(int)$pdo->query('SELECT COUNT(*) FROM exam_items')->fetchColumn()) {
             fwrite(STDERR, "缺少检查字典，请先执行：--module=exam\n");
-            return 0;
+            exit(1);
         }
         if (!(int)$pdo->query('SELECT COUNT(*) FROM drugs')->fetchColumn()) {
             fwrite(STDERR, "缺少药品字典，请先执行：--module=drug\n");
-            return 0;
+            exit(1);
         }
 
         $this->clean();
+        $failed = 0;
         foreach ($this->journeys as $j) {
             try {
                 $this->makeJourney($j);
             } catch (Exception $ex) {
+                $failed++;
                 fwrite(STDERR, '  ! 旅程生成失败（' . $j['name'] . '）：' . $ex->getMessage() . "\n");
             }
         }
         $this->provisionCredentials();
+        if ($failed > 0) {
+            fwrite(STDERR, '共 ' . $failed . ' 套旅程生成失败，退出码置 1 供调度识别' . "\n");
+            exit(1);
+        }
         $this->out('已生成 3 套 FHIR/HL7 全链路验证数据（含 DICOM UID/Series 与危急值），并写入演示凭证');
         return count($this->journeys);
     }

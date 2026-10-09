@@ -53,5 +53,6 @@ try {
     ConfigStore::resetCache();
     require_once APP_ROOT . '/app/core/db/MigrationRunner.php';
     MigrationRunner::log('backup', '定时备份失败：' . $ex->getMessage());
-    exit('backup fail:' . $ex->getMessage());
+    fwrite(STDERR, 'backup fail:' . $ex->getMessage() . "\n");
+    exit(1);
 }

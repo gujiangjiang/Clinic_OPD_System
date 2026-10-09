@@ -3,7 +3,8 @@
  * ============================================================
  * tools/cli/log_archive_run.php — 日志滑动窗口归档清理（三库自适应）
  * ============================================================
- * 说明：按保留天数淘汰 system_logs / inbound_events 等追加写日志表的超期数据，
+ * 说明：按保留天数淘汰 system_logs 追加写日志表的超期数据
+ *（入向审计已统一到 system_logs，旧 inbound_events 表已于 v48 下线），
  * 各驱动采用最低成本策略（MySQL 分区裁剪优先、PG 分批删除、SQLite 事务分批 +
  * incremental_vacuum），规避大事务锁死与存储膨胀。严格遵守【三库异构互迁零破坏】。
  *
@@ -15,7 +16,7 @@
  * 参数：
  *   --days=N      保留天数（默认取设置 log.retention_days，再默认 7；0=不按时间清理）
  *   --batch=N     单批删除行数（默认 1000）
- *   --table=a,b   指定表（仅允许 system_logs,inbound_events；缺省全部）
+ *   --table=a,b   指定表（白名单：system_logs；缺省全部登记表）
  *   --dry-run     仅统计待清理行数，不删除
  *
  * 可由 cron 定时执行；亦可由后台调度按设置触发。
@@ -43,6 +44,11 @@ if ($opts['days'] === null) {
     $opts['days'] = (int)LogService::cfg('log.retention_days', '7');
 }
 
-$res = LogArchiver::archive($opts['days'], $opts['batch'], $opts['dry_run'], $opts['table']);
-$res['ok'] = true;
-echo json_encode($res, JSON_UNESCAPED_UNICODE) . "\n";
+try {
+    $res = LogArchiver::archive($opts['days'], $opts['batch'], $opts['dry_run'], $opts['table']);
+    $res['ok'] = true;
+    echo json_encode($res, JSON_UNESCAPED_UNICODE) . "\n";
+} catch (Throwable $ex) {
+    echo json_encode(array('ok' => false, 'msg' => $ex->getMessage()), JSON_UNESCAPED_UNICODE) . "\n";
+    exit(1);
+}

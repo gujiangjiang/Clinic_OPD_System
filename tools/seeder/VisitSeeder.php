@@ -183,12 +183,12 @@ class VisitSeeder extends Seeder {
             if (!$deptIds && !in_array((string)$r['type'], array('clinic', 'emergency'), true)) continue;
             $this->depts[(int)$r['id']] = $r;
         }
-        if (!count($this->depts)) exit("可用科室为空（请先执行 --module=dept）\n");
+        if (!count($this->depts)) { fwrite(STDERR, "可用科室为空（请先执行 --module=dept）\n"); exit(1); }
 
         foreach ($pdo->query("SELECT id, emp_no, name, dept_ids FROM users WHERE role='doctor' AND status=1 ORDER BY id") as $r) {
             $this->doctors[] = $r;
         }
-        if (!count($this->doctors)) exit("无医生账号（请先执行 --module=user）\n");
+        if (!count($this->doctors)) { fwrite(STDERR, "无医生账号（请先执行 --module=user）\n"); exit(1); }
 
         // 指定医生：校验存在且为医生角色，全部主诊为该医生
         $this->me = null;
@@ -196,7 +196,7 @@ class VisitSeeder extends Seeder {
             foreach ($this->doctors as $d) {
                 if ((string)$d['emp_no'] === $this->opt['doctor'] || (string)$d['name'] === $this->opt['doctor']) { $this->me = $d; break; }
             }
-            if (!$this->me) exit("指定医生工号 {$this->opt['doctor']} 不存在或不是医生角色\n");
+            if (!$this->me) { fwrite(STDERR, "指定医生工号 {$this->opt['doctor']} 不存在或不是医生角色\n"); exit(1); }
             echo "    ↳ 主诊医生：{$this->me['name']}（工号 {$this->me['emp_no']}）\n";
         }
 
@@ -214,7 +214,7 @@ class VisitSeeder extends Seeder {
             $this->diagPool[] = array('code' => $r['diagnosis_code'], 'name' => $r['diagnosis_name']);
         }
         if (!count($this->diagPool) || !count($this->labSingles) || !count($this->exams) || !count($this->disps) || !count($this->drugs)) {
-            exit("基础字典不完整（请先执行 --module=\"drug lab exam disposal\"）\n");
+            fwrite(STDERR, "基础字典不完整（请先执行 --module=\"drug lab exam disposal\"）\n"); exit(1);
         }
 
         /* ---------- 序号续接 ---------- */

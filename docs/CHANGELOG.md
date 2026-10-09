@@ -77,6 +77,11 @@
   安装向导 `check_db` 创建 ICD-10 分支同样强制 POST，杜绝跨站触发缓存清空/建库。
 
 ### 修复
+- **CLI 退出码恒 0 / 归档白名单旁路**：`log_archive_run.php`、`db_backup_run.php`、
+  `VisitSeeder`、`FhirDemoSeeder` 失败路径统一 `STDERR + exit(1)`（FhirDemoSeeder
+  旅程部分失败也置非 0）；`LogArchiver::resolveTables()` 指定未知表名直接报错，
+  不再静默回退为「清理全部登记表」；`seed.php` 主库备份路径随自定义 SQLite
+  库名/路径解析（此前硬编码 clinic_main.db，自定义库名时备份失效）。
 - **事务异常捕获未覆盖 Error**：LIS 结果回填事务与退费/转科/危急值处理接口的
   `catch (Exception)` 统一改为 `catch (Throwable)`，PHP 7 的 `Error/TypeError`
   不再逃逸导致事务悬挂或原始 500；FHIR 影像引用登记失败补 error_log 留痕。

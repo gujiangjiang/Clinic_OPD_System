@@ -58,14 +58,18 @@ function seed_php_bin() {
  * 备份至 data/db/backups/clinic_main.<时间戳>.db，仅保留最近 10 份。
  */
 function seed_backup_db() {
-    $db = dirname(dirname(dirname(__FILE__))) . '/data/db/clinic_main.db';
+    // 主库可能为自定义文件名/路径（安装向导允许），统一经 DatabaseManager 解析；
+    // 备份仅适用于 SQLite 单文件主库（MySQL/PG 主库不产生本地文件，无需文件备份）
+    if (DatabaseManager::driver() !== 'sqlite') return;
+    $db = DatabaseManager::sqlitePath('db.sqlite.path', 'clinic_main.db');
     if (!is_file($db)) return;
+    $base = pathinfo($db, PATHINFO_FILENAME);
     $dir = dirname($db) . '/backups';
     if (!is_dir($dir)) @mkdir($dir, 0775, true);
-    $dst = $dir . '/clinic_main.' . date('Ymd_His') . '.db';
+    $dst = $dir . '/' . $base . '.' . date('Ymd_His') . '.db';
     if (@copy($db, $dst)) {
         echo "== 已自动备份主库 → data/db/backups/" . basename($dst) . " ==\n";
-        $list = glob($dir . '/clinic_main.*.db');
+        $list = glob($dir . '/' . $base . '.*.db');
         if (is_array($list)) {
             sort($list);
             while (count($list) > 10) { @unlink(array_shift($list)); }
@@ -125,7 +129,7 @@ function seed_usage() {
   php tools/bin/seed.php --module=user               仅重置用户账号（14 个测试账号，密码 123456）
   php tools/bin/seed.php --module=screen             按科室分类动态生成叫号大屏与诊室窗口
   php tools/bin/seed.php --module=drug               仅重置药品与库存（DrugSeeder）
-  php tools/bin/seed.php --module=lab                仅重置检验项目（含 16 个检验组合/危急值上下限）
+  php tools/bin/seed.php --module=lab                仅重置检验项目（含检验组合与危急值上下限）
   php tools/bin/seed.php --module=exam               仅重置检查项目
   php tools/bin/seed.php --module=disposal           仅重置处置项目
   php tools/bin/seed.php --module=package            仅重置全院公共套餐（9 组）

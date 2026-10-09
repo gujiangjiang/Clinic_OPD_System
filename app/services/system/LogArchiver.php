@@ -69,20 +69,25 @@ class LogArchiver {
         return $out;
     }
 
-    /** 解析并校验目标表集合 */
+    /** 解析并校验目标表集合（指定表名必须全部命中白名单，未知表名直接报错，避免误清理全部） */
     private static function resolveTables($tables) {
         if ($tables === null || $tables === array() || $tables === '') {
             return self::TABLES;
         }
         $req = is_array($tables) ? $tables : array_map('trim', explode(',', (string)$tables));
         $out = array();
+        $unknown = array();
         foreach ($req as $t) {
             $t = trim((string)$t);
-            if ($t !== '' && isset(self::TABLES[$t])) {
-                $out[$t] = self::TABLES[$t];
-            }
+            if ($t === '') continue;
+            if (isset(self::TABLES[$t])) $out[$t] = self::TABLES[$t];
+            else $unknown[] = $t;
         }
-        return $out ? $out : self::TABLES;
+        if ($unknown) {
+            throw new InvalidArgumentException('未知日志表：' . implode(',', $unknown)
+                . '（可用：' . implode(',', array_keys(self::TABLES)) . '）');
+        }
+        return $out;
     }
 
     /** 单表归档（按驱动选择最低成本策略） */
