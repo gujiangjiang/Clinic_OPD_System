@@ -38,6 +38,21 @@ function req($key, $default = '') {
     return isset($_REQUEST[$key]) ? trim((string)$_REQUEST[$key]) : $default;
 }
 
+/**
+ * 站内跳转路径白名单校验（防开放重定向）：
+ * 仅接受以单个 '/' 开头的站内绝对路径；拒绝 '//host'、'/\host'（浏览器按
+ * 协议相对地址处理）以及带 scheme 的完整 URL。
+ * @param string $next     待校验的跳转目标
+ * @param string $fallback 校验失败时的回退值
+ * @return string
+ */
+function safe_redirect_path($next, $fallback = '') {
+    $next = (string)$next;
+    if ($next === '' || $next[0] !== '/') return $fallback;
+    if (isset($next[1]) && ($next[1] === '/' || $next[1] === '\\')) return $fallback;
+    return $next;
+}
+
 /** 当前时间字符串（站点时区） */
 function now_str($fmt = 'Y-m-d H:i:s') {
     return date($fmt);

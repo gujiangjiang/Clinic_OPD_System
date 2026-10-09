@@ -155,8 +155,16 @@ case 'emr_diag': return !!(Clinic.emr && Clinic.emr.diag);
             href.indexOf('/assets/') === 0;
     },
 
+    /** 跳转地址安全白名单：站内路径（单个 '/' 开头）或 http(s) 外链；拒绝 javascript: 等 scheme */
+    isSafeUrl: function (href) {
+        if (!href || typeof href !== 'string') return false;
+        if (href.charAt(0) === '/') return href.charAt(1) !== '/' && href.charAt(1) !== '\\';
+        return /^https?:\/\//i.test(href);
+    },
+
     /** 统一跳转入口：独立页整页跳转；站内页局部刷新（含 EMR 脏数据拦截） */
     go: function (href) {
+        if (!this.isSafeUrl(href)) return;
         if (this.isFullPage(href)) { location.href = href; return; }
         // EMR 未保存修改拦截：确认后继续（queuepanel 等已有前置校验的场景
         // 直接调用 load() 避免二次确认）

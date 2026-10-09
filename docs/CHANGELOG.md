@@ -16,6 +16,9 @@
 ## [9.12.0] - 待发布
 
 ### 安全
+- **开放重定向**：新增 `safe_redirect_path()` 统一校验登录跳转 `next`（拒绝 `//host`、
+  `/\host` 与带 scheme 的完整 URL），登录页与登录接口共用；`Clinic.nav.go` 增加
+  `isSafeUrl` 白名单（站内单斜杠路径或 http(s) 外链，拒绝 `javascript:` 等）。
 - **GET 写操作可绕过 CSRF**：`cache_flush` 前端改 POST、服务端强制 `REQUEST_METHOD=POST`；
   安装向导 `check_db` 创建 ICD-10 分支同样强制 POST，杜绝跨站触发缓存清空/建库。
 

@@ -65,9 +65,7 @@ if ($__act === 'login' || $__act === 'logout_page') {
             json_fail($res);
         }
         // 登录成功后按角色返回默认首页（防开放重定向：仅允许站内路径）
-        if ($next === '' || $next[0] !== '/') {
-            $next = Auth::home();
-        }
+        $next = safe_redirect_path($next, Auth::home());
         $u = Auth::user();
         // 管理员首次登录（未修改过默认密码）：站内消息提醒修改密码，点击跳转 /password
         // 去重不含 is_read 条件——只要发过一次就不再重发（已读/清空后登录不再重复打扰）

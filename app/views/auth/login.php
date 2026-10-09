@@ -9,10 +9,7 @@
  * 布局规范：密码行在展开验证码后平滑收缩，【密码框+验证码框+验证码图】
  * 拼接总宽与用户名输入框严格 1:1 等宽（flex 过渡动画）。
  */
-$next = isset($_GET['next']) ? $_GET['next'] : '';
-if ($next === '' || $next[0] !== '/') {
-    $next = '';
-}
+$next = safe_redirect_path(isset($_GET['next']) ? $_GET['next'] : '', '');
 ?>
 <div class="auth-card">
     <div class="auth-title">欢迎登录</div>
