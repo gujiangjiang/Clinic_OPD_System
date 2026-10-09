@@ -324,6 +324,14 @@ Clinic.order = (function () {
             bindEvents();
             initCatalogList();
             if (type === 'prescription') initRxList();
+            // 打开即聚焦搜索框（处方为 rxKw，其余为 orderKw）：弹窗展示后
+            // 光标直落输入框，点开即可输入检索（处方聚焦会自动展开药品下拉）
+            var kwFocus = document.getElementById(type === 'prescription' ? 'rxKw' : 'orderKw');
+            if (kwFocus) {
+                setTimeout(function () {
+                    try { kwFocus.focus(); } catch (e) { /* 忽略 */ }
+                }, 50);
+            }
         }
         if (type === 'lab') {
             Clinic.get('/api/order?action=prev_items&visit_id=' + VISIT_ID + '&type=lab', null, {
