@@ -226,7 +226,7 @@ function admin_part_audit($action) {
                     AuditRepository::exec('DELETE FROM package_depts WHERE package_id=?', array($refId));
                 }
                 if ($proposerId > 0) {
-                    $pkgData = json_decode((string)$audit['data'], true);
+                    $pkgData = json_decode((string)$audit['data_json'], true);
                     $pkgType = is_array($pkgData) && isset($pkgData['type']) ? (string)$pkgData['type'] : 'lab';
                     $pkgLabel = array('lab' => '检验套餐', 'imaging' => '检查套餐', 'procedure' => '处置套餐', 'prescription' => '处方套餐')[$pkgType] ?? '套餐';
                     $toRole = $proposerRole !== '' ? $proposerRole : 'doctor';
@@ -280,7 +280,7 @@ function admin_part_audit($action) {
             case 'drugsetting':
                 if ($approve) {
                     // 审核通过：解析提交数据并落库（新增/更新药品设置项）
-                    $d = json_decode((string)$audit['data'], true);
+                    $d = json_decode((string)$audit['data_json'], true);
                     if (is_array($d) && !empty($d['stype']) && !empty($d['name'])) {
                         $sId = (int)$d['id'];
                         $nn = (int)(isset($d['is_nurse']) ? $d['is_nurse'] : 0);
@@ -344,7 +344,7 @@ function admin_part_audit($action) {
                 // 个人资料修改（学历/学位/介绍/头像）：通过则应用新值，拒绝/通过均站内消息通知
                 $target = AuditRepository::one('SELECT * FROM users WHERE id=?', array($refId));
                 if ($approve && $target) {
-                    $upd = json_decode($audit['data'], true);
+                    $upd = json_decode($audit['data_json'], true);
                     if (is_array($upd)) {
                         $set = array();
                         $params = array();
@@ -365,7 +365,7 @@ function admin_part_audit($action) {
                     }
                 } elseif ($proposerId > 0) {
                     // 拒绝：若本次含新头像，删除已上传的待审文件（头像保持原样，自动还原）
-                    $upd = json_decode($audit['data'], true);
+                    $upd = json_decode($audit['data_json'], true);
                     if (is_array($upd) && !empty($upd['photo'])) {
                         $f = APP_ROOT . '/public/' . ltrim((string)$upd['photo'], '/');
                         if (strpos($f, APP_ROOT . '/public/uploads/') === 0 && is_file($f)) {
@@ -414,9 +414,10 @@ function admin_part_audit($action) {
         $a = AuditRepository::one('SELECT * FROM audits WHERE id=?', array($id));
         if (!$a) json_fail('审核事项不存在');
         $type = (string)$a['type'];
+        $refId = (int)$a['ref_id'];
         $html = '';
         if ($type === 'drugsetting') {
-            $d = json_decode((string)$a['data'], true);
+            $d = json_decode((string)$a['data_json'], true);
             $d = is_array($d) ? $d : array();
             $stypeNames = array('category' => '药品分类', 'package' => '包装单位', 'form' => '药品剂型', 'freq' => '用药频次', 'route' => '给药途径');
             $stype = isset($d['stype']) ? (string)$d['stype'] : '';
@@ -435,7 +436,7 @@ function admin_part_audit($action) {
             // 检验/检查/药品/处置：渲染【与添加/编辑完全一致的原始表单】（forms.php 同源）。
             // 有快照（项目已删除）→ 快照数据回填；无快照 → 回退实时数据渲染。
             // 弹窗统一由前端 modal.load 打开（与编辑弹窗同款尺寸/布局），仅只读化。
-            $d = json_decode((string)$a['data'], true);
+            $d = json_decode((string)$a['data_json'], true);
             if ($type === 'item_drug') {
                 $f = is_array($d) ? form_drug(0, $d) : form_drug((int)$refId);
                 $html = is_array($f) ? $f['html'] : $f;
@@ -447,7 +448,7 @@ function admin_part_audit($action) {
             }
         } elseif ($type === 'template' || $type === 'nursing_template' || $type === 'imaging_template') {
             // 模板快照：返回原始提交内容（title/type/scope/content），供前端 emrEditor/文本只读渲染
-            $d = json_decode((string)$a['data'], true);
+            $d = json_decode((string)$a['data_json'], true);
             if (!is_array($d)) json_fail('该类型由前端复用原表单渲染');
             $content = isset($d['content']) ? $d['content'] : null;
             // 历史快照缺 content（旧版本提交时未存）：实体仍存在则回退读当前模板内容
@@ -463,7 +464,7 @@ function admin_part_audit($action) {
             )));
         } elseif ($type === 'package') {
             // 套餐快照：返回原始提交内容（title/type/scope/items），供前端只读渲染
-            $d = json_decode((string)$a['data'], true);
+            $d = json_decode((string)$a['data_json'], true);
             if (!is_array($d)) json_fail('该类型由前端复用原表单渲染');
             $items = isset($d['items']) && is_array($d['items']) ? $d['items'] : array();
             // 历史快照缺 items（旧版本提交时未存）：实体仍存在则回退读当前项目明细
