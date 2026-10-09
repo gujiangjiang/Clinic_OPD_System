@@ -16,6 +16,9 @@
 ## [9.12.0] - 待发布
 
 ### 安全
+- **敏感设置项扩散到共享缓存**：`setting()` 整表快照排除密钥类键
+  （`setting_is_sensitive_key()`：secret/private_key/password/token/api_key/app_key/hmac 等），
+  排除项按需直查主库，支付私钥、接口密钥、存证令牌不再写入 file/redis/memcached。
 - **XSS 全面治理**：新增 `Clinic.escJs`（JS 字符串上下文转义，`\uXXXX` 编码，
   专用于内联 `onclick` 参数，修复「HTML 转义在 JS 上下文被实体解码后闭合字符串」）；
   替换 EMR（会诊/就诊历史/诊断证明/影像调阅）、药房/检验/护士/影像工作台、

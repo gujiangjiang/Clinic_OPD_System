@@ -14,6 +14,21 @@
  * 键时从缓存取整表（缺则查库回填）；同请求后续读取全部命中请求级内存，
  * 不重复访问缓存/数据库。set_setting 写入后同步快照并失效缓存键。
  * ============================================================ */
+/**
+ * 敏感设置键判定（密钥/令牌/口令类不进入跨请求快照缓存）：
+ * 命中即按「不缓存」处理——宁可多一次数据库查询，也避免密钥扩散到
+ * file/redis/memcached 等共享缓存载体。
+ * @param string $key 设置键名
+ * @return bool
+ */
+function setting_is_sensitive_key($key) {
+    $k = strtolower((string)$key);
+    foreach (array('secret', 'private_key', 'password', 'passwd', 'pass', 'token', 'api_key', 'apikey', 'app_key', 'appkey', 'sign_key', 'hmac') as $needle) {
+        if (strpos($k, $needle) !== false) return true;
+    }
+    return false;
+}
+
 function setting($key, $default = '') {
     // 未安装（安装向导完成第 2 步之前）不触碰主库，避免自动创建 clinic_main.db
     if (!ConfigStore::isSystemInstalled()) return $default;
@@ -22,6 +37,8 @@ function setting($key, $default = '') {
         if (!is_array($all)) {
             $all = array();
             foreach (CoreRepository::q('SELECT skey, svalue FROM settings') as $r) {
+                // 敏感键不入快照缓存（后续按需直查数据库）
+                if (setting_is_sensitive_key($r['skey'])) continue;
                 $all[$r['skey']] = $r['svalue'];
             }
             Cache::set('cfg_settings', $all, 300);
@@ -29,7 +46,13 @@ function setting($key, $default = '') {
         $GLOBALS['__setting_table'] = $all;
     }
     $t = $GLOBALS['__setting_table'];
-    return array_key_exists($key, $t) ? $t[$key] : $default;
+    if (array_key_exists($key, $t)) return $t[$key];
+    // 敏感键绕过快照：直接查库（低频调用），避免密钥写入共享缓存
+    if (setting_is_sensitive_key($key)) {
+        $v = CoreRepository::val('SELECT svalue FROM settings WHERE skey=?', array($key));
+        return $v === null ? $default : $v;
+    }
+    return $default;
 }
 
 function set_setting($key, $value) {
