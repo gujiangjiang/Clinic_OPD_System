@@ -195,8 +195,11 @@ function admin_part_sysinfo($action) {
         json_ok(Cache::stats());
     }
 
-    /* ==================== 模块化缓存刷新 ==================== */
+    /* ==================== 模块化缓存刷新（写操作：强制 POST 防 CSRF） ==================== */
     if ($action === 'cache_flush') {
+        if (strtoupper(isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : 'GET') !== 'POST') {
+            json_fail('非法请求方式');
+        }
         $scope = req('scope', 'all');
         $map = array(
             'config' => 'cfg_',   // 系统配置缓存（setting 整表快照）

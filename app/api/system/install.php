@@ -215,6 +215,10 @@ if ($action === 'check_db') {
     $icd10Missing = !is_file($icd10File);
     if ($icd10Missing) {
         if (req('create_icd10') === '1') {
+            // 创建 ICD-10 库属写操作：强制 POST（防跨站触发建库）
+            if (strtoupper(isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : 'GET') !== 'POST') {
+                json_fail('非法请求方式');
+            }
             $mkErr = install_create_icd10($icd10Rel);
             if ($mkErr !== '') json_fail($mkErr);
             $icd10Missing = false;

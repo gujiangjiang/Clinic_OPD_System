@@ -782,7 +782,7 @@ function loadCacheStatus() {
 function flushCache(scope) {
     var msg = document.getElementById('cacheFlushMsg');
     msg.textContent = '刷新中…';
-    Clinic.get('/api/admin?action=cache_flush&scope=' + encodeURIComponent(scope), null, {
+    Clinic.ajax('/api/admin', { action: 'cache_flush', scope: scope }, {
         loading: false,
         onSuccess: function (json) { msg.innerHTML = '<span class="text-success">' + renderIconSvg('action:check') + ' ' + escHtml(json.msg) + '</span>'; },
         onError: function (x, j) { msg.innerHTML = '<span class="text-danger">' + renderIconSvg('action:close') + ' ' + escHtml((j && j.msg) || '刷新失败') + '</span>'; },

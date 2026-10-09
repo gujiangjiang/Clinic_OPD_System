@@ -423,7 +423,7 @@ function checkDbAndProceed(createIcd10) {
     var btn = document.getElementById('nextBtn');
     btn.disabled = true;
     function done() { btn.disabled = false; }
-    Clinic.get('/api/install', dbQueryParams('check_db', createIcd10 ? { create_icd10: '1' } : null), {
+    Clinic.ajax('/api/install', dbQueryParams('check_db', createIcd10 ? { create_icd10: '1' } : null), {
         loading: true,
         onSuccess: function (json) {
             done();

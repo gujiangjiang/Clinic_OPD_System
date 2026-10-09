@@ -15,6 +15,10 @@
 
 ## [9.12.0] - 待发布
 
+### 安全
+- **GET 写操作可绕过 CSRF**：`cache_flush` 前端改 POST、服务端强制 `REQUEST_METHOD=POST`；
+  安装向导 `check_db` 创建 ICD-10 分支同样强制 POST，杜绝跨站触发缓存清空/建库。
+
 ### 修复
 - **会话失效不返回 401**：`app/api/_init.php` 未登录/账号停用改为 HTTP 401
   （响应体结构与文案不变），阅片视窗与前端 `Clinic.authSync` 据此识别会话失效并锁定 PHI。
