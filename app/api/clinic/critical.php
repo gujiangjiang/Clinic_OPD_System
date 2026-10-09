@@ -214,6 +214,10 @@ switch ($action) {
     case 'send':
         $source = post('source');
         if (!in_array($source, array('lab', 'imaging'), true)) json_fail('参数错误');
+        // 来源绑定：检验/影像危急值只能由对应科室角色上报（管理员不受限），防跨科室伪造
+        if ($u['role'] !== 'admin' && $u['role'] !== $source) {
+            json_fail('无权以「' . ($source === 'lab' ? '检验' : '影像') . '」来源发送危急值');
+        }
         $reportId = did(post('report_id'));
         $toDoctorId = (int)post('to_doctor_id');
         if ($toDoctorId <= 0) json_fail('请选择接收医生');

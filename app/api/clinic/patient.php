@@ -74,6 +74,24 @@ switch ($action) {
         if ($patientNo === '') {
             json_fail('缺少患者标识');
         }
+        // 归属校验：管理员/收费员（建档维护）可直接修改；其他角色须与该患者存在
+        // 可操作的就诊关联（就诊科室属于本人科室，或本人已书写该就诊病历），
+        // 防「任意登录角色修改任意患者档案」的越权面
+        if (!in_array($u['role'], array('admin', 'cashier'), true)) {
+            $latestVisitId = (int)PatientRepository::val(
+                "SELECT id FROM registrations WHERE patient_no=? AND status IN ('pending','paid','visiting') ORDER BY id DESC LIMIT 1",
+                array($patientNo));
+            $rv = $latestVisitId > 0 ? get_visit_row($latestVisitId) : null;
+            if (!$rv) json_fail('无权限修改该患者信息');
+            $vDept = (int)(isset($rv['visit']['current_dept_id']) ? $rv['visit']['current_dept_id'] : 0);
+            $myDepts = user_dept_ids($u);
+            $ownRecord = (int)PatientRepository::val(
+                'SELECT COUNT(*) FROM patient_records WHERE visit_id=? AND doctor_id=?',
+                array($latestVisitId, (int)$u['id']));
+            if ($myDepts && $vDept > 0 && !in_array($vDept, $myDepts, true) && $ownRecord === 0) {
+                json_fail('无权限修改该患者信息');
+            }
+        }
         PatientRepository::updateProfile($patientNo, array(
             'phone' => post('phone'), 'ethnicity' => post('ethnicity'),
             'marital' => post('marital'), 'occupation' => post('occupation'),

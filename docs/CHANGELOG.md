@@ -16,6 +16,10 @@
 ## [9.12.0] - 待发布
 
 ### 安全
+- **越权面收敛**：患者档案修改（`patient.update`）增加归属校验——管理员/收费员可直接
+  维护，其他角色须与该患者存在可操作就诊关联（就诊科室属本人科室或本人已书写该就诊
+  病历）；危急值发送（`critical.send`）绑定角色与来源，`lab/imaging` 角色仅能以对应
+  来源上报，杜绝跨科室伪造。
 - **敏感设置项扩散到共享缓存**：`setting()` 整表快照排除密钥类键
   （`setting_is_sensitive_key()`：secret/private_key/password/token/api_key/app_key/hmac 等），
   排除项按需直查主库，支付私钥、接口密钥、存证令牌不再写入 file/redis/memcached。
