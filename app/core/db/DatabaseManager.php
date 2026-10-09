@@ -638,12 +638,38 @@ class DatabaseManager {
         }
     }
 
+    /**
+     * 事务包装：自动 begin + 提交，异常（含 PHP 7 的 Error）自动回滚后原样抛出。
+     * - 已处于事务中时仅执行回调（参与外层事务，由外层统一提交/回滚），
+     *   避免嵌套提交提前刷新镜像缓冲导致主备分歧；
+     * - 回调内如需中断，可调用 json_fail：其会先回滚再输出并退出（既有安全网）。
+     * @param callable $fn
+     * @return mixed 回调返回值
+     */
+    public static function tx($fn) {
+        $pdo = self::getMain();
+        if ($pdo->inTransaction()) {
+            return call_user_func($fn);
+        }
+        $pdo->beginTransaction();
+        try {
+            $result = call_user_func($fn);
+            self::commitTx($pdo);
+            return $result;
+        } catch (Throwable $ex) {
+            self::rollbackTx($pdo);
+            throw $ex;
+        }
+    }
+
     /** 提交事务并刷缓冲镜像（事务内写操作仅在提交成功后镜像到备份库） */
     public static function commitTx($pdo) {
         $pdo->commit();
         $buf = self::$pendingMirror;
         self::$pendingMirror = null;
-        foreach ($buf as $m) self::mirrorWrite($m[0], $m[1]);
+        if (is_array($buf)) {
+            foreach ($buf as $m) self::mirrorWrite($m[0], $m[1]);
+        }
     }
 
     /** 回滚事务并丢弃缓冲镜像（主库回滚，备份不写入，保持主备一致） */
