@@ -16,6 +16,10 @@
 ## [9.12.0] - 待发布
 
 ### 变更
+- **开发文档与 Lint 工具口径修正**：`CLAUDE.md` 移除过时版本号（以 `APP_VERSION` 为准）、
+  修正造数场景命令（`--scene="doctor=2001"` 等）与 JS 检查命令；`AGENTS.md` 版本标识
+  改为「以 `bootstrap.php APP_VERSION` 为唯一来源」；`tools/lint/jscheck.js` 修正
+  JXA 参数解析（`osascript -l JavaScript tools/lint/jscheck.js <file>` 可直接使用）。
 - **模态框页脚收敛**：`modal.js` 新增 `Clinic.modal.itemFootHtml(saveId, small)`，
   检验/检查/药品/处置/科室 5 处逐字重复的「启用 / 取消 / 保存」页脚收敛为单一生成器
   （输出逐字一致；科室弹窗的小尺寸启用按钮通过参数保留）。

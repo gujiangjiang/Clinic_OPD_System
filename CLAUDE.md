@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-本项目（门诊一体化系统，当前基准版本 **v8.17**）的全部开发约定统一维护在根目录 **[AGENTS.md](AGENTS.md)**，开始任何开发前请先完整阅读并严格遵守。
+本项目（门诊一体化系统）的全部开发约定统一维护在根目录 **[AGENTS.md](AGENTS.md)**，开始任何开发前请先完整阅读并严格遵守。当前基准版本以 `app/config/bootstrap.php` 的 `APP_VERSION` 为准。
 
 ## 版本与文档索引
 
@@ -15,14 +15,15 @@
 - Demo 演示环境数据：`php tools/bin/seed.php --scene=demo`
 - 叫号大屏专项测试：`php tools/bin/seed.php --scene=call`
 - 多科室分诊叫号专项：`php tools/bin/seed.php --scene=dept_call`
-- 医生 2001 接诊专项：`php tools/bin/seed.php --scene=doctor2001`
+- 指定医生接诊专项：`php tools/bin/seed.php --scene="doctor=2001"`
+- 指定科室接诊：`php tools/bin/seed.php --scene="dept=2,5"`
 - 仅重置药品与库存：`php tools/bin/seed.php --module=drug`
 - 本机（无系统 php）统一前缀：`~/.local/bin/frankenphp php-cli tools/bin/seed.php ...`
 
 ### 代码检查与 Lint
 - PHP 语法检查：`php tools/lint/php-lint.php`（本机用 `~/.local/bin/frankenphp php-cli tools/lint/php-lint.php` 或 `npm run lint`）
 - CI 全量校验：`php tools/lint/ci-lint.php`
-- 前端 JS 检查：`node tools/lint/jscheck.js <file>`
+- 前端 JS 语法检查（JXA，非 node）：`osascript -l JavaScript tools/lint/jscheck.js <file.js>`
 
 ### 本地运行
 - `~/.local/bin/frankenphp php-server --root public/ --listen 0.0.0.0:8080`（无系统 php）
