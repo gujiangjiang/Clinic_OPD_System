@@ -16,6 +16,10 @@
 ## [9.12.0] - 待发布
 
 ### 变更
+- **叫号悬浮窗公共交互收敛**：新增 `dept/callpop_common.js`
+  （`Clinic.callPop.bindDrag/unbindDrag/setOffline`，已登记 JS_CORE 与预缓存），
+  医生工作站与科室工作站两份逐字重复的标题栏拖动/离线蒙板实现（约 90 行）收敛为单一实现；
+  悬浮窗主体渲染与业务动作仍双端维护（需浏览器级回归，留待后续）。
 - **诊断证明弹窗收敛**：新增全站公共 `core/certificate.js`（`Clinic.certificateModal`，
   已登记 `Assets::JS_CORE` 与 Service Worker 预缓存）；删除 `historypanel.js` 中逐字
   重复的兜底实现（约 90 行），`emr_cert.js` 缩为 EMR 适配层（仅保留开具成功后的

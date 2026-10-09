@@ -64,6 +64,7 @@ class Assets {
         'assets/js/components/core/conntest.js',
         'assets/js/components/core/drugform.js',
         'assets/js/components/admin/chart.js',
+        'assets/js/components/dept/callpop_common.js',
         'assets/js/components/dept/critical.js',
         'assets/js/components/core/authsync.js',
         'assets/js/components/core/app.js',

@@ -529,42 +529,12 @@ Clinic.docTools = (function () {
         if (CALL_POP_POLLER) { CALL_POP_POLLER.destroy(); CALL_POP_POLLER = null; }
         unsubscribeCallPush();
         // 清理文档级拖动监听（与 bindCallPopDrag 成对），防止反复开关累积泄漏
-        document.removeEventListener('mousemove', dragMoveHandler, true);
-        document.removeEventListener('mouseup', dragUpHandler, true);
+        Clinic.callPop.unbindDrag();
     }
 
-    /* 悬浮窗拖动：按住标题栏可在页面上任意拖动，松开记忆位置 */
-    var dragMoveHandler = null;
-    var dragUpHandler = null;
+    /* 悬浮窗拖动：公共模块 Clinic.callPop.bindDrag（收敛 doctor_tools/deptwork 双实现） */
     function bindCallPopDrag(pop) {
-        var head = pop.querySelector('.doc-call-pop-head');
-        var dragging = false, offX = 0, offY = 0;
-        // 先移除旧句柄再注册，避免 mode 切换（close+open）时文档级监听累积
-        if (dragMoveHandler) document.removeEventListener('mousemove', dragMoveHandler, true);
-        if (dragUpHandler) document.removeEventListener('mouseup', dragUpHandler, true);
-        dragMoveHandler = function (e) {
-            if (!dragging) return;
-            var x = Math.max(0, Math.min(e.clientX - offX, window.innerWidth - 80));
-            var y = Math.max(0, Math.min(e.clientY - offY, window.innerHeight - 80));
-            pop.style.left = x + 'px';
-            pop.style.top = y + 'px';
-            pop.style.right = 'auto';
-            pop.style.bottom = 'auto';
-        };
-        dragUpHandler = function () {
-            if (!dragging) return;
-            dragging = false;
-            saveCallPopPos(parseInt(pop.style.left, 10) || 0, parseInt(pop.style.top, 10) || 0);
-        };
-        head.addEventListener('mousedown', function (e) {
-            if (e.target.closest('.doc-call-pop-x')) return;
-            dragging = true;
-            offX = e.clientX - pop.getBoundingClientRect().left;
-            offY = e.clientY - pop.getBoundingClientRect().top;
-            e.preventDefault();
-        });
-        document.addEventListener('mousemove', dragMoveHandler, true);
-        document.addEventListener('mouseup', dragUpHandler, true);
+        Clinic.callPop.bindDrag(pop, saveCallPopPos);
     }
 
     function bindCallPopActions(pop) {
@@ -726,24 +696,7 @@ Clinic.docTools = (function () {
     /* 大屏离线蒙板：覆盖悬浮窗正文（头部关闭/解绑仍可用），半透明遮罩并拦截叫号点击。
        mini 版空间小，省略图标、精简文案；标准版保留下方「解绑」栏可操作 */
     function setCallPopOffline(pop, offline) {
-        var body = pop.querySelector('.doc-call-pop-body');
-        if (!body) return;
-        var mask = body.querySelector('.doc-call-offline');
-        if (!offline) { if (mask) mask.remove(); return; }
-        if (mask) return;
-        var isMini = pop.classList.contains('doc-call-mini');
-        mask = document.createElement('div');
-        mask.className = 'doc-call-offline';
-        mask.innerHTML = isMini
-            ? '<div class="doc-call-offline-title">大屏已离线</div>' +
-              '<div class="doc-call-offline-desc">叫号暂不可用，请联系管理员。</div>'
-            : '<div class="doc-call-offline-ico">' + renderIconSvg('nav:screen') + '</div>' +
-              '<div class="doc-call-offline-title">叫号大屏已离线</div>' +
-              '<div class="doc-call-offline-desc">大屏未连接，叫号暂不可用。<br>请检查大屏电源与网络，<br>或请管理员在「叫号管理」重置大屏链接。</div>';
-        // 标准版：蒙板底部留出「解绑」栏高度（离线时需手动解绑该大屏）
-        var foot = body.querySelector('.doc-call-foot');
-        if (foot) mask.style.bottom = (foot.offsetHeight + (parseFloat(getComputedStyle(body).paddingBottom) || 0)) + 'px';
-        body.appendChild(mask);
+        Clinic.callPop.setOffline(pop, offline);
     }
 
     function renderCallPop(d) {
