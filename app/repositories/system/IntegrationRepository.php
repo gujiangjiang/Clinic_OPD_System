@@ -10,7 +10,7 @@
  * ============================================================ */
 class IntegrationRepository extends BaseRepository {
 
-    /** Outbox 入队（幂等合并：同业务仅一条任务） */
+    /** Outbox 入队（幂等合并：同业务仅一条任务；并发撞唯一键自动回退更新） */
     public static function enqueueTask($businessType, $businessId, $payloadJson) {
         $now = now_str();
         $row = self::one('SELECT * FROM his_sync_tasks WHERE business_type=? AND business_id=?', array($businessType, (int)$businessId));
@@ -20,11 +20,23 @@ class IntegrationRepository extends BaseRepository {
                 array($payloadJson, 'pending', $now, (int)$row['id']));
             return true;
         }
-        self::insert(
-            'INSERT INTO his_sync_tasks(business_type, business_id, payload, status, retry_count, last_error, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?)',
-            array($businessType, (int)$businessId, $payloadJson, 'pending', 0, '', $now, $now)
-        );
-        return true;
+        try {
+            self::insert(
+                'INSERT INTO his_sync_tasks(business_type, business_id, payload, status, retry_count, last_error, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?)',
+                array($businessType, (int)$businessId, $payloadJson, 'pending', 0, '', $now, $now)
+            );
+            return true;
+        } catch (Exception $ex) {
+            // 并发窗口（SELECT 与 INSERT 之间他人已插入）：唯一冲突回退为更新，
+            // 非唯一冲突原样抛出（任务不静默丢失）
+            if (!is_unique_conflict($ex)) throw $ex;
+            $row = self::one('SELECT * FROM his_sync_tasks WHERE business_type=? AND business_id=?', array($businessType, (int)$businessId));
+            if (!$row) throw $ex;
+            if ($row['status'] === 'success') return false;
+            self::exec('UPDATE his_sync_tasks SET payload=?, status=?, updated_at=? WHERE id=?',
+                array($payloadJson, 'pending', $now, (int)$row['id']));
+            return true;
+        }
     }
 
     /** Outbox 任务统计（监控面板） */

@@ -54,6 +54,8 @@
   安装向导 `check_db` 创建 ICD-10 分支同样强制 POST，杜绝跨站触发缓存清空/建库。
 
 ### 修复
+- **Outbox 入队并发静默丢任务**：`enqueueTask` 在唯一冲突（并发窗口）时回退为更新，
+  非唯一冲突原样抛出；`integration_enqueue` 失败日志不再受 `DEBUG` 开关限制。
 - **分类删除误删另一科室结果**：`item.cat_delete` 清理未被开单项目时，`results`
   删除补 `type` 过滤（lab/imaging 的 `item_id` 数值可重合），避免检验/影像结果互相误删。
 - **前端竞态与异常隔离**：`Clinic.ajax` 的 onSuccess/onError 回调异常与网络异常隔离

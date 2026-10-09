@@ -515,7 +515,8 @@ function integration_enqueue($businessType, $businessId, $payload) {
         HisOutbox::enqueue($businessType, (int)$businessId, $payload);
         integration_spawn_worker();
     } catch (Exception $ex) {
-        if (defined('DEBUG') && DEBUG) error_log('[Outbox 入队失败] ' . $ex->getMessage());
+        // 入队失败必须留痕（不再受 DEBUG 开关限制），便于排障与补偿
+        error_log('[Outbox 入队失败] ' . $ex->getMessage());
     }
 }
 
