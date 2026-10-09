@@ -269,7 +269,7 @@ Clinic.deptwork = (function () {
         var el = document.getElementById('hdrTotal');
         if (!el) return;
         if (total > 0) {
-            el.textContent = '总费用 ¥' + total.toFixed(2);
+            el.textContent = '总费用 ' + Clinic.money(total);
             el.style.display = '';
             if (!el._feeHover) {
                 el._feeHover = true;

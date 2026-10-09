@@ -39,7 +39,7 @@ Clinic.universalSelector = (function () {
             return '<div class="us-item" data-id="' + r.id + '" data-name="' + Clinic.escHtml(r.name || '') + '"' +
                 ' data-price="' + (r.price || 0) + '" style="padding:10px 14px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer">' +
                 '<div class="flex-between"><span class="fw-600">' + Clinic.escHtml(r.name || '') + '</span>' +
-                '<span class="fs-12 text-muted">¥' + Number(r.price || 0).toFixed(2) + '</span></div></div>';
+                '<span class="fs-12 text-muted">' + Clinic.money(r.price) + '</span></div></div>';
         }).join('');
         box.querySelectorAll('.us-item').forEach(function (el) {
             el.addEventListener('click', function () {

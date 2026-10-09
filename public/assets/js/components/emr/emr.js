@@ -1531,7 +1531,7 @@ Clinic.emr = (function () {
         var hdrTotal = document.getElementById('hdrTotal');
         if (hdrTotal) {
             if (totalFee > 0) {
-                hdrTotal.textContent = '总费用 ¥' + totalFee.toFixed(2);
+                hdrTotal.textContent = '总费用 ' + Clinic.money(totalFee);
                 hdrTotal.style.display = '';
                 if (!hdrTotal._feeHover) {
                     hdrTotal._feeHover = true;
@@ -2059,8 +2059,8 @@ Clinic.emr = (function () {
         var html = '<div style="display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:16px;width:100%">' +
             '<div style="min-width:0">' +
             '<div class="fs-14 fw-600 mb-8">' + escHtml(it.item_name) + (it.quantity > 1 ? ' ×' + it.quantity : '') + '</div>' +
-            '<div class="fs-13 text-muted mb-8">单价：¥' + parseFloat(it.price || 0).toFixed(2) +
-            ' ｜ 费用小计：¥' + (parseFloat(it.price || 0) * it.quantity).toFixed(2) + '</div>' +
+            '<div class="fs-13 text-muted mb-8">单价：' + Clinic.money(it.price) +
+            ' ｜ 费用小计：' + Clinic.money(parseFloat(it.price || 0) * it.quantity) + '</div>' +
             '<div class="fs-13 mb-4">执行状态：' + (stMap[it.status] || it.status) + '</div>';
         if (o.order_type === 'procedure' && it.executed_by) {
             html += '<div class="fs-13 text-success mb-4">执行人：' + escHtml(it.executed_by) + (it.executed_at ? ' ｜ ' + it.executed_at : '') + '</div>';
@@ -2328,7 +2328,7 @@ Clinic.emr = (function () {
             '<div class="table-wrap"><table class="table"><thead><tr>' +
             '<th>药品</th><th>剂量</th><th>频次</th><th>途径</th><th>数量</th><th>小计</th></tr></thead><tbody>' +
             rows + '</tbody></table></div>' +
-            '<div class="flex-between mt-8"><span></span><span class="fw-600">合计：¥' + parseFloat(o.total_amount || 0).toFixed(2) + '</span></div>' +
+            '<div class="flex-between mt-8"><span></span><span class="fw-600">合计：' + Clinic.money(o.total_amount) + '</span></div>' +
             '<div style="margin-top:10px">' +
             '<button type="button" class="btn btn-outline btn-sm" ' +
             'onclick="Clinic.print.load(\'/api/print?action=order&order_id=' + o.id + '\',null,\'a5\')">' + renderIconSvg('action:print') + ' 打印处方笺</button>';

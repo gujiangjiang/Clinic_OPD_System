@@ -503,7 +503,7 @@ Clinic.order = (function () {
             (it.category_name ? ' <span class="badge badge-gray fs-12">' + Clinic.escHtml(it.category_name) + '</span>' : '') +
             '</div>' +
             '  <div class="text-right">' +
-            '    <div class="fw-600" style="color:var(--primary)">¥' + parseFloat(it.price || 0).toFixed(2) + '</div>' +
+            '    <div class="fw-600" style="color:var(--primary)">' + Clinic.money(it.price) + '</div>' +
             '  </div></div>' + info +
             '</div>';
     }
@@ -589,7 +589,7 @@ Clinic.order = (function () {
             '<div class="flex-between">' +
             '  <div class="fw-600 fs-13 ellipsis" style="display:flex;align-items:baseline;min-width:0">' +
             Clinic.escHtml(it.name || '') + vendor + '</div>' +
-            '  <div class="fw-600 fs-13" style="color:var(--primary);flex-shrink:0">¥' + parseFloat(it.price || 0).toFixed(2) + '</div>' +
+            '  <div class="fw-600 fs-13" style="color:var(--primary);flex-shrink:0">' + Clinic.money(it.price) + '</div>' +
             '</div>' +
             '<div class="fs-12 text-muted mt-2" style="line-height:1.5">' + parts.join(' ｜ ') + '</div>' +
             '</div>';
@@ -714,7 +714,7 @@ Clinic.order = (function () {
             'data-title="' + (p.title || '').replace(/"/g, '&quot;') + '" style="cursor:pointer;padding:8px 10px;border-bottom:1px solid var(--border)">' +
             '<div class="flex-between">' +
             '  <span class="fw-600 fs-13 ellipsis" style="min-width:0">' + Clinic.escHtml(p.title || '') + '</span>' +
-            '  <span class="fw-600 fs-13" style="color:var(--primary);flex-shrink:0">¥' + parseFloat(p.total_price || 0).toFixed(2) + '</span>' +
+            '  <span class="fw-600 fs-13" style="color:var(--primary);flex-shrink:0">' + Clinic.money(p.total_price) + '</span>' +
             '</div>' +
             '<div class="fs-12 text-muted mt-2">' +
             '<span class="badge ' + (scopeCls[p.scope] || 'badge-gray') + '">' + (scopeMap[p.scope] || p.scope) + '</span> ' +
@@ -847,7 +847,7 @@ Clinic.order = (function () {
                 ' style="width:16px;height:16px;accent-color:var(--primary);flex-shrink:0" ' +
                 'onclick="event.stopPropagation()" onchange="Clinic.order.setPkgApplyCheck(' + i + ',this.checked)">' +
                 '  <span class="meta" style="flex:1;min-width:0;padding:0 8px;display:flex;align-items:center;flex-wrap:wrap">' + meta + '</span>' +
-                '  <span style="font-size:12px;color:var(--text-muted);flex-shrink:0">¥' + ((parseFloat(m.price) || 0) * (m.quantity || 1)).toFixed(2) + '</span>' +
+                '  <span style="font-size:12px;color:var(--text-muted);flex-shrink:0">' + Clinic.money((parseFloat(m.price) || 0) * (m.quantity || 1)) + '</span>' +
                 '</div>' +
                 groupChips +
                 (invalid && g.reason ? '<div class="fs-12" style="color:var(--danger);margin:4px 0 0 24px">' + Clinic.escHtml(g.reason) + '</div>' : '') +
@@ -858,7 +858,7 @@ Clinic.order = (function () {
                         branch + ' ' + (sInvalid ? '<span class="pkg-invalid">' : '') + Clinic.escHtml(s.item_name || '') +
                         (s.single_dose ? ' ｜ ' + Clinic.escHtml(s.single_dose) : '') +
                         (sInvalid ? '</span>' : '') +
-                        ' ｜ ¥' + ((parseFloat(s.price) || 0) * (s.quantity || 1)).toFixed(2) + '</div>';
+                        ' ｜ ' + Clinic.money((parseFloat(s.price) || 0) * (s.quantity || 1)) + '</div>';
                 }).join('') : '') +
                 '</div>';
             return html;
@@ -1053,7 +1053,7 @@ Clinic.order = (function () {
         var extra = '';
         if (type === 'prescription') {
             extra = (it.company_short ? ' <span class="fs-12 text-muted">' + Clinic.escHtml(it.company_short) + '</span>' : '') +
-                ' <span class="fs-12 text-muted">¥' + parseFloat(it.price || 0).toFixed(2) + '</span>' +
+                ' <span class="fs-12 text-muted">' + Clinic.money(it.price) + '</span>' +
                 // 3.5 库存单位联动：允许拆零→最小单位展示（含整包装折算）；否则包装单位
                 ' <span class="fs-12 text-muted">库存' + (it.allow_split ? stockText(it, 'min') : stockText(it, 'pack')) + '</span>';
         } else {
@@ -1062,7 +1062,7 @@ Clinic.order = (function () {
                 extra = ' <span class="fs-12 text-muted">含：' + Clinic.escHtml(it.members || it.spec || '') + '</span>';
             }
             if (it.category_name) extra += ' <span class="badge badge-gray fs-12">' + Clinic.escHtml(it.category_name) + '</span>';
-            extra += ' <span class="fs-12 text-muted">¥' + parseFloat(it.price || 0).toFixed(2) + '</span>';
+            extra += ' <span class="fs-12 text-muted">' + Clinic.money(it.price) + '</span>';
         }
         return '<div class="rx-drop-item" data-it="' + escHtmlAttr(JSON.stringify(it)) + '">' +
             name + extra + '</div>';
@@ -1880,7 +1880,7 @@ Clinic.order = (function () {
                 (isDrug && s.sale_unit ? '<span class="fs-12 text-muted" style="flex-shrink:0">' + s.quantity + ' ' + s.sale_unit + '</span>' : '') +
                 (s.quantity > 1 && !(isDrug && s.sale_unit) ? '<span class="badge badge-primary fs-12">×' + s.quantity + '</span>' : '') +
                 // 行内金额：简单展示「¥金额 = 数量 × 开立单位单价」，随单位切换实时变化（1盒 ¥18 / 1支 ¥1.8）
-                '    <span class="fs-12 fw-600" style="flex-shrink:0;margin-left:auto;color:var(--primary)">¥' + (s.price * s.quantity).toFixed(2) + '</span>' +
+                '    <span class="fs-12 fw-600" style="flex-shrink:0;margin-left:auto;color:var(--primary)">' + Clinic.money(s.price * s.quantity) + '</span>' +
                 '  </div>' +
                 '  <div class="flex gap-8" style="align-items:center;flex-shrink:0">' +
                 (isDrug || CUR_TYPE === 'procedure' ? qtyControls('sel', s, i) : '') +
@@ -1908,7 +1908,7 @@ Clinic.order = (function () {
             });
             return t;
         }, 0);
-        document.getElementById('orderTotal').textContent = '¥' + total.toFixed(2);
+        document.getElementById('orderTotal').textContent = Clinic.money(total);
     }
 
     /**
@@ -2057,7 +2057,7 @@ Clinic.order = (function () {
                     ' ｜ ' + subDose +
                     '</span>' +
                     '<span class="flex gap-4" style="align-items:center;flex-shrink:0;margin-left:8px">' +
-                    '<span class="fs-12 text-muted">¥' + ((sub.price || 0) * (sub.quantity || 1)).toFixed(2) + '</span>' +
+                    '<span class="fs-12 text-muted">' + Clinic.money((sub.price || 0) * (sub.quantity || 1)) + '</span>' +
                     '<button type="button" class="btn btn-outline btn-sm" style="padding:0 7px"' + (dis ? ' disabled' : '') + ' ' +
                     'onclick="Clinic.order.rxCtx(\'' + key + '\',\'changeSubQty\',[' + i + ',' + si + ',-1])">−</button>' +
                     '<input type="number" class="input" style="width:46px;padding:2px 4px;min-height:22px;text-align:center;font-size:12px"' + (dis ? ' disabled' : '') + ' ' +
@@ -2172,7 +2172,7 @@ Clinic.order = (function () {
             onSuccess: function (j) {
                 SUBMITTING = false;
                 var msg = j.msg || '开单成功';
-                Clinic.toast.success(msg + '，总费用 ¥' + parseFloat(j.data.total).toFixed(2));
+                Clinic.toast.success(msg + '，总费用 ' + Clinic.money(j.data.total));
                 Clinic.modal.close();
                 // 申请单/处置单/处方单统一 A5 病历纸样式；检查按分类拆分后一次打印多张
                 var ids = j.data.order_ids && j.data.order_ids.length ? j.data.order_ids : [j.data.order_id];

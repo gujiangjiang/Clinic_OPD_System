@@ -76,17 +76,17 @@ Clinic.deptPicker = (function () {
             } else if (opts.onlyFree && d.fee > 0) {
                 cls += ' disabled';
                 extra = '<div class="dept-pick-tags"><span class="badge badge-gray">需实名挂号</span></div>' +
-                    '<div class="dept-pick-sub"><span class="text-muted">挂号费 ¥' + d.fee.toFixed(2) + '</span></div>';
+                    '<div class="dept-pick-sub"><span class="text-muted">挂号费 ' + Clinic.money(d.fee) + '</span></div>';
             } else if (d.type === 'emergency') {
                 extra = '<div class="dept-pick-tags"><span class="badge badge-danger">急诊 · 不限号</span></div>' +
-                    '<div class="dept-pick-sub">挂号费 ¥' + d.fee.toFixed(2) + '</div>';
+                    '<div class="dept-pick-sub">挂号费 ' + Clinic.money(d.fee) + '</div>';
             } else if (d.full) {
                 cls += ' disabled';
                 extra = '<div class="dept-pick-tags"><span class="badge badge-danger">已满号</span></div>' +
                     '<div class="dept-pick-sub"><span class="text-muted">余 0 号 · 可联系医生加号</span></div>';
             } else {
                 extra = '<div class="dept-pick-tags"><span class="badge badge-success">余 ' + d.remaining + ' 号</span></div>' +
-                    '<div class="dept-pick-sub">挂号费 ¥' + d.fee.toFixed(2) + '</div>';
+                    '<div class="dept-pick-sub">挂号费 ' + Clinic.money(d.fee) + '</div>';
             }
         } else if (mode === 'select' || mode === 'call') {
             // 大屏统计模式（叫号大屏选择科室用）：只显示 nav:screen 在线/总数，不显示 门诊/急诊 徽章

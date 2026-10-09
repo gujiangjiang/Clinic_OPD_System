@@ -113,7 +113,7 @@ function syncSplitBox() {
     set('sp_min_unit_name', minUnit || '—');
     set('sp_pack_qty_name', pkt);
     // 3.6.2：金额与单位分元素展示，避免「¥16.00 / 盒 / 盒」重复单位
-    set('sp_pack_price', '¥' + price.toFixed(2));
+    set('sp_pack_price', Clinic.money(price));
     set('sp_pack_price_unit', ' / ' + (packUnit || '盒'));
     set('sp_min_price', '¥' + (pkt > 1 ? (price / pkt).toFixed(4) : '0').replace(/\.?0+$/, ''));
     set('sp_min_price_unit', ' / ' + (minUnit || '个'));

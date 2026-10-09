@@ -73,11 +73,11 @@ Clinic.feePop = (function () {
                 return '<div class="fee-pop-row">' +
                     '<span class="status-indicator ' + dd.cls + '" title="' + dd.txt + '"></span>' +
                     '<span class="fee-pop-name" title="' + esc(r.name) + '">' + esc(r.name) + '</span>' +
-                    '<span class="fee-pop-amt">¥' + r.amt.toFixed(2) + '</span></div>';
+                    '<span class="fee-pop-amt">' + Clinic.money(r.amt) + '</span></div>';
             }).join('');
             return head + body;
         }).join('') +
-            '<div class="fee-pop-total"><span>合计</span><span>¥' + g.total.toFixed(2) + '</span></div>';
+            '<div class="fee-pop-total"><span>合计</span><span>' + Clinic.money(g.total) + '</span></div>';
     }
 
     function show(anchor, data) {

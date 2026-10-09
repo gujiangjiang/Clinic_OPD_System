@@ -16,6 +16,9 @@
 ## [9.12.0] - 待发布
 
 ### 变更
+- **前端金额格式化收敛**：开单、费用明细弹层、科室选择、部门工作台、项目选择器、
+  药品表单共 16 处 `'¥' + x.toFixed(2)` 统一改用 `Clinic.money()`（输出逐字一致）；
+  各科室状态文案映射差异属业务语义，按零回退原则不做强制合并。
 - **PACS 出向鉴权统一**：新增 `services/imaging/PacsAuth.php`（`base()`/`headers()`），
   DICOMweb 出向、区域 UID 解析、连通性测试三处重复的基地址解析与
   bearer/x-api-key/basic/custom 头构造收敛为唯一实现。
