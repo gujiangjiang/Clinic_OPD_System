@@ -137,7 +137,7 @@ function rxOrderHtml(o) {
         actions = '<div class="dw-report-actions">' +
             (allNurse
                 ? '<span class="badge badge-warning">全部护士站执行</span>'
-                : '<button class="btn btn-outline btn-sm" onclick="reprintRx(\'' + esc(o.order_id) + '\')">'+renderIconSvg('action:print')+' 处方提示</button>') +
+                : '<button class="btn btn-outline btn-sm" onclick="reprintRx(\'' + Clinic.escJs(o.order_id) + '\')">'+renderIconSvg('action:print')+' 处方提示</button>') +
             '</div>';
     }
     // 签名：开单医生 + 审方药师（如有）+ 发药药师（如有）；同人时仅显示一次
@@ -156,7 +156,7 @@ function rxOrderHtml(o) {
         '<div class="dw-rx-head">' +
         '  <span class="fw-700">'+renderIconSvg('nav:pharmacy')+' 处方</span>' +
         '  <a href="javascript:void(0)" style="color:var(--primary);cursor:pointer;text-decoration:underline;margin-left:10px" ' +
-        'onclick="previewRx(\'' + esc(o.order_id) + '\',\'' + esc(o.order_no) + '\')">' + esc(o.order_no) + '</a>' +
+        'onclick="previewRx(\'' + Clinic.escJs(o.order_id) + '\',\'' + Clinic.escJs(o.order_no) + '\')">' + esc(o.order_no) + '</a>' +
         '  <span class="fs-12 text-muted" style="margin-left:10px">开单医生：' + esc(o.doctor_name || '') + ' ｜ ' + esc((o.created_at || '').substr(0, 16)) + '</span>' +
         rxStatusBadge(o.status) +
         '</div>' +

@@ -650,7 +650,7 @@ function loadDbStatus() {
                 (d.status === 'error' && d.error ? '<div class="fs-12 text-danger mt-8">' + renderIconSvg('action:close') + ' ' + escHtml(d.error) + '</div>' : '');
             var tl = document.getElementById('dbTableList');
             tl.innerHTML = (d.tables || []).map(function (t) {
-                return '<div class="flex-between" style="padding:5px 8px;border-radius:6px;cursor:pointer" onmouseover="this.style.background=\'var(--bg-soft)\'" onmouseout="this.style.background=\'\'" onclick="openDbTable(\'' + escHtml(t.name) + '\')">' +
+                return '<div class="flex-between" style="padding:5px 8px;border-radius:6px;cursor:pointer" onmouseover="this.style.background=\'var(--bg-soft)\'" onmouseout="this.style.background=\'\'" onclick="openDbTable(\'' + Clinic.escJs(t.name) + '\')">' +
                     '<span class="fw-600">' + escHtml(t.name) + '</span>' +
                     '<span class="fs-12 text-muted">' + t.rows + ' 行</span></div>';
             }).join('') || '<div class="text-muted">无表</div>';

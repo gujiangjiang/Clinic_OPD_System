@@ -96,7 +96,7 @@ function itemStatusBadge(s) {
 function orderLink(orderId, orderNo, type) {
     if (!orderId) return esc(orderNo || '—');
     return '<a href="javascript:void(0)" style="color:var(--primary);cursor:pointer;text-decoration:underline" ' +
-        'onclick="previewOrder(\'' + esc(orderId) + '\',\'' + esc(orderNo || '') + '\',\'' + esc(type || '') + '\')">' + esc(orderNo || '—') + '</a>';
+        'onclick="previewOrder(\'' + Clinic.escJs(orderId) + '\',\'' + Clinic.escJs(orderNo || '') + '\',\'' + Clinic.escJs(type || '') + '\')">' + esc(orderNo || '—') + '</a>';
 }
 
 /* ==================== 通用只读打印预览（病历预览入口已移至顶栏通用【病历】按钮） ==================== */

@@ -15,8 +15,8 @@ Clinic.emr.patient = (function () {
 
     function renderPatientCard(d) {
         var p = d.patient, v = d.visit;
-        var editModal = "Clinic.patient.editModal('" + escHtml(p.patient_id) + "')";
-        var historyModal = "showPatientHistory('" + escHtml(p.patient_id) + "')";
+        var editModal = "Clinic.patient.editModal('" + Clinic.escJs(p.patient_id) + "')";
+        var historyModal = "showPatientHistory('" + Clinic.escJs(p.patient_id) + "')";
         document.getElementById('emrHeader').innerHTML =
             '<div class="flex-between">' +
             '  <div class="flex gap-12" style="align-items:center">' +

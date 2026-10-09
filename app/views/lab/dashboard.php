@@ -146,7 +146,7 @@ function labOrderHtml(o) {
         '<div class="dw-lab-order-head">' +
         '  <span class="fw-700">'+renderIconSvg('nav:lab')+' 检验申请单</span>' +
         '  <a href="javascript:void(0)" style="color:var(--primary);cursor:pointer;text-decoration:underline;margin-left:10px" ' +
-        'onclick="previewLabOrder(\'' + esc(o.order_id) + '\',\'' + esc(o.order_no) + '\')">' + esc(o.order_no) + '</a>' +
+        'onclick="previewLabOrder(\'' + Clinic.escJs(o.order_id) + '\',\'' + Clinic.escJs(o.order_no) + '\')">' + esc(o.order_no) + '</a>' +
         '  <span class="fs-12 text-muted" style="margin-left:10px">开单医生：' + esc(o.doctor_name || '') + ' ｜ ' + esc((o.created_at || '').substr(0, 16)) + '</span>' +
         badge +
         regBtn +
@@ -233,7 +233,7 @@ function labItemHtml(it) {
             '<span>报告编号：' + esc(it.report_no || '—') + '</span><span>' + esc((it.executed_at || '').substr(0, 16)) + '</span></div>' +
             '<div class="dw-report-actions">' +
             (it.report_id ? '<button class="btn btn-outline btn-sm" onclick="Clinic.print.load(\'/api/print?action=report&report_id=' + esc(it.report_id) + '\',null)">'+renderIconSvg('action:print')+' 查看报告</button>' : '') +
-            (it.report_id ? '<button class="btn btn-outline btn-sm" onclick="labWithdraw(\'' + esc(it.report_id) + '\')">申请撤回</button>' : '') +
+            (it.report_id ? '<button class="btn btn-outline btn-sm" onclick="labWithdraw(\'' + Clinic.escJs(it.report_id) + '\')">申请撤回</button>' : '') +
             '</div>';
     }
     return '<div class="dw-report-item">' +

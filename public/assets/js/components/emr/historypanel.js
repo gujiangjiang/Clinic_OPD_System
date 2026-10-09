@@ -36,7 +36,7 @@ Clinic.history = (function () {
     function visitItemHtml(v) {
         var seq = Clinic.pad3(v.visit_seq);
         var moved = v.current_dept_name && v.current_dept_name !== v.dept_name;
-        return '<div class="hp-visit" id="hpV_' + v.code + '" onclick="Clinic.history.select(\'' + v.code + '\')">' +
+        return '<div class="hp-visit" id="hpV_' + escHtml(v.code) + '" onclick="Clinic.history.select(\'' + Clinic.escJs(v.code) + '\')">' +
             '<div class="fs-13 text-muted">' + escHtml(v.date) + ' ' + escHtml(v.time) + '</div>' +
             '<div class="fs-13 fw-600">' + escHtml(v.dept_name) + '（' + seq + '）' +
             (moved ? '<span class="fs-12 text-muted fw-400">' + renderIconSvg('action:next') + ' ' + escHtml(v.current_dept_name) + '</span>' : '') + '</div>' +
@@ -107,12 +107,12 @@ Clinic.history = (function () {
      *  全局加载避免医生工作站等页面函数未定义） */
     function certBtnHtml() {
         if (CUR.has_cert) {
-            return '<button class="btn btn-outline btn-sm" onclick="printHistoryCertificate(\'' + CUR.code + '\')">' + renderIconSvg('emr:document') + ' 查看诊断证明</button>';
+            return '<button class="btn btn-outline btn-sm" onclick="printHistoryCertificate(\'' + Clinic.escJs(CUR.code) + '\')">' + renderIconSvg('emr:document') + ' 查看诊断证明</button>';
         }
         if (CUR.finished) {
-            return '<button class="btn btn-outline btn-sm" onclick="archiveCertificateConfirm(' + (CUR.treated ? 'true' : 'false') + ',\'' + CUR.code + '\')">' + renderIconSvg('emr:document') + ' 补开诊断证明</button>';
+            return '<button class="btn btn-outline btn-sm" onclick="archiveCertificateConfirm(' + (CUR.treated ? 'true' : 'false') + ',\'' + Clinic.escJs(CUR.code) + '\')">' + renderIconSvg('emr:document') + ' 补开诊断证明</button>';
         }
-        return '<button class="btn btn-outline btn-sm" onclick="openHistoryCertificate(\'' + CUR.code + '\')">' + renderIconSvg('emr:document') + ' 新增诊断证明</button>';
+        return '<button class="btn btn-outline btn-sm" onclick="openHistoryCertificate(\'' + Clinic.escJs(CUR.code) + '\')">' + renderIconSvg('emr:document') + ' 新增诊断证明</button>';
     }
 
     function renderRight() {
@@ -124,7 +124,7 @@ Clinic.history = (function () {
             '  <div class="fs-13 fw-600">' + escHtml(CUR.date) + ' ' + escHtml(CUR.time) + ' ｜ ' + escHtml(CUR.dept_name) + ' 第' + seq + '号</div>' +
             '  <div class="flex gap-8">' +
             (CUR.has_record
-                ? '<button class="btn btn-primary btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' + CUR.code + '\',null,\'a5\')">' + renderIconSvg('action:print') + ' 打印电子病历</button>'
+                ? '<button class="btn btn-primary btn-sm" onclick="Clinic.print.load(\'/api/print?action=record&visit_id=' + Clinic.escJs(CUR.code) + '\',null,\'a5\')">' + renderIconSvg('action:print') + ' 打印电子病历</button>'
                 : '<button class="btn btn-outline btn-sm" onclick="Clinic.toast.warning(\'该次就诊病历尚未保存\')">' + renderIconSvg('action:print') + ' 打印电子病历</button>') +
             '    ' + certBtnHtml() +
             '  </div>' +

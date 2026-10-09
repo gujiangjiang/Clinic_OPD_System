@@ -167,9 +167,9 @@ Clinic.emr.consult = (function () {
             // 删除按钮：仅发起人本人 + 会诊仍为待会诊（pending）时可删除；
             // 已在会诊中（doing/done）一律不显示删除按钮
             var delBtn = (c.from_doctor_id === myUid && c.status === 'pending')
-                ? '<span class="ena-del" title="删除会诊" onclick="event.stopPropagation();Clinic.emr.delConsult(\'' + c.code + '\')">' + renderIconSvg('action:delete') + '</span>'
+                ? '<span class="ena-del" title="删除会诊" onclick="event.stopPropagation();Clinic.emr.delConsult(\'' + Clinic.escJs(c.code) + '\')">' + renderIconSvg('action:delete') + '</span>'
                 : '';
-            return '<div class="ena-item" style="cursor:pointer" title="点击查看会诊详情" onclick="Clinic.emr.openConsultDetail(\'' + c.code + '\')">' +
+            return '<div class="ena-item" style="cursor:pointer" title="点击查看会诊详情" onclick="Clinic.emr.openConsultDetail(\'' + Clinic.escJs(c.code) + '\')">' +
                 dot(c.status) +
                 '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                 escHtml((c.created_at || '').substring(5, 16)) + ' 请' + escHtml(c.target_dept_name) + '会诊</span>' +

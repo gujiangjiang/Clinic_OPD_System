@@ -27,6 +27,20 @@ window.escHtml = Clinic.escHtml;
 window.esc = Clinic.escHtml;
 
 /**
+ * JS 字符串上下文转义（专用于 onclick="fn('...')" 等内联事件参数）：
+ * 将引号 / 反斜杠 / 换行 / HTML 实体相关字符统一转成 \uXXXX——HTML 属性解析
+ * 不会改变反斜杠形态，进入 JS 字符串后按字面还原，杜绝「HTML 转义在 JS 上下文
+ * 被实体解码后闭合字符串」的注入路径（escHtml 不适用于该场景）。
+ * @param {*} s 任意值，null/undefined 视为空串
+ * @returns {string}
+ */
+Clinic.escJs = function (s) {
+    return String(s == null ? '' : s).replace(/[\\'"<>&\r\n\u2028\u2029]/g, function (c) {
+        return '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
+    });
+};
+
+/**
  * HTML 字符串 → 纯文本（提取 textContent 并去除首尾空白）。
  * 说明：历史病历摘要、诊断证明快照等多处以「创建临时 div 取 textContent」
  * 实现同一逻辑，统一收敛到本函数。

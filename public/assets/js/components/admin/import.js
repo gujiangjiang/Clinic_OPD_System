@@ -46,7 +46,7 @@ Clinic.importer = (function () {
         fetch('/api/admin', { method: 'POST', body: fd })
             .then(function (r) { return r.json(); })
             .then(function (j) {
-                if (!j.ok) { box.innerHTML = '<div class="text-danger fs-13">' + (j.msg || '预检失败') + '</div>'; return; }
+                if (!j.ok) { box.innerHTML = '<div class="text-danger fs-13">' + Clinic.escHtml(j.msg || '预检失败') + '</div>'; return; }
                 renderResult(box, j.data);
             })
             .catch(function () { box.innerHTML = '<div class="text-danger fs-13">网络请求失败</div>'; });
@@ -60,7 +60,7 @@ Clinic.importer = (function () {
         if (d.error_list && d.error_list.length) {
             html += '<div class="fs-12 mb-8" style="color:var(--danger);max-height:120px;overflow-y:auto">' +
                 d.error_list.map(function (e) {
-                    return '第' + e.row + '行：' + e.key + ' — ' + e.reason;
+                    return '第' + Clinic.escHtml(e.row) + '行：' + Clinic.escHtml(e.key) + ' — ' + Clinic.escHtml(e.reason);
                 }).join('<br>') + '</div>';
         }
         if (d.conflict_list && d.conflict_list.length) {
@@ -68,7 +68,7 @@ Clinic.importer = (function () {
                 '<div class="table-wrap" style="max-height:140px;overflow-y:auto"><table class="table"><thead><tr>' +
                 '<th>唯一键</th><th>名称</th><th>原因</th></tr></thead><tbody>' +
                 d.conflict_list.map(function (c) {
-                    return '<tr><td>' + c.key + '</td><td>' + (c.name || '') + '</td><td class="text-warning">' + c.reason + '</td></tr>';
+                    return '<tr><td>' + Clinic.escHtml(c.key) + '</td><td>' + Clinic.escHtml(c.name || '') + '</td><td class="text-warning">' + Clinic.escHtml(c.reason) + '</td></tr>';
                 }).join('') + '</tbody></table></div>';
             html += '<div class="mt-8"><label class="flex gap-4 mb-4" style="font-size:13px;cursor:pointer">' +
                 '<input type="radio" name="impStrategy" value="skip" checked> 忽略冲突（仅导入全新数据，保留现有）</label>' +

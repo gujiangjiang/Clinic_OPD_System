@@ -1778,7 +1778,7 @@ Clinic.order = (function () {
      */
     function mustConfirmSkinTest(drugName, cb) {
         Clinic.modal.open(
-            '<div class="fs-14" style="line-height:1.9">「<strong>' + drugName + '</strong>」属于<b>需皮试药品</b>，请选择本次处置方案：</div>' +
+            '<div class="fs-14" style="line-height:1.9">「<strong>' + Clinic.escHtml(drugName) + '</strong>」属于<b>需皮试药品</b>，请选择本次处置方案：</div>' +
             '<div class="mt-12 flex flex-col gap-8">' +
             '<button type="button" class="btn btn-danger btn-block" id="skinYes">需要皮试</button>' +
             '<button type="button" class="btn btn-outline btn-block" id="skinNo">无需皮试 / 免试</button>' +
@@ -1813,8 +1813,8 @@ Clinic.order = (function () {
         var bar = document.getElementById('prevConfirm');
         bar.style.display = 'block';
         bar.innerHTML =
-            renderIconSvg('alert:warning') + ' 该患者曾在 <strong>' + prev.time + '</strong> 开具过「' + it.name +
-            '」（单号 ' + prev.order_no + '，含未缴费记录），是否再次开具？（如为复查可再次开具）' +
+            renderIconSvg('alert:warning') + ' 该患者曾在 <strong>' + Clinic.escHtml(prev.time) + '</strong> 开具过「' + Clinic.escHtml(it.name) +
+            '」（单号 ' + Clinic.escHtml(prev.order_no) + '，含未缴费记录），是否再次开具？（如为复查可再次开具）' +
             '<div class="flex gap-8 mt-4">' +
             '  <button type="button" class="btn btn-primary btn-sm" onclick="Clinic.order.confirmPrev(1)">再次开具</button>' +
             '  <button type="button" class="btn btn-outline btn-sm" onclick="Clinic.order.confirmPrev(0)">取消</button>' +

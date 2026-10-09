@@ -719,7 +719,7 @@ Clinic.emr = (function () {
                             // 会诊：默认只读展示原病历 + 引导点击「病历节点 ＋」创建会诊病历，
                             // 不自动新建续写。待会诊（pending）时可直接点击「确认会诊」开始。
                             var startBtn = (myConsult.status === 'pending')
-                                ? '<button class="btn btn-primary btn-sm mt-8" onclick="Clinic.emr.startConsult(\'' + escHtml(myConsult.code) + '\')">' + renderIconSvg('action:handshake') + ' 确认会诊</button>'
+                                ? '<button class="btn btn-primary btn-sm mt-8" onclick="Clinic.emr.startConsult(\'' + Clinic.escJs(myConsult.code) + '\')">' + renderIconSvg('action:handshake') + ' 确认会诊</button>'
                                 : '';
                             phBody.innerHTML = '<div class="ro-placeholder" id="roPlaceholder">' +
                                 '<div class="fs-14">' + renderIconSvg('action:handshake') + ' ' + escHtml((myConsult.from_dept_name || '') + ' 会诊请求') +
@@ -1576,11 +1576,11 @@ Clinic.emr = (function () {
             var certDept = (DATA.visit && DATA.visit.dept_name) || '';
             // 删除权限：后端权威计算（开具医生+科室一致+非会诊期）
             var canDelCert = cert.can_delete ? 1 : 0;
-            certEl.innerHTML = '<div class="ena-item" onclick=\"Clinic.emr.certificateModal(visitId.value, \'诊断证明\')\">' +
+            certEl.innerHTML = '<div class="ena-item" onclick=\"Clinic.emr.certificateModal(' + Clinic.escJs(visitId.value) + ', \'诊断证明\')\">' +
                 '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
                 escHtml(certTime) + ' ' + escHtml(certDept) + '</span>' +
                 '<span class="ena-sub">' + escHtml(cert.doctor_name || '') + '</span>' +
-                (canDelCert ? '<span class="ena-del" title="删除诊断证明" onclick="Clinic.emr.deleteCertificate(\'' + visitId.value + '\');event.stopPropagation()">' + renderIconSvg('action:delete') + '</span>' : '') +
+                (canDelCert ? '<span class="ena-del" title="删除诊断证明" onclick="Clinic.emr.deleteCertificate(\'' + Clinic.escJs(visitId.value) + '\');event.stopPropagation()">' + renderIconSvg('action:delete') + '</span>' : '') +
                 '</div>';
         } else {
             // 未开具时不再放正文入口，统一走分区标题右侧「＋」（emrNavAdd('cert')）
@@ -2072,7 +2072,7 @@ Clinic.emr = (function () {
             var vid = (document.getElementById('visitId') || {}).value || '';
             var pn = (DATA && DATA.patient && DATA.patient.name) ? (DATA.patient.name + ' ｜ ') : '';
             html += '<button type="button" class="btn btn-outline btn-sm mt-12" style="margin-left:8px" ' +
-                'onclick="Clinic.pacsHistory && Clinic.pacsHistory.openViewer(\'' + escHtml(vid) + '\',\'' + escHtml(it.id) + '\',\'' + escHtml(pn + it.item_name) + '\')">' +
+                'onclick="Clinic.pacsHistory && Clinic.pacsHistory.openViewer(\'' + Clinic.escJs(vid) + '\',\'' + Clinic.escJs(it.id) + '\',\'' + Clinic.escJs(pn + it.item_name) + '\')">' +
                 renderIconSvg('nav:screen') + ' 调阅影像</button>';
         }
         html += '</div>';

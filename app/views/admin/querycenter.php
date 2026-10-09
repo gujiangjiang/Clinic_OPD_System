@@ -72,7 +72,7 @@ function refRowHtml(list, isFirst) {
             '<td class="fs-12">' + escHtml(r.region_name || r.region || '—') + '</td>' +
             '<td class="fs-12">' + escHtml(r.created_by || '') + '</td>' +
             '<td>' + ((r.has_image && r.order_item_id)
-                ? '<button class="btn btn-outline btn-sm" onclick="openRefViewer(\'' + escHtml(r.visit_code || '') + '\',\'' + escHtml(r.order_item_id) + '\',\'' + escHtml((r.patient_name || '') + ' ｜ ' + (r.item_name || '')) + '\',\'' + escHtml('患者ID ' + (r.patient_no || '—') + ' ｜ ' + (r.flow_no || '')) + '\')">'+' 调阅</button>'
+                ? '<button class="btn btn-outline btn-sm" data-ref-viewer data-visit="' + escHtml(r.visit_code || '') + '" data-item="' + escHtml(r.order_item_id) + '" data-label="' + escHtml((r.patient_name || '') + ' ｜ ' + (r.item_name || '')) + '" data-sub="' + escHtml('患者ID ' + (r.patient_no || '—') + ' ｜ ' + (r.flow_no || '')) + '">'+' 调阅</button>'
                 : '<span class="fs-12 text-muted">无影像</span>') + '</td>' +
             '</tr>';
     }).join('');
@@ -87,6 +87,16 @@ function refRowHtml(list, isFirst) {
 function initRefList() {
     var listEl = document.getElementById('qcRefTable');
     if (!listEl || refList || !window.Clinic || !Clinic.infiniteList) return;
+    // 事件委托：行内不再拼接 onclick（患者/项目名进入 data-* 后走文本读取，防 JS 上下文注入）
+    if (!listEl.getAttribute('data-ref-bound')) {
+        listEl.setAttribute('data-ref-bound', '1');
+        listEl.addEventListener('click', function (ev) {
+            var btn = ev.target && ev.target.closest ? ev.target.closest('[data-ref-viewer]') : null;
+            if (!btn) return;
+            openRefViewer(btn.getAttribute('data-visit'), btn.getAttribute('data-item'),
+                btn.getAttribute('data-label'), btn.getAttribute('data-sub'));
+        });
+    }
     refList = Clinic.infiniteList({
         el: listEl,
         pageSize: 20,   // 影像引用每页 20 条

@@ -358,7 +358,7 @@ function imgInfoCardInner(it) {
     var orderLine = '<div class="pacs-info-line"><span class="k">申请单号</span><span class="v">' +
         (orderNo
             ? '<a href="javascript:void(0)" style="color:var(--primary);text-decoration:underline" ' +
-              'onclick="previewImgOrder(\'' + esc(order ? order.order_id : '') + '\',\'' + esc(orderNo) + '\')">' + esc(orderNo) + '</a>'
+              'onclick="previewImgOrder(\'' + Clinic.escJs(order ? order.order_id : '') + '\',\'' + Clinic.escJs(orderNo) + '\')">' + esc(orderNo) + '</a>'
             : '—') +
         '</span></div>';
     return orderLine +
@@ -894,7 +894,7 @@ function imgOrderHtml(o) {
         '<div class="dw-lab-order-head">' +
         '  <span class="fw-700">'+renderIconSvg('nav:imaging')+' 检查申请单</span>' +
         '  <a href="javascript:void(0)" style="color:var(--primary);cursor:pointer;text-decoration:underline;margin-left:10px" ' +
-        'onclick="previewImgOrder(\'' + esc(o.order_id) + '\',\'' + esc(o.order_no) + '\')">' + esc(o.order_no) + '</a>' +
+        'onclick="previewImgOrder(\'' + Clinic.escJs(o.order_id) + '\',\'' + Clinic.escJs(o.order_no) + '\')">' + esc(o.order_no) + '</a>' +
         '  <span class="fs-12 text-muted" style="margin-left:10px">开单医生：' + esc(o.doctor_name || '') + ' ｜ ' + esc((o.created_at || '').substr(0, 16)) + '</span>' +
         headActions +
         '</div>' + itemsHtml + '</div>';
