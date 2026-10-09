@@ -16,6 +16,11 @@
 ## [9.12.0] - 待发布
 
 ### 安全
+- **HL7 入向默认无鉴权**：新增总开关 `integration.inbound.hl7.enabled`（默认关闭）；
+  HTTP 代理移除「Token 留空免鉴权」路径（无 Token 一律 401，IP 白名单与启用开关前置）；
+  MLLP 守护进程强制「启用开关 + 非空 IP 白名单」方可启动/接入，逐帧写入接口审计，
+  帧缓冲上限 5MB、写 ACK 失败即断连；`InboundGuard::authorize` 的免 Token 模式
+  （skipApiGuard）全局要求非空白名单。
 - **开放重定向**：新增 `safe_redirect_path()` 统一校验登录跳转 `next`（拒绝 `//host`、
   `/\host` 与带 scheme 的完整 URL），登录页与登录接口共用；`Clinic.nav.go` 增加
   `isSafeUrl` 白名单（站内单斜杠路径或 http(s) 外链，拒绝 `javascript:` 等）。

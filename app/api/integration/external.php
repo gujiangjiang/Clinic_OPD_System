@@ -107,9 +107,9 @@ switch ($__mod) {
     case 'hl7':
         if ($__act !== 'receiver') external_fail(404, '未知 HL7 操作');
         external_gate('hl7', array(
+            'enabledKey' => 'integration.inbound.hl7.enabled',
             'ipKey' => 'integration.inbound.hl7.ip_whitelist',
             'tokenKey' => 'integration.inbound.hl7.token',
-            'skipApiGuard' => (trim((string)setting('integration.inbound.hl7.token', '')) === ''),
             'requiredScope' => 'report:write',
         ));
         $raw = external_body();

@@ -25,6 +25,13 @@ require APP_ROOT . '/app/config/bootstrap.php';
 if (!ConfigStore::isSystemInstalled()) {
     exit('系统未安装，退出');
 }
+// 入向总开关（默认关闭）：未启用不得监听，避免默认开放接收
+if (!integration_flag('integration.inbound.hl7.enabled')) {
+    exit('HL7 入向未启用（integration.inbound.hl7.enabled=0），退出');
+}
+if (trim((string)setting('integration.inbound.hl7.ip_whitelist', '')) === '') {
+    exit('HL7 入向未配置 IP 白名单：MLLP 为免 Token 的 TCP 通道，必须配置白名单后启动');
+}
 $port = (int)integration_cfg('inbound.hl7.local_port', '2575', 'hl7_local_port');
 if ($port <= 0 || $port > 65535) {
     exit('HL7 监听端口无效（integration.inbound.hl7.local_port）');
@@ -38,13 +45,13 @@ if (!$server) {
 echo 'HL7 MLLP 守护进程已启动：' . $host . ':' . $port . ' (' . now_str() . ')' . "\n";
 echo '按 Ctrl+C 退出。' . "\n";
 
-/** IP 白名单校验（配置为空放行） */
+/** IP 白名单校验（MLLP 免 Token 通道：白名单为空一律拒绝，启动时已拦截） */
 $ipAllowed = function ($ip) {
     $list = trim((string)setting('integration.inbound.hl7.ip_whitelist', ''));
-    if ($list === '') return true;
+    if ($list === '') return false;
     $items = preg_split('/[\s,;]+/', $list) ?: array();
     foreach ($items as $item) {
-        if (InboundGuard::ipInCidr($ip, trim($item))) return true;
+        if ($item !== '' && InboundGuard::ipInCidr($ip, trim($item))) return true;
     }
     return false;
 };
@@ -60,6 +67,7 @@ function mllp_handle($frame, $tag) {
     $msg = str_replace(array("\r\n", "\n"), "\r", (string)$frame);
     if (trim($msg) === '') {
         echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' 空帧，拒绝' . "\n";
+        integration_log_inbound('hl7', 'mllp', false, '空消息帧', '');
         return HL7MessageBuilder::ack('', 'AR', '空消息帧');
     }
     $parsed = array();
@@ -68,24 +76,30 @@ function mllp_handle($frame, $tag) {
         $msgType = isset($parsed['msh']['type']) ? $parsed['msh']['type'] : '';
         if ($msgType === '') {
             echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' 缺少 MSH 段，拒绝' . "\n";
+            integration_log_inbound('hl7', 'mllp', false, '无法解析 HL7 消息（缺少 MSH 段）', $msg);
             return HL7MessageBuilder::ack($msg, 'AR', '无法解析 HL7 消息（缺少 MSH 段）');
         }
         if (strpos($msgType, 'ORU') === 0) {
             $oru = HL7MessageParser::oruExtract($parsed);
             if (!$oru['ok']) {
                 echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' ORU 解析失败（缺 OBR 申请单号）' . "\n";
+                integration_log_inbound('hl7', 'mllp', false, 'ORU 消息缺少 OBR 申请单号', $msg);
                 return HL7MessageBuilder::ack($msg, 'AE', 'ORU 消息缺少 OBR 申请单号');
             }
             $res = HL7InboundService::applyOru($oru);
             echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' ORU^R01 ' . $res['msg']
                 . ($res['critical'] > 0 ? '【危急值 ' . $res['critical'] . ' 条】' : '') . "\n";
+            integration_log_inbound('hl7', 'mllp', true,
+                'ORU^R01 ' . $res['msg'] . ($res['critical'] > 0 ? '（危急值 ' . $res['critical'] . ' 条）' : ''), $msg);
             return HL7MessageBuilder::ack($msg, 'AA', $res['msg']);
         }
         // ADT 及其他消息：接收确认（业务处理预留扩展）
         echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' 接收确认 ' . $msgType . "\n";
+        integration_log_inbound('hl7', 'mllp', true, '接收确认：' . $msgType, $msg);
         return HL7MessageBuilder::ack($msg, 'AA', 'received:' . $msgType);
-    } catch (Exception $ex) {
+    } catch (Throwable $ex) {
         echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' 处理失败：' . $ex->getMessage() . "\n";
+        integration_log_inbound('hl7', 'mllp', false, $ex->getMessage(), substr($msg, 0, 8000));
         return HL7MessageBuilder::ack($msg, 'AE', $ex->getMessage());
     }
 }
@@ -100,10 +114,13 @@ while (true) {
     $tag = $peerIp;
     if (!$ipAllowed($peerIp)) {
         echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' IP 白名单拒绝，断开' . "\n";
+        integration_log_inbound('hl7', 'mllp', false, 'IP 白名单拒绝', '');
         fclose($conn);
         continue;
     }
     // 读取 MLLP 帧：0x0B 起始 … 严格帧尾 0x1C 0x0D（单连接可连发多帧；跨读取块自动拼接）
+    // 帧缓冲上限：防止无帧尾的恶意/异常对端持续发送导致内存耗尽
+    $maxFrame = 5 * 1024 * 1024;
     $buf = '';
     while (!feof($conn)) {
         $chunk = fread($conn, 4096);
@@ -113,6 +130,11 @@ while (true) {
             continue;
         }
         $buf .= $chunk;
+        if (strlen($buf) > $maxFrame) {
+            echo '[' . date('Y-m-d H:i:s') . '] ' . $tag . ' 帧超限（>' . $maxFrame . ' 字节），断开' . "\n";
+            integration_log_inbound('hl7', 'mllp', false, 'MLLP 帧超过大小上限，连接断开', '');
+            break;
+        }
         while (true) {
             $start = strpos($buf, chr(0x0B));
             if ($start === false) { $buf = ''; break; }           // 丢弃帧外字节
@@ -121,7 +143,7 @@ while (true) {
             $frame = substr($buf, $start + 1, $end - $start - 1);
             $buf = substr($buf, $end + 2);
             $ack = mllp_handle($frame, $tag);
-            fwrite($conn, chr(0x0B) . $ack . chr(0x1C) . chr(0x0D));
+            if (@fwrite($conn, chr(0x0B) . $ack . chr(0x1C) . chr(0x0D)) === false) break 2;
         }
     }
     if (is_resource($conn)) fclose($conn);

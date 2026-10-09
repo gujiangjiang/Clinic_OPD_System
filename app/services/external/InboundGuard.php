@@ -70,8 +70,12 @@ class InboundGuard {
             integration_log_inbound('inbound', $module, false, 'IP 白名单拒绝', '');
             return self::fail(403, 'forbidden', '来源 IP 不在白名单内');
         }
-        // ③ 凭证校验（skipApiGuard 时仅做开关+IP）
+        // ③ 凭证校验（skipApiGuard 时仅做开关+IP，且必须配置 IP 白名单，杜绝全开放）
         if ($skipApiGuard) {
+            if ($ipKey === '' || trim((string)setting($ipKey, '')) === '') {
+                integration_log_inbound('inbound', $module, false, '免 Token 模式未配置 IP 白名单', '');
+                return self::fail(403, 'forbidden', '免 Token 模式下必须配置 IP 白名单');
+            }
             return self::pass('', self::SCOPE_ALL);
         }
         if ($listKey === '' && $tokenKey === '') {
