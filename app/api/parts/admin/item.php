@@ -412,7 +412,9 @@ function admin_part_item($action) {
             if ($used > 0) {
                 OrderRepository::exec("UPDATE $table SET category='' WHERE id=?", array($iid));
             } else {
-                OrderRepository::exec('DELETE FROM results WHERE item_id=?', array($iid));
+                // 补 type 过滤：lab_items / exam_items 的 id 可数值重合，
+                // 不带 type 会误删另一科室同 id 项目的结果记录
+                OrderRepository::exec('DELETE FROM results WHERE item_id=? AND type=?', array($iid, $itemType));
                 OrderRepository::exec("DELETE FROM $table WHERE id=?", array($iid));
                 $cleaned++;
             }

@@ -54,6 +54,8 @@
   安装向导 `check_db` 创建 ICD-10 分支同样强制 POST，杜绝跨站触发缓存清空/建库。
 
 ### 修复
+- **分类删除误删另一科室结果**：`item.cat_delete` 清理未被开单项目时，`results`
+  删除补 `type` 过滤（lab/imaging 的 `item_id` 数值可重合），避免检验/影像结果互相误删。
 - **前端竞态与异常隔离**：`Clinic.ajax` 的 onSuccess/onError 回调异常与网络异常隔离
   （回调 TypeError 不再误报「网络请求失败」、不再重复 hide loading）；`infiniteList`
   引入请求代际，`reset()` 不再被在途请求吞掉、旧响应不污染新结果；EMR 病历/开单加载
