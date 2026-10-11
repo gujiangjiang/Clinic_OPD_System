@@ -163,10 +163,12 @@ switch ($__mod) {
                 'visit_status' => 'patient:read',
                 'order_list' => 'report:query',
                 'evidence_verify' => 'report:query',
+                'catalog_list' => 'catalog:read',
+                'icd_search' => 'catalog:read',
             );
             if (!isset($scopeMap[$q])) {
                 external_gate('his', array('tokenKey' => 'integration.inbound.his.token', 'legacyToken' => 'his_api_key', 'ipKey' => 'integration.inbound.his.ip_whitelist'));
-                external_fail(400, '未知操作（可用：ping / patient_get / visit_list / visit_status / order_list / evidence_verify）');
+                external_fail(400, '未知操作（可用：ping / patient_get / visit_list / visit_status / order_list / evidence_verify / catalog_list / icd_search）');
             }
             external_gate('his', array(
                 'tokenKey' => 'integration.inbound.his.token',
@@ -182,6 +184,8 @@ switch ($__mod) {
                 case 'visit_status': json_ok(HisInboundRead::visitStatus(get('flow_no', ''))); break;
                 case 'order_list': json_ok(HisInboundRead::orderList(get('visit_id', 0))); break;
                 case 'evidence_verify': json_ok(HisInboundRead::evidenceVerify(get('record_id', 0), get('cert_no', ''))); break;
+                case 'catalog_list': json_ok(HisInboundRead::catalogList(get('type', ''))); break;
+                case 'icd_search': json_ok(HisInboundRead::icdSearch(get('kw', ''), get('limit', 20))); break;
             }
             break;
         }

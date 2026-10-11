@@ -93,6 +93,74 @@ class HisInboundRead {
         return array('orders' => $out);
     }
 
+    /** 项目字典（供 HIS 直接取用：检验/检查/药品/处置，仅审核通过项；检验组合含成员） */
+    public static function catalogList($type) {
+        $type = trim((string)$type);
+        if ($type === 'lab_items') {
+            $rows = PatientRepository::q(
+                "SELECT id, category, name, unit, price, normal_range, critical_low, critical_high, description, is_group
+                 FROM lab_items WHERE status='approved' ORDER BY category, id");
+            $members = array();
+            foreach (PatientRepository::q("SELECT group_id, item_id FROM lab_group_members") as $m) {
+                $members[(int)$m['group_id']][] = (int)$m['item_id'];
+            }
+            $byId = array();
+            foreach ($rows as $r) {
+                $byId[(int)$r['id']] = array(
+                    'name' => $r['name'],
+                    'unit' => (string)$r['unit'],
+                    'normal_range' => (string)$r['normal_range'],
+                );
+            }
+            foreach ($rows as &$r) {
+                $r['id'] = (int)$r['id'];
+                $r['price'] = (float)$r['price'];
+                $r['is_group'] = (int)$r['is_group'];
+                $r['members'] = array();
+                if ($r['is_group'] === 1 && isset($members[$r['id']])) {
+                    foreach ($members[$r['id']] as $mid) {
+                        $r['members'][] = array(
+                            'id' => $mid,
+                            'name' => isset($byId[$mid]) ? $byId[$mid]['name'] : '',
+                            'unit' => isset($byId[$mid]) ? $byId[$mid]['unit'] : '',
+                            'normal_range' => isset($byId[$mid]) ? $byId[$mid]['normal_range'] : '',
+                        );
+                    }
+                }
+            }
+            unset($r);
+            return array('type' => 'lab_items', 'count' => count($rows), 'list' => $rows);
+        }
+        if ($type === 'exam_items') {
+            $rows = PatientRepository::q("SELECT id, category, name, price, description FROM exam_items WHERE status='approved' ORDER BY category, id");
+        } elseif ($type === 'drugs') {
+            $rows = PatientRepository::q("SELECT id, name, generic_name, category, vendor, vendor_short, package_unit, spec, form, single_dose, frequency, route, price FROM drugs WHERE status='approved' ORDER BY id");
+        } elseif ($type === 'disposal_items') {
+            $rows = PatientRepository::q("SELECT id, name, price, description FROM disposal_items WHERE status='approved' ORDER BY id");
+        } else {
+            json_fail('未知字典类型（可用：lab_items / exam_items / drugs / disposal_items）');
+        }
+        foreach ($rows as &$r) {
+            $r['id'] = (int)$r['id'];
+            if (isset($r['price'])) $r['price'] = (float)$r['price'];
+        }
+        unset($r);
+        return array('type' => $type, 'count' => count($rows), 'list' => $rows);
+    }
+
+    /** ICD-10 检索（标准编码库，供 HIS 诊断模块动态取用） */
+    public static function icdSearch($kw, $limit) {
+        $kw = trim((string)$kw);
+        $limit = max(1, min(50, (int)$limit ? (int)$limit : 20));
+        if ($kw === '') return array('list' => array(), 'total' => 0);
+        list($rows, $total) = Icd10Repository::search($kw, $limit, 0);
+        $out = array();
+        foreach ($rows as $r) {
+            $out[] = array('code' => $r['diagnosis_code'], 'name' => $r['diagnosis_name']);
+        }
+        return array('list' => $out, 'total' => (int)$total);
+    }
+
     /** 存证校验（按记录ID/证明号核验指纹与凭据，外部机构验真用） */
     public static function evidenceVerify($recId, $certNo) {
         $recId = (int)$recId;
