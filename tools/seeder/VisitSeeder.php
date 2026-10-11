@@ -633,7 +633,8 @@ class VisitSeeder extends Seeder {
                             }
                         }
                     }
-                    $valuesJson = $otype === 'lab' && count($vals) ? json_encode(array('values' => $vals), JSON_UNESCAPED_UNICODE) : '{}';
+                    // 单值结果与真实录入 (/api/clinic/lab) / LIS 回传一致写入 {"value":"..."}（含旧版 values 映射的兼容见 FHIR 适配器）
+                    $valuesJson = $otype === 'lab' && count($vals) ? json_encode(array('value' => (string)reset($vals)), JSON_UNESCAPED_UNICODE) : '{}';
                     $resTs = strtotime($execAt) + mt_rand(600, 3600);
                     $findings = $otype === 'imaging' ? $this->pick(array('所见骨质结构完整，未见明显骨折征象。', '双肺纹理增粗，余未见明显异常。', '软组织肿胀，未见明显异物存留。', '未见明显异常。')) : '';
                     $conclusion = $otype === 'imaging' ? $this->pick(array('符合临床诊断，请结合病史。', '未见明显异常，建议必要时复查。', '软组织损伤表现，请结合临床。')) : '';
