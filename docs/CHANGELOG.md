@@ -13,6 +13,14 @@
 
 ---
 
+## [9.13.0] - 2026-10-12
+
+### 新增
+- **HIS 入向只读接口扩展（项目字典与 ICD 检索）**：`his/read` 新增
+  `catalog_list`（`type=lab_items|exam_items|drugs|disposal_items`，仅返回审核通过项；
+  检验组合含成员名称/单位/参考范围）与 `icd_search`（标准 ICD-10 编码库检索，编码/名称/拼音），
+  归属新 Scope `catalog:read`，供住院一体化系统动态获取项目库与诊断编码。
+
 ## [9.12.1] - 2026-10-11
 
 ### 修复
