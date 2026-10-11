@@ -78,6 +78,16 @@ class ObservationAdapter extends FhirAdapter {
             if ($components) $res['component'] = $components;
         } else {
             $val = isset($values['value']) ? (string)$values['value'] : '';
+            // 兼容旧版 VisitSeeder 单值映射格式 {"values":{"item_id":值}}（历史测试数据）
+            if ($val === '' && isset($values['values']) && is_array($values['values'])) {
+                $map = $values['values'];
+                $key = (string)(int)(isset($r['item_id']) ? $r['item_id'] : 0);
+                if (isset($map[$key])) {
+                    $val = (string)$map[$key];
+                } elseif (count($map) === 1) {
+                    $val = (string)reset($map);
+                }
+            }
             $unit = isset($values['unit']) ? (string)$values['unit'] : ($item ? (string)$item['unit'] : '');
             $ref = isset($values['ref_range']) ? (string)$values['ref_range'] : ($item ? (string)$item['normal_range'] : '');
             $flag = isset($values['flag']) ? (string)$values['flag'] : '';
