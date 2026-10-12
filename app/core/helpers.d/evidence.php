@@ -89,9 +89,14 @@ function evid_http_call($endpoint, $apiToken, $payload) {
         return '';
     }
     // HTTP 状态校验：ignore_errors=true 时 4xx/5xx 正文仍会返回，不能按正文判成功
+    // PHP 8.5 起 $http_response_header 已弃用，改用 http_get_last_response_headers()；
+    // 低于 8.5（含 PHP 7.x）无该函数，回退读取本地 $http_response_header
     $status = 0;
-    if (isset($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m)) {
+    if (PHP_VERSION_ID < 80500 && isset($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m)) {
         $status = (int)$m[1];
+    } elseif (function_exists('http_get_last_response_headers')) {
+        $hdrs = http_get_last_response_headers();
+        if (is_array($hdrs) && isset($hdrs[0]) && preg_match('#\s(\d{3})\s#', $hdrs[0], $m)) $status = (int)$m[1];
     }
     if ($status < 200 || $status >= 300) {
         error_log('[存证] 服务返回 HTTP ' . $status . '：' . $endpoint);
