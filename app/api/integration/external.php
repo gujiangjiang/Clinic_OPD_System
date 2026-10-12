@@ -185,7 +185,7 @@ switch ($__mod) {
                 case 'order_list': json_ok(HisInboundRead::orderList(get('visit_id', 0))); break;
                 case 'evidence_verify': json_ok(HisInboundRead::evidenceVerify(get('record_id', 0), get('cert_no', ''))); break;
                 case 'catalog_list': json_ok(HisInboundRead::catalogList(get('type', ''))); break;
-                case 'icd_search': json_ok(HisInboundRead::icdSearch(get('kw', ''), get('limit', 20))); break;
+                case 'icd_search': json_ok(HisInboundRead::icdSearch(get('kw', ''), get('limit', 20), get('offset', 0))); break;
             }
             break;
         }

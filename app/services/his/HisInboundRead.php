@@ -148,12 +148,13 @@ class HisInboundRead {
         return array('type' => $type, 'count' => count($rows), 'list' => $rows);
     }
 
-    /** ICD-10 检索（标准编码库，供 HIS 诊断模块动态取用） */
-    public static function icdSearch($kw, $limit) {
+    /** ICD-10 检索（标准编码库，供 HIS 诊断模块动态取用；支持 offset 分页） */
+    public static function icdSearch($kw, $limit, $offset = 0) {
         $kw = trim((string)$kw);
         $limit = max(1, min(50, (int)$limit ? (int)$limit : 20));
+        $offset = max(0, (int)$offset);
         if ($kw === '') return array('list' => array(), 'total' => 0);
-        list($rows, $total) = Icd10Repository::search($kw, $limit, 0);
+        list($rows, $total) = Icd10Repository::search($kw, $limit, $offset);
         $out = array();
         foreach ($rows as $r) {
             $out[] = array('code' => $r['diagnosis_code'], 'name' => $r['diagnosis_name']);
