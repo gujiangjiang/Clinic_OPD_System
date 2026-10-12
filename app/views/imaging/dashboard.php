@@ -471,7 +471,7 @@ function imgRightTab(tab) {
     });
 }
 
-/* 临床信息页签：门诊号/姓名/性别/年龄/主诉/临床初步诊断
+/* 临床信息页签：就诊号/姓名/性别/年龄/主诉/临床初步诊断
    idPrefix：一体化右栏与经典模态框共用（优化项10） */
 function imgClinPane(data, idPrefix, standalone) {
     idPrefix = idPrefix || 'pacs';
@@ -484,7 +484,7 @@ function imgClinPane(data, idPrefix, standalone) {
     return '<div class="' + paneCls + '" data-pane="clin" id="' + idPrefix + 'ClinPane">' +
         (standalone ? '<div class="fs-13 fw-700" style="margin-bottom:8px">'+renderIconSvg('nav:doctor')+' 临床信息</div>' : '') +
         '<div class="pacs-info-card" style="border:none;padding:0 0 10px">' +
-        line('门诊号', v.visit_no) + line('姓名', v.name) + line('性别', v.gender) +
+        line('就诊号', v.visit_no) + line('姓名', v.name) + line('性别', v.gender) +
         line('年龄', v.age_fmt) + line('出生日期', p.birth_date) + line('患者ID', p.patient_id) +
         '</div>' +
         '<div class="pacs-rep-label">主诉 / 现病史</div>' +

@@ -260,7 +260,7 @@ function dw_study_obj($ref, $patient) {
         '00100020' => dw_tag('LO', (string)$ref['patient_no']),         // 患者号
         '00100030' => dw_tag('DA', $pbirth),
         '00100040' => dw_tag('CS', $psex),
-        '00101000' => dw_tag('LO', (string)$ref['flow_no']),            // 门诊号（本服务约定）
+        '00101000' => dw_tag('LO', (string)$ref['flow_no']),            // 就诊号（本服务约定）
         '00101010' => dw_tag('AS', $page),                              // 年龄
         '0020000D' => dw_tag('UI', dw_uid($studyUid)),                  // 合法 DICOM UID
         '00201208' => dw_tag('IS', (string)$instCnt),                   // 检查相关实例数（本地无则回源区域 PACS）

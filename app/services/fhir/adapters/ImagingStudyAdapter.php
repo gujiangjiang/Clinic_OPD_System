@@ -144,7 +144,7 @@ class ImagingStudyAdapter extends FhirAdapter {
             $ident[] = self::identifier('urn:clinic:identifier:order', $orderNo, 'ACSN', 'Accession ID');
         }
         if (!empty($ref['flow_no'])) {
-            // 门诊号（就诊流水号）
+            // 就诊号（就诊流水号）
             $ident[] = self::identifier('urn:clinic:identifier:visit', (string)$ref['flow_no'], 'VN', 'Visit Number');
         }
         if ($ident) $res['identifier'] = $ident;
