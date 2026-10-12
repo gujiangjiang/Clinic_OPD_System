@@ -36,20 +36,30 @@ class EncounterAdapter extends FhirAdapter {
         $v = is_array($row) ? $row : array();
         $vid = isset($v['id']) ? (int)$v['id'] : 0;
         $pno = isset($v['patient_no']) ? (string)$v['patient_no'] : '';
+        // 就诊类型 → Encounter.class：门诊 AMB / 急诊 EMER / 住院 IMP
+        $vType = isset($v['visit_type']) ? strtolower((string)$v['visit_type']) : '';
+        $classCode = 'AMB';
+        $classDisplay = 'ambulatory';
+        if ($vType === 'inpatient') { $classCode = 'IMP'; $classDisplay = 'inpatient encounter'; }
+        elseif ($vType === 'emergency') { $classCode = 'EMER'; $classDisplay = 'emergency'; }
         $res = array(
             'resourceType' => 'Encounter',
             'id' => self::resourceId($vid),
             'status' => self::mapStatus(isset($v['status']) ? $v['status'] : ''),
             'class' => array(
                 'system' => 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-                'code' => 'AMB', 'display' => 'ambulatory',
+                'code' => $classCode, 'display' => $classDisplay,
             ),
         );
+        $ident = array();
         if (!empty($v['flow_no'])) {
-            $res['identifier'] = array(
-                self::identifier('urn:clinic:identifier:visit', (string)$v['flow_no'], 'VN', 'Visit Number'),
-            );
+            $ident[] = self::identifier('urn:clinic:identifier:visit', (string)$v['flow_no'], 'VN', 'Visit Number');
         }
+        // 住院号（AN）：住院患者附带，供下游按类型动态显示「住院号」
+        if (!empty($v['inpatient_no'])) {
+            $ident[] = self::identifier('urn:his:identifier:admission', (string)$v['inpatient_no'], 'AN', 'Account Number');
+        }
+        if ($ident) $res['identifier'] = $ident;
         $subj = self::patientRef($pno);
         if ($subj) $res['subject'] = $subj;
         $start = self::isoDateTime(isset($v['registered_at']) ? $v['registered_at'] : '');

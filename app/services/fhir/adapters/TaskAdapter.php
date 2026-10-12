@@ -39,7 +39,8 @@ class TaskAdapter extends FhirAdapter {
 
     private static function from() {
         return 'FROM order_items oi JOIN orders o ON o.id = oi.order_id'
-            . ' LEFT JOIN imaging_tasks t ON t.order_item_id = oi.id';
+            . ' LEFT JOIN imaging_tasks t ON t.order_item_id = oi.id'
+            . ' LEFT JOIN registrations r ON r.id = oi.visit_id';
     }
 
     protected static function findRowByBareId($bareId) {
@@ -47,6 +48,7 @@ class TaskAdapter extends FhirAdapter {
         if (!ctype_digit($bareId)) return null;
         return PatientRepository::one(
             "SELECT oi.*, o.order_no AS __order_no, o.doctor_name AS __doctor_name, o.created_at AS __order_created,"
+            . " r.visit_type AS __visit_type, r.inpatient_no AS __inpatient_no,"
             . " t.status AS __task_status, t.business_status AS __business_status, t.owner AS __owner,"
             . " t.status_reason AS __status_reason, t.registered_at AS __reg_at, t.performed_at AS __perf_at, t.updated_at AS __task_updated "
             . self::from() . " WHERE oi.id=? AND oi.item_type='imaging' AND o.order_type='imaging'",
@@ -74,9 +76,12 @@ class TaskAdapter extends FhirAdapter {
         $res['basedOn'] = array(array('reference' => 'ServiceRequest/servicerequest-' . $itemId));
         $res['focus'] = array('reference' => 'ServiceRequest/servicerequest-' . $itemId);
         $orderNo = !empty($r['__order_no']) ? (string)$r['__order_no'] : (string)(isset($r['order_no']) ? $r['order_no'] : '');
-        if ($orderNo !== '') {
-            $res['identifier'] = array(self::identifier('urn:clinic:identifier:order', $orderNo, 'ACSN', 'Accession ID'));
-        }
+        $ident = array();
+        if ($orderNo !== '') $ident[] = self::identifier('urn:clinic:identifier:order', $orderNo, 'ACSN', 'Accession ID');
+        if (!empty($r['flow_no'])) $ident[] = self::identifier('urn:clinic:identifier:visit', (string)$r['flow_no'], 'VN', 'Visit Number');
+        // 住院号（AN）：住院患者附带，供 PACS 工作列表按类型动态显示「住院号」
+        if (!empty($r['__inpatient_no'])) $ident[] = self::identifier('urn:his:identifier:admission', (string)$r['__inpatient_no'], 'AN', 'Account Number');
+        if ($ident) $res['identifier'] = $ident;
         $itemName = trim((string)(isset($r['item_name']) ? $r['item_name'] : ''));
         if ($itemName !== '') $res['description'] = $itemName;
         $subj = self::patientRef(isset($r['patient_no']) ? $r['patient_no'] : '');
@@ -169,6 +174,7 @@ class TaskAdapter extends FhirAdapter {
         list($count, $offset) = self::paging($params);
         $rows = PatientRepository::q(
             'SELECT oi.*, o.order_no AS __order_no, o.doctor_name AS __doctor_name, o.created_at AS __order_created,'
+            . ' r.visit_type AS __visit_type, r.inpatient_no AS __inpatient_no,'
             . ' t.status AS __task_status, t.business_status AS __business_status, t.owner AS __owner,'
             . ' t.status_reason AS __status_reason, t.registered_at AS __reg_at, t.performed_at AS __perf_at, t.updated_at AS __task_updated '
             . $from . ' ' . $sqlWhere . ' ORDER BY oi.id DESC LIMIT ' . (int)$count . ' OFFSET ' . (int)$offset,

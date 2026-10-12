@@ -178,13 +178,19 @@ class HL7MessageBuilder {
     /** PV1 段（就诊信息） */
     public static function pv1($visit, $setId = 1) {
         $v = $visit ? $visit : array();
+        $vType = isset($v['visit_type']) ? strtolower((string)$v['visit_type']) : '';
         $f = array();
         $f[0] = 'PV1';
         $f[1] = (string)$setId;                          // PV1-1 Set ID
-        $f[2] = 'O';                                     // PV1-2 患者类别：O=门诊
+        // PV1-2 患者类别：O=门诊 / E=急诊 / I=住院（按就诊类型真实输出）
+        $f[2] = ($vType === 'inpatient') ? 'I' : (($vType === 'emergency') ? 'E' : 'O');
         $f[3] = self::hl7Escape((string)(isset($v['current_dept_name']) ? $v['current_dept_name'] : ''));  // PV1-3 就诊科室
-        // PV1-19 就诊号（Visit Number）：放在正确字段
-        $f[19] = (string)(isset($v['flow_no']) ? $v['flow_no'] : '');
+        // PV1-19 就诊号（Visit Number）：住院显示住院号，其余显示就诊流水号
+        $f[19] = visit_no_value(
+            $vType,
+            (string)(isset($v['flow_no']) ? $v['flow_no'] : ''),
+            (string)(isset($v['inpatient_no']) ? $v['inpatient_no'] : '')
+        );
         // PV1-44 入院时间（Admit Date/Time）：完整 DTM
         $reg = (string)(isset($v['registered_at']) ? $v['registered_at'] : '');
         $rd = preg_replace('/\D/', '', substr($reg, 0, 19));

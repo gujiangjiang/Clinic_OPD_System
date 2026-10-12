@@ -33,13 +33,13 @@ class ServiceRequestAdapter extends FhirAdapter {
         return isset($map[$s]) ? $map[$s] : 'draft';
     }
 
-    private static function from() { return 'FROM order_items oi JOIN orders o ON o.id = oi.order_id'; }
+    private static function from() { return 'FROM order_items oi JOIN orders o ON o.id = oi.order_id LEFT JOIN registrations r ON r.id = oi.visit_id'; }
 
     protected static function findRowByBareId($bareId) {
         $bareId = (string)$bareId;
         if (!ctype_digit($bareId)) return null;
         return PatientRepository::one(
-            "SELECT oi.*, o.order_no AS __order_no, o.doctor_name AS __doctor_name, o.dept_name AS __dept_name, o.created_at AS __order_created "
+            "SELECT oi.*, o.order_no AS __order_no, o.doctor_name AS __doctor_name, o.dept_name AS __dept_name, o.created_at AS __order_created, r.visit_type AS __visit_type, r.inpatient_no AS __inpatient_no "
             . self::from() . " WHERE oi.id=? AND oi.item_type='imaging' AND o.order_type='imaging'",
             array((int)$bareId)
         );
@@ -58,6 +58,8 @@ class ServiceRequestAdapter extends FhirAdapter {
         $ident = array();
         if ($orderNo !== '') $ident[] = self::identifier('urn:clinic:identifier:order', $orderNo, 'ACSN', 'Accession ID');
         if (!empty($r['flow_no'])) $ident[] = self::identifier('urn:clinic:identifier:visit', (string)$r['flow_no'], 'VN', 'Visit Number');
+        // 住院号（AN）：住院患者附带，供 PACS 等下游按类型动态显示「住院号」
+        if (!empty($r['__inpatient_no'])) $ident[] = self::identifier('urn:his:identifier:admission', (string)$r['__inpatient_no'], 'AN', 'Account Number');
         if ($ident) $res['identifier'] = $ident;
 
         $res['category'] = array(self::codeable('http://snomed.info/sct', '363679005', 'Imaging'));
@@ -134,7 +136,7 @@ class ServiceRequestAdapter extends FhirAdapter {
         $total = (int)PatientRepository::val('SELECT COUNT(*) ' . $from . ' ' . $sqlWhere, $args);
         list($count, $offset) = self::paging($params);
         $rows = PatientRepository::q(
-            'SELECT oi.*, o.order_no AS __order_no, o.doctor_name AS __doctor_name, o.dept_name AS __dept_name, o.created_at AS __order_created '
+            'SELECT oi.*, o.order_no AS __order_no, o.doctor_name AS __doctor_name, o.dept_name AS __dept_name, o.created_at AS __order_created, r.visit_type AS __visit_type, r.inpatient_no AS __inpatient_no '
             . $from . ' ' . $sqlWhere . ' ORDER BY oi.id DESC LIMIT ' . (int)$count . ' OFFSET ' . (int)$offset,
             $args
         );

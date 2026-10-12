@@ -21,11 +21,11 @@ class ImagingStudyAdapter extends FhirAdapter {
     protected static function findRowByBareId($bareId) {
         $bareId = (string)$bareId;
         if (ctype_digit($bareId)) {
-            $row = PatientRepository::one('SELECT ir.*, o.order_no, o.category_name FROM imaging_refs ir JOIN orders o ON o.id=ir.order_id WHERE ir.id=? AND o.order_type=\'imaging\'', array((int)$bareId));
+            $row = PatientRepository::one('SELECT ir.*, o.order_no, o.category_name, r.visit_type AS __visit_type, r.inpatient_no AS __inpatient_no FROM imaging_refs ir JOIN orders o ON o.id=ir.order_id LEFT JOIN registrations r ON r.id=ir.visit_id WHERE ir.id=? AND o.order_type=\'imaging\'', array((int)$bareId));
             if ($row) return $row;
         }
         // 兼容按 DICOM StudyInstanceUID 直读（仅影像检查）
-        return PatientRepository::one('SELECT ir.*, o.order_no, o.category_name FROM imaging_refs ir JOIN orders o ON o.id=ir.order_id WHERE ir.study_uid=? AND o.order_type=\'imaging\'', array($bareId));
+        return PatientRepository::one('SELECT ir.*, o.order_no, o.category_name, r.visit_type AS __visit_type, r.inpatient_no AS __inpatient_no FROM imaging_refs ir JOIN orders o ON o.id=ir.order_id LEFT JOIN registrations r ON r.id=ir.visit_id WHERE ir.study_uid=? AND o.order_type=\'imaging\'', array($bareId));
     }
 
     /** 解析 series 明细：优先 meta_json.series（对象数组），回退 series_uids（字符串数组） */
@@ -147,6 +147,10 @@ class ImagingStudyAdapter extends FhirAdapter {
             // 就诊号（就诊流水号）
             $ident[] = self::identifier('urn:clinic:identifier:visit', (string)$ref['flow_no'], 'VN', 'Visit Number');
         }
+        // 住院号（AN）：住院患者附带，供 PACS 等下游按类型动态显示「住院号」
+        if (!empty($ref['__inpatient_no'])) {
+            $ident[] = self::identifier('urn:his:identifier:admission', (string)$ref['__inpatient_no'], 'AN', 'Account Number');
+        }
         if ($ident) $res['identifier'] = $ident;
 
         $subj = self::patientRef(isset($ref['patient_no']) ? $ref['patient_no'] : '');
@@ -225,7 +229,7 @@ class ImagingStudyAdapter extends FhirAdapter {
 
     public static function search($params) {
         // 仅影像类检查属于 ImagingStudy（检验属于 Observation）——关联申请单强约束
-        $from = "FROM imaging_refs ir JOIN orders o ON o.id = ir.order_id LEFT JOIN order_items oi ON oi.id = ir.order_item_id";
+        $from = "FROM imaging_refs ir JOIN orders o ON o.id = ir.order_id LEFT JOIN order_items oi ON oi.id = ir.order_item_id LEFT JOIN registrations r ON r.id = ir.visit_id";
         $where = array("ir.study_uid<>''", "o.order_type='imaging'", "ir.patient_no<>''");   // subject 为 1..1
         $args = array();
 
@@ -298,7 +302,8 @@ class ImagingStudyAdapter extends FhirAdapter {
         );
         $rows = PatientRepository::q(
             'SELECT ir.*, o.order_no, o.category_name, o.created_at AS __order_created, '
-            . 'oi.registered_at AS __registered_at, oi.executed_at AS __executed_at '
+            . 'oi.registered_at AS __registered_at, oi.executed_at AS __executed_at, '
+            . 'r.visit_type AS __visit_type, r.inpatient_no AS __inpatient_no '
             . $from . ' ' . $sqlWhere . ' ORDER BY ' . $order . ' LIMIT ' . (int)$count . ' OFFSET ' . (int)$offset,
             $args
         );
