@@ -104,6 +104,13 @@ function dw_accession($ref) {
     return (string)$ref['flow_no'];
 }
 
+/** 住院号（0038,0010 AdmissionID）：registrations.inpatient_no（仅住院患者输出） */
+function dw_admission($ref) {
+    if (empty($ref['visit_id'])) return '';
+    $r = PatientRepository::one('SELECT inpatient_no FROM registrations WHERE id=?', array((int)$ref['visit_id']));
+    return ($r && !empty($r['inpatient_no'])) ? (string)$r['inpatient_no'] : '';
+}
+
 /** 检查项目（StudyDescription 0008,1030）：开单明细项目名，回退 meta.item_name */
 function dw_study_desc($ref) {
     if (!empty($ref['order_item_id'])) {
@@ -267,6 +274,8 @@ function dw_study_obj($ref, $patient) {
         '00201206' => dw_tag('IS', (string)$seriesCnt),                 // NumberOfStudyRelatedSeries（原误用 00201209）
     );
     if ($pname === '') unset($obj['00100010']);   // 无姓名时不输出空 PN
+    $adm = dw_admission($ref);                    // 住院号 AdmissionID（住院患者才有）
+    if ($adm !== '') $obj['00380010'] = dw_tag('LO', $adm);
     return $obj;
 }
 
@@ -437,6 +446,8 @@ function dw_instance_obj($ref, $s, $n, $seUid, $i, $normStudy, $pname, $psex, $p
         '00200013' => dw_tag('IS', (string)$i),
     );
     if ($pname === '') unset($item['00100010']);
+    $adm = dw_admission($ref);                    // 住院号 AdmissionID（住院患者才有）
+    if ($adm !== '') $item['00380010'] = dw_tag('LO', $adm);
     if ($studyDesc !== '') $item['00081030'] = dw_tag('LO', $studyDesc);
     if ($s['description'] !== '') $item['0008103E'] = dw_tag('LO', $s['description']);
 
