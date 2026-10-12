@@ -13,6 +13,29 @@
 
 ---
 
+## [9.14.0] - 2026-10-12
+
+### 新增
+- **就诊类型贯通与动态就诊标识**：`registrations` 新增 `visit_type`
+  （outpatient/emergency/inpatient）与 `inpatient_no`（HIS 住院号快照，schema v52）；
+  挂号按科室类型自动写入门诊/急诊；科室工作台、影像临床信息、检验/检查报告打印
+  按类型动态显示——门诊/急诊统一「门诊号」、住院「住院号」（值为住院号）、
+  未分类回退「就诊号」；工作台头部与报告抬头同步，住院就诊显示「住院」徽章。
+  标签逻辑集中在 `helpers.d/visit.php`（`visit_no_label/visit_no_value`）。
+- **HIS 住院检验检查单入向接口**：新增 `POST /api/external/his/sync-orders`
+  （Scope `order:sync`）：按身份证幂等建档患者 → 按住院号复用/创建住院就诊
+  （直接进入就诊态，不经过挂号缴费）→ 按申请单号幂等落订单；住院开单即计费
+  （HIS 收费口径），一律视为已缴费（orders/order_items status=paid），直接进入
+  检验科/影像科工作台登记出报告；检验/检查字典按名称匹配、缺失时自动建档为
+  已审核（价格取 HIS 推送值），杜绝因字典缺失阻断出报告。schema v53 为既有
+  HIS 入向令牌补充 `order:sync` scope。
+- **FHIR / HL7 住院语义输出**：`Encounter.class` 按类型输出 AMB/EMER/IMP；
+  Encounter/ServiceRequest/Task/ImagingStudy 住院患者附带 AN 标识
+  `urn:his:identifier:admission`=住院号（Task/ServiceRequest 补 VN 就诊号）；
+  HL7 `PV1-2` 输出 O/E/I、`PV1-19` 住院显示住院号。PACS 可据此显示「住院号」。
+- **DICOMweb 住院号输出**：QIDO study/instance 住院患者附带标准
+  `AdmissionID(0038,0010)`，PACS 检索映射 `visit_type=inpatient`。
+
 ## [9.13.2] - 2026-10-12
 
 ### 变更
