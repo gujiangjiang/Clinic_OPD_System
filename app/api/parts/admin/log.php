@@ -47,7 +47,8 @@ function admin_part_log($action) {
         json_ok(array(
             'list'     => array_map('log_row_out', $res['list']),
             'has_more' => $res['has_more'],
-            'counts'   => LogService::counts($channel),
+            // 计数与当前筛选同口径（含默认时间收敛），保证徽标与列表一致
+            'counts'   => LogService::counts($channel, $filter),
         ));
     }
 
@@ -62,8 +63,8 @@ function admin_part_log($action) {
             'kw'        => trim((string)get('kw', '')),
         );
         $rows = LogService::latest($channel, (int)get('after_id', 0), (int)get('limit', 100), $filter);
-        // 同步返回分类计数：供前端实时刷新左侧栏数量
-        json_ok(array('list' => array_map('log_row_out', $rows), 'counts' => LogService::counts($channel)));
+        // 同步返回分类计数：供前端实时刷新左侧栏数量（与当前筛选同口径）
+        json_ok(array('list' => array_map('log_row_out', $rows), 'counts' => LogService::counts($channel, $filter)));
     }
 
     /* ==================== 服务器日志（文件尾部读取） ==================== */

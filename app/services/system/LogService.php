@@ -340,17 +340,18 @@ class LogService {
      * ============================================================ */
 
     /**
-     * 分页查询系统日志（按 id 游标，支持前端「默认最新、上滑加载更旧」）
-     * @param string $channel   通道（operation/interface）
-     * @param array  $filter    { category, direction, level, kw, before_id }
-     * @param int    $limit
-     * @return array { list, has_more, max_id }
+     * 构造日志查询条件（query / latest / counts 共用，保证列表与计数口径一致）
+     * @param string $channel      通道
+     * @param array  $filter       { category, direction, level, date, kw, before_id }
+     * @param array  $params       出参：绑定参数（含 channel）
+     * @param bool   $withCategory 是否应用 category 过滤（counts 按分类分组，不应用）
+     * @param bool   $withBeforeId 是否应用 before_id 游标（counts 不受分页游标影响）
+     * @return string WHERE 子句
      */
-    public static function query($channel, $filter = array(), $limit = 50) {
-        $limit = min(200, max(1, (int)$limit));
+    private static function filterWhere($channel, $filter, &$params, $withCategory = true, $withBeforeId = true) {
         $where = 'channel = ?';
         $params = array($channel);
-        if (!empty($filter['category'])) { $where .= ' AND category = ?'; $params[] = $filter['category']; }
+        if ($withCategory && !empty($filter['category'])) { $where .= ' AND category = ?'; $params[] = $filter['category']; }
         if (!empty($filter['direction'])) { $where .= ' AND direction = ?'; $params[] = $filter['direction']; }
         if (!empty($filter['level'])) { $where .= ' AND level = ?'; $params[] = $filter['level']; }
         if (!empty($filter['date'])) {
@@ -365,7 +366,21 @@ class LogService {
             $like = '%' . $filter['kw'] . '%';
             $params = array_merge($params, array($like, $like, $like, $like, $like));
         }
-        if (!empty($filter['before_id'])) { $where .= ' AND id < ?'; $params[] = (int)$filter['before_id']; }
+        if ($withBeforeId && !empty($filter['before_id'])) { $where .= ' AND id < ?'; $params[] = (int)$filter['before_id']; }
+        return $where;
+    }
+
+    /**
+     * 分页查询系统日志（按 id 游标，支持前端「默认最新、上滑加载更旧」）
+     * @param string $channel   通道（operation/interface）
+     * @param array  $filter    { category, direction, level, kw, before_id }
+     * @param int    $limit
+     * @return array { list, has_more, max_id }
+     */
+    public static function query($channel, $filter = array(), $limit = 50) {
+        $limit = min(200, max(1, (int)$limit));
+        $params = array();
+        $where = self::filterWhere($channel, $filter, $params);
         try {
             $params[] = $limit + 1;
             $stmt = DatabaseManager::getMain()->prepare(
@@ -387,22 +402,9 @@ class LogService {
     /** 增量拉取比 after_id 更新的日志（实时刷新，正序返回最新段） */
     public static function latest($channel, $afterId = 0, $limit = 100, $filter = array()) {
         $limit = min(200, max(1, (int)$limit));
-        $where = 'channel = ? AND id > ?';
-        $params = array($channel, (int)$afterId);
-        if (!empty($filter['category'])) { $where .= ' AND category = ?'; $params[] = $filter['category']; }
-        if (!empty($filter['direction'])) { $where .= ' AND direction = ?'; $params[] = $filter['direction']; }
-        if (!empty($filter['level'])) { $where .= ' AND level = ?'; $params[] = $filter['level']; }
-        if (!empty($filter['date'])) {
-            $where .= ' AND created_at LIKE ?'; $params[] = $filter['date'] . '%';
-        } else {
-            $from = self::queryDefaultFrom();
-            if ($from !== '') { $where .= ' AND created_at >= ?'; $params[] = $from; }
-        }
-        if (!empty($filter['kw'])) {
-            $where .= ' AND (summary LIKE ? OR detail LIKE ? OR action LIKE ? OR username LIKE ? OR target LIKE ?)';
-            $like = '%' . $filter['kw'] . '%';
-            $params = array_merge($params, array($like, $like, $like, $like, $like));
-        }
+        $params = array();
+        $where = self::filterWhere($channel, $filter, $params, true, false) . ' AND id > ?';
+        $params[] = (int)$afterId;
         try {
             $params[] = $limit;
             $stmt = DatabaseManager::getMain()->prepare(
@@ -436,12 +438,20 @@ class LogService {
         }
     }
 
-    /** 各分类计数（左侧栏徽标） */
-    public static function counts($channel) {
+    /**
+     * 各分类计数（左侧栏徽标）
+     * 与 query() 采用同一筛选口径（含默认时间收敛，不含 category/before_id），
+     * 确保徽标数字与点击该分类后的列表内容一致（避免「有计数却暂无日志」）。
+     * @param string $channel 通道
+     * @param array  $filter  当前筛选（date/direction/level/kw 生效）
+     */
+    public static function counts($channel, $filter = array()) {
         $out = array();
+        $params = array();
+        $where = self::filterWhere($channel, $filter, $params, false, false);
         try {
-            $stmt = DatabaseManager::getMain()->prepare('SELECT category, COUNT(*) AS cnt FROM system_logs WHERE channel = ? GROUP BY category');
-            $stmt->execute(array($channel));
+            $stmt = DatabaseManager::getMain()->prepare('SELECT category, COUNT(*) AS cnt FROM system_logs WHERE ' . $where . ' GROUP BY category');
+            $stmt->execute($params);
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
                 $out[(string)$r['category']] = (int)$r['cnt'];
             }
