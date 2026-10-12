@@ -231,6 +231,30 @@ switch ($__mod) {
             }
             break;
         }
+        if ($__act === 'sync-orders') {
+            external_gate('his', array(
+                'tokenKey' => 'integration.inbound.his.token', 'legacyToken' => 'his_api_key',
+                'ipKey' => 'integration.inbound.his.ip_whitelist', 'requiredScope' => 'order:sync',
+            ));
+            $o = external_json();
+            if ($o === null && !empty($_POST)) $o = $_POST;
+            if ($o === null) {
+                integration_log_inbound('his', 'sync-orders', false, '载荷非 JSON', external_body());
+                external_fail(400, '载荷必须为 JSON');
+            }
+            try {
+                $res = HisInboundOrders::syncOrder($o);
+                integration_log_inbound('his', 'sync-orders', true,
+                    ($res['created'] ? '住院申请单已接收：' : '申请单已存在（幂等）：') . $res['order_no']
+                    . '（住院号 ' . (isset($o['visit']['admission_no']) ? $o['visit']['admission_no'] : '') . '）',
+                    external_body());
+                json_ok($res, $res['created'] ? '住院申请单已接收' : '申请单已存在（幂等）');
+            } catch (Exception $ex) {
+                integration_log_inbound('his', 'sync-orders', false, $ex->getMessage(), external_body());
+                external_fail(400, $ex->getMessage());
+            }
+            break;
+        }
         external_fail(404, '未知 HIS 入向操作');
         break;
 

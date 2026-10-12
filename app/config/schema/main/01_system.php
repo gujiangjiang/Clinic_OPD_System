@@ -97,5 +97,13 @@ return array(
             "INSERT OR IGNORE INTO settings(skey, svalue) VALUES('log.max_rows','500')",
             "INSERT OR IGNORE INTO settings(skey, svalue) VALUES('log.retention_days','7')",
         ),
+        // v53：HIS 入向令牌补充 order:sync scope（住院检验/检查单推送，最小权限）。
+        // 仅对尚未包含该 scope 的既有令牌串追加一次（replace 三库兼容，幂等）；
+        // 令牌值为 * 或留空（全接口）时不处理。
+        53 => array(
+            "UPDATE settings SET svalue = replace(svalue, 'catalog:read', 'catalog:read order:sync') WHERE skey='integration.inbound.his.token_scopes' AND svalue LIKE '%catalog:read%' AND svalue NOT LIKE '%order:sync%'",
+            "UPDATE settings SET svalue = replace(svalue, 'catalog:sync', 'catalog:sync order:sync') WHERE skey='integration.inbound.his.token_scopes' AND svalue LIKE '%catalog:sync%' AND svalue NOT LIKE '%order:sync%'",
+            "UPDATE settings SET svalue = replace(svalue, 'patient:sync', 'patient:sync order:sync') WHERE skey='integration.inbound.his.token_scopes' AND svalue LIKE '%patient:sync%' AND svalue NOT LIKE '%order:sync%'",
+        ),
     ),
 );
