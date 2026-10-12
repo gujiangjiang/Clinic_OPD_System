@@ -484,7 +484,7 @@ function imgClinPane(data, idPrefix, standalone) {
     return '<div class="' + paneCls + '" data-pane="clin" id="' + idPrefix + 'ClinPane">' +
         (standalone ? '<div class="fs-13 fw-700" style="margin-bottom:8px">'+renderIconSvg('nav:doctor')+' 临床信息</div>' : '') +
         '<div class="pacs-info-card" style="border:none;padding:0 0 10px">' +
-        line('就诊号', v.visit_no) + line('姓名', v.name) + line('性别', v.gender) +
+        line(v.visit_label || '就诊号', v.visit_display_no || v.visit_no) + line('姓名', v.name) + line('性别', v.gender) +
         line('年龄', v.age_fmt) + line('出生日期', p.birth_date) + line('患者ID', p.patient_id) +
         '</div>' +
         '<div class="pacs-rep-label">主诉 / 现病史</div>' +

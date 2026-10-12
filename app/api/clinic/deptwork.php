@@ -425,6 +425,15 @@ function deptwork_patient($u) {
             'dept_name' => $visit['current_dept_name'],
             'first_dept_name' => $visit['first_dept_name'],
             'visit_no' => $visit['flow_no'],
+            // 就诊标识动态标签：门诊/急诊 → 门诊号，住院 → 住院号（值为住院号）
+            'visit_type' => visit_type_norm(isset($visit['visit_type']) ? $visit['visit_type'] : ''),
+            'inpatient_no' => isset($visit['inpatient_no']) ? (string)$visit['inpatient_no'] : '',
+            'visit_label' => visit_no_label(isset($visit['visit_type']) ? $visit['visit_type'] : ''),
+            'visit_display_no' => visit_no_value(
+                isset($visit['visit_type']) ? $visit['visit_type'] : '',
+                isset($visit['flow_no']) ? $visit['flow_no'] : '',
+                isset($visit['inpatient_no']) ? $visit['inpatient_no'] : ''
+            ),
             'visit_seq' => (int)$visit['visit_seq'],
             'fee_type' => isset($visit['fee_type']) ? $visit['fee_type'] : '',
             'fee' => (float)(isset($visit['fee']) ? $visit['fee'] : 0),

@@ -33,12 +33,19 @@ function pt_lab_report($report, $result, $item) {
     $diag = $ctx['diag'];
     $applyTime = $ctx['applyTime'];
     $regTime = $ctx['regTime'];
+    // 就诊号动态标签：门诊/急诊 → 门诊号，住院 → 住院号（值为 HIS 住院号），未知 → 就诊号
+    $vr = (isset($ctx['row']['visit']) && is_array($ctx['row']['visit'])) ? $ctx['row']['visit'] : array();
+    $vType = isset($vr['visit_type']) ? $vr['visit_type'] : '';
+    $visitLabel = visit_no_label($vType);
+    $visitNo = visit_no_value($vType,
+        isset($vr['flow_no']) ? $vr['flow_no'] : (string)$report['flow_no'],
+        isset($vr['inpatient_no']) ? $vr['inpatient_no'] : '');
     $li = function ($label, $val) { return pt_cell($label, $val, 'lr-pcell'); };
     // 患者信息：隐形 2×4 表格（第一行 姓名 性别 年龄 出生日期；
-    // 第二行 患者ID 申请科室 临床诊断 报告单号）
+    // 第二行 患者ID 就诊号 申请科室 临床诊断 报告单号）
     $html .= '<div class="lr-patgrid">' .
         $li('姓名', $pname) . $li('性别', $pgender) . $li('年龄', $page) . $li('出生日期', $pbirth) .
-        $li('患者ID', $report['patient_no']) . $li('申请科室', $applyDept) .
+        $li('患者ID', $report['patient_no']) . $li($visitLabel, $visitNo) . $li('申请科室', $applyDept) .
         '<span class="lr-pcell lr-pcell-diag"><b>临床诊断：</b>' . e($diag) . '</span>' .
         '<span class="lr-pcell lr-pcell-no"><b>报告单号：</b><span class="lr-reportno">' . e($report['report_no']) . '</span></span>' .
         '</div>';
@@ -125,6 +132,13 @@ function pt_imaging_report($report, $result, $item) {
     $regTime = $ctx['regTime'];
     $order = $ctx['order'];
     $orderItem = $ctx['orderItem'];
+    // 就诊号动态标签：门诊/急诊 → 门诊号，住院 → 住院号（值为 HIS 住院号），未知 → 就诊号
+    $vr = (isset($ctx['row']['visit']) && is_array($ctx['row']['visit'])) ? $ctx['row']['visit'] : array();
+    $vType = isset($vr['visit_type']) ? $vr['visit_type'] : '';
+    $visitLabel = visit_no_label($vType);
+    $visitNo = visit_no_value($vType,
+        isset($vr['flow_no']) ? $vr['flow_no'] : (string)$report['flow_no'],
+        isset($vr['inpatient_no']) ? $vr['inpatient_no'] : '');
     // 报告单名称动态化：按检查分类（CT/DR/超声…）显示「XX检查报告单」
     // 快照 category_name 优先，其次申请单/检查项目分类回退
     $catName = trim((string)(isset($report['category_name']) ? $report['category_name'] : ''));
@@ -149,7 +163,7 @@ function pt_imaging_report($report, $result, $item) {
     $pc = function ($label, $val) { return pt_cell($label, $val, 'imr-cell'); };
     $html .= '<div class="imr-patgrid">' .
         $pc('姓名', $pname) . $pc('性别', $pgender) . $pc('年龄', $page) . $pc('出生日期', $pbirth) .
-        $pc('患者ID', $report['patient_no']) . $pc('申请科室', $applyDept) .
+        $pc('患者ID', $report['patient_no']) . $pc($visitLabel, $visitNo) . $pc('申请科室', $applyDept) .
         '<span class="imr-cell imr-cell-diag"><b>临床诊断：</b>' . e($diag) . '</span>' .
         '<span class="imr-cell imr-cell-no"><b>报告单号：</b><span class="imr-reportno">' . e($report['report_no']) . '</span></span>' .
         '<span class="imr-cell imr-cell-proj"><b>检查项目：</b>' . e($itemsStr) . '</span>' .

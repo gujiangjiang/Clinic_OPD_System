@@ -66,15 +66,17 @@ class CashierRepository extends BaseRepository {
         );
     }
 
-    /** 生成挂号记录，返回自增 id */
+    /** 生成挂号记录，返回自增 id（visit_type：outpatient/emergency/inpatient） */
     public static function createRegistration($data) {
         $rid = self::insert(
-            'INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, hospital_name, hospital_name2, status, cashier_id, cashier_name, registered_at, is_extra) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, hospital_name, hospital_name2, visit_type, inpatient_no, status, cashier_id, cashier_name, registered_at, is_extra) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             array(
                 $data['patient_no'], $data['flow_no'], (int)$data['visit_seq'],
                 (int)$data['first_dept_id'], $data['first_dept_name'], (int)$data['current_dept_id'], $data['current_dept_name'],
                 $data['session'], $data['fee_type'], (float)$data['fee'],
                 setting('hospital_name', ''), setting('hospital_name2', ''),
+                isset($data['visit_type']) ? (string)$data['visit_type'] : 'outpatient',
+                isset($data['inpatient_no']) ? (string)$data['inpatient_no'] : '',
                 $data['status'],
                 (int)$data['cashier_id'], $data['cashier_name'], now_str(), (int)$data['is_extra'],
             )

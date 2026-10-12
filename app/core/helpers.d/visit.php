@@ -431,3 +431,47 @@ function pay_method_allowed($method) {
     if ($method === '医保卡') return setting('pay_medicare_enabled', '0') === '1';
     return false;
 }
+
+/* ============================================================
+ * 就诊标识（就诊类型 / 就诊号标签）—— 跨系统动态显示
+ * ------------------------------------------------------------
+ * flow_no 统一语义为「就诊号」；按就诊类型动态显示标签：
+ *  - outpatient / emergency → 「门诊号」（前台统一，底层保留急诊区分）
+ *  - inpatient              → 「住院号」（值为 HIS 住院号 admission_no 快照）
+ *  - 未知                    → 「就诊号」（中性回退）
+ * ============================================================ */
+
+/** 就诊类型规范化（空值回退 outpatient） */
+function visit_type_norm($visitType) {
+    $t = strtolower(trim((string)$visitType));
+    return in_array($t, array('outpatient', 'emergency', 'inpatient'), true) ? $t : 'outpatient';
+}
+
+/** 是否住院就诊 */
+function visit_is_inpatient($visitType) {
+    return strtolower(trim((string)$visitType)) === 'inpatient';
+}
+
+/**
+ * 就诊号显示标签
+ * @param string $visitType outpatient/emergency/inpatient（空=未知）
+ * @return string 门诊号 / 住院号 / 就诊号
+ */
+function visit_no_label($visitType) {
+    $t = strtolower(trim((string)$visitType));
+    if ($t === 'inpatient') return '住院号';
+    if ($t === 'outpatient' || $t === 'emergency') return '门诊号';
+    return '就诊号';
+}
+
+/**
+ * 按就诊类型取应展示的就诊号：住院优先显示住院号，其余显示就诊流水号
+ * @param string $visitType   就诊类型
+ * @param string $flowNo      就诊流水号（registrations.flow_no）
+ * @param string $inpatientNo 住院号（registrations.inpatient_no）
+ * @return string
+ */
+function visit_no_value($visitType, $flowNo, $inpatientNo = '') {
+    if (visit_is_inpatient($visitType) && trim((string)$inpatientNo) !== '') return (string)$inpatientNo;
+    return (string)$flowNo;
+}

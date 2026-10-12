@@ -155,6 +155,7 @@ function cashier_part_write($action) {
             'first_dept_id' => $deptId, 'first_dept_name' => $dept['name'],
             'current_dept_id' => $deptId, 'current_dept_name' => $dept['name'],
             'session' => $session, 'fee_type' => $feeType, 'fee' => (float)$dept['fee'],
+            'visit_type' => $dept['type'] === 'emergency' ? 'emergency' : 'outpatient',
             'status' => 'pending', 'cashier_id' => $u['id'], 'cashier_name' => $u['name'],
             'is_extra' => $isExtra,
         ));

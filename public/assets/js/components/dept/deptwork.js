@@ -243,6 +243,12 @@ Clinic.deptwork = (function () {
         var p = d.patient || {}, v = d.visit || {};
         var head = document.getElementById('dwHeader');
         if (!head) return;
+        // 就诊号标签动态化：门诊/急诊 → 门诊号，住院 → 住院号（值为住院号），未知 → 就诊号
+        var vLabel = v.visit_label || '就诊号';
+        var vNo = v.visit_display_no || v.visit_no || '';
+        var typeBadge = v.visit_type === 'inpatient'
+            ? '<span class="badge badge-warning" style="margin-left:4px">住院</span>'
+            : '<span class="badge ' + (v.dept_type === 'emergency' ? 'badge-danger' : 'badge-primary') + '" style="margin-left:4px">' + (v.dept_type === 'emergency' ? '急诊' : '门诊') + '</span>';
         head.innerHTML =
             '<div class="flex-between">' +
             '  <div class="flex gap-12" style="align-items:center">' +
@@ -252,10 +258,10 @@ Clinic.deptwork = (function () {
             '        <span class="emr-patient-name">' + escHtml(v.name) + '</span>' +
             '        <span class="badge badge-gray" style="margin-left:8px">' + escHtml(v.gender) + ' / ' + escHtml(v.age_fmt || '') + '</span>' +
             '        ' + (v.fee_type ? '<span class="badge badge-warning" style="margin-left:4px" title="费用类别">' + escHtml(v.fee_type) + '</span>' : '') +
-            '        <span class="badge ' + (v.dept_type === 'emergency' ? 'badge-danger' : 'badge-primary') + '" style="margin-left:4px">' + (v.dept_type === 'emergency' ? '急诊' : '门诊') + '</span>' +
+            '        ' + typeBadge +
             '        <span class="badge badge-warning" id="hdrTotal" style="display:none"></span>' +
             '      </div>' +
-            '      <div class="text-muted fs-13">患者ID：' + escHtml(p.patient_id) + ' ｜ 流水号：' + escHtml(v.visit_no) +
+            '      <div class="text-muted fs-13">患者ID：' + escHtml(p.patient_id) + ' ｜ ' + escHtml(vLabel) + '：' + escHtml(vNo) +
             ' ｜ 挂号 ' + escHtml((v.created_at || '').substr(0, 16)) + '</div>' +
             '    </div>' +
             '  </div>' +
@@ -356,7 +362,7 @@ Clinic.deptwork = (function () {
             cell('姓名', v.name) + cell('性别', v.gender) + cell('年龄', v.age_fmt || '') + cell('出生日期', p.birth_date || '') +
             '  </div>' +
             '  <div class="dw-line-row">' +
-            cell('患者ID', p.patient_id) + cell('流水号', v.visit_no) + cell('首诊科室', v.first_dept_name || '') + cell('首诊时间', (v.created_at || '').substr(0, 16)) +
+            cell('患者ID', p.patient_id) + cell(v.visit_label || '就诊号', v.visit_display_no || v.visit_no) + cell('首诊科室', v.first_dept_name || '') + cell('首诊时间', (v.created_at || '').substr(0, 16)) +
             '  </div>' +
             '</div></div>';
     }

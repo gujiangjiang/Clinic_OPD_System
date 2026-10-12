@@ -40,6 +40,8 @@ return array(
             fee REAL DEFAULT 0,
             hospital_name TEXT DEFAULT '',
             hospital_name2 TEXT DEFAULT '',
+            visit_type TEXT DEFAULT 'outpatient',
+            inpatient_no TEXT DEFAULT '',
             status TEXT DEFAULT 'pending',
             paid_at TEXT,
             cashier_id INTEGER,
@@ -100,6 +102,15 @@ return array(
         44 => array(
             "ALTER TABLE registrations ADD COLUMN hospital_name TEXT DEFAULT ''",
             "ALTER TABLE registrations ADD COLUMN hospital_name2 TEXT DEFAULT ''",
+        ),
+        // v52：就诊类型与住院号（跨系统标识动态显示）
+        //  - visit_type：outpatient（默认）/ emergency / inpatient；门诊与急诊前端
+        //    统一显示「门诊号」，住院显示「住院号」，未分类回退中性「就诊号」
+        //  - inpatient_no：住院患者的住院号（HIS admission_no 快照）
+        52 => array(
+            "ALTER TABLE registrations ADD COLUMN visit_type TEXT DEFAULT 'outpatient'",
+            "ALTER TABLE registrations ADD COLUMN inpatient_no TEXT DEFAULT ''",
+            "CREATE INDEX IF NOT EXISTS idx_registrations_type_inpatient ON registrations(visit_type, inpatient_no)",
         ),
     ),
 );
