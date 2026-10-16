@@ -26,6 +26,12 @@ if (php_sapi_name() !== 'cli') {
     exit("CLI only\n");
 }
 
+// 引导应用（备份主库经 DatabaseManager 解析自定义库名/路径，需先加载核心类）
+if (!defined('APP_ROOT')) {
+    require dirname(__DIR__, 2) . '/app/config/bootstrap.php';
+}
+DatabaseManager::initAll();
+
 /* ---------------- 参数解析 ---------------- */
 $opts = array('scene' => '', 'module' => '', 'clean' => false, 'append' => false, 'yes' => false);
 foreach (array_slice($argv, 1) as $a) {
@@ -126,7 +132,7 @@ function seed_usage() {
 基础字典模块（可多选，逗号/空格分隔）：
   php tools/bin/seed.php --module=clinic             仅重置机构信息（医院名称/必填机构代码/简介）
   php tools/bin/seed.php --module=dept               仅重置科室（临床 + 医技）
-  php tools/bin/seed.php --module=user               仅重置用户账号（14 个测试账号，密码 123456）
+  php tools/bin/seed.php --module=user               仅重置用户账号（16 个测试账号，密码 123456）
   php tools/bin/seed.php --module=screen             按科室分类动态生成叫号大屏与诊室窗口
   php tools/bin/seed.php --module=drug               仅重置药品与库存（DrugSeeder）
   php tools/bin/seed.php --module=lab                仅重置检验项目（含检验组合与危急值上下限）
