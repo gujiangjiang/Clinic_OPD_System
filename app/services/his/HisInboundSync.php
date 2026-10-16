@@ -73,42 +73,28 @@ class HisInboundSync {
     }
 
     /**
-     * HIS 基础字典同步（药品/检验项目/检查项目/处置项目价表，幂等 upsert）
+     * HIS 基础字典同步（检验项目/检查项目/处置项目价表，幂等 upsert）
+     *
+     * 药品目录【不同步】：HIS 药品目录一般属中心药房，与门诊药房（本系统
+     * 药品库）不是一个药房，不落库、不进入门诊审核流，仅统计并说明。
+     * 新增的检验/检查/处置项目置「待审核」并同步提交审核中心（audits），
+     * 保证审核中心可见可审——此前仅置 pending 不提交 audits 导致
+     * 「列表显示待审核、审核中心却查无此条」。
+     *
      * @param array $c { drugs:[], lab_items:[], exam_items:[], disposal_items:[] }
-     * @return array { msg:string, counts:[] }
+     * @return array { msg:string, counts:[], drugs_ignored:int }
      * @throws Exception
      */
     public static function syncCatalog($c) {
-        $counts = array('drugs' => 0, 'lab_items' => 0, 'exam_items' => 0, 'disposal_items' => 0);
-        // 药品：按名称+规格匹配更新价格/库存单位口径，不存在则新建（待审核）
+        $counts = array('lab_items' => 0, 'exam_items' => 0, 'disposal_items' => 0);
+        // 药品目录：无条件忽略（仅按有效条目计数，供响应说明）
+        $drugsIgnored = 0;
         if (isset($c['drugs']) && is_array($c['drugs'])) {
             foreach ($c['drugs'] as $d) {
-                $name = trim((string)(isset($d['name']) ? $d['name'] : ''));
-                $spec = trim((string)(isset($d['spec']) ? $d['spec'] : ''));
-                if ($name === '') continue;
-                $exist = DrugRepository::one('SELECT * FROM drugs WHERE name=? AND spec=?', array($name, $spec));
-                $price = isset($d['price']) ? (float)$d['price'] : 0;
-                if ($exist) {
-                    DrugRepository::exec('UPDATE drugs SET price=?, vendor=?, vendor_short=? WHERE id=?',
-                        array($price,
-                            (string)(isset($d['vendor']) ? $d['vendor'] : $exist['vendor']),
-                            (string)(isset($d['vendor_short']) ? $d['vendor_short'] : $exist['vendor_short']),
-                            (int)$exist['id']));
-                } else {
-                    DrugRepository::insert(
-                        'INSERT INTO drugs(name, generic_name, category, vendor, vendor_short, package_unit, spec, form, single_dose, frequency, route, price, qty, status, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-                        array($name, (string)(isset($d['generic_name']) ? $d['generic_name'] : ''), (string)(isset($d['category']) ? $d['category'] : ''),
-                            (string)(isset($d['vendor']) ? $d['vendor'] : ''), (string)(isset($d['vendor_short']) ? $d['vendor_short'] : ''),
-                            (string)(isset($d['package_unit']) ? $d['package_unit'] : '盒'), $spec,
-                            (string)(isset($d['form']) ? $d['form'] : ''), (string)(isset($d['single_dose']) ? $d['single_dose'] : ''),
-                            (string)(isset($d['frequency']) ? $d['frequency'] : ''), (string)(isset($d['route']) ? $d['route'] : ''),
-                            $price, 0, 'pending', now_str())
-                    );
-                }
-                $counts['drugs']++;
+                if (trim((string)(isset($d['name']) ? $d['name'] : '')) !== '') $drugsIgnored++;
             }
         }
-        // 检验项目：按名称匹配更新价表，不存在则新建（待审核）
+        // 检验项目：按名称匹配更新价表，不存在则新建（待审核 + 提交审核中心）
         if (isset($c['lab_items']) && is_array($c['lab_items'])) {
             foreach ($c['lab_items'] as $li) {
                 $name = trim((string)(isset($li['name']) ? $li['name'] : ''));
@@ -122,12 +108,13 @@ class HisInboundSync {
                             (string)(isset($li['normal_range']) ? $li['normal_range'] : $exist['normal_range']),
                             (int)$exist['id']));
                 } else {
-                    OrderRepository::insert(
+                    $newId = (int)OrderRepository::insert(
                         'INSERT INTO lab_items(category, name, unit, price, normal_range, status, created_at) VALUES(?,?,?,?,?,?,?)',
                         array((string)(isset($li['category']) ? $li['category'] : '其他'), $name,
                             (string)(isset($li['unit']) ? $li['unit'] : ''), (float)(isset($li['price']) ? $li['price'] : 0),
                             (string)(isset($li['normal_range']) ? $li['normal_range'] : ''), 'pending', now_str())
                     );
+                    self::submitItemAudit('item_lab', $newId, '新增检验项目：' . $name);
                 }
                 $counts['lab_items']++;
             }
@@ -144,12 +131,13 @@ class HisInboundSync {
                             (string)(isset($ei['category']) ? $ei['category'] : $exist['category']),
                             (int)$exist['id']));
                 } else {
-                    OrderRepository::insert(
+                    $newId = (int)OrderRepository::insert(
                         'INSERT INTO exam_items(category, name, price, description, status, created_at) VALUES(?,?,?,?,?,?)',
                         array((string)(isset($ei['category']) ? $ei['category'] : ''), $name,
                             (float)(isset($ei['price']) ? $ei['price'] : 0),
                             (string)(isset($ei['description']) ? $ei['description'] : ''), 'pending', now_str())
                     );
+                    self::submitItemAudit('item_exam', $newId, '新增检查项目：' . $name);
                 }
                 $counts['exam_items']++;
             }
@@ -166,17 +154,28 @@ class HisInboundSync {
                             (string)(isset($di['description']) ? $di['description'] : $exist['description']),
                             (int)$exist['id']));
                 } else {
-                    OrderRepository::insert(
+                    $newId = (int)OrderRepository::insert(
                         'INSERT INTO disposal_items(name, price, description, status, created_at) VALUES(?,?,?,?,?)',
                         array($name, (float)(isset($di['price']) ? $di['price'] : 0),
                             (string)(isset($di['description']) ? $di['description'] : ''), 'pending', now_str())
                     );
+                    self::submitItemAudit('item_disp', $newId, '新增处置项目：' . $name);
                 }
                 $counts['disposal_items']++;
             }
         }
         $total = array_sum($counts);
-        if ($total === 0) throw new Exception('载荷未包含可同步的字典数据');
-        return array('msg' => '已同步 ' . $total . ' 条字典（药品 ' . $counts['drugs'] . ' / 检验 ' . $counts['lab_items'] . ' / 检查 ' . $counts['exam_items'] . ' / 处置 ' . $counts['disposal_items'] . '）', 'counts' => $counts);
+        if ($total === 0 && $drugsIgnored === 0) throw new Exception('载荷未包含可同步的字典数据');
+        $msg = '已同步 ' . $total . ' 条字典（检验 ' . $counts['lab_items'] . ' / 检查 ' . $counts['exam_items'] . ' / 处置 ' . $counts['disposal_items'] . '）';
+        if ($drugsIgnored > 0) {
+            $msg .= '；药品目录 ' . $drugsIgnored . ' 条已忽略（HIS 中心药房不纳入门诊药品库）';
+        }
+        return array('msg' => $msg, 'counts' => $counts, 'drugs_ignored' => $drugsIgnored);
+    }
+
+    /** 字典同步新增项目的审核中心登记（待管理员审核；来源标记便于审核中心高亮） */
+    private static function submitItemAudit($type, $itemId, $title) {
+        submit_audit($type, $itemId, $title, 'HIS 字典同步推送新增项目，待管理员审核',
+            array('proposer' => 'HIS 同步', 'proposer_id' => 0, 'creation_source' => 'HIS 同步'));
     }
 }

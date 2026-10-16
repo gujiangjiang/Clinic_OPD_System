@@ -245,10 +245,10 @@ function integration_field_groups() {
         /* ==================== 医院 HIS 接口双向与可靠性加固 ==================== */
         array(
             'id' => 'his', 'emoji' => render_icon('nav:hospital'), 'title' => 'HIS 接口',
-            'desc' => '医院 HIS 双向对接：出向按 REST/JSON 或 SOAP/XML 上报挂号、结算、发药（Outbox 补偿 + 重试监控）；入向接收 HIS 推送的患者主数据、药品价表字典与住院检验/检查申请单（视为已缴费直接进入检验/影像工作台）',
+            'desc' => '医院 HIS 双向对接：出向按 REST/JSON 或 SOAP/XML 上报挂号、结算、发药（Outbox 补偿 + 重试监控）；入向接收 HIS 推送的患者主数据、检验/检查/处置项目字典与住院检验/检查申请单（视为已缴费直接进入检验/影像工作台；HIS 药品目录属中心药房，不纳入门诊药品库）',
             'endpoints' => array(
                 array('label' => '患者预约/建档推送', 'method' => 'POST', 'path' => '/api/external/his/sync-patient', 'note' => 'HIS 推送患者主数据，按身份证号幂等建档。携带 X-HIS-Token 头或 ?token='),
-                array('label' => '基础字典同步', 'method' => 'POST', 'path' => '/api/external/his/sync-catalog', 'note' => '药品/耗材/价表数据同步，按内部编码幂等更新。携带 X-HIS-Token 头或 ?token='),
+                array('label' => '基础字典同步', 'method' => 'POST', 'path' => '/api/external/his/sync-catalog', 'note' => '检验/检查/处置项目价表同步（新增项入审核中心待管理员审核）；药品目录属 HIS 中心药房，自动忽略不落库。携带 X-HIS-Token 头或 ?token='),
                 array('label' => '住院检验/检查单推送', 'method' => 'POST', 'path' => '/api/external/his/sync-orders', 'note' => 'HIS 住院开单推送：按住院号复用住院就诊、按申请单号幂等落单；住院开单即计费，一律视为已缴费，直接进入检验科/影像科工作台。Scope：order:sync'),
                 array('label' => '只读查询（统一入口）', 'method' => 'GET', 'path' => '/api/external/his/read?action=ping', 'note' => '外部只读查询：ping / patient_get / visit_list / visit_status / order_list / evidence_verify，鉴权同入向 Token'),
             ),
