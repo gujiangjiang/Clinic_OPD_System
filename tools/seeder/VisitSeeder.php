@@ -126,7 +126,10 @@ class VisitSeeder extends Seeder {
     /** @var array 运行期上下文（科室/医生池/医技执行人） */
     private $depts = array();
     private $doctors = array();
-    private $staff = array('nurse' => '周梅', 'lab' => '陈静', 'imaging' => '黄浩', 'pharmacy' => '吴涛', 'cashier' => '收款员');
+    private $staff = array('nurse' => '周梅', 'lab' => '陈静', 'imaging' => '黄浩', 'pharmacy' => '吴涛', 'cashier' => '刘丹');
+
+    /** @var int 收费员账号 id（运行期按库中真实收费员解析） */
+    private $cashierId = 0;
 
     /** @var array|null 指定主诊医生（doctor 参数），null = 按科室绑定分诊 */
     private $me = null;
@@ -173,6 +176,11 @@ class VisitSeeder extends Seeder {
         echo "=== 患者就诊链生成（doctor={$doctorLabel} depts={$deptsLabel} days={$this->opt['days']}） ===\n";
 
         if ($this->opt['clean']) $this->cleanBusinessData();
+
+        /* ---------- 收费员（挂号/缴费流水署名） ---------- */
+        $cashier = $this->cashierUser();
+        $this->cashierId = $cashier['id'];
+        $this->staff['cashier'] = $cashier['name'];
 
         /* ---------- 科室/医生池 ---------- */
         $deptIds = $this->opt['depts'] !== ''
@@ -425,7 +433,7 @@ class VisitSeeder extends Seeder {
         $flowNo = $dayPrefix . sprintf('%04d', $this->flowSeq[$dayPrefix]);
         $skey = $deptId . '_' . $day;
         $this->seqSeq[$skey] = (isset($this->seqSeq[$skey]) ? $this->seqSeq[$skey] : 0) + 1;
-        $fee = (string)$dept['type'] === 'emergency' ? 50 : $this->pick(array(10, 20));
+        $fee = (float)$dept['fee'];
         $paid = in_array($status, array('paid', 'visiting', 'finished'), true);
         $payTime = $paid ? date('Y-m-d H:i:s', $ts + mt_rand(120, 900)) : '';
         $disp = ''; $dispDetail = ''; $finishedAt = '';
@@ -441,13 +449,13 @@ class VisitSeeder extends Seeder {
         $visitId = (int)DB::insert('INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, paid_at, cashier_id, cashier_name, registered_at, cancel_reason, is_extra, disposition, disposition_detail, finished_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
             $p['patient_no'], $flowNo, $this->seqSeq[$skey], $deptId, $dept['name'], $deptId, $dept['name'],
             date('H', $ts) < 12 ? 'am' : 'pm', $this->pick(array('自费', '居民医保', '职工医保')), $fee,
-            $status, $payTime, 2, $this->staff['cashier'], date('Y-m-d H:i:s', $ts), '', 0, $disp, $dispDetail, $finishedAt,
+            $status, $payTime, $this->cashierId, $this->staff['cashier'], date('Y-m-d H:i:s', $ts), '', 0, $disp, $dispDetail, $finishedAt,
         ));
         $this->cnt['visit']++;
 
         if ($paid) {
             DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total_amount, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
-                $visitId, 0, $p['patient_no'], $flowNo, 'visit', $fee, 1, 2, $this->staff['cashier'], $payTime,
+                $visitId, 0, $p['patient_no'], $flowNo, 'visit', $fee, 1, $this->cashierId, $this->staff['cashier'], $payTime,
             ));
         }
 
@@ -673,7 +681,7 @@ class VisitSeeder extends Seeder {
         foreach ($visitOrders as $vo) {
             $orderTotal = (float)DB::val('SELECT total_amount FROM orders WHERE id=?', array($vo['id']));
             DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total_amount, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
-                $visitId, $vo['id'], $p['patient_no'], $flowNo, 'order', $orderTotal, 1, 2, $this->staff['cashier'], $vo['paid_at'],
+                $visitId, $vo['id'], $p['patient_no'], $flowNo, 'order', $orderTotal, 1, $this->cashierId, $this->staff['cashier'], $vo['paid_at'],
             ));
         }
 

@@ -25,9 +25,21 @@ class VisitFlowEngine {
     /** @var PDO 主库连接 */
     protected $pdo;
 
+    /** @var array|null 收费员账号缓存（id/name） */
+    private $cashier = null;
+
     public function __construct() {
         $this->pdo = DatabaseManager::getMain();
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    }
+
+    /** 收费员账号（缴费流水署名，取库中真实收费员；无则回退 0/空名） */
+    public function cashierUser() {
+        if ($this->cashier === null) {
+            $u = $this->pdo->query("SELECT id, name FROM users WHERE role='cashier' AND status=1 ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+            $this->cashier = $u ? array('id' => (int)$u['id'], 'name' => (string)$u['name']) : array('id' => 0, 'name' => '');
+        }
+        return $this->cashier;
     }
 
     /** 生成唯一单号（如 JY20260920123456） */
@@ -62,6 +74,7 @@ class VisitFlowEngine {
         if (!$doc) $doc = $this->pdo->query("SELECT id, name FROM users WHERE role='doctor' AND status=1 ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
         $docId = $doc ? (int)$doc['id'] : 0;
         $docName = $doc ? (string)$doc['name'] : '系统测试';
+        $cashier = $this->cashierUser();
 
         $this->pdo->beginTransaction();
         try {
@@ -85,7 +98,7 @@ class VisitFlowEngine {
             ));
             $this->pdo->prepare(
                 'INSERT INTO payments(order_id, visit_id, patient_no, flow_no, total_amount, item_count, cashier_id, cashier_name, kind, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)'
-            )->execute(array($orderId, $visitId, $visit['patient_no'], $visit['flow_no'], $price, 1, 2, '收款员', 'order', $now));
+            )->execute(array($orderId, $visitId, $visit['patient_no'], $visit['flow_no'], $price, 1, $cashier['id'], $cashier['name'], 'order', $now));
             $this->pdo->commit();
         } catch (Exception $ex) {
             if ($this->pdo->inTransaction()) $this->pdo->rollBack();

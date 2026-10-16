@@ -97,6 +97,7 @@ class QueueSeeder extends Seeder {
         $perDept = $this->opt['count'];
         $today = today_str();
         $dayPrefix = date('ymd');
+        $cashier = $this->cashierUser();
 
         // 当天患者序号续接：patient_no 为字符串列，MAX 按字典序（99 > 100），
         // 须用数字 MAX（CAST 序号部分），避免复用已存在号段导致唯一冲突
@@ -152,15 +153,15 @@ class QueueSeeder extends Seeder {
                     }
                 }
                 $flowNo = $dayPrefix . sprintf('%04d', $flowMax);
-                $fee = (string)$dept['type'] === 'emergency' ? 50 : 20;
+                $fee = (float)$dept['fee'];
                 $payTime = date('Y-m-d H:i:s', strtotime($regTime) + mt_rand(120, 900));
                 $visitId = (int)DB::insert('INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, paid_at, cashier_id, cashier_name, registered_at, cancel_reason, is_extra, disposition, disposition_detail, finished_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                     $patientNo, $flowNo, $seq, $deptId, $dept['name'], $deptId, $dept['name'],
                     ((int)substr($regTime, 11, 2) < 12 ? 'am' : 'pm'), $this->pick(array('自费', '居民医保', '职工医保')), $fee,
-                    'paid', $payTime, 2, '收款员', $regTime, '', 0, '', '', '',
+                    'paid', $payTime, $cashier['id'], $cashier['name'], $regTime, '', 0, '', '', '',
                 ));
                 DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total_amount, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
-                    $visitId, 0, $patientNo, $flowNo, 'visit', $fee, 1, 2, '收款员', $payTime,
+                    $visitId, 0, $patientNo, $flowNo, 'visit', $fee, 1, $cashier['id'], $cashier['name'], $payTime,
                 ));
                 $created++;
             }

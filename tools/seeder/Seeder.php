@@ -50,6 +50,12 @@ abstract class Seeder {
         return $arr[array_rand($arr)];
     }
 
+    /** 收费员账号（挂号/缴费流水署名，取库中真实收费员；无则回退 0/空名） */
+    protected function cashierUser() {
+        $u = $this->pdo->query("SELECT id, name FROM users WHERE role='cashier' AND status=1 ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        return $u ? array('id' => (int)$u['id'], 'name' => (string)$u['name']) : array('id' => 0, 'name' => '');
+    }
+
     /** 控制台输出 */
     protected function out($msg) {
         echo "  ✓ {$this->label}：{$msg}\n";

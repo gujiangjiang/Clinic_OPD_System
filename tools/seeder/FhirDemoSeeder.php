@@ -100,8 +100,12 @@ class FhirDemoSeeder extends Seeder {
     /** 报告序号（同名日期递增，避免唯一冲突） */
     private $reportSeq = 0;
 
+    /** @var array 收费员账号（挂号/缴费流水署名，运行期解析） */
+    private $cashier = array('id' => 0, 'name' => '');
+
     public function run() {
         $pdo = $this->pdo;
+        $this->cashier = $this->cashierUser();
 
         // 需先具备基础字典
         $deptCount = (int)$pdo->query('SELECT COUNT(*) FROM departments WHERE status=1')->fetchColumn();
@@ -208,10 +212,10 @@ class FhirDemoSeeder extends Seeder {
             'INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, paid_at, cashier_id, cashier_name, registered_at, disposition, disposition_detail, finished_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             array($patientNo, $flowNo, $visitSeq, $deptId, $deptName, $deptId, $deptName,
                 (date('H', $regTs) < 12 ? 'am' : 'pm'), '居民医保', $fee, 'finished',
-                $fmt($regTs + 120), 1, '收款员', $fmt($regTs), '自主离院', '', $fmt($now - 600))
+                $fmt($regTs + 120), $this->cashier['id'], $this->cashier['name'], $fmt($regTs), '自主离院', '', $fmt($now - 600))
         );
         DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total_amount, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
-            array($visitId, 0, $patientNo, $flowNo, 'visit', $fee, 1, 1, '收款员', $fmt($regTs + 120)));
+            array($visitId, 0, $patientNo, $flowNo, 'visit', $fee, 1, $this->cashier['id'], $this->cashier['name'], $fmt($regTs + 120)));
 
         /* ---------- 生命体征 ---------- */
         DB::insert('INSERT INTO vitals(visit_id, patient_no, flow_no, vital_sbp, vital_dbp, vital_heart_rate, vital_pulse, vital_spo2, vital_respiration, operator, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
@@ -251,7 +255,7 @@ class FhirDemoSeeder extends Seeder {
                 'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, paid_at, executed_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 array($visitId, $patientNo, $flowNo, 'lab', $labOrderNo, $docId, $docName, $recordId, $deptId, $deptName, $labTotal, 'done', $labCreated, $fmt($payTs + 60), '陈静'));
             DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total_amount, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
-                array($visitId, $labOrderId, $patientNo, $flowNo, 'order', $labTotal, count($labItems), 1, '收款员', $fmt($payTs + 60)));
+                array($visitId, $labOrderId, $patientNo, $flowNo, 'order', $labTotal, count($labItems), $this->cashier['id'], $this->cashier['name'], $fmt($payTs + 60)));
 
             $labReportResultIds = array();
             foreach ($labItems as $li) {
@@ -321,7 +325,7 @@ class FhirDemoSeeder extends Seeder {
                 'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, category_name, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, paid_at, executed_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 array($visitId, $patientNo, $flowNo, 'imaging', $imgOrderNo, $j['exam']['category'], $docId, $docName, $recordId, $deptId, $deptName, (float)$exam['price'], 'done', $imgCreated, $fmt($payTs + 120), '黄浩'));
             DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total_amount, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
-                array($visitId, $imgOrderId, $patientNo, $flowNo, 'order', (float)$exam['price'], 1, 1, '收款员', $fmt($payTs + 120)));
+                array($visitId, $imgOrderId, $patientNo, $flowNo, 'order', (float)$exam['price'], 1, $this->cashier['id'], $this->cashier['name'], $fmt($payTs + 120)));
             $imgOrderItemId = (int)DB::insert(
                 'INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, price, quantity, status, doctor_id, doctor_name, executed_by, executed_at, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 array($imgOrderId, $visitId, $patientNo, $flowNo, 'imaging', (int)$exam['id'], (string)$exam['name'], (float)$exam['price'], 1,
@@ -377,7 +381,7 @@ class FhirDemoSeeder extends Seeder {
                 'INSERT INTO orders(visit_id, patient_no, flow_no, order_type, order_no, doctor_id, doctor_name, record_id, dept_id, dept_name, total_amount, status, created_at, paid_at, executed_by, dispensed_at, review_by, reviewed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 array($visitId, $patientNo, $flowNo, 'prescription', $rxOrderNo, $docId, $docName, $recordId, $deptId, $deptName, $rxTotal, 'dispensed', $rxCreated, $fmt($payTs + 180), '吴涛', $rxExec, '吴涛', $fmt($now - 1400)));
             DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total_amount, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
-                array($visitId, $rxOrderId, $patientNo, $flowNo, 'order', $rxTotal, count($rxItems), 1, '收款员', $fmt($payTs + 180)));
+                array($visitId, $rxOrderId, $patientNo, $flowNo, 'order', $rxTotal, count($rxItems), $this->cashier['id'], $this->cashier['name'], $fmt($payTs + 180)));
             foreach ($rxItems as $ri) {
                 $drug = $ri['row'];
                 DB::insert('INSERT INTO order_items(order_id, visit_id, patient_no, flow_no, item_type, item_id, item_name, spec, unit, unit_type, pack_size, company_short, price, quantity, single_dose, frequency, route, is_nurse, is_parent, status, doctor_id, doctor_name, executed_by, executed_at, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
