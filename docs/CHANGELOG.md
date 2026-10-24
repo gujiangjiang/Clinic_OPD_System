@@ -38,6 +38,11 @@
   询问用户是否启用本地 PHP 测试，仅 `enabled=true` 时才在任务收尾执行
   `npm run server:ensure` 健康检查；补充 macOS / Linux / Windows 运行时选择表
   （系统 php 或 FrankenPHP 官方安装方式）；`CLAUDE.md` 命令索引同步。
+- **新增 `docs/DEPLOY.md` 部署指南（宝塔面板 / Nginx / Apache）**：给出 Web 根指向
+  `public/`、主路由 `try_files` 伪静态、宝塔 `error_page 404` 与「防跨站攻击
+  (open_basedir)」处理、目录权限（`data/`、`public/uploads/`）、上传限制、Session
+  优化与常见问题排查（`/install` 404、`404.html` 报错、open_basedir 白屏三个典型
+  宝塔坑）；`README.md` 目录树同步。
 
 ## [9.15.0] - 2026-10-17
 

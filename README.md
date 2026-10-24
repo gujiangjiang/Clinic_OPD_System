@@ -244,6 +244,7 @@
 ├── .github/workflows/         # GitHub Actions：PHP 7.2~8.5 语法兼容矩阵检查 + 检查报告
 ├── docs/                      # 文档归档
 │   ├── CHANGELOG.md           # 系统变更日志
+│   ├── DEPLOY.md              # 部署指南（宝塔 / Nginx / Apache）
 │   └── nginx.conf.example     # Nginx 配置示例
 └── router.php                 # 本地开发路由（php -S）
 ```
