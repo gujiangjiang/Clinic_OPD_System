@@ -72,6 +72,7 @@ body {
     </div>
     <div id="errBox" class="err-box hidden"></div>
 </div>
+<?php require __DIR__ . '/ui/icon_bridge.php'; ?>
 <script>
 (function () {
     var TOKEN = '';

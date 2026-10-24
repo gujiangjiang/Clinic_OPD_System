@@ -19,6 +19,12 @@ class Layout {
         return Assets::mtimeVer($rel);
     }
 
+    /** 图标桥接：注入 SVG 映射 + icons.js（appPage/authPage 共用；须先于视图内联脚本调用 renderIconSvg 前加载） */
+    private static function iconBridgeTags() {
+        return '<script>window.OPD_ICON_SVGS=' . json_encode(IconHelper::allSvg()) . ';</script>' . "\n" .
+            Assets::jsTag('assets/js/components/core/icons.js');
+    }
+
     /** Service Worker 注册脚本 + 预缓存清单注入（清单见 Assets::precache()） */
     private static function serviceWorkerScript() {
         return '<script>window.OPD_SW_PRECACHE=' . json_script(Assets::precache()) . ';</script>' . "\n" .
@@ -226,6 +232,7 @@ class Layout {
             ' . $brandHtml . '
             ' . $content . '
             ' . Assets::jsTags(Assets::JS_AUTH) . '
+            ' . self::iconBridgeTags() . '
             ' . self::serviceWorkerScript() . '
         </body></html>';
         return $html;
@@ -353,8 +360,7 @@ class Layout {
 因此脚本放在内容区之前，保证内联脚本执行时 Clinic 已就绪。 -->
             <!-- 核心通用组件（所有页面加载） -->
             ' . Assets::jsTags(Assets::JS_CORE) . '
-            <script>window.OPD_ICON_SVGS=' . json_encode(IconHelper::allSvg()) . ';</script>
-            ' . Assets::jsTag('assets/js/components/core/icons.js') . '
+            ' . self::iconBridgeTags() . '
             ' . self::serviceWorkerScript() . '
             ' . $emrScripts . '
             <div class="' . $appClass . '">
