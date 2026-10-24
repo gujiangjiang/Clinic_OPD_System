@@ -68,3 +68,6 @@ yarn-error.log*
 
 # 运行期日志（日志中心「服务器日志」直读 data/logs/app.log，禁止提交）
 data/logs/
+
+# 本机 AI 本地服务器偏好标记（按机器生成，禁止提交）
+.agent-local-server.conf
