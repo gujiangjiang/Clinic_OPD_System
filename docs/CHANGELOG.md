@@ -13,6 +13,18 @@
 
 ---
 
+## [9.15.2] - 2026-10-25
+
+### 修复
+- **沉浸式页面缺失图标桥接，安装向导报 `renderIconSvg is not defined`**：
+  `Layout::authPage()`（安装向导 / 登录 / 403 / 404 等沉浸式页面）未注入
+  `window.OPD_ICON_SVGS` 与 icons.js，而安装向导内联脚本（环境巡检、确认汇总、
+  安装按钮回填）调用 `renderIconSvg`，导致全新部署进入 `/install` 即抛
+  ReferenceError、向导停在「正在检查环境」（本地因数据库已安装未走到该页而未暴露）。
+  现 `authPage()` 统一注入图标桥接，与 `appPage()` 共用新抽出的
+  `Layout::iconBridgeTags()`；`app/includes/migrating_lock.php` 迁移锁定页同类问题
+  一并修复（引入 `icon_bridge.php`）。
+
 ## [9.15.1] - 2026-10-17
 
 ### 修复
