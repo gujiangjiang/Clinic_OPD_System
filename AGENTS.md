@@ -7,23 +7,35 @@
 - 系统基准版本以 `app/config/bootstrap.php` 的 `APP_VERSION` 为唯一来源
   （`README` 徽章、`package.json` 必须与之同步，发布时三处一致）。
 
-## 本地运行环境（本机 macOS arm64）
+## 运行模式与本地测试服务器（可选）
 
-- 本机 **未安装系统 php**，统一使用单文件静态 PHP 二进制：
-  `~/.local/bin/frankenphp`（FrankenPHP v1.12.7，内置 PHP 8.5.9 + SQLite）。
-- 启动本地测试服务器（public 为 Web 根目录，等同生产 Nginx 配置，见 `docs/nginx.conf.example`）：
+- 本项目以**在线服务器部署为主**，本地不强制安装 PHP / FrankenPHP；是否启用本地
+  PHP 测试服务器由「首次询问」决定，并记录在本机标记文件 `.agent-local-server.conf`
+  （项目根目录，只记本机偏好，**严禁提交**；内容示例：`enabled=true` / `enabled=false`）。
+- **首次接手（标记文件不存在）**：先探测运行环境（macOS / Linux / Windows、是否已有
+  php 或 frankenphp），然后**询问用户是否启用本地 PHP 测试服务器**；用户明确答复前
+  不启动、不检测、不安装任何运行时。
+- 用户选择启用后，按运行环境自动选择运行时（提问时一并向用户说明可选命令）：
+
+  | 环境 | 首选 | 备选 |
+  | --- | --- | --- |
+  | macOS | 现有单文件二进制 `~/.local/bin/frankenphp` | `brew install dunglas/frankenphp/frankenphp`；官方脚本 `curl https://frankenphp.dev/install.sh \| sh`；已装系统 php 用 `php -S 0.0.0.0:8000 router.php` |
+  | Linux | 系统 `php` 可用时 `php -S 0.0.0.0:8000 router.php` | 官方脚本 `curl https://frankenphp.dev/install.sh \| sh`；或 `brew install dunglas/frankenphp/frankenphp` |
+  | Windows | 系统 `php.exe` 可用时 `php -S 0.0.0.0:8000 router.php` | PowerShell `irm https://frankenphp.dev/install.ps1 \| iex`；或官方的 Windows 免安装包（GitHub Releases，内含 PHP 二进制） |
+
+- 启用后的启动 / 健康检查（`public/` 为 Web 根，等同生产 Nginx 配置，见 `docs/nginx.conf.example`）：
 
   ```bash
-  ~/.local/bin/frankenphp php-server --root public/ --listen 0.0.0.0:8080
+  npm run dev              # 启动（默认端口 8000，PORT 环境变量可覆盖）
+  npm run server:ensure    # 健康检查：挂了自动 nohup 重启并验证（见「自动化步骤」）
   ```
 
-  或 `npm run dev` / `npm run start`（默认端口 8000，可用 `PORT` 环境变量覆盖）。
-  首次访问 `http://localhost:8080` 会自动进入安装向导（6 步）。
+  首次访问会自动进入安装向导（6 步）。Windows 下 npm 脚本的 `${VAR:-默认值}` 语法
+  不生效，直接使用上表对应命令。
 
-- 语法检查（不需要系统 php，用 tokenizer 校验全部 PHP 文件）：
-  `npm run lint` 或 `~/.local/bin/frankenphp php-cli tools/lint/php-lint.php`。
-
-> 若本机安装系统 php 后可恢复 `php -S 0.0.0.0:8080 router.php` 方式。
+- 语法检查（任何模式均可用，不依赖本地服务器；用 tokenizer 校验全部 PHP 文件）：
+  系统 php 在位时 `php tools/lint/php-lint.php`；否则
+  `~/.local/bin/frankenphp php-cli tools/lint/php-lint.php`（或 `npm run lint`）。
 
 ## 基础设施配置库（config.db，v8.20+ 架构铁律）
 
@@ -104,14 +116,18 @@
 
 ## 每次修改必须执行的自动化步骤
 
-1. **任务完成前必须监测开发服务器（新增铁律）**：
-   - 每完成一个任务/修复、在提交之前，必须执行服务器健康检查
-     `npm run server:ensure`（即 `~/.local/bin/frankenphp php-cli tools/lint/php-server-check.php`）。
+1. **本地服务器检查（仅本地测试模式，按需执行）**：
+   - 默认在线部署模式（标记文件 `.agent-local-server.conf` 不存在或为 `enabled=false`）：
+     **不检测、不启动、不重启**本地服务器，代码编写 + 语法检查即可。
+   - 仅当标记文件为 `enabled=true`（用户已启用本地测试）时：每完成一个任务/修复、
+     在提交之前，执行服务器健康检查 `npm run server:ensure`（即
+     `tools/lint/php-server-check.php`；无系统 php 时经 `frankenphp php-cli` 调用）。
    - 该脚本探测开发服务器（默认端口 8000，PORT 环境变量可覆盖，8080 回退）是否存活；
      已挂则自动以 nohup 后台重启并验证恢复，输出存活/已重启/重启失败三种结果。
    - **禁止在任务收尾时用 `pkill -f frankenphp` 清理测试进程**——这会误杀开发服务器，
      导致工作区失联。需要清理测试用 PHP 进程时，按端口精准匹配（如
-     `lsof -tiTCP:8090 -sTCP:LISTEN | xargs kill`），并在收尾前跑一次 `server:ensure`。
+     `lsof -tiTCP:8090 -sTCP:LISTEN | xargs kill`；Windows 用
+     `netstat -ano | findstr :8090` + `taskkill /PID <pid> /F`）。
 
 2. **同步版本与日志**：
    - 有功能变化时递增版本号（README 顶部徽章 + `bootstrap.php APP_VERSION` + `package.json` 三处同步）。
