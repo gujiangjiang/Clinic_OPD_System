@@ -127,6 +127,7 @@ if (MigrationRunner::isLocked()) {
 
 /* ---------- 定时自动备份调度（到点且当日未备份 → 后台启动，不阻塞页面） ---------- */
 (function () {
+    if (!ConfigStore::isSystemInstalled()) return;         // 未安装（安装向导阶段）不调度
     $hour = ConfigStore::get('backup.hour', '');
     if ($hour === '') return;
     if (date('H:i') < $hour) return;                       // 未到点
@@ -142,6 +143,7 @@ if (MigrationRunner::isLocked()) {
 
 /* ---------- 病历超时自动归档调度（每日 02:00 后首次访问触发一次，后台执行不阻塞页面） ---------- */
 (function () {
+    if (!ConfigStore::isSystemInstalled()) return;         // 未安装（安装向导阶段）不调度
     if (date('H:i') < '02:00') return;                       // 未到点
     if (ConfigStore::get('auto_finish.last_date', '') === date('Y-m-d')) return;   // 今日已执行
     $script = APP_ROOT . '/tools/cli/auto_finish_records.php';

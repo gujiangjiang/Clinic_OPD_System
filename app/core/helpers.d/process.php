@@ -5,21 +5,34 @@
  * ============================================================
  * 说明：页面请求触发的异步任务（定时备份 / 病历自动归档 / Outbox 出向 worker /
  * 数据库迁移）统一经 `spawn_background()` 以 nohup 分离启动，避免各文件重复
- * 编写「解析 frankenphp 路径 + 拼命令 + popen」模板（DRY）。
+ * 编写「解析 PHP CLI 路径 + 拼命令 + popen」模板（DRY）。
+ *
+ * 环境兼容：
+ *  - macOS 开发环境：优先 frankenphp 单文件（`<bin> php-cli script.php`）；
+ *  - Linux / 宝塔：回退系统 PHP CLI（`<PHP_BINDIR>/php script.php`）；
+ *  - 宝塔默认将 popen 列入 disable_functions（PHP 8 下表现为「未定义函数」并抛
+ *    Error 致命错误）：本函数双重检测后优雅降级返回 false 并写日志，
+ *    绝不让一次后台任务派生失败导致整页 500。
  * ============================================================ */
 
 /**
- * PHP CLI 运行器解析（frankenphp 单文件优先，PATH 回退 frankenphp）
+ * PHP CLI 运行器解析（frankenphp 单文件优先 → 系统 PHP CLI → PATH 回退 php）
  * @return string
  */
 function php_cli_runner() {
     static $runner = null;
     if ($runner !== null) return $runner;
+    // 1) frankenphp 单文件（macOS 本机 / 静态部署）
     foreach (array('~/.local/bin/frankenphp', '/usr/local/bin/frankenphp', '/opt/homebrew/bin/frankenphp') as $p) {
         $p = str_replace('~', isset($_SERVER['HOME']) ? $_SERVER['HOME'] : '', $p);
-        if (is_file($p)) return $runner = $p;
+        if (@is_file($p)) return $runner = $p;
     }
-    return $runner = 'frankenphp';   // PATH 回退
+    // 2) 系统 PHP CLI（Linux / 宝塔：/www/server/php/8x/bin/php）
+    if (defined('PHP_BINDIR') && @is_file(PHP_BINDIR . '/php')) {
+        return $runner = PHP_BINDIR . '/php';
+    }
+    // 3) PATH 回退
+    return $runner = 'php';
 }
 
 /**
@@ -30,15 +43,32 @@ function php_cli_runner() {
  */
 function spawn_background($script, $args = array()) {
     if (!is_file($script)) return false;
-    $parts = array(php_cli_runner(), 'php-cli', $script);
+    // popen 不可用（宝塔 disable_functions 默认禁用）：静默降级，绝不 500。
+    // PHP 8 禁用函数表现为未定义（function_exists=false），调用即抛 Error；
+    // PHP 7 禁用函数仍存在（调用告警返回 null），故「函数存在 + 禁用列表」双重检测。
+    $disabled = array_map('trim', explode(',', (string)ini_get('disable_functions')));
+    if (!function_exists('popen') || in_array('popen', $disabled, true)) {
+        error_log('[spawn_background] popen() 不可用（可能被 disable_functions 禁用），跳过后台任务：' . basename($script));
+        return false;
+    }
+    $runner = php_cli_runner();
+    // frankenphp 以 php-cli 子命令运行脚本；系统 php 直接运行脚本
+    $parts = (stripos(basename($runner), 'frankenphp') !== false)
+        ? array($runner, 'php-cli', $script)
+        : array($runner, $script);
     foreach ((array)$args as $a) {
         $parts[] = escapeshellarg((string)$a);
     }
     $cmd = 'nohup ' . implode(' ', $parts) . ' > /dev/null 2>&1 &';
-    $fp = @popen($cmd, 'r');
-    if ($fp === false) return false;
-    @pclose($fp);
-    return true;
+    try {
+        $fp = @popen($cmd, 'r');
+        if ($fp === false) return false;
+        @pclose($fp);
+        return true;
+    } catch (Throwable $e) {
+        error_log('[spawn_background] 进程派生失败：' . $e->getMessage());
+        return false;
+    }
 }
 
 /**
