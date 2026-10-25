@@ -79,7 +79,10 @@ switch ($action) {
         snapshot_apply_patient($row, 'registration', (int)$visit['id']);
         $visit = decorate_visit_patient($visit, $row['patient']);
         $visit['status_name'] = visit_status_name($visit['status']);
-        json_ok(array('html' => pt_receipt($visit, $row['patient'])));
+        json_ok(array(
+            'html' => pt_receipt($visit, $row['patient']),
+            'filename' => pt_filename('挂号凭条', (string)$visit['name'], (string)$visit['flow_no'], $visit),
+        ));
         break;
 
     /* ---------------- 缴费凭条 ---------------- */
@@ -121,7 +124,11 @@ switch ($action) {
                 }
             }
         }
-        json_ok(array('html' => pt_payment($pay, $items)));
+        json_ok(array(
+            'html' => pt_payment($pay, $items),
+            'filename' => pt_filename('缴费凭条', pt_payment_patient_name($pay),
+                (string)(!empty($pay['payment_no']) ? $pay['payment_no'] : (isset($pay['flow_no']) ? $pay['flow_no'] : '')), $pay),
+        ));
         break;
 
     /* ---------------- 申请单 / 处方单 / 处置单 ---------------- */
@@ -140,6 +147,7 @@ switch ($action) {
         $nurseOnly = (int)get('nurse_only', 0) === 1;
         $titles = array('lab' => '检验申请单', 'imaging' => '检查申请单', 'procedure' => '处置申请单', 'prescription' => '门诊处方笺');
         $html = '';
+        $filename = '';
         foreach ($orderIds as $orderId) {
             $order = EmrRepository::one('SELECT * FROM orders WHERE id=?', array($orderId));
             if (!$order) json_fail('开单记录不存在');
@@ -153,6 +161,11 @@ switch ($action) {
             if ($order['order_type'] === 'imaging' && isset($order['category_name']) && trim((string)$order['category_name']) !== '' && trim((string)$order['category_name']) !== '检查') {
                 $title = trim((string)$order['category_name']) . '申请单';
             }
+            // 打印文件名取首张单据（合并打印多张时文件名不再变化）
+            $pickFilename = function ($docTitle, $docNo) use (&$filename, $order) {
+                if ($filename !== '') return;
+                $filename = pt_filename($docTitle, pt_order_patient_name($order), (string)$docNo, $order);
+            };
             // 处方：按主医嘱 is_nurse 分组（子医嘱跟随主药），生成三张单据：
             // ① 非护士药品 → 门诊处方笺（药房取药，原单号）
             // ② 护士药品   → 门诊处方笺（药房取药，单号+N）——给药房取药
@@ -192,16 +205,19 @@ switch ($action) {
                 // 护士站预览（nurse_only）：只输出护士执行药品的输液（注射）笺副本（Z 结尾）
                 if ($nurseOnly) {
                     if ($nurseItems) {
+                        $pickFilename('门诊输液（注射）笺', $order['order_no'] . 'Z');
                         $html .= pt_order($order, $nurseItems, '门诊输液（注射）笺', array('note_type' => 'nurse', 'display_no' => $order['order_no'] . 'Z'));
                     }
                     continue;
                 }
                 // ① 非护士药品处方笺
                 if ($pharmItems) {
+                    $pickFilename('门诊处方笺', $order['order_no']);
                     $html .= pt_order($order, $pharmItems, '门诊处方笺', array('note_type' => 'pharm', 'display_no' => $order['order_no']));
                 }
                 // ②③ 护士药品：处方笺 + 输液注射笺副本（药房预览 exclude_inject=1 时不含输液笺）
                 if ($nurseItems) {
+                    $pickFilename('门诊处方笺', $order['order_no'] . 'N');
                     $html .= pt_order($order, $nurseItems, '门诊处方笺', array('note_type' => 'pharm', 'display_no' => $order['order_no'] . 'N'));
                     if ((int)get('exclude_inject', 0) === 0) {
                         $html .= pt_order($order, $nurseItems, '门诊输液（注射）笺', array('note_type' => 'nurse', 'display_no' => $order['order_no'] . 'Z'));
@@ -212,10 +228,11 @@ switch ($action) {
                 foreach ($items as $it) {
                     if (!empty($it['is_nurse'])) $order['is_nurse_any'] = 1;
                 }
+                $pickFilename($title, $order['order_no']);
                 $html .= pt_order($order, $items, $title);
             }
         }
-        json_ok(array('html' => $html));
+        json_ok(array('html' => $html, 'filename' => $filename));
         break;
 
     /* ---------------- 电子病历（补打） ---------------- */
@@ -250,6 +267,11 @@ switch ($action) {
             $visit = decorate_visit_patient($visit, $row['patient']);
         }
 
+        // 打印文件名标题与模板一致（急诊科室显示「急诊电子病历」）；
+        // 患者姓名取快照应用后的 row['patient']（诊毕文书冻结为诊毕时刻资料）
+        $recFileTitle = (isset($visit['dept_type']) && $visit['dept_type'] === 'emergency') ? '急诊电子病历' : '门诊电子病历';
+        $recFilename = pt_filename($recFileTitle, (string)$row['patient']['name'], (string)$visit['flow_no'], $visit);
+
         // ===== 多医生接诊（1:N）：该流水下全部文书输出为【一份连续文档】 =====
         // 首段带完整页眉（页眉归首诊文书），续写段以分割线 + 「病历续写 /
         // 续写时间」承接头开始，各段签名紧跟正文右下角，页脚仅最后一段；
@@ -276,12 +298,12 @@ switch ($action) {
                 $segVitals = get_record_vitals($pr['id'], $visit['id'], $pr['doctor_name'], $pr['record_type']);
                 $body .= pt_record($visit, $row['patient'], $pr, $segVitals ? $segVitals : array(), $i === 0 ? 'full' : 'continue', $i === $last, $firstCreatedAt);
             }
-            json_ok(array('html' => '<div class="print-record-doc">' . $body . '</div>'));
+            json_ok(array('html' => '<div class="print-record-doc">' . $body . '</div>', 'filename' => $recFilename));
         }
         // 回退：无结构化病历时按旧 records 扁平数据渲染单文档（兼容历史就诊）
         $record = EmrRepository::one('SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
         if (!$record) json_fail('该就诊暂无已保存的病历，请先在病历中完善主诉、现病史与初步诊断并保存后再打印');
-        json_ok(array('html' => '<div class="print-record-doc">' . pt_record($visit, $row['patient'], $record, $vitals) . '</div>'));
+        json_ok(array('html' => '<div class="print-record-doc">' . pt_record($visit, $row['patient'], $record, $vitals) . '</div>', 'filename' => $recFilename));
         break;
 
     /* ---------------- 诊断证明（补打） ---------------- */
@@ -315,7 +337,10 @@ switch ($action) {
             $visit['current_dept_name'] = trim((string)$certSnap['extra_json']['dept_name']);
         }
         $visit = decorate_visit_patient($visit, $row['patient']);
-        json_ok(array('html' => pt_certificate($visit, $row['patient'], $record, $cert, $cert['doctor_name'])));
+        json_ok(array(
+            'html' => pt_certificate($visit, $row['patient'], $record, $cert, $cert['doctor_name']),
+            'filename' => pt_filename('诊断证明书', (string)$row['patient']['name'], (string)$visit['flow_no'], $visit),
+        ));
         break;
 
     /* ==================== 知情同意书打印 ==================== */
@@ -353,7 +378,10 @@ switch ($action) {
         }
         // 告知内容：旧数据（notice 空）回退默认话术
         if (trim((string)(isset($c['notice']) ? $c['notice'] : '')) === '') $c['notice'] = consent_default_notice();
-        json_ok(array('html' => pt_consent($visit, $row['patient'], $c, $c['doctor_name'])));
+        json_ok(array(
+            'html' => pt_consent($visit, $row['patient'], $c, $c['doctor_name']),
+            'filename' => pt_filename((string)$c['title'], (string)$row['patient']['name'], (string)$c['flow_no'], $c),
+        ));
         break;
 
     /* ---------------- 会诊申请单打印 ---------------- */
@@ -388,7 +416,10 @@ switch ($action) {
             $snap['diagnoses'] = emr_diag_text(isset($emr['diagnoses']) ? $emr['diagnoses'] : array());
         }
         $cons = consult_ensure_no($cons);
-        json_ok(array('html' => pt_consult($visit, $row['patient'], $cons, $snap)));
+        json_ok(array(
+            'html' => pt_consult($visit, $row['patient'], $cons, $snap),
+            'filename' => pt_filename('会诊申请单', (string)$row['patient']['name'], (string)$cons['consult_no'], $cons),
+        ));
         break;
 
     /* ---------------- 检验/检查报告 ---------------- */
@@ -422,7 +453,19 @@ switch ($action) {
         if ($u['role'] === 'doctor' && (!$row || !visit_dept_authorized($row['visit'], $u))) {
             json_fail('无权打印该就诊的报告');
         }
-        json_ok(array('html' => pt_report($report, $result, $item)));
+        // 打印文件名标题与模板一致：检验报告单 / {检查分类}检查报告单（CT检查报告单等）
+        $repTitle = ($result && $result['type'] === 'lab') ? '检验报告单' : '检查报告单';
+        if ($result && $result['type'] === 'imaging') {
+            $catName = trim((string)(isset($report['category_name']) ? $report['category_name'] : ''));
+            if ($catName === '' && $item && !empty($item['category']) && trim((string)$item['category']) !== '检查') {
+                $catName = trim((string)$item['category']);
+            }
+            if ($catName !== '') $repTitle = $catName . '检查报告单';
+        }
+        json_ok(array(
+            'html' => pt_report($report, $result, $item),
+            'filename' => pt_filename($repTitle, ($row && isset($row['patient'])) ? (string)$row['patient']['name'] : '', (string)$report['report_no'], $report),
+        ));
         break;
 
     default:

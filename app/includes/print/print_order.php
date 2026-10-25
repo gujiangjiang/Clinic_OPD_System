@@ -46,6 +46,14 @@ function pt_rx_slip($order, $mainItems, $patient) {
     return $html;
 }
 
+/** 申请单/处方单患者姓名（开单时刻快照优先，旧数据回退现患者表）——打印文件名共用 */
+function pt_order_patient_name($order) {
+    $snap = isset($order['id']) ? snapshot_get('order', (int)$order['id']) : null;
+    if ($snap && (string)$snap['patient_name'] !== '') return (string)$snap['patient_name'];
+    $p = isset($order['patient_no']) ? PatientRepository::one('SELECT * FROM patients WHERE patient_no=?', array($order['patient_no'])) : null;
+    return $p ? (string)$p['name'] : '';
+}
+
 function pt_order($order, $items, $title, $opts = array()) {
     // $opts：display_no 单号（输液笺用派生单号）；note_type 'pharm'药房取药 / 'nurse'护士站输液注射
     $displayNo = isset($opts['display_no']) && $opts['display_no'] !== '' ? $opts['display_no'] : (isset($order['order_no']) ? $order['order_no'] : '');

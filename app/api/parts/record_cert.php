@@ -122,7 +122,10 @@ function record_part_cert($action) {
         $visit['name'] = $row['patient']['name'];
         $visit['gender'] = $row['patient']['gender'];
         $visit['age'] = $row['patient']['age'];
-        json_ok(array('html' => pt_certificate($visit, $row['patient'], $record, $cert, $cert['doctor_name'])));
+        json_ok(array(
+            'html' => pt_certificate($visit, $row['patient'], $record, $cert, $cert['doctor_name']),
+            'filename' => pt_filename('诊断证明书', (string)$row['patient']['name'], (string)$visit['flow_no'], $visit),
+        ));
         return;
     }
 

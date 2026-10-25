@@ -241,7 +241,10 @@ switch ($action) {
         // 全部为护士站执行：无药房发药项，后台拦截不打印
         if (!$items) json_fail('该处方全部由护士站执行，无需打印取药提示');
         $patient = PatientRepository::byPatientNo($order['patient_no']);
-        json_ok(array('html' => pt_rx_slip($order, $items, $patient)));
+        json_ok(array(
+            'html' => pt_rx_slip($order, $items, $patient),
+            'filename' => pt_filename('处方提示', $patient ? (string)$patient['name'] : '', (string)$order['order_no'], $order),
+        ));
         break;
 
     /* ==================== 库存列表 ==================== */

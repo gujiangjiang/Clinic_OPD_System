@@ -90,6 +90,29 @@ function pt_doc_foot($timeLabel, $time) {
         '<span>打印时间：' . now_str() . '</span></div>';
 }
 
+/**
+ * 打印文件名（浏览器「另存为 PDF」默认文件名 = document.title）：
+ *   医院名称_文书标题_患者姓名_单号_打印时间
+ * 前端 print.js 在调起打印前临时把 document.title 切换为返回值，打印返回后恢复。
+ * 空段自动略过；非法文件名字符（\ / : * ? " < > | 与控制符）统一替换为 -。
+ * @param string     $docTitle    文书标题（如：门诊电子病历 / CT检查报告单 / 门诊处方笺）
+ * @param string     $patientName 患者姓名（快照优先，由调用方传入）
+ * @param string     $docNo       单号（流水号/检查号/处方号…；为空则略过该段）
+ * @param array|null $ctx         归档行（含 hospital_name 快照，同 pt_hosp；可选）
+ * @return string
+ */
+function pt_filename($docTitle, $patientName = '', $docNo = '', $ctx = null) {
+    $parts = array(
+        pt_hosp($ctx),
+        (string)$docTitle,
+        (string)$patientName,
+        (string)$docNo,
+        date('Ymd_His'),
+    );
+    $parts = array_filter(array_map('trim', $parts), function ($p) { return $p !== ''; });
+    return preg_replace('/[\\\\\/:*?"<>|\x00-\x1F]+/', '-', implode('_', $parts));
+}
+
 function pt_sec($label, $body) {
     return '<div class="record-section"><div class="sec-label">' . e($label) . '</div>' .
         '<div class="sec-body">' . $body . '</div></div>';
