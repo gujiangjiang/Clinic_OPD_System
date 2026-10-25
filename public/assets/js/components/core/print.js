@@ -1,12 +1,15 @@
 /**
  * ============================================================
- * print.js v1.0.0 — 统一打印模块
+ * print.js v1.1.0 — 统一打印模块
  * ============================================================
  * 说明：所有单据打印（挂号凭条、病历、处方、申请单、
  * 检验检查报告、诊断证明、缴费凭条）统一走此模块：
  * 1. 将内容渲染到 #print-area（服务端返回 HTML 片段）
  * 2. 显示打印预览层（含打印/关闭按钮）
  * 3. 点击打印调用 window.print()，print.css 保证只打印单据
+ * 4. 打印前临时将 document.title 切换为单据文件名（服务端 filename 字段：
+ *    医院名称_文书标题_姓名_单号_时间），浏览器「另存为 PDF」即以该值作为
+ *    默认文件名；打印返回 / afterprint 后自动恢复原标题
  * ============================================================ */
 
 window.Clinic = window.Clinic || {};
@@ -14,6 +17,42 @@ window.Clinic = window.Clinic || {};
 Clinic.print = (function () {
     /** 预览层元素 */
     let previewEl = null;
+
+    /** 本次打印拟用的文件名（浏览器「另存为 PDF」默认文件名 = document.title） */
+    var docFilename = '';
+    /** 打印前的原标题备份（非空表示标题已被临时替换） */
+    var titleBackup = null;
+
+    /** 打印前临时把 document.title 换成单据文件名 */
+    function applyPrintTitle() {
+        if (!docFilename) return;
+        if (titleBackup === null) titleBackup = document.title;
+        document.title = docFilename;
+    }
+
+    /** 恢复原标题（幂等：afterprint 与打印返回可能重复触发） */
+    function restorePrintTitle() {
+        if (titleBackup === null) return;
+        document.title = titleBackup;
+        titleBackup = null;
+    }
+
+    /** 执行打印：文件名切换 + window.print()，返回 / afterprint 后恢复原标题 */
+    function doPrint() {
+        if (!docFilename) { window.print(); return; }
+        applyPrintTitle();
+        var onAfter = function () {
+            window.removeEventListener('afterprint', onAfter);
+            restorePrintTitle();
+        };
+        window.addEventListener('afterprint', onAfter);
+        try {
+            window.print();
+        } finally {
+            // 主流浏览器 print() 同步阻塞（对话框关闭后返回）；afterprint 兜底异步实现
+            restorePrintTitle();
+        }
+    }
 
     /** 当前自动打印偏好：内存态实时读写；
      *  初始值来自服务端注入的 body[data-print-auto]，
@@ -42,9 +81,11 @@ Clinic.print = (function () {
      * @param {string} title     预览标题（可空）
      * @param {string} sheet     纸张类型：'a5'=病历纸 A5 竖版，'ticket'=窄条凭条纸，其他不传
      */
-    function open(html, title, sheet) {
-        // 关闭已有预览
+    function open(html, title, sheet, filename) {
+        // 关闭已有预览（同时清理上一单可能的临时标题）
         close();
+        // 本次打印文件名（服务端 filename 字段：医院名称_文书标题_姓名_单号_时间）
+        docFilename = filename || '';
 
         previewEl = document.createElement('div');
         previewEl.className = 'print-preview' + (sheet ? ' sheet-' + sheet : '');
@@ -94,9 +135,7 @@ Clinic.print = (function () {
 
         // 绑定工具栏
         previewEl.querySelector('[data-act="close"]').addEventListener('click', close);
-        previewEl.querySelector('[data-act="do"]').addEventListener('click', function () {
-            window.print();
-        });
+        previewEl.querySelector('[data-act="do"]').addEventListener('click', doPrint);
 
         // 自动打印偏好（服务端 users.print_auto，跟随用户跨设备生效）
         var autoChk = previewEl.querySelector('[data-act="auto"]');
@@ -109,7 +148,7 @@ Clinic.print = (function () {
         // （无论完成或取消）后自动收起预览层。
         if (autoChk.checked) {
             setTimeout(function () {
-                try { window.print(); } finally { close(); }
+                try { doPrint(); } finally { close(); }
             }, 100);
         }
 
@@ -272,7 +311,7 @@ Clinic.print = (function () {
             loading: true,
             onSuccess: function (json) {
                 if (json.data && json.data.html) {
-                    open(json.data.html, json.data.title || '', sheet);
+                    open(json.data.html, json.data.title || '', sheet, json.data.filename || '');
                 } else {
                     Clinic.toast.error('打印内容获取失败');
                 }
@@ -373,6 +412,9 @@ Clinic.print = (function () {
      * 关闭打印预览
      */
     function close() {
+        // 兜底：打印流程异常中断时恢复原标题，绝不让临时文件名残留在标签页
+        restorePrintTitle();
+        docFilename = '';
         if (previewEl) {
             previewEl.remove();
             previewEl = null;
