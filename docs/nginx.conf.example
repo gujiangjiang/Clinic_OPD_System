@@ -36,6 +36,14 @@ server {
     # 上传大小限制（医院 LOGO / 用户照片）
     client_max_body_size 10m;
 
+    # ---------- 动态站点图标（精确匹配，必须声明在静态资源正则之前） ----------
+    # /pwa-icon.png 由 PHP（GD）动态生成（医院 LOGO / 默认医疗十字图标），
+    # 非物理文件；若不声明，会被下方「静态资源正则」当物理文件查找 → 404，
+    # 导致默认 LOGO 与浏览器标签页图标不显示（宝塔默认站点配置同此坑）。
+    location = /pwa-icon.png {
+        try_files $uri /index.php?$query_string;
+    }
+
     # ---------- 静态资源缓存 ----------
     location ~* \.(css|js|png|jpg|jpeg|gif|webp|svg|ico)$ {
         expires 7d;

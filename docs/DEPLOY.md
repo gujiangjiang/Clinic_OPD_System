@@ -28,6 +28,12 @@ server {
         try_files $uri $uri/ /index.php?$query_string;
     }
 
+    # 动态站点图标（PHP+GD 输出，非物理文件）：精确匹配优先于静态资源正则，
+    # 否则 /pwa-icon.png 会被当静态文件查找而 404（默认 LOGO 与标签图标不显示）
+    location = /pwa-icon.png {
+        try_files $uri /index.php?$query_string;
+    }
+
     # PHP-FPM（按实际监听地址修改）
     location ~ \.php$ {
         try_files $uri =404;
@@ -63,6 +69,11 @@ server {
    ```nginx
    location / {
        try_files $uri $uri/ /index.php?$query_string;
+   }
+   # 宝塔默认静态图片正则（location ~ .*\.(png|jpg|jpeg|...)）会优先拦截
+   # PHP 动态生成的 /pwa-icon.png，需精确匹配绕过（否则默认 LOGO 与标签图标 404）
+   location = /pwa-icon.png {
+       try_files $uri /index.php?$query_string;
    }
    ```
 
@@ -116,6 +127,7 @@ RewriteRule ^ /index.php [L,QSA]
 | 错误日志出现 `open() ".../public/404.html" failed` | 宝塔默认 404 页指向不存在的文件 | 注释 `error_page 404 /404.html;` |
 | 500 / 白屏，日志出现 `open_basedir restriction in effect` | 防跨站攻击限制在 `public` | 关闭「防跨站攻击」或将其路径改为项目根 |
 | 安装向导可打开但初始化失败 | `data/` 不可写 | `chown -R www:www` 项目目录 |
+| 默认 LOGO / 浏览器标签图标不显示，`/pwa-icon.png` 返回 404 | 宝塔静态资源正则把 PHP 动态图标当物理文件查找 | 伪静态加入 `location = /pwa-icon.png` 精确匹配（见上文第 3 步）；与 GD 无关 |
 | 后台任务（自动备份 / 病历归档 / 出向同步）不执行，`data/logs/app.log` 提示 `popen() 不可用` | 宝塔 PHP 禁用函数含 `popen` | 软件商店 → PHP 设置 → 禁用函数移除 `popen` 保存；系统本身会优雅降级不报错 |
 | LOGO / 照片上传失败 | 上传限制过小 | 调整 `client_max_body_size` 与 PHP 上传参数 |
 | 大屏 / 叫号页并发卡顿 | Session 独占锁排队 | 确认已启用 `Session::closeReadOnly()`（内置）；高并发按上文优化 Session 存储 |
