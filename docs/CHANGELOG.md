@@ -13,6 +13,28 @@
 
 ---
 
+## [9.15.3] - 2026-10-25
+
+### 修复
+- **宝塔/Linux 全新部署首次访问 500（`Call to undefined function popen()`）**：
+  宝塔 PHP 默认将 `popen` 列入「禁用函数」，PHP 8 下调用即抛未捕获
+  `Error`——首次访问触发每日维护调度（`public/index.php` 病历归档 spawn）时
+  整站 500。现 `spawn_background()` 双重检测（函数存在 + `disable_functions`
+  列表）：不可用时写日志并优雅降级返回 false，后台任务跳过、页面不受影响；
+  同时「未安装」状态（安装向导阶段）跳过两个每日调度，避免安装前空跑。
+
+### 变更
+- **后台任务 PHP CLI 运行器跨平台化**（`app/core/helpers.d/process.php`）：
+  `php_cli_runner()` 由「frankenphp 专用」扩展为
+  frankenphp（macOS 本机）→ 系统 PHP CLI（`PHP_BINDIR/php`，Linux/宝塔）→
+  PATH 回退 `php`；`spawn_background()` 按运行器类型拼命令（frankenphp 用
+  `php-cli` 子命令、系统 php 直接执行脚本），修复 Linux 服务器上定时自动备份 /
+  病历归档 / 出向同步等后台任务无法启动的问题；frankenphp 候选路径探测改为
+  `@is_file`，消除 open_basedir 环境下的日志噪音。
+
+### 文档
+- `docs/DEPLOY.md` 宝塔部署步骤与排查表补充「禁用函数放行 `popen`」说明。
+
 ## [9.15.2] - 2026-10-25
 
 ### 修复
