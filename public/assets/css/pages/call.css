@@ -1,5 +1,5 @@
 /* ============================================================
- * call.css v1.3.0 — 诊室门口叫号屏幕样式
+ * call.css v1.3.1 — 诊室门口叫号屏幕样式
  * 说明：独立全屏显示，深色底 + 大字体 + 高对比，保证远距离可读。
  * 科室跟随医生端选择，大屏端不提供切换按钮；
  * 就诊区只显示姓名与号次，预留复诊标记。
@@ -252,6 +252,33 @@
     padding: clamp(6px, 1cqmin, 16px) clamp(8px, 1.6cqmin, 28px);
     overflow: hidden;
     container-type: normal;
+}
+
+/* ---------- 初始加载占位：占满主区、水平垂直居中 + 环形旋转动画 ---------- */
+.screen-loading {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(12px, 2.2cqmin, 34px);
+    text-align: center;
+}
+.screen-loading-ring {
+    width: clamp(44px, 8cqmin, 120px);
+    height: clamp(44px, 8cqmin, 120px);
+    border: clamp(4px, .75cqmin, 10px) solid rgba(255, 255, 255, .16);
+    border-top-color: #6db3ff;
+    border-radius: 50%;
+    animation: screen-loading-spin .9s linear infinite;
+}
+@keyframes screen-loading-spin {
+    to { transform: rotate(360deg); }
+}
+.screen-loading-text {
+    color: #a8c8e8;
+    font-size: clamp(20px, 3.4cqmin, 48px);
+    letter-spacing: .06em;
 }
 
 /* ---------- 预览锁定（pv-locked）：body 直接锁定为显示尺寸（cqmin 基准已在 body） ----------

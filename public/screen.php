@@ -86,7 +86,10 @@ $isDoctor = $room['room_type'] === 'doctor';
 </div>
 
 <div class="screen-main" id="screenMain">
-    <div class="empty" style="color:#fff"><div class="spinner" style="border-top-color:#fff;margin:0 auto"></div>正在加载大屏数据…</div>
+    <div class="screen-loading">
+        <div class="screen-loading-ring"></div>
+        <div class="screen-loading-text">正在加载大屏数据…</div>
+    </div>
 </div>
 
 <!-- 底部温馨提示（多条目自动轮播/跑马灯） -->

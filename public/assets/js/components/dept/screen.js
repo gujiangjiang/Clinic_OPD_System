@@ -683,7 +683,7 @@
 
     function renderErr(msg) {
         var main = document.getElementById('screenMain');
-        if (main) main.innerHTML = '<div class="screen-empty-big" style="color:#f88">' + (msg || '加载失败，自动重试中…') + '</div>';
+        if (main) main.innerHTML = '<div class="screen-loading"><div class="screen-loading-ring"></div><div class="screen-loading-text" style="color:#f88">' + (msg || '加载失败，自动重试中…') + '</div></div>';
     }
 
     setInterval(function () { if (window.speechSynthesis) TTS.resume(); }, 10000);
