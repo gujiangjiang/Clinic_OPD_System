@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * deptpicker.js v1.0.0 — 通用科室选择模态框
+ * deptpicker.js v1.1.0 — 通用科室选择模态框
  * ============================================================
  * 说明：参考医生站「切换科室」卡片式弹窗抽象出的通用组件，
  * 同一套 UI 复用于：挂号选科室 / 医生选择(切换)科室 / 转科。
@@ -122,6 +122,31 @@ Clinic.deptPicker = (function () {
 
         return '<div class="' + cls + '" data-id="' + d.id + '" data-tab="' + tab + '">' +
             '<div class="dept-pick-name">' + Clinic.escHtml(d.name) + '</div>' + extra + '</div>';
+    }
+
+    /**
+     * 原地更新已打开模态框中的大屏统计徽标（叫号管理实时刷新用）：
+     * 只改首个徽标的文案与样式，不重绘整个弹窗（避免闪烁 / 滚动位置丢失）。
+     * @param {Array} list room_stats 返回的 [{id, room_count, online_count}]（id 为科室 id）
+     */
+    function updateRoomStats(list) {
+        if (!list || !list.length) return;
+        var map = {};
+        list.forEach(function (s) { map[s.id] = s; });
+        document.querySelectorAll('.dept-pick-card[data-id]').forEach(function (el) {
+            var id = parseInt(el.getAttribute('data-id'), 10);
+            var s = map[id];
+            if (!s) return;
+            var badge = el.querySelector('.dept-pick-tags .badge');
+            if (!badge) return;
+            if (s.room_count > 0) {
+                badge.className = 'badge badge-' + (s.online_count > 0 ? 'success' : 'gray');
+                badge.innerHTML = renderIconSvg('nav:screen') + ' ' + s.online_count + '/' + s.room_count + ' 在线';
+            } else {
+                badge.className = 'badge badge-gray';
+                badge.textContent = '无大屏';
+            }
+        });
     }
 
     /**
@@ -296,5 +321,5 @@ Clinic.deptPicker = (function () {
         return m;
     }
 
-    return { open: open };
+    return { open: open, updateRoomStats: updateRoomStats };
 })();

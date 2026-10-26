@@ -95,6 +95,34 @@ function openPicker() {
         showRoomStats: true,
         onSelect: function (d) { pickDept(d.id); },
     });
+    startPickerLiveRefresh();
+}
+
+/* ===== 模态框打开期间的在线统计实时刷新 =====
+   打开前已实时拉取一次；打开期间再每 5 秒静默刷新（原地更新徽标，不重绘防闪烁），
+   大屏上下线在模态框停留期间也能即时可见；模态框关闭后自动停止轮询。
+   与「打开前刷新」双保险：即便某次打开前请求偶发失败，停留期间也会自愈。 */
+var CM_MODAL_TIMER = null;
+
+function startPickerLiveRefresh() {
+    stopPickerLiveRefresh();
+    CM_MODAL_TIMER = setInterval(function () {
+        // 模态框已关闭（卡片 DOM 不存在）→ 停止轮询
+        if (!document.querySelector('.dept-pick-card')) { stopPickerLiveRefresh(); return; }
+        Clinic.get('/api/admin?action=room_stats', null, {
+            loading: false,
+            silent: true,   // 后台轮询：失败不弹 toast，仅 console 记录，下一轮自动重试
+            onSuccess: function (json) {
+                var list = json.data.list || [];
+                applyDeptStats(list);                                // 同步 CM_DEPS（下次打开即实时）
+                Clinic.deptPicker.updateRoomStats(list);             // 原地更新已打开模态框徽标
+            },
+        });
+    }, 5000);
+}
+
+function stopPickerLiveRefresh() {
+    if (CM_MODAL_TIMER) { clearInterval(CM_MODAL_TIMER); CM_MODAL_TIMER = null; }
 }
 
 /* 将 room_stats 接口返回的统计写入 CM_DEPS（模态框数据源） */
@@ -111,6 +139,7 @@ function applyDeptStats(list) {
 }
 
 function pickDept(id) {
+    stopPickerLiveRefresh();   // 已选定科室、模态框即将关闭 → 停止统计轮询
     CM_DEPT = id;
     var cur = null;
     CM_DEPS.forEach(function (d) { if (d.id === id) cur = d; });
