@@ -58,10 +58,14 @@
   `app/config/drivers.php`（唯一数据源）：安装向导、系统设置、后端校验共用，
   新增驱动仅维护该文件一处，前端下拉与参数表单自动动态渲染。
 
-## 时间与时区铁律（v9.15.9+ 通用时区框架）
+## 时间与时区铁律（v9.16.0+ 通用时区框架）
 
-- **数据契约**：所有 DATETIME 列存「站点时区（系统设置 → 全站时区）墙钟
-  字符串」，写入唯一来源 `now_str()` / `today_str()`；分日一律 PHP `date('Y-m-d')`。
+- **存储契约（当前生产态 = 站点时区墙钟）**：所有 DATETIME 列存「站点时区
+  （系统设置 → 全站时区）墙钟字符串」，写入唯一来源 `now_str()` / `today_str()`；
+  分日一律 PHP `date('Y-m-d')`。
+- **目标态（UTC 存储，分阶段推进）**：数据库统一存 UTC（`now_utc()` / 迁移工具），
+  展示层经 `utc_to_local()` 换算；法律性单据按**快照固化时区**渲染，保证重打
+  内容与开具时刻完全一致。切换必须按下方「UTC 化迁移规程」执行，严禁手工散改。
 - **禁止 SQL 端时间函数**（`NOW()` / `CURRENT_TIMESTAMP` / `datetime('now')` /
   `UNIX_TIMESTAMP()` / `strftime(...)` / `date('now',...)` 等）：SQLite 的
   `localtime` 取操作系统时区（容器常为 UTC）、MySQL/PG 取会话时区，与站点时区
@@ -80,6 +84,19 @@
   字面量**（所有驱动统一，含 SQLite）。
 - **新增表时间列不设 `DEFAULT CURRENT_TIMESTAMP`**（SQLite 为 UTC），插入显式
   传 `now_str()`。
+- **打印快照时区固化（已落地）**：`snapshot_patient()`（快照唯一写入入口）在
+  创建/更新时固化 `print_snapshots.tz` + `tz_offset`（schema v54）；覆盖病历/
+  申请单/凭条/报告/诊断证明/同意书等全部快照类单据——历史单据重打不随全站
+  时区修改或存储方案切换漂移（法律合规）。
+- **UTC 化迁移规程（`tools/cli/tz_migrate.php`）**：
+  1. `plan` 只读预演（逐列行数 + 抽样对照 + 阻断清单）；
+  2. 副本 `apply` 演练并校验，`rollback` 往返零误差后才碰生产；
+  3. 备份生产库（工具对 SQLite 自动整库备份）；
+  4. 窗口期 `apply --yes`（唯一索引引用列自动阻断，不盲切）；
+  5. 发布读写层切换版本（展示换算 + 分日窗口按站点时区 + 打印按快照时区）；
+  6. 验收：随机抽样 + 打印比对 + 报表口径确认。
+  已知专项阻断：`idx_registrations_dept_date_seq`（按 `date(registered_at)`
+  业务日防重）——需先设计独立业务日期列再处理。
 - **修改全站时区的影响**：新写入数据完全一致；历史墙钟数据的分日归属按新时区
   重新解释（墙钟存储的固有语义）；在线/绑定等相对时间租约由 fail-closed 兜底，
   下一笔心跳（≤30 秒）自动恢复正确状态。
@@ -103,7 +120,8 @@
     + 危急值，`--module=fhir` / `--scene=fhir`）/`VisitFlowEngine`/`PreflightChecker`）。
   - `tools/lint/`：语法检查工具（原 `tools/schema/` 一次性迁移/修复脚本已于本次复盘清理移除）。
   - `tools/cli/`：后台/定时任务（`db_migrate_run.php` 迁移、`db_backup_run.php` 备份、
-    `integration_outbox_run.php` 出向同步、`log_archive_run.php` 日志滑动归档、`hl7_mllp_server.php` 等）。
+    `integration_outbox_run.php` 出向同步、`log_archive_run.php` 日志滑动归档、
+    `tz_migrate.php` 全库时间迁移（UTC 化预演/执行/回滚）、`hl7_mllp_server.php` 等）。
 - **开发铁律**：后续任何测试造数需求，严禁在 `tools/` 根目录随意新建孤立的 `seed_xxx.php` 脚本，
   必须在 `seeder/` 中扩展复用（场景通过 `tools/bin/seed.php` 组合调度）；
   造数一律通过统一 CLI 入口调度。
