@@ -120,14 +120,16 @@ function deptwork_queue_rows($u, $status, $today) {
     $todayWhere = $today ? " AND date(oi.created_at)=?" : '';
 
     // 可见天数过滤：每条明细按其开单医生的可见天数过滤；多医生开单以各自天数并集。
-    // 三驱动方言：SQLite 用日期修饰符 + 标量 MAX/MIN；MySQL 用 DATE_SUB + GREATEST/LEAST；
-    // PostgreSQL 用 CURRENT_DATE - INTERVAL。
+    // 「今天」锚定 PHP 站点时区（? 参数 = today_str()），禁止取数据库端当前日期——
+    // SQLite 的 'localtime' 取操作系统时区、MySQL/PG 取会话时区，与站点时区不一致时
+    // 分日窗口整体偏移（详见 AGENTS.md「时间与时区铁律」）。
+    // 三驱动方言仅保留「日期减 N 天」的写法差异：MySQL DATE_SUB / PG 日期减法 / SQLite 修饰符
     $__drv = DatabaseManager::driver();
     $queueDaysClause = ($__drv === 'mysql')
-        ? "date(oi.created_at) >= DATE_SUB(CURDATE(), INTERVAL (GREATEST(2, LEAST(7, COALESCE(usr.queue_days,3))) - 1) DAY)"
+        ? "date(oi.created_at) >= DATE_SUB(?, INTERVAL (GREATEST(2, LEAST(7, COALESCE(usr.queue_days,3))) - 1) DAY)"
         : (($__drv === 'pgsql')
-            ? "date(oi.created_at) >= CURRENT_DATE - (GREATEST(2, LEAST(7, COALESCE(usr.queue_days,3))) - 1)"
-            : "date(oi.created_at) >= date('now','localtime','-' || (MAX(2, MIN(7, COALESCE(usr.queue_days,3))) - 1) || ' days')");
+            ? "date(oi.created_at) >= ?::date - (GREATEST(2, LEAST(7, COALESCE(usr.queue_days,3))) - 1)"
+            : "date(oi.created_at) >= date(?, '-' || (MAX(2, MIN(7, COALESCE(usr.queue_days,3))) - 1) || ' days')");
 
     // 可见天数跟随开单医生权限（users.queue_days 2-7，默认 3）：
     // 每条明细按其开单医生的可见天数过滤；多医生开单以各自天数并集（取最长窗口）。
@@ -168,7 +170,8 @@ function deptwork_queue_rows($u, $status, $today) {
     }
     $sql .= ' LIMIT 300';
 
-    $params = array_merge($typeParams, $deptIds);
+    // 参数顺序须与 SQL 占位符出现顺序一致：类型 → 可见天数起点日期 → 科室 → 当日
+    $params = array_merge($typeParams, array(today_str()), $deptIds);
     if ($today) $params[] = today_str();
     return OrderRepository::q($sql, $params);
 }
@@ -541,7 +544,7 @@ function deptwork_get_available_rooms($u) {
     $rows = QueueRepository::q("SELECT * FROM clinic_rooms WHERE $where ORDER BY id", $params);
     $list = array();
     foreach ($rows as $room) {
-        $isOnline = (!empty($room['screen_last_heartbeat_at']) && (time() - strtotime($room['screen_last_heartbeat_at'])) <= 30);
+        $isOnline = QueueRepository::screenOnline($room);   // 统一 PHP 端口径（30 秒租约 fail-closed）
         if (!$isOnline) {
             $status = 'offline'; $text = '大屏离线，请联系管理员'; $sel = false;
         } elseif ($room['current_doctor_id'] > 0 && (int)$room['current_doctor_id'] !== (int)$u['id']) {
@@ -572,8 +575,8 @@ function deptwork_bind_room($u) {
     if ($myDepts && !in_array((int)$room['dept_id'], $myDepts, true)) {
         json_fail('无权绑定其他科室的诊室');
     }
-    // 后端强拦截：大屏必须在线
-    if (empty($room['screen_last_heartbeat_at']) || (time() - strtotime($room['screen_last_heartbeat_at'])) > 30) {
+    // 后端强拦截：大屏必须在线（统一 QueueRepository::screenOnline 口径）
+    if (!QueueRepository::screenOnline($room)) {
         json_fail('该大屏当前处于离线状态，无法绑定，请确保大屏已开启并在运行！');
     }
     // 已被他人占用 → 拒绝

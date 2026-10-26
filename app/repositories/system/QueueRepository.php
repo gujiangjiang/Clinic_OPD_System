@@ -219,21 +219,11 @@ class QueueRepository extends BaseRepository {
     /** 大屏医生心跳保活检测：超过 300 秒未更新视为异常断开
      *  （医生端 room_heartbeat.js 全局每 30 秒心跳一次，跨页面持续；
      *   离开工作站/刷新页面均不会中断，仅真正退出登录或异常断开才解绑）
-     *  三驱动方言：SQLite 用 strftime 转 epoch；MySQL 用 UNIX_TIMESTAMP；
-     *  PostgreSQL 用 EXTRACT(EPOCH FROM ...)。 */
+     *  统一 PHP 端 is_recent() 口径（fail-closed：未来时间视为失效）——
+     *  禁止 SQL 端时间函数（时区口径差异见 app/core/helpers.d/time.php 头注）。 */
     public static function doctorHeartbeatStale($roomId) {
-        $drv = DatabaseManager::driver();
-        if ($drv === 'mysql') {
-            $cond = '(UNIX_TIMESTAMP() - UNIX_TIMESTAMP(doctor_heartbeat_at)) > 300';
-        } elseif ($drv === 'pgsql') {
-            $cond = '(EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM doctor_heartbeat_at)) > 300';
-        } else {
-            $cond = "(strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat_at)) > 300";
-        }
-        return (int)self::val(
-            "SELECT COUNT(*) FROM clinic_rooms WHERE id=? AND (doctor_heartbeat_at IS NULL OR $cond)",
-            array((int)$roomId)
-        ) > 0;
+        $hb = (string)self::val('SELECT doctor_heartbeat_at FROM clinic_rooms WHERE id=?', array((int)$roomId));
+        return !is_recent($hb, 300);
     }
 
     /** 解除大屏与医生的绑定 */
@@ -253,14 +243,11 @@ class QueueRepository extends BaseRepository {
      * @return int 本次释放的绑定数
      */
     public static function sweepStaleBindings() {
-        // 候选（有绑定的诊室）极少，统一 PHP 端时区口径判定 300 秒租约——
-        // 不用 SQL 时间函数：容器/数据库时区（常见 UTC）与 PHP 时区（Asia/Shanghai）
-        // 不一致时 SQL 口径会偏差数小时，导致过期绑定清理滞后
+        // 候选（有绑定的诊室）极少，统一 PHP 端 is_recent() 判定 300 秒租约
+        // （fail-closed：未来时间视为失效，覆盖时区变更/时钟回拨异常场景）
         $ids = array();
         foreach (self::q('SELECT id, doctor_heartbeat_at FROM clinic_rooms WHERE current_doctor_id > 0') as $r) {
-            $hb = (string)$r['doctor_heartbeat_at'];
-            $t = $hb !== '' ? strtotime($hb) : false;
-            if ($t === false || (time() - $t) > 300) $ids[] = (int)$r['id'];
+            if (!is_recent($r['doctor_heartbeat_at'], 300)) $ids[] = (int)$r['id'];
         }
         $n = 0;
         foreach ($ids as $id) {
@@ -305,9 +292,8 @@ class QueueRepository extends BaseRepository {
      */
     public static function screenOnline($room) {
         $hb = is_array($room) && isset($room['screen_last_heartbeat_at']) ? (string)$room['screen_last_heartbeat_at'] : '';
-        if ($hb === '') return false;
-        $t = strtotime($hb);
-        return $t !== false && (time() - $t) <= 30;
+        // 统一 PHP 端 is_recent()：30 秒租约 + fail-closed（未来时间视为失效）
+        return is_recent($hb, 30);
     }
 
     /**

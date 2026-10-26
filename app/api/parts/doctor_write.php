@@ -54,8 +54,8 @@ function doctor_part_write($action) {
         if (!in_array((int)$room['dept_id'], user_dept_ids($u), true)) {
             json_fail('无权绑定该科室诊室');
         }
-        // 后端强拦截：大屏必须在线
-        if (empty($room['screen_last_heartbeat_at']) || (time() - strtotime($room['screen_last_heartbeat_at'])) > 30) {
+        // 后端强拦截：大屏必须在线（统一 QueueRepository::screenOnline 口径）
+        if (!QueueRepository::screenOnline($room)) {
             json_fail('该大屏当前处于离线状态，无法绑定，请确保大屏已开启并在运行！');
         }
         // 已被其他医生占用 → 拒绝
