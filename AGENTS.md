@@ -58,6 +58,32 @@
   `app/config/drivers.php`（唯一数据源）：安装向导、系统设置、后端校验共用，
   新增驱动仅维护该文件一处，前端下拉与参数表单自动动态渲染。
 
+## 时间与时区铁律（v9.15.9+ 通用时区框架）
+
+- **数据契约**：所有 DATETIME 列存「站点时区（系统设置 → 全站时区）墙钟
+  字符串」，写入唯一来源 `now_str()` / `today_str()`；分日一律 PHP `date('Y-m-d')`。
+- **禁止 SQL 端时间函数**（`NOW()` / `CURRENT_TIMESTAMP` / `datetime('now')` /
+  `UNIX_TIMESTAMP()` / `strftime(...)` / `date('now',...)` 等）：SQLite 的
+  `localtime` 取操作系统时区（容器常为 UTC）、MySQL/PG 取会话时区，与站点时区
+  不一致时产生整小时级偏斜（历史 bug：「选择科室」模态框与诊室列表在线状态
+  打架，即宝塔容器 UTC + 站点上海相差 8 小时所致）。
+- **相对时间/租约统一走 `app/core/helpers.d/time.php`**：`ts_epoch()` /
+  `seconds_ago()` / `is_recent()`（fail-closed：未来超过 5 秒视为失效——宁可
+  显示离线，也不把陈旧数据误判为在线/占用）。大屏在线（30 秒租约）唯一判定
+  入口 `QueueRepository::screenOnline()`；医生绑定（300 秒租约）
+  `doctorHeartbeatStale()` / `sweepStaleBindings()`。
+- **数据库会话时区锚定**：`ConnectionFactory::pinSession()`（MySQL/PG 建立连接后
+  SET 为站点时区，防御性兜底）；直连 `new PDO(ConnectionFactory::dsn(...))` 的
+  调用点必须显式调用。SQLite 无会话时区——时间运算必须走 PHP 端。
+- **迁移/种子 SQL**：可沿用 SQLite 方言书写 `datetime('now','localtime')`——
+  `DatabaseManager::dialectSqlFor()` 会在执行时改写为**当前时刻的 PHP 站点时区
+  字面量**（所有驱动统一，含 SQLite）。
+- **新增表时间列不设 `DEFAULT CURRENT_TIMESTAMP`**（SQLite 为 UTC），插入显式
+  传 `now_str()`。
+- **修改全站时区的影响**：新写入数据完全一致；历史墙钟数据的分日归属按新时区
+  重新解释（墙钟存储的固有语义）；在线/绑定等相对时间租约由 fail-closed 兜底，
+  下一笔心跳（≤30 秒）自动恢复正确状态。
+
 ## 药品与处方规则（v8.17 核心约束）
 
 - 药品模型含 `allow_split`（是否支持拆零零售）：**不可拆零药品仅支持按包装单位（盒/瓶）销售；允许拆零药品方可选择最小单位（支/片/粒）**，前后端双重校验。

@@ -120,7 +120,7 @@ $dbType = strtoupper(DatabaseManager::driver());
                     <div class="card-title"><?= render_icon('nav:globe') ?> 网站时区</div>
                     <div class="form-group"><label class="form-label">全站时区</label>
                         <select class="select" id="s_tz" data-csd-search="1"><?php echo $tzOpts; ?></select>
-                        <div class="fs-12 text-muted mt-4">默认取创建管理员时的浏览器时区，修改后保存设置即时生效。</div></div>
+                        <div class="fs-12 text-muted mt-4">默认取创建管理员时的浏览器时区，修改后保存设置即时生效。新数据按新时区记录；历史数据的分日归属将按新时区重新解释，在线/绑定等实时状态自动按新时区恢复。</div></div>
                     <button class="btn btn-primary btn-sm" onclick="saveSettings()">保存设置</button>
                 </div>
             </div>
