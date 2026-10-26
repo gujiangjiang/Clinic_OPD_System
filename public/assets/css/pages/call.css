@@ -1,5 +1,5 @@
 /* ============================================================
- * call.css v1.3.1 — 诊室门口叫号屏幕样式
+ * call.css v1.3.2 — 诊室门口叫号屏幕样式
  * 说明：独立全屏显示，深色底 + 大字体 + 高对比，保证远距离可读。
  * 科室跟随医生端选择，大屏端不提供切换按钮；
  * 就诊区只显示姓名与号次，预留复诊标记。
@@ -299,7 +299,10 @@
     font-size: clamp(16px, 3cqmin, 46px);
     font-weight: 700;
     color: #ffd54f;
-    letter-spacing: 4px;
+    /* 字距随画布缩放（固定 4px 在窄面板下会把「（N）」挤到下一行）；
+       nowrap + 渲染后 JS 单行自适应收字号，保证任何宽度下整行显示 */
+    letter-spacing: clamp(1px, 1cqmin, 4px);
+    white-space: nowrap;
     margin-bottom: clamp(4px, 0.8cqmin, 12px);
     text-align: center;
     flex-shrink: 0;
@@ -430,6 +433,11 @@
     justify-content: center;
     text-align: center;
     color: #90a9c2;
+}
+/* 占位语（暂无医生信息 / 暂无医生介绍）：由 JS 按所在单元格动态适配字号 */
+.screen-doc-intro-fit {
+    display: inline-block;
+    line-height: 1.2;
 }
 
 /* ---------- 模式A：医生诊室——上下两行网格（医生卡 | 主区） ---------- */
@@ -724,6 +732,7 @@
     text-align: center;
     flex-shrink: 0;
     padding-bottom: clamp(4px, 0.8cqmin, 12px);
+    white-space: nowrap;   /* 单行显示；过窄时由 JS 单行自适应收字号 */
 }
 .dept-wait-list {
     flex: 1;

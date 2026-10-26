@@ -1,5 +1,5 @@
 /**
- * screen.js v1.1.0 — 叫号大屏前端（免登常驻 + 双模式 + 语音播报 + 温馨提示轮播）
+ * screen.js v1.1.1 — 叫号大屏前端（免登常驻 + 双模式 + 语音播报 + 温馨提示轮播）
  * 功能：
  * 1. 每 3 秒轮询 /api/screen.php?action=heartbeat&token=xxx（心跳 + 数据）
  * 2. 双模式渲染：doctor 大卡片 / 医技列表看板
@@ -308,6 +308,124 @@
         if (titleEl) titleEl.style.fontSize = (fs * 0.62) + 'px';
         if (empEl) empEl.style.fontSize = (fs * 0.5) + 'px';
         if (introEl) introEl.style.fontSize = (fs * 0.46) + 'px';
+
+        // 占位语（暂无医生信息 / 暂无医生介绍）：按自身单元格（第 5-7 行）动态适配——
+        // 原按「姓名字号 × 0.46」联动，小屏下姓名字号本就小，占位语会缩到不可见
+        var fitSpan = card.querySelector('.screen-doc-intro-fit');
+        if (fitSpan && introEl) {
+            var cellW = introEl.clientWidth;
+            var cellH = rowH * 3 + rowGap * 2;
+            var chars = Math.max(1, (fitSpan.textContent || '').length);
+            var ifs = Math.min(cellH * 0.55, cellW / (chars * 1.1));
+            fitSpan.style.whiteSpace = 'nowrap';
+            fitSpan.style.fontSize = Math.max(10, ifs) + 'px';
+            var g2 = 60;
+            while (g2-- > 0 && ifs > 10 && (fitSpan.scrollWidth > cellW + 1 || fitSpan.offsetHeight > cellH + 1)) {
+                ifs = Math.max(10, ifs * 0.93);
+                fitSpan.style.fontSize = ifs + 'px';
+            }
+        }
+    }
+
+    /* ============ 通用自适应字号工具（小屏/极端比例防溢出） ============
+       大屏为电视尺寸设计、字号以 cqmin 随画布缩放，但 clamp() 的 px 下限在
+       小画布上不会继续缩小。以下工具按「实际容器尺寸」动态收缩字号，覆盖
+       小分辨率 / 极端纵横比下的换行、裁切与不可见问题（只缩不放，CSS 负责大屏）。 */
+
+    /** 单行文本自适应：nowrap 下逐步缩小直至整行放入容器宽度（不低于 minPx） */
+    function fitOneLine(el, minPx) {
+        if (!el) return;
+        el.style.whiteSpace = 'nowrap';
+        // 测量时临时左对齐：居中文本溢出两侧时 scrollWidth 不计入左侧溢出会误判
+        var prevAlign = el.style.textAlign;
+        el.style.textAlign = 'left';
+        var fs = parseFloat(getComputedStyle(el).fontSize) || 16;
+        el.style.fontSize = fs + 'px';
+        var avail = el.clientWidth;
+        var guard = 60;
+        while (guard-- > 0 && fs > minPx && el.scrollWidth > avail + 1) {
+            fs = Math.max(minPx, fs * 0.93);
+            el.style.fontSize = fs + 'px';
+        }
+        el.style.textAlign = prevAlign || '';
+    }
+
+    /** 块状文本自适应：缩小字号直至内容（可换行）放入 box 的宽高（不低于 minPx） */
+    function fitTextInBox(el, box, minPx) {
+        if (!el || !box) return;
+        var fs = parseFloat(getComputedStyle(el).fontSize) || 20;
+        el.style.fontSize = fs + 'px';
+        var guard = 60;
+        while (guard-- > 0 && fs > minPx &&
+               (el.offsetHeight > box.clientHeight + 1 || el.scrollWidth > box.clientWidth + 1)) {
+            fs = Math.max(minPx, fs * 0.93);
+            el.style.fontSize = fs + 'px';
+        }
+    }
+
+    /** 正在就诊/下一位姓名：扣除序号行高度后适配面板内容区（防长名溢出裁切） */
+    function fitPanelName(panel) {
+        var name = panel.querySelector('.screen-cur-name, .screen-next-name');
+        if (!name) return;
+        var body = panel.querySelector('.screen-panel-body');
+        var seq = panel.querySelector('.screen-cur-seq, .screen-next-seq');
+        if (!body) return;
+        var availH = body.clientHeight - (seq ? seq.offsetHeight + 6 : 0);
+        var fs = parseFloat(getComputedStyle(name).fontSize) || 24;
+        name.style.fontSize = fs + 'px';
+        var guard = 60;
+        while (guard-- > 0 && fs > 10 && name.offsetHeight > availH + 1) {
+            fs = Math.max(10, fs * 0.93);
+            name.style.fontSize = fs + 'px';
+        }
+    }
+
+    /** 医生模式渲染后的整屏文本自适应（面板标题 / 空态 / 姓名） */
+    function fitScreenTexts(root) {
+        // 1) 面板标题单行自适应（等待就诊（N）等，防窄面板下把（N）挤到下一行）
+        var titles = root.querySelectorAll('.screen-panel-title');
+        for (var i = 0; i < titles.length; i++) fitOneLine(titles[i], 10);
+        // 2) 面板内空态文本：适配面板内容区（防换行后底部被裁切）
+        var empties = root.querySelectorAll('.screen-panel-body .screen-empty-big, .screen-panel-body .screen-empty');
+        for (var j = 0; j < empties.length; j++) {
+            fitTextInBox(empties[j], empties[j].closest('.screen-panel-body'), 10);
+        }
+        // 3) 等待面板空态（外层 .screen-wait-empty 负责居中）
+        var wEmpty = root.querySelector('.screen-wait-empty');
+        if (wEmpty) {
+            var t = wEmpty.querySelector('.screen-empty');
+            if (t) fitTextInBox(t, wEmpty, 10);
+        }
+        // 4) 正在就诊 / 下一位姓名适配
+        var panels = root.querySelectorAll('.screen-cur-panel, .screen-next-panel');
+        for (var k = 0; k < panels.length; k++) fitPanelName(panels[k]);
+    }
+
+    /** 医技模式渲染后的文本自适应（当前患者姓名 / 空态 / 队列标题） */
+    function fitDeptTexts(root) {
+        var now = root.querySelector('.dept-now');
+        var name = root.querySelector('.dept-now-name');
+        if (now && name) {
+            var others = 12;   // 容器上下 padding 预算
+            var label = root.querySelector('.dept-now-label');
+            var sub = root.querySelector('.dept-now-sub');
+            if (label) others += label.offsetHeight;
+            if (sub) others += sub.offsetHeight + 8;
+            var availH = now.clientHeight - others;
+            var fs = parseFloat(getComputedStyle(name).fontSize) || 30;
+            name.style.fontSize = fs + 'px';
+            var guard = 60;
+            while (guard-- > 0 && fs > 10 && name.offsetHeight > availH + 1) {
+                fs = Math.max(10, fs * 0.93);
+                name.style.fontSize = fs + 'px';
+            }
+        }
+        var nowEmpty = root.querySelector('.dept-now-empty');
+        if (nowEmpty && nowEmpty.parentElement) fitTextInBox(nowEmpty, nowEmpty.parentElement, 10);
+        var waitEmpty = root.querySelector('.dept-wait-empty');
+        if (waitEmpty && waitEmpty.parentElement) fitTextInBox(waitEmpty, waitEmpty.parentElement, 10);
+        var waitTitle = root.querySelector('.dept-wait-title');
+        if (waitTitle) fitOneLine(waitTitle, 10);
     }
 
     function seqLabel(r) {
@@ -350,11 +468,11 @@
               (doc.title ? '<div class="screen-doc-title">' + esc(doc.title) + '</div>' : '') +
               (doc.emp_no ? '<div class="screen-doc-emp">工号 ' + esc(doc.emp_no) + '</div>' : '') +
               '</div>' +
-              '<div class="screen-doc-intro' + (doc.intro ? '' : ' screen-doc-intro-empty') + '">' + (doc.intro ? esc(doc.intro) : '暂无医生介绍') + '</div>' +
+              '<div class="screen-doc-intro' + (doc.intro ? '' : ' screen-doc-intro-empty') + '">' + (doc.intro ? esc(doc.intro) : '<span class="screen-doc-intro-fit">暂无医生介绍</span>') + '</div>' +
               '</div></div>'
             : '<div class="screen-doctor-card screen-doctor-card-empty"><div class="screen-doc-photo">' + renderIconSvg('nav:doctor') + '</div>' +
               '<div class="screen-doc-info"><div class="screen-doc-name">医生出诊中</div>' +
-              '<div class="screen-doc-intro screen-doc-intro-empty">暂无医生信息</div></div></div>';
+              '<div class="screen-doc-intro screen-doc-intro-empty"><span class="screen-doc-intro-fit">暂无医生信息</span></div></div></div>';
 
         var curNext = '<div class="screen-panel screen-cur-panel"><div class="screen-panel-title">正在就诊</div>' +
             '  <div class="screen-panel-body"><div class="screen-panel-inner">' + curCard + '</div></div></div>' +
@@ -396,11 +514,14 @@
         // 动态裁剪等待就诊数量（放不下则减少，超长屏可多显示；过号恒居末尾）
         var seq = ++RENDER_SEQ;
         fitWaitList(main, normalArr, missedArr, cols);
-        // 首帧布局/字体度量可能尚未稳定，下一帧以最终尺寸再裁一次（若期间已重渲染则丢弃）
+        fitScreenTexts(main);
+        // 首帧布局/字体度量可能尚未稳定，下一帧以最终尺寸再裁/再适配一次（若期间已重渲染则丢弃）
         var raf = window.requestAnimationFrame || function (cb) { return setTimeout(cb, 16); };
         raf(function () {
             if (seq !== RENDER_SEQ) return;
             fitWaitList(main, normalArr, missedArr, cols);
+            fitScreenTexts(main);
+            fitDoctorCard();
         });
     }
 
@@ -471,6 +592,17 @@
         // 共享列宽：用同字号隐藏探针测量各列内容最大自然宽度，设为列宽变量，
         // 保证各行 序号/姓名/性别/年龄 全部纵向对齐，且姓名后无超长空隙
         measureWaitColumns(listEl, shown);
+        // 小屏横向适配：五列（含列间空隙）总宽超出面板时整体缩字号并重测列宽，
+        // 防窄面板把性别/年龄列挤出裁切（最低 10px，极端窄屏由姓名省略号兜底）
+        var firstItem = listEl.querySelector('.screen-wait-item');
+        var nfs = firstItem ? (parseFloat(getComputedStyle(firstItem).fontSize) || 14) : 14;
+        var wguard = 30;
+        while (wguard-- > 0 && nfs > 10 && waitRowOverflow(listEl)) {
+            nfs = Math.max(10, nfs * 0.93);
+            var rowsX = listEl.querySelectorAll('.screen-wait-item');
+            for (var ix = 0; ix < rowsX.length; ix++) rowsX[ix].style.fontSize = nfs + 'px';
+            measureWaitColumns(listEl, shown, nfs);
+        }
         // 方屏双排：给第二列条目加 class，用于显示纵向分隔线
         if (cols === 2 && maxRows) {
             var all = listEl.querySelectorAll('.screen-wait-item');
@@ -481,6 +613,19 @@
         updateWaitTitle(panel, shown.length);
     }
 
+    /* 单行等待条目横向是否溢出：列宽合计 + 列间距 > 行可用宽度。
+       用真实布局矩形计算（grid 固定列宽溢出时 scrollWidth 可能不可靠） */
+    function waitRowOverflow(listEl) {
+        if (listEl.scrollWidth > listEl.clientWidth + 1) return true;
+        var item = listEl.querySelector('.screen-wait-item');
+        if (!item) return false;
+        var kids = item.children, total = 0, i;
+        for (i = 0; i < kids.length; i++) total += kids[i].getBoundingClientRect().width;
+        var gap = parseFloat(getComputedStyle(item).columnGap) || 0;
+        total += gap * Math.max(0, kids.length - 1);
+        return total > item.clientWidth + 1;
+    }
+
     function updateWaitTitle(panel, n) {
         var t = panel ? panel.querySelector('.screen-panel-title') : null;
         if (t) t.textContent = '等待就诊（' + n + '）';
@@ -488,8 +633,9 @@
 
     /* 共享列宽：构造同字号隐藏探针行（各列取最长内容），测出每列自然宽度，
        设为 --wait-*-w 变量（+4px 缓冲）。因所有行共用这些列宽，五列全部纵向对齐，
-       且列宽贴合内容、姓名后无超长空隙。 */
-    function measureWaitColumns(listEl, shown) {
+       且列宽贴合内容、姓名后无超长空隙。
+       fontPx：小屏横向缩字号后的显式字号（缺省跟随 .screen-wait-item 的 cqmin 字号） */
+    function measureWaitColumns(listEl, shown, fontPx) {
         if (!shown || !shown.length) return;
         var longest = function (fn) {
             var t = '';
@@ -509,7 +655,8 @@
         // 强制按各列内容自然宽度测量；否则探针会沿用上一轮列宽并每轮 +4px 缓冲，
         // 导致列宽逐轮膨胀、右侧年龄列被挤出面板。
         probe.style.cssText = 'position:absolute;visibility:hidden;top:0;left:0;pointer-events:none;' +
-            'grid-template-columns:max-content max-content max-content max-content max-content';
+            'grid-template-columns:max-content max-content max-content max-content max-content' +
+            (fontPx ? ';font-size:' + fontPx + 'px' : '');
         probe.innerHTML = '<span class="screen-wait-miss">过</span>' +
             '<span class="screen-wait-seq">' + esc(seqText) + '</span>' +
             '<span class="screen-wait-name">' + esc(nameText) + '</span>' +
@@ -624,6 +771,10 @@
             main.innerHTML = renderDeptMode(d);
             // 共享列宽：性别/年龄/就诊科室 各列纵向对齐
             measureDeptColumns(main.querySelector('.dept-wait-list'), d.waiting || []);
+            // 字号自适应（当前患者姓名 / 空态 / 队列标题）：首帧与下一帧各测一次
+            fitDeptTexts(main);
+            var rafDept = window.requestAnimationFrame || function (cb) { return setTimeout(cb, 16); };
+            rafDept(function () { fitDeptTexts(main); });
         }
 
         // 医生信息字号动态适配（渲染后测量单元格尺寸）
