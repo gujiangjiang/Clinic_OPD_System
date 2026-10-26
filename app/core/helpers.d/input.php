@@ -53,9 +53,10 @@ function safe_redirect_path($next, $fallback = '') {
     return $next;
 }
 
-/** 当前时间字符串（站点时区） */
+/** 当前时间字符串（存储写入唯一来源）
+ *  local 模式 = 站点时区墙钟；utc 模式（目标态）= UTC（display 层经 fmt_time 换算） */
 function now_str($fmt = 'Y-m-d H:i:s') {
-    return date($fmt);
+    return time_storage_utc() ? gmdate($fmt) : date($fmt);
 }
 
 /** 当前日期字符串 */

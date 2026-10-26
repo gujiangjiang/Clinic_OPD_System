@@ -23,15 +23,62 @@
  * ============================================================ */
 
 /**
- * 解析「站点时区墙钟」时间串 → epoch 时间戳。
+ * 解析「存储时间串」→ epoch 时间戳（模式感知）：
+ *  - local 模式：按站点时区墙钟解析（与写入同口径）；
+ *  - utc 模式：按 UTC 解析（存储即 UTC）。
  * @param string|null $ts 形如 '2026-10-26 13:46:00'；空/不可解析返回 null
  * @return int|null
  */
 function ts_epoch($ts) {
     $s = trim((string)$ts);
     if ($s === '') return null;
-    $t = strtotime($s);
+    $t = time_storage_utc() ? strtotime($s . ' UTC') : strtotime($s);
     return $t === false ? null : $t;
+}
+
+/**
+ * 展示换算（唯一展示入口）：存储值 → 用户可见的本地墙钟字符串。
+ *  - local 模式：原样返回（存储即本地墙钟）；
+ *  - utc 模式：按 $tz（法律性单据传快照固化时区）换算，缺省站点时区。
+ * @param string|null $ts
+ * @param string|null $tz 目标时区（缺省站点时区）
+ * @return string
+ */
+function fmt_time($ts, $tz = null) {
+    $s = (string)$ts;
+    if ($s === '' || !time_storage_utc()) return $s;
+    $out = utc_to_local($s, $tz);
+    return $out !== '' ? $out : $s;
+}
+
+/**
+ * 业务日期标签（本地日的 Y-m-d）：存储值 → 站点时区的日期部分。
+ * 用于分日展示/比较（local 模式直接截取；utc 模式先换算），
+ * 与 reg_date 等「业务日期列」口径一致。
+ * @param string|null $ts
+ * @return string
+ */
+function local_date_of($ts) {
+    $s = (string)$ts;
+    if ($s === '') return '';
+    if (!time_storage_utc()) return substr($s, 0, 10);
+    return utc_to_local($s, null, 'Y-m-d');
+}
+
+/**
+ * 本地日 [start, end) 的存储边界串（分日窗口查询统一用）：
+ *  - local 模式：['2026-10-26 00:00:00', '2026-10-27 00:00:00']；
+ *  - utc 模式：转换为对应 UTC 边界（[前一天 16:00, 当天 16:00) 之类）。
+ * 查询写法：col >= ? AND col < ?（同时兼容两种模式，替代 date(col)=? 函数比较）。
+ * @param string $ymd 本地日（Y-m-d）
+ * @return array [start, end]
+ */
+function day_range($ymd) {
+    $ymd = trim((string)$ymd);
+    if ($ymd === '') return array('', '');
+    $next = date('Y-m-d', strtotime($ymd . ' +1 day'));
+    if (!time_storage_utc()) return array($ymd . ' 00:00:00', $next . ' 00:00:00');
+    return array(local_to_utc($ymd . ' 00:00:00'), local_to_utc($next . ' 00:00:00'));
 }
 
 /**
@@ -54,6 +101,15 @@ function site_tz() {
 }
 
 /**
+ * 是否 UTC 存储模式（bootstrap 依据 config.db 的 time.storage 定义常量；
+ * 未定义视为 local——CLI 工具/旧入口的兼容缺省）。
+ * @return bool
+ */
+function time_storage_utc() {
+    return defined('TIME_STORAGE_UTC') && TIME_STORAGE_UTC;
+}
+
+/**
  * 指定时区在当前（或给定）时刻的 UTC 偏移串。
  * @param string|null $tz 时区名（缺省站点时区）
  * @return string 如 '+08:00'（非法时区回退 '+00:00'）
@@ -73,17 +129,20 @@ function now_utc() {
 }
 
 /**
- * 解析「指定时区墙钟」时间串 → epoch。
+ * 解析「指定时区墙钟」时间串 → epoch（**显式时区，绝不随存储模式变化**）。
+ * 说明：这是 local_to_utc / utc_to_local 的纯转换底座——输入串一律按 $tz
+ * （缺省站点时区）解释；与模式感知的 ts_epoch() 严格区分：
+ * ts_epoch 解析「存储值」（utc 模式按 UTC），本函数解析「指定时区的墙钟」。
  * @param string|null $ts
- * @param string|null $tz 该时间串所属时区（缺省按当前站点时区解析，同 ts_epoch）
+ * @param string|null $tz 该时间串所属时区（缺省站点时区）
  * @return int|null 不可解析返回 null
  */
 function ts_epoch_tz($ts, $tz = null) {
     $s = trim((string)$ts);
     if ($s === '') return null;
-    if ($tz === null || $tz === '') return ts_epoch($s);
+    $tz = ($tz !== null && $tz !== '') ? (string)$tz : date_default_timezone_get();
     try {
-        return (new DateTime($s, new DateTimeZone((string)$tz)))->getTimestamp();
+        return (new DateTime($s, new DateTimeZone($tz)))->getTimestamp();
     } catch (Exception $e) {
         return null;
     }

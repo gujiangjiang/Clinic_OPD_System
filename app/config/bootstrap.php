@@ -102,6 +102,13 @@ require_once __DIR__ . '/../core/db/ConnectionFactory.php';
 require_once __DIR__ . '/../core/db/ConfigStore.php';
 ConfigStore::migrateLegacy();
 
+/* ---------- 时间存储模式（local=站点时区墙钟 / utc=UTC 存储） ----------
+ * 切换窗口 = tz_migrate 全库数据迁移 + 本配置键一并切换（缺省 local，零行为变化）。
+ * 运行时判断统一走 time.php 的 time_storage_utc()；CLI 演练可预先定义常量覆盖。 */
+if (!defined('TIME_STORAGE_UTC')) {
+    define('TIME_STORAGE_UTC', ConfigStore::get('time.storage', 'local') === 'utc');
+}
+
 /* ---------- 启动会话（Session 文件保存到 data/session，避开 Web 访问） ---------- */
 require_once __DIR__ . '/../core/auth/Session.php';
 Session::start();
