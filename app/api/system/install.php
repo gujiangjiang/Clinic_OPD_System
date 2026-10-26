@@ -86,6 +86,7 @@ function install_remote_pdo($driver, $host, $port, $dbname, $user, $pass, $timeo
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_CONNECT_TIMEOUT => $timeout,
         ));
+        ConnectionFactory::pinSession($pdo, $driver);   // 会话时区锚定站点时区
         return array($pdo, '');
     } catch (Exception $ex) {
         return array(null, strtoupper($driver) . ' 连接失败：' . $ex->getMessage());

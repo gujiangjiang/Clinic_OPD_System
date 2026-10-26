@@ -89,12 +89,14 @@ class DatabaseManager {
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ));
+            ConnectionFactory::pinSession($pdo, 'mysql');   // 会话时区锚定站点时区
         } elseif ($driver === 'pgsql') {
             $p = ConfigStore::dbParams();
             $pdo = new PDO(ConnectionFactory::dsn('pgsql', $p), $p['user'], $p['pass'], array(
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ));
+            ConnectionFactory::pinSession($pdo, 'pgsql');   // 会话时区锚定站点时区
         } else {
             // ===== SQLite 主库 =====
             $file = self::sqlitePath('db.sqlite.path', 'clinic_main.db');
@@ -457,7 +459,9 @@ class DatabaseManager {
 
     /**
      * SQL 方言翻译（SQLite 源 → MySQL/MariaDB / PostgreSQL），纯函数便于复用与测试：
-     *  - 时间函数：datetime('now','localtime') → NOW()；strftime → 各驱动等价函数
+     *  - 时间函数：datetime('now','localtime') → **执行时刻的 PHP 站点时区字面量**
+     *    （所有驱动统一，含 SQLite：其 localtime 取操作系统时区，不可依赖）；
+     *    strftime → 各驱动等价函数
      *  - 自增主键：AUTOINCREMENT → AUTO_INCREMENT / SERIAL PRIMARY KEY
      *  - 幂等插入：INSERT OR IGNORE → INSERT IGNORE / INSERT ... ON CONFLICT DO NOTHING
      *  - 替换插入：INSERT OR REPLACE → REPLACE（MySQL；PG 的 settings 由 upsertSetting 处理）
@@ -468,10 +472,14 @@ class DatabaseManager {
      * @return string
      */
     public static function dialectSqlFor($driver, $sql) {
+        // 统一时间字面量：SQLite 的 'localtime' 取操作系统时区（容器常为 UTC）、
+        // MySQL/PG 的 NOW() 取会话时区——均可能与站点时区不一致而产生整小时偏斜。
+        // 改写为执行时刻的 PHP 站点时区字面量后，任意驱动/环境写入同一墙钟，
+        // 与 now_str() 完全一致（迁移/种子 SQL 沿用 SQLite 方言书写即可）。
+        $sql = str_replace("datetime('now','localtime')", "'" . now_str() . "'", $sql);
         if ($driver === 'sqlite') return $sql;
         if ($driver === 'mysql') {
             $sql = str_replace('AUTOINCREMENT', 'AUTO_INCREMENT', $sql);
-            $sql = str_replace("datetime('now','localtime')", 'NOW()', $sql);
             $sql = str_replace("strftime('%s','now','localtime')", 'UNIX_TIMESTAMP()', $sql);
             $sql = preg_replace("/strftime\('%s',\s*([a-zA-Z0-9_\.]+)\)/i", 'UNIX_TIMESTAMP($1)', $sql);
             $sql = preg_replace("/strftime\('%Y-%m-%d',\s*([a-zA-Z0-9_\.]+)\)/i", "DATE_FORMAT($1, '%Y-%m-%d')", $sql);
@@ -487,7 +495,6 @@ class DatabaseManager {
         $sql = preg_replace('/INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT/i', 'SERIAL PRIMARY KEY', $sql);
         $sql = str_replace('DATETIME', 'TIMESTAMP', $sql);
         $sql = str_replace('TINYINT', 'SMALLINT', $sql);
-        $sql = str_replace("datetime('now','localtime')", 'NOW()', $sql);
         $sql = str_replace("strftime('%s','now','localtime')", 'EXTRACT(EPOCH FROM now())', $sql);
         $sql = preg_replace("/strftime\('%s',\s*([a-zA-Z0-9_\.]+)\)/i", 'EXTRACT(EPOCH FROM $1)', $sql);
         $sql = preg_replace("/strftime\('%Y-%m-%d',\s*([a-zA-Z0-9_\.]+)\)/i", "TO_CHAR($1, 'YYYY-MM-DD')", $sql);
@@ -637,9 +644,11 @@ class DatabaseManager {
             if ($driver === 'mysql') {
                 $p = array('host' => ConfigStore::get('backup.mysql.host', '127.0.0.1'), 'port' => ConfigStore::get('backup.mysql.port', '3306'), 'dbname' => ConfigStore::get('backup.mysql.dbname', ''), 'user' => ConfigStore::get('backup.mysql.user', ''), 'pass' => ConfigStore::get('backup.mysql.pass', ''));
                 self::$backupPdo = new PDO(ConnectionFactory::dsn('mysql', $p), $p['user'], $p['pass'], array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC));
+                ConnectionFactory::pinSession(self::$backupPdo, 'mysql');
             } elseif ($driver === 'pgsql') {
                 $p = array('host' => ConfigStore::get('backup.pgsql.host', '127.0.0.1'), 'port' => ConfigStore::get('backup.pgsql.port', '5432'), 'dbname' => ConfigStore::get('backup.pgsql.dbname', ''), 'user' => ConfigStore::get('backup.pgsql.user', ''), 'pass' => ConfigStore::get('backup.pgsql.pass', ''));
                 self::$backupPdo = new PDO(ConnectionFactory::dsn('pgsql', $p), $p['user'], $p['pass'], array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC));
+                ConnectionFactory::pinSession(self::$backupPdo, 'pgsql');
             } else {
                 $path = ConfigStore::get('backup.sqlite.path', '');
                 if ($path === '') return null;

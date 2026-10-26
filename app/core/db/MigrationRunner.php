@@ -247,7 +247,9 @@ class MigrationRunner {
     /** 目标连接（切换校验用，独立连接；DSN 统一走 ConnectionFactory） */
     private static function connectForCheck($driver, $p) {
         if ($driver === 'mysql' || $driver === 'pgsql') {
-            return new PDO(ConnectionFactory::dsn($driver, $p), $p['user'], $p['pass'], array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_CONNECT_TIMEOUT => 5));
+            $pdo = new PDO(ConnectionFactory::dsn($driver, $p), $p['user'], $p['pass'], array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_CONNECT_TIMEOUT => 5));
+            ConnectionFactory::pinSession($pdo, $driver);   // 会话时区锚定站点时区
+            return $pdo;
         }
         $path = isset($p['path']) && $p['path'] !== '' ? $p['path'] : DATA_DIR . '/db/clinic_main.db';
         return new PDO('sqlite:' . $path, null, null, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));

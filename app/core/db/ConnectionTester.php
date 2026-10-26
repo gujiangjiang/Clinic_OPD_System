@@ -39,6 +39,7 @@ class ConnectionTester {
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_CONNECT_TIMEOUT => 5,
             ));
+            ConnectionFactory::pinSession($pdo, $driver);   // 会话时区锚定站点时区
             $ver = $driver === 'pgsql'
                 ? $pdo->query('SELECT version()')->fetchColumn()
                 : $pdo->query('SELECT VERSION()')->fetchColumn();

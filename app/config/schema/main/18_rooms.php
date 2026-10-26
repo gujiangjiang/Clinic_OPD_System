@@ -29,6 +29,10 @@ return array(
             last_call_at TEXT DEFAULT '',
             allow_cross_day TINYINT DEFAULT 0,
             call_session_date TEXT DEFAULT '',
+            -- created_at/updated_at 的 DEFAULT 仅作兜底：SQLite 的 CURRENT_TIMESTAMP
+            -- 为 UTC、MySQL/PG 取会话时区——应用层写入必须显式传 now_str()（站点时区
+            -- 墙钟），新增表时间列也不要用 DEFAULT CURRENT_TIMESTAMP（见 AGENTS.md
+            -- 「时间与时区铁律」）
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",

@@ -398,6 +398,7 @@ class ConfigStore {
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_CONNECT_TIMEOUT => 5,
                 ));
+                ConnectionFactory::pinSession($pdo, $driver);   // 会话时区锚定站点时区
             }
             // 1) 安装完成标记
             try {
