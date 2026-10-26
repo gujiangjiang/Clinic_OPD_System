@@ -13,6 +13,33 @@
 
 ---
 
+## [9.15.9] - 2026-10-26
+
+### 变更
+- **通用时区框架落地（根治「数据库时区 vs 站点时区」分叉类问题）**：
+  1. **新增 `app/core/helpers.d/time.php`**：`ts_epoch()` / `seconds_ago()` /
+     `is_recent()` 统一相对时间口径；`is_recent()` 为 fail-closed 租约判定
+     （未来超过 5 秒视为失效）——修改全站时区 / 时钟回拨后，不会把陈旧数据
+     误判为在线/占用，宁可显示离线；
+  2. **全部租约判定收敛**：大屏在线（30 秒）与医生绑定（300 秒）统一走该助手
+     （`screenOnline()` / `doctorHeartbeatStale()` / `sweepStaleBindings()`），
+     护士站/医生端绑定/可用诊室四处内联心跳判定收敛到 `screenOnline()` 单一入口；
+  3. **`ConnectionFactory::pinSession()` 会话时区锚定**：MySQL/PostgreSQL 连接
+     建立后会话时区设为站点时区（覆盖主库/备份库/迁移校验/连接测试/安装向导等
+     全部直连点），SQL 端残留时间函数（NOW() 等）与 PHP 自动一致；SQLite 无会话
+     时区，时间运算强制走 PHP 端；
+  4. **迁移/种子 SQL 时间字面量化**：`DatabaseManager::dialectSqlFor()` 将
+     `datetime('now','localtime')` 统一改写为**执行时刻的 PHP 站点时区字面量**
+     （含 SQLite——其 localtime 取操作系统时区），迁移/种子跨驱动写入同一墙钟；
+  5. **护士站队列「可见天数」窗口锚定 PHP 当日**：原取数据库端当前日期
+     （CURDATE/CURRENT_DATE/localtime），修改为传 `today_str()` 参数，窗口
+     与站点时区分日完全一致；
+  6. **系统设置「全站时区」补充影响说明**；AGENTS.md 新增「时间与时区铁律」
+     （数据契约 / 禁用 SQL 时间函数 / 统一助手 / 会话锚定 / 新表时间列规范）。
+  - **修改全站时区的影响**：新写入数据完全一致；历史墙钟数据的分日归属按新时区
+    重新解释（墙钟存储的固有语义）；在线/绑定等实时状态由 fail-closed 兜底，
+    下一笔心跳（≤30 秒）自动恢复。
+
 ## [9.15.8] - 2026-10-26
 
 ### 修复
