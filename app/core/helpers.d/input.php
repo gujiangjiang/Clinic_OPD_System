@@ -352,6 +352,11 @@ function snapshot_patient($bizType, $bizId, $patientNo, $extra = array()) {
         'marital' => $p ? $p['marital'] : '',
         'phone' => $p ? $p['phone'] : '',
         'extra_json' => json_encode(is_array($extra) ? $extra : array(), JSON_UNESCAPED_UNICODE),
+        // 时区固化（法律合规）：固化开具/生成时刻的站点时区名与 UTC 偏移——
+        // 历史单据重打的时间显示按该时区渲染，修改全站时区或日后切换 UTC 存储
+        // 都不会改变已开具单据的打印内容（详见 AGENTS.md「时间与时区铁律」）
+        'tz' => date_default_timezone_get(),
+        'tz_offset' => (new DateTime('now'))->format('P'),
         'created_at' => now_str(),
     );
     if (PrintSnapshotRepository::exists($bizType, $bizId)) {

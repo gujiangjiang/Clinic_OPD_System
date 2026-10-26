@@ -20,6 +20,11 @@ return array(
             marital TEXT DEFAULT '',
             phone TEXT DEFAULT '',
             extra_json TEXT DEFAULT '{}',
+            -- 时区固化（法律合规）：开具/生成时刻的站点时区名与 UTC 偏移，
+            -- 历史单据重打的时间显示一律按该时区渲染，不随全站时区修改/存储
+            -- 方案切换而漂移（见 AGENTS.md「时间与时区铁律」）
+            tz TEXT DEFAULT '',
+            tz_offset TEXT DEFAULT '',
             created_at TEXT
         )",
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_print_snapshot_biz ON print_snapshots(biz_type, biz_id)",
@@ -46,6 +51,13 @@ return array(
                 created_at TEXT
             )",
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_print_snapshot_biz ON print_snapshots(biz_type, biz_id)",
+        ),
+        // v54：快照时区固化——记录开具/生成时刻的站点时区名与 UTC 偏移，
+        // 保障历史单据重打的时间显示不随全站时区修改而漂移（法律合规）；
+        // ALTER ADD COLUMN 由 DatabaseManager 做列存在性幂等跳过（新库已含列）
+        54 => array(
+            "ALTER TABLE print_snapshots ADD COLUMN tz TEXT DEFAULT ''",
+            "ALTER TABLE print_snapshots ADD COLUMN tz_offset TEXT DEFAULT ''",
         ),
     ),
 );
