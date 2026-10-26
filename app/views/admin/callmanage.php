@@ -9,21 +9,24 @@
 Router::title('叫号管理');
 
 // 科室数据（含大屏统计：total 总数 / online 在线数，在线按心跳 30 秒判定）
+// 在线统计统一 PHP 端口径（QueueRepository::roomStatsByDept）：与诊室列表行级状态、
+// room_stats 接口完全一致；禁止 SQL 端时间函数（数据库/系统时区与 PHP 时区不一致时
+// 会把 8 小时内旧心跳误判为在线——历史 bug 根因）
 $depts = DeptRepository::q('SELECT * FROM departments WHERE status=1 ORDER BY sort, id');
 $deptOpts = '<option value="">请选择科室</option>';
 foreach ($depts as $d) {
     $deptOpts .= '<option value="' . (int)$d['id'] . '">' . e($d['name']) . '</option>';
 }
+$roomAgg = QueueRepository::roomStatsByDept();
 $deptPickerData = array();
 foreach ($depts as $d) {
-    $total = (int)QueueRepository::val('SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=?', array((int)$d['id']));
-    $online = (int)QueueRepository::val("SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat_at IS NOT NULL AND " . sql_seconds_since('screen_last_heartbeat_at') . " <= 30", array((int)$d['id']));
+    $did = (int)$d['id'];
     $deptPickerData[] = array(
-        'id' => (int)$d['id'],
+        'id' => $did,
         'name' => $d['name'],
         'type' => $d['type'],
-        'room_count' => $total,
-        'online_count' => $online,
+        'room_count' => isset($roomAgg[$did]) ? $roomAgg[$did]['total'] : 0,
+        'online_count' => isset($roomAgg[$did]) ? $roomAgg[$did]['online'] : 0,
     );
 }
 ?>

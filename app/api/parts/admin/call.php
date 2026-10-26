@@ -32,8 +32,12 @@ function admin_part_call($action) {
         $typeNames = array('doctor' => '医生诊室', 'lab' => '检验科', 'imaging' => '影像科', 'pharmacy' => '药房', 'nurse' => '护士站');
         $rowsHtml = '<thead><tr>' .
             '<th>诊室/窗口</th><th>类型</th><th>大屏状态</th><th>绑定</th><th>设置</th><th>操作</th></tr></thead><tbody>';
+        $onlineCount = 0;
         foreach ($rows as $r) {
-            $online = (!empty($r['screen_last_heartbeat_at']) && (time() - strtotime($r['screen_last_heartbeat_at'])) <= 30);
+            // 在线判定统一走 QueueRepository::screenOnline()（PHP 端 30 秒租约）：
+            // 与统计/悬浮窗同口径，禁止 SQL 端时间函数（时区口径差异见该函数注释）
+            $online = QueueRepository::screenOnline($r);
+            if ($online) $onlineCount++;
             $st = $online
                 ? '<span class="badge badge-success">' . render_icon('alert:dot-green') . ' 在线运行中</span>' . '<div class="fs-12 text-muted mt-4">最后活跃 ' . e(substr((string)$r['screen_last_heartbeat_at'], 5, 16)) . '</div>'
                 : '<span class="badge badge-gray">' . render_icon('alert:dot-gray') . ' 离线未连接</span>';
@@ -68,17 +72,24 @@ function admin_part_call($action) {
         $html = render_list_wrapper('「' . e($dept['name']) . '」共 ' . count($rows) . ' 块大屏', '暂无大屏配置，请先新建', $rowsHtml);
         json_ok(array('html' => $html, 'dept_name' => $dept['name'],
             'total_count' => count($rows),
-            'online_count' => (int)DeptRepository::val("SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat_at IS NOT NULL AND " . sql_seconds_since('screen_last_heartbeat_at') . " <= 30", array($deptId))));
+            'online_count' => $onlineCount));
     }
 
     /* ==================== 全科室大屏统计（选择科室模态框实时数据源） ==================== */
     if ($action === 'room_stats') {
         $depts = DeptRepository::q('SELECT id FROM departments WHERE status=1 ORDER BY sort, id');
+        // 在线统计统一 PHP 端口径（QueueRepository::roomStatsByDept）——与诊室列表
+        // 行级状态完全一致；SQL 端时间函数受数据库/系统时区影响，容器（UTC）与 PHP
+        // （Asia/Shanghai）不一致时会把 8 小时内旧心跳误判为在线（历史 bug 根因）
+        $agg = QueueRepository::roomStatsByDept();
         $stats = array();
         foreach ($depts as $d) {
-            $total = (int)DeptRepository::val('SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=?', array((int)$d['id']));
-            $online = (int)DeptRepository::val("SELECT COUNT(*) FROM clinic_rooms WHERE dept_id=? AND screen_last_heartbeat_at IS NOT NULL AND " . sql_seconds_since('screen_last_heartbeat_at') . " <= 30", array((int)$d['id']));
-            $stats[] = array('id' => (int)$d['id'], 'room_count' => $total, 'online_count' => $online);
+            $id = (int)$d['id'];
+            $stats[] = array(
+                'id' => $id,
+                'room_count' => isset($agg[$id]) ? $agg[$id]['total'] : 0,
+                'online_count' => isset($agg[$id]) ? $agg[$id]['online'] : 0,
+            );
         }
         json_ok(array('list' => $stats));
     }

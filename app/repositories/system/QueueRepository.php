@@ -253,21 +253,23 @@ class QueueRepository extends BaseRepository {
      * @return int 本次释放的绑定数
      */
     public static function sweepStaleBindings() {
-        $drv = DatabaseManager::driver();
-        if ($drv === 'mysql') {
-            $sql = "UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name='', doctor_heartbeat_at=NULL, updated_at=NOW()
-                 WHERE current_doctor_id>0 AND (doctor_heartbeat_at IS NULL
-                 OR (UNIX_TIMESTAMP() - UNIX_TIMESTAMP(doctor_heartbeat_at)) > 300)";
-        } elseif ($drv === 'pgsql') {
-            $sql = "UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name='', doctor_heartbeat_at=NULL, updated_at=NOW()
-                 WHERE current_doctor_id>0 AND (doctor_heartbeat_at IS NULL
-                 OR (EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM doctor_heartbeat_at)) > 300)";
-        } else {
-            $sql = "UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name='', doctor_heartbeat_at=NULL, updated_at=datetime('now','localtime')
-                 WHERE current_doctor_id>0 AND (doctor_heartbeat_at IS NULL
-                 OR (strftime('%s','now','localtime') - strftime('%s',doctor_heartbeat_at)) > 300)";
+        // 候选（有绑定的诊室）极少，统一 PHP 端时区口径判定 300 秒租约——
+        // 不用 SQL 时间函数：容器/数据库时区（常见 UTC）与 PHP 时区（Asia/Shanghai）
+        // 不一致时 SQL 口径会偏差数小时，导致过期绑定清理滞后
+        $ids = array();
+        foreach (self::q('SELECT id, doctor_heartbeat_at FROM clinic_rooms WHERE current_doctor_id > 0') as $r) {
+            $hb = (string)$r['doctor_heartbeat_at'];
+            $t = $hb !== '' ? strtotime($hb) : false;
+            if ($t === false || (time() - $t) > 300) $ids[] = (int)$r['id'];
         }
-        return (int)self::exec($sql);
+        $n = 0;
+        foreach ($ids as $id) {
+            $n += (int)self::exec(
+                'UPDATE clinic_rooms SET current_doctor_id=0, current_doctor_name=\'\', doctor_heartbeat_at=NULL, updated_at=? WHERE id=?',
+                array(now_str(), $id)
+            );
+        }
+        return $n;
     }
 
     /** 更新大屏心跳 */
@@ -276,6 +278,24 @@ class QueueRepository extends BaseRepository {
         // 避免大屏轻量轮询（版本戳 = updated_at）每次心跳都判定为有变化
         self::exec('UPDATE clinic_rooms SET screen_last_heartbeat_at=?, is_screen_online=1 WHERE id=?',
             array(now_str(), (int)$roomId));
+    }
+
+    /**
+     * 按科室汇总大屏数量（total）与在线数（online）——[dept_id => {total, online}]。
+     * 在线判定统一走 PHP 端 screenOnline()：与诊室列表行级状态 / 医生悬浮窗同一口径。
+     * **禁止改用 SQL 端时间函数**（strftime/UNIX_TIMESTAMP + localtime 等）：
+     * 该口径依赖数据库/系统时区，容器（UTC）与 PHP（Asia/Shanghai）相差 8 小时时，
+     * 会把 8 小时内的旧心跳误判为在线，导致「选择科室」模态框统计与诊室列表打架。
+     */
+    public static function roomStatsByDept() {
+        $out = array();
+        foreach (self::q('SELECT dept_id, screen_last_heartbeat_at FROM clinic_rooms') as $r) {
+            $d = (int)$r['dept_id'];
+            if (!isset($out[$d])) $out[$d] = array('total' => 0, 'online' => 0);
+            $out[$d]['total']++;
+            if (self::screenOnline($r)) $out[$d]['online']++;
+        }
+        return $out;
     }
 
     /**
