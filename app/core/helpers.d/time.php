@@ -101,11 +101,14 @@ function site_tz() {
 }
 
 /**
- * 是否 UTC 存储模式（bootstrap 依据 config.db 的 time.storage 定义常量；
- * 未定义视为 local——CLI 工具/旧入口的兼容缺省）。
+ * 是否 UTC 存储模式。
+ * 优先级：运行时覆盖（$GLOBALS['TIME_STORAGE_UTC_RUNTIME']，供安装向导 fresh、
+ * 受控切换流程在同一请求内切换语义）＞ bootstrap 常量（config.db time.storage；
+ * 未定义视为 local，CLI 工具/旧入口的兼容缺省）。
  * @return bool
  */
 function time_storage_utc() {
+    if (isset($GLOBALS['TIME_STORAGE_UTC_RUNTIME'])) return (bool)$GLOBALS['TIME_STORAGE_UTC_RUNTIME'];
     return defined('TIME_STORAGE_UTC') && TIME_STORAGE_UTC;
 }
 

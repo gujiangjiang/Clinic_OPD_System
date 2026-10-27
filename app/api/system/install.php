@@ -440,6 +440,16 @@ if ($action === 'save') {
         unset($pdo);
     }
     ConfigStore::resetCache();
+    // ===== 时间存储模式（v10 起）=====
+    // fresh（全新安装）：直接 UTC 存储——建库/迁移/种子/设置写入一律 UTC（运行时
+    //   覆盖：常量已在 bootstrap 固化，本请求内切换语义走 $GLOBALS 覆盖）；
+    // attach（关联现有旧库）：数据仍为本地墙钟格式，显式 local——由管理员后续用
+    //   tools/cli/tz_migrate.php switch 迁移数据后再切换为 utc（见 AGENTS.md）。
+    $timeMode = ($mode === 'fresh') ? 'utc' : 'local';
+    ConfigStore::set('time.storage', $timeMode);
+    if ($timeMode === 'utc') {
+        $GLOBALS['TIME_STORAGE_UTC_RUNTIME'] = true;
+    }
     ConfigStore::set('db.driver', $dbDriver);
     if ($dbDriver === 'mysql' || $dbDriver === 'pgsql') {
         ConfigStore::set('db.' . $dbDriver . '.host', $dbParams['host']);
