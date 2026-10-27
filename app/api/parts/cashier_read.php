@@ -15,13 +15,13 @@ function cashier_part_read($action) {
 
     if ($action === 'home_stats') {
         $today = today_str();
-        $regToday = (int)CashierRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=?", array($today));
+        $regToday = (int)CashierRepository::val("SELECT COUNT(*) FROM registrations WHERE reg_date=?", array($today));
         $regFeeToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM payments WHERE kind='visit' AND date(created_at)=?", array($today));
         $paidToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($today));
         // 今日退费：refunds 表为挂号退费与订单退费统一流水（orders.refunded_at 只覆盖订单退费，
         // 挂号退费 cancel_visit 仅写 refunds + registrations.status=refunded，不落 orders）
         $refundToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM refunds WHERE date(created_at)=?", array($today));
-        $waiting = (int)CashierRepository::val("SELECT COUNT(*) FROM registrations WHERE status='paid' AND date(registered_at)=?", array($today));
+        $waiting = (int)CashierRepository::val("SELECT COUNT(*) FROM registrations WHERE status='paid' AND reg_date=?", array($today));
         $trend = trend_7_days(function ($day) {
             return (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($day));
         });

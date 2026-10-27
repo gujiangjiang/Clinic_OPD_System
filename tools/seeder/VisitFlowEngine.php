@@ -119,13 +119,13 @@ class VisitFlowEngine {
         // 就诊序号：该科室当日已有最大序号 +1（与其它造数入口口径一致）
         $seq = 1 + (int)$this->pdo->query(
             'SELECT COALESCE(MAX(visit_seq),0) FROM registrations WHERE first_dept_id=' . $deptId
-            . " AND date(registered_at)='" . date('Y-m-d') . "'"
+            . " AND reg_date='" . local_date_of($now) . "'"
         )->fetchColumn();
         $this->pdo->prepare(
-            'INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, fee, status, registered_at, paid_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)'
+            'INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, fee, status, registered_at, reg_date, paid_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)'
         )->execute(array(
             $opts['patient_no'], $opts['flow_no'], $seq, $deptId, $deptName, $deptId, $deptName,
-            (float)(isset($opts['fee']) ? $opts['fee'] : 0), 'registered', $now, $now,
+            (float)(isset($opts['fee']) ? $opts['fee'] : 0), 'registered', $now, local_date_of($now), $now,
         ));
         return (int)$this->pdo->lastInsertId();
     }

@@ -16,10 +16,10 @@ class CashierRepository extends BaseRepository {
         return DeptRepository::activeById($deptId);
     }
 
-    /** 科室当日已用号源数 */
+    /** 科室当日已用号源数（reg_date = 业务日列，随存储模式切换保持本地日语义） */
     public static function deptUsed($deptId, $session) {
         return (int)self::val(
-            "SELECT COUNT(*) FROM registrations WHERE first_dept_id=? AND date(registered_at)=? AND session=? AND status IN ('pending','paid','visiting','finished')",
+            "SELECT COUNT(*) FROM registrations WHERE first_dept_id=? AND reg_date=? AND session=? AND status IN ('pending','paid','visiting','finished')",
             array((int)$deptId, today_str(), $session)
         );
     }
@@ -58,10 +58,10 @@ class CashierRepository extends BaseRepository {
 
     /* ---------------- 挂号 ---------------- */
 
-    /** 查当日重复挂号（同患者+同首次科室+未完成） */
+    /** 查当日重复挂号（同患者+同首次科室+未完成；reg_date = 业务日列） */
     public static function todayDupVisit($patientNo, $deptId) {
         return self::one(
-            "SELECT id FROM registrations WHERE patient_no=? AND first_dept_id=? AND date(registered_at)=? AND status IN ('pending','paid','visiting','finished')",
+            "SELECT id FROM registrations WHERE patient_no=? AND first_dept_id=? AND reg_date=? AND status IN ('pending','paid','visiting','finished')",
             array($patientNo, (int)$deptId, today_str())
         );
     }
@@ -69,7 +69,7 @@ class CashierRepository extends BaseRepository {
     /** 生成挂号记录，返回自增 id（visit_type：outpatient/emergency/inpatient） */
     public static function createRegistration($data) {
         $rid = self::insert(
-            'INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, hospital_name, hospital_name2, visit_type, inpatient_no, status, cashier_id, cashier_name, registered_at, is_extra) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, hospital_name, hospital_name2, visit_type, inpatient_no, status, cashier_id, cashier_name, registered_at, reg_date, is_extra) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             array(
                 $data['patient_no'], $data['flow_no'], (int)$data['visit_seq'],
                 (int)$data['first_dept_id'], $data['first_dept_name'], (int)$data['current_dept_id'], $data['current_dept_name'],
@@ -78,7 +78,9 @@ class CashierRepository extends BaseRepository {
                 isset($data['visit_type']) ? (string)$data['visit_type'] : 'outpatient',
                 isset($data['inpatient_no']) ? (string)$data['inpatient_no'] : '',
                 $data['status'],
-                (int)$data['cashier_id'], $data['cashier_name'], now_str(), (int)$data['is_extra'],
+                (int)$data['cashier_id'], $data['cashier_name'], now_str(),
+                today_str(),   // reg_date：挂号业务日（本地时区 Y-m-d）——业务日唯一索引/分日查询依据
+                (int)$data['is_extra'],
             )
         );
         // 挂号快照（法律合规）：固化挂号时刻患者资料，挂号凭条/历史面板补打不因事后改患者资料而变化
@@ -220,10 +222,10 @@ class CashierRepository extends BaseRepository {
     }
 
     /** 某科室当日已用最大就诊序号（就诊序号生成用：MAX+1 优于 COUNT+1，
-     *  配合 registrations(first_dept_id,date(registered_at),visit_seq) 唯一索引 +
+     *  配合 registrations(first_dept_id,reg_date,visit_seq) 唯一索引 +
      *  挂号事务撞号重试，杜绝并发挂号得到相同序号；退费/取消不回收，序号单调递增） */
     public static function maxVisitSeq($deptId, $date) {
-        return (int)self::val('SELECT COALESCE(MAX(visit_seq),0) FROM registrations WHERE first_dept_id=? AND date(registered_at)=?', array((int)$deptId, $date));
+        return (int)self::val('SELECT COALESCE(MAX(visit_seq),0) FROM registrations WHERE first_dept_id=? AND reg_date=?', array((int)$deptId, $date));
     }
 
     /* ---------------- 药品库存 ---------------- */

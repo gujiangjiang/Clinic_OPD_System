@@ -108,11 +108,11 @@ class QueueSeeder extends Seeder {
         foreach ($deptIds as $deptId) {
             $dept = DB::one('SELECT * FROM departments WHERE id=?', array($deptId));
             if (!$dept) { echo "跳过：科室 {$deptId} 不存在\n"; continue; }
-            $seq = (int)DB::val('SELECT MAX(visit_seq) FROM registrations WHERE first_dept_id=? AND date(registered_at)=?', array($deptId, $today));
+            $seq = (int)DB::val('SELECT MAX(visit_seq) FROM registrations WHERE first_dept_id=? AND reg_date=?', array($deptId, $today));
             // 按挂号时间递增分配 visit_seq（001、002…）；起始时间取「当日 08:00」与
             // 「该科室当日已有最晚挂号时间」中较晚者，保证新号晚于既有号，避免追加后倒挂
             $baseTs = mktime(8, 0, 0, (int)date('m'), (int)date('d'), (int)date('Y'));
-            $maxReg = (string)DB::val('SELECT MAX(registered_at) FROM registrations WHERE first_dept_id=? AND date(registered_at)=?', array($deptId, $today));
+            $maxReg = (string)DB::val('SELECT MAX(registered_at) FROM registrations WHERE first_dept_id=? AND reg_date=?', array($deptId, $today));
             if ($maxReg !== '' && ($mt = strtotime($maxReg)) && $mt >= $baseTs) $baseTs = $mt + 60;
             // 不生成未来挂号时间（凌晨运行时「当日 08:00」尚未到来会越过当前时刻，
             // 未来时间戳会干扰按时间戳判断变化的功能，如叫号大屏版本戳）
@@ -155,10 +155,10 @@ class QueueSeeder extends Seeder {
                 $flowNo = $dayPrefix . sprintf('%04d', $flowMax);
                 $fee = (float)$dept['fee'];
                 $payTime = date('Y-m-d H:i:s', strtotime($regTime) + mt_rand(120, 900));
-                $visitId = (int)DB::insert('INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, paid_at, cashier_id, cashier_name, registered_at, cancel_reason, is_extra, disposition, disposition_detail, finished_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+                $visitId = (int)DB::insert('INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, paid_at, cashier_id, cashier_name, registered_at, reg_date, cancel_reason, is_extra, disposition, disposition_detail, finished_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                     $patientNo, $flowNo, $seq, $deptId, $dept['name'], $deptId, $dept['name'],
                     ((int)substr($regTime, 11, 2) < 12 ? 'am' : 'pm'), $this->pick(array('自费', '居民医保', '职工医保')), $fee,
-                    'paid', $payTime, $cashier['id'], $cashier['name'], $regTime, '', 0, '', '', '',
+                    'paid', $payTime, $cashier['id'], $cashier['name'], $regTime, local_date_of($regTime), '', 0, '', '', '',
                 ));
                 DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total_amount, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(
                     $visitId, 0, $patientNo, $flowNo, 'visit', $fee, 1, $cashier['id'], $cashier['name'], $payTime,

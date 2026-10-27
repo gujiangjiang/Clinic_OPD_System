@@ -206,13 +206,13 @@ class FhirDemoSeeder extends Seeder {
         $fee = (float)$dept['fee'] > 0 ? (float)$dept['fee'] : 20.0;
         // 就诊序号：取该科室当日已有最大序号 +1，避免与既有就诊链冲突
         //（唯一索引 idx_registrations_dept_date_seq：(first_dept_id, date, visit_seq)）
-        $visitSeq = 1 + (int)DB::val('SELECT COALESCE(MAX(visit_seq),0) FROM registrations WHERE first_dept_id=? AND date(registered_at)=?',
-            array($deptId, date('Y-m-d', $regTs)));
+        $visitSeq = 1 + (int)DB::val('SELECT COALESCE(MAX(visit_seq),0) FROM registrations WHERE first_dept_id=? AND reg_date=?',
+            array($deptId, local_date_of($fmt($regTs))));
         $visitId = (int)DB::insert(
-            'INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, paid_at, cashier_id, cashier_name, registered_at, disposition, disposition_detail, finished_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, paid_at, cashier_id, cashier_name, registered_at, reg_date, disposition, disposition_detail, finished_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             array($patientNo, $flowNo, $visitSeq, $deptId, $deptName, $deptId, $deptName,
                 (date('H', $regTs) < 12 ? 'am' : 'pm'), '居民医保', $fee, 'finished',
-                $fmt($regTs + 120), $this->cashier['id'], $this->cashier['name'], $fmt($regTs), '自主离院', '', $fmt($now - 600))
+                $fmt($regTs + 120), $this->cashier['id'], $this->cashier['name'], $fmt($regTs), local_date_of($fmt($regTs)), '自主离院', '', $fmt($now - 600))
         );
         DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total_amount, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
             array($visitId, 0, $patientNo, $flowNo, 'visit', $fee, 1, $this->cashier['id'], $this->cashier['name'], $fmt($regTs + 120)));

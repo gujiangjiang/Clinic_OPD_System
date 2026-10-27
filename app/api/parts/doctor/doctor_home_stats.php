@@ -31,8 +31,8 @@ function doctor_read_home_stats($u) {
            AND date(v.registered_at) >= ?",
         array($uid, $since)
     );
-    // 今日门诊人次（全部科室）
-    $todayReg = (int)EmrRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=?", array($today));
+    // 今日门诊人次（全部科室；reg_date = 挂号业务日列）
+    $todayReg = (int)EmrRepository::val("SELECT COUNT(*) FROM registrations WHERE reg_date=?", array($today));
     // 近7天本人接诊趋势
     $trend = trend_7_days(function ($day) use ($uid) {
         return (int)EmrRepository::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND date(created_at)=?", array($uid, $day));

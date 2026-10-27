@@ -47,6 +47,7 @@ return array(
             cashier_id INTEGER,
             cashier_name TEXT,
             registered_at TEXT,
+            reg_date TEXT DEFAULT '',
             cancel_reason TEXT,
             is_extra INTEGER DEFAULT 0,
             disposition TEXT DEFAULT '',
@@ -111,6 +112,22 @@ return array(
             "ALTER TABLE registrations ADD COLUMN visit_type TEXT DEFAULT 'outpatient'",
             "ALTER TABLE registrations ADD COLUMN inpatient_no TEXT DEFAULT ''",
             "CREATE INDEX IF NOT EXISTS idx_registrations_type_inpatient ON registrations(visit_type, inpatient_no)",
+        ),
+        // v55：挂号业务日期列 reg_date（本地日 Y-m-d）——唯一索引/查询改用它，
+        // 解除「date(registered_at) 函数索引」对 registered_at 的依赖：
+        //  · 业务日语义（同科室同日序号唯一）必须定义在本地时区；
+        //  · registered_at 由此可安全参与 UTC 存储切换（函数式唯一索引在平移
+        //    时区时会产生唯一键冲突——见 tools/cli/tz_migrate.php 阻断规则）。
+        // 回填：存量按 registered_at 的本地日期截取（date() 为纯字符串截断，
+        // 不涉及时区换算，三驱动语义一致）；DROP INDEX 走跨库统一写法
+        // （DatabaseManager::execSchemaSql 的存在性检查 + 各驱动语法）。
+        55 => array(
+            "ALTER TABLE registrations ADD COLUMN reg_date TEXT DEFAULT ''",
+            "UPDATE registrations SET reg_date = date(registered_at) WHERE (reg_date IS NULL OR reg_date='') AND registered_at IS NOT NULL AND registered_at != ''",
+            "DROP INDEX IF EXISTS idx_registrations_dept_date_seq ON registrations",
+            "DROP INDEX IF EXISTS idx_registrations_dept_date ON registrations",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_registrations_dept_date_seq ON registrations(first_dept_id, reg_date, visit_seq)",
+            "CREATE INDEX IF NOT EXISTS idx_registrations_dept_date ON registrations(first_dept_id, reg_date)",
         ),
     ),
 );

@@ -131,8 +131,9 @@ class EncounterAdapter extends FhirAdapter {
                 elseif (strlen($d) === 4) $dates[] = $d . '-%';
             }
             foreach ($dates as $d) {
-                if (strpos($d, '%') !== false) { $where[] = "substr(registered_at,1,7) LIKE ?"; $args[] = $d; }
-                else { $where[] = 'date(registered_at)=?'; $args[] = $d; }
+                // reg_date（业务日列）：本地日语义，随存储模式切换保持一致
+                if (strpos($d, '%') !== false) { $where[] = "substr(reg_date,1,7) LIKE ?"; $args[] = $d; }
+                else { $where[] = 'reg_date=?'; $args[] = $d; }
             }
         }
 

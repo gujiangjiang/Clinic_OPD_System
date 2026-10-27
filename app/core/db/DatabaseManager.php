@@ -556,11 +556,40 @@ class DatabaseManager {
     private static function execSchemaSql($pdo, $sql) {
         $driver = self::driver();
         $sql = self::dialectSqlFor($driver, $sql);
+        // 跨库统一写法 DROP INDEX IF EXISTS <name> ON <table>：
+        // SQLite/PG 原生支持 IF EXISTS（去掉 ON 子句）；MySQL 不支持 IF EXISTS 且
+        // 语法为 DROP INDEX name ON table——统一改由存在性检查 + 裸 DROP 处理。
+        if (preg_match('/^\s*DROP\s+INDEX\s+IF\s+EXISTS\s+([a-zA-Z0-9_]+)\s+ON\s+([a-zA-Z0-9_]+)\s*$/i', $sql, $m)) {
+            self::dropIndexIfExists($pdo, $driver, $m[1], $m[2]);
+            return;
+        }
         if ($driver === 'mysql' && preg_match('/^\s*CREATE\s+(?:UNIQUE\s+)?INDEX\b/i', $sql)) {
             $sql = self::mysqlIndexSql($pdo, $sql);
             if ($sql === null) return;   // 索引已存在：幂等跳过
         }
         $pdo->exec($sql);
+    }
+
+    /**
+     * 跨库 DROP INDEX IF EXISTS：索引不存在时静默跳过（幂等），存在时按各驱动语法删除。
+     * 索引名/表名来自 schema 常量（[a-zA-Z0-9_] 白名单校验），无注入面。
+     */
+    private static function dropIndexIfExists($pdo, $driver, $index, $table) {
+        if ($driver === 'mysql') {
+            $st = $pdo->prepare('SHOW INDEX FROM `' . $table . '` WHERE Key_name = ?');
+            $st->execute(array($index));
+            if (!$st->fetchColumn()) return;   // 不存在：跳过
+            $pdo->exec('DROP INDEX `' . $index . '` ON `' . $table . '`');
+            return;
+        }
+        if ($driver === 'pgsql') {
+            $st = $pdo->prepare('SELECT 1 FROM pg_indexes WHERE indexname = ?');
+            $st->execute(array($index));
+            if (!$st->fetchColumn()) return;
+            $pdo->exec('DROP INDEX "' . $index . '"');
+            return;
+        }
+        $pdo->exec('DROP INDEX IF EXISTS ' . $index);   // SQLite 原生支持
     }
 
     /**

@@ -61,7 +61,7 @@ function doctor_read_call_queue($u) {
         if (!$r) return null;
         $follow = 0;
         if (!empty($r['patient_no'])) {
-            $follow = (int)EmrRepository::val("SELECT COUNT(*) FROM registrations WHERE patient_no=? AND current_dept_id=? AND date(registered_at)=? AND status IN ('paid','visiting','finished') AND id<>?", array($r['patient_no'], $deptId, today_str(), $r['id']));
+            $follow = (int)EmrRepository::val("SELECT COUNT(*) FROM registrations WHERE patient_no=? AND current_dept_id=? AND reg_date=? AND status IN ('paid','visiting','finished') AND id<>?", array($r['patient_no'], $deptId, today_str(), $r['id']));
         }
         return array(
             'name' => $r['pname'], 'gender' => $r['pgender'],

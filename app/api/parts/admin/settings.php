@@ -20,8 +20,8 @@ function admin_part_settings($action) {
     /* ==================== 工作台统计 ==================== */
     if ($action === 'stats') {
         $today = today_str();
-        $regToday = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=? AND status IN ('paid','visiting','finished')", array($today));
-        $waiting = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=? AND status='paid'", array($today));
+        $regToday = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations WHERE reg_date=? AND status IN ('paid','visiting','finished')", array($today));
+        $waiting = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations WHERE reg_date=? AND status='paid'", array($today));
         $revenue = (float)AnalyticsRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM payments WHERE date(created_at)=?", array($today));
         $pendingAudits = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM audits WHERE status='pending'");
         $lowStock = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty<=10");
@@ -31,7 +31,7 @@ function admin_part_settings($action) {
         // 近7天趋势（挂号人次 + 缴费金额）
         $trend = trend_7_days(array(
             'reg' => function ($day) {
-                return (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations WHERE date(registered_at)=? AND status IN ('paid','visiting','finished')", array($day));
+                return (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations WHERE reg_date=? AND status IN ('paid','visiting','finished')", array($day));
             },
             'rev' => function ($day) {
                 return round((float)AnalyticsRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM payments WHERE date(created_at)=?", array($day)), 2);

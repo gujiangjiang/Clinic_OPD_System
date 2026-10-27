@@ -446,10 +446,10 @@ class VisitSeeder extends Seeder {
             else { $disp = '其他'; $dispDetail = $this->pick($this->otherPool); }
             $finishedAt = date('Y-m-d H:i:s', $ts + mt_rand(3 * 3600, 8 * 3600));
         }
-        $visitId = (int)DB::insert('INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, paid_at, cashier_id, cashier_name, registered_at, cancel_reason, is_extra, disposition, disposition_detail, finished_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
+        $visitId = (int)DB::insert('INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, paid_at, cashier_id, cashier_name, registered_at, reg_date, cancel_reason, is_extra, disposition, disposition_detail, finished_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
             $p['patient_no'], $flowNo, $this->seqSeq[$skey], $deptId, $dept['name'], $deptId, $dept['name'],
             date('H', $ts) < 12 ? 'am' : 'pm', $this->pick(array('自费', '居民医保', '职工医保')), $fee,
-            $status, $payTime, $this->cashierId, $this->staff['cashier'], date('Y-m-d H:i:s', $ts), '', 0, $disp, $dispDetail, $finishedAt,
+            $status, $payTime, $this->cashierId, $this->staff['cashier'], date('Y-m-d H:i:s', $ts), date('Y-m-d', $ts), '', 0, $disp, $dispDetail, $finishedAt,
         ));
         $this->cnt['visit']++;
 
