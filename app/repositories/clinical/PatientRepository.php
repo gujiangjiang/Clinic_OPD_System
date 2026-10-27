@@ -28,8 +28,9 @@ class PatientRepository extends BaseRepository {
         $like = '%' . $kw . '%';
         $where = 'patient_no LIKE ? OR id_card LIKE ? OR name LIKE ?';
         $params = array($like, $like, $like);
-        if ($from !== '') { $where .= ' AND date(created_at)>=?'; $params[] = $from; }
-        if ($to !== '') { $where .= ' AND date(created_at)<=?'; $params[] = $to; }
+        // 建档日期范围：day_range 边界（>= 起日 0 点、< 止日次日 0 点；local/utc 双模式正确）
+        if ($from !== '') { $d = day_range($from); $where .= ' AND created_at>=?'; $params[] = $d[0]; }
+        if ($to !== '') { $d = day_range($to); $where .= ' AND created_at<?'; $params[] = $d[1]; }
         return self::q(
             "SELECT * FROM patients WHERE $where ORDER BY id DESC LIMIT 20",
             $params

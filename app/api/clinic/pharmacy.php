@@ -19,14 +19,16 @@ switch ($action) {
     /* ==================== 药房首页统计 ==================== */
     case 'home_stats':
         $today = today_str();
-        $todayDisp = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='dispensed' AND date(executed_at)=?", array($today));
-        $todayFee = (float)OrderRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type='prescription' AND status='dispensed' AND date(paid_at)=?", array($today));
+        $day0 = day_range($today);   // day_range 边界（local/utc 双模式正确）
+        $todayDisp = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='dispensed' AND executed_at >= ? AND executed_at < ?", array($day0[0], $day0[1]));
+        $todayFee = (float)OrderRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type='prescription' AND status='dispensed' AND paid_at >= ? AND paid_at < ?", array($day0[0], $day0[1]));
         $pendingRx = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='paid'");
         $drugTotal = (int)DrugRepository::val("SELECT COUNT(*) FROM drugs WHERE status='approved'");
         $lowStock = (int)DrugRepository::val("SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty <= CASE WHEN warn_qty > 0 THEN warn_qty ELSE 10 * MAX(1, spec_pack_qty) END");
         $pendingAudit = (int)DrugRepository::val("SELECT COUNT(*) FROM drugs WHERE status='pending'");
         $trend = trend_7_days(function ($day) {
-            return (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='dispensed' AND date(executed_at)=?", array($day));
+            $d = day_range($day);
+            return (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='prescription' AND status='dispensed' AND executed_at >= ? AND executed_at < ?", array($d[0], $d[1]));
         });
         json_ok(array(
             'kpi' => array('today_disp' => $todayDisp, 'today_fee' => round($todayFee, 2), 'pending_rx' => $pendingRx,

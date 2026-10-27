@@ -9,11 +9,12 @@
 function admin_ana_overview() {
     list($start, $end) = ana_range();
 
-    // KPI：门诊人次 + 挂号费
+    // KPI：门诊人次 + 挂号费（day_range 边界：local/utc 双模式正确）
+    $ts0 = day_range($start); $te1 = day_range($end);
     $patients = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations
-        WHERE status IN ('paid','visiting','finished') AND paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ?",
-        array($start, $end));
-    $regFee = (float)AnalyticsRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM payments WHERE kind='visit' AND date(created_at) BETWEEN ? AND ?", array($start, $end));
+        WHERE status IN ('paid','visiting','finished') AND paid_at IS NOT NULL AND paid_at >= ? AND paid_at < ?",
+        array($ts0[0], $te1[1]));
+    $regFee = (float)AnalyticsRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM payments WHERE kind='visit' AND created_at >= ? AND created_at < ?", array($ts0[0], $te1[1]));
 
     // 四类项目费 + 合计
     $sums = array('prescription' => 0, 'lab' => 0, 'imaging' => 0, 'procedure' => 0);

@@ -22,14 +22,16 @@ function dept_visit_allowed($visit, $u) {
 /** 科室首页统计 */
 function dept_home_stats($itemType, $itemTable) {
     $today = today_str();
-    $todayItems = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type=? AND date(created_at)=?", array($itemType, $today));
-    $todayFee = (float)OrderRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type=? AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($itemType, $today));
+    $day0 = day_range($today);   // day_range 边界（local/utc 双模式正确）
+    $todayItems = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type=? AND created_at >= ? AND created_at < ?", array($itemType, $day0[0], $day0[1]));
+    $todayFee = (float)OrderRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type=? AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND paid_at >= ? AND paid_at < ?", array($itemType, $day0[0], $day0[1]));
     $pendingReg = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type=? AND status='paid'", array($itemType));
     $pendingRep = (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type=? AND status='registered'", array($itemType));
     $itemTotal = (int)OrderRepository::val("SELECT COUNT(*) FROM $itemTable WHERE status='approved'", array());
     $pendingAudit = (int)OrderRepository::val("SELECT COUNT(*) FROM $itemTable WHERE status='pending'", array());
     $trend = trend_7_days(function ($day) use ($itemType) {
-        return (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type=? AND date(created_at)=?", array($itemType, $day));
+        $d = day_range($day);
+        return (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type=? AND created_at >= ? AND created_at < ?", array($itemType, $d[0], $d[1]));
     });
     json_ok(array(
         'kpi' => array('today_items' => $todayItems, 'today_fee' => round($todayFee, 2),

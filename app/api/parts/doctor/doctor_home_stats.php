@@ -11,11 +11,12 @@ function doctor_read_home_stats($u) {
     Session::closeReadOnly();
     $uid = (int)$u['id'];
     $today = today_str();
-    // 今日接诊人次（本人）
-    $todayVisits = (int)EmrRepository::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND date(created_at)=?", array($uid, $today));
+    // 今日接诊人次（本人；day_range 边界，local/utc 双模式正确）
+    $day0 = day_range($today);
+    $todayVisits = (int)EmrRepository::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND created_at >= ? AND created_at < ?", array($uid, $day0[0], $day0[1]));
     // 今日开单金额（本人、已缴费、排除退费取消）
     $sums = array('drug' => 0.0, 'lab' => 0.0, 'imaging' => 0.0, 'procedure' => 0.0);
-    foreach (EmrRepository::q("SELECT order_type, COALESCE(SUM(total_amount),0) s FROM orders WHERE doctor_id=? AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=? GROUP BY order_type", array($uid, $today)) as $r) {
+    foreach (EmrRepository::q("SELECT order_type, COALESCE(SUM(total_amount),0) s FROM orders WHERE doctor_id=? AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND paid_at >= ? AND paid_at < ? GROUP BY order_type", array($uid, $day0[0], $day0[1])) as $r) {
         if (isset($sums[$r['order_type']])) $sums[$r['order_type']] = round((float)$r['s'], 2);
     }
     // 我的待完成接诊：医生本人首诊（record_type=initial，排除续写/会诊）、就诊尚未诊毕、
@@ -28,14 +29,15 @@ function doctor_read_home_stats($u) {
          JOIN registrations v ON v.id = r.visit_id
          WHERE r.doctor_id = ? AND r.record_type = 'initial'
            AND v.status NOT IN ('finished','cancelled','refunded')
-           AND date(v.registered_at) >= ?",
-        array($uid, $since)
+           AND v.registered_at >= ?",
+        array($uid, day_range($since)[0])
     );
     // 今日门诊人次（全部科室；reg_date = 挂号业务日列）
     $todayReg = (int)EmrRepository::val("SELECT COUNT(*) FROM registrations WHERE reg_date=?", array($today));
-    // 近7天本人接诊趋势
+    // 近7天本人接诊趋势（day_range 边界）
     $trend = trend_7_days(function ($day) use ($uid) {
-        return (int)EmrRepository::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND date(created_at)=?", array($uid, $day));
+        $d = day_range($day);
+        return (int)EmrRepository::val("SELECT COUNT(*) FROM patient_records WHERE doctor_id=? AND created_at >= ? AND created_at < ?", array($uid, $d[0], $d[1]));
     });
     json_ok(array(
         'kpi' => array('today_visits' => $todayVisits, 'today_reg' => $todayReg, 'total' => round(array_sum($sums), 2),

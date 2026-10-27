@@ -316,8 +316,9 @@ switch ($action) {
         }
         // 日期范围筛选 + 跨度钳制（危急值域上限 1 个月，防全表扫描压力）
         list($from, $to) = date_span_clamp('critical', $from, $to);
-        if ($from !== '') { $where .= ' AND date(created_at)>=?'; $params[] = $from; }
-        if ($to !== '') { $where .= ' AND date(created_at)<=?'; $params[] = $to; }
+        // 日期范围：day_range 边界（local/utc 双模式正确）
+        if ($from !== '') { $d = day_range($from); $where .= ' AND created_at>=?'; $params[] = $d[0]; }
+        if ($to !== '') { $d = day_range($to); $where .= ' AND created_at<?'; $params[] = $d[1]; }
         $total = CriticalValueRepository::countRows($where, $params);
         $rows = CriticalValueRepository::paginate($where, $params, $page, $pageSize);
         $out = array();

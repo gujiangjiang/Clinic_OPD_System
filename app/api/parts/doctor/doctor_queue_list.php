@@ -54,7 +54,7 @@ function doctor_read_queue_list($u) {
     $pref = (isset($_SESSION['queue_pref']) && is_array($_SESSION['queue_pref'])) ? $_SESSION['queue_pref'] : array();
     $consVisits = array();
     $consStatus = array();
-    foreach (EmrRepository::q("SELECT id, visit_id, status, created_at, accepted_by, record_id FROM consultations WHERE target_dept_id=? AND date(created_at)>=? ORDER BY id DESC", array($deptId, $since)) as $c) {
+    foreach (EmrRepository::q("SELECT id, visit_id, status, created_at, accepted_by, record_id FROM consultations WHERE target_dept_id=? AND created_at >= ? ORDER BY id DESC", array($deptId, day_range($since)[0])) as $c) {
         $vid = (int)$c['visit_id'];
         if (!isset($consStatus[$vid])) {
             $consVisits[] = $vid;

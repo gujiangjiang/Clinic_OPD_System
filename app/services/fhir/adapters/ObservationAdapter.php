@@ -255,8 +255,17 @@ class ObservationAdapter extends FhirAdapter {
             foreach ($d as $one) {
                 $one = trim($one);
                 if ($one === '') continue;
-                if (strlen($one) === 10) { $where[] = 'date(created_at)=?'; $args[] = $one; }
-                elseif (strlen($one) === 7) { $where[] = 'substr(created_at,1,7)=?'; $args[] = $one; }
+                // day_range 边界（local/utc 双模式正确）：日期=当日窗口；月份=当月窗口
+                if (strlen($one) === 10) {
+                    $db = day_range($one);
+                    $where[] = 'created_at >= ? AND created_at < ?';
+                    $args[] = $db[0]; $args[] = $db[1];
+                } elseif (strlen($one) === 7) {
+                    $mStart = $one . '-01';
+                    $mNext = date('Y-m-01', strtotime($mStart . ' +1 month'));
+                    $where[] = 'created_at >= ? AND created_at < ?';
+                    $args[] = day_range($mStart)[0]; $args[] = day_range($mNext)[0];
+                }
             }
         }
     }

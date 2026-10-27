@@ -40,9 +40,10 @@ function ana_order_sums($start, $end, $extraWhere = '', $extraParams = array(), 
 
 /** 已缴费就诊按当前科室归集（人次 + 挂号费）：[dept_id => [patients, reg_fee]]（dept/custom 共用） */
 function ana_paid_regs($start, $end) {
+    $ts0 = day_range($start); $te1 = day_range($end);   // day_range 边界（local/utc 双模式正确）
     $regs = AnalyticsRepository::q("SELECT current_dept_id AS d, COUNT(*) AS c, COALESCE(SUM(fee),0) AS f
         FROM registrations WHERE status IN ('paid','visiting','finished') AND paid_at IS NOT NULL
-        AND date(paid_at) BETWEEN ? AND ? GROUP BY current_dept_id", array($start, $end));
+        AND paid_at >= ? AND paid_at < ? GROUP BY current_dept_id", array($ts0[0], $te1[1]));
     $stat = array();
     foreach ($regs as $r) {
         $d = (int)$r['d'];
@@ -60,9 +61,10 @@ function ana_paid_regs($start, $end) {
  */
 function ana_order_fee_by_dept($start, $end) {
     $vids = array();
+    $ts0 = day_range($start); $te1 = day_range($end);   // day_range 边界（local/utc 双模式正确）
     $ordRows = AnalyticsRepository::q("SELECT visit_id, order_type, COALESCE(SUM(total_amount),0) AS s FROM orders
-        WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at) BETWEEN ? AND ?
-        GROUP BY visit_id, order_type", array($start, $end));
+        WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND paid_at >= ? AND paid_at < ?
+        GROUP BY visit_id, order_type", array($ts0[0], $te1[1]));
     foreach ($ordRows as $r) { $vids[(int)$r['visit_id']] = true; }
     $visitDept = array();
     if ($vids) {

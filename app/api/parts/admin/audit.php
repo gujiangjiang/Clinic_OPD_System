@@ -36,8 +36,9 @@ function admin_part_audit($action) {
         list($from, $to) = date_span_clamp('audit', $from, $to);
         $dateCond = '';
         $dateParams = array();
-        if ($from !== '') { $dateCond .= ' AND date(created_at)>=?'; $dateParams[] = $from; }
-        if ($to !== '') { $dateCond .= ' AND date(created_at)<=?'; $dateParams[] = $to; }
+        // 日期范围：day_range 边界（local/utc 双模式正确）
+        if ($from !== '') { $d = day_range($from); $dateCond .= ' AND created_at>=?'; $dateParams[] = $d[0]; }
+        if ($to !== '') { $d = day_range($to); $dateCond .= ' AND created_at<?'; $dateParams[] = $d[1]; }
         if ($status === 'handled') {
             // 已处理页签：已通过 / 已驳回 / 已使用
             $statusCond = "status IN ('approved','rejected','used')";

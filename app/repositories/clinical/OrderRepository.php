@@ -26,9 +26,10 @@ class OrderRepository extends BaseRepository {
     }
 
     public static function byDoctorDate($doctorId, $date) {
+        $d = day_range($date);   // 本地日 → 存储边界（local/utc 双模式正确）
         return self::q(
-            "SELECT order_type, COALESCE(SUM(total_amount),0) s FROM orders WHERE doctor_id=? AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=? GROUP BY order_type",
-            array((int)$doctorId, $date)
+            "SELECT order_type, COALESCE(SUM(total_amount),0) s FROM orders WHERE doctor_id=? AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND paid_at >= ? AND paid_at < ? GROUP BY order_type",
+            array((int)$doctorId, $d[0], $d[1])
         );
     }
 
@@ -44,9 +45,10 @@ class OrderRepository extends BaseRepository {
 
     /* ---------------- 统计聚合 ---------------- */
 
-    /** 今日处置执行数 */
+    /** 今日处置执行数（day_range 边界：local/utc 双模式正确） */
     public static function todayDisposalDone($today) {
-        return (int)self::val("SELECT COUNT(*) FROM order_items WHERE item_type='procedure' AND status='done' AND date(executed_at)=?", array($today));
+        $d = day_range($today);
+        return (int)self::val("SELECT COUNT(*) FROM order_items WHERE item_type='procedure' AND status='done' AND executed_at >= ? AND executed_at < ?", array($d[0], $d[1]));
     }
 
     /** 待执行处置数 */
@@ -54,9 +56,10 @@ class OrderRepository extends BaseRepository {
         return (int)self::val("SELECT COUNT(*) FROM order_items WHERE item_type='procedure' AND status='paid'");
     }
 
-    /** 今日处置收入 */
+    /** 今日处置收入（day_range 边界：local/utc 双模式正确） */
     public static function todayDisposalFee($today) {
-        return (float)self::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type='procedure' AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($today));
+        $d = day_range($today);
+        return (float)self::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE order_type='procedure' AND status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND paid_at >= ? AND paid_at < ?", array($d[0], $d[1]));
     }
 
     /** 护士站待处置列表（勾选护士执行 + 已缴费）——deptIds 非空时按就诊科室过滤 */

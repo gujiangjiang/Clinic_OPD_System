@@ -8,7 +8,8 @@ function admin_ana_doctor() {
     list($start, $end) = ana_range();
     $deptId = (int)req('dept_id', 0);
     $visits = array();
-    foreach (AnalyticsRepository::q("SELECT doctor_id, doctor_name, COUNT(*) AS c FROM patient_records WHERE date(created_at) BETWEEN ? AND ? GROUP BY doctor_id, doctor_name", array($start, $end)) as $r) {
+    $ts0 = day_range($start); $te1 = day_range($end);   // day_range 边界（local/utc 双模式正确）
+    foreach (AnalyticsRepository::q("SELECT doctor_id, doctor_name, COUNT(*) AS c FROM patient_records WHERE created_at >= ? AND created_at < ? GROUP BY doctor_id, doctor_name", array($ts0[0], $te1[1])) as $r) {
         $visits[(int)$r['doctor_id']] = array('name' => $r['doctor_name'], 'c' => (int)$r['c']);
     }
     $revRows = ana_order_sums($start, $end, 'doctor_id > 0', array(), 'doctor_id');

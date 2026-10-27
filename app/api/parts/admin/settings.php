@@ -22,7 +22,8 @@ function admin_part_settings($action) {
         $today = today_str();
         $regToday = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations WHERE reg_date=? AND status IN ('paid','visiting','finished')", array($today));
         $waiting = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations WHERE reg_date=? AND status='paid'", array($today));
-        $revenue = (float)AnalyticsRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM payments WHERE date(created_at)=?", array($today));
+        $day0 = day_range($today);
+        $revenue = (float)AnalyticsRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM payments WHERE created_at >= ? AND created_at < ?", array($day0[0], $day0[1]));
         $pendingAudits = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM audits WHERE status='pending'");
         $lowStock = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM drugs WHERE status='approved' AND qty<=10");
         $deptCount = (int)AnalyticsRepository::val("SELECT COUNT(*) FROM departments WHERE status=1 AND type IN ('clinic','emergency')");
@@ -34,7 +35,8 @@ function admin_part_settings($action) {
                 return (int)AnalyticsRepository::val("SELECT COUNT(*) FROM registrations WHERE reg_date=? AND status IN ('paid','visiting','finished')", array($day));
             },
             'rev' => function ($day) {
-                return round((float)AnalyticsRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM payments WHERE date(created_at)=?", array($day)), 2);
+                $d = day_range($day);
+                return round((float)AnalyticsRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM payments WHERE created_at >= ? AND created_at < ?", array($d[0], $d[1])), 2);
             },
         ));
         json_ok(array(

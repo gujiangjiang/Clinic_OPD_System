@@ -20,7 +20,8 @@ switch ($action) {
         $todayFee = OrderRepository::todayDisposalFee($today);
         $dispTotal = (int)OrderRepository::val("SELECT COUNT(*) FROM disposal_items WHERE status='approved'");
         $trend = trend_7_days(function ($day) {
-            return (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='procedure' AND status='done' AND date(executed_at)=?", array($day));
+            $d = day_range($day);
+            return (int)OrderRepository::val("SELECT COUNT(*) FROM order_items WHERE item_type='procedure' AND status='done' AND executed_at >= ? AND executed_at < ?", array($d[0], $d[1]));
         });
         json_ok(array(
             'kpi' => array('today_done' => $todayDone, 'pending_exec' => $pendingExec, 'today_fee' => round($todayFee, 2), 'disp_total' => $dispTotal),

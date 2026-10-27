@@ -363,13 +363,17 @@ if (count($__segs) <= 1) {
         }
     }
     if ($sdate !== '') {
+        // 检查日期筛选：day_range 边界（local/utc 双模式正确；见 AGENTS.md 时间与时区铁律）
         if (preg_match('/^(\d{8})-(\d{8})$/', $sdate, $m)) {       // 日期范围
-            $where[] = 'date(created_at) BETWEEN ? AND ?';
-            $args[] = substr($m[1], 0, 4) . '-' . substr($m[1], 4, 2) . '-' . substr($m[1], 6, 2);
-            $args[] = substr($m[2], 0, 4) . '-' . substr($m[2], 4, 2) . '-' . substr($m[2], 6, 2);
+            $df = substr($m[1], 0, 4) . '-' . substr($m[1], 4, 2) . '-' . substr($m[1], 6, 2);
+            $dt = substr($m[2], 0, 4) . '-' . substr($m[2], 4, 2) . '-' . substr($m[2], 6, 2);
+            $d0 = day_range($df); $d1 = day_range($dt);
+            $where[] = 'created_at >= ? AND created_at < ?';
+            $args[] = $d0[0]; $args[] = $d1[1];
         } elseif (preg_match('/^\d{8}$/', $sdate)) {
-            $where[] = 'date(created_at)=?';
-            $args[] = substr($sdate, 0, 4) . '-' . substr($sdate, 4, 2) . '-' . substr($sdate, 6, 2);
+            $d = day_range(substr($sdate, 0, 4) . '-' . substr($sdate, 4, 2) . '-' . substr($sdate, 6, 2));
+            $where[] = 'created_at >= ? AND created_at < ?';
+            $args[] = $d[0]; $args[] = $d[1];
         }
     }
     $limit = isset($_GET['limit']) ? max(1, min(500, (int)$_GET['limit'])) : 100;

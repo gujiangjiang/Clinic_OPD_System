@@ -16,14 +16,16 @@ function cashier_part_read($action) {
     if ($action === 'home_stats') {
         $today = today_str();
         $regToday = (int)CashierRepository::val("SELECT COUNT(*) FROM registrations WHERE reg_date=?", array($today));
-        $regFeeToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM payments WHERE kind='visit' AND date(created_at)=?", array($today));
-        $paidToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($today));
+        $day0 = day_range($today);   // day_range 边界（local/utc 双模式正确）
+        $regFeeToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM payments WHERE kind='visit' AND created_at >= ? AND created_at < ?", array($day0[0], $day0[1]));
+        $paidToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND paid_at >= ? AND paid_at < ?", array($day0[0], $day0[1]));
         // 今日退费：refunds 表为挂号退费与订单退费统一流水（orders.refunded_at 只覆盖订单退费，
         // 挂号退费 cancel_visit 仅写 refunds + registrations.status=refunded，不落 orders）
-        $refundToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM refunds WHERE date(created_at)=?", array($today));
+        $refundToday = (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM refunds WHERE created_at >= ? AND created_at < ?", array($day0[0], $day0[1]));
         $waiting = (int)CashierRepository::val("SELECT COUNT(*) FROM registrations WHERE status='paid' AND reg_date=?", array($today));
         $trend = trend_7_days(function ($day) {
-            return (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND date(paid_at)=?", array($day));
+            $d = day_range($day);
+            return (float)CashierRepository::val("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE status NOT IN ('refunded','cancelled') AND paid_at IS NOT NULL AND paid_at >= ? AND paid_at < ?", array($d[0], $d[1]));
         });
         json_ok(array(
             'kpi' => array('reg_today' => $regToday, 'reg_fee' => round($regFeeToday, 2), 'paid_today' => round($paidToday, 2),

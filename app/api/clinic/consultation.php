@@ -136,12 +136,13 @@ switch ($action) {
         $days = user_queue_days($u);
         $since = date('Y-m-d', strtotime('-' . ($days - 1) . ' days'));
         $type = get('type', 'received');
+        $sinceAt = day_range($since)[0];   // N 天窗口起点边界（local/utc 双模式正确）
         if ($type === 'sent') {
             // 发出的会诊（本人发起，近 N 天）
-            $rows = ConsultationRepository::q("SELECT * FROM consultations WHERE from_doctor_id=? AND date(created_at)>=? ORDER BY id DESC", array($u['id'], $since));
+            $rows = ConsultationRepository::q("SELECT * FROM consultations WHERE from_doctor_id=? AND created_at>=? ORDER BY id DESC", array($u['id'], $sinceAt));
         } else {
             // 收到的会诊（目标科室 = 当前科室，近 N 天）
-            $rows = ConsultationRepository::q("SELECT * FROM consultations WHERE target_dept_id=? AND date(created_at)>=? ORDER BY id DESC", array($deptId, $since));
+            $rows = ConsultationRepository::q("SELECT * FROM consultations WHERE target_dept_id=? AND created_at>=? ORDER BY id DESC", array($deptId, $sinceAt));
         }
         $list = array_map('consultation_row', $rows);
         json_ok(array('list' => $list, 'days' => $days));

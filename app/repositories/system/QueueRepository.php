@@ -92,9 +92,11 @@ class QueueRepository extends BaseRepository {
             if ((int)$room['allow_cross_day'] !== 1) {
                 $now = now_str();
                 // 跨天且不允许：清空本诊室前一天所有叫号记录（含过号/认领），重置当前就诊；
-                // room_id 分支同样限定日期，避免跨天后再叫号触发的刷新误删当天事件
-                self::exec("DELETE FROM call_events WHERE (room_id=? AND date(created_at) < ?) OR (dept_id=? AND date(created_at) < ?)",
-                    array((int)$room['id'], $today, (int)$room['dept_id'], $today));
+                // room_id 分支同样限定日期，避免跨天后再叫号触发的刷新误删当天事件。
+                // 日期边界经 day_range 换算（双模式正确：local=当日本地 0 点 / utc=对应 UTC 边界）
+                $day0 = day_range($today);
+                self::exec("DELETE FROM call_events WHERE (room_id=? AND created_at < ?) OR (dept_id=? AND created_at < ?)",
+                    array((int)$room['id'], $day0[0], (int)$room['dept_id'], $day0[0]));
                 self::exec("UPDATE clinic_rooms SET current_visit_id=0, current_flow_no='', current_called_at='',
                     last_call_action='', last_call_at='', call_session_date=?, updated_at=? WHERE id=?",
                     array($today, $now, (int)$room['id']));
