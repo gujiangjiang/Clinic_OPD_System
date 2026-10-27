@@ -368,8 +368,9 @@ function admin_part_settings($action) {
         }
         // 日期范围筛选（登记时间）+ 跨度钳制（打印中心域上限 3 个月，减少扫描量）
         list($from, $to) = date_span_clamp('print', $from, $to);
-        if ($from !== '') { $where .= ' AND date(r.registered_at)>=?'; $params[] = $from; }
-        if ($to !== '') { $where .= ' AND date(r.registered_at)<=?'; $params[] = $to; }
+        // 日期范围：day_range 边界（local/utc 双模式正确）
+        if ($from !== '') { $d = day_range($from); $where .= ' AND r.registered_at>=?'; $params[] = $d[0]; }
+        if ($to !== '') { $d = day_range($to); $where .= ' AND r.registered_at<?'; $params[] = $d[1]; }
         $total = (int)AnalyticsRepository::val(
             "SELECT COUNT(*) FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no WHERE $where",
             $params

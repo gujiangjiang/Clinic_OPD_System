@@ -31,9 +31,9 @@ function doctor_read_queue_list($u) {
             r.status, r.registered_at, r.finished_at,
             p.name AS pname, p.gender AS pgender, p.birth_date AS pbirth
         FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-        WHERE r.current_dept_id=? AND date(r.registered_at)>=?
+        WHERE r.current_dept_id=? AND r.registered_at>=?
         AND r.status IN ('paid','visiting','finished')
-        ORDER BY r.registered_at DESC", array($deptId, $since));
+        ORDER BY r.registered_at DESC", array($deptId, day_range($since)[0]));
     $list = array_map(function ($r) {
         return array(
             'code' => oid($r['id']),

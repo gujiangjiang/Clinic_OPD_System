@@ -116,20 +116,23 @@ function deptwork_queue_rows($u, $status, $today) {
                 AND SUM(CASE WHEN oi.status IN ($unDoneSet) THEN 1 ELSE 0 END) = 0";
         }
     }
-    // 「当日」叠加筛选
-    $todayWhere = $today ? " AND date(oi.created_at)=?" : '';
+    // 「当日」叠加筛选（窗口经 day_range 边界，双模式正确）
+    $todayWhere = $today ? " AND oi.created_at >= ? AND oi.created_at < ?" : '';
 
-    // 可见天数过滤：每条明细按其开单医生的可见天数过滤；多医生开单以各自天数并集。
-    // 「今天」锚定 PHP 站点时区（? 参数 = today_str()），禁止取数据库端当前日期——
-    // SQLite 的 'localtime' 取操作系统时区、MySQL/PG 取会话时区，与站点时区不一致时
-    // 分日窗口整体偏移（详见 AGENTS.md「时间与时区铁律」）。
-    // 三驱动方言仅保留「日期减 N 天」的写法差异：MySQL DATE_SUB / PG 日期减法 / SQLite 修饰符
+    // 可见天数过滤：每条明细按其开单医生的可见天数过滤（days∈[2..7]，clamp 后逐行取值）。
+    // 全部窗口边界由 PHP 站点时区预计算（6 个边界参数 + CASE 选择，双向模式正确）——
+    // 禁止取数据库端当前日期/日期运算（SQLite localtime 取操作系统时区、MySQL/PG 取
+    // 会话时区，与站点时区不一致时整窗偏移；详见 AGENTS.md「时间与时区铁律」）。
+    $qdBounds = array();
+    for ($k = 2; $k <= 7; $k++) {
+        $qdBounds[] = day_range(date('Y-m-d', strtotime('-' . ($k - 1) . ' days')))[0];
+    }
     $__drv = DatabaseManager::driver();
-    $queueDaysClause = ($__drv === 'mysql')
-        ? "date(oi.created_at) >= DATE_SUB(?, INTERVAL (GREATEST(2, LEAST(7, COALESCE(usr.queue_days,3))) - 1) DAY)"
-        : (($__drv === 'pgsql')
-            ? "date(oi.created_at) >= ?::date - (GREATEST(2, LEAST(7, COALESCE(usr.queue_days,3))) - 1)"
-            : "date(oi.created_at) >= date(?, '-' || (MAX(2, MIN(7, COALESCE(usr.queue_days,3))) - 1) || ' days')");
+    $qdCase = 'CASE ' . ($__drv === 'sqlite'
+        ? 'MIN(7, MAX(2, COALESCE(usr.queue_days,3)))'
+        : 'LEAST(7, GREATEST(2, COALESCE(usr.queue_days,3)))') .
+        ' WHEN 2 THEN ? WHEN 3 THEN ? WHEN 4 THEN ? WHEN 5 THEN ? WHEN 6 THEN ? ELSE ? END';
+    $queueDaysClause = 'oi.created_at >= ' . $qdCase;
 
     // 可见天数跟随开单医生权限（users.queue_days 2-7，默认 3）：
     // 每条明细按其开单医生的可见天数过滤；多医生开单以各自天数并集（取最长窗口）。
@@ -170,9 +173,13 @@ function deptwork_queue_rows($u, $status, $today) {
     }
     $sql .= ' LIMIT 300';
 
-    // 参数顺序须与 SQL 占位符出现顺序一致：类型 → 可见天数起点日期 → 科室 → 当日
-    $params = array_merge($typeParams, array(today_str()), $deptIds);
-    if ($today) $params[] = today_str();
+    // 参数顺序须与 SQL 占位符出现顺序一致：类型 → 可见天数 6 边界 → 科室 → 当日双边界
+    $params = array_merge($typeParams, $qdBounds, $deptIds);
+    if ($today) {
+        $d0 = day_range(today_str());
+        $params[] = $d0[0];
+        $params[] = $d0[1];
+    }
     return OrderRepository::q($sql, $params);
 }
 

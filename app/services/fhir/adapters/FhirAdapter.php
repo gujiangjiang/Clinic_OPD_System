@@ -128,10 +128,14 @@ abstract class FhirAdapter {
     /**
      * 日期时间 → ISO 8601 带时区偏移（严禁空格）。
      * 输入容忍 'Y-m-d H:i:s' / 'Y-m-d'；空或非法返回 null。
+     * 统一时间口径（单点）：存储值先经 fmt_time 换算为站点时区墙钟再格式化——
+     * local 模式恒等（老行为逐字节不变）；UTC 存储下对消费方（HIS 等）保持
+     * 「本地时间 + 偏移」既有语义，跨系统展示零偏差。
      */
     protected static function isoDateTime($s) {
         $s = trim((string)$s);
         if ($s === '') return null;
+        $s = fmt_time($s);   // 存储 → 本地墙钟（local 恒等）
         $ts = strtotime($s);
         if ($ts === false) return null;
         return date('Y-m-d\TH:i:sP', $ts);

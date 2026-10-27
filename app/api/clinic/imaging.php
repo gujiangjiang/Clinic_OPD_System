@@ -472,8 +472,9 @@ switch ($action) {
         }
         // 日期范围筛选（登记时间）+ 跨度钳制（影像引用域上限 6 个月）
         list($from, $to) = date_span_clamp('refs', $from, $to);
-        if ($from !== '') { $where .= ' AND date(ir.created_at)>=?'; $params[] = $from; }
-        if ($to !== '') { $where .= ' AND date(ir.created_at)<=?'; $params[] = $to; }
+        // 日期范围：day_range 边界（local/utc 双模式正确）
+        if ($from !== '') { $d = day_range($from); $where .= ' AND ir.created_at>=?'; $params[] = $d[0]; }
+        if ($to !== '') { $d = day_range($to); $where .= ' AND ir.created_at<?'; $params[] = $d[1]; }
         // A2：按申请单聚合（一张申请单可含多个 Study）——计数与分页均以申请单为单位
         $total = (int)OrderRepository::val(
             "SELECT COUNT(DISTINCT o.id) FROM imaging_refs ir JOIN orders o ON o.id=ir.order_id WHERE $where",

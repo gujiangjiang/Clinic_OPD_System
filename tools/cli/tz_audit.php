@@ -77,8 +77,8 @@ foreach ($rii as $file) {
         if (mb_strlen($ex) > 110) $ex = mb_substr($ex, 0, 110) . '…';
         $hit = array('file' => $rel, 'line' => $ln, 'text' => $ex);
 
-        // ① 分日窗口：SQL 函数式比较
-        if (preg_match('/\bdate\((' . $TIME_COLS . ')\)|substr\((' . $TIME_COLS . ')\s*,\s*1\s*,\s*7\)/i', $line)) {
+        // ① 分日窗口：SQL 函数式比较（兼容表别名前缀 date(rp.registered_at)）
+        if (preg_match('/\bdate\(\s*(?:[a-z_][a-z0-9_]*\.)?(' . $TIME_COLS . ')\s*\)|substr\(\s*(?:[a-z_][a-z0-9_]*\.)?(' . $TIME_COLS . ')\s*,\s*1\s*,\s*7\s*\)/i', $line)) {
             $findings['DAY_WINDOW'][] = $hit;
             continue;
         }
@@ -88,8 +88,8 @@ foreach ($rii as $file) {
             $findings['RELATIVE'][] = $hit;
             continue;
         }
-        // ③ 展示截取：substr 时间列
-        if (preg_match('/substr\([^;]{0,120}(' . $TIME_COLS . ')[^;]{0,40},\s*(0|5|11)\s*,/i', $line)) {
+        // ③ 展示截取：substr 时间列（兼容别名前缀 $row['x'] / rp.x）
+        if (preg_match('/substr\([^;]{0,120}(?:\$[a-z0-9_]+\[[\'"])?(' . $TIME_COLS . ')[^;]{0,40},\s*(0|5|11)\s*,/i', $line)) {
             $findings['DISPLAY'][] = $hit;
             continue;
         }
@@ -100,10 +100,11 @@ foreach ($rii as $file) {
         }
         // ④ 载荷直出：'时间列' => 未包裹（api/repositories/services）
         $isPayloadSrc = (strpos($rel, 'app/api/') === 0 || strpos($rel, 'app/repositories/') === 0 || strpos($rel, 'app/services/') === 0);
-        if (!$isPrint && $isPayloadSrc && preg_match("/'(" . $TIME_COLS . ")'\s*=>/", $line)) {
+        if (!$isPrint && $isPayloadSrc && preg_match("/'(" . $TIME_COLS . "|__registered_at|__executed_at|__order_created)'\s*=>/", $line)) {
             $findings['PAYLOAD'][] = $hit;
             continue;
         }
+        // （FHIR 时间输出已在基类 FhirAdapter::isoDateTime 单点统一换算，无需调用点包裹）
     }
 }
 

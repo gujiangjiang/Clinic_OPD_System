@@ -99,12 +99,14 @@ class CashierRepository extends BaseRepository {
         return PatientRepository::visitsOf($patientNo);
     }
 
-    /** 当日挂号列表（含患者姓名/性别/年龄，按就诊序号；支持科室类型/状态/关键字过滤） */
+    /** 当日挂号列表（含患者姓名/性别/年龄，按就诊序号；支持科室类型/状态/关键字过滤）
+     *  日期窗口经 day_range 边界（local/utc 双模式正确） */
     public static function visitListByDate($date, $filters = array()) {
+        $d = day_range($date);
         $sql = 'SELECT r.*, p.name AS pname, p.gender AS pgender, p.age AS page
              FROM registrations r LEFT JOIN patients p ON p.patient_no=r.patient_no
-             WHERE date(r.registered_at)=?';
-        $params = array($date);
+             WHERE r.registered_at>=? AND r.registered_at<?';
+        $params = array($d[0], $d[1]);
         // 科室类型：clinic 门诊 / emergency 急诊（按首次挂号科室）
         if (!empty($filters['dept_type']) && in_array($filters['dept_type'], array('clinic', 'emergency'), true)) {
             $sql .= ' AND EXISTS (SELECT 1 FROM departments d WHERE d.id=r.first_dept_id AND d.type=?)';

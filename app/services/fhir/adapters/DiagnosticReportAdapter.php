@@ -204,9 +204,18 @@ class DiagnosticReportAdapter extends FhirAdapter {
         }
 
         if (isset($params['date']) && trim((string)$params['date']) !== '') {
+            // 日期/月份检索：day_range 边界（local/utc 双模式正确，同 ObservationAdapter）
             $d = trim((string)$params['date']);
-            if (strlen($d) === 10) { $where[] = 'date(rp.registered_at)=?'; $args[] = $d; }
-            elseif (strlen($d) === 7) { $where[] = 'substr(rp.registered_at,1,7)=?'; $args[] = $d; }
+            if (strlen($d) === 10) {
+                $db = day_range($d);
+                $where[] = 'rp.registered_at >= ? AND rp.registered_at < ?';
+                $args[] = $db[0]; $args[] = $db[1];
+            } elseif (strlen($d) === 7) {
+                $mStart = $d . '-01';
+                $mNext = date('Y-m-01', strtotime($mStart . ' +1 month'));
+                $where[] = 'rp.registered_at >= ? AND rp.registered_at < ?';
+                $args[] = day_range($mStart)[0]; $args[] = day_range($mNext)[0];
+            }
         }
 
         if (isset($params['status']) && trim((string)$params['status']) !== '') {

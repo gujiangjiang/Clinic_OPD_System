@@ -16,9 +16,11 @@ function admin_ana_disposition() {
     $where = "r.status='finished' AND r.disposition<>''";
     $params = array();
     if ($start !== '' && $end !== '') {
-        $where .= ' AND date(r.registered_at) BETWEEN ? AND ?';
-        $params[] = $start;
-        $params[] = $end;
+        // 日期范围：day_range 边界（local/utc 双模式正确）
+        $ts0 = day_range($start); $te1 = day_range($end);
+        $where .= ' AND r.registered_at >= ? AND r.registered_at < ?';
+        $params[] = $ts0[0];
+        $params[] = $te1[1];
     }
     if ($type !== '' && $type !== '全部') {
         $where .= ' AND r.disposition=?';

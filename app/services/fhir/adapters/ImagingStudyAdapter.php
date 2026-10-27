@@ -286,8 +286,17 @@ class ImagingStudyAdapter extends FhirAdapter {
             foreach ($st as $one) {
                 $one = trim($one);
                 if ($one === '') continue;
-                if (strlen($one) === 10) { $where[] = 'date(ir.created_at)=?'; $args[] = $one; }
-                elseif (strlen($one) === 7) { $where[] = 'substr(ir.created_at,1,7)=?'; $args[] = $one; }
+                // 日期/月份检索：day_range 边界（local/utc 双模式正确，同 ObservationAdapter）
+                if (strlen($one) === 10) {
+                    $db = day_range($one);
+                    $where[] = 'ir.created_at >= ? AND ir.created_at < ?';
+                    $args[] = $db[0]; $args[] = $db[1];
+                } elseif (strlen($one) === 7) {
+                    $mStart = $one . '-01';
+                    $mNext = date('Y-m-01', strtotime($mStart . ' +1 month'));
+                    $where[] = 'ir.created_at >= ? AND ir.created_at < ?';
+                    $args[] = day_range($mStart)[0]; $args[] = day_range($mNext)[0];
+                }
             }
         }
 

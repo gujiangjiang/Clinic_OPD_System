@@ -32,8 +32,10 @@ switch ($action) {
     /* ==================== 今日患者列表 ==================== */
     case 'patients':
         $deptIds = user_dept_ids($u);
-        $where = "date(r.registered_at)=? AND r.status IN ('paid','visiting','finished')";
-        $params = array(today_str());
+        // 当日窗口：day_range 边界（local/utc 双模式正确）
+        $d0 = day_range(today_str());
+        $where = "r.registered_at >= ? AND r.registered_at < ? AND r.status IN ('paid','visiting','finished')";
+        $params = array($d0[0], $d0[1]);
         if ($deptIds) {
             $where .= ' AND r.current_dept_id IN (' . in_placeholders($deptIds) . ')';
             $params = array_merge($params, $deptIds);
