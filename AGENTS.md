@@ -88,15 +88,21 @@
   创建/更新时固化 `print_snapshots.tz` + `tz_offset`（schema v54）；覆盖病历/
   申请单/凭条/报告/诊断证明/同意书等全部快照类单据——历史单据重打不随全站
   时区修改或存储方案切换漂移（法律合规）。
-- **UTC 化迁移规程（`tools/cli/tz_migrate.php`）**：
-  1. `plan` 只读预演（逐列行数 + 抽样对照 + 阻断清单）；
-  2. 副本 `apply` 演练并校验，`rollback` 往返零误差后才碰生产；
-  3. 备份生产库（工具对 SQLite 自动整库备份）；
-  4. 窗口期 `apply --yes`（唯一索引引用列自动阻断，不盲切）；
-  5. 发布读写层切换版本（展示换算 + 分日窗口按站点时区 + 打印按快照时区）；
-  6. 验收：随机抽样 + 打印比对 + 报表口径确认。
-  已知专项阻断：`idx_registrations_dept_date_seq`（按 `date(registered_at)`
-  业务日防重）——需先设计独立业务日期列再处理。
+- **UTC 化迁移规程（`tools/cli/tz_migrate.php` + `tools/cli/tz_audit.php`）**：
+  1. 读写层改造：全部时间展示过 `fmt_time()`、分日窗口过 `day_range()`、
+     打印按快照固化时区渲染（业务日字段 `reg_date` 等天然安全）；
+  2. **审计门（硬性）**：`tools/cli/tz_audit.php` 清零（或逐条评审后以
+     `tz-ok` 注释豁免非展示的内部用途）——覆盖 DAY_WINDOW / DISPLAY /
+     PAYLOAD / PRINT 四类残留，未清零严禁切换；
+  3. `plan` 只读预演（逐列行数 + 抽样对照 + 阻断清单）；
+  4. 副本 `apply` 演练并校验，`rollback` 往返零误差后才碰生产；
+  5. 备份生产库（工具对 SQLite 自动整库备份）；
+  6. 窗口期 `apply --yes` + 同步把 `time.storage` 配置切为 `utc`（唯一索引
+     引用列自动阻断，不盲切）；
+  7. 验收：随机抽样 + 打印比对 + 报表口径确认；异常回退 = 切回 `local` +
+     `rollback` 还原数据。
+  已知专项阻断（已解决）：`idx_registrations_dept_date_seq` 原按
+  `date(registered_at)` 业务日防重（v55 已迁至独立业务日期列 `reg_date`）。
 - **修改全站时区的影响**：新写入数据完全一致；历史墙钟数据的分日归属按新时区
   重新解释（墙钟存储的固有语义）；在线/绑定等相对时间租约由 fail-closed 兜底，
   下一笔心跳（≤30 秒）自动恢复正确状态。
