@@ -67,7 +67,7 @@ function doctor_read_call_queue($u) {
             'name' => $r['pname'], 'gender' => $r['pgender'],
             'age_fmt' => age_format($r['pbirth'], $r['registered_at']),
             'visit_seq' => (int)$r['visit_seq'], 'flow_no' => $r['flow_no'],
-            'patient_no' => $r['patient_no'], 'registered_at' => $r['registered_at'],
+            'patient_no' => $r['patient_no'], 'registered_at' => fmt_time($r['registered_at']),
             'is_followup' => $follow > 0 ? 1 : 0,
         );
     };

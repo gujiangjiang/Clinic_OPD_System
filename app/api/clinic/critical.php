@@ -105,7 +105,7 @@ function crit_store_record($u, $source, $report, $display, $doc) {
         'snapshot_json' => json_encode($snapshot, JSON_UNESCAPED_UNICODE),
         'from_dept_name' => $fromDept, 'from_user_id' => (int)$u['id'], 'from_user_name' => (string)$u['name'],
         'to_doctor_id' => (int)$doc['id'], 'to_doctor_name' => (string)$doc['name'],
-        'status' => 'pending', 'created_at' => now_str(),
+        'status' => 'pending', 'created_at' => now_str(),   // tz-ok：写入路径（now_str 已模式感知）
     ));
 }
 
@@ -180,7 +180,7 @@ function crit_insert_emr($cv, $u, $matchText, $treatment) {
         'visit_type' => '',
         'doctor_advice' => '',
         'status' => 'done',
-        'updated_at' => $now,
+        'updated_at' => $now,   // tz-ok：写入路径（$now = now_str()，已模式感知）
     );
     $cols = 'visit_id, patient_no, flow_no, dept_id, doctor_id, doctor_name, patient_record_id, ' . implode(',', array_keys($mirror)) . ', created_at';
     $marks = '?,?,?,?,?,?,?, ' . in_placeholders($mirror) . ',?';
@@ -334,8 +334,9 @@ switch ($action) {
                 'status' => (string)$cv['status'],
                 'match_status' => (string)$cv['match_status'],
                 'treatment' => (string)$cv['treatment'],
-                'created_at' => (string)$cv['created_at'],
-                'processed_at' => (string)$cv['processed_at'],
+                'created_at' => fmt_time((string)$cv['created_at']),
+                'processed_at' => fmt_time((string)$cv['processed_at']),
+                // 处理时长：两存储值差（同偏移抵消，与模式无关——crit_duration_text 内部 strtotime 恒安全）
                 'duration' => crit_duration_text((string)$cv['created_at'], (string)$cv['processed_at']),
                 'items' => json_decode((string)$cv['items_json'], true) ?: array(),
             );

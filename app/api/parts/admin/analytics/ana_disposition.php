@@ -67,7 +67,7 @@ function admin_ana_disposition() {
     $rowsOut = array();
     foreach ($rows as $r) {
         $rowsOut[] = array(
-            'registered_at' => (string)$r['registered_at'],
+            'registered_at' => fmt_time((string)$r['registered_at']),
             'flow_no' => (string)$r['flow_no'],
             'dept_name' => (string)$r['dept_name'],
             'doctor_name' => (string)$r['doctor_name'],

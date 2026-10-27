@@ -38,8 +38,8 @@ function admin_part_integration($action) {
                 'retry_count' => (int)$t['retry_count'],
                 'last_error' => (string)$t['last_error'],
                 'payload' => is_array($payload) ? json_encode($payload, JSON_UNESCAPED_UNICODE) : (string)$t['payload'],
-                'created_at' => (string)$t['created_at'],
-                'updated_at' => (string)$t['updated_at'],
+                'created_at' => fmt_time((string)$t['created_at']),
+                'updated_at' => fmt_time((string)$t['updated_at']),
             );
         }
         json_ok(array(

@@ -178,7 +178,7 @@ class HL7InboundService {
             'to_doctor_id' => (int)$doctor['id'],
             'to_doctor_name' => (string)$doctor['name'],
             'status' => 'pending',
-            'created_at' => now_str(),
+            'created_at' => now_str(),   // tz-ok：写入路径（now_str 已模式感知）
         ));
 
         $pName = $patient ? (string)$patient['name'] : '';

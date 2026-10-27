@@ -170,8 +170,8 @@ switch ($action) {
                 'status' => (string)$t['status'],
                 'is_system' => (int)$t['is_system'],
                 'dept_names' => $deptNames,
-                'created_at' => (string)$t['created_at'],
-                'updated_at' => (string)$t['updated_at'],
+                'created_at' => fmt_time((string)$t['created_at']),
+                'updated_at' => fmt_time((string)$t['updated_at']),
             );
         }
         if ($page > 0) {

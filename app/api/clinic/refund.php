@@ -230,11 +230,11 @@ if ($action === 'detail') {
     json_ok(array(
         'request' => array(
             'id' => oid($reqId), 'payment_no' => $req['payment_no'], 'reason' => $req['reason'],
-            'status' => $req['status'], 'created_at' => $req['created_at'],
+            'status' => $req['status'], 'created_at' => fmt_time($req['created_at']),
             'patient' => array('name' => $visitRow ? $visitRow['patient']['name'] : $req['patient_no'], 'patient_no' => $req['patient_no'], 'flow_no' => $req['flow_no'], 'visit_status' => $visitRow ? $visitRow['visit']['status'] : ''),
         ),
         'approvals' => array_map(function ($a) {
-            return array('role' => $a['role'], 'user_name' => $a['user_name'], 'verdict' => $a['verdict'], 'note' => $a['note'], 'decided_at' => $a['decided_at']);
+            return array('role' => $a['role'], 'user_name' => $a['user_name'], 'verdict' => $a['verdict'], 'note' => $a['note'], 'decided_at' => fmt_time($a['decided_at']));
         }, $approvals),
         'orders' => $orders,
     ));

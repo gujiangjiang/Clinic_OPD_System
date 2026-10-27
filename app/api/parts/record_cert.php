@@ -62,7 +62,7 @@ function record_part_cert($action) {
                 $certNo = $no;
                 return EmrRepository::insertCertificate(array(
                     'visit_id' => $visitId, 'patient_no' => $row['visit']['patient_no'], 'flow_no' => $row['visit']['flow_no'],
-                    'doctor_id' => $u['id'], 'doctor_name' => $u['name'], 'dept_id' => $curDeptId, 'content' => $content, 'created_at' => $createdAt, 'cert_no' => $no,
+                    'doctor_id' => $u['id'], 'doctor_name' => $u['name'], 'dept_id' => $curDeptId, 'content' => $content, 'created_at' => $createdAt, 'cert_no' => $no,   // tz-ok：写入路径（非展示载荷）
                     'hospital_name' => setting('hospital_name', ''), 'hospital_name2' => setting('hospital_name2', ''),
                     'chief_complaint' => $snap['chief_complaint'], 'present_illness' => $snap['present_illness'], 'preliminary_diagnosis' => $snap['preliminary_diagnosis'],
                 ));
@@ -95,7 +95,7 @@ function record_part_cert($action) {
                 'doctor_id' => (int)$u['id'],
                 'dept_id' => (int)$curDeptId,
                 'can_delete' => ((string)$row['visit']['status'] !== 'finished') ? 1 : 0,
-                'created_at' => (string)$createdAt,
+                'created_at' => fmt_time((string)$createdAt),
                 'chief_complaint' => (string)$snap['chief_complaint'],
                 'present_illness' => (string)$snap['present_illness'],
                 'preliminary_diagnosis' => (string)$snap['preliminary_diagnosis'],

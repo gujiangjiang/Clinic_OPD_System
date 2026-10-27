@@ -85,8 +85,8 @@ function record_part_read($action) {
                 'icd10_code' => (string)$pr2['icd10_code'],
                 'diagnosis_name' => (string)$pr2['diagnosis_name'],
                 'status' => (string)$pr2['status'],
-                'created_at' => (string)$pr2['created_at'],
-                'updated_at' => (string)$pr2['updated_at'],
+                'created_at' => fmt_time((string)$pr2['created_at']),
+                'updated_at' => fmt_time((string)$pr2['updated_at']),
                 'emr' => $emr2,
                 'vitals' => $ownVitals ? $ownVitals : array(),
                 'consciousness' => $mirror ? (string)$mirror['consciousness'] : '',
@@ -164,8 +164,8 @@ function record_part_read($action) {
                     ? (int)$pr['consultation_id'] === (int)$consultCtx['id']
                     : (int)$pr['dept_id'] === (int)$visit['current_dept_id'])
             )) ? 1 : 0,
-            'created_at' => $pr ? $pr['created_at'] : '',
-            'updated_at' => $pr ? $pr['updated_at'] : '',
+            'created_at' => fmt_time($pr ? $pr['created_at'] : ''),
+            'updated_at' => fmt_time($pr ? $pr['updated_at'] : ''),
             'emr' => $emr,
             'status' => $pr ? $pr['status'] : 'draft',
         );
@@ -248,7 +248,7 @@ function record_part_read($action) {
             $prevRecords[] = array(
                 'id' => (int)$pr2['id'],
                 'doctor_name' => $pr2['doctor_name'],
-                'created_at' => $pr2['created_at'],
+                'created_at' => fmt_time($pr2['created_at']),
                 'content' => json_encode(array(
                     'chief_complaint' => emr_cc_text(isset($prevEmr['chief_complaint']) ? $prevEmr['chief_complaint'] : array()),
                     'present_illness' => emr_pi_text(isset($prevEmr['history_present']) ? $prevEmr['history_present'] : array()),
@@ -304,7 +304,7 @@ function record_part_read($action) {
                 'fee_type' => (string)(isset($visit['fee_type']) ? $visit['fee_type'] : ''),   // 费用类别（自费/居民医保/职工医保/其他），横条徽章展示
                 'fee' => (float)(isset($visit['fee']) ? $visit['fee'] : 0),   // 挂号费（横条总费用徽章 = 挂号费 + 开单合计）
                 'status' => $visit['status'],   // 就诊状态：finished 表示已诊毕（前端据此将病历置为只读）
-                'created_at' => $visit['registered_at'],
+                'created_at' => fmt_time($visit['registered_at']),
             ),
             'record' => $recordData,
             // ===== 统一病历上下文（SSOT）=====
@@ -359,7 +359,7 @@ function record_part_read($action) {
                 'doctor_id' => (int)$certRow['doctor_id'],
                 'dept_id' => (int)(isset($certRow['dept_id']) ? $certRow['dept_id'] : 0),
                 'can_delete' => $certCanDelete,
-                'created_at' => (string)$certRow['created_at'],
+                'created_at' => fmt_time((string)$certRow['created_at']),
                 'chief_complaint' => (string)(isset($certRow['chief_complaint']) ? $certRow['chief_complaint'] : ''),
                 'present_illness' => (string)(isset($certRow['present_illness']) ? $certRow['present_illness'] : ''),
                 'preliminary_diagnosis' => (string)(isset($certRow['preliminary_diagnosis']) ? $certRow['preliminary_diagnosis'] : ''),

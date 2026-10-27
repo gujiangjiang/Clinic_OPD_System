@@ -44,7 +44,7 @@ class LisService {
             'patient_no' => $order['patient_no'],
             'patient' => $patient ? $patient : array(),
             'doctor_name' => $order['doctor_name'],
-            'created_at' => $order['created_at'],
+            'created_at' => fmt_time($order['created_at']),   // 出向集成：对外发送本地墙钟
             'items' => $items,
         );
         $headers = array('Content-Type: application/json; charset=utf-8');
@@ -273,7 +273,7 @@ class LisService {
             'pdf_url' => $pdfUrl,
             'apply_dept_name' => (string)$order['dept_name'],
             'apply_doctor_name' => (string)$order['doctor_name'],
-            'applied_at' => (string)$order['created_at'],
+            'applied_at' => (string)$order['created_at'],   // tz-ok：报告写入（存储格式直通，打印按冻结时区渲染）
         ));
     }
 }

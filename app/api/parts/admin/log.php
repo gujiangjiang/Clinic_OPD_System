@@ -177,6 +177,6 @@ function log_row_out($r) {
         'target'     => (string)$r['target'],
         'remote_ip'  => (string)$r['remote_ip'],
         'user_agent' => (string)$r['user_agent'],
-        'created_at' => (string)$r['created_at'],
+        'created_at' => fmt_time((string)$r['created_at']),
     );
 }

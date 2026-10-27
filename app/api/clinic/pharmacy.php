@@ -112,10 +112,10 @@ switch ($action) {
             'order' => array(
                 'id' => oid($order['id']), 'order_no' => $order['order_no'],
                 'doctor_name' => $order['doctor_name'], 'dept_name' => $order['dept_name'],
-                'created_at' => $order['created_at'], 'total_amount' => (float)$order['total_amount'],
+                'created_at' => fmt_time($order['created_at']), 'total_amount' => (float)$order['total_amount'],
                 'status' => $order['status'],
                 'review_by' => isset($order['review_by']) ? $order['review_by'] : '',
-                'reviewed_at' => isset($order['reviewed_at']) ? $order['reviewed_at'] : '',
+                'reviewed_at' => fmt_time(isset($order['reviewed_at']) ? $order['reviewed_at'] : ''),
             ),
             'patient' => array('name' => $patient ? $patient['name'] : '', 'patient_no' => $order['patient_no'], 'flow_no' => $order['flow_no']),
             'items' => $mainList,

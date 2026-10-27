@@ -264,7 +264,7 @@ if ($action === 'heartbeat' || $action === 'data') {
     $version = crc32($sig) & 0x7FFFFFFF;
     $lastUpdated = (int)get('last_updated', 0);
     if ($lastUpdated > 0 && $lastUpdated === $version) {
-        json_response(true, 'ok', array('changed' => false, 'updated_at' => $version));
+        json_response(true, 'ok', array('changed' => false, 'updated_at' => $version));   // tz-ok：crc32 版本戳（轮询比较用，非时间展示）
         exit;
     }
     $payload = screen_payload($room);

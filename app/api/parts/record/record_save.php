@@ -287,7 +287,7 @@ function record_part_save($u) {
             'visit_type' => $visitType,
             'doctor_advice' => $emr['advice'],
             'status' => $finish ? 'done' : 'draft',
-            'updated_at' => $now,
+            'updated_at' => $now,   // tz-ok：写入路径（now_str 已模式感知），非展示载荷
         );
         // 旧 records 表扁平镜像：patient_record_id 精确归属对应文书
         // （同医生多文书：首诊+多段续写各有一条镜像，编辑旧文书精确回写）

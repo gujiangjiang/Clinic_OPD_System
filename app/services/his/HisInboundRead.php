@@ -65,7 +65,7 @@ class HisInboundRead {
             'visit_seq' => (int)$v['visit_seq'],
             'status' => $v['status'],
             'status_name' => visit_status_name($v['status']),
-            'registered_at' => $v['registered_at'],
+            'registered_at' => fmt_time($v['registered_at']),
         );
     }
 
@@ -85,8 +85,8 @@ class HisInboundRead {
                 'doctor_name' => $o['doctor_name'],
                 'total_amount' => (float)$o['total_amount'],
                 'status' => $o['status'],
-                'created_at' => $o['created_at'],
-                'paid_at' => $o['paid_at'],
+                'created_at' => fmt_time($o['created_at']),
+                'paid_at' => fmt_time($o['paid_at']),
                 'items' => $items,
             );
         }
@@ -174,8 +174,8 @@ class HisInboundRead {
             return array(
                 'type' => 'record', 'record_id' => $recId, 'patient_no' => $r['patient_no'], 'flow_no' => $r['flow_no'],
                 'record_type' => $r['record_type'], 'evid_hash' => $r['evid_hash'], 'evid_algo' => $r['evid_algo'],
-                'evid_token' => $r['evid_token'], 'evid_signer' => $r['evid_signer'], 'evid_time' => $r['evid_time'],
-                'created_at' => $r['created_at'],
+                'evid_token' => $r['evid_token'], 'evid_signer' => $r['evid_signer'], 'evid_time' => fmt_time($r['evid_time']),
+                'created_at' => fmt_time($r['created_at']),
             );
         }
         if ($certNo !== '') {
@@ -186,8 +186,8 @@ class HisInboundRead {
             return array(
                 'type' => 'certificate', 'cert_no' => $certNo, 'patient_no' => $r['patient_no'], 'flow_no' => $r['flow_no'],
                 'content' => $r['content'], 'evid_hash' => $r['evid_hash'], 'evid_algo' => $r['evid_algo'],
-                'evid_token' => $r['evid_token'], 'evid_signer' => $r['evid_signer'], 'evid_time' => $r['evid_time'],
-                'created_at' => $r['created_at'],
+                'evid_token' => $r['evid_token'], 'evid_signer' => $r['evid_signer'], 'evid_time' => fmt_time($r['evid_time']),
+                'created_at' => fmt_time($r['created_at']),
             );
         }
         json_fail('请提供 record_id 或 cert_no 参数');

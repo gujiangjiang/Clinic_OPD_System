@@ -131,7 +131,7 @@ class RestHisDriver implements HisDriverInterface {
                     'session' => $v['session'],
                     'fee' => (float)$v['fee'],
                     'status' => $v['status'],
-                    'registered_at' => $v['registered_at'],
+                    'registered_at' => fmt_time($v['registered_at']),   // 出向集成：对外发送本地墙钟
                     'cashier_name' => $v['cashier_name'],
                 );
             case 'his_settlement':
@@ -149,7 +149,7 @@ class RestHisDriver implements HisDriverInterface {
                     'kind' => $p['kind'],
                     'total' => (float)$p['total_amount'],
                     'method' => $p['method'],
-                    'created_at' => $p['created_at'],
+                    'created_at' => fmt_time($p['created_at']),   // 出向集成：对外发送本地墙钟
                 );
             case 'his_prescription':
                 $oid = (int)self::pv($payload, 'order_id');

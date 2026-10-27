@@ -238,7 +238,7 @@ switch ($action) {
                 'total_price' => array_reduce($items, function ($c, $it) {
                     return $c + (float)(isset($it['price']) ? $it['price'] : 0) * max(1, (int)(isset($it['quantity']) ? $it['quantity'] : 1));
                 }, 0),
-                'created_at' => (string)$t['created_at'],
+                'created_at' => fmt_time((string)$t['created_at']),
             );
         }
         $thead = '<thead><tr><th>套餐名称</th><th>适用范围</th><th>项目 / 合计</th><th>创建人</th><th>审核状态</th><th>操作</th></tr></thead>';

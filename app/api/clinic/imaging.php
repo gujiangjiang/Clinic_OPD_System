@@ -203,8 +203,8 @@ switch ($action) {
                     'apply_dept_name' => $snapOrder ? (string)$snapOrder['dept_name'] : '',
                     'apply_doctor_name' => $snapOrder ? (string)$snapOrder['doctor_name'] : '',
                     'clinical_diagnosis' => $diag,
-                    'applied_at' => $snapOrder ? (string)$snapOrder['created_at'] : '',
-                    'registered_at' => (string)$it['registered_at'],
+                    'applied_at' => $snapOrder ? (string)$snapOrder['created_at'] : '',   // tz-ok：快照写入（存储格式直通，打印按冻结时区渲染）
+                    'registered_at' => (string)$it['registered_at'],                      // tz-ok：快照写入（同上）
                     'category_name' => $catName,
                     'item_meta' => $itemMeta,
                 ));
@@ -531,7 +531,7 @@ switch ($action) {
                 'has_image' => $hasImage,
                 'instance_count' => $instTotal,
                 'created_by' => $registrar,
-                'created_at' => $createdAt,
+                'created_at' => fmt_time($createdAt),
             );
         }
         json_ok(array('list' => $list, 'total' => $total, 'has_more' => paged_has_more($page, $pageSize, $total)));

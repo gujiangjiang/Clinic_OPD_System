@@ -317,7 +317,7 @@ function admin_part_settings($action) {
         $list = array();
         foreach ($rows as $a) {
             $list[] = array(
-                'created_at'   => (string)$a['created_at'],
+                'created_at'   => fmt_time((string)$a['created_at']),
                 'actor'        => (string)$a['actor'],
                 'detail'       => (string)$a['detail'],
                 'keys_changed' => (string)$a['keys_changed'],
@@ -392,7 +392,7 @@ function admin_part_settings($action) {
                 'dept_name' => (string)$r['first_dept_name'],
                 'visit_seq' => (int)$r['visit_seq'],
                 'status' => (string)$r['status'],
-                'registered_at' => (string)$r['registered_at'],
+                'registered_at' => fmt_time((string)$r['registered_at']),
             );
         }
         json_ok(array('list' => $list, 'total' => $total, 'has_more' => paged_has_more($page, $pageSize, $total)));

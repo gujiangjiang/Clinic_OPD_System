@@ -43,7 +43,7 @@ $skipFiles = array(
     'tools/cli/tz_migrate.php',
 );
 
-$TIME_COLS = 'created_at|updated_at|registered_at|paid_at|executed_at|finished_at|reviewed_at|refunded_at|handled_at|decided_at|processed_at|accepted_at|performed_at|withdraw_at|last_call_at|current_called_at|last_heartbeat_at|screen_last_heartbeat_at|doctor_heartbeat_at|evid_time|locked_at|last_login_at';
+$TIME_COLS = 'created_at|updated_at|registered_at|paid_at|executed_at|finished_at|reviewed_at|refunded_at|handled_at|decided_at|processed_at|accepted_at|performed_at|withdraw_at|last_call_at|current_called_at|last_heartbeat_at|screen_last_heartbeat_at|doctor_heartbeat_at|evid_time|locked_at|last_login_at|started_at|applied_at';
 
 /** 行是否豁免/跳过（注释行 / tz-ok / 已包裹转换函数） */
 function tz_skip_line($line) {
@@ -54,7 +54,7 @@ function tz_skip_line($line) {
     return false;
 }
 
-$findings = array('DAY_WINDOW' => array(), 'DISPLAY' => array(), 'PAYLOAD' => array(), 'PRINT' => array());
+$findings = array('DAY_WINDOW' => array(), 'RELATIVE' => array(), 'DISPLAY' => array(), 'PAYLOAD' => array(), 'PRINT' => array());
 
 $rii = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($APP_ROOT, FilesystemIterator::SKIP_DOTS));
 foreach ($rii as $file) {
@@ -82,7 +82,13 @@ foreach ($rii as $file) {
             $findings['DAY_WINDOW'][] = $hit;
             continue;
         }
-        // ② 展示截取：substr 时间列
+        // ② 相对计算：内联 strtotime/date 直接解析存储时间列（应走 ts_epoch/fmt_time）
+        if (preg_match('/strtotime\([^;]{0,80}(' . $TIME_COLS . ')/i', $line)
+            && !preg_match('/ts_epoch|seconds_ago|is_recent|fmt_time|local_date_of|ts_epoch_tz/', $line)) {
+            $findings['RELATIVE'][] = $hit;
+            continue;
+        }
+        // ③ 展示截取：substr 时间列
         if (preg_match('/substr\([^;]{0,120}(' . $TIME_COLS . ')[^;]{0,40},\s*(0|5|11)\s*,/i', $line)) {
             $findings['DISPLAY'][] = $hit;
             continue;

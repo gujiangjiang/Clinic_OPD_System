@@ -27,8 +27,8 @@ if ($action === 'status') {
         'done_rows' => (int)$s['done_rows'],
         'current_table' => $s['current_table'],
         'error' => $s['error'],
-        'started_at' => $s['started_at'],
-        'finished_at' => $s['finished_at'],
+        'started_at' => fmt_time($s['started_at']),
+        'finished_at' => fmt_time($s['finished_at']),
     ));
 }
 

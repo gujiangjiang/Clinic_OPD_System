@@ -96,7 +96,7 @@ switch ($action) {
                 'doctor_id' => (int)$r['doctor_id'],
                 'doctor_name' => (string)$r['doctor_name'],
                 'dept_name' => (string)(isset($r['dept_name']) ? $r['dept_name'] : ''),
-                'created_at' => (string)$r['created_at'],
+                'created_at' => fmt_time((string)$r['created_at']),
             );
         }
         json_ok(array('list' => $list));
@@ -125,8 +125,8 @@ switch ($action) {
                 'doctor_id' => (int)$r['doctor_id'],
                 'doctor_name' => (string)$r['doctor_name'],
                 'dept_name' => (string)(isset($r['dept_name']) ? $r['dept_name'] : ''),
-                'created_at' => (string)$r['created_at'],
-                'updated_at' => (string)$r['updated_at'],
+                'created_at' => fmt_time((string)$r['created_at']),
+                'updated_at' => fmt_time((string)$r['updated_at']),
             ),
         ));
         break;

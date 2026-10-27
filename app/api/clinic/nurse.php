@@ -52,7 +52,7 @@ switch ($action) {
                 'dept_name' => $r['current_dept_name'],
                 'visit_seq' => (int)$r['visit_seq'],
                 'status' => $r['status'],
-                'registered_at' => $r['registered_at'],
+                'registered_at' => fmt_time($r['registered_at']),
             );
         }, $rows)));
         break;
@@ -108,7 +108,7 @@ switch ($action) {
                 $lm = OrderRepository::itemById($lid);
                 if (!$lm || $lm['item_type'] !== 'prescription') continue;
                 if (!rx_dispensed((int)$lm['order_id'])) continue;
-                OrderRepository::updateItem($lid, array('status' => 'dispensed', 'executed_by' => $u['name'], 'executed_at' => now_str()));
+                OrderRepository::updateItem($lid, array('status' => 'dispensed', 'executed_by' => $u['name'], 'executed_at' => now_str()));   // tz-ok：写入路径（now_str 已模式感知）
             }
             DatabaseManager::commitTx($pdo);
         } catch (Exception $ex) {
@@ -290,7 +290,7 @@ switch ($action) {
                 if ($lid <= 0) continue;
                 $lm = OrderRepository::itemById($lid);
                 if (!$lm || $lm['item_type'] !== 'procedure' || $lm['status'] !== 'paid') continue;
-                OrderRepository::updateItem($lid, array('status' => 'done', 'executed_by' => $u['name'], 'executed_at' => now_str()));
+                OrderRepository::updateItem($lid, array('status' => 'done', 'executed_by' => $u['name'], 'executed_at' => now_str()));   // tz-ok：写入路径（now_str 已模式感知）
             }
             DatabaseManager::commitTx($pdo);
         } catch (Exception $ex) {
@@ -390,7 +390,7 @@ switch ($action) {
             'vital_sbp' => $clean['vital_sbp'], 'vital_dbp' => $clean['vital_dbp'],
             'vital_heart_rate' => $clean['vital_heart_rate'], 'vital_pulse' => $clean['vital_pulse'],
             'vital_spo2' => $clean['vital_spo2'], 'vital_respiration' => $clean['vital_respiration'],
-            'operator' => $u['name'], 'created_at' => now_str(), 'record_id' => $recordId,
+            'operator' => $u['name'], 'created_at' => now_str(), 'record_id' => $recordId,   // tz-ok：写入路径（now_str 已模式感知）
         ));
         json_ok(array(), '生命体征已保存（医生工作站将同步显示）');
         break;

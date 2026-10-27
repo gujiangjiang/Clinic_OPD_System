@@ -256,8 +256,8 @@ switch ($action) {
                 'apply_dept_name' => $snapOrder ? (string)$snapOrder['dept_name'] : '',
                 'apply_doctor_name' => $snapOrder ? (string)$snapOrder['doctor_name'] : '',
                 'clinical_diagnosis' => $diag,
-                'applied_at' => $snapOrder ? (string)$snapOrder['created_at'] : '',
-                'registered_at' => (string)$it['registered_at'],
+                'applied_at' => $snapOrder ? (string)$snapOrder['created_at'] : '',   // tz-ok：快照写入（存储格式直通，打印按冻结时区渲染）
+                'registered_at' => (string)$it['registered_at'],                      // tz-ok：快照写入（同上）
                 // 项目字典快照（出具时刻）：检验组=成员明细；单项=项目本身——后续字典改名/改范围不影响历史报告
                 'item_meta' => $isGroup
                     ? array('group' => true, 'item_name' => (string)$item['name'], 'members' => array_map(function ($mm) {

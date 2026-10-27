@@ -38,11 +38,11 @@ function consultation_row($c) {
         'purpose' => (string)$c['purpose'],
         'status' => (string)$c['status'],
         'accepted_by' => (string)$c['accepted_by'],
-        'accepted_at' => (string)$c['accepted_at'],
+        'accepted_at' => fmt_time((string)$c['accepted_at']),
         'finished_by' => (string)$c['finished_by'],
-        'finished_at' => (string)$c['finished_at'],
+        'finished_at' => fmt_time((string)$c['finished_at']),
         'record_id' => (int)(isset($c['record_id']) ? $c['record_id'] : 0),
-        'created_at' => (string)$c['created_at'],
+        'created_at' => fmt_time((string)$c['created_at']),
     );
 }
 
@@ -216,7 +216,7 @@ switch ($action) {
         $consRec = ConsultationRepository::one('SELECT id, doctor_name, status, created_at FROM patient_records WHERE consultation_id=?', array($cid));
         $data['record'] = $consRec ? array(
             'record_id' => (int)$consRec['id'], 'doctor_name' => (string)$consRec['doctor_name'],
-            'status' => (string)$consRec['status'], 'created_at' => (string)$consRec['created_at'],
+            'status' => (string)$consRec['status'], 'created_at' => fmt_time((string)$consRec['created_at']),
         ) : null;
         json_ok(array('consultation' => $data));
         break;

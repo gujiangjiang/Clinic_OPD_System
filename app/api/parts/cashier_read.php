@@ -201,7 +201,7 @@ function cashier_part_read($action) {
                 continue;
             }
             $no = (!empty($p['payment_no'])) ? $p['payment_no'] : ('P' . $p['id']);
-            if (!isset($groups[$no])) $groups[$no] = array('payment_no' => $no, 'pay_id' => $p['id'], 'created_at' => $p['created_at'],
+            if (!isset($groups[$no])) $groups[$no] = array('payment_no' => $no, 'pay_id' => $p['id'], 'created_at' => fmt_time($p['created_at']),
                 'cashier_name' => $p['cashier_name'], 'method' => $p['method'], 'total_amount' => 0, 'orders' => array());
             $groups[$no]['total_amount'] += (float)$p['total_amount'];
             $groups[$no]['orders'][] = $p['order_id'];
@@ -307,7 +307,7 @@ function cashier_part_read($action) {
             if ($refRow) {
                 $refundInfo = array(
                     'cashier_name' => (string)$refRow['cashier_name'],
-                    'created_at' => (string)$refRow['created_at'],
+                    'created_at' => fmt_time((string)$refRow['created_at']),
                     'reason' => (string)$refRow['reason'],
                 );
             }
@@ -346,7 +346,7 @@ function cashier_part_read($action) {
             'visit_id' => oid($visitId),
             'head' => array(
                 'cashier_name' => (string)$headPay['cashier_name'],
-                'created_at' => (string)$headPay['created_at'],
+                'created_at' => fmt_time((string)$headPay['created_at']),
                 'method' => (string)$headPay['method'],
             ),
             'refund' => $refundInfo,
@@ -417,7 +417,7 @@ function cashier_part_read($action) {
             if ($order['order_type'] === 'procedure') {
                 foreach ($items as $it) {
                     if (!(int)$it['is_nurse']) {
-                        CashierRepository::updateOrderItemStatus($it['id'], 'done', array('executed_by' => $order['doctor_name'], 'executed_at' => now_str()));
+                        CashierRepository::updateOrderItemStatus($it['id'], 'done', array('executed_by' => $order['doctor_name'], 'executed_at' => now_str()));   // tz-ok：写入路径（now_str 已模式感知）
                     }
                 }
             }

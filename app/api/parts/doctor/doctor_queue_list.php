@@ -45,8 +45,10 @@ function doctor_read_queue_list($u) {
             'visit_seq' => (int)$r['visit_seq'],
             'session_text' => session_display_text($r['session']),
             'status' => $r['status'],
-            'finish_date' => !empty($r['finished_at']) ? substr($r['finished_at'], 0, 10) : '',
-            'finished_at' => !empty($r['finished_at']) ? substr($r['finished_at'], 11, 5) : '',
+            // 完成时间展示：先按展示口径换算（utc 模式下 UTC→本地），再截取日期/时分
+            'finish_date' => ($__ft = fmt_time((string)$r['finished_at'])) !== '' ? substr($__ft, 0, 10) : '',   // tz-ok：$__ft 已 fmt_time 换算（上行）
+            'finished_at' => $__ft !== '' ? substr($__ft, 11, 5) : '',   // tz-ok：同上
+
         );
     }, $rows);
     $pref = (isset($_SESSION['queue_pref']) && is_array($_SESSION['queue_pref'])) ? $_SESSION['queue_pref'] : array();
@@ -56,7 +58,7 @@ function doctor_read_queue_list($u) {
         $vid = (int)$c['visit_id'];
         if (!isset($consStatus[$vid])) {
             $consVisits[] = $vid;
-            $consStatus[$vid] = array('id' => (int)$c['id'], 'code' => oid($c['id']), 'status' => (string)$c['status'], 'created_at' => (string)$c['created_at'], 'accepted_by' => (string)$c['accepted_by'], 'record_id' => (int)(isset($c['record_id']) ? $c['record_id'] : 0));
+            $consStatus[$vid] = array('id' => (int)$c['id'], 'code' => oid($c['id']), 'status' => (string)$c['status'], 'created_at' => fmt_time((string)$c['created_at']), 'accepted_by' => (string)$c['accepted_by'], 'record_id' => (int)(isset($c['record_id']) ? $c['record_id'] : 0));
         }
     }
     $consultations = array();
@@ -84,7 +86,7 @@ function doctor_read_queue_list($u) {
                 'visit_seq' => (int)$r['visit_seq'],
                 'session_text' => session_display_text($r['session']),
                 'status' => $r['status'],
-                'created_at' => $cs['created_at'],
+                'created_at' => fmt_time($cs['created_at']),
             );
         }
     }

@@ -79,6 +79,12 @@ function calc_age($birth) {
 function age_format($birth, $target = null) {
     if ($birth === '' || $birth === null) return '';
     $b = date_create(is_numeric($birth) ? '@' . $birth : (string)$birth);
+    // $target 为「存储时间戳」（如挂号时刻 registered_at）时先做展示换算（fmt_time）：
+    // utc 模式下按站点时区还原为本地墙钟再算年龄，避免整小时级偏移；
+    // 数值 epoch 为绝对时间无需换算；local 模式下 fmt_time 恒等
+    if ($target !== null && $target !== '' && !is_numeric($target)) {
+        $target = fmt_time((string)$target);
+    }
     $t = $target === null || $target === ''
         ? date_create()
         : date_create(is_numeric($target) ? '@' . $target : (string)$target);
