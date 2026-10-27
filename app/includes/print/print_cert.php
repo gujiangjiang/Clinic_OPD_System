@@ -32,7 +32,7 @@ function pt_certificate($visit, $patient, $record, $cert, $doctorName) {
 
     // 医生签名右下角 + 末尾横线 + 页脚
     $html .= '<div class="print-record-sign">医生：' . e($doctorName) . '</div>';
-    $html .= pt_doc_foot('开具时间', isset($cert['created_at']) ? $cert['created_at'] : '');
+    $html .= pt_doc_foot('开具时间', isset($cert['created_at']) ? pt_time($cert['created_at'], $cert) : '');
     $html .= '</div>';
     return $html;
 }

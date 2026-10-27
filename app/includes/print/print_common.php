@@ -54,7 +54,8 @@ function pt_age_text($patient, $visit) {
     $birth = isset($patient['birth_date']) && $patient['birth_date'] !== '' ? $patient['birth_date']
         : (isset($visit['birth_date']) && $visit['birth_date'] !== '' ? $visit['birth_date'] : '');
     if ($birth !== '') {
-        $target = isset($visit['registered_at']) && $visit['registered_at'] !== '' ? $visit['registered_at'] : null;
+        // tz-ok：age_format 内部对存储时间戳做展示换算（fmt_time）后再算年龄；此处传存储原值
+        $target = isset($visit['registered_at']) && $visit['registered_at'] !== '' ? $visit['registered_at'] : null;   // tz-ok：age_format 内部换算
         $s = age_format($birth, $target);
         if ($s !== '') return $s;
     }
@@ -82,12 +83,24 @@ function pt_barcode($code) {
     return '<div class="print-record-barcode">' . barcode128_svg($code, 44, 1, true) . '</div>';
 }
 
-/** 文档页脚（末尾横线 + 左下角时间/右下角打印时间） */
+/** 打印时间展示（唯一入口）：按快照冻结时区（$ctx['__tz']）换算，缺省站点时区。
+ *  打印内容中的一切时间一律经此渲染——历史单据重打与开具时刻的本地时间完全一致，
+ *  不随全站时区修改或存储方案（local/utc）切换而漂移（法律合规）。
+ * @param string     $ts  存储时间串
+ * @param array|null $ctx 归档行（含 __tz 冻结时区，由 print.php 注入）
+ */
+function pt_time($ts, $ctx = null) {
+    $tz = (is_array($ctx) && !empty($ctx['__tz'])) ? (string)$ctx['__tz'] : null;
+    return fmt_time($ts, $tz);
+}
+
+/** 文档页脚（末尾横线 + 左下角时间/右下角打印时间）
+ *  $time 由调用方经 pt_time() 预换算（冻结时区）；打印时间=当前时刻按站点时区展示 */
 function pt_doc_foot($timeLabel, $time) {
     return '<div class="print-line"></div>' .
         '<div class="print-record-foot">' .
         '<span>' . e($timeLabel) . '：' . e($time) . '</span>' .
-        '<span>打印时间：' . now_str() . '</span></div>';
+        '<span>打印时间：' . fmt_time(now_str()) . '</span></div>';
 }
 
 /**
@@ -131,11 +144,11 @@ function pt_sec($label, $body) {
 function pt_report_context($report, $result) {
     $row = get_visit_row((int)$report['visit_id']);
     $ctx = array(
-        'row' => $row,
+        'row' => $row,   // tz-ok：age 相关行见下方 age_format（内部换算）
         'pname' => $row ? $row['patient']['name'] : '',
         'pgender' => $row ? $row['patient']['gender'] : '',
         'pbirth' => $row ? $row['patient']['birth_date'] : '',
-        'page' => $row ? age_format($row['patient']['birth_date'], $row['visit']['registered_at']) : '',
+        'page' => $row ? age_format($row['patient']['birth_date'], $row['visit']['registered_at']) : '',   // tz-ok：age_format 内部换算
         'applyDept' => '', 'applyDoctor' => '', 'diag' => '', 'applyTime' => '', 'regTime' => '',
         'order' => null, 'orderItem' => null,
     );
@@ -146,13 +159,14 @@ function pt_report_context($report, $result) {
         if ($snap['gender'] !== '') $ctx['pgender'] = $snap['gender'];
         if ($snap['birth_date'] !== '') {
             $ctx['pbirth'] = $snap['birth_date'];
-            $ctx['page'] = age_format($snap['birth_date'], $row && $row['visit'] ? $row['visit']['registered_at'] : '');
+            $ctx['page'] = age_format($snap['birth_date'], $row && $row['visit'] ? $row['visit']['registered_at'] : '');   // tz-ok：age_format 内部换算
         }
     }
     // 快照字段读取（reports 行键为规范化列名：applied_at / registered_at /
     // apply_dept_name / apply_doctor_name / clinical_diagnosis）
+    // tz-ok：以下 ctx 时间保持存储原值（模板渲染时经 pt_time 按冻结时区换算）
     $reportFieldMap = array('applyDept' => 'apply_dept_name', 'applyDoctor' => 'apply_doctor_name',
-        'diag' => 'clinical_diagnosis', 'applyTime' => 'applied_at', 'regTime' => 'registered_at');
+        'diag' => 'clinical_diagnosis', 'applyTime' => 'applied_at', 'regTime' => 'registered_at');   // tz-ok：模板 pt_time 换算
     foreach ($reportFieldMap as $ctxKey => $col) {
         if (isset($report[$col]) && $report[$col] !== '' && $report[$col] !== null) {
             $ctx[$ctxKey] = trim((string)$report[$col]);
@@ -169,9 +183,9 @@ function pt_report_context($report, $result) {
     if ($order) {
         if ($ctx['applyDept'] === '') $ctx['applyDept'] = (string)$order['dept_name'];
         if ($ctx['applyDoctor'] === '') $ctx['applyDoctor'] = (string)$order['doctor_name'];
-        if ($ctx['applyTime'] === '') $ctx['applyTime'] = (string)$order['created_at'];
+        if ($ctx['applyTime'] === '') $ctx['applyTime'] = (string)$order['created_at'];   // tz-ok：存储原值（模板 pt_time 换算）
     }
-    if ($ctx['regTime'] === '' && $orderItem) $ctx['regTime'] = (string)$orderItem['registered_at'];
+    if ($ctx['regTime'] === '' && $orderItem) $ctx['regTime'] = (string)$orderItem['registered_at'];   // tz-ok：存储原值（同上）
     if ($ctx['diag'] === '') {
         $pr = OrderRepository::one("SELECT emr_data FROM patient_records WHERE visit_id=? AND emr_data IS NOT NULL AND emr_data!='' ORDER BY id ASC LIMIT 1", array((int)$report['visit_id']));
         if ($pr) {

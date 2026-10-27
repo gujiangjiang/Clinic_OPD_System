@@ -43,7 +43,7 @@ function pt_consent($visit, $patient, $consent, $doctorName) {
         // 就诊科室：优先取文书开具时固化科室（dept_name），旧数据回退当前就诊科室
         pt_info_cell('就诊科室', !empty($consent['dept_name']) ? $consent['dept_name'] : (isset($visit['current_dept_name']) ? $visit['current_dept_name'] : '')) .
         pt_info_cell('患者ID', isset($patient['patient_no']) ? $patient['patient_no'] : '') .
-        pt_info_cell('就诊时间', isset($visit['registered_at']) ? $visit['registered_at'] : '') .
+        pt_info_cell('就诊时间', isset($visit['registered_at']) ? pt_time($visit['registered_at'], $visit) : '') .
         '</div></div>';
     $html .= '<div class="print-line"></div>';
 
@@ -97,7 +97,7 @@ function pt_consent($visit, $patient, $consent, $doctorName) {
         '</div>' .
         '<div style="flex:1;text-align:left">' .
         '<div>医生签名：' . e($doctorName) . '</div>' .
-        '<div style="margin-top:8px">签名时间：' . now_str() . '</div>' .
+        '<div style="margin-top:8px">签名时间：' . fmt_time(now_str()) . '</div>' .
         '</div>' .
         '</div>' .
         '</div>';

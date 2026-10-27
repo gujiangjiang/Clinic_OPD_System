@@ -41,7 +41,7 @@ function pt_rx_slip($order, $mainItems, $patient) {
     }
     $html .= '<div class="ticket-divider"></div>';
     $html .= '<div class="ticket-note">请按医嘱服药，药品请在药房窗口领取。</div>';
-    $html .= '<div class="ticket-print-time">打印时间: ' . now_str() . '</div>';
+    $html .= '<div class="ticket-print-time">打印时间: ' . fmt_time(now_str()) . '</div>';
     $html .= '</div>';
     return $html;
 }
@@ -239,7 +239,7 @@ function pt_order($order, $items, $title, $opts = array()) {
         $html .= '<div class="print-note" style="display:flex;font-size:13px;line-height:1.8;margin-top:4px;margin-bottom:4px"><span style="flex:1;text-align:left">调配：</span><span style="flex:1;text-align:left">复核、发药：</span></div>';
         // 此处不再单独输出实线：pt_doc_foot 自带一条横线，否则调配/复核发药下方
         // 出现两条紧贴的实线（双实线问题，其他文书均无此问题）
-        $html .= pt_doc_foot('开单时间', isset($order['created_at']) ? $order['created_at'] : '');
+        $html .= pt_doc_foot('开单时间', isset($order['created_at']) ? pt_time($order['created_at'], $order) : '');
         $html .= '<div class="print-note" style="text-align:center">（本处方当日内有效）</div>';
     } else {
         // 合计：不用表格行，直接显示在表格右下方（避免超出表格空间）
@@ -255,7 +255,7 @@ function pt_order($order, $items, $title, $opts = array()) {
         $html .= '<div class="print-record-sign">' .
             '开单医生：' . e(isset($order['doctor_name']) ? $order['doctor_name'] : '') . '</div>';
         // 末尾横线 + 页脚：左下角开单时间、右下角打印时间
-        $html .= pt_doc_foot('开单时间', isset($order['created_at']) ? $order['created_at'] : '');
+        $html .= pt_doc_foot('开单时间', isset($order['created_at']) ? pt_time($order['created_at'], $order) : '');
     }
     $html .= '</div>';
     return $html;

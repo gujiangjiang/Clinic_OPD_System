@@ -16,8 +16,9 @@ function pt_receipt($visit, $patient) {
     $html .= pt_ticket_row('挂号科室', isset($visit['first_dept_name']) ? $visit['first_dept_name'] .
         (isset($visit['dept_type']) && $visit['dept_type'] === 'emergency' ? ' (急诊)' : '') : '');
     $html .= pt_ticket_row('就诊序号', isset($visit['visit_seq']) ? visit_seq_text($visit['visit_seq']) : '');
-    $html .= pt_ticket_row('就诊日期', isset($visit['registered_at']) ? substr($visit['registered_at'], 0, 10) : '');
-    $html .= pt_ticket_row('挂号时间', isset($visit['registered_at']) ? substr($visit['registered_at'], 0, 16) : '');
+    // 时间按冻结时区渲染（pt_time：local 恒等 / utc 模式按快照时区换算）
+    $html .= pt_ticket_row('就诊日期', isset($visit['registered_at']) ? substr(pt_time($visit['registered_at'], $visit), 0, 10) : '');
+    $html .= pt_ticket_row('挂号时间', isset($visit['registered_at']) ? substr(pt_time($visit['registered_at'], $visit), 0, 16) : '');
     $html .= pt_ticket_row('支付方式', isset($visit['pay_method']) && $visit['pay_method'] !== '' ? $visit['pay_method'] : '现金');
     $html .= pt_ticket_row('费用类别', isset($visit['fee_type']) ? $visit['fee_type'] : '');
     $html .= '<div class="ticket-divider"></div>';
@@ -27,7 +28,7 @@ function pt_receipt($visit, $patient) {
     $html .= '<div class="ticket-barcode">' . barcode128_svg($code, 44, 2) .
         '<div class="ticket-barcode-text">门诊号: ' . e($code) . '</div></div>';
     $html .= '<div class="ticket-note">请妥善保管，按时就诊。</div>';
-    $html .= '<div class="ticket-print-time">打印时间: ' . now_str() . '</div>';
+    $html .= '<div class="ticket-print-time">打印时间: ' . fmt_time(now_str()) . '</div>';
     $html .= '</div>';
     return $html;
 }
@@ -55,7 +56,7 @@ function pt_payment($pay, $items) {
     if ($payNo !== '') {
         $html .= pt_ticket_row('缴费流水号', $payNo);
     }
-    $html .= pt_ticket_row('缴费时间', isset($pay['created_at']) ? substr($pay['created_at'], 0, 16) : '');
+    $html .= pt_ticket_row('缴费时间', isset($pay['created_at']) ? substr(pt_time($pay['created_at'], $pay), 0, 16) : '');
     $html .= pt_ticket_row('支付方式', isset($pay['method']) && $pay['method'] !== '' ? $pay['method'] : '现金');
     $html .= pt_ticket_row('收费员', isset($pay['cashier_name']) ? $pay['cashier_name'] : '');
     $html .= '<div class="ticket-divider"></div>';
@@ -75,7 +76,7 @@ function pt_payment($pay, $items) {
     $html .= '<div class="ticket-divider"></div>';
     // 优化3：缴费凭条（非挂号费）不显示门诊号条形码——仅挂号费走 pt_receipt 保留条形码
     $html .= '<div class="ticket-note">缴费成功，请妥善保管本凭条，凭此前往相应科室执行检查/检验/取药。</div>';
-    $html .= '<div class="ticket-print-time">打印时间: ' . now_str() . '</div>';
+    $html .= '<div class="ticket-print-time">打印时间: ' . fmt_time(now_str()) . '</div>';
     $html .= '</div>';
     return $html;
 }

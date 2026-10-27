@@ -88,10 +88,10 @@ function pt_lab_report($report, $result, $item) {
     }
     $html .= '</div>';
 
-    // ===== 页脚 =====
-    $applyTimeD = $applyTime !== '' ? substr($applyTime, 0, 16) : '—';
-    $regTimeD = $regTime !== '' ? substr($regTime, 0, 16) : '—';
-    $repTime = substr((string)$report['created_at'], 0, 16);
+    // ===== 页脚（时间按冻结时区渲染：pt_time） =====
+    $applyTimeD = $applyTime !== '' ? substr(pt_time($applyTime, $report), 0, 16) : '—';
+    $regTimeD = $regTime !== '' ? substr(pt_time($regTime, $report), 0, 16) : '—';
+    $repTime = substr(pt_time((string)$report['created_at'], $report), 0, 16);
     $note = trim((string)(isset($report['content']) ? $report['content'] : ''));
     $fc = function ($label, $val) { return '<span class="lr-fcell"><b>' . $label . '</b>' . e($val) . '</span>'; };
     // 页脚：隐形 3×3 表格（第一行 申请/检验/报告时间，第二行 申请医生/检验者/审核者，
@@ -177,10 +177,10 @@ function pt_imaging_report($report, $result, $item) {
         '<div class="imr-sec-content">' . nl2br(e((string)$result['conclusion'])) . '</div></div>' .
         '</div>';
 
-    // ===== 页脚（3×3 隐形表格） =====
-    $applyTimeD = $applyTime !== '' ? substr($applyTime, 0, 16) : '—';
-    $regTimeD = $regTime !== '' ? substr($regTime, 0, 16) : '—';
-    $repTime = substr((string)$report['created_at'], 0, 16);
+    // ===== 页脚（3×3 隐形表格；时间按冻结时区渲染：pt_time） =====
+    $applyTimeD = $applyTime !== '' ? substr(pt_time($applyTime, $report), 0, 16) : '—';
+    $regTimeD = $regTime !== '' ? substr(pt_time($regTime, $report), 0, 16) : '—';
+    $repTime = substr(pt_time((string)$report['created_at'], $report), 0, 16);
     $fc = function ($label, $val) { return '<span class="imr-cell"><b>' . $label . '</b>' . e($val) . '</span>'; };
     $html .= '<div class="imr-footgrid">' .
         $fc('申请医生：', $applyDoctor) .
@@ -211,7 +211,7 @@ function pt_report($report, $result, $item) {
         <span><strong>报告编号</strong>：' . e($report['report_no']) . '</span>
         <span><strong>项目</strong>：' . e(isset($item['name']) ? $item['name'] : '') . '</span>
         <span><strong>执行人</strong>：' . e(isset($report['doctor_name']) ? $report['doctor_name'] : '') . '</span>
-        <span><strong>报告时间</strong>：' . e($report['created_at']) . '</span>
+        <span><strong>报告时间</strong>：' . e(pt_time($report['created_at'], $report)) . '</span>
     </div><div class="print-line"></div>';
 
     if ($result['type'] === 'lab') {
@@ -252,6 +252,6 @@ function pt_report($report, $result, $item) {
         $html .= '<div class="record-section"><div class="sec-label">检查结论</div><div class="sec-body">' .
             nl2br(e(isset($result['conclusion']) ? $result['conclusion'] : '')) . '</div></div>';
     }
-    $html .= '<div class="print-footer"><span>报告人：' . e(isset($report['doctor_name']) ? $report['doctor_name'] : '') . '</span><span>打印时间：' . now_str() . '</span></div>';
+    $html .= '<div class="print-footer"><span>报告人：' . e(isset($report['doctor_name']) ? $report['doctor_name'] : '') . '</span><span>打印时间：' . fmt_time(now_str()) . '</span></div>';
     return $html;
 }

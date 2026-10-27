@@ -69,7 +69,7 @@ function pt_consult($visit, $patient, $cons, $snap) {
     $html .= '<div class="print-record-sign">' .
         '申请医生：' . e(isset($cons['from_doctor_name']) ? $cons['from_doctor_name'] : '') . '</div>';
     // 末尾横线 + 页脚：左下角申请时间、右下角打印时间
-    $html .= pt_doc_foot('申请时间', isset($cons['created_at']) ? $cons['created_at'] : '');
+    $html .= pt_doc_foot('申请时间', isset($cons['created_at']) ? pt_time($cons['created_at'], $cons) : '');
 
     $html .= '</div>';
     return $html;

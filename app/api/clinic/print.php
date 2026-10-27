@@ -77,6 +77,8 @@ switch ($action) {
         if ($visitPay) $visit['pay_method'] = $visitPay['method'];
         // 挂号凭条快照（法律合规）：挂号时刻患者资料优先，补打凭条不因事后改患者资料而变化
         snapshot_apply_patient($row, 'registration', (int)$visit['id']);
+        $regSnap = snapshot_get('registration', (int)$visit['id']);
+        $visit['__tz'] = ($regSnap && !empty($regSnap['tz'])) ? (string)$regSnap['tz'] : '';   // 冻结时区（重打时间显示口径）
         $visit = decorate_visit_patient($visit, $row['patient']);
         $visit['status_name'] = visit_status_name($visit['status']);
         json_ok(array(
@@ -124,6 +126,8 @@ switch ($action) {
                 }
             }
         }
+        $paySnap = snapshot_get('payment', (int)$pay['id']);
+        $pay['__tz'] = ($paySnap && !empty($paySnap['tz'])) ? (string)$paySnap['tz'] : '';   // 冻结时区（重打时间显示口径）
         json_ok(array(
             'html' => pt_payment($pay, $items),
             'filename' => pt_filename('缴费凭条', pt_payment_patient_name($pay),
@@ -151,6 +155,8 @@ switch ($action) {
         foreach ($orderIds as $orderId) {
             $order = EmrRepository::one('SELECT * FROM orders WHERE id=?', array($orderId));
             if (!$order) json_fail('开单记录不存在');
+            $ordSnap = snapshot_get('order', (int)$order['id']);
+            $order['__tz'] = ($ordSnap && !empty($ordSnap['tz'])) ? (string)$ordSnap['tz'] : '';   // 冻结时区（开单时间渲染口径）
             // 按就诊归属校验
             $orderVisit = EmrRepository::one('SELECT * FROM registrations WHERE id=?', array($order['visit_id']));
             if (!$orderVisit) json_fail('就诊记录不存在');
@@ -271,6 +277,8 @@ switch ($action) {
         // 患者姓名取快照应用后的 row['patient']（诊毕文书冻结为诊毕时刻资料）
         $recFileTitle = (isset($visit['dept_type']) && $visit['dept_type'] === 'emergency') ? '急诊电子病历' : '门诊电子病历';
         $recFilename = pt_filename($recFileTitle, (string)$row['patient']['name'], (string)$visit['flow_no'], $visit);
+        // 冻结时区（重打时间显示口径）：取病历快照固化 tz（诊毕终态快照），无快照回退站点时区
+        $visit['__tz'] = ($recSnap && !empty($recSnap['tz'])) ? (string)$recSnap['tz'] : '';
 
         // ===== 多医生接诊（1:N）：该流水下全部文书输出为【一份连续文档】 =====
         // 首段带完整页眉（页眉归首诊文书），续写段以分割线 + 「病历续写 /
@@ -292,6 +300,7 @@ switch ($action) {
                 }
                 $pr['consciousness'] = $mirror ? (string)$mirror['consciousness'] : '';
                 $pr['visit_type'] = ($mirror && $mirror['visit_type'] !== '') ? (string)$mirror['visit_type'] : '初诊';
+                $pr['__tz'] = $visit['__tz'];   // 冻结时区（记录时间渲染口径）
                 // 生命体征归属：按文书记录精确关联（record_id 优先）。
                 // 续写/会诊病历各自独立体征——只取本记录关联的体征，绝不复用首诊体征；
                 // 首诊记录才按 operator 回退就诊体征（护士站录入共用）。
@@ -303,6 +312,7 @@ switch ($action) {
         // 回退：无结构化病历时按旧 records 扁平数据渲染单文档（兼容历史就诊）
         $record = EmrRepository::one('SELECT * FROM records WHERE visit_id=? ORDER BY id DESC', array($visit['id']));
         if (!$record) json_fail('该就诊暂无已保存的病历，请先在病历中完善主诉、现病史与初步诊断并保存后再打印');
+        $record['__tz'] = $visit['__tz'];
         json_ok(array('html' => '<div class="print-record-doc">' . pt_record($visit, $row['patient'], $record, $vitals) . '</div>', 'filename' => $recFilename));
         break;
 
@@ -333,6 +343,8 @@ switch ($action) {
         // 诊断证明快照（法律合规）：开具时刻患者资料优先，补打不因事后改患者资料而变化
         snapshot_apply_patient($row, 'certificate', (int)$cert['id']);
         $certSnap = snapshot_get('certificate', (int)$cert['id']);
+        $cert['__tz'] = ($certSnap && !empty($certSnap['tz'])) ? (string)$certSnap['tz'] : '';   // 冻结时区（开具时间渲染口径）
+        $visit['__tz'] = $cert['__tz'];
         if ($certSnap && isset($certSnap['extra_json']['dept_name']) && trim((string)$certSnap['extra_json']['dept_name']) !== '') {
             $visit['current_dept_name'] = trim((string)$certSnap['extra_json']['dept_name']);
         }
@@ -437,6 +449,7 @@ switch ($action) {
         // 事后改患者资料/检验检查字典不影响历史报告
         snapshot_apply_patient($row, 'report', (int)$report['id']);
         $snap = snapshot_get('report', (int)$report['id']);
+        $report['__tz'] = ($snap && !empty($snap['tz'])) ? (string)$snap['tz'] : '';   // 冻结时区（报告时间渲染口径）
         if ($snap && isset($snap['extra_json']['item_meta']) && is_array($snap['extra_json']['item_meta'])) {
             $im = $snap['extra_json']['item_meta'];
             if (empty($im['group']) && isset($im['item']) && is_array($im['item'])) {

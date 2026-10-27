@@ -50,7 +50,7 @@ function tz_skip_line($line) {
     $t = ltrim($line);
     if ($t === '' || strpos($t, '//') === 0 || strpos($t, '*') === 0 || strpos($t, '#') === 0) return true; // 注释
     if (stripos($line, 'tz-ok') !== false) return true;                                                    // 显式豁免
-    if (preg_match('/fmt_time\(|local_date_of\(/', $line)) return true;                                     // 已包裹
+    if (preg_match('/fmt_time\(|local_date_of\(|pt_time\(/', $line)) return true;                           // 已包裹
     return false;
 }
 
@@ -84,7 +84,7 @@ foreach ($rii as $file) {
         }
         // ② 相对计算：内联 strtotime/date 直接解析存储时间列（应走 ts_epoch/fmt_time）
         if (preg_match('/strtotime\([^;]{0,80}(' . $TIME_COLS . ')/i', $line)
-            && !preg_match('/ts_epoch|seconds_ago|is_recent|fmt_time|local_date_of|ts_epoch_tz/', $line)) {
+            && !preg_match('/ts_epoch|seconds_ago|is_recent|fmt_time|local_date_of|ts_epoch_tz|pt_time/', $line)) {
             $findings['RELATIVE'][] = $hit;
             continue;
         }

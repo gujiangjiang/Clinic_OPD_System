@@ -20,7 +20,7 @@ function pt_record($visit, $patient, $record, $vitals, $mode = 'full', $isLast =
             if ($dn) $contDept = (string)$dn['name'];
         }
         if ($contDept === '') $contDept = $visit['current_dept_name'] ?? '';
-        $contTime = isset($record['created_at']) ? substr((string)$record['created_at'], 0, 16) : '';
+        $contTime = isset($record['created_at']) ? substr(pt_time((string)$record['created_at'], $record), 0, 16) : '';
         $html .= '<div class="print-record-cont">' .
             '<span class="prc-time">' . e($contTime) . '</span>' .
             '<span class="prc-title">' . ($isCritRec ? '危急值记录' : ($isConsultRec ? '会诊记录' : '续写病历')) . '</span>' .
@@ -53,7 +53,7 @@ $info = '<div class="print-info-lines">' .
         '<div class="print-info-line">' .
         pt_info_cell('患者ID', isset($patient['patient_no']) ? $patient['patient_no'] : '') .
         pt_info_cell('就诊科室', isset($visit['current_dept_name']) ? $visit['current_dept_name'] : '') .
-        pt_info_cell('就诊时间', isset($visit['registered_at']) ? $visit['registered_at'] : '') .
+        pt_info_cell('就诊时间', isset($visit['registered_at']) ? pt_time($visit['registered_at'], $visit) : '') .
         '</div></div>';
     } else {
         $items = array(
@@ -280,14 +280,14 @@ $info = '<div class="print-info-lines">' .
     // 多文书时取首段文书 created_at，不随续写改变）；
     // 单文书/旧数据回退本文书 created_at，再回退 updated_at。
     if ($isLast) {
-        $recTime = $footRecordTime !== null && $footRecordTime !== ''
-            ? $footRecordTime
-            : (isset($record['created_at']) && $record['created_at'] !== '' ? $record['created_at']
-                : (isset($record['updated_at']) ? $record['updated_at'] : ''));
+        // 记录时间按冻结时区渲染（pt_time）：优先首诊首次保存时间，回退本文书 created_at/updated_at
+        $recRaw = $footRecordTime !== null && $footRecordTime !== '' ? $footRecordTime : '';   // tz-ok：存储原值，下行 pt_time 换算
+        if ($recRaw === '') $recRaw = isset($record['created_at']) && $record['created_at'] !== '' ? $record['created_at'] : (isset($record['updated_at']) ? $record['updated_at'] : '');   // tz-ok：同上
+        $recTime = pt_time($recRaw, $record);
         $html .= '<div class="print-line"></div>';
         $html .= '<div class="print-record-foot">' .
             '<span>记录时间：' . e($recTime) . '</span>' .
-            '<span>打印时间：' . now_str() . '</span></div>';
+            '<span>打印时间：' . fmt_time(now_str()) . '</span></div>';
     }
     return $html;
 }
