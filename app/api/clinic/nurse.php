@@ -75,7 +75,7 @@ switch ($action) {
                     '<td>' . e($r['flow_no']) . '</td>' .
                     '<td>' . e($v ? $v['current_dept_name'] : '') . '</td>' .
                     '<td>' . e($r['doctor_name']) . '</td>' .
-                    '<td class="fs-12">' . e(substr($r['created_at'], 5, 11)) . '</td>' .
+                    '<td class="fs-12">' . e(substr(fmt_time((string)$r['created_at']), 5, 11)) . '</td>' .
                     '<td><button class="btn btn-success btn-sm" onclick="completeTreatment(\'' . e(oid($r['id'])) . '\')">完成处置</button></td></tr>';
             }
             $html .= '</tbody></table></div>';
@@ -147,7 +147,7 @@ switch ($action) {
             '  <div><a href="javascript:void(0)" class="fw-700 fs-16" onclick="Clinic.patient.editModal(\'' . e($p['patient_no']) . '\')">' . e($p['name']) . '</a>' .
             '  <span class="text-muted fs-13"> ' . e($p['gender']) . ' / ' . age_format($p['birth_date'], $visit['registered_at']) . '</span>' .
             '  <span class="badge badge-gray" style="margin-left:6px">' . e($visit['current_dept_name']) . ' 第' . visit_seq_text($visit['visit_seq']) . '号</span>' .
-            badge_html('primary', $visit['flow_no']) . '</div>' .            '<div class="fs-12 text-muted mt-4">患者ID ' . e($visit['patient_no']) . ' ｜ 首次科室 ' . e($visit['first_dept_name']) . ' ｜ 挂号 ' . e(substr($visit['registered_at'], 0, 16)) . ' ｜ 状态 ' . e(visit_status_name($visit['status'])) . '</div>' .
+            badge_html('primary', $visit['flow_no']) . '</div>' .            '<div class="fs-12 text-muted mt-4">患者ID ' . e($visit['patient_no']) . ' ｜ 首次科室 ' . e($visit['first_dept_name']) . ' ｜ 挂号 ' . e(substr(fmt_time((string)$visit['registered_at']), 0, 16)) . ' ｜ 状态 ' . e(visit_status_name($visit['status'])) . '</div>' .
             '<div class="flex gap-8 mt-8">' .
             '<button class="btn btn-outline btn-sm" onclick="openVitals(\'' . e(oid($visitId)) . '\')">' . render_icon('clinical:temperature') . ' 生命体征</button>' .
             '<button class="btn btn-outline btn-sm" onclick="openNursing(\'' . e(oid($visitId)) . '\')">' . render_icon('emr:record') . ' 护理记录</button></div></div>';
@@ -162,7 +162,7 @@ switch ($action) {
             $items = OrderRepository::itemsByOrder($o['id']);
             $html .= '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;margin-bottom:6px">' .
                 '<div class="flex-between fs-13"><span class="fw-600">' . e(order_type_name($o['order_type'])) . ' ' . e($o['order_no']) . '</span>' .
-                '<span class="fs-12 text-muted">' . e($o['doctor_name']) . ' ｜ ' . e(substr($o['created_at'], 5, 11)) . ' ｜ ' . e(order_agg_status($o['order_type'], $items)) . '</span></div>';
+                '<span class="fs-12 text-muted">' . e($o['doctor_name']) . ' ｜ ' . e(substr(fmt_time((string)$o['created_at']), 5, 11)) . ' ｜ ' . e(order_agg_status($o['order_type'], $items)) . '</span></div>';
             foreach ($items as $it) {
                 $html .= '<div class="fs-12 text-muted">· ' . e($it['item_name']) .
                     (($it['is_nurse'] && $it['item_type'] === 'prescription') ? '（护士站执行）' : '') .
@@ -193,7 +193,7 @@ switch ($action) {
                     '<td>' . e($r['item_name']) . ' ×' . (int)$r['quantity'] . ' <span class="fs-12 text-muted">' . e($r['route']) . '</span></td>' .
                     '<td>' . e($r['flow_no']) . '</td>' .
                     '<td>' . e($r['odoc']) . '</td>' .
-                    '<td class="fs-12">' . e(substr($r['created_at'], 5, 11)) . '</td>' .
+                    '<td class="fs-12">' . e(substr(fmt_time((string)$r['created_at']), 5, 11)) . '</td>' .
                     '<td>' .
                     ($r['status'] === 'paid'
                         ? ($rxReady ? badge_html('warning', '待执行') : badge_html('gray', '待药房发药'))

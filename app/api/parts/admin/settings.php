@@ -453,7 +453,7 @@ function admin_part_settings($action) {
         $visitRows = array();
         // 挂号凭条：未缴费（pending）灰色 +【未缴费】徽章并隐藏补打按钮（无缴费凭据可打印）；
         // 已退费/已取消红色删除线保留溯源
-        $visitRows[] = $pcRow('挂号凭条', '挂号费 ¥' . money($visit['fee']) . ' ｜ ' . e($visit['first_dept_name']) . ' ｜ ' . e(substr($visit['registered_at'], 0, 16)),
+        $visitRows[] = $pcRow('挂号凭条', '挂号费 ¥' . money($visit['fee']) . ' ｜ ' . e($visit['first_dept_name']) . ' ｜ ' . e(substr(fmt_time((string)$visit['registered_at']), 0, 16)),
             $isVisitPending ? '' : $pcBtn('补打', '/api/print?action=receipt&visit_id=' . e($vOid), 'ticket', $isVisitDead),
             $isVisitDead, $visit['status'] === 'cancelled' ? '已取消' : '已退费', $isVisitPending);
         if ($hasRecord) {
@@ -465,7 +465,7 @@ function admin_part_settings($action) {
             $certs = AnalyticsRepository::q('SELECT id, cert_no, created_at FROM certificates WHERE visit_id=? ORDER BY id ASC', array($visitId));
             foreach ($certs as $cert) {
                 $visitRows[] = $pcRow('诊断证明' . (count($certs) > 1 ? '（' . e(substr((string)$cert['cert_no'], -4)) . '）' : ''),
-                    '证明号 ' . e($cert['cert_no']) . ' ｜ ' . e(substr((string)$cert['created_at'], 0, 16)),
+                    '证明号 ' . e($cert['cert_no']) . ' ｜ ' . e(substr(fmt_time((string)$cert['created_at']), 0, 16)),
                     $pcBtn('补打', '/api/print?action=certificate&cert_id=' . e(oid((int)$cert['id'])), 'a5'));
             }
         }
@@ -483,7 +483,7 @@ function admin_part_settings($action) {
             $t = (string)$o['order_type'];
             if (!isset($orderGroups[$t])) continue;
             $dead = ($o['status'] === 'refunded');
-            $sub = e($o['order_no']) . ' ｜ ¥' . money($o['total_amount']) . ' ｜ ' . e(substr((string)$o['created_at'], 0, 16)) . ' ｜ 开单 ' . e((string)$o['doctor_name']);
+            $sub = e($o['order_no']) . ' ｜ ¥' . money($o['total_amount']) . ' ｜ ' . e(substr(fmt_time((string)$o['created_at']), 0, 16)) . ' ｜ 开单 ' . e((string)$o['doctor_name']);
             if ($dead) $sub .= '（已退费）';
             $orderGroups[$t][1][] = $pcRow($orderGroups[$t][0], $sub,
                 $pcBtn('补打', '/api/print?action=order&order_id=' . e(oid((int)$o['id'])), 'a5'),
@@ -519,7 +519,7 @@ function admin_part_settings($action) {
                 elseif ($batchAlive < $batchAll) $partial = true;
             }
             $title = '开单缴费凭条';
-            $sub = '¥' . money($pay['total_amount']) . ' ｜ ' . e(substr((string)$pay['created_at'], 0, 16)) . ' ｜ 收费员 ' . e((string)$pay['cashier_name']) .
+            $sub = '¥' . money($pay['total_amount']) . ' ｜ ' . e(substr(fmt_time((string)$pay['created_at']), 0, 16)) . ' ｜ 收费员 ' . e((string)$pay['cashier_name']) .
                 ((int)$pay['item_count'] > 0 ? ' ｜ ' . (int)$pay['item_count'] . ' 项' : '');
             if ($partial) $sub .= '（部分退费）';
             $payRows[] = $pcRow($title, $sub,
@@ -567,7 +567,7 @@ function admin_part_settings($action) {
             $rid = (int)$rp['result_id'];
             $itemName = (isset($resultItem[$rid]) && $resultItem[$rid][2] !== '') ? $resultItem[$rid][2] : ($t === 'lab' ? '检验项目' : '检查项目');
             $withdrawn = ((string)$rp['status'] === 'withdrawn');
-            $sub = e($itemName) . ' ｜ 报告号 ' . e((string)$rp['report_no']) . ' ｜ ' . e(substr((string)$rp['created_at'], 0, 16)) . ' ｜ ' . e((string)$rp['doctor']);
+            $sub = e($itemName) . ' ｜ 报告号 ' . e((string)$rp['report_no']) . ' ｜ ' . e(substr(fmt_time((string)$rp['created_at']), 0, 16)) . ' ｜ ' . e((string)$rp['doctor']);
             // 已撤回报告：红色删除线标记（保留展示便于溯源），按钮为「查看」仍可看原始报告。
             // 报告纸张不传 sheet：检验横版A5 / 检查A4 由 print.js 依内容自动识别
             $reportGroups[$t][1][] = $pcRow(
@@ -604,7 +604,7 @@ function admin_part_settings($action) {
 
         $html = '<div style="padding:4px 2px">' .
             '<div class="fw-700 fs-15">' . e($row['patient']['name']) . '（' . e($visit['flow_no']) . '）</div>' .
-            '<div class="fs-13 text-muted mt-4 mb-12">' . e($visit['first_dept_name']) . ' 第' . visit_seq_text($visit['visit_seq']) . '号 ｜ ' . e(substr($visit['registered_at'], 0, 16)) . ' ｜ ' . e(visit_status_name($visit['status'])) . '</div>' .
+            '<div class="fs-13 text-muted mt-4 mb-12">' . e($visit['first_dept_name']) . ' 第' . visit_seq_text($visit['visit_seq']) . '号 ｜ ' . e(substr(fmt_time((string)$visit['registered_at']), 0, 16)) . ' ｜ ' . e(visit_status_name($visit['status'])) . '</div>' .
             '<div class="pc-tabs">' . $tabBtns . '</div>' .
             $panes .
             '</div>';

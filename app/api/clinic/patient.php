@@ -114,8 +114,8 @@ switch ($action) {
         foreach ($visits as $v) {
             $list[] = array(
                 'code' => oid($v['id']),
-                'date' => substr($v['registered_at'], 0, 10),
-                'time' => substr($v['registered_at'], 11, 5),
+                'date' => ($__pdt = fmt_time((string)$v['registered_at'])) !== '' ? substr($__pdt, 0, 10) : '',
+                'time' => $__pdt !== '' ? substr($__pdt, 11, 5) : '',
                 'dept_name' => $v['first_dept_name'],
                 'current_dept_name' => $v['current_dept_name'],
                 'visit_seq' => (int)$v['visit_seq'],

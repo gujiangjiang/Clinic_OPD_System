@@ -56,7 +56,7 @@ function dept_queue($itemType, $emoji, $registerClick, $resultClick) {
                 '<td>' . e($r['item_name']) . '</td>' .
                 '<td>' . e($r['flow_no']) . '</td>' .
                 '<td>' . e($r['doctor_name']) . '</td>' .
-                '<td class="fs-12">' . e(substr($r['created_at'], 5, 11)) . '</td>' .
+                '<td class="fs-12">' . e(substr(fmt_time((string)$r['created_at']), 5, 11)) . '</td>' .
                 '<td>';
             if ($status === 'paid') {
                 if ($registerClick !== '') {

@@ -109,7 +109,7 @@ function cashier_part_read($action) {
                     '<td>' . e($r['current_dept_name']) . '</td>' .
                     '<td>¥' . money($r['fee']) . '</td>' .
                     '<td>' . $statusBadge . $refundNote . '</td>' .
-                    '<td class="fs-12">' . e(substr($r['registered_at'], 5, 11)) . '</td>' .
+                    '<td class="fs-12">' . e(substr(fmt_time((string)$r['registered_at']), 5, 11)) . '</td>' .
                     '<td><div class="flex gap-4">' .
                     // 凭条是缴费凭证：仅已实际缴费的状态提供补打（待缴费/取消/退费不显示）
                     (in_array($r['status'], array('paid', 'visiting', 'finished'), true) ?
@@ -148,7 +148,7 @@ function cashier_part_read($action) {
             '<span class="text-muted fs-13">' . e($patient['gender']) . ' / ' . age_format($patient['birth_date'], $visit['registered_at']) . '</span></div>' .
             badge_html('primary', $visit['flow_no']) . '</div>' .
             '<div class="fs-13 text-muted mt-4">患者ID ' . e($visit['patient_no']) . ' ｜ 首次科室 ' . e($visit['first_dept_name']) .
-            ' 第' . visit_seq_text($visit['visit_seq']) . '号 ｜ 挂号 ' . e(substr($visit['registered_at'], 0, 16)) .
+            ' 第' . visit_seq_text($visit['visit_seq']) . '号 ｜ 挂号 ' . e(substr(fmt_time((string)$visit['registered_at']), 0, 16)) .
             ' ｜ ' . badge_html('gray', visit_status_name($visit['status'])) . '</div></div>';
 
         // 批量查询开单明细（避免逐单 N+1）
@@ -219,7 +219,7 @@ function cashier_part_read($action) {
                 '<span class="fs-13 fw-600">' . render_icon('emr:ticket') . ' 挂号费凭条</span>' .
                 '<span class="fs-13 fw-600">¥' . money($visitPay['total_amount']) . '</span></div>' .
                 // 优化8：挂号费凭条不显示流水号，仅 日期 时间 收费员
-                '<div class="fs-12 text-muted mt-4">' . e(substr($visitPay['created_at'], 0, 16)) . ' ｜ 收费员 ' . e($visitPay['cashier_name']) . ' ｜ ' . e($visitPay['method']) .
+                '<div class="fs-12 text-muted mt-4">' . e(substr(fmt_time((string)$visitPay['created_at']), 0, 16)) . ' ｜ 收费员 ' . e($visitPay['cashier_name']) . ' ｜ ' . e($visitPay['method']) .
                 ($visitRefunded ? ' ｜ ' . badge_html('gray', visit_status_name($visit['status'])) : '') . '</div>' .
                 '<div class="mt-8 flex gap-8">' .
                 ($visitRefunded
@@ -250,7 +250,7 @@ function cashier_part_read($action) {
                 '<div class="flex-between">' .
                 '<span class="fs-13 fw-600">' . render_icon('emr:receipt') . ' 缴费凭条 <span class="fs-12 text-muted fw-400">' . ($multi ? '（含' . count($g['orders']) . '张开单）' : '') . '</span></span>' .
                 '<span class="fs-13 fw-600">¥' . money($g['total_amount']) . '</span></div>' .
-                '<div class="fs-12 text-muted mt-4">' . e(substr($g['created_at'], 0, 16)) . ' ｜ 流水号 ' . e($g['payment_no']) . ' ｜ 收费员 ' . e($g['cashier_name']) .
+                '<div class="fs-12 text-muted mt-4">' . e(substr(fmt_time((string)$g['created_at']), 0, 16)) . ' ｜ 流水号 ' . e($g['payment_no']) . ' ｜ 收费员 ' . e($g['cashier_name']) .
                 ($allRefunded ? ' ｜ ' . badge_html('gray', '已退费') : '') . '</div>' .
                 '<div class="fs-12 text-muted mt-4" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' . $sumText . '</div>' .
                 '<div class="mt-8 flex gap-8">' .

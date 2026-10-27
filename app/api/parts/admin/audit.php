@@ -87,7 +87,7 @@ function admin_part_audit($action) {
                 if ($showProposer) {
                     $h .= '<td>' . e($r['proposer']) . '</td>';
                 }
-                $h .= '<td class="fs-12">' . e(substr($r['created_at'], 0, 16)) . '</td>' .
+                $h .= '<td class="fs-12">' . e(substr(fmt_time((string)$r['created_at']), 0, 16)) . '</td>' .
                     '<td>' . ($r['status'] === 'pending' ? badge_html('warning', '待审核') : ($r['status'] === 'approved' ? badge_html('success', '已通过') : ($r['status'] === 'used' ? badge_html('gray', '已使用') : badge_html('gray', '已驳回')))) . '</td>' .
                     '<td style="white-space:nowrap"><div class="flex gap-4" style="align-items:center">';
                 // 预览按钮（仅模态框表单类型可预览；其余置灰保持按钮一致）
@@ -102,7 +102,7 @@ function admin_part_audit($action) {
                     $h .= '<button class="btn btn-success btn-sm" onclick="doAudit(' . (int)$r['id'] . ',1)">通过</button>' .
                         '<button class="btn btn-danger btn-sm" onclick="doAudit(' . (int)$r['id'] . ',0)">驳回</button>';
                 } else {
-                    $h .= '<span class="fs-12 text-muted">' . e($r['handled_by']) . ' ' . e(substr($r['handled_at'], 5, 11)) . '</span>';
+                    $h .= '<span class="fs-12 text-muted">' . e($r['handled_by']) . ' ' . e(substr(fmt_time((string)$r['handled_at']), 5, 11)) . '</span>';
                 }
                 $h .= '</div></td></tr>';
                 return $h;

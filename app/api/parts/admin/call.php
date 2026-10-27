@@ -39,7 +39,7 @@ function admin_part_call($action) {
             $online = QueueRepository::screenOnline($r);
             if ($online) $onlineCount++;
             $st = $online
-                ? '<span class="badge badge-success">' . render_icon('alert:dot-green') . ' 在线运行中</span>' . '<div class="fs-12 text-muted mt-4">最后活跃 ' . e(substr((string)$r['screen_last_heartbeat_at'], 5, 16)) . '</div>'
+                ? '<span class="badge badge-success">' . render_icon('alert:dot-green') . ' 在线运行中</span>' . '<div class="fs-12 text-muted mt-4">最后活跃 ' . e(substr(fmt_time((string)$r['screen_last_heartbeat_at']), 5, 16)) . '</div>'
                 : '<span class="badge badge-gray">' . render_icon('alert:dot-gray') . ' 离线未连接</span>';
             $bind = $r['current_doctor_id'] > 0
                 ? badge_html('warning', '' . e($r['current_doctor_name']) . ' 正在坐诊')
