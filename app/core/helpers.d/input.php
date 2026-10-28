@@ -357,7 +357,7 @@ function snapshot_patient($bizType, $bizId, $patientNo, $extra = array()) {
         // 历史单据重打的时间显示按该时区渲染，修改全站时区或日后切换 UTC 存储
         // 都不会改变已开具单据的打印内容（详见 AGENTS.md「时间与时区铁律」）
         'tz' => date_default_timezone_get(),
-        'tz_offset' => (new DateTime('now'))->format('P'),
+        'tz_offset' => tz_offset_str(),
         'created_at' => now_str(),
     );
     if (PrintSnapshotRepository::exists($bizType, $bizId)) {

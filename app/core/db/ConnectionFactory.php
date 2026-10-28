@@ -67,7 +67,8 @@ class ConnectionFactory {
             $tz = date_default_timezone_get();
             if ($driver === 'mysql') {
                 // 用固定偏移（免依赖 MySQL 时区表）；按当前时刻计算，含夏令时
-                $off = (new DateTime('now', new DateTimeZone($tz)))->format('P');
+                // （偏移串统一走 helpers.d/time.php::tz_offset_str 单一实现）
+                $off = tz_offset_str($tz);
                 if (preg_match('/^[+-]\d{2}:\d{2}$/', $off)) {
                     $pdo->exec("SET time_zone = '" . $off . "'");
                 }
@@ -76,7 +77,7 @@ class ConnectionFactory {
                 if (preg_match('#^[A-Za-z_/]+$#', $tz)) {
                     $pdo->exec("SET TIME ZONE '" . $tz . "'");
                 } else {
-                    $off = (new DateTime('now', new DateTimeZone($tz)))->format('P');
+                    $off = tz_offset_str($tz);
                     $pdo->exec("SET TIME ZONE INTERVAL '" . $off . "' HOUR TO MINUTE");
                 }
             }

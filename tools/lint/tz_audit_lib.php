@@ -65,7 +65,7 @@ function tz_audit_scan($APP_ROOT) {
             }
             // ② 相对计算：内联 strtotime/date 直接解析存储时间列（应走 ts_epoch/fmt_time）
             if (preg_match('/strtotime\([^;]{0,80}(' . $TIME_COLS . ')/i', $line)
-                && !preg_match('/ts_epoch|seconds_ago|is_recent|fmt_time|local_date_of|ts_epoch_tz|pt_time/', $line)) {
+                && !preg_match('/ts_epoch|is_recent|fmt_time|local_date_of|ts_epoch_tz|pt_time/', $line)) {
                 $findings['RELATIVE'][] = $hit;
                 continue;
             }

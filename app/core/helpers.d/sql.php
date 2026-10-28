@@ -44,14 +44,3 @@ function sql_date_part($col) {
     return "date($col)";
 }
 
-/**
- * 距当前本地时间的秒数（跨库，等价 SQLite `strftime('%s','now','localtime') - strftime('%s', $col)`）。
- * @param string $col 日期时间列名
- * @return string
- */
-function sql_seconds_since($col) {
-    $driver = DatabaseManager::driver();
-    if ($driver === 'mysql') return "(UNIX_TIMESTAMP() - UNIX_TIMESTAMP($col))";
-    if ($driver === 'pgsql') return "(EXTRACT(EPOCH FROM now()) - EXTRACT(EPOCH FROM $col))";
-    return "(strftime('%s','now','localtime') - strftime('%s', $col))";
-}

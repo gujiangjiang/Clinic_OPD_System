@@ -7,11 +7,11 @@
  *  - 当前（生产态）：所有 DATETIME 列存储「站点时区（系统设置 → 全站时区）
  *    墙钟字符串」，写入唯一来源 now_str()/today_str()；相对时间用 is_recent()
  *    等本文件助手统一 PHP 口径；打印快照固化时区（print_snapshots.tz）。
- *  - 目标态（UTC 存储）：数据库统一存 UTC（now_utc()），展示层经
- *    utc_to_local() 换算为站点时区；法律性单据按快照固化时区渲染，
+ *  - 目标态（UTC 存储）：数据库统一存 UTC（now_str() 按模式感知写入），
+ *    展示层经 fmt_time() 换算为站点时区；法律性单据按快照固化时区渲染，
  *    保证重打内容与开具时刻完全一致。
- *  - 已备好迁移工具：tools/cli/tz_migrate.php（plan/apply/rollback，
- *    含备份、清单与逐列校验），本文件提供其转换原语。
+ *  - 迁移工具：tools/cli/tz_migrate.php（plan/apply/switch/rollback，含备份、
+ *    清单与逐列校验），本文件提供其转换原语。
  *
  * 为什么相对时间必须走 PHP 端（本文件）：
  *  - SQLite 的时间函数 `localtime` 取**操作系统时区**（容器常为 UTC）；
@@ -82,17 +82,6 @@ function day_range($ymd) {
 }
 
 /**
- * 距当前经过的秒数（未来时间按 0 计——用于展示 / 排序，绝不出现负数）。
- * @param string|null $ts
- * @return int 不可解析时返回 PHP_INT_MAX（视为极旧）
- */
-function seconds_ago($ts) {
-    $t = ts_epoch($ts);
-    if ($t === null) return PHP_INT_MAX;
-    return max(0, time() - $t);
-}
-
-/**
  * 站点时区名（系统设置 → 全站时区，bootstrap 已 date_default_timezone_set）。
  * @return string 如 'Asia/Shanghai'
  */
@@ -124,11 +113,6 @@ function tz_offset_str($tz = null) {
     } catch (Exception $e) {
         return '+00:00';
     }
-}
-
-/** 当前 UTC 时刻串（UTC 目标态的写入来源；当前与 now_str() 并存备迁移） */
-function now_utc() {
-    return gmdate('Y-m-d H:i:s');
 }
 
 /**
