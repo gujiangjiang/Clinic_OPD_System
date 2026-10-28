@@ -13,6 +13,52 @@
 
 ---
 
+## [10.0.0] - 2026-10-29
+
+### 新增
+- **UTC 存储正式版（切换工具链 + 全量验收标准）**：
+  1. **`tz_migrate switch` 一体化切换**：审计门（未清零即拒绝）→ 预演 →
+     整库备份 → 全库转换 → 打印快照回溯固化 → `config.db` 写入
+     `time.storage=utc`——数据与模式一步同步，杜绝手工漏步；`rollback`
+     按 JSON 清单精确还原并同步回切 `local`；
+  2. **`tz_selftest` 时间全链路自检与验收工具**：当前库自检（环境口径 / 纯函数
+     行为 / 全库时间列抽样可解析性 + 「未来时间 / 疑似口径不匹配」探测 /
+     `reg_date` 业务日全量一致性 / 序号唯一性 / 快照固化完整性）；
+     `--compare=副本 --full` 跨模式渲染逐值等价验收；
+  3. **跨系统交换契约（外部接口单点）**：`now_wall()`（对外“现在”恒为本地
+     墙钟）、`wall_to_storage()`（入站墙钟按站点时区解释落库）；
+  4. **审计核心库化**：扫描规则抽取至 `tools/lint/tz_audit_lib.php`（供脚本与
+     切换流程共用，规则单点维护）。
+
+### 修复
+- **迁移列发现改实库 PRAGMA 扫描**：原按 schema DDL 文本正则扫描，经版本迁移
+  ALTER 新增的列被漏检——实测捕获 6 列 2356 值（`orders.dispensed_at`、
+  `order_items.registered_at`、`reports.applied_at/registered_at`、
+  `imaging_refs.created_at/updated_at`，含 FHIR 日期过滤依赖列）；
+- **外部接口时间统一（utc 模式零偏斜）**：出站修复 5 处（HIS 只读端点
+  `server_time` 与整行时间列、HIS 上报 `dispensed_at`、HL7 MSH-7 / EVN-2 /
+  PV1-44 / ORC-9 / OBR-6/7）；入站修复 2 处（HIS 推送申请单 `created_at`、
+  FHIR Task `executionPeriod`）——外部系统一律「站点时区墙钟」双向契约；
+- 审计加固：支持表别名前缀列匹配、FHIR 输出单点换算（`isoDateTime` 内置
+  `fmt_time`）、16 处分日窗口别名补漏（含 deptwork 六边界 CASE 方案）。
+
+### 变更
+- **安装向导按模式初始化**：全新安装直接写入 `time.storage=utc`（新库天然
+  UTC）；关联旧库写入 `local`（由切换工具升级），运行时支持受控覆盖；
+- **AGENTS.md「时间与时区铁律」重写为 v10.0.0 最终态**（存储契约 / 双模式 /
+  跨系统交换契约 / 工具链标准流程），移除分阶段迁移叙述与过期助手引用；
+- 本仓库（开发库）已执行真实切换并留存迁移清单与全量备份。
+
+### 移除
+- 死代码清理：`seconds_ago()`、`now_utc()`、`sql_seconds_since()`（全项目零
+  调用核验）；`tz_offset_str()` 收敛为 UTC 偏移串唯一实现（ConnectionFactory
+  会话锚定与快照固化改调用该助手）。
+
+### 验收
+- 全量跨模式验收：**56 列 / 25211 值逐值零误差**（切换前备份 local ↔ 现库
+  utc，渲染逐值全等）；切换后自检全绿（0 失败 0 警告）；审计门全绿；lint
+  313 文件通过。
+
 ## [9.17.0] - 2026-10-27
 
 ### 新增
