@@ -265,11 +265,13 @@ class TaskAdapter extends FhirAdapter {
         return self::toResource($row);
     }
 
-    /** ISO 时间 → "Y-m-d H:i:s"（失败返回原串） */
+    /** ISO 时间 → 存储口径 "Y-m-d H:i:s"（失败返回原串）
+     *  入向集成：ISO 先解析为站点时区墙钟（strtotime 尊重入参偏移、date() 按
+     *  站点时区渲染），再经 wall_to_storage() 落库（utc 模式换算 UTC）。 */
     private static function fromIso($s) {
         $s = trim((string)$s);
         if ($s === '') return '';
         $t = strtotime($s);
-        return $t ? date('Y-m-d H:i:s', $t) : $s;
+        return $t ? wall_to_storage(date('Y-m-d H:i:s', $t)) : $s;
     }
 }

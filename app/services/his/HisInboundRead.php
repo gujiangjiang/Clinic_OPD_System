@@ -17,7 +17,7 @@ class HisInboundRead {
             'system' => 'Clinic OPD System',
             'system_code' => (string)integration_cfg('outbound.his.hospital_code', '', 'his_system_code'),
             'org_code' => (string)setting('org_code', ''),
-            'server_time' => now_str(),
+            'server_time' => now_wall(),   // 出向集成：对外发送本地墙钟
         );
     }
 
@@ -33,7 +33,7 @@ class HisInboundRead {
             : PatientRepository::one('SELECT * FROM patients WHERE patient_no=?', array($patientNo));
         if (!$p) json_fail('未检索到患者');
         unset($p['id']);
-        return array('patient' => $p);
+        return array('patient' => self::localizeRow($p));
     }
 
     /** 就诊记录列表（按患者ID） */
@@ -44,7 +44,7 @@ class HisInboundRead {
         $out = array();
         foreach ($visits as $v) {
             unset($v['id']);
-            $out[] = $v;
+            $out[] = self::localizeRow($v);
         }
         return array('visits' => $out);
     }
@@ -191,5 +191,17 @@ class HisInboundRead {
             );
         }
         json_fail('请提供 record_id 或 cert_no 参数');
+    }
+
+    /**
+     * 出向集成单点（整行输出）：存储时间列（*_at）统一换算为站点时区墙钟；
+     * 业务日期列（*_date / reg_date）不转换（日期口径与存储模式无关）；
+     * 空值经 fmt_time 原样返回。
+     */
+    private static function localizeRow($row) {
+        foreach ($row as $k => $v) {
+            if (preg_match('/_at$/', $k)) $row[$k] = fmt_time($v);
+        }
+        return $row;
     }
 }

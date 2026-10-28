@@ -166,7 +166,7 @@ class RestHisDriver implements HisDriverInterface {
                     'doctor_name' => $o['doctor_name'],
                     'total_amount' => (float)$o['total_amount'],
                     'status' => $o['status'],
-                    'dispensed_at' => $o['dispensed_at'],
+                    'dispensed_at' => fmt_time($o['dispensed_at']),   // 出向集成：对外发送本地墙钟
                     'items' => $items,
                 );
             default:

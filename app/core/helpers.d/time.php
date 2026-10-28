@@ -52,6 +52,39 @@ function fmt_time($ts, $tz = null) {
 }
 
 /**
+ * 跨系统交换契约（外部接口铁律）：
+ *  - **出站**：一律发送「站点时区墙钟」——存储值经 fmt_time() 换算；对外“现在”
+ *    用 now_wall()；FHIR 时间由 FhirAdapter::isoDateTime() 单点输出「本地时间 +
+ *    偏移」ISO 8601。外部系统（HIS/PACS/LIS/医保）从不接收 UTC 存储原值。
+ *  - **入站**：外部系统一律按「站点时区墙钟」发送——经 wall_to_storage() 按当前
+ *    存储口径落库（合同双方各自统一自己的时区设置；跨时区部署需另行约定）。
+ * 以上与「本地墙钟写入」语境自洽：local↔utc 切换对外接口语义零变化。
+ */
+
+/**
+ * 站点时区「现在」墙钟（对外交换的“现在”单一来源）：两模式输出一致。
+ * @return string 'Y-m-d H:i:s'
+ */
+function now_wall() {
+    return fmt_time(now_str());
+}
+
+/**
+ * 跨系统入站墙钟 → 存储口径（出站反向为 fmt_time / now_wall）。
+ *  - local 模式：恒等（老行为逐字节不变）；
+ *  - utc 模式：按站点时区解释并换算为 UTC；
+ *  - 空串返回 ''；非法串在 utc 模式返回 ''（调用方兜底 now_str()）。
+ * @param string|null $s 外部系统发送的墙钟串
+ * @return string
+ */
+function wall_to_storage($s) {
+    $s = trim((string)$s);
+    if ($s === '') return '';
+    if (!time_storage_utc()) return $s;
+    return local_to_utc($s, null);
+}
+
+/**
  * 业务日期标签（本地日的 Y-m-d）：存储值 → 站点时区的日期部分。
  * 用于分日展示/比较（local 模式直接截取；utc 模式先换算），
  * 与 reg_date 等「业务日期列」口径一致。

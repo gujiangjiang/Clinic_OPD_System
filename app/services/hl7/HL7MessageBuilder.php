@@ -18,7 +18,7 @@ class HL7MessageBuilder {
      *        （ACK 应答需交换收发双方）。
      */
     public static function msh($msgType, $msgControlId = '', $version = '2.4', $sendingApp = null, $sendingFac = null, $recvApp = null, $recvFac = null) {
-        $now = now_str();
+        $now = now_wall();   // 出向集成：MSH-7 对外发送本地墙钟（两模式一致）
         $dt = substr($now, 0, 4) . substr($now, 5, 2) . substr($now, 8, 2) . substr($now, 11, 2) . substr($now, 14, 2);
         if ($msgControlId === '') $msgControlId = self::controlId();
         if ($version === '') $version = '2.4';
@@ -144,7 +144,7 @@ class HL7MessageBuilder {
         $trigger = '';
         $tp = explode('^', (string)$type);
         if (isset($tp[1])) $trigger = $tp[1];
-        $now = now_str();
+        $now = now_wall();   // 出向集成：EVN-2 事件记录时间为本地墙钟
         $lines[] = 'EVN|' . $trigger . '|' . substr($now, 0, 4) . substr($now, 5, 2) . substr($now, 8, 2) . substr($now, 11, 2) . substr($now, 14, 2);
         $lines[] = self::pid($patient, 1);
         $lines[] = self::pv1($visit);
@@ -191,8 +191,8 @@ class HL7MessageBuilder {
             (string)(isset($v['flow_no']) ? $v['flow_no'] : ''),
             (string)(isset($v['inpatient_no']) ? $v['inpatient_no'] : '')
         );
-        // PV1-44 入院时间（Admit Date/Time）：完整 DTM
-        $reg = (string)(isset($v['registered_at']) ? $v['registered_at'] : '');
+        // PV1-44 入院时间（Admit Date/Time）：完整 DTM（出向集成：本地墙钟）
+        $reg = fmt_time((string)(isset($v['registered_at']) ? $v['registered_at'] : ''));
         $rd = preg_replace('/\D/', '', substr($reg, 0, 19));
         $f[44] = $rd;
         return self::join($f);
@@ -206,7 +206,8 @@ class HL7MessageBuilder {
         if ($visit) $lines[] = self::pv1($visit, 1);
         $orderNo = (string)(isset($order['order_no']) ? $order['order_no'] : '');
         $doctor = (string)(isset($order['doctor_name']) ? $order['doctor_name'] : '');
-        $createdAt = (string)(isset($order['created_at']) ? $order['created_at'] : '');
+        // 出向集成：ORC-9 / OBR-6/7 时间统一本地墙钟（单一换算点）
+        $createdAt = fmt_time((string)(isset($order['created_at']) ? $order['created_at'] : ''));
         $isRx = (string)(isset($order['order_type']) ? $order['order_type'] : '') === 'prescription';
         // 标准 ORM：一个 ORC 订单头，后接各明细段（OBR/RXE）
         $lines[] = self::orc($orderNo, $doctor, $createdAt);

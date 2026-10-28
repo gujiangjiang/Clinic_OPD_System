@@ -66,7 +66,9 @@ class HisInboundOrders {
         $price = isset($orderIn['price']) ? (float)$orderIn['price'] : 0;
         $doctorName = trim((string)(isset($visitIn['apply_doctor']) ? $visitIn['apply_doctor'] : ''));
         $deptName = trim((string)(isset($visitIn['apply_dept']) ? $visitIn['apply_dept'] : ''));
-        $createdAt = trim((string)(isset($orderIn['created_at']) ? $orderIn['created_at'] : ''));
+        // 入向集成：外部一律按站点时区墙钟发送（HIS 已统一本地方言），
+        // 经 wall_to_storage() 落库（utc 模式换算 UTC）；非法/缺失回退 now_str()
+        $createdAt = wall_to_storage(trim((string)(isset($orderIn['created_at']) ? $orderIn['created_at'] : '')));
         if ($createdAt === '') $createdAt = now_str();
         $categoryName = trim((string)(isset($orderIn['category']) ? $orderIn['category'] : ''));
 
