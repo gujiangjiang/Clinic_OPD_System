@@ -58,55 +58,64 @@
   `app/config/drivers.php`（唯一数据源）：安装向导、系统设置、后端校验共用，
   新增驱动仅维护该文件一处，前端下拉与参数表单自动动态渲染。
 
-## 时间与时区铁律（v9.16.0+ 通用时区框架）
+## 时间与时区铁律（v10.0.0 UTC 存储框架）
 
-- **存储契约（当前生产态 = 站点时区墙钟）**：所有 DATETIME 列存「站点时区
-  （系统设置 → 全站时区）墙钟字符串」，写入唯一来源 `now_str()` / `today_str()`；
-  分日一律 PHP `date('Y-m-d')`。
-- **目标态（UTC 存储，分阶段推进）**：数据库统一存 UTC（`now_utc()` / 迁移工具），
-  展示层经 `utc_to_local()` 换算；法律性单据按**快照固化时区**渲染，保证重打
-  内容与开具时刻完全一致。切换必须按下方「UTC 化迁移规程」执行，严禁手工散改。
+- **存储契约（UTC，目标态达成）**：所有 DATETIME 列统一存 UTC（`Y-m-d H:i:s`），
+  写入唯一来源 `now_str()` / `today_str()`（模式感知）；分日一律走 PHP 口径
+  （`local_date_of()` / `day_range()`），业务日期列（`reg_date` 等 `*_date`）
+  存本地日。展示层一律经 `fmt_time()`（唯一展示入口）换算为站点时区。
+- **双模式兼容（存量旧库平滑升级）**：`config.db` 的 `time.storage` =
+  `utc`（新装默认）/ `local`（关联旧库）；`time_storage_utc()` 为唯一判定，
+  `$GLOBALS['TIME_STORAGE_UTC_RUNTIME']` 仅限安装向导等受控流程覆盖。
+  新代码一律使用模式感知助手，**严禁**按固定口径硬编码。
 - **禁止 SQL 端时间函数**（`NOW()` / `CURRENT_TIMESTAMP` / `datetime('now')` /
   `UNIX_TIMESTAMP()` / `strftime(...)` / `date('now',...)` 等）：SQLite 的
   `localtime` 取操作系统时区（容器常为 UTC）、MySQL/PG 取会话时区，与站点时区
   不一致时产生整小时级偏斜（历史 bug：「选择科室」模态框与诊室列表在线状态
   打架，即宝塔容器 UTC + 站点上海相差 8 小时所致）。
 - **相对时间/租约统一走 `app/core/helpers.d/time.php`**：`ts_epoch()` /
-  `seconds_ago()` / `is_recent()`（fail-closed：未来超过 5 秒视为失效——宁可
-  显示离线，也不把陈旧数据误判为在线/占用）。大屏在线（30 秒租约）唯一判定
-  入口 `QueueRepository::screenOnline()`；医生绑定（300 秒租约）
+  `is_recent()`（fail-closed：未来超过 5 秒视为失效——宁可显示离线，也不把
+  陈旧数据误判为在线/占用）。大屏在线（30 秒租约）唯一判定入口
+  `QueueRepository::screenOnline()`；医生绑定（300 秒租约）
   `doctorHeartbeatStale()` / `sweepStaleBindings()`。
+- **跨系统交换契约（外部接口铁律）**：**出站**一律发送「站点时区墙钟」——
+  存储值经 `fmt_time()`；对外“现在”用 `now_wall()`；FHIR 时间由
+  `FhirAdapter::isoDateTime()` 单点输出「本地时间 + 偏移」ISO 8601。
+  **入站**外部时间一律按「站点时区墙钟」解释——经 `wall_to_storage()` 落库。
+  HIS（Asia/Shanghai + `date()` 本地写入；消费侧 `opd_fmt_datetime` 尊重偏移）
+  与 PACS（DICOM DA/TM 业务日期直通，零时区假设）已联合审阅对齐；跨时区部署
+  需另行约定。HL7（MSH-7 / EVN-2 / PV1-44 / ORC-9 / OBR-6/7）与 HIS 只读端点
+  （server_time / 整行时间列）均在出站单点换算。
 - **数据库会话时区锚定**：`ConnectionFactory::pinSession()`（MySQL/PG 建立连接后
-  SET 为站点时区，防御性兜底）；直连 `new PDO(ConnectionFactory::dsn(...))` 的
-  调用点必须显式调用。SQLite 无会话时区——时间运算必须走 PHP 端。
+  SET 为站点时区，防御性兜底；偏移串统一走 `tz_offset_str()`）；直连
+  `new PDO(ConnectionFactory::dsn(...))` 的调用点必须显式调用。SQLite 无会话
+  时区——时间运算必须走 PHP 端。
 - **迁移/种子 SQL**：可沿用 SQLite 方言书写 `datetime('now','localtime')`——
   `DatabaseManager::dialectSqlFor()` 会在执行时改写为**当前时刻的 PHP 站点时区
   字面量**（所有驱动统一，含 SQLite）。
 - **新增表时间列不设 `DEFAULT CURRENT_TIMESTAMP`**（SQLite 为 UTC），插入显式
   传 `now_str()`。
-- **打印快照时区固化（已落地）**：`snapshot_patient()`（快照唯一写入入口）在
-  创建/更新时固化 `print_snapshots.tz` + `tz_offset`（schema v54）；覆盖病历/
-  申请单/凭条/报告/诊断证明/同意书等全部快照类单据——历史单据重打不随全站
-  时区修改或存储方案切换漂移（法律合规）。
-- **UTC 化迁移规程（读写层已于 v9.17.0 完成，剩余为数据切换窗口）**：
-  1. ~~读写层改造~~（已完成：展示/载荷过 `fmt_time()`、分日窗口过 `day_range()`、
-     打印按快照冻结时区渲染、`reg_date` 业务日列落地、出向集成输出本地墙钟）；
-  2. **审计门（硬性）**：`tools/cli/tz_audit.php` 清零（或逐条评审后以
-     `tz-ok` 注释豁免非展示的内部用途）——覆盖 DAY_WINDOW / RELATIVE /
-     DISPLAY / PAYLOAD / PRINT 五类残留，未清零严禁切换；
-  3. `plan` 只读预演（逐列行数 + 抽样对照 + 阻断清单）；
-  4. 副本 `apply` 演练并校验，`rollback` 往返零误差后才碰生产；
-  5. 备份生产库（工具对 SQLite 自动整库备份）；
-  6. 窗口期：`apply --yes` 数据迁移 + 将 config.db 的 `time.storage` 置
-     `utc`（两步同步完成，即切换）；
-  7. 验收：随机抽样 + 打印比对 + 报表口径确认；异常回退 = `time.storage`
-     切回 `local` + `rollback` 还原数据。
-  已知专项阻断（已解决）：`idx_registrations_dept_date_seq` 原按
-  `date(registered_at)` 业务日防重（v55 已迁至独立业务日期列 `reg_date`）。
-  参考：本开发库已完成 11 项「迁移+UTC vs 原始+local」端到端一致性验收。
-- **修改全站时区的影响**：新写入数据完全一致；历史墙钟数据的分日归属按新时区
-  重新解释（墙钟存储的固有语义）；在线/绑定等相对时间租约由 fail-closed 兜底，
-  下一笔心跳（≤30 秒）自动恢复正确状态。
+- **打印快照时区固化**：`snapshot_patient()`（快照唯一写入入口）在创建/更新时
+  固化 `print_snapshots.tz` + `tz_offset`（schema v54）；覆盖病历/申请单/凭条/
+  报告/诊断证明/同意书等全部快照类单据——历史单据重打不随全站时区修改或存储
+  方案切换漂移（法律合规）。
+- **UTC 工具链（`tools/cli/`，存量 local 库升级/回退用）**：
+  - `tz_audit.php`（审计门，核心库 `tools/lint/tz_audit_lib.php`）：扫描
+    DAY_WINDOW / RELATIVE / DISPLAY / PAYLOAD / PRINT 五类残留，未清零（或经
+    评审逐条 `tz-ok` 豁免非展示用途）严禁切换；
+  - `tz_migrate.php plan|apply|switch|rollback`：转换列以**实库 PRAGMA** 扫描
+    （`_at/_time` 结尾，含版本迁移 ALTER 新增列）；`switch --yes` = 审计门 →
+    预演 → 整库备份 → 转换 → 快照回溯固化 → `time.storage=utc`（数据与模式
+    一步同步）；`rollback --yes` 按 JSON 清单精确还原并回切 `local`；
+  - `tz_selftest.php`：当前库全链路自检（环境口径 / 纯函数 / 全库时间列抽样 /
+    reg_date 一致性 / 快照固化完整性）；`--compare=副本 --full` 跨模式渲染
+    逐值等价验收。
+  - **标准升级流程**：审计门清零 → 副本 `apply` + `--compare --full` 零误差 →
+    生产 `switch --yes` → `tz_selftest` 自检 + 与切换前备份 `--compare --full`。
+  本仓库（开发库）已完成全量切换验收：56 列 / 25211 值逐值零误差 + 自检全绿。
+- **修改全站时区的影响**：UTC 存储下历史时间点恒定——改变站点时区仅改变展示
+  换算与分日归属；法律性单据按快照固化时区渲染，完全不受影响；在线/绑定等
+  相对时间租约由 fail-closed 兜底，下一笔心跳（≤30 秒）自动恢复正确状态。
 
 ## 药品与处方规则（v8.17 核心约束）
 
@@ -128,7 +137,9 @@
   - `tools/lint/`：语法检查工具（原 `tools/schema/` 一次性迁移/修复脚本已于本次复盘清理移除）。
   - `tools/cli/`：后台/定时任务（`db_migrate_run.php` 迁移、`db_backup_run.php` 备份、
     `integration_outbox_run.php` 出向同步、`log_archive_run.php` 日志滑动归档、
-    `tz_migrate.php` 全库时间迁移（UTC 化预演/执行/回滚）、`hl7_mllp_server.php` 等）。
+    `tz_migrate.php` 全库时间迁移（预演/执行/一体化切换/回滚）、`tz_selftest.php`
+    时间全链路自检与跨模式验收、`tz_audit.php` 时间口径审计门（核心库在
+    `tools/lint/`）、`hl7_mllp_server.php` 等）。
 - **开发铁律**：后续任何测试造数需求，严禁在 `tools/` 根目录随意新建孤立的 `seed_xxx.php` 脚本，
   必须在 `seeder/` 中扩展复用（场景通过 `tools/bin/seed.php` 组合调度）；
   造数一律通过统一 CLI 入口调度。
