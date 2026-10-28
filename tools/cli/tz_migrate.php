@@ -80,25 +80,18 @@ if ($opt['tz'] === '') {
 }
 $offset = tz_offset_str($opt['tz']);
 
-/* ---------------- 转换列发现：schema 扫描（列名 _at/_time 结尾）+ 实库存在性 ---------------- */
-$schema = require $APP_ROOT . '/app/config/schema/main.php';
+/* ---------------- 转换列发现：实库 PRAGMA 扫描（列名 _at/_time 结尾） ----------------
+ * 以真实库结构为准（而非 schema DDL 文本）：由版本迁移 ALTER 新增的列
+ * （如 orders.dispensed_at / order_items.registered_at / reports.applied_at）
+ * 不在主 DDL 文本中，DDL 正则扫描会漏（2026-10 验收实测捕获）。 */
 $plan = array();   // [table => [col, ...]]
-foreach ($schema['tables'] as $table => $ddl) {
-    preg_match_all('/^\s*([a-z_][a-z0-9_]*)\s+[A-Za-z]+/im', (string)$ddl, $m, PREG_SET_ORDER);
+$tables = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")->fetchAll(PDO::FETCH_COLUMN);
+foreach ($tables as $table) {
     $cols = array();
-    foreach ($m as $mm) {
-        if (preg_match('/_at$|_time$/i', $mm[1])) $cols[] = $mm[1];
+    foreach ($pdo->query("PRAGMA table_info(" . $table . ")")->fetchAll() as $c) {
+        if (preg_match('/_at$|_time$/i', $c['name'])) $cols[] = $c['name'];
     }
-    if (!$cols) continue;
-    // 实库存在性校验（表可能不存在于旧库）
-    try {
-        $exist = $pdo->query("PRAGMA table_info(" . $table . ")")->fetchAll();
-    } catch (Exception $ex) { continue; }
-    if (!$exist) continue;
-    $real = array();
-    foreach ($exist as $c) $real[] = $c['name'];
-    $use = array_values(array_intersect($cols, $real));
-    if ($use) $plan[$table] = $use;
+    if ($cols) $plan[$table] = $cols;
 }
 
 /** 计数可转换值（非空串） */
