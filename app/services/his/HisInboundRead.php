@@ -17,7 +17,7 @@ class HisInboundRead {
             'system' => 'Clinic OPD System',
             'system_code' => (string)integration_cfg('outbound.his.hospital_code', '', 'his_system_code'),
             'org_code' => (string)setting('org_code', ''),
-            'server_time' => now_wall(),   // 出向集成：对外发送本地墙钟
+            'server_time' => now_iso_utc(),   // 对外接口契约：标准 UTC（ISO 8601 带 Z）
         );
     }
 
@@ -33,7 +33,7 @@ class HisInboundRead {
             : PatientRepository::one('SELECT * FROM patients WHERE patient_no=?', array($patientNo));
         if (!$p) json_fail('未检索到患者');
         unset($p['id']);
-        return array('patient' => self::localizeRow($p));
+        return array('patient' => self::utcRow($p));
     }
 
     /** 就诊记录列表（按患者ID） */
@@ -44,7 +44,7 @@ class HisInboundRead {
         $out = array();
         foreach ($visits as $v) {
             unset($v['id']);
-            $out[] = self::localizeRow($v);
+            $out[] = self::utcRow($v);
         }
         return array('visits' => $out);
     }
@@ -65,7 +65,7 @@ class HisInboundRead {
             'visit_seq' => (int)$v['visit_seq'],
             'status' => $v['status'],
             'status_name' => visit_status_name($v['status']),
-            'registered_at' => fmt_time($v['registered_at']),
+            'registered_at' => iso_utc($v['registered_at']),
         );
     }
 
@@ -85,8 +85,8 @@ class HisInboundRead {
                 'doctor_name' => $o['doctor_name'],
                 'total_amount' => (float)$o['total_amount'],
                 'status' => $o['status'],
-                'created_at' => fmt_time($o['created_at']),
-                'paid_at' => fmt_time($o['paid_at']),
+                'created_at' => iso_utc($o['created_at']),
+                'paid_at' => iso_utc($o['paid_at']),
                 'items' => $items,
             );
         }
@@ -174,8 +174,8 @@ class HisInboundRead {
             return array(
                 'type' => 'record', 'record_id' => $recId, 'patient_no' => $r['patient_no'], 'flow_no' => $r['flow_no'],
                 'record_type' => $r['record_type'], 'evid_hash' => $r['evid_hash'], 'evid_algo' => $r['evid_algo'],
-                'evid_token' => $r['evid_token'], 'evid_signer' => $r['evid_signer'], 'evid_time' => fmt_time($r['evid_time']),
-                'created_at' => fmt_time($r['created_at']),
+                'evid_token' => $r['evid_token'], 'evid_signer' => $r['evid_signer'], 'evid_time' => iso_utc($r['evid_time']),
+                'created_at' => iso_utc($r['created_at']),
             );
         }
         if ($certNo !== '') {
@@ -186,21 +186,21 @@ class HisInboundRead {
             return array(
                 'type' => 'certificate', 'cert_no' => $certNo, 'patient_no' => $r['patient_no'], 'flow_no' => $r['flow_no'],
                 'content' => $r['content'], 'evid_hash' => $r['evid_hash'], 'evid_algo' => $r['evid_algo'],
-                'evid_token' => $r['evid_token'], 'evid_signer' => $r['evid_signer'], 'evid_time' => fmt_time($r['evid_time']),
-                'created_at' => fmt_time($r['created_at']),
+                'evid_token' => $r['evid_token'], 'evid_signer' => $r['evid_signer'], 'evid_time' => iso_utc($r['evid_time']),
+                'created_at' => iso_utc($r['created_at']),
             );
         }
         json_fail('请提供 record_id 或 cert_no 参数');
     }
 
     /**
-     * 出向集成单点（整行输出）：存储时间列（*_at）统一换算为站点时区墙钟；
-     * 业务日期列（*_date / reg_date）不转换（日期口径与存储模式无关）；
-     * 空值经 fmt_time 原样返回。
+     * 对外接口单点（整行输出）：存储时间列（*_at）统一输出标准 UTC（ISO 8601 带 Z）；
+     * 业务日期列（*_date / reg_date）不转换（业务日期直通）；
+     * 空值经 iso_utc 原样返回。
      */
-    private static function localizeRow($row) {
+    private static function utcRow($row) {
         foreach ($row as $k => $v) {
-            if (preg_match('/_at$/', $k)) $row[$k] = fmt_time($v);
+            if (preg_match('/_at$/', $k)) $row[$k] = iso_utc($v);
         }
         return $row;
     }

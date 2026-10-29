@@ -18,8 +18,7 @@ class HL7MessageBuilder {
      *        （ACK 应答需交换收发双方）。
      */
     public static function msh($msgType, $msgControlId = '', $version = '2.4', $sendingApp = null, $sendingFac = null, $recvApp = null, $recvFac = null) {
-        $now = now_wall();   // 出向集成：MSH-7 对外发送本地墙钟（两模式一致）
-        $dt = substr($now, 0, 4) . substr($now, 5, 2) . substr($now, 8, 2) . substr($now, 11, 2) . substr($now, 14, 2);
+        $dt = gmdate('YmdHis') . '+0000';   // 对外接口契约：MSH-7 标准 UTC（DTM 带 +0000）
         if ($msgControlId === '') $msgControlId = self::controlId();
         if ($version === '') $version = '2.4';
         $f = array();
@@ -42,6 +41,12 @@ class HL7MessageBuilder {
     /** 生成唯一消息控制 ID（时间 + 随机，降低同秒碰撞） */
     public static function controlId() {
         return date('YmdHis') . strtoupper(bin2hex(random_bytes(4)));
+    }
+
+    /** 对外 UTC ISO → HL7 DTM（14 位 + +0000 偏移后缀；空返回空串） */
+    private static function dtmUtc($iso) {
+        $d = preg_replace('/\D/', '', (string)$iso);
+        return $d === '' ? '' : substr($d, 0, 14) . '+0000';
     }
 
     /** 组装段：补齐中间空字段（避免缺失下标导致字段位置整体前移） */
@@ -144,8 +149,7 @@ class HL7MessageBuilder {
         $trigger = '';
         $tp = explode('^', (string)$type);
         if (isset($tp[1])) $trigger = $tp[1];
-        $now = now_wall();   // 出向集成：EVN-2 事件记录时间为本地墙钟
-        $lines[] = 'EVN|' . $trigger . '|' . substr($now, 0, 4) . substr($now, 5, 2) . substr($now, 8, 2) . substr($now, 11, 2) . substr($now, 14, 2);
+        $lines[] = 'EVN|' . $trigger . '|' . gmdate('YmdHis') . '+0000';   // 对外接口契约：EVN-2 标准 UTC
         $lines[] = self::pid($patient, 1);
         $lines[] = self::pv1($visit);
         return implode("\r", $lines);
@@ -191,10 +195,10 @@ class HL7MessageBuilder {
             (string)(isset($v['flow_no']) ? $v['flow_no'] : ''),
             (string)(isset($v['inpatient_no']) ? $v['inpatient_no'] : '')
         );
-        // PV1-44 入院时间（Admit Date/Time）：完整 DTM（出向集成：本地墙钟）
-        $reg = fmt_time((string)(isset($v['registered_at']) ? $v['registered_at'] : ''));
+        // PV1-44 入院时间（Admit Date/Time）：对外接口契约：标准 UTC（DTM 带 +0000）
+        $reg = iso_utc((string)(isset($v['registered_at']) ? $v['registered_at'] : ''));
         $rd = preg_replace('/\D/', '', substr($reg, 0, 19));
-        $f[44] = $rd;
+        $f[44] = $rd !== '' ? $rd . '+0000' : '';
         return self::join($f);
     }
 
@@ -206,8 +210,8 @@ class HL7MessageBuilder {
         if ($visit) $lines[] = self::pv1($visit, 1);
         $orderNo = (string)(isset($order['order_no']) ? $order['order_no'] : '');
         $doctor = (string)(isset($order['doctor_name']) ? $order['doctor_name'] : '');
-        // 出向集成：ORC-9 / OBR-6/7 时间统一本地墙钟（单一换算点）
-        $createdAt = fmt_time((string)(isset($order['created_at']) ? $order['created_at'] : ''));
+        // 对外接口契约：ORC-9 / OBR-6/7 时间统一标准 UTC（单一换算点）
+        $createdAt = iso_utc((string)(isset($order['created_at']) ? $order['created_at'] : ''));
         $isRx = (string)(isset($order['order_type']) ? $order['order_type'] : '') === 'prescription';
         // 标准 ORM：一个 ORC 订单头，后接各明细段（OBR/RXE）
         $lines[] = self::orc($orderNo, $doctor, $createdAt);
@@ -227,7 +231,7 @@ class HL7MessageBuilder {
 
     /** ORC 段（公共订单） */
     public static function orc($orderNo, $doctor, $createdAt) {
-        $dt = substr(str_replace(array('-', ' ', ':'), '', $createdAt), 0, 14);
+        $dt = self::dtmUtc($createdAt);
         $f = array();
         $f[0] = 'ORC';
         $f[1] = 'NW';      // ORC-1 订单控制：NW=新单
@@ -242,7 +246,7 @@ class HL7MessageBuilder {
 
     /** OBR 段（检验/检查申请） */
     public static function obr($item, $orderNo, $doctor, $createdAt, $setId) {
-        $dt = substr(str_replace(array('-', ' ', ':'), '', $createdAt), 0, 14);
+        $dt = self::dtmUtc($createdAt);
         $itemName = self::hl7Escape((string)(isset($item['item_name']) ? $item['item_name'] : ''));
         $f = array();
         $f[0] = 'OBR';

@@ -44,7 +44,7 @@ class LisService {
             'patient_no' => $order['patient_no'],
             'patient' => $patient ? $patient : array(),
             'doctor_name' => $order['doctor_name'],
-            'created_at' => fmt_time($order['created_at']),   // 出向集成：对外发送本地墙钟
+            'created_at' => iso_utc($order['created_at']),   // 对外接口契约：标准 UTC（ISO 8601 带 Z）
             'items' => $items,
         );
         $headers = array('Content-Type: application/json; charset=utf-8');

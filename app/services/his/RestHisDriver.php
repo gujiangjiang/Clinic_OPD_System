@@ -131,7 +131,7 @@ class RestHisDriver implements HisDriverInterface {
                     'session' => $v['session'],
                     'fee' => (float)$v['fee'],
                     'status' => $v['status'],
-                    'registered_at' => fmt_time($v['registered_at']),   // 出向集成：对外发送本地墙钟
+                    'registered_at' => iso_utc($v['registered_at']),   // 对外接口契约：标准 UTC（ISO 8601 带 Z）
                     'cashier_name' => $v['cashier_name'],
                 );
             case 'his_settlement':
@@ -149,7 +149,7 @@ class RestHisDriver implements HisDriverInterface {
                     'kind' => $p['kind'],
                     'total' => (float)$p['total_amount'],
                     'method' => $p['method'],
-                    'created_at' => fmt_time($p['created_at']),   // 出向集成：对外发送本地墙钟
+                    'created_at' => iso_utc($p['created_at']),   // 对外接口契约：标准 UTC（ISO 8601 带 Z）
                 );
             case 'his_prescription':
                 $oid = (int)self::pv($payload, 'order_id');
@@ -166,7 +166,7 @@ class RestHisDriver implements HisDriverInterface {
                     'doctor_name' => $o['doctor_name'],
                     'total_amount' => (float)$o['total_amount'],
                     'status' => $o['status'],
-                    'dispensed_at' => fmt_time($o['dispensed_at']),   // 出向集成：对外发送本地墙钟
+                    'dispensed_at' => iso_utc($o['dispensed_at']),   // 对外接口契约：标准 UTC（ISO 8601 带 Z）
                     'items' => $items,
                 );
             default:

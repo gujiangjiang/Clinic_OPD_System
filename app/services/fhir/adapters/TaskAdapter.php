@@ -266,12 +266,12 @@ class TaskAdapter extends FhirAdapter {
     }
 
     /** ISO 时间 → 存储口径 "Y-m-d H:i:s"（失败返回原串）
-     *  入向集成：ISO 先解析为站点时区墙钟（strtotime 尊重入参偏移、date() 按
-     *  站点时区渲染），再经 wall_to_storage() 落库（utc 模式换算 UTC）。 */
+     *  入向集成契约：外部一律标准 UTC（ISO 带 Z/偏移精确解析；无偏移纯串按 UTC），
+     *  经 utc_to_storage() 落库（local 模式换算站点墙钟）。 */
     private static function fromIso($s) {
         $s = trim((string)$s);
         if ($s === '') return '';
         $t = strtotime($s);
-        return $t ? wall_to_storage(date('Y-m-d H:i:s', $t)) : $s;
+        return $t ? utc_to_storage($s) : $s;
     }
 }
