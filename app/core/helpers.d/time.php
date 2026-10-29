@@ -52,36 +52,48 @@ function fmt_time($ts, $tz = null) {
 }
 
 /**
- * 跨系统交换契约（外部接口铁律）：
- *  - **出站**：一律发送「站点时区墙钟」——存储值经 fmt_time() 换算；对外“现在”
- *    用 now_wall()；FHIR 时间由 FhirAdapter::isoDateTime() 单点输出「本地时间 +
- *    偏移」ISO 8601。外部系统（HIS/PACS/LIS/医保）从不接收 UTC 存储原值。
- *  - **入站**：外部系统一律按「站点时区墙钟」发送——经 wall_to_storage() 按当前
- *    存储口径落库（合同双方各自统一自己的时区设置；跨时区部署需另行约定）。
- * 以上与「本地墙钟写入」语境自洽：local↔utc 切换对外接口语义零变化。
+ * 跨系统交换契约（外部接口铁律，v10.1.0 起全面 UTC）：
+ *  - **出站**：一律发送**标准 UTC**——存储值经 iso_utc() 输出 ISO 8601 带 Z；
+ *    对外“现在”用 now_iso_utc()；FHIR 时间由 FhirAdapter::isoDateTime() 单点
+ *    输出 UTC（Z）；HL7 DTM 带 +0000 后缀；DICOM 业务日期（DA/TM）直通不换算。
+ *    对外接口不受本系统站点时区设置影响。
+ *  - **入站**：外部系统一律发送标准 UTC——经 utc_to_storage() 按当前存储口径
+ *    落库（ISO 带 Z/±偏移精确解析；无偏移纯串按 UTC 解释）。
+ *  三系统（门诊 / HIS / PACS）同一契约：底层存储 UTC、对外传输 UTC、
+ *  显示按各系统自身时区设置换算。
  */
 
-/**
- * 站点时区「现在」墙钟（对外交换的“现在”单一来源）：两模式输出一致。
- * @return string 'Y-m-d H:i:s'
- */
-function now_wall() {
-    return fmt_time(now_str());
+/** 对外“现在”（标准 UTC，ISO 8601 带 Z；与站点时区设置无关） */
+function now_iso_utc() {
+    return gmdate('Y-m-d\TH:i:s\Z');
 }
 
 /**
- * 跨系统入站墙钟 → 存储口径（出站反向为 fmt_time / now_wall）。
- *  - local 模式：恒等（老行为逐字节不变）；
- *  - utc 模式：按站点时区解释并换算为 UTC；
- *  - 空串返回 ''；非法串在 utc 模式返回 ''（调用方兜底 now_str()）。
- * @param string|null $s 外部系统发送的墙钟串
+ * 存储值 → 对外 UTC ISO 8601（带 Z）。
+ * local 模式按站点时区解释存储墙钟；utc 模式直读；空/非法返回 ''。
+ * @param string|null $ts
  * @return string
  */
-function wall_to_storage($s) {
+function iso_utc($ts) {
+    $s = trim((string)$ts);
+    if ($s === '') return '';
+    $t = time_storage_utc() ? ts_epoch_tz($s, 'UTC') : ts_epoch_tz($s, null);
+    return $t === null ? '' : gmdate('Y-m-d\TH:i:s\Z', $t);
+}
+
+/**
+ * 外部 UTC 入站（ISO 8601 'Z'/±偏移，或纯串按 UTC 解释）→ 存储值。
+ * 空串返回 ''；非法返回 ''（调用方兜底 now_str()）。
+ * @param string|null $s
+ * @return string
+ */
+function utc_to_storage($s) {
     $s = trim((string)$s);
     if ($s === '') return '';
-    if (!time_storage_utc()) return $s;
-    return local_to_utc($s, null);
+    if (!preg_match('/[Zz]$|[+-]\d{2}:?\d{2}$/', $s)) $s .= ' UTC';
+    $t = strtotime($s);
+    if ($t === false) return '';
+    return time_storage_utc() ? gmdate('Y-m-d H:i:s', $t) : date('Y-m-d H:i:s', $t);
 }
 
 /**

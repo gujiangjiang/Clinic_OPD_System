@@ -143,8 +143,8 @@ $ref = time_storage_utc() ? gmdate('Y-m-d H:i:s') : date('Y-m-d H:i:s');
 if (abs(strtotime($now . (time_storage_utc() ? ' UTC' : '')) - strtotime($ref . (time_storage_utc() ? ' UTC' : ''))) <= 2) st_ok("now_str() 模式口径正确（{$now}）");
 else st_bad($fail, "now_str() 口径异常：{$now}（期望约 {$ref}）");
 
-if ((time() - strtotime(now_wall())) >= -2 && (time() - strtotime(now_wall())) <= 2) st_ok('now_wall() 对外“现在”为站点墙钟（两模式一致）');
-else st_bad($fail, 'now_wall() 异常：' . now_wall());
+if (abs(strtotime(now_iso_utc()) - time()) <= 2) st_ok('now_iso_utc() 对外“现在”为标准 UTC');
+else st_bad($fail, 'now_iso_utc() 异常：' . now_iso_utc());
 
 $rtOk = true;
 foreach (array($siteTz, 'UTC', 'America/New_York') as $tzc) {
@@ -154,12 +154,11 @@ foreach (array($siteTz, 'UTC', 'America/New_York') as $tzc) {
 if ($rtOk) st_ok('local_to_utc / utc_to_local 往返恒等（含跨时区样本）');
 else st_bad($fail, '跨时区往返不恒等');
 
-$wall = now_wall();
-if (fmt_time(wall_to_storage($wall)) === $wall) st_ok('wall_to_storage → fmt_time 入出站往返恒等');
-else st_bad($fail, '入出站助手往返异常：' . fmt_time(wall_to_storage($wall)) . ' ≠ ' . $wall);
-if (!time_storage_utc()) st_ok('wall_to_storage local 模式恒等（老行为不变）');
-elseif (wall_to_storage('bad-format') === '') st_ok('wall_to_storage 非法入参安全兜底（utc 模式返回空）');
-else st_bad($fail, 'wall_to_storage 非法入参未兜底');
+$u = iso_utc(now_str());
+if ($u !== '' && utc_to_storage($u) === now_str()) st_ok('iso_utc → utc_to_storage 往返恒等（对外 UTC 契约）');
+else st_bad($fail, '对外 UTC 往返异常：' . $u . ' → ' . utc_to_storage($u));
+if (utc_to_storage('bad-format') === '') st_ok('utc_to_storage 非法入参安全兜底');
+else st_bad($fail, 'utc_to_storage 非法入参未兜底');
 
 $ymd = date('Y-m-d');
 $db = day_range($ymd);
