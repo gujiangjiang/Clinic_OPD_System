@@ -78,14 +78,16 @@
   陈旧数据误判为在线/占用）。大屏在线（30 秒租约）唯一判定入口
   `QueueRepository::screenOnline()`；医生绑定（300 秒租约）
   `doctorHeartbeatStale()` / `sweepStaleBindings()`。
-- **跨系统交换契约（外部接口铁律）**：**出站**一律发送「站点时区墙钟」——
-  存储值经 `fmt_time()`；对外“现在”用 `now_wall()`；FHIR 时间由
-  `FhirAdapter::isoDateTime()` 单点输出「本地时间 + 偏移」ISO 8601。
-  **入站**外部时间一律按「站点时区墙钟」解释——经 `wall_to_storage()` 落库。
-  HIS（Asia/Shanghai + `date()` 本地写入；消费侧 `opd_fmt_datetime` 尊重偏移）
-  与 PACS（DICOM DA/TM 业务日期直通，零时区假设）已联合审阅对齐；跨时区部署
-  需另行约定。HL7（MSH-7 / EVN-2 / PV1-44 / ORC-9 / OBR-6/7）与 HIS 只读端点
-  （server_time / 整行时间列）均在出站单点换算。
+- **跨系统交换契约（外部接口铁律，v10.1.0 起全面 UTC）**：**出站**一律标准 UTC——
+  存储值经 `iso_utc()`（ISO 8601 带 Z）单点；对外“现在”用 `now_iso_utc()`；
+  FHIR 由 `FhirAdapter::isoDateTime()` 单点输出 Z；HL7 DTM 带 `+0000`
+  （MSH-7 / EVN-2 / PV1-44 / ORC-9 / OBR-6/7）；HIS 只读端点（server_time /
+  整行时间列）、HIS 上报（RestHisDriver）、LIS 下发（LisService）同契约；
+  DICOM DA/TM 业务日期直通不换算。**入站**标准 UTC——`utc_to_storage()`
+  （Z/±偏移精确解析；无偏移纯串按 UTC）落库。三系统（门诊 / HIS / PACS）同一
+  契约：**底层存储 UTC、对外传输 UTC、显示按各系统自身时区设置**
+  （HIS/PACS 均已升级同款时间框架与 config.db 时区设置）；对外输出不受本系统
+  时区设置影响，跨时区部署无需另行约定。
 - **数据库会话时区锚定**：`ConnectionFactory::pinSession()`（MySQL/PG 建立连接后
   SET 为站点时区，防御性兜底；偏移串统一走 `tz_offset_str()`）；直连
   `new PDO(ConnectionFactory::dsn(...))` 的调用点必须显式调用。SQLite 无会话
@@ -113,6 +115,9 @@
   - **标准升级流程**：审计门清零 → 副本 `apply` + `--compare --full` 零误差 →
     生产 `switch --yes` → `tz_selftest` 自检 + 与切换前备份 `--compare --full`。
   本仓库（开发库）已完成全量切换验收：56 列 / 25211 值逐值零误差 + 自检全绿。
+  三系统联调已实测：HIS 只读（ping server_time ISO Z、order_list 时间 ISO Z 且
+  与库值逐秒一致）、sync-orders 入站（UTC ISO → 存储 UTC 精确往返）、
+  FHIR 出站（ImagingStudy.started / ServiceRequest.authoredOn 均为 Z）。
 - **修改全站时区的影响**：UTC 存储下历史时间点恒定——改变站点时区仅改变展示
   换算与分日归属；法律性单据按快照固化时区渲染，完全不受影响；在线/绑定等
   相对时间租约由 fail-closed 兜底，下一笔心跳（≤30 秒）自动恢复正确状态。

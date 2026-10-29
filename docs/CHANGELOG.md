@@ -13,6 +13,31 @@
 
 ---
 
+## [10.1.0] - 2026-10-29
+
+### 变更
+- **对外交换契约全面切换为标准 UTC（三系统统一）**：出站一律 `iso_utc()`
+  （ISO 8601 带 Z）/ 对外“现在”`now_iso_utc()`；FHIR 由
+  `FhirAdapter::isoDateTime()` 单点输出 Z；HL7 DTM 带 `+0000`（MSH-7 / EVN-2 /
+  PV1-44 / ORC-9 / OBR-6/7，`dtmUtc` 单点）；HIS 只读端点整行/字段时间列
+  （`utcRow`）、HIS 上报与 LIS 下发同契约；入站一律 `utc_to_storage()`
+  （Z/±偏移精确解析；无偏移纯串按 UTC）——覆盖 HIS 申请单推送与 FHIR Task 回写。
+  墙钟交换契约助手 `now_wall()` / `wall_to_storage()` 退役移除。
+  **对外接口不再受本系统站点时区设置影响**；显示层（fmt_time 等内部口径）
+  保持不变。
+
+### 修复
+- 时间审计白名单纳入 UTC 契约助手（`iso_utc` / `utc_to_storage` 属合法单点换算，
+  避免误报）；自检同步 UTC 契约用例（now_iso_utc 校验 / 往返恒等 / 非法兜底）。
+
+### 说明
+- 三系统（门诊 / HIS / PACS）统一时间契约落地：底层存储 UTC、对外传输 UTC、
+  显示按各系统自身时区设置（HIS/PACS 已升级同款时间框架 + 独立 config.db 时区）。
+- 联调实测（本地 HTTP）：HIS 只读 ping/order_list 输出 ISO Z 且与库值逐秒一致；
+  sync-orders 以 `2026-10-29T10:00:00Z` 推送 → 存储 `2026-10-29 10:00:00`
+  精确往返；FHIR ImagingStudy.started / ServiceRequest.authoredOn 均 Z；
+  测试数据与临时 Scope 授权已全部还原。
+
 ## [10.0.0] - 2026-10-29
 
 ### 新增
