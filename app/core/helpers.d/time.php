@@ -97,6 +97,17 @@ function utc_to_storage($s) {
 }
 
 /**
+ * epoch → 存储口径时间串（「指定时刻」落库统一入口：seed/批量导入/脚本回溯等）。
+ * utc 模式 = UTC；local 模式 = 站点墙钟（与 now_str() 对「此刻」的口径一致）。
+ * @param int $ts epoch 秒
+ * @return string 'Y-m-d H:i:s'
+ */
+function store_time($ts) {
+    $t = (int)$ts;
+    return time_storage_utc() ? gmdate('Y-m-d H:i:s', $t) : date('Y-m-d H:i:s', $t);
+}
+
+/**
  * 业务日期标签（本地日的 Y-m-d）：存储值 → 站点时区的日期部分。
  * 用于分日展示/比较（local 模式直接截取；utc 模式先换算），
  * 与 reg_date 等「业务日期列」口径一致。

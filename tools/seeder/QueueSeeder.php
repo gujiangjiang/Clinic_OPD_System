@@ -113,7 +113,7 @@ class QueueSeeder extends Seeder {
             // 「该科室当日已有最晚挂号时间」中较晚者，保证新号晚于既有号，避免追加后倒挂
             $baseTs = mktime(8, 0, 0, (int)date('m'), (int)date('d'), (int)date('Y'));
             $maxReg = (string)DB::val('SELECT MAX(registered_at) FROM registrations WHERE first_dept_id=? AND reg_date=?', array($deptId, $today));
-            if ($maxReg !== '' && ($mt = strtotime($maxReg)) && $mt >= $baseTs) $baseTs = $mt + 60;
+            if ($maxReg !== '' && ($mt = $this->storeTs($maxReg)) && $mt >= $baseTs) $baseTs = $mt + 60;
             // 不生成未来挂号时间（凌晨运行时「当日 08:00」尚未到来会越过当前时刻，
             // 未来时间戳会干扰按时间戳判断变化的功能，如叫号大屏版本戳）
             $nowTs = time();
@@ -123,9 +123,10 @@ class QueueSeeder extends Seeder {
             for ($i = 0; $i < $perDept; $i++) {
                 $t += mt_rand(60, 900);
                 if ($t > $nowTs) $t = $nowTs;
-                $times[] = date('Y-m-d H:i:s', $t);
+                $times[] = $t;   // 保留 epoch；写入时经 storeTime 转存储口径
             }
-            foreach ($times as $regTime) {
+            foreach ($times as $regTs) {
+                $regTime = $this->storeTime($regTs);
                 $patientSeq++;
                 $flowMax++;
                 $seq++;
@@ -154,10 +155,10 @@ class QueueSeeder extends Seeder {
                 }
                 $flowNo = $dayPrefix . sprintf('%04d', $flowMax);
                 $fee = (float)$dept['fee'];
-                $payTime = date('Y-m-d H:i:s', strtotime($regTime) + mt_rand(120, 900));
+                $payTime = $this->storeTime($regTs + mt_rand(120, 900));
                 $visitId = (int)DB::insert('INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, paid_at, cashier_id, cashier_name, registered_at, reg_date, cancel_reason, is_extra, disposition, disposition_detail, finished_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                     $patientNo, $flowNo, $seq, $deptId, $dept['name'], $deptId, $dept['name'],
-                    ((int)substr($regTime, 11, 2) < 12 ? 'am' : 'pm'), $this->pick(array('自费', '居民医保', '职工医保')), $fee,
+                    (date('H', $regTs) < 12 ? 'am' : 'pm'), $this->pick(array('自费', '居民医保', '职工医保')), $fee,
                     'paid', $payTime, $cashier['id'], $cashier['name'], $regTime, local_date_of($regTime), '', 0, '', '', '',
                 ));
                 DB::insert('INSERT INTO payments(visit_id, order_id, patient_no, flow_no, kind, total_amount, item_count, cashier_id, cashier_name, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', array(

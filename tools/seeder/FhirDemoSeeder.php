@@ -192,7 +192,8 @@ class FhirDemoSeeder extends Seeder {
         $regTs = $now - 7200;             // 挂号 2 小时前
         $recTs = $now - 5400;             // 接诊
         $payTs = $now - 4800;             // 缴费
-        $fmt = function ($ts) { return date('Y-m-d H:i:s', $ts); };
+        // 存储口径格式化（utc 模式 = UTC；local 模式 = 站点墙钟）——local_date_of 已模式感知
+        $fmt = function ($ts) { return store_time($ts); };
 
         /* ---------- 患者 ---------- */
         $patientId = (int)DB::insert(

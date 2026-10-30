@@ -56,6 +56,20 @@ abstract class Seeder {
         return $u ? array('id' => (int)$u['id'], 'name' => (string)$u['name']) : array('id' => 0, 'name' => '');
     }
 
+    /**
+     * 存储口径时间串：epoch → 落库值（utc 模式 = UTC；local 模式 = 站点墙钟）。
+     * 造数全链路凡写 *_at/*_time 存储列必须经此（或 store_time），
+     * 业务日期列（reg_date 等）仍用 date('Y-m-d', $ts)（站点时区业务日）。
+     */
+    protected function storeTime($ts) {
+        return store_time($ts);
+    }
+
+    /** 存储口径解析：存储串 → epoch（模式感知；见 helpers.d/time.php::ts_epoch） */
+    protected function storeTs($s) {
+        return ts_epoch($s);
+    }
+
     /** 控制台输出 */
     protected function out($msg) {
         echo "  ✓ {$this->label}：{$msg}\n";

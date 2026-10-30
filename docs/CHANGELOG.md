@@ -13,6 +13,21 @@
 
 ---
 
+## [10.1.1] - 2026-10-30
+
+### 修复
+- **seed 造数模块时间口径 UTC 化（UTC 存储下偏 8 小时）**：存储时间列写入统一经
+  `store_time()` / `Seeder::storeTime()`（utc 模式 = UTC；local 模式 = 站点墙钟，
+  行为同旧版）；派生时间链（病历→开单→缴费→执行→报告→会诊→续写→证明）改用
+  `Seeder::storeTs()` 模式感知解析——原 `strtotime(存储串)` 在 UTC 存储下会把已
+  UTC 的串按本地时区再解析，造成二次偏移；`visit_seq` 续接统计改按 `reg_date`
+  （本地业务日，唯一索引键）而非 `substr(registered_at)`（UTC 日，跨日错位）；
+  QueueSeeder 时段（am/pm）与缴费时间改 epoch 口径（不读存储串小时）；
+  FhirDemoSeeder `$fmt` 同步。业务日期（reg_date / 单号日期段 / birth_date /
+  当日前缀）保持站点时区口径不变。
+- 验证：追加模式实测（叫号 2 人）：存储串为规范 UTC、显示 = 本地 +8h、
+  reg_date/时段/序号续接/无重复 全部正确；lint 通过。
+
 ## [10.1.0] - 2026-10-29
 
 ### 变更
