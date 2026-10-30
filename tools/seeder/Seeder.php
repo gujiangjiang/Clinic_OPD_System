@@ -70,6 +70,15 @@ abstract class Seeder {
         return ts_epoch($s);
     }
 
+    /**
+     * storeTime + 不晚于「当前-60s」：造数派生链（就诊→缴费→病历→开单→执行→报告）
+     * 统一经此写入，杜绝「临近日就诊派生时间越过当前时刻」的未来时间戳
+     * （未来时间会干扰按时间戳判断变化的功能，如叫号大屏版本戳、在线租约）。
+     */
+    protected function storeTimeCapped($ts) {
+        return $this->storeTime(min((int)$ts, time() - 60));
+    }
+
     /** 控制台输出 */
     protected function out($msg) {
         echo "  ✓ {$this->label}：{$msg}\n";

@@ -155,7 +155,7 @@ class QueueSeeder extends Seeder {
                 }
                 $flowNo = $dayPrefix . sprintf('%04d', $flowMax);
                 $fee = (float)$dept['fee'];
-                $payTime = $this->storeTime($regTs + mt_rand(120, 900));
+                $payTime = $this->storeTimeCapped($regTs + mt_rand(120, 900));
                 $visitId = (int)DB::insert('INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, paid_at, cashier_id, cashier_name, registered_at, reg_date, cancel_reason, is_extra, disposition, disposition_detail, finished_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                     $patientNo, $flowNo, $seq, $deptId, $dept['name'], $deptId, $dept['name'],
                     (date('H', $regTs) < 12 ? 'am' : 'pm'), $this->pick(array('自费', '居民医保', '职工医保')), $fee,

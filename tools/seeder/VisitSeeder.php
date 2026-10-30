@@ -437,7 +437,7 @@ class VisitSeeder extends Seeder {
         $this->seqSeq[$skey] = (isset($this->seqSeq[$skey]) ? $this->seqSeq[$skey] : 0) + 1;
         $fee = (float)$dept['fee'];
         $paid = in_array($status, array('paid', 'visiting', 'finished'), true);
-        $payTime = $paid ? $this->storeTime($ts + mt_rand(120, 900)) : '';
+        $payTime = $paid ? $this->storeTimeCapped($ts + mt_rand(120, 900)) : '';
         $disp = ''; $dispDetail = ''; $finishedAt = '';
         if ($status === 'finished') {
             $r2 = mt_rand(1, 100);
@@ -446,7 +446,7 @@ class VisitSeeder extends Seeder {
             elseif ($r2 <= 88) { $disp = '转院'; $dispDetail = $this->pick($this->hospPool); }
             elseif ($r2 <= 94) { $disp = '死亡'; $dispDetail = $this->pick($this->deathPool); }
             else { $disp = '其他'; $dispDetail = $this->pick($this->otherPool); }
-            $finishedAt = $this->storeTime($ts + mt_rand(3 * 3600, 8 * 3600));
+            $finishedAt = $this->storeTimeCapped($ts + mt_rand(3 * 3600, 8 * 3600));
         }
         $visitId = (int)DB::insert('INSERT INTO registrations(patient_no, flow_no, visit_seq, first_dept_id, first_dept_name, current_dept_id, current_dept_name, session, fee_type, fee, status, paid_at, cashier_id, cashier_name, registered_at, reg_date, cancel_reason, is_extra, disposition, disposition_detail, finished_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
             $p['patient_no'], $flowNo, $this->seqSeq[$skey], $deptId, $dept['name'], $deptId, $dept['name'],
@@ -469,7 +469,7 @@ class VisitSeeder extends Seeder {
         /* ==================== 生命体征 ==================== */
         $consciousness = $this->pick($this->conscPool);
         $sys = mt_rand(95, 160); $dia = mt_rand(60, 98); $hr = mt_rand(60, 110); $spo2 = mt_rand(94, 100); $resp = mt_rand(14, 22);
-        $vTime = $this->storeTime($ts + mt_rand(300, 1500));
+        $vTime = $this->storeTimeCapped($ts + mt_rand(300, 1500));
         DB::insert('INSERT INTO vitals(visit_id, patient_no, flow_no, vital_sbp, vital_dbp, vital_heart_rate, vital_pulse, vital_spo2, vital_respiration, operator, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
             $visitId, $p['patient_no'], $flowNo, $sys, $dia, $hr, $hr, $spo2, $resp, $docName, $vTime,
         ));
@@ -518,8 +518,8 @@ class VisitSeeder extends Seeder {
         );
         $emr['diagnoses'] = $diagPick;
         $emr['advice'] = $this->pick($this->advicePool);
-        $recCreated = $this->storeTime($ts + mt_rand(600, 2700));
-        $recUpdated = $status === 'finished' ? $this->storeTime($this->storeTs($recCreated) + mt_rand(600, 3600)) : $recCreated;
+        $recCreated = $this->storeTimeCapped($ts + mt_rand(600, 2700));
+        $recUpdated = $status === 'finished' ? $this->storeTimeCapped($this->storeTs($recCreated) + mt_rand(600, 3600)) : $recCreated;
 
         /* ==================== 开单（先病历后开单）+ 执行 + 报告 ==================== */
         $auxNames = array(); $rxLines = array(); $dispItems = array();
@@ -527,13 +527,14 @@ class VisitSeeder extends Seeder {
         $nOrd = mt_rand(1, 3);
         for ($k = 0; $k < $nOrd; $k++) {
             $otype = $this->pick(array('lab', 'imaging', 'procedure', 'prescription'));
-            $created = $this->storeTime($this->storeTs($recCreated) + mt_rand(120, 1200) * ($k + 1));
-            $paidAt = $this->storeTime($this->storeTs($payTime) + mt_rand(60, 900) * ($k + 1));
+            $created = $this->storeTimeCapped($this->storeTs($recCreated) + mt_rand(120, 900) * ($k + 1));
+            // 开单缴费必须在开单之后（此前派生自就诊缴费时间，会产生「先缴费后开单」倒挂）
+            $paidAt = $this->storeTimeCapped($this->storeTs($created) + mt_rand(60, 300));
             $ostatus = 'paid'; $execBy = ''; $execAt = '';
             if ($status === 'finished') {
                 $ostatus = ($otype === 'prescription') ? 'dispensed' : 'done';
                 $execBy = ($otype === 'prescription') ? $this->staff['pharmacy'] : (($otype === 'imaging') ? $this->staff['imaging'] : ($otype === 'procedure' ? $this->staff['nurse'] : $this->staff['lab']));
-                $execAt = $this->storeTime($this->storeTs($paidAt) + mt_rand(600, 5400));
+                $execAt = $this->storeTimeCapped($this->storeTs($paidAt) + mt_rand(300, 1200));
             }
             $total = 0; $itemRows = array();
             if ($otype === 'lab') {
@@ -593,7 +594,7 @@ class VisitSeeder extends Seeder {
                 $total, $ostatus, $created, $paidAt, '', ($ostatus === 'done' || $ostatus === 'dispensed') ? $execBy : '',
                 $ostatus === 'dispensed' ? $execAt : '',
                 $ostatus === 'dispensed' ? $this->staff['pharmacy'] : '',
-                $ostatus === 'dispensed' ? $this->storeTime($this->storeTs($execAt) - mt_rand(300, 1800)) : '',
+                $ostatus === 'dispensed' ? $this->storeTimeCapped($this->storeTs($paidAt) + mt_rand(60, 240)) : '',
             ));
             $this->cnt['order']++;
             $itemIds = array();
@@ -645,12 +646,12 @@ class VisitSeeder extends Seeder {
                     }
                     // 单值结果与真实录入 (/api/clinic/lab) / LIS 回传一致写入 {"value":"..."}（含旧版 values 映射的兼容见 FHIR 适配器）
                     $valuesJson = $otype === 'lab' && count($vals) ? json_encode(array('value' => (string)reset($vals)), JSON_UNESCAPED_UNICODE) : '{}';
-                    $resTs = $this->storeTs($execAt) + mt_rand(600, 3600);
+                    $resTs = $this->storeTs($execAt) + mt_rand(120, 600);
                     $findings = $otype === 'imaging' ? $this->pick(array('所见骨质结构完整，未见明显骨折征象。', '双肺纹理增粗，余未见明显异常。', '软组织肿胀，未见明显异物存留。', '未见明显异常。')) : '';
                     $conclusion = $otype === 'imaging' ? $this->pick(array('符合临床诊断，请结合病史。', '未见明显异常，建议必要时复查。', '软组织损伤表现，请结合临床。')) : '';
                     $resultId = (int)DB::insert('INSERT INTO results(item_id, order_item_id, visit_id, patient_no, flow_no, type, values_json, findings, conclusion, executed_by, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', array(
                         $itemId, $iid, $visitId, $p['patient_no'], $flowNo, $otype, $valuesJson,
-                        $findings, $conclusion, $execBy, 'done', $this->storeTime($resTs), $this->storeTime($resTs),
+                        $findings, $conclusion, $execBy, 'done', $this->storeTimeCapped($resTs), $this->storeTimeCapped($resTs),
                     ));
                     $dayKey = date('Ymd', $resTs);
                     $this->reportSeq[$dayKey] = (isset($this->reportSeq[$dayKey]) ? $this->reportSeq[$dayKey] : 0) + 1;
@@ -659,7 +660,7 @@ class VisitSeeder extends Seeder {
                         $resultId, $reportNo,
                         $visitId, $p['patient_no'], $flowNo, $otype, '',
                         $execBy, 'done', $dept['name'], $docName, $diagPick[0]['name'],
-                        $created, $execAt, $otype === 'imaging' ? $visitOrders[count($visitOrders) - 1]['category'] : '', $this->storeTime($resTs),
+                        $created, $execAt, $otype === 'imaging' ? $visitOrders[count($visitOrders) - 1]['category'] : '', $this->storeTimeCapped($resTs),
                     ));
                     DB::exec('UPDATE order_items SET result_id=? WHERE id=?', array($resultId, $iid));
                     // 影像引用登记：仅影像检查属于 ImagingStudy（检验属于 Observation，不登记引用）
@@ -671,7 +672,7 @@ class VisitSeeder extends Seeder {
                             $iid, $orderId, $visitId, $p['patient_no'], $flowNo,
                             self::dicomUid($p['patient_no'] . '-' . $orderNo . '-' . $iid), '[]', 0,
                             $mod, 'region-pacs', json_encode(array('report_no' => $reportNo, 'accession' => $orderNo), JSON_UNESCAPED_UNICODE),
-                            $execBy, $this->storeTime($resTs), $this->storeTime($resTs),
+                            $execBy, $this->storeTimeCapped($resTs), $this->storeTimeCapped($resTs),
                         ));
                     }
                     $this->cnt['result']++;
@@ -725,8 +726,8 @@ class VisitSeeder extends Seeder {
                 $cDoc = $this->pick($cDocPool);
                 $consStatus = $status === 'finished' ? 'done' : $this->pick(array('pending', 'accepted'));
                 $acceptedBy = in_array($consStatus, array('accepted', 'done'), true) ? $cDoc['name'] : '';
-                $acceptedAt = $acceptedBy !== '' ? $this->storeTime($cTs + mt_rand(600, 3600)) : '';
-                $consFinishedAt = $consStatus === 'done' ? $this->storeTime($cTs + mt_rand(7200, 18000)) : '';
+                $acceptedAt = $acceptedBy !== '' ? $this->storeTimeCapped($cTs + mt_rand(600, 3600)) : '';
+                $consFinishedAt = $consStatus === 'done' ? $this->storeTimeCapped($cTs + mt_rand(7200, 18000)) : '';
                 $consNo = 'HZ' . date('YmdHis', $cTs) . sprintf('%04d', mt_rand(0, 9999));
                 while (DB::one('SELECT id FROM consultations WHERE consult_no=?', array($consNo))) {
                     $consNo = 'HZ' . date('YmdHis', $cTs) . sprintf('%04d', mt_rand(0, 9999));
@@ -737,7 +738,7 @@ class VisitSeeder extends Seeder {
                     (int)$tDept['id'], $tDept['name'],
                     '患者' . $ccRow[0] . '，' . $diagPick[0]['name'] . '，请贵科会诊协助评估处理方案。',
                     '协助评估诊断及进一步治疗方案。',
-                    $consStatus, $acceptedBy, $acceptedAt, $consFinishedAt, 0, $this->storeTime($cTs),
+                    $consStatus, $acceptedBy, $acceptedAt, $consFinishedAt, 0, $this->storeTimeCapped($cTs),
                     $consStatus === 'done' ? $acceptedBy : '',
                 ));
                 $this->cnt['consult']++;
@@ -760,7 +761,7 @@ class VisitSeeder extends Seeder {
                 if ($wCount >= $nWriters) break;
                 $wCount++;
                 $wTime += mt_rand(1800, 7200);
-                $wTimeStr = $this->storeTime($wTime);
+                $wTimeStr = $this->storeTimeCapped($wTime);
                 $wDiags = array();
                 if (mt_rand(1, 100) <= 60) {
                     $wDiags[] = $diagPick[0];   // 引用首诊主诊断
@@ -803,7 +804,7 @@ class VisitSeeder extends Seeder {
             DB::insert('INSERT INTO certificates(visit_id, patient_no, flow_no, doctor_id, doctor_name, content, created_at, cert_no, chief_complaint, present_illness, preliminary_diagnosis) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array(
                 $visitId, $p['patient_no'], $flowNo, $docId, $docName,
                 $this->pick(array('建议休息3天，清淡饮食，规律服药，门诊随访。', '建议休息1周，避免剧烈运动，一周后复查。', '建议多饮水休息，症状加重及时就诊。')),
-                $this->storeTime($cTs), $certNo, $ccRow[0], $emr['history_present']['content'], $diagText,
+                $this->storeTimeCapped($cTs), $certNo, $ccRow[0], $emr['history_present']['content'], $diagText,
             ));
             $this->cnt['cert']++;
         }
