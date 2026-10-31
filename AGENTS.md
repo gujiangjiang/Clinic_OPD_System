@@ -114,10 +114,9 @@
     逐值等价验收。
   - **标准升级流程**：审计门清零 → 副本 `apply` + `--compare --full` 零误差 →
     生产 `switch --yes` → `tz_selftest` 自检 + 与切换前备份 `--compare --full`。
-  本仓库（开发库）已完成全量切换验收：56 列 / 25211 值逐值零误差 + 自检全绿。
-  三系统联调已实测：HIS 只读（ping server_time ISO Z、order_list 时间 ISO Z 且
-  与库值逐秒一致）、sync-orders 入站（UTC ISO → 存储 UTC 精确往返）、
-  FHIR 出站（ImagingStudy.started / ServiceRequest.authoredOn 均为 Z）。
+  验收方式：副本 `apply` 后与原始库渲染逐值比对零误差 + `tz_selftest` 全绿 +
+  审计门全绿；三系统联调已实测（HIS 只读 UTC ISO 输出、sync-orders UTC 往返、
+  FHIR 资源 UTC 输出）。
 - **修改全站时区的影响**：UTC 存储下历史时间点恒定——改变站点时区仅改变展示
   换算与分日归属；法律性单据按快照固化时区渲染，完全不受影响；在线/绑定等
   相对时间租约由 fail-closed 兜底，下一笔心跳（≤30 秒）自动恢复正确状态。
