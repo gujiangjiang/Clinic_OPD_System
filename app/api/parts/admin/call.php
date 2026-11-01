@@ -17,6 +17,12 @@
  * @param string $action 动作名
  */
 function admin_part_call($action) {
+    // 高频轮询只读动作：鉴权完成后立即释放 Session 独占锁
+    //（模态框打开期间每 5 秒轮询统计、科室列表每 10 秒刷新——避免与其他请求
+    //  在文件锁/会话锁上串行排队，根除"点按钮等十几秒"类卡顿的放大器）
+    if (in_array($action, array('room_stats', 'room_list'), true)) {
+        Session::closeReadOnly();
+    }
     $u = Auth::user();
 
     /* ==================== 按科室列出大屏 ==================== */
