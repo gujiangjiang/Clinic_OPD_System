@@ -75,16 +75,35 @@ var CM_DEPS = <?php echo json_script($deptPickerData); ?>;
 var CM_TIMER = null;
 
 /* 科室选择模态框（复用通用组件） */
+var CM_PICKER_OPEN = false;      // 模态框单例：打开中/已打开（防连点叠出多个模态框）
+var CM_STATS_INFLIGHT = false;   // room_stats 单飞：同一时刻仅一个统计请求在途
+
 function openDeptPicker() {
-    // 打开前先实时刷新各科室大屏在线统计：页面停留期间大屏可能上下线，
-    // 页面加载时固化的 online_count 会滞后（如实际 3 在线仍显示 1 在线）
+    // 单例守卫：已打开（含刚点击的打开瞬间）时忽略重复点击——
+    // 修复前为"等统计接口返回后才打开"，网络慢时连点会叠出十余个相同模态框
+    if (CM_PICKER_OPEN || document.querySelector('.dept-pick-card')) return;
+    CM_PICKER_OPEN = true;
+    // 立即打开模态框（统计徽标先显示「正在获取…」占位），统计在后台拉取后原地更新，
+    // 避免点击后长时间无响应造成"卡死"错觉
+    openPicker();
+    fetchRoomStats();
+}
+
+/* 拉取全科室大屏在线统计（单飞；成功后同步 CM_DEPS 并原地更新已打开模态框徽标）。
+   页面停留期间大屏可能上下线，需实时刷新（页面加载时固化的 online_count 会滞后） */
+function fetchRoomStats() {
+    if (CM_STATS_INFLIGHT) return;
+    CM_STATS_INFLIGHT = true;
     Clinic.get('/api/admin?action=room_stats', null, {
         loading: false,
+        silent: true,   // 失败静默（打开动作不因统计失败而中断；轮询下一轮自愈）
         onSuccess: function (json) {
-            applyDeptStats(json.data.list || []);
-            openPicker();
+            CM_STATS_INFLIGHT = false;
+            var list = json.data.list || [];
+            applyDeptStats(list);                 // 同步 CM_DEPS（下次打开即实时）
+            Clinic.deptPicker.updateRoomStats(list);   // 原地替换徽标（含「正在获取…」占位）
         },
-        onError: function () { openPicker(); },   // 统计获取失败仍打开（沿用已有数据）
+        onError: function () { CM_STATS_INFLIGHT = false; },
     });
 }
 
@@ -96,6 +115,12 @@ function openPicker() {
         // 叫号大屏场景：只显示大屏统计（ 在线/总数），不显示 门诊/急诊 徽章；
         // 含 急诊/门诊/医技/其他 四个 Tab
         showRoomStats: true,
+        statsLoading: true,   // 打开瞬间徽标占位「正在获取…」
+        // 关闭（Esc/遮罩/选择科室）→ 释放单例并停止统计轮询
+        onClose: function () {
+            CM_PICKER_OPEN = false;
+            stopPickerLiveRefresh();
+        },
         onSelect: function (d) { pickDept(d.id); },
     });
     startPickerLiveRefresh();
@@ -112,15 +137,7 @@ function startPickerLiveRefresh() {
     CM_MODAL_TIMER = setInterval(function () {
         // 模态框已关闭（卡片 DOM 不存在）→ 停止轮询
         if (!document.querySelector('.dept-pick-card')) { stopPickerLiveRefresh(); return; }
-        Clinic.get('/api/admin?action=room_stats', null, {
-            loading: false,
-            silent: true,   // 后台轮询：失败不弹 toast，仅 console 记录，下一轮自动重试
-            onSuccess: function (json) {
-                var list = json.data.list || [];
-                applyDeptStats(list);                                // 同步 CM_DEPS（下次打开即实时）
-                Clinic.deptPicker.updateRoomStats(list);             // 原地更新已打开模态框徽标
-            },
-        });
+        fetchRoomStats();   // 复用单飞统计（原地更新徽标；失败静默下一轮自愈）
     }, 5000);
 }
 
@@ -167,10 +184,7 @@ function loadRooms() {
    新建/删除/编辑/重置Token/强制释放后调用，保证模态框内「在线/总数」实时准确，
    无需整页刷新即可看到刚创建的大屏 */
 function refreshDeptStats() {
-    Clinic.get('/api/admin?action=room_stats', null, {
-        loading: false,
-        onSuccess: function (json) { applyDeptStats(json.data.list || []); },
-    });
+    fetchRoomStats();   // 复用单飞统计（成功后同步 CM_DEPS 并更新已打开模态框徽标）
 }
 
 /* 操作按钮事件委托（服务端不再将名称/Token 嵌入 onclick，统一走 data-room-action） */

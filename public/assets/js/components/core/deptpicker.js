@@ -91,7 +91,13 @@ Clinic.deptPicker = (function () {
         } else if (mode === 'select' || mode === 'call') {
             // 大屏统计模式（叫号大屏选择科室用）：只显示 nav:screen 在线/总数，不显示 门诊/急诊 徽章
             if (opts.showRoomStats) {
-                if (typeof d.room_count === 'number' && d.room_count > 0) {
+                if (opts.statsLoading) {
+                    // 打开瞬间即渲染占位徽标（避免等待统计接口导致"点了没反应"），
+                    // 统计返回后经 updateRoomStats 原地替换为真实在线数
+                    extra = '<div class="dept-pick-tags">' +
+                        '<span class="badge badge-gray">' + renderIconSvg('nav:screen') + ' 正在获取…</span>' +
+                        (d.id === opts.currentId ? '<span class="badge badge-success">当前</span>' : '') + '</div>';
+                } else if (typeof d.room_count === 'number' && d.room_count > 0) {
                     extra = '<div class="dept-pick-tags">' +
                         '<span class="badge badge-' + (d.online_count > 0 ? 'success' : 'gray') + '">' +
                         renderIconSvg('nav:screen') + ' ' + d.online_count + '/' + d.room_count + ' 在线</span>' +
@@ -157,7 +163,7 @@ Clinic.deptPicker = (function () {
         var titles = { register: '选择挂号科室', select: '选择科室', transfer: '选择转往科室' };
         var m = Clinic.modal.open(
             '<div class="text-center" style="padding:30px"><div class="spinner" style="border-top-color:var(--primary)"></div></div>',
-            { title: opts.title || titles[opts.mode] || '选择科室', size: 'modal-lg' }
+            { title: opts.title || titles[opts.mode] || '选择科室', size: 'modal-lg', onClose: opts.onClose }
         );
 
         /* 数据就绪后渲染（select 模式同步，其余走接口） */
