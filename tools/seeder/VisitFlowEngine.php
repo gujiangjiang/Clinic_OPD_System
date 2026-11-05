@@ -69,8 +69,12 @@ class VisitFlowEngine {
         $orderNo = $this->uniqueNo(isset($prefix[$orderType]) ? $prefix[$orderType] : 'OD', 'orders', 'order_no');
         $deptId = (int)$visit['current_dept_id'];
         $deptName = (string)$visit['current_dept_name'];
-        // 开单医生：本科室任一启用医生，无则取任一医生，再退化为测试归属
-        $doc = $this->pdo->query("SELECT id, name FROM users WHERE role='doctor' AND status=1 AND (dept_ids='' OR dept_ids LIKE " . $this->pdo->quote('%,' . $deptId . ',%') . ") ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        // 开单医生：本科室任一启用医生（dept_ids 为无首尾逗号 CSV，须四模式全匹配首/中/尾/单号），
+        // 无则取任一医生，再退化为测试归属
+        $doc = $this->pdo->query("SELECT id, name FROM users WHERE role='doctor' AND status=1 AND (dept_ids='' OR dept_ids=" . $this->pdo->quote((string)$deptId)
+            . " OR dept_ids LIKE " . $this->pdo->quote((string)$deptId . ',%')
+            . " OR dept_ids LIKE " . $this->pdo->quote('%,' . $deptId . ',%')
+            . " OR dept_ids LIKE " . $this->pdo->quote('%,' . $deptId) . ") ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
         if (!$doc) $doc = $this->pdo->query("SELECT id, name FROM users WHERE role='doctor' AND status=1 ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
         $docId = $doc ? (int)$doc['id'] : 0;
         $docName = $doc ? (string)$doc['name'] : '系统测试';
