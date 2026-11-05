@@ -13,6 +13,33 @@
 
 ---
 
+## [10.1.4] - 2026-11-06
+
+### 修复
+- **造数工具三库方言兼容**（`tools/seeder/` + `tools/bin/seed.php`）：主库切换为
+  MySQL/PostgreSQL 时造数可正确跑通，清理全部 SQLite 专有写法——
+  - `LabSeeder` 检验组合成员写入的 `INSERT OR IGNORE` 改经 `DatabaseManager::insert()`
+    统一翻译（MySQL→`INSERT IGNORE`，PG→`INSERT ... ON CONFLICT DO NOTHING`）；
+  - `VisitSeeder` 既有患者随机抽样的 `ORDER BY RANDOM()`、`QueueSeeder`/`VisitSeeder`
+    序号续接的 `CAST(.. AS INTEGER)` 在 MySQL 下分别翻译为 `RAND()`/`AS SIGNED`
+    （MySQL 不认裸 INTEGER；新基类方法 `Seeder::dialect()` 统一入口）；
+  - `FhirDemoSeeder` 医生按科室绑定的 `','||dept_ids||','` 拼接（MySQL 中 `||` 为
+    逻辑或语义错误）改为 PHP 侧解析 dept_ids CSV 成员，兼容三库且修复首科室号
+    无法匹配的缺陷；
+  - `VisitSeeder` 就诊序号续接的 `GROUP BY` 别名改写为底层表达式，规避 MySQL
+    `ONLY_FULL_GROUP_BY` 模式下别名不可解析的问题；
+  - `VisitFlowEngine` 开单医生按科室绑定的 `dept_ids LIKE '%,id,%'` 单模式改为
+    四模式全匹配（`=id` / `id,%` / `%,id,%` / `%,id`）——dept_ids 为无首尾逗号 CSV，
+    原写法漏匹配首号/尾号/单号医生，导致叫号队列医技开单归属错误医生；与应用侧
+    `admin/dept.php` 既有写法对齐；
+  - `DatabaseManager::dialectSqlFor` MySQL 分支补 `RANDOM()→RAND()` 与
+    `AS INTEGER→AS SIGNED` 两条翻译规则（迁移/种子 SQL 直通受益）。
+
+### 说明
+- 该次为造数管线方言适配，无业务行为变更；运行时数据库（`data/db/*.db`）不受影响。
+
+---
+
 ## [10.1.3] - 2026-10-31
 
 ### 修复
