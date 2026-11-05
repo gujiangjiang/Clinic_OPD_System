@@ -79,6 +79,15 @@ abstract class Seeder {
         return $this->storeTime(min((int)$ts, time() - 60));
     }
 
+    /**
+     * 造数 SQL 方言改写：SQLite 源 → 当前驱动等价写法（供 $pdo 直连查询时使用）。
+     * 统一委托 DatabaseManager::dialectSqlFor，翻译 MySQL 不支持的 RANDOM() →
+     * RAND()、CAST(.. AS INTEGER) → CAST(.. AS SIGNED) 等；SQLite/PG 原样返回。
+     */
+    protected function dialect($sql) {
+        return DatabaseManager::dialectSqlFor(DatabaseManager::driver(), $sql);
+    }
+
     /** 控制台输出 */
     protected function out($msg) {
         echo "  ✓ {$this->label}：{$msg}\n";

@@ -226,18 +226,18 @@ class VisitSeeder extends Seeder {
         }
 
         /* ---------- 序号续接 ---------- */
-        foreach ($pdo->query("SELECT MAX(CAST(substr(patient_no,7) AS INTEGER)) AS m FROM patients WHERE patient_no LIKE '" . date('ymd') . "%'") as $r) {
+        foreach ($pdo->query($this->dialect("SELECT MAX(CAST(substr(patient_no,7) AS INTEGER)) AS m FROM patients WHERE patient_no LIKE '" . date('ymd') . "%'")) as $r) {
             $this->patientSeq = (int)$r['m'];
         }
-        foreach ($pdo->query("SELECT substr(flow_no,1,6) d, MAX(CAST(substr(flow_no,7) AS INTEGER)) m FROM registrations GROUP BY d") as $r) {
+        foreach ($pdo->query($this->dialect("SELECT substr(flow_no,1,6) d, MAX(CAST(substr(flow_no,7) AS INTEGER)) m FROM registrations GROUP BY substr(flow_no,1,6)")) as $r) {
             $this->flowSeq[$r['d']] = (int)$r['m'];
         }
         // visit_seq 续接：唯一索引 idx_registrations_dept_date_seq 按 (dept, reg_date)——
         // 必须按 reg_date（站点本地业务日）统计；UTC 存储下 substr(registered_at) 会错位
-        foreach ($pdo->query("SELECT first_dept_id dp, reg_date d, MAX(visit_seq) m FROM registrations WHERE reg_date IS NOT NULL AND reg_date<>'' GROUP BY dp, d") as $r) {
+        foreach ($pdo->query("SELECT first_dept_id dp, reg_date d, MAX(visit_seq) m FROM registrations WHERE reg_date IS NOT NULL AND reg_date<>'' GROUP BY first_dept_id, reg_date") as $r) {
             $this->seqSeq[$r['dp'] . '_' . $r['d']] = (int)$r['m'];
         }
-        foreach ($pdo->query("SELECT substr(report_no,3,8) d, MAX(CAST(substr(report_no,11) AS INTEGER)) m FROM reports GROUP BY d") as $r) {
+        foreach ($pdo->query($this->dialect("SELECT substr(report_no,3,8) d, MAX(CAST(substr(report_no,11) AS INTEGER)) m FROM reports GROUP BY substr(report_no,3,8)")) as $r) {
             $this->reportSeq[$r['d']] = (int)$r['m'];
         }
 
@@ -248,7 +248,7 @@ class VisitSeeder extends Seeder {
             if ($p) $newPatients[] = $p;
         }
         $oldPatients = array();
-        foreach ($pdo->query("SELECT patient_no, gender, birth_date FROM patients WHERE id_card IS NOT NULL AND id_card<>'' ORDER BY RANDOM() LIMIT 20") as $r) {
+        foreach ($pdo->query($this->dialect("SELECT patient_no, gender, birth_date FROM patients WHERE id_card IS NOT NULL AND id_card<>'' ORDER BY RANDOM() LIMIT 20")) as $r) {
             $oldPatients[] = array('patient_no' => $r['patient_no'], 'gender' => $r['gender'], 'birth' => $r['birth_date']);
         }
         $pool = array_merge($newPatients, $oldPatients);

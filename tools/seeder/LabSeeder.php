@@ -374,7 +374,7 @@ class LabSeeder extends Seeder {
                 if ($itemId) {
                     // 已存在的同名独立项原位挂入组合（parent_id 补挂）
                     $this->pdo->prepare('UPDATE lab_items SET parent_id=? WHERE id=? AND parent_id=0')->execute(array($gid, (int)$itemId));
-                    $this->pdo->prepare('INSERT OR IGNORE INTO lab_group_members(group_id,item_id) VALUES(?,?)')->execute(array($gid, (int)$itemId));
+                    DatabaseManager::insert('INSERT OR IGNORE INTO lab_group_members(group_id,item_id) VALUES(?,?)', array($gid, (int)$itemId));
                     $memberIds[] = (int)$itemId;
                 }
             }

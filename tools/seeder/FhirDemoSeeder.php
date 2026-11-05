@@ -177,9 +177,15 @@ class FhirDemoSeeder extends Seeder {
         $flowNo = 'FHD' . date('ymd') . sprintf('%04d', $seq);
         $birth = date((intval(date('Y')) - (int)$j['age']) . '-m-d', strtotime('2000-01-01') + $seq * 86400 * 37);
 
-        // 医生：取与科室绑定者，回退首个医生
+        // 医生：取与科室绑定者，回退首个医生（dept_ids CSV 成员 PHP 侧解析，兼容三库无 SQL 拼接方言差异）
         $did = (int)$j['dept_id'];
-        $doc = $pdo->query("SELECT id, name FROM users WHERE role='doctor' AND status=1 AND (','||dept_ids||',') LIKE '%," . $did . ",%' ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        $doc = null;
+        foreach ($pdo->query("SELECT id, name, dept_ids FROM users WHERE role='doctor' AND status=1 ORDER BY id") as $dr) {
+            if (in_array($did, array_map('intval', explode(',', (string)$dr['dept_ids'])), true)) {
+                $doc = array('id' => (int)$dr['id'], 'name' => (string)$dr['name']);
+                break;
+            }
+        }
         if (!$doc) $doc = $pdo->query("SELECT id, name FROM users WHERE role='doctor' AND status=1 ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
         $docId = (int)$doc['id'];
         $docName = (string)$doc['name'];

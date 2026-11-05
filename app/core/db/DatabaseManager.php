@@ -465,6 +465,8 @@ class DatabaseManager {
      *  - 自增主键：AUTOINCREMENT → AUTO_INCREMENT / SERIAL PRIMARY KEY
      *  - 幂等插入：INSERT OR IGNORE → INSERT IGNORE / INSERT ... ON CONFLICT DO NOTHING
      *  - 替换插入：INSERT OR REPLACE → REPLACE（MySQL；PG 的 settings 由 upsertSetting 处理）
+     *  - 随机排序：RANDOM() → RAND()（MySQL；SQLite/PG 原生支持 RANDOM()）
+     *  - CAST 目标：CAST(.. AS INTEGER) → CAST(.. AS SIGNED)（MySQL 裸 INTEGER 不合法）
      *  - PG 类型：DATETIME → TIMESTAMP、TINYINT → SMALLINT
      *  - MySQL 函数索引：CREATE INDEX 内 date(col) → (date(col))（MySQL 8.0.13+ 函数键部件）
      * @param string $driver sqlite|mysql|pgsql
@@ -489,6 +491,10 @@ class DatabaseManager {
             }
             $sql = preg_replace('/\bINSERT\s+OR\s+IGNORE\b/i', 'INSERT IGNORE', $sql);
             $sql = preg_replace('/\bINSERT\s+OR\s+REPLACE\b(?=\s)/i', 'REPLACE', $sql);
+            // 函数与 CAST 方言：SQLite/PG 支持 RANDOM() 与 CAST(.. AS INTEGER)，
+            // MySQL 分别为 RAND() 与 CAST(.. AS SIGNED)（裸 INTEGER 语法不合法）
+            $sql = str_replace('RANDOM()', 'RAND()', $sql);
+            $sql = str_replace('AS INTEGER', 'AS SIGNED', $sql);
             return self::mysqlLegacyRewrite($sql);
         }
         // PostgreSQL

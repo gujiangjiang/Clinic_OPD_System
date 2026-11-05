@@ -101,8 +101,8 @@ class QueueSeeder extends Seeder {
 
         // 当天患者序号续接：patient_no 为字符串列，MAX 按字典序（99 > 100），
         // 须用数字 MAX（CAST 序号部分），避免复用已存在号段导致唯一冲突
-        $patientSeq = (int)DB::val("SELECT MAX(CAST(substr(patient_no,7) AS INTEGER)) FROM patients WHERE patient_no LIKE '" . $dayPrefix . "%'");
-        $flowMax = (int)DB::val('SELECT MAX(CAST(substr(flow_no,7) AS INTEGER)) FROM registrations WHERE substr(flow_no,1,6)=?', array($dayPrefix));
+        $patientSeq = (int)DB::val($this->dialect("SELECT MAX(CAST(substr(patient_no,7) AS INTEGER)) FROM patients WHERE patient_no LIKE '" . $dayPrefix . "%'"));
+        $flowMax = (int)DB::val($this->dialect('SELECT MAX(CAST(substr(flow_no,7) AS INTEGER)) FROM registrations WHERE substr(flow_no,1,6)=?'), array($dayPrefix));
         $created = 0;
 
         foreach ($deptIds as $deptId) {
