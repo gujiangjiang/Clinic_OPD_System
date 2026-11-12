@@ -8,6 +8,7 @@
 .app {
     display: flex;
     height: 100vh; /* 固定视口高度：内容区(.content)成为唯一滚动容器，sticky 定位可预期 */
+    height: 100dvh; /* 移动端地址栏伸缩时跟随动态视口高度（不支持 dvh 的浏览器回退 100vh） */
 }
 
 /* ---------- 侧边栏 ---------- */
@@ -128,7 +129,7 @@
 }
 
 /* ============ 左右两栏布局（数据库中心/系统设置子项/接口管理共用） ============ */
-.db-center { display: flex; gap: 14px; align-items: flex-start; height: calc(100vh - var(--topbar-h) - 120px); }
+.db-center { display: flex; gap: 14px; align-items: flex-start; height: calc(100vh - var(--topbar-h) - 120px); height: calc(100dvh - var(--topbar-h) - 120px); }
 .db-sidebar { width: 150px; flex-shrink: 0; padding: 10px; }
 .db-nav {
     display: block; width: 100%; text-align: left; padding: 9px 12px; margin-bottom: 4px;
@@ -180,6 +181,9 @@
 }
 .topbar-title { font-size: 16px; font-weight: 700; }
 .topbar-right { display: flex; align-items: center; gap: 12px; }
+/* 主题/退出按钮图标：默认隐藏（桌面显示文字），窄屏切换为仅图标 */
+.theme-ico,
+.logout-ico { display: none; }
 /* 医生工作站（新）标题「医生工作站-科室」：科室名胶囊徽章样式
    - 多科室权限 → 主色浅底胶囊，悬停加深/描边，可点击切换
    - 单科室权限 → 灰色中性胶囊，不可点击 */
@@ -312,6 +316,30 @@
 @media (max-width: 900px) {
     .sidebar { transform: translateX(-100%); }
     .sidebar.open { transform: translateX(0); }
+    /* 窄屏顶栏：收紧间距，标题省略号，主题/退出仅图标，用户区仅头像 */
+    .topbar { padding: 0 10px; }
+    .topbar > .flex { flex: 1; min-width: 0; }
+    .topbar-title { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .topbar-right { gap: 6px; }
+    .theme-ico { display: inline-flex; }
+    .theme-label { display: none; }
+    .logout-ico { display: inline-flex; }
+    .logout-label { display: none; }
+    .topbar-right .user-wrap a > span:not(.avatar) { display: none; }
+    /* 窄屏内容区内边距收紧：给表格/卡片让出更多可用宽度 */
+    .content { padding: 14px 12px; }
+    /* 窄屏左右两栏（数据库中心/系统设置/接口管理）：侧栏改为横向滚动胶囊，主区下移占满 */
+    .db-center { flex-direction: column; height: auto; gap: 10px; }
+    .db-sidebar {
+        width: 100%;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 6px;
+        padding: 10px;
+    }
+    .db-sidebar .db-nav { white-space: nowrap; flex-shrink: 0; }
+    .db-main { width: 100%; height: auto; overflow: visible; }
     /* 窄屏抽屉始终完整展开（覆盖缩小模式的窄条样式），文字/页脚恢复显示 */
     .app.sidebar-mini .sidebar { width: var(--sidebar-w); }
     .app.sidebar-mini .sidebar-brand { padding: 0 18px; justify-content: flex-start; }
@@ -359,6 +387,7 @@
     display: flex;
     flex-direction: column;
     height: calc(100vh - var(--topbar-h) - 40px);   /* 扣除顶栏与内容区上下内边距 */
+    height: calc(100dvh - var(--topbar-h) - 36px);  /* 移动端动态视口高度兜底（内容区内边距 12px×2） */
     overflow: hidden;
     gap: 12px;
 }
@@ -1024,6 +1053,7 @@
     display: flex;
     flex-direction: column;
     height: calc(100vh - var(--topbar-h) - 40px); /* 扣除顶栏与 .content 上下内边距(20×2) */
+    height: calc(100dvh - var(--topbar-h) - 36px); /* 移动端动态视口高度兜底（内容区内边距 12px×2） */
     overflow: hidden;
     gap: 12px;
 }

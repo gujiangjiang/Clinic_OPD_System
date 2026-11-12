@@ -557,6 +557,12 @@ input[type="file"]::file-selector-button:hover { background: var(--primary-hover
 @media (max-width: 900px) {
     .setting-grid { grid-template-columns: 1fr; }
     .setting-colspan-2 { grid-column: auto; }
+    /* 窄屏纵向堆叠：模板编辑/预览左右分栏、缴费管理左右两栏 */
+    .tpl-form { flex-direction: column; }
+    .tpl-form .tpl-left { width: 100%; }
+    .paymgr-layout { grid-template-columns: 1fr; }
+    .paymgr-left { max-height: 34vh; }
+    .paymgr-right { min-height: 40vh; }
 }
 .setting-card .card-title { margin-bottom: 10px; }
 .setting-sec-title {

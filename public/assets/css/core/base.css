@@ -181,3 +181,22 @@ input[type="number"]::-webkit-outer-spin-button {
     stroke: currentColor;
     flex-shrink: 0;
 }
+
+/* ============================================================
+ * 手机端通用优化：
+ * 1. 文本类输入放大到 16px——避免 iOS Safari 聚焦 <16px 输入框
+ *    时自动放大页面（登录/挂号/搜索等全部表单受益）；
+ * 2. 点击型控件声明 touch-action: manipulation——移除移动端
+ *    双击缩放判定造成的 300ms 点击延迟（无缩放副作用）。
+ * ============================================================ */
+@media (max-width: 640px) {
+    input[type="text"], input[type="password"], input[type="email"],
+    input[type="tel"], input[type="url"], input[type="number"],
+    input[type="search"], textarea {
+        font-size: 16px;
+    }
+}
+.btn, .nav-item, .dd-item, .qp-chip, .dept-tab, [data-sidebar-toggle],
+[data-theme-btn], [data-msg-bell], [data-logout] {
+    touch-action: manipulation;
+}

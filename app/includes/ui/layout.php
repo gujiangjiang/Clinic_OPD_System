@@ -392,6 +392,7 @@ class Layout {
                             ' . ($docTools ? self::docToolsBar() : '') . '
                             ' . ($needDeptWork ? self::deptToolsBar() : '') . '
                             <button type="button" class="btn btn-outline btn-sm" data-theme-btn title="切换主题">
+                                <span class="theme-ico">' . render_icon('action:moon') . '</span>
                                 <span class="theme-label">' . ($theme === 'auto' ? '自动模式' : ($theme === 'dark' ? '夜间模式' : '明亮模式')) . '</span>
                             </button>
                             <div style="position:relative">
@@ -407,7 +408,7 @@ class Layout {
                                 </a>
                                 ' . $uPop . '
                             </div>
-                            <button type="button" class="btn btn-outline btn-sm" data-logout title="退出登录">退出</button>
+                            <button type="button" class="btn btn-outline btn-sm" data-logout title="退出登录"><span class="logout-ico">' . render_icon('action:export') . '</span><span class="logout-label">退出</span></button>
                         </div>
                     </header>
                     <main class="content">
