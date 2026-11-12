@@ -94,7 +94,18 @@ function bindSidebarToggle() {
     const toggle = document.querySelector('[data-sidebar-toggle]');
     const sidebar = document.querySelector('.sidebar');
     const app = document.querySelector('.app');
+    const mask = document.querySelector('[data-sidebar-mask]');
     if (!toggle || !sidebar || !app) return;
+
+    // 抽屉开关统一入口：同步遮罩显隐（窄屏抽屉式）
+    const syncDrawer = function () {
+        const open = sidebar.classList.contains('open');
+        if (mask) mask.classList.toggle('show', open);
+    };
+    const closeDrawer = function () {
+        sidebar.classList.remove('open');
+        if (mask) mask.classList.remove('show');
+    };
 
     // 宽屏：按服务端注入的用户偏好恢复初始状态（无闪烁）
     const forced = document.body.getAttribute('data-sidebar-force') === '1';
@@ -107,6 +118,7 @@ function bindSidebarToggle() {
         if (window.innerWidth <= 900) {
             // 窄屏：抽屉式开关
             sidebar.classList.toggle('open');
+            syncDrawer();
         } else {
             // 宽屏：展开 ⇄ 缩小（仅图标）
             const mini = !app.classList.contains('sidebar-mini');
@@ -116,6 +128,21 @@ function bindSidebarToggle() {
                 Clinic.ajax('/api/auth', { action: 'sidebar', sidebar: mini ? 'mini' : 'expand' }, { loading: false });
             }
         }
+    });
+
+    // 点击遮罩收起抽屉
+    if (mask) {
+        mask.addEventListener('click', closeDrawer);
+    }
+    // Esc 收起抽屉（窄屏且已展开）
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && window.innerWidth <= 900 && sidebar.classList.contains('open')) {
+            closeDrawer();
+        }
+    });
+    // 视口从窄屏切到宽屏时清理抽屉残留态（如旋转/拉伸窗口）
+    window.addEventListener('resize', function () {
+        if (window.innerWidth > 900) closeDrawer();
     });
 }
 

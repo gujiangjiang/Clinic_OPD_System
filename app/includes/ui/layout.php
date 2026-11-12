@@ -376,6 +376,8 @@ class Layout {
                     <nav class="sidebar-nav">' . self::menu($u['role']) . '</nav>
                     <div class="sidebar-footer">' . e($footer) . '</div>
                 </aside>
+                <!-- 窄屏抽屉遮罩：侧边栏滑出时半透明压暗内容区，点击遮罩/Esc 收起 -->
+                <div class="sidebar-mask" data-sidebar-mask></div>
 
                 <!-- ===== 主区域 ===== -->
                 <div class="main">

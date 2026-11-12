@@ -165,6 +165,8 @@ case 'emr_diag': return !!(Clinic.emr && Clinic.emr.diag);
     /** 统一跳转入口：独立页整页跳转；站内页局部刷新（含 EMR 脏数据拦截） */
     go: function (href) {
         if (!this.isSafeUrl(href)) return;
+        // 窄屏抽屉式侧边栏：任何菜单/内链导航点击后先收起，避免遮挡新页面内容
+        this.closeDrawer();
         if (this.isFullPage(href)) { location.href = href; return; }
         // EMR 未保存修改拦截：确认后继续（queuepanel 等已有前置校验的场景
         // 直接调用 load() 避免二次确认）
@@ -186,7 +188,17 @@ case 'emr_diag': return !!(Clinic.emr && Clinic.emr.diag);
         this.lastUrl = '';
         this._busy = false;
         if (window.Clinic && Clinic.modal && Clinic.modal.close) Clinic.modal.close();
+        this.closeDrawer();
         this.load(href);
+    },
+
+    /** 窄屏（抽屉式）下收起侧边栏：点击菜单项/品牌导航后自动回缩，避免遮挡页面内容 */
+    closeDrawer: function () {
+        if (window.innerWidth > 900) return;
+        var sb = document.querySelector('.sidebar');
+        if (sb && sb.classList.contains('open')) sb.classList.remove('open');
+        var mask = document.querySelector('[data-sidebar-mask]');
+        if (mask && mask.classList.contains('show')) mask.classList.remove('show');
     },
 
     /** 拉取并安装目标页 partial 内容 */

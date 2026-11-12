@@ -152,6 +152,8 @@
     flex-shrink: 0;
     word-break: break-all;
 }
+/* 抽屉遮罩默认隐藏（仅窄屏 @media 内定义可见样式，桌面不出现） */
+.sidebar-mask { display: none; }
 
 /* ---------- 主区域 ---------- */
 .main {
@@ -327,6 +329,23 @@
     .app.sidebar-mini .nav-item > span:not(.nav-ico) { display: inline; }
     .app.sidebar-mini .sidebar-footer { display: block; }
     .main { margin-left: 0; }
+    /* 抽屉遮罩：覆盖内容区与顶栏（z-index 低于侧边栏），点击/Esc 收起 */
+    .sidebar-mask {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 95;
+        background: rgba(15, 23, 42, .45);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity .25s ease, visibility .25s;
+    }
+    .sidebar-mask.show {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
 }
 
 /* ---------- 电子病历：右侧看诊操作工具栏（类似左侧栏，不随页面滚动） ---------- */

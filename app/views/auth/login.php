@@ -80,6 +80,10 @@ $next = safe_redirect_path(isset($_GET['next']) ? $_GET['next'] : '', '');
     from { opacity: 0; transform: translateY(-4px); }
     to   { opacity: 1; transform: translateY(0); }
 }
+/* 手机端：验证码输入放大到 16px，避免 iOS Safari 聚焦时页面自动缩放 */
+@media (max-width: 640px) {
+    .login-captcha-box .input { font-size: 16px; }
+}
 </style>
 
 <script>

@@ -144,3 +144,38 @@
     pointer-events: none;
 }
 .input-wrap .input { padding-left: 36px; }
+
+/* ============================================================
+ * 手机端适配（登录/安装页）：
+ * 1. 品牌区与登录卡片由并排改为纵向堆叠（窄屏并排会被挤压，
+ *    卡片缩到不足半屏、输入框被压窄）；
+ * 2. 卡片内边距收敛，表单输入字放大到 16px——
+ *    避免 iOS Safari 聚焦 <16px 输入框时自动放大页面；
+ * 3. 高度用 dvh 跟随移动端地址栏伸缩。
+ * ============================================================ */
+@media (max-width: 640px) {
+    .auth-body {
+        min-height: 100vh;
+        min-height: 100dvh;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: center;
+        gap: 20px;
+        padding: 28px 16px 20px;
+    }
+    .auth-brand {
+        margin-bottom: 0;
+        justify-content: center;
+    }
+    .auth-brand .brand-name { font-size: 17px; }
+    .auth-card {
+        width: 100%;
+        padding: 26px 20px;
+    }
+    .auth-card .input,
+    .auth-card input[type="text"],
+    .auth-card input[type="password"],
+    .auth-card input[type="tel"] {
+        font-size: 16px;   /* 防 iOS 聚焦自动缩放 */
+    }
+}
