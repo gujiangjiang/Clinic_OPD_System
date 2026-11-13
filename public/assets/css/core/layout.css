@@ -355,8 +355,24 @@
     }
     .app.sidebar-mini .nav-item { justify-content: flex-start; padding: 10px 20px; gap: 10px; }
     .app.sidebar-mini .nav-item > span:not(.nav-ico) { display: inline; }
+    /* 未读消息徽章：窄屏恢复文字菜单的常规靠右徽章（缩小模式的绝对定位角标
+       会悬浮在菜单文字上造成重叠，必须同前缀还原） */
+    .app.sidebar-mini .nav-item .nav-msg-badge {
+        position: static;
+        top: auto;
+        right: auto;
+        margin-left: auto;
+        min-width: 18px;
+        padding: 1px 6px;
+        font-size: 11px;
+        line-height: 1.5;
+        border-radius: 10px;
+    }
     .app.sidebar-mini .sidebar-footer { display: block; }
-    .main { margin-left: 0; }
+    /* 必须带 .app.sidebar-mini 前缀：桌面端缩小偏好在窄屏下仍保留该 class，
+       否则会残留 --sidebar-w-mini 的左边距，把整页内容往右挤出一块空白 */
+    .main,
+    .app.sidebar-mini .main { margin-left: 0; }
     /* 抽屉遮罩：覆盖内容区与顶栏（z-index 低于侧边栏），点击/Esc 收起 */
     .sidebar-mask {
         display: block;
