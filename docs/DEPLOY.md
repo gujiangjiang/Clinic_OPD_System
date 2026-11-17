@@ -131,3 +131,46 @@ RewriteRule ^ /index.php [L,QSA]
 | 后台任务（自动备份 / 病历归档 / 出向同步）不执行，`data/logs/app.log` 提示 `popen() 不可用` | 宝塔 PHP 禁用函数含 `popen` | 软件商店 → PHP 设置 → 禁用函数移除 `popen` 保存；系统本身会优雅降级不报错 |
 | LOGO / 照片上传失败 | 上传限制过小 | 调整 `client_max_body_size` 与 PHP 上传参数 |
 | 大屏 / 叫号页并发卡顿 | Session 独占锁排队 | 确认已启用 `Session::closeReadOnly()`（内置）；高并发按上文优化 Session 存储 |
+
+## 五、IPv6 域名与系统间互调（填域名不通、填 IP 通的排查与修复）
+
+**现象**：浏览器用 `http://<域名>:端口` 能打开门诊一体化 / PACS / HIS，但「接口管理」
+出向集成（HIS 网关 / FHIR 上报 / DICOMweb QIDO/WADO / 阅片器模板）把对端地址填成
+域名就连接失败，换回 `http://10.0.0.91:端口` 立即正常。
+
+**原因**：出向请求由**服务端 PHP 发起**（`HttpClient` / `RestHisDriver` / `FhirService`），
+与浏览器无关。若对端域名是纯 IPv6（仅 AAAA 记录、无 A 记录），而本机运行环境
+（Docker bridge 容器、部分面板容器）**没有 IPv6 出口**，则解析到 AAAA 后无法路由 →
+必然连接失败；填内网 IPv4 则不走该环节。另外 `ping` 走 ICMP 且 Windows/macOS 对
+IPv6-only 域名的 ping 常失败，**ping 不通 ≠ HTTP 不通**。
+
+**诊断**：在部署机上执行（容器内执行更准）：
+
+```bash
+php tools/cli/net_stack_check.php        # 诊断接口管理已配置的全部出向端点
+php tools/cli/net_stack_check.php http://<域名>:端口 http://10.0.0.91:端口
+```
+
+**修复（三选一，按运维成本排序）**：
+
+1. **容器 hosts 映射（推荐，最精准）**：让容器内该域名直接解析为内网 IPv4。docker-compose
+   为本系统容器加：
+
+   ```yaml
+   extra_hosts:
+     - "synology.gujiangjiang.com:10.0.0.91"
+   ```
+
+   宝塔容器可在 容器管理 → 该容器 → 编辑 中添加；DSM `docker run` 加
+   `--add-host synology.gujiangjiang.com:10.0.0.91`。改完**重启容器**生效。
+
+2. **内网 DNS 分离解析**：内网 DNS（群晖 DNS Server 套件 / 路由器 DNS）为该域名添加
+   `A 10.0.0.91` 记录，外网 DNS 保持仅 AAAA；容器 DNS 指向内网 DNS。互调走内网 IPv4，
+   外部访问不受影响。
+
+3. **为容器启用 IPv6 出口**：Docker `daemon.json` 加
+   `{"ipv6": true, "fixed-cidr-v6": "fd00:beef::/64", "ip6tables": true}` 后重启 Docker
+   （群晖需 SSH 修改 `/var/packages/ContainerManager/etc/dockerd.json`，改动较大需自评估）。
+
+> 出向请求失败时，`HttpClient` 异常消息已附带 `NetworkDiag` 紧凑诊断（解析矩阵 + 双栈
+> 连通结论），接口管理连通性测试与出向任务失败原因均可据此判断根因。
