@@ -13,6 +13,25 @@
 
 ---
 
+## [10.2.0] - 2026-11-18
+
+### 新增
+- **出向网络栈双栈诊断**（`app/services/system/NetworkDiag.php`）：对目标地址做 DNS
+  A/AAAA 解析与 IPv4/IPv6 双栈 TCP 连通探测（`describe` 全量矩阵 / `brief` 紧凑提示），
+  静默容错不影响主流程；定位「填 IP 通、填域名不通」类问题（典型：对端域名仅 AAAA
+  而运行环境无 IPv6 出口，如 Docker bridge 容器）。
+- `HttpClient` 出向失败异常拼接 `NetworkDiag::brief` 诊断，覆盖 HIS/FHIR/HL7(HTTP)/
+  LIS/PACS(DICOMweb) 全部出向驱动；接口管理连通性测试与出向任务失败原因同步受益。
+- 新增网络诊断 CLI `tools/cli/net_stack_check.php`：无参数诊断接口管理已配置的全部
+  出向端点（FHIR/PACS QIDO/WADO/HIS 网关/LIS/存证），传参可诊断任意地址；输出解析
+  矩阵、双栈连通明细、结论与三选一修复建议，退出码 0/1 可巡检。
+- 部署文档 `docs/DEPLOY.md` 新增《IPv6 域名与系统间互调》：现象/根因/诊断/三种修复
+  （容器 extra_hosts 内网映射、内网 DNS 分离解析、容器启用 IPv6 出口）。
+
+### 验证
+- `tools/lint/php-lint.php` 全量 315 个 PHP 文件语法通过。
+- `net_stack_check` 实测：IPv6-only 域名（AAAA 解析 + IPv6 连接）与内网 IPv4 地址均可达。
+
 ## [10.1.5] - 2026-11-13
 
 ### 修复
