@@ -74,7 +74,8 @@ class HttpClient {
             $err = curl_error($ch);
             $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
             self::closeCurl($ch);
-            throw new Exception('HTTP 请求失败：' . $err . ' (HTTP ' . $code . ')');
+            // 失败消息附网络栈诊断（域名仅 IPv6 解析而本机无 IPv6 出口等场景，见 NetworkDiag）
+            throw new Exception('HTTP 请求失败：' . $err . ' (HTTP ' . $code . ')' . NetworkDiag::brief($url));
         }
         $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $hdrLen = (int)curl_getinfo($ch, CURLINFO_HEADER_SIZE);
