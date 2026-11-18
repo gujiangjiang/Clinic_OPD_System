@@ -85,8 +85,8 @@ Clinic.ajax = function (url, data, opts) {
     }
 
     if (opts.loading) Clinic.loading.show();
-    // 轻量加载指示：所有请求（含 silent）统一计数，超过阈值显示顶部进度条
-    Clinic.loading.barShow();
+    // 轻量加载指示：仅 silent 请求使用（loading=true 已有全屏遮罩，两者并存会重复转圈）
+    if (!opts.loading) Clinic.loading.barShow();
 
     return fetch(url, {
         method: method,
@@ -101,7 +101,7 @@ Clinic.ajax = function (url, data, opts) {
             return res.json();
         })
         .then(function (json) {
-            Clinic.loading.barHide();
+            if (!opts.loading) Clinic.loading.barHide();
             if (opts.loading) Clinic.loading.hide();
             if (!json.ok) {
                 // 统一失败处理（silent/noToast 时仅行内反馈，不弹全局 toast）
@@ -123,7 +123,7 @@ Clinic.ajax = function (url, data, opts) {
             return json;
         })
         .catch(function (err) {
-            Clinic.loading.barHide();
+            if (!opts.loading) Clinic.loading.barHide();
             if (opts.loading) Clinic.loading.hide();
             if (opts.silent) {
                 // 后台轮询/心跳：静默失败，仅记录便于排查（不打断用户）
