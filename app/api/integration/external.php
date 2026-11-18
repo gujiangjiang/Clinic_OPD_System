@@ -176,7 +176,10 @@ switch ($__mod) {
                 'ipKey' => 'integration.inbound.his.ip_whitelist',
                 'requiredScope' => $scopeMap[$q],
             ));
-            integration_log_inbound('his', 'read', true, '只读查询：' . $q, '');
+            // 注意：此日志在网关鉴权通过后、业务查询执行前写入，语义是「受理」
+            // 而非「已完成」——全量目录等慢查询可能稍后才返回（或调用方已超时），
+            // 用词准确可避免「日志成功但对方系统报失败」的排查误导
+            integration_log_inbound('his', 'read', true, '只读查询受理：' . $q, '');
             switch ($q) {
                 case 'ping': json_ok(HisInboundRead::ping()); break;
                 case 'patient_get': json_ok(HisInboundRead::patientGet(get('id_card', ''), get('patient_no', ''))); break;
