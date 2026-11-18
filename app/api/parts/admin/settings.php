@@ -570,7 +570,7 @@ function admin_part_settings($action) {
             $rid = (int)$rp['result_id'];
             $itemName = (isset($resultItem[$rid]) && $resultItem[$rid][2] !== '') ? $resultItem[$rid][2] : ($t === 'lab' ? '检验项目' : '检查项目');
             $withdrawn = ((string)$rp['status'] === 'withdrawn');
-            $sub = e($itemName) . ' ｜ 报告号 ' . e((string)$rp['report_no']) . ' ｜ ' . e(substr(fmt_time((string)$rp['created_at']), 0, 16)) . ' ｜ ' . e((string)$rp['doctor']);
+            $sub = e($itemName) . ' ｜ 报告号 ' . e((string)$rp['report_no']) . ' ｜ ' . e(substr(fmt_time((string)$rp['created_at']), 0, 16)) . ' ｜ ' . e((string)$rp['doctor_name']);
             // 已撤回报告：红色删除线标记（保留展示便于溯源），按钮为「查看」仍可看原始报告。
             // 报告纸张不传 sheet：检验横版A5 / 检查A4 由 print.js 依内容自动识别
             $reportGroups[$t][1][] = $pcRow(
