@@ -134,7 +134,13 @@ class HisInboundRead {
         if ($type === 'exam_items') {
             $rows = PatientRepository::q("SELECT id, category, name, price, description FROM exam_items WHERE status='approved' ORDER BY category, id");
         } elseif ($type === 'drugs') {
-            $rows = PatientRepository::q("SELECT id, name, generic_name, category, vendor, vendor_short, package_unit, spec, form, single_dose, frequency, route, price FROM drugs WHERE status='approved' ORDER BY id");
+            // 基础字典 + 库存/拆零口径：供 HIS 双药房（中心/门诊）实时查库存、防超发；
+            // qty/warn_qty 一律最小单位整数，spec_pack_qty 为每包装最小单位数
+            $rows = PatientRepository::q(
+                "SELECT id, name, generic_name, category, vendor, vendor_short, package_unit, spec, form,
+                        single_dose, frequency, route, price,
+                        qty, warn_qty, spec_pack_qty, spec_pack_unit, allow_split, spec_dose, spec_dose_unit
+                 FROM drugs WHERE status='approved' ORDER BY id");
         } elseif ($type === 'disposal_items') {
             $rows = PatientRepository::q("SELECT id, name, price, description FROM disposal_items WHERE status='approved' ORDER BY id");
         } else {
@@ -143,6 +149,15 @@ class HisInboundRead {
         foreach ($rows as &$r) {
             $r['id'] = (int)$r['id'];
             if (isset($r['price'])) $r['price'] = (float)$r['price'];
+            if ($type === 'drugs') {
+                // 库存/拆零字段类型归一（SQLite 常回传字符串，固定数值类型防 HIS 误判）
+                $r['qty'] = (int)$r['qty'];
+                $r['warn_qty'] = (int)$r['warn_qty'];
+                $r['spec_pack_qty'] = (int)$r['spec_pack_qty'];
+                $r['spec_dose'] = (float)$r['spec_dose'];
+                $r['spec_dose_unit'] = (string)$r['spec_dose_unit'];
+                $r['allow_split'] = (int)$r['allow_split'];
+            }
         }
         unset($r);
         return array('type' => $type, 'count' => count($rows), 'list' => $rows);
