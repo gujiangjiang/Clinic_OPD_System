@@ -148,7 +148,8 @@
 /* ============================================================
  * 手机端适配（登录/安装页）：
  * 1. 品牌区与登录卡片由并排改为纵向堆叠（窄屏并排会被挤压，
- *    卡片缩到不足半屏、输入框被压窄）；
+ *    卡片缩到不足半屏、输入框被压窄）；品牌区取消两端对齐拉伸，
+ *    LOGO + 医院名称作为整体居中显示；
  * 2. 卡片内边距收敛，表单输入字放大到 16px——
  *    避免 iOS Safari 聚焦 <16px 输入框时自动放大页面；
  * 3. 高度用 dvh 跟随移动端地址栏伸缩。
@@ -166,6 +167,19 @@
     .auth-brand {
         margin-bottom: 0;
         justify-content: center;
+    }
+    /* 名称区收缩为内容宽度：LOGO + 医院名称作为整体居中，
+       不再拉满整行；长名称仍可收缩省略（LOGO 固定不被挤压） */
+    .auth-brand .brand-names {
+        flex: 0 1 auto;
+        min-width: 0;
+    }
+    /* 窄屏取消「两端对齐」拉伸（那是桌面并排布局的对齐设计），
+       改为自然字距、组内居中 */
+    .auth-brand .brand-name,
+    .auth-brand .brand-name2 {
+        text-align: center;
+        text-align-last: center;
     }
     .auth-brand .brand-name { font-size: 17px; }
     .auth-card {
