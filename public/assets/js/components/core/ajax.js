@@ -85,6 +85,8 @@ Clinic.ajax = function (url, data, opts) {
     }
 
     if (opts.loading) Clinic.loading.show();
+    // 轻量加载指示：所有请求（含 silent）统一计数，超过阈值显示顶部进度条
+    Clinic.loading.barShow();
 
     return fetch(url, {
         method: method,
@@ -99,6 +101,7 @@ Clinic.ajax = function (url, data, opts) {
             return res.json();
         })
         .then(function (json) {
+            Clinic.loading.barHide();
             if (opts.loading) Clinic.loading.hide();
             if (!json.ok) {
                 // 统一失败处理（silent/noToast 时仅行内反馈，不弹全局 toast）
@@ -120,6 +123,7 @@ Clinic.ajax = function (url, data, opts) {
             return json;
         })
         .catch(function (err) {
+            Clinic.loading.barHide();
             if (opts.loading) Clinic.loading.hide();
             if (opts.silent) {
                 // 后台轮询/心跳：静默失败，仅记录便于排查（不打断用户）
@@ -148,10 +152,51 @@ Clinic.get = function (url, data, opts) {
 
 /**
  * 加载遮罩控制
+ * 说明：轻量加载指示（顶部进度条+右上转圈）对所有请求生效（含 silent），
+ * 超过 300ms 未返回才出现，全部在途请求完成后消失——快速请求不闪烁。
+ * 遮罩（loading=true 的请求）保留全屏 spinner。
  */
 Clinic.loading = {
     el: null,
     count: 0,
+    _bar: null,
+    _barCount: 0,
+    _barTimer: null,
+    _ensureStyle: function () {
+        if (document.getElementById('clinic-load-style')) return;
+        var st = document.createElement('style');
+        st.id = 'clinic-load-style';
+        st.textContent =
+            '#clinic-load-bar{position:fixed;top:0;left:0;right:0;height:3px;z-index:1600;' +
+            'background:linear-gradient(90deg,var(--primary),#60a5fa,var(--primary));background-size:200% 100%;' +
+            'animation:clinicBarMove 1.2s linear infinite;pointer-events:none;box-shadow:0 1px 4px rgba(37,99,235,.35)}' +
+            '#clinic-load-bar .clinic-spin{position:fixed;top:8px;right:14px;width:18px;height:18px;' +
+            'border:2px solid rgba(37,99,235,.22);border-top-color:var(--primary);border-radius:50%;' +
+            'animation:spin .7s linear infinite;display:block}' +
+            '@keyframes clinicBarMove{0%{background-position:0% 0}100%{background-position:-200% 0}}';
+        document.head.appendChild(st);
+    },
+    barShow: function () {
+        this._barCount++;
+        if (this._barCount !== 1) return;
+        this._ensureStyle();
+        var self = this;
+        this._barTimer = setTimeout(function () {
+            if (self._barCount > 0 && !self._bar) {
+                self._bar = document.createElement('div');
+                self._bar.id = 'clinic-load-bar';
+                self._bar.innerHTML = '<span class="clinic-spin"></span>';
+                document.body.appendChild(self._bar);
+            }
+        }, 300);
+    },
+    barHide: function () {
+        if (this._barCount > 0) this._barCount--;
+        if (this._barCount === 0) {
+            clearTimeout(this._barTimer);
+            if (this._bar) { this._bar.remove(); this._bar = null; }
+        }
+    },
     show: function () {
         this.count++;
         if (this.el) return;
