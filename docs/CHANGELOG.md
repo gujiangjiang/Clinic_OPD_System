@@ -13,6 +13,19 @@
 
 ---
 
+## [10.2.3] - 2026-11-19
+
+### 新增
+- **HIS 只读接口暴露门诊药品库存与拆零字段**（`app/services/his/HisInboundRead.php`）：
+  `catalog_list type=drugs` 由 13 个基础字段扩展为含 `qty/warn_qty/spec_pack_qty/
+  spec_pack_unit/allow_split/spec_dose/spec_dose_unit`（最小单位整数口径、类型归一），
+  供 HIS 双药房实时查门诊药房库存、防超发/防下架药品误开；Scope `catalog:read` 不变。
+- **全局请求加载指示**（`public/assets/js/components/core/ajax.js`）：所有请求（含 silent）
+  超过 300ms 未返回即显示顶部进度条+右上转圈，全部在途完成后消失；全屏 loading 遮罩不变。
+
+### 验证
+- php-lint 全量通过；`catalog_list?type=drugs` 实测 200/104 项。
+
 ## [10.2.2] - 2026-11-18
 
 ### 修复
