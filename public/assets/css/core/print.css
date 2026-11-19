@@ -314,7 +314,7 @@
 
 /* 病历打印：行内流式排版（主诉：xxx 一行，现病史：xxx 换行，紧凑省空间） */
 .print-area .print-record-doc { position: relative; }
-/* 病历打印条形码：绝对定位于病历文档（.print-record-doc）的右上角，
+/* 文档类打印条形码：绝对定位于文档页眉的右上角，
    .print-record-doc 即内容区本身。top 取 4px = 医院名称行高 30px 的
    半行距(2.5px) + 字形上留白(~1.5px)，使条形码与医院名称文字顶部齐平
    （原先贴 0 导致条形码略微偏高于医院名称） */
@@ -756,6 +756,14 @@
     overflow: hidden;
 }
 .lr-doc { position: relative; }
+/* 分页器会移除原 .lr-doc 包裹层；独立页眉重新承担条形码定位，
+   使每页条形码均与医院名称顶部、内容区右缘对齐。 */
+.lr-head {
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
 /* 打印：横向 A5 固定纸张，与画布同尺寸；页间强制分页、仅最后一页不追加 */
 @media print {
     .print-preview.sheet-lr .lr-sheet {
@@ -829,12 +837,9 @@
     word-break: break-all;
     min-width: 0;
 }
-/* 仅临床诊断单行省略（不影响报告单号等其它字段的显示） */
+/* 临床诊断单行省略，避免挤压患者信息栏 */
 .lr-patgrid .lr-pcell-diag { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lr-patgrid .lr-pcell b { font-weight: 600; }
-/* 报告单号：单行显示，超出时由 JS 自动缩放字号（始终一行内） */
-.lr-patgrid .lr-pcell-no { white-space: nowrap; }
-.lr-patgrid .lr-reportno { display: inline-block; white-space: nowrap; vertical-align: baseline; font-size: 12px; }
 /* 结果区：表格头两条实线（无背景灰、无行边框），结果行纯文本 */
 .lr-result {
     flex: 1;
@@ -918,6 +923,13 @@
     flex-direction: column;
     overflow: hidden;
 }
+/* 检查报告分页后的独立页眉：作为右上角条形码定位容器。 */
+.imr-head {
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
 /* 患者信息：4×3 隐形表格（第三行检查项目合并，自动换行） */
 .imr-patgrid {
     display: grid;
@@ -934,11 +946,9 @@
     overflow-wrap: break-word;
     word-break: break-all;
 }
-/* 仅临床诊断单行省略（不影响报告单号等其它字段的显示） */
+/* 临床诊断单行省略，避免挤压患者信息栏 */
 .imr-patgrid .imr-cell-diag { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .imr-patgrid .imr-cell b { font-weight: 600; }
-.imr-patgrid .imr-cell-no { white-space: nowrap; }
-.imr-patgrid .imr-reportno { display: inline-block; white-space: nowrap; font-size: 13px; }
 .imr-patgrid .imr-cell-proj { grid-column: 1 / span 4; }
 /* 正文：影像所见 2/3 + 影像诊断 1/3 */
 .imr-body {

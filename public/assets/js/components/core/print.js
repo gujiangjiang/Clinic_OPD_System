@@ -182,10 +182,19 @@ Clinic.print = (function () {
             meas.removeChild(el);
             return r;
         }
-        var headSel = '.lr-titleline, .lr-patgrid';
         var footSel = '.lr-note, .lr-solid, .lr-footgrid';
         var headH = 0, footH = 0, rowH = 0;
-        doc.querySelectorAll(headSel).forEach(function (n) { headH += measure(n.cloneNode(true)); });
+        // 报告号条形码采用绝对定位，不占页眉高度；每页复制一份并以
+        // .lr-head 为定位容器，行为与申请单分页后的 .a5-head 一致。
+        function buildHead() {
+            var head = document.createElement('div');
+            head.className = 'lr-head';
+            doc.querySelectorAll('.lr-titleline, .print-record-barcode, .lr-patgrid').forEach(function (n) {
+                head.appendChild(n.cloneNode(true));
+            });
+            return head;
+        }
+        headH = measure(buildHead());
         doc.querySelectorAll(footSel).forEach(function (n) { footH += measure(n.cloneNode(true)); });
         var rows = Array.prototype.slice.call(doc.querySelectorAll('.lr-row'));
         if (rows.length) rowH = measure(rows[0].cloneNode(true));
@@ -205,8 +214,8 @@ Clinic.print = (function () {
         for (var pi = 0; pi < pageCount; pi++) {
             var sheet = document.createElement('div');
             sheet.className = 'lr-sheet';
-            // 抬头
-            doc.querySelectorAll(headSel).forEach(function (n) { sheet.appendChild(n.cloneNode(true)); });
+            // 抬头（含右上角报告号条形码）
+            sheet.appendChild(buildHead());
             // 结果区
             var res = document.createElement('div');
             res.className = 'lr-result';
@@ -249,7 +258,6 @@ Clinic.print = (function () {
         }
         areaEl.innerHTML = '';
         sheets.forEach(function (s) { areaEl.appendChild(s); });
-        fitReportNo(areaEl);
     }
 
     /**
@@ -262,7 +270,14 @@ Clinic.print = (function () {
         if (!doc) return;
         var sheet = document.createElement('div');
         sheet.className = 'imr-sheet';
-        doc.querySelectorAll('.print-hosp-block, .print-title-line, .imr-patgrid').forEach(function (n) { sheet.appendChild(n.cloneNode(true)); });
+        // 独立页眉保留医院抬头、患者信息及右上角报告号条形码；
+        // .imr-head 提供与申请单 .a5-head 相同的定位语义。
+        var head = document.createElement('div');
+        head.className = 'imr-head';
+        doc.querySelectorAll('.print-hosp-block, .print-title-line, .print-record-barcode, .imr-patgrid').forEach(function (n) {
+            head.appendChild(n.cloneNode(true));
+        });
+        sheet.appendChild(head);
         var body = doc.querySelector('.imr-body');
         if (body) sheet.appendChild(body.cloneNode(true));
         doc.querySelectorAll('.imr-footgrid').forEach(function (n) { sheet.appendChild(n.cloneNode(true)); });
@@ -274,30 +289,6 @@ Clinic.print = (function () {
         if (auditEl) auditEl.textContent = '';
         areaEl.innerHTML = '';
         areaEl.appendChild(sheet);
-        fitReportNo(areaEl);
-    }
-
-    /**
-     * 报告单号自动缩放：始终在一行内显示，超出单元格宽度时逐步缩小字号至刚好放下。
-     * @param {HTMLElement} areaEl 打印容器
-     */
-    function fitReportNo(areaEl) {
-        var box = (areaEl && areaEl.querySelector) ? areaEl : null;
-        if (!box) return;
-        var guard = 0;
-        function fit(el) {
-            var parent = el.parentNode;
-            if (!parent) return;
-            el.style.whiteSpace = 'nowrap';
-            var fs = 12;
-            el.style.fontSize = fs + 'px';
-            var avail = parent.clientWidth - 4;
-            while (fs > 6 && el.scrollWidth > avail && guard++ < 200) {
-                fs -= 0.5;
-                el.style.fontSize = fs + 'px';
-            }
-        }
-        box.querySelectorAll('.lr-reportno, .imr-reportno').forEach(function (el) { fit(el); });
     }
 
     /**

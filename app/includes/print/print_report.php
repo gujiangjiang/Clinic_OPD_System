@@ -1,7 +1,7 @@
 <?php
 /** print/print_report.php — 统一打印模板：检验/检查报告
  *  检验报告单：独立抬头（医院名称+检验报告单同行居中，第二名称两端对齐）
- *  患者信息两行（姓名 性别 年龄 出生日期 / 患者ID 申请科室 申请医生 临床诊断）
+ *  报告单号以 Code 128 条形码显示在右上角；患者信息保持两行
  *  横向 A5 固定画布（JS 分列分页：默认单列含序号，空间不足自动双列去序号）
  *  页脚：检验备注 + 实线 + 申请/检验/报告时间 + 检验者/审核者/页码 + 提示语 */
 
@@ -19,6 +19,8 @@ function pt_lab_report($report, $result, $item) {
         '</div>' .
         '<span class="lr-name">检验报告单</span>' .
         '</div>';
+    // 与申请单复用同款右上角条形码；检验报告分页时由前端复制到每一页页眉
+    $html .= pt_barcode($report['report_no']);
 
     // ===== 患者信息两行 =====
     // 快照优先（生成时定格）：申请科室/医生/临床诊断/申请时间/检验时间；
@@ -42,12 +44,11 @@ function pt_lab_report($report, $result, $item) {
         isset($vr['inpatient_no']) ? $vr['inpatient_no'] : '');
     $li = function ($label, $val) { return pt_cell($label, $val, 'lr-pcell'); };
     // 患者信息：隐形 2×4 表格（第一行 姓名 性别 年龄 出生日期；
-    // 第二行 患者ID 就诊号 申请科室 临床诊断 报告单号）
+    // 第二行 患者ID 就诊号 申请科室 临床诊断）
     $html .= '<div class="lr-patgrid">' .
         $li('姓名', $pname) . $li('性别', $pgender) . $li('年龄', $page) . $li('出生日期', $pbirth) .
         $li('患者ID', $report['patient_no']) . $li($visitLabel, $visitNo) . $li('申请科室', $applyDept) .
         '<span class="lr-pcell lr-pcell-diag"><b>临床诊断：</b>' . e($diag) . '</span>' .
-        '<span class="lr-pcell lr-pcell-no"><b>报告单号：</b><span class="lr-reportno">' . e($report['report_no']) . '</span></span>' .
         '</div>';
 
     // ===== 结果区：表格头两条实线 + 无边框行（前端分列分页） =====
@@ -150,6 +151,8 @@ function pt_imaging_report($report, $result, $item) {
     }
     $title = $catName !== '' ? $catName . '检查报告单' : '检查报告单';
     $html .= pt_header($title, $report);
+    // 与申请单复用同款右上角条形码
+    $html .= pt_barcode($report['report_no']);
     // 项目：该申请单全部检查项目逗号连接
     $itemNames = array();
     if ($order) {
@@ -165,7 +168,6 @@ function pt_imaging_report($report, $result, $item) {
         $pc('姓名', $pname) . $pc('性别', $pgender) . $pc('年龄', $page) . $pc('出生日期', $pbirth) .
         $pc('患者ID', $report['patient_no']) . $pc($visitLabel, $visitNo) . $pc('申请科室', $applyDept) .
         '<span class="imr-cell imr-cell-diag"><b>临床诊断：</b>' . e($diag) . '</span>' .
-        '<span class="imr-cell imr-cell-no"><b>报告单号：</b><span class="imr-reportno">' . e($report['report_no']) . '</span></span>' .
         '<span class="imr-cell imr-cell-proj"><b>检查项目：</b>' . e($itemsStr) . '</span>' .
         '</div>';
 
