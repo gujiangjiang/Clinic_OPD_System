@@ -2,7 +2,7 @@
 
 一套基于 **PHP 7.x + SQLite + 原生 JS/CSS** 的自包含门诊一体化信息系统，**无 Composer、无第三方框架**。
 
-![版本](https://img.shields.io/badge/版本-v10.2.4-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL%2FPostgreSQL-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
+![版本](https://img.shields.io/badge/版本-v10.2.5-blue) ![PHP](https://img.shields.io/badge/PHP-7.x-777BB4) ![数据库](https://img.shields.io/badge/数据库-SQLite%2FMySQL%2FPostgreSQL-003B57) ![部署](https://img.shields.io/badge/部署-Nginx-009639) ![代码](https://img.shields.io/badge/代码-全中文注释-orange)
 
 覆盖 **挂号收费处、护士站、医生工作站、影像科、检验科、药房、管理员** 等多角色完整业务闭环：
 挂号 → 缴费 → 接诊 → 电子病历 → 开单（检验/检查/处置/处方）→ 执行 → 报告 → 发药 → 诊毕（含离院转归）→ 运营分析。
@@ -72,7 +72,7 @@
 - **库存管理**：药品出入库、低库存预警；药品信息/设置管理（只读，新增走审核）
 
 ### 🖨️ 医技报告打印
-- 检验报告单**横向 A5** 固定画布（结果行智能分列分页、报告单号自动缩放、检验备注）；检查报告单 **A4 纵向** 画布
+- 检验报告单**横向 A5** 固定画布（结果行智能分列分页、检验备注）；检查报告单 **A4 纵向** 画布；两类报告单号均以 Code 128 条形码显示在右上角
 - 报告抬头统一急诊病历版式，**快照固化**（申请科室/医生/临床诊断/时间定格，不受后续病历转科影响）
 
 ### 🚨 危急值
